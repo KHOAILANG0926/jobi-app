@@ -1,0 +1,402 @@
+import { FormEvent, useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { CvBuilder } from '../components/CvBuilder'
+import { MessagesInbox } from '../components/MessagesInbox'
+import { useAuth } from '../context/AuthContext'
+import { useJobs } from '../context/JobsContext'
+import { formatPhoneDisplay } from '../lib/authStorage'
+import {
+  APPLICATION_STATUS_META,
+  loadApplications,
+  updateApplicationStatus,
+  type ApplicationStatus,
+} from '../lib/applicationsStorage'
+import { hasSavedCv } from '../lib/cvCompleteness'
+import { loadProfile, loadSavedJobIds, saveProfile, type SeekerProfile } from '../lib/storage'
+
+type SeekerTab = 'info' | 'cv' | 'messages' | 'applications'
+
+export function Profile() {
+  const { user, logout } = useAuth()
+  const { jobs } = useJobs()
+  const location = useLocation()
+  const [profile, setProfile] = useState<SeekerProfile>(() => loadProfile())
+  const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds())
+  const [savedMsg, setSavedMsg] = useState(false)
+  const [seekerTab, setSeekerTab] = useState<SeekerTab>('info')
+  const [applications, setApplications] = useState(() => loadApplications())
+  const [cvHint, setCvHint] = useState<string | null>(null)
+  const [cvSaved, setCvSaved] = useState(() => hasSavedCv())
+
+  useEffect(() => {
+    const syncSaved = () => setSavedIds(loadSavedJobIds())
+    const onStorage = () => syncSaved()
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', syncSaved)
+    window.addEventListener('jobi:saved-jobs', syncSaved)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', syncSaved)
+      window.removeEventListener('jobi:saved-jobs', syncSaved)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncApps = () => setApplications(loadApplications())
+    window.addEventListener('jobi:applications', syncApps)
+    window.addEventListener('focus', syncApps)
+    return () => {
+      window.removeEventListener('jobi:applications', syncApps)
+      window.removeEventListener('focus', syncApps)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncCv = () => setCvSaved(hasSavedCv())
+    window.addEventListener('jobi:cv-saved', syncCv)
+    window.addEventListener('focus', syncCv)
+    window.addEventListener('storage', syncCv)
+    return () => {
+      window.removeEventListener('jobi:cv-saved', syncCv)
+      window.removeEventListener('focus', syncCv)
+      window.removeEventListener('storage', syncCv)
+    }
+  }, [])
+
+  useEffect(() => {
+    const st = location.state as { openCvTab?: boolean; needCvForJob?: string } | null
+    if (st?.openCvTab) {
+      setSeekerTab('cv')
+      if (st.needCvForJob) {
+        setCvHint(`Hoàn thành và lưu CV để ứng tuyển nhanh cho: ${st.needCvForJob}`)
+      }
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
+
+  /** Testing: default guests to CV tab so /ho-so opens the builder without login */
+  useEffect(() => {
+    if (!user) setSeekerTab('cv')
+  }, [user])
+
+  const savedJobs = savedIds
+    .map((id) => jobs.find((j) => j.id === id))
+    .filter(Boolean) as typeof jobs
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    saveProfile(profile)
+    setSavedMsg(true)
+    window.setTimeout(() => setSavedMsg(false), 2500)
+  }
+
+  if (user?.role === 'employer') {
+    return (
+      <div className="page profile">
+        <header className="page-header">
+          <h1 className="page-header__title">Tài khoản nhà tuyển dụng</h1>
+          <p className="page-header__lead">
+            {user.name} · {formatPhoneDisplay(user.phone)}
+          </p>
+        </header>
+        <div className="profile-grid profile-grid--single">
+          <section className="profile-card">
+            <p className="profile-employer__text">
+              Quản lý tin tuyển dụng từ bảng điều khiển hoặc đăng tin mới bất cứ lúc nào.
+            </p>
+            <div className="profile-employer__actions">
+              <Link to="/bang-dieu-khien" className="btn btn--primary">
+                Bảng điều khiển
+              </Link>
+              <Link to="/dang-tin" className="btn btn--ghost">
+                Đăng tin tuyển dụng
+              </Link>
+            </div>
+            <button type="button" className="btn btn--ghost profile-logout" onClick={logout}>
+              Đăng xuất
+            </button>
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  const isGuest = !user
+
+  return (
+    <div className="page profile">
+      <header className="page-header">
+        <h1 className="page-header__title">{isGuest ? 'Hồ sơ' : 'Hồ sơ ứng viên'}</h1>
+        <p className="page-header__lead">
+          {isGuest ? (
+            <>
+              Thử <strong>Tạo CV</strong> không cần đăng nhập (thử nghiệm). Đăng nhập để dùng đầy đủ tin nhắn và ứng
+              tuyển.
+            </>
+          ) : (
+            <>
+              {user.name} · Quản lý thông tin, CV và tin nhắn với nhà tuyển dụng.
+            </>
+          )}
+        </p>
+        <div className="profile-seeker-actions profile-seeker-actions--always">
+          {cvSaved ? <span className="profile-cv-saved-badge">CV đã lưu ✓</span> : null}
+          <button type="button" className="btn btn--primary" onClick={() => setSeekerTab('cv')}>
+            Tạo CV
+          </button>
+          {isGuest ? (
+            <span className="profile-guest-auth">
+              <Link to="/dang-nhap" className="btn btn--ghost btn--sm">
+                Đăng nhập
+              </Link>
+              <Link to="/dang-ky" className="text-link profile-guest-signup">
+                Đăng ký
+              </Link>
+            </span>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="profile-tabs" role="tablist" aria-label="Mục hồ sơ ứng viên">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={seekerTab === 'info'}
+          className={`profile-tabs__btn${seekerTab === 'info' ? ' profile-tabs__btn--active' : ''}`}
+          onClick={() => setSeekerTab('info')}
+        >
+          Thông tin
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={seekerTab === 'cv'}
+          className={`profile-tabs__btn${seekerTab === 'cv' ? ' profile-tabs__btn--active' : ''}`}
+          onClick={() => setSeekerTab('cv')}
+        >
+          Tạo CV
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={seekerTab === 'applications'}
+          className={`profile-tabs__btn${seekerTab === 'applications' ? ' profile-tabs__btn--active' : ''}`}
+          onClick={() => setSeekerTab('applications')}
+        >
+          Việc đã ứng tuyển
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={seekerTab === 'messages'}
+          className={`profile-tabs__btn${seekerTab === 'messages' ? ' profile-tabs__btn--active' : ''}`}
+          onClick={() => setSeekerTab('messages')}
+        >
+          Tin nhắn
+        </button>
+      </div>
+
+      {seekerTab === 'info' && isGuest ? (
+        <section className="profile-card profile-card--guest">
+          <h2 className="profile-card__title">Thông tin cá nhân</h2>
+          <p className="profile-employer__text">
+            Đăng nhập để chỉnh sửa thông tin hồ sơ, xem việc đã lưu và tin nhắn với nhà tuyển dụng.
+          </p>
+          <div className="profile-employer__actions">
+            <Link to="/dang-nhap" className="btn btn--primary">
+              Đăng nhập
+            </Link>
+            <Link to="/dang-ky" className="btn btn--ghost">
+              Đăng ký
+            </Link>
+          </div>
+        </section>
+      ) : seekerTab === 'info' ? (
+        <div className="profile-grid">
+          <section className="profile-card">
+            <div className="profile-avatar" aria-hidden>
+              {initials(profile.fullName)}
+            </div>
+            <form className="profile-form" onSubmit={onSubmit}>
+              <label className="field">
+                <span className="field__label">Họ và tên</span>
+                <input
+                  className="field__input"
+                  value={profile.fullName}
+                  onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">Số điện thoại</span>
+                <input
+                  className="field__input"
+                  inputMode="tel"
+                  value={profile.phone}
+                  onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">Email</span>
+                <input
+                  className="field__input"
+                  type="email"
+                  autoComplete="email"
+                  value={profile.email}
+                  onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">Thành phố / tỉnh</span>
+                <input
+                  className="field__input"
+                  value={profile.city}
+                  onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">Giới thiệu ngắn</span>
+                <textarea
+                  className="field__input field__textarea"
+                  rows={4}
+                  value={profile.bio}
+                  onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
+                />
+              </label>
+              <button type="submit" className="btn btn--primary">
+                Lưu hồ sơ
+              </button>
+              {savedMsg ? (
+                <p className="hint hint--success" role="status">
+                  Đã lưu thông tin.
+                </p>
+              ) : null}
+            </form>
+            <p className="profile-tool-link">
+              <Link to="/tinh-luong" className="text-link">
+                Tính lương
+              </Link>
+            </p>
+            <button type="button" className="btn btn--ghost profile-logout" onClick={logout}>
+              Đăng xuất
+            </button>
+          </section>
+
+          <section className="profile-card profile-card--saved">
+            <h2 className="profile-card__title">Việc đã lưu ({savedJobs.length})</h2>
+            {savedJobs.length === 0 ? (
+              <p className="empty-state empty-state--inline">
+                Chưa có tin nào.{' '}
+                <Link to="/" className="text-link">
+                  Xem việc làm
+                </Link>
+              </p>
+            ) : (
+              <ul className="saved-list">
+                {savedJobs.map((job) => (
+                  <li key={job.id}>
+                    <Link to={`/viec-lam/${job.id}`} className="saved-list__link">
+                      <span className="saved-list__title">{job.title}</span>
+                      <span className="saved-list__meta">{job.company}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      ) : seekerTab === 'cv' ? (
+        <>
+          {cvHint ? (
+            <p className="hint profile-cv-hint" role="status">
+              {cvHint}
+            </p>
+          ) : null}
+          <CvBuilder />
+        </>
+      ) : seekerTab === 'applications' && isGuest ? (
+        <section className="profile-card profile-card--guest">
+          <h2 className="profile-card__title">Việc đã ứng tuyển</h2>
+          <p className="profile-employer__text">
+            Đăng nhập để xem và quản lý các đơn ứng tuyển của bạn.
+          </p>
+          <div className="profile-employer__actions">
+            <Link to="/dang-nhap" className="btn btn--primary">
+              Đăng nhập
+            </Link>
+          </div>
+        </section>
+      ) : seekerTab === 'applications' ? (
+        <section className="profile-card profile-applications">
+          <h2 className="profile-card__title">Việc đã ứng tuyển</h2>
+          {applications.length === 0 ? (
+            <p className="empty-state empty-state--inline">
+              Chưa có đơn ứng tuyển.{' '}
+              <Link to="/" className="text-link">
+                Tìm việc
+              </Link>
+            </p>
+          ) : (
+            <ul className="applications-list">
+              {applications.map((a) => (
+                <li key={a.jobId} className="applications-list__item">
+                  <div className="applications-list__main">
+                    <Link to={`/viec-lam/${a.jobId}`} className="applications-list__title">
+                      {a.jobTitle}
+                    </Link>
+                    <p className="applications-list__meta">{a.company}</p>
+                    <p className="applications-list__date">
+                      Ngày ứng tuyển:{' '}
+                      {new Date(a.appliedAt).toLocaleDateString('vi-VN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <label className="applications-list__status">
+                    <span className="visually-hidden">Trạng thái đơn ứng tuyển</span>
+                    <select
+                      className={`applications-list__select app-status-select ${APPLICATION_STATUS_META[a.status].badgeClass}`}
+                      value={a.status}
+                      aria-label={`Trạng thái: ${APPLICATION_STATUS_META[a.status].labelVi}`}
+                      onChange={(e) => {
+                        const st = e.target.value as ApplicationStatus
+                        updateApplicationStatus(a.jobId, st)
+                        setApplications(loadApplications())
+                      }}
+                    >
+                      {(Object.keys(APPLICATION_STATUS_META) as ApplicationStatus[]).map((k) => (
+                        <option key={k} value={k}>
+                          {APPLICATION_STATUS_META[k].labelVi}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : isGuest ? (
+        <section className="profile-card profile-card--guest">
+          <h2 className="profile-card__title">Tin nhắn</h2>
+          <p className="profile-employer__text">Đăng nhập để xem hộp tin nhắn với nhà tuyển dụng.</p>
+          <div className="profile-employer__actions">
+            <Link to="/dang-nhap" className="btn btn--primary">
+              Đăng nhập
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <MessagesInbox />
+      )}
+    </div>
+  )
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Admin\\\\Desktop\\\\JOBI\\\\src\" -Recurse | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Users\\\\Admin\\\\Desktop\\\\JOBI\\\\src\\\\\", \"\"\\) } | Sort-Object)",
+      "PowerShell(winget install *)",
+      "PowerShell(gh *)"
+    ]
+  }
+}

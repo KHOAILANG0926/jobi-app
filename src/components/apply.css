@@ -1,0 +1,472 @@
+/* ─── Jobi Design Tokens ─────────────────────────── */
+:root {
+  --jobi-red: #FF3B5C;
+  --jobi-red-light: #FFF0F3;
+  --jobi-red-dark: #D42B4A;
+  --jobi-text: #1A1A2E;
+  --jobi-muted: #6B7280;
+  --jobi-border: #E5E7EB;
+  --jobi-bg: #F8F9FA;
+  --jobi-salary: #FF3B5C;
+  --jobi-success: #10B981;
+  --jobi-radius-card: 14px;
+  --jobi-radius-btn: 50px;
+  --jobi-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+/* ─── Job Card ───────────────────────────────────── */
+.job-card {
+  background: #fff;
+  border: 1px solid var(--jobi-border);
+  border-radius: var(--jobi-radius-card);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.job-card:hover {
+  box-shadow: var(--jobi-shadow);
+  border-color: #D1D5DB;
+}
+
+.job-card--applied {
+  background: #FAFAFA;
+  border-color: #E5E7EB;
+}
+
+.job-card--applied::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--jobi-success);
+  border-radius: 3px 0 0 3px;
+}
+
+.job-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--jobi-red);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.job-card-body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.job-urgent-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--jobi-red);
+  background: var(--jobi-red-light);
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-bottom: 4px;
+}
+
+.job-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--jobi-text);
+  margin: 0 0 3px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-card-meta {
+  font-size: 12px;
+  color: var(--jobi-muted);
+  margin: 0 0 6px;
+}
+
+.job-card-salary {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--jobi-salary);
+  margin: 0;
+}
+
+/* ─── Apply Button ───────────────────────────────── */
+.apply-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border-radius: var(--jobi-radius-btn);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  background: var(--jobi-red);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 59, 92, 0.35);
+}
+
+.apply-btn:hover:not(:disabled) {
+  background: var(--jobi-red-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 59, 92, 0.45);
+}
+
+.apply-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.apply-btn--done {
+  background: #F0FDF4;
+  color: var(--jobi-success);
+  box-shadow: none;
+  cursor: default;
+  border: 1px solid #D1FAE5;
+}
+
+.apply-btn--done:hover {
+  transform: none;
+}
+
+/* ─── Modal Backdrop ─────────────────────────────── */
+.apply-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 30, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: backdrop-in 0.22s ease;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Modal Sheet (bottom sheet style) ──────────── */
+.apply-modal-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding: 16px 20px 32px;
+  outline: none;
+  animation: sheet-up 0.28s cubic-bezier(0.34, 1.1, 0.64, 1);
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.modal-handle {
+  width: 40px;
+  height: 4px;
+  background: #E5E7EB;
+  border-radius: 4px;
+  margin: 0 auto 20px;
+}
+
+/* ─── Modal Header ───────────────────────────────── */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--jobi-text);
+  margin: 0;
+}
+
+.modal-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--jobi-bg);
+  color: var(--jobi-muted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.modal-close-btn:hover {
+  background: #E5E7EB;
+}
+
+/* ─── Job Summary Card ───────────────────────────── */
+.job-summary-card {
+  background: var(--jobi-red-light);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 59, 92, 0.15);
+}
+
+.job-summary-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--jobi-text);
+  margin: 0 0 4px;
+}
+
+.job-summary-meta {
+  font-size: 12px;
+  color: var(--jobi-muted);
+  margin: 0 0 6px;
+}
+
+.job-summary-salary {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--jobi-red);
+  margin: 0;
+}
+
+.urgent-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--jobi-red);
+  background: #fff;
+  border: 1px solid rgba(255, 59, 92, 0.3);
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-bottom: 6px;
+}
+
+/* ─── Section Divider ────────────────────────────── */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.section-divider span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--jobi-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--jobi-border);
+}
+
+/* ─── Profile Row ────────────────────────────────── */
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--jobi-bg);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--jobi-red);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--jobi-text);
+  margin: 0 0 2px;
+}
+
+.profile-sub {
+  font-size: 12px;
+  color: var(--jobi-muted);
+  margin: 0;
+}
+
+.profile-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #D1FAE5;
+  color: var(--jobi-success);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* ─── CV Note ────────────────────────────────────── */
+.cv-note {
+  display: flex;
+  gap: 8px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 20px;
+}
+
+.cv-note-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.cv-note p {
+  font-size: 12px;
+  color: #92400E;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Modal CTAs ─────────────────────────────────── */
+.apply-confirm-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--jobi-radius-btn);
+  border: none;
+  background: var(--jobi-red);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: background 0.18s, transform 0.15s;
+  box-shadow: 0 4px 16px rgba(255, 59, 92, 0.4);
+}
+
+.apply-confirm-btn:hover {
+  background: var(--jobi-red-dark);
+  transform: translateY(-1px);
+}
+
+.apply-confirm-btn:active {
+  transform: scale(0.98);
+}
+
+.apply-cancel-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--jobi-radius-btn);
+  border: 1px solid var(--jobi-border);
+  background: transparent;
+  color: var(--jobi-muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.apply-cancel-btn:hover {
+  background: var(--jobi-bg);
+}
+
+/* ─── State Screens (loading / success / error) ──── */
+.state-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 8px 8px;
+}
+
+.state-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--jobi-text);
+  margin: 16px 0 6px;
+}
+
+.state-sub {
+  font-size: 14px;
+  color: var(--jobi-muted);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.success-text {
+  color: var(--jobi-text);
+}
+
+.success-job-name {
+  background: var(--jobi-red-light);
+  color: var(--jobi-red);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+/* Spinner */
+.spinner {
+  width: 52px;
+  height: 52px;
+  border: 4px solid var(--jobi-red-light);
+  border-top-color: var(--jobi-red);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.success-icon-wrap,
+.error-icon-wrap {
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pop-in {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}

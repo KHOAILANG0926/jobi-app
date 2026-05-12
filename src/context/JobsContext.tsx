@@ -1,0 +1,62 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import { MOCK_JOBS } from '../data/mockJobs'
+import { ensureJobFields } from '../lib/jobUtils'
+import { loadPostedJobs, savePostedJob } from '../lib/storage'
+import type { Job } from '../types/job'
+
+function mergeJobs(): Job[] {
+  const posted = loadPostedJobs().map(ensureJobFields)
+  const byId = new Map<string, Job>()
+  for (const j of MOCK_JOBS.map(ensureJobFields)) byId.set(j.id, j)
+  for (const j of posted) byId.set(j.id, j)
+  return [...byId.values()].sort(
+    (a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime(),
+  )
+}
+
+interface JobsContextValue {
+  jobs: Job[]
+  refreshJobs: () => void
+  addPostedJob: (job: Omit<Job, 'id' | 'postedAt'>) => Job
+}
+
+const JobsContext = createContext<JobsContextValue | null>(null)
+
+export function JobsProvider({ children }: { children: ReactNode }) {
+  const [jobs, setJobs] = useState<Job[]>(() => mergeJobs())
+
+  const refreshJobs = useCallback(() => {
+    setJobs(mergeJobs())
+  }, [])
+
+  const addPostedJob = useCallback((draft: Omit<Job, 'id' | 'postedAt'>) => {
+    const job: Job = {
+      ...draft,
+      id: `local-${crypto.randomUUID()}`,
+      postedAt: new Date().toISOString().slice(0, 10),
+    }
+    savePostedJob(job)
+    setJobs(mergeJobs())
+    return job
+  }, [])
+
+  const value = useMemo(
+    () => ({ jobs, refreshJobs, addPostedJob }),
+    [jobs, refreshJobs, addPostedJob],
+  )
+
+  return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>
+}
+
+export function useJobs() {
+  const ctx = useContext(JobsContext)
+  if (!ctx) throw new Error('useJobs must be used within JobsProvider')
+  return ctx
+}
