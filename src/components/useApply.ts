@@ -41,7 +41,15 @@ export function useApply() {
     if (!job) return
     setStatus('loading')
     await new Promise<void>((r) => setTimeout(r, 800))
-    const res = addApplication({ jobId: job.id, jobTitle: job.title, company: job.company })
+    const p = buildProfile()
+    const res = addApplication({
+      jobId: job.id,
+      jobTitle: job.title,
+      company: job.company,
+      employerId: job.employerId,
+      seekerName: p.name,
+      seekerPhone: p.phone,
+    })
     setStatus(res.ok ? 'success' : 'error')
   }, [job])
 

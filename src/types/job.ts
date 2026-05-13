@@ -22,6 +22,8 @@ export interface Job {
   /** Tuyển gấp — badge đỏ */
   urgent?: boolean
   hours?: string
+  /** ID nhà tuyển dụng đã đăng tin (dùng cho dashboard) */
+  employerId?: string
   /** Vĩ độ / kinh độ để hiển thị trên bản đồ (ước lượng theo địa điểm nếu thiếu) */
   lat?: number
   lng?: number

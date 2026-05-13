@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { MOCK_JOBS } from '../data/mockJobs'
 import { ensureJobFields } from '../lib/jobUtils'
-import { loadPostedJobs, savePostedJob } from '../lib/storage'
+import { deletePostedJob, loadPostedJobs, savePostedJob, updatePostedJob } from '../lib/storage'
 import type { Job } from '../types/job'
 
 function mergeJobs(): Job[] {
@@ -25,6 +25,8 @@ interface JobsContextValue {
   jobs: Job[]
   refreshJobs: () => void
   addPostedJob: (job: Omit<Job, 'id' | 'postedAt'>) => Job
+  deleteJob: (id: string) => void
+  updateJob: (id: string, patch: Partial<Job>) => void
 }
 
 const JobsContext = createContext<JobsContextValue | null>(null)
@@ -47,9 +49,19 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     return job
   }, [])
 
+  const deleteJob = useCallback((id: string) => {
+    deletePostedJob(id)
+    setJobs(mergeJobs())
+  }, [])
+
+  const updateJob = useCallback((id: string, patch: Partial<Job>) => {
+    updatePostedJob(id, patch)
+    setJobs(mergeJobs())
+  }, [])
+
   const value = useMemo(
-    () => ({ jobs, refreshJobs, addPostedJob }),
-    [jobs, refreshJobs, addPostedJob],
+    () => ({ jobs, refreshJobs, addPostedJob, deleteJob, updateJob }),
+    [jobs, refreshJobs, addPostedJob, deleteJob, updateJob],
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

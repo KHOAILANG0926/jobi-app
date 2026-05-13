@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
+import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import type { JobCategory } from '../types/job'
 
@@ -18,6 +19,7 @@ const emptyForm = {
 
 export function PostJob() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { addPostedJob } = useJobs()
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +56,7 @@ export function PostJob() {
       employerPhone: form.employerPhone.trim(),
       applicationDeadline: deadline,
       urgent: false,
+      employerId: user?.id,
     })
     setForm(emptyForm)
     navigate(`/viec-lam/${job.id}`, { replace: true })

@@ -20,6 +20,18 @@ export function savePostedJob(job: Job): void {
   localStorage.setItem(POSTED_KEY, JSON.stringify([job, ...existing]))
 }
 
+export function deletePostedJob(id: string): void {
+  const updated = loadPostedJobs().filter((j) => j.id !== id)
+  localStorage.setItem(POSTED_KEY, JSON.stringify(updated))
+  window.dispatchEvent(new CustomEvent('jobi:jobs'))
+}
+
+export function updatePostedJob(id: string, patch: Partial<Job>): void {
+  const updated = loadPostedJobs().map((j) => (j.id === id ? { ...j, ...patch } : j))
+  localStorage.setItem(POSTED_KEY, JSON.stringify(updated))
+  window.dispatchEvent(new CustomEvent('jobi:jobs'))
+}
+
 export interface SeekerProfile {
   fullName: string
   phone: string

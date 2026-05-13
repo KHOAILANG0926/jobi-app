@@ -9,6 +9,9 @@ export interface JobApplication {
   jobId: string
   jobTitle: string
   company: string
+  employerId?: string
+  seekerName?: string
+  seekerPhone?: string
   appliedAt: string
   status: ApplicationStatus
 }
@@ -50,6 +53,9 @@ export function addApplication(entry: {
   jobId: string
   jobTitle: string
   company: string
+  employerId?: string
+  seekerName?: string
+  seekerPhone?: string
 }): { ok: true } | { ok: false; reason: 'duplicate' } {
   const existing = loadApplications()
   if (existing.some((a) => a.jobId === entry.jobId)) return { ok: false, reason: 'duplicate' }
