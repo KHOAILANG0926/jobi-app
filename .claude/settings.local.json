@@ -3,7 +3,12 @@
     "allow": [
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Admin\\\\Desktop\\\\JOBI\\\\src\" -Recurse | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Users\\\\Admin\\\\Desktop\\\\JOBI\\\\src\\\\\", \"\"\\) } | Sort-Object)",
       "PowerShell(winget install *)",
-      "PowerShell(gh *)"
+      "PowerShell(gh *)",
+      "Bash(git config *)",
+      "Bash(chmod +x .git/hooks/post-commit)",
+      "Bash(icacls .git/hooks/post-commit /grant Everyone:F)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
