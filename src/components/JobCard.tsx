@@ -28,7 +28,7 @@ export default function JobCard({ job, isApplied, onApply, rank }: JobCardProps)
 
         <button
           className={`apply-btn ${isApplied ? "apply-btn--done" : ""}`}
-          onClick={() => !isApplied && onApply(job)}
+          onClick={(e) => { e.stopPropagation(); !isApplied && onApply(job) }}
           disabled={isApplied}
           aria-label={
             isApplied ? "Đã ứng tuyển" : `Ứng tuyển ngay: ${job.title}`
