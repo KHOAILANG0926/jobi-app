@@ -72,8 +72,8 @@ export function EmployerDashboard() {
     [myApplications, filterJobId],
   )
 
-  const handleStatusChange = (jobId: string, status: ApplicationStatus) => {
-    updateApplicationStatus(jobId, status)
+  const handleStatusChange = (key: string, status: ApplicationStatus) => {
+    updateApplicationStatus(key, status)
     setApplications(loadApplications())
   }
 
@@ -267,7 +267,7 @@ export function EmployerDashboard() {
                 return (
                   <li key={`${app.jobId}-${app.appliedAt}`} className="edb-applicant-item">
                     <div className="edb-applicant-item__avatar">
-                      {(app.seekerName ?? '?')[0].toUpperCase()}
+                      {(app.seekerName?.trim() || '?')[0].toUpperCase()}
                     </div>
                     <div className="edb-applicant-item__info">
                       <p className="edb-applicant-item__name">
@@ -288,7 +288,7 @@ export function EmployerDashboard() {
                         className={`edb-status-select ${meta.badgeClass}`}
                         value={app.status}
                         onChange={(e) =>
-                          handleStatusChange(app.jobId, e.target.value as ApplicationStatus)
+                          handleStatusChange(app.id ?? app.appliedAt, e.target.value as ApplicationStatus)
                         }
                         aria-label={`Trạng thái ứng tuyển của ${app.seekerName ?? 'ứng viên'}`}
                       >

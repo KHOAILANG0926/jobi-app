@@ -83,6 +83,10 @@ export function loadSession(): AuthUser | null {
     if (!raw) return null
     const u = JSON.parse(raw) as AuthUser
     if (!u?.id || !u?.phone || !u?.role) return null
+    // Validate against stored accounts to prevent role tampering via DevTools
+    const accounts = loadAccounts()
+    const account = accounts.find((a) => a.id === u.id)
+    if (!account || account.role !== u.role || account.phone !== u.phone) return null
     return u
   } catch {
     return null

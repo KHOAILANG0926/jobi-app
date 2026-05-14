@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
@@ -10,6 +10,7 @@ import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categor
 import { jobMatchesRegion, type RegionFilter as RegionFilterType } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import { normalizeViText } from '../lib/jobCoords'
+import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
 export function Home() {
@@ -22,6 +23,21 @@ export function Home() {
   const [category, setCategory] = useState<JobCategory | 'all'>('all')
   const [region, setRegion] = useState<RegionFilterType>('all')
   const [urgentOnly, setUrgentOnly] = useState(false)
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
+
+  useEffect(() => {
+    const sync = () => setSavedIds(new Set(loadSavedJobIds()))
+    window.addEventListener('jobi:saved-jobs', sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener('jobi:saved-jobs', sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
+
+  const handleToggleSave = (job: Job) => {
+    toggleSavedJobId(job.id)
+  }
 
   const filtered = useMemo(() => {
     const q = normalizeViText(search)
@@ -144,8 +160,10 @@ export function Home() {
             >
               <JobCard
                 job={job}
-                isApplied={hasAppliedToJob(job.id)}
+                isApplied={hasAppliedToJob(job.id, user?.id)}
                 onApply={(j) => { handleApply(j) }}
+                isSaved={savedIds.has(job.id)}
+                onToggleSave={handleToggleSave}
                 rank={i + 1}
               />
             </div>
@@ -167,8 +185,10 @@ export function Home() {
             >
               <JobCard
                 job={job}
-                isApplied={hasAppliedToJob(job.id)}
+                isApplied={hasAppliedToJob(job.id, user?.id)}
                 onApply={(j) => { handleApply(j) }}
+                isSaved={savedIds.has(job.id)}
+                onToggleSave={handleToggleSave}
               />
             </div>
           ))}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
 import { JOB_REGIONS } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
@@ -41,14 +42,16 @@ function ScoreBadge({ score }: { score: number }) {
 
 function RecommendCard({
   match,
+  seekerId,
   onApply,
 }: {
   match: JobMatch
+  seekerId?: string
   onApply: (j: Job) => void
 }) {
   const { job, score, reasons } = match
   const [saved, setSaved] = useState(() => isJobSaved(job.id))
-  const applied = hasAppliedToJob(job.id)
+  const applied = hasAppliedToJob(job.id, seekerId)
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -105,6 +108,7 @@ function RecommendCard({
 }
 
 export function RecommendSection({ jobs }: { jobs: Job[] }) {
+  const { user } = useAuth()
   const [prefs, setPrefs] = useState<RecommendPrefs>(() => loadPrefs())
   const [draft, setDraft] = useState<RecommendPrefs>(() => loadPrefs())
   const [open, setOpen] = useState(false)
@@ -306,7 +310,7 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
         <>
           <ul className="rec-list">
             {visible.map((m) => (
-              <RecommendCard key={m.job.id} match={m} onApply={openApply} />
+              <RecommendCard key={m.job.id} match={m} seekerId={user?.id} onApply={openApply} />
             ))}
           </ul>
           {matches.length > 4 && (

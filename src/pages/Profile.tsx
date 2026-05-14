@@ -12,9 +12,9 @@ import {
   type ApplicationStatus,
 } from '../lib/applicationsStorage'
 import { hasSavedCv } from '../lib/cvCompleteness'
-import { loadProfile, loadSavedJobIds, saveProfile, type SeekerProfile } from '../lib/storage'
+import { loadProfile, loadSavedJobIds, saveProfile, toggleSavedJobId, type SeekerProfile } from '../lib/storage'
 
-type SeekerTab = 'info' | 'cv' | 'messages' | 'applications'
+type SeekerTab = 'info' | 'cv' | 'messages' | 'applications' | 'saved'
 
 export function Profile() {
   const { user, logout } = useAuth()
@@ -188,6 +188,15 @@ export function Profile() {
         <button
           type="button"
           role="tab"
+          aria-selected={seekerTab === 'saved'}
+          className={`profile-tabs__btn${seekerTab === 'saved' ? ' profile-tabs__btn--active' : ''}`}
+          onClick={() => setSeekerTab('saved')}
+        >
+          Tin đã lưu {savedIds.length > 0 ? `(${savedIds.length})` : ''}
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={seekerTab === 'messages'}
           className={`profile-tabs__btn${seekerTab === 'messages' ? ' profile-tabs__btn--active' : ''}`}
           onClick={() => setSeekerTab('messages')}
@@ -313,6 +322,41 @@ export function Profile() {
           ) : null}
           <CvBuilder />
         </>
+      ) : seekerTab === 'saved' ? (
+        <section className="profile-card profile-card--saved">
+          <h2 className="profile-card__title">Tin đã lưu ({savedJobs.length})</h2>
+          {savedJobs.length === 0 ? (
+            <p className="empty-state empty-state--inline">
+              Chưa có tin nào.{' '}
+              <Link to="/" className="text-link">
+                Xem việc làm
+              </Link>
+            </p>
+          ) : (
+            <ul className="saved-list">
+              {savedJobs.map((job) => (
+                <li key={job.id} className="saved-list__item">
+                  <Link to={`/viec-lam/${job.id}`} className="saved-list__link">
+                    <span className="saved-list__title">{job.title}</span>
+                    <span className="saved-list__meta">{job.company} · {job.location}</span>
+                    <span className="saved-list__meta">{job.salary}</span>
+                  </Link>
+                  <button
+                    type="button"
+                    className="saved-list__remove"
+                    aria-label={`Bỏ lưu: ${job.title}`}
+                    onClick={() => {
+                      toggleSavedJobId(job.id)
+                      setSavedIds(loadSavedJobIds())
+                    }}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       ) : seekerTab === 'applications' && isGuest ? (
         <section className="profile-card profile-card--guest">
           <h2 className="profile-card__title">Việc đã ứng tuyển</h2>

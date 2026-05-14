@@ -1950,6 +1950,45 @@ a:hover {
   color: var(--color-muted);
 }
 
+.saved-list__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.saved-list__item .saved-list__link {
+  flex: 1;
+}
+
+.saved-list__remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.saved-list__remove:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
+}
+
+.job-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .text-link {
   font-weight: 600;
 }

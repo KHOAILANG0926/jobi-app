@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { addApplication } from '../lib/applicationsStorage'
 import { loadCv } from '../lib/cvStorage'
 import { loadProfile } from '../lib/storage'
@@ -29,6 +30,7 @@ function buildProfile(): UserProfile {
 }
 
 export function useApply() {
+  const { user } = useAuth()
   const [status, setStatus] = useState<ApplyStatus>('idle')
   const [job, setJob] = useState<Job | null>(null)
 
@@ -47,11 +49,12 @@ export function useApply() {
       jobTitle: job.title,
       company: job.company,
       employerId: job.employerId,
+      seekerId: user?.id,
       seekerName: p.name,
       seekerPhone: p.phone,
     })
     setStatus(res.ok ? 'success' : 'error')
-  }, [job])
+  }, [job, user?.id])
 
   const close = useCallback(() => setStatus('idle'), [])
 
@@ -59,5 +62,7 @@ export function useApply() {
     if (job) setStatus('confirming')
   }, [job])
 
-  return { status, job, profile: buildProfile(), openApply, confirm, close, retry }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const profile = useMemo(buildProfile, [])
+  return { status, job, profile, openApply, confirm, close, retry }
 }

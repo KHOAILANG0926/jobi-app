@@ -33,13 +33,13 @@ export function JobDetail() {
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
-  const [applied, setApplied] = useState(() => (id ? hasAppliedToJob(id) : false))
+  const [applied, setApplied] = useState(() => (id ? hasAppliedToJob(id, user?.id) : false))
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
 
   useEffect(() => {
-    if (job) setApplied(hasAppliedToJob(job.id))
-  }, [job?.id])
+    if (job) setApplied(hasAppliedToJob(job.id, user?.id))
+  }, [job?.id, user?.id])
 
   if (!id || !job) {
     return (
@@ -61,7 +61,11 @@ export function JobDetail() {
   const showMessageCta = user?.role !== 'employer'
 
   const onOneClickApply = () => {
-    if (hasAppliedToJob(job.id)) {
+    if (!user) {
+      navigate('/dang-nhap', { state: { from: `/viec-lam/${job.id}` } })
+      return
+    }
+    if (hasAppliedToJob(job.id, user.id)) {
       setToastMsg('Bạn đã ứng tuyển tin này trước đó.')
       setToastOpen(true)
       return
@@ -70,6 +74,7 @@ export function JobDetail() {
       jobId: job.id,
       jobTitle: job.title,
       company: job.company,
+      seekerId: user.id,
     })
     if (res.ok) {
       setApplied(true)
