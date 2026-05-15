@@ -105,6 +105,11 @@ export const JOB_REGIONS = [
     match: ['an giang', 'long xuyen', 'chau doc'],
   },
   {
+    id: 'hunguyen',
+    label: 'Hưng Yên',
+    match: ['hung yen', 'my hao', 'pho noi', 'yen my', 'kim dong', 'khoai chau'],
+  },
+  {
     id: 'haiduong',
     label: 'Hải Dương',
     match: ['hai duong', 'chi linh', 'cam giang', 'tu ky', 'nam sach', 'kinh mon'],
@@ -206,6 +211,7 @@ export const REGION_MACRO_TABS: {
       { id: 'quangninh', label: 'Quảng Ninh' },
       { id: 'bacninh', label: 'Bắc Ninh' },
       { id: 'haiduong', label: 'Hải Dương' },
+      { id: 'hunguyen', label: 'Hưng Yên' },
       { id: 'thainguyen', label: 'Thái Nguyên' },
       { id: 'phutho', label: 'Phú Thọ' },
       { id: 'vinhphuc', label: 'Vĩnh Phúc' },
