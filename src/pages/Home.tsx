@@ -3,15 +3,40 @@ import { useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
 import { RegionFilter } from '../components/RegionFilter'
+import { RecommendSection } from '../components/RecommendSection'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
-import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
+import {
+  ALL_CATEGORIES,
+  CATEGORY_COLORS,
+  CATEGORY_ICONS,
+  CATEGORY_SHORT,
+} from '../data/categories'
 import { jobMatchesRegion, type RegionFilter as RegionFilterType } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
+
+/* ── Static data ─────────────────────────────────────────────────── */
+
+const FEATURED_BRANDS = [
+  { name: 'GrabFood',        search: 'Grab',       initial: 'G', color: '#00b14f' },
+  { name: 'Highlands Coffee',search: 'Highlands',  initial: 'H', color: '#006241' },
+  { name: 'WinMart',         search: 'WinMart',    initial: 'W', color: '#e30613' },
+  { name: 'Gogi House',      search: 'Gogi',       initial: 'G', color: '#d97706' },
+  { name: 'Shopee',          search: 'Shopee',     initial: 'S', color: '#ff5722' },
+  { name: 'Be Group',        search: 'Be',         initial: 'B', color: '#f59e0b' },
+  { name: 'Lotteria',        search: 'Lotteria',   initial: 'L', color: '#e60028' },
+  { name: 'Circle K',        search: 'Circle',     initial: 'C', color: '#c8102e' },
+  { name: 'FamilyMart',      search: 'Family',     initial: 'F', color: '#00539f' },
+  { name: "McDonald's VN",   search: 'McDonald',   initial: 'M', color: '#ffc72c' },
+  { name: 'KFC VN',          search: 'KFC',        initial: 'K', color: '#e4003b' },
+  { name: 'Samsung VN',      search: 'Samsung',    initial: 'S', color: '#1428a0' },
+]
+
+/* ── Component ──────────────────────────────────────────────────── */
 
 export function Home() {
   const { jobs } = useJobs()
@@ -41,23 +66,12 @@ export function Home() {
     }
   }, [])
 
-  const handleToggleSave = (job: Job) => {
-    toggleSavedJobId(job.id)
-  }
+  const handleToggleSave = (job: Job) => { toggleSavedJobId(job.id) }
 
   const handleNearMe = useCallback(() => {
-    if (nearMe) {
-      setNearMe(false)
-      return
-    }
-    if (userCoords) {
-      setNearMe(true)
-      return
-    }
-    if (!navigator.geolocation) {
-      setGeoError('Trình duyệt không hỗ trợ định vị.')
-      return
-    }
+    if (nearMe) { setNearMe(false); return }
+    if (userCoords) { setNearMe(true); return }
+    if (!navigator.geolocation) { setGeoError('Trình duyệt không hỗ trợ định vị.'); return }
     setGeoLoading(true)
     setGeoError(null)
     navigator.geolocation.getCurrentPosition(
@@ -83,6 +97,12 @@ export function Home() {
     }
     return result
   }, [jobs, nearMe, userCoords])
+
+  const jobCountByCategory = useMemo(() => {
+    const counts: Partial<Record<JobCategory | 'all', number>> = { all: jobs.length }
+    for (const job of jobs) counts[job.category] = (counts[job.category] ?? 0) + 1
+    return counts
+  }, [jobs])
 
   const filtered = useMemo(() => {
     const q = normalizeViText(search)
@@ -110,10 +130,7 @@ export function Home() {
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
 
   const handleApply = (job: Job) => {
-    if (!user) {
-      navigate('/dang-nhap')
-      return
-    }
+    if (!user) { navigate('/dang-nhap'); return }
     openApply(job)
   }
 
@@ -125,15 +142,56 @@ export function Home() {
     setNearMe(false)
   }
 
-  const hasFilters = search || category !== 'all' || region !== 'all' || urgentOnly || nearMe
+  const hasFilters = !!(search || category !== 'all' || region !== 'all' || urgentOnly || nearMe)
+
+  const handleBrandClick = (brandSearch: string) => {
+    setSearch(brandSearch)
+    setCategory('all')
+    setRegion('all')
+    setNearMe(false)
+  }
+
+  const handleCategoryClick = (cat: JobCategory | 'all') => {
+    setCategory(cat)
+    setSearch('')
+    setNearMe(false)
+  }
 
   return (
     <div className="home-page">
-      {/* Search */}
+
+      {/* ── Hero banner ────────────────────────────────────────── */}
+      <section className="home-hero">
+        <div className="home-hero__inner">
+          <p className="home-hero__tag">🇻🇳 Nền tảng việc bán thời gian #1 Việt Nam</p>
+          <h1 className="home-hero__title">
+            Tìm <span className="home-hero__accent">việc làm</span> phù hợp<br />
+            trong vài giây ⚡
+          </h1>
+          <div className="home-hero__stats">
+            <div className="home-hero__stat">
+              <strong>{jobs.length}+</strong>
+              <span>việc làm</span>
+            </div>
+            <div className="home-hero__sep" />
+            <div className="home-hero__stat">
+              <strong>63</strong>
+              <span>tỉnh/thành</span>
+            </div>
+            <div className="home-hero__sep" />
+            <div className="home-hero__stat">
+              <strong>100%</strong>
+              <span>miễn phí</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Search bar ─────────────────────────────────────────── */}
       <div className="home-search-wrap">
         <div className="home-search">
           <svg className="home-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
           </svg>
           <input
             type="search"
@@ -144,42 +202,84 @@ export function Home() {
             aria-label="Tìm kiếm việc làm"
           />
           {search && (
-            <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">
-              ✕
-            </button>
+            <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">✕</button>
           )}
         </div>
       </div>
 
-      {/* Category chips */}
-      <div className="chip-row home-categories" role="group" aria-label="Lọc theo ngành nghề">
+      {/* ── Category grid ──────────────────────────────────────── */}
+      <section className="home-cat-grid" aria-label="Lọc theo ngành nghề">
         <button
-          className={`chip${category === 'all' ? ' chip--active' : ''}`}
-          onClick={() => setCategory('all')}
+          className={`home-cat-card${category === 'all' ? ' home-cat-card--active' : ''}`}
+          onClick={() => handleCategoryClick('all')}
         >
-          ✨ Tất cả
+          <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}>🌟</span>
+          <span className="home-cat-card__label">Tất cả</span>
+          <span className="home-cat-card__count">{jobs.length}</span>
         </button>
         {ALL_CATEGORIES.map((cat) => (
           <button
             key={cat}
-            className={`chip${category === cat ? ' chip--active' : ''}`}
-            onClick={() => setCategory(cat)}
+            className={`home-cat-card${category === cat ? ' home-cat-card--active' : ''}`}
+            onClick={() => handleCategoryClick(cat)}
           >
-            {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+            <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS[cat] }}>
+              {CATEGORY_ICONS[cat]}
+            </span>
+            <span className="home-cat-card__label">{CATEGORY_SHORT[cat]}</span>
+            <span className="home-cat-card__count">{jobCountByCategory[cat] ?? 0}</span>
           </button>
         ))}
-      </div>
+      </section>
 
-      {/* Region filter */}
+      {/* ── Featured brands ────────────────────────────────────── */}
+      <section className="home-brands">
+        <div className="home-brands__head">
+          <h2 className="home-brands__title">🏢 Nhà tuyển dụng nổi bật</h2>
+          <span className="home-brands__sub">Nhấn để lọc</span>
+        </div>
+        <div className="home-brands__row">
+          {FEATURED_BRANDS.map((b) => (
+            <button
+              key={b.name}
+              className="home-brand"
+              onClick={() => handleBrandClick(b.search)}
+              title={`Tìm việc tại ${b.name}`}
+            >
+              <span className="home-brand__logo" style={{ background: b.color }}>
+                {b.initial}
+              </span>
+              <span className="home-brand__name">{b.name}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Promo banner ───────────────────────────────────────── */}
+      {!hasFilters && (
+        <div className="home-promo" role="banner">
+          <div className="home-promo__content">
+            <span className="home-promo__icon">📋</span>
+            <div>
+              <p className="home-promo__title">Tạo CV ngay — tăng cơ hội được gọi!</p>
+              <p className="home-promo__sub">Nhà tuyển dụng tìm kiếm CV mỗi ngày.</p>
+            </div>
+          </div>
+          <button className="home-promo__btn" onClick={() => navigate('/ho-so')}>
+            Tạo CV miễn phí →
+          </button>
+        </div>
+      )}
+
+      {/* ── Region filter ──────────────────────────────────────── */}
       <div className="home-region-wrap">
         <RegionFilter value={region} onChange={setRegion} />
       </div>
 
-      {/* Filter bar */}
+      {/* ── Filter bar ─────────────────────────────────────────── */}
       <div className="home-filter-bar">
         <span className="home-result-count">
-          {filtered.length} việc làm
-          {nearMe && userCoords && ` trong ${nearRadius}km`}
+          {filtered.length} việc làm{nearMe && userCoords && ` trong ${nearRadius}km`}
         </span>
         <button
           className={`home-urgent-toggle${urgentOnly ? ' home-urgent-toggle--active' : ''}`}
@@ -197,6 +297,7 @@ export function Home() {
           {geoLoading ? 'Đang định vị...' : '📍 Gần tôi'}
         </button>
       </div>
+
       {nearMe && userCoords && (
         <div className="home-radius-wrap" role="group" aria-label="Bán kính tìm kiếm">
           {[1, 3, 5, 10].map((r) => (
@@ -212,34 +313,31 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* Empty state */}
+      {/* ── Recommendation (only when no filter active) ─────────── */}
+      {!hasFilters && <RecommendSection jobs={jobs} />}
+
+      {/* ── Empty state ────────────────────────────────────────── */}
       {filtered.length === 0 && (
         <div className="home-empty">
           <span className="home-empty__icon">🔍</span>
           <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
           {hasFilters && (
-            <button className="home-empty__reset" onClick={resetFilters}>
-              Xóa bộ lọc
-            </button>
+            <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
           )}
         </div>
       )}
 
-      {/* Near-me: flat list sorted by distance */}
+      {/* ── Job listings ───────────────────────────────────────── */}
       {nearMe && userCoords ? (
-        filtered.length > 0 ? (
+        filtered.length > 0 && (
           <section className="home-section">
             <h2 className="home-section__title">📍 Việc làm gần bạn</h2>
             {filtered.map((job) => (
-              <div
-                key={job.id}
-                className="home-card-wrap"
-                onClick={() => navigate(`/viec-lam/${job.id}`)}
-              >
+              <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
                 <JobCard
                   job={job}
                   isApplied={hasAppliedToJob(job.id, user?.id)}
-                  onApply={(j) => { handleApply(j) }}
+                  onApply={handleApply}
                   isSaved={savedIds.has(job.id)}
                   onToggleSave={handleToggleSave}
                   distanceKm={jobDistances[job.id]}
@@ -247,23 +345,18 @@ export function Home() {
               </div>
             ))}
           </section>
-        ) : null
+        )
       ) : (
         <>
-          {/* Urgent section */}
           {!urgentOnly && urgentJobs.length > 0 && (
             <section className="home-section">
               <h2 className="home-section__title">🔥 Tuyển gấp</h2>
               {urgentJobs.map((job, i) => (
-                <div
-                  key={job.id}
-                  className="home-card-wrap"
-                  onClick={() => navigate(`/viec-lam/${job.id}`)}
-                >
+                <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
                   <JobCard
                     job={job}
                     isApplied={hasAppliedToJob(job.id, user?.id)}
-                    onApply={(j) => { handleApply(j) }}
+                    onApply={handleApply}
                     isSaved={savedIds.has(job.id)}
                     onToggleSave={handleToggleSave}
                     rank={i + 1}
@@ -273,22 +366,17 @@ export function Home() {
             </section>
           )}
 
-          {/* Main jobs list */}
           {(urgentOnly ? filtered : regularJobs).length > 0 && (
             <section className="home-section">
               {!urgentOnly && urgentJobs.length > 0 && (
                 <h2 className="home-section__title">📋 Tất cả việc làm</h2>
               )}
               {(urgentOnly ? filtered : regularJobs).map((job) => (
-                <div
-                  key={job.id}
-                  className="home-card-wrap"
-                  onClick={() => navigate(`/viec-lam/${job.id}`)}
-                >
+                <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
                   <JobCard
                     job={job}
                     isApplied={hasAppliedToJob(job.id, user?.id)}
-                    onApply={(j) => { handleApply(j) }}
+                    onApply={handleApply}
                     isSaved={savedIds.has(job.id)}
                     onToggleSave={handleToggleSave}
                   />
