@@ -11,7 +11,13 @@ import {
   updateApplicationStatus,
   type ApplicationStatus,
 } from '../lib/applicationsStorage'
+import { StatusTimeline } from '../components/StatusTimeline'
 import { hasSavedCv } from '../lib/cvCompleteness'
+import {
+  loadSeekerInterviews,
+  subscribeInterviews,
+  type InterviewSlot,
+} from '../lib/interviewStorage'
 import { countUnreadForSeeker, subscribeMessages } from '../lib/messagesStorage'
 import { loadProfile, loadSavedJobIds, saveProfile, toggleSavedJobId, type SeekerProfile } from '../lib/storage'
 
@@ -29,6 +35,10 @@ export function Profile() {
   const [cvHint, setCvHint] = useState<string | null>(null)
   const [cvSaved, setCvSaved] = useState(() => hasSavedCv())
   const [unreadMsgCount, setUnreadMsgCount] = useState(() => countUnreadForSeeker())
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null)
+  const [interviews, setInterviews] = useState<InterviewSlot[]>(() =>
+    user ? loadSeekerInterviews(user.id) : [],
+  )
 
   useEffect(() => {
     const syncSaved = () => setSavedIds(loadSavedJobIds())
@@ -69,6 +79,13 @@ export function Profile() {
     const sync = () => setUnreadMsgCount(countUnreadForSeeker())
     return subscribeMessages(sync)
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    const sync = () => setInterviews(loadSeekerInterviews(user.id))
+    sync()
+    return subscribeInterviews(sync)
+  }, [user?.id])
 
   useEffect(() => {
     const st = location.state as { openCvTab?: boolean; needCvForJob?: string } | null
@@ -382,6 +399,45 @@ export function Profile() {
       ) : seekerTab === 'applications' ? (
         <section className="profile-card profile-applications">
           <h2 className="profile-card__title">Việc đã ứng tuyển</h2>
+
+          {/* Upcoming interviews */}
+          {interviews.filter((i) => new Date(i.datetime) > new Date()).length > 0 && (
+            <div className="interview-upcoming">
+              <h3 className="interview-upcoming__title">🗓 Phỏng vấn sắp tới</h3>
+              <ul className="interview-upcoming__list">
+                {interviews
+                  .filter((i) => new Date(i.datetime) > new Date())
+                  .map((slot) => (
+                    <li key={slot.id} className="interview-card">
+                      <div className="interview-card__datetime">
+                        <span className="interview-card__date">
+                          {new Date(slot.datetime).toLocaleDateString('vi-VN', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </span>
+                        <span className="interview-card__time">
+                          {new Date(slot.datetime).toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <div className="interview-card__info">
+                        <p className="interview-card__job">{slot.jobTitle}</p>
+                        <p className="interview-card__company">{slot.company}</p>
+                        <p className="interview-card__location">📍 {slot.location}</p>
+                        {slot.notes && (
+                          <p className="interview-card__notes">💬 {slot.notes}</p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
           {applications.length === 0 ? (
             <p className="empty-state empty-state--inline">
               Chưa có đơn ứng tuyển.{' '}
@@ -391,43 +447,64 @@ export function Profile() {
             </p>
           ) : (
             <ul className="applications-list">
-              {applications.map((a) => (
-                <li key={a.jobId} className="applications-list__item">
-                  <div className="applications-list__main">
-                    <Link to={`/viec-lam/${a.jobId}`} className="applications-list__title">
-                      {a.jobTitle}
-                    </Link>
-                    <p className="applications-list__meta">{a.company}</p>
-                    <p className="applications-list__date">
-                      Ngày ứng tuyển:{' '}
-                      {new Date(a.appliedAt).toLocaleDateString('vi-VN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                  <label className="applications-list__status">
-                    <span className="visually-hidden">Trạng thái đơn ứng tuyển</span>
-                    <select
-                      className={`applications-list__select app-status-select ${APPLICATION_STATUS_META[a.status].badgeClass}`}
-                      value={a.status}
-                      aria-label={`Trạng thái: ${APPLICATION_STATUS_META[a.status].labelVi}`}
-                      onChange={(e) => {
-                        const st = e.target.value as ApplicationStatus
-                        updateApplicationStatus(a.jobId, st)
-                        setApplications(loadApplications())
-                      }}
-                    >
-                      {(Object.keys(APPLICATION_STATUS_META) as ApplicationStatus[]).map((k) => (
-                        <option key={k} value={k}>
-                          {APPLICATION_STATUS_META[k].labelVi}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </li>
-              ))}
+              {applications.map((a) => {
+                const appKey = a.id ?? a.appliedAt
+                const isExpanded = expandedAppId === appKey
+                return (
+                  <li key={a.jobId} className="applications-list__item-wrap">
+                    <div className="applications-list__item">
+                      <div className="applications-list__main">
+                        <Link to={`/viec-lam/${a.jobId}`} className="applications-list__title">
+                          {a.jobTitle}
+                        </Link>
+                        <p className="applications-list__meta">{a.company}</p>
+                        <p className="applications-list__date">
+                          Ngày ứng tuyển:{' '}
+                          {new Date(a.appliedAt).toLocaleDateString('vi-VN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <div className="applications-list__right">
+                        <label className="applications-list__status">
+                          <span className="visually-hidden">Trạng thái đơn ứng tuyển</span>
+                          <select
+                            className={`applications-list__select app-status-select ${APPLICATION_STATUS_META[a.status].badgeClass}`}
+                            value={a.status}
+                            aria-label={`Trạng thái: ${APPLICATION_STATUS_META[a.status].labelVi}`}
+                            onChange={(e) => {
+                              const st = e.target.value as ApplicationStatus
+                              updateApplicationStatus(a.id ?? a.appliedAt, st)
+                              setApplications(loadApplications())
+                            }}
+                          >
+                            {(Object.keys(APPLICATION_STATUS_META) as ApplicationStatus[]).map((k) => (
+                              <option key={k} value={k}>
+                                {APPLICATION_STATUS_META[k].labelVi}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="applications-list__timeline-btn"
+                          onClick={() => setExpandedAppId(isExpanded ? null : appKey)}
+                          aria-expanded={isExpanded}
+                        >
+                          {isExpanded ? 'Ẩn lịch sử ▲' : 'Lịch sử ▼'}
+                        </button>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="applications-list__timeline-wrap">
+                        <StatusTimeline application={a} />
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>

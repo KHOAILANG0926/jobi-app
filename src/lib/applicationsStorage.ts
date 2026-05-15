@@ -5,6 +5,11 @@ export type ApplicationStatus =
   | 'accepted'
   | 'rejected'
 
+export interface StatusHistoryEntry {
+  status: ApplicationStatus
+  changedAt: string
+}
+
 export interface JobApplication {
   id?: string
   jobId: string
@@ -16,6 +21,7 @@ export interface JobApplication {
   seekerPhone?: string
   appliedAt: string
   status: ApplicationStatus
+  statusHistory?: StatusHistoryEntry[]
 }
 
 const KEY = 'jobi_applications'
@@ -31,12 +37,22 @@ export const APPLICATION_STATUS_META: Record<
   rejected: { labelVi: 'Từ chối', badgeClass: 'app-status--rejected' },
 }
 
+function migrateApp(raw: JobApplication): JobApplication {
+  if (!raw.statusHistory || raw.statusHistory.length === 0) {
+    return {
+      ...raw,
+      statusHistory: [{ status: raw.status, changedAt: raw.appliedAt }],
+    }
+  }
+  return raw
+}
+
 export function loadApplications(): JobApplication[] {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as JobApplication[]
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map(migrateApp) : []
   } catch {
     return []
   }
@@ -67,11 +83,13 @@ export function addApplication(entry: {
     (a) => a.jobId === entry.jobId && a.seekerId === entry.seekerId,
   )
   if (isDuplicate) return { ok: false, reason: 'duplicate' }
+  const now = new Date().toISOString()
   const next: JobApplication = {
     ...entry,
     id: crypto.randomUUID(),
-    appliedAt: new Date().toISOString(),
+    appliedAt: now,
     status: 'submitted',
+    statusHistory: [{ status: 'submitted', changedAt: now }],
   }
   persist([next, ...existing])
   return { ok: true }
@@ -81,6 +99,15 @@ export function updateApplicationStatus(key: string, status: ApplicationStatus):
   const list = loadApplications()
   const idx = list.findIndex((a) => (a.id ? a.id === key : a.appliedAt === key))
   if (idx === -1) return
-  list[idx] = { ...list[idx], status }
+  const now = new Date().toISOString()
+  const prev = list[idx]
+  list[idx] = {
+    ...prev,
+    status,
+    statusHistory: [
+      ...(prev.statusHistory ?? [{ status: prev.status, changedAt: prev.appliedAt }]),
+      { status, changedAt: now },
+    ],
+  }
   persist(list)
 }

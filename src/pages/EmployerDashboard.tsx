@@ -18,6 +18,8 @@ import {
   subscribeMessages,
   type MessageThread,
 } from '../lib/messagesStorage'
+import { ScheduleInterviewModal } from '../components/ScheduleInterviewModal'
+import { getInterviewForApplication } from '../lib/interviewStorage'
 import type { Job } from '../types/job'
 
 type Tab = 'jobs' | 'applicants' | 'messages'
@@ -42,6 +44,7 @@ export function EmployerDashboard() {
   const [msgDraft, setMsgDraft] = useState('')
   const msgBottomRef = useRef<HTMLDivElement>(null)
   const msgTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null)
 
   useEffect(() => {
     setApplications(loadApplications())
@@ -93,6 +96,7 @@ export function EmployerDashboard() {
   useEffect(() => {
     if (activeMsgId) markReadByEmployer(activeMsgId)
   }, [activeMsgId, activeMsg?.messages.length])
+
 
   const handleSelectMsg = (jobId: string) => {
     setActiveMsgId(jobId)
@@ -466,6 +470,25 @@ export function EmployerDashboard() {
                           </option>
                         ))}
                       </select>
+                      {(() => {
+                        const slot = app.seekerId
+                          ? getInterviewForApplication(app.jobId, app.seekerId)
+                          : null
+                        return slot ? (
+                          <span className="edb-interview-badge">
+                            🗓 {new Date(slot.datetime).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })}{' '}
+                            {new Date(slot.datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn--sm edb-btn-schedule"
+                            onClick={() => setScheduleTarget(app)}
+                          >
+                            🗓 Hẹn phỏng vấn
+                          </button>
+                        )
+                      })()}
                     </div>
                   </li>
                 )
@@ -474,6 +497,13 @@ export function EmployerDashboard() {
           )}
         </div>
       )}
+      <ScheduleInterviewModal
+        open={scheduleTarget !== null}
+        app={scheduleTarget}
+        employerId={user.id}
+        onClose={() => setScheduleTarget(null)}
+        onScheduled={() => setApplications(loadApplications())}
+      />
     </div>
   )
 }
