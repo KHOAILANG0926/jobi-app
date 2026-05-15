@@ -7,9 +7,10 @@ interface JobCardProps {
   isSaved?: boolean;
   onToggleSave?: (job: Job) => void;
   rank?: number;
+  distanceKm?: number;
 }
 
-export default function JobCard({ job, isApplied, onApply, isSaved, onToggleSave, rank }: JobCardProps) {
+export default function JobCard({ job, isApplied, onApply, isSaved, onToggleSave, rank, distanceKm }: JobCardProps) {
   return (
     <div className={`job-card ${isApplied ? "job-card--applied" : ""}`}>
       {rank && (
@@ -26,6 +27,9 @@ export default function JobCard({ job, isApplied, onApply, isSaved, onToggleSave
             {job.company} · {job.location}
           </p>
           <p className="job-card-salary">{job.salary}</p>
+          {distanceKm !== undefined && (
+            <p className="job-card__distance">📍 {distanceKm.toFixed(1)} km</p>
+          )}
         </div>
 
         <div className="job-card-actions">

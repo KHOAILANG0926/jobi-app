@@ -1989,6 +1989,235 @@ a:hover {
   flex-shrink: 0;
 }
 
+.job-card__distance {
+  font-size: 0.72rem;
+  color: #4285F4;
+  font-weight: 600;
+  margin: 0.1rem 0 0;
+}
+
+/* Near-me filter */
+.home-near-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.home-near-btn:hover:not(:disabled) {
+  border-color: #4285F4;
+  color: #4285F4;
+}
+
+.home-near-btn--active {
+  background: #e8f0fe;
+  border-color: #4285F4;
+  color: #1a56db;
+}
+
+.home-near-btn--loading {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.home-radius-wrap {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.4rem 0;
+  flex-wrap: wrap;
+}
+
+.home-radius-btn {
+  padding: 0.28rem 0.75rem;
+  border-radius: 16px;
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.home-radius-btn--active {
+  background: #4285F4;
+  border-color: #4285F4;
+  color: #fff;
+}
+
+.home-geo-error {
+  font-size: 0.8rem;
+  color: var(--color-danger, #dc2626);
+  margin: 0.25rem 0;
+}
+
+/* MapView page */
+.mapview {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+}
+
+.mapview__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mapview__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.mapview__radii {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.mapview__radius-btn {
+  padding: 0.28rem 0.75rem;
+  border-radius: 16px;
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.mapview__radius-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mapview__radius-btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.mapview__count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.mapview__map {
+  width: 100%;
+  height: 400px;
+}
+
+.mapview__list {
+  padding: 0.75rem 1rem 1.5rem;
+}
+
+.mapview__list-hint {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin: 0 0 0.75rem;
+}
+
+.mapview__empty {
+  text-align: center;
+  color: var(--color-muted);
+  padding: 2rem 1rem;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mapview__expand-btn {
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.mapview__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mapview__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.mapview__item:hover {
+  border-color: var(--color-primary);
+  background: #fff5f5;
+}
+
+.mapview__item--selected {
+  border-color: var(--color-primary);
+  background: #fff5f5;
+}
+
+.mapview__item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.mapview__item-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mapview__item-meta {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.mapview__item-dist {
+  font-size: 0.72rem;
+  color: #4285F4;
+  font-weight: 600;
+}
+
+.mapview__item-salary {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .text-link {
   font-weight: 600;
 }
