@@ -46,6 +46,41 @@ const CITY_SECTIONS: { id: JobRegionId; label: string; color: string; icon: stri
   { id: 'cantho',    label: 'Cần Thơ',            color: '#EC4899', icon: '🌾' },
 ]
 
+/* ── Ad slot placeholder (replace inner content with real ad later) ─ */
+// To activate a real ad: replace the <div className="ad-slot__ph"> block
+// with your Google AdSense <ins> tag or any ad network code.
+// The outer wrapper div with data-ad-slot keeps the slot identity.
+
+interface AdSlotProps {
+  slotId: string
+  inline?: boolean  // compact single-line strip
+}
+
+function AdSlot({ slotId, inline = false }: AdSlotProps) {
+  if (inline) {
+    return (
+      <div className="ad-slot ad-slot--inline" data-ad-slot={slotId} aria-label="Vị trí quảng cáo">
+        <div className="ad-slot__ph">
+          <span className="ad-slot__tag">QC</span>
+          <span className="ad-slot__icon">📢</span>
+          <span className="ad-slot__line">Vị trí quảng cáo — Liên hệ <strong>ads@jobi.vn</strong></span>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="ad-slot" data-ad-slot={slotId} aria-label="Vị trí quảng cáo">
+      <div className="ad-slot__ph">
+        <span className="ad-slot__tag">QC</span>
+        <span className="ad-slot__icon">📢</span>
+        <p className="ad-slot__headline">Quảng cáo của bạn ở đây</p>
+        <p className="ad-slot__body">Tiếp cận hàng nghìn ứng viên mỗi ngày tại Jobi</p>
+        <a href="mailto:ads@jobi.vn" className="ad-slot__cta">Đặt quảng cáo →</a>
+      </div>
+    </div>
+  )
+}
+
 /* ── Brand logo with image + initial fallback ───────────────────── */
 
 function BrandLogo({ initial, color, logo }: {
@@ -104,7 +139,7 @@ function CitySection({ label, color, icon, jobs, savedIds, onApply, onToggleSave
         <div className="home-city-sec__bar" style={{ background: color }} />
       </div>
 
-      <div className="home-city-sec__list">
+      <div className="home-jobs-grid">
         {shown.map((job) => (
           <div key={job.id} className="home-card-wrap" onClick={() => onNavigate(job.id)}>
             <JobCard
@@ -251,6 +286,9 @@ export function Home() {
       {/* ── Auto-rotating banner ────────────────────────────────── */}
       <HomeBanner />
 
+      {/* ── Ad slot 1: Header (below banner) ───────────────────── */}
+      <AdSlot slotId="header-banner" />
+
       {/* ── Search bar ─────────────────────────────────────────── */}
       <div className="home-search-wrap">
         <div className="home-search">
@@ -370,6 +408,9 @@ export function Home() {
         </div>
       </section>
 
+      {/* ── Ad slot 2: Middle (after brands) ───────────────────── */}
+      <AdSlot slotId="mid-banner" />
+
       {/* ── Promo strip ────────────────────────────────────────── */}
       {!hasFilters && (
         <div className="home-promo">
@@ -438,32 +479,44 @@ export function Home() {
           ) : nearMe && userCoords ? (
             <section className="home-section">
               <h2 className="home-section__title">📍 Việc làm gần bạn</h2>
-              {filtered.map((job) => (
-                <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
-                  <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} distanceKm={jobDistances[job.id]} />
-                </div>
-              ))}
+              <div className="home-jobs-grid">
+                {filtered.map((job) => (
+                  <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                    <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} distanceKm={jobDistances[job.id]} />
+                  </div>
+                ))}
+              </div>
             </section>
           ) : (
             <>
               {!urgentOnly && urgentJobs.length > 0 && (
                 <section className="home-section">
                   <h2 className="home-section__title">🔥 Tuyển gấp</h2>
-                  {urgentJobs.map((job, i) => (
-                    <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
-                      <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} rank={i + 1} />
-                    </div>
-                  ))}
+                  <div className="home-jobs-grid">
+                    {urgentJobs.map((job, i) => (
+                      <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                        <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} rank={i + 1} />
+                      </div>
+                    ))}
+                  </div>
                 </section>
               )}
+
+              {/* ── Ad slot 3: Inline (between sections) ─────── */}
+              {!urgentOnly && urgentJobs.length > 0 && regularJobs.length > 0 && (
+                <AdSlot slotId="inline-jobs" inline />
+              )}
+
               {(urgentOnly ? filtered : regularJobs).length > 0 && (
                 <section className="home-section">
                   {!urgentOnly && urgentJobs.length > 0 && <h2 className="home-section__title">📋 Tất cả kết quả</h2>}
-                  {(urgentOnly ? filtered : regularJobs).map((job) => (
-                    <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
-                      <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
-                    </div>
-                  ))}
+                  <div className="home-jobs-grid">
+                    {(urgentOnly ? filtered : regularJobs).map((job) => (
+                      <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                        <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
+                      </div>
+                    ))}
+                  </div>
                 </section>
               )}
             </>

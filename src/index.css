@@ -5054,7 +5054,156 @@ a:hover {
 /* Card wrapper */
 .home-card-wrap {
   cursor: pointer;
+  /* spacing handled by grid gap */
+}
+
+/* ── 2-column job grid ────────────────────────────────────────────── */
+
+.home-jobs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+@media (min-width: 540px) {
+  .home-jobs-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Keep cards same height inside grid */
+.home-jobs-grid .home-card-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-jobs-grid .jc {
+  flex: 1;
+  height: 100%;
+}
+
+/* Compact card adjustments for 2-col */
+@media (min-width: 540px) and (max-width: 768px) {
+  .home-jobs-grid .jc__title {
+    font-size: 0.9rem;
+  }
+  .home-jobs-grid .jc__hours {
+    display: none;
+  }
+  .home-jobs-grid .jc__apply {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.65rem;
+  }
+}
+
+/* ── Ad slots ─────────────────────────────────────────────────────── */
+
+/* Base ad slot */
+.ad-slot {
+  position: relative;
+  border: 1.5px dashed #d1d5db;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 6px,
+      rgba(0,0,0,0.015) 6px,
+      rgba(0,0,0,0.015) 12px
+    ),
+    #f9fafb;
+}
+
+.ad-slot__ph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 1.1rem 1rem;
+  text-align: center;
+  min-height: 90px;
+}
+
+.ad-slot__tag {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.5rem;
+  background: #e5e7eb;
+  color: #9ca3af;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.ad-slot__icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.ad-slot__headline {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0;
+}
+
+.ad-slot__body {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.ad-slot__cta {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.ad-slot__cta:hover { text-decoration: underline; }
+
+/* Inline (compact strip) variant */
+.ad-slot--inline {
   margin-bottom: 0.75rem;
+  border-radius: 8px;
+}
+
+.ad-slot--inline .ad-slot__ph {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  min-height: auto;
+  text-align: left;
+}
+
+.ad-slot--inline .ad-slot__icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.ad-slot--inline .ad-slot__headline {
+  display: none;
+}
+
+.ad-slot--inline .ad-slot__body {
+  display: none;
+}
+
+.ad-slot--inline .ad-slot__cta {
+  display: none;
+}
+
+.ad-slot__line {
+  font-size: 0.78rem;
+  color: #9ca3af;
 }
 
 /* ── Banner slider ────────────────────────────────────────────────── */
@@ -5466,8 +5615,7 @@ a:hover {
 }
 
 .home-city-sec__list {
-  display: flex;
-  flex-direction: column;
+  /* grid defined by .home-jobs-grid */
 }
 
 .home-city-sec__more {
