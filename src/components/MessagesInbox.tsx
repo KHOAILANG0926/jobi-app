@@ -1,16 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import {
   appendSeekerMessage,
   loadThreads,
+  markReadBySeeker,
   subscribeMessages,
   type MessageThread,
 } from '../lib/messagesStorage'
 
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('vi-VN', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function MessagesInbox() {
+  const { user } = useAuth()
   const [threads, setThreads] = useState<MessageThread[]>(() => loadThreads())
   const [activeId, setActiveId] = useState<string | null>(() => loadThreads()[0]?.jobId ?? null)
   const [draft, setDraft] = useState('')
+  const [typing, setTyping] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     const sync = () => {
@@ -30,6 +45,29 @@ export function MessagesInbox() {
     [threads, activeId],
   )
 
+  // Auto-scroll to bottom when messages or typing changes
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [active?.messages.length, typing])
+
+  // Show typing indicator while waiting for employer auto-reply
+  useEffect(() => {
+    if (!active) { setTyping(false); return }
+    const msgs = active.messages
+    if (!msgs.length) { setTyping(false); return }
+    setTyping(msgs[msgs.length - 1].from === 'seeker')
+  }, [active?.messages.length])
+
+  // Mark thread read when it becomes active or gets new messages
+  useEffect(() => {
+    if (activeId) markReadBySeeker(activeId)
+  }, [activeId, active?.messages.length])
+
+  const handleSelectThread = (jobId: string) => {
+    setActiveId(jobId)
+    markReadBySeeker(jobId)
+  }
+
   const send = () => {
     if (!active || !draft.trim()) return
     appendSeekerMessage(
@@ -40,8 +78,17 @@ export function MessagesInbox() {
         employerPhone: active.employerPhone ?? '',
       },
       draft,
+      user?.name,
     )
     setDraft('')
+    textareaRef.current?.focus()
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      send()
+    }
   }
 
   if (threads.length === 0) {
@@ -57,20 +104,28 @@ export function MessagesInbox() {
   return (
     <div className="profile-card messages-inbox">
       <div className="messages-inbox__layout">
+        {/* Thread list */}
         <ul className="messages-inbox__list">
           {threads.map((t) => (
             <li key={t.jobId}>
               <button
                 type="button"
                 className={`messages-inbox__thread${t.jobId === activeId ? ' messages-inbox__thread--active' : ''}`}
-                onClick={() => setActiveId(t.jobId)}
+                onClick={() => handleSelectThread(t.jobId)}
               >
-                <span className="messages-inbox__thread-title">{t.jobTitle}</span>
+                <span className="messages-inbox__thread-top">
+                  <span className="messages-inbox__thread-title">{t.jobTitle}</span>
+                  {t.unreadBySeeker && (
+                    <span className="messages-inbox__unread-dot" aria-label="Tin nhắn mới" />
+                  )}
+                </span>
                 <span className="messages-inbox__thread-meta">{t.company}</span>
               </button>
             </li>
           ))}
         </ul>
+
+        {/* Conversation panel */}
         {active ? (
           <div className="messages-inbox__panel">
             <div className="messages-inbox__panel-head">
@@ -79,33 +134,48 @@ export function MessagesInbox() {
                 Xem tin
               </Link>
             </div>
+
             <div className="messages-inbox__stream">
               {active.messages.map((m) => (
                 <div
                   key={m.id}
                   className={`messages-inbox__bubble messages-inbox__bubble--${m.from}`}
                 >
+                  <span className="messages-inbox__bubble-sender">
+                    {m.from === 'seeker' ? 'Bạn' : active.company}
+                  </span>
                   <p>{m.body}</p>
-                  <time dateTime={m.sentAt}>
-                    {new Date(m.sentAt).toLocaleString('vi-VN', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </time>
+                  <time dateTime={m.sentAt}>{formatTime(m.sentAt)}</time>
                 </div>
               ))}
+
+              {typing && (
+                <div className="messages-inbox__typing" aria-label="Đang nhập...">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              )}
+
+              <div ref={bottomRef} />
             </div>
+
             <div className="messages-inbox__composer">
               <textarea
+                ref={textareaRef}
                 className="field__input field__textarea messages-inbox__input"
                 rows={2}
-                placeholder="Nhập tin nhắn..."
+                placeholder="Nhập tin nhắn... (Enter gửi, Shift+Enter xuống dòng)"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
               />
-              <button type="button" className="btn btn--primary btn--sm" onClick={send}>
+              <button
+                type="button"
+                className="btn btn--primary btn--sm"
+                onClick={send}
+                disabled={!draft.trim()}
+              >
                 Gửi
               </button>
             </div>

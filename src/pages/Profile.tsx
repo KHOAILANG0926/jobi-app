@@ -12,6 +12,7 @@ import {
   type ApplicationStatus,
 } from '../lib/applicationsStorage'
 import { hasSavedCv } from '../lib/cvCompleteness'
+import { countUnreadForSeeker, subscribeMessages } from '../lib/messagesStorage'
 import { loadProfile, loadSavedJobIds, saveProfile, toggleSavedJobId, type SeekerProfile } from '../lib/storage'
 
 type SeekerTab = 'info' | 'cv' | 'messages' | 'applications' | 'saved'
@@ -27,6 +28,7 @@ export function Profile() {
   const [applications, setApplications] = useState(() => loadApplications())
   const [cvHint, setCvHint] = useState<string | null>(null)
   const [cvSaved, setCvSaved] = useState(() => hasSavedCv())
+  const [unreadMsgCount, setUnreadMsgCount] = useState(() => countUnreadForSeeker())
 
   useEffect(() => {
     const syncSaved = () => setSavedIds(loadSavedJobIds())
@@ -61,6 +63,11 @@ export function Profile() {
       window.removeEventListener('focus', syncCv)
       window.removeEventListener('storage', syncCv)
     }
+  }, [])
+
+  useEffect(() => {
+    const sync = () => setUnreadMsgCount(countUnreadForSeeker())
+    return subscribeMessages(sync)
   }, [])
 
   useEffect(() => {
@@ -202,6 +209,9 @@ export function Profile() {
           onClick={() => setSeekerTab('messages')}
         >
           Tin nhắn
+          {unreadMsgCount > 0 && (
+            <span className="profile-tabs__badge">{unreadMsgCount}</span>
+          )}
         </button>
       </div>
 

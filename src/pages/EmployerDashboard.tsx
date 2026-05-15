@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
@@ -10,9 +10,17 @@ import {
   type ApplicationStatus,
   type JobApplication,
 } from '../lib/applicationsStorage'
+import {
+  appendEmployerMessage,
+  countUnreadForEmployer,
+  loadEmployerThreads,
+  markReadByEmployer,
+  subscribeMessages,
+  type MessageThread,
+} from '../lib/messagesStorage'
 import type { Job } from '../types/job'
 
-type Tab = 'jobs' | 'applicants'
+type Tab = 'jobs' | 'applicants' | 'messages'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', {
@@ -29,6 +37,11 @@ export function EmployerDashboard() {
   const [applications, setApplications] = useState<JobApplication[]>([])
   const [filterJobId, setFilterJobId] = useState<string>('all')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [msgThreads, setMsgThreads] = useState<MessageThread[]>([])
+  const [activeMsgId, setActiveMsgId] = useState<string | null>(null)
+  const [msgDraft, setMsgDraft] = useState('')
+  const msgBottomRef = useRef<HTMLDivElement>(null)
+  const msgTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setApplications(loadApplications())
@@ -45,6 +58,60 @@ export function EmployerDashboard() {
   )
 
   const myJobIds = useMemo(() => new Set(myJobs.map((j) => j.id)), [myJobs])
+  const myJobIdsArr = useMemo(() => myJobs.map((j) => j.id), [myJobs])
+
+  // Message threads for this employer's jobs
+  useEffect(() => {
+    const sync = () => {
+      const threads = loadEmployerThreads(myJobIdsArr)
+      setMsgThreads(threads)
+      setActiveMsgId((cur) => {
+        if (cur && threads.some((t) => t.jobId === cur)) return cur
+        return threads[0]?.jobId ?? null
+      })
+    }
+    sync()
+    return subscribeMessages(sync)
+  }, [myJobIdsArr.join(',')])
+
+  const activeMsg = useMemo(
+    () => msgThreads.find((t) => t.jobId === activeMsgId) ?? null,
+    [msgThreads, activeMsgId],
+  )
+
+  const msgUnreadCount = useMemo(
+    () => countUnreadForEmployer(myJobIdsArr),
+    [myJobIdsArr, msgThreads],
+  )
+
+  // Auto-scroll messages
+  useEffect(() => {
+    msgBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [activeMsg?.messages.length])
+
+  // Mark employer thread as read when opened or new message arrives
+  useEffect(() => {
+    if (activeMsgId) markReadByEmployer(activeMsgId)
+  }, [activeMsgId, activeMsg?.messages.length])
+
+  const handleSelectMsg = (jobId: string) => {
+    setActiveMsgId(jobId)
+    markReadByEmployer(jobId)
+  }
+
+  const sendMsg = () => {
+    if (!activeMsg || !msgDraft.trim()) return
+    appendEmployerMessage(activeMsg.jobId, msgDraft.trim())
+    setMsgDraft('')
+    msgTextareaRef.current?.focus()
+  }
+
+  const onMsgKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMsg()
+    }
+  }
 
   const myApplications = useMemo(
     () => applications.filter((a) => myJobIds.has(a.jobId)),
@@ -142,6 +209,15 @@ export function EmployerDashboard() {
           👥 Ứng viên
           {pendingCount > 0 && <span className="edb-tab__badge edb-tab__badge--alert">{pendingCount}</span>}
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'messages'}
+          className={`edb-tab${tab === 'messages' ? ' edb-tab--active' : ''}`}
+          onClick={() => setTab('messages')}
+        >
+          💬 Tin nhắn
+          {msgUnreadCount > 0 && <span className="edb-tab__badge edb-tab__badge--alert">{msgUnreadCount}</span>}
+        </button>
       </div>
 
       {/* ── Tab: Jobs ── */}
@@ -222,6 +298,98 @@ export function EmployerDashboard() {
                 )
               })}
             </ul>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Messages ── */}
+      {tab === 'messages' && (
+        <div className="edb-panel edb-panel--messages" role="tabpanel">
+          {msgThreads.length === 0 ? (
+            <div className="edb-empty">
+              <span className="edb-empty__icon">💬</span>
+              <p className="edb-empty__text">Chưa có tin nhắn từ ứng viên nào.</p>
+            </div>
+          ) : (
+            <div className="messages-inbox__layout">
+              <ul className="messages-inbox__list">
+                {msgThreads.map((t) => (
+                  <li key={t.jobId}>
+                    <button
+                      type="button"
+                      className={`messages-inbox__thread${t.jobId === activeMsgId ? ' messages-inbox__thread--active' : ''}`}
+                      onClick={() => handleSelectMsg(t.jobId)}
+                    >
+                      <span className="messages-inbox__thread-top">
+                        <span className="messages-inbox__thread-title">
+                          {t.seekerName || 'Ứng viên ẩn danh'}
+                        </span>
+                        {t.unreadByEmployer && (
+                          <span className="messages-inbox__unread-dot" aria-label="Tin nhắn mới" />
+                        )}
+                      </span>
+                      <span className="messages-inbox__thread-meta">{t.jobTitle}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {activeMsg ? (
+                <div className="messages-inbox__panel">
+                  <div className="messages-inbox__panel-head">
+                    <div>
+                      <h3 className="messages-inbox__panel-title">
+                        {activeMsg.seekerName || 'Ứng viên ẩn danh'}
+                      </h3>
+                      <p className="messages-inbox__panel-sub">{activeMsg.jobTitle}</p>
+                    </div>
+                  </div>
+
+                  <div className="messages-inbox__stream">
+                    {activeMsg.messages.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`messages-inbox__bubble messages-inbox__bubble--${m.from === 'employer' ? 'seeker' : 'employer'}`}
+                      >
+                        <span className="messages-inbox__bubble-sender">
+                          {m.from === 'employer' ? 'Bạn' : activeMsg.seekerName || 'Ứng viên'}
+                        </span>
+                        <p>{m.body}</p>
+                        <time dateTime={m.sentAt}>
+                          {new Date(m.sentAt).toLocaleString('vi-VN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </time>
+                      </div>
+                    ))}
+                    <div ref={msgBottomRef} />
+                  </div>
+
+                  <div className="messages-inbox__composer">
+                    <textarea
+                      ref={msgTextareaRef}
+                      className="field__input field__textarea messages-inbox__input"
+                      rows={2}
+                      placeholder="Nhắn tin ứng viên... (Enter gửi, Shift+Enter xuống dòng)"
+                      value={msgDraft}
+                      onChange={(e) => setMsgDraft(e.target.value)}
+                      onKeyDown={onMsgKeyDown}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn--primary btn--sm"
+                      onClick={sendMsg}
+                      disabled={!msgDraft.trim()}
+                    >
+                      Gửi
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
       )}
