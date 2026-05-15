@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import { HomeBanner } from '../components/HomeBanner'
 import JobCard from '../components/JobCard'
-import { RegionFilter } from '../components/RegionFilter'
 import { RecommendSection } from '../components/RecommendSection'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
@@ -13,7 +12,7 @@ import {
   CATEGORY_COLORS,
   CATEGORY_SHORT,
 } from '../data/categories'
-import { jobMatchesRegion, REGION_MACRO_TABS, type RegionFilter as RegionFilterType } from '../data/jobRegions'
+import { jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
@@ -36,18 +35,23 @@ const FEATURED_BRANDS = [
   { name: 'Samsung VN',       search: 'Samsung',   initial: 'S', color: '#1428a0' },
 ]
 
-const MACRO_REGIONS = [
-  { id: 'north' as const, label: 'Miền Bắc', color: '#1565C0', flag: '🔵' },
-  { id: 'central' as const, label: 'Miền Trung', color: '#F57C00', flag: '🟡' },
-  { id: 'south' as const, label: 'Miền Nam', color: '#E53935', flag: '🔴' },
+const CITY_SECTIONS: { id: JobRegionId; label: string; color: string; icon: string }[] = [
+  { id: 'hanoi',     label: 'Hà Nội',           color: '#E53935', icon: '🏛️' },
+  { id: 'hcm',       label: 'TP. Hồ Chí Minh',  color: '#F97316', icon: '🌆' },
+  { id: 'danang',    label: 'Đà Nẵng',           color: '#3B82F6', icon: '🏖️' },
+  { id: 'binhduong', label: 'Bình Dương',         color: '#10B981', icon: '🏭' },
+  { id: 'bacninh',   label: 'Bắc Ninh',           color: '#8B5CF6', icon: '⚙️' },
+  { id: 'haiphong',  label: 'Hải Phòng',          color: '#06B6D4', icon: '⚓' },
+  { id: 'dongnai',   label: 'Đồng Nai',           color: '#F59E0B', icon: '🏗️' },
+  { id: 'cantho',    label: 'Cần Thơ',            color: '#EC4899', icon: '🌾' },
 ]
 
-/* ── Region section sub-component ───────────────────────────────── */
+/* ── City section sub-component ─────────────────────────────────── */
 
-interface RegionSectionProps {
+interface CitySectionProps {
   label: string
   color: string
-  flag: string
+  icon: string
   jobs: Job[]
   savedIds: Set<string>
   onApply: (j: Job) => void
@@ -56,19 +60,23 @@ interface RegionSectionProps {
   onNavigate: (id: string) => void
 }
 
-function RegionSection({ label, color, flag, jobs, savedIds, onApply, onToggleSave, isApplied, onNavigate }: RegionSectionProps) {
+function CitySection({ label, color, icon, jobs, savedIds, onApply, onToggleSave, isApplied, onNavigate }: CitySectionProps) {
   const [expanded, setExpanded] = useState(false)
   if (jobs.length === 0) return null
   const shown = expanded ? jobs : jobs.slice(0, 4)
 
   return (
-    <section className="home-region-sec">
-      <div className="home-region-sec__head">
-        <span className="home-region-sec__dot" style={{ background: color }} />
-        <h2 className="home-region-sec__title">{flag} {label}</h2>
-        <span className="home-region-sec__count" style={{ color }}>{jobs.length} việc làm</span>
+    <section className="home-city-sec">
+      <div className="home-city-sec__head">
+        <span className="home-city-sec__icon">{icon}</span>
+        <div>
+          <h2 className="home-city-sec__title">{label}</h2>
+          <span className="home-city-sec__count" style={{ color }}>{jobs.length} việc làm đang tuyển</span>
+        </div>
+        <div className="home-city-sec__bar" style={{ background: color }} />
       </div>
-      <div className="home-region-sec__list">
+
+      <div className="home-city-sec__list">
         {shown.map((job) => (
           <div key={job.id} className="home-card-wrap" onClick={() => onNavigate(job.id)}>
             <JobCard
@@ -81,13 +89,16 @@ function RegionSection({ label, color, flag, jobs, savedIds, onApply, onToggleSa
           </div>
         ))}
       </div>
+
       {jobs.length > 4 && (
         <button
-          className="home-region-sec__more"
-          style={{ color, borderColor: color + '40' }}
+          className="home-city-sec__more"
+          style={{ '--city-color': color } as React.CSSProperties}
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? '▲ Ẩn bớt' : `Xem thêm ${jobs.length - 4} việc làm ▼`}
+          {expanded
+            ? '▲ Ẩn bớt'
+            : `Xem thêm ${jobs.length - 4} việc làm tại ${label} ▼`}
         </button>
       )}
     </section>
@@ -104,7 +115,6 @@ export function Home() {
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<JobCategory | 'all'>('all')
-  const [region, setRegion] = useState<RegionFilterType>('all')
   const [urgentOnly, setUrgentOnly] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
 
@@ -155,11 +165,20 @@ export function Home() {
     return c
   }, [jobs])
 
+  // Jobs per city for default browse view
+  const jobsByCity = useMemo(() => {
+    const result: Partial<Record<JobRegionId, Job[]>> = {}
+    for (const city of CITY_SECTIONS) {
+      const cityJobs = jobs.filter(j => jobMatchesRegion(j.location, city.id))
+      if (cityJobs.length > 0) result[city.id] = cityJobs
+    }
+    return result
+  }, [jobs])
+
   const filtered = useMemo(() => {
     const q = normalizeViText(search)
     let result = jobs.filter((j) => {
       if (category !== 'all' && j.category !== category) return false
-      if (region !== 'all' && !jobMatchesRegion(j.location, region)) return false
       if (urgentOnly && !j.urgent) return false
       if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
       if (nearMe && userCoords) {
@@ -172,21 +191,7 @@ export function Home() {
       result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
     }
     return result
-  }, [jobs, search, category, region, urgentOnly, nearMe, userCoords, nearRadius, jobDistances])
-
-  // Regional split (for default view)
-  const jobsByMacro = useMemo(() => {
-    const result: Record<string, Job[]> = { north: [], central: [], south: [] }
-    for (const job of jobs) {
-      for (const macro of REGION_MACRO_TABS) {
-        if (macro.provinces.some(p => jobMatchesRegion(job.location, p.id))) {
-          result[macro.id].push(job)
-          break
-        }
-      }
-    }
-    return result
-  }, [jobs])
+  }, [jobs, search, category, urgentOnly, nearMe, userCoords, nearRadius, jobDistances])
 
   const urgentJobs = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -197,13 +202,13 @@ export function Home() {
   }, [user, navigate, openApply])
 
   const resetFilters = () => {
-    setSearch(''); setCategory('all'); setRegion('all'); setUrgentOnly(false); setNearMe(false)
+    setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false)
   }
 
-  const hasFilters = !!(search || category !== 'all' || region !== 'all' || urgentOnly || nearMe)
+  const hasFilters = !!(search || category !== 'all' || urgentOnly || nearMe)
 
   const handleBrandClick = (brandSearch: string) => {
-    setSearch(brandSearch); setCategory('all'); setRegion('all'); setNearMe(false)
+    setSearch(brandSearch); setCategory('all'); setNearMe(false)
   }
 
   const handleCategoryClick = (cat: JobCategory | 'all') => {
@@ -334,11 +339,6 @@ export function Home() {
         </div>
       )}
 
-      {/* ── Region filter ──────────────────────────────────────── */}
-      <div className="home-region-wrap">
-        <RegionFilter value={region} onChange={setRegion} />
-      </div>
-
       {/* ── Filter bar ─────────────────────────────────────────── */}
       <div className="home-filter-bar">
         <span className="home-result-count">
@@ -376,24 +376,26 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* ── Default view: recommendation + regional sections ───── */}
+      {/* ── Default view: recommend + city sections ─────────────── */}
       {!hasFilters && (
         <>
           <RecommendSection jobs={jobs} />
-          {MACRO_REGIONS.map((macro) => (
-            <RegionSection
-              key={macro.id}
-              label={macro.label}
-              color={macro.color}
-              flag={macro.flag}
-              jobs={jobsByMacro[macro.id] ?? []}
-              savedIds={savedIds}
-              onApply={handleApply}
-              onToggleSave={handleToggleSave}
-              isApplied={isApplied}
-              onNavigate={(id) => navigate(`/viec-lam/${id}`)}
-            />
-          ))}
+          {CITY_SECTIONS
+            .filter(city => (jobsByCity[city.id]?.length ?? 0) > 0)
+            .map(city => (
+              <CitySection
+                key={city.id}
+                label={city.label}
+                color={city.color}
+                icon={city.icon}
+                jobs={jobsByCity[city.id] ?? []}
+                savedIds={savedIds}
+                onApply={handleApply}
+                onToggleSave={handleToggleSave}
+                isApplied={isApplied}
+                onNavigate={(id) => navigate(`/viec-lam/${id}`)}
+              />
+            ))}
         </>
       )}
 
