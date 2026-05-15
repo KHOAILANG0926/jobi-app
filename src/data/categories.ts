@@ -27,6 +27,16 @@ export const CATEGORY_ICONS: Record<JobCategory, string> = {
   other: '✨',
 }
 
+export const CATEGORY_SOLID: Record<JobCategory | 'all', string> = {
+  all:      '#ef4444',
+  factory:  '#f97316',
+  cafe:     '#b45309',
+  delivery: '#3b82f6',
+  cleaning: '#10b981',
+  retail:   '#8b5cf6',
+  other:    '#ec4899',
+}
+
 export const CATEGORY_COLORS: Record<JobCategory | 'all', string> = {
   all:      'linear-gradient(135deg,#ef4444,#f97316)',
   factory:  'linear-gradient(135deg,#f97316,#fb923c)',

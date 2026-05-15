@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
+import { HomeBanner } from '../components/HomeBanner'
 import JobCard from '../components/JobCard'
 import { RegionFilter } from '../components/RegionFilter'
 import { RecommendSection } from '../components/RecommendSection'
@@ -10,10 +11,9 @@ import { useJobs } from '../context/JobsContext'
 import {
   ALL_CATEGORIES,
   CATEGORY_COLORS,
-  CATEGORY_ICONS,
   CATEGORY_SHORT,
 } from '../data/categories'
-import { jobMatchesRegion, type RegionFilter as RegionFilterType } from '../data/jobRegions'
+import { jobMatchesRegion, REGION_MACRO_TABS, type RegionFilter as RegionFilterType } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
@@ -22,21 +22,79 @@ import type { Job, JobCategory } from '../types/job'
 /* ── Static data ─────────────────────────────────────────────────── */
 
 const FEATURED_BRANDS = [
-  { name: 'GrabFood',        search: 'Grab',       initial: 'G', color: '#00b14f' },
-  { name: 'Highlands Coffee',search: 'Highlands',  initial: 'H', color: '#006241' },
-  { name: 'WinMart',         search: 'WinMart',    initial: 'W', color: '#e30613' },
-  { name: 'Gogi House',      search: 'Gogi',       initial: 'G', color: '#d97706' },
-  { name: 'Shopee',          search: 'Shopee',     initial: 'S', color: '#ff5722' },
-  { name: 'Be Group',        search: 'Be',         initial: 'B', color: '#f59e0b' },
-  { name: 'Lotteria',        search: 'Lotteria',   initial: 'L', color: '#e60028' },
-  { name: 'Circle K',        search: 'Circle',     initial: 'C', color: '#c8102e' },
-  { name: 'FamilyMart',      search: 'Family',     initial: 'F', color: '#00539f' },
-  { name: "McDonald's VN",   search: 'McDonald',   initial: 'M', color: '#ffc72c' },
-  { name: 'KFC VN',          search: 'KFC',        initial: 'K', color: '#e4003b' },
-  { name: 'Samsung VN',      search: 'Samsung',    initial: 'S', color: '#1428a0' },
+  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f' },
+  { name: 'Highlands Coffee', search: 'Highlands', initial: 'H', color: '#006241' },
+  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613' },
+  { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706' },
+  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722' },
+  { name: 'Be Group',         search: 'Be',        initial: 'B', color: '#f59e0b' },
+  { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028' },
+  { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e' },
+  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f' },
+  { name: "McDonald's VN",    search: 'McDonald',  initial: 'M', color: '#ffc72c' },
+  { name: 'KFC VN',           search: 'KFC',       initial: 'K', color: '#e4003b' },
+  { name: 'Samsung VN',       search: 'Samsung',   initial: 'S', color: '#1428a0' },
 ]
 
-/* ── Component ──────────────────────────────────────────────────── */
+const MACRO_REGIONS = [
+  { id: 'north' as const, label: 'Miền Bắc', color: '#1565C0', flag: '🔵' },
+  { id: 'central' as const, label: 'Miền Trung', color: '#F57C00', flag: '🟡' },
+  { id: 'south' as const, label: 'Miền Nam', color: '#E53935', flag: '🔴' },
+]
+
+/* ── Region section sub-component ───────────────────────────────── */
+
+interface RegionSectionProps {
+  label: string
+  color: string
+  flag: string
+  jobs: Job[]
+  savedIds: Set<string>
+  onApply: (j: Job) => void
+  onToggleSave: (j: Job) => void
+  isApplied: (id: string) => boolean
+  onNavigate: (id: string) => void
+}
+
+function RegionSection({ label, color, flag, jobs, savedIds, onApply, onToggleSave, isApplied, onNavigate }: RegionSectionProps) {
+  const [expanded, setExpanded] = useState(false)
+  if (jobs.length === 0) return null
+  const shown = expanded ? jobs : jobs.slice(0, 4)
+
+  return (
+    <section className="home-region-sec">
+      <div className="home-region-sec__head">
+        <span className="home-region-sec__dot" style={{ background: color }} />
+        <h2 className="home-region-sec__title">{flag} {label}</h2>
+        <span className="home-region-sec__count" style={{ color }}>{jobs.length} việc làm</span>
+      </div>
+      <div className="home-region-sec__list">
+        {shown.map((job) => (
+          <div key={job.id} className="home-card-wrap" onClick={() => onNavigate(job.id)}>
+            <JobCard
+              job={job}
+              isApplied={isApplied(job.id)}
+              onApply={onApply}
+              isSaved={savedIds.has(job.id)}
+              onToggleSave={onToggleSave}
+            />
+          </div>
+        ))}
+      </div>
+      {jobs.length > 4 && (
+        <button
+          className="home-region-sec__more"
+          style={{ color, borderColor: color + '40' }}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? '▲ Ẩn bớt' : `Xem thêm ${jobs.length - 4} việc làm ▼`}
+        </button>
+      )}
+    </section>
+  )
+}
+
+/* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
   const { jobs } = useJobs()
@@ -66,7 +124,7 @@ export function Home() {
     }
   }, [])
 
-  const handleToggleSave = (job: Job) => { toggleSavedJobId(job.id) }
+  const handleToggleSave = useCallback((job: Job) => { toggleSavedJobId(job.id) }, [])
 
   const handleNearMe = useCallback(() => {
     if (nearMe) { setNearMe(false); return }
@@ -75,33 +133,26 @@ export function Home() {
     setGeoLoading(true)
     setGeoError(null)
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setNearMe(true)
-        setGeoLoading(false)
-      },
-      () => {
-        setGeoError('Không thể lấy vị trí. Hãy cho phép định vị trên trình duyệt.')
-        setGeoLoading(false)
-      },
+      (pos) => { setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setNearMe(true); setGeoLoading(false) },
+      () => { setGeoError('Không thể lấy vị trí. Hãy cho phép định vị.'); setGeoLoading(false) },
       { timeout: 10_000 },
     )
   }, [nearMe, userCoords])
 
   const jobDistances = useMemo<Record<string, number>>(() => {
     if (!nearMe || !userCoords) return {}
-    const result: Record<string, number> = {}
+    const r: Record<string, number> = {}
     for (const job of jobs) {
-      const coords = guessCoordinatesFromLocation(job.location)
-      result[job.id] = calcDistanceKm(userCoords.lat, userCoords.lng, coords.lat, coords.lng)
+      const c = guessCoordinatesFromLocation(job.location)
+      r[job.id] = calcDistanceKm(userCoords.lat, userCoords.lng, c.lat, c.lng)
     }
-    return result
+    return r
   }, [jobs, nearMe, userCoords])
 
   const jobCountByCategory = useMemo(() => {
-    const counts: Partial<Record<JobCategory | 'all', number>> = { all: jobs.length }
-    for (const job of jobs) counts[job.category] = (counts[job.category] ?? 0) + 1
-    return counts
+    const c: Partial<Record<JobCategory | 'all', number>> = { all: jobs.length }
+    for (const j of jobs) c[j.category] = (c[j.category] ?? 0) + 1
+    return c
   }, [jobs])
 
   const filtered = useMemo(() => {
@@ -110,10 +161,7 @@ export function Home() {
       if (category !== 'all' && j.category !== category) return false
       if (region !== 'all' && !jobMatchesRegion(j.location, region)) return false
       if (urgentOnly && !j.urgent) return false
-      if (q) {
-        const hay = normalizeViText(`${j.title} ${j.company} ${j.location}`)
-        if (!hay.includes(q)) return false
-      }
+      if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
       if (nearMe && userCoords) {
         const d = jobDistances[j.id]
         if (d === undefined || d > nearRadius) return false
@@ -126,66 +174,49 @@ export function Home() {
     return result
   }, [jobs, search, category, region, urgentOnly, nearMe, userCoords, nearRadius, jobDistances])
 
+  // Regional split (for default view)
+  const jobsByMacro = useMemo(() => {
+    const result: Record<string, Job[]> = { north: [], central: [], south: [] }
+    for (const job of jobs) {
+      for (const macro of REGION_MACRO_TABS) {
+        if (macro.provinces.some(p => jobMatchesRegion(job.location, p.id))) {
+          result[macro.id].push(job)
+          break
+        }
+      }
+    }
+    return result
+  }, [jobs])
+
   const urgentJobs = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
 
-  const handleApply = (job: Job) => {
+  const handleApply = useCallback((job: Job) => {
     if (!user) { navigate('/dang-nhap'); return }
     openApply(job)
-  }
+  }, [user, navigate, openApply])
 
   const resetFilters = () => {
-    setSearch('')
-    setCategory('all')
-    setRegion('all')
-    setUrgentOnly(false)
-    setNearMe(false)
+    setSearch(''); setCategory('all'); setRegion('all'); setUrgentOnly(false); setNearMe(false)
   }
 
   const hasFilters = !!(search || category !== 'all' || region !== 'all' || urgentOnly || nearMe)
 
   const handleBrandClick = (brandSearch: string) => {
-    setSearch(brandSearch)
-    setCategory('all')
-    setRegion('all')
-    setNearMe(false)
+    setSearch(brandSearch); setCategory('all'); setRegion('all'); setNearMe(false)
   }
 
   const handleCategoryClick = (cat: JobCategory | 'all') => {
-    setCategory(cat)
-    setSearch('')
-    setNearMe(false)
+    setCategory(cat); setSearch(''); setNearMe(false)
   }
+
+  const isApplied = useCallback((id: string) => hasAppliedToJob(id, user?.id), [user?.id])
 
   return (
     <div className="home-page">
 
-      {/* ── Hero banner ────────────────────────────────────────── */}
-      <section className="home-hero">
-        <div className="home-hero__inner">
-          <p className="home-hero__tag">🇻🇳 Nền tảng việc bán thời gian #1 Việt Nam</p>
-          <h1 className="home-hero__title">
-            Tìm <span className="home-hero__accent">việc làm</span> phù hợp<br />
-            trong vài giây ⚡
-          </h1>
-          <div className="home-hero__stats">
-            <div className="home-hero__stat">
-              <strong>{jobs.length}+</strong>
-              <span>việc làm</span>
-            </div>
-            <div className="home-hero__sep" />
-            <div className="home-hero__stat">
-              <strong>63</strong>
-              <span>tỉnh/thành</span>
-            </div>
-            <div className="home-hero__sep" />
-            <div className="home-hero__stat">
-              <strong>100%</strong>
-              <span>miễn phí</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ── Auto-rotating banner ────────────────────────────────── */}
+      <HomeBanner />
 
       {/* ── Search bar ─────────────────────────────────────────── */}
       <div className="home-search-wrap">
@@ -202,7 +233,7 @@ export function Home() {
             aria-label="Tìm kiếm việc làm"
           />
           {search && (
-            <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">✕</button>
+            <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa">✕</button>
           )}
         </div>
       </div>
@@ -213,10 +244,15 @@ export function Home() {
           className={`home-cat-card${category === 'all' ? ' home-cat-card--active' : ''}`}
           onClick={() => handleCategoryClick('all')}
         >
-          <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}>🌟</span>
+          <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </span>
           <span className="home-cat-card__label">Tất cả</span>
           <span className="home-cat-card__count">{jobs.length}</span>
         </button>
+
         {ALL_CATEGORIES.map((cat) => (
           <button
             key={cat}
@@ -224,7 +260,36 @@ export function Home() {
             onClick={() => handleCategoryClick(cat)}
           >
             <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS[cat] }}>
-              {CATEGORY_ICONS[cat]}
+              {cat === 'factory' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2 20V8l6-4v4l6-4v4l6-4v16H2z"/><path d="M6 20v-4h4v4M14 20v-4h4v4"/>
+                </svg>
+              )}
+              {cat === 'cafe' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/>
+                </svg>
+              )}
+              {cat === 'delivery' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                </svg>
+              )}
+              {cat === 'cleaning' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 22l4-4M14 3l7 7-9.5 9.5L4 12l9-9zM4 12l4 4"/><path d="M14.5 6.5l3 3"/>
+                </svg>
+              )}
+              {cat === 'retail' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+              )}
+              {cat === 'other' && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              )}
             </span>
             <span className="home-cat-card__label">{CATEGORY_SHORT[cat]}</span>
             <span className="home-cat-card__count">{jobCountByCategory[cat] ?? 0}</span>
@@ -244,20 +309,18 @@ export function Home() {
               key={b.name}
               className="home-brand"
               onClick={() => handleBrandClick(b.search)}
-              title={`Tìm việc tại ${b.name}`}
+              title={b.name}
             >
-              <span className="home-brand__logo" style={{ background: b.color }}>
-                {b.initial}
-              </span>
+              <span className="home-brand__logo" style={{ background: b.color }}>{b.initial}</span>
               <span className="home-brand__name">{b.name}</span>
             </button>
           ))}
         </div>
       </section>
 
-      {/* ── Promo banner ───────────────────────────────────────── */}
+      {/* ── Promo strip ────────────────────────────────────────── */}
       {!hasFilters && (
-        <div className="home-promo" role="banner">
+        <div className="home-promo">
           <div className="home-promo__content">
             <span className="home-promo__icon">📋</span>
             <div>
@@ -279,7 +342,8 @@ export function Home() {
       {/* ── Filter bar ─────────────────────────────────────────── */}
       <div className="home-filter-bar">
         <span className="home-result-count">
-          {filtered.length} việc làm{nearMe && userCoords && ` trong ${nearRadius}km`}
+          {hasFilters ? `${filtered.length} kết quả` : `${jobs.length} việc làm`}
+          {nearMe && userCoords && ` trong ${nearRadius}km`}
         </span>
         <button
           className={`home-urgent-toggle${urgentOnly ? ' home-urgent-toggle--active' : ''}`}
@@ -296,16 +360,15 @@ export function Home() {
         >
           {geoLoading ? 'Đang định vị...' : '📍 Gần tôi'}
         </button>
+        {hasFilters && (
+          <button className="home-reset-btn" onClick={resetFilters}>✕ Xóa lọc</button>
+        )}
       </div>
 
       {nearMe && userCoords && (
-        <div className="home-radius-wrap" role="group" aria-label="Bán kính tìm kiếm">
+        <div className="home-radius-wrap" role="group" aria-label="Bán kính">
           {[1, 3, 5, 10].map((r) => (
-            <button
-              key={r}
-              className={`home-radius-btn${nearRadius === r ? ' home-radius-btn--active' : ''}`}
-              onClick={() => setNearRadius(r)}
-            >
+            <button key={r} className={`home-radius-btn${nearRadius === r ? ' home-radius-btn--active' : ''}`} onClick={() => setNearRadius(r)}>
               {r} km
             </button>
           ))}
@@ -313,88 +376,73 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* ── Recommendation (only when no filter active) ─────────── */}
-      {!hasFilters && <RecommendSection jobs={jobs} />}
-
-      {/* ── Empty state ────────────────────────────────────────── */}
-      {filtered.length === 0 && (
-        <div className="home-empty">
-          <span className="home-empty__icon">🔍</span>
-          <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
-          {hasFilters && (
-            <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
-          )}
-        </div>
+      {/* ── Default view: recommendation + regional sections ───── */}
+      {!hasFilters && (
+        <>
+          <RecommendSection jobs={jobs} />
+          {MACRO_REGIONS.map((macro) => (
+            <RegionSection
+              key={macro.id}
+              label={macro.label}
+              color={macro.color}
+              flag={macro.flag}
+              jobs={jobsByMacro[macro.id] ?? []}
+              savedIds={savedIds}
+              onApply={handleApply}
+              onToggleSave={handleToggleSave}
+              isApplied={isApplied}
+              onNavigate={(id) => navigate(`/viec-lam/${id}`)}
+            />
+          ))}
+        </>
       )}
 
-      {/* ── Job listings ───────────────────────────────────────── */}
-      {nearMe && userCoords ? (
-        filtered.length > 0 && (
-          <section className="home-section">
-            <h2 className="home-section__title">📍 Việc làm gần bạn</h2>
-            {filtered.map((job) => (
-              <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
-                <JobCard
-                  job={job}
-                  isApplied={hasAppliedToJob(job.id, user?.id)}
-                  onApply={handleApply}
-                  isSaved={savedIds.has(job.id)}
-                  onToggleSave={handleToggleSave}
-                  distanceKm={jobDistances[job.id]}
-                />
-              </div>
-            ))}
-          </section>
-        )
-      ) : (
+      {/* ── Filtered view ──────────────────────────────────────── */}
+      {hasFilters && (
         <>
-          {!urgentOnly && urgentJobs.length > 0 && (
+          {filtered.length === 0 ? (
+            <div className="home-empty">
+              <span className="home-empty__icon">🔍</span>
+              <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
+              <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
+            </div>
+          ) : nearMe && userCoords ? (
             <section className="home-section">
-              <h2 className="home-section__title">🔥 Tuyển gấp</h2>
-              {urgentJobs.map((job, i) => (
+              <h2 className="home-section__title">📍 Việc làm gần bạn</h2>
+              {filtered.map((job) => (
                 <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
-                  <JobCard
-                    job={job}
-                    isApplied={hasAppliedToJob(job.id, user?.id)}
-                    onApply={handleApply}
-                    isSaved={savedIds.has(job.id)}
-                    onToggleSave={handleToggleSave}
-                    rank={i + 1}
-                  />
+                  <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} distanceKm={jobDistances[job.id]} />
                 </div>
               ))}
             </section>
-          )}
-
-          {(urgentOnly ? filtered : regularJobs).length > 0 && (
-            <section className="home-section">
+          ) : (
+            <>
               {!urgentOnly && urgentJobs.length > 0 && (
-                <h2 className="home-section__title">📋 Tất cả việc làm</h2>
+                <section className="home-section">
+                  <h2 className="home-section__title">🔥 Tuyển gấp</h2>
+                  {urgentJobs.map((job, i) => (
+                    <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                      <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} rank={i + 1} />
+                    </div>
+                  ))}
+                </section>
               )}
-              {(urgentOnly ? filtered : regularJobs).map((job) => (
-                <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
-                  <JobCard
-                    job={job}
-                    isApplied={hasAppliedToJob(job.id, user?.id)}
-                    onApply={handleApply}
-                    isSaved={savedIds.has(job.id)}
-                    onToggleSave={handleToggleSave}
-                  />
-                </div>
-              ))}
-            </section>
+              {(urgentOnly ? filtered : regularJobs).length > 0 && (
+                <section className="home-section">
+                  {!urgentOnly && urgentJobs.length > 0 && <h2 className="home-section__title">📋 Tất cả kết quả</h2>}
+                  {(urgentOnly ? filtered : regularJobs).map((job) => (
+                    <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                      <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
+                    </div>
+                  ))}
+                </section>
+              )}
+            </>
           )}
         </>
       )}
 
-      <ApplyModal
-        status={status}
-        job={applyJob}
-        profile={profile}
-        onConfirm={confirm}
-        onClose={close}
-        onRetry={retry}
-      />
+      <ApplyModal status={status} job={applyJob} profile={profile} onConfirm={confirm} onClose={close} onRetry={retry} />
     </div>
   )
 }
