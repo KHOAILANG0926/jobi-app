@@ -21,18 +21,18 @@ import type { Job, JobCategory } from '../types/job'
 /* ── Static data ─────────────────────────────────────────────────── */
 
 const FEATURED_BRANDS = [
-  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f' },
-  { name: 'Highlands Coffee', search: 'Highlands', initial: 'H', color: '#006241' },
-  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613' },
-  { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706' },
-  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722' },
-  { name: 'Be Group',         search: 'Be',        initial: 'B', color: '#f59e0b' },
-  { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028' },
-  { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e' },
-  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f' },
-  { name: "McDonald's VN",    search: 'McDonald',  initial: 'M', color: '#ffc72c' },
-  { name: 'KFC VN',           search: 'KFC',       initial: 'K', color: '#e4003b' },
-  { name: 'Samsung VN',       search: 'Samsung',   initial: 'S', color: '#1428a0' },
+  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://logo.clearbit.com/grab.com' },
+  { name: 'Highlands Coffee', search: 'Highlands', initial: 'H', color: '#006241', logo: 'https://logo.clearbit.com/highlandscoffee.vn' },
+  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://logo.clearbit.com/winmart.vn' },
+  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722', logo: 'https://logo.clearbit.com/shopee.com' },
+  { name: 'Be Group',         search: 'Be',        initial: 'B', color: '#f59e0b', logo: 'https://logo.clearbit.com/be.com.vn' },
+  { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028', logo: 'https://logo.clearbit.com/lotteria.com' },
+  { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e', logo: 'https://logo.clearbit.com/circlek.com' },
+  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://logo.clearbit.com/familymart.com' },
+  { name: "McDonald's VN",    search: 'McDonald',  initial: 'M', color: '#27251F', logo: 'https://logo.clearbit.com/mcdonalds.com' },
+  { name: 'KFC VN',           search: 'KFC',       initial: 'K', color: '#e4003b', logo: 'https://logo.clearbit.com/kfc.com' },
+  { name: 'Samsung VN',       search: 'Samsung',   initial: 'S', color: '#1428a0', logo: 'https://logo.clearbit.com/samsung.com' },
+  { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706', logo: 'https://logo.clearbit.com/gogihouse.com' },
 ]
 
 const CITY_SECTIONS: { id: JobRegionId; label: string; color: string; icon: string }[] = [
@@ -45,6 +45,34 @@ const CITY_SECTIONS: { id: JobRegionId; label: string; color: string; icon: stri
   { id: 'dongnai',   label: 'Đồng Nai',           color: '#F59E0B', icon: '🏗️' },
   { id: 'cantho',    label: 'Cần Thơ',            color: '#EC4899', icon: '🌾' },
 ]
+
+/* ── Brand logo with image + initial fallback ───────────────────── */
+
+function BrandLogo({ initial, color, logo }: {
+  name: string; initial: string; color: string; logo: string
+}) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed) {
+    return (
+      <span className="home-brand__logo" style={{ background: color }}>
+        <span className="home-brand__logo-initial">{initial}</span>
+      </span>
+    )
+  }
+
+  return (
+    <span className="home-brand__logo home-brand__logo--img">
+      <img
+        src={logo}
+        alt=""
+        aria-hidden
+        className="home-brand__logo-img"
+        onError={() => setFailed(true)}
+      />
+    </span>
+  )
+}
 
 /* ── City section sub-component ─────────────────────────────────── */
 
@@ -93,7 +121,7 @@ function CitySection({ label, color, icon, jobs, savedIds, onApply, onToggleSave
       {jobs.length > 4 && (
         <button
           className="home-city-sec__more"
-          style={{ '--city-color': color } as React.CSSProperties}
+          style={{ color }}
           onClick={() => setExpanded((v) => !v)}
         >
           {expanded
@@ -243,6 +271,25 @@ export function Home() {
         </div>
       </div>
 
+      {/* ── City sections — right below search ─────────────────── */}
+      {!hasFilters && CITY_SECTIONS
+        .filter(city => (jobsByCity[city.id]?.length ?? 0) > 0)
+        .map(city => (
+          <CitySection
+            key={city.id}
+            label={city.label}
+            color={city.color}
+            icon={city.icon}
+            jobs={jobsByCity[city.id] ?? []}
+            savedIds={savedIds}
+            onApply={handleApply}
+            onToggleSave={handleToggleSave}
+            isApplied={isApplied}
+            onNavigate={(id) => navigate(`/viec-lam/${id}`)}
+          />
+        ))
+      }
+
       {/* ── Category grid ──────────────────────────────────────── */}
       <section className="home-cat-grid" aria-label="Lọc theo ngành nghề">
         <button
@@ -316,7 +363,7 @@ export function Home() {
               onClick={() => handleBrandClick(b.search)}
               title={b.name}
             >
-              <span className="home-brand__logo" style={{ background: b.color }}>{b.initial}</span>
+              <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
               <span className="home-brand__name">{b.name}</span>
             </button>
           ))}
@@ -376,28 +423,8 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* ── Default view: recommend + city sections ─────────────── */}
-      {!hasFilters && (
-        <>
-          <RecommendSection jobs={jobs} />
-          {CITY_SECTIONS
-            .filter(city => (jobsByCity[city.id]?.length ?? 0) > 0)
-            .map(city => (
-              <CitySection
-                key={city.id}
-                label={city.label}
-                color={city.color}
-                icon={city.icon}
-                jobs={jobsByCity[city.id] ?? []}
-                savedIds={savedIds}
-                onApply={handleApply}
-                onToggleSave={handleToggleSave}
-                isApplied={isApplied}
-                onNavigate={(id) => navigate(`/viec-lam/${id}`)}
-              />
-            ))}
-        </>
-      )}
+      {/* ── Default view: recommend section ────────────────────── */}
+      {!hasFilters && <RecommendSection jobs={jobs} />}
 
       {/* ── Filtered view ──────────────────────────────────────── */}
       {hasFilters && (

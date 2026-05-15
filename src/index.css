@@ -4780,13 +4780,31 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+  overflow: hidden;
+}
+
+.home-brand__logo--img {
+  background: #fff;
+  border: 1px solid #ebebeb;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+}
+
+.home-brand__logo-img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+}
+
+.home-brand__logo-initial {
   font-size: 1.1rem;
   font-weight: 900;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-  flex-shrink: 0;
   font-family: 'Arial Black', 'Impact', sans-serif;
   letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 .home-brand__name {
@@ -5460,20 +5478,19 @@ a:hover {
   width: 100%;
   padding: 0.6rem;
   background: transparent;
-  border: 1.5px dashed color-mix(in srgb, var(--city-color, #888) 40%, transparent);
-  color: var(--city-color, #888);
+  border: 1.5px dashed currentColor;
   border-radius: 10px;
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   margin-top: 0.25rem;
-  transition: background 0.15s, opacity 0.15s;
-  opacity: 0.85;
+  transition: opacity 0.15s, background 0.15s;
+  opacity: 0.7;
 }
 
 .home-city-sec__more:hover {
   opacity: 1;
-  background: color-mix(in srgb, var(--city-color, #888) 8%, transparent);
+  background: rgba(0,0,0,0.03);
 }
 
 /* Reset filter button */
