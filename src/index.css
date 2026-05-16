@@ -5458,6 +5458,95 @@ a:hover {
 .jc__apply--done { background: #22c55e; cursor: default; }
 .jc__apply:disabled { opacity: 0.72; }
 
+/* ── City filtered results section ───────────────────────────────── */
+
+.city-result {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 0.85rem 0.9rem;
+  margin-bottom: 1rem;
+  scroll-margin-top: 1rem;
+}
+
+.city-result__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.city-result__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.city-result__pin {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.city-result__title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.city-result__count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-primary);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+}
+
+.city-result__clear {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  background: #f3f4f6;
+  border: none;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.city-result__clear:hover {
+  background: #fee2e2;
+  color: var(--color-primary);
+}
+
+.city-result__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.city-result__empty span { font-size: 1.5rem; }
+
+.city-result__empty button {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ── City button grid (알바몬 style) ──────────────────────────────── */
 
 .city-grid {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import { HomeBanner } from '../components/HomeBanner'
@@ -238,11 +238,23 @@ export function Home() {
     openApply(job)
   }, [user, navigate, openApply])
 
+  // Ref for scrolling to city results
+  const cityResultRef = useRef<HTMLElement>(null)
+
+  // Scroll to results when a city is selected
+  useEffect(() => {
+    if (selectedCity && cityResultRef.current) {
+      cityResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedCity])
+
   const resetFilters = () => {
     setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null)
   }
 
-  const hasFilters = !!(search || category !== 'all' || urgentOnly || nearMe || selectedCity)
+  // Filters that are NOT city-based (used for the bottom job section)
+  const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe)
+  const hasFilters = !!(hasOtherFilters || selectedCity)
 
   const handleBrandClick = (brandSearch: string) => {
     setSearch(brandSearch); setCategory('all'); setNearMe(false); setSelectedCity(null)
@@ -334,6 +346,57 @@ export function Home() {
           })}
         </div>
       </section>
+
+      {/* ── City filtered results — right below city buttons ──── */}
+      {selectedCity && (() => {
+        const cityLabel = CITY_BUTTONS.find(c => c.id === selectedCity)?.label ?? ''
+        return (
+          <section className="city-result" ref={cityResultRef}>
+            <div className="city-result__head">
+              <div className="city-result__title-wrap">
+                <span className="city-result__pin">📍</span>
+                <h2 className="city-result__title">Việc làm tại {cityLabel}</h2>
+                <span className="city-result__count">{filtered.length} kết quả</span>
+              </div>
+              <button className="city-result__clear" onClick={() => setSelectedCity(null)}>
+                ✕ Bỏ chọn
+              </button>
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="city-result__empty">
+                <span>🔍</span>
+                <p>Chưa có việc làm tại <strong>{cityLabel}</strong></p>
+                <button onClick={() => setSelectedCity(null)}>← Xem tất cả</button>
+              </div>
+            ) : (
+              <>
+                {urgentJobs.length > 0 && (
+                  <div className="home-jobs-grid">
+                    {urgentJobs.map(job => (
+                      <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                        <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {urgentJobs.length > 0 && regularJobs.length > 0 && (
+                  <AdSlot slotId="inline" />
+                )}
+                {regularJobs.length > 0 && (
+                  <div className="home-jobs-grid">
+                    {regularJobs.map(job => (
+                      <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                        <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )
+      })()}
 
       {/* ── Category grid ──────────────────────────────────────── */}
       <section className="home-cat-grid" aria-label="Lọc theo ngành nghề">
@@ -435,34 +498,34 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* ── Default view: recommend ─────────────────────────────── */}
-      {!hasFilters && <RecommendSection jobs={jobs} />}
-
-      {/* ── Jobs ───────────────────────────────────────────────── */}
-      {filtered.length === 0 && hasFilters ? (
-        <div className="home-empty">
-          <span className="home-empty__icon">🔍</span>
-          <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
-          <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
-        </div>
-      ) : nearMe && userCoords ? (
-        <JobGrid jobs={filtered} title="📍 Việc làm gần bạn" />
-      ) : (
+      {/* ── Bottom job section: only when NO city is selected ──── */}
+      {!selectedCity && (
         <>
-          {!urgentOnly && urgentJobs.length > 0 && (
-            <JobGrid jobs={urgentJobs} title="🔥 Tuyển gấp" />
-          )}
+          {!hasOtherFilters && <RecommendSection jobs={jobs} />}
 
-          {/* ── Ad slot 3: Inline (between sections) ─────────── */}
-          {!urgentOnly && urgentJobs.length > 0 && regularJobs.length > 0 && (
-            <AdSlot slotId="inline" />
-          )}
-
-          {(urgentOnly ? filtered : regularJobs).length > 0 && (
-            <JobGrid
-              jobs={urgentOnly ? filtered : regularJobs}
-              title={(!urgentOnly && urgentJobs.length > 0) ? '📋 Tất cả kết quả' : undefined}
-            />
+          {hasOtherFilters && filtered.length === 0 ? (
+            <div className="home-empty">
+              <span className="home-empty__icon">🔍</span>
+              <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
+              <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
+            </div>
+          ) : nearMe && userCoords ? (
+            <JobGrid jobs={filtered} title="📍 Việc làm gần bạn" />
+          ) : (
+            <>
+              {!urgentOnly && urgentJobs.length > 0 && (
+                <JobGrid jobs={urgentJobs} title="🔥 Tuyển gấp" />
+              )}
+              {!urgentOnly && urgentJobs.length > 0 && regularJobs.length > 0 && (
+                <AdSlot slotId="inline" />
+              )}
+              {(urgentOnly ? filtered : regularJobs).length > 0 && (
+                <JobGrid
+                  jobs={urgentOnly ? filtered : regularJobs}
+                  title={(!urgentOnly && urgentJobs.length > 0) ? '📋 Tất cả kết quả' : undefined}
+                />
+              )}
+            </>
           )}
         </>
       )}
