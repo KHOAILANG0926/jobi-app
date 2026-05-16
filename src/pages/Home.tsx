@@ -203,6 +203,8 @@ export function Home() {
     return c
   }, [jobs])
 
+  // City counts: always based on full job list (ignore category/urgentOnly)
+  // so count matches what clicking the button will show (after reset)
   const cityJobCounts = useMemo(() => {
     const c: Partial<Record<JobRegionId, number>> = {}
     for (const city of CITY_BUTTONS) {
@@ -264,7 +266,11 @@ export function Home() {
   }
   const handleCityClick = (id: JobRegionId) => {
     setSelectedCity(prev => prev === id ? null : id)
-    setSearch(''); setNearMe(false)
+    // Reset all other filters so city count matches displayed results
+    setSearch('')
+    setCategory('all')
+    setUrgentOnly(false)
+    setNearMe(false)
   }
 
   const isApplied = useCallback((id: string) => hasAppliedToJob(id, user?.id), [user?.id])
