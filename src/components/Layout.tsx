@@ -14,7 +14,7 @@ export function Layout() {
       <header className="layout__header">
         <div className="layout__header-inner">
           <NavLink to="/" className="layout__brand">
-            <span className="layout__logo" aria-hidden><img src="/logo.png.png" alt="logo" style="height:36px">
+            <span className="layout__logo" aria-hidden>
               <img src="/logo.png.png" alt="logo" style="height:36px" /><svg viewBox="0 0 48 48" role="img" style="display:none">
                 <rect x="6" y="11" width="28" height="30" rx="8" fill="#E53935" />
                 <path
