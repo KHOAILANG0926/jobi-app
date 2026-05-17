@@ -35,7 +35,7 @@ export function Layout() {
                 <path d="M13.6 20.9h12.8v2.5H13.6zM13.6 24.9h9.3v2.2h-9.3z" fill="#E53935" />
               </svg>
             </span>
-            <span className="layout__title">Jobi</span>
+            <span className="layout__title">Việc gần Bạn</span>
           </NavLink>
           <nav className="layout__nav" aria-label="Điều hướng chính">
             {user?.role === 'employer' ? (
@@ -85,7 +85,7 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="layout__footer">
-        <p>© {new Date().getFullYear()} Jobi — Việc làm bán thời gian uy tín.</p>
+        <p>© {new Date().getFullYear()} Việc gần Bạn — Việc làm bán thời gian uy tín.</p>
       </footer>
     </div>
   )
