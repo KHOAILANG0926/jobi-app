@@ -14,7 +14,7 @@ import { PostJob } from './pages/PostJob'
 import { Profile } from './pages/Profile'
 import { SalaryCalculator } from './pages/SalaryCalculator'
 import { Signup } from './pages/Signup'
-import { KoreaJobs } from './pages/KoreaJobs'
+import KoreaJobs from './pages/KoreaJobs'
 import MapView from './components/MapView'
 
 export default function App() {
