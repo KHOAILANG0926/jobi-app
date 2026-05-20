@@ -8,7 +8,26 @@
       "Bash(chmod +x .git/hooks/post-commit)",
       "Bash(icacls .git/hooks/post-commit /grant Everyone:F)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Admin\\\\Desktop\\\\JOBI\" -Recurse -Force)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-Table FullName)",
+      "Bash(xargs grep -l \"export.*function Home\")",
+      "Bash(npx tsc *)",
+      "Bash(git commit *)",
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Admin\\\\Desktop\\\\JOBI\\\\src\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"interview\\\\|schedule\\\\|calendar\")",
+      "Bash(ngrok version *)",
+      "Bash(npx vite *)",
+      "Bash(npm install *)",
+      "Bash(ngrok http *)",
+      "Bash(ssh *)",
+      "Bash(vercel --version)",
+      "Bash(vercel whoami *)",
+      "Bash(vercel --prod --yes)",
+      "Bash(node *)"
     ]
   }
 }
