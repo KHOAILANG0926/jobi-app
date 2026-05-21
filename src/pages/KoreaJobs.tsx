@@ -65,69 +65,156 @@ export default function KoreaJobs() {
   }, [])
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111' }}>
+    <div style={{ background: '#f7f8fc', minHeight: '100vh' }}>
+      {/* Hero banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #c0392b 0%, #e74c3c 50%, #e67e22 100%)',
+        padding: '36px 24px 32px',
+        textAlign: 'center',
+        color: '#fff'
+      }}>
+        <div style={{ fontSize: '48px', marginBottom: '8px' }}>🇰🇷</div>
+        <h1 style={{ fontSize: '26px', fontWeight: 800, margin: '0 0 8px' }}>
           Viec lam tai Han Quoc
         </h1>
-        <p style={{ color: '#666', marginTop: '4px' }}>
-          Thong tin tuyen dung chinh thuc tu WorkNet Han Quoc
+        <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>
+          Tuyen dung chinh thuc tu WorkNet Han Quoc — cap nhat moi ngay
         </p>
+        {!loading && (
+          <div style={{
+            display: 'inline-block',
+            marginTop: '16px',
+            background: 'rgba(255,255,255,0.2)',
+            borderRadius: '20px',
+            padding: '6px 18px',
+            fontSize: '13px',
+            fontWeight: 600
+          }}>
+            {jobs.length} viec lam dang tuyen
+          </div>
+        )}
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: '#666' }}>
-          Dang tai va dich danh sach viec lam...
-        </div>
-      ) : jobs.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: '#666' }}>
-          Chua co viec lam nao.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {jobs.map((job) => (
-            <div key={job.id} style={{
-              background: '#fff',
-              border: '1px solid #eee',
-              borderRadius: '12px',
-              padding: '20px',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
-            }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111', marginBottom: '8px' }}>
-                {job.title_vi || job.title}
-              </h2>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', color: '#555', fontSize: '14px', marginBottom: '10px' }}>
-                <span>Cong ty: {job.company}</span>
-                <span>Khu vuc: {job.region}</span>
-                <span>Luong: {job.salary}</span>
-                {job.deadline && <span>Han: {job.deadline}</span>}
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '64px 24px' }}>
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>⏳</div>
+            <p style={{ color: '#666', fontSize: '15px' }}>Dang tai va dich danh sach viec lam...</p>
+            <p style={{ color: '#aaa', fontSize: '13px', marginTop: '8px' }}>Co the mat 10-20 giay</p>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '64px 24px', color: '#888' }}>
+            Chua co viec lam nao.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {jobs.map((job, idx) => (
+              <div key={job.id} style={{
+                background: '#fff',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                border: '1px solid #f0f0f0'
+              }}>
+                {/* Card top accent */}
+                <div style={{
+                  height: '4px',
+                  background: idx % 3 === 0
+                    ? 'linear-gradient(90deg, #c0392b, #e74c3c)'
+                    : idx % 3 === 1
+                    ? 'linear-gradient(90deg, #2980b9, #3498db)'
+                    : 'linear-gradient(90deg, #27ae60, #2ecc71)'
+                }} />
+
+                <div style={{ padding: '20px' }}>
+                  {/* Title */}
+                  <h2 style={{
+                    fontSize: '17px',
+                    fontWeight: 700,
+                    color: '#1a1a1a',
+                    marginBottom: '12px',
+                    lineHeight: '1.4'
+                  }}>
+                    {job.title_vi || job.title}
+                  </h2>
+
+                  {/* Info chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{
+                      background: '#fff3f3', color: '#c0392b',
+                      borderRadius: '20px', padding: '4px 12px',
+                      fontSize: '12px', fontWeight: 600
+                    }}>
+                      🏢 {job.company}
+                    </span>
+                    <span style={{
+                      background: '#f0f7ff', color: '#2980b9',
+                      borderRadius: '20px', padding: '4px 12px',
+                      fontSize: '12px', fontWeight: 600
+                    }}>
+                      📍 {job.region}
+                    </span>
+                    <span style={{
+                      background: '#f0fff4', color: '#27ae60',
+                      borderRadius: '20px', padding: '4px 12px',
+                      fontSize: '12px', fontWeight: 600
+                    }}>
+                      💰 {job.salary}
+                    </span>
+                    {job.deadline && (
+                      <span style={{
+                        background: '#fffbf0', color: '#e67e22',
+                        borderRadius: '20px', padding: '4px 12px',
+                        fontSize: '12px', fontWeight: 600
+                      }}>
+                        ⏰ {job.deadline}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {job.description_vi && (
+                    <p style={{
+                      fontSize: '13px',
+                      color: '#555',
+                      lineHeight: '1.7',
+                      marginBottom: '16px',
+                      padding: '12px',
+                      background: '#f9f9f9',
+                      borderRadius: '10px',
+                      borderLeft: '3px solid #e0e0e0'
+                    }}>
+                      {job.description_vi}
+                    </p>
+                  )}
+
+                  {/* CTA button */}
+                  <a
+                    href={job.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '10px 20px',
+                      background: 'linear-gradient(135deg, #c0392b, #e74c3c)',
+                      color: '#fff',
+                      borderRadius: '10px',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 8px rgba(192,57,43,0.3)'
+                    }}
+                  >
+                    Xem chi tiet va ung tuyen
+                  </a>
+                </div>
               </div>
-              {job.description_vi && (
-                <p style={{ fontSize: '14px', color: '#444', marginBottom: '12px', lineHeight: '1.6' }}>
-                  {job.description_vi}
-                </p>
-              )}
-              <a
-                href={job.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-block',
-                  padding: '8px 16px',
-                  background: '#0ea5e9',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  textDecoration: 'none'
-                }}
-              >
-                Xem chi tiet
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
