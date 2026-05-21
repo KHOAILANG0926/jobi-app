@@ -536,6 +536,80 @@ export function Home() {
         </>
       )}
 
+      {/* ── Stats & Ad Inquiry Section ─────────────────────────── */}
+      <section style={{
+        margin: '32px 0 16px',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+      }}>
+        {/* Subscriber stats */}
+        <div style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          padding: '28px 24px',
+          color: '#fff',
+          textAlign: 'center'
+        }}>
+          <p style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.08em', opacity: 0.8, marginBottom: '16px', textTransform: 'uppercase' }}>
+            Cong dong Viec gan Ban
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1 }}>50.000+</p>
+              <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '4px' }}>Nguoi tim viec</p>
+            </div>
+            <div style={{ width: '1px', background: 'rgba(255,255,255,0.25)', alignSelf: 'stretch' }} />
+            <div>
+              <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1 }}>1.200+</p>
+              <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '4px' }}>Nha tuyen dung</p>
+            </div>
+            <div style={{ width: '1px', background: 'rgba(255,255,255,0.25)', alignSelf: 'stretch' }} />
+            <div>
+              <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1 }}>25+</p>
+              <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '4px' }}>Tinh / Thanh pho</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Ad inquiry */}
+        <div style={{
+          background: '#fff8f0',
+          borderTop: '1px solid #ffe0b2',
+          padding: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}>
+          <div>
+            <p style={{ fontSize: '16px', fontWeight: 700, color: '#b45309', marginBottom: '4px' }}>
+              Quang cao & Hop tac
+            </p>
+            <p style={{ fontSize: '13px', color: '#78350f' }}>
+              Tiep can 50.000+ ung vien — Dang tin mien phi
+            </p>
+          </div>
+          <a
+            href="mailto:ads@viecganbạn.vn"
+            style={{
+              display: 'inline-block',
+              padding: '10px 22px',
+              background: '#f59e0b',
+              color: '#fff',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: 700,
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(245,158,11,0.35)'
+            }}
+          >
+            Lien he ngay
+          </a>
+        </div>
+      </section>
+
       <ApplyModal status={status} job={applyJob} profile={profile} onConfirm={confirm} onClose={close} onRetry={retry} />
     </div>
   )
