@@ -31,7 +31,7 @@ export function Signup() {
     <div className="page page--narrow auth-page">
       <header className="page-header">
         <h1 className="page-header__title">Đăng ký</h1>
-        <p className="page-header__lead">Tạo tài khoản Jobi để tìm việc hoặc tuyển dụng.</p>
+        <p className="page-header__lead">Tạo tài khoản Việc gần Bạn để tìm việc hoặc tuyển dụng.</p>
       </header>
 
       <form className="form-card" onSubmit={onSubmit}>

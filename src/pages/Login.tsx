@@ -35,7 +35,7 @@ export function Login() {
     <div className="page page--narrow auth-page">
       <header className="page-header">
         <h1 className="page-header__title">Đăng nhập</h1>
-        <p className="page-header__lead">Chào mừng bạn quay lại Jobi.</p>
+        <p className="page-header__lead">Chào mừng bạn quay lại Việc gần Bạn.</p>
       </header>
 
       <form className="form-card" onSubmit={onSubmit}>

@@ -285,7 +285,7 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
       {!open && !active && (
         <div className="rec-empty">
           <p className="rec-empty__text">
-            Cho chúng tôi biết <strong>khu vực, mức lương và khung giờ</strong> bạn muốn — Jobi sẽ
+            Cho chúng tôi biết <strong>khu vực, mức lương và khung giờ</strong> bạn muốn — Việc gần Bạn sẽ
             tự động chọn ra những tin tuyển dụng phù hợp nhất.
           </p>
           <button className="btn btn--primary btn--sm" onClick={() => setOpen(true)}>

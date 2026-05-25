@@ -318,7 +318,7 @@ export function Community() {
     <div className="page community-page">
       <header className="page-header community-header">
         <div>
-          <h1 className="page-header__title">Cộng đồng Jobi</h1>
+          <h1 className="page-header__title">Cộng đồng Việc gần Bạn</h1>
           <p className="page-header__lead">
             Chia sẻ kinh nghiệm làm thêm, mẹo hay và giải đáp thắc mắc cùng nhau.
           </p>

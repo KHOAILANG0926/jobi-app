@@ -75,7 +75,7 @@ const AD_CONFIGS = {
   inline: {
     bg: 'linear-gradient(90deg,#f7971e 0%,#ffd200 100%)',
     icon: '📱',
-    headline: 'Tải app Jobi — Nhận việc làm trên di động',
+    headline: 'Tải app Việc gần Bạn — Nhận việc làm trên di động',
     cta: 'Tải ngay miễn phí →',
     light: false,
   },

@@ -108,7 +108,7 @@ const CvA4Preview = forwardRef<HTMLDivElement, { data: CvData }>(function CvA4Pr
         </section>
       ) : null}
 
-      <p className="cv-a4__footer">Tạo bằng Jobi</p>
+      <p className="cv-a4__footer">Tạo bằng Việc gần Bạn</p>
     </article>
   )
 })

@@ -172,7 +172,7 @@ export function EmployerDashboard() {
             + Đăng tin mới
           </Link>
           <Link to="/" className="employer-dashboard__link">
-            Xem danh sách trên Jobi →
+            Xem danh sách trên Việc gần Bạn →
           </Link>
         </div>
       </header>
