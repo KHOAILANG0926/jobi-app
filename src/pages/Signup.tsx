@@ -84,15 +84,16 @@ export function Signup() {
           />
         </label>
         <label className="field">
-          <span className="field__label">Mật khẩu (tối thiểu 6 ký tự)</span>
+          <span className="field__label">
+            Mật khẩu <span style={{ color: '#999', fontWeight: 400, fontSize: '13px' }}>(tùy chọn)</span>
+          </span>
           <input
             className="field__input"
             type="password"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
+            placeholder="Để trống nếu không cần"
           />
         </label>
 

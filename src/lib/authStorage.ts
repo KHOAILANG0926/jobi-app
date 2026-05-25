@@ -32,7 +32,7 @@ export function registerAccount(
   if (!p || p.length < 9) {
     return { ok: false, error: 'Số điện thoại không hợp lệ.' }
   }
-  if (!password || password.length < 6) {
+  if (password && password.length < 6) {
     return { ok: false, error: 'Mật khẩu tối thiểu 6 ký tự.' }
   }
   if (!name.trim()) {
@@ -46,7 +46,7 @@ export function registerAccount(
     id: `user-${crypto.randomUUID()}`,
     name: name.trim(),
     phone: p,
-    password,
+    password: password || '',
     role,
     createdAt: new Date().toISOString(),
   }
@@ -64,8 +64,12 @@ export function authenticate(
   }
   const accounts = loadAccounts()
   const found = accounts.find((a) => a.phone === p)
-  if (!found || found.password !== password) {
-    return { ok: false, error: 'Số điện thoại hoặc mật khẩu không đúng.' }
+  if (!found) {
+    return { ok: false, error: 'Số điện thoại chưa được đăng ký.' }
+  }
+  // 비밀번호가 설정된 경우만 확인
+  if (found.password && found.password !== password) {
+    return { ok: false, error: 'Mật khẩu không đúng.' }
   }
   const user: AuthUser = {
     id: found.id,
@@ -83,7 +87,6 @@ export function loadSession(): AuthUser | null {
     if (!raw) return null
     const u = JSON.parse(raw) as AuthUser
     if (!u?.id || !u?.phone || !u?.role) return null
-    // Validate against stored accounts to prevent role tampering via DevTools
     const accounts = loadAccounts()
     const account = accounts.find((a) => a.id === u.id)
     if (!account || account.role !== u.role || account.phone !== u.phone) return null

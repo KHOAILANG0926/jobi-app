@@ -57,14 +57,16 @@ export function Login() {
           />
         </label>
         <label className="field">
-          <span className="field__label">Mật khẩu</span>
+          <span className="field__label">
+            Mật khẩu <span style={{ color: '#999', fontWeight: 400, fontSize: '13px' }}>(nếu có)</span>
+          </span>
           <input
             className="field__input"
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
+            placeholder="Để trống nếu không có mật khẩu"
           />
         </label>
         <button type="submit" className="btn btn--primary btn--block">
