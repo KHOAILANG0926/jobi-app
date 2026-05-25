@@ -20,7 +20,7 @@ function loadLocalStats(): Pick<Stats, 'localUsers' | 'localEmployers' | 'localJ
     const accounts = JSON.parse(localStorage.getItem('jobi_accounts') || '[]')
     const jobs = JSON.parse(localStorage.getItem('jobi_jobs') || '[]')
     return {
-      localUsers: accounts.filter((a: { role: string }) => a.role === 'jobseeker').length,
+      localUsers: accounts.filter((a: { role: string }) => a.role === 'seeker').length,
       localEmployers: accounts.filter((a: { role: string }) => a.role === 'employer').length,
       localJobs: jobs.length,
     }
