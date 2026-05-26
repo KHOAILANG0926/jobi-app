@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import type { Job, JobCategory } from '../types/job'
+import type { JobCategory } from '../types/job'
+import type { Job } from '../types/job'
 
 const supabase = createClient(
   'https://edhuesdnuxlbcfephutq.supabase.co',
@@ -153,29 +154,37 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
     setParsing(false)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!jobForm.title || !jobForm.company) {
       setParseError('Vui lòng điền ít nhất Tiêu đề và Công ty.')
       return
     }
     setSaving(true)
-    try {
-      const jobs: Job[] = JSON.parse(localStorage.getItem('jobi_jobs') || '[]')
-      const newJob: Job = {
-        ...jobForm,
-        id: 'admin-' + Date.now(),
-      }
-      jobs.unshift(newJob)
-      localStorage.setItem('jobi_jobs', JSON.stringify(jobs))
+    setParseError('')
+    const { error } = await supabase.from('local_jobs').insert({
+      title: jobForm.title,
+      company: jobForm.company,
+      category: jobForm.category,
+      salary: jobForm.salary,
+      location: jobForm.location,
+      hours: jobForm.hours || null,
+      employer_phone: jobForm.employerPhone,
+      application_deadline: jobForm.applicationDeadline || null,
+      urgent: jobForm.urgent ?? false,
+      description: jobForm.description,
+      posted_at: new Date().toISOString().slice(0, 10),
+      lat: jobForm.lat ?? null,
+      lng: jobForm.lng ?? null,
+      active: true,
+    })
+    if (error) {
+      setParseError('Lỗi lưu dữ liệu: ' + error.message)
+    } else {
       setSaveSuccess(true)
       setRawText('')
       setJobForm(EMPTY_JOB)
-      setParseError('')
-      // update stats
       setStats(prev => ({ ...prev, localJobs: prev.localJobs + 1 }))
       setTimeout(() => setSaveSuccess(false), 3000)
-    } catch {
-      setParseError('Lỗi lưu dữ liệu.')
     }
     setSaving(false)
   }
