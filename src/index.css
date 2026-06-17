@@ -6209,3 +6209,144 @@ a:hover {
     justify-content: space-between;
   }
 }
+/* ── Banner Grid Layout (PC 3열 / 모바일 1열 세로 적층) ── */
+
+.hbanner {
+  position: relative;
+  border-radius: 16px;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.hbanner-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.hbanner-card {
+  border-radius: 16px;
+  padding: 1.25rem 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 160px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hbanner-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.hbanner__text {
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.hbanner__eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.02em;
+}
+
+.hbanner__title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.75rem;
+  line-height: 1.3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.hbanner__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s;
+  width: fit-content;
+}
+
+.hbanner__cta:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.hbanner__art {
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+  opacity: 0.95;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hbanner__art svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hbanner__badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .hbanner-cards {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .hbanner-card {
+    min-height: 130px;
+    padding: 1rem 1.1rem 1.2rem;
+  }
+
+  .hbanner__title {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .hbanner__cta {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.78rem;
+  }
+
+  .hbanner__art {
+    width: 80px;
+    height: 80px;
+  }
+}
