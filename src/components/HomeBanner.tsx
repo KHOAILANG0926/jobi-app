@@ -21,7 +21,7 @@ const CARDS = [
     eyebrow: '🏢 Thương hiệu lớn tuyển dụng',
     title: 'Highlands · WinMart · Grab\nđang cần người ngay!',
     cta: 'Khám phá ngay',
-    href: '/franchise-jobs',
+    href: '/#brands',
     badge: '12 thương hiệu',
     art: (
       <svg viewBox="0 0 120 100" fill="none" aria-hidden>
