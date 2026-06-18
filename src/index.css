@@ -6349,4 +6349,28 @@ a:hover {
     width: 80px;
     height: 80px;
   }
+}/* --- Banner Cards --- */
+.hbanner-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.hbanner-card {
+  border-radius: 16px;
+  padding: 1.25rem 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 160px;
+}
+
+@media (max-width: 768px) {
+  .hbanner-cards {
+    grid-template-columns: 1fr;
+  }
 }
