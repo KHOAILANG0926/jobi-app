@@ -95,9 +95,9 @@ function AdSlot({ slotId }: AdSlotProps) {
           <span className="ad-slot__inline-text" style={{ color: cfg.light ? '#fff' : '#1a1a1a' }}>
             {cfg.headline}
           </span>
-          <a href="/dang-tin" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
+          <button onClick={() => window.location.href="/dang-tin"} className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
             {cfg.cta}
-          </a>
+          </button>
         </div>
         <span className="ad-slot__label" style={{ color: cfg.light ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.4)' }}>QC</span>
       </div>
@@ -115,9 +115,9 @@ function AdSlot({ slotId }: AdSlotProps) {
           <p className="ad-slot__headline" style={{ color: textColor }}>{cfg.headline}</p>
           {'sub' in cfg && <p className="ad-slot__sub" style={{ color: subColor }}>{cfg.sub}</p>}
         </div>
-        <a href="/dang-tin" className="ad-slot__cta-btn">
+        <button onClick={() => window.location.href="/dang-tin"} className="ad-slot__cta-btn">
           {cfg.cta}
-        </a>
+        </button>
       </div>
     </div>
   )
@@ -606,7 +606,7 @@ export function Home() {
             }}
           >
             Lien he ngay
-          </a>
+          </button>
         </div>
       </section>
 
@@ -614,4 +614,7 @@ export function Home() {
     </div>
   )
 }
+
+
+
 
