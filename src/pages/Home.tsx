@@ -18,7 +18,7 @@ import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '.
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
-/* ?�?� Static data ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */
+/* ── Static data ─────────────────────────────────────────────────── */
 
 const FEATURED_BRANDS = [
   { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://logo.clearbit.com/grab.com' },
@@ -51,12 +51,12 @@ const CITY_BUTTONS: { id: JobRegionId; label: string }[] = [
   { id: 'haiduong',   label: 'Hải Dương' },
 ]
 
-/* ?�?� Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
+/* ── Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
 
 const AD_CONFIGS = {
   header: {
     bg: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)',
-    icon: '?��',
+    icon: '🎓',
     eyebrow: 'Khóa học kỹ năng nghề',
     headline: 'Nâng cao kỹ năng — tăng lương ngay',
     sub: 'Hơn 200 khóa học chứng chỉ nghề trực tuyến',
@@ -65,18 +65,18 @@ const AD_CONFIGS = {
   },
   mid: {
     bg: 'linear-gradient(135deg,#0f2027 0%,#203a43 50%,#2c5364 100%)',
-    icon: '?��',
+    icon: '🏢',
     eyebrow: 'Dành cho nhà tuyển dụng',
     headline: 'Tìm ứng viên chất lượng cao',
-    sub: 'Đăng tin miễn phí ??Tiếp cận 50.000+ ứng viên',
-    cta: 'Đăng tin ngay ??,
+    sub: 'Đăng tin miễn phí — Tiếp cận 50.000+ ứng viên',
+    cta: 'Đăng tin ngay →',
     light: true,
   },
   inline: {
     bg: 'linear-gradient(90deg,#f7971e 0%,#ffd200 100%)',
-    icon: '?��',
-    headline: 'Tải app Việc gần Bạn ??Nhận việc làm trên di động',
-    cta: 'Tải ngay miễn phí ??,
+    icon: '📱',
+    headline: 'Tải app Việc gần Bạn — Nhận việc làm trên di động',
+    cta: 'Tải ngay miễn phí →',
     light: false,
   },
 }
@@ -95,7 +95,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <span className="ad-slot__inline-text" style={{ color: cfg.light ? '#fff' : '#1a1a1a' }}>
             {cfg.headline}
           </span>
-          <a href="/dang-tin" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
+          <a href="mailto:ads@jobi.vn" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
             {cfg.cta}
           </a>
         </div>
@@ -115,7 +115,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <p className="ad-slot__headline" style={{ color: textColor }}>{cfg.headline}</p>
           {'sub' in cfg && <p className="ad-slot__sub" style={{ color: subColor }}>{cfg.sub}</p>}
         </div>
-        <a href="/dang-tin" className="ad-slot__cta-btn">
+        <a href="mailto:ads@jobi.vn" className="ad-slot__cta-btn">
           {cfg.cta}
         </a>
       </div>
@@ -123,7 +123,7 @@ function AdSlot({ slotId }: AdSlotProps) {
   )
 }
 
-/* ?�?� Brand logo with image + initial fallback ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */
+/* ── Brand logo with image + initial fallback ───────────────────── */
 
 function BrandLogo({ initial, color, logo }: {
   name: string; initial: string; color: string; logo: string
@@ -143,7 +143,7 @@ function BrandLogo({ initial, color, logo }: {
   )
 }
 
-/* ?�?� Main component ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */
+/* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
   const { jobs } = useJobs()
@@ -178,11 +178,11 @@ export function Home() {
   const handleNearMe = useCallback(() => {
     if (nearMe) { setNearMe(false); return }
     if (userCoords) { setNearMe(true); return }
-    if (!navigator.geolocation) { setGeoError('Trình duyệt không h�?tr�?định v�?'); return }
+    if (!navigator.geolocation) { setGeoError('Trình duyệt không hỗ trợ định vị.'); return }
     setGeoLoading(true); setGeoError(null)
     navigator.geolocation.getCurrentPosition(
       (pos) => { setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setNearMe(true); setGeoLoading(false) },
-      () => { setGeoError('Không th�?lấy v�?trí.'); setGeoLoading(false) },
+      () => { setGeoError('Không thể lấy vị trí.'); setGeoLoading(false) },
       { timeout: 10_000 },
     )
   }, [nearMe, userCoords])
@@ -298,13 +298,13 @@ export function Home() {
   return (
     <div className="home-page">
 
-      {/* ?�?� Banner ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Banner ─────────────────────────────────────────────── */}
       <HomeBanner />
 
-      {/* ?�?� Ad slot 1: Header ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Ad slot 1: Header ──────────────────────────────────── */}
       <AdSlot slotId="header" />
 
-      {/* ?�?� Search ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Search ─────────────────────────────────────────────── */}
       <div className="home-search-wrap">
         <div className="home-search">
           <svg className="home-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -318,14 +318,14 @@ export function Home() {
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Tìm kiếm việc làm"
           />
-          {search && <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa">??/button>}
+          {search && <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa">✕</button>}
         </div>
       </div>
 
-      {/* ?�?� City button grid ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
-      <section className="city-grid" aria-label="Lọc theo thành ph�?>
+      {/* ── City button grid ───────────────────────────────────── */}
+      <section className="city-grid" aria-label="Lọc theo thành phố">
         <div className="city-grid__head">
-          <span className="city-grid__icon">?��</span>
+          <span className="city-grid__icon">📍</span>
           <h2 className="city-grid__title">Tìm việc theo khu vực</h2>
         </div>
         <div className="city-grid__buttons">
@@ -333,7 +333,7 @@ export function Home() {
             className={`city-btn${!selectedCity ? ' city-btn--all' : ''}`}
             onClick={() => setSelectedCity(null)}
           >
-            <span className="city-btn__label">?�� Tất c�?/span>
+            <span className="city-btn__label">🌐 Tất cả</span>
             <span className="city-btn__count">{jobs.length}</span>
           </button>
           {CITY_BUTTONS.map((city) => {
@@ -353,27 +353,27 @@ export function Home() {
         </div>
       </section>
 
-      {/* ?�?� City filtered results ??right below city buttons ?�?�?�?� */}
+      {/* ── City filtered results — right below city buttons ──── */}
       {selectedCity && (() => {
         const cityLabel = CITY_BUTTONS.find(c => c.id === selectedCity)?.label ?? ''
         return (
           <section className="city-result" ref={cityResultRef}>
             <div className="city-result__head">
               <div className="city-result__title-wrap">
-                <span className="city-result__pin">?��</span>
+                <span className="city-result__pin">📍</span>
                 <h2 className="city-result__title">Việc làm tại {cityLabel}</h2>
-                <span className="city-result__count">{filtered.length} kết qu�?/span>
+                <span className="city-result__count">{filtered.length} kết quả</span>
               </div>
               <button className="city-result__clear" onClick={() => setSelectedCity(null)}>
-                ??B�?chọn
+                ✕ Bỏ chọn
               </button>
             </div>
 
             {filtered.length === 0 ? (
               <div className="city-result__empty">
-                <span>?��</span>
+                <span>🔍</span>
                 <p>Chưa có việc làm tại <strong>{cityLabel}</strong></p>
-                <button onClick={() => setSelectedCity(null)}>??Xem tất c�?/button>
+                <button onClick={() => setSelectedCity(null)}>← Xem tất cả</button>
               </div>
             ) : (
               <>
@@ -404,8 +404,8 @@ export function Home() {
         )
       })()}
 
-      {/* ?�?� Category grid ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
-      <section className="home-cat-grid" aria-label="Lọc theo ngành ngh�?>
+      {/* ── Category grid ──────────────────────────────────────── */}
+      <section className="home-cat-grid" aria-label="Lọc theo ngành nghề">
         <button
           className={`home-cat-card${category === 'all' ? ' home-cat-card--active' : ''}`}
           onClick={() => handleCategoryClick('all')}
@@ -413,7 +413,7 @@ export function Home() {
           <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </span>
-          <span className="home-cat-card__label">Tất c�?/span>
+          <span className="home-cat-card__label">Tất cả</span>
           <span className="home-cat-card__count">{jobs.length}</span>
         </button>
         {ALL_CATEGORIES.map((cat) => (
@@ -432,11 +432,11 @@ export function Home() {
         ))}
       </section>
 
-      {/* ?�?� Featured brands ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Featured brands ────────────────────────────────────── */}
       <section className="home-brands">
         <div className="home-brands__head">
-          <h2 className="home-brands__title">?�� Nhà tuyển dụng nổi bật</h2>
-          <span className="home-brands__sub">Nhấn đ�?lọc</span>
+          <h2 className="home-brands__title">🏢 Nhà tuyển dụng nổi bật</h2>
+          <span className="home-brands__sub">Nhấn để lọc</span>
         </div>
         <div className="home-brands__row">
           {FEATURED_BRANDS.map((b) => (
@@ -448,30 +448,30 @@ export function Home() {
         </div>
       </section>
 
-      {/* ?�?� Ad slot 2: Mid ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Ad slot 2: Mid ─────────────────────────────────────── */}
       <AdSlot slotId="mid" />
 
-      {/* ?�?� Promo strip ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Promo strip ────────────────────────────────────────── */}
       {!hasFilters && (
         <div className="home-promo">
           <div className="home-promo__content">
-            <span className="home-promo__icon">?��</span>
+            <span className="home-promo__icon">📋</span>
             <div>
-              <p className="home-promo__title">Tạo CV ngay ??tăng cơ hội được gọi!</p>
+              <p className="home-promo__title">Tạo CV ngay — tăng cơ hội được gọi!</p>
               <p className="home-promo__sub">Nhà tuyển dụng tìm kiếm CV mỗi ngày.</p>
             </div>
           </div>
-          <button className="home-promo__btn" onClick={() => navigate('/ho-so')}>Tạo CV miễn phí ??/button>
+          <button className="home-promo__btn" onClick={() => navigate('/ho-so')}>Tạo CV miễn phí →</button>
         </div>
       )}
 
-      {/* ?�?� Filter bar ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Filter bar ─────────────────────────────────────────── */}
       <div className="home-filter-bar">
         <span className="home-result-count">
           {selectedCity
             ? `${filtered.length} việc làm tại ${CITY_BUTTONS.find(c => c.id === selectedCity)?.label}`
             : hasFilters
-            ? `${filtered.length} kết qu�?
+            ? `${filtered.length} kết quả`
             : `${jobs.length} việc làm`}
           {nearMe && userCoords && ` trong ${nearRadius}km`}
         </span>
@@ -480,7 +480,7 @@ export function Home() {
           onClick={() => setUrgentOnly(v => !v)}
           aria-pressed={urgentOnly}
         >
-          ?�� Tuyển gấp
+          🔥 Tuyển gấp
         </button>
         <button
           className={`home-near-btn${nearMe ? ' home-near-btn--active' : ''}${geoLoading ? ' home-near-btn--loading' : ''}`}
@@ -488,9 +488,9 @@ export function Home() {
           disabled={geoLoading}
           aria-pressed={nearMe}
         >
-          {geoLoading ? 'Đang định v�?..' : '?�� Gần tôi'}
+          {geoLoading ? 'Đang định vị...' : '📍 Gần tôi'}
         </button>
-        {hasFilters && <button className="home-reset-btn" onClick={resetFilters}>??Xóa lọc</button>}
+        {hasFilters && <button className="home-reset-btn" onClick={resetFilters}>✕ Xóa lọc</button>}
       </div>
 
       {nearMe && userCoords && (
@@ -504,23 +504,23 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* ?�?� Bottom job section: only when NO city is selected ?�?�?�?� */}
+      {/* ── Bottom job section: only when NO city is selected ──── */}
       {!selectedCity && (
         <>
           {!hasOtherFilters && <RecommendSection jobs={jobs} />}
 
           {hasOtherFilters && filtered.length === 0 ? (
             <div className="home-empty">
-              <span className="home-empty__icon">?��</span>
+              <span className="home-empty__icon">🔍</span>
               <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
-              <button className="home-empty__reset" onClick={resetFilters}>Xóa b�?lọc</button>
+              <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
             </div>
           ) : nearMe && userCoords ? (
-            <JobGrid jobs={filtered} title="?�� Việc làm gần bạn" />
+            <JobGrid jobs={filtered} title="📍 Việc làm gần bạn" />
           ) : (
             <>
               {!urgentOnly && urgentJobs.length > 0 && (
-                <JobGrid jobs={urgentJobs} title="?�� Tuyển gấp" />
+                <JobGrid jobs={urgentJobs} title="🔥 Tuyển gấp" />
               )}
               {!urgentOnly && urgentJobs.length > 0 && regularJobs.length > 0 && (
                 <AdSlot slotId="inline" />
@@ -528,7 +528,7 @@ export function Home() {
               {(urgentOnly ? filtered : regularJobs).length > 0 && (
                 <JobGrid
                   jobs={urgentOnly ? filtered : regularJobs}
-                  title={(!urgentOnly && urgentJobs.length > 0) ? '?�� Tất c�?kết qu�? : undefined}
+                  title={(!urgentOnly && urgentJobs.length > 0) ? '📋 Tất cả kết quả' : undefined}
                 />
               )}
             </>
@@ -536,7 +536,7 @@ export function Home() {
         </>
       )}
 
-      {/* ?�?� Stats & Ad Inquiry Section ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� */}
+      {/* ── Stats & Ad Inquiry Section ─────────────────────────── */}
       <section style={{
         margin: '32px 0 16px',
         borderRadius: '16px',
@@ -587,7 +587,7 @@ export function Home() {
               Quang cao & Hop tac
             </p>
             <p style={{ fontSize: '13px', color: '#78350f' }}>
-              Tiep can 50.000+ ung vien ??Dang tin mien phi
+              Tiep can 50.000+ ung vien — Dang tin mien phi
             </p>
           </div>
           <a
