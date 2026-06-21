@@ -95,7 +95,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <span className="ad-slot__inline-text" style={{ color: cfg.light ? '#fff' : '#1a1a1a' }}>
             {cfg.headline}
           </span>
-          <a href="mailto:ads@jobi.vn" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
+          <a href="/dang-tin" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
             {cfg.cta}
           </a>
         </div>
@@ -115,7 +115,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <p className="ad-slot__headline" style={{ color: textColor }}>{cfg.headline}</p>
           {'sub' in cfg && <p className="ad-slot__sub" style={{ color: subColor }}>{cfg.sub}</p>}
         </div>
-        <a href="mailto:ads@jobi.vn" className="ad-slot__cta-btn">
+        <a href="/dang-tin" className="ad-slot__cta-btn">
           {cfg.cta}
         </a>
       </div>
