@@ -47,6 +47,7 @@ export function Layout() {
               </>
             ) : (
               <NavLink to="/dang-nhap" className={navClass}>Đăng nhập</NavLink>
+<NavLink to="/dang-ky" className={navClass}>Đăng ký</NavLink>
             )}
           </nav>
         </div>
