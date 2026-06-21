@@ -32,9 +32,7 @@ export default function App() {
                 <Route
                   path="/dang-tin"
                   element={
-                    <RequireEmployer>
-                      <PostJob />
-                    </RequireEmployer>
+                    <PostJob />
                   }
                 />
                 <Route path="/ho-so" element={<Profile />} />
@@ -64,3 +62,4 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
