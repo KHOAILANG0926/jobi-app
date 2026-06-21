@@ -2,69 +2,96 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import type { AuthUser, UserRole } from '../types/auth'
-import {
-  authenticate,
-  clearSession,
-  loadSession,
-  registerAccount,
-} from '../lib/authStorage'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  'https://edhuesdnuxlbcfephutq.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
+)
+
+export type UserRole = 'seeker' | 'employer'
+
+export interface AuthUser {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+}
 
 interface AuthContextValue {
   user: AuthUser | null
-  login: (
-    phone: string,
-    password: string,
-  ) => { ok: true; user: AuthUser } | { ok: false; error: string }
-  signup: (
-    name: string,
-    phone: string,
-    password: string,
-    role: UserRole,
-  ) => { ok: true } | { ok: false; error: string }
-  logout: () => void
+  loading: boolean
+  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  signup: (name: string, email: string, password: string, role: UserRole) => Promise<{ ok: true } | { ok: false; error: string }>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => loadSession())
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const login = useCallback((phone: string, password: string) => {
-    const result = authenticate(phone, password)
-    if (result.ok) {
-      setUser(result.user)
-      return { ok: true as const, user: result.user }
-    }
-    return result
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user
+      if (u) {
+        setUser({
+          id: u.id,
+          email: u.email ?? '',
+          name: u.user_metadata?.name ?? '',
+          role: u.user_metadata?.role ?? 'seeker',
+        })
+      }
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user
+      if (u) {
+        setUser({
+          id: u.id,
+          email: u.email ?? '',
+          name: u.user_metadata?.name ?? '',
+          role: u.user_metadata?.role ?? 'seeker',
+        })
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const signup = useCallback(
-    (name: string, phone: string, password: string, role: UserRole) => {
-      const reg = registerAccount(name, phone, password, role)
-      if (!reg.ok) return reg
-      const auth = authenticate(phone, password)
-      if (auth.ok) {
-        setUser(auth.user)
-        return { ok: true as const }
-      }
-      return { ok: false, error: 'Đăng ký thành công nhưng đăng nhập thất bại.' }
-    },
-    [],
-  )
+  const login = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { ok: false as const, error: error.message }
+    return { ok: true as const }
+  }, [])
 
-  const logout = useCallback(() => {
-    clearSession()
+  const signup = useCallback(async (name: string, email: string, password: string, role: UserRole) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, role } },
+    })
+    if (error) return { ok: false as const, error: error.message }
+    return { ok: true as const }
+  }, [])
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut()
     setUser(null)
   }, [])
 
   const value = useMemo(
-    () => ({ user, login, signup, logout }),
-    [user, login, signup, logout],
+    () => ({ user, loading, login, signup, logout }),
+    [user, loading, login, signup, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

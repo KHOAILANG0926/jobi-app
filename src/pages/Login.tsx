@@ -1,82 +1,73 @@
-import { FormEvent, useState } from 'react'
-import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function Login() {
-  const { login, user } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-  const [phone, setPhone] = useState('')
+  const { login } = useAuth()
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const from = (location.state as { from?: string } | null)?.from
-
-  if (user) {
-    return <Navigate to={user.role === 'employer' ? '/bang-dieu-khien' : '/'} replace />
-  }
-
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    const result = login(phone, password)
+    if (!email.trim() || !password.trim()) {
+      setError('Vui lòng điền email và mật khẩu.')
+      return
+    }
+    setLoading(true)
+    const result = await login(email.trim(), password)
+    setLoading(false)
     if (!result.ok) {
-      setError(result.error)
+      setError('Email hoặc mật khẩu không đúng.')
       return
     }
-    if (from) {
-      navigate(from, { replace: true })
-      return
-    }
-    navigate(result.user.role === 'employer' ? '/bang-dieu-khien' : '/', { replace: true })
+    navigate('/', { replace: true })
   }
 
   return (
-    <div className="page page--narrow auth-page">
+    <div className="page page--narrow">
       <header className="page-header">
         <h1 className="page-header__title">Đăng nhập</h1>
-        <p className="page-header__lead">Chào mừng bạn quay lại Việc gần Bạn.</p>
       </header>
+      <form className="form-card" onSubmit={onSubmit} noValidate>
+        {error && <p className="form-error" role="alert">{error}</p>}
 
-      <form className="form-card" onSubmit={onSubmit}>
-        {error ? (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        ) : null}
         <label className="field">
-          <span className="field__label">Số điện thoại</span>
+          <span className="field__label">Email *</span>
           <input
             className="field__input"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="0900 000 000"
-            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="example@email.com"
+            autoComplete="email"
           />
         </label>
+
         <label className="field">
-          <span className="field__label">
-            Mật khẩu <span style={{ color: '#999', fontWeight: 400, fontSize: '13px' }}>(nếu có)</span>
-          </span>
+          <span className="field__label">Mật khẩu *</span>
           <input
             className="field__input"
             type="password"
-            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Để trống nếu không có mật khẩu"
+            placeholder="••••••••"
+            autoComplete="current-password"
           />
         </label>
-        <button type="submit" className="btn btn--primary btn--block">
-          Đăng nhập
-        </button>
-        <p className="auth-page__footer">
+
+        <div className="form-actions">
+          <button type="submit" className="btn btn--primary" disabled={loading}>
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </button>
+        </div>
+
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 14 }}>
           Chưa có tài khoản?{' '}
-          <Link to="/dang-ky" className="text-link">
-            Đăng ký
-          </Link>
+          <Link to="/dang-ky" style={{ color: '#e53e3e', fontWeight: 500 }}>Đăng ký</Link>
         </p>
       </form>
     </div>

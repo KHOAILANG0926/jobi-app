@@ -26,7 +26,7 @@ type Props = { company: string }
 export function CompanyReviews({ company }: Props) {
   const { user } = useAuth()
   const reviewerKey = useMemo(() => {
-    if (user?.phone) return `user:${user.phone}`
+    if (user?.email) return `user:${user?.email}`
     const em = loadProfile().email?.trim()
     if (em) return `email:${em}`
     let gid = sessionStorage.getItem('jobi_guest_id')
@@ -35,7 +35,7 @@ export function CompanyReviews({ company }: Props) {
       sessionStorage.setItem('jobi_guest_id', gid)
     }
     return gid
-  }, [user?.phone])
+  }, [user?.email])
 
   const [reviews, setReviews] = useState<CompanyReview[]>(() => getRecentReviewsForCompany(company, 3))
   const [summary, setSummary] = useState(() => getCompanyRatingSummary(company))

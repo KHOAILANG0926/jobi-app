@@ -4,7 +4,7 @@ import { CvBuilder } from '../components/CvBuilder'
 import { MessagesInbox } from '../components/MessagesInbox'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
-import { formatPhoneDisplay } from '../lib/authStorage'
+
 import {
   APPLICATION_STATUS_META,
   loadApplications,
@@ -120,7 +120,7 @@ export function Profile() {
         <header className="page-header">
           <h1 className="page-header__title">Tài khoản nhà tuyển dụng</h1>
           <p className="page-header__lead">
-            {user.name} · {formatPhoneDisplay(user.phone)}
+            {user.name} · {user.email}
           </p>
         </header>
         <div className="profile-grid profile-grid--single">

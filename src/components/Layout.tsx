@@ -1,6 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { formatPhoneDisplay } from '../lib/authStorage'
 import { NotificationBell } from './NotificationBell'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -37,7 +36,7 @@ export function Layout() {
             {user ? (
               <>
                 <NotificationBell />
-                <span className="layout__user" title={formatPhoneDisplay(user.phone)}>
+                <span className="layout__user" title={user.email}>
                   {user.name}
                 </span>
               </>

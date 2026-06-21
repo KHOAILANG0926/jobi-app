@@ -4,7 +4,7 @@ export interface StoredAccount {
   id: string
   name: string
   /** Chuẩn hoá: chỉ chữ số */
-  phone: string
+  email: string
   password: string
   role: UserRole
   createdAt: string
@@ -13,6 +13,6 @@ export interface StoredAccount {
 export interface AuthUser {
   id: string
   name: string
-  phone: string
+  email: string
   role: UserRole
 }
