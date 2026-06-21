@@ -27,4 +27,4 @@ export interface Job {
   /** Vĩ độ / kinh độ để hiển thị trên bản đồ (ước lượng theo địa điểm nếu thiếu) */
   lat?: number
   lng?: number
-}
+}imageUrl?: string
