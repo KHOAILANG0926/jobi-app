@@ -29,12 +29,7 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/viec-lam/:id" element={<JobDetail />} />
-                <Route
-                  path="/dang-tin"
-                  element={
-                    <PostJob />
-                  }
-                />
+                <Route path="/dang-tin" element={<RequireEmployer><PostJob /></RequireEmployer>} />
                 <Route path="/ho-so" element={<Profile />} />
                 <Route path="/tinh-luong" element={<SalaryCalculator />} />
                 <Route
@@ -62,4 +57,5 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
 
