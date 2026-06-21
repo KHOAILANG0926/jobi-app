@@ -1,7 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
-import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import type { JobCategory } from '../types/job'
 
@@ -15,18 +14,20 @@ const emptyForm = {
   description: '',
   employerPhone: '',
   applicationDeadline: '',
+  urgent: false,
 }
 
 export function PostJob() {
   const navigate = useNavigate()
-  const { user } = useAuth()
   const { addPostedJob } = useJobs()
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+
     if (
       !form.title.trim() ||
       !form.company.trim() ||
@@ -35,9 +36,10 @@ export function PostJob() {
       !form.description.trim() ||
       !form.employerPhone.trim()
     ) {
-      setError('Vui lòng điền đầy đủ các trường bắt buộc.')
+      setError('Vui lòng điền đầy đủ các trường bắt buộc (*).')
       return
     }
+
     const deadline =
       form.applicationDeadline.trim() ||
       (() => {
@@ -45,21 +47,28 @@ export function PostJob() {
         t.setDate(t.getDate() + 14)
         return t.toISOString().slice(0, 10)
       })()
-    const job = addPostedJob({
-      title: form.title.trim(),
-      company: form.company.trim(),
-      category: form.category,
-      salary: form.salary.trim(),
-      location: form.location.trim(),
-      description: form.description.trim(),
-      hours: form.hours.trim() || undefined,
-      employerPhone: form.employerPhone.trim(),
-      applicationDeadline: deadline,
-      urgent: false,
-      employerId: user?.id,
-    })
-    setForm(emptyForm)
-    navigate(`/viec-lam/${job.id}`, { replace: true })
+
+    setSubmitting(true)
+    try {
+      const job = await addPostedJob({
+        title: form.title.trim(),
+        company: form.company.trim(),
+        category: form.category,
+        salary: form.salary.trim(),
+        location: form.location.trim(),
+        description: form.description.trim(),
+        hours: form.hours.trim() || undefined,
+        employerPhone: form.employerPhone.trim(),
+        applicationDeadline: deadline,
+        urgent: form.urgent,
+      })
+      setForm(emptyForm)
+      navigate(`/viec-lam/${job.id}`, { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi. Vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -67,16 +76,14 @@ export function PostJob() {
       <header className="page-header">
         <h1 className="page-header__title">Đăng tin tuyển dụng</h1>
         <p className="page-header__lead">
-          Dành cho nhà tuyển dụng — đăng việc bán thời gian, tiếp cận ứng viên nhanh hơn.
+          Nhà tuyển dụng đăng việc miễn phí — tiếp cận ứng viên ngay hôm nay.
         </p>
       </header>
 
       <form className="form-card" onSubmit={onSubmit} noValidate>
-        {error ? (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error && (
+          <p className="form-error" role="alert">{error}</p>
+        )}
 
         <label className="field">
           <span className="field__label">Tiêu đề công việc *</span>
@@ -103,14 +110,10 @@ export function PostJob() {
           <select
             className="field__input"
             value={form.category}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, category: e.target.value as JobCategory }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as JobCategory }))}
           >
             {ALL_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {CATEGORY_LABELS[c]}
-              </option>
+              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
             ))}
           </select>
         </label>
@@ -146,7 +149,7 @@ export function PostJob() {
         </label>
 
         <label className="field">
-          <span className="field__label">Số điện thoại liên hệ (nhà tuyển dụng) *</span>
+          <span className="field__label">Số điện thoại liên hệ *</span>
           <input
             className="field__input"
             value={form.employerPhone}
@@ -158,13 +161,22 @@ export function PostJob() {
         </label>
 
         <label className="field">
-          <span className="field__label">Hạn nộp hồ sơ (để trống = mặc định 14 ngày)</span>
+          <span className="field__label">Hạn nộp hồ sơ (để trống = 14 ngày)</span>
           <input
             className="field__input"
             type="date"
             value={form.applicationDeadline}
             onChange={(e) => setForm((f) => ({ ...f, applicationDeadline: e.target.value }))}
           />
+        </label>
+
+        <label className="field field--row">
+          <input
+            type="checkbox"
+            checked={form.urgent}
+            onChange={(e) => setForm((f) => ({ ...f, urgent: e.target.checked }))}
+          />
+          <span className="field__label">🔥 Tuyển gấp</span>
         </label>
 
         <label className="field">
@@ -179,13 +191,14 @@ export function PostJob() {
         </label>
 
         <div className="form-actions">
-          <button type="submit" className="btn btn--primary">
-            Đăng tin
+          <button type="submit" className="btn btn--primary" disabled={submitting}>
+            {submitting ? 'Đang đăng...' : 'Đăng tin'}
           </button>
           <button
             type="button"
             className="btn btn--ghost"
             onClick={() => setForm(emptyForm)}
+            disabled={submitting}
           >
             Xoá form
           </button>
