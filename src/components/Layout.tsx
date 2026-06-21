@@ -6,7 +6,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   `layout__nav-link${isActive ? ' layout__nav-link--active' : ''}`
 
 export function Layout() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   return (
     <div className="layout">
       <header className="layout__header">
@@ -36,9 +36,14 @@ export function Layout() {
             {user ? (
               <>
                 <NotificationBell />
-                <span className="layout__user" title={user.email}>
-                  {user.name}
-                </span>
+                <span className="layout__user">{user.name}</span>
+                <button
+                  className="layout__nav-link"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e53e3e' }}
+                  onClick={logout}
+                >
+                  Đăng xuất
+                </button>
               </>
             ) : (
               <NavLink to="/dang-nhap" className={navClass}>Đăng nhập</NavLink>
