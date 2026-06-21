@@ -18,7 +18,7 @@ import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '.
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
-/* â”€â”€ Static data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ?€?€ Static data ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */
 
 const FEATURED_BRANDS = [
   { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://logo.clearbit.com/grab.com' },
@@ -51,32 +51,32 @@ const CITY_BUTTONS: { id: JobRegionId; label: string }[] = [
   { id: 'haiduong',   label: 'Háº£i DÆ°Æ¡ng' },
 ]
 
-/* â”€â”€ Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
+/* ?€?€ Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
 
 const AD_CONFIGS = {
   header: {
     bg: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)',
-    icon: 'ğŸ“',
-    eyebrow: 'KhÃ³a há»c ká»¹ nÄƒng nghá»',
-    headline: 'NÃ¢ng cao ká»¹ nÄƒng â€” tÄƒng lÆ°Æ¡ng ngay',
-    sub: 'HÆ¡n 200 khÃ³a há»c chá»©ng chá»‰ nghá» trá»±c tuyáº¿n',
-    cta: 'ÄÄƒng kÃ½ miá»…n phÃ­ â†’',
+    icon: '?“',
+    eyebrow: 'KhÃ³a há»c ká»?nÄƒng nghá»?,
+    headline: 'NÃ¢ng cao ká»?nÄƒng ??tÄƒng lÆ°Æ¡ng ngay',
+    sub: 'HÆ¡n 200 khÃ³a há»c chá»©ng chá»?nghá»?trá»±c tuyáº¿n',
+    cta: 'ÄÄƒng kÃ½ miá»…n phÃ­ ??,
     light: true,
   },
   mid: {
     bg: 'linear-gradient(135deg,#0f2027 0%,#203a43 50%,#2c5364 100%)',
-    icon: 'ğŸ¢',
+    icon: '?¢',
     eyebrow: 'DÃ nh cho nhÃ  tuyá»ƒn dá»¥ng',
     headline: 'TÃ¬m á»©ng viÃªn cháº¥t lÆ°á»£ng cao',
-    sub: 'ÄÄƒng tin miá»…n phÃ­ â€” Tiáº¿p cáº­n 50.000+ á»©ng viÃªn',
-    cta: 'ÄÄƒng tin ngay â†’',
+    sub: 'ÄÄƒng tin miá»…n phÃ­ ??Tiáº¿p cáº­n 50.000+ á»©ng viÃªn',
+    cta: 'ÄÄƒng tin ngay ??,
     light: true,
   },
   inline: {
     bg: 'linear-gradient(90deg,#f7971e 0%,#ffd200 100%)',
-    icon: 'ğŸ“±',
-    headline: 'Táº£i app Viá»‡c gáº§n Báº¡n â€” Nháº­n viá»‡c lÃ m trÃªn di Ä‘á»™ng',
-    cta: 'Táº£i ngay miá»…n phÃ­ â†’',
+    icon: '?“±',
+    headline: 'Táº£i app Viá»‡c gáº§n Báº¡n ??Nháº­n viá»‡c lÃ m trÃªn di Ä‘á»™ng',
+    cta: 'Táº£i ngay miá»…n phÃ­ ??,
     light: false,
   },
 }
@@ -95,7 +95,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <span className="ad-slot__inline-text" style={{ color: cfg.light ? '#fff' : '#1a1a1a' }}>
             {cfg.headline}
           </span>
-          <a href="mailto:ads@jobi.vn" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
+          <a href="/dang-tin" className="ad-slot__inline-cta" style={{ color: cfg.light ? '#fff' : '#7c2d12' }}>
             {cfg.cta}
           </a>
         </div>
@@ -115,7 +115,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <p className="ad-slot__headline" style={{ color: textColor }}>{cfg.headline}</p>
           {'sub' in cfg && <p className="ad-slot__sub" style={{ color: subColor }}>{cfg.sub}</p>}
         </div>
-        <a href="mailto:ads@jobi.vn" className="ad-slot__cta-btn">
+        <a href="/dang-tin" className="ad-slot__cta-btn">
           {cfg.cta}
         </a>
       </div>
@@ -123,7 +123,7 @@ function AdSlot({ slotId }: AdSlotProps) {
   )
 }
 
-/* â”€â”€ Brand logo with image + initial fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ?€?€ Brand logo with image + initial fallback ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */
 
 function BrandLogo({ initial, color, logo }: {
   name: string; initial: string; color: string; logo: string
@@ -143,7 +143,7 @@ function BrandLogo({ initial, color, logo }: {
   )
 }
 
-/* â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ?€?€ Main component ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */
 
 export function Home() {
   const { jobs } = useJobs()
@@ -178,11 +178,11 @@ export function Home() {
   const handleNearMe = useCallback(() => {
     if (nearMe) { setNearMe(false); return }
     if (userCoords) { setNearMe(true); return }
-    if (!navigator.geolocation) { setGeoError('TrÃ¬nh duyá»‡t khÃ´ng há»— trá»£ Ä‘á»‹nh vá»‹.'); return }
+    if (!navigator.geolocation) { setGeoError('TrÃ¬nh duyá»‡t khÃ´ng há»?trá»?Ä‘á»‹nh vá»?'); return }
     setGeoLoading(true); setGeoError(null)
     navigator.geolocation.getCurrentPosition(
       (pos) => { setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setNearMe(true); setGeoLoading(false) },
-      () => { setGeoError('KhÃ´ng thá»ƒ láº¥y vá»‹ trÃ­.'); setGeoLoading(false) },
+      () => { setGeoError('KhÃ´ng thá»?láº¥y vá»?trÃ­.'); setGeoLoading(false) },
       { timeout: 10_000 },
     )
   }, [nearMe, userCoords])
@@ -298,13 +298,13 @@ export function Home() {
   return (
     <div className="home-page">
 
-      {/* â”€â”€ Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Banner ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <HomeBanner />
 
-      {/* â”€â”€ Ad slot 1: Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Ad slot 1: Header ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <AdSlot slotId="header" />
 
-      {/* â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Search ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <div className="home-search-wrap">
         <div className="home-search">
           <svg className="home-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -318,14 +318,14 @@ export function Home() {
             onChange={(e) => setSearch(e.target.value)}
             aria-label="TÃ¬m kiáº¿m viá»‡c lÃ m"
           />
-          {search && <button className="home-search__clear" onClick={() => setSearch('')} aria-label="XÃ³a">âœ•</button>}
+          {search && <button className="home-search__clear" onClick={() => setSearch('')} aria-label="XÃ³a">??/button>}
         </div>
       </div>
 
-      {/* â”€â”€ City button grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <section className="city-grid" aria-label="Lá»c theo thÃ nh phá»‘">
+      {/* ?€?€ City button grid ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
+      <section className="city-grid" aria-label="Lá»c theo thÃ nh phá»?>
         <div className="city-grid__head">
-          <span className="city-grid__icon">ğŸ“</span>
+          <span className="city-grid__icon">?“</span>
           <h2 className="city-grid__title">TÃ¬m viá»‡c theo khu vá»±c</h2>
         </div>
         <div className="city-grid__buttons">
@@ -333,7 +333,7 @@ export function Home() {
             className={`city-btn${!selectedCity ? ' city-btn--all' : ''}`}
             onClick={() => setSelectedCity(null)}
           >
-            <span className="city-btn__label">ğŸŒ Táº¥t cáº£</span>
+            <span className="city-btn__label">?Œ Táº¥t cáº?/span>
             <span className="city-btn__count">{jobs.length}</span>
           </button>
           {CITY_BUTTONS.map((city) => {
@@ -353,27 +353,27 @@ export function Home() {
         </div>
       </section>
 
-      {/* â”€â”€ City filtered results â€” right below city buttons â”€â”€â”€â”€ */}
+      {/* ?€?€ City filtered results ??right below city buttons ?€?€?€?€ */}
       {selectedCity && (() => {
         const cityLabel = CITY_BUTTONS.find(c => c.id === selectedCity)?.label ?? ''
         return (
           <section className="city-result" ref={cityResultRef}>
             <div className="city-result__head">
               <div className="city-result__title-wrap">
-                <span className="city-result__pin">ğŸ“</span>
+                <span className="city-result__pin">?“</span>
                 <h2 className="city-result__title">Viá»‡c lÃ m táº¡i {cityLabel}</h2>
-                <span className="city-result__count">{filtered.length} káº¿t quáº£</span>
+                <span className="city-result__count">{filtered.length} káº¿t quáº?/span>
               </div>
               <button className="city-result__clear" onClick={() => setSelectedCity(null)}>
-                âœ• Bá» chá»n
+                ??Bá»?chá»n
               </button>
             </div>
 
             {filtered.length === 0 ? (
               <div className="city-result__empty">
-                <span>ğŸ”</span>
+                <span>?”</span>
                 <p>ChÆ°a cÃ³ viá»‡c lÃ m táº¡i <strong>{cityLabel}</strong></p>
-                <button onClick={() => setSelectedCity(null)}>â† Xem táº¥t cáº£</button>
+                <button onClick={() => setSelectedCity(null)}>??Xem táº¥t cáº?/button>
               </div>
             ) : (
               <>
@@ -404,8 +404,8 @@ export function Home() {
         )
       })()}
 
-      {/* â”€â”€ Category grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <section className="home-cat-grid" aria-label="Lá»c theo ngÃ nh nghá»">
+      {/* ?€?€ Category grid ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
+      <section className="home-cat-grid" aria-label="Lá»c theo ngÃ nh nghá»?>
         <button
           className={`home-cat-card${category === 'all' ? ' home-cat-card--active' : ''}`}
           onClick={() => handleCategoryClick('all')}
@@ -413,7 +413,7 @@ export function Home() {
           <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </span>
-          <span className="home-cat-card__label">Táº¥t cáº£</span>
+          <span className="home-cat-card__label">Táº¥t cáº?/span>
           <span className="home-cat-card__count">{jobs.length}</span>
         </button>
         {ALL_CATEGORIES.map((cat) => (
@@ -432,11 +432,11 @@ export function Home() {
         ))}
       </section>
 
-      {/* â”€â”€ Featured brands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Featured brands ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <section className="home-brands">
         <div className="home-brands__head">
-          <h2 className="home-brands__title">ğŸ¢ NhÃ  tuyá»ƒn dá»¥ng ná»•i báº­t</h2>
-          <span className="home-brands__sub">Nháº¥n Ä‘á»ƒ lá»c</span>
+          <h2 className="home-brands__title">?¢ NhÃ  tuyá»ƒn dá»¥ng ná»•i báº­t</h2>
+          <span className="home-brands__sub">Nháº¥n Ä‘á»?lá»c</span>
         </div>
         <div className="home-brands__row">
           {FEATURED_BRANDS.map((b) => (
@@ -448,30 +448,30 @@ export function Home() {
         </div>
       </section>
 
-      {/* â”€â”€ Ad slot 2: Mid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Ad slot 2: Mid ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <AdSlot slotId="mid" />
 
-      {/* â”€â”€ Promo strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Promo strip ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       {!hasFilters && (
         <div className="home-promo">
           <div className="home-promo__content">
-            <span className="home-promo__icon">ğŸ“‹</span>
+            <span className="home-promo__icon">?“‹</span>
             <div>
-              <p className="home-promo__title">Táº¡o CV ngay â€” tÄƒng cÆ¡ há»™i Ä‘Æ°á»£c gá»i!</p>
+              <p className="home-promo__title">Táº¡o CV ngay ??tÄƒng cÆ¡ há»™i Ä‘Æ°á»£c gá»i!</p>
               <p className="home-promo__sub">NhÃ  tuyá»ƒn dá»¥ng tÃ¬m kiáº¿m CV má»—i ngÃ y.</p>
             </div>
           </div>
-          <button className="home-promo__btn" onClick={() => navigate('/ho-so')}>Táº¡o CV miá»…n phÃ­ â†’</button>
+          <button className="home-promo__btn" onClick={() => navigate('/ho-so')}>Táº¡o CV miá»…n phÃ­ ??/button>
         </div>
       )}
 
-      {/* â”€â”€ Filter bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Filter bar ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <div className="home-filter-bar">
         <span className="home-result-count">
           {selectedCity
             ? `${filtered.length} viá»‡c lÃ m táº¡i ${CITY_BUTTONS.find(c => c.id === selectedCity)?.label}`
             : hasFilters
-            ? `${filtered.length} káº¿t quáº£`
+            ? `${filtered.length} káº¿t quáº?
             : `${jobs.length} viá»‡c lÃ m`}
           {nearMe && userCoords && ` trong ${nearRadius}km`}
         </span>
@@ -480,7 +480,7 @@ export function Home() {
           onClick={() => setUrgentOnly(v => !v)}
           aria-pressed={urgentOnly}
         >
-          ğŸ”¥ Tuyá»ƒn gáº¥p
+          ?”¥ Tuyá»ƒn gáº¥p
         </button>
         <button
           className={`home-near-btn${nearMe ? ' home-near-btn--active' : ''}${geoLoading ? ' home-near-btn--loading' : ''}`}
@@ -488,9 +488,9 @@ export function Home() {
           disabled={geoLoading}
           aria-pressed={nearMe}
         >
-          {geoLoading ? 'Äang Ä‘á»‹nh vá»‹...' : 'ğŸ“ Gáº§n tÃ´i'}
+          {geoLoading ? 'Äang Ä‘á»‹nh vá»?..' : '?“ Gáº§n tÃ´i'}
         </button>
-        {hasFilters && <button className="home-reset-btn" onClick={resetFilters}>âœ• XÃ³a lá»c</button>}
+        {hasFilters && <button className="home-reset-btn" onClick={resetFilters}>??XÃ³a lá»c</button>}
       </div>
 
       {nearMe && userCoords && (
@@ -504,23 +504,23 @@ export function Home() {
       )}
       {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
 
-      {/* â”€â”€ Bottom job section: only when NO city is selected â”€â”€â”€â”€ */}
+      {/* ?€?€ Bottom job section: only when NO city is selected ?€?€?€?€ */}
       {!selectedCity && (
         <>
           {!hasOtherFilters && <RecommendSection jobs={jobs} />}
 
           {hasOtherFilters && filtered.length === 0 ? (
             <div className="home-empty">
-              <span className="home-empty__icon">ğŸ”</span>
+              <span className="home-empty__icon">?”</span>
               <p className="home-empty__text">KhÃ´ng tÃ¬m tháº¥y viá»‡c lÃ m phÃ¹ há»£p</p>
-              <button className="home-empty__reset" onClick={resetFilters}>XÃ³a bá»™ lá»c</button>
+              <button className="home-empty__reset" onClick={resetFilters}>XÃ³a bá»?lá»c</button>
             </div>
           ) : nearMe && userCoords ? (
-            <JobGrid jobs={filtered} title="ğŸ“ Viá»‡c lÃ m gáº§n báº¡n" />
+            <JobGrid jobs={filtered} title="?“ Viá»‡c lÃ m gáº§n báº¡n" />
           ) : (
             <>
               {!urgentOnly && urgentJobs.length > 0 && (
-                <JobGrid jobs={urgentJobs} title="ğŸ”¥ Tuyá»ƒn gáº¥p" />
+                <JobGrid jobs={urgentJobs} title="?”¥ Tuyá»ƒn gáº¥p" />
               )}
               {!urgentOnly && urgentJobs.length > 0 && regularJobs.length > 0 && (
                 <AdSlot slotId="inline" />
@@ -528,7 +528,7 @@ export function Home() {
               {(urgentOnly ? filtered : regularJobs).length > 0 && (
                 <JobGrid
                   jobs={urgentOnly ? filtered : regularJobs}
-                  title={(!urgentOnly && urgentJobs.length > 0) ? 'ğŸ“‹ Táº¥t cáº£ káº¿t quáº£' : undefined}
+                  title={(!urgentOnly && urgentJobs.length > 0) ? '?“‹ Táº¥t cáº?káº¿t quáº? : undefined}
                 />
               )}
             </>
@@ -536,7 +536,7 @@ export function Home() {
         </>
       )}
 
-      {/* â”€â”€ Stats & Ad Inquiry Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ?€?€ Stats & Ad Inquiry Section ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€ */}
       <section style={{
         margin: '32px 0 16px',
         borderRadius: '16px',
@@ -587,7 +587,7 @@ export function Home() {
               Quang cao & Hop tac
             </p>
             <p style={{ fontSize: '13px', color: '#78350f' }}>
-              Tiep can 50.000+ ung vien â€” Dang tin mien phi
+              Tiep can 50.000+ ung vien ??Dang tin mien phi
             </p>
           </div>
           <a
