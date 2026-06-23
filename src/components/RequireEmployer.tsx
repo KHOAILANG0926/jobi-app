@@ -7,7 +7,12 @@ export function RequireEmployer({ children }: { children: ReactNode }) {
   const location = useLocation()
 
   if (!user) {
-    return <Navigate to="/dang-nhap" replace state={{ from: location.pathname }} />
+    return (
+      <Navigate
+        to={`/dang-nhap?role=employer&redirect=${encodeURIComponent(location.pathname)}`}
+        replace
+      />
+    )
   }
   if (user.role !== 'employer') {
     return <Navigate to="/" replace />

@@ -1,10 +1,15 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const [searchParams] = useSearchParams()
+
+  const roleParam = searchParams.get('role')   // 'employer' | null
+  const redirectTo = searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -24,13 +29,18 @@ export function Login() {
       setError('Email hoặc mật khẩu không đúng.')
       return
     }
-    navigate('/', { replace: true })
+    navigate(redirectTo, { replace: true })
   }
 
   return (
     <div className="page page--narrow">
       <header className="page-header">
         <h1 className="page-header__title">Đăng nhập</h1>
+        {roleParam === 'employer' && (
+          <p className="page-header__lead" style={{ color: '#e53e3e', marginTop: 4 }}>
+            Vui lòng đăng nhập với tài khoản tuyển dụng
+          </p>
+        )}
       </header>
       <form className="form-card" onSubmit={onSubmit} noValidate>
         {error && <p className="form-error" role="alert">{error}</p>}
@@ -67,7 +77,12 @@ export function Login() {
 
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 14 }}>
           Chưa có tài khoản?{' '}
-          <Link to="/dang-ky" style={{ color: '#e53e3e', fontWeight: 500 }}>Đăng ký</Link>
+          <Link
+            to={roleParam ? `/dang-ky?role=${roleParam}` : '/dang-ky'}
+            style={{ color: '#e53e3e', fontWeight: 500 }}
+          >
+            Đăng ký
+          </Link>
         </p>
       </form>
     </div>

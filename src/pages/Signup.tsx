@@ -1,14 +1,19 @@
 import { useState } from 'react'
-import { useNavigate, Link, Navigate } from 'react-router-dom'
+import { useNavigate, Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth, type UserRole } from '../context/AuthContext'
 
 export function Signup() {
   const navigate = useNavigate()
   const { signup, user } = useAuth()
+  const [searchParams] = useSearchParams()
+
+  const roleParam = searchParams.get('role') as UserRole | null
+  const redirectTo = searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
+
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<UserRole>('seeker')
+  const [role, setRole] = useState<UserRole>(roleParam === 'employer' ? 'employer' : 'seeker')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -34,7 +39,7 @@ export function Signup() {
       setError(result.error)
       return
     }
-    navigate(role === 'employer' ? '/bang-dieu-khien' : '/', { replace: true })
+    navigate(role === 'employer' ? redirectTo : '/', { replace: true })
   }
 
   return (
@@ -88,7 +93,12 @@ export function Signup() {
         </button>
         <p className="auth-page__footer">
           Đã có tài khoản?{' '}
-          <Link to="/dang-nhap" className="text-link">Đăng nhập</Link>
+          <Link
+            to={roleParam ? `/dang-nhap?role=${roleParam}` : '/dang-nhap'}
+            className="text-link"
+          >
+            Đăng nhập
+          </Link>
         </p>
       </form>
     </div>
