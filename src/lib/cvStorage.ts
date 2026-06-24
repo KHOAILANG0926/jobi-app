@@ -1,6 +1,6 @@
 import { loadProfile } from './storage'
 
-const CV_KEY = 'jobi_cv_draft'
+const CV_KEY = 'vgb_cv_draft'
 
 export interface CvExperience {
   id: string
@@ -171,5 +171,5 @@ export function loadCv(): CvData {
 
 export function saveCv(data: CvData): void {
   localStorage.setItem(CV_KEY, JSON.stringify(data))
-  window.dispatchEvent(new CustomEvent('jobi:cv-saved'))
+  window.dispatchEvent(new CustomEvent('vgb:cv-saved'))
 }

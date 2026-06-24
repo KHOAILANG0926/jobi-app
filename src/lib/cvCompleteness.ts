@@ -1,6 +1,6 @@
 import type { CvData } from './cvStorage'
 
-const CV_KEY = 'jobi_cv_draft'
+const CV_KEY = 'vgb_cv_draft'
 
 /** True if the user has saved a CV in localStorage with minimum fields filled. */
 export function hasSavedCv(): boolean {

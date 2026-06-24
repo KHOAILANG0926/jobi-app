@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
-import { HomeBanner } from '../components/HomeBanner'
 import JobCard from '../components/JobCard'
 import { RecommendSection } from '../components/RecommendSection'
 import { useApply } from '../components/useApply'
@@ -149,9 +148,13 @@ export function Home() {
   const { jobs } = useJobs()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { status, job: applyJob, profile, openApply, confirm, close, retry } = useApply()
 
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => {
+    const p = new URLSearchParams(location.search)
+    return p.get('q') || ''
+  })
   const [category, setCategory] = useState<JobCategory | 'all'>('all')
   const [urgentOnly, setUrgentOnly] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
@@ -165,10 +168,10 @@ export function Home() {
 
   useEffect(() => {
     const sync = () => setSavedIds(new Set(loadSavedJobIds()))
-    window.addEventListener('jobi:saved-jobs', sync)
+    window.addEventListener('vgb:saved-jobs', sync)
     window.addEventListener('storage', sync)
     return () => {
-      window.removeEventListener('jobi:saved-jobs', sync)
+      window.removeEventListener('vgb:saved-jobs', sync)
       window.removeEventListener('storage', sync)
     }
   }, [])
@@ -298,29 +301,9 @@ export function Home() {
   return (
     <div className="home-page">
 
-      {/* ── Banner ─────────────────────────────────────────────── */}
-      <HomeBanner />
-
       {/* ── Ad slot 1: Header ──────────────────────────────────── */}
       <AdSlot slotId="header" />
 
-      {/* ── Search ─────────────────────────────────────────────── */}
-      <div className="home-search-wrap">
-        <div className="home-search">
-          <svg className="home-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input
-            type="search"
-            className="home-search__input"
-            placeholder="Tìm việc làm, công ty, địa điểm..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Tìm kiếm việc làm"
-          />
-          {search && <button className="home-search__clear" onClick={() => setSearch('')} aria-label="Xóa">✕</button>}
-        </div>
-      </div>
 
       {/* ── City button grid ───────────────────────────────────── */}
       <section className="city-grid" aria-label="Lọc theo thành phố">

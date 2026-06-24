@@ -298,8 +298,8 @@ export function Community() {
   const reload = () => setPosts(loadPosts())
 
   useEffect(() => {
-    window.addEventListener('jobi:community', reload)
-    return () => window.removeEventListener('jobi:community', reload)
+    window.addEventListener('vgb:community', reload)
+    return () => window.removeEventListener('vgb:community', reload)
   }, [])
 
   const filtered = posts

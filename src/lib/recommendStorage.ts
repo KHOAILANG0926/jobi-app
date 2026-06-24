@@ -33,7 +33,7 @@ export interface JobMatch {
   reasons: string[]
 }
 
-const KEY = 'jobi_recommend_prefs'
+const KEY = 'vgb_recommend_prefs'
 
 const EMPTY: RecommendPrefs = {
   regionId: '',
@@ -54,7 +54,7 @@ export function loadPrefs(): RecommendPrefs {
 
 export function savePrefs(prefs: RecommendPrefs): void {
   localStorage.setItem(KEY, JSON.stringify(prefs))
-  window.dispatchEvent(new CustomEvent('jobi:recommend-prefs'))
+  window.dispatchEvent(new CustomEvent('vgb:recommend-prefs'))
 }
 
 export function hasPrefs(p: RecommendPrefs): boolean {

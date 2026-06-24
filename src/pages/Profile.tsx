@@ -45,31 +45,31 @@ export function Profile() {
     const onStorage = () => syncSaved()
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', syncSaved)
-    window.addEventListener('jobi:saved-jobs', syncSaved)
+    window.addEventListener('vgb:saved-jobs', syncSaved)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('focus', syncSaved)
-      window.removeEventListener('jobi:saved-jobs', syncSaved)
+      window.removeEventListener('vgb:saved-jobs', syncSaved)
     }
   }, [])
 
   useEffect(() => {
     const syncApps = () => setApplications(loadApplications())
-    window.addEventListener('jobi:applications', syncApps)
+    window.addEventListener('vgb:applications', syncApps)
     window.addEventListener('focus', syncApps)
     return () => {
-      window.removeEventListener('jobi:applications', syncApps)
+      window.removeEventListener('vgb:applications', syncApps)
       window.removeEventListener('focus', syncApps)
     }
   }, [])
 
   useEffect(() => {
     const syncCv = () => setCvSaved(hasSavedCv())
-    window.addEventListener('jobi:cv-saved', syncCv)
+    window.addEventListener('vgb:cv-saved', syncCv)
     window.addEventListener('focus', syncCv)
     window.addEventListener('storage', syncCv)
     return () => {
-      window.removeEventListener('jobi:cv-saved', syncCv)
+      window.removeEventListener('vgb:cv-saved', syncCv)
       window.removeEventListener('focus', syncCv)
       window.removeEventListener('storage', syncCv)
     }

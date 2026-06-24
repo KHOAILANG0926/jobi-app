@@ -123,8 +123,8 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
       setPrefs(p)
       setDraft(p)
     }
-    window.addEventListener('jobi:recommend-prefs', onUpdate)
-    return () => window.removeEventListener('jobi:recommend-prefs', onUpdate)
+    window.addEventListener('vgb:recommend-prefs', onUpdate)
+    return () => window.removeEventListener('vgb:recommend-prefs', onUpdate)
   }, [])
 
   // Scroll form into view when opened

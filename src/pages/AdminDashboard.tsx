@@ -21,8 +21,8 @@ interface Stats {
 
 function loadLocalStats(): Pick<Stats, 'localUsers' | 'localEmployers' | 'localJobs'> {
   try {
-    const accounts = JSON.parse(localStorage.getItem('jobi_accounts') || '[]')
-    const jobs = JSON.parse(localStorage.getItem('jobi_jobs') || '[]')
+    const accounts = JSON.parse(localStorage.getItem('vgb_accounts') || '[]')
+    const jobs = JSON.parse(localStorage.getItem('vgb_jobs') || '[]')
     return {
       localUsers: accounts.filter((a: { role: string }) => a.role === 'seeker').length,
       localEmployers: accounts.filter((a: { role: string }) => a.role === 'employer').length,
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
     setLoading(true)
     const local = loadLocalStats()
     try {
-      const accounts = JSON.parse(localStorage.getItem('jobi_accounts') || '[]')
+      const accounts = JSON.parse(localStorage.getItem('vgb_accounts') || '[]')
       setRecentAccounts(accounts.slice(0, 10))
     } catch {}
     supabase.from('korea_jobs').select('id', { count: 'exact', head: true }).then(({ count }) => {

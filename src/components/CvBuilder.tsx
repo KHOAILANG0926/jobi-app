@@ -244,8 +244,8 @@ export function CvBuilder() {
     if (!el) return
     setPdfLoading(true)
     try {
-      const base = (data.fullName || 'Jobi').trim().replace(/\s+/g, '_').slice(0, 48)
-      const safe = base.replace(/[^a-zA-Z0-9_\u00C0-\u024F-]/g, '') || 'Jobi'
+      const base = (data.fullName || 'VGB').trim().replace(/\s+/g, '_').slice(0, 48)
+      const safe = base.replace(/[^a-zA-Z0-9_\u00C0-\u024F-]/g, '') || 'VGB'
       await downloadCvAsPdf(el, `CV-${safe}`)
     } catch {
       window.alert('Không tạo được PDF. Thử lại sau.')

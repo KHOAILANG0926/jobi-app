@@ -57,13 +57,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onCheck = () => check()
     const onRefresh = () => refresh()
-    window.addEventListener('jobi:saved-jobs', onCheck)
-    window.addEventListener('jobi:applications', onCheck)
-    window.addEventListener('jobi:notifications', onRefresh)
+    window.addEventListener('vgb:saved-jobs', onCheck)
+    window.addEventListener('vgb:applications', onCheck)
+    window.addEventListener('vgb:notifications', onRefresh)
     return () => {
-      window.removeEventListener('jobi:saved-jobs', onCheck)
-      window.removeEventListener('jobi:applications', onCheck)
-      window.removeEventListener('jobi:notifications', onRefresh)
+      window.removeEventListener('vgb:saved-jobs', onCheck)
+      window.removeEventListener('vgb:applications', onCheck)
+      window.removeEventListener('vgb:notifications', onRefresh)
     }
   }, [check, refresh])
 

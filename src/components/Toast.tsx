@@ -17,7 +17,7 @@ export function Toast({ message, open, onClose, durationMs = 3200 }: Props) {
   if (!open) return null
 
   return (
-    <div className="jobi-toast" role="status" aria-live="polite">
+    <div className="vgb-toast" role="status" aria-live="polite">
       {message}
     </div>
   )

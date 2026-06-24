@@ -1,8 +1,8 @@
 import type { Job } from '../types/job'
 
-const POSTED_KEY = 'jobi_posted_jobs'
-const PROFILE_KEY = 'jobi_profile'
-const SAVED_KEY = 'jobi_saved_job_ids'
+const POSTED_KEY = 'vgb_posted_jobs'
+const PROFILE_KEY = 'vgb_profile'
+const SAVED_KEY = 'vgb_saved_job_ids'
 
 export function loadPostedJobs(): Job[] {
   try {
@@ -23,13 +23,13 @@ export function savePostedJob(job: Job): void {
 export function deletePostedJob(id: string): void {
   const updated = loadPostedJobs().filter((j) => j.id !== id)
   localStorage.setItem(POSTED_KEY, JSON.stringify(updated))
-  window.dispatchEvent(new CustomEvent('jobi:jobs'))
+  window.dispatchEvent(new CustomEvent('vgb:jobs'))
 }
 
 export function updatePostedJob(id: string, patch: Partial<Job>): void {
   const updated = loadPostedJobs().map((j) => (j.id === id ? { ...j, ...patch } : j))
   localStorage.setItem(POSTED_KEY, JSON.stringify(updated))
-  window.dispatchEvent(new CustomEvent('jobi:jobs'))
+  window.dispatchEvent(new CustomEvent('vgb:jobs'))
 }
 
 export interface SeekerProfile {
@@ -78,12 +78,12 @@ export function toggleSavedJobId(id: string): boolean {
   if (ids.has(id)) {
     ids.delete(id)
     localStorage.setItem(SAVED_KEY, JSON.stringify([...ids]))
-    window.dispatchEvent(new CustomEvent('jobi:saved-jobs'))
+    window.dispatchEvent(new CustomEvent('vgb:saved-jobs'))
     return false
   }
   ids.add(id)
   localStorage.setItem(SAVED_KEY, JSON.stringify([...ids]))
-  window.dispatchEvent(new CustomEvent('jobi:saved-jobs'))
+  window.dispatchEvent(new CustomEvent('vgb:saved-jobs'))
   return true
 }
 

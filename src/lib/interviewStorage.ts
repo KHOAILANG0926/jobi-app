@@ -1,4 +1,4 @@
-const KEY = 'jobi_interviews'
+const KEY = 'vgb_interviews'
 
 export type InterviewStatus = 'pending' | 'confirmed' | 'cancelled'
 
@@ -30,7 +30,7 @@ function loadAll(): InterviewSlot[] {
 
 function saveAll(list: InterviewSlot[]): void {
   localStorage.setItem(KEY, JSON.stringify(list))
-  window.dispatchEvent(new CustomEvent('jobi:interviews'))
+  window.dispatchEvent(new CustomEvent('vgb:interviews'))
 }
 
 export function loadSeekerInterviews(seekerId: string): InterviewSlot[] {
@@ -78,6 +78,6 @@ export function updateInterviewStatus(id: string, status: InterviewStatus): void
 }
 
 export function subscribeInterviews(handler: () => void): () => void {
-  window.addEventListener('jobi:interviews', handler)
-  return () => window.removeEventListener('jobi:interviews', handler)
+  window.addEventListener('vgb:interviews', handler)
+  return () => window.removeEventListener('vgb:interviews', handler)
 }

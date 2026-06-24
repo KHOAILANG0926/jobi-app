@@ -29,10 +29,10 @@ export function CompanyReviews({ company }: Props) {
     if (user?.email) return `user:${user?.email}`
     const em = loadProfile().email?.trim()
     if (em) return `email:${em}`
-    let gid = sessionStorage.getItem('jobi_guest_id')
+    let gid = sessionStorage.getItem('vgb_guest_id')
     if (!gid) {
       gid = `guest:${crypto.randomUUID()}`
-      sessionStorage.setItem('jobi_guest_id', gid)
+      sessionStorage.setItem('vgb_guest_id', gid)
     }
     return gid
   }, [user?.email])
@@ -57,8 +57,8 @@ export function CompanyReviews({ company }: Props) {
   useEffect(() => {
     sync()
     const onEvt = () => sync()
-    window.addEventListener('jobi:company-reviews', onEvt)
-    return () => window.removeEventListener('jobi:company-reviews', onEvt)
+    window.addEventListener('vgb:company-reviews', onEvt)
+    return () => window.removeEventListener('vgb:company-reviews', onEvt)
   }, [company])
 
   const onSubmit = (e: FormEvent) => {

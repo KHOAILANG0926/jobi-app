@@ -10,7 +10,7 @@ export interface CompanyReview {
   createdAt: string
 }
 
-const KEY = 'jobi_company_reviews'
+const KEY = 'vgb_company_reviews'
 
 export function companyKeyFromName(company: string): string {
   return normalizeViText(company).replace(/\s+/g, ' ').trim() || company.trim()
@@ -29,7 +29,7 @@ function loadAll(): CompanyReview[] {
 
 function persist(list: CompanyReview[]) {
   localStorage.setItem(KEY, JSON.stringify(list))
-  window.dispatchEvent(new CustomEvent('jobi:company-reviews'))
+  window.dispatchEvent(new CustomEvent('vgb:company-reviews'))
 }
 
 export function getReviewsForCompany(company: string): CompanyReview[] {

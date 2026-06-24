@@ -24,7 +24,7 @@ export interface JobApplication {
   statusHistory?: StatusHistoryEntry[]
 }
 
-const KEY = 'jobi_applications'
+const KEY = 'vgb_applications'
 
 export const APPLICATION_STATUS_META: Record<
   ApplicationStatus,
@@ -60,7 +60,7 @@ export function loadApplications(): JobApplication[] {
 
 function persist(list: JobApplication[]) {
   localStorage.setItem(KEY, JSON.stringify(list))
-  window.dispatchEvent(new CustomEvent('jobi:applications'))
+  window.dispatchEvent(new CustomEvent('vgb:applications'))
 }
 
 export function hasAppliedToJob(jobId: string, seekerId?: string): boolean {

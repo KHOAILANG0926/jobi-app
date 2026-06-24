@@ -1,24 +1,24 @@
-/* ─── Jobi Design Tokens ─────────────────────────── */
+/* ─── VGB Design Tokens ─────────────────────────── */
 :root {
-  --jobi-red: #FF3B5C;
-  --jobi-red-light: #FFF0F3;
-  --jobi-red-dark: #D42B4A;
-  --jobi-text: #1A1A2E;
-  --jobi-muted: #6B7280;
-  --jobi-border: #E5E7EB;
-  --jobi-bg: #F8F9FA;
-  --jobi-salary: #FF3B5C;
-  --jobi-success: #10B981;
-  --jobi-radius-card: 14px;
-  --jobi-radius-btn: 50px;
-  --jobi-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --vgb-red: #FF3B5C;
+  --vgb-red-light: #FFF0F3;
+  --vgb-red-dark: #D42B4A;
+  --vgb-text: #1A1A2E;
+  --vgb-muted: #6B7280;
+  --vgb-border: #E5E7EB;
+  --vgb-bg: #F8F9FA;
+  --vgb-salary: #FF3B5C;
+  --vgb-success: #10B981;
+  --vgb-radius-card: 14px;
+  --vgb-radius-btn: 50px;
+  --vgb-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
 
 /* ─── Job Card ───────────────────────────────────── */
 .job-card {
   background: #fff;
-  border: 1px solid var(--jobi-border);
-  border-radius: var(--jobi-radius-card);
+  border: 1px solid var(--vgb-border);
+  border-radius: var(--vgb-radius-card);
   padding: 14px 16px;
   margin-bottom: 10px;
   transition: box-shadow 0.2s, border-color 0.2s;
@@ -27,7 +27,7 @@
 }
 
 .job-card:hover {
-  box-shadow: var(--jobi-shadow);
+  box-shadow: var(--vgb-shadow);
   border-color: #D1D5DB;
 }
 
@@ -43,7 +43,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--jobi-success);
+  background: var(--vgb-success);
   border-radius: 3px 0 0 3px;
 }
 
@@ -54,7 +54,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--jobi-red);
+  background: var(--vgb-red);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -77,8 +77,8 @@
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--jobi-red);
-  background: var(--jobi-red-light);
+  color: var(--vgb-red);
+  background: var(--vgb-red-light);
   padding: 2px 8px;
   border-radius: 20px;
   margin-bottom: 4px;
@@ -87,7 +87,7 @@
 .job-card-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--jobi-text);
+  color: var(--vgb-text);
   margin: 0 0 3px;
   line-height: 1.35;
   white-space: nowrap;
@@ -97,14 +97,14 @@
 
 .job-card-meta {
   font-size: 12px;
-  color: var(--jobi-muted);
+  color: var(--vgb-muted);
   margin: 0 0 6px;
 }
 
 .job-card-salary {
   font-size: 13px;
   font-weight: 700;
-  color: var(--jobi-salary);
+  color: var(--vgb-salary);
   margin: 0;
 }
 
@@ -115,20 +115,20 @@
   align-items: center;
   justify-content: center;
   padding: 9px 16px;
-  border-radius: var(--jobi-radius-btn);
+  border-radius: var(--vgb-radius-btn);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   border: none;
   transition: all 0.18s ease;
   white-space: nowrap;
-  background: var(--jobi-red);
+  background: var(--vgb-red);
   color: #fff;
   box-shadow: 0 2px 8px rgba(255, 59, 92, 0.35);
 }
 
 .apply-btn:hover:not(:disabled) {
-  background: var(--jobi-red-dark);
+  background: var(--vgb-red-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(255, 59, 92, 0.45);
 }
@@ -139,7 +139,7 @@
 
 .apply-btn--done {
   background: #F0FDF4;
-  color: var(--jobi-success);
+  color: var(--vgb-success);
   box-shadow: none;
   cursor: default;
   border: 1px solid #D1FAE5;
@@ -201,7 +201,7 @@
 .modal-title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--jobi-text);
+  color: var(--vgb-text);
   margin: 0;
 }
 
@@ -210,8 +210,8 @@
   height: 32px;
   border-radius: 50%;
   border: none;
-  background: var(--jobi-bg);
-  color: var(--jobi-muted);
+  background: var(--vgb-bg);
+  color: var(--vgb-muted);
   font-size: 14px;
   cursor: pointer;
   display: flex;
@@ -226,7 +226,7 @@
 
 /* ─── Job Summary Card ───────────────────────────── */
 .job-summary-card {
-  background: var(--jobi-red-light);
+  background: var(--vgb-red-light);
   border-radius: 12px;
   padding: 14px 16px;
   margin-bottom: 16px;
@@ -236,20 +236,20 @@
 .job-summary-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--jobi-text);
+  color: var(--vgb-text);
   margin: 0 0 4px;
 }
 
 .job-summary-meta {
   font-size: 12px;
-  color: var(--jobi-muted);
+  color: var(--vgb-muted);
   margin: 0 0 6px;
 }
 
 .job-summary-salary {
   font-size: 14px;
   font-weight: 700;
-  color: var(--jobi-red);
+  color: var(--vgb-red);
   margin: 0;
 }
 
@@ -257,7 +257,7 @@
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--jobi-red);
+  color: var(--vgb-red);
   background: #fff;
   border: 1px solid rgba(255, 59, 92, 0.3);
   padding: 2px 8px;
@@ -276,7 +276,7 @@
 .section-divider span {
   font-size: 12px;
   font-weight: 600;
-  color: var(--jobi-muted);
+  color: var(--vgb-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -287,7 +287,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--jobi-border);
+  background: var(--vgb-border);
 }
 
 /* ─── Profile Row ────────────────────────────────── */
@@ -295,7 +295,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--jobi-bg);
+  background: var(--vgb-bg);
   border-radius: 12px;
   padding: 12px 14px;
   margin-bottom: 12px;
@@ -305,7 +305,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--jobi-red);
+  background: var(--vgb-red);
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -322,13 +322,13 @@
 .profile-name {
   font-size: 15px;
   font-weight: 600;
-  color: var(--jobi-text);
+  color: var(--vgb-text);
   margin: 0 0 2px;
 }
 
 .profile-sub {
   font-size: 12px;
-  color: var(--jobi-muted);
+  color: var(--vgb-muted);
   margin: 0;
 }
 
@@ -337,7 +337,7 @@
   height: 24px;
   border-radius: 50%;
   background: #D1FAE5;
-  color: var(--jobi-success);
+  color: var(--vgb-success);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -372,9 +372,9 @@
 .apply-confirm-btn {
   width: 100%;
   padding: 15px;
-  border-radius: var(--jobi-radius-btn);
+  border-radius: var(--vgb-radius-btn);
   border: none;
-  background: var(--jobi-red);
+  background: var(--vgb-red);
   color: #fff;
   font-size: 16px;
   font-weight: 700;
@@ -385,7 +385,7 @@
 }
 
 .apply-confirm-btn:hover {
-  background: var(--jobi-red-dark);
+  background: var(--vgb-red-dark);
   transform: translateY(-1px);
 }
 
@@ -396,10 +396,10 @@
 .apply-cancel-btn {
   width: 100%;
   padding: 13px;
-  border-radius: var(--jobi-radius-btn);
-  border: 1px solid var(--jobi-border);
+  border-radius: var(--vgb-radius-btn);
+  border: 1px solid var(--vgb-border);
   background: transparent;
-  color: var(--jobi-muted);
+  color: var(--vgb-muted);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -407,7 +407,7 @@
 }
 
 .apply-cancel-btn:hover {
-  background: var(--jobi-bg);
+  background: var(--vgb-bg);
 }
 
 /* ─── State Screens (loading / success / error) ──── */
@@ -422,24 +422,24 @@
 .state-title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--jobi-text);
+  color: var(--vgb-text);
   margin: 16px 0 6px;
 }
 
 .state-sub {
   font-size: 14px;
-  color: var(--jobi-muted);
+  color: var(--vgb-muted);
   margin: 0 0 20px;
   line-height: 1.5;
 }
 
 .success-text {
-  color: var(--jobi-text);
+  color: var(--vgb-text);
 }
 
 .success-job-name {
-  background: var(--jobi-red-light);
-  color: var(--jobi-red);
+  background: var(--vgb-red-light);
+  color: var(--vgb-red);
   font-size: 13px;
   font-weight: 600;
   padding: 6px 16px;
@@ -451,8 +451,8 @@
 .spinner {
   width: 52px;
   height: 52px;
-  border: 4px solid var(--jobi-red-light);
-  border-top-color: var(--jobi-red);
+  border: 4px solid var(--vgb-red-light);
+  border-top-color: var(--vgb-red);
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }

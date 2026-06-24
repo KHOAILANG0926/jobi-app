@@ -1,6 +1,6 @@
 import type { Job } from '../types/job'
 
-const KEY = 'jobi_message_threads'
+const KEY = 'vgb_message_threads'
 
 export type MessageFrom = 'seeker' | 'employer'
 
@@ -39,7 +39,7 @@ function saveAll(threads: MessageThread[]) {
 }
 
 function dispatch() {
-  window.dispatchEvent(new CustomEvent('jobi:messages'))
+  window.dispatchEvent(new CustomEvent('vgb:messages'))
 }
 
 export function loadThreads(): MessageThread[] {
@@ -178,6 +178,6 @@ export function appendEmployerMessage(jobId: string, body: string): void {
 }
 
 export function subscribeMessages(handler: () => void): () => void {
-  window.addEventListener('jobi:messages', handler)
-  return () => window.removeEventListener('jobi:messages', handler)
+  window.addEventListener('vgb:messages', handler)
+  return () => window.removeEventListener('vgb:messages', handler)
 }

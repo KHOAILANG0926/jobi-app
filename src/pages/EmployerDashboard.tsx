@@ -49,8 +49,8 @@ export function EmployerDashboard() {
   useEffect(() => {
     setApplications(loadApplications())
     const handler = () => setApplications(loadApplications())
-    window.addEventListener('jobi:applications', handler)
-    return () => window.removeEventListener('jobi:applications', handler)
+    window.addEventListener('vgb:applications', handler)
+    return () => window.removeEventListener('vgb:applications', handler)
   }, [])
 
   if (!user) return null

@@ -30,8 +30,8 @@ export interface CommunityPost {
   comments: PostComment[]
 }
 
-const KEY = 'jobi_community_posts'
-const LIKED_KEY = 'jobi_community_liked'
+const KEY = 'vgb_community_posts'
+const LIKED_KEY = 'vgb_community_liked'
 
 const SEED: CommunityPost[] = [
   {
@@ -170,7 +170,7 @@ export function getPost(id: string): CommunityPost | undefined {
 
 function persistPosts(list: CommunityPost[]): void {
   localStorage.setItem(KEY, JSON.stringify(list))
-  window.dispatchEvent(new CustomEvent('jobi:community'))
+  window.dispatchEvent(new CustomEvent('vgb:community'))
 }
 
 export function addPost(

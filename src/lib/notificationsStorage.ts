@@ -13,9 +13,9 @@ export interface AppNotification {
   read: boolean
 }
 
-const NOTIF_KEY = 'jobi_notifications'
-const SEEN_STATUS_KEY = 'jobi_notif_seen_statuses'
-const SEEN_DEADLINE_KEY = 'jobi_notif_seen_deadlines'
+const NOTIF_KEY = 'vgb_notifications'
+const SEEN_STATUS_KEY = 'vgb_notif_seen_statuses'
+const SEEN_DEADLINE_KEY = 'vgb_notif_seen_deadlines'
 
 const STATUS_LABELS: Record<string, string> = {
   submitted: 'Đã nộp',
@@ -38,7 +38,7 @@ export function loadNotifications(): AppNotification[] {
 
 function persistNotifications(list: AppNotification[]): void {
   localStorage.setItem(NOTIF_KEY, JSON.stringify(list.slice(0, 50)))
-  window.dispatchEvent(new CustomEvent('jobi:notifications'))
+  window.dispatchEvent(new CustomEvent('vgb:notifications'))
 }
 
 export function markRead(id: string): void {
