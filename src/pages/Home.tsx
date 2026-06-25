@@ -151,16 +151,28 @@ export function Home() {
   const location = useLocation()
   const { status, job: applyJob, profile, openApply, confirm, close, retry } = useApply()
 
-  const [search, setSearch] = useState(() => {
-    const p = new URLSearchParams(location.search)
-    return p.get('q') || ''
-  })
+  const [search, setSearch] = useState('')
   const [category, setCategory] = useState<JobCategory | 'all'>('all')
   const [urgentOnly, setUrgentOnly] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
   const [selectedCity, setSelectedCity] = useState<JobRegionId | null>(null)
 
   const [nearMe, setNearMe] = useState(false)
+
+  useEffect(() => {
+    const p = new URLSearchParams(location.search)
+    const q = p.get('q')
+    const cat = p.get('cat')
+    const region = p.get('region')
+    const urgent = p.get('urgent')
+    const near = p.get('near')
+
+    if (q) setSearch(q)
+    if (cat && cat !== 'all') setCategory(cat as JobCategory)
+    if (region) setSelectedCity(region as JobRegionId)
+    if (urgent === '1') setUrgentOnly(true)
+    if (near === '1') setNearMe(true)
+  }, [location.search])
   const [nearRadius, setNearRadius] = useState(5)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
