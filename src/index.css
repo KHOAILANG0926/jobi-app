@@ -4776,12 +4776,13 @@ a:hover {
 .hero-row__ad {
   flex: 1;
   min-height: 120px;
-  background: #f5f5f5;
-  border-radius: 12px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   overflow: hidden;
+}
+.hero-row__ad .ad-slot {
+  flex: 1;
+  border-radius: 12px;
 }
 .hero-row__login {
   width: 280px;
@@ -5927,9 +5928,9 @@ a:hover {
 
 .ad-slot {
   position: relative;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   min-height: 88px;
 }
 
