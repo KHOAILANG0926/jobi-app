@@ -11,7 +11,7 @@ import {
   CATEGORY_COLORS,
   CATEGORY_SHORT,
 } from '../data/categories'
-import { jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
+import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
@@ -34,21 +34,6 @@ const FEATURED_BRANDS = [
   { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706', logo: 'https://logo.clearbit.com/gogihouse.com' },
 ]
 
-const CITY_BUTTONS: { id: JobRegionId; label: string }[] = [
-  { id: 'hanoi',      label: 'Hà Nội' },
-  { id: 'hcm',        label: 'TP. HCM' },
-  { id: 'danang',     label: 'Đà Nẵng' },
-  { id: 'binhduong',  label: 'Bình Dương' },
-  { id: 'bacninh',    label: 'Bắc Ninh' },
-  { id: 'haiphong',   label: 'Hải Phòng' },
-  { id: 'dongnai',    label: 'Đồng Nai' },
-  { id: 'cantho',     label: 'Cần Thơ' },
-  { id: 'hunguyen',   label: 'Hưng Yên' },
-  { id: 'thainguyen', label: 'Thái Nguyên' },
-  { id: 'vinhphuc',   label: 'Vĩnh Phúc' },
-  { id: 'bacgiang',   label: 'Bắc Giang' },
-  { id: 'haiduong',   label: 'Hải Dương' },
-]
 
 /* ── Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
 
@@ -218,15 +203,6 @@ export function Home() {
     return c
   }, [jobs])
 
-  // City counts: always based on full job list (ignore category/urgentOnly)
-  // so count matches what clicking the button will show (after reset)
-  const cityJobCounts = useMemo(() => {
-    const c: Partial<Record<JobRegionId, number>> = {}
-    for (const city of CITY_BUTTONS) {
-      c[city.id] = jobs.filter(j => jobMatchesRegion(j.location, city.id)).length
-    }
-    return c
-  }, [jobs])
 
   const filtered = useMemo(() => {
     const q = normalizeViText(search)
@@ -330,40 +306,57 @@ export function Home() {
       </section>
 
 
-      {/* ── City button grid ───────────────────────────────────── */}
-      <section className="city-grid" aria-label="Lọc theo thành phố">
-        <div className="city-grid__head">
-          <span className="city-grid__icon">📍</span>
-          <h2 className="city-grid__title">Tìm việc theo khu vực</h2>
+      {/* ── Albamon-style 2-col: Brand+Ad (left) / Regions (right) ── */}
+      <section className="home-main-grid">
+        <div className="home-main-grid__left">
+          {/* Brands */}
+          <div className="home-brands-box">
+            <div className="home-brands-box__head">
+              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
+              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+            </div>
+            <div className="home-brands-box__row">
+              {FEATURED_BRANDS.map((b) => (
+                <button key={b.name} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                  <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                  <span className="home-brand__name">{b.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Ad */}
+          <AdSlot slotId="mid" />
         </div>
-        <div className="city-grid__buttons">
-          <button
-            className={`city-btn${!selectedCity ? ' city-btn--all' : ''}`}
-            onClick={() => setSelectedCity(null)}
-          >
-            <span className="city-btn__label">🌐 Tất cả</span>
-            <span className="city-btn__count">{jobs.length}</span>
-          </button>
-          {CITY_BUTTONS.map((city) => {
-            const count = cityJobCounts[city.id] ?? 0
-            return (
-              <button
-                key={city.id}
-                className={`city-btn${selectedCity === city.id ? ' city-btn--active' : ''}${count === 0 ? ' city-btn--empty' : ''}`}
-                onClick={() => handleCityClick(city.id)}
-                disabled={count === 0}
-              >
-                <span className="city-btn__label">{city.label}</span>
-                {count > 0 && <span className="city-btn__count">{count}</span>}
-              </button>
-            )
-          })}
+
+        <div className="home-main-grid__right">
+          <h2 className="region-grid__title">Việc làm theo khu vực</h2>
+          {REGION_MACRO_TABS.map((tab) => (
+            <div key={tab.id} className="region-grid__group">
+              <h3 className="region-grid__group-label">{tab.label}</h3>
+              <div className="region-grid__pills">
+                {tab.provinces.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`region-pill${selectedCity === p.id ? ' region-pill--active' : ''}`}
+                    onClick={() => handleCityClick(p.id)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {selectedCity && (
+            <button className="region-grid__clear" onClick={() => setSelectedCity(null)}>
+              Xem tất cả khu vực
+            </button>
+          )}
         </div>
       </section>
 
       {/* ── City filtered results — right below city buttons ──── */}
       {selectedCity && (() => {
-        const cityLabel = CITY_BUTTONS.find(c => c.id === selectedCity)?.label ?? ''
+        const cityLabel = REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label ?? ''
         return (
           <section className="city-result" ref={cityResultRef}>
             <div className="city-result__head">
@@ -440,24 +433,6 @@ export function Home() {
         ))}
       </section>
 
-      {/* ── Featured brands ────────────────────────────────────── */}
-      <section className="home-brands">
-        <div className="home-brands__head">
-          <h2 className="home-brands__title">🏢 Nhà tuyển dụng nổi bật</h2>
-          <span className="home-brands__sub">Nhấn để lọc</span>
-        </div>
-        <div className="home-brands__row">
-          {FEATURED_BRANDS.map((b) => (
-            <button key={b.name} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-              <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-              <span className="home-brand__name">{b.name}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Ad slot 2: Mid ─────────────────────────────────────── */}
-      <AdSlot slotId="mid" />
 
       {/* ── Promo strip ────────────────────────────────────────── */}
       {!hasFilters && (
@@ -477,7 +452,7 @@ export function Home() {
       <div className="home-filter-bar">
         <span className="home-result-count">
           {selectedCity
-            ? `${filtered.length} việc làm tại ${CITY_BUTTONS.find(c => c.id === selectedCity)?.label}`
+            ? `${filtered.length} việc làm tại ${REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label}`
             : hasFilters
             ? `${filtered.length} kết quả`
             : `${jobs.length} việc làm`}
