@@ -152,7 +152,7 @@ export function Layout() {
                     >
                       <button
                         type="button"
-                        className={tabClass(location.pathname === item.to || (item.end && location.pathname === '/'))}
+                        className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
                         onClick={() => {
                           setOpenMenu(openMenu === i ? null : i)
                         }}
