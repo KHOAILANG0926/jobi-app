@@ -4766,6 +4766,77 @@ a:hover {
   padding-bottom: 2rem;
 }
 
+/* ── Hero row: Ad + Login (Albamon style) ─────────────────────────── */
+.hero-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  align-items: stretch;
+}
+.hero-row__ad {
+  flex: 1;
+  min-height: 120px;
+  background: #f5f5f5;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.hero-row__login {
+  width: 280px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+.hero-row__mascot {
+  width: 90px;
+  height: auto;
+  flex-shrink: 0;
+}
+.hero-row__login-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hero-row__cta {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  line-height: 1.4;
+}
+.hero-row__login-btn {
+  display: inline-block;
+  background: #e53935;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  text-decoration: none;
+  text-align: center;
+  transition: background 0.15s;
+}
+.hero-row__login-btn:hover {
+  background: #c62828;
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .hero-row {
+    flex-direction: column;
+  }
+  .hero-row__login {
+    width: 100%;
+  }
+}
+
 /* ── Hero banner ──────────────────────────────────────────────────── */
 
 .home-hero {

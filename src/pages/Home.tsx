@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
 import { RecommendSection } from '../components/RecommendSection'
@@ -313,8 +313,21 @@ export function Home() {
   return (
     <div className="home-page">
 
-      {/* ── Ad slot 1: Header ──────────────────────────────────── */}
-      <AdSlot slotId="header" />
+      {/* ── Hero: Ad + Login prompt (Albamon style) ─────────── */}
+      <section className="hero-row">
+        <div className="hero-row__ad">
+          <AdSlot slotId="header" />
+        </div>
+        {!user && (
+          <div className="hero-row__login">
+            <img src="/mascot.svg" alt="mascot" className="hero-row__mascot" />
+            <div className="hero-row__login-text">
+              <p className="hero-row__cta">Nhiều việc làm hơn đang chờ bạn!</p>
+              <NavLink to="/dang-nhap" className="hero-row__login-btn">Đăng nhập</NavLink>
+            </div>
+          </div>
+        )}
+      </section>
 
 
       {/* ── City button grid ───────────────────────────────────── */}
