@@ -171,20 +171,21 @@ a:hover {
 }
 .header-tab {
   position: relative;
-  padding: 0.8rem 1.25rem;
-  font-size: 0.95rem;
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
   font-weight: 500;
   color: #333;
   text-decoration: none;
   transition: color 0.15s;
   border: none;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
   background: none;
   cursor: pointer;
   font-family: inherit;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  letter-spacing: -0.01em;
 }
 .header-tab:hover {
   color: #e53935;
@@ -194,6 +195,10 @@ a:hover {
   color: #e53935;
   font-weight: 700;
   border-bottom-color: #e53935;
+}
+.header-tab__arrow {
+  opacity: 0.4;
+  margin-left: 2px;
 }
 
 /* Tab bar actions (right side) */
