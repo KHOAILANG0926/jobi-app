@@ -177,7 +177,14 @@ a:hover {
   color: #333;
   text-decoration: none;
   transition: color 0.15s;
+  border: none;
   border-bottom: 3px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 .header-tab:hover {
   color: #e53935;
