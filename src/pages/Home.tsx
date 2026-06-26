@@ -331,7 +331,7 @@ export function Home() {
         <div className="home-main-grid__right">
           <h2 className="region-grid__title">Việc làm theo khu vực</h2>
           {REGION_MACRO_TABS.map((tab) => (
-            <div key={tab.id} className="region-grid__group">
+            <div key={tab.id} className="region-grid__group" data-region={tab.id}>
               <h3 className="region-grid__group-label">{tab.label}</h3>
               <div className="region-grid__pills">
                 {tab.provinces.map((p) => (
