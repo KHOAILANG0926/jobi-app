@@ -316,12 +316,14 @@ export function Home() {
               <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
             </div>
             <div className="home-brands-box__row">
-              {FEATURED_BRANDS.map((b) => (
-                <button key={b.name} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                  <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                  <span className="home-brand__name">{b.name}</span>
-                </button>
-              ))}
+              <div className="home-brands-box__track">
+                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
+                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                    <span className="home-brand__name">{b.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {/* Ad */}

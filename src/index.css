@@ -4879,7 +4879,21 @@ a:hover {
 .home-brands-box__row {
   display: flex;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  overflow: hidden;
+  position: relative;
+}
+.home-brands-box__track {
+  display: flex;
+  gap: 0.75rem;
+  animation: brandScroll 20s linear infinite;
+  width: max-content;
+}
+.home-brands-box__track:hover {
+  animation-play-state: paused;
+}
+@keyframes brandScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 .home-main-grid__right {
