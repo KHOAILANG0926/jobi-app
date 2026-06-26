@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { CATEGORY_SHORT } from '../data/categories'
 import type { Job } from '../types/job'
 
 const LOGO_PALETTE = [
