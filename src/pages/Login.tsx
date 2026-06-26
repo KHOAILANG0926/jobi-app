@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth, type UserRole } from '../context/AuthContext'
 
 export function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [searchParams] = useSearchParams()
 
-  const roleParam = searchParams.get('role')   // 'employer' | null
+  const roleParam = searchParams.get('role') as UserRole | null
   const redirectTo = searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
 
+  const [role, setRole] = useState<UserRole>(roleParam === 'employer' ? 'employer' : 'seeker')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -33,17 +34,33 @@ export function Login() {
   }
 
   return (
-    <div className="page page--narrow">
+    <div className="page page--narrow auth-page">
       <header className="page-header">
         <h1 className="page-header__title">Đăng nhập</h1>
-        {roleParam === 'employer' && (
-          <p className="page-header__lead" style={{ color: '#e53e3e', marginTop: 4 }}>
-            Vui lòng đăng nhập với tài khoản tuyển dụng
-          </p>
-        )}
+        <p className="page-header__lead">Chào mừng bạn trở lại</p>
       </header>
       <form className="form-card" onSubmit={onSubmit} noValidate>
         {error && <p className="form-error" role="alert">{error}</p>}
+
+        <fieldset className="role-picker">
+          <legend className="role-picker__legend">Đăng nhập với tư cách</legend>
+          <div className="role-picker__options" role="group">
+            <button
+              type="button"
+              className={`role-picker__btn${role === 'seeker' ? ' role-picker__btn--active' : ''}`}
+              onClick={() => setRole('seeker')}
+            >
+              🔍 Tìm việc
+            </button>
+            <button
+              type="button"
+              className={`role-picker__btn${role === 'employer' ? ' role-picker__btn--active' : ''}`}
+              onClick={() => setRole('employer')}
+            >
+              🏢 Tuyển dụng
+            </button>
+          </div>
+        </fieldset>
 
         <label className="field">
           <span className="field__label">Email *</span>
@@ -69,17 +86,15 @@ export function Login() {
           />
         </label>
 
-        <div className="form-actions">
-          <button type="submit" className="btn btn--primary" disabled={loading}>
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-          </button>
-        </div>
+        <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
+          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        </button>
 
-        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 14 }}>
+        <p className="auth-page__footer">
           Chưa có tài khoản?{' '}
           <Link
-            to={roleParam ? `/dang-ky?role=${roleParam}` : '/dang-ky'}
-            style={{ color: '#e53e3e', fontWeight: 500 }}
+            to={`/dang-ky?role=${role}`}
+            className="text-link"
           >
             Đăng ký
           </Link>

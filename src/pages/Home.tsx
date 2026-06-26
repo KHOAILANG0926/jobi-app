@@ -139,6 +139,7 @@ export function Home() {
   const [urgentOnly, setUrgentOnly] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
   const [selectedCity, setSelectedCity] = useState<JobRegionId | null>(null)
+  const [selectedRegionTab, setSelectedRegionTab] = useState<string>(REGION_MACRO_TABS[0]?.id ?? 'north')
 
   const [nearMe, setNearMe] = useState(false)
 
@@ -304,10 +305,9 @@ export function Home() {
       </section>
 
 
-      {/* ── Albamon-style 2-col: Brand+Ad (left) / Regions (right) ── */}
+      {/* ── 2-col: Brands (left) / Ad cards (right) ── */}
       <section className="home-main-grid">
         <div className="home-main-grid__left">
-          {/* Brands */}
           <div className="home-brands-box">
             <div className="home-brands-box__head">
               <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
@@ -324,8 +324,10 @@ export function Home() {
               </div>
             </div>
           </div>
-          {/* Ad cards */}
-          <div className="home-ad-cards">
+        </div>
+
+        <div className="home-main-grid__right">
+          <div className="home-ad-cards home-ad-cards--vertical">
             <a href="/dang-tin" className="home-ad-card" style={{ background: 'linear-gradient(135deg,#e3f2fd,#bbdefb)' }}>
               <div className="home-ad-card__text">
                 <strong>Highlands Coffee</strong>
@@ -342,31 +344,39 @@ export function Home() {
             </a>
           </div>
         </div>
+      </section>
 
-        <div className="home-main-grid__right">
-          <h2 className="region-grid__title">Việc làm theo khu vực</h2>
+      {/* ── Region tabs: 북/중/남 ── */}
+      <section className="region-section" data-active-region={selectedRegionTab}>
+        <h2 className="region-section__title">Việc làm theo khu vực</h2>
+        <div className="region-section__tabs">
           {REGION_MACRO_TABS.map((tab) => (
-            <div key={tab.id} className="region-grid__group" data-region={tab.id}>
-              <h3 className="region-grid__group-label">{tab.label}</h3>
-              <div className="region-grid__pills">
-                {tab.provinces.map((p) => (
-                  <button
-                    key={p.id}
-                    className={`region-pill${selectedCity === p.id ? ' region-pill--active' : ''}`}
-                    onClick={() => handleCityClick(p.id)}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          {selectedCity && (
-            <button className="region-grid__clear" onClick={() => setSelectedCity(null)}>
-              Xem tất cả khu vực
+            <button
+              key={tab.id}
+              className={`region-tab${selectedRegionTab === tab.id ? ' region-tab--active' : ''}`}
+              data-region={tab.id}
+              onClick={() => setSelectedRegionTab(tab.id)}
+            >
+              {tab.label}
             </button>
-          )}
+          ))}
         </div>
+        <div className="region-section__pills">
+          {REGION_MACRO_TABS.find(t => t.id === selectedRegionTab)?.provinces.map((p) => (
+            <button
+              key={p.id}
+              className={`region-pill${selectedCity === p.id ? ' region-pill--active' : ''}`}
+              onClick={() => handleCityClick(p.id)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {selectedCity && (
+          <button className="region-section__clear" onClick={() => setSelectedCity(null)}>
+            ✕ Bỏ chọn
+          </button>
+        )}
       </section>
 
       {/* ── City filtered results — right below city buttons ──── */}
@@ -449,19 +459,6 @@ export function Home() {
       </section>
 
 
-      {/* ── Promo strip ────────────────────────────────────────── */}
-      {!hasFilters && (
-        <div className="home-promo">
-          <div className="home-promo__content">
-            <span className="home-promo__icon">📋</span>
-            <div>
-              <p className="home-promo__title">Tạo CV ngay — tăng cơ hội được gọi!</p>
-              <p className="home-promo__sub">Nhà tuyển dụng tìm kiếm CV mỗi ngày.</p>
-            </div>
-          </div>
-          <button className="home-promo__btn" onClick={() => navigate('/ho-so')}>Tạo CV miễn phí →</button>
-        </div>
-      )}
 
       {/* ── Filter bar ─────────────────────────────────────────── */}
       <div className="home-filter-bar">

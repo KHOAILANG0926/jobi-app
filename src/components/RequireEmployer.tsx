@@ -3,8 +3,10 @@ import { useAuth } from '../context/AuthContext'
 import type { ReactNode } from 'react'
 
 export function RequireEmployer({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const location = useLocation()
+
+  if (loading) return null
 
   if (!user) {
     return (
