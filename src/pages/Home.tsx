@@ -20,18 +20,18 @@ import type { Job, JobCategory } from '../types/job'
 /* ── Static data ─────────────────────────────────────────────────── */
 
 const FEATURED_BRANDS = [
-  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://logo.clearbit.com/grab.com' },
-  { name: 'Highlands Coffee', search: 'Highlands', initial: 'H', color: '#006241', logo: 'https://logo.clearbit.com/highlandscoffee.vn' },
-  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://logo.clearbit.com/winmart.vn' },
-  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722', logo: 'https://logo.clearbit.com/shopee.com' },
-  { name: 'Be Group',         search: 'Be',        initial: 'B', color: '#f59e0b', logo: 'https://logo.clearbit.com/be.com.vn' },
+  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://img.icons8.com/color/96/grab.png' },
+  { name: 'Highlands Coffee', search: 'Highlands', initial: 'H', color: '#006241', logo: 'https://img.icons8.com/fluency/96/starbucks.png' },
+  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722', logo: 'https://img.icons8.com/color/96/shopee.png' },
+  { name: 'Samsung',          search: 'Samsung',   initial: 'S', color: '#1428a0', logo: 'https://img.icons8.com/color/96/samsung.png' },
+  { name: "McDonald's",       search: 'McDonald',  initial: 'M', color: '#FFC72C', logo: 'https://img.icons8.com/color/96/mcdonalds.png' },
+  { name: 'KFC',              search: 'KFC',       initial: 'K', color: '#e4003b', logo: 'https://img.icons8.com/color/96/kfc.png' },
   { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028', logo: 'https://logo.clearbit.com/lotteria.com' },
   { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e', logo: 'https://logo.clearbit.com/circlek.com' },
-  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://logo.clearbit.com/familymart.com' },
-  { name: "McDonald's VN",    search: 'McDonald',  initial: 'M', color: '#27251F', logo: 'https://logo.clearbit.com/mcdonalds.com' },
-  { name: 'KFC VN',           search: 'KFC',       initial: 'K', color: '#e4003b', logo: 'https://logo.clearbit.com/kfc.com' },
-  { name: 'Samsung VN',       search: 'Samsung',   initial: 'S', color: '#1428a0', logo: 'https://logo.clearbit.com/samsung.com' },
-  { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706', logo: 'https://logo.clearbit.com/gogihouse.com' },
+  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://logo.clearbit.com/family.co.jp' },
+  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://logo.clearbit.com/wincommerce.vn' },
+  { name: 'Be Group',         search: 'Be',        initial: 'B', color: '#f59e0b', logo: 'https://logo.clearbit.com/be.com.vn' },
+  { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706', logo: 'https://logo.clearbit.com/golden-gate.vn' },
 ]
 
 

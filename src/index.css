@@ -4841,7 +4841,7 @@ a:hover {
 /* ── Main 2-col grid: Brand+Ad / Regions (Albamon style) ─────────── */
 .home-main-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 340px;
   gap: 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -4849,10 +4849,10 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 .home-main-grid__left .ad-slot {
   border-radius: 12px;
-  flex: 1;
 }
 .home-brands-box {
   background: #fff;
