@@ -4851,8 +4851,46 @@ a:hover {
   gap: 1rem;
   min-width: 0;
 }
-.home-main-grid__left .ad-slot {
+/* Ad cards (Albamon style) */
+.home-ad-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.home-ad-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
   border-radius: 12px;
+  text-decoration: none;
+  transition: transform 0.15s;
+  position: relative;
+}
+.home-ad-card:hover {
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+.home-ad-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.home-ad-card__text strong {
+  font-size: 0.95rem;
+  color: #333;
+}
+.home-ad-card__text span {
+  font-size: 0.8rem;
+  color: #666;
+}
+.home-ad-card__badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #999;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.6rem;
 }
 .home-brands-box {
   background: #fff;

@@ -20,18 +20,16 @@ import type { Job, JobCategory } from '../types/job'
 /* ── Static data ─────────────────────────────────────────────────── */
 
 const FEATURED_BRANDS = [
-  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://img.icons8.com/color/96/grab.png' },
-  { name: 'Highlands Coffee', search: 'Highlands', initial: 'H', color: '#006241', logo: 'https://img.icons8.com/fluency/96/starbucks.png' },
-  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722', logo: 'https://img.icons8.com/color/96/shopee.png' },
-  { name: 'Samsung',          search: 'Samsung',   initial: 'S', color: '#1428a0', logo: 'https://img.icons8.com/color/96/samsung.png' },
-  { name: "McDonald's",       search: 'McDonald',  initial: 'M', color: '#FFC72C', logo: 'https://img.icons8.com/color/96/mcdonalds.png' },
-  { name: 'KFC',              search: 'KFC',       initial: 'K', color: '#e4003b', logo: 'https://img.icons8.com/color/96/kfc.png' },
-  { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028', logo: 'https://logo.clearbit.com/lotteria.com' },
-  { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e', logo: 'https://logo.clearbit.com/circlek.com' },
-  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://logo.clearbit.com/family.co.jp' },
-  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://logo.clearbit.com/wincommerce.vn' },
-  { name: 'Be Group',         search: 'Be',        initial: 'B', color: '#f59e0b', logo: 'https://logo.clearbit.com/be.com.vn' },
-  { name: 'Gogi House',       search: 'Gogi',      initial: 'G', color: '#d97706', logo: 'https://logo.clearbit.com/golden-gate.vn' },
+  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://www.google.com/s2/favicons?sz=64&domain=grab.com' },
+  { name: 'Highlands',        search: 'Highlands', initial: 'H', color: '#006241', logo: 'https://www.google.com/s2/favicons?sz=64&domain=highlandscoffee.com.vn' },
+  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722', logo: 'https://www.google.com/s2/favicons?sz=64&domain=shopee.vn' },
+  { name: 'Samsung',          search: 'Samsung',   initial: 'S', color: '#1428a0', logo: 'https://www.google.com/s2/favicons?sz=64&domain=samsung.com' },
+  { name: "McDonald's",       search: 'McDonald',  initial: 'M', color: '#FFC72C', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mcdonalds.com' },
+  { name: 'KFC',              search: 'KFC',       initial: 'K', color: '#e4003b', logo: 'https://www.google.com/s2/favicons?sz=64&domain=kfc.com' },
+  { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028', logo: 'https://www.google.com/s2/favicons?sz=64&domain=lotteria.com' },
+  { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e', logo: 'https://www.google.com/s2/favicons?sz=64&domain=circlek.com' },
+  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://www.google.com/s2/favicons?sz=64&domain=familymart.com' },
+  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://www.google.com/s2/favicons?sz=64&domain=winmart.vn' },
 ]
 
 
@@ -326,8 +324,23 @@ export function Home() {
               </div>
             </div>
           </div>
-          {/* Ad */}
-          <AdSlot slotId="mid" />
+          {/* Ad cards */}
+          <div className="home-ad-cards">
+            <a href="/dang-tin" className="home-ad-card" style={{ background: 'linear-gradient(135deg,#e3f2fd,#bbdefb)' }}>
+              <div className="home-ad-card__text">
+                <strong>Highlands Coffee</strong>
+                <span>Tuyển barista toàn quốc</span>
+              </div>
+              <span className="home-ad-card__badge">AD</span>
+            </a>
+            <a href="/dang-tin" className="home-ad-card" style={{ background: 'linear-gradient(135deg,#fff3e0,#ffe0b2)' }}>
+              <div className="home-ad-card__text">
+                <strong>GrabFood</strong>
+                <span>Tuyển tài xế giao hàng</span>
+              </div>
+              <span className="home-ad-card__badge">AD</span>
+            </a>
+          </div>
         </div>
 
         <div className="home-main-grid__right">
