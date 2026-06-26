@@ -27,7 +27,18 @@
       "Bash(vercel --version)",
       "Bash(vercel whoami *)",
       "Bash(vercel --prod --yes)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(taskkill /PID 25740 /F)",
+      "PowerShell(Stop-Process -Id 25740 -Force)",
+      "mcp__Claude_Preview__preview_start",
+      "WebFetch(domain:www.albamon.com)",
+      "Bash(npx vercel *)",
+      "Bash(git push *)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(git rebase *)"
     ]
   }
 }

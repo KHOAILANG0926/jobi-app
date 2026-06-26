@@ -1,0 +1,1 @@
+- [No wrapper box](feedback-no-wrapper-box.md) — 광고/콘텐츠를 불필요한 래퍼 박스로 감싸지 않기

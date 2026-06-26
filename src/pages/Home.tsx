@@ -157,10 +157,10 @@ export function Home() {
     if (urgent === '1') setUrgentOnly(true)
     if (near === '1') setNearMe(true)
   }, [location.search])
-  const [nearRadius, setNearRadius] = useState(5)
+  const [nearRadius] = useState(5)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
-  const [geoError, setGeoError] = useState<string | null>(null)
+  const [, setGeoError] = useState<string | null>(null)
 
   useEffect(() => {
     const sync = () => setSavedIds(new Set(loadSavedJobIds()))
@@ -459,49 +459,43 @@ export function Home() {
       </section>
 
 
-
-      {/* ── Filter bar ─────────────────────────────────────────── */}
-      <div className="home-filter-bar">
-        <span className="home-result-count">
-          {selectedCity
-            ? `${filtered.length} việc làm tại ${REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label}`
-            : hasFilters
-            ? `${filtered.length} kết quả`
-            : `${jobs.length} việc làm`}
-          {nearMe && userCoords && ` trong ${nearRadius}km`}
-        </span>
-        <button
-          className={`home-urgent-toggle${urgentOnly ? ' home-urgent-toggle--active' : ''}`}
-          onClick={() => setUrgentOnly(v => !v)}
-          aria-pressed={urgentOnly}
-        >
-          🔥 Tuyển gấp
-        </button>
-        <button
-          className={`home-near-btn${nearMe ? ' home-near-btn--active' : ''}${geoLoading ? ' home-near-btn--loading' : ''}`}
-          onClick={handleNearMe}
-          disabled={geoLoading}
-          aria-pressed={nearMe}
-        >
-          {geoLoading ? 'Đang định vị...' : '📍 Gần tôi'}
-        </button>
-        {hasFilters && <button className="home-reset-btn" onClick={resetFilters}>✕ Xóa lọc</button>}
+      {/* ── Filter tabs (Albamon style) ─────────────────────── */}
+      <div className="home-filter-tabs">
+        <div className="home-filter-tabs__left">
+          <span className="home-filter-tabs__count">
+            {selectedCity
+              ? `${filtered.length} việc làm tại ${REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label}`
+              : hasFilters ? `${filtered.length} kết quả` : `${jobs.length} việc làm`}
+          </span>
+        </div>
+        <div className="home-filter-tabs__right">
+          <button
+            className={`filter-chip${urgentOnly ? ' filter-chip--active' : ''}`}
+            onClick={() => setUrgentOnly(v => !v)}
+          >
+            🔥 Tuyển gấp
+          </button>
+          <button
+            className={`filter-chip${nearMe ? ' filter-chip--active' : ''}${geoLoading ? ' filter-chip--loading' : ''}`}
+            onClick={handleNearMe}
+            disabled={geoLoading}
+          >
+            {geoLoading ? '⏳ Đang định vị...' : '📍 Gần tôi'}
+          </button>
+          {hasFilters && <button className="filter-chip filter-chip--clear" onClick={resetFilters}>✕ Xóa lọc</button>}
+        </div>
       </div>
 
-      {nearMe && userCoords && (
-        <div className="home-radius-wrap" role="group" aria-label="Bán kính">
-          {[1, 3, 5, 10].map(r => (
-            <button key={r} className={`home-radius-btn${nearRadius === r ? ' home-radius-btn--active' : ''}`} onClick={() => setNearRadius(r)}>
-              {r} km
-            </button>
-          ))}
-        </div>
-      )}
-      {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
-
-      {/* ── Bottom job section: only when NO city is selected ──── */}
+      {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (
         <>
+          <section className="home-jobs-section">
+            <div className="home-jobs-section__head">
+              <h2 className="home-jobs-section__title">Việc làm mới nhất</h2>
+              <NavLink to="/" className="home-jobs-section__more">Xem tất cả →</NavLink>
+            </div>
+          </section>
+
           {!hasOtherFilters && <RecommendSection jobs={jobs} />}
 
           {hasOtherFilters && filtered.length === 0 ? (
@@ -531,79 +525,6 @@ export function Home() {
         </>
       )}
 
-      {/* ── Stats & Ad Inquiry Section ─────────────────────────── */}
-      <section style={{
-        margin: '32px 0 16px',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
-      }}>
-        {/* Subscriber stats */}
-        <div style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          padding: '28px 24px',
-          color: '#fff',
-          textAlign: 'center'
-        }}>
-          <p style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.08em', opacity: 0.8, marginBottom: '16px', textTransform: 'uppercase' }}>
-            Cong dong Viec gan Ban
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', flexWrap: 'wrap' }}>
-            <div>
-              <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1 }}>50.000+</p>
-              <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '4px' }}>Nguoi tim viec</p>
-            </div>
-            <div style={{ width: '1px', background: 'rgba(255,255,255,0.25)', alignSelf: 'stretch' }} />
-            <div>
-              <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1 }}>1.200+</p>
-              <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '4px' }}>Nha tuyen dung</p>
-            </div>
-            <div style={{ width: '1px', background: 'rgba(255,255,255,0.25)', alignSelf: 'stretch' }} />
-            <div>
-              <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1 }}>25+</p>
-              <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '4px' }}>Tinh / Thanh pho</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Ad inquiry */}
-        <div style={{
-          background: '#fff8f0',
-          borderTop: '1px solid #ffe0b2',
-          padding: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px'
-        }}>
-          <div>
-            <p style={{ fontSize: '16px', fontWeight: 700, color: '#b45309', marginBottom: '4px' }}>
-              Quang cao & Hop tac
-            </p>
-            <p style={{ fontSize: '13px', color: '#78350f' }}>
-              Tiep can 50.000+ ung vien — Dang tin mien phi
-            </p>
-          </div>
-          <a
-            href="mailto:ads@viecganbạn.vn"
-            style={{
-              display: 'inline-block',
-              padding: '10px 22px',
-              background: '#f59e0b',
-              color: '#fff',
-              borderRadius: '10px',
-              fontSize: '14px',
-              fontWeight: 700,
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 2px 8px rgba(245,158,11,0.35)'
-            }}
-          >
-            Lien he ngay
-          </a>
-        </div>
-      </section>
 
       <ApplyModal status={status} job={applyJob} profile={profile} onConfirm={confirm} onClose={close} onRetry={retry} />
     </div>
