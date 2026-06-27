@@ -459,32 +459,57 @@ export function Home() {
       </section>
 
 
-      {/* ── Filter tabs (Albamon style) ─────────────────────── */}
-      <div className="home-filter-tabs">
-        <div className="home-filter-tabs__left">
-          <span className="home-filter-tabs__count">
-            {selectedCity
-              ? `${filtered.length} việc làm tại ${REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label}`
-              : hasFilters ? `${filtered.length} kết quả` : `${jobs.length} việc làm`}
-          </span>
-        </div>
-        <div className="home-filter-tabs__right">
+      {/* ── Quick filters (Albamon 추천 style) ─────────────── */}
+      <section className="home-quick-filters">
+        <h2 className="home-quick-filters__title">Tìm nhanh</h2>
+        <div className="home-quick-filters__row">
           <button
-            className={`filter-chip${urgentOnly ? ' filter-chip--active' : ''}`}
+            className={`quick-filter-card${urgentOnly ? ' quick-filter-card--active' : ''}`}
             onClick={() => setUrgentOnly(v => !v)}
           >
-            🔥 Tuyển gấp
+            <span className="quick-filter-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </span>
+            <span className="quick-filter-card__label">Tuyển gấp</span>
           </button>
           <button
-            className={`filter-chip${nearMe ? ' filter-chip--active' : ''}${geoLoading ? ' filter-chip--loading' : ''}`}
+            className={`quick-filter-card${nearMe ? ' quick-filter-card--active' : ''}`}
             onClick={handleNearMe}
             disabled={geoLoading}
           >
-            {geoLoading ? '⏳ Đang định vị...' : '📍 Gần tôi'}
+            <span className="quick-filter-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </span>
+            <span className="quick-filter-card__label">{geoLoading ? 'Đang tìm...' : 'Gần tôi'}</span>
           </button>
-          {hasFilters && <button className="filter-chip filter-chip--clear" onClick={resetFilters}>✕ Xóa lọc</button>}
+          <button
+            className="quick-filter-card"
+            onClick={() => { const el = document.querySelector('.recommend-section'); el?.scrollIntoView({ behavior: 'smooth' }) }}
+          >
+            <span className="quick-filter-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+            </span>
+            <span className="quick-filter-card__label">AI gợi ý</span>
+          </button>
+          <button
+            className="quick-filter-card"
+            onClick={() => handleCategoryClick('factory')}
+          >
+            <span className="quick-filter-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3"/></svg>
+            </span>
+            <span className="quick-filter-card__label">Theo ngành</span>
+          </button>
+          {hasFilters && (
+            <button className="quick-filter-card quick-filter-card--clear" onClick={resetFilters}>
+              <span className="quick-filter-card__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </span>
+              <span className="quick-filter-card__label">Xóa lọc</span>
+            </button>
+          )}
         </div>
-      </div>
+      </section>
 
       {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (
