@@ -16,7 +16,17 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
 )
 
+function parseDescription(raw: string): { description: string; sourceUrl?: string } {
+  const match = raw?.match(/\[source:(https?:\/\/[^\]]+)\]/)
+  if (!match) return { description: raw ?? '' }
+  return {
+    description: raw.replace(match[0], '').trim(),
+    sourceUrl: match[1],
+  }
+}
+
 function rowToJob(r: Record<string, unknown>): Job {
+  const { description, sourceUrl } = parseDescription((r.description as string) ?? '')
   return ensureJobFields({
     id: `sb-${r.id}`,
     title: (r.title as string) ?? '',
@@ -28,12 +38,12 @@ function rowToJob(r: Record<string, unknown>): Job {
     employerPhone: (r.employer_phone as string) ?? '',
     applicationDeadline: (r.application_deadline as string) ?? '',
     urgent: (r.urgent as boolean) ?? false,
-    description: (r.description as string) ?? '',
+    description,
+    sourceUrl,
     postedAt: (r.posted_at as string) ?? new Date().toISOString().slice(0, 10),
     lat: (r.lat as number) ?? undefined,
     lng: (r.lng as number) ?? undefined,
     employerId: (r.employer_id as string) ?? undefined,
-    sourceUrl: (r.source_url as string) ?? undefined,
   })
 }
 
@@ -91,7 +101,9 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         salary: draft.salary,
         location: draft.location,
         hours: draft.hours ?? '',
-        description: draft.description,
+        description: draft.sourceUrl
+          ? `${draft.description}\n[source:${draft.sourceUrl}]`
+          : draft.description,
         employer_phone: draft.employerPhone,
         application_deadline: draft.applicationDeadline,
         urgent: draft.urgent ?? false,
@@ -100,7 +112,6 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         employer_id: draft.employerId ?? null,
         active: true,
         posted_at: new Date().toISOString().slice(0, 10),
-        source_url: draft.sourceUrl ?? null,
       })
       .select()
       .single()
