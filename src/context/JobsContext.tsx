@@ -33,6 +33,7 @@ function rowToJob(r: Record<string, unknown>): Job {
     lat: (r.lat as number) ?? undefined,
     lng: (r.lng as number) ?? undefined,
     employerId: (r.employer_id as string) ?? undefined,
+    sourceUrl: (r.source_url as string) ?? undefined,
   })
 }
 
@@ -99,6 +100,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         employer_id: draft.employerId ?? null,
         active: true,
         posted_at: new Date().toISOString().slice(0, 10),
+        source_url: draft.sourceUrl ?? null,
       })
       .select()
       .single()

@@ -5995,6 +5995,8 @@ a:hover {
 }
 .jc__save:hover { border-color: #e53935; color: #e53935; }
 .jc__save--on { border-color: #e53935; color: #e53935; background: #fff5f5; }
+.jc__source { display: block; margin-top: 6px; font-size: 0.65rem; color: #bbb; text-align: right; text-decoration: none; }
+.jc__source:hover { color: #999; }
 
 /* ── City filtered results section ───────────────────────────────── */
 

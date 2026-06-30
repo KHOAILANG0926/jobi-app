@@ -23,4 +23,5 @@ export interface Job {
   lat?: number
   lng?: number
   imageUrl?: string
+  sourceUrl?: string
 }
