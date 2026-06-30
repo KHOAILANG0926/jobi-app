@@ -73,6 +73,7 @@ export default function AdminDashboard() {
   const [rawText, setRawText] = useState('')
   const [parsing, setParsing] = useState(false)
   const [jobForm, setJobForm] = useState<Omit<Job, 'id'>>(EMPTY_JOB)
+  const [source, setSource] = useState('Facebook')
   const [parseError, setParseError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -171,7 +172,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       employer_phone: jobForm.employerPhone,
       application_deadline: jobForm.applicationDeadline || null,
       urgent: jobForm.urgent ?? false,
-      description: jobForm.description,
+      description: source.trim()
+        ? `${jobForm.description}\n[source:${source.trim()}]`
+        : jobForm.description,
       posted_at: new Date().toISOString().slice(0, 10),
       lat: jobForm.lat ?? null,
       lng: jobForm.lng ?? null,
@@ -183,6 +186,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       setSaveSuccess(true)
       setRawText('')
       setJobForm(EMPTY_JOB)
+      setSource('Facebook')
       setStats(prev => ({ ...prev, localJobs: prev.localJobs + 1 }))
       setTimeout(() => setSaveSuccess(false), 3000)
     }
@@ -449,8 +453,13 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   <label style={labelStyle}>Mô tả công việc</label>
                   <textarea value={jobForm.description} onChange={e => setJobForm(f => ({ ...f, description: e.target.value }))} style={{ ...inputStyle, height: '120px', resize: 'vertical' }} placeholder="Mô tả chi tiết công việc..." />
                 </div>
+                {/* Source */}
+                <div>
+                  <label style={labelStyle}>Nguồn tin</label>
+                  <input value={source} onChange={e => setSource(e.target.value)} style={inputStyle} placeholder="VD: Facebook, Zalo..." />
+                </div>
                 {/* Urgent */}
-                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
                   <input type="checkbox" id="urgent" checked={!!jobForm.urgent} onChange={e => setJobForm(f => ({ ...f, urgent: e.target.checked }))} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
                   <label htmlFor="urgent" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>🔴 Tuyển gấp</label>
                 </div>
@@ -465,7 +474,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 }}>
                   {saving ? '⏳ Đang lưu...' : '💾 Lưu tin tuyển dụng'}
                 </button>
-                <button onClick={() => { setJobForm(EMPTY_JOB); setRawText(''); setParseError('') }} style={{
+                <button onClick={() => { setJobForm(EMPTY_JOB); setRawText(''); setParseError(''); setSource('Facebook') }} style={{
                   padding: '14px 20px', background: '#f0f0f0', color: '#666',
                   border: 'none', borderRadius: '12px', fontSize: '14px', cursor: 'pointer'
                 }}>🗑️ Xóa</button>
