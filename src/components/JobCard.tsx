@@ -106,16 +106,8 @@ export default function JobCard({
           </button>
         )}
       </div>
-      {job.sourceUrl && (
-        <a
-          href={job.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="jc__source"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Nguồn
-        </a>
+      {job.source && (
+        <span className="jc__source">Nguồn: {job.source}</span>
       )}
     </article>
   )

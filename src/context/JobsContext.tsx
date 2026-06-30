@@ -16,17 +16,17 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
 )
 
-function parseDescription(raw: string): { description: string; sourceUrl?: string } {
-  const match = raw?.match(/\[source:(https?:\/\/[^\]]+)\]/)
+function parseDescription(raw: string): { description: string; source?: string } {
+  const match = raw?.match(/\[source:([^\]]+)\]/)
   if (!match) return { description: raw ?? '' }
   return {
     description: raw.replace(match[0], '').trim(),
-    sourceUrl: match[1],
+    source: match[1],
   }
 }
 
 function rowToJob(r: Record<string, unknown>): Job {
-  const { description, sourceUrl } = parseDescription((r.description as string) ?? '')
+  const { description, source } = parseDescription((r.description as string) ?? '')
   return ensureJobFields({
     id: `sb-${r.id}`,
     title: (r.title as string) ?? '',
@@ -39,7 +39,7 @@ function rowToJob(r: Record<string, unknown>): Job {
     applicationDeadline: (r.application_deadline as string) ?? '',
     urgent: (r.urgent as boolean) ?? false,
     description,
-    sourceUrl,
+    source,
     postedAt: (r.posted_at as string) ?? new Date().toISOString().slice(0, 10),
     lat: (r.lat as number) ?? undefined,
     lng: (r.lng as number) ?? undefined,
@@ -101,8 +101,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         salary: draft.salary,
         location: draft.location,
         hours: draft.hours ?? '',
-        description: draft.sourceUrl
-          ? `${draft.description}\n[source:${draft.sourceUrl}]`
+        description: draft.source
+          ? `${draft.description}\n[source:${draft.source}]`
           : draft.description,
         employer_phone: draft.employerPhone,
         application_deadline: draft.applicationDeadline,
