@@ -5780,7 +5780,7 @@ a:hover {
 .home-jobs-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0;
+  gap: 14px;
 }
 @media (min-width: 540px) {
   .home-jobs-grid {
@@ -5931,27 +5931,21 @@ a:hover {
   flex-direction: column;
   background: #fff;
   border: 1px solid #eee;
+  border-radius: 12px;
   overflow: hidden;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s;
   position: relative;
   height: 100%;
+  min-height: 220px;
   padding: 24px 20px 16px;
   cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 .home-card-wrap:hover .jc {
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-color: #ddd;
 }
 .jc--applied { opacity: 0.7; }
-
-/* Banner image */
-.jc__banner {
-  width: calc(100% + 32px);
-  margin: -16px -16px 12px -16px;
-  height: 140px;
-  object-fit: cover;
-  border-radius: 12px 12px 0 0;
-  display: block;
-}
 
 /* Logo area */
 .jc__logo-area {
@@ -5963,19 +5957,30 @@ a:hover {
 .jc__logo-img {
   width: 48px;
   height: 48px;
-  object-fit: contain;
+  object-fit: cover;
+  border-radius: 8px;
 }
 .jc__logo-text {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
+  display: block;
+  max-width: 100%;
+  font-size: 1.15rem;
   font-weight: 800;
-  color: #fff;
+  letter-spacing: -0.02em;
   font-family: 'Arial Black', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hashtag badges */
+.jc__tags {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #3f6ad8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Meta */

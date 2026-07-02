@@ -12,13 +12,6 @@ function logoColor(name: string): string {
   return LOGO_PALETTE[Math.abs(h) % LOGO_PALETTE.length]
 }
 
-function logoInitials(name: string): string {
-  const parts = name.trim().replace(/[()[\]]/g, '').split(/[\s·\-–—]+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
-
 const FAVICON_DOMAINS: Record<string, string> = {
   'Highlands Coffee': 'highlandscoffee.com.vn',
   'GrabFood': 'grab.com',
@@ -35,9 +28,20 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Baemin': 'baemin.vn',
 }
 
-function CompanyLogo({ company }: { company: string }) {
+function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string }) {
   const [failed, setFailed] = useState(false)
   const domain = FAVICON_DOMAINS[company]
+
+  if (imageUrl && !failed) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className="jc__logo-img"
+        onError={() => setFailed(true)}
+      />
+    )
+  }
 
   if (domain && !failed) {
     return (
@@ -51,10 +55,30 @@ function CompanyLogo({ company }: { company: string }) {
   }
 
   return (
-    <span className="jc__logo-text" style={{ background: logoColor(company) }}>
-      {logoInitials(company)}
+    <span className="jc__logo-text" style={{ color: logoColor(company) }}>
+      {company}
     </span>
   )
+}
+
+const CATEGORY_TAGS: Record<string, string> = {
+  factory: 'Nhà máy',
+  cafe: 'Cafe',
+  delivery: 'Giao hàng',
+  cleaning: 'Vệ sinh',
+  retail: 'Bán lẻ',
+  other: 'Việc làm',
+}
+
+function jobTags(job: Job): string[] {
+  const tags: string[] = []
+  if (job.urgent) tags.push('Khẩn cấp')
+  const catTag = CATEGORY_TAGS[job.category]
+  if (catTag) tags.push(catTag)
+  const h = (job.hours ?? '').toLowerCase()
+  if (h.includes('part-time')) tags.push('Part-time')
+  if (h.includes('full-time')) tags.push('Full-time')
+  return tags.slice(0, 3)
 }
 
 interface JobCardProps {
@@ -70,14 +94,16 @@ interface JobCardProps {
 export default function JobCard({
   job, isApplied, isSaved, onToggleSave, distanceKm,
 }: JobCardProps) {
+  const tags = jobTags(job)
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
-      {job.imageUrl && (
-        <img src={job.imageUrl} alt="" className="jc__banner" />
-      )}
       <div className="jc__logo-area">
-        <CompanyLogo company={job.company} />
+        <CompanyLogo company={job.company} imageUrl={job.imageUrl} />
       </div>
+
+      {tags.length > 0 && (
+        <p className="jc__tags">{tags.map(t => `#${t}`).join(' ')}</p>
+      )}
 
       <p className="jc__meta">
         {job.company} <span className="jc__dot">·</span> {job.location}
