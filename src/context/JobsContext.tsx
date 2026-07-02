@@ -80,7 +80,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const { data } = await supabase
       .from('local_jobs')
-      .select('*')
+      .select('id,title,company,category,salary,location,hours,employer_phone,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source')
       .eq('active', true)
       .order('posted_at', { ascending: false })
     const fetched = (data ?? []).map(rowToJob)
