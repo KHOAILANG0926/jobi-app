@@ -72,6 +72,9 @@ export default function JobCard({
 }: JobCardProps) {
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
+      {job.imageUrl && (
+        <img src={job.imageUrl} alt="" className="jc__banner" />
+      )}
       <div className="jc__logo-area">
         <CompanyLogo company={job.company} />
       </div>

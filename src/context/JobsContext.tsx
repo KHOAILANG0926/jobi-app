@@ -44,6 +44,7 @@ function rowToJob(r: Record<string, unknown>): Job {
     lat: (r.lat as number) ?? undefined,
     lng: (r.lng as number) ?? undefined,
     employerId: (r.employer_id as string) ?? undefined,
+    imageUrl: (r.image_url as string) ?? undefined,
   })
 }
 

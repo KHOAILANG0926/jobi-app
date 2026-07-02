@@ -109,8 +109,43 @@ export function JobDetail() {
 
       <div className="detail-grid">
         <div className="detail-panel">
-          <h2 className="detail-panel__heading">Mô tả công việc</h2>
-          <p className="detail-panel__body">{job.description}</p>
+          <h2 className="detail-panel__heading">Thông tin tuyển dụng</h2>
+          <dl className="job-info-list">
+            <div className="job-info-list__row">
+              <dt>📍 Khu vực</dt>
+              <dd>{job.location}</dd>
+            </div>
+            <div className="job-info-list__row">
+              <dt>🏢 Công ty</dt>
+              <dd>{job.company}</dd>
+            </div>
+            {job.hours && (
+              <div className="job-info-list__row">
+                <dt>🕐 Giờ làm việc</dt>
+                <dd>{job.hours}</dd>
+              </div>
+            )}
+            <div className="job-info-list__row">
+              <dt>💰 Mức lương</dt>
+              <dd className="job-info-list__salary">{job.salary}</dd>
+            </div>
+          </dl>
+          {job.description && (
+            <>
+              <h2 className="detail-panel__heading" style={{ marginTop: '1.5rem' }}>Mô tả công việc</h2>
+              <p className="detail-panel__body" style={{ whiteSpace: 'pre-line' }}>{job.description}</p>
+            </>
+          )}
+          {job.imageUrl && (
+            <img
+              src={job.imageUrl}
+              alt={job.title}
+              style={{ width: '100%', borderRadius: '12px', marginTop: '1.5rem', objectFit: 'cover', maxHeight: '320px' }}
+            />
+          )}
+          {job.source && (
+            <p className="detail-panel__source">Nguồn: {job.source}</p>
+          )}
           <CompanyReviews company={job.company} />
         </div>
         <aside className="detail-aside">

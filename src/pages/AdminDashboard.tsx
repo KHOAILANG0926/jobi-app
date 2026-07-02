@@ -47,6 +47,7 @@ const EMPTY_JOB: Omit<Job, 'id'> = {
   postedAt: new Date().toISOString().slice(0, 10),
   lat: undefined,
   lng: undefined,
+  imageUrl: '',
 }
 
 const CATEGORY_LABELS: Record<JobCategory, string> = {
@@ -124,16 +125,16 @@ ${rawText}
 
 Trả về JSON với các trường sau (nếu không tìm thấy thì để chuỗi rỗng):
 {
-  "title": "chức danh công việc",
+  "title": "chức danh công việc ngắn gọn",
   "company": "tên công ty/cơ sở",
   "category": "factory|cafe|delivery|cleaning|retail|other",
-  "salary": "mức lương (chuỗi)",
-  "location": "địa điểm làm việc",
-  "hours": "giờ làm việc / ca",
+  "salary": "mức lương rõ ràng, ví dụ: 9.000.000 – 13.000.000 đ/tháng",
+  "location": "tỉnh/thành phố — quận/huyện cụ thể",
+  "hours": "giờ làm việc / ca cụ thể",
   "employerPhone": "số điện thoại liên hệ",
   "applicationDeadline": "YYYY-MM-DD hoặc rỗng nếu không có",
   "urgent": true hoặc false,
-  "description": "mô tả công việc đầy đủ bằng tiếng Việt",
+  "description": "chỉ ghi các quyền lợi, yêu cầu bổ sung chưa nêu ở trên. KHÔNG lặp lại địa điểm, công ty, giờ làm, lương.",
   "lat": null,
   "lng": null
 }`
@@ -178,6 +179,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       posted_at: new Date().toISOString().slice(0, 10),
       lat: jobForm.lat ?? null,
       lng: jobForm.lng ?? null,
+      image_url: jobForm.imageUrl?.trim() || null,
       active: true,
     })
     if (error) {
@@ -452,6 +454,33 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={labelStyle}>Mô tả công việc</label>
                   <textarea value={jobForm.description} onChange={e => setJobForm(f => ({ ...f, description: e.target.value }))} style={{ ...inputStyle, height: '120px', resize: 'vertical' }} placeholder="Mô tả chi tiết công việc..." />
+                </div>
+                {/* Image Upload */}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Ảnh công việc</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1976d2', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                      📁 파일 선택
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = ev => setJobForm(f => ({ ...f, imageUrl: ev.target?.result as string }))
+                          reader.readAsDataURL(file)
+                        }}
+                      />
+                    </label>
+                    {jobForm.imageUrl && (
+                      <button type="button" onClick={() => setJobForm(f => ({ ...f, imageUrl: '' }))} style={{ padding: '6px 12px', background: '#ef5350', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>삭제</button>
+                    )}
+                  </div>
+                  {jobForm.imageUrl && (
+                    <img src={jobForm.imageUrl} alt="preview" style={{ marginTop: '8px', maxHeight: '160px', borderRadius: '8px', objectFit: 'cover', display: 'block' }} />
+                  )}
                 </div>
                 {/* Source */}
                 <div>
