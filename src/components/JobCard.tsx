@@ -12,6 +12,13 @@ function logoColor(name: string): string {
   return LOGO_PALETTE[Math.abs(h) % LOGO_PALETTE.length]
 }
 
+function logoInitials(name: string): string {
+  const parts = name.trim().replace(/[()[\]]/g, '').split(/[\s·\-–—]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
 const FAVICON_DOMAINS: Record<string, string> = {
   'Highlands Coffee': 'highlandscoffee.com.vn',
   'GrabFood': 'grab.com',
@@ -28,7 +35,7 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Baemin': 'baemin.vn',
 }
 
-function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string }) {
+function CompanyPhoto({ company, imageUrl }: { company: string; imageUrl?: string }) {
   const [failed, setFailed] = useState(false)
   const domain = FAVICON_DOMAINS[company]
 
@@ -37,7 +44,7 @@ function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string
       <img
         src={imageUrl}
         alt=""
-        className="jc__logo-img"
+        className="jc__photo"
         onError={() => setFailed(true)}
       />
     )
@@ -46,17 +53,17 @@ function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string
   if (domain && !failed) {
     return (
       <img
-        src={`https://www.google.com/s2/favicons?sz=64&domain=${domain}`}
+        src={`https://www.google.com/s2/favicons?sz=128&domain=${domain}`}
         alt=""
-        className="jc__logo-img"
+        className="jc__photo"
         onError={() => setFailed(true)}
       />
     )
   }
 
   return (
-    <span className="jc__logo-text" style={{ color: logoColor(company) }}>
-      {company}
+    <span className="jc__photo jc__photo--fallback" style={{ background: logoColor(company) }}>
+      {logoInitials(company)}
     </span>
   )
 }
@@ -97,17 +104,16 @@ export default function JobCard({
   const tags = jobTags(job)
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
-      <div className="jc__logo-area">
-        <CompanyLogo company={job.company} imageUrl={job.imageUrl} />
+      <div className="jc__header">
+        <p className="jc__company">{job.company}</p>
+        <CompanyPhoto company={job.company} imageUrl={job.imageUrl} />
       </div>
 
       {tags.length > 0 && (
         <p className="jc__tags">{tags.map(t => `#${t}`).join(' ')}</p>
       )}
 
-      <p className="jc__meta">
-        {job.company} <span className="jc__dot">·</span> {job.location}
-      </p>
+      <p className="jc__meta">{job.location}</p>
 
       <h3 className="jc__title">{job.title}</h3>
 
