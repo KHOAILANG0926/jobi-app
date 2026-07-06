@@ -12,11 +12,15 @@ const ADMIN_PASSWORD = '0926'
 
 type Tab = 'dashboard' | 'post'
 
+const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTAwODkxNywiZXhwIjoyMDk0NTg0OTE3fQ.HcjCw4pAVGEOPlYB02OIY8I4eepSmNCtGiVL2Fjdu7o'
+const supabaseAdmin = createClient('https://edhuesdnuxlbcfephutq.supabase.co', SERVICE_KEY)
+
 interface Stats {
   koreaJobs: number
   localUsers: number
   localEmployers: number
   localJobs: number
+  authUsers: number
 }
 
 function loadLocalStats(): Pick<Stats, 'localUsers' | 'localEmployers' | 'localJobs'> {
@@ -74,7 +78,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('dashboard')
 
   // Dashboard state
-  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
+  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0, authUsers: 0 })
   const [loading, setLoading] = useState(false)
   const [recentAccounts, setRecentAccounts] = useState<{ id: string; name: string; phone: string; role: string; createdAt: string }[]>([])
 
@@ -104,8 +108,11 @@ export default function AdminDashboard() {
       const accounts = JSON.parse(localStorage.getItem('vgb_accounts') || '[]')
       setRecentAccounts(accounts.slice(0, 10))
     } catch {}
-    supabase.from('korea_jobs').select('id', { count: 'exact', head: true }).then(({ count }) => {
-      setStats({ ...local, koreaJobs: count ?? 0 })
+    Promise.all([
+      supabase.from('korea_jobs').select('id', { count: 'exact', head: true }),
+      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
+    ]).then(([{ count }, { data: usersData }]) => {
+      setStats({ ...local, koreaJobs: count ?? 0, authUsers: usersData?.users?.length ?? 0 })
       setLoading(false)
     })
   }, [authed])
@@ -295,7 +302,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Người tìm việc', value: stats.localUsers, icon: '👤', color: '#3498db' },
+                  { label: 'Tổng người dùng', value: stats.authUsers, icon: '👤', color: '#3498db' },
                   { label: 'Nhà tuyển dụng', value: stats.localEmployers, icon: '🏢', color: '#27ae60' },
                   { label: 'Tin VN đang tuyển', value: stats.localJobs, icon: '📋', color: '#e67e22' },
                   { label: 'Tin Hàn Quốc', value: stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
@@ -318,7 +325,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               }}>
                 <div>
                   <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng thành viên</p>
-                  <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>{stats.localUsers + stats.localEmployers}</p>
+                  <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>{stats.authUsers}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng tin tuyển dụng</p>
