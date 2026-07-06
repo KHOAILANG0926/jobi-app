@@ -519,12 +519,20 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                         type="file"
                         accept="image/*"
                         style={{ display: 'none' }}
-                        onChange={e => {
+                        onChange={async e => {
                           const file = e.target.files?.[0]
                           if (!file) return
-                          const reader = new FileReader()
-                          reader.onload = ev => setJobForm(f => ({ ...f, imageUrl: ev.target?.result as string }))
-                          reader.readAsDataURL(file)
+                          const ext = file.name.split('.').pop() ?? 'jpg'
+                          const filename = `job-upload-${Date.now()}.${ext}`
+                          const { createClient } = await import('@supabase/supabase-js')
+                          const sb = createClient(
+                            'https://edhuesdnuxlbcfephutq.supabase.co',
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTAwODkxNywiZXhwIjoyMDk0NTg0OTE3fQ.HcjCw4pAVGEOPlYB02OIY8I4eepSmNCtGiVL2Fjdu7o'
+                          )
+                          const { error } = await sb.storage.from('job-images').upload(filename, file, { contentType: file.type })
+                          if (error) { alert('업로드 실패: ' + error.message); return }
+                          const { data: { publicUrl } } = sb.storage.from('job-images').getPublicUrl(filename)
+                          setJobForm(f => ({ ...f, imageUrl: publicUrl }))
                         }}
                       />
                     </label>
