@@ -207,11 +207,21 @@ export function JobDetail() {
             </>
           )}
           {job.imageUrl && (
-            <img
-              src={job.imageUrl}
-              alt={job.title}
-              style={{ width: '100%', borderRadius: '12px', marginTop: '1.5rem', objectFit: 'cover', maxHeight: '320px' }}
-            />
+            <>
+              <img
+                src={job.imageUrl}
+                alt={job.title}
+                style={{ width: '100%', borderRadius: '12px', marginTop: '1.5rem', objectFit: 'cover', maxHeight: '320px' }}
+              />
+              {job.images && job.images.filter(u => u !== job.imageUrl).map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt={`${job.title} ${i + 2}`}
+                  style={{ width: '100%', borderRadius: '12px', marginTop: '12px', objectFit: 'cover', maxHeight: '320px' }}
+                />
+              ))}
+            </>
           )}
           {job.source && (
             <p className="detail-panel__source">Nguồn: {job.source}</p>

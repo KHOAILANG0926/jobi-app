@@ -23,6 +23,7 @@ export interface Job {
   lat?: number
   lng?: number
   imageUrl?: string
+  images?: string[]
   source?: string
   workPeriod?: string
   workDays?: string
