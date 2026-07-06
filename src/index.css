@@ -5859,6 +5859,11 @@ a:hover {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+@media (min-width: 1100px) {
+  .home-jobs-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
 .home-jobs-grid .home-card-wrap {
   display: flex;
   flex-direction: column;
