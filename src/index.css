@@ -5382,24 +5382,22 @@ a:hover {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.7rem 0.25rem 0.6rem;
-  border: 2px solid var(--color-border);
+  padding: 0.5rem 0.25rem 0.4rem;
+  border: none;
   border-radius: 14px;
-  background: #fff;
+  background: transparent;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  transition: transform 0.1s, opacity 0.15s;
   position: relative;
 }
 
 .home-cat-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(229,57,53,0.15);
+  opacity: 0.8;
   transform: translateY(-2px);
 }
 
 .home-cat-card--active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
+  background: transparent;
   box-shadow: 0 0 0 3px rgba(229,57,53,0.15);
 }
 
@@ -5432,6 +5430,10 @@ a:hover {
   padding: 0.05rem 0.4rem;
 }
 
+.home-cat-card--active .home-cat-card__icon {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
 .home-cat-card--active .home-cat-card__label {
   color: var(--color-primary);
 }
