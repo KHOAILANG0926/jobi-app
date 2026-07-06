@@ -5375,7 +5375,7 @@ a:hover {
   scrollbar-width: none;
 }
 .home-cat-grid::-webkit-scrollbar { display: none; }
-.home-cat-grid .home-cat-card { flex-shrink: 0; min-width: 68px; }
+.home-cat-grid .home-cat-card { flex-shrink: 0; min-width: 80px; }
 
 .home-cat-card {
   display: flex;
