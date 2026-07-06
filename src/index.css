@@ -1770,6 +1770,27 @@ a:hover {
   color: var(--color-muted);
 }
 
+.trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+}
+.trust-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #555;
+  background: #f4f4f5;
+  border: 1px solid #e5e5e5;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+}
+.trust-badge--verified {
+  color: #1565C0;
+  background: #e8f1fd;
+  border-color: #b6d7f8;
+}
+
 .job-detail__date {
   font-size: 0.875rem;
   color: #94a3b8;
@@ -1812,6 +1833,44 @@ a:hover {
   font-size: 0.7rem;
   color: #bbb;
   text-align: right;
+}
+
+/* ── Detail tabs ─────────────────────────────────────────────── */
+.detail-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 1rem;
+}
+.detail-tabs__btn {
+  padding: 0.65rem 1rem;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #999;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.detail-tabs__btn--active {
+  color: #e53935;
+  border-color: #e53935;
+}
+
+/* ── Job location map ────────────────────────────────────────── */
+.job-location-map {
+  width: 100%;
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 0;
+}
+.job-location-map__disclaimer {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: #aaa;
 }
 
 /* ── Job info list (structured) ─────────────────────────────── */

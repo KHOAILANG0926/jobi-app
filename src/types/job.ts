@@ -24,4 +24,12 @@ export interface Job {
   lng?: number
   imageUrl?: string
   source?: string
+  workPeriod?: string
+  workDays?: string
+  education?: string
+  preference?: string
+  numHires?: string
+  companyVerified?: boolean
+  companyFoundedYear?: number
+  hireCount?: number
 }

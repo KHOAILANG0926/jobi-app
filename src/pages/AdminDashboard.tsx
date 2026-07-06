@@ -48,6 +48,14 @@ const EMPTY_JOB: Omit<Job, 'id'> = {
   lat: undefined,
   lng: undefined,
   imageUrl: '',
+  workPeriod: '',
+  workDays: '',
+  education: '',
+  preference: '',
+  numHires: '',
+  companyVerified: false,
+  companyFoundedYear: undefined,
+  hireCount: undefined,
 }
 
 const CATEGORY_LABELS: Record<JobCategory, string> = {
@@ -181,6 +189,14 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       lng: jobForm.lng ?? null,
       image_url: jobForm.imageUrl?.trim() || null,
       active: true,
+      work_period: jobForm.workPeriod?.trim() || null,
+      work_days: jobForm.workDays?.trim() || null,
+      education: jobForm.education?.trim() || null,
+      preference: jobForm.preference?.trim() || null,
+      num_hires: jobForm.numHires?.trim() || null,
+      company_verified: jobForm.companyVerified ?? false,
+      company_founded_year: jobForm.companyFoundedYear ?? null,
+      hire_count: jobForm.hireCount ?? null,
     })
     if (error) {
       setParseError('Lỗi lưu dữ liệu: ' + error.message)
@@ -449,6 +465,44 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 <div>
                   <label style={labelStyle}>Hạn nộp hồ sơ</label>
                   <input type="date" value={jobForm.applicationDeadline} onChange={e => setJobForm(f => ({ ...f, applicationDeadline: e.target.value }))} style={inputStyle} />
+                </div>
+                {/* Work period */}
+                <div>
+                  <label style={labelStyle}>Thời hạn hợp đồng</label>
+                  <input value={jobForm.workPeriod || ''} onChange={e => setJobForm(f => ({ ...f, workPeriod: e.target.value }))} style={inputStyle} placeholder="VD: 6 tháng - 1 năm" />
+                </div>
+                {/* Work days */}
+                <div>
+                  <label style={labelStyle}>Ngày làm việc</label>
+                  <input value={jobForm.workDays || ''} onChange={e => setJobForm(f => ({ ...f, workDays: e.target.value }))} style={inputStyle} placeholder="VD: Thứ 2 - Thứ 6" />
+                </div>
+                {/* Num hires */}
+                <div>
+                  <label style={labelStyle}>Số lượng tuyển</label>
+                  <input value={jobForm.numHires || ''} onChange={e => setJobForm(f => ({ ...f, numHires: e.target.value }))} style={inputStyle} placeholder="VD: 5 người" />
+                </div>
+                {/* Education */}
+                <div>
+                  <label style={labelStyle}>Trình độ học vấn</label>
+                  <input value={jobForm.education || ''} onChange={e => setJobForm(f => ({ ...f, education: e.target.value }))} style={inputStyle} placeholder="VD: Không yêu cầu" />
+                </div>
+                {/* Preference */}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Ưu tiên</label>
+                  <input value={jobForm.preference || ''} onChange={e => setJobForm(f => ({ ...f, preference: e.target.value }))} style={inputStyle} placeholder="VD: Ưu tiên ở gần, sinh viên" />
+                </div>
+                {/* Trust info */}
+                <div>
+                  <label style={labelStyle}>Năm thành lập công ty</label>
+                  <input type="number" value={jobForm.companyFoundedYear ?? ''} onChange={e => setJobForm(f => ({ ...f, companyFoundedYear: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle} placeholder="VD: 2015" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Số lần đã tuyển</label>
+                  <input type="number" value={jobForm.hireCount ?? ''} onChange={e => setJobForm(f => ({ ...f, hireCount: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle} placeholder="VD: 12" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
+                  <input type="checkbox" id="companyVerified" checked={!!jobForm.companyVerified} onChange={e => setJobForm(f => ({ ...f, companyVerified: e.target.checked }))} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                  <label htmlFor="companyVerified" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>✔ Đã xác minh công ty</label>
                 </div>
                 {/* Description */}
                 <div style={{ gridColumn: '1 / -1' }}>

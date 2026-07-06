@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CompanyReviews } from '../components/CompanyReviews'
+import JobLocationMap from '../components/JobLocationMap'
 import { MessageEmployerModal } from '../components/MessageEmployerModal'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
@@ -8,7 +9,10 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
+import { withJobCoordinates } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
+
+type DetailTab = 'work' | 'recruit'
 
 function BookmarkGlyph({ filled }: { filled: boolean }) {
   return (
@@ -34,8 +38,10 @@ export function JobDetail() {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   const [applied, setApplied] = useState(() => (id ? hasAppliedToJob(id, user?.id) : false))
+  const [tab, setTab] = useState<DetailTab>('work')
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
+  const coords = useMemo(() => (job ? withJobCoordinates(job) : null), [job])
 
   useEffect(() => {
     if (job) setApplied(hasAppliedToJob(job.id, user?.id))
@@ -96,6 +102,17 @@ export function JobDetail() {
         </div>
         <h1 className="job-detail__title">{job.title}</h1>
         <p className="job-detail__company">{job.company}</p>
+        {(job.companyVerified || job.companyFoundedYear || job.hireCount) && (
+          <div className="trust-badges">
+            {job.companyVerified && <span className="trust-badge trust-badge--verified">✔ Đã xác minh</span>}
+            {job.companyFoundedYear && (
+              <span className="trust-badge">
+                Thành lập {job.companyFoundedYear} · năm thứ {new Date().getFullYear() - job.companyFoundedYear}
+              </span>
+            )}
+            {job.hireCount !== undefined && <span className="trust-badge">Đã tuyển {job.hireCount} lần</span>}
+          </div>
+        )}
         <p className="job-detail__deadline">Hạn nộp: {formatDeadlineVi(job.applicationDeadline)}</p>
         <time className="job-detail__date" dateTime={job.postedAt}>
           Đăng ngày{' '}
@@ -109,27 +126,80 @@ export function JobDetail() {
 
       <div className="detail-grid">
         <div className="detail-panel">
-          <h2 className="detail-panel__heading">Thông tin tuyển dụng</h2>
-          <dl className="job-info-list">
-            <div className="job-info-list__row">
-              <dt>📍 Khu vực</dt>
-              <dd>{job.location}</dd>
-            </div>
-            <div className="job-info-list__row">
-              <dt>🏢 Công ty</dt>
-              <dd>{job.company}</dd>
-            </div>
-            {job.hours && (
+          <div className="detail-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'work'}
+              className={`detail-tabs__btn${tab === 'work' ? ' detail-tabs__btn--active' : ''}`}
+              onClick={() => setTab('work')}
+            >
+              Điều kiện làm việc
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'recruit'}
+              className={`detail-tabs__btn${tab === 'recruit' ? ' detail-tabs__btn--active' : ''}`}
+              onClick={() => setTab('recruit')}
+            >
+              Điều kiện tuyển dụng
+            </button>
+          </div>
+
+          {tab === 'work' ? (
+            <dl className="job-info-list">
               <div className="job-info-list__row">
-                <dt>🕐 Giờ làm việc</dt>
-                <dd>{job.hours}</dd>
+                <dt>📍 Khu vực</dt>
+                <dd>{job.location}</dd>
               </div>
-            )}
-            <div className="job-info-list__row">
-              <dt>💰 Mức lương</dt>
-              <dd className="job-info-list__salary">{job.salary}</dd>
-            </div>
-          </dl>
+              <div className="job-info-list__row">
+                <dt>🏢 Công ty</dt>
+                <dd>{job.company}</dd>
+              </div>
+              {job.hours && (
+                <div className="job-info-list__row">
+                  <dt>🕐 Giờ làm việc</dt>
+                  <dd>{job.hours}</dd>
+                </div>
+              )}
+              {job.workPeriod && (
+                <div className="job-info-list__row">
+                  <dt>📅 Thời hạn hợp đồng</dt>
+                  <dd>{job.workPeriod}</dd>
+                </div>
+              )}
+              {job.workDays && (
+                <div className="job-info-list__row">
+                  <dt>🗓️ Ngày làm việc</dt>
+                  <dd>{job.workDays}</dd>
+                </div>
+              )}
+              <div className="job-info-list__row">
+                <dt>💰 Mức lương</dt>
+                <dd className="job-info-list__salary">{job.salary}</dd>
+              </div>
+            </dl>
+          ) : (
+            <dl className="job-info-list">
+              <div className="job-info-list__row">
+                <dt>⏰ Hạn nộp hồ sơ</dt>
+                <dd>{formatDeadlineVi(job.applicationDeadline)}</dd>
+              </div>
+              <div className="job-info-list__row">
+                <dt>👥 Số lượng tuyển</dt>
+                <dd>{job.numHires || 'Chưa cập nhật'}</dd>
+              </div>
+              <div className="job-info-list__row">
+                <dt>🎓 Trình độ học vấn</dt>
+                <dd>{job.education || 'Không yêu cầu'}</dd>
+              </div>
+              <div className="job-info-list__row">
+                <dt>⭐ Ưu tiên</dt>
+                <dd>{job.preference || 'Không'}</dd>
+              </div>
+            </dl>
+          )}
           {job.description && (
             <>
               <h2 className="detail-panel__heading" style={{ marginTop: '1.5rem' }}>Mô tả công việc</h2>
@@ -145,6 +215,16 @@ export function JobDetail() {
           )}
           {job.source && (
             <p className="detail-panel__source">Nguồn: {job.source}</p>
+          )}
+          {coords && (
+            <>
+              <h2 className="detail-panel__heading" style={{ marginTop: '1.5rem' }}>Khu vực làm việc</h2>
+              <p className="detail-panel__body" style={{ marginBottom: '0.75rem' }}>{job.location}</p>
+              <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
+              <p className="job-location-map__disclaimer">
+                Bản đồ mang tính minh họa khu vực, có thể không trùng khớp chính xác địa chỉ công ty.
+              </p>
+            </>
           )}
           <CompanyReviews company={job.company} />
         </div>

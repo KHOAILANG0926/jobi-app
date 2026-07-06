@@ -45,6 +45,14 @@ function rowToJob(r: Record<string, unknown>): Job {
     lng: (r.lng as number) ?? undefined,
     employerId: (r.employer_id as string) ?? undefined,
     imageUrl: (r.image_url as string) ?? undefined,
+    workPeriod: (r.work_period as string) ?? undefined,
+    workDays: (r.work_days as string) ?? undefined,
+    education: (r.education as string) ?? undefined,
+    preference: (r.preference as string) ?? undefined,
+    numHires: (r.num_hires as string) ?? undefined,
+    companyVerified: (r.company_verified as boolean) ?? undefined,
+    companyFoundedYear: (r.company_founded_year as number) ?? undefined,
+    hireCount: (r.hire_count as number) ?? undefined,
   })
 }
 
@@ -80,7 +88,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const { data } = await supabase
       .from('local_jobs')
-      .select('id,title,company,category,salary,location,hours,employer_phone,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source')
+      .select('id,title,company,category,salary,location,hours,employer_phone,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count')
       .eq('active', true)
       .order('posted_at', { ascending: false })
     const fetched = (data ?? []).map(rowToJob)
@@ -113,6 +121,14 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         employer_id: draft.employerId ?? null,
         active: true,
         posted_at: new Date().toISOString().slice(0, 10),
+        work_period: draft.workPeriod ?? null,
+        work_days: draft.workDays ?? null,
+        education: draft.education ?? null,
+        preference: draft.preference ?? null,
+        num_hires: draft.numHires ?? null,
+        company_verified: draft.companyVerified ?? false,
+        company_founded_year: draft.companyFoundedYear ?? null,
+        hire_count: draft.hireCount ?? null,
       })
       .select()
       .single()
