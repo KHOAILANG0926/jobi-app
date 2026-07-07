@@ -5145,57 +5145,54 @@ a:hover {
 /* ── Region section (tabbed) ── */
 .region-section {
   background: #fff;
-  border-radius: 14px;
-  border: 1px solid #e8e8e8;
-  padding: 20px 24px;
-  margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-.region-section__title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #222;
-  margin: 0 0 14px;
-}
+.region-section__title { display: none; }
 .region-section__tabs {
   display: flex;
-  gap: 0;
-  border-bottom: 2px solid #eee;
-  margin-bottom: 14px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 .region-tab {
-  flex: 1;
-  padding: 8px 0;
-  font-size: 0.82rem;
+  padding: 5px 12px;
+  font-size: 0.78rem;
   font-weight: 600;
-  background: none;
+  background: #f5f5f5;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
+  border-radius: 999px;
   cursor: pointer;
-  color: #888;
+  color: #666;
   transition: all 0.15s;
-  text-align: center;
 }
-.region-tab:hover { color: #333; }
-.region-tab--active[data-region="north"] { color: #1565C0; border-bottom-color: #1565C0; }
-.region-tab--active[data-region="central"] { color: #2E7D32; border-bottom-color: #2E7D32; }
-.region-tab--active[data-region="south"] { color: #E65100; border-bottom-color: #E65100; }
+.region-tab:hover { background: #eee; color: #333; }
+.region-tab--active[data-region="north"] { background: #1565C0; color: #fff; }
+.region-tab--active[data-region="central"] { background: #2E7D32; color: #fff; }
+.region-tab--active[data-region="south"] { background: #E65100; color: #fff; }
 .region-section__pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  flex: 1;
 }
 .region-section__clear {
-  margin-top: 10px;
   background: none;
   border: none;
-  color: #e53935;
-  font-size: 0.82rem;
-  font-weight: 500;
+  color: #bbb;
+  font-size: 0.75rem;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: color 0.15s;
 }
-.region-section__clear:hover { text-decoration: underline; }
+.region-section__clear:hover { color: #e53935; }
 
 /* Ad cards vertical */
 .home-ad-cards--vertical {
@@ -5212,15 +5209,15 @@ a:hover {
 .region-grid__group[data-region="south"] .region-grid__group-label { color: #E65100; }
 
 .region-pill {
-  padding: 6px 14px;
-  font-size: 0.82rem;
+  padding: 4px 12px;
+  font-size: 0.76rem;
   font-weight: 500;
-  border: 1px solid #ddd;
+  border: 1px solid #e0e0e0;
   border-radius: 999px;
   cursor: pointer;
   transition: all 0.15s;
-  background: #fff;
-  color: #444;
+  background: #fafafa;
+  color: #555;
 }
 /* Tab-based color: set via CSS custom property from JS */
 .region-section[data-active-region="north"] .region-pill {
