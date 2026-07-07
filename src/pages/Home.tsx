@@ -345,22 +345,126 @@ export function Home() {
         </div>
       </section>
 
-      {/* ── Region tabs: 북/중/남 ── */}
-      <section className="region-section" data-active-region={selectedRegionTab}>
-        <h2 className="region-section__title">Việc làm theo khu vực</h2>
-        <div className="region-section__tabs">
-          {REGION_MACRO_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              className={`region-tab${selectedRegionTab === tab.id ? ' region-tab--active' : ''}`}
-              data-region={tab.id}
-              onClick={() => setSelectedRegionTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {/* ── Region: Landmark cards + province chips ── */}
+      <section className="region-landmark">
+        <div className="region-landmark__cards">
+          {/* Miền Bắc — Chùa Một Cột */}
+          <button
+            className={`region-lm-card${selectedRegionTab === 'north' ? ' region-lm-card--active' : ''}`}
+            data-region="north"
+            onClick={() => setSelectedRegionTab('north')}
+          >
+            <div className="region-lm-card__img">
+              <svg viewBox="0 0 80 72" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                {/* Lotus pond */}
+                <ellipse cx="40" cy="64" rx="36" ry="6" fill="#b3d9f7" opacity="0.6"/>
+                {/* Pillar */}
+                <rect x="37" y="44" width="6" height="22" rx="3" fill="#8B6914"/>
+                {/* Platform */}
+                <rect x="28" y="40" width="24" height="6" rx="2" fill="#A0522D"/>
+                {/* Temple base */}
+                <rect x="26" y="26" width="28" height="16" rx="2" fill="#D2691E"/>
+                {/* Windows */}
+                <rect x="31" y="30" width="6" height="8" rx="1" fill="#5C3A1E"/>
+                <rect x="43" y="30" width="6" height="8" rx="1" fill="#5C3A1E"/>
+                {/* Curved roof */}
+                <path d="M18 28 Q40 8 62 28 L58 28 Q40 14 22 28Z" fill="#C0392B"/>
+                {/* Roof ridge */}
+                <path d="M22 28 Q40 16 58 28" fill="none" stroke="#8B0000" strokeWidth="1.5"/>
+                {/* Roof tip ornament */}
+                <circle cx="40" cy="10" r="3" fill="#FFD700"/>
+                <line x1="40" y1="7" x2="40" y2="2" stroke="#FFD700" strokeWidth="2"/>
+                {/* Lotuses */}
+                <ellipse cx="20" cy="62" rx="6" ry="3" fill="#FFB6C1" opacity="0.8"/>
+                <ellipse cx="60" cy="62" rx="6" ry="3" fill="#FFB6C1" opacity="0.8"/>
+              </svg>
+            </div>
+            <span className="region-lm-card__name">Miền Bắc</span>
+            <span className="region-lm-card__landmark">Chùa Một Cột</span>
+          </button>
+
+          {/* Miền Trung — Ngọ Môn Huế */}
+          <button
+            className={`region-lm-card${selectedRegionTab === 'central' ? ' region-lm-card--active' : ''}`}
+            data-region="central"
+            onClick={() => setSelectedRegionTab('central')}
+          >
+            <div className="region-lm-card__img">
+              <svg viewBox="0 0 80 72" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                {/* Base wall */}
+                <rect x="4" y="46" width="72" height="20" rx="2" fill="#C0A060"/>
+                {/* Gate arch */}
+                <rect x="32" y="46" width="16" height="20" fill="#7A5C2E"/>
+                <path d="M32 46 Q40 36 48 46Z" fill="#8B6914"/>
+                {/* Side arches */}
+                <rect x="12" y="50" width="10" height="16" fill="#8B6914" opacity="0.7"/>
+                <path d="M12 50 Q17 44 22 50Z" fill="#8B6914" opacity="0.9"/>
+                <rect x="58" y="50" width="10" height="16" fill="#8B6914" opacity="0.7"/>
+                <path d="M58 50 Q63 44 68 50Z" fill="#8B6914" opacity="0.9"/>
+                {/* Upper pavilion */}
+                <rect x="16" y="30" width="48" height="18" rx="1" fill="#D2691E"/>
+                {/* Pavilion windows */}
+                <rect x="24" y="34" width="8" height="10" rx="1" fill="#5C3A1E"/>
+                <rect x="36" y="34" width="8" height="10" rx="1" fill="#5C3A1E"/>
+                <rect x="48" y="34" width="8" height="10" rx="1" fill="#5C3A1E"/>
+                {/* Curved roof */}
+                <path d="M10 32 Q40 10 70 32 L66 32 Q40 16 14 32Z" fill="#C0392B"/>
+                <path d="M14 32 Q40 16 66 32" fill="none" stroke="#8B0000" strokeWidth="1.5"/>
+                {/* Roof ornament */}
+                <circle cx="40" cy="12" r="3" fill="#FFD700"/>
+                <polygon points="40,6 42,10 38,10" fill="#FFD700"/>
+                {/* Flag */}
+                <line x1="40" y1="6" x2="40" y2="0" stroke="#C0392B" strokeWidth="1.5"/>
+                <rect x="40" y="0" width="8" height="5" fill="#C0392B"/>
+                <line x1="42" y1="2" x2="42" y2="4" stroke="#FFD700" strokeWidth="1"/>
+              </svg>
+            </div>
+            <span className="region-lm-card__name">Miền Trung</span>
+            <span className="region-lm-card__landmark">Ngọ Môn Huế</span>
+          </button>
+
+          {/* Miền Nam — Chợ Bến Thành */}
+          <button
+            className={`region-lm-card${selectedRegionTab === 'south' ? ' region-lm-card--active' : ''}`}
+            data-region="south"
+            onClick={() => setSelectedRegionTab('south')}
+          >
+            <div className="region-lm-card__img">
+              <svg viewBox="0 0 80 72" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                {/* Main building */}
+                <rect x="8" y="38" width="64" height="28" rx="2" fill="#E8D5A3"/>
+                {/* Columns */}
+                {[14,22,30,50,58,66].map((x, i) => (
+                  <rect key={i} x={x-2} y="38" width="4" height="28" fill="#C4A96A"/>
+                ))}
+                {/* Clock tower */}
+                <rect x="32" y="18" width="16" height="24" rx="2" fill="#D4B87A"/>
+                {/* Clock face */}
+                <circle cx="40" cy="28" r="6" fill="#fff" stroke="#C4A96A" strokeWidth="1.5"/>
+                <line x1="40" y1="24" x2="40" y2="28" stroke="#333" strokeWidth="1.2"/>
+                <line x1="40" y1="28" x2="43" y2="28" stroke="#333" strokeWidth="1.2"/>
+                {/* Tower roof */}
+                <path d="M30 20 L40 8 L50 20Z" fill="#C0392B"/>
+                <circle cx="40" cy="8" r="2.5" fill="#FFD700"/>
+                {/* Arch entrance */}
+                <rect x="34" y="46" width="12" height="20" rx="0" fill="#8B6914" opacity="0.6"/>
+                <path d="M34 46 Q40 38 46 46Z" fill="#8B6914" opacity="0.8"/>
+                {/* Side arched windows */}
+                <path d="M14 42 Q19 36 24 42Z" fill="#8B6914" opacity="0.5"/>
+                <path d="M56 42 Q61 36 66 42Z" fill="#8B6914" opacity="0.5"/>
+                {/* Cornice */}
+                <rect x="6" y="35" width="68" height="5" rx="1" fill="#C4A96A"/>
+                {/* Ground */}
+                <rect x="0" y="64" width="80" height="8" fill="#bbb" opacity="0.3"/>
+              </svg>
+            </div>
+            <span className="region-lm-card__name">Miền Nam</span>
+            <span className="region-lm-card__landmark">Chợ Bến Thành</span>
+          </button>
         </div>
-        <div className="region-section__pills">
+
+        {/* Province chips */}
+        <div className="region-landmark__pills" data-region={selectedRegionTab}>
           {REGION_MACRO_TABS.find(t => t.id === selectedRegionTab)?.provinces.map((p) => (
             <button
               key={p.id}
@@ -370,12 +474,12 @@ export function Home() {
               {p.label}
             </button>
           ))}
+          {selectedCity && (
+            <button className="region-section__clear" onClick={() => setSelectedCity(null)}>
+              ✕ Bỏ chọn
+            </button>
+          )}
         </div>
-        {selectedCity && (
-          <button className="region-section__clear" onClick={() => setSelectedCity(null)}>
-            ✕ Bỏ chọn
-          </button>
-        )}
       </section>
 
       {/* ── City filtered results — right below city buttons ──── */}
