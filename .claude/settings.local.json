@@ -37,7 +37,27 @@
       "mcp__visualize__read_me",
       "mcp__visualize__show_widget",
       "Bash(git pull *)",
-      "Bash(git stash *)"
-    ]
-  }
+      "Bash(git stash *)",
+      "WebFetch(domain:viecganban.vn)",
+      "WebSearch",
+      "Bash(curl -s -X POST https://edhuesdnuxlbcfephutq.supabase.co/rest/v1/local_jobs -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE' -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d '{ *)",
+      "Bash(python -c ' *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(ls *)",
+      "Bash(xargs grep -l \"local_jobs\\\\|korea_jobs\")",
+      "Bash(curl -sI https://viecganban.vn)",
+      "Bash(curl -sL https://www.viecganban.vn/)",
+      "Bash(curl -s https://www.viecganban.vn/assets/index-T2RyiUBa.js)",
+      "Bash(kill %1)",
+      "Bash(jobs -l)",
+      "Bash(find / -maxdepth 6 -iname \"*.png\" -newer /etc/hostname 2>/dev/null | grep -iv node_modules | head -20; find /c/Users/Admin/AppData/Local/Temp -maxdepth 4 -iname \"*.png\" -mmin -600 2>/dev/null | head -20)",
+      "Bash(ls \"C:/Users/Admin/Desktop/\" | grep -i \"17\")",
+      "Bash(ls \"C:/Users/Admin/Downloads/\" | grep -i \"17\" | head -20)",
+      "Bash(find \"C:/Users/Admin/\" -name \"*17*\" -newer \"C:/Users/Admin/Desktop/JOBI/package.json\" 2>/dev/null | grep -iE \"\\\\.\\(jpg|jpeg|png|webp\\)\" | head -20)",
+      "Bash(python3 -c ' *)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "skipDangerousModePermissionPrompt": true
 }
