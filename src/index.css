@@ -316,10 +316,17 @@ a:hover {
 }
 .mega-menu__link {
   display: block;
+  width: 100%;
   padding: 0.35rem 0;
   font-size: 0.88rem;
   color: #555;
   text-decoration: none;
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
   transition: color 0.12s;
 }
 .mega-menu__link:hover {
