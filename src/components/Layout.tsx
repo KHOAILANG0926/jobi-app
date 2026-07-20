@@ -178,13 +178,13 @@ export function Layout() {
                                 <ul className="mega-menu__list">
                                   {col.links.map((link, li) => (
                                     <li key={li}>
-                                      <NavLink
-                                        to={link.to}
+                                      <button
+                                        type="button"
                                         className="mega-menu__link"
-                                        onClick={() => setOpenMenu(null)}
+                                        onClick={() => { setOpenMenu(null); navigate(link.to) }}
                                       >
                                         {link.label}
-                                      </NavLink>
+                                      </button>
                                     </li>
                                   ))}
                                 </ul>
