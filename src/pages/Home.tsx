@@ -255,12 +255,12 @@ export function Home() {
     setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
   }
   const handleCategoryClick = (cat: JobCategory | 'all') => {
-    setCategory(cat); setSearch(''); setNearMe(false)
+    setCategory(cat); setSearch(''); setBrandFilter(null); setNearMe(false)
   }
   const handleCityClick = (id: JobRegionId) => {
     setSelectedCity(prev => prev === id ? null : id)
-    // Reset all other filters so city count matches displayed results
     setSearch('')
+    setBrandFilter(null)
     setCategory('all')
     setUrgentOnly(false)
     setNearMe(false)
