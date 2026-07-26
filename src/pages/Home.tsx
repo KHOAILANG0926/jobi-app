@@ -139,18 +139,21 @@ export function Home() {
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
   const [selectedCity, setSelectedCity] = useState<JobRegionId | null>(null)
   const [selectedRegionTab, setSelectedRegionTab] = useState<string>(REGION_MACRO_TABS[0]?.id ?? 'north')
+  const [brandFilter, setBrandFilter] = useState<string | null>(null)
 
   const [nearMe, setNearMe] = useState(false)
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
     const q = p.get('q')
+    const brand = p.get('brand')
     const cat = p.get('cat')
     const region = p.get('region')
     const urgent = p.get('urgent')
     const near = p.get('near')
 
     if (q) setSearch(q)
+    setBrandFilter(brand ?? null)
     if (cat && cat !== 'all') setCategory(cat as JobCategory)
     if (region) setSelectedCity(region as JobRegionId)
     if (urgent === '1') setUrgentOnly(true)
@@ -208,6 +211,7 @@ export function Home() {
       if (category !== 'all' && j.category !== category) return false
       if (urgentOnly && !j.urgent) return false
       if (selectedCity && !jobMatchesRegion(j.location, selectedCity)) return false
+      if (brandFilter && !normalizeViText(j.company).includes(normalizeViText(brandFilter))) return false
       if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
       if (nearMe && userCoords) {
         const d = jobDistances[j.id]
@@ -219,7 +223,7 @@ export function Home() {
       result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
     }
     return result
-  }, [jobs, search, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances])
+  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances])
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -248,7 +252,7 @@ export function Home() {
   const hasFilters = !!(hasOtherFilters || selectedCity)
 
   const handleBrandClick = (brandSearch: string) => {
-    setSearch(brandSearch); setCategory('all'); setNearMe(false); setSelectedCity(null)
+    setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
   }
   const handleCategoryClick = (cat: JobCategory | 'all') => {
     setCategory(cat); setSearch(''); setNearMe(false)

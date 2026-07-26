@@ -39,14 +39,14 @@ const MENU_ITEMS = [
     to: '/franchise-jobs',
     dropdown: [
       { heading: 'Thương hiệu nổi bật', links: [
-        { label: 'GrabFood', to: '/?q=Grab' },
-        { label: 'Highlands Coffee', to: '/?q=Highlands' },
-        { label: 'Shopee', to: '/?q=Shopee' },
-        { label: 'WinMart', to: '/?q=WinMart' },
-        { label: 'Circle K', to: '/?q=Circle' },
-        { label: 'FamilyMart', to: '/?q=Family' },
-        { label: "McDonald's", to: '/?q=McDonald' },
-        { label: 'KFC', to: '/?q=KFC' },
+        { label: 'GrabFood', to: '/?brand=Grab' },
+        { label: 'Highlands Coffee', to: '/?brand=Highlands' },
+        { label: 'Shopee', to: '/?brand=Shopee' },
+        { label: 'WinMart', to: '/?brand=WinMart' },
+        { label: 'Circle K', to: '/?brand=Circle K' },
+        { label: 'FamilyMart', to: '/?brand=FamilyMart' },
+        { label: "McDonald's", to: '/?brand=McDonald' },
+        { label: 'KFC', to: '/?brand=KFC' },
       ]},
       { heading: 'Theo loại hình', links: [
         { label: '☕ Cà phê · Trà sữa', to: '/?cat=cafe' },
