@@ -70,6 +70,7 @@ function PostCard({ post, onLikeChange }: { post: CommunityPost; onLikeChange: (
 
   return (
     <li className="community-card">
+      <Link to={`/cong-dong/${post.id}`} className="community-card__main-link">
       <div className="community-card__top">
         <span className={`post-cat-badge ${meta.colorClass}`}>
           {meta.icon} {meta.label}
@@ -83,11 +84,10 @@ function PostCard({ post, onLikeChange }: { post: CommunityPost; onLikeChange: (
         {post.rating !== undefined && <Stars rating={post.rating} />}
       </div>
 
-      <Link to={`/cong-dong/${post.id}`} className="community-card__title-link">
-        <h3 className="community-card__title">{post.title}</h3>
-      </Link>
+      <h3 className="community-card__title">{post.title}</h3>
 
       <p className="community-card__preview">{preview}</p>
+      </Link>
 
       <div className="community-card__footer">
         <span className="community-card__author">

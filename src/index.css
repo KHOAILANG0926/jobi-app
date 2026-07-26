@@ -4168,6 +4168,17 @@ a:hover {
   text-decoration: none;
 }
 
+.community-card__main-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.community-card__main-link:hover .community-card__title {
+  color: var(--color-accent);
+}
+
 .community-card__title {
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
