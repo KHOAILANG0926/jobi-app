@@ -13,7 +13,7 @@
   --radius: 14px;
   --radius-sm: 10px;
   --font: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  --max-width: 1060px;
+  --max-width: 1200px;
 }
 
 *,
@@ -4988,7 +4988,7 @@ a:hover {
 }
 .hero-row__ad {
   flex: 6;
-  min-height: 120px;
+  min-height: 140px;
   display: flex;
   align-items: stretch;
   overflow: hidden;
