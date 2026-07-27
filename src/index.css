@@ -5151,16 +5151,21 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1rem 0 1rem 1.25rem;
+  padding: 1rem 1.25rem;
+  position: relative;
   overflow: visible;
 }
 .hero-row__mascot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 120px;
   height: 130px;
-  width: auto;
-  flex-shrink: 0;
-  align-self: flex-end;
-  margin-left: auto;
-  object-fit: contain;
+  background-image: url('/char-main.png');
+  background-size: 456px auto;
+  background-repeat: no-repeat;
+  background-position: -168px 0px;
+  pointer-events: none;
 }
 .hero-row__login-text {
   display: flex;
