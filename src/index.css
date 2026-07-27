@@ -4985,7 +4985,7 @@ a:hover {
   gap: 1rem;
   margin-bottom: 1.25rem;
   align-items: stretch;
-  height: 160px;
+  height: 110px;
 }
 .hero-row__ad {
   flex: 6;
@@ -6333,8 +6333,8 @@ a:hover {
 .ad-slot__content {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  padding: 1.5rem 2rem;
+  gap: 0.9rem;
+  padding: 0.85rem 1.25rem;
   height: 100%;
 }
 
