@@ -5159,9 +5159,10 @@ a:hover {
   padding: 1rem 1.25rem;
 }
 .hero-row__mascot {
-  width: 90px;
+  width: 160px;
   height: auto;
   flex-shrink: 0;
+  object-fit: contain;
 }
 .hero-row__login-text {
   display: flex;
