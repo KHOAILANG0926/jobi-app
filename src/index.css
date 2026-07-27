@@ -13,7 +13,7 @@
   --radius: 14px;
   --radius-sm: 10px;
   --font: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  --max-width: 1200px;
+  --max-width: 1400px;
 }
 
 *,
@@ -5159,9 +5159,11 @@ a:hover {
 }
 .home-main-grid__left {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .home-main-grid__left .home-brands-box {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
 }
