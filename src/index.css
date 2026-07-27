@@ -2237,71 +2237,71 @@ a:hover {
 
 /* ── Signup role choose page (albamon style) ── */
 .signup-choose {
-  max-width: 800px;
-  margin: 3rem auto;
-  padding: 0 1rem;
+  max-width: 960px;
+  margin: 4rem auto;
+  padding: 0 1.5rem;
   text-align: center;
 }
 .signup-choose__head {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 .signup-choose__title {
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 800;
   color: #e53935;
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.5rem;
 }
 .signup-choose__sub {
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #777;
   margin: 0;
 }
 .signup-choose__cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 .signup-role-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   background: #fff;
   border: 2px solid #e8eaed;
-  border-radius: 16px;
-  padding: 2rem 1.5rem 1.5rem;
+  border-radius: 20px;
+  padding: 2.5rem 2rem 2rem;
   cursor: pointer;
   transition: all 0.18s;
   text-align: center;
 }
 .signup-role-card:hover {
   border-color: #e53935;
-  box-shadow: 0 6px 24px rgba(229,57,53,0.12);
-  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(229,57,53,0.14);
+  transform: translateY(-4px);
 }
 .signup-role-card--employer:hover {
   border-color: #222;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
 }
 .signup-role-card__title {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: #222;
   margin: 0;
 }
 .signup-role-card__desc {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: #888;
   margin: 0;
 }
 .signup-role-card__mascot {
-  width: 120px;
-  height: 120px;
+  width: 180px;
+  height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 .signup-role-card__mascot img {
   width: 100%;
@@ -2311,9 +2311,9 @@ a:hover {
 .signup-role-card__btn {
   display: block;
   width: 100%;
-  padding: 0.85rem;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 1rem;
+  border-radius: 10px;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #fff;
   text-align: center;
@@ -2329,7 +2329,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: #888;
 }
 
