@@ -5154,13 +5154,14 @@ a:hover {
   padding: 1rem 1.25rem;
 }
 .hero-row__mascot {
-  width: 110px;
+  width: 160px;
   height: 110px;
   flex-shrink: 0;
+  margin-left: auto;
   background-image: url('/char-main.png');
-  background-size: 270px auto;
+  background-size: 380px auto;
   background-repeat: no-repeat;
-  background-position: -80px 0px;
+  background-position: -105px -5px;
 }
 .hero-row__login-text {
   display: flex;
