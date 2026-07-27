@@ -56,28 +56,25 @@ export function Signup() {
           <p className="signup-choose__sub">Tạo tài khoản miễn phí và bắt đầu ngay hôm nay</p>
         </div>
 
-        <div className="signup-choose__cards">
-          <button className="signup-role-card signup-role-card--seeker" onClick={() => chooseRole('seeker')}>
-            <h2 className="signup-role-card__title">Tìm việc làm</h2>
-            <p className="signup-role-card__desc">Đăng CV và tìm việc làm phù hợp với bạn</p>
-            <div className="signup-role-card__mascot">
-              <img src="/mascot.svg" alt="mascot" />
-            </div>
-            <span className="signup-role-card__btn signup-role-card__btn--seeker">
-              Đăng ký tìm việc
-            </span>
-          </button>
+        <div className="signup-choose__cards-wrap">
+          <img src="/characters.png" alt="characters" className="signup-choose__characters" />
+          <div className="signup-choose__cards">
+            <button className="signup-role-card signup-role-card--seeker" onClick={() => chooseRole('seeker')}>
+              <h2 className="signup-role-card__title">Tìm việc làm</h2>
+              <p className="signup-role-card__desc">Đăng CV và tìm việc làm phù hợp với bạn</p>
+              <span className="signup-role-card__btn signup-role-card__btn--seeker">
+                Đăng ký tìm việc
+              </span>
+            </button>
 
-          <button className="signup-role-card signup-role-card--employer" onClick={() => chooseRole('employer')}>
-            <h2 className="signup-role-card__title">Tuyển dụng</h2>
-            <p className="signup-role-card__desc">Đăng tin tuyển dụng và tìm nhân tài</p>
-            <div className="signup-role-card__mascot">
-              <img src="/mascot.svg" alt="mascot employer" style={{ filter: 'hue-rotate(200deg)' }} />
-            </div>
-            <span className="signup-role-card__btn signup-role-card__btn--employer">
-              Đăng ký tuyển dụng
-            </span>
-          </button>
+            <button className="signup-role-card signup-role-card--employer" onClick={() => chooseRole('employer')}>
+              <h2 className="signup-role-card__title">Tuyển dụng</h2>
+              <p className="signup-role-card__desc">Đăng tin tuyển dụng và tìm nhân tài</p>
+              <span className="signup-role-card__btn signup-role-card__btn--employer">
+                Đăng ký tuyển dụng
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="signup-choose__footer">
