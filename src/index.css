@@ -155,7 +155,6 @@ a:hover {
 /* ── Row 2: Tabs (left) + Actions (right) ── */
 .header-tabs {
   background: #fff;
-  border-top: 1px solid #f0f0f0;
 }
 .header-tabs__inner {
   max-width: var(--max-width);
