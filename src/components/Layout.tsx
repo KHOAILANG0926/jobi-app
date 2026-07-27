@@ -211,9 +211,18 @@ export function Layout() {
                   <NavLink to="/dang-ky" className="header-tabs__signup">Đăng ký</NavLink>
                 </>
               )}
-              {user?.role === 'employer' ? null : (
+              <NavLink to="/ho-so?tab=cv" className="header-tabs__cv">Đăng CV</NavLink>
+              <div className="header-tabs__post-wrap">
                 <NavLink to="/dang-tin" className="header-tabs__post">Đăng tuyển</NavLink>
-              )}
+                <button
+                  type="button"
+                  className="header-tabs__post-arrow"
+                  onClick={() => navigate('/dang-tin')}
+                  aria-label="Mở menu đăng tuyển"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>

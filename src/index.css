@@ -253,7 +253,7 @@ a:hover {
 .header-tabs__logout:hover {
   background: #fef2f2;
 }
-.header-tabs__post {
+.header-tabs__cv {
   font-size: 0.88rem;
   font-weight: 500;
   color: #333;
@@ -263,10 +263,48 @@ a:hover {
   border-radius: 6px;
   transition: all 0.15s;
 }
-.header-tabs__post:hover {
+.header-tabs__cv:hover {
   border-color: #e53935;
   color: #e53935;
   text-decoration: none;
+}
+.header-tabs__post-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.header-tabs__post-wrap:hover {
+  border-color: #e53935;
+}
+.header-tabs__post {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #333;
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  transition: color 0.15s;
+}
+.header-tabs__post:hover {
+  color: #e53935;
+  text-decoration: none;
+}
+.header-tabs__post-arrow {
+  background: none;
+  border: none;
+  border-left: 1px solid #e0e0e0;
+  padding: 0 0.5rem;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.header-tabs__post-arrow:hover {
+  color: #e53935;
 }
 
 /* ── Mega menu dropdown ── */
