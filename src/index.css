@@ -4988,7 +4988,7 @@ a:hover {
 }
 .hero-row__ad {
   flex: 6;
-  min-height: 140px;
+  min-height: 160px;
   display: flex;
   align-items: stretch;
   overflow: hidden;
@@ -6314,7 +6314,7 @@ a:hover {
   border-radius: 0;
   overflow: hidden;
   margin-bottom: 0;
-  min-height: 88px;
+  min-height: 160px;
 }
 
 .ad-slot__label {
