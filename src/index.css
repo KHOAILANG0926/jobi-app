@@ -5158,9 +5158,9 @@ a:hover {
   height: 110px;
   flex-shrink: 0;
   background-image: url('/char-main.png');
-  background-size: 800px auto;
+  background-size: 400px auto;
   background-repeat: no-repeat;
-  background-position: -345px 0px;
+  background-position: -145px 0px;
 }
 .hero-row__login-text {
   display: flex;
