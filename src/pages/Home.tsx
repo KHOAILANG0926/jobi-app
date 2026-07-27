@@ -297,11 +297,11 @@ export function Home() {
         </div>
         {!user && (
           <div className="hero-row__login">
-            <img src="/mascot.svg" alt="mascot" className="hero-row__mascot" />
-            <div className="hero-row__login-text">
-              <p className="hero-row__cta">Nhiều việc làm hơn đang chờ bạn!</p>
-              <NavLink to="/dang-nhap" className="hero-row__login-btn">Đăng nhập</NavLink>
+              <div className="hero-row__login-text">
+              <p className="hero-row__cta">Bạn muốn biết thêm nhiều thông tin việc làm?</p>
+              <p className="hero-row__cta2">Hãy <NavLink to="/dang-nhap" className="hero-row__login-btn">đăng nhập</NavLink> ngay!</p>
             </div>
+            <img src="/mascot.svg" alt="mascot" className="hero-row__mascot" />
           </div>
         )}
       </section>

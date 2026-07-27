@@ -5019,26 +5019,32 @@ a:hover {
   gap: 0.5rem;
 }
 .hero-row__cta {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #333;
+  font-size: 0.85rem;
+  color: #555;
   margin: 0;
   line-height: 1.4;
 }
+.hero-row__cta2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+  line-height: 1.5;
+}
 .hero-row__login-btn {
   display: inline-block;
-  background: #e53935;
+  background: #ff7d00;
   color: #fff;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.4rem 1rem;
-  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.3rem 0.9rem;
+  border-radius: 20px;
   text-decoration: none;
-  text-align: center;
   transition: background 0.15s;
+  vertical-align: middle;
 }
 .hero-row__login-btn:hover {
-  background: #c62828;
+  background: #e56d00;
   text-decoration: none;
 }
 
