@@ -2267,9 +2267,9 @@ a:hover {
   width: 200px;
   height: 200px;
   background-image: url('/char-main.png');
-  background-size: 1600px auto;
+  background-size: 490px auto;
   background-repeat: no-repeat;
-  background-position: -700px 0px;
+  background-position: -146px 0px;
 }
 .signup-role-card {
   display: flex;
@@ -5158,9 +5158,9 @@ a:hover {
   height: 110px;
   flex-shrink: 0;
   background-image: url('/char-main.png');
-  background-size: 400px auto;
+  background-size: 270px auto;
   background-repeat: no-repeat;
-  background-position: -145px 0px;
+  background-position: -80px 0px;
 }
 .hero-row__login-text {
   display: flex;
