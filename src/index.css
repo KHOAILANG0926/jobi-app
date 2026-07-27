@@ -4985,6 +4985,7 @@ a:hover {
   gap: 1rem;
   margin-bottom: 1.25rem;
   align-items: stretch;
+  height: 160px;
 }
 .hero-row__ad {
   flex: 6;
