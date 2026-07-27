@@ -5214,8 +5214,8 @@ a:hover {
 /* ── Main 2-col grid: Brand+Ad / Regions (Albamon style) ─────────── */
 .home-main-grid {
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 1.25rem;
+  grid-template-columns: 6fr 4fr;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 .home-main-grid__left {
