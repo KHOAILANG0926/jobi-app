@@ -10,6 +10,7 @@ export function Signup() {
   const roleParam = searchParams.get('role') as UserRole | null
   const redirectTo = searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
 
+  const [step, setStep] = useState<'choose' | 'form'>(roleParam ? 'form' : 'choose')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,6 +20,11 @@ export function Signup() {
 
   if (user) {
     return <Navigate to={user.role === 'employer' ? '/bang-dieu-khien' : '/'} replace />
+  }
+
+  const chooseRole = (r: UserRole) => {
+    setRole(r)
+    setStep('form')
   }
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -42,30 +48,60 @@ export function Signup() {
     navigate(role === 'employer' ? redirectTo : '/', { replace: true })
   }
 
+  if (step === 'choose') {
+    return (
+      <div className="signup-choose">
+        <div className="signup-choose__head">
+          <h1 className="signup-choose__title">Việt Gần Bạn</h1>
+          <p className="signup-choose__sub">Tạo tài khoản miễn phí và bắt đầu ngay hôm nay</p>
+        </div>
+
+        <div className="signup-choose__cards">
+          <button className="signup-role-card signup-role-card--seeker" onClick={() => chooseRole('seeker')}>
+            <h2 className="signup-role-card__title">Tìm việc làm</h2>
+            <p className="signup-role-card__desc">Đăng CV và tìm việc làm phù hợp với bạn</p>
+            <div className="signup-role-card__mascot">
+              <img src="/mascot.svg" alt="mascot" />
+            </div>
+            <span className="signup-role-card__btn signup-role-card__btn--seeker">
+              Đăng ký tìm việc
+            </span>
+          </button>
+
+          <button className="signup-role-card signup-role-card--employer" onClick={() => chooseRole('employer')}>
+            <h2 className="signup-role-card__title">Tuyển dụng</h2>
+            <p className="signup-role-card__desc">Đăng tin tuyển dụng và tìm nhân tài</p>
+            <div className="signup-role-card__mascot">
+              <img src="/mascot.svg" alt="mascot employer" style={{ filter: 'hue-rotate(200deg)' }} />
+            </div>
+            <span className="signup-role-card__btn signup-role-card__btn--employer">
+              Đăng ký tuyển dụng
+            </span>
+          </button>
+        </div>
+
+        <div className="signup-choose__footer">
+          <span>Đã có tài khoản?</span>
+          <Link to="/dang-nhap" className="text-link">Đăng nhập ngay →</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="page page--narrow auth-page">
       <header className="page-header">
-        <h1 className="page-header__title">Việc gần Bạn</h1>
-        <p className="page-header__lead">Tạo tài khoản miễn phí</p>
+        <h1 className="page-header__title">
+          {role === 'seeker' ? 'Đăng ký tìm việc' : 'Đăng ký tuyển dụng'}
+        </h1>
+        <p className="page-header__lead">
+          <button className="text-link" onClick={() => setStep('choose')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 'inherit' }}>
+            ← Quay lại
+          </button>
+        </p>
       </header>
       <form className="form-card" onSubmit={onSubmit} noValidate>
         {error && <p className="form-error" role="alert">{error}</p>}
-
-        <fieldset className="role-picker">
-          <legend className="role-picker__legend">Bạn là</legend>
-          <div className="role-picker__options" role="group">
-            <button type="button"
-              className={`role-picker__btn${role === 'seeker' ? ' role-picker__btn--active' : ''}`}
-              onClick={() => setRole('seeker')}>
-              🔍 Tìm việc
-            </button>
-            <button type="button"
-              className={`role-picker__btn${role === 'employer' ? ' role-picker__btn--active' : ''}`}
-              onClick={() => setRole('employer')}>
-              🏢 Tuyển dụng
-            </button>
-          </div>
-        </fieldset>
 
         <label className="field">
           <span className="field__label">Họ và tên *</span>
@@ -88,17 +124,17 @@ export function Signup() {
             placeholder="Tối thiểu 6 ký tự" autoComplete="new-password" />
         </label>
 
-        <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
-          {loading ? 'Đang tạo tài khoản...' : 'Đăng ký'}
+        <button
+          type="submit"
+          className="btn btn--block"
+          style={{ background: role === 'seeker' ? '#e53935' : '#222', color: '#fff', fontWeight: 700, fontSize: '1rem', padding: '0.85rem' }}
+          disabled={loading}
+        >
+          {loading ? 'Đang tạo tài khoản...' : role === 'seeker' ? 'Đăng ký tìm việc' : 'Đăng ký tuyển dụng'}
         </button>
         <p className="auth-page__footer">
           Đã có tài khoản?{' '}
-          <Link
-            to={roleParam ? `/dang-nhap?role=${roleParam}` : '/dang-nhap'}
-            className="text-link"
-          >
-            Đăng nhập
-          </Link>
+          <Link to="/dang-nhap" className="text-link">Đăng nhập</Link>
         </p>
       </form>
     </div>
