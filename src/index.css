@@ -5159,12 +5159,12 @@ a:hover {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 120px;
-  height: 130px;
-  background-image: url('/char-main.png');
-  background-size: 456px auto;
+  width: 272px;
+  height: 110px;
+  background-image: url('/char-upper.png');
+  background-size: contain;
   background-repeat: no-repeat;
-  background-position: -168px 0px;
+  background-position: right bottom;
   pointer-events: none;
 }
 .hero-row__login-text {
