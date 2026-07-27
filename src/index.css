@@ -513,7 +513,7 @@ a:hover {
   line-height: 1.6;
 }
 .footer-info__legal {
-  margin: 0.75rem 0 0.5rem;
+  margin: 1rem 0 0.5rem;
   display: flex;
   justify-content: center;
   gap: 0.25rem;
@@ -2237,7 +2237,7 @@ a:hover {
 
 /* ── Signup role choose page (albamon style) ── */
 .signup-choose {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 4rem auto;
   padding: 0 1.5rem;
   text-align: center;
