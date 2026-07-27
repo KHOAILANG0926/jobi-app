@@ -5130,7 +5130,7 @@ a:hover {
   gap: 1rem;
   margin-bottom: 1.25rem;
   align-items: stretch;
-  height: 110px;
+  min-height: 240px;
 }
 .hero-row__ad {
   flex: 6;
@@ -5159,10 +5159,10 @@ a:hover {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 340px;
-  height: 137px;
+  width: 380px;
+  height: 240px;
   background-image: url('/char-upper.png');
-  background-size: auto 137px;
+  background-size: auto 240px;
   background-repeat: no-repeat;
   background-position: right bottom;
   pointer-events: none;
@@ -5626,14 +5626,14 @@ a:hover {
   padding: 0.5rem;
   border-radius: 12px;
   transition: transform 0.15s, box-shadow 0.15s;
-  min-width: 140px;
+  min-width: 100px;
 }
 
 .home-brand:hover { transform: translateY(-2px); }
 
 .home-brand__logo {
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -5650,8 +5650,8 @@ a:hover {
 }
 
 .home-brand__logo-img {
-  width: 80px;
-  height: 80px;
+  width: 52px;
+  height: 52px;
   object-fit: contain;
   display: block;
 }
