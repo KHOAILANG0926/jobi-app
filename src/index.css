@@ -5157,7 +5157,7 @@ a:hover {
 }
 .hero-row__mascot {
   position: absolute;
-  right: 0;
+  right: -60px;
   bottom: 0;
   width: 300px;
   height: 97px;
