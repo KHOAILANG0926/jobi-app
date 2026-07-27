@@ -5130,7 +5130,7 @@ a:hover {
   gap: 1rem;
   margin-bottom: 1.25rem;
   align-items: stretch;
-  height: 130px;
+  height: 97px;
 }
 .hero-row__ad {
   flex: 6;
@@ -5159,8 +5159,8 @@ a:hover {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 325px;
-  height: 130px;
+  width: 244px;
+  height: 97px;
   background-image: url('/char-upper.png');
   background-size: contain;
   background-repeat: no-repeat;
