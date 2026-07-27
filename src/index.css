@@ -2262,19 +2262,14 @@ a:hover {
   gap: 1.5rem;
   margin-bottom: 2.5rem;
 }
-/* 캐릭터 이미지 크롭 */
+/* 캐릭터 이미지 크롭 — 베이지 캐릭터만 */
 .signup-char {
   width: 200px;
   height: 200px;
   background-image: url('/characters.png');
-  background-size: 560px auto;
+  background-size: 900px auto;
   background-repeat: no-repeat;
-}
-.signup-char--seeker {
-  background-position: -60px -20px;
-}
-.signup-char--employer {
-  background-position: -300px -20px;
+  background-position: -185px -55px;
 }
 .signup-role-card {
   display: flex;
@@ -5159,10 +5154,13 @@ a:hover {
   padding: 1rem 1.25rem;
 }
 .hero-row__mascot {
-  width: 160px;
-  height: auto;
+  width: 130px;
+  height: 110px;
   flex-shrink: 0;
-  object-fit: contain;
+  background-image: url('/characters.png');
+  background-size: 820px auto;
+  background-repeat: no-repeat;
+  background-position: -165px -50px;
 }
 .hero-row__login-text {
   display: flex;

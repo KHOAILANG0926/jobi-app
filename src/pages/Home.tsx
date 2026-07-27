@@ -301,7 +301,7 @@ export function Home() {
               <p className="hero-row__cta">Bạn muốn biết thêm nhiều thông tin việc làm?</p>
               <p className="hero-row__cta2">Hãy <NavLink to="/dang-nhap" className="hero-row__login-btn">đăng nhập</NavLink> ngay!</p>
             </div>
-            <img src="/characters.png" alt="mascot" className="hero-row__mascot" />
+            <div className="hero-row__mascot" aria-hidden />
           </div>
         )}
       </section>
