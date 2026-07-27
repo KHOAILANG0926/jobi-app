@@ -2256,25 +2256,25 @@ a:hover {
   color: #777;
   margin: 0;
 }
-.signup-choose__cards-wrap {
-  position: relative;
-  margin-bottom: 2.5rem;
-}
-.signup-choose__characters {
-  width: 55%;
-  max-width: 520px;
-  display: block;
-  margin: 0 auto -60px;
-  position: relative;
-  z-index: 2;
-  pointer-events: none;
-}
 .signup-choose__cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  position: relative;
-  z-index: 1;
+  margin-bottom: 2.5rem;
+}
+/* 캐릭터 이미지 크롭 */
+.signup-char {
+  width: 200px;
+  height: 200px;
+  background-image: url('/characters.png');
+  background-size: 560px auto;
+  background-repeat: no-repeat;
+}
+.signup-char--seeker {
+  background-position: -60px -20px;
+}
+.signup-char--employer {
+  background-position: -300px -20px;
 }
 .signup-role-card {
   display: flex;
