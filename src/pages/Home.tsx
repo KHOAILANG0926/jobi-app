@@ -328,10 +328,14 @@ export function Home() {
               { id: 'hanoi', label: 'Hà Nội' },
               { id: 'haiphong', label: 'Hải Phòng' },
               { id: 'bacninh', label: 'Bắc Ninh' },
+              { id: 'bacgiang', label: 'Bắc Giang' },
+              { id: 'thainguyen', label: 'Thái Nguyên' },
               { id: 'danang', label: 'Đà Nẵng' },
               { id: 'hue', label: 'Huế' },
+              { id: 'khanhhoa', label: 'Khánh Hòa' },
               { id: 'hcm', label: 'TP. HCM' },
               { id: 'dongnai', label: 'Đồng Nai' },
+              { id: 'cantho', label: 'Cần Thơ' },
             ].map(p => (
               <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
                 onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
