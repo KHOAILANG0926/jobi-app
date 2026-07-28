@@ -5525,10 +5525,6 @@ a:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 0.75rem;
-}
-.home-region-panel__ad {
-  margin-top: auto;
 }
 .home-region-panel__btn {
   font-size: 0.78rem;
