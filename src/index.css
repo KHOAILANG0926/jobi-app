@@ -5126,10 +5126,10 @@ a:hover {
 
 /* ── Hero row: Ad + Login (Albamon style) ─────────────────────────── */
 .hero-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 6fr 4fr;
   gap: 1rem;
   margin-bottom: 1.25rem;
-  align-items: stretch;
   height: 120px !important;
 }
 .hero-row__ad {
