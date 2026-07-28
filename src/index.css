@@ -5134,6 +5134,7 @@ a:hover {
 }
 .hero-row__ad {
   flex: 6;
+  min-width: 0;
   display: flex;
   align-items: stretch;
   overflow: hidden;
@@ -5144,6 +5145,7 @@ a:hover {
 }
 .hero-row__login {
   flex: 4;
+  min-width: 0;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
