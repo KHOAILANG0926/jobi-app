@@ -299,28 +299,49 @@ export function Home() {
       </section>
 
 
-      {/* ── Brands + Category ── */}
+      {/* ── Brands + Region ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '1rem', marginBottom: '1.25rem' }}>
-      <section className="home-brands-section" style={{ margin: 0 }}>
-        <div className="home-brands-box">
-          <div className="home-brands-box__head">
-            <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
-            <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+        <section className="home-brands-section">
+          <div className="home-brands-box">
+            <div className="home-brands-box__head">
+              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
+              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+            </div>
+            <div className="home-brands-box__row">
+              <div className="home-brands-box__track">
+                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
+                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                    <span className="home-brand__name">{b.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="home-brands-box__row">
-            <div className="home-brands-box__track">
-              {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
-                <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                  <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                  <span className="home-brand__name">{b.name}</span>
+        </section>
+
+        {/* ── Region panel (right) ── */}
+        <div className="home-region-panel">
+          <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
+          {[
+            { label: 'Miền Bắc', provinces: [{ id: 'hanoi', label: 'Hà Nội' }, { id: 'haiphong', label: 'Hải Phòng' }, { id: 'bacninh', label: 'Bắc Ninh' }] },
+            { label: 'Miền Trung', provinces: [{ id: 'danang', label: 'Đà Nẵng' }, { id: 'hue', label: 'Huế' }] },
+            { label: 'Miền Nam', provinces: [{ id: 'hcm', label: 'TP. HCM' }, { id: 'dongnai', label: 'Đồng Nai' }] },
+          ].map(group => (
+            <div key={group.label} className="home-region-panel__group">
+              <span className="home-region-panel__group-label">{group.label}</span>
+              {group.provinces.map(p => (
+                <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
+                  onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
+                  {p.label}
                 </button>
               ))}
             </div>
-          </div>
+          ))}
         </div>
-      </section>
+      </div>
 
-      {/* ── City filtered results — right below city buttons ──── */}
+      {/* ── City filtered results ──────────────────────────────── */}
       {selectedCity && (() => {
         const cityLabel = REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label ?? ''
         return (
@@ -429,7 +450,6 @@ export function Home() {
           </button>
         )}
       </section>
-      </div>
 
       {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (
