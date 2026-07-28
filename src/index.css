@@ -5130,7 +5130,7 @@ a:hover {
   gap: 1rem;
   margin-bottom: 1.25rem;
   align-items: stretch;
-  height: 60px !important;
+  height: 120px !important;
 }
 .hero-row__ad {
   flex: 6;
@@ -5144,7 +5144,6 @@ a:hover {
 }
 .hero-row__login {
   flex: 4;
-  flex-shrink: 0;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
