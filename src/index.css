@@ -5519,19 +5519,10 @@ a:hover {
   color: #333;
   margin: 0 0 0.5rem 0;
 }
-.home-region-panel__group {
+.home-region-panel__grid {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-bottom: 0.3rem;
-}
-.home-region-panel__group-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #999;
-  width: 60px;
-  flex-shrink: 0;
+  gap: 0.4rem;
 }
 .home-region-panel__btn {
   font-size: 0.78rem;

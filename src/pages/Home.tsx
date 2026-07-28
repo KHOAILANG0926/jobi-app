@@ -323,21 +323,22 @@ export function Home() {
         {/* ── Region panel (right) ── */}
         <div className="home-region-panel">
           <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
-          {[
-            { label: 'Miền Bắc', provinces: [{ id: 'hanoi', label: 'Hà Nội' }, { id: 'haiphong', label: 'Hải Phòng' }, { id: 'bacninh', label: 'Bắc Ninh' }] },
-            { label: 'Miền Trung', provinces: [{ id: 'danang', label: 'Đà Nẵng' }, { id: 'hue', label: 'Huế' }] },
-            { label: 'Miền Nam', provinces: [{ id: 'hcm', label: 'TP. HCM' }, { id: 'dongnai', label: 'Đồng Nai' }] },
-          ].map(group => (
-            <div key={group.label} className="home-region-panel__group">
-              <span className="home-region-panel__group-label">{group.label}</span>
-              {group.provinces.map(p => (
-                <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
-                  onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          ))}
+          <div className="home-region-panel__grid">
+            {[
+              { id: 'hanoi', label: 'Hà Nội' },
+              { id: 'haiphong', label: 'Hải Phòng' },
+              { id: 'bacninh', label: 'Bắc Ninh' },
+              { id: 'danang', label: 'Đà Nẵng' },
+              { id: 'hue', label: 'Huế' },
+              { id: 'hcm', label: 'TP. HCM' },
+              { id: 'dongnai', label: 'Đồng Nai' },
+            ].map(p => (
+              <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
+                onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
