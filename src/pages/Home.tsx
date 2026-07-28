@@ -291,7 +291,7 @@ export function Home() {
     <div className="home-page">
 
       {/* ── Hero: Ad + Login prompt (Albamon style) ─────────── */}
-      <section className="hero-row">
+      <section className="hero-row" style={{ height: '60px' }}>
         <div className="hero-row__ad">
           <AdSlot slotId="header" />
         </div>
