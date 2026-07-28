@@ -258,6 +258,9 @@ export function Home() {
   return (
     <div className="home-page">
 
+      {/* ── White top section ─────────────────────────────── */}
+      <div className="home-top-bg">
+
       {/* ── Hero: Ad + Login prompt (Albamon style) ─────────── */}
       <section className="hero-row" style={{ height: '120px' }}>
         <div className="hero-row__ad">
@@ -321,6 +324,8 @@ export function Home() {
           </div>
         </div>
       </div>
+
+      </div>{/* /.home-top-bg */}
 
       {/* ── City filtered results ──────────────────────────────── */}
       {selectedCity && (() => {
