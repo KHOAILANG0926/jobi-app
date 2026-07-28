@@ -197,11 +197,6 @@ export function Home() {
     return r
   }, [jobs, nearMe, userCoords])
 
-  const jobCountByCategory = useMemo(() => {
-    const c: Partial<Record<JobCategory | 'all', number>> = { all: jobs.length }
-    for (const j of jobs) c[j.category] = (c[j.category] ?? 0) + 1
-    return c
-  }, [jobs])
 
 
   const filtered = useMemo(() => {
@@ -248,7 +243,7 @@ export function Home() {
 
   // Filters that are NOT city-based (used for the bottom job section)
   const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe)
-  const hasFilters = !!(hasOtherFilters || selectedCity)
+
 
   const handleBrandClick = (brandSearch: string) => {
     setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
