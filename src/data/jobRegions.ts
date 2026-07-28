@@ -210,25 +210,7 @@ export const REGION_MACRO_TABS: {
   id: MacroGroupId
   label: string
   provinces: { id: JobRegionId; label: string }[]
-}[] = [
-  {
-    id: 'north',
-    label: 'Miền Bắc',
-    provinces: [
-      { id: 'hanoi', label: 'Hà Nội' },
-    ],
-  },
-  {
-    id: 'central',
-    label: 'Miền Trung',
-    provinces: [],
-  },
-  {
-    id: 'south',
-    label: 'Miền Nam',
-    provinces: [],
-  },
-]
+}[] = []
 
 const PROVINCE_TO_MACRO: Partial<Record<JobRegionId, MacroGroupId>> = {}
 for (const tab of REGION_MACRO_TABS) {
