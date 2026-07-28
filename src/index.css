@@ -5274,12 +5274,18 @@ a:hover {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
 }
 .home-brands-box__head {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
+  width: 140px;
+  gap: 0.25rem;
 }
 .home-brands-box__title {
   font-size: 1rem;
