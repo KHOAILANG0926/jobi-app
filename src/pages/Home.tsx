@@ -256,14 +256,6 @@ export function Home() {
   const handleCategoryClick = (cat: JobCategory | 'all') => {
     setCategory(cat); setSearch(''); setBrandFilter(null); setNearMe(false)
   }
-  const handleCityClick = (id: JobRegionId) => {
-    setSelectedCity(prev => prev === id ? null : id)
-    setSearch('')
-    setBrandFilter(null)
-    setCategory('all')
-    setUrgentOnly(false)
-    setNearMe(false)
-  }
 
   const isApplied = useCallback((id: string) => hasAppliedToJob(id, user?.id), [user?.id])
 
