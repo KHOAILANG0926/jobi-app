@@ -5263,6 +5263,7 @@ a:hover {
   right: 0.6rem;
 }
 .home-brands-box {
+  height: 120px;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
