@@ -1,4 +1,4 @@
-const CACHE_NAME = 'viecganban-v1'
+const CACHE_NAME = 'viecganban-v2'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
