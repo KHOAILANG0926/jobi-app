@@ -343,6 +343,9 @@ export function Home() {
               </button>
             ))}
           </div>
+          <div className="home-region-panel__ad">
+            <AdSlot slotId="inline" />
+          </div>
         </div>
       </div>
 

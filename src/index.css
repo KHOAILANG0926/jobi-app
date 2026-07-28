@@ -5512,6 +5512,8 @@ a:hover {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
 }
 .home-region-panel__title {
   font-size: 0.9rem;
@@ -5523,6 +5525,10 @@ a:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.home-region-panel__ad {
+  margin-top: auto;
 }
 .home-region-panel__btn {
   font-size: 0.78rem;
