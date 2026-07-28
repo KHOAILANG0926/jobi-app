@@ -5526,6 +5526,31 @@ a:hover {
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+.home-region-panel__rec-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0.6rem 0 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #f0f0f0;
+}
+.home-cat-grid--compact {
+  gap: 0.5rem;
+  margin-bottom: 0;
+  overflow-x: visible;
+  flex-wrap: wrap;
+  padding-bottom: 0;
+}
+.home-cat-grid--compact .home-cat-card {
+  min-width: unset;
+  flex-shrink: 1;
+}
+.home-cat-grid--compact .home-cat-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+.home-cat-grid--compact .home-cat-card__count { display: none; }
 .home-region-panel__btn {
   font-size: 0.78rem;
   padding: 0.25rem 0.75rem;

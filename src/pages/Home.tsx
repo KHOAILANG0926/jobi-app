@@ -343,6 +343,34 @@ export function Home() {
               </button>
             ))}
           </div>
+          <p className="home-region-panel__rec-title">Gợi ý tìm kiếm</p>
+          <section className="home-cat-grid home-cat-grid--compact" aria-label="Lọc theo ngành nghề">
+            <button className={`home-cat-card${category === 'all' ? ' home-cat-card--active' : ''}`} onClick={() => handleCategoryClick('all')}>
+              <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+              <span className="home-cat-card__label">Tất cả</span>
+            </button>
+            {ALL_CATEGORIES.map((cat) => (
+              <button key={cat} className={`home-cat-card${category === cat ? ' home-cat-card--active' : ''}`} onClick={() => handleCategoryClick(cat)}>
+                <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS[cat] }}>
+                  {cat === 'factory'  && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M2 20V8l6-4v4l6-4v4l6-4v16H2z"/><path d="M6 20v-4h4v4M14 20v-4h4v4"/></svg>}
+                  {cat === 'cafe'     && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>}
+                  {cat === 'delivery' && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>}
+                  {cat === 'cleaning' && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 22l4-4M14 3l7 7-9.5 9.5L4 12l9-9zM4 12l4 4"/><path d="M14.5 6.5l3 3"/></svg>}
+                  {cat === 'retail'   && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>}
+                  {cat === 'other'    && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
+                </span>
+                <span className="home-cat-card__label">{CATEGORY_SHORT[cat]}</span>
+              </button>
+            ))}
+            <button className={`home-cat-card${urgentOnly ? ' home-cat-card--active' : ''}`} onClick={() => setUrgentOnly(v => !v)}>
+              <span className="home-cat-card__icon" style={{ background: '#E53935' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <span className="home-cat-card__label">Tuyển gấp</span>
+            </button>
+            <button className={`home-cat-card${nearMe ? ' home-cat-card--active' : ''}`} onClick={handleNearMe} disabled={geoLoading}>
+              <span className="home-cat-card__icon" style={{ background: '#1565C0' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <span className="home-cat-card__label">{geoLoading ? '...' : 'Gần tôi'}</span>
+            </button>
+          </section>
         </div>
       </div>
 
@@ -396,65 +424,6 @@ export function Home() {
           </section>
         )
       })()}
-
-      {/* ── Category grid + Quick filters ──────────────────────── */}
-      <section className="home-cat-grid" aria-label="Lọc theo ngành nghề">
-        <button
-          className={`home-cat-card${category === 'all' ? ' home-cat-card--active' : ''}`}
-          onClick={() => handleCategoryClick('all')}
-        >
-          <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS.all }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </span>
-          <span className="home-cat-card__label">Tất cả</span>
-          <span className="home-cat-card__count">{jobs.length}</span>
-        </button>
-        {ALL_CATEGORIES.map((cat) => (
-          <button key={cat} className={`home-cat-card${category === cat ? ' home-cat-card--active' : ''}`} onClick={() => handleCategoryClick(cat)}>
-            <span className="home-cat-card__icon" style={{ background: CATEGORY_COLORS[cat] }}>
-              {cat === 'factory'  && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M2 20V8l6-4v4l6-4v4l6-4v16H2z"/><path d="M6 20v-4h4v4M14 20v-4h4v4"/></svg>}
-              {cat === 'cafe'     && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>}
-              {cat === 'delivery' && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>}
-              {cat === 'cleaning' && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 22l4-4M14 3l7 7-9.5 9.5L4 12l9-9zM4 12l4 4"/><path d="M14.5 6.5l3 3"/></svg>}
-              {cat === 'retail'   && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>}
-              {cat === 'other'    && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
-            </span>
-            <span className="home-cat-card__label">{CATEGORY_SHORT[cat]}</span>
-            <span className="home-cat-card__count">{jobCountByCategory[cat] ?? 0}</span>
-          </button>
-        ))}
-        {/* Quick filters merged into same row */}
-        <button
-          className={`home-cat-card${urgentOnly ? ' home-cat-card--active' : ''}`}
-          onClick={() => setUrgentOnly(v => !v)}
-        >
-          <span className="home-cat-card__icon" style={{ background: '#E53935' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </span>
-          <span className="home-cat-card__label">Tuyển gấp</span>
-          <span className="home-cat-card__count">{urgentJobs.length}</span>
-        </button>
-        <button
-          className={`home-cat-card${nearMe ? ' home-cat-card--active' : ''}`}
-          onClick={handleNearMe}
-          disabled={geoLoading}
-        >
-          <span className="home-cat-card__icon" style={{ background: '#1565C0' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          </span>
-          <span className="home-cat-card__label">{geoLoading ? '...' : 'Gần tôi'}</span>
-          <span className="home-cat-card__count"> </span>
-        </button>
-        {hasFilters && (
-          <button className="home-cat-card" onClick={resetFilters}>
-            <span className="home-cat-card__icon" style={{ background: '#757575' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </span>
-            <span className="home-cat-card__label">Xóa lọc</span>
-            <span className="home-cat-card__count"> </span>
-          </button>
-        )}
-      </section>
 
       {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (
