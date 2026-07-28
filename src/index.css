@@ -5264,6 +5264,11 @@ a:hover {
 }
 .home-brands-section {
   height: 120px;
+  min-width: 0;
+  overflow: hidden;
+}
+.home-region-panel {
+  min-width: 0;
 }
 .home-brands-box {
   height: 100%;
