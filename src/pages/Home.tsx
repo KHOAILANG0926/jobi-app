@@ -154,9 +154,7 @@ export function Home() {
     setNearMe(near === '1')
   }, [location.search])
   const [nearRadius] = useState(5)
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
-  const [, setGeoLoading] = useState(false)
-  const [, setGeoError] = useState<string | null>(null)
+  const [userCoords] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     const sync = () => setSavedIds(new Set(loadSavedJobIds()))
