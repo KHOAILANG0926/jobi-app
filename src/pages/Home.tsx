@@ -299,8 +299,9 @@ export function Home() {
       </section>
 
 
-      {/* ── Brands ── */}
-      <section className="home-brands-section">
+      {/* ── Brands + Category ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '1rem', marginBottom: '1.25rem' }}>
+      <section className="home-brands-section" style={{ margin: 0 }}>
         <div className="home-brands-box">
           <div className="home-brands-box__head">
             <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
@@ -428,6 +429,7 @@ export function Home() {
           </button>
         )}
       </section>
+      </div>
 
       {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (
