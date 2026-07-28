@@ -299,7 +299,8 @@ export function Home() {
       </section>
 
 
-      {/* ── Brands full width ── */}
+      {/* ── Brands + Category grid ── */}
+      <div className="home-mid-grid">
       <section className="home-brands-section">
         <div className="home-brands-box">
           <div className="home-brands-box__head">
@@ -428,6 +429,7 @@ export function Home() {
           </button>
         )}
       </section>
+      </div>
 
       {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (

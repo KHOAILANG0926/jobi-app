@@ -5262,8 +5262,13 @@ a:hover {
   top: 0.5rem;
   right: 0.6rem;
 }
+.home-mid-grid {
+  display: grid;
+  grid-template-columns: 6fr 4fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
 .home-brands-box {
-  height: 120px;
   overflow: hidden;
   background: #fff;
   border: 1px solid #e5e7eb;
