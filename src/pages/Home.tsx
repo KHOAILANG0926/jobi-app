@@ -300,7 +300,7 @@ export function Home() {
 
 
       {/* ── Brands + Region ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '1rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '1rem', marginBottom: '1.25rem', alignItems: 'start' }}>
         <section className="home-brands-section">
           <div className="home-brands-box">
             <div className="home-brands-box__head">
