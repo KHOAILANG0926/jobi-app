@@ -55,6 +55,24 @@ const AD_CONFIGS = {
     cta: 'Tải ngay miễn phí →',
     light: false,
   },
+  card1: {
+    bg: '#fff',
+    icon: '☕',
+    eyebrow: 'Highlands Coffee',
+    headline: 'Tìm kiếm nhân viên phục vụ & pha chế',
+    sub: 'Môi trường năng động — Thu nhập hấp dẫn',
+    cta: 'Xem ngay →',
+    light: false,
+  },
+  card2: {
+    bg: '#fff',
+    icon: '🏪',
+    eyebrow: 'WinMart / WinMart+',
+    headline: 'Tuyển nhân viên bán hàng toàn quốc',
+    sub: 'Lương cơ bản + thưởng doanh số',
+    cta: 'Ứng tuyển →',
+    light: false,
+  },
 }
 
 interface AdSlotProps {
@@ -63,6 +81,20 @@ interface AdSlotProps {
 
 function AdSlot({ slotId }: AdSlotProps) {
   const cfg = AD_CONFIGS[slotId]
+  if (slotId === 'card1' || slotId === 'card2') {
+    return (
+      <div className="ad-card" data-ad-slot={slotId}>
+        <span className="ad-card__icon">{cfg.icon}</span>
+        <div className="ad-card__body">
+          <p className="ad-card__eyebrow">{'eyebrow' in cfg ? cfg.eyebrow : ''}</p>
+          <p className="ad-card__headline">{'headline' in cfg ? cfg.headline : ''}</p>
+          <p className="ad-card__sub">{'sub' in cfg ? cfg.sub : ''}</p>
+        </div>
+        <a href="/dang-tin" className="ad-card__cta">{cfg.cta}</a>
+        <span className="ad-slot__label" style={{ color: 'rgba(0,0,0,0.3)' }}>QC</span>
+      </div>
+    )
+  }
   if (slotId === 'inline') {
     return (
       <div className="ad-slot ad-slot--inline" data-ad-slot={slotId} style={{ background: cfg.bg }}>
@@ -280,26 +312,34 @@ export function Home() {
 
       {/* ── Brands + Region ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '1rem', marginBottom: '1.25rem', alignItems: 'start' }}>
-        <section className="home-brands-section">
-          <div className="home-brands-box">
-            <div className="home-brands-box__head">
-              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
-              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
-            </div>
-            <div className="home-brands-box__row">
-              <div className="home-brands-box__track">
-                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
-                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                    <span className="home-brand__name">{b.name}</span>
-                  </button>
-                ))}
+
+        {/* LEFT: Brands + 2 ad cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0 }}>
+          <section className="home-brands-section">
+            <div className="home-brands-box">
+              <div className="home-brands-box__head">
+                <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
+                <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+              </div>
+              <div className="home-brands-box__row">
+                <div className="home-brands-box__track">
+                  {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
+                    <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                      <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                      <span className="home-brand__name">{b.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+          </section>
+          <div className="home-ad-cards">
+            <AdSlot slotId="card1" />
+            <AdSlot slotId="card2" />
           </div>
-        </section>
+        </div>
 
-        {/* ── Region panel (right) ── */}
+        {/* RIGHT: Region + 추천 */}
         <div className="home-region-panel">
           <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
           <div className="home-region-panel__grid">
@@ -319,6 +359,24 @@ export function Home() {
               <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
                 onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
                 {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 추천 섹션 */}
+          <h2 className="home-region-panel__title" style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>Gợi ý tìm kiếm</h2>
+          <div className="home-rec-grid">
+            {[
+              { label: 'Tuyển gấp', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>, color: '#e53935', action: () => { setUrgentOnly(true); setCategory('all'); setSearch('') } },
+              { label: 'Gần tôi', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>, color: '#1565c0', action: () => { setSearch('Hà Nội') } },
+              { label: 'Nhà máy', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 20V8l6-4v4l6-4v4l6-4v16H2z"/></svg>, color: '#e65100', action: () => { setCategory('factory' as any); setSearch('') } },
+              { label: 'Nhà hàng', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/></svg>, color: '#6d4c41', action: () => { setCategory('cafe' as any); setSearch('') } },
+              { label: 'Giao hàng', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>, color: '#1976d2', action: () => { setCategory('delivery' as any); setSearch('') } },
+              { label: 'Bán lẻ', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>, color: '#7b1fa2', action: () => { setCategory('retail' as any); setSearch('') } },
+            ].map(item => (
+              <button key={item.label} className="home-rec-btn" onClick={item.action}>
+                <span className="home-rec-btn__icon" style={{ color: item.color }}>{item.icon}</span>
+                <span className="home-rec-btn__label">{item.label}</span>
               </button>
             ))}
           </div>

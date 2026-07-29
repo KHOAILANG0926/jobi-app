@@ -5512,6 +5512,68 @@ a:hover {
   background: rgba(255,255,255,0.3);
 }
 
+/* ── Ad cards (albamon 스타일 광고 카드) ─────────────────────────── */
+.home-ad-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.ad-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+.ad-card__icon { font-size: 2rem; line-height: 1; }
+.ad-card__eyebrow { font-size: 0.72rem; font-weight: 700; color: #e53935; margin: 0; }
+.ad-card__headline { font-size: 0.82rem; font-weight: 600; color: #1a1a1a; margin: 0; line-height: 1.35; }
+.ad-card__sub { font-size: 0.72rem; color: #666; margin: 0; }
+.ad-card__cta {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e53935;
+  text-decoration: none;
+  align-self: flex-start;
+}
+.ad-card__cta:hover { text-decoration: underline; }
+
+/* ── 추천 섹션 ─────────────────────────────────────────────────────── */
+.home-rec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.home-rec-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.25rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.home-rec-btn:hover { background: #fef2f2; }
+.home-rec-btn__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-rec-btn__icon svg { width: 22px; height: 22px; }
+.home-rec-btn__label { font-size: 0.72rem; color: #333; font-weight: 500; }
+
 /* ── Region panel ────────────────────────────────────────────────── */
 .home-region-panel {
   padding: 0.75rem 0;
