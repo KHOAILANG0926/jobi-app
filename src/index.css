@@ -5523,31 +5523,34 @@ a:hover {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 1rem;
+  padding: 0.6rem 0.85rem;
+  height: 60px;
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
   overflow: hidden;
 }
-.ad-card__icon { font-size: 2rem; line-height: 1; }
-.ad-card__eyebrow { font-size: 0.72rem; font-weight: 700; color: #e53935; margin: 0; }
-.ad-card__headline { font-size: 0.82rem; font-weight: 600; color: #1a1a1a; margin: 0; line-height: 1.35; }
-.ad-card__sub { font-size: 0.72rem; color: #666; margin: 0; }
+.ad-card__icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; }
+.ad-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.ad-card__eyebrow { font-size: 0.68rem; font-weight: 700; color: #e53935; margin: 0; }
+.ad-card__headline { font-size: 0.78rem; font-weight: 600; color: #1a1a1a; margin: 0; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-card__sub { font-size: 0.68rem; color: #888; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ad-card__cta {
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
+  flex-shrink: 0;
+  font-size: 0.72rem;
   font-weight: 600;
   color: #e53935;
   text-decoration: none;
-  align-self: flex-start;
+  white-space: nowrap;
 }
 .ad-card__cta:hover { text-decoration: underline; }
 
 /* ── 추천 섹션 ─────────────────────────────────────────────────────── */
 .home-rec-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.25rem;
 }
 .home-rec-btn {
   display: flex;
