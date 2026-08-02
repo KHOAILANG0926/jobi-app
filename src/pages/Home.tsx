@@ -370,15 +370,15 @@ export function Home() {
           <h2 className="home-region-panel__title" style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>Gợi ý tìm kiếm</h2>
           <div className="home-rec-grid">
             {[
-              { label: 'Tuyển gấp', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>, color: '#e53935', action: () => { setUrgentOnly(true); setCategory('all'); setSearch('') } },
-              { label: 'Gần tôi', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>, color: '#1565c0', action: () => { setSearch('Hà Nội') } },
-              { label: 'Nhà máy', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 20V8l6-4v4l6-4v4l6-4v16H2z"/></svg>, color: '#e65100', action: () => { setCategory('factory' as any); setSearch('') } },
-              { label: 'Nhà hàng', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/></svg>, color: '#6d4c41', action: () => { setCategory('cafe' as any); setSearch('') } },
-              { label: 'Giao hàng', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>, color: '#1976d2', action: () => { setCategory('delivery' as any); setSearch('') } },
-              { label: 'Bán lẻ', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>, color: '#7b1fa2', action: () => { setCategory('retail' as any); setSearch('') } },
+              { label: 'Tuyển gấp', emoji: '🔔', action: () => { setUrgentOnly(true); setCategory('all'); setSearch('') } },
+              { label: 'Gần tôi',   emoji: '📍', action: () => { setSearch('Hà Nội') } },
+              { label: 'Nhà máy',   emoji: '🏭', action: () => { setCategory('factory' as any); setSearch('') } },
+              { label: 'Nhà hàng',  emoji: '☕', action: () => { setCategory('cafe' as any); setSearch('') } },
+              { label: 'Giao hàng', emoji: '🚚', action: () => { setCategory('delivery' as any); setSearch('') } },
+              { label: 'Bán lẻ',   emoji: '🛍️', action: () => { setCategory('retail' as any); setSearch('') } },
             ].map(item => (
               <button key={item.label} className="home-rec-btn" onClick={item.action}>
-                <span className="home-rec-btn__icon" style={{ color: item.color }}>{item.icon}</span>
+                <span className="home-rec-btn__icon">{item.emoji}</span>
                 <span className="home-rec-btn__label">{item.label}</span>
               </button>
             ))}
