@@ -63,6 +63,7 @@ const AD_CONFIGS = {
     sub: 'Môi trường năng động — Thu nhập hấp dẫn',
     cta: 'Xem ngay →',
     light: false,
+    img: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=180&fit=crop',
   },
   card2: {
     bg: '#fff',
@@ -72,6 +73,7 @@ const AD_CONFIGS = {
     sub: 'Lương cơ bản + thưởng doanh số',
     cta: 'Ứng tuyển →',
     light: false,
+    img: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=300&h=180&fit=crop',
   },
 }
 
@@ -82,15 +84,16 @@ interface AdSlotProps {
 function AdSlot({ slotId }: AdSlotProps) {
   const cfg = AD_CONFIGS[slotId]
   if (slotId === 'card1' || slotId === 'card2') {
+    const c = cfg as typeof cfg & { eyebrow?: string; sub?: string; img?: string }
     return (
       <div className="ad-card" data-ad-slot={slotId}>
-        <span className="ad-card__icon">{cfg.icon}</span>
         <div className="ad-card__body">
-          <p className="ad-card__eyebrow">{'eyebrow' in cfg ? cfg.eyebrow : ''}</p>
-          <p className="ad-card__headline">{'headline' in cfg ? cfg.headline : ''}</p>
-          <p className="ad-card__sub">{'sub' in cfg ? cfg.sub : ''}</p>
+          <p className="ad-card__eyebrow">{c.eyebrow ?? ''}</p>
+          <p className="ad-card__headline">{c.headline ?? ''}</p>
+          <p className="ad-card__sub">{c.sub ?? ''}</p>
+          <a href="/dang-tin" className="ad-card__cta">{cfg.cta}</a>
         </div>
-        <a href="/dang-tin" className="ad-card__cta">{cfg.cta}</a>
+        {c.img && <img className="ad-card__img" src={c.img} alt={c.eyebrow ?? ''} />}
         <span className="ad-slot__label" style={{ color: 'rgba(0,0,0,0.3)' }}>QC</span>
       </div>
     )
