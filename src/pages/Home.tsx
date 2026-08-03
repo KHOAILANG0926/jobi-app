@@ -445,7 +445,6 @@ export function Home() {
           <section className="home-jobs-section">
             <div className="home-jobs-section__head">
               <h2 className="home-jobs-section__title">Việc làm mới nhất</h2>
-              <NavLink to="/" className="home-jobs-section__more">Xem tất cả →</NavLink>
             </div>
           </section>
 
