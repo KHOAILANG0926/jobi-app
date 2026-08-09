@@ -166,11 +166,12 @@ async function scrapeCareerBuilder(page) {
   const debug = await page.evaluate(() => {
     const allClasses = new Set()
     document.querySelectorAll('[class]').forEach(el => {
-      el.className.split(' ').forEach(c => { if (c) allClasses.add(c) })
+      const cls = el.getAttribute('class') || ''
+      cls.split(' ').forEach(c => { if (c) allClasses.add(c) })
     })
     const classArr = [...allClasses].filter(c => /job|work|viec|tuyen|card|item/i.test(c)).slice(0, 30)
-    const h2s = [...document.querySelectorAll('h2')].slice(0, 5).map(e => e.innerText.trim())
-    const h3s = [...document.querySelectorAll('h3')].slice(0, 5).map(e => e.innerText.trim())
+    const h2s = [...document.querySelectorAll('h2')].slice(0, 5).map(e => e.innerText?.trim())
+    const h3s = [...document.querySelectorAll('h3')].slice(0, 5).map(e => e.innerText?.trim())
     return { classes: classArr, h2s, h3s }
   })
   console.log('  🔍 CareerBuilder classes:', JSON.stringify(debug.classes))
