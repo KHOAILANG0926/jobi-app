@@ -182,9 +182,10 @@ async function scrapeCareerBuilder(page) {
     const items = []
     // 여러 selector 시도
     const selectors = [
-      '[class*="job-item"]', '[class*="job_item"]', '.job', '[class*="card-job"]',
-      '[class*="viec-lam"]', '[class*="tuyen-dung"]', 'li[class*="item"]',
-      '[class*="job-result"]', '[class*="result-item"]'
+      '.item', '[class*="job-item"]', '[class*="job_item"]', '.job',
+      '[class*="card-job"]', '[class*="viec-lam"]', '[class*="tuyen-dung"]',
+      'li[class*="item"]', '[class*="job-result"]', '[class*="result-item"]',
+      '[class*="AccordionItem"]'
     ]
     for (const sel of selectors) {
       document.querySelectorAll(sel).forEach(el => {
@@ -271,7 +272,7 @@ async function main() {
     { name: 'VietnamWorks', url: 'https://www.vietnamworks.com/viec-lam-tat-ca-nganh-nghe', scraper: scrapeVietnamWorks },
     { name: 'TopCV',        url: 'https://www.topcv.vn/tim-viec-lam-moi-nhat', scraper: scrapeTopCV },
     { name: 'TimViecNhanh', url: 'https://www.timviecnhanh.com/viec-lam', scraper: scrapeTimViecNhanh },
-    { name: 'CareerBuilder', url: 'https://careerbuilder.vn/viec-lam/tat-ca-viec-lam.html', scraper: scrapeCareerBuilder },
+    { name: 'CareerBuilder', url: 'https://careerbuilder.vn/viec-lam', scraper: scrapeCareerBuilder },
     { name: 'ViecLam24h',   url: 'https://vieclam24h.vn/tim-kiem-viec-lam-nhanh.html', scraper: scrapeViecLam24h },
   ]
 
