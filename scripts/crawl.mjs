@@ -34,7 +34,7 @@ async function scrapeWithPage(browser, url, scraper, siteName) {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     })
     console.log(`  → ${url}`)
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.waitForTimeout(3000)
     // 디버그: 페이지에서 찾은 요소 수 로그
     const elemCount = await page.evaluate(() => document.querySelectorAll('*').length)
@@ -162,15 +162,39 @@ async function scrapeTimViecNhanh(page) {
 
 // ─── 4. CareerBuilder ─────────────────────────────────────────────
 async function scrapeCareerBuilder(page) {
+  // HTML 구조 디버그
+  const debug = await page.evaluate(() => {
+    const allClasses = new Set()
+    document.querySelectorAll('[class]').forEach(el => {
+      el.className.split(' ').forEach(c => { if (c) allClasses.add(c) })
+    })
+    const classArr = [...allClasses].filter(c => /job|work|viec|tuyen|card|item/i.test(c)).slice(0, 30)
+    const h2s = [...document.querySelectorAll('h2')].slice(0, 5).map(e => e.innerText.trim())
+    const h3s = [...document.querySelectorAll('h3')].slice(0, 5).map(e => e.innerText.trim())
+    return { classes: classArr, h2s, h3s }
+  })
+  console.log('  🔍 CareerBuilder classes:', JSON.stringify(debug.classes))
+  console.log('  🔍 h2s:', JSON.stringify(debug.h2s))
+  console.log('  🔍 h3s:', JSON.stringify(debug.h3s))
+
   return page.evaluate(() => {
     const items = []
-    document.querySelectorAll('[class*="job-item"], .job, [class*="card-job"]').forEach(el => {
-      const title = el.querySelector('h2, h3, a[class*="title"]')?.innerText?.trim()
-      const company = el.querySelector('[class*="company"]')?.innerText?.trim()
-      const location = el.querySelector('[class*="location"], [class*="city"]')?.innerText?.trim()
-      const salary = el.querySelector('[class*="salary"]')?.innerText?.trim()
-      if (title && title.length > 3) items.push({ title, company: company||'', location: location||'', salary: salary||'' })
-    })
+    // 여러 selector 시도
+    const selectors = [
+      '[class*="job-item"]', '[class*="job_item"]', '.job', '[class*="card-job"]',
+      '[class*="viec-lam"]', '[class*="tuyen-dung"]', 'li[class*="item"]',
+      '[class*="job-result"]', '[class*="result-item"]'
+    ]
+    for (const sel of selectors) {
+      document.querySelectorAll(sel).forEach(el => {
+        const title = el.querySelector('h2, h3, a[class*="title"], [class*="name"]')?.innerText?.trim()
+        const company = el.querySelector('[class*="company"], [class*="employer"]')?.innerText?.trim()
+        const location = el.querySelector('[class*="location"], [class*="city"], [class*="address"]')?.innerText?.trim()
+        const salary = el.querySelector('[class*="salary"]')?.innerText?.trim()
+        if (title && title.length > 3) items.push({ title, company: company||'', location: location||'', salary: salary||'' })
+      })
+      if (items.length > 0) break
+    }
     return items
   }).then(items => items.map(i => ({
     ...i,
