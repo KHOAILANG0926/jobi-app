@@ -29,9 +29,16 @@ function today() { return new Date().toISOString().slice(0, 10) }
 async function scrapeWithPage(browser, url, scraper, siteName) {
   const page = await browser.newPage()
   try {
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    })
     console.log(`  → ${url}`)
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForTimeout(2000)
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.waitForTimeout(3000)
+    // 디버그: 페이지에서 찾은 요소 수 로그
+    const elemCount = await page.evaluate(() => document.querySelectorAll('*').length)
+    console.log(`  ℹ️  페이지 요소 수: ${elemCount}`)
     const jobs = await scraper(page)
     console.log(`  ✅ ${siteName}: ${jobs.length}개`)
     return jobs
@@ -45,6 +52,8 @@ async function scrapeWithPage(browser, url, scraper, siteName) {
 
 // ─── 1. VietnamWorks ───────────────────────────────────────────────
 async function scrapeVietnamWorks(page) {
+  const title = await page.title()
+  console.log(`  📄 페이지 제목: ${title}`)
   // __NEXT_DATA__ JSON 파싱 시도
   const nextData = await page.evaluate(() => {
     const el = document.getElementById('__NEXT_DATA__')
@@ -228,10 +237,13 @@ async function main() {
   console.log('🚀 크롤링 시작:', new Date().toLocaleString('ko-KR'))
   console.log('─'.repeat(50))
 
-  const browser = await chromium.launch({ headless: true })
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--ignore-certificate-errors', '--no-sandbox', '--disable-setuid-sandbox'],
+  })
 
   const targets = [
-    { name: 'VietnamWorks', url: 'https://www.vietnamworks.com/viec-lam', scraper: scrapeVietnamWorks },
+    { name: 'VietnamWorks', url: 'https://www.vietnamworks.com/viec-lam-tat-ca-nganh-nghe', scraper: scrapeVietnamWorks },
     { name: 'TopCV',        url: 'https://www.topcv.vn/tim-viec-lam-moi-nhat', scraper: scrapeTopCV },
     { name: 'TimViecNhanh', url: 'https://www.timviecnhanh.com/viec-lam', scraper: scrapeTimViecNhanh },
     { name: 'CareerBuilder', url: 'https://careerbuilder.vn/viec-lam/tat-ca-viec-lam.html', scraper: scrapeCareerBuilder },
