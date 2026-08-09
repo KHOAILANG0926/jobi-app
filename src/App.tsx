@@ -18,6 +18,7 @@ import KoreaJobs from './pages/KoreaJobs'
 import MapView from './components/MapView'
 import AdminDashboard from './pages/AdminDashboard'
 import FranchiseJobs from './pages/FranchiseJobs'
+import { ZaloCallback } from './pages/ZaloCallback'
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="/ban-do" element={<MapView />} />
                 <Route path="/viec-han-quoc" element={<KoreaJobs />} />
                 <Route path="/franchise-jobs" element={<FranchiseJobs />} />
+                <Route path="/zalo-callback" element={<ZaloCallback />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
               <Route path="/admin" element={<AdminDashboard />} />

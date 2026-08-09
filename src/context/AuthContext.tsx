@@ -7,12 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'https://edhuesdnuxlbcfephutq.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
-)
+import { supabase } from '../lib/supabase'
 
 export type UserRole = 'seeker' | 'employer'
 
@@ -29,6 +24,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>
   signup: (name: string, email: string, password: string, role: UserRole) => Promise<{ ok: true } | { ok: false; error: string }>
   logout: () => Promise<void>
+  loginWithZalo: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -89,9 +85,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  const loginWithZalo = useCallback(() => {
+    const appId = import.meta.env.VITE_ZALO_APP_ID as string | undefined
+    if (!appId) { alert('Zalo App ID chưa được cấu hình.'); return }
+
+    const array = new Uint8Array(32)
+    crypto.getRandomValues(array)
+    const codeVerifier = btoa(String.fromCharCode(...array))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+    sessionStorage.setItem('zalo_cv', codeVerifier)
+
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier)).then(buf => {
+      const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(buf)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+      const redirectUri = encodeURIComponent(`${window.location.origin}/zalo-callback`)
+      window.location.href =
+        `https://oauth.zaloapp.com/v4/permission?app_id=${appId}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}`
+    })
+  }, [])
+
   const value = useMemo(
-    () => ({ user, loading, login, signup, logout }),
-    [user, loading, login, signup, logout],
+    () => ({ user, loading, login, signup, logout, loginWithZalo }),
+    [user, loading, login, signup, logout, loginWithZalo],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

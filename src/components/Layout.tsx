@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { NotificationBell } from './NotificationBell'
+import { ZaloIcon } from './ZaloIcon'
 
 const MENU_ITEMS = [
   {
@@ -82,7 +83,7 @@ const MENU_ITEMS = [
 ]
 
 export function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, loginWithZalo } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [query, setQuery] = useState('')
@@ -207,6 +208,10 @@ export function Layout() {
                 </>
               ) : (
                 <>
+                  <button type="button" className="btn-zalo-header" onClick={loginWithZalo}>
+                    <ZaloIcon />
+                    <span>Zalo</span>
+                  </button>
                   <NavLink to="/dang-nhap" className="header-tabs__login">Đăng nhập</NavLink>
                   <NavLink to="/dang-ky" className="header-tabs__signup">Đăng ký</NavLink>
                 </>

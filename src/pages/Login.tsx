@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth, type UserRole } from '../context/AuthContext'
+import { ZaloIcon } from '../components/ZaloIcon'
 
 export function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, loginWithZalo } = useAuth()
   const [searchParams] = useSearchParams()
 
   const roleParam = searchParams.get('role') as UserRole | null
@@ -88,6 +89,13 @@ export function Login() {
 
         <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        </button>
+
+        <div className="auth-divider"><span>hoặc</span></div>
+
+        <button type="button" className="btn-zalo-login" onClick={loginWithZalo}>
+          <ZaloIcon size={22} />
+          Đăng nhập bằng Zalo
         </button>
 
         <p className="auth-page__footer">
