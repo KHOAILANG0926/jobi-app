@@ -40,12 +40,18 @@ async def check():
         else:
             print("__NEXT_DATA__ 없음")
 
-        # DOM 카드 확인
-        cards = await page.query_selector_all("a[href*='viec-lam'], .job-card, [class*='job'], [class*='Job']")
-        print(f"DOM 카드 수: {len(cards)}")
-        if cards:
-            text = await cards[0].inner_text()
-            print(f"첫 카드: {text[:200]}")
+        # DOM 카드 확인 - 여러 셀렉터 시도
+        for sel in ["a[href*='/viec-lam-']", "a[href*='viec-lam']", "[class*='JobCard']", "[class*='job-card']"]:
+            cards = await page.query_selector_all(sel)
+            if cards:
+                print(f"셀렉터 '{sel}': {len(cards)}개")
+                text = await cards[0].inner_text()
+                href = await cards[0].get_attribute("href")
+                print(f"  href: {href}")
+                print(f"  text: {text[:300]}")
+                break
+        else:
+            print("카드 못 찾음")
 
         await browser.close()
 
