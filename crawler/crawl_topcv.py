@@ -17,13 +17,11 @@ from playwright_stealth import stealth_async
 
 load_dotenv(Path(__file__).parent / ".env")
 
-try:
-    from supabase import create_client
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
-except Exception:
-    supabase = None
+from supabase import create_client
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요)'}")
 
 TARGET_COUNT = 100
 TODAY = date.today().isoformat()
