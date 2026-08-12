@@ -1,9 +1,7 @@
 """
 vieclam24h.vn 채용공고 크롤러
-- Python Playwright + stealth 모드
-- 베트남 VPS에서 실행 (Cloudflare 차단 없음)
+- 스크롤 방식으로 공고 수집
 - 실행: python3 crawl_topcv.py
-- 환경변수: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
 
 import asyncio
@@ -47,92 +45,81 @@ def guess_category(text: str) -> str:
 
 
 async def crawl_vieclam24h() -> list[dict]:
-    jobs = []
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
+            args=["--no-sandbox", "--disable-setuid-sandbox"],
         )
-        context = await browser.new_context(
+        page = await browser.new_page(
             viewport={"width": 1280, "height": 800},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             locale="vi-VN",
-            timezone_id="Asia/Ho_Chi_Minh",
         )
-        page = await context.new_page()
         await stealth_async(page)
 
-        page_num = 1
-        while len(jobs) < TARGET_COUNT:
-            url = f"https://vieclam24h.vn/tim-kiem-viec-lam?page={page_num}"
-            print(f"  📄 페이지 {page_num} 로딩: {url}")
+        url = "https://vieclam24h.vn/tim-kiem-viec-lam"
+        print(f"  📄 로딩: {url}")
+        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        await page.wait_for_timeout(3000)
 
-            try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
-            except Exception as e:
-                print(f"  ❌ 로딩 실패: {e}")
+        title_text = await page.title()
+        print(f"  타이틀: {title_text}")
+        if "Attention" in title_text:
+            print("  ⛔ Cloudflare 차단")
+            await browser.close()
+            return []
+
+        # 스크롤로 공고 더 로드
+        prev_count = 0
+        for i in range(20):
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await page.wait_for_timeout(2000)
+            cards = await page.query_selector_all("a[href*='/viec-lam-'][href*='.html']")
+            print(f"  스크롤 {i+1}: {len(cards)}개")
+            if len(cards) >= TARGET_COUNT:
                 break
-
-            title = await page.title()
-            if "Attention" in title or "cloudflare" in title.lower():
-                print(f"  ⛔ Cloudflare 차단: {title}")
+            if len(cards) == prev_count:
                 break
+            prev_count = len(cards)
 
-            # 공고 카드 수집
-            page_jobs = await page.evaluate("""() => {
-                const items = []
-                const cards = document.querySelectorAll("a[href*='/viec-lam-']")
-                cards.forEach(el => {
-                    const href = el.getAttribute('href') || ''
-                    if (!href.includes('.html')) return
-                    const text = el.innerText || ''
-                    const lines = text.split('\\n').map(s => s.trim()).filter(Boolean)
-                    if (lines.length < 1) return
-                    const title = lines[0]
-                    const company = lines[1] || ''
-                    const salary = lines.find(l => l.includes('triệu') || l.includes('VND') || l.includes('Thỏa thuận')) || ''
-                    const location = lines.find(l => l.includes('Hồ Chí Minh') || l.includes('Hà Nội') || l.includes('Bình Dương') || l.includes('Đồng Nai')) || ''
-                    if (title && title.length > 3) {
-                        items.push({ title, company, salary, location, href })
-                    }
-                })
-                return items
-            }""")
-
-            if not page_jobs:
-                print(f"  ⚠️  페이지 {page_num}에서 공고 없음. 종료.")
-                break
-
-            # 중복 제거 후 변환
-            seen = {j["title"] + j.get("company", "") for j in jobs}
-            new_jobs = []
-            for j in page_jobs:
-                key = j["title"] + j.get("company", "")
-                if key not in seen:
-                    seen.add(key)
-                    new_jobs.append({
-                        "title": j["title"],
-                        "company": j.get("company", ""),
-                        "location": j.get("location") or "Hồ Chí Minh",
-                        "salary": j.get("salary", ""),
-                        "description": f"[source:vieclam24h] https://vieclam24h.vn{j.get('href','')}",
-                        "category": guess_category(j["title"]),
-                        "posted_at": TODAY,
-                        "urgent": False,
-                        "employer_phone": "",
-                        "application_deadline": "",
-                    })
-
-            jobs.extend(new_jobs)
-            print(f"  ✅ 페이지 {page_num}: {len(new_jobs)}개 수집 (누계: {len(jobs)}개)")
-            page_num += 1
-            await page.wait_for_timeout(1500)
+        # 카드 데이터 추출
+        raw_jobs = await page.evaluate("""() => {
+            const items = []
+            const seen = new Set()
+            document.querySelectorAll("a[href*='/viec-lam-']").forEach(el => {
+                const href = el.getAttribute('href') || ''
+                if (!href.includes('.html')) return
+                if (seen.has(href)) return
+                seen.add(href)
+                const lines = (el.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean)
+                if (!lines[0] || lines[0].length < 3) return
+                const title = lines[0]
+                const company = lines[1] || ''
+                const salary = lines.find(l => l.includes('triệu') || l.includes('VND') || l.includes('Thỏa thuận') || l.includes('Cạnh tranh')) || ''
+                const location = lines.find(l => ['Hồ Chí Minh','Hà Nội','Bình Dương','Đồng Nai','Cần Thơ','Đà Nẵng'].some(c => l.includes(c))) || ''
+                items.push({ title, company, salary, location, href })
+            })
+            return items
+        }""")
 
         await browser.close()
 
-    return jobs[:TARGET_COUNT]
+        jobs = []
+        for j in raw_jobs[:TARGET_COUNT]:
+            jobs.append({
+                "title": j["title"],
+                "company": j.get("company", ""),
+                "location": j.get("location") or "Hồ Chí Minh",
+                "salary": j.get("salary", ""),
+                "description": f"[source:vieclam24h] https://vieclam24h.vn{j.get('href', '')}",
+                "category": guess_category(j["title"]),
+                "posted_at": TODAY,
+                "urgent": False,
+                "employer_phone": "",
+                "application_deadline": "",
+            })
+
+        return jobs
 
 
 def save_to_json(jobs: list[dict], filename: str = "jobs_output.json"):
@@ -147,11 +134,7 @@ def save_to_supabase(jobs: list[dict]):
         return
 
     existing = supabase.table("jobs").select("title, company").gte("posted_at", "2020-01-01").execute()
-    existing_keys = {
-        f"{r['title']}_{r['company']}".lower()
-        for r in (existing.data or [])
-    }
-
+    existing_keys = {f"{r['title']}_{r['company']}".lower() for r in (existing.data or [])}
     new_jobs = [j for j in jobs if f"{j['title']}_{j['company']}".lower() not in existing_keys]
 
     if not new_jobs:
@@ -169,7 +152,6 @@ async def main():
     print("─" * 50)
 
     jobs = await crawl_vieclam24h()
-
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs)
     save_to_supabase(jobs)
