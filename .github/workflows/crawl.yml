@@ -2,7 +2,7 @@ name: 채용공고 자동 크롤링
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 매일 오전 8시 (UTC+7 → 01:00 UTC)
+    - cron: '0 15 * * *'  # 매일 저녁 10시 (UTC+7 → 15:00 UTC)
   workflow_dispatch:       # 수동 실행 가능
 
 jobs:
@@ -11,16 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@v5
         with:
-          node-version: '22'
+          python-version: '3.11'
 
       - name: 의존성 설치
         run: |
-          npm install @supabase/supabase-js playwright ws
-          npx playwright install chromium --with-deps
+          pip install playwright playwright-stealth python-dotenv supabase
+          playwright install chromium
+          playwright install-deps chromium
 
       - name: 크롤링 실행
         env:
+          SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/crawl.mjs
+        run: python crawler/crawl_topcv.py
