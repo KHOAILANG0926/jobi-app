@@ -13,7 +13,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+try:
+    from playwright_stealth import stealth_async
+except ImportError:
+    async def stealth_async(page): pass
 
 load_dotenv(Path(__file__).parent / ".env")
 
