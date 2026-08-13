@@ -117,7 +117,7 @@ async def crawl_vieclam24h() -> list[dict]:
                 "posted_at": TODAY,
                 "urgent": False,
                 "employer_phone": "",
-                "application_deadline": "",
+                "application_deadline": None,
             })
 
         return jobs
@@ -134,7 +134,7 @@ def save_to_supabase(jobs: list[dict]):
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
         return
 
-    existing = supabase.table("jobs").select("title, company").gte("posted_at", "2020-01-01").execute()
+    existing = supabase.table("local_jobs").select("title, company").gte("posted_at", "2020-01-01").execute()
     existing_keys = {f"{r['title']}_{r['company']}".lower() for r in (existing.data or [])}
     new_jobs = [j for j in jobs if f"{j['title']}_{j['company']}".lower() not in existing_keys]
 
@@ -144,7 +144,7 @@ def save_to_supabase(jobs: list[dict]):
 
     for i in range(0, len(new_jobs), 50):
         batch = new_jobs[i:i+50]
-        supabase.table("jobs").insert(batch).execute()
+        supabase.table("local_jobs").insert(batch).execute()
         print(f"  ✅ Supabase 저장: {i+len(batch)}/{len(new_jobs)}개")
 
 

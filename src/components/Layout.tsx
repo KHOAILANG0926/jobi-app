@@ -208,10 +208,12 @@ export function Layout() {
                 </>
               ) : (
                 <>
-                  <button type="button" className="btn-zalo-header" onClick={loginWithZalo}>
-                    <ZaloIcon />
-                    <span>Zalo</span>
-                  </button>
+                  {import.meta.env.VITE_ZALO_APP_ID && (
+                    <button type="button" className="btn-zalo-header" onClick={loginWithZalo}>
+                      <ZaloIcon />
+                      <span>Zalo</span>
+                    </button>
+                  )}
                   <NavLink to="/dang-nhap" className="header-tabs__login">Đăng nhập</NavLink>
                   <NavLink to="/dang-ky" className="header-tabs__signup">Đăng ký</NavLink>
                 </>

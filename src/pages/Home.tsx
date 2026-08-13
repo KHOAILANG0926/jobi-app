@@ -167,6 +167,7 @@ export function Home() {
   const [brandFilter, setBrandFilter] = useState<string | null>(null)
 
   const [nearMe, setNearMe] = useState(false)
+  const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week'>('all')
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -215,6 +216,9 @@ export function Home() {
 
   const filtered = useMemo(() => {
     const q = normalizeViText(search)
+    const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10)
+    const weekLater = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10)
     let result = jobs.filter((j) => {
       if (category !== 'all' && j.category !== category) return false
       if (urgentOnly && !j.urgent) return false
@@ -225,13 +229,17 @@ export function Home() {
         const d = jobDistances[j.id]
         if (d === undefined || d > nearRadius) return false
       }
+      if (deadlineFilter !== 'all' && j.application_deadline) {
+        if (deadlineFilter === 'today' && j.application_deadline > todayStr) return false
+        if (deadlineFilter === 'week' && j.application_deadline > weekLater) return false
+      }
       return true
     })
     if (nearMe && userCoords) {
       result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
     }
     return result
-  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances])
+  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter])
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -252,7 +260,7 @@ export function Home() {
   }, [selectedCity])
 
   const resetFilters = () => {
-    setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null)
+    setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null); setDeadlineFilter('all')
   }
 
   // Filters that are NOT city-based (used for the bottom job section)
@@ -379,6 +387,24 @@ export function Home() {
               </button>
             ))}
           </div>
+
+          {/* 마감일 필터 */}
+          <h2 className="home-region-panel__title" style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>Hạn nộp hồ sơ</h2>
+          <div className="home-deadline-filter">
+            {([
+              { value: 'all',   label: 'Tất cả' },
+              { value: 'today', label: 'Hôm nay' },
+              { value: 'week',  label: 'Trong tuần' },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                className={`home-deadline-btn${deadlineFilter === opt.value ? ' home-deadline-btn--active' : ''}`}
+                onClick={() => setDeadlineFilter(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -440,7 +466,7 @@ export function Home() {
         <>
           <section className="home-jobs-section">
             <div className="home-jobs-section__head">
-              <h2 className="home-jobs-section__title">Việc làm mới nhất</h2>
+              <h2 className="home-jobs-section__title">Việc làm mới nhất <span style={{fontSize:'0.85rem',fontWeight:400,color:'#888',marginLeft:'8px'}}>{filtered.length} việc làm</span></h2>
             </div>
           </section>
 
