@@ -26,7 +26,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요)'}")
 
-TARGET_COUNT = 100
+TARGET_COUNT = 140
 TODAY = date.today().isoformat()
 
 CATEGORY_URLS = [
@@ -35,6 +35,9 @@ CATEGORY_URLS = [
     "https://vieclam24h.vn/viec-lam-khach-san-nha-hang-du-lich-o5.html",
     "https://vieclam24h.vn/viec-lam-van-tai-kho-van-o25.html",
     "https://vieclam24h.vn/viec-lam-ban-si-ban-le-quan-ly-cua-hang-o6.html",
+    # 박닌/하노이/빈즈엉 지역
+    "https://vieclam24h.vn/viec-lam-bac-ninh.html",
+    "https://vieclam24h.vn/viec-lam-binh-duong.html",
 ]
 
 
@@ -151,18 +154,14 @@ def save_to_supabase(jobs: list[dict]):
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
         return
 
-    existing = supabase.table("local_jobs").select("title, company").gte("posted_at", "2020-01-01").execute()
-    existing_keys = {f"{r['title']}_{r['company']}".lower() for r in (existing.data or [])}
-    new_jobs = [j for j in jobs if f"{j['title']}_{j['company']}".lower() not in existing_keys]
+    # vieclam24h 출처 공고만 삭제 (수동 등록 공고는 절대 건드리지 않음)
+    supabase.table("local_jobs").delete().like("description", "%[source:vieclam24h]%").execute()
+    print("  🗑️  기존 vieclam24h 공고 교체")
 
-    if not new_jobs:
-        print("  ℹ️  모두 중복 공고입니다.")
-        return
-
-    for i in range(0, len(new_jobs), 50):
-        batch = new_jobs[i:i+50]
+    for i in range(0, len(jobs), 50):
+        batch = jobs[i:i+50]
         supabase.table("local_jobs").insert(batch).execute()
-        print(f"  ✅ Supabase 저장: {i+len(batch)}/{len(new_jobs)}개")
+        print(f"  ✅ Supabase 저장: {i+len(batch)}/{len(jobs)}개")
 
 
 async def main():
