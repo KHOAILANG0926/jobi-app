@@ -229,9 +229,9 @@ export function Home() {
         const d = jobDistances[j.id]
         if (d === undefined || d > nearRadius) return false
       }
-      if (deadlineFilter !== 'all' && j.application_deadline) {
-        if (deadlineFilter === 'today' && j.application_deadline > todayStr) return false
-        if (deadlineFilter === 'week' && j.application_deadline > weekLater) return false
+      if (deadlineFilter !== 'all' && j.applicationDeadline) {
+        if (deadlineFilter === 'today' && j.applicationDeadline > todayStr) return false
+        if (deadlineFilter === 'week' && j.applicationDeadline > weekLater) return false
       }
       return true
     })
