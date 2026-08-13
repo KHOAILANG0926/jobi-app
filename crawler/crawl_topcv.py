@@ -1,6 +1,6 @@
 """
 vieclam24h.vn 채용공고 크롤러
-- 스크롤 방식으로 공고 수집
+- 카테고리 페이지에서 실제 공고 수집
 - 실행: python3 crawl_topcv.py
 """
 
@@ -29,6 +29,14 @@ print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요
 TARGET_COUNT = 100
 TODAY = date.today().isoformat()
 
+CATEGORY_URLS = [
+    "https://vieclam24h.vn/viec-lam-ban-hang-kinh-doanh-o13.html",
+    "https://vieclam24h.vn/viec-lam-nha-may-o7.html",
+    "https://vieclam24h.vn/viec-lam-khach-san-nha-hang-du-lich-o5.html",
+    "https://vieclam24h.vn/viec-lam-van-tai-kho-van-o25.html",
+    "https://vieclam24h.vn/viec-lam-ban-si-ban-le-quan-ly-cua-hang-o6.html",
+]
+
 
 def guess_category(text: str) -> str:
     t = text.lower()
@@ -45,6 +53,48 @@ def guess_category(text: str) -> str:
     return "other"
 
 
+async def crawl_category(page, url: str) -> list[dict]:
+    print(f"  📄 로딩: {url}")
+    await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+    await page.wait_for_timeout(3000)
+
+    title_text = await page.title()
+    if "Attention" in title_text:
+        print("  ⛔ Cloudflare 차단")
+        return []
+
+    # 스크롤로 더 로드
+    for _ in range(5):
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        await page.wait_for_timeout(1500)
+
+    raw_jobs = await page.evaluate("""() => {
+        const items = []
+        const seen = new Set()
+        document.querySelectorAll("a[href]").forEach(el => {
+            const href = el.getAttribute('href') || ''
+            if (!href.includes('.html')) return
+            if (!href.match(/id\\d+/)) return
+            if (seen.has(href)) return
+            seen.add(href)
+            const lines = (el.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean)
+            if (!lines[0] || lines[0].length < 5) return
+            const title = lines[0]
+            const company = lines.find(l => l.length > 2 && l !== title) || ''
+            const salary = lines.find(l => l.includes('triệu') || l.includes('VND') || l.includes('Thỏa thuận') || l.includes('Cạnh tranh')) || ''
+            const location = lines.find(l => ['Hồ Chí Minh','Hà Nội','Bình Dương','Đồng Nai','Cần Thơ','Đà Nẵng','Bắc Ninh','Hải Phòng'].some(c => l.includes(c))) || ''
+            const fullHref = href.startsWith('http') ? href : 'https://vieclam24h.vn' + href
+            const img = el.querySelector('img')
+            const logoUrl = img ? (img.src || img.getAttribute('data-src') || '') : ''
+            items.push({ title, company, salary, location, href: fullHref, logoUrl })
+        })
+        return items
+    }""")
+
+    print(f"    수집: {len(raw_jobs)}개")
+    return raw_jobs
+
+
 async def crawl_vieclam24h() -> list[dict]:
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -58,61 +108,28 @@ async def crawl_vieclam24h() -> list[dict]:
         )
         await stealth_async(page)
 
-        url = "https://vieclam24h.vn/tim-kiem-viec-lam"
-        print(f"  📄 로딩: {url}")
-        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        await page.wait_for_timeout(3000)
+        all_raw = []
+        seen_hrefs = set()
 
-        title_text = await page.title()
-        print(f"  타이틀: {title_text}")
-        if "Attention" in title_text:
-            print("  ⛔ Cloudflare 차단")
-            await browser.close()
-            return []
-
-        # 스크롤로 공고 더 로드
-        prev_count = 0
-        for i in range(20):
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(2000)
-            cards = await page.query_selector_all("a[href*='/viec-lam-'][href*='.html']")
-            print(f"  스크롤 {i+1}: {len(cards)}개")
-            if len(cards) >= TARGET_COUNT:
+        for cat_url in CATEGORY_URLS:
+            if len(all_raw) >= TARGET_COUNT:
                 break
-            if len(cards) == prev_count:
-                break
-            prev_count = len(cards)
-
-        # 카드 데이터 추출
-        raw_jobs = await page.evaluate("""() => {
-            const items = []
-            const seen = new Set()
-            document.querySelectorAll("a[href*='/viec-lam-']").forEach(el => {
-                const href = el.getAttribute('href') || ''
-                if (!href.includes('.html')) return
-                if (seen.has(href)) return
-                seen.add(href)
-                const lines = (el.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean)
-                if (!lines[0] || lines[0].length < 3) return
-                const title = lines[0]
-                const company = lines[1] || ''
-                const salary = lines.find(l => l.includes('triệu') || l.includes('VND') || l.includes('Thỏa thuận') || l.includes('Cạnh tranh')) || ''
-                const location = lines.find(l => ['Hồ Chí Minh','Hà Nội','Bình Dương','Đồng Nai','Cần Thơ','Đà Nẵng'].some(c => l.includes(c))) || ''
-                items.push({ title, company, salary, location, href })
-            })
-            return items
-        }""")
+            raw = await crawl_category(page, cat_url)
+            for j in raw:
+                if j["href"] not in seen_hrefs:
+                    seen_hrefs.add(j["href"])
+                    all_raw.append(j)
 
         await browser.close()
 
         jobs = []
-        for j in raw_jobs[:TARGET_COUNT]:
+        for j in all_raw[:TARGET_COUNT]:
             jobs.append({
                 "title": j["title"],
                 "company": j.get("company", ""),
                 "location": j.get("location") or "Hồ Chí Minh",
                 "salary": j.get("salary", ""),
-                "description": f"[source:vieclam24h] https://vieclam24h.vn{j.get('href', '')}",
+                "description": f"[source:vieclam24h] {j.get('href', '')}",
                 "category": guess_category(j["title"]),
                 "posted_at": TODAY,
                 "urgent": False,

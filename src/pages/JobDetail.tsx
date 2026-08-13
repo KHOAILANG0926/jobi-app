@@ -206,7 +206,7 @@ export function JobDetail() {
               <p className="detail-panel__body" style={{ whiteSpace: 'pre-line' }}>{job.description}</p>
             </>
           )}
-          {job.imageUrl && (
+          {job.source !== 'vieclam24h' && job.imageUrl && (
             <>
               <img
                 src={job.imageUrl}
@@ -224,7 +224,9 @@ export function JobDetail() {
             </>
           )}
           {job.source && (
-            <p className="detail-panel__source">Nguồn: {job.source}</p>
+            <p className="detail-panel__source">Nguồn: {job.source}{job.source === 'vieclam24h' && job.description ? (
+              <> — <a href={job.description} target="_blank" rel="noopener noreferrer">Xem bài gốc ↗</a></>
+            ) : null}</p>
           )}
           {coords && (
             <>

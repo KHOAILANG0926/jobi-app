@@ -19,8 +19,9 @@ const supabase = createClient(
 function parseDescription(raw: string): { description: string; source?: string } {
   const match = raw?.match(/\[source:([^\]]+)\]/)
   if (!match) return { description: raw ?? '' }
+  const rest = raw.replace(match[0], '').trim()
   return {
-    description: raw.replace(match[0], '').trim(),
+    description: rest,
     source: match[1],
   }
 }

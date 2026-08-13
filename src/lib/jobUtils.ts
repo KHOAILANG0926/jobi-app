@@ -6,7 +6,7 @@ export function ensureJobFields(j: Job): Job {
   const inferredUrgent = text.includes('tuyển gấp') || text.includes('gấp')
   return withJobCoordinates({
     ...j,
-    employerPhone: j.employerPhone?.trim() || '0900 000 000',
+    employerPhone: j.employerPhone?.trim() || '',
     applicationDeadline: j.applicationDeadline || j.postedAt,
     urgent: j.urgent ?? inferredUrgent,
   })
