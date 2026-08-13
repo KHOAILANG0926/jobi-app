@@ -126,7 +126,13 @@ async def crawl_vieclam24h() -> list[dict]:
         await browser.close()
 
         jobs = []
-        for j in all_raw[:TARGET_COUNT]:
+        seen_titles = set()
+        for j in all_raw:
+            key = (j["title"] + j.get("company", "")).lower()
+            if key in seen_titles:
+                continue
+            seen_titles.add(key)
+            logo = j.get("logoUrl", "")
             jobs.append({
                 "title": j["title"],
                 "company": j.get("company", ""),
@@ -138,7 +144,10 @@ async def crawl_vieclam24h() -> list[dict]:
                 "urgent": False,
                 "employer_phone": "",
                 "application_deadline": None,
+                "image_url": logo if logo and logo.startswith("http") and "vieclam24h" in logo else None,
             })
+            if len(jobs) >= TARGET_COUNT:
+                break
 
         return jobs
 
