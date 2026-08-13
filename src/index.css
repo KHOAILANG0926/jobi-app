@@ -1867,6 +1867,44 @@ a:hover {
   font-weight: 700;
 }
 
+/* ── Detail sections (섹션 구분) ─────────────────────────────── */
+.detail-section__heading {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+.detail-section__heading:first-child { margin-top: 0; }
+
+.job-info-box {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.job-info-box__row {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.85rem 1.25rem;
+  gap: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+.job-info-box__row:last-child { border-bottom: none; }
+.job-info-box__row dt {
+  min-width: 150px;
+  font-size: 0.85rem;
+  color: #888;
+  flex-shrink: 0;
+}
+.job-info-box__row dd {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #222;
+  font-weight: 500;
+}
+
 .detail-panel__body {
   margin: 0;
   white-space: pre-wrap;

@@ -12,8 +12,6 @@ import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
 import { withJobCoordinates } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
-type DetailTab = 'work' | 'recruit'
-
 function BookmarkGlyph({ filled }: { filled: boolean }) {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden className="btn-bookmark__icon">
@@ -38,7 +36,6 @@ export function JobDetail() {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   const [applied, setApplied] = useState(() => (id ? hasAppliedToJob(id, user?.id) : false))
-  const [tab, setTab] = useState<DetailTab>('work')
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
   const coords = useMemo(() => (job ? withJobCoordinates(job) : null), [job])
@@ -126,84 +123,72 @@ export function JobDetail() {
 
       <div className="detail-grid">
         <div className="detail-panel">
-          <div className="detail-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'work'}
-              className={`detail-tabs__btn${tab === 'work' ? ' detail-tabs__btn--active' : ''}`}
-              onClick={() => setTab('work')}
-            >
-              Điều kiện làm việc
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'recruit'}
-              className={`detail-tabs__btn${tab === 'recruit' ? ' detail-tabs__btn--active' : ''}`}
-              onClick={() => setTab('recruit')}
-            >
-              Điều kiện tuyển dụng
-            </button>
-          </div>
 
-          {tab === 'work' ? (
-            <dl className="job-info-list">
-              <div className="job-info-list__row">
-                <dt>📍 Khu vực</dt>
-                <dd>{job.location}</dd>
+          {/* ── 근무조건 섹션 ── */}
+          <h2 className="detail-section__heading">Điều kiện làm việc</h2>
+          <dl className="job-info-box">
+            <div className="job-info-box__row">
+              <dt>💰 Mức lương</dt>
+              <dd className="job-info-list__salary">{job.salary}</dd>
+            </div>
+            <div className="job-info-box__row">
+              <dt>📍 Khu vực</dt>
+              <dd>{job.location}</dd>
+            </div>
+            <div className="job-info-box__row">
+              <dt>🏢 Công ty</dt>
+              <dd>{job.company}</dd>
+            </div>
+            {job.hours && (
+              <div className="job-info-box__row">
+                <dt>🕐 Giờ làm việc</dt>
+                <dd>{job.hours}</dd>
               </div>
-              <div className="job-info-list__row">
-                <dt>🏢 Công ty</dt>
-                <dd>{job.company}</dd>
+            )}
+            {job.workPeriod && (
+              <div className="job-info-box__row">
+                <dt>📅 Thời hạn hợp đồng</dt>
+                <dd>{job.workPeriod}</dd>
               </div>
-              {job.hours && (
-                <div className="job-info-list__row">
-                  <dt>🕐 Giờ làm việc</dt>
-                  <dd>{job.hours}</dd>
-                </div>
-              )}
-              {job.workPeriod && (
-                <div className="job-info-list__row">
-                  <dt>📅 Thời hạn hợp đồng</dt>
-                  <dd>{job.workPeriod}</dd>
-                </div>
-              )}
-              {job.workDays && (
-                <div className="job-info-list__row">
-                  <dt>🗓️ Ngày làm việc</dt>
-                  <dd>{job.workDays}</dd>
-                </div>
-              )}
-              <div className="job-info-list__row">
-                <dt>💰 Mức lương</dt>
-                <dd className="job-info-list__salary">{job.salary}</dd>
+            )}
+            {job.workDays && (
+              <div className="job-info-box__row">
+                <dt>🗓️ Ngày làm việc</dt>
+                <dd>{job.workDays}</dd>
               </div>
-            </dl>
-          ) : (
-            <dl className="job-info-list">
-              <div className="job-info-list__row">
-                <dt>⏰ Hạn nộp hồ sơ</dt>
-                <dd>{formatDeadlineVi(job.applicationDeadline)}</dd>
-              </div>
-              <div className="job-info-list__row">
-                <dt>👥 Số lượng tuyển</dt>
-                <dd>{job.numHires || 'Chưa cập nhật'}</dd>
-              </div>
-              <div className="job-info-list__row">
-                <dt>🎓 Trình độ học vấn</dt>
-                <dd>{job.education || 'Không yêu cầu'}</dd>
-              </div>
-              <div className="job-info-list__row">
+            )}
+          </dl>
+
+          {/* ── 모집조건 섹션 ── */}
+          <h2 className="detail-section__heading">Điều kiện tuyển dụng</h2>
+          <dl className="job-info-box">
+            <div className="job-info-box__row">
+              <dt>⏰ Hạn nộp hồ sơ</dt>
+              <dd>{formatDeadlineVi(job.applicationDeadline)}</dd>
+            </div>
+            <div className="job-info-box__row">
+              <dt>👥 Số lượng tuyển</dt>
+              <dd>{job.numHires || 'Chưa cập nhật'}</dd>
+            </div>
+            <div className="job-info-box__row">
+              <dt>🎓 Trình độ học vấn</dt>
+              <dd>{job.education || 'Không yêu cầu'}</dd>
+            </div>
+            {job.preference && (
+              <div className="job-info-box__row">
                 <dt>⭐ Ưu tiên</dt>
-                <dd>{job.preference || 'Không'}</dd>
+                <dd>{job.preference}</dd>
               </div>
-            </dl>
-          )}
-          {job.description && (
+            )}
+          </dl>
+
+          {/* ── 상세요강 섹션 ── */}
+          {job.source !== 'vieclam24h' && job.description && (
             <>
-              <h2 className="detail-panel__heading" style={{ marginTop: '1.5rem' }}>Mô tả công việc</h2>
-              <p className="detail-panel__body" style={{ whiteSpace: 'pre-line' }}>{job.description}</p>
+              <h2 className="detail-section__heading">Mô tả công việc</h2>
+              <div className="job-info-box" style={{ padding: '1rem 1.25rem' }}>
+                <p style={{ whiteSpace: 'pre-line', margin: 0 }}>{job.description}</p>
+              </div>
             </>
           )}
           {job.source !== 'vieclam24h' && job.imageUrl && (
@@ -223,21 +208,29 @@ export function JobDetail() {
               ))}
             </>
           )}
-          {job.source && (
-            <p className="detail-panel__source">Nguồn: {job.source}{job.source === 'vieclam24h' && job.description ? (
-              <> — <a href={job.description} target="_blank" rel="noopener noreferrer">Xem bài gốc ↗</a></>
-            ) : null}</p>
+          {job.source === 'vieclam24h' && job.description && (
+            <p className="detail-panel__source">
+              <a href={job.description} target="_blank" rel="noopener noreferrer">Xem chi tiết tại vieclam24h ↗</a>
+            </p>
           )}
+          {job.source && job.source !== 'vieclam24h' && (
+            <p className="detail-panel__source">Nguồn: {job.source}</p>
+          )}
+
+          {/* ── 근무지역 섹션 ── */}
           {coords && (
             <>
-              <h2 className="detail-panel__heading" style={{ marginTop: '1.5rem' }}>Khu vực làm việc</h2>
-              <p className="detail-panel__body" style={{ marginBottom: '0.75rem' }}>{job.location}</p>
-              <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
-              <p className="job-location-map__disclaimer">
-                Bản đồ mang tính minh họa khu vực, có thể không trùng khớp chính xác địa chỉ công ty.
-              </p>
+              <h2 className="detail-section__heading">Khu vực làm việc</h2>
+              <div className="job-info-box" style={{ padding: '1rem 1.25rem' }}>
+                <p style={{ margin: '0 0 0.75rem' }}>{job.location}</p>
+                <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
+                <p className="job-location-map__disclaimer" style={{ marginTop: '0.5rem' }}>
+                  Bản đồ mang tính minh họa khu vực, có thể không trùng khớp chính xác địa chỉ công ty.
+                </p>
+              </div>
             </>
           )}
+
           <CompanyReviews company={job.company} />
         </div>
         <aside className="detail-aside">
