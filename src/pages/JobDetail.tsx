@@ -255,21 +255,35 @@ export function JobDetail() {
             </div>
           </dl>
 
-          <div className="detail-contact">
-            <h3 className="detail-contact__title">Liên hệ nhà tuyển dụng</h3>
-            <p className="detail-contact__phone">
-              <span className="detail-contact__label">Điện thoại</span>
-              <a href={`tel:${job.employerPhone.replace(/\s/g, '')}`}>{job.employerPhone}</a>
-            </p>
-            <a
-              href={zaloHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn--zalo btn--block"
-            >
-              Liên hệ qua Zalo
-            </a>
-          </div>
+          {job.employerPhone ? (
+            <div className="detail-contact">
+              <h3 className="detail-contact__title">Liên hệ nhà tuyển dụng</h3>
+              <p className="detail-contact__phone">
+                <span className="detail-contact__label">Điện thoại</span>
+                <a href={`tel:${job.employerPhone.replace(/\s/g, '')}`}>{job.employerPhone}</a>
+              </p>
+              <a
+                href={zaloHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--zalo btn--block"
+              >
+                Liên hệ qua Zalo
+              </a>
+            </div>
+          ) : job.source === 'vieclam24h' && job.description ? (
+            <div className="detail-contact">
+              <h3 className="detail-contact__title">Liên hệ nhà tuyển dụng</h3>
+              <a
+                href={job.description}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--zalo btn--block"
+              >
+                Xem liên hệ tại vieclam24h ↗
+              </a>
+            </div>
+          ) : null}
 
           <div className="detail-aside__actions">
             <button
