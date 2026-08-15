@@ -26,18 +26,35 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요)'}")
 
-TARGET_COUNT = 140
+TARGET_COUNT = 500
 TODAY = date.today().isoformat()
 
 CATEGORY_URLS = [
+    # 직종별
     "https://vieclam24h.vn/viec-lam-ban-hang-kinh-doanh-o13.html",
     "https://vieclam24h.vn/viec-lam-nha-may-o7.html",
     "https://vieclam24h.vn/viec-lam-khach-san-nha-hang-du-lich-o5.html",
     "https://vieclam24h.vn/viec-lam-van-tai-kho-van-o25.html",
     "https://vieclam24h.vn/viec-lam-ban-si-ban-le-quan-ly-cua-hang-o6.html",
-    # 박닌/하노이/빈즈엉 지역
+    "https://vieclam24h.vn/viec-lam-giao-hang-o44.html",
+    "https://vieclam24h.vn/viec-lam-bao-ve-tap-vu-ve-sinh-o14.html",
+    "https://vieclam24h.vn/viec-lam-xay-dung-o22.html",
+    "https://vieclam24h.vn/viec-lam-ke-toan-kiem-toan-o2.html",
+    "https://vieclam24h.vn/viec-lam-cong-nghe-thong-tin-o1.html",
+    "https://vieclam24h.vn/viec-lam-hanh-chinh-van-phong-o3.html",
+    "https://vieclam24h.vn/viec-lam-nhan-su-o10.html",
+    "https://vieclam24h.vn/viec-lam-tai-xe-o45.html",
+    "https://vieclam24h.vn/viec-lam-giao-duc-dao-tao-o4.html",
+    "https://vieclam24h.vn/viec-lam-y-te-duoc-o21.html",
+    # 지역별
     "https://vieclam24h.vn/viec-lam-bac-ninh.html",
     "https://vieclam24h.vn/viec-lam-binh-duong.html",
+    "https://vieclam24h.vn/viec-lam-ha-noi.html",
+    "https://vieclam24h.vn/viec-lam-ho-chi-minh.html",
+    "https://vieclam24h.vn/viec-lam-dong-nai.html",
+    "https://vieclam24h.vn/viec-lam-hai-phong.html",
+    "https://vieclam24h.vn/viec-lam-da-nang.html",
+    "https://vieclam24h.vn/viec-lam-can-tho.html",
 ]
 
 
