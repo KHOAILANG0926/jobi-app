@@ -144,6 +144,7 @@ async def crawl_vieclam24h() -> list[dict]:
                 "urgent": False,
                 "employer_phone": "",
                 "application_deadline": None,
+                "active": True,
                 "image_url": logo if logo and logo.startswith("http") and "vieclam24h" in logo else None,
             })
             if len(jobs) >= TARGET_COUNT:
