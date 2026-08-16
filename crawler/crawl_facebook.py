@@ -1,7 +1,7 @@
 """
 Facebook 그룹 채용공고 크롤러 (쿠키 세션 방식)
-- .env의 Facebook 쿠키로 로그인 세션 유지
-- 실행: python3 crawl_facebook.py
+- 생활밀착형 일자리(Việc làm gần bạn) 우선 수집
+- 구/군/동 상세 위치 + Zalo/전화번호 필수 추출
 """
 
 import asyncio
@@ -27,7 +27,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 print(f"  Supabase: {'연결됨' if supabase else '없음'}")
 
-# Facebook 쿠키 (.env에서 로드)
 FB_C_USER = os.getenv("FB_C_USER", "")
 FB_XS     = os.getenv("FB_XS", "")
 FB_DATR   = os.getenv("FB_DATR", "")
@@ -35,7 +34,6 @@ FB_FR     = os.getenv("FB_FR", "")
 
 if not FB_C_USER or not FB_XS:
     print("  ⚠️  FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
-    print("  → crawler/.env에 추가해주세요.")
     exit(1)
 
 TODAY = date.today().isoformat()
@@ -52,21 +50,90 @@ TARGETS = [
     {"url": "https://www.facebook.com/groups/vieclamcantho",         "location": "Cần Thơ"},
 ]
 
+# ── 기본 채용공고 감지 키워드 ────────────────────────────────────────
 JOB_KEYWORDS = [
     "tuyển", "cần tuyển", "tuyển dụng", "đang tuyển",
     "cần người", "tìm người", "nhân viên", "lương",
     "triệu", "full time", "part time", "ca làm", "tuyển gấp",
 ]
 
+# ── 생활밀착형 우선 직종 (Priority 1) ───────────────────────────────
+LOCAL_JOB_TYPES = [
+    # 카페/식음료
+    "pha chế", "barista", "bartender", "cà phê", "cafe", "coffee", "trà sữa",
+    # 홀서빙/주방
+    "phục vụ", "phục vụ bàn", "phụ bếp", "bếp", "đầu bếp", "nhà hàng", "quán ăn",
+    # 매장/캐셔
+    "bán hàng", "thu ngân", "cửa hàng", "siêu thị", "tạp hóa", "shop",
+    # 물류/창고/포장
+    "shipper", "giao hàng", "đóng gói", "phụ kho", "kho", "phân loại hàng",
+    # 보안/주차
+    "bảo vệ", "giữ xe", "trông xe",
+    # 생산직/현장
+    "công nhân", "sản xuất", "theo ca", "ca làm", "làm ca", "nhà máy",
+    # 근무 형태
+    "part-time", "part time", "bán thời gian", "thời vụ", "làm thêm",
+    "theo giờ", "nhận ca", "ca sáng", "ca chiều", "ca tối", "ca đêm",
+]
+
+# ── 사무/전문직 (우선순위 하향) ──────────────────────────────────────
+OFFICE_JOB_PATTERNS = re.compile(
+    r"kế toán|lập trình|developer|software|kỹ sư|engineer|marketing\s+chuyên|"
+    r"hr manager|trưởng phòng|giám đốc|director|luật sư|bác sĩ|dược sĩ|"
+    r"kiểm toán|tài chính cao cấp",
+    re.IGNORECASE
+)
+
+# ── 구/군/동 패턴 ────────────────────────────────────────────────────
+DISTRICT_PATTERN = re.compile(
+    r"(?:quận|q\.?|huyện|thành phố|tp\.?)\s*[\d\w\s]{1,20}|"
+    r"(?:phường|p\.?|xã|thị trấn)\s*[\w\s]{1,20}|"
+    r"(?:đường|ngõ|ngách|khu|kp)\s+[\w\s\d]{2,30}",
+    re.IGNORECASE
+)
+
 
 def is_job_post(text: str) -> bool:
     return any(kw in text.lower() for kw in JOB_KEYWORDS)
+
+
+def is_local_priority(text: str) -> bool:
+    """생활밀착형 직종이면 True"""
+    t = text.lower()
+    return any(kw in t for kw in LOCAL_JOB_TYPES)
+
+
+def is_office_job(text: str) -> bool:
+    """사무/전문직이면 True (우선순위 하향)"""
+    return bool(OFFICE_JOB_PATTERNS.search(text))
 
 
 def extract_phone(text: str) -> str:
     cleaned = re.sub(r"[\s\.\-]", "", text)
     phones = re.findall(r"(?<!\d)(0[0-9]{9})(?!\d)", cleaned)
     return phones[0] if phones else ""
+
+
+def extract_zalo(text: str) -> str:
+    """Zalo 번호 추출 — 'zalo: 09xx' 또는 'zalo 09xx' 형태"""
+    m = re.search(
+        r"zalo[:\s]*([0-9][\s\.\-]?[0-9]{3}[\s\.\-]?[0-9]{3}[\s\.\-]?[0-9]{3,4})",
+        text, re.IGNORECASE
+    )
+    if m:
+        return re.sub(r"[\s\.\-]", "", m.group(1))
+    # Zalo 언급 없지만 전화번호 첫 번째를 Zalo 로도 쓸 수 있음 — phone과 공유
+    return ""
+
+
+def extract_district(text: str) -> str:
+    """구/군/동/도로명 등 상세 위치 추출"""
+    matches = DISTRICT_PATTERN.findall(text)
+    if matches:
+        # 가장 짧고 구체적인 매치 우선
+        parts = [m.strip() for m in matches if len(m.strip()) > 2]
+        return ", ".join(dict.fromkeys(parts[:3]))  # 최대 3개, 중복 제거
+    return ""
 
 
 def extract_salary(text: str) -> str:
@@ -81,7 +148,6 @@ def extract_salary(text: str) -> str:
         m = re.search(pat, text, re.IGNORECASE)
         if m:
             salary = m.group(0).strip()
-            # 비정상 급여 검증 (200tr 초과는 협의로)
             num = re.search(r"(\d+[\.,]?\d*)\s*(?:triệu|tr)", salary, re.IGNORECASE)
             if num:
                 val = float(num.group(1).replace(",", "."))
@@ -93,12 +159,10 @@ def extract_salary(text: str) -> str:
 
 def extract_title(text: str) -> str:
     lines = [l.strip() for l in text.split("\n") if l.strip()]
-    # 공고 키워드 포함된 줄 우선
     for line in lines[:8]:
         if any(kw in line.lower() for kw in ["tuyển", "cần tuyển", "nhân viên", "tìm người", "tuyển dụng"]):
             if 5 < len(line) < 150:
                 return line
-    # 사람 이름이 아닌 첫 번째 줄
     for line in lines[:5]:
         if not is_person_name(line) and len(line) > 5:
             return line[:120]
@@ -107,7 +171,7 @@ def extract_title(text: str) -> str:
 
 def extract_company(text: str) -> str:
     m = re.search(
-        r"(?:công ty|cty|shop|cửa hàng|nhà hàng|quán|trung tâm)[:\s]+([^\n,\.]{3,60})",
+        r"(?:công ty|cty|shop|cửa hàng|nhà hàng|quán|trung tâm|siêu thị)[:\s]+([^\n,\.]{3,60})",
         text, re.IGNORECASE
     )
     return m.group(1).strip() if m else ""
@@ -128,7 +192,7 @@ def extract_deadline(text: str) -> str | None:
 
 def guess_category(text: str) -> str:
     t = text.lower()
-    if re.search(r"nhà máy|sản xuất|công nhân|kho|lắp ráp|kỹ thuật|điện tử|cơ khí", t):
+    if re.search(r"nhà máy|sản xuất|công nhân|kho|lắp ráp|kỹ thuật|điện tử|cơ khí|đóng gói|phân loại", t):
         return "factory"
     if re.search(r"nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn", t):
         return "restaurant"
@@ -138,8 +202,10 @@ def guess_category(text: str) -> str:
         return "delivery"
     if re.search(r"vệ sinh|giúp việc|dọn dẹp|tạp vụ", t):
         return "cleaning"
-    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|thời trang|bán lẻ", t):
+    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|thời trang|bán lẻ|tạp hóa", t):
         return "retail"
+    if re.search(r"bảo vệ|giữ xe|trông xe|an ninh", t):
+        return "security"
     return "other"
 
 
@@ -164,15 +230,11 @@ NOISE_PATTERNS = re.compile(
 )
 
 def clean_text(text: str) -> str:
-    # 노이즈 패턴 제거
     text = NOISE_PATTERNS.sub("", text)
-    # 연속 줄바꿈 정리
     text = re.sub(r"\n{3,}", "\n\n", text)
-    # 앞뒤 공백 제거
     return text.strip()
 
 def is_person_name(line: str) -> bool:
-    # 사람 이름처럼 보이는 짧은 줄 감지 (2~4개 단어, 특수문자 없음)
     words = line.strip().split()
     if 1 <= len(words) <= 3 and all(w[0].isupper() for w in words if w):
         if not any(kw in line.lower() for kw in JOB_KEYWORDS):
@@ -206,24 +268,19 @@ async def crawl_group(page, target: dict) -> list[dict]:
 
     while len(posts) < TARGET_PER_GROUP:
         step += 1
-
-        # 현재 로드된 article 목록 가져오기
         article_count = await page.evaluate("document.querySelectorAll('[role=\"article\"]').length")
 
-        # 각 article을 하나씩 처리
         for idx in range(article_count):
             if idx in processed_articles:
                 continue
             processed_articles.add(idx)
 
-            # 해당 article로 scrollIntoView
             await page.evaluate(f"""() => {{
                 const articles = document.querySelectorAll('[role="article"]')
                 if (articles[{idx}]) articles[{idx}].scrollIntoView({{behavior: 'smooth', block: 'center'}})
             }}""")
             await page.wait_for_timeout(random.randint(1500, 3000))
 
-            # 해당 article의 "더 보기" 클릭
             await page.evaluate(f"""() => {{
                 const articles = document.querySelectorAll('[role="article"]')
                 const el = articles[{idx}]
@@ -237,7 +294,6 @@ async def crawl_group(page, target: dict) -> list[dict]:
             }}""")
             await page.wait_for_timeout(random.randint(800, 1500))
 
-            # 해당 article 파싱
             r = await page.evaluate(f"""() => {{
                 const articles = document.querySelectorAll('[role="article"]')
                 const el = articles[{idx}]
@@ -273,12 +329,17 @@ async def crawl_group(page, target: dict) -> list[dict]:
             key = text[:80]
             if not text or key in seen or not is_job_post(text):
                 continue
+
+            # 사무/전문직은 건너뜀 (생활밀착형 집중)
+            if is_office_job(text):
+                print(f"    ⏩ 사무/전문직 스킵")
+                continue
+
             seen.add(key)
             posts.append({**r, "text": text, "location": location})
 
         print(f"    스텝 {step}: article {article_count}개 처리, 공고 {len(posts)}개 수집")
 
-        # 마지막 article로 이동해서 다음 게시물 로드 유도
         prev_count = article_count
         await page.evaluate(f"""() => {{
             const articles = document.querySelectorAll('[role="article"]')
@@ -286,14 +347,12 @@ async def crawl_group(page, target: dict) -> list[dict]:
             if (last) last.scrollIntoView({{behavior: 'smooth', block: 'end'}})
         }}""")
 
-        # ArrowDown으로 사람처럼 스크롤
         for _ in range(random.randint(5, 10)):
             await page.keyboard.press("ArrowDown")
             await page.wait_for_timeout(random.randint(100, 300))
 
         await page.wait_for_timeout(random.randint(2000, 4000))
 
-        # 새 article이 로드됐는지 확인
         new_count = await page.evaluate("document.querySelectorAll('[role=\"article\"]').length")
         if new_count == prev_count:
             print(f"    더 이상 게시물 없음 (총 {len(posts)}개)")
@@ -307,20 +366,28 @@ def parse_post(post: dict) -> dict:
     images = post.get("images", [])
     location = post["location"]
 
+    phone = extract_phone(text)
+    zalo = extract_zalo(text) or phone  # Zalo 미표기 시 전화번호 공유
+    district = extract_district(text)
+    # 구/군/동 있으면 위치 정보를 더 구체적으로
+    full_location = f"{district}, {location}" if district else location
+
     return {
         "title": extract_title(text),
         "company": extract_company(text),
-        "location": location,
+        "location": full_location,
         "salary": extract_salary(text),
-        "employer_phone": extract_phone(text),
+        "employer_phone": phone,
+        "zalo": zalo,
         "description": f"[source:facebook] {text}",
         "category": guess_category(text),
         "posted_at": TODAY,
-        "urgent": False,
+        "urgent": "tuyển gấp" in text.lower() or "gấp" in text.lower(),
         "application_deadline": extract_deadline(text),
         "active": True,
         "image_url": images[0] if images else None,
         "images": images if images else None,
+        "is_local_priority": is_local_priority(text),
     }
 
 
@@ -330,14 +397,21 @@ def save_to_supabase(jobs: list[dict]):
         return
     supabase.table("local_jobs").delete().like("description", "%[source:facebook]%").execute()
     print(f"  🗑️  기존 facebook 공고 교체")
-    for i in range(0, len(jobs), 50):
-        batch = jobs[i:i+50]
+
+    # 생활밀착형 우선 정렬 후 저장
+    priority = [j for j in jobs if j.get("is_local_priority")]
+    others   = [j for j in jobs if not j.get("is_local_priority")]
+    ordered  = priority + others
+    print(f"  📊 생활밀착형: {len(priority)}개 / 기타: {len(others)}개")
+
+    for i in range(0, len(ordered), 50):
+        batch = ordered[i:i+50]
         supabase.table("local_jobs").insert(batch).execute()
-        print(f"  ✅ 저장: {i+len(batch)}/{len(jobs)}개")
+        print(f"  ✅ 저장: {i+len(batch)}/{len(ordered)}개")
 
 
 async def main():
-    print("🚀 Facebook 그룹 크롤링 시작 (쿠키 세션)")
+    print("🚀 Facebook 그룹 크롤링 시작 (생활밀착형 우선)")
     print("─" * 50)
 
     async with async_playwright() as p:
