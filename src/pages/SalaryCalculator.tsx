@@ -61,7 +61,6 @@ export function SalaryCalculator() {
   const amountNum = useMemo(() => Number(amount.replace(/[^\d]/g, '')) || 0, [amount])
 
   const result = useMemo(() => {
-    if (!amountNum) return null
     if (mode === 'gross') return { gross: amountNum, ...grossToNet(amountNum, dependents) }
     const gross = netToGross(amountNum, dependents)
     return { gross, ...grossToNet(gross, dependents) }
@@ -77,12 +76,12 @@ export function SalaryCalculator() {
     setAmount(next > 0 ? next.toLocaleString('vi-VN') : '')
   }
 
-  const deductions = result ? [
+  const deductions = [
     { label: 'BHXH (8%)', value: result.gross * 0.08, color: '#6366f1' },
     { label: 'BHYT (1.5%)', value: result.gross * 0.015, color: '#8b5cf6' },
     { label: 'BHTN (1%)', value: result.gross * 0.01, color: '#a78bfa' },
     { label: 'Thuế TNCN', value: result.pit, color: '#f59e0b' },
-  ] : []
+  ]
 
   const totalDeduction = deductions.reduce((s, d) => s + d.value, 0)
 
@@ -185,67 +184,58 @@ export function SalaryCalculator() {
 
         {/* RIGHT — result panel */}
         <div className="sc2-result-panel">
-          {!result ? (
-            <div className="sc2-empty">
-              <div className="sc2-empty__icon">₫</div>
-              <p>Nhập mức lương để xem<br/>kết quả tính toán</p>
+
+          {/* Net highlight */}
+          <div className="sc2-net-card">
+            <span className="sc2-net-card__label">Lương thực nhận (Net)</span>
+            <span className="sc2-net-card__value">{fmt(result.net)}</span>
+            {mode === 'net' && (
+              <span className="sc2-net-card__gross">từ Gross {fmt(result.gross)}</span>
+            )}
+          </div>
+
+          {/* Deduction bars */}
+          <div className="sc2-deductions">
+            <p className="sc2-deductions__title">Các khoản khấu trừ</p>
+            {deductions.map(d => (
+              <div key={d.label} className="sc2-deduction-row">
+                <div className="sc2-deduction-row__top">
+                  <span className="sc2-deduction-row__label">{d.label}</span>
+                  <span className="sc2-deduction-row__value">- {fmt(d.value)}</span>
+                </div>
+                <div className="sc2-deduction-row__bar-bg">
+                  <div
+                    className="sc2-deduction-row__bar-fill"
+                    style={{
+                      width: result.gross > 0 ? `${Math.min((d.value / result.gross) * 100, 100)}%` : '0%',
+                      background: d.color,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            <div className="sc2-total-row">
+              <span>Tổng khấu trừ</span>
+              <span>- {fmt(totalDeduction)}</span>
             </div>
-          ) : (
-            <>
-              {/* Net highlight */}
-              <div className="sc2-net-card">
-                <span className="sc2-net-card__label">Lương thực nhận (Net)</span>
-                <span className="sc2-net-card__value">{fmt(result.net)}</span>
-                {mode === 'net' && (
-                  <span className="sc2-net-card__gross">từ Gross {fmt(result.gross)}</span>
-                )}
-              </div>
+          </div>
 
-              {/* Deduction bars */}
-              <div className="sc2-deductions">
-                <p className="sc2-deductions__title">Các khoản khấu trừ</p>
+          {/* Summary table */}
+          <div className="sc2-summary">
+            <div className="sc2-summary__row">
+              <span>Lương Gross</span><span>{fmt(result.gross)}</span>
+            </div>
+            <div className="sc2-summary__row">
+              <span>Bảo hiểm</span><span>- {fmt(result.insurance)}</span>
+            </div>
+            <div className="sc2-summary__row">
+              <span>Thuế TNCN</span><span>- {fmt(result.pit)}</span>
+            </div>
+            {result.taxable <= 0 && (
+              <div className="sc2-summary__badge">Miễn thuế TNCN</div>
+            )}
+          </div>
 
-                {deductions.map(d => (
-                  <div key={d.label} className="sc2-deduction-row">
-                    <div className="sc2-deduction-row__top">
-                      <span className="sc2-deduction-row__label">{d.label}</span>
-                      <span className="sc2-deduction-row__value">- {fmt(d.value)}</span>
-                    </div>
-                    <div className="sc2-deduction-row__bar-bg">
-                      <div
-                        className="sc2-deduction-row__bar-fill"
-                        style={{
-                          width: result.gross > 0 ? `${Math.min((d.value / result.gross) * 100, 100)}%` : '0%',
-                          background: d.color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                <div className="sc2-total-row">
-                  <span>Tổng khấu trừ</span>
-                  <span>- {fmt(totalDeduction)}</span>
-                </div>
-              </div>
-
-              {/* Summary table */}
-              <div className="sc2-summary">
-                <div className="sc2-summary__row">
-                  <span>Lương Gross</span><span>{fmt(result.gross)}</span>
-                </div>
-                <div className="sc2-summary__row">
-                  <span>Bảo hiểm</span><span>- {fmt(result.insurance)}</span>
-                </div>
-                <div className="sc2-summary__row">
-                  <span>Thuế TNCN</span><span>- {fmt(result.pit)}</span>
-                </div>
-                {result.taxable <= 0 && (
-                  <div className="sc2-summary__badge">Miễn thuế TNCN</div>
-                )}
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>
