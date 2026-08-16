@@ -133,7 +133,7 @@ export default function JobCard({
           <span className="jc__salary-type">
             {job.salary.toLowerCase().includes('giờ') ? 'Giờ' :
              job.salary.toLowerCase().includes('ngày') ? 'Ngày' :
-             job.salary.toLowerCase().includes('tháng') ? 'Tháng' : '₩'}
+             job.salary.toLowerCase().includes('tháng') ? 'Tháng' : ''}
           </span>
           {' '}{job.salary.replace(/\/(giờ|ngày|tháng)/i, '').trim()}
         </span>
