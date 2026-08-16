@@ -30,28 +30,26 @@ TARGET_COUNT = 500
 TODAY = date.today().isoformat()
 
 CATEGORY_URLS = [
-    # 직종별
-    "https://vieclam24h.vn/viec-lam-ban-hang-kinh-doanh-o13.html",
-    "https://vieclam24h.vn/viec-lam-nha-may-o7.html",
-    "https://vieclam24h.vn/viec-lam-khach-san-nha-hang-du-lich-o5.html",
-    "https://vieclam24h.vn/viec-lam-van-tai-kho-van-o25.html",
-    "https://vieclam24h.vn/viec-lam-ban-si-ban-le-quan-ly-cua-hang-o6.html",
-    "https://vieclam24h.vn/viec-lam-giao-hang-o44.html",
-    "https://vieclam24h.vn/viec-lam-bao-ve-tap-vu-ve-sinh-o14.html",
-    "https://vieclam24h.vn/viec-lam-xay-dung-o22.html",
-    "https://vieclam24h.vn/viec-lam-ke-toan-kiem-toan-o2.html",
-    "https://vieclam24h.vn/viec-lam-cong-nghe-thong-tin-o1.html",
-    "https://vieclam24h.vn/viec-lam-hanh-chinh-van-phong-o3.html",
-    "https://vieclam24h.vn/viec-lam-nhan-su-o10.html",
-    "https://vieclam24h.vn/viec-lam-tai-xe-o45.html",
-    "https://vieclam24h.vn/viec-lam-giao-duc-dao-tao-o4.html",
-    "https://vieclam24h.vn/viec-lam-y-te-duoc-o21.html",
-    # 지역별
-    "https://vieclam24h.vn/viec-lam-bac-ninh.html",
+    # ── 생활밀착형 10개 ──────────────────────────
+    "https://vieclam24h.vn/viec-lam-khach-san-nha-hang-du-lich-o5.html",   # 식당·카페·호텔
+    "https://vieclam24h.vn/viec-lam-nha-may-o7.html",                       # 공장·생산
+    "https://vieclam24h.vn/viec-lam-giao-hang-o44.html",                    # 배달·배송
+    "https://vieclam24h.vn/viec-lam-bao-ve-tap-vu-ve-sinh-o14.html",       # 경비·청소·잡부
+    "https://vieclam24h.vn/viec-lam-ban-si-ban-le-quan-ly-cua-hang-o6.html", # 소매·마트
+    "https://vieclam24h.vn/viec-lam-van-tai-kho-van-o25.html",              # 물류·창고
+    "https://vieclam24h.vn/viec-lam-tai-xe-o45.html",                       # 운전기사
+    "https://vieclam24h.vn/viec-lam-xay-dung-o22.html",                     # 건설·현장
+    "https://vieclam24h.vn/viec-lam-ban-hang-kinh-doanh-o13.html",          # 판매(현장)
+    "https://vieclam24h.vn/viec-lam-nong-lam-ngu-nghiep-o17.html",          # 농업·수산
+    # ── 사무직 2개 ──────────────────────────────
+    "https://vieclam24h.vn/viec-lam-ke-toan-kiem-toan-o2.html",             # 회계
+    "https://vieclam24h.vn/viec-lam-hanh-chinh-van-phong-o3.html",          # 사무행정
+    # ── 지역별 (혼합, 현장직 다수) ─────────────
     "https://vieclam24h.vn/viec-lam-binh-duong.html",
-    "https://vieclam24h.vn/viec-lam-ha-noi.html",
     "https://vieclam24h.vn/viec-lam-ho-chi-minh.html",
     "https://vieclam24h.vn/viec-lam-dong-nai.html",
+    "https://vieclam24h.vn/viec-lam-ha-noi.html",
+    "https://vieclam24h.vn/viec-lam-bac-ninh.html",
     "https://vieclam24h.vn/viec-lam-hai-phong.html",
     "https://vieclam24h.vn/viec-lam-da-nang.html",
     "https://vieclam24h.vn/viec-lam-can-tho.html",
