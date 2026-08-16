@@ -56,6 +56,16 @@ const MENU_ITEMS = [
       ]},
     ],
   },
+  {
+    label: 'Công cụ',
+    to: '/tinh-luong',
+    dropdown: [
+      { heading: 'Tiện ích', links: [
+        { label: '🧮 Tính lương Gross ↔ Net', to: '/tinh-luong' },
+        { label: '💬 Câu hỏi phỏng vấn', to: '/cau-hoi-phong-van' },
+      ]},
+    ],
+  },
 ]
 
 export function Layout() {
