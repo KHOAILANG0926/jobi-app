@@ -83,7 +83,7 @@ function sanitizeSalary(salary: string): string {
 interface JobCardProps {
   job: Job
   isApplied: boolean
-  onApply: (job: Job) => void
+  onApply?: (job: Job) => void
   isSaved?: boolean
   onToggleSave?: (job: Job) => void
   rank?: number
@@ -91,7 +91,7 @@ interface JobCardProps {
 }
 
 export default function JobCard({
-  job, isApplied, isSaved, onToggleSave, distanceKm,
+  job, isApplied, distanceKm,
 }: JobCardProps) {
   const category = reclassify(job.category, job.title, job.company)
   const salary = sanitizeSalary(job.salary)
