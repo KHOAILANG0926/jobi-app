@@ -1,32 +1,6 @@
 import { useState } from 'react'
 import type { Job } from '../types/job'
-
-const LOGO_PALETTE = [
-  '#E53935','#1565C0','#2E7D32','#F57C00',
-  '#6A1B9A','#00838F','#AD1457','#37474F',
-]
-
-function logoColor(name: string): string {
-  let h = 5381
-  for (const c of name) h = ((h << 5) + h + c.charCodeAt(0)) & 0x7fffffff
-  return LOGO_PALETTE[Math.abs(h) % LOGO_PALETTE.length]
-}
-
-function logoInitials(name: string): string {
-  const parts = name.trim().replace(/[()[\]]/g, '').split(/[\s·\-–—]+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
-
-const CATEGORY_ICONS: Record<string, string> = {
-  factory: '🏭',
-  cafe: '☕',
-  delivery: '🛵',
-  cleaning: '🧹',
-  retail: '🛍️',
-  other: '💼',
-}
+import { getCategoryVisual } from '../lib/categoryVisuals'
 
 const FAVICON_DOMAINS: Record<string, string> = {
   'Highlands Coffee': 'highlandscoffee.com.vn',
@@ -44,18 +18,13 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Baemin': 'baemin.vn',
 }
 
-function CompanyPhoto({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
+function CompanyPhoto({ company, imageUrl }: { company: string; imageUrl?: string }) {
   const [failed, setFailed] = useState(false)
   const domain = FAVICON_DOMAINS[company]
 
   if (imageUrl && !failed) {
     return (
-      <img
-        src={imageUrl}
-        alt=""
-        className="jc__photo"
-        onError={() => setFailed(true)}
-      />
+      <img src={imageUrl} alt="" className="jc__photo" onError={() => setFailed(true)} />
     )
   }
 
@@ -70,12 +39,7 @@ function CompanyPhoto({ company, imageUrl, category }: { company: string; imageU
     )
   }
 
-  const icon = CATEGORY_ICONS[category || 'other'] || '💼'
-  return (
-    <span className="jc__photo jc__photo--fallback jc__photo--icon">
-      {icon}
-    </span>
-  )
+  return null
 }
 
 const CATEGORY_TAGS: Record<string, string> = {
@@ -112,17 +76,24 @@ export default function JobCard({
   job, isApplied, isSaved, onToggleSave, distanceKm,
 }: JobCardProps) {
   const tags = jobTags(job)
-  const hasBanner = job.source === 'facebook' && !!job.imageUrl
+  const hasRealImage = !!job.imageUrl
+  const visual = getCategoryVisual(job.category)
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
-      {hasBanner && (
-        <div className="jc__banner">
+      {/* 배너: 실제 이미지 or 카테고리 기본 이미지 */}
+      <div className="jc__banner">
+        {hasRealImage ? (
           <img src={job.imageUrl} alt="" className="jc__banner-img" />
-        </div>
-      )}
+        ) : (
+          <div className="jc__banner-category" style={{ backgroundImage: `url(${visual.imageUrl})` }}>
+            <div className="jc__banner-overlay" />
+            <span className="jc__banner-label">{visual.label}</span>
+          </div>
+        )}
+      </div>
       <div className="jc__header">
         {job.company && <p className="jc__company">{job.company}</p>}
-        {!hasBanner && <CompanyPhoto company={job.company} imageUrl={job.imageUrl} category={job.category} />}
+        <CompanyPhoto company={job.company} imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined} />
       </div>
 
       {tags.length > 0 && (
