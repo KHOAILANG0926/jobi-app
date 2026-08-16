@@ -35,9 +35,10 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Baemin': 'baemin.vn',
 }
 
-function CompanyPhoto({ company, imageUrl }: { company: string; imageUrl?: string }) {
+function CompanyPhoto({ company, imageUrl, title }: { company: string; imageUrl?: string; title?: string }) {
   const [failed, setFailed] = useState(false)
   const domain = FAVICON_DOMAINS[company]
+  const displayName = company || title || '?'
 
   if (imageUrl && !failed) {
     return (
@@ -62,8 +63,8 @@ function CompanyPhoto({ company, imageUrl }: { company: string; imageUrl?: strin
   }
 
   return (
-    <span className="jc__photo jc__photo--fallback" style={{ background: logoColor(company) }}>
-      {logoInitials(company)}
+    <span className="jc__photo jc__photo--fallback" style={{ background: logoColor(displayName) }}>
+      {logoInitials(displayName)}
     </span>
   )
 }
@@ -106,7 +107,7 @@ export default function JobCard({
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
       <div className="jc__header">
         <p className="jc__company">{job.company}</p>
-        <CompanyPhoto company={job.company} imageUrl={job.imageUrl} />
+        <CompanyPhoto company={job.company} imageUrl={job.imageUrl} title={job.title} />
       </div>
 
       {tags.length > 0 && (
