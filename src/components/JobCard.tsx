@@ -112,7 +112,7 @@ export default function JobCard({
         </div>
       )}
       <div className="jc__header">
-        <p className="jc__company">{job.company || job.location}</p>
+        {job.company && <p className="jc__company">{job.company}</p>}
         {!hasBanner && <CompanyPhoto company={job.company} imageUrl={job.imageUrl} title={job.title} />}
       </div>
 
