@@ -77,23 +77,16 @@ export default function JobCard({
 }: JobCardProps) {
   const tags = jobTags(job)
   const isFacebookWithImage = job.source === 'facebook' && !!job.imageUrl
-  const visual = getCategoryVisual(job.category)
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
-      {/* 배너: facebook 실제 이미지 or 카테고리 기본 이미지 */}
-      <div className="jc__banner">
-        {isFacebookWithImage ? (
+      {/* 배너: facebook 실제 이미지 있을 때만 */}
+      {isFacebookWithImage && (
+        <div className="jc__banner">
           <img src={job.imageUrl} alt="" className="jc__banner-img" />
-        ) : (
-          <div className="jc__banner-category" style={{ backgroundImage: `url(${visual.imageUrl})` }}>
-            <div className="jc__banner-overlay" />
-            <span className="jc__banner-label">{visual.label}</span>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
       <div className="jc__header">
         {job.company && <p className="jc__company">{job.company}</p>}
-        {/* vieclam24h 로고는 작은 사각형으로 */}
         <CompanyPhoto company={job.company} imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined} />
       </div>
 
