@@ -21,21 +21,26 @@ const FAVICON_DOMAINS: Record<string, string> = {
 }
 
 function CompanyLogo({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
-  const [failed, setFailed] = useState(false)
-  const domain = FAVICON_DOMAINS[company]
+  const [imgFailed, setImgFailed] = useState(false)
+  const [faviconFailed, setFaviconFailed] = useState(false)
 
-  if (imageUrl && !failed) {
-    return <img src={imageUrl} alt={company} className="jc__logo" onError={() => setFailed(true)} />
-  }
-  if (domain && !failed) {
+  // 알려진 브랜드는 favicon 우선 (CDN 로고가 브랜드 색 정사각형일 수 있어서)
+  const domain = Object.entries(FAVICON_DOMAINS).find(([name]) =>
+    company.toLowerCase().includes(name.toLowerCase())
+  )?.[1]
+
+  if (domain && !faviconFailed) {
     return (
       <img
         src={`https://www.google.com/s2/favicons?sz=128&domain=${domain}`}
         alt={company}
         className="jc__logo"
-        onError={() => setFailed(true)}
+        onError={() => setFaviconFailed(true)}
       />
     )
+  }
+  if (imageUrl && !imgFailed) {
+    return <img src={imageUrl} alt={company} className="jc__logo" onError={() => setImgFailed(true)} />
   }
   const visual = getCategoryVisual(category || 'other')
   return (
