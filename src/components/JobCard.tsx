@@ -19,6 +19,15 @@ function logoInitials(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
+const CATEGORY_ICONS: Record<string, string> = {
+  factory: '🏭',
+  cafe: '☕',
+  delivery: '🛵',
+  cleaning: '🧹',
+  retail: '🛍️',
+  other: '💼',
+}
+
 const FAVICON_DOMAINS: Record<string, string> = {
   'Highlands Coffee': 'highlandscoffee.com.vn',
   'GrabFood': 'grab.com',
@@ -35,10 +44,9 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Baemin': 'baemin.vn',
 }
 
-function CompanyPhoto({ company, imageUrl, title }: { company: string; imageUrl?: string; title?: string }) {
+function CompanyPhoto({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
   const [failed, setFailed] = useState(false)
   const domain = FAVICON_DOMAINS[company]
-  const displayName = company || title || '?'
 
   if (imageUrl && !failed) {
     return (
@@ -62,9 +70,10 @@ function CompanyPhoto({ company, imageUrl, title }: { company: string; imageUrl?
     )
   }
 
+  const icon = CATEGORY_ICONS[category || 'other'] || '💼'
   return (
-    <span className="jc__photo jc__photo--fallback" style={{ background: logoColor(displayName) }}>
-      {logoInitials(displayName)}
+    <span className="jc__photo jc__photo--fallback jc__photo--icon">
+      {icon}
     </span>
   )
 }
@@ -113,7 +122,7 @@ export default function JobCard({
       )}
       <div className="jc__header">
         {job.company && <p className="jc__company">{job.company}</p>}
-        {!hasBanner && <CompanyPhoto company={job.company} imageUrl={job.imageUrl} title={job.title} />}
+        {!hasBanner && <CompanyPhoto company={job.company} imageUrl={job.imageUrl} category={job.category} />}
       </div>
 
       {tags.length > 0 && (
