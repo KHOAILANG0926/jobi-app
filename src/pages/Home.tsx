@@ -388,23 +388,6 @@ export function Home() {
             ))}
           </div>
 
-          {/* 마감일 필터 */}
-          <h2 className="home-region-panel__title" style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>Hạn nộp hồ sơ</h2>
-          <div className="home-deadline-filter">
-            {([
-              { value: 'all',   label: 'Tất cả' },
-              { value: 'today', label: 'Hôm nay' },
-              { value: 'week',  label: 'Trong tuần' },
-            ] as const).map(opt => (
-              <button
-                key={opt.value}
-                className={`home-deadline-btn${deadlineFilter === opt.value ? ' home-deadline-btn--active' : ''}`}
-                onClick={() => setDeadlineFilter(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
