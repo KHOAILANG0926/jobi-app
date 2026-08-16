@@ -133,36 +133,34 @@ export default function JobCard({
       {/* 3열: 제목 */}
       <h3 className="jc__title">{job.title}</h3>
 
-      {/* 4열: 급여 + Zalo + 즐겨찾기 */}
+      {/* 4열: 급여 + Zalo 버튼 */}
       <div className="jc__footer">
         <span className="jc__salary">
           {salaryType && <span className="jc__salary-type">{salaryType} </span>}
           {salaryNum}
         </span>
-        <div className="jc__actions">
-          {(job.zalo || job.employerPhone) && (
-            <a
-              href={zaloMeUrl(job.zalo || job.employerPhone)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="jc__zalo-btn"
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Chat qua Zalo"
-            >
-              Zalo
-            </a>
-          )}
-          {onToggleSave && (
-            <button
-              type="button"
-              className={`jc__save${isSaved ? ' jc__save--on' : ''}`}
-              onClick={(e) => { e.stopPropagation(); onToggleSave(job) }}
-              aria-label={isSaved ? 'Bỏ lưu' : 'Lưu tin'}
-            >
-              +
-            </button>
-          )}
-        </div>
+        {(job.zalo || job.employerPhone) ? (
+          <a
+            href={zaloMeUrl(job.zalo || job.employerPhone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="jc__zalo-btn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2C6.48 2 2 6.03 2 11c0 2.7 1.22 5.12 3.17 6.83L4 20.5l2.93-1.04C8.27 20.14 10.08 20.5 12 20.5c5.52 0 10-4.03 10-9s-4.48-9-10-9zm1 13h-2v-5h2v5zm0-7h-2V6h2v2z"/>
+            </svg>
+            Liên hệ Zalo
+          </a>
+        ) : (
+          <a
+            href={`/viec-lam/${job.id}`}
+            className="jc__zalo-btn jc__zalo-btn--detail"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Xem chi tiết
+          </a>
+        )}
       </div>
     </article>
   )
