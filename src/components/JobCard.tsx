@@ -18,7 +18,7 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Baemin': 'baemin.vn',
 }
 
-function CompanyPhoto({ company, imageUrl }: { company: string; imageUrl?: string }) {
+function CompanyPhoto({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
   const [failed, setFailed] = useState(false)
   const domain = FAVICON_DOMAINS[company]
 
@@ -39,7 +39,14 @@ function CompanyPhoto({ company, imageUrl }: { company: string; imageUrl?: strin
     )
   }
 
-  return null
+  // 카테고리 배경 이미지 (작은 박스 안에만)
+  const visual = getCategoryVisual(category || 'other')
+  return (
+    <span
+      className="jc__photo jc__photo--category"
+      style={{ backgroundImage: `url(${visual.imageUrl})` }}
+    />
+  )
 }
 
 const CATEGORY_TAGS: Record<string, string> = {
@@ -76,18 +83,15 @@ export default function JobCard({
   job, isApplied, isSaved, onToggleSave, distanceKm,
 }: JobCardProps) {
   const tags = jobTags(job)
-  const isFacebookWithImage = job.source === 'facebook' && !!job.imageUrl
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
-      {/* 배너: facebook 실제 이미지 있을 때만 */}
-      {isFacebookWithImage && (
-        <div className="jc__banner">
-          <img src={job.imageUrl} alt="" className="jc__banner-img" />
-        </div>
-      )}
       <div className="jc__header">
         {job.company && <p className="jc__company">{job.company}</p>}
-        <CompanyPhoto company={job.company} imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined} />
+        <CompanyPhoto
+          company={job.company}
+          imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined}
+          category={job.category}
+        />
       </div>
 
       {tags.length > 0 && (
