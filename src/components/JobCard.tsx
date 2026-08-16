@@ -16,6 +16,8 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Samsung': 'samsung.com',
   "McDonald's": 'mcdonalds.com',
   'Baemin': 'baemin.vn',
+  'Jollibee': 'jollibee.com.vn',
+  'Haidilao': 'haidilao.com',
 }
 
 function CompanyPhoto({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
@@ -39,7 +41,6 @@ function CompanyPhoto({ company, imageUrl, category }: { company: string; imageU
     )
   }
 
-  // 카테고리 배경 이미지 (작은 박스 안에만)
   const visual = getCategoryVisual(category || 'other')
   return (
     <span
@@ -50,12 +51,22 @@ function CompanyPhoto({ company, imageUrl, category }: { company: string; imageU
 }
 
 const CATEGORY_TAGS: Record<string, string> = {
-  factory: 'Nhà máy',
-  cafe: 'Cafe',
-  delivery: 'Giao hàng',
-  cleaning: 'Vệ sinh',
-  retail: 'Bán lẻ',
-  other: 'Việc làm',
+  factory:    'Nhà máy',
+  cafe:       'Cafe',
+  restaurant: 'Nhà hàng',
+  delivery:   'Giao hàng',
+  cleaning:   'Vệ sinh',
+  retail:     'Bán lẻ',
+  other:      'Việc làm',
+}
+
+function sanitizeSalary(salary: string): string {
+  const m = salary.match(/(\d+[\.,]?\d*)\s*(?:triệu|tr)/i)
+  if (m) {
+    const val = parseFloat(m[1].replace(',', '.'))
+    if (val > 200) return 'Thỏa thuận'
+  }
+  return salary
 }
 
 function jobTags(job: Job): string[] {
@@ -83,10 +94,12 @@ export default function JobCard({
   job, isApplied, isSaved, onToggleSave, distanceKm,
 }: JobCardProps) {
   const tags = jobTags(job)
+  const salary = sanitizeSalary(job.salary)
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
+      {/* 헤더: 항상 justify-between, 사진은 우측 고정 */}
       <div className="jc__header">
-        {job.company && <p className="jc__company">{job.company}</p>}
+        <p className="jc__company">{job.company || ' '}</p>
         <CompanyPhoto
           company={job.company}
           imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined}
@@ -109,11 +122,11 @@ export default function JobCard({
       <div className="jc__footer">
         <span className="jc__salary">
           <span className="jc__salary-type">
-            {job.salary.toLowerCase().includes('giờ') ? 'Giờ' :
-             job.salary.toLowerCase().includes('ngày') ? 'Ngày' :
-             job.salary.toLowerCase().includes('tháng') ? 'Tháng' : ''}
+            {salary.toLowerCase().includes('giờ') ? 'Giờ' :
+             salary.toLowerCase().includes('ngày') ? 'Ngày' :
+             salary.toLowerCase().includes('tháng') ? 'Tháng' : ''}
           </span>
-          {' '}{job.salary.replace(/\/(giờ|ngày|tháng)/i, '').trim()}
+          {' '}{salary.replace(/\/(giờ|ngày|tháng)/i, '').trim()}
         </span>
         {onToggleSave && (
           <button

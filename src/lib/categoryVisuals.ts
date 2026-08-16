@@ -6,7 +6,11 @@ export interface CategoryVisual {
 export const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
   cafe: {
     imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&q=80',
-    label: 'QUÁN CÀ PHÊ / NHÀ HÀNG',
+    label: 'QUÁN CÀ PHÊ',
+  },
+  restaurant: {
+    imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80',
+    label: 'NHÀ HÀNG / ẨM THỰC',
   },
   factory: {
     imageUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&q=80',

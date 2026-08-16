@@ -7,6 +7,7 @@ Facebook 그룹 채용공고 크롤러 (쿠키 세션 방식)
 import asyncio
 import json
 import os
+import random
 import re
 from datetime import date
 from pathlib import Path
@@ -79,7 +80,14 @@ def extract_salary(text: str) -> str:
     for pat in patterns:
         m = re.search(pat, text, re.IGNORECASE)
         if m:
-            return m.group(0).strip()
+            salary = m.group(0).strip()
+            # 비정상 급여 검증 (200tr 초과는 협의로)
+            num = re.search(r"(\d+[\.,]?\d*)\s*(?:triệu|tr)", salary, re.IGNORECASE)
+            if num:
+                val = float(num.group(1).replace(",", "."))
+                if val > 200:
+                    return "Thỏa thuận"
+            return salary
     return "Thỏa thuận"
 
 
@@ -122,13 +130,15 @@ def guess_category(text: str) -> str:
     t = text.lower()
     if re.search(r"nhà máy|sản xuất|công nhân|kho|lắp ráp|kỹ thuật|điện tử|cơ khí", t):
         return "factory"
-    if re.search(r"cà phê|cafe|nhà hàng|bếp|phục vụ|bartender|pha chế", t):
+    if re.search(r"nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn", t):
+        return "restaurant"
+    if re.search(r"cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista", t):
         return "cafe"
     if re.search(r"giao hàng|shipper|tài xế|xe máy|vận chuyển", t):
         return "delivery"
     if re.search(r"vệ sinh|giúp việc|dọn dẹp|tạp vụ", t):
         return "cleaning"
-    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh", t):
+    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|thời trang|bán lẻ", t):
         return "retail"
     return "other"
 
@@ -191,60 +201,102 @@ async def crawl_group(page, target: dict) -> list[dict]:
 
     posts = []
     seen = set()
+    processed_articles = set()
+    step = 0
 
-    for scroll in range(10):
-        # "더 보기" 버튼 모두 클릭해서 전체 본문 펼치기
-        see_more_btns = await page.query_selector_all('div[role="button"]:has-text("더 보기"), div[role="button"]:has-text("See more"), div[role="button"]:has-text("Xem thêm")')
-        for btn in see_more_btns[:10]:
-            try:
-                await btn.click()
-                await page.wait_for_timeout(300)
-            except Exception:
-                pass
+    while len(posts) < TARGET_PER_GROUP:
+        step += 1
 
-        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        await page.wait_for_timeout(2500)
+        # 현재 로드된 article 목록 가져오기
+        article_count = await page.evaluate("document.querySelectorAll('[role=\"article\"]').length")
 
-        raw = await page.evaluate("""() => {
-            const results = []
-            const articles = document.querySelectorAll('[role="article"]')
-            articles.forEach(el => {
-                const textEl = el.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]')
-                const text = textEl ? textEl.innerText : ''
-                if (!text || text.length < 30) return
+        # 각 article을 하나씩 처리
+        for idx in range(article_count):
+            if idx in processed_articles:
+                continue
+            processed_articles.add(idx)
+
+            # 해당 article로 scrollIntoView
+            await page.evaluate(f"""() => {{
+                const articles = document.querySelectorAll('[role="article"]')
+                if (articles[{idx}]) articles[{idx}].scrollIntoView({{behavior: 'smooth', block: 'center'}})
+            }}""")
+            await page.wait_for_timeout(random.randint(1500, 3000))
+
+            # 해당 article의 "더 보기" 클릭
+            await page.evaluate(f"""() => {{
+                const articles = document.querySelectorAll('[role="article"]')
+                const el = articles[{idx}]
+                if (!el) return
+                el.querySelectorAll('[role="button"]').forEach(btn => {{
+                    const t = btn.innerText || ''
+                    if (t.includes('더 보기') || t.includes('See more') || t.includes('Xem thêm')) {{
+                        btn.click()
+                    }}
+                }})
+            }}""")
+            await page.wait_for_timeout(random.randint(800, 1500))
+
+            # 해당 article 파싱
+            r = await page.evaluate(f"""() => {{
+                const articles = document.querySelectorAll('[role="article"]')
+                const el = articles[{idx}]
+                if (!el) return null
+
+                const dirEls = el.querySelectorAll('[dir="auto"]')
+                let text = ''
+                dirEls.forEach(d => {{
+                    const t = d.innerText || ''
+                    if (t.length > text.length) text = t
+                }})
+                if (!text || text.length < 30) return null
 
                 const imgs = []
-                el.querySelectorAll('img[src]').forEach(img => {
+                el.querySelectorAll('img[src]').forEach(img => {{
                     const src = img.src || ''
                     if ((src.includes('scontent') || src.includes('fbcdn')) &&
-                        !src.includes('emoji') && img.naturalWidth > 100) {
+                        !src.includes('emoji') && img.naturalWidth > 100) {{
                         imgs.push(src)
-                    }
-                })
+                    }}
+                }})
 
                 const linkEl = el.querySelector('a[href*="story_fbid"], a[href*="/posts/"]')
                 const postUrl = linkEl ? linkEl.href : ''
 
-                results.push({ text: text.trim(), images: imgs, postUrl })
-            })
-            return results
-        }""")
+                return {{ text: text.trim(), images: imgs, postUrl }}
+            }}""")
 
-        new = 0
-        for r in raw:
-            raw_text = r.get("text", "").strip()
-            text = clean_text(raw_text)
-            key = text[:80]
-            if not text or key in seen:
+            if not r:
                 continue
-            if not is_job_post(text):
+
+            text = clean_text(r.get("text", ""))
+            key = text[:80]
+            if not text or key in seen or not is_job_post(text):
                 continue
             seen.add(key)
             posts.append({**r, "text": text, "location": location})
-            new += 1
 
-        print(f"    스크롤 {scroll+1}: +{new}개 (총 {len(posts)}개)")
-        if len(posts) >= TARGET_PER_GROUP:
+        print(f"    스텝 {step}: article {article_count}개 처리, 공고 {len(posts)}개 수집")
+
+        # 마지막 article로 이동해서 다음 게시물 로드 유도
+        prev_count = article_count
+        await page.evaluate(f"""() => {{
+            const articles = document.querySelectorAll('[role="article"]')
+            const last = articles[articles.length - 1]
+            if (last) last.scrollIntoView({{behavior: 'smooth', block: 'end'}})
+        }}""")
+
+        # ArrowDown으로 사람처럼 스크롤
+        for _ in range(random.randint(5, 10)):
+            await page.keyboard.press("ArrowDown")
+            await page.wait_for_timeout(random.randint(100, 300))
+
+        await page.wait_for_timeout(random.randint(2000, 4000))
+
+        # 새 article이 로드됐는지 확인
+        new_count = await page.evaluate("document.querySelectorAll('[role=\"article\"]').length")
+        if new_count == prev_count:
+            print(f"    더 이상 게시물 없음 (총 {len(posts)}개)")
             break
 
     return posts

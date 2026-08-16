@@ -62,13 +62,15 @@ def guess_category(text: str) -> str:
     t = text.lower()
     if re.search(r"nhà máy|sản xuất|công nhân|kho|lắp ráp|kỹ thuật|điện tử|cơ khí", t):
         return "factory"
-    if re.search(r"cà phê|cafe|nhà hàng|bếp|phục vụ|bartender|pha chế", t):
+    if re.search(r"nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn", t):
+        return "restaurant"
+    if re.search(r"cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista", t):
         return "cafe"
     if re.search(r"giao hàng|shipper|tài xế|xe máy|vận chuyển|delivery", t):
         return "delivery"
     if re.search(r"vệ sinh|giúp việc|dọn dẹp|tạp vụ", t):
         return "cleaning"
-    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|bán lẻ|bán sỉ", t):
+    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|bán lẻ|bán sỉ|thời trang", t):
         return "retail"
     return "other"
 
@@ -193,7 +195,7 @@ async def crawl_vieclam24h() -> list[dict]:
                 "employer_phone": "",
                 "application_deadline": deadline,
                 "active": True,
-                "image_url": logo if logo and logo.startswith("http") and "vieclam24h" in logo else None,
+                "image_url": logo if logo and logo.startswith("http") else None,
             })
             if (idx + 1) % 20 == 0:
                 print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
