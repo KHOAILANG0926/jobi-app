@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { NotificationBell } from './NotificationBell'
@@ -38,14 +38,14 @@ const MENU_ITEMS = [
     to: '/franchise-jobs',
     dropdown: [
       { heading: 'Thương hiệu nổi bật', links: [
-        { label: 'GrabFood', to: '/?brand=Grab' },
-        { label: 'Highlands Coffee', to: '/?brand=Highlands' },
-        { label: 'Shopee', to: '/?brand=Shopee' },
-        { label: 'WinMart', to: '/?brand=WinMart' },
-        { label: 'Circle K', to: '/?brand=Circle K' },
-        { label: 'FamilyMart', to: '/?brand=FamilyMart' },
-        { label: "McDonald's", to: '/?brand=McDonald' },
-        { label: 'KFC', to: '/?brand=KFC' },
+        { label: 'GrabFood', to: '/?q=GrabFood' },
+        { label: 'Highlands Coffee', to: '/?q=Highlands' },
+        { label: 'Shopee', to: '/?q=Shopee' },
+        { label: 'WinMart', to: '/?q=WinMart' },
+        { label: 'Circle K', to: '/?q=Circle+K' },
+        { label: 'FamilyMart', to: '/?q=FamilyMart' },
+        { label: "McDonald's", to: "/?q=McDonald" },
+        { label: 'KFC', to: '/?q=KFC' },
       ]},
       { heading: 'Theo loại hình', links: [
         { label: '☕ Cà phê · Trà sữa', to: '/?cat=cafe' },
@@ -64,6 +64,16 @@ export function Layout() {
   const [query, setQuery] = useState('')
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const navRef = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleMenuEnter = useCallback((i: number) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setOpenMenu(i)
+  }, [])
+
+  const handleMenuLeave = useCallback(() => {
+    closeTimer.current = setTimeout(() => setOpenMenu(null), 120)
+  }, [])
 
   useEffect(() => { setOpenMenu(null) }, [location])
 
@@ -129,8 +139,8 @@ export function Layout() {
                     <div
                       key={i}
                       className={`header-tab-wrap${openMenu === i ? ' header-tab-wrap--open' : ''}`}
-                      onMouseEnter={() => setOpenMenu(i)}
-                      onMouseLeave={() => setOpenMenu(null)}
+                      onMouseEnter={() => handleMenuEnter(i)}
+                      onMouseLeave={handleMenuLeave}
                     >
                       <button
                         type="button"
