@@ -92,7 +92,7 @@ export function SalaryCalculator() {
       {/* Page header */}
       <div className="sc2-header">
         <span className="sc2-header__eyebrow">Công cụ tính lương</span>
-        <h1 className="sc2-header__title">Gross ↔ Net Calculator</h1>
+        <h1 className="sc2-header__title">Tính lương Gross ↔ Net</h1>
         <p className="sc2-header__desc">Tính lương thực nhận theo quy định BHXH và Thuế TNCN Việt Nam 2024</p>
       </div>
 
