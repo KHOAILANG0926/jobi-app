@@ -9,8 +9,8 @@ const BRACKETS = [
   { limit: 80_000_000, rate: 0.30 },
   { limit: Infinity,   rate: 0.35 },
 ]
-const PERSONAL_DEDUCTION = 11_000_000
-const DEPENDENT_DEDUCTION = 4_400_000
+const PERSONAL_DEDUCTION = 15_500_000
+const DEPENDENT_DEDUCTION = 6_200_000
 const INSURANCE_RATE = 0.105
 
 function calcPIT(taxable: number): number {
@@ -92,7 +92,7 @@ export function SalaryCalculator() {
       <div className="sc2-header">
         <span className="sc2-header__eyebrow">Công cụ tính lương</span>
         <h1 className="sc2-header__title">Tính lương Gross ↔ Net</h1>
-        <p className="sc2-header__desc">Tính lương thực nhận theo quy định BHXH và Thuế TNCN Việt Nam 2024</p>
+        <p className="sc2-header__desc">Tính lương thực nhận theo quy định BHXH và Thuế TNCN Việt Nam 2026</p>
       </div>
 
       {/* 2-column layout */}
