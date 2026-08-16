@@ -14,8 +14,6 @@ const MENU_ITEMS = [
         { label: 'Tất cả việc làm', to: '/' },
         { label: '🔥 Tuyển gấp', to: '/?urgent=1' },
         { label: '📍 Gần tôi', to: '/?near=1' },
-        { label: '🇰🇷 Việc Hàn Quốc', to: '/viec-han-quoc' },
-        { label: '🏢 Thương hiệu lớn', to: '/franchise-jobs' },
       ]},
       { heading: 'Theo khu vực', links: [
         { label: 'Hà Nội', to: '/?region=hanoi' },
@@ -54,29 +52,6 @@ const MENU_ITEMS = [
         { label: '🛍️ Siêu thị · Cửa hàng', to: '/?cat=retail' },
         { label: '🛵 Giao hàng · Vận chuyển', to: '/?cat=delivery' },
         { label: '🏭 Sản xuất · Nhà máy', to: '/?cat=factory' },
-      ]},
-    ],
-  },
-  {
-    label: 'Cộng đồng',
-    to: '/cong-dong',
-    dropdown: [
-      { heading: 'Cộng đồng', links: [
-        { label: 'Đánh giá công ty', to: '/cong-dong?cat=review' },
-        { label: 'Mẹo hay', to: '/cong-dong?cat=tip' },
-        { label: 'Hỏi đáp', to: '/cong-dong?cat=question' },
-      ]},
-    ],
-  },
-  {
-    label: 'Hồ sơ',
-    to: '/ho-so',
-    dropdown: [
-      { heading: 'Dịch vụ cá nhân', links: [
-        { label: 'Hồ sơ của tôi', to: '/ho-so' },
-        { label: 'Tạo CV', to: '/ho-so?tab=cv' },
-        { label: 'Việc đã lưu', to: '/ho-so?tab=saved' },
-        { label: 'Đơn ứng tuyển', to: '/ho-so?tab=applied' },
       ]},
     ],
   },
@@ -145,8 +120,6 @@ export function Layout() {
                 ? [
                     { label: 'Bảng điều khiển', to: '/bang-dieu-khien' },
                     { label: 'Đăng tin', to: '/dang-tin' },
-                    { label: 'Cộng đồng', to: '/cong-dong' },
-                    { label: 'Hồ sơ', to: '/ho-so' },
                   ].map((item, i) => (
                     <NavLink key={i} to={item.to} className={({ isActive }) => tabClass(isActive)}>
                       {item.label}
@@ -203,7 +176,7 @@ export function Layout() {
               {user ? (
                 <>
                   <NotificationBell />
-                  <span className="header-tabs__user">{user.name}</span>
+                  <NavLink to="/ho-so" className="header-tabs__login">{user.name}</NavLink>
                   <button className="header-tabs__logout" onClick={logout}>Đăng xuất</button>
                 </>
               ) : (
