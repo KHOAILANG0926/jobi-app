@@ -11,6 +11,33 @@ import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
 import { withJobCoordinates } from '../lib/jobCoords'
 import { getCategoryVisual } from '../lib/categoryVisuals'
+
+function DescriptionRenderer({ text }: { text: string }) {
+  const isUrl = text.startsWith('http')
+  if (isUrl) return null
+
+  const blocks = text.split(/\n\n+/)
+  return (
+    <div className="job-desc">
+      {blocks.map((block, i) => {
+        if (block.startsWith('## ')) {
+          const [heading, ...lines] = block.split('\n')
+          return (
+            <div key={i} className="job-desc__section">
+              <h4 className="job-desc__heading">{heading.replace('## ', '')}</h4>
+              {lines.map((line, j) => (
+                line.startsWith('• ')
+                  ? <p key={j} className="job-desc__bullet">{line}</p>
+                  : line.trim() ? <p key={j} className="job-desc__line">{line}</p> : null
+              ))}
+            </div>
+          )
+        }
+        return <p key={i} style={{ whiteSpace: 'pre-line', margin: '0 0 0.75rem', lineHeight: 1.8 }}>{block}</p>
+      })}
+    </div>
+  )
+}
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
 function BookmarkGlyph({ filled }: { filled: boolean }) {
@@ -196,7 +223,7 @@ export function JobDetail() {
           </div>
 
           {/* ── 3. 모집요강 ── */}
-          {job.source !== 'vieclam24h' ? (
+          {(job.imageUrl || (job.description && !job.description.startsWith('http'))) && (
             <div className="info-section">
               <div className="info-section__head">
                 <span className="info-section__icon">📋</span>
@@ -204,7 +231,7 @@ export function JobDetail() {
                 <span className="info-section__title">Mô tả công việc</span>
               </div>
               <div className="info-section__body" style={{ padding: '1rem 1.25rem' }}>
-                {job.imageUrl ? (
+                {job.imageUrl && (
                   <>
                     <img
                       src={job.imageUrl}
@@ -220,38 +247,11 @@ export function JobDetail() {
                       />
                     ))}
                   </>
-                ) : (
-                  (() => {
-                    const v = getCategoryVisual(job.category)
-                    return (
-                      <div style={{ borderRadius: '8px', overflow: 'hidden', position: 'relative', height: '200px', marginBottom: job.description ? '1rem' : 0 }}>
-                        <div style={{ backgroundImage: `url(${v.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', width: '100%', height: '100%' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ color: '#fff', fontWeight: 800, fontSize: '1.25rem', letterSpacing: '0.08em', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{v.label}</span>
-                        </div>
-                      </div>
-                    )
-                  })()
                 )}
-                {job.description && (
-                  <p style={{ whiteSpace: 'pre-line', margin: 0, lineHeight: 1.8 }}>{job.description}</p>
-                )}
+                {job.description && <DescriptionRenderer text={job.description} />}
               </div>
             </div>
-          ) : job.description ? (
-            <div className="info-section">
-              <div className="info-section__head">
-                <span className="info-section__icon">📋</span>
-                <span className="info-section__num">3.</span>
-                <span className="info-section__title">Mô tả công việc</span>
-              </div>
-              <div className="info-section__body" style={{ padding: '1rem 1.25rem' }}>
-                <a href={job.description} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">
-                  Xem chi tiết tại vieclam24h ↗
-                </a>
-              </div>
-            </div>
-          ) : null}
+          )}
 
           {/* ── 4. 근무지역 ── */}
           {coords && (
@@ -309,18 +309,6 @@ export function JobDetail() {
                 className="btn btn--zalo btn--block"
               >
                 Liên hệ qua Zalo
-              </a>
-            </div>
-          ) : job.source === 'vieclam24h' && job.description ? (
-            <div className="detail-contact">
-              <h3 className="detail-contact__title">Liên hệ nhà tuyển dụng</h3>
-              <a
-                href={job.description}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn--zalo btn--block"
-              >
-                Xem liên hệ tại vieclam24h ↗
               </a>
             </div>
           ) : null}

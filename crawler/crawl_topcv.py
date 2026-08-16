@@ -117,24 +117,60 @@ async def crawl_category(page, url: str) -> list[dict]:
     return raw_jobs
 
 
-async def fetch_deadline(page, url: str) -> str | None:
+async def fetch_job_detail(page, url: str) -> dict:
     try:
         await page.goto(url, wait_until="domcontentloaded", timeout=20000)
-        await page.wait_for_timeout(1500)
-        deadline = await page.evaluate("""() => {
-            const els = document.querySelectorAll('*')
-            for (const el of els) {
+        await page.wait_for_timeout(2000)
+        result = await page.evaluate("""() => {
+            // 마감일
+            let deadline = null
+            document.querySelectorAll('*').forEach(el => {
+                if (deadline) return
                 const t = el.innerText || ''
-                if (t.includes('Hạn nộp') && t.length < 60) {
-                    const m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/)
-                    if (m) return m[3] + '-' + m[2] + '-' + m[1]
+                if (t.includes('Hạn nộp') && t.length < 80) {
+                    const m = t.match(/(\\d{2})\\/(\\d{2})\\/(\\d{4})/)
+                    if (m) deadline = m[3] + '-' + m[2] + '-' + m[1]
                 }
-            }
-            return null
+            })
+
+            // 섹션별 본문 추출
+            const TARGET = ['Mô tả công việc', 'Yêu cầu công việc', 'Quyền lợi']
+            const sections = {}
+            document.querySelectorAll('h2, h3, h4').forEach(h => {
+                const heading = h.innerText?.trim() || ''
+                const matched = TARGET.find(t => heading.includes(t))
+                if (!matched) return
+                let content = ''
+                let el = h.nextElementSibling
+                while (el && !['H2','H3','H4'].includes(el.tagName)) {
+                    const items = el.querySelectorAll('li')
+                    if (items.length > 0) {
+                        items.forEach(li => {
+                            const txt = li.innerText?.trim()
+                            if (txt) content += '• ' + txt + '\\n'
+                        })
+                    } else {
+                        const txt = el.innerText?.trim()
+                        if (txt && txt.length > 3) content += txt + '\\n'
+                    }
+                    el = el.nextElementSibling
+                }
+                if (content.trim()) sections[matched] = content.trim()
+            })
+            return { deadline, sections }
         }""")
-        return deadline
+        return result or {"deadline": None, "sections": {}}
     except Exception:
-        return None
+        return {"deadline": None, "sections": {}}
+
+
+def format_description(sections: dict) -> str:
+    order = ["Mô tả công việc", "Yêu cầu công việc", "Quyền lợi"]
+    parts = []
+    for key in order:
+        if key in sections and sections[key]:
+            parts.append(f"## {key}\n{sections[key]}")
+    return "\n\n".join(parts)
 
 
 async def crawl_vieclam24h() -> list[dict]:
@@ -172,23 +208,27 @@ async def crawl_vieclam24h() -> list[dict]:
                 unique_raw.append(j)
         unique_raw = unique_raw[:TARGET_COUNT]
 
-        # 각 공고 상세 페이지에서 마감일 가져오기
-        print(f"\n  📋 마감일 수집 중 ({len(unique_raw)}개 상세 페이지)...")
+        # 각 공고 상세 페이지에서 마감일 + 본문 가져오기
+        print(f"\n  📋 상세 페이지 수집 중 ({len(unique_raw)}개)...")
         jobs = []
         skipped = 0
         for idx, j in enumerate(unique_raw):
-            deadline = await fetch_deadline(page, j["href"])
+            detail = await fetch_job_detail(page, j["href"])
+            deadline = detail.get("deadline")
             # 마감일이 오늘 이전이거나 오늘인 공고는 제외
             if deadline and deadline <= TODAY:
                 skipped += 1
                 continue
             logo = j.get("logoUrl", "")
+            desc_text = format_description(detail.get("sections", {}))
+            # 본문이 없으면 원본 URL을 fallback으로 유지
+            description = f"[source:vieclam24h] {desc_text}" if desc_text else f"[source:vieclam24h] {j.get('href', '')}"
             jobs.append({
                 "title": j["title"],
                 "company": j.get("company", ""),
                 "location": j.get("location") or "Hồ Chí Minh",
                 "salary": j.get("salary", ""),
-                "description": f"[source:vieclam24h] {j.get('href', '')}",
+                "description": description,
                 "category": guess_category(j["title"]),
                 "posted_at": TODAY,
                 "urgent": False,

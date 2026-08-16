@@ -1907,6 +1907,14 @@ a:hover {
 .info-section__num  { color: #888; font-weight: 500; }
 .info-section__title { color: #111; }
 .info-section__body { padding: 0; }
+
+/* Job description renderer */
+.job-desc { font-size: 0.92rem; line-height: 1.8; color: #333; }
+.job-desc__section { margin-bottom: 1.25rem; }
+.job-desc__section:last-child { margin-bottom: 0; }
+.job-desc__heading { font-size: 0.95rem; font-weight: 700; color: #111; margin: 0 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #f0f0f0; }
+.job-desc__bullet { margin: 0 0 0.3rem; padding-left: 0.25rem; color: #444; }
+.job-desc__line { margin: 0 0 0.25rem; color: #555; }
 .info-row {
   display: flex;
   align-items: flex-start;
