@@ -103,11 +103,17 @@ export default function JobCard({
   job, isApplied, isSaved, onToggleSave, distanceKm,
 }: JobCardProps) {
   const tags = jobTags(job)
+  const hasBanner = job.source === 'facebook' && !!job.imageUrl
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
+      {hasBanner && (
+        <div className="jc__banner">
+          <img src={job.imageUrl} alt="" className="jc__banner-img" />
+        </div>
+      )}
       <div className="jc__header">
-        <p className="jc__company">{job.company}</p>
-        <CompanyPhoto company={job.company} imageUrl={job.imageUrl} title={job.title} />
+        <p className="jc__company">{job.company || job.location}</p>
+        {!hasBanner && <CompanyPhoto company={job.company} imageUrl={job.imageUrl} title={job.title} />}
       </div>
 
       {tags.length > 0 && (
