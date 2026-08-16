@@ -115,6 +115,26 @@ async def crawl_category(page, url: str) -> list[dict]:
     return raw_jobs
 
 
+async def fetch_deadline(page, url: str) -> str | None:
+    try:
+        await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        await page.wait_for_timeout(1500)
+        deadline = await page.evaluate("""() => {
+            const els = document.querySelectorAll('*')
+            for (const el of els) {
+                const t = el.innerText || ''
+                if (t.includes('Hạn nộp') && t.length < 60) {
+                    const m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+                    if (m) return m[3] + '-' + m[2] + '-' + m[1]
+                }
+            }
+            return null
+        }""")
+        return deadline
+    except Exception:
+        return None
+
+
 async def crawl_vieclam24h() -> list[dict]:
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -140,15 +160,26 @@ async def crawl_vieclam24h() -> list[dict]:
                     seen_hrefs.add(j["href"])
                     all_raw.append(j)
 
-        await browser.close()
-
-        jobs = []
+        # 중복 제거
         seen_titles = set()
+        unique_raw = []
         for j in all_raw:
             key = (j["title"] + j.get("company", "")).lower()
-            if key in seen_titles:
+            if key not in seen_titles:
+                seen_titles.add(key)
+                unique_raw.append(j)
+        unique_raw = unique_raw[:TARGET_COUNT]
+
+        # 각 공고 상세 페이지에서 마감일 가져오기
+        print(f"\n  📋 마감일 수집 중 ({len(unique_raw)}개 상세 페이지)...")
+        jobs = []
+        skipped = 0
+        for idx, j in enumerate(unique_raw):
+            deadline = await fetch_deadline(page, j["href"])
+            # 마감일이 오늘 이전이거나 오늘인 공고는 제외
+            if deadline and deadline <= TODAY:
+                skipped += 1
                 continue
-            seen_titles.add(key)
             logo = j.get("logoUrl", "")
             jobs.append({
                 "title": j["title"],
@@ -160,13 +191,14 @@ async def crawl_vieclam24h() -> list[dict]:
                 "posted_at": TODAY,
                 "urgent": False,
                 "employer_phone": "",
-                "application_deadline": None,
+                "application_deadline": deadline,
                 "active": True,
                 "image_url": logo if logo and logo.startswith("http") and "vieclam24h" in logo else None,
             })
-            if len(jobs) >= TARGET_COUNT:
-                break
+            if (idx + 1) % 20 == 0:
+                print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
 
+        await browser.close()
         return jobs
 
 

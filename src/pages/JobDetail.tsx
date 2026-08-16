@@ -183,38 +183,41 @@ export function JobDetail() {
           </dl>
 
           {/* ── 상세요강 섹션 ── */}
-          {job.source !== 'vieclam24h' && job.description && (
+          {/* 이미지 (facebook 공고는 포스터 이미지 크게) */}
+          {job.imageUrl && job.source !== 'vieclam24h' && (
             <>
               <h2 className="detail-section__heading">Mô tả công việc</h2>
-              <div className="job-info-box" style={{ padding: '1rem 1.25rem' }}>
-                <p style={{ whiteSpace: 'pre-line', margin: 0 }}>{job.description}</p>
-              </div>
-            </>
-          )}
-          {job.source !== 'vieclam24h' && job.imageUrl && (
-            <>
               <img
                 src={job.imageUrl}
                 alt={job.title}
-                style={{ width: '100%', borderRadius: '12px', marginTop: '1.5rem', objectFit: 'cover', maxHeight: '320px' }}
+                style={{ width: '100%', borderRadius: '12px', marginTop: '0.5rem', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
               />
-              {job.images && job.images.filter(u => u !== job.imageUrl).map((url, i) => (
+              {job.images && job.images.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
                 <img
                   key={i}
                   src={url}
                   alt={`${job.title} ${i + 2}`}
-                  style={{ width: '100%', borderRadius: '12px', marginTop: '12px', objectFit: 'cover', maxHeight: '320px' }}
+                  style={{ width: '100%', borderRadius: '12px', marginTop: '12px', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
                 />
               ))}
             </>
           )}
+
+          {/* 본문 텍스트 */}
+          {job.description && job.source !== 'vieclam24h' && (
+            <>
+              {!job.imageUrl && <h2 className="detail-section__heading">Mô tả công việc</h2>}
+              <div className="job-info-box" style={{ padding: '1rem 1.25rem', marginTop: job.imageUrl ? '1rem' : undefined }}>
+                <p style={{ whiteSpace: 'pre-line', margin: 0 }}>{job.description}</p>
+              </div>
+            </>
+          )}
+
+          {/* vieclam24h는 원본 링크 */}
           {job.source === 'vieclam24h' && job.description && (
             <p className="detail-panel__source">
               <a href={job.description} target="_blank" rel="noopener noreferrer">Xem chi tiết tại vieclam24h ↗</a>
             </p>
-          )}
-          {job.source && job.source !== 'vieclam24h' && (
-            <p className="detail-panel__source">Nguồn: {job.source}</p>
           )}
 
           {/* ── 근무지역 섹션 ── */}
