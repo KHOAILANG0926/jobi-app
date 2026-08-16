@@ -6500,12 +6500,12 @@ a:hover {
 
 /* 1열: 로고 영역 */
 .jc__logo-wrap {
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 .jc__logo {
   display: block;
-  height: 36px;
-  width: 36px;
+  height: 44px;
+  width: 44px;
   object-fit: contain;
   border-radius: 8px;
   border: 1px solid #f0f0f0;
@@ -6513,8 +6513,8 @@ a:hover {
   padding: 3px;
 }
 .jc__logo--category {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   background-size: cover;
   background-position: center;
