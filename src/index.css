@@ -6478,15 +6478,15 @@ a:hover {
   flex-direction: column;
   background: #fff;
   border: 1px solid #eee;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   transition: box-shadow 0.15s, border-color 0.15s;
   position: relative;
   height: 100%;
-  min-height: 160px;
-  padding: 14px 14px 12px;
+  min-height: 0;
+  padding: 10px 12px 8px;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 .home-card-wrap:hover .jc {
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
@@ -6500,28 +6500,28 @@ a:hover {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 .jc__company {
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: 1rem;
-  font-weight: 800;
+  font-size: 0.8rem;
+  font-weight: 600;
   line-height: 1.3;
-  color: #222;
+  color: #555;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .jc__photo {
   flex-shrink: 0;
-  width: 96px;
-  height: 96px;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 8px;
   display: block;
 }
 .jc__photo--fallback {
@@ -6541,8 +6541,8 @@ a:hover {
 
 /* Hashtag badges */
 .jc__tags {
-  margin: 0 0 6px;
-  font-size: 0.72rem;
+  margin: 0 0 4px;
+  font-size: 0.68rem;
   font-weight: 600;
   color: #3f6ad8;
   white-space: nowrap;
@@ -6552,8 +6552,8 @@ a:hover {
 
 /* Meta */
 .jc__meta {
-  margin: 0 0 8px;
-  font-size: 0.85rem;
+  margin: 0 0 4px;
+  font-size: 0.75rem;
   color: #888;
   white-space: nowrap;
   overflow: hidden;
@@ -6563,9 +6563,9 @@ a:hover {
 /* Title */
 .jc__title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
   color: #222;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -6576,8 +6576,8 @@ a:hover {
 
 /* Distance */
 .jc__dist {
-  margin: 8px 0 0;
-  font-size: 0.8rem;
+  margin: 4px 0 0;
+  font-size: 0.72rem;
   color: #999;
 }
 
@@ -6586,11 +6586,11 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 20px;
+  margin-top: 8px;
   padding-top: 0;
 }
 .jc__salary {
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #e53935;
   overflow: hidden;
@@ -6598,7 +6598,7 @@ a:hover {
   white-space: nowrap;
 }
 .jc__salary-type {
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #e53935;
 }
@@ -6620,7 +6620,7 @@ a:hover {
 }
 .jc__save:hover { border-color: #e53935; color: #e53935; }
 .jc__save--on { border-color: #e53935; color: #e53935; background: #fff5f5; }
-.jc__source { display: block; margin-top: 6px; font-size: 0.65rem; color: #bbb; text-align: right; text-decoration: none; }
+.jc__source { display: block; margin-top: 4px; font-size: 0.62rem; color: #bbb; text-align: right; text-decoration: none; }
 .jc__source:hover { color: #999; }
 
 /* ── City filtered results section ───────────────────────────────── */
