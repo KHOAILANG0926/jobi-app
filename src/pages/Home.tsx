@@ -462,6 +462,8 @@ export function Home() {
 
   const [nearMe, setNearMe] = useState(false)
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week'>('all')
+  const [activeRec, setActiveRec] = useState<string | null>(null)
+  const [recKeywords, setRecKeywords] = useState<string[] | null>(null)
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -519,6 +521,10 @@ export function Home() {
       if (selectedCity && !jobMatchesRegion(j.location, selectedCity)) return false
       if (brandFilter && !normalizeViText(j.company).includes(normalizeViText(brandFilter))) return false
       if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
+      if (recKeywords) {
+        const text = normalizeViText(`${j.title} ${j.company} ${j.location} ${j.description ?? ''}`)
+        if (!recKeywords.some(kw => text.includes(normalizeViText(kw)))) return false
+      }
       if (nearMe && userCoords) {
         const d = jobDistances[j.id]
         if (d === undefined || d > nearRadius) return false
@@ -533,7 +539,7 @@ export function Home() {
       result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
     }
     return result
-  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter])
+  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recKeywords])
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -555,10 +561,31 @@ export function Home() {
 
   const resetFilters = () => {
     setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null); setDeadlineFilter('all')
+    setActiveRec(null); setRecKeywords(null)
+  }
+
+  const handleRecClick = (key: string, action: () => void) => {
+    if (activeRec === key) {
+      // 토글 해제
+      setActiveRec(null)
+      setRecKeywords(null)
+      setUrgentOnly(false)
+      setNearMe(false)
+      setCategory('all')
+      setSearch('')
+    } else {
+      setActiveRec(key)
+      setRecKeywords(null)
+      setUrgentOnly(false)
+      setNearMe(false)
+      setCategory('all')
+      setSearch('')
+      action()
+    }
   }
 
   // Filters that are NOT city-based (used for the bottom job section)
-  const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe)
+  const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe || recKeywords)
 
 
   const handleBrandClick = (brandSearch: string) => {
@@ -668,14 +695,48 @@ export function Home() {
           <h2 className="home-region-panel__title" style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>Gợi ý tìm kiếm</h2>
           <div className="home-rec-grid">
             {[
-              { label: 'Tuyển gấp', node: <Icon3DBell />,    action: () => { setUrgentOnly(true); setCategory('all' as any); setSearch('') } },
-              { label: 'Gần tôi',   node: <Icon3DPin />,     action: () => { setSearch('Hà Nội') } },
-              { label: 'Nhà máy',   node: <Icon3DFactory />, action: () => { setCategory('factory' as any); setSearch('') } },
-              { label: 'Nhà hàng',  node: <Icon3DCup />,     action: () => { setCategory('cafe' as any); setSearch('') } },
-              { label: 'Giao hàng', node: <Icon3DTruck />,   action: () => { setCategory('delivery' as any); setSearch('') } },
-              { label: 'Bán lẻ',   node: <Icon3DBag />,     action: () => { setCategory('retail' as any); setSearch('') } },
+              {
+                key: 'urgent',
+                label: 'Tuyển gấp',
+                node: <Icon3DBell />,
+                action: () => { setUrgentOnly(true) },
+              },
+              {
+                key: 'nearme',
+                label: 'Gần tôi',
+                node: <Icon3DPin />,
+                action: () => { setNearMe(true) },
+              },
+              {
+                key: 'factory',
+                label: 'Nhà máy',
+                node: <Icon3DFactory />,
+                action: () => setRecKeywords(['nhà máy', 'nha may', 'công nhân', 'cong nhan', 'kcn', 'sản xuất', 'san xuat', 'lắp ráp', 'lap rap', 'kho']),
+              },
+              {
+                key: 'restaurant',
+                label: 'Nhà hàng',
+                node: <Icon3DCup />,
+                action: () => setRecKeywords(['nhà hàng', 'nha hang', 'quán ăn', 'quan an', 'phục vụ', 'phuc vu', 'pha chế', 'pha che', 'f&b', 'bếp', 'bep', 'barista', 'cafe', 'cà phê', 'ca phe']),
+              },
+              {
+                key: 'delivery',
+                label: 'Giao hàng',
+                node: <Icon3DTruck />,
+                action: () => setRecKeywords(['giao hàng', 'giao hang', 'shipper', 'tài xế', 'tai xe', 'vận chuyển', 'van chuyen', 'kho vận', 'kho van']),
+              },
+              {
+                key: 'retail',
+                label: 'Bán lẻ',
+                node: <Icon3DBag />,
+                action: () => setRecKeywords(['bán lẻ', 'ban le', 'bán hàng', 'ban hang', 'thu ngân', 'thu ngan', 'siêu thị', 'sieu thi', 'cửa hàng', 'cua hang', 'tiện lợi', 'tien loi']),
+              },
             ].map(item => (
-              <button key={item.label} className="home-rec-btn" onClick={item.action}>
+              <button
+                key={item.key}
+                className={`home-rec-btn${activeRec === item.key ? ' home-rec-btn--active' : ''}`}
+                onClick={() => handleRecClick(item.key, item.action)}
+              >
                 <span className="home-rec-btn__icon home-rec-btn__icon--3d">{item.node}</span>
                 <span className="home-rec-btn__label">{item.label}</span>
               </button>

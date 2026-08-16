@@ -5744,6 +5744,16 @@ a:hover {
   transition: background 0.15s;
 }
 .home-rec-btn:hover { background: #fef2f2; }
+.home-rec-btn--active {
+  background: #fff0f0;
+  box-shadow: 0 0 0 2px #e53935 inset;
+  border-radius: 10px;
+}
+.home-rec-btn--active .home-rec-btn__label { color: #e53935; font-weight: 700; }
+.home-rec-btn--active .home-rec-btn__icon--3d {
+  filter: drop-shadow(0 4px 8px rgba(229,57,53,0.35));
+  transform: translateY(-2px) scale(1.08);
+}
 .home-rec-btn__icon {
   width: 52px;
   height: 52px;
