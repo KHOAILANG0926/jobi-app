@@ -55,7 +55,7 @@ const QUICK_AMOUNTS = [5_000_000, 10_000_000, 15_000_000, 20_000_000, 30_000_000
 
 export function SalaryCalculator() {
   const [mode, setMode] = useState<'gross' | 'net'>('gross')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState('10.000.000')
   const [dependents, setDependents] = useState(0)
 
   const amountNum = useMemo(() => Number(amount.replace(/[^\d]/g, '')) || 0, [amount])
