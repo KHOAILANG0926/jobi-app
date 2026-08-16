@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Job } from '../types/job'
+import type { Job, JobCategory } from '../types/job'
 import { getCategoryVisual } from '../lib/categoryVisuals'
 
 const FAVICON_DOMAINS: Record<string, string> = {
@@ -50,13 +50,13 @@ function CompanyPhoto({ company, imageUrl, category }: { company: string; imageU
   )
 }
 
-function reclassify(category: string, title: string, company: string): string {
+function reclassify(category: string, title: string, company: string): JobCategory {
   const t = (title + ' ' + company).toLowerCase()
   if (/nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn/.test(t))
     return 'restaurant'
   if (/cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista/.test(t))
     return 'cafe'
-  return category
+  return category as JobCategory
 }
 
 const CATEGORY_TAGS: Record<string, string> = {

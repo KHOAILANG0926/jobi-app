@@ -10,7 +10,6 @@ import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
 import { withJobCoordinates } from '../lib/jobCoords'
-import { getCategoryVisual } from '../lib/categoryVisuals'
 
 function DescriptionRenderer({ text }: { text: string }) {
   const isUrl = text.startsWith('http')

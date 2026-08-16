@@ -63,12 +63,13 @@ const EMPTY_JOB: Omit<Job, 'id'> = {
 }
 
 const CATEGORY_LABELS: Record<JobCategory, string> = {
-  factory: '🏭 Nhà máy',
-  cafe: '☕ Cafe / F&B',
-  delivery: '🛵 Giao hàng',
-  cleaning: '🧹 Vệ sinh',
-  retail: '🛍️ Bán lẻ',
-  other: '📌 Khác',
+  factory:    '🏭 Nhà máy',
+  cafe:       '☕ Cafe',
+  restaurant: '🍽️ Nhà hàng',
+  delivery:   '🛵 Giao hàng',
+  cleaning:   '🧹 Vệ sinh',
+  retail:     '🛍️ Bán lẻ',
+  other:      '📌 Khác',
 }
 
 export default function AdminDashboard() {

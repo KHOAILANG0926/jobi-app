@@ -1,6 +1,7 @@
 ﻿export type JobCategory =
   | 'factory'
   | 'cafe'
+  | 'restaurant'
   | 'delivery'
   | 'cleaning'
   | 'retail'
