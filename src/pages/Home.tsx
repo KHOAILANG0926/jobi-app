@@ -318,7 +318,7 @@ export function Home() {
 
 
       {/* ── Brands + Region ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '1rem', marginBottom: '1.25rem', alignItems: 'start' }}>
+      <div className="home-brands-region-grid">
 
         {/* LEFT: Brands + 2 ad cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0 }}>

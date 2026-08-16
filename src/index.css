@@ -5343,22 +5343,32 @@ a:hover {
   text-decoration: none;
 }
 
-@media (max-width: 900px) {
+
+/* ── Brands + Region 2-col grid ─────────────────────────────────── */
+.home-brands-region-grid {
+  display: grid;
+  grid-template-columns: 6fr 4fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .home-brands-region-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-region-panel { display: none; }
+  .hero-row__login { display: none; }
   .hero-row {
     grid-template-columns: 1fr;
     height: auto !important;
   }
-  .hero-row__login { display: none; }
   .hero-row__ad .ad-slot { height: 100px; }
+  .home-ad-cards { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 900px) {
-  /* brands+region 그리드 → 왼쪽만 전체너비, 오른쪽 숨김 */
-  .home-top-bg > div[style*="grid"] {
-    display: block !important;
-  }
-  .home-region-panel { display: none; }
-  .home-ad-cards { grid-template-columns: 1fr 1fr; }
+@media (max-width: 600px) {
+  .home-ad-cards { grid-template-columns: 1fr; }
 }
 
 /* ── Main 2-col grid: Brand+Ad / Regions (Albamon style) ─────────── */
