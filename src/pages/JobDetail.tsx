@@ -124,114 +124,128 @@ export function JobDetail() {
       <div className="detail-grid">
         <div className="detail-panel">
 
-          {/* ── 근무조건 섹션 ── */}
-          <h2 className="detail-section__heading">Điều kiện làm việc</h2>
-          <dl className="job-info-box">
-            <div className="job-info-box__row">
-              <dt>💰 Mức lương</dt>
-              <dd className="job-info-list__salary">{job.salary}</dd>
+          {/* ── 1. 근무조건 ── */}
+          <div className="info-section">
+            <div className="info-section__head">
+              <span className="info-section__icon">💼</span>
+              <span className="info-section__num">1.</span>
+              <span className="info-section__title">Điều kiện làm việc</span>
             </div>
-            <div className="job-info-box__row">
-              <dt>📍 Khu vực</dt>
-              <dd>{job.location}</dd>
-            </div>
-            <div className="job-info-box__row">
-              <dt>🏢 Công ty</dt>
-              <dd>{job.company}</dd>
-            </div>
-            {job.hours && (
-              <div className="job-info-box__row">
-                <dt>🕐 Giờ làm việc</dt>
-                <dd>{job.hours}</dd>
+            <dl className="info-section__body">
+              <div className="info-row">
+                <dt>Mức lương</dt>
+                <dd className="info-row--salary">{job.salary}</dd>
               </div>
-            )}
-            {job.workPeriod && (
-              <div className="job-info-box__row">
-                <dt>📅 Thời hạn hợp đồng</dt>
-                <dd>{job.workPeriod}</dd>
+              <div className="info-row">
+                <dt>Địa điểm</dt>
+                <dd>{job.location}</dd>
               </div>
-            )}
-            {job.workDays && (
-              <div className="job-info-box__row">
-                <dt>🗓️ Ngày làm việc</dt>
-                <dd>{job.workDays}</dd>
-              </div>
-            )}
-          </dl>
+              {job.company && (
+                <div className="info-row">
+                  <dt>Công ty</dt>
+                  <dd>{job.company}</dd>
+                </div>
+              )}
+              {job.hours && (
+                <div className="info-row">
+                  <dt>Giờ làm việc</dt>
+                  <dd>{job.hours}</dd>
+                </div>
+              )}
+              {job.workDays && (
+                <div className="info-row">
+                  <dt>Ngày làm việc</dt>
+                  <dd>{job.workDays}</dd>
+                </div>
+              )}
+              {job.workPeriod && (
+                <div className="info-row">
+                  <dt>Hình thức</dt>
+                  <dd>{job.workPeriod}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
 
-          {/* ── 모집조건 섹션 ── */}
-          <h2 className="detail-section__heading">Điều kiện tuyển dụng</h2>
-          <dl className="job-info-box">
-            <div className="job-info-box__row">
-              <dt>⏰ Hạn nộp hồ sơ</dt>
-              <dd>{formatDeadlineVi(job.applicationDeadline)}</dd>
+          {/* ── 2. 모집조건 ── */}
+          <div className="info-section">
+            <div className="info-section__head">
+              <span className="info-section__icon">👥</span>
+              <span className="info-section__num">2.</span>
+              <span className="info-section__title">Điều kiện tuyển dụng</span>
             </div>
-            <div className="job-info-box__row">
-              <dt>👥 Số lượng tuyển</dt>
-              <dd>{job.numHires || 'Chưa cập nhật'}</dd>
-            </div>
-            <div className="job-info-box__row">
-              <dt>🎓 Trình độ học vấn</dt>
-              <dd>{job.education || 'Không yêu cầu'}</dd>
-            </div>
-            {job.preference && (
-              <div className="job-info-box__row">
-                <dt>⭐ Ưu tiên</dt>
-                <dd>{job.preference}</dd>
+            <dl className="info-section__body">
+              <div className="info-row">
+                <dt>Hạn nộp hồ sơ</dt>
+                <dd>{formatDeadlineVi(job.applicationDeadline)}</dd>
               </div>
-            )}
-          </dl>
-
-          {/* ── 상세요강 섹션 ── */}
-          {/* 이미지 (facebook 공고는 포스터 이미지 크게) */}
-          {job.imageUrl && job.source !== 'vieclam24h' && (
-            <>
-              <h2 className="detail-section__heading">Mô tả công việc</h2>
-              <img
-                src={job.imageUrl}
-                alt={job.title}
-                style={{ width: '100%', borderRadius: '12px', marginTop: '0.5rem', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
-              />
-              {job.images && job.images.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
-                <img
-                  key={i}
-                  src={url}
-                  alt={`${job.title} ${i + 2}`}
-                  style={{ width: '100%', borderRadius: '12px', marginTop: '12px', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
-                />
-              ))}
-            </>
-          )}
-
-          {/* 본문 텍스트 */}
-          {job.description && job.source !== 'vieclam24h' && (
-            <>
-              {!job.imageUrl && <h2 className="detail-section__heading">Mô tả công việc</h2>}
-              <div className="job-info-box" style={{ padding: '1rem 1.25rem', marginTop: job.imageUrl ? '1rem' : undefined }}>
-                <p style={{ whiteSpace: 'pre-line', margin: 0 }}>{job.description}</p>
+              <div className="info-row">
+                <dt>Số lượng tuyển</dt>
+                <dd>{job.numHires || 'Chưa cập nhật'}</dd>
               </div>
-            </>
-          )}
+              <div className="info-row">
+                <dt>Học vấn</dt>
+                <dd>{job.education || 'Không yêu cầu'}</dd>
+              </div>
+              <div className="info-row">
+                <dt>Kinh nghiệm</dt>
+                <dd>{job.preference || 'Không yêu cầu'}</dd>
+              </div>
+            </dl>
+          </div>
 
-          {/* vieclam24h는 원본 링크 */}
-          {job.source === 'vieclam24h' && job.description && (
-            <p className="detail-panel__source">
-              <a href={job.description} target="_blank" rel="noopener noreferrer">Xem chi tiết tại vieclam24h ↗</a>
-            </p>
-          )}
+          {/* ── 3. 모집요강 ── */}
+          <div className="info-section">
+            <div className="info-section__head">
+              <span className="info-section__icon">📋</span>
+              <span className="info-section__num">3.</span>
+              <span className="info-section__title">Mô tả công việc</span>
+            </div>
+            <div className="info-section__body" style={{ padding: '1rem 1.25rem' }}>
+              {job.imageUrl && job.source !== 'vieclam24h' && (
+                <>
+                  <img
+                    src={job.imageUrl}
+                    alt={job.title}
+                    style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
+                  />
+                  {job.images && job.images.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt={`${job.title} ${i + 2}`}
+                      style={{ width: '100%', borderRadius: '8px', marginBottom: '12px', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
+                    />
+                  ))}
+                </>
+              )}
+              {job.description && job.source !== 'vieclam24h' && (
+                <p style={{ whiteSpace: 'pre-line', margin: 0, lineHeight: 1.8 }}>{job.description}</p>
+              )}
+              {job.source === 'vieclam24h' && job.description && (
+                <a href={job.description} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">
+                  Xem chi tiết tại vieclam24h ↗
+                </a>
+              )}
+            </div>
+          </div>
 
-          {/* ── 근무지역 섹션 ── */}
+          {/* ── 4. 근무지역 ── */}
           {coords && (
-            <>
-              <h2 className="detail-section__heading">Khu vực làm việc</h2>
-              <div className="job-info-box" style={{ padding: '1rem 1.25rem' }}>
-                <p style={{ margin: '0 0 0.75rem' }}>{job.location}</p>
+            <div className="info-section">
+              <div className="info-section__head">
+                <span className="info-section__icon">📍</span>
+                <span className="info-section__num">4.</span>
+                <span className="info-section__title">Khu vực làm việc</span>
+              </div>
+              <div className="info-section__body" style={{ padding: '1rem 1.25rem' }}>
+                <p style={{ margin: '0 0 0.75rem', color: 'var(--color-text-secondary, #666)' }}>{job.location}</p>
                 <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
                 <p className="job-location-map__disclaimer" style={{ marginTop: '0.5rem' }}>
                   Bản đồ mang tính minh họa khu vực, có thể không trùng khớp chính xác địa chỉ công ty.
                 </p>
               </div>
-            </>
+            </div>
           )}
 
           <CompanyReviews company={job.company} />
