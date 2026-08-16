@@ -50,6 +50,15 @@ function CompanyPhoto({ company, imageUrl, category }: { company: string; imageU
   )
 }
 
+function reclassify(category: string, title: string, company: string): string {
+  const t = (title + ' ' + company).toLowerCase()
+  if (/nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn/.test(t))
+    return 'restaurant'
+  if (/cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista/.test(t))
+    return 'cafe'
+  return category
+}
+
 const CATEGORY_TAGS: Record<string, string> = {
   factory:    'Nhà máy',
   cafe:       'Cafe',
@@ -93,7 +102,8 @@ interface JobCardProps {
 export default function JobCard({
   job, isApplied, isSaved, onToggleSave, distanceKm,
 }: JobCardProps) {
-  const tags = jobTags(job)
+  const category = reclassify(job.category, job.title, job.company)
+  const tags = jobTags({ ...job, category })
   const salary = sanitizeSalary(job.salary)
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}`}>
@@ -103,7 +113,7 @@ export default function JobCard({
         <CompanyPhoto
           company={job.company}
           imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined}
-          category={job.category}
+          category={category}
         />
       </div>
 
