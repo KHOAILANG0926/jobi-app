@@ -194,41 +194,43 @@ export function JobDetail() {
             </dl>
           </div>
 
-          {/* ── 3. 모집요강 ── */}
-          <div className="info-section">
-            <div className="info-section__head">
-              <span className="info-section__icon">📋</span>
-              <span className="info-section__num">3.</span>
-              <span className="info-section__title">Mô tả công việc</span>
-            </div>
-            <div className="info-section__body" style={{ padding: '1rem 1.25rem' }}>
-              {job.imageUrl && job.source !== 'vieclam24h' && (
-                <>
-                  <img
-                    src={job.imageUrl}
-                    alt={job.title}
-                    style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
-                  />
-                  {job.images && job.images.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
+          {/* ── 3. 모집요강 (내용 있을 때만) ── */}
+          {(job.source !== 'vieclam24h' && (job.imageUrl || job.description)) || job.source === 'vieclam24h' ? (
+            <div className="info-section">
+              <div className="info-section__head">
+                <span className="info-section__icon">📋</span>
+                <span className="info-section__num">3.</span>
+                <span className="info-section__title">Mô tả công việc</span>
+              </div>
+              <div className="info-section__body" style={{ padding: '1rem 1.25rem' }}>
+                {job.imageUrl && job.source !== 'vieclam24h' && (
+                  <>
                     <img
-                      key={i}
-                      src={url}
-                      alt={`${job.title} ${i + 2}`}
-                      style={{ width: '100%', borderRadius: '8px', marginBottom: '12px', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
+                      src={job.imageUrl}
+                      alt={job.title}
+                      style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
                     />
-                  ))}
-                </>
-              )}
-              {job.description && job.source !== 'vieclam24h' && (
-                <p style={{ whiteSpace: 'pre-line', margin: 0, lineHeight: 1.8 }}>{job.description}</p>
-              )}
-              {job.source === 'vieclam24h' && job.description && (
-                <a href={job.description} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">
-                  Xem chi tiết tại vieclam24h ↗
-                </a>
-              )}
+                    {job.images && job.images.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`${job.title} ${i + 2}`}
+                        style={{ width: '100%', borderRadius: '8px', marginBottom: '12px', objectFit: 'contain', maxHeight: '600px', background: '#f9fafb' }}
+                      />
+                    ))}
+                  </>
+                )}
+                {job.description && job.source !== 'vieclam24h' && (
+                  <p style={{ whiteSpace: 'pre-line', margin: 0, lineHeight: 1.8 }}>{job.description}</p>
+                )}
+                {job.source === 'vieclam24h' && job.description && (
+                  <a href={job.description} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">
+                    Xem chi tiết tại vieclam24h ↗
+                  </a>
+                )}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {/* ── 4. 근무지역 ── */}
           {coords && (
