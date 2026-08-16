@@ -38,17 +38,16 @@ const MENU_ITEMS = [
     to: '/franchise-jobs',
     dropdown: [
       { heading: 'Thương hiệu nổi bật', links: [
-        { label: 'GrabFood', to: '/?brand=Grab' },
-        { label: 'Highlands Coffee', to: '/?brand=Highlands' },
-        { label: 'Shopee', to: '/?brand=Shopee' },
-        { label: 'WinMart', to: '/?brand=WinMart' },
-        { label: 'Circle K', to: '/?brand=Circle K' },
+        { label: 'Jollibee', to: '/?brand=Jollibee' },
+        { label: 'Coca-Cola', to: '/?brand=Coca' },
+        { label: 'Vincom', to: '/?brand=Vincom' },
+        { label: 'Home Credit', to: '/?brand=Home Credit' },
         { label: 'FamilyMart', to: '/?brand=FamilyMart' },
-        { label: "McDonald's", to: '/?brand=McDonald' },
-        { label: 'KFC', to: '/?brand=KFC' },
+        { label: 'Concentrix', to: '/?brand=Concentrix' },
       ]},
       { heading: 'Theo loại hình', links: [
         { label: '☕ Cà phê · Trà sữa', to: '/?cat=cafe' },
+        { label: '🍽️ Nhà hàng · Ẩm thực', to: '/?cat=restaurant' },
         { label: '🛍️ Siêu thị · Cửa hàng', to: '/?cat=retail' },
         { label: '🛵 Giao hàng · Vận chuyển', to: '/?cat=delivery' },
         { label: '🏭 Sản xuất · Nhà máy', to: '/?cat=factory' },
