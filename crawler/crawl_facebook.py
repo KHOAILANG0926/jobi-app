@@ -395,19 +395,40 @@ def save_to_supabase(jobs: list[dict]):
     if not supabase:
         print("  ⚠️  Supabase 없음")
         return
-    supabase.table("local_jobs").delete().like("description", "%[source:facebook]%").execute()
-    print(f"  🗑️  기존 facebook 공고 교체")
 
-    # 생활밀착형 우선 정렬 후 저장
+    # 기존 facebook 공고 title 세트 조회 (중복 방지용)
+    existing_raw = supabase.table("local_jobs") \
+        .select("title,company") \
+        .like("description", "%[source:facebook]%") \
+        .execute()
+    existing_keys = {
+        (r["title"].strip().lower()[:60], r["company"].strip().lower()[:40])
+        for r in (existing_raw.data or [])
+    }
+    print(f"  📋 기존 facebook 공고: {len(existing_keys)}개")
+
+    # 생활밀착형 우선 정렬
     priority = [j for j in jobs if j.get("is_local_priority")]
     others   = [j for j in jobs if not j.get("is_local_priority")]
     ordered  = priority + others
-    print(f"  📊 생활밀착형: {len(priority)}개 / 기타: {len(others)}개")
 
-    for i in range(0, len(ordered), 50):
-        batch = ordered[i:i+50]
+    # 신규 공고만 필터링 (누적 추가)
+    new_jobs = [
+        j for j in ordered
+        if (j["title"].strip().lower()[:60], j["company"].strip().lower()[:40]) not in existing_keys
+    ]
+    print(f"  📊 생활밀착형: {len(priority)}개 / 기타: {len(others)}개")
+    print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(ordered) - len(new_jobs)}개")
+
+    inserted = 0
+    for i in range(0, len(new_jobs), 50):
+        batch = new_jobs[i:i+50]
         supabase.table("local_jobs").insert(batch).execute()
-        print(f"  ✅ 저장: {i+len(batch)}/{len(ordered)}개")
+        inserted += len(batch)
+        print(f"  ✅ 저장: {inserted}/{len(new_jobs)}개")
+
+    if not new_jobs:
+        print("  ℹ️  새 공고 없음 — 기존 데이터 유지")
 
 
 async def main():

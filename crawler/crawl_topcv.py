@@ -255,14 +255,33 @@ def save_to_supabase(jobs: list[dict]):
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
         return
 
-    # vieclam24h 출처 공고만 삭제 (수동 등록 공고는 절대 건드리지 않음)
-    supabase.table("local_jobs").delete().like("description", "%[source:vieclam24h]%").execute()
-    print("  🗑️  기존 vieclam24h 공고 교체")
+    # 기존 vieclam24h 공고 title+company 세트 조회 (중복 방지용)
+    existing_raw = supabase.table("local_jobs") \
+        .select("title,company") \
+        .like("description", "%[source:vieclam24h]%") \
+        .execute()
+    existing_keys = {
+        (r["title"].strip().lower()[:60], r["company"].strip().lower()[:40])
+        for r in (existing_raw.data or [])
+    }
+    print(f"  📋 기존 vieclam24h 공고: {len(existing_keys)}개")
 
-    for i in range(0, len(jobs), 50):
-        batch = jobs[i:i+50]
+    # 신규 공고만 필터링 (누적 추가)
+    new_jobs = [
+        j for j in jobs
+        if (j["title"].strip().lower()[:60], j["company"].strip().lower()[:40]) not in existing_keys
+    ]
+    print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(jobs) - len(new_jobs)}개")
+
+    inserted = 0
+    for i in range(0, len(new_jobs), 50):
+        batch = new_jobs[i:i+50]
         supabase.table("local_jobs").insert(batch).execute()
-        print(f"  ✅ Supabase 저장: {i+len(batch)}/{len(jobs)}개")
+        inserted += len(batch)
+        print(f"  ✅ Supabase 저장: {inserted}/{len(new_jobs)}개")
+
+    if not new_jobs:
+        print("  ℹ️  새 공고 없음 — 기존 데이터 유지")
 
 
 async def main():
