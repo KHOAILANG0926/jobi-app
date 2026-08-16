@@ -463,7 +463,10 @@ export function Home() {
   const [nearMe, setNearMe] = useState(false)
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week'>('all')
   const [activeRec, setActiveRec] = useState<string | null>(null)
-  const [recKeywords, setRecKeywords] = useState<string[] | null>(null)
+  // include: title+company에서 하나라도 매칭 (OR)
+  // exclude: title에서 하나라도 매칭되면 제외
+  // cats: job.category가 목록에 있으면 include 없이 통과
+  const [recFilter, setRecFilter] = useState<{ include: string[]; exclude: string[]; cats: string[] } | null>(null)
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -521,9 +524,14 @@ export function Home() {
       if (selectedCity && !jobMatchesRegion(j.location, selectedCity)) return false
       if (brandFilter && !normalizeViText(j.company).includes(normalizeViText(brandFilter))) return false
       if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
-      if (recKeywords) {
-        const text = normalizeViText(`${j.title} ${j.company} ${j.location} ${j.description ?? ''}`)
-        if (!recKeywords.some(kw => text.includes(normalizeViText(kw)))) return false
+      if (recFilter) {
+        const titleCo = normalizeViText(`${j.title} ${j.company}`)
+        // category 목록에 있으면 자동 통과, 아니면 include 키워드 확인
+        const catPass = recFilter.cats.includes(j.category)
+        const includePass = catPass || recFilter.include.some(kw => titleCo.includes(kw))
+        if (!includePass) return false
+        // exclude 키워드가 title에 있으면 제외
+        if (recFilter.exclude.some(kw => titleCo.includes(kw))) return false
       }
       if (nearMe && userCoords) {
         const d = jobDistances[j.id]
@@ -539,7 +547,7 @@ export function Home() {
       result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
     }
     return result
-  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recKeywords])
+  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recFilter])
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -561,21 +569,21 @@ export function Home() {
 
   const resetFilters = () => {
     setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null); setDeadlineFilter('all')
-    setActiveRec(null); setRecKeywords(null)
+    setActiveRec(null); setRecFilter(null)
   }
 
   const handleRecClick = (key: string, action: () => void) => {
     if (activeRec === key) {
       // 토글 해제
       setActiveRec(null)
-      setRecKeywords(null)
+      setRecFilter(null)
       setUrgentOnly(false)
       setNearMe(false)
       setCategory('all')
       setSearch('')
     } else {
       setActiveRec(key)
-      setRecKeywords(null)
+      setRecFilter(null)
       setUrgentOnly(false)
       setNearMe(false)
       setCategory('all')
@@ -585,7 +593,7 @@ export function Home() {
   }
 
   // Filters that are NOT city-based (used for the bottom job section)
-  const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe || recKeywords)
+  const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe || recFilter)
 
 
   const handleBrandClick = (brandSearch: string) => {
@@ -711,25 +719,52 @@ export function Home() {
                 key: 'factory',
                 label: 'Nhà máy',
                 node: <Icon3DFactory />,
-                action: () => setRecKeywords(['nhà máy', 'nha may', 'công nhân', 'cong nhan', 'kcn', 'sản xuất', 'san xuat', 'lắp ráp', 'lap rap', 'kho']),
+                action: () => setRecFilter({
+                  include: ['nha may', 'cong nhan', 'kcn', 'san xuat', 'lap rap', 'co khi', 'dien tu', 'cong xuong'],
+                  exclude: ['kinh doanh', 'ke toan', 'lap trinh', 'thu mua', 'hanh chinh', 'nhan su'],
+                  cats: ['factory'],
+                }),
               },
               {
                 key: 'restaurant',
                 label: 'Nhà hàng',
                 node: <Icon3DCup />,
-                action: () => setRecKeywords(['nhà hàng', 'nha hang', 'quán ăn', 'quan an', 'phục vụ', 'phuc vu', 'pha chế', 'pha che', 'f&b', 'bếp', 'bep', 'barista', 'cafe', 'cà phê', 'ca phe']),
+                action: () => setRecFilter({
+                  // title+company에 하나라도 있으면 포함 (OR)
+                  include: [
+                    'nha hang', 'quan an', 'phu bep', 'dau bep', 'bep truong', 'bep chinh', 'bep pho',
+                    'phuc vu ban', 'pha che', 'barista', 'bartender',
+                    'jollibee', 'haidilao', 'kfc', 'lotteria', 'mcdo', 'bingsu',
+                    'tra sua', 'ca phe', 'cafe', 'coffee', 'f&b', 'fnb', 'buffet',
+                  ],
+                  // title+company에 하나라도 있으면 제외 (사무직 필터)
+                  exclude: [
+                    'kinh doanh', 'ky thuat', 'thu mua', 'lap trinh', 'ke toan',
+                    'hanh chinh', 'marketing', 'nhan su', 'cong nghe thong tin',
+                    'phan tich', 'tu van', 'du an',
+                  ],
+                  cats: ['cafe', 'restaurant'],
+                }),
               },
               {
                 key: 'delivery',
                 label: 'Giao hàng',
                 node: <Icon3DTruck />,
-                action: () => setRecKeywords(['giao hàng', 'giao hang', 'shipper', 'tài xế', 'tai xe', 'vận chuyển', 'van chuyen', 'kho vận', 'kho van']),
+                action: () => setRecFilter({
+                  include: ['giao hang', 'shipper', 'tai xe', 'van chuyen', 'kho van', 'logistics', 'boc xep'],
+                  exclude: ['ke toan', 'lap trinh', 'kinh doanh', 'hanh chinh'],
+                  cats: ['delivery'],
+                }),
               },
               {
                 key: 'retail',
                 label: 'Bán lẻ',
                 node: <Icon3DBag />,
-                action: () => setRecKeywords(['bán lẻ', 'ban le', 'bán hàng', 'ban hang', 'thu ngân', 'thu ngan', 'siêu thị', 'sieu thi', 'cửa hàng', 'cua hang', 'tiện lợi', 'tien loi']),
+                action: () => setRecFilter({
+                  include: ['ban le', 'ban hang', 'thu ngan', 'sieu thi', 'cua hang', 'tien loi', 'showroom', 'tap hoa'],
+                  exclude: ['kinh doanh du an', 'ky thuat', 'lap trinh', 'ke toan', 'hanh chinh', 'nhan su'],
+                  cats: ['retail'],
+                }),
               },
             ].map(item => (
               <button
