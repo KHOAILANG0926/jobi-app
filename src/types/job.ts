@@ -17,6 +17,7 @@ export interface Job {
   description: string
   postedAt: string
   employerPhone: string
+  zalo?: string
   applicationDeadline: string
   urgent?: boolean
   hours?: string

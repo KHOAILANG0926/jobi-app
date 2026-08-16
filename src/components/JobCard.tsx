@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Job, JobCategory } from '../types/job'
 import { getCategoryVisual } from '../lib/categoryVisuals'
+import { zaloMeUrl } from '../lib/jobUtils'
 
 const FAVICON_DOMAINS: Record<string, string> = {
   'Highlands Coffee': 'highlandscoffee.com.vn',
@@ -132,22 +133,36 @@ export default function JobCard({
       {/* 3열: 제목 */}
       <h3 className="jc__title">{job.title}</h3>
 
-      {/* 4열: 급여 + 즐겨찾기 */}
+      {/* 4열: 급여 + Zalo + 즐겨찾기 */}
       <div className="jc__footer">
         <span className="jc__salary">
           {salaryType && <span className="jc__salary-type">{salaryType} </span>}
           {salaryNum}
         </span>
-        {onToggleSave && (
-          <button
-            type="button"
-            className={`jc__save${isSaved ? ' jc__save--on' : ''}`}
-            onClick={(e) => { e.stopPropagation(); onToggleSave(job) }}
-            aria-label={isSaved ? 'Bỏ lưu' : 'Lưu tin'}
-          >
-            +
-          </button>
-        )}
+        <div className="jc__actions">
+          {(job.zalo || job.employerPhone) && (
+            <a
+              href={zaloMeUrl(job.zalo || job.employerPhone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="jc__zalo-btn"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Chat qua Zalo"
+            >
+              Zalo
+            </a>
+          )}
+          {onToggleSave && (
+            <button
+              type="button"
+              className={`jc__save${isSaved ? ' jc__save--on' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleSave(job) }}
+              aria-label={isSaved ? 'Bỏ lưu' : 'Lưu tin'}
+            >
+              +
+            </button>
+          )}
+        </div>
       </div>
     </article>
   )

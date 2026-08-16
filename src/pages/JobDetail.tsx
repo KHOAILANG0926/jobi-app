@@ -87,7 +87,7 @@ export function JobDetail() {
     setSaved(toggleSavedJobId(job.id))
   }
 
-  const zaloHref = zaloMeUrl(job.employerPhone)
+  const zaloHref = zaloMeUrl(job.zalo || job.employerPhone)
   const showMessageCta = user?.role !== 'employer'
 
   const onOneClickApply = () => {
@@ -307,7 +307,7 @@ export function JobDetail() {
                 rel="noopener noreferrer"
                 className="btn btn--zalo btn--block"
               >
-                Liên hệ qua Zalo
+                Chat qua Zalo
               </a>
             </div>
           ) : null}
