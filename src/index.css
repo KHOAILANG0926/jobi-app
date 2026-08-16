@@ -6484,7 +6484,7 @@ a:hover {
   position: relative;
   height: 100%;
   min-height: 0;
-  padding: 10px 12px 8px;
+  padding: 14px 14px 12px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
@@ -6497,19 +6497,19 @@ a:hover {
 
 /* 1열: 로고 영역 */
 .jc__logo-wrap {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .jc__logo {
   display: block;
-  height: 32px;
-  max-width: 100px;
+  height: 40px;
+  max-width: 120px;
   width: auto;
   object-fit: contain;
   border-radius: 4px;
 }
 .jc__logo--category {
-  width: 40px;
-  height: 32px;
+  width: 48px;
+  height: 40px;
   border-radius: 4px;
   background-size: cover;
   background-position: center;
@@ -6518,7 +6518,7 @@ a:hover {
 
 /* 2열: 메타 (#태그 · 지역 · 회사명) */
 .jc__meta {
-  margin: 0 0 5px;
+  margin: 0 0 7px;
   font-size: 0.72rem;
   color: #999;
   white-space: nowrap;
@@ -6530,9 +6530,9 @@ a:hover {
 /* 3열: 제목 */
 .jc__title {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.55;
   color: #1a1a1a;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -6546,7 +6546,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .jc__salary {
   font-size: 0.88rem;
