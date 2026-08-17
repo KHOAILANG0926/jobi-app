@@ -7,6 +7,7 @@ export const CATEGORY_LABELS: Record<JobCategory, string> = {
   delivery:   'Giao hàng',
   cleaning:   'Vệ sinh / Giúp việc',
   retail:     'Bán lẻ',
+  office:     'Văn phòng / Part-time',
   other:      'Khác',
 }
 
@@ -17,6 +18,7 @@ export const CATEGORY_SHORT: Record<JobCategory, string> = {
   delivery:   'Giao hàng',
   cleaning:   'Vệ sinh',
   retail:     'Bán lẻ',
+  office:     'Văn phòng',
   other:      'Khác',
 }
 
@@ -27,6 +29,7 @@ export const CATEGORY_ICONS: Record<JobCategory, string> = {
   delivery:   '🛵',
   cleaning:   '🧹',
   retail:     '🛍️',
+  office:     '💼',
   other:      '✨',
 }
 
@@ -38,6 +41,7 @@ export const CATEGORY_SOLID: Record<JobCategory | 'all', string> = {
   delivery:   '#3b82f6',
   cleaning:   '#10b981',
   retail:     '#8b5cf6',
+  office:     '#0ea5e9',
   other:      '#ec4899',
 }
 
@@ -49,6 +53,7 @@ export const CATEGORY_COLORS: Record<JobCategory | 'all', string> = {
   delivery:   'linear-gradient(135deg,#1d4ed8,#3b82f6)',
   cleaning:   'linear-gradient(135deg,#065f46,#10b981)',
   retail:     'linear-gradient(135deg,#6d28d9,#a78bfa)',
+  office:     'linear-gradient(135deg,#0369a1,#0ea5e9)',
   other:      'linear-gradient(135deg,#be185d,#ec4899)',
 }
 
@@ -59,5 +64,6 @@ export const ALL_CATEGORIES: JobCategory[] = [
   'delivery',
   'cleaning',
   'retail',
+  'office',
   'other',
 ]

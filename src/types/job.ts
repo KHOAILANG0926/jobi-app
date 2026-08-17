@@ -5,6 +5,7 @@
   | 'delivery'
   | 'cleaning'
   | 'retail'
+  | 'office'
   | 'other'
 
 export interface Job {

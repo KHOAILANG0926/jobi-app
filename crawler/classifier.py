@@ -1,171 +1,224 @@
 """
-표준 카테고리 분류기 — Rule-based Classifier
-6대 카테고리로 공고 제목+회사+본문을 분석해 자동 매핑.
+7대 표준 카테고리 분류기 — Rule-based Classifier
+제목 + 회사명 + 본문(300자) 분석 → 자동 매핑
+
+카테고리:
+  factory    — 공장 / 생산 / 물류창고
+  cafe       — 카페 / 음료 / 디저트
+  restaurant — 식당 / F&B / 주방
+  delivery   — 배달 / 운전 / 배송
+  cleaning   — 청소 / 가사 / 돌봄
+  retail     — 매장 / 소매 / 마트
+  office     — 사무보조 / 알바 / 단기 / 고객센터
+  other      — 분류 불가 (고급 전문직 격리 포함)
 """
 
 import re
 import unicodedata
 
-# ── 베트남어 정규화 (diacritics 제거) ─────────────────────
+
+# ── 베트남어 diacritics 제거 후 소문자화 ─────────────────
 def _norm(text: str) -> str:
     text = text.lower()
     text = unicodedata.normalize("NFD", text)
     text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    text = re.sub(r"[^\w\s]", " ", text)
+    text = re.sub(r"[^\w\s&]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
 # ══════════════════════════════════════════════════════════
-#  블랙리스트: 사무직/비타깃 → 즉시 'other' 격리
+#  블랙리스트: 고급 화이트칼라 전문직만 → 'other' 격리
+#  (초보/알바형 사무직은 제외하지 않음)
 # ══════════════════════════════════════════════════════════
 _BLACKLIST = [
-    # IT/개발
-    r"lap trinh", r"software", r"developer", r"it ", r"\bit\b",
-    r"cong nghe thong tin", r"devops", r"data analyst", r"ai ",
-    # 마케팅/영업관리
-    r"marketing", r"seo ", r"social media", r"content creator",
-    r"brand manager", r"pr ",
-    # 재무/회계
-    r"ke toan", r"kiem toan", r"tai chinh", r"accountant", r"finance",
-    # 인사/행정
-    r"nhan su", r"hanh chinh", r"hr ", r"\bhr\b", r"tuyen dung",
-    r"hành chính", r"administrative",
-    # 부동산/보험
-    r"bat dong san", r"moi gioi", r"bao hiem", r"insurance",
-    r"real estate",
-    # 의료전문직 (간호사 제외, 청소/가사 포함)
-    r"bac si", r"duoc si", r"y ta chuyen gia",
-    # 교육/강사
-    r"giao vien", r"giang vien", r"gia su",
-    # 법률
-    r"luat su", r"phap ly",
+    # IT 전문직 (시니어/엔지니어급)
+    r"senior developer", r"lead developer", r"software engineer",
+    r"devops", r"data scientist", r"machine learning", r"ai engineer",
+    r"full.?stack", r"backend developer", r"frontend developer",
+    r"mobile developer", r"android developer", r"ios developer",
+    r"system architect", r"cloud architect",
+    # 경영/임원
+    r"giam doc", r"director", r"ceo", r"cfo", r"cto", r"coo",
+    r"truong phong", r"pho giam doc",
+    # 수석 회계/재무
+    r"ke toan truong", r"giam doc tai chinh", r"cfO", r"chief financial",
+    r"kiem toan vien", r"auditor",
+    # 법률/의료 전문직
+    r"luat su", r"bac si", r"duoc si", r"bac si chuyen khoa",
+    # 부동산 분양영업
+    r"moi gioi bat dong san", r"kinh doanh bat dong san",
+    r"bat dong san cao cap", r"phan phoi du an",
+    # 교육 전문직
+    r"giang vien dai hoc", r"tien si", r"thac si giao duc",
 ]
 _BLACKLIST_RE = re.compile(r"|".join(_BLACKLIST))
 
 
 # ══════════════════════════════════════════════════════════
-#  카테고리별 키워드 규칙 (우선순위 순)
+#  7대 카테고리 규칙 (우선순위 순)
 # ══════════════════════════════════════════════════════════
 
-# 1. 한국 취업 (최우선)
-_KOREA = re.compile(
-    r"han quoc|korea|e-8|e-7|e-9|e8|e9|e7"
-    r"|xuat khau lao dong|visa lao dong|epf|eps"
-    r"|ngu nghiep han|mau don xuat khau"
-)
-
-# 2. 배달/물류 (Giao hàng / Kho vận)
+# 1. 배달 / 운전 (Giao hàng / Tài xế)
 _DELIVERY = re.compile(
-    r"giao hang|shipper|tai xe|lai xe|xe om|grab"
-    r"|be xe|xe tai|xe dau keo|van chuyen|kho van"
-    r"|boc xep|phu kho|thu kho|nhan vien kho"
-    r"|logistic|last.?mile|phat hang"
+    r"giao hang|shipper|tai xe|lai xe|xe om|grab\b"
+    r"|be xe|xe tai|xe container|xe dau keo|van chuyen"
+    r"|nhan vien giao hang|nhan vien phat hang|nhan vien van chuyen"
+    r"|giao nhan|boc xep|phu kho\b|thu kho\b|nhan vien kho\b"
+    r"|logistic|kho van\b|last.?mile|delivery driver"
 )
 
-# 3. 청소/가사 (Vệ sinh / Giúp việc)
+# 2. 청소 / 가사 / 돌봄 (Vệ sinh / Giúp việc)
 _CLEANING = re.compile(
-    r"ve sinh|giup viec|lao cong|don dep|tro giup viec"
-    r"|cham soc nguoi cao tuoi|trong tre|bao mau"
-    r"|dich vu nha|housekeeper|janitor|cleaner"
+    r"ve sinh\b|giup viec|lao cong|don dep|tạp vu\b|tap vu\b"
+    r"|trong tre|bao mau|cham soc nguoi cao tuoi|cham soc tre"
+    r"|dich vu nha|housekeeper|janitor|cleaner\b"
+    r"|cong nhan ve sinh|nhan vien ve sinh"
 )
 
-# 4. 공장/생산 (Nhà máy / Sản xuất)
+# 3. 공장 / 생산 (Nhà máy / Sản xuất)
 _FACTORY = re.compile(
-    r"nha may|san xuat|cong nhan|kcn|khu cong nghiep"
-    r"|dong goi|lap rap|han|cat may|may mac|det|gia cong"
-    r"|thao may|kiem tra chat luong|qc |qc$|ql chat luong"
-    r"|van hanh|lo nung|may moc|thiet bi|co khi"
-    r"|lao dong pho thong|lao dong tu do|pho thong"
-    r"|dien tu|linh kien|xuat nhap khau"
+    r"nha may|san xuat|cong nhan\b|kcn\b|khu cong nghiep"
+    r"|dong goi|lap rap|han\b|cat may|may mac|det\b|gia cong"
+    r"|kiem tra chat luong|qc\b|quan ly chat luong"
+    r"|van hanh\b|may moc|thiet bi san xuat|co khi"
+    r"|lao dong pho thong|pho thong\b"
+    r"|dien tu linh kien|linh kien\b|xuat nhap khau hang hoa"
+    r"|nhan vien san xuat|cong nhan san xuat|cong nhan nha may"
+    r"|nhan vien dong goi|cong nhan lap rap"
 )
 
-# 5. F&B — 카페 (Quán cà phê / Pha chế)
+# 4. 카페 / 음료 / 디저트 (Cafe / Pha chế)
 _CAFE = re.compile(
-    r"ca phe|cafe|coffee|tra sua|milk tea|boba"
-    r"|pha che|barista|bartender|mixologist"
-    r"|highlands|starbucks|phuc long|gong cha"
-    r"|the coffee house|trung nguyen|passio"
-    r"|bingsu|kem|dessert|banh|tinh bot loc"
+    r"ca phe\b|cafe\b|coffee\b|tra sua\b|milk tea|boba\b|trà sữa"
+    r"|pha che\b|barista\b|bartender\b|mixologist"
+    r"|highlands\b|starbucks|phuc long|gong cha"
+    r"|the coffee house|trung nguyen|passio\b|cong ca phe"
+    r"|bingsu|kem tuoi|dessert\b|yogurt|tran chau"
+    r"|nhan vien pha che|nhan vien quan ca phe|nhan vien cafe"
 )
 
-# 6. F&B — 식당/레스토랑 (Nhà hàng / Ẩm thực)
+# 5. 식당 / F&B / 주방 (Nhà hàng / Ẩm thực)
 _RESTAURANT = re.compile(
-    r"nha hang|quan an|quan nhau|beer|bia hoi"
-    r"|hai san|lau|buffet|bbq|nuong"
-    r"|jollibee|kfc|lotteria|mcdonald|burger king|pizza|subway"
-    r"|haidilao|chay|pho|bun|com|an uong|am thuc"
-    r"|phuc vu ban|phuc vu nha hang|phuc vu nha an"
+    r"nha hang\b|quan an\b|quan nhau|beer club|bia hoi"
+    r"|hai san\b|lau\b|buffet\b|bbq\b|nuong\b|dim sum"
+    r"|jollibee|kfc\b|lotteria|mcdonald|burger king|pizza\b|subway\b"
+    r"|haidilao|pho\b|bun\b|com rang|an uong|am thuc"
+    r"|phuc vu ban|phuc vu nha hang|phuc vu\b|nhan vien phuc vu"
     r"|phu bep|bep chinh|bep truong|dau bep|nau an"
-    r"|thu quy nha hang|quan ly nha hang|fb |fnb|f&b|f and b"
-    r"|tạp vụ bep|rua bat|tạp vu"
+    r"|fb\b|fnb\b|f&b|f and b|food.?beverage"
+    r"|rua bat|rua chen|don ban|quan ly nha hang"
+    r"|nhan vien bep|nhan vien nha hang"
 )
 
-# 7. 매장/소매 (Bán lẻ / Cửa hàng)
+# 6. 매장 / 소매 / 마트 (Bán lẻ / Cửa hàng)
 _RETAIL = re.compile(
-    r"ban hang|thu ngan|cua hang|sieu thi|winmart|vinmart"
-    r"|circle k|7-eleven|familymart|ministop|gs25"
-    r"|tap hoa|shop|showroom|dai ly|bai xe"
-    r"|ban le|ban si|phan phoi|kho hang ban le"
-    r"|nhan vien ban hang|sale|ban thoi trang"
-    r"|nhan vien cua hang|quan ly cua hang"
-    r"|samsung|apple store|dien may|dien thoai"
-    r"|wincommerce|coopmart|bsmart"
+    r"ban hang\b|thu ngan|cua hang\b|sieu thi\b"
+    r"|winmart|vinmart|circle k|7.eleven|familymart|ministop|gs25\b"
+    r"|tap hoa\b|showroom\b|dai ly\b"
+    r"|ban le\b|ban si\b|phan phoi\b"
+    r"|nhan vien ban hang|sale\b|nhan vien cua hang|quan ly cua hang"
+    r"|samsung store|apple store|dien may|dien thoai di dong"
+    r"|wincommerce|coopmart|bsmart|co.op"
+    r"|nhan vien thi truong|nhan vien kinh doanh ban le"
+    r"|nhan vien phat trien thi truong ban le"
+)
+
+# 7. 사무보조 / 알바 / 단기 / 고객센터 (Văn phòng / Part-time)
+_OFFICE = re.compile(
+    r"nhan vien nhap lieu|nhap lieu\b|data entry"
+    r"|tong dai\b|cskh\b|cham soc khach hang\b|hotline\b"
+    r"|tu van khach hang\b|tu van san pham\b|inbound\b"
+    r"|telesale\b|telesales\b|tele\b"
+    r"|ho tro van phong|tro ly van phong|nhan vien van phong"
+    r"|admin ban hang|truc page\b|quan ly page\b|cham soc fanpage"
+    r"|nhan vien hanh chinh\b|thu ky\b|le tan\b|receptionist"
+    r"|nhan vien dat hang|xu ly don hang|order\b"
+    r"|part.?time van phong|lam them van phong|lam them buoi"
+    r"|nhan vien xuat nhap khau van phong|nhan vien bao cao"
+    r"|nhan vien marketing online\b|content\b|social media part"
+    r"|nhan vien ke toan thue\b|ke toan thue\b|ke toan\b"
+    r"|hanh chinh nhan su\b|nhan su\b"
 )
 
 
 def classify(title: str, company: str = "", description: str = "") -> str:
     """
-    공고 텍스트를 분석해 6대 카테고리 중 하나를 반환.
-    블랙리스트(사무직)에 걸리면 'other' 반환.
+    공고 텍스트를 분석해 7대 카테고리 중 하나를 반환.
+    고급 전문직 블랙리스트에 걸리면 'other' 반환.
     """
-    combined = _norm(f"{title} {company} {description[:300]}")
-    title_co = _norm(f"{title} {company}")
+    combined  = _norm(f"{title} {company} {description[:300]}")
+    title_co  = _norm(f"{title} {company}")
 
-    # 블랙리스트 우선 체크 (제목+회사만 — 본문에 키워드가 포함될 수 있음)
+    # 블랙리스트: 제목+회사 기준 (본문은 false positive 위험)
     if _BLACKLIST_RE.search(title_co):
         return "other"
 
-    # 규칙 체크 (순서 = 우선순위)
-    if _KOREA.search(combined):     return "other"      # KoreaJobs 별도 페이지 처리
-    if _DELIVERY.search(combined):  return "delivery"
-    if _CLEANING.search(combined):  return "cleaning"
-    if _FACTORY.search(combined):   return "factory"
-    if _CAFE.search(combined):      return "cafe"
+    # 순서 = 우선순위 (중복 키워드는 먼저 매칭된 카테고리 승)
+    if _DELIVERY.search(combined):   return "delivery"
+    if _CLEANING.search(combined):   return "cleaning"
+    if _FACTORY.search(combined):    return "factory"
+    if _CAFE.search(combined):       return "cafe"
     if _RESTAURANT.search(combined): return "restaurant"
-    if _RETAIL.search(combined):    return "retail"
+    if _RETAIL.search(combined):     return "retail"
+    if _OFFICE.search(combined):     return "office"
 
-    # fallback: 제목만으로 재시도 (본문 노이즈 제거)
-    if _FACTORY.search(title_co):   return "factory"
-    if _CAFE.search(title_co):      return "cafe"
+    # fallback: 제목+회사만으로 재시도
+    if _FACTORY.search(title_co):    return "factory"
+    if _CAFE.search(title_co):       return "cafe"
     if _RESTAURANT.search(title_co): return "restaurant"
-    if _RETAIL.search(title_co):    return "retail"
-    if _DELIVERY.search(title_co):  return "delivery"
-    if _CLEANING.search(title_co):  return "cleaning"
+    if _RETAIL.search(title_co):     return "retail"
+    if _OFFICE.search(title_co):     return "office"
+    if _DELIVERY.search(title_co):   return "delivery"
+    if _CLEANING.search(title_co):   return "cleaning"
 
     return "other"
 
 
 def is_blacklisted(title: str, company: str = "") -> bool:
-    """True면 수집 단계에서 제외 권장."""
-    return _BLACKLIST_RE.search(_norm(f"{title} {company}")) is not None
+    """True면 수집 단계에서 제외 권장 (고급 전문직만)."""
+    return bool(_BLACKLIST_RE.search(_norm(f"{title} {company}")))
 
 
-# ── 간단 테스트 ─────────────────────────────────────────
+# ── 셀프 테스트 ──────────────────────────────────────────
 if __name__ == "__main__":
     tests = [
-        ("Nhân Viên Pha Chế Highlands Coffee", "Highlands"),
-        ("Phụ Bếp Nhà Hàng Hải Sản", "Quán Hải Sản 999"),
-        ("Tài Xế Giao Hàng GrabFood", "Grab"),
-        ("Công Nhân Sản Xuất Nhà Máy", "Samsung Bắc Ninh"),
-        ("Nhân Viên Vệ Sinh Văn Phòng", "CleanPro"),
-        ("Thu Ngân Siêu Thị WinMart", "WinCommerce"),
-        ("Kế Toán Tổng Hợp", "ABC Corp"),
-        ("Lập Trình Viên Python", "Tech Co"),
-        ("Phục Vụ Bàn Nhà Hàng Buffet", "Happy Buffet"),
-        ("Nhân Viên Bán Hàng Cửa Hàng Tiện Lợi", "Circle K"),
+        # F&B
+        ("Nhân Viên Pha Chế Highlands Coffee", "Highlands", "cafe"),
+        ("Phụ Bếp Nhà Hàng Hải Sản", "Quán Hải Sản 999", "restaurant"),
+        ("Phục Vụ Bàn Jollibee Part-time", "Jollibee", "restaurant"),
+        # Retail
+        ("Thu Ngân Siêu Thị WinMart", "WinCommerce", "retail"),
+        ("Nhân Viên Bán Hàng Cửa Hàng Tiện Lợi", "Circle K", "retail"),
+        # Factory
+        ("Công Nhân Sản Xuất Nhà Máy", "Samsung Bắc Ninh", "factory"),
+        ("Nhân Viên Đóng Gói KCN Bình Dương", "ABC Mfg", "factory"),
+        # Delivery
+        ("Tài Xế Giao Hàng GrabFood", "Grab", "delivery"),
+        ("Nhân Viên Kho Part-time", "Lazada", "delivery"),
+        # Cleaning
+        ("Nhân Viên Vệ Sinh Văn Phòng", "CleanPro", "cleaning"),
+        ("Giúp Việc Nhà Bán Thời Gian", "", "cleaning"),
+        # Office (알바/단기 사무직)
+        ("Nhân Viên Nhập Liệu Part-time", "Cty ABC", "office"),
+        ("Trực Tổng Đài CSKH Ca Tối", "Call Center 24h", "office"),
+        ("Telesale Part-time Buổi Tối", "Edu Online", "office"),
+        ("Admin Bán Hàng Trực Page Facebook", "Shop Online", "office"),
+        ("Lễ Tân Văn Phòng Part-time", "Spa ABC", "office"),
+        # Blacklisted
+        ("Senior Developer Python", "Tech Co", "other"),
+        ("Giám Đốc Kinh Doanh", "Corp X", "other"),
+        ("Kế Toán Trưởng", "Tập Đoàn Y", "other"),
     ]
-    for title, company in tests:
-        cat = classify(title, company)
-        bl = is_blacklisted(title, company)
-        print(f"{'[BL]' if bl else '    '} {cat:12} | {title}")
+
+    ok = err = 0
+    for title, company, expected in tests:
+        got = classify(title, company)
+        status = "✅" if got == expected else "❌"
+        if got != expected:
+            err += 1
+        else:
+            ok += 1
+        print(f"  {status} [{got:10}] expected={expected:10} | {title}")
+
+    print(f"\n결과: {ok}/{ok+err} 정확")
