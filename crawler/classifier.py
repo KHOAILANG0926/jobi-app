@@ -78,14 +78,16 @@ _CLEANING = re.compile(
 
 # 3. 공장 / 생산 (Nhà máy / Sản xuất)
 _FACTORY = re.compile(
-    r"nha may|san xuat|cong nhan\b|kcn\b|khu cong nghiep"
-    r"|dong goi|lap rap|han\b|cat may|may mac|det\b|gia cong"
-    r"|kiem tra chat luong|qc\b|quan ly chat luong"
-    r"|van hanh\b|may moc|thiet bi san xuat|co khi"
-    r"|lao dong pho thong|pho thong\b"
-    r"|dien tu linh kien|linh kien\b|xuat nhap khau hang hoa"
-    r"|nhan vien san xuat|cong nhan san xuat|cong nhan nha may"
-    r"|nhan vien dong goi|cong nhan lap rap"
+    r"nha may\b|kcn\b|khu cong nghiep"
+    r"|cong nhan san xuat|cong nhan nha may|cong nhan\b"
+    r"|nhan vien san xuat|nhan vien dong goi|cong nhan lap rap"
+    r"|dong goi\b|lap rap\b|cat may\b|may mac\b|det\b|gia cong\b"
+    r"|han xi\b|han dien\b|tho han\b"
+    r"|thiet bi san xuat|co khi chinh xac|co khi\b"
+    r"|lao dong pho thong\b|cong nhan pho thong\b"
+    r"|linh kien dien tu|kiem tra chat luong san pham"
+    r"|san xuat linh kien|san xuat hang hoa"
+    r"|xuong san xuat|khu san xuat"
 )
 
 # 4. 카페 / 음료 / 디저트 (Cafe / Pha chế)
