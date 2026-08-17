@@ -7712,3 +7712,296 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .it2-example { background: #14532d; border-color: #166534; }
   .it2-example__text { color: #d1d5db; }
 }
+
+/* ══════════════════════════════════════════
+   JD — Albamon-style Job Detail (jd-*)
+   ══════════════════════════════════════════ */
+
+/* page wrapper */
+.jd-page { padding: 1rem; max-width: 1080px; margin: 0 auto; }
+
+/* ── Header card ── */
+.jd-hcard {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 14px;
+  padding: 1.25rem 1.25rem 1.25rem 1.25rem;
+  margin-bottom: 1.25rem;
+  position: relative;
+}
+.jd-hcard__logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+}
+.jd-hcard__logo-img { width: 100%; height: 100%; object-fit: cover; }
+.jd-hcard__logo-fallback { font-size: 2rem; }
+.jd-hcard__info { flex: 1; min-width: 0; }
+.jd-hcard__tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.4rem; }
+.jd-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+.jd-tag--urgent {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.jd-hcard__title {
+  font-size: clamp(1.15rem, 3vw, 1.45rem);
+  font-weight: 800;
+  color: var(--color-text, #111);
+  margin: 0 0 0.25rem;
+  line-height: 1.3;
+}
+.jd-hcard__company {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 0.4rem;
+}
+.jd-hcard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+.jd-hcard__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.jd-hcard__bookmark { flex-shrink: 0; }
+.jd-bookmark-btn {
+  background: none;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.45rem;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+.jd-bookmark-btn:hover { color: #e53935; border-color: #e53935; }
+.jd-bookmark-btn--active { color: #e53935; border-color: #e53935; }
+
+/* ── Content cards ── */
+.jd-left { display: flex; flex-direction: column; gap: 1rem; }
+.jd-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.jd-card__title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text, #111);
+  margin: 0;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-surface-raised, #f8fafc);
+}
+.jd-card__body { padding: 1rem 1.1rem; }
+
+/* ── Working conditions 2-col grid ── */
+.jd-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.jd-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--color-border, #f0f0f0);
+  border-right: 1px solid var(--color-border, #f0f0f0);
+}
+.jd-info-item:nth-child(even) { border-right: none; }
+.jd-info-item:nth-last-child(-n+2) { border-bottom: none; }
+.jd-info-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.jd-info-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text, #1e293b);
+}
+.jd-info-value--salary {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #e53935;
+}
+
+/* ── Recruitment conditions 2-col grid ── */
+.jd-recruit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.jd-recruit-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--color-border, #f0f0f0);
+  border-right: 1px solid var(--color-border, #f0f0f0);
+}
+.jd-recruit-item:nth-child(even) { border-right: none; }
+.jd-recruit-item:nth-last-child(-n+2) { border-bottom: none; }
+.jd-recruit-icon { display: flex; }
+.jd-recruit-label {
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.jd-recruit-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text, #1e293b);
+}
+
+/* ── Description image ── */
+.jd-desc-img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  object-fit: contain;
+  max-height: 600px;
+  background: #f9fafb;
+}
+
+/* ── Sidebar ── */
+.jd-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.1rem;
+}
+.jd-aside-salary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.85rem 1rem;
+  background: #fff5f5;
+  border: 1.5px solid #fecaca;
+  border-radius: 10px;
+}
+.jd-aside-salary__label { font-size: 0.72rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+.jd-aside-salary__value { font-size: 1.2rem; font-weight: 800; color: #e53935; }
+.jd-aside-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  padding: 0 0.2rem;
+}
+.jd-aside-meta__label { color: #94a3b8; font-weight: 600; }
+.jd-aside-meta__value { color: var(--color-text, #1e293b); font-weight: 700; }
+
+/* ── Zalo button ── */
+.jd-btn-zalo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: #0068ff;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.jd-btn-zalo:hover { background: #0050cc; color: #fff; }
+
+/* ── Phone button ── */
+.jd-btn-phone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 10px;
+  text-decoration: none;
+  border: 1.5px solid #bfdbfe;
+  transition: background 0.15s;
+}
+.jd-btn-phone:hover { background: #dbeafe; }
+
+/* ── Mobile: single column ── */
+@media (max-width: 839px) {
+  .jd-hcard { flex-direction: row; }
+  .jd-info-grid { grid-template-columns: 1fr; }
+  .jd-info-item { border-right: none !important; }
+  .jd-info-item:nth-last-child(-n+2) { border-bottom: 1px solid var(--color-border, #f0f0f0); }
+  .jd-info-item:last-child { border-bottom: none; }
+  .jd-recruit-grid { grid-template-columns: 1fr; }
+  .jd-recruit-item { border-right: none !important; }
+  .jd-recruit-item:nth-last-child(-n+2) { border-bottom: 1px solid var(--color-border, #f0f0f0); }
+  .jd-recruit-item:last-child { border-bottom: none; }
+}
+
+/* ── Dark mode ── */
+@media (prefers-color-scheme: dark) {
+  .jd-hcard { border-color: #374151; }
+  .jd-hcard__logo { background: #1f2937; border-color: #374151; }
+  .jd-tag { background: #1e3a5f; border-color: #1d4ed8; color: #93c5fd; }
+  .jd-tag--urgent { background: #450a0a; border-color: #991b1b; color: #fca5a5; }
+  .jd-card { border-color: #374151; }
+  .jd-card__title { background: #1f2937; border-color: #374151; color: #f3f4f6; }
+  .jd-info-item { border-color: #374151; }
+  .jd-info-label { color: #6b7280; }
+  .jd-info-value { color: #f3f4f6; }
+  .jd-recruit-item { border-color: #374151; }
+  .jd-recruit-label { color: #6b7280; }
+  .jd-recruit-value { color: #f3f4f6; }
+  .jd-aside-salary { background: #450a0a; border-color: #991b1b; }
+  .jd-aside-meta__label { color: #6b7280; }
+  .jd-aside-meta__value { color: #f3f4f6; }
+  .jd-bookmark-btn { border-color: #374151; color: #6b7280; }
+  .jd-btn-phone { background: #1e3a5f; border-color: #1d4ed8; color: #93c5fd; }
+  .jd-btn-phone:hover { background: #1d4ed8; color: #fff; }
+  .jd-desc-img { background: #1f2937; }
+}

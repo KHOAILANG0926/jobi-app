@@ -94,7 +94,7 @@ export default function JobCard({
   job, isApplied, distanceKm,
 }: JobCardProps) {
   const category = reclassify(job.category, job.title, job.company)
-  const salary = sanitizeSalary(job.salary)
+  const salary = sanitizeSalary(job.salary || 'Thỏa thuận')
 
   const catTag = CATEGORY_TAGS[category] ?? ''
   const h = (job.hours ?? '').toLowerCase()
