@@ -20,6 +20,7 @@ except ImportError:
 
 load_dotenv(Path(__file__).parent / ".env")
 
+from classifier import classify, is_blacklisted
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -56,21 +57,9 @@ CATEGORY_URLS = [
 ]
 
 
-def guess_category(text: str) -> str:
-    t = text.lower()
-    if re.search(r"nhà máy|sản xuất|công nhân|kho|lắp ráp|kỹ thuật|điện tử|cơ khí", t):
-        return "factory"
-    if re.search(r"nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn", t):
-        return "restaurant"
-    if re.search(r"cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista", t):
-        return "cafe"
-    if re.search(r"giao hàng|shipper|tài xế|xe máy|vận chuyển|delivery", t):
-        return "delivery"
-    if re.search(r"vệ sinh|giúp việc|dọn dẹp|tạp vụ", t):
-        return "cleaning"
-    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|bán lẻ|bán sỉ|thời trang", t):
-        return "retail"
-    return "other"
+# guess_category → classifier.py 의 classify() 로 위임 (하위호환 유지)
+def guess_category(title: str, company: str = "", description: str = "") -> str:
+    return classify(title, company, description)
 
 
 async def crawl_category(page, url: str) -> list[dict]:
@@ -217,17 +206,28 @@ async def crawl_vieclam24h() -> list[dict]:
             if deadline and deadline <= TODAY:
                 skipped += 1
                 continue
+            title   = j["title"]
+            company = j.get("company", "")
+
+            # 블랙리스트(사무직) 공고 수집 단계 제외
+            if is_blacklisted(title, company):
+                skipped += 1
+                continue
+
             logo = j.get("logoUrl", "")
             desc_text = format_description(detail.get("sections", {}))
-            # 본문이 없으면 원본 URL을 fallback으로 유지
             description = f"[source:vieclam24h] {desc_text}" if desc_text else f"[source:vieclam24h] {j.get('href', '')}"
+
+            # 분류: 제목 + 회사 + 본문 첫 300자 활용
+            category = classify(title, company, desc_text)
+
             jobs.append({
-                "title": j["title"],
-                "company": j.get("company", ""),
+                "title": title,
+                "company": company,
                 "location": j.get("location") or "Hồ Chí Minh",
                 "salary": j.get("salary", ""),
                 "description": description,
-                "category": guess_category(j["title"]),
+                "category": category,
                 "posted_at": TODAY,
                 "urgent": False,
                 "employer_phone": "",
