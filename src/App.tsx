@@ -20,6 +20,8 @@ import AdminDashboard from './pages/AdminDashboard'
 import FranchiseJobs from './pages/FranchiseJobs'
 import { ZaloCallback } from './pages/ZaloCallback'
 import { InterviewTips } from './pages/InterviewTips'
+import { PrivacyPolicy } from './pages/PrivacyPolicy'
+import { TermsOfUse } from './pages/TermsOfUse'
 
 export default function App() {
   return (
@@ -51,6 +53,8 @@ export default function App() {
                 <Route path="/franchise-jobs" element={<FranchiseJobs />} />
                 <Route path="/zalo-callback" element={<ZaloCallback />} />
                 <Route path="/cau-hoi-phong-van" element={<InterviewTips />} />
+                <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
+                <Route path="/dieu-khoan" element={<TermsOfUse />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
               <Route path="/admin" element={<AdminDashboard />} />
