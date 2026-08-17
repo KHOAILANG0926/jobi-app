@@ -519,7 +519,12 @@ export function Home() {
     const todayStr = now.toISOString().slice(0, 10)
     const weekLater = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10)
     let result = jobs.filter((j) => {
-      if (category !== 'all' && j.category !== category) return false
+      if (category !== 'all') {
+        // cafe와 restaurant는 같은 F&B 그룹으로 통합 필터링
+        const FNB = ['cafe', 'restaurant']
+        const allowed = FNB.includes(category) ? FNB : [category]
+        if (!allowed.includes(j.category)) return false
+      }
       if (urgentOnly && !j.urgent) return false
       if (selectedCity && !jobMatchesRegion(j.location, selectedCity)) return false
       if (brandFilter && !normalizeViText(j.company).includes(normalizeViText(brandFilter))) return false

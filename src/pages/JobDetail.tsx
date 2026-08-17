@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  MapPin, Clock, Calendar, Briefcase, Users, GraduationCap,
+  Timer, Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
+} from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
 import JobLocationMap from '../components/JobLocationMap'
 import { MessageEmployerModal } from '../components/MessageEmployerModal'
@@ -12,109 +16,35 @@ import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
 import { withJobCoordinates } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
+/* ── Description renderer ── */
 function DescriptionRenderer({ text }: { text: string }) {
   if (text.startsWith('http')) return null
   const blocks = text.split(/\n\n+/)
   return (
-    <div className="job-desc">
+    <div className="jd2-desc">
       {blocks.map((block, i) => {
         if (block.startsWith('## ')) {
           const [heading, ...lines] = block.split('\n')
           return (
-            <div key={i} className="job-desc__section">
-              <h4 className="job-desc__heading">{heading.replace('## ', '')}</h4>
-              {lines.map((line, j) => (
-                line.startsWith('• ')
-                  ? <p key={j} className="job-desc__bullet">{line}</p>
-                  : line.trim() ? <p key={j} className="job-desc__line">{line}</p> : null
-              ))}
+            <div key={i} className="jd2-desc__section">
+              <h4 className="jd2-desc__heading">{heading.replace('## ', '')}</h4>
+              <ul className="jd2-desc__list">
+                {lines.map((line, j) =>
+                  line.startsWith('• ')
+                    ? <li key={j} className="jd2-desc__item">{line.replace('• ', '')}</li>
+                    : line.trim()
+                      ? <p key={j} className="jd2-desc__line">{line}</p>
+                      : null
+                )}
+              </ul>
             </div>
           )
         }
-        return <p key={i} style={{ whiteSpace: 'pre-line', margin: '0 0 0.75rem', lineHeight: 1.8 }}>{block}</p>
+        return (
+          <p key={i} className="jd2-desc__para">{block}</p>
+        )
       })}
     </div>
-  )
-}
-
-function BookmarkGlyph({ filled }: { filled: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden className="btn-bookmark__icon">
-      <path
-        d="M7 3.5h10a2 2 0 012 2v16.5l-7-4.25L5 22V5.5a2 2 0 012-2z"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-/* ── 아이콘 SVG ── */
-function IcSalary() {
-  return (
-    <svg viewBox="0 0 20 20" width="18" height="18" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="9" stroke="#e53935" strokeWidth="1.5"/>
-      <text x="10" y="14" textAnchor="middle" fontSize="10" fill="#e53935" fontWeight="700">₫</text>
-    </svg>
-  )
-}
-function IcPin() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <path d="M10 2a6 6 0 016 6c0 4-6 10-6 10S4 12 4 8a6 6 0 016-6z" stroke="#64748b" strokeWidth="1.5"/>
-      <circle cx="10" cy="8" r="2" stroke="#64748b" strokeWidth="1.5"/>
-    </svg>
-  )
-}
-function IcClock() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="10" r="8" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M10 6v4l3 2" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-function IcCalendar() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <rect x="3" y="4" width="14" height="13" rx="2" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M7 2v4M13 2v4M3 9h14" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-function IcBriefcase() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <rect x="2" y="7" width="16" height="11" rx="2" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M7 7V5a2 2 0 014 0v2" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M2 12h16" stroke="#64748b" strokeWidth="1.5"/>
-    </svg>
-  )
-}
-function IcPeople() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="8" cy="6" r="3" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M2 17c0-3 2.7-5 6-5s6 2 6 5" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M14 9a2 2 0 010 4M16 17c0-2-1-3.5-2-4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-function IcGrad() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <path d="M10 4L2 8l8 4 8-4-8-4z" stroke="#64748b" strokeWidth="1.5" strokeLinejoin="round"/>
-      <path d="M5 10v4c0 2 5 3 5 3s5-1 5-3v-4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-function IcDeadline() {
-  return (
-    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="10" cy="11" r="7" stroke="#64748b" strokeWidth="1.5"/>
-      <path d="M10 7v4l2.5 2.5" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M7 2h6" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
   )
 }
 
@@ -171,135 +101,146 @@ export function JobDetail() {
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
   return (
-    <div className="page jd-page">
-      <button type="button" className="back-link" onClick={() => navigate(-1)}>← Quay lại</button>
+    <div className="jd2-page">
 
-      {/* ── HEADER CARD ── */}
-      <div className="jd-hcard">
-        <div className="jd-hcard__logo">
-          {job.imageUrl
-            ? <img src={job.imageUrl} alt={job.company} className="jd-hcard__logo-img" />
-            : <span className="jd-hcard__logo-fallback">🏢</span>
-          }
-        </div>
-        <div className="jd-hcard__info">
-          <div className="jd-hcard__tags">
-            <span className="jd-tag">#{catLabel}</span>
-            {job.urgent && <span className="jd-tag jd-tag--urgent">#Tuyển gấp</span>}
+      {/* ── Back ── */}
+      <button type="button" className="jd2-back" onClick={() => navigate(-1)}>
+        <ChevronLeft size={16} strokeWidth={2} />
+        Quay lại
+      </button>
+
+      {/* ── Header card ── */}
+      <div className="jd2-header">
+        <div className="jd2-header__left">
+          <div className="jd2-logo">
+            {job.imageUrl
+              ? <img src={job.imageUrl} alt={job.company} className="jd2-logo__img" />
+              : <span className="jd2-logo__fallback">{job.company?.[0] ?? 'J'}</span>
+            }
           </div>
-          <h1 className="jd-hcard__title">{job.title}</h1>
-          <p className="jd-hcard__company">{job.company}</p>
-          <div className="jd-hcard__meta">
-            <span className="jd-hcard__meta-item">
-              <IcPin />
-              {job.location}
-            </span>
-            <span className="jd-hcard__meta-item">
-              Đăng{' '}
-              {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </span>
-          </div>
-          {(job.companyVerified || job.hireCount) && (
-            <div className="trust-badges" style={{ marginTop: '0.4rem' }}>
-              {job.companyVerified && <span className="trust-badge trust-badge--verified">✔ Đã xác minh</span>}
-              {job.hireCount !== undefined && <span className="trust-badge">Đã tuyển {job.hireCount} lần</span>}
+          <div className="jd2-header__info">
+            <div className="jd2-header__chips">
+              <span className="jd2-chip">{catLabel}</span>
+              {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
             </div>
-          )}
+            <h1 className="jd2-header__title">{job.title}</h1>
+            <p className="jd2-header__company">{job.company}</p>
+            <div className="jd2-header__meta">
+              <span className="jd2-meta-item">
+                <MapPin size={13} strokeWidth={1.8} />
+                {job.location}
+              </span>
+              <span className="jd2-meta-sep">·</span>
+              <span className="jd2-meta-item">
+                Đăng {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="jd-hcard__bookmark">
-          <button
-            type="button"
-            className={`jd-bookmark-btn${saved ? ' jd-bookmark-btn--active' : ''}`}
-            onClick={onToggleSave}
-            title={saved ? 'Bỏ lưu' : 'Lưu tin'}
-          >
-            <BookmarkGlyph filled={saved} />
-          </button>
-        </div>
+        <button
+          type="button"
+          className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
+          onClick={onToggleSave}
+          title={saved ? 'Bỏ lưu' : 'Lưu tin'}
+        >
+          {saved ? <BookmarkCheck size={18} strokeWidth={1.8} /> : <Bookmark size={18} strokeWidth={1.8} />}
+        </button>
       </div>
 
-      {/* ── MAIN GRID ── */}
-      <div className="detail-grid">
-        <div className="jd-left">
+      {/* ── Main grid ── */}
+      <div className="jd2-grid">
+        <div className="jd2-main">
 
-          {/* ── Điều kiện làm việc ── */}
-          <div className="jd-card">
-            <h2 className="jd-card__title">
-              <IcBriefcase />
-              Điều kiện làm việc
-            </h2>
-            <div className="jd-info-grid">
-              <div className="jd-info-item">
-                <span className="jd-info-label"><IcSalary /> Mức lương</span>
-                <span className="jd-info-value jd-info-value--salary">{job.salary || 'Thỏa thuận'}</span>
+          {/* ── Working conditions ── */}
+          <div className="jd2-card">
+            <h2 className="jd2-card__title">Điều kiện làm việc</h2>
+            <div className="jd2-info-grid">
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><Briefcase size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Mức lương</div>
+                  <div className="jd2-info-val jd2-info-val--salary">{job.salary || 'Thỏa thuận'}</div>
+                </div>
               </div>
-              <div className="jd-info-item">
-                <span className="jd-info-label"><IcPin /> Địa điểm</span>
-                <span className="jd-info-value">{job.location}</span>
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><MapPin size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Địa điểm</div>
+                  <div className="jd2-info-val">{job.location}</div>
+                </div>
               </div>
-              <div className="jd-info-item">
-                <span className="jd-info-label"><IcClock /> Giờ làm việc</span>
-                <span className="jd-info-value">{job.hours || 'Theo ca / Thỏa thuận'}</span>
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><Clock size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Giờ làm việc</div>
+                  <div className="jd2-info-val">{job.hours || 'Thỏa thuận'}</div>
+                </div>
               </div>
-              <div className="jd-info-item">
-                <span className="jd-info-label"><IcCalendar /> Ngày làm việc</span>
-                <span className="jd-info-value">{job.workDays || 'Thỏa thuận'}</span>
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><Calendar size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Ngày làm việc</div>
+                  <div className="jd2-info-val">{job.workDays || 'Thỏa thuận'}</div>
+                </div>
               </div>
               {job.workPeriod && (
-                <div className="jd-info-item">
-                  <span className="jd-info-label"><IcBriefcase /> Hình thức</span>
-                  <span className="jd-info-value">{job.workPeriod}</span>
+                <div className="jd2-info-row">
+                  <span className="jd2-info-icon"><Briefcase size={14} strokeWidth={1.8} /></span>
+                  <div>
+                    <div className="jd2-info-label">Hình thức</div>
+                    <div className="jd2-info-val">{job.workPeriod}</div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── Điều kiện tuyển dụng ── */}
-          <div className="jd-card">
-            <h2 className="jd-card__title">
-              <IcPeople />
-              Điều kiện tuyển dụng
-            </h2>
-            <div className="jd-recruit-grid">
-              <div className="jd-recruit-item">
-                <span className="jd-recruit-icon"><IcDeadline /></span>
-                <span className="jd-recruit-label">Hạn nộp hồ sơ</span>
-                <span className="jd-recruit-value">{formatDeadlineVi(job.applicationDeadline)}</span>
+          {/* ── Recruitment conditions ── */}
+          <div className="jd2-card">
+            <h2 className="jd2-card__title">Điều kiện tuyển dụng</h2>
+            <div className="jd2-info-grid">
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><Timer size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Hạn nộp hồ sơ</div>
+                  <div className="jd2-info-val">{formatDeadlineVi(job.applicationDeadline)}</div>
+                </div>
               </div>
-              <div className="jd-recruit-item">
-                <span className="jd-recruit-icon"><IcPeople /></span>
-                <span className="jd-recruit-label">Số lượng tuyển</span>
-                <span className="jd-recruit-value">{job.numHires || 'Tuyển nhiều vị trí'}</span>
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><Users size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Số lượng tuyển</div>
+                  <div className="jd2-info-val">{job.numHires || 'Tuyển nhiều vị trí'}</div>
+                </div>
               </div>
-              <div className="jd-recruit-item">
-                <span className="jd-recruit-icon"><IcGrad /></span>
-                <span className="jd-recruit-label">Học vấn</span>
-                <span className="jd-recruit-value">{job.education || 'Không yêu cầu'}</span>
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><GraduationCap size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Học vấn</div>
+                  <div className="jd2-info-val">{job.education || 'Không yêu cầu'}</div>
+                </div>
               </div>
-              <div className="jd-recruit-item">
-                <span className="jd-recruit-icon"><IcBriefcase /></span>
-                <span className="jd-recruit-label">Kinh nghiệm</span>
-                <span className="jd-recruit-value">{job.preference || 'Không yêu cầu kinh nghiệm'}</span>
+              <div className="jd2-info-row">
+                <span className="jd2-info-icon"><Briefcase size={14} strokeWidth={1.8} /></span>
+                <div>
+                  <div className="jd2-info-label">Kinh nghiệm</div>
+                  <div className="jd2-info-val">{job.preference || 'Không yêu cầu kinh nghiệm'}</div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* ── Mô tả công việc ── */}
+          {/* ── Description ── */}
           {(job.imageUrl || (job.description && !job.description.startsWith('http'))) && (
-            <div className="jd-card">
-              <h2 className="jd-card__title">
-                <span style={{ fontSize: '1rem' }}>📋</span>
-                Mô tả công việc
-              </h2>
-              <div className="jd-card__body">
+            <div className="jd2-card jd2-card--desc">
+              <h2 className="jd2-card__title">Mô tả công việc</h2>
+              <div className="jd2-card__body">
                 {job.imageUrl && (
                   <>
-                    <img src={job.imageUrl} alt={job.title} className="jd-desc-img" />
-                    {job.images && job.images
-                      .filter((u: string) => u !== job.imageUrl)
-                      .map((url: string, i: number) => (
-                        <img key={i} src={url} alt={`${job.title} ${i + 2}`} className="jd-desc-img" />
-                      ))}
+                    <img src={job.imageUrl} alt={job.title} className="jd2-desc-img" />
+                    {job.images?.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
+                      <img key={i} src={url} alt={`${job.title} ${i + 2}`} className="jd2-desc-img" />
+                    ))}
                   </>
                 )}
                 {job.description && <DescriptionRenderer text={job.description} />}
@@ -307,19 +248,17 @@ export function JobDetail() {
             </div>
           )}
 
-          {/* ── Khu vực làm việc ── */}
+          {/* ── Map ── */}
           {coords && (
-            <div className="jd-card">
-              <h2 className="jd-card__title">
-                <IcPin />
-                Khu vực làm việc
-              </h2>
-              <div className="jd-card__body">
-                <p style={{ margin: '0 0 0.75rem', color: '#64748b', fontSize: '0.9rem' }}>{job.location}</p>
-                <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
-                <p className="job-location-map__disclaimer" style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
-                  Bản đồ mang tính minh họa khu vực, có thể không trùng khớp chính xác địa chỉ công ty.
+            <div className="jd2-card">
+              <h2 className="jd2-card__title">Khu vực làm việc</h2>
+              <div className="jd2-card__body">
+                <p className="jd2-map-addr">
+                  <MapPin size={13} strokeWidth={1.8} />
+                  {job.location}
                 </p>
+                <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
+                <p className="jd2-map-note">Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.</p>
               </div>
             </div>
           )}
@@ -327,61 +266,66 @@ export function JobDetail() {
           <CompanyReviews company={job.company} />
         </div>
 
-        {/* ── SIDEBAR ── */}
-        <aside className="detail-aside jd-aside">
-          {/* Salary highlight */}
-          <div className="jd-aside-salary">
-            <span className="jd-aside-salary__label">Mức lương</span>
-            <span className="jd-aside-salary__value">{job.salary || 'Thỏa thuận'}</span>
+        {/* ── Sidebar ── */}
+        <aside className="jd2-aside">
+          {/* Salary */}
+          <div className="jd2-aside-salary">
+            <span className="jd2-aside-salary__label">Mức lương</span>
+            <span className="jd2-aside-salary__val">{job.salary || 'Thỏa thuận'}</span>
           </div>
 
           {/* Deadline */}
-          <div className="jd-aside-meta">
-            <span className="jd-aside-meta__label">Hạn nộp hồ sơ</span>
-            <span className="jd-aside-meta__value">{formatDeadlineVi(job.applicationDeadline)}</span>
+          <div className="jd2-aside-row">
+            <span className="jd2-aside-row__label">Hạn nộp hồ sơ</span>
+            <span className="jd2-aside-row__val">{formatDeadlineVi(job.applicationDeadline)}</span>
           </div>
+
+          <div className="jd2-aside-divider" />
+
+          {/* Primary CTA — Apply */}
+          <button
+            type="button"
+            className="jd2-btn-apply"
+            onClick={onOneClickApply}
+            disabled={applied}
+          >
+            {applied ? 'Đã ứng tuyển' : 'Ứng tuyển ngay'}
+          </button>
+          <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
 
           {/* Zalo */}
           {job.employerPhone && (
-            <a href={zaloHref} target="_blank" rel="noopener noreferrer" className="jd-btn-zalo">
-              <svg viewBox="0 0 40 40" width="22" height="22" fill="none" aria-hidden>
-                <circle cx="20" cy="20" r="20" fill="#fff"/>
-                <text x="20" y="26" textAnchor="middle" fontSize="16" fontWeight="900" fill="#0068ff">Z</text>
-              </svg>
+            <a href={zaloHref} target="_blank" rel="noopener noreferrer" className="jd2-btn-zalo">
+              <MessageCircle size={17} strokeWidth={2} />
               Chat qua Zalo
             </a>
           )}
 
           {/* Phone */}
           {job.employerPhone && (
-            <a href={`tel:${job.employerPhone.replace(/\s/g, '')}`} className="jd-btn-phone">
-              <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden>
-                <path d="M6.5 2C5.7 2 5 2.7 5 3.5c0 1.4.3 2.7.9 3.9L7.6 9l-.5.5c-.9.9-1 2.3-.3 3.4 1.1 1.8 2.5 3.3 4.3 4.4 1.1.7 2.5.6 3.4-.3l.5-.5 1.6 1.7c1.2.6 2.5.9 3.9.9.8 0 1.5-.7 1.5-1.5v-3c0-.7-.5-1.3-1.2-1.5l-3-.7c-.6-.2-1.3.1-1.7.6l-.7.9c-.7-.4-1.4-.9-2-1.5s-1.1-1.3-1.5-2l.9-.7c.5-.4.8-1.1.6-1.7l-.7-3C12.3 2.5 11.7 2 11 2H6.5z" fill="#1e40af"/>
-              </svg>
-              Gọi điện thoại
+            <a href={`tel:${job.employerPhone.replace(/\s/g, '')}`} className="jd2-btn-phone">
+              <Phone size={15} strokeWidth={1.8} />
+              {job.employerPhone}
             </a>
           )}
 
-          <div style={{ height: '1px', background: 'var(--color-border, #e5e7eb)', margin: '0.75rem 0' }} />
-
-          {/* Apply */}
-          <button type="button" className="btn btn--primary btn--block" onClick={onOneClickApply} disabled={applied}>
-            {applied ? '✓ Đã ứng tuyển' : 'Ứng tuyển ngay'}
-          </button>
-          <span className="detail-aside__apply-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
-
+          {/* Message employer */}
           {showMessageCta && (
-            <button type="button" className="btn btn--ghost btn--block" onClick={() => setMessageOpen(true)}>
+            <button type="button" className="jd2-btn-ghost" onClick={() => setMessageOpen(true)}>
               Nhắn tin nhà tuyển dụng
             </button>
           )}
+
+          {/* Save */}
           <button
             type="button"
-            className={`btn btn--ghost btn--block btn--with-icon${saved ? ' btn--saved' : ''}`}
+            className={`jd2-btn-ghost jd2-btn-ghost--save${saved ? ' active' : ''}`}
             onClick={onToggleSave}
           >
-            <BookmarkGlyph filled={saved} />
-            {saved ? 'Đã lưu tin' : 'Lưu tin'}
+            {saved
+              ? <><BookmarkCheck size={15} strokeWidth={1.8} /> Đã lưu tin</>
+              : <><Bookmark size={15} strokeWidth={1.8} /> Lưu tin</>
+            }
           </button>
         </aside>
       </div>
