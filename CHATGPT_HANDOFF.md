@@ -6,28 +6,32 @@
 ---
 
 ## 현재 작업
-`applications`(지원) 기능을 실제 운영 가능한 상태로 만드는 작업. `message_threads`/`messages`/`interviews`는 이번 작업에서 손대지 않음.
-**DB에는 아직 아무것도 실행하지 않은 상태** — SQL 준비 + 코드 수정까지만 완료, 지시대로 실행 전에 멈춤.
+Viecganban 자동 개발 루프 1단계 — GitHub Actions에서 Claude Code를 수동 트리거로 실행해
+코드 수정 → 테스트 → CHATGPT_HANDOFF.md 갱신 → PR 생성까지 하도록 자동화 워크플로 준비.
+**아직 실행(트리거)하지 않은 상태** — 워크플로 파일만 추가, `ANTHROPIC_API_KEY` secret 미등록.
+서비스 코드/DB 기능 자체는 이번 작업에서 손대지 않음.
 
 ## 변경 내용
-- **`supabase/migrations/0001_applications.sql`**: 권한 모델 강화 반영(아직 미실행)
-  - INSERT: `seeker_id = auth.uid()` + `status`는 항상 `'submitted'`로 고정 + `employer_id`가 실제 `local_jobs.employer_id`와 일치해야 함(위조 방지)
-  - UPDATE: 해당 공고 기업(`employer_id = auth.uid()`)만, `status`는 `reviewing/interview/accepted/rejected` 중으로만(USING+WITH CHECK 둘 다 적용)
-  - DELETE: 구직자 본인(`seeker_id = auth.uid()`)만 — "지원 취소" 용도
-- **`src/lib/applicationsStorage.ts`**: `cancelApplication(id)` 함수 신규 추가(DELETE 기반 취소)
-- **`src/pages/Profile.tsx`**: 구직자 지원 상태 `<select>` 제거 → 읽기전용 배지로 교체, "Hủy đơn"(지원 취소, confirm 확인 포함) 버튼 추가
-- **`src/pages/EmployerDashboard.tsx`**: 상태 변경 `<select>`에서 `submitted`를 선택 가능한 타깃 옵션에서 제외(현재 상태가 submitted일 때만 비활성 옵션으로 표시)
+- **`.github/workflows/claude-auto.yml`**(신규): `workflow_dispatch` 트리거, 입력값 `task`(문자열).
+  `anthropics/claude-code-action@v1` 사용, `permissions: contents: write, pull-requests: write`만
+  부여(저장소 기본값은 read-only라 명시적으로 상향). prompt에서 `CLAUDE.md`/
+  `VIECGANBAN_STRUCTURE_BASELINE.md` 우선 확인, `tsc --noEmit`+`npm run build` 통과 필수,
+  CHATGPT_HANDOFF.md 갱신, **새 브랜치+PR 생성(master 직접 push 아님)**을 지시.
+- **`CLAUDE.md`**(신규): 자동화 세션이 따를 최소 규칙 7개(기존 설계 우선/범위 준수/큰 구조 변경
+  전 중단/테스트 필수/핸드오프 갱신 필수/secret 출력 금지/master 직접 push 금지) 명문화.
+- 기존 `.github/workflows/crawl.yml`은 이름/시크릿 겹치지 않아 그대로 둠(무수정).
 
 ## 테스트 결과
-- `npx tsc --noEmit`, `npm run build` 통과(기존 무관 에러 1건만 존재)
-- 브라우저 스모크 테스트: 신규 구직자 계정으로 Profile "Việc đã ứng tuyển" 탭 정상 렌더(빈 상태), 신규 기업 계정으로 EmployerDashboard "Ứng viên" 탭 정상 렌더(빈 상태) — 콘솔에 새로운 런타임 에러 없음, `applications`/`interviews` 테이블 미생성으로 인한 기존 PGRST205 에러만 존재(예상된 상태)
-- **`applications` 테이블이 아직 없어 실제 지원 생성→상태변경→취소 전체 플로우는 테스트 못 함** — DB 반영 후 재검증 필요
-- 테스트 계정 전부 정리 완료, 실서비스 데이터 영향 없음
+워크플로가 아직 트리거되지 않았으므로 실행 결과 없음. YAML 문법/트리거·권한 설정은
+`gh api .../actions/permissions(/workflow)`로 사전 확인한 저장소 설정(기본 토큰 권한 read-only,
+Actions `allowed_actions: all`)과 일치하도록 작성함.
 
 ## 발견된 문제
 없음 — 이번 작업 범위에서 새로 발견된 문제 없음.
 
 ## 다음 결정사항
-1. `supabase/migrations/0001_applications.sql`을 Supabase SQL Editor에서 실행할지
-2. 실행 후 실제 지원 생성 → 기업 상태변경 → 구직자 취소 전체 플로우 재검증 필요
-3. `message_threads`/`messages`/`interviews`는 언제 이어서 진행할지
+1. `ANTHROPIC_API_KEY` 또는 `CLAUDE_CODE_OAUTH_TOKEN` secret을 등록할지(등록은 사용자가 직접)
+2. secret 등록 후 `task` 입력값을 뭘로 줘서 첫 실행을 테스트할지
+3. PR 생성 방식이 안정화되면 master 직접 push 방식으로 전환할지 여부
+4. `supabase/migrations/0001_applications.sql` 실행 및 `message_threads`/`messages`/`interviews`
+   진행은 이번 작업과 무관하게 여전히 보류 중

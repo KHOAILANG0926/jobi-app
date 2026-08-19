@@ -1,0 +1,46 @@
+name: Claude 자동 작업 (수동 트리거, PR 생성 방식)
+
+# 1단계: 안전 우선. master에 직접 push하지 않고 항상 새 브랜치 + PR을 만든다.
+# 실행은 workflow_dispatch로 사람이 직접 트리거할 때만 일어난다(자동 스케줄 없음).
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Claude에게 지시할 작업 내용'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  claude-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Claude Code 실행
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            아래 작업을 수행해줘: ${{ inputs.task }}
+
+            시작하기 전에 반드시 저장소 루트의 CLAUDE.md와
+            VIECGANBAN_STRUCTURE_BASELINE.md를 먼저 읽고,
+            거기 적힌 기존 설계 의도와 작업 규칙을 최우선으로 지켜줘.
+
+            작업 순서:
+            1. 요청된 범위 내에서만 코드를 수정한다 (범위 밖 리팩터링 금지).
+            2. `npx tsc --noEmit` 과 `npm run build` 를 실행해서 통과하는지 확인한다.
+               실패하면 원인을 고치고 다시 통과할 때까지 반복한다. 통과하지 못하면
+               커밋하지 말고 무엇이 실패했는지 PR 설명에 남긴다.
+            3. 변경 내용을 반영해 CHATGPT_HANDOFF.md를 최신 상태로 갱신한다
+               (현재 작업 / 변경 내용 / 테스트 결과 / 발견된 문제 / 다음 결정사항,
+               5개 항목, 과거 이력 누적 없이 최신 스냅샷으로 덮어쓴다).
+            4. 절대로 API 키, Secret, 토큰 등 민감한 값을 코드나 커밋 메시지,
+               PR 설명에 출력하거나 하드코딩하지 않는다.
+            5. 작업이 끝나면 새 브랜치를 만들어 커밋하고 PR을 생성한다.
+               master에 직접 push하지 않는다.
