@@ -51,7 +51,13 @@ function RecommendCard({
 }) {
   const { job, score, reasons } = match
   const [saved, setSaved] = useState(() => isJobSaved(job.id))
-  const applied = hasAppliedToJob(job.id, seekerId)
+  const [applied, setApplied] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    hasAppliedToJob(job.id, seekerId).then((v) => { if (!cancelled) setApplied(v) })
+    return () => { cancelled = true }
+  }, [job.id, seekerId])
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()

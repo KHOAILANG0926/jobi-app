@@ -1,26 +1,17 @@
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import type { JobCategory } from '../types/job'
 import type { Job } from '../types/job'
 
-const supabase = createClient(
-  'https://edhuesdnuxlbcfephutq.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
-)
-
-const ADMIN_PASSWORD = '0926'
-
 type Tab = 'dashboard' | 'post'
-
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTAwODkxNywiZXhwIjoyMDk0NTg0OTE3fQ.HcjCw4pAVGEOPlYB02OIY8I4eepSmNCtGiVL2Fjdu7o'
-const supabaseAdmin = createClient('https://edhuesdnuxlbcfephutq.supabase.co', SERVICE_KEY)
 
 interface Stats {
   koreaJobs: number
   localUsers: number
   localEmployers: number
   localJobs: number
-  authUsers: number
 }
 
 function loadLocalStats(): Pick<Stats, 'localUsers' | 'localEmployers' | 'localJobs'> {
@@ -73,13 +64,12 @@ const CATEGORY_LABELS: Record<JobCategory, string> = {
 }
 
 export default function AdminDashboard() {
-  const [authed, setAuthed] = useState(false)
-  const [pw, setPw] = useState('')
-  const [error, setError] = useState('')
+  const { logout } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
 
   // Dashboard state
-  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0, authUsers: 0 })
+  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
   const [loading, setLoading] = useState(false)
   const [recentAccounts, setRecentAccounts] = useState<{ id: string; name: string; phone: string; role: string; createdAt: string }[]>([])
 
@@ -92,31 +82,23 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  function handleLogin() {
-    if (pw === ADMIN_PASSWORD) {
-      setAuthed(true)
-      setError('')
-    } else {
-      setError('Mật khẩu sai!')
-    }
+  async function handleLogout() {
+    await logout()
+    navigate('/')
   }
 
   useEffect(() => {
-    if (!authed) return
     setLoading(true)
     const local = loadLocalStats()
     try {
       const accounts = JSON.parse(localStorage.getItem('vgb_accounts') || '[]')
       setRecentAccounts(accounts.slice(0, 10))
     } catch {}
-    Promise.all([
-      supabase.from('korea_jobs').select('id', { count: 'exact', head: true }),
-      supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-    ]).then(([{ count }, { data: usersData }]) => {
-      setStats({ ...local, koreaJobs: count ?? 0, authUsers: usersData?.users?.length ?? 0 })
+    supabase.from('korea_jobs').select('id', { count: 'exact', head: true }).then(({ count }) => {
+      setStats({ ...local, koreaJobs: count ?? 0 })
       setLoading(false)
     })
-  }, [authed])
+  }, [])
 
   // Parse Facebook post with Claude AI
   async function handleParse() {
@@ -219,50 +201,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
     setSaving(false)
   }
 
-  // ─── Login screen ───
-  if (!authed) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
-      }}>
-        <div style={{
-          background: '#fff', borderRadius: '20px', padding: '40px 32px',
-          width: '100%', maxWidth: '360px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔐</div>
-            <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#1a1a1a', margin: 0 }}>Quản trị viên</h1>
-            <p style={{ color: '#888', fontSize: '13px', marginTop: '6px' }}>Việc gần Bạn Admin</p>
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <input
-              type="password"
-              placeholder="Nhập mật khẩu quản trị"
-              value={pw}
-              onChange={e => setPw(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              style={{
-                width: '100%', padding: '14px 16px',
-                border: error ? '2px solid #e74c3c' : '2px solid #e0e0e0',
-                borderRadius: '12px', fontSize: '15px', outline: 'none', boxSizing: 'border-box'
-              }}
-            />
-            {error && <p style={{ color: '#e74c3c', fontSize: '13px', marginTop: '8px' }}>{error}</p>}
-          </div>
-          <button onClick={handleLogin} style={{
-            width: '100%', padding: '14px',
-            background: 'linear-gradient(135deg, #c0392b, #e74c3c)',
-            color: '#fff', border: 'none', borderRadius: '12px',
-            fontSize: '15px', fontWeight: 700, cursor: 'pointer'
-          }}>Đăng nhập</button>
-        </div>
-      </div>
-    )
-  }
-
   // ─── Main ───
+  // (인증/권한 검증은 RequireAdmin 래퍼(App.tsx)에서 처리됨 — Supabase Auth 로그인 +
+  //  app_metadata.role === 'admin' 확인. 여기 도달했다는 것은 이미 관리자로 인증된 상태.)
   return (
     <div style={{ background: '#f4f6fb', minHeight: '100vh' }}>
       {/* Header */}
@@ -275,7 +216,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
           <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Dashboard Quản trị</h1>
           <p style={{ fontSize: '13px', opacity: 0.7, margin: '4px 0 0' }}>Việc gần Bạn</p>
         </div>
-        <button onClick={() => setAuthed(false)} style={{
+        <button onClick={handleLogout} style={{
           background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none',
           borderRadius: '8px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer'
         }}>Đăng xuất</button>
@@ -303,7 +244,6 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Tổng người dùng', value: stats.authUsers, icon: '👤', color: '#3498db' },
                   { label: 'Nhà tuyển dụng', value: stats.localEmployers, icon: '🏢', color: '#27ae60' },
                   { label: 'Tin VN đang tuyển', value: stats.localJobs, icon: '📋', color: '#e67e22' },
                   { label: 'Tin Hàn Quốc', value: stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
@@ -324,10 +264,6 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 padding: '20px 24px', color: '#fff', marginBottom: '28px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
               }}>
-                <div>
-                  <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng thành viên</p>
-                  <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>{stats.authUsers}</p>
-                </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng tin tuyển dụng</p>
                   <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>{stats.localJobs + stats.koreaJobs}</p>
@@ -532,14 +468,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                           if (!file) return
                           const ext = file.name.split('.').pop() ?? 'jpg'
                           const filename = `job-upload-${Date.now()}.${ext}`
-                          const { createClient } = await import('@supabase/supabase-js')
-                          const sb = createClient(
-                            'https://edhuesdnuxlbcfephutq.supabase.co',
-                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTAwODkxNywiZXhwIjoyMDk0NTg0OTE3fQ.HcjCw4pAVGEOPlYB02OIY8I4eepSmNCtGiVL2Fjdu7o'
-                          )
-                          const { error } = await sb.storage.from('job-images').upload(filename, file, { contentType: file.type })
+                          const { error } = await supabase.storage.from('job-images').upload(filename, file, { contentType: file.type })
                           if (error) { alert('업로드 실패: ' + error.message); return }
-                          const { data: { publicUrl } } = sb.storage.from('job-images').getPublicUrl(filename)
+                          const { data: { publicUrl } } = supabase.storage.from('job-images').getPublicUrl(filename)
                           setJobForm(f => ({ ...f, imageUrl: publicUrl }))
                         }}
                       />

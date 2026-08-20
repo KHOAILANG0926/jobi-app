@@ -1,4 +1,5 @@
-const KEY = 'vgb_interviews'
+import { toAppJobId, toDbJobId } from './jobId'
+import { supabase } from './supabase'
 
 export type InterviewStatus = 'pending' | 'confirmed' | 'cancelled'
 
@@ -17,67 +18,110 @@ export interface InterviewSlot {
   createdAt: string
 }
 
-function loadAll(): InterviewSlot[] {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as InterviewSlot[]
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
+function rowToSlot(row: Record<string, unknown>): InterviewSlot {
+  return {
+    id: row.id as string,
+    jobId: toAppJobId(row.job_id as number),
+    jobTitle: (row.job_title as string) ?? '',
+    company: (row.company as string) ?? '',
+    seekerId: row.seeker_id as string,
+    seekerName: (row.seeker_name as string) ?? undefined,
+    employerId: row.employer_id as string,
+    datetime: row.datetime as string,
+    location: (row.location as string) ?? '',
+    notes: (row.notes as string) ?? '',
+    status: row.status as InterviewStatus,
+    createdAt: row.created_at as string,
   }
 }
 
-function saveAll(list: InterviewSlot[]): void {
-  localStorage.setItem(KEY, JSON.stringify(list))
+export async function loadSeekerInterviews(seekerId: string): Promise<InterviewSlot[]> {
+  const { data, error } = await supabase
+    .from('interviews')
+    .select('*')
+    .eq('seeker_id', seekerId)
+    .neq('status', 'cancelled')
+    .order('datetime', { ascending: true })
+  if (error) {
+    console.error('loadSeekerInterviews failed', error)
+    return []
+  }
+  return (data ?? []).map(rowToSlot)
+}
+
+export async function loadEmployerInterviews(employerId: string): Promise<InterviewSlot[]> {
+  const { data, error } = await supabase
+    .from('interviews')
+    .select('*')
+    .eq('employer_id', employerId)
+    .neq('status', 'cancelled')
+    .order('datetime', { ascending: true })
+  if (error) {
+    console.error('loadEmployerInterviews failed', error)
+    return []
+  }
+  return (data ?? []).map(rowToSlot)
+}
+
+export async function getInterviewForApplication(jobId: string, seekerId: string): Promise<InterviewSlot | null> {
+  const { data, error } = await supabase
+    .from('interviews')
+    .select('*')
+    .eq('job_id', toDbJobId(jobId))
+    .eq('seeker_id', seekerId)
+    .neq('status', 'cancelled')
+    .maybeSingle()
+  if (error) {
+    console.error('getInterviewForApplication failed', error)
+    return null
+  }
+  return data ? rowToSlot(data) : null
+}
+
+/** 같은 (공고, 지원자) 조합의 기존 슬롯을 대체한다 (upsert on job_id+seeker_id). */
+export async function scheduleInterview(input: Omit<InterviewSlot, 'id' | 'createdAt'>): Promise<InterviewSlot> {
+  const { data, error } = await supabase
+    .from('interviews')
+    .upsert(
+      {
+        job_id: toDbJobId(input.jobId),
+        seeker_id: input.seekerId,
+        employer_id: input.employerId,
+        job_title: input.jobTitle,
+        company: input.company,
+        seeker_name: input.seekerName ?? null,
+        datetime: input.datetime,
+        location: input.location,
+        notes: input.notes,
+        status: input.status,
+      },
+      { onConflict: 'job_id,seeker_id' },
+    )
+    .select('*')
+    .single()
+  if (error || !data) {
+    throw error ?? new Error('scheduleInterview failed')
+  }
+  window.dispatchEvent(new CustomEvent('vgb:interviews'))
+  return rowToSlot(data)
+}
+
+export async function updateInterviewStatus(id: string, status: InterviewStatus): Promise<void> {
+  const { error } = await supabase.from('interviews').update({ status }).eq('id', id)
+  if (error) {
+    console.error('updateInterviewStatus failed', error)
+    return
+  }
   window.dispatchEvent(new CustomEvent('vgb:interviews'))
 }
 
-export function loadSeekerInterviews(seekerId: string): InterviewSlot[] {
-  return loadAll()
-    .filter((s) => s.seekerId === seekerId && s.status !== 'cancelled')
-    .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
-}
-
-export function loadEmployerInterviews(employerId: string): InterviewSlot[] {
-  return loadAll()
-    .filter((s) => s.employerId === employerId && s.status !== 'cancelled')
-    .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
-}
-
-export function getInterviewForApplication(jobId: string, seekerId: string): InterviewSlot | null {
-  return (
-    loadAll().find(
-      (s) => s.jobId === jobId && s.seekerId === seekerId && s.status !== 'cancelled',
-    ) ?? null
-  )
-}
-
-export function scheduleInterview(
-  input: Omit<InterviewSlot, 'id' | 'createdAt'>,
-): InterviewSlot {
-  const slot: InterviewSlot = {
-    ...input,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-  }
-  const all = loadAll()
-  const filtered = all.filter(
-    (s) => !(s.jobId === input.jobId && s.seekerId === input.seekerId),
-  )
-  saveAll([slot, ...filtered])
-  return slot
-}
-
-export function updateInterviewStatus(id: string, status: InterviewStatus): void {
-  const all = loadAll()
-  const idx = all.findIndex((s) => s.id === id)
-  if (idx === -1) return
-  all[idx] = { ...all[idx], status }
-  saveAll(all)
-}
-
+/** 상대방이 만든/바꾼 면접 일정을 실시간으로 반영. */
 export function subscribeInterviews(handler: () => void): () => void {
-  window.addEventListener('vgb:interviews', handler)
-  return () => window.removeEventListener('vgb:interviews', handler)
+  const channel = supabase
+    .channel('interviews-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews' }, () => handler())
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
 }

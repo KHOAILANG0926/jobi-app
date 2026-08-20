@@ -2,6 +2,7 @@ import { FormEvent, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createClient } from '@supabase/supabase-js'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
+import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import type { JobCategory } from '../types/job'
 
@@ -25,6 +26,7 @@ const emptyForm = {
 
 export function PostJob() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { addPostedJob } = useJobs()
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState<string | null>(null)
@@ -91,6 +93,7 @@ export function PostJob() {
         applicationDeadline: deadline,
         urgent: form.urgent,
         imageUrl,
+        employerId: user?.id,
       })
       setForm(emptyForm)
       setImageFile(null)

@@ -4,13 +4,35 @@ import { useAuth } from '../context/AuthContext'
 import { NotificationBell } from './NotificationBell'
 import { ZaloIcon } from './ZaloIcon'
 
-const MENU_ITEMS = [
+function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string; initial: string }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <span className="mega-menu__brand-card-logo" style={{ background: color }}>
+      {logo && !failed
+        ? <img src={logo} alt="" aria-hidden onError={() => setFailed(true)} />
+        : <span className="mega-menu__brand-card-initial">{initial}</span>
+      }
+    </span>
+  )
+}
+
+interface MenuLink { label: string; to: string }
+interface MenuCard { label: string; to: string; color: string; logo?: string; initial: string }
+interface MenuItem {
+  label: string
+  to: string
+  end?: boolean
+  dropdown?: { heading: string; links: MenuLink[] }[]
+  cards?: MenuCard[]
+}
+
+const MENU_ITEMS: MenuItem[] = [
   {
     label: 'Việc làm',
     to: '/',
     end: true,
     dropdown: [
-      { heading: 'Việc làm phổ biến', links: [
+      { heading: 'Phổ biến', links: [
         { label: 'Tất cả việc làm', to: '/' },
         { label: '🔥 Tuyển gấp', to: '/?urgent=1' },
         { label: '📍 Gần tôi', to: '/?near=1' },
@@ -18,42 +40,29 @@ const MENU_ITEMS = [
       { heading: 'Theo khu vực', links: [
         { label: 'Hà Nội', to: '/?region=hanoi' },
         { label: 'TP. Hồ Chí Minh', to: '/?region=hcm' },
-        { label: 'Đà Nẵng', to: '/?region=danang' },
-        { label: 'Hải Phòng', to: '/?region=haiphong' },
-        { label: 'Cần Thơ', to: '/?region=cantho' },
         { label: 'Bắc Ninh', to: '/?region=bacninh' },
+        { label: 'Hải Phòng', to: '/?region=haiphong' },
+        { label: 'Đà Nẵng', to: '/?region=danang' },
       ]},
       { heading: 'Theo ngành', links: [
-        { label: '🏭 Nhà máy / Công nghiệp', to: '/?cat=factory' },
-        { label: '☕ Cà phê / Nhà hàng', to: '/?cat=cafe' },
-        { label: '🛵 Giao hàng', to: '/?cat=delivery' },
-        { label: '🛍️ Bán lẻ', to: '/?cat=retail' },
+        { label: '☕ Cà phê / Nhà hàng / F&B', to: '/?cat=cafe' },
+        { label: '💼 Văn phòng / Part-time / Nhập liệu', to: '/?cat=office' },
+        { label: '🛍️ Bán lẻ / Siêu thị / Cửa hàng', to: '/?cat=retail' },
+        { label: '🏭 Nhà máy / Sản xuất / KCN', to: '/?cat=factory' },
+        { label: '🛵 Giao hàng / Kho vận / Tài xế', to: '/?cat=delivery' },
         { label: '🧹 Vệ sinh / Giúp việc', to: '/?cat=cleaning' },
-        { label: '✨ Khác', to: '/?cat=other' },
+        { label: '🇰🇷 Lao động Hàn Quốc', to: '/viec-han-quoc' },
       ]},
     ],
   },
   {
     label: 'Thương hiệu',
     to: '/franchise-jobs',
-    dropdown: [
-      { heading: 'Thương hiệu nổi bật', links: [
-        { label: 'GrabFood', to: '/?brand=Grab' },
-        { label: 'Highlands Coffee', to: '/?brand=Highlands' },
-        { label: 'Shopee', to: '/?brand=Shopee' },
-        { label: 'WinMart', to: '/?brand=WinMart' },
-        { label: 'Circle K', to: '/?brand=Circle K' },
-        { label: 'FamilyMart', to: '/?brand=FamilyMart' },
-        { label: 'Jollibee', to: '/?brand=Jollibee' },
-        { label: 'KFC', to: '/?brand=KFC' },
-      ]},
-      { heading: 'Theo loại hình', links: [
-        { label: '☕ Cà phê · Trà sữa', to: '/?cat=cafe' },
-        { label: '🍽️ Nhà hàng · Ẩm thực', to: '/?cat=restaurant' },
-        { label: '🛍️ Siêu thị · Cửa hàng', to: '/?cat=retail' },
-        { label: '🛵 Giao hàng · Vận chuyển', to: '/?cat=delivery' },
-        { label: '🏭 Sản xuất · Nhà máy', to: '/?cat=factory' },
-      ]},
+    cards: [
+      { label: 'Jollibee', to: '/?brand=Jollibee', color: '#ce1126', logo: 'https://www.google.com/s2/favicons?sz=64&domain=jollibee.com.vn', initial: 'J' },
+      { label: 'The Orange Coffee', to: '/?brand=Orange Coffee', color: '#f97316', initial: 'O' },
+      { label: "D'monter (Bingsu)", to: "/?brand=D'monter", color: '#ec4899', initial: 'D' },
+      { label: 'Coca-Cola', to: '/?brand=Coca-Cola', color: '#e2231a', logo: 'https://www.google.com/s2/favicons?sz=64&domain=coca-cola.com', initial: 'C' },
     ],
   },
   {
@@ -184,6 +193,24 @@ export function Layout() {
                                   ))}
                                 </ul>
                               </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {item.cards && openMenu === i && (
+                        <div className="mega-menu mega-menu--cards">
+                          <div className="mega-menu__brand-grid">
+                            {item.cards.map((card, ci) => (
+                              <button
+                                key={ci}
+                                type="button"
+                                className="mega-menu__brand-card"
+                                onClick={() => { setOpenMenu(null); navigate(card.to) }}
+                              >
+                                <BrandCardLogo color={card.color} logo={card.logo} initial={card.initial} />
+                                <span className="mega-menu__brand-card-label">{card.label}</span>
+                              </button>
                             ))}
                           </div>
                         </div>

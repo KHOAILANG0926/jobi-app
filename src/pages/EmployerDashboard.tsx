@@ -6,6 +6,7 @@ import { CATEGORY_LABELS } from '../data/categories'
 import {
   APPLICATION_STATUS_META,
   loadApplications,
+  subscribeApplications,
   updateApplicationStatus,
   type ApplicationStatus,
   type JobApplication,
@@ -19,7 +20,7 @@ import {
   type MessageThread,
 } from '../lib/messagesStorage'
 import { ScheduleInterviewModal } from '../components/ScheduleInterviewModal'
-import { getInterviewForApplication } from '../lib/interviewStorage'
+import { loadEmployerInterviews, subscribeInterviews, type InterviewSlot } from '../lib/interviewStorage'
 import type { Job } from '../types/job'
 
 type Tab = 'jobs' | 'applicants' | 'messages'
@@ -47,10 +48,14 @@ export function EmployerDashboard() {
   const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null)
 
   useEffect(() => {
-    setApplications(loadApplications())
-    const handler = () => setApplications(loadApplications())
+    const handler = () => { loadApplications().then(setApplications) }
+    handler()
     window.addEventListener('vgb:applications', handler)
-    return () => window.removeEventListener('vgb:applications', handler)
+    const unsubscribe = subscribeApplications(handler)
+    return () => {
+      window.removeEventListener('vgb:applications', handler)
+      unsubscribe()
+    }
   }, [])
 
   if (!user) return null
@@ -63,28 +68,39 @@ export function EmployerDashboard() {
   const myJobIds = useMemo(() => new Set(myJobs.map((j) => j.id)), [myJobs])
   const myJobIdsArr = useMemo(() => myJobs.map((j) => j.id), [myJobs])
 
-  // Message threads for this employer's jobs
+  // 지원자 목록 렌더 시 행마다 개별 조회하지 않도록 한 번에 불러와 Map으로 캐시
+  const [interviewsByKey, setInterviewsByKey] = useState<Map<string, InterviewSlot>>(new Map())
   useEffect(() => {
     const sync = () => {
-      const threads = loadEmployerThreads(myJobIdsArr)
-      setMsgThreads(threads)
-      setActiveMsgId((cur) => {
-        if (cur && threads.some((t) => t.jobId === cur)) return cur
-        return threads[0]?.jobId ?? null
+      loadEmployerInterviews(user.id).then((list) => {
+        setInterviewsByKey(new Map(list.map((s) => [`${s.jobId}:${s.seekerId}`, s])))
       })
+    }
+    sync()
+    return subscribeInterviews(sync)
+  }, [user.id])
+
+  // Message threads for this employer's jobs (지원자별로 분리된 채로 표시)
+  const [msgUnreadCount, setMsgUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const sync = () => {
+      loadEmployerThreads(myJobIdsArr).then((threads) => {
+        setMsgThreads(threads)
+        setActiveMsgId((cur) => {
+          if (cur && threads.some((t) => t.id === cur)) return cur
+          return threads[0]?.id ?? null
+        })
+      })
+      countUnreadForEmployer(myJobIdsArr).then(setMsgUnreadCount)
     }
     sync()
     return subscribeMessages(sync)
   }, [myJobIdsArr.join(',')])
 
   const activeMsg = useMemo(
-    () => msgThreads.find((t) => t.jobId === activeMsgId) ?? null,
+    () => msgThreads.find((t) => t.id === activeMsgId) ?? null,
     [msgThreads, activeMsgId],
-  )
-
-  const msgUnreadCount = useMemo(
-    () => countUnreadForEmployer(myJobIdsArr),
-    [myJobIdsArr, msgThreads],
   )
 
   // Auto-scroll messages
@@ -98,16 +114,18 @@ export function EmployerDashboard() {
   }, [activeMsgId, activeMsg?.messages.length])
 
 
-  const handleSelectMsg = (jobId: string) => {
-    setActiveMsgId(jobId)
-    markReadByEmployer(jobId)
+  const handleSelectMsg = (threadId: string) => {
+    setActiveMsgId(threadId)
+    markReadByEmployer(threadId)
   }
 
-  const sendMsg = () => {
+  const sendMsg = async () => {
     if (!activeMsg || !msgDraft.trim()) return
-    appendEmployerMessage(activeMsg.jobId, msgDraft.trim())
+    const body = msgDraft.trim()
     setMsgDraft('')
     msgTextareaRef.current?.focus()
+    await appendEmployerMessage(activeMsg.id, body)
+    loadEmployerThreads(myJobIdsArr).then(setMsgThreads)
   }
 
   const onMsgKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -143,9 +161,9 @@ export function EmployerDashboard() {
     [myApplications, filterJobId],
   )
 
-  const handleStatusChange = (key: string, status: ApplicationStatus) => {
-    updateApplicationStatus(key, status)
-    setApplications(loadApplications())
+  const handleStatusChange = async (key: string, status: ApplicationStatus) => {
+    await updateApplicationStatus(key, status)
+    setApplications(await loadApplications())
   }
 
   const handleDelete = (job: Job) => {
@@ -318,11 +336,11 @@ export function EmployerDashboard() {
             <div className="messages-inbox__layout">
               <ul className="messages-inbox__list">
                 {msgThreads.map((t) => (
-                  <li key={t.jobId}>
+                  <li key={t.id}>
                     <button
                       type="button"
-                      className={`messages-inbox__thread${t.jobId === activeMsgId ? ' messages-inbox__thread--active' : ''}`}
-                      onClick={() => handleSelectMsg(t.jobId)}
+                      className={`messages-inbox__thread${t.id === activeMsgId ? ' messages-inbox__thread--active' : ''}`}
+                      onClick={() => handleSelectMsg(t.id)}
                     >
                       <span className="messages-inbox__thread-top">
                         <span className="messages-inbox__thread-title">
@@ -464,7 +482,12 @@ export function EmployerDashboard() {
                         }
                         aria-label={`Trạng thái ứng tuyển của ${app.seekerName ?? 'ứng viên'}`}
                       >
-                        {(Object.keys(APPLICATION_STATUS_META) as ApplicationStatus[]).map((s) => (
+                        {app.status === 'submitted' && (
+                          <option value="submitted" disabled>
+                            {APPLICATION_STATUS_META.submitted.labelVi}
+                          </option>
+                        )}
+                        {(['reviewing', 'interview', 'accepted', 'rejected'] as ApplicationStatus[]).map((s) => (
                           <option key={s} value={s}>
                             {APPLICATION_STATUS_META[s].labelVi}
                           </option>
@@ -472,7 +495,7 @@ export function EmployerDashboard() {
                       </select>
                       {(() => {
                         const slot = app.seekerId
-                          ? getInterviewForApplication(app.jobId, app.seekerId)
+                          ? interviewsByKey.get(`${app.jobId}:${app.seekerId}`) ?? null
                           : null
                         return slot ? (
                           <span className="edb-interview-badge">
@@ -502,7 +525,7 @@ export function EmployerDashboard() {
         app={scheduleTarget}
         employerId={user.id}
         onClose={() => setScheduleTarget(null)}
-        onScheduled={() => setApplications(loadApplications())}
+        onScheduled={() => { loadApplications().then(setApplications) }}
       />
     </div>
   )

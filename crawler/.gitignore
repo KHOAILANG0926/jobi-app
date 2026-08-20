@@ -1,0 +1,4 @@
+.env
+jobs_output.json
+__pycache__/
+*.pyc

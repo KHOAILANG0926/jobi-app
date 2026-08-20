@@ -14,11 +14,13 @@ interface MessageEmployerModalProps {
 export function MessageEmployerModal({ open, job, user, onClose }: MessageEmployerModalProps) {
   const [body, setBody] = useState('')
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     if (!open) {
       setBody('')
       setSent(false)
+      setSending(false)
     }
   }, [open])
 
@@ -33,10 +35,12 @@ export function MessageEmployerModal({ open, job, user, onClose }: MessageEmploy
 
   if (!open) return null
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!user || user.role !== 'seeker' || !body.trim()) return
-    appendSeekerMessage(job, body.trim())
+    setSending(true)
+    await appendSeekerMessage(job, body.trim())
+    setSending(false)
     setSent(true)
     window.setTimeout(() => {
       onClose()
@@ -102,8 +106,8 @@ export function MessageEmployerModal({ open, job, user, onClose }: MessageEmploy
               <button type="button" className="btn btn--ghost" onClick={onClose}>
                 Huỷ
               </button>
-              <button type="submit" className="btn btn--primary" disabled={!body.trim()}>
-                Gửi tin nhắn
+              <button type="submit" className="btn btn--primary" disabled={!body.trim() || sending}>
+                {sending ? 'Đang gửi...' : 'Gửi tin nhắn'}
               </button>
             </div>
           </form>

@@ -17,34 +17,50 @@ import { withJobCoordinates } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
 /* ── Description renderer ── */
+// Quyền lợi 섹션에서 급여/보상 관련 문구는 눈에 띄게 볼드 처리
+const BENEFIT_HIGHLIGHT_RE = /lương|thưởng|thu nhập|phụ cấp|bảo hiểm/i
+
 function DescriptionRenderer({ text }: { text: string }) {
   if (text.startsWith('http')) return null
   const blocks = text.split(/\n\n+/)
   return (
-    <div className="jd2-desc">
+    <>
       {blocks.map((block, i) => {
         if (block.startsWith('## ')) {
           const [heading, ...lines] = block.split('\n')
+          const headingText = heading.replace('## ', '')
+          const isBenefits = /quyền lợi/i.test(headingText)
           return (
-            <div key={i} className="jd2-desc__section">
-              <h4 className="jd2-desc__heading">{heading.replace('## ', '')}</h4>
-              <ul className="jd2-desc__list">
-                {lines.map((line, j) =>
-                  line.startsWith('• ')
-                    ? <li key={j} className="jd2-desc__item">{line.replace('• ', '')}</li>
-                    : line.trim()
-                      ? <p key={j} className="jd2-desc__line">{line}</p>
-                      : null
-                )}
-              </ul>
+            <div key={i} className="jd2-card jd2-desc-card">
+              <h2 className="jd2-card__title">{headingText}</h2>
+              <div className="jd2-card__body">
+                <ul className="jd2-desc__list">
+                  {lines.map((line, j) => {
+                    if (line.startsWith('• ')) {
+                      const content = line.replace('• ', '')
+                      const highlight = isBenefits && BENEFIT_HIGHLIGHT_RE.test(content)
+                      return (
+                        <li key={j} className={`jd2-desc__item${highlight ? ' jd2-desc__item--highlight' : ''}`}>
+                          {content}
+                        </li>
+                      )
+                    }
+                    return line.trim() ? <p key={j} className="jd2-desc__line">{line}</p> : null
+                  })}
+                </ul>
+              </div>
             </div>
           )
         }
         return (
-          <p key={i} className="jd2-desc__para">{block}</p>
+          <div key={i} className="jd2-card jd2-desc-card">
+            <div className="jd2-card__body">
+              <p className="jd2-desc__para">{block}</p>
+            </div>
+          </div>
         )
       })}
-    </div>
+    </>
   )
 }
 
@@ -57,14 +73,19 @@ export function JobDetail() {
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
-  const [applied, setApplied] = useState(() => (id ? hasAppliedToJob(id, user?.id) : false))
+  const [applied, setApplied] = useState(false)
+  const [applying, setApplying] = useState(false)
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
   const coords = useMemo(() => (job ? withJobCoordinates(job) : null), [job])
 
   useEffect(() => {
-    if (job) setApplied(hasAppliedToJob(job.id, user?.id))
-  }, [job?.id, user?.id])
+    // 크롤링 공고(employerId 없음)는 내부 지원을 아예 만들지 않으므로 조회도 스킵
+    if (!job || !job.employerId) return
+    let cancelled = false
+    hasAppliedToJob(job.id, user?.id).then((v) => { if (!cancelled) setApplied(v) })
+    return () => { cancelled = true }
+  }, [job?.id, job?.employerId, user?.id])
 
   if (!id || !job) {
     return (
@@ -80,23 +101,69 @@ export function JobDetail() {
   const zaloHref = zaloMeUrl(job.zalo || job.employerPhone)
   const showMessageCta = user?.role !== 'employer'
 
-  const onOneClickApply = () => {
+  // 크롤링 공고(local_jobs.employer_id가 NULL)는 소유 기업이 없어 내부 지원을 만들면
+  // 아무도 조회할 수 없는 "고아 지원"이 되므로 생성하지 않는다.
+  // 크롤러가 본문 없이 원본 링크만 저장한 경우 description 자체가 URL이 되는 기존 패턴
+  // (DescriptionRenderer의 text.startsWith('http') 처리와 동일)을 그대로 활용.
+  const canApplyInternally = !!job.employerId
+  const sourceUrl = !canApplyInternally && job.description?.startsWith('http')
+    ? job.description
+    : undefined
+
+  const onOneClickApply = async () => {
     if (!user) {
       navigate('/dang-nhap', { state: { from: `/viec-lam/${job.id}` } })
       return
     }
-    if (hasAppliedToJob(job.id, user.id)) {
-      setToastMsg('Bạn đã ứng tuyển tin này trước đó.')
-      setToastOpen(true)
-      return
-    }
-    const res = addApplication({ jobId: job.id, jobTitle: job.title, company: job.company, seekerId: user.id })
-    if (res.ok) {
-      setApplied(true)
-      setToastMsg('Đã ứng tuyển thành công!')
-      setToastOpen(true)
+    if (applying) return
+    setApplying(true)
+    try {
+      if (await hasAppliedToJob(job.id, user.id)) {
+        setApplied(true)
+        setToastMsg('Bạn đã ứng tuyển tin này trước đó.')
+        setToastOpen(true)
+        return
+      }
+      const res = await addApplication({ jobId: job.id, jobTitle: job.title, company: job.company, employerId: job.employerId, seekerId: user.id })
+      if (res.ok) {
+        setApplied(true)
+        setToastMsg('Đã ứng tuyển thành công!')
+        setToastOpen(true)
+      } else if (res.reason === 'duplicate') {
+        setApplied(true)
+        setToastMsg('Bạn đã ứng tuyển tin này trước đó.')
+        setToastOpen(true)
+      } else {
+        setToastMsg('Có lỗi xảy ra, vui lòng thử lại.')
+        setToastOpen(true)
+      }
+    } finally {
+      setApplying(false)
     }
   }
+
+  const onApplyClick = () => {
+    if (canApplyInternally) {
+      onOneClickApply()
+      return
+    }
+    if (sourceUrl) {
+      window.open(sourceUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+    setToastMsg('Tin này chưa hỗ trợ ứng tuyển trực tuyến. Vui lòng liên hệ trực tiếp qua thông tin công ty.')
+    setToastOpen(true)
+  }
+
+  const applyLabel = canApplyInternally
+    ? (applied ? 'Đã ứng tuyển' : applying ? 'Đang gửi...' : 'Ứng tuyển ngay')
+    : (sourceUrl ? 'Xem tin gốc & Ứng tuyển ↗' : 'Ứng tuyển ngay')
+
+  const applyHint = canApplyInternally
+    ? 'Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ'
+    : sourceUrl
+      ? 'Tin từ nguồn bên ngoài — ứng tuyển trực tiếp tại trang gốc'
+      : 'Vui lòng liên hệ trực tiếp qua thông tin công ty bên dưới'
 
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
@@ -230,22 +297,21 @@ export function JobDetail() {
             </div>
           </div>
 
-          {/* ── Description ── */}
-          {(job.imageUrl || (job.description && !job.description.startsWith('http'))) && (
-            <div className="jd2-card jd2-card--desc">
-              <h2 className="jd2-card__title">Mô tả công việc</h2>
+          {/* ── Images ── */}
+          {job.imageUrl && (
+            <div className="jd2-card">
               <div className="jd2-card__body">
-                {job.imageUrl && (
-                  <>
-                    <img src={job.imageUrl} alt={job.title} className="jd2-desc-img" />
-                    {job.images?.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
-                      <img key={i} src={url} alt={`${job.title} ${i + 2}`} className="jd2-desc-img" />
-                    ))}
-                  </>
-                )}
-                {job.description && <DescriptionRenderer text={job.description} />}
+                <img src={job.imageUrl} alt={job.title} className="jd2-desc-img" />
+                {job.images?.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
+                  <img key={i} src={url} alt={`${job.title} ${i + 2}`} className="jd2-desc-img" />
+                ))}
               </div>
             </div>
+          )}
+
+          {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
+          {job.description && !job.description.startsWith('http') && (
+            <DescriptionRenderer text={job.description} />
           )}
 
           {/* ── Map ── */}
@@ -286,12 +352,12 @@ export function JobDetail() {
           <button
             type="button"
             className="jd2-btn-apply"
-            onClick={onOneClickApply}
-            disabled={applied}
+            onClick={onApplyClick}
+            disabled={canApplyInternally && (applied || applying)}
           >
-            {applied ? 'Đã ứng tuyển' : 'Ứng tuyển ngay'}
+            {applyLabel}
           </button>
-          <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
+          <span className="jd2-aside-hint">{applyHint}</span>
 
           {/* Zalo */}
           {job.employerPhone && (
@@ -311,7 +377,8 @@ export function JobDetail() {
 
           {/* Message employer */}
           {showMessageCta && (
-            <button type="button" className="jd2-btn-ghost" onClick={() => setMessageOpen(true)}>
+            <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
+              <MessageCircle size={17} strokeWidth={2} />
               Nhắn tin nhà tuyển dụng
             </button>
           )}
@@ -328,6 +395,24 @@ export function JobDetail() {
             }
           </button>
         </aside>
+      </div>
+
+      {/* ── Mobile floating CTA bar ── */}
+      <div className="jd2-mobile-cta">
+        {job.employerPhone && (
+          <a href={zaloHref} target="_blank" rel="noopener noreferrer" className="jd2-mobile-cta__zalo">
+            <MessageCircle size={18} strokeWidth={2} />
+            Chat qua Zalo
+          </a>
+        )}
+        <button
+          type="button"
+          className="jd2-mobile-cta__apply"
+          onClick={onApplyClick}
+          disabled={canApplyInternally && (applied || applying)}
+        >
+          {applyLabel}
+        </button>
       </div>
 
       <Toast message={toastMsg} open={toastOpen} onClose={() => setToastOpen(false)} />

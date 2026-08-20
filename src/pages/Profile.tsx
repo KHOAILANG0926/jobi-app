@@ -7,9 +7,10 @@ import { useJobs } from '../context/JobsContext'
 
 import {
   APPLICATION_STATUS_META,
+  cancelApplication,
   loadApplications,
-  updateApplicationStatus,
-  type ApplicationStatus,
+  subscribeApplications,
+  type JobApplication,
 } from '../lib/applicationsStorage'
 import { StatusTimeline } from '../components/StatusTimeline'
 import { hasSavedCv } from '../lib/cvCompleteness'
@@ -31,14 +32,12 @@ export function Profile() {
   const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds())
   const [savedMsg, setSavedMsg] = useState(false)
   const [seekerTab, setSeekerTab] = useState<SeekerTab>('info')
-  const [applications, setApplications] = useState(() => loadApplications())
+  const [applications, setApplications] = useState<JobApplication[]>([])
   const [cvHint, setCvHint] = useState<string | null>(null)
   const [cvSaved, setCvSaved] = useState(() => hasSavedCv())
-  const [unreadMsgCount, setUnreadMsgCount] = useState(() => countUnreadForSeeker())
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0)
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null)
-  const [interviews, setInterviews] = useState<InterviewSlot[]>(() =>
-    user ? loadSeekerInterviews(user.id) : [],
-  )
+  const [interviews, setInterviews] = useState<InterviewSlot[]>([])
 
   useEffect(() => {
     const syncSaved = () => setSavedIds(loadSavedJobIds())
@@ -54,12 +53,15 @@ export function Profile() {
   }, [])
 
   useEffect(() => {
-    const syncApps = () => setApplications(loadApplications())
+    const syncApps = () => { loadApplications().then(setApplications) }
+    syncApps()
     window.addEventListener('vgb:applications', syncApps)
     window.addEventListener('focus', syncApps)
+    const unsubscribe = subscribeApplications(syncApps)
     return () => {
       window.removeEventListener('vgb:applications', syncApps)
       window.removeEventListener('focus', syncApps)
+      unsubscribe()
     }
   }, [])
 
@@ -76,13 +78,14 @@ export function Profile() {
   }, [])
 
   useEffect(() => {
-    const sync = () => setUnreadMsgCount(countUnreadForSeeker())
+    const sync = () => { countUnreadForSeeker().then(setUnreadMsgCount) }
+    sync()
     return subscribeMessages(sync)
   }, [])
 
   useEffect(() => {
     if (!user) return
-    const sync = () => setInterviews(loadSeekerInterviews(user.id))
+    const sync = () => { loadSeekerInterviews(user.id).then(setInterviews) }
     sync()
     return subscribeInterviews(sync)
   }, [user?.id])
@@ -468,25 +471,12 @@ export function Profile() {
                         </p>
                       </div>
                       <div className="applications-list__right">
-                        <label className="applications-list__status">
-                          <span className="visually-hidden">Trạng thái đơn ứng tuyển</span>
-                          <select
-                            className={`applications-list__select app-status-select ${APPLICATION_STATUS_META[a.status].badgeClass}`}
-                            value={a.status}
-                            aria-label={`Trạng thái: ${APPLICATION_STATUS_META[a.status].labelVi}`}
-                            onChange={(e) => {
-                              const st = e.target.value as ApplicationStatus
-                              updateApplicationStatus(a.id ?? a.appliedAt, st)
-                              setApplications(loadApplications())
-                            }}
-                          >
-                            {(Object.keys(APPLICATION_STATUS_META) as ApplicationStatus[]).map((k) => (
-                              <option key={k} value={k}>
-                                {APPLICATION_STATUS_META[k].labelVi}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <span
+                          className={`applications-list__select app-status-select ${APPLICATION_STATUS_META[a.status].badgeClass}`}
+                          aria-label={`Trạng thái: ${APPLICATION_STATUS_META[a.status].labelVi}`}
+                        >
+                          {APPLICATION_STATUS_META[a.status].labelVi}
+                        </span>
                         <button
                           type="button"
                           className="applications-list__timeline-btn"
@@ -494,6 +484,18 @@ export function Profile() {
                           aria-expanded={isExpanded}
                         >
                           {isExpanded ? 'Ẩn lịch sử ▲' : 'Lịch sử ▼'}
+                        </button>
+                        <button
+                          type="button"
+                          className="applications-list__timeline-btn"
+                          onClick={async () => {
+                            if (!a.id) return
+                            if (!window.confirm('Bạn có chắc muốn hủy đơn ứng tuyển này?')) return
+                            await cancelApplication(a.id)
+                            setApplications(await loadApplications())
+                          }}
+                        >
+                          Hủy đơn
                         </button>
                       </div>
                     </div>

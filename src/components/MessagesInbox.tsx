@@ -20,8 +20,8 @@ function formatTime(iso: string) {
 
 export function MessagesInbox() {
   const { user } = useAuth()
-  const [threads, setThreads] = useState<MessageThread[]>(() => loadThreads())
-  const [activeId, setActiveId] = useState<string | null>(() => loadThreads()[0]?.jobId ?? null)
+  const [threads, setThreads] = useState<MessageThread[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [typing, setTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -29,11 +29,12 @@ export function MessagesInbox() {
 
   useEffect(() => {
     const sync = () => {
-      const next = loadThreads()
-      setThreads(next)
-      setActiveId((cur) => {
-        if (cur && next.some((t) => t.jobId === cur)) return cur
-        return next[0]?.jobId ?? null
+      loadThreads().then((next) => {
+        setThreads(next)
+        setActiveId((cur) => {
+          if (cur && next.some((t) => t.jobId === cur)) return cur
+          return next[0]?.jobId ?? null
+        })
       })
     }
     sync()
@@ -68,20 +69,22 @@ export function MessagesInbox() {
     markReadBySeeker(jobId)
   }
 
-  const send = () => {
+  const send = async () => {
     if (!active || !draft.trim()) return
-    appendSeekerMessage(
+    const body = draft
+    setDraft('')
+    textareaRef.current?.focus()
+    await appendSeekerMessage(
       {
         id: active.jobId,
         title: active.jobTitle,
         company: active.company,
         employerPhone: active.employerPhone ?? '',
       },
-      draft,
+      body,
       user?.name,
     )
-    setDraft('')
-    textareaRef.current?.focus()
+    loadThreads().then(setThreads)
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

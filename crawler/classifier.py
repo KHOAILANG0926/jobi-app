@@ -69,11 +69,15 @@ _DELIVERY = re.compile(
 )
 
 # 2. 청소 / 가사 / 돌봄 (Vệ sinh / Giúp việc)
+# 주의: 've sinh'(위생) 단독 키워드는 F&B/유통 공고 설명문에도 상용구로
+# 매우 흔하게 등장(예: "đảm bảo tiêu chuẩn vệ sinh của cửa hàng")하므로
+# 과매칭을 유발함. 실제 청소 "직무"를 가리키는 복합구문만 매칭한다.
 _CLEANING = re.compile(
-    r"ve sinh\b|giup viec|lao cong|don dep|tạp vu\b|tap vu\b"
+    r"nhan vien ve sinh|cong nhan ve sinh|to ve sinh\b|doi ve sinh\b"
+    r"|ve sinh cong nghiep|ve sinh van phong|ve sinh toa nha|ve sinh moi truong"
+    r"|giup viec|lao cong\b|don dep nha|tạp vu\b|tap vu\b"
     r"|trong tre|bao mau|cham soc nguoi cao tuoi|cham soc tre"
-    r"|dich vu nha|housekeeper|janitor|cleaner\b"
-    r"|cong nhan ve sinh|nhan vien ve sinh"
+    r"|dich vu don dep|dich vu nha|housekeeper|janitor|cleaner\b"
 )
 
 # 3. 공장 / 생산 (Nhà máy / Sản xuất)
@@ -101,12 +105,15 @@ _CAFE = re.compile(
 )
 
 # 5. 식당 / F&B / 주방 (Nhà hàng / Ẩm thực)
+# 주의: 'phục vụ'(서빙/service) 단독 키워드는 "phục vụ công việc/khách hàng"처럼
+# 업종 무관 상용구에도 흔하게 등장해 과매칭을 유발함. 실제 서빙 "직무"를
+# 가리키는 복합구문만 매칭한다.
 _RESTAURANT = re.compile(
     r"nha hang\b|quan an\b|quan nhau|beer club|bia hoi"
     r"|hai san\b|lau\b|buffet\b|bbq\b|nuong\b|dim sum"
     r"|jollibee|kfc\b|lotteria|mcdonald|burger king|pizza\b|subway\b"
     r"|haidilao|pho\b|bun\b|com rang|an uong|am thuc"
-    r"|phuc vu ban|phuc vu nha hang|phuc vu\b|nhan vien phuc vu"
+    r"|phuc vu ban|phuc vu nha hang|phuc vu khach|nhan vien phuc vu"
     r"|phu bep|bep chinh|bep truong|dau bep|nau an"
     r"|fb\b|fnb\b|f&b|f and b|food.?beverage"
     r"|rua bat|rua chen|don ban|quan ly nha hang"

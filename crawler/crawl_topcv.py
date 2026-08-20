@@ -54,6 +54,11 @@ CATEGORY_URLS = [
     "https://vieclam24h.vn/viec-lam-hai-phong.html",
     "https://vieclam24h.vn/viec-lam-da-nang.html",
     "https://vieclam24h.vn/viec-lam-can-tho.html",
+    # ── 대표 브랜드 키워드 검색 (Thương hiệu 드롭다운 카드 실데이터 확보용) ──
+    # URL 패턴은 실제 검색창 제출로 확인됨: /tim-kiem-viec-lam-nhanh?q=<keyword>
+    "https://vieclam24h.vn/tim-kiem-viec-lam-nhanh?q=Highlands+Coffee",
+    "https://vieclam24h.vn/tim-kiem-viec-lam-nhanh?q=WinMart",
+    "https://vieclam24h.vn/tim-kiem-viec-lam-nhanh?q=Grab",
 ]
 
 

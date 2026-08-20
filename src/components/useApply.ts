@@ -44,7 +44,7 @@ export function useApply() {
     setStatus('loading')
     await new Promise<void>((r) => setTimeout(r, 800))
     const p = buildProfile()
-    const res = addApplication({
+    const res = await addApplication({
       jobId: job.id,
       jobTitle: job.title,
       company: job.company,

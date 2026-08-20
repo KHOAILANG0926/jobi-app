@@ -37,6 +37,7 @@ function rowToJob(r: Record<string, unknown>): Job {
     location: (r.location as string) ?? '',
     hours: (r.hours as string) ?? '',
     employerPhone: (r.employer_phone as string) ?? '',
+    zalo: (r.zalo as string) ?? undefined,
     applicationDeadline: (r.application_deadline as string) ?? '',
     urgent: (r.urgent as boolean) ?? false,
     description,
@@ -90,7 +91,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const { data } = await supabase
       .from('local_jobs')
-      .select('id,title,company,category,salary,location,hours,employer_phone,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images')
+      .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images')
       .eq('active', true)
       .order('posted_at', { ascending: false })
     const fetched = (data ?? []).map(rowToJob)

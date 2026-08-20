@@ -25,6 +25,8 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
   const [customLocation, setCustomLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [done, setDone] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     if (!open) {
@@ -34,6 +36,8 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
       setCustomLocation('')
       setNotes('')
       setDone(false)
+      setSaving(false)
+      setError(false)
     }
   }, [open])
 
@@ -48,27 +52,34 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
 
   const resolvedLocation = location === 'Khác' ? customLocation : location
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!date || !time || !resolvedLocation.trim()) return
-
-    scheduleInterview({
-      jobId: app.jobId,
-      jobTitle: app.jobTitle,
-      company: app.company,
-      seekerId: app.seekerId ?? '',
-      seekerName: app.seekerName,
-      employerId,
-      datetime: `${date}T${time}:00`,
-      location: resolvedLocation.trim(),
-      notes: notes.trim(),
-      status: 'pending',
-    })
-
-    updateApplicationStatus(app.id ?? app.appliedAt, 'interview')
-    onScheduled()
-    setDone(true)
-    window.setTimeout(onClose, 1400)
+    if (!date || !time || !resolvedLocation.trim() || saving) return
+    setSaving(true)
+    setError(false)
+    try {
+      await scheduleInterview({
+        jobId: app.jobId,
+        jobTitle: app.jobTitle,
+        company: app.company,
+        seekerId: app.seekerId ?? '',
+        seekerName: app.seekerName,
+        employerId,
+        datetime: `${date}T${time}:00`,
+        location: resolvedLocation.trim(),
+        notes: notes.trim(),
+        status: 'pending',
+      })
+      if (app.id) await updateApplicationStatus(app.id, 'interview')
+      onScheduled()
+      setDone(true)
+      window.setTimeout(onClose, 1400)
+    } catch (err) {
+      console.error('scheduleInterview failed', err)
+      setError(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -160,6 +171,12 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
               />
             </label>
 
+            {error && (
+              <p className="hint" style={{ color: '#e53935' }}>
+                Có lỗi xảy ra, vui lòng thử lại.
+              </p>
+            )}
+
             <div className="modal-panel__actions">
               <button type="button" className="btn btn--ghost" onClick={onClose}>
                 Huỷ
@@ -167,9 +184,9 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
               <button
                 type="submit"
                 className="btn btn--primary"
-                disabled={!date || !time || (location === 'Khác' && !customLocation.trim())}
+                disabled={saving || !date || !time || (location === 'Khác' && !customLocation.trim())}
               >
-                Xác nhận hẹn
+                {saving ? 'Đang lưu...' : 'Xác nhận hẹn'}
               </button>
             </div>
           </form>

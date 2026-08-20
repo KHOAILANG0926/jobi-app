@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { RequireAdmin } from './components/RequireAdmin'
 import { RequireEmployer } from './components/RequireEmployer'
 import { AuthProvider } from './context/AuthContext'
 import { JobsProvider } from './context/JobsContext'
@@ -57,7 +58,7 @@ export default function App() {
                 <Route path="/dieu-khoan" element={<TermsOfUse />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
-              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
             </Routes>
           </NotificationProvider>
         </JobsProvider>

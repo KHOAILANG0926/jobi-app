@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
+import { KoreaBanner } from '../components/KoreaBanner'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
-import { hasAppliedToJob } from '../lib/applicationsStorage'
+import { loadApplications } from '../lib/applicationsStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
@@ -499,6 +500,21 @@ export function Home() {
 
   const handleToggleSave = useCallback((job: Job) => { toggleSavedJobId(job.id) }, [])
 
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!user?.id) { setAppliedIds(new Set()); return }
+    let cancelled = false
+    const sync = () => {
+      loadApplications().then((apps) => {
+        if (cancelled) return
+        setAppliedIds(new Set(apps.filter((a) => a.seekerId === user.id).map((a) => a.jobId)))
+      })
+    }
+    sync()
+    window.addEventListener('vgb:applications', sync)
+    return () => { cancelled = true; window.removeEventListener('vgb:applications', sync) }
+  }, [user?.id])
+
 
 
   const jobDistances = useMemo<Record<string, number>>(() => {
@@ -527,7 +543,13 @@ export function Home() {
       }
       if (urgentOnly && !j.urgent) return false
       if (selectedCity && !jobMatchesRegion(j.location, selectedCity)) return false
-      if (brandFilter && !normalizeViText(j.company).includes(normalizeViText(brandFilter))) return false
+      if (brandFilter) {
+        const nb = normalizeViText(brandFilter)
+        // 프랜차이즈 매장은 회사명이 운영사(예: Wincommerce)로 등록되고
+        // 브랜드명은 공고 제목에만 나오는 경우가 많아 title도 함께 검사
+        const matches = normalizeViText(j.company).includes(nb) || normalizeViText(j.title).includes(nb)
+        if (!matches) return false
+      }
       if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
       if (recFilter) {
         const titleCo = normalizeViText(`${j.title} ${j.company}`)
@@ -564,6 +586,8 @@ export function Home() {
 
   // Ref for scrolling to city results
   const cityResultRef = useRef<HTMLElement>(null)
+  // Ref for scrolling to the main job list (quick-filter chips)
+  const jobResultRef = useRef<HTMLElement>(null)
 
   // Scroll to results when a city is selected
   useEffect(() => {
@@ -571,6 +595,13 @@ export function Home() {
       cityResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [selectedCity])
+
+  // Scroll to the job list instantly when a quick-filter chip is tapped
+  useEffect(() => {
+    if (activeRec && !selectedCity && jobResultRef.current) {
+      jobResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeRec, selectedCity])
 
   const resetFilters = () => {
     setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null); setDeadlineFilter('all')
@@ -606,7 +637,7 @@ export function Home() {
   }
 
 
-  const isApplied = useCallback((id: string) => hasAppliedToJob(id, user?.id), [user?.id])
+  const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
   const JobGrid = ({ jobs: list, title }: { jobs: Job[]; title?: string }) => (
     <section className="home-section">
@@ -633,6 +664,9 @@ export function Home() {
 
       {/* ── White top section ─────────────────────────────── */}
       <div className="home-top-bg">
+
+      {/* ── Premium banner: Korea labor consultation ─────────── */}
+      <KoreaBanner />
 
       {/* ── Hero: Ad + Login prompt (Albamon style) ─────────── */}
       <section className="hero-row" style={{ height: '120px' }}>
@@ -842,7 +876,7 @@ export function Home() {
       {/* ── Job listings ─────────────────────────────────────── */}
       {!selectedCity && (
         <>
-          <section className="home-jobs-section">
+          <section className="home-jobs-section" ref={jobResultRef}>
             <div className="home-jobs-section__head">
               <h2 className="home-jobs-section__title">Việc làm mới nhất <span style={{fontSize:'0.85rem',fontWeight:400,color:'#888',marginLeft:'8px'}}>{filtered.length} việc làm</span></h2>
             </div>
