@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
@@ -636,6 +636,15 @@ export function Home() {
     setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
   }
 
+  const handleHeroSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSelectedCity(null)
+    setBrandFilter(null)
+    window.requestAnimationFrame(() => {
+      jobResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
@@ -665,25 +674,78 @@ export function Home() {
       {/* ── White top section ─────────────────────────────── */}
       <div className="home-top-bg">
 
-      {/* ── Premium banner: Korea labor consultation ─────────── */}
-      <KoreaBanner />
-
-      {/* ── Hero: Ad + Login prompt (Albamon style) ─────────── */}
-      <section className="hero-row" style={{ height: '120px' }}>
-        <div className="hero-row__ad">
-          <AdSlot slotId="header" />
-        </div>
-        {!user && (
-          <div className="hero-row__login">
-              <div className="hero-row__login-text">
-              <p className="hero-row__cta">Bạn muốn biết thêm nhiều thông tin việc làm?</p>
-              <p className="hero-row__cta2">Hãy <NavLink to="/dang-nhap" className="hero-row__login-btn">đăng nhập</NavLink> ngay!</p>
-            </div>
-            <img src="/char-upper.png" className="hero-row__mascot" aria-hidden alt="" />
+      {/* ── Brand hero: Korea bridge + local job search ─────────── */}
+      <section className="home-brand-hero">
+        <div className="home-brand-hero__content">
+          <span className="home-brand-hero__eyebrow">VIỆC TẠI VIỆT NAM · CƠ HỘI TẠI HÀN QUỐC</span>
+          <h1 className="home-brand-hero__title">
+            Việc tốt gần bạn,<br />
+            <span>cơ hội mới tại Hàn Quốc</span>
+          </h1>
+          <p className="home-brand-hero__lead">
+            Tìm công việc phù hợp tại Việt Nam hôm nay và chuẩn bị lộ trình làm việc tại Hàn Quốc cho ngày mai.
+          </p>
+          <form className="home-hero-search" onSubmit={handleHeroSearch} role="search">
+            <span className="home-hero-search__icon" aria-hidden>⌕</span>
+            <input
+              className="home-hero-search__input"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm theo công việc, công ty hoặc địa điểm"
+              aria-label="Tìm việc làm"
+            />
+            {search && (
+              <button type="button" className="home-hero-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">×</button>
+            )}
+            <button type="submit" className="home-hero-search__button">Tìm việc</button>
+          </form>
+          <div className="home-brand-hero__links">
+            <span>{filtered.length} việc làm đang mở</span>
+            <NavLink to="/viec-han-quoc">Khám phá việc làm Hàn Quốc →</NavLink>
           </div>
-        )}
+        </div>
+        <div className="home-brand-hero__visual" aria-hidden="true">
+          <div className="home-seoul-card">
+            <div className="home-seoul-card__top">
+              <span className="home-seoul-card__flag">🇰🇷</span>
+              <span>SEOUL · KOREA</span>
+            </div>
+            <div className="home-seoul-card__sun" />
+            <div className="home-seoul-card__tower"><span /></div>
+            <div className="home-seoul-card__skyline">
+              <i /><i /><i /><i /><i /><i />
+            </div>
+            <div className="home-seoul-card__bridge">VIỆT NAM <b>↗</b> HÀN QUỐC</div>
+          </div>
+        </div>
       </section>
 
+      {/* ── Curated opportunities: same card rhythm ───────────── */}
+      <section className="home-discovery">
+        <div className="home-discovery__head">
+          <span className="home-discovery__kicker">Dành riêng cho hành trình của bạn</span>
+          <h2>Khám phá cơ hội dành cho bạn</h2>
+        </div>
+        <div className="home-discovery__grid">
+          <div className="home-discovery__card home-discovery__card--korea">
+            <KoreaBanner />
+          </div>
+          <div className="home-discovery__card home-discovery__card--skill">
+            <AdSlot slotId="header" />
+          </div>
+          <div className="home-discovery__card home-discovery__card--account">
+            <div className="home-discovery-account__copy">
+              <span className="home-discovery-account__eyebrow">Cá nhân hóa cơ hội</span>
+              <strong>{user ? `Chào ${user.name}` : 'Đăng nhập để không bỏ lỡ việc tốt'}</strong>
+              <p>{user ? 'Xem hồ sơ, tin đã lưu và trạng thái ứng tuyển.' : 'Lưu việc, tạo CV và theo dõi hồ sơ ở một nơi.'}</p>
+              <NavLink to={user ? '/ho-so' : '/dang-nhap'} className="home-discovery-account__button">
+                {user ? 'Mở hồ sơ →' : 'Đăng nhập →'}
+              </NavLink>
+            </div>
+            <img src="/char-upper.png" className="home-discovery-account__mascot" aria-hidden alt="" />
+          </div>
+        </div>
+      </section>
 
       {/* ── Brands + Region ── */}
       <div className="home-brands-region-grid">
