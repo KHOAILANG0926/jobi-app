@@ -225,7 +225,8 @@ export async function appendEmployerMessage(threadId: string, body: string): Pro
     .eq('id', threadId)
   if (updateError) {
     console.error('appendEmployerMessage: update thread failed', updateError)
-    return false
+    // 메시지 INSERT는 이미 확정됐다. 실패로 반환하면 UI가 초안을 복원해 재전송 시
+    // 같은 메시지가 중복 저장될 수 있으므로 후속 읽음 메타데이터 오류와 구분한다.
   }
   dispatch()
   return true
