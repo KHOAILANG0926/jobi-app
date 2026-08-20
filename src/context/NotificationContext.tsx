@@ -17,6 +17,7 @@ import {
   type AppNotification,
 } from '../lib/notificationsStorage'
 import { loadSavedJobIds } from '../lib/storage'
+import { useAuth } from './AuthContext'
 import { useJobs } from './JobsContext'
 
 interface NotificationContextValue {
@@ -30,6 +31,7 @@ interface NotificationContextValue {
 const NotificationContext = createContext<NotificationContextValue | null>(null)
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const { jobs } = useJobs()
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     loadNotifications(),
@@ -42,10 +44,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const check = useCallback(async () => {
     const savedIds = loadSavedJobIds()
     const savedJobs = jobs.filter((j) => savedIds.includes(j.id))
-    const applications = await loadApplications()
+    const applications = user ? await loadApplications() : []
     generateNotifications(savedJobs, applications)
     refresh()
-  }, [jobs, refresh])
+  }, [jobs, refresh, user])
 
   // Run on mount and every 60 s
   useEffect(() => {

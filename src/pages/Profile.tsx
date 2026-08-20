@@ -53,6 +53,10 @@ export function Profile() {
   }, [])
 
   useEffect(() => {
+    if (!user) {
+      setApplications([])
+      return
+    }
     const syncApps = () => { loadApplications().then(setApplications) }
     syncApps()
     window.addEventListener('vgb:applications', syncApps)
@@ -63,7 +67,7 @@ export function Profile() {
       window.removeEventListener('focus', syncApps)
       unsubscribe()
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const syncCv = () => setCvSaved(hasSavedCv())

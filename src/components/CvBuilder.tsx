@@ -1,5 +1,4 @@
 import { FormEvent, forwardRef, useRef, useState } from 'react'
-import { downloadCvAsPdf } from '../lib/cvPdf'
 import type { CvData, CvEducation, CvExperience, CvReference } from '../lib/cvStorage'
 import { loadCv, saveCv } from '../lib/cvStorage'
 import { loadProfile } from '../lib/storage'
@@ -244,6 +243,7 @@ export function CvBuilder() {
     if (!el) return
     setPdfLoading(true)
     try {
+      const { downloadCvAsPdf } = await import('../lib/cvPdf')
       const base = (data.fullName || 'VGB').trim().replace(/\s+/g, '_').slice(0, 48)
       const safe = base.replace(/[^a-zA-Z0-9_\u00C0-\u024F-]/g, '') || 'VGB'
       await downloadCvAsPdf(el, `CV-${safe}`)
