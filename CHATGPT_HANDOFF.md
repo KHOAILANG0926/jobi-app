@@ -6,32 +6,38 @@
 ---
 
 ## 현재 작업
-Viecganban 자동 개발 루프 1단계 — GitHub Actions에서 Claude Code를 수동 트리거로 실행해
-코드 수정 → 테스트 → CHATGPT_HANDOFF.md 갱신 → PR 생성까지 하도록 자동화 워크플로 준비.
-**아직 실행(트리거)하지 않은 상태** — 워크플로 파일만 추가, `ANTHROPIC_API_KEY` secret 미등록.
-서비스 코드/DB 기능 자체는 이번 작업에서 손대지 않음.
+`applications`(지원) 기능 재점검 — 기업 직접등록 공고만 내부 지원 허용, 구직자는 상태 직접
+변경 불가·취소만 가능, 기업만 reviewing/interview/accepted/rejected 변경 가능이라는 확정
+정책을 코드가 실제로 만족하는지 검증. (참고: `.github/workflows/claude-auto.yml`/`CLAUDE.md`
+자동화 준비는 직전 작업에서 완료·push됨 — 커밋 `89d0b22`.)
+**DB에는 여전히 아무것도 실행되지 않은 상태.**
 
 ## 변경 내용
-- **`.github/workflows/claude-auto.yml`**(신규): `workflow_dispatch` 트리거, 입력값 `task`(문자열).
-  `anthropics/claude-code-action@v1` 사용, `permissions: contents: write, pull-requests: write`만
-  부여(저장소 기본값은 read-only라 명시적으로 상향). prompt에서 `CLAUDE.md`/
-  `VIECGANBAN_STRUCTURE_BASELINE.md` 우선 확인, `tsc --noEmit`+`npm run build` 통과 필수,
-  CHATGPT_HANDOFF.md 갱신, **새 브랜치+PR 생성(master 직접 push 아님)**을 지시.
-- **`CLAUDE.md`**(신규): 자동화 세션이 따를 최소 규칙 7개(기존 설계 우선/범위 준수/큰 구조 변경
-  전 중단/테스트 필수/핸드오프 갱신 필수/secret 출력 금지/master 직접 push 금지) 명문화.
-- 기존 `.github/workflows/crawl.yml`은 이름/시크릿 겹치지 않아 그대로 둠(무수정).
+이번 턴에는 코드 변경 없음 — 요청한 5개 항목(SQL/Profile.tsx/취소 기능/EmployerDashboard
+옵션/UI 구조 유지)이 이전 세션에서 이미 전부 반영되어 있음을 파일 직접 확인으로 검증만 함:
+- `supabase/migrations/0001_applications.sql`: 요청한 정책 그대로(seeker/employer 소유권,
+  status 위조 방지, submitted로 되돌리기 금지) — 미실행 상태 유지
+- `src/pages/Profile.tsx`: 상태 `<select>` 없음, 읽기전용 배지 + confirm 포함 "Hủy đơn"
+  버튼으로 `cancelApplication` 호출
+- `src/pages/EmployerDashboard.tsx`: 상태 옵션이 `reviewing/interview/accepted/rejected`만
+  선택 가능(현재 상태가 submitted일 때만 비활성 옵션으로 표시)
+- `src/pages/JobDetail.tsx`: `job.employerId` 없는(크롤링) 공고는 `canApplyInternally=false`로
+  내부 지원 자체를 막고 원문 링크/안내로 분기 — 기존대로 유지됨
 
 ## 테스트 결과
-워크플로가 아직 트리거되지 않았으므로 실행 결과 없음. YAML 문법/트리거·권한 설정은
-`gh api .../actions/permissions(/workflow)`로 사전 확인한 저장소 설정(기본 토큰 권한 read-only,
-Actions `allowed_actions: all`)과 일치하도록 작성함.
+- `applications` 테이블이 아직 DB에 없음을 anon 키로 라이브 재확인
+  (`PGRST205: Could not find the table 'public.applications'`)
+- `npx tsc --noEmit`, `npm run build` 둘 다 **실패** — 원인은 `src/pages/AdminDashboard.tsx`의
+  `CATEGORY_LABELS`에 `office` 키 누락(`TS2741`). applications 코드와 무관하며, 이전 세션들에서도
+  반복 발견되었으나 매번 범위 밖으로 판단해 손대지 않은 기존 에러. 이번에도 수정하지 않음.
 
 ## 발견된 문제
-없음 — 이번 작업 범위에서 새로 발견된 문제 없음.
+`CATEGORY_LABELS`(`office` 키 누락, `src/pages/AdminDashboard.tsx:56`)가 `tsc -b` 단계에서
+전체 `npm run build`를 막고 있음 — applications와 무관하지만 지금 저장소 전체가 빌드
+불가 상태라는 뜻이므로 다음 작업 전 수정 여부 결정 필요.
 
 ## 다음 결정사항
-1. `ANTHROPIC_API_KEY` 또는 `CLAUDE_CODE_OAUTH_TOKEN` secret을 등록할지(등록은 사용자가 직접)
-2. secret 등록 후 `task` 입력값을 뭘로 줘서 첫 실행을 테스트할지
-3. PR 생성 방식이 안정화되면 master 직접 push 방식으로 전환할지 여부
-4. `supabase/migrations/0001_applications.sql` 실행 및 `message_threads`/`messages`/`interviews`
-   진행은 이번 작업과 무관하게 여전히 보류 중
+1. `CATEGORY_LABELS`에 `office` 키를 추가해 빌드를 통과시킬지(범위 밖이라 매번 보류해왔음)
+2. `supabase/migrations/0001_applications.sql`을 Supabase SQL Editor에서 실행할지
+3. 실행 후 지원 생성 → 기업 상태변경 → 구직자 취소 전체 플로우 실사용 재검증 필요
+4. `message_threads`/`messages`/`interviews`는 언제 이어서 진행할지
