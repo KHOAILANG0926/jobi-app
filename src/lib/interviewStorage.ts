@@ -78,25 +78,35 @@ export async function getInterviewForApplication(jobId: string, seekerId: string
   return data ? rowToSlot(data) : null
 }
 
-/** 같은 (공고, 지원자) 조합의 기존 슬롯을 대체한다 (upsert on job_id+seeker_id). */
+/** 같은 (공고, 지원자) 조합의 기존 슬롯은 소유권 열을 건드리지 않고 일정만 갱신한다. */
 export async function scheduleInterview(input: Omit<InterviewSlot, 'id' | 'createdAt'>): Promise<InterviewSlot> {
-  const { data, error } = await supabase
+  const dbJobId = toDbJobId(input.jobId)
+  const { data: existing, error: findError } = await supabase
     .from('interviews')
-    .upsert(
-      {
-        job_id: toDbJobId(input.jobId),
+    .select('id')
+    .eq('job_id', dbJobId)
+    .eq('seeker_id', input.seekerId)
+    .maybeSingle()
+  if (findError) throw findError
+
+  const mutableFields = {
+    job_title: input.jobTitle,
+    company: input.company,
+    seeker_name: input.seekerName ?? null,
+    datetime: input.datetime,
+    location: input.location,
+    notes: input.notes,
+    status: input.status,
+  }
+  const query = existing
+    ? supabase.from('interviews').update(mutableFields).eq('id', existing.id)
+    : supabase.from('interviews').insert({
+        job_id: dbJobId,
         seeker_id: input.seekerId,
         employer_id: input.employerId,
-        job_title: input.jobTitle,
-        company: input.company,
-        seeker_name: input.seekerName ?? null,
-        datetime: input.datetime,
-        location: input.location,
-        notes: input.notes,
-        status: input.status,
-      },
-      { onConflict: 'job_id,seeker_id' },
-    )
+        ...mutableFields,
+      })
+  const { data, error } = await query
     .select('*')
     .single()
   if (error || !data) {

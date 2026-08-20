@@ -40,7 +40,8 @@
 
 **[확인된 현재 구조]**: 회원가입(이메일)→로그인→공고 검색/필터/상세조회→저장(찜)→CV작성 까지는 실제 동작. 마감임박 알림도 동작. 크롤링 공고(`employer_id` NULL)는 "지원" 버튼을 눌러도 내부 지원을 시도하지 않고 원문 URL로 이동시키거나(추출 가능한 경우) 안내 토스트만 띄움(`JobDetail.tsx`의 `canApplyInternally` 분기) — 이 경로는 DB 테이블 없이도 의도대로 동작.
 **[확인된 현재 구조]**: 기업이 직접 등록한 공고(`employer_id` 있음)에 대한 지원 생성·중복 차단·기업 조회·상태 변경·구직자 상태 조회·지원 취소는 `applications` 테이블과 RLS를 실제 적용하고 격리 E2E로 검증 완료. 크롤링 공고의 내부 application 생성도 DB 정책에서 차단됨.
-**[미완성]**: 기업과 메시지 → 면접 일정 확인 흐름. 프론트 코드는 작성됐지만 `message_threads`/`messages`/`interviews` 테이블은 아직 DB에 생성되지 않음.
+**[확인된 현재 구조]**: 기업 직접등록 공고의 구직자↔해당 기업 메시지 흐름은 운영 DB 적용 및 격리 E2E 22개 항목(양방향 송수신·Realtime·타인 접근/소유권/역할 위조/빈 본문/크롤링 공고 차단·실패 UI) 검증 완료.
+**[미완성]**: 면접 일정 확인 흐름. 프론트와 보강된 migration은 작성됐지만 `interviews` 테이블은 아직 운영 DB에 생성되지 않음.
 **[확인 불가]**: Zalo 소셜 로그인 실제 인증 성공 여부.
 
 ---
@@ -49,7 +50,8 @@
 
 **[확인된 현재 구조]**: 회원가입(기업)/로그인은 동작. 공고 등록(`/dang-tin`)은 `local_jobs.employer_id` 컬럼이 DB에 추가되고(`0004` migration 실행 완료) `PostJob.tsx`가 `employerId`를 전송하도록 수정되면서 정상 동작으로 전환됨(구직자/기업 양쪽 테스트 계정으로 등록→조회 end-to-end 확인 완료). 대시보드의 "내 공고" 목록도 `employer_id` 기준으로 정상 표시됨.
 **[확인된 현재 구조]**: 지원자 조회와 reviewing/interview/accepted/rejected 상태 변경은 `applications` RLS E2E로 검증 완료.
-**[미완성]**: 메시지/면접 확정 탭은 UI는 있으나 `message_threads`/`messages`/`interviews` 테이블이 DB에 없어 항상 빈 상태로만 보임.
+**[확인된 현재 구조]**: 메시지 탭은 운영 DB와 연결되어 해당 기업 공고의 지원자 스레드만 조회·송수신함.
+**[미완성]**: 면접 일정 UI는 있으나 `interviews` 테이블이 운영 DB에 없어 아직 동작하지 않음.
 (참고) `/admin`의 공고 등록 도구는 `employer_id`를 쓰지 않아 이 문제와 무관하게 동작하지만, 이는 기업 셀프서비스 흐름이 아님.
 
 ---
@@ -77,7 +79,8 @@
 
 **[확인된 현재 구조]**: 설계는 완료됨 — `applications`/`message_threads`/`messages`/`interviews` 4개 테이블 스키마와 RLS 정책을 담은 migration SQL(`supabase/migrations/0001~0003`)이 작성돼 있고, 프론트 코드(`applicationsStorage.ts`/`messagesStorage.ts`/`interviewStorage.ts`)도 이 구조를 전제로 전부 Supabase 비동기 방식으로 이미 재작성돼 있음. 지원 1건당 스레드 1개, 스레드는 (공고,지원자) 조합 1개당 1개로 설계됨.
 **[확인된 현재 구조]**: `applications` 테이블은 실제 DB에 적용됐고, 구직자/기업 격리 계정으로 생성·조회·4단계 상태 변경·취소·권한 차단을 검증 완료.
-**[미완성]**: `message_threads`/`messages`/`interviews` 3개 테이블은 실제 DB에 아직 생성되지 않아 메시지와 면접 기능은 미동작.
+**[확인된 현재 구조]**: `message_threads`/`messages`는 운영 DB에 적용됐고 실제 인증 계정 E2E 22/22를 통과함.
+**[미완성]**: `interviews`는 운영 DB 미적용. 로컬 `0003_interviews.sql`은 기업 소유 직접등록 공고+실제 application 조합만 생성/수정하고 소유권 열을 불변으로 유지하도록 보강됨.
 
 ---
 
@@ -105,7 +108,8 @@
 | 공고 데이터(한국행) | Supabase `korea_jobs` | 동작 |
 | 인증/세션 | Supabase Auth(`auth.users`) | 동작 |
 | 지원 | Supabase `applications` | 동작(E2E 검증 완료) |
-| 메시지/면접 | Supabase 예정 테이블(미생성) | 미동작 |
+| 메시지 | Supabase `message_threads`/`messages` | 동작(E2E 22/22) |
+| 면접 | Supabase 예정 `interviews` | 미동작(DB 미적용) |
 | CV/기본 프로필 | localStorage | 동작(로컬 한정) |
 | 공고 저장(찜) | localStorage | 동작(로컬 한정) |
 | 커뮤니티 게시글 | localStorage | 동작(로컬 한정, 타 사용자와 공유 안 됨) |
@@ -121,9 +125,9 @@
 **[확인된 현재 구조]**
 - `RecommendSection.tsx` + `recommendStorage.ts`(점수 기반 매칭 로직) — 완성된 코드지만 어디서도 렌더링되지 않는 미사용 상태(import하는 곳 0곳).
 - `notificationsStorage.ts`가 `applicationsStorage`의 타입을 직접 참조하도록 설계돼 있음 — 지원 상태 변화에 반응하도록 의도됐으나, `applications` 테이블 부재로 현재는 사실상 빈 상태로 대기 중.
-- 메시지/면접 Supabase 연동 코드(`messagesStorage.ts`/`interviewStorage.ts` 및 이를 쓰는 `Profile.tsx`/`EmployerDashboard.tsx` 화면단) — 코드는 master에 커밋 완료, DB 미적용 상태로 대기 중(7번 참고).
+- 메시지 Supabase 연동은 운영 DB 적용 및 E2E 완료. 면접 연동 코드(`interviewStorage.ts` 및 이를 쓰는 `Profile.tsx`/`EmployerDashboard.tsx`)와 보강된 `0003`은 운영 DB 적용 대기 중(7번 참고).
 - `KoreaBanner.tsx`/`KoreaConsultModal.tsx`/`koreaLeadsStorage.ts` — 한국 취업 상담 리드 수집용 신규 컴포넌트. `korea_jobs`의 개별 공고와는 연결되지 않은 별도의 localStorage 기반 리드캡처(홈 화면 배너 클릭 → 상담 신청 모달 → localStorage 저장).
-- `supabase/migrations/0004_local_jobs_employer_id.sql`과 `0001_applications.sql` — **실행 완료(DB 적용 및 applications E2E 검증 완료)**. `0002_messages.sql`/`0003_interviews.sql`은 작성만 완료, **미실행**(7번 참고).
+- `0001_applications.sql`·`0002_messages.sql`·`0004_local_jobs_employer_id.sql` — **운영 DB 적용 완료**(`0001` applications E2E, `0002` messages E2E 완료). `0003_interviews.sql`은 보강 완료, **운영 DB 미적용**(7번 참고).
 
 ---
 
