@@ -113,7 +113,7 @@ export async function addApplication(entry: {
   return { ok: true }
 }
 
-export async function updateApplicationStatus(id: string, status: ApplicationStatus): Promise<void> {
+export async function updateApplicationStatus(id: string, status: ApplicationStatus): Promise<boolean> {
   const { data: current, error: fetchError } = await supabase
     .from('applications')
     .select('status_history')
@@ -121,7 +121,7 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
     .single()
   if (fetchError) {
     console.error('updateApplicationStatus fetch failed', fetchError)
-    return
+    return false
   }
   const prevHistory = (current?.status_history as StatusHistoryEntry[]) ?? []
   const nextHistory = [...prevHistory, { status, changedAt: new Date().toISOString() }]
@@ -131,9 +131,10 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
     .eq('id', id)
   if (error) {
     console.error('updateApplicationStatus update failed', error)
-    return
+    return false
   }
   window.dispatchEvent(new CustomEvent('vgb:applications'))
+  return true
 }
 
 /** 구직자 본인의 지원 취소(철회) — 상태값 변경이 아니라 행 삭제. */

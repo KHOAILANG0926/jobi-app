@@ -70,7 +70,9 @@ export function ScheduleInterviewModal({ open, app, employerId, onClose, onSched
         notes: notes.trim(),
         status: 'pending',
       })
-      if (app.id) await updateApplicationStatus(app.id, 'interview')
+      if (!app.id) throw new Error('Application id is required to schedule an interview')
+      const statusUpdated = await updateApplicationStatus(app.id, 'interview')
+      if (!statusUpdated) throw new Error('Application status update failed')
       onScheduled()
       setDone(true)
       window.setTimeout(onClose, 1400)
