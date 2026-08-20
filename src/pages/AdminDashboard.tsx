@@ -60,6 +60,7 @@ const CATEGORY_LABELS: Record<JobCategory, string> = {
   delivery:   '🛵 Giao hàng',
   cleaning:   '🧹 Vệ sinh',
   retail:     '🛍️ Bán lẻ',
+  office:     '💼 Văn phòng',
   other:      '📌 Khác',
 }
 
