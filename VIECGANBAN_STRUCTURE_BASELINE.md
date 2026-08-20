@@ -87,6 +87,7 @@
 ## 8. 인증/권한 구조
 
 **[확인된 현재 구조]**: Supabase Auth 이메일 인증. 구직자/기업 구분은 `user_metadata.role`(가입 시 선택, 클라이언트가 값을 정할 수 있는 필드). 라우트 가드는 클라이언트 사이드(`RequireEmployer`/`RequireAdmin`)로 구현. 관리자만 `app_metadata.role`(서버/service_role만 쓸 수 있는 필드) 기준으로 별도 검증. 별도 `profiles` 테이블은 없음.
+**[확인된 현재 구조]**: 게스트 CV 체험을 위해 `/ho-so`는 공개 라우트지만, applications/messages/interviews 조회·Realtime 구독은 구직자 역할에서만 시작된다. 기업은 전용 대시보드 흐름만 사용한다.
 **[미완성/참고]**: `user_metadata` 기반 구직자/기업 구분은 이론상 클라이언트가 자체 조작 가능한 값이라 서버 측(RLS) 검증에는 취약함(다만 현재 RLS는 role이 아니라 `seeker_id`/`employer_id` 소유권 기준이라 이 취약점의 실질 영향은 제한적).
 
 ---

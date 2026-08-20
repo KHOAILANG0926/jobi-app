@@ -15,6 +15,7 @@ messages 운영 E2E를 완료하고, 다음 확정 작업인 interviews의 SQL/R
 - Supabase CLI 임시 연결 메타데이터가 커밋되지 않도록 `supabase/.temp/`를 ignore 처리했다.
 - 합성 E2E 데이터는 사용자 SQL 실행 후 공고·스레드·메시지·Auth 계정 잔여가 모두 0임을 확인했다.
 - 기업 세션이 지원자 목록을 구직자 상태 알림으로 잘못 처리하던 조회를 차단했다.
+- 게스트·기업 세션의 Profile에서 구직자 전용 applications/messages/interviews 조회와 Realtime 구독이 시작되지 않도록 역할 가드를 추가했다.
 
 ## 테스트 결과
 
@@ -22,6 +23,8 @@ messages 운영 E2E를 완료하고, 다음 확정 작업인 interviews의 SQL/R
 - interviews 정적 정책 검증: 통과
 - interviews 상태 변경 실패 전파 회귀 검증: 통과
 - 알림 역할 가드 회귀 검증: 통과
+- 메시지/Profile 역할 가드 회귀 검증: 통과
+- 게스트 `/ho-so` 보호 API 요청: 0건(브라우저 검증)
 - `npx tsc --noEmit`: 통과
 - `npm run build`: 통과
 

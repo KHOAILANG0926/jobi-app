@@ -53,7 +53,7 @@ export function Profile() {
   }, [])
 
   useEffect(() => {
-    if (!user) {
+    if (user?.role !== 'seeker') {
       setApplications([])
       return
     }
@@ -82,17 +82,24 @@ export function Profile() {
   }, [])
 
   useEffect(() => {
+    if (user?.role !== 'seeker') {
+      setUnreadMsgCount(0)
+      return
+    }
     const sync = () => { countUnreadForSeeker().then(setUnreadMsgCount) }
     sync()
     return subscribeMessages(sync)
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
-    if (!user) return
+    if (user?.role !== 'seeker') {
+      setInterviews([])
+      return
+    }
     const sync = () => { loadSeekerInterviews(user.id).then(setInterviews) }
     sync()
     return subscribeInterviews(sync)
-  }, [user?.id])
+  }, [user?.id, user?.role])
 
   useEffect(() => {
     const st = location.state as { openCvTab?: boolean; needCvForJob?: string } | null

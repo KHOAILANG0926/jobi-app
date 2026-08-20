@@ -28,6 +28,11 @@ export function MessagesInbox() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
+    if (user?.role !== 'seeker') {
+      setThreads([])
+      setActiveId(null)
+      return
+    }
     const sync = () => {
       loadThreads().then((next) => {
         setThreads(next)
@@ -39,7 +44,7 @@ export function MessagesInbox() {
     }
     sync()
     return subscribeMessages(sync)
-  }, [])
+  }, [user?.role])
 
   const active = useMemo(
     () => threads.find((t) => t.jobId === activeId) ?? null,
