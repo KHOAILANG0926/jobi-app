@@ -1,6 +1,6 @@
 # Viecganban 현재 구조 기준서
 
-작성일: 2026-08-19 · 코드/DB 미수정, 조사 결과만 정리.
+작성일: 2026-08-19 · 최종 갱신: 2026-08-20(사실관계만 갱신, 구조 재설계 없음).
 표기: **[확인된 현재 구조]** 코드·DB·로그 직접 확인 / **[미완성]** 구조는 있으나 미동작 / **[확인 불가]** 근거 부족
 
 ---
@@ -38,16 +38,16 @@
 
 ## 2. 구직자 전체 흐름
 
-**[확인된 현재 구조]**: 회원가입(이메일)→로그인→공고 검색/필터/상세조회→저장(찜)→CV작성 까지는 실제 동작. 마감임박 알림도 동작.
-**[미완성]**: 지원하기 → 지원내역 확인 → 기업과 메시지 → 면접 일정 확인 → 지원상태 변경 알림. 전부 대상 Supabase 테이블(`applications`/`message_threads`/`messages`/`interviews`)이 DB에 생성되지 않아 요청 시 에러(`PGRST205`) 발생. **"지원" 버튼을 누르는 순간부터 흐름이 끊김.**
+**[확인된 현재 구조]**: 회원가입(이메일)→로그인→공고 검색/필터/상세조회→저장(찜)→CV작성 까지는 실제 동작. 마감임박 알림도 동작. 크롤링 공고(`employer_id` NULL)는 "지원" 버튼을 눌러도 내부 지원을 시도하지 않고 원문 URL로 이동시키거나(추출 가능한 경우) 안내 토스트만 띄움(`JobDetail.tsx`의 `canApplyInternally` 분기) — 이 경로는 DB 테이블 없이도 의도대로 동작.
+**[미완성]**: 기업이 직접 등록한 공고(`employer_id` 있음)에 대한 지원 → 지원내역 확인 → 기업과 메시지 → 면접 일정 확인 → 지원상태 변경 알림. 프론트 코드(`applicationsStorage.ts`/`messagesStorage.ts`/`interviewStorage.ts`, `Profile.tsx`의 읽기전용 상태뱃지·지원취소 버튼 포함)는 전부 작성·커밋 완료됐지만, 대상 Supabase 테이블(`applications`/`message_threads`/`messages`/`interviews`)이 DB에 아직 생성되지 않아 실제 지원 시도 시 `addApplication`이 `PGRST205` 에러를 받아 `{ok:false}`를 반환하고 화면엔 실패 상태만 표시됨(크래시는 아님).
 **[확인 불가]**: Zalo 소셜 로그인 실제 인증 성공 여부.
 
 ---
 
 ## 3. 기업 전체 흐름
 
-**[확인된 현재 구조]**: 회원가입(기업)/로그인은 동작.
-**[미완성]**: 공고 등록(`/dang-tin`)은 `local_jobs.employer_id` 컬럼이 DB에 없어 등록 시도 시 100% 에러(`42703`, 직접 재현 확인)로 실패. 이 때문에 대시보드의 "내 공고" 목록도 항상 비어있고, 지원자 관리/메시지/면접 확정도 전부 선행 단계(지원 데이터) 부재로 동작 불가. **회원가입 이후 사실상 첫 실사용 단계부터 막혀 있음.**
+**[확인된 현재 구조]**: 회원가입(기업)/로그인은 동작. 공고 등록(`/dang-tin`)은 `local_jobs.employer_id` 컬럼이 DB에 추가되고(`0004` migration 실행 완료) `PostJob.tsx`가 `employerId`를 전송하도록 수정되면서 정상 동작으로 전환됨(구직자/기업 양쪽 테스트 계정으로 등록→조회 end-to-end 확인 완료). 대시보드의 "내 공고" 목록도 `employer_id` 기준으로 정상 표시됨.
+**[미완성]**: 지원자 관리/메시지/면접 확정 탭은 UI는 있으나, 7번 항목의 `applications`/`message_threads`/`messages`/`interviews` 테이블이 DB에 없어 항상 빈 상태로만 보임.
 (참고) `/admin`의 공고 등록 도구는 `employer_id`를 쓰지 않아 이 문제와 무관하게 동작하지만, 이는 기업 셀프서비스 흐름이 아님.
 
 ---
@@ -61,8 +61,7 @@
 
 ## 5. 공고 데이터 구조
 
-**[확인된 현재 구조]**: `local_jobs` 테이블(26개 컬럼, PK `id` bigint)이 유일한 국내(베트남) 공고 저장소. 소스 3곳: ① VPS 크롤러(`crawl_topcv.py`, vieclam24h.vn 대상, 실제 매일 자동 수집 중), ② 관리자 수동 등록, ③ 기업 셀프 등록(현재 위 3번 사유로 미작동). `Job.id`는 앱 전역에서 `"sb-<local_jobs.id>"` 문자열로 취급됨. 카테고리는 7종(factory/cafe/restaurant/delivery/cleaning/retail/office) 체계로 크롤러 분류기·필터 UI·실 데이터가 일관되게 맞춰져 있음.
-**[미완성]**: `employer_id` 컬럼 부재(4번 참고).
+**[확인된 현재 구조]**: `local_jobs` 테이블(`employer_id` 포함 27개 컬럼, PK `id` bigint)이 유일한 국내(베트남) 공고 저장소. 소스 3곳: ① VPS 크롤러(`crawl_topcv.py`, vieclam24h.vn 대상, 실제 매일 자동 수집 중), ② 관리자 수동 등록, ③ 기업 셀프 등록(3번 참고, 정상 동작). `Job.id`는 앱 전역에서 `"sb-<local_jobs.id>"` 문자열로 취급됨. 카테고리는 7종(factory/cafe/restaurant/delivery/cleaning/retail/office) 체계로 크롤러 분류기·필터 UI·실 데이터가 일관되게 맞춰져 있음.
 
 ---
 
@@ -118,9 +117,9 @@
 **[확인된 현재 구조]**
 - `RecommendSection.tsx` + `recommendStorage.ts`(점수 기반 매칭 로직) — 완성된 코드지만 어디서도 렌더링되지 않는 미사용 상태(import하는 곳 0곳).
 - `notificationsStorage.ts`가 `applicationsStorage`의 타입을 직접 참조하도록 설계돼 있음 — 지원 상태 변화에 반응하도록 의도됐으나, `applications` 테이블 부재로 현재는 사실상 빈 상태로 대기 중.
-- `local_jobs.employer_id` — 코드는 이미 이 컬럼이 있다고 가정하고 작성돼 있음(3·5번 참고).
-- 지원/메시지/면접 Supabase 연동 코드 전체 — DB 미적용 상태로 대기 중(7번 참고).
-- `supabase/migrations/0004_local_jobs_employer_id.sql` — 작성 완료, **사용자 지시로 실행 보류 중**(미적용).
+- 지원/메시지/면접 Supabase 연동 코드 전체(`applicationsStorage.ts`/`messagesStorage.ts`/`interviewStorage.ts` 및 이를 쓰는 `Profile.tsx`/`EmployerDashboard.tsx`/`JobDetail.tsx` 화면단) — 코드는 master에 커밋 완료, DB 미적용 상태로 대기 중(7번 참고).
+- `KoreaBanner.tsx`/`KoreaConsultModal.tsx`/`koreaLeadsStorage.ts` — 한국 취업 상담 리드 수집용 신규 컴포넌트. `korea_jobs`의 개별 공고와는 연결되지 않은 별도의 localStorage 기반 리드캡처(홈 화면 배너 클릭 → 상담 신청 모달 → localStorage 저장).
+- `supabase/migrations/0004_local_jobs_employer_id.sql` — **실행 완료(DB 적용됨)**. `0001_applications.sql`/`0002_messages.sql`/`0003_interviews.sql`은 작성만 완료, **미실행**(7번 참고).
 
 ---
 
