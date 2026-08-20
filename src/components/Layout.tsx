@@ -75,13 +75,16 @@ const MENU_ITEMS: MenuItem[] = [
       ]},
     ],
   },
+  {
+    label: 'Cộng đồng',
+    to: '/cong-dong',
+  },
 ]
 
 export function Layout() {
   const { user, logout, loginWithZalo } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [query, setQuery] = useState('')
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const navRef = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -107,38 +110,58 @@ export function Layout() {
     return () => document.removeEventListener('click', handleClick)
   }, [])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    const q = query.trim()
-    if (q) navigate(`/?q=${encodeURIComponent(q)}`)
-  }
-
   const tabClass = (isActive: boolean) =>
     `header-tab${isActive ? ' header-tab--active' : ''}`
+
+  const headerActions = (
+    <div className="header-tabs__actions">
+      {user ? (
+        <>
+          <NotificationBell />
+          <NavLink to="/ho-so" className="header-tabs__login">{user.name}</NavLink>
+          <button className="header-tabs__logout" onClick={logout}>Đăng xuất</button>
+        </>
+      ) : (
+        <>
+          {import.meta.env.VITE_ZALO_APP_ID && (
+            <button type="button" className="btn-zalo-header" onClick={loginWithZalo}>
+              <ZaloIcon />
+              <span>Zalo</span>
+            </button>
+          )}
+          <NavLink to="/dang-nhap" className="header-tabs__login">Đăng nhập</NavLink>
+          <NavLink to="/dang-ky" className="header-tabs__signup">Đăng ký</NavLink>
+        </>
+      )}
+      <NavLink to="/ho-so?tab=cv" className="header-tabs__cv">Đăng CV</NavLink>
+      <div className="header-tabs__post-wrap">
+        <NavLink to="/dang-tin" className="header-tabs__post">Đăng tuyển</NavLink>
+        <button
+          type="button"
+          className="header-tabs__post-arrow"
+          onClick={() => navigate('/dang-tin')}
+          aria-label="Mở menu đăng tuyển"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="layout">
       <header className="layout__header">
-        {/* Row 1: Logo + Search */}
+        {/* Row 1: Brand */}
         <div className="header-top">
           <div className="header-top__inner">
             <NavLink to="/" className="header-top__brand">
               <img src="/logo.png" alt="logo" className="header-top__logo" />
-              <span className="header-top__title">Việt Gần Bạn</span>
+              <span className="header-top__brand-copy">
+                <span className="header-top__title">Việcganban</span>
+                <span className="header-top__tagline">Kết nối cơ hội, vươn xa tương lai</span>
+              </span>
             </NavLink>
-
-            <form className="header-search" onSubmit={handleSearch}>
-              <input
-                className="header-search__input"
-                type="text"
-                placeholder="Bạn muốn tìm việc gì?"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-              />
-              <button className="header-search__btn" type="submit" aria-label="Tìm kiếm">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </button>
-            </form>
+            {headerActions}
           </div>
         </div>
 
@@ -166,11 +189,17 @@ export function Layout() {
                         type="button"
                         className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
                         onClick={() => {
+                          if (!item.dropdown && !item.cards) {
+                            navigate(item.to)
+                            return
+                          }
                           setOpenMenu(openMenu === i ? null : i)
                         }}
                       >
                         {item.label}
-                        <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+                        {(item.dropdown || item.cards) && (
+                          <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+                        )}
                       </button>
 
                       {item.dropdown && openMenu === i && (
@@ -220,38 +249,6 @@ export function Layout() {
               )}
             </nav>
 
-            <div className="header-tabs__actions">
-              {user ? (
-                <>
-                  <NotificationBell />
-                  <NavLink to="/ho-so" className="header-tabs__login">{user.name}</NavLink>
-                  <button className="header-tabs__logout" onClick={logout}>Đăng xuất</button>
-                </>
-              ) : (
-                <>
-                  {import.meta.env.VITE_ZALO_APP_ID && (
-                    <button type="button" className="btn-zalo-header" onClick={loginWithZalo}>
-                      <ZaloIcon />
-                      <span>Zalo</span>
-                    </button>
-                  )}
-                  <NavLink to="/dang-nhap" className="header-tabs__login">Đăng nhập</NavLink>
-                  <NavLink to="/dang-ky" className="header-tabs__signup">Đăng ký</NavLink>
-                </>
-              )}
-              <NavLink to="/ho-so?tab=cv" className="header-tabs__cv">Đăng CV</NavLink>
-              <div className="header-tabs__post-wrap">
-                <NavLink to="/dang-tin" className="header-tabs__post">Đăng tuyển</NavLink>
-                <button
-                  type="button"
-                  className="header-tabs__post-arrow"
-                  onClick={() => navigate('/dang-tin')}
-                  aria-label="Mở menu đăng tuyển"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </header>

@@ -321,6 +321,15 @@ const FEATURED_BRANDS = [
   { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://www.google.com/s2/favicons?sz=64&domain=winmart.vn' },
 ]
 
+const REFERENCE_CATEGORIES: { label: string; value: JobCategory; icon: string }[] = [
+  { label: 'Sản xuất', value: 'factory', icon: '🏭' },
+  { label: 'Ẩm thực', value: 'cafe', icon: '☕' },
+  { label: 'Giao hàng', value: 'delivery', icon: '🛵' },
+  { label: 'Vệ sinh', value: 'cleaning', icon: '🧹' },
+  { label: 'Bán lẻ', value: 'retail', icon: '🛍️' },
+  { label: 'Văn phòng', value: 'office', icon: '💼' },
+]
+
 
 /* ── Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
 
@@ -677,26 +686,43 @@ export function Home() {
       {/* ── Brand hero: Korea bridge + local job search ─────────── */}
       <section className="home-brand-hero">
         <div className="home-brand-hero__content">
-          <span className="home-brand-hero__eyebrow">VIỆC TẠI VIỆT NAM · CƠ HỘI TẠI HÀN QUỐC</span>
           <h1 className="home-brand-hero__title">
-            Việc tốt gần bạn,<br />
-            <span>cơ hội mới tại Hàn Quốc</span>
+            Kết nối người Việt<br />
+            <span>với việc làm tại Hàn Quốc</span>
           </h1>
           <p className="home-brand-hero__lead">
-            Tìm công việc phù hợp tại Việt Nam hôm nay và chuẩn bị lộ trình làm việc tại Hàn Quốc cho ngày mai.
+            Hàng nghìn cơ hội việc làm tốt đang chờ bạn
           </p>
           <form className="home-hero-search" onSubmit={handleHeroSearch} role="search">
-            <span className="home-hero-search__icon" aria-hidden>⌕</span>
-            <input
-              className="home-hero-search__input"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tìm theo công việc, công ty hoặc địa điểm"
-              aria-label="Tìm việc làm"
-            />
-            {search && (
-              <button type="button" className="home-hero-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">×</button>
-            )}
+            <label className="home-hero-search__field home-hero-search__field--keyword">
+              <span className="home-hero-search__icon" aria-hidden>⌕</span>
+              <input
+                className="home-hero-search__input"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Tìm kiếm việc làm, vị trí, công ty..."
+                aria-label="Tìm việc làm"
+              />
+              {search && (
+                <button type="button" className="home-hero-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">×</button>
+              )}
+            </label>
+            <label className="home-hero-search__field home-hero-location">
+              <span aria-hidden>⌖</span>
+              <select value={selectedCity ?? ''} onChange={(event) => setSelectedCity((event.target.value || null) as JobRegionId | null)} aria-label="Chọn khu vực">
+                <option value="">Chọn khu vực</option>
+                {REGION_MACRO_TABS.flatMap((tab) => tab.provinces).map((province) => (
+                  <option key={province.id} value={province.id}>{province.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="home-hero-search__field home-hero-category">
+              <span aria-hidden>▣</span>
+              <select value={category} onChange={(event) => setCategory(event.target.value as JobCategory | 'all')} aria-label="Chọn ngành nghề">
+                <option value="all">Chọn ngành nghề</option>
+                {REFERENCE_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </label>
             <button type="submit" className="home-hero-search__button">Tìm việc</button>
           </form>
           <div className="home-brand-hero__links">
@@ -704,28 +730,10 @@ export function Home() {
             <NavLink to="/viec-han-quoc">Khám phá việc làm Hàn Quốc →</NavLink>
           </div>
         </div>
-        <div className="home-brand-hero__visual" aria-hidden="true">
-          <div className="home-seoul-card">
-            <div className="home-seoul-card__top">
-              <span className="home-seoul-card__flag">🇰🇷</span>
-              <span>SEOUL · KOREA</span>
-            </div>
-            <div className="home-seoul-card__sun" />
-            <div className="home-seoul-card__tower"><span /></div>
-            <div className="home-seoul-card__skyline">
-              <i /><i /><i /><i /><i /><i />
-            </div>
-            <div className="home-seoul-card__bridge">VIỆT NAM <b>↗</b> HÀN QUỐC</div>
-          </div>
-        </div>
       </section>
 
       {/* ── Curated opportunities: same card rhythm ───────────── */}
       <section className="home-discovery">
-        <div className="home-discovery__head">
-          <span className="home-discovery__kicker">Dành riêng cho hành trình của bạn</span>
-          <h2>Khám phá cơ hội dành cho bạn</h2>
-        </div>
         <div className="home-discovery__grid">
           <div className="home-discovery__card home-discovery__card--korea">
             <KoreaBanner />
@@ -744,6 +752,61 @@ export function Home() {
             </div>
             <img src="/char-upper.png" className="home-discovery-account__mascot" aria-hidden alt="" />
           </div>
+        </div>
+      </section>
+
+      <section className="home-reference-content">
+        <div className="home-reference-categories">
+          <div className="home-reference-heading">
+            <h2>Danh mục ngành nghề</h2>
+            <button type="button" onClick={() => setCategory('all')}>Xem tất cả ›</button>
+          </div>
+          <div className="home-reference-category-grid">
+            {REFERENCE_CATEGORIES.map((item) => (
+              <button
+                type="button"
+                key={item.value}
+                className={category === item.value ? 'home-reference-category home-reference-category--active' : 'home-reference-category'}
+                onClick={() => { setCategory(item.value); setSelectedCity(null); setBrandFilter(null) }}
+              >
+                <span aria-hidden>{item.icon}</span>
+                <strong>{item.label}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="home-reference-recommendation">
+          <div className="home-reference-heading">
+            <h2>Việc làm gợi ý cho bạn</h2>
+            <button type="button" onClick={() => jobResultRef.current?.scrollIntoView({ behavior: 'smooth' })}>Xem tất cả ›</button>
+          </div>
+          {filtered[0] ? (
+            <button type="button" className="home-reference-job" onClick={() => navigate(`/viec-lam/${filtered[0].id}`)}>
+              <span className="home-reference-job__title">{filtered[0].title}</span>
+              <span className="home-reference-job__company">{filtered[0].company}</span>
+              <span className="home-reference-job__location">⌖ {filtered[0].location}</span>
+              <span className="home-reference-job__salary">◇ {filtered[0].salary}</span>
+              <span className="home-reference-job__bookmark" aria-hidden>♡</span>
+            </button>
+          ) : (
+            <div className="home-reference-job home-reference-job--empty">Chưa có việc làm phù hợp</div>
+          )}
+        </div>
+      </section>
+
+      <section className="home-reference-latest">
+        <div className="home-reference-latest__head">
+          <h2>Việc làm mới nhất</h2>
+          <select aria-label="Sắp xếp việc làm" defaultValue="latest">
+            <option value="latest">Mới nhất</option>
+          </select>
+        </div>
+        <div className="home-reference-latest__filters">
+          <button type="button" className={category === 'all' ? 'is-active' : ''} onClick={() => setCategory('all')}>Tất cả</button>
+          <NavLink to="/viec-han-quoc">E-8</NavLink>
+          <NavLink to="/viec-han-quoc">E-7</NavLink>
+          <NavLink to="/viec-han-quoc">E-9</NavLink>
+          <button type="button" onClick={() => setCategory('all')}>Việc làm trong nước</button>
         </div>
       </section>
 
