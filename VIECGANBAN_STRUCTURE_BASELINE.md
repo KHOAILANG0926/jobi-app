@@ -39,7 +39,8 @@
 ## 2. 구직자 전체 흐름
 
 **[확인된 현재 구조]**: 회원가입(이메일)→로그인→공고 검색/필터/상세조회→저장(찜)→CV작성 까지는 실제 동작. 마감임박 알림도 동작. 크롤링 공고(`employer_id` NULL)는 "지원" 버튼을 눌러도 내부 지원을 시도하지 않고 원문 URL로 이동시키거나(추출 가능한 경우) 안내 토스트만 띄움(`JobDetail.tsx`의 `canApplyInternally` 분기) — 이 경로는 DB 테이블 없이도 의도대로 동작.
-**[미완성]**: 기업이 직접 등록한 공고(`employer_id` 있음)에 대한 지원 → 지원내역 확인 → 기업과 메시지 → 면접 일정 확인 → 지원상태 변경 알림. 프론트 코드(`applicationsStorage.ts`/`messagesStorage.ts`/`interviewStorage.ts`, `Profile.tsx`의 읽기전용 상태뱃지·지원취소 버튼 포함)는 전부 작성·커밋 완료됐지만, 대상 Supabase 테이블(`applications`/`message_threads`/`messages`/`interviews`)이 DB에 아직 생성되지 않아 실제 지원 시도 시 `addApplication`이 `PGRST205` 에러를 받아 `{ok:false}`를 반환하고 화면엔 실패 상태만 표시됨(크래시는 아님).
+**[확인된 현재 구조]**: 기업이 직접 등록한 공고(`employer_id` 있음)에 대한 지원 생성·중복 차단·기업 조회·상태 변경·구직자 상태 조회·지원 취소는 `applications` 테이블과 RLS를 실제 적용하고 격리 E2E로 검증 완료. 크롤링 공고의 내부 application 생성도 DB 정책에서 차단됨.
+**[미완성]**: 기업과 메시지 → 면접 일정 확인 흐름. 프론트 코드는 작성됐지만 `message_threads`/`messages`/`interviews` 테이블은 아직 DB에 생성되지 않음.
 **[확인 불가]**: Zalo 소셜 로그인 실제 인증 성공 여부.
 
 ---
@@ -47,7 +48,8 @@
 ## 3. 기업 전체 흐름
 
 **[확인된 현재 구조]**: 회원가입(기업)/로그인은 동작. 공고 등록(`/dang-tin`)은 `local_jobs.employer_id` 컬럼이 DB에 추가되고(`0004` migration 실행 완료) `PostJob.tsx`가 `employerId`를 전송하도록 수정되면서 정상 동작으로 전환됨(구직자/기업 양쪽 테스트 계정으로 등록→조회 end-to-end 확인 완료). 대시보드의 "내 공고" 목록도 `employer_id` 기준으로 정상 표시됨.
-**[미완성]**: 지원자 관리/메시지/면접 확정 탭은 UI는 있으나, 7번 항목의 `applications`/`message_threads`/`messages`/`interviews` 테이블이 DB에 없어 항상 빈 상태로만 보임.
+**[확인된 현재 구조]**: 지원자 조회와 reviewing/interview/accepted/rejected 상태 변경은 `applications` RLS E2E로 검증 완료.
+**[미완성]**: 메시지/면접 확정 탭은 UI는 있으나 `message_threads`/`messages`/`interviews` 테이블이 DB에 없어 항상 빈 상태로만 보임.
 (참고) `/admin`의 공고 등록 도구는 `employer_id`를 쓰지 않아 이 문제와 무관하게 동작하지만, 이는 기업 셀프서비스 흐름이 아님.
 
 ---
@@ -74,7 +76,8 @@
 ## 7. 지원 → 메시지 → 면접 구조
 
 **[확인된 현재 구조]**: 설계는 완료됨 — `applications`/`message_threads`/`messages`/`interviews` 4개 테이블 스키마와 RLS 정책을 담은 migration SQL(`supabase/migrations/0001~0003`)이 작성돼 있고, 프론트 코드(`applicationsStorage.ts`/`messagesStorage.ts`/`interviewStorage.ts`)도 이 구조를 전제로 전부 Supabase 비동기 방식으로 이미 재작성돼 있음. 지원 1건당 스레드 1개, 스레드는 (공고,지원자) 조합 1개당 1개로 설계됨.
-**[미완성]**: **위 4개 테이블이 실제 DB에 생성돼 있지 않음**(현재 Supabase에 실존하는 테이블은 `local_jobs`/`korea_jobs` 2개뿐, 직접 조회로 확인). 즉 코드와 설계는 준비돼 있으나 DB 적용이 안 돼 전부 미작동.
+**[확인된 현재 구조]**: `applications` 테이블은 실제 DB에 적용됐고, 구직자/기업 격리 계정으로 생성·조회·4단계 상태 변경·취소·권한 차단을 검증 완료.
+**[미완성]**: `message_threads`/`messages`/`interviews` 3개 테이블은 실제 DB에 아직 생성되지 않아 메시지와 면접 기능은 미동작.
 
 ---
 
@@ -101,7 +104,8 @@
 | 공고 데이터(국내) | Supabase `local_jobs` | 동작 |
 | 공고 데이터(한국행) | Supabase `korea_jobs` | 동작 |
 | 인증/세션 | Supabase Auth(`auth.users`) | 동작 |
-| 지원/메시지/면접 | Supabase 예정 테이블(미생성) | 미동작 |
+| 지원 | Supabase `applications` | 동작(E2E 검증 완료) |
+| 메시지/면접 | Supabase 예정 테이블(미생성) | 미동작 |
 | CV/기본 프로필 | localStorage | 동작(로컬 한정) |
 | 공고 저장(찜) | localStorage | 동작(로컬 한정) |
 | 커뮤니티 게시글 | localStorage | 동작(로컬 한정, 타 사용자와 공유 안 됨) |
@@ -117,9 +121,9 @@
 **[확인된 현재 구조]**
 - `RecommendSection.tsx` + `recommendStorage.ts`(점수 기반 매칭 로직) — 완성된 코드지만 어디서도 렌더링되지 않는 미사용 상태(import하는 곳 0곳).
 - `notificationsStorage.ts`가 `applicationsStorage`의 타입을 직접 참조하도록 설계돼 있음 — 지원 상태 변화에 반응하도록 의도됐으나, `applications` 테이블 부재로 현재는 사실상 빈 상태로 대기 중.
-- 지원/메시지/면접 Supabase 연동 코드 전체(`applicationsStorage.ts`/`messagesStorage.ts`/`interviewStorage.ts` 및 이를 쓰는 `Profile.tsx`/`EmployerDashboard.tsx`/`JobDetail.tsx` 화면단) — 코드는 master에 커밋 완료, DB 미적용 상태로 대기 중(7번 참고).
+- 메시지/면접 Supabase 연동 코드(`messagesStorage.ts`/`interviewStorage.ts` 및 이를 쓰는 `Profile.tsx`/`EmployerDashboard.tsx` 화면단) — 코드는 master에 커밋 완료, DB 미적용 상태로 대기 중(7번 참고).
 - `KoreaBanner.tsx`/`KoreaConsultModal.tsx`/`koreaLeadsStorage.ts` — 한국 취업 상담 리드 수집용 신규 컴포넌트. `korea_jobs`의 개별 공고와는 연결되지 않은 별도의 localStorage 기반 리드캡처(홈 화면 배너 클릭 → 상담 신청 모달 → localStorage 저장).
-- `supabase/migrations/0004_local_jobs_employer_id.sql` — **실행 완료(DB 적용됨)**. `0001_applications.sql`/`0002_messages.sql`/`0003_interviews.sql`은 작성만 완료, **미실행**(7번 참고).
+- `supabase/migrations/0004_local_jobs_employer_id.sql`과 `0001_applications.sql` — **실행 완료(DB 적용 및 applications E2E 검증 완료)**. `0002_messages.sql`/`0003_interviews.sql`은 작성만 완료, **미실행**(7번 참고).
 
 ---
 
@@ -129,6 +133,6 @@
 - `Job.id = "sb-<local_jobs.id>"` 문자열 규칙 — 프론트 전역이 이 포맷에 의존. 변경 시 전체 영향.
 - `job_id bigint → local_jobs(id)` FK — `applications`/`message_threads`/`interviews` 설계가 전부 이 참조 하나에 고정돼 있음. `korea_jobs` 연동을 시도하면 이 지점부터 다시 설계해야 함.
 - RLS 소유권 모델(`seeker_id = auth.uid() or employer_id = auth.uid()`) — 4개 미생성 테이블 설계 전체의 전제.
-- 7대 카테고리 체계 — 크롤러 분류기·필터 UI·기존 362건+ 데이터가 이 값에 맞춰 정렬돼 있음. 단, `CATEGORY_LABELS` 상수가 여러 파일(JobDetail 등)에 개별 중복 정의돼 있어 값이 어긋날 수 있음(`AdminDashboard.tsx`에 `office` 누락 — 빌드 타입에러로 실제 확인됨).
+- 7대 카테고리 체계 — 크롤러 분류기·필터 UI·기존 362건+ 데이터가 이 값에 맞춰 정렬돼 있음. `AdminDashboard.tsx`의 `office` 누락은 수정 완료.
 - Supabase anon 키/클라이언트 인스턴스 — `lib/supabase.ts` 외 3개 파일(`JobsContext.tsx`/`PostJob.tsx`/`KoreaJobs.tsx`)에 개별 하드코딩 중복. 키 교체 시 4곳 모두 손대야 함.
 - VPS 크롤러(crontab + `.env`) — 실제 운영 파이프라인. GitHub Actions 크롤러는 별도로 존재하나 현재 매번 0건 수집(Cloudflare로 추정)이라 VPS가 사실상 유일한 데이터 공급원.
