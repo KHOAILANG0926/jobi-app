@@ -2,32 +2,32 @@
 
 ## 현재 작업
 
-사용자가 승인한 확정 시안을 기준으로 Home UI 전체 레이아웃을 완성하고 production 배포를 준비했다.
+승인된 Home UI를 재구현하지 않고 배포 단계로 이어갈 수 있도록 작업 상태 규칙을 영구 문서에 반영했다.
 
 ## 변경 내용
 
-- 첨부 원본을 `public/images/korea-hero.webp`로 저장하고 서울 도심·N서울타워·한옥·태극기가 보이는 실제 Hero 배경으로 연결했다.
-- Header 검색창을 제거하고 `Việc làm / Thương hiệu / Công cụ / Cộng đồng` 및 우측 인증·CV·채용등록 링크를 시안대로 정렬했다.
-- Hero를 승인 높이로 낮추고 키워드·지역·업종 검색을 기존 실제 필터 상태에 연결했다.
-- 한국 상담·교육·로그인 카드의 비율과 스타일을 시안에 맞추고 기존 모달/CTA 동작을 유지했다.
-- 실제 업종 필터 6개, 실제 공고 기반 추천 카드, 최신 공고 필터 행을 추가했다.
-- 기존 브랜드·지역·추천 필터와 실제 공고 목록은 삭제하지 않고 그대로 유지했다.
+- `AGENTS.md`와 `CLAUDE.md`에 `IMPLEMENTED / VERIFIED / APPROVED / DEPLOYED` 상태 정의를 동일하게 추가했다.
+- 재구현 방지, 승인 후 배포 전환, 운영 미반영 시 배포 상태 우선 확인, 새 세션 상태 복원 규칙을 추가했다.
+- Home UI 현재 상태를 다음과 같이 고정했다.
+  - `IMPLEMENTED`: 완료
+  - `VERIFIED`: 완료
+  - `APPROVED`: 완료
+  - `DEPLOYED`: 미완료
 
 ## 테스트 결과
 
-- 확정 시안 구조 회귀 검사: 통과
-- 데스크톱·모바일 브라우저 비교 및 가로 넘침 검사: 통과
-- 키워드·지역·업종 필터, 커뮤니티, 로그인·회원가입·CV·채용등록, 실제 추천 공고 링크: 통과
-- `npx tsc --noEmit`: 통과
-- `npm run build`: 통과
+- 이번 변경은 문서 규칙만 수정했으며 Home UI 코드는 변경하지 않았다.
+- `AGENTS.md`와 `CLAUDE.md`의 필수 작업 상태 규칙 동일성 확인: 통과
+- Home UI의 기존 `VERIFIED` 결과를 유지한다.
 
 ## 발견된 문제
 
-- 일부 기존 브랜드 파비콘 외부 URL이 404를 반환하지만 홈 개편과 무관하며 대체 로고 fallback이 동작한다.
-- `0003_interviews.sql`은 아직 운영 DB에 적용되지 않아 실제 E2E가 보류 상태다.
-- 지정된 미추적 HTML 파일은 건드리지 않았다.
+- Home UI는 사용자 승인까지 완료됐지만 아직 `DEPLOYED` 상태가 아니다.
+- `0003_interviews.sql` 운영 적용과 실제 E2E는 원격 DB 작업 보류 상태다.
+- 지정된 미추적 HTML 및 소유권이 불명확한 미추적 이미지는 건드리지 않았다.
 
 ## 다음 결정사항
 
-1. 승인된 Home UI를 production 브랜치와 Vercel Production에 배포하고 실제 도메인을 확인한다.
-2. 이후 원격 DB 작업이 다시 허용되는 시점에 최신 `0003_interviews.sql` 적용과 interviews E2E를 진행한다.
+1. Home UI를 다시 구현하지 않고 기존 승인 결과를 commit/push 및 Production 배포한다.
+2. 실제 `https://viecganban.vn` 반영을 확인한 뒤에만 Home UI를 `DEPLOYED`로 변경한다.
+3. 이후 원격 DB 작업이 다시 허용되는 시점에 최신 `0003_interviews.sql` 적용과 interviews E2E를 진행한다.
