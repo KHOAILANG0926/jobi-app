@@ -44,7 +44,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const check = useCallback(async () => {
     const savedIds = loadSavedJobIds()
     const savedJobs = jobs.filter((j) => savedIds.includes(j.id))
-    const applications = user ? await loadApplications() : []
+    const applications = user?.role === 'seeker' ? await loadApplications() : []
     generateNotifications(savedJobs, applications)
     refresh()
   }, [jobs, refresh, user])

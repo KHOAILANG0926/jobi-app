@@ -124,7 +124,7 @@
 
 **[확인된 현재 구조]**
 - `RecommendSection.tsx` + `recommendStorage.ts`(점수 기반 매칭 로직) — 완성된 코드지만 어디서도 렌더링되지 않는 미사용 상태(import하는 곳 0곳).
-- `notificationsStorage.ts`가 `applicationsStorage`의 타입을 직접 참조하도록 설계돼 있음 — 지원 상태 변화에 반응하도록 의도됐으나, `applications` 테이블 부재로 현재는 사실상 빈 상태로 대기 중.
+- `notificationsStorage.ts`는 구직자 세션의 `applications` 상태 변화를 60초 주기와 앱 이벤트로 확인해 브라우저 로컬 알림을 생성함. 기업 세션에서는 지원자 목록을 상태 알림으로 잘못 처리하지 않도록 조회를 차단함.
 - 메시지 Supabase 연동은 운영 DB 적용 및 E2E 완료. 면접 연동 코드(`interviewStorage.ts` 및 이를 쓰는 `Profile.tsx`/`EmployerDashboard.tsx`)와 보강된 `0003`은 운영 DB 적용 대기 중(7번 참고).
 - `KoreaBanner.tsx`/`KoreaConsultModal.tsx`/`koreaLeadsStorage.ts` — 한국 취업 상담 리드 수집용 신규 컴포넌트. `korea_jobs`의 개별 공고와는 연결되지 않은 별도의 localStorage 기반 리드캡처(홈 화면 배너 클릭 → 상담 신청 모달 → localStorage 저장).
 - `0001_applications.sql`·`0002_messages.sql`·`0004_local_jobs_employer_id.sql` — **운영 DB 적용 완료**(`0001` applications E2E, `0002` messages E2E 완료). `0003_interviews.sql`은 보강 완료, **운영 DB 미적용**(7번 참고).
