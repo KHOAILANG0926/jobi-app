@@ -74,7 +74,7 @@ export function MessagesInbox() {
     const body = draft
     setDraft('')
     textareaRef.current?.focus()
-    await appendSeekerMessage(
+    const ok = await appendSeekerMessage(
       {
         id: active.jobId,
         title: active.jobTitle,
@@ -84,6 +84,10 @@ export function MessagesInbox() {
       body,
       user?.name,
     )
+    if (!ok) {
+      setDraft(body)
+      return
+    }
     loadThreads().then(setThreads)
   }
 

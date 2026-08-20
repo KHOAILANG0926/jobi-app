@@ -150,20 +150,25 @@ export async function appendSeekerMessage(
   job: Pick<Job, 'id' | 'title' | 'company' | 'employerPhone'> & { employerId?: string },
   body: string,
   seekerName?: string,
-): Promise<void> {
+): Promise<boolean> {
   const uid = await currentUserId()
-  if (!uid) return
+  if (!uid) return false
   const dbJobId = toDbJobId(job.id)
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('message_threads')
     .select('id')
     .eq('job_id', dbJobId)
     .eq('seeker_id', uid)
     .maybeSingle()
+  if (existingError) {
+    console.error('appendSeekerMessage: find thread failed', existingError)
+    return false
+  }
 
   let threadId = (existing?.id as string | undefined) ?? null
   if (!threadId) {
+    if (!job.employerId) return false
     const { data: created, error: createError } = await supabase
       .from('message_threads')
       .insert({
@@ -178,33 +183,52 @@ export async function appendSeekerMessage(
       })
       .select('id')
       .single()
-    if (createError || !created) { console.error('appendSeekerMessage: create thread failed', createError); return }
+    if (createError || !created) {
+      console.error('appendSeekerMessage: create thread failed', createError)
+      return false
+    }
     threadId = created.id as string
   } else {
-    await supabase
+    const { error: updateError } = await supabase
       .from('message_threads')
       .update({ unread_by_employer: true, unread_by_seeker: false, updated_at: new Date().toISOString() })
       .eq('id', threadId)
+    if (updateError) {
+      console.error('appendSeekerMessage: update thread failed', updateError)
+      return false
+    }
   }
 
   const { error: msgError } = await supabase
     .from('messages')
     .insert({ thread_id: threadId, from_role: 'seeker', body })
-  if (msgError) { console.error('appendSeekerMessage: insert message failed', msgError); return }
+  if (msgError) {
+    console.error('appendSeekerMessage: insert message failed', msgError)
+    return false
+  }
   dispatch()
+  return true
 }
 
 /** threadId 기준 (jobId→threadId로 변경 — 공고 하나에 여러 지원자 스레드가 있을 수 있어서). */
-export async function appendEmployerMessage(threadId: string, body: string): Promise<void> {
+export async function appendEmployerMessage(threadId: string, body: string): Promise<boolean> {
   const { error: msgError } = await supabase
     .from('messages')
     .insert({ thread_id: threadId, from_role: 'employer', body })
-  if (msgError) { console.error('appendEmployerMessage: insert message failed', msgError); return }
-  await supabase
+  if (msgError) {
+    console.error('appendEmployerMessage: insert message failed', msgError)
+    return false
+  }
+  const { error: updateError } = await supabase
     .from('message_threads')
     .update({ unread_by_seeker: true, unread_by_employer: false, updated_at: new Date().toISOString() })
     .eq('id', threadId)
+  if (updateError) {
+    console.error('appendEmployerMessage: update thread failed', updateError)
+    return false
+  }
   dispatch()
+  return true
 }
 
 /** 상대방이 보낸 메시지/읽음 상태 변경을 실시간으로 반영. */

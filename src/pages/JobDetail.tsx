@@ -99,7 +99,7 @@ export function JobDetail() {
 
   const onToggleSave = () => setSaved(toggleSavedJobId(job.id))
   const zaloHref = zaloMeUrl(job.zalo || job.employerPhone)
-  const showMessageCta = user?.role !== 'employer'
+  const showMessageCta = !!job.employerId && user?.role !== 'employer'
 
   // 크롤링 공고(local_jobs.employer_id가 NULL)는 소유 기업이 없어 내부 지원을 만들면
   // 아무도 조회할 수 없는 "고아 지원"이 되므로 생성하지 않는다.

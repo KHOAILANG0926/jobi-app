@@ -15,12 +15,14 @@ export function MessageEmployerModal({ open, job, user, onClose }: MessageEmploy
   const [body, setBody] = useState('')
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     if (!open) {
       setBody('')
       setSent(false)
       setSending(false)
+      setErrorMsg('')
     }
   }, [open])
 
@@ -39,8 +41,13 @@ export function MessageEmployerModal({ open, job, user, onClose }: MessageEmploy
     e.preventDefault()
     if (!user || user.role !== 'seeker' || !body.trim()) return
     setSending(true)
-    await appendSeekerMessage(job, body.trim())
+    setErrorMsg('')
+    const ok = await appendSeekerMessage(job, body.trim(), user.name)
     setSending(false)
+    if (!ok) {
+      setErrorMsg('Không gửi được tin nhắn. Vui lòng thử lại.')
+      return
+    }
     setSent(true)
     window.setTimeout(() => {
       onClose()
@@ -91,6 +98,7 @@ export function MessageEmployerModal({ open, job, user, onClose }: MessageEmploy
           </p>
         ) : (
           <form className="modal-panel__form" onSubmit={onSubmit}>
+            {errorMsg && <p className="form-error" role="alert">{errorMsg}</p>}
             <label className="field">
               <span className="field__label">Nội dung</span>
               <textarea

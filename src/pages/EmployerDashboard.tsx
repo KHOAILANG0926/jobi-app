@@ -124,7 +124,11 @@ export function EmployerDashboard() {
     const body = msgDraft.trim()
     setMsgDraft('')
     msgTextareaRef.current?.focus()
-    await appendEmployerMessage(activeMsg.id, body)
+    const ok = await appendEmployerMessage(activeMsg.id, body)
+    if (!ok) {
+      setMsgDraft(body)
+      return
+    }
     loadEmployerThreads(myJobIdsArr).then(setMsgThreads)
   }
 

@@ -5,39 +5,40 @@
 
 ## 현재 작업
 
-`applications` migration을 운영 Supabase에 적용하고, 격리된 구직자·기업
-테스트 계정과 전용 공고로 실제 지원/RLS 흐름을 검증했다.
+`applications` 운영 E2E를 완료하고, 다음 확정 작업인 messages 흐름의 migration과
+프론트 오류 처리를 기존 1:1 스레드 설계 안에서 최소 보강했다.
 
 ## 변경 내용
 
-- `0001_applications.sql`의 확정 정책이 운영 DB에 적용됐다.
-- `VIECGANBAN_STRUCTURE_BASELINE.md`를 applications 동작 상태로 갱신했다.
-- E2E용 application과 공고는 테스트 종료 시 삭제했으며 활성 테스트 공고는 0건이다.
-- 페이지/PDF 지연 로딩과 게스트 applications 조회 차단은 커밋 `ec81157`에 반영돼 있다.
+- `0002_messages.sql`에서 기업 직접등록 공고만 스레드를 만들 수 있도록 공고
+  `employer_id` 일치와 NOT NULL을 강제했다.
+- 스레드 UPDATE 권한을 읽음 플래그와 `updated_at` 열로 제한해
+  `job_id/seeker_id/employer_id` 위조를 차단했다.
+- 메시지는 스레드 당사자만 자신의 역할로 전송하며 빈 본문은 DB에서 차단한다.
+- 정책과 realtime 등록을 재실행 가능하게 만들었다.
+- 크롤링 공고에서는 인앱 메시지 CTA를 숨긴다.
+- 구직자/기업 메시지 전송 함수가 성공 여부를 반환하고, 실패 시 성공 UI를 표시하거나
+  작성 내용을 잃지 않도록 수정했다.
 
 ## 테스트 결과
 
-- applications E2E/RLS 세부 검증: 18/18 통과
-- 지원 생성 최초 상태 `submitted`: 통과
-- 중복 지원 unique 차단(`23505`): 통과
-- 기업 지원자 조회: 통과
-- 구직자 상태 변경 차단: 통과
-- 기업 reviewing → interview → accepted → rejected 변경: 전부 통과
-- 각 단계 구직자 상태 조회: 전부 통과
-- 기업의 보호 열 변경 차단(`42501`): 통과
-- 구직자 지원 취소: 통과
-- 크롤링 공고 내부 지원 차단(`42501`): 통과
+- applications E2E/RLS: 18/18 통과
+- applications 테스트 application/활성 공고 정리: 완료(활성 테스트 공고 0건)
+- messages migration 정책 정적 검증 7개 항목: 통과
+- `npx tsc --noEmit`: 통과
+- messages 운영 E2E: `0002_messages.sql` 미적용으로 대기
 
 ## 발견된 문제
 
-- Supabase 클라이언트 권한에는 Auth 사용자 삭제 API가 없어 E2E 전용 Auth 계정은
-  자동 삭제하지 못했다. 계정은 가짜 `example.com` 주소와 `test_account=true`
-  메타데이터만 사용하며 실제 개인정보는 포함하지 않는다.
-- `message_threads`/`messages`/`interviews`는 아직 운영 DB에 적용되지 않았다.
+- 운영 DB에 `message_threads`와 `messages`가 아직 없다.
+- Supabase Auth 클라이언트에는 사용자 삭제 권한이 없어 E2E 전용 Auth 계정은
+  Dashboard에서 `test_account=true` 기준으로 정리해야 한다.
+- `interviews`도 아직 운영 DB에 적용되지 않았다.
 
 ## 다음 결정사항
 
-1. 다음 확정 기술 작업: `0002_messages.sql`이 기존 1:1 스레드 설계와 소유권
-   정책을 안전하게 강제하는지 최종 검토하고 최소 보강한다.
-2. messages 적용·E2E 완료 후 `0003_interviews.sql`을 동일 절차로 진행한다.
-3. Supabase Dashboard에서 `test_account=true`인 E2E Auth 계정을 정리한다.
+1. 운영 Supabase SQL Editor에서 최신 `supabase/migrations/0002_messages.sql`
+   전체를 실행한다.
+2. 격리 계정과 전용 공고로 스레드 생성·양방향 전송·역할 위조 차단·소유권 열 변경
+   차단·크롤링 공고 차단·읽음 플래그를 E2E 검증한다.
+3. messages E2E 완료 후 `0003_interviews.sql` 검토와 최소 보강을 진행한다.
