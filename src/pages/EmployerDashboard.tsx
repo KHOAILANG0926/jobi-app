@@ -46,6 +46,7 @@ export function EmployerDashboard() {
   const msgBottomRef = useRef<HTMLDivElement>(null)
   const msgTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null)
+  const [applicationError, setApplicationError] = useState('')
 
   useEffect(() => {
     const handler = () => { loadApplications().then(setApplications) }
@@ -166,7 +167,9 @@ export function EmployerDashboard() {
   )
 
   const handleStatusChange = async (key: string, status: ApplicationStatus) => {
-    await updateApplicationStatus(key, status)
+    setApplicationError('')
+    const updated = await updateApplicationStatus(key, status)
+    if (!updated) setApplicationError('Không thể cập nhật trạng thái ứng tuyển. Vui lòng thử lại.')
     setApplications(await loadApplications())
   }
 
@@ -423,6 +426,7 @@ export function EmployerDashboard() {
       {/* ── Tab: Applicants ── */}
       {tab === 'applicants' && (
         <div className="edb-panel" role="tabpanel">
+          {applicationError && <p className="form-error" role="alert">{applicationError}</p>}
           {/* Job filter */}
           {myJobs.length > 0 && (
             <div className="edb-filter-row">

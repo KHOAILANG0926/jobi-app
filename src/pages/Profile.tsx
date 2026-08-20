@@ -38,6 +38,7 @@ export function Profile() {
   const [unreadMsgCount, setUnreadMsgCount] = useState(0)
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null)
   const [interviews, setInterviews] = useState<InterviewSlot[]>([])
+  const [applicationError, setApplicationError] = useState('')
 
   useEffect(() => {
     const syncSaved = () => setSavedIds(loadSavedJobIds())
@@ -413,6 +414,7 @@ export function Profile() {
       ) : seekerTab === 'applications' ? (
         <section className="profile-card profile-applications">
           <h2 className="profile-card__title">Việc đã ứng tuyển</h2>
+          {applicationError && <p className="form-error" role="alert">{applicationError}</p>}
 
           {/* Upcoming interviews */}
           {interviews.filter((i) => new Date(i.datetime) > new Date()).length > 0 && (
@@ -502,7 +504,9 @@ export function Profile() {
                           onClick={async () => {
                             if (!a.id) return
                             if (!window.confirm('Bạn có chắc muốn hủy đơn ứng tuyển này?')) return
-                            await cancelApplication(a.id)
+                            setApplicationError('')
+                            const cancelled = await cancelApplication(a.id)
+                            if (!cancelled) setApplicationError('Không thể hủy đơn ứng tuyển. Vui lòng thử lại.')
                             setApplications(await loadApplications())
                           }}
                         >

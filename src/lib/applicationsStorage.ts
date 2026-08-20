@@ -138,13 +138,14 @@ export async function updateApplicationStatus(id: string, status: ApplicationSta
 }
 
 /** 구직자 본인의 지원 취소(철회) — 상태값 변경이 아니라 행 삭제. */
-export async function cancelApplication(id: string): Promise<void> {
+export async function cancelApplication(id: string): Promise<boolean> {
   const { error } = await supabase.from('applications').delete().eq('id', id)
   if (error) {
     console.error('cancelApplication failed', error)
-    return
+    return false
   }
   window.dispatchEvent(new CustomEvent('vgb:applications'))
+  return true
 }
 
 /** 상대방(구직자↔고용주)이 만든/바꾼 지원 내역을 실시간으로 반영하기 위한 구독. */

@@ -18,6 +18,7 @@ messages 운영 E2E를 완료하고, 다음 확정 작업인 interviews의 SQL/R
 - 게스트·기업 세션의 Profile에서 구직자 전용 applications/messages/interviews 조회와 Realtime 구독이 시작되지 않도록 역할 가드를 추가했다.
 - 알림·확인한 지원 상태·마감 알림 localStorage 키를 사용자 ID(게스트 포함)별로 분리해 같은 브라우저에서 계정 전환 시 이전 계정 알림이 노출되지 않도록 했다.
 - 기업 메시지 INSERT 성공 후 스레드 읽음 메타데이터 갱신만 실패한 경우 전송 실패로 오인해 재시도 중복 메시지가 생기지 않도록 성공 결과를 유지한다.
+- 구직자 지원 취소와 기업 지원 상태 변경 실패를 boolean으로 전파하고 각 applications 패널에 오류를 표시한다.
 
 ## 테스트 결과
 
@@ -29,6 +30,7 @@ messages 운영 E2E를 완료하고, 다음 확정 작업인 interviews의 SQL/R
 - 게스트 `/ho-so` 보호 API 요청: 0건(브라우저 검증)
 - 알림 계정 scope 정적 검증 및 브라우저 localStorage 격리: 통과
 - 기업 메시지 저장 완료 후 결과 전파 회귀 검증: 통과
+- 지원 취소·상태 변경 실패 전파 회귀 검증: 통과
 - `npx tsc --noEmit`: 통과
 - `npm run build`: 통과
 
