@@ -71,7 +71,7 @@
 
 ## 6. CV/프로필 구조
 
-**[확인된 현재 구조]**: `cvStorage.ts`/`Profile.tsx` 전부 localStorage 기반. Supabase와 연결된 적 없음(전체 커밋 이력상 관련 시도 0건). CV 작성/저장/완성도체크 자체는 브라우저 내에서 정상 동작하나 기기·브라우저 간 공유는 안 됨.
+**[확인된 현재 구조]**: `cvStorage.ts`/`Profile.tsx` 전부 localStorage 기반. Supabase와 연결된 적 없음(전체 커밋 이력상 관련 시도 0건). CV 작성/저장/완성도체크 자체는 브라우저 내에서 정상 동작하나 기기·브라우저 간 공유는 안 됨. 알림 localStorage는 사용자 ID별 scope로 격리돼 계정 전환 시 다른 계정 알림을 읽지 않음.
 
 ---
 

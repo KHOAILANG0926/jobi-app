@@ -17,6 +17,10 @@ const NOTIF_KEY = 'vgb_notifications'
 const SEEN_STATUS_KEY = 'vgb_notif_seen_statuses'
 const SEEN_DEADLINE_KEY = 'vgb_notif_seen_deadlines'
 
+function scopedKey(base: string, scope: string): string {
+  return `${base}:${scope}`
+}
+
 const STATUS_LABELS: Record<string, string> = {
   submitted: 'Đã nộp',
   reviewing: 'Đang xem xét',
@@ -25,9 +29,9 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'Từ chối',
 }
 
-export function loadNotifications(): AppNotification[] {
+export function loadNotifications(scope: string): AppNotification[] {
   try {
-    const raw = localStorage.getItem(NOTIF_KEY)
+    const raw = localStorage.getItem(scopedKey(NOTIF_KEY, scope))
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -36,51 +40,51 @@ export function loadNotifications(): AppNotification[] {
   }
 }
 
-function persistNotifications(list: AppNotification[]): void {
-  localStorage.setItem(NOTIF_KEY, JSON.stringify(list.slice(0, 50)))
+function persistNotifications(list: AppNotification[], scope: string): void {
+  localStorage.setItem(scopedKey(NOTIF_KEY, scope), JSON.stringify(list.slice(0, 50)))
   window.dispatchEvent(new CustomEvent('vgb:notifications'))
 }
 
-export function markRead(id: string): void {
-  const list = loadNotifications()
+export function markRead(id: string, scope: string): void {
+  const list = loadNotifications(scope)
   const idx = list.findIndex((n) => n.id === id)
   if (idx === -1) return
   list[idx] = { ...list[idx], read: true }
-  persistNotifications(list)
+  persistNotifications(list, scope)
 }
 
-export function markAllRead(): void {
-  persistNotifications(loadNotifications().map((n) => ({ ...n, read: true })))
+export function markAllRead(scope: string): void {
+  persistNotifications(loadNotifications(scope).map((n) => ({ ...n, read: true })), scope)
 }
 
-export function clearAll(): void {
-  persistNotifications([])
+export function clearAll(scope: string): void {
+  persistNotifications([], scope)
 }
 
-function loadSeenStatuses(): Record<string, string> {
+function loadSeenStatuses(scope: string): Record<string, string> {
   try {
-    const raw = localStorage.getItem(SEEN_STATUS_KEY)
+    const raw = localStorage.getItem(scopedKey(SEEN_STATUS_KEY, scope))
     return raw ? (JSON.parse(raw) as Record<string, string>) : {}
   } catch {
     return {}
   }
 }
 
-function loadSeenDeadlines(): Set<string> {
+function loadSeenDeadlines(scope: string): Set<string> {
   try {
-    const raw = localStorage.getItem(SEEN_DEADLINE_KEY)
+    const raw = localStorage.getItem(scopedKey(SEEN_DEADLINE_KEY, scope))
     return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
   } catch {
     return new Set()
   }
 }
 
-export function generateNotifications(savedJobs: Job[], applications: JobApplication[]): void {
+export function generateNotifications(savedJobs: Job[], applications: JobApplication[], scope: string): void {
   const now = new Date()
   const todayMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-  let notifs = loadNotifications()
-  const seenStatuses = loadSeenStatuses()
-  const seenDeadlines = loadSeenDeadlines()
+  let notifs = loadNotifications(scope)
+  const seenStatuses = loadSeenStatuses(scope)
+  const seenDeadlines = loadSeenDeadlines(scope)
   let changed = false
 
   // --- 1. Deadline alerts for saved jobs ---
@@ -148,8 +152,8 @@ export function generateNotifications(savedJobs: Job[], applications: JobApplica
   }
 
   if (changed) {
-    localStorage.setItem(SEEN_STATUS_KEY, JSON.stringify(seenStatuses))
-    localStorage.setItem(SEEN_DEADLINE_KEY, JSON.stringify([...seenDeadlines]))
-    persistNotifications(notifs)
+    localStorage.setItem(scopedKey(SEEN_STATUS_KEY, scope), JSON.stringify(seenStatuses))
+    localStorage.setItem(scopedKey(SEEN_DEADLINE_KEY, scope), JSON.stringify([...seenDeadlines]))
+    persistNotifications(notifs, scope)
   }
 }

@@ -33,21 +33,26 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { jobs } = useJobs()
-  const [notifications, setNotifications] = useState<AppNotification[]>(() =>
-    loadNotifications(),
-  )
+  const notificationScope = user?.id ?? 'guest'
+  const [notificationState, setNotificationState] = useState(() => ({
+    scope: notificationScope,
+    items: loadNotifications(notificationScope),
+  }))
+  const notifications = notificationState.scope === notificationScope
+    ? notificationState.items
+    : loadNotifications(notificationScope)
 
   const refresh = useCallback(() => {
-    setNotifications(loadNotifications())
-  }, [])
+    setNotificationState({ scope: notificationScope, items: loadNotifications(notificationScope) })
+  }, [notificationScope])
 
   const check = useCallback(async () => {
     const savedIds = loadSavedJobIds()
     const savedJobs = jobs.filter((j) => savedIds.includes(j.id))
     const applications = user?.role === 'seeker' ? await loadApplications() : []
-    generateNotifications(savedJobs, applications)
+    generateNotifications(savedJobs, applications, notificationScope)
     refresh()
-  }, [jobs, refresh, user])
+  }, [jobs, notificationScope, refresh, user?.role])
 
   // Run on mount and every 60 s
   useEffect(() => {
@@ -72,21 +77,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const handleMarkRead = useCallback(
     (id: string) => {
-      markRead(id)
+      markRead(id, notificationScope)
       refresh()
     },
-    [refresh],
+    [notificationScope, refresh],
   )
 
   const handleMarkAllRead = useCallback(() => {
-    markAllRead()
+    markAllRead(notificationScope)
     refresh()
-  }, [refresh])
+  }, [notificationScope, refresh])
 
   const handleClearAll = useCallback(() => {
-    clearAll()
+    clearAll(notificationScope)
     refresh()
-  }, [refresh])
+  }, [notificationScope, refresh])
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
