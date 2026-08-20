@@ -24,12 +24,12 @@ messages 운영 E2E를 완료하고, 다음 확정 작업인 interviews의 SQL/R
 
 ## 발견된 문제
 
-- messages E2E 후 합성 데이터 정리 직전에 저장된 Supabase CLI access token이 서버에서 401로 무효화됐다. `VGB E2E`/`test_account=true` 표식 데이터 정리가 보류됨.
+- messages E2E 합성 공고 6건(ID 3559~3564)을 회사/설명 이중 표식으로 식별해 모두 `active=false` 처리했으며 공개 활성 잔여는 0건이다. 비공개 스레드·메시지·관련 합성 Auth 계정의 물리 삭제는 관리자 SQL 1회 실행이 남았다.
 - `0003_interviews.sql`은 아직 운영 DB에 적용되지 않아 실제 E2E를 실행할 수 없다.
 - 지정된 미추적 HTML 파일은 건드리지 않았다.
 
 ## 다음 결정사항
 
-1. 원격 DB 인증이 다시 사용 가능해지면 표식된 messages 합성 데이터만 먼저 완전 정리한다.
+1. 준비된 제한 SQL로 ID 3559~3564의 연결 메시지/스레드/공고와 그 행에서 참조된 `test_account=true` 합성 Auth 계정만 물리 삭제하고 잔여 0건을 확인한다.
 2. 최신 `0003_interviews.sql`을 적용하고 기업 생성·재예약·구직자 조회·Realtime·타인/소유권/지원관계 위조 차단을 실제 E2E 검증한다.
 3. interviews 합성 데이터와 Auth 계정을 정리한 뒤 다음 확정 채용 흐름 기술 작업을 선정한다.
