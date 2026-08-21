@@ -1,7 +1,14 @@
-import { FormEvent, forwardRef, useRef, useState } from 'react'
+import { FormEvent, forwardRef, useEffect, useRef, useState } from 'react'
 import type { CvData, CvEducation, CvExperience, CvReference } from '../lib/cvStorage'
-import { loadCv, saveCv } from '../lib/cvStorage'
+import { createEmptyCv, loadCv, saveCv } from '../lib/cvStorage'
 import { loadProfile } from '../lib/storage'
+import {
+  deleteCvPhoto,
+  loadAccountCv,
+  loadCvPhoto,
+  saveAccountCv,
+  uploadCvPhoto,
+} from '../lib/accountCvStorage'
 
 const OBJECTIVE_MAX = 200
 const PHOTO_MAX_BYTES = 1.5 * 1024 * 1024
@@ -112,22 +119,76 @@ const CvA4Preview = forwardRef<HTMLDivElement, { data: CvData }>(function CvA4Pr
   )
 })
 
-export function CvBuilder() {
-  const [data, setData] = useState<CvData>(() => loadCv())
+export function CvBuilder({ userId }: { userId?: string }) {
+  const [data, setData] = useState<CvData>(() => userId ? createEmptyCv() : loadCv())
   const [saved, setSaved] = useState(false)
   const [skillInput, setSkillInput] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [serverError, setServerError] = useState('')
+  const [photoPath, setPhotoPath] = useState<string | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
 
-  const onSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    let cancelled = false
+
+    const sync = async () => {
+      setServerError('')
+      if (!userId) {
+        setPhotoPath(null)
+        setData(loadCv())
+        return
+      }
+
+      setData(createEmptyCv())
+      setPhotoPath(null)
+      try {
+        const remote = await loadAccountCv(userId)
+        if (cancelled || !remote) return
+        let photoDataUrl: string | null = null
+        if (remote.photoPath) photoDataUrl = await loadCvPhoto(userId, remote.photoPath)
+        if (cancelled) return
+        const hydrated = { ...remote.cv, profilePhotoDataUrl: photoDataUrl }
+        setPhotoPath(remote.photoPath)
+        setData(hydrated)
+        saveCv(hydrated, userId)
+      } catch {
+        if (!cancelled) setServerError('Không tải được CV từ tài khoản. Dữ liệu trên thiết bị vẫn được giữ nguyên.')
+      }
+    }
+
+    sync()
+    window.addEventListener('vgb:account-cv-saved', sync)
+    return () => {
+      cancelled = true
+      window.removeEventListener('vgb:account-cv-saved', sync)
+    }
+  }, [userId])
+
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    saveCv(data)
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 2800)
+    setServerError('')
+    try {
+      if (userId) {
+        const previousPhotoPath = photoPath
+        const nextPhotoPath = data.profilePhotoDataUrl
+          ? await uploadCvPhoto(userId, data.profilePhotoDataUrl)
+          : null
+        await saveAccountCv(userId, data, nextPhotoPath)
+        setPhotoPath(nextPhotoPath)
+        if (!nextPhotoPath && previousPhotoPath) {
+          deleteCvPhoto(userId, previousPhotoPath).catch(() => undefined)
+        }
+      }
+      saveCv(data, userId)
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 2800)
+    } catch {
+      setServerError('Không lưu được CV lên tài khoản. Bản trên thiết bị chưa bị xoá.')
+    }
   }
 
   const syncFromProfile = () => {
-    const p = loadProfile()
+    const p = loadProfile(userId)
     setData((d) => ({
       ...d,
       fullName: p.fullName,
@@ -548,6 +609,7 @@ export function CvBuilder() {
               </span>
             ) : null}
           </div>
+          {serverError ? <p className="form-error" role="alert">{serverError}</p> : null}
           <p className="hint">CV đã lưu được dùng tự động cho Ứng tuyển ngay.</p>
         </form>
 

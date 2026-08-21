@@ -71,7 +71,7 @@
 
 ## 6. CV/프로필 구조
 
-**[확인된 현재 구조]**: `cvStorage.ts`/`Profile.tsx` 전부 localStorage 기반. Supabase와 연결된 적 없음(전체 커밋 이력상 관련 시도 0건). CV 작성/저장/완성도체크 자체는 브라우저 내에서 정상 동작하나 기기·브라우저 간 공유는 안 됨. 알림 localStorage는 사용자 ID별 scope로 격리돼 계정 전환 시 다른 계정 알림을 읽지 않음.
+**[미완성]**: 게스트 CV/Profile은 기존 localStorage를 유지한다. 로그인 구직자의 서버 우선 Profile/CV, 계정별 로컬 캐시, 명시적 기존 데이터 가져오기, private 사진 Storage 어댑터와 migration은 구현·정적 검증됐으나 운영 DB 미적용이라 기기 간 동기화는 아직 운영 확인되지 않았다. 알림 localStorage는 사용자 ID별 scope로 격리돼 계정 전환 시 다른 계정 알림을 읽지 않음.
 
 ---
 
@@ -111,7 +111,7 @@
 | 지원 | Supabase `applications` | 동작(E2E 검증 완료) |
 | 메시지 | Supabase `message_threads`/`messages` | 동작(E2E 22/22) |
 | 면접 | Supabase 예정 `interviews` | 미동작(DB 미적용) |
-| CV/기본 프로필 | localStorage | 동작(로컬 한정) |
+| CV/기본 프로필 | 게스트·캐시: localStorage / 로그인 계정: Supabase 예정 | 서버 어댑터·migration 구현 완료, 운영 DB 적용 대기 |
 | 공고 저장(찜) | localStorage | 동작(로컬 한정) |
 | 커뮤니티 게시글 | localStorage | 동작(로컬 한정, 타 사용자와 공유 안 됨) |
 | 회사 리뷰 | localStorage | 동작(로컬 한정) |
