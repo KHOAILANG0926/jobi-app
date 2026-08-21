@@ -32,7 +32,8 @@
 1. **IMPLEMENTED**: 코드 구현 완료
 2. **VERIFIED**: 테스트, build, 실제 로컬 화면 검증 완료
 3. **APPROVED**: 사용자가 결과를 확인하고 승인 완료
-4. **DEPLOYED**: commit/push, Production 배포, 실제 운영 URL 반영 확인 완료
+4. **SYNCED**: 작업 브랜치가 GitHub에 push되어 다른 PC에서 이어서 작업 가능
+5. **DEPLOYED**: 승인된 변경이 Production 브랜치에 반영되고 실제 운영 URL 검증 완료
 
 - 이미 `IMPLEMENTED` 또는 `VERIFIED`인 동일 작업을 이유 없이 다시 구현하지 않는다.
 - 사용자가 승인한 구현은 다시 만들거나 재설계하지 않고 다음 상태로 진행한다.
@@ -44,3 +45,13 @@
 - 새 세션은 `AGENTS.md`, `CLAUDE.md`, `CHATGPT_HANDOFF.md`를 먼저 읽고 상태를 복원한다.
 - 화면 캡처가 제공되면 추측보다 실제 화면을 우선하며, 확인되지 않은 상태를 완료로 보고하지 않는다.
 - 반복 작업으로 사용자 시간과 토큰을 낭비하지 않는다.
+
+## 멀티-PC Git 작업 규칙
+
+- AI가 직접 수행할 수 있는 터미널, Git, 파일 탐색 작업을 사용자에게 요구하지 않는다. 로그인이나 권한 승인처럼 사용자만 할 수 있는 단계만 요청한다.
+- 새 PC에서는 폴더명만 믿지 않고 `git remote`로 `KHOAILANG0926/jobi-app` 저장소인지 확인한다.
+- 작업 시작 순서는 저장소 확인 → remote 확인 → remote branch fetch → 최신 작업 branch 확인/동기화 → `AGENTS.md`·`CLAUDE.md`·`CHATGPT_HANDOFF.md` 복원 → 이어서 작업이다.
+- 승인 전 변경도 PC 간 연속성이 필요하면 `work/*` 작업 브랜치에 필요한 검증 상태를 기록하고 commit/push한다.
+- 작업 브랜치 push는 `SYNCED`일 뿐 Production 배포가 아니다. `Git push`와 `DEPLOYED`를 절대 같은 상태로 취급하지 않는다.
+- `production` 브랜치 반영과 실제 배포는 사용자 승인 후에만 수행하며, 운영 URL 확인 전에는 `DEPLOYED`로 기록하지 않는다.
+- GitHub에 없는 다른 PC의 미커밋 변경을 존재한다고 추정하거나 재구현하지 않는다. 해당 PC에서 회수할 수 없으면 상태를 `확인 불가/미Push`로 명시한다.
