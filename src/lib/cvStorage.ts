@@ -2,6 +2,14 @@ import { loadProfile } from './storage'
 
 const CV_KEY = 'vgb_cv_draft'
 
+function cvKey(scope?: string): string {
+  return scope ? `${CV_KEY}:${scope}` : CV_KEY
+}
+
+export function hasStoredCv(scope?: string): boolean {
+  return localStorage.getItem(cvKey(scope)) !== null
+}
+
 export interface CvExperience {
   id: string
   /** Chức danh / job title */
@@ -42,8 +50,8 @@ export interface CvData {
   references: CvReference[]
 }
 
-function seedFromProfile(): Partial<CvData> {
-  const p = loadProfile()
+function seedFromProfile(scope?: string): Partial<CvData> {
+  const p = loadProfile(scope)
   return {
     fullName: p.fullName,
     phone: p.phone,
@@ -53,7 +61,7 @@ function seedFromProfile(): Partial<CvData> {
   }
 }
 
-function emptyCv(): CvData {
+export function createEmptyCv(): CvData {
   return {
     fullName: '',
     headline: 'Ứng viên — việc bán thời gian',
@@ -74,7 +82,7 @@ function emptyCv(): CvData {
 
 function migrateExperience(raw: unknown): CvExperience[] {
   if (!Array.isArray(raw) || raw.length === 0) {
-    return emptyCv().experiences
+    return createEmptyCv().experiences
   }
   return raw.map((item: unknown, i: number) => {
     const e = item as Record<string, string>
@@ -90,7 +98,7 @@ function migrateExperience(raw: unknown): CvExperience[] {
 
 function migrateEducation(raw: unknown): CvEducation[] {
   if (!Array.isArray(raw) || raw.length === 0) {
-    return emptyCv().education
+    return createEmptyCv().education
   }
   return raw.map((item: unknown, i: number) => {
     const e = item as Record<string, string>
@@ -155,21 +163,21 @@ function normalizeFromStorage(parsed: Record<string, unknown>, base: CvData): Cv
   }
 }
 
-export function loadCv(): CvData {
-  const base = emptyCv()
+export function loadCv(scope?: string): CvData {
+  const base = createEmptyCv()
   try {
-    const raw = localStorage.getItem(CV_KEY)
+    const raw = localStorage.getItem(cvKey(scope))
     if (!raw) {
-      return { ...base, ...seedFromProfile() }
+      return { ...base, ...seedFromProfile(scope) }
     }
     const parsed = JSON.parse(raw) as Record<string, unknown>
-    return normalizeFromStorage(parsed, { ...base, ...seedFromProfile() })
+    return normalizeFromStorage(parsed, { ...base, ...seedFromProfile(scope) })
   } catch {
-    return { ...base, ...seedFromProfile() }
+    return { ...base, ...seedFromProfile(scope) }
   }
 }
 
-export function saveCv(data: CvData): void {
-  localStorage.setItem(CV_KEY, JSON.stringify(data))
+export function saveCv(data: CvData, scope?: string): void {
+  localStorage.setItem(cvKey(scope), JSON.stringify(data))
   window.dispatchEvent(new CustomEvent('vgb:cv-saved'))
 }

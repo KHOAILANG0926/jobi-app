@@ -20,7 +20,21 @@ import {
   type InterviewSlot,
 } from '../lib/interviewStorage'
 import { countUnreadForSeeker, subscribeMessages } from '../lib/messagesStorage'
-import { loadProfile, loadSavedJobIds, saveProfile, toggleSavedJobId, type SeekerProfile } from '../lib/storage'
+import { loadAccountProfile, saveAccountProfile } from '../lib/accountProfileStorage'
+import { loadAccountCv, saveAccountCv, uploadCvPhoto } from '../lib/accountCvStorage'
+import { loadCv, hasStoredCv } from '../lib/cvStorage'
+import {
+  markLocalImportDecision,
+  shouldOfferLocalImport,
+} from '../lib/accountMigrationStorage'
+import {
+  hasStoredProfile,
+  loadProfile,
+  loadSavedJobIds,
+  saveProfile,
+  toggleSavedJobId,
+  type SeekerProfile,
+} from '../lib/storage'
 
 type SeekerTab = 'info' | 'cv' | 'messages' | 'applications' | 'saved'
 
@@ -28,7 +42,7 @@ export function Profile() {
   const { user, logout } = useAuth()
   const { jobs } = useJobs()
   const location = useLocation()
-  const [profile, setProfile] = useState<SeekerProfile>(() => loadProfile())
+  const [profile, setProfile] = useState<SeekerProfile>(() => loadProfile(user?.id))
   const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds())
   const [savedMsg, setSavedMsg] = useState(false)
   const [seekerTab, setSeekerTab] = useState<SeekerTab>('info')
@@ -39,6 +53,40 @@ export function Profile() {
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null)
   const [interviews, setInterviews] = useState<InterviewSlot[]>([])
   const [applicationError, setApplicationError] = useState('')
+  const [profileServerError, setProfileServerError] = useState('')
+  const [localImportOffer, setLocalImportOffer] = useState(false)
+  const [importingLocal, setImportingLocal] = useState(false)
+
+  useEffect(() => {
+    if (!user || user.role !== 'seeker') {
+      setLocalImportOffer(false)
+      setProfileServerError('')
+      return
+    }
+
+    let cancelled = false
+    setLocalImportOffer(false)
+    setProfileServerError('')
+    setProfile(loadProfile(user.id))
+    Promise.all([loadAccountProfile(user.id), loadAccountCv(user.id)])
+      .then(([remoteProfile, remoteCv]) => {
+        if (cancelled) return
+        if (remoteProfile) {
+          setProfile(remoteProfile)
+          saveProfile(remoteProfile, user.id)
+        }
+        setLocalImportOffer(shouldOfferLocalImport(
+          user.id,
+          Boolean(remoteProfile || remoteCv),
+          hasStoredProfile() || hasStoredCv(),
+        ))
+      })
+      .catch(() => {
+        if (!cancelled) setProfileServerError('Không tải được dữ liệu tài khoản. Dữ liệu trên thiết bị vẫn được giữ nguyên.')
+      })
+
+    return () => { cancelled = true }
+  }, [user?.id, user?.role])
 
   useEffect(() => {
     const syncSaved = () => setSavedIds(loadSavedJobIds())
@@ -122,11 +170,53 @@ export function Profile() {
     .map((id) => jobs.find((j) => j.id === id))
     .filter(Boolean) as typeof jobs
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    saveProfile(profile)
-    setSavedMsg(true)
-    window.setTimeout(() => setSavedMsg(false), 2500)
+    if (!user) {
+      saveProfile(profile)
+      setSavedMsg(true)
+      window.setTimeout(() => setSavedMsg(false), 2500)
+      return
+    }
+    if (user.role !== 'seeker') return
+    setProfileServerError('')
+    try {
+      await saveAccountProfile(user.id, profile)
+      saveProfile(profile, user.id)
+      setSavedMsg(true)
+      window.setTimeout(() => setSavedMsg(false), 2500)
+    } catch {
+      setProfileServerError('Không lưu được hồ sơ lên tài khoản. Dữ liệu trên thiết bị chưa bị xoá.')
+    }
+  }
+
+  const importLocalData = async () => {
+    if (!user || user.role !== 'seeker') return
+    setImportingLocal(true)
+    setProfileServerError('')
+    try {
+      if (hasStoredProfile()) await saveAccountProfile(user.id, loadProfile())
+      if (hasStoredCv()) {
+        const localCv = loadCv()
+        const photoPath = localCv.profilePhotoDataUrl
+          ? await uploadCvPhoto(user.id, localCv.profilePhotoDataUrl)
+          : null
+        await saveAccountCv(user.id, localCv, photoPath)
+      }
+      markLocalImportDecision(user.id, 'accepted')
+      setLocalImportOffer(false)
+      window.dispatchEvent(new CustomEvent('vgb:account-cv-saved'))
+    } catch {
+      setProfileServerError('Không nhập được dữ liệu. Bản gốc trên thiết bị vẫn được giữ nguyên.')
+    } finally {
+      setImportingLocal(false)
+    }
+  }
+
+  const declineLocalImport = () => {
+    if (!user) return
+    markLocalImportDecision(user.id, 'declined')
+    setLocalImportOffer(false)
   }
 
   if (user?.role === 'employer') {
@@ -195,6 +285,24 @@ export function Profile() {
           ) : null}
         </div>
       </header>
+
+      {profileServerError ? <p className="form-error" role="alert">{profileServerError}</p> : null}
+      {localImportOffer ? (
+        <section className="profile-card profile-card--guest" aria-label="Nhập dữ liệu cũ">
+          <h2 className="profile-card__title">Nhập dữ liệu trên thiết bị này?</h2>
+          <p className="profile-employer__text">
+            Tài khoản chưa có hồ sơ hoặc CV trên máy chủ. Chỉ nhập dữ liệu này nếu đây là hồ sơ của bạn.
+          </p>
+          <div className="profile-employer__actions">
+            <button type="button" className="btn btn--primary" onClick={importLocalData} disabled={importingLocal}>
+              {importingLocal ? 'Đang nhập…' : 'Nhập vào tài khoản'}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={declineLocalImport} disabled={importingLocal}>
+              Không nhập
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <div className="profile-tabs" role="tablist" aria-label="Mục hồ sơ ứng viên">
         <button
@@ -362,7 +470,7 @@ export function Profile() {
               {cvHint}
             </p>
           ) : null}
-          <CvBuilder />
+          <CvBuilder userId={user?.role === 'seeker' ? user.id : undefined} />
         </>
       ) : seekerTab === 'saved' ? (
         <section className="profile-card profile-card--saved">

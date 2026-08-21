@@ -4,6 +4,10 @@ const POSTED_KEY = 'vgb_posted_jobs'
 const PROFILE_KEY = 'vgb_profile'
 const SAVED_KEY = 'vgb_saved_job_ids'
 
+function scopedKey(key: string, scope?: string): string {
+  return scope ? `${key}:${scope}` : key
+}
+
 export function loadPostedJobs(): Job[] {
   try {
     const raw = localStorage.getItem(POSTED_KEY)
@@ -40,6 +44,10 @@ export interface SeekerProfile {
   bio: string
 }
 
+export function hasStoredProfile(scope?: string): boolean {
+  return localStorage.getItem(scopedKey(PROFILE_KEY, scope)) !== null
+}
+
 const defaultProfile: SeekerProfile = {
   fullName: 'Nguyễn Văn A',
   phone: '0901 234 567',
@@ -48,18 +56,23 @@ const defaultProfile: SeekerProfile = {
   bio: 'Sinh viên năm 3, mong muốn tìm việc bán thời gian buổi tối và cuối tuần.',
 }
 
-export function loadProfile(): SeekerProfile {
+export function createEmptyProfile(): SeekerProfile {
+  return { fullName: '', phone: '', email: '', city: '', bio: '' }
+}
+
+export function loadProfile(scope?: string): SeekerProfile {
   try {
-    const raw = localStorage.getItem(PROFILE_KEY)
-    if (!raw) return { ...defaultProfile }
+    const raw = localStorage.getItem(scopedKey(PROFILE_KEY, scope))
+    if (!raw) return scope ? createEmptyProfile() : { ...defaultProfile }
     return { ...defaultProfile, ...JSON.parse(raw) }
   } catch {
-    return { ...defaultProfile }
+    return scope ? createEmptyProfile() : { ...defaultProfile }
   }
 }
 
-export function saveProfile(p: SeekerProfile): void {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(p))
+export function saveProfile(p: SeekerProfile, scope?: string): void {
+  localStorage.setItem(scopedKey(PROFILE_KEY, scope), JSON.stringify(p))
+  window.dispatchEvent(new CustomEvent('vgb:profile-saved'))
 }
 
 export function loadSavedJobIds(): string[] {

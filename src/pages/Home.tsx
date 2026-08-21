@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
-import { KoreaBanner } from '../components/KoreaBanner'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
@@ -647,7 +646,6 @@ export function Home() {
 
   const handleHeroSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSelectedCity(null)
     setBrandFilter(null)
     window.requestAnimationFrame(() => {
       jobResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -735,9 +733,6 @@ export function Home() {
       {/* ── Curated opportunities: same card rhythm ───────────── */}
       <section className="home-discovery">
         <div className="home-discovery__grid">
-          <div className="home-discovery__card home-discovery__card--korea">
-            <KoreaBanner />
-          </div>
           <div className="home-discovery__card home-discovery__card--skill">
             <AdSlot slotId="header" />
           </div>
@@ -752,6 +747,22 @@ export function Home() {
             </div>
             <img src="/char-upper.png" className="home-discovery-account__mascot" aria-hidden alt="" />
           </div>
+        </div>
+      </section>
+
+      <section className="home-reference-latest">
+        <div className="home-reference-latest__head">
+          <h2>Việc làm mới nhất</h2>
+          <select aria-label="Sắp xếp việc làm" defaultValue="latest">
+            <option value="latest">Mới nhất</option>
+          </select>
+        </div>
+        <div className="home-reference-latest__filters">
+          <button type="button" className={category === 'all' ? 'is-active' : ''} onClick={() => setCategory('all')}>Tất cả</button>
+          <NavLink to="/viec-han-quoc">E-8</NavLink>
+          <NavLink to="/viec-han-quoc">E-7</NavLink>
+          <NavLink to="/viec-han-quoc">E-9</NavLink>
+          <button type="button" onClick={() => setCategory('all')}>Việc làm trong nước</button>
         </div>
       </section>
 
@@ -791,22 +802,6 @@ export function Home() {
           ) : (
             <div className="home-reference-job home-reference-job--empty">Chưa có việc làm phù hợp</div>
           )}
-        </div>
-      </section>
-
-      <section className="home-reference-latest">
-        <div className="home-reference-latest__head">
-          <h2>Việc làm mới nhất</h2>
-          <select aria-label="Sắp xếp việc làm" defaultValue="latest">
-            <option value="latest">Mới nhất</option>
-          </select>
-        </div>
-        <div className="home-reference-latest__filters">
-          <button type="button" className={category === 'all' ? 'is-active' : ''} onClick={() => setCategory('all')}>Tất cả</button>
-          <NavLink to="/viec-han-quoc">E-8</NavLink>
-          <NavLink to="/viec-han-quoc">E-7</NavLink>
-          <NavLink to="/viec-han-quoc">E-9</NavLink>
-          <button type="button" onClick={() => setCategory('all')}>Việc làm trong nước</button>
         </div>
       </section>
 
