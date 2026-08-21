@@ -1,0 +1,100 @@
+name: P0 Foundation operating migration
+
+on:
+  push:
+    branches:
+      - codex/p0-foundation-security
+    paths:
+      - .github/workflows/p0-foundation.yml
+      - scripts/e2e-p0-foundation.mjs
+      - scripts/test-p0-migrations.mjs
+      - supabase/audits/p0_role_conflict_gate.sql
+      - supabase/audits/p0_e2e_remaining_count.sql
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate injected credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Read-only operating audit and role conflict gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 \
+            -f supabase/audits/p0_foundation_readonly.sql \
+            > "$RUNNER_TEMP/p0-foundation-audit.txt"
+          conflicts="$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/audits/p0_role_conflict_gate.sql | tr -d '[:space:]')"
+          test "$conflicts" -eq "$conflicts" 2>/dev/null
+          echo "Existing account role conflicts: $conflicts"
+          if [ "$conflicts" -ne 0 ]; then
+            echo "Migration blocked: existing account roles require human review."
+            exit 42
+          fi
+
+      - name: Apply approved P0 migrations
+        id: apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          for migration in \
+            supabase/migrations/0005_account_roles_local_jobs_rls.sql \
+            supabase/migrations/0003_interviews.sql \
+            supabase/migrations/0006_user_profiles.sql \
+            supabase/migrations/0007_user_cvs.sql \
+            supabase/migrations/0008_cv_photos_storage.sql
+          do
+            echo "Applying $(basename "$migration")"
+            psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$migration" \
+              > "$RUNNER_TEMP/$(basename "$migration").log"
+          done
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Run isolated operating RLS and E2E
+        run: |
+          sleep 5
+          node scripts/e2e-p0-foundation.mjs
+
+      - name: Verify synthetic data cleanup
+        if: always() && steps.apply.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          remaining="$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/audits/p0_e2e_remaining_count.sql | tr -d '[:space:]')"
+          echo "Synthetic P0 rows remaining: $remaining"
+          test "$remaining" -eq 0
+
+      - name: Run static security and account isolation tests
+        run: |
+          node scripts/test-p0-migrations.mjs
+          node scripts/test-profile-account-sync.mjs
+          npx tsc --noEmit
+          npm run build

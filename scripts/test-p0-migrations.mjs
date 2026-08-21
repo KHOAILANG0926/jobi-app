@@ -172,6 +172,11 @@ assertContains(e2e, [
   /user_profiles/,
   /user_cvs/,
   /cv-photos/,
+  /postgres_changes/,
+  /user_metadata role spoof/,
+  /crawler application insert/,
+  /interview without application/,
+  /interview ownership column update/,
 ], 'p0 remote e2e harness')
 
 console.log('p0 migration contracts: PASS')
