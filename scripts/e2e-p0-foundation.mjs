@@ -32,8 +32,9 @@ async function createTestUser(label, role) {
   const client = createClient(SUPABASE_URL, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
-  const { error: signInError } = await client.auth.signInWithPassword({ email, password })
+  const { data: signInData, error: signInError } = await client.auth.signInWithPassword({ email, password })
   if (signInError) throw signInError
+  client.realtime.setAuth(signInData.session.access_token)
   return { id: data.user.id, client }
 }
 
@@ -134,7 +135,7 @@ try {
     realtimeResolve = resolve
     realtimeReject = reject
   })
-  const realtimeTimeout = setTimeout(() => realtimeReject(new Error('interviews Realtime timeout')), 15_000)
+  const realtimeTimeout = setTimeout(() => realtimeReject(new Error('interviews Realtime timeout')), 30_000)
   const channel = employerA.client
     .channel(`p0-interviews-${randomUUID()}`)
     .on('postgres_changes', {
