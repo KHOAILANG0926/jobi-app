@@ -20,6 +20,7 @@ NEXT PHASE 1 관리자 운영 기능을 `codex/admin-operations` 브랜치에 �
 - `account_statuses`와 공통 `is_account_active(uuid)`를 추가했다. 기존 Foundation 소유권 조건은 그대로 두고 applications/messages/interviews/Profile/CV/private Storage 등 민감 정책에 활성 조건만 결합했다.
 - 사용자 정지는 서버의 Supabase Admin API ban/unban과 DB 상태 RPC를 함께 사용한다. 정지 전 발급 JWT도 DB RLS에서 즉시 차단된다.
 - 공고/커뮤니티 상세에 최소 신고 CTA를 추가했다. 게스트는 로그인으로 이동하고 로그인 사용자는 자기 신고 제출·상태 확인만 가능하다.
+- `origin` 적용 뒤에도 기존 Vieclam24h/Facebook crawler가 중단되지 않도록 crawler payload에 코드상 확정 가능한 `crawler` 출처를 명시하고, 미확인 service 연동은 삭제/오분류 대신 `legacy` 기본값으로 보존한다. 품질/재공고 로직은 변경하지 않았다.
 
 ## 테스트 결과
 
@@ -32,7 +33,7 @@ NEXT PHASE 1 관리자 운영 기능을 `codex/admin-operations` 브랜치에 �
 - active 기능과 지원→메시지→면접 회귀, unsuspend 후 새 로그인 복구: 통과
 - private CV 사진 정지 사용자 읽기 차단: 통과
 - 합성 데이터 정리: 잔여 행 0건
-- GitHub Actions 성공 run: `32543191171`
+- GitHub Actions 최종 성공 run: `32543576478`
 - `node scripts/test-admin-operations.mjs`, `node scripts/test-admin-users-api.mjs`, 기존 P0 계약, `npx tsc --noEmit`, `npm run build`: 통과
 
 ## 발견된 문제
