@@ -2,46 +2,49 @@
 
 ## 현재 작업
 
-P0 Foundation 보안·계정 저장 기반을 `codex/p0-foundation-security` 브랜치에 구현하고 운영 Supabase에 적용·검증했다. Production 프론트 배포는 하지 않았다.
+NEXT PHASE 1 관리자 운영 기능을 `codex/admin-operations` 브랜치에 구현하고 운영 Supabase에 `0009_admin_operations.sql`을 적용·검증했다. Production 프론트 배포는 하지 않았다.
 
 작업 상태:
 
 - `IMPLEMENTED`: 완료
-- `VERIFIED`: 로컬 계약/타입/build 및 운영 RLS/E2E 완료
+- `VERIFIED`: 정적 계약, 타입/build, 운영 RLS/E2E 완료
 - `OPERATING DB APPLIED`: 완료
 - `SYNCED`: 최종 문서 커밋/push 후 local/remote 일치 확인
-- `DEPLOYED`: 미완료, Production 배포 금지 유지
+- `DEPLOYED`: 미완료, 사용자 승인 전 Production 배포 금지
 
 ## 변경 내용
 
-- 기존 사용자 역할 충돌 0건을 확인한 뒤 `0005_account_roles_local_jobs_rls.sql`을 적용했다.
-- 가입 역할은 `account_roles`에 고정되고 local_jobs는 공개 조회, 기업 본인 소유 INSERT/UPDATE/DELETE, admin/service-role 경로만 허용한다.
-- `0003_interviews.sql`, `0006_user_profiles.sql`, `0007_user_cvs.sql`, `0008_cv_photos_storage.sql`을 순서대로 적용했다.
-- 로그인 구직자의 Profile/CV는 서버 우선, 계정별 localStorage 캐시/복구본, 명시적 기존 데이터 가져오기 구조다. 게스트 localStorage와 PDF/미리보기 흐름은 유지한다.
-- private `cv-photos` bucket은 1.5MB JPEG/PNG/WebP와 사용자별 경로 RLS를 적용했다.
-- GitHub Actions의 DB URL/service-role Secret을 사용하는 감사 게이트·migration·E2E 자동화 경로를 추가했다.
+- `local_jobs.origin`을 운영 근거대로 employer 3, crawler 643, legacy 3, admin 0으로 backfill하고 `admin_hidden`을 `active`와 분리했다. 관리자 신규 등록만 `admin`으로 기록한다.
+- 관리자 화면은 Dashboard / Jobs / Users / Reports / Audit Logs 5개 탭이며 기존 통계와 수동 등록을 유지한다.
+- 공고 hide/unhide, 신고 처리, 계정 active/suspended와 모든 관리자 등록은 명시적 admin JWT 재검증·고정 search_path SECURITY DEFINER RPC 및 append-only 감사 로그를 사용한다.
+- `account_statuses`와 공통 `is_account_active(uuid)`를 추가했다. 기존 Foundation 소유권 조건은 그대로 두고 applications/messages/interviews/Profile/CV/private Storage 등 민감 정책에 활성 조건만 결합했다.
+- 사용자 정지는 서버의 Supabase Admin API ban/unban과 DB 상태 RPC를 함께 사용한다. 정지 전 발급 JWT도 DB RLS에서 즉시 차단된다.
+- 공고/커뮤니티 상세에 최소 신고 CTA를 추가했다. 게스트는 로그인으로 이동하고 로그인 사용자는 자기 신고 제출·상태 확인만 가능하다.
+- `origin` 적용 뒤에도 기존 Vieclam24h/Facebook crawler가 중단되지 않도록 crawler payload에 코드상 확정 가능한 `crawler` 출처를 명시하고, 미확인 service 연동은 삭제/오분류 대신 `legacy` 기본값으로 보존한다. 품질/재공고 로직은 변경하지 않았다.
 
 ## 테스트 결과
 
-- 운영 역할 충돌: 0건
-- 운영 migration 적용: 0005 → 0003 → 0006 → 0007 → 0008 통과
-- local_jobs seeker/타 기업/metadata 역할 위조 차단: 통과
-- interviews 소유 기업/해당 seeker 조회, outsider/타 기업/크롤링 공고/application 없음/소유권 위조 차단, 상태 변경, Realtime: 통과
-- user_profiles/user_cvs 본인 저장·타 사용자 격리: 통과
-- cv-photos 본인 업로드·다운로드/타 사용자 접근·업로드 차단: 통과
-- 합성 데이터 정리: 남은 행 0건
-- `node scripts/test-p0-migrations.mjs`, `node scripts/test-profile-account-sync.mjs`, `npx tsc --noEmit`, `npm run build`: 통과
-- GitHub Actions 성공 run: `32501094960`
+- 운영 origin 적용 전 게이트: total 649 / employer 3 / crawler 643 / legacy 3 일치
+- anon·일반 사용자 숨김 공고 차단, admin 조회, hide/unhide 즉시 공개 반영: 통과
+- 기업 본인 공고 수정, 타 기업 차단, `admin_hidden` 열 변경 차단: 통과
+- seeker/employer 관리자 RPC 차단, admin 공고 생성·사용자 조회·신고 처리 성공: 통과
+- 신고 본인 조회/타인 차단, audit log 생성/비관리자 쓰기 차단: 통과
+- 실제 `/api/admin-users` 처리 경로로 ban + suspended 적용 후 사전 발급 JWT 즉시 차단: 기업·구직자 모두 통과
+- active 기능과 지원→메시지→면접 회귀, unsuspend 후 새 로그인 복구: 통과
+- private CV 사진 정지 사용자 읽기 차단: 통과
+- 합성 데이터 정리: 잔여 행 0건
+- GitHub Actions 최종 성공 run: `32543576478`
+- `node scripts/test-admin-operations.mjs`, `node scripts/test-admin-users-api.mjs`, 기존 P0 계약, `npx tsc --noEmit`, `npm run build`: 통과
 
 ## 발견된 문제
 
-- 최초 운영 E2E에서 Realtime access token이 채널에 명시적으로 전달되지 않아 타임아웃이 발생했다. 토큰 전달을 최소 수정하고 재실행해 통과했다.
-- Profile/CV 프론트 코드는 작업 브랜치에만 있으며 Production 배포는 승인 전 금지다.
+- Supabase 공식 Admin API는 이미 발급된 access JWT 자체를 사용자 ID로 즉시 폐기하지 않는다. 이 한계는 승인된 이중 방어에서 DB RLS의 공통 활성 검사로 보완했다.
+- 관리자 프론트와 `/api/admin-users`는 작업 브랜치 상태이며 Production 배포 전에는 운영 화면에서 사용할 수 없다. 운영 DB 정책과 테이블은 적용 완료 상태다.
 - 사용자 소유 미추적 HTML/PNG 파일은 건드리지 않았다.
 
 ## 다음 결정사항
 
-1. P0 Foundation 핵심 운영 DB blocker는 해소됐다.
-2. 작업 브랜치의 Profile/CV 프론트를 Production에 반영하려면 별도 사용자 승인과 배포 검증이 필요하다.
-3. 관리자 사용자/신고 관리, 커뮤니티 서버화, 해외 국가 확장은 NEXT PHASE로 유지한다.
-4. crawler 품질/재공고 작업은 회사 PC 전용 `f6918ba` 범위이므로 이 브랜치에서 재구현하지 않는다.
+1. 관리자 운영 프론트/API의 Production 배포는 별도 사용자 승인 후 진행한다.
+2. Production 반영 후 실제 관리자 계정으로 5개 탭과 serverless 환경변수 주입을 최종 확인한다.
+3. 커뮤니티 원본 서버화, 고급 신고 자동화, 역할 변경 절차는 NEXT PHASE로 유지한다.
+4. crawler 품질/재공고 작업은 회사 PC 전용 `f6918ba` 범위이므로 재구현하지 않는다.

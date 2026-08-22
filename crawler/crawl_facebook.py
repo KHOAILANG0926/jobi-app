@@ -385,6 +385,8 @@ def parse_post(post: dict) -> dict:
         "urgent": "tuyển gấp" in text.lower() or "gấp" in text.lower(),
         "application_deadline": extract_deadline(text),
         "active": True,
+        "origin": "crawler",
+        "admin_hidden": False,
         "image_url": images[0] if images else None,
         "images": images if images else None,
         "is_local_priority": is_local_priority(text),

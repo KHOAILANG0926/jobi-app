@@ -1,0 +1,100 @@
+name: Admin operations migration and E2E
+
+on:
+  push:
+    branches:
+      - codex/admin-operations
+    paths:
+      - .github/workflows/admin-operations.yml
+      - api/admin-users.js
+      - scripts/e2e-admin-operations.mjs
+      - scripts/test-admin-operations.mjs
+      - scripts/test-admin-users-api.mjs
+      - supabase/audits/admin_operations_readonly.sql
+      - supabase/audits/admin_operations_remaining_count.sql
+      - supabase/migrations/0009_admin_operations.sql
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-operations-production-db
+  cancel-in-progress: false
+
+jobs:
+  migrate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate injected credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+
+      - name: Install dependencies and PostgreSQL client
+        run: |
+          npm ci
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Run static security contracts
+        run: |
+          node scripts/test-admin-operations.mjs
+          node scripts/test-admin-users-api.mjs
+          node scripts/test-p0-migrations.mjs
+
+      - name: Read-only operating audit and origin gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 \
+            -f supabase/audits/admin_operations_readonly.sql \
+            > "$RUNNER_TEMP/admin-operations-before.txt"
+          read -r total employer crawler legacy <<< "$(psql "$SUPABASE_DB_URL" -X -At -F ' ' -v ON_ERROR_STOP=1 -c \
+            "select count(*), count(*) filter (where employer_id is not null), count(*) filter (where employer_id is null and coalesce(description,'') ilike '%[source:vieclam24h]%'), count(*) filter (where employer_id is null and coalesce(description,'') not ilike '%[source:vieclam24h]%') from public.local_jobs")"
+          echo "Origin gate: total=$total employer=$employer crawler=$crawler legacy=$legacy"
+          test "$total" -eq 649
+          test "$employer" -eq 3
+          test "$crawler" -eq 643
+          test "$legacy" -eq 3
+
+      - name: Apply approved admin migration
+        id: apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/0009_admin_operations.sql \
+            > "$RUNNER_TEMP/0009_admin_operations.log"
+
+      - name: Run isolated operating RLS and E2E
+        run: node scripts/e2e-admin-operations.mjs
+
+      - name: Verify synthetic data cleanup
+        if: always() && steps.apply.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          remaining="$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/audits/admin_operations_remaining_count.sql | tr -d '[:space:]')"
+          echo "Synthetic admin rows remaining: $remaining"
+          test "$remaining" -eq 0
+
+      - name: Run Foundation regression and build
+        run: |
+          node scripts/test-profile-account-sync.mjs
+          npx tsc --noEmit
+          npm run build
