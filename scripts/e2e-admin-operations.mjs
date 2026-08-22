@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { createClient } from '@supabase/supabase-js'
+import { createAdminUsersHandler } from '../api/admin-users.js'
 
 const url = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -34,6 +35,20 @@ async function createUser(role, appRole) {
 async function denied(promise, label) {
   const result = await promise
   assert.ok(result.error || (Array.isArray(result.data) && result.data.length === 0), `${label} was not denied`)
+}
+
+async function setStatusThroughEndpoint(adminToken, userId, status) {
+  const response = {
+    statusCode: 200, body: null,
+    status(code) { this.statusCode = code; return this },
+    json(body) { this.body = body; return this },
+  }
+  await createAdminUsersHandler()({
+    method: 'POST',
+    headers: { authorization: `Bearer ${adminToken}` },
+    body: { userId, status, reason: marker },
+  }, response)
+  assert.equal(response.statusCode, 200, `admin-users endpoint failed: ${JSON.stringify(response.body)}`)
 }
 
 async function cleanup() {
@@ -119,16 +134,14 @@ try {
   if ((await seeker.client.storage.from('cv-photos').upload(photoPath, new Uint8Array([137, 80, 78, 71]), { contentType: 'image/png' })).error) throw new Error('active CV photo upload failed')
 
   // The clients retain their pre-suspension access tokens. Database RLS must deny those same tokens immediately.
-  if ((await adminApi.auth.admin.updateUserById(employerA.id, { ban_duration: '876000h' })).error) throw new Error('employer ban failed')
-  if ((await systemAdmin.client.rpc('admin_set_account_status', { target_user_id: employerA.id, next_status: 'suspended', reason: marker })).error) throw new Error('employer status failed')
+  await setStatusThroughEndpoint(systemAdmin.token, employerA.id, 'suspended')
   await denied(employerA.client.from('local_jobs').update({ title: marker }).eq('id', jobId).select(), 'suspended employer job update')
   await denied(employerA.client.from('local_jobs').insert({ title: marker, company: marker, employer_id: employerA.id, origin: 'employer' }).select(), 'suspended employer job insert')
   await denied(employerA.client.from('applications').update({ status: 'reviewing' }).eq('id', app.data.id).select(), 'suspended employer application update')
   await denied(employerA.client.from('messages').insert({ thread_id: thread.data.id, from_role: 'employer', body: marker }).select(), 'suspended employer message')
   await denied(employerA.client.from('interviews').update({ status: 'confirmed' }).eq('id', interview.data.id).select(), 'suspended employer interview update')
 
-  if ((await adminApi.auth.admin.updateUserById(seeker.id, { ban_duration: '876000h' })).error) throw new Error('seeker ban failed')
-  if ((await systemAdmin.client.rpc('admin_set_account_status', { target_user_id: seeker.id, next_status: 'suspended', reason: marker })).error) throw new Error('seeker status failed')
+  await setStatusThroughEndpoint(systemAdmin.token, seeker.id, 'suspended')
   assert.equal((await seeker.client.from('applications').select('id').eq('id', app.data.id)).data?.length, 0)
   assert.equal((await seeker.client.from('message_threads').select('id').eq('id', thread.data.id)).data?.length, 0)
   assert.equal((await seeker.client.from('interviews').select('id').eq('id', interview.data.id)).data?.length, 0)
@@ -142,8 +155,7 @@ try {
   assert.equal((await anon.from('local_jobs').select('id').eq('id', jobId)).data?.length, 1, 'public job must remain readable')
 
   // Unsuspend and force a new login; old sessions are not revived intentionally.
-  if ((await adminApi.auth.admin.updateUserById(seeker.id, { ban_duration: 'none' })).error) throw new Error('seeker unban failed')
-  if ((await systemAdmin.client.rpc('admin_set_account_status', { target_user_id: seeker.id, next_status: 'active', reason: marker })).error) throw new Error('seeker activate failed')
+  await setStatusThroughEndpoint(systemAdmin.token, seeker.id, 'active')
   const fresh = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   if ((await fresh.auth.signInWithPassword({ email: seeker.email, password })).error) throw new Error('fresh login after unsuspend failed')
   assert.equal((await fresh.from('applications').select('id').eq('id', app.data.id)).data?.length, 1)
