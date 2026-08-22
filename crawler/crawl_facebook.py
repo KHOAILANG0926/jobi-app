@@ -21,6 +21,7 @@ except ImportError:
 
 load_dotenv(Path(__file__).parent / ".env")
 
+from job_quality import has_excluded_money_terms
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -328,6 +329,10 @@ async def crawl_group(page, target: dict) -> list[dict]:
             text = clean_text(r.get("text", ""))
             key = text[:80]
             if not text or key in seen or not is_job_post(text):
+                continue
+
+            if has_excluded_money_terms(text):
+                print(f"    ⏩ 대출/채권회수 공고 스킵")
                 continue
 
             # 사무/전문직은 건너뜀 (생활밀착형 집중)

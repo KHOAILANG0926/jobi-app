@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { isPublicJobAllowed } from '../lib/jobQualityFilter'
 import { ensureJobFields } from '../lib/jobUtils'
 import type { Job } from '../types/job'
 
@@ -94,7 +95,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images')
       .eq('active', true)
       .order('posted_at', { ascending: false })
-    const fetched = (data ?? []).map(rowToJob)
+    const fetched = (data ?? []).map(rowToJob).filter(isPublicJobAllowed)
     setJobs(fetched.length > 0 ? fetched : DEMO_JOBS)
     setLoading(false)
   }, [])
@@ -104,6 +105,15 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])
 
   const addPostedJob = useCallback(async (draft: Omit<Job, 'id' | 'postedAt'>) => {
+    const draftForPolicy = ensureJobFields({
+      ...draft,
+      id: 'draft',
+      postedAt: new Date().toISOString().slice(0, 10),
+    } as Job)
+    if (!isPublicJobAllowed(draftForPolicy)) {
+      throw new Error('Tin tuyển dụng liên quan đến vay tiền hoặc thu hồi công nợ không phù hợp với Viecganban.')
+    }
+
     const { data, error } = await supabase
       .from('local_jobs')
       .insert({

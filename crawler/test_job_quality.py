@@ -7,6 +7,7 @@ import sys
 from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
+    has_excluded_money_terms,
     is_expired,
     normalize_location,
     normalize_salary,
@@ -71,6 +72,14 @@ def test_quality_helpers() -> None:
         canonical_job_key("Nhan vien dong goi", "Cong ty Anh Duong"),
         "canonical key removes accents and punctuation",
     )
+    assert_true(
+        has_excluded_money_terms("Theo dõi đơn hàng và quản lý, thu hồi công nợ theo quy định công ty."),
+        "debt collection jobs should be excluded",
+    )
+    assert_false(
+        has_excluded_money_terms("Nhân viên bán hàng cửa hàng tiện lợi, nhận ca linh hoạt."),
+        "normal retail jobs should remain allowed",
+    )
 
 
 def test_payload_validation() -> None:
@@ -99,6 +108,17 @@ def test_payload_validation() -> None:
 
     expired_job = {**good_job, "application_deadline": "2026-08-22"}
     assert_true("deadline is expired" in validate_job_payload(expired_job, today="2026-08-22"), "expired job error")
+
+    debt_job = {
+        **good_job,
+        "title": "NV Kinh Doanh Tôn Thép",
+        "description": "[source:vieclam24h] Theo dõi đơn hàng, quản lý và thu hồi công nợ theo quy định công ty.",
+        "category": "retail",
+    }
+    assert_true(
+        "excluded money/debt collection job" in validate_job_payload(debt_job, today="2026-08-22"),
+        "debt collection payload error",
+    )
 
 
 def main() -> int:

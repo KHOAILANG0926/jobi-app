@@ -18,6 +18,14 @@ VALID_CATEGORIES = {
     "other",
 }
 
+EXCLUDED_MONEY_JOB_RE = re.compile(
+    r"thu hoi cong no|cong no|thu hoi no|doi no|thu no\b|xu ly no|no xau|nhac no"
+    r"|vay tien|cho vay|ho tro vay|tu van vay|tin dung|the tin dung"
+    r"|tai chinh tieu dung|cong ty tai chinh|fe credit|home credit|mcredit"
+    r"|mirae asset|shinhan finance|vpbank finance|collection|collector|debt|loan",
+    re.IGNORECASE,
+)
+
 
 def normalize_whitespace(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
@@ -67,6 +75,11 @@ def has_source_tag(description: object, source: str) -> bool:
     return f"[source:{source}]" in str(description or "")
 
 
+def has_excluded_money_terms(*parts: object) -> bool:
+    """True for loan/debt-collection jobs that do not match the site motto."""
+    return bool(EXCLUDED_MONEY_JOB_RE.search(ascii_key(" ".join(str(p or "") for p in parts))))
+
+
 def is_expired(deadline: object, today: str | None = None) -> bool:
     deadline_text = normalize_whitespace(deadline)
     if not deadline_text:
@@ -92,6 +105,8 @@ def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | Non
         errors.append(f"invalid category: {category}")
     if not has_source_tag(description, source):
         errors.append(f"missing source tag: {source}")
+    if has_excluded_money_terms(title, company, description):
+        errors.append("excluded money/debt collection job")
     if job.get("origin") != "crawler":
         errors.append("origin must be crawler")
     if job.get("active") is not True:
