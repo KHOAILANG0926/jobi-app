@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { createReport, type ReportTargetType } from '../lib/adminOperations'
+import { createReport, getOwnReportStatus, type ReportStatus, type ReportTargetType } from '../lib/adminOperations'
 
 export function ReportButton({ targetType, targetId, snapshot }: {
   targetType: ReportTargetType
@@ -16,6 +16,16 @@ export function ReportButton({ targetType, targetId, snapshot }: {
   const [description, setDescription] = useState('')
   const [state, setState] = useState<'idle' | 'saving' | 'done'>('idle')
   const [error, setError] = useState('')
+  const [existingStatus, setExistingStatus] = useState<ReportStatus | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    getOwnReportStatus(user.id, targetType, targetId)
+      .then(status => { if (!cancelled) setExistingStatus(status) })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [targetId, targetType, user])
 
   function start() {
     if (!user) {
@@ -30,6 +40,7 @@ export function ReportButton({ targetType, targetId, snapshot }: {
     setState('saving'); setError('')
     try {
       await createReport({ reporterId: user.id, targetType, targetId, category, description: description.trim(), snapshot })
+      setExistingStatus('pending')
       setState('done')
     } catch (e) {
       setState('idle')
@@ -37,7 +48,7 @@ export function ReportButton({ targetType, targetId, snapshot }: {
     }
   }
 
-  if (state === 'done') return <span className="report-confirmation">Đã gửi báo cáo</span>
+  if (state === 'done' || existingStatus) return <span className="report-confirmation">Báo cáo của bạn: {existingStatus || 'pending'}</span>
   return <div className="report-control">
     <button type="button" className="report-button" onClick={start}>Báo cáo</button>
     {open && <div className="report-form" role="dialog" aria-label="Báo cáo nội dung">

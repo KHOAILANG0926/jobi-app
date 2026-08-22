@@ -57,12 +57,31 @@ try {
   const seeker = await createUser('seeker')
   const outsider = await createUser('seeker')
 
+  await denied(seeker.client.rpc('admin_list_users'), 'seeker user listing RPC')
+  const listedUsers = await systemAdmin.client.rpc('admin_list_users')
+  if (listedUsers.error) throw listedUsers.error
+  assert.ok(listedUsers.data.some(user => user.user_id === employerA.id), 'admin user list omitted employer')
+  const adminCreated = await systemAdmin.client.rpc('admin_create_job', { payload: {
+    title: `${marker} admin`, company: marker, category: 'office', description: marker,
+  } })
+  if (adminCreated.error) throw adminCreated.error
+  assert.equal(adminCreated.data.origin, 'admin')
+  jobs.push(adminCreated.data.id)
+
   const inserted = await employerA.client.from('local_jobs').insert({
     title: marker, company: marker, category: 'office', salary: '', location: '', description: marker,
     employer_id: employerA.id, origin: 'employer', admin_hidden: false, active: true,
   }).select().single()
   if (inserted.error) throw inserted.error
   const jobId = inserted.data.id; jobs.push(jobId)
+  const activeOwnUpdate = await employerA.client.from('local_jobs').update({ salary: marker }).eq('id', jobId).select('id').single()
+  if (activeOwnUpdate.error) throw activeOwnUpdate.error
+  const second = await employerA.client.from('local_jobs').insert({
+    title: `${marker} second`, company: marker, category: 'office', salary: '', location: '', description: marker,
+    employer_id: employerA.id, origin: 'employer', admin_hidden: false, active: true,
+  }).select().single()
+  if (second.error) throw second.error
+  jobs.push(second.data.id)
 
   await denied(employerB.client.from('local_jobs').update({ title: `${marker} other` }).eq('id', jobId).select(), 'other employer update')
   await denied(employerA.client.from('local_jobs').update({ admin_hidden: true }).eq('id', jobId).select(), 'employer admin_hidden update')
@@ -114,6 +133,7 @@ try {
   assert.equal((await seeker.client.from('message_threads').select('id').eq('id', thread.data.id)).data?.length, 0)
   assert.equal((await seeker.client.from('interviews').select('id').eq('id', interview.data.id)).data?.length, 0)
   await denied(seeker.client.from('applications').delete().eq('id', app.data.id).select(), 'suspended seeker application delete')
+  await denied(seeker.client.from('applications').insert({ job_id: second.data.id, seeker_id: seeker.id, employer_id: employerA.id, status: 'submitted' }).select(), 'suspended seeker application insert')
   await denied(seeker.client.from('messages').insert({ thread_id: thread.data.id, from_role: 'seeker', body: marker }).select(), 'suspended seeker message')
   await denied(seeker.client.from('user_profiles').upsert({ user_id: seeker.id, full_name: marker }).select(), 'suspended profile')
   await denied(seeker.client.from('user_cvs').upsert({ user_id: seeker.id, cv_data: { marker } }).select(), 'suspended CV')

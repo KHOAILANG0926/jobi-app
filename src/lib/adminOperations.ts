@@ -109,6 +109,18 @@ export async function createReport(input: {
   if (error) throw new Error(error.message)
 }
 
+export async function getOwnReportStatus(
+  reporterId: string,
+  targetType: ReportTargetType,
+  targetId: string,
+): Promise<ReportStatus | null> {
+  const { data, error } = await supabase.from('reports').select('status')
+    .eq('reporter_id', reporterId).eq('target_type', targetType).eq('target_id', targetId)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data?.status as ReportStatus | undefined) ?? null
+}
+
 export async function listReports(): Promise<UserReport[]> {
   const { data, error } = await supabase.from('reports').select('*').order('created_at', { ascending: false })
   return unwrap((data ?? []) as UserReport[], error)

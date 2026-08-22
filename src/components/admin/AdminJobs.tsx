@@ -41,7 +41,7 @@ export function AdminJobs() {
     <div className="admin-table-wrap"><table className="admin-table"><thead><tr>
       <th>Tin tuyển dụng</th><th>Nguồn</th><th>Trạng thái</th><th>Vận hành</th>
     </tr></thead><tbody>{filtered.map(job => <tr key={job.id}>
-      <td><strong>{job.title}</strong><small>{job.company} · #{job.id}</small></td>
+      <td><a href={`/viec-lam/sb-${job.id}`} target="_blank" rel="noreferrer"><strong>{job.title}</strong></a><small>{job.company} · #{job.id}</small></td>
       <td>{job.origin}</td><td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
     </tr>)}</tbody></table></div>
