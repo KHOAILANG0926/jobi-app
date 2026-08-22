@@ -4,8 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { JobCategory } from '../types/job'
 import type { Job } from '../types/job'
+import { AdminJobs } from '../components/admin/AdminJobs'
+import { AdminUsers } from '../components/admin/AdminUsers'
+import { AdminReports } from '../components/admin/AdminReports'
+import { AdminAuditLogs } from '../components/admin/AdminAuditLogs'
 
-type Tab = 'dashboard' | 'post'
+type Tab = 'dashboard' | 'jobs' | 'users' | 'reports' | 'audit'
 
 interface Stats {
   koreaJobs: number
@@ -162,7 +166,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
     }
     setSaving(true)
     setParseError('')
-    const { error } = await supabase.from('local_jobs').insert({
+    const { error } = await supabase.rpc('admin_create_job', { payload: {
       title: jobForm.title,
       company: jobForm.company,
       category: jobForm.category,
@@ -179,7 +183,6 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       lat: jobForm.lat ?? null,
       lng: jobForm.lng ?? null,
       image_url: jobForm.imageUrl?.trim() || null,
-      active: true,
       work_period: jobForm.workPeriod?.trim() || null,
       work_days: jobForm.workDays?.trim() || null,
       education: jobForm.education?.trim() || null,
@@ -188,7 +191,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       company_verified: jobForm.companyVerified ?? false,
       company_founded_year: jobForm.companyFoundedYear ?? null,
       hire_count: jobForm.hireCount ?? null,
-    })
+    } })
     if (error) {
       setParseError('Lỗi lưu dữ liệu: ' + error.message)
     } else {
@@ -225,7 +228,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
       {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
-        {([['dashboard', '📊 Dashboard'], ['post', '➕ Đăng tin nhanh']] as [Tab, string][]).map(([t, label]) => (
+        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['reports', '🚩 Reports'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '14px 24px', fontSize: '14px', fontWeight: tab === t ? 700 : 400,
             color: tab === t ? '#e74c3c' : '#666', background: 'none', border: 'none',
@@ -313,8 +316,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         )}
 
         {/* ── POST JOB TAB ── */}
-        {tab === 'post' && (
+        {tab === 'jobs' && (
           <div>
+            <AdminJobs />
             {/* Step 1: Paste */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
@@ -513,6 +517,10 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             </div>
           </div>
         )}
+
+        {tab === 'users' && <AdminUsers />}
+        {tab === 'reports' && <AdminReports />}
+        {tab === 'audit' && <AdminAuditLogs />}
       </div>
     </div>
   )

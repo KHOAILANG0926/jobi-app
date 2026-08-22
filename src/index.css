@@ -8813,3 +8813,23 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd-btn-phone:hover { background: #1d4ed8; color: #fff; }
   .jd-desc-img { background: #1f2937; }
 }
+/* Admin operations and compact report controls */
+.admin-panel { background:#fff; border-radius:16px; padding:18px; margin-bottom:20px; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.admin-toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.admin-toolbar input,.admin-toolbar select { min-height:40px; border:1px solid #dbe1ea; border-radius:8px; padding:0 11px; font:inherit; }
+.admin-toolbar input { flex:1; min-width:240px; }
+.admin-table-wrap { overflow-x:auto; }
+.admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+.admin-table th,.admin-table td { padding:11px 10px; border-bottom:1px solid #edf0f4; text-align:left; vertical-align:top; }
+.admin-table small { display:block; color:#7b8494; margin-top:4px; }
+.admin-action,.admin-actions button { border:1px solid #d8dee8; background:#fff; border-radius:7px; padding:6px 9px; cursor:pointer; }
+.admin-actions { display:flex; gap:5px; white-space:nowrap; }
+.admin-error { color:#c62828; }
+.report-control { position:relative; }
+.report-button { border:0; background:none; color:#7b8494; text-decoration:underline; cursor:pointer; padding:5px 0; }
+.report-confirmation { color:#27854a; font-size:13px; }
+.report-form { position:absolute; z-index:80; right:0; width:min(320px,80vw); padding:14px; border:1px solid #e1e5eb; border-radius:10px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.15); display:grid; gap:9px; }
+.report-form select,.report-form textarea { width:100%; box-sizing:border-box; border:1px solid #d8dee8; border-radius:7px; padding:8px; font:inherit; }
+.report-form textarea { min-height:72px; resize:vertical; }
+.report-form>div { display:flex; justify-content:flex-end; gap:7px; }
+.report-form button { border:1px solid #d8dee8; border-radius:7px; padding:7px 10px; cursor:pointer; }

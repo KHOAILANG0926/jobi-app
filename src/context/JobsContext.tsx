@@ -122,6 +122,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         lat: draft.lat ?? null,
         lng: draft.lng ?? null,
         employer_id: draft.employerId ?? null,
+        origin: 'employer',
+        admin_hidden: false,
         active: true,
         posted_at: new Date().toISOString().slice(0, 10),
         work_period: draft.workPeriod ?? null,

@@ -12,6 +12,7 @@ import {
   type CommunityPost,
 } from '../lib/communityStorage'
 import type { JobCategory } from '../types/job'
+import { ReportButton } from '../components/ReportButton'
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -127,6 +128,11 @@ export function CommunityPostDetail() {
             <span className="post-detail__author">✍️ {post.authorName}</span>
             <span className="post-detail__date">🕐 {timeAgo(post.createdAt)}</span>
           </div>
+          <ReportButton
+            targetType="community_post"
+            targetId={post.id}
+            snapshot={{ title: post.title, author: post.authorName, url: `/cong-dong/${post.id}` }}
+          />
         </header>
 
         {/* Body */}

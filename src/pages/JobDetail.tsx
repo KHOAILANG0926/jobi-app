@@ -9,6 +9,7 @@ import JobLocationMap from '../components/JobLocationMap'
 import { MessageEmployerModal } from '../components/MessageEmployerModal'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
+import { ReportButton } from '../components/ReportButton'
 import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
@@ -358,6 +359,12 @@ export function JobDetail() {
             {applyLabel}
           </button>
           <span className="jd2-aside-hint">{applyHint}</span>
+
+          <ReportButton
+            targetType="job"
+            targetId={job.id}
+            snapshot={{ title: job.title, company: job.company, url: `/viec-lam/${job.id}` }}
+          />
 
           {/* Zalo */}
           {job.employerPhone && (
