@@ -14,12 +14,14 @@
 """
 
 import re
+import sys
 import unicodedata
 
 
 # ── 베트남어 diacritics 제거 후 소문자화 ─────────────────
 def _norm(text: str) -> str:
     text = text.lower()
+    text = text.replace("đ", "d")
     text = unicodedata.normalize("NFD", text)
     text = "".join(c for c in text if unicodedata.category(c) != "Mn")
     text = re.sub(r"[^\w\s&]", " ", text)
@@ -42,7 +44,7 @@ _BLACKLIST = [
     r"giam doc", r"director", r"ceo", r"cfo", r"cto", r"coo",
     r"truong phong", r"pho giam doc",
     # 수석 회계/재무
-    r"ke toan truong", r"giam doc tai chinh", r"cfO", r"chief financial",
+    r"ke toan truong", r"giam doc tai chinh", r"cfo", r"chief financial",
     r"kiem toan vien", r"auditor",
     # 법률/의료 전문직
     r"luat su", r"bac si", r"duoc si", r"bac si chuyen khoa",
@@ -126,7 +128,7 @@ _RETAIL = re.compile(
     r"|winmart|vinmart|circle k|7.eleven|familymart|ministop|gs25\b"
     r"|tap hoa\b|showroom\b|dai ly\b"
     r"|ban le\b|ban si\b|phan phoi\b"
-    r"|nhan vien ban hang|sale\b|nhan vien cua hang|quan ly cua hang"
+    r"|nhan vien ban hang|\bsales?\b|nhan vien cua hang|quan ly cua hang"
     r"|samsung store|apple store|dien may|dien thoai di dong"
     r"|wincommerce|coopmart|bsmart|co.op"
     r"|nhan vien thi truong|nhan vien kinh doanh ban le"
@@ -169,6 +171,8 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     if _FACTORY.search(combined):    return "factory"
     if _CAFE.search(combined):       return "cafe"
     if _RESTAURANT.search(combined): return "restaurant"
+    # 제목/회사에 명확한 사무형 신호가 있으면 retail의 넓은 "ban hang"보다 우선한다.
+    if _OFFICE.search(title_co):     return "office"
     if _RETAIL.search(combined):     return "retail"
     if _OFFICE.search(combined):     return "office"
 
@@ -231,3 +235,5 @@ if __name__ == "__main__":
         print(f"  {status} [{got:10}] expected={expected:10} | {title}")
 
     print(f"\n결과: {ok}/{ok+err} 정확")
+    if err:
+        sys.exit(1)

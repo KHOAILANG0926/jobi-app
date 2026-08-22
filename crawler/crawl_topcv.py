@@ -21,6 +21,13 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from classifier import classify, is_blacklisted
+from job_quality import (
+    canonical_job_key,
+    normalize_location,
+    normalize_salary,
+    normalize_whitespace,
+    validate_job_payload,
+)
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -151,8 +158,17 @@ async def fetch_job_detail(page, url: str) -> dict:
             })
             return { deadline, sections }
         }""")
-        return result or {"deadline": None, "sections": {}}
-    except Exception:
+        result = result or {"deadline": None, "sections": {}}
+        if not result.get("sections"):
+            # DOM heading selectors occasionally miss SPA detail layouts; keep a
+            # bounded body fallback so crawler jobs are not saved as URL-only.
+            body_text = await page.locator("body").inner_text(timeout=5000)
+            fallback = normalize_whitespace(body_text)[:1800]
+            if fallback:
+                result["sections"] = {"Mô tả công việc": fallback}
+        return result
+    except Exception as exc:
+        print(f"    ⚠️  상세 수집 실패: {url} ({exc})")
         return {"deadline": None, "sections": {}}
 
 
@@ -161,8 +177,9 @@ def format_description(sections: dict) -> str:
     parts = []
     for key in order:
         if key in sections and sections[key]:
-            parts.append(f"## {key}\n{sections[key]}")
-    return "\n\n".join(parts)
+            content = str(sections[key]).strip()[:2000]
+            parts.append(f"## {key}\n{content}")
+    return "\n\n".join(parts)[:5000]
 
 
 async def crawl_vieclam24h() -> list[dict]:
@@ -194,7 +211,7 @@ async def crawl_vieclam24h() -> list[dict]:
         seen_titles = set()
         unique_raw = []
         for j in all_raw:
-            key = (j["title"] + j.get("company", "")).lower()
+            key = canonical_job_key(j["title"], j.get("company", ""))
             if key not in seen_titles:
                 seen_titles.add(key)
                 unique_raw.append(j)
@@ -211,8 +228,8 @@ async def crawl_vieclam24h() -> list[dict]:
             if deadline and deadline <= TODAY:
                 skipped += 1
                 continue
-            title   = j["title"]
-            company = j.get("company", "")
+            title = normalize_whitespace(j["title"])
+            company = normalize_whitespace(j.get("company", ""))
 
             # 블랙리스트(사무직) 공고 수집 단계 제외
             if is_blacklisted(title, company):
@@ -226,11 +243,11 @@ async def crawl_vieclam24h() -> list[dict]:
             # 분류: 제목 + 회사 + 본문 첫 300자 활용
             category = classify(title, company, desc_text)
 
-            jobs.append({
+            job = {
                 "title": title,
                 "company": company,
-                "location": j.get("location") or "Hồ Chí Minh",
-                "salary": j.get("salary", ""),
+                "location": normalize_location(j.get("location")),
+                "salary": normalize_salary(j.get("salary")),
                 "description": description,
                 "category": category,
                 "posted_at": TODAY,
@@ -241,7 +258,13 @@ async def crawl_vieclam24h() -> list[dict]:
                 "origin": "crawler",
                 "admin_hidden": False,
                 "image_url": logo if logo and logo.startswith("http") else None,
-            })
+            }
+            quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
+            if quality_errors:
+                skipped += 1
+                print(f"    ⏩ 품질 스킵: {title[:70]} ({', '.join(quality_errors)})")
+                continue
+            jobs.append(job)
             if (idx + 1) % 20 == 0:
                 print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
 
@@ -266,7 +289,7 @@ def save_to_supabase(jobs: list[dict]):
         .like("description", "%[source:vieclam24h]%") \
         .execute()
     existing_keys = {
-        (r["title"].strip().lower()[:60], r["company"].strip().lower()[:40])
+        canonical_job_key(r.get("title", ""), r.get("company", ""))
         for r in (existing_raw.data or [])
     }
     print(f"  📋 기존 vieclam24h 공고: {len(existing_keys)}개")
@@ -274,7 +297,7 @@ def save_to_supabase(jobs: list[dict]):
     # 신규 공고만 필터링 (누적 추가)
     new_jobs = [
         j for j in jobs
-        if (j["title"].strip().lower()[:60], j["company"].strip().lower()[:40]) not in existing_keys
+        if canonical_job_key(j["title"], j["company"]) not in existing_keys
     ]
     print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(jobs) - len(new_jobs)}개")
 
