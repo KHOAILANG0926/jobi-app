@@ -58,7 +58,7 @@
 
 ## 4. 관리자 구조
 
-**[확인된 현재 구조]**: `/admin`은 Layout 밖 독립 라우트. `RequireAdmin` 가드가 Supabase Auth 로그인 + `app_metadata.role === 'admin'`을 확인(이번 세션에 하드코딩 4자리 비밀번호에서 교체 완료). 대시보드 탭 2개: 통계(한국공고 수 등, `korea_jobs`/localStorage 기준)와 공고 수동 등록(Facebook 텍스트 붙여넣기 → 저장). 일반 유저 2-role(구직자/기업) 체계와는 별개의 독립 권한 경로.
+**[확인된 현재 구조]**: `/admin`은 Layout 밖 독립 라우트. `RequireAdmin` 가드와 모든 관리자 write RPC가 Supabase Auth의 `app_metadata.role === 'admin'`을 각각 검증한다. 작업 브랜치의 관리자 화면은 Dashboard / Jobs / Users / Reports / Audit Logs 5개 탭이며 기존 통계와 수동 등록을 유지한다. 운영 DB에는 공고 hide/unhide, 사용자 active/suspended, 신고 처리, append-only 감사 로그 구조가 적용됐다. 관리자 프론트/API는 Production 배포 전이다.
 **[미완성/확인 불가]**: 수동 등록 폼의 "AI 자동 파싱"(Claude API 직접 호출)은 코드상 인증 헤더(`x-api-key`)가 없어 구조적으로 실패할 가능성이 높으나, 실제 실행 결과는 **[확인 불가]**.
 
 ---
@@ -88,7 +88,7 @@
 
 **[확인된 현재 구조]**: Supabase Auth 이메일 인증. 구직자/기업 구분은 `user_metadata.role`(가입 시 선택, 클라이언트가 값을 정할 수 있는 필드). 라우트 가드는 클라이언트 사이드(`RequireEmployer`/`RequireAdmin`)로 구현. 관리자만 `app_metadata.role`(서버/service_role만 쓸 수 있는 필드) 기준으로 별도 검증. 별도 `profiles` 테이블은 없음.
 **[확인된 현재 구조]**: 게스트 CV 체험을 위해 `/ho-so`는 공개 라우트지만, applications/messages/interviews 조회·Realtime 구독은 구직자 역할에서만 시작된다. 기업은 전용 대시보드 흐름만 사용한다.
-**[확인된 현재 구조]**: 구직자/기업 권한은 운영 `account_roles`에 가입 시 고정된다. local_jobs RLS는 이 DB 역할과 `employer_id = auth.uid()`를 함께 요구하므로 클라이언트 `user_metadata.role` 위조로 우회되지 않으며 격리 E2E를 통과했다.
+**[확인된 현재 구조]**: 구직자/기업 권한은 운영 `account_roles`에 가입 시 고정된다. local_jobs RLS는 이 DB 역할과 `employer_id = auth.uid()`를 함께 요구하므로 클라이언트 `user_metadata.role` 위조로 우회되지 않으며 격리 E2E를 통과했다. `account_statuses`와 공통 `is_account_active(uuid)`가 기존 Foundation 소유권 정책에 추가되어 suspended 사용자의 민감 조회·쓰기는 정지 전에 발급된 JWT로도 즉시 차단된다. 공개 공고 조회는 유지한다.
 
 ---
 
@@ -128,7 +128,7 @@
 - `notificationsStorage.ts`는 구직자 세션의 `applications` 상태 변화를 60초 주기와 앱 이벤트로 확인해 브라우저 로컬 알림을 생성함. 기업 세션에서는 지원자 목록을 상태 알림으로 잘못 처리하지 않도록 조회를 차단함.
 - 메시지와 면접 Supabase 연동은 운영 DB 적용 및 격리 E2E 완료. 면접 Realtime과 소유권 불변 정책도 검증됐다.
 - `KoreaBanner.tsx`/`KoreaConsultModal.tsx`/`koreaLeadsStorage.ts` — 한국 취업 상담 리드 수집용 신규 컴포넌트. `korea_jobs`의 개별 공고와는 연결되지 않은 별도의 localStorage 기반 리드캡처(홈 화면 배너 클릭 → 상담 신청 모달 → localStorage 저장).
-- `0001_applications.sql`·`0002_messages.sql`·`0003_interviews.sql`·`0004_local_jobs_employer_id.sql`·`0005_account_roles_local_jobs_rls.sql`·`0006_user_profiles.sql`·`0007_user_cvs.sql`·`0008_cv_photos_storage.sql` — **운영 DB 적용 완료**. P0 운영 E2E와 합성 데이터 0건 정리 확인 완료.
+- `0001_applications.sql`·`0002_messages.sql`·`0003_interviews.sql`·`0004_local_jobs_employer_id.sql`·`0005_account_roles_local_jobs_rls.sql`·`0006_user_profiles.sql`·`0007_user_cvs.sql`·`0008_cv_photos_storage.sql`·`0009_admin_operations.sql` — **운영 DB 적용 완료**. Foundation 및 관리자 운영 RLS/E2E와 합성 데이터 0건 정리 확인 완료.
 
 ---
 
