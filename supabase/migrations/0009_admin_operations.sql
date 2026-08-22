@@ -49,7 +49,9 @@ set origin = case
 end
 where origin is null;
 
-alter table public.local_jobs alter column origin set not null;
+alter table public.local_jobs
+  alter column origin set default 'legacy',
+  alter column origin set not null;
 
 do $$
 begin

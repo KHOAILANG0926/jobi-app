@@ -238,6 +238,8 @@ async def crawl_vieclam24h() -> list[dict]:
                 "employer_phone": "",
                 "application_deadline": deadline,
                 "active": True,
+                "origin": "crawler",
+                "admin_hidden": False,
                 "image_url": logo if logo and logo.startswith("http") else None,
             })
             if (idx + 1) % 20 == 0:

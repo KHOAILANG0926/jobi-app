@@ -68,6 +68,8 @@ try {
       category: 'office',
       location: 'E2E',
       employer_id: employerA.id,
+      origin: 'employer',
+      admin_hidden: false,
       active: true,
     })
     .select('id')
@@ -78,7 +80,7 @@ try {
 
   const { data: crawlerJob, error: crawlerJobError } = await admin
     .from('local_jobs')
-    .insert({ title: `${marker} crawler`, company: marker, employer_id: null, active: true })
+    .insert({ title: `${marker} crawler`, company: marker, employer_id: null, origin: 'crawler', admin_hidden: false, active: true })
     .select('id')
     .single()
   if (crawlerJobError) throw crawlerJobError

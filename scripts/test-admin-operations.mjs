@@ -3,9 +3,13 @@ import { readFile } from 'node:fs/promises'
 
 const migrationPath = new URL('../supabase/migrations/0009_admin_operations.sql', import.meta.url)
 const sql = await readFile(migrationPath, 'utf8')
+const topcvCrawler = await readFile(new URL('../crawler/crawl_topcv.py', import.meta.url), 'utf8')
+const facebookCrawler = await readFile(new URL('../crawler/crawl_facebook.py', import.meta.url), 'utf8')
+const foundationE2e = await readFile(new URL('./e2e-p0-foundation.mjs', import.meta.url), 'utf8')
 
 const required = [
   /add column if not exists origin text/i,
+  /alter column origin set default 'legacy'/i,
   /origin in \('crawler', 'employer', 'admin', 'legacy'\)/i,
   /add column if not exists admin_hidden boolean not null default false/i,
   /expected 649 jobs/i,
@@ -28,6 +32,11 @@ const required = [
 for (const pattern of required) {
   assert.match(sql, pattern, `missing admin migration contract: ${pattern}`)
 }
+
+assert.match(topcvCrawler, /"origin":\s*"crawler"/, 'Vieclam24h crawler must declare its confirmed origin')
+assert.match(facebookCrawler, /"origin":\s*"crawler"/, 'Facebook crawler must declare its code-owned origin')
+assert.match(foundationE2e, /origin:\s*'employer'/, 'Foundation employer fixture must satisfy the origin contract')
+assert.match(foundationE2e, /origin:\s*'crawler'/, 'Foundation crawler fixture must satisfy the origin contract')
 
 assert.doesNotMatch(
   sql.match(/grant update \([\s\S]*?\) on table public\.local_jobs to authenticated/i)?.[0] ?? '',
