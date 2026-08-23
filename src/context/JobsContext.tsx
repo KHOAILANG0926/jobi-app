@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { classifyJobCategory } from '../lib/jobCategoryRules'
 import { isPublicJobAllowed } from '../lib/jobQualityFilter'
 import { ensureJobFields } from '../lib/jobUtils'
 import type { Job } from '../types/job'
@@ -29,11 +30,17 @@ function parseDescription(raw: string): { description: string; source?: string }
 
 function rowToJob(r: Record<string, unknown>): Job {
   const { description, source } = parseDescription((r.description as string) ?? '')
-  return ensureJobFields({
-    id: `sb-${r.id}`,
+  const baseJob = {
     title: (r.title as string) ?? '',
     company: (r.company as string) ?? '',
     category: (r.category as Job['category']) ?? 'other',
+    description,
+  }
+  return ensureJobFields({
+    id: `sb-${r.id}`,
+    title: baseJob.title,
+    company: baseJob.company,
+    category: classifyJobCategory(baseJob),
     salary: (r.salary as string) ?? '',
     location: (r.location as string) ?? '',
     hours: (r.hours as string) ?? '',

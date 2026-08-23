@@ -23,6 +23,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
+    extract_salary_from_text,
     normalize_location,
     normalize_salary,
     normalize_whitespace,
@@ -247,7 +248,7 @@ async def crawl_vieclam24h() -> list[dict]:
                 "title": title,
                 "company": company,
                 "location": normalize_location(j.get("location")),
-                "salary": normalize_salary(j.get("salary")),
+                "salary": normalize_salary(j.get("salary")) if normalize_whitespace(j.get("salary")) else extract_salary_from_text(desc_text),
                 "description": description,
                 "category": category,
                 "posted_at": TODAY,

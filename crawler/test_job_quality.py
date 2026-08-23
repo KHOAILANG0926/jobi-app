@@ -7,6 +7,7 @@ import sys
 from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
+    extract_salary_from_text,
     has_excluded_money_terms,
     is_expired,
     normalize_location,
@@ -64,6 +65,11 @@ def test_quality_helpers() -> None:
     assert_equal(normalize_salary("  Thoả thuận  "), "Thỏa thuận", "salary agreement")
     assert_equal(normalize_salary("300 triệu/tháng"), "Thỏa thuận", "unrealistic salary cap")
     assert_equal(normalize_salary("8 - 12 triệu/tháng"), "8 - 12 triệu/tháng", "normal salary")
+    assert_equal(
+        extract_salary_from_text("Quyền lợi: Thu nhập từ 8 - 12 triệu/tháng + phụ cấp"),
+        "Thu nhập từ 8 - 12 triệu/tháng",
+        "salary extracted from detail text",
+    )
     assert_equal(normalize_location("Địa điểm: Bình Dương"), "Bình Dương", "location prefix")
     assert_true(is_expired("2026-08-21", today="2026-08-22"), "expired deadline")
     assert_false(is_expired("2026-08-23", today="2026-08-22"), "future deadline")

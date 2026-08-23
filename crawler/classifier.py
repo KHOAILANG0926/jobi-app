@@ -90,6 +90,8 @@ _FACTORY = re.compile(
     r"|dong goi\b|lap rap\b|cat may\b|may mac\b|det\b|gia cong\b"
     r"|han xi\b|han dien\b|tho han\b"
     r"|thiet bi san xuat|co khi chinh xac|co khi\b"
+    r"|ky thuat bao tri|bao tri co dien|bao tri dien|bao tri may|co dien\b"
+    r"|ky thuat vien\b|nhan vien ky thuat|to truong ky thuat|van hanh may"
     r"|lao dong pho thong\b|cong nhan pho thong\b"
     r"|linh kien dien tu|kiem tra chat luong san pham"
     r"|san xuat linh kien|san xuat hang hoa"
@@ -133,6 +135,9 @@ _RETAIL = re.compile(
     r"|wincommerce|coopmart|bsmart|co.op"
     r"|nhan vien thi truong|nhan vien kinh doanh ban le"
     r"|nhan vien phat trien thi truong ban le"
+    r"|nhan vien kinh doanh\b|kinh doanh thi truong|phat trien thi truong"
+    r"|dai dien kinh doanh|tu van ban hang|sales executive|sales representative"
+    r"|ton thep|vat lieu xay dung|qua tang|hang nhap khau"
 )
 
 # 7. 사무보조 / 알바 / 단기 / 고객센터 (Văn phòng / Part-time)
@@ -150,6 +155,8 @@ _OFFICE = re.compile(
     r"|nhan vien marketing online\b|content\b|social media part"
     r"|nhan vien ke toan thue\b|ke toan thue\b|ke toan\b"
     r"|hanh chinh nhan su\b|nhan su\b"
+    r"|tu van tuyen sinh|tuyen sinh\b|giao vu\b|nhan vien tu van"
+    r"|tu van vien|dieu phoi\b|van thu\b|tro ly\b|marketing\b"
 )
 
 
@@ -168,11 +175,12 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     # 순서 = 우선순위 (중복 키워드는 먼저 매칭된 카테고리 승)
     if _DELIVERY.search(combined):   return "delivery"
     if _CLEANING.search(combined):   return "cleaning"
-    if _FACTORY.search(combined):    return "factory"
     if _CAFE.search(combined):       return "cafe"
     if _RESTAURANT.search(combined): return "restaurant"
-    # 제목/회사에 명확한 사무형 신호가 있으면 retail의 넓은 "ban hang"보다 우선한다.
+    # 제목/회사에 명확한 사무/영업 신호가 있으면 본문 속 업종 단어보다 우선한다.
     if _OFFICE.search(title_co):     return "office"
+    if _RETAIL.search(title_co):     return "retail"
+    if _FACTORY.search(combined):    return "factory"
     if _RETAIL.search(combined):     return "retail"
     if _OFFICE.search(combined):     return "office"
 
@@ -218,6 +226,9 @@ if __name__ == "__main__":
         ("Telesale Part-time Buổi Tối", "Edu Online", "office"),
         ("Admin Bán Hàng Trực Page Facebook", "Shop Online", "office"),
         ("Lễ Tân Văn Phòng Part-time", "Spa ABC", "office"),
+        ("NV Kinh Doanh Tôn Thép - Không Yêu Cầu Kinh Nghiệm", "Công Ty Mỹ Việt", "retail"),
+        ("Tổ Trưởng Kỹ Thuật Bảo Trì Cơ Điện", "Mebi Farm", "factory"),
+        ("Nhân Viên Tư Vấn Tuyển Sinh", "Cao Đẳng Kỹ Thuật", "office"),
         # Blacklisted
         ("Senior Developer Python", "Tech Co", "other"),
         ("Giám Đốc Kinh Doanh", "Corp X", "other"),
