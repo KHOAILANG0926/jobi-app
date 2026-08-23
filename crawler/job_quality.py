@@ -63,6 +63,25 @@ def normalize_salary(value: object) -> str:
     return salary[:80]
 
 
+def extract_salary_from_text(*parts: object) -> str:
+    text = normalize_whitespace(" ".join(str(p or "") for p in parts))
+    if not text:
+        return "Thỏa thuận"
+
+    patterns = [
+        r"(?:thu nhập|lương|luong)\s*(?:hấp dẫn|cứng|từ|upto|up to|:)?\s*[\w\s]{0,20}?\d+[\.,]?\d*\s*[-–~đến]+\s*\d+[\.,]?\d*\s*(?:triệu|tr|000\.000đ|000,000đ|đ)(?:/\s*\w+|\s*tháng|\s*month)?",
+        r"\d+[\.,]?\d*\s*[-–~]\s*\d+[\.,]?\d*\s*(?:triệu|tr)(?:/\s*\w+|\s*tháng|\s*month)?",
+        r"(?:thu nhập|lương|luong)\s*(?:hấp dẫn|cứng|từ|upto|up to|:)?\s*[\w\s]{0,20}?\d+[\.,]?\d*\s*(?:triệu|tr)(?:/|\s*tháng|\s*month)?",
+        r"\d{1,3}(?:[\\.,]\d{3}){1,3}\s*đ(?:/|\s*tháng)?",
+        r"(?:thỏa thuận|thoả thuận|cạnh tranh)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return normalize_salary(match.group(0))
+    return "Thỏa thuận"
+
+
 def normalize_location(value: object, fallback: str = "Hồ Chí Minh") -> str:
     location = normalize_whitespace(value)
     if not location:

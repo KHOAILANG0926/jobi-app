@@ -28,6 +28,10 @@ export const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
     imageUrl: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=600&q=80',
     label: 'BÁN LẺ / CỬA HÀNG',
   },
+  office: {
+    imageUrl: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600&q=80',
+    label: 'VĂN PHÒNG / TƯ VẤN',
+  },
   other: {
     imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=80',
     label: 'VIỆC LÀM',

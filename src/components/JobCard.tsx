@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Job, JobCategory } from '../types/job'
+import type { Job } from '../types/job'
+import { classifyJobCategory } from '../lib/jobCategoryRules'
 import { getCategoryVisual } from '../lib/categoryVisuals'
 import { zaloMeUrl } from '../lib/jobUtils'
 
@@ -52,15 +53,6 @@ function CompanyLogo({ company, imageUrl, category }: { company: string; imageUr
   )
 }
 
-function reclassify(category: string, title: string, company: string): JobCategory {
-  const t = (title + ' ' + company).toLowerCase()
-  if (/nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn/.test(t))
-    return 'restaurant'
-  if (/cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista/.test(t))
-    return 'cafe'
-  return category as JobCategory
-}
-
 const CATEGORY_TAGS: Record<string, string> = {
   factory:    'Nhà máy',
   cafe:       'Cafe',
@@ -68,6 +60,7 @@ const CATEGORY_TAGS: Record<string, string> = {
   delivery:   'Giao hàng',
   cleaning:   'Vệ sinh',
   retail:     'Bán lẻ',
+  office:     'Văn phòng',
   other:      'Việc làm',
 }
 
@@ -93,7 +86,7 @@ interface JobCardProps {
 export default function JobCard({
   job, isApplied, distanceKm,
 }: JobCardProps) {
-  const category = reclassify(job.category, job.title, job.company)
+  const category = classifyJobCategory(job)
   const salary = sanitizeSalary(job.salary || 'Thỏa thuận')
 
   const catTag = CATEGORY_TAGS[category] ?? ''

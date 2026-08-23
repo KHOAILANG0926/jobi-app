@@ -660,7 +660,7 @@ export function Home() {
       {title && <h2 className="home-section__title">{title}</h2>}
       <div className="home-jobs-grid">
         {list.map((job) => (
-          <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+          <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
             <JobCard
               job={job}
               isApplied={isApplied(job.id)}
@@ -669,7 +669,7 @@ export function Home() {
               onToggleSave={handleToggleSave}
               distanceKm={jobDistances[job.id]}
             />
-          </div>
+          </NavLink>
         ))}
       </div>
     </section>
@@ -969,9 +969,9 @@ export function Home() {
                 {urgentJobs.length > 0 && (
                   <div className="home-jobs-grid">
                     {urgentJobs.map(job => (
-                      <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                      <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
                         <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
-                      </div>
+                      </NavLink>
                     ))}
                   </div>
                 )}
@@ -981,9 +981,9 @@ export function Home() {
                 {regularJobs.length > 0 && (
                   <div className="home-jobs-grid">
                     {regularJobs.map(job => (
-                      <div key={job.id} className="home-card-wrap" onClick={() => navigate(`/viec-lam/${job.id}`)}>
+                      <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
                         <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
-                      </div>
+                      </NavLink>
                     ))}
                   </div>
                 )}

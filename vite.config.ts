@@ -6,9 +6,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          html2canvas: ['html2canvas'],
-          jspdf: ['jspdf'],
+        manualChunks(id) {
+          if (id.includes('node_modules/html2canvas')) return 'html2canvas'
+          if (id.includes('node_modules/jspdf')) return 'jspdf'
+          return undefined
         },
       },
     },

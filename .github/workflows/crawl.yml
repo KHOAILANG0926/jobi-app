@@ -17,10 +17,8 @@ jobs:
 
       - name: 의존성 설치
         run: |
-          pip install playwright python-dotenv supabase
-          pip install "playwright-stealth>=1.0.6"
-          playwright install chromium
-          playwright install-deps chromium
+          python -m pip install -r crawler/requirements.txt
+          python -m playwright install --with-deps chromium
 
       - name: 크롤링 실행
         env:

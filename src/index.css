@@ -6700,6 +6700,8 @@ a:hover {
 /* Card wrapper */
 .home-card-wrap {
   cursor: pointer;
+  color: inherit;
+  text-decoration: none;
   /* spacing handled by grid gap */
 }
 
