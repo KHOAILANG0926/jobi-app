@@ -9,6 +9,7 @@ import json
 import os
 import random
 import re
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -33,10 +34,6 @@ FB_C_USER = os.getenv("FB_C_USER", "")
 FB_XS     = os.getenv("FB_XS", "")
 FB_DATR   = os.getenv("FB_DATR", "")
 FB_FR     = os.getenv("FB_FR", "")
-
-if not FB_C_USER or not FB_XS:
-    print("  ⚠️  FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
-    exit(1)
 
 TODAY = date.today().isoformat()
 TARGET_PER_GROUP = 30
@@ -89,8 +86,8 @@ OFFICE_JOB_PATTERNS = re.compile(
 
 # ── 구/군/동 패턴 ────────────────────────────────────────────────────
 DISTRICT_PATTERN = re.compile(
-    r"(?:quận|q\.?|huyện|thành phố|tp\.?)\s*[\d\w\s]{1,20}|"
-    r"(?:phường|p\.?|xã|thị trấn)\s*[\w\s]{1,20}|"
+    r"(?:quận|q\.|huyện|thành phố|tp\.)\s*[\d\w\s]{1,20}|"
+    r"(?:phường|p\.|xã|thị trấn)\s*[\w\s]{1,20}|"
     r"(?:đường|ngõ|ngách|khu|kp)\s+[\w\s\d]{2,30}",
     re.IGNORECASE
 )
@@ -152,7 +149,7 @@ def extract_district(text: str) -> str:
 
 def extract_salary(text: str) -> str:
     patterns = [
-        r"\d+[\.,]?\d*\s*[-–~]\s*\d+[\.,]?\d*\s*(?:triệu|tr)(?:/|\s*tháng|\s*month)?",
+        r"\d+[\.,]?\d*\s*[-–~]\s*\d+[\.,]?\d*\s*(?:triệu|tr)(?:/\s*\w+|\s*tháng|\s*month)?",
         r"(?:từ|from)\s*\d+[\.,]?\d*\s*(?:triệu|tr)",
         r"\d+[\.,]?\d*\s*(?:triệu|tr)(?:/|\s*tháng|\s*month)?",
         r"\d+\s*[-–]\s*\d+\s*\$",
@@ -187,16 +184,22 @@ def extract_company(text: str) -> str:
     lines = [l.strip(" -*•\t") for l in text.split("\n") if l.strip()]
     for line in lines[:8]:
         if re.match(r"^(?:công ty|cty)\b", line, re.IGNORECASE) and 6 < len(line) < 100:
-            return line
+            if not re.search(r"\b(?:có|hỗ trợ|ho tro|cần|can|tuyển|tuyen)\b", line, re.IGNORECASE):
+                return line
     m = re.search(
         r"(?:công ty|cty|shop|cửa hàng|nhà hàng|quán|trung tâm|siêu thị)[:\s]+([^\n,\.]{3,80})",
         text, re.IGNORECASE
     )
     if m:
-        return m.group(1).strip()
+        candidate = m.group(1).strip()
+        if not re.match(r"^(?:có|ho tro|hỗ trợ|can|cần|tuyen|tuyển)\b", candidate, re.IGNORECASE):
+            return candidate
     for line in lines[:4]:
         if "tuyển dụng" in line.lower() and len(line) < 120:
-            return re.sub(r"\s*[-–]?\s*tuyển dụng.*$", "", line, flags=re.IGNORECASE).strip()
+            candidate = re.sub(r"\s*[-–]?\s*tuyển dụng.*$", "", line, flags=re.IGNORECASE).strip()
+            candidate = re.sub(r"\s*thông báo\s*$", "", candidate, flags=re.IGNORECASE).strip()
+            if candidate:
+                return candidate
     return ""
 
 
@@ -218,6 +221,8 @@ def guess_category(text: str) -> str:
 
 
 def build_cookies() -> list[dict]:
+    if not FB_C_USER or not FB_XS:
+        raise RuntimeError("FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
     cookies = [
         {"name": "c_user", "value": FB_C_USER, "domain": ".facebook.com", "path": "/"},
         {"name": "xs",     "value": FB_XS,     "domain": ".facebook.com", "path": "/"},
@@ -544,6 +549,10 @@ def save_to_supabase(jobs: list[dict]):
 async def main():
     print("🚀 Facebook 그룹 크롤링 시작 (생활밀착형 우선)")
     print("─" * 50)
+
+    if not FB_C_USER or not FB_XS:
+        print("  ⚠️  FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
+        sys.exit(1)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
