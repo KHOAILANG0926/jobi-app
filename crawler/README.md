@@ -3,6 +3,9 @@
 Python Playwright + stealth 모드로 Cloudflare 차단 없이 크롤링.
 **반드시 베트남 현지 또는 싱가포르 IP VPS에서 실행** (GitHub Actions 등 데이터센터 IP는 차단됨).
 
+운영 기준: **AZDIGI/Vietnam VPS에서 매일 20:00 Vietnam time에 `run_daily.sh` 실행**.
+`run_daily.sh`는 Vieclam24h crawler를 항상 실행하고, Facebook cookie가 `.env`에 있으면 Facebook crawler도 이어서 실행한다.
+
 ---
 
 ## 환경변수 설정
@@ -16,6 +19,12 @@ nano .env   # SUPABASE_SERVICE_ROLE_KEY 입력
 ```
 SUPABASE_URL=https://edhuesdnuxlbcfephutq.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_여기에입력
+
+# Facebook crawler 사용 시만 입력
+FB_C_USER=
+FB_XS=
+FB_DATR=
+FB_FR=
 ```
 
 ---
@@ -72,7 +81,7 @@ nano ~/jobi/crawler/.env
 
 ```bash
 cd ~/jobi/crawler
-python3 crawl_topcv.py
+./run_daily.sh
 ```
 
 ### 5. 자동화 (crontab)
@@ -81,9 +90,9 @@ python3 crawl_topcv.py
 crontab -e
 ```
 
-아래 추가 (매일 오전 8시 베트남 시간 = UTC+7 기준 01:00 UTC):
+아래 추가 (매일 저녁 8시 베트남 시간 = UTC+7 기준 13:00 UTC):
 ```
-0 1 * * * cd /home/ubuntu/jobi/crawler && python3 crawl_topcv.py >> /var/log/crawl.log 2>&1
+0 13 * * * cd /home/ubuntu/jobi/crawler && ./run_daily.sh >> /home/ubuntu/jobi/crawler/crawl_daily.log 2>&1
 ```
 
 ---
@@ -124,15 +133,15 @@ playwright install-deps chromium
 cp .env.example .env
 nano .env   # KEY 입력
 
-python3 crawl_topcv.py
+./run_daily.sh
 ```
 
 ### 4. 자동화 (crontab)
 
 ```bash
 crontab -e
-# 아래 추가:
-0 1 * * * cd /root/jobi/crawler && python3 crawl_topcv.py >> /var/log/crawl.log 2>&1
+# 아래 추가 (매일 20:00 Vietnam time):
+0 13 * * * cd /root/jobi/crawler && ./run_daily.sh >> /root/jobi/crawler/crawl_daily.log 2>&1
 ```
 
 ---
@@ -150,5 +159,6 @@ pip3 install -r crawler/requirements.txt  # 새 패키지 추가시
 ## 결과
 
 - `jobs_output.json` — 로컬 JSON 저장 (항상)
+- `facebook_jobs.json` — Facebook cookie가 있을 때 저장
 - Supabase DB — `.env`에 KEY 있을 때만 자동 저장
-- 로그: `/var/log/crawl.log`
+- 로그: `~/jobi/crawler/crawl_daily.log`
