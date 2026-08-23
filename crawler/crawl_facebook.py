@@ -243,6 +243,79 @@ def is_person_name(line: str) -> bool:
     return False
 
 
+def mobile_group_url(url: str) -> str:
+    return url.replace("https://www.facebook.com/", "https://m.facebook.com/")
+
+
+async def expand_visible_posts(page) -> None:
+    await page.evaluate("""() => {
+        document.querySelectorAll('[role="button"], a').forEach(el => {
+            const t = (el.innerText || el.textContent || '').trim()
+            if (t.includes('더 보기') || t.includes('See more') || t.includes('Xem thêm')) {
+                try { el.click() } catch {}
+            }
+        })
+    }""")
+
+
+async def article_count(page) -> int:
+    return await page.evaluate("""() => {
+        const selectors = [
+            '[role="article"]',
+            'div[data-ad-preview="message"]',
+            'div[aria-posinset]',
+            'div[data-ft]'
+        ]
+        return Math.max(...selectors.map(sel => document.querySelectorAll(sel).length), 0)
+    }""")
+
+
+async def extract_visible_posts(page) -> list[dict]:
+    return await page.evaluate("""() => {
+        const candidates = [
+            ...document.querySelectorAll('[role="article"]'),
+            ...document.querySelectorAll('div[aria-posinset]'),
+            ...document.querySelectorAll('div[data-ft]')
+        ]
+        const seen = new Set()
+        const posts = []
+
+        for (const el of candidates) {
+            const preview = el.querySelector('[data-ad-preview="message"]')
+            const textNodes = preview
+                ? [preview]
+                : [...el.querySelectorAll('[dir="auto"], [data-ad-preview="message"]')]
+            const lines = []
+            for (const node of textNodes) {
+                const t = (node.innerText || node.textContent || '').trim()
+                if (t && t.length > 2) lines.push(t)
+            }
+            const text = [...new Set(lines)].join('\\n').trim()
+            if (!text || text.length < 30) continue
+
+            const key = text.slice(0, 120)
+            if (seen.has(key)) continue
+            seen.add(key)
+
+            const imgs = []
+            el.querySelectorAll('img[src]').forEach(img => {
+                const src = img.src || ''
+                const width = img.naturalWidth || img.width || 0
+                if ((src.includes('scontent') || src.includes('fbcdn')) &&
+                    !src.includes('emoji') && width > 80) {
+                    imgs.push(src)
+                }
+            })
+
+            const linkEl = el.querySelector('a[href*="story_fbid"], a[href*="/posts/"], a[href*="/groups/"][href*="multi_permalinks"]')
+            const postUrl = linkEl ? linkEl.href : ''
+            posts.push({ text, images: imgs, postUrl })
+        }
+
+        return posts
+    }""")
+
+
 async def crawl_group(page, target: dict) -> list[dict]:
     url = target["url"]
     location = target["location"]
@@ -264,68 +337,27 @@ async def crawl_group(page, target: dict) -> list[dict]:
 
     posts = []
     seen = set()
-    processed_articles = set()
     step = 0
+    used_mobile_fallback = False
 
     while len(posts) < TARGET_PER_GROUP:
         step += 1
-        article_count = await page.evaluate("document.querySelectorAll('[role=\"article\"]').length")
+        current_article_count = await article_count(page)
+        if current_article_count == 0 and not used_mobile_fallback:
+            fallback_url = mobile_group_url(url)
+            print(f"    ↪ article 0개 — mobile fallback 재시도: {fallback_url}")
+            try:
+                await page.goto(fallback_url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(3000)
+                used_mobile_fallback = True
+                current_article_count = await article_count(page)
+            except Exception as e:
+                print(f"    ⚠️ mobile fallback 실패: {e}")
 
-        for idx in range(article_count):
-            if idx in processed_articles:
-                continue
-            processed_articles.add(idx)
+        await expand_visible_posts(page)
+        await page.wait_for_timeout(random.randint(800, 1500))
 
-            await page.evaluate(f"""() => {{
-                const articles = document.querySelectorAll('[role="article"]')
-                if (articles[{idx}]) articles[{idx}].scrollIntoView({{behavior: 'smooth', block: 'center'}})
-            }}""")
-            await page.wait_for_timeout(random.randint(1500, 3000))
-
-            await page.evaluate(f"""() => {{
-                const articles = document.querySelectorAll('[role="article"]')
-                const el = articles[{idx}]
-                if (!el) return
-                el.querySelectorAll('[role="button"]').forEach(btn => {{
-                    const t = btn.innerText || ''
-                    if (t.includes('더 보기') || t.includes('See more') || t.includes('Xem thêm')) {{
-                        btn.click()
-                    }}
-                }})
-            }}""")
-            await page.wait_for_timeout(random.randint(800, 1500))
-
-            r = await page.evaluate(f"""() => {{
-                const articles = document.querySelectorAll('[role="article"]')
-                const el = articles[{idx}]
-                if (!el) return null
-
-                const dirEls = el.querySelectorAll('[dir="auto"]')
-                let text = ''
-                dirEls.forEach(d => {{
-                    const t = d.innerText || ''
-                    if (t.length > text.length) text = t
-                }})
-                if (!text || text.length < 30) return null
-
-                const imgs = []
-                el.querySelectorAll('img[src]').forEach(img => {{
-                    const src = img.src || ''
-                    if ((src.includes('scontent') || src.includes('fbcdn')) &&
-                        !src.includes('emoji') && img.naturalWidth > 100) {{
-                        imgs.push(src)
-                    }}
-                }})
-
-                const linkEl = el.querySelector('a[href*="story_fbid"], a[href*="/posts/"]')
-                const postUrl = linkEl ? linkEl.href : ''
-
-                return {{ text: text.trim(), images: imgs, postUrl }}
-            }}""")
-
-            if not r:
-                continue
-
+        for r in await extract_visible_posts(page):
             text = clean_text(r.get("text", ""))
             key = text[:80]
             if not text or key in seen or not is_job_post(text):
@@ -342,13 +374,15 @@ async def crawl_group(page, target: dict) -> list[dict]:
 
             seen.add(key)
             posts.append({**r, "text": text, "location": location})
+            if len(posts) >= TARGET_PER_GROUP:
+                break
 
-        print(f"    스텝 {step}: article {article_count}개 처리, 공고 {len(posts)}개 수집")
+        print(f"    스텝 {step}: article 후보 {current_article_count}개 처리, 공고 {len(posts)}개 수집")
 
-        prev_count = article_count
+        prev_count = current_article_count
         await page.evaluate(f"""() => {{
-            const articles = document.querySelectorAll('[role="article"]')
-            const last = articles[articles.length - 1]
+            const candidates = document.querySelectorAll('[role="article"], div[aria-posinset], div[data-ft]')
+            const last = candidates[candidates.length - 1]
             if (last) last.scrollIntoView({{behavior: 'smooth', block: 'end'}})
         }}""")
 
@@ -358,7 +392,7 @@ async def crawl_group(page, target: dict) -> list[dict]:
 
         await page.wait_for_timeout(random.randint(2000, 4000))
 
-        new_count = await page.evaluate("document.querySelectorAll('[role=\"article\"]').length")
+        new_count = await article_count(page)
         if new_count == prev_count:
             print(f"    더 이상 게시물 없음 (총 {len(posts)}개)")
             break
