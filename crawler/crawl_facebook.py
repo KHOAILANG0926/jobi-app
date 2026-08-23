@@ -22,7 +22,7 @@ except ImportError:
 
 load_dotenv(Path(__file__).parent / ".env")
 
-from job_quality import has_excluded_money_terms
+from job_quality import ascii_key, has_excluded_money_terms
 from classifier import classify
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -214,6 +214,53 @@ def extract_deadline(text: str) -> str | None:
         except Exception:
             pass
     return None
+
+
+GENERIC_TITLE_RE = re.compile(
+    r"^(?:tuyen(?:\s+dung)?|can\s+tuyen|thong\s+bao\s+tuyen\s+dung|tuyen\s+nhan\s+su|tuyen\s+nhan\s+vien)\b",
+    re.IGNORECASE,
+)
+
+
+ROLE_HINTS = [
+    *LOCAL_JOB_TYPES,
+    "tạp vụ", "tap vu", "phụ bếp", "phu bep", "phục vụ", "phuc vu",
+    "bán hàng", "ban hang", "tư vấn", "tu van", "thu ngân", "thu ngan",
+    "công nhân", "cong nhan", "kỹ thuật", "ky thuat", "lái xe", "lai xe",
+    "giao hàng", "giao hang", "shipper", "bảo vệ", "bao ve", "lễ tân", "le tan",
+]
+
+
+def is_ambiguous_job(job: dict) -> bool:
+    title = job.get("title", "").strip()
+    company = job.get("company", "").strip()
+    description = job.get("description", "")
+    text = ascii_key(f"{title}\n{company}\n{description}")
+
+    if has_excluded_money_terms(title, company, description):
+        return True
+
+    def matches_role_hint(hint: str) -> bool:
+        normalized = ascii_key(hint)
+        if len(normalized) <= 4 and " " not in normalized:
+            return bool(re.search(rf"\b{re.escape(normalized)}\b", text))
+        return normalized in text
+
+    has_role = any(matches_role_hint(hint) for hint in ROLE_HINTS)
+    has_contact = bool(job.get("employer_phone") or re.search(r"zalo|0\d{9}|@[a-z0-9.-]+", text, re.IGNORECASE))
+    is_generic_title = bool(GENERIC_TITLE_RE.search(ascii_key(title)))
+    fallback_company = company == "Nhà tuyển dụng Facebook"
+
+    if is_generic_title and not has_role:
+        return True
+    if fallback_company and job.get("category") == "other" and not has_role:
+        return True
+    if len(description.replace("[source:facebook]", "").strip()) < 80 and not has_role:
+        return True
+    if not has_contact and fallback_company and not has_role:
+        return True
+
+    return False
 
 
 def guess_category(text: str) -> str:
@@ -575,6 +622,9 @@ async def main():
             posts = await crawl_group(page, target)
             for post in posts:
                 job = parse_post(post)
+                if is_ambiguous_job(job):
+                    print(f"    ⏩ 애매한 공고 스킵: {job['title'][:70]}")
+                    continue
                 key = job["title"].lower()[:50]
                 if key not in seen_titles:
                     seen_titles.add(key)

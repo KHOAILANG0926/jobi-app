@@ -7,6 +7,7 @@ from crawl_facebook import (
     extract_district,
     extract_salary,
     is_job_post,
+    is_ambiguous_job,
     parse_post,
 )
 
@@ -31,11 +32,17 @@ def test_non_job_money_post() -> None:
     assert_false(is_job_post(text), "money/scam-like non-job should be skipped")
 
 
+def test_ambiguous_generic_post_skipped() -> None:
+    job = parse_post({"text": "TUYỂN NHÂN SỰ\nKhông yêu cầu bằng cấp.\nThu nhập không giới hạn.", "location": "Hà Nội"})
+    assert_true(is_ambiguous_job(job), "generic recruitment without role should be ambiguous")
+
+
 def test_restaurant_and_salary_with_combining_marks() -> None:
     text = "Quán nhậu cần tuyển\n1/phụ bếp có kinh nghiệm\nLương : 8 triệu đến 12 triệu tuỳ năng lực"
     job = parse_post({"text": text, "location": "Đà Nẵng"})
     assert_equal(job["category"], "restaurant", "combining-mark restaurant text should classify")
     assert_equal(job["salary"], "8 triệu", "salary should not be blank")
+    assert_false(is_ambiguous_job(job), "clear restaurant role should be allowed")
 
 
 def test_company_does_not_capture_benefit_sentence() -> None:
@@ -60,6 +67,7 @@ def test_salary_keeps_month_suffix() -> None:
 def main() -> int:
     tests = [
         test_non_job_money_post,
+        test_ambiguous_generic_post_skipped,
         test_restaurant_and_salary_with_combining_marks,
         test_company_does_not_capture_benefit_sentence,
         test_company_from_recruitment_heading,
