@@ -20,27 +20,29 @@ fi
 cd "$HOME/jobi/crawler"
 
 # Python 패키지 설치
-pip3 install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # Playwright 브라우저 설치
-playwright install chromium
-playwright install-deps chromium
+python3 -m playwright install --with-deps chromium
+chmod +x run_daily.sh
 
 # .env 설정
 if [ ! -f ".env" ]; then
   cp .env.example .env
   echo ""
-  echo "⚠️  .env 파일에 SUPABASE_SERVICE_ROLE_KEY를 입력하세요:"
+  echo "⚠️  .env 파일에 SUPABASE_SERVICE_ROLE_KEY를 입력하세요."
+  echo "⚠️  Facebook crawler도 실행하려면 FB_C_USER / FB_XS 값을 추가하세요:"
   echo "    nano $HOME/jobi/crawler/.env"
 else
   echo "✅ .env 파일 이미 존재"
 fi
 
-# crontab 등록 (매일 01:00 UTC = 08:00 베트남 시간)
-CRON_JOB="0 1 * * * cd $HOME/jobi/crawler && python3 crawl_topcv.py >> /var/log/crawl.log 2>&1"
-(crontab -l 2>/dev/null | grep -v "crawl_topcv"; echo "$CRON_JOB") | crontab -
+# crontab 등록 (매일 13:00 UTC = 20:00 베트남 시간)
+CRON_JOB="0 13 * * * cd $HOME/jobi/crawler && ./run_daily.sh >> $HOME/jobi/crawler/crawl_daily.log 2>&1"
+(crontab -l 2>/dev/null | grep -v "run_daily.sh"; echo "$CRON_JOB") | crontab -
 
 echo ""
 echo "✅ 설치 완료!"
-echo "   테스트: cd $HOME/jobi/crawler && python3 crawl_topcv.py"
-echo "   로그:   tail -f /var/log/crawl.log"
+echo "   테스트: cd $HOME/jobi/crawler && ./run_daily.sh"
+echo "   로그:   tail -f $HOME/jobi/crawler/crawl_daily.log"
+echo "   스케줄: 매일 20:00 Vietnam time"
