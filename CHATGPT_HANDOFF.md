@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-`master=0cbd5cbb046951aa45d4aa9f46570df74a064aab` 기준으로 `cursor/facebook-auth-detection-a7d7` 브랜치에서 Facebook cookie 만료/로그인벽 감지를 추가했다. Foundation/Admin/Auth/RLS/Profile/CV 구조는 변경하지 않았다.
+`master=18ca4b3df38ca462e1975522eb63cba144446fdb` 기준으로 `cursor/facebook-db-payload-fix-a7d7` 브랜치에서 Facebook crawler 저장 payload 오류를 수정했다. Foundation/Admin/Auth/RLS/Profile/CV 구조는 변경하지 않았다.
 
 작업 상태:
 
@@ -12,10 +12,9 @@
 
 ## 변경 내용
 
-- `crawler/crawl_facebook.py`에 `is_login_wall(page)`를 추가해 `Đăng nhập`, `Mở ứng dụng`, `log in` 등 Facebook 로그인벽/앱 유도 shell을 감지한다.
-- desktop group과 mobile fallback 모두 로그인벽이면 “Facebook cookie 갱신 필요” 로그를 남기고 0개 수집을 정상 수집처럼 오판하지 않는다.
-- `crawler/README.md`에 Facebook cookie 갱신 절차와 수동 확인 명령을 추가했다.
-- VPS 진단에서 `m.facebook.com/groups/timvieclamthembacninh`는 title/body가 공개 그룹 shell과 `Đăng nhập/Mở ứng dụng`을 보여줬고, post selector count는 0이었다. 즉 현재 Facebook cookie는 유효 세션이 아니다.
+- Facebook cookie 갱신 후 VPS에서 `crawl_facebook.py`가 실제로 로그인했고 8개 공고를 수집했다.
+- 저장 단계에서 내부 정렬용 `is_local_priority` 필드가 `local_jobs` DB 컬럼에 없어 `PGRST204`가 발생했다.
+- `crawler/crawl_facebook.py`의 `save_to_supabase`에서 DB insert 전 `is_local_priority`를 제거하도록 수정했다.
 
 ## 테스트 결과
 
@@ -26,11 +25,11 @@
 
 ## 발견된 문제
 
-- 현재 Facebook 수집 0개의 1차 원인은 selector가 아니라 만료/무효 cookie 또는 Facebook 계정 checkpoint/그룹 접근권한 문제로 확인됐다.
-- 새 cookie(`FB_C_USER`, `FB_XS`, 필요 시 `FB_DATR`, `FB_FR`)를 VPS `.env`에 갱신해야 Facebook crawler live 검증이 가능하다.
+- Facebook cookie는 VPS `.env`에 갱신 완료됐고 로그인/수집은 성공했다.
+- 이 브랜치 merge 후 VPS에서 최신 master를 pull하고 `timeout 20m python3 -u crawl_facebook.py`를 다시 실행해 Supabase insert 성공 여부를 확인해야 한다.
 
 ## 다음 결정사항
 
 1. 이 브랜치를 PR로 올리고 CI/Vercel Preview를 확인한 뒤 merge/deploy한다.
-2. 사용자가 PC 브라우저에서 Facebook cookie를 새로 복사해 VPS `.env`에 갱신한다.
-3. 갱신 후 VPS에서 `FACEBOOK_CRAWLER_TIMEOUT=20m CRAWLER_TARGET_COUNT=80 ./run_daily.sh`를 다시 실행해 Facebook article 후보/수집 개수를 확인한다.
+2. merge 후 VPS에서 `cd /root/jobi && git pull origin master && cd crawler && timeout 20m python3 -u crawl_facebook.py`를 실행한다.
+3. Supabase insert 성공, `facebook_jobs.json`, 운영 사이트 반영을 확인한다.

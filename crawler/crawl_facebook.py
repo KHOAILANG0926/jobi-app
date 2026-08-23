@@ -486,9 +486,12 @@ def save_to_supabase(jobs: list[dict]):
     print(f"  📊 생활밀착형: {len(priority)}개 / 기타: {len(others)}개")
     print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(ordered) - len(new_jobs)}개")
 
+    def to_db_payload(job: dict) -> dict:
+        return {k: v for k, v in job.items() if k != "is_local_priority"}
+
     inserted = 0
     for i in range(0, len(new_jobs), 50):
-        batch = new_jobs[i:i+50]
+        batch = [to_db_payload(j) for j in new_jobs[i:i+50]]
         supabase.table("local_jobs").insert(batch).execute()
         inserted += len(batch)
         print(f"  ✅ 저장: {inserted}/{len(new_jobs)}개")
