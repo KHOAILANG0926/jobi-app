@@ -162,3 +162,31 @@ pip3 install -r crawler/requirements.txt  # 새 패키지 추가시
 - `facebook_jobs.json` — Facebook cookie가 있을 때 저장
 - Supabase DB — `.env`에 KEY 있을 때만 자동 저장
 - 로그: `~/jobi/crawler/crawl_daily.log`
+
+## Facebook cookie 갱신
+
+Facebook crawler 로그에 아래 메시지가 나오면 `.env`의 Facebook cookie가 만료됐거나
+checkpoint/로그아웃 상태다.
+
+```txt
+Facebook 쿠키 인증 실패
+mobile fallback도 로그인 벽 표시
+```
+
+이 경우 PC 브라우저에서 Facebook에 다시 로그인한 뒤 개발자 도구의 Cookies에서
+아래 값을 새로 복사해 VPS의 `crawler/.env`에 갱신한다.
+
+```env
+FB_C_USER=
+FB_XS=
+FB_DATR=
+FB_FR=
+```
+
+갱신 후 VPS에서 수동 확인:
+
+```bash
+cd /root/jobi/crawler
+FACEBOOK_CRAWLER_TIMEOUT=20m CRAWLER_TARGET_COUNT=80 ./run_daily.sh
+tail -n 120 crawl_daily.log
+```

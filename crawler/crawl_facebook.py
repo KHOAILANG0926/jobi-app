@@ -243,6 +243,28 @@ def is_person_name(line: str) -> bool:
     return False
 
 
+async def is_login_wall(page) -> bool:
+    title = (await page.title()).lower()
+    try:
+        body = (await page.locator("body").inner_text(timeout=5000)).lower()
+    except Exception:
+        body = ""
+
+    login_markers = [
+        "đăng nhập",
+        "log in",
+        "login",
+        "mở ứng dụng",
+        "open app",
+        "forgot password",
+    ]
+    has_login_marker = any(marker in title or marker in body[:1000] for marker in login_markers)
+    has_group_public_shell = "nhóm công khai" in body[:1000] or "public group" in body[:1000]
+    has_feed_marker = "bình luận" in body or "comment" in body or "like" in body
+
+    return has_login_marker and (has_group_public_shell or not has_feed_marker)
+
+
 def mobile_group_url(url: str) -> str:
     return url.replace("https://www.facebook.com/", "https://m.facebook.com/")
 
@@ -329,8 +351,8 @@ async def crawl_group(page, target: dict) -> list[dict]:
         return []
 
     title = await page.title()
-    if "log in" in title.lower():
-        print(f"  ⛔ 쿠키 인증 실패 — 쿠키를 확인해주세요")
+    if await is_login_wall(page):
+        print(f"  ⛔ Facebook 쿠키 인증 실패 — .env의 FB_C_USER/FB_XS를 새 값으로 갱신해주세요")
         return []
 
     print(f"  ✅ 로그인 확인: {title[:50]}")
@@ -350,6 +372,9 @@ async def crawl_group(page, target: dict) -> list[dict]:
                 await page.goto(fallback_url, wait_until="domcontentloaded", timeout=30000)
                 await page.wait_for_timeout(3000)
                 used_mobile_fallback = True
+                if await is_login_wall(page):
+                    print(f"    ⛔ mobile fallback도 로그인 벽 표시 — Facebook cookie 갱신 필요")
+                    return posts
                 current_article_count = await article_count(page)
             except Exception as e:
                 print(f"    ⚠️ mobile fallback 실패: {e}")
