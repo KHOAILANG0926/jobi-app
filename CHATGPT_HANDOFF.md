@@ -13,6 +13,8 @@
 ## 변경 내용
 
 - Facebook 비공고/스팸성 돈 글(`rửa tiền`, `công đức`, `tiêu tiền`, `trả ... triệu`)을 job post로 보지 않도록 필터링했다.
+- generic 제목(`TUYỂN NHÂN SỰ` 등)에 명확한 직무가 없으면 ambiguous로 보고 저장 전 skip한다.
+- 짧은 role hint(`kho` 등)는 단어 경계로만 매칭해 `không` 같은 일반 단어 오탐을 막는다.
 - `DISTRICT_PATTERN`의 `p.?`/`q.?` 과매칭을 고쳐 일반 단어의 `p`가 위치로 잡히지 않게 했다.
 - Facebook salary range가 `8.5 – 10tr/tháng`처럼 `/tháng` suffix를 보존하도록 보정했다.
 - company 추출에서 `Công ty có hỗ trợ...` 같은 복리후생 문장을 회사명으로 오인하지 않게 했다.
@@ -22,7 +24,7 @@
 
 ## 테스트 결과
 
-- `python3 crawler/test_facebook_quality.py`: 통과, 6/6 tests
+- `python3 crawler/test_facebook_quality.py`: 통과, 7/7 tests
 - `python3 -m py_compile crawler/crawl_facebook.py`: 통과
 - `python3 crawler/test_job_quality.py`: 통과, 3/3 tests
 - `npx tsc --noEmit`: 통과
