@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-`master=18ca4b3df38ca462e1975522eb63cba144446fdb` 기준으로 `cursor/facebook-db-payload-fix-a7d7` 브랜치에서 Facebook crawler 저장 payload 오류를 수정했다. Foundation/Admin/Auth/RLS/Profile/CV 구조는 변경하지 않았다.
+`master=57502d38c427011fdc5785c18b4d506b068b5880` 기준으로 `cursor/facebook-db-zalo-fix-a7d7` 브랜치에서 Facebook crawler 저장 payload의 추가 DB 컬럼 불일치를 수정했다. Foundation/Admin/Auth/RLS/Profile/CV 구조는 변경하지 않았다.
 
 작업 상태:
 
@@ -12,9 +12,9 @@
 
 ## 변경 내용
 
-- Facebook cookie 갱신 후 VPS에서 `crawl_facebook.py`가 실제로 로그인했고 8개 공고를 수집했다.
-- 저장 단계에서 내부 정렬용 `is_local_priority` 필드가 `local_jobs` DB 컬럼에 없어 `PGRST204`가 발생했다.
-- `crawler/crawl_facebook.py`의 `save_to_supabase`에서 DB insert 전 `is_local_priority`를 제거하도록 수정했다.
+- Facebook cookie 갱신 후 VPS에서 `crawl_facebook.py`가 실제로 로그인했고 5개 이상 공고를 수집했다.
+- 직전 수정으로 `is_local_priority`는 제거됐지만, 저장 단계에서 `zalo` 필드도 `local_jobs` DB 컬럼에 없어 `PGRST204`가 발생했다.
+- `crawler/crawl_facebook.py`의 `save_to_supabase`에서 DB insert 전 `is_local_priority`와 `zalo`를 제거하도록 수정했다.
 
 ## 테스트 결과
 

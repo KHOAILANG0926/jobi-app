@@ -487,7 +487,8 @@ def save_to_supabase(jobs: list[dict]):
     print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(ordered) - len(new_jobs)}개")
 
     def to_db_payload(job: dict) -> dict:
-        return {k: v for k, v in job.items() if k != "is_local_priority"}
+        transient_keys = {"is_local_priority", "zalo"}
+        return {k: v for k, v in job.items() if k not in transient_keys}
 
     inserted = 0
     for i in range(0, len(new_jobs), 50):
