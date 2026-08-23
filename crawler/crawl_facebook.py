@@ -22,6 +22,7 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from job_quality import has_excluded_money_terms
+from classifier import classify
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -54,9 +55,10 @@ TARGETS = [
 # ── 기본 채용공고 감지 키워드 ────────────────────────────────────────
 JOB_KEYWORDS = [
     "tuyển", "cần tuyển", "tuyển dụng", "đang tuyển",
-    "cần người", "tìm người", "nhân viên", "lương",
-    "triệu", "full time", "part time", "ca làm", "tuyển gấp",
+    "cần người", "tìm người", "nhân viên", "full time",
+    "part time", "ca làm", "tuyển gấp",
 ]
+COMPENSATION_KEYWORDS = ["lương", "thu nhập", "triệu", "tr/tháng", "đ/tháng"]
 
 # ── 생활밀착형 우선 직종 (Priority 1) ───────────────────────────────
 LOCAL_JOB_TYPES = [
@@ -94,8 +96,19 @@ DISTRICT_PATTERN = re.compile(
 )
 
 
+NON_JOB_PATTERNS = re.compile(
+    r"rửa tiền|rua tien|công đức|cong duc|tiêu tiền|tieu tien|trả\s+\d+.*triệu",
+    re.IGNORECASE,
+)
+
+
 def is_job_post(text: str) -> bool:
-    return any(kw in text.lower() for kw in JOB_KEYWORDS)
+    t = text.lower()
+    if NON_JOB_PATTERNS.search(t):
+        return False
+    if any(kw in t for kw in JOB_KEYWORDS):
+        return True
+    return any(kw in t for kw in LOCAL_JOB_TYPES) and any(kw in t for kw in COMPENSATION_KEYWORDS)
 
 
 def is_local_priority(text: str) -> bool:
@@ -171,11 +184,20 @@ def extract_title(text: str) -> str:
 
 
 def extract_company(text: str) -> str:
+    lines = [l.strip(" -*•\t") for l in text.split("\n") if l.strip()]
+    for line in lines[:8]:
+        if re.match(r"^(?:công ty|cty)\b", line, re.IGNORECASE) and 6 < len(line) < 100:
+            return line
     m = re.search(
-        r"(?:công ty|cty|shop|cửa hàng|nhà hàng|quán|trung tâm|siêu thị)[:\s]+([^\n,\.]{3,60})",
+        r"(?:công ty|cty|shop|cửa hàng|nhà hàng|quán|trung tâm|siêu thị)[:\s]+([^\n,\.]{3,80})",
         text, re.IGNORECASE
     )
-    return m.group(1).strip() if m else ""
+    if m:
+        return m.group(1).strip()
+    for line in lines[:4]:
+        if "tuyển dụng" in line.lower() and len(line) < 120:
+            return re.sub(r"\s*[-–]?\s*tuyển dụng.*$", "", line, flags=re.IGNORECASE).strip()
+    return ""
 
 
 def extract_deadline(text: str) -> str | None:
@@ -192,22 +214,7 @@ def extract_deadline(text: str) -> str | None:
 
 
 def guess_category(text: str) -> str:
-    t = text.lower()
-    if re.search(r"nhà máy|sản xuất|công nhân|kho|lắp ráp|kỹ thuật|điện tử|cơ khí|đóng gói|phân loại", t):
-        return "factory"
-    if re.search(r"nhà hàng|quán ăn|quán nhậu|beer|bia|hải sản|lẩu|buffet|jollibee|haidilao|phục vụ bàn|bếp|đầu bếp|phụ bếp|nấu ăn", t):
-        return "restaurant"
-    if re.search(r"cà phê|cafe|coffee|trà sữa|pha chế|bartender|barista", t):
-        return "cafe"
-    if re.search(r"giao hàng|shipper|tài xế|xe máy|vận chuyển", t):
-        return "delivery"
-    if re.search(r"vệ sinh|giúp việc|dọn dẹp|tạp vụ", t):
-        return "cleaning"
-    if re.search(r"bán hàng|thu ngân|cửa hàng|siêu thị|sales|kinh doanh|thời trang|bán lẻ|tạp hóa", t):
-        return "retail"
-    if re.search(r"bảo vệ|giữ xe|trông xe|an ninh", t):
-        return "security"
-    return "other"
+    return classify("", "", text)
 
 
 def build_cookies() -> list[dict]:
@@ -436,15 +443,18 @@ def parse_post(post: dict) -> dict:
     # 구/군/동 있으면 위치 정보를 더 구체적으로
     full_location = f"{district}, {location}" if district else location
 
+    title = extract_title(text)
+    company = extract_company(text)
+
     return {
-        "title": extract_title(text),
-        "company": extract_company(text),
+        "title": title,
+        "company": company or "Nhà tuyển dụng Facebook",
         "location": full_location,
         "salary": extract_salary(text),
         "employer_phone": phone,
         "zalo": zalo,
         "description": f"[source:facebook] {text}",
-        "category": guess_category(text),
+        "category": classify(title, company, text),
         "posted_at": TODAY,
         "urgent": "tuyển gấp" in text.lower() or "gấp" in text.lower(),
         "application_deadline": extract_deadline(text),
