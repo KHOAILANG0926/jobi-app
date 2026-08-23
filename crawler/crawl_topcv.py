@@ -35,7 +35,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요)'}")
 
-TARGET_COUNT = 500
+TARGET_COUNT = int(os.getenv("CRAWLER_TARGET_COUNT", "500"))
 TODAY = date.today().isoformat()
 
 CATEGORY_URLS = [
