@@ -14,7 +14,7 @@
 
 - Facebook cookie 갱신 후 VPS에서 `crawl_facebook.py`가 실제로 로그인했고 5개 이상 공고를 수집했다.
 - 직전 수정으로 `is_local_priority`는 제거됐지만, 저장 단계에서 `zalo` 필드도 `local_jobs` DB 컬럼에 없어 `PGRST204`가 발생했다.
-- `crawler/crawl_facebook.py`의 `save_to_supabase`에서 DB insert 전 `is_local_priority`와 `zalo`를 제거하도록 수정했다.
+- `crawler/crawl_facebook.py`의 `save_to_supabase`에서 DB insert 전 운영 `local_jobs` 컬럼 allowlist에 포함된 키만 전송하도록 수정했다. 앞으로 임시 필드가 추가돼도 DB insert가 같은 방식으로 깨지지 않는다.
 
 ## 테스트 결과
 

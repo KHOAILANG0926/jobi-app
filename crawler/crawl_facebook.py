@@ -486,9 +486,39 @@ def save_to_supabase(jobs: list[dict]):
     print(f"  📊 생활밀착형: {len(priority)}개 / 기타: {len(others)}개")
     print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(ordered) - len(new_jobs)}개")
 
+    db_columns = {
+        "active",
+        "admin_hidden",
+        "application_deadline",
+        "category",
+        "company",
+        "company_founded_year",
+        "company_verified",
+        "description",
+        "education",
+        "employer_id",
+        "employer_phone",
+        "hire_count",
+        "hours",
+        "image_url",
+        "images",
+        "lat",
+        "lng",
+        "location",
+        "num_hires",
+        "origin",
+        "posted_at",
+        "preference",
+        "salary",
+        "source",
+        "title",
+        "urgent",
+        "work_days",
+        "work_period",
+    }
+
     def to_db_payload(job: dict) -> dict:
-        transient_keys = {"is_local_priority", "zalo"}
-        return {k: v for k, v in job.items() if k not in transient_keys}
+        return {k: v for k, v in job.items() if k in db_columns}
 
     inserted = 0
     for i in range(0, len(new_jobs), 50):
