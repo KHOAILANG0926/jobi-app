@@ -852,7 +852,6 @@ export function Home() {
             <button type="button" className="home-region-panel__all" onClick={() => handleRegionClick(null)}>Tất cả ›</button>
           </div>
 
-          <span className="home-region-panel__top3-label">NƠI ĐANG TUYỂN NHIỀU</span>
           <div className="home-region-panel__top3">
             {rankedRegions.top3.map((p, i) => (
               <span key={p.id}>
