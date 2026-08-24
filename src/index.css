@@ -6297,9 +6297,9 @@ a:hover {
   .home-deadline-btn--active { background: #e53e3e; border-color: #e53e3e; color: #fff; }
 }
 
-/* ── Region panel: 왼쪽 브랜드 컨테이너(120px, padding 1rem 1.25rem)와 정확히 일치 ── */
+/* ── Region panel: 왼쪽 브랜드 컨테이너(120px)와 정확히 일치. 내부 padding/gap만 압축 ── */
 .home-region-panel {
-  padding: 1rem 1.25rem;
+  padding: 0.6rem 1.25rem;
   display: flex;
   flex-direction: column;
 }
@@ -6308,11 +6308,12 @@ a:hover {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
-  margin: 0 0 0.15rem;
+  margin: 0 0 0.1rem;
 }
 .home-region-panel__title {
-  font-size: 0.8rem;
+  font-size: 16px;
   font-weight: 700;
+  line-height: 1.1;
   color: #333;
   margin: 0;
   white-space: nowrap;
@@ -6324,7 +6325,7 @@ a:hover {
   border: none;
   background: none;
   padding: 0;
-  font-size: 0.62rem;
+  font-size: 12px;
   font-weight: 600;
   color: #999;
   cursor: pointer;
@@ -6332,16 +6333,17 @@ a:hover {
 .home-region-panel__all:hover { color: #e53935; }
 
 .home-region-panel__top3-label {
-  font-size: 0.5rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
   color: #999;
-  margin: 0.15rem 0 0.12rem;
+  margin: 0.12rem 0 0.08rem;
 }
 .home-region-panel__top3 {
-  font-size: 0.7rem;
-  line-height: 1.15;
-  margin-bottom: 0.2rem;
+  font-size: 14px;
+  line-height: 1.05;
+  margin-bottom: 0.12rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6352,7 +6354,7 @@ a:hover {
   background: none;
   padding: 0;
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
   color: #1f2937;
   cursor: pointer;
 }
@@ -6362,15 +6364,16 @@ a:hover {
 .home-region-panel__rest {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.08rem 0.4rem;
+  gap: 0.04rem 0.4rem;
   overflow: hidden;
 }
 .home-region-panel__rest-btn {
   border: none;
   background: none;
   padding: 0;
-  font-size: 0.58rem;
-  line-height: 1.25;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.1;
   color: #555;
   text-align: left;
   cursor: pointer;
