@@ -5931,6 +5931,11 @@ a:hover {
 }
 .home-region-panel {
   min-width: 0;
+  padding-left: 1.25rem;
+  border-left: 1px solid #e5e7eb;
+}
+@media (max-width: 1024px) {
+  .home-region-panel { padding-left: 0; border-left: 0; }
 }
 .home-brands-box {
   height: 100%;
