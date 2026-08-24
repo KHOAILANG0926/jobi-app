@@ -842,36 +842,30 @@ export function Home() {
         </div>
       </section>
 
-      {/* ── Brands + Region ── */}
+      {/* ── Brands + Region: 독립된 60:40 compact 섹션 (브랜드/지역만) ── */}
       <div className="home-brands-region-grid">
 
-        {/* LEFT: Brands + 2 ad cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0 }}>
-          <section className="home-brands-section">
-            <div className="home-brands-box">
-              <div className="home-brands-box__head">
-                <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
-                <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
-              </div>
-              <div className="home-brands-box__row">
-                <div className="home-brands-box__track">
-                  {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
-                    <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                      <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                      <span className="home-brand__name">{b.name}</span>
-                    </button>
-                  ))}
-                </div>
+        {/* LEFT 60%: 브랜드 제목 + 원형 로고만 */}
+        <section className="home-brands-section">
+          <div className="home-brands-box">
+            <div className="home-brands-box__head">
+              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
+              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+            </div>
+            <div className="home-brands-box__row">
+              <div className="home-brands-box__track">
+                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
+                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                    <span className="home-brand__name">{b.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          </section>
-          <div className="home-ad-cards">
-            <AdSlot slotId="card1" />
-            <AdSlot slotId="card2" />
           </div>
-        </div>
+        </section>
 
-        {/* RIGHT: Region + 추천 */}
+        {/* RIGHT 40%: 지역 제목 + 지역 목록만 */}
         <div className="home-region-panel">
           <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
           <div className="home-region-panel__grid">
@@ -894,11 +888,20 @@ export function Home() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
 
-          {/* 추천 섹션 */}
-          <h2 className="home-region-panel__title" style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: '1px solid #f0f0f0' }}>Gợi ý tìm kiếm</h2>
-          <div className="home-rec-grid">
-            {[
+      {/* ── 기업 프로모션 카드 (기존 위치 유지, 60:40 섹션에서 분리) ── */}
+      <div className="home-ad-cards">
+        <AdSlot slotId="card1" />
+        <AdSlot slotId="card2" />
+      </div>
+
+      {/* ── Gợi ý tìm kiếm (후속 독립 섹션으로 분리) ── */}
+      <div className="home-suggestions-section">
+        <h2 className="home-region-panel__title">Gợi ý tìm kiếm</h2>
+        <div className="home-rec-grid">
+          {[
               {
                 key: 'urgent',
                 label: 'Tuyển gấp',
@@ -973,9 +976,7 @@ export function Home() {
               </button>
             ))}
           </div>
-
         </div>
-      </div>
 
       </div>{/* /.home-top-bg */}
 

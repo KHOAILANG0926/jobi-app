@@ -5849,7 +5849,10 @@ a:hover {
   grid-template-columns: 6fr 4fr;
   gap: 1rem;
   margin-bottom: 1.25rem;
-  align-items: start;
+  align-items: stretch;
+}
+.home-suggestions-section {
+  margin-bottom: 1.25rem;
 }
 
 @media (max-width: 1024px) {
