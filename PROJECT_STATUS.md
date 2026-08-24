@@ -4,7 +4,7 @@
 > **새 세션을 시작할 때는 이 파일부터 읽고 시작하세요.**
 > **작업이 끝날 때는 이 파일을 최신 상태로 업데이트하고 commit/push 하세요.**
 
-마지막 업데이트: 2026-08-23
+마지막 업데이트: 2026-08-25
 
 ---
 
@@ -40,7 +40,7 @@
 - GitHub 기본 브랜치이자 실제 배포 기준: `master` (Vercel 자동배포)
 - 그동안의 모든 작업 브랜치(`production`, `codex/*`, `cursor/*` 등)는 전부 `master`에 이미 병합 완료
 - **새 세션은 작업 전에 반드시 `git checkout master && git pull`부터 할 것** — 로컬이 오래된 브랜치에 머물러 있으면 최신 코드보다 수십 커밋 뒤처질 수 있음 (8/23에 실제로 42커밋 뒤처졌던 사례 있음, fast-forward로 안전하게 해결됨)
-- 로컬 master 동기화 기준: `origin/master` 커밋 `07aa0a3`
+- 로컬 master 동기화 기준: `origin/master` 커밋 `64eb5e6`
 
 ---
 
@@ -53,6 +53,7 @@
 - 관리자(`/admin`) — `app_metadata.role==='admin'` 기반 인증, 공고/유저/신고/감사로그 관리 UI 완성
 - P0 보안 기반 (계정 역할/RLS, 유저 프로필·CV의 Supabase 이전) — migration 0005~0008로 반영
 - Facebook 크롤러 품질 개선 (스팸/모호 게시물 필터링, 급여·회사명 파싱 보정), 회귀 테스트 포함
+- Home 화면 "브랜드/지역" 60:40 섹션 재설계 및 배포 완료 (8/24~8/25): Samsung 광고/로그인 카드 바로 아래로 위치 이동, 왼쪽 브랜드 박스와 오른쪽 지역 패널 top/bottom/height 완전 일치(120px, 오차 0px, 1440px·1100px 실측 확인), 지역 패널을 기존 pill 그리드에서 TOP3(활성 공고 수 기준 자동 선정, 포인트 컬러 `#e94b4b`) + 나머지 지역 3열 텍스트 그리드로 재설계
 
 ### DB Migration 상태
 
@@ -71,8 +72,8 @@
 0005~0009는 저장소 내 검증 스크립트(`scripts/test-p0-migrations.mjs`, `scripts/e2e-admin-operations.mjs`)로 확인 가능 — 다음 세션은 새로 만들지 말고 이걸 먼저 실행할 것.
 
 ### 빌드/테스트
-- `npx tsc --noEmit`: 통과
-- `npm run build`: tsc까지만 확인됨, vite build는 42커밋 동기화 이후 재검증 필요
+- `npx tsc --noEmit`: 통과 (8/25, `64eb5e6` 기준)
+- `npm run build`: 통과 (8/25, `64eb5e6` 기준, vite build 포함)
 
 ---
 
@@ -114,13 +115,12 @@
 
 ## 5. 다음 할 일 (우선순위순)
 
-1. `npm run build` 전체 재검증 (42커밋 fast-forward 이후 vite build까지 확인 필요)
-2. `scripts/test-p0-migrations.mjs`, `scripts/e2e-admin-operations.mjs` 실행해서 migration 0005~0009 실제 적용 여부 확인
-3. Facebook 신규 계정 로드맵 진행 (위 주차별 계획)
-4. Facebook 쿠키 재발급 시 VPS `crawler/.env`의 `FB_C_USER`/`FB_XS`/`FB_DATR`/`FB_FR` 갱신 (값은 절대 커밋/출력 금지)
-5. 기존 저품질 Facebook row 정리 여부 결정 (최근 품질 개선은 신규 수집분에만 적용, 기존 저장분은 자동 정리 안 됨)
-6. Job quality audit 스크립트 만들기 (운영 상태 한 번에 확인용, 아직 미생성)
-7. `cursor/*` 임시 브랜치 정리 (선택, 급하지 않음 — 이미 전부 master 병합됨)
+1. `scripts/test-p0-migrations.mjs`, `scripts/e2e-admin-operations.mjs` 실행해서 migration 0005~0009 실제 적용 여부 확인
+2. Facebook 신규 계정 로드맵 진행 (위 주차별 계획)
+3. Facebook 쿠키 재발급 시 VPS `crawler/.env`의 `FB_C_USER`/`FB_XS`/`FB_DATR`/`FB_FR` 갱신 (값은 절대 커밋/출력 금지)
+4. 기존 저품질 Facebook row 정리 여부 결정 (최근 품질 개선은 신규 수집분에만 적용, 기존 저장분은 자동 정리 안 됨)
+5. Job quality audit 스크립트 만들기 (운영 상태 한 번에 확인용, 아직 미생성)
+6. `cursor/*` 임시 브랜치 정리 (선택, 급하지 않음 — 이미 전부 master 병합됨)
 
 ---
 
