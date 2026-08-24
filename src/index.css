@@ -5936,11 +5936,9 @@ a:hover {
   min-width: 0;
   height: 120px;
   overflow: hidden;
-  padding-left: 1.25rem;
-  border-left: 1px solid #e5e7eb;
 }
 @media (max-width: 1024px) {
-  .home-region-panel { padding-left: 0; border-left: 0; height: auto; overflow: visible; }
+  .home-region-panel { height: auto; overflow: visible; }
 }
 .home-brands-box {
   height: 100%;
@@ -6299,43 +6297,89 @@ a:hover {
   .home-deadline-btn--active { background: #e53e3e; border-color: #e53e3e; color: #fff; }
 }
 
-/* ── Region panel ────────────────────────────────────────────────── */
+/* ── Region panel: 왼쪽 브랜드 컨테이너(120px, padding 1rem 1.25rem)와 정확히 일치 ── */
 .home-region-panel {
-  padding: 0.75rem 0;
+  padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
 }
-.home-region-panel__title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #333;
-  margin: 0 0 0.5rem 0;
-}
-.home-region-panel__grid {
+.home-region-panel__head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.15rem;
 }
-.home-region-panel__rec-title {
-  font-size: 0.85rem;
+.home-region-panel__title {
+  font-size: 0.8rem;
   font-weight: 700;
   color: #333;
-  margin: 0.6rem 0 0.4rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid #f0f0f0;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.home-region-panel__btn {
-  font-size: 0.78rem;
-  padding: 0.25rem 0.75rem;
+.home-region-panel__all {
+  flex-shrink: 0;
   border: none;
-  border-radius: 20px;
-  background: #f2f2f2;
-  color: #444;
+  background: none;
+  padding: 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #999;
   cursor: pointer;
-  transition: all 0.15s;
 }
-.home-region-panel__btn:hover { background: #ffe0e0; color: #e53935; }
-.home-region-panel__btn--active { background: #e53935; color: #fff; }
+.home-region-panel__all:hover { color: #e53935; }
+
+.home-region-panel__top3-label {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #999;
+  margin: 0.15rem 0 0.12rem;
+}
+.home-region-panel__top3 {
+  font-size: 0.7rem;
+  line-height: 1.15;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-region-panel__top3-sep { color: #ccc; }
+.home-region-panel__top3-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: #1f2937;
+  cursor: pointer;
+}
+.home-region-panel__top3-btn:hover,
+.home-region-panel__top3-btn.is-active { color: #e53935; }
+
+.home-region-panel__rest {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.08rem 0.4rem;
+  overflow: hidden;
+}
+.home-region-panel__rest-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.58rem;
+  line-height: 1.25;
+  color: #555;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-region-panel__rest-btn:hover,
+.home-region-panel__rest-btn.is-active { color: #e53935; font-weight: 700; }
 
 /* ── Category grid ────────────────────────────────────────────────── */
 

@@ -329,6 +329,20 @@ const REFERENCE_CATEGORIES: { label: string; value: JobCategory; icon: string }[
   { label: 'Văn phòng', value: 'office', icon: '💼' },
 ]
 
+const HOME_REGION_LIST: { id: JobRegionId; label: string }[] = [
+  { id: 'hanoi', label: 'Hà Nội' },
+  { id: 'haiphong', label: 'Hải Phòng' },
+  { id: 'bacninh', label: 'Bắc Ninh' },
+  { id: 'bacgiang', label: 'Bắc Giang' },
+  { id: 'thainguyen', label: 'Thái Nguyên' },
+  { id: 'danang', label: 'Đà Nẵng' },
+  { id: 'hue', label: 'Huế' },
+  { id: 'khanhhoa', label: 'Khánh Hòa' },
+  { id: 'hcm', label: 'TP. HCM' },
+  { id: 'dongnai', label: 'Đồng Nai' },
+  { id: 'cantho', label: 'Cần Thơ' },
+]
+
 
 /* ── Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
 
@@ -624,6 +638,27 @@ export function Home() {
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
 
+  // 지역별 실제 활성 공고 수 기준 TOP3 자동 선정 (나머지는 원래 순서로 숨기지 않고 표시)
+  const rankedRegions = useMemo(() => {
+    const withCounts = HOME_REGION_LIST.map((r) => ({
+      ...r,
+      count: jobs.reduce((n, j) => n + (jobMatchesRegion(j.location, r.id) ? 1 : 0), 0),
+    }))
+    const top3 = [...withCounts].sort((a, b) => b.count - a.count).slice(0, 3)
+    const top3Ids = new Set(top3.map((r) => r.id))
+    const rest = HOME_REGION_LIST.filter((r) => !top3Ids.has(r.id))
+    return { top3, rest }
+  }, [jobs])
+
+  const handleRegionClick = useCallback((id: JobRegionId | null) => {
+    setSelectedCity(id)
+    setSearch('')
+    setBrandFilter(null)
+    setCategory('all')
+    setUrgentOnly(false)
+    setNearMe(false)
+  }, [])
+
   const handleApply = useCallback((job: Job) => {
     if (!user) { navigate('/dang-nhap'); return }
     openApply(job)
@@ -810,25 +845,37 @@ export function Home() {
           </div>
         </section>
 
-        {/* RIGHT 40%: 지역 제목 + 지역 목록만 */}
+        {/* RIGHT 40%: 지역 제목 + compact 지역 목록만 */}
         <div className="home-region-panel">
-          <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
-          <div className="home-region-panel__grid">
-            {[
-              { id: 'hanoi', label: 'Hà Nội' },
-              { id: 'haiphong', label: 'Hải Phòng' },
-              { id: 'bacninh', label: 'Bắc Ninh' },
-              { id: 'bacgiang', label: 'Bắc Giang' },
-              { id: 'thainguyen', label: 'Thái Nguyên' },
-              { id: 'danang', label: 'Đà Nẵng' },
-              { id: 'hue', label: 'Huế' },
-              { id: 'khanhhoa', label: 'Khánh Hòa' },
-              { id: 'hcm', label: 'TP. HCM' },
-              { id: 'dongnai', label: 'Đồng Nai' },
-              { id: 'cantho', label: 'Cần Thơ' },
-            ].map(p => (
-              <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
-                onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
+          <div className="home-region-panel__head">
+            <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
+            <button type="button" className="home-region-panel__all" onClick={() => handleRegionClick(null)}>Tất cả ›</button>
+          </div>
+
+          <span className="home-region-panel__top3-label">NƠI ĐANG TUYỂN NHIỀU</span>
+          <div className="home-region-panel__top3">
+            {rankedRegions.top3.map((p, i) => (
+              <span key={p.id}>
+                {i > 0 && <span className="home-region-panel__top3-sep"> · </span>}
+                <button
+                  type="button"
+                  className={`home-region-panel__top3-btn${selectedCity === p.id ? ' is-active' : ''}`}
+                  onClick={() => handleRegionClick(p.id)}
+                >
+                  {p.label}
+                </button>
+              </span>
+            ))}
+          </div>
+
+          <div className="home-region-panel__rest">
+            {rankedRegions.rest.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`home-region-panel__rest-btn${selectedCity === p.id ? ' is-active' : ''}`}
+                onClick={() => handleRegionClick(p.id)}
+              >
                 {p.label}
               </button>
             ))}
