@@ -385,6 +385,40 @@ interface AdSlotProps {
 
 function AdSlot({ slotId }: AdSlotProps) {
   const cfg = AD_CONFIGS[slotId]
+  if (slotId === 'header') {
+    const c = AD_CONFIGS.header
+    return (
+      <div className="ad-slot ad-slot--samsung" data-ad-slot={slotId}>
+        <span className="ad-slot__label" style={{ background: 'rgba(26,26,46,0.12)', color: '#1a1a2e' }}>QC</span>
+        <div className="ad-slot__samsung-content">
+          <div className="ad-slot__samsung-copy">
+            <p className="ad-slot__samsung-eyebrow">{c.eyebrow}</p>
+            <p className="ad-slot__samsung-headline">{c.headline}</p>
+            <a href={c.href} target="_blank" rel="noopener noreferrer" className="ad-slot__samsung-cta">{c.cta}</a>
+          </div>
+          <div className="ad-slot__samsung-visual" aria-hidden="true">
+            <svg viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="samsungPhoneBody" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#3f3f56" />
+                  <stop offset="100%" stopColor="#1a1a2e" />
+                </linearGradient>
+                <radialGradient id="samsungScreenGlow" cx="50%" cy="35%" r="70%">
+                  <stop offset="0%" stopColor="#a9d6ff" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#a9d6ff" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <rect x="18" y="4" width="84" height="40" rx="11" fill="url(#samsungPhoneBody)" />
+              <rect x="25" y="10" width="70" height="28" rx="7" fill="url(#samsungScreenGlow)" />
+              <rect x="18" y="47" width="84" height="7" rx="3.5" fill="#0f0f1a" />
+              <rect x="18" y="57" width="84" height="40" rx="11" fill="url(#samsungPhoneBody)" />
+              <circle cx="60" cy="77" r="3.2" fill="#ffd9ec" opacity="0.9" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    )
+  }
   if (slotId === 'card1' || slotId === 'card2') {
     const c = cfg as typeof cfg & { eyebrow?: string; sub?: string; img?: string }
     return (
