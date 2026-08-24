@@ -5326,6 +5326,7 @@ a:hover {
   padding-bottom: 2rem;
 }
 .home-top-bg {
+  --hero-h: 310px; /* .home-brand-hero의 min-height와 동일한 값 — 60:40 카드 높이(hero/3) 계산용 */
   background: #fff;
   padding: 1.5rem 0 1.75rem;
   margin-bottom: 2rem;
@@ -5507,6 +5508,27 @@ a:hover {
 .home-discovery-account__button { margin-top: auto; padding: 0.55rem 0.9rem; border-radius: 999px; background: #e53935; color: #fff; font-size: 0.78rem; font-weight: 800; text-decoration: none; }
 .home-discovery-account__mascot { position: absolute; right: -8px; bottom: 0; width: 34%; max-height: 138px; object-fit: contain; object-position: bottom right; pointer-events: none; }
 
+/* ── 데스크톱(>768px): 60:40 카드, 높이 = Hero 실제 높이의 1/3 (모바일은 미적용, 기존 1열/auto 유지) ── */
+@media (min-width: 769px) {
+  .home-discovery { max-width: 1200px; width: calc(100% - 48px); margin-left: auto; margin-right: auto; }
+  .home-discovery__grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; }
+  .home-discovery__card { height: calc(var(--hero-h) / 3); min-height: 0; }
+  .home-discovery__card .ad-slot { min-height: 0; }
+  .home-discovery__card .ad-slot__content { flex-direction: row; align-items: center; padding: 0.7rem 1.1rem; gap: 0.7rem; }
+  .home-discovery__card .ad-slot__big-icon { font-size: 1.4rem; }
+  .home-discovery__card .ad-slot__eyebrow { display: block; font-size: 0.6rem; margin: 0 0 0.1rem; }
+  .home-discovery__card .ad-slot__headline { font-size: 0.86rem; line-height: 1.2; margin: 0 0 0.1rem; }
+  .home-discovery__card .ad-slot__sub { font-size: 0.68rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .home-discovery__card .ad-slot__cta-btn { margin-top: 0; padding: 0.32rem 0.75rem; font-size: 0.68rem; }
+  .home-discovery__card--account { padding: 0.7rem 1.1rem; }
+  .home-discovery-account__copy { width: 55%; height: 100%; justify-content: center; gap: 0.18rem; }
+  .home-discovery-account__eyebrow { font-size: 0.6rem; }
+  .home-discovery-account__copy strong { font-size: 0.82rem; line-height: 1.2; }
+  .home-discovery-account__copy p { font-size: 0.66rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .home-discovery-account__button { margin-top: 0.15rem; padding: 0.3rem 0.65rem; font-size: 0.66rem; }
+  .home-discovery-account__mascot { left: auto; right: 4px; width: auto; height: 78%; max-width: 42%; max-height: 78%; }
+}
+
 .home-reference-content {
   display: grid;
   grid-template-columns: 1.12fr 0.88fr;
@@ -5539,6 +5561,7 @@ a:hover {
 .home-reference-latest__filters .is-active { background: #fee2e2; color: #e53935; font-weight: 700; }
 
 @media (max-width: 1024px) {
+  .home-top-bg { --hero-h: 340px; }
   .home-brand-hero { min-height: 340px; padding: 2.2rem 2rem 6rem; background-position: center, center; background-size: 100% 100%, cover; }
   .home-brand-hero__content { width: 55%; }
   .home-brand-hero__title { font-size: clamp(2rem, 4.5vw, 2.65rem); }
@@ -5558,8 +5581,10 @@ a:hover {
   .home-hero-search__field--keyword { grid-column: 1 / -1; }
   .home-hero-search__field { border-bottom: 1px solid #e5e7eb; }
   .home-brand-hero__links { left: 1.35rem; bottom: 1.5rem; }
-  .home-discovery { margin: 1.25rem 0 1rem; }
-  .home-discovery__grid { grid-template-columns: 1fr; gap: 0.9rem; }
+  .home-discovery { margin: 1.25rem 0 1rem; margin-inline: -0.6rem; padding-inline: 1rem; }
+  .home-discovery__grid { grid-template-columns: 1fr; gap: 1rem; }
+  .home-discovery__card { height: auto; min-height: 180px; }
+  .home-discovery__card .ad-slot { min-height: 180px; }
   .home-reference-category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
@@ -5573,8 +5598,8 @@ a:hover {
   .home-hero-search__input { font-size: 0.86rem; }
   .home-brand-hero__links { flex-direction: column; gap: 0.4rem; }
   .home-discovery__head h2 { font-size: 1.35rem; }
-  .home-discovery__card { min-height: 150px; }
-  .home-discovery__card .ad-slot { min-height: 150px; }
+  .home-discovery__card { min-height: 180px; }
+  .home-discovery__card .ad-slot { min-height: 180px; }
   .home-reference-content { gap: 1.4rem; }
   .home-reference-category { height: 92px; }
 }

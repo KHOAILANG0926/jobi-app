@@ -334,12 +334,13 @@ const REFERENCE_CATEGORIES: { label: string; value: JobCategory; icon: string }[
 
 const AD_CONFIGS = {
   header: {
-    bg: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)',
-    icon: '🎓',
-    eyebrow: 'Khóa học kỹ năng nghề',
-    headline: 'Nâng cao kỹ năng — tăng lương ngay',
-    sub: 'Hơn 200 khóa học chứng chỉ nghề trực tuyến',
-    cta: 'Đăng ký miễn phí →',
+    bg: 'linear-gradient(135deg,#1c1c1e 0%,#3a3a3c 100%)',
+    icon: '📱',
+    eyebrow: 'Samsung Galaxy Z Flip8',
+    headline: 'Mỏng nhẹ nhất từ trước đến nay',
+    sub: 'Galaxy AI · FlexWindow tùy chỉnh',
+    cta: 'Khám phá ngay →',
+    href: 'https://www.samsung.com/us/smartphones/galaxy-z-flip8/',
     light: true,
   },
   mid: {
@@ -415,6 +416,8 @@ function AdSlot({ slotId }: AdSlotProps) {
   }
   const textColor = cfg.light ? '#fff' : '#1a1a1a'
   const subColor  = cfg.light ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.6)'
+  const link = 'href' in cfg && cfg.href ? cfg.href : '/dang-tin'
+  const isExternal = /^https?:\/\//.test(link)
   return (
     <div className="ad-slot" data-ad-slot={slotId} style={{ background: cfg.bg }}>
       <span className="ad-slot__label" style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}>QC</span>
@@ -425,7 +428,7 @@ function AdSlot({ slotId }: AdSlotProps) {
           <p className="ad-slot__headline" style={{ color: textColor }}>{cfg.headline}</p>
           {'sub' in cfg && <p className="ad-slot__sub" style={{ color: subColor }}>{cfg.sub}</p>}
         </div>
-        <a href="/dang-tin" className="ad-slot__cta-btn">
+        <a href={link} className="ad-slot__cta-btn" {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
           {cfg.cta}
         </a>
       </div>
@@ -745,7 +748,7 @@ export function Home() {
                 {user ? 'Mở hồ sơ →' : 'Đăng nhập →'}
               </NavLink>
             </div>
-            <img src="/char-upper.png" className="home-discovery-account__mascot" aria-hidden alt="" />
+            <img src="/images/mascot-turtle-mint.webp" className="home-discovery-account__mascot" aria-hidden alt="" />
           </div>
         </div>
       </section>
