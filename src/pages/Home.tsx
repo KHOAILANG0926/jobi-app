@@ -787,6 +787,55 @@ export function Home() {
         </div>
       </section>
 
+      {/* ── Brands + Region: 독립된 60:40 compact 섹션 (브랜드/지역만) ── */}
+      <div className="home-brands-region-grid">
+
+        {/* LEFT 60%: 브랜드 제목 + 원형 로고만 */}
+        <section className="home-brands-section">
+          <div className="home-brands-box">
+            <div className="home-brands-box__head">
+              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
+              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+            </div>
+            <div className="home-brands-box__row">
+              <div className="home-brands-box__track">
+                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
+                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                    <span className="home-brand__name">{b.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* RIGHT 40%: 지역 제목 + 지역 목록만 */}
+        <div className="home-region-panel">
+          <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
+          <div className="home-region-panel__grid">
+            {[
+              { id: 'hanoi', label: 'Hà Nội' },
+              { id: 'haiphong', label: 'Hải Phòng' },
+              { id: 'bacninh', label: 'Bắc Ninh' },
+              { id: 'bacgiang', label: 'Bắc Giang' },
+              { id: 'thainguyen', label: 'Thái Nguyên' },
+              { id: 'danang', label: 'Đà Nẵng' },
+              { id: 'hue', label: 'Huế' },
+              { id: 'khanhhoa', label: 'Khánh Hòa' },
+              { id: 'hcm', label: 'TP. HCM' },
+              { id: 'dongnai', label: 'Đồng Nai' },
+              { id: 'cantho', label: 'Cần Thơ' },
+            ].map(p => (
+              <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
+                onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <section className="home-reference-latest">
         <div className="home-reference-latest__head">
           <h2>Việc làm mới nhất</h2>
@@ -841,55 +890,6 @@ export function Home() {
           )}
         </div>
       </section>
-
-      {/* ── Brands + Region: 독립된 60:40 compact 섹션 (브랜드/지역만) ── */}
-      <div className="home-brands-region-grid">
-
-        {/* LEFT 60%: 브랜드 제목 + 원형 로고만 */}
-        <section className="home-brands-section">
-          <div className="home-brands-box">
-            <div className="home-brands-box__head">
-              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
-              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
-            </div>
-            <div className="home-brands-box__row">
-              <div className="home-brands-box__track">
-                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
-                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                    <span className="home-brand__name">{b.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* RIGHT 40%: 지역 제목 + 지역 목록만 */}
-        <div className="home-region-panel">
-          <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
-          <div className="home-region-panel__grid">
-            {[
-              { id: 'hanoi', label: 'Hà Nội' },
-              { id: 'haiphong', label: 'Hải Phòng' },
-              { id: 'bacninh', label: 'Bắc Ninh' },
-              { id: 'bacgiang', label: 'Bắc Giang' },
-              { id: 'thainguyen', label: 'Thái Nguyên' },
-              { id: 'danang', label: 'Đà Nẵng' },
-              { id: 'hue', label: 'Huế' },
-              { id: 'khanhhoa', label: 'Khánh Hòa' },
-              { id: 'hcm', label: 'TP. HCM' },
-              { id: 'dongnai', label: 'Đồng Nai' },
-              { id: 'cantho', label: 'Cần Thơ' },
-            ].map(p => (
-              <button key={p.id} className={`home-region-panel__btn${selectedCity === p.id ? ' home-region-panel__btn--active' : ''}`}
-                onClick={() => { setSelectedCity(p.id as any); setSearch(''); setBrandFilter(null); setCategory('all'); setUrgentOnly(false); setNearMe(false); }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* ── 기업 프로모션 카드 (기존 위치 유지, 60:40 섹션에서 분리) ── */}
       <div className="home-ad-cards">
