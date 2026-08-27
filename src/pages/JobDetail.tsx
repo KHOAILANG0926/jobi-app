@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  MapPin, Clock, Calendar, Briefcase, Users, GraduationCap,
-  Timer, Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
+  MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
+  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft, ChevronDown,
 } from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
 import JobLocationMap from '../components/JobLocationMap'
@@ -14,12 +14,26 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
-import { withJobCoordinates } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
+
+function nonEmpty(v: string | null | undefined): string | undefined {
+  const t = v?.trim()
+  return t ? t : undefined
+}
 
 /* ── Description renderer ── */
 // Quyền lợi 섹션에서 급여/보상 관련 문구는 눈에 띄게 볼드 처리
 const BENEFIT_HIGHLIGHT_RE = /lương|thưởng|thu nhập|phụ cấp|bảo hiểm/i
+
+// 원본 Quyền lợi 텍스트에 실제로 언급된 항목만 compact chip으로 요약 — 목록에 없는 복지를 임의 추가하지 않는다.
+const BENEFIT_CHIP_RULES: { label: string; re: RegExp }[] = [
+  { label: 'BHXH / BHYT', re: /bhxh|bhyt|bảo hiểm xã hội|bảo hiểm y tế/i },
+  { label: 'Thưởng', re: /thưởng/i },
+  { label: 'Đào tạo', re: /đào tạo|training/i },
+  { label: 'Khám sức khỏe', re: /khám sức kh(ỏe|oẻ)/i },
+  { label: 'Du lịch', re: /du lịch/i },
+  { label: 'Nghỉ phép', re: /nghỉ phép/i },
+]
 
 function DescriptionRenderer({ text }: { text: string }) {
   if (text.startsWith('http')) return null
@@ -31,10 +45,18 @@ function DescriptionRenderer({ text }: { text: string }) {
           const [heading, ...lines] = block.split('\n')
           const headingText = heading.replace('## ', '')
           const isBenefits = /quyền lợi/i.test(headingText)
+          const chips = isBenefits
+            ? BENEFIT_CHIP_RULES.filter((r) => r.re.test(lines.join(' '))).map((r) => r.label)
+            : []
           return (
             <div key={i} className="jd2-card jd2-desc-card">
               <h2 className="jd2-card__title">{headingText}</h2>
               <div className="jd2-card__body">
+                {chips.length > 0 && (
+                  <div className="jd2-chips">
+                    {chips.map((c) => <span key={c} className="jd2-chip-benefit">{c}</span>)}
+                  </div>
+                )}
                 <ul className="jd2-desc__list">
                   {lines.map((line, j) => {
                     if (line.startsWith('• ')) {
@@ -65,6 +87,8 @@ function DescriptionRenderer({ text }: { text: string }) {
   )
 }
 
+type InfoField = { key: string; icon: ReactNode; label: string; value: string }
+
 export function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -76,9 +100,9 @@ export function JobDetail() {
   const [toastMsg, setToastMsg] = useState('')
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
-  const coords = useMemo(() => (job ? withJobCoordinates(job) : null), [job])
 
   useEffect(() => {
     // 크롤링 공고(employerId 없음)는 내부 지원을 아예 만들지 않으므로 조회도 스킵
@@ -168,6 +192,39 @@ export function JobDetail() {
 
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
+  // ── 빈 데이터 처리: 원본이 명시적으로 채운 값만 표시, 나머지는 필드 자체를 숨긴다 ──
+  const salaryText = nonEmpty(job.rawSalary)
+  const locationText = nonEmpty(job.rawLocation)
+  const preferenceText = nonEmpty(job.rawPreference)
+  const educationText = nonEmpty(job.rawEducation)
+  const numHiresText = nonEmpty(job.numHires)
+  const hoursText = nonEmpty(job.hours)
+  const workDaysText = nonEmpty(job.workDays)
+  const workPeriodText = nonEmpty(job.workPeriod)
+  const deadlineText = formatDeadlineVi(job.applicationDeadline)
+
+  const summaryParts = [salaryText, locationText, preferenceText, workPeriodText].filter(Boolean) as string[]
+
+  const infoFields: InfoField[] = [
+    salaryText && { key: 'salary', icon: <Briefcase size={14} strokeWidth={1.8} />, label: 'Mức lương', value: salaryText },
+    locationText && { key: 'location', icon: <MapPin size={14} strokeWidth={1.8} />, label: 'Địa điểm', value: locationText },
+    { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText },
+    preferenceText && { key: 'preference', icon: <Award size={14} strokeWidth={1.8} />, label: 'Kinh nghiệm', value: preferenceText },
+    educationText && { key: 'education', icon: <GraduationCap size={14} strokeWidth={1.8} />, label: 'Học vấn', value: educationText },
+    numHiresText && { key: 'numHires', icon: <Users size={14} strokeWidth={1.8} />, label: 'Số lượng tuyển', value: numHiresText },
+    workPeriodText && { key: 'workPeriod', icon: <Briefcase size={14} strokeWidth={1.8} />, label: 'Hình thức làm việc', value: workPeriodText },
+    hoursText && { key: 'hours', icon: <Clock size={14} strokeWidth={1.8} />, label: 'Thời gian làm việc', value: hoursText },
+    workDaysText && { key: 'workDays', icon: <Calendar size={14} strokeWidth={1.8} />, label: 'Ngày làm việc', value: workDaysText },
+    { key: 'category', icon: <Building2 size={14} strokeWidth={1.8} />, label: 'Ngành nghề', value: catLabel },
+  ].filter(Boolean) as InfoField[]
+
+  // 실제 lat/lng이 DB에 있을 때만 지도를 노출한다 — 지역명으로 추정한 좌표는 지도 판단 근거로 쓰지 않는다.
+  const hasRealCoords = typeof job.rawLat === 'number' && typeof job.rawLng === 'number'
+
+  const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
+
+  const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount
+
   return (
     <div className="jd2-page">
 
@@ -194,15 +251,22 @@ export function JobDetail() {
             <h1 className="jd2-header__title">{job.title}</h1>
             <p className="jd2-header__company">{job.company}</p>
             <div className="jd2-header__meta">
-              <span className="jd2-meta-item">
-                <MapPin size={13} strokeWidth={1.8} />
-                {job.location}
-              </span>
-              <span className="jd2-meta-sep">·</span>
+              {locationText && (
+                <>
+                  <span className="jd2-meta-item">
+                    <MapPin size={13} strokeWidth={1.8} />
+                    {locationText}
+                  </span>
+                  <span className="jd2-meta-sep">·</span>
+                </>
+              )}
               <span className="jd2-meta-item">
                 Đăng {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             </div>
+            {summaryParts.length > 0 && (
+              <p className="jd2-summary">{summaryParts.join(' · ')}</p>
+            )}
           </div>
         </div>
         <button
@@ -219,92 +283,28 @@ export function JobDetail() {
       <div className="jd2-grid">
         <div className="jd2-main">
 
-          {/* ── Working conditions ── */}
+          {/* ── Recruitment info (merged) ── */}
           <div className="jd2-card">
-            <h2 className="jd2-card__title">Điều kiện làm việc</h2>
+            <h2 className="jd2-card__title">Thông tin tuyển dụng</h2>
             <div className="jd2-info-grid">
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><Briefcase size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Mức lương</div>
-                  <div className="jd2-info-val jd2-info-val--salary">{job.salary || 'Thỏa thuận'}</div>
-                </div>
-              </div>
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><MapPin size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Địa điểm</div>
-                  <div className="jd2-info-val">{job.location}</div>
-                </div>
-              </div>
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><Clock size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Giờ làm việc</div>
-                  <div className="jd2-info-val">{job.hours || 'Thỏa thuận'}</div>
-                </div>
-              </div>
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><Calendar size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Ngày làm việc</div>
-                  <div className="jd2-info-val">{job.workDays || 'Thỏa thuận'}</div>
-                </div>
-              </div>
-              {job.workPeriod && (
-                <div className="jd2-info-row">
-                  <span className="jd2-info-icon"><Briefcase size={14} strokeWidth={1.8} /></span>
+              {infoFields.map((f) => (
+                <div className="jd2-info-row" key={f.key}>
+                  <span className="jd2-info-icon">{f.icon}</span>
                   <div>
-                    <div className="jd2-info-label">Hình thức</div>
-                    <div className="jd2-info-val">{job.workPeriod}</div>
+                    <div className="jd2-info-label">{f.label}</div>
+                    <div className={`jd2-info-val${f.key === 'salary' ? ' jd2-info-val--salary' : ''}`}>{f.value}</div>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
 
-          {/* ── Recruitment conditions ── */}
-          <div className="jd2-card">
-            <h2 className="jd2-card__title">Điều kiện tuyển dụng</h2>
-            <div className="jd2-info-grid">
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><Timer size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Hạn nộp hồ sơ</div>
-                  <div className="jd2-info-val">{formatDeadlineVi(job.applicationDeadline)}</div>
-                </div>
-              </div>
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><Users size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Số lượng tuyển</div>
-                  <div className="jd2-info-val">{job.numHires || 'Tuyển nhiều vị trí'}</div>
-                </div>
-              </div>
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><GraduationCap size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Học vấn</div>
-                  <div className="jd2-info-val">{job.education || 'Không yêu cầu'}</div>
-                </div>
-              </div>
-              <div className="jd2-info-row">
-                <span className="jd2-info-icon"><Briefcase size={14} strokeWidth={1.8} /></span>
-                <div>
-                  <div className="jd2-info-label">Kinh nghiệm</div>
-                  <div className="jd2-info-val">{job.preference || 'Không yêu cầu kinh nghiệm'}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Images ── */}
-          {job.imageUrl && (
+          {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
+          {extraImages.length > 0 && (
             <div className="jd2-card">
               <div className="jd2-card__body">
-                <img src={job.imageUrl} alt={job.title} className="jd2-desc-img" />
-                {job.images?.filter((u: string) => u !== job.imageUrl).map((url: string, i: number) => (
-                  <img key={i} src={url} alt={`${job.title} ${i + 2}`} className="jd2-desc-img" />
+                {extraImages.map((url, i) => (
+                  <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
                 ))}
               </div>
             </div>
@@ -316,16 +316,51 @@ export function JobDetail() {
           )}
 
           {/* ── Map ── */}
-          {coords && (
+          {hasRealCoords && (
             <div className="jd2-card">
-              <h2 className="jd2-card__title">Khu vực làm việc</h2>
+              <h2 className="jd2-card__title">Địa điểm làm việc</h2>
               <div className="jd2-card__body">
-                <p className="jd2-map-addr">
-                  <MapPin size={13} strokeWidth={1.8} />
-                  {job.location}
-                </p>
-                <JobLocationMap lat={coords.lat!} lng={coords.lng!} title={job.title} />
-                <p className="jd2-map-note">Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.</p>
+                {locationText && (
+                  <p className="jd2-map-addr">
+                    <MapPin size={13} strokeWidth={1.8} />
+                    {locationText}
+                  </p>
+                )}
+                {mapOpen ? (
+                  <>
+                    <JobLocationMap lat={job.rawLat!} lng={job.rawLng!} title={job.title} />
+                    <p className="jd2-map-note">Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.</p>
+                  </>
+                ) : (
+                  <button type="button" className="jd2-map-toggle" onClick={() => setMapOpen(true)}>
+                    <MapPin size={15} strokeWidth={1.8} />
+                    Xem bản đồ
+                    <ChevronDown size={15} strokeWidth={1.8} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Company info ── */}
+          {hasCompanyInfo && (
+            <div className="jd2-card">
+              <h2 className="jd2-card__title">Thông tin công ty</h2>
+              <div className="jd2-card__body jd2-company">
+                <div className="jd2-company__logo">
+                  {job.imageUrl
+                    ? <img src={job.imageUrl} alt={job.company} className="jd2-logo__img" />
+                    : <span className="jd2-logo__fallback">{job.company?.[0] ?? 'J'}</span>
+                  }
+                </div>
+                <div className="jd2-company__body">
+                  <p className="jd2-company__name">{job.company}</p>
+                  <ul className="jd2-company__facts">
+                    {job.companyVerified && <li>✓ Doanh nghiệp đã xác minh</li>}
+                    {job.companyFoundedYear && <li>Thành lập năm {job.companyFoundedYear}</li>}
+                    {job.hireCount !== undefined && job.hireCount > 0 && <li>Đã tuyển: {job.hireCount}</li>}
+                  </ul>
+                </div>
               </div>
             </div>
           )}
@@ -336,15 +371,17 @@ export function JobDetail() {
         {/* ── Sidebar ── */}
         <aside className="jd2-aside">
           {/* Salary */}
-          <div className="jd2-aside-salary">
-            <span className="jd2-aside-salary__label">Mức lương</span>
-            <span className="jd2-aside-salary__val">{job.salary || 'Thỏa thuận'}</span>
-          </div>
+          {salaryText && (
+            <div className="jd2-aside-salary">
+              <span className="jd2-aside-salary__label">Mức lương</span>
+              <span className="jd2-aside-salary__val">{salaryText}</span>
+            </div>
+          )}
 
           {/* Deadline */}
           <div className="jd2-aside-row">
             <span className="jd2-aside-row__label">Hạn nộp hồ sơ</span>
-            <span className="jd2-aside-row__val">{formatDeadlineVi(job.applicationDeadline)}</span>
+            <span className="jd2-aside-row__val">{deadlineText}</span>
           </div>
 
           <div className="jd2-aside-divider" />

@@ -1478,6 +1478,11 @@ a:hover {
   color: var(--color-muted);
 }
 
+.company-reviews__write-btn {
+  width: auto;
+  padding: 0.55rem 1.1rem;
+}
+
 .company-reviews__rating-input {
   display: flex;
   gap: 0.15rem;
@@ -2065,6 +2070,15 @@ a:hover {
   margin: 0.5rem 0 0;
   font-size: 0.72rem;
   color: #aaa;
+}
+.job-location-map__error {
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-radius: 12px;
 }
 
 /* ── Job info list (structured) ─────────────────────────────── */
@@ -8347,6 +8361,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 .jd2-meta-item { display: inline-flex; align-items: center; gap: 0.25rem; }
 .jd2-meta-sep { color: #cbd5e1; }
+.jd2-summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.5;
+}
 
 /* Save button */
 .jd2-save-btn {
@@ -8435,6 +8456,22 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   color: #e53935;
 }
 
+/* ── Benefit chips (Quyền lợi — only chips confirmed present in the source text) ── */
+.jd2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.jd2-chip-benefit {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+}
+
 /* ── Description cards (Mô tả / Yêu cầu / Quyền lợi — each its own jd2-card) ── */
 .jd2-desc-card .jd2-card__body { padding: 1.5rem 1.25rem; }
 .jd2-desc__list {
@@ -8496,6 +8533,57 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   margin-top: 0.5rem;
   font-size: 0.73rem;
   color: #94a3b8;
+}
+.jd2-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+.jd2-map-toggle:hover { background: #f1f5f9; }
+
+/* ── Company info card ── */
+.jd2-company { display: flex; align-items: center; gap: 1rem; }
+.jd2-company__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #475569;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.jd2-company__body { min-width: 0; }
+.jd2-company__name {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.jd2-company__facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  color: #64748b;
 }
 
 /* ── Sidebar ── */
@@ -8699,6 +8787,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-back:hover { color: #f1f5f9; }
   .jd2-desc-img { background: #0f172a; }
   .jd2-mobile-cta { background: #1e293b; border-color: #334155; }
+  .jd2-summary { color: #cbd5e1; }
+  .jd2-chip-benefit { background: #450a0a; color: #fca5a5; }
+  .jd2-map-toggle { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+  .jd2-map-toggle:hover { background: #1e293b; }
+  .jd2-company__logo { background: #0f172a; border-color: #334155; color: #94a3b8; }
+  .jd2-company__name { color: #f1f5f9; }
+  .jd2-company__facts { color: #94a3b8; }
 }
 
 /* ══════════════════════════════════════════
