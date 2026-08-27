@@ -14,8 +14,8 @@ default) 로직은 그대로 유지 — 다시 설계하지 않았다.
 - `VERIFIED`: `npx tsc --noEmit`, `npm run build` 통과. 로컬/Production 모두에서 DOM 레벨
   검증 완료(토글 제거, 항상 렌더링, overflow 없음, marker 자산 200 OK). 실제 타일 렌더링은
   아래 "남아 있는 제약" 참고.
-- `DEPLOYED`: 진행 중 — 이 문서는 브랜치 커밋 시점 스냅샷이며, master merge·push·Vercel
-  배포는 바로 이어서 진행한다.
+- `DEPLOYED`: 완료 — master merge(`d125c3e`)·push, Vercel 배포 성공(commit status
+  `success`), viecganban.vn `sb-3888`에서 토글 제거/항상 렌더링/안내문을 재확인.
 
 ## 변경 내용 (원인 조사 → 조치)
 
