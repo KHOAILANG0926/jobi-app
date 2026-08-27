@@ -18,9 +18,11 @@ interface JobLocationMapProps {
   lat: number
   lng: number
   title: string
+  /** Map zoom level — pass a lower value for a region- or country-level view. */
+  zoom?: number
 }
 
-export default function JobLocationMap({ lat, lng, title }: JobLocationMapProps) {
+export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<L.Map | null>(null)
   const [tileError, setTileError] = useState(false)
@@ -28,7 +30,7 @@ export default function JobLocationMap({ lat, lng, title }: JobLocationMapProps)
   useEffect(() => {
     if (!mapRef.current) return
     setTileError(false)
-    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], 15)
+    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], zoom)
     const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
     }).addTo(map)
@@ -39,7 +41,7 @@ export default function JobLocationMap({ lat, lng, title }: JobLocationMapProps)
       map.remove()
       mapInst.current = null
     }
-  }, [lat, lng, title])
+  }, [lat, lng, title, zoom])
 
   if (tileError) {
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>

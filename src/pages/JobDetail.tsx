@@ -14,6 +14,7 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
+import { resolveMapLocation } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -218,8 +219,10 @@ export function JobDetail() {
     { key: 'category', icon: <Building2 size={14} strokeWidth={1.8} />, label: 'Ngành nghề', value: catLabel },
   ].filter(Boolean) as InfoField[]
 
-  // 실제 lat/lng이 DB에 있을 때만 지도를 노출한다 — 지역명으로 추정한 좌표는 지도 판단 근거로 쓰지 않는다.
-  const hasRealCoords = typeof job.rawLat === 'number' && typeof job.rawLng === 'number'
+  // 지도는 항상 표시한다 — 우선순위: 실제 DB lat/lng > location 텍스트가 매칭되는 지역
+  // 중심 > 위치 정보가 전혀 없으면 베트남 전체 중심. marker도 항상 그리되, 실제 좌표가
+  // 아닐 때는 안내 문구로 근사치임을 항상 함께 밝힌다(가짜 위치를 실제처럼 보이지 않게).
+  const mapLocation = resolveMapLocation(job)
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
@@ -315,32 +318,41 @@ export function JobDetail() {
             <DescriptionRenderer text={job.description} />
           )}
 
-          {/* ── Map ── */}
-          {hasRealCoords && (
-            <div className="jd2-card">
-              <h2 className="jd2-card__title">Địa điểm làm việc</h2>
-              <div className="jd2-card__body">
-                {locationText && (
-                  <p className="jd2-map-addr">
-                    <MapPin size={13} strokeWidth={1.8} />
-                    {locationText}
+          {/* ── Location / Map — always shown, at the best accuracy the job data allows ── */}
+          <div className="jd2-card">
+            <h2 className="jd2-card__title">Khu vực làm việc</h2>
+            <div className="jd2-card__body">
+              {locationText && (
+                <p className="jd2-map-addr">
+                  <MapPin size={13} strokeWidth={1.8} />
+                  {locationText}
+                </p>
+              )}
+              {mapOpen ? (
+                <>
+                  <JobLocationMap
+                    lat={mapLocation.lat}
+                    lng={mapLocation.lng}
+                    title={job.title}
+                    zoom={mapLocation.zoom}
+                  />
+                  <p className="jd2-map-note">
+                    {mapLocation.source === 'exact'
+                      ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
+                      : mapLocation.source === 'default'
+                        ? 'Chưa có thông tin vị trí cụ thể.'
+                        : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
                   </p>
-                )}
-                {mapOpen ? (
-                  <>
-                    <JobLocationMap lat={job.rawLat!} lng={job.rawLng!} title={job.title} />
-                    <p className="jd2-map-note">Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.</p>
-                  </>
-                ) : (
-                  <button type="button" className="jd2-map-toggle" onClick={() => setMapOpen(true)}>
-                    <MapPin size={15} strokeWidth={1.8} />
-                    Xem bản đồ
-                    <ChevronDown size={15} strokeWidth={1.8} />
-                  </button>
-                )}
-              </div>
+                </>
+              ) : (
+                <button type="button" className="jd2-map-toggle" onClick={() => setMapOpen(true)}>
+                  <MapPin size={15} strokeWidth={1.8} />
+                  Xem bản đồ
+                  <ChevronDown size={15} strokeWidth={1.8} />
+                </button>
+              )}
             </div>
-          )}
+          </div>
 
           {/* ── Company info ── */}
           {hasCompanyInfo && (
