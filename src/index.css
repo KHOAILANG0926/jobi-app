@@ -5646,37 +5646,6 @@ a:hover {
   .home-discovery-account__mascot { left: auto; right: 0; bottom: 0; width: 44%; height: 100%; max-width: 44%; max-height: 100%; object-fit: cover; object-position: 50% 8%; }
 }
 
-.home-reference-content {
-  display: grid;
-  grid-template-columns: 1.12fr 0.88fr;
-  gap: 2rem;
-  margin-bottom: 1.3rem;
-}
-.home-reference-categories { padding-right: 1.75rem; border-right: 1px solid #e5e7eb; }
-.home-reference-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem; }
-.home-reference-heading h2 { margin: 0; font-size: 1.25rem; color: #111827; }
-.home-reference-heading button { border: 0; background: none; color: #667085; font: inherit; font-size: 0.8rem; cursor: pointer; }
-.home-reference-category-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.6rem; }
-.home-reference-category { min-width: 0; height: 105px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.55rem; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; color: #111827; cursor: pointer; }
-.home-reference-category > span { font-size: 2rem; }
-.home-reference-category strong { font-size: 0.78rem; font-weight: 600; }
-.home-reference-category--active { border-color: #e53935; background: #fff7f7; color: #e53935; }
-.home-reference-job { position: relative; width: 100%; min-height: 126px; display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; padding: 1rem 3rem 1rem 1rem; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; color: #111827; text-align: left; cursor: pointer; }
-.home-reference-job__title { font-size: 1rem; font-weight: 800; }
-.home-reference-job__company { font-size: 0.82rem; }
-.home-reference-job__location { color: #667085; font-size: 0.76rem; }
-.home-reference-job__salary { color: #e53935; font-size: 0.82rem; font-weight: 700; }
-.home-reference-job__bookmark { position: absolute; right: 1rem; bottom: 1rem; font-size: 1.35rem; }
-.home-reference-job--empty { justify-content: center; color: #667085; cursor: default; }
-.home-reference-latest { margin: 0 0 1.25rem; padding: 1.1rem 0 1.2rem; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
-.home-reference-latest__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.home-reference-latest__head h2 { margin: 0; font-size: 1.25rem; color: #111827; }
-.home-reference-latest__head select { padding: 0.6rem 2.5rem 0.6rem 0.8rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #374151; }
-.home-reference-latest__filters { display: flex; gap: 0.7rem; flex-wrap: wrap; margin-top: 0.8rem; }
-.home-reference-latest__filters button,
-.home-reference-latest__filters a { padding: 0.55rem 1.3rem; border: 0; border-radius: 7px; background: #f3f4f6; color: #111827; font: inherit; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
-.home-reference-latest__filters .is-active { background: #fee2e2; color: #e53935; font-weight: 700; }
-
 @media (max-width: 1024px) {
   .home-top-bg { --hero-h: 340px; }
   .home-brand-hero { min-height: 340px; padding: 2.2rem 2rem 6rem; background-position: center, center; background-size: 100% 100%, cover; }
@@ -5684,8 +5653,6 @@ a:hover {
   .home-brand-hero__title { font-size: clamp(2rem, 4.5vw, 2.65rem); }
   .home-hero-search { left: 2rem; right: 2rem; }
   .home-brand-hero__links { left: 2rem; }
-  .home-reference-content { grid-template-columns: 1fr; }
-  .home-reference-categories { padding-right: 0; border-right: 0; }
 }
 
 @media (max-width: 768px) {
@@ -5702,7 +5669,6 @@ a:hover {
   .home-discovery__grid { grid-template-columns: 1fr; gap: 1rem; }
   .home-discovery__card { height: auto; min-height: 180px; }
   .home-discovery__card .ad-slot { min-height: 180px; }
-  .home-reference-category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {
@@ -5717,8 +5683,6 @@ a:hover {
   .home-discovery__head h2 { font-size: 1.35rem; }
   .home-discovery__card { min-height: 180px; }
   .home-discovery__card .ad-slot { min-height: 180px; }
-  .home-reference-content { gap: 1.4rem; }
-  .home-reference-category { height: 92px; }
 }
 
 /* ── Korea labor premium banner ─────────────────────────────── */
@@ -5865,10 +5829,6 @@ a:hover {
   margin-bottom: 1.25rem;
   align-items: stretch;
 }
-.home-suggestions-section {
-  margin-bottom: 1.25rem;
-}
-
 @media (max-width: 1024px) {
   .home-brands-region-grid {
     grid-template-columns: 1fr;
@@ -6234,58 +6194,6 @@ a:hover {
   object-fit: cover;
   object-position: center;
 }
-
-/* ── 추천 섹션 ─────────────────────────────────────────────────────── */
-.home-rec-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.25rem;
-}
-.home-rec-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.5rem 0.25rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 10px;
-  transition: background 0.15s;
-}
-.home-rec-btn:hover { background: #fef2f2; }
-.home-rec-btn--active {
-  background: #fff0f0;
-  box-shadow: 0 0 0 2px #e53935 inset;
-  border-radius: 10px;
-}
-.home-rec-btn--active .home-rec-btn__label { color: #e53935; font-weight: 700; }
-.home-rec-btn--active .home-rec-btn__icon--3d {
-  filter: drop-shadow(0 4px 8px rgba(229,57,53,0.35));
-  transform: translateY(-2px) scale(1.08);
-}
-.home-rec-btn__icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  line-height: 1;
-}
-.home-rec-btn__icon--3d {
-  background: transparent;
-  border-radius: 0;
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.18));
-  transition: filter 0.2s, transform 0.2s;
-}
-.home-rec-btn:hover .home-rec-btn__icon--3d {
-  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.25));
-  transform: translateY(-2px) scale(1.06);
-}
-.home-rec-btn__label { font-size: 0.72rem; color: #333; font-weight: 500; }
 
 /* ── Deadline filter ─────────────────────────────────────────────── */
 .home-deadline-filter {
