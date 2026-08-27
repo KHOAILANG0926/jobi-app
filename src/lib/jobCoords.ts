@@ -2,6 +2,9 @@ import type { Job } from '../types/job'
 
 const DEFAULT = { lat: 16.0471, lng: 108.2068 }
 
+// 지역명(성/시) → 그 지역의 대표(중심가) 좌표. 실제 회사 위치가 아니라 "이 지역 어딘가"를
+// 나타내는 근사치일 뿐이며, 거리 정렬(MapView)이나 지도 뷰포트 중심(JobDetail 지역 지도)
+// 용도로만 쓴다 — job.lat/job.lng에 저장하거나 정확한 근무지 marker로 표시하지 않는다.
 const PLACES: { keys: string[]; lat: number; lng: number }[] = [
   { keys: ['bac ninh', 'bắc ninh'], lat: 21.1861, lng: 106.0763 },
   { keys: ['ha noi', 'hà nội', 'ha dong', 'hà đông', 'cau giay', 'cầu giấy'], lat: 21.0285, lng: 105.8542 },
@@ -12,6 +15,12 @@ const PLACES: { keys: string[]; lat: number; lng: number }[] = [
   { keys: ['can tho', 'cần thơ'], lat: 10.0452, lng: 105.7469 },
   { keys: ['nha trang'], lat: 12.2388, lng: 109.1967 },
   { keys: ['hue', 'huế'], lat: 16.4637, lng: 107.5909 },
+  { keys: ['hung yen', 'hưng yên'], lat: 20.6567, lng: 106.0511 },
+  { keys: ['dong nai', 'đồng nai', 'bien hoa', 'biên hòa'], lat: 10.9453, lng: 106.8243 },
+  { keys: ['long an', 'tan an', 'tân an'], lat: 10.5333, lng: 106.4167 },
+  { keys: ['quang ninh', 'quảng ninh', 'ha long', 'hạ long'], lat: 20.9515, lng: 107.0797 },
+  { keys: ['thai nguyen', 'thái nguyên'], lat: 21.5928, lng: 105.8442 },
+  { keys: ['bac giang', 'bắc giang'], lat: 21.2731, lng: 106.1946 },
 ]
 
 /** Chuẩn hoá để so khớp địa điểm / từ khoá (bỏ dấu, thường). */
@@ -36,6 +45,24 @@ export function guessCoordinatesFromLocation(location: string): { lat: number; l
     }
   }
   return { ...DEFAULT }
+}
+
+/**
+ * 지역명 텍스트가 알려진 성/시와 매칭될 때만 그 지역의 중심 좌표를 반환하고, 매칭되는 게
+ * 없으면 `null`을 반환한다(guessCoordinatesFromLocation처럼 Đà Nẵng 기본값으로 떨어지지
+ * 않음) — 지도를 아예 보여주지 않아야 하는 경우와, "이 지역 근처"라고 보여줘도 되는 경우를
+ * 호출부에서 구분할 수 있게 하기 위함. 반환값은 지도 뷰포트 중심 용도일 뿐 실제 근무지
+ * 좌표가 아니다.
+ */
+export function findRegionCenter(location: string): { lat: number; lng: number } | null {
+  const n = normalizeViText(location)
+  if (!n) return null
+  for (const p of PLACES) {
+    if (p.keys.some((k) => n.includes(normalizeViText(k)))) {
+      return { lat: p.lat, lng: p.lng }
+    }
+  }
+  return null
 }
 
 export function calcDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {

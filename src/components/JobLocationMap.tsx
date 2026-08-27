@@ -18,9 +18,14 @@ interface JobLocationMapProps {
   lat: number
   lng: number
   title: string
+  /** Map zoom level — pass a lower value for a region-level (city-wide) view. */
+  zoom?: number
+  /** false when `lat`/`lng` is only a region center, not the company's real location —
+   *  suppresses the marker so an approximate point is never shown as an exact one. */
+  showMarker?: boolean
 }
 
-export default function JobLocationMap({ lat, lng, title }: JobLocationMapProps) {
+export default function JobLocationMap({ lat, lng, title, zoom = 15, showMarker = true }: JobLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<L.Map | null>(null)
   const [tileError, setTileError] = useState(false)
@@ -28,18 +33,20 @@ export default function JobLocationMap({ lat, lng, title }: JobLocationMapProps)
   useEffect(() => {
     if (!mapRef.current) return
     setTileError(false)
-    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], 15)
+    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], zoom)
     const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
     }).addTo(map)
     tiles.on('tileerror', () => setTileError(true))
-    L.marker([lat, lng]).addTo(map).bindPopup(title)
+    if (showMarker) {
+      L.marker([lat, lng]).addTo(map).bindPopup(title)
+    }
     mapInst.current = map
     return () => {
       map.remove()
       mapInst.current = null
     }
-  }, [lat, lng, title])
+  }, [lat, lng, title, zoom, showMarker])
 
   if (tileError) {
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>
