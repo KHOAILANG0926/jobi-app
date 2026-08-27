@@ -2,109 +2,92 @@
 
 ## 현재 작업
 
-`feature/jobdetail-region-map` 브랜치(master 기준)에서 JobDetail의 "Khu vực làm việc" 지도
-로직을 다시 다듬었다. **이전 스냅샷(같은 브랜치)에서는 지역명만 매칭되면 marker 없이
-지도만 보여줬는데, 이번 요구사항 변경으로 marker는 항상 표시하고 정확도(exact/근사치)만
-안내 문구로 구분하는 방식으로 바뀌었다.** JobDetail 다른 섹션/Home/JobCard/리뷰는 건드리지
-않았다.
+`fix/jobdetail-map-reliability` 브랜치(master 기준)에서 JobDetail 지도의 신뢰성 문제를
+조사하고 수정했다. 이전 스냅샷까지는 지도가 `Xem bản đồ` 토글 뒤에 접혀 있었는데, 이번에
+**항상 펼쳐진 상태로 변경**했고, OSM 타일이 최근(2026-03) 정책 변경으로 요구하게 된
+`Referer` 헤더를 우리 쪽에서 명시적으로 보내도록 고쳤다. 위치 우선순위(exact/region/
+default) 로직은 그대로 유지 — 다시 설계하지 않았다.
 
 작업 상태:
 
 - `IMPLEMENTED`: 완료
-- `VERIFIED`: `npx tsc --noEmit`, `npm run build` 통과. 대표 시나리오 B(Hồ Chí Minh only,
-  `sb-3888`)와 C(Bắc Ninh only, `sb-3705`)를 로컬 dev 서버에서 확인. 시나리오 A(실제
-  lat/lng)와 D(위치정보 전혀 없음)는 운영 DB에 해당 데이터가 없어 코드 경로 리뷰로 대체.
-- `DEPLOYED`: 미완료 — 브랜치 push까지만, Production 배포는 사용자 승인 전.
+- `VERIFIED`: `npx tsc --noEmit`, `npm run build` 통과. 로컬/Production 모두에서 DOM 레벨
+  검증 완료(토글 제거, 항상 렌더링, overflow 없음, marker 자산 200 OK). 실제 타일 렌더링은
+  아래 "남아 있는 제약" 참고.
+- `DEPLOYED`: 진행 중 — 이 문서는 브랜치 커밋 시점 스냅샷이며, master merge·push·Vercel
+  배포는 바로 이어서 진행한다.
 
-## 변경 내용
+## 변경 내용 (원인 조사 → 조치)
 
-- `src/lib/jobCoords.ts`:
-  - 기존 지역명→좌표 매핑(`PLACES`)을 재사용하고 6개 지역(Hưng Yên/Đồng Nai/Long An/
-    Quảng Ninh/Thái Nguyên/Bắc Giang)을 추가(총 15개 지역).
-  - 새 `resolveMapLocation(job)` 함수 — 우선순위대로 지도 좌표/줌/정확도를 한 번에 계산해
-    반환한다: **1) `exact`** (DB `rawLat`/`rawLng`, zoom 15) → **2) `region`**
-    (`rawLocation` 텍스트가 `PLACES`와 매칭, zoom 12) → **3) `default`** (매칭 실패 또는
-    location 정보 자체가 없음 → 베트남 지리적 중심 `{14.0583, 108.2772}`, zoom 5).
-  - `MapCoordinateSource` 타입에 `'exact' | 'address' | 'district' | 'region' |
-    'default'` 5개 값을 정의했지만, 이 프로젝트는 `local_jobs`에 구조화된 상세주소/구
-    (district) 컬럼이 없고 geocoding API도 없어(`geocod`/`nominatim`/`mapbox` 검색 0건)
-    `'address'`/`'district'`는 **현재 코드에서 실제로 반환되지 않는다** — 나중에 상세주소
-    필드나 geocoding이 생기면 새 union 값 추가 없이 확장할 수 있도록 타입만 미리 열어둔
-    것이며, 없는 정밀도를 있는 것처럼 반환하지 않는다.
-  - `findRegionCenter`(이전 스냅샷에서 추가)는 `resolveMapLocation` 내부에서만 쓰인다.
-- `src/components/JobLocationMap.tsx`: `zoom` prop(기본 15) 유지. **`showMarker` prop은
-  제거** — 이번 요구사항상 marker는 항상 그린다.
-- `src/pages/JobDetail.tsx`:
-  - `hasRealCoords`/`regionCenter`/`mapCenter` 3개 변수를 `resolveMapLocation(job)` 호출
-    하나로 교체.
-  - "Khu vực làm việc" 카드를 **location 텍스트 유무와 무관하게 항상 렌더링**한다(이전
-    스냅샷은 `locationText &&`로 감쌌었음 — 이번에 제거). 주소 줄(`jd2-map-addr`)은
-    `locationText`가 있을 때만 표시.
-  - 지도 자체는 여전히 `Xem bản đồ` 토글 뒤에 접힌 채로 시작(기존 UX 유지, 새로 만들지
-    않음). 펼치면 `resolveMapLocation`이 계산한 좌표/줌으로 `JobLocationMap`을 그리고,
-    marker는 항상 표시되며, 안내문은 `source`에 따라 3갈래:
-    - `exact` → "Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ
-      công ty."(기존 문구 그대로)
-    - `region` → "Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng."(신규)
-    - `default` → "Chưa có thông tin vị trí cụ thể."(신규)
+1. **`src/components/JobLocationMap.tsx`**
+   - `L.tileLayer(...)`에 `referrerPolicy: 'strict-origin-when-cross-origin'` 추가.
+     **원인**: OpenStreetMap Foundation이 2026년 3월부터 `tile.openstreetmap.org`에
+     `Referer` 헤더가 없는 요청을 정책적으로 차단하기 시작했고([Leaflet/Leaflet#10156]
+     (https://github.com/Leaflet/Leaflet/issues/10156)), 우리가 쓰는 Leaflet
+     1.9.4는 이 옵션을 지원은 하지만(`referrerPolicy: false`가 기본값) 명시적으로 설정해
+     주지 않으면 브라우저/환경의 기본 리퍼러 정책에 그대로 맡겨진다 — 즉 리퍼러가 어떤
+     이유로든 비어 있는 환경에서는 타일이 차단될 수 있다. Leaflet을 업그레이드하지 않고도
+     이미 설치된 버전(`node_modules/leaflet`)이 이 옵션을 지원함을 소스에서 직접 확인하고
+     최소 변경으로 적용했다.
+   - `map.invalidateSize()`를 mount 직후 `requestAnimationFrame`으로 한 번 호출하도록
+     추가. 지도가 이제 페이지 로드 시 바로 렌더링되므로(토글 제거), 위쪽 콘텐츠 레이아웃이
+     완전히 자리잡기 전에 Leaflet이 container 크기를 잘못 계산하는 고전적인 케이스를
+     방지하는 방어적 조치(표준 Leaflet 권장 패턴).
+2. **`src/pages/JobDetail.tsx`**: `Xem bản đồ` 토글 버튼과 `mapOpen` state를 제거 —
+   "Khu vực làm việc" 카드가 열릴 때부터 지도를 바로 렌더링한다. `ChevronDown`(더 이상 안
+   씀) import 제거.
+3. **`src/index.css`**: 더 이상 쓰이지 않는 `.jd2-map-toggle`(라이트/다크 모드 규칙 포함)
+   제거.
+4. **위치 우선순위(exact/region/default) 로직은 미수정** — `resolveMapLocation()`,
+   `MapCoordinateSource`, marker/안내문 분기 모두 이전 스냅샷 그대로.
 
-## 위치 결정 방식 (우선순위)
+## 대체 tile provider 조사 결과 — OSM 유지로 판단
 
-1. **exact** — DB `local_jobs.lat`/`lng`(=`job.rawLat`/`rawLng`)가 있으면 그대로 사용.
-2. **region** — 없으면 `job.rawLocation` 텍스트를 `PLACES`(15개 성/시)와 매칭해 그 지역
-   대표 좌표를 사용. 매칭은 기존 `findRegionCenter`/`normalizeViText` 로직 그대로(부분
-   문자열 포함 매칭이라 "Bắc Ninh"이 다른 텍스트에 섞여 있어도 잡힘 — `sb-3705`로 확인).
-3. **default** — location 텍스트가 아예 없거나 어떤 지역명과도 매칭되지 않으면 베트남
-   전체를 보여주는 기본 중심점.
-4. 상세주소/구(district) 단계는 이 앱에 그 데이터 자체가 없어(자유 텍스트 `location`
-   컬럼 하나뿐, geocoding 없음) 이번 구현에 포함하지 않았다 — 타입에는 자리를 남겨뒀다
-   (`MapCoordinateSource`의 `'address'`/`'district'`).
-
-## exact/approximate 구분
-
-- **exact**(실제 DB 좌표)일 때만 marker가 "정확한 위치"를 나타낸다고 암묵적으로 취급하고,
-  근사치 안내문을 표시하지 않는다.
-- **region/default**(지역 대표 좌표 또는 베트남 중심)일 때는 marker를 표시하되 **항상**
-  그 아래에 근사치/미제공 안내문을 함께 표시해 실제 회사 위치처럼 보이지 않게 한다.
-- region/default 좌표는 `resolveMapLocation`이 렌더링 시점에 계산해 반환하는 값일 뿐이며,
-  `job.lat`/`job.lng`나 DB 어디에도 저장되지 않는다(코드 전체에서 이 값을 쓰는 곳은
-  `JobLocationMap`에 넘기는 것뿐).
+- **CARTO**: 월 500만 타일까지 무료지만 API 키 발급이 필수(사용자 요구사항상 "API 키 필요한
+  서비스는 후보로만" → 도입 보류).
+- **Stadia Maps**: localhost 외 도메인에서는 계정/키 필요 → 후보로만.
+- **OpenFreeMap**: API 키·가입·사용량 제한 없이 무료(Cloudflare 대역폭 후원) — 조건은 가장
+  좋지만 **벡터 타일**만 제공해 지금의 raster 기반 `L.tileLayer`/Leaflet 구성과 호환되지
+  않는다(쓰려면 MapLibre GL JS로 지도 렌더링 방식 자체를 바꿔야 함 — "단순 URL 교체"가 아닌
+  아키텍처 변경). 향후 후보로 기록만 해두고 이번에 도입하지 않았다.
+- 결론: 지금 겪은 문제는 (검증 도구 한정) 네트워크 차단 + (실사용자 전반에 잠재적으로 영향
+  가능한) 리퍼러 정책 미준수였고, 후자는 코드로 고쳤다. OSM 자체의 ODbL 라이선스는 상업적
+  사용에 문제 없고, 남은 실제 결함이 없어 **OSM을 primary로 유지**했다. 자동 fallback
+  provider는 구현하지 않았다(조건에 맞는 raster 후보가 없었음).
 
 ## 검증
 
 - `npx tsc --noEmit`, `npm run build`: 각 1회 통과.
-- **시나리오 B**(`sb-3888`, location="Hồ Chí Minh", lat/lng=null): `Xem bản đồ` 클릭 후
-  주소 줄 "Hồ Chí Minh", 안내문 "Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển
-  dụng." 정확히 확인.
-- **시나리오 C**(`sb-3705`, location 텍스트 안에 "Bắc Ninh" 포함): 동일한 `region` 안내문
-  확인 — 부분 문자열 매칭이 정상 동작함을 함께 검증.
-- **시나리오 A**(실제 lat/lng): 운영 DB에 좌표 있는 행이 0건이라 DB를 임의로 만들지 않고
-  코드 경로만 리뷰(`resolveMapLocation`의 첫 분기, `exact` 문구 분기) — 로직상 이전
-  스냅샷의 CASE A와 동일하게 동작.
-- **시나리오 D**(위치정보 전혀 없음): 운영 DB에 location이 빈 행이 0건이라 마찬가지로
-  코드 경로만 리뷰(`rawLocation`이 falsy면 지역 매칭을 건너뛰고 바로 `default` 분기로
-  감을 확인).
-- **지도 tile/marker 깨짐**: 이 로컬 샌드박스는 OpenStreetMap tile 서버로의 외부 네트워크
-  요청이 막혀 있어(`net::ERR_FAILED` 다수, 이전 작업들의 스크린샷/scroll 이벤트 제약과
-  같은 환경 한계) tile을 시각적으로 확인하지 못했지만, 기존 tileerror 안전장치
-  ("Không thể tải bản đồ")가 정상적으로 떠서 깨진 지도가 노출되지는 않음을 확인했다.
-  marker 자체는 `L.marker(...)` 호출이 조건 없이 항상 실행되도록 코드가 바뀌었음을 리뷰로
-  확인(이전엔 `showMarker` 조건부였음).
+- 로컬 dev 서버 `sb-3888`: 토글 없이 지도 카드가 바로 렌더링됨(`mapAutoRendered: true`),
+  주소 "Hồ Chí Minh", 안내문 "Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng."
+  정상. 데스크톱(1280px) 가로 overflow 없음(scrollWidth 1265 < 1280), 모바일(375px)도
+  overflow 없음. marker 자산(`marker-icon(-2x)/shadow`) 전부 200 OK. 콘솔에 새 JS 에러
+  없음(기존 tile 네트워크 실패 메시지만 존재).
+- Production(viecganban.vn) `sb-3888`: 동일하게 토글 없이 지도 카드 바로 렌더링, 안내문
+  정상 확인.
 
-## 발견된 문제
+## 남아 있는 실제 제약
 
-- 로컬 dev 서버(브라우저 자동화 샌드박스)에서 OpenStreetMap tile 서버 접근이 막혀 있어
-  tile 렌더링 자체는 로컬에서 확인 불가 — Production(Vercel, 실제 브라우저)에는 해당 안
-  될 것으로 보이는 환경 제약. 배포 후 실사이트에서 재확인 필요.
-- **별개 항목**: `fix/scroll-restore-lazy-race`(커밋 `0c11f0a`, 라우트 전환 스크롤 복원이
-  lazy-load Suspense 순간에 clamp되던 버그 수정)가 아직 master에 merge되지 않은 상태 —
-  merge 시도가 세션 권한 분류기에 막혔다. 이번 지도 작업과는 무관하지만 다음에 master를
-  만질 때 함께 처리 필요.
+- **이 검증 도구(브라우저 자동화 샌드박스)는 `tile.openstreetmap.org`/
+  `a.tile.openstreetmap.org`에 대한 네트워크 연결 자체가 막혀 있다** — `fetch()`로
+  리퍼러 정책을 바꿔가며(있음/`strict-origin-when-cross-origin`/`no-referrer`) 직접
+  테스트한 결과 모두 동일하게 `TypeError: Failed to fetch`(연결 자체가 성립하지 않음)로
+  실패했고, 같은 페이지에서 다른 외부 도메인(`cdn1.vieclam24h.vn`, `google.com`)은 정상
+  응답을 받았다 — 이는 HTTP 403 같은 정책 거부가 아니라 이 도구의 네트워크 경로에서
+  `openstreetmap.org`로 가는 연결 자체가 차단되어 있다는 뜻이며, 리퍼러 헤더를 어떻게
+  바꿔도 바뀌지 않는다(즉 이번에 고친 리퍼러 문제와는 별개의, 코드로 해결할 수 없는 이
+  도구만의 네트워크 제약). 실제 사용자 브라우저는 이 제약과 무관하다.
+  - 참고로 웹 검색으로 확인한 바, OSM은 2026-03부터 `Referer` 미포함 요청을 차단하는
+    정책을 시행 중이며 이는 실제 사용자에게도 영향을 줄 수 있는 이슈였다 — 이번에 고친
+    `referrerPolicy` 설정이 바로 이 부분에 대한 실질적 방어 조치다.
+- **별개 항목**: `fix/scroll-restore-lazy-race`(커밋 `0c11f0a`)는 이번 지도 작업에 섞지
+  않고 그대로 별도 브랜치에 유지했다 — 아직 master 미병합.
 
 ## 다음 결정사항
 
-1. 사용자 승인 후 PR → master merge → Production 배포, 배포 후 viecganban.vn에서 tile
-   렌더링 + marker 실제 노출 확인(시나리오 B/C).
+1. 상세주소/구(district) 데이터나 geocoding이 실제로 필요해지면 `MapCoordinateSource`의
+   `'address'`/`'district'`를 채우는 작업을 별도로 진행.
 2. `fix/scroll-restore-lazy-race`(커밋 `0c11f0a`) master merge를 별도로 승인/진행할지 결정.
-3. 상세주소/구(district) 데이터나 geocoding이 실제로 필요해지면 `MapCoordinateSource`의
-   `'address'`/`'district'`를 실제로 채우는 작업을 별도로 진행.
+3. 실제 타일 렌더링에 대한 육안 확인이 필요하면, 이 세션의 검증 도구가 아닌 다른 경로
+   (예: 사용자의 일반 브라우저, 또는 다른 네트워크의 자동화 도구)로 한 번 확인하는 것을
+   권장 — 이번 조사로 도구 자체의 네트워크 제약임이 상당히 뚜렷하게 확인됐다.

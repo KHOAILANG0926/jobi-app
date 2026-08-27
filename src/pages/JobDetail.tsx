@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
-  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft, ChevronDown,
+  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
 } from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
 import JobLocationMap from '../components/JobLocationMap'
@@ -101,7 +101,6 @@ export function JobDetail() {
   const [toastMsg, setToastMsg] = useState('')
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
-  const [mapOpen, setMapOpen] = useState(false)
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
 
@@ -318,7 +317,7 @@ export function JobDetail() {
             <DescriptionRenderer text={job.description} />
           )}
 
-          {/* ── Location / Map — always shown, at the best accuracy the job data allows ── */}
+          {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-card">
             <h2 className="jd2-card__title">Khu vực làm việc</h2>
             <div className="jd2-card__body">
@@ -328,29 +327,19 @@ export function JobDetail() {
                   {locationText}
                 </p>
               )}
-              {mapOpen ? (
-                <>
-                  <JobLocationMap
-                    lat={mapLocation.lat}
-                    lng={mapLocation.lng}
-                    title={job.title}
-                    zoom={mapLocation.zoom}
-                  />
-                  <p className="jd2-map-note">
-                    {mapLocation.source === 'exact'
-                      ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
-                      : mapLocation.source === 'default'
-                        ? 'Chưa có thông tin vị trí cụ thể.'
-                        : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
-                  </p>
-                </>
-              ) : (
-                <button type="button" className="jd2-map-toggle" onClick={() => setMapOpen(true)}>
-                  <MapPin size={15} strokeWidth={1.8} />
-                  Xem bản đồ
-                  <ChevronDown size={15} strokeWidth={1.8} />
-                </button>
-              )}
+              <JobLocationMap
+                lat={mapLocation.lat}
+                lng={mapLocation.lng}
+                title={job.title}
+                zoom={mapLocation.zoom}
+              />
+              <p className="jd2-map-note">
+                {mapLocation.source === 'exact'
+                  ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
+                  : mapLocation.source === 'default'
+                    ? 'Chưa có thông tin vị trí cụ thể.'
+                    : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
+              </p>
             </div>
           </div>
 

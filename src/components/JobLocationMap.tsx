@@ -33,11 +33,21 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocati
     const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], zoom)
     const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
+      // OSMF's tile usage policy (enforced since March 2026) rejects requests with no
+      // Referer header; Leaflet's img tiles don't set one unless told to. Without this,
+      // browsers/environments with a stricter default referrer policy than the page's
+      // own get silently blocked. https://github.com/Leaflet/Leaflet/issues/10156
+      referrerPolicy: 'strict-origin-when-cross-origin',
     }).addTo(map)
     tiles.on('tileerror', () => setTileError(true))
     L.marker([lat, lng]).addTo(map).bindPopup(title)
     mapInst.current = map
+    // The container can be freshly inserted (e.g. right after other page content above
+    // it finishes laying out), so Leaflet's size calculation at construction time isn't
+    // always trustworthy — nudge it once layout has settled.
+    const raf = requestAnimationFrame(() => map.invalidateSize())
     return () => {
+      cancelAnimationFrame(raf)
       map.remove()
       mapInst.current = null
     }
