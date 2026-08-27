@@ -6726,6 +6726,18 @@ a:hover {
   color: #999;
 }
 
+/* Sections */
+.home-section {
+  margin-bottom: 1.5rem;
+}
+
+.home-section__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
 /* Card wrapper */
 .home-card-wrap {
   cursor: pointer;

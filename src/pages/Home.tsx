@@ -598,6 +598,27 @@ export function Home() {
         )
       })()}
 
+      {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
+      {!selectedCity && filtered.length > 0 && (
+        <section className="home-section" ref={jobResultRef}>
+          <h2 className="home-section__title">Tất cả kết quả</h2>
+          <div className="home-jobs-grid">
+            {filtered.map((job) => (
+              <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+                <JobCard
+                  job={job}
+                  isApplied={isApplied(job.id)}
+                  onApply={handleApply}
+                  isSaved={savedIds.has(job.id)}
+                  onToggleSave={handleToggleSave}
+                  distanceKm={jobDistances[job.id]}
+                />
+              </NavLink>
+            ))}
+          </div>
+        </section>
+      )}
+
       <ApplyModal status={status} job={applyJob} profile={profile} onConfirm={confirm} onClose={close} onRetry={retry} />
     </div>
   )
