@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
-import JobCard from '../components/JobCard'
+import JobCard, { CompanyLogo, sanitizeSalary } from '../components/JobCard'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
@@ -344,6 +344,20 @@ export function Home() {
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
 
+  // Top "Việc làm mới nhất" row: exactly 4 cards, always — never a 1-card row with
+  // empty grid tracks next to it. Only use the "🔥 Tuyển gấp" framing when there are
+  // enough real urgent postings to fill the row; otherwise show the latest 4 regular
+  // postings with no Tuyển gấp label, and never fabricate urgency for a regular job.
+  const HERO_URGENT_MIN = 4
+  const heroShowsUrgent = urgentJobs.length >= HERO_URGENT_MIN
+  const heroJobs = heroShowsUrgent ? urgentJobs.slice(0, 4) : regularJobs.slice(0, 4)
+  // When the hero row borrows from regularJobs, drop those same jobs from the listing
+  // below so nothing repeats — but any leftover 1-3 urgent jobs (not enough to earn
+  // their own row) still show up down there rather than disappearing entirely.
+  const belowJobs = heroShowsUrgent
+    ? regularJobs
+    : filtered.filter((j) => !heroJobs.some((h) => h.id === j.id))
+
   // 지역별 실제 활성 공고 수 기준 TOP3 자동 선정 (나머지는 원래 순서로 숨기지 않고 표시)
   const rankedRegions = useMemo(() => {
     const withCounts = HOME_REGION_LIST.map((r) => ({
@@ -427,6 +441,36 @@ export function Home() {
               onToggleSave={handleToggleSave}
               distanceKm={jobDistances[job.id]}
             />
+          </NavLink>
+        ))}
+      </div>
+    </section>
+  )
+
+  // Compact 4-card row for the top "Việc làm mới nhất" area — bigger logo, no
+  // hashtags/Zalo button, unlike the standard JobCard used further down the page.
+  const HeroJobCard = ({ job }: { job: Job }) => (
+    <article className="hero-jc">
+      <div className="hero-jc__logo">
+        <CompanyLogo
+          company={job.company}
+          imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined}
+          category={job.category}
+        />
+      </div>
+      <p className="hero-jc__meta">{[job.company, job.location].filter(Boolean).join(' · ')}</p>
+      <h3 className="hero-jc__title">{job.title}</h3>
+      <p className="hero-jc__salary">{sanitizeSalary(job.salary || 'Thỏa thuận')}</p>
+    </article>
+  )
+
+  const HeroJobGrid = ({ jobs: list, title }: { jobs: Job[]; title?: string }) => (
+    <section className="home-section">
+      {title && <h2 className="home-section__title">{title}</h2>}
+      <div className="home-jobs-grid">
+        {list.map((job) => (
+          <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+            <HeroJobCard job={job} />
           </NavLink>
         ))}
       </div>
@@ -646,16 +690,16 @@ export function Home() {
             <JobGrid jobs={filtered} title="📍 Việc làm gần bạn" />
           ) : (
             <>
-              {!urgentOnly && urgentJobs.length > 0 && (
-                <JobGrid jobs={urgentJobs} title="🔥 Tuyển gấp" />
+              {!urgentOnly && heroJobs.length > 0 && (
+                <HeroJobGrid jobs={heroJobs} title={heroShowsUrgent ? '🔥 Tuyển gấp' : undefined} />
               )}
-              {!urgentOnly && urgentJobs.length > 0 && regularJobs.length > 0 && (
+              {!urgentOnly && heroJobs.length > 0 && belowJobs.length > 0 && (
                 <AdSlot slotId="inline" />
               )}
-              {(urgentOnly ? filtered : regularJobs).length > 0 && (
+              {(urgentOnly ? filtered : belowJobs).length > 0 && (
                 <JobGrid
-                  jobs={urgentOnly ? filtered : regularJobs}
-                  title={(!urgentOnly && urgentJobs.length > 0) ? '📋 Tất cả kết quả' : undefined}
+                  jobs={urgentOnly ? filtered : belowJobs}
+                  title={(!urgentOnly && heroJobs.length > 0) ? '📋 Tất cả kết quả' : undefined}
                 />
               )}
             </>

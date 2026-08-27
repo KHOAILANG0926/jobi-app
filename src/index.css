@@ -6837,6 +6837,56 @@ a:hover {
   min-width: 0;
 }
 
+/* ── Hero job card (top "Việc làm mới nhất" row) — bigger logo, no hashtags/Zalo ── */
+.hero-jc {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 16px 14px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.home-card-wrap:hover .hero-jc {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-color: #ddd;
+}
+.hero-jc__logo { margin-bottom: 10px; }
+.hero-jc__logo .jc__logo,
+.hero-jc__logo .jc__logo--category {
+  width: 72px;
+  height: 72px;
+}
+.hero-jc__meta {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-jc__title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #1a1a1a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+.hero-jc__salary {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #e53935;
+}
+
 /* (ad-slot styles defined above in jc section) */
 
 /* ── Banner slider ────────────────────────────────────────────────── */

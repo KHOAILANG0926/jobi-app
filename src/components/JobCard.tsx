@@ -22,7 +22,7 @@ const FAVICON_DOMAINS: Record<string, string> = {
   'Haidilao': 'haidilao.com',
 }
 
-function CompanyLogo({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
+export function CompanyLogo({ company, imageUrl, category }: { company: string; imageUrl?: string; category?: string }) {
   const [imgFailed, setImgFailed] = useState(false)
   const [faviconFailed, setFaviconFailed] = useState(false)
 
@@ -64,7 +64,7 @@ const CATEGORY_TAGS: Record<string, string> = {
   other:      'Việc làm',
 }
 
-function sanitizeSalary(salary: string): string {
+export function sanitizeSalary(salary: string): string {
   const m = salary.match(/(\d+[\.,]?\d*)\s*(?:triệu|tr)/i)
   if (m) {
     const val = parseFloat(m[1].replace(',', '.'))
