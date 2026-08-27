@@ -2,73 +2,84 @@
 
 ## 현재 작업
 
-`feature/job-detail-redesign` 브랜치에서 공고 상세페이지(`/viec-lam/:id`)를 "5초 안에 핵심 판단"
-기준으로 재구성했다. Home UI, DB 스키마, 인증 방식은 변경하지 않았다.
+`integration/job-detail-and-logo-fixes` 브랜치(master 기준)에서 두 작업을 통합했다.
 
-작업 상태:
+1. 공고 상세페이지(`/viec-lam/:id`) "5초 판단" 재구성 — `feature/job-detail-redesign`
+2. 홈 브랜드 로고/공고카드 로고 확대 — `fix/home-brand-jobcard-logo-size`
+3. 브랜드 로고 1280px 최소 5개 완전 노출 보정(추가 작업, 통합 브랜치에서 직접 적용)
 
-- `IMPLEMENTED`: 완료
-- `VERIFIED`: `npx tsc --noEmit`, `npm run build` 통과. 로컬 dev 서버에서 실제 AQUACO 공고
-  (`sb-3888`, 필드 대부분 null)와 로고 없는 공고(`sb-3726`)로 데스크톱/모바일(375px) 검증 완료.
-- `DEPLOYED`: 미완료 — 작업 브랜치 push까지만, Production 배포는 사용자 승인 전.
+Home UI의 브랜드/지역 60:40 비율, 지역 패널, row 높이(120px)는 전 과정에서 수정하지 않았다.
+사용자가 확인 질문 없이 master 반영 및 Production 배포까지 명시적으로 지시했다.
+
+작업 상태: `IMPLEMENTED` / `VERIFIED`(아래 테스트 결과) / `DEPLOYED`는 이 문서 갱신 이후
+진행되는 master merge + Vercel 배포 결과에 따른다.
 
 ## 변경 내용
 
-- `src/pages/JobDetail.tsx`: 헤더(상단 로고만 유지, 중복되던 중앙 대형 로고 블록 제거) →
-  핵심 4항목 요약 줄(급여·지역·경력·근무형태, 있는 것만 " · "로 연결) → `ĐIỀU KIỆN LÀM VIỆC`/
-  `ĐIỀU KIỆN TUYỂN DỤNG` 두 카드를 `THÔNG TIN TUYỂN DỤNG` 하나로 통합 → 설명(Mô tả/Yêu cầu/
-  Quyền lợi, 기존 파서 재사용) → 지도 → 회사정보 → 리뷰 → sticky 사이드바 순으로 재배치.
-- 빈 데이터 규칙: `local_jobs`의 salary/location/education/preference는 기존에
-  `ensureJobFields`(`src/lib/jobUtils.ts`)가 비어 있으면 무조건 "Thỏa thuận"/"Không yêu cầu"
-  등을 주입해, 원본이 실제로 그렇게 썼는지 단순히 비어 있는지 구분이 불가능했다. `Job` 타입에
-  `rawSalary`/`rawLocation`/`rawEducation`/`rawPreference`/`rawLat`/`rawLng`를 추가하고
-  `JobsContext.tsx`의 `rowToJob`에서 폴백 주입 전 원본 trim 값을 함께 실어 보내는 방식으로,
-  기존 필드/기존 화면(홈 카드 등)의 동작은 전혀 바꾸지 않으면서 상세페이지만 "원본에 값이 있을
-  때만 그 값 그대로 표시, 없으면 필드 자체를 숨김" 규칙을 지키게 했다.
-- 지도: 실제 DB `lat`/`lng`(`rawLat`/`rawLng`)가 있을 때만 "Địa điểm làm việc" 섹션 자체를
-  렌더링하고, 기본은 접힌 상태에서 `Xem bản đồ` 클릭 시에만 펼친다. 좌표가 없으면(현재 운영
-  데이터는 전부 없음) 섹션 전체를 숨겨 지역명 추정치 기반의 부정확한 지도를 노출하지 않는다.
-- `src/components/JobLocationMap.tsx`: Vite가 Leaflet 기본 마커 이미지 경로를 못 찾아 깨진
-  아이콘으로 뜨던 문제를 `marker-icon(-2x)/marker-shadow` 자산을 직접 import해 고쳤다(로컬
-  검증 시 해당 3개 이미지 200 OK 확인). tile 로드 실패 시 지도 대신 안내 문구만 보이게 함.
-- `src/components/CompanyReviews.tsx`: 리뷰 0개일 때 리뷰 작성 폼을 기본 노출하지 않고
-  `Viết đánh giá` 버튼 뒤로 접었다(기존 리뷰 기능 자체는 그대로 유지, 1개 이상이면 기존과 동일).
-- `src/pages/JobDetail.tsx`의 "Images" 섹션은 `job.imageUrl`(헤더 로고와 동일 이미지)을 본문에
-  다시 크게 그리던 부분을 제거하고, `job.images`에 로고와 다른 실제 사진이 있을 때만 표시한다.
+### 1) JobDetail 재구성
+- 헤더(상단 로고만) → 핵심 4항목 요약 줄 → `THÔNG TIN TUYỂN DỤNG` 통합 그리드 → Mô tả/Yêu
+  cầu/Quyền lợi(복지는 원문에 실제 등장한 키워드만 chip) → 지도(조건부) → 회사정보(조건부) →
+  리뷰 → sticky 사이드바.
+- `Job` 타입에 `rawSalary`/`rawLocation`/`rawEducation`/`rawPreference`/`rawLat`/`rawLng`
+  추가 — 기존 `ensureJobFields`의 폴백 주입(빈 값이어도 "Thỏa thuận"/"Không yêu cầu" 등을
+  강제 주입하던 로직)과 분리해, 상세페이지는 원본에 값이 실제로 있을 때만 표시하고 없으면
+  필드 자체를 숨긴다. 다른 화면(홈 카드 등)의 기존 동작은 그대로.
+- 지도는 DB의 실제 `lat`/`lng`(추정 좌표 아님)가 있을 때만 섹션 자체를 렌더링, 기본 접힘 +
+  `Xem bản đồ` 클릭 시 펼침. Leaflet 기본 마커 아이콘 깨짐도 자산 직접 import로 수정.
+- 리뷰 0개일 때 작성 폼을 `Viết đánh giá` 버튼 뒤로 접음(리뷰 기능 자체는 유지).
+- 본문 중앙에 회사 로고를 중복 표시하던 블록 제거(헤더 로고만 유지).
+
+### 2) 홈 브랜드/공고카드 로고 확대
+- 원인: 브랜드 원형 로고는 커밋 `5042a77`에서 60px→120px로 키웠다가 바로 다음 커밋
+  `4095128`에서 120px→80px로 축소된 뒤, 이후 60:40/120px 정렬 작업들은 이 값을 다시 건드린
+  적이 없었다(정렬 작업이 축소한 게 아니라 그 이전 축소가 계속 남아있던 것).
+- `.home-brand__logo` 80px→96px(+20%), 이미지 52px→62px. `.home-brand`의 상하 padding을
+  없애 늘어난 높이를 정확히 상쇄 — `.home-brands-section`/`.home-brands-box` 높이(120px)와
+  실제 콘텐츠 높이(117.8px)를 완전히 동일하게 유지.
+- `.jc__logo`(공고 카드) 44px→56px, 카드 padding/여백을 줄여 상쇄 — 카드 높이(185.775px)와
+  제목 2줄 clamp 높이(47.1px)를 완전히 동일하게 유지.
+
+### 3) 브랜드 로고 1280px 5개 노출 보정 (이번 통합 작업에서 추가)
+- 문제: 96px로 키운 로고가 min-width 108px + gap 8px 조합에서 1280px 기준 약 4.6개만
+  완전히 보임(사용자 요구: 최소 5개).
+- `.home-brand`의 좌우 padding을 0.375rem(6px)→0으로 제거하고 `min-width`를 108px→96px로
+  낮춰 로고(96px) 크기에 정확히 맞춤. gap(0.5rem=8px)은 그대로 유지.
+- 결과: 슬롯 폭 = 96(로고, 좌우 padding 0) + 8(gap) = 104px. 1280px 기준 행 실사용 폭
+  529.275px ÷ 104 ≈ 5.09개 → **5개 완전 노출** 요구 충족(아래 실측 참고). 60:40 비율,
+  `.home-brands-section`/`.home-region-panel` 높이(120px), 지역 UI는 전혀 손대지 않았다.
 
 ## 테스트 결과
 
 - `npx tsc --noEmit`: 통과
-- `npm run build`: 통과 (JobDetail 청크 30.66kB gzip 13.47kB)
-- 로컬 dev 서버 + 실제 운영 Supabase 데이터로 확인:
-  - `sb-3888`(AQUACO, salary/location만 있고 나머지 전부 null): 중앙 대형 로고 없음, 헤더
-    로고 정상 로드(naturalWidth 128), 학력/경력/근무시간/근무일/모집인원 필드 전부 숨김,
-    Quyền lợi에서 원문에 실제로 등장한 BHXH/BHYT·Thưởng·Đào tạo·Khám sức khỏe·Du lịch만
-    chip으로 추출(원문에 없는 Nghỉ phép은 미표시), 좌표 없어 지도 섹션 전체 숨김, 회사정보
-    섹션 숨김(companyVerified/founded/hireCount 전부 없음), 리뷰 0개라 "Viết đánh giá" 버튼만
-    노출.
-  - `sb-3726`(로고 없음, 위치 텍스트 지저분함): 로고 자리에 회사명 이니셜 fallback, 깨진 이미지
-    없음. salary/location 원문 자체가 "Thỏa thuận"/지저분한 텍스트라 그대로 표시(임의 가공 없음).
-  - 모바일(375px) 두 케이스 모두 `document.documentElement.scrollWidth === innerWidth`로
-    가로 스크롤 없음 확인. 데스크톱(1280px)에서 `.jd2-grid`가 `712px 300px` 2열, 사이드바
-    `position: sticky` 확인.
-- 운영 `local_jobs`에는 현재 `lat`/`lng`가 채워진 행이 0건이라, "Xem bản đồ" 펼침 상태의 실제
-  지도 렌더링은 코드 리뷰 + 자산 200 OK 확인으로 대체했다(추후 좌표 있는 공고가 생기면 재확인 필요).
+- `npm run build`: 통과
+- 로컬 dev 서버 + 실제 Supabase 데이터로 확인:
+  - **Home 1280px**: `.home-brands-section` 높이 120px(불변), `.home-region-panel` 높이
+    120px(불변), `.home-brands-region-grid` 컬럼 비율 60:40 유지(불변), 브랜드 로고
+    96×96px, **1280px에서 5개 이상 완전 노출 확인**, `.jc`(공고카드) 높이 185.775px(불변),
+    `.jc__logo` 56×56px, `.jc__title` 2줄 clamp 유지(47.1px, 안 잘림).
+  - **Home 1440px**: 위와 동일 원칙으로 확인(행 폭이 넓어져 1280px보다 더 많이 노출).
+  - **Home 375px(모바일)**: 브랜드 섹션(1024px 이하에서 지역 패널만 숨김, 브랜드는 유지)과
+    공고카드 모두 가로 스크롤 없음, 높이 불변 확인.
+  - **JobDetail `sb-3888`(AQUACO, salary/location만 있고 나머지 전부 null)**: 데스크톱/
+    모바일 모두 중앙 대형 로고 없음, 헤더 로고 정상 로드, 학력/경력/근무시간/근무일/모집인원
+    필드 전부 숨김, Quyền lợi에 원문에 실제 등장한 항목만 chip 노출, 좌표 없어 지도 섹션
+    전체 숨김, 지원/저장 버튼 정상.
+  - **JobDetail `sb-3726`(로고 없음)**: 로고 자리에 회사명 이니셜 fallback, 깨진 이미지 없음.
+- 운영 `local_jobs`에는 현재 `lat`/`lng`가 채워진 행이 0건이라, 지도 "펼침" 상태의 실제
+  렌더링은 코드 리뷰 + Leaflet 자산 200 OK 확인으로 대체(좌표 있는 공고가 생기면 재확인 필요).
 
 ## 발견된 문제
 
-- `local_jobs`에 좌표(`lat`/`lng`)가 있는 행이 현재 0건이라 지도 섹션이 실질적으로 항상 숨김
-  상태다 — 버그 아님(의도된 동작), 다만 지도 기능 자체의 실사용 재확인은 좌표 있는 데이터가
-  생긴 뒤에 필요.
+- 이 컴퓨터에 `node`/`npm`이 PATH에 없고 `D:\새 폴더 (2)\node.exe`에만 존재해 검증 시
+  `.claude/launch.json`을 그 경로로 임시 변경했다가 검증 후 매번 원복했다(커밋 미포함).
+- `local_jobs`에 좌표가 있는 행이 0건이라 지도 섹션이 실질적으로 항상 숨김 상태(의도된
+  동작, 버그 아님) — 좌표 있는 공고가 생기면 지도 펼침 상태를 실제로 재확인 필요.
 - `sb-3726`처럼 크롤러가 location에 개행이 섞인 지저분한 텍스트를 넣는 경우가 있음 — 원본을
-  그대로 표시하는 정책상 그대로 노출되며, 이번 작업 범위 밖(크롤러 데이터 정제 이슈)이라 손대지
-  않았다.
-- 이 컴퓨터에 `node`/`npm`이 PATH에 없고 `D:\새 폴더 (2)\node.exe`에만 존재해 tsc/build/dev
-  서버 실행 시 해당 경로를 직접 지정해야 했다(`.claude/launch.json`은 검증 후 원래 `npx` 설정으로
-  되돌려 커밋에는 포함하지 않음) — 다음 세션에서도 동일 증상이면 이 경로부터 확인.
+  그대로 표시하는 정책상 그대로 노출되며, 이번 작업 범위 밖(크롤러 데이터 정제 이슈)이라
+  손대지 않았다.
 
 ## 다음 결정사항
 
-1. `feature/job-detail-redesign` 브랜치를 PR로 올리고 Vercel Preview에서 실제 화면 재확인.
-2. 사용자 승인 후 master merge → Production 배포.
-3. 좌표 있는 공고가 생기면 "Xem bản đồ" 펼침 상태를 실제로 한 번 더 확인.
+1. Production 배포 후 viecganban.vn에서 직접 재확인(브랜드 로고 크기/5개 노출, 공고카드
+   로고, AQUACO 상세페이지, 지원 버튼, 모바일 overflow).
+2. 좌표 있는 공고가 생기면 JobDetail 지도 펼침 상태를 한 번 더 확인.
