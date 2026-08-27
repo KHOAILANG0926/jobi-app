@@ -65,6 +65,50 @@ export function findRegionCenter(location: string): { lat: number; lng: number }
   return null
 }
 
+export type MapCoordinateSource = 'exact' | 'address' | 'district' | 'region' | 'default'
+
+export interface ResolvedMapLocation {
+  lat: number
+  lng: number
+  source: MapCoordinateSource
+  zoom: number
+}
+
+// Geographic center of Vietnam — used only when a job has no usable location data at
+// all, so the map still renders something instead of nothing. Never a real workplace.
+const VIETNAM_CENTER = { lat: 14.0583, lng: 108.2772 }
+
+/**
+ * Resolves the best available point for the JobDetail map, in priority order:
+ * 1. `exact`   — real lat/lng stored on the job (local_jobs.lat/lng).
+ * 2. `address` / `district` — not reachable today. `local_jobs` only has one free-text
+ *    `location` column (no separate street-address or district field), and this project
+ *    has no geocoding API to turn free text into a precise point (checked — none exists).
+ *    These two source values are kept in the type so a future structured-address or
+ *    geocoding addition doesn't need a new union member, but nothing here returns them
+ *    yet — claiming that precision without real data would be exactly the "임의 좌표"
+ *    this must avoid.
+ * 3. `region`  — the location text matches a known province/city in `PLACES` (city-level
+ *    center, not the real workplace).
+ * 4. `default` — no usable location text at all; falls back to the Vietnam-wide center.
+ * `region`/`default` coordinates are for drawing the map only — never write them back to
+ * `job.lat`/`job.lng` or persist them anywhere.
+ */
+export function resolveMapLocation(job: { rawLat?: number; rawLng?: number; rawLocation?: string }): ResolvedMapLocation {
+  if (
+    typeof job.rawLat === 'number' && typeof job.rawLng === 'number' &&
+    Number.isFinite(job.rawLat) && Number.isFinite(job.rawLng)
+  ) {
+    return { lat: job.rawLat, lng: job.rawLng, source: 'exact', zoom: 15 }
+  }
+  const loc = job.rawLocation?.trim()
+  if (loc) {
+    const region = findRegionCenter(loc)
+    if (region) return { ...region, source: 'region', zoom: 12 }
+  }
+  return { ...VIETNAM_CENTER, source: 'default', zoom: 5 }
+}
+
 export function calcDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180

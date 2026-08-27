@@ -18,14 +18,11 @@ interface JobLocationMapProps {
   lat: number
   lng: number
   title: string
-  /** Map zoom level — pass a lower value for a region-level (city-wide) view. */
+  /** Map zoom level — pass a lower value for a region- or country-level view. */
   zoom?: number
-  /** false when `lat`/`lng` is only a region center, not the company's real location —
-   *  suppresses the marker so an approximate point is never shown as an exact one. */
-  showMarker?: boolean
 }
 
-export default function JobLocationMap({ lat, lng, title, zoom = 15, showMarker = true }: JobLocationMapProps) {
+export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<L.Map | null>(null)
   const [tileError, setTileError] = useState(false)
@@ -38,15 +35,13 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, showMarker 
       attribution: '© OpenStreetMap',
     }).addTo(map)
     tiles.on('tileerror', () => setTileError(true))
-    if (showMarker) {
-      L.marker([lat, lng]).addTo(map).bindPopup(title)
-    }
+    L.marker([lat, lng]).addTo(map).bindPopup(title)
     mapInst.current = map
     return () => {
       map.remove()
       mapInst.current = null
     }
-  }, [lat, lng, title, zoom, showMarker])
+  }, [lat, lng, title, zoom])
 
   if (tileError) {
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>
