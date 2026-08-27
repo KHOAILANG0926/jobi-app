@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
-import JobCard, { CompanyLogo, sanitizeSalary } from '../components/JobCard'
+import JobCard from '../components/JobCard'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
@@ -227,12 +227,12 @@ export function Home() {
   const [brandFilter, setBrandFilter] = useState<string | null>(null)
 
   const [nearMe, setNearMe] = useState(false)
-  const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'week'>('all')
-  const [activeRec, setActiveRec] = useState<string | null>(null)
+  const [deadlineFilter] = useState<'all' | 'today' | 'week'>('all')
+  const [activeRec] = useState<string | null>(null)
   // include: title+company에서 하나라도 매칭 (OR)
   // exclude: title에서 하나라도 매칭되면 제외
   // cats: job.category가 목록에 있으면 include 없이 통과
-  const [recFilter, setRecFilter] = useState<{ include: string[]; exclude: string[]; cats: string[] } | null>(null)
+  const [recFilter] = useState<{ include: string[]; exclude: string[]; cats: string[] } | null>(null)
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -344,20 +344,6 @@ export function Home() {
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
 
-  // Top "Việc làm mới nhất" row: exactly 4 cards, always — never a 1-card row with
-  // empty grid tracks next to it. Only use the "🔥 Tuyển gấp" framing when there are
-  // enough real urgent postings to fill the row; otherwise show the latest 4 regular
-  // postings with no Tuyển gấp label, and never fabricate urgency for a regular job.
-  const HERO_URGENT_MIN = 4
-  const heroShowsUrgent = urgentJobs.length >= HERO_URGENT_MIN
-  const heroJobs = heroShowsUrgent ? urgentJobs.slice(0, 4) : regularJobs.slice(0, 4)
-  // When the hero row borrows from regularJobs, drop those same jobs from the listing
-  // below so nothing repeats — but any leftover 1-3 urgent jobs (not enough to earn
-  // their own row) still show up down there rather than disappearing entirely.
-  const belowJobs = heroShowsUrgent
-    ? regularJobs
-    : filtered.filter((j) => !heroJobs.some((h) => h.id === j.id))
-
   // 지역별 실제 활성 공고 수 기준 TOP3 자동 선정 (나머지는 원래 순서로 숨기지 않고 표시)
   const rankedRegions = useMemo(() => {
     const withCounts = HOME_REGION_LIST.map((r) => ({
@@ -403,15 +389,6 @@ export function Home() {
     }
   }, [activeRec, selectedCity])
 
-  const resetFilters = () => {
-    setSearch(''); setCategory('all'); setUrgentOnly(false); setNearMe(false); setSelectedCity(null); setDeadlineFilter('all')
-    setActiveRec(null); setRecFilter(null)
-  }
-
-  // Filters that are NOT city-based (used for the bottom job section)
-  const hasOtherFilters = !!(search || category !== 'all' || urgentOnly || nearMe || recFilter)
-
-
   const handleBrandClick = (brandSearch: string) => {
     setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
   }
@@ -426,56 +403,6 @@ export function Home() {
 
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
-
-  const JobGrid = ({ jobs: list, title }: { jobs: Job[]; title?: string }) => (
-    <section className="home-section">
-      {title && <h2 className="home-section__title">{title}</h2>}
-      <div className="home-jobs-grid">
-        {list.map((job) => (
-          <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-            <JobCard
-              job={job}
-              isApplied={isApplied(job.id)}
-              onApply={handleApply}
-              isSaved={savedIds.has(job.id)}
-              onToggleSave={handleToggleSave}
-              distanceKm={jobDistances[job.id]}
-            />
-          </NavLink>
-        ))}
-      </div>
-    </section>
-  )
-
-  // Compact 4-card row for the top "Việc làm mới nhất" area — bigger logo, no
-  // hashtags/Zalo button, unlike the standard JobCard used further down the page.
-  const HeroJobCard = ({ job }: { job: Job }) => (
-    <article className="hero-jc">
-      <div className="hero-jc__logo">
-        <CompanyLogo
-          company={job.company}
-          imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined}
-          category={job.category}
-        />
-      </div>
-      <p className="hero-jc__meta">{[job.company, job.location].filter(Boolean).join(' · ')}</p>
-      <h3 className="hero-jc__title">{job.title}</h3>
-      <p className="hero-jc__salary">{sanitizeSalary(job.salary || 'Thỏa thuận')}</p>
-    </article>
-  )
-
-  const HeroJobGrid = ({ jobs: list, title }: { jobs: Job[]; title?: string }) => (
-    <section className="home-section">
-      {title && <h2 className="home-section__title">{title}</h2>}
-      <div className="home-jobs-grid">
-        {list.map((job) => (
-          <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-            <HeroJobCard job={job} />
-          </NavLink>
-        ))}
-      </div>
-    </section>
-  )
 
   return (
     <div className="home-page">
@@ -670,43 +597,6 @@ export function Home() {
           </section>
         )
       })()}
-
-      {/* ── Job listings ─────────────────────────────────────── */}
-      {!selectedCity && (
-        <>
-          <section className="home-jobs-section" ref={jobResultRef}>
-            <div className="home-jobs-section__head">
-              <h2 className="home-jobs-section__title">Việc làm mới nhất <span style={{fontSize:'0.85rem',fontWeight:400,color:'#888',marginLeft:'8px'}}>{filtered.length} việc làm</span></h2>
-            </div>
-          </section>
-
-          {hasOtherFilters && filtered.length === 0 ? (
-            <div className="home-empty">
-              <span className="home-empty__icon">🔍</span>
-              <p className="home-empty__text">Không tìm thấy việc làm phù hợp</p>
-              <button className="home-empty__reset" onClick={resetFilters}>Xóa bộ lọc</button>
-            </div>
-          ) : nearMe && userCoords ? (
-            <JobGrid jobs={filtered} title="📍 Việc làm gần bạn" />
-          ) : (
-            <>
-              {!urgentOnly && heroJobs.length > 0 && (
-                <HeroJobGrid jobs={heroJobs} title={heroShowsUrgent ? '🔥 Tuyển gấp' : undefined} />
-              )}
-              {!urgentOnly && heroJobs.length > 0 && belowJobs.length > 0 && (
-                <AdSlot slotId="inline" />
-              )}
-              {(urgentOnly ? filtered : belowJobs).length > 0 && (
-                <JobGrid
-                  jobs={urgentOnly ? filtered : belowJobs}
-                  title={(!urgentOnly && heroJobs.length > 0) ? '📋 Tất cả kết quả' : undefined}
-                />
-              )}
-            </>
-          )}
-        </>
-      )}
-
 
       <ApplyModal status={status} job={applyJob} profile={profile} onConfirm={confirm} onClose={close} onRetry={retry} />
     </div>
