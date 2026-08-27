@@ -18,6 +18,14 @@ const scrollPositions = new Map<string, number>()
  * - PUSH/REPLACE (a normal forward navigation, e.g. clicking a job card): jump to top.
  * - POP (back/forward): restore whatever position was recorded for that history entry.
  * - A #hash target is left alone in both cases, for the browser/anchor to handle.
+ *
+ * Every route here is `React.lazy` (see App.tsx), so right after a navigation the page
+ * briefly renders the tiny <Suspense> fallback before the real, full-height content
+ * mounts. A single scrollTo at that moment gets clamped by the browser to whatever the
+ * fallback's short document height allows, landing well short of the intended target
+ * once the real content expands the page a moment later. Re-applying the scroll across
+ * a few animation frames covers that gap without needing to know when the lazy chunk
+ * (already cached after the first visit, so this is normally just 1–2 frames) resolves.
  */
 export function ScrollToTop() {
   const location = useLocation()
@@ -43,9 +51,20 @@ export function ScrollToTop() {
     if (location.hash) return
 
     const top = navigationType === 'POP' ? (scrollPositions.get(location.key) ?? 0) : 0
-    // `html { scroll-behavior: smooth }` (src/index.css) would otherwise animate this —
-    // force an instant jump so the next route never renders mid-scroll.
-    window.scrollTo({ top, left: 0, behavior: 'instant' })
+
+    let cancelled = false
+    let frame = 0
+    const applyScroll = () => {
+      if (cancelled) return
+      // `html { scroll-behavior: smooth }` (src/index.css) would otherwise animate
+      // this — force an instant jump so the route never renders mid-scroll.
+      window.scrollTo({ top, left: 0, behavior: 'instant' })
+      frame += 1
+      if (frame < 12) requestAnimationFrame(applyScroll)
+    }
+    requestAnimationFrame(applyScroll)
+
+    return () => { cancelled = true }
   }, [location, navigationType])
 
   return null
