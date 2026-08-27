@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { ScrollToTop } from './components/ScrollToTop'
 import { RequireAdmin } from './components/RequireAdmin'
 import { RequireEmployer } from './components/RequireEmployer'
 import { AuthProvider } from './context/AuthContext'
@@ -37,6 +38,7 @@ function lazyRoute(element: ReactNode) {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <JobsProvider>
           <NotificationProvider>
