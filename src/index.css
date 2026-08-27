@@ -1478,6 +1478,11 @@ a:hover {
   color: var(--color-muted);
 }
 
+.company-reviews__write-btn {
+  width: auto;
+  padding: 0.55rem 1.1rem;
+}
+
 .company-reviews__rating-input {
   display: flex;
   gap: 0.15rem;
@@ -2065,6 +2070,15 @@ a:hover {
   margin: 0.5rem 0 0;
   font-size: 0.72rem;
   color: #aaa;
+}
+.job-location-map__error {
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-radius: 12px;
 }
 
 /* ── Job info list (structured) ─────────────────────────────── */
@@ -5970,13 +5984,13 @@ a:hover {
 }
 .home-brands-box__row {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   overflow: hidden;
   position: relative;
 }
 .home-brands-box__track {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   animation: brandScroll 20s linear infinite;
   width: max-content;
 }
@@ -6529,17 +6543,21 @@ a:hover {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
+  /* 좌우 padding 0 + min-width를 로고 폭(96px)에 정확히 맞춰 슬롯 폭(로고+gap)을 줄이고,
+     1280px 행 폭 기준 5개 이상이 완전히 보이도록 한다(60:40 비율/행 높이는 미수정). */
+  padding: 0;
   border-radius: 12px;
   transition: transform 0.15s, box-shadow 0.15s;
-  min-width: 100px;
+  min-width: 96px;
 }
 
 .home-brand:hover { transform: translateY(-2px); }
 
 .home-brand__logo {
-  width: 80px;
-  height: 80px;
+  /* 컨테이너(.home-brands-section) 높이 120px는 그대로 두고, 로고 원만 80px→96px(+20%)로
+     확대한 만큼 .home-brand의 상하 padding을 없애 전체 세로 합(≈117.8px)을 유지한다. */
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -6556,8 +6574,8 @@ a:hover {
 }
 
 .home-brand__logo-img {
-  width: 52px;
-  height: 52px;
+  width: 62px;
+  height: 62px;
   object-fit: contain;
   display: block;
 }
@@ -7047,7 +7065,7 @@ a:hover {
   position: relative;
   height: 100%;
   min-height: 0;
-  padding: 14px 14px 12px;
+  padding: 12px 14px 10px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
@@ -7058,14 +7076,15 @@ a:hover {
 .jc--applied { opacity: 0.7; }
 
 
-/* 1열: 로고 영역 */
+/* 1열: 로고 영역 — 카드 전체 높이는 그대로 두고 로고만 44px→56px로 키운 만큼
+   padding/margin을 줄여 흡수한다(title의 2줄 clamp 공간을 침범하지 않도록). */
 .jc__logo-wrap {
-  margin-bottom: 7px;
+  margin-bottom: 5px;
 }
 .jc__logo {
   display: block;
-  height: 44px;
-  width: 44px;
+  height: 56px;
+  width: 56px;
   object-fit: contain;
   border-radius: 8px;
   border: 1px solid #f0f0f0;
@@ -7073,8 +7092,8 @@ a:hover {
   padding: 3px;
 }
 .jc__logo--category {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 8px;
   background-size: cover;
   background-position: center;
@@ -7084,7 +7103,7 @@ a:hover {
 
 /* 2열: 메타 (#태그 · 지역 · 회사명) */
 .jc__meta {
-  margin: 0 0 7px;
+  margin: 0 0 5px;
   font-size: 0.72rem;
   color: #999;
   white-space: nowrap;
@@ -7112,7 +7131,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 .jc__salary {
   font-size: 0.88rem;
@@ -8347,6 +8366,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 .jd2-meta-item { display: inline-flex; align-items: center; gap: 0.25rem; }
 .jd2-meta-sep { color: #cbd5e1; }
+.jd2-summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.5;
+}
 
 /* Save button */
 .jd2-save-btn {
@@ -8435,6 +8461,22 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   color: #e53935;
 }
 
+/* ── Benefit chips (Quyền lợi — only chips confirmed present in the source text) ── */
+.jd2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.jd2-chip-benefit {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+}
+
 /* ── Description cards (Mô tả / Yêu cầu / Quyền lợi — each its own jd2-card) ── */
 .jd2-desc-card .jd2-card__body { padding: 1.5rem 1.25rem; }
 .jd2-desc__list {
@@ -8496,6 +8538,57 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   margin-top: 0.5rem;
   font-size: 0.73rem;
   color: #94a3b8;
+}
+.jd2-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+.jd2-map-toggle:hover { background: #f1f5f9; }
+
+/* ── Company info card ── */
+.jd2-company { display: flex; align-items: center; gap: 1rem; }
+.jd2-company__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #475569;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.jd2-company__body { min-width: 0; }
+.jd2-company__name {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.jd2-company__facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  color: #64748b;
 }
 
 /* ── Sidebar ── */
@@ -8699,6 +8792,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-back:hover { color: #f1f5f9; }
   .jd2-desc-img { background: #0f172a; }
   .jd2-mobile-cta { background: #1e293b; border-color: #334155; }
+  .jd2-summary { color: #cbd5e1; }
+  .jd2-chip-benefit { background: #450a0a; color: #fca5a5; }
+  .jd2-map-toggle { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+  .jd2-map-toggle:hover { background: #1e293b; }
+  .jd2-company__logo { background: #0f172a; border-color: #334155; color: #94a3b8; }
+  .jd2-company__name { color: #f1f5f9; }
+  .jd2-company__facts { color: #94a3b8; }
 }
 
 /* ══════════════════════════════════════════

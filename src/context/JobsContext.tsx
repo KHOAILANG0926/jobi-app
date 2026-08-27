@@ -64,6 +64,12 @@ function rowToJob(r: Record<string, unknown>): Job {
     companyVerified: (r.company_verified as boolean) ?? undefined,
     companyFoundedYear: (r.company_founded_year as number) ?? undefined,
     hireCount: (r.hire_count as number) ?? undefined,
+    rawSalary: (r.salary as string)?.trim() || undefined,
+    rawLocation: (r.location as string)?.trim() || undefined,
+    rawEducation: (r.education as string)?.trim() || undefined,
+    rawPreference: (r.preference as string)?.trim() || undefined,
+    rawLat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
+    rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
   })
 }
 
