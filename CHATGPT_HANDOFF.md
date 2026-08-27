@@ -11,8 +11,9 @@
 Home UI의 브랜드/지역 60:40 비율, 지역 패널, row 높이(120px)는 전 과정에서 수정하지 않았다.
 사용자가 확인 질문 없이 master 반영 및 Production 배포까지 명시적으로 지시했다.
 
-작업 상태: `IMPLEMENTED` / `VERIFIED`(아래 테스트 결과) / `DEPLOYED`는 이 문서 갱신 이후
-진행되는 master merge + Vercel 배포 결과에 따른다.
+작업 상태: `IMPLEMENTED` / `VERIFIED` / `APPROVED`(사용자가 끝까지 진행을 지시) /
+**`DEPLOYED`: 완료** — `master`에 merge·push(`85e502f`) 후 Vercel이 자동 배포했고
+(commit status `success`), `https://viecganban.vn`에서 직접 재검증 완료(아래 참고).
 
 ## 변경 내용
 
@@ -78,8 +79,19 @@ Home UI의 브랜드/지역 60:40 비율, 지역 패널, row 높이(120px)는 �
   그대로 표시하는 정책상 그대로 노출되며, 이번 작업 범위 밖(크롤러 데이터 정제 이슈)이라
   손대지 않았다.
 
+## Production 배포 및 실사이트 검증 (완료)
+
+- `master` merge commit `85e502f` push → GitHub commit status `Vercel: success`.
+- `https://viecganban.vn`에서 직접 확인(1280px):
+  - `.home-brands-section`/`.home-region-panel` 높이 120px(불변), 60:40 grid-template-columns
+    725.275px:483.525px(불변), 브랜드 로고 96×96px, **1280px에서 5개 완전 노출 확인**.
+  - `.jc`(공고카드) 높이 185.775px(불변), `.jc__logo` 56×56px.
+  - `/viec-lam/sb-3888`(AQUACO): 이미지가 헤더 로고 1개뿐(중앙 대형 로고 없음), 빈 필드
+    전부 숨김, 지도 섹션 없음(좌표 없음), `Ứng tuyển ngay`/저장 버튼 정상 렌더링.
+  - 모바일(375px) 홈/상세 모두 `scrollWidth === innerWidth`로 가로 overflow 없음.
+
 ## 다음 결정사항
 
-1. Production 배포 후 viecganban.vn에서 직접 재확인(브랜드 로고 크기/5개 노출, 공고카드
-   로고, AQUACO 상세페이지, 지원 버튼, 모바일 overflow).
-2. 좌표 있는 공고가 생기면 JobDetail 지도 펼침 상태를 한 번 더 확인.
+1. 좌표 있는 공고가 생기면 JobDetail 지도 펼침 상태를 실사이트에서 한 번 더 확인.
+2. 브랜드 로고를 25~30%까지 더 키우고 싶다면 컨테이너 폭 조정이 필요 — 현재는 20%(96px)
+   + 5개 노출 조건을 동시에 만족하는 선에서 고정.
