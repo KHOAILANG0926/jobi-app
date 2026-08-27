@@ -43,6 +43,7 @@ export function CompanyReviews({ company }: Props) {
   const [rating, setRating] = useState(5)
   const [text, setText] = useState('')
   const [formMsg, setFormMsg] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
 
   const alreadyReviewed = useMemo(
     () => hasUserReviewedCompany(company, reviewerKey),
@@ -117,6 +118,11 @@ export function CompanyReviews({ company }: Props) {
         <p className="company-reviews__empty">Hãy là người đầu tiên chia sẻ trải nghiệm.</p>
       )}
 
+      {!alreadyReviewed && summary.count === 0 && !showForm ? (
+        <button type="button" className="btn btn--ghost company-reviews__write-btn" onClick={() => setShowForm(true)}>
+          Viết đánh giá
+        </button>
+      ) : (
       <div className="company-reviews__form-wrap">
         <h3 className="company-reviews__form-title">Viết đánh giá</h3>
         {alreadyReviewed ? (
@@ -160,6 +166,7 @@ export function CompanyReviews({ company }: Props) {
           </form>
         )}
       </div>
+      )}
     </section>
   )
 }
