@@ -39,7 +39,16 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocati
       // own get silently blocked. https://github.com/Leaflet/Leaflet/issues/10156
       referrerPolicy: 'strict-origin-when-cross-origin',
     }).addTo(map)
-    tiles.on('tileerror', () => setTileError(true))
+    // A single failed tile out of the many needed to cover the viewport is normal (one
+    // blank patch, rest of the map still useful) — it used to blank the whole map
+    // instead. Only fall back to the error message once the whole batch has settled
+    // (Leaflet's `load` event fires after every tile has either loaded or errored) and
+    // not one tile came through, meaning the map is genuinely unusable.
+    let loadedCount = 0
+    tiles.on('tileload', () => { loadedCount += 1 })
+    tiles.on('load', () => {
+      if (loadedCount === 0) setTileError(true)
+    })
     L.marker([lat, lng]).addTo(map).bindPopup(title)
     mapInst.current = map
     // The container can be freshly inserted (e.g. right after other page content above

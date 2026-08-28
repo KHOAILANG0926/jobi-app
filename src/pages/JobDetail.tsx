@@ -38,10 +38,23 @@ const BENEFIT_CHIP_RULES: { label: string; re: RegExp }[] = [
 
 function DescriptionRenderer({ text }: { text: string }) {
   if (text.startsWith('http')) return null
-  const blocks = text.split(/\n\n+/)
+
+  // One "## Heading" = one card, no matter how many blank lines sit inside it. The
+  // crawler sometimes leaves stray blank lines or an unheaded sub-list (e.g. "Ưu
+  // tiên:") in the middle of a section; splitting on every blank line (the previous
+  // behavior) turned those stray gaps into extra unheaded cards, fracturing a single
+  // MÔ TẢ/YÊU CẦU/QUYỀN LỢI section into several. Splitting on heading boundaries
+  // instead keeps everything between one "## " line and the next as one block. Text
+  // with no "## " heading at all (unstructured crawler paste) keeps the previous
+  // paragraph-per-blank-line behavior, unchanged.
+  const hasHeadings = /^## /m.test(text)
+  const blocks = hasHeadings ? text.split(/(?=^## )/m) : text.split(/\n\n+/)
+
   return (
     <>
-      {blocks.map((block, i) => {
+      {blocks.map((rawBlock, i) => {
+        const block = rawBlock.trim()
+        if (!block) return null
         if (block.startsWith('## ')) {
           const [heading, ...lines] = block.split('\n')
           const headingText = heading.replace('## ', '')

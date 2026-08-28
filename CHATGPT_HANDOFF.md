@@ -2,79 +2,117 @@
 
 ## 현재 작업
 
-`fix/home-hero-4card-row` 브랜치(master 기준)에서 Home 상단 "Việc làm mới nhất" 영역의
-"공고 1개 + 오른쪽 빈 공간" 문제를 고쳤다. 항상 정확히 4개 카드가 데스크톱 한 줄에 채워지고,
-실제 긴급 공고가 4개 이상일 때만 `🔥 Tuyển gấp`로 표시한다. `Tất cả kết quả`(전체 목록)/
-Header/Hero/검색창/Samsung 광고/로그인 CTA/브랜드·지역/JobDetail/지도 코드는 건드리지
-않았다.
+`fix/jobdetail-map-and-description` 브랜치(master 기준)에서 JobDetail의 두 가지 문제를
+고쳤다: ① 지도가 실제로는 정상 서비스인데도 타일 1개만 실패해도 전체가
+"Không thể tải bản đồ."로 바뀌던 코드 버그, ② 원문 중간의 빈 줄(예: "Ưu tiên:" 서브
+리스트) 때문에 MÔ TẢ/YÊU CẦU/QUYỀN LỢI 한 섹션이 여러 개의 카드로 쪼개지던 파싱 버그.
+지도 provider는 바꾸지 않았다(아래 원인 참고 — 바꿀 이유가 없음이 확인됨). 사이드바/
+회사정보/리뷰/Home/DB는 무변경.
 
 작업 상태:
 
 - `IMPLEMENTED`: 완료
-- `VERIFIED`: `npx tsc --noEmit`, `npm run build` 통과. 데스크톱(1280px)·모바일(375px)
-  각 1회 실제 운영 데이터(긴급 공고 1건)로 확인.
-- `DEPLOYED`: 완료 — master merge·push, Vercel 배포 성공, viecganban.vn에서 4카드 한 줄
-  배치 재확인.
+- `VERIFIED`: `npx tsc --noEmit`, `npm run build` 통과. 실제 운영 데이터 2건
+  (`sb-2987`, `sb-3665`)으로 본문 카드 수 확인(각 3개, section=card 확인), desktop+
+  mobile(375px) overflow 없음 확인. 지도 타일 자체의 시각적 렌더링은 이 환경에서 검증
+  불가(아래 "지도 원인" 참고 — 이 환경만의 로컬 DNS 차단, 코드/OSM 문제 아님).
+- `DEPLOYED`: 완료 — master merge·push, Vercel 배포 성공.
 
-## 사전 확인 — 실제 긴급 공고 수
+## 문제 1 — 지도: 실제 원인
 
-작업 전 운영 DB(`local_jobs`, `active=true`)를 직접 쿼리해 `urgent=true`가 **정확히 1건**
-임을 확인했다(`sb-3734`, "...tuyển gấp 5nv làm tạp vụ..."). `ensureJobFields`의
-`inferredUrgent`(제목/설명에 "tuyển gấp" 텍스트가 있으면 긴급으로 추정)는 `JobsContext.
-rowToJob`이 이미 `urgent: (r.urgent as boolean) ?? false`로 null을 `false`로 확정해버려서
-`j.urgent ?? inferredUrgent`가 항상 `j.urgent`로 결정되고 실질적으로 죽은 코드였다 — 즉
-앱이 보여주는 긴급 공고 수는 DB의 `urgent=true` 개수와 정확히 같다. 1 < 4이므로 이번
-작업에서 실제로는 `🔥 Tuyển gấp` 행이 아니라 "최신 일반공고 4개" 경로가 적용된다.
+**결론: OSM tile 공급 자체는 정상이다. 문제는 우리 tileerror 처리 코드였다.**
 
-## 변경 내용
+조사 과정(추측 없이 직접 확인):
+1. 이 환경의 Browser 도구에서 `tile.openstreetmap.org` 요청이 전부
+   `net::ERR_FAILED`로 실패 — 이것만 보면 "OSM이 문제"로 오판하기 쉬움.
+2. 그런데 **완전히 다른 네트워크 경로**(Bash 셸의 `curl`/`nslookup`, Browser 도구와
+   무관)로도 동일하게 `tile.openstreetmap.org`/`nominatim.openstreetmap.org`
+   DNS 조회가 "Non-existent domain"으로 실패했다. 반면 같은 셸에서 google.com/
+   viecganban.vn/github.com/supabase.co는 전부 정상 응답.
+3. 이 로컬 DNS 실패의 응답 주체가 `192.168.1.1`(로컬 공유기)인 것으로 보아,
+   **이 컴퓨터/네트워크 자체가 openstreetmap.org를 DNS 레벨에서 막고 있다** —
+   Anthropic 검증 도구나 OSM 서비스 문제가 아니라 이 로컬 환경만의 제약.
+4. 결정적 증거: `nslookup tile.openstreetmap.org 8.8.8.8`(구글 공개 DNS로 직접 질의)
+   로는 정상적으로 Fastly CDN IP(`151.101.x.x`)가 나왔고, 그 IP로 `curl --resolve`
+   직접 접속해 실제 타일 PNG(200 OK, 256×256 유효 이미지)를 성공적으로 받아왔다 —
+   **OSM 타일 서버는 지금 이 순간 정상적으로 타일을 서비스하고 있음을 직접 확인**.
+5. 별개로 코드를 읽어보니, 기존 `JobLocationMap.tsx`는 `tiles.on('tileerror', ...)`
+   콜백에서 **단 1개의 타일만 실패해도** 즉시 `setTileError(true)`를 호출해 지도
+   전체를 안내 문구로 바꿔버리는 구조였다. 지도 하나를 채우려면 보통 4~9개의 타일이
+   필요한데, 그중 하나만(네트워크 일시 지연 등으로) 실패해도 나머지가 멀쩡히 로드
+   중이었어도 전체가 사라지는 구조 — 이 자체가 실사용자 환경에서도 지도가 유독 자주
+   "실패"로 보이게 만드는 진짜 코드 결함이었다.
 
-`src/pages/Home.tsx`:
-- `urgentJobs`/`regularJobs` 계산 바로 아래에 파생값 3개 추가:
-  - `heroShowsUrgent = urgentJobs.length >= 4`
-  - `heroJobs = heroShowsUrgent ? urgentJobs.slice(0,4) : regularJobs.slice(0,4)`
-  - `belowJobs`: `heroShowsUrgent`면 기존과 동일하게 `regularJobs` 그대로. 아니면
-    `filtered.filter(j => !heroJobs.some(h => h.id === j.id))` — hero에 쓴 4개만 빼고
-    나머지 전부(긴급으로 표시 안 된 1~3건 포함)를 그대로 아래 "Tất cả kết quả"에 남겨서,
-    카드가 중복되지도 사라지지도 않게 했다(직접 확인 — 아래 검증 참고).
-  - 렌더링부의 기존 `{!urgentOnly && urgentJobs.length > 0 && <JobGrid jobs={urgentJobs}
-    title="🔥 Tuyển gấp" />}` 3줄짜리 블록을 `heroJobs`/`heroShowsUrgent`/`belowJobs` 기반
-    으로 교체(제목은 `heroShowsUrgent`일 때만 `"🔥 Tuyển gấp"`, 아니면 `undefined`로 숨김).
-    `urgentOnly`(사용자가 긴급만 필터링) 분기와 `nearMe` 분기는 전혀 손대지 않았다.
-- 새 컴포넌트 `HeroJobCard`/`HeroJobGrid` 추가(기존 `JobGrid`/`JobCard` 바로 아래) — 표준
-  `JobCard`(`.jc`)와는 별개의, 이 4카드 행 전용 컴포넌트다. 표준 JobCard를 직접 수정하면
-  "Tất cả kết quả" 등 Home의 다른 목록에도 영향이 가서, 대신 `JobCard.tsx`에서 이미 있던
-  `CompanyLogo`/`sanitizeSalary` 함수 앞에 `export`만 붙여 재사용했다(두 함수 자체의 동작은
-  전혀 바꾸지 않음 — 표준 JobCard의 렌더링/스타일은 무영향).
-  - 카드 내용: 큰 로고(72px, `CompanyLogo` 재사용) → 회사명·지역 한 줄 → 제목 2줄 clamp →
-    급여. `#해시태그`·`Liên hệ Zalo` 버튼 없음. 카드 전체가 기존과 동일하게
-    `<NavLink className="home-card-wrap">`로 감싸져 전체 클릭 가능.
-  - 그리드 자체는 기존 `.home-jobs-grid`(모바일 1열 → ≥540px 2열 → ≥900px 4열)를 그대로
-    재사용해 "Desktop 한 줄 4개"를 얻었다 — 새 grid CSS를 만들지 않았다.
+즉 사용자 지시의 A/B 분기 중 **A(우리 코드/처리 문제)에 해당** — provider를 바꾸지
+않았다.
 
-`src/index.css`: `.hero-jc*` 신규 규칙만 추가(카드 shell, 72px 로고 오버라이드, meta/title/
-salary). 기존 `.home-jobs-grid`/`.home-section`/`.home-card-wrap`/`.jc__logo` 등은 미수정.
+## 문제 1 — 지도: 수정 내용
 
-`src/components/JobCard.tsx`: `CompanyLogo`, `sanitizeSalary` 앞에 `export` 추가(그 외
-1글자도 변경 없음).
+`src/components/JobLocationMap.tsx`: 타일 레이어에 `tileload`/`load` 리스너를 추가해
+로드된 타일 수를 센다. `setTileError(true)`는 더 이상 `tileerror` 콜백에서 즉시
+호출되지 않고, Leaflet의 `load` 이벤트(그 화면에 필요한 모든 타일이 성공/실패로 다
+"정산"된 시점에 발생)가 왔을 때 **성공한 타일이 단 하나도 없을 때만** 호출하도록
+바꿨다. 즉 "타일 1개 실패, 나머지는 성공"이면 지도는 그대로 보이고(그 한 칸만
+비거나 재시도됨, Leaflet 표준 동작), "타일이 전부 실패"할 때만 안내 문구로 대체한다.
+`referrerPolicy` 설정(이전 작업분)과 위치 우선순위(exact/region/default) 로직,
+`Xem bản đồ` 관련 UI는 전혀 손대지 않았다.
+
+## 문제 2 — 본문 카드 분리: 실제 원인
+
+`DescriptionRenderer`(`src/pages/JobDetail.tsx`)가 원문 전체를 `text.split(/\n\n+/)`
+(빈 줄 기준)로 먼저 쪼갠 뒤, `## `로 시작하지 않는 조각은 전부 독립된 흰 카드로
+그렸다. 문제는 크롤러 원문이 **하나의 `## Yêu cầu công việc` 섹션 안에서도** 빈 줄을
+여러 번 넣는 경우가 실제로 있다는 것 — 예를 들어 운영 데이터 `sb-2987`은
+"...theo giờ vận hành của trung tâm thương mại.\n\n\xa0\n\nƯu tiên:\n\n-Có kinh
+nghiệm..." 처럼 같은 "Yêu cầu công việc" 섹션 중간에 빈 줄(및 nbsp만 있는 줄) →
+"Ưu tiên:" 소제목 → 다시 빈 줄 → 불릿 목록이 이어진다. 기존 코드는 이걸 전부 별도
+블록으로 쪼개 각각 카드로 그렸다 — 사용자가 캡처로 보여준 "문장마다 카드" 현상의
+실제 원인.
+
+## 문제 2 — 본문 카드 분리: 수정 내용
+
+`DescriptionRenderer`의 분할 기준을 "빈 줄"에서 "`## ` 제목 줄"로 바꿨다: 원문에
+`## ` 제목이 하나라도 있으면 `text.split(/(?=^## )/m)`(제목 줄 바로 앞에서만 분할)를
+쓴다 — 한 제목부터 다음 제목 전까지는 그 안에 빈 줄이 몇 개 있든 통째로 한 블록(=한
+카드)이 된다. `## ` 제목이 아예 없는(구조화 안 된) 원문은 기존처럼 빈 줄 기준 분할을
+그대로 유지했다(이번 신고 범위 밖, 회귀 방지). 각 카드 내부의 불릿/문단 렌더링 로직,
+Quyền lợi 혜택 chip 추출 로직은 그대로 재사용 — chip 추출은 이제 섹션 전체 텍스트를
+보므로 예전에 섹션이 쪼개져 있을 때보다 오히려 더 정확해졌다(부수 효과, 별도 요청
+아님). 원문 텍스트 자체는 한 글자도 수정/요약/생성하지 않았다 — trim만 적용.
 
 ## 검증
 
 - `npx tsc --noEmit`, `npm run build`: 각 1회 통과.
-- **데스크톱(1280px), 실제 운영 데이터**: hero 카드 4개, 전부 같은 `top` 좌표(한 줄에 4개
-  나란히) 확인. `🔥 Tuyển gấp` 제목 없음(긴급 1건 < 4라 정상), 카드에 `#`해시태그 없음,
-  Zalo 버튼 없음, 로고 72×72px 확인. 가로 overflow 없음(1265 < 1280).
-  - hero 4개 job id(`sb-3888`/`3914`/`3913`/`3912`)가 페이지 전체에서 정확히 1번씩만
-    등장(중복 없음) 확인.
-  - 유일한 긴급 공고(`sb-3734`)가 hero에는 없지만 "Tất cả kết quả" 목록에 그대로 남아있어
-    사라지지 않았음을 확인(기존 `#Khẩn cấp` 표시도 그대로).
-- **모바일(375px)**: hero 카드 4개(1열로 쌓임), 가로 overflow 없음.
-- Production(viecganban.vn) 1회 확인: 4개 카드가 실제로 한 줄에 배치됨을 재확인(아래 참고).
+- **본문 — `sb-2987`**(실제 "Ưu tiên:" 빈줄 케이스): 카드 3개(Mô tả/Yêu cầu/Quyền lợi)
+  정확히 확인. "Yêu cầu công việc" 카드 안에 "Ưu tiên"·"Visual Merchandising" 텍스트가
+  누락 없이 포함됨을 확인(콘텐츠 유실 없음). "Quyền lợi" chip 3개(BHXH/BHYT, Thưởng,
+  Đào tạo) 원문과 일치.
+- **본문+지도 — `sb-3665`**(location에 "Hà Nội" 포함, region-only): 카드 3개 동일 확인.
+  지도 영역: 주소 "Hà Nội" 포함 텍스트 표시, 안내문 "Vị trí hiển thị là vị trí gần đúng
+  theo khu vực tuyển dụng." 정상(위치 우선순위 로직 그대로 동작 확인).
+- **모바일(375px)**: `sb-3665` 기준 가로 overflow 없음(scrollWidth 375 = innerWidth).
+- 지도 타일의 실제 시각적 렌더링(초록/회색 지형 이미지가 보이는지)은 이 환경에서
+  검증 불가 — 위 "지도 원인" 3~4번에서 설명한 로컬 DNS 차단 때문. `tileError` 상태
+  자체는 (모든 타일이 로컬에서 도달 불가하므로) 여전히 `true`로 뜨는데, 이는 새 로직이
+  "정말로 타일이 하나도 안 왔을 때만 fallback"이라는 조건을 정확히 만족한 것 — 새
+  코드가 잘못됐다는 뜻이 아니라, 이 환경 자체가 "0개 성공" 케이스이기 때문.
+
+## Production 확인
+
+- viecganban.vn 배포 후 대표 화면 확인은 아래 최종 보고 참고. 이 세션의 검증 도구는
+  로컬과 동일한 네트워크 제약이 있어 실제 사용자가 보는 타일 렌더링은 여전히 직접
+  확인하지 못했다 — 코드 원인 조사(§문제 1)로 그 한계를 대체했다.
 
 ## 발견된 문제
 
-- 없음.
+- 없음(신규). 이 세션의 검증 환경이 `openstreetmap.org`를 DNS 레벨에서 차단하고
+  있다는 사실 자체는 앞으로도 이 종류의 검증(지도 타일 시각 확인)마다 반복해서
+  마주칠 제약이니 참고.
 
 ## 다음 결정사항
 
-- 없음. `fix/scroll-restore-lazy-race`(커밋 `0c11f0a`)는 여전히 별도 브랜치로 남아 있고
-  master merge 여부는 미결정 상태(이번 작업과 무관).
+- `fix/scroll-restore-lazy-race`(커밋 `0c11f0a`)는 여전히 별도 브랜치, master 병합
+  여부 미결정(이번 작업과 무관).
+- 실사용자 리포트로 지도가 계속 안 보인다는 피드백이 (이번 fallback 로직 수정 이후에도)
+  계속 들어오면, 그때는 실제로 provider를 재검토할 근거가 될 수 있음 — 다만 지금은
+  그런 근거가 없다.
