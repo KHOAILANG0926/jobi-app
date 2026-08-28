@@ -86,3 +86,77 @@ Vercel Production 배포 → 실제 사이트 대표 화면 1회 확인 → 완�
 - Git branch push와 Production 배포 상태는 항상 구분해서 보고한다.
 - 하지만 안전을 이유로 모든 사소한 UI 작업을 branch에서 멈추는 방식은 쓰지 않는다 —
   FAST/NORMAL 작업은 위 흐름대로 Production까지 끝맺는다.
+
+## TWO-PC WORKFLOW — MANDATORY
+
+사용자는 이 프로젝트를 두 PC에서 번갈아 작업한다.
+(2026-08-28 사용자 지시로 영구 반영. 특정 작업이 아니라 Viecganban 프로젝트의
+모든 향후 작업에 적용되며, 위 MANDATORY WORK MODE와 충돌하지 않고 함께 적용된다 —
+WORK MODE는 "언제 다음 단계로 진행하는가"를, 이 섹션은 "다음 단계가 두 PC 모두에서
+동일하게 이어지려면 무엇이 GitHub/Production에 실제로 반영돼 있어야 하는가"를 규정한다.)
+
+- 회사 PC
+- 집 PC
+
+따라서 한 PC에만 존재하는 변경은 절대 "완료"로 간주하지 않는다.
+
+### 영구 변경 원칙
+
+1. 모든 코드 변경
+   → GitHub master까지 push
+
+2. 모든 Production DB 변경
+   → shared Supabase Production에 migration으로 적용
+   → migration 파일도 GitHub master에 반드시 포함
+
+3. 서비스 변경
+   → Vercel Production 배포 및 실제 반영 확인
+
+4. 작업 시작 전
+   → git status 확인
+   → git fetch origin
+   → local과 origin/master 상태 비교
+
+5. local이 clean하고 fast-forward 가능한 경우
+   → origin/master 기준으로 안전하게 동기화
+
+6. uncommitted/local-only 작업이 있으면
+   → 절대 reset/overwrite하지 말고 먼저 보호
+
+7. 회사 PC에서 작업했더라도
+   집 PC가 이후 origin/master를 pull하면
+   동일한 코드/migration 상태를 이어받을 수 있어야 한다.
+
+8. 집 PC에서 작업한 경우도 동일하다.
+
+9. PC-local 항목:
+   - access token
+   - local .env
+   - CLI login/session
+   - machine-specific path
+
+   은 GitHub에 올리지 않는다.
+
+10. PC-local credential이 필요한 작업과
+    프로젝트의 영구 상태를 명확히 구분한다.
+
+11. 한 PC에서만 작동하는 설정/변경이라면
+    Production 작업 완료로 보고하지 않는다.
+
+12. 작업 완료 기준:
+
+    IMPLEMENTED
+    → VERIFIED
+    → MASTER PUSHED
+    → PRODUCTION DEPLOYED
+    → PRODUCTION VERIFIED
+
+    를 구분해서 보고한다.
+
+13. 회사/집 PC 간 전달해야 할 현재 작업 상태가 있으면
+    CHATGPT_HANDOFF.md를 최신 snapshot으로 갱신하고
+    GitHub master에 포함한다.
+
+중요:
+이 규칙은 특정 작업에만 적용되는 것이 아니라
+Viecganban 프로젝트의 모든 향후 작업에 적용한다.
