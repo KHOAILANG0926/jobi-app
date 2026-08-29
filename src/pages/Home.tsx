@@ -7,7 +7,10 @@ import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
+import { hasStoredCv } from '../lib/cvStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
+import { loadSeekerInterviews } from '../lib/interviewStorage'
+import { loadThreads } from '../lib/messagesStorage'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -266,18 +269,46 @@ export function Home() {
   const handleToggleSave = useCallback((job: Job) => { toggleSavedJobId(job.id) }, [])
 
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set())
+  const [activityCounts, setActivityCounts] = useState({ cv: 0, applications: 0, messages: 0, interviews: 0 })
   useEffect(() => {
-    if (!user?.id) { setAppliedIds(new Set()); return }
+    if (!user?.id) {
+      setAppliedIds(new Set())
+      setActivityCounts({ cv: 0, applications: 0, messages: 0, interviews: 0 })
+      return
+    }
     let cancelled = false
-    const sync = () => {
+    const syncApplications = () => {
       loadApplications().then((apps) => {
         if (cancelled) return
-        setAppliedIds(new Set(apps.filter((a) => a.seekerId === user.id).map((a) => a.jobId)))
+        const mine = apps.filter((a) => a.seekerId === user.id)
+        setAppliedIds(new Set(mine.map((a) => a.jobId)))
+        setActivityCounts((prev) => ({ ...prev, cv: hasStoredCv() ? 1 : 0, applications: mine.length }))
       })
     }
-    sync()
-    window.addEventListener('vgb:applications', sync)
-    return () => { cancelled = true; window.removeEventListener('vgb:applications', sync) }
+    const syncMessages = () => {
+      loadThreads().then((threads) => {
+        if (cancelled) return
+        setActivityCounts((prev) => ({ ...prev, messages: threads.length }))
+      })
+    }
+    const syncInterviews = () => {
+      loadSeekerInterviews(user.id).then((list) => {
+        if (cancelled) return
+        setActivityCounts((prev) => ({ ...prev, interviews: list.length }))
+      })
+    }
+    syncApplications()
+    syncMessages()
+    syncInterviews()
+    window.addEventListener('vgb:applications', syncApplications)
+    window.addEventListener('vgb:messages', syncMessages)
+    window.addEventListener('vgb:interviews', syncInterviews)
+    return () => {
+      cancelled = true
+      window.removeEventListener('vgb:applications', syncApplications)
+      window.removeEventListener('vgb:messages', syncMessages)
+      window.removeEventListener('vgb:interviews', syncInterviews)
+    }
   }, [user?.id])
 
 
@@ -467,12 +498,24 @@ export function Home() {
           </div>
           <div className="home-discovery__card home-discovery__card--account">
             <div className="home-discovery-account__copy">
-              <span className="home-discovery-account__eyebrow">Cá nhân hóa cơ hội</span>
-              <strong>{user ? `Chào ${user.name}` : 'Đăng nhập để không bỏ lỡ việc tốt'}</strong>
-              <p>{user ? 'Xem hồ sơ, tin đã lưu và trạng thái ứng tuyển.' : 'Lưu việc, tạo CV và theo dõi hồ sơ ở một nơi.'}</p>
-              <NavLink to={user ? '/ho-so' : '/dang-nhap'} className="home-discovery-account__button">
-                {user ? 'Mở hồ sơ →' : 'Đăng nhập →'}
-              </NavLink>
+              {user ? (
+                <>
+                  <strong>Tình hình việc làm của tôi</strong>
+                  <p>{`CV ${activityCounts.cv} · Ứng tuyển ${activityCounts.applications} · Tin nhắn ${activityCounts.messages} · Phỏng vấn ${activityCounts.interviews}`}</p>
+                  <div className="home-discovery-account__actions">
+                    <NavLink to="/ho-so" className="home-discovery-account__button">Xem hoạt động của tôi →</NavLink>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <strong>Chuẩn bị xin việc, quản lý ngay tại đây</strong>
+                  <p>Tạo CV để theo dõi từ ứng tuyển đến phỏng vấn — tất cả ở một nơi.</p>
+                  <div className="home-discovery-account__actions">
+                    <NavLink to="/ho-so" state={{ openCvTab: true }} className="home-discovery-account__button">Tạo CV</NavLink>
+                    <NavLink to="/ho-so" state={{ openApplicationsTab: true }} className="home-discovery-account__link">Xem tình trạng ứng tuyển →</NavLink>
+                  </div>
+                </>
+              )}
             </div>
             <img src="/images/mascot-turtle-mint.webp" className="home-discovery-account__mascot" aria-hidden alt="" />
           </div>

@@ -151,20 +151,21 @@ export function Profile() {
   }, [user?.id, user?.role])
 
   useEffect(() => {
-    const st = location.state as { openCvTab?: boolean; needCvForJob?: string } | null
+    const st = location.state as { openCvTab?: boolean; needCvForJob?: string; openApplicationsTab?: boolean } | null
     if (st?.openCvTab) {
       setSeekerTab('cv')
       if (st.needCvForJob) {
         setCvHint(`Hoàn thành và lưu CV để ứng tuyển nhanh cho: ${st.needCvForJob}`)
       }
       window.history.replaceState({}, document.title)
+    } else if (st?.openApplicationsTab) {
+      setSeekerTab('applications')
+      window.history.replaceState({}, document.title)
+    } else if (!user) {
+      /** Testing: default guests to CV tab so /ho-so opens the builder without login */
+      setSeekerTab('cv')
     }
-  }, [location.state])
-
-  /** Testing: default guests to CV tab so /ho-so opens the builder without login */
-  useEffect(() => {
-    if (!user) setSeekerTab('cv')
-  }, [user])
+  }, [location.state, user])
 
   const savedJobs = savedIds
     .map((id) => jobs.find((j) => j.id === id))
