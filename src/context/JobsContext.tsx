@@ -116,13 +116,25 @@ export function JobsProvider({ children }: { children: ReactNode }) {
 
   const fetchJobs = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('local_jobs')
-      .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url')
-      .eq('active', true)
-      .order('posted_at', { ascending: false })
-
-    const rows = data ?? []
+    // PostgREST caps a single response at 1000 rows by default. Active job count
+    // has already exceeded that (1031+), which was silently dropping the oldest
+    // listings from the public site — page through with .range() until a page
+    // comes back short. The 20-page cap (20,000 rows) is just a runaway-loop
+    // guard, not an expected ceiling.
+    const PAGE_SIZE = 1000
+    const rows: Record<string, unknown>[] = []
+    for (let page = 0; page < 20; page++) {
+      const from = page * PAGE_SIZE
+      const { data } = await supabase
+        .from('local_jobs')
+        .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url')
+        .eq('active', true)
+        .order('posted_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1)
+      const pageRows = data ?? []
+      rows.push(...pageRows)
+      if (pageRows.length < PAGE_SIZE) break
+    }
     // job_work_locations is purely additive — a failed/empty fetch here must never
     // block the job list itself from rendering, so this stays a best-effort lookup.
     const locationsByJobId = new Map<number, NonNullable<Job['workLocations']>>()
