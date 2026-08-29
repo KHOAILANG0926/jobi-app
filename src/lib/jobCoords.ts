@@ -155,7 +155,10 @@ export function resolveMapLocations(job: {
     return {
       points: geocoded.map((l) => ({ lat: l.lat, lng: l.lng, label: l.rawAddress })),
       source: 'exact',
-      zoom: geocoded.length > 1 ? 12 : 15,
+      // A single geocoded point can zoom in tighter (street-level) since there's
+      // no second point that needs to stay in frame; 2+ points let fitBounds
+      // decide the actual view, this is just the initial center's zoom.
+      zoom: geocoded.length > 1 ? 12 : 16,
     }
   }
   const single = resolveMapLocation(job)

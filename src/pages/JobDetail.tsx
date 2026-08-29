@@ -246,9 +246,16 @@ export function JobDetail() {
   // Additive multi-marker resolution — only differs from mapLocation when the job has
   // 1+ geocoded job_work_locations rows; otherwise it collapses to the same single point.
   const mapLocations = resolveMapLocations(job)
-  const hasMultipleWorkLocations = mapLocations.points.length > 1
+  // 1개만 geocode돼도 그 실제 위치를 보여준다 — "다중"일 때만이 아니라 "1개
+  // 이상"이 기준. 0개면 mapLocations.points가 기존 region/default 단일점으로
+  // 그대로 collapse되므로(resolveMapLocations 자체 로직) 이 값도 자연히 false.
+  const hasGeocodedWorkLocations = mapLocations.points.length >= 1 && mapLocations.source === 'exact'
+  // 지도 중심 — geocode된 근무지가 있으면 그 지점(들)을, 없으면 기존 region/default
+  // 단일 지점을 그대로 쓴다. 2개 이상이면 JobLocationMap의 fitBounds가 최종 화면을
+  // 다시 맞추므로, 여기서는 첫 지점을 초기 중심으로만 쓰면 된다.
+  const mapCenter = hasGeocodedWorkLocations ? mapLocations.points[0] : mapLocation
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
-  // 있으면 항상 보여준다 — 마커 개수(hasMultipleWorkLocations)와는 별개 기준.
+  // 있으면 항상 보여준다 — 마커 개수(hasGeocodedWorkLocations)와는 별개 기준.
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
   // 근무지 목록이 없을 때(region/default fallback)만 쓰는 단일 Google Maps 링크 —
   // 근무지가 있으면 각 주소별로 따로 만든다(아래 렌더링 부분).
@@ -371,14 +378,14 @@ export function JobDetail() {
                 )
               )}
               <JobLocationMap
-                lat={mapLocation.lat}
-                lng={mapLocation.lng}
+                lat={mapCenter.lat}
+                lng={mapCenter.lng}
                 title={job.title}
                 zoom={mapLocations.zoom}
-                extraMarkers={hasMultipleWorkLocations ? mapLocations.points : undefined}
+                extraMarkers={hasGeocodedWorkLocations ? mapLocations.points : undefined}
               />
               <p className="jd2-map-note">
-                {hasMultipleWorkLocations
+                {hasGeocodedWorkLocations
                   ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
                   : mapLocation.source === 'exact'
                     ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
