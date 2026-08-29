@@ -5924,8 +5924,8 @@ a:hover {
 }
 .home-region-panel {
   min-width: 0;
-  height: 120px;
-  overflow: hidden;
+  height: auto;
+  overflow: visible;
 }
 @media (max-width: 1024px) {
   .home-region-panel { height: auto; overflow: visible; }
@@ -6212,62 +6212,55 @@ a:hover {
   object-position: center;
 }
 
-/* ── Quick filter category row (albamon 스타일 원형 아이콘 + 텍스트) ── */
+/* ── Quick filter category row: home-region-panel 카드 내부, 지역 리스트 아래
+   빈 공간에 3열 그리드로 배치 (알바몬 스타일 원형 아이콘 + 텍스트) ── */
 .home-quick-filters {
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #f0f0f0;
 }
 .home-quick-filters__list {
-  display: flex;
-  gap: 1.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 0.1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem 0.3rem;
 }
-.home-quick-filters__list::-webkit-scrollbar { display: none; }
 .home-quick-filter {
-  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   border: none;
   background: none;
   padding: 0;
   cursor: pointer;
-  width: 68px;
+  width: 100%;
 }
 .home-quick-filter__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: #fff5f5;
-  font-size: 1.4rem;
+  font-size: 1.05rem;
   transition: background 0.15s, transform 0.15s;
 }
 .home-quick-filter:hover .home-quick-filter__icon { transform: translateY(-2px); }
 .home-quick-filter.is-active .home-quick-filter__icon { background: #e53935; }
 .home-quick-filter__label {
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 600;
   color: #444;
   text-align: center;
-  line-height: 1.2;
-  white-space: nowrap;
+  line-height: 1.15;
+  word-break: keep-all;
 }
 .home-quick-filter.is-active .home-quick-filter__label { color: #e53935; font-weight: 700; }
 .home-quick-filters__error {
-  margin: 0.6rem 0 0;
-  font-size: 0.78rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.68rem;
   color: #e53935;
-}
-@media (max-width: 520px) {
-  .home-quick-filter { width: 60px; }
-  .home-quick-filter__icon { width: 46px; height: 46px; font-size: 1.25rem; }
-  .home-quick-filter__label { font-size: 0.66rem; }
-  .home-quick-filters__list { gap: 1.1rem; }
 }
 
 /* ── Deadline filter ─────────────────────────────────────────────── */
@@ -6294,7 +6287,8 @@ a:hover {
   .home-deadline-btn--active { background: #e53e3e; border-color: #e53e3e; color: #fff; }
 }
 
-/* ── Region panel: 왼쪽 브랜드 컨테이너(120px)와 정확히 일치. 내부 padding/gap만 압축 ── */
+/* ── Region panel: 지역 리스트 아래 빠른 필터 6개가 들어가면서 높이는 자유롭게 늘어남
+   (왼쪽 브랜드 컨테이너의 120px 고정 높이와 더 이상 맞추지 않음, 상단 지역 리스트 레이아웃은 무변경) ── */
 .home-region-panel {
   padding: 0.6rem 1.25rem;
   display: flex;

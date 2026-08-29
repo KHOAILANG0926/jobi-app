@@ -651,6 +651,37 @@ export function Home() {
               </button>
             ))}
           </div>
+
+          {/* ── 빠른 필터 카테고리 (알바몬 스타일 원형 아이콘 + 텍스트, 3열) ── */}
+          <div className="home-quick-filters">
+            <div className="home-quick-filters__list">
+              <button type="button" className={`home-quick-filter${urgentOnly ? ' is-active' : ''}`} onClick={handleQuickUrgent}>
+                <span className="home-quick-filter__icon" aria-hidden>⚡</span>
+                <span className="home-quick-filter__label">Cần gấp</span>
+              </button>
+              <button type="button" className={`home-quick-filter${nearMe && userCoords ? ' is-active' : ''}`} onClick={handleQuickNearMe}>
+                <span className="home-quick-filter__icon" aria-hidden>📍</span>
+                <span className="home-quick-filter__label">Gần bạn</span>
+              </button>
+              <button type="button" className={`home-quick-filter${todayOnly ? ' is-active' : ''}`} onClick={handleQuickToday}>
+                <span className="home-quick-filter__icon" aria-hidden>🗓️</span>
+                <span className="home-quick-filter__label">Làm hôm nay</span>
+              </button>
+              <button type="button" className={`home-quick-filter${sortMode === 'recommended' ? ' is-active' : ''}`} onClick={handleQuickRecommended}>
+                <span className="home-quick-filter__icon" aria-hidden>✨</span>
+                <span className="home-quick-filter__label">Gợi ý cho bạn</span>
+              </button>
+              <button type="button" className={`home-quick-filter${sortMode === 'salary' ? ' is-active' : ''}`} onClick={handleQuickSalary}>
+                <span className="home-quick-filter__icon" aria-hidden>💰</span>
+                <span className="home-quick-filter__label">Lương cao</span>
+              </button>
+              <button type="button" className="home-quick-filter" onClick={handleQuickCategory}>
+                <span className="home-quick-filter__icon" aria-hidden>🗂️</span>
+                <span className="home-quick-filter__label">Theo ngành nghề</span>
+              </button>
+            </div>
+            {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
+          </div>
         </div>
       </div>
 
@@ -660,37 +691,6 @@ export function Home() {
           <AdSlot slotId="card1" />
           <AdSlot slotId="card2" />
         </div>
-      </div>
-
-      {/* ── 빠른 필터 카테고리 (알바몬 스타일 원형 아이콘 + 텍스트) ── */}
-      <div className="home-quick-filters">
-        <div className="home-quick-filters__list">
-          <button type="button" className={`home-quick-filter${urgentOnly ? ' is-active' : ''}`} onClick={handleQuickUrgent}>
-            <span className="home-quick-filter__icon" aria-hidden>⚡</span>
-            <span className="home-quick-filter__label">Cần gấp</span>
-          </button>
-          <button type="button" className={`home-quick-filter${nearMe && userCoords ? ' is-active' : ''}`} onClick={handleQuickNearMe}>
-            <span className="home-quick-filter__icon" aria-hidden>📍</span>
-            <span className="home-quick-filter__label">Gần bạn</span>
-          </button>
-          <button type="button" className={`home-quick-filter${todayOnly ? ' is-active' : ''}`} onClick={handleQuickToday}>
-            <span className="home-quick-filter__icon" aria-hidden>🗓️</span>
-            <span className="home-quick-filter__label">Làm hôm nay</span>
-          </button>
-          <button type="button" className={`home-quick-filter${sortMode === 'recommended' ? ' is-active' : ''}`} onClick={handleQuickRecommended}>
-            <span className="home-quick-filter__icon" aria-hidden>✨</span>
-            <span className="home-quick-filter__label">Gợi ý cho bạn</span>
-          </button>
-          <button type="button" className={`home-quick-filter${sortMode === 'salary' ? ' is-active' : ''}`} onClick={handleQuickSalary}>
-            <span className="home-quick-filter__icon" aria-hidden>💰</span>
-            <span className="home-quick-filter__label">Lương cao</span>
-          </button>
-          <button type="button" className="home-quick-filter" onClick={handleQuickCategory}>
-            <span className="home-quick-filter__icon" aria-hidden>🗂️</span>
-            <span className="home-quick-filter__label">Theo ngành nghề</span>
-          </button>
-        </div>
-        {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
       </div>
 
       </div>{/* /.home-top-bg */}
