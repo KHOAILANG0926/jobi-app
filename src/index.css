@@ -5832,21 +5832,20 @@ a:hover {
   grid-template-columns: 6fr 4fr;
   gap: 1rem;
   margin-bottom: 1.25rem;
-  align-items: stretch;
+  /* start(위쪽 정렬): 왼쪽 컬럼(로고+광고 배너)이 오른쪽 지역 패널 높이만큼
+     강제로 늘어나지 않게 해서, 로고 목록과 광고 배너 사이에 빈 공간이
+     생기지 않고 서로 바로 붙도록 함 */
+  align-items: start;
 }
-/* Ad-cards row: reuses the same 6fr/4fr split so .home-ad-cards (grid-column:1)
-   renders at exactly the same width as .home-brands-section above it. */
-.home-ad-cards-row {
-  display: grid;
-  grid-template-columns: 6fr 4fr;
+/* LEFT 60% 컬럼: 브랜드 로고 박스 + 광고 배너 2개를 세로로 붙여서 배치 */
+.home-brands-left {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  min-width: 0;
 }
 @media (max-width: 1024px) {
   .home-brands-region-grid {
-    grid-template-columns: 1fr;
-  }
-  .home-ad-cards-row {
     grid-template-columns: 1fr;
   }
   .home-region-panel { display: none; }
@@ -6168,7 +6167,6 @@ a:hover {
 
 /* ── Ad cards (albamon 스타일 광고 카드) ─────────────────────────── */
 .home-ad-cards {
-  grid-column: 1;
   min-width: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;

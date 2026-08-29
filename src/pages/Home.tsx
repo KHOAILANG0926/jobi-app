@@ -597,25 +597,33 @@ export function Home() {
       {/* ── Brands + Region: 독립된 60:40 compact 섹션 (브랜드/지역만) ── */}
       <div className="home-brands-region-grid">
 
-        {/* LEFT 60%: 브랜드 제목 + 원형 로고만 */}
-        <section className="home-brands-section">
-          <div className="home-brands-box">
-            <div className="home-brands-box__head">
-              <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
-              <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
-            </div>
-            <div className="home-brands-box__row">
-              <div className="home-brands-box__track">
-                {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
-                  <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                    <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                    <span className="home-brand__name">{b.name}</span>
-                  </button>
-                ))}
+        {/* LEFT 60%: 브랜드 로고 + 그 아래 붙인 광고 배너 2개 */}
+        <div className="home-brands-left">
+          <section className="home-brands-section">
+            <div className="home-brands-box">
+              <div className="home-brands-box__head">
+                <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
+                <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
+              </div>
+              <div className="home-brands-box__row">
+                <div className="home-brands-box__track">
+                  {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
+                    <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
+                      <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
+                      <span className="home-brand__name">{b.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+          </section>
+
+          {/* ── 기업 프로모션 카드: 브랜드 로고 목록 바로 아래 ── */}
+          <div className="home-ad-cards">
+            <AdSlot slotId="card1" />
+            <AdSlot slotId="card2" />
           </div>
-        </section>
+        </div>
 
         {/* RIGHT 40%: 지역 제목 + compact 지역 목록만 */}
         <div className="home-region-panel">
@@ -682,14 +690,6 @@ export function Home() {
             </div>
             {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
           </div>
-        </div>
-      </div>
-
-      {/* ── 기업 프로모션 카드: 위쪽 Thương hiệu tuyển dụng 컨테이너와 폭 일치 ── */}
-      <div className="home-ad-cards-row">
-        <div className="home-ad-cards">
-          <AdSlot slotId="card1" />
-          <AdSlot slotId="card2" />
         </div>
       </div>
 
