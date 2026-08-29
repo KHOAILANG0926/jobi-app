@@ -44,7 +44,7 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
     const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], zoom)
     const geoapifyKey = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
     const tiles = L.tileLayer(
-      `https://maps.geoapify.com/v1/tile/positron/{z}/{x}/{y}.png?apiKey=${geoapifyKey ?? ''}`,
+      `https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=${geoapifyKey ?? ''}`,
       {
         attribution:
           '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | © <a href="https://www.geoapify.com/">Geoapify</a>',
