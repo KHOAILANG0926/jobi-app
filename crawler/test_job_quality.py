@@ -129,13 +129,15 @@ def test_payload_validation() -> None:
 
 
 def test_work_locations() -> None:
-    # Regression fixture for local_jobs id 3981 (Vieclam24h original):
-    # exactly 2 real work-site addresses under "Địa điểm làm việc", rendered as
-    # bullet <li> lines by fetch_job_detail — the QTSC Building 1 company HQ
-    # address lives under a different heading and is never part of this text.
+    # Regression fixture for local_jobs id 3981 (Vieclam24h original) — this is
+    # the exact raw text captured live from the real detail page's DOM via
+    # fetch_job_detail's generic section walker (no <li> tags in this section,
+    # so no "• " bullets; each row is "<province>:<address>" with no space
+    # around the colon). The QTSC Building 1 company HQ address lives under a
+    # different heading and is never part of this text.
     section_3981 = (
-        "• OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì, Tân Phú\n"
-        "• Onehub Saigon Tower 1 - Đường D1, Khu Công Nghệ Cao, "
+        "TP.HCM:OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì, Tân Phú\n"
+        "TP.HCM:Onehub Saigon Tower 1 - Đường D1, Khu Công Nghệ Cao, "
         "Phường Tăng Nhơn Phú, Thủ Đức"
     )
     locations = split_work_locations(section_3981)

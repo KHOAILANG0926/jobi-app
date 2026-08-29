@@ -98,6 +98,15 @@ _WORK_LOCATION_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Each address row on vieclam24h's "Địa điểm làm việc" section is rendered as
+# "<province/city>:<address>" with no separating space (observed directly on
+# job id 3981: "TP.HCM:OfficeHaus, 32 Tân Thắng, ..."). The prefix is a bare
+# place name, never containing a digit — a real street address always starts
+# with a house/street number within the first ~25 characters — so requiring
+# "no digit before the colon" keeps this from ever eating part of a real
+# address that happens to contain an early colon.
+_WORK_LOCATION_REGION_PREFIX_RE = re.compile(r"^[^\d:]{2,25}:\s*")
+
 
 def split_work_locations(raw_section_text: object, max_locations: int = 10) -> list[str]:
     """Split the raw 'Địa điểm làm việc' section text into individual addresses.
@@ -124,6 +133,8 @@ def split_work_locations(raw_section_text: object, max_locations: int = 10) -> l
         addr = normalize_whitespace(raw)
         # Strip leading numbering like "1.", "1)", "-" left over from non-<li> lists.
         addr = re.sub(r"^(\d+[\.\)]|[-*])\s*", "", addr).strip()
+        # Strip a leading "<province/city>:" label baked into the same string.
+        addr = _WORK_LOCATION_REGION_PREFIX_RE.sub("", addr).strip()
         if not addr or len(addr) < 5:
             continue
         if _WORK_LOCATION_NOISE_RE.match(addr):
