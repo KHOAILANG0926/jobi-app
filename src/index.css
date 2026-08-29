@@ -5834,8 +5834,19 @@ a:hover {
   margin-bottom: 1.25rem;
   align-items: stretch;
 }
+/* Ad-cards row: reuses the same 6fr/4fr split so .home-ad-cards (grid-column:1)
+   renders at exactly the same width as .home-brands-section above it. */
+.home-ad-cards-row {
+  display: grid;
+  grid-template-columns: 6fr 4fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
 @media (max-width: 1024px) {
   .home-brands-region-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-ad-cards-row {
     grid-template-columns: 1fr;
   }
   .home-region-panel { display: none; }
@@ -6157,6 +6168,7 @@ a:hover {
 
 /* ── Ad cards (albamon 스타일 광고 카드) ─────────────────────────── */
 .home-ad-cards {
+  grid-column: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
@@ -6198,6 +6210,64 @@ a:hover {
   flex-shrink: 0;
   object-fit: cover;
   object-position: center;
+}
+
+/* ── Quick filter category row (albamon 스타일 원형 아이콘 + 텍스트) ── */
+.home-quick-filters {
+  margin-top: 1.25rem;
+}
+.home-quick-filters__list {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 0.1rem;
+}
+.home-quick-filters__list::-webkit-scrollbar { display: none; }
+.home-quick-filter {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  width: 68px;
+}
+.home-quick-filter__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #fff5f5;
+  font-size: 1.4rem;
+  transition: background 0.15s, transform 0.15s;
+}
+.home-quick-filter:hover .home-quick-filter__icon { transform: translateY(-2px); }
+.home-quick-filter.is-active .home-quick-filter__icon { background: #e53935; }
+.home-quick-filter__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #444;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.home-quick-filter.is-active .home-quick-filter__label { color: #e53935; font-weight: 700; }
+.home-quick-filters__error {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  color: #e53935;
+}
+@media (max-width: 520px) {
+  .home-quick-filter { width: 60px; }
+  .home-quick-filter__icon { width: 46px; height: 46px; font-size: 1.25rem; }
+  .home-quick-filter__label { font-size: 0.66rem; }
+  .home-quick-filters__list { gap: 1.1rem; }
 }
 
 /* ── Deadline filter ─────────────────────────────────────────────── */

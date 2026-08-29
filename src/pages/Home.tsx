@@ -11,6 +11,7 @@ import { hasStoredCv } from '../lib/cvStorage'
 import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
+import { parseSalaryToHourly } from '../lib/recommendStorage'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -254,7 +255,10 @@ export function Home() {
     setNearMe(near === '1')
   }, [location.search])
   const [nearRadius] = useState(5)
-  const [userCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null)
+  const [todayOnly, setTodayOnly] = useState(false)
+  const [sortMode, setSortMode] = useState<'none' | 'salary' | 'recommended'>('none')
 
   useEffect(() => {
     const sync = () => setSavedIds(new Set(loadSavedJobIds()))
@@ -325,6 +329,28 @@ export function Home() {
 
 
 
+  // "Làm hôm nay" — no dedicated DB field for immediate-start/day-work postings,
+  // so approximate via Vietnamese phrasing commonly used for these listings.
+  const TODAY_KEYWORDS = ['lam ngay', 'di lam ngay', 'nhan viec ngay', 'viec lam ngay', 'ngay hom nay', 'nhan lam ngay']
+  const isTodayJob = useCallback((j: Job) => {
+    const text = normalizeViText(`${j.title} ${j.description ?? ''} ${j.hours ?? ''} ${j.workPeriod ?? ''}`)
+    return TODAY_KEYWORDS.some((kw) => text.includes(kw))
+  }, [])
+
+  // "Gợi ý cho bạn" — no popularity/click-count field, so: logged-in users get jobs
+  // matching the categories they've saved/applied to ranked first; everyone else
+  // (and logged-in users with no history yet) falls back to hireCount desc as a
+  // "nhiều vị trí đang cần tuyển" popularity proxy.
+  const preferredCategories = useMemo(() => {
+    const cats = new Map<JobCategory, number>()
+    for (const j of jobs) {
+      if (savedIds.has(j.id) || appliedIds.has(j.id)) {
+        cats.set(j.category, (cats.get(j.category) ?? 0) + 1)
+      }
+    }
+    return cats
+  }, [jobs, savedIds, appliedIds])
+
   const filtered = useMemo(() => {
     const q = normalizeViText(search)
     const now = new Date()
@@ -338,6 +364,7 @@ export function Home() {
         if (!allowed.includes(j.category)) return false
       }
       if (urgentOnly && !j.urgent) return false
+      if (todayOnly && !isTodayJob(j)) return false
       if (selectedCity && !jobMatchesRegion(j.location, selectedCity, j.workLocations)) return false
       if (brandFilter) {
         const nb = normalizeViText(brandFilter)
@@ -368,9 +395,18 @@ export function Home() {
     })
     if (nearMe && userCoords) {
       result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
+    } else if (sortMode === 'salary') {
+      result = [...result].sort((a, b) => parseSalaryToHourly(b.salary) - parseSalaryToHourly(a.salary))
+    } else if (sortMode === 'recommended') {
+      result = [...result].sort((a, b) => {
+        const aMatch = preferredCategories.has(a.category) ? 1 : 0
+        const bMatch = preferredCategories.has(b.category) ? 1 : 0
+        if (aMatch !== bMatch) return bMatch - aMatch
+        return (b.hireCount ?? 0) - (a.hireCount ?? 0)
+      })
     }
     return result
-  }, [jobs, search, brandFilter, category, urgentOnly, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recFilter])
+  }, [jobs, search, brandFilter, category, urgentOnly, todayOnly, isTodayJob, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recFilter, sortMode, preferredCategories])
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -405,6 +441,8 @@ export function Home() {
   const cityResultRef = useRef<HTMLElement>(null)
   // Ref for scrolling to the main job list (quick-filter chips)
   const jobResultRef = useRef<HTMLElement>(null)
+  // Ref for the hero search's category <select>, focused by the "Theo ngành nghề" quick filter
+  const categorySelectRef = useRef<HTMLSelectElement>(null)
 
   // Scroll to results when a city is selected
   useEffect(() => {
@@ -432,6 +470,40 @@ export function Home() {
     })
   }
 
+  // Quick-filter category row: each button gives an isolated single-purpose view,
+  // so clicking one clears the other quick-filter states first.
+  const clearQuickFilters = () => {
+    setUrgentOnly(false); setNearMe(false); setTodayOnly(false); setSortMode('none'); setSelectedCity(null)
+  }
+  const scrollToResults = () => {
+    window.requestAnimationFrame(() => {
+      jobResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+  const handleQuickUrgent = () => { clearQuickFilters(); setUrgentOnly(true); scrollToResults() }
+  const handleQuickNearMe = () => {
+    if (!navigator.geolocation) { setGeoErrorMsg('Trình duyệt không hỗ trợ định vị.'); return }
+    setGeoErrorMsg(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearQuickFilters()
+        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setNearMe(true)
+        scrollToResults()
+      },
+      () => setGeoErrorMsg('Không thể lấy vị trí. Hãy cho phép định vị để xem việc gần bạn.'),
+      { timeout: 10_000 },
+    )
+  }
+  const handleQuickToday = () => { clearQuickFilters(); setTodayOnly(true); scrollToResults() }
+  const handleQuickRecommended = () => { clearQuickFilters(); setSortMode('recommended'); scrollToResults() }
+  const handleQuickSalary = () => { clearQuickFilters(); setSortMode('salary'); scrollToResults() }
+  const handleQuickCategory = () => {
+    window.requestAnimationFrame(() => {
+      categorySelectRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      categorySelectRef.current?.focus()
+    })
+  }
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
@@ -476,7 +548,7 @@ export function Home() {
             </label>
             <label className="home-hero-search__field home-hero-category">
               <span aria-hidden>▣</span>
-              <select value={category} onChange={(event) => setCategory(event.target.value as JobCategory | 'all')} aria-label="Chọn ngành nghề">
+              <select ref={categorySelectRef} value={category} onChange={(event) => setCategory(event.target.value as JobCategory | 'all')} aria-label="Chọn ngành nghề">
                 <option value="all">Chọn ngành nghề</option>
                 {REFERENCE_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
@@ -582,10 +654,43 @@ export function Home() {
         </div>
       </div>
 
-      {/* ── 기업 프로모션 카드 (기존 위치 유지, 60:40 섹션에서 분리) ── */}
-      <div className="home-ad-cards">
-        <AdSlot slotId="card1" />
-        <AdSlot slotId="card2" />
+      {/* ── 기업 프로모션 카드: 위쪽 Thương hiệu tuyển dụng 컨테이너와 폭 일치 ── */}
+      <div className="home-ad-cards-row">
+        <div className="home-ad-cards">
+          <AdSlot slotId="card1" />
+          <AdSlot slotId="card2" />
+        </div>
+      </div>
+
+      {/* ── 빠른 필터 카테고리 (알바몬 스타일 원형 아이콘 + 텍스트) ── */}
+      <div className="home-quick-filters">
+        <div className="home-quick-filters__list">
+          <button type="button" className={`home-quick-filter${urgentOnly ? ' is-active' : ''}`} onClick={handleQuickUrgent}>
+            <span className="home-quick-filter__icon" aria-hidden>⚡</span>
+            <span className="home-quick-filter__label">Cần gấp</span>
+          </button>
+          <button type="button" className={`home-quick-filter${nearMe && userCoords ? ' is-active' : ''}`} onClick={handleQuickNearMe}>
+            <span className="home-quick-filter__icon" aria-hidden>📍</span>
+            <span className="home-quick-filter__label">Gần bạn</span>
+          </button>
+          <button type="button" className={`home-quick-filter${todayOnly ? ' is-active' : ''}`} onClick={handleQuickToday}>
+            <span className="home-quick-filter__icon" aria-hidden>🗓️</span>
+            <span className="home-quick-filter__label">Làm hôm nay</span>
+          </button>
+          <button type="button" className={`home-quick-filter${sortMode === 'recommended' ? ' is-active' : ''}`} onClick={handleQuickRecommended}>
+            <span className="home-quick-filter__icon" aria-hidden>✨</span>
+            <span className="home-quick-filter__label">Gợi ý cho bạn</span>
+          </button>
+          <button type="button" className={`home-quick-filter${sortMode === 'salary' ? ' is-active' : ''}`} onClick={handleQuickSalary}>
+            <span className="home-quick-filter__icon" aria-hidden>💰</span>
+            <span className="home-quick-filter__label">Lương cao</span>
+          </button>
+          <button type="button" className="home-quick-filter" onClick={handleQuickCategory}>
+            <span className="home-quick-filter__icon" aria-hidden>🗂️</span>
+            <span className="home-quick-filter__label">Theo ngành nghề</span>
+          </button>
+        </div>
+        {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
       </div>
 
       </div>{/* /.home-top-bg */}

@@ -64,7 +64,7 @@ export function hasPrefs(p: RecommendPrefs): boolean {
 // ---------------------------------------------------------------------------
 // Salary parsing — extracts an approximate hourly rate from Vietnamese salary text
 // ---------------------------------------------------------------------------
-function parseSalaryToHourly(salary: string): number {
+export function parseSalaryToHourly(salary: string): number {
   if (!salary) return 0
 
   // "thỏa thuận" / "theo đơn" — unknowable, return a neutral mid estimate
