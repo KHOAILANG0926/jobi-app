@@ -26,5 +26,8 @@
 
 ## 다음 결정사항
 
-- 현재 상태: **VERIFIED**.
-- 사용자 화면 승인 후 commit/push 및 Production 배포 여부 결정 필요.
+- 현재 상태: **IMPLEMENTED → VERIFIED → MASTER PUSHED → PRODUCTION DEPLOYED → PRODUCTION VERIFIED**.
+- 코드 커밋: `845736a` (`fix: 광고 배너 2개를 Thương hiệu tuyển dụng 로고 목록 바로 아래로 이동`).
+- 인수인계 문서 커밋: `f5c5696` (`docs: record verified home ad layout fix`).
+- Vercel Production 배포가 `Ready` 상태이고 운영 도메인 실제 화면에서도 광고 카드가 브랜드 영역 바로 아래 표시되는 것을 확인함.
+- 사용자 최종 화면 승인만 남음.
