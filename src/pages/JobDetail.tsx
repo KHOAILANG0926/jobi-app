@@ -17,6 +17,14 @@ import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
 import { resolveMapLocation, resolveMapLocations } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
+function googleMapsLinks(query: string): { view: string; directions: string } {
+  const q = encodeURIComponent(query)
+  return {
+    view: `https://www.google.com/maps/search/?api=1&query=${q}`,
+    directions: `https://www.google.com/maps/dir/?api=1&destination=${q}`,
+  }
+}
+
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
   return t ? t : undefined
@@ -242,6 +250,9 @@ export function JobDetail() {
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
   // 있으면 항상 보여준다 — 마커 개수(hasMultipleWorkLocations)와는 별개 기준.
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
+  // 근무지 목록이 없을 때(region/default fallback)만 쓰는 단일 Google Maps 링크 —
+  // 근무지가 있으면 각 주소별로 따로 만든다(아래 렌더링 부분).
+  const singleLocationGmaps = !hasWorkLocationList && locationText ? googleMapsLinks(locationText) : null
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
@@ -321,41 +332,42 @@ export function JobDetail() {
             </div>
           </div>
 
-          {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
-          {extraImages.length > 0 && (
-            <div className="jd2-card">
-              <div className="jd2-card__body">
-                {extraImages.map((url, i) => (
-                  <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
-          {job.description && !job.description.startsWith('http') && (
-            <DescriptionRenderer text={job.description} />
-          )}
-
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-card">
             <h2 className="jd2-card__title">Khu vực làm việc</h2>
             <div className="jd2-card__body">
               {hasWorkLocationList ? (
                 <ul className="jd2-map-addr-list">
-                  {job.workLocations?.map((loc) => (
-                    <li key={loc.id} className="jd2-map-addr">
-                      <MapPin size={13} strokeWidth={1.8} />
-                      {loc.rawAddress}
-                    </li>
-                  ))}
+                  {job.workLocations?.map((loc) => {
+                    const gmaps = googleMapsLinks(loc.rawAddress)
+                    return (
+                      <li key={loc.id} className="jd2-map-addr-item">
+                        <p className="jd2-map-addr">
+                          <MapPin size={13} strokeWidth={1.8} />
+                          {loc.rawAddress}
+                        </p>
+                        <div className="jd2-map-gmaps-links">
+                          <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                          <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : (
                 locationText && (
-                  <p className="jd2-map-addr">
-                    <MapPin size={13} strokeWidth={1.8} />
-                    {locationText}
-                  </p>
+                  <>
+                    <p className="jd2-map-addr">
+                      <MapPin size={13} strokeWidth={1.8} />
+                      {locationText}
+                    </p>
+                    {singleLocationGmaps && (
+                      <div className="jd2-map-gmaps-links">
+                        <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                        <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                      </div>
+                    )}
+                  </>
                 )
               )}
               <JobLocationMap
@@ -376,6 +388,22 @@ export function JobDetail() {
               </p>
             </div>
           </div>
+
+          {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
+          {extraImages.length > 0 && (
+            <div className="jd2-card">
+              <div className="jd2-card__body">
+                {extraImages.map((url, i) => (
+                  <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
+          {job.description && !job.description.startsWith('http') && (
+            <DescriptionRenderer text={job.description} />
+          )}
 
           {/* ── Company info ── */}
           {hasCompanyInfo && (

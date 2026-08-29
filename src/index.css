@@ -8395,6 +8395,30 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-map-addr-list .jd2-map-addr {
   margin: 0;
 }
+.jd2-map-addr-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.jd2-map-gmaps-links {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem 1.15rem;
+}
+.jd2-map-gmaps-links a {
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 6px;
+  padding: 0.2rem 0.55rem;
+  white-space: nowrap;
+}
+.jd2-map-gmaps-links a:hover {
+  background: #dbeafe;
+}
 /* ── Company info card ── */
 .jd2-company { display: flex; align-items: center; gap: 1rem; }
 .jd2-company__logo {
@@ -8627,6 +8651,8 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-btn-ghost { border-color: #334155; color: #94a3b8; }
   .jd2-btn-ghost:hover { background: #0f172a; color: #f1f5f9; }
   .jd2-map-addr { color: #94a3b8; }
+  .jd2-map-gmaps-links a { background: #0f172a; border-color: #334155; color: #60a5fa; }
+  .jd2-map-gmaps-links a:hover { background: #1e293b; }
   .jd2-back { color: #64748b; }
   .jd2-back:hover { color: #f1f5f9; }
   .jd2-desc-img { background: #0f172a; }
