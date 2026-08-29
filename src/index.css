@@ -7039,6 +7039,9 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
   flex: 1;
+  /* 항상 2줄 높이를 확보해서 제목이 1줄이든 2줄이든 카드/행 높이가
+     동일하게 유지되도록 함 (짧은 제목 때문에 위/아래 행 높이가 달라지던 문제) */
+  min-height: calc(0.95rem * 1.55 * 2);
 }
 
 /* 4열: 하단 */
