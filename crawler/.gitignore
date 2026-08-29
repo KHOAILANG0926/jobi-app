@@ -2,3 +2,4 @@
 jobs_output.json
 __pycache__/
 *.pyc
+_batch_apply.sql
