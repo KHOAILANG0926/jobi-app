@@ -102,11 +102,26 @@ async def crawl_category(page, url: str) -> list[dict]:
             if (seen.has(href)) return
             seen.add(href)
             const lines = (el.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean)
-            if (!lines[0] || lines[0].length < 5) return
-            const title = lines[0]
-            const company = lines.find(l => l.length > 2 && l !== title) || ''
+            if (!lines[0]) return
+            // Badge/label lines that can render before the real title on some card
+            // templates (sponsored slots, category grid view, etc.) — confirmed live
+            // on vieclam24h cards. lines[0] used to be trusted blindly as the title,
+            // so when one of these came first the badge became the "title" and the
+            // real title got bumped into the "company" slot instead.
+            // (job_quality.py's parse_listing_card_lines() mirrors this in pure Python
+            // for unit testing — keep both in sync if this changes.)
+            const TITLE_BADGE_LINES = new Set(['Không cần CV', 'HOT', 'Tin ưu tiên'])
+            const title = lines.find(l => !TITLE_BADGE_LINES.has(l)) || lines[0]
+            // The length sanity check has to run on the resolved title, not lines[0] —
+            // a short badge as lines[0] (e.g. "HOT", 3 chars) must not disqualify an
+            // otherwise-valid card whose real title is further down.
+            if (title.length < 5) return
+            const company = lines.find(l => l.length > 2 && l !== title && !TITLE_BADGE_LINES.has(l)) || ''
             const salary = lines.find(l => l.includes('triệu') || l.includes('VND') || l.includes('Thỏa thuận') || l.includes('Cạnh tranh')) || ''
-            const location = lines.find(l => ['Hồ Chí Minh','Hà Nội','Bình Dương','Đồng Nai','Cần Thơ','Đà Nẵng','Bắc Ninh','Hải Phòng'].some(c => l.includes(c))) || ''
+            // Search location keywords only outside the title line — otherwise a job
+            // whose title happens to mention a city (e.g. "... _ Hà Nội") with no
+            // separate location line on the card gets its own title mistaken for location.
+            const location = lines.filter(l => l !== title).find(l => ['Hồ Chí Minh','Hà Nội','Bình Dương','Đồng Nai','Cần Thơ','Đà Nẵng','Bắc Ninh','Hải Phòng'].some(c => l.includes(c))) || ''
             const fullHref = href.startsWith('http') ? href : 'https://vieclam24h.vn' + href
             const img = el.querySelector('img')
             const logoUrl = img ? (img.src || img.getAttribute('data-src') || '') : ''

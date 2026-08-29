@@ -7,6 +7,41 @@ import unicodedata
 from datetime import date
 
 
+# Pure mirror of crawl_category()'s in-browser line-parsing JS in
+# crawl_topcv.py — kept here ONLY so that logic can be unit tested without a
+# real browser (the actual crawl always runs the JS version in-page, this
+# never executes during a real crawl). If either side changes, update both —
+# they must stay behaviorally identical.
+TITLE_BADGE_LINES = {'Không cần CV', 'HOT', 'Tin ưu tiên'}
+LISTING_CITY_KEYWORDS = [
+    'Hồ Chí Minh', 'Hà Nội', 'Bình Dương', 'Đồng Nai',
+    'Cần Thơ', 'Đà Nẵng', 'Bắc Ninh', 'Hải Phòng',
+]
+
+
+def parse_listing_card_lines(lines: list[str]) -> dict[str, str | None]:
+    """title/company/location extraction from one job card's text lines —
+    see crawl_category() in crawl_topcv.py for the real (JS) version this
+    mirrors."""
+    if not lines:
+        return {"title": None, "company": None, "location": None}
+    title = next((l for l in lines if l not in TITLE_BADGE_LINES), lines[0])
+    # Length sanity check runs on the resolved title, not lines[0] — a short
+    # badge as lines[0] (e.g. "HOT", 3 chars) must not disqualify an
+    # otherwise-valid card whose real title is further down.
+    if len(title) < 5:
+        return {"title": None, "company": None, "location": None}
+    company = next(
+        (l for l in lines if len(l) > 2 and l != title and l not in TITLE_BADGE_LINES),
+        "",
+    )
+    location = next(
+        (l for l in lines if l != title and any(c in l for c in LISTING_CITY_KEYWORDS)),
+        "",
+    )
+    return {"title": title, "company": company, "location": location}
+
+
 VALID_CATEGORIES = {
     "factory",
     "cafe",

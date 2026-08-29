@@ -13,6 +13,7 @@ from job_quality import (
     is_expired,
     normalize_location,
     normalize_salary,
+    parse_listing_card_lines,
     split_work_locations,
     validate_job_payload,
 )
@@ -242,10 +243,74 @@ def test_compute_job_updates() -> None:
     )
 
 
+def test_parse_listing_card_lines() -> None:
+    # Regression fixture for local_jobs id 4094: a "Không cần CV" badge line
+    # rendered before the real title on this card, so title/company used to
+    # swap. This is the exact real card text, reconstructed live from the
+    # actual vieclam24h listing (see title-badge investigation).
+    badge_first = [
+        'Không cần CV',
+        'Giám Sát Kỹ Thuật Hiện Trường (Cấp Thoát Nước)',
+        'Công Ty TNHH Điện Bảo An',
+        '12 - 16 triệu',
+        'TP.HCM',
+        'Còn 22 ngày',
+    ]
+    result = parse_listing_card_lines(badge_first)
+    assert_equal(result['title'], 'Giám Sát Kỹ Thuật Hiện Trường (Cấp Thoát Nước)', 'badge line skipped for title')
+    assert_equal(result['company'], 'Công Ty TNHH Điện Bảo An', 'real title no longer bumped into company')
+
+    # Other confirmed badge lines are skipped the same way.
+    assert_equal(
+        parse_listing_card_lines(['HOT', 'Nhân Viên Bán Hàng', 'Công Ty ABC'])['title'],
+        'Nhân Viên Bán Hàng',
+        '"HOT" badge skipped',
+    )
+    assert_equal(
+        parse_listing_card_lines(['Tin ưu tiên', 'Nhân Viên Kho', 'Công Ty XYZ'])['title'],
+        'Nhân Viên Kho',
+        '"Tin ưu tiên" badge skipped',
+    )
+
+    # Regression fixture for local_jobs id 3665: the title itself mentions a
+    # city ("... _ Hà Nội") and the card has no separate location line — the
+    # title line must never be picked as location just because it contains a
+    # city name.
+    title_has_city = ['Nhân Viên Kỹ Thuật _ Hà Nội', 'Công Ty Cổ Phần Thương Mại & Dịch Vụ TTC Việt Nam', '8 - 12 triệu']
+    result = parse_listing_card_lines(title_has_city)
+    assert_equal(result['title'], 'Nhân Viên Kỹ Thuật _ Hà Nội', 'title kept as-is')
+    assert_equal(result['location'], '', 'no separate location line -> location stays empty, not the title')
+
+    # A card with a real, separate location line still finds it correctly —
+    # excluding the title from the search doesn't break the normal case.
+    normal = ['Nhân Viên Bán Hàng Siêu Thị', 'Công Ty CP Bán Lẻ ABC', '8 - 10 triệu', 'Hồ Chí Minh', 'Còn 10 ngày']
+    result = parse_listing_card_lines(normal)
+    assert_equal(result['location'], 'Hồ Chí Minh', 'separate location line still found')
+
+    # Regression fixture for local_jobs id 3981: no badge line, has its own
+    # separate location line — the fix must not change this at all (no badge
+    # among the first lines, so title/company/location come out identical to
+    # before this fix).
+    job_3981 = [
+        'Nhân Viên Hành Chính Nhắc Phí Tại Văn Phòng',
+        'Công Ty TNHH Vietnam Concentrix Services',
+        '9 - 25 triệu',
+        'Hồ Chí Minh',
+        'HOT',
+        'Tin ưu tiên',
+        'Không cần CV',
+        'Còn 4 ngày',
+    ]
+    result = parse_listing_card_lines(job_3981)
+    assert_equal(result['title'], 'Nhân Viên Hành Chính Nhắc Phí Tại Văn Phòng', '3981: title unchanged')
+    assert_equal(result['company'], 'Công Ty TNHH Vietnam Concentrix Services', '3981: company unchanged')
+    assert_equal(result['location'], 'Hồ Chí Minh', '3981: location unchanged')
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
-        test_work_locations, test_compute_job_updates,
+        test_work_locations, test_compute_job_updates, test_parse_listing_card_lines,
     ]
     for test in tests:
         test()
