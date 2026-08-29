@@ -239,6 +239,9 @@ export function JobDetail() {
   // 1+ geocoded job_work_locations rows; otherwise it collapses to the same single point.
   const mapLocations = resolveMapLocations(job)
   const hasMultipleWorkLocations = mapLocations.points.length > 1
+  // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
+  // 있으면 항상 보여준다 — 마커 개수(hasMultipleWorkLocations)와는 별개 기준.
+  const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
@@ -338,7 +341,7 @@ export function JobDetail() {
           <div className="jd2-card">
             <h2 className="jd2-card__title">Khu vực làm việc</h2>
             <div className="jd2-card__body">
-              {hasMultipleWorkLocations ? (
+              {hasWorkLocationList ? (
                 <ul className="jd2-map-addr-list">
                   {job.workLocations?.map((loc) => (
                     <li key={loc.id} className="jd2-map-addr">
