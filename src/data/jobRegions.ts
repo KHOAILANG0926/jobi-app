@@ -271,10 +271,25 @@ export function macroGroupForRegionId(id: JobRegionId): MacroGroupId | undefined
   return PROVINCE_TO_MACRO[id]
 }
 
-export function jobMatchesRegion(location: string, regionId: JobRegionId): boolean {
+/**
+ * location(local_jobs의 대략적 텍스트) 매칭은 그대로 유지하고, 있으면
+ * workLocations(job_work_locations의 실제 근무지들)도 OR로 같이 검사한다 —
+ * 근무지 여러 개 중 하나라도 이 지역과 매칭되면 통과. workLocations가 없는
+ * (또는 빈) 공고는 기존과 완전히 동일하게 location 문자열만으로 판정된다 —
+ * 하위호환 100% 유지.
+ */
+export function jobMatchesRegion(
+  location: string,
+  regionId: JobRegionId,
+  workLocations?: { rawAddress: string }[],
+): boolean {
   const region = JOB_REGIONS.find((r) => r.id === regionId)
   if (!region) return true
-  const hay = normalizeViText(location)
-  if (!hay) return false
-  return region.match.some((m) => hay.includes(normalizeViText(m)))
+  const matchesText = (text: string) => {
+    const hay = normalizeViText(text)
+    if (!hay) return false
+    return region.match.some((m) => hay.includes(normalizeViText(m)))
+  }
+  if (matchesText(location)) return true
+  return (workLocations ?? []).some((loc) => matchesText(loc.rawAddress))
 }

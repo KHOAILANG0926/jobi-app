@@ -307,7 +307,7 @@ export function Home() {
         if (!allowed.includes(j.category)) return false
       }
       if (urgentOnly && !j.urgent) return false
-      if (selectedCity && !jobMatchesRegion(j.location, selectedCity)) return false
+      if (selectedCity && !jobMatchesRegion(j.location, selectedCity, j.workLocations)) return false
       if (brandFilter) {
         const nb = normalizeViText(brandFilter)
         // 프랜차이즈 매장은 회사명이 운영사(예: Wincommerce)로 등록되고
@@ -348,7 +348,7 @@ export function Home() {
   const rankedRegions = useMemo(() => {
     const withCounts = HOME_REGION_LIST.map((r) => ({
       ...r,
-      count: jobs.reduce((n, j) => n + (jobMatchesRegion(j.location, r.id) ? 1 : 0), 0),
+      count: jobs.reduce((n, j) => n + (jobMatchesRegion(j.location, r.id, j.workLocations) ? 1 : 0), 0),
     }))
     const top3 = [...withCounts].sort((a, b) => b.count - a.count).slice(0, 3)
     const top3Ids = new Set(top3.map((r) => r.id))
