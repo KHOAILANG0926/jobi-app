@@ -90,6 +90,66 @@ def normalize_location(value: object, fallback: str = "Hồ Chí Minh") -> str:
     return location[:120] or fallback
 
 
+# Vieclam24h detail pages occasionally repeat generic labels/CTAs inside the
+# "Địa điểm làm việc" block (map links, "xem thêm" etc.) that are not addresses —
+# drop these rather than saving them as a fake work location.
+_WORK_LOCATION_NOISE_RE = re.compile(
+    r"^(xem (bản đồ|thêm)|chi tiết|địa điểm làm việc|bản đồ)\s*:?\s*$",
+    re.IGNORECASE,
+)
+
+# Each address row on vieclam24h's "Địa điểm làm việc" section is rendered as
+# "<province/city>:<address>" with no separating space (observed directly on
+# job id 3981: "TP.HCM:OfficeHaus, 32 Tân Thắng, ..."). The prefix is a bare
+# place name, never containing a digit — a real street address always starts
+# with a house/street number within the first ~25 characters — so requiring
+# "no digit before the colon" keeps this from ever eating part of a real
+# address that happens to contain an early colon.
+_WORK_LOCATION_REGION_PREFIX_RE = re.compile(r"^[^\d:]{2,25}:\s*")
+
+
+def split_work_locations(raw_section_text: object, max_locations: int = 10) -> list[str]:
+    """Split the raw 'Địa điểm làm việc' section text into individual addresses.
+
+    The section text comes from fetch_job_detail(), which already renders each
+    `<li>` as its own `• ` prefixed line (same convention as Mô tả/Yêu cầu/Quyền
+    lợi). This only splits/cleans that text — it never reaches into unrelated
+    sections (e.g. company headquarters address, which lives under a different
+    heading and is never passed in here).
+    """
+    text = str(raw_section_text or "")
+    if not text.strip():
+        return []
+
+    # Bulleted list (the common case: one <li> per work location).
+    if "•" in text:
+        candidates = text.split("•")
+    else:
+        candidates = re.split(r"\n+", text)
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for raw in candidates:
+        addr = normalize_whitespace(raw)
+        # Strip leading numbering like "1.", "1)", "-" left over from non-<li> lists.
+        addr = re.sub(r"^(\d+[\.\)]|[-*])\s*", "", addr).strip()
+        # Strip a leading "<province/city>:" label baked into the same string.
+        addr = _WORK_LOCATION_REGION_PREFIX_RE.sub("", addr).strip()
+        if not addr or len(addr) < 5:
+            continue
+        if _WORK_LOCATION_NOISE_RE.match(addr):
+            continue
+        addr = addr[:300]
+        key = addr.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(addr)
+        if len(result) >= max_locations:
+            break
+    return result
+
+
 def has_source_tag(description: object, source: str) -> bool:
     return f"[source:{source}]" in str(description or "")
 

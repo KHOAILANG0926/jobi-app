@@ -121,6 +121,47 @@ export function calcDistanceKm(lat1: number, lng1: number, lat2: number, lng2: n
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+export interface ResolvedMapPoint {
+  lat: number
+  lng: number
+  label?: string
+}
+
+export interface ResolvedMapLocations {
+  points: ResolvedMapPoint[]
+  source: MapCoordinateSource
+  zoom: number
+}
+
+/**
+ * Multi-marker variant of resolveMapLocation, for jobs that have real
+ * job_work_locations rows with geocoded lat/lng. Falls back to the exact
+ * single-point/region/default logic (via resolveMapLocation) whenever there
+ * are zero geocoded work locations — so a job with no work_locations data
+ * behaves identically to before this was added.
+ */
+export function resolveMapLocations(job: {
+  rawLat?: number
+  rawLng?: number
+  rawLocation?: string
+  workLocations?: { rawAddress: string; lat?: number; lng?: number }[]
+}): ResolvedMapLocations {
+  const geocoded = (job.workLocations ?? []).filter(
+    (l): l is { rawAddress: string; lat: number; lng: number } =>
+      typeof l.lat === 'number' && typeof l.lng === 'number' &&
+      Number.isFinite(l.lat) && Number.isFinite(l.lng),
+  )
+  if (geocoded.length > 0) {
+    return {
+      points: geocoded.map((l) => ({ lat: l.lat, lng: l.lng, label: l.rawAddress })),
+      source: 'exact',
+      zoom: geocoded.length > 1 ? 12 : 15,
+    }
+  }
+  const single = resolveMapLocation(job)
+  return { points: [{ lat: single.lat, lng: single.lng }], source: single.source, zoom: single.zoom }
+}
+
 export function withJobCoordinates(job: Job): Job {
   if (
     typeof job.lat === 'number' &&

@@ -12,6 +12,7 @@ from job_quality import (
     is_expired,
     normalize_location,
     normalize_salary,
+    split_work_locations,
     validate_job_payload,
 )
 
@@ -127,8 +128,64 @@ def test_payload_validation() -> None:
     )
 
 
+def test_work_locations() -> None:
+    # Regression fixture for local_jobs id 3981 (Vieclam24h original) — this is
+    # the exact raw text captured live from the real detail page's DOM via
+    # fetch_job_detail's generic section walker (no <li> tags in this section,
+    # so no "• " bullets; each row is "<province>:<address>" with no space
+    # around the colon). The QTSC Building 1 company HQ address lives under a
+    # different heading and is never part of this text.
+    section_3981 = (
+        "TP.HCM:OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì, Tân Phú\n"
+        "TP.HCM:Onehub Saigon Tower 1 - Đường D1, Khu Công Nghệ Cao, "
+        "Phường Tăng Nhơn Phú, Thủ Đức"
+    )
+    locations = split_work_locations(section_3981)
+    assert_equal(len(locations), 2, "job 3981 must yield exactly 2 work locations")
+    assert_equal(
+        locations[0],
+        "OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì, Tân Phú",
+        "job 3981 location 1",
+    )
+    assert_equal(
+        locations[1],
+        "Onehub Saigon Tower 1 - Đường D1, Khu Công Nghệ Cao, Phường Tăng Nhơn Phú, Thủ Đức",
+        "job 3981 location 2",
+    )
+    assert_true(
+        not any("QTSC" in loc for loc in locations),
+        "job 3981 must never include the QTSC Building 1 company HQ address",
+    )
+
+    # Re-running on the same input must be stable (idempotent regression check).
+    assert_equal(
+        split_work_locations(section_3981),
+        locations,
+        "job 3981 result must stay stable across repeated runs",
+    )
+
+    # Non-list single-paragraph address still yields exactly one location.
+    assert_equal(
+        split_work_locations("123 Đường Lê Lợi, Phường Bến Nghé, Quận 1"),
+        ["123 Đường Lê Lợi, Phường Bến Nghé, Quận 1"],
+        "single-paragraph address",
+    )
+
+    # Boilerplate-only / empty section yields no fabricated location.
+    assert_equal(split_work_locations("Xem bản đồ"), [], "map CTA noise filtered out")
+    assert_equal(split_work_locations(""), [], "empty section yields no locations")
+    assert_equal(split_work_locations(None), [], "missing section yields no locations")
+
+    # Duplicate bullets collapse to one entry.
+    assert_equal(
+        split_work_locations("• 1 Đường A, Quận 1\n• 1 Đường A, Quận 1"),
+        ["1 Đường A, Quận 1"],
+        "duplicate bullets deduplicated",
+    )
+
+
 def main() -> int:
-    tests = [test_classifier, test_quality_helpers, test_payload_validation]
+    tests = [test_classifier, test_quality_helpers, test_payload_validation, test_work_locations]
     for test in tests:
         test()
         print(f"✅ {test.__name__}")

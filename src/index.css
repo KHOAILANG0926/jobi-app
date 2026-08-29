@@ -8384,6 +8384,17 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   font-size: 0.73rem;
   color: #94a3b8;
 }
+.jd2-map-addr-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.jd2-map-addr-list .jd2-map-addr {
+  margin: 0;
+}
 /* ── Company info card ── */
 .jd2-company { display: flex; align-items: center; gap: 1rem; }
 .jd2-company__logo {
