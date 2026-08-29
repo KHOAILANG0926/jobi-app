@@ -1,15 +1,20 @@
 import { useState } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth, type UserRole } from '../context/AuthContext'
 import { ZaloIcon } from '../components/ZaloIcon'
 
 export function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, loginWithZalo } = useAuth()
   const [searchParams] = useSearchParams()
 
   const roleParam = searchParams.get('role') as UserRole | null
-  const redirectTo = searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
+  // 두 경로 다 지원: JobDetail의 "지원하기"는 navigate state(state.from)로 넘기고,
+  // ReportButton/RequireAdmin/RequireEmployer는 URL의 ?redirect=로 넘긴다 — state가
+  // 있으면 그걸 우선하고, 없으면 기존 쿼리파라미터 방식으로 그대로 fallback한다.
+  const stateFrom = (location.state as { from?: string } | null)?.from
+  const redirectTo = stateFrom || searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
 
   const [role, setRole] = useState<UserRole>(roleParam === 'employer' ? 'employer' : 'seeker')
   const [email, setEmail] = useState('')
