@@ -14,7 +14,7 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
-import { resolveMapLocation } from '../lib/jobCoords'
+import { resolveMapLocation, resolveMapLocations } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -235,6 +235,10 @@ export function JobDetail() {
   // 중심 > 위치 정보가 전혀 없으면 베트남 전체 중심. marker도 항상 그리되, 실제 좌표가
   // 아닐 때는 안내 문구로 근사치임을 항상 함께 밝힌다(가짜 위치를 실제처럼 보이지 않게).
   const mapLocation = resolveMapLocation(job)
+  // Additive multi-marker resolution — only differs from mapLocation when the job has
+  // 1+ geocoded job_work_locations rows; otherwise it collapses to the same single point.
+  const mapLocations = resolveMapLocations(job)
+  const hasMultipleWorkLocations = mapLocations.points.length > 1
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
@@ -334,24 +338,38 @@ export function JobDetail() {
           <div className="jd2-card">
             <h2 className="jd2-card__title">Khu vực làm việc</h2>
             <div className="jd2-card__body">
-              {locationText && (
-                <p className="jd2-map-addr">
-                  <MapPin size={13} strokeWidth={1.8} />
-                  {locationText}
-                </p>
+              {hasMultipleWorkLocations ? (
+                <ul className="jd2-map-addr-list">
+                  {job.workLocations?.map((loc) => (
+                    <li key={loc.id} className="jd2-map-addr">
+                      <MapPin size={13} strokeWidth={1.8} />
+                      {loc.rawAddress}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                locationText && (
+                  <p className="jd2-map-addr">
+                    <MapPin size={13} strokeWidth={1.8} />
+                    {locationText}
+                  </p>
+                )
               )}
               <JobLocationMap
                 lat={mapLocation.lat}
                 lng={mapLocation.lng}
                 title={job.title}
-                zoom={mapLocation.zoom}
+                zoom={mapLocations.zoom}
+                extraMarkers={hasMultipleWorkLocations ? mapLocations.points : undefined}
               />
               <p className="jd2-map-note">
-                {mapLocation.source === 'exact'
-                  ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
-                  : mapLocation.source === 'default'
-                    ? 'Chưa có thông tin vị trí cụ thể.'
-                    : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
+                {hasMultipleWorkLocations
+                  ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
+                  : mapLocation.source === 'exact'
+                    ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
+                    : mapLocation.source === 'default'
+                      ? 'Chưa có thông tin vị trí cụ thể.'
+                      : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
               </p>
             </div>
           </div>

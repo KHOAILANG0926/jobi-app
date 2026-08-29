@@ -27,6 +27,7 @@ from job_quality import (
     normalize_location,
     normalize_salary,
     normalize_whitespace,
+    split_work_locations,
     validate_job_payload,
 )
 from supabase import create_client
@@ -134,7 +135,7 @@ async def fetch_job_detail(page, url: str) -> dict:
             })
 
             // 섹션별 본문 추출
-            const TARGET = ['Mô tả công việc', 'Yêu cầu công việc', 'Quyền lợi']
+            const TARGET = ['Mô tả công việc', 'Yêu cầu công việc', 'Quyền lợi', 'Địa điểm làm việc']
             const sections = {}
             document.querySelectorAll('h2, h3, h4').forEach(h => {
                 const heading = h.innerText?.trim() || ''
@@ -240,6 +241,10 @@ async def crawl_vieclam24h() -> list[dict]:
             logo = j.get("logoUrl", "")
             desc_text = format_description(detail.get("sections", {}))
             description = f"[source:vieclam24h] {desc_text}" if desc_text else f"[source:vieclam24h] {j.get('href', '')}"
+            # 'Địa điểm làm việc' 섹션(있을 때만)에서 실제 근무지 주소를 추출한다.
+            # 회사 개요/연락처 섹션(예: QTSC 본사 주소)은 이 heading 밑에 오지 않으므로
+            # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
+            work_locations = split_work_locations(detail.get("sections", {}).get("Địa điểm làm việc", ""))
 
             # 분류: 제목 + 회사 + 본문 첫 300자 활용
             category = classify(title, company, desc_text)
@@ -259,12 +264,16 @@ async def crawl_vieclam24h() -> list[dict]:
                 "origin": "crawler",
                 "admin_hidden": False,
                 "image_url": logo if logo and logo.startswith("http") else None,
+                "source_url": j.get("href") or None,
             }
             quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
             if quality_errors:
                 skipped += 1
                 print(f"    ⏩ 품질 스킵: {title[:70]} ({', '.join(quality_errors)})")
                 continue
+            # local_jobs 컬럼이 아닌 임시 필드 — save_to_supabase에서 job_work_locations
+            # insert에만 쓰고 local_jobs insert 페이로드에서는 제거한다.
+            job["_work_locations"] = work_locations
             jobs.append(job)
             if (idx + 1) % 20 == 0:
                 print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
@@ -303,11 +312,37 @@ def save_to_supabase(jobs: list[dict]):
     print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(jobs) - len(new_jobs)}개")
 
     inserted = 0
+    work_location_rows_total = 0
     for i in range(0, len(new_jobs), 50):
         batch = new_jobs[i:i+50]
-        supabase.table("local_jobs").insert(batch).execute()
+        # local_jobs에는 실제 컬럼만 보낸다 — _work_locations는 별도 테이블용 임시 필드.
+        local_jobs_batch = [
+            {k: v for k, v in job.items() if k != "_work_locations"}
+            for job in batch
+        ]
+        result = supabase.table("local_jobs").insert(local_jobs_batch).execute()
         inserted += len(batch)
         print(f"  ✅ Supabase 저장: {inserted}/{len(new_jobs)}개")
+
+        inserted_rows = result.data or []
+        work_location_rows = []
+        for job, row in zip(batch, inserted_rows):
+            job_id = row.get("id")
+            locations = job.get("_work_locations") or []
+            if not job_id or not locations:
+                continue
+            for idx, addr in enumerate(locations):
+                work_location_rows.append({
+                    "job_id": job_id,
+                    "raw_address": addr,
+                    "sort_order": idx,
+                })
+        if work_location_rows:
+            supabase.table("job_work_locations").insert(work_location_rows).execute()
+            work_location_rows_total += len(work_location_rows)
+
+    if work_location_rows_total:
+        print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")
 
     if not new_jobs:
         print("  ℹ️  새 공고 없음 — 기존 데이터 유지")

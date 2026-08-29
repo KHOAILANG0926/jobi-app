@@ -28,7 +28,18 @@ function parseDescription(raw: string): { description: string; source?: string }
   }
 }
 
-function rowToJob(r: Record<string, unknown>): Job {
+function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] extends (infer U)[] | undefined ? U : never {
+  return {
+    id: r.id as number,
+    rawAddress: (r.raw_address as string) ?? '',
+    normalizedAddress: (r.normalized_address as string) ?? undefined,
+    lat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
+    lng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
+    sortOrder: (r.sort_order as number) ?? 0,
+  }
+}
+
+function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLocations']): Job {
   const { description, source } = parseDescription((r.description as string) ?? '')
   const baseJob = {
     title: (r.title as string) ?? '',
@@ -70,6 +81,8 @@ function rowToJob(r: Record<string, unknown>): Job {
     rawPreference: (r.preference as string)?.trim() || undefined,
     rawLat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
     rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
+    sourceUrl: (r.source_url as string) ?? undefined,
+    workLocations: workLocations && workLocations.length > 0 ? workLocations : undefined,
   })
 }
 
@@ -105,10 +118,32 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const { data } = await supabase
       .from('local_jobs')
-      .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images')
+      .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url')
       .eq('active', true)
       .order('posted_at', { ascending: false })
-    const fetched = (data ?? []).map(rowToJob).filter(isPublicJobAllowed)
+
+    const rows = data ?? []
+    // job_work_locations is purely additive — a failed/empty fetch here must never
+    // block the job list itself from rendering, so this stays a best-effort lookup.
+    const locationsByJobId = new Map<number, NonNullable<Job['workLocations']>>()
+    if (rows.length > 0) {
+      const jobIds = rows.map((r) => r.id as number)
+      const { data: locRows } = await supabase
+        .from('job_work_locations')
+        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order')
+        .in('job_id', jobIds)
+        .order('sort_order', { ascending: true })
+      for (const r of locRows ?? []) {
+        const jobId = r.job_id as number
+        const list = locationsByJobId.get(jobId) ?? []
+        list.push(rowToWorkLocation(r))
+        locationsByJobId.set(jobId, list)
+      }
+    }
+
+    const fetched = rows
+      .map((r) => rowToJob(r, locationsByJobId.get(r.id as number)))
+      .filter(isPublicJobAllowed)
     setJobs(fetched.length > 0 ? fetched : DEMO_JOBS)
     setLoading(false)
   }, [])

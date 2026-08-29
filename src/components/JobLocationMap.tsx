@@ -14,15 +14,26 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 })
 
+interface JobLocationMapMarker {
+  lat: number
+  lng: number
+  /** Popup label for this marker; falls back to `title` when omitted. */
+  label?: string
+}
+
 interface JobLocationMapProps {
   lat: number
   lng: number
   title: string
   /** Map zoom level — pass a lower value for a region- or country-level view. */
   zoom?: number
+  /** Extra markers to draw in addition to lat/lng (e.g. multiple real work
+   *  locations for one job posting). Optional and additive — omitting it keeps
+   *  the original single-marker behavior exactly as before. */
+  extraMarkers?: JobLocationMapMarker[]
 }
 
-export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocationMapProps) {
+export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarkers }: JobLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<L.Map | null>(null)
   const [tileError, setTileError] = useState(false)
@@ -49,7 +60,18 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocati
     tiles.on('load', () => {
       if (loadedCount === 0) setTileError(true)
     })
-    L.marker([lat, lng]).addTo(map).bindPopup(title)
+
+    const markers: JobLocationMapMarker[] =
+      extraMarkers && extraMarkers.length > 0 ? extraMarkers : [{ lat, lng }]
+    const bounds: [number, number][] = []
+    markers.forEach((m) => {
+      L.marker([m.lat, m.lng]).addTo(map).bindPopup(m.label || title)
+      bounds.push([m.lat, m.lng])
+    })
+    if (bounds.length > 1) {
+      map.fitBounds(bounds, { padding: [24, 24] })
+    }
+
     mapInst.current = map
     // The container can be freshly inserted (e.g. right after other page content above
     // it finishes laying out), so Leaflet's size calculation at construction time isn't
@@ -60,7 +82,7 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15 }: JobLocati
       map.remove()
       mapInst.current = null
     }
-  }, [lat, lng, title, zoom])
+  }, [lat, lng, title, zoom, extraMarkers])
 
   if (tileError) {
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>

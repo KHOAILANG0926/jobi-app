@@ -8,6 +8,15 @@
   | 'office'
   | 'other'
 
+export interface JobWorkLocation {
+  id: number
+  rawAddress: string
+  normalizedAddress?: string
+  lat?: number
+  lng?: number
+  sortOrder: number
+}
+
 export interface Job {
   id: string
   title: string
@@ -46,4 +55,10 @@ export interface Job {
    *  unlike `lat`/`lng` which may be back-filled with a guessed province-level location. */
   rawLat?: number
   rawLng?: number
+  /** Original posting URL (crawler source), when known. */
+  sourceUrl?: string
+  /** Real work-site addresses for this job (job_work_locations), 0..N. Undefined/empty
+   *  means no structured work-location data — callers must keep using rawLocation/
+   *  rawLat/rawLng as before (this is purely additive, never required). */
+  workLocations?: JobWorkLocation[]
 }
