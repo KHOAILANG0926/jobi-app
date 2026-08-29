@@ -7,6 +7,7 @@ import sys
 from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
+    compute_job_updates,
     extract_salary_from_text,
     has_excluded_money_terms,
     is_expired,
@@ -184,8 +185,68 @@ def test_work_locations() -> None:
     )
 
 
+def test_compute_job_updates() -> None:
+    existing = {
+        "id": 3981,
+        "title": "Nhân Viên Hành Chính Nhắc Phí Tại Văn Phòng",
+        "company": "Công Ty TNHH Vietnam Concentrix Services",
+        "salary": "9 - 25 triệu",
+        "application_deadline": "2026-09-02",
+        "description": "[source:vieclam24h] ## Mô tả công việc\nGọi điện thoại...",
+        "location": "Hồ Chí Minh",
+    }
+
+    # Nothing changed → no fields to update at all.
+    unchanged_job = {**existing}
+    assert_equal(compute_job_updates(existing, unchanged_job), {}, "no change yields empty update dict")
+
+    # Only the deadline moved — only that one field should be in the result,
+    # not salary/description/location which stayed identical.
+    deadline_changed = {**existing, "application_deadline": "2026-09-10"}
+    assert_equal(
+        compute_job_updates(existing, deadline_changed),
+        {"application_deadline": "2026-09-10"},
+        "deadline-only change isolates that field",
+    )
+
+    # Multiple tracked fields changed at once.
+    multi_changed = {
+        **existing,
+        "salary": "10 - 20 triệu",
+        "location": "Bình Dương",
+    }
+    assert_equal(
+        compute_job_updates(existing, multi_changed),
+        {"salary": "10 - 20 triệu", "location": "Bình Dương"},
+        "multiple changed fields all included",
+    )
+
+    # A re-scrape that yields None for a field (e.g. deadline missing this
+    # time) must never be treated as "cleared it out" — None is ignored, the
+    # existing value is left alone.
+    none_value_job = {**existing, "application_deadline": None}
+    assert_equal(
+        compute_job_updates(existing, none_value_job),
+        {},
+        "new None value never overwrites an existing value",
+    )
+
+    # title/company/category are the matching key / not tracked at all — even
+    # if a caller's job dict carries different values for them, they must
+    # never leak into the update payload.
+    with_untracked_fields = {**existing, "title": "Different Title", "category": "retail"}
+    assert_equal(
+        compute_job_updates(existing, with_untracked_fields),
+        {},
+        "title/category are never part of the update payload",
+    )
+
+
 def main() -> int:
-    tests = [test_classifier, test_quality_helpers, test_payload_validation, test_work_locations]
+    tests = [
+        test_classifier, test_quality_helpers, test_payload_validation,
+        test_work_locations, test_compute_job_updates,
+    ]
     for test in tests:
         test()
         print(f"✅ {test.__name__}")

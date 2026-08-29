@@ -23,6 +23,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
+    compute_job_updates,
     extract_salary_from_text,
     normalize_location,
     normalize_salary,
@@ -293,23 +294,35 @@ def save_to_supabase(jobs: list[dict]):
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
         return
 
-    # 기존 vieclam24h 공고 title+company 세트 조회 (중복 방지용)
+    # 기존 vieclam24h 공고(핵심 필드 포함) 조회 — 매칭은 여전히 canonical_job_key
+    # (title+company)로 하되, 이미 있는 공고라도 salary/deadline/description/
+    # location 중 실제로 바뀐 값이 있으면 update한다(예전엔 무조건 skip).
     existing_raw = supabase.table("local_jobs") \
-        .select("title,company") \
+        .select("id,title,company,salary,application_deadline,description,location") \
         .like("description", "%[source:vieclam24h]%") \
         .execute()
-    existing_keys = {
-        canonical_job_key(r.get("title", ""), r.get("company", ""))
+    existing_by_key = {
+        canonical_job_key(r.get("title", ""), r.get("company", "")): r
         for r in (existing_raw.data or [])
     }
-    print(f"  📋 기존 vieclam24h 공고: {len(existing_keys)}개")
+    print(f"  📋 기존 vieclam24h 공고: {len(existing_by_key)}개")
 
-    # 신규 공고만 필터링 (누적 추가)
-    new_jobs = [
-        j for j in jobs
-        if canonical_job_key(j["title"], j["company"]) not in existing_keys
-    ]
-    print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(jobs) - len(new_jobs)}개")
+    new_jobs = []
+    updated = 0
+    unchanged = 0
+    for j in jobs:
+        key = canonical_job_key(j["title"], j["company"])
+        existing_row = existing_by_key.get(key)
+        if existing_row is None:
+            new_jobs.append(j)
+            continue
+        field_updates = compute_job_updates(existing_row, j)
+        if not field_updates:
+            unchanged += 1
+            continue
+        supabase.table("local_jobs").update(field_updates).eq("id", existing_row["id"]).execute()
+        updated += 1
+    print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 🔄 업데이트: {updated}개 / ⏭️ 변경 없음: {unchanged}개")
 
     inserted = 0
     work_location_rows_total = 0

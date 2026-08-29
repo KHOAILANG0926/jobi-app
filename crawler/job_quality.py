@@ -150,6 +150,33 @@ def split_work_locations(raw_section_text: object, max_locations: int = 10) -> l
     return result
 
 
+# Re-crawling an already-known job (same canonical_job_key) used to be a pure
+# skip — even if the original posting's salary/deadline/description/location
+# had genuinely changed on the source site, our copy never caught up. Only
+# these 4 fields are tracked for update; title/company/category are part of
+# the matching key (title+company never change under the same key), and other
+# fields (image_url etc.) are intentionally left alone for now.
+UPDATE_TRACKED_FIELDS = ("salary", "application_deadline", "description", "location")
+
+
+def compute_job_updates(existing_row: dict, new_job: dict) -> dict:
+    """Pure diff: given an existing local_jobs row and a freshly-scraped job
+    payload matched to it by canonical_job_key, return only the tracked
+    fields whose value actually changed. Empty dict means "skip, no update".
+
+    Never touches the DB — callers decide whether/how to apply the result.
+    """
+    updates: dict = {}
+    for field in UPDATE_TRACKED_FIELDS:
+        new_val = new_job.get(field)
+        if new_val is None:
+            continue
+        old_val = existing_row.get(field)
+        if new_val != old_val:
+            updates[field] = new_val
+    return updates
+
+
 def has_source_tag(description: object, source: str) -> bool:
     return f"[source:{source}]" in str(description or "")
 
