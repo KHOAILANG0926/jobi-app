@@ -149,12 +149,13 @@ export function JobDetail() {
 
   // 크롤링 공고(local_jobs.employer_id가 NULL)는 소유 기업이 없어 내부 지원을 만들면
   // 아무도 조회할 수 없는 "고아 지원"이 되므로 생성하지 않는다.
-  // 크롤러가 본문 없이 원본 링크만 저장한 경우 description 자체가 URL이 되는 기존 패턴
-  // (DescriptionRenderer의 text.startsWith('http') 처리와 동일)을 그대로 활용.
+  // 원본 링크는 local_jobs.source_url(신규 backfill로 채워지는 값)을 우선 쓰고,
+  // 없는 옛날 데이터는 description 자체가 URL이던 기존 패턴으로 fallback한다
+  // (DescriptionRenderer의 text.startsWith('http') 처리와 동일 — 회귀 방지).
   const canApplyInternally = !!job.employerId
-  const sourceUrl = !canApplyInternally && job.description?.startsWith('http')
-    ? job.description
-    : undefined
+  const sourceUrl = canApplyInternally
+    ? undefined
+    : job.sourceUrl || (job.description?.startsWith('http') ? job.description : undefined)
 
   const onOneClickApply = async () => {
     if (!user) {
