@@ -79,6 +79,10 @@ const MENU_ITEMS: MenuItem[] = [
     label: 'Cộng đồng',
     to: '/cong-dong',
   },
+  {
+    label: '🇰🇷 Làm việc tại Hàn Quốc',
+    to: '/viec-han-quoc',
+  },
 ]
 
 export function Layout() {
