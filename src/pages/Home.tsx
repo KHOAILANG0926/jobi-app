@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
@@ -28,15 +28,6 @@ const FEATURED_BRANDS = [
   { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e', logo: 'https://www.google.com/s2/favicons?sz=64&domain=circlek.com' },
   { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://www.google.com/s2/favicons?sz=64&domain=familymart.com' },
   { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://www.google.com/s2/favicons?sz=64&domain=winmart.vn' },
-]
-
-const REFERENCE_CATEGORIES: { label: string; value: JobCategory; icon: string }[] = [
-  { label: 'Sản xuất', value: 'factory', icon: '🏭' },
-  { label: 'Ẩm thực', value: 'cafe', icon: '☕' },
-  { label: 'Giao hàng', value: 'delivery', icon: '🛵' },
-  { label: 'Vệ sinh', value: 'cleaning', icon: '🧹' },
-  { label: 'Bán lẻ', value: 'retail', icon: '🛍️' },
-  { label: 'Văn phòng', value: 'office', icon: '💼' },
 ]
 
 const HOME_REGION_LIST: { id: JobRegionId; label: string }[] = [
@@ -462,14 +453,6 @@ export function Home() {
     setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
   }
 
-  const handleHeroSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setBrandFilter(null)
-    window.requestAnimationFrame(() => {
-      jobResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-  }
-
   // Quick-filter category row: each button gives an isolated single-purpose view,
   // so clicking one clears the other quick-filter states first.
   const clearQuickFilters = () => {
@@ -523,38 +506,11 @@ export function Home() {
           <p className="home-brand-hero__lead">
             Hàng nghìn cơ hội việc làm tốt đang chờ bạn
           </p>
-          <form className="home-hero-search" onSubmit={handleHeroSearch} role="search">
-            <label className="home-hero-search__field home-hero-search__field--keyword">
-              <span className="home-hero-search__icon" aria-hidden>⌕</span>
-              <input
-                className="home-hero-search__input"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Tìm kiếm việc làm, vị trí, công ty..."
-                aria-label="Tìm việc làm"
-              />
-              {search && (
-                <button type="button" className="home-hero-search__clear" onClick={() => setSearch('')} aria-label="Xóa tìm kiếm">×</button>
-              )}
-            </label>
-            <label className="home-hero-search__field home-hero-location">
-              <span aria-hidden>⌖</span>
-              <select value={selectedCity ?? ''} onChange={(event) => setSelectedCity((event.target.value || null) as JobRegionId | null)} aria-label="Chọn khu vực">
-                <option value="">Chọn khu vực</option>
-                {REGION_MACRO_TABS.flatMap((tab) => tab.provinces).map((province) => (
-                  <option key={province.id} value={province.id}>{province.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="home-hero-search__field home-hero-category">
-              <span aria-hidden>▣</span>
-              <select ref={categorySelectRef} value={category} onChange={(event) => setCategory(event.target.value as JobCategory | 'all')} aria-label="Chọn ngành nghề">
-                <option value="all">Chọn ngành nghề</option>
-                {REFERENCE_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
-            </label>
-            <button type="submit" className="home-hero-search__button">Tìm việc</button>
-          </form>
+          <NavLink to="/viec-han-quoc" className="home-hero-search home-hero-cta">
+            <span className="home-hero-cta__icon" aria-hidden>🇰🇷</span>
+            <span className="home-hero-cta__text">Việc làm tại Hàn Quốc</span>
+            <span className="home-hero-cta__arrow" aria-hidden>→</span>
+          </NavLink>
           <div className="home-brand-hero__links">
             <span>{filtered.length} việc làm đang mở</span>
             <NavLink to="/viec-han-quoc">Khám phá việc làm Hàn Quốc →</NavLink>
