@@ -5,11 +5,15 @@ export interface KoreaJob {
   id: number
   created_at: string
   title: string | null
+  /** 베트남어 번역(있을 때만) — UI는 title_vi ?? title로 표시한다. */
+  title_vi: string | null
   company: string | null
   region: string | null
   salary: string | null
   deadline: string | null
   description: string | null
+  /** 베트남어 번역(있을 때만) — UI는 description_vi ?? description으로 표시한다. */
+  description_vi: string | null
   category: string | null
   province: string | null
   district: string | null

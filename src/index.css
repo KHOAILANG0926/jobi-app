@@ -9003,3 +9003,235 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .report-form textarea { min-height:72px; resize:vertical; }
 .report-form>div { display:flex; justify-content:flex-end; gap:7px; }
 .report-form button { border:1px solid #d8dee8; border-radius:7px; padding:7px 10px; cursor:pointer; }
+
+/* ── Korea Jobs list page — 기존 디자인 토큰만 공유, Home 전용 요소(지원활동
+   관리 카드/hero/브랜드 캐러셀/광고배너)는 이 페이지에 없음. ── */
+.korea-page {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.korea-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+.korea-search-bar__field {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 0.9rem;
+  gap: 0.6rem;
+  color: var(--color-muted);
+  border-right: 1px solid var(--color-border);
+}
+.korea-search-bar__field--select { flex: 0 0 190px; }
+.korea-search-bar__field select {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.korea-search-bar__input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.94rem;
+}
+.korea-search-bar__input::placeholder { color: #9ca3af; }
+.korea-search-bar__button {
+  height: 46px;
+  padding: 0 1.4rem;
+  margin-left: 0.4rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.korea-search-bar__button:hover { background: var(--color-primary-hover); }
+
+.korea-cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 2rem;
+}
+.korea-cat-chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.korea-cat-chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.korea-cat-chip.is-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.korea-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.korea-filter-sidebar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  position: sticky;
+  top: 1rem;
+}
+.korea-filter-group { margin-bottom: 1.15rem; }
+.korea-filter-group:last-child { margin-bottom: 0; }
+.korea-filter-group__label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.korea-filter-group select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: #fff;
+}
+.korea-filter-group__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.korea-jobs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 640px) {
+  .korea-jobs-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1000px) {
+  .korea-jobs-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.korea-empty {
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+/* Job card — .jc(JobCard)와 동일한 시각 리듬(패딩/라운드/그림자/타이포)을
+   따르되, local_jobs 전용 Job 타입에 안 묶이도록 별도 컴포넌트로 둔다. */
+.kjc {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  height: 100%;
+  padding: 14px 16px 12px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  text-decoration: none;
+  color: inherit;
+}
+.kjc:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-color: #ddd; }
+.kjc__meta {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+.kjc__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #1a1a1a;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-height: calc(0.98rem * 1.5 * 2);
+}
+.kjc__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 0.5rem;
+}
+.kjc__salary {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kjc__detail-btn {
+  flex-shrink: 0;
+  padding: 0.28rem 0.85rem;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .korea-layout { grid-template-columns: 1fr; }
+  .korea-filter-sidebar { position: static; }
+  .korea-search-bar { flex-wrap: wrap; }
+  .korea-search-bar__field { border-right: 0; flex: 1 1 100%; }
+  .korea-search-bar__field--select { flex: 1 1 100%; }
+  .korea-search-bar__button { width: 100%; margin: 0.4rem 0 0; }
+}

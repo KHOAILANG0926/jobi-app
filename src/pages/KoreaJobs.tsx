@@ -1,31 +1,49 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { NavLink } from 'react-router-dom'
 import { fetchKoreaJobs } from '../lib/koreaJobsApi'
+import { formatKoreaSalary, koreaJobDisplayLocation, koreaJobDisplayTitle } from '../lib/koreaJobFormat'
 import type { KoreaJob } from '../types/koreaJob'
 
-function formatSalary(job: KoreaJob): string | null {
-  if (job.salary_min != null || job.salary_max != null) {
-    const unit = job.salary_type === 'hourly' ? '/giờ'
-      : job.salary_type === 'daily' ? '/ngày'
-      : job.salary_type === 'annual' ? '/năm'
-      : '/tháng'
-    const min = job.salary_min != null ? job.salary_min.toLocaleString('ko-KR') : null
-    const max = job.salary_max != null ? job.salary_max.toLocaleString('ko-KR') : null
-    if (min && max && min !== max) return `${min} - ${max} KRW${unit}`
-    if (min || max) return `${min ?? max} KRW${unit}`
-  }
-  return job.salary
+const SALARY_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'hourly', label: 'Theo giờ' },
+  { value: 'daily', label: 'Theo ngày' },
+  { value: 'monthly', label: 'Theo tháng' },
+  { value: 'annual', label: 'Theo năm' },
+  { value: 'negotiable', label: 'Thỏa thuận' },
+]
+
+function uniqueSorted(values: (string | null)[]): string[] {
+  return Array.from(new Set(values.filter((v): v is string => !!v))).sort((a, b) => a.localeCompare(b))
 }
 
-function formatLocation(job: KoreaJob): string | null {
-  if (job.province) return job.district ? `${job.province} ${job.district}` : job.province
-  return job.region
+function KoreaJobCard({ job }: { job: KoreaJob }) {
+  const title = koreaJobDisplayTitle(job)
+  const location = koreaJobDisplayLocation(job)
+  const salary = formatKoreaSalary(job)
+  const metaParts = [job.category, location, job.company].filter(Boolean) as string[]
+
+  return (
+    <NavLink to={`/viec-han-quoc/${job.id}`} className="kjc">
+      <p className="kjc__meta">{metaParts.join(' · ')}</p>
+      <h3 className="kjc__title">{title}</h3>
+      <div className="kjc__footer">
+        <span className="kjc__salary">{salary || 'Thỏa thuận'}</span>
+        <span className="kjc__detail-btn">Xem chi tiết</span>
+      </div>
+    </NavLink>
+  )
 }
 
 export default function KoreaJobs() {
-  const navigate = useNavigate()
   const [jobs, setJobs] = useState<KoreaJob[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [search, setSearch] = useState('')
+  const [province, setProvince] = useState('')
+  const [category, setCategory] = useState('')
+  const [salaryType, setSalaryType] = useState('')
+  const [dormitoryOnly, setDormitoryOnly] = useState(false)
+  const [koreanLevel, setKoreanLevel] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -35,90 +53,131 @@ export default function KoreaJobs() {
     return () => { cancelled = true }
   }, [])
 
-  return (
-    <div style={{ background: '#f7f8fc', minHeight: '100vh' }}>
-      <div style={{
-        background: 'linear-gradient(135deg, #c0392b 0%, #e74c3c 50%, #e67e22 100%)',
-        padding: '36px 24px 32px',
-        textAlign: 'center',
-        color: '#fff',
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '8px' }}>🇰🇷</div>
-        <h1 style={{ fontSize: '26px', fontWeight: 800, margin: '0 0 8px' }}>
-          Làm việc tại Hàn Quốc
-        </h1>
-        <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>
-          Danh sách việc làm tại Hàn Quốc
-        </p>
-      </div>
+  const provinces = useMemo(() => uniqueSorted(jobs.map((j) => j.province)), [jobs])
+  const categories = useMemo(() => uniqueSorted(jobs.map((j) => j.category)), [jobs])
+  const koreanLevels = useMemo(() => uniqueSorted(jobs.map((j) => j.korean_level_required)), [jobs])
 
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '64px 24px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '16px' }}>⏳</div>
-            <p style={{ color: '#666', fontSize: '15px' }}>Đang tải danh sách việc làm...</p>
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return jobs.filter((job) => {
+      if (q) {
+        const haystack = `${job.title ?? ''} ${job.title_vi ?? ''} ${job.company ?? ''}`.toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      if (province && job.province !== province) return false
+      if (category && job.category !== category) return false
+      if (salaryType && job.salary_type !== salaryType) return false
+      if (dormitoryOnly && job.dormitory !== true) return false
+      if (koreanLevel && job.korean_level_required !== koreanLevel) return false
+      return true
+    })
+  }, [jobs, search, province, category, salaryType, dormitoryOnly, koreanLevel])
+
+  const onSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+  }
+
+  return (
+    <div className="korea-page">
+      <header className="page-header">
+        <h1 className="page-header__title">Làm việc tại Hàn Quốc</h1>
+        <p className="page-header__lead">Việc làm tại Hàn Quốc dành cho người Việt</p>
+      </header>
+
+      <form className="korea-search-bar" onSubmit={onSearchSubmit} role="search">
+        <label className="korea-search-bar__field">
+          <span aria-hidden>⌕</span>
+          <input
+            className="korea-search-bar__input"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Tìm theo tên công việc, công ty..."
+            aria-label="Tìm việc làm"
+          />
+        </label>
+        <label className="korea-search-bar__field korea-search-bar__field--select">
+          <span aria-hidden>⌖</span>
+          <select value={province} onChange={(event) => setProvince(event.target.value)} aria-label="Chọn khu vực">
+            <option value="">Tất cả khu vực</option>
+            {provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </label>
+        <button type="submit" className="korea-search-bar__button">Tìm việc</button>
+      </form>
+
+      {categories.length > 0 && (
+        <div className="korea-cat-chips">
+          <button
+            type="button"
+            className={`korea-cat-chip${category === '' ? ' is-active' : ''}`}
+            onClick={() => setCategory('')}
+          >
+            Tất cả
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`korea-cat-chip${category === c ? ' is-active' : ''}`}
+              onClick={() => setCategory(category === c ? '' : c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <h2 className="home-section__title">Việc làm tại Hàn Quốc</h2>
+
+      <div className="korea-layout">
+        <aside className="korea-filter-sidebar">
+          <div className="korea-filter-group">
+            <label className="korea-filter-group__label" htmlFor="korea-filter-province">Khu vực</label>
+            <select id="korea-filter-province" value={province} onChange={(event) => setProvince(event.target.value)}>
+              <option value="">Tất cả</option>
+              {provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
           </div>
-        ) : jobs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 24px', color: '#888' }}>
-            Chưa có việc làm nào.
+          <div className="korea-filter-group">
+            <label className="korea-filter-group__label" htmlFor="korea-filter-category">Ngành nghề</label>
+            <select id="korea-filter-category" value={category} onChange={(event) => setCategory(event.target.value)}>
+              <option value="">Tất cả</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {jobs.map((job, idx) => (
-              <div
-                key={job.id}
-                onClick={() => navigate(`/viec-han-quoc/${job.id}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/viec-han-quoc/${job.id}`) }}
-                style={{
-                  background: '#fff',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                  border: '1px solid #f0f0f0',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{
-                  height: '4px',
-                  background: idx % 3 === 0
-                    ? 'linear-gradient(90deg, #c0392b, #e74c3c)'
-                    : idx % 3 === 1
-                    ? 'linear-gradient(90deg, #2980b9, #3498db)'
-                    : 'linear-gradient(90deg, #27ae60, #2ecc71)',
-                }} />
-                <div style={{ padding: '20px' }}>
-                  <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#1a1a1a', marginBottom: '12px', lineHeight: '1.4' }}>
-                    {job.title}
-                  </h2>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {job.company && (
-                      <span style={{ background: '#fff3f3', color: '#c0392b', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontWeight: 600 }}>
-                        🏢 {job.company}
-                      </span>
-                    )}
-                    {formatLocation(job) && (
-                      <span style={{ background: '#f0f7ff', color: '#2980b9', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontWeight: 600 }}>
-                        📍 {formatLocation(job)}
-                      </span>
-                    )}
-                    {formatSalary(job) && (
-                      <span style={{ background: '#f0fff4', color: '#27ae60', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontWeight: 600 }}>
-                        💰 {formatSalary(job)}
-                      </span>
-                    )}
-                    {job.deadline && (
-                      <span style={{ background: '#fffbf0', color: '#e67e22', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontWeight: 600 }}>
-                        ⏰ {job.deadline}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="korea-filter-group">
+            <label className="korea-filter-group__label" htmlFor="korea-filter-salary">Hình thức lương</label>
+            <select id="korea-filter-salary" value={salaryType} onChange={(event) => setSalaryType(event.target.value)}>
+              <option value="">Tất cả</option>
+              {SALARY_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
           </div>
-        )}
+          <div className="korea-filter-group">
+            <label className="korea-filter-group__label" htmlFor="korea-filter-korean-level">Yêu cầu tiếng Hàn</label>
+            <select id="korea-filter-korean-level" value={koreanLevel} onChange={(event) => setKoreanLevel(event.target.value)}>
+              <option value="">Tất cả</option>
+              {koreanLevels.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+          <div className="korea-filter-group">
+            <label className="korea-filter-group__checkbox">
+              <input type="checkbox" checked={dormitoryOnly} onChange={(event) => setDormitoryOnly(event.target.checked)} />
+              Có ký túc xá
+            </label>
+          </div>
+        </aside>
+
+        <div>
+          {loading ? (
+            <div className="korea-empty">Đang tải danh sách việc làm...</div>
+          ) : filtered.length === 0 ? (
+            <div className="korea-empty">Không tìm thấy việc làm phù hợp.</div>
+          ) : (
+            <div className="korea-jobs-grid">
+              {filtered.map((job) => <KoreaJobCard key={job.id} job={job} />)}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -3,22 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import JobLocationMap from '../components/JobLocationMap'
 import { resolveMapLocations } from '../lib/jobCoords'
 import { fetchKoreaJob, fetchKoreaJobWorkLocations } from '../lib/koreaJobsApi'
+import { formatKoreaSalary, koreaJobDisplayDescription, koreaJobDisplayLocation, koreaJobDisplayTitle } from '../lib/koreaJobFormat'
 import type { KoreaJob, KoreaJobWorkLocation } from '../types/koreaJob'
-
-const SALARY_UNIT: Record<string, string> = {
-  hourly: '/giờ', daily: '/ngày', monthly: '/tháng', annual: '/năm',
-}
-
-function formatSalary(job: KoreaJob): string | null {
-  if (job.salary_min != null || job.salary_max != null) {
-    const unit = job.salary_type ? SALARY_UNIT[job.salary_type] ?? '' : ''
-    const min = job.salary_min != null ? job.salary_min.toLocaleString('ko-KR') : null
-    const max = job.salary_max != null ? job.salary_max.toLocaleString('ko-KR') : null
-    if (min && max && min !== max) return `${min} - ${max} KRW${unit}`
-    if (min || max) return `${min ?? max} KRW${unit}`
-  }
-  return job.salary
-}
 
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null
@@ -70,6 +56,9 @@ export default function KoreaJobDetail() {
     )
   }
 
+  const displayTitle = koreaJobDisplayTitle(job)
+  const displayDescription = koreaJobDisplayDescription(job)
+
   const geocoded = workLocations.filter((l) => typeof l.lat === 'number' && typeof l.lng === 'number')
   // resolveMapLocations()의 region/default fallback은 베트남 지명만 알기 때문에, 실제
   // geocode된 근무지가 있을 때만 호출한다(그 경우엔 fallback 경로를 아예 안 타므로 안전).
@@ -92,14 +81,14 @@ export default function KoreaJobDetail() {
               {job.category}
             </span>
           )}
-          <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px', lineHeight: 1.3 }}>{job.title}</h1>
+          <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px', lineHeight: 1.3 }}>{displayTitle}</h1>
           {job.company && <p style={{ color: '#555', fontWeight: 600, margin: 0 }}>{job.company}</p>}
         </div>
 
         <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', marginTop: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '4px' }}>THÔNG TIN TUYỂN DỤNG</h2>
-          <InfoRow label="Mức lương" value={formatSalary(job)} />
-          <InfoRow label="Khu vực" value={job.province ? [job.province, job.district].filter(Boolean).join(' ') : job.region} />
+          <InfoRow label="Mức lương" value={formatKoreaSalary(job)} />
+          <InfoRow label="Khu vực" value={koreaJobDisplayLocation(job)} />
           <InfoRow label="Hạn nộp hồ sơ" value={job.deadline} />
           <InfoRow label="Thời gian làm việc" value={job.working_hours} />
           <InfoRow label="Ngày làm việc" value={job.working_days} />
@@ -124,7 +113,7 @@ export default function KoreaJobDetail() {
             <JobLocationMap
               lat={mapView.points[0].lat}
               lng={mapView.points[0].lng}
-              title={job.title ?? ''}
+              title={displayTitle ?? ''}
               zoom={mapView.zoom}
               extraMarkers={mapView.points.length > 1 ? mapView.points : undefined}
             />
@@ -134,10 +123,10 @@ export default function KoreaJobDetail() {
           </div>
         )}
 
-        {job.description && (
+        {displayDescription && (
           <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', marginTop: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
             <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>MÔ TẢ CÔNG VIỆC</h2>
-            <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{job.description}</p>
+            <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{displayDescription}</p>
           </div>
         )}
 
