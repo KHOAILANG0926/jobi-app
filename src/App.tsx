@@ -18,6 +18,7 @@ const PostJob = lazy(() => import('./pages/PostJob').then((module) => ({ default
 const Profile = lazy(() => import('./pages/Profile').then((module) => ({ default: module.Profile })))
 const SalaryCalculator = lazy(() => import('./pages/SalaryCalculator').then((module) => ({ default: module.SalaryCalculator })))
 const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })))
+const KoreaHome = lazy(() => import('./pages/KoreaHome'))
 const KoreaJobs = lazy(() => import('./pages/KoreaJobs'))
 const KoreaJobDetail = lazy(() => import('./pages/KoreaJobDetail'))
 const MapView = lazy(() => import('./components/MapView'))
@@ -63,7 +64,8 @@ export default function App() {
                 <Route path="/dang-nhap" element={lazyRoute(<Login />)} />
                 <Route path="/dang-ky" element={lazyRoute(<Signup />)} />
                 <Route path="/ban-do" element={lazyRoute(<MapView />)} />
-                <Route path="/viec-han-quoc" element={lazyRoute(<KoreaJobs />)} />
+                <Route path="/viec-han-quoc" element={lazyRoute(<KoreaHome />)} />
+                <Route path="/viec-han-quoc/tim-viec" element={lazyRoute(<KoreaJobs />)} />
                 <Route path="/viec-han-quoc/:id" element={lazyRoute(<KoreaJobDetail />)} />
                 <Route path="/franchise-jobs" element={lazyRoute(<FranchiseJobs />)} />
                 <Route path="/zalo-callback" element={lazyRoute(<ZaloCallback />)} />

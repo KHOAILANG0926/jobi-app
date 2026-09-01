@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import KoreaJobCard from '../components/korea/KoreaJobCard'
 import { fetchKoreaJobs } from '../lib/koreaJobsApi'
-import { formatKoreaSalary, koreaJobDisplayLocation, koreaJobDisplayTitle } from '../lib/koreaJobFormat'
 import type { KoreaJob } from '../types/koreaJob'
 
 const SALARY_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -16,31 +16,16 @@ function uniqueSorted(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v))).sort((a, b) => a.localeCompare(b))
 }
 
-function KoreaJobCard({ job }: { job: KoreaJob }) {
-  const title = koreaJobDisplayTitle(job)
-  const location = koreaJobDisplayLocation(job)
-  const salary = formatKoreaSalary(job)
-  const metaParts = [job.category, location, job.company].filter(Boolean) as string[]
-
-  return (
-    <NavLink to={`/viec-han-quoc/${job.id}`} className="kjc">
-      <p className="kjc__meta">{metaParts.join(' · ')}</p>
-      <h3 className="kjc__title">{title}</h3>
-      <div className="kjc__footer">
-        <span className="kjc__salary">{salary || 'Thỏa thuận'}</span>
-        <span className="kjc__detail-btn">Xem chi tiết</span>
-      </div>
-    </NavLink>
-  )
-}
-
 export default function KoreaJobs() {
   const [jobs, setJobs] = useState<KoreaJob[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [search, setSearch] = useState('')
+  // KoreaHome의 검색바에서 /viec-han-quoc/tim-viec?q=... 로 넘어올 때 초기값만
+  // 읽는다 — 양방향 URL 동기화 같은 큰 리팩터링은 하지 않는다(범위 최소화).
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [province, setProvince] = useState('')
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState(searchParams.get('cat') ?? '')
   const [salaryType, setSalaryType] = useState('')
   const [dormitoryOnly, setDormitoryOnly] = useState(false)
   const [koreanLevel, setKoreanLevel] = useState('')
