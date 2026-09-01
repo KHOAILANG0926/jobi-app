@@ -44,7 +44,7 @@ export default function KoreaHome() {
   }
 
   return (
-    <div className="korea-page">
+    <div className="korea-page korea-home-page">
       {/* A. Header — 태극기/공공기관 느낌 없이, 기존 page-header 톤 재사용 */}
       <header className="page-header">
         <h1 className="page-header__title">Bạn muốn làm việc tại Hàn Quốc?</h1>

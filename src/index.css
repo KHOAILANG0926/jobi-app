@@ -9007,10 +9007,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 /* ── Korea Jobs list page — 기존 디자인 토큰만 공유, Home 전용 요소(지원활동
    관리 카드/hero/브랜드 캐러셀/광고배너)는 이 페이지에 없음. ── */
 .korea-page {
-  max-width: 1160px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 2rem 1.25rem 3rem;
 }
+/* KoreaHome(진입 페이지)만 조금 더 좁혀서 제품처럼 응집된 폭으로 읽히게 한다 —
+   KoreaJobs 목록(사이드바+그리드)은 .korea-page의 기존 1080px을 그대로 씀. */
+.korea-home-page { max-width: 760px; }
 
 .korea-search-bar {
   display: flex;
@@ -9240,25 +9243,32 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .korea-search-bar__button { width: 100%; margin: 0.4rem 0 0; }
 }
 
-/* ── Korea Home (진입 페이지) — Discovery/신규Job/Community teaser ── */
+/* ── Korea Home (진입 페이지) — Discovery/신규Job/Community teaser ──
+   모바일 시안의 밀도(카드 안에서 텍스트+CTA+마스코트가 한 덩어리로 꽉 차 보이는
+   비율)를 데스크톱에서도 그대로 유지한다 — 폭만 넓히고 내용은 얇게 흩어지지
+   않도록, 컨테이너 자체를 좁히고(.korea-home-page) 카드 내부는 grid로 균형있게
+   배치한다. */
+.korea-page > header.page-header { margin-bottom: 1rem; }
+
 .korea-discovery {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1.5rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 1.5rem 1.75rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
-.korea-discovery__copy { flex: 1; min-width: 0; }
+.korea-discovery__copy { min-width: 0; }
 .korea-discovery__title {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   margin: 0 0 0.5rem;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: var(--color-text);
 }
@@ -9268,7 +9278,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   color: var(--color-muted);
   font-size: 0.92rem;
   line-height: 1.55;
-  max-width: 46ch;
 }
 .korea-discovery__cta {
   border: 0;
@@ -9280,6 +9289,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   font-weight: 800;
   font-size: 0.9rem;
   cursor: pointer;
+  white-space: nowrap;
 }
 .korea-discovery__cta:hover { background: var(--color-primary-hover); }
 .korea-discovery__notice {
@@ -9303,16 +9313,17 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   color: var(--color-primary);
 }
 .korea-discovery__mascot {
-  width: 96px;
-  height: 96px;
+  width: 156px;
+  height: 156px;
   object-fit: contain;
   flex-shrink: 0;
+  justify-self: end;
 }
 
 .korea-home-more {
   display: flex;
   justify-content: center;
-  margin-top: 1.25rem;
+  margin-top: 1.1rem;
 }
 .korea-home-more__link {
   display: inline-flex;
@@ -9327,17 +9338,20 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 .korea-home-more__link:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-/* Community teaser — Job 섹션보다 훨씬 작은 비중, 버튼/클릭 요소 없음 */
+/* Community teaser — Job 섹션보다 훨씬 작은 비중, 버튼/클릭 요소 없음. 테두리
+   선 하나가 아니라 옅은 배경의 작은 카드로 묶어서 "제품의 일부"처럼 보이게 함. */
 .korea-community-teaser {
-  margin-top: 2rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--color-border);
+  margin-top: 1.75rem;
+  padding: 0.9rem 1.1rem;
+  background: #fafafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 .korea-community-teaser__title {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.25rem;
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--color-muted);
@@ -9349,7 +9363,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 
 @media (max-width: 760px) {
-  .korea-discovery { flex-direction: column; align-items: stretch; text-align: left; padding: 1.25rem; }
-  .korea-discovery__mascot { width: 72px; height: 72px; align-self: flex-end; margin-top: -2.5rem; }
-  .korea-discovery__lead { max-width: none; }
+  .korea-discovery { grid-template-columns: 1fr; padding: 1.25rem; }
+  .korea-discovery__mascot { width: 88px; height: 88px; justify-self: end; margin-top: -3rem; }
 }
