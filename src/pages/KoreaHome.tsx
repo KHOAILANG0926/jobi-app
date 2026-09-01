@@ -45,67 +45,72 @@ export default function KoreaHome() {
 
   return (
     <div className="korea-page korea-home-page">
-      {/* A. Header — 태극기/공공기관 느낌 없이, 기존 page-header 톤 재사용 */}
-      <header className="page-header">
-        <h1 className="page-header__title">Bạn muốn làm việc tại Hàn Quốc?</h1>
-        <p className="page-header__lead">Tìm con đường phù hợp và việc làm thực tế dành cho bạn.</p>
-      </header>
+      {/* A+B. Hero(Header) + Discovery — 모바일은 세로로 쌓이고, desktop(≥900px)에서만
+          korea-hero-row가 좌우 2열로 묶는다. 콘텐츠/문구는 그대로, 배치만 반응형. */}
+      <div className="korea-hero-row">
+        <header className="page-header korea-hero-row__intro">
+          <h1 className="page-header__title">Bạn muốn làm việc tại Hàn Quốc?</h1>
+          <p className="page-header__lead">Tìm con đường phù hợp và việc làm thực tế dành cho bạn.</p>
+        </header>
 
-      {/* B. Discovery — 차별화 포인트, 페이지 상단에 유지하되 hero 크기로 만들지 않음 */}
-      <section className="korea-discovery">
-        <div className="korea-discovery__copy">
-          <h2 className="korea-discovery__title">
-            <Sparkles size={18} aria-hidden /> Liệu tôi có thể làm việc tại Hàn Quốc?
-          </h2>
-          <p className="korea-discovery__lead">
-            Dựa trên kinh nghiệm, học vấn và trình độ tiếng Hàn, hãy khám phá con đường việc làm phù hợp với bạn tại Hàn Quốc.
-          </p>
-          {!discoveryClicked ? (
-            <button type="button" className="korea-discovery__cta" onClick={() => setDiscoveryClicked(true)}>
-              Kiểm tra khả năng ứng tuyển
-            </button>
-          ) : (
-            <div className="korea-discovery__notice">
-              <p>Chức năng kiểm tra khả năng ứng tuyển đang được chuẩn bị. Hãy xem việc làm tại Hàn Quốc trước nhé.</p>
-              <NavLink to={JOB_SEARCH_ROUTE} className="korea-discovery__notice-link">
-                Xem việc làm tại Hàn Quốc <ArrowRight size={14} aria-hidden />
-              </NavLink>
-            </div>
-          )}
-        </div>
-        <img
-          src="/images/mascot-turtle-mint.webp"
-          alt=""
-          aria-hidden
-          className="korea-discovery__mascot"
-        />
-      </section>
-
-      {/* C. 한국 일자리 검색 진입 — KoreaJobs.tsx의 복잡한 필터를 다시 만들지 않고 키워드만 */}
-      <form className="korea-search-bar" onSubmit={onSearchSubmit} role="search">
-        <label className="korea-search-bar__field">
-          <Search size={16} aria-hidden />
-          <input
-            className="korea-search-bar__input"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Tìm việc làm tại Hàn Quốc..."
-            aria-label="Tìm việc làm tại Hàn Quốc"
+        <section className="korea-discovery korea-hero-row__discovery">
+          <div className="korea-discovery__copy">
+            <h2 className="korea-discovery__title">
+              <Sparkles size={18} aria-hidden /> Liệu tôi có thể làm việc tại Hàn Quốc?
+            </h2>
+            <p className="korea-discovery__lead">
+              Dựa trên kinh nghiệm, học vấn và trình độ tiếng Hàn, hãy khám phá con đường việc làm phù hợp với bạn tại Hàn Quốc.
+            </p>
+            {!discoveryClicked ? (
+              <button type="button" className="korea-discovery__cta" onClick={() => setDiscoveryClicked(true)}>
+                Kiểm tra khả năng ứng tuyển
+              </button>
+            ) : (
+              <div className="korea-discovery__notice">
+                <p>Chức năng kiểm tra khả năng ứng tuyển đang được chuẩn bị. Hãy xem việc làm tại Hàn Quốc trước nhé.</p>
+                <NavLink to={JOB_SEARCH_ROUTE} className="korea-discovery__notice-link">
+                  Xem việc làm tại Hàn Quốc <ArrowRight size={14} aria-hidden />
+                </NavLink>
+              </div>
+            )}
+          </div>
+          <img
+            src="/images/mascot-turtle-mint.webp"
+            alt=""
+            aria-hidden
+            className="korea-discovery__mascot"
           />
-        </label>
-        <button type="submit" className="korea-search-bar__button">Tìm kiếm</button>
-      </form>
+        </section>
+      </div>
 
-      {/* D. 직종 Category — 실제 distinct category가 3개 이상일 때만 노출 */}
-      {categories.length >= MIN_CATEGORIES_TO_SHOW && (
-        <div className="korea-cat-chips">
-          {categories.map((c) => (
-            <NavLink key={c} to={`${JOB_SEARCH_ROUTE}?cat=${encodeURIComponent(c)}`} className="korea-cat-chip">
-              <Briefcase size={13} aria-hidden /> {c}
-            </NavLink>
-          ))}
-        </div>
-      )}
+      {/* C+D. 검색 + 직종탐색 — desktop(≥900px)에서 korea-explore-row가 한 줄로 압축.
+          카테고리가 숨겨져 있으면(현재 1개) 검색바 혼자 자연스럽게 그 줄을 채운다. */}
+      <div className="korea-explore-row">
+        <form className="korea-search-bar korea-explore-row__search" onSubmit={onSearchSubmit} role="search">
+          <label className="korea-search-bar__field">
+            <Search size={16} aria-hidden />
+            <input
+              className="korea-search-bar__input"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Tìm việc làm tại Hàn Quốc..."
+              aria-label="Tìm việc làm tại Hàn Quốc"
+            />
+          </label>
+          <button type="submit" className="korea-search-bar__button">Tìm kiếm</button>
+        </form>
+
+        {/* D. 직종 Category — 실제 distinct category가 3개 이상일 때만 노출 */}
+        {categories.length >= MIN_CATEGORIES_TO_SHOW && (
+          <div className="korea-cat-chips korea-explore-row__chips">
+            {categories.map((c) => (
+              <NavLink key={c} to={`${JOB_SEARCH_ROUTE}?cat=${encodeURIComponent(c)}`} className="korea-cat-chip">
+                <Briefcase size={13} aria-hidden /> {c}
+              </NavLink>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* E. 신규 한국 일자리 — 1건이라도 있으면 그대로 표시(카테고리와 기준이 다름) */}
       <section>

@@ -9012,8 +9012,14 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   padding: 2rem 1.25rem 3rem;
 }
 /* KoreaHome(진입 페이지)만 조금 더 좁혀서 제품처럼 응집된 폭으로 읽히게 한다 —
-   KoreaJobs 목록(사이드바+그리드)은 .korea-page의 기존 1080px을 그대로 씀. */
+   KoreaJobs 목록(사이드바+그리드)은 .korea-page의 기존 1080px을 그대로 씀.
+   900px 이상(진짜 desktop)에서는 Hero+Discovery, 검색+카테고리를 좌우로
+   묶는 korea-hero-row/korea-explore-row가 활성화되므로 그만큼 폭을 넓힌다
+   — 720px에서 2열을 억지로 넣으면 각 칸이 340px밖에 안 돼 비좁아진다. */
 .korea-home-page { max-width: 720px; }
+@media (min-width: 900px) {
+  .korea-home-page { max-width: 1000px; }
+}
 
 .korea-search-bar {
   display: flex;
@@ -9260,7 +9266,34 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
    비율)를 데스크톱에서도 그대로 유지한다 — 폭만 넓히고 내용은 얇게 흩어지지
    않도록, 컨테이너 자체를 좁히고(.korea-home-page) 카드 내부는 grid로 균형있게
    배치한다. */
-.korea-page > header.page-header { margin-bottom: 1rem; }
+.korea-hero-row__intro { margin-bottom: 1rem; }
+
+/* Hero(Header)+Discovery — 모바일은 그냥 세로로 쌓임(기본 block flow).
+   900px부터만 좌우 2열로 묶어서 넓은 화면을 실제로 활용한다. */
+@media (min-width: 900px) {
+  .korea-hero-row {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .korea-hero-row__intro { flex: 0 0 300px; margin-bottom: 0; }
+  .korea-hero-row__discovery { flex: 1; margin-bottom: 0; min-width: 0; }
+}
+
+/* 검색바+직종탐색 — 모바일은 세로로 쌓이고(각자 기존 margin-bottom로 간격),
+   900px부터 한 줄로 압축. 카테고리가 숨겨져 있으면(현재 데이터 1개) 검색바
+   혼자 flex:1로 그 줄을 자연스럽게 채운다. */
+@media (min-width: 900px) {
+  .korea-explore-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
+  .korea-explore-row__search { flex: 1; margin-bottom: 0; }
+  .korea-explore-row__chips { flex: 0 1 auto; margin-bottom: 0; }
+}
 
 .korea-discovery {
   display: grid;
