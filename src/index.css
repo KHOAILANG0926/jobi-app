@@ -9013,7 +9013,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 /* KoreaHome(진입 페이지)만 조금 더 좁혀서 제품처럼 응집된 폭으로 읽히게 한다 —
    KoreaJobs 목록(사이드바+그리드)은 .korea-page의 기존 1080px을 그대로 씀. */
-.korea-home-page { max-width: 760px; }
+.korea-home-page { max-width: 720px; }
 
 .korea-search-bar {
   display: flex;
@@ -9147,16 +9147,28 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   cursor: pointer;
 }
 
+/* auto-fit(고정 repeat(3,1fr) 아님) + 고정 max(1fr 아님)로: 카드가 적으면
+   빈 트랙이 만들어지지 않고(auto-fit이 빈 트랙을 collapse) 카드도 늘어나지
+   않는다(max가 216px로 고정돼 1개여도 폭 전체로 안 늘어남) — 720px 컨테이너
+   기준 카드가 3개 이상 모일 때 자연스럽게 3열이 된다(680px 콘텐츠 폭 ÷
+   (216px+gap) ≈ 3). */
 .korea-jobs-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 216px));
   gap: 14px;
+  /* auto-fit만으로는 빈 트랙 폭만 0으로 줄어들 뿐, 그리드 컨테이너 자체는
+     블록 요소라 여전히 부모 폭 100%로 늘어나 카드 옆에 빈 공간이 남는다.
+     width: fit-content로 컨테이너 자체도 실제 카드 개수만큼만 차지하게
+     하고, max-width: 100%로 카드가 많아지면 정상적으로 줄바꿈되게 한다. */
+  width: fit-content;
+  max-width: 100%;
 }
-@media (min-width: 640px) {
-  .korea-jobs-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (min-width: 1000px) {
-  .korea-jobs-grid { grid-template-columns: repeat(3, 1fr); }
+/* 폰 폭에서는 카드 1개당 216px 고정이 오히려 왼쪽에 좁게 붙고 오른쪽에
+   빈 공간을 남긴다 — 2열이 들어갈 여지가 없는 좁은 화면에서는 1열
+   풀와이드로 되돌린다(기존 카드 그리드들과 동일하게 모바일에서 폭 전체
+   사용). */
+@media (max-width: 520px) {
+  .korea-jobs-grid { grid-template-columns: 1fr; width: 100%; }
 }
 
 .korea-empty {
