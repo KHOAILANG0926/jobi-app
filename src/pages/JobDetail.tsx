@@ -115,7 +115,7 @@ export function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { jobs } = useJobs()
+  const { jobs, loading: jobsLoading } = useJobs()
   const [saved, setSaved] = useState(() => (id ? isJobSaved(id) : false))
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
@@ -133,7 +133,25 @@ export function JobDetail() {
     return () => { cancelled = true }
   }, [job?.id, job?.employerId, user?.id])
 
-  if (!id || !job) {
+  // jobs는 앱 로드 시 한 번(페이지네이션 포함) 비동기로 불러온다 — 아직 로딩
+  // 중일 때 job을 못 찾았다고 "Không tìm thấy"를 바로 띄우면, 직접 URL로 들어오거나
+  // 새로고침한 경우(특히 방금 크롤링된 최신 공고) 실제로는 존재하는 공고인데도
+  // 일시적으로 없는 것처럼 보이는 문제가 있었음(sb-4313에서 확인). 로딩 중에는
+  // 로딩 화면만 보여주고, 로딩이 끝난 뒤에도 못 찾을 때만 진짜 "not found"로 처리.
+  if (!id) {
+    return (
+      <div className="page page--narrow not-found">
+        <h1>Không tìm thấy tin tuyển dụng</h1>
+        <p>Tin có thể đã gỡ hoặc liên kết không đúng.</p>
+        <Link to="/" className="btn btn--primary">Về trang chủ</Link>
+      </div>
+    )
+  }
+
+  if (!job) {
+    if (jobsLoading) {
+      return <div className="page page--narrow" role="status" style={{ textAlign: 'center', padding: '64px 24px' }}>Đang tải...</div>
+    }
     return (
       <div className="page page--narrow not-found">
         <h1>Không tìm thấy tin tuyển dụng</h1>

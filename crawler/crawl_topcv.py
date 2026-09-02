@@ -121,7 +121,7 @@ async def crawl_category(page, url: str) -> list[dict]:
             // Search location keywords only outside the title line — otherwise a job
             // whose title happens to mention a city (e.g. "... _ Hà Nội") with no
             // separate location line on the card gets its own title mistaken for location.
-            const location = lines.filter(l => l !== title).find(l => ['Hồ Chí Minh','Hà Nội','Bình Dương','Đồng Nai','Cần Thơ','Đà Nẵng','Bắc Ninh','Hải Phòng'].some(c => l.includes(c))) || ''
+            const location = lines.filter(l => l !== title).find(l => ['Hồ Chí Minh','Hà Nội','Hải Phòng','Quảng Ninh','Bắc Ninh','Bắc Giang','Hưng Yên','Thái Nguyên','Phú Thọ','Ninh Bình','Thanh Hóa','Nghệ An','Hà Tĩnh','Quảng Trị','Huế','Đà Nẵng','Quảng Ngãi','Gia Lai','Đắk Lắk','Khánh Hòa','Lâm Đồng','Đồng Nai','Tây Ninh','Long An','Đồng Tháp','An Giang','Vĩnh Long','Cần Thơ','Cà Mau'].some(c => l.includes(c))) || ''
             const fullHref = href.startsWith('http') ? href : 'https://vieclam24h.vn' + href
             const img = el.querySelector('img')
             const logoUrl = img ? (img.src || img.getAttribute('data-src') || '') : ''
@@ -260,7 +260,8 @@ async def crawl_vieclam24h() -> list[dict]:
             # 'Địa điểm làm việc' 섹션(있을 때만)에서 실제 근무지 주소를 추출한다.
             # 회사 개요/연락처 섹션(예: QTSC 본사 주소)은 이 heading 밑에 오지 않으므로
             # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
-            work_locations = split_work_locations(detail.get("sections", {}).get("Địa điểm làm việc", ""))
+            work_location_section = detail.get("sections", {}).get("Địa điểm làm việc", "")
+            work_locations = split_work_locations(work_location_section)
 
             # 분류: 제목 + 회사 + 본문 첫 300자 활용
             category = classify(title, company, desc_text)
@@ -268,7 +269,10 @@ async def crawl_vieclam24h() -> list[dict]:
             job = {
                 "title": title,
                 "company": company,
-                "location": normalize_location(j.get("location")),
+                # 리스트 카드 키워드 매칭이 실패해 location이 비어오면(예: 대도시
+                # 목록에 없는 지역), 제목 + 실제 근무지 주소 섹션에서 다시 찾는다 —
+                # sb-4312 버그(Hưng Yên 근무인데 fallback으로 Hồ Chí Minh 저장) 재발 방지.
+                "location": normalize_location(j.get("location"), detail_text=f"{title} {work_location_section}"),
                 "salary": normalize_salary(j.get("salary")) if normalize_whitespace(j.get("salary")) else extract_salary_from_text(desc_text),
                 "description": description,
                 "category": category,

@@ -9,6 +9,7 @@ from job_quality import (
     canonical_job_key,
     compute_job_updates,
     extract_salary_from_text,
+    guess_province_from_text,
     has_excluded_money_terms,
     is_expired,
     normalize_location,
@@ -307,10 +308,45 @@ def test_parse_listing_card_lines() -> None:
     assert_equal(result['location'], 'Hồ Chí Minh', '3981: location unchanged')
 
 
+def test_normalize_location_province_fallback() -> None:
+    # sb-4312 회귀 테스트: 리스트 카드에서 지역을 못 찾아 location이 빈 값으로
+    # 들어와도, 예전처럼 무조건 fallback 대도시(Hồ Chí Minh)로 대체하지 않고
+    # 제목/상세 텍스트에서 실제 지역명(Hưng Yên처럼 8대도시 밖의 지역 포함)을
+    # 다시 찾아야 한다.
+    assert_equal(
+        normalize_location(
+            "",
+            detail_text="Kỹ Thuật Viên Bảo Trì Hệ Thống Xử Lý Nước [Hưng Yên] Công ty TNHH ABC",
+        ),
+        "Hưng Yên",
+        "sb-4312 style: empty listing location falls back to province guessed from title",
+    )
+    assert_equal(
+        normalize_location("", detail_text="Nhân viên kho tại KCN Yên Phong, Bắc Ninh"),
+        "Bắc Ninh",
+        "location guessed from detail 'Địa điểm làm việc' section text",
+    )
+    # 상세 텍스트에도 알려진 지역명이 전혀 없을 때만 fallback 대도시를 쓴다.
+    assert_equal(
+        normalize_location("", detail_text="Không có thông tin địa điểm cụ thể"),
+        "Hồ Chí Minh",
+        "no province found anywhere -> falls back to default city",
+    )
+    # 리스트 카드에서 이미 값을 찾았으면 detail_text는 무시하고 그 값을 그대로 쓴다.
+    assert_equal(
+        normalize_location("Đà Nẵng", detail_text="Công ty ở Hưng Yên"),
+        "Đà Nẵng",
+        "non-empty listing location takes priority over detail_text guess",
+    )
+    assert_equal(guess_province_from_text("Nhà máy tại Hưng Yên, gần KCN"), "Hưng Yên", "guess_province_from_text finds province")
+    assert_true(guess_province_from_text("không có địa danh nào ở đây") is None, "guess_province_from_text returns None when nothing matches")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
         test_work_locations, test_compute_job_updates, test_parse_listing_card_lines,
+        test_normalize_location_province_fallback,
     ]
     for test in tests:
         test()

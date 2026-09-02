@@ -13,9 +13,17 @@ from datetime import date
 # never executes during a real crawl). If either side changes, update both —
 # they must stay behaviorally identical.
 TITLE_BADGE_LINES = {'Không cần CV', 'HOT', 'Tin ưu tiên'}
+# 전체 지역 목록 — src/data/jobRegions.ts의 REGION_MACRO_TABS province label과
+# 동기화. 예전엔 8개 대도시만 있어서 그 외 지역(예: Hưng Yên)은 매칭에 실패해
+# normalize_location()의 fallback("Hồ Chí Minh")으로 잘못 대체되는 버그가 있었음
+# (sb-4312에서 실제 발생 확인). 이 리스트가 바뀌면 jobRegions.ts와 crawl_topcv.py의
+# JS 버전(crawl_category() 내부)도 함께 갱신할 것.
 LISTING_CITY_KEYWORDS = [
-    'Hồ Chí Minh', 'Hà Nội', 'Bình Dương', 'Đồng Nai',
-    'Cần Thơ', 'Đà Nẵng', 'Bắc Ninh', 'Hải Phòng',
+    'Hồ Chí Minh', 'Hà Nội', 'Hải Phòng', 'Quảng Ninh', 'Bắc Ninh', 'Bắc Giang',
+    'Hưng Yên', 'Thái Nguyên', 'Phú Thọ', 'Ninh Bình', 'Thanh Hóa', 'Nghệ An',
+    'Hà Tĩnh', 'Quảng Trị', 'Huế', 'Đà Nẵng', 'Quảng Ngãi', 'Gia Lai', 'Đắk Lắk',
+    'Khánh Hòa', 'Lâm Đồng', 'Đồng Nai', 'Tây Ninh', 'Long An', 'Đồng Tháp',
+    'An Giang', 'Vĩnh Long', 'Cần Thơ', 'Cà Mau',
 ]
 
 
@@ -117,12 +125,32 @@ def extract_salary_from_text(*parts: object) -> str:
     return "Thỏa thuận"
 
 
-def normalize_location(value: object, fallback: str = "Hồ Chí Minh") -> str:
+def guess_province_from_text(text: object) -> str | None:
+    """Find the first known province/city name mentioned in free text (job title,
+    the detail page's 'Địa điểm làm việc' section, etc.) — used as a fallback in
+    normalize_location() when the listing card's own location line couldn't be
+    matched, instead of silently defaulting to a specific big city."""
+    s = normalize_whitespace(text)
+    if not s:
+        return None
+    for province in LISTING_CITY_KEYWORDS:
+        if province in s:
+            return province
+    return None
+
+
+def normalize_location(value: object, fallback: str = "Hồ Chí Minh", detail_text: object = "") -> str:
     location = normalize_whitespace(value)
-    if not location:
-        return fallback
-    location = re.sub(r"^(địa điểm|khu vực)\s*[:\-]\s*", "", location, flags=re.IGNORECASE)
-    return location[:120] or fallback
+    if location:
+        location = re.sub(r"^(địa điểm|khu vực)\s*[:\-]\s*", "", location, flags=re.IGNORECASE)
+        return location[:120] or fallback
+    # 리스트 카드에서 지역을 못 찾았을 때(예: LISTING_CITY_KEYWORDS에 없는 지역이라
+    # 빈 값으로 넘어온 경우) 상세페이지 텍스트(제목 + 실제 근무지 주소 섹션)에서
+    # 다시 지역명을 찾는다. sb-4312처럼 실제로는 Hưng Yên 근무인데 매칭 실패로
+    # fallback 대도시(Hồ Chí Minh)로 잘못 저장되던 문제를 막기 위함 — 이 폴백도
+    # 실패했을 때만 fallback 대도시를 사용한다.
+    guessed = guess_province_from_text(detail_text)
+    return guessed or fallback
 
 
 # Vieclam24h detail pages occasionally repeat generic labels/CTAs inside the
