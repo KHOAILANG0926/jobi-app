@@ -125,23 +125,106 @@ def extract_salary_from_text(*parts: object) -> str:
     return "Thỏa thuận"
 
 
+# Province-center coordinates for LISTING_CITY_KEYWORDS — used only as an
+# approximate fallback marker when a job mentions multiple provinces in free
+# text (title/description) but has no structured per-address "Địa điểm làm
+# việc" section to geocode exactly (see guess_all_provinces_from_text() and
+# its use in crawl_topcv.py). Never presented as an exact work address.
+PROVINCE_COORDS: dict[str, tuple[float, float]] = {
+    'Hà Nội': (21.0285, 105.8542), 'Hải Phòng': (20.8449, 106.6881),
+    'Quảng Ninh': (20.9515, 107.0797), 'Bắc Ninh': (21.1861, 106.0763),
+    'Bắc Giang': (21.2731, 106.1946), 'Hưng Yên': (20.6567, 106.0511),
+    'Thái Nguyên': (21.5928, 105.8442), 'Phú Thọ': (21.4208, 105.2306),
+    'Ninh Bình': (20.2506, 105.9744), 'Thanh Hóa': (19.8067, 105.7852),
+    'Nghệ An': (18.6796, 105.6813), 'Hà Tĩnh': (18.3428, 105.9057),
+    'Quảng Trị': (16.7404, 107.1854), 'Huế': (16.4637, 107.5909),
+    'Đà Nẵng': (16.0471, 108.2068), 'Quảng Ngãi': (15.1214, 108.8044),
+    'Gia Lai': (13.9833, 108.0000), 'Đắk Lắk': (12.6667, 108.0500),
+    'Khánh Hòa': (12.2388, 109.1967), 'Lâm Đồng': (11.9404, 108.4583),
+    'Hồ Chí Minh': (10.7769, 106.7009), 'Đồng Nai': (10.9453, 106.8243),
+    'Tây Ninh': (11.3100, 106.0989), 'Long An': (10.5333, 106.4167),
+    'Đồng Tháp': (10.4938, 105.6881), 'An Giang': (10.3833, 105.4333),
+    'Vĩnh Long': (10.2537, 105.9722), 'Cần Thơ': (10.0452, 105.7469),
+    'Cà Mau': (9.1769, 105.1500),
+}
+
+# Common abbreviations that guess_all_provinces_from_text() should still
+# recognize even though they don't contain the full province name as a
+# substring (e.g. "TPHCM" doesn't contain "Hồ Chí Minh").
+_PROVINCE_ALIASES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\btp\.?\s*hcm\b", re.IGNORECASE), 'Hồ Chí Minh'),
+    (re.compile(r"\bhcm\b", re.IGNORECASE), 'Hồ Chí Minh'),
+]
+
+
 def guess_province_from_text(text: object) -> str | None:
     """Find the first known province/city name mentioned in free text (job title,
     the detail page's 'Địa điểm làm việc' section, etc.) — used as a fallback in
     normalize_location() when the listing card's own location line couldn't be
     matched, instead of silently defaulting to a specific big city."""
+    found = guess_all_provinces_from_text(text)
+    return found[0] if found else None
+
+
+def guess_all_provinces_from_text(text: object) -> list[str]:
+    """Like guess_province_from_text() but returns every distinct known province
+    mentioned, in order of first appearance in the text (not keyword-list order)
+    — used when a job covers multiple work regions (e.g. title/description
+    listing several provinces) so that information isn't lost by only keeping
+    the first match."""
     s = normalize_whitespace(text)
     if not s:
-        return None
+        return []
+    positions: dict[str, int] = {}
     for province in LISTING_CITY_KEYWORDS:
-        if province in s:
-            return province
-    return None
+        idx = s.find(province)
+        if idx != -1:
+            positions[province] = idx
+    for pattern, province in _PROVINCE_ALIASES:
+        if province not in positions:
+            m = pattern.search(s)
+            if m:
+                positions[province] = m.start()
+    return [p for p, _ in sorted(positions.items(), key=lambda item: item[1])]
 
 
-def normalize_location(value: object, fallback: str = "Hồ Chí Minh", detail_text: object = "") -> str:
+# A candidate location string that's actually the job title, salary, or company
+# name (crawler bug seen on sb-4313: the whole title got stored as `location`)
+# must never be trusted as-is — real place names are short and don't repeat
+# other fields verbatim.
+_MAX_PLAUSIBLE_LOCATION_LEN = 60
+
+
+def looks_like_location(candidate: str, *, title: str = "", company: str = "", salary: str = "") -> bool:
+    """Reject listing-scraped `location` values that are implausible — either
+    another field's text (title/company/salary) leaking into location verbatim,
+    or a string too long to plausibly be a place name. A short real place name
+    that happens to also appear inside the title (e.g. "Bắc Ninh" when the title
+    mentions Bắc Ninh) is fine and expected — only an exact-field match or an
+    implausibly long value is rejected."""
+    c = normalize_whitespace(candidate)
+    if not c:
+        return False
+    if len(c) > _MAX_PLAUSIBLE_LOCATION_LEN:
+        return False
+    for other in (title, company, salary):
+        other_norm = normalize_whitespace(other)
+        if other_norm and c == other_norm:
+            return False
+    return True
+
+
+def normalize_location(
+    value: object,
+    fallback: str = "Hồ Chí Minh",
+    detail_text: object = "",
+    *,
+    title: str = "",
+    company: str = "",
+    salary: str = "",
+) -> str:
     location = normalize_whitespace(value)
-    if location:
+    if location and looks_like_location(location, title=title, company=company, salary=salary):
         location = re.sub(r"^(địa điểm|khu vực)\s*[:\-]\s*", "", location, flags=re.IGNORECASE)
         return location[:120] or fallback
     # 리스트 카드에서 지역을 못 찾았을 때(예: LISTING_CITY_KEYWORDS에 없는 지역이라

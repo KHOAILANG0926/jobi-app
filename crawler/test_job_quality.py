@@ -9,9 +9,11 @@ from job_quality import (
     canonical_job_key,
     compute_job_updates,
     extract_salary_from_text,
+    guess_all_provinces_from_text,
     guess_province_from_text,
     has_excluded_money_terms,
     is_expired,
+    looks_like_location,
     normalize_location,
     normalize_salary,
     parse_listing_card_lines,
@@ -342,11 +344,36 @@ def test_normalize_location_province_fallback() -> None:
     assert_true(guess_province_from_text("không có địa danh nào ở đây") is None, "guess_province_from_text returns None when nothing matches")
 
 
+def test_location_validation_and_multi_province() -> None:
+    # sb-4313 회귀 테스트: 리스트 카드가 location에 제목 전체를 그대로 넘겨도
+    # (빈 값이 아니어도) 그걸 그대로 믿지 말고 무효 처리해야 한다.
+    title = "Kho Shopee - Nhân Viên Kho Xử Lý Hàng Hóa Bắc Ninh / Bình Dương / Long An / Đà Nẵng (Lên Đến 15 Triệu*)"
+    assert_false(looks_like_location(title, title=title), "full title must not pass as a location")
+    assert_false(looks_like_location("9 - 15 triệu", salary="9 - 15 triệu"), "salary text must not pass as a location")
+    assert_false(looks_like_location("Công Ty TNHH Spx Express", company="Công Ty TNHH Spx Express"), "company name must not pass as a location")
+    assert_true(looks_like_location("Bắc Ninh"), "a real short place name should pass")
+    assert_true(looks_like_location("Bắc Ninh", title=title), "place name substring of title is still a valid location itself")
+
+    assert_equal(
+        normalize_location(title, detail_text=title, title=title, company="", salary=""),
+        "Bắc Ninh",
+        "sb-4313 style: title-as-location is rejected, falls back to first province guessed from title",
+    )
+
+    # "Bình Dương" is intentionally not in LISTING_CITY_KEYWORDS — it's not one of
+    # the current canonical provinces in src/data/jobRegions.ts (2025 administrative
+    # merger absorbed it elsewhere), so it's correctly left unrecognized here too.
+    provinces = guess_all_provinces_from_text(title)
+    assert_equal(provinces, ["Bắc Ninh", "Long An", "Đà Nẵng"], "all recognized provinces found, in text order, no duplicates")
+    assert_equal(guess_all_provinces_from_text("Làm việc tại TPHCM"), ["Hồ Chí Minh"], "TPHCM abbreviation recognized")
+    assert_equal(guess_all_provinces_from_text("không có địa danh nào"), [], "no provinces found -> empty list")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
         test_work_locations, test_compute_job_updates, test_parse_listing_card_lines,
-        test_normalize_location_province_fallback,
+        test_normalize_location_province_fallback, test_location_validation_and_multi_province,
     ]
     for test in tests:
         test()

@@ -25,6 +25,7 @@ from job_quality import (
     canonical_job_key,
     compute_job_updates,
     extract_salary_from_text,
+    guess_all_provinces_from_text,
     normalize_location,
     normalize_salary,
     normalize_whitespace,
@@ -262,18 +263,36 @@ async def crawl_vieclam24h() -> list[dict]:
             # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
             work_location_section = detail.get("sections", {}).get("Địa điểm làm việc", "")
             work_locations = split_work_locations(work_location_section)
+            salary = normalize_salary(j.get("salary")) if normalize_whitespace(j.get("salary")) else extract_salary_from_text(desc_text)
 
             # 분류: 제목 + 회사 + 본문 첫 300자 활용
             category = classify(title, company, desc_text)
 
+            # 리스트 카드 키워드 매칭이 실패했거나(빈 값) 값이 있어도 실제로는
+            # location처럼 보이지 않으면(예: 제목/급여/회사명 전체가 그대로 들어온
+            # sb-4313류 버그) 신뢰하지 않고 제목 + 실제 근무지 주소 섹션에서 다시
+            # 찾는다 — sb-4312(지역 매칭 실패 → 잘못된 fallback 대도시)와
+            # sb-4313(제목 전체가 location으로 저장됨) 재발 방지.
+            location = normalize_location(
+                j.get("location"), detail_text=f"{title} {work_location_section}",
+                title=title, company=company, salary=salary,
+            )
+            # 'Địa điểm làm việc' 섹션에 구조화된 주소가 없어도, 제목/본문에 여러
+            # 지역명이 함께 언급되는 공고(예: "Bắc Ninh / Bình Dương / Long An /
+            # Đà Nẵng")가 있다 — 이 경우 첫 지역 하나만 쓰면 나머지 근무지 정보가
+            # 사라지므로, 발견된 지역 전부를 work_locations 후보로 남겨서 나중에
+            # geocode.py가 각각의 근사 위치를 붙일 수 있게 한다(정확한 주소가
+            # 아니므로 회사 본사 주소로 대체하지 않고, 지역명 자체를 그대로 저장).
+            if not work_locations:
+                mentioned_provinces = guess_all_provinces_from_text(f"{title} {desc_text}")
+                if len(mentioned_provinces) > 1:
+                    work_locations = mentioned_provinces
+
             job = {
                 "title": title,
                 "company": company,
-                # 리스트 카드 키워드 매칭이 실패해 location이 비어오면(예: 대도시
-                # 목록에 없는 지역), 제목 + 실제 근무지 주소 섹션에서 다시 찾는다 —
-                # sb-4312 버그(Hưng Yên 근무인데 fallback으로 Hồ Chí Minh 저장) 재발 방지.
-                "location": normalize_location(j.get("location"), detail_text=f"{title} {work_location_section}"),
-                "salary": normalize_salary(j.get("salary")) if normalize_whitespace(j.get("salary")) else extract_salary_from_text(desc_text),
+                "location": location,
+                "salary": salary,
                 "description": description,
                 "category": category,
                 "posted_at": TODAY,
