@@ -292,6 +292,18 @@ _WORK_LOCATION_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Some factory/plant jobs (confirmed live on job id 4311, Unilever Củ Chi) list
+# "Địa điểm làm việc" as company shuttle-bus PICKUP points, not distinct work
+# sites — e.g. "TP.HCM:xe đưa đón, Củ Chi" / "...Thủ Đức" / "...Quận 1" all for
+# one single physical plant. Saving each pickup district as its own raw_address
+# would fabricate several fake workplaces on the map. There is no reliable way
+# to tell which (if any) of the listed districts is the real site without
+# guessing, and the company's registered address is explicitly off-limits as a
+# substitute (may be a HQ unrelated to the actual work site) — so these rows
+# are dropped entirely and the job falls back to province-level location with
+# an explicit "no detailed address" state, rather than a fabricated one.
+_WORK_LOCATION_SHUTTLE_RE = re.compile(r"^xe\s+đưa\s+đón\b", re.IGNORECASE)
+
 # Each address row on vieclam24h's "Địa điểm làm việc" section is rendered as
 # "<province/city>:<address>" with no separating space (observed directly on
 # job id 3981: "TP.HCM:OfficeHaus, 32 Tân Thắng, ..."). The prefix is a bare
@@ -332,6 +344,8 @@ def split_work_locations(raw_section_text: object, max_locations: int = 10) -> l
         if not addr or len(addr) < 5:
             continue
         if _WORK_LOCATION_NOISE_RE.match(addr):
+            continue
+        if _WORK_LOCATION_SHUTTLE_RE.match(addr):
             continue
         addr = addr[:300]
         key = addr.lower()

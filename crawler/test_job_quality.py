@@ -189,6 +189,34 @@ def test_work_locations() -> None:
         "duplicate bullets deduplicated",
     )
 
+    # Regression fixture for local_jobs id 4311 (Unilever Củ Chi wastewater
+    # operator, vieclam24h) — the exact raw text captured live from the real
+    # detail page's "Địa điểm làm việc" section. This is a company shuttle-bus
+    # pickup-point list (one plant, five pickup districts), not five distinct
+    # work sites — treating each line as its own work location would fabricate
+    # 4 fake workplaces. All 5 lines must be dropped, yielding no locations at
+    # all (never a partial/guessed subset).
+    section_4311 = (
+        "TP.HCM:xe đưa đón, Củ Chi\n"
+        "TP.HCM:xe đưa đón, Thủ Đức\n"
+        "TP.HCM:xe đưa đón, Quận 5\n"
+        "TP.HCM:xe đưa đón, Quận 1\n"
+        "TP.HCM:xe đưa đón, Quận 7"
+    )
+    assert_equal(
+        split_work_locations(section_4311),
+        [],
+        "job 4311 shuttle pickup-point list must yield zero fabricated work locations",
+    )
+
+    # A shuttle-pickup line mixed into an otherwise-real list must only drop
+    # the shuttle line, not the genuine address next to it.
+    assert_equal(
+        split_work_locations("TP.HCM:xe đưa đón, Quận 1\nTP.HCM:456 Đường Cách Mạng Tháng 8, Quận 3"),
+        ["456 Đường Cách Mạng Tháng 8, Quận 3"],
+        "shuttle pickup line filtered out even when mixed with a real address",
+    )
+
 
 def test_compute_job_updates() -> None:
     existing = {

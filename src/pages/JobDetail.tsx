@@ -418,7 +418,7 @@ export function JobDetail() {
                         ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
                         : mapLocation.source === 'default'
                           ? 'Chưa có thông tin vị trí cụ thể.'
-                          : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
+                          : 'Không tìm thấy địa chỉ làm việc chi tiết cho tin này — bản đồ chỉ hiển thị khu vực gần đúng.'}
                   </p>
                 </>
               )}

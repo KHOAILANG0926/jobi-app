@@ -7,9 +7,12 @@ on:
     paths:
       - .github/workflows/jobcard-integrity.yml
       - scripts/test-jobcard-integrity.mjs
+      - scripts/test-job-location-detail.mjs
       - src/components/JobCard.tsx
+      - src/components/JobLocationMap.tsx
       - src/context/JobsContext.tsx
       - src/pages/Home.tsx
+      - src/pages/JobDetail.tsx
       - src/lib/jobCoords.ts
       - package.json
       - package-lock.json
@@ -57,6 +60,9 @@ jobs:
 
       - name: Run job card integrity checks (no nested <a>, no duplicate cards)
         run: node scripts/test-jobcard-integrity.mjs http://127.0.0.1:4173
+
+      - name: Run job location detail checks (real addresses + marker count, no fabricated precise location)
+        run: node scripts/test-job-location-detail.mjs http://127.0.0.1:4173
 
       - name: Run jobCoords regression tests
         run: node src/lib/jobCoords.test.ts
