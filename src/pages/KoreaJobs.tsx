@@ -20,11 +20,12 @@ export default function KoreaJobs() {
   const [jobs, setJobs] = useState<KoreaJob[]>([])
   const [loading, setLoading] = useState(true)
 
-  // KoreaHome의 검색바에서 /viec-han-quoc/tim-viec?q=... 로 넘어올 때 초기값만
-  // 읽는다 — 양방향 URL 동기화 같은 큰 리팩터링은 하지 않는다(범위 최소화).
+  // KoreaHome의 검색바에서 /viec-han-quoc/tim-viec?q=...&province=...&cat=...
+  // 로 넘어올 때 초기값만 읽는다 — 양방향 URL 동기화 같은 큰 리팩터링은
+  // 하지 않는다(범위 최소화).
   const [searchParams] = useSearchParams()
   const [search, setSearch] = useState(searchParams.get('q') ?? '')
-  const [province, setProvince] = useState('')
+  const [province, setProvince] = useState(searchParams.get('province') ?? '')
   const [category, setCategory] = useState(searchParams.get('cat') ?? '')
   const [salaryType, setSalaryType] = useState('')
   const [dormitoryOnly, setDormitoryOnly] = useState(false)

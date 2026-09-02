@@ -304,10 +304,10 @@ export function Layout() {
         <div className="footer-info">
           <div className="footer-info__inner">
             <p className="footer-info__company">
-              <strong>Việt Gần Bạn</strong> &nbsp;|&nbsp; Đại diện: Nguyễn Văn A &nbsp;|&nbsp; ĐKKD: 0100000000
+              <strong>Việt Gần Bạn</strong>
             </p>
             <p className="footer-info__contact">
-              Email: support@viecganban.vn &nbsp;|&nbsp; Hotline: 1900-0000 &nbsp;|&nbsp; Giờ làm việc: T2–T6, 09:00–18:00
+              Email: support@viecganban.vn &nbsp;|&nbsp; Giờ làm việc: T2–T6, 09:00–18:00
             </p>
             <div className="footer-info__legal">
               <a href="/dieu-khoan">Điều khoản sử dụng</a>

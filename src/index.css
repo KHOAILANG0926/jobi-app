@@ -9011,16 +9011,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   margin: 0 auto;
   padding: 2rem 1.25rem 3rem;
 }
-/* KoreaHome(진입 페이지)만 조금 더 좁혀서 제품처럼 응집된 폭으로 읽히게 한다 —
-   KoreaJobs 목록(사이드바+그리드)은 .korea-page의 기존 1080px을 그대로 씀.
-   900px 이상(진짜 desktop)에서는 Hero+Discovery, 검색+카테고리를 좌우로
-   묶는 korea-hero-row/korea-explore-row가 활성화되므로 그만큼 폭을 넓힌다
-   — 720px에서 2열을 억지로 넣으면 각 칸이 340px밖에 안 돼 비좁아진다. */
-.korea-home-page { max-width: 720px; }
-@media (min-width: 900px) {
-  .korea-home-page { max-width: 1000px; }
-}
-
 .korea-search-bar {
   display: flex;
   align-items: center;
@@ -9261,153 +9251,452 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .korea-search-bar__button { width: 100%; margin: 0.4rem 0 0; }
 }
 
-/* ── Korea Home (진입 페이지) — Discovery/신규Job/Community teaser ──
-   모바일 시안의 밀도(카드 안에서 텍스트+CTA+마스코트가 한 덩어리로 꽉 차 보이는
-   비율)를 데스크톱에서도 그대로 유지한다 — 폭만 넓히고 내용은 얇게 흩어지지
-   않도록, 컨테이너 자체를 좁히고(.korea-home-page) 카드 내부는 grid로 균형있게
-   배치한다. */
-.korea-hero-row__intro { margin-bottom: 1rem; }
+/* ── Korea Home (진입 페이지) — 전용 .kh-* 네임스페이스 ──
+   /viec-han-quoc 승인 시안(시안.webp)의 visual hierarchy/composition을
+   그대로 옮긴다. KoreaJobs 목록 페이지(.korea-page/.korea-search-bar/
+   .korea-cat-chip/.korea-jobs-grid/.kjc)와는 완전히 분리된 전용 클래스만
+   쓴다 — 목록 페이지 CSS/컴포넌트는 이 블록에서 전혀 건드리지 않는다. */
 
-/* Hero(Header)+Discovery — 모바일은 그냥 세로로 쌓임(기본 block flow).
-   900px부터만 좌우 2열로 묶어서 넓은 화면을 실제로 활용한다. */
+.kh-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.1rem 1rem 3rem;
+}
 @media (min-width: 900px) {
-  .korea-hero-row {
-    display: flex;
-    align-items: center;
-    gap: 2.5rem;
-    margin-bottom: 1.5rem;
-  }
-  .korea-hero-row__intro { flex: 0 0 300px; margin-bottom: 0; }
-  .korea-hero-row__discovery { flex: 1; margin-bottom: 0; min-width: 0; }
+  .kh-page { max-width: 1200px; padding: 1.75rem 2rem 4rem; }
 }
 
-/* 검색바+직종탐색 — 모바일은 세로로 쌓이고(각자 기존 margin-bottom로 간격),
-   900px부터 한 줄로 압축. 카테고리가 숨겨져 있으면(현재 데이터 1개) 검색바
-   혼자 flex:1로 그 줄을 자연스럽게 채운다. */
-@media (min-width: 900px) {
-  .korea-explore-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin-bottom: 1.25rem;
-  }
-  .korea-explore-row__search { flex: 1; margin-bottom: 0; }
-  .korea-explore-row__chips { flex: 0 1 auto; margin-bottom: 0; }
-}
-
-.korea-discovery {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 1.5rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  padding: 1.5rem 1.75rem;
-  margin-bottom: 1.25rem;
-}
-.korea-discovery__copy { min-width: 0; }
-.korea-discovery__title {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.5rem;
-  font-size: 1.2rem;
+/* A. HERO — 큰 headline + 한 줄 subtitle만. 마스코트/이미지 없음(마스코트는
+   Discovery 카드로), 빈 공간을 많이 차지하지 않도록 컴팩트하게. */
+.kh-hero { padding: 0.25rem 0 1rem; }
+.kh-hero__title {
+  margin: 0 0 0.4rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--color-text);
+  line-height: 1.3;
 }
-.korea-discovery__title svg { color: var(--color-primary); flex-shrink: 0; }
-.korea-discovery__lead {
-  margin: 0 0 1rem;
+.kh-hero__lead {
+  margin: 0;
   color: var(--color-muted);
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
-.korea-discovery__cta {
+@media (min-width: 900px) {
+  .kh-hero { padding: 0.5rem 0 1.5rem; max-width: 760px; }
+  .kh-hero__title { font-size: 2.1rem; }
+  .kh-hero__lead { font-size: 1.05rem; }
+}
+
+/* B. DISCOVERY — 시안 그대로: 연한 mint/green 배경의 feature 카드, 마스코트는
+   좌측에 작게(모바일도 좌우 배치, 시안과 동일), 우측에 eyebrow+headline+lead+CTA,
+   하단에 3개 benefit item. Viecganban 전역 red와 다른 전용 green 악센트. */
+.kh-discovery {
+  --kh-accent: #16a34a;
+  --kh-accent-dark: #128a41;
+  background: linear-gradient(180deg, #eafaf1 0%, #f5fdf8 100%);
+  border: 1px solid #cdeede;
+  border-radius: 20px;
+  padding: 1.1rem;
+  margin-bottom: 1.1rem;
+}
+.kh-discovery__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+.kh-discovery__mascot {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.kh-discovery__copy { flex: 1; min-width: 0; }
+.kh-discovery__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--kh-accent-dark);
+}
+.kh-discovery__title {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+.kh-discovery__lead {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: #3f5b4c;
+  line-height: 1.5;
+}
+.kh-discovery__cta {
   border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
+  border-radius: 999px;
+  background: var(--kh-accent);
   color: #fff;
-  padding: 0.7rem 1.4rem;
   font: inherit;
   font-weight: 800;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
+  padding: 0.6rem 1.2rem;
   cursor: pointer;
   white-space: nowrap;
 }
-.korea-discovery__cta:hover { background: var(--color-primary-hover); }
-.korea-discovery__notice {
-  background: #fff7f7;
-  border: 1px solid var(--color-border);
+.kh-discovery__cta:hover { background: var(--kh-accent-dark); }
+.kh-discovery__notice {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid #cdeede;
   border-radius: var(--radius-sm);
-  padding: 0.9rem 1.1rem;
+  padding: 0.75rem 0.9rem;
 }
-.korea-discovery__notice p {
-  margin: 0 0 0.6rem;
-  font-size: 0.88rem;
+.kh-discovery__notice p {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
   color: var(--color-text);
   line-height: 1.5;
 }
-.korea-discovery__notice-link {
+.kh-discovery__notice-link {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--color-primary);
+  font-size: 0.8rem;
+  color: var(--kh-accent-dark);
 }
-.korea-discovery__mascot {
-  width: 156px;
-  height: 156px;
-  object-fit: contain;
-  flex-shrink: 0;
-  justify-self: end;
+.kh-discovery__benefits {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d5efe0;
+}
+.kh-discovery__benefit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+}
+.kh-discovery__benefit svg { color: var(--kh-accent-dark); flex-shrink: 0; }
+.kh-discovery__benefit-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #274c39;
+  line-height: 1.35;
+}
+@media (min-width: 900px) {
+  .kh-discovery { padding: 2rem 2.25rem; }
+  .kh-discovery__top { align-items: center; gap: 2rem; }
+  .kh-discovery__mascot { width: 148px; height: 148px; }
+  .kh-discovery__title { font-size: 1.4rem; }
+  .kh-discovery__lead { font-size: 0.95rem; max-width: 560px; }
+  .kh-discovery__benefits { max-width: 680px; margin-top: 1.5rem; padding-top: 1.5rem; gap: 1.25rem; }
+  .kh-discovery__benefit-label { font-size: 0.78rem; }
 }
 
-.korea-home-more {
+/* C. 검색 + 지역탐색 — 하나의 rounded container 안에 검색 필드 | 지역 select만.
+   보이는 3번째 버튼 없음(제출은 Enter/select onChange로 즉시 처리, sr-only
+   submit만 접근성용으로 유지). 기존 KoreaJobs 필터로 그대로 이동. */
+.kh-search {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  padding: 0.3rem 0.3rem 0.3rem 1rem;
+  margin-bottom: 1.1rem;
+  gap: 0.4rem;
+}
+.kh-search__field {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+  color: var(--color-muted);
+}
+.kh-search__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+.kh-search__input::placeholder { color: #9ca3af; }
+.kh-search__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.35rem 0;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+.kh-search__region {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.55rem 0.9rem 0.55rem 0.5rem;
+  border-radius: 999px;
+  color: var(--color-muted);
+}
+.kh-search__region select {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  cursor: pointer;
+  max-width: 96px;
+}
+.kh-search__submit {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 900px) {
+  .kh-search { padding: 0.4rem 0.4rem 0.4rem 1.4rem; margin-bottom: 1.75rem; }
+  .kh-search__input { font-size: 0.95rem; }
+  .kh-search__region select { font-size: 0.9rem; max-width: 140px; }
+}
+
+/* D. 직종탐색 — 원형 컬러 아이콘 + 라벨의 가로 6열 navigation(시안 그대로).
+   실제 DB category와 keyword 매칭이 되면 그 값으로 필터링, 안 되면(현재
+   데이터가 아직 없는 분야) 필터 없이 전체 목록으로 이동 — 없는 데이터를
+   있는 것처럼 필터링하지 않는다. 매칭 로직은 KoreaHome.tsx 참고. */
+.kh-categories { margin-bottom: 1.4rem; }
+.kh-categories__grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+.kh-category {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+  min-width: 0;
+}
+.kh-category__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kh-category__label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: center;
+  line-height: 1.25;
+}
+@media (min-width: 900px) {
+  .kh-categories__grid { max-width: 760px; gap: 1rem; }
+  .kh-category__icon { width: 60px; height: 60px; }
+  .kh-category__label { font-size: 0.8rem; }
+}
+
+/* E. 신규 한국 일자리 — Home 전용 grid(목록 페이지의 .korea-jobs-grid와 분리).
+   카드 폭 상한을 216px가 아니라 380px로 둬서 공고 1개일 때도 옹색한 작은
+   카드가 아니라 featured에 가까운 폭을 쓰고, auto-fit이라 공고가 늘면
+   컨테이너 폭 안에서 자연스럽게 2열→3열까지 확장된다(최대 3열, 1200px
+   컨테이너 기준 380px×3+gap이 넘지 않음). */
+.kh-jobs { margin-bottom: 1.4rem; }
+.kh-jobs__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+}
+.kh-jobs__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.kh-jobs__more-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.kh-jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 380px));
+  gap: 0.85rem;
+  width: fit-content;
+  max-width: 100%;
+}
+@media (max-width: 560px) {
+  .kh-jobs-grid { grid-template-columns: 1fr; width: 100%; }
+}
+.kh-jobs-more {
   display: flex;
   justify-content: center;
-  margin-top: 1.1rem;
+  margin-top: 1rem;
 }
-.korea-home-more__link {
+.kh-jobs-more__link {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.65rem 1.4rem;
+  padding: 0.6rem 1.3rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   color: var(--color-text);
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
-.korea-home-more__link:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.kh-jobs-more__link:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-/* Community teaser — Job 섹션보다 훨씬 작은 비중, 버튼/클릭 요소 없음. 테두리
-   선 하나가 아니라 옅은 배경의 작은 카드로 묶어서 "제품의 일부"처럼 보이게 함. */
-.korea-community-teaser {
-  margin-top: 1.75rem;
-  padding: 0.9rem 1.1rem;
-  background: #fafafa;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.korea-community-teaser__title {
+/* F. Korea Community — 시안의 "이미지 카드형" visual structure를 그대로
+   구현한다(카드 상단 category badge + 대표 이미지 + 하단 title + 하단 상태).
+   실제 게시글/작성자/시간이 없으므로 사진 대신 카테고리를 나타내는 flat
+   일러스트를 쓰고, "Xem trước · Sắp ra mắt"로 preview 상태를 명시한다.
+   실제 페이지가 없어 "Xem thêm"은 비활성 표시만(클릭 이동 없음). */
+.kh-community { margin-bottom: 0.5rem; }
+.kh-community__head {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  margin: 0 0 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--color-muted);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.3rem;
+  margin-bottom: 0.3rem;
 }
-.korea-community-teaser__lead {
+.kh-community__head-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.kh-community__title {
   margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+.kh-community__badge {
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: #fff;
+  background: #9ca3af;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.kh-community__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #b0b6bf;
+  cursor: not-allowed;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.kh-community__lead {
+  margin: 0 0 0.9rem;
   font-size: 0.82rem;
   color: var(--color-muted);
+  line-height: 1.5;
 }
 
-@media (max-width: 760px) {
-  .korea-discovery { grid-template-columns: 1fr; padding: 1.25rem; }
-  .korea-discovery__mascot { width: 88px; height: 88px; justify-self: end; margin-top: -3rem; }
+/* 시안의 이미지 카드형 구조: 카드 상단 category badge + 대표 이미지(flat
+   일러스트) + 하단 title + 하단 상태 영역. 모바일은 가로 스크롤로 4장이 다
+   이어지고(시안처럼 "가로로 나열"), 640px부터 한 줄 4열로 고정 — PC는 4개
+   카드 한 줄. */
+.kh-community__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(148px, 1fr);
+  gap: 0.65rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 0.2rem;
+  margin: 0 -1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 640px) {
+  .kh-community__grid {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, 1fr);
+    overflow-x: visible;
+    margin: 0;
+    padding-left: 0;
+    padding-right: 0;
+    max-width: 760px;
+  }
+}
+.kh-community-card {
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+.kh-community-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+.kh-community-card__media svg { display: block; width: 100%; height: 100%; }
+.kh-community-card__badge {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.kh-community-card__body { padding: 0.55rem 0.65rem 0.7rem; }
+.kh-community-card__caption {
+  margin: 0 0 0.25rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kh-community-card__status {
+  margin: 0;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #9ca3af;
 }
