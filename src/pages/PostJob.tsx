@@ -1,15 +1,10 @@
 import { FormEvent, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createClient } from '@supabase/supabase-js'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
+import { supabase } from '../lib/supabase'
 import type { JobCategory } from '../types/job'
-
-const supabase = createClient(
-  'https://edhuesdnuxlbcfephutq.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
-)
 
 const emptyForm = {
   title: '',

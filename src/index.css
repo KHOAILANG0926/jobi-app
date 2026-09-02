@@ -7040,11 +7040,14 @@ a:hover {
   display: inline-flex; align-items: center; gap: 0.3rem;
   padding: 0.28rem 0.75rem;
   background: #0068ff; color: #fff;
+  font: inherit;
   font-size: 0.75rem; font-weight: 700;
+  border: none;
   border-radius: 20px;
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
+  cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
 .jc__zalo-btn:hover { background: #0052cc; transform: translateY(-1px); }

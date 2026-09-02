@@ -1,0 +1,62 @@
+name: Job card integrity (nested links + duplicates)
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/workflows/jobcard-integrity.yml
+      - scripts/test-jobcard-integrity.mjs
+      - src/components/JobCard.tsx
+      - src/context/JobsContext.tsx
+      - src/pages/Home.tsx
+      - src/lib/jobCoords.ts
+      - package.json
+      - package-lock.json
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  playwright-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # 24+ needed for src/lib/jobCoords.test.ts, which runs directly via
+          # `node file.ts` using Node's native TypeScript support (no ts-node/
+          # build step) — verified locally on Node 24.15.
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Type-check and build
+        run: |
+          npx tsc --noEmit
+          npm run build
+
+      - name: Start preview server
+        run: nohup npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+
+      - name: Wait for preview server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4173 > /dev/null; then echo "preview is up"; exit 0; fi
+            sleep 2
+          done
+          echo "preview server did not come up in time"; cat preview.log; exit 1
+
+      - name: Run job card integrity checks (no nested <a>, no duplicate cards)
+        run: node scripts/test-jobcard-integrity.mjs http://127.0.0.1:4173
+
+      - name: Run jobCoords regression tests
+        run: node src/lib/jobCoords.test.ts

@@ -133,26 +133,31 @@ export default function JobCard({
           {salaryNum}
         </span>
         {(job.zalo || job.employerPhone) ? (
-          <a
-            href={zaloMeUrl(job.zalo || job.employerPhone)}
-            target="_blank"
-            rel="noopener noreferrer"
+          // 카드 전체가 이미 상세 페이지로 가는 <a>(NavLink)로 감싸여 있으므로,
+          // Zalo로 이동하는 이 버튼은 <a>가 아니라 <button>이어야 한다 — <a> 안에
+          // <a>를 중첩하면 무효한 HTML이 되고(운영에서 실제로 1,168개 발견됨),
+          // 클릭 시 어느 링크가 실제로 열릴지 브라우저/스크린리더마다 달라진다.
+          <button
+            type="button"
             className="jc__zalo-btn"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              window.open(zaloMeUrl(job.zalo || job.employerPhone), '_blank', 'noopener,noreferrer')
+            }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 2C6.48 2 2 6.03 2 11c0 2.7 1.22 5.12 3.17 6.83L4 20.5l2.93-1.04C8.27 20.14 10.08 20.5 12 20.5c5.52 0 10-4.03 10-9s-4.48-9-10-9zm1 13h-2v-5h2v5zm0-7h-2V6h2v2z"/>
             </svg>
             Liên hệ Zalo
-          </a>
+          </button>
         ) : (
-          <a
-            href={`/viec-lam/${job.id}`}
-            className="jc__zalo-btn jc__zalo-btn--detail"
-            onClick={(e) => e.stopPropagation()}
-          >
+          // 여기는 실제 이동 대상이 카드를 감싸는 <a>와 완전히 같은 상세 페이지라
+          // 별도 링크가 필요 없다 — 시각적 안내 텍스트로만 두고 카드 전체 클릭에
+          // 맡긴다(중첩 <a> 방지).
+          <span className="jc__zalo-btn jc__zalo-btn--detail" aria-hidden="true">
             Xem chi tiết
-          </a>
+          </span>
         )}
       </div>
     </article>

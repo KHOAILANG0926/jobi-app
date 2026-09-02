@@ -7,16 +7,11 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import { classifyJobCategory } from '../lib/jobCategoryRules'
 import { isPublicJobAllowed } from '../lib/jobQualityFilter'
 import { ensureJobFields } from '../lib/jobUtils'
+import { supabase } from '../lib/supabase'
 import type { Job } from '../types/job'
-
-const supabase = createClient(
-  'https://edhuesdnuxlbcfephutq.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
-)
 
 function parseDescription(raw: string): { description: string; source?: string } {
   const match = raw?.match(/\[source:([^\]]+)\]/)
@@ -121,6 +116,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     // listings from the public site — page through with .range() until a page
     // comes back short. The 20-page cap (20,000 rows) is just a runaway-loop
     // guard, not an expected ceiling.
+    // `order('posted_at')` alone is not a stable sort: many rows share the exact
+    // same posted_at (a whole day's crawl batch), so within a tie group Postgres
+    // is free to return rows in a different order on each separate paginated
+    // query — the same row can then land on two different pages (duplicate) or
+    // land on neither (skipped) as offsets shift. Adding `id` as a tiebreaker
+    // makes the ordering fully deterministic across pages.
     const PAGE_SIZE = 1000
     const rows: Record<string, unknown>[] = []
     for (let page = 0; page < 20; page++) {
@@ -130,11 +131,23 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url')
         .eq('active', true)
         .order('posted_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, from + PAGE_SIZE - 1)
       const pageRows = data ?? []
       rows.push(...pageRows)
       if (pageRows.length < PAGE_SIZE) break
     }
+    // Defensive de-dup by id — even with a deterministic sort, a page boundary
+    // that lands mid-request during a live crawl insert could still overlap.
+    // Never trust the paginated fetch to be duplicate-free without checking.
+    const seenIds = new Set<unknown>()
+    const dedupedRows = rows.filter((r) => {
+      if (seenIds.has(r.id)) return false
+      seenIds.add(r.id)
+      return true
+    })
+    rows.length = 0
+    rows.push(...dedupedRows)
     // job_work_locations is purely additive — a failed/empty fetch here must never
     // block the job list itself from rendering, so this stays a best-effort lookup.
     const locationsByJobId = new Map<number, NonNullable<Job['workLocations']>>()
