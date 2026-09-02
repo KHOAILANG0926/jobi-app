@@ -8411,6 +8411,12 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   font-size: 0.73rem;
   color: #94a3b8;
 }
+.jd2-map-unknown {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+}
 .jd2-map-addr-list {
   list-style: none;
   padding: 0;

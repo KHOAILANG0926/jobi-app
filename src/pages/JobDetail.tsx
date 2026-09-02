@@ -14,7 +14,7 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
-import { resolveMapLocation, resolveMapLocations } from '../lib/jobCoords'
+import { resolveMapLocation, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
 function googleMapsLinks(query: string): { view: string; directions: string } {
@@ -362,56 +362,66 @@ export function JobDetail() {
           <div className="jd2-card">
             <h2 className="jd2-card__title">Khu vực làm việc</h2>
             <div className="jd2-card__body">
-              {hasWorkLocationList ? (
-                <ul className="jd2-map-addr-list">
-                  {job.workLocations?.map((loc) => {
-                    const gmaps = googleMapsLinks(loc.rawAddress)
-                    return (
-                      <li key={loc.id} className="jd2-map-addr-item">
+              {!hasWorkLocationList && !locationText ? (
+                // 위치 정보가 전혀 없을 때: 임의 좌표(fallback 대도시 등)로 지도를
+                // 그리지 않는다 — 실제 근무지가 아닌 곳에 마커가 찍히면 사용자가
+                // 그걸 실제 위치로 오해할 수 있기 때문 (sb-4312/sb-4313에서 실제
+                // 발생했던 문제의 근본 원인). 지도 대신 명확한 안내 문구만 표시.
+                <p className="jd2-map-unknown">Không thể xác định chính xác khu vực làm việc cho tin tuyển dụng này.</p>
+              ) : (
+                <>
+                  {hasWorkLocationList ? (
+                    <ul className="jd2-map-addr-list">
+                      {job.workLocations?.map((loc) => {
+                        const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc))
+                        return (
+                          <li key={loc.id} className="jd2-map-addr-item">
+                            <p className="jd2-map-addr">
+                              <MapPin size={13} strokeWidth={1.8} />
+                              {loc.rawAddress}
+                            </p>
+                            <div className="jd2-map-gmaps-links">
+                              <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                              <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    locationText && (
+                      <>
                         <p className="jd2-map-addr">
                           <MapPin size={13} strokeWidth={1.8} />
-                          {loc.rawAddress}
+                          {locationText}
                         </p>
-                        <div className="jd2-map-gmaps-links">
-                          <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                          <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                        </div>
-                      </li>
+                        {singleLocationGmaps && (
+                          <div className="jd2-map-gmaps-links">
+                            <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                            <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                          </div>
+                        )}
+                      </>
                     )
-                  })}
-                </ul>
-              ) : (
-                locationText && (
-                  <>
-                    <p className="jd2-map-addr">
-                      <MapPin size={13} strokeWidth={1.8} />
-                      {locationText}
-                    </p>
-                    {singleLocationGmaps && (
-                      <div className="jd2-map-gmaps-links">
-                        <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                        <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                      </div>
-                    )}
-                  </>
-                )
+                  )}
+                  <JobLocationMap
+                    lat={mapCenter.lat}
+                    lng={mapCenter.lng}
+                    title={job.title}
+                    zoom={mapLocations.zoom}
+                    extraMarkers={hasGeocodedWorkLocations ? mapLocations.points : undefined}
+                  />
+                  <p className="jd2-map-note">
+                    {hasGeocodedWorkLocations
+                      ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
+                      : mapLocation.source === 'exact'
+                        ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
+                        : mapLocation.source === 'default'
+                          ? 'Chưa có thông tin vị trí cụ thể.'
+                          : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
+                  </p>
+                </>
               )}
-              <JobLocationMap
-                lat={mapCenter.lat}
-                lng={mapCenter.lng}
-                title={job.title}
-                zoom={mapLocations.zoom}
-                extraMarkers={hasGeocodedWorkLocations ? mapLocations.points : undefined}
-              />
-              <p className="jd2-map-note">
-                {hasGeocodedWorkLocations
-                  ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
-                  : mapLocation.source === 'exact'
-                    ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
-                    : mapLocation.source === 'default'
-                      ? 'Chưa có thông tin vị trí cụ thể.'
-                      : 'Vị trí hiển thị là vị trí gần đúng theo khu vực tuyển dụng.'}
-              </p>
             </div>
           </div>
 

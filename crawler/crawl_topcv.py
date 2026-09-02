@@ -25,7 +25,7 @@ from job_quality import (
     canonical_job_key,
     compute_job_updates,
     extract_salary_from_text,
-    guess_all_provinces_from_text,
+    guess_work_location_provinces,
     normalize_location,
     normalize_salary,
     normalize_whitespace,
@@ -283,8 +283,11 @@ async def crawl_vieclam24h() -> list[dict]:
             # 사라지므로, 발견된 지역 전부를 work_locations 후보로 남겨서 나중에
             # geocode.py가 각각의 근사 위치를 붙일 수 있게 한다(정확한 주소가
             # 아니므로 회사 본사 주소로 대체하지 않고, 지역명 자체를 그대로 저장).
+            # guess_work_location_provinces()는 제목 + "근무지 문맥" 문장만 보므로
+            # (전체 본문을 훑는 guess_all_provinces_from_text()와 달리) 복지 여행/
+            # 교육 장소/출장지처럼 근무지가 아닌 지역이 섞여 들어오는 오탐을 줄인다.
             if not work_locations:
-                mentioned_provinces = guess_all_provinces_from_text(f"{title} {desc_text}")
+                mentioned_provinces = guess_work_location_provinces(title, desc_text)
                 if len(mentioned_provinces) > 1:
                     work_locations = mentioned_provinces
 

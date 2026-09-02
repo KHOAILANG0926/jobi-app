@@ -188,6 +188,50 @@ def guess_all_provinces_from_text(text: object) -> list[str]:
     return [p for p, _ in sorted(positions.items(), key=lambda item: item[1])]
 
 
+# Lines/sentences are only trusted as describing the job's own WORK location if
+# they contain one of these phrases. Without this, scanning the whole
+# description picks up unrelated places — company benefits ("du lịch hàng năm
+# tại Đà Lạt"), training venues, business-trip destinations, or the recruiter's
+# HQ address in a signature block — none of which is where the hired person
+# actually works.
+_WORK_LOCATION_CONTEXT_RE = re.compile(
+    r"làm việc tại|khu vực làm việc|địa điểm làm việc|nơi làm việc|làm tại|"
+    r"tuyển tại|chi nhánh tại|văn phòng tại|công trình.{0,25}tại|dự án.{0,25}tại",
+    re.IGNORECASE,
+)
+# Phrases that mean the sentence is about something other than the job's actual
+# workplace, even if a place name appears right next to them — checked first,
+# so these always lose to _WORK_LOCATION_CONTEXT_RE on the same line.
+_NON_WORK_LOCATION_CONTEXT_RE = re.compile(
+    r"du lịch|đào tạo|tham quan|nghỉ mát|team building|công tác phí|"
+    r"chuyến công tác|khóa học|hội thảo|nghỉ dưỡng",
+    re.IGNORECASE,
+)
+
+
+def guess_work_location_provinces(title: object, description: object) -> list[str]:
+    """Multi-province extraction restricted to text that clearly describes the
+    job's own WORK location — the title (trusted directly: a crawled title that
+    enumerates provinces, e.g. "... Bắc Ninh / Long An / Đà Nẵng", is describing
+    where THIS job is based) plus only those description lines that contain an
+    explicit work-location phrase and no travel/training/benefit-trip phrase.
+    Deliberately more conservative than guess_all_provinces_from_text() — used
+    where a false positive would fabricate a work-location marker (see
+    crawl_topcv.py)."""
+    found: list[str] = []
+    for p in guess_all_provinces_from_text(title):
+        if p not in found:
+            found.append(p)
+    for line in re.split(r"[\n•]+", str(description or "")):
+        line = line.strip()
+        if not line or _NON_WORK_LOCATION_CONTEXT_RE.search(line) or not _WORK_LOCATION_CONTEXT_RE.search(line):
+            continue
+        for p in guess_all_provinces_from_text(line):
+            if p not in found:
+                found.append(p)
+    return found
+
+
 # A candidate location string that's actually the job title, salary, or company
 # name (crawler bug seen on sb-4313: the whole title got stored as `location`)
 # must never be trusted as-is — real place names are short and don't repeat
@@ -216,22 +260,26 @@ def looks_like_location(candidate: str, *, title: str = "", company: str = "", s
 
 def normalize_location(
     value: object,
-    fallback: str = "Hồ Chí Minh",
+    fallback: str = "",
     detail_text: object = "",
     *,
     title: str = "",
     company: str = "",
     salary: str = "",
 ) -> str:
+    """Returns "" (not a guessed big-city default) when no real location can be
+    determined — a job with unknown location must never be silently stored as
+    if it were in Hồ Chí Minh (sb-4312/sb-4313 both broke this way). Callers
+    (crawl_topcv.py, the frontend) must treat an empty location as "unknown",
+    not as a place name."""
     location = normalize_whitespace(value)
     if location and looks_like_location(location, title=title, company=company, salary=salary):
         location = re.sub(r"^(địa điểm|khu vực)\s*[:\-]\s*", "", location, flags=re.IGNORECASE)
         return location[:120] or fallback
     # 리스트 카드에서 지역을 못 찾았을 때(예: LISTING_CITY_KEYWORDS에 없는 지역이라
     # 빈 값으로 넘어온 경우) 상세페이지 텍스트(제목 + 실제 근무지 주소 섹션)에서
-    # 다시 지역명을 찾는다. sb-4312처럼 실제로는 Hưng Yên 근무인데 매칭 실패로
-    # fallback 대도시(Hồ Chí Minh)로 잘못 저장되던 문제를 막기 위함 — 이 폴백도
-    # 실패했을 때만 fallback 대도시를 사용한다.
+    # 다시 지역명을 찾는다. 그래도 못 찾으면 fallback(기본값 "" = 알 수 없음)을
+    # 그대로 반환한다 — 예전처럼 대도시로 대체하지 않는다.
     guessed = guess_province_from_text(detail_text)
     return guessed or fallback
 
@@ -351,8 +399,9 @@ def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | Non
         errors.append("title is too short")
     if len(company) < 2:
         errors.append("company is missing")
-    if not normalize_whitespace(job.get("location")):
-        errors.append("location is missing")
+    # location이 빈 문자열인 것은 이제 "위치 확인 불가"를 뜻하는 정상 상태다
+    # (normalize_location() 참고) — 더 이상 저장을 막는 사유가 아니다. 빈
+    # location인 공고는 프론트에서 지도 대신 안내 문구를 보여준다.
     if category not in VALID_CATEGORIES:
         errors.append(f"invalid category: {category}")
     if not has_source_tag(description, source):

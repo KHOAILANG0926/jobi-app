@@ -11,6 +11,7 @@ from job_quality import (
     extract_salary_from_text,
     guess_all_provinces_from_text,
     guess_province_from_text,
+    guess_work_location_provinces,
     has_excluded_money_terms,
     is_expired,
     looks_like_location,
@@ -331,8 +332,8 @@ def test_normalize_location_province_fallback() -> None:
     # 상세 텍스트에도 알려진 지역명이 전혀 없을 때만 fallback 대도시를 쓴다.
     assert_equal(
         normalize_location("", detail_text="Không có thông tin địa điểm cụ thể"),
-        "Hồ Chí Minh",
-        "no province found anywhere -> falls back to default city",
+        "",
+        "no province found anywhere -> empty (unknown), never a guessed default city",
     )
     # 리스트 카드에서 이미 값을 찾았으면 detail_text는 무시하고 그 값을 그대로 쓴다.
     assert_equal(
@@ -369,11 +370,93 @@ def test_location_validation_and_multi_province() -> None:
     assert_equal(guess_all_provinces_from_text("không có địa danh nào"), [], "no provinces found -> empty list")
 
 
+def test_work_location_context_filtering() -> None:
+    # 요구사항 1: 설명에 출장지/교육 장소/복지 여행/회사 주소가 있어도 근무지로
+    # 채택하지 않아야 한다 — "làm việc tại" 같은 근무지 문맥이 없는 문장에서
+    # 지역을 뽑으면 안 된다.
+    title = "Nhân Viên Kinh Doanh"
+    description = (
+        "## Mô tả công việc\n"
+        "• Chăm sóc khách hàng tại văn phòng công ty\n"
+        "## Quyền lợi\n"
+        "• Du lịch hàng năm tại Đà Nẵng, Nha Trang\n"
+        "• Đào tạo tại Hà Nội cho nhân viên mới\n"
+        "• Công ty có trụ sở tại Hồ Chí Minh\n"
+    )
+    assert_equal(
+        guess_work_location_provinces(title, description),
+        [],
+        "business trip / training / company HQ mentions must not be adopted as work locations",
+    )
+
+    # 반대로 실제 근무지 문맥이 있으면 정상적으로 채택되어야 한다 (sb-4309 회귀).
+    real_work_desc = "- Làm việc tại các dự án công trình mà công ty đang thi công (Long An, Đồng Nai)."
+    assert_equal(
+        guess_work_location_provinces("Kỹ Sư Cơ Điện", real_work_desc),
+        ["Long An", "Đồng Nai"],
+        "an explicit work-location sentence (làm việc tại ...) is still recognized",
+    )
+
+    # 제목에 지역이 여러 개 나열되면(사실상 근무지 목록) 그대로 신뢰한다 — 근무지
+    # 문맥 문구가 본문에 따로 없어도 된다 (sb-4313 회귀).
+    multi_title = "Kho Shopee - Nhân Viên Kho Xử Lý Hàng Hóa Bắc Ninh / Long An / Đà Nẵng"
+    assert_equal(
+        guess_work_location_provinces(multi_title, ""),
+        ["Bắc Ninh", "Long An", "Đà Nẵng"],
+        "provinces enumerated directly in the title are trusted without needing a context phrase",
+    )
+
+
+def test_unknown_location_never_defaults_to_a_city() -> None:
+    # 요구사항 2: 지역 정보가 전혀 없을 때 Hồ Chí Minh(또는 다른 대도시)으로
+    # 대체하지 않는다 — 빈 문자열("알 수 없음")을 그대로 반환해야 한다.
+    no_info_job = {
+        "title": "Nhân Viên Văn Phòng",
+        "company": "Công Ty ABC",
+        "location": normalize_location(
+            "", detail_text="Không có thông tin địa điểm cụ thể",
+            title="Nhân Viên Văn Phòng", company="Công Ty ABC", salary="Thỏa thuận",
+        ),
+        "salary": "Thỏa thuận",
+        "description": "[source:vieclam24h] test",
+        "category": "office",
+        "origin": "crawler",
+        "active": True,
+        "admin_hidden": False,
+        "application_deadline": "2099-01-01",
+    }
+    assert_equal(no_info_job["location"], "", "no location info anywhere -> empty, not a guessed city")
+    # 빈 location이 저장을 막는 사유가 되지 않아야 한다(더 이상 "location is missing" 거부 없음).
+    errors = validate_job_payload(no_info_job, source="vieclam24h", today="2026-01-01")
+    assert_false(
+        any("location" in e for e in errors),
+        "empty/unknown location must not be rejected by validate_job_payload",
+    )
+
+
+def test_exact_address_takes_priority_over_approximate() -> None:
+    # 요구사항 4: 실제(구조화된) 주소가 있으면 그것을 우선하고, 여러 지역명 근사
+    # 처리로 덮어쓰지 않는다 — crawl_topcv.py의 `if not work_locations:` 가드와
+    # 동일한 우선순위를 여기서도 검증한다.
+    detail_section = "• 71 Trần Trọng Cung, Phường Tân Thuận Đông, Quận 7, Hồ Chí Minh"
+    exact_addresses = split_work_locations(detail_section)
+    assert_true(len(exact_addresses) > 0, "structured 'Địa điểm làm việc' section yields a real address")
+
+    title = "Tài Xế - Hà Nội / Hồ Chí Minh"
+    desc_text = "Làm việc tại các depot ở Hà Nội và Hồ Chí Minh."
+    # crawl_topcv.py's own guard: only fall back to province-guessing when no
+    # structured addresses were already found.
+    work_locations = exact_addresses if exact_addresses else guess_work_location_provinces(title, desc_text)
+    assert_equal(work_locations, exact_addresses, "exact structured address list wins; approximate province guessing is never consulted")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
         test_work_locations, test_compute_job_updates, test_parse_listing_card_lines,
         test_normalize_location_province_fallback, test_location_validation_and_multi_province,
+        test_work_location_context_filtering, test_unknown_location_never_defaults_to_a_city,
+        test_exact_address_takes_priority_over_approximate,
     ]
     for test in tests:
         test()

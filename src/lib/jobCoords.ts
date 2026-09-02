@@ -177,3 +177,15 @@ export function withJobCoordinates(job: Job): Job {
   const c = guessCoordinatesFromLocation(job.location)
   return { ...job, lat: c.lat, lng: c.lng }
 }
+
+/**
+ * The search text to use for a work location's external Google Maps link.
+ * `rawAddress` is the human-readable label shown on screen and can carry an
+ * approximation caveat (e.g. "Bắc Ninh (khu vực làm việc, vị trí trung tâm gần
+ * đúng)") — using that as a map search query pollutes the query with prose
+ * that isn't part of the place name. `normalizedAddress`, when present, is
+ * the cleaned place name meant for exactly this purpose and must be preferred.
+ */
+export function resolveWorkLocationQuery(loc: { rawAddress: string; normalizedAddress?: string }): string {
+  return loc.normalizedAddress || loc.rawAddress
+}
