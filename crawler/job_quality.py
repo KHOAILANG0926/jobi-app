@@ -314,7 +314,9 @@ _WORK_LOCATION_SHUTTLE_RE = re.compile(r"^xe\s+đưa\s+đón\b", re.IGNORECASE)
 _WORK_LOCATION_REGION_PREFIX_RE = re.compile(r"^[^\d:]{2,25}:\s*")
 
 
-def split_work_locations(raw_section_text: object, max_locations: int = 10) -> list[str]:
+def split_work_locations(
+    raw_section_text: object, max_locations: int = 10, *, with_region: bool = False
+) -> list[str] | list[dict]:
     """Split the raw 'Địa điểm làm việc' section text into individual addresses.
 
     The section text comes from fetch_job_detail(), which already renders each
@@ -322,6 +324,13 @@ def split_work_locations(raw_section_text: object, max_locations: int = 10) -> l
     lợi). This only splits/cleans that text — it never reaches into unrelated
     sections (e.g. company headquarters address, which lives under a different
     heading and is never passed in here).
+
+    with_region=False (default, unchanged from before): returns list[str].
+    with_region=True: returns list[{"text": str, "region_prefix": str | None}]
+    — the "<province/city>:" label each line carries (e.g. "Bình Dương"),
+    needed by the geocoding step to validate the returned coordinate is
+    actually in the province the source text claims, not just "confidence
+    was high" (see geocode.py's expected_region_text).
     """
     text = str(raw_section_text or "")
     if not text.strip():
@@ -334,12 +343,14 @@ def split_work_locations(raw_section_text: object, max_locations: int = 10) -> l
         candidates = re.split(r"\n+", text)
 
     seen: set[str] = set()
-    result: list[str] = []
+    result: list = []
     for raw in candidates:
         addr = normalize_whitespace(raw)
         # Strip leading numbering like "1.", "1)", "-" left over from non-<li> lists.
         addr = re.sub(r"^(\d+[\.\)]|[-*])\s*", "", addr).strip()
-        # Strip a leading "<province/city>:" label baked into the same string.
+        # Capture, then strip, a leading "<province/city>:" label baked into the same string.
+        prefix_match = _WORK_LOCATION_REGION_PREFIX_RE.match(addr)
+        region_prefix = prefix_match.group(0).rstrip(":").strip() if prefix_match else None
         addr = _WORK_LOCATION_REGION_PREFIX_RE.sub("", addr).strip()
         if not addr or len(addr) < 5:
             continue
@@ -352,19 +363,136 @@ def split_work_locations(raw_section_text: object, max_locations: int = 10) -> l
         if key in seen:
             continue
         seen.add(key)
-        result.append(addr)
+        result.append({"text": addr, "region_prefix": region_prefix} if with_region else addr)
         if len(result) >= max_locations:
             break
     return result
 
 
+# Bumped whenever the address/publish-gate pipeline's *behavior* changes (not
+# on every unrelated commit) — logged alongside crawl output so a run can be
+# tied back to the exact classification/gating rules that produced it. Not
+# persisted to the DB (no schema for it yet — see CHATGPT_HANDOFF.md).
+CRAWLER_VERSION = "2026-09-03.address-pipeline-v1"
+
+# A work-location candidate counts as a real, geocodable *place* — not just an
+# administrative-unit name — when it carries one of these signals: a house/lot/
+# block number, a named industrial park ("KCN ..."), a street/alley marker, or a
+# named building/complex. Anything without one of these is, at best, a bare
+# province/district/ward chain (e.g. "Dĩ An, Bình Dương (cũ)., Thủ Đức" — real
+# administrative names, but no specific site within them) and must never be
+# geocoded as if it were a precise workplace.
+_SPECIFIC_PLACE_SIGNAL_RE = re.compile(
+    r"\d"
+    r"|\bkcn\b|\bkhu công nghiệp\b|\bcụm công nghiệp\b"
+    r"|\bđường\b|\bphố\b|\bngõ\b|\bhẻm\b|\bngách\b"
+    r"|\btòa nhà\b|\bplaza\b|\btower\b|\bbuilding\b|\bcao ốc\b"
+    r"|\blô\b|\bkhu đô thị\b|\bkđt\b|\btrung tâm\b|\bcenter\b",
+    re.IGNORECASE,
+)
+
+# Numbered urban districts/wards ("Quận 1", "Phường 12", "Q.1", "P12") carry a
+# digit but name no specific site — stripped out before the signal check above
+# runs, so a bare "Quận 1, TP.HCM" isn't mistaken for a real street address
+# just because Vietnamese district numbers happen to be numeric.
+_NUMBERED_ADMIN_UNIT_RE = re.compile(r"\b(quận|phường|q\.?|p\.?)\s*\d+\b", re.IGNORECASE)
+
+def classify_work_location_candidate(candidate: object) -> str:
+    """Classify one split_work_locations() candidate as:
+    - 'exact': carries a specific-place signal — precise enough to geocode as
+      a real workplace marker (a street number, named industrial park/
+      building, etc).
+    - 'region_only': everything else that's still a plausible place mention
+      (passed split_work_locations()'s own noise/length/shuttle filtering
+      already) but names no specific site — e.g. "Dĩ An, Bình Dương (cũ).,
+      Thủ Đức" (real district/ward names, chained, but no building/park/
+      street to anchor a marker to). Deliberately NOT gated on a hand-
+      maintained district/ward name list (Vietnam has thousands and it would
+      go stale) — only 'exact' vs "not exact" actually matters downstream
+      (resolve_work_locations() only geocodes 'exact'), so a district-name
+      allowlist here would add maintenance cost without changing behavior.
+    - 'undetermined': too short/empty to be any kind of place mention at all
+      (a defensive floor — split_work_locations() already filters most of
+      this out before a candidate ever reaches here).
+
+    Shuttle-pickup text ("xe đưa đón, ...") and company-HQ addresses never
+    reach this function — the former is filtered out by split_work_locations()
+    itself, the latter is never extracted in the first place (only the
+    'Địa điểm làm việc' section is read). This function only has to tell a
+    real site apart from a bare region mention.
+    """
+    text = str(candidate or "").strip()
+    if len(text) < 5:
+        return "undetermined"
+    signal_text = _NUMBERED_ADMIN_UNIT_RE.sub("", text)
+    if _SPECIFIC_PLACE_SIGNAL_RE.search(signal_text):
+        return "exact"
+    return "region_only"
+
+
+def has_application_path(
+    employer_phone: object = "",
+    zalo: object = "",
+    source_url: object = "",
+    *,
+    source_page_valid: bool = True,
+    has_apply_affordance: bool = True,
+) -> bool:
+    """True if a job seeker has at least one real way to act on this listing.
+
+    A phone number or Zalo contact is always sufficient on its own — those
+    are direct, not affected by whether the original page still exists.
+
+    A bare source_url is NOT automatically sufficient — confirmed the naive
+    version of this check would count it even for a since-expired/removed/
+    under-review posting, which would then show an "apply" button pointing at
+    a dead page. When source_url is the only path, the caller must also pass
+    what it found when it actually fetched that page:
+    - source_page_valid: the request succeeded and no "hết hạn/đã bị gỡ/đang
+      xét duyệt/..." banner was shown (see crawl_topcv.py's
+      _EXPIRED_PAGE_PATTERNS + httpStatus check).
+    - has_apply_affordance: an actual "Ứng tuyển ..." control was found on
+      that page.
+    Both default to True so existing callers that don't have this info yet
+    (unit tests, callers that only know phone/zalo/url) keep their old
+    behavior — only crawl_topcv.py's real crawl passes the checked values.
+    """
+    if normalize_whitespace(employer_phone) or normalize_whitespace(zalo):
+        return True
+    if not normalize_whitespace(source_url):
+        return False
+    return bool(source_page_valid and has_apply_affordance)
+
+
+def gate_auto_publish(has_exact_address: bool, has_application_path_: bool) -> tuple[bool, str]:
+    """Decide whether a freshly-scraped job may be auto-published (active=true)
+    or must be held for manual review (active=false, never silently dropped).
+    Both conditions are required independently:
+    - a job with only province/city-level location (no confirmed exact
+      address) is held — "somewhere in this city" is not something a seeker
+      can act on with confidence;
+    - a job with a precise address but no way to actually apply (no phone/
+      Zalo/source_url) is held — publishing it would just be a dead end.
+    Returns (should_publish, reason) — reason is one of 'ok', 'no_exact_address',
+    'no_application_path' (checked in that order when both fail)."""
+    if not has_exact_address:
+        return False, "no_exact_address"
+    if not has_application_path_:
+        return False, "no_application_path"
+    return True, "ok"
+
+
 # Re-crawling an already-known job (same canonical_job_key) used to be a pure
 # skip — even if the original posting's salary/deadline/description/location
 # had genuinely changed on the source site, our copy never caught up. Only
-# these 4 fields are tracked for update; title/company/category are part of
+# these fields are tracked for update; title/company/category are part of
 # the matching key (title+company never change under the same key), and other
 # fields (image_url etc.) are intentionally left alone for now.
-UPDATE_TRACKED_FIELDS = ("salary", "application_deadline", "description", "location")
+# 'source_url' was added after discovering re-crawls of already-known jobs
+# (e.g. id 4366/4367/4368) never backfilled it even when freshly found —
+# confirmed live: extraction succeeded but the field wasn't in this tuple, so
+# compute_job_updates() never even looked at it.
+UPDATE_TRACKED_FIELDS = ("salary", "application_deadline", "description", "location", "source_url")
 
 
 def compute_job_updates(existing_row: dict, new_job: dict) -> dict:

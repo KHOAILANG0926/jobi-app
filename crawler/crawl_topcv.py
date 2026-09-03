@@ -21,11 +21,16 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from classifier import classify, is_blacklisted
+from geocode import geocode_address, resolve_bias_province
 from job_quality import (
+    CRAWLER_VERSION,
     canonical_job_key,
+    classify_work_location_candidate,
     compute_job_updates,
     extract_salary_from_text,
+    gate_auto_publish,
     guess_work_location_provinces,
+    has_application_path,
     normalize_location,
     normalize_salary,
     normalize_whitespace,
@@ -40,6 +45,111 @@ print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요
 
 TARGET_COUNT = int(os.getenv("CRAWLER_TARGET_COUNT", "500"))
 TODAY = date.today().isoformat()
+
+# Coarse Vietnam bounding box — a final sanity net independent of Geoapify's
+# own confidence score, in case a geocode ever comes back for the right text
+# but the wrong country/hemisphere entirely.
+_VN_LAT_RANGE = (8.0, 24.0)
+_VN_LNG_RANGE = (102.0, 110.0)
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    from math import atan2, cos, radians, sin, sqrt
+    r = 6371.0
+    d_lat, d_lng = radians(lat2 - lat1), radians(lng2 - lng1)
+    a = sin(d_lat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(d_lng / 2) ** 2
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a))
+
+
+def _address_core(normalized_address: str) -> str:
+    """The address text minus its trailing comma-segment (typically a
+    district/ward label) — used ONLY to decide "is this the same place as
+    that other candidate", never for what gets geocoded or stored."""
+    parts = normalized_address.rsplit(",", 1)
+    return parts[0].strip() if len(parts) > 1 else normalized_address.strip()
+
+
+def _is_duplicate_location(a: dict, b: dict) -> bool:
+    """Two resolved rows count as the same real place only when BOTH signals
+    agree: their coordinates are within ~100m AND their address text shares
+    the same core (identical, or identical once the trailing district label
+    is dropped). Coordinate-only matching was tried first and rejected — two
+    genuinely different, imprecisely-specified addresses can independently
+    geocode to the same district/ward centroid (Geoapify's fallback behavior
+    for low-detail queries), and merging those would silently drop a real,
+    distinct workplace instead of just de-duplicating a repeated one."""
+    if _haversine_km(a["lat"], a["lng"], b["lat"], b["lng"]) > 0.1:
+        return False
+    if a["normalized_address"] == b["normalized_address"]:
+        return True
+    core_a, core_b = _address_core(a["normalized_address"]), _address_core(b["normalized_address"])
+    return bool(core_a) and core_a == core_b
+
+
+def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dict], bool]:
+    """Standard address pipeline, stage 4-5 (classify -> geocode/validate),
+    applied identically for every job — never branched on job id or company.
+
+    candidates_with_region: split_work_locations(..., with_region=True) output
+    — each candidate carries the province/city label vieclam24h prefixed it
+    with (e.g. "Bình Dương"), used to validate the geocoder didn't quietly
+    resolve it to a different province at high confidence.
+
+    Only candidates classified 'exact' are geocoded; 'region_only' and
+    'undetermined' are dropped here rather than stored with a fabricated or
+    missing coordinate. A geocode result is only kept when geocode.py reports
+    status='success' — 'no_results' / 'low_confidence' / 'region_mismatch'
+    are all confident negative verdicts (real reasons to not treat this as an
+    exact address) and dropped the same as a non-'exact' classification.
+
+    Returns (resolved_rows, had_transient_failure). had_transient_failure is
+    True when ANY candidate's geocode call itself failed (status='api_error'
+    — a network/API problem, not a verdict on the address). The caller MUST
+    treat that as "this run's result is incomplete" and must not use it to
+    replace/wipe previously-stored, known-good job_work_locations rows.
+    """
+    resolved: list[dict] = []
+    had_transient_failure = False
+    seen_texts: set[str] = set()
+    for cand in candidates_with_region:
+        text, region_prefix = cand["text"], cand.get("region_prefix")
+        if classify_work_location_candidate(text) != "exact":
+            continue
+        text_key = text.strip().lower()
+        if text_key in seen_texts:
+            continue
+        seen_texts.add(text_key)
+
+        geo = geocode_address(
+            text, region_hint="Vietnam", expected_region_text=region_prefix,
+            bias_province=resolve_bias_province(region_prefix),
+        )
+        status = geo.get("status")
+        if status == "api_error":
+            had_transient_failure = True
+            print(f"    ⚠️  geocode API 오류(일시적) — 이번 판정에서 제외, 기존 데이터 보존 필요: {text!r}")
+            continue
+        if status != "success":
+            print(f"    ⏩ geocode 반려({status}): {text!r}")
+            continue
+
+        lat, lng = geo["lat"], geo["lng"]
+        if not (_VN_LAT_RANGE[0] <= lat <= _VN_LAT_RANGE[1] and _VN_LNG_RANGE[0] <= lng <= _VN_LNG_RANGE[1]):
+            print(f"    ⚠️  geocode 결과가 베트남 범위 밖 — 스킵: {text!r} -> ({lat}, {lng})")
+            continue
+
+        row = {
+            "raw_address": text,
+            "normalized_address": text_key,
+            "lat": lat,
+            "lng": lng,
+            "geocode_status": status,
+            "geocode_source": geo.get("source") or "geoapify",
+        }
+        if any(_is_duplicate_location(row, existing) for existing in resolved):
+            continue
+        resolved.append(row)
+    return resolved, had_transient_failure
 
 CATEGORY_URLS = [
     # ── 생활밀착형 10개 ──────────────────────────
@@ -135,11 +245,23 @@ async def crawl_category(page, url: str) -> list[dict]:
     return raw_jobs
 
 
+# Phrases vieclam24h (or a since-removed/expired posting) uses to say "this
+# listing isn't actually open right now" — checked against the page's own
+# body text so a stale source_url doesn't get trusted as a real application
+# path just because the URL still 200s.
+_EXPIRED_PAGE_PATTERNS = [
+    "đã hết hạn", "đã bị gỡ", "tin không tồn tại", "đang được xét duyệt",
+    "đang chờ duyệt", "tin đã đóng", "ngừng tuyển", "đã dừng tuyển",
+    "tin tuyển dụng đã kết thúc",
+]
+
+
 async def fetch_job_detail(page, url: str) -> dict:
     try:
-        await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        response = await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        http_status = response.status if response else None
         await page.wait_for_timeout(2000)
-        result = await page.evaluate("""() => {
+        result = await page.evaluate("""(expiredPatterns) => {
             // 마감일
             let deadline = null
             document.querySelectorAll('*').forEach(el => {
@@ -175,9 +297,17 @@ async def fetch_job_detail(page, url: str) -> dict:
                 }
                 if (content.trim()) sections[matched] = content.trim()
             })
-            return { deadline, sections }
-        }""")
-        result = result or {"deadline": None, "sections": {}}
+
+            // 실제 지원 버튼("Ứng tuyển ...") 존재 여부 + 만료/검수중/삭제 배너 여부.
+            // source_url을 지원 경로로 신뢰해도 되는지 판단하는 근거.
+            const bodyText = (document.body.innerText || '').toLowerCase()
+            const hasApplyButton = Array.from(document.querySelectorAll('button, a'))
+                .some(el => (el.innerText || '').includes('Ứng tuyển'))
+            const expiredBanner = expiredPatterns.some(p => bodyText.includes(p))
+
+            return { deadline, sections, hasApplyButton, expiredBanner }
+        }""", _EXPIRED_PAGE_PATTERNS)
+        result = result or {"deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False}
         if not result.get("sections"):
             # DOM heading selectors occasionally miss SPA detail layouts; keep a
             # bounded body fallback so crawler jobs are not saved as URL-only.
@@ -185,10 +315,13 @@ async def fetch_job_detail(page, url: str) -> dict:
             fallback = normalize_whitespace(body_text)[:1800]
             if fallback:
                 result["sections"] = {"Mô tả công việc": fallback}
+        result["httpStatus"] = http_status
         return result
     except Exception as exc:
         print(f"    ⚠️  상세 수집 실패: {url} ({exc})")
-        return {"deadline": None, "sections": {}}
+        # 페이지를 아예 확인 못했으므로 지원 가능하다고 낙관할 근거가 없다 —
+        # hasApplyButton=False가 has_application_path()에서 안전한 기본값.
+        return {"deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False, "httpStatus": None}
 
 
 def format_description(sections: dict) -> str:
@@ -262,7 +395,7 @@ async def crawl_vieclam24h() -> list[dict]:
             # 회사 개요/연락처 섹션(예: QTSC 본사 주소)은 이 heading 밑에 오지 않으므로
             # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
             work_location_section = detail.get("sections", {}).get("Địa điểm làm việc", "")
-            work_locations = split_work_locations(work_location_section)
+            work_locations = split_work_locations(work_location_section, with_region=True)
             salary = normalize_salary(j.get("salary")) if normalize_whitespace(j.get("salary")) else extract_salary_from_text(desc_text)
 
             # 분류: 제목 + 회사 + 본문 첫 300자 활용
@@ -289,7 +422,25 @@ async def crawl_vieclam24h() -> list[dict]:
             if not work_locations:
                 mentioned_provinces = guess_work_location_provinces(title, desc_text)
                 if len(mentioned_provinces) > 1:
-                    work_locations = mentioned_provinces
+                    # 이 경로는 원문 지역명 그 자체가 후보이자 그 후보의 "예상 지역"이므로
+                    # region_prefix로도 같은 값을 준다(geocode 결과가 실제로 그 지역인지
+                    # 검증할 근거로 쓰인다).
+                    work_locations = [{"text": p, "region_prefix": p} for p in mentioned_provinces]
+
+            # 표준 파이프라인 4-7단계: 후보 분류 -> geocode/좌표 검증 -> 지원 경로
+            # 확인 -> 공개 게이트. 신규/기존 공고, 특정 id/회사명과 무관하게 항상
+            # 동일하게 적용한다(예외 코드 없음).
+            resolved_locations, had_transient_geocode_failure = resolve_work_locations(work_locations)
+            source_url_value = j.get("href") or None
+            employer_phone_value = ""
+            should_publish, gate_reason = gate_auto_publish(
+                has_exact_address=len(resolved_locations) > 0,
+                has_application_path_=has_application_path(
+                    employer_phone_value, "", source_url_value,
+                    source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
+                    has_apply_affordance=bool(detail.get("hasApplyButton")),
+                ),
+            )
 
             job = {
                 "title": title,
@@ -300,22 +451,34 @@ async def crawl_vieclam24h() -> list[dict]:
                 "category": category,
                 "posted_at": TODAY,
                 "urgent": False,
-                "employer_phone": "",
+                "employer_phone": employer_phone_value,
                 "application_deadline": deadline,
-                "active": True,
+                "active": should_publish,
                 "origin": "crawler",
                 "admin_hidden": False,
                 "image_url": logo if logo and logo.startswith("http") else None,
-                "source_url": j.get("href") or None,
+                "source_url": source_url_value,
             }
             quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
             if quality_errors:
                 skipped += 1
                 print(f"    ⏩ 품질 스킵: {title[:70]} ({', '.join(quality_errors)})")
                 continue
+            if not should_publish:
+                print(f"    🔒 공개 보류({gate_reason}): {title[:70]}")
             # local_jobs 컬럼이 아닌 임시 필드 — save_to_supabase에서 job_work_locations
             # insert에만 쓰고 local_jobs insert 페이로드에서는 제거한다.
             job["_work_locations"] = work_locations
+            job["_resolved_locations"] = resolved_locations
+            job["_gate_reason"] = gate_reason
+            job["_had_transient_geocode_failure"] = had_transient_geocode_failure
+            # local_jobs.crawler_version/last_verified_at don't exist yet (see
+            # the reviewed-but-not-yet-applied migration) — kept as internal
+            # fields only until that migration is approved and run; not sent
+            # to local_jobs by save_to_supabase() (it strips every "_"-prefixed
+            # key). Renaming these (drop the "_") is the only change needed
+            # once the columns exist.
+            job["_crawler_version"] = CRAWLER_VERSION
             jobs.append(job)
             if (idx + 1) % 20 == 0:
                 print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
@@ -330,6 +493,43 @@ def save_to_json(jobs: list[dict], filename: str = "jobs_output.json"):
     print(f"  💾 JSON 저장: {filename} ({len(jobs)}개)")
 
 
+def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
+    return [
+        {
+            "raw_address": loc["raw_address"],
+            "normalized_address": loc["normalized_address"],
+            "lat": loc["lat"],
+            "lng": loc["lng"],
+            "geocode_status": loc["geocode_status"],
+            "geocode_source": loc["geocode_source"],
+            "address_accuracy": "exact",
+            "sort_order": idx,
+        }
+        for idx, loc in enumerate(resolved_locations)
+    ]
+
+
+def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> None:
+    """Atomic replace via the replace_job_work_locations(p_job_id, p_rows)
+    Postgres function (see supabase/migrations/ — NOT yet applied to the
+    live DB, see the migration review in the handoff doc) — a plpgsql
+    function body runs in a single transaction, so a failure partway through
+    (e.g. a constraint violation) rolls back the delete too, instead of the
+    two separate .delete()/.insert() calls this replaced, where a failure
+    after the delete but before the insert could leave a job with zero
+    known work locations even though good data existed a moment earlier.
+
+    Callers must NOT call this when address resolution had a transient
+    failure (geocode API error) for this job this run — see
+    resolve_work_locations()'s had_transient_failure — an incomplete result
+    must never replace previously-known-good rows.
+    """
+    supabase.rpc(
+        "replace_job_work_locations",
+        {"p_job_id": job_id, "p_rows": _work_location_rpc_rows(resolved_locations)},
+    ).execute()
+
+
 def save_to_supabase(jobs: list[dict]):
     if not supabase:
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
@@ -337,9 +537,11 @@ def save_to_supabase(jobs: list[dict]):
 
     # 기존 vieclam24h 공고(핵심 필드 포함) 조회 — 매칭은 여전히 canonical_job_key
     # (title+company)로 하되, 이미 있는 공고라도 salary/deadline/description/
-    # location 중 실제로 바뀐 값이 있으면 update한다(예전엔 무조건 skip).
+    # location/source_url 중 실제로 바뀐 값이 있으면 update한다(예전엔 무조건 skip).
+    # origin도 함께 가져온다 — 공개 게이트를 크롤러 출처 공고에만 적용하기 위함
+    # (기업이 직접 등록한 공고는 이 게이트로 절대 자동 강등하지 않는다).
     existing_raw = supabase.table("local_jobs") \
-        .select("id,title,company,salary,application_deadline,description,location") \
+        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin") \
         .like("description", "%[source:vieclam24h]%") \
         .execute()
     existing_by_key = {
@@ -351,27 +553,61 @@ def save_to_supabase(jobs: list[dict]):
     new_jobs = []
     updated = 0
     unchanged = 0
+    demoted = 0
+    work_location_rows_total = 0
+    skipped_wl_sync_on_transient_failure = 0
     for j in jobs:
         key = canonical_job_key(j["title"], j["company"])
         existing_row = existing_by_key.get(key)
         if existing_row is None:
             new_jobs.append(j)
             continue
+
         field_updates = compute_job_updates(existing_row, j)
-        if not field_updates:
+        # 공개 게이트 재평가는 이 공고가 실제로 크롤러가 만든 것일 때만 active를
+        # 건드린다 — 기업이 직접 등록한 공고(origin != 'crawler')는 재크롤
+        # 매칭 대상이 될 일이 거의 없지만, 있더라도 이 표준으로 자동 강등하지
+        # 않는다(사용자 지시). 크롤러 출처는 양방향(승격/강등) 모두 적용하고,
+        # 강등 시 사유를 publish_gate_reason에 남긴다.
+        if existing_row.get("origin") == "crawler":
+            if existing_row.get("active") != j.get("active"):
+                field_updates["active"] = j["active"]
+                if existing_row.get("active") and not j.get("active"):
+                    demoted += 1
+            field_updates["publish_gate_reason"] = j.get("_gate_reason")
+
+        if field_updates:
+            supabase.table("local_jobs").update(field_updates).eq("id", existing_row["id"]).execute()
+            updated += 1
+        else:
             unchanged += 1
-            continue
-        supabase.table("local_jobs").update(field_updates).eq("id", existing_row["id"]).execute()
-        updated += 1
-    print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 🔄 업데이트: {updated}개 / ⏭️ 변경 없음: {unchanged}개")
+
+        # job_work_locations는 INSERT/UPDATE 양쪽 경로에서 완전히 동일하게,
+        # 원자적으로(RPC) 동기화한다 — 이전엔 UPDATE 경로에서 이 테이블이 아예
+        # 갱신되지 않는 버그가 있었음(id 4366/4367/4368으로 재현 확인됨). 단,
+        # 이번 판정이 geocode API 오류로 불완전하면 기존 데이터를 그대로 둔다
+        # (불완전한 결과로 알고 있던 좋은 데이터를 지우지 않는다).
+        job_id = existing_row["id"]
+        if j.get("_had_transient_geocode_failure"):
+            skipped_wl_sync_on_transient_failure += 1
+        else:
+            _replace_job_work_locations(job_id, j.get("_resolved_locations") or [])
+            work_location_rows_total += len(j.get("_resolved_locations") or [])
+
+    print(
+        f"  ➕ 신규 공고: {len(new_jobs)}개 / 🔄 업데이트: {updated}개 / ⏭️ 변경 없음: {unchanged}개"
+        f" / 🔻 재크롤 후 보류 전환: {demoted}개"
+    )
+    if skipped_wl_sync_on_transient_failure:
+        print(f"  ⚠️  geocode 일시 오류로 근무지 동기화 보류(기존 데이터 유지): {skipped_wl_sync_on_transient_failure}개")
 
     inserted = 0
-    work_location_rows_total = 0
     for i in range(0, len(new_jobs), 50):
         batch = new_jobs[i:i+50]
-        # local_jobs에는 실제 컬럼만 보낸다 — _work_locations는 별도 테이블용 임시 필드.
+        # local_jobs에는 실제 컬럼만 보낸다 — _work_locations/_resolved_locations/
+        # _gate_reason/_had_transient_geocode_failure는 별도 테이블용 임시 필드.
         local_jobs_batch = [
-            {k: v for k, v in job.items() if k != "_work_locations"}
+            {k: v for k, v in job.items() if not k.startswith("_")}
             for job in batch
         ]
         result = supabase.table("local_jobs").insert(local_jobs_batch).execute()
@@ -379,21 +615,18 @@ def save_to_supabase(jobs: list[dict]):
         print(f"  ✅ Supabase 저장: {inserted}/{len(new_jobs)}개")
 
         inserted_rows = result.data or []
-        work_location_rows = []
         for job, row in zip(batch, inserted_rows):
             job_id = row.get("id")
-            locations = job.get("_work_locations") or []
-            if not job_id or not locations:
+            resolved = job.get("_resolved_locations") or []
+            # 신규 삽입은 기존 데이터가 없으므로 transient failure라도 빈 결과로
+            # 두는 것 자체는 안전하다(지울 기존 데이터가 없음) — 다만 완전한
+            # 판정이 아니었다는 사실은 로그로 남긴다.
+            if job.get("_had_transient_geocode_failure"):
+                print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 있었음(일부 후보 미판정)")
+            if not job_id or not resolved:
                 continue
-            for idx, addr in enumerate(locations):
-                work_location_rows.append({
-                    "job_id": job_id,
-                    "raw_address": addr,
-                    "sort_order": idx,
-                })
-        if work_location_rows:
-            supabase.table("job_work_locations").insert(work_location_rows).execute()
-            work_location_rows_total += len(work_location_rows)
+            _replace_job_work_locations(job_id, resolved)
+            work_location_rows_total += len(resolved)
 
     if work_location_rows_total:
         print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")

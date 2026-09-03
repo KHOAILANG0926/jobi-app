@@ -7,11 +7,14 @@ import sys
 from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
+    classify_work_location_candidate,
     compute_job_updates,
     extract_salary_from_text,
+    gate_auto_publish,
     guess_all_provinces_from_text,
     guess_province_from_text,
     guess_work_location_provinces,
+    has_application_path,
     has_excluded_money_terms,
     is_expired,
     looks_like_location,
@@ -215,6 +218,75 @@ def test_work_locations() -> None:
         split_work_locations("TP.HCM:xe đưa đón, Quận 1\nTP.HCM:456 Đường Cách Mạng Tháng 8, Quận 3"),
         ["456 Đường Cách Mạng Tháng 8, Quận 3"],
         "shuttle pickup line filtered out even when mixed with a real address",
+    )
+
+
+def test_address_pipeline_standard() -> None:
+    """Tests for the general classify -> gate pipeline (job_quality.py's
+    classify_work_location_candidate / has_application_path / gate_auto_publish).
+    These are the standard applied to EVERY job — no id/company branching
+    anywhere in job_quality.py or crawl_topcv.py. local_jobs id 4366/4367/4368
+    (kept after the bulk local_jobs cleanup) supply 3 of the fixtures below,
+    used purely as real-world regression DATA — not as special-cased code."""
+
+    # 'exact' — specific, named places (house number / KCN / street / tower).
+    exact_cases = [
+        "OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì, Tân Phú",  # job 3981
+        "Onehub Saigon Tower 1 - Đường D1, Khu Công Nghệ Cao, Phường Tăng Nhơn Phú, Thủ Đức",  # job 3981
+        "KCN Sóng Thần 1, Dĩ An, Bình Dương (cũ)., Dĩ An",  # job 4366
+        "17 Phạm Hùng, Nam Từ Liêm",  # job 4367
+        "262 Nguyễn Văn Tạo, Hiệp Phước (Nhà Bè cũ), Nhà Bè",  # job 4368
+        "Lô A2-3 KCN Tây Bắc Củ Chi, Xã Tân An Hội, Huyện Củ Chi",  # job 4311 company plant addr shape
+    ]
+    for addr in exact_cases:
+        assert_equal(classify_work_location_candidate(addr), "exact", f"should classify exact: {addr!r}")
+
+    # 'region_only' — real administrative names, but no specific site.
+    region_cases = [
+        "Dĩ An, Bình Dương (cũ)., Thủ Đức",  # job 4366's second, unnamed line
+        "Hồ Chí Minh",
+        "Quận 1, TP.HCM",
+        "Huyện Củ Chi, TP Hồ Chí Minh",
+    ]
+    for addr in region_cases:
+        assert_equal(classify_work_location_candidate(addr), "region_only", f"should classify region_only: {addr!r}")
+
+    # 'undetermined' — too short / no recognizable place signal at all.
+    undetermined_cases = ["abc", "N/A", "  "]
+    for addr in undetermined_cases:
+        assert_equal(classify_work_location_candidate(addr), "undetermined", f"should classify undetermined: {addr!r}")
+
+    # has_application_path: true with any ONE of phone/zalo/source_url; false with none.
+    assert_true(has_application_path("0901234567", "", ""), "phone alone is an application path")
+    assert_true(has_application_path("", "https://zalo.me/0901234567", ""), "zalo alone is an application path")
+    assert_true(has_application_path("", "", "https://vieclam24h.vn/abc.html"), "source_url alone is an application path")
+    assert_false(has_application_path("", "", ""), "no phone/zalo/source_url -> no application path")
+    assert_false(has_application_path(None, None, None), "None values -> no application path")
+
+    # gate_auto_publish: BOTH an exact address AND an application path are required.
+    assert_equal(gate_auto_publish(True, True), (True, "ok"), "exact address + application path -> publish")
+    assert_equal(gate_auto_publish(False, True), (False, "no_exact_address"), "no exact address -> held")
+    assert_equal(gate_auto_publish(True, False), (False, "no_application_path"), "no application path -> held")
+    assert_equal(gate_auto_publish(False, False), (False, "no_exact_address"), "neither -> held, address checked first")
+
+    # End-to-end on the 3 regression fixtures (4366/4367/4368) — classification only,
+    # geocoding itself is exercised separately (it needs network + writes to
+    # geocode_cache, out of scope for this offline test suite).
+    job_4366_candidates = ["KCN Sóng Thần 1, Dĩ An, Bình Dương (cũ)., Dĩ An", "Dĩ An, Bình Dương (cũ)., Thủ Đức"]
+    exact_4366 = [c for c in job_4366_candidates if classify_work_location_candidate(c) == "exact"]
+    assert_equal(len(exact_4366), 1, "job 4366 must resolve to exactly 1 exact candidate, not 2 (2nd line is region_only)")
+    assert_true(gate_auto_publish(True, True)[0], "job 4366 with 1 exact candidate + source_url -> would publish")
+
+    job_4367_candidates = ["17 Phạm Hùng, Nam Từ Liêm"]
+    assert_equal(
+        [classify_work_location_candidate(c) for c in job_4367_candidates], ["exact"],
+        "job 4367's single address must classify exact",
+    )
+
+    job_4368_candidates = ["262 Nguyễn Văn Tạo, Hiệp Phước (Nhà Bè cũ), Nhà Bè"]
+    assert_equal(
+        [classify_work_location_candidate(c) for c in job_4368_candidates], ["exact"],
+        "job 4368's single address must classify exact",
     )
 
 
@@ -481,7 +553,8 @@ def test_exact_address_takes_priority_over_approximate() -> None:
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
-        test_work_locations, test_compute_job_updates, test_parse_listing_card_lines,
+        test_work_locations, test_address_pipeline_standard, test_compute_job_updates,
+        test_parse_listing_card_lines,
         test_normalize_location_province_fallback, test_location_validation_and_multi_province,
         test_work_location_context_filtering, test_unknown_location_never_defaults_to_a_city,
         test_exact_address_takes_priority_over_approximate,

@@ -5,19 +5,31 @@ import { chromium } from 'playwright'
 // is known, and its map markers must correspond 1:1 to that address data — not
 // just a link string that happens to contain the right words.
 //
-// Fixtures (real production data, do not rename/reuse without re-checking):
-// - sb-3981: has 2 geocoded job_work_locations rows (OfficeHaus Tân Phú /
-//   Onehub Saigon Tower Thủ Đức) — must render both addresses and 2 map markers.
-// - sb-4311 (Unilever Củ Chi wastewater operator): the site's own "Địa điểm làm
-//   việc" section is a shuttle-bus pickup-point list (not real work sites), so
-//   the crawler correctly stores zero job_work_locations rows for it — the page
-//   must show only the province-level text plus an explicit "no detailed
-//   address found" caption, never a fabricated precise-looking marker.
+// Deliberately NOT tied to specific job ids (a prior version hardcoded sb-3981/
+// sb-4311, which broke the moment those ids were no longer in the DB — e.g.
+// after a bulk cleanup). Instead this walks whatever jobs are currently on the
+// home page and checks a data-independent structural invariant: for every job
+// detail page, exactly one of these three states must hold, and the DOM must
+// be internally consistent about which one it's in.
+//
+//   A. Multiple real addresses  — addrItems.length > 0
+//      -> markerCount === addrItems.length, caption mentions that count,
+//         no "unknown location" message, no single-address block.
+//   B. One resolved location (province-level or a single exact address)
+//      — singleAddr present, no addrItems
+//      -> markerCount === 1, no "unknown location" message.
+//   C. No location info at all — unknownMsg present
+//      -> no map rendered at all: markerCount === 0, no addrItems, no singleAddr.
+//
+// This still catches the original bug class (a fabricated marker for a
+// province-only job, or a nested-list count mismatch) without depending on
+// which specific ids happen to exist when CI runs.
 const baseUrl = process.argv[2] || 'http://127.0.0.1:4173'
+const MAX_JOBS_TO_CHECK = 12
 const browser = await chromium.launch({ headless: true })
 
-async function readJobDetail(page, id) {
-  await page.goto(`${baseUrl}/viec-lam/${id}`, { waitUntil: 'networkidle', timeout: 60_000 })
+async function readJobDetail(page, href) {
+  await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle', timeout: 60_000 })
   await page.waitForSelector('.jd2-card__title', { timeout: 30_000 })
   await page.waitForTimeout(1200) // let the Leaflet map + markers finish mounting
   return page.evaluate(() => {
@@ -26,52 +38,103 @@ async function readJobDetail(page, id) {
     const note = document.querySelector('.jd2-map-note')?.textContent?.trim() || ''
     const markerCount = document.querySelectorAll('.leaflet-marker-icon').length
     const unknownMsg = document.querySelector('.jd2-map-unknown')?.textContent?.trim() || null
-    return { addrItems, singleAddr, note, markerCount, unknownMsg }
+    // "확인 불가" 상태에서는 안내 문구뿐 아니라 지도 자체, "지도 보기"/"길찾기"
+    // 버튼까지 전부 없어야 한다 — 안내 문구만 보고 통과시키면 지도/버튼은
+    // 여전히 렌더링되는 회귀를 놓친다.
+    const mapContainerCount = document.querySelectorAll('.job-location-map, .leaflet-container').length
+    const gmapsLinkCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].length
+    const viewOnMapCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].filter((a) => (a.textContent || '').includes('bản đồ lớn')).length
+    const directionsCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).length
+    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount }
   })
+}
+
+function checkInvariants(href, d) {
+  const failures = []
+  const states = [d.addrItems.length > 0, !!d.singleAddr, !!d.unknownMsg]
+  const activeStates = states.filter(Boolean).length
+
+  if (activeStates === 0) {
+    failures.push(`${href}: no location state matched at all (no address list, no single address, no unknown message) — page rendered nothing`)
+    return failures
+  }
+  if (activeStates > 1) {
+    failures.push(`${href}: more than one location state active at once (contradictory DOM): ${JSON.stringify(d)}`)
+    return failures
+  }
+
+  if (d.addrItems.length > 0) {
+    // State A: multiple real addresses.
+    if (d.markerCount !== d.addrItems.length) {
+      failures.push(`${href}: address list has ${d.addrItems.length} item(s) but map shows ${d.markerCount} marker(s) — must match 1:1`)
+    }
+    if (d.addrItems.some((a) => !a || a.length < 5)) {
+      failures.push(`${href}: address list contains an empty/too-short entry: ${JSON.stringify(d.addrItems)}`)
+    }
+    if (d.addrItems.length > 1 && !d.note.includes(String(d.addrItems.length))) {
+      failures.push(`${href}: caption must mention the work-location count (${d.addrItems.length}), got "${d.note}"`)
+    }
+  } else if (d.singleAddr) {
+    // State B: one resolved point (province-level approximate, or a single exact address).
+    if (d.markerCount !== 1) {
+      failures.push(`${href}: single-location state must render exactly 1 marker, got ${d.markerCount}`)
+    }
+    if (!d.singleAddr || d.singleAddr.length < 2) {
+      failures.push(`${href}: single address text is empty/too short: ${JSON.stringify(d.singleAddr)}`)
+    }
+  } else {
+    // State C: no location info at all — must not fabricate a marker, and
+    // must not render ANY map/marker/view-on-map/directions affordance —
+    // checking the caption text alone would miss a regression where the
+    // map (or its buttons) still renders despite the "unknown" message.
+    if (d.markerCount !== 0) {
+      failures.push(`${href}: "unknown location" state must render NO map markers, got ${d.markerCount}`)
+    }
+    if (d.mapContainerCount !== 0) {
+      failures.push(`${href}: "unknown location" state must render NO map container at all, got ${d.mapContainerCount}`)
+    }
+    if (d.gmapsLinkCount !== 0) {
+      failures.push(`${href}: "unknown location" state must show NO "xem bản đồ/chỉ đường" links, got ${d.gmapsLinkCount}`)
+    }
+    if (d.viewOnMapCount !== 0) {
+      failures.push(`${href}: "unknown location" state must show NO "Xem trên bản đồ lớn" button, got ${d.viewOnMapCount}`)
+    }
+    if (d.directionsCount !== 0) {
+      failures.push(`${href}: "unknown location" state must show NO "Chỉ đường" button, got ${d.directionsCount}`)
+    }
+  }
+  return failures
 }
 
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+
+  await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 60_000 })
+  await page.waitForSelector('.home-jobs-grid .home-card-wrap', { timeout: 30_000 })
+  await page.waitForTimeout(1000)
+  const hrefs = await page.evaluate(() =>
+    [...document.querySelectorAll('.home-jobs-grid .home-card-wrap')].map((el) => el.getAttribute('href') || '').filter(Boolean),
+  )
+
+  if (hrefs.length === 0) {
+    throw new Error('no job cards found on the home page at all — cannot run the location-detail structural check')
+  }
+
+  const toCheck = hrefs.slice(0, MAX_JOBS_TO_CHECK)
+  const results = []
   const failures = []
-
-  // ── sb-3981: 2 real geocoded addresses → 2 addresses shown, 2 markers ──
-  const multi = await readJobDetail(page, 'sb-3981')
-  if (multi.addrItems.length !== 2) {
-    failures.push(`sb-3981: expected 2 address list items, got ${multi.addrItems.length}: ${JSON.stringify(multi.addrItems)}`)
-  }
-  if (!multi.addrItems.some((a) => a.includes('Tân Thắng'))) {
-    failures.push(`sb-3981: address list must include the real street-level text "Tân Thắng", got ${JSON.stringify(multi.addrItems)}`)
-  }
-  if (!multi.addrItems.some((a) => a.includes('Onehub Saigon Tower'))) {
-    failures.push(`sb-3981: address list must include the real street-level text "Onehub Saigon Tower", got ${JSON.stringify(multi.addrItems)}`)
-  }
-  if (multi.markerCount !== 2) {
-    failures.push(`sb-3981: expected 2 map markers (1 per real address), got ${multi.markerCount}`)
-  }
-  if (!multi.note.includes('2 địa điểm làm việc')) {
-    failures.push(`sb-3981: map caption must state 2 work locations, got "${multi.note}"`)
-  }
-
-  // ── sb-4311: shuttle-pickup-only source data → province text + explicit "no detailed address" state, no fabricated precise marker ──
-  const single = await readJobDetail(page, 'sb-4311')
-  if (single.addrItems.length !== 0) {
-    failures.push(`sb-4311: must have no per-address list (shuttle pickup points are not real work sites), got ${JSON.stringify(single.addrItems)}`)
-  }
-  if (!single.singleAddr || !single.singleAddr.includes('Hồ Chí Minh')) {
-    failures.push(`sb-4311: expected the single displayed location text to include "Hồ Chí Minh", got ${JSON.stringify(single.singleAddr)}`)
-  }
-  if (!single.note.includes('Không tìm thấy địa chỉ làm việc chi tiết')) {
-    failures.push(`sb-4311: map caption must explicitly say no detailed address was found, got "${single.note}"`)
-  }
-  if (single.markerCount !== 1) {
-    failures.push(`sb-4311: expected exactly 1 (approximate, province-level) marker, got ${single.markerCount}`)
+  for (const href of toCheck) {
+    const d = await readJobDetail(page, href)
+    results.push({ href, ...d })
+    failures.push(...checkInvariants(href, d))
   }
 
   await page.close()
 
-  console.log(JSON.stringify({ multi, single }, null, 2))
+  console.log(JSON.stringify(results, null, 2))
+  console.log(`checked ${toCheck.length}/${hrefs.length} job detail page(s)`)
   if (failures.length) throw new Error(failures.join('; '))
-  console.log('✅ job location detail: sb-3981 shows real street-level addresses + 2 markers, sb-4311 shows honest "no detailed address" state')
+  console.log('✅ job location detail: every checked job is in exactly one consistent location state (multi-address/single/unknown), markers match address counts')
 } finally {
   await browser.close()
 }
