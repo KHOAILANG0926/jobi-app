@@ -17,15 +17,39 @@ import { chromium } from 'playwright'
 //         no "unknown location" message, no single-address block.
 //   B. One resolved location (province-level or a single exact address)
 //      — singleAddr present, no addrItems
-//      -> markerCount === 1, no "unknown location" message.
+//      -> markerCount/directionsCount must be 0-or-1 together (never a lone
+//         directions button without a marker, or a marker without directions).
 //   C. No location info at all — unknownMsg present
 //      -> no map rendered at all: markerCount === 0, no addrItems, no singleAddr.
 //
-// This still catches the original bug class (a fabricated marker for a
-// province-only job, or a nested-list count mismatch) without depending on
-// which specific ids happen to exist when CI runs.
+// On top of the structural invariant, this ALSO cross-checks State B against
+// the real Supabase data for that job (via the public anon key, same one the
+// shipped frontend bundle already uses client-side — not a secret): a job with
+// zero job_work_locations rows AND no local_jobs.lat/lng must render ZERO
+// markers/map-container/gmaps-links/directions on production — this is exactly
+// the legacy-fallback bug Codex found live on sb-4366/sb-4367/sb-4368 (map +
+// directions still shown despite no verified work location).
 const baseUrl = process.argv[2] || 'http://127.0.0.1:4173'
 const MAX_JOBS_TO_CHECK = 12
+const SUPABASE_URL = 'https://edhuesdnuxlbcfephutq.supabase.co'
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
+
+async function fetchGroundTruth(numericId) {
+  const headers = { apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+  const [jobRows, locRows] = await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/local_jobs?id=eq.${numericId}&select=lat,lng`, { headers }).then((r) => r.json()),
+    fetch(`${SUPABASE_URL}/rest/v1/job_work_locations?job_id=eq.${numericId}&select=lat,lng`, { headers }).then((r) => r.json()),
+  ])
+  const job = Array.isArray(jobRows) ? jobRows[0] : null
+  const workLocations = Array.isArray(locRows) ? locRows : []
+  return {
+    hasDirectCoords: !!job && job.lat != null && job.lng != null,
+    workLocationCount: workLocations.length,
+    mappableWorkLocationCount: workLocations.filter((r) => r.lat != null && r.lng != null).length,
+  }
+}
+
 const browser = await chromium.launch({ headless: true })
 
 async function readJobDetail(page, href) {
@@ -49,7 +73,7 @@ async function readJobDetail(page, href) {
   })
 }
 
-function checkInvariants(href, d) {
+function checkInvariants(href, d, truth) {
   const failures = []
   const states = [d.addrItems.length > 0, !!d.singleAddr, !!d.unknownMsg]
   const activeStates = states.filter(Boolean).length
@@ -74,13 +98,34 @@ function checkInvariants(href, d) {
     if (d.addrItems.length > 1 && !d.note.includes(String(d.addrItems.length))) {
       failures.push(`${href}: caption must mention the work-location count (${d.addrItems.length}), got "${d.note}"`)
     }
+    if (truth && truth.workLocationCount === 0) {
+      failures.push(`${href}: DOM shows ${d.addrItems.length} address item(s) but job_work_locations has 0 rows in the DB — contradicts the source data`)
+    }
   } else if (d.singleAddr) {
-    // State B: one resolved point (province-level approximate, or a single exact address).
-    if (d.markerCount !== 1) {
-      failures.push(`${href}: single-location state must render exactly 1 marker, got ${d.markerCount}`)
+    // State B: one resolved point. Structural pairing: a marker never appears
+    // without directions, and directions never appears without a marker.
+    if ((d.markerCount > 0) !== (d.directionsCount > 0)) {
+      failures.push(`${href}: marker/directions must appear together or not at all, got markerCount=${d.markerCount} directionsCount=${d.directionsCount}`)
+    }
+    if (d.markerCount > 1) {
+      failures.push(`${href}: single-location state must render at most 1 marker, got ${d.markerCount}`)
     }
     if (!d.singleAddr || d.singleAddr.length < 2) {
       failures.push(`${href}: single address text is empty/too short: ${JSON.stringify(d.singleAddr)}`)
+    }
+    // Ground-truth cross-check: no job_work_locations rows AND no direct
+    // local_jobs.lat/lng means there is NO verified work location at all —
+    // production must not fabricate a marker/map/directions from a guessed
+    // region-center coordinate (the exact bug Codex found on sb-4366/67/68).
+    if (truth && truth.workLocationCount === 0 && !truth.hasDirectCoords) {
+      if (d.markerCount !== 0) failures.push(`${href}: no verified work location in DB (0 job_work_locations rows, no local_jobs.lat/lng) but map shows ${d.markerCount} marker(s)`)
+      if (d.mapContainerCount !== 0) failures.push(`${href}: no verified work location in DB but map container is rendered (count=${d.mapContainerCount})`)
+      if (d.directionsCount !== 0) failures.push(`${href}: no verified work location in DB but a "Chỉ đường" directions button is rendered`)
+      if (d.gmapsLinkCount > 1) failures.push(`${href}: no verified work location in DB but ${d.gmapsLinkCount} gmaps link(s) rendered (expected at most 1 search-only link)`)
+    }
+    if (truth && truth.hasDirectCoords) {
+      if (d.markerCount !== 1) failures.push(`${href}: local_jobs has direct lat/lng but map shows ${d.markerCount} marker(s), expected 1`)
+      if (d.directionsCount !== 1) failures.push(`${href}: local_jobs has direct lat/lng but directions button count is ${d.directionsCount}, expected 1`)
     }
   } else {
     // State C: no location info at all — must not fabricate a marker, and
@@ -125,8 +170,17 @@ try {
   const failures = []
   for (const href of toCheck) {
     const d = await readJobDetail(page, href)
-    results.push({ href, ...d })
-    failures.push(...checkInvariants(href, d))
+    const idMatch = href.match(/sb-(\d+)/)
+    let truth = null
+    if (idMatch) {
+      try {
+        truth = await fetchGroundTruth(idMatch[1])
+      } catch (err) {
+        console.error(`${href}: could not fetch DB ground truth (${err.message}) — skipping DB cross-check for this job`)
+      }
+    }
+    results.push({ href, ...d, truth })
+    failures.push(...checkInvariants(href, d, truth))
   }
 
   await page.close()

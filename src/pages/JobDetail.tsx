@@ -422,18 +422,31 @@ export function JobDetail() {
                           <MapPin size={13} strokeWidth={1.8} />
                           {locationText}
                         </p>
+                        {/* job_work_locations가 아예 없는 레거시 공고 — mapLocation.source가
+                            'exact'(공고 자체 lat/lng)일 때만 검증된 위치로 보고 길찾기까지
+                            보여준다. 'region'/'default'는 지역명 텍스트로 추측한 좌표일 뿐이므로
+                            내부 지도·마커·길찾기를 전혀 만들지 않고 외부 검색 링크만 제공한다. */}
                         {singleLocationGmaps && (
                           <div className="jd2-map-gmaps-links">
-                            <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                            <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                            {mapLocation.source === 'exact' ? (
+                              <>
+                                <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                                <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                              </>
+                            ) : (
+                              <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Tìm địa chỉ trên Google Maps ↗</a>
+                            )}
                           </div>
                         )}
                       </>
                     )
                   )}
-                  {/* job_work_locations가 있는 공고는 exact/ward 마커가 1개라도 있을 때만
-                      내부 지도를 그린다 — 전부 region/unresolved면 지도 자체를 숨긴다. */}
-                  {(!hasWorkLocationList || hasMappableWorkLocations) && (
+                  {/* 내부 지도는 검증된 좌표가 있을 때만 그린다:
+                      - job_work_locations가 있으면 exact/ward 마커가 1개라도 있을 때만
+                      - job_work_locations가 없으면 공고 자체에 실제 lat/lng(source==='exact')가
+                        있을 때만 — 지역명 추측 좌표(region/default)로는 지도를 그리지 않는다. */}
+                  {((hasWorkLocationList && hasMappableWorkLocations) ||
+                    (!hasWorkLocationList && locationText && mapLocation.source === 'exact')) && (
                     <>
                       <JobLocationMap
                         lat={mapCenter.lat}
@@ -445,11 +458,7 @@ export function JobDetail() {
                       <p className="jd2-map-note">
                         {hasGeocodedWorkLocations
                           ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
-                          : mapLocation.source === 'exact'
-                            ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
-                            : mapLocation.source === 'default'
-                              ? 'Chưa có thông tin vị trí cụ thể.'
-                              : 'Không tìm thấy địa chỉ làm việc chi tiết cho tin này — bản đồ chỉ hiển thị khu vực gần đúng.'}
+                          : 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'}
                       </p>
                     </>
                   )}
