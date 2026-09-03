@@ -12,7 +12,16 @@ from __future__ import annotations
 
 import geocode
 from crawl_topcv import _address_core, _haversine_km, _is_duplicate_location, resolve_work_locations
-from geocode import _region_text_matches
+from geocode import (
+    _bbox_for_province,
+    _largest_cluster_within_km,
+    _place_name_matches,
+    _region_text_matches,
+    build_query_variants,
+    extract_place_name,
+    normalize_address_for_query,
+    resolve_coordinate_accuracy,
+)
 
 
 def assert_equal(actual, expected, label: str) -> None:
@@ -104,6 +113,151 @@ def test_region_alias_2025_merger_binh_duong_to_ho_chi_minh() -> None:
     )
 
 
+def test_normalize_address_for_query() -> None:
+    # Strategy 3: strip "(cũ)"-style former-name annotations and dedupe
+    # repeated comma segments — the real job 4366 text that motivated this.
+    assert_equal(
+        normalize_address_for_query("KCN Sóng Thần 1, Dĩ An, Bình Dương (cũ)., Dĩ An"),
+        "KCN Sóng Thần 1, Dĩ An, Bình Dương",
+        "strips (cũ) annotation and collapses the repeated 'Dĩ An' segment",
+    )
+    assert_equal(
+        normalize_address_for_query("17 Phạm Hùng, Nam Từ Liêm"),
+        "17 Phạm Hùng, Nam Từ Liêm",
+        "an address with nothing to normalize is returned unchanged",
+    )
+
+
+def test_extract_place_name() -> None:
+    assert_equal(extract_place_name("Lô K, Đường Số 6, KCN Liên Chiểu, Liên Chiểu"), "Lô K", "leading 'Lô X' extracted")
+    assert_equal(
+        extract_place_name("KCN Thăng Long 2 – Hưng Yên, Yên Mỹ"),
+        "KCN Thăng Long 2 – Hưng Yên",
+        "'KCN ...' extracted up to the next comma",
+    )
+    assert_equal(extract_place_name("17 Phạm Hùng, Nam Từ Liêm"), None, "no KCN/CCN/Tòa nhà/Lô signal -> None")
+
+
+def test_build_query_variants() -> None:
+    variants = build_query_variants("KCN Sóng Thần 1, Dĩ An, Bình Dương (cũ)., Dĩ An", "Bình Dương")
+    types = [v["type"] for v in variants]
+    assert_true("raw" in types, "raw variant always present")
+    assert_true("normalized" in types, "normalized variant present when (cũ)/dedup changes the text")
+    assert_true("place_name_only" in types, "place_name_only variant present when a KCN/Lô/... name is extractable")
+    # 'structured' variant only makes sense when the trailing comma segment
+    # differs from the province itself (otherwise it would just repeat "X, Bình Dương, Bình Dương, Vietnam").
+    variants2 = build_query_variants("17 Phạm Hùng, Hà Nội", "Hà Nội")
+    types2 = [v["type"] for v in variants2]
+    assert_true("structured" not in types2, "structured variant skipped when the trailing segment IS the province itself")
+
+    variants3 = build_query_variants("Lô 2.19B, Khu Công Nghiệp Trà Nóc 2, Ô Môn", "Cần Thơ")
+    types3 = [v["type"] for v in variants3]
+    assert_true("structured" in types3, "structured variant present when the trailing segment is a real district, not the province")
+
+
+def test_place_name_matches() -> None:
+    assert_equal(_place_name_matches({"formatted": "abc"}, None), None, "no place name to check -> None (not applicable)")
+    assert_true(
+        _place_name_matches({"name": "KCN Sóng Thần 1", "formatted": "..."}, "KCN Sóng Thần 1"),
+        "exact place name found in 'name' field",
+    )
+    assert_false(
+        _place_name_matches({"formatted": "Ga Liên Chiểu, Lien Chieu, Vietnam"}, "Lô K"),
+        "place name not present anywhere in the result -> False",
+    )
+
+
+def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
+    """No live network — geocode._geocode_query_raw is monkeypatched so each
+    of the 4 tiers can be regression-tested deterministically. The exact
+    scenarios (data shapes, not addresses) mirror the real vieclam24h cases
+    validated live this round: 'exact' (Hà Nội, 17 Phạm Hùng — 3 variants,
+    same building), 'ward' (Hưng Yên, KCN Thăng Long 2 — converge on a real
+    district, place name unconfirmed), 'region' (Cần Thơ — only a province-
+    wide centroid), 'unresolved' (Bình Dương, 230A/2 — a near-correct hit
+    outvoted 1-vs-1 by a same-named-but-far-away centroid)."""
+    import geocode as geocode_module
+
+    def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, formatted=""):
+        return {
+            "status": "success", "lat": lat, "lng": lng,
+            "top": {"result_type": result_type, "state": state, "county": county, "city": city, "name": name, "formatted": formatted},
+        }
+
+    def make_fake_raw(responses_by_query: dict[str, dict]):
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            if query in responses_by_query:
+                return responses_by_query[query]
+            return {"status": "no_results", "lat": None, "lng": None, "top": None}
+        return _fake
+
+    original = geocode_module._geocode_query_raw
+    try:
+        # ── 'exact': 3 independent variants agree on the same building, no place name to confirm ──
+        addr = "17 Phạm Hùng, Nam Từ Liêm"
+        province = "Hà Nội"
+        variants = build_query_variants(addr, province)
+        same_point = _success(21.0165865, 105.7850047, "building", state="Ha Noi", city="Hanoi", county="Hoan Kiem")
+        geocode_module._geocode_query_raw = make_fake_raw({v["query"]: same_point for v in variants})
+        r = resolve_coordinate_accuracy(addr, province)
+        assert_equal(r["coordinate_accuracy"], "exact", "3 variants converging on the same building -> exact")
+        assert_equal((r["lat"], r["lng"]), (21.0165865, 105.7850047), "exact tier carries the converged coordinate")
+
+        # ── 'ward': 2+ variants agree on a real district, but the KCN name itself is never confirmed ──
+        addr2 = "KCN Thăng Long 2 – Hưng Yên, Yên Mỹ"
+        province2 = "Hưng Yên"
+        variants2 = build_query_variants(addr2, province2)
+        same_ward_point = _success(20.8521493, 106.0331637, "building", state="Hưng Yên Province", city="Yên Mỹ Commune")
+        geocode_module._geocode_query_raw = make_fake_raw({v["query"]: same_ward_point for v in variants2})
+        r2 = resolve_coordinate_accuracy(addr2, province2)
+        assert_equal(r2["coordinate_accuracy"], "ward", "district confirmed by 2+ variants, but 'KCN Thăng Long 2' place name never matched -> ward, not exact")
+
+        # ── 'region': only a province-wide centroid, nothing more specific ──
+        addr3 = "Lô 2.19B, Khu Công Nghiệp Trà Nóc 2, Ô Môn"
+        province3 = "Cần Thơ"
+        variants3 = build_query_variants(addr3, province3)
+        centroid_only = _success(10.0362046, 105.7872656, "city", city="Cần Thơ")
+        geocode_module._geocode_query_raw = make_fake_raw({v["query"]: centroid_only for v in variants3})
+        r3 = resolve_coordinate_accuracy(addr3, province3)
+        assert_equal(r3["coordinate_accuracy"], "region", "only a province-wide centroid available -> region, not ward")
+        assert_equal(r3["lat"], None, "region tier carries no lat/lng (no internal map marker)")
+
+        # ── 'unresolved': a near-correct non-centroid hit outvoted 1-vs-1 by a same-named, far-away centroid ──
+        addr4 = "230A/2 đường An Phú 13, KP1B, Phường An Phú, Thuận An"
+        province4 = "Bình Dương"
+        variants4 = build_query_variants(addr4, province4)
+        wrong_far = _success(14.23966, 109.16417, "city", city="Thuan An")  # a different, unrelated "Thuan An"
+        right_near = _success(10.95923, 106.7322584, "street", city="Thuận An")  # the real Thuận An, Bình Dương
+        by_variant = {v["type"]: v["query"] for v in variants4}
+        responses = {}
+        if "raw" in by_variant:
+            responses[by_variant["raw"]] = wrong_far
+        if "structured" in by_variant:
+            responses[by_variant["structured"]] = right_near
+        geocode_module._geocode_query_raw = make_fake_raw(responses)
+        r4 = resolve_coordinate_accuracy(addr4, province4)
+        assert_equal(r4["coordinate_accuracy"], "unresolved", "1 correct-looking hit outvoted by 1 same-named-but-far-away hit -> unresolved, not region")
+    finally:
+        geocode_module._geocode_query_raw = original
+
+
+def test_largest_cluster_within_km() -> None:
+    a = {"lat": 10.0, "lng": 106.0}
+    b = {"lat": 10.001, "lng": 106.001}  # ~150m from a
+    c = {"lat": 11.0, "lng": 107.0}  # far away
+    cluster = _largest_cluster_within_km([a, b, c], 0.3)
+    assert_equal(len(cluster), 2, "the two nearby points form the largest cluster, the far one is excluded")
+    assert_equal(_largest_cluster_within_km([a], 0.3), [a], "a single point is its own (size-1) cluster")
+
+
+def test_bbox_for_province() -> None:
+    assert_equal(_bbox_for_province("__not_a_real_province__"), None, "unknown province -> no bbox")
+    bbox = _bbox_for_province("Hà Nội")
+    assert_true(bbox is not None, "known province -> a bbox tuple")
+    lon1, lat1, lon2, lat2 = bbox
+    assert_true(lon1 < lon2 and lat1 < lat2, "bbox corners are correctly ordered (min, min, max, max)")
+
+
 def test_region_match_avoids_cross_segment_substring_false_positive() -> None:
     # A naive "join every field into one string and substring-search" was
     # tried first and rejected: "Vĩnh Long" (a real province) followed by
@@ -163,10 +317,12 @@ def test_resolve_work_locations_no_api_key_is_not_a_transient_failure() -> None:
     # Force the 'no API key configured' path deterministically (never rely on
     # the ambient environment actually lacking the key — that would make this
     # test start silently hitting the live network the day someone adds it).
-    # geocode_address() must return status='no_api_key' here, which is "we
-    # confidently found nothing" (drop the candidate), NOT a transient
-    # failure that would block syncing job_work_locations. Only 'api_error'
-    # (network/API failure) should set had_transient_failure=True.
+    # A candidate with real address text (address_accuracy='exact_text')
+    # still gets a row even when geocoding can't run at all — address text
+    # and coordinate accuracy are independent (see geocode.py's module
+    # docstring) — but its coordinate_accuracy must be 'unresolved' with no
+    # lat/lng, and this must NOT be treated as a transient failure (only a
+    # real 'api_error' from the network/API should set that).
     original_key = geocode.GEOAPIFY_API_KEY
     geocode.GEOAPIFY_API_KEY = ""
     try:
@@ -174,7 +330,11 @@ def test_resolve_work_locations_no_api_key_is_not_a_transient_failure() -> None:
         resolved, had_transient_failure = resolve_work_locations(candidates)
     finally:
         geocode.GEOAPIFY_API_KEY = original_key
-    assert_equal(resolved, [], "no GEOAPIFY_API_KEY -> no candidates resolved")
+    assert_equal(len(resolved), 1, "real address text still gets a row even with no GEOAPIFY_API_KEY")
+    assert_equal(resolved[0]["address_accuracy"], "exact_text", "address text accuracy is independent of geocoding")
+    assert_equal(resolved[0]["coordinate_accuracy"], "unresolved", "no API key -> can't resolve any coordinate")
+    assert_equal(resolved[0]["lat"], None, "unresolved coordinate_accuracy carries no lat")
+    assert_equal(resolved[0]["lng"], None, "unresolved coordinate_accuracy carries no lng")
     assert_false(had_transient_failure, "no_api_key must NOT be treated as a transient failure")
 
 
@@ -183,6 +343,13 @@ def main() -> int:
         test_region_text_matches,
         test_region_alias_2025_merger_binh_duong_to_ho_chi_minh,
         test_region_match_avoids_cross_segment_substring_false_positive,
+        test_normalize_address_for_query,
+        test_extract_place_name,
+        test_build_query_variants,
+        test_place_name_matches,
+        test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder,
+        test_largest_cluster_within_km,
+        test_bbox_for_province,
         test_haversine_and_duplicate_detection,
         test_resolve_work_locations_no_api_key_is_not_a_transient_failure,
     ]

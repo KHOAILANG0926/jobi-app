@@ -11,7 +11,7 @@ import { classifyJobCategory } from '../lib/jobCategoryRules'
 import { isPublicJobAllowed } from '../lib/jobQualityFilter'
 import { ensureJobFields } from '../lib/jobUtils'
 import { supabase } from '../lib/supabase'
-import type { Job } from '../types/job'
+import type { CoordinateAccuracy, Job } from '../types/job'
 
 function parseDescription(raw: string): { description: string; source?: string } {
   const match = raw?.match(/\[source:([^\]]+)\]/)
@@ -24,13 +24,25 @@ function parseDescription(raw: string): { description: string; source?: string }
 }
 
 function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] extends (infer U)[] | undefined ? U : never {
+  const coordinateAccuracy = (r.coordinate_accuracy as CoordinateAccuracy | null | undefined) ?? undefined
   return {
     id: r.id as number,
     rawAddress: (r.raw_address as string) ?? '',
     normalizedAddress: (r.normalized_address as string) ?? undefined,
-    lat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
-    lng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
+    // exact/ward만 좌표를 신뢰한다 — region/unresolved는 DB에 lat/lng가 있어도(과거
+    // 데이터 등) 프론트에서 지도에 쓰지 않는다. coordinate_accuracy 컬럼이 아직
+    // 없는(마이그레이션 전) 환경에서는 undefined이므로, 기존 lat/lng가 있으면
+    // 안전한 기본값인 'exact'로 간주해 기존 동작을 유지한다.
+    lat:
+      typeof r.lat === 'number' && Number.isFinite(r.lat) && (coordinateAccuracy == null || coordinateAccuracy === 'exact' || coordinateAccuracy === 'ward')
+        ? (r.lat as number)
+        : undefined,
+    lng:
+      typeof r.lng === 'number' && Number.isFinite(r.lng) && (coordinateAccuracy == null || coordinateAccuracy === 'exact' || coordinateAccuracy === 'ward')
+        ? (r.lng as number)
+        : undefined,
     sortOrder: (r.sort_order as number) ?? 0,
+    coordinateAccuracy: coordinateAccuracy ?? undefined,
   }
 }
 

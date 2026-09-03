@@ -8,6 +8,8 @@
   | 'office'
   | 'other'
 
+export type CoordinateAccuracy = 'exact' | 'ward' | 'region' | 'unresolved'
+
 export interface JobWorkLocation {
   id: number
   rawAddress: string
@@ -15,6 +17,11 @@ export interface JobWorkLocation {
   lat?: number
   lng?: number
   sortOrder: number
+  /** resolve_coordinate_accuracy()의 판정 — 원문 주소 텍스트(rawAddress)와는 별개다.
+   *  텍스트는 항상 그대로 보여준다; 이 값은 지도에 마커를 찍어도 되는지만 결정한다.
+   *  'exact'/'ward'만 lat/lng를 신뢰해 지도에 표시 — 'region'/'unresolved'는 내부
+   *  지도를 아예 숨기고 외부 Google 지도 검색 링크만 제공한다. */
+  coordinateAccuracy?: CoordinateAccuracy
 }
 
 export interface Job {

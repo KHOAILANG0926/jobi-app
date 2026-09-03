@@ -263,11 +263,13 @@ def test_address_pipeline_standard() -> None:
     assert_false(has_application_path("", "", ""), "no phone/zalo/source_url -> no application path")
     assert_false(has_application_path(None, None, None), "None values -> no application path")
 
-    # gate_auto_publish: BOTH an exact address AND an application path are required.
-    assert_equal(gate_auto_publish(True, True), (True, "ok"), "exact address + application path -> publish")
-    assert_equal(gate_auto_publish(False, True), (False, "no_exact_address"), "no exact address -> held")
+    # gate_auto_publish: BOTH real address text AND an application path are
+    # required — but does NOT require a successful geocode/exact coordinate
+    # (address_accuracy and coordinate_accuracy are independent — see geocode.py).
+    assert_equal(gate_auto_publish(True, True), (True, "ok"), "address text + application path -> publish")
+    assert_equal(gate_auto_publish(False, True), (False, "no_address_text"), "no address text -> held")
     assert_equal(gate_auto_publish(True, False), (False, "no_application_path"), "no application path -> held")
-    assert_equal(gate_auto_publish(False, False), (False, "no_exact_address"), "neither -> held, address checked first")
+    assert_equal(gate_auto_publish(False, False), (False, "no_address_text"), "neither -> held, address checked first")
 
     # End-to-end on the 3 regression fixtures (4366/4367/4368) — classification only,
     # geocoding itself is exercised separately (it needs network + writes to
@@ -275,7 +277,7 @@ def test_address_pipeline_standard() -> None:
     job_4366_candidates = ["KCN Sóng Thần 1, Dĩ An, Bình Dương (cũ)., Dĩ An", "Dĩ An, Bình Dương (cũ)., Thủ Đức"]
     exact_4366 = [c for c in job_4366_candidates if classify_work_location_candidate(c) == "exact"]
     assert_equal(len(exact_4366), 1, "job 4366 must resolve to exactly 1 exact candidate, not 2 (2nd line is region_only)")
-    assert_true(gate_auto_publish(True, True)[0], "job 4366 with 1 exact candidate + source_url -> would publish")
+    assert_true(gate_auto_publish(True, True)[0], "job 4366 with real address text + source_url -> would publish (even before geocoding is attempted)")
 
     job_4367_candidates = ["17 Phạm Hùng, Nam Từ Liêm"]
     assert_equal(

@@ -5,30 +5,45 @@
 
 begin;
 
--- ── 1. job_work_locations: 주소 판정 근거 ────────────────────────
+-- ── 1. job_work_locations: 주소 텍스트 정확도 / 좌표 정확도 분리 ──
+-- address_accuracy: 원문 텍스트 자체가 얼마나 구체적인지(classify_work_location_
+--   candidate()). job_work_locations에는 'exact_text'(구체적 주소 텍스트가
+--   있음)만 저장된다 — region_only/undetermined 텍스트는 애초에 행을 만들지
+--   않는다(기존과 동일). 감사/디버깅용 기록.
+-- coordinate_accuracy: 그 텍스트를 실제로 지도에 얼마나 믿고 찍을 수 있는지
+--   (resolve_coordinate_accuracy()). 텍스트가 exact_text여도 좌표는
+--   ward/region/unresolved일 수 있다 — 이 경우에도 원문 주소 텍스트 자체는
+--   화면에 그대로 표시하고, 좌표 정확도에 따라 지도만 다르게 그린다:
+--     exact  -> 정밀 마커 + 길찾기
+--     ward   -> 구/동 중심 근사 마커, 길찾기 대신 "Google 지도에서 주소 검색"만
+--     region/unresolved -> 내부 지도 자체를 숨기고 외부 검색 링크만
 alter table public.job_work_locations
   add column if not exists address_accuracy text
-    check (address_accuracy in ('exact', 'region_only', 'undetermined')),
+    check (address_accuracy in ('exact_text', 'region_only', 'undetermined')),
+  add column if not exists coordinate_accuracy text
+    check (coordinate_accuracy in ('exact', 'ward', 'region', 'unresolved')),
   add column if not exists address_evidence text;
 
 comment on column public.job_work_locations.address_accuracy is
-  'classify_work_location_candidate()의 분류 결과. job_work_locations에는 exact만 저장되므로 사실상 항상 exact — 감사/디버깅용 기록.';
+  'classify_work_location_candidate()의 분류 결과. 이 테이블에는 exact_text만 저장됨 — 감사/디버깅용 기록.';
+comment on column public.job_work_locations.coordinate_accuracy is
+  'resolve_coordinate_accuracy()의 판정 결과. exact/ward만 lat/lng가 채워지고, region/unresolved는 lat/lng가 null(내부 지도 미표시).';
 comment on column public.job_work_locations.address_evidence is
-  '이 좌표를 채택한 근거(예: 기대 지역 일치 여부, confidence 값) — 짧은 사람이 읽을 수 있는 텍스트.';
+  '이 좌표(coordinate_accuracy)를 채택/보류한 근거 — 짧은 사람이 읽을 수 있는 텍스트.';
 
 -- ── 2. local_jobs: 파이프라인 실행 이력 ──────────────────────────
 alter table public.local_jobs
   add column if not exists crawler_version text,
   add column if not exists last_verified_at timestamptz,
   add column if not exists publish_gate_reason text
-    check (publish_gate_reason in ('ok', 'no_exact_address', 'no_application_path') or publish_gate_reason is null);
+    check (publish_gate_reason in ('ok', 'no_address_text', 'no_application_path') or publish_gate_reason is null);
 
 comment on column public.local_jobs.crawler_version is
   '이 공고를 마지막으로 처리한 크롤러 파이프라인 버전(job_quality.CRAWLER_VERSION).';
 comment on column public.local_jobs.last_verified_at is
   '표준 파이프라인(주소 분류/geocode/지원경로/공개게이트)이 이 공고를 마지막으로 재평가한 시각.';
 comment on column public.local_jobs.publish_gate_reason is
-  'gate_auto_publish()의 판정 사유. active=false인 크롤러 출처 공고는 반드시 이 값이 채워져 있어야 한다(왜 보류됐는지 추적 가능하도록).';
+  'gate_auto_publish()의 판정 사유. 공개 게이트는 exact geocode 성공을 요구하지 않고, 상세주소 텍스트(exact_text) + 유효한 지원 경로만 확인한다. active=false인 크롤러 출처 공고는 반드시 이 값이 채워져 있어야 한다.';
 
 -- ── 3. job_work_locations 원자적 교체 RPC ────────────────────────
 -- 기존 delete()+insert()를 별도 두 요청으로 하면, delete 성공 후 insert가
@@ -70,7 +85,7 @@ begin
 
   insert into public.job_work_locations (
     job_id, raw_address, normalized_address, lat, lng,
-    geocode_status, geocode_source, address_accuracy, address_evidence, sort_order
+    geocode_status, geocode_source, address_accuracy, coordinate_accuracy, address_evidence, sort_order
   )
   select
     p_job_id,
@@ -80,7 +95,8 @@ begin
     (r->>'lng')::double precision,
     coalesce(r->>'geocode_status', 'success'),
     (r->>'geocode_source'),
-    coalesce(r->>'address_accuracy', 'exact'),
+    coalesce(r->>'address_accuracy', 'exact_text'),
+    (r->>'coordinate_accuracy'),
     (r->>'address_evidence'),
     coalesce((r->>'sort_order')::int, 0)
   from jsonb_array_elements(p_rows) as r;

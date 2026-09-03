@@ -464,19 +464,28 @@ def has_application_path(
     return bool(source_page_valid and has_apply_affordance)
 
 
-def gate_auto_publish(has_exact_address: bool, has_application_path_: bool) -> tuple[bool, str]:
+def gate_auto_publish(has_address_text: bool, has_application_path_: bool) -> tuple[bool, str]:
     """Decide whether a freshly-scraped job may be auto-published (active=true)
     or must be held for manual review (active=false, never silently dropped).
     Both conditions are required independently:
-    - a job with only province/city-level location (no confirmed exact
-      address) is held — "somewhere in this city" is not something a seeker
-      can act on with confidence;
-    - a job with a precise address but no way to actually apply (no phone/
-      Zalo/source_url) is held — publishing it would just be a dead end.
-    Returns (should_publish, reason) — reason is one of 'ok', 'no_exact_address',
+    - the job needs at least one real, specific address candidate (address_
+      accuracy == 'exact_text' — a genuine street/building/industrial-park
+      name, not just a province mention) — but does NOT need a successful
+      geocode. address_accuracy (is the TEXT specific) and coordinate_
+      accuracy (can we trust a map pin for it) are deliberately independent:
+      requiring exact-tier coordinates to publish was tried first and
+      rejected — on 10 real addresses it published only 2/10 even though all
+      10 had genuine, displayable address text, because most industrial-park
+      sub-block addresses simply aren't precisely geocodable via free OSM-
+      based providers. The address text is shown regardless of coordinate_
+      accuracy; only the map/marker rendering depends on it (see geocode.py's
+      resolve_coordinate_accuracy).
+    - a job with real address text but no way to actually apply (no phone/
+      Zalo/valid source_url) is held — publishing it would just be a dead end.
+    Returns (should_publish, reason) — reason is one of 'ok', 'no_address_text',
     'no_application_path' (checked in that order when both fail)."""
-    if not has_exact_address:
-        return False, "no_exact_address"
+    if not has_address_text:
+        return False, "no_address_text"
     if not has_application_path_:
         return False, "no_application_path"
     return True, "ok"

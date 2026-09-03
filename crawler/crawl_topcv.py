@@ -21,7 +21,7 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from classifier import classify, is_blacklisted
-from geocode import geocode_address, resolve_bias_province
+from geocode import resolve_coordinate_accuracy
 from job_quality import (
     CRAWLER_VERSION,
     canonical_job_key,
@@ -45,12 +45,6 @@ print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요
 
 TARGET_COUNT = int(os.getenv("CRAWLER_TARGET_COUNT", "500"))
 TODAY = date.today().isoformat()
-
-# Coarse Vietnam bounding box — a final sanity net independent of Geoapify's
-# own confidence score, in case a geocode ever comes back for the right text
-# but the wrong country/hemisphere entirely.
-_VN_LAT_RANGE = (8.0, 24.0)
-_VN_LNG_RANGE = (102.0, 110.0)
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -87,26 +81,33 @@ def _is_duplicate_location(a: dict, b: dict) -> bool:
 
 
 def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dict], bool]:
-    """Standard address pipeline, stage 4-5 (classify -> geocode/validate),
-    applied identically for every job — never branched on job id or company.
+    """Standard address pipeline, stage 4-7 (classify -> multi-candidate
+    geocode cascade -> coordinate-accuracy scoring), applied identically for
+    every job — never branched on job id or company.
 
     candidates_with_region: split_work_locations(..., with_region=True) output
     — each candidate carries the province/city label vieclam24h prefixed it
-    with (e.g. "Bình Dương"), used to validate the geocoder didn't quietly
-    resolve it to a different province at high confidence.
+    with (e.g. "Bình Dương"), used by geocode.resolve_coordinate_accuracy()
+    to validate the geocoder didn't quietly resolve it to a different
+    province, and to bias the query toward the right area.
 
-    Only candidates classified 'exact' are geocoded; 'region_only' and
-    'undetermined' are dropped here rather than stored with a fabricated or
-    missing coordinate. A geocode result is only kept when geocode.py reports
-    status='success' — 'no_results' / 'low_confidence' / 'region_mismatch'
-    are all confident negative verdicts (real reasons to not treat this as an
-    exact address) and dropped the same as a non-'exact' classification.
+    address_accuracy (is the raw TEXT a genuine, specific address) and
+    coordinate_accuracy (can a map pin be trusted for it) are deliberately
+    independent — see geocode.py's module docstring for why a single-query
+    confidence gate was tried first and rejected (it published only 2/10 on
+    real addresses that all had genuine, displayable text). Only candidates
+    classified 'exact' by classify_work_location_candidate() (i.e.
+    address_accuracy == 'exact_text') get a row at all — 'region_only'/
+    'undetermined' text is dropped here exactly as before. EVERY such
+    candidate keeps its row regardless of what coordinate_accuracy comes
+    back as ('exact'/'ward' carry a real lat/lng for the map; 'region'/
+    'unresolved' carry none — the raw address TEXT is still shown, just
+    without a fabricated-looking marker).
 
     Returns (resolved_rows, had_transient_failure). had_transient_failure is
-    True when ANY candidate's geocode call itself failed (status='api_error'
-    — a network/API problem, not a verdict on the address). The caller MUST
-    treat that as "this run's result is incomplete" and must not use it to
-    replace/wipe previously-stored, known-good job_work_locations rows.
+    True when ANY candidate's cascade hit a transient geocode API failure —
+    the caller MUST treat that as "this run's result is incomplete" and must
+    not use it to replace/wipe previously-stored, known-good rows.
     """
     resolved: list[dict] = []
     had_transient_failure = False
@@ -120,33 +121,27 @@ def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dic
             continue
         seen_texts.add(text_key)
 
-        geo = geocode_address(
-            text, region_hint="Vietnam", expected_region_text=region_prefix,
-            bias_province=resolve_bias_province(region_prefix),
-        )
-        status = geo.get("status")
-        if status == "api_error":
+        coord = resolve_coordinate_accuracy(text, region_prefix)
+        if coord.get("had_transient_failure"):
             had_transient_failure = True
-            print(f"    ⚠️  geocode API 오류(일시적) — 이번 판정에서 제외, 기존 데이터 보존 필요: {text!r}")
-            continue
-        if status != "success":
-            print(f"    ⏩ geocode 반려({status}): {text!r}")
-            continue
-
-        lat, lng = geo["lat"], geo["lng"]
-        if not (_VN_LAT_RANGE[0] <= lat <= _VN_LAT_RANGE[1] and _VN_LNG_RANGE[0] <= lng <= _VN_LNG_RANGE[1]):
-            print(f"    ⚠️  geocode 결과가 베트남 범위 밖 — 스킵: {text!r} -> ({lat}, {lng})")
-            continue
+        tier = coord["coordinate_accuracy"]
+        print(f"    📍 {tier:11} {text!r} — {coord['evidence']}")
 
         row = {
             "raw_address": text,
             "normalized_address": text_key,
-            "lat": lat,
-            "lng": lng,
-            "geocode_status": status,
-            "geocode_source": geo.get("source") or "geoapify",
+            "lat": coord["lat"],
+            "lng": coord["lng"],
+            "geocode_status": "success" if tier in ("exact", "ward") else "failed",
+            "geocode_source": coord.get("geocode_source"),
+            "address_accuracy": "exact_text",
+            "coordinate_accuracy": tier,
         }
-        if any(_is_duplicate_location(row, existing) for existing in resolved):
+        # 좌표가 있는 행(exact/ward)만 좌표 기준 중복 제거 대상 — region/
+        # unresolved는 좌표가 없으므로 텍스트 중복(seen_texts)만으로 충분하다.
+        if row["lat"] is not None and any(
+            e.get("lat") is not None and _is_duplicate_location(row, e) for e in resolved
+        ):
             continue
         resolved.append(row)
     return resolved, had_transient_failure
@@ -434,7 +429,11 @@ async def crawl_vieclam24h() -> list[dict]:
             source_url_value = j.get("href") or None
             employer_phone_value = ""
             should_publish, gate_reason = gate_auto_publish(
-                has_exact_address=len(resolved_locations) > 0,
+                # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
+                # 무관하다. resolve_work_locations()는 exact_text로 분류된
+                # 후보라면 좌표를 못 찾아도(coordinate_accuracy='unresolved')
+                # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
+                has_address_text=len(resolved_locations) > 0,
                 has_application_path_=has_application_path(
                     employer_phone_value, "", source_url_value,
                     source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
@@ -502,7 +501,8 @@ def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
             "lng": loc["lng"],
             "geocode_status": loc["geocode_status"],
             "geocode_source": loc["geocode_source"],
-            "address_accuracy": "exact",
+            "address_accuracy": loc.get("address_accuracy", "exact_text"),
+            "coordinate_accuracy": loc.get("coordinate_accuracy"),
             "sort_order": idx,
         }
         for idx, loc in enumerate(resolved_locations)

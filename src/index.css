@@ -8420,6 +8420,12 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   color: #94a3b8;
   font-style: italic;
 }
+.jd2-map-ward-note {
+  margin: 0 0 0.3rem 1.15rem;
+  font-size: 0.73rem;
+  color: #94a3b8;
+  font-style: italic;
+}
 .jd2-map-addr-list {
   list-style: none;
   padding: 0;

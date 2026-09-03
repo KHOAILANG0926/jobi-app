@@ -279,6 +279,16 @@ export function JobDetail() {
   // 근무지 목록이 없을 때(region/default fallback)만 쓰는 단일 Google Maps 링크 —
   // 근무지가 있으면 각 주소별로 따로 만든다(아래 렌더링 부분).
   const singleLocationGmaps = !hasWorkLocationList && locationText ? googleMapsLinks(locationText) : null
+  // job_work_locations가 있는 공고는 항목별로 coordinate_accuracy가 다를 수 있다
+  // (예: 한 공고가 여러 지역을 커버하면서 어떤 주소는 exact, 어떤 주소는 unresolved).
+  // 상세주소 텍스트는 정확도와 무관하게 전부 그대로 보여주되, 지도 마커는 exact/ward
+  // 좌표를 가진 항목에만 찍는다 — region/unresolved는 내부 지도를 아예 숨기고
+  // 외부 Google 지도 검색 링크만 제공한다(공개 게이트가 exact geocode를 더 이상
+  // 요구하지 않으므로, 상세주소는 있지만 좌표를 못 찾은 공고가 실제로 존재한다).
+  const mappableWorkLocations = (job.workLocations ?? []).filter(
+    (l): l is typeof l & { lat: number; lng: number } => typeof l.lat === 'number' && typeof l.lng === 'number',
+  )
+  const hasMappableWorkLocations = mappableWorkLocations.length > 0
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
@@ -371,18 +381,35 @@ export function JobDetail() {
               ) : (
                 <>
                   {hasWorkLocationList ? (
+                    // 항목별로 coordinate_accuracy가 다를 수 있다 — 상세주소 텍스트는
+                    // 항상 그대로 보여주고, 지도/길찾기 버튼 구성만 항목별 정확도에
+                    // 따라 달라진다(exact/ward만 내부 지도·마커, region/unresolved는
+                    // 외부 Google 지도 검색 링크만).
                     <ul className="jd2-map-addr-list">
                       {job.workLocations?.map((loc) => {
                         const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc))
+                        const isMappable = typeof loc.lat === 'number' && typeof loc.lng === 'number'
+                        const tier = loc.coordinateAccuracy ?? (isMappable ? 'exact' : 'unresolved')
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
                             <p className="jd2-map-addr">
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
+                            {tier === 'ward' && (
+                              <p className="jd2-map-ward-note">
+                                Vị trí gần đúng theo khu vực (quận/huyện) — không phải vị trí chính xác của tòa nhà.
+                              </p>
+                            )}
                             <div className="jd2-map-gmaps-links">
-                              <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                              <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                              {tier === 'exact' ? (
+                                <>
+                                  <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                                  <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                                </>
+                              ) : (
+                                <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Tìm địa chỉ trên Google Maps ↗</a>
+                              )}
                             </div>
                           </li>
                         )
@@ -404,22 +431,28 @@ export function JobDetail() {
                       </>
                     )
                   )}
-                  <JobLocationMap
-                    lat={mapCenter.lat}
-                    lng={mapCenter.lng}
-                    title={job.title}
-                    zoom={mapLocations.zoom}
-                    extraMarkers={hasGeocodedWorkLocations ? mapLocations.points : undefined}
-                  />
-                  <p className="jd2-map-note">
-                    {hasGeocodedWorkLocations
-                      ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
-                      : mapLocation.source === 'exact'
-                        ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
-                        : mapLocation.source === 'default'
-                          ? 'Chưa có thông tin vị trí cụ thể.'
-                          : 'Không tìm thấy địa chỉ làm việc chi tiết cho tin này — bản đồ chỉ hiển thị khu vực gần đúng.'}
-                  </p>
+                  {/* job_work_locations가 있는 공고는 exact/ward 마커가 1개라도 있을 때만
+                      내부 지도를 그린다 — 전부 region/unresolved면 지도 자체를 숨긴다. */}
+                  {(!hasWorkLocationList || hasMappableWorkLocations) && (
+                    <>
+                      <JobLocationMap
+                        lat={mapCenter.lat}
+                        lng={mapCenter.lng}
+                        title={job.title}
+                        zoom={mapLocations.zoom}
+                        extraMarkers={hasGeocodedWorkLocations ? mapLocations.points : undefined}
+                      />
+                      <p className="jd2-map-note">
+                        {hasGeocodedWorkLocations
+                          ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
+                          : mapLocation.source === 'exact'
+                            ? 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'
+                            : mapLocation.source === 'default'
+                              ? 'Chưa có thông tin vị trí cụ thể.'
+                              : 'Không tìm thấy địa chỉ làm việc chi tiết cho tin này — bản đồ chỉ hiển thị khu vực gần đúng.'}
+                      </p>
+                    </>
+                  )}
                 </>
               )}
             </div>
