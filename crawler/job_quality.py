@@ -561,10 +561,15 @@ def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | Non
         errors.append("excluded money/debt collection job")
     if job.get("origin") != "crawler":
         errors.append("origin must be crawler")
-    if job.get("active") is not True:
-        errors.append("active must be true")
-    if job.get("admin_hidden") is not False:
-        errors.append("admin_hidden must be false")
+    # active/admin_hidden은 여기서 검사하지 않는다 — active는 공개 게이트
+    # (gate_auto_publish)의 판정 결과일 뿐이고, False도 유효하고 의도된 상태다
+    # (상세주소·지원경로가 없어 보류된 공고도 그 사실 그대로 저장/재판정돼야
+    # 한다 — "저장할 가치가 없는 불량 데이터"가 아니다). 이 검사가 있으면
+    # 신규 발견 공고와 기존 공고 재판정이 다르게 동작한다: 신규는 게이트
+    # 실패 시 통째로 버려지고(active=false로도 저장 안 됨), 기존 공고
+    # 재판정은 반대로 active=false로 정상 강등돼야 하는데 이 검사 때문에
+    # build_job_record()가 그 결과를 "quality_invalid"로 스킵해버려 강등
+    # 자체가 조용히 실패하는 버그가 됐었다(단일 파이프라인 통합 중 발견).
     if is_expired(job.get("application_deadline"), today=today):
         errors.append("deadline is expired")
 
