@@ -54,14 +54,14 @@ def test_region_text_matches() -> None:
         _region_text_matches({"formatted": "123 Abc, Thủ Dầu Một, Bình Dương, Việt Nam"}, "Bình Dương"),
         "expected province found only in 'formatted' still counts",
     )
-    # Mismatch — this is the exact failure mode geocode.py's own comments describe
-    # (a Tân Phú/TP.HCM address matching Bình Dương at high confidence).
+    # Mismatch — a genuinely unrelated province (not in the same 2025 merger
+    # group as the expected one) must still be rejected.
     assert_false(
         _region_text_matches(
-            {"state": "Bình Dương", "county": "Dĩ An", "city": "", "formatted": "..., Dĩ An, Bình Dương, Việt Nam"},
-            "TP.HCM",
+            {"state": "Hà Nội", "county": "Cầu Giấy", "city": "", "formatted": "..., Cầu Giấy, Hà Nội, Việt Nam"},
+            "Cần Thơ",
         ),
-        "candidate resolves to Bình Dương when the source line said TP.HCM -> must NOT match",
+        "candidate resolves to Hà Nội when the source line said Cần Thơ (unrelated provinces) -> must NOT match",
     )
     # Diacritics/case must not cause a false mismatch.
     assert_true(
@@ -82,34 +82,53 @@ def test_region_text_matches() -> None:
 
 
 def test_region_alias_2025_merger_binh_duong_to_ho_chi_minh() -> None:
-    # Evidenced merger case (job 4366's own text says "Bình Dương (cũ)" for
-    # exactly these districts): an address whose source line says "Bình
-    # Dương" but which Geoapify now resolves under "Hồ Chí Minh" (post-2025
-    # merger) must still be accepted when the district is one of the
-    # specific, evidenced ex-Bình Dương districts.
+    # General, versioned 2025 province-merger table (vn_province_merger_2025.py)
+    # — NOT a per-province special case. Every merged pair must match in BOTH
+    # directions: raw text using the old name vs. the new name, and Geoapify/
+    # OSM (which lags real administrative changes) returning either.
+
+    # Bình Dương (old) <-> Hồ Chí Minh (new, merged group also includes Bà Rịa
+    # - Vũng Tàu) — this direction was already covered by the old one-off
+    # district-list exception; still covered here by the general table.
     assert_true(
         _region_text_matches({"state": "Hồ Chí Minh", "county": "Dĩ An"}, "Bình Dương"),
-        "expected 'Bình Dương' + returned Hồ Chí Minh/Dĩ An (an evidenced ex-Bình Dương district) -> must match",
+        "expected 'Bình Dương' + returned Hồ Chí Minh/Dĩ An -> must match (same 2025 merger group)",
+    )
+    # The reverse direction — expected the NEW name, geocoder returns the OLD
+    # one — was the original bug this whole session's user report is about
+    # (sb-4369: raw text said "Tây Ninh", Geoapify returned "Long An"). Must
+    # now match too, and this is no longer conditional on a hand-picked
+    # district list (e.g. "Quận 1" was previously rejected as "not an
+    # evidenced ex-Bình Dương district" — under the general table it's simply
+    # a district of the same (now-merged) province and must match).
+    assert_true(
+        _region_text_matches({"state": "Bình Dương", "county": "Thuận An"}, "TP.HCM"),
+        "expected 'TP.HCM' + returned Bình Dương -> must match (reverse direction of the same merger)",
     )
     assert_true(
-        _region_text_matches({"state": "Hồ Chí Minh", "city": "Thuận An"}, "Bình Dương"),
-        "expected 'Bình Dương' + returned Hồ Chí Minh/Thuận An -> must match",
+        _region_text_matches({"state": "Hồ Chí Minh", "county": "Quận 1"}, "Bình Dương"),
+        "expected 'Bình Dương' + returned Hồ Chí Minh/Quận 1 -> must match (any district of the merged province, not just an evidenced list)",
     )
 
-    # The exception must NOT become a blanket Bình Dương<->Hồ Chí Minh alias —
-    # that would silently reintroduce the exact bug _region_text_matches
-    # exists to catch. Tân Phú is a real TP.HCM district that is NOT part of
-    # the 2025 Bình Dương merger; an expected "Hồ Chí Minh"/"TP.HCM" address
-    # that Geoapify wrongly resolves to Bình Dương must still be rejected.
-    assert_false(
-        _region_text_matches({"state": "Bình Dương", "county": "Thuận An"}, "TP.HCM"),
-        "expected 'TP.HCM' + returned Bình Dương must NOT match even though the reverse direction is allowed for ex-Bình Dương districts — this is the original wrong-province bug",
+    # The real sb-4369 case: raw address said "Tây Ninh" (new name), Geoapify
+    # returned "Long An" (old name, merged into the same new Tây Ninh).
+    assert_true(
+        _region_text_matches({"state": "Long An", "county": "Tân An"}, "Tây Ninh"),
+        "expected 'Tây Ninh' + returned Long An -> must match (2025 merger: Long An + Tây Ninh -> new Tây Ninh)",
     )
-    # And a Bình Dương district that is NOT one of the evidenced ex-districts
-    # must not be waved through either (only the specific evidenced list counts).
+    # And the reverse: raw text uses the old "Long An" name, geocoder returns
+    # the new "Tây Ninh".
+    assert_true(
+        _region_text_matches({"state": "Tây Ninh"}, "Long An"),
+        "expected 'Long An' + returned Tây Ninh -> must match (reverse direction)",
+    )
+
+    # A province genuinely NOT in the same merger group must still be
+    # rejected — the general table must not become "anything matches
+    # anything". Long An merged into Tây Ninh, not into Hà Nội.
     assert_false(
-        _region_text_matches({"state": "Hồ Chí Minh", "county": "Quận 1"}, "Bình Dương"),
-        "expected 'Bình Dương' + returned Hồ Chí Minh/Quận 1 (not an ex-Bình Dương district) must NOT match",
+        _region_text_matches({"state": "Hà Nội"}, "Long An"),
+        "expected 'Long An' + returned Hà Nội (unrelated province, not the same merger group) -> must NOT match",
     )
 
 

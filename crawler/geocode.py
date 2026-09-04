@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from job_quality import PROVINCE_COORDS, ascii_key, guess_province_from_text, normalize_whitespace
+from vn_province_merger_2025 import canonical_province_name_2025, merged_province_group
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -154,26 +155,6 @@ _REGION_NOTATION_VARIANTS: list[set[str]] = [
     {"hue", "thua thien hue", "thua thien - hue"},
 ]
 
-# Vietnam's 2025 administrative merger folded these Bình Dương districts
-# into Hồ Chí Minh. This is evidenced directly in this project's own scraped
-# data — job 4366's real "Địa điểm làm việc" text literally labels itself
-# "Bình Dương (cũ)." ("Bình Dương, former") for exactly these districts.
-# Deliberately narrow and ONE-DIRECTIONAL (only widens an expected "Bình
-# Dương" to also accept these districts under a "Hồ Chí Minh" result) rather
-# than a blanket Bình Dương<->Hồ Chí Minh province alias: a blanket alias
-# was tried first and rejected because it would also swallow the exact bug
-# this whole check exists to catch — a Tân Phú (a TP.HCM district, NOT one
-# of these) address that Geoapify wrongly geocoded to Bình Dương at high
-# confidence (see MIN_CONFIDENCE's docstring). Tân Phú must still be
-# rejected when the expected region is "Hồ Chí Minh"/"TP.HCM" and Geoapify
-# returns Bình Dương — only the reverse (expected "Bình Dương", one of
-# THESE specific ex-districts returned under Hồ Chí Minh) is accepted.
-_EX_BINH_DUONG_DISTRICTS = {
-    "di an", "thuan an", "thu dau mot", "tan uyen", "ben cat",
-    "dau tieng", "bau bang", "bac tan uyen", "phu giao",
-}
-
-
 def _region_segments(field_value: object) -> list[str]:
     """ascii-folds a Geoapify field and splits it on comma/slash — matching
     is only ever done WITHIN one segment, never across a comma boundary.
@@ -195,7 +176,18 @@ def _region_text_matches(top: dict, expected_region_text: str | None) -> bool:
     city/formatted/address_line2), segment by segment (see _region_segments)
     — a match in ANY segment counts, since Vietnamese administrative naming
     in OSM-derived data is inconsistent about which field carries the
-    province name."""
+    province name.
+
+    Also treats any two provinces merged into the same unit by Vietnam's 2025
+    administrative merger (vn_province_merger_2025.PROVINCE_MERGER_VERSION —
+    e.g. Long An+Tây Ninh -> new Tây Ninh, Bình Dương+Bà Rịa-Vũng Tàu+TP.HCM
+    -> new TP.HCM) as the SAME region, in either direction: the raw address
+    text may use the old or new name, and Geoapify/OSM data (which lags real-
+    world administrative changes) may also return either — general, versioned
+    data, not a per-province exception. This only decides "is it the same
+    province" — it does not by itself grant a higher coordinate_accuracy tier;
+    resolve_coordinate_accuracy() still separately requires ward/place-name
+    text agreement or multi-variant coordinate convergence for 'ward'/'exact'."""
     if not expected_region_text:
         return True
     expected = ascii_key(expected_region_text)
@@ -206,20 +198,18 @@ def _region_text_matches(top: dict, expected_region_text: str | None) -> bool:
     for group in _REGION_NOTATION_VARIANTS:
         if expected in group:
             expected_variants |= group
+    # 병합표는 표기 그대로의 이름(예: "Hồ Chí Minh")을 키로 갖고 있으므로, 위
+    # 표기 변형 확장(예: "TP.HCM" -> "Hồ Chí Minh" 포함) 이후의 모든 변형 각각에
+    # 대해 병합 그룹을 조회해야 한다 — expected_region_text 원문 하나만 조회하면
+    # "TP.HCM"처럼 병합표에 직접 없는 표기가 자기 그룹(Bình Dương 등)을 못 찾는다.
+    for variant in list(expected_variants):
+        expected_variants |= merged_province_group(variant)
 
     all_segments: list[str] = []
     for field_key in ("state", "county", "city", "formatted", "address_line2"):
         all_segments.extend(_region_segments(top.get(field_key)))
 
-    if any(v == seg or v in seg for v in expected_variants for seg in all_segments):
-        return True
-
-    if expected == "binh duong":
-        district_segments = _region_segments(top.get("county")) + _region_segments(top.get("city"))
-        if any(d in seg for d in _EX_BINH_DUONG_DISTRICTS for seg in district_segments):
-            return True
-
-    return False
+    return any(v == seg or v in seg for v in expected_variants for seg in all_segments)
 
 
 def _geocode_query_raw(
@@ -597,13 +587,30 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
                     f"same-name-coincidence with an unrelated place, not trustworthy at any tier"
                 )
 
+    def _geocoded_region_text(top: dict | None) -> str | None:
+        if not top:
+            return None
+        return top.get("state") or top.get("county") or top.get("city") or None
+
+    def _region_breakdown_note(sample: dict | None) -> str:
+        """원문 지역(province), 지오코더가 실제로 반환한 지역, 2025 통합표 기준
+        현재 표준화된 지역을 evidence에 각각 기록한다 — 사용자 지시: "동일
+        행정권역으로 인정된다고 해서 자동으로 exact 좌표가 되는 것은 아니"므로,
+        이 표기는 근거 기록용일 뿐 등급 판정 자체에는 관여하지 않는다."""
+        if not province:
+            return ""
+        geocoded = _geocoded_region_text(sample["top"]) if sample else None
+        normalized = canonical_province_name_2025(province) or province
+        return f" [raw_region={province}; geocoded_region={geocoded or '(none)'}; normalized_region={normalized}]"
+
     def _result(tier: str, point: dict | None, evidence: str) -> dict:
+        sample = point or (non_centroid_ok[0] if non_centroid_ok else (valid[0] if valid else None))
         return {
             "coordinate_accuracy": tier,
             "lat": point["lat"] if point else None,
             "lng": point["lng"] if point else None,
             "geocode_source": "geoapify" if point else None,
-            "evidence": evidence,
+            "evidence": f"{evidence}{_region_breakdown_note(sample)}",
             "had_transient_failure": had_transient_failure,
         }
 
