@@ -527,9 +527,34 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
         })
 
     non_centroid = [p for p in valid if not p["is_centroid"]]
-    conflicting = any(not p["province_ok"] for p in non_centroid)  # a non-centroid WRONG-province hit exists
-    conflict_reason = "a non-centroid result in a different province was found" if conflicting else ""
     non_centroid_ok = [p for p in non_centroid if p["province_ok"]]
+
+    # 실측 발견(2026-09-04, 실제 공고 100건 주소 품질 조사 중): Geoapify가 같은
+    # 실제 장소(좌표까지 동일)를 두고도 질의 문구에 따라 state/county 필드를
+    # 통째로 비워서 반환하는 경우가 있다(예: "(cũ)" 주석을 뺀 normalized 변형만
+    # county가 비어 있고 나머지 raw/structured/bbox 3개 변형은 전부 채워져
+    # 있는데도 넷 다 좌표가 완전히 동일). 이 경우 그 변형 하나만으로
+    # province_ok=False가 되어 곧바로 "다른 행정구역과 충돌"로 판정되고, 이미
+    # 3개 변형이 정확히 일치하는 정상 주소까지 전부 unresolved로 거부되는
+    # 결함이 있었다(실사례: "OfficeHaus, 32 Tân Thắng..." — 4개 변형 중 3개가
+    # 동일 좌표(10.7999786, 106.6147282)에서 state="Ho Chi Minh"으로 정확히
+    # 일치했지만, county가 비어 있던 1개 변형 때문에 전체가 unresolved 처리됨).
+    # province_ok=False인 결과라도 이미 확인된(province_ok=True) 결과와 좌표가
+    # 사실상 같은 지점(<=300m, exact-tier 수렴 기준과 동일)이면 "같은 곳인데
+    # 메타데이터만 부실한 응답"으로 보고 충돌 판정에서 제외한다 — 진짜 다른
+    # 지역의 동명 장소(예: Lâm Đồng 오탐)는 좌표 자체가 멀리 떨어져 있으므로
+    # 이 예외에 해당하지 않아 여전히 충돌로 잡힌다.
+    def _has_nearby_confirmed_match(p: dict) -> bool:
+        return any(
+            _haversine_km(p["lat"], p["lng"], q["lat"], q["lng"]) <= _WARD_CLUSTER_RADIUS_KM
+            for q in non_centroid_ok
+        )
+
+    conflicting = any(
+        not p["province_ok"] and not _has_nearby_confirmed_match(p)
+        for p in non_centroid
+    )
+    conflict_reason = "a non-centroid result in a different province was found" if conflicting else ""
 
     # "Outvoted" check: a province-name text match can be a same-name
     # coincidence with an unrelated place far away (confirmed live — e.g. a

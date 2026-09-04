@@ -259,6 +259,30 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
         geocode_module._geocode_query_raw = make_fake_raw(responses)
         r4 = resolve_coordinate_accuracy(addr4, province4)
         assert_equal(r4["coordinate_accuracy"], "unresolved", "1 correct-looking hit outvoted by 1 same-named-but-far-away hit -> unresolved, not region")
+
+        # ── 실사례 회귀(2026-09-04, 실제 공고 100건 주소 품질 조사 중 발견):
+        # Geoapify가 같은 실제 장소(좌표 동일)를 두고도 질의 문구에 따라
+        # state/county를 통째로 비워서 반환하는 경우가 있다 — 이 경우 그
+        # 변형 하나만으로 province_ok=False가 되어 곧바로 "충돌"로 전체가
+        # unresolved 처리되던 결함(3/4 변형이 정확히 일치하는데도 거부됨).
+        # 실제 케이스: "OfficeHaus, 32 Tân Thắng..." — raw/structured/bbox
+        # 3개 변형은 동일 좌표에서 state="Ho Chi Minh"으로 일치했지만,
+        # normalized 변형만 county/state가 비어 있어 전체가 잘못 거부됐다.
+        addr5 = "OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì (Tân Phú Cũ), Thành phố Hồ Chí Minh, Tân Phú"
+        province5 = "TP.HCM"
+        variants5 = build_query_variants(addr5, province5)
+        same_point_full_meta = _success(10.7999786, 106.6147282, "building", state="Ho Chi Minh", county="Quan 8", city="Thuận An")
+        same_point_sparse_meta = _success(10.7999786, 106.6147282, "amenity", state=None, county=None, city="Thuận An")
+        by_variant5 = {v["type"]: v["query"] for v in variants5}
+        responses5 = {}
+        for vtype, query in by_variant5.items():
+            responses5[query] = same_point_sparse_meta if vtype == "normalized" else same_point_full_meta
+        geocode_module._geocode_query_raw = make_fake_raw(responses5)
+        r5 = resolve_coordinate_accuracy(addr5, province5)
+        assert_true(
+            r5["coordinate_accuracy"] != "unresolved",
+            f"3/4 variants converge on the identical coordinate with province confirmed — a 4th variant with empty state/county at the SAME coordinate must not veto the whole match (got {r5['coordinate_accuracy']!r}, evidence: {r5['evidence']!r})",
+        )
     finally:
         geocode_module._geocode_query_raw = original
 
