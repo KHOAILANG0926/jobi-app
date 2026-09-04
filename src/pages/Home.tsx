@@ -703,23 +703,34 @@ export function Home() {
       })()}
 
       {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
-      {!selectedCity && filtered.length > 0 && (
+      {!selectedCity && (
         <section className="home-section" ref={jobResultRef}>
           <h2 className="home-section__title">Tất cả kết quả</h2>
-          <div className="home-jobs-grid">
-            {filtered.map((job) => (
-              <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-                <JobCard
-                  job={job}
-                  isApplied={isApplied(job.id)}
-                  onApply={handleApply}
-                  isSaved={savedIds.has(job.id)}
-                  onToggleSave={handleToggleSave}
-                  distanceKm={jobDistances[job.id]}
-                />
-              </NavLink>
-            ))}
-          </div>
+          {filtered.length === 0 ? (
+            // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
+            // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
+            // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).
+            <div className="city-result__empty">
+              <span>🔍</span>
+              <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>
+              <NavLink to="/">← Xem tất cả việc làm</NavLink>
+            </div>
+          ) : (
+            <div className="home-jobs-grid">
+              {filtered.map((job) => (
+                <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+                  <JobCard
+                    job={job}
+                    isApplied={isApplied(job.id)}
+                    onApply={handleApply}
+                    isSaved={savedIds.has(job.id)}
+                    onToggleSave={handleToggleSave}
+                    distanceKm={jobDistances[job.id]}
+                  />
+                </NavLink>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
