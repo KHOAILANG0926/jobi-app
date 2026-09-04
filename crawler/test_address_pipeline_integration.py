@@ -831,6 +831,44 @@ def test_transient_geocode_failure_never_republishes_or_corrupts_existing_verifi
         crawl_topcv.supabase = original_supabase
 
 
+def test_job_recruitment_regions_stays_out_of_local_jobs_insert_payload_until_migrated() -> None:
+    """운영 적용 준비 단계 회귀(2026-09-04, 사용자 지시 4번 — "migration이
+    실행되기 전까지 _recruitment_regions를 실제 DB payload로 보내지 않는
+    현재 보호가 유지되는지 확인"). build_job_record()는
+    job["_job_recruitment_regions"]("_"로 시작하는 임시 필드)만 채운다 —
+    local_jobs.recruitment_regions 컬럼은 draft migration 0018이 아직
+    실행되지 않아 운영 DB에 없으므로, 이 값이 조금이라도 실제
+    supabase.table("local_jobs").insert(...)/.update(...) payload에
+    섞여 들어가면 그 즉시 "column not found" 에러로 모든 저장이 실패한다.
+    가짜 Supabase 클라이언트로 실제 INSERT payload를 기록해, "_"로 시작하는
+    필드가 전부 제외되는지(특히 이 필드) 엔드투엔드로 확인한다."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+    try:
+        new_job = _make_rerun_job(
+            source_url="https://vieclam24h.vn/test-job-verify-only.html",
+            _job_recruitment_regions=["TP.HCM", "Long An"],
+        )
+        # 기존 행과 매칭되지 않는 완전히 새 공고 -> INSERT 경로를 탄다.
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(new_job, by_source_url={}, by_key={})
+        assert_equal(result["action"], "inserted", "no existing match -> must go through the INSERT path")
+        insert_calls = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "insert"]
+        assert_equal(len(insert_calls), 1, "exactly one insert() call")
+        payload = insert_calls[0]["payload"] or {}
+        assert_true(
+            "recruitment_regions" not in payload and "_job_recruitment_regions" not in payload,
+            f"neither the real column name nor the transient '_'-prefixed key may ever reach the INSERT payload before migration 0018 runs, got keys {sorted(payload.keys())!r}",
+        )
+        assert_true(
+            all(not k.startswith("_") for k in payload),
+            f"no '_'-prefixed transient field of any kind may leak into the INSERT payload, got keys {sorted(payload.keys())!r}",
+        )
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
 def test_coordinate_accuracy_never_leaks_exact_candidate_to_db() -> None:
     """실사례 회귀(2026-09-04, 사용자 지시 — 코드·DB 호환성 전수 확인 중 발견):
     운영 DB의 job_work_locations.coordinate_accuracy CHECK 제약(migration
@@ -1218,6 +1256,7 @@ def main() -> int:
         test_gate_rejects_c1_partial_mixed_tiers,
         test_gate_requires_source_verified_not_just_exact_candidate,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
+        test_job_recruitment_regions_stays_out_of_local_jobs_insert_payload_until_migrated,
         test_coordinate_accuracy_never_leaks_exact_candidate_to_db,
         test_strip_recruitment_region_suffix_kcn_real_case,
         test_group_candidates_by_core_location_kcn_facility_dedup,

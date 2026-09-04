@@ -118,4 +118,13 @@ begin
 end;
 $$;
 
+-- Postgres는 CREATE OR REPLACE FUNCTION이 함수 시그니처(이름+인자 타입)를
+-- 바꾸지 않는 한 기존 GRANT를 자동으로 보존한다(이 함수는 이름/인자 타입
+-- 그대로) — 즉 아래 두 줄이 없어도 권한은 유지된다. 그래도 "권한이 실제로
+-- 유지되는지"를 이 파일만 보고도 의심 없이 확인할 수 있도록, migration
+-- 0015와 동일한 REVOKE/GRANT를 그대로 재선언한다(멱등 — 이미 있는 권한을
+-- 다시 선언해도 부작용 없음).
+revoke all on function public.replace_job_work_locations(bigint, jsonb) from public, anon, authenticated;
+grant execute on function public.replace_job_work_locations(bigint, jsonb) to service_role;
+
 commit;
