@@ -185,7 +185,24 @@ export function withJobCoordinates(job: Job): Job {
  * đúng)") — using that as a map search query pollutes the query with prose
  * that isn't part of the place name. `normalizedAddress`, when present, is
  * the cleaned place name meant for exactly this purpose and must be preferred.
+ *
+ * 2026-09-04 사용자 지시: "Google Maps 텍스트 길찾기는 항상 원문 위치 + 상위
+ * 시·도 + Vietnam을 URL 인코딩해 사용" — 근무지 원문 주소 자체에 상위 시·도
+ * 이름이 이미 포함돼 있는 경우도 있지만(예: "..., Thành phố Hồ Chí Minh, Tân
+ * Phú") 보장되지 않는 주소도 있어(예: "45 Trần Mai Ninh, Tân Bình"만 있고
+ * "TP.HCM"이 빠짐), 매번 공고의 상위 시·도(jobLocation)와 "Vietnam"을 명시적
+ *으로 덧붙여 국가/지역이 항상 명확하도록 한다 — 동명 지역/해외 동명 장소로
+ * 잘못 안내될 위험을 줄인다. jobLocation이 이미 주소 텍스트에 포함돼 있어도
+ * 중복 표기 자체는 Google Maps 검색에 해가 되지 않는다(더 구체적으로 만들 뿐).
  */
-export function resolveWorkLocationQuery(loc: { rawAddress: string; normalizedAddress?: string }): string {
-  return loc.normalizedAddress || loc.rawAddress
+export function resolveWorkLocationQuery(
+  loc: { rawAddress: string; normalizedAddress?: string },
+  jobLocation?: string,
+): string {
+  const base = loc.normalizedAddress || loc.rawAddress
+  const parts = [base]
+  const province = jobLocation?.trim()
+  if (province) parts.push(province)
+  parts.push('Vietnam')
+  return parts.join(', ')
 }

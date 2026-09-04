@@ -815,6 +815,62 @@ def test_transient_geocode_failure_never_republishes_or_corrupts_existing_verifi
         crawl_topcv.supabase = original_supabase
 
 
+def test_coordinate_accuracy_never_leaks_exact_candidate_to_db() -> None:
+    """실사례 회귀(2026-09-04, 사용자 지시 — 코드·DB 호환성 전수 확인 중 발견):
+    운영 DB의 job_work_locations.coordinate_accuracy CHECK 제약(migration
+    0015, 이미 실행됨)은 ('exact','ward','region','unresolved') 네 값만
+    허용하는데, geocode.py의 'exact' -> 'exact_candidate' 개명(이전 커밋) 이후
+    _work_location_rpc_rows()가 이 internal 값을 그대로 RPC payload에 흘려
+    보내고 있었다 — 실제 쓰기가 재개되면 첫 exact_candidate 행에서 CHECK
+    제약 위반으로 즉시 실패했을 결함(이번 라운드는 DB 쓰기 자체가 없어 아직
+    실제 오류는 안 났음). _coordinate_accuracy_for_db()가 이를 막는지
+    검증한다."""
+    from crawl_topcv import _coordinate_accuracy_for_db, _work_location_rpc_rows
+
+    # source_verified=True -> DB에는 'exact'로 승격, 좌표 그대로 유지.
+    verified_loc = {
+        "raw_address": "DOJI Tower, Số 5 Lê Duẩn", "normalized_address": "doji tower...",
+        "lat": 21.029196, "lng": 105.841676, "geocode_status": "success",
+        "geocode_source": "vieclam24h_employer_contact", "address_accuracy": "exact_text",
+        "coordinate_accuracy": "exact_candidate", "address_evidence": "...", "source_verified": True,
+    }
+    tier, lat, lng, status = _coordinate_accuracy_for_db(verified_loc)
+    assert_equal(tier, "exact", "source_verified=True must map to the DB-legal 'exact' value")
+    assert_equal((lat, lng), (21.029196, 105.841676), "verified coordinate must be preserved as-is")
+    assert_equal(status, "success", "verified location keeps geocode_status='success'")
+
+    # exact_candidate이지만 source_verified가 아니면 -> DB에는 'unresolved'로
+    # 낮추고 좌표도 null(=지도에 마커 안 뜸, 기존 unresolved 등급 의미와 일치).
+    unverified_loc = {
+        "raw_address": "OfficeHaus, 32 Tân Thắng", "normalized_address": "officehaus...",
+        "lat": 10.7999786, "lng": 106.6147282, "geocode_status": "success",
+        "geocode_source": "geoapify", "address_accuracy": "exact_text",
+        "coordinate_accuracy": "exact_candidate", "address_evidence": "...", "source_verified": False,
+    }
+    tier2, lat2, lng2, status2 = _coordinate_accuracy_for_db(unverified_loc)
+    assert_equal(tier2, "unresolved", "exact_candidate WITHOUT source verification must be downgraded to the DB-legal 'unresolved', never written as 'exact_candidate' or 'exact'")
+    assert_equal((lat2, lng2), (None, None), "unverified location's coordinate must be nulled before DB storage — never show an unverified pin")
+    assert_equal(status2, "failed", "unverified location's geocode_status must reflect that no trustworthy coordinate was stored")
+
+    # ward/region/unresolved는 애초에 CHECK 제약과 호환되므로 그대로 통과.
+    for tier_in in ("ward", "region", "unresolved"):
+        loc = {"coordinate_accuracy": tier_in, "lat": 1.0, "lng": 2.0, "geocode_status": "success", "source_verified": False}
+        tier_out, lat_out, lng_out, status_out = _coordinate_accuracy_for_db(loc)
+        assert_equal(tier_out, tier_in, f"{tier_in} tier must pass through unchanged (already DB-legal)")
+        assert_equal((lat_out, lng_out), (1.0, 2.0), f"{tier_in} tier's coordinate must not be touched by this mapping")
+
+    # _work_location_rpc_rows()가 실제로 이 매핑을 적용하는지, 그리고
+    # raw_address는 매핑과 무관하게 항상 그대로 보존되는지 엔드투엔드로 확인.
+    rows = _work_location_rpc_rows([verified_loc, unverified_loc])
+    assert_equal(rows[0]["coordinate_accuracy"], "exact", "RPC payload row 0 must carry the mapped 'exact' value")
+    assert_equal(rows[0]["raw_address"], "DOJI Tower, Số 5 Lê Duẩn", "raw_address always preserved verbatim")
+    assert_equal(rows[0]["location_verified"], True, "row 0 (source_verified) must carry location_verified=True in the RPC payload")
+    assert_equal(rows[1]["coordinate_accuracy"], "unresolved", "RPC payload row 1 must carry the mapped 'unresolved' value, not raw 'exact_candidate'")
+    assert_equal(rows[1]["raw_address"], "OfficeHaus, 32 Tân Thắng", "raw_address always preserved verbatim, even when the coordinate itself is dropped")
+    assert_equal(rows[1]["lat"], None, "row 1's lat must be null in the RPC payload")
+    assert_equal(rows[1]["location_verified"], False, "row 1 (not source_verified) must carry location_verified=False")
+
+
 def test_write_guard_blocks_unconfirmed_writes() -> None:
     # 회귀 테스트 — 2026-09-04, --dry-run-urls를 검증하다가 --process-url을
     # 실수로 호출해 운영 DB에 공고 1건이 실제로 저장된 사고(id=4370, 사용자
@@ -881,6 +937,7 @@ def main() -> int:
         test_gate_rejects_c1_partial_mixed_tiers,
         test_gate_requires_source_verified_not_just_exact_candidate,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
+        test_coordinate_accuracy_never_leaks_exact_candidate_to_db,
         test_write_guard_blocks_unconfirmed_writes,
     ]
     for test in tests:

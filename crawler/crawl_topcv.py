@@ -841,22 +841,67 @@ def save_to_json(jobs: list[dict], filename: str = "jobs_output.json"):
     print(f"  💾 JSON 저장: {filename} ({len(jobs)}개)")
 
 
+def _coordinate_accuracy_for_db(loc: dict) -> tuple[str | None, float | None, float | None, str | None]:
+    """(coordinate_accuracy, lat, lng, geocode_status)를 DB에 실제로 쓸 값으로
+    변환한다 — internal 파이프라인 어휘(exact_candidate/ward/region/unresolved)를
+    그대로 DB 컬럼에 흘려보내지 않는다.
+
+    2026-09-04 사용자 지시로 발견된 호환성 문제: 운영 DB의 job_work_locations.
+    coordinate_accuracy CHECK 제약(migration 0015, 이미 실행됨)은
+    ('exact','ward','region','unresolved') 네 값만 허용한다 — 'exact_candidate'는
+    이 목록에 없어 그대로 쓰면 제약 위반으로 즉시 실패한다(이번 라운드는 DB
+    쓰기 자체를 전혀 안 했으므로 아직 실제 오류가 난 적은 없지만, 다음에 실제
+    쓰기가 재개되면 첫 exact_candidate 행에서 바로 터진다).
+
+    사용자 지시: "exact_candidate를 DB의 exact로 단순 매핑하지 않음 — 독립
+    검증 성공 시에만 exact, 미검증 후보는 unresolved 또는 현재 스키마 의미에
+    맞는 안전값." 그래서:
+    - source_verified=True(원문 좌표로 실제 확인됨) -> DB 'exact'로 승격,
+      좌표는 그대로 유지.
+    - exact_candidate인데 source_verified가 아니면(Geoapify 자기수렴만 있고
+      독립 검증 없음) -> DB 'unresolved'로 낮추고 좌표도 null로 비운다 —
+      'unresolved' 등급의 기존 DB 의미("지도에 마커 안 띄움", migration 0015
+      주석 참고)와 정확히 일치시킨다. Geoapify가 실제로 찾아낸 좌표가 있어도
+      독립 검증이 안 된 이상 DB/지도에는 절대 노출하지 않는다.
+    - ward/region/unresolved는 애초에 CHECK 제약과 호환되므로 그대로 둔다.
+    raw_address는 이 함수와 무관하게 호출부에서 항상 그대로 보존된다."""
+    tier = loc.get("coordinate_accuracy")
+    lat, lng = loc.get("lat"), loc.get("lng")
+    geocode_status = loc.get("geocode_status")
+    if tier == "exact_candidate":
+        if loc.get("source_verified") is True:
+            tier = "exact"
+        else:
+            tier = "unresolved"
+            lat, lng = None, None
+            geocode_status = "failed"
+    return tier, lat, lng, geocode_status
+
+
 def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
-    return [
-        {
+    rows = []
+    for idx, loc in enumerate(resolved_locations):
+        db_tier, db_lat, db_lng, db_geocode_status = _coordinate_accuracy_for_db(loc)
+        rows.append({
             "raw_address": loc["raw_address"],
             "normalized_address": loc["normalized_address"],
-            "lat": loc["lat"],
-            "lng": loc["lng"],
-            "geocode_status": loc["geocode_status"],
+            "lat": db_lat,
+            "lng": db_lng,
+            "geocode_status": db_geocode_status,
             "geocode_source": loc["geocode_source"],
             "address_accuracy": loc.get("address_accuracy", "exact_text"),
-            "coordinate_accuracy": loc.get("coordinate_accuracy"),
+            "coordinate_accuracy": db_tier,
             "address_evidence": loc.get("address_evidence"),
+            # job_work_locations.location_verified 컬럼은 이미 존재하지만
+            # (migration 0010), 지금의 운영 RPC(migration 0015)는 이 값을
+            # INSERT 목록에서 빠뜨려 항상 기본값 false로만 저장된다 — draft
+            # migration 0018이 RPC를 갱신해야 실제로 저장되기 시작한다(그
+            # 전까지 이 키는 현재 RPC가 조용히 무시함, 하위 호환). source_
+            # verified(원문 좌표로 실제 확인됨)를 그대로 전달한다.
+            "location_verified": loc.get("source_verified") is True,
             "sort_order": idx,
-        }
-        for idx, loc in enumerate(resolved_locations)
-    ]
+        })
+    return rows
 
 
 def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> None:

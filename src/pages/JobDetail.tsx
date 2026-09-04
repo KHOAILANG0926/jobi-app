@@ -278,7 +278,10 @@ export function JobDetail() {
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
   // 근무지 목록이 없을 때(region/default fallback)만 쓰는 단일 Google Maps 링크 —
   // 근무지가 있으면 각 주소별로 따로 만든다(아래 렌더링 부분).
-  const singleLocationGmaps = !hasWorkLocationList && locationText ? googleMapsLinks(locationText) : null
+  // 이 경로는 job_work_locations가 없는 경우(지역명 텍스트만 있음)라
+  // locationText 자체가 이미 "상위 시·도" 수준이다 — 원문 위치와 상위 시·도가
+  // 같은 값으로 겹치지만, 국가 표기(Vietnam)는 항상 명시적으로 덧붙인다.
+  const singleLocationGmaps = !hasWorkLocationList && locationText ? googleMapsLinks(`${locationText}, Vietnam`) : null
   // job_work_locations가 있는 공고는 항목별로 coordinate_accuracy가 다를 수 있다
   // (예: 한 공고가 여러 지역을 커버하면서 어떤 주소는 exact, 어떤 주소는 unresolved).
   // 상세주소 텍스트는 정확도와 무관하게 전부 그대로 보여주되, 지도 마커는 exact/ward
@@ -387,7 +390,7 @@ export function JobDetail() {
                     // 외부 Google 지도 검색 링크만).
                     <ul className="jd2-map-addr-list">
                       {job.workLocations?.map((loc) => {
-                        const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc))
+                        const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc, job.location))
                         const isMappable = typeof loc.lat === 'number' && typeof loc.lng === 'number'
                         const tier = loc.coordinateAccuracy ?? (isMappable ? 'exact' : 'unresolved')
                         return (

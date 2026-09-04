@@ -8,7 +8,7 @@ import { useJobs } from '../context/JobsContext'
 import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
-import { calcDistanceKm, guessCoordinatesFromLocation, normalizeViText } from '../lib/jobCoords'
+import { calcDistanceKm, normalizeViText, resolveMapLocations } from '../lib/jobCoords'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
 import { parseSalaryToHourly } from '../lib/recommendStorage'
@@ -308,11 +308,22 @@ export function Home() {
 
 
 
+  // 2026-09-04 사용자 지시로 수정 — guessCoordinatesFromLocation()은 매칭되는
+  // 지역이 없으면 항상 임의 기본 좌표(Đà Nẵng)까지 반환하는 "항상 값 있음" 유틸
+  // 이라, 실제 근무지 좌표가 없는 공고까지 "내 위치에서 N km" 필터·정렬·배지에
+  // 그 가짜 거리가 그대로 쓰이고 있었다("공개/검색/지도 기능 정책"은 location_
+  // verified 여부를 따라야 하는 독립된 축). resolveMapLocations()(job_work_
+  // locations 우선, source==='exact'만 실제 좌표로 인정하는 동일 안전 함수)로
+  // 바꿔, 실제로 검증된 근무지가 있는 공고만 거리값을 갖는다 — 나머지는
+  // undefined로 남아 "내 주변" 필터에서 자연히 제외되고 거리 배지도 표시되지
+  // 않는다(가짜 km를 보여주지 않음).
   const jobDistances = useMemo<Record<string, number>>(() => {
     if (!nearMe || !userCoords) return {}
     const r: Record<string, number> = {}
     for (const job of jobs) {
-      const c = guessCoordinatesFromLocation(job.location)
+      const resolved = resolveMapLocations(job)
+      if (resolved.source !== 'exact' || resolved.points.length === 0) continue
+      const c = resolved.points[0]
       r[job.id] = calcDistanceKm(userCoords.lat, userCoords.lng, c.lat, c.lng)
     }
     return r
