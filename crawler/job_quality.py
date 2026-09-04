@@ -618,6 +618,9 @@ def gate_auto_publish(
 UPDATE_TRACKED_FIELDS = (
     "salary", "application_deadline", "description", "location", "source_url",
     "preference", "education", "work_period", "num_hires", "hours", "work_days",
+    # migration 0018(local_jobs.recruitment_regions text[])이 2026-09-04
+    # 운영 DB에 실행된 뒤 추가 — 재처리 시 이 값도 재검증해 갱신되도록.
+    "recruitment_regions",
 )
 
 

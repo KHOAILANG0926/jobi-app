@@ -835,17 +835,16 @@ def test_transient_geocode_failure_never_republishes_or_corrupts_existing_verifi
         crawl_topcv.supabase = original_supabase
 
 
-def test_job_recruitment_regions_stays_out_of_local_jobs_insert_payload_until_migrated() -> None:
-    """운영 적용 준비 단계 회귀(2026-09-04, 사용자 지시 4번 — "migration이
-    실행되기 전까지 _recruitment_regions를 실제 DB payload로 보내지 않는
-    현재 보호가 유지되는지 확인"). build_job_record()는
-    job["_job_recruitment_regions"]("_"로 시작하는 임시 필드)만 채운다 —
-    local_jobs.recruitment_regions 컬럼은 draft migration 0018이 아직
-    실행되지 않아 운영 DB에 없으므로, 이 값이 조금이라도 실제
-    supabase.table("local_jobs").insert(...)/.update(...) payload에
-    섞여 들어가면 그 즉시 "column not found" 에러로 모든 저장이 실패한다.
-    가짜 Supabase 클라이언트로 실제 INSERT payload를 기록해, "_"로 시작하는
-    필드가 전부 제외되는지(특히 이 필드) 엔드투엔드로 확인한다."""
+def test_job_recruitment_regions_reaches_insert_payload_after_migration_0018() -> None:
+    """운영 적용 회귀(2026-09-04, migration 0018이 실제로 운영 DB에 실행된
+    뒤 사용자 지시 10번 — "local_jobs.recruitment_regions 저장 코드만
+    활성화"). 이전 라운드에는 이 테스트가 반대로 "recruitment_regions가
+    payload에 절대 없어야 한다"를 검증했다 — 그때는 컬럼 자체가 없어서
+    안전장치였다. migration 0018이 2026-09-04 실제로 적용된 뒤로는 반대가
+    맞는 동작이다: build_job_record()가 채운 job["recruitment_regions"]
+    (job["_job_recruitment_regions"]와 항상 같은 값)가 실제 INSERT
+    payload에 올바르게 실려야 한다. "_"로 시작하는 임시 필드는 여전히,
+    항상 제외돼야 한다(이건 migration과 무관한 영구 규칙)."""
     original_supabase = crawl_topcv.supabase
     fake = _FakeSupabase()
     crawl_topcv.supabase = fake
@@ -853,6 +852,7 @@ def test_job_recruitment_regions_stays_out_of_local_jobs_insert_payload_until_mi
         new_job = _make_rerun_job(
             source_url="https://vieclam24h.vn/test-job-verify-only.html",
             _job_recruitment_regions=["TP.HCM", "Long An"],
+            recruitment_regions=["TP.HCM", "Long An"],
         )
         # 기존 행과 매칭되지 않는 완전히 새 공고 -> INSERT 경로를 탄다.
         with crawl_topcv.enable_writes():
@@ -862,8 +862,13 @@ def test_job_recruitment_regions_stays_out_of_local_jobs_insert_payload_until_mi
         assert_equal(len(insert_calls), 1, "exactly one insert() call")
         payload = insert_calls[0]["payload"] or {}
         assert_true(
-            "recruitment_regions" not in payload and "_job_recruitment_regions" not in payload,
-            f"neither the real column name nor the transient '_'-prefixed key may ever reach the INSERT payload before migration 0018 runs, got keys {sorted(payload.keys())!r}",
+            "recruitment_regions" in payload,
+            f"after migration 0018, the real column key must reach the INSERT payload, got keys {sorted(payload.keys())!r}",
+        )
+        assert_equal(payload["recruitment_regions"], ["TP.HCM", "Long An"], "the value sent must match what build_job_record() computed")
+        assert_true(
+            "_job_recruitment_regions" not in payload,
+            f"the '_'-prefixed transient field must still never leak into the INSERT payload (permanent rule, unrelated to migration state), got keys {sorted(payload.keys())!r}",
         )
         assert_true(
             all(not k.startswith("_") for k in payload),
@@ -1447,7 +1452,7 @@ def main() -> int:
         test_gate_rejects_c1_partial_mixed_tiers,
         test_gate_requires_source_verified_not_just_exact_candidate,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
-        test_job_recruitment_regions_stays_out_of_local_jobs_insert_payload_until_migrated,
+        test_job_recruitment_regions_reaches_insert_payload_after_migration_0018,
         test_coordinate_accuracy_never_leaks_exact_candidate_to_db,
         test_strip_recruitment_region_suffix_kcn_real_case,
         test_group_candidates_by_core_location_kcn_facility_dedup,

@@ -905,15 +905,14 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         "hours": hours_value,
         "work_days": work_days_value,
     }
-    # local_jobs.recruitment_regions는 아직 컬럼 자체가 없다(draft migration
-    # 0018, 미실행) — job_work_locations 쪽(RPC를 통해 JSONB로 쓰는 경로)과
-    # 달리, local_jobs는 upsert_job_record()가 이 dict를 그대로
-    # supabase.table("local_jobs").insert(...)에 보낸다(PostgREST가 미지
-    # 컬럼을 즉시 에러로 거부함) — 그래서 이 값은 "_"로 시작하는 임시
-    # 필드로만 보관하고(insert/update payload에서 자동 제외됨,
-    # upsert_job_record 참고), migration 0018이 실행되고 UPDATE_TRACKED_
-    # FIELDS/insert 경로가 함께 갱신된 뒤에만 실제 DB 컬럼으로 승격한다.
+    # local_jobs.recruitment_regions 컬럼은 migration 0018로 2026-09-04
+    # 운영 DB에 이미 추가됨 — 이제 실제 컬럼 키로도 채워서 insert_payload/
+    # UPDATE_TRACKED_FIELDS(job_quality.py) 양쪽 경로 모두에 실제로
+    # 저장되게 한다. "_job_recruitment_regions"(디버깅/JSON 덤프용,
+    # "_"로 시작해 insert/update payload에서는 자동 제외됨)는 그대로 유지 —
+    # 두 값은 항상 같은 내용이다.
     job["_job_recruitment_regions"] = job_recruitment_regions
+    job["recruitment_regions"] = job_recruitment_regions or None
     quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
     if quality_errors:
         job["_skip"] = True
