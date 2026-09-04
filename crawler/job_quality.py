@@ -508,28 +508,31 @@ def has_application_path(
     return bool(source_page_valid and has_apply_affordance)
 
 
-def gate_auto_publish(has_address_text: bool, has_application_path_: bool) -> tuple[bool, str]:
+def gate_auto_publish(
+    has_address_text: bool,
+    has_application_path_: bool,
+    all_locations_verified_exact: bool = False,
+) -> tuple[bool, str]:
     """Decide whether a freshly-scraped job may be auto-published (active=true)
     or must be held for manual review (active=false, never silently dropped).
-    Both conditions are required independently:
-    - the job needs at least one real, specific address candidate (address_
-      accuracy == 'exact_text' — a genuine street/building/industrial-park
-      name, not just a province mention) — but does NOT need a successful
-      geocode. address_accuracy (is the TEXT specific) and coordinate_
-      accuracy (can we trust a map pin for it) are deliberately independent:
-      requiring exact-tier coordinates to publish was tried first and
-      rejected — on 10 real addresses it published only 2/10 even though all
-      10 had genuine, displayable address text, because most industrial-park
-      sub-block addresses simply aren't precisely geocodable via free OSM-
-      based providers. The address text is shown regardless of coordinate_
-      accuracy; only the map/marker rendering depends on it (see geocode.py's
-      resolve_coordinate_accuracy).
-    - a job with real address text but no way to actually apply (no phone/
-      Zalo/valid source_url) is held — publishing it would just be a dead end.
-    Returns (should_publish, reason) — reason is one of 'ok', 'no_address_text',
-    'no_application_path' (checked in that order when both fail)."""
+
+    2026-09-04 사용자 지시로 정책 변경: "모든 근무지가 C1(coordinate_accuracy
+    =='exact')이고 유효한 지원 경로가 있을 때만 통과" — C1_partial(일부만
+    exact)/A/B/C2/C3/D/E는 전부 보류. 이전 설계(주소 텍스트만 있으면 좌표
+    무관하게 발행 — "10건 중 2건만 발행되는 문제로 기각")를 이번 지시가
+    명시적으로 뒤집었다. all_locations_verified_exact는 이 공고의
+    _resolved_locations가 1개 이상이고 전부 coordinate_accuracy=='exact'일
+    때만 True — 기본값은 안전 실패(fail-closed) 원칙에 따라 False다: 이
+    인자를 계산해 넘기지 않는 호출부는 무조건 "검증 안 됨"으로 간주돼
+    발행되지 않는다(옛 정책으로 조용히 되돌아가는 것을 방지). 실제 크롤
+    경로(crawl_topcv.py)는 항상 계산된 값을 명시적으로 넘긴다.
+
+    Returns (should_publish, reason) — reason은 'ok' / 'no_address_text' /
+    'no_verified_coordinate' / 'no_application_path' 중 하나(이 순서로 검사)."""
     if not has_address_text:
         return False, "no_address_text"
+    if not all_locations_verified_exact:
+        return False, "no_verified_coordinate"
     if not has_application_path_:
         return False, "no_application_path"
     return True, "ok"

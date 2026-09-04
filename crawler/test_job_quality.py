@@ -266,13 +266,40 @@ def test_address_pipeline_standard() -> None:
     assert_false(has_application_path("", "", ""), "no phone/zalo/source_url -> no application path")
     assert_false(has_application_path(None, None, None), "None values -> no application path")
 
-    # gate_auto_publish: BOTH real address text AND an application path are
-    # required — but does NOT require a successful geocode/exact coordinate
-    # (address_accuracy and coordinate_accuracy are independent — see geocode.py).
-    assert_equal(gate_auto_publish(True, True), (True, "ok"), "address text + application path -> publish")
-    assert_equal(gate_auto_publish(False, True), (False, "no_address_text"), "no address text -> held")
-    assert_equal(gate_auto_publish(True, False), (False, "no_application_path"), "no application path -> held")
-    assert_equal(gate_auto_publish(False, False), (False, "no_address_text"), "neither -> held, address checked first")
+    # gate_auto_publish: 2026-09-04 정책 변경 — 상세주소 텍스트 + 지원 경로 +
+    # "모든 근무지가 coordinate_accuracy=='exact'"(all_locations_verified_exact)
+    # 셋 다 있어야 공개된다. 이전 정책(좌표 검증 불요구)을 이번 지시가 명시적
+    # 으로 뒤집었다 — all_locations_verified_exact를 명시적으로 True로 줘야
+    # "ok"가 나온다(기본값은 False — 안전 실패).
+    assert_equal(
+        gate_auto_publish(True, True, all_locations_verified_exact=True), (True, "ok"),
+        "address text + application path + all locations exact -> publish",
+    )
+    assert_equal(
+        gate_auto_publish(False, True, all_locations_verified_exact=True), (False, "no_address_text"),
+        "no address text -> held",
+    )
+    assert_equal(
+        gate_auto_publish(True, False, all_locations_verified_exact=True), (False, "no_application_path"),
+        "no application path -> held",
+    )
+    assert_equal(
+        gate_auto_publish(False, False, all_locations_verified_exact=True), (False, "no_address_text"),
+        "neither -> held, address checked first",
+    )
+    # 핵심 회귀: 상세주소 텍스트와 지원 경로가 전부 있어도, 좌표가 exact로
+    # 전부 검증되지 않으면(ward/region/unresolved 포함, 또는 아예 없으면)
+    # 반드시 보류돼야 한다 — "주소 텍스트만 있으면 발행" 하던 옛 정책으로
+    # 회귀하지 않았는지 확인.
+    assert_equal(
+        gate_auto_publish(True, True, all_locations_verified_exact=False), (False, "no_verified_coordinate"),
+        "address text + application path but NOT all locations exact (ward/region/unresolved) -> held, not published",
+    )
+    assert_equal(
+        gate_auto_publish(True, True), (False, "no_verified_coordinate"),
+        "default all_locations_verified_exact is False (fail-closed) — a caller that omits it "
+        "must never accidentally publish; crawl_topcv.py always passes a real computed value",
+    )
 
     # End-to-end on the 3 regression fixtures (4366/4367/4368) — classification only,
     # geocoding itself is exercised separately (it needs network + writes to
@@ -280,7 +307,10 @@ def test_address_pipeline_standard() -> None:
     job_4366_candidates = ["KCN Sóng Thần 1, Dĩ An, Bình Dương (cũ)., Dĩ An", "Dĩ An, Bình Dương (cũ)., Thủ Đức"]
     exact_4366 = [c for c in job_4366_candidates if classify_work_location_candidate(c) == "exact"]
     assert_equal(len(exact_4366), 1, "job 4366 must resolve to exactly 1 exact candidate, not 2 (2nd line is region_only)")
-    assert_true(gate_auto_publish(True, True)[0], "job 4366 with real address text + source_url -> would publish (even before geocoding is attempted)")
+    assert_true(
+        gate_auto_publish(True, True, all_locations_verified_exact=True)[0],
+        "job 4366 with real address text + source_url + a verified exact coordinate -> would publish",
+    )
 
     job_4367_candidates = ["17 Phạm Hùng, Nam Từ Liêm"]
     assert_equal(

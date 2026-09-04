@@ -590,6 +590,13 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
         has_apply_affordance=bool(detail.get("hasApplyButton")),
     )
+    # 2026-09-04 정책 변경: 모든 근무지가 C1(coordinate_accuracy=='exact')이고
+    # 유효한 지원 경로가 있을 때만 공개한다. resolved_locations가 1개 이상
+    # 있어야 하고(주소 텍스트 자체가 없으면 이 조건은 애초에 False), 그
+    # 전부가 'exact'여야 한다 — 하나라도 ward/region/unresolved면 보류.
+    all_locations_verified_exact = len(resolved_locations) > 0 and all(
+        loc.get("coordinate_accuracy") == "exact" for loc in resolved_locations
+    )
     should_publish, gate_reason = gate_auto_publish(
         # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
         # 무관하다. resolve_work_locations()는 exact_text로 분류된
@@ -597,6 +604,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
         has_address_text=len(resolved_locations) > 0,
         has_application_path_=has_app_path,
+        all_locations_verified_exact=all_locations_verified_exact,
     )
 
     # local_jobs에 실제로 존재하는 컬럼인데도 크롤러가 지금까지 전혀 채우지
