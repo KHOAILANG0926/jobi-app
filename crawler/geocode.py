@@ -567,6 +567,36 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
       not) confirms the expected province with no conflicting result.
     - 'unresolved': anything else — no usable result, or conflicting
       provinces.
+
+    KNOWN LIMITATION (명문화, 2026-09-04 사용자 지시): 'exact' means our own
+    2+ query variants agree with EACH OTHER within 300m (_WARD_CLUSTER_
+    RADIUS_KM) — it is NOT a guarantee of <=300m accuracy against real-world
+    ground truth. Geoapify can be internally self-consistent while still
+    being systematically off (confirmed live during the 2026-09-04 audit:
+    3 of 11 live 'exact' results, independently checked against Google Maps,
+    were 405m/480m/2.6km away from the real address — all on long streets
+    where house-number interpolation is imprecise even when the street name
+    itself is correctly confirmed). The independent verification standard
+    used to audit 'exact' results in that review (not enforced by this
+    function itself — this codebase has no independent ground-truth API to
+    check against automatically):
+      - Must resolve to the same building/business/POI, or the same house
+        number on the same road, confirmed via an independent map service —
+        not merely a ward/commune administrative centroid.
+      - A plain administrative-area centroid (ward/commune/district center)
+        is NEVER accepted as 'exact', regardless of distance.
+      - Independent-check error >300m is rejected as 'exact' by default,
+        even when this function's own tier says 'exact'.
+      - An error >300m may still be accepted ONLY with independent evidence
+        that both points are within the same large complex the address
+        names (e.g. the same industrial park/mall/campus spans that
+        distance) — never accepted on convergence alone.
+      - Any 71B-Xuân-Diệu-style case, where the independent check is itself
+        ambiguous/contradictory, is held (보류), not accepted as 'exact'.
+    Because this function cannot check the above on its own, a periodic
+    independent spot-check of live 'exact' results (not just unit tests
+    against mocked Geoapify responses) is recommended before treating this
+    tier as a reliable go/no-go signal for publishing.
     """
     place_name = extract_core_identifier(raw_address)
     variants = build_query_variants(raw_address, province)

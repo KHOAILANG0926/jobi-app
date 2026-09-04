@@ -30,6 +30,7 @@ from job_quality import (
     ascii_key,
     canonical_job_key,
     classify_work_location_candidate,
+    compute_all_locations_verified_exact,
     compute_job_updates,
     extract_salary_from_text,
     gate_auto_publish,
@@ -416,9 +417,20 @@ async def fetch_job_detail(page, url: str) -> dict:
             // gian làm việc:" 라벨 바로 다음 줄이 요일("Từ thứ 2 đến thứ 7")이고
             // 실제 시간대는 그 아래 별도 줄인 경우가 있어(실측 확인), 라벨 뒤
             // 첫 줄만 잡으면 요일을 시간으로 잘못 집는다.
-            const hoursMatch = descText.match(/\\d{1,2}h\\d{0,2}\\s*[-–]\\s*\\d{1,2}h\\d{0,2}/)
-                || descText.match(/(?:giờ làm việc)\\s*[:：]?\\s*([^\\n]{3,80})/i)
-            if (hoursMatch) detailWorkHoursFreeText = (hoursMatch[1] || hoursMatch[0]).trim()
+            // 오전/오후 분할 근무(예: "Sáng: 7h - 11h, Chiều: 12h - 16h")는 시간
+            // 범위가 한 문장에 2개 이상 나온다 — g 플래그 없이 .match()만 쓰면
+            // 첫 범위("7h - 11h")만 잡고 뒤쪽("Chiều: 12h - 16h")이 통째로
+            // 사라지는 결함이 있었다(실측: sb 배치 C 20건 중 "Kỹ Sư Kỹ Thuật
+            // Điện (M&E)" 공고). g 플래그로 모든 범위를 "Sáng/Chiều/Tối" 라벨과
+            // 함께(있으면) 찾아 전부 이어붙인다 — 단일 범위 공고는 기존과 동일하게
+            // 그 하나만 반환된다.
+            const hoursMatches = descText.match(/(?:sáng|chiều|tối)?\\s*[:：]?\\s*\\d{1,2}h\\d{0,2}\\s*[-–]\\s*\\d{1,2}h\\d{0,2}/gi)
+            if (hoursMatches && hoursMatches.length) {
+                detailWorkHoursFreeText = hoursMatches.map(s => s.trim()).join(', ')
+            } else {
+                const hoursLabelMatch = descText.match(/(?:giờ làm việc)\\s*[:：]?\\s*([^\\n]{3,80})/i)
+                if (hoursLabelMatch) detailWorkHoursFreeText = (hoursLabelMatch[1] || hoursLabelMatch[0]).trim()
+            }
             let detailWorkDaysFreeText = ''
             const daysMatch = descText.match(/(?:ngày làm việc)\\s*[:：]?\\s*([^\\n]{3,60})/i)
                 || descText.match(/từ\\s+thứ\\s*\\d\\s*(?:đến|-|–)\\s*(?:thứ\\s*\\d|chủ nhật)/i)
@@ -594,9 +606,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     # 유효한 지원 경로가 있을 때만 공개한다. resolved_locations가 1개 이상
     # 있어야 하고(주소 텍스트 자체가 없으면 이 조건은 애초에 False), 그
     # 전부가 'exact'여야 한다 — 하나라도 ward/region/unresolved면 보류.
-    all_locations_verified_exact = len(resolved_locations) > 0 and all(
-        loc.get("coordinate_accuracy") == "exact" for loc in resolved_locations
-    )
+    all_locations_verified_exact_value = compute_all_locations_verified_exact(resolved_locations)
     should_publish, gate_reason = gate_auto_publish(
         # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
         # 무관하다. resolve_work_locations()는 exact_text로 분류된
@@ -604,7 +614,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
         has_address_text=len(resolved_locations) > 0,
         has_application_path_=has_app_path,
-        all_locations_verified_exact=all_locations_verified_exact,
+        all_locations_verified_exact=all_locations_verified_exact_value,
     )
 
     # local_jobs에 실제로 존재하는 컬럼인데도 크롤러가 지금까지 전혀 채우지
@@ -854,14 +864,25 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
-        # 공개 게이트/버전 필드는 이 공고가 실제로 크롤러가 만든 것일 때만
-        # 건드린다 — 기업이 직접 등록한 공고(origin != 'crawler')는 이 매칭에
-        # 걸릴 일이 거의 없지만, 있더라도 이 표준으로 절대 승격/강등하지 않는다.
-        if existing.get("origin") == "crawler":
+        # 공개 게이트/버전 필드는 이 공고가 실제로 크롤러가 만든 것일 때만,
+        # 그리고 이번 판정이 geocode API 일시 오류 없이 완전했을 때만 건드린다
+        # — 기업이 직접 등록한 공고(origin != 'crawler')는 이 매칭에 걸릴 일이
+        # 거의 없지만, 있더라도 이 표준으로 절대 승격/강등하지 않는다.
+        # had_transient 체크는 2026-09-04 사용자 지시로 추가: job_work_locations
+        # 동기화는 이미 아래에서 not had_transient로 보호되고 있었는데, 이
+        # active/publish_gate_reason 갱신은 그 보호가 없어 일시적인 geocode API
+        # 오류(예: sb 배치 C 20건 중 job 19 — "86/29 Trần Thái Tông" 질의가
+        # 타임아웃) 하나 때문에, 이미 정상 공개 중이던 공고가 그 오류로 인한
+        # 불완전한(진짜로는 exact인 근무지가 이번 실행에서만 확인 실패한)
+        # 판정으로 잘못 강등(active: true -> false)될 수 있던 결함 —
+        # job_work_locations와 동일한 원칙으로 여기도 보호한다.
+        if existing.get("origin") == "crawler" and not had_transient:
             field_updates["active"] = job["active"]
             field_updates["publish_gate_reason"] = job["publish_gate_reason"]
             field_updates["crawler_version"] = job["crawler_version"]
             field_updates["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+        elif existing.get("origin") == "crawler" and had_transient:
+            print(f"    ⚠️  id={existing['id']}: geocode 일시 오류 — 공개 상태/게이트 사유 갱신 보류(기존 값 유지)")
         if field_updates:
             supabase.table("local_jobs").update(field_updates).eq("id", existing["id"]).execute()
             action = "updated"

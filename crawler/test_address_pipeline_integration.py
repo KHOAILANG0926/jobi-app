@@ -25,6 +25,7 @@ from geocode import (
     normalize_address_for_query,
     resolve_coordinate_accuracy,
 )
+from job_quality import canonical_job_key, compute_all_locations_verified_exact, gate_auto_publish, has_application_path
 
 
 def assert_equal(actual, expected, label: str) -> None:
@@ -479,6 +480,227 @@ def test_resolve_work_locations_no_api_key_is_not_a_transient_failure() -> None:
     assert_false(had_transient_failure, "no_api_key must NOT be treated as a transient failure")
 
 
+def test_gate_rejects_c1_partial_mixed_tiers() -> None:
+    """실제 build_job_record()가 밟는 경로 그대로(resolve_work_locations() ->
+    compute_all_locations_verified_exact() -> gate_auto_publish()) 엔드투엔드로
+    검증한다 — 2026-09-04 사용자 지시: "C1_partial은 모든 근무지가 검증된
+    것이 아니므로 반드시 공개 게이트에서 실패하는 통합 테스트를 추가"할 것.
+    두 근무지 중 하나만 exact이고 나머지 하나는 ward인 흔한 다중 근무지
+    공고(C1_partial)가 여전히 보류돼야 한다 — job_quality.py의
+    gate_auto_publish() 단위 테스트(test_address_pipeline_standard 참고)는
+    이미 이 조건을 직접 검증하지만, 이 테스트는 실제 파이프라인 함수
+    (resolve_work_locations)가 만들어내는 진짜 mixed-tier 데이터로 같은
+    결과를 재확인해 두 계층(순수 게이트 로직 vs 실제 지오코딩 결과 조합)이
+    어긋나지 않음을 보장한다."""
+    original = geocode._geocode_query_raw
+
+    def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, street=None):
+        return {
+            "status": "success", "lat": lat, "lng": lng,
+            "top": {"result_type": result_type, "state": state, "county": county, "city": city, "name": name, "street": street},
+        }
+
+    def make_fake_raw(responses_by_query: dict[str, dict]):
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            if query in responses_by_query:
+                return responses_by_query[query]
+            return {"status": "no_results", "lat": None, "lng": None, "top": None}
+        return _fake
+
+    try:
+        # 근무지 1: exact 확정(street 텍스트까지 확인됨).
+        exact_addr = "17 Phạm Hùng, Nam Từ Liêm"
+        exact_variants = build_query_variants(exact_addr, "Hà Nội")
+        exact_point = _success(21.0165865, 105.7850047, "building", state="Ha Noi", city="Hanoi", county="Hoan Kiem", street="Phạm Hùng")
+        # 근무지 2: 지역(구/동)까지는 확인되지만 장소명은 미확인 -> ward.
+        ward_addr = "KCN Thăng Long 2 – Hưng Yên, Yên Mỹ"
+        ward_variants = build_query_variants(ward_addr, "Hưng Yên")
+        ward_point = _success(20.8521493, 106.0331637, "building", state="Hưng Yên Province", city="Yên Mỹ Commune")
+
+        responses: dict[str, dict] = {}
+        for v in exact_variants:
+            responses[v["query"]] = exact_point
+        for v in ward_variants:
+            responses[v["query"]] = ward_point
+        geocode._geocode_query_raw = make_fake_raw(responses)
+
+        candidates = [
+            {"text": exact_addr, "region_prefix": "Hà Nội"},
+            {"text": ward_addr, "region_prefix": "Hưng Yên"},
+        ]
+        resolved, had_transient_failure = resolve_work_locations(candidates)
+        assert_equal(len(resolved), 2, "both real-address candidates get a row")
+        tiers = sorted(r["coordinate_accuracy"] for r in resolved)
+        assert_equal(tiers, ["exact", "ward"], "mixed-tier fixture actually produced one exact + one ward (C1_partial), not both exact")
+
+        verified = compute_all_locations_verified_exact(resolved)
+        assert_false(verified, "one exact + one ward -> NOT all_locations_verified_exact (this is C1_partial, not C1)")
+
+        should_publish, gate_reason = gate_auto_publish(
+            has_address_text=len(resolved) > 0,
+            has_application_path_=has_application_path("0901234567", "", ""),
+            all_locations_verified_exact=verified,
+        )
+        assert_false(should_publish, "C1_partial (mixed exact/ward tiers) must be held, never auto-published")
+        assert_equal(gate_reason, "no_verified_coordinate", "held reason must be no_verified_coordinate for C1_partial")
+
+        # 대조군: 둘 다 exact면 정상적으로 통과해야 한다(이 테스트가 항상
+        # False만 내는 게 아님을 확인).
+        both_exact_responses: dict[str, dict] = dict(responses)
+        for v in ward_variants:
+            both_exact_responses[v["query"]] = _success(20.85, 106.03, "building", state="Hưng Yên Province", city="Yên Mỹ Commune", name="KCN Thăng Long 2 – Hưng Yên")
+        geocode._geocode_query_raw = make_fake_raw(both_exact_responses)
+        resolved_both, _ = resolve_work_locations(candidates)
+        verified_both = compute_all_locations_verified_exact(resolved_both)
+        assert_true(verified_both, "when both candidates resolve exact, all_locations_verified_exact must be True (sanity check on the fixture)")
+        should_publish_both, _ = gate_auto_publish(
+            has_address_text=len(resolved_both) > 0,
+            has_application_path_=has_application_path("0901234567", "", ""),
+            all_locations_verified_exact=verified_both,
+        )
+        assert_true(should_publish_both, "when every location is exact (true C1), the gate must publish")
+    finally:
+        geocode._geocode_query_raw = original
+
+
+class _FakeQuery:
+    """Minimal stand-in for a supabase-py table/rpc call chain — records what
+    was sent instead of touching a real database. Every chain method returns
+    self so `.table(x).update(y).eq(a, b).execute()`-style chains work."""
+
+    def __init__(self, calls: list[dict], kind: str, table_or_rpc: str, payload=None):
+        self._calls = calls
+        self._record = {"kind": kind, "table_or_rpc": table_or_rpc, "payload": payload, "filters": {}}
+
+    def update(self, payload):
+        self._record["op"] = "update"
+        self._record["payload"] = payload
+        return self
+
+    def insert(self, payload):
+        self._record["op"] = "insert"
+        self._record["payload"] = payload
+        return self
+
+    def select(self, *_a, **_k):
+        return self
+
+    def like(self, *_a, **_k):
+        return self
+
+    def eq(self, col, val):
+        self._record["filters"][col] = val
+        return self
+
+    def execute(self):
+        self._calls.append(self._record)
+        return type("Result", (), {"data": [{"id": self._record["filters"].get("id", 12345)}]})()
+
+
+class _FakeSupabase:
+    """Records every .table()/.rpc() call's final payload — see _FakeQuery."""
+
+    def __init__(self):
+        self.calls: list[dict] = []
+
+    def table(self, name):
+        return _FakeQuery(self.calls, "table", name)
+
+    def rpc(self, name, params=None):
+        return _FakeQuery(self.calls, "rpc", name, payload=params)
+
+
+def _make_existing_row(**overrides) -> dict:
+    row = {
+        "id": 999, "origin": "crawler", "active": True, "publish_gate_reason": "ok",
+        "title": "Test Job Title", "company": "Test Company",
+        "salary": "10 - 15 triệu", "application_deadline": "2026-12-31",
+        "description": "[source:vieclam24h] test", "location": "TP.HCM",
+        "source_url": "https://vieclam24h.vn/test-job-999.html",
+        "preference": "1 năm", "education": "Đại học", "work_period": "Toàn thời gian cố định",
+        "num_hires": "3", "hours": None, "work_days": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def _make_rerun_job(**overrides) -> dict:
+    job = {
+        "title": "Test Job Title", "company": "Test Company", "location": "TP.HCM",
+        "salary": "10 - 15 triệu", "description": "[source:vieclam24h] test", "category": "factory",
+        "posted_at": "2026-09-04", "urgent": False, "employer_phone": "",
+        "application_deadline": "2026-12-31", "active": False, "origin": "crawler",
+        "admin_hidden": False, "image_url": None,
+        "source_url": "https://vieclam24h.vn/test-job-999.html",
+        "publish_gate_reason": "no_verified_coordinate", "crawler_version": "test-version-2",
+        "preference": "1 năm", "education": "Đại học", "work_period": "Toàn thời gian cố định",
+        "num_hires": "3", "hours": None, "work_days": None,
+        "_resolved_locations": [], "_had_transient_geocode_failure": False,
+    }
+    job.update(overrides)
+    return job
+
+
+def test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job() -> None:
+    """실사례 회귀(2026-09-04, 사용자 지시 — 신규 20건 블라인드 시험 19번
+    공고 "Kỹ Sư Xây Dựng"(86/29 Trần Thái Tông)에서 Geoapify 타임아웃
+    (_had_transient_geocode_failure=True) 발생): job_work_locations 동기화는
+    이미 not had_transient로 보호되고 있었지만, 같은 재처리 경로에서
+    local_jobs.active/publish_gate_reason 갱신은 이 보호가 없어, 이미 정상
+    공개(active=true) 중이던 공고가 이번 실행 한정의 일시적 API 오류 때문에
+    잘못 강등(active: true -> false)될 수 있던 결함(crawl_topcv.py 수정으로
+    해결). 이 테스트는 그 수정을 실제 upsert_job_record() 경로로 검증한다
+    (가짜 Supabase 클라이언트로 기록만 하고 실제 DB는 건드리지 않음)."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+    try:
+        existing = _make_existing_row()
+        by_source_url = {existing["source_url"]: existing}
+        by_key = {canonical_job_key(existing["title"], existing["company"]): existing}
+
+        # 시나리오 1: 이번 실행이 geocode 일시 오류를 겪었다 — 불완전한 판정
+        # (active=False)이 나왔더라도, 기존에 정상 공개 중이던 값을 절대
+        # 덮어써서는 안 된다.
+        # 급여도 함께 바뀐 것으로 만들어(실제 재처리에서 자유 텍스트 필드는
+        # geocode 성공 여부와 무관하게 갱신되는 게 정상이므로) update() 호출
+        # 자체는 실제로 일어나게 하고, 그 payload 안에 active/publish_gate_reason
+        # 등 geocode 파생 필드만 정확히 빠져 있는지 확인한다 — "update가 아예
+        # 안 일어남"이 아니라 "일어나되 이 필드들만 제외됨"을 검증해야 더 강한
+        # 보장이 된다.
+        transient_job = _make_rerun_job(_had_transient_geocode_failure=True, salary="20 - 25 triệu")
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(transient_job, by_source_url, by_key)
+        assert_equal(result["action"], "updated", "salary genuinely changed -> update() must still run for that field")
+        table_calls = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "update"]
+        assert_equal(len(table_calls), 1, "exactly one update() call for the salary change")
+        payload = table_calls[0]["payload"] or {}
+        assert_equal(payload.get("salary"), "20 - 25 triệu", "the genuinely-changed, geocode-independent field (salary) must still be updated")
+        assert_true(
+            "active" not in payload and "publish_gate_reason" not in payload
+            and "crawler_version" not in payload and "last_verified_at" not in payload,
+            f"transient geocode failure must NOT touch active/publish_gate_reason/crawler_version/last_verified_at, got update payload {payload!r}",
+        )
+        rpc_calls = [c for c in fake.calls if c["kind"] == "rpc"]
+        assert_equal(rpc_calls, [], "job_work_locations RPC must not run when this run's geocode result is incomplete (transient failure)")
+
+        # 시나리오 2(대조군): 일시 오류가 없는 정상 재처리는 여전히 active/
+        # publish_gate_reason을 정상적으로 갱신해야 한다 — 이 수정이 모든
+        # 갱신을 막아버린 게 아님을 확인.
+        fake.calls.clear()
+        clean_job = _make_rerun_job(_had_transient_geocode_failure=False, active=False, publish_gate_reason="no_verified_coordinate")
+        with crawl_topcv.enable_writes():
+            crawl_topcv.upsert_job_record(clean_job, by_source_url, by_key)
+        clean_updates = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "update"]
+        assert_true(len(clean_updates) >= 1, "a clean (non-transient) re-verify with a changed active/gate_reason must still send an update")
+        assert_true(
+            any("active" in c["payload"] for c in clean_updates),
+            "clean re-verify must update 'active' when the gate's conclusion legitimately changed",
+        )
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
 def test_write_guard_blocks_unconfirmed_writes() -> None:
     # 회귀 테스트 — 2026-09-04, --dry-run-urls를 검증하다가 --process-url을
     # 실수로 호출해 운영 DB에 공고 1건이 실제로 저장된 사고(id=4370, 사용자
@@ -541,6 +763,8 @@ def main() -> int:
         test_bbox_for_province,
         test_haversine_and_duplicate_detection,
         test_resolve_work_locations_no_api_key_is_not_a_transient_failure,
+        test_gate_rejects_c1_partial_mixed_tiers,
+        test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
         test_write_guard_blocks_unconfirmed_writes,
     ]
     for test in tests:

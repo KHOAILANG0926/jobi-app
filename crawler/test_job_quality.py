@@ -8,8 +8,10 @@ from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
     classify_work_location_candidate,
+    compute_all_locations_verified_exact,
     compute_job_updates,
     extract_salary_from_text,
+    extract_work_hours_free_text,
     gate_auto_publish,
     guess_all_provinces_from_text,
     guess_province_from_text,
@@ -638,6 +640,65 @@ def test_detail_page_company_and_salary_extraction() -> None:
         assert_equal(find_education_badge(badges), expected, f"badge row {badges!r}")
 
 
+def test_extract_work_hours_free_text_preserves_split_shifts() -> None:
+    # 실측 회귀(2026-09-04, 사용자 지시 — 신규 20건 블라인드 시험 14번 공고
+    # "Kỹ Sư Kỹ Thuật Điện (M&E)"에서 발견): 오전/오후 분할 근무가 한 문장에
+    # 시간 범위 2개로 적혀 있는데(g 플래그 없는 단일 매치 정규식이) 앞쪽
+    # ("7h - 11h")만 잡고 뒤쪽("Chiều: 12h - 16h")을 통째로 버렸다. 실제 원문
+    # 그대로 두 범위 모두 보존해야 한다.
+    real_desc = "- Thời gian làm việc: từ thứ 2 - thứ 7  (Sáng: 7h - 11h, Chiều: 12h - 16h)."
+    result = extract_work_hours_free_text(real_desc)
+    assert_true("7h - 11h" in result, f"morning shift must survive: {result!r}")
+    assert_true("12h - 16h" in result, f"afternoon shift must not be dropped: {result!r}")
+    assert_equal(result, "Sáng: 7h - 11h, Chiều: 12h - 16h", "both shifts joined, each keeping its Sáng/Chiều label")
+
+    # 단일 근무시간(분할 아님)은 기존과 동일하게 그 하나만 반환돼야 한다 —
+    # 회귀 수정이 정상 케이스를 깨지 않았는지 확인.
+    assert_equal(
+        extract_work_hours_free_text("Có thể làm việc xoay ca (ca sáng 5-13H, ca chiều 13-21H, ca tối 15-23H)."),
+        "",
+        "non-'Hh' hour formats (e.g. '5-13H' without the lowercase h-before-digits shape) are out of scope — must stay empty, not fabricate a match",
+    )
+    assert_equal(
+        extract_work_hours_free_text("Làm việc 8h - 17h các ngày trong tuần."),
+        "8h - 17h",
+        "a single plain time range (no Sáng/Chiều label) still extracts correctly",
+    )
+    assert_equal(extract_work_hours_free_text(""), "", "empty description -> empty (not found), not fabricated")
+    assert_equal(extract_work_hours_free_text(None), "", "None description -> empty, never raises")
+
+
+def test_gate_requires_every_location_exact_not_just_one() -> None:
+    # 사용자 지시(2026-09-04): "C1_partial은 모든 근무지가 검증된 것이 아니므로
+    # 반드시 공개 게이트에서 실패해야 한다" — compute_all_locations_verified_exact()
+    # 자체를 다양한 조합으로 직접 검증한다(엔드투엔드 버전은
+    # test_address_pipeline_integration.py의 test_gate_rejects_c1_partial_mixed_tiers 참고).
+    assert_true(
+        compute_all_locations_verified_exact([{"coordinate_accuracy": "exact"}]),
+        "single location, exact -> True",
+    )
+    assert_true(
+        compute_all_locations_verified_exact([{"coordinate_accuracy": "exact"}, {"coordinate_accuracy": "exact"}]),
+        "multiple locations, all exact -> True",
+    )
+    assert_false(
+        compute_all_locations_verified_exact([{"coordinate_accuracy": "exact"}, {"coordinate_accuracy": "ward"}]),
+        "one exact + one ward (C1_partial) -> False, not all locations verified",
+    )
+    assert_false(
+        compute_all_locations_verified_exact([{"coordinate_accuracy": "ward"}, {"coordinate_accuracy": "exact"}]),
+        "order must not matter -> still False when any single location is not exact",
+    )
+    assert_false(
+        compute_all_locations_verified_exact([]),
+        "zero resolved locations -> False (no address text at all, never vacuously True)",
+    )
+    assert_false(
+        compute_all_locations_verified_exact([{"coordinate_accuracy": "unresolved"}]),
+        "single location, unresolved -> False",
+    )
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -647,6 +708,8 @@ def main() -> int:
         test_work_location_context_filtering, test_unknown_location_never_defaults_to_a_city,
         test_exact_address_takes_priority_over_approximate,
         test_detail_page_company_and_salary_extraction,
+        test_extract_work_hours_free_text_preserves_split_shifts,
+        test_gate_requires_every_location_exact_not_just_one,
     ]
     for test in tests:
         test()

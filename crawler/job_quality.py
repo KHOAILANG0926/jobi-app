@@ -94,6 +94,33 @@ def find_education_badge(badge_texts: list[str]) -> str:
     return re.sub(r"^Trình độ", "", badge).strip()
 
 
+_WORK_HOURS_RANGE_RE = re.compile(
+    r"(?:sáng|chiều|tối)?\s*[:：]?\s*\d{1,2}h\d{0,2}\s*[-–]\s*\d{1,2}h\d{0,2}", re.IGNORECASE
+)
+_WORK_HOURS_LABEL_RE = re.compile(r"(?:giờ làm việc)\s*[:：]?\s*([^\n]{3,80})", re.IGNORECASE)
+
+
+def extract_work_hours_free_text(desc_text: object) -> str:
+    """Pure mirror of fetch_job_detail()'s in-page "근무시간"(work hours)
+    free-text extraction — see pick_detail_company_name()'s docstring for why
+    this Python copy exists.
+
+    Real postings often split morning/afternoon shifts into 2+ time ranges
+    in one sentence (e.g. "Sáng: 7h - 11h, Chiều: 12h - 16h", confirmed live
+    — sb batch C job "Kỹ Sư Kỹ Thuật Điện (M&E)"). A single-match regex only
+    returns the first range and silently drops the rest — this finds every
+    range (each with its "Sáng/Chiều/Tối" label when present) and joins them,
+    so a split-shift posting keeps both halves instead of only the first."""
+    text = str(desc_text or "")
+    matches = [m.group(0).strip() for m in _WORK_HOURS_RANGE_RE.finditer(text)]
+    if matches:
+        return ", ".join(matches)
+    label_match = _WORK_HOURS_LABEL_RE.search(text)
+    if label_match:
+        return (label_match.group(1) or label_match.group(0)).strip()
+    return ""
+
+
 VALID_CATEGORIES = {
     "factory",
     "cafe",
@@ -506,6 +533,21 @@ def has_application_path(
     if not normalize_whitespace(source_url):
         return False
     return bool(source_page_valid and has_apply_affordance)
+
+
+def compute_all_locations_verified_exact(resolved_locations: list[dict]) -> bool:
+    """True only when resolved_locations is non-empty AND every row's
+    coordinate_accuracy=='exact' — i.e. C1, never C1_partial/C2/C3/etc.
+    Pulled out of crawl_topcv.py's build_job_record() as its own pure
+    function (named differently from gate_auto_publish()'s
+    all_locations_verified_exact PARAMETER below, to avoid a function/
+    parameter name collision in this module) so this exact computation is
+    directly unit-testable without running the full fetch/geocode pipeline
+    — see test_gate_rejects_c1_partial_mixed_tiers() for the C1_partial
+    regression this exists to guard against."""
+    return len(resolved_locations) > 0 and all(
+        loc.get("coordinate_accuracy") == "exact" for loc in resolved_locations
+    )
 
 
 def gate_auto_publish(
