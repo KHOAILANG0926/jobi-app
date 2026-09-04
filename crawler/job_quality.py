@@ -535,45 +535,70 @@ def has_application_path(
     return bool(source_page_valid and has_apply_affordance)
 
 
-def compute_all_locations_verified_exact(resolved_locations: list[dict]) -> bool:
+def compute_all_locations_c1_verified(resolved_locations: list[dict]) -> bool:
     """True only when resolved_locations is non-empty AND every row's
-    coordinate_accuracy=='exact' — i.e. C1, never C1_partial/C2/C3/etc.
+    source_verified is True — i.e. genuinely confirmed C1, never merely
+    'exact_candidate' (Geoapify self-convergence alone).
+
+    2026-09-04 사용자 지시로 정책이 다시 강화됨: 100건 조사 + 신규 20건/10건
+    블라인드 시험을 반복해도 geocode.py의 'exact_candidate' 등급이 독립
+    Google 지도 대조에서 약 30~36% 실패율(405m~2.6km 오차)을 반복 재현 —
+    Geoapify 단일 공급자의 쿼리 자기수렴만으로는 실제 사업장 정확도를
+    보장할 수 없음이 확인됐다. 이제 'exact_candidate' 자체는 신뢰된 C1이
+    아니다 — resolve_work_locations()가 vieclam24h 원문이 제공하는 고용주
+    연락처 좌표(있으면)와 이 근무지 주소가 실제로 같은 곳을 가리키는지
+    확인했을 때만(geocode.source_coordinate_matches_location() 참고)
+    source_verified=True가 되고, 그때만 C1 후보로 인정한다. 2차 독립
+    지오코딩 공급자 교차검증은 아직 도입되지 않았다(설계만 완료, 별도
+    승인 필요) — 이번 라운드의 유일한 승격 경로는 원문 좌표 검증뿐이다.
+
     Pulled out of crawl_topcv.py's build_job_record() as its own pure
     function (named differently from gate_auto_publish()'s
-    all_locations_verified_exact PARAMETER below, to avoid a function/
-    parameter name collision in this module) so this exact computation is
+    all_locations_c1_verified PARAMETER below, to avoid a function/
+    parameter name collision in this module) so this computation is
     directly unit-testable without running the full fetch/geocode pipeline
     — see test_gate_rejects_c1_partial_mixed_tiers() for the C1_partial
-    regression this exists to guard against."""
+    regression this exists to guard against, and
+    test_gate_requires_source_verified_not_just_exact_candidate() for the
+    2026-09-04 tightening."""
     return len(resolved_locations) > 0 and all(
-        loc.get("coordinate_accuracy") == "exact" for loc in resolved_locations
+        loc.get("source_verified") is True for loc in resolved_locations
     )
 
 
 def gate_auto_publish(
     has_address_text: bool,
     has_application_path_: bool,
-    all_locations_verified_exact: bool = False,
+    all_locations_c1_verified: bool = False,
 ) -> tuple[bool, str]:
     """Decide whether a freshly-scraped job may be auto-published (active=true)
     or must be held for manual review (active=false, never silently dropped).
 
-    2026-09-04 사용자 지시로 정책 변경: "모든 근무지가 C1(coordinate_accuracy
-    =='exact')이고 유효한 지원 경로가 있을 때만 통과" — C1_partial(일부만
-    exact)/A/B/C2/C3/D/E는 전부 보류. 이전 설계(주소 텍스트만 있으면 좌표
-    무관하게 발행 — "10건 중 2건만 발행되는 문제로 기각")를 이번 지시가
-    명시적으로 뒤집었다. all_locations_verified_exact는 이 공고의
-    _resolved_locations가 1개 이상이고 전부 coordinate_accuracy=='exact'일
-    때만 True — 기본값은 안전 실패(fail-closed) 원칙에 따라 False다: 이
-    인자를 계산해 넘기지 않는 호출부는 무조건 "검증 안 됨"으로 간주돼
-    발행되지 않는다(옛 정책으로 조용히 되돌아가는 것을 방지). 실제 크롤
-    경로(crawl_topcv.py)는 항상 계산된 값을 명시적으로 넘긴다.
+    2026-09-04 사용자 지시로 정책 변경(1차): "모든 근무지가 C1이고 유효한
+    지원 경로가 있을 때만 통과" — C1_partial(일부만 검증)/A/B/C2/C3/D/E는
+    전부 보류. 이전 설계(주소 텍스트만 있으면 좌표 무관하게 발행)를 이
+    지시가 명시적으로 뒤집었다.
+
+    2026-09-04 사용자 지시로 정책 재강화(2차, 같은 날 후속 지시): 100건
+    조사 + 신규 블라인드 시험을 반복해도 geocode.py의 'exact_candidate'
+    등급(Geoapify 자기수렴)이 독립 대조에서 약 30~36% 실패율을 반복
+    재현 — "기존 exact는 신뢰된 C1이 아니라 exact_candidate로 취급"하라는
+    지시에 따라, 파라미터명을 all_locations_verified_exact ->
+    all_locations_c1_verified로 바꾸고 의미도 강화했다.
+    all_locations_c1_verified는 이제 job_quality.
+    compute_all_locations_c1_verified()가 계산한 값(모든 근무지가
+    source_verified=True, 즉 원문 좌표 검증 성공)만 True일 수 있다 —
+    Geoapify만으로 확인된 'exact_candidate'는 더 이상 충분하지 않다.
+    기본값은 안전 실패(fail-closed) 원칙에 따라 여전히 False다: 이 인자를
+    계산해 넘기지 않는 호출부는 무조건 "검증 안 됨"으로 간주돼 발행되지
+    않는다. 실제 크롤 경로(crawl_topcv.py)는 항상 계산된 값을 명시적으로
+    넘긴다.
 
     Returns (should_publish, reason) — reason은 'ok' / 'no_address_text' /
     'no_verified_coordinate' / 'no_application_path' 중 하나(이 순서로 검사)."""
     if not has_address_text:
         return False, "no_address_text"
-    if not all_locations_verified_exact:
+    if not all_locations_c1_verified:
         return False, "no_verified_coordinate"
     if not has_application_path_:
         return False, "no_application_path"

@@ -212,7 +212,7 @@ def _region_text_matches(top: dict, expected_region_text: str | None) -> bool:
     otherwise reject as a different region. This only decides "is it the same
     province" — it does not by itself grant a higher coordinate_accuracy tier;
     resolve_coordinate_accuracy() still separately requires ward/place-name
-    text agreement or multi-variant coordinate convergence for 'ward'/'exact'."""
+    text agreement or multi-variant coordinate convergence for 'ward'/'exact_candidate'."""
     if not expected_region_text:
         return True
     expected = ascii_key(expected_region_text)
@@ -442,14 +442,14 @@ _LEADING_HOUSE_NUMBER_RE = re.compile(r"^\d+[A-Za-z]?(?:/\d+[A-Za-z]?)*\s+")
 
 
 def extract_core_identifier(raw_address: str) -> str | None:
-    """The specific-place text the 'exact' tier must confirm before trusting
+    """The specific-place text the 'exact_candidate' tier must confirm before trusting
     a coordinate — extract_place_name()'s KCN/Lô/Tòa nhà result when there is
     one, otherwise the address's own first comma-segment with any leading
     house/lot number stripped (e.g. "45 Trần Mai Ninh" -> "Trần Mai Ninh",
     "98/3D Bình Đường 3" -> "Bình Đường 3") — a plain street address still
     names a specific, checkable street, it just isn't a named building/park.
 
-    Added after a real false 'exact' (2026-09-04, C1 전수검증 중 발견): two
+    Added after a real false 'exact_candidate' (2026-09-04, C1 전수검증 중 발견): two
     low-confidence (0.06~0.08) Geoapify variants for "98/3D Bình Đường 3,
     phường Dĩ An, ..." both fuzzy-matched a completely unrelated street
     ("Đường Hòa Bình" — similar characters, different place, ~15km away in
@@ -465,6 +465,52 @@ def extract_core_identifier(raw_address: str) -> str | None:
     first_segment = str(raw_address or "").split(",", 1)[0].strip()
     core = _LEADING_HOUSE_NUMBER_RE.sub("", first_segment).strip()
     return core or None
+
+
+# 원문 사이트(vieclam24h)가 고용주 등록 연락처 좌표(있으면)를 제공하는지 읽기
+# 전용으로 조사한 결과(2026-09-04, 30건 — JSON-LD/지도 iframe·링크/data-lat
+# 속성/XHR 응답 전부 확인): 이 좌표는 __NEXT_DATA__(Next.js SSR 상태)의
+# jobDetailHiddenContact.data.employer_info.{latitude,longitude,contact_
+# address}에만 존재하고, 30건 중 2건(6.7%)만 값이 채워져 있었다. 이 좌표는
+# "이 공고의 근무지" 좌표가 아니라 고용주의 등록 연락처 주소 좌표일 뿐이므로,
+# 근무지 텍스트와 이 연락처 주소가 실제로 같은 곳을 가리킬 때만 신뢰해야
+# 한다(다른 사례: Aeon Delight 공고처럼 근무지가 회사 본사와 전혀 다른 여러
+# 매장인 경우, 회사 좌표를 아무 근무지에나 갖다 붙이면 안 됨).
+_MIN_CORE_IDENTIFIER_LEN_FOR_SOURCE_MATCH = 4
+
+
+def source_coordinate_matches_location(contact_address: str, location_address: str) -> bool:
+    """True only when employer_info.contact_address(사이트 원문이 제공하는
+    고용주 연락처 주소)가 이 특정 근무지(location_address)와 같은 곳을
+    가리킨다고 볼 근거가 있을 때만. extract_core_identifier()로 근무지의
+    핵심 식별자(건물명 있으면 건물명, 없으면 번지 제외 도로명)를 뽑아 —
+    이미 exact_candidate 승격 여부를 가릴 때 쓰던 것과 동일한, 검증된
+    로직 재사용 — contact_address 안에 그 식별자가 실제로 나타나는지
+    확인한다.
+
+    실측 확인된 두 사례로 이 로직을 검증함:
+    - DOJI: contact_address="Tầng 7 - Tòa nhà DOJI Tower - Số 5 Lê Duẩn -
+      Ba Đình - Hà Nội", location_address="DOJI Tower, Số 5 Lê Duẩn, Ba
+      Đình, Hà Nội, Ba Đình" -> core="DOJI Tower" -> contact_address 안에
+      포함됨 -> True(실제로 같은 건물, Google 지도 독립 대조 완료 — 오차
+      ~27m).
+    - "Pha Ánh Ráng Chiều" 식당: contact_address="23 Hàn Thuyên, P. Bến
+      Nghé, Q1"인데 이 공고는 근무지가 2곳("23 Hàn Thuyên"와 "74/7C Hai Bà
+      Trưng") — "Hàn Thuyên" 쪽은 core="Hàn Thuyên"가 포함되어 True, "Hai
+      Bà Trưng" 쪽은 core="Hai Bà Trưng"가 포함되지 않아 False(두 실측
+      좌표 모두 Google 지도로 이미 검증됨 — Hàn Thuyên ~17m, Hai Bà Trưng
+      ~47m, 서로 다른 건물이므로 회사 좌표를 두 번째 근무지에 쓰면 안 됨).
+    """
+    contact_key = ascii_key(contact_address)
+    if not contact_key:
+        return False
+    core = extract_core_identifier(location_address)
+    if not core:
+        return False
+    core_key = ascii_key(core)
+    if len(core_key) < _MIN_CORE_IDENTIFIER_LEN_FOR_SOURCE_MATCH:
+        return False
+    return core_key in contact_key
 
 
 def build_query_variants(raw_address: str, province: str | None) -> list[dict]:
@@ -532,7 +578,7 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
     centroid", and — critically — whether 2+ INDEPENDENT query variants agree),
     instead of a single query's confidence score.
 
-    Returns {'coordinate_accuracy': 'exact'|'ward'|'region'|'unresolved',
+    Returns {'coordinate_accuracy': 'exact_candidate'|'ward'|'region'|'unresolved',
     'lat': float|None, 'lng': float|None, 'geocode_source': str|None,
     'evidence': str, 'had_transient_failure': bool}.
 
@@ -547,7 +593,7 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
       longer vetoes it (confirmed live: a single near-zero-confidence
       Geoapify fallback to an unrelated province must not throw away 2
       variants that already converged on the right one).
-    - 'exact': 2+ distinct query variants converge (<=300m) on a non-centroid,
+    - 'exact_candidate': 2+ distinct query variants converge (<=300m) on a non-centroid,
       province-confirmed point, AND the core identifier (extract_core_identifier
       — a named building/park if the address has one, otherwise the address's
       own street name) is confirmed by at least one of them. Coordinate
@@ -568,33 +614,33 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
     - 'unresolved': anything else — no usable result, or conflicting
       provinces.
 
-    KNOWN LIMITATION (명문화, 2026-09-04 사용자 지시): 'exact' means our own
+    KNOWN LIMITATION (명문화, 2026-09-04 사용자 지시): 'exact_candidate' means our own
     2+ query variants agree with EACH OTHER within 300m (_WARD_CLUSTER_
     RADIUS_KM) — it is NOT a guarantee of <=300m accuracy against real-world
     ground truth. Geoapify can be internally self-consistent while still
     being systematically off (confirmed live during the 2026-09-04 audit:
-    3 of 11 live 'exact' results, independently checked against Google Maps,
+    3 of 11 live 'exact_candidate' results, independently checked against Google Maps,
     were 405m/480m/2.6km away from the real address — all on long streets
     where house-number interpolation is imprecise even when the street name
     itself is correctly confirmed). The independent verification standard
-    used to audit 'exact' results in that review (not enforced by this
+    used to audit 'exact_candidate' results in that review (not enforced by this
     function itself — this codebase has no independent ground-truth API to
     check against automatically):
       - Must resolve to the same building/business/POI, or the same house
         number on the same road, confirmed via an independent map service —
         not merely a ward/commune administrative centroid.
       - A plain administrative-area centroid (ward/commune/district center)
-        is NEVER accepted as 'exact', regardless of distance.
-      - Independent-check error >300m is rejected as 'exact' by default,
-        even when this function's own tier says 'exact'.
+        is NEVER accepted as 'exact_candidate', regardless of distance.
+      - Independent-check error >300m is rejected as 'exact_candidate' by default,
+        even when this function's own tier says 'exact_candidate'.
       - An error >300m may still be accepted ONLY with independent evidence
         that both points are within the same large complex the address
         names (e.g. the same industrial park/mall/campus spans that
         distance) — never accepted on convergence alone.
       - Any 71B-Xuân-Diệu-style case, where the independent check is itself
-        ambiguous/contradictory, is held (보류), not accepted as 'exact'.
+        ambiguous/contradictory, is held (보류), not accepted as 'exact_candidate'.
     Because this function cannot check the above on its own, a periodic
-    independent spot-check of live 'exact' results (not just unit tests
+    independent spot-check of live 'exact_candidate' results (not just unit tests
     against mocked Geoapify responses) is recommended before treating this
     tier as a reliable go/no-go signal for publishing.
     """
@@ -760,14 +806,14 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
         if len(cluster_variants) >= 2:
             place_supported = place_name is None or any(p["place_ok"] for p in cluster)
             if place_supported:
-                return _result("exact", cluster[0], f"{len(cluster_variants)} variants converged <=300m, province+place confirmed")
+                return _result("exact_candidate", cluster[0], f"{len(cluster_variants)} variants converged <=300m, province+place confirmed")
             return _result("ward", cluster[0], f"{len(cluster_variants)} variants converged <=300m, but named place not confirmed")
 
     # No tight non-centroid coordinate cluster (or fewer than 2 non-centroid
     # results at all) — try district/ward TEXT agreement instead. A centroid
     # result's city/county field IS a meaningful ward/commune-level signal
     # (that's its actual precision level) even though it can't anchor an
-    # 'exact' claim, so centroid results are included here too — unlike the
+    # 'exact_candidate' claim, so centroid results are included here too — unlike the
     # exact-tier cluster above. To avoid this reintroducing the same-name-
     # different-place problem the 'conflicting' check exists for, a group
     # only counts if its members are ALSO mutually within 50km (a district

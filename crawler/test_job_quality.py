@@ -8,7 +8,7 @@ from classifier import classify, is_blacklisted
 from job_quality import (
     canonical_job_key,
     classify_work_location_candidate,
-    compute_all_locations_verified_exact,
+    compute_all_locations_c1_verified,
     compute_job_updates,
     extract_salary_from_text,
     extract_work_hours_free_text,
@@ -268,38 +268,39 @@ def test_address_pipeline_standard() -> None:
     assert_false(has_application_path("", "", ""), "no phone/zalo/source_url -> no application path")
     assert_false(has_application_path(None, None, None), "None values -> no application path")
 
-    # gate_auto_publish: 2026-09-04 정책 변경 — 상세주소 텍스트 + 지원 경로 +
-    # "모든 근무지가 coordinate_accuracy=='exact'"(all_locations_verified_exact)
-    # 셋 다 있어야 공개된다. 이전 정책(좌표 검증 불요구)을 이번 지시가 명시적
-    # 으로 뒤집었다 — all_locations_verified_exact를 명시적으로 True로 줘야
-    # "ok"가 나온다(기본값은 False — 안전 실패).
+    # gate_auto_publish: 2026-09-04 정책(2차, 강화) — 상세주소 텍스트 + 지원
+    # 경로 + "모든 근무지가 진짜 C1(source_verified==True, 원문 좌표 검증
+    # 성공)"(all_locations_c1_verified) 셋 다 있어야 공개된다.
+    # coordinate_accuracy=='exact_candidate'(Geoapify 자기수렴)만으로는 더
+    # 이상 충분하지 않다 — all_locations_c1_verified를 명시적으로 True로
+    # 줘야 "ok"가 나온다(기본값은 False — 안전 실패).
     assert_equal(
-        gate_auto_publish(True, True, all_locations_verified_exact=True), (True, "ok"),
-        "address text + application path + all locations exact -> publish",
+        gate_auto_publish(True, True, all_locations_c1_verified=True), (True, "ok"),
+        "address text + application path + all locations C1-verified -> publish",
     )
     assert_equal(
-        gate_auto_publish(False, True, all_locations_verified_exact=True), (False, "no_address_text"),
+        gate_auto_publish(False, True, all_locations_c1_verified=True), (False, "no_address_text"),
         "no address text -> held",
     )
     assert_equal(
-        gate_auto_publish(True, False, all_locations_verified_exact=True), (False, "no_application_path"),
+        gate_auto_publish(True, False, all_locations_c1_verified=True), (False, "no_application_path"),
         "no application path -> held",
     )
     assert_equal(
-        gate_auto_publish(False, False, all_locations_verified_exact=True), (False, "no_address_text"),
+        gate_auto_publish(False, False, all_locations_c1_verified=True), (False, "no_address_text"),
         "neither -> held, address checked first",
     )
-    # 핵심 회귀: 상세주소 텍스트와 지원 경로가 전부 있어도, 좌표가 exact로
-    # 전부 검증되지 않으면(ward/region/unresolved 포함, 또는 아예 없으면)
-    # 반드시 보류돼야 한다 — "주소 텍스트만 있으면 발행" 하던 옛 정책으로
-    # 회귀하지 않았는지 확인.
+    # 핵심 회귀: 상세주소 텍스트와 지원 경로가 전부 있어도, 모든 근무지가
+    # C1로 검증되지 않으면(exact_candidate뿐이거나 ward/region/unresolved
+    # 포함, 또는 아예 없으면) 반드시 보류돼야 한다 — "주소 텍스트만 있으면
+    # 발행" 하던 옛 정책으로 회귀하지 않았는지 확인.
     assert_equal(
-        gate_auto_publish(True, True, all_locations_verified_exact=False), (False, "no_verified_coordinate"),
-        "address text + application path but NOT all locations exact (ward/region/unresolved) -> held, not published",
+        gate_auto_publish(True, True, all_locations_c1_verified=False), (False, "no_verified_coordinate"),
+        "address text + application path but NOT all locations C1-verified -> held, not published",
     )
     assert_equal(
         gate_auto_publish(True, True), (False, "no_verified_coordinate"),
-        "default all_locations_verified_exact is False (fail-closed) — a caller that omits it "
+        "default all_locations_c1_verified is False (fail-closed) — a caller that omits it "
         "must never accidentally publish; crawl_topcv.py always passes a real computed value",
     )
 
@@ -310,8 +311,8 @@ def test_address_pipeline_standard() -> None:
     exact_4366 = [c for c in job_4366_candidates if classify_work_location_candidate(c) == "exact"]
     assert_equal(len(exact_4366), 1, "job 4366 must resolve to exactly 1 exact candidate, not 2 (2nd line is region_only)")
     assert_true(
-        gate_auto_publish(True, True, all_locations_verified_exact=True)[0],
-        "job 4366 with real address text + source_url + a verified exact coordinate -> would publish",
+        gate_auto_publish(True, True, all_locations_c1_verified=True)[0],
+        "job 4366 with real address text + source_url + a C1-verified coordinate -> would publish",
     )
 
     job_4367_candidates = ["17 Phạm Hùng, Nam Từ Liêm"]
@@ -669,33 +670,60 @@ def test_extract_work_hours_free_text_preserves_split_shifts() -> None:
 
 
 def test_gate_requires_every_location_exact_not_just_one() -> None:
-    # 사용자 지시(2026-09-04): "C1_partial은 모든 근무지가 검증된 것이 아니므로
-    # 반드시 공개 게이트에서 실패해야 한다" — compute_all_locations_verified_exact()
-    # 자체를 다양한 조합으로 직접 검증한다(엔드투엔드 버전은
-    # test_address_pipeline_integration.py의 test_gate_rejects_c1_partial_mixed_tiers 참고).
+    # 사용자 지시(2026-09-04, 1차): "C1_partial은 모든 근무지가 검증된 것이
+    # 아니므로 반드시 공개 게이트에서 실패해야 한다".
+    # 사용자 지시(2026-09-04, 2차, 같은 날 후속): 100건 조사 + 신규 블라인드
+    # 시험을 반복해도 coordinate_accuracy=='exact_candidate'(Geoapify
+    # 자기수렴)가 독립 대조에서 약 30~36% 실패율을 반복 재현 — "기존 exact는
+    # 신뢰된 C1이 아니라 exact_candidate로 취급"하라는 지시에 따라
+    # compute_all_locations_c1_verified()는 이제 coordinate_accuracy가 아니라
+    # source_verified 필드만 본다(엔드투엔드 버전은
+    # test_address_pipeline_integration.py의
+    # test_gate_rejects_c1_partial_mixed_tiers /
+    # test_gate_requires_source_verified_not_just_exact_candidate 참고).
     assert_true(
-        compute_all_locations_verified_exact([{"coordinate_accuracy": "exact"}]),
-        "single location, exact -> True",
+        compute_all_locations_c1_verified([{"coordinate_accuracy": "exact_candidate", "source_verified": True}]),
+        "single location, source-verified -> True",
     )
     assert_true(
-        compute_all_locations_verified_exact([{"coordinate_accuracy": "exact"}, {"coordinate_accuracy": "exact"}]),
-        "multiple locations, all exact -> True",
+        compute_all_locations_c1_verified([
+            {"coordinate_accuracy": "exact_candidate", "source_verified": True},
+            {"coordinate_accuracy": "exact_candidate", "source_verified": True},
+        ]),
+        "multiple locations, all source-verified -> True",
     )
     assert_false(
-        compute_all_locations_verified_exact([{"coordinate_accuracy": "exact"}, {"coordinate_accuracy": "ward"}]),
-        "one exact + one ward (C1_partial) -> False, not all locations verified",
+        compute_all_locations_c1_verified([
+            {"coordinate_accuracy": "exact_candidate", "source_verified": True},
+            {"coordinate_accuracy": "ward", "source_verified": False},
+        ]),
+        "one source-verified + one ward (C1_partial) -> False, not all locations verified",
     )
     assert_false(
-        compute_all_locations_verified_exact([{"coordinate_accuracy": "ward"}, {"coordinate_accuracy": "exact"}]),
-        "order must not matter -> still False when any single location is not exact",
+        compute_all_locations_c1_verified([
+            {"coordinate_accuracy": "ward", "source_verified": False},
+            {"coordinate_accuracy": "exact_candidate", "source_verified": True},
+        ]),
+        "order must not matter -> still False when any single location is not source-verified",
     )
     assert_false(
-        compute_all_locations_verified_exact([]),
+        compute_all_locations_c1_verified([]),
         "zero resolved locations -> False (no address text at all, never vacuously True)",
     )
     assert_false(
-        compute_all_locations_verified_exact([{"coordinate_accuracy": "unresolved"}]),
+        compute_all_locations_c1_verified([{"coordinate_accuracy": "unresolved", "source_verified": False}]),
         "single location, unresolved -> False",
+    )
+    # 핵심 회귀(2026-09-04, 2차 지시): coordinate_accuracy=='exact_candidate'
+    # 여도 source_verified가 False면(Geoapify만 성공, 원문 좌표 검증 없음)
+    # C1로 인정하지 않는다 — 이게 바로 이번 강화 지시의 핵심.
+    assert_false(
+        compute_all_locations_c1_verified([{"coordinate_accuracy": "exact_candidate", "source_verified": False}]),
+        "exact_candidate tier alone (Geoapify self-convergence, no source verification) must NOT count as C1",
+    )
+    assert_false(
+        compute_all_locations_c1_verified([{"coordinate_accuracy": "exact_candidate"}]),
+        "source_verified missing entirely (old-shape row) -> treated as not verified, never vacuously True",
     )
 
 

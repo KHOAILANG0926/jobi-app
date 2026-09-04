@@ -24,13 +24,13 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from classifier import classify, is_blacklisted
-from geocode import resolve_coordinate_accuracy
+from geocode import resolve_coordinate_accuracy, source_coordinate_matches_location
 from job_quality import (
     CRAWLER_VERSION,
     ascii_key,
     canonical_job_key,
     classify_work_location_candidate,
-    compute_all_locations_verified_exact,
+    compute_all_locations_c1_verified,
     compute_job_updates,
     extract_salary_from_text,
     gate_auto_publish,
@@ -126,16 +126,32 @@ def _is_duplicate_location(a: dict, b: dict) -> bool:
     return bool(core_a) and core_a == core_b
 
 
-def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dict], bool]:
+def resolve_work_locations(
+    candidates_with_region: list[dict],
+    employer_coordinate: dict | None = None,
+) -> tuple[list[dict], bool]:
     """Standard address pipeline, stage 4-7 (classify -> multi-candidate
-    geocode cascade -> coordinate-accuracy scoring), applied identically for
-    every job — never branched on job id or company.
+    geocode cascade -> coordinate-accuracy scoring -> source-coordinate
+    verification), applied identically for every job — never branched on
+    job id or company.
 
     candidates_with_region: split_work_locations(..., with_region=True) output
     — each candidate carries the province/city label vieclam24h prefixed it
     with (e.g. "Bình Dương"), used by geocode.resolve_coordinate_accuracy()
     to validate the geocoder didn't quietly resolve it to a different
     province, and to bias the query toward the right area.
+
+    employer_coordinate: {'lat': float, 'lng': float, 'contact_address': str}
+    | None — vieclam24h가 원문으로 제공하는 고용주 연락처 좌표(있으면). 2026-
+    09-04 30건 원문 구조 조사로 확인: 이 사이트는 JSON-LD/지도 iframe·링크/
+    data-lat 속성/XHR 응답 어디에도 "이 공고의 근무지" 좌표를 두지 않고,
+    __NEXT_DATA__의 employer_info에만 고용주 연락처 좌표가 있다(30건 중
+    6.7%만 값 존재). 이 좌표는 공고별 근무지가 아니라 고용주 연락처
+    주소이므로, geocode.source_coordinate_matches_location()으로 이
+    contact_address와 각 근무지 텍스트가 실제로 같은 곳을 가리키는지 확인한
+    경우에만 그 근무지의 좌표로 채택한다(source_verified=True) — 일치하지
+    않으면 이 좌표를 절대 그 근무지에 갖다 붙이지 않는다(예: Aeon Delight
+    공고처럼 근무지가 회사 연락처 주소와 무관한 여러 매장인 경우).
 
     address_accuracy (is the raw TEXT a genuine, specific address) and
     coordinate_accuracy (can a map pin be trusted for it) are deliberately
@@ -146,9 +162,18 @@ def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dic
     address_accuracy == 'exact_text') get a row at all — 'region_only'/
     'undetermined' text is dropped here exactly as before. EVERY such
     candidate keeps its row regardless of what coordinate_accuracy comes
-    back as ('exact'/'ward' carry a real lat/lng for the map; 'region'/
-    'unresolved' carry none — the raw address TEXT is still shown, just
-    without a fabricated-looking marker).
+    back as ('exact_candidate'/'ward' carry a real lat/lng for the map;
+    'region'/'unresolved' carry none unless source-verified — the raw
+    address TEXT is still shown, just without a fabricated-looking marker).
+
+    2026-09-04 사용자 지시(2차, "Geoapify 단일 공급자의 쿼리 자기수렴만으로는
+    실제 사업장 정확도를 보장할 수 없다"): coordinate_accuracy=='exact_
+    candidate'는 더 이상 그 자체로 신뢰된 좌표가 아니다 — 각 행의
+    source_verified 필드만이 실제 C1 승격 근거다(job_quality.
+    compute_all_locations_c1_verified() 참고). source_verified=True인
+    행은 lat/lng을 Geoapify 결과 대신 검증된 employer_coordinate로 덮어써
+    지도에 표시한다(사이트 자체 데이터가 Geoapify 추정보다 더 권위 있는
+    출처이므로).
 
     Returns (resolved_rows, had_transient_failure). had_transient_failure is
     True when ANY candidate's cascade hit a transient geocode API failure —
@@ -173,19 +198,31 @@ def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dic
         tier = coord["coordinate_accuracy"]
         print(f"    📍 {tier:11} {text!r} — {coord['evidence']}")
 
+        row_lat, row_lng = coord["lat"], coord["lng"]
+        geocode_source = coord.get("geocode_source")
+        source_verified = False
+        if employer_coordinate and employer_coordinate.get("lat") is not None:
+            if source_coordinate_matches_location(employer_coordinate.get("contact_address") or "", text):
+                source_verified = True
+                row_lat, row_lng = employer_coordinate["lat"], employer_coordinate["lng"]
+                geocode_source = "vieclam24h_employer_contact"
+                print(f"    ✅ 원문 좌표 검증 성공: {text!r} <- {employer_coordinate.get('contact_address')!r}")
+
         row = {
             "raw_address": text,
             "normalized_address": text_key,
-            "lat": coord["lat"],
-            "lng": coord["lng"],
-            "geocode_status": "success" if tier in ("exact", "ward") else "failed",
-            "geocode_source": coord.get("geocode_source"),
+            "lat": row_lat,
+            "lng": row_lng,
+            "geocode_status": "success" if (tier in ("exact_candidate", "ward") or source_verified) else "failed",
+            "geocode_source": geocode_source,
             "address_accuracy": "exact_text",
             "coordinate_accuracy": tier,
             "address_evidence": coord.get("evidence"),
+            "source_verified": source_verified,
         }
-        # 좌표가 있는 행(exact/ward)만 좌표 기준 중복 제거 대상 — region/
-        # unresolved는 좌표가 없으므로 텍스트 중복(seen_texts)만으로 충분하다.
+        # 좌표가 있는 행(exact_candidate/ward/source_verified)만 좌표 기준
+        # 중복 제거 대상 — region/unresolved는 좌표가 없으므로 텍스트 중복
+        # (seen_texts)만으로 충분하다.
         if row["lat"] is not None and any(
             e.get("lat") is not None and _is_duplicate_location(row, e) for e in resolved
         ):
@@ -436,11 +473,42 @@ async def fetch_job_detail(page, url: str) -> dict:
                 || descText.match(/từ\\s+thứ\\s*\\d\\s*(?:đến|-|–)\\s*(?:thứ\\s*\\d|chủ nhật)/i)
             if (daysMatch) detailWorkDaysFreeText = (daysMatch[1] || daysMatch[0]).trim()
 
+            // 사이트 자체가 제공하는 고용주 등록 좌표(있으면) — __NEXT_DATA__
+            // (Next.js SSR 상태, 이 사이트의 표준 메커니즘)의
+            // jobDetailHiddenContact.data.employer_info에 latitude/longitude/
+            // contact_address 필드가 존재한다(2026-09-04, 30건 원문 구조 읽기
+            // 전용 조사로 실측 확인 — JSON-LD/지도 iframe/지도 링크/data-lat 속성/
+            // XHR 응답 어디에도 좌표가 없었고, 이 경로만 유일하게 좌표를 가짐).
+            // 이 좌표는 "이 공고의 근무지" 좌표가 아니라 고용주의 등록 연락처
+            // 주소 좌표일 뿐이며, 표본 30건 중 2건(6.7%)만 값이 채워져 있었다
+            // (null이 기본값). 상위 호출부가 이 contact_address와 실제 근무지
+            // 주소 텍스트가 일치하는 경우에만 신뢰할 좌표로 채택해야 한다 —
+            // 이 함수는 원문 그대로만 반환한다(일치 판정은 하지 않음).
+            let detailEmployerLat = null, detailEmployerLng = null, detailEmployerContactAddress = ''
+            try {
+                const nextDataEl = document.getElementById('__NEXT_DATA__')
+                if (nextDataEl) {
+                    const nextData = JSON.parse(nextDataEl.textContent)
+                    const jdhc = nextData?.props?.initialState?.api?.jobDetailHiddenContact?.data
+                    const ei = jdhc?.employer_info
+                    if (ei && typeof ei.latitude === 'number' && typeof ei.longitude === 'number') {
+                        detailEmployerLat = ei.latitude
+                        detailEmployerLng = ei.longitude
+                        detailEmployerContactAddress = ei.contact_address || ''
+                    }
+                }
+            } catch (e) {
+                // __NEXT_DATA__가 없거나 구조가 다르면(사이트 개편 등) 조용히
+                // 무시 — 이 좌표는 보조 신호일 뿐, 없어도 기존 파이프라인은
+                // 그대로 동작한다(Geoapify 경로가 대체).
+            }
+
             return {
                 deadline, sections, hasApplyButton, expiredBanner,
                 detailTitle, detailCompany, detailLocationLabel, detailSalary,
                 detailEducation, detailExperience, detailWorkType, detailHeadcount,
                 detailWorkHoursFreeText, detailWorkDaysFreeText,
+                detailEmployerLat, detailEmployerLng, detailEmployerContactAddress,
             }
         }""", _EXPIRED_PAGE_PATTERNS)
         result = result or {
@@ -448,6 +516,7 @@ async def fetch_job_detail(page, url: str) -> dict:
             "detailTitle": "", "detailCompany": "", "detailLocationLabel": "", "detailSalary": "",
             "detailEducation": "", "detailExperience": "", "detailWorkType": "", "detailHeadcount": "",
             "detailWorkHoursFreeText": "", "detailWorkDaysFreeText": "",
+            "detailEmployerLat": None, "detailEmployerLng": None, "detailEmployerContactAddress": "",
         }
         if not result.get("sections"):
             # DOM heading selectors occasionally miss SPA detail layouts; keep a
@@ -467,6 +536,7 @@ async def fetch_job_detail(page, url: str) -> dict:
             "httpStatus": None, "detailTitle": "", "detailCompany": "", "detailLocationLabel": "", "detailSalary": "",
             "detailEducation": "", "detailExperience": "", "detailWorkType": "", "detailHeadcount": "",
             "detailWorkHoursFreeText": "", "detailWorkDaysFreeText": "",
+            "detailEmployerLat": None, "detailEmployerLng": None, "detailEmployerContactAddress": "",
             "fetchOk": False, "fetchError": str(exc),
         }
 
@@ -592,21 +662,31 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         if len(mentioned_provinces) > 1:
             work_locations = [{"text": p, "region_prefix": p} for p in mentioned_provinces]
 
-    # 표준 파이프라인 4-7단계: 후보 분류 -> geocode/좌표 검증 -> 지원 경로
-    # 확인 -> 공개 게이트. 신규/기존 공고, 특정 id/회사명과 무관하게 항상
-    # 동일하게 적용한다(예외 코드 없음).
-    resolved_locations, had_transient_geocode_failure = resolve_work_locations(work_locations)
+    # 표준 파이프라인 4-7단계: 후보 분류 -> geocode/좌표 검증 -> 원문 좌표
+    # 검증 -> 지원 경로 확인 -> 공개 게이트. 신규/기존 공고, 특정 id/회사명과
+    # 무관하게 항상 동일하게 적용한다(예외 코드 없음).
+    employer_coordinate = None
+    if detail.get("detailEmployerLat") is not None and detail.get("detailEmployerLng") is not None:
+        employer_coordinate = {
+            "lat": detail["detailEmployerLat"],
+            "lng": detail["detailEmployerLng"],
+            "contact_address": detail.get("detailEmployerContactAddress") or "",
+        }
+    resolved_locations, had_transient_geocode_failure = resolve_work_locations(
+        work_locations, employer_coordinate=employer_coordinate,
+    )
     employer_phone_value = ""
     has_app_path = has_application_path(
         employer_phone_value, "", url,
         source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
         has_apply_affordance=bool(detail.get("hasApplyButton")),
     )
-    # 2026-09-04 정책 변경: 모든 근무지가 C1(coordinate_accuracy=='exact')이고
-    # 유효한 지원 경로가 있을 때만 공개한다. resolved_locations가 1개 이상
-    # 있어야 하고(주소 텍스트 자체가 없으면 이 조건은 애초에 False), 그
-    # 전부가 'exact'여야 한다 — 하나라도 ward/region/unresolved면 보류.
-    all_locations_verified_exact_value = compute_all_locations_verified_exact(resolved_locations)
+    # 2026-09-04 정책(2차, 강화): 모든 근무지가 진짜 C1(source_verified==True,
+    # 즉 원문 좌표 검증 성공)이고 유효한 지원 경로가 있을 때만 공개한다.
+    # coordinate_accuracy=='exact_candidate'(Geoapify 자기수렴)만으로는 더
+    # 이상 충분하지 않다 — job_quality.compute_all_locations_c1_verified()
+    # 문서 참고.
+    all_locations_c1_verified_value = compute_all_locations_c1_verified(resolved_locations)
     should_publish, gate_reason = gate_auto_publish(
         # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
         # 무관하다. resolve_work_locations()는 exact_text로 분류된
@@ -614,7 +694,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
         has_address_text=len(resolved_locations) > 0,
         has_application_path_=has_app_path,
-        all_locations_verified_exact=all_locations_verified_exact_value,
+        all_locations_c1_verified=all_locations_c1_verified_value,
     )
 
     # local_jobs에 실제로 존재하는 컬럼인데도 크롤러가 지금까지 전혀 채우지
