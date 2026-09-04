@@ -88,15 +88,21 @@ function checkInvariants(href, d, truth) {
   }
 
   if (d.addrItems.length > 0) {
-    // State A: multiple real addresses.
-    if (d.markerCount !== d.addrItems.length) {
-      failures.push(`${href}: address list has ${d.addrItems.length} item(s) but map shows ${d.markerCount} marker(s) — must match 1:1`)
+    // State A: 상세주소 목록이 있는 공고. 마커는 "주소 항목 수"가 아니라 DB에
+    // 좌표가 있는(coordinate_accuracy exact/ward, truth.mappableWorkLocationCount)
+    // 항목 수와 일치해야 한다 — exact_text 주소라도 좌표 판정이 region/
+    // unresolved면 텍스트만 보여주고 마커는 찍지 않는 것이 이번 세션에 확정된
+    // 정책(예: sb-4369는 주소 1건, 마커 0건이 정상). 항목 수와 마커 수를 1:1로
+    // 강제하던 예전 불변조건은 이 정책 도입 전 가정이라 폐기한다.
+    const expectedMarkers = truth ? truth.mappableWorkLocationCount : null
+    if (expectedMarkers !== null && d.markerCount !== expectedMarkers) {
+      failures.push(`${href}: DB상 좌표 있는(mappable) 근무지 ${expectedMarkers}건인데 지도 마커는 ${d.markerCount}개 — 일치해야 한다`)
     }
     if (d.addrItems.some((a) => !a || a.length < 5)) {
       failures.push(`${href}: address list contains an empty/too-short entry: ${JSON.stringify(d.addrItems)}`)
     }
-    if (d.addrItems.length > 1 && !d.note.includes(String(d.addrItems.length))) {
-      failures.push(`${href}: caption must mention the work-location count (${d.addrItems.length}), got "${d.note}"`)
+    if (expectedMarkers >= 1 && !d.note.includes(String(expectedMarkers))) {
+      failures.push(`${href}: caption must mention the mappable work-location count (${expectedMarkers}), got "${d.note}"`)
     }
     if (truth && truth.workLocationCount === 0) {
       failures.push(`${href}: DOM shows ${d.addrItems.length} address item(s) but job_work_locations has 0 rows in the DB — contradicts the source data`)
