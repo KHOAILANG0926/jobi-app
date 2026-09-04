@@ -2,106 +2,82 @@
 
 ## 현재 작업
 
-2026-09-04 사용자 지시("코드·DB 호환성 전수 확인부터, sb-4366~4369는 baseline이지
-새 사건 아님") 반영 완료. **4건 데이터 원인 조사(읽기 전용) + 코드·DB 호환성 감사
-+ 프론트엔드 가짜 마커 결함 2건 발견·수정 + "+N 지역" 실제 공고 35건 dry-run 진행
-중.** 운영 재개(cron)는 여전히 비승인.
+2026-09-04 사용자 지시(반복주소 수정 — "1차 크롤러 표준 마감") 반영 완료.
+**반복주소(모집지역 접미사) geocode 전 병합 + 검증 없는 ward 등급 마커/거리
+제외 + recruitment_regions 도입.** 커밋 [cdfa08c](https://github.com/KHOAILANG0926/jobi-app/commit/cdfa08c15c567c9caaff4e6490485d94507767df),
+master push 완료, VPS `/root/jobi`도 동일 커밋으로 동기화 완료. 운영 재개
+(cron/GHA)는 여전히 비승인 — DB 쓰기 없음, migration 미실행.
 
-## sb-4366~4369 생성 원인 조사 (읽기 전용, 데이터 변경 없음)
+## 완료 항목
 
-- 4366~4368: `created_at` 셋 다 동일(2026-09-02T06:22:49) — 이전 세션에서 이미
-  기록된 1회성 재처리 스크립트(`_reprocess_3jobs.py`) 실행 결과와 일치, baseline.
-- **4369**: `created_at=2026-09-04T00:51:37Z`(베트남 07:51), `active=true`,
-  `publish_gate_reason='ok'`인데 자기 자신의 `job_work_locations` 행은
-  `coordinate_accuracy='unresolved', geocode_status='failed'` — 오늘 이 세션의
-  어떤 게이트 정책으로도 나올 수 없는 조합(구버전 정책의 흔적으로 추정).
-  - VPS cron: 2026-09-02부터 비활성 확인(crontab 주석 처리, `crawl_daily.log`도
-    그 이후 갱신 없음) — 무관.
-  - GitHub Actions `crawl.yml`("채용공고 자동 크롤링"): `gh workflow list` 결과
-    **`disabled_manually`**, 마지막 실행 2026-08-28(실패) 이후 실행 이력 없음 —
-    무관.
-  - bash_history: 2026-08-23 이후 갱신 없음(파일 mtime 확인) — 그 이후 수동 실행
-    여부 확인 불가. `last -F`도 비대화형 SSH 세션은 기록하지 않아 무관.
-  - **결론: 생성 원인 확인 못함.** 4건 데이터는 전혀 변경하지 않았음.
+1. **반복주소 병합**: `crawl_topcv.py`에 `_group_candidates_by_core_location()`
+   추가 — geocode 이전에 같은 시설명(KCN/CCN/Khu Công Nghiệp/Cụm Công
+   Nghiệp/Tòa nhà/Lô) 또는 comma-segment 접두사가 같은 후보를 1개 근무구역
+   으로 묶는다. 대표 텍스트는 그룹 내 최단 원문(접미사 없음) — 지역 접미사가
+   섞인 긴 텍스트로 geocode하면 그 접미사 쪽으로 결과가 편향되는 게 실사례
+   (KCN Hiệp Phước 공고)로 확인된 원인이었다.
+2. **recruitment_regions**: 그룹에 속한 서로 다른 모집지역 라벨을 좌표 복제
+   없이 배열로 보존(`job_work_locations.recruitment_regions`, draft only).
+   `JobDetail.tsx`에 "Tuyển tại: ..." 표시 추가(2개 이상일 때만).
+3. **ward 등급 검증 게이트 실질화**: `location_verified===true`가 아닌
+   'ward' 등급은 내부 지도 마커·길찾기·거리 계산에서 제외(`region`/
+   `unresolved`와 동일 취급) — `JobsContext.tsx`/`JobDetail.tsx` 수정.
+   **부수 발견**: `job_work_locations` select 쿼리에 애초에
+   `coordinate_accuracy`/`location_verified`가 빠져 있어서, 기존 ward 게이트
+   코드 자체가 한 번도 실제로 동작한 적이 없었다(항상 "컬럼 없음" 안전
+   기본값 분기만 탐) — 이번에 select에 포함시켜 실제로 동작하게 고침.
+4. **길찾기(#6)**: 기존 구현(원문 위치+상위 시·도+Vietnam) 그대로 유지,
+   변경 없음 — 좌표 신뢰 여부와 무관하게 항상 제공됨.
+5. **테스트**: `test_address_pipeline_integration.py`에 5건 추가(KCN 시설명
+   병합/일반주소 접미사 병합/다른 장소 오병합 방지/end-to-end 병합+
+   recruitment_regions/RPC payload 전달) — 크롤러 전체 39/39 통과
+   (job_quality 15 + address_pipeline_integration 24). 프론트 `tsc --noEmit`
+   +`npm run build` 통과.
+6. **실측 회귀(10건, write-guard dry-run, DB 쓰기 없음)**: VPS 격리 환경
+   (`/root/jobi_test`, 종료 후 삭제)에서 KCN Hiệp Phước 포함 대표 10건 재조사.
+   KCN Hiệp Phước: 4행 -> **1행**(좌표 10.7227835,106.703405 고정),
+   `recruitment_regions=['TP.HCM','Long An']` 확인. 10건 전체: DB CHECK 위반
+   leak 0건, 잘못된 `unresolved`+좌표 조합 0건, `active=true`인데
+   `publish_gate_reason!='ok'`인 모순 0건, `exact`(C1) 승격 0건(예상과 일치).
+7. **프론트 라이브 확인**: 로컬 dev preview로 sb-4369(JobDetail, "Tìm địa chỉ
+   trên Google Maps" 검색 링크만 — unresolved라 정상), `/ban-do`(MapView,
+   "0 việc làm" — exact 등급 공고가 아직 없어 정상), Home 정상 로드 확인.
+   콘솔 에러는 무관한 tile/이미지 404뿐. **recruitment_regions 표시 UI /
+   locationVerified=true인 ward 항목의 "exact와 동일 취급" 분기는 실제 DB에
+   해당 데이터가 아직 없어(쓰기 자체를 안 했으므로) 육안 확인은 못함** —
+   코드 로직 검토 + 유닛 테스트로만 검증됨, migration 승인 후 실제 저장되면
+   육안 확인 필요.
 
-## 코드·DB 호환성 감사 결과 (커밋 88b0e72)
+## 코드·DB 호환성 표 (최종)
 
-1. **[결함] DB CHECK 제약 위반 위험**: `job_work_locations.coordinate_accuracy`
-   CHECK 제약(migration 0015, 이미 실행됨)은 `('exact','ward','region',
-   'unresolved')`만 허용 — 이전 커밋의 'exact'→'exact_candidate' 개명 이후
-   `_work_location_rpc_rows()`가 이 값을 그대로 RPC에 흘려보내고 있었다(다음
-   실제 쓰기 때 즉시 제약 위반). `_coordinate_accuracy_for_db()` 추가로 해결 —
-   `source_verified=True`만 DB `'exact'`로 승격, 아니면 `'unresolved'`로
-   낮추고 좌표도 null. `raw_address`는 항상 보존.
-2. **[결함] `location_verified` 컬럼 미사용**: 이미 존재하는 컬럼(migration
-   0010)인데 RPC(migration 0015)의 INSERT 목록에서 빠져 항상 기본값 `false`.
-   draft migration `0018`(미실행)로 RPC 갱신안 작성, Python 쪽은 이미 값을
-   보내도록 수정(현재 RPC는 조용히 무시 — 하위 호환).
-3. **[결함] `MapView.tsx` 가짜 마커**: 실제 좌표 없는 공고에도 지역/기본
-   중심점을 채워 실제 Leaflet 마커로 표시하고 있었음. `resolveMapLocations()`
-   + `source==='exact'` 게이트로 수정 — 검증 안 된 공고는 지도에서 완전히
-   제외. 로컬 프리뷰(실제 운영 데이터)로 확인: 수정 후 "0 việc làm"(현재
-   진짜 검증된 공고가 없음을 정확히 반영).
-4. **[결함] `Home.tsx` "내 주변" 필터 동일 결함**: `guessCoordinatesFromLocation`
-   무조건 fallback이 "내 주변" 필터·정렬·거리 배지에 가짜 거리를 쓰고 있었음.
-   동일하게 수정 — 검증 안 된 공고는 배지 없이 자연히 제외.
-5. **Google Maps 길찾기 쿼리**: 사용자 지시대로 "원문 위치 + 상위 시·도 +
-   Vietnam"을 항상 URL 인코딩하도록 수정. 로컬 프리뷰(sb-4369, 실제 데이터)로
-   확인: `..., Tây Ninh, Vietnam` 정확히 반영됨.
-6. **[확인, 수정 불필요]** active/publish_gate_reason 단일 함수 계산, 기술
-   오류 시 기존 데이터 보호, 기업 직접 등록 공고 미변경(Python 레벨 +
-   RPC 함수 내부 `v_origin` 체크 이중 보호, migration 0015) — 전부 이미
-   올바르게 구현돼 있음을 재확인.
-7. **분류 체계 독립 축 확인**: address_accuracy/coordinate_accuracy/
-   geocode_status(모두 DB 컬럼, write-only — 프론트는 coordinate_accuracy만
-   읽음)/location_verified(컬럼 있으나 미사용→③에서 배선)/`source_verified`
-   (100% internal, DB에 아직 저장 안 됨, `location_verified`와 개념적으로
-   대응)/`exact_candidate`(100% internal, DB에는 절대 raw로 안 감,
-   `_coordinate_accuracy_for_db()`가 항상 매핑) — 이미 독립된 축으로
-   분리돼 있고 하나의 ENUM으로 합쳐진 곳 없음을 확인.
+| 항목 | 코드(internal) | DB 실제 상태 | 매핑/조치 |
+|---|---|---|---|
+| coordinate_accuracy | `exact_candidate`/`ward`/`region`/`unresolved` | CHECK: `exact`/`ward`/`region`/`unresolved`(0015, 실행됨) | `_coordinate_accuracy_for_db()`가 `exact_candidate`→(`source_verified`면 `exact`, 아니면 `unresolved`+좌표null)로 항상 매핑. ward/region/unresolved는 그대로 통과. |
+| location_verified | `source_verified`(bool) | 컬럼 존재(0010), RPC(0015)가 INSERT 목록에서 누락 → 항상 false | 0018 draft가 RPC에 배선(미실행). Python payload는 이미 값 전송(하위호환, 현재 RPC는 무시). |
+| recruitment_regions | 그룹별 모집지역 라벨 배열 | 컬럼 없음 | 0018 draft에 신규 컬럼+RPC 배선 추가(미실행). Python payload는 이미 값 전송(하위호환). |
+| 프론트 select | — | `job_work_locations` select에 `coordinate_accuracy`/`location_verified` 누락(발견) | 이번에 select에 추가 — ward 게이트가 처음으로 실제 작동 시작. |
 
-## 테스트/빌드 결과
+## 운영 전 필요한 단계 (실행 안 함, 사용자 승인 대기)
 
-- 크롤러: VPS 격리 환경 `job_quality` 15/15 + `address_pipeline_integration`
-  19/19 = **34/34 통과**.
-- 프론트: `npx tsc --noEmit` 통과, `npm run build` 통과, 로컬 프리뷰(dev
-  server, 실제 운영 Supabase 데이터)로 Home("내 주변" 필터)/MapView(`/ban-do`)
-  /JobDetail(`sb-4369`) 육안 확인 완료 — 콘솔 에러 없음(무관한 404/tile 로드
-  실패만 존재).
-- 커밋 해시 3중 확인(local == GitHub == VPS): `88b0e7284707228d8ac2eb66a1bb8c892063a4f2`.
+1. draft migration 0018 검토 후 승인 → 운영 DB 실행(recruitment_regions
+   컬럼 추가 + RPC 배선, additive만).
+2. 검증용 소규모 저장(3~5건): `--process-url --confirm-write`로 이미
+   원문 대조까지 끝난 공고 3~5건만 실제로 저장 → `job_work_locations`에
+   `location_verified`/`recruitment_regions`가 실제로 채워지는지, DB CHECK
+   위반 없이 insert되는지 확인. 이번 라운드에서는 실행하지 않음.
+3. 2번이 확인되면 cron/GHA 재개 여부는 별도 승인 필요(계속 비승인 상태).
 
-## 발견된 문제 (아직 미해결/후속 필요)
+## 발견됐으나 이번 라운드 범위 밖(수정 안 함, 기록만)
 
-- `address_accuracy`/`geocode_status`/`address_evidence`는 프론트가 전혀
-  읽지 않는 write-only 감사용 필드로 확인(문제는 아니고 사실 기록).
-- `local_jobs.origin != 'crawler'`인 기존 행에 대해, `compute_job_updates()`가
-  계산하는 **비-게이트 필드**(salary/location/description 등)는 title+company
-  텍스트 매칭으로 우연히 크롤러 결과와 충돌할 경우 이론상 덮어써질 수 있는
-  좁은 여지가 남아있음(active/publish_gate_reason/crawler_version 자체는
-  이미 origin 체크로 완전히 보호됨) — 이번 라운드 범위 밖으로 판단해 손대지
-  않음, 후속 검토 후보로만 기록.
-- "+N 모집지역 + 일부 상세 근무지" 실제 공고 조사 완료: 기존 dry-run 배치
-  전체(185건, 중복 제거)에서 이 패턴에 맞는 실제 공고 24건(요구 20건 초과)을
-  찾아 현재 commit(88b0e72) 기준으로 재조사(write-guard dry-run, DB 쓰기 없음).
-  결과: 24건 51개 근무지 중 `source_verified=True` 0건 → DB에 `exact`로 승격된
-  행 0건(기대치와 일치, 원문 좌표 커버리지 ~6.7% 기준 정상 범위). 내부
-  `exact_candidate` 문자열이 DB 페이로드에 그대로 노출되는 사례 0건(leak 없음
-  확인). `active=True`인데 `publish_gate_reason != 'ok'`인 모순 0건.
-  **신규 발견(수정 안 함, 보고만)**: 공고 중 하나(KCN Hiệp Phước, Nhà Bè)는
-  원문 사이트 자체가 "지역별 채용" 섹션에 동일한 물리적 주소를 지역 접미사만
-  바꿔 4번 반복 표시함(예: "...Thành phố Hồ Chí Minh, Bình Chánh" /
-  "...Quận 7" / "...Cần Giuộc" — 실제 라이브 페이지에서 확인). 크롤러는 이를
-  원문 그대로 4개의 서로 다른 근무지 텍스트로 정확히 추출했으나, 각각을
-  독립 지오코딩한 결과 좌표가 최대 약 15km까지 벌어짐(전부 'ward' 등급,
-  'success' 상태). 즉 'ward' 등급도 이런 반복 주소 패턴에서는 신뢰도가
-  낮을 수 있음 — 현재 프론트(`JobsContext.tsx`)는 'ward' 등급까지 지도
-  마커로 노출하고 있어(이번 세션 범위 밖, 기존 설계), 사용자 판단 필요.
-- 분류 체계의 `work_mode`(이동·순회근무) 축은 현재 별도 필드/컬럼으로 구현돼
-  있지 않음(코드 전체에서 관련 필드 검색 결과 없음). 새로 만들려면 DB 컬럼
-  추가(migration)가 필요해 이번 라운드 범위 밖으로 판단, 실행하지 않음.
+- `local_jobs.origin != 'crawler'`인 기존 행의 비-게이트 필드
+  (salary/location/description) title+company 텍스트 매칭 우연 충돌 가능성
+  — 이전 라운드에서 이미 기록, 여전히 범위 밖.
+- 분류 체계의 `work_mode`(이동·순회근무) 축 — 별도 필드/컬럼 없음, 이번
+  라운드에도 추가하지 않음(migration 필요, "1차 표준 마감" 지시에 따라
+  신규 설계 확장 중단).
 
 ## 다음 결정사항
 
-- 운영 재개(cron 활성화) 여전히 비승인.
-- draft migration 0018(location_verified RPC 배선)은 사용자 승인 후에만 실행.
-- "+N 지역" 패턴 20건 결과가 나오는 대로 최종 보고.
+- 운영 재개(cron/GHA) 계속 비승인.
+- draft migration 0018 승인 여부 대기.
+- 승인 시 위 "운영 전 필요한 단계" 1→2→3 순서로 진행.
