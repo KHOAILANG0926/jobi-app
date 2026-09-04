@@ -1,21 +1,24 @@
--- 초안(DRAFT) — 검토용으로만 작성. 사용자 승인 전에는 운영 DB에 실행하지 않는다.
+-- 적용됨(APPLIED) — 2026-09-04, 사용자 승인 후 운영 DB(edhuesdnuxlbcfephutq)에
+-- 실행 완료. Supabase 마이그레이션 이력에 20260904163142_local_jobs_public_
+-- select_rls_fix로 기록됨. 적용 전후 검증 결과는 RLS_MIGRATION_0019_FINAL.md
+-- (검증 결과 섹션) 참고.
 --
 -- 배경(2026-09-04, 사용자 지시 — RLS 보안 감사 P1, RLS_SECURITY_AUDIT.md 참고):
 -- 운영 DB를 MCP로 직접 조회하고 anon key로 실제 REST 재현 테스트를 한 결과,
 -- 아래 두 가지를 실측/정책 텍스트로 확인했다.
 --
--- 1. local_jobs_public_select(현재 운영 중, migration 0009가 만듦)이
---    "admin_hidden = false OR is_admin()"만 확인하고 active를 전혀 보지
---    않는다 — active=false인 크롤러 공고(sb-4366~4368)가 anon key만으로
---    REST에서 그대로 노출됨을 실측 확인했다(GET /rest/v1/local_jobs).
+-- 1. local_jobs_public_select(적용 전 운영 중이던 버전, migration 0009가
+--    만듦)이 "admin_hidden = false OR is_admin()"만 확인하고 active를
+--    전혀 보지 않는다 — active=false인 크롤러 공고(sb-4366~4368)가 anon
+--    key만으로 REST에서 그대로 노출됨을 실측 확인했다(GET /rest/v1/local_jobs).
 -- 2. job_work_locations_public_select가 "using (true)"라 필터가 전혀 없다
 --    — local_jobs 쪽을 아무리 숨겨도 이 테이블을 직접 조회하면 raw_address/
 --    lat/lng이 무조건 노출된다.
 --
--- 이 migration은 이 두 SELECT 정책만 DROP 후 CREATE로 교체한다.
+-- 이 migration은 이 두 SELECT 정책만 DROP 후 CREATE로 교체했다.
 -- INSERT/UPDATE/DELETE 정책, 테이블 구조, 다른 테이블은 전혀 건드리지
--- 않는다. GRANT/REVOKE도 이 두 정책이 적용되는 SELECT 자체와는 무관해
--- 손대지 않는다(테이블 레벨 GRANT는 이미 올바름 — RLS가 그 안에서 행을
+-- 않았다. GRANT/REVOKE도 이 두 정책이 적용되는 SELECT 자체와는 무관해
+-- 손대지 않았다(테이블 레벨 GRANT는 이미 올바름 — RLS가 그 안에서 행을
 -- 더 좁히는 것뿐).
 --
 -- 공개 조건을 하나의 SQL 함수(local_job_is_visible)로 뽑아 local_jobs
@@ -41,7 +44,12 @@
 -- employer_id)과 is_admin()만 보고 job_work_locations를 전혀 참조하지
 -- 않으므로, 참조 방향이 "job_work_locations -> local_jobs" 한 방향뿐이다.
 -- 순환(local_jobs가 다시 job_work_locations를 참조)이 없으므로 무한
--- policy evaluation 위험이 없다.
+-- policy evaluation 위험이 없다(적용 후 실측으로도 재확인됨).
+--
+-- OR-결합 우회 검토(적용 후 재확인): job_work_locations_owner_write(cmd=ALL,
+-- authenticated 전용, "employer_id=auth.uid() OR is_admin()")가 SELECT에도
+-- OR로 결합되지만, 이 조건은 local_job_is_visible()이 이미 포함하는 두
+-- 분기(소유자/관리자)의 부분집합이라 추가 노출이 없음을 확인했다.
 
 begin;
 
@@ -83,7 +91,7 @@ create policy job_work_locations_public_select on public.job_work_locations
     )
   );
 
--- 아래는 의도적으로 변경하지 않는다(그대로 유지됨을 명시적으로 남겨
+-- 아래는 의도적으로 변경하지 않았다(그대로 유지됨을 명시적으로 남겨
 -- 검토자가 "빠뜨린 게 아니라 일부러 안 건드렸다"는 걸 알 수 있게 함):
 --   local_jobs_employer_insert / local_jobs_employer_update / local_jobs_employer_delete
 --   job_work_locations_owner_write

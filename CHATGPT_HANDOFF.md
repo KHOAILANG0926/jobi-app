@@ -1,24 +1,23 @@
 # ChatGPT ↔ Claude Code 인수인계 문서
 
-## ⚠️ P1 진행 중 — migration 0018/표본 저장/cron·GHA 전부 보류
+## ✅ P1 해결됨 — RLS migration 0019 적용 완료(2026-09-04)
 
-2026-09-04, 운영 Supabase(`edhuesdnuxlbcfephutq`)를 MCP로 직접 조회 +
-anon key 실제 REST 테스트로 **RLS 노출 문제를 실측 확인**:
-- `local_jobs_public_select`가 `active`를 안 봐서 비공개(inactive) 크롤러
-  공고(sb-4366~4368)가 anon key만으로 그대로 노출됨(실측).
-- `job_work_locations_public_select`는 `using(true)`라 필터가 전혀 없어
-  어떤 근무지 주소든 무조건 노출(정책 텍스트 근거, local_jobs를 고쳐도
-  이거 안 고치면 계속 샘).
-- 지난 라운드 보고("local_jobs_public_select는 using(true)")는 **틀렸다**
-  — migration 0005 원본 파일만 보고 이후 0009가 이미 갱신했다는 걸
-  운영 DB에 대조 안 하고 보고한 실수. 이번에 실측으로 바로잡음.
+운영 Supabase(`edhuesdnuxlbcfephutq`)에서 `local_jobs`/`job_work_locations`의
+anon REST 노출 문제(비공개 inactive 공고와 모든 근무지 주소가 anon key로
+그대로 조회되던 문제)를 **RLS migration 0019로 실제 수정하고 검증까지
+완료**했다. 상세 재현 로그·전체 SQL·검증 결과는
+[RLS_MIGRATION_0019_FINAL.md](RLS_MIGRATION_0019_FINAL.md)(적용+검증
+결과), 사전 감사는 [RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md) 참고.
 
-전체 감사 결과·재현 로그·migration 초안·rollback·통합 테스트 계획은
-[RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md) 참고. **RLS migration도
-아직 실행하지 않음(초안만) — 사용자 승인 대기.**
+**적용 후 실측 확인**: active=false 공고 anon 노출 0건(적용 전 3건) —
+해결됨. 기업 계정은 본인 소유 비공개 공고 접근 가능(함수 로직 검증),
+관리자는 전체 접근 가능(실측), service_role 영향 없음(정책 미변경).
+실패 0건이라 rollback은 실행하지 않았다.
 
-이 P1이 해결되기 전까지 migration 0018 실행 / `--verify-write-urls`
-표본 저장 / cron·GHA 활성화 전부 보류.
+**아직 안 한 것**: migration 0018 실행, `0020`(admin_* EXECUTE 축소,
+별도 하드닝) 실행, `--verify-write-urls` 표본 저장, `EmployerDashboard.
+tsx`/`RequireEmployer.tsx` 프론트 diff 적용, cron/GHA 활성화 — 전부
+별도 승인 대기.
 
 ---
 

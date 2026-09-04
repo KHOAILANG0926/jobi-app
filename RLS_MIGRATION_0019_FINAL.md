@@ -1,10 +1,87 @@
-# RLS Migration 0019 — 최종안 (실행 전 검토용)
+# RLS Migration 0019 — 적용 완료 + 검증 결과
 
-**상태: 아직 실행하지 않음.** [RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md)의
-읽기 전용 감사 결과를 근거로 작성한 최종 SQL. migration 0018, DB 쓰기,
-표본 저장, cron/GHA 활성화도 전부 보류 상태.
+**상태: 0019는 2026-09-04 사용자 승인 후 운영 DB(edhuesdnuxlbcfephutq)에
+실행 완료(Supabase migration 이력 `20260904163142_local_jobs_public_
+select_rls_fix`). 적용 직후 anon/기업/관리자 시나리오 검증까지 마쳤고
+전부 기대대로 동작함을 확인했다.** migration 0018·0020·표본 저장·기존
+데이터 변경·cron/GHA 활성화·프론트 diff(6번)는 이번 승인 범위 밖이라
+계속 보류 상태.
 
-파일: [`supabase/migrations/0019_local_jobs_public_select_rls_fix_draft.sql`](supabase/migrations/0019_local_jobs_public_select_rls_fix_draft.sql)(P1) + [`0020_admin_functions_revoke_anon_execute_draft.sql`](supabase/migrations/0020_admin_functions_revoke_anon_execute_draft.sql)(별도 하드닝, 독립 적용 가능)
+파일: [`supabase/migrations/0019_local_jobs_public_select_rls_fix.sql`](supabase/migrations/0019_local_jobs_public_select_rls_fix.sql)(P1, **적용됨**) + [`0020_admin_functions_revoke_anon_execute_draft.sql`](supabase/migrations/0020_admin_functions_revoke_anon_execute_draft.sql)(별도 하드닝, **아직 미적용**, 독립 적용 가능)
+
+---
+
+## 0. 검증 결과 요약 (2026-09-04 적용 직후 실측)
+
+### 0-1. 적용 전후 정책 스냅샷
+적용 전/후 모두 `local_jobs`(4개 정책: SELECT 1 + INSERT/UPDATE/DELETE 각 1)
++ `job_work_locations`(2개 정책: SELECT 1 + ALL 1) = 총 6개, 개수 변화
+없음(정책 텍스트만 교체됨을 확인). 변경된 건 두 SELECT 정책의 `qual`
+문구뿐 — 나머지 4개(INSERT/UPDATE/DELETE 3개 + `job_work_locations_
+owner_write`)는 적용 전후 완전히 동일한 SQL 텍스트로 확인됨.
+
+| 정책 | 적용 전 `qual` | 적용 후 `qual` |
+|---|---|---|
+| `local_jobs_public_select` | `admin_hidden = false OR is_admin()` | `local_job_is_visible(active, admin_hidden, employer_id)` |
+| `job_work_locations_public_select` | `true` | `EXISTS(SELECT 1 FROM local_jobs l WHERE l.id=job_work_locations.job_id AND local_job_is_visible(l.active, l.admin_hidden, l.employer_id))` |
+
+### 0-2. OR-결합 우회 검토(4번)
+`job_work_locations`에 SELECT에도 적용되는 정책이 **2개**(`job_work_
+locations_public_select` + `job_work_locations_owner_write`, 후자는
+cmd=ALL) — `authenticated` role에서는 둘이 OR로 결합된다. `owner_write`의
+조건(`employer_id=auth.uid() OR is_admin()`)은 `local_job_is_visible()`이
+이미 포함하는 두 분기의 부분집합이므로 **추가 노출 없음**을 확인했다.
+`local_jobs`는 SELECT 적용 정책이 1개뿐(다른 3개는 INSERT/UPDATE/DELETE
+전용)이라 결합 자체가 없음.
+
+### 0-3. anon key 실제 REST 검증(5번)
+| 시나리오 | 방법 | HTTP | 반환 행 수 | 판정 |
+|---|---|---|---|---|
+| active=true, admin_hidden=false | 실제 anon REST GET(실측) | 200 | 1 | ✅ 조회 가능(정상) |
+| active=false, admin_hidden=false | 실제 anon REST GET(실측) | 200 | **0**(적용 전엔 3) | ✅ 조회 불가로 전환 확인 |
+| active=true, admin_hidden=true | **실측 불가**(운영 DB에 admin_hidden=true 행이 없음, 사용자 지시 9번에 따라 기존 데이터를 바꾸지 않고 실측 불가로 보고) | — | — | 대신 `local_job_is_visible(true, true, null)`을 anon 세션으로 직접 평가 → `false`(불가, 정책이 참조하는 함수와 동일 조건) |
+| active=false, admin_hidden=true | 위와 동일 사유로 **실측 불가** | — | — | `local_job_is_visible(false, true, null)` → `false`(불가) |
+| 비공개 부모(4366~4368)의 job_work_locations | 실제 anon REST GET(실측) | 200 | 0 | ✅ 조회 불가(해당 job들은 애초에 근무지 행 자체가 없어 적용 전에도 0건이었음 — 회귀 없음 확인용) |
+| 공개 부모(4369)의 job_work_locations | 실제 anon REST GET(실측) | 200 | 1 | ✅ 조회 가능(정상, 적용 전과 동일) |
+
+**anon REST로 직접 재현하지 못한 두 시나리오**(admin_hidden=true 조합)는
+운영 DB에 해당 상태의 실제 행이 없기 때문 — 기존 데이터를 바꿔서 만들지
+않았다(사용자 지시 9번 준수). 대신 정책이 실제로 호출하는 것과 동일한
+`local_job_is_visible()` 함수를 anon role 세션에서 직접 평가해 논리적으로
+확인했다(실제 REST 재현과는 구분해서 표기).
+
+### 0-4. authenticated 기업 계정 검증(6번)
+운영 DB에 employer_id가 채워진 공고가 0건이라(전부 크롤러 소유) "본인
+비공개 공고" 케이스를 실제 행으로 재현할 수 없었다 — 계정을 새로 만들지
+않고(계정 생성은 금지된 행동), 기존에 실제로 존재하는 employer 역할
+계정 1개를 `set local role authenticated` + `request.jwt.claims`
+시뮬레이션(읽기 전용, 트랜잭션은 전부 `ROLLBACK`, 데이터 변경 없음)으로
+그 계정의 실제 RLS 평가 결과를 확인했다:
+
+| 검증 | 방법 | 결과 |
+|---|---|---|
+| 자신 소유 없음 → 공개 공고만 보임 | 실제 employer 계정 세션 시뮬레이션, `local_jobs` 전체 조회 | 1건(4369)만 반환 — 실제 세션·실제 정책 평가(실측) |
+| 본인 공고(active=false, admin_hidden=true 가정) → 조회 가능 | 같은 세션에서 `local_job_is_visible(false, true, <자기 uid>)` 직접 평가 | `true`(가능) — 함수 로직 검증(실제 소유 행 없어 인자는 합성) |
+| 타 기업 비공개 공고 → 조회 불가 | 같은 세션에서 `local_job_is_visible(false, true, <다른 uid>)` 직접 평가 | `false`(불가) |
+
+### 0-5. 관리자 계정 검증(7번)
+운영 DB의 실제 관리자 계정(app_metadata.role='admin') 1개로 동일한 세션
+시뮬레이션(읽기 전용):
+- `local_jobs` 전체 4건 중 **4건 전부** 조회됨(inactive 3건 포함) — 실측.
+- `job_work_locations` 조회 건수가 테이블의 실제 총 행 수(1건)와 정확히
+  일치 — 실측(전부 보임 확인).
+
+### 0-6. service_role 검증(8번)
+`job_work_locations_owner_write`/`local_jobs_employer_*`/GRANT를 전혀
+건드리지 않았고, `service_role`은 `pg_roles.rolbypassrls=true`(RLS 정책
+자체가 적용 안 됨, 감사 단계에서 실측 확인)라 이 migration과 무관하다.
+크롤러의 실제 쓰기 경로를 이번 라운드에서 다시 실행해 검증하지는
+않았다(표본 저장은 이번 승인 범위 밖) — 정책 미변경 + rolbypassrls로
+논리적 확인만 했다.
+
+### 0-7. 결과
+전 항목 통과, 실패 0건 → **rollback을 실행하지 않았다**(사용자 지시 10번,
+실패 시에만 rollback).
 
 ---
 
@@ -152,7 +229,7 @@ INSERT/UPDATE/DELETE는 이 migration이 손대지 않아 기존과 완전히 �
 
 ---
 
-## 5. 적용 후 실행할 검증 요청 (지금은 실행 안 함 — 0019 적용 승인 후)
+## 5. 검증 요청 계획 (실행 완료 — 결과는 0번 섹션 참고, 아래는 당시 세운 계획 원문)
 
 ### anon key (6번)
 ```bash
@@ -347,15 +424,19 @@ do nothing`)가 채우고, 이후 사용자가 직접 쓸 수 있는 INSERT/UPDA
 
 ---
 
-## 7. 요약 — 아직 하지 않은 것
+## 7. 요약 — 완료된 것 / 아직 하지 않은 것
 
-- RLS migration(0019, 0020) 실행 ❌
-- migration 0018 실행 ❌
-- DB 쓰기, 검증 공고 저장 ❌
-- 프론트 diff(6-1, 6-2) 적용 ❌
-- cron/GHA 활성화 ❌
+- ✅ RLS migration **0019 실행 완료**(2026-09-04) + anon/기업/관리자
+  검증 전부 통과(0번 섹션) — rollback 불필요.
+- ❌ migration 0020(admin_* EXECUTE 축소) 실행 — 이번 승인 범위 밖, 미실행.
+- ❌ migration 0018 실행.
+- ❌ DB 쓰기, 검증 공고 저장.
+- ❌ 프론트 diff(6-1, 6-2) 적용 — 이제 0019가 적용됐으니 실제로 의미
+  있게 진행할 수 있는 상태(다음 승인 대상 후보).
+- ❌ cron/GHA 활성화.
 
-승인 순서 제안: **0019(P1) 검토·승인·실행 → 5번 anon 검증(즉시 가능한
-1/2/5/6번) → 6-1/6-2 프론트 적용 → 기업 테스트 계정으로 나머지 검증 →
-그 다음에만 migration 0018/표본 저장 재개 논의.** 0020은 0019와 별개로
-아무 때나(먼저·나중·동시 전부 가능) 승인 시 진행 가능.
+다음 승인 후보 순서 제안: **6-1/6-2 프론트 diff 적용(0019가 이미
+적용됐으니 기업 대시보드가 실제로 동작할 수 있음) → 실제 기업 테스트
+계정으로 화면 육안 확인 → 그 다음에만 migration 0018/표본 저장 재개
+논의.** 0020(admin_* 하드닝)은 0019와 무관하게 아무 때나 별도 승인 시
+진행 가능.

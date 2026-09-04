@@ -1,9 +1,10 @@
 # RLS 보안 감사 — local_jobs / job_work_locations (P1)
 
-**상태: 읽기 전용 감사 + migration 초안만. RLS 변경, migration 실행, DB
-쓰기, 검증 공고 저장, 기존 데이터 변경, cron/GHA 활성화는 전혀 하지
-않았다.** 운영 Supabase 프로젝트(`edhuesdnuxlbcfephutq`)에서 MCP로 직접
-조회(SELECT만) + anon key로 실제 REST 재현 테스트(GET만)만 수행했다.
+**이 문서는 최초 읽기 전용 감사 기록이다(당시 상태: 감사만, migration
+미실행).** 이후 사용자 승인을 받아 **RLS migration 0019를 실제로
+적용하고 검증까지 완료**했다 — 적용된 SQL, 적용 전후 정책 스냅샷,
+anon/기업/관리자 검증 결과는 [RLS_MIGRATION_0019_FINAL.md](RLS_MIGRATION_0019_FINAL.md)
+참고. 이 문서는 그 이전 시점의 감사 근거 기록으로 그대로 남겨둔다.
 
 **정정**: 지난 라운드 보고에서 "`local_jobs_public_select`는 `using(true)`"
 라고 한 것은 **틀렸다** — 그건 migration 0005 원본 파일만 읽고 이후
