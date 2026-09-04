@@ -16,8 +16,25 @@
 -- _work_location_rpc_rows()는 이미 이 payload 키를 포함해 보내고 있지만
 -- (하위 호환 — 이 migration 실행 전에는 RPC가 그냥 무시함), 이 migration을
 -- 실행해야 실제로 저장되기 시작한다.
+--
+-- 추가 배경(2026-09-04, 같은 날 후속 지시 — 반복주소 수정): 같은 물리적
+-- 근무지가 모집지역 접미사만 다르게 붙어 여러 번 나열되는 경우(실측: KCN
+-- Hiệp Phước 공고 — "...Bình Chánh"/"...Quận 7"/"...Cần Giuộc" 3개 변형이
+-- 전부 같은 산업단지, geocode 결과가 최대 ~15km까지 갈라짐)를 크롤러가
+-- geocode 이전에 하나의 근무구역으로 묶도록 고쳤다(crawl_topcv.py의
+-- _group_candidates_by_core_location() 참고) — 이제 좌표는 근무구역당 1개만
+-- 만들고, 그 구역을 가리키는 서로 다른 모집지역 라벨은 job_work_locations의
+-- 새 recruitment_regions(text[]) 컬럼에 배열로 담는다(좌표 복제 없음).
+-- 이 컬럼도 이번 migration에서 함께 추가+배선한다(테이블에 새 nullable
+-- 컬럼 1개 추가 — additive, 기존 데이터/제약 변경 없음).
 
 begin;
+
+alter table public.job_work_locations
+  add column if not exists recruitment_regions text[];
+
+comment on column public.job_work_locations.recruitment_regions is
+  '이 근무구역(1개의 물리적 장소)을 모집 지역으로 명시한 원문 지역 라벨 전부(예: {"TP.HCM","Long An"}) — 크롤러가 geocode 이전에 같은 핵심 주소(시설명 또는 comma-segment 접두사 일치)를 하나로 묶어 좌표 복제 없이 채운다. 단일 지역 공고는 원소 1개짜리 배열.';
 
 create or replace function public.replace_job_work_locations(
   p_job_id bigint,
@@ -47,7 +64,7 @@ begin
   insert into public.job_work_locations (
     job_id, raw_address, normalized_address, lat, lng,
     geocode_status, geocode_source, address_accuracy, coordinate_accuracy, address_evidence,
-    location_verified, sort_order
+    location_verified, recruitment_regions, sort_order
   )
   select
     p_job_id,
@@ -61,6 +78,10 @@ begin
     (r->>'coordinate_accuracy'),
     (r->>'address_evidence'),
     coalesce((r->>'location_verified')::boolean, false),
+    coalesce(
+      (select array_agg(x) from jsonb_array_elements_text(r->'recruitment_regions') as x),
+      '{}'
+    ),
     coalesce((r->>'sort_order')::int, 0)
   from jsonb_array_elements(p_rows) as r;
 end;

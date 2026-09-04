@@ -386,26 +386,35 @@ export function JobDetail() {
                   {hasWorkLocationList ? (
                     // 항목별로 coordinate_accuracy가 다를 수 있다 — 상세주소 텍스트는
                     // 항상 그대로 보여주고, 지도/길찾기 버튼 구성만 항목별 정확도에
-                    // 따라 달라진다(exact/ward만 내부 지도·마커, region/unresolved는
-                    // 외부 Google 지도 검색 링크만).
+                    // 따라 달라진다. 'exact'는 항상 신뢰하고, 'ward'는 locationVerified
+                    // (원문 좌표로 실제 확인됨)일 때만 'exact'와 동일하게 취급한다 —
+                    // 2026-09-04 사용자 지시: 검증 근거 없는 'ward'는 반복주소 geocode
+                    // 편향으로 최대 ~15km까지 틀릴 수 있음이 실측 확인됨(KCN Hiệp Phước
+                    // 공고) — region/unresolved와 동일하게 외부 검색 링크만 제공한다.
                     <ul className="jd2-map-addr-list">
                       {job.workLocations?.map((loc) => {
                         const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc, job.location))
                         const isMappable = typeof loc.lat === 'number' && typeof loc.lng === 'number'
                         const tier = loc.coordinateAccuracy ?? (isMappable ? 'exact' : 'unresolved')
+                        const trusted = tier === 'exact' || (tier === 'ward' && loc.locationVerified === true)
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
                             <p className="jd2-map-addr">
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
-                            {tier === 'ward' && (
+                            {loc.recruitmentRegions && loc.recruitmentRegions.length > 1 && (
+                              <p className="jd2-map-recruitment-regions">
+                                Tuyển tại: {loc.recruitmentRegions.join(', ')}
+                              </p>
+                            )}
+                            {tier === 'ward' && !trusted && (
                               <p className="jd2-map-ward-note">
                                 Vị trí gần đúng theo khu vực (quận/huyện) — không phải vị trí chính xác của tòa nhà.
                               </p>
                             )}
                             <div className="jd2-map-gmaps-links">
-                              {tier === 'exact' ? (
+                              {trusted ? (
                                 <>
                                   <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
                                   <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>

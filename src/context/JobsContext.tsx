@@ -25,24 +25,25 @@ function parseDescription(raw: string): { description: string; source?: string }
 
 function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] extends (infer U)[] | undefined ? U : never {
   const coordinateAccuracy = (r.coordinate_accuracy as CoordinateAccuracy | null | undefined) ?? undefined
+  const locationVerified = (r.location_verified as boolean | null | undefined) ?? undefined
+  // 'exact'는 무조건 신뢰한다. 'ward'는 locationVerified(원문 좌표로 실제 확인됨)일
+  // 때만 신뢰한다 — 2026-09-04 사용자 지시(반복주소 실측 발견): 같은 물리적 장소가
+  // 모집지역 접미사만 다르게 붙어 여러 번 geocode되면 'ward' 등급도 최대 ~15km까지
+  // 틀릴 수 있음이 확인됐다(KCN Hiệp Phước 공고). region/unresolved는 DB에 lat/lng가
+  // 있어도(과거 데이터 등) 프론트에서 지도에 쓰지 않는다. coordinate_accuracy 컬럼이
+  // 아직 없는(마이그레이션 전) 환경에서는 undefined이므로, 기존 lat/lng가 있으면
+  // 안전한 기본값인 'exact'로 간주해 기존 동작을 유지한다.
+  const trusted = coordinateAccuracy == null || coordinateAccuracy === 'exact' || locationVerified === true
   return {
     id: r.id as number,
     rawAddress: (r.raw_address as string) ?? '',
     normalizedAddress: (r.normalized_address as string) ?? undefined,
-    // exact/ward만 좌표를 신뢰한다 — region/unresolved는 DB에 lat/lng가 있어도(과거
-    // 데이터 등) 프론트에서 지도에 쓰지 않는다. coordinate_accuracy 컬럼이 아직
-    // 없는(마이그레이션 전) 환경에서는 undefined이므로, 기존 lat/lng가 있으면
-    // 안전한 기본값인 'exact'로 간주해 기존 동작을 유지한다.
-    lat:
-      typeof r.lat === 'number' && Number.isFinite(r.lat) && (coordinateAccuracy == null || coordinateAccuracy === 'exact' || coordinateAccuracy === 'ward')
-        ? (r.lat as number)
-        : undefined,
-    lng:
-      typeof r.lng === 'number' && Number.isFinite(r.lng) && (coordinateAccuracy == null || coordinateAccuracy === 'exact' || coordinateAccuracy === 'ward')
-        ? (r.lng as number)
-        : undefined,
+    lat: typeof r.lat === 'number' && Number.isFinite(r.lat) && trusted ? (r.lat as number) : undefined,
+    lng: typeof r.lng === 'number' && Number.isFinite(r.lng) && trusted ? (r.lng as number) : undefined,
     sortOrder: (r.sort_order as number) ?? 0,
     coordinateAccuracy: coordinateAccuracy ?? undefined,
+    locationVerified,
+    recruitmentRegions: (r.recruitment_regions as string[] | null | undefined) ?? undefined,
   }
 }
 
@@ -165,9 +166,15 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     const locationsByJobId = new Map<number, NonNullable<Job['workLocations']>>()
     if (rows.length > 0) {
       const jobIds = rows.map((r) => r.id as number)
+      // coordinate_accuracy/location_verified가 이 select에 빠져 있던 기존 결함(2026-
+      // 09-04 발견): rowToWorkLocation()의 ward-등급 게이트가 실제로는 한 번도 적용된
+      // 적이 없었다 — r.coordinate_accuracy가 항상 undefined라 매번 "컬럼 없음" 안전
+      // 기본값(무조건 신뢰) 분기만 탔다. 두 컬럼 다 이미 운영 DB에 있다(migration
+      // 0015/0010, 실행됨). recruitment_regions는 아직 컬럼 자체가 없으므로(draft
+      // migration 0018 승인 전) 여기 select에 넣지 않는다 — 넣으면 매 요청이 실패한다.
       const { data: locRows } = await supabase
         .from('job_work_locations')
-        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order')
+        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,coordinate_accuracy,location_verified')
         .in('job_id', jobIds)
         .order('sort_order', { ascending: true })
       for (const r of locRows ?? []) {

@@ -24,7 +24,7 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from classifier import classify, is_blacklisted
-from geocode import resolve_coordinate_accuracy, source_coordinate_matches_location
+from geocode import extract_place_name, resolve_coordinate_accuracy, source_coordinate_matches_location
 from job_quality import (
     CRAWLER_VERSION,
     ascii_key,
@@ -126,6 +126,85 @@ def _is_duplicate_location(a: dict, b: dict) -> bool:
     return bool(core_a) and core_a == core_b
 
 
+def _facility_key(text: str) -> str | None:
+    """extract_place_name()(KCN/CCN/Khu Công Nghiệp/Cụm Công Nghiệp/Tòa nhà/
+    Lô 등 고유 시설명)의 결과를 정규화한 키. 시설명이 있으면 그 뒤에 어떤
+    텍스트(모집지역 접미사 등)가 붙어도 항상 같은 키를 반환한다 — 사용자
+    지시: "KCN·산업단지·고유 시설이 확인되면 근무구역 1개로 표현"."""
+    place = extract_place_name(text)
+    return ascii_key(place) if place else None
+
+
+def _comma_segments(text: str) -> list[str]:
+    return [ascii_key(s) for s in str(text or "").split(",") if ascii_key(s)]
+
+
+def _is_region_suffix_variant(a: str, b: str) -> bool:
+    """True only when one address's comma-segment list is an exact prefix of
+    the other's — i.e. the two texts are IDENTICAL up to one or more extra
+    trailing segments (typically a recruitment-region catchment tag, e.g.
+    ", Bình Chánh" appended to an otherwise identical address). Never true
+    merely because two addresses share a street name — a different house
+    number or a differently-worded middle segment (e.g. "Nhà Bè" vs "huyện
+    Nhà Bè") fails this check on purpose; that broader "same real place,
+    differently phrased" case is what _facility_key() already covers for
+    named facilities/parks specifically."""
+    segs_a, segs_b = _comma_segments(a), _comma_segments(b)
+    if not segs_a or not segs_b:
+        return False
+    shorter, longer = (segs_a, segs_b) if len(segs_a) <= len(segs_b) else (segs_b, segs_a)
+    return shorter == longer[: len(shorter)]
+
+
+def _group_candidates_by_core_location(candidates: list[dict]) -> list[dict]:
+    """2026-09-04 사용자 지시(반복주소 수정): 같은 물리적 근무지가 모집지역
+    접미사만 다르게 붙어 'Địa điểm làm việc' 섹션에 여러 번 나열되는 경우
+    (실측: KCN Hiệp Phước 공고 — "...Thành phố Hồ Chí Minh, Bình Chánh" /
+    "...Quận 7" / "...Cần Giuộc" 3개 변형이 전부 같은 산업단지), 이를 geocode
+    이전에 먼저 하나의 근무구역으로 묶는다 — 각각 따로 geocode하면 접미사
+    텍스트 때문에 Geoapify 쿼리 결과가 서로 다른 곳으로 갈라진다(실측: 최대
+    ~15km 차이, 전부 'ward' 등급/'success' 상태로 나와 겉보기엔 정상처럼
+    보였음 — 2026-09-04, "+N 모집지역" 실제 공고 24건 조사 중 발견).
+
+    묶는 기준(우선순위):
+    1. 두 후보가 같은 시설명(_facility_key — KCN/CCN/Khu Công Nghiệp/Cụm
+       Công Nghiệp/Tòa nhà/Lô)을 가지면 무조건 같은 근무구역 — 시설명 뒤에
+       어떤 지역 접미사가 붙어도 그 시설 자체는 하나의 물리적 장소이므로.
+    2. 시설명이 없는 일반 번지 주소는, 한 텍스트가 다른 텍스트의 comma-segment
+       접두사일 때만(_is_region_suffix_variant) 같은 근무구역으로 묶는다 —
+       같은 거리 이름만으로는 절대 묶지 않는다(번지가 다르면 실제로 다른
+       건물일 수 있음).
+
+    각 그룹의 대표 텍스트(geocode에 실제로 보낼 텍스트)는 그룹 내에서 가장
+    짧은 원문을 쓴다 — 접미사가 짧을수록 지역 접미사 같은 부가 텍스트가
+    적어 geocode 쿼리가 그 접미사 쪽으로 편향될 여지가 없다(위 실측 사례의
+    직접적 원인 — 예: 쿼리에 "Cần Giuộc"가 섞여 들어가면 Geoapify가 실제
+    KCN 좌표 대신 Cần Giuộc 쪽으로 결과를 편향시켰다).
+
+    반환: [{'representative': candidate_dict, 'members': [candidate_dict,...]}]
+    순서는 최초 등장 순서를 유지한다."""
+    groups: list[dict] = []
+    for cand in candidates:
+        text = cand["text"]
+        fkey = _facility_key(text)
+        placed_group = None
+        for group in groups:
+            rep_text = group["representative"]["text"]
+            if fkey and fkey == _facility_key(rep_text):
+                placed_group = group
+                break
+            if not fkey and not _facility_key(rep_text) and _is_region_suffix_variant(text, rep_text):
+                placed_group = group
+                break
+        if placed_group is None:
+            groups.append({"representative": cand, "members": [cand]})
+            continue
+        placed_group["members"].append(cand)
+        if len(text) < len(placed_group["representative"]["text"]):
+            placed_group["representative"] = cand
+    return groups
+
+
 def resolve_work_locations(
     candidates_with_region: list[dict],
     employer_coordinate: dict | None = None,
@@ -175,6 +254,12 @@ def resolve_work_locations(
     지도에 표시한다(사이트 자체 데이터가 Geoapify 추정보다 더 권위 있는
     출처이므로).
 
+    2026-09-04 사용자 지시(반복주소 수정): geocode 이전에 먼저
+    _group_candidates_by_core_location()으로 같은 물리적 근무지(같은 시설명,
+    또는 모집지역 접미사만 다른 동일 주소)를 하나로 묶는다 — 그룹당 geocode를
+    한 번만 호출하고, 그룹에 속한 서로 다른 모집지역 라벨은 좌표를 복제하지
+    않은 채 반환 행의 recruitment_regions 목록으로만 합친다.
+
     Returns (resolved_rows, had_transient_failure). had_transient_failure is
     True when ANY candidate's cascade hit a transient geocode API failure —
     the caller MUST treat that as "this run's result is incomplete" and must
@@ -183,14 +268,24 @@ def resolve_work_locations(
     resolved: list[dict] = []
     had_transient_failure = False
     seen_texts: set[str] = set()
-    for cand in candidates_with_region:
-        text, region_prefix = cand["text"], cand.get("region_prefix")
+    for group in _group_candidates_by_core_location(candidates_with_region):
+        text = group["representative"]["text"]
+        region_prefix = group["representative"].get("region_prefix")
         if classify_work_location_candidate(text) != "exact":
             continue
         text_key = text.strip().lower()
         if text_key in seen_texts:
             continue
         seen_texts.add(text_key)
+
+        # 이 근무구역을 가리키는 모든 모집지역 라벨(중복 제거, 최초 등장 순서
+        # 유지) — 사용자 지시: "복수 모집지역은 전부 표시하되 한 위치 좌표를
+        # 다른 지역에 복제하지 않음".
+        recruitment_regions: list[str] = []
+        for m in group["members"]:
+            rp = m.get("region_prefix")
+            if rp and rp not in recruitment_regions:
+                recruitment_regions.append(rp)
 
         coord = resolve_coordinate_accuracy(text, region_prefix)
         if coord.get("had_transient_failure"):
@@ -219,14 +314,23 @@ def resolve_work_locations(
             "coordinate_accuracy": tier,
             "address_evidence": coord.get("evidence"),
             "source_verified": source_verified,
+            "recruitment_regions": recruitment_regions,
         }
         # 좌표가 있는 행(exact_candidate/ward/source_verified)만 좌표 기준
         # 중복 제거 대상 — region/unresolved는 좌표가 없으므로 텍스트 중복
-        # (seen_texts)만으로 충분하다.
-        if row["lat"] is not None and any(
-            e.get("lat") is not None and _is_duplicate_location(row, e) for e in resolved
-        ):
-            continue
+        # (seen_texts)만으로 충분하다. 사전 그룹핑 이후에도 서로 다른
+        # 그룹(예: 다른 시설명)이 geocode 결과 우연히 같은 좌표로 수렴하면,
+        # 새 행을 추가하는 대신 기존 행에 이번 그룹의 모집지역만 합친다 —
+        # 좌표를 복제하지 않으면서도 모집지역 정보는 잃지 않기 위함.
+        if row["lat"] is not None:
+            merged_into = next(
+                (e for e in resolved if e.get("lat") is not None and _is_duplicate_location(row, e)), None
+            )
+            if merged_into is not None:
+                for rp in recruitment_regions:
+                    if rp not in merged_into["recruitment_regions"]:
+                        merged_into["recruitment_regions"].append(rp)
+                continue
         resolved.append(row)
     return resolved, had_transient_failure
 
@@ -899,6 +1003,12 @@ def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
             # 전까지 이 키는 현재 RPC가 조용히 무시함, 하위 호환). source_
             # verified(원문 좌표로 실제 확인됨)를 그대로 전달한다.
             "location_verified": loc.get("source_verified") is True,
+            # job_work_locations.recruitment_regions 컬럼은 아직 없다 — draft
+            # migration 0018이 추가+배선해야 실제로 저장되기 시작한다(그
+            # 전까지 이 키는 현재 RPC가 조용히 무시함, 하위 호환). 이 근무구역
+            # 하나를 가리키는 모집지역 라벨 전부(_group_candidates_by_core_
+            # location() 참고) — 좌표는 절대 지역별로 복제하지 않는다.
+            "recruitment_regions": loc.get("recruitment_regions") or [],
             "sort_order": idx,
         })
     return rows

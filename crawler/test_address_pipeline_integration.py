@@ -14,7 +14,14 @@ import asyncio
 
 import crawl_topcv
 import geocode
-from crawl_topcv import _address_core, _haversine_km, _is_duplicate_location, resolve_work_locations
+from crawl_topcv import (
+    _address_core,
+    _group_candidates_by_core_location,
+    _haversine_km,
+    _is_duplicate_location,
+    _is_region_suffix_variant,
+    resolve_work_locations,
+)
 from geocode import (
     _bbox_for_province,
     _largest_cluster_within_km,
@@ -871,6 +878,156 @@ def test_coordinate_accuracy_never_leaks_exact_candidate_to_db() -> None:
     assert_equal(rows[1]["location_verified"], False, "row 1 (not source_verified) must carry location_verified=False")
 
 
+def test_group_candidates_by_core_location_kcn_facility_dedup() -> None:
+    """실사례 회귀(2026-09-04, "+N 모집지역" 실제 공고 24건 조사 중 발견):
+    KCN Hiệp Phước 공고("Tuyển Công Nhân Sản Xuất Tại KCN Hiệp Phước, Nhà Bè",
+    https://vieclam24h.vn/.../cong-nhan-san-xuat-tai-kcn-hiep-phuoc-nha-be-
+    c10p122id200908817.html)의 'Địa điểm làm việc' 섹션을 실제 라이브 페이지에서
+    그대로 대조한 4개 항목 — 같은 산업단지가 모집지역 접미사만 바뀐 채 4번
+    나열된다. 하나의 근무구역으로 묶이고, 대표 텍스트는 접미사가 없는 가장
+    짧은 원문이어야 한다(접미사가 길수록 geocode 쿼리가 그 접미사 쪽으로
+    편향된다 — 이게 애초에 이 실사례에서 좌표가 최대 ~15km까지 갈라진 원인)."""
+    candidates = [
+        {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè", "region_prefix": "TP.HCM"},
+        {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình Chánh", "region_prefix": "TP.HCM"},
+        {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Quận 7", "region_prefix": "TP.HCM"},
+        {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Cần Giuộc", "region_prefix": "Long An"},
+    ]
+    groups = _group_candidates_by_core_location(candidates)
+    assert_equal(len(groups), 1, "all 4 region-suffix variants of the same KCN must collapse into exactly 1 work-location group")
+    assert_equal(len(groups[0]["members"]), 4, "the single group must retain all 4 original candidates as members")
+    assert_equal(
+        groups[0]["representative"]["text"], "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè",
+        "representative must be the shortest variant (no extraneous trailing recruitment-region tag)",
+    )
+
+
+def test_group_candidates_by_core_location_plain_address_region_suffix() -> None:
+    """시설명(KCN 등)이 없는 일반 번지 주소도, 한 텍스트가 다른 텍스트의
+    comma-segment 접두사일 때(=순수하게 지역 접미사만 덧붙은 경우)는 같은
+    근무구역으로 묶여야 한다."""
+    candidates = [
+        {"text": "45 Trần Mai Ninh, Tân Bình, TP.HCM", "region_prefix": "TP.HCM"},
+        {"text": "45 Trần Mai Ninh, Tân Bình, TP.HCM, Bình Dương", "region_prefix": "Bình Dương"},
+    ]
+    groups = _group_candidates_by_core_location(candidates)
+    assert_equal(len(groups), 1, "same address with only a trailing region tag appended must merge into 1 group")
+    assert_equal(groups[0]["representative"]["text"], "45 Trần Mai Ninh, Tân Bình, TP.HCM", "representative must be the shorter (no trailing tag) variant")
+
+
+def test_group_candidates_by_core_location_does_not_merge_different_places() -> None:
+    """서로 다른 시설명, 또는 comma-segment 접두사 관계가 아닌 서로 다른 번지
+    주소는 절대 하나로 묶이면 안 된다 — 우연히 같은 거리 이름을 공유해도
+    번지가 다르면 실제로 다른 건물일 수 있다."""
+    # 완전히 다른 두 KCN(시설명 자체가 다름).
+    different_facilities = [
+        {"text": "KCN Hiệp Phước, xã Hiệp Phước, Nhà Bè", "region_prefix": "TP.HCM"},
+        {"text": "KCN Tân Tạo, Bình Tân", "region_prefix": "TP.HCM"},
+    ]
+    groups_a = _group_candidates_by_core_location(different_facilities)
+    assert_equal(len(groups_a), 2, "two different named industrial parks must NOT be merged")
+
+    # 같은 거리 이름이지만 번지가 다른 두 일반 주소 — comma-segment 접두사
+    # 관계가 아니므로(첫 segment 자체가 다름) 절대 안 묶여야 한다.
+    different_house_numbers = [
+        {"text": "12 Nguyễn Trãi, Quận 1", "region_prefix": "TP.HCM"},
+        {"text": "45 Nguyễn Trãi, Quận 5", "region_prefix": "TP.HCM"},
+    ]
+    groups_b = _group_candidates_by_core_location(different_house_numbers)
+    assert_equal(len(groups_b), 2, "different house numbers on the same-named street must NOT be merged")
+
+    # sanity: _is_region_suffix_variant 자체도 직접 확인.
+    assert_true(
+        _is_region_suffix_variant("45 Trần Mai Ninh, Tân Bình", "45 Trần Mai Ninh, Tân Bình, Bình Dương"),
+        "one text being a comma-segment prefix of the other -> region-suffix variant",
+    )
+    assert_false(
+        _is_region_suffix_variant("12 Nguyễn Trãi, Quận 1", "45 Nguyễn Trãi, Quận 5"),
+        "different house numbers -> must NOT be treated as a region-suffix variant of each other",
+    )
+
+
+def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_recruitment_regions() -> None:
+    """엔드투엔드 회귀(2026-09-04, 반복주소 수정): KCN Hiệp Phước 실사례 4개
+    후보를 resolve_work_locations()에 그대로 넣으면 — geocode는 대표(가장
+    짧은) 텍스트로 딱 한 번만 호출되고, 결과 행은 1개뿐이며, 그 행의
+    recruitment_regions에 4개 후보의 서로 다른 지역 라벨(TP.HCM, Long An)이
+    중복 없이 전부 모여야 한다. 이 fixture 이전(수정 전 코드)에서는 4개
+    후보가 각각 독립적으로 geocode되어 최대 ~15km까지 벌어지는 서로 다른
+    좌표 4개(전부 'ward'/'success')를 만들어냈었다."""
+    original = geocode._geocode_query_raw
+
+    def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, street=None):
+        return {
+            "status": "success", "lat": lat, "lng": lng,
+            "top": {"result_type": result_type, "state": state, "county": county, "city": city, "name": name, "street": street},
+        }
+
+    try:
+        short_addr = "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè"
+        long_addr_variants_never_queried = [
+            "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình Chánh",
+            "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Quận 7",
+            "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Cần Giuộc",
+        ]
+        # 대표(짧은) 텍스트의 쿼리 변형에만 응답을 등록한다 — 만약 코드가 실수로
+        # 긴 변형 중 하나를 geocode하면(그룹핑이 깨졌다는 뜻) fake geocoder가
+        # 'no_results'를 돌려주게 되어, 그 변형이 실제로 geocode됐는지 여부와
+        # 무관하게(성공/실패 어느 쪽이든) 이 테스트가 잡아낸다.
+        variants = build_query_variants(short_addr, "TP.HCM")
+        point = _success(10.7227835, 106.703405, "building", state="Ho Chi Minh", city="Nha Be", name="Khu Cong nghiep Hiep Phuoc", street="Khu Cong nghiep Hiep Phuoc")
+        responses = {v["query"]: point for v in variants}
+
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            for long_addr in long_addr_variants_never_queried:
+                assert_false(long_addr in query, "grouped-away variant must never actually be sent to the geocoder")
+            if query in responses:
+                return responses[query]
+            return {"status": "no_results", "lat": None, "lng": None, "top": None}
+
+        geocode._geocode_query_raw = _fake
+
+        candidates = [
+            {"text": short_addr, "region_prefix": "TP.HCM"},
+            {"text": long_addr_variants_never_queried[0], "region_prefix": "TP.HCM"},
+            {"text": long_addr_variants_never_queried[1], "region_prefix": "TP.HCM"},
+            {"text": long_addr_variants_never_queried[2], "region_prefix": "Long An"},
+        ]
+        resolved, had_transient_failure = resolve_work_locations(candidates)
+        assert_false(had_transient_failure, "no transient failures expected in this fixture")
+        assert_equal(len(resolved), 1, "4 region-suffix variants of the same physical KCN must collapse into exactly 1 resolved row, not 4")
+        assert_equal(resolved[0]["raw_address"], short_addr, "the stored raw_address must be the short representative, not one with a recruitment-region tag baked in")
+        assert_equal(
+            resolved[0]["recruitment_regions"], ["TP.HCM", "Long An"],
+            "the single row must carry both distinct recruitment regions (dedup, first-seen order), not duplicate coordinates across 4 rows",
+        )
+    finally:
+        geocode._geocode_query_raw = original
+
+
+def test_work_location_rpc_rows_includes_recruitment_regions() -> None:
+    """_work_location_rpc_rows()가 recruitment_regions를 RPC payload에
+    그대로 전달하는지 확인 — draft migration 0018이 실행되기 전까지는 현재
+    RPC가 이 키를 조용히 무시하지만(하위 호환), payload 자체는 항상
+    포함해야 migration 실행 즉시 저장되기 시작한다."""
+    from crawl_topcv import _work_location_rpc_rows
+
+    loc = {
+        "raw_address": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè",
+        "normalized_address": "khu cong nghiep hiep phuoc...",
+        "lat": 10.7227835, "lng": 106.703405, "geocode_status": "success",
+        "geocode_source": "geoapify", "address_accuracy": "exact_text",
+        "coordinate_accuracy": "ward", "address_evidence": "...", "source_verified": False,
+        "recruitment_regions": ["TP.HCM", "Long An"],
+    }
+    rows = _work_location_rpc_rows([loc])
+    assert_equal(rows[0]["recruitment_regions"], ["TP.HCM", "Long An"], "recruitment_regions must pass through to the RPC payload unchanged")
+
+    loc_no_regions = {**loc, "recruitment_regions": []}
+    rows2 = _work_location_rpc_rows([loc_no_regions])
+    assert_equal(rows2[0]["recruitment_regions"], [], "missing/empty recruitment_regions must default to an empty list, never null/KeyError")
+
+
 def test_write_guard_blocks_unconfirmed_writes() -> None:
     # 회귀 테스트 — 2026-09-04, --dry-run-urls를 검증하다가 --process-url을
     # 실수로 호출해 운영 DB에 공고 1건이 실제로 저장된 사고(id=4370, 사용자
@@ -938,6 +1095,11 @@ def main() -> int:
         test_gate_requires_source_verified_not_just_exact_candidate,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
         test_coordinate_accuracy_never_leaks_exact_candidate_to_db,
+        test_group_candidates_by_core_location_kcn_facility_dedup,
+        test_group_candidates_by_core_location_plain_address_region_suffix,
+        test_group_candidates_by_core_location_does_not_merge_different_places,
+        test_resolve_work_locations_dedupes_repeated_core_address_and_collects_recruitment_regions,
+        test_work_location_rpc_rows_includes_recruitment_regions,
         test_write_guard_blocks_unconfirmed_writes,
     ]
     for test in tests:
