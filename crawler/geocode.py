@@ -155,6 +155,26 @@ _REGION_NOTATION_VARIANTS: list[set[str]] = [
     {"hue", "thua thien hue", "thua thien - hue"},
 ]
 
+# City/town-level units that sit ONE administrative tier below a province
+# (thành phố thuộc tỉnh/thành phố — a different tier from
+# PROVINCE_MERGER_GROUPS_2025, which only tracks province<->province
+# mergers) but that Geoapify/OSM data sometimes returns in the very same
+# state/county/city field a province name would occupy — confirmed live,
+# 2026-09-04, C3(동일권역 오판정 vs 실제 오류 분리) 31건 표본조사 중: "Thủ Đức"
+# (2021년부터 Hồ Chí Minh 산하 thành phố — 별도 성이었던 적이 자체가 없음),
+# "Dĩ An"/"Thuận An" (구 Bình Dương 성 산하 thành phố, 2025 통합으로 Bình
+# Dương -> Hồ Chí Minh 그룹에 속함) 모두 소속 상위 지역명과는 문자열이 전혀
+# 겹치지 않아, _region_text_matches()가 실제로는 맞는 주소를 "다른 행정구역"
+# 으로 오판해 최소 9건이 unresolved로 잘못 거부됐다. 값은 그 도시가 실제로
+# 속한 성 이름(2025 통합 이전 표기든 이후든 무방 — merged_province_group()이
+# 마저 확장한다) — 이 표에서 인식 못 하는 도시는 그냥 매칭에 기여하지 않을
+# 뿐(과도하게 넓히지 않음), 실측으로 확인된 것만 추가한다.
+_KNOWN_SUB_CITY_PARENT_PROVINCE: dict[str, str] = {
+    "thu duc": "Hồ Chí Minh",
+    "di an": "Bình Dương",
+    "thuan an": "Bình Dương",
+}
+
 def _region_segments(field_value: object) -> list[str]:
     """ascii-folds a Geoapify field and splits it on comma/slash — matching
     is only ever done WITHIN one segment, never across a comma boundary.
@@ -184,7 +204,12 @@ def _region_text_matches(top: dict, expected_region_text: str | None) -> bool:
     -> new TP.HCM) as the SAME region, in either direction: the raw address
     text may use the old or new name, and Geoapify/OSM data (which lags real-
     world administrative changes) may also return either — general, versioned
-    data, not a per-province exception. This only decides "is it the same
+    data, not a per-province exception. Also recognizes known city-level
+    sub-units of an expected province (_KNOWN_SUB_CITY_PARENT_PROVINCE —
+    e.g. "Thủ Đức" for Hồ Chí Minh, "Dĩ An"/"Thuận An" for Bình Dương), since
+    Geoapify/OSM sometimes returns that city name in the very field a
+    province name would occupy, which a pure province-level check would
+    otherwise reject as a different region. This only decides "is it the same
     province" — it does not by itself grant a higher coordinate_accuracy tier;
     resolve_coordinate_accuracy() still separately requires ward/place-name
     text agreement or multi-variant coordinate convergence for 'ward'/'exact'."""
@@ -204,6 +229,14 @@ def _region_text_matches(top: dict, expected_region_text: str | None) -> bool:
     # "TP.HCM"처럼 병합표에 직접 없는 표기가 자기 그룹(Bình Dương 등)을 못 찾는다.
     for variant in list(expected_variants):
         expected_variants |= merged_province_group(variant)
+    # 위에서 완전히 확장된 expected_variants(성 이름 전부) 기준으로, 그 성에
+    # 속한 것으로 알려진 하위 도시명(_KNOWN_SUB_CITY_PARENT_PROVINCE)도 함께
+    # "같은 지역"으로 인정한다 — 반대 방향(도시명 -> 성)으로 먼저 확장하면
+    # expected_region_text 자체가 그 도시명인 드문 경우를 놓치므로, 항상 이
+    # 순서(성 확장 다음에 도시 추가)로 계산한다.
+    for city_key, parent_province in _KNOWN_SUB_CITY_PARENT_PROVINCE.items():
+        if merged_province_group(parent_province) & expected_variants:
+            expected_variants.add(city_key)
 
     all_segments: list[str] = []
     for field_key in ("state", "county", "city", "formatted", "address_line2"):

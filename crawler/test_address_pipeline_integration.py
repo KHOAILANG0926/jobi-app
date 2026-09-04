@@ -135,6 +135,35 @@ def test_region_alias_2025_merger_binh_duong_to_ho_chi_minh() -> None:
     )
 
 
+def test_region_match_recognizes_known_sub_city() -> None:
+    # 실사례 회귀(2026-09-04, 사용자 지시 4단계 — C3 31건 중 10건 이상 개별
+    # 분석 중 발견): "Thủ Đức"는 2021년부터 Hồ Chí Minh 산하 thành phố일 뿐
+    # 별도 성이었던 적이 없는데도, Geoapify가 city 필드에 "Thủ Đức"만 채우고
+    # state/county는 비워서 반환하는 경우가 많아(실측), 상위 지역명("TP.HCM")
+    # 과 문자열이 전혀 겹치지 않는다는 이유로 최소 6건이 "다른 행정구역과
+    # 충돌"로 잘못 거부됐다(실제로는 전부 정확한 TP.HCM 주소). "Dĩ An"/
+    # "Thuận An"도 동일 패턴(구 Bình Dương 산하 thành phố, 2025 통합 이후
+    # Hồ Chí Minh 그룹에 속함).
+    assert_true(
+        _region_text_matches({"city": "Thủ Đức"}, "TP.HCM"),
+        "expected 'TP.HCM' + returned bare city='Thủ Đức' (no state/county at all) -> must match, Thủ Đức has been part of HCMC since 2021",
+    )
+    assert_true(
+        _region_text_matches({"city": "Dĩ An"}, "Bình Dương"),
+        "expected 'Bình Dương' + returned city='Dĩ An' -> must match (Dĩ An is a city within old Bình Dương)",
+    )
+    assert_true(
+        _region_text_matches({"city": "Thuận An"}, "TP.HCM"),
+        "expected 'TP.HCM' (new name) + returned city='Thuận An' (a city of old Bình Dương) -> must match through the 2025 merger group too",
+    )
+    # Must not over-generalize: a known sub-city name must still be rejected
+    # when the expected province is genuinely unrelated to its real parent.
+    assert_false(
+        _region_text_matches({"city": "Thủ Đức"}, "Hà Nội"),
+        "expected 'Hà Nội' + returned city='Thủ Đức' (belongs to HCMC, not Hà Nội) -> must NOT match",
+    )
+
+
 def test_normalize_address_for_query() -> None:
     # Strategy 3: strip "(cũ)"-style former-name annotations and dedupe
     # repeated comma segments — the real job 4366 text that motivated this.
@@ -476,6 +505,7 @@ def main() -> int:
     tests = [
         test_region_text_matches,
         test_region_alias_2025_merger_binh_duong_to_ho_chi_minh,
+        test_region_match_recognizes_known_sub_city,
         test_region_match_avoids_cross_segment_substring_false_positive,
         test_normalize_address_for_query,
         test_extract_place_name,
