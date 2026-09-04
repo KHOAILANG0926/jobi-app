@@ -874,6 +874,21 @@ async def reprocess_jobs(job_ids: list[int]) -> list[dict]:
     return reports
 
 
+async def process_urls_dry_run(urls: list[str]) -> list[dict]:
+    """--dry-run-urls: 지정된 URL들을 표준 파이프라인의 처리 단계(상세 수집 ->
+    필수정보/주소 추출 -> 주소·좌표 판정 -> 지원 경로 판정 -> 공개 게이트)까지만
+    실행하고 upsert_job_record()는 절대 호출하지 않는다 — local_jobs/
+    job_work_locations에 아무것도 쓰지 않는다. 카테고리 목록 페이지도 방문하지
+    않으므로 신규 공고 수집이 아니다. 여러 건을 같은 함수(process_job_url)로
+    검증할 때 쓴다(10건 재현성 검증 등)."""
+    reports = []
+    async with browser_page() as page:
+        for url in urls:
+            job = await process_job_url(page, url)
+            reports.append(job)
+    return reports
+
+
 async def main():
     print("🚀 vieclam24h 크롤링 시작")
     print("─" * 50)
@@ -895,6 +910,10 @@ if __name__ == "__main__":
         "--reprocess-ids", type=str, default="",
         help="쉼표구분 local_jobs id들만 표준 파이프라인으로 재처리(신규 공고 수집 없음)",
     )
+    parser.add_argument(
+        "--dry-run-urls", type=str, default="",
+        help="쉼표구분 URL들을 표준 파이프라인으로 처리하되 DB에 아무것도 쓰지 않는다(검증 전용)",
+    )
     args = parser.parse_args()
 
     if args.process_url:
@@ -903,6 +922,10 @@ if __name__ == "__main__":
     elif args.reprocess_ids:
         ids = [int(x.strip()) for x in args.reprocess_ids.split(",") if x.strip()]
         reports = asyncio.run(reprocess_jobs(ids))
+        print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
+    elif args.dry_run_urls:
+        urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
+        reports = asyncio.run(process_urls_dry_run(urls))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     else:
         asyncio.run(main())
