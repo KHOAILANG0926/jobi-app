@@ -1,8 +1,30 @@
 # ChatGPT ↔ Claude Code 인수인계 문서
 
-## 현재 작업
+## ⚠️ P1 진행 중 — migration 0018/표본 저장/cron·GHA 전부 보류
 
-2026-09-04 사용자 지시("1차 표준 마감 전 모순 수정") 반영 완료. **길찾기
+2026-09-04, 운영 Supabase(`edhuesdnuxlbcfephutq`)를 MCP로 직접 조회 +
+anon key 실제 REST 테스트로 **RLS 노출 문제를 실측 확인**:
+- `local_jobs_public_select`가 `active`를 안 봐서 비공개(inactive) 크롤러
+  공고(sb-4366~4368)가 anon key만으로 그대로 노출됨(실측).
+- `job_work_locations_public_select`는 `using(true)`라 필터가 전혀 없어
+  어떤 근무지 주소든 무조건 노출(정책 텍스트 근거, local_jobs를 고쳐도
+  이거 안 고치면 계속 샘).
+- 지난 라운드 보고("local_jobs_public_select는 using(true)")는 **틀렸다**
+  — migration 0005 원본 파일만 보고 이후 0009가 이미 갱신했다는 걸
+  운영 DB에 대조 안 하고 보고한 실수. 이번에 실측으로 바로잡음.
+
+전체 감사 결과·재현 로그·migration 초안·rollback·통합 테스트 계획은
+[RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md) 참고. **RLS migration도
+아직 실행하지 않음(초안만) — 사용자 승인 대기.**
+
+이 P1이 해결되기 전까지 migration 0018 실행 / `--verify-write-urls`
+표본 저장 / cron·GHA 활성화 전부 보류.
+
+---
+
+## 이전 작업: "1차 표준 마감 전 모순 수정"
+
+2026-09-04 사용자 지시 반영 완료. **길찾기
 항상 유지 + 반복주소 대표값 선정 기준 정정(구체성 우선) + recruitment_regions
 저장 위치를 local_jobs(공고 전체)/job_work_locations.matched_recruitment_
 regions(위치별 매칭)로 분리 + location_verified=true인 ward UI 라벨 정정 +
