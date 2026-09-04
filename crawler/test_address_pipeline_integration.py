@@ -10,6 +10,9 @@ crawl_topcv.py and geocode.py both create a Supabase client at import time
 
 from __future__ import annotations
 
+import asyncio
+
+import crawl_topcv
 import geocode
 from crawl_topcv import _address_core, _haversine_km, _is_duplicate_location, resolve_work_locations
 from geocode import (
@@ -357,6 +360,53 @@ def test_resolve_work_locations_no_api_key_is_not_a_transient_failure() -> None:
     assert_false(had_transient_failure, "no_api_key must NOT be treated as a transient failure")
 
 
+def test_write_guard_blocks_unconfirmed_writes() -> None:
+    # 회귀 테스트 — 2026-09-04, --dry-run-urls를 검증하다가 --process-url을
+    # 실수로 호출해 운영 DB에 공고 1건이 실제로 저장된 사고(id=4370, 사용자
+    # 승인 후 롤백 완료)의 재발 방지. 저장 함수(upsert_job_record/
+    # _replace_job_work_locations)는 enable_writes() 컨텍스트 밖에서 호출되면
+    # 반드시 예외로 실패해야 한다 — 조용히 저장되면 안 된다.
+    assert_false(crawl_topcv._WRITE_ENABLED, "쓰기 플래그는 기본적으로 꺼져 있어야 한다")
+
+    failed_job = {"_pipeline_failed": True, "_failure_stage": "x", "_failure_reason": "x"}
+    try:
+        crawl_topcv.upsert_job_record(failed_job, {}, {})
+        raise AssertionError("upsert_job_record가 enable_writes() 밖에서 예외 없이 실행됨")
+    except crawl_topcv.WriteNotEnabledError:
+        pass
+
+    try:
+        crawl_topcv._replace_job_work_locations(1, [])
+        raise AssertionError("_replace_job_work_locations가 enable_writes() 밖에서 예외 없이 실행됨")
+    except crawl_topcv.WriteNotEnabledError:
+        pass
+
+    # enable_writes() 안에서는 정상 동작 — _pipeline_failed 조기 반환 경로만
+    # 확인한다(이 경로는 실제 supabase 호출을 하지 않으므로 네트워크 없이
+    # 안전하게 테스트 가능).
+    with crawl_topcv.enable_writes():
+        result = crawl_topcv.upsert_job_record(failed_job, {}, {})
+        assert_equal(result["action"], "failed_new_skipped", "enable_writes() 안에서는 정상 동작해야 한다")
+
+    assert_false(crawl_topcv._WRITE_ENABLED, "enable_writes() 블록을 벗어나면 다시 비활성화돼야 한다")
+
+    # --process-url/--reprocess-ids도 confirm_write 없이는 브라우저조차 열지
+    # 않고(네트워크 요청 전에) 즉시 실패해야 한다.
+    async def _assert_raises_without_confirm() -> None:
+        try:
+            await crawl_topcv.process_single_url("https://example.com/x")
+            raise AssertionError("process_single_url이 confirm_write 없이 예외 없이 실행됨")
+        except crawl_topcv.WriteNotEnabledError:
+            pass
+        try:
+            await crawl_topcv.reprocess_jobs([1])
+            raise AssertionError("reprocess_jobs가 confirm_write 없이 예외 없이 실행됨")
+        except crawl_topcv.WriteNotEnabledError:
+            pass
+
+    asyncio.run(_assert_raises_without_confirm())
+
+
 def main() -> int:
     tests = [
         test_region_text_matches,
@@ -371,6 +421,7 @@ def main() -> int:
         test_bbox_for_province,
         test_haversine_and_duplicate_detection,
         test_resolve_work_locations_no_api_key_is_not_a_transient_failure,
+        test_write_guard_blocks_unconfirmed_writes,
     ]
     for test in tests:
         test()

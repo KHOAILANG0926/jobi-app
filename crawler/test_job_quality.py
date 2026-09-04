@@ -21,6 +21,7 @@ from job_quality import (
     normalize_location,
     normalize_salary,
     parse_listing_card_lines,
+    find_education_badge,
     pick_detail_company_name,
     split_work_locations,
     strip_salary_badge_label,
@@ -594,6 +595,17 @@ def test_detail_page_company_and_salary_extraction() -> None:
     ]
     for raw, expected in real_salary_badges:
         assert_equal(strip_salary_badge_label(raw), expected, f"salary badge {raw!r}")
+
+    # 실측 fixture — "Trình độ" 배지는 배지 행에만 있고(표에는 없음), 일부
+    # 공고는 이 배지 자체가 아예 없다(학력 요건이 없다는 뜻 — 원문 누락이지
+    # 파서 실패가 아니다).
+    real_badge_rows = [
+        (["Mức lương7.5 - 9 triệu", "Khu vực tuyểnTP.HCM", "Kinh nghiệm1 năm", "Trình độKhông yêu cầu"], "Không yêu cầu"),
+        (["Mức lương9 - 20 triệu", "Khu vực tuyểnQuảng Ninh", "Kinh nghiệmChưa có kinh nghiệm"], ""),
+        (["Mức lương11 - 13 triệu", "Khu vực tuyểnTP.HCM", "Kinh nghiệmChưa có kinh nghiệm", "Trình độKhông yêu cầu"], "Không yêu cầu"),
+    ]
+    for badges, expected in real_badge_rows:
+        assert_equal(find_education_badge(badges), expected, f"badge row {badges!r}")
 
 
 def main() -> int:

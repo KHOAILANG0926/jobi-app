@@ -81,6 +81,19 @@ def strip_salary_badge_label(raw: object) -> str:
     return re.sub(r"^Mức lương", "", text).strip()
 
 
+def find_education_badge(badge_texts: list[str]) -> str:
+    """Pure mirror of fetch_job_detail()'s "Trình độ" (education) badge
+    extraction — that badge lives ONLY in the title-badge row, never in the
+    'Thông tin chung' table (confirmed live), and not every posting has one
+    at all (no education requirement stated -> genuinely absent from the
+    source, not a parser miss). See pick_detail_company_name()'s docstring
+    for why this Python copy exists."""
+    badge = next((t for t in badge_texts if t.startswith("Trình độ")), None)
+    if badge is None:
+        return ""
+    return re.sub(r"^Trình độ", "", badge).strip()
+
+
 VALID_CATEGORIES = {
     "factory",
     "cafe",
@@ -532,7 +545,10 @@ def gate_auto_publish(has_address_text: bool, has_application_path_: bool) -> tu
 # (e.g. id 4366/4367/4368) never backfilled it even when freshly found —
 # confirmed live: extraction succeeded but the field wasn't in this tuple, so
 # compute_job_updates() never even looked at it.
-UPDATE_TRACKED_FIELDS = ("salary", "application_deadline", "description", "location", "source_url")
+UPDATE_TRACKED_FIELDS = (
+    "salary", "application_deadline", "description", "location", "source_url",
+    "preference", "education", "work_period", "num_hires", "hours", "work_days",
+)
 
 
 def compute_job_updates(existing_row: dict, new_job: dict) -> dict:

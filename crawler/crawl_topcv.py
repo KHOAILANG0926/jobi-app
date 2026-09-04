@@ -10,7 +10,7 @@ import json
 import os
 import re
 import urllib.parse
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -48,6 +48,47 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABAS
 print(f"  Supabase: {'연결됨' if supabase else '없음 (URL/KEY 확인 필요)'}")
 
 TARGET_COUNT = int(os.getenv("CRAWLER_TARGET_COUNT", "500"))
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 쓰기 안전장치 — 2026-09-04, --dry-run-urls 검증 중 --process-url을 잘못
+# 호출해 운영 DB에 실수로 공고 1건이 저장된 사고(사용자 승인 후 롤백 완료)
+# 재발 방지용 구조적 가드. local_jobs/job_work_locations에 실제로 쓰는
+# 단 두 지점(upsert_job_record, _replace_job_work_locations)은 이 플래그가
+# 켜져 있을 때만 동작한다. --dry-run-urls/process_urls_dry_run()은 이 플래그를
+# 절대 켜지 않으므로, 나중에 실수로 저장 함수 호출이 그 경로에 섞여 들어가도
+# 조용히 저장되는 대신 즉시 예외로 실패한다.
+# ══════════════════════════════════════════════════════════════════════════
+_WRITE_ENABLED = False
+
+
+class WriteNotEnabledError(RuntimeError):
+    """저장 함수(upsert_job_record/_replace_job_work_locations)가
+    enable_writes() 컨텍스트 밖에서 호출됐다 — DB에 아무것도 쓰지 않고
+    즉시 실패한다."""
+
+
+def _require_write_enabled() -> None:
+    if not _WRITE_ENABLED:
+        raise WriteNotEnabledError(
+            "DB 쓰기가 비활성화된 상태에서 저장 함수가 호출됐다 — "
+            "정상적인 크롤/재처리 경로는 반드시 enable_writes() 컨텍스트 "
+            "안에서만 저장 함수를 호출해야 한다(--dry-run-urls는 이 컨텍스트에 "
+            "절대 들어가지 않는다)."
+        )
+
+
+@contextmanager
+def enable_writes():
+    """실제 DB 쓰기가 필요한 경로(save_to_supabase — 정상 크롤,
+    --process-url/--reprocess-ids with --confirm-write)만 이 컨텍스트 안에서
+    저장 함수를 호출한다. 블록을 벗어나면 다시 비활성화된다."""
+    global _WRITE_ENABLED
+    _WRITE_ENABLED = True
+    try:
+        yield
+    finally:
+        _WRITE_ENABLED = False
 TODAY = date.today().isoformat()
 
 
@@ -324,9 +365,33 @@ async def fetch_job_detail(page, url: str) -> dict:
             // 본문 정규식 추출이 이 배지 값과 다르거나 아예 "Thỏa thuận"으로 잘못
             // 대체됨 — 예: 배지 "9 - 20 triệu"인데 본문 문장 중 "13.000.000đ"만
             // 잘못 집힘).
-            const salaryBadgeRow = h1 ? h1.nextElementSibling : null
-            const salaryBadgeRaw = salaryBadgeRow && salaryBadgeRow.children[0] ? salaryBadgeRow.children[0].textContent.trim() : ''
+            const badgeRow = h1 ? h1.nextElementSibling : null
+            const badgeTexts = badgeRow ? [...badgeRow.children].map(c => c.textContent.trim()) : []
+            const salaryBadgeRaw = badgeTexts[0] || ''
             const detailSalary = salaryBadgeRaw.replace(/^Mức lương/, '').trim()
+            // "Trình độ<값>" 배지는 "Thông tin chung" 표에는 아예 없고 이 배지 행에만
+            // 있다(실측 확인) — 일부 공고는 이 배지 자체가 없다(원문에 학력 요건이
+            // 없다는 뜻, 파서 실패가 아님).
+            const educationBadge = badgeTexts.find(t => t.startsWith('Trình độ'))
+            const detailEducation = educationBadge ? educationBadge.replace(/^Trình độ/, '').trim() : ''
+
+            // "Thông tin chung" 표의 라벨:값 쌍 — 라벨은 children이 없는 leaf 노드,
+            // 값은 그 바로 다음 형제. 표에 없는 라벨은 원문 자체에 그 정보가 없다는
+            // 뜻(예: 이 표에는 "Thời gian làm việc"/"Ngày làm việc"가 애초에 존재하지
+            // 않음 — 실측 확인, 이 사이트는 근무시간/근무일을 구조화된 필드로 두지
+            // 않는다).
+            function tableLabelValue(label) {
+                for (const el of document.querySelectorAll('*')) {
+                    if (el.children.length === 0 && (el.textContent || '').trim() === label) {
+                        const next = el.nextElementSibling
+                        if (next) return next.textContent.trim()
+                    }
+                }
+                return ''
+            }
+            const detailExperience = tableLabelValue('Yêu cầu kinh nghiệm')
+            const detailWorkType = tableLabelValue('Hình thức làm việc')
+            const detailHeadcount = tableLabelValue('Số lượng tuyển')
             // 회사 링크(-ntd 패턴)가 페이지 안에 여러 번 나온다 — 제목 바로 아래의
             // 첫 번째는 사이트 자체가 "..."로 잘라놓은 축약 텍스트이고(예: "Công Ty
             // Cổ Phần Dịch ..."), 실제 전체 회사명은 하단 "회사 정보" 블록의 링크에만
@@ -339,22 +404,38 @@ async def fetch_job_detail(page, url: str) -> dict:
               .map(a => a.textContent.trim())
               .filter(t => t && t !== 'Xem trang công ty')
             const detailCompany = companyCandidates.find(t => !t.endsWith('...')) || companyCandidates[0] || ''
-            let detailLocationLabel = ''
-            for (const el of document.querySelectorAll('*')) {
-              if (el.children.length === 0 && (el.textContent || '').trim() === 'Khu vực tuyển') {
-                detailLocationLabel = el.nextElementSibling ? el.nextElementSibling.textContent.trim() : ''
-                break
-              }
-            }
+            const detailLocationLabel = tableLabelValue('Khu vực tuyển')
+
+            // 근무시간/근무일은 "Thông tin chung" 표에 구조화된 필드가 없다(실측
+            // 확인 — 이 사이트 자체가 이 정보를 표로 두지 않는다). 일부 공고만
+            // 본문(Mô tả công việc)에 자유 텍스트로 적어둔다 — best-effort로만
+            // 찾고, 못 찾으면 빈 문자열(= 원문에 없음, 파서 실패 아님)로 둔다.
+            const descText = sections['Mô tả công việc'] || ''
+            let detailWorkHoursFreeText = ''
+            // 실제 "H:MM - H:MM" 시간 범위 패턴을 요일 패턴보다 우선한다 — "Thời
+            // gian làm việc:" 라벨 바로 다음 줄이 요일("Từ thứ 2 đến thứ 7")이고
+            // 실제 시간대는 그 아래 별도 줄인 경우가 있어(실측 확인), 라벨 뒤
+            // 첫 줄만 잡으면 요일을 시간으로 잘못 집는다.
+            const hoursMatch = descText.match(/\\d{1,2}h\\d{0,2}\\s*[-–]\\s*\\d{1,2}h\\d{0,2}/)
+                || descText.match(/(?:giờ làm việc)\\s*[:：]?\\s*([^\\n]{3,80})/i)
+            if (hoursMatch) detailWorkHoursFreeText = (hoursMatch[1] || hoursMatch[0]).trim()
+            let detailWorkDaysFreeText = ''
+            const daysMatch = descText.match(/(?:ngày làm việc)\\s*[:：]?\\s*([^\\n]{3,60})/i)
+                || descText.match(/từ\\s+thứ\\s*\\d\\s*(?:đến|-|–)\\s*(?:thứ\\s*\\d|chủ nhật)/i)
+            if (daysMatch) detailWorkDaysFreeText = (daysMatch[1] || daysMatch[0]).trim()
 
             return {
                 deadline, sections, hasApplyButton, expiredBanner,
                 detailTitle, detailCompany, detailLocationLabel, detailSalary,
+                detailEducation, detailExperience, detailWorkType, detailHeadcount,
+                detailWorkHoursFreeText, detailWorkDaysFreeText,
             }
         }""", _EXPIRED_PAGE_PATTERNS)
         result = result or {
             "deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False,
             "detailTitle": "", "detailCompany": "", "detailLocationLabel": "", "detailSalary": "",
+            "detailEducation": "", "detailExperience": "", "detailWorkType": "", "detailHeadcount": "",
+            "detailWorkHoursFreeText": "", "detailWorkDaysFreeText": "",
         }
         if not result.get("sections"):
             # DOM heading selectors occasionally miss SPA detail layouts; keep a
@@ -372,6 +453,8 @@ async def fetch_job_detail(page, url: str) -> dict:
         return {
             "deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False,
             "httpStatus": None, "detailTitle": "", "detailCompany": "", "detailLocationLabel": "", "detailSalary": "",
+            "detailEducation": "", "detailExperience": "", "detailWorkType": "", "detailHeadcount": "",
+            "detailWorkHoursFreeText": "", "detailWorkDaysFreeText": "",
             "fetchOk": False, "fetchError": str(exc),
         }
 
@@ -516,6 +599,30 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         has_application_path_=has_app_path,
     )
 
+    # local_jobs에 실제로 존재하는 컬럼인데도 크롤러가 지금까지 전혀 채우지
+    # 않던 6개 필드 — information_schema.columns로 직접 확인한 실제 컬럼명과
+    # 프론트(JobDetail.tsx)의 실제 렌더링 라벨을 기준으로 매핑했다(컬럼명만
+    # 보고 추측하지 않음 — 예: DB 컬럼명은 "preference"지만 프론트에서는
+    # "Kinh nghiệm"(경력) 라벨로 표시되고, "work_period"는 "Thời hạn"이
+    # 아니라 "Hình thức làm việc"(근무형태) 라벨로 표시된다):
+    #   preference   <- 상세페이지 "Yêu cầu kinh nghiệm" 표 값 (경력)
+    #   education    <- 상세페이지 "Trình độ" 배지 값 (학력)
+    #   work_period  <- 상세페이지 "Hình thức làm việc" 표 값 (근무형태)
+    #   num_hires    <- 상세페이지 "Số lượng tuyển" 표 값 (모집인원)
+    #   hours        <- 본문 자유 텍스트 best-effort (근무시간) — 이 사이트는
+    #                   "Thông tin chung" 표에 근무시간을 구조화된 필드로 두지
+    #                   않는다(실측 확인) — 대부분 원문 자체에 없다.
+    #   work_days    <- 본문 자유 텍스트 best-effort (근무일) — 위와 동일한 이유.
+    # "근무기간"(계약기간) 개념은 local_jobs에 대응 컬럼이 아예 없다 —
+    # 이번 라운드는 migration을 실행하지 않으므로 채우지 않는다(별도 초안만
+    # 작성해 보고).
+    preference_value = normalize_whitespace(detail.get("detailExperience")) or None
+    education_value = normalize_whitespace(detail.get("detailEducation")) or None
+    work_period_value = normalize_whitespace(detail.get("detailWorkType")) or None
+    num_hires_value = normalize_whitespace(detail.get("detailHeadcount")) or None
+    hours_value = normalize_whitespace(detail.get("detailWorkHoursFreeText")) or None
+    work_days_value = normalize_whitespace(detail.get("detailWorkDaysFreeText")) or None
+
     job = {
         "title": title,
         "company": company,
@@ -537,6 +644,12 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         # 저장 안 되던 결함이 있었음 — 이 함수로 통합하며 같이 고쳐짐).
         "publish_gate_reason": gate_reason,
         "crawler_version": CRAWLER_VERSION,
+        "preference": preference_value,
+        "education": education_value,
+        "work_period": work_period_value,
+        "num_hires": num_hires_value,
+        "hours": hours_value,
+        "work_days": work_days_value,
     }
     quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
     if quality_errors:
@@ -550,6 +663,19 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     job["_work_locations"] = work_locations
     job["_resolved_locations"] = resolved_locations
     job["_had_transient_geocode_failure"] = had_transient_geocode_failure
+    # 검증/보고 전용 — DB에는 저장되지 않는다(local_jobs에 필드별 추출 상태를
+    # 남길 컬럼이 없음 — 필요하면 별도 migration 승인 후 추가). 'extracted'는
+    # 실제 값을 찾음, 'not_found'는 이번 페이지에서 못 찾음(원문에 없는 것인지
+    # 파서가 놓친 것인지는 실제 원문을 봐야 구분 가능 — 이 세션의 20건 감사에서
+    # 사람이 교차검증).
+    job["_field_extraction_status"] = {
+        "preference": "extracted" if preference_value else "not_found",
+        "education": "extracted" if education_value else "not_found",
+        "work_period": "extracted" if work_period_value else "not_found",
+        "num_hires": "extracted" if num_hires_value else "not_found",
+        "hours": "extracted" if hours_value else "not_found",
+        "work_days": "extracted" if work_days_value else "not_found",
+    }
     return job
 
 
@@ -650,6 +776,7 @@ def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> 
     resolve_work_locations()'s had_transient_failure — an incomplete result
     must never replace previously-known-good rows.
     """
+    _require_write_enabled()
     supabase.rpc(
         "replace_job_work_locations",
         {"p_job_id": job_id, "p_rows": _work_location_rpc_rows(resolved_locations)},
@@ -692,7 +819,12 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
 
     실패(_pipeline_failed)는 절대 도시 중심 좌표나 데모 데이터로 메우지 않고,
     기존 행이 있으면 그 데이터를 그대로 둔 채 실패를 반환하며, 신규면 아무것도
-    쓰지 않는다."""
+    쓰지 않는다.
+
+    enable_writes() 컨텍스트 밖에서 호출되면 WriteNotEnabledError로 즉시
+    실패한다 — --dry-run-urls 등 검증 전용 경로가 실수로 이 함수를 호출해도
+    조용히 저장되지 않는다."""
+    _require_write_enabled()
     existing = match_existing_row(job, by_source_url, by_key)
 
     if job.get("_pipeline_failed"):
@@ -754,16 +886,17 @@ def save_to_supabase(jobs: list[dict]):
     }
     demoted = 0
     work_location_rows_total = 0
-    for job in jobs:
-        existing = match_existing_row(job, by_source_url, by_key)
-        was_active_crawler = bool(
-            existing and existing.get("origin") == "crawler" and existing.get("active")
-        )
-        result = upsert_job_record(job, by_source_url, by_key)
-        counts[result["action"]] = counts.get(result["action"], 0) + 1
-        if was_active_crawler and job.get("active") is False:
-            demoted += 1
-        work_location_rows_total += len(job.get("_resolved_locations") or [])
+    with enable_writes():
+        for job in jobs:
+            existing = match_existing_row(job, by_source_url, by_key)
+            was_active_crawler = bool(
+                existing and existing.get("origin") == "crawler" and existing.get("active")
+            )
+            result = upsert_job_record(job, by_source_url, by_key)
+            counts[result["action"]] = counts.get(result["action"], 0) + 1
+            if was_active_crawler and job.get("active") is False:
+                demoted += 1
+            work_location_rows_total += len(job.get("_resolved_locations") or [])
 
     print(
         f"  ➕ 신규: {counts['inserted']}개 / 🔄 업데이트: {counts['updated']}개 / ⏭️ 변경 없음: {counts['unchanged']}개"
@@ -854,22 +987,40 @@ async def discover_source_url(page, existing_row: dict) -> tuple[str | None, str
     return None, match["confidence"]
 
 
-async def process_single_url(url: str) -> dict:
+async def process_single_url(url: str, *, confirm_write: bool = False) -> dict:
     """--process-url: source_url 1건만 표준 파이프라인으로 처리한다. 신규/
     기존 여부는 upsert_job_record()가 자동으로 판별한다 — 목록 페이지는
-    전혀 건드리지 않으므로 신규 공고 수집이 아니다."""
+    전혀 건드리지 않으므로 신규 공고 수집이 아니다.
+
+    confirm_write=True가 아니면 아무것도(브라우저조차) 실행하지 않고 즉시
+    중단한다 — 2026-09-04, --dry-run-urls 검증 중 이 함수를 실수로 호출해
+    운영 DB에 공고가 저장된 사고 재발 방지."""
+    if not confirm_write:
+        raise WriteNotEnabledError(
+            "--process-url은 실제로 DB에 저장한다 — 명시적으로 --confirm-write를 "
+            "함께 지정해야 실행된다(검증만 하려면 --dry-run-urls를 쓸 것)."
+        )
     by_source_url, by_key = load_existing_lookup_maps()
     async with browser_page() as page:
         job = await process_job_url(page, url)
-    result = upsert_job_record(job, by_source_url, by_key)
+    with enable_writes():
+        result = upsert_job_record(job, by_source_url, by_key)
     return {**job, **result}
 
 
-async def reprocess_jobs(job_ids: list[int]) -> list[dict]:
+async def reprocess_jobs(job_ids: list[int], *, confirm_write: bool = False) -> list[dict]:
     """--reprocess-ids: 지정된 local_jobs id들만 표준 파이프라인으로 재처리한다.
     job_ids는 호출 시점에 전달되는 값일 뿐 코드에 하드코딩되지 않는다 — 이
     함수 자체는 어떤 특정 id/회사명도 알지 못한다. 카테고리 목록 페이지는
-    전혀 방문하지 않으므로 신규 공고 수집이 아니다."""
+    전혀 방문하지 않으므로 신규 공고 수집이 아니다.
+
+    confirm_write=True가 아니면 아무것도 실행하지 않고 즉시 중단한다 —
+    process_single_url()과 동일한 안전장치."""
+    if not confirm_write:
+        raise WriteNotEnabledError(
+            "--reprocess-ids는 실제로 DB에 저장한다 — 명시적으로 --confirm-write를 "
+            "함께 지정해야 실행된다(검증만 하려면 --dry-run-urls를 쓸 것)."
+        )
     if not job_ids:
         return []
     rows = supabase.table("local_jobs") \
@@ -897,7 +1048,8 @@ async def reprocess_jobs(job_ids: list[int]) -> list[dict]:
                 })
                 continue
             job = await process_job_url(page, url, listing_hint={"title": row.get("title"), "company": row.get("company")})
-            result = upsert_job_record(job, by_source_url, by_key)
+            with enable_writes():
+                result = upsert_job_record(job, by_source_url, by_key)
             reports.append({"id": job_id, "url_discovery_confidence": confidence, **job, **result})
     return reports
 
@@ -942,14 +1094,29 @@ if __name__ == "__main__":
         "--dry-run-urls", type=str, default="",
         help="쉼표구분 URL들을 표준 파이프라인으로 처리하되 DB에 아무것도 쓰지 않는다(검증 전용)",
     )
+    parser.add_argument(
+        "--confirm-write", action="store_true",
+        help="--process-url/--reprocess-ids가 실제로 DB에 쓰도록 명시적으로 승인한다 "
+             "(2026-09-04 사고 재발 방지 — 이 플래그 없이는 두 명령 모두 아무것도 하지 않고 중단한다)",
+    )
     args = parser.parse_args()
 
     if args.process_url:
-        report = asyncio.run(process_single_url(args.process_url))
+        if not args.confirm_write:
+            raise SystemExit(
+                "--process-url은 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요 "
+                "(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
+            )
+        report = asyncio.run(process_single_url(args.process_url, confirm_write=True))
         print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
     elif args.reprocess_ids:
+        if not args.confirm_write:
+            raise SystemExit(
+                "--reprocess-ids는 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요 "
+                "(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
+            )
         ids = [int(x.strip()) for x in args.reprocess_ids.split(",") if x.strip()]
-        reports = asyncio.run(reprocess_jobs(ids))
+        reports = asyncio.run(reprocess_jobs(ids, confirm_write=True))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif args.dry_run_urls:
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
