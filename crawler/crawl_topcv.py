@@ -140,6 +140,7 @@ def resolve_work_locations(candidates_with_region: list[dict]) -> tuple[list[dic
             "geocode_source": coord.get("geocode_source"),
             "address_accuracy": "exact_text",
             "coordinate_accuracy": tier,
+            "address_evidence": coord.get("evidence"),
         }
         # 좌표가 있는 행(exact/ward)만 좌표 기준 중복 제거 대상 — region/
         # unresolved는 좌표가 없으므로 텍스트 중복(seen_texts)만으로 충분하다.
@@ -599,6 +600,7 @@ def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
             "geocode_source": loc["geocode_source"],
             "address_accuracy": loc.get("address_accuracy", "exact_text"),
             "coordinate_accuracy": loc.get("coordinate_accuracy"),
+            "address_evidence": loc.get("address_evidence"),
             "sort_order": idx,
         }
         for idx, loc in enumerate(resolved_locations)
