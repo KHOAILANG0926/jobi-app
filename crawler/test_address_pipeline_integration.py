@@ -197,13 +197,19 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
     same building), 'ward' (Hưng Yên, KCN Thăng Long 2 — converge on a real
     district, place name unconfirmed), 'region' (Cần Thơ — only a province-
     wide centroid), 'unresolved' (Bình Dương, 230A/2 — a near-correct hit
-    outvoted 1-vs-1 by a same-named-but-far-away centroid)."""
+    outvoted 1-vs-1 by a same-named-but-far-away centroid), plus 2 further
+    real-case regressions found during the 2026-09-04 C1 전수검증: addr5
+    (OfficeHaus — sparse-metadata false conflict) and addr6 (Bình Đường 3 —
+    low-confidence street-name mismatch wrongly reaching 'exact')."""
     import geocode as geocode_module
 
-    def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, formatted=""):
+    def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, formatted="", street=None, address_line1=None):
         return {
             "status": "success", "lat": lat, "lng": lng,
-            "top": {"result_type": result_type, "state": state, "county": county, "city": city, "name": name, "formatted": formatted},
+            "top": {
+                "result_type": result_type, "state": state, "county": county, "city": city,
+                "name": name, "formatted": formatted, "street": street, "address_line1": address_line1,
+            },
         }
 
     def make_fake_raw(responses_by_query: dict[str, dict]):
@@ -219,7 +225,7 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
         addr = "17 Phạm Hùng, Nam Từ Liêm"
         province = "Hà Nội"
         variants = build_query_variants(addr, province)
-        same_point = _success(21.0165865, 105.7850047, "building", state="Ha Noi", city="Hanoi", county="Hoan Kiem")
+        same_point = _success(21.0165865, 105.7850047, "building", state="Ha Noi", city="Hanoi", county="Hoan Kiem", street="Phạm Hùng")
         geocode_module._geocode_query_raw = make_fake_raw({v["query"]: same_point for v in variants})
         r = resolve_coordinate_accuracy(addr, province)
         assert_equal(r["coordinate_accuracy"], "exact", "3 variants converging on the same building -> exact")
@@ -271,8 +277,8 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
         addr5 = "OfficeHaus, 32 Tân Thắng, Phường Tân Sơn Nhì (Tân Phú Cũ), Thành phố Hồ Chí Minh, Tân Phú"
         province5 = "TP.HCM"
         variants5 = build_query_variants(addr5, province5)
-        same_point_full_meta = _success(10.7999786, 106.6147282, "building", state="Ho Chi Minh", county="Quan 8", city="Thuận An")
-        same_point_sparse_meta = _success(10.7999786, 106.6147282, "amenity", state=None, county=None, city="Thuận An")
+        same_point_full_meta = _success(10.7999786, 106.6147282, "building", state="Ho Chi Minh", county="Quan 8", city="Thuận An", name="OfficeHaus")
+        same_point_sparse_meta = _success(10.7999786, 106.6147282, "amenity", state=None, county=None, city="Thuận An", name="OfficeHaus")
         by_variant5 = {v["type"]: v["query"] for v in variants5}
         responses5 = {}
         for vtype, query in by_variant5.items():
@@ -282,6 +288,41 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
         assert_true(
             r5["coordinate_accuracy"] != "unresolved",
             f"3/4 variants converge on the identical coordinate with province confirmed — a 4th variant with empty state/county at the SAME coordinate must not veto the whole match (got {r5['coordinate_accuracy']!r}, evidence: {r5['evidence']!r})",
+        )
+
+        # ── 실사례 회귀(2026-09-04, 사용자 지시 3단계 — C1 판정 7건 원문 전수검증
+        # 중 발견): 신뢰도가 극히 낮은(confidence 0.06~0.08, 실측) 두 변형이
+        # 서로 다른 질의 문구에도 불구하고 완전히 무관한 도로명("Bình Đường 3"
+        # 을 "Đường Hòa Bình"로 — 글자만 비슷하고 실제로는 다른 길)으로
+        # 오매칭되어 우연히 동일 좌표에 수렴 — "2개 변형 수렴"만으로 exact
+        # 판정됨(실측: 진짜 위치인 Dĩ An에서 Google 지도 독립 대조로 약 15km
+        # 떨어진 완전히 다른 동네 "Bình Thới"였음, sb 대상 job 미저장·dry-run
+        # 전용 검증 중 발견 — 로컬 job id 없음). KCN/Tòa nhà/Lô 같은 명명된
+        # 건물이 없는 일반 도로명 주소는 도로명 텍스트 확인 없이 좌표 수렴
+        # 만으로 exact를 내주던 결함 — 이 시나리오에서 두 변형의 응답 모두
+        # street/name/address_line1 어디에도 "Bình Đường"이 나타나지 않는다
+        # (완전히 다른 길 이름). 수정 후에는 도로명 주소도 (건물명과 동일하게)
+        # 이 텍스트 확인을 거쳐야 exact가 되고, 확인되지 않으면 ward로
+        # 낮아져야 한다(이미 검증된 KCN Thăng Long 2 케이스와 동일한 경로).
+        addr6 = "98/3D Bình Đường 3, phường Dĩ An, TP. HCM, Thủ Đức"
+        province6 = "TP.HCM"
+        variants6 = build_query_variants(addr6, province6)
+        wrong_street_match = _success(
+            10.768535, 106.636064, "building", state="Ho Chi Minh", county="Quan 8", city="Ho Chi Minh City",
+            street="Đường Hòa Bình", address_line1="3, Đường Hòa Bình",
+        )
+        by_variant6 = {v["type"]: v["query"] for v in variants6}
+        responses6 = {}
+        for vtype in ("raw", "structured"):
+            if vtype in by_variant6:
+                responses6[by_variant6[vtype]] = wrong_street_match
+        geocode_module._geocode_query_raw = make_fake_raw(responses6)
+        r6 = resolve_coordinate_accuracy(addr6, province6)
+        assert_true(
+            r6["coordinate_accuracy"] != "exact",
+            f"2 low-confidence variants converging on a coordinate whose street text ('Đường Hòa Bình') doesn't match "
+            f"the queried street ('Bình Đường 3') must never reach exact — coordinate convergence alone isn't enough "
+            f"for a plain street address any more than it is for a named building (got {r6['coordinate_accuracy']!r}, evidence: {r6['evidence']!r})",
         )
     finally:
         geocode_module._geocode_query_raw = original

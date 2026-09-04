@@ -405,6 +405,35 @@ def extract_place_name(raw_address: str) -> str | None:
     return m.group(0).strip() if m else None
 
 
+_LEADING_HOUSE_NUMBER_RE = re.compile(r"^\d+[A-Za-z]?(?:/\d+[A-Za-z]?)*\s+")
+
+
+def extract_core_identifier(raw_address: str) -> str | None:
+    """The specific-place text the 'exact' tier must confirm before trusting
+    a coordinate — extract_place_name()'s KCN/Lô/Tòa nhà result when there is
+    one, otherwise the address's own first comma-segment with any leading
+    house/lot number stripped (e.g. "45 Trần Mai Ninh" -> "Trần Mai Ninh",
+    "98/3D Bình Đường 3" -> "Bình Đường 3") — a plain street address still
+    names a specific, checkable street, it just isn't a named building/park.
+
+    Added after a real false 'exact' (2026-09-04, C1 전수검증 중 발견): two
+    low-confidence (0.06~0.08) Geoapify variants for "98/3D Bình Đường 3,
+    phường Dĩ An, ..." both fuzzy-matched a completely unrelated street
+    ("Đường Hòa Bình" — similar characters, different place, ~15km away in
+    Bình Thới) and happened to land on the identical coordinate, which was
+    enough to pass the exact tier's "2+ variants converge" check on
+    coordinates alone — nothing was checking that the STREET NAME in the
+    result had anything to do with the street actually queried. Before this,
+    that confirmation only ever ran for named buildings/parks (place_name),
+    since ordinary street addresses had no candidate text to check at all."""
+    place_name = extract_place_name(raw_address)
+    if place_name:
+        return place_name
+    first_segment = str(raw_address or "").split(",", 1)[0].strip()
+    core = _LEADING_HOUSE_NUMBER_RE.sub("", first_segment).strip()
+    return core or None
+
+
 def build_query_variants(raw_address: str, province: str | None) -> list[dict]:
     """Strategies 2-6 (1 — a Google Maps link/coordinate embedded in the
     source text — is handled separately by the caller before this is ever
@@ -482,10 +511,15 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
       correct-looking hit does not outweigh evidence the address is
       ambiguous/collides with an unrelated same-named place elsewhere.
     - 'exact': 2+ distinct query variants converge (<=300m) on a non-centroid,
-      province-confirmed point, AND the extracted place name (if any) is
-      confirmed by at least one of them.
+      province-confirmed point, AND the core identifier (extract_core_identifier
+      — a named building/park if the address has one, otherwise the address's
+      own street name) is confirmed by at least one of them. Coordinate
+      convergence alone is never enough: two low-confidence variants can both
+      fuzzy-match a completely different, unrelated street and still land on
+      the same wrong point (confirmed live — see extract_core_identifier's
+      docstring) — this check is what would catch that.
     - 'ward': either (a) 2+ variants converge <=300m on a non-centroid,
-      province-confirmed point but the place name is NOT confirmed there
+      province-confirmed point but the core identifier is NOT confirmed there
       (we're confident about the location, not that it's exactly the named
       site), or (b) 2+ DISTINCT non-centroid, province-confirmed results
       (not necessarily close together) agree on the same district/ward text
@@ -497,7 +531,7 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
     - 'unresolved': anything else — no usable result, or conflicting
       provinces.
     """
-    place_name = extract_place_name(raw_address)
+    place_name = extract_core_identifier(raw_address)
     variants = build_query_variants(raw_address, province)
 
     valid: list[dict] = []  # successfully-geocoded, in-Vietnam results
