@@ -19,7 +19,9 @@ from crawl_topcv import (
     _group_candidates_by_core_location,
     _haversine_km,
     _is_duplicate_location,
-    _is_region_suffix_variant,
+    _select_group_representative,
+    _specificity_score,
+    _strip_recruitment_region_suffix,
     resolve_work_locations,
 )
 from geocode import (
@@ -33,7 +35,14 @@ from geocode import (
     resolve_coordinate_accuracy,
     source_coordinate_matches_location,
 )
-from job_quality import canonical_job_key, compute_all_locations_c1_verified, gate_auto_publish, has_application_path
+from job_quality import (
+    ascii_key,
+    canonical_job_key,
+    classify_work_location_candidate,
+    compute_all_locations_c1_verified,
+    gate_auto_publish,
+    has_application_path,
+)
 
 
 def assert_equal(actual, expected, label: str) -> None:
@@ -878,15 +887,35 @@ def test_coordinate_accuracy_never_leaks_exact_candidate_to_db() -> None:
     assert_equal(rows[1]["location_verified"], False, "row 1 (not source_verified) must carry location_verified=False")
 
 
+def test_strip_recruitment_region_suffix_kcn_real_case() -> None:
+    """실사례(KCN Hiệp Phước 공고, 2026-09-04 실측): "알려진 모집지역 접미사"
+    (특정 장소 신호가 없는 순수 행정구역 꼬리)만 반복 제거하면 4개 변형이
+    모두 같은 core로 수렴해야 한다 — 번지·도로·Lô·건물·공장 신호가 있는
+    segment(여기서는 "Khu Công nghiệp Hiệp Phước" 자체)는 절대 지워지지
+    않는다."""
+    variants = [
+        "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè",
+        "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình Chánh",
+        "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Quận 7",
+        "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Cần Giuộc",
+    ]
+    cores = {ascii_key(_strip_recruitment_region_suffix(v)) for v in variants}
+    assert_equal(len(cores), 1, "all 4 real region-suffix variants must strip down to the exact same core")
+    assert_equal(
+        _strip_recruitment_region_suffix(variants[0]),
+        "Khu Công nghiệp Hiệp Phước",
+        "stripping must stop at the KCN name itself (a real specific-place signal), never remove it",
+    )
+
+
 def test_group_candidates_by_core_location_kcn_facility_dedup() -> None:
     """실사례 회귀(2026-09-04, "+N 모집지역" 실제 공고 24건 조사 중 발견):
     KCN Hiệp Phước 공고("Tuyển Công Nhân Sản Xuất Tại KCN Hiệp Phước, Nhà Bè",
     https://vieclam24h.vn/.../cong-nhan-san-xuat-tai-kcn-hiep-phuoc-nha-be-
     c10p122id200908817.html)의 'Địa điểm làm việc' 섹션을 실제 라이브 페이지에서
     그대로 대조한 4개 항목 — 같은 산업단지가 모집지역 접미사만 바뀐 채 4번
-    나열된다. 하나의 근무구역으로 묶이고, 대표 텍스트는 접미사가 없는 가장
-    짧은 원문이어야 한다(접미사가 길수록 geocode 쿼리가 그 접미사 쪽으로
-    편향된다 — 이게 애초에 이 실사례에서 좌표가 최대 ~15km까지 갈라진 원인)."""
+    나열된다. core(알려진 모집지역 접미사 제거)가 전부 같으므로 하나의
+    근무구역으로 묶여야 한다."""
     candidates = [
         {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè", "region_prefix": "TP.HCM"},
         {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình Chánh", "region_prefix": "TP.HCM"},
@@ -896,29 +925,31 @@ def test_group_candidates_by_core_location_kcn_facility_dedup() -> None:
     groups = _group_candidates_by_core_location(candidates)
     assert_equal(len(groups), 1, "all 4 region-suffix variants of the same KCN must collapse into exactly 1 work-location group")
     assert_equal(len(groups[0]["members"]), 4, "the single group must retain all 4 original candidates as members")
+
+    representative = _select_group_representative(groups[0]["members"])
     assert_equal(
-        groups[0]["representative"]["text"], "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè",
-        "representative must be the shortest variant (no extraneous trailing recruitment-region tag)",
+        representative["text"], "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè",
+        "all 4 members tie on specificity (only the KCN name itself carries a signal) -> shortest wins as the tie-break only",
     )
 
 
 def test_group_candidates_by_core_location_plain_address_region_suffix() -> None:
-    """시설명(KCN 등)이 없는 일반 번지 주소도, 한 텍스트가 다른 텍스트의
-    comma-segment 접두사일 때(=순수하게 지역 접미사만 덧붙은 경우)는 같은
-    근무구역으로 묶여야 한다."""
+    """시설명(KCN 등)이 없는 일반 번지 주소도, 신호 없는 꼬리(순수 지역
+    접미사)만 다르면 같은 근무구역으로 묶여야 한다."""
     candidates = [
         {"text": "45 Trần Mai Ninh, Tân Bình, TP.HCM", "region_prefix": "TP.HCM"},
         {"text": "45 Trần Mai Ninh, Tân Bình, TP.HCM, Bình Dương", "region_prefix": "Bình Dương"},
     ]
     groups = _group_candidates_by_core_location(candidates)
     assert_equal(len(groups), 1, "same address with only a trailing region tag appended must merge into 1 group")
-    assert_equal(groups[0]["representative"]["text"], "45 Trần Mai Ninh, Tân Bình, TP.HCM", "representative must be the shorter (no trailing tag) variant")
+    representative = _select_group_representative(groups[0]["members"])
+    assert_equal(representative["text"], "45 Trần Mai Ninh, Tân Bình, TP.HCM", "tied specificity -> shorter (no trailing tag) variant wins as tie-break")
 
 
 def test_group_candidates_by_core_location_does_not_merge_different_places() -> None:
-    """서로 다른 시설명, 또는 comma-segment 접두사 관계가 아닌 서로 다른 번지
-    주소는 절대 하나로 묶이면 안 된다 — 우연히 같은 거리 이름을 공유해도
-    번지가 다르면 실제로 다른 건물일 수 있다."""
+    """서로 다른 시설명, 서로 다른 번지, 또는 같은 KCN 안의 서로 다른
+    lot·도로·공장은 절대 하나로 묶이면 안 된다 — 우연히 같은 거리/단지 이름을
+    공유해도 실제 특정 장소 신호가 다르면 다른 건물일 수 있다."""
     # 완전히 다른 두 KCN(시설명 자체가 다름).
     different_facilities = [
         {"text": "KCN Hiệp Phước, xã Hiệp Phước, Nhà Bè", "region_prefix": "TP.HCM"},
@@ -927,8 +958,7 @@ def test_group_candidates_by_core_location_does_not_merge_different_places() -> 
     groups_a = _group_candidates_by_core_location(different_facilities)
     assert_equal(len(groups_a), 2, "two different named industrial parks must NOT be merged")
 
-    # 같은 거리 이름이지만 번지가 다른 두 일반 주소 — comma-segment 접두사
-    # 관계가 아니므로(첫 segment 자체가 다름) 절대 안 묶여야 한다.
+    # 같은 거리 이름이지만 번지가 다른 두 일반 주소.
     different_house_numbers = [
         {"text": "12 Nguyễn Trãi, Quận 1", "region_prefix": "TP.HCM"},
         {"text": "45 Nguyễn Trãi, Quận 5", "region_prefix": "TP.HCM"},
@@ -936,25 +966,71 @@ def test_group_candidates_by_core_location_does_not_merge_different_places() -> 
     groups_b = _group_candidates_by_core_location(different_house_numbers)
     assert_equal(len(groups_b), 2, "different house numbers on the same-named street must NOT be merged")
 
-    # sanity: _is_region_suffix_variant 자체도 직접 확인.
-    assert_true(
-        _is_region_suffix_variant("45 Trần Mai Ninh, Tân Bình", "45 Trần Mai Ninh, Tân Bình, Bình Dương"),
-        "one text being a comma-segment prefix of the other -> region-suffix variant",
-    )
-    assert_false(
-        _is_region_suffix_variant("12 Nguyễn Trãi, Quận 1", "45 Nguyễn Trãi, Quận 5"),
-        "different house numbers -> must NOT be treated as a region-suffix variant of each other",
+    # 사용자 지시(2026-09-04, "반복주소 대표값 선정 수정"): "같은 KCN 안의
+    # 서로 다른 lot·도로·공장까지 잘못 병합하지 않는 테스트 추가" — 같은
+    # KCN 이름이라도 서로 다른 Lô/도로가 명시되면(실제 특정 장소 신호가
+    # 다름) 절대 병합되면 안 된다.
+    same_kcn_different_lots = [
+        {"text": "KCN ABC, Lô A1, Đường số 5, Quận 9", "region_prefix": "TP.HCM"},
+        {"text": "KCN ABC, Lô B2, Đường số 8, Quận 9", "region_prefix": "TP.HCM"},
+    ]
+    groups_c = _group_candidates_by_core_location(same_kcn_different_lots)
+    assert_equal(len(groups_c), 2, "same KCN name but different lot/road within it must NOT be merged")
+    assert_equal(
+        {ascii_key(_strip_recruitment_region_suffix(c["text"])) for c in same_kcn_different_lots},
+        {ascii_key("KCN ABC, Lô A1, Đường số 5"), ascii_key("KCN ABC, Lô B2, Đường số 8")},
+        "the road segment (a real specific-place signal) must survive stripping and keep the two cores distinct",
     )
 
+    # 같은 KCN + 같은 lot/도로인데 모집지역 접미사만 다른 경우는 정상적으로
+    # 병합돼야 한다(위 부정 케이스와의 대조군).
+    same_kcn_same_lot_different_suffix = [
+        {"text": "KCN ABC, Lô A1, Đường số 5, Quận 9", "region_prefix": "TP.HCM"},
+        {"text": "KCN ABC, Lô A1, Đường số 5, Quận 9, Bình Chánh", "region_prefix": "TP.HCM"},
+    ]
+    groups_d = _group_candidates_by_core_location(same_kcn_same_lot_different_suffix)
+    assert_equal(len(groups_d), 1, "same lot/road with only an extra trailing recruitment-region tag must still merge")
 
-def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_recruitment_regions() -> None:
-    """엔드투엔드 회귀(2026-09-04, 반복주소 수정): KCN Hiệp Phước 실사례 4개
-    후보를 resolve_work_locations()에 그대로 넣으면 — geocode는 대표(가장
-    짧은) 텍스트로 딱 한 번만 호출되고, 결과 행은 1개뿐이며, 그 행의
-    recruitment_regions에 4개 후보의 서로 다른 지역 라벨(TP.HCM, Long An)이
-    중복 없이 전부 모여야 한다. 이 fixture 이전(수정 전 코드)에서는 4개
-    후보가 각각 독립적으로 geocode되어 최대 ~15km까지 벌어지는 서로 다른
-    좌표 4개(전부 'ward'/'success')를 만들어냈었다."""
+
+def test_select_group_representative_prefers_specificity_over_shortest_string() -> None:
+    """사용자 지시(2026-09-04): "가장 짧은 문자열을 상세주소 대표값으로
+    사용하지 않음 — 저장할 raw_address는 번지·도로·lot·건물·공장 정보가
+    가장 구체적인 원문 후보를 선택. 최단 core는 중복 그룹 키와 검색어
+    정리에만 사용." _select_group_representative()가 실제로 specificity를
+    1순위로 쓰고, 길이는 동점일 때만 보조 기준으로 쓰는지 직접 확인한다
+    (그룹핑 자체가 만드는 자연스러운 동점 상황에 기대지 않고, 인위적으로
+    specificity가 다른 멤버를 넣어 검증)."""
+    assert_equal(_specificity_score("45 Nguyễn Trãi"), 1, "sanity: a house number alone is 1 specific-place signal")
+    assert_equal(_specificity_score("Lô 5, 45 Nguyễn Trãi"), 2, "sanity: Lô + house number is 2 specific-place signals")
+
+    # specificity가 다르면, 더 긴(더 구체적인) 쪽이 이겨야 한다 — "짧은 문자열"
+    # 규칙이었다면 틀린 답(첫 번째)을 골랐을 것이다.
+    higher_specificity_but_longer = [
+        {"text": "45 Nguyễn Trãi", "region_prefix": "TP.HCM"},
+        {"text": "Lô 5, 45 Nguyễn Trãi", "region_prefix": "TP.HCM"},
+    ]
+    rep = _select_group_representative(higher_specificity_but_longer)
+    assert_equal(rep["text"], "Lô 5, 45 Nguyễn Trãi", "member with MORE specific-place signals must win even though it is the longer string")
+
+    # specificity가 동점일 때만(실제 그룹핑에서 흔한 경우) 최단 문자열이
+    # 보조 기준으로 결정한다.
+    tied_specificity = [
+        {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình Chánh", "region_prefix": "TP.HCM"},
+        {"text": "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè", "region_prefix": "TP.HCM"},
+    ]
+    rep2 = _select_group_representative(tied_specificity)
+    assert_equal(rep2["text"], "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè", "tied specificity -> shortest is only a tie-break, not the primary rule")
+
+
+def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions() -> None:
+    """엔드투엔드 회귀(2026-09-04, 반복주소 수정 + 대표값 선정 수정): KCN Hiệp
+    Phước 실사례 4개 후보를 resolve_work_locations()에 그대로 넣으면 — 결과
+    행은 1개뿐이고, raw_address는 대표(동점 상황에서 최단) 원문 그대로
+    보존되며, geocode 검색어는 "알려진 모집지역 접미사"를 제거한 core로
+    정리되어 전송된다(원문 그대로가 아님 — Bình Chánh/Quận 7/Cần Giuộc 같은
+    접미사가 쿼리에 섞이면 Geoapify가 그쪽으로 편향된다는 게 실측 원인이었음).
+    matched_recruitment_regions에 4개 후보의 서로 다른 지역 라벨(TP.HCM,
+    Long An)이 중복 없이 전부 모여야 한다."""
     original = geocode._geocode_query_raw
 
     def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, street=None):
@@ -965,51 +1041,68 @@ def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_recru
 
     try:
         short_addr = "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè"
-        long_addr_variants_never_queried = [
+        long_addr_variants = [
             "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình Chánh",
             "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Quận 7",
             "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Cần Giuộc",
         ]
-        # 대표(짧은) 텍스트의 쿼리 변형에만 응답을 등록한다 — 만약 코드가 실수로
-        # 긴 변형 중 하나를 geocode하면(그룹핑이 깨졌다는 뜻) fake geocoder가
-        # 'no_results'를 돌려주게 되어, 그 변형이 실제로 geocode됐는지 여부와
-        # 무관하게(성공/실패 어느 쪽이든) 이 테스트가 잡아낸다.
-        variants = build_query_variants(short_addr, "TP.HCM")
+        recruitment_tag_words = ["binh chanh", "quan 7", "can giuoc"]
         point = _success(10.7227835, 106.703405, "building", state="Ho Chi Minh", city="Nha Be", name="Khu Cong nghiep Hiep Phuoc", street="Khu Cong nghiep Hiep Phuoc")
-        responses = {v["query"]: point for v in variants}
 
         def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
-            for long_addr in long_addr_variants_never_queried:
-                assert_false(long_addr in query, "grouped-away variant must never actually be sent to the geocoder")
-            if query in responses:
-                return responses[query]
+            q_key = ascii_key(query)
+            for tag in recruitment_tag_words:
+                assert_false(tag in q_key, f"recruitment-region tag {tag!r} must never leak into the geocode query text: {query!r}")
+            if "khu cong nghiep hiep phuoc" in q_key:
+                return point
             return {"status": "no_results", "lat": None, "lng": None, "top": None}
 
         geocode._geocode_query_raw = _fake
 
         candidates = [
             {"text": short_addr, "region_prefix": "TP.HCM"},
-            {"text": long_addr_variants_never_queried[0], "region_prefix": "TP.HCM"},
-            {"text": long_addr_variants_never_queried[1], "region_prefix": "TP.HCM"},
-            {"text": long_addr_variants_never_queried[2], "region_prefix": "Long An"},
+            {"text": long_addr_variants[0], "region_prefix": "TP.HCM"},
+            {"text": long_addr_variants[1], "region_prefix": "TP.HCM"},
+            {"text": long_addr_variants[2], "region_prefix": "Long An"},
         ]
         resolved, had_transient_failure = resolve_work_locations(candidates)
         assert_false(had_transient_failure, "no transient failures expected in this fixture")
         assert_equal(len(resolved), 1, "4 region-suffix variants of the same physical KCN must collapse into exactly 1 resolved row, not 4")
-        assert_equal(resolved[0]["raw_address"], short_addr, "the stored raw_address must be the short representative, not one with a recruitment-region tag baked in")
+        assert_equal(resolved[0]["raw_address"], short_addr, "stored raw_address must be the representative original text, never the stripped geocode-query core")
+        assert_equal(resolved[0]["coordinate_accuracy"], "exact_candidate", "the cleaned query must actually resolve successfully (sanity: fake geocoder was reached with a valid query)")
         assert_equal(
-            resolved[0]["recruitment_regions"], ["TP.HCM", "Long An"],
+            resolved[0]["matched_recruitment_regions"], ["TP.HCM", "Long An"],
             "the single row must carry both distinct recruitment regions (dedup, first-seen order), not duplicate coordinates across 4 rows",
         )
     finally:
         geocode._geocode_query_raw = original
 
 
-def test_work_location_rpc_rows_includes_recruitment_regions() -> None:
-    """_work_location_rpc_rows()가 recruitment_regions를 RPC payload에
-    그대로 전달하는지 확인 — draft migration 0018이 실행되기 전까지는 현재
-    RPC가 이 키를 조용히 무시하지만(하위 호환), payload 자체는 항상
-    포함해야 migration 실행 즉시 저장되기 시작한다."""
+def test_resolve_work_locations_geocodes_single_candidate_unstripped() -> None:
+    """중복(그룹 멤버 2개 이상)이 없는 단일 후보는 core 정리를 거치지 않고
+    원문 그대로 geocode한다 — 불필요하게 행정구역 상세 정보(구/시)를 잃지
+    않기 위함(사용자 지시: "최단 core는 중복 그룹 키와 검색어 정리에만
+    사용" — 중복이 없으면 애초에 정리할 이유도 없다)."""
+    original = geocode._geocode_query_raw
+    try:
+        addr = "45 Trần Mai Ninh, Tân Bình, TP.HCM"
+
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            assert_true("tan binh" in ascii_key(query), "single (non-duplicate) candidate must be geocoded with its full original text, unstripped")
+            return {"status": "no_results", "lat": None, "lng": None, "top": None}
+
+        geocode._geocode_query_raw = _fake
+        resolved, _ = resolve_work_locations([{"text": addr, "region_prefix": "TP.HCM"}])
+        assert_equal(len(resolved), 1, "single real address still gets a row")
+    finally:
+        geocode._geocode_query_raw = original
+
+
+def test_work_location_rpc_rows_includes_matched_recruitment_regions() -> None:
+    """_work_location_rpc_rows()가 matched_recruitment_regions를 RPC
+    payload에 그대로 전달하는지 확인 — draft migration 0018이 실행되기
+    전까지는 현재 RPC가 이 키를 조용히 무시하지만(하위 호환), payload
+    자체는 항상 포함해야 migration 실행 즉시 저장되기 시작한다."""
     from crawl_topcv import _work_location_rpc_rows
 
     loc = {
@@ -1018,14 +1111,45 @@ def test_work_location_rpc_rows_includes_recruitment_regions() -> None:
         "lat": 10.7227835, "lng": 106.703405, "geocode_status": "success",
         "geocode_source": "geoapify", "address_accuracy": "exact_text",
         "coordinate_accuracy": "ward", "address_evidence": "...", "source_verified": False,
-        "recruitment_regions": ["TP.HCM", "Long An"],
+        "matched_recruitment_regions": ["TP.HCM", "Long An"],
     }
     rows = _work_location_rpc_rows([loc])
-    assert_equal(rows[0]["recruitment_regions"], ["TP.HCM", "Long An"], "recruitment_regions must pass through to the RPC payload unchanged")
+    assert_equal(rows[0]["matched_recruitment_regions"], ["TP.HCM", "Long An"], "matched_recruitment_regions must pass through to the RPC payload unchanged")
 
-    loc_no_regions = {**loc, "recruitment_regions": []}
+    loc_no_regions = {**loc, "matched_recruitment_regions": []}
     rows2 = _work_location_rpc_rows([loc_no_regions])
-    assert_equal(rows2[0]["recruitment_regions"], [], "missing/empty recruitment_regions must default to an empty list, never null/KeyError")
+    assert_equal(rows2[0]["matched_recruitment_regions"], [], "missing/empty matched_recruitment_regions must default to an empty list, never null/KeyError")
+
+
+def test_compute_job_recruitment_regions_survives_zero_work_location_rows() -> None:
+    """사용자 지시(2026-09-04, "recruitment_regions 저장 위치 확인"): "공고
+    전체 모집지역은 근무지 행이 0건이어도 보존되어야 함." split_work_
+    locations()의 원본 후보 전체(region_prefix가 있는 모든 candidate) 기준
+    이라, 그 중 하나도 'exact' 주소로 분류되지 않아 job_work_locations 행이
+    0건인 경우에도 지역 라벨 자체는 그대로 남는다."""
+    from crawl_topcv import _compute_job_recruitment_regions
+
+    # 전부 region_only(번지/시설명 등 구체 신호 없음)라 resolve_work_locations()
+    # 에서는 전원 걸러져 행이 0건이 되는 상황을 흉내낸다 — 그래도 원본
+    # candidate 목록 자체에는 region_prefix가 살아있다.
+    work_locations = [
+        {"text": "Bắc Ninh", "region_prefix": "Bắc Ninh"},
+        {"text": "Bình Dương", "region_prefix": "Bình Dương"},
+        {"text": "Long An", "region_prefix": "Long An"},
+        {"text": "Đà Nẵng", "region_prefix": "Đà Nẵng"},
+    ]
+    for wl in work_locations:
+        assert_equal(classify_work_location_candidate(wl["text"]), "region_only", "sanity: bare province names never classify as 'exact' -> 0 job_work_locations rows")
+
+    regions = _compute_job_recruitment_regions(work_locations)
+    assert_equal(regions, ["Bắc Ninh", "Bình Dương", "Long An", "Đà Nẵng"], "job-level recruitment_regions must survive even when every candidate is dropped before any job_work_locations row is created")
+
+    assert_equal(_compute_job_recruitment_regions([]), [], "no candidates at all -> empty list, never an error")
+    assert_equal(
+        _compute_job_recruitment_regions([{"text": "x", "region_prefix": "TP.HCM"}, {"text": "y", "region_prefix": "TP.HCM"}]),
+        ["TP.HCM"],
+        "duplicate region_prefix values across candidates must be deduped",
+    )
 
 
 def test_write_guard_blocks_unconfirmed_writes() -> None:
@@ -1095,11 +1219,15 @@ def main() -> int:
         test_gate_requires_source_verified_not_just_exact_candidate,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
         test_coordinate_accuracy_never_leaks_exact_candidate_to_db,
+        test_strip_recruitment_region_suffix_kcn_real_case,
         test_group_candidates_by_core_location_kcn_facility_dedup,
         test_group_candidates_by_core_location_plain_address_region_suffix,
         test_group_candidates_by_core_location_does_not_merge_different_places,
-        test_resolve_work_locations_dedupes_repeated_core_address_and_collects_recruitment_regions,
-        test_work_location_rpc_rows_includes_recruitment_regions,
+        test_select_group_representative_prefers_specificity_over_shortest_string,
+        test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions,
+        test_resolve_work_locations_geocodes_single_candidate_unstripped,
+        test_work_location_rpc_rows_includes_matched_recruitment_regions,
+        test_compute_job_recruitment_regions_survives_zero_work_location_rows,
         test_write_guard_blocks_unconfirmed_writes,
     ]
     for test in tests:

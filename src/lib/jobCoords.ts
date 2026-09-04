@@ -206,3 +206,24 @@ export function resolveWorkLocationQuery(
   parts.push('Vietnam')
   return parts.join(', ')
 }
+
+/**
+ * 텍스트 검색 기반 Google Maps 링크 — 좌표(lat/lng)를 전혀 쓰지 않는다.
+ * `destination`도 `query`와 동일한 텍스트를 쓰므로, Google이 그 텍스트 자체를
+ * 다시 geocode해서 길찾기를 계산한다 — 우리 내부 coordinate_accuracy 등급(내부
+ * 마커/정확한 거리 계산용)과는 완전히 독립적이다.
+ *
+ * 2026-09-04 사용자 지시("길찾기 정책 수정"): "location_verified=false인
+ * ward도 길찾기 버튼을 숨기지 않음 — 마커와 정확한 거리 계산만 제외. 길찾기는
+ * 좌표 대신 raw_address + 상위 시·도 + Vietnam 텍스트 검색으로 실행." — 이
+ * 함수는 항상 텍스트 쿼리만 받으므로, 호출부(JobDetail.tsx)가 coordinateAccuracy/
+ * locationVerified와 무관하게 항상 호출해도 안전하다(애초에 좌표를 아예
+ * 참조하지 않음).
+ */
+export function googleMapsLinks(query: string): { view: string; directions: string } {
+  const q = encodeURIComponent(query)
+  return {
+    view: `https://www.google.com/maps/search/?api=1&query=${q}`,
+    directions: `https://www.google.com/maps/dir/?api=1&destination=${q}`,
+  }
+}

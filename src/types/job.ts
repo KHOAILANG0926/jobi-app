@@ -18,21 +18,27 @@ export interface JobWorkLocation {
   lng?: number
   sortOrder: number
   /** resolve_coordinate_accuracy()의 판정 — 원문 주소 텍스트(rawAddress)와는 별개다.
-   *  텍스트는 항상 그대로 보여준다; 이 값은 지도에 마커를 찍어도 되는지만 결정한다.
-   *  'exact'만 무조건 신뢰 — 'ward'는 locationVerified가 true일 때만(원문 좌표로
-   *  실제 확인된 경우) 신뢰하고, 아니면 'region'/'unresolved'와 동일하게 내부
-   *  지도를 숨기고 외부 Google 지도 검색 링크만 제공한다(2026-09-04 사용자 지시 —
-   *  같은 'ward' 등급도 반복주소 geocode 편향으로 최대 ~15km까지 틀릴 수 있음이
-   *  실측 확인됨). */
+   *  텍스트와 길찾기(Google Maps 텍스트 검색 링크)는 이 값과 무관하게 항상 그대로
+   *  제공한다(2026-09-04 사용자 지시: "location_verified=false인 ward도 길찾기
+   *  버튼을 숨기지 않음"). 이 값은 오직 "내부 지도에 마커를 찍고 정확한 거리 계산에
+   *  써도 되는지"만 결정한다 — 'exact'만 무조건 신뢰, 'ward'는 locationVerified가
+   *  true일 때만(원문 좌표로 실제 확인된 경우, 다만 이 경우도 UI에는 'exact'가
+   *  아니라 "근무구역 확인"으로 표시 — exact와 동일한 정밀도를 주장하지 않음) 신뢰,
+   *  아니면 'region'/'unresolved'와 동일하게 내부 지도 마커를 만들지 않는다
+   *  (2026-09-04 사용자 지시 — 같은 'ward' 등급도 반복주소 geocode 편향으로 최대
+   *  ~15km까지 틀릴 수 있음이 실측 확인됨). */
   coordinateAccuracy?: CoordinateAccuracy
   /** job_work_locations.location_verified — 원문(vieclam24h)이 제공하는 고용주
    *  연락처 좌표로 이 근무지가 실제로 확인됐는지(source_verified). true면
-   *  coordinateAccuracy가 'ward'여도 좌표를 신뢰해도 된다. */
+   *  coordinateAccuracy가 'ward'여도 내부 지도 마커에 좌표를 써도 되지만, "exact"로
+   *  표시하지는 않는다(정확한 거리라고 단정하지 않음). */
   locationVerified?: boolean
-  /** job_work_locations.recruitment_regions — 같은 물리적 근무지를 모집 지역으로
-   *  명시한 원문 지역 라벨 전부(예: ["TP.HCM","Long An"]). 좌표는 근무구역당
-   *  1개뿐이며 지역별로 복제되지 않는다 — 이 배열은 표시 전용 정보. */
-  recruitmentRegions?: string[]
+  /** job_work_locations.matched_recruitment_regions — 이 근무구역(물리적으로 1곳)에
+   *  실제로 매칭된 모집지역 라벨의 부분집합(예: ["TP.HCM","Long An"]). 좌표는
+   *  근무구역당 1개뿐이며 지역별로 복제되지 않는다 — 이 배열은 표시 전용 정보.
+   *  공고 전체 모집지역(Job.recruitmentRegions)과는 별개 — 근무지 행이 0건이거나
+   *  이 위치에 매칭되지 않은 지역은 여기 담기지 않는다. */
+  matchedRecruitmentRegions?: string[]
 }
 
 export interface Job {
@@ -79,4 +85,13 @@ export interface Job {
    *  means no structured work-location data — callers must keep using rawLocation/
    *  rawLat/rawLng as before (this is purely additive, never required). */
   workLocations?: JobWorkLocation[]
+  /** local_jobs.recruitment_regions — 공고 전체가 모집한다고 밝힌 지역 라벨 전부
+   *  (예: ["TP.HCM","Long An"]). workLocations가 0건이어도 보존된다(2026-09-04
+   *  사용자 지시: "공고 전체 모집지역은 근무지 행이 0건이어도 보존되어야 함").
+   *  아직 draft migration(0018)만 존재하고 실행 전이라 local_jobs에 이 컬럼
+   *  자체가 없다 — 이 필드는 컬럼이 생긴 뒤 select에 추가되면 채워지는 자리만
+   *  미리 마련해둔 것(현재는 항상 undefined). "확인 안 된" 지역(이 값에는
+   *  있지만 어떤 workLocations[].matchedRecruitmentRegions에도 없는 지역)은
+   *  별도로 저장하지 않고 필요할 때 두 배열의 차집합으로 계산한다. */
+  recruitmentRegions?: string[]
 }

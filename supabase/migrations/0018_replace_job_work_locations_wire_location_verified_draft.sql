@@ -23,18 +23,49 @@
 -- 전부 같은 산업단지, geocode 결과가 최대 ~15km까지 갈라짐)를 크롤러가
 -- geocode 이전에 하나의 근무구역으로 묶도록 고쳤다(crawl_topcv.py의
 -- _group_candidates_by_core_location() 참고) — 이제 좌표는 근무구역당 1개만
--- 만들고, 그 구역을 가리키는 서로 다른 모집지역 라벨은 job_work_locations의
--- 새 recruitment_regions(text[]) 컬럼에 배열로 담는다(좌표 복제 없음).
--- 이 컬럼도 이번 migration에서 함께 추가+배선한다(테이블에 새 nullable
--- 컬럼 1개 추가 — additive, 기존 데이터/제약 변경 없음).
+-- 만든다.
+--
+-- 정정 배경(2026-09-04, 세 번째 지시 — "recruitment_regions 저장 위치
+-- 확인"): 처음 초안은 모집지역 배열을 job_work_locations 한 곳에만 저장했는데,
+-- 이러면 "Địa điểm làm việc" 섹션에 구조화된 주소가 하나도 없어
+-- job_work_locations 행이 0건인 공고(예: 제목/본문에서만 여러 지역이 언급된
+-- 경우, guess_work_location_provinces() 경로)는 모집지역 정보 자체가
+-- 통째로 사라진다. 그래서 두 레벨로 명확히 분리한다:
+--   * local_jobs.recruitment_regions        — 공고 "전체"가 밝힌 모집지역
+--     라벨 전부. work_locations 원본 후보 전체 기준이라 job_work_locations
+--     행이 0건이어도 절대 사라지지 않는다(crawl_topcv.py의
+--     _compute_job_recruitment_regions() 참고).
+--   * job_work_locations.matched_recruitment_regions — 그 중 "이 특정
+--     근무구역 1곳"에 실제로 매칭된 라벨의 부분집합만(resolve_work_locations()
+--     참고). 이름을 recruitment_regions -> matched_recruitment_regions로
+--     바꿔 local_jobs 쪽(공고 전체)과 의미를 명확히 구분한다.
+-- "미확인 지역"(공고는 모집한다고 밝혔지만 특정 근무지에 매칭되지 않은 지역)은
+-- 별도 컬럼으로 저장하지 않는다 — local_jobs.recruitment_regions에서
+-- job_work_locations.matched_recruitment_regions 합집합을 뺀 차집합으로
+-- 필요할 때 계산한다(중복 저장으로 인한 데이터 불일치 방지).
+--
+-- local_jobs.recruitment_regions는 job_work_locations RPC와 무관하게
+-- upsert_job_record()가 local_jobs에 직접 insert/update하는 값이다 —
+-- crawl_topcv.py는 현재 이 값을 "_job_recruitment_regions"라는 "_"로
+-- 시작하는 임시 필드로만 들고 있다(insert/update payload에서 자동 제외됨).
+-- 이 migration이 실행되면, 별도 코드 변경(insert_payload/UPDATE_TRACKED_
+-- FIELDS에 recruitment_regions 추가)까지 마쳐야 실제로 채워지기 시작한다
+-- — 그 코드 변경은 이번 migration 실행 승인과 함께 별도로 진행한다(아직
+-- 안 함, 컬럼이 없는 지금 미리 넣으면 매 insert가 즉시 실패한다).
 
 begin;
 
-alter table public.job_work_locations
+alter table public.local_jobs
   add column if not exists recruitment_regions text[];
 
-comment on column public.job_work_locations.recruitment_regions is
-  '이 근무구역(1개의 물리적 장소)을 모집 지역으로 명시한 원문 지역 라벨 전부(예: {"TP.HCM","Long An"}) — 크롤러가 geocode 이전에 같은 핵심 주소(시설명 또는 comma-segment 접두사 일치)를 하나로 묶어 좌표 복제 없이 채운다. 단일 지역 공고는 원소 1개짜리 배열.';
+comment on column public.local_jobs.recruitment_regions is
+  '이 공고 전체가 모집한다고 밝힌 지역 라벨 전부(예: {"TP.HCM","Long An"}) — "Địa điểm làm việc" 섹션의 원본 후보 전체 기준(job_work_locations 행이 0건이어도 보존됨). 특정 근무구역에 매칭된 부분집합은 job_work_locations.matched_recruitment_regions를 본다.';
+
+alter table public.job_work_locations
+  add column if not exists matched_recruitment_regions text[];
+
+comment on column public.job_work_locations.matched_recruitment_regions is
+  '이 근무구역(1개의 물리적 장소)에 실제로 매칭된 모집지역 라벨의 부분집합(예: {"TP.HCM","Long An"}) — 크롤러가 geocode 이전에 같은 핵심 주소(모집지역 접미사만 다름)를 하나로 묶어 좌표 복제 없이 채운다. 공고 전체 모집지역은 local_jobs.recruitment_regions를 본다. 단일 지역 공고는 원소 1개짜리 배열.';
 
 create or replace function public.replace_job_work_locations(
   p_job_id bigint,
@@ -64,7 +95,7 @@ begin
   insert into public.job_work_locations (
     job_id, raw_address, normalized_address, lat, lng,
     geocode_status, geocode_source, address_accuracy, coordinate_accuracy, address_evidence,
-    location_verified, recruitment_regions, sort_order
+    location_verified, matched_recruitment_regions, sort_order
   )
   select
     p_job_id,
@@ -79,7 +110,7 @@ begin
     (r->>'address_evidence'),
     coalesce((r->>'location_verified')::boolean, false),
     coalesce(
-      (select array_agg(x) from jsonb_array_elements_text(r->'recruitment_regions') as x),
+      (select array_agg(x) from jsonb_array_elements_text(r->'matched_recruitment_regions') as x),
       '{}'
     ),
     coalesce((r->>'sort_order')::int, 0)

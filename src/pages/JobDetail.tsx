@@ -14,16 +14,8 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
-import { resolveMapLocation, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
+import { googleMapsLinks, resolveMapLocation, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
-
-function googleMapsLinks(query: string): { view: string; directions: string } {
-  const q = encodeURIComponent(query)
-  return {
-    view: `https://www.google.com/maps/search/?api=1&query=${q}`,
-    directions: `https://www.google.com/maps/dir/?api=1&destination=${q}`,
-  }
-}
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
@@ -384,44 +376,50 @@ export function JobDetail() {
               ) : (
                 <>
                   {hasWorkLocationList ? (
-                    // 항목별로 coordinate_accuracy가 다를 수 있다 — 상세주소 텍스트는
-                    // 항상 그대로 보여주고, 지도/길찾기 버튼 구성만 항목별 정확도에
-                    // 따라 달라진다. 'exact'는 항상 신뢰하고, 'ward'는 locationVerified
-                    // (원문 좌표로 실제 확인됨)일 때만 'exact'와 동일하게 취급한다 —
-                    // 2026-09-04 사용자 지시: 검증 근거 없는 'ward'는 반복주소 geocode
-                    // 편향으로 최대 ~15km까지 틀릴 수 있음이 실측 확인됨(KCN Hiệp Phước
-                    // 공고) — region/unresolved와 동일하게 외부 검색 링크만 제공한다.
+                    // 항목별로 coordinate_accuracy가 다를 수 있다 — 상세주소 텍스트와
+                    // 길찾기는 정확도와 무관하게 항상 보여준다(2026-09-04 사용자 지시
+                    // "길찾기 정책 수정": "location_verified=false인 ward도 길찾기
+                    // 버튼을 숨기지 않음 — 마커와 정확한 거리 계산만 제외. 길찾기는
+                    // 좌표 대신 raw_address + 상위 시·도 + Vietnam 텍스트 검색으로
+                    // 실행"). googleMapsLinks()는 좌표를 전혀 쓰지 않는 텍스트 검색
+                    // 기반이라 신뢰도와 무관하게 항상 안전하다. 내부 지도 마커·정확한
+                    // 거리 계산만 'exact' 또는 locationVerified===true인 'ward'로
+                    // 제한된다(loc.lat/lng 자체가 JobsContext에서 이미 그렇게 걸러져
+                    // 있음 — mappableWorkLocations 참고).
                     <ul className="jd2-map-addr-list">
                       {job.workLocations?.map((loc) => {
                         const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc, job.location))
                         const isMappable = typeof loc.lat === 'number' && typeof loc.lng === 'number'
                         const tier = loc.coordinateAccuracy ?? (isMappable ? 'exact' : 'unresolved')
-                        const trusted = tier === 'exact' || (tier === 'ward' && loc.locationVerified === true)
+                        // location_verified=true인 'ward'는 지도 마커는 쓸 수 있지만
+                        // 'exact'로 표시하지 않는다 — 사용자 지시("location_verified=true인
+                        // ward"): "지도 사용은 가능하지만 exact라고 표시하지 않음 / UI
+                        // 라벨은 '근무구역 확인' / 정확한 거리라고 단정하지 않음."
+                        const verifiedWard = tier === 'ward' && loc.locationVerified === true
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
                             <p className="jd2-map-addr">
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
-                            {loc.recruitmentRegions && loc.recruitmentRegions.length > 1 && (
+                            {loc.matchedRecruitmentRegions && loc.matchedRecruitmentRegions.length > 1 && (
                               <p className="jd2-map-recruitment-regions">
-                                Tuyển tại: {loc.recruitmentRegions.join(', ')}
+                                Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {tier === 'ward' && !trusted && (
+                            {verifiedWard && (
+                              <p className="jd2-map-verified-ward-note">
+                                Khu vực làm việc đã xác nhận — có thể chưa phải vị trí chính xác của tòa nhà.
+                              </p>
+                            )}
+                            {tier === 'ward' && !verifiedWard && (
                               <p className="jd2-map-ward-note">
                                 Vị trí gần đúng theo khu vực (quận/huyện) — không phải vị trí chính xác của tòa nhà.
                               </p>
                             )}
                             <div className="jd2-map-gmaps-links">
-                              {trusted ? (
-                                <>
-                                  <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                                  <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                                </>
-                              ) : (
-                                <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Tìm địa chỉ trên Google Maps ↗</a>
-                              )}
+                              <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                              <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
                             </div>
                           </li>
                         )

@@ -43,7 +43,11 @@ function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] ext
     sortOrder: (r.sort_order as number) ?? 0,
     coordinateAccuracy: coordinateAccuracy ?? undefined,
     locationVerified,
-    recruitmentRegions: (r.recruitment_regions as string[] | null | undefined) ?? undefined,
+    // job_work_locations.matched_recruitment_regions 컬럼은 아직 없다(draft
+    // migration 0018, 미실행) — select에도 포함하지 않았으므로 r.matched_
+    // recruitment_regions는 항상 undefined. 컬럼이 생기고 select에 추가되면
+    // 자동으로 채워진다.
+    matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
   }
 }
 
@@ -91,6 +95,10 @@ function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLocations
     rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
     sourceUrl: (r.source_url as string) ?? undefined,
     workLocations: workLocations && workLocations.length > 0 ? workLocations : undefined,
+    // local_jobs.recruitment_regions 컬럼은 아직 없다(draft migration 0018,
+    // 미실행) — 아래 select()에도 포함하지 않았으므로 r.recruitment_regions는
+    // 항상 undefined. 컬럼이 생기고 select에 추가되면 자동으로 채워진다.
+    recruitmentRegions: (r.recruitment_regions as string[] | null | undefined) ?? undefined,
   })
 }
 
