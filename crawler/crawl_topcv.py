@@ -4,11 +4,14 @@ vieclam24h.vn 채용공고 크롤러
 - 실행: python3 crawl_topcv.py
 """
 
+import argparse
 import asyncio
 import json
 import os
 import re
-from datetime import date
+import urllib.parse
+from contextlib import asynccontextmanager
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,6 +27,7 @@ from classifier import classify, is_blacklisted
 from geocode import resolve_coordinate_accuracy
 from job_quality import (
     CRAWLER_VERSION,
+    ascii_key,
     canonical_job_key,
     classify_work_location_candidate,
     compute_job_updates,
@@ -252,6 +256,12 @@ _EXPIRED_PAGE_PATTERNS = [
 
 
 async def fetch_job_detail(page, url: str) -> dict:
+    """Single detail-page fetch, used for every URL this crawler ever visits
+    (fresh discovery, re-visit of a known job, or a manually triggered
+    --process-url/--reprocess-ids run) — one page load, one shared extraction.
+    fetchOk=False + fetchError set means the page itself could not be read at
+    all; callers must treat that as a genuine failure (record the stage/
+    reason) rather than silently falling back to empty-but-successful data."""
     try:
         response = await page.goto(url, wait_until="domcontentloaded", timeout=20000)
         http_status = response.status if response else None
@@ -300,9 +310,34 @@ async def fetch_job_detail(page, url: str) -> dict:
                 .some(el => (el.innerText || '').includes('Ứng tuyển'))
             const expiredBanner = expiredPatterns.some(p => bodyText.includes(p))
 
-            return { deadline, sections, hasApplyButton, expiredBanner }
+            // 상세페이지 자체에서 title/company/근무지역 라벨을 독립적으로 추출한다 —
+            // 리스팅 카드 파싱(crawl_category)과 완전히 분리된 경로라 배지 오추출/
+            // title=location 오추출 버그의 영향을 받지 않는다. source_url이 없어
+            // 재검색으로 URL을 다시 찾아야 하는 기존 공고 재처리 시, 리스팅 카드
+            // 없이도 이 값들만으로 필수정보를 온전히 재추출할 수 있다.
+            const h1 = document.querySelector('h1')
+            const detailTitle = h1 ? h1.innerText.trim() : ''
+            const companyLink = Array.from(document.querySelectorAll('a'))
+              .find(a => (a.getAttribute('href') || '').includes('/nha-tuyen-dung/')
+                || (a.getAttribute('href') || '').match(/-ntd\\d+/))
+            const detailCompany = companyLink ? companyLink.textContent.trim() : ''
+            let detailLocationLabel = ''
+            for (const el of document.querySelectorAll('*')) {
+              if (el.children.length === 0 && (el.textContent || '').trim() === 'Khu vực tuyển') {
+                detailLocationLabel = el.nextElementSibling ? el.nextElementSibling.textContent.trim() : ''
+                break
+              }
+            }
+
+            return {
+                deadline, sections, hasApplyButton, expiredBanner,
+                detailTitle, detailCompany, detailLocationLabel,
+            }
         }""", _EXPIRED_PAGE_PATTERNS)
-        result = result or {"deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False}
+        result = result or {
+            "deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False,
+            "detailTitle": "", "detailCompany": "", "detailLocationLabel": "",
+        }
         if not result.get("sections"):
             # DOM heading selectors occasionally miss SPA detail layouts; keep a
             # bounded body fallback so crawler jobs are not saved as URL-only.
@@ -311,12 +346,16 @@ async def fetch_job_detail(page, url: str) -> dict:
             if fallback:
                 result["sections"] = {"Mô tả công việc": fallback}
         result["httpStatus"] = http_status
+        result["fetchOk"] = True
+        result["fetchError"] = None
         return result
     except Exception as exc:
         print(f"    ⚠️  상세 수집 실패: {url} ({exc})")
-        # 페이지를 아예 확인 못했으므로 지원 가능하다고 낙관할 근거가 없다 —
-        # hasApplyButton=False가 has_application_path()에서 안전한 기본값.
-        return {"deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False, "httpStatus": None}
+        return {
+            "deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False,
+            "httpStatus": None, "detailTitle": "", "detailCompany": "", "detailLocationLabel": "",
+            "fetchOk": False, "fetchError": str(exc),
+        }
 
 
 def format_description(sections: dict) -> str:
@@ -329,7 +368,11 @@ def format_description(sections: dict) -> str:
     return "\n\n".join(parts)[:5000]
 
 
-async def crawl_vieclam24h() -> list[dict]:
+@asynccontextmanager
+async def browser_page():
+    """One shared browser/page setup — used by the category crawl, a single
+    --process-url run, and --reprocess-ids alike, so none of them can drift
+    from another in headers/viewport/stealth behavior."""
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
@@ -341,7 +384,156 @@ async def crawl_vieclam24h() -> list[dict]:
             locale="vi-VN",
         )
         await stealth_async(page)
+        try:
+            yield page
+        finally:
+            await browser.close()
 
+
+def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -> dict:
+    """표준 파이프라인의 단일 처리 함수: 상세페이지 수집 결과(detail) ->
+    필수정보·상세주소 추출 -> 주소/좌표 정확도 판정 -> 지원 가능 여부 판정 ->
+    공개 게이트까지 한 번에 결정한다. 신규 발견(카테고리 크롤), 이미 아는
+    공고의 재방문, --process-url/--reprocess-ids로 수동 지정된 단건 처리
+    모두 이 함수 하나만 거친다 — 특정 job id/회사명으로 분기하는 코드는
+    어디에도 없다.
+
+    listing_hint: 카테고리 목록 카드에서 얻은 title/company/salary/logoUrl
+    (있을 때만) — 상세페이지 자체 추출(detail.detailTitle 등)이 항상 우선이고,
+    listing_hint는 그게 비어 있을 때의 보조 값일 뿐이다.
+
+    실패/스킵은 절대 도시 중심 좌표나 데모 데이터로 메우지 않고 명시적으로
+    구분해 반환한다:
+    - `_pipeline_failed=True`: 상세페이지 자체를 못 읽음(_failure_stage=
+      'detail_fetch', _failure_reason=예외 메시지) — 저장 단계에서 기존 데이터를
+      덮어쓰지 않기 위한 신호.
+    - `_skip=True`: 페이지는 읽었지만 정책상 저장하지 않는 정상적인 필터링
+      (마감/블랙리스트/품질검증 실패) — `_skip_reason`/`_skip_detail`.
+    - 둘 다 없으면 정상 레코드 — `_work_locations`/`_resolved_locations`/
+      `_had_transient_geocode_failure`가 추가로 포함된다.
+    """
+    listing_hint = listing_hint or {}
+    title = normalize_whitespace(detail.get("detailTitle") or listing_hint.get("title") or "")
+    company = normalize_whitespace(detail.get("detailCompany") or listing_hint.get("company") or "")
+
+    if not detail.get("fetchOk", True):
+        return {
+            "source_url": url, "title": title, "company": company,
+            "_pipeline_failed": True, "_failure_stage": "detail_fetch",
+            "_failure_reason": detail.get("fetchError"),
+        }
+
+    deadline = detail.get("deadline")
+    if deadline and deadline <= TODAY:
+        return {
+            "source_url": url, "title": title, "company": company,
+            "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,
+        }
+    if is_blacklisted(title, company):
+        return {
+            "source_url": url, "title": title, "company": company,
+            "_skip": True, "_skip_reason": "blacklisted",
+        }
+
+    logo = listing_hint.get("logoUrl", "")
+    desc_text = format_description(detail.get("sections", {}))
+    description = f"[source:vieclam24h] {desc_text}" if desc_text else f"[source:vieclam24h] {url}"
+    # 'Địa điểm làm việc' 섹션(있을 때만)에서 실제 근무지 주소를 추출한다.
+    # 회사 개요/연락처 섹션(예: QTSC 본사 주소)은 이 heading 밑에 오지 않으므로
+    # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
+    work_location_section = detail.get("sections", {}).get("Địa điểm làm việc", "")
+    work_locations = split_work_locations(work_location_section, with_region=True)
+    listing_salary = listing_hint.get("salary")
+    salary = normalize_salary(listing_salary) if normalize_whitespace(listing_salary) else extract_salary_from_text(desc_text)
+
+    # 분류: 제목 + 회사 + 본문 첫 300자 활용
+    category = classify(title, company, desc_text)
+
+    # 목록 카드 키워드 매칭이 실패했거나(빈 값) 값이 있어도 실제로는 location처럼
+    # 보이지 않으면(예: 제목/급여/회사명 전체가 그대로 들어온 경우) 신뢰하지 않고,
+    # 상세페이지 자체의 "Khu vực tuyển" 라벨 -> 제목+근무지 섹션 순으로 다시 찾는다.
+    location_label = detail.get("detailLocationLabel") or listing_hint.get("location")
+    location = normalize_location(
+        location_label, detail_text=f"{title} {work_location_section}",
+        title=title, company=company, salary=salary,
+    )
+    # 'Địa điểm làm việc' 섹션에 구조화된 주소가 없어도, 제목/본문에 여러
+    # 지역명이 함께 언급되는 공고(예: "Bắc Ninh / Bình Dương / Long An /
+    # Đà Nẵng")가 있다 — 이 경우 첫 지역 하나만 쓰면 나머지 근무지 정보가
+    # 사라지므로, 발견된 지역 전부를 work_locations 후보로 남겨서 나중에
+    # geocode.py가 각각의 근사 위치를 붙일 수 있게 한다(정확한 주소가
+    # 아니므로 회사 본사 주소로 대체하지 않고, 지역명 자체를 그대로 저장).
+    if not work_locations:
+        mentioned_provinces = guess_work_location_provinces(title, desc_text)
+        if len(mentioned_provinces) > 1:
+            work_locations = [{"text": p, "region_prefix": p} for p in mentioned_provinces]
+
+    # 표준 파이프라인 4-7단계: 후보 분류 -> geocode/좌표 검증 -> 지원 경로
+    # 확인 -> 공개 게이트. 신규/기존 공고, 특정 id/회사명과 무관하게 항상
+    # 동일하게 적용한다(예외 코드 없음).
+    resolved_locations, had_transient_geocode_failure = resolve_work_locations(work_locations)
+    employer_phone_value = ""
+    has_app_path = has_application_path(
+        employer_phone_value, "", url,
+        source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
+        has_apply_affordance=bool(detail.get("hasApplyButton")),
+    )
+    should_publish, gate_reason = gate_auto_publish(
+        # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
+        # 무관하다. resolve_work_locations()는 exact_text로 분류된
+        # 후보라면 좌표를 못 찾아도(coordinate_accuracy='unresolved')
+        # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
+        has_address_text=len(resolved_locations) > 0,
+        has_application_path_=has_app_path,
+    )
+
+    job = {
+        "title": title,
+        "company": company,
+        "location": location,
+        "salary": salary,
+        "description": description,
+        "category": category,
+        "posted_at": TODAY,
+        "urgent": False,
+        "employer_phone": employer_phone_value,
+        "application_deadline": deadline,
+        "active": should_publish,
+        "origin": "crawler",
+        "admin_hidden": False,
+        "image_url": logo if logo and logo.startswith("http") else None,
+        "source_url": url,
+        # local_jobs 실제 컬럼(migration 0015로 추가됨) — insert/update 양쪽
+        # 경로에서 항상 함께 저장된다(과거엔 insert 경로에서 publish_gate_reason이
+        # 저장 안 되던 결함이 있었음 — 이 함수로 통합하며 같이 고쳐짐).
+        "publish_gate_reason": gate_reason,
+        "crawler_version": CRAWLER_VERSION,
+    }
+    quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
+    if quality_errors:
+        job["_skip"] = True
+        job["_skip_reason"] = "quality_invalid"
+        job["_skip_detail"] = ", ".join(quality_errors)
+        return job
+
+    # local_jobs 컬럼이 아닌 임시 필드 — upsert_job_record()가 job_work_locations
+    # 동기화에만 쓰고 local_jobs 페이로드에서는 제거한다.
+    job["_work_locations"] = work_locations
+    job["_resolved_locations"] = resolved_locations
+    job["_had_transient_geocode_failure"] = had_transient_geocode_failure
+    return job
+
+
+async def process_job_url(page, url: str, listing_hint: dict | None = None) -> dict:
+    """디스커버리 방식과 무관한 단일 진입점 — 카테고리 크롤이 새로 찾은 URL,
+    재크롤에서 다시 만난 이미 아는 URL, --process-url/--reprocess-ids로 수동
+    지정된 URL 모두 이 함수 하나로 상세 수집 + build_job_record를 거친다."""
+    detail = await fetch_job_detail(page, url)
+    return build_job_record(url, detail, listing_hint)
+
+
+async def crawl_vieclam24h() -> list[dict]:
+    async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
 
@@ -364,125 +556,29 @@ async def crawl_vieclam24h() -> list[dict]:
                 unique_raw.append(j)
         unique_raw = unique_raw[:TARGET_COUNT]
 
-        # 각 공고 상세 페이지에서 마감일 + 본문 가져오기
+        # 각 공고: 상세 수집 -> 필수정보/주소 추출 -> 판정까지 build_job_record
+        # 하나로 처리(신규 발견 여부와 무관 — 저장 단계에서만 신규/기존을 가른다).
         print(f"\n  📋 상세 페이지 수집 중 ({len(unique_raw)}개)...")
         jobs = []
         skipped = 0
         for idx, j in enumerate(unique_raw):
-            detail = await fetch_job_detail(page, j["href"])
-            deadline = detail.get("deadline")
-            # 마감일이 오늘 이전이거나 오늘인 공고는 제외
-            if deadline and deadline <= TODAY:
+            job = await process_job_url(page, j["href"], listing_hint=j)
+
+            if job.get("_skip"):
+                skipped += 1
+                if job["_skip_reason"] == "quality_invalid":
+                    print(f"    ⏩ 품질 스킵: {job.get('title', '')[:70]} ({job.get('_skip_detail')})")
+                continue
+            if job.get("_pipeline_failed"):
                 skipped += 1
                 continue
-            title = normalize_whitespace(j["title"])
-            company = normalize_whitespace(j.get("company", ""))
+            if not job.get("active"):
+                print(f"    🔒 공개 보류({job.get('publish_gate_reason')}): {job.get('title', '')[:70]}")
 
-            # 블랙리스트(사무직) 공고 수집 단계 제외
-            if is_blacklisted(title, company):
-                skipped += 1
-                continue
-
-            logo = j.get("logoUrl", "")
-            desc_text = format_description(detail.get("sections", {}))
-            description = f"[source:vieclam24h] {desc_text}" if desc_text else f"[source:vieclam24h] {j.get('href', '')}"
-            # 'Địa điểm làm việc' 섹션(있을 때만)에서 실제 근무지 주소를 추출한다.
-            # 회사 개요/연락처 섹션(예: QTSC 본사 주소)은 이 heading 밑에 오지 않으므로
-            # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
-            work_location_section = detail.get("sections", {}).get("Địa điểm làm việc", "")
-            work_locations = split_work_locations(work_location_section, with_region=True)
-            salary = normalize_salary(j.get("salary")) if normalize_whitespace(j.get("salary")) else extract_salary_from_text(desc_text)
-
-            # 분류: 제목 + 회사 + 본문 첫 300자 활용
-            category = classify(title, company, desc_text)
-
-            # 리스트 카드 키워드 매칭이 실패했거나(빈 값) 값이 있어도 실제로는
-            # location처럼 보이지 않으면(예: 제목/급여/회사명 전체가 그대로 들어온
-            # sb-4313류 버그) 신뢰하지 않고 제목 + 실제 근무지 주소 섹션에서 다시
-            # 찾는다 — sb-4312(지역 매칭 실패 → 잘못된 fallback 대도시)와
-            # sb-4313(제목 전체가 location으로 저장됨) 재발 방지.
-            location = normalize_location(
-                j.get("location"), detail_text=f"{title} {work_location_section}",
-                title=title, company=company, salary=salary,
-            )
-            # 'Địa điểm làm việc' 섹션에 구조화된 주소가 없어도, 제목/본문에 여러
-            # 지역명이 함께 언급되는 공고(예: "Bắc Ninh / Bình Dương / Long An /
-            # Đà Nẵng")가 있다 — 이 경우 첫 지역 하나만 쓰면 나머지 근무지 정보가
-            # 사라지므로, 발견된 지역 전부를 work_locations 후보로 남겨서 나중에
-            # geocode.py가 각각의 근사 위치를 붙일 수 있게 한다(정확한 주소가
-            # 아니므로 회사 본사 주소로 대체하지 않고, 지역명 자체를 그대로 저장).
-            # guess_work_location_provinces()는 제목 + "근무지 문맥" 문장만 보므로
-            # (전체 본문을 훑는 guess_all_provinces_from_text()와 달리) 복지 여행/
-            # 교육 장소/출장지처럼 근무지가 아닌 지역이 섞여 들어오는 오탐을 줄인다.
-            if not work_locations:
-                mentioned_provinces = guess_work_location_provinces(title, desc_text)
-                if len(mentioned_provinces) > 1:
-                    # 이 경로는 원문 지역명 그 자체가 후보이자 그 후보의 "예상 지역"이므로
-                    # region_prefix로도 같은 값을 준다(geocode 결과가 실제로 그 지역인지
-                    # 검증할 근거로 쓰인다).
-                    work_locations = [{"text": p, "region_prefix": p} for p in mentioned_provinces]
-
-            # 표준 파이프라인 4-7단계: 후보 분류 -> geocode/좌표 검증 -> 지원 경로
-            # 확인 -> 공개 게이트. 신규/기존 공고, 특정 id/회사명과 무관하게 항상
-            # 동일하게 적용한다(예외 코드 없음).
-            resolved_locations, had_transient_geocode_failure = resolve_work_locations(work_locations)
-            source_url_value = j.get("href") or None
-            employer_phone_value = ""
-            should_publish, gate_reason = gate_auto_publish(
-                # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
-                # 무관하다. resolve_work_locations()는 exact_text로 분류된
-                # 후보라면 좌표를 못 찾아도(coordinate_accuracy='unresolved')
-                # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
-                has_address_text=len(resolved_locations) > 0,
-                has_application_path_=has_application_path(
-                    employer_phone_value, "", source_url_value,
-                    source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
-                    has_apply_affordance=bool(detail.get("hasApplyButton")),
-                ),
-            )
-
-            job = {
-                "title": title,
-                "company": company,
-                "location": location,
-                "salary": salary,
-                "description": description,
-                "category": category,
-                "posted_at": TODAY,
-                "urgent": False,
-                "employer_phone": employer_phone_value,
-                "application_deadline": deadline,
-                "active": should_publish,
-                "origin": "crawler",
-                "admin_hidden": False,
-                "image_url": logo if logo and logo.startswith("http") else None,
-                "source_url": source_url_value,
-            }
-            quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
-            if quality_errors:
-                skipped += 1
-                print(f"    ⏩ 품질 스킵: {title[:70]} ({', '.join(quality_errors)})")
-                continue
-            if not should_publish:
-                print(f"    🔒 공개 보류({gate_reason}): {title[:70]}")
-            # local_jobs 컬럼이 아닌 임시 필드 — save_to_supabase에서 job_work_locations
-            # insert에만 쓰고 local_jobs insert 페이로드에서는 제거한다.
-            job["_work_locations"] = work_locations
-            job["_resolved_locations"] = resolved_locations
-            job["_gate_reason"] = gate_reason
-            job["_had_transient_geocode_failure"] = had_transient_geocode_failure
-            # local_jobs.crawler_version/last_verified_at don't exist yet (see
-            # the reviewed-but-not-yet-applied migration) — kept as internal
-            # fields only until that migration is approved and run; not sent
-            # to local_jobs by save_to_supabase() (it strips every "_"-prefixed
-            # key). Renaming these (drop the "_") is the only change needed
-            # once the columns exist.
-            job["_crawler_version"] = CRAWLER_VERSION
             jobs.append(job)
             if (idx + 1) % 20 == 0:
                 print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
 
-        await browser.close()
         return jobs
 
 
@@ -530,109 +626,250 @@ def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> 
     ).execute()
 
 
+def load_existing_lookup_maps() -> tuple[dict, dict]:
+    """이 크롤러가 쓰는 기존 공고 조회는 이 함수 하나뿐이다 — 카테고리 전체
+    크롤(수백 건)과 --process-url/--reprocess-ids(1~수건) 모두 동일하게
+    이 함수로 미리 로드한 맵을 매칭에 쓴다(건별 개별 쿼리 없음).
+    Returns (by_source_url, by_key) — source_url이 있는 행은 by_source_url에도
+    같이 들어간다."""
+    existing_raw = supabase.table("local_jobs") \
+        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin") \
+        .like("description", "%[source:vieclam24h]%") \
+        .execute()
+    rows = existing_raw.data or []
+    by_source_url = {r["source_url"]: r for r in rows if r.get("source_url")}
+    by_key = {canonical_job_key(r.get("title", ""), r.get("company", "")): r for r in rows}
+    return by_source_url, by_key
+
+
+def match_existing_row(job: dict, by_source_url: dict, by_key: dict) -> dict | None:
+    """이 공고가 이미 local_jobs에 있는지 판단하는 단 하나의 규칙 — source_url이
+    있으면 정확히 그 값으로(제목이 원문 사이트에서 수정돼도 안전), 없으면
+    canonical_job_key(title, company)로 대조한다(source_url이 아직 없던
+    구버전 행 대비 하위호환)."""
+    src = job.get("source_url")
+    if src and src in by_source_url:
+        return by_source_url[src]
+    return by_key.get(canonical_job_key(job.get("title", ""), job.get("company", "")))
+
+
+def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
+    """이 크롤러가 local_jobs/job_work_locations에 쓰는 단 하나의 저장 경로.
+    카테고리 전체 크롤이 새로 발견한 공고, 재크롤에서 다시 만난 이미 아는
+    공고, --process-url/--reprocess-ids로 수동 지정된 단건 재처리 —
+    셋 다 신규든 기존이든 이 함수 하나만 거친다. 특정 job id/회사명으로
+    분기하는 코드는 없다.
+
+    실패(_pipeline_failed)는 절대 도시 중심 좌표나 데모 데이터로 메우지 않고,
+    기존 행이 있으면 그 데이터를 그대로 둔 채 실패를 반환하며, 신규면 아무것도
+    쓰지 않는다."""
+    existing = match_existing_row(job, by_source_url, by_key)
+
+    if job.get("_pipeline_failed"):
+        print(f"    ❌ 파이프라인 실패[{job.get('_failure_stage')}]: {job.get('title', '')[:60]!r} — {job.get('_failure_reason')}")
+        if existing:
+            print(f"       기존 id={existing['id']} 데이터는 그대로 둠(실패한 결과로 덮어쓰지 않음)")
+            return {"action": "failed_existing_untouched", "id": existing["id"]}
+        return {"action": "failed_new_skipped", "id": None}
+
+    resolved = job.get("_resolved_locations") or []
+    had_transient = job.get("_had_transient_geocode_failure", False)
+
+    if existing is None:
+        insert_payload = {k: v for k, v in job.items() if not k.startswith("_")}
+        insert_payload["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+        result = supabase.table("local_jobs").insert(insert_payload).execute()
+        row = (result.data or [{}])[0]
+        job_id = row.get("id")
+        action = "inserted"
+    else:
+        field_updates = compute_job_updates(existing, job)
+        # 공개 게이트/버전 필드는 이 공고가 실제로 크롤러가 만든 것일 때만
+        # 건드린다 — 기업이 직접 등록한 공고(origin != 'crawler')는 이 매칭에
+        # 걸릴 일이 거의 없지만, 있더라도 이 표준으로 절대 승격/강등하지 않는다.
+        if existing.get("origin") == "crawler":
+            field_updates["active"] = job["active"]
+            field_updates["publish_gate_reason"] = job["publish_gate_reason"]
+            field_updates["crawler_version"] = job["crawler_version"]
+            field_updates["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+        if field_updates:
+            supabase.table("local_jobs").update(field_updates).eq("id", existing["id"]).execute()
+            action = "updated"
+        else:
+            action = "unchanged"
+        job_id = existing["id"]
+
+    # job_work_locations는 INSERT/UPDATE 양쪽 경로에서 완전히 동일하게, 원자적으로
+    # (RPC) 동기화한다. 이번 판정이 geocode API 오류로 불완전하면 기존 데이터를
+    # 그대로 둔다(불완전한 결과로 알고 있던 좋은 데이터를 지우지 않는다).
+    if job_id and not had_transient:
+        _replace_job_work_locations(job_id, resolved)
+    elif had_transient:
+        print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 — 근무지 동기화 보류(기존 데이터 유지)")
+
+    return {"action": action, "id": job_id}
+
+
 def save_to_supabase(jobs: list[dict]):
     if not supabase:
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
         return
 
-    # 기존 vieclam24h 공고(핵심 필드 포함) 조회 — 매칭은 여전히 canonical_job_key
-    # (title+company)로 하되, 이미 있는 공고라도 salary/deadline/description/
-    # location/source_url 중 실제로 바뀐 값이 있으면 update한다(예전엔 무조건 skip).
-    # origin도 함께 가져온다 — 공개 게이트를 크롤러 출처 공고에만 적용하기 위함
-    # (기업이 직접 등록한 공고는 이 게이트로 절대 자동 강등하지 않는다).
-    existing_raw = supabase.table("local_jobs") \
-        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin") \
-        .like("description", "%[source:vieclam24h]%") \
-        .execute()
-    existing_by_key = {
-        canonical_job_key(r.get("title", ""), r.get("company", "")): r
-        for r in (existing_raw.data or [])
-    }
-    print(f"  📋 기존 vieclam24h 공고: {len(existing_by_key)}개")
+    by_source_url, by_key = load_existing_lookup_maps()
+    print(f"  📋 기존 vieclam24h 공고: {len(by_key)}개")
 
-    new_jobs = []
-    updated = 0
-    unchanged = 0
+    counts = {
+        "inserted": 0, "updated": 0, "unchanged": 0,
+        "failed_existing_untouched": 0, "failed_new_skipped": 0,
+    }
     demoted = 0
     work_location_rows_total = 0
-    skipped_wl_sync_on_transient_failure = 0
-    for j in jobs:
-        key = canonical_job_key(j["title"], j["company"])
-        existing_row = existing_by_key.get(key)
-        if existing_row is None:
-            new_jobs.append(j)
-            continue
-
-        field_updates = compute_job_updates(existing_row, j)
-        # 공개 게이트 재평가는 이 공고가 실제로 크롤러가 만든 것일 때만 active를
-        # 건드린다 — 기업이 직접 등록한 공고(origin != 'crawler')는 재크롤
-        # 매칭 대상이 될 일이 거의 없지만, 있더라도 이 표준으로 자동 강등하지
-        # 않는다(사용자 지시). 크롤러 출처는 양방향(승격/강등) 모두 적용하고,
-        # 강등 시 사유를 publish_gate_reason에 남긴다.
-        if existing_row.get("origin") == "crawler":
-            if existing_row.get("active") != j.get("active"):
-                field_updates["active"] = j["active"]
-                if existing_row.get("active") and not j.get("active"):
-                    demoted += 1
-            field_updates["publish_gate_reason"] = j.get("_gate_reason")
-
-        if field_updates:
-            supabase.table("local_jobs").update(field_updates).eq("id", existing_row["id"]).execute()
-            updated += 1
-        else:
-            unchanged += 1
-
-        # job_work_locations는 INSERT/UPDATE 양쪽 경로에서 완전히 동일하게,
-        # 원자적으로(RPC) 동기화한다 — 이전엔 UPDATE 경로에서 이 테이블이 아예
-        # 갱신되지 않는 버그가 있었음(id 4366/4367/4368으로 재현 확인됨). 단,
-        # 이번 판정이 geocode API 오류로 불완전하면 기존 데이터를 그대로 둔다
-        # (불완전한 결과로 알고 있던 좋은 데이터를 지우지 않는다).
-        job_id = existing_row["id"]
-        if j.get("_had_transient_geocode_failure"):
-            skipped_wl_sync_on_transient_failure += 1
-        else:
-            _replace_job_work_locations(job_id, j.get("_resolved_locations") or [])
-            work_location_rows_total += len(j.get("_resolved_locations") or [])
+    for job in jobs:
+        existing = match_existing_row(job, by_source_url, by_key)
+        was_active_crawler = bool(
+            existing and existing.get("origin") == "crawler" and existing.get("active")
+        )
+        result = upsert_job_record(job, by_source_url, by_key)
+        counts[result["action"]] = counts.get(result["action"], 0) + 1
+        if was_active_crawler and job.get("active") is False:
+            demoted += 1
+        work_location_rows_total += len(job.get("_resolved_locations") or [])
 
     print(
-        f"  ➕ 신규 공고: {len(new_jobs)}개 / 🔄 업데이트: {updated}개 / ⏭️ 변경 없음: {unchanged}개"
+        f"  ➕ 신규: {counts['inserted']}개 / 🔄 업데이트: {counts['updated']}개 / ⏭️ 변경 없음: {counts['unchanged']}개"
         f" / 🔻 재크롤 후 보류 전환: {demoted}개"
+        f" / ❌ 실패: {counts['failed_existing_untouched'] + counts['failed_new_skipped']}개"
     )
-    if skipped_wl_sync_on_transient_failure:
-        print(f"  ⚠️  geocode 일시 오류로 근무지 동기화 보류(기존 데이터 유지): {skipped_wl_sync_on_transient_failure}개")
-
-    inserted = 0
-    for i in range(0, len(new_jobs), 50):
-        batch = new_jobs[i:i+50]
-        # local_jobs에는 실제 컬럼만 보낸다 — _work_locations/_resolved_locations/
-        # _gate_reason/_had_transient_geocode_failure는 별도 테이블용 임시 필드.
-        local_jobs_batch = [
-            {k: v for k, v in job.items() if not k.startswith("_")}
-            for job in batch
-        ]
-        result = supabase.table("local_jobs").insert(local_jobs_batch).execute()
-        inserted += len(batch)
-        print(f"  ✅ Supabase 저장: {inserted}/{len(new_jobs)}개")
-
-        inserted_rows = result.data or []
-        for job, row in zip(batch, inserted_rows):
-            job_id = row.get("id")
-            resolved = job.get("_resolved_locations") or []
-            # 신규 삽입은 기존 데이터가 없으므로 transient failure라도 빈 결과로
-            # 두는 것 자체는 안전하다(지울 기존 데이터가 없음) — 다만 완전한
-            # 판정이 아니었다는 사실은 로그로 남긴다.
-            if job.get("_had_transient_geocode_failure"):
-                print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 있었음(일부 후보 미판정)")
-            if not job_id or not resolved:
-                continue
-            _replace_job_work_locations(job_id, resolved)
-            work_location_rows_total += len(resolved)
-
     if work_location_rows_total:
         print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")
+    if not jobs:
+        print("  ℹ️  처리할 공고 없음")
 
-    if not new_jobs:
-        print("  ℹ️  새 공고 없음 — 기존 데이터 유지")
+
+_SEARCH_LIST_JS = """() => {
+    const items = []
+    const seen = new Set()
+    document.querySelectorAll("a[href]").forEach(el => {
+        const href = el.getAttribute('href') || ''
+        if (!href.includes('.html')) return
+        if (!href.match(/id\\d+/)) return
+        if (seen.has(href)) return
+        seen.add(href)
+        const lines = (el.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean)
+        if (!lines[0] || lines[0].length < 5) return
+        const title = lines[0]
+        const company = lines.find(l => l.length > 2 && l !== title) || ''
+        const deadlineLine = lines.find(l => /^Còn\\s+\\d+\\s+ngày$/.test(l)) || ''
+        const daysMatch = deadlineLine.match(/\\d+/)
+        const fullHref = href.startsWith('http') ? href : 'https://vieclam24h.vn' + href
+        items.push({ title, company, href: fullHref, daysLeft: daysMatch ? parseInt(daysMatch[0], 10) : null })
+    })
+    return items
+}"""
+
+
+async def search_source_url_candidates(page, title: str) -> list[dict]:
+    """title 재검색으로 후보 URL을 찾는다 — source_url이 없는(레거시) 기존
+    공고를 재처리할 때만 쓰는 디스커버리 단계. 이후 처리(process_job_url)는
+    카테고리 크롤로 찾은 URL과 완전히 동일하다."""
+    query = urllib.parse.quote(title)
+    await page.goto(
+        f"https://vieclam24h.vn/tim-kiem-viec-lam-nhanh?q={query}",
+        wait_until="domcontentloaded", timeout=20000,
+    )
+    await page.wait_for_timeout(1500)
+    try:
+        return await page.evaluate(_SEARCH_LIST_JS)
+    except Exception:
+        return []
+
+
+def match_source_url_candidate(title: str, company: str, deadline: str | None, candidates: list[dict], today: date) -> dict:
+    """EXACT(원문 완전 일치, 후보 1개)/HIGH(정규화 일치 + 마감일 ±1일, 후보 1개)만
+    채택 — AMBIGUOUS/NOT_FOUND는 호출자가 재처리를 건너뛰는 신호로 쓴다."""
+    key = (ascii_key(title)[:80], ascii_key(company)[:60])
+    normalized_matches = [c for c in candidates if (ascii_key(c["title"])[:80], ascii_key(c["company"])[:60]) == key]
+    if not normalized_matches:
+        return {"confidence": "NOT_FOUND", "url": None}
+
+    exact_matches = [c for c in normalized_matches if c["title"] == title and c["company"] == company]
+    if len(exact_matches) == 1:
+        return {"confidence": "EXACT", "url": exact_matches[0]["href"]}
+
+    if len(normalized_matches) == 1:
+        cand = normalized_matches[0]
+        if deadline and cand.get("daysLeft") is not None:
+            cand_deadline = (today + timedelta(days=cand["daysLeft"])).isoformat()
+            if abs((date.fromisoformat(deadline) - date.fromisoformat(cand_deadline)).days) <= 1:
+                return {"confidence": "HIGH", "url": cand["href"]}
+        return {"confidence": "AMBIGUOUS", "url": cand["href"]}
+
+    return {"confidence": "AMBIGUOUS", "url": None}
+
+
+async def discover_source_url(page, existing_row: dict) -> tuple[str | None, str]:
+    """기존 행에 source_url이 있으면 그대로 쓰고, 없으면 title 재검색으로
+    확정(EXACT/HIGH)되는 URL만 채택한다 — AMBIGUOUS/NOT_FOUND는 URL 없이
+    confidence만 반환해 호출자가 그 공고를 건너뛰게 한다(잘못된 공고를
+    엉뚱한 URL로 재처리하는 사고 방지)."""
+    if existing_row.get("source_url"):
+        return existing_row["source_url"], "existing"
+    candidates = await search_source_url_candidates(page, existing_row.get("title", ""))
+    match = match_source_url_candidate(
+        existing_row.get("title", ""), existing_row.get("company", ""),
+        existing_row.get("application_deadline"), candidates, date.today(),
+    )
+    if match["confidence"] in ("EXACT", "HIGH"):
+        return match["url"], match["confidence"]
+    return None, match["confidence"]
+
+
+async def process_single_url(url: str) -> dict:
+    """--process-url: source_url 1건만 표준 파이프라인으로 처리한다. 신규/
+    기존 여부는 upsert_job_record()가 자동으로 판별한다 — 목록 페이지는
+    전혀 건드리지 않으므로 신규 공고 수집이 아니다."""
+    by_source_url, by_key = load_existing_lookup_maps()
+    async with browser_page() as page:
+        job = await process_job_url(page, url)
+    result = upsert_job_record(job, by_source_url, by_key)
+    return {**job, **result}
+
+
+async def reprocess_jobs(job_ids: list[int]) -> list[dict]:
+    """--reprocess-ids: 지정된 local_jobs id들만 표준 파이프라인으로 재처리한다.
+    job_ids는 호출 시점에 전달되는 값일 뿐 코드에 하드코딩되지 않는다 — 이
+    함수 자체는 어떤 특정 id/회사명도 알지 못한다. 카테고리 목록 페이지는
+    전혀 방문하지 않으므로 신규 공고 수집이 아니다."""
+    if not job_ids:
+        return []
+    rows = supabase.table("local_jobs") \
+        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin,employer_phone") \
+        .in_("id", job_ids).eq("origin", "crawler").execute().data or []
+    rows_by_id = {r["id"]: r for r in rows}
+    by_source_url, by_key = load_existing_lookup_maps()
+
+    reports = []
+    async with browser_page() as page:
+        for job_id in job_ids:
+            row = rows_by_id.get(job_id)
+            if not row:
+                reports.append({
+                    "id": job_id, "_pipeline_failed": True, "_failure_stage": "lookup",
+                    "_failure_reason": "local_jobs에 없거나 origin != crawler",
+                })
+                continue
+            url, confidence = await discover_source_url(page, row)
+            if not url:
+                reports.append({
+                    "id": job_id, "title": row.get("title"), "_pipeline_failed": True,
+                    "_failure_stage": "url_discovery",
+                    "_failure_reason": f"재검색으로 URL 확정 실패(confidence={confidence})",
+                })
+                continue
+            job = await process_job_url(page, url, listing_hint={"title": row.get("title"), "company": row.get("company")})
+            result = upsert_job_record(job, by_source_url, by_key)
+            reports.append({"id": job_id, "url_discovery_confidence": confidence, **job, **result})
+    return reports
 
 
 async def main():
@@ -647,4 +884,23 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--process-url", type=str, default="",
+        help="vieclam24h 상세페이지 URL 1건만 표준 파이프라인으로 처리(신규/기존 자동 판별, 목록 수집 없음)",
+    )
+    parser.add_argument(
+        "--reprocess-ids", type=str, default="",
+        help="쉼표구분 local_jobs id들만 표준 파이프라인으로 재처리(신규 공고 수집 없음)",
+    )
+    args = parser.parse_args()
+
+    if args.process_url:
+        report = asyncio.run(process_single_url(args.process_url))
+        print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+    elif args.reprocess_ids:
+        ids = [int(x.strip()) for x in args.reprocess_ids.split(",") if x.strip()]
+        reports = asyncio.run(reprocess_jobs(ids))
+        print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
+    else:
+        asyncio.run(main())
