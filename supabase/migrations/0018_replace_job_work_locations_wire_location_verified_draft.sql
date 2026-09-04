@@ -109,8 +109,23 @@ begin
     (r->>'coordinate_accuracy'),
     (r->>'address_evidence'),
     coalesce((r->>'location_verified')::boolean, false),
+    -- jsonb_array_elements_text()는 진짜 JSON 배열이 아닌 값(키 자체가
+    -- 없어서 SQL NULL인 경우, 또는 JSON null 스칼라("matched_recruitment_
+    -- regions": null)인 경우)에 대해 Postgres 버전/케이스별로 거동이
+    -- 갈릴 수 있어(SQL NULL은 보통 0행 반환으로 안전하지만, JSON null
+    -- 스칼라는 "cannot extract elements from a scalar" 오류를 낼 수 있는
+    -- 경로가 있다) 추측에 기대지 않고 jsonb_typeof()로 명시적으로 배열인
+    -- 경우에만 펼치고, 그 외(키 없음/JSON null/다른 타입 전부)는 안전하게
+    -- 빈 배열로 취급한다.
     coalesce(
-      (select array_agg(x) from jsonb_array_elements_text(r->'matched_recruitment_regions') as x),
+      (
+        select array_agg(x) from jsonb_array_elements_text(
+          case when jsonb_typeof(r->'matched_recruitment_regions') = 'array'
+            then r->'matched_recruitment_regions'
+            else '[]'::jsonb
+          end
+        ) as x
+      ),
       '{}'
     ),
     coalesce((r->>'sort_order')::int, 0)

@@ -11,10 +11,14 @@ crawl_topcv.py and geocode.py both create a Supabase client at import time
 from __future__ import annotations
 
 import asyncio
+import inspect
+import os
+from contextlib import asynccontextmanager
 
 import crawl_topcv
 import geocode
 from crawl_topcv import (
+    VerifyWriteExistingMatchError,
     _address_core,
     _group_candidates_by_core_location,
     _haversine_km,
@@ -1190,6 +1194,193 @@ def test_compute_job_recruitment_regions_survives_zero_work_location_rows() -> N
     )
 
 
+def test_verify_write_forces_active_false_admin_hidden_true_even_when_caller_tries_to_override() -> None:
+    """운영 적용 준비 회귀(2026-09-04, 사용자 지시 3/9번): verify_write=True일
+    때 upsert_job_record()가 INSERT payload의 active/admin_hidden/origin을
+    "마지막 단계"에서 강제로 덮어쓰는지 — 호출자가 job dict에 이미 정반대
+    값(active=True, admin_hidden=False)을 넣어 전달해도 절대 그 값이
+    실제 INSERT에 반영되지 않는지("호출자가 덮어쓸 수 없는지") 확인한다."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+    try:
+        # 호출자가 의도적으로 "공개" 값을 넣어 verify_write 강제를 무력화하려는
+        # 시나리오를 흉내낸다.
+        job = _make_rerun_job(
+            source_url="https://vieclam24h.vn/verify-write-override-attempt.html",
+            active=True, admin_hidden=False, origin="crawler",
+        )
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(job, by_source_url={}, by_key={}, verify_write=True)
+        assert_equal(result["action"], "inserted", "no existing match -> INSERT path")
+        assert_true(result.get("verify_write") is True, "result must clearly mark this as a verify-write save (사용자 지시 6번)")
+        insert_calls = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "insert"]
+        assert_equal(len(insert_calls), 1, "exactly one insert() call")
+        payload = insert_calls[0]["payload"] or {}
+        assert_equal(payload.get("active"), False, "verify_write must force active=False in the actual INSERT payload, regardless of what the caller's job dict said")
+        assert_equal(payload.get("admin_hidden"), True, "verify_write must force admin_hidden=True in the actual INSERT payload, regardless of what the caller's job dict said")
+        assert_equal(payload.get("origin"), "crawler", "verify_write must force/confirm origin='crawler'")
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
+def test_verify_write_rejects_existing_match_without_writing() -> None:
+    """운영 적용 준비 회귀(2026-09-04, 사용자 지시 5번): 검증 모드는 신규
+    INSERT만 허용한다 — 같은 source_url(canonical key)의 기존 공고가
+    발견되면 VerifyWriteExistingMatchError로 즉시 중단하고, insert()도
+    update()도 단 한 번도 호출되지 않아야 한다."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+    try:
+        existing = _make_existing_row()
+        by_source_url = {existing["source_url"]: existing}
+        by_key = {canonical_job_key(existing["title"], existing["company"]): existing}
+        job = _make_rerun_job(source_url=existing["source_url"])
+
+        raised = False
+        try:
+            with crawl_topcv.enable_writes():
+                crawl_topcv.upsert_job_record(job, by_source_url, by_key, verify_write=True)
+        except VerifyWriteExistingMatchError:
+            raised = True
+        assert_true(raised, "verify_write against an already-existing source_url must raise VerifyWriteExistingMatchError")
+        assert_equal(fake.calls, [], "no insert() or update() call may happen when verify_write hits an existing match")
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
+def test_reprocess_jobs_has_no_verify_write_parameter() -> None:
+    """운영 적용 준비 회귀(2026-09-04, 사용자 지시 4/5번): "기존 공고 UPDATE
+    경로에서는 --verify-write 사용 금지". reprocess_jobs()는 UPDATE 전용
+    경로(항상 기존 local_jobs id를 재처리)이므로, verify_write를 애초에
+    파라미터로도 받지 않아야 한다 — CLI 레벨 검증에만 의존하지 않고,
+    함수 시그니처 자체가 그 경로로는 절대 전달될 수 없음을 구조적으로
+    보장하는지 확인한다."""
+    sig = inspect.signature(crawl_topcv.reprocess_jobs)
+    assert_true(
+        "verify_write" not in sig.parameters,
+        "reprocess_jobs() must not accept a verify_write parameter at all — the UPDATE-only path must be structurally incapable of receiving it",
+    )
+
+
+def test_normal_crawl_path_never_references_verify_write() -> None:
+    """운영 적용 준비 회귀(2026-09-04, 사용자 지시 4번): "일반 크롤링 경로...
+    에서 --verify-write가 잘못 전달되지 않도록 분리". save_to_supabase()
+    (카테고리 전체 크롤이 쓰는 유일한 저장 진입점)의 소스 코드 자체에
+    "verify_write" 문자열이 전혀 없는지 확인한다 — 이 함수가
+    upsert_job_record()를 호출하는 자리에 verify_write가 실수로라도
+    끼어들 여지 자체가 없음을 뜻한다."""
+    source = inspect.getsource(crawl_topcv.save_to_supabase)
+    assert_true(
+        "verify_write" not in source,
+        "save_to_supabase()(normal crawl path) must never reference verify_write in any form",
+    )
+
+
+def test_process_urls_verify_write_generates_manifest_with_created_ids() -> None:
+    """운영 적용 준비 회귀(2026-09-04, 사용자 지시 6/7번): "저장된 검증 공고
+    ID를 실행 결과 JSON에 명확히 출력" + "3~5건 중 일부만 실패하면 생성된
+    ID 목록으로 정확히 원상복구할 수 있도록 manifest 생성". 신규/기존
+    매칭/파이프라인 실패 3가지가 섞인 배치를 넣어 각각 정확한 status로
+    기록되고, created_ids에는 실제로 생성된 것만 담기며, manifest가 디스크
+    파일로도 저장되는지 확인한다(브라우저/네트워크는 fake로 대체)."""
+    original_supabase = crawl_topcv.supabase
+    original_browser_page = crawl_topcv.browser_page
+    original_process_job_url = crawl_topcv.process_job_url
+    original_load_lookup = crawl_topcv.load_existing_lookup_maps
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+
+    existing_row = _make_existing_row(source_url="https://vieclam24h.vn/verify-write-existing.html")
+    crawl_topcv.load_existing_lookup_maps = lambda: (
+        {existing_row["source_url"]: existing_row},
+        {canonical_job_key(existing_row["title"], existing_row["company"]): existing_row},
+    )
+
+    @asynccontextmanager
+    async def fake_browser_page():
+        yield None
+    crawl_topcv.browser_page = fake_browser_page
+
+    async def fake_process_job_url(page, url, listing_hint=None):
+        if url == existing_row["source_url"]:
+            return _make_rerun_job(source_url=url, title=existing_row["title"], company=existing_row["company"])
+        if "fail" in url:
+            return {"source_url": url, "title": "Fail Job Title", "company": "Fail Job Co", "_pipeline_failed": True, "_failure_stage": "detail_fetch", "_failure_reason": "boom"}
+        # _make_rerun_job()의 기본 title/company("Test Job Title"/"Test Company")는
+        # _make_existing_row()의 기본값과 동일하므로, source_url이 달라도
+        # canonical_job_key로 우연히 existing_row와 매칭돼버린다 — 신규 후보는
+        # 반드시 서로 다른 title/company를 줘서 이 우연한 충돌을 피한다.
+        return _make_rerun_job(source_url=url, title="Brand New Job Title", company="Brand New Co")
+    crawl_topcv.process_job_url = fake_process_job_url
+
+    manifest = None
+    try:
+        urls = [
+            "https://vieclam24h.vn/verify-write-new-a.html",
+            existing_row["source_url"],
+            "https://vieclam24h.vn/verify-write-fail-b.html",
+        ]
+        manifest = asyncio.run(crawl_topcv.process_urls_verify_write(urls))
+        statuses = {e["url"]: e["status"] for e in manifest["entries"]}
+        assert_equal(statuses[urls[0]], "created", "brand-new URL must be created")
+        assert_equal(statuses[urls[1]], "skipped_existing", "URL matching an existing row must be skipped, never written")
+        assert_equal(statuses[urls[2]], "failed", "a pipeline failure must be recorded as failed, not silently dropped, and must not abort the rest of the batch")
+        assert_equal(len(manifest["created_ids"]), 1, "created_ids must contain exactly the 1 successfully created id, not the skipped/failed ones")
+        assert_true(os.path.exists(manifest["manifest_path"]), "the manifest must actually be written to a JSON file on disk (so a partial-failure batch can still be cleaned up precisely)")
+        with open(manifest["manifest_path"], encoding="utf-8") as f:
+            on_disk = __import__("json").load(f)
+        assert_equal(on_disk["created_ids"], manifest["created_ids"], "the on-disk manifest file must match the returned manifest")
+    finally:
+        crawl_topcv.supabase = original_supabase
+        crawl_topcv.browser_page = original_browser_page
+        crawl_topcv.process_job_url = original_process_job_url
+        crawl_topcv.load_existing_lookup_maps = original_load_lookup
+        if manifest and manifest.get("manifest_path") and os.path.exists(manifest["manifest_path"]):
+            os.remove(manifest["manifest_path"])
+
+
+def test_verify_write_created_jobs_excluded_from_public_home_search_map_query() -> None:
+    """운영 적용 준비 회귀(2026-09-04, 사용자 지시 8번): "verify-write로
+    생성된 공고가 홈·검색·지도·API 공개 쿼리에 노출되지 않는" 것을 보장하는
+    두 층을 함께 확인한다:
+    1. (이 테스트 파일, 크롤러 쪽) verify_write는 항상 active=False를 강제
+       한다 — 위 test_verify_write_forces_active_false_...로 이미 별도
+       검증됨(여기서는 전제로만 재확인).
+    2. (프론트, src/context/JobsContext.tsx) Home/검색/지도가 전부 공유하는
+       단 하나의 공개 조회 경로(useJobs())가 local_jobs를 select할 때
+       ".eq('active', true)"로 반드시 필터링하는지 — 소스 텍스트를 직접
+       읽어 그 필터가 local_jobs 조회 바로 다음 줄에 있는지 확인한다(이
+       필터가 실수로 제거되면 이 테스트가 실패해야 한다).
+
+    **중요, 확인된 한계(수정하지 않음, 보고만)**: 이 필터는 앱(JobsContext.tsx)
+    레벨에서만 적용된다 — supabase/migrations/0005의 local_jobs_public_select
+    RLS 정책은 `using (true)`로, anon key로 PostgREST REST API를 직접
+    호출하면 active/admin_hidden과 무관하게 모든 행을 읽을 수 있다(RLS가
+    active를 걸러주지 않음). 즉 "홈·검색·지도"(앱 UI)는 이 필터로 보장되지만,
+    "API"(원문 그대로의 PostgREST 엔드포인트)는 이 필터의 보호를 받지 않는다
+    — 이는 verify-write로 새로 생기는 문제가 아니라 이미 존재하던 모든
+    active=false 행에 똑같이 적용되는 기존 구조적 한계이며, RLS 정책 변경은
+    STRICT 등급(Auth/RLS)이라 사용자 승인 없이 여기서 고치지 않는다."""
+    assert_true(crawl_topcv is not None, "sanity — layer 1 (verify_write forces active=False) is covered by a separate dedicated test above")
+
+    jobs_context_path = os.path.join(os.path.dirname(__file__), "..", "src", "context", "JobsContext.tsx")
+    with open(jobs_context_path, encoding="utf-8") as f:
+        source = f.read()
+
+    select_idx = source.find(".from('local_jobs')")
+    assert_true(select_idx != -1, "JobsContext.tsx must still have exactly one public local_jobs query to check")
+    # 그 쿼리 체인 바로 다음(다음 300자 이내)에 active=true 필터가 있어야 한다 —
+    # 이 필터가 다른 곳으로 옮겨지거나 삭제되면 이 테스트가 실패해야 한다.
+    window = source[select_idx:select_idx + 400]
+    assert_true(
+        ".eq('active', true)" in window,
+        "the public local_jobs query in JobsContext.tsx (shared by Home/search/map via useJobs()) must filter .eq('active', true) — "
+        "if this assertion fails, a verify-write (or any inactive) job could leak into the public UI",
+    )
+
+
 def test_write_guard_blocks_unconfirmed_writes() -> None:
     # 회귀 테스트 — 2026-09-04, --dry-run-urls를 검증하다가 --process-url을
     # 실수로 호출해 운영 DB에 공고 1건이 실제로 저장된 사고(id=4370, 사용자
@@ -1267,6 +1458,12 @@ def main() -> int:
         test_resolve_work_locations_geocodes_single_candidate_unstripped,
         test_work_location_rpc_rows_includes_matched_recruitment_regions,
         test_compute_job_recruitment_regions_survives_zero_work_location_rows,
+        test_verify_write_forces_active_false_admin_hidden_true_even_when_caller_tries_to_override,
+        test_verify_write_rejects_existing_match_without_writing,
+        test_reprocess_jobs_has_no_verify_write_parameter,
+        test_normal_crawl_path_never_references_verify_write,
+        test_process_urls_verify_write_generates_manifest_with_created_ids,
+        test_verify_write_created_jobs_excluded_from_public_home_search_map_query,
         test_write_guard_blocks_unconfirmed_writes,
     ]
     for test in tests:

@@ -71,6 +71,16 @@ class WriteNotEnabledError(RuntimeError):
     즉시 실패한다."""
 
 
+class VerifyWriteExistingMatchError(RuntimeError):
+    """--verify-write(migration 0018 적용 전 검증용 저장 모드)는 신규 테스트
+    공고 INSERT만 허용한다 — 사용자 지시(2026-09-04, "운영 적용 준비"):
+    "검증 모드는 신규 테스트 공고 INSERT만 허용 / 같은 canonical key의 기존
+    공고가 발견되면 쓰지 않고 중단". upsert_job_record()가 verify_write=True로
+    호출됐는데 match_existing_row()가 이미 있는 행을 찾으면, UPDATE 경로로
+    넘어가지 않고 즉시 이 예외로 중단한다 — 검증 저장이 실수로 기존(운영)
+    공고를 건드릴 가능성 자체를 구조적으로 차단한다."""
+
+
 def _require_write_enabled() -> None:
     if not _WRITE_ENABLED:
         raise WriteNotEnabledError(
@@ -1117,7 +1127,7 @@ def match_existing_row(job: dict, by_source_url: dict, by_key: dict) -> dict | N
     return by_key.get(canonical_job_key(job.get("title", ""), job.get("company", "")))
 
 
-def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
+def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_write: bool = False) -> dict:
     """이 크롤러가 local_jobs/job_work_locations에 쓰는 단 하나의 저장 경로.
     카테고리 전체 크롤이 새로 발견한 공고, 재크롤에서 다시 만난 이미 아는
     공고, --process-url/--reprocess-ids로 수동 지정된 단건 재처리 —
@@ -1130,9 +1140,26 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
 
     enable_writes() 컨텍스트 밖에서 호출되면 WriteNotEnabledError로 즉시
     실패한다 — --dry-run-urls 등 검증 전용 경로가 실수로 이 함수를 호출해도
-    조용히 저장되지 않는다."""
+    조용히 저장되지 않는다.
+
+    verify_write=True(2026-09-04 사용자 지시, "운영 적용 준비" — migration
+    0018 실행 전 3~5건 검증 저장 전용): 이 함수가 안전장치의 **최종 단계**다
+    — 호출부(process_single_url 등)가 job["active"]/job["admin_hidden"]을
+    이미 조정해서 넘겼든 아니든 무관하게, 이 함수가 실제로 만드는
+    insert_payload에서 active/admin_hidden/origin을 마지막에 다시 한번
+    강제로 덮어쓴다(호출자가 실수로/의도적으로 덮어쓸 수 없게 하기 위한
+    구조적 보장 — 유닛 테스트로 직접 확인됨). 그리고 match_existing_row()가
+    기존 행을 찾으면(신규가 아니면) UPDATE 경로로 넘어가지 않고
+    VerifyWriteExistingMatchError로 즉시 중단한다 — 검증 저장은 항상 신규
+    INSERT만 허용, 기존(운영) 공고는 절대 건드리지 않는다."""
     _require_write_enabled()
     existing = match_existing_row(job, by_source_url, by_key)
+
+    if verify_write and existing is not None:
+        raise VerifyWriteExistingMatchError(
+            f"--verify-write: source_url={job.get('source_url')!r} (또는 같은 canonical key)이 "
+            f"이미 id={existing['id']}로 존재한다 — 검증 저장은 신규 공고만 허용하므로 저장하지 않고 중단한다."
+        )
 
     if job.get("_pipeline_failed"):
         print(f"    ❌ 파이프라인 실패[{job.get('_failure_stage')}]: {job.get('title', '')[:60]!r} — {job.get('_failure_reason')}")
@@ -1147,6 +1174,14 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
     if existing is None:
         insert_payload = {k: v for k, v in job.items() if not k.startswith("_")}
         insert_payload["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+        if verify_write:
+            # 최종 강제 — 호출자가 job["active"]/job["admin_hidden"]에 무엇을
+            # 넣었든(심지어 True/False로 덮어썼든) 여기서 항상 이 3개 값으로
+            # 확정한다. origin도 명시적으로 'crawler'를 재확정해, 검증 저장이
+            # 절대 기업 직접 등록 공고로 오인되지 않게 한다.
+            insert_payload["active"] = False
+            insert_payload["admin_hidden"] = True
+            insert_payload["origin"] = "crawler"
         result = supabase.table("local_jobs").insert(insert_payload).execute()
         row = (result.data or [{}])[0]
         job_id = row.get("id")
@@ -1187,6 +1222,14 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict) -> dict:
     elif had_transient:
         print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 — 근무지 동기화 보류(기존 데이터 유지)")
 
+    if verify_write:
+        # 사용자 지시: "저장된 검증 공고 ID를 실행 결과 JSON에 명확히 출력" —
+        # action은 이 지점에 도달하면 항상 "inserted"뿐이다(verify_write=True면
+        # UPDATE 경로 자체가 위에서 이미 예외로 차단됨). verify_write=True
+        # 마커를 결과에 남겨, 이 id가 검증용으로 만들어진 것임을 호출부/로그/
+        # manifest에서 값만 보고도 구분할 수 있게 한다.
+        print(f"    🧪 검증 저장 완료: id={job_id} (active=False, admin_hidden=True 강제됨)")
+        return {"action": action, "id": job_id, "verify_write": True}
     return {"action": action, "id": job_id}
 
 
@@ -1305,14 +1348,23 @@ async def discover_source_url(page, existing_row: dict) -> tuple[str | None, str
     return None, match["confidence"]
 
 
-async def process_single_url(url: str, *, confirm_write: bool = False) -> dict:
+async def process_single_url(url: str, *, confirm_write: bool = False, verify_write: bool = False) -> dict:
     """--process-url: source_url 1건만 표준 파이프라인으로 처리한다. 신규/
     기존 여부는 upsert_job_record()가 자동으로 판별한다 — 목록 페이지는
     전혀 건드리지 않으므로 신규 공고 수집이 아니다.
 
     confirm_write=True가 아니면 아무것도(브라우저조차) 실행하지 않고 즉시
     중단한다 — 2026-09-04, --dry-run-urls 검증 중 이 함수를 실수로 호출해
-    운영 DB에 공고가 저장된 사고 재발 방지."""
+    운영 DB에 공고가 저장된 사고 재발 방지.
+
+    verify_write=True(2026-09-04 사용자 지시, "운영 적용 준비"): confirm_
+    write=True와 함께일 때만 의미가 있고, upsert_job_record()에 그대로
+    전달해 최종 강제(active=False/admin_hidden=True/origin='crawler',
+    기존 행이면 저장 자체를 거부)를 맡긴다 — 이 함수 자체는 강제 로직을
+    직접 갖지 않는다(단일 지점에서만 강제하기 위함, upsert_job_record
+    참고). verify_write=True인데 confirm_write=False면 어차피 위
+    WriteNotEnabledError로 먼저 막힌다(정상적인 --process-url 단독 호출과
+    분리를 위해 두 플래그를 각각 독립적으로 검사)."""
     if not confirm_write:
         raise WriteNotEnabledError(
             "--process-url은 실제로 DB에 저장한다 — 명시적으로 --confirm-write를 "
@@ -1322,7 +1374,7 @@ async def process_single_url(url: str, *, confirm_write: bool = False) -> dict:
     async with browser_page() as page:
         job = await process_job_url(page, url)
     with enable_writes():
-        result = upsert_job_record(job, by_source_url, by_key)
+        result = upsert_job_record(job, by_source_url, by_key, verify_write=verify_write)
     return {**job, **result}
 
 
@@ -1387,6 +1439,68 @@ async def process_urls_dry_run(urls: list[str]) -> list[dict]:
     return reports
 
 
+async def process_urls_verify_write(urls: list[str]) -> dict:
+    """--verify-write-urls: migration 0018 적용 전 검증용 3~5건 실제 저장
+    전용(2026-09-04 사용자 지시, "운영 적용 준비"). 여러 URL을 순차로
+    upsert_job_record(..., verify_write=True)로 저장하고, 성공/스킵/실패
+    결과를 담은 manifest를 JSON 파일로 남긴다 — 일부만 실패해도 실제로
+    생성된 id만 정확히 골라 원상복구(delete)할 수 있게 하기 위함(사용자
+    지시: "3~5건 중 일부만 실패하면 생성된 ID 목록으로 정확히 원상복구할 수
+    있도록 manifest 생성").
+
+    각 URL은 독립적으로 처리된다 — 한 URL이 실패해도 나머지는 계속
+    진행한다(실사례를 여러 건 검증할 때 하나의 오류로 전체가 중단되지
+    않게). 이미 존재하는 공고(canonical key/source_url 매칭)를 만나면
+    upsert_job_record()가 VerifyWriteExistingMatchError로 거부하므로,
+    이 경우도 "failed"가 아니라 "skipped_existing"으로 명확히 구분해
+    기록한다."""
+    by_source_url, by_key = load_existing_lookup_maps()
+    manifest = {
+        "mode": "verify_write",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "entries": [],
+    }
+    async with browser_page() as page:
+        for url in urls:
+            entry: dict = {"url": url, "status": None, "id": None, "detail": None}
+            try:
+                job = await process_job_url(page, url)
+                if job.get("_pipeline_failed"):
+                    entry["status"] = "failed"
+                    entry["detail"] = f"{job.get('_failure_stage')}: {job.get('_failure_reason')}"
+                elif job.get("_skip"):
+                    entry["status"] = "skipped"
+                    entry["detail"] = job.get("_skip_reason")
+                else:
+                    with enable_writes():
+                        result = upsert_job_record(job, by_source_url, by_key, verify_write=True)
+                    entry["status"] = "created"
+                    entry["id"] = result["id"]
+                    # 같은 배치 안의 다음 URL이 우연히 같은 canonical key를
+                    # 가리켜도 다시 신규로 오인해 중복 삽입하지 않도록, 방금
+                    # 만든 행을 lookup map에 즉시 반영한다.
+                    if job.get("source_url"):
+                        by_source_url[job["source_url"]] = {"id": result["id"], "origin": "crawler"}
+                    key = canonical_job_key(job.get("title", ""), job.get("company", ""))
+                    by_key[key] = {"id": result["id"], "origin": "crawler"}
+            except VerifyWriteExistingMatchError as exc:
+                entry["status"] = "skipped_existing"
+                entry["detail"] = str(exc)
+            except Exception as exc:  # noqa: BLE001 — 배치 하나의 실패로 전체를 중단하지 않기 위해 의도적으로 광범위 포착
+                entry["status"] = "failed"
+                entry["detail"] = f"{type(exc).__name__}: {exc}"
+            manifest["entries"].append(entry)
+            print(f"    🧪 [{entry['status']}] {url} -> id={entry['id']}")
+
+    manifest["created_ids"] = [e["id"] for e in manifest["entries"] if e["status"] == "created"]
+    manifest_path = f"verify_write_manifest_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2, default=str)
+    manifest["manifest_path"] = manifest_path
+    print(f"    📄 manifest 저장: {manifest_path} (created_ids={manifest['created_ids']})")
+    return manifest
+
+
 async def main():
     print("🚀 vieclam24h 크롤링 시작")
     print("─" * 50)
@@ -1413,11 +1527,46 @@ if __name__ == "__main__":
         help="쉼표구분 URL들을 표준 파이프라인으로 처리하되 DB에 아무것도 쓰지 않는다(검증 전용)",
     )
     parser.add_argument(
+        "--verify-write-urls", type=str, default="",
+        help="쉼표구분 URL들을 --verify-write 모드로 실제 저장한다(신규만, active=False/"
+             "admin_hidden=True 강제, manifest 파일 생성) — --confirm-write와 --verify-write를 "
+             "모두 함께 지정해야 한다. migration 0018 적용 전 3~5건 검증 저장 전용.",
+    )
+    parser.add_argument(
         "--confirm-write", action="store_true",
-        help="--process-url/--reprocess-ids가 실제로 DB에 쓰도록 명시적으로 승인한다 "
-             "(2026-09-04 사고 재발 방지 — 이 플래그 없이는 두 명령 모두 아무것도 하지 않고 중단한다)",
+        help="--process-url/--reprocess-ids/--verify-write-urls가 실제로 DB에 쓰도록 명시적으로 "
+             "승인한다(2026-09-04 사고 재발 방지 — 이 플래그 없이는 아무것도 하지 않고 중단한다)",
+    )
+    parser.add_argument(
+        "--verify-write", action="store_true",
+        help="migration 0018 적용 전 검증 저장 모드 — --confirm-write와 함께, --process-url 또는 "
+             "--verify-write-urls와만 결합 가능(둘 다 신규 INSERT만 허용, 기존 공고 발견 시 중단). "
+             "--reprocess-ids(UPDATE 전용 경로)와는 함께 쓸 수 없다.",
     )
     args = parser.parse_args()
+
+    # 사용자 지시(2026-09-04, "운영 적용 준비" 4/5번): --verify-write가
+    # 일반 --process-url이나 --reprocess-ids(UPDATE 경로)로 잘못 새어들어가지
+    # 않도록, 조합 자체를 CLI 레벨에서 명시적으로 검증한다 — 두 플래그가
+    # 각각 무엇을 요구하는지 한곳에서 확인 가능하게.
+    if args.verify_write and args.reprocess_ids:
+        raise SystemExit(
+            "--verify-write는 --reprocess-ids(기존 공고 UPDATE 전용 경로)와 함께 쓸 수 없습니다 — "
+            "검증 저장은 신규 공고 INSERT만 허용합니다. --process-url 또는 --verify-write-urls를 쓰세요. 중단합니다."
+        )
+    if args.verify_write and not args.confirm_write:
+        raise SystemExit(
+            "--verify-write는 --confirm-write와 함께 지정해야 합니다(둘 다 있어야 검증 저장이 실행됩니다). 중단합니다."
+        )
+    if args.verify_write and not (args.process_url or args.verify_write_urls):
+        raise SystemExit(
+            "--verify-write는 --process-url 또는 --verify-write-urls와 함께 지정해야 합니다. 중단합니다."
+        )
+    if args.verify_write_urls and not args.verify_write:
+        raise SystemExit(
+            "--verify-write-urls는 반드시 --verify-write(그리고 --confirm-write)와 함께 지정해야 합니다 — "
+            "일반 저장이 필요하면 이 플래그 대신 --process-url을 반복 사용하세요. 중단합니다."
+        )
 
     if args.process_url:
         if not args.confirm_write:
@@ -1425,7 +1574,7 @@ if __name__ == "__main__":
                 "--process-url은 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요 "
                 "(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
             )
-        report = asyncio.run(process_single_url(args.process_url, confirm_write=True))
+        report = asyncio.run(process_single_url(args.process_url, confirm_write=True, verify_write=args.verify_write))
         print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
     elif args.reprocess_ids:
         if not args.confirm_write:
@@ -1434,8 +1583,19 @@ if __name__ == "__main__":
                 "(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
             )
         ids = [int(x.strip()) for x in args.reprocess_ids.split(",") if x.strip()]
+        # reprocess_jobs()는 verify_write 파라미터 자체가 없다 — 위에서 이미
+        # --verify-write + --reprocess-ids 조합을 막았으므로 여기까지 오면
+        # verify_write가 아예 전달될 수 없는 정상 재처리 경로만 남는다.
         reports = asyncio.run(reprocess_jobs(ids, confirm_write=True))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
+    elif args.verify_write_urls:
+        if not args.confirm_write:
+            raise SystemExit(
+                "--verify-write-urls는 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요. 중단합니다."
+            )
+        urls = [u.strip() for u in args.verify_write_urls.split(",") if u.strip()]
+        manifest = asyncio.run(process_urls_verify_write(urls))
+        print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
     elif args.dry_run_urls:
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
         reports = asyncio.run(process_urls_dry_run(urls))
