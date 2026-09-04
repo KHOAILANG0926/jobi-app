@@ -353,6 +353,31 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
             f"the queried street ('Bình Đường 3') must never reach exact — coordinate convergence alone isn't enough "
             f"for a plain street address any more than it is for a named building (got {r6['coordinate_accuracy']!r}, evidence: {r6['evidence']!r})",
         )
+
+        # ── 실사례 회귀(2026-09-04, 사용자 지시 6단계 — 새 20건 첫 검증 중 발견):
+        # "Parc Mall, 547-549 Tạ Quang Bửu, Phường Chánh Hưng. TP HCM, Quận 8"
+        # — raw/bbox 2개 변형은 city="Thủ Đức"로 동일 좌표(진짜 위치, TP.HCM
+        # 소속)에 수렴했는데, structured 변형 1개가 신뢰도 0에 가까운 완전
+        # 무관한 Lâm Đồng 지역 결과를 반환했다는 이유만으로 전체가 즉시
+        # unresolved 처리됐다(2:1로 명백히 열세인 단독 반대표가 무조건 거부권을
+        # 행사하던 결함 — 아래 "outvoted" 검사가 이미 이런 표수 비교를 하고
+        # 있었지만, 그 앞의 무조건 검사가 먼저 실행돼 판단 기회 자체가 없었음).
+        addr7 = "Parc Mall, 547-549 Tạ Quang Bửu, Phường Chánh Hưng. TP HCM, Quận 8"
+        province7 = "TP.HCM"
+        variants7 = build_query_variants(addr7, province7)
+        real_place = _success(10.7407426, 106.6791547, "amenity", city="Thủ Đức", name="Parc Mall")
+        garbage_far = _success(11.9460186, 108.5012536, "building", state="Lâm Đồng Province", county="Lộc Quý")
+        by_variant7 = {v["type"]: v["query"] for v in variants7}
+        responses7 = {}
+        for vtype, query in by_variant7.items():
+            responses7[query] = garbage_far if vtype == "structured" else real_place
+        geocode_module._geocode_query_raw = make_fake_raw(responses7)
+        r7 = resolve_coordinate_accuracy(addr7, province7)
+        assert_true(
+            r7["coordinate_accuracy"] != "unresolved",
+            f"2 variants (raw+bbox) converge on the correct Thủ Đức/TP.HCM location — a 3rd, lone, unrelated "
+            f"Lâm Đồng result from a single variant must not veto them (got {r7['coordinate_accuracy']!r}, evidence: {r7['evidence']!r})",
+        )
     finally:
         geocode_module._geocode_query_raw = original
 

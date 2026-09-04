@@ -538,11 +538,15 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
 
     Tier rules (see crawler/test_address_pipeline_integration.py for the
     worked real-address examples that motivated each one):
-    - A "conflicting" address (2+ variants land in non-centroid results, and
-      at least one of them is confidently in a DIFFERENT province than
-      expected) is never trusted at any tier above 'unresolved' — a single
-      correct-looking hit does not outweigh evidence the address is
-      ambiguous/collides with an unrelated same-named place elsewhere.
+    - A "conflicting" address (a non-centroid, out-of-province result exists
+      from at least as many distinct variants as the best in-province
+      non-centroid cluster) is never trusted at any tier above 'unresolved' —
+      genuinely ambiguous evidence must not be overridden by one correct-
+      looking hit. But a LONE, uncorroborated out-of-province result — fewer
+      distinct variants than the in-province cluster it would override — no
+      longer vetoes it (confirmed live: a single near-zero-confidence
+      Geoapify fallback to an unrelated province must not throw away 2
+      variants that already converged on the right one).
     - 'exact': 2+ distinct query variants converge (<=300m) on a non-centroid,
       province-confirmed point, AND the core identifier (extract_core_identifier
       — a named building/park if the address has one, otherwise the address's
@@ -617,10 +621,21 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
             for q in non_centroid_ok
         )
 
-    conflicting = any(
-        not p["province_ok"] and not _has_nearby_confirmed_match(p)
-        for p in non_centroid
-    )
+    # 실측 발견(2026-09-04, 사용자 지시 6단계 — 새 20건 첫 검증 중 발견): 위
+    # sparse-metadata 예외를 거치고도 여전히 province_ok=False인 non-centroid
+    # 결과가 "단 하나"라도 있으면, 그게 신뢰도 0에 가까운 완전 무관한 결과(예:
+    # 실측 "Parc Mall, 547-549 Tạ Quang Bửu..." — raw/bbox 2개 변형은 city=
+    # "Thủ Đức"로 동일 좌표 수렴(올바른 지역)했는데, structured 변형 1개가 전혀
+    # 무관한 Lâm Đồng 지역 결과 1건을 반환했다는 이유만으로 전체가 즉시
+    # unresolved 처리되던 결함 — 아래 "outvoted" 검사가 이런 표수 비교를 이미
+    # 하고 있지만, 이 무조건 거부가 먼저 실행돼 그 판단 기회 자체를 없애버렸다.
+    # 이제 out-of-province 쪽 변형 수가 in-province(non_centroid_ok) 쪽 변형
+    # 수보다 적으면(즉, 명백히 열세면) 충돌로 보지 않는다 — 동수(같은 표수)는
+    # 여전히 판단 불가로 충돌 처리한다(아래 outvoted 검사와 동일한 원칙).
+    out_of_province = [p for p in non_centroid if not p["province_ok"] and not _has_nearby_confirmed_match(p)]
+    out_of_province_variants = {p["variant"] for p in out_of_province}
+    in_province_variants = {p["variant"] for p in non_centroid_ok}
+    conflicting = bool(out_of_province) and len(out_of_province_variants) >= len(in_province_variants)
     conflict_reason = "a non-centroid result in a different province was found" if conflicting else ""
 
     # "Outvoted" check: a province-name text match can be a same-name
