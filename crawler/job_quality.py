@@ -50,6 +50,37 @@ def parse_listing_card_lines(lines: list[str]) -> dict[str, str | None]:
     return {"title": title, "company": company, "location": location}
 
 
+def pick_detail_company_name(candidates: list[str]) -> str:
+    """Pure mirror of fetch_job_detail()'s in-page company-name selection in
+    crawl_topcv.py — kept here ONLY so that logic can be unit tested without a
+    real browser (the actual crawl always runs the JS version in-page, this
+    never executes during a real crawl). If either side changes, update both.
+
+    candidates: text of every "-ntd..." anchor on the detail page, in DOM
+    order. The first such anchor (near the job title) is server-truncated by
+    the source site itself (confirmed live on a real posting: "Công Ty Cổ
+    Phần Dịch ..."), while a later one in the company-info block near the
+    bottom of the page carries the full name — picking the first candidate
+    blindly (the original bug) truncates the company name on almost every
+    real listing. Prefers the first candidate that isn't ellipsis-truncated;
+    falls back to the first candidate if every one is."""
+    cleaned = [c for c in candidates if c and c != "Xem trang công ty"]
+    for c in cleaned:
+        if not c.endswith("..."):
+            return c
+    return cleaned[0] if cleaned else ""
+
+
+def strip_salary_badge_label(raw: object) -> str:
+    """Pure mirror of fetch_job_detail()'s salary-badge extraction — the
+    badge row's first child concatenates the "Mức lương" label directly onto
+    the value with no separator (e.g. "Mức lương7.5 - 9 triệu", confirmed
+    live) — strips the label. See pick_detail_company_name()'s docstring for
+    why this Python copy exists."""
+    text = normalize_whitespace(raw)
+    return re.sub(r"^Mức lương", "", text).strip()
+
+
 VALID_CATEGORIES = {
     "factory",
     "cafe",

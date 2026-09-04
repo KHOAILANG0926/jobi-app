@@ -318,10 +318,27 @@ async def fetch_job_detail(page, url: str) -> dict:
             // 없이도 이 값들만으로 필수정보를 온전히 재추출할 수 있다.
             const h1 = document.querySelector('h1')
             const detailTitle = h1 ? h1.innerText.trim() : ''
-            const companyLink = Array.from(document.querySelectorAll('a'))
-              .find(a => (a.getAttribute('href') || '').includes('/nha-tuyen-dung/')
+            // 제목 바로 아래 배지 행의 첫 칸이 항상 "Mức lương<값>"(레이블+값이
+            // 같은 텍스트 노드에 붙어 있음, 실측 확인) — 이 구조화된 값이 목록 카드
+            // salary나 본문 정규식 추출보다 훨씬 신뢰도가 높다(실측: 10건 중 7건에서
+            // 본문 정규식 추출이 이 배지 값과 다르거나 아예 "Thỏa thuận"으로 잘못
+            // 대체됨 — 예: 배지 "9 - 20 triệu"인데 본문 문장 중 "13.000.000đ"만
+            // 잘못 집힘).
+            const salaryBadgeRow = h1 ? h1.nextElementSibling : null
+            const salaryBadgeRaw = salaryBadgeRow && salaryBadgeRow.children[0] ? salaryBadgeRow.children[0].textContent.trim() : ''
+            const detailSalary = salaryBadgeRaw.replace(/^Mức lương/, '').trim()
+            // 회사 링크(-ntd 패턴)가 페이지 안에 여러 번 나온다 — 제목 바로 아래의
+            // 첫 번째는 사이트 자체가 "..."로 잘라놓은 축약 텍스트이고(예: "Công Ty
+            // Cổ Phần Dịch ..."), 실제 전체 회사명은 하단 "회사 정보" 블록의 링크에만
+            // 있다(실측 확인: -ntd202370992 공고). 첫 번째 매치를 그대로 쓰면 회사명이
+            // 항상 잘려서 저장되는 버그가 되므로, "..."로 끝나지 않는 후보를 우선한다
+            // ("Xem trang công ty" CTA 텍스트, 로고 이미지만 있는 빈 텍스트는 제외).
+            const companyCandidates = Array.from(document.querySelectorAll('a'))
+              .filter(a => (a.getAttribute('href') || '').includes('/nha-tuyen-dung/')
                 || (a.getAttribute('href') || '').match(/-ntd\\d+/))
-            const detailCompany = companyLink ? companyLink.textContent.trim() : ''
+              .map(a => a.textContent.trim())
+              .filter(t => t && t !== 'Xem trang công ty')
+            const detailCompany = companyCandidates.find(t => !t.endsWith('...')) || companyCandidates[0] || ''
             let detailLocationLabel = ''
             for (const el of document.querySelectorAll('*')) {
               if (el.children.length === 0 && (el.textContent || '').trim() === 'Khu vực tuyển') {
@@ -332,12 +349,12 @@ async def fetch_job_detail(page, url: str) -> dict:
 
             return {
                 deadline, sections, hasApplyButton, expiredBanner,
-                detailTitle, detailCompany, detailLocationLabel,
+                detailTitle, detailCompany, detailLocationLabel, detailSalary,
             }
         }""", _EXPIRED_PAGE_PATTERNS)
         result = result or {
             "deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False,
-            "detailTitle": "", "detailCompany": "", "detailLocationLabel": "",
+            "detailTitle": "", "detailCompany": "", "detailLocationLabel": "", "detailSalary": "",
         }
         if not result.get("sections"):
             # DOM heading selectors occasionally miss SPA detail layouts; keep a
@@ -354,7 +371,7 @@ async def fetch_job_detail(page, url: str) -> dict:
         print(f"    ⚠️  상세 수집 실패: {url} ({exc})")
         return {
             "deadline": None, "sections": {}, "hasApplyButton": False, "expiredBanner": False,
-            "httpStatus": None, "detailTitle": "", "detailCompany": "", "detailLocationLabel": "",
+            "httpStatus": None, "detailTitle": "", "detailCompany": "", "detailLocationLabel": "", "detailSalary": "",
             "fetchOk": False, "fetchError": str(exc),
         }
 
@@ -444,8 +461,19 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
     work_location_section = detail.get("sections", {}).get("Địa điểm làm việc", "")
     work_locations = split_work_locations(work_location_section, with_region=True)
+    # 우선순위: 상세페이지 자체의 "Mức lương" 배지(구조화된 값, 가장 신뢰도 높음)
+    # -> 목록 카드 salary(listing_hint, 카테고리 크롤에서만 존재) -> 본문 정규식
+    # 추출(최후 수단 — 실측 확인: 10건 중 7건에서 배지 값과 다르거나 "Thỏa thuận"
+    # 으로 잘못 대체됨, 예: 배지 "9 - 20 triệu" vs 정규식이 본문 중 무관한
+    # "13.000.000đ" 한 토큰만 집어낸 경우).
+    detail_salary = detail.get("detailSalary")
     listing_salary = listing_hint.get("salary")
-    salary = normalize_salary(listing_salary) if normalize_whitespace(listing_salary) else extract_salary_from_text(desc_text)
+    if normalize_whitespace(detail_salary):
+        salary = normalize_salary(detail_salary)
+    elif normalize_whitespace(listing_salary):
+        salary = normalize_salary(listing_salary)
+    else:
+        salary = extract_salary_from_text(desc_text)
 
     # 분류: 제목 + 회사 + 본문 첫 300자 활용
     category = classify(title, company, desc_text)

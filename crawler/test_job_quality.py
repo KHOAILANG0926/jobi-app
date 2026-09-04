@@ -21,7 +21,9 @@ from job_quality import (
     normalize_location,
     normalize_salary,
     parse_listing_card_lines,
+    pick_detail_company_name,
     split_work_locations,
+    strip_salary_badge_label,
     validate_job_payload,
 )
 
@@ -552,6 +554,48 @@ def test_exact_address_takes_priority_over_approximate() -> None:
     assert_equal(work_locations, exact_addresses, "exact structured address list wins; approximate province guessing is never consulted")
 
 
+def test_detail_page_company_and_salary_extraction() -> None:
+    # 실측 fixture — 2026-09-04, vieclam24h.vn 실제 공고 10건에서 확인된 회사명/
+    # 급여 추출 결함의 회귀 테스트. --dry-run-urls로 10건 전수 비교한 결과,
+    # 회사명은 10건 중 9건이 사이트 자체가 "..."로 자른 축약 텍스트로 잘못
+    # 저장됐고(첫 번째 -ntd 링크만 썼기 때문 — 실제 전체 회사명은 하단 회사 정보
+    # 블록의 링크에만 있음), 급여는 10건 중 7건이 상세페이지 "Mức lương" 배지값과
+    # 다르거나 아예 "Thỏa thuận"으로 잘못 대체됐다(본문 자유 텍스트 정규식만 썼기
+    # 때문). 아래는 그 10건 중 대표 사례를 그대로 옮긴 것 — 특정 공고 id를
+    # 코드에서 분기하지 않고, 공통 파서(pick_detail_company_name/
+    # strip_salary_badge_label)로 전부 통과해야 한다.
+    real_company_candidate_lists = [
+        (["Công Ty Cổ Phần Dịch ...", "", "Công Ty Cổ Phần Dịch Vụ Bảo Vệ Sao Vàng Fb", "Xem trang công ty"],
+         "Công Ty Cổ Phần Dịch Vụ Bảo Vệ Sao Vàng Fb"),
+        (["Công Ty TNHH Dịch Vụ ...", "", "Công Ty TNHH Dịch Vụ Bảo Vệ Vincom", "Xem trang công ty"],
+         "Công Ty TNHH Dịch Vụ Bảo Vệ Vincom"),
+        (["Công Ty Cổ Phần Chè ...", "", "Công Ty Cổ Phần Chè Thành Ngọc", "Xem trang công ty"],
+         "Công Ty Cổ Phần Chè Thành Ngọc"),
+        (["Công Ty TNHH DV Nha ...", "", "Công Ty TNHH DV Nha Khoa Sài Gòn Hoàn Mỹ", "Xem trang công ty"],
+         "Công Ty TNHH DV Nha Khoa Sài Gòn Hoàn Mỹ"),
+        (["Công Ty TNHH Ốc Vít ...", "", "Công Ty TNHH Ốc Vít Bảo Chứng", "Xem trang công ty"],
+         "Công Ty TNHH Ốc Vít Bảo Chứng"),
+        # 축약되지 않은 짧은 상호는 첫 후보가 이미 전체 이름이므로 그대로 유지.
+        (["Dntn Khách Sạn Tràng An", "", "Dntn Khách Sạn Tràng An", "Xem trang công ty"],
+         "Dntn Khách Sạn Tràng An"),
+        # 후보 전부가 "..."로 끝나는 극단적인 경우 — 첫 후보로 안전하게 폴백.
+        (["Công Ty ABC ...", "Công Ty ABC ..."], "Công Ty ABC ..."),
+        ([], ""),
+    ]
+    for candidates, expected in real_company_candidate_lists:
+        assert_equal(pick_detail_company_name(candidates), expected, f"company candidates {candidates!r}")
+
+    real_salary_badges = [
+        ("Mức lương7.5 - 9 triệu", "7.5 - 9 triệu"),
+        ("Mức lương9 - 20 triệu", "9 - 20 triệu"),
+        ("Mức lương6 - 8 triệu", "6 - 8 triệu"),
+        ("Mức lương11 - 13 triệu", "11 - 13 triệu"),
+        ("", ""),
+    ]
+    for raw, expected in real_salary_badges:
+        assert_equal(strip_salary_badge_label(raw), expected, f"salary badge {raw!r}")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -560,6 +604,7 @@ def main() -> int:
         test_normalize_location_province_fallback, test_location_validation_and_multi_province,
         test_work_location_context_filtering, test_unknown_location_never_defaults_to_a_city,
         test_exact_address_takes_priority_over_approximate,
+        test_detail_page_company_and_salary_extraction,
     ]
     for test in tests:
         test()
