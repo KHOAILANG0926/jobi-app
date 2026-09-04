@@ -1,23 +1,31 @@
 # ChatGPT ↔ Claude Code 인수인계 문서
 
-## ✅ P1 해결됨 — RLS migration 0019 적용 완료(2026-09-04)
+## ✅ P1(RLS) 해결 + 기업 접근 경로 정리 완료(2026-09-04)
 
-운영 Supabase(`edhuesdnuxlbcfephutq`)에서 `local_jobs`/`job_work_locations`의
-anon REST 노출 문제(비공개 inactive 공고와 모든 근무지 주소가 anon key로
-그대로 조회되던 문제)를 **RLS migration 0019로 실제 수정하고 검증까지
-완료**했다. 상세 재현 로그·전체 SQL·검증 결과는
-[RLS_MIGRATION_0019_FINAL.md](RLS_MIGRATION_0019_FINAL.md)(적용+검증
-결과), 사전 감사는 [RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md) 참고.
+운영 Supabase(`edhuesdnuxlbcfephutq`)의 `local_jobs`/`job_work_locations`
+anon REST 노출 문제를 **RLS migration 0019로 실제 수정·검증**했고, 그
+뒤에 이어서 **프론트 `EmployerDashboard`/`RequireEmployer`도 실제로
+그 정책을 활용하도록 수정**했다.
 
-**적용 후 실측 확인**: active=false 공고 anon 노출 0건(적용 전 3건) —
-해결됨. 기업 계정은 본인 소유 비공개 공고 접근 가능(함수 로직 검증),
-관리자는 전체 접근 가능(실측), service_role 영향 없음(정책 미변경).
-실패 0건이라 rollback은 실행하지 않았다.
+- RLS 적용+검증 결과: [RLS_MIGRATION_0019_FINAL.md](RLS_MIGRATION_0019_FINAL.md)
+  (사전 감사는 [RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md))
+- 기업 접근 경로 정리 결과: [EMPLOYER_ACCESS_PATH_FIX.md](EMPLOYER_ACCESS_PATH_FIX.md)
 
-**아직 안 한 것**: migration 0018 실행, `0020`(admin_* EXECUTE 축소,
-별도 하드닝) 실행, `--verify-write-urls` 표본 저장, `EmployerDashboard.
-tsx`/`RequireEmployer.tsx` 프론트 diff 적용, cron/GHA 활성화 — 전부
-별도 승인 대기.
+**실측으로 확인된 것**: anon은 공개 공고만(active=false 노출 0건 —
+적용 전 3건에서 전환), 관리자는 전체 접근, 기업은 타사 비공개 공고를
+못 봄, 일반 사용자가 화면 조작해도 seeker 계정으로는 쓰기 조건을
+통과 못함(RLS 조건 직접 평가), Home/공고상세 화면 회귀 없음, `tsc`/
+`build`/신규 유닛테스트(11건) 전부 통과.
+
+**부분 검증으로만 표시된 것(과장하지 않음)**: admin_hidden=true 조합
+2가지(실제 행 없음, 함수 로직만), 기업이 본인 비공개 공고를 실제로
+보는지(코드/유닛테스트만, 실제 로그인 화면 미확인 — 테스트 계정 없음,
+계정 생성은 금지된 행동), service_role 영향 없음(속성 기반 판단, 실제
+요청 안 함), 관리자 화면 회귀(빌드 성공 근거만, 실제 화면 미확인).
+
+**아직 안 한 것**: migration 0018 실행, `0020`(admin_* EXECUTE 축소)
+실행, `--verify-write-urls` 표본 저장, cron/GHA 활성화 — 전부 별도
+승인 대기.
 
 ---
 

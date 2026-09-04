@@ -7541,6 +7541,18 @@ a:hover {
   color: #94a3b8;
 }
 
+.edb-job-item__status {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.edb-job-item__status--pending {
+  color: #b45309;
+}
+.edb-job-item__status--hidden {
+  color: #b91c1c;
+}
+
 .edb-job-item__right {
   display: flex;
   flex-direction: column;

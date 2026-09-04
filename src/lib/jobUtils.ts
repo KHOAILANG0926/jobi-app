@@ -1,5 +1,5 @@
 import type { Job } from '../types/job'
-import { withJobCoordinates } from './jobCoords'
+import { withJobCoordinates } from './jobCoords.ts'
 
 export function ensureJobFields(j: Job): Job {
   const text = `${j.title} ${j.description}`.toLowerCase()

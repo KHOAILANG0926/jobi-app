@@ -7,100 +7,11 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { classifyJobCategory } from '../lib/jobCategoryRules'
 import { isPublicJobAllowed } from '../lib/jobQualityFilter'
 import { ensureJobFields } from '../lib/jobUtils'
+import { rowToJob, rowToWorkLocation } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
-import type { CoordinateAccuracy, Job } from '../types/job'
-
-function parseDescription(raw: string): { description: string; source?: string } {
-  const match = raw?.match(/\[source:([^\]]+)\]/)
-  if (!match) return { description: raw ?? '' }
-  const rest = raw.replace(match[0], '').trim()
-  return {
-    description: rest,
-    source: match[1],
-  }
-}
-
-function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] extends (infer U)[] | undefined ? U : never {
-  const coordinateAccuracy = (r.coordinate_accuracy as CoordinateAccuracy | null | undefined) ?? undefined
-  const locationVerified = (r.location_verified as boolean | null | undefined) ?? undefined
-  // 'exact'는 무조건 신뢰한다. 'ward'는 locationVerified(원문 좌표로 실제 확인됨)일
-  // 때만 신뢰한다 — 2026-09-04 사용자 지시(반복주소 실측 발견): 같은 물리적 장소가
-  // 모집지역 접미사만 다르게 붙어 여러 번 geocode되면 'ward' 등급도 최대 ~15km까지
-  // 틀릴 수 있음이 확인됐다(KCN Hiệp Phước 공고). region/unresolved는 DB에 lat/lng가
-  // 있어도(과거 데이터 등) 프론트에서 지도에 쓰지 않는다. coordinate_accuracy 컬럼이
-  // 아직 없는(마이그레이션 전) 환경에서는 undefined이므로, 기존 lat/lng가 있으면
-  // 안전한 기본값인 'exact'로 간주해 기존 동작을 유지한다.
-  const trusted = coordinateAccuracy == null || coordinateAccuracy === 'exact' || locationVerified === true
-  return {
-    id: r.id as number,
-    rawAddress: (r.raw_address as string) ?? '',
-    normalizedAddress: (r.normalized_address as string) ?? undefined,
-    lat: typeof r.lat === 'number' && Number.isFinite(r.lat) && trusted ? (r.lat as number) : undefined,
-    lng: typeof r.lng === 'number' && Number.isFinite(r.lng) && trusted ? (r.lng as number) : undefined,
-    sortOrder: (r.sort_order as number) ?? 0,
-    coordinateAccuracy: coordinateAccuracy ?? undefined,
-    locationVerified,
-    // job_work_locations.matched_recruitment_regions 컬럼은 아직 없다(draft
-    // migration 0018, 미실행) — select에도 포함하지 않았으므로 r.matched_
-    // recruitment_regions는 항상 undefined. 컬럼이 생기고 select에 추가되면
-    // 자동으로 채워진다.
-    matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
-  }
-}
-
-function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLocations']): Job {
-  const { description, source } = parseDescription((r.description as string) ?? '')
-  const baseJob = {
-    title: (r.title as string) ?? '',
-    company: (r.company as string) ?? '',
-    category: (r.category as Job['category']) ?? 'other',
-    description,
-  }
-  return ensureJobFields({
-    id: `sb-${r.id}`,
-    title: baseJob.title,
-    company: baseJob.company,
-    category: classifyJobCategory(baseJob),
-    salary: (r.salary as string) ?? '',
-    location: (r.location as string) ?? '',
-    hours: (r.hours as string) ?? '',
-    employerPhone: (r.employer_phone as string) ?? '',
-    zalo: (r.zalo as string) ?? undefined,
-    applicationDeadline: (r.application_deadline as string) ?? '',
-    urgent: (r.urgent as boolean) ?? false,
-    description,
-    source,
-    postedAt: (r.posted_at as string) ?? new Date().toISOString().slice(0, 10),
-    lat: (r.lat as number) ?? undefined,
-    lng: (r.lng as number) ?? undefined,
-    employerId: (r.employer_id as string) ?? undefined,
-    imageUrl: (r.image_url as string) ?? undefined,
-    images: (r.images as string[]) ?? undefined,
-    workPeriod: (r.work_period as string) ?? undefined,
-    workDays: (r.work_days as string) ?? undefined,
-    education: (r.education as string) ?? undefined,
-    preference: (r.preference as string) ?? undefined,
-    numHires: (r.num_hires as string) ?? undefined,
-    companyVerified: (r.company_verified as boolean) ?? undefined,
-    companyFoundedYear: (r.company_founded_year as number) ?? undefined,
-    hireCount: (r.hire_count as number) ?? undefined,
-    rawSalary: (r.salary as string)?.trim() || undefined,
-    rawLocation: (r.location as string)?.trim() || undefined,
-    rawEducation: (r.education as string)?.trim() || undefined,
-    rawPreference: (r.preference as string)?.trim() || undefined,
-    rawLat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
-    rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
-    sourceUrl: (r.source_url as string) ?? undefined,
-    workLocations: workLocations && workLocations.length > 0 ? workLocations : undefined,
-    // local_jobs.recruitment_regions 컬럼은 아직 없다(draft migration 0018,
-    // 미실행) — 아래 select()에도 포함하지 않았으므로 r.recruitment_regions는
-    // 항상 undefined. 컬럼이 생기고 select에 추가되면 자동으로 채워진다.
-    recruitmentRegions: (r.recruitment_regions as string[] | null | undefined) ?? undefined,
-  })
-}
+import type { Job } from '../types/job'
 
 interface JobsContextValue {
   jobs: Job[]

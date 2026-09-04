@@ -56,6 +56,12 @@ export interface Job {
   urgent?: boolean
   hours?: string
   employerId?: string
+  /** local_jobs.active/admin_hidden — 공개 목록(useJobs())은 이미 active=true인
+   *  것만 가져오므로 항상 undefined(=true나 마찬가지)이지만, 기업 자신의 전체
+   *  공고 조회(fetchEmployerJobs())는 비공개/관리자 숨김 공고도 포함해서 가져오므로
+   *  실제 상태를 구분해서 보여줄 때 쓴다. */
+  active?: boolean
+  adminHidden?: boolean
   lat?: number
   lng?: number
   imageUrl?: string

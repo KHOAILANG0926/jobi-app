@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
+import { fetchEmployerJobs } from '../lib/jobRows'
 import { CATEGORY_LABELS } from '../data/categories'
 import {
   APPLICATION_STATUS_META,
@@ -35,7 +36,7 @@ function formatDate(iso: string) {
 
 export function EmployerDashboard() {
   const { user } = useAuth()
-  const { jobs, deleteJob, updateJob } = useJobs()
+  const { deleteJob, updateJob } = useJobs()
   const [tab, setTab] = useState<Tab>('jobs')
   const [applications, setApplications] = useState<JobApplication[]>([])
   const [filterJobId, setFilterJobId] = useState<string>('all')
@@ -61,10 +62,24 @@ export function EmployerDashboard() {
 
   if (!user) return null
 
-  const myJobs = useMemo(
-    () => jobs.filter((j) => j.employerId === user.id),
-    [jobs, user.id],
-  )
+  // 2026-09-04 사용자 지시("EmployerDashboard가 공개 공고 목록을 가져온 뒤
+  // 필터링하는 구조를 제거하고, 로그인한 기업의 employer_id=auth.uid() 공고를
+  // 별도로 조회하도록 수정"): useJobs()의 공개(active=true) 목록에서
+  // employerId만 걸러내던 기존 구조를 제거하고, employer_id로 직접 조회하는
+  // fetchEmployerJobs()를 쓴다 — 본인 소유면 active=false/admin_hidden=true인
+  // 공고도 서버에 요청 자체가 되므로(RLS migration 0019가 이미 허용) 이제
+  // 실제로 화면에 뜬다.
+  const [myJobs, setMyJobs] = useState<Job[]>([])
+  const [myJobsLoading, setMyJobsLoading] = useState(true)
+
+  const loadMyJobs = useCallback(async () => {
+    setMyJobsLoading(true)
+    const result = await fetchEmployerJobs(user.id)
+    setMyJobs(result)
+    setMyJobsLoading(false)
+  }, [user.id])
+
+  useEffect(() => { loadMyJobs() }, [loadMyJobs])
 
   const myJobIds = useMemo(() => new Set(myJobs.map((j) => j.id)), [myJobs])
   const myJobIdsArr = useMemo(() => myJobs.map((j) => j.id), [myJobs])
@@ -173,17 +188,21 @@ export function EmployerDashboard() {
     setApplications(await loadApplications())
   }
 
-  const handleDelete = (job: Job) => {
+  const handleDelete = async (job: Job) => {
     if (deleteConfirmId === job.id) {
-      deleteJob(job.id)
+      await deleteJob(job.id)
       setDeleteConfirmId(null)
+      // deleteJob()/updateJob()은 useJobs()의 공개 목록만 낙관적으로 갱신한다 —
+      // 이 페이지가 쓰는 myJobs는 별도 state라 직접 다시 불러와야 반영된다.
+      await loadMyJobs()
     } else {
       setDeleteConfirmId(job.id)
     }
   }
 
-  const handleToggleUrgent = (job: Job) => {
-    updateJob(job.id, { urgent: !job.urgent })
+  const handleToggleUrgent = async (job: Job) => {
+    await updateJob(job.id, { urgent: !job.urgent })
+    await loadMyJobs()
   }
 
   return (
@@ -252,7 +271,7 @@ export function EmployerDashboard() {
       {/* ── Tab: Jobs ── */}
       {tab === 'jobs' && (
         <div className="edb-panel" role="tabpanel">
-          {myJobs.length === 0 ? (
+          {myJobsLoading ? null : myJobs.length === 0 ? (
             <div className="edb-empty">
               <span className="edb-empty__icon">📝</span>
               <p className="edb-empty__text">Bạn chưa đăng tin nào.</p>
@@ -283,6 +302,14 @@ export function EmployerDashboard() {
                       <p className="edb-job-item__date">
                         Đăng ngày {formatDate(job.postedAt)} · Hạn {formatDate(job.applicationDeadline)}
                       </p>
+                      {/* 사용자 지시(2026-09-04): "기업은 본인의 공개·비공개·관리자
+                          숨김 공고를 볼 수 있고" — 이제 목록 자체는 셋 다 가져오므로
+                          (RLS migration 0019), 어떤 상태인지 최소한으로 구분해 보여준다. */}
+                      {job.adminHidden ? (
+                        <p className="edb-job-item__status edb-job-item__status--hidden">🚫 Bị quản trị viên ẩn</p>
+                      ) : job.active === false ? (
+                        <p className="edb-job-item__status edb-job-item__status--pending">⏳ Chưa công khai</p>
+                      ) : null}
                     </div>
 
                     <div className="edb-job-item__right">

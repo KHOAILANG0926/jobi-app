@@ -37,51 +37,64 @@ cmd=ALL) — `authenticated` role에서는 둘이 OR로 결합된다. `owner_wri
 ### 0-3. anon key 실제 REST 검증(5번)
 | 시나리오 | 방법 | HTTP | 반환 행 수 | 판정 |
 |---|---|---|---|---|
-| active=true, admin_hidden=false | 실제 anon REST GET(실측) | 200 | 1 | ✅ 조회 가능(정상) |
-| active=false, admin_hidden=false | 실제 anon REST GET(실측) | 200 | **0**(적용 전엔 3) | ✅ 조회 불가로 전환 확인 |
-| active=true, admin_hidden=true | **실측 불가**(운영 DB에 admin_hidden=true 행이 없음, 사용자 지시 9번에 따라 기존 데이터를 바꾸지 않고 실측 불가로 보고) | — | — | 대신 `local_job_is_visible(true, true, null)`을 anon 세션으로 직접 평가 → `false`(불가, 정책이 참조하는 함수와 동일 조건) |
-| active=false, admin_hidden=true | 위와 동일 사유로 **실측 불가** | — | — | `local_job_is_visible(false, true, null)` → `false`(불가) |
-| 비공개 부모(4366~4368)의 job_work_locations | 실제 anon REST GET(실측) | 200 | 0 | ✅ 조회 불가(해당 job들은 애초에 근무지 행 자체가 없어 적용 전에도 0건이었음 — 회귀 없음 확인용) |
-| 공개 부모(4369)의 job_work_locations | 실제 anon REST GET(실측) | 200 | 1 | ✅ 조회 가능(정상, 적용 전과 동일) |
+| active=true, admin_hidden=false | 실제 anon REST GET(**실측**) | 200 | 1 | ✅ 조회 가능(정상) |
+| active=false, admin_hidden=false | 실제 anon REST GET(**실측**) | 200 | **0**(적용 전엔 3) | ✅ 조회 불가로 전환 확인 |
+| active=true, admin_hidden=true | 운영 DB에 해당 행이 없어 REST 재현 불가 | — | — | ⚠️ **부분 검증** — `local_job_is_visible(true, true, null)`을 anon 세션에서 직접 평가한 결과만(`false`), 실제 REST 요청으로는 확인 못함 |
+| active=false, admin_hidden=true | 위와 동일 | — | — | ⚠️ **부분 검증** — `local_job_is_visible(false, true, null)` 함수 평가 결과만(`false`), 실제 REST 요청으로는 확인 못함 |
+| 비공개 부모(4366~4368)의 job_work_locations | 실제 anon REST GET(**실측**) | 200 | 0 | ✅ 조회 불가(해당 job들은 애초에 근무지 행 자체가 없어 적용 전에도 0건이었음 — 회귀 없음 확인용) |
+| 공개 부모(4369)의 job_work_locations | 실제 anon REST GET(**실측**) | 200 | 1 | ✅ 조회 가능(정상, 적용 전과 동일) |
 
-**anon REST로 직접 재현하지 못한 두 시나리오**(admin_hidden=true 조합)는
-운영 DB에 해당 상태의 실제 행이 없기 때문 — 기존 데이터를 바꿔서 만들지
-않았다(사용자 지시 9번 준수). 대신 정책이 실제로 호출하는 것과 동일한
-`local_job_is_visible()` 함수를 anon role 세션에서 직접 평가해 논리적으로
-확인했다(실제 REST 재현과는 구분해서 표기).
+**⚠️ admin_hidden=true 두 시나리오는 "통과"가 아니라 부분 검증이다.**
+운영 DB에 해당 상태의 실제 행이 없어 anon REST로 직접 재현하지 못했고,
+기존 데이터를 바꿔서 만들지도 않았다(사용자 지시 9번 준수). 확인한 것은
+정책이 참조하는 것과 동일한 `local_job_is_visible()` 함수를 anon role
+세션에서 직접 평가한 결과뿐이다 — 이는 정책 로직이 올바르다는 근거는
+되지만, 실제 PostgREST 요청 경로(HTTP 상태코드·응답 바디까지) 전체를
+검증한 것은 아니다.
 
-### 0-4. authenticated 기업 계정 검증(6번)
+### 0-4. authenticated 기업 계정 검증(6번) — ⚠️ 부분 검증
+
 운영 DB에 employer_id가 채워진 공고가 0건이라(전부 크롤러 소유) "본인
-비공개 공고" 케이스를 실제 행으로 재현할 수 없었다 — 계정을 새로 만들지
-않고(계정 생성은 금지된 행동), 기존에 실제로 존재하는 employer 역할
-계정 1개를 `set local role authenticated` + `request.jwt.claims`
-시뮬레이션(읽기 전용, 트랜잭션은 전부 `ROLLBACK`, 데이터 변경 없음)으로
-그 계정의 실제 RLS 평가 결과를 확인했다:
+비공개 공고를 볼 수 있다"는 핵심 시나리오를 실제 행으로 재현할 수
+없었다 — 계정을 새로 만들지 않고(계정 생성은 금지된 행동), 기존에
+실제로 존재하는 employer 역할 계정 1개를 `set local role authenticated`
++ `request.jwt.claims` 시뮬레이션(읽기 전용, 트랜잭션은 전부 `ROLLBACK`,
+데이터 변경 없음)으로 확인했다:
 
 | 검증 | 방법 | 결과 |
 |---|---|---|
-| 자신 소유 없음 → 공개 공고만 보임 | 실제 employer 계정 세션 시뮬레이션, `local_jobs` 전체 조회 | 1건(4369)만 반환 — 실제 세션·실제 정책 평가(실측) |
-| 본인 공고(active=false, admin_hidden=true 가정) → 조회 가능 | 같은 세션에서 `local_job_is_visible(false, true, <자기 uid>)` 직접 평가 | `true`(가능) — 함수 로직 검증(실제 소유 행 없어 인자는 합성) |
-| 타 기업 비공개 공고 → 조회 불가 | 같은 세션에서 `local_job_is_visible(false, true, <다른 uid>)` 직접 평가 | `false`(불가) |
+| 자신 소유 없음 → 공개 공고만 보임 | 실제 employer 계정 세션 시뮬레이션, `local_jobs` 전체 조회 | 1건(4369)만 반환 — **실측**(실제 세션·실제 테이블 조회) |
+| 본인 공고(active=false, admin_hidden=true 가정) → 조회 가능 | 같은 세션에서 `local_job_is_visible(false, true, <자기 uid>)` 직접 평가 | `true`(가능) — ⚠️ **부분 검증**(함수 로직만, 실제 소유 행이 없어 인자는 합성값, 실제 `local_jobs` 조회로 확인한 게 아님) |
+| 타 기업 비공개 공고 → 조회 불가 | 같은 세션에서 `local_job_is_visible(false, true, <다른 uid>)` 직접 평가 | `false`(불가) — ⚠️ **부분 검증**(위와 동일 사유) |
 
-### 0-5. 관리자 계정 검증(7번)
+즉 "타 기업 소유가 아닌 경우 공개분만 보인다"는 실측으로 확인됐지만,
+"본인 소유 비공개 공고가 실제로 보인다"는 핵심 요구사항은 함수 로직
+검증에 그쳤다 — 실제 `local_jobs` 테이블에 employer_id가 채워진 비공개
+행이 생긴 뒤에만 완전한 실측이 가능하다.
+
+### 0-5. 관리자 계정 검증(7번) — ✅ 실측
 운영 DB의 실제 관리자 계정(app_metadata.role='admin') 1개로 동일한 세션
-시뮬레이션(읽기 전용):
+시뮬레이션(읽기 전용), 합성 인자가 아니라 실제 테이블을 직접 조회했다:
 - `local_jobs` 전체 4건 중 **4건 전부** 조회됨(inactive 3건 포함) — 실측.
 - `job_work_locations` 조회 건수가 테이블의 실제 총 행 수(1건)와 정확히
   일치 — 실측(전부 보임 확인).
 
-### 0-6. service_role 검증(8번)
+### 0-6. service_role 검증(8번) — ⚠️ 부분 검증(속성 기반 판단, 실제 요청 없음)
 `job_work_locations_owner_write`/`local_jobs_employer_*`/GRANT를 전혀
 건드리지 않았고, `service_role`은 `pg_roles.rolbypassrls=true`(RLS 정책
-자체가 적용 안 됨, 감사 단계에서 실측 확인)라 이 migration과 무관하다.
-크롤러의 실제 쓰기 경로를 이번 라운드에서 다시 실행해 검증하지는
-않았다(표본 저장은 이번 승인 범위 밖) — 정책 미변경 + rolbypassrls로
-논리적 확인만 했다.
+자체가 적용 안 됨, 감사 단계에서 실측 확인)라 이 migration과 무관하다는
+**논리적 근거**만 확인했다 — service_role 자격으로 실제 SELECT/INSERT
+요청을 보내 결과를 관찰하는 실측은 하지 않았다(크롤러 쓰기 재실행은
+이번 승인 범위 밖). "정책을 안 건드렸고 RLS를 아예 안 탄다"는 속성만으로
+영향 없다고 판단한 것이며, 실제 요청 기반 확인이 아니다.
 
 ### 0-7. 결과
-전 항목 통과, 실패 0건 → **rollback을 실행하지 않았다**(사용자 지시 10번,
-실패 시에만 rollback).
+anon 공개/비공개 전환(핵심 P1)과 관리자 전체 접근은 **실측으로 통과**
+확인. admin_hidden=true 조합·기업 본인 소유 비공개 공고·service_role은
+**부분 검증**(함수 로직 또는 속성 기반, 실제 요청/실제 행 기반 아님) —
+실패로 이어질 만한 근거는 없었으나 완전한 실측은 아니므로 "통과"로
+단정하지 않는다. 확인된 범위 내에서는 실패 0건 → **rollback을 실행하지
+않았다**(사용자 지시 10번, 실패 시에만 rollback).
 
 ---
 
