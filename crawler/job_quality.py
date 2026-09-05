@@ -94,10 +94,59 @@ def find_education_badge(badge_texts: list[str]) -> str:
     return re.sub(r"^Trình độ", "", badge).strip()
 
 
+_DAY_TERM_RE = r"(?:Thứ\s*(?:Hai|Ba|Tư|Năm|Sáu|Bảy|[2-7])|Chủ\s*[Nn]hật)"
+
+# 2026-09-05 사용자 지시로 확장(vieclam24h-blind-10 독립검증 표본 4/8/9에서
+# 실제 hours=null/work_days=null 발견): 시간 표기가 "8h-17h"(문자 h) 형식뿐
+# 아니라 "08:00 – 17:00"(콜론) 형식도 흔하고, 범위 구분자가 대시(-/–)뿐
+# 아니라 단어 "đến"(...까지)인 경우도 실측 확인됐다(표본 9: "Từ 08:30 đến
+# 20:00"). "Thứ Hai – Thứ Sáu:"처럼 요일(범위) 라벨이 시간 앞에 붙는 경우도
+# 그 라벨까지 함께 하나의 매치로 보존한다 — 매치된 부분만 반환하는 기존
+# 계약(아래 split-shift 회귀 테스트가 그 계약에 의존)은 그대로 유지하되,
+# "무엇을 매치로 인정하는지"만 넓힌다.
 _WORK_HOURS_RANGE_RE = re.compile(
-    r"(?:sáng|chiều|tối)?\s*[:：]?\s*\d{1,2}h\d{0,2}\s*[-–]\s*\d{1,2}h\d{0,2}", re.IGNORECASE
+    rf"(?:{_DAY_TERM_RE}(?:\s*[-–]\s*{_DAY_TERM_RE})?\s*[:：]\s*)?"
+    r"(?:(?:sáng|chiều|tối)\s*[:：]\s*)?\d{1,2}[h:]\d{0,2}\s*(?:[-–]|đến)\s*\d{1,2}[h:]\d{0,2}",
+    re.IGNORECASE,
 )
-_WORK_HOURS_LABEL_RE = re.compile(r"(?:giờ làm việc)\s*[:：]?\s*([^\n]{3,80})", re.IGNORECASE)
+_WORK_HOURS_LABEL_RE = re.compile(r"(?:giờ làm việc|thời gian làm việc)\s*[:：]?\s*([^\n]{3,80})", re.IGNORECASE)
+
+# 2026-09-05 사용자 지시로 추가(실측 재검증 중 자체 발견 — 표본 4/9 원문에
+# "Nghỉ trưa: 12:00 – 13:00" / "nghỉ trưa từ 12:00 đến 14:00"처럼 점심
+# 휴게시간도 숫자 범위로 적혀 있어, 위 _WORK_HOURS_RANGE_RE가 이를 실제
+# 근무시간과 구분 못 하고 hours에 함께 넣어버리는 결함이 있었다(점심시간을
+# 근무시간처럼 표시하는 것은 원문 의미를 왜곡하는 오분류다). 매치 바로
+# 앞(최대 40자)에 "nghỉ [trưa/giữa giờ/giải lao] [từ]:" 형태의 휴게 라벨이
+# 있으면 그 범위는 근무시간이 아니라 휴게시간이므로 hours에서 제외한다.
+_BREAK_TIME_PREFIX_RE = re.compile(
+    r"nghỉ\s+(?:trưa|giữa\s*giờ|giải\s*lao)?\s*(?:từ\s*)?[:：]?\s*$", re.IGNORECASE
+)
+
+
+def _is_break_time_prefix(text: str, match_start: int) -> bool:
+    window = text[max(0, match_start - 40):match_start]
+    return bool(_BREAK_TIME_PREFIX_RE.search(window))
+
+# 근무일(work_days) — 요일(범위) 언급 + "nghỉ ngày/nghỉ chiều/..." 같은 휴무
+# 언급을 찾는다. hours와 별개 필드이므로 시간 부분은 여기서 다시 캡처하지
+# 않는다(같은 문장에 요일+시간이 같이 있어도 work_days는 요일 부분만).
+_WORK_DAYS_RE = re.compile(
+    rf"(?:nghỉ\s+(?:ngày|chiều|sáng|trưa)\s*)?{_DAY_TERM_RE}(?:\s*(?:đến|-|–)\s*{_DAY_TERM_RE})?",
+    re.IGNORECASE,
+)
+
+
+def _dedupe_join(items: list[str], sep: str = ", ") -> str:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        item = item.strip()
+        key = item.lower()
+        if not item or key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return sep.join(out)
 
 
 def extract_work_hours_free_text(desc_text: object) -> str:
@@ -109,13 +158,40 @@ def extract_work_hours_free_text(desc_text: object) -> str:
     in one sentence (e.g. "Sáng: 7h - 11h, Chiều: 12h - 16h", confirmed live
     — sb batch C job "Kỹ Sư Kỹ Thuật Điện (M&E)"). A single-match regex only
     returns the first range and silently drops the rest — this finds every
-    range (each with its "Sáng/Chiều/Tối" label when present) and joins them,
-    so a split-shift posting keeps both halves instead of only the first."""
+    range (each with its day-range/"Sáng/Chiều/Tối" label when present) and
+    joins them (dedup, original order), so a split-shift posting keeps both
+    halves instead of only the first, and a day-range label directly in front
+    of a time range (e.g. "Thứ Hai – Thứ Sáu: 08:00 – 17:00") stays attached
+    to it as one entry rather than being separated or lost."""
     text = str(desc_text or "")
-    matches = [m.group(0).strip() for m in _WORK_HOURS_RANGE_RE.finditer(text)]
+    matches = [
+        m.group(0).strip()
+        for m in _WORK_HOURS_RANGE_RE.finditer(text)
+        if not _is_break_time_prefix(text, m.start())
+    ]
     if matches:
-        return ", ".join(matches)
+        return _dedupe_join(matches)
     label_match = _WORK_HOURS_LABEL_RE.search(text)
+    if label_match:
+        return (label_match.group(1) or label_match.group(0)).strip()
+    return ""
+
+
+def extract_work_days_free_text(desc_text: object) -> str:
+    """근무일/휴무 정보 자유 텍스트 추출 — extract_work_hours_free_text()와
+    같은 이유(pick_detail_company_name() 참고)로 JS 버전의 순수 Python
+    거울이다. 2026-09-05 사용자 지시로 신설(vieclam24h-blind-10 독립검증
+    표본 4/8/9에서 work_days=null 발견 — 예전 정규식은 숫자 요일("thứ 2")
+    과 "ngày làm việc"/"từ thứ N đến..." 형태만 인식해, 실제로 훨씬 흔한
+    단어 요일("Thứ Hai/Ba/Tư/Năm/Sáu/Bảy", "Chủ nhật")과 "Nghỉ chiều Thứ 7
+    & Chủ nhật" 같은 자유 문장을 전부 놓쳤다). 적혀 있지 않은 정보(휴무일
+    개수, 주당 근무일 수, 교대조 의미)는 추측하지 않고, 실제 언급된 요일/
+    휴무 문구만 원문 그대로(중복 제거, 원문 등장 순서 유지) 모은다."""
+    text = str(desc_text or "")
+    matches = [m.group(0).strip() for m in _WORK_DAYS_RE.finditer(text)]
+    if matches:
+        return _dedupe_join(matches)
+    label_match = re.search(r"(?:ngày làm việc)\s*[:：]?\s*([^\n]{3,60})", text, re.IGNORECASE)
     if label_match:
         return (label_match.group(1) or label_match.group(0)).strip()
     return ""
@@ -132,13 +208,55 @@ VALID_CATEGORIES = {
     "other",
 }
 
-EXCLUDED_MONEY_JOB_RE = re.compile(
-    r"thu hoi cong no|cong no|thu hoi no|doi no|thu no\b|xu ly no|no xau|nhac no"
-    r"|vay tien|cho vay|ho tro vay|tu van vay|tin dung|the tin dung"
+# 소비자 대출/여신 상품 영업(신용카드/대출 알선 등) 관련 — 이 범주는 이번
+# 수정 대상이 아니다(실제 오탐 사례가 보고된 적 없음), title/company/
+# description 전체에서 그대로 검사한다(기존 동작 유지).
+EXCLUDED_LOAN_FINANCE_RE = re.compile(
+    r"vay tien|cho vay|ho tro vay|tu van vay|tin dung|the tin dung"
     r"|tai chinh tieu dung|cong ty tai chinh|fe credit|home credit|mcredit"
-    r"|mirae asset|shinhan finance|vpbank finance|collection|collector|debt|loan",
+    r"|mirae asset|shinhan finance|vpbank finance|loan",
     re.IGNORECASE,
 )
+
+# 2026-09-05 사용자 지시로 정정(실사례 오탐 3건 발견 — 표본 3/4/8, vieclam24h-
+# blind-10 독립검증): 예전 EXCLUDED_MONEY_JOB_RE의 "cong no" 단독 매칭이
+# "quản lý công nợ"/"theo dõi công nợ"/"đối chiếu công nợ"/(주문·납품·영업·
+# 회계 업무 중 일부인) "thu hồi công nợ" 같은 완전히 정상적인 일반 업무
+# 문맥까지 전부 추심 전담 공고로 오판정했다. "công nợ" 언급 자체는 더 이상
+# 절대 제외 근거가 아니다.
+#
+# 이제 아래 5개 "어근 조합"이 실제 채용 "제목" 또는 "직종(category)" 필드
+# 에서 서로 가까이 나타날 때만("본문에만 있으면 근거로 쓰지 않음") 추심
+# 전담 공고로 확정 제외한다 — 완성된 문장 하나를 하드코딩하지 않고, 각
+# 항목은 (근처 어근, 목표 어근들, 두 어근 사이 허용 문자 수, 규칙 이름)
+# 이다. "đòi"(독촉/요구)는 ascii_key() 정규화(tone mark 제거) 후 "đối"
+# (대조/비교 — "đối chiếu công nợ"는 명시적으로 허용된 일반 회계 문맥)와
+# 똑같이 "doi"가 되어 구분이 안 된다 — 그래서 이 쌍만 훨씬 좁은 인접
+# 거리(2자, 사실상 공백 하나)를 써서 "đòi nợ"(인접)는 잡고 "đối chiếu ...
+# công nợ"(사이에 다른 단어가 있음)는 걸러낸다.
+_DEBT_COLLECTION_TITLE_STEM_PAIRS: tuple[tuple[str, tuple[str, ...], int, str], ...] = (
+    ("thu hoi", ("no", "cong no", "khoan vay"), 15, "thu_hoi+no/cong_no/khoan_vay"),
+    ("xu ly", ("no xau", "no"), 15, "xu_ly+no/no_xau"),
+    ("nhac", ("no", "thanh toan"), 15, "nhac+no/thanh_toan"),
+    ("doi", ("no",), 2, "doi+no"),
+    ("field", ("collection",), 15, "field+collection"),
+)
+
+
+def _find_debt_collection_stem_match(ascii_normalized_text: str) -> tuple[str, str] | None:
+    """ascii_normalized_text는 ascii_key()로 이미 정규화된 상태여야 한다
+    (소문자, 탈문자, 문장부호 제거). 매칭되면 (rule_name, matched_substring)
+    을 반환하고, 없으면 None. LLM 판정/단어 비율/임의 점수는 쓰지 않는다 —
+    순수 정규식 근접 매칭뿐이다."""
+    for root, targets, window, rule_name in _DEBT_COLLECTION_TITLE_STEM_PAIRS:
+        root_re = re.escape(root)
+        for target in targets:
+            target_re = re.escape(target)
+            pattern = rf"(?:{root_re}.{{0,{window}}}{target_re}|{target_re}.{{0,{window}}}{root_re})"
+            m = re.search(pattern, ascii_normalized_text)
+            if m:
+                return rule_name, m.group(0)
+    return None
 
 
 def normalize_whitespace(value: object) -> str:
@@ -669,9 +787,49 @@ def has_source_tag(description: object, source: str) -> bool:
     return f"[source:{source}]" in str(description or "")
 
 
-def has_excluded_money_terms(*parts: object) -> bool:
-    """True for loan/debt-collection jobs that do not match the site motto."""
-    return bool(EXCLUDED_MONEY_JOB_RE.search(ascii_key(" ".join(str(p or "") for p in parts))))
+def classify_money_job_exclusion(
+    title: object = "",
+    company: object = "",
+    description: object = "",
+    category: object = "",
+) -> tuple[bool, str]:
+    """(excluded, log_line) — 대출/여신 상품 영업은 title+company+description
+    전체에서 그대로 검사한다(기존 동작, 오탐 보고 없음). 추심 전담 판정만
+    2026-09-05로 정정된 규칙을 쓴다: title 또는 category(실제 직종 필드)
+    에서만 어근 조합을 검사하고, description(본문)은 절대 근거로 쓰지
+    않는다 — "공nợ"가 본문에 있다는 사실만으로는 제외하지 않는다.
+
+    log_line에는 검사 대상(title/company+description/category), 매칭된
+    규칙 이름, 매칭된 원문 substring, 최종 allow/exclude를 그대로 남긴다."""
+    loan_finance_text = ascii_key(" ".join(str(p or "") for p in (title, company, description)))
+    loan_match = EXCLUDED_LOAN_FINANCE_RE.search(loan_finance_text)
+    if loan_match:
+        return True, (
+            f"exclude target=title+company+description rule=EXCLUDED_LOAN_FINANCE_RE "
+            f"matched={loan_match.group(0)!r}"
+        )
+
+    for target_name, target_value in (("title", title), ("category", category)):
+        normalized = ascii_key(str(target_value or ""))
+        found = _find_debt_collection_stem_match(normalized)
+        if found:
+            rule_name, matched_text = found
+            return True, f"exclude target={target_name} rule={rule_name} matched={matched_text!r}"
+
+    return False, "allow checked_targets=title,category,company+description(loan/finance only) no rule matched"
+
+
+def has_excluded_money_terms(
+    title: object = "",
+    company: object = "",
+    description: object = "",
+    category: object = "",
+) -> bool:
+    """True for loan/debt-collection jobs that do not match the site motto.
+    Thin boolean wrapper — see classify_money_job_exclusion() for the full
+    (excluded, log_line) result with the matched rule/target/text detail."""
+    excluded, _log_line = classify_money_job_exclusion(title, company, description, category)
+    return excluded
 
 
 def is_expired(deadline: object, today: str | None = None) -> bool:
@@ -700,8 +858,9 @@ def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | Non
         errors.append(f"invalid category: {category}")
     if not has_source_tag(description, source):
         errors.append(f"missing source tag: {source}")
-    if has_excluded_money_terms(title, company, description):
-        errors.append("excluded money/debt collection job")
+    money_excluded, money_log_line = classify_money_job_exclusion(title, company, description, category)
+    if money_excluded:
+        errors.append(f"excluded money/debt collection job ({money_log_line})")
     if job.get("origin") != "crawler":
         errors.append("origin must be crawler")
     # active/admin_hidden은 여기서 검사하지 않는다 — active는 공개 게이트

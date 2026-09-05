@@ -524,12 +524,14 @@ async def fetch_job_detail(page, url: str) -> dict:
                 }
             })
 
-            // 섹션별 본문 추출
-            const TARGET = ['Mô tả công việc', 'Yêu cầu công việc', 'Quyền lợi', 'Địa điểm làm việc']
+            // 근무지("Địa điểm làm việc")는 기존 방식 그대로(변경 없음 — 완전성
+            // 결함이 보고된 적 없음): 헤딩 다음 형제들을 훑어 li가 있으면
+            // li만, 없으면 그 형제의 텍스트를 그대로 쓴다.
+            const LOCATION_TARGET = ['Địa điểm làm việc']
             const sections = {}
             document.querySelectorAll('h2, h3, h4').forEach(h => {
                 const heading = h.innerText?.trim() || ''
-                const matched = TARGET.find(t => heading.includes(t))
+                const matched = LOCATION_TARGET.find(t => heading.includes(t))
                 if (!matched) return
                 let content = ''
                 let el = h.nextElementSibling
@@ -548,6 +550,111 @@ async def fetch_job_detail(page, url: str) -> dict:
                 }
                 if (content.trim()) sections[matched] = content.trim()
             })
+
+            // 2026-09-05 사용자 지시로 정정(vieclam24h-blind-10 독립검증에서
+            // 실제 발견된 본문 누락 4건 — 표본 1/4/7/9): "Mô tả công việc"/
+            // "Yêu cầu công việc"/"Quyền lợi" 섹션의 실제 DOM은 헤딩 바로
+            // 다음의 "단 하나"의 래퍼 요소 안에 문단(P/DIV)과 목록(UL/OL)이
+            // 뒤섞여 있다(실측: 표본1 자식=[P,UL,P], 표본4=[P,UL], 표본7=
+            // [DIV,P,P,UL,P,DIV], 표본9=[DIV,UL]). 예전 코드는 그 래퍼 안에
+            // li가 "하나라도" 있으면 통째로 "목록"으로 취급해 li만 뽑고 같은
+            // 래퍼의 일반 문단(제품/센터 소개 첫 문장, "Chế độ khác:" 하위
+            // 항목, 급여 설명 문장 등)을 전부 버렸다 — 이게 그 4건 누락의
+            // 실제 원인이다(글자 수가 아니라 DOM 자식 나열 순서로 직접 확인).
+            //
+            // 이제 각 래퍼의 "직계 자식"을 DOM 순서 그대로 훑어 타입별로
+            // 처리한다 — UL/OL이면 그 안의 li(중첩 목록 포함, querySelectorAll
+            // 로 전부 수집)를 "• " 접두사로, 그 외(P/DIV 등)는 그 요소 자신의
+            // 텍스트를 한 줄로 — 구조화 필드와 겹친다는 이유로 원문 문장을
+            // 지우지 않는다(완전 동일 중복/빈 줄만 정리).
+            //
+            // 탐색 범위는 "공고 상세 본문 컨테이너"(h1에서 위로 올라가며
+            // "Thông tin chung"을 처음 포함하는 조상)로 좁힌다 — 회사 소개/
+            // 유사 공고("Việc làm tương tự cho bạn")/키워드/광고는 이 컨테이너
+            // 밖에 있어 절대 섞이지 않는다(실측 확인: h1 기준 3단계 위 조상이
+            // 'Thông tin chung'은 포함하되 'Việc làm tương tự'는 포함하지 않음).
+            function findDetailContainer() {
+                const h1 = document.querySelector('h1')
+                let el = h1 ? h1.parentElement : null
+                while (el) {
+                    if ((el.innerText || '').includes('Thông tin chung')) return el
+                    el = el.parentElement
+                }
+                return document.body
+            }
+            const detailContainer = findDetailContainer()
+
+            // 헤더 비교 전 정규화: Unicode(NFC)/대소문자/앞뒤 공백/연속 공백/
+            // 끝 콜론만 — 실제 원문에서 확인 안 된 유사 헤더를 새로 추가하지
+            // 않는다(기존 4개 라벨 그대로).
+            function normalizeHeading(t) {
+                return (t || '').normalize('NFC').trim().replace(/\\s+/g, ' ').replace(/:$/, '').toLowerCase()
+            }
+            function headingMatches(actual, target) {
+                const a = normalizeHeading(actual), b = normalizeHeading(target)
+                return a.includes(b) || b.includes(a)
+            }
+
+            // 요구된 고정 경계: Mô tả công việc → Yêu cầu công việc 전까지,
+            // Yêu cầu công việc → Quyền lợi 전까지, Quyền lợi → Thông tin
+            // chung 전까지. 예상된 다음 헤딩이 아닌 다른 헤딩을 만나면 거기서
+            // 멈춘다(다른 섹션과 섞지 않음 — 안전한 fallback).
+            const CONTENT_SECTIONS = [
+                { name: 'Mô tả công việc', nextHeading: 'Yêu cầu công việc' },
+                { name: 'Yêu cầu công việc', nextHeading: 'Quyền lợi' },
+                { name: 'Quyền lợi', nextHeading: 'Thông tin chung' },
+            ]
+
+            function collectDirectChildrenText(el, lines) {
+                const children = Array.from(el.children)
+                if (children.length === 0) {
+                    const txt = (el.innerText || '').trim()
+                    if (txt && txt.length > 3) lines.push(txt)
+                    return
+                }
+                for (const child of children) {
+                    if (child.tagName === 'UL' || child.tagName === 'OL') {
+                        child.querySelectorAll('li').forEach(li => {
+                            const txt = (li.innerText || '').trim()
+                            if (txt) lines.push('• ' + txt)
+                        })
+                    } else {
+                        const txt = (child.innerText || '').trim()
+                        if (txt && txt.length > 3) lines.push(txt)
+                    }
+                }
+            }
+
+            const contentHeadingEls = Array.from(detailContainer.querySelectorAll('h2, h3, h4'))
+            for (const spec of CONTENT_SECTIONS) {
+                const h = contentHeadingEls.find(el => headingMatches(el.innerText, spec.name))
+                if (!h) continue
+                const lines = []
+                let el = h.nextElementSibling
+                let stoppedAtKnownBoundary = false
+                while (el) {
+                    if (['H2', 'H3', 'H4'].includes(el.tagName)) {
+                        if (headingMatches(el.innerText, spec.nextHeading)) stoppedAtKnownBoundary = true
+                        break
+                    }
+                    collectDirectChildrenText(el, lines)
+                    el = el.nextElementSibling
+                }
+                // 다음 헤딩이 있었는데 그게 예상된 다음 섹션이 아니었다면(다른
+                // 구조) — 지금까지 모은 것과 섞지 않기 위해 이번 섹션 자체를
+                // 비운다(파싱 실패로 취급, 회사소개/유사공고 유입보다 누락이 낫다).
+                if (el && ['H2', 'H3', 'H4'].includes(el.tagName) && !stoppedAtKnownBoundary) continue
+                // 완전 동일한 중복 줄과 빈 줄만 정리 — 원문 문장은 지우지 않는다.
+                const seen = new Set()
+                const deduped = []
+                for (const line of lines) {
+                    const key = line.trim().toLowerCase()
+                    if (!key || seen.has(key)) continue
+                    seen.add(key)
+                    deduped.push(line)
+                }
+                if (deduped.length) sections[spec.name] = deduped.join('\\n')
+            }
 
             // 실제 지원 버튼("Ứng tuyển ...") 존재 여부 + 만료/검수중/삭제 배너 여부.
             // source_url을 지원 경로로 신뢰해도 되는지 판단하는 근거.
@@ -615,29 +722,67 @@ async def fetch_job_detail(page, url: str) -> dict:
             // 본문(Mô tả công việc)에 자유 텍스트로 적어둔다 — best-effort로만
             // 찾고, 못 찾으면 빈 문자열(= 원문에 없음, 파서 실패 아님)로 둔다.
             const descText = sections['Mô tả công việc'] || ''
+            // 2026-09-05 사용자 지시로 정정(vieclam24h-blind-10 독립검증에서
+            // 실제 hours/work_days 누락·불완전 발견 — 표본 4/8/9): 시간
+            // 표기가 "8h-17h"(문자 h) 형식뿐 아니라 "08:00 – 17:00"(콜론)
+            // 형식도 흔하고, 범위 구분자가 대시(-/–)뿐 아니라 단어 "đến"인
+            // 경우도 실측 확인됐다(표본 9: "Từ 08:30 đến 20:00"). 요일도
+            // 숫자형("thứ 2")뿐 아니라 단어형(Thứ Hai/Ba/Tư/Năm/Sáu/Bảy,
+            // Chủ nhật)이 훨씬 흔하다(표본 4/8/9 전부 단어형만 씀 — 예전
+            // 정규식은 숫자형만 지원해 전부 놓쳤다). job_quality.py의
+            // extract_work_hours_free_text()/extract_work_days_free_text()
+            // 순수 거울로 먼저 검증한 것과 동일한 패턴 — 두 쪽 다 갱신
+            // (한쪽만 고치면 실제 크롤 동작과 오프라인 테스트가 어긋난다).
+            //
+            // "Thứ Hai – Thứ Sáu: 08:00 – 17:00"처럼 요일(범위) 라벨이 시간
+            // 앞에 붙은 경우 그 라벨까지 하나의 매치로 묶어 보존한다(따로
+            // 떨어지거나 사라지지 않게). g 플래그로 한 문장에 시간 범위가
+            // 여럿(오전/오후 분할 근무 등)이어도 전부 이어붙인다 — 단일
+            // 범위 공고는 기존과 동일하게 그 하나만 반환된다.
+            // 2026-09-05 자체 재검증 중 발견·정정(첫 수정에서는 놓쳤던 결함):
+            // "Nghỉ trưa: 12:00 – 13:00" / "nghỉ trưa từ 12:00 đến 14:00"처럼
+            // 점심 휴게시간도 숫자 범위로 적혀 있어, 매치 바로 앞(최대 40자)에
+            // "nghỉ [trưa/giữa giờ/giải lao] [từ]:" 휴게 라벨이 있으면 그
+            // 범위는 근무시간이 아니라 휴게시간이므로 hours에서 제외한다
+            // (job_quality.py의 _is_break_time_prefix()와 동일 규칙).
+            const breakTimePrefixRe = /nghỉ\\s+(?:trưa|giữa\\s*giờ|giải\\s*lao)?\\s*(?:từ\\s*)?[:：]?\\s*$/i
+            const isBreakTimePrefix = (idx) => breakTimePrefixRe.test(descText.slice(Math.max(0, idx - 40), idx))
+            const hoursMatches = [...descText.matchAll(/(?:(?:Thứ\\s*(?:Hai|Ba|Tư|Năm|Sáu|Bảy|[2-7])|Chủ\\s*[Nn]hật)(?:\\s*[-–]\\s*(?:Thứ\\s*(?:Hai|Ba|Tư|Năm|Sáu|Bảy|[2-7])|Chủ\\s*[Nn]hật))?\\s*[:：]\\s*)?(?:(?:sáng|chiều|tối)\\s*[:：]\\s*)?\\d{1,2}[h:]\\d{0,2}\\s*(?:[-–]|đến)\\s*\\d{1,2}[h:]\\d{0,2}/gi)]
+                .filter(m => !isBreakTimePrefix(m.index))
+                .map(m => m[0])
             let detailWorkHoursFreeText = ''
-            // 실제 "H:MM - H:MM" 시간 범위 패턴을 요일 패턴보다 우선한다 — "Thời
-            // gian làm việc:" 라벨 바로 다음 줄이 요일("Từ thứ 2 đến thứ 7")이고
-            // 실제 시간대는 그 아래 별도 줄인 경우가 있어(실측 확인), 라벨 뒤
-            // 첫 줄만 잡으면 요일을 시간으로 잘못 집는다.
-            // 오전/오후 분할 근무(예: "Sáng: 7h - 11h, Chiều: 12h - 16h")는 시간
-            // 범위가 한 문장에 2개 이상 나온다 — g 플래그 없이 .match()만 쓰면
-            // 첫 범위("7h - 11h")만 잡고 뒤쪽("Chiều: 12h - 16h")이 통째로
-            // 사라지는 결함이 있었다(실측: sb 배치 C 20건 중 "Kỹ Sư Kỹ Thuật
-            // Điện (M&E)" 공고). g 플래그로 모든 범위를 "Sáng/Chiều/Tối" 라벨과
-            // 함께(있으면) 찾아 전부 이어붙인다 — 단일 범위 공고는 기존과 동일하게
-            // 그 하나만 반환된다.
-            const hoursMatches = descText.match(/(?:sáng|chiều|tối)?\\s*[:：]?\\s*\\d{1,2}h\\d{0,2}\\s*[-–]\\s*\\d{1,2}h\\d{0,2}/gi)
             if (hoursMatches && hoursMatches.length) {
-                detailWorkHoursFreeText = hoursMatches.map(s => s.trim()).join(', ')
+                const seenHours = new Set()
+                const hoursOut = []
+                hoursMatches.forEach(s => {
+                    const trimmed = s.trim()
+                    const key = trimmed.toLowerCase()
+                    if (trimmed && !seenHours.has(key)) { seenHours.add(key); hoursOut.push(trimmed) }
+                })
+                detailWorkHoursFreeText = hoursOut.join(', ')
             } else {
-                const hoursLabelMatch = descText.match(/(?:giờ làm việc)\\s*[:：]?\\s*([^\\n]{3,80})/i)
+                const hoursLabelMatch = descText.match(/(?:giờ làm việc|thời gian làm việc)\\s*[:：]?\\s*([^\\n]{3,80})/i)
                 if (hoursLabelMatch) detailWorkHoursFreeText = (hoursLabelMatch[1] || hoursLabelMatch[0]).trim()
             }
+            // 근무일/휴무 — 요일(범위) 언급 + "Nghỉ ngày/chiều/sáng/trưa ..."
+            // 형태의 휴무 언급을 찾는다. hours와 별개 필드이므로 시간 부분은
+            // work_days에 다시 담지 않는다(같은 문장에 요일+시간이 같이
+            // 있어도 work_days는 요일/휴무 부분만).
+            const daysMatches = descText.match(/(?:nghỉ\\s+(?:ngày|chiều|sáng|trưa)\\s*)?(?:Thứ\\s*(?:Hai|Ba|Tư|Năm|Sáu|Bảy|[2-7])|Chủ\\s*[Nn]hật)(?:\\s*(?:đến|-|–)\\s*(?:Thứ\\s*(?:Hai|Ba|Tư|Năm|Sáu|Bảy|[2-7])|Chủ\\s*[Nn]hật))?/gi)
             let detailWorkDaysFreeText = ''
-            const daysMatch = descText.match(/(?:ngày làm việc)\\s*[:：]?\\s*([^\\n]{3,60})/i)
-                || descText.match(/từ\\s+thứ\\s*\\d\\s*(?:đến|-|–)\\s*(?:thứ\\s*\\d|chủ nhật)/i)
-            if (daysMatch) detailWorkDaysFreeText = (daysMatch[1] || daysMatch[0]).trim()
+            if (daysMatches && daysMatches.length) {
+                const seenDays = new Set()
+                const daysOut = []
+                daysMatches.forEach(s => {
+                    const trimmed = s.trim()
+                    const key = trimmed.toLowerCase()
+                    if (trimmed && !seenDays.has(key)) { seenDays.add(key); daysOut.push(trimmed) }
+                })
+                detailWorkDaysFreeText = daysOut.join(', ')
+            } else {
+                const daysLabelMatch = descText.match(/(?:ngày làm việc)\\s*[:：]?\\s*([^\\n]{3,60})/i)
+                if (daysLabelMatch) detailWorkDaysFreeText = (daysLabelMatch[1] || daysLabelMatch[0]).trim()
+            }
 
             // 사이트 자체가 제공하는 고용주 등록 좌표(있으면) — __NEXT_DATA__
             // (Next.js SSR 상태, 이 사이트의 표준 메커니즘)의

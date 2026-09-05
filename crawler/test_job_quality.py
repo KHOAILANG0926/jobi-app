@@ -11,6 +11,7 @@ from job_quality import (
     compute_all_locations_c1_verified,
     compute_job_updates,
     extract_salary_from_text,
+    extract_work_days_free_text,
     extract_work_hours_free_text,
     gate_auto_publish,
     guess_all_provinces_from_text,
@@ -93,12 +94,18 @@ def test_quality_helpers() -> None:
         canonical_job_key("Nhan vien dong goi", "Cong ty Anh Duong"),
         "canonical key removes accents and punctuation",
     )
-    assert_true(
-        has_excluded_money_terms("Theo dõi đơn hàng và quản lý, thu hồi công nợ theo quy định công ty."),
-        "debt collection jobs should be excluded",
+    # 2026-09-05 사용자 지시로 정정(vieclam24h-blind-10 독립검증에서 표본
+    # 3/4/8 오탐 실사례 발견): "công nợ"가 본문(description)에만 있고
+    # 제목/직종에 추심 전담 어근 조합이 없으면 더 이상 제외 근거가 아니다
+    # — 주문·납품·영업·회계 업무의 일반적인 일부(theo dõi/quản lý/đối chiếu/
+    # thu hồi + công nợ)로 허용한다. 이 텍스트는 실제 title이 아니라
+    # description 위치에서 검사돼야 새 정책의 의미가 맞다.
+    assert_false(
+        has_excluded_money_terms(description="Theo dõi đơn hàng và quản lý, thu hồi công nợ theo quy định công ty."),
+        "'thu hồi công nợ' in description only (not title/category) must now be ALLOWED — normal order/sales/accounting duty",
     )
     assert_false(
-        has_excluded_money_terms("Nhân viên bán hàng cửa hàng tiện lợi, nhận ca linh hoạt."),
+        has_excluded_money_terms(description="Nhân viên bán hàng cửa hàng tiện lợi, nhận ca linh hoạt."),
         "normal retail jobs should remain allowed",
     )
 
@@ -130,15 +137,127 @@ def test_payload_validation() -> None:
     expired_job = {**good_job, "application_deadline": "2026-08-22"}
     assert_true("deadline is expired" in validate_job_payload(expired_job, today="2026-08-22"), "expired job error")
 
-    debt_job = {
+    # 2026-09-05 사용자 지시로 정정(실사례 오탐 — vieclam24h-blind-10 독립검증
+    # 표본 3): 제목이 일반 영업직이고 "thu hồi công nợ"가 본문에만(주문·납품
+    # 업무의 일부로) 있으면 더 이상 제외되면 안 된다. 이 fixture는 표본 3의
+    # 실제 모양(철강 영업, 제목에 추심 언어 없음, 본문에 "quản lý, thu hồi
+    # công nợ")을 그대로 축소 재현한다.
+    normal_sales_job_with_debt_mention_in_body = {
         **good_job,
         "title": "NV Kinh Doanh Tôn Thép",
         "description": "[source:vieclam24h] Theo dõi đơn hàng, quản lý và thu hồi công nợ theo quy định công ty.",
         "category": "retail",
     }
+    errors_for_normal_sales = validate_job_payload(normal_sales_job_with_debt_mention_in_body, today="2026-08-22")
     assert_true(
-        "excluded money/debt collection job" in validate_job_payload(debt_job, today="2026-08-22"),
-        "debt collection payload error",
+        not any(e.startswith("excluded money/debt collection job") for e in errors_for_normal_sales),
+        f"title has no debt-collection stems and 'công nợ' is only in the body -> must NOT be excluded, got errors={errors_for_normal_sales!r}",
+    )
+
+    # 실제 추심 전담 공고는 제목 자체에 어근 조합이 있으므로 계속 제외돼야 한다.
+    real_debt_collector_job = {
+        **good_job,
+        "title": "Nhân Viên Thu Hồi Nợ",
+        "description": "[source:vieclam24h] Gọi điện nhắc khách hàng thanh toán khoản vay quá hạn.",
+        "category": "office",
+    }
+    errors_for_collector = validate_job_payload(real_debt_collector_job, today="2026-08-22")
+    assert_true(
+        any(e.startswith("excluded money/debt collection job") for e in errors_for_collector),
+        f"title itself is a dedicated debt-collector role ('Thu Hồi Nợ') -> must still be excluded, got errors={errors_for_collector!r}",
+    )
+
+
+def test_debt_collection_quality_filter_fix() -> None:
+    """2026-09-05 사용자 지시 — vieclam24h-blind-10.zip 독립검증에서 발견된
+    3건의 실제 오제외(표본 3/4/8)를 고정 fixture로 재현하고, 정정된 규칙
+    (title/category에서만 어근 조합 검사, description은 절대 근거로 안 씀)
+    이 그 3건은 통과시키면서 진짜 추심 전담 공고 3건(제목 자체에 어근 조합이
+    있음)은 여전히 막는지 확인한다. 특정 표본 번호/URL/회사명을 예외처리하는
+    코드가 아니라 job_quality.py의 공통 규칙만으로 이 결과가 나와야 한다."""
+
+    def _minimal_job(title: str, description: str, category: str = "office") -> dict:
+        return {
+            "title": title,
+            "company": "Công Ty TNHH Test",
+            "location": "TP.HCM",
+            "salary": "10 - 15 triệu",
+            "description": f"[source:vieclam24h] {description}",
+            "category": category,
+            "posted_at": "2026-09-05",
+            "urgent": False,
+            "employer_phone": "0901234567",
+            "application_deadline": "2026-09-30",
+            "active": True,
+            "origin": "crawler",
+            "admin_hidden": False,
+            "image_url": None,
+        }
+
+    def _assert_not_money_excluded(job: dict, label: str) -> None:
+        errors = validate_job_payload(job, today="2026-09-05")
+        assert_true(
+            not any(e.startswith("excluded money/debt collection job") for e in errors),
+            f"{label}: must NOT be excluded, got errors={errors!r}",
+        )
+
+    def _assert_money_excluded(job: dict, label: str) -> None:
+        errors = validate_job_payload(job, today="2026-09-05")
+        assert_true(
+            any(e.startswith("excluded money/debt collection job") for e in errors),
+            f"{label}: must be excluded, got errors={errors!r}",
+        )
+
+    # ── 실제 오탐 3건(vieclam24h-blind-10.zip crawler_dry_run.json에서 그대로
+    # 가져온 title/category/description — 요약·교정 없음) ──
+    sample_3 = _minimal_job(
+        "Nhân Viên Kinh Doanh Tôn Thép - Không Yêu Cầu Kinh Nghiệm - Lương Cứng Upto 10Tr",
+        "Theo dõi đơn hàng, tiến độ giao hàng, phối hợp xử lý các vấn đề phát sinh và quản lý, thu hồi công nợ theo quy định công ty.",
+        category="retail",
+    )
+    _assert_not_money_excluded(sample_3, "sample_3 (steel sales, 'thu hồi công nợ' only in body)")
+
+    sample_4 = _minimal_job(
+        "Chuyên Viên Kinh Doanh Phụ Gia & Nguyên Liệu Thực Phẩm",
+        "Báo giá, đàm phán, ký kết hợp đồng và theo dõi đơn hàng, công nợ",
+        category="office",
+    )
+    _assert_not_money_excluded(sample_4, "sample_4 (food additive sales, 'công nợ' only in body)")
+
+    sample_8 = _minimal_job(
+        "Kế Toán Tổng Hợp",
+        "Theo dõi và quản lý công nợ",
+        category="office",
+    )
+    _assert_not_money_excluded(sample_8, "sample_8 (general accountant, 'quản lý công nợ' only in body)")
+
+    # ── 제목 자체가 추심 전담인 경우는 계속 제외돼야 한다(고정 테스트) ──
+    _assert_money_excluded(
+        _minimal_job("Nhân viên thu hồi nợ", "Công việc văn phòng thông thường."),
+        "title='Nhân viên thu hồi nợ'",
+    )
+    _assert_money_excluded(
+        _minimal_job("Chuyên viên xử lý nợ xấu", "Công việc văn phòng thông thường."),
+        "title='Chuyên viên xử lý nợ xấu'",
+    )
+    _assert_money_excluded(
+        _minimal_job("Cộng tác viên nhắc nợ khoản vay", "Công việc văn phòng thông thường."),
+        "title='Cộng tác viên nhắc nợ khoản vay'",
+    )
+
+    # ── 제목은 일반 영업/사무직이고 본문에만 công nợ가 있는 합성 케이스
+    # (실 표본과 별개로, 규칙 자체를 직접 확인) ──
+    _assert_not_money_excluded(
+        _minimal_job("Nhân viên kinh doanh khu vực", "Đối chiếu và theo dõi công nợ khách hàng hàng tháng."),
+        "generic sales title, 'đối chiếu/theo dõi công nợ' only in body",
+    )
+
+    # ── "đối"(대조, 허용)와 "đòi"(독촉, 제외) ascii_key 충돌 방지 확인 —
+    # "đối chiếu công nợ"가 제목에 있어도 오제외되면 안 된다(둘 다
+    # ascii_key 정규화 후 "doi"가 되므로, 근접거리를 좁게 잡아 구분해야 함).
+    _assert_not_money_excluded(
+        _minimal_job("Nhân viên đối chiếu công nợ", "Thực hiện đối chiếu số liệu công nợ với khách hàng."),
+        "title='Nhân viên đối chiếu công nợ' (đối/reconcile, not đòi/collect) must NOT be excluded",
     )
 
 
@@ -742,6 +861,68 @@ def test_extract_work_hours_free_text_preserves_split_shifts() -> None:
     assert_equal(extract_work_hours_free_text(None), "", "None description -> empty, never raises")
 
 
+def test_hours_and_work_days_extraction_fix() -> None:
+    """2026-09-05 사용자 지시 — vieclam24h-blind-10.zip 독립검증에서 발견된
+    표본 4/8/9의 hours=null/work_days=null(또는 불완전) 실패를 그 공고들의
+    실제 "Mô tả công việc" 원문(source_dom.json/crawler_dry_run.json에서
+    그대로 가져온 문장 — 요약·교정 없음)으로 재현하고, 정정된 정규식이
+    원문에 적힌 시간/요일 정보를 소실 없이 담아내는지 확인한다. 적혀 있지
+    않은 정보(휴무 사유, 교대조 의미 등)를 새로 만들어내지 않았는지도
+    함께 확인한다."""
+    # 표본 4 — "Mô tả công việc"의 실제 근무시간 문장 3줄(DOM 순서 그대로).
+    sample_4_desc = (
+        "Thứ Hai – Thứ Sáu: 08:00 – 17:00\n"
+        "Thứ Bảy: 08:00 – 12:00\n"
+        "Nghỉ trưa: 12:00 – 13:00"
+    )
+    s4_hours = extract_work_hours_free_text(sample_4_desc)
+    s4_days = extract_work_days_free_text(sample_4_desc)
+    assert_true(s4_hours != "", "sample_4: hours must not be empty")
+    assert_true("08:00" in s4_hours and "17:00" in s4_hours, f"sample_4: hours must preserve 'Thứ Hai – Thứ Sáu: 08:00 – 17:00', got {s4_hours!r}")
+    assert_true("12:00" in s4_hours, f"sample_4: hours must preserve Saturday's '08:00 – 12:00', got {s4_hours!r}")
+    assert_true(s4_days != "", "sample_4: work_days must not be empty")
+    assert_true("Thứ Hai" in s4_days and "Thứ Sáu" in s4_days, f"sample_4: work_days must preserve the Mon-Fri range, got {s4_days!r}")
+    assert_true("Thứ Bảy" in s4_days, f"sample_4: work_days must preserve Saturday, got {s4_days!r}")
+
+    # 표본 8 — 실제 원문 3줄(라벨 "Thời gian làm việc:"은 별도 문단, 시간/
+    # 요일 정보는 그 아래 li 3개).
+    sample_8_desc = (
+        "08h00 – 17h00, nghỉ trưa 1 tiếng\n"
+        "Nghỉ chiều Thứ 7 & Chủ nhật\n"
+        "Tăng ca nếu làm ngày lễ, cuối tuần : 200% lương cơ bản"
+    )
+    s8_hours = extract_work_hours_free_text(sample_8_desc)
+    s8_days = extract_work_days_free_text(sample_8_desc)
+    assert_true("08h00" in s8_hours and "17h00" in s8_hours, f"sample_8: hours must preserve '08h00 – 17h00', got {s8_hours!r}")
+    assert_true("Thứ 7" in s8_days, f"sample_8: work_days must preserve Saturday afternoon off, got {s8_days!r}")
+    assert_true("Chủ nhật" in s8_days, f"sample_8: work_days must preserve Sunday off, got {s8_days!r}")
+
+    # 표본 9 — 실제 원문(단일 문장, "Thời gian làm việc:" 라벨 + 시간 +
+    # 요일 + 점심시간 + 일요일 휴무가 한 문장에 전부 있음).
+    sample_9_desc = (
+        "Thời gian làm việc: Từ 08:30 đến 20:00, thứ Hai đến thứ Bảy "
+        "(nghỉ trưa từ 12:00 đến 14:00, nghỉ ngày Chủ nhật)."
+    )
+    s9_hours = extract_work_hours_free_text(sample_9_desc)
+    s9_days = extract_work_days_free_text(sample_9_desc)
+    assert_true("08:30" in s9_hours and "20:00" in s9_hours, f"sample_9: hours must preserve '08:30 đến 20:00', got {s9_hours!r}")
+    assert_true("thứ Hai" in s9_days and "thứ Bảy" in s9_days, f"sample_9: work_days must preserve 'thứ Hai đến thứ Bảy', got {s9_days!r}")
+    assert_true("Chủ nhật" in s9_days, f"sample_9: work_days must preserve Sunday off, got {s9_days!r}")
+
+    # 추측 금지 확인: 세 표본 원문 어디에도 "교대조"/"buổi sáng"(표본 4의
+    # 토요일 줄에는 실제로 없음) 같은 단어가 없으므로, 출력에도 나타나면
+    # 안 된다 — 있지도 않은 의미를 새로 만들어 붙이지 않았는지 직접 확인.
+    assert_true("buổi sáng" not in s4_days, f"sample_4: 'buổi sáng' is not in the source text for Saturday — must not be invented, got {s4_days!r}")
+    assert_true("ca " not in s4_hours.lower(), f"sample_4: source never mentions shifts ('ca') — must not invent shift wording, got {s4_hours!r}")
+
+    # 점심 휴게시간 오분류 방지: "Nghỉ trưa: 12:00 – 13:00" /
+    # "nghỉ trưa từ 12:00 đến 14:00"은 휴게시간이지 근무시간이 아니므로
+    # hours에 섞여 들어가면 안 된다(자체 재검증 중 발견 — 처음 수정에서는
+    # 이 구분 없이 모든 숫자 범위를 hours로 잡아 실패했었다).
+    assert_true("13:00" not in s4_hours, f"sample_4: lunch break '12:00 – 13:00' must not be misclassified as work hours, got {s4_hours!r}")
+    assert_true("14:00" not in s9_hours, f"sample_9: lunch break '12:00 đến 14:00' must not be misclassified as work hours, got {s9_hours!r}")
+
+
 def test_compute_all_locations_c1_verified_requires_every_location_source_verified() -> None:
     # 2026-09-04 사용자 지시로 만들어진 compute_all_locations_c1_verified()의
     # 순수 계산 로직 자체(coordinate_accuracy가 아니라 source_verified
@@ -802,6 +983,7 @@ def test_compute_all_locations_c1_verified_requires_every_location_source_verifi
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
+        test_debt_collection_quality_filter_fix,
         test_work_locations, test_address_pipeline_standard, test_compute_job_updates,
         test_parse_listing_card_lines,
         test_normalize_location_province_fallback, test_location_validation_and_multi_province,
@@ -809,6 +991,7 @@ def main() -> int:
         test_exact_address_takes_priority_over_approximate,
         test_detail_page_company_and_salary_extraction,
         test_extract_work_hours_free_text_preserves_split_shifts,
+        test_hours_and_work_days_extraction_fix,
         test_compute_all_locations_c1_verified_requires_every_location_source_verified,
     ]
     for test in tests:
