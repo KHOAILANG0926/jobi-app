@@ -1318,7 +1318,7 @@ def load_existing_lookup_maps() -> tuple[dict, dict]:
     Returns (by_source_url, by_key) — source_url이 있는 행은 by_source_url에도
     같이 들어간다."""
     existing_raw = supabase.table("local_jobs") \
-        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin") \
+        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin,admin_hidden") \
         .like("description", "%[source:vieclam24h]%") \
         .execute()
     rows = existing_raw.data or []
@@ -1411,7 +1411,22 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
         # 불완전한(진짜로는 exact인 근무지가 이번 실행에서만 확인 실패한)
         # 판정으로 잘못 강등(active: true -> false)될 수 있던 결함 —
         # job_work_locations와 동일한 원칙으로 여기도 보호한다.
-        if existing.get("origin") == "crawler" and not had_transient:
+        #
+        # 2026-09-05 사용자 지시로 추가(운영 재개 첫 실행에서 실제 발견된
+        # 결함 — 검증용 비공개 공고 4381/4382가 이 정상 재크롤 한 번으로
+        # active=false->true로 되살아남): admin_hidden=True인 기존 행은
+        # AdminJobs.tsx의 "숨김"("Ẩn tin") 버튼이나 --verify-write 격리
+        # 저장처럼 사람이 의도적으로 비공개 처리한 상태다. 크롤러의 자동
+        # 게이트 판정은 그 판단을 알지 못하므로, admin_hidden=True인 행은
+        # active/게이트 사유/버전 갱신 자체를 건너뛰어 관리자의 수동 결정이
+        # 다음 재크롤로 조용히 뒤집히지 않게 한다(admin_hidden 자체는 이
+        # 코드가 절대 자동으로 세우지 않는 값이므로 — build_job_record()는
+        # 항상 False로 시작하고, True는 오직 사람의 조작(관리자 UI) 또는
+        # --verify-write 격리 저장에서만 세워진다 — 이 보호가 정상적인
+        # 자동 공개/비공개 판정에 개입할 일은 없다).
+        if existing.get("admin_hidden") is True:
+            print(f"    🔒 id={existing['id']}: admin_hidden=True(관리자 수동 숨김/검증 격리) — active/게이트 사유 갱신 보류(기존 값 유지)")
+        elif existing.get("origin") == "crawler" and not had_transient:
             field_updates["active"] = job["active"]
             field_updates["publish_gate_reason"] = job["publish_gate_reason"]
             field_updates["crawler_version"] = job["crawler_version"]
@@ -1605,7 +1620,7 @@ async def reprocess_jobs(job_ids: list[int], *, confirm_write: bool = False) -> 
     if not job_ids:
         return []
     rows = supabase.table("local_jobs") \
-        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin,employer_phone") \
+        .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin,employer_phone,admin_hidden") \
         .in_("id", job_ids).eq("origin", "crawler").execute().data or []
     rows_by_id = {r["id"]: r for r in rows}
     by_source_url, by_key = load_existing_lookup_maps()

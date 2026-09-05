@@ -913,9 +913,10 @@ class _FakeQuery:
     was sent instead of touching a real database. Every chain method returns
     self so `.table(x).update(y).eq(a, b).execute()`-style chains work."""
 
-    def __init__(self, calls: list[dict], kind: str, table_or_rpc: str, payload=None):
+    def __init__(self, calls: list[dict], kind: str, table_or_rpc: str, payload=None, select_result=None):
         self._calls = calls
         self._record = {"kind": kind, "table_or_rpc": table_or_rpc, "payload": payload, "filters": {}}
+        self._select_result = select_result
 
     def update(self, payload):
         self._record["op"] = "update"
@@ -927,10 +928,20 @@ class _FakeQuery:
         self._record["payload"] = payload
         return self
 
-    def select(self, *_a, **_k):
+    def select(self, columns: str | None = None, *_a, **_k):
+        # 실제 PostgREST처럼 요청한 컬럼만 돌려주기 위해 컬럼 목록을 기억해둔다
+        # — select() 인자를 그냥 무시하면, 코드에서 컬럼을 select() 목록에서
+        # 빠뜨려도(2026-09-05 GPT 독립검증 실제 결함: admin_hidden 누락) 이
+        # 가짜 DB가 항상 select_result 전체를 그대로 돌려줘 테스트가 그 결함을
+        # 절대 못 잡는다.
+        if columns is not None:
+            self._record["select_columns"] = [c.strip() for c in columns.split(",")]
         return self
 
     def like(self, *_a, **_k):
+        return self
+
+    def in_(self, *_a, **_k):
         return self
 
     def eq(self, col, val):
@@ -939,17 +950,27 @@ class _FakeQuery:
 
     def execute(self):
         self._calls.append(self._record)
+        # op이 없으면(update/insert가 호출된 적 없으면) 이 체인은 순수 SELECT다 —
+        # select_result가 지정돼 있으면 그 실제 행 목록을, select()에 실제로
+        # 지정된 컬럼만으로 잘라(진짜 PostgREST의 컬럼 프로젝션처럼) 돌려준다.
+        if self._record.get("op") is None and self._select_result is not None:
+            cols = self._record.get("select_columns")
+            if cols is not None:
+                filtered = [{k: v for k, v in row.items() if k in cols} for row in self._select_result]
+                return type("Result", (), {"data": filtered})()
+            return type("Result", (), {"data": self._select_result})()
         return type("Result", (), {"data": [{"id": self._record["filters"].get("id", 12345)}]})()
 
 
 class _FakeSupabase:
     """Records every .table()/.rpc() call's final payload — see _FakeQuery."""
 
-    def __init__(self):
+    def __init__(self, select_result=None):
         self.calls: list[dict] = []
+        self.select_result = select_result
 
     def table(self, name):
-        return _FakeQuery(self.calls, "table", name)
+        return _FakeQuery(self.calls, "table", name, select_result=self.select_result)
 
     def rpc(self, name, params=None):
         return _FakeQuery(self.calls, "rpc", name, payload=params)
@@ -1041,6 +1062,104 @@ def test_transient_geocode_failure_never_republishes_or_corrupts_existing_verifi
         assert_true(
             any("active" in c["payload"] for c in clean_updates),
             "clean re-verify must update 'active' when the gate's conclusion legitimately changed",
+        )
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
+def test_admin_hidden_row_never_republished_by_normal_recrawl() -> None:
+    """실사례 회귀(2026-09-05, 사용자 지시 — VPS cron 재활성화 첫 실행에서
+    실제 발견): --verify-write로 격리 저장한 검증용 비공개 공고(active=False,
+    admin_hidden=True)가, 그 뒤 정상 재크롤(cron)이 같은 URL을 다시 만나면서
+    active=False->True로 조용히 되살아난 결함(id=4381/4382 실사례). 원인은
+    upsert_job_record()의 UPDATE 분기가 origin=='crawler'이고 geocode 일시
+    오류만 없으면 이번 실행의 새 게이트 판정으로 active를 무조건 덮어써,
+    관리자가 admin_hidden=True로 수동 격리한 상태를 전혀 몰랐던 것. 이제
+    admin_hidden=True인 기존 행은 active/publish_gate_reason/crawler_version/
+    last_verified_at 갱신 자체를 건너뛴다. 대조군(admin_hidden=False인 정상
+    행)은 여전히 정상적으로 active가 갱신돼야 회귀가 아님을 함께 확인한다."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+    try:
+        # 시나리오 1: admin_hidden=True로 격리된 기존 행 — 새 게이트 판정이
+        # active=True(정상 공개)를 내려도 절대 그 값을 되살리면 안 된다.
+        hidden_existing = _make_existing_row(active=False, admin_hidden=True)
+        by_source_url = {hidden_existing["source_url"]: hidden_existing}
+        by_key = {canonical_job_key(hidden_existing["title"], hidden_existing["company"]): hidden_existing}
+        rerun_job = _make_rerun_job(active=True, publish_gate_reason="ok", salary="20 - 25 triệu")
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(rerun_job, by_source_url, by_key)
+        assert_equal(result["action"], "updated", "salary genuinely changed -> update() must still run for that field")
+        table_calls = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "update"]
+        assert_equal(len(table_calls), 1, "exactly one update() call")
+        payload = table_calls[0]["payload"] or {}
+        assert_equal(payload.get("salary"), "20 - 25 triệu", "geocode/gate-independent field (salary) must still be updated")
+        assert_true(
+            "active" not in payload and "publish_gate_reason" not in payload
+            and "crawler_version" not in payload and "last_verified_at" not in payload,
+            f"admin_hidden=True existing row must NOT have active/publish_gate_reason/crawler_version/last_verified_at touched by a normal re-crawl, got update payload {payload!r}",
+        )
+
+        # 대조군: admin_hidden=False인 정상 행은 여전히 active가 정상 갱신돼야
+        # 한다(이 보호가 정상적인 공개/비공개 전환까지 막아버린 게 아님을 확인).
+        fake.calls.clear()
+        visible_existing = _make_existing_row(active=False, admin_hidden=False)
+        by_source_url2 = {visible_existing["source_url"]: visible_existing}
+        by_key2 = {canonical_job_key(visible_existing["title"], visible_existing["company"]): visible_existing}
+        rerun_job2 = _make_rerun_job(active=True, publish_gate_reason="ok")
+        with crawl_topcv.enable_writes():
+            crawl_topcv.upsert_job_record(rerun_job2, by_source_url2, by_key2)
+        visible_updates = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "update"]
+        assert_true(len(visible_updates) >= 1, "a normal (admin_hidden=False) re-verify with a changed active must still send an update")
+        assert_true(
+            any("active" in c["payload"] for c in visible_updates),
+            "normal (admin_hidden=False) re-verify must still update 'active' when the gate's conclusion legitimately changed",
+        )
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
+def test_admin_hidden_survives_load_existing_lookup_maps_and_blocks_active_update() -> None:
+    """실사례 회귀(2026-09-05, GPT 독립검증 — 위 test_admin_hidden_row_never_
+    republished_by_normal_recrawl()이 놓친 실제 결함): upsert_job_record()는
+    existing.get("admin_hidden")을 확인하지만, 그 existing dict를 실제로
+    만들어주는 load_existing_lookup_maps()의 SELECT 목록에 admin_hidden
+    컬럼 자체가 없어 운영에서는 이 값이 항상 None이었다 — 앞의 테스트는
+    _make_existing_row(admin_hidden=True)로 dict를 손으로 만들어 이 SELECT
+    누락을 우회했기 때문에 실제 결함(4381/4382가 정상 재크롤로 되살아난
+    사고)을 잡지 못했다. 이 테스트는 손으로 만든 dict를 upsert_job_record()에
+    바로 넣지 않고, 실제 load_existing_lookup_maps()가 반환한 행을 그대로
+    써서 admin_hidden이 그 경로를 거쳐도 보존되는지, 그리고 그 행으로
+    upsert했을 때도 active 관련 필드가 UPDATE payload에서 빠지는지 검증한다."""
+    original_supabase = crawl_topcv.supabase
+    existing_row = _make_existing_row(active=False, admin_hidden=True)
+    fake = _FakeSupabase(select_result=[existing_row])
+    crawl_topcv.supabase = fake
+    try:
+        by_source_url, by_key = crawl_topcv.load_existing_lookup_maps()
+        loaded = by_source_url.get(existing_row["source_url"])
+        assert_true(loaded is not None, "load_existing_lookup_maps() must find the row by source_url")
+        assert_equal(
+            loaded.get("admin_hidden"), True,
+            "admin_hidden must survive load_existing_lookup_maps()'s SELECT column list — "
+            "this is the exact field GPT's independent verification found missing in production",
+        )
+
+        fake.calls.clear()
+        rerun_job = _make_rerun_job(active=True, publish_gate_reason="ok", salary="20 - 25 triệu")
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(rerun_job, by_source_url, by_key)
+        assert_equal(result["action"], "updated", "salary genuinely changed -> update() must still run for that field")
+        table_calls = [c for c in fake.calls if c["kind"] == "table" and c.get("op") == "update"]
+        assert_equal(len(table_calls), 1, "exactly one update() call")
+        payload = table_calls[0]["payload"] or {}
+        assert_equal(payload.get("salary"), "20 - 25 triệu", "geocode/gate-independent field (salary) must still be updated")
+        assert_true(
+            "active" not in payload and "publish_gate_reason" not in payload
+            and "crawler_version" not in payload and "last_verified_at" not in payload,
+            "admin_hidden=True loaded through the REAL load_existing_lookup_maps() SELECT must still "
+            f"block active/publish_gate_reason/crawler_version/last_verified_at updates, got payload {payload!r}",
         )
     finally:
         crawl_topcv.supabase = original_supabase
@@ -1666,6 +1785,8 @@ def main() -> int:
         test_gate_publishes_partially_verified_mixed_tiers,
         test_gate_publishes_regardless_of_coordinate_verification_tier,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
+        test_admin_hidden_row_never_republished_by_normal_recrawl,
+        test_admin_hidden_survives_load_existing_lookup_maps_and_blocks_active_update,
         test_job_recruitment_regions_reaches_insert_payload_after_migration_0018,
         test_coordinate_accuracy_never_leaks_exact_candidate_to_db,
         test_strip_recruitment_region_suffix_kcn_real_case,
