@@ -160,9 +160,19 @@ type CoordinateAccuracyLike = 'exact' | 'ward' | 'region' | 'unresolved'
 /** 이 근무지 좌표를 "정확한 위치"로 표시해도 되는지 — 지도 마커 스타일과
  *  거리검색 자격 판단 둘 다의 공통 기준(다만 거리검색은 이 값을 직접 쓰지
  *  않고 resolveDistanceSearchPoint()를 통해서만 쓴다 — 두 자격을 같은 한
- *  boolean으로 뭉뚱그리지 않기 위해 함수를 분리해뒀다). */
-function isPreciseWorkLocation(l: { coordinateAccuracy?: CoordinateAccuracyLike; locationVerified?: boolean }): boolean {
-  return l.coordinateAccuracy === 'exact' || l.locationVerified === true
+ *  boolean으로 뭉뚱그리지 않기 위해 함수를 분리해뒀다).
+ *
+ * 2026-09-05 최종 기준으로 정정: coordinateAccuracy==='exact'만으로는
+ * 더 이상 충분하지 않다 — locationVerified===true만 유일한 근거다.
+ * 'exact'는 이 컬럼에 남아있는 레거시/오류 데이터(실제 원문 좌표 검증
+ * 없이 예전 파이프라인이 'exact'를 써넣은 경우가 있었음)까지 포함할 수
+ * 있어, coordinateAccuracy 값만 보고 정확하다고 단정하면 검증되지 않은
+ * 좌표가 거리검색·정확한 핀에 섞여 들어갈 수 있다. location_verified는
+ * job_work_locations에서 원문 좌표 대조로 실제 확인됐을 때만 true가
+ * 되는 값이므로(crawl_topcv.py의 source_verified 참고), 이것만이 유일한
+ * 신뢰 근거다. */
+function isPreciseWorkLocation(l: { locationVerified?: boolean }): boolean {
+  return l.locationVerified === true
 }
 
 /**
