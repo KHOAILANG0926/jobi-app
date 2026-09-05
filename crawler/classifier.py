@@ -30,10 +30,17 @@ def _norm(text: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════
-#  블랙리스트: 고급 화이트칼라 전문직만 → 'other' 격리
-#  (초보/알바형 사무직은 제외하지 않음)
+#  고급 화이트칼라 전문직 제목 — 카테고리 분류 전용(classify()가 7대
+#  카테고리 어디에도 억지로 끼워맞추지 않고 'other'로 분류하기 위한
+#  목록일 뿐이다). 2026-09-05 사용자 지시로 명확화: 이 목록은 수집
+#  단계에서 공고를 제외하는 데 절대 쓰지 않는다 — 직급(팀장/부장/이사/
+#  대표 등)·고연봉·경력 요건·전문성(IT/법률/의료/교육/부동산 등)만으로
+#  정상적인 채용공고를 제외하지 않는 것이 비엣간반의 정책이다. 실제
+#  제외는 소비자대출 영업/전문 채권추심(job_quality.py의
+#  classify_money_job_exclusion)과 그 외 실질적인 불법·위험 공고 필터만
+#  담당하며, 이 목록과는 완전히 별개다.
 # ══════════════════════════════════════════════════════════
-_BLACKLIST = [
+_SENIOR_PROFESSIONAL_TITLES = [
     # IT 전문직 (시니어/엔지니어급)
     r"senior developer", r"lead developer", r"software engineer",
     r"devops", r"data scientist", r"machine learning", r"ai engineer",
@@ -54,7 +61,7 @@ _BLACKLIST = [
     # 교육 전문직
     r"giang vien dai hoc", r"tien si", r"thac si giao duc",
 ]
-_BLACKLIST_RE = re.compile(r"|".join(_BLACKLIST))
+_SENIOR_PROFESSIONAL_TITLES_RE = re.compile(r"|".join(_SENIOR_PROFESSIONAL_TITLES))
 
 
 # ══════════════════════════════════════════════════════════
@@ -163,13 +170,15 @@ _OFFICE = re.compile(
 def classify(title: str, company: str = "", description: str = "") -> str:
     """
     공고 텍스트를 분석해 7대 카테고리 중 하나를 반환.
-    고급 전문직 블랙리스트에 걸리면 'other' 반환.
+    고급 화이트칼라 전문직 제목(_SENIOR_PROFESSIONAL_TITLES_RE)에 걸리면
+    'other'로 분류한다 — 수집 자체를 막는 것이 아니라 7대 카테고리 어디에도
+    억지로 끼워맞추지 않기 위한 분류일 뿐이다.
     """
     combined  = _norm(f"{title} {company} {description[:300]}")
     title_co  = _norm(f"{title} {company}")
 
     # 블랙리스트: 제목+회사 기준 (본문은 false positive 위험)
-    if _BLACKLIST_RE.search(title_co):
+    if _SENIOR_PROFESSIONAL_TITLES_RE.search(title_co):
         return "other"
 
     # 순서 = 우선순위 (중복 키워드는 먼저 매칭된 카테고리 승)
@@ -194,11 +203,6 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     if _CLEANING.search(title_co):   return "cleaning"
 
     return "other"
-
-
-def is_blacklisted(title: str, company: str = "") -> bool:
-    """True면 수집 단계에서 제외 권장 (고급 전문직만)."""
-    return bool(_BLACKLIST_RE.search(_norm(f"{title} {company}")))
 
 
 # ── 셀프 테스트 ──────────────────────────────────────────

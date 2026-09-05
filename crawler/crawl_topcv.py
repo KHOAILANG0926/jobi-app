@@ -23,7 +23,7 @@ except ImportError:
 
 load_dotenv(Path(__file__).parent / ".env")
 
-from classifier import classify, is_blacklisted
+from classifier import classify
 from geocode import resolve_coordinate_accuracy, source_coordinate_matches_location
 from job_quality import (
     CRAWLER_VERSION,
@@ -978,11 +978,14 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
             "source_url": url, "title": title, "company": company,
             "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,
         }
-    if is_blacklisted(title, company):
-        return {
-            "source_url": url, "title": title, "company": company,
-            "_skip": True, "_skip_reason": "blacklisted",
-        }
+    # 2026-09-05 사용자 지시로 제거: 직급(팀장/부장/이사/대표)·고연봉·경력
+    # 요건·전문성(IT/법률/의료/교육/부동산 등)만으로 정상 공고를 수집
+    # 단계에서 제외하던 is_blacklisted() 체크를 삭제했다(실사례 오제외
+    # 3건 — "Kế Toán Trưởng" 2건, "Trưởng Phòng Kinh Doanh..." 1건).
+    # classify()는 이 제목들을 여전히 category='other'로 분류한다(7대
+    # 카테고리 중 억지로 끼워맞추지 않기 위함일 뿐, 제외가 아님). 소비자
+    # 대출 영업/전문 채권추심 제외는 이 체크와 완전히 별개인
+    # job_quality.classify_money_job_exclusion()이 그대로 담당한다.
 
     logo = listing_hint.get("logoUrl", "")
     desc_text = format_description(detail.get("sections", {}))

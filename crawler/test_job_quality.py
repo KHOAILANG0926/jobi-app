@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from classifier import classify, is_blacklisted
+from classifier import classify
 from job_quality import (
     canonical_job_key,
     classify_work_location_candidate,
@@ -73,8 +73,17 @@ def test_classifier() -> None:
     for title, company, description, expected in cases:
         assert_equal(classify(title, company, description), expected, title)
 
-    assert_true(is_blacklisted("Senior Developer Python", "Tech Co"), "senior developer should be blacklisted")
-    assert_false(is_blacklisted("Nhân Viên Nhập Liệu Part-time", "Cty ABC"), "entry office work should not be blacklisted")
+    # 2026-09-05 사용자 지시로 제거: classifier.is_blacklisted()가 직급
+    # (팀장/부장/이사/대표)·전문성(IT/법률/의료/교육/부동산)만으로 정상
+    # 공고를 수집 단계에서 제외하던 실사례 오제외(vieclam24h-new10-
+    # independent.zip 표본에서 발견 — "Kế Toán Trưởng" 2건, "Trưởng Phòng
+    # Kinh Doanh..." 1건)를 고쳤다. is_blacklisted() 자체가 crawl_topcv.py
+    # 에서 삭제됐으므로 이 위치의 관련 단정문도 제거한다 — "Senior
+    # Developer Python"/"Kế Toán Trưởng" 등이 여전히 category='other'로
+    # 분류되는지는 위 cases에서 이미 확인됨(수집 제외가 아니라 카테고리
+    # 분류일 뿐). 실제 수집 제외 여부는 crawl_topcv.py --dry-run-urls로
+    # 실제 3개 URL을 재확인해 검증(순수 함수 레벨에서는 더 이상 테스트할
+    # is_blacklisted 로직이 없음).
 
 
 def test_quality_helpers() -> None:
