@@ -115,13 +115,13 @@ function testDirectionsAlwaysAvailableRegardlessOfLocationState(): void {
 }
 
 function testDistanceSearchOnlyUsesVerifiedLocations(): void {
-  // 고정 테스트 #8 (2026-09-05 최종 정책, 2026-09-05 독립 검증으로 재정정):
-  // "검증된 실제 근무지 좌표만 거리검색에 사용" — 최종 기준은
-  // locationVerified===true(+유한한 lat/lng)뿐이다. coordinateAccuracy
-  // ==='exact'는 그 자체로 거리검색 자격을 주지 않는다 — 'exact'로
-  // 저장됐지만 실제 원문 좌표 검증(source_verified)은 거치지 않은 레거시/
-  // 오류 데이터가 섞여 들어올 수 있기 때문("location_verified=false인
-  // exact 좌표"가 실제로 존재할 수 있다는 독립 검증 지적).
+  // 고정 테스트 #8 (2026-09-05 2단계 거리검색 정책으로 개정 — 독립 검증에서
+  // 4389/4391/4392처럼 실제 지오코딩된 ward 좌표가 있는데도 location_
+  // verified가 원문에 대조할 사이트 제공 좌표 자체가 없어(정상) 통째로
+  // 거리검색에서 빠지는 사례가 다수 확인됨): 정밀(location_verified===true)
+  // 과 근사(미검증이지만 coordinateAccuracy가 'exact'/'ward'인 실제
+  // 지오코딩 좌표) 두 등급으로 나눠 근사 좌표도 거리검색에 포함하되,
+  // precise 플래그로 호출부가 "N km"/"~N km"를 구분하게 한다.
   const exactUnverified = { rawAddress: 'A', lat: 10.1, lng: 106.1, coordinateAccuracy: 'exact' as const, locationVerified: false }
   const exactVerified = { rawAddress: 'A2', lat: 10.15, lng: 106.15, coordinateAccuracy: 'exact' as const, locationVerified: true }
   const verifiedWard = { rawAddress: 'B', lat: 10.2, lng: 106.2, coordinateAccuracy: 'ward' as const, locationVerified: true }
@@ -129,32 +129,45 @@ function testDistanceSearchOnlyUsesVerifiedLocations(): void {
   const regionTier = { rawAddress: 'D', lat: 10.4, lng: 106.4, coordinateAccuracy: 'region' as const }
   const noCoords = { rawAddress: 'E', coordinateAccuracy: 'unresolved' as const, locationVerified: true }
 
-  // lat/lng 있음 + exact + locationVerified=false → 거리검색 제외.
-  assertEqual(resolveDistanceSearchPoint({ workLocations: [exactUnverified] }), null, "lat/lng present + coordinateAccuracy='exact' + locationVerified=false must be EXCLUDED from distance search")
+  // lat/lng 있음 + exact + locationVerified=false → 근사 거리검색 포함(precise=false).
+  const onlyExactUnverified = resolveDistanceSearchPoint({ workLocations: [exactUnverified] })
+  assertTrue(onlyExactUnverified !== null && onlyExactUnverified.lat === 10.1 && onlyExactUnverified.precise === false, "lat/lng present + coordinateAccuracy='exact' + locationVerified=false must be INCLUDED as APPROXIMATE (precise=false)")
 
-  // lat/lng 있음 + exact + locationVerified=true → 거리검색 포함.
+  // lat/lng 있음 + exact + locationVerified=true → 정밀 거리검색 포함(precise=true).
   const onlyExactVerified = resolveDistanceSearchPoint({ workLocations: [exactVerified] })
-  assertTrue(onlyExactVerified !== null && onlyExactVerified.lat === 10.15 && onlyExactVerified.lng === 106.15, "lat/lng present + exact + locationVerified=true must be INCLUDED in distance search")
+  assertTrue(onlyExactVerified !== null && onlyExactVerified.lat === 10.15 && onlyExactVerified.lng === 106.15 && onlyExactVerified.precise === true, "lat/lng present + exact + locationVerified=true must be INCLUDED as PRECISE (precise=true)")
 
-  // lat/lng 있음 + ward + locationVerified=true → 거리검색 포함.
+  // lat/lng 있음 + ward + locationVerified=true → 정밀 거리검색 포함.
   const onlyWardVerified = resolveDistanceSearchPoint({ workLocations: [verifiedWard] })
-  assertTrue(onlyWardVerified !== null && onlyWardVerified.lat === 10.2 && onlyWardVerified.lng === 106.2, "lat/lng present + ward + locationVerified=true must be INCLUDED in distance search (coordinateAccuracy tier is irrelevant once verified)")
+  assertTrue(onlyWardVerified !== null && onlyWardVerified.lat === 10.2 && onlyWardVerified.lng === 106.2 && onlyWardVerified.precise === true, "lat/lng present + ward + locationVerified=true must be INCLUDED as PRECISE (coordinateAccuracy tier is irrelevant once verified)")
+
+  // lat/lng 있음 + ward + locationVerified=false → 근사 거리검색 포함(precise=false).
+  const onlyWardUnverified = resolveDistanceSearchPoint({ workLocations: [unverifiedWard] })
+  assertTrue(onlyWardUnverified !== null && onlyWardUnverified.lat === 10.3 && onlyWardUnverified.precise === false, "lat/lng present + ward + locationVerified=false must be INCLUDED as APPROXIMATE (precise=false)")
+
+  // lat/lng 있음 + region → 등급 무관 완전 제외(행정 중심, 근사 거리검색도 안 됨).
+  assertEqual(resolveDistanceSearchPoint({ workLocations: [regionTier] }), null, "region-tier point must be EXCLUDED from distance search even though it has real lat/lng, and even as an approximate point")
 
   // lat/lng 없음 + locationVerified=true → 거리검색 제외(검증 플래그만으로는
   // 부족하다 — 실제 유한한 좌표가 없으면 애초에 계산할 게 없다).
   assertEqual(resolveDistanceSearchPoint({ workLocations: [noCoords] }), null, "locationVerified=true but no lat/lng at all -> must still be excluded, nothing to calculate distance from")
 
-  // 고정 테스트 #4: 복수 근무지 중 일부만 좌표 검증 — 검증된 것만 반환.
+  // 복수 근무지 — 정밀 2개 + 근사 2개 + region(좌표 있음) + 좌표없음, 총 4개만 포함.
   const mixed = resolveDistanceSearchPoints({ workLocations: [exactUnverified, exactVerified, verifiedWard, unverifiedWard, regionTier, noCoords] })
-  assertEqual(mixed.length, 2, "only the two genuinely locationVerified=true (+finite lat/lng) locations count")
-  assertTrue(mixed.some((p) => p.lat === 10.15 && p.lng === 106.15), "verified exact point must be included")
-  assertTrue(mixed.some((p) => p.lat === 10.2 && p.lng === 106.2), "verified ward point must be included")
-  assertFalse(mixed.some((p) => p.lat === 10.1), "unverified exact-tagged point must be excluded despite coordinateAccuracy==='exact'")
-  assertFalse(mixed.some((p) => p.lat === 10.3), "unverified ward point must be excluded")
+  assertEqual(mixed.length, 4, "the two precise + two approximate locations count; region-tier and no-coords are excluded")
+  assertTrue(mixed.some((p) => p.lat === 10.15 && p.lng === 106.15 && p.precise), "verified exact point must be included as precise")
+  assertTrue(mixed.some((p) => p.lat === 10.2 && p.lng === 106.2 && p.precise), "verified ward point must be included as precise")
+  assertTrue(mixed.some((p) => p.lat === 10.1 && !p.precise), "unverified exact-tagged point must be included as approximate")
+  assertTrue(mixed.some((p) => p.lat === 10.3 && !p.precise), "unverified ward point must be included as approximate")
   assertFalse(mixed.some((p) => p.lat === 10.4), "region-tier point must be excluded even though it has real lat/lng")
 
-  // 전부 미검증이면 대표 1점도 null — 지도 fallback으로라도 거리를 계산하면 안 된다.
-  assertEqual(resolveDistanceSearchPoint({ workLocations: [unverifiedWard, regionTier, exactUnverified] }), null, "no genuinely verified location at all -> resolveDistanceSearchPoint must return null, never fall back to an approximate/unverified point")
+  // 대표 1점은 정밀이 하나라도 있으면 정밀을 우선한다(같은 공고 안에 정밀/
+  // 근사가 섞여 있을 때 배지에 근사치를 보여주는 일이 없도록).
+  const preferPrecise = resolveDistanceSearchPoint({ workLocations: [exactUnverified, verifiedWard] })
+  assertTrue(preferPrecise !== null && preferPrecise.precise === true && preferPrecise.lat === 10.2, "resolveDistanceSearchPoint must prefer a precise point over an approximate one when both exist")
+
+  // 전부 region/좌표없음이면 대표 1점도 null — 지도 fallback으로라도 거리를 계산하면 안 된다.
+  assertEqual(resolveDistanceSearchPoint({ workLocations: [regionTier, noCoords] }), null, "only region/no-coords locations -> resolveDistanceSearchPoint must return null, never fall back to an administrative-center point")
   assertEqual(resolveDistanceSearchPoint({ workLocations: [] }), null, "no work locations at all -> null")
   assertEqual(resolveDistanceSearchPoint({}), null, "no workLocations field at all -> null")
 }

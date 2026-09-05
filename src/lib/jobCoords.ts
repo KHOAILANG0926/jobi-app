@@ -260,37 +260,62 @@ export function resolveMapLocations(job: {
   }
 }
 
-/**
- * 거리검색("내 주변")/거리순 정렬에 써도 되는 좌표만 반환한다 — 지도 표시용
- * resolveMapLocations()와는 완전히 분리된, 더 엄격한 별도 함수(정책: "지도
- * fallback 좌표와 거리검색 좌표를 코드상 명확히 분리, 행정 중심점/모집지역
- * 중심점을 거리 계산에 절대 사용 금지"). location_verified=true인 실제
- * 근무지 좌표, 또는 coordinateAccuracy==='exact'인 좌표만 인정한다 — 성·시/
- * 구·군 행정 중심(findRegionCenter)이나 모집지역 중심, 미검증 ward/region
- * 좌표는 절대 반환하지 않는다. 여러 근무지 중 일부만 검증됐으면 그 검증된
- * 것들만 반환한다(정책: "복수 근무지 중 일부만 좌표 검증돼도 검증된 위치만
- * 거리검색에 사용").
- */
-export function resolveDistanceSearchPoints(job: {
-  workLocations?: WorkLocationLike[]
-}): { lat: number; lng: number }[] {
-  return (job.workLocations ?? [])
-    .filter((l): l is WorkLocationLike & { lat: number; lng: number } =>
-      typeof l.lat === 'number' && typeof l.lng === 'number' &&
-      Number.isFinite(l.lat) && Number.isFinite(l.lng) && isPreciseWorkLocation(l),
-    )
-    .map((l) => ({ lat: l.lat, lng: l.lng }))
+/** 이 근무지가 "근사(approximate)" 거리검색 자격을 갖는지 — location_
+ *  verified는 없지만, 최소한 실제 특정 장소를 지오코딩한 좌표(coordinate
+ *  Accuracy가 'exact' 또는 'ward')는 있어 대략적인 거리 계산에 쓸 수 있는
+ *  경우. 'region'(행정 중심)/'unresolved'(좌표 없음)는 여기 포함되지
+ *  않는다 — 지도·길찾기는 유지하되 거리계산·거리순 정렬에서는 제외한다. */
+function isApproximateDistanceEligible(l: { coordinateAccuracy?: CoordinateAccuracyLike }): boolean {
+  return l.coordinateAccuracy === 'exact' || l.coordinateAccuracy === 'ward'
+}
+
+export interface DistanceSearchPoint {
+  lat: number
+  lng: number
+  /** true = location_verified===true(원문 좌표로 실제 확인) → 정밀 거리검색
+   *  자격, 호출부는 정확한 마커 + "N km"로 표시해야 한다. false = 검증은
+   *  안 됐지만 실제 지오코딩된 exact/ward 좌표가 있어 근사 거리검색에
+   *  포함됨 — 호출부는 근사 마커 + "~N km"(약 N km)로 표시해야 한다. */
+  precise: boolean
 }
 
 /**
- * 거리검색용 대표 1점 — 검증된 근무지 좌표가 여러 개면 그중 첫 번째, 하나도
- * 없으면 null(이 공고는 거리검색/거리순 정렬에서 제외돼야 한다는 뜻 — 지도
- * fallback으로라도 거리를 계산하면 안 됨).
+ * 거리검색("내 주변")/거리순 정렬에 써도 되는 좌표만 반환한다 — 지도 표시용
+ * resolveMapLocations()와는 완전히 분리된 별도 함수. 2026-09-05 정책 개정
+ * (2단계 거리검색 — 이전엔 location_verified===true만 인정해 실제 지오코딩된
+ * exact/ward 좌표를 가진 공고 다수가 거리검색에서 통째로 빠졌다):
+ * - precise=true: location_verified===true인 실제 근무지 좌표 — 정밀
+ *   거리검색.
+ * - precise=false: location_verified은 없지만 coordinateAccuracy가
+ *   'exact' 또는 'ward'인 실제 지오코딩된 근무지 좌표 — 근사 거리검색.
+ * 'region'/'unresolved'(행정 중심/좌표 없음)는 등급과 무관하게 절대
+ * 포함하지 않는다. 성·시/구·군 행정 중심(findRegionCenter)이나 모집지역
+ * 중심, 회사 등록주소 좌표는 이 함수에 애초에 들어오지 않는다
+ * (WorkLocationLike는 job_work_locations의 실제 근무지 좌표만 나타낸다).
+ */
+export function resolveDistanceSearchPoints(job: {
+  workLocations?: WorkLocationLike[]
+}): DistanceSearchPoint[] {
+  return (job.workLocations ?? [])
+    .filter((l): l is WorkLocationLike & { lat: number; lng: number } =>
+      typeof l.lat === 'number' && typeof l.lng === 'number' &&
+      Number.isFinite(l.lat) && Number.isFinite(l.lng) &&
+      (isPreciseWorkLocation(l) || isApproximateDistanceEligible(l)),
+    )
+    .map((l) => ({ lat: l.lat, lng: l.lng, precise: isPreciseWorkLocation(l) }))
+}
+
+/**
+ * 거리검색용 대표 1점 — 정밀(precise) 좌표가 하나라도 있으면 그중 첫
+ * 번째를 우선 반환하고, 없으면 근사(precise=false) 좌표 중 첫 번째.
+ * 자격 있는 좌표가 하나도 없으면 null(이 공고는 거리검색/거리순 정렬에서
+ * 제외돼야 한다는 뜻 — 지도 fallback으로라도 거리를 계산하면 안 됨).
  */
 export function resolveDistanceSearchPoint(job: {
   workLocations?: WorkLocationLike[]
-}): { lat: number; lng: number } | null {
-  return resolveDistanceSearchPoints(job)[0] ?? null
+}): DistanceSearchPoint | null {
+  const points = resolveDistanceSearchPoints(job)
+  return points.find((p) => p.precise) ?? points[0] ?? null
 }
 
 export function withJobCoordinates(job: Job): Job {

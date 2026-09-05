@@ -6,26 +6,34 @@ import { useJobs } from '../context/JobsContext'
 import { calcDistanceKm, resolveDistanceSearchPoint } from '../lib/jobCoords'
 import type { Job } from '../types/job'
 
-type JobWithDist = Job & { lat: number; lng: number; distance?: number }
+type JobWithDist = Job & { lat: number; lng: number; precise: boolean; distance?: number }
+
+// 근사(precise=false) 위치용 마커 — 정확한 위치가 아님을 시각적으로
+// 구분하기 위해 기본 핀 대신 옅은 회색 원을 쓴다(2026-09-05 2단계
+// 거리검색 정책: 정밀/근사 마커를 구분해야 함).
+const approximateMarkerIcon = L.divIcon({
+  className: 'mapview__approx-marker',
+  html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:#9aa0a6;border:2px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.4)"></span>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+})
 
 export default function MapView() {
   const { jobs: rawJobs } = useJobs()
   const navigate = useNavigate()
-  // 2026-09-05 최종 제품 정책 — 이 "내 주변 채용" 지도는 거리 기반 기능(반경
-  // 필터·거리순 정렬)이므로 지도 표시 자격이 아니라 거리검색 자격 기준을
-  // 써야 한다. resolveDistanceSearchPoint()는 location_verified===true거나
-  // coordinateAccuracy==='exact'인 진짜 검증된 근무지 좌표만 반환한다 —
-  // resolveMapLocations()(구체적 주소 미검증도 근사 표시하는 함수)의
-  // points[0]을 그대로 쓰면, source==='exact'가 "이 근무지들 중 하나라도
-  // precise"라는 뜻일 뿐 points[0] 자체가 precise라는 보장이 없어 미검증
-  // 위치가 "내 위치에서 N km"에 섞여 들어갈 수 있었다. 검증된 근무지가 없는
-  // 공고는 이 지도에서 계속 제외한다(가짜 마커 대신 완전히 숨김).
+  // 2026-09-05 최종 제품 정책(2단계 거리검색으로 개정) — 이 "내 주변 채용"
+  // 지도는 거리 기반 기능(반경 필터·거리순 정렬)이므로 지도 표시 자격이
+  // 아니라 거리검색 자격 기준을 써야 한다. resolveDistanceSearchPoint()는
+  // 이제 정밀(location_verified===true)과 근사(미검증이지만 실제
+  // 지오코딩된 exact/ward 좌표) 두 등급을 precise 플래그로 구분해 반환한다
+  // — 행정 중심점/모집지역 중심점/회사 등록주소는 여전히 절대 섞이지
+  // 않는다. 자격 있는 좌표가 아예 없는 공고만 이 지도에서 계속 제외한다.
   const jobsWithCoords = useMemo<JobWithDist[]>(() => {
     const out: JobWithDist[] = []
     for (const j of rawJobs) {
       const point = resolveDistanceSearchPoint(j)
       if (!point) continue
-      out.push({ ...j, lat: point.lat, lng: point.lng })
+      out.push({ ...j, lat: point.lat, lng: point.lng, precise: point.precise })
     }
     return out
   }, [rawJobs])
@@ -106,9 +114,9 @@ export default function MapView() {
     filteredJobs.forEach((job) => {
       const distHtml =
         job.distance !== undefined
-          ? `<br/><span style="color:#888;font-size:11px">📍 ${job.distance.toFixed(1)} km</span>`
+          ? `<br/><span style="color:#888;font-size:11px">📍 ${job.precise ? '' : '~'}${job.distance.toFixed(1)} km</span>`
           : ''
-      const m = L.marker([job.lat, job.lng])
+      const m = L.marker([job.lat, job.lng], job.precise ? undefined : { icon: approximateMarkerIcon })
         .addTo(mapInst.current!)
         .bindPopup(
           `<b style="color:#E84040">${job.title}</b><br/>${job.company}<br/><b style="color:#E84040">${job.salary}</b>${distHtml}`,
@@ -169,7 +177,7 @@ export default function MapView() {
                   <span className="mapview__item-title">{job.title}</span>
                   <span className="mapview__item-meta">{job.company} · {job.location}</span>
                   {job.distance !== undefined && (
-                    <span className="mapview__item-dist">📍 {job.distance.toFixed(1)} km</span>
+                    <span className="mapview__item-dist">📍 {job.precise ? '' : '~'}{job.distance.toFixed(1)} km</span>
                   )}
                 </div>
                 <span className="mapview__item-salary">{job.salary}</span>

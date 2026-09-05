@@ -308,23 +308,21 @@ export function Home() {
 
 
 
-  // 2026-09-05 최종 제품 정책: 지도 표시 자격과 거리검색 자격은 별개 축이다
-  // — resolveMapLocations()는 이제 "구체적 주소는 있지만 좌표 미검증"인
-  // 공고도 근사 지도용 좌표를 돌려주므로(공개 게이트가 더 이상 좌표 검증을
-  // 요구하지 않게 됐기 때문), 그 좌표를 거리검색에 그대로 쓰면 실제로는
-  // 확인 안 된 위치가 "내 위치에서 N km"로 표시되는 문제가 생긴다.
-  // resolveDistanceSearchPoint()는 location_verified===true이거나
-  // coordinateAccuracy==='exact'인, 진짜로 검증된 근무지 좌표만 반환하는
-  // 별도 함수 — 행정 중심점/모집지역 중심점은 절대 여기 섞이지 않는다.
-  // 검증된 근무지가 없는 공고는 undefined로 남아 "내 주변" 필터에서
-  // 자연히 제외되고 거리 배지도 표시되지 않는다(가짜 km를 보여주지 않음).
-  const jobDistances = useMemo<Record<string, number>>(() => {
+  // 2026-09-05 최종 제품 정책(2단계 거리검색으로 개정): 지도 표시 자격과
+  // 거리검색 자격은 여전히 별개 축이지만, 거리검색 자체도 이제 정밀/근사
+  // 두 등급으로 나뉜다 — resolveDistanceSearchPoint()가 반환하는 precise
+  // 플래그가 그 기준이다(true=location_verified===true→정밀 "N km", false=
+  // 미검증이지만 실제 지오코딩된 exact/ward 좌표→근사 "~N km"). region/
+  // unresolved(행정 중심/좌표 없음)와 회사 등록주소는 여전히 이 함수에
+  // 절대 들어오지 않는다. 자격 있는 좌표가 아예 없는 공고는 undefined로
+  // 남아 "내 주변" 필터에서 자연히 제외되고 거리 배지도 표시되지 않는다.
+  const jobDistances = useMemo<Record<string, { km: number; precise: boolean }>>(() => {
     if (!nearMe || !userCoords) return {}
-    const r: Record<string, number> = {}
+    const r: Record<string, { km: number; precise: boolean }> = {}
     for (const job of jobs) {
       const point = resolveDistanceSearchPoint(job)
       if (!point) continue
-      r[job.id] = calcDistanceKm(userCoords.lat, userCoords.lng, point.lat, point.lng)
+      r[job.id] = { km: calcDistanceKm(userCoords.lat, userCoords.lng, point.lat, point.lng), precise: point.precise }
     }
     return r
   }, [jobs, nearMe, userCoords])
@@ -387,7 +385,7 @@ export function Home() {
       }
       if (nearMe && userCoords) {
         const d = jobDistances[j.id]
-        if (d === undefined || d > nearRadius) return false
+        if (d === undefined || d.km > nearRadius) return false
       }
       if (deadlineFilter !== 'all' && j.applicationDeadline) {
         if (deadlineFilter === 'today' && j.applicationDeadline > todayStr) return false
@@ -396,7 +394,7 @@ export function Home() {
       return true
     })
     if (nearMe && userCoords) {
-      result = [...result].sort((a, b) => (jobDistances[a.id] ?? 99) - (jobDistances[b.id] ?? 99))
+      result = [...result].sort((a, b) => (jobDistances[a.id]?.km ?? 99) - (jobDistances[b.id]?.km ?? 99))
     } else if (sortMode === 'salary') {
       result = [...result].sort((a, b) => parseSalaryToHourly(b.salary) - parseSalaryToHourly(a.salary))
     } else if (sortMode === 'recommended') {
@@ -736,7 +734,8 @@ export function Home() {
                     onApply={handleApply}
                     isSaved={savedIds.has(job.id)}
                     onToggleSave={handleToggleSave}
-                    distanceKm={jobDistances[job.id]}
+                    distanceKm={jobDistances[job.id]?.km}
+                    distancePrecise={jobDistances[job.id]?.precise}
                   />
                 </NavLink>
               ))}

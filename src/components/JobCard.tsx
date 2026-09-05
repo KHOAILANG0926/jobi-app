@@ -81,10 +81,14 @@ interface JobCardProps {
   onToggleSave?: (job: Job) => void
   rank?: number
   distanceKm?: number
+  /** true = 검증된(location_verified) 정밀 거리 → "N km". false/undefined =
+   *  근사 거리(2026-09-05 정책: 미검증 exact/ward 좌표도 거리검색 포함) →
+   *  "~N km". */
+  distancePrecise?: boolean
 }
 
 export default function JobCard({
-  job, isApplied, distanceKm,
+  job, isApplied, distanceKm, distancePrecise,
 }: JobCardProps) {
   const category = classifyJobCategory(job)
   const salary = sanitizeSalary(job.salary || 'Thỏa thuận')
@@ -120,7 +124,7 @@ export default function JobCard({
       {/* 2열: #태그 · 지역 · 회사명 */}
       <p className="jc__meta">
         {metaParts.join(' · ')}
-        {distanceKm !== undefined && ` · \u{1F4CD}${distanceKm.toFixed(1)}km`}
+        {distanceKm !== undefined && ` · \u{1F4CD}${distancePrecise ? '' : '~'}${distanceKm.toFixed(1)}km`}
       </p>
 
       {/* 3열: 제목 */}
