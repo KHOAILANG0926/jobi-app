@@ -573,6 +573,14 @@ async def fetch_job_detail(page, url: str) -> dict:
             // 유사 공고("Việc làm tương tự cho bạn")/키워드/광고는 이 컨테이너
             // 밖에 있어 절대 섞이지 않는다(실측 확인: h1 기준 3단계 위 조상이
             // 'Thông tin chung'은 포함하되 'Việc làm tương tự'는 포함하지 않음).
+            // 2026-09-05 사용자 지시로 정정(GPT 2차 독립검증): 신뢰할 수 있는
+            // 상세 공고 컨테이너("Thông tin chung"을 포함하는 h1 조상)를 못
+            // 찾으면 document.body를 대신 쓰던 fallback을 제거한다 — 그
+            // fallback은 회사 소개/유사 공고("Việc làm tương tự")/키워드/광고가
+            // 섞여 들어갈 수 있어 "본문에 절대 섞지 않는다"는 안전 원칙과
+            // 모순된다. 컨테이너를 못 찾으면 null을 반환하고, 호출부는 그
+            // 경우 이 3개 섹션을 전혀 채우지 않는다(다른 파서 결과는 그대로
+            // 유지, 이 섹션만 파싱 실패로 빈 값 처리).
             function findDetailContainer() {
                 const h1 = document.querySelector('h1')
                 let el = h1 ? h1.parentElement : null
@@ -580,19 +588,22 @@ async def fetch_job_detail(page, url: str) -> dict:
                     if ((el.innerText || '').includes('Thông tin chung')) return el
                     el = el.parentElement
                 }
-                return document.body
+                return null
             }
             const detailContainer = findDetailContainer()
 
             // 헤더 비교 전 정규화: Unicode(NFC)/대소문자/앞뒤 공백/연속 공백/
-            // 끝 콜론만 — 실제 원문에서 확인 안 된 유사 헤더를 새로 추가하지
-            // 않는다(기존 4개 라벨 그대로).
+            // 끝 콜론만 — 실제 원문에서 확인 안 된 유사 헤더나 임의 키워드는
+            // 추가하지 않는다(기존 3개 라벨 그대로). 2026-09-05 사용자 지시로
+            // 정정: 부분포함(a.includes(b) || b.includes(a)) 대신 정규화 후
+            // 완전 일치만 헤더로 인정한다 — 부분포함은 예: "Yêu cầu công việc"
+            // 헤더가 "Yêu cầu công việc khác" 같은 다른 헤더까지 잘못 인정할
+            // 여지가 있었다.
             function normalizeHeading(t) {
                 return (t || '').normalize('NFC').trim().replace(/\\s+/g, ' ').replace(/:$/, '').toLowerCase()
             }
             function headingMatches(actual, target) {
-                const a = normalizeHeading(actual), b = normalizeHeading(target)
-                return a.includes(b) || b.includes(a)
+                return normalizeHeading(actual) === normalizeHeading(target)
             }
 
             // 요구된 고정 경계: Mô tả công việc → Yêu cầu công việc 전까지,
@@ -605,6 +616,32 @@ async def fetch_job_detail(page, url: str) -> dict:
                 { name: 'Quyền lợi', nextHeading: 'Thông tin chung' },
             ]
 
+            // 2026-09-05 사용자 지시로 정정(GPT 2차 독립검증 — 중첩 목록 중복
+            // 저장 위험): li.innerText는 중첩된 하위 <ul>/<ol>의 텍스트까지
+            // 전부 포함한다 — querySelectorAll('li')로 중첩 li를 "또" 따로
+            // 방문하면, 바깥 li 한 줄 안에 이미 포함된 문장이 안쪽 li의
+            // 독립된 줄로 한 번 더 저장되어 같은 문장이 중복된다. 각 li의
+            // "자신의" 텍스트만(중첩 ul/ol 서브트리 제외) 모으면 바깥 li와
+            // 안쪽 li가 겹치는 부분 없이 각자 정확히 한 번씩만 남는다.
+            // (실측 재검증 중 자체 발견·정정: 실제 원문 DOM에 Word 붙여넣기
+            // 흔적인 <!--StartFragment-->/<!--EndFragment--> 주석 노드가
+            // 섞여 있어, nodeType을 텍스트/엘리먼트 둘로만 나누던 첫 버전은
+            // 주석 노드(nodeType 8)까지 textContent로 읽어 "StartFragment"
+            // 문자열이 그대로 새어 들어갔다 — element(1)/text(3) 노드만
+            // 명시적으로 포함하고 그 외(주석 등)는 전부 무시하도록 정정.)
+            function ownTextExcludingNestedLists(li) {
+                let text = ''
+                li.childNodes.forEach(node => {
+                    if (node.nodeType === 1) {
+                        if (node.tagName === 'UL' || node.tagName === 'OL') return
+                        text += node.innerText || ''
+                    } else if (node.nodeType === 3) {
+                        text += node.textContent || ''
+                    }
+                })
+                return text.trim()
+            }
+
             function collectDirectChildrenText(el, lines) {
                 const children = Array.from(el.children)
                 if (children.length === 0) {
@@ -615,7 +652,7 @@ async def fetch_job_detail(page, url: str) -> dict:
                 for (const child of children) {
                     if (child.tagName === 'UL' || child.tagName === 'OL') {
                         child.querySelectorAll('li').forEach(li => {
-                            const txt = (li.innerText || '').trim()
+                            const txt = ownTextExcludingNestedLists(li)
                             if (txt) lines.push('• ' + txt)
                         })
                     } else {
@@ -625,7 +662,7 @@ async def fetch_job_detail(page, url: str) -> dict:
                 }
             }
 
-            const contentHeadingEls = Array.from(detailContainer.querySelectorAll('h2, h3, h4'))
+            const contentHeadingEls = detailContainer ? Array.from(detailContainer.querySelectorAll('h2, h3, h4')) : []
             for (const spec of CONTENT_SECTIONS) {
                 const h = contentHeadingEls.find(el => headingMatches(el.innerText, spec.name))
                 if (!h) continue
