@@ -10,6 +10,12 @@
 
 export type CoordinateAccuracy = 'exact' | 'ward' | 'region' | 'unresolved'
 
+/** job_work_locations.address_accuracy — 원문 텍스트 자체가 얼마나 구체적인지
+ *  (좌표 검증 여부와는 별개). 'region_only'(성·시/구·군·동만 있음)도 이제
+ *  행으로 보존된다(2026-09-05 최종 제품 정책: "성·시·구·군만 있는 원문 위치도
+ *  삭제하지 말고 보존"). 'undetermined'는 애초에 행 자체가 생기지 않는다. */
+export type AddressAccuracy = 'exact_text' | 'region_only'
+
 export interface JobWorkLocation {
   id: number
   rawAddress: string
@@ -17,6 +23,12 @@ export interface JobWorkLocation {
   lat?: number
   lng?: number
   sortOrder: number
+  /** job_work_locations.address_accuracy — 이 텍스트가 구체적 주소('exact_text',
+   *  번지/도로/공단/건물/매장 등 고유 신호 있음)인지 성·시/구·군·동만 있는
+   *  텍스트('region_only')인지. 지도 표시 등급(정확한 마커 vs 근사 위치)을
+   *  결정하는 데 coordinateAccuracy와 함께 쓴다 — 컬럼이 아직 없던 과거
+   *  데이터에서는 undefined. */
+  addressAccuracy?: AddressAccuracy
   /** resolve_coordinate_accuracy()의 판정 — 원문 주소 텍스트(rawAddress)와는 별개다.
    *  텍스트와 길찾기(Google Maps 텍스트 검색 링크)는 이 값과 무관하게 항상 그대로
    *  제공한다(2026-09-04 사용자 지시: "location_verified=false인 ward도 길찾기
@@ -94,10 +106,12 @@ export interface Job {
   /** local_jobs.recruitment_regions — 공고 전체가 모집한다고 밝힌 지역 라벨 전부
    *  (예: ["TP.HCM","Long An"]). workLocations가 0건이어도 보존된다(2026-09-04
    *  사용자 지시: "공고 전체 모집지역은 근무지 행이 0건이어도 보존되어야 함").
-   *  아직 draft migration(0018)만 존재하고 실행 전이라 local_jobs에 이 컬럼
-   *  자체가 없다 — 이 필드는 컬럼이 생긴 뒤 select에 추가되면 채워지는 자리만
-   *  미리 마련해둔 것(현재는 항상 undefined). "확인 안 된" 지역(이 값에는
-   *  있지만 어떤 workLocations[].matchedRecruitmentRegions에도 없는 지역)은
-   *  별도로 저장하지 않고 필요할 때 두 배열의 차집합으로 계산한다. */
+   *  migration 0018이 2026-09-05 적용돼 컬럼이 실제로 존재하고 select에도
+   *  포함된다. workLocations가 아예 비어있는 공고(근무지 후보 자체가 없어
+   *  원문 어딘가 언급된 지역명만 있는 경우)의 지도 표시는 이 배열을
+   *  fallback 기준으로 쓴다(src/lib/jobCoords.ts의 resolveMapLocations
+   *  참고). "확인 안 된" 지역(이 값에는 있지만 어떤 workLocations[].
+   *  matchedRecruitmentRegions에도 없는 지역)은 별도로 저장하지 않고
+   *  필요할 때 두 배열의 차집합으로 계산한다. */
   recruitmentRegions?: string[]
 }

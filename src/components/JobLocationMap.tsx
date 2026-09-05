@@ -19,6 +19,13 @@ interface JobLocationMapMarker {
   lng: number
   /** Popup label for this marker; falls back to `title` when omitted. */
   label?: string
+  /** false for any approximate/administrative-fallback point (unverified ward,
+   *  region-text geocode, province/district center, recruitment-region center)
+   *  — rendered as a translucent circle instead of the default precise-location
+   *  pin, so an approximate position never looks like a confirmed exact one
+   *  (2026-09-05 정책: "정확한 핀처럼 오해되지 않도록 다른 마커 스타일 또는
+   *  범위 원 사용"). Omitted/true renders the normal pin. */
+  precise?: boolean
 }
 
 interface JobLocationMapProps {
@@ -65,7 +72,19 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
       extraMarkers && extraMarkers.length > 0 ? extraMarkers : [{ lat, lng }]
     const bounds: [number, number][] = []
     markers.forEach((m) => {
-      L.marker([m.lat, m.lng]).addTo(map).bindPopup(m.label || title)
+      if (m.precise === false) {
+        // Approximate/fallback point — a translucent circle, not the default
+        // precise-location pin, so it never reads as a confirmed exact marker.
+        L.circleMarker([m.lat, m.lng], {
+          radius: 12,
+          color: '#f59e0b',
+          weight: 2,
+          fillColor: '#f59e0b',
+          fillOpacity: 0.25,
+        }).addTo(map).bindPopup(m.label || title)
+      } else {
+        L.marker([m.lat, m.lng]).addTo(map).bindPopup(m.label || title)
+      }
       bounds.push([m.lat, m.lng])
     })
     if (bounds.length > 1) {

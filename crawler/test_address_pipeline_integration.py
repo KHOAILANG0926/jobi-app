@@ -20,6 +20,7 @@ import geocode
 from crawl_topcv import (
     VerifyWriteExistingMatchError,
     _address_core,
+    _compute_job_recruitment_regions,
     _group_candidates_by_core_location,
     _haversine_km,
     _is_duplicate_location,
@@ -445,6 +446,164 @@ def test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder() -> None:
         geocode_module._geocode_query_raw = original
 
 
+def test_resolve_coordinate_accuracy_is_deterministic_given_fixed_fixture() -> None:
+    """실사례 회귀(2026-09-05, GPT 독립검증 지적): id 4379(당시 4377) 저장
+    직전 --dry-run-urls에서는 'exact_candidate'(4개 변형 수렴)였는데, 몇 분
+    뒤 --verify-write-urls 실제 저장 시점에는 같은 주소가 'unresolved'
+    (geocode_status='failed')로 바뀌어 저장됐다. 라이브 Geoapify를 반복
+    호출해 우연히 같은 결과가 나오는지 보는 방식으로는 원인을 알 수
+    없으므로, resolve_coordinate_accuracy() 자체를 고정 fixture로 여러 번
+    호출해 순수 함수로서 결정적인지를 직접 증명한다.
+
+    결론(코드 추적으로 확인, 아래 근거): resolve_coordinate_accuracy()의
+    집계 로직 자체(클러스터링/충돌 판정/최다득표 선정)는 전부 len()/포함
+    비교만 쓰고 정렬되지 않은 set의 반복 순서에 의존하지 않으므로 이미
+    결정적이다 — 이 테스트가 그것을 직접 증명한다. 실제 불일치의 원인은
+    이 함수가 아니라 그 아래 계층인 geocode._geocode_query_raw()에 있다:
+    'api_error'(네트워크 오류/타임아웃) 응답은 의도적으로 캐시되지 않는다
+    (geocode_address()의 docstring 참고 — 일시 오류를 "확정적으로 나쁜
+    주소"로 오인하지 않기 위한 설계) — 따라서 dry-run 때 수렴했던 질의
+    변형 중 하나가 실제 저장 시점에 타임아웃/일시 오류를 겪으면, 이번에는
+    그 변형이 'valid' 결과 집합에서 아예 빠져 클러스터 수렴 조건(2개 이상)
+    을 못 채워 등급이 낮아질 수 있다 — 함수 자체의 비결정성이 아니라
+    "매 실행마다 다시 호출되는 라이브 API 응답 집합"이라는 입력 자체가
+    실행마다 달라질 수 있다는 것. 아래 test_resolve_coordinate_accuracy_
+    distinguishes_transient_api_error_from_confirmed_no_results가 이
+    api_error 상태를 별도로 분리해 검증한다."""
+    import geocode as geocode_module
+
+    def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, formatted="", street=None, address_line1=None):
+        return {
+            "status": "success", "lat": lat, "lng": lng,
+            "top": {
+                "result_type": result_type, "state": state, "county": county, "city": city,
+                "name": name, "formatted": formatted, "street": street, "address_line1": address_line1,
+            },
+        }
+
+    def make_fake_raw(responses_by_query: dict[str, dict]):
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            if query in responses_by_query:
+                return responses_by_query[query]
+            return {"status": "no_results", "lat": None, "lng": None, "top": None}
+        return _fake
+
+    original = geocode_module._geocode_query_raw
+    try:
+        # id 4379(당시 4377) 실제 주소 — dry-run 시점 실측: "4 variants
+        # converged <=300m, province+place confirmed" -> exact_candidate.
+        addr = "19 Đặng Hữu Phổ, phường Thảo Điền, thành phố Thủ Đức (Quận 2 cũ), Thủ Đức"
+        province = "TP.HCM"
+        variants = build_query_variants(addr, province)
+        assert_true(len(variants) >= 2, "fixture must exercise the multi-variant convergence path, not a single query")
+        converged_point = _success(
+            10.8033156, 106.7357165, "building",
+            state="Ho Chi Minh", county="Thu Duc", city="Thủ Đức",
+            street="Đặng Hữu Phổ", address_line1="19 Đặng Hữu Phổ",
+        )
+        fixture = {v["query"]: converged_point for v in variants}
+
+        results = []
+        for _ in range(5):
+            geocode_module._geocode_query_raw = make_fake_raw(fixture)
+            results.append(resolve_coordinate_accuracy(addr, province))
+
+        first = results[0]
+        for i, r in enumerate(results[1:], start=2):
+            assert_equal(
+                r, first,
+                f"call #{i} must return byte-identical output to call #1 given the identical fixture "
+                f"(got {r!r} vs {first!r}) — resolve_coordinate_accuracy() must be a pure function of its inputs",
+            )
+        assert_equal(first["coordinate_accuracy"], "exact_candidate", "sanity: the fixture itself should converge to exact_candidate, matching the real dry-run observation")
+    finally:
+        geocode_module._geocode_query_raw = original
+
+
+def test_resolve_coordinate_accuracy_distinguishes_transient_api_error_from_confirmed_no_results() -> None:
+    """API 응답 차이 3가지(정상 수렴 성공 / 확정적으로 결과 없음(no_results) /
+    일시적 네트워크 오류(api_error))가 서로 다른 상태로 판정되는지 분리
+    검증. 'unresolved' 등급 자체는 no_results와 api_error 양쪽에서 나올 수
+    있지만, had_transient_failure 플래그는 실제 api_error가 있었을 때만
+    True여야 한다 — 이 플래그가 upsert_job_record()에서 "이미 공개 중인
+    기존 공고를 이번 실행 한정의 일시 오류로 강등하지 않는다" 보호의
+    유일한 신호이므로, 확정적 no_results와 뒤섞이면 그 보호가 무의미해진다
+    (반대로 no_results인데 transient로 잘못 표시되면 진짜 나쁜 주소도
+    "재시도하면 언젠가 좋아질 것"처럼 취급돼 영구히 재검증을 피하게 된다)."""
+    import geocode as geocode_module
+
+    def make_fake_raw(status: str):
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            return {"status": status, "lat": None, "lng": None, "top": None}
+        return _fake
+
+    original = geocode_module._geocode_query_raw
+    try:
+        addr = "19 Đặng Hữu Phổ, phường Thảo Điền, thành phố Thủ Đức (Quận 2 cũ), Thủ Đức"
+        province = "TP.HCM"
+
+        # 전 변형이 확정적으로 '결과 없음' — 나쁜 주소로 판단할 근거가 있는
+        # 상태. had_transient_failure는 False여야 한다(재시도로 나아질
+        # 일시 오류가 아니라, 이 텍스트로는 애초에 아무 결과도 없었다는 뜻).
+        geocode_module._geocode_query_raw = make_fake_raw("no_results")
+        r_no_results = resolve_coordinate_accuracy(addr, province)
+        assert_equal(r_no_results["coordinate_accuracy"], "unresolved", "no usable result anywhere -> unresolved")
+        assert_false(r_no_results["had_transient_failure"], "confirmed no_results must NOT be flagged as a transient failure — it isn't a network problem, it's a confirmed non-match")
+
+        # 전 변형이 네트워크/API 레벨 오류(타임아웃 등) — 이건 주소가
+        # 나쁘다는 근거가 전혀 아니다. had_transient_failure는 True여야
+        # 하고, 이 신호 덕분에 upsert_job_record()가 이미 공개 중인 기존
+        # 공고를 이번 실행 한정으로 강등하지 않는다(crawl_topcv.py:1202,
+        # test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job
+        # 참고).
+        geocode_module._geocode_query_raw = make_fake_raw("api_error")
+        r_api_error = resolve_coordinate_accuracy(addr, province)
+        assert_equal(r_api_error["coordinate_accuracy"], "unresolved", "no successful result at all (all queries errored) -> unresolved, same tier as no_results")
+        assert_true(r_api_error["had_transient_failure"], "a real api_error must be flagged transient — must never be conflated with a confirmed no_results")
+
+        # 혼합 사례(실제 4377/4379 재현과 가장 가까움): 일부 변형은 수렴에
+        # 성공하고, 나머지 한 변형만 일시 오류. 등급 자체는 성공한 변형들의
+        # 수렴 결과를 따르되(이 케이스는 실제로 성공하는 변형이 1개뿐이라
+        # exact/ward 조건인 "2개 이상 수렴"을 못 채워 region 이하로 떨어짐
+        # — 바로 이 매커니즘이 dry-run과 실제 저장 사이에 등급이 달라진
+        # 이유), 최소한 had_transient_failure=True로 "이번 판정은 일부
+        # 정보 없이 내려졌다"는 사실이 유실되지 않아야 한다.
+        #
+        # 'structured' 변형의 질의 문구를 고른다 — 이 주소에서는 'raw'와
+        # 'bbox' 변형이 완전히 동일한 질의 문자열을 쓴다(build_query_
+        # variants()가 bbox_rect만 다르게 넘기고 텍스트 자체는 재사용하기
+        # 때문 — 실제로 그렇다는 것을 위에서 build_query_variants() 실행
+        # 결과로 확인함). 'raw'의 질의문을 골랐다면 fake가 'bbox'까지 함께
+        # "성공"으로 매칭시켜버려 의도와 달리 2개 변형이 수렴한 것처럼
+        # 되어버린다 — 정말로 "성공 1개"만 만들려면 다른 변형과 텍스트가
+        # 겹치지 않는 'structured'를 써야 한다.
+        variants = build_query_variants(addr, province)
+        by_type = {v["type"]: v["query"] for v in variants}
+        assert_true(len(variants) >= 2, "fixture needs 2+ variants to exercise the mixed success/error path")
+        assert_true("structured" in by_type, "fixture address must produce a 'structured' variant for this test to isolate a single successful query")
+        only_successful_query = by_type["structured"]
+        query_texts = [v["query"] for v in variants]
+        assert_equal(query_texts.count(only_successful_query), 1, "the chosen query text must be unique among this address's variants, or more than 1 slot would succeed")
+
+        def _mixed(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            if query == only_successful_query:
+                return {
+                    "status": "success", "lat": 10.8033156, "lng": 106.7357165,
+                    "top": {"result_type": "building", "state": "Ho Chi Minh", "county": "Thu Duc", "city": "Thủ Đức"},
+                }
+            return {"status": "api_error", "lat": None, "lng": None, "top": None}
+
+        geocode_module._geocode_query_raw = _mixed
+        r_mixed = resolve_coordinate_accuracy(addr, province)
+        assert_true(r_mixed["had_transient_failure"], "at least one variant errored transiently — this must be visible on the result even though a usable single-variant result still came back")
+        assert_true(
+            r_mixed["coordinate_accuracy"] in ("region", "unresolved"),
+            f"only 1 of several variants actually succeeded — that alone cannot satisfy the 2+-variant convergence required for 'exact_candidate'/'ward' (got {r_mixed['coordinate_accuracy']!r})",
+        )
+    finally:
+        geocode_module._geocode_query_raw = original
+
+
 def test_largest_cluster_within_km() -> None:
     a = {"lat": 10.0, "lng": 106.0}
     b = {"lat": 10.001, "lng": 106.001}  # ~150m from a
@@ -542,13 +701,70 @@ def test_resolve_work_locations_no_api_key_is_not_a_transient_failure() -> None:
     assert_false(had_transient_failure, "no_api_key must NOT be treated as a transient failure")
 
 
-def test_gate_rejects_c1_partial_mixed_tiers() -> None:
-    """실제 build_job_record()가 밟는 경로 그대로(resolve_work_locations() ->
-    compute_all_locations_c1_verified() -> gate_auto_publish()) 엔드투엔드로
-    검증한다 — 2026-09-04 사용자 지시(1차): "C1_partial은 모든 근무지가 검증된
-    것이 아니므로 반드시 공개 게이트에서 실패하는 통합 테스트를 추가"할 것.
-    두 근무지 중 하나만 exact_candidate이고 나머지 하나는 ward인 흔한 다중
-    근무지 공고(C1_partial)가 여전히 보류돼야 한다."""
+def test_resolve_work_locations_preserves_region_only_candidates_as_rows() -> None:
+    """2026-09-05 사용자 지시(최종 제품 정책, 주소 보존 규칙 #2/#8): "Địa
+    điểm làm việc에 성·시·구·군만 있어도 원문 행을 버리지 마세요." 이전
+    라운드까지는 classify_work_location_candidate()가 'region_only'로
+    판정한 candidate는 resolve_work_locations()가 아예 건너뛰어(continue)
+    job_work_locations 행 자체가 생기지 않았다 — 원문 텍스트가 통째로
+    사라졌다는 뜻. 이제는 'region_only'도 행으로 남되, 구체적 장소가 없어
+    Geoapify 좌표 조회는 시도하지 않는다(address_accuracy='region_only',
+    coordinate_accuracy='unresolved', lat/lng=None, geocode_status=
+    'pending' — 전부 기존 CHECK 제약과 호환되는 값, migration 불필요).
+    'undetermined'(진짜 장소 언급이 아닌 텍스트)만 여전히 버려진다."""
+    geocode_calls: list[str] = []
+    original = geocode._geocode_query_raw
+
+    def _tracking_fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+        geocode_calls.append(query)
+        return {"status": "no_results", "lat": None, "lng": None, "top": None}
+
+    try:
+        geocode._geocode_query_raw = _tracking_fake
+
+        # 성·시만 있음 — 구체적 장소 신호 전혀 없음.
+        province_only = [{"text": "Hồ Chí Minh", "region_prefix": "Hồ Chí Minh"}]
+        resolved_province, had_transient = resolve_work_locations(province_only)
+        assert_equal(len(resolved_province), 1, "province-only candidate must still get a row, not be dropped")
+        assert_equal(resolved_province[0]["raw_address"], "Hồ Chí Minh", "raw text must be preserved verbatim, not deleted")
+        assert_equal(resolved_province[0]["address_accuracy"], "region_only", "province-only text classifies region_only")
+        assert_equal(resolved_province[0]["coordinate_accuracy"], "unresolved", "no specific place to geocode -> unresolved, not a fabricated tier")
+        assert_equal(resolved_province[0]["lat"], None, "region_only row must carry no lat")
+        assert_equal(resolved_province[0]["lng"], None, "region_only row must carry no lng")
+        assert_equal(resolved_province[0]["geocode_status"], "pending", "no geocode attempt was made -> 'pending', not 'failed' (CHECK-compatible: pending/success/failed/manual)")
+        assert_false(resolved_province[0]["source_verified"], "region_only can never be source_verified")
+        assert_false(had_transient, "skipping geocoding for region_only is not a transient failure")
+
+        # 구·군·동만 있음 — 마찬가지로 행 보존.
+        district_only = [{"text": "Huyện Củ Chi, TP Hồ Chí Minh", "region_prefix": "TP.HCM"}]
+        resolved_district, _ = resolve_work_locations(district_only)
+        assert_equal(len(resolved_district), 1, "district-only candidate must still get a row, not be dropped")
+        assert_equal(resolved_district[0]["raw_address"], "Huyện Củ Chi, TP Hồ Chí Minh", "raw text preserved verbatim")
+        assert_equal(resolved_district[0]["address_accuracy"], "region_only", "district-only text classifies region_only")
+
+        # 'undetermined'는 여전히 버려진다(진짜 장소 언급이 아님).
+        undetermined_only = [{"text": "abc", "region_prefix": "TP.HCM"}]
+        resolved_undetermined, _ = resolve_work_locations(undetermined_only)
+        assert_equal(len(resolved_undetermined), 0, "undetermined (not a real place mention at all) must still be dropped, unlike region_only")
+
+        # region_only 후보는 구체적 장소가 없으므로 Geoapify에 실제로 질의를
+        # 보내지 않아야 한다(불필요한 API 호출/비용 방지, 그리고 잘못된
+        # 확신을 주는 결과를 만들 여지 자체를 없앰).
+        assert_equal(geocode_calls, [], "region_only/undetermined candidates must never trigger a Geoapify query")
+    finally:
+        geocode._geocode_query_raw = original
+
+
+def test_gate_publishes_partially_verified_mixed_tiers() -> None:
+    """고정 테스트 #4 (2026-09-05 최종 정책): "복수 근무지 중 일부만 좌표
+    검증 + 지원 경로 있음 → 공개". 이 테스트는 예전에 정반대를 검증했다
+    (C1_partial은 반드시 보류) — 2026-09-04 정책이 2026-09-05 사용자 지시로
+    뒤집혔으므로 같은 실사례 fixture(하나는 exact_candidate, 하나는 ward,
+    둘 다 source_verified=False)를 그대로 재사용해 이번엔 반대로 공개돼야
+    함을 검증한다. resolve_work_locations()가 여전히 위치별 coordinate_
+    accuracy/source_verified를 정확히 계산하는지는 그대로 확인하되(지도
+    표시·거리검색 자격 판단에 계속 쓰이는 값이므로), 그 결과가 더 이상
+    gate_auto_publish()에 들어가지 않음을 함께 보인다."""
     original = geocode._geocode_query_raw
 
     def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, street=None):
@@ -565,13 +781,9 @@ def test_gate_rejects_c1_partial_mixed_tiers() -> None:
         return _fake
 
     try:
-        # 근무지 1: exact_candidate 확정(street 텍스트까지 확인됨) — 단, 원문
-        # 좌표 검증(employer_coordinate)은 이 테스트에서 넘기지 않으므로
-        # source_verified는 여전히 False다(exact_candidate != C1).
         exact_addr = "17 Phạm Hùng, Nam Từ Liêm"
         exact_variants = build_query_variants(exact_addr, "Hà Nội")
         exact_point = _success(21.0165865, 105.7850047, "building", state="Ha Noi", city="Hanoi", county="Hoan Kiem", street="Phạm Hùng")
-        # 근무지 2: 지역(구/동)까지는 확인되지만 장소명은 미확인 -> ward.
         ward_addr = "KCN Thăng Long 2 – Hưng Yên, Yên Mỹ"
         ward_variants = build_query_variants(ward_addr, "Hưng Yên")
         ward_point = _success(20.8521493, 106.0331637, "building", state="Hưng Yên Province", city="Yên Mỹ Commune")
@@ -592,37 +804,31 @@ def test_gate_rejects_c1_partial_mixed_tiers() -> None:
         tiers = sorted(r["coordinate_accuracy"] for r in resolved)
         assert_equal(tiers, ["exact_candidate", "ward"], "mixed-tier fixture actually produced one exact_candidate + one ward (C1_partial), not both exact_candidate")
 
+        # 지도/거리검색 자격 판단용 계산 자체는 변경 없음 — 여전히 partial이다.
         verified = compute_all_locations_c1_verified(resolved)
-        assert_false(verified, "one exact_candidate + one ward, neither source-verified -> NOT all_locations_c1_verified (this is C1_partial, not C1)")
+        assert_false(verified, "one exact_candidate + one ward, neither source-verified -> still NOT all_locations_c1_verified (unrelated to the publish gate now)")
 
+        job_recruitment_regions = _compute_job_recruitment_regions(candidates)
         should_publish, gate_reason = gate_auto_publish(
-            has_address_text=len(resolved) > 0,
+            has_location_or_region=len(resolved) > 0 or len(job_recruitment_regions) > 0,
             has_application_path_=has_application_path("0901234567", "", ""),
-            all_locations_c1_verified=verified,
         )
-        assert_false(should_publish, "C1_partial (mixed exact_candidate/ward tiers) must be held, never auto-published")
-        assert_equal(gate_reason, "no_verified_coordinate", "held reason must be no_verified_coordinate for C1_partial")
+        assert_true(should_publish, "final policy: coordinate verification tier no longer gates — a job with real work-location text and a valid application path must publish even when only partially/never coordinate-verified")
+        assert_equal(gate_reason, "ok", "publish reason must be ok — 'no_verified_coordinate' is no longer returned by gate_auto_publish()")
     finally:
         geocode._geocode_query_raw = original
 
 
-def test_gate_requires_source_verified_not_just_exact_candidate() -> None:
-    """실사례 회귀(2026-09-04, 사용자 지시 2차 — "기존 exact는 신뢰된 C1이
-    아니라 exact_candidate로 취급하세요"): 100건 조사 + 신규 20건/10건
-    블라인드 시험을 반복해도 coordinate_accuracy=='exact_candidate'
-    (Geoapify 자기수렴)가 독립 Google 지도 대조에서 약 30~36% 실패율(405m~
-    2.6km 오차)을 반복 재현 — Geoapify 단일 공급자만으로는 실제 사업장
-    정확도를 보장할 수 없음이 확인됐다.
-
-    이 테스트는 그 정책을 실제 resolve_work_locations() ->
-    compute_all_locations_c1_verified() -> gate_auto_publish() 경로로
-    검증한다:
-    - employer_coordinate 없이 exact_candidate만 확보된 경우(Geoapify만
-      성공) -> 절대 발행돼선 안 된다.
-    - vieclam24h 원문이 제공하는 employer_coordinate가 있고, 그
-      contact_address가 이 근무지 텍스트와 실제로 같은 곳을 가리킬 때만
-      (source_coordinate_matches_location() 확인) source_verified=True가
-      되어 비로소 발행된다 — 이번 라운드의 유일한 C1 승격 경로."""
+def test_gate_publishes_regardless_of_coordinate_verification_tier() -> None:
+    """고정 테스트 #3 (2026-09-05 최종 정책): "구체적 주소 + 좌표 미검증 +
+    지원 경로 있음 → 공개". 예전에는 이 실사례(DOJI Tower)로 정반대(원문
+    좌표 검증 없이는 절대 공개 금지)를 증명했다 — 이제는 같은 fixture로
+    좌표 검증 여부(exact_candidate만/틀린 employer_coordinate/올바른
+    employer_coordinate 3가지 전부)와 무관하게 항상 공개됨을 증명한다.
+    resolve_work_locations()/compute_all_locations_c1_verified()/
+    source_coordinate_matches_location()의 좌표 검증 계산 자체는 전혀
+    바뀌지 않았다(지도·거리검색 자격에는 여전히 쓰임) — 오직
+    gate_auto_publish()만 이 값을 더 이상 참조하지 않는다."""
     original = geocode._geocode_query_raw
 
     def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, street=None):
@@ -639,29 +845,28 @@ def test_gate_requires_source_verified_not_just_exact_candidate() -> None:
         return _fake
 
     try:
-        # 실사례 축소판: DOJI Tower 주소 — Geoapify가 3개 변형 모두 정확히
-        # 수렴(exact_candidate)하지만, 이것만으로는 C1이 아니다.
         addr = "DOJI Tower, Số 5 Lê Duẩn, Ba Đình, Hà Nội, Ba Đình"
         variants = build_query_variants(addr, "Hà Nội")
         point = _success(21.029063, 105.841809, "building", state="Ha Noi", city="Hanoi", county="Ba Dinh", name="Doji Tower", street="Đường Lê Duẩn")
         geocode._geocode_query_raw = make_fake_raw({v["query"]: point for v in variants})
 
         candidates = [{"text": addr, "region_prefix": "Hà Nội"}]
+        job_recruitment_regions = _compute_job_recruitment_regions(candidates)
 
-        # ── 1) employer_coordinate 없음 -> exact_candidate뿐, 절대 발행 금지 ──
+        # ── 1) employer_coordinate 없음 -> exact_candidate뿐, source_verified=False ──
         resolved_no_source, _ = resolve_work_locations(candidates, employer_coordinate=None)
         assert_equal(len(resolved_no_source), 1, "single real address gets a row")
         assert_equal(resolved_no_source[0]["coordinate_accuracy"], "exact_candidate", "Geoapify converges -> exact_candidate tier")
         assert_false(resolved_no_source[0]["source_verified"], "no employer_coordinate given -> source_verified must be False")
-        verified_no_source = compute_all_locations_c1_verified(resolved_no_source)
-        assert_false(verified_no_source, "exact_candidate alone (no source verification) must NOT count as C1")
+        assert_false(compute_all_locations_c1_verified(resolved_no_source), "exact_candidate alone (no source verification) still does not count as C1 (unrelated to the publish gate now)")
         should_publish_no_source, reason_no_source = gate_auto_publish(
-            has_address_text=True, has_application_path_=True, all_locations_c1_verified=verified_no_source,
+            has_location_or_region=len(resolved_no_source) > 0 or len(job_recruitment_regions) > 0,
+            has_application_path_=True,
         )
-        assert_false(should_publish_no_source, "Geoapify-only exact_candidate must never auto-publish under the 2026-09-04 tightened policy")
-        assert_equal(reason_no_source, "no_verified_coordinate", "held reason must be no_verified_coordinate")
+        assert_true(should_publish_no_source, "final policy: a real work-address + valid application path publishes even with a Geoapify-only, never source-verified coordinate")
+        assert_equal(reason_no_source, "ok", "publish reason must be ok")
 
-        # ── 2) employer_coordinate 있지만 다른 곳(contact_address 불일치) ──
+        # ── 2) employer_coordinate 있지만 다른 곳(contact_address 불일치) — 여전히 미검증이지만 여전히 공개 ──
         wrong_employer_coordinate = {
             "lat": 10.7758, "lng": 106.7008,  # unrelated Hồ Chí Minh coordinate
             "contact_address": "123 Nguyễn Huệ, Quận 1, TP.HCM",
@@ -670,8 +875,14 @@ def test_gate_requires_source_verified_not_just_exact_candidate() -> None:
         assert_false(resolved_wrong[0]["source_verified"], "employer_coordinate present but contact_address doesn't match this location -> must NOT be source_verified")
         assert_equal(resolved_wrong[0]["lat"], 21.029063, "unmatched employer_coordinate must NOT override the location's own lat")
         assert_false(compute_all_locations_c1_verified(resolved_wrong), "unmatched source coordinate still does not count as C1")
+        should_publish_wrong, reason_wrong = gate_auto_publish(
+            has_location_or_region=len(resolved_wrong) > 0 or len(job_recruitment_regions) > 0,
+            has_application_path_=True,
+        )
+        assert_true(should_publish_wrong, "still publishes — coordinate mismatch/verification status is irrelevant to the gate now")
+        assert_equal(reason_wrong, "ok", "publish reason must be ok")
 
-        # ── 3) employer_coordinate가 이 근무지와 실제로 일치(DOJI 실사례) ──
+        # ── 3) employer_coordinate가 이 근무지와 실제로 일치(DOJI 실사례) — 이 경우도 당연히 공개 ──
         real_employer_coordinate = {
             "lat": 21.029196, "lng": 105.841676,
             "contact_address": "Tầng 7 - Tòa nhà DOJI Tower - Số 5 Lê Duẩn - Ba Đình - Hà Nội",
@@ -686,12 +897,12 @@ def test_gate_requires_source_verified_not_just_exact_candidate() -> None:
             (resolved_matched[0]["lat"], resolved_matched[0]["lng"]), (21.029196, 105.841676),
             "source-verified location must use the site's own employer coordinate, not Geoapify's guess",
         )
-        verified_matched = compute_all_locations_c1_verified(resolved_matched)
-        assert_true(verified_matched, "source-verified location -> counts as C1")
+        assert_true(compute_all_locations_c1_verified(resolved_matched), "source-verified location -> still counts as C1 (relevant to map/distance-search eligibility, not to publishing)")
         should_publish_matched, reason_matched = gate_auto_publish(
-            has_address_text=True, has_application_path_=True, all_locations_c1_verified=verified_matched,
+            has_location_or_region=len(resolved_matched) > 0 or len(job_recruitment_regions) > 0,
+            has_application_path_=True,
         )
-        assert_true(should_publish_matched, "a genuinely source-verified location must publish (the only approved C1 path this round)")
+        assert_true(should_publish_matched, "a genuinely source-verified location must of course still publish")
         assert_equal(reason_matched, "ok", "publish reason must be ok")
     finally:
         geocode._geocode_query_raw = original
@@ -1445,12 +1656,15 @@ def main() -> int:
         test_place_name_matches,
         test_source_coordinate_matches_location,
         test_resolve_coordinate_accuracy_tiers_with_mocked_geocoder,
+        test_resolve_coordinate_accuracy_is_deterministic_given_fixed_fixture,
+        test_resolve_coordinate_accuracy_distinguishes_transient_api_error_from_confirmed_no_results,
         test_largest_cluster_within_km,
         test_bbox_for_province,
         test_haversine_and_duplicate_detection,
         test_resolve_work_locations_no_api_key_is_not_a_transient_failure,
-        test_gate_rejects_c1_partial_mixed_tiers,
-        test_gate_requires_source_verified_not_just_exact_candidate,
+        test_resolve_work_locations_preserves_region_only_candidates_as_rows,
+        test_gate_publishes_partially_verified_mixed_tiers,
+        test_gate_publishes_regardless_of_coordinate_verification_tier,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
         test_job_recruitment_regions_reaches_insert_payload_after_migration_0018,
         test_coordinate_accuracy_never_leaks_exact_candidate_to_db,

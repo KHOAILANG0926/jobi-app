@@ -3,7 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJobs } from '../context/JobsContext'
-import { calcDistanceKm, resolveMapLocations } from '../lib/jobCoords'
+import { calcDistanceKm, resolveDistanceSearchPoint } from '../lib/jobCoords'
 import type { Job } from '../types/job'
 
 type JobWithDist = Job & { lat: number; lng: number; distance?: number }
@@ -11,22 +11,21 @@ type JobWithDist = Job & { lat: number; lng: number; distance?: number }
 export default function MapView() {
   const { jobs: rawJobs } = useJobs()
   const navigate = useNavigate()
-  // 2026-09-04 사용자 지시로 수정 — 이전에는 withJobCoordinates()가 실제 좌표가
-  // 없는 공고에도 지역/기본 중심점(guessCoordinatesFromLocation, 예: 매칭 지역이
-  // 없으면 항상 Đà Nẵng 좌표)을 채워 넣었고, 그 값을 그대로 실제 Leaflet 마커로
-  // 찍고 있었다 — "내 위치에서 N km"라는 실제 거리 계산·정렬까지 그 가짜 좌표로
-  // 수행되는 문제였다(JobDetail.tsx는 이미 rawLat/rawLng + source==='exact' 게이트로
-  // 이 문제를 피하고 있었는데 이 컴포넌트만 그 보호가 없었음). resolveMapLocations()
-  // (job_work_locations 우선, 없으면 rawLat/rawLng, 그래도 없으면 source가
-  // 'region'/'default'로 표시되는 동일한 안전 함수)를 재사용하고, source==='exact'
-  // (실제 근무지 좌표로 확인된 경우)인 공고만 지도에 표시한다 — 검증 안 된 공고는
-  // 이 "내 주변 채용" 지도에서 아예 제외한다(가짜 마커 대신 완전히 숨김).
+  // 2026-09-05 최종 제품 정책 — 이 "내 주변 채용" 지도는 거리 기반 기능(반경
+  // 필터·거리순 정렬)이므로 지도 표시 자격이 아니라 거리검색 자격 기준을
+  // 써야 한다. resolveDistanceSearchPoint()는 location_verified===true거나
+  // coordinateAccuracy==='exact'인 진짜 검증된 근무지 좌표만 반환한다 —
+  // resolveMapLocations()(구체적 주소 미검증도 근사 표시하는 함수)의
+  // points[0]을 그대로 쓰면, source==='exact'가 "이 근무지들 중 하나라도
+  // precise"라는 뜻일 뿐 points[0] 자체가 precise라는 보장이 없어 미검증
+  // 위치가 "내 위치에서 N km"에 섞여 들어갈 수 있었다. 검증된 근무지가 없는
+  // 공고는 이 지도에서 계속 제외한다(가짜 마커 대신 완전히 숨김).
   const jobsWithCoords = useMemo<JobWithDist[]>(() => {
     const out: JobWithDist[] = []
     for (const j of rawJobs) {
-      const resolved = resolveMapLocations(j)
-      if (resolved.source !== 'exact' || resolved.points.length === 0) continue
-      out.push({ ...j, lat: resolved.points[0].lat, lng: resolved.points[0].lng })
+      const point = resolveDistanceSearchPoint(j)
+      if (!point) continue
+      out.push({ ...j, lat: point.lat, lng: point.lng })
     }
     return out
   }, [rawJobs])

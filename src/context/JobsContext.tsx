@@ -60,7 +60,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       const from = page * PAGE_SIZE
       const { data } = await supabase
         .from('local_jobs')
-        .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url')
+        .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions')
         .eq('active', true)
         .order('posted_at', { ascending: false })
         .order('id', { ascending: false })
@@ -85,15 +85,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     const locationsByJobId = new Map<number, NonNullable<Job['workLocations']>>()
     if (rows.length > 0) {
       const jobIds = rows.map((r) => r.id as number)
-      // coordinate_accuracy/location_verified가 이 select에 빠져 있던 기존 결함(2026-
-      // 09-04 발견): rowToWorkLocation()의 ward-등급 게이트가 실제로는 한 번도 적용된
-      // 적이 없었다 — r.coordinate_accuracy가 항상 undefined라 매번 "컬럼 없음" 안전
-      // 기본값(무조건 신뢰) 분기만 탔다. 두 컬럼 다 이미 운영 DB에 있다(migration
-      // 0015/0010, 실행됨). recruitment_regions는 아직 컬럼 자체가 없으므로(draft
-      // migration 0018 승인 전) 여기 select에 넣지 않는다 — 넣으면 매 요청이 실패한다.
+      // address_accuracy/matched_recruitment_regions는 migration 0018(2026-
+      // 09-05 적용됨)로 추가된 컬럼 — 지도 표시 등급(정확한 마커 vs 근사
+      // 위치)과 위치별 모집지역 라벨 표시에 쓴다(src/lib/jobCoords.ts 참고).
       const { data: locRows } = await supabase
         .from('job_work_locations')
-        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,coordinate_accuracy,location_verified')
+        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions')
         .in('job_id', jobIds)
         .order('sort_order', { ascending: true })
       for (const r of locRows ?? []) {

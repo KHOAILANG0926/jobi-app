@@ -242,6 +242,12 @@ def test_address_pipeline_standard() -> None:
         "17 Phạm Hùng, Nam Từ Liêm",  # job 4367
         "262 Nguyễn Văn Tạo, Hiệp Phước (Nhà Bè cũ), Nhà Bè",  # job 4368
         "Lô A2-3 KCN Tây Bắc Củ Chi, Xã Tân An Hội, Huyện Củ Chi",  # job 4311 company plant addr shape
+        "Cụm CN Tập Đoàn Anova, Xã Long Cang, Cần Đước",  # id 4379 — "Cụm CN" (space-separated abbreviation) regression
+        "CCN Tân Quy, Xã Đông Thạnh, Hóc Môn",  # concatenated "CCN" abbreviation, no other signal
+        "Nhà máy Vĩnh Phúc, Xã Sơn Lôi, Huyện Bình Xuyên",  # named facility type, no digit/street/KCN
+        "Bệnh viện Đa Khoa Tâm Trí, Sài Gòn",
+        "Cửa hàng Bách Hoá Xanh, Quận Bình Tân",
+        "Siêu thị Coopmart, Biên Hòa",
     ]
     for addr in exact_cases:
         assert_equal(classify_work_location_candidate(addr), "exact", f"should classify exact: {addr!r}")
@@ -252,6 +258,15 @@ def test_address_pipeline_standard() -> None:
         "Hồ Chí Minh",
         "Quận 1, TP.HCM",
         "Huyện Củ Chi, TP Hồ Chí Minh",
+        # 고정 테스트 #15 (2026-09-05 사용자 지시): 일반 시설 단어 하나만
+        # 행정구역명에 붙어 있고 실제 고유명사가 없으면, 특정 공고/회사명을
+        # 예외처리하는 게 아니라 이 공통 규칙 자체로 region_only로 남아야
+        # 한다(과대 분류 금지) — 텍스트 자체는 삭제하지 않고 지역 수준
+        # 위치로 보존된다(resolve_work_locations()가 이제 region_only도
+        # 행으로 만든다, address_accuracy='region_only').
+        "Cửa hàng, Hà Nội",
+        "Nhà máy, Bình Dương",
+        "Xưởng, Long An",
     ]
     for addr in region_cases:
         assert_equal(classify_work_location_candidate(addr), "region_only", f"should classify region_only: {addr!r}")
@@ -268,41 +283,99 @@ def test_address_pipeline_standard() -> None:
     assert_false(has_application_path("", "", ""), "no phone/zalo/source_url -> no application path")
     assert_false(has_application_path(None, None, None), "None values -> no application path")
 
-    # gate_auto_publish: 2026-09-04 정책(2차, 강화) — 상세주소 텍스트 + 지원
-    # 경로 + "모든 근무지가 진짜 C1(source_verified==True, 원문 좌표 검증
-    # 성공)"(all_locations_c1_verified) 셋 다 있어야 공개된다.
-    # coordinate_accuracy=='exact_candidate'(Geoapify 자기수렴)만으로는 더
-    # 이상 충분하지 않다 — all_locations_c1_verified를 명시적으로 True로
-    # 줘야 "ok"가 나온다(기본값은 False — 안전 실패).
+    # gate_auto_publish: 2026-09-05 최종 제품 정책(2026-09-04 "모든 근무지
+    # C1 검증 필수" 정책을 사용자 지시로 대체) — 공개 가능 = 유효한 지원
+    # 경로 + 근무지 또는 모집지역 정보가 하나 이상 존재. 좌표 검증 여부는
+    # 더 이상 게이트가 아니다(has_location_or_region만 있으면 되고, 좌표
+    # 정확도/검증 인자 자체가 함수 시그니처에서 빠졌다).
     assert_equal(
-        gate_auto_publish(True, True, all_locations_c1_verified=True), (True, "ok"),
-        "address text + application path + all locations C1-verified -> publish",
+        gate_auto_publish(True, True), (True, "ok"),
+        "location-or-region info + application path -> publish, regardless of coordinate verification",
     )
     assert_equal(
-        gate_auto_publish(False, True, all_locations_c1_verified=True), (False, "no_address_text"),
-        "no address text -> held",
+        gate_auto_publish(False, True), (False, "no_address_text"),
+        "no location/region info at all -> held",
     )
     assert_equal(
-        gate_auto_publish(True, False, all_locations_c1_verified=True), (False, "no_application_path"),
-        "no application path -> held",
+        gate_auto_publish(True, False), (False, "no_application_path"),
+        "no application path -> held even with location/region info",
     )
     assert_equal(
-        gate_auto_publish(False, False, all_locations_c1_verified=True), (False, "no_address_text"),
-        "neither -> held, address checked first",
+        gate_auto_publish(False, False), (False, "no_address_text"),
+        "neither -> held, location/region checked first",
     )
-    # 핵심 회귀: 상세주소 텍스트와 지원 경로가 전부 있어도, 모든 근무지가
-    # C1로 검증되지 않으면(exact_candidate뿐이거나 ward/region/unresolved
-    # 포함, 또는 아예 없으면) 반드시 보류돼야 한다 — "주소 텍스트만 있으면
-    # 발행" 하던 옛 정책으로 회귀하지 않았는지 확인.
+
+    # 고정 테스트 #1 (2026-09-05): 성·시만 있음 + 지원 경로 있음 → 공개.
+    province_only_candidates = ["Hồ Chí Minh"]
     assert_equal(
-        gate_auto_publish(True, True, all_locations_c1_verified=False), (False, "no_verified_coordinate"),
-        "address text + application path but NOT all locations C1-verified -> held, not published",
+        [classify_work_location_candidate(c) for c in province_only_candidates], ["region_only"],
+        "a bare province name classifies region_only, not exact",
     )
+    should_publish_province, reason_province = gate_auto_publish(
+        has_location_or_region=True,  # region_only 후보도 이제 resolved_locations에 행으로 남는다(resolve_work_locations() 참고)
+        has_application_path_=has_application_path("0901234567", "", ""),
+    )
+    assert_true(should_publish_province, "province-only location + valid application path must publish")
+    assert_equal(reason_province, "ok", "publish reason must be ok")
+
+    # 고정 테스트 #2 (2026-09-05): 구·군·동만 있음 + 지원 경로 있음 → 공개.
+    district_only_candidates = ["Huyện Củ Chi, TP Hồ Chí Minh"]
     assert_equal(
-        gate_auto_publish(True, True), (False, "no_verified_coordinate"),
-        "default all_locations_c1_verified is False (fail-closed) — a caller that omits it "
-        "must never accidentally publish; crawl_topcv.py always passes a real computed value",
+        [classify_work_location_candidate(c) for c in district_only_candidates], ["region_only"],
+        "a bare district/ward chain classifies region_only, not exact",
     )
+    should_publish_district, reason_district = gate_auto_publish(
+        has_location_or_region=True,
+        has_application_path_=has_application_path("", "https://zalo.me/0901234567", ""),
+    )
+    assert_true(should_publish_district, "district-only location + valid application path must publish")
+    assert_equal(reason_district, "ok", "publish reason must be ok")
+
+    # 고정 테스트 #5 (2026-09-05): 모집지역만 있음(근무지 후보 자체가 0건) +
+    # 지원 경로 있음 → 공개. crawl_topcv._compute_job_recruitment_regions()
+    # 자체의 계산 로직은 test_address_pipeline_integration.py의
+    # test_compute_job_recruitment_regions_survives_zero_work_location_rows가
+    # 검증한다(이 파일은 crawl_topcv/geocode에 의존하지 않는 offline 테스트
+    # 라 여기서는 그 결과를 그대로 흉내낸 리스트만 쓴다) — 여기서 확인할
+    # 것은 gate_auto_publish()가 "근무지 행 0건"이어도 "모집지역 정보 있음"
+    # 쪽 OR만으로 공개시킨다는 점이다.
+    resolved_work_location_rows: list[dict] = []  # 근무지 후보 자체가 0건
+    recruitment_regions_only = ["TP.HCM", "Long An"]  # 원문 어딘가 언급된 지역명만으로 채워진 경우
+    should_publish_region_only, reason_region_only = gate_auto_publish(
+        has_location_or_region=len(resolved_work_location_rows) > 0 or len(recruitment_regions_only) > 0,
+        has_application_path_=True,
+    )
+    assert_true(should_publish_region_only, "recruitment-regions-only (zero work-location rows) + valid application path must publish")
+    assert_equal(reason_region_only, "ok", "publish reason must be ok")
+
+    # 고정 테스트 #6 (2026-09-05): 근무지와 모집지역 모두 없음 → 비공개.
+    should_publish_nothing, reason_nothing = gate_auto_publish(
+        has_location_or_region=len([]) > 0 or len([]) > 0,
+        has_application_path_=True,
+    )
+    assert_false(should_publish_nothing, "zero work-location rows AND zero recruitment regions -> must never publish")
+    assert_equal(reason_nothing, "no_address_text", "held reason must be no_address_text")
+
+    # 고정 테스트 #7 (2026-09-05): 위치 있음(성·시만이라도) + 지원 경로 없음 → 비공개.
+    should_publish_no_apply, reason_no_apply = gate_auto_publish(
+        has_location_or_region=True,
+        has_application_path_=has_application_path("", "", ""),
+    )
+    assert_false(should_publish_no_apply, "location/region info present but no phone/zalo/source_url -> must never publish")
+    assert_equal(reason_no_apply, "no_application_path", "held reason must be no_application_path")
+
+    # 'no_verified_coordinate'는 gate_auto_publish()가 더 이상 반환하지 않는다
+    # — DB CHECK에는 과거 데이터 호환을 위해서만 남아있다(migration 0017).
+    # 위 모든 분기(publish/no_address_text/no_application_path)를 이미
+    # 직접 값으로 확인했으므로 — 이 함수가 반환할 수 있는 reason은 오직
+    # 그 3가지뿐임을 아래에서 한 번 더 총괄로 확인한다.
+    for has_loc in (True, False):
+        for has_app in (True, False):
+            _, reason = gate_auto_publish(has_loc, has_app)
+            assert_true(
+                reason in ("ok", "no_address_text", "no_application_path"),
+                f"gate_auto_publish({has_loc}, {has_app}) reason must be one of ok/no_address_text/no_application_path, got {reason!r} — 'no_verified_coordinate' must never be returned by the new policy",
+            )
 
     # End-to-end on the 3 regression fixtures (4366/4367/4368) — classification only,
     # geocoding itself is exercised separately (it needs network + writes to
@@ -311,8 +384,8 @@ def test_address_pipeline_standard() -> None:
     exact_4366 = [c for c in job_4366_candidates if classify_work_location_candidate(c) == "exact"]
     assert_equal(len(exact_4366), 1, "job 4366 must resolve to exactly 1 exact candidate, not 2 (2nd line is region_only)")
     assert_true(
-        gate_auto_publish(True, True, all_locations_c1_verified=True)[0],
-        "job 4366 with real address text + source_url + a C1-verified coordinate -> would publish",
+        gate_auto_publish(True, True)[0],
+        "job 4366 with real address text + source_url -> would publish",
     )
 
     job_4367_candidates = ["17 Phạm Hùng, Nam Từ Liêm"]
@@ -669,18 +742,17 @@ def test_extract_work_hours_free_text_preserves_split_shifts() -> None:
     assert_equal(extract_work_hours_free_text(None), "", "None description -> empty, never raises")
 
 
-def test_gate_requires_every_location_exact_not_just_one() -> None:
-    # 사용자 지시(2026-09-04, 1차): "C1_partial은 모든 근무지가 검증된 것이
-    # 아니므로 반드시 공개 게이트에서 실패해야 한다".
-    # 사용자 지시(2026-09-04, 2차, 같은 날 후속): 100건 조사 + 신규 블라인드
-    # 시험을 반복해도 coordinate_accuracy=='exact_candidate'(Geoapify
-    # 자기수렴)가 독립 대조에서 약 30~36% 실패율을 반복 재현 — "기존 exact는
-    # 신뢰된 C1이 아니라 exact_candidate로 취급"하라는 지시에 따라
-    # compute_all_locations_c1_verified()는 이제 coordinate_accuracy가 아니라
-    # source_verified 필드만 본다(엔드투엔드 버전은
-    # test_address_pipeline_integration.py의
-    # test_gate_rejects_c1_partial_mixed_tiers /
-    # test_gate_requires_source_verified_not_just_exact_candidate 참고).
+def test_compute_all_locations_c1_verified_requires_every_location_source_verified() -> None:
+    # 2026-09-04 사용자 지시로 만들어진 compute_all_locations_c1_verified()의
+    # 순수 계산 로직 자체(coordinate_accuracy가 아니라 source_verified
+    # 필드만 봄)는 2026-09-05 공개 게이트 정책 전환 이후로도 그대로다 — 단지
+    # 더 이상 gate_auto_publish()에 들어가지 않을 뿐, 지도 표시 등급/거리검색
+    # 자격 판단에는 여전히 쓰인다(job_quality.compute_all_locations_
+    # c1_verified() docstring 참고). 엔드투엔드(실제 resolve_work_locations()
+    # 경로) 버전은 test_address_pipeline_integration.py의
+    # test_gate_publishes_partially_verified_mixed_tiers /
+    # test_gate_publishes_regardless_of_coordinate_verification_tier 참고
+    # (이름이 바뀐 이유도 동일 — 이제는 "공개해야 함"을 검증한다).
     assert_true(
         compute_all_locations_c1_verified([{"coordinate_accuracy": "exact_candidate", "source_verified": True}]),
         "single location, source-verified -> True",
@@ -737,7 +809,7 @@ def main() -> int:
         test_exact_address_takes_priority_over_approximate,
         test_detail_page_company_and_salary_extraction,
         test_extract_work_hours_free_text_preserves_split_shifts,
-        test_gate_requires_every_location_exact_not_just_one,
+        test_compute_all_locations_c1_verified_requires_every_location_source_verified,
     ]
     for test in tests:
         test()

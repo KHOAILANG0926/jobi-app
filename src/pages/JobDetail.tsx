@@ -14,7 +14,7 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
-import { googleMapsLinks, resolveMapLocation, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
+import { googleMapsLinks, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -250,40 +250,29 @@ export function JobDetail() {
     { key: 'category', icon: <Building2 size={14} strokeWidth={1.8} />, label: 'Ngành nghề', value: catLabel },
   ].filter(Boolean) as InfoField[]
 
-  // 지도는 항상 표시한다 — 우선순위: 실제 DB lat/lng > location 텍스트가 매칭되는 지역
-  // 중심 > 위치 정보가 전혀 없으면 베트남 전체 중심. marker도 항상 그리되, 실제 좌표가
-  // 아닐 때는 안내 문구로 근사치임을 항상 함께 밝힌다(가짜 위치를 실제처럼 보이지 않게).
-  const mapLocation = resolveMapLocation(job)
-  // Additive multi-marker resolution — only differs from mapLocation when the job has
-  // 1+ geocoded job_work_locations rows; otherwise it collapses to the same single point.
+  // 2026-09-05 최종 제품 정책: "모든 공개 공고에 근무지역 텍스트, 지도,
+  // 길찾기를 제공한다" — 좌표 검증 여부는 이제 공개 여부가 아니라 지도
+  // 표시 방식(정확한 마커 vs 근사 위치)과 거리검색 자격만 결정한다.
+  // resolveMapLocations()가 근무지/모집지역/레거시 단일점까지 전부 포함한
+  // 최종 우선순위를 이미 계산해준다 — 이 컴포넌트는 그 결과 하나만 쓰면
+  // 된다(예전처럼 mapLocation/mapCenter를 별도로 다시 계산하지 않는다).
   const mapLocations = resolveMapLocations(job)
-  // 1개만 geocode돼도 그 실제 위치를 보여준다 — "다중"일 때만이 아니라 "1개
-  // 이상"이 기준. 0개면 mapLocations.points가 기존 region/default 단일점으로
-  // 그대로 collapse되므로(resolveMapLocations 자체 로직) 이 값도 자연히 false.
-  const hasGeocodedWorkLocations = mapLocations.points.length >= 1 && mapLocations.source === 'exact'
-  // 지도 중심 — geocode된 근무지가 있으면 그 지점(들)을, 없으면 기존 region/default
-  // 단일 지점을 그대로 쓴다. 2개 이상이면 JobLocationMap의 fitBounds가 최종 화면을
-  // 다시 맞추므로, 여기서는 첫 지점을 초기 중심으로만 쓰면 된다.
-  const mapCenter = hasGeocodedWorkLocations ? mapLocations.points[0] : mapLocation
+  // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
+  // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
+  // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
+  const hasMapPoints = mapLocations.points.length > 0 && mapLocations.source !== 'default'
+  const mapCenter = mapLocations.points[0]
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
-  // 있으면 항상 보여준다 — 마커 개수(hasGeocodedWorkLocations)와는 별개 기준.
+  // 있으면 항상 보여준다.
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
-  // 근무지 목록이 없을 때(region/default fallback)만 쓰는 단일 Google Maps 링크 —
-  // 근무지가 있으면 각 주소별로 따로 만든다(아래 렌더링 부분).
-  // 이 경로는 job_work_locations가 없는 경우(지역명 텍스트만 있음)라
-  // locationText 자체가 이미 "상위 시·도" 수준이다 — 원문 위치와 상위 시·도가
-  // 같은 값으로 겹치지만, 국가 표기(Vietnam)는 항상 명시적으로 덧붙인다.
-  const singleLocationGmaps = !hasWorkLocationList && locationText ? googleMapsLinks(`${locationText}, Vietnam`) : null
-  // job_work_locations가 있는 공고는 항목별로 coordinate_accuracy가 다를 수 있다
-  // (예: 한 공고가 여러 지역을 커버하면서 어떤 주소는 exact, 어떤 주소는 unresolved).
-  // 상세주소 텍스트는 정확도와 무관하게 전부 그대로 보여주되, 지도 마커는 exact/ward
-  // 좌표를 가진 항목에만 찍는다 — region/unresolved는 내부 지도를 아예 숨기고
-  // 외부 Google 지도 검색 링크만 제공한다(공개 게이트가 exact geocode를 더 이상
-  // 요구하지 않으므로, 상세주소는 있지만 좌표를 못 찾은 공고가 실제로 존재한다).
-  const mappableWorkLocations = (job.workLocations ?? []).filter(
-    (l): l is typeof l & { lat: number; lng: number } => typeof l.lat === 'number' && typeof l.lng === 'number',
-  )
-  const hasMappableWorkLocations = mappableWorkLocations.length > 0
+  // 근무지 목록도 없고 모집지역도 없는 완전 레거시 케이스(job.location
+  // 텍스트만 있음)에서만 쓰는 단일 Google Maps 링크 — 근무지가 있으면 각
+  // 주소별로, 모집지역만 있으면 지역별로 따로 만든다(아래 렌더링 부분).
+  const hasRecruitmentRegionsOnly = !hasWorkLocationList && (job.recruitmentRegions?.length ?? 0) > 0
+  const singleLocationGmaps =
+    !hasWorkLocationList && !hasRecruitmentRegionsOnly && locationText
+      ? googleMapsLinks(`${locationText}, Vietnam`)
+      : null
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
@@ -367,35 +356,27 @@ export function JobDetail() {
           <div className="jd2-card">
             <h2 className="jd2-card__title">Khu vực làm việc</h2>
             <div className="jd2-card__body">
-              {!hasWorkLocationList && !locationText ? (
-                // 위치 정보가 전혀 없을 때: 임의 좌표(fallback 대도시 등)로 지도를
-                // 그리지 않는다 — 실제 근무지가 아닌 곳에 마커가 찍히면 사용자가
-                // 그걸 실제 위치로 오해할 수 있기 때문 (sb-4312/sb-4313에서 실제
-                // 발생했던 문제의 근본 원인). 지도 대신 명확한 안내 문구만 표시.
+              {!hasWorkLocationList && !hasRecruitmentRegionsOnly && !locationText ? (
+                // 근무지도, 모집지역도, 텍스트 위치도 전부 없는 경우에만 안내 문구만
+                // 표시한다(정책: "근무지와 모집지역 모두 없음" — 사실 이 조합은 공개
+                // 게이트 자체가 no_address_text로 막으므로 공개된 공고에서는 거의
+                // 발생하지 않지만, 방어적으로 유지).
                 <p className="jd2-map-unknown">Không thể xác định chính xác khu vực làm việc cho tin tuyển dụng này.</p>
               ) : (
                 <>
                   {hasWorkLocationList ? (
-                    // 항목별로 coordinate_accuracy가 다를 수 있다 — 상세주소 텍스트와
-                    // 길찾기는 정확도와 무관하게 항상 보여준다(2026-09-04 사용자 지시
-                    // "길찾기 정책 수정": "location_verified=false인 ward도 길찾기
-                    // 버튼을 숨기지 않음 — 마커와 정확한 거리 계산만 제외. 길찾기는
-                    // 좌표 대신 raw_address + 상위 시·도 + Vietnam 텍스트 검색으로
-                    // 실행"). googleMapsLinks()는 좌표를 전혀 쓰지 않는 텍스트 검색
-                    // 기반이라 신뢰도와 무관하게 항상 안전하다. 내부 지도 마커·정확한
-                    // 거리 계산만 'exact' 또는 locationVerified===true인 'ward'로
-                    // 제한된다(loc.lat/lng 자체가 JobsContext에서 이미 그렇게 걸러져
-                    // 있음 — mappableWorkLocations 참고).
+                    // 항목별로 coordinate_accuracy/address_accuracy가 다를 수 있다 —
+                    // 상세주소 텍스트와 길찾기는 정확도와 무관하게 항상 보여준다
+                    // (2026-09-05 최종 정책: "모든 위치 등급에서 길찾기 링크 표시").
+                    // googleMapsLinks()는 좌표를 전혀 쓰지 않는 텍스트 검색 기반이라
+                    // 신뢰도와 무관하게 항상 안전하다.
                     <ul className="jd2-map-addr-list">
                       {job.workLocations?.map((loc) => {
                         const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc, job.location))
-                        const isMappable = typeof loc.lat === 'number' && typeof loc.lng === 'number'
-                        const tier = loc.coordinateAccuracy ?? (isMappable ? 'exact' : 'unresolved')
-                        // location_verified=true인 'ward'는 지도 마커는 쓸 수 있지만
-                        // 'exact'로 표시하지 않는다 — 사용자 지시("location_verified=true인
-                        // ward"): "지도 사용은 가능하지만 exact라고 표시하지 않음 / UI
-                        // 라벨은 '근무구역 확인' / 정확한 거리라고 단정하지 않음."
+                        const tier = loc.coordinateAccuracy ?? 'unresolved'
                         const verifiedWard = tier === 'ward' && loc.locationVerified === true
+                        const isPreciseLoc = tier === 'exact' || verifiedWard
+                        const isRegionOnlyText = loc.addressAccuracy === 'region_only'
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
                             <p className="jd2-map-addr">
@@ -407,24 +388,61 @@ export function JobDetail() {
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {verifiedWard && (
+                            {isRegionOnlyText ? (
+                              // Tier C/D — 성·시 또는 구·군·동만 있는 텍스트, 구체적
+                              // 상세주소가 아니다. 거리검색에도 쓰이지 않는다.
+                              <p className="jd2-map-ward-note">
+                                Vị trí gần đúng theo khu vực hành chính (tỉnh/thành hoặc quận/huyện) — không phải địa chỉ chi tiết, không dùng để tính khoảng cách chính xác.
+                              </p>
+                            ) : verifiedWard ? (
+                              // Tier A(원문 좌표로 확인된 근무구역) — exact와 동일한
+                              // 정밀도를 주장하지 않되, 확인된 위치임은 밝힌다.
                               <p className="jd2-map-verified-ward-note">
                                 Khu vực làm việc đã xác nhận — có thể chưa phải vị trí chính xác của tòa nhà.
                               </p>
-                            )}
-                            {tier === 'ward' && !verifiedWard && (
+                            ) : tier !== 'exact' ? (
+                              // Tier B — 구체적 주소 텍스트는 있으나 좌표 미검증.
                               <p className="jd2-map-ward-note">
-                                Vị trí gần đúng theo khu vực (quận/huyện) — không phải vị trí chính xác của tòa nhà.
+                                Vị trí gần đúng — địa chỉ cụ thể chưa được xác minh tọa độ chính xác, không dùng để tính khoảng cách.
                               </p>
-                            )}
+                            ) : null}
                             <div className="jd2-map-gmaps-links">
                               <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
                               <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
                             </div>
+                            {isPreciseLoc && (
+                              <p className="jd2-map-exact-note">Vị trí chính xác.</p>
+                            )}
                           </li>
                         )
                       })}
                     </ul>
+                  ) : hasRecruitmentRegionsOnly ? (
+                    // Tier E — 원문 근무지 행이 0건, 모집지역만 있음. 지역별로 각각
+                    // 안내 문구 + 길찾기 링크를 제공한다(하나의 좌표를 여러 지역에
+                    // 복제하지 않음 — 지역마다 자기 이름으로 직접 Google Maps 검색).
+                    <>
+                      <p className="jd2-map-recruitment-regions-only-note">
+                        Tin này chưa có địa chỉ làm việc chi tiết — hiển thị theo khu vực tuyển dụng.
+                      </p>
+                      <ul className="jd2-map-addr-list">
+                        {job.recruitmentRegions?.map((region) => {
+                          const gmaps = googleMapsLinks(`${region}, Vietnam`)
+                          return (
+                            <li key={region} className="jd2-map-addr-item">
+                              <p className="jd2-map-addr">
+                                <MapPin size={13} strokeWidth={1.8} />
+                                {region}
+                              </p>
+                              <div className="jd2-map-gmaps-links">
+                                <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                                <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
                   ) : (
                     locationText && (
                       <>
@@ -432,43 +450,38 @@ export function JobDetail() {
                           <MapPin size={13} strokeWidth={1.8} />
                           {locationText}
                         </p>
-                        {/* job_work_locations가 아예 없는 레거시 공고 — mapLocation.source가
-                            'exact'(공고 자체 lat/lng)일 때만 검증된 위치로 보고 길찾기까지
-                            보여준다. 'region'/'default'는 지역명 텍스트로 추측한 좌표일 뿐이므로
-                            내부 지도·마커·길찾기를 전혀 만들지 않고 외부 검색 링크만 제공한다. */}
+                        {/* job_work_locations도 recruitmentRegions도 없는 완전 레거시
+                            케이스 — 길찾기는 등급과 무관하게 항상 보여준다(2026-09-05
+                            정책: "길찾기는 어떤 위치 등급에서도 숨기지 않는다"). */}
                         {singleLocationGmaps && (
                           <div className="jd2-map-gmaps-links">
-                            {mapLocation.source === 'exact' ? (
-                              <>
-                                <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                                <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                              </>
-                            ) : (
-                              <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Tìm địa chỉ trên Google Maps ↗</a>
-                            )}
+                            <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
+                            <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
                           </div>
                         )}
                       </>
                     )
                   )}
-                  {/* 내부 지도는 검증된 좌표가 있을 때만 그린다:
-                      - job_work_locations가 있으면 exact/ward 마커가 1개라도 있을 때만
-                      - job_work_locations가 없으면 공고 자체에 실제 lat/lng(source==='exact')가
-                        있을 때만 — 지역명 추측 좌표(region/default)로는 지도를 그리지 않는다. */}
-                  {((hasWorkLocationList && hasMappableWorkLocations) ||
-                    (!hasWorkLocationList && locationText && mapLocation.source === 'exact')) && (
+                  {/* 내부 지도는 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로
+                      떨어진 경우)만 아니면 항상 그린다 — 정확한 마커든 근사 위치든
+                      resolveMapLocations()가 이미 우선순위대로 골라준 점들이다. */}
+                  {hasMapPoints && mapCenter && (
                     <>
                       <JobLocationMap
                         lat={mapCenter.lat}
                         lng={mapCenter.lng}
                         title={job.title}
                         zoom={mapLocations.zoom}
-                        extraMarkers={hasGeocodedWorkLocations ? mapLocations.points : undefined}
+                        extraMarkers={mapLocations.points}
                       />
                       <p className="jd2-map-note">
-                        {hasGeocodedWorkLocations
-                          ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
-                          : 'Bản đồ mang tính minh họa, có thể không trùng khớp chính xác địa chỉ công ty.'}
+                        {mapLocations.source === 'exact'
+                          ? mapLocations.points.length > 1
+                            ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
+                            : 'Vị trí chính xác trên bản đồ.'
+                          : mapLocations.source === 'address'
+                            ? 'Vị trí gần đúng dựa trên địa chỉ — chưa được xác minh chính xác.'
+                            : 'Vị trí gần đúng theo khu vực — bản đồ mang tính minh họa, không phải địa chỉ chi tiết.'}
                       </p>
                     </>
                   )}

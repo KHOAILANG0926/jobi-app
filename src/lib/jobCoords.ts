@@ -79,20 +79,20 @@ export interface ResolvedMapLocation {
 const VIETNAM_CENTER = { lat: 14.0583, lng: 108.2772 }
 
 /**
- * Resolves the best available point for the JobDetail map, in priority order:
+ * Resolves the best available SINGLE point for a job with no job_work_locations
+ * rows at all (legacy jobs, or a job whose recruitment_regions is also empty) —
+ * in priority order:
  * 1. `exact`   — real lat/lng stored on the job (local_jobs.lat/lng).
- * 2. `address` / `district` — not reachable today. `local_jobs` only has one free-text
- *    `location` column (no separate street-address or district field), and this project
- *    has no geocoding API to turn free text into a precise point (checked — none exists).
- *    These two source values are kept in the type so a future structured-address or
- *    geocoding addition doesn't need a new union member, but nothing here returns them
- *    yet — claiming that precision without real data would be exactly the "임의 좌표"
- *    this must avoid.
- * 3. `region`  — the location text matches a known province/city in `PLACES` (city-level
+ * 2. `region`  — the location text matches a known province/city in `PLACES` (city-level
  *    center, not the real workplace).
- * 4. `default` — no usable location text at all; falls back to the Vietnam-wide center.
+ * 3. `default` — no usable location text at all; falls back to the Vietnam-wide center.
  * `region`/`default` coordinates are for drawing the map only — never write them back to
  * `job.lat`/`job.lng` or persist them anywhere.
+ *
+ * `district`/`address` are never returned by THIS function (kept for backward
+ * compatibility with existing callers of the single-point API) — `resolveMapLocations()`
+ * is the one that actually reaches an `address`-tier point, for a job that DOES have
+ * job_work_locations rows carrying a geocoder-derived (but unverified) coordinate.
  */
 export function resolveMapLocation(job: { rawLat?: number; rawLng?: number; rawLocation?: string }): ResolvedMapLocation {
   if (
@@ -125,6 +125,16 @@ export interface ResolvedMapPoint {
   lat: number
   lng: number
   label?: string
+  /** true only for a genuinely precise workplace coordinate — coordinateAccuracy
+   *  === 'exact', or 'ward' with locationVerified === true (원문 좌표로 실제
+   *  확인된 근무구역). false for every kind of approximate/fallback point: an
+   *  unverified geocoder coordinate (ward without verification, or 'region'),
+   *  a province/district administrative-center lookup, or a recruitment-region
+   *  center. UI uses this to choose marker style and the "정확한 위치" vs
+   *  "대략적인 위치" caption — it must NEVER be used to decide distance-search
+   *  eligibility (2026-09-05 정책: 지도 표시 자격과 거리검색 자격은 별개 —
+   *  거리검색은 resolveDistanceSearchPoint()만 쓴다). */
+  precise: boolean
 }
 
 export interface ResolvedMapLocations {
@@ -133,36 +143,144 @@ export interface ResolvedMapLocations {
   zoom: number
 }
 
+interface WorkLocationLike {
+  rawAddress: string
+  lat?: number
+  lng?: number
+  coordinateAccuracy?: CoordinateAccuracyLike
+  locationVerified?: boolean
+  matchedRecruitmentRegions?: string[]
+}
+
+/** coordinate_accuracy 문자열 — types/job.ts의 CoordinateAccuracy와 값 집합은
+ *  같지만, 이 파일이 그 타입에 의존하지 않고도(순수 유틸리티 유지) 쓸 수
+ *  있도록 별도로 좁혀 선언한다. */
+type CoordinateAccuracyLike = 'exact' | 'ward' | 'region' | 'unresolved'
+
+/** 이 근무지 좌표를 "정확한 위치"로 표시해도 되는지 — 지도 마커 스타일과
+ *  거리검색 자격 판단 둘 다의 공통 기준(다만 거리검색은 이 값을 직접 쓰지
+ *  않고 resolveDistanceSearchPoint()를 통해서만 쓴다 — 두 자격을 같은 한
+ *  boolean으로 뭉뚱그리지 않기 위해 함수를 분리해뒀다). */
+function isPreciseWorkLocation(l: { coordinateAccuracy?: CoordinateAccuracyLike; locationVerified?: boolean }): boolean {
+  return l.coordinateAccuracy === 'exact' || l.locationVerified === true
+}
+
 /**
- * Multi-marker variant of resolveMapLocation, for jobs that have real
- * job_work_locations rows with geocoded lat/lng. Falls back to the exact
- * single-point/region/default logic (via resolveMapLocation) whenever there
- * are zero geocoded work locations — so a job with no work_locations data
- * behaves identically to before this was added.
+ * 근무지 1곳을 지도 포인트로 변환한다 — 등급(A~D)과 무관하게 항상 무언가를
+ * 반환하려 시도한다(정책: "모든 위치 등급에서 지도 표시"):
+ * 1. 이 근무지 자체의 geocode 좌표가 있으면 그대로 쓴다(정확/근사 여부는
+ *    precise 플래그로만 구분 — 'ward' 미검증/'region'도 좌표 자체는 있을 수
+ *    있고, 이 경우 지오코더가 반환한 "안전한 상위 지역 좌표"로 근사 표시).
+ * 2. 좌표가 아예 없으면(region_only 텍스트, 또는 'unresolved') 원문 텍스트
+ *    자체에서 알려진 성·시/구·군 이름을 찾아 그 행정 중심으로 근사 표시.
+ * 3. 그것도 못 찾으면 이 근무지에 매칭된 모집지역명으로 다시 시도한다.
+ * 4. 전부 실패하면 null — 이 근무지 하나는 지도에 점을 못 찍지만(텍스트·
+ *    길찾기는 호출부가 이 함수와 무관하게 항상 그대로 보여준다), 다른
+ *    근무지가 있으면 그쪽은 계속 표시된다.
+ */
+function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | null {
+  if (typeof l.lat === 'number' && typeof l.lng === 'number' && Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
+    return { lat: l.lat, lng: l.lng, label: l.rawAddress, precise: isPreciseWorkLocation(l) }
+  }
+  const fromOwnText = findRegionCenter(l.rawAddress)
+  if (fromOwnText) return { ...fromOwnText, label: l.rawAddress, precise: false }
+  for (const region of l.matchedRecruitmentRegions ?? []) {
+    const fromRegion = findRegionCenter(region)
+    if (fromRegion) return { ...fromRegion, label: l.rawAddress, precise: false }
+  }
+  return null
+}
+
+/**
+ * Multi-marker resolution for JobDetail's map, covering every location tier
+ * the 2026-09-05 최종 제품 정책 requires a map for:
+ * - 근무지 행이 있으면(좌표 검증 여부와 무관하게) 위치별로 점을 만든다.
+ * - 근무지 행이 0건이고 모집지역만 있으면(정책 Tier E) 모집지역별 중심점을
+ *   만든다 — 한 좌표를 여러 지역에 복제하지 않고, 지역마다 자기 중심을 쓴다.
+ * - 그것도 없으면 기존 resolveMapLocation()의 단일점(지역명 텍스트 매칭 또는
+ *   베트남 전체 중심)으로 collapse — 이전 동작과 100% 동일.
  */
 export function resolveMapLocations(job: {
   rawLat?: number
   rawLng?: number
   rawLocation?: string
-  workLocations?: { rawAddress: string; lat?: number; lng?: number }[]
+  workLocations?: WorkLocationLike[]
+  recruitmentRegions?: string[]
 }): ResolvedMapLocations {
-  const geocoded = (job.workLocations ?? []).filter(
-    (l): l is { rawAddress: string; lat: number; lng: number } =>
-      typeof l.lat === 'number' && typeof l.lng === 'number' &&
-      Number.isFinite(l.lat) && Number.isFinite(l.lng),
-  )
-  if (geocoded.length > 0) {
+  const workLocationPoints = (job.workLocations ?? [])
+    .map(resolveWorkLocationMapPoint)
+    .filter((p): p is ResolvedMapPoint => p !== null)
+
+  if (workLocationPoints.length > 0) {
+    const anyPrecise = workLocationPoints.some((p) => p.precise)
     return {
-      points: geocoded.map((l) => ({ lat: l.lat, lng: l.lng, label: l.rawAddress })),
-      source: 'exact',
+      points: workLocationPoints,
+      // 'address' — 이 union 멤버는 예전에 "구조화된 주소는 있지만 geocoding
+      // API가 없어 도달 불가"로 예약만 돼 있었다(resolveMapLocation() 참고).
+      // 이제 실제로 쓰인다: 근무지 좌표가 있지만 전부 미검증(precise=false)
+      // 일 때의 지도 소스 값 — "정확한(exact)"도 "지역 텍스트 추측(region)"
+      // 도 아닌, "구체적 주소 텍스트에서 나온 근사 좌표"라는 중간 등급.
+      source: anyPrecise ? 'exact' : 'address',
       // A single geocoded point can zoom in tighter (street-level) since there's
       // no second point that needs to stay in frame; 2+ points let fitBounds
       // decide the actual view, this is just the initial center's zoom.
-      zoom: geocoded.length > 1 ? 12 : 16,
+      zoom: workLocationPoints.length > 1 ? 12 : anyPrecise ? 16 : 13,
     }
   }
+
+  // 근무지 행 자체가 0건(원문에 "Địa điểm làm việc" 후보가 아예 없음) —
+  // 모집지역만 있으면(정책 Tier E) 지역별로 각자의 중심점을 만든다.
+  if ((job.workLocations?.length ?? 0) === 0 && job.recruitmentRegions && job.recruitmentRegions.length > 0) {
+    const regionPoints = job.recruitmentRegions
+      .map((region): ResolvedMapPoint | null => {
+        const center = findRegionCenter(region)
+        return center ? { ...center, label: region, precise: false } : null
+      })
+      .filter((p): p is ResolvedMapPoint => p !== null)
+    if (regionPoints.length > 0) {
+      return { points: regionPoints, source: 'region', zoom: regionPoints.length > 1 ? 8 : 11 }
+    }
+  }
+
   const single = resolveMapLocation(job)
-  return { points: [{ lat: single.lat, lng: single.lng }], source: single.source, zoom: single.zoom }
+  return {
+    points: [{ lat: single.lat, lng: single.lng, precise: single.source === 'exact' }],
+    source: single.source,
+    zoom: single.zoom,
+  }
+}
+
+/**
+ * 거리검색("내 주변")/거리순 정렬에 써도 되는 좌표만 반환한다 — 지도 표시용
+ * resolveMapLocations()와는 완전히 분리된, 더 엄격한 별도 함수(정책: "지도
+ * fallback 좌표와 거리검색 좌표를 코드상 명확히 분리, 행정 중심점/모집지역
+ * 중심점을 거리 계산에 절대 사용 금지"). location_verified=true인 실제
+ * 근무지 좌표, 또는 coordinateAccuracy==='exact'인 좌표만 인정한다 — 성·시/
+ * 구·군 행정 중심(findRegionCenter)이나 모집지역 중심, 미검증 ward/region
+ * 좌표는 절대 반환하지 않는다. 여러 근무지 중 일부만 검증됐으면 그 검증된
+ * 것들만 반환한다(정책: "복수 근무지 중 일부만 좌표 검증돼도 검증된 위치만
+ * 거리검색에 사용").
+ */
+export function resolveDistanceSearchPoints(job: {
+  workLocations?: WorkLocationLike[]
+}): { lat: number; lng: number }[] {
+  return (job.workLocations ?? [])
+    .filter((l): l is WorkLocationLike & { lat: number; lng: number } =>
+      typeof l.lat === 'number' && typeof l.lng === 'number' &&
+      Number.isFinite(l.lat) && Number.isFinite(l.lng) && isPreciseWorkLocation(l),
+    )
+    .map((l) => ({ lat: l.lat, lng: l.lng }))
+}
+
+/**
+ * 거리검색용 대표 1점 — 검증된 근무지 좌표가 여러 개면 그중 첫 번째, 하나도
+ * 없으면 null(이 공고는 거리검색/거리순 정렬에서 제외돼야 한다는 뜻 — 지도
+ * fallback으로라도 거리를 계산하면 안 됨).
+ */
+export function resolveDistanceSearchPoint(job: {
+  workLocations?: WorkLocationLike[]
+}): { lat: number; lng: number } | null {
+  return resolveDistanceSearchPoints(job)[0] ?? null
 }
 
 export function withJobCoordinates(job: Job): Job {

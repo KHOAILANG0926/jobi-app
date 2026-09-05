@@ -32,7 +32,6 @@ from job_quality import (
     ascii_key,
     canonical_job_key,
     classify_work_location_candidate,
-    compute_all_locations_c1_verified,
     compute_job_updates,
     extract_salary_from_text,
     gate_auto_publish,
@@ -253,14 +252,18 @@ def resolve_work_locations(
     coordinate_accuracy (can a map pin be trusted for it) are deliberately
     independent — see geocode.py's module docstring for why a single-query
     confidence gate was tried first and rejected (it published only 2/10 on
-    real addresses that all had genuine, displayable text). Only candidates
-    classified 'exact' by classify_work_location_candidate() (i.e.
-    address_accuracy == 'exact_text') get a row at all — 'region_only'/
-    'undetermined' text is dropped here exactly as before. EVERY such
-    candidate keeps its row regardless of what coordinate_accuracy comes
-    back as ('exact_candidate'/'ward' carry a real lat/lng for the map;
-    'region'/'unresolved' carry none unless source-verified — the raw
-    address TEXT is still shown, just without a fabricated-looking marker).
+    real addresses that all had genuine, displayable text).
+
+    2026-09-05 사용자 지시로 정책 전환: 'undetermined'(장소 언급 자체가
+    아닌 텍스트)만 계속 버린다 — 'region_only'(성·시/구·군·동만 있는 실제
+    지역명)도 이제 행으로 보존된다(address_accuracy='region_only',
+    coordinate_accuracy='unresolved', lat/lng=None, geocode_status='pending'
+    — 구체적 장소가 없어 Geoapify 조회 자체를 시도하지 않는다). 'exact'
+    (address_accuracy='exact_text')로 분류된 candidate만 기존처럼 전체
+    geocode cascade를 거친다 — 그 결과 coordinate_accuracy가 무엇이든
+    (exact_candidate'/'ward'/'region'/'unresolved') 행은 그대로 유지된다
+    ('exact_candidate'/'ward'는 실제 lat/lng을 가지고, 'region'/'unresolved'
+    는 source-verified가 아닌 한 좌표 없이 원문 텍스트만 남는다).
 
     2026-09-04 사용자 지시(2차, "Geoapify 단일 공급자의 쿼리 자기수렴만으로는
     실제 사업장 정확도를 보장할 수 없다"): coordinate_accuracy=='exact_
@@ -294,7 +297,18 @@ def resolve_work_locations(
         representative = _select_group_representative(members)
         text = representative["text"]
         region_prefix = representative.get("region_prefix")
-        if classify_work_location_candidate(text) != "exact":
+        address_accuracy = classify_work_location_candidate(text)
+        # 2026-09-05 사용자 지시(최종 제품 정책): 'undetermined'(장소 언급
+        # 자체가 아닌 텍스트, 예: "abc"/"N/A")만 계속 버린다. 'region_only'
+        # (성·시/구·군·동만 있는 실제 지역명)는 더 이상 버리지 않는다 —
+        # 성·시·구·군만 있어도 원문 위치 행을 보존해야 하기 때문(job_
+        # work_locations_address_accuracy_check가 이미 'region_only'를
+        # 허용하도록 만들어져 있었다 — migration 추가 불필요). 특정
+        # 지오코딩(정확한 주소 좌표 조회)은 'region_only'에는 시도하지
+        # 않는다 — 조회할 구체적 장소 자체가 없고, 성·시/구·군 수준의
+        # "행정 중심" 지도 표시는 프론트가 이미 가진 정적 지역 중심 좌표
+        # 테이블(src/lib/jobCoords.ts의 PLACES/findRegionCenter)로 처리한다.
+        if address_accuracy == "undetermined":
             continue
         text_key = text.strip().lower()
         if text_key in seen_texts:
@@ -311,6 +325,23 @@ def resolve_work_locations(
             rp = m.get("region_prefix")
             if rp and rp not in matched_recruitment_regions:
                 matched_recruitment_regions.append(rp)
+
+        if address_accuracy == "region_only":
+            row = {
+                "raw_address": text,
+                "normalized_address": text_key,
+                "lat": None,
+                "lng": None,
+                "geocode_status": "pending",
+                "geocode_source": None,
+                "address_accuracy": "region_only",
+                "coordinate_accuracy": "unresolved",
+                "address_evidence": "구체적 장소 신호 없음 — 성·시/구·군·동 수준의 지역명만 확인됨, 좌표 조회 생략",
+                "source_verified": False,
+                "matched_recruitment_regions": matched_recruitment_regions,
+            }
+            resolved.append(row)
+            continue
 
         # 병합된 그룹(후보 2개 이상)만 geocode 검색어에서 "알려진 모집지역
         # 접미사"를 제거한 core로 정리한다 — 단일 후보(중복 없음)는 원문
@@ -837,20 +868,22 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
         has_apply_affordance=bool(detail.get("hasApplyButton")),
     )
-    # 2026-09-04 정책(2차, 강화): 모든 근무지가 진짜 C1(source_verified==True,
-    # 즉 원문 좌표 검증 성공)이고 유효한 지원 경로가 있을 때만 공개한다.
-    # coordinate_accuracy=='exact_candidate'(Geoapify 자기수렴)만으로는 더
-    # 이상 충분하지 않다 — job_quality.compute_all_locations_c1_verified()
-    # 문서 참고.
-    all_locations_c1_verified_value = compute_all_locations_c1_verified(resolved_locations)
+    # 2026-09-05 최종 제품 정책(사용자 지시, 2026-09-04 "모든 근무지 C1 검증
+    # 필수" 정책을 대체): 공개 가능 = 유효한 지원 경로 + 근무지 또는 모집지역
+    # 정보가 하나 이상 존재. 좌표 검증(source_verified)/좌표 정확도
+    # (coordinate_accuracy)는 더 이상 공개 여부를 막지 않는다 — 지도 표시
+    # 방식과 거리검색 자격만 결정한다(job_work_locations.location_verified/
+    # coordinate_accuracy로 프론트가 판단, src/lib/jobCoords.ts 참고).
+    # resolved_locations는 이제 'exact'뿐 아니라 'region_only'(구체적 장소
+    # 신호는 없지만 실제 지역명은 있는 텍스트)도 포함한다(resolve_work_
+    # locations()가 더 이상 region_only를 버리지 않음) — job_recruitment_
+    # regions는 근무지 후보가 0건이어도(원문 어딘가 언급된 지역명만으로도)
+    # 채워질 수 있다. 이 둘을 OR로 합쳐야 "근무지 텍스트도 없고 모집지역도
+    # 전혀 언급 안 된" 진짜 위치 정보 0건 케이스만 no_address_text가 된다.
+    has_location_or_region = len(resolved_locations) > 0 or len(job_recruitment_regions) > 0
     should_publish, gate_reason = gate_auto_publish(
-        # 상세주소 "텍스트"가 있는지만 본다 — geocode(좌표) 성공 여부와
-        # 무관하다. resolve_work_locations()는 exact_text로 분류된
-        # 후보라면 좌표를 못 찾아도(coordinate_accuracy='unresolved')
-        # 행을 만들어 반환하므로, 이 길이만으로 "상세주소 있음"을 뜻한다.
-        has_address_text=len(resolved_locations) > 0,
+        has_location_or_region=has_location_or_region,
         has_application_path_=has_app_path,
-        all_locations_c1_verified=all_locations_c1_verified_value,
     )
 
     # local_jobs에 실제로 존재하는 컬럼인데도 크롤러가 지금까지 전혀 채우지
@@ -1056,17 +1089,14 @@ def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
             "address_accuracy": loc.get("address_accuracy", "exact_text"),
             "coordinate_accuracy": db_tier,
             "address_evidence": loc.get("address_evidence"),
-            # job_work_locations.location_verified 컬럼은 이미 존재하지만
-            # (migration 0010), 지금의 운영 RPC(migration 0015)는 이 값을
-            # INSERT 목록에서 빠뜨려 항상 기본값 false로만 저장된다 — draft
-            # migration 0018이 RPC를 갱신해야 실제로 저장되기 시작한다(그
-            # 전까지 이 키는 현재 RPC가 조용히 무시함, 하위 호환). source_
-            # verified(원문 좌표로 실제 확인됨)를 그대로 전달한다.
+            # job_work_locations.location_verified 컬럼(migration 0010)은
+            # migration 0018(2026-09-05 적용됨)이 RPC의 INSERT 목록에 배선해
+            # 실제로 저장된다. source_verified(원문 좌표로 실제 확인됨)를
+            # 그대로 전달한다.
             "location_verified": loc.get("source_verified") is True,
-            # job_work_locations.matched_recruitment_regions 컬럼은 아직
-            # 없다 — draft migration 0018이 추가+배선해야 실제로 저장되기
-            # 시작한다(그 전까지 이 키는 현재 RPC가 조용히 무시함, 하위
-            # 호환). 2026-09-04 사용자 지시로 명명 정정: "공고 전체" 모집지역
+            # job_work_locations.matched_recruitment_regions 컬럼도 migration
+            # 0018(2026-09-05 적용됨)로 추가+배선돼 실제로 저장된다.
+            # 2026-09-04 사용자 지시로 명명 정정: "공고 전체" 모집지역
             # (local_jobs.recruitment_regions, build_job_record의
             # _compute_job_recruitment_regions 참고)과 구분하기 위해, 이
             # 필드는 "이 근무구역 1개에 실제로 매칭된" 모집지역 라벨

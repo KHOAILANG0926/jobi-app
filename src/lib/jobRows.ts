@@ -1,7 +1,7 @@
 import { classifyJobCategory } from './jobCategoryRules.ts'
 import { ensureJobFields } from './jobUtils.ts'
 import { supabase } from './supabase.ts'
-import type { CoordinateAccuracy, Job } from '../types/job.ts'
+import type { AddressAccuracy, CoordinateAccuracy, Job } from '../types/job.ts'
 
 /** DB row(local_jobs/job_work_locations) -> Job 매핑 로직 — JobsContext.tsx와
  *  fetchEmployerJobs() 둘 다 이 파일을 공유한다(단일 진실 공급원). 이 파일에
@@ -22,27 +22,27 @@ export function parseDescription(raw: string): { description: string; source?: s
 export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] extends (infer U)[] | undefined ? U : never {
   const coordinateAccuracy = (r.coordinate_accuracy as CoordinateAccuracy | null | undefined) ?? undefined
   const locationVerified = (r.location_verified as boolean | null | undefined) ?? undefined
-  // 'exact'는 무조건 신뢰한다. 'ward'는 locationVerified(원문 좌표로 실제 확인됨)일
-  // 때만 신뢰한다 — 2026-09-04 사용자 지시(반복주소 실측 발견): 같은 물리적 장소가
-  // 모집지역 접미사만 다르게 붙어 여러 번 geocode되면 'ward' 등급도 최대 ~15km까지
-  // 틀릴 수 있음이 확인됐다(KCN Hiệp Phước 공고). region/unresolved는 DB에 lat/lng가
-  // 있어도(과거 데이터 등) 프론트에서 지도에 쓰지 않는다. coordinate_accuracy 컬럼이
-  // 아직 없는(마이그레이션 전) 환경에서는 undefined이므로, 기존 lat/lng가 있으면
-  // 안전한 기본값인 'exact'로 간주해 기존 동작을 유지한다.
-  const trusted = coordinateAccuracy == null || coordinateAccuracy === 'exact' || locationVerified === true
+  // 2026-09-05 최종 제품 정책으로 정정: lat/lng는 DB에 있는 그대로 항상
+  // 전달한다 — 예전에는 'ward'인데 locationVerified가 아니거나 'region'/
+  // 'unresolved'면 여기서 lat/lng를 통째로 null로 지웠는데, 그러면 "구체적
+  // 주소는 있지만 좌표 미검증"인 위치가 지도에 근사 표시조차 될 수 없었다
+  // (정책: "지오코더가 반환한 안전한 상위 지역 좌표가 있으면 근사 지도
+  // 표시"). 지도에 "정확한 마커"로 쓸지 "근사 위치"로 쓸지, 거리검색에 써도
+  // 되는지는 이제 이 함수가 아니라 소비처(src/lib/jobCoords.ts의
+  // resolveMapLocations/resolveDistanceSearchPoint)가 coordinateAccuracy/
+  // locationVerified를 보고 판단한다 — "지도 fallback 좌표와 거리검색
+  // 좌표를 코드상 명확히 분리"하라는 지시에 따라 이 매핑 함수 하나가 both를
+  // 뭉뚱그려 결정하지 않는다.
   return {
     id: r.id as number,
     rawAddress: (r.raw_address as string) ?? '',
     normalizedAddress: (r.normalized_address as string) ?? undefined,
-    lat: typeof r.lat === 'number' && Number.isFinite(r.lat) && trusted ? (r.lat as number) : undefined,
-    lng: typeof r.lng === 'number' && Number.isFinite(r.lng) && trusted ? (r.lng as number) : undefined,
+    lat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
+    lng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
     sortOrder: (r.sort_order as number) ?? 0,
+    addressAccuracy: (r.address_accuracy as AddressAccuracy | null | undefined) ?? undefined,
     coordinateAccuracy: coordinateAccuracy ?? undefined,
     locationVerified,
-    // job_work_locations.matched_recruitment_regions 컬럼은 아직 없다(draft
-    // migration 0018, 미실행) — select에도 포함하지 않았으므로 r.matched_
-    // recruitment_regions는 항상 undefined. 컬럼이 생기고 select에 추가되면
-    // 자동으로 채워진다.
     matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
   }
 }
@@ -96,9 +96,6 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
     sourceUrl: (r.source_url as string) ?? undefined,
     workLocations: workLocations && workLocations.length > 0 ? workLocations : undefined,
-    // local_jobs.recruitment_regions 컬럼은 아직 없다(draft migration 0018,
-    // 미실행) — 아래 select()에도 포함하지 않았으므로 r.recruitment_regions는
-    // 항상 undefined. 컬럼이 생기고 select에 추가되면 자동으로 채워진다.
     recruitmentRegions: (r.recruitment_regions as string[] | null | undefined) ?? undefined,
   })
 }
@@ -122,9 +119,9 @@ export interface JobsQueryClient {
 }
 
 const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url'
+  'id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
-  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,coordinate_accuracy,location_verified'
+  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions'
 
 /**
  * 로그인한 기업 자신의 공고를 employer_id=auth.uid() 기준으로 직접 조회한다 —

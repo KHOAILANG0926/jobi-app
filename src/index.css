@@ -8449,6 +8449,17 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   font-size: 0.73rem;
   color: #94a3b8;
 }
+.jd2-map-exact-note {
+  margin: 0 0 0.3rem 1.15rem;
+  font-size: 0.73rem;
+  color: #4b8f6b;
+}
+.jd2-map-recruitment-regions-only-note {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-style: italic;
+}
 .jd2-map-addr-list {
   list-style: none;
   padding: 0;

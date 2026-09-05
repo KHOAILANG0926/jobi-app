@@ -448,17 +448,39 @@ CRAWLER_VERSION = "2026-09-03.address-pipeline-v1"
 
 # A work-location candidate counts as a real, geocodable *place* — not just an
 # administrative-unit name — when it carries one of these signals: a house/lot/
-# block number, a named industrial park ("KCN ..."), a street/alley marker, or a
-# named building/complex. Anything without one of these is, at best, a bare
-# province/district/ward chain (e.g. "Dĩ An, Bình Dương (cũ)., Thủ Đức" — real
-# administrative names, but no specific site within them) and must never be
-# geocoded as if it were a precise workplace.
+# block number, a named industrial park/cluster (spelled out or abbreviated —
+# "KCN"/"CCN"/"Cụm CN ..." all found in real postings; id 4379's "Cụm CN Tập
+# Đoàn Anova, Xã Long Cang, Cần Đước" was missed because only the concatenated
+# "kcn" and the fully spelled-out "cụm công nghiệp" were recognized, not the
+# space-separated abbreviation "cụm cn" — regression fixture added to
+# test_job_quality.py's exact_cases), a street/alley marker, a named building/
+# complex, or a named facility type (nhà máy/xưởng/bệnh viện/cửa hàng/siêu thị
+# — the same category of signal as "tòa nhà", just for other common workplace
+# kinds). Anything without one of these is, at best, a bare province/district/
+# ward chain (e.g. "Dĩ An, Bình Dương (cũ)., Thủ Đức" — real administrative
+# names, but no specific site within them) and must never be geocoded as if it
+# were a precise workplace.
 _SPECIFIC_PLACE_SIGNAL_RE = re.compile(
     r"\d"
-    r"|\bkcn\b|\bkhu công nghiệp\b|\bcụm công nghiệp\b"
+    r"|\bkcn\b|\bccn\b|\bkhu công nghiệp\b|\bcụm công nghiệp\b|\bcụm\s+cn\b"
     r"|\bđường\b|\bphố\b|\bngõ\b|\bhẻm\b|\bngách\b"
     r"|\btòa nhà\b|\bplaza\b|\btower\b|\bbuilding\b|\bcao ốc\b"
     r"|\blô\b|\bkhu đô thị\b|\bkđt\b|\btrung tâm\b|\bcenter\b",
+    re.IGNORECASE,
+)
+
+# 2026-09-05 사용자 지시로 정정: 일반 시설 단어(nhà máy/xưởng/bệnh viện/cửa hàng/
+# siêu thị)는 그 뒤에 실제 고유명사가 붙어야만("Nhà máy Vĩnh Phúc") 특정 장소
+# 신호로 인정한다 — 시설 단어와 행정구역명만 있는 "Cửa hàng, Hà Nội"/"Nhà máy,
+# Bình Dương"/"Xưởng, Long An"는 그 자체로는 province/district 이름 하나 이상의
+# 구체성이 없으므로 고유 상세주소로 과대 분류하면 안 된다(예: "Nhà máy, Bình
+# Dương"만 보고 특정 공장을 가리킨다고 지오코딩하면 안 됨). 시설 단어 바로
+# 뒤에 공백 + 쉼표가 아닌 문자(실제 이름의 시작)가 있는지만 확인 — 콤마가 시설
+# 단어에 바로 붙어 있으면(중간에 공백 없이) 이름이 없다는 뜻이라 매치되지 않는다.
+# 특정 회사명/공고 ID를 나열하는 방식이 아니라 이 일반 규칙 하나로 양쪽 사례를
+# 전부 구분한다.
+_GENERIC_FACILITY_WORD_WITH_NAME_RE = re.compile(
+    r"\b(nhà máy|xưởng|bệnh viện|cửa hàng|siêu thị)\s+\S",
     re.IGNORECASE,
 )
 
@@ -496,7 +518,7 @@ def classify_work_location_candidate(candidate: object) -> str:
     if len(text) < 5:
         return "undetermined"
     signal_text = _NUMBERED_ADMIN_UNIT_RE.sub("", text)
-    if _SPECIFIC_PLACE_SIGNAL_RE.search(signal_text):
+    if _SPECIFIC_PLACE_SIGNAL_RE.search(signal_text) or _GENERIC_FACILITY_WORD_WITH_NAME_RE.search(signal_text):
         return "exact"
     return "region_only"
 
@@ -552,54 +574,55 @@ def compute_all_locations_c1_verified(resolved_locations: list[dict]) -> bool:
     지오코딩 공급자 교차검증은 아직 도입되지 않았다(설계만 완료, 별도
     승인 필요) — 이번 라운드의 유일한 승격 경로는 원문 좌표 검증뿐이다.
 
-    Pulled out of crawl_topcv.py's build_job_record() as its own pure
-    function (named differently from gate_auto_publish()'s
-    all_locations_c1_verified PARAMETER below, to avoid a function/
-    parameter name collision in this module) so this computation is
-    directly unit-testable without running the full fetch/geocode pipeline
-    — see test_gate_rejects_c1_partial_mixed_tiers() for the C1_partial
-    regression this exists to guard against, and
-    test_gate_requires_source_verified_not_just_exact_candidate() for the
-    2026-09-04 tightening."""
+    2026-09-05 사용자 지시로 정책 전환: 이 값은 더 이상 gate_auto_publish()의
+    입력이 아니다(공개 여부는 이제 좌표 검증과 무관 — job_quality.
+    gate_auto_publish() 참고). 이 함수 자체는 지도 표시 등급(정확한 마커 vs
+    근사 위치)이나 거리검색 자격 판단에 여전히 쓸 수 있는 순수 계산이라
+    남겨두었다 — 실제 소비처는 job_work_locations.location_verified
+    컬럼(위치별 source_verified 그대로 저장, crawl_topcv.py의
+    _work_location_rpc_rows() 참고)이며 프론트엔드가 이 값으로 거리검색
+    자격을 가른다(src/lib/jobCoords.ts 참고)."""
     return len(resolved_locations) > 0 and all(
         loc.get("source_verified") is True for loc in resolved_locations
     )
 
 
 def gate_auto_publish(
-    has_address_text: bool,
+    has_location_or_region: bool,
     has_application_path_: bool,
-    all_locations_c1_verified: bool = False,
 ) -> tuple[bool, str]:
     """Decide whether a freshly-scraped job may be auto-published (active=true)
     or must be held for manual review (active=false, never silently dropped).
 
-    2026-09-04 사용자 지시로 정책 변경(1차): "모든 근무지가 C1이고 유효한
-    지원 경로가 있을 때만 통과" — C1_partial(일부만 검증)/A/B/C2/C3/D/E는
-    전부 보류. 이전 설계(주소 텍스트만 있으면 좌표 무관하게 발행)를 이
-    지시가 명시적으로 뒤집었다.
+    2026-09-05 사용자 지시로 정책 전환(최종 제품 정책, 이전의 "모든 근무지가
+    C1 검증돼야 공개" 정책을 대체): 공개 가능 = 유효한 원문 공고 AND 유효한
+    지원 경로 AND 근무지 또는 모집지역 정보가 하나 이상 존재. 좌표
+    검증(source_verified)/좌표 정확도(coordinate_accuracy)는 더 이상 공개
+    여부를 막지 않는다 — 지도에 어떻게 표시할지(정확한 마커 vs 근사 위치)와
+    거리검색 자격만 결정한다(geocode.py/resolve_work_locations() 참고,
+    job_work_locations.location_verified가 그 신호다). 성·시만 있는 위치,
+    구·군·동만 있는 위치, 구체적 주소가 있지만 좌표 미검증인 경우 전부
+    'ok'로 공개된다 — 근무지/모집지역 정보가 아예 하나도 없을 때만
+    'no_address_text'다.
 
-    2026-09-04 사용자 지시로 정책 재강화(2차, 같은 날 후속 지시): 100건
-    조사 + 신규 블라인드 시험을 반복해도 geocode.py의 'exact_candidate'
-    등급(Geoapify 자기수렴)이 독립 대조에서 약 30~36% 실패율을 반복
-    재현 — "기존 exact는 신뢰된 C1이 아니라 exact_candidate로 취급"하라는
-    지시에 따라, 파라미터명을 all_locations_verified_exact ->
-    all_locations_c1_verified로 바꾸고 의미도 강화했다.
-    all_locations_c1_verified는 이제 job_quality.
-    compute_all_locations_c1_verified()가 계산한 값(모든 근무지가
-    source_verified=True, 즉 원문 좌표 검증 성공)만 True일 수 있다 —
-    Geoapify만으로 확인된 'exact_candidate'는 더 이상 충분하지 않다.
-    기본값은 안전 실패(fail-closed) 원칙에 따라 여전히 False다: 이 인자를
-    계산해 넘기지 않는 호출부는 무조건 "검증 안 됨"으로 간주돼 발행되지
-    않는다. 실제 크롤 경로(crawl_topcv.py)는 항상 계산된 값을 명시적으로
-    넘긴다.
+    has_location_or_region: `len(resolved_locations) > 0 or len(job_
+    recruitment_regions) > 0` — resolved_locations는 이제 'exact'
+    (address_accuracy='exact_text')뿐 아니라 'region_only'로 분류된
+    후보(구체적 장소 신호는 없지만 실제 지역명은 있는 텍스트)도 포함한다
+    (resolve_work_locations() 참고 — 예전에는 'exact'가 아니면 행 자체를
+    버렸다). job_recruitment_regions는 근무지 후보가 0건이어도 원문 어딘가
+    언급된 지역명만으로 채워질 수 있다(_compute_job_recruitment_regions()
+    참고) — 그래서 이 둘을 OR로 합쳐야 "근무지 텍스트도 없고 모집지역도
+    전혀 언급 안 된" 진짜 위치 정보 0건 케이스만 no_address_text가 된다.
+
+    'no_verified_coordinate'는 이 함수가 더 이상 반환하지 않는다 — DB
+    CHECK 제약(local_jobs_publish_gate_reason_check)에는 과거 데이터와의
+    호환을 위해 값 자체는 남아있지만, 신규 판정에서는 절대 쓰이지 않는다.
 
     Returns (should_publish, reason) — reason은 'ok' / 'no_address_text' /
-    'no_verified_coordinate' / 'no_application_path' 중 하나(이 순서로 검사)."""
-    if not has_address_text:
+    'no_application_path' 중 하나."""
+    if not has_location_or_region:
         return False, "no_address_text"
-    if not all_locations_c1_verified:
-        return False, "no_verified_coordinate"
     if not has_application_path_:
         return False, "no_application_path"
     return True, "ok"
