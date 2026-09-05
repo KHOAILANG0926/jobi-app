@@ -260,6 +260,46 @@ def test_debt_collection_quality_filter_fix() -> None:
         "title='Nhân viên đối chiếu công nợ' (đối/reconcile, not đòi/collect) must NOT be excluded",
     )
 
+    # ── 실사례 회귀(2026-09-05, GPT 독립검증 — vieclam24h-new10-independent.zip
+    # 표본 2에서 실제 발견된 오제외): "Xử Lý Nước [Hà Nội]"(수처리 시스템 유지
+    # 보수)가 ascii_key 정규화 후 "xu ly nuoc ha noi"가 되는데, 예전 코드는
+    # target "no"를 부분 문자열로만 찾아 "Hà Nội" → "ha noi"의 앞 두 글자
+    # "no"(사실은 "nội"의 일부)에 우연히 걸려 "xu ly...no"로 오판정했다 —
+    # "nợ"(빚)와 아무 관련 없는 "Hà Nội"라는 지명일 뿐이다. 독립 단어 경계
+    # 없이 부분 문자열만 보던 설계 결함이 원인.
+    _assert_not_money_excluded(
+        _minimal_job(
+            "Kỹ Thuật Viên Bảo Trì Hệ Thống Xử Lý Nước [Hà Nội]",
+            "Bảo trì, vận hành hệ thống xử lý nước thải, nước cấp cho nhà máy.",
+        ),
+        "title='Kỹ Thuật Viên Bảo Trì Hệ Thống Xử Lý Nước [Hà Nội]' — "
+        "'Xử lý nước'/'Hà Nội' must NOT collide with the 'nợ' root as a substring",
+    )
+    _assert_not_money_excluded(
+        _minimal_job("Kỹ Sư Vận Hành Hệ Thống Xử Lý Nước Thải", "Vận hành hệ thống xử lý nước thải công nghiệp."),
+        "title contains 'xử lý nước thải' (wastewater treatment) — must NOT be excluded",
+    )
+    _assert_not_money_excluded(
+        _minimal_job("Nhân Viên Kinh Doanh Khu Vực Hà Nội", "Chăm sóc khách hàng khu vực Hà Nội."),
+        "title contains plain 'Hà Nội' as a location — must NOT be excluded",
+    )
+
+    # ── 이 수정 이후에도 실제 추심 전담 제목은 계속 제외돼야 한다(사용자
+    # 지시로 명시된 전체 목록, 부분 문자열이 아닌 단어경계 매칭으로도 여전히
+    # 잡혀야 함) ──
+    _assert_money_excluded(
+        _minimal_job("Chuyên viên xử lý nợ", "Công việc văn phòng thông thường."),
+        "title='Chuyên viên xử lý nợ' (no 'xấu' suffix) must still be excluded",
+    )
+    _assert_money_excluded(
+        _minimal_job("Nhân viên nhắc nợ", "Công việc văn phòng thông thường."),
+        "title='Nhân viên nhắc nợ' must still be excluded",
+    )
+    _assert_money_excluded(
+        _minimal_job("Field Collection Specialist", "Công việc văn phòng thông thường."),
+        "title='Field Collection Specialist' must still be excluded",
+    )
+
 
 def test_work_locations() -> None:
     # Regression fixture for local_jobs id 3981 (Vieclam24h original) — this is

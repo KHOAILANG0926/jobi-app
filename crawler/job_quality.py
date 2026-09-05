@@ -247,11 +247,19 @@ def _find_debt_collection_stem_match(ascii_normalized_text: str) -> tuple[str, s
     """ascii_normalized_text는 ascii_key()로 이미 정규화된 상태여야 한다
     (소문자, 탈문자, 문장부호 제거). 매칭되면 (rule_name, matched_substring)
     을 반환하고, 없으면 None. LLM 판정/단어 비율/임의 점수는 쓰지 않는다 —
-    순수 정규식 근접 매칭뿐이다."""
+    순수 정규식 근접 매칭뿐이다.
+
+    2026-09-05 사용자 지시로 정정(실사례 오탐 — "Xử Lý Nước [Hà Nội]"가
+    "xu ly...no"로 오판정됨): root/target을 부분 문자열로만 찾으면 "no"가
+    "Hà Nội"→"ha noi"의 앞 두 글자(실제로는 "nội"의 일부)나 다른 단어에
+    우연히 걸릴 수 있다. \\b로 각 root/target을 정규화된 텍스트(공백으로
+    구분된 단어들) 안에서 독립된 단어/구문으로만 인정하도록 앵커링한다 —
+    "no"는 이제 그 자체로 하나의 토큰일 때만 매칭되고, "noi"/"nuoc" 같은
+    더 긴 단어의 일부로는 절대 매칭되지 않는다."""
     for root, targets, window, rule_name in _DEBT_COLLECTION_TITLE_STEM_PAIRS:
-        root_re = re.escape(root)
+        root_re = rf"\b{re.escape(root)}\b"
         for target in targets:
-            target_re = re.escape(target)
+            target_re = rf"\b{re.escape(target)}\b"
             pattern = rf"(?:{root_re}.{{0,{window}}}{target_re}|{target_re}.{{0,{window}}}{root_re})"
             m = re.search(pattern, ascii_normalized_text)
             if m:
