@@ -119,17 +119,34 @@ _CAFE = re.compile(
 # 주의: 'phục vụ'(서빙/service) 단독 키워드는 "phục vụ công việc/khách hàng"처럼
 # 업종 무관 상용구에도 흔하게 등장해 과매칭을 유발함. 실제 서빙 "직무"를
 # 가리키는 복합구문만 매칭한다.
+#
+# 2026-09-06 사용자 지시로 정정(실사례 오분류 — "Nhân Viên Kỹ Thuật Điện Tử"
+# 본문의 "...cho các dòng smartphone phổ biến..."가 restaurant로 잘못 분류
+# 됨): "phổ"(흔한/보편적, 예: phổ biến/phổ thông/phổ cập)와 "phở"(쌀국수)가
+# ascii_key 정규화 후 똑같이 "pho"로 접혀 구분이 안 된다 — 그래서 본문 어디든
+# 단독 "pho\b"만 있으면 음식으로 인정하던 것을 제거했다. 아래
+# _PHO_DISH_RE로 대체: 실제 쌀국수 메뉴/문맥 결합("phở bò/gà/...", "quán/ăn/
+# nấu/bán phở" 등)일 때만 음식 근거로 인정한다.
 _RESTAURANT = re.compile(
     r"nha hang\b|quan an\b|quan nhau|beer club|bia hoi"
     r"|hai san\b|lau\b|buffet\b|bbq\b|nuong\b|dim sum"
     r"|jollibee|kfc\b|lotteria|mcdonald|burger king|pizza\b|subway\b"
-    r"|haidilao|pho\b|bun\b|com rang|an uong|am thuc"
+    r"|haidilao|bun\b|com rang|an uong|am thuc"
     r"|phuc vu ban|phuc vu nha hang|phuc vu khach|nhan vien phuc vu"
     r"|phu bep|bep chinh|bep truong|dau bep|nau an"
     r"|fb\b|fnb\b|f&b|f and b|food.?beverage"
     r"|rua bat|rua chen|don ban|quan ly nha hang"
     r"|nhan vien bep|nhan vien nha hang"
 )
+# "phở"(쌀국수)가 실제 음식 문맥에서 쓰인 것으로 인정되는 결합 — 품종
+# 단어가 뒤따르거나(phở bò/gà/...), 취급/판매/조리 동사가 앞에 오는 경우만.
+_PHO_DISH_RE = re.compile(
+    r"\bpho\s+(?:bo|ga|sate|tai|nam|chin|xao|tron|cuon|hue|ha noi)\b"
+    r"|\b(?:quan|an|bat|to|nau|ban|mon|hang)\s+pho\b"
+)
+# title+company(제목/회사명)에서는 "phổ biến" 같은 상용구가 등장할 일이
+# 사실상 없으므로, 단독 "pho\b"만으로도 안전하게 음식 근거로 인정한다.
+_PHO_TITLE_RE = re.compile(r"\bpho\b")
 
 # 6. 매장 / 소매 / 마트 (Bán lẻ / Cửa hàng)
 _RETAIL = re.compile(
@@ -185,7 +202,8 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     if _DELIVERY.search(combined):   return "delivery"
     if _CLEANING.search(combined):   return "cleaning"
     if _CAFE.search(combined):       return "cafe"
-    if _RESTAURANT.search(combined): return "restaurant"
+    if _RESTAURANT.search(combined) or _PHO_DISH_RE.search(combined) or _PHO_TITLE_RE.search(title_co):
+        return "restaurant"
     # 제목/회사에 명확한 사무/영업 신호가 있으면 본문 속 업종 단어보다 우선한다.
     if _OFFICE.search(title_co):     return "office"
     if _RETAIL.search(title_co):     return "retail"
@@ -196,7 +214,7 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     # fallback: 제목+회사만으로 재시도
     if _FACTORY.search(title_co):    return "factory"
     if _CAFE.search(title_co):       return "cafe"
-    if _RESTAURANT.search(title_co): return "restaurant"
+    if _RESTAURANT.search(title_co) or _PHO_TITLE_RE.search(title_co): return "restaurant"
     if _RETAIL.search(title_co):     return "retail"
     if _OFFICE.search(title_co):     return "office"
     if _DELIVERY.search(title_co):   return "delivery"

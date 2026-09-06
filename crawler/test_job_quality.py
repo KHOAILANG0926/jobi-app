@@ -73,6 +73,42 @@ def test_classifier() -> None:
     for title, company, description, expected in cases:
         assert_equal(classify(title, company, description), expected, title)
 
+    # 실사례 회귀(2026-09-06, GPT 독립검증 — vieclam24h-new10-round2.zip에서
+    # 발견): "Nhân Viên Kỹ Thuật Điện Tử"(전자기기 수리 기술직)의 실제 본문
+    # 문장 그대로("...cho các dòng smartphone phổ biến: iPhone, Samsung,
+    # Xiaomi..."). ascii_key 정규화 후 "phổ biến"(흔한/보편적)의 "phổ"가
+    # "phở"(쌀국수)와 똑같이 "pho"로 접혀, 예전 _RESTAURANT의 단독 "pho\b"
+    # 매칭이 이 전자기기 공고를 restaurant로 오분류했다.
+    real_electronics_repair_title = "Nhân Viên Kỹ Thuật Điện Tử"
+    real_electronics_repair_desc = (
+        "Thao tác kỹ thuật: Chẩn đoán chính xác tình trạng thiết bị; thực hiện tháo ráp, "
+        "thay thế linh kiện (màn hình, pin, vỏ, camera...) cho các dòng smartphone phổ biến: "
+        "iPhone, Samsung, Xiaomi,..."
+    )
+    assert_equal(
+        classify(real_electronics_repair_title, "Công Ty TNHH Giá Kho Group", real_electronics_repair_desc),
+        "factory",
+        "실제 전자기기 수리 기술직 — 본문의 'phổ biến'이 'phở'로 오인돼 restaurant로 잘못 분류되면 안 됨"
+        "(제목의 'nhân viên kỹ thuật'로 인해 기존 규칙대로 factory가 정상 결과임)",
+    )
+
+    # 양성 fixture: 실제 쌀국수/식당 공고는 계속 restaurant로 분류돼야 한다.
+    # (1) 제목/회사명에 "phở"가 바로 있는 경우(가장 흔한 실제 패턴).
+    assert_equal(
+        classify("Nhân Viên Bán Phở", "Phở Hà Nội 24", ""),
+        "restaurant",
+        "title/company에 'phở'가 직접 있으면 여전히 restaurant로 분류돼야 함",
+    )
+    # (2) 제목/회사명은 다른 _RESTAURANT 키워드와 전혀 무관한 일반 문구이고,
+    # 본문의 실제 쌀국수 메뉴 결합("phở bò"/"phở gà")만으로 음식임을 알 수
+    # 있는 경우 — _RESTAURANT의 다른 키워드가 우연히 함께 매칭되지 않도록
+    # 제목/회사명을 완전히 중립적으로 구성해 이 결합 규칙 자체만 검증한다.
+    assert_equal(
+        classify("Nhân Viên Tổng Hợp", "Công Ty TNHH ABC", "Chuyên các món phở bò, phở gà truyền thống."),
+        "restaurant",
+        "본문의 'phở bò/phở gà' 같은 구체적 쌀국수 메뉴 결합은 여전히 restaurant 근거로 인정돼야 함",
+    )
+
     # 2026-09-05 사용자 지시로 제거: classifier.is_blacklisted()가 직급
     # (팀장/부장/이사/대표)·전문성(IT/법률/의료/교육/부동산)만으로 정상
     # 공고를 수집 단계에서 제외하던 실사례 오제외(vieclam24h-new10-
