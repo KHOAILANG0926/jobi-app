@@ -1167,13 +1167,19 @@ async def process_job_url(page, url: str, listing_hint: dict | None = None) -> d
     return build_job_record(url, detail, listing_hint)
 
 
-async def crawl_vieclam24h() -> list[dict]:
+async def crawl_vieclam24h(target_count: int | None = None) -> list[dict]:
+    """target_count가 주어지면 전역 TARGET_COUNT 대신 그 값으로 이번 실행의
+    수집 상한을 대체한다 — 2026-09-06 사용자 지시로 추가(--sample-limit
+    CLI 옵션이 이 값을 넘겨준다. 과거 실수로 --confirm-full-crawl 없이
+    일반 실행이 곧바로 전체 운영 크롤(200건 이상 수집)을 시작해버린 사고의
+    재발 방지 — 실제 크롤 동작을 소규모로 직접 검증할 안전한 경로)."""
+    limit = target_count if target_count is not None else TARGET_COUNT
     async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
 
         for cat_url in CATEGORY_URLS:
-            if len(all_raw) >= TARGET_COUNT:
+            if len(all_raw) >= limit:
                 break
             raw = await crawl_category(page, cat_url)
             for j in raw:
@@ -1189,7 +1195,7 @@ async def crawl_vieclam24h() -> list[dict]:
             if key not in seen_titles:
                 seen_titles.add(key)
                 unique_raw.append(j)
-        unique_raw = unique_raw[:TARGET_COUNT]
+        unique_raw = unique_raw[:limit]
 
         # 각 공고: 상세 수집 -> 필수정보/주소 추출 -> 판정까지 build_job_record
         # 하나로 처리(신규 발견 여부와 무관 — 저장 단계에서만 신규/기존을 가른다).
@@ -1730,18 +1736,21 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
     return manifest
 
 
-async def main():
+async def main(sample_limit: int | None = None):
     print("🚀 vieclam24h 크롤링 시작")
     print("─" * 50)
 
-    jobs = await crawl_vieclam24h()
+    jobs = await crawl_vieclam24h(target_count=sample_limit)
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs)
     save_to_supabase(jobs)
     print("\n✨ 완료!")
 
 
-if __name__ == "__main__":
+def build_arg_parser() -> argparse.ArgumentParser:
+    """CLI 인자 정의를 별도 함수로 분리 — resolve_cli_mode()와 함께 실제
+    실행(asyncio.run/네트워크/DB) 없이 인자 파싱·검증만 단위 테스트할 수
+    있게 한다(2026-09-06 사용자 지시)."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--process-url", type=str, default="",
@@ -1772,7 +1781,44 @@ if __name__ == "__main__":
              "--verify-write-urls와만 결합 가능(둘 다 신규 INSERT만 허용, 기존 공고 발견 시 중단). "
              "--reprocess-ids(UPDATE 전용 경로)와는 함께 쓸 수 없다.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--confirm-full-crawl", action="store_true",
+        help="전체 운영 크롤(카테고리 목록 전체 수집 후 실제 DB 저장)을 실제로 실행하도록 명시적으로 "
+             "승인한다 — 2026-09-06 사용자 지시(과거 실수로 인자 없는 일반 실행이 곧바로 전체 크롤을 "
+             "시작해 200건 넘게 수집된 사고 재발 방지). 다른 실행 모드 플래그(--process-url/"
+             "--reprocess-ids/--verify-write-urls/--dry-run-urls)가 하나도 없을 때, 이 플래그 없이는 "
+             "아무것도 하지 않고 중단한다.",
+    )
+    parser.add_argument(
+        "--sample-limit", type=int, default=None,
+        help="전체 크롤(--confirm-full-crawl)에서 이번 실행 한정으로 수집할 표본 상한(전역 TARGET_COUNT "
+             "대신 사용). 사고 재발 방지를 위해 최대 10까지만 허용 — 11 이상이면 실행 전에 오류로 중단한다.",
+    )
+    return parser
+
+
+def resolve_cli_mode(args: argparse.Namespace) -> str:
+    """CLI 인자만으로 실행 모드를 결정하는 순수 함수 — 네트워크/DB 작업을
+    전혀 수행하지 않는다. 조건에 안 맞으면 SystemExit을 던져, 실제 실행
+    (asyncio.run으로 들어가는 비동기 크롤/DB 쓰기)에 도달하기 전에 안전하게
+    중단한다. 반환값은 "process_url"/"reprocess_ids"/"verify_write_urls"/
+    "dry_run_urls"/"full_crawl" 중 하나 — 호출부(if __name__ 블록)가 이
+    값만으로 실제 실행을 분기한다.
+
+    2026-09-06 사용자 지시로 신설(vieclam24h-blind-final10.zip GPT
+    독립검증과 별개로, 과거 실수로 인자 없는 일반 실행이 곧바로 전체 운영
+    크롤을 시작해 200건 넘게 수집된 사고의 재발 방지): 다른 명시적 실행
+    모드 플래그가 하나도 없으면(=예전엔 곧바로 전체 크롤로 진입했던 경로),
+    --confirm-full-crawl이 명시적으로 있을 때만 전체 크롤 모드로 진입한다.
+    """
+    # --sample-limit 상한 검증은 다른 모든 모드 분기보다 먼저, 무조건
+    # 수행한다 — --confirm-full-crawl 여부와 무관하게 11 이상이면 즉시
+    # 차단해야 "그 값 자체가 안전한지"만 독립적으로 확인할 수 있다.
+    if args.sample_limit is not None and not (1 <= args.sample_limit <= 10):
+        raise SystemExit(
+            f"--sample-limit은 1~10 사이여야 합니다(입력값: {args.sample_limit}) — "
+            "10건을 초과하는 표본 수집은 사고 재발 방지를 위해 차단됩니다. 중단합니다."
+        )
 
     # 사용자 지시(2026-09-04, "운영 적용 준비" 4/5번): --verify-write가
     # 일반 --process-url이나 --reprocess-ids(UPDATE 경로)로 잘못 새어들어가지
@@ -1803,31 +1849,53 @@ if __name__ == "__main__":
                 "--process-url은 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요 "
                 "(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
             )
-        report = asyncio.run(process_single_url(args.process_url, confirm_write=True, verify_write=args.verify_write))
-        print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+        return "process_url"
     elif args.reprocess_ids:
         if not args.confirm_write:
             raise SystemExit(
                 "--reprocess-ids는 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요 "
                 "(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
             )
-        ids = [int(x.strip()) for x in args.reprocess_ids.split(",") if x.strip()]
-        # reprocess_jobs()는 verify_write 파라미터 자체가 없다 — 위에서 이미
-        # --verify-write + --reprocess-ids 조합을 막았으므로 여기까지 오면
-        # verify_write가 아예 전달될 수 없는 정상 재처리 경로만 남는다.
-        reports = asyncio.run(reprocess_jobs(ids, confirm_write=True))
-        print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
+        return "reprocess_ids"
     elif args.verify_write_urls:
         if not args.confirm_write:
             raise SystemExit(
                 "--verify-write-urls는 실제로 DB에 저장합니다. --confirm-write를 함께 지정하세요. 중단합니다."
             )
+        return "verify_write_urls"
+    elif args.dry_run_urls:
+        return "dry_run_urls"
+    else:
+        if not args.confirm_full_crawl:
+            raise SystemExit(
+                "인자 없이 실행하면 전체 운영 크롤이 곧바로 시작되지 않습니다 — 실수로 대량 수집되는 "
+                "사고를 막기 위한 안전장치입니다. 전체 크롤을 실행하려면 --confirm-full-crawl을 명시적으로 "
+                "지정하세요(검증만 하려면 --dry-run-urls를 쓰세요). 중단합니다."
+            )
+        return "full_crawl"
+
+
+if __name__ == "__main__":
+    args = build_arg_parser().parse_args()
+    mode = resolve_cli_mode(args)
+
+    if mode == "process_url":
+        report = asyncio.run(process_single_url(args.process_url, confirm_write=True, verify_write=args.verify_write))
+        print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+    elif mode == "reprocess_ids":
+        ids = [int(x.strip()) for x in args.reprocess_ids.split(",") if x.strip()]
+        # reprocess_jobs()는 verify_write 파라미터 자체가 없다 — resolve_cli_mode()가
+        # 이미 --verify-write + --reprocess-ids 조합을 막았으므로 여기까지 오면
+        # verify_write가 아예 전달될 수 없는 정상 재처리 경로만 남는다.
+        reports = asyncio.run(reprocess_jobs(ids, confirm_write=True))
+        print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
+    elif mode == "verify_write_urls":
         urls = [u.strip() for u in args.verify_write_urls.split(",") if u.strip()]
         manifest = asyncio.run(process_urls_verify_write(urls))
         print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
-    elif args.dry_run_urls:
+    elif mode == "dry_run_urls":
         urls = [u.strip() for u in args.dry_run_urls.split(",") if u.strip()]
         reports = asyncio.run(process_urls_dry_run(urls))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
-    else:
-        asyncio.run(main())
+    elif mode == "full_crawl":
+        asyncio.run(main(sample_limit=args.sample_limit))
