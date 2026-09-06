@@ -48,6 +48,27 @@ def _load_section_parser_snippet() -> str:
     return full_js[start:end]
 
 
+# 2026-09-06 사용자 지시로 신설(GPT 독립검증 — vieclam24h-blind-final10.zip
+# 표본 9: 근무시간이 'Yêu cầu công việc' 섹션에 있었는데 descText가
+# 'Mô tả công việc'만 봐서 hours=null로 누락됐다). descText/hoursMatches/
+# daysMatches 로직은 섹션 파서 바로 뒤가 아니라, 그 사이에 "실제 지원 버튼"
+# 만료 배너 감지 블록(별도 page.evaluate() 인자인 expiredPatterns를 참조 —
+# 이 harness엔 넘기지 않으므로 그대로 포함하면 ReferenceError)이 끼어
+# 있으므로, 섹션 파서 스니펫([_START_MARKER, _END_MARKER))에 그 무관한
+# 블록은 건너뛰고 descText 블록만("const descText"부터 "// 사이트 자체가
+# 제공하는 고용주 등록 좌표" 직전까지) 이어붙인다.
+_START_MARKER_HOURS_BLOCK = "const descText"
+_END_MARKER_HOURS = "// 사이트 자체가 제공하는 고용주 등록 좌표"
+
+
+def _load_hours_extractor_snippet() -> str:
+    full_js = _load_full_detail_js()
+    section_snippet = _load_section_parser_snippet()
+    hours_start = full_js.index(_START_MARKER_HOURS_BLOCK)
+    hours_end = full_js.index(_END_MARKER_HOURS, hours_start)
+    return section_snippet + "\n" + full_js[hours_start:hours_end]
+
+
 _BROWSER_CTX = {}
 
 
@@ -70,6 +91,24 @@ def _run_real_section_parser(html: str) -> dict:
     {"sections": {...}, "containerFound": bool}."""
     snippet = _load_section_parser_snippet()
     harness = "() => {\n" + snippet + "\n  return { sections: sections, containerFound: detailContainer !== null }\n}"
+    browser = _get_browser()
+    page = browser.new_page()
+    try:
+        page.set_content(html)
+        return page.evaluate(harness)
+    finally:
+        page.close()
+
+
+def _run_real_hours_extractor(html: str) -> dict:
+    """synthetic HTML을 실제 crawl_topcv.py의 JS 섹션 파서 + 근무시간/근무일
+    추출 로직으로 실행 — 반환값은
+    {"sections": {...}, "hours": str, "workDays": str}."""
+    snippet = _load_hours_extractor_snippet()
+    harness = (
+        "() => {\n" + snippet
+        + "\n  return { sections: sections, hours: detailWorkHoursFreeText, workDays: detailWorkDaysFreeText }\n}"
+    )
     browser = _get_browser()
     page = browser.new_page()
     try:
@@ -294,6 +333,28 @@ def test_word_paste_comment_markers_never_leak_into_text() -> None:
     assert_true("Mức lương thỏa thuận theo năng lực" in benefits, f"the real sentence around the comment markers must still be preserved, got {benefits!r}")
 
 
+def test_hours_in_yeu_cau_cong_viec_section_is_found() -> None:
+    """실사례 회귀(2026-09-06, GPT 독립검증 — vieclam24h-blind-final10.zip
+    표본 9): 근무시간 문구 "Thời gian làm việc: Theo giờ hành chính."가
+    'Mô tả công việc'가 아니라 'Yêu cầu công việc' 섹션에 있어도 실제 JS가
+    이를 찾아내야 한다(descText가 세 섹션을 모두 봐야 함)."""
+    html = _wrap_container(
+        """
+        <h2>Mô tả công việc</h2>
+        <div><p>Thẩm định giá trị tài sản theo yêu cầu khách hàng.</p></div>
+        <h2>Yêu cầu công việc</h2>
+        <div><p>Tốt nghiệp Đại học chuyên ngành liên quan.</p><p>Thời gian làm việc: Theo giờ hành chính.</p></div>
+        <h2>Quyền lợi</h2>
+        <div><p>Lương thỏa thuận.</p></div>
+        """
+    )
+    result = _run_real_hours_extractor(html)
+    assert_true(
+        "Theo giờ hành chính" in result["hours"],
+        f"'Yêu cầu công việc' 섹션의 근무시간 문구를 찾아야 함, got hours={result['hours']!r}",
+    )
+
+
 def main() -> int:
     tests = [
         test_p_ul_p_mixed_preserves_all_sentences_in_dom_order,
@@ -303,6 +364,7 @@ def main() -> int:
         test_unexpected_intermediate_heading_does_not_mix_sections,
         test_nested_list_does_not_duplicate_the_same_sentence,
         test_word_paste_comment_markers_never_leak_into_text,
+        test_hours_in_yeu_cau_cong_viec_section_is_found,
     ]
     try:
         for test in tests:

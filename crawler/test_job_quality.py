@@ -109,6 +109,32 @@ def test_classifier() -> None:
         "본문의 'phở bò/phở gà' 같은 구체적 쌀국수 메뉴 결합은 여전히 restaurant 근거로 인정돼야 함",
     )
 
+    # 실사례 회귀(2026-09-06, GPT 독립검증 — vieclam24h-blind-final10.zip
+    # 표본 9에서 실제 발견): title 끝 "...Thẩm Định Giá"("...tham dinh gia")
+    # 와 company 시작 "Công Ty..."("cong ty...")가 f"{title} {company}"로
+    # 이어붙으며 공백 하나만 사이에 두고 "gia cong"(제조업 "가공")이 우연히
+    # 만들어져 factory로 오분류됐다 — 실제 원문 어디에도 "gia công"이라는
+    # 표현은 없다(제목과 회사명이 서로 다른 필드일 뿐).
+    assert_equal(
+        classify("Thực Tập Sinh Thẩm Định Giá", "Công Ty CP TM DV Và Tư Vấn Hồng Đức", ""),
+        "other",
+        "실제 감정평가 인턴 — title 끝 'Định Giá' + company 시작 'Công Ty'가 "
+        "필드 경계를 넘어 'gia công'으로 오인돼 factory로 분류되면 안 됨",
+    )
+    # 양성 fixture: 한 필드 "안에" 실제 "gia công"이 있는 제조업 공고는
+    # 여전히 factory로 분류돼야 한다(필드 경계 보호가 필드 내부의 정상
+    # 매칭까지 깨뜨리면 안 됨을 확인).
+    assert_equal(
+        classify("Nhân Viên Gia Công Cơ Khí", "Công Ty TNHH Sản Xuất ABC", ""),
+        "factory",
+        "제목 한 필드 안에 실제 'gia công'이 있으면 여전히 factory로 분류돼야 함",
+    )
+    assert_equal(
+        classify("Nhân Viên Vận Hành", "Công Ty Gia Công May Mặc XYZ", ""),
+        "factory",
+        "회사명 한 필드 안에 실제 'gia công'이 있으면 여전히 factory로 분류돼야 함",
+    )
+
     # 2026-09-05 사용자 지시로 제거: classifier.is_blacklisted()가 직급
     # (팀장/부장/이사/대표)·전문성(IT/법률/의료/교육/부동산)만으로 정상
     # 공고를 수집 단계에서 제외하던 실사례 오제외(vieclam24h-new10-

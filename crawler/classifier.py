@@ -29,6 +29,27 @@ def _norm(text: str) -> str:
     return text
 
 
+# 2026-09-06 사용자 지시로 신설(실사례 오분류 — vieclam24h-blind-final10.zip
+# 표본 9 "Thực Tập Sinh Thẩm Định Giá" + 회사 "Công Ty CP TM DV Và Tư Vấn
+# Hồng Đức"): title/company를 그냥 f"{title} {company}"로 이어붙인 뒤
+# _norm()을 적용하면, title 끝의 "...Định Giá"("...dinh gia")와 company
+# 시작의 "Công Ty..."("cong ty...")가 공백 하나로 맞닿아 우연히 "gia cong"
+# (제조업 "가공")이 만들어져 factory로 오분류됐다 — 두 필드 사이에 실제로는
+# 존재하지 않는 문구가 이어붙기 때문이다. _norm()이 모든 문장부호를 공백
+# 하나로 지워버려서, 단순히 필드 사이에 다른 구두점을 넣는 것만으로는
+# 소용없다(어차피 공백으로 바뀜) — 그래서 각 필드를 먼저 "따로" _norm()한
+# 뒤에, 그 정규화 결과들 사이에만(다시 _norm()을 거치지 않는) 구분자를
+# 끼워 넣는다. 이 구분자는 실제 텍스트에 나올 수 없고 어떤 정규식도 그
+# 경계를 사이에 두고 매칭할 수 없다 — 필드 안에서는 원래 로직이 그대로
+# 동작하되(예: 한 필드 안에 실제 "gia công"이 있으면 여전히 factory로
+# 잡힘), 서로 다른 필드가 이어붙어 새로운 단어를 만드는 것만 막는다.
+_FIELD_BOUNDARY = "\x00"
+
+
+def _norm_fields(*parts: object) -> str:
+    return f" {_FIELD_BOUNDARY} ".join(_norm(str(p)) for p in parts if p)
+
+
 # ══════════════════════════════════════════════════════════
 #  고급 화이트칼라 전문직 제목 — 카테고리 분류 전용(classify()가 7대
 #  카테고리 어디에도 억지로 끼워맞추지 않고 'other'로 분류하기 위한
@@ -191,8 +212,8 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     'other'로 분류한다 — 수집 자체를 막는 것이 아니라 7대 카테고리 어디에도
     억지로 끼워맞추지 않기 위한 분류일 뿐이다.
     """
-    combined  = _norm(f"{title} {company} {description[:300]}")
-    title_co  = _norm(f"{title} {company}")
+    combined  = _norm_fields(title, company, description[:300])
+    title_co  = _norm_fields(title, company)
 
     # 블랙리스트: 제목+회사 기준 (본문은 false positive 위험)
     if _SENIOR_PROFESSIONAL_TITLES_RE.search(title_co):

@@ -758,7 +758,20 @@ async def fetch_job_detail(page, url: str) -> dict:
             // 확인 — 이 사이트 자체가 이 정보를 표로 두지 않는다). 일부 공고만
             // 본문(Mô tả công việc)에 자유 텍스트로 적어둔다 — best-effort로만
             // 찾고, 못 찾으면 빈 문자열(= 원문에 없음, 파서 실패 아님)로 둔다.
-            const descText = sections['Mô tả công việc'] || ''
+            // 2026-09-06 사용자 지시로 정정(GPT 독립검증 — vieclam24h-blind-
+            // final10.zip 표본 9): 근무시간이 'Mô tả công việc'이 아니라
+            // 'Yêu cầu công việc' 섹션에 적힌 실사례("Thời gian làm việc:
+            // Theo giờ hành chính.")가 발견돼 hours=null로 누락됐다. 세 섹션을
+            // 줄바꿈으로 이어붙여 탐색 범위를 넓힌다 — 섹션 사이는 항상 개행
+            // 하나로만 연결해 서로 다른 섹션의 문장이 공백으로 맞닿아 가짜
+            // 패턴을 만들지 않게 한다(아래 정규식들은 전부 \\n을 건너뛰는
+            // \\s를 쓰므로 이 정도 경계로 충분하며, 숫자 시간대/분할 시간대/
+            // 휴게시간 제외/work_days 로직 자체는 전혀 바꾸지 않는다).
+            const descText = [
+                sections['Mô tả công việc'],
+                sections['Yêu cầu công việc'],
+                sections['Quyền lợi'],
+            ].filter(Boolean).join('\\n')
             // 2026-09-05 사용자 지시로 정정(vieclam24h-blind-10 독립검증에서
             // 실제 hours/work_days 누락·불완전 발견 — 표본 4/8/9): 시간
             // 표기가 "8h-17h"(문자 h) 형식뿐 아니라 "08:00 – 17:00"(콜론)
