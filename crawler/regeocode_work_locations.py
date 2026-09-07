@@ -29,7 +29,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client
 
-from geocode import peek_geocode_cache, resolve_coordinate_accuracy
+from geocode import _region_text_matches, peek_geocode_cache, resolve_coordinate_accuracy
 from job_quality import classify_work_location_candidate, guess_province_from_text
 
 load_dotenv(Path(__file__).parent / ".env")
@@ -40,7 +40,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABAS
 
 SELECT_COLUMNS = (
     "id,job_id,raw_address,normalized_address,geocode_status,geocode_source,"
-    "coordinate_accuracy,address_accuracy,province,district,lat,lng"
+    "coordinate_accuracy,address_accuracy,province,district,lat,lng,matched_recruitment_regions"
 )
 
 
@@ -105,7 +105,7 @@ def build_dry_run_report(rows: list[dict]) -> dict:
                 })
             continue
 
-        province = guess_province_from_text(raw_address)
+        province = _resolve_province_hint(representative)
         variant_peeks = peek_geocode_cache(raw_address, province)
         miss_variants = [v for v in variant_peeks if not v["cache_hit"]]
         hit_variants = [v for v in variant_peeks if v["cache_hit"]]
@@ -145,7 +145,51 @@ def build_dry_run_report(rows: list[dict]) -> dict:
     }
 
 
-def _build_update_payload(coord: dict, raw_address: str) -> dict:
+def _resolve_province_hint(row: dict) -> str | None:
+    """이 행의 '원문 행정구역' 기준을 정한다 — matched_recruitment_regions
+    (크롤러가 원문 "Tỉnh/Thành:" 접두사에서 직접 읽어 이미 DB에 저장해 둔,
+    가장 신뢰할 수 있는 지역 라벨)를 최우선으로 쓴다.
+
+    2026-09-08 사용자 지시로 신설 — 실측 버그(job_id=4459/4565/4390 등 다수):
+    기존에는 이 값 대신 guess_province_from_text(raw_address)로 주소 '텍스트'
+    자체에서 지역명을 재추측했는데, "Lạng Sơn"/"Thanh Trì"(하노이 구)/"Quận 10"
+    (호치민 구)처럼 텍스트에 성 전체 이름이 없거나 job_quality의 인식 목록에
+    없는 지역명은 추측에 실패해 None이 됐다. resolve_coordinate_accuracy()는
+    province가 None이면 _region_text_matches()가 무조건 True를 반환해 지역
+    검증이 완전히 무력화되고, 그 결과 Geoapify가 반환한 지리적으로 무관한
+    동명 지점이 confidence와 무관하게 'ward'/'exact_candidate' 등급으로
+    승격됐다(실측: "Lạng Sơn"이 Đắk Lắk의 동명 마을로, confidence=1.0으로
+    잘못 매칭됨). matched_recruitment_regions가 없을 때만 기존처럼 텍스트
+    추측으로 보조한다(둘 다 없으면 호출부가 None으로 처리)."""
+    regions = row.get("matched_recruitment_regions") or []
+    if regions:
+        return regions[0]
+    return guess_province_from_text(row.get("raw_address") or "")
+
+
+def _region_matches_strictly(top: dict | None, expected_region_text: str | None) -> bool:
+    """success 저장 최종 관문 전용 — geocode._region_text_matches()보다
+    엄격하다. 그 함수는 state/county/city/formatted/address_line2 등 여러
+    필드 아무 곳에서나 일치하면 True를 반환하는데(OSM 데이터의 필드 불일치를
+    감안한 의도적 관대함 — resolve_coordinate_accuracy()의 등급 산정 자체는
+    그대로 유지, 여기서 건드리지 않음), 이 관대함이 실측 회귀(2026-09-08,
+    job_id=4459)에서 오탐을 냈다: "Lạng Sơn"이 Đắk Lắk 성 안의 동명 마을로
+    잘못 매칭됐는데, state="Đắk Lắk Province"는 명백히 다름에도 city 필드가
+    우연히 "Lạng Sơn"이라 전체 검사가 통과해버렸다.
+
+    이 함수는 가장 권위 있는 필드인 state가 있으면 그것만으로 판정한다 —
+    state가 다르면 다른 필드가 우연히 일치해도 불일치로 확정한다. state
+    자체가 없는 드문 경우(sparse-metadata 응답)에만 기존 관대한 검사로
+    보조한다."""
+    if not expected_region_text:
+        return True
+    state = (top or {}).get("state")
+    if state:
+        return _region_text_matches({"state": state}, expected_region_text)
+    return _region_text_matches(top, expected_region_text)
+
+
+def _build_update_payload(coord: dict, raw_address: str, province: str | None) -> dict:
     """사용자 지시 8/9번: 좌표를 찾았을 때만 lat/lng/coordinate_accuracy/
     address_accuracy/province/district/geocode_status/geocode_source를
     갱신한다. 실패 시에는 그 필드들을 절대 건드리지 않고(기존 값 보존 —
@@ -160,9 +204,18 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
     geocode_status는 애초에 migration 0010부터 'manual'을 허용해 왔고(스키마
     변경 불필요), address_evidence는 자유 텍스트라 후보 좌표를 사람이 읽을 수
     있는 형태로 그대로 적어둘 수 있다 — 두 필드 모두 기존 스키마 그대로 재사용.
-    lat/lng/coordinate_accuracy 컬럼 자체는 절대 건드리지 않는다(payload에
-    그 키를 아예 넣지 않음) — 미검증 좌표가 지도/거리검색에 실려 나갈 위험을
-    원천 차단하고, 후보값은 오직 address_evidence 텍스트로만 남긴다."""
+    확정하지 못한 후보값은 오직 address_evidence 텍스트로만 남긴다.
+
+    2026-09-08 사용자 지시로 수정(실측 버그: id=622 "462/11 Nguyen Tri
+    Phuong..." — success였다가 이번 지역 재검증으로 manual로 낮아졌는데도
+    이전 success 시절의 잘못된 lat/lng이 DB에 그대로 남아있었음) — manual/
+    failed로 낮추는 모든 경로가 이제 lat/lng/coordinate_accuracy/
+    geocode_source를 payload에 명시적으로 None으로 넣는다. 이 CLI는
+    'pending'(애초에 좌표가 null)뿐 아니라 이미 'success'였던 행을 재검증해
+    낮추는 경우에도 호출되므로, 예전처럼 "그 키를 아예 안 넣으면 기존 값이
+    보존된다"는 가정(Supabase update는 부분 업데이트라 payload에 없는
+    컬럼은 그대로 남음)이 더 이상 안전하지 않다 — 신뢰할 수 없는 좌표는
+    반드시 명시적으로 지워야 지도/거리검색에 잘못 노출되지 않는다."""
     lat, lng = coord.get("lat"), coord.get("lng")
     tier = coord.get("coordinate_accuracy")
 
@@ -180,6 +233,7 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
     # 남긴다.
     if tier == "exact_candidate":
         return {
+            "lat": None, "lng": None, "coordinate_accuracy": "unresolved", "geocode_source": None,
             "geocode_status": "manual",
             "address_evidence": (
                 f"exact_candidate(2개 이상 변형 자기수렴, 독립 검증 없음 — 수동 확인 필요) "
@@ -189,10 +243,43 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
 
     if lat is None or lng is None:
         return {
+            "lat": None, "lng": None, "coordinate_accuracy": "unresolved", "geocode_source": None,
             "geocode_status": "failed",
             "address_evidence": coord.get("evidence") or "좌표를 찾지 못함",
         }
     top = coord.get("top") or {}
+
+    # 2026-09-08 사용자 지시 2번 — 원문 행정구역 기준(province) 자체를 못
+    # 구했으면(matched_recruitment_regions도 없고 주소 텍스트에서도 추측
+    # 실패) 지역 검증을 자동 통과시키지 않는다 — 좌표는 있지만 어느 지역이
+    # 맞는지 확인할 근거가 없으므로 무조건 manual(수동 확인)로 낮춘다.
+    if province is None:
+        return {
+            "lat": None, "lng": None, "coordinate_accuracy": "unresolved", "geocode_source": None,
+            "geocode_status": "manual",
+            "address_evidence": (
+                f"원문 행정구역 기준을 확인할 수 없어 좌표를 그대로 신뢰할 수 없음(수동 확인 필요) "
+                f"— 후보 좌표: lat={lat}, lng={lng}. {coord.get('evidence') or ''}"
+            ).strip(),
+        }
+
+    # 2026-09-08 사용자 지시 3번 — 원문 행정구역과 실제 채택된 Geoapify 결과의
+    # 행정구역이 다르면 success로 저장하지 않는다. resolve_coordinate_accuracy()
+    # 내부에서도 province가 주어지면 이미 _region_text_matches()로 후보를
+    # 거르지만, 저장 직전 이 함수 하나에서 다시 한번 독립적으로 확인해 —
+    # "success로 저장되는 모든 행은 반드시 이 검사를 통과했다"를 이 함수
+    # 하나만 보고도 보장한다(내부 로직이 나중에 바뀌어도 이 최종 관문은
+    # 항상 동작).
+    if not _region_matches_strictly(top, province):
+        return {
+            "lat": None, "lng": None, "coordinate_accuracy": "unresolved", "geocode_source": None,
+            "geocode_status": "manual",
+            "address_evidence": (
+                f"원문 행정구역({province})과 반환된 좌표의 행정구역이 일치하지 않아 저장 보류(수동 확인 필요) "
+                f"— 후보 좌표: lat={lat}, lng={lng}. {coord.get('evidence') or ''}"
+            ).strip(),
+        }
+
     class_result = classify_work_location_candidate(raw_address)
     address_accuracy = "exact_text" if class_result == "exact" else "region_only"
     return {
@@ -200,7 +287,7 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
         "lng": lng,
         "coordinate_accuracy": tier,
         "address_accuracy": address_accuracy,
-        "province": top.get("state") or guess_province_from_text(raw_address),
+        "province": top.get("state") or province,
         "district": top.get("county") or top.get("city"),
         "geocode_status": "success",
         "geocode_source": coord.get("geocode_source"),
@@ -220,9 +307,9 @@ def process_apply(rows: list[dict]) -> list[dict]:
             for m in members:
                 results.append({"id": m["id"], "found": False, "update": None, "skipped": "빈 raw_address"})
             continue
-        province = guess_province_from_text(raw_address)
+        province = _resolve_province_hint(representative)
         coord = resolve_coordinate_accuracy(raw_address, province)
-        update = _build_update_payload(coord, raw_address)
+        update = _build_update_payload(coord, raw_address, province)
         found = update.get("lat") is not None
         for m in members:
             if supabase:
