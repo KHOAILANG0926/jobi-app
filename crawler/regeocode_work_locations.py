@@ -151,7 +151,18 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
     갱신한다. 실패 시에는 그 필드들을 절대 건드리지 않고(기존 값 보존 —
     'pending'이던 값이 이유 없이 다른 값으로 덮이지 않음), geocode_status만
     'failed'로, 실패 원인은 address_evidence(기존에 이미 있는 감사용 컬럼,
-    migration 0015)에 기록한다."""
+    migration 0015)에 기록한다.
+
+    2026-09-07 사용자 지시로 수정 — 'exact_candidate'(2개 이상 변형이 좌표에
+    자기수렴했지만 독립 검증은 없음, canary 실측: id=281 'Aeon Mall Hà Đông'가
+    2개 변형 모두 동일 좌표로 수렴)를 'failed'로 버리면 실제로 찾아낸 후보가
+    있었다는 사실 자체가 사라져 재조사할 단서가 없어진다. job_work_locations.
+    geocode_status는 애초에 migration 0010부터 'manual'을 허용해 왔고(스키마
+    변경 불필요), address_evidence는 자유 텍스트라 후보 좌표를 사람이 읽을 수
+    있는 형태로 그대로 적어둘 수 있다 — 두 필드 모두 기존 스키마 그대로 재사용.
+    lat/lng/coordinate_accuracy 컬럼 자체는 절대 건드리지 않는다(payload에
+    그 키를 아예 넣지 않음) — 미검증 좌표가 지도/거리검색에 실려 나갈 위험을
+    원천 차단하고, 후보값은 오직 address_evidence 텍스트로만 남긴다."""
     lat, lng = coord.get("lat"), coord.get("lng")
     tier = coord.get("coordinate_accuracy")
 
@@ -159,16 +170,22 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
     # 사용자 지시): job_work_locations.coordinate_accuracy CHECK 제약
     # (migration 0015)은 ('exact','ward','region','unresolved')만 허용하고
     # 'exact_candidate'는 없다 — resolve_coordinate_accuracy()가 내부적으로만
-    # 쓰는 어휘라 그대로 흘려보내면 제약 위반으로 즉시 실패한다(실측: 이
-    # CLI의 첫 실제 --apply 실행에서 id=281 'Aeon Mall Hà Đông'가 바로 이
-    # 위반으로 크래시함). "exact_candidate를 DB의 exact로 단순 매핑하지
-    # 않음 — 독립 검증 성공 시에만 exact" 원칙도 동일 — 이 CLI는 크롤링
-    # 당시의 vieclam24h 원문 좌표 같은 독립 검증 신호(source_verified)를
-    # 애초에 가질 수 없으므로(그 신호는 크롤링 시점에만 존재), exact_candidate는
-    # 여기서 항상 unresolved로 낮추고 좌표도 비운다 — 절대 exact로 승격하지 않는다.
+    # 쓰는 어휘라 coordinate_accuracy 컬럼에 그대로 쓰면 제약 위반이다(실측:
+    # 이 CLI의 첫 실제 --apply 실행에서 바로 이 위반으로 크래시함). "exact_
+    # candidate를 DB의 exact로 단순 매핑하지 않음 — 독립 검증 성공 시에만
+    # exact" 원칙도 동일 — 이 CLI는 크롤링 당시의 vieclam24h 원문 좌표 같은
+    # 독립 검증 신호(source_verified)를 애초에 가질 수 없으므로(그 신호는
+    # 크롤링 시점에만 존재), exact_candidate는 여기서 절대 'exact'/'success'로
+    # 확정하지 않고 'manual'(수동 확인 대상)로 분리해 후보 좌표만 감사 기록으로
+    # 남긴다.
     if tier == "exact_candidate":
-        tier = "unresolved"
-        lat, lng = None, None
+        return {
+            "geocode_status": "manual",
+            "address_evidence": (
+                f"exact_candidate(2개 이상 변형 자기수렴, 독립 검증 없음 — 수동 확인 필요) "
+                f"후보 좌표: lat={lat}, lng={lng}. {coord.get('evidence') or ''}"
+            ).strip(),
+        }
 
     if lat is None or lng is None:
         return {

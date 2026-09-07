@@ -102,27 +102,46 @@ def test_update_payload_on_failure_never_touches_address_fields() -> None:
                  "실패 시 payload에는 geocode_status/address_evidence 외 다른 키가 있으면 안 됨")
 
 
-def test_update_payload_downgrades_unverified_exact_candidate_to_unresolved() -> None:
-    """실측 회귀 테스트(2026-09-07, 첫 실제 --apply 실행에서 발견) —
-    id=281 'Aeon Mall Hà Đông, Hà Đông'가 resolve_coordinate_accuracy()의
-    'exact_candidate' 티어를 그대로 job_work_locations.coordinate_accuracy에
-    쓰려다 CHECK 제약('exact'|'ward'|'region'|'unresolved') 위반으로
-    크래시했다. 이 CLI는 crawl_topcv.py의 source_verified(크롤링 당시
-    원문 좌표 검증) 신호를 가질 수 없으므로, exact_candidate는 항상
-    unresolved로 낮추고 좌표를 비워야 한다 — 검증 안 된 좌표를 절대
-    'exact'로 스스로 승격시키지 않는다."""
+def test_update_payload_routes_unverified_exact_candidate_to_manual_not_failed() -> None:
+    """실측 회귀 테스트(2026-09-07) — id=281 'Aeon Mall Hà Đông, Hà Đông'는
+    2개 변형이 동일 좌표로 자기수렴한 'exact_candidate'였다. 이 CLI는
+    crawl_topcv.py의 source_verified(크롤링 당시 원문 좌표 검증) 신호를
+    가질 수 없으므로 'exact'/'success'로 확정할 수는 없지만, 후보를 통째로
+    'failed'로 버리면 "실제로 찾아낸 좌표가 있었다"는 사실 자체가 사라져
+    사람이 재검토할 단서가 없어진다 — 대신 geocode_status='manual'로 분리하고
+    (스키마 변경 없이 이미 migration 0010부터 허용된 값), 후보 좌표는
+    address_evidence(기존 감사용 텍스트 컬럼, 스키마 변경 없음)에 사람이
+    읽을 수 있게 남긴다. lat/lng/coordinate_accuracy 컬럼 자체는 손대지
+    않는다(미검증 좌표가 지도/거리검색에 노출될 위험 차단)."""
     coord = {
         "lat": 20.9894507, "lng": 105.7506251, "coordinate_accuracy": "exact_candidate",
         "geocode_source": "geoapify", "evidence": "2 variants converged",
         "top": {"state": "Hà Nội", "county": None, "city": None},
     }
     update = rwl._build_update_payload(coord, "Aeon Mall Hà Đông, Hà Đông")
-    # exact_candidate -> unresolved로 낮춘 뒤 lat/lng가 None이 되므로, 실패
-    # 경로(geocode_status='failed' + address_evidence만)를 타야 한다 — 다른
-    # 실패 payload와 동일하게 coordinate_accuracy 자체가 키에 없어야
-    # job_work_locations.coordinate_accuracy CHECK 제약을 절대 건드리지 않는다.
-    assert_equal(update["geocode_status"], "failed", "좌표를 비웠으므로 성공이 아니라 실패로 기록해야 함")
-    assert_equal(set(update.keys()), {"geocode_status", "address_evidence"}, "실패 payload는 geocode_status/address_evidence 외 다른 컬럼(coordinate_accuracy 포함)을 건드리면 안 됨")
+    assert_equal(update["geocode_status"], "manual", "exact_candidate(미검증)는 'failed'가 아니라 'manual'로 분리해야 함")
+    assert_equal(set(update.keys()), {"geocode_status", "address_evidence"}, "manual payload도 lat/lng/coordinate_accuracy 등 다른 컬럼을 건드리면 안 됨")
+    assert_equal("20.9894507" in update["address_evidence"] and "105.7506251" in update["address_evidence"], True,
+                 "후보 좌표(lat/lng)가 사람이 읽을 수 있는 형태로 address_evidence에 보존돼야 함")
+
+
+def test_failed_and_manual_are_distinguishable_outcomes() -> None:
+    """사용자 지시 3번 — failed(후보 자체가 없음)와 manual(후보는 있으나
+    미검증)이 geocode_status 값으로 명확히 구분되는지 직접 확인한다. 같은
+    함수(_build_update_payload)에 서로 다른 coord 입력을 넣어, 하나는
+    'failed'로 다른 하나는 'manual'로 갈라져야 하고 서로 절대 섞이면 안 된다."""
+    no_candidate = rwl._build_update_payload(
+        {"lat": None, "lng": None, "coordinate_accuracy": "region", "evidence": "province confirmed only", "top": None},
+        "Khu vực, Bến Tre",
+    )
+    unverified_candidate = rwl._build_update_payload(
+        {"lat": 21.0, "lng": 105.8, "coordinate_accuracy": "exact_candidate", "evidence": "converged", "top": {}},
+        "KCN Nào Đó, Hà Nội",
+    )
+    assert_equal(no_candidate["geocode_status"], "failed", "후보 좌표가 아예 없는 경우는 failed여야 함")
+    assert_equal(unverified_candidate["geocode_status"], "manual", "후보 좌표가 있지만 미검증인 경우는 manual이어야 함")
+    assert_equal(no_candidate["geocode_status"] != unverified_candidate["geocode_status"], True,
+                 "failed와 manual은 서로 다른 값이어야 하며 섞여서는 안 됨")
 
 
 def main() -> int:
@@ -132,7 +151,8 @@ def main() -> int:
         test_build_dry_run_report_excludes_empty_raw_address,
         test_update_payload_only_fills_fields_on_success,
         test_update_payload_on_failure_never_touches_address_fields,
-        test_update_payload_downgrades_unverified_exact_candidate_to_unresolved,
+        test_update_payload_routes_unverified_exact_candidate_to_manual_not_failed,
+        test_failed_and_manual_are_distinguishable_outcomes,
     ]
     for test in tests:
         test()
