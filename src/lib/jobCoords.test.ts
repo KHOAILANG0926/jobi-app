@@ -271,34 +271,79 @@ function testCompanyRegisteredAddressNeverUsedAsMapOrDirectionsFallback(): void 
 function testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText(): void {
   // 2026-09-07 사용자 지시: geocode_status='pending'인 근무지만 있는 공고는
   // 'default'(베트남 전체 중심)로 표시하거나 숨기지 말고 명확한 'pending'
-  // source로 구분해야 한다 — resolveMapLocations()가 이를 점 해석(lat/lng,
-  // findRegionCenter 텍스트 매칭 등)보다 먼저 확인하는지 검증한다.
+  // source로 구분해야 한다 — 매칭되는 지역명이 전혀 없을 때의 기본 동작을
+  // 확인한다(addressAccuracy가 'region_only'여도 매칭되는 PLACES 항목이
+  // 없으면 여전히 'pending'이어야 함 — 아래 별도 테스트가 매칭되는 경우의
+  // 예외를 검증한다).
   const pendingJob = {
-    workLocations: [{ rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const, geocodeStatus: 'pending' as const }],
+    workLocations: [{
+      rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const,
+      geocodeStatus: 'pending' as const, addressAccuracy: 'region_only' as const,
+    }],
   }
   const pendingResult = resolveMapLocations(pendingJob)
-  assertEqual(pendingResult.source, 'pending', "geocode_status='pending' work location -> map source 'pending', not 'default'")
+  assertEqual(pendingResult.source, 'pending', "geocode_status='pending' + 매칭되는 지역명이 전혀 없으면 -> map source 'pending', not 'default'")
   assertEqual(pendingResult.points.length, 0, "pending source must return zero points (nothing to plot yet)")
-
-  // rawAddress에 실제로 매칭 가능한 지명("Hà Nội")이 들어있어도, geocodeStatus
-  // ==='pending'이면 그 텍스트 매칭보다 먼저 'pending'으로 판정해야 한다 —
-  // "아직 확인 안 됨"과 "확인했더니 지역 중심으로 근사"를 혼동하면 안 된다.
-  const pendingWithMatchableText = {
-    workLocations: [{ rawAddress: 'Toàn khu vực Hà Nội, Đống Đa', coordinateAccuracy: 'unresolved' as const, geocodeStatus: 'pending' as const }],
-  }
-  const pendingWithMatchableTextResult = resolveMapLocations(pendingWithMatchableText)
-  assertEqual(pendingWithMatchableTextResult.source, 'pending', "pending status must win over text-based region-name matching, even when the raw text contains a resolvable place name")
 
   // 여러 근무지 중 하나라도 pending이 아니면(예: 이미 success로 지오코딩됨)
   // 더 이상 전부 pending은 아니므로, 기존 로직대로 그 위치를 사용해야 한다.
   const mixedJob = {
     workLocations: [
-      { rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const, geocodeStatus: 'pending' as const },
+      {
+        rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const,
+        geocodeStatus: 'pending' as const, addressAccuracy: 'region_only' as const,
+      },
       { rawAddress: 'C', lat: 10.4, lng: 106.4, coordinateAccuracy: 'exact' as const, locationVerified: true, geocodeStatus: 'success' as const },
     ],
   }
   const mixedResult = resolveMapLocations(mixedJob)
   assertEqual(mixedResult.source, 'exact', "when at least one work location isn't pending, resolveMapLocations must not force the whole job into 'pending'")
+}
+
+function testRegionOnlyPendingStillShowsRegionCenterMap(): void {
+  // 2026-09-07 사용자 지시(충돌 수정) — addressAccuracy==='region_only'면
+  // geocodeStatus==='pending'이어도 기존 findRegionCenter() 지역 대표 지도를
+  // 그대로 보여줘야 한다. "아직 확인 안 됨"(geocodeStatus)과 "원문 자체가
+  // 지역 수준"(addressAccuracy)은 서로 다른 사실이고, 후자는 pending 여부와
+  // 무관하게 항상 지역 대표 위치를 보여줘 왔다 — 처음 pending 처리를 넣을 때
+  // 이 기존 동작을 덮어써버린 충돌을 여기서 되돌린다.
+  const job = {
+    workLocations: [{
+      rawAddress: 'Toàn khu vực Hà Nội, Đống Đa',
+      coordinateAccuracy: 'unresolved' as const,
+      geocodeStatus: 'pending' as const,
+      addressAccuracy: 'region_only' as const,
+    }],
+  }
+  const result = resolveMapLocations(job)
+  assertTrue(result.source !== 'pending' && result.source !== 'default', "region_only + pending인데 매칭되는 지역명이 있으면 'pending'/'default'로 떨어지면 안 됨")
+  assertEqual(result.points.length, 1, "지역 대표 좌표 1개가 그대로 나와야 함")
+  assertFalse(result.points[0].precise, "지역 대표 좌표는 정확한 사업장 위치가 아니므로 precise=false를 유지해야 함")
+
+  // 거리검색에서는 계속 제외돼야 한다 — resolveDistanceSearchPoints는 실제
+  // job_work_locations.lat/lng이 있는 행만 보므로(지역 대표 좌표는 lat/lng
+  // 자체가 없음), 이 케이스는 애초에 대상이 될 수 없다.
+  const distancePoints = resolveDistanceSearchPoints(job)
+  assertEqual(distancePoints.length, 0, "region_only(좌표 없음)는 거리검색 대상이 될 수 없다 — 지역 대표 좌표를 거리계산에 쓰면 안 됨")
+}
+
+function testExactTextPendingNeverFabricatesMapPointEvenWithMatchableText(): void {
+  // 2026-09-07 사용자 지시(충돌 수정) — addressAccuracy==='exact_text'인데
+  // geocodeStatus==='pending'(아직 지오코딩 시도 자체를 안 함)이면, 원문에
+  // 우연히 매칭되는 지명이 있어도("Aeon Mall Hà Đông, Hà Đông"의 "Hà Đông")
+  // 지도에 임의 좌표를 만들면 안 된다 — 기존처럼 "위치 확인 중"만 표시해야
+  // 한다("아직 시도 안 한 구체 주소"를 "확인된 근사 위치"처럼 보여주면 안 됨).
+  const job = {
+    workLocations: [{
+      rawAddress: 'Aeon Mall Hà Đông, Hà Đông',
+      coordinateAccuracy: 'unresolved' as const,
+      geocodeStatus: 'pending' as const,
+      addressAccuracy: 'exact_text' as const,
+    }],
+  }
+  const result = resolveMapLocations(job)
+  assertEqual(result.source, 'pending', "exact_text + pending은 텍스트에 매칭되는 지명이 있어도 'pending'으로 남아야 함(임의 좌표 생성 금지)")
+  assertEqual(result.points.length, 0, "exact_text + pending은 지도에 점을 만들면 안 됨")
 }
 
 function main(): void {
@@ -310,6 +355,8 @@ function main(): void {
     testRecruitmentRegionFallbackNeverDuplicatesOneCoordinate,
     testCompanyRegisteredAddressNeverUsedAsMapOrDirectionsFallback,
     testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText,
+    testRegionOnlyPendingStillShowsRegionCenterMap,
+    testExactTextPendingNeverFabricatesMapPointEvenWithMatchableText,
   ]
   for (const test of tests) {
     test()

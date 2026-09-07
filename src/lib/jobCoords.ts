@@ -156,15 +156,29 @@ interface WorkLocationLike {
   locationVerified?: boolean
   matchedRecruitmentRegions?: string[]
   /** 'pending'이면 아직 지오코딩을 시도하지 않은 상태(주로 addressAccuracy
-   *  'region_only') — resolveMapLocations()가 이 값을 최우선으로 확인해
-   *  "위치 확인 중"으로 구분한다(2026-09-07 사용자 지시). */
+   *  'region_only') — resolveMapLocations()가 이 값을 확인해 "위치 확인
+   *  중"으로 구분한다(2026-09-07 사용자 지시). 단, addressAccuracy가
+   *  'region_only'면 이 상태여도 기존 findRegionCenter() 지역 대표 지도를
+   *  그대로 보여준다 — "아직 못 정한 것"과 "원문 자체가 지역 수준"은 서로
+   *  다른 사실이고, 후자는 pending 여부와 무관하게 항상 지역 대표 위치를
+   *  보여줘 왔다(2026-09-07 사용자 지시로 수정 — 처음 pending 처리를 넣을 때
+   *  이 기존 동작과 충돌이 생겼던 것을 바로잡음). */
   geocodeStatus?: GeocodeStatusLike
+  /** job_work_locations.address_accuracy — 'region_only'면 이 근무지
+   *  텍스트 자체가 성·시/구·군 수준이라 처음부터 특정 지오코딩 대상이
+   *  아니었다(geocodeStatus가 'pending'으로 영구히 남는 게 정상). 위
+   *  geocodeStatus 설명 참고. */
+  addressAccuracy?: AddressAccuracyLike
 }
 
 /** coordinate_accuracy 문자열 — types/job.ts의 CoordinateAccuracy와 값 집합은
  *  같지만, 이 파일이 그 타입에 의존하지 않고도(순수 유틸리티 유지) 쓸 수
  *  있도록 별도로 좁혀 선언한다. */
 type CoordinateAccuracyLike = 'exact' | 'ward' | 'region' | 'unresolved'
+
+/** address_accuracy 문자열 — types/job.ts의 AddressAccuracy와 값 집합은
+ *  같지만, 위 CoordinateAccuracyLike와 동일한 이유로 별도 선언한다. */
+type AddressAccuracyLike = 'exact_text' | 'region_only'
 
 /** 이 근무지 좌표를 "정확한 위치"로 표시해도 되는지 — 지도 마커 스타일과
  *  거리검색 자격 판단 둘 다의 공통 기준(다만 거리검색은 이 값을 직접 쓰지
@@ -201,6 +215,17 @@ function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | nu
   if (typeof l.lat === 'number' && typeof l.lng === 'number' && Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
     return { lat: l.lat, lng: l.lng, label: l.rawAddress, precise: isPreciseWorkLocation(l) }
   }
+  // 2026-09-07 사용자 지시(충돌 수정): addressAccuracy==='exact_text'인데
+  // geocodeStatus==='pending'(아직 지오코딩을 시도조차 안 함)이면, 원문
+  // 텍스트에 우연히 알려진 지명이 들어있어도(예: "Aeon Mall Hà Đông"의
+  // "Hà Đông") 그걸로 임의 좌표를 만들면 안 된다 — "아직 확인 중"인 구체
+  // 주소를 마치 확인된 근사 위치처럼 보여주게 된다. addressAccuracy가
+  // 'region_only'인 pending은 원래부터 이 함수 아래의 findRegionCenter
+  // fallback을 그대로 타야 한다(기존 동작 유지 — region_only 텍스트는
+  // pending 여부와 무관하게 항상 지역 대표 위치를 보여줘 왔음).
+  if (l.geocodeStatus === 'pending' && l.addressAccuracy !== 'region_only') {
+    return null
+  }
   const fromOwnText = findRegionCenter(l.rawAddress)
   if (fromOwnText) return { ...fromOwnText, label: l.rawAddress, precise: false }
   for (const region of l.matchedRecruitmentRegions ?? []) {
@@ -228,19 +253,22 @@ export function resolveMapLocations(job: {
 }): ResolvedMapLocations {
   const workLocations = job.workLocations ?? []
 
-  // 2026-09-07 사용자 지시: geocode_status='pending'인 근무지(주로
-  // region_only 주소라 아직 지오코딩을 시도하지 않은 경우)만 있는 공고는
-  // 좌표가 없다는 이유로 숨기거나 베트남 기본 중심(source: 'default')으로
-  // 표시하지 않는다 — 텍스트 매칭으로 우연히 지역 중심을 찾을 수 있어도
-  // (예: "Toàn khu vực Hà Nội"), 그보다 먼저 이 상태를 확인해 명확한
-  // 'pending' 소스로 구분한다("아직 확인 안 됨" ≠ "확인했지만 실패").
-  if (workLocations.length > 0 && workLocations.every((l) => l.geocodeStatus === 'pending')) {
-    return { points: [], source: 'pending', zoom: 5 }
-  }
-
   const workLocationPoints = workLocations
     .map(resolveWorkLocationMapPoint)
     .filter((p): p is ResolvedMapPoint => p !== null)
+
+  // 2026-09-07 사용자 지시(충돌 수정) — geocode_status='pending'인 근무지가
+  // 있는데 위에서 점을 하나도 못 만들었다면("실패"가 아니라 "아직 확인
+  // 안 됨"), 좌표가 없다는 이유로 숨기거나 베트남 기본 중심(source:
+  // 'default')으로 표시하지 않고 명확한 'pending' 소스로 구분한다.
+  // addressAccuracy==='region_only'인 pending 근무지는 이미 위
+  // resolveWorkLocationMapPoint()의 findRegionCenter fallback으로 정상
+  // 해결됐을 수 있으므로(기존 동작 유지) 그 경우는 workLocationPoints가
+  // 비어있지 않아 이 분기에 걸리지 않는다 — 오직 "지도에 보여줄 점이 하나도
+  // 없는" 경우에만 'pending'으로 구분한다.
+  if (workLocationPoints.length === 0 && workLocations.some((l) => l.geocodeStatus === 'pending')) {
+    return { points: [], source: 'pending', zoom: 5 }
+  }
 
   if (workLocationPoints.length > 0) {
     const anyPrecise = workLocationPoints.some((p) => p.precise)

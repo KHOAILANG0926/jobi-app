@@ -388,11 +388,14 @@ export function JobDetail() {
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {loc.geocodeStatus === 'pending' ? (
+                            {loc.geocodeStatus === 'pending' && !isRegionOnlyText ? (
                               // 2026-09-07 사용자 지시: geocode_status='pending'은
                               // "실패"가 아니라 "아직 지오코딩을 시도하지 않음" —
-                              // isRegionOnlyText와 같은 tier여도 이미 확정된 근사
-                              // 판정처럼 읽히는 문구 대신, 아직 확인 중임을 명시한다.
+                              // exact_text인데 아직 시도 안 한 경우에만 이 문구를
+                              // 보여준다. region_only는 원문 자체가 지역 수준이라
+                              // pending 여부와 무관하게 항상 기존 지역 안내문을
+                              // 그대로 보여줘야 한다(충돌 수정 — 아래 isRegionOnlyText
+                              // 분기가 그 문구를 그대로 담당).
                               <p className="jd2-map-pending-note">
                                 Đang xác minh vị trí — hệ thống chưa xác định được tọa độ cho địa chỉ này.
                               </p>
