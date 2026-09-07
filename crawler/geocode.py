@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from math import atan2, cos, radians, sin, sqrt
 from pathlib import Path
 
@@ -87,6 +88,11 @@ def _bbox_for_province(province: str) -> tuple[float, float, float, float] | Non
 # cut inside that gray band, meant to work together with the region-text
 # match check above (not replace it).
 MIN_CONFIDENCE = 0.5
+
+# 2026-09-07 사용자 지시 — 일시적 네트워크 오류(타임아웃/연결 실패)만
+# 제한적으로 재시도한다. 2 = 최초 시도 1회 + 재시도 1회, 무한 재시도 금지.
+_TRANSIENT_RETRY_ATTEMPTS = 2
+_TRANSIENT_RETRY_DELAY_SECONDS = 1.5
 
 
 def _cache_key(raw_address: str, region_hint: str, expected_region_text: str | None) -> str:
@@ -289,12 +295,30 @@ def _geocode_query_raw(
             lat_c, lng_c = center
             params["bias"] = f"proximity:{lng_c},{lat_c}"
 
-    try:
-        resp = httpx.get(GEOAPIFY_GEOCODE_URL, params=params, timeout=10.0)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:
-        logger.warning("Geoapify geocoding 요청 실패 (%s): %s", query, exc)
+    # 2026-09-07 사용자 지시로 신설 — 대량 재처리(pending/failed 재분류)
+    # 도중 일시적인 네트워크 오류 하나 때문에 재시도 없이 곧바로 'api_error'
+    # (캐시 안 됨, geocode_status='failed'로 이어짐)로 확정하면, 진짜로는
+    # 살아있는 주소가 순전히 그 순간의 타임아웃 때문에 실패 처리된다. 딱
+    # _TRANSIENT_RETRY_ATTEMPTS번만(무한 재시도 방지) 짧은 대기 후 재시도
+    # 한다 — HTTP 응답 자체가 온 뒤의 논리적 결과(no_results/좌표 없음)는
+    # 재시도 대상이 아니다(진짜 "결과 없음"을 반복 조회로 바꿀 수 없음),
+    # 오직 요청 자체가 실패한 경우(타임아웃/연결 오류 등)만 재시도한다.
+    data = None
+    last_exc: Exception | None = None
+    for attempt in range(_TRANSIENT_RETRY_ATTEMPTS):
+        try:
+            resp = httpx.get(GEOAPIFY_GEOCODE_URL, params=params, timeout=10.0)
+            resp.raise_for_status()
+            data = resp.json()
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _TRANSIENT_RETRY_ATTEMPTS - 1:
+                logger.warning("Geoapify geocoding 요청 실패, 재시도 %d/%d (%s): %s", attempt + 1, _TRANSIENT_RETRY_ATTEMPTS - 1, query, exc)
+                time.sleep(_TRANSIENT_RETRY_DELAY_SECONDS)
+    if last_exc is not None:
+        logger.warning("Geoapify geocoding 요청 실패 (재시도 %d회 소진, %s): %s", _TRANSIENT_RETRY_ATTEMPTS - 1, query, last_exc)
         return {"status": "api_error", "lat": None, "lng": None, "top": None}
 
     results = data.get("results") or []

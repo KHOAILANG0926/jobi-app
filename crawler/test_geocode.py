@@ -113,11 +113,115 @@ def test_peek_geocode_cache_never_calls_the_api() -> None:
         assert_equal(set(r.keys()), {"variant", "query", "cache_key", "cache_hit", "cached_status"}, "반환 dict 필드 확인")
 
 
+def test_geocode_query_raw_retries_transient_errors_a_bounded_number_of_times() -> None:
+    """2026-09-07 사용자 지시 — 일시적 오류(요청 자체가 실패)만 제한적으로
+    재시도한다. 첫 시도 실패, 두 번째(마지막 허용) 시도 성공 -> 성공을
+    반환하고 재시도가 실제로 1번만 일어나야 한다."""
+    original_get = geocode_module.httpx.get
+    original_sleep = geocode_module.time.sleep
+    original_read_cache = geocode_module._read_cache
+    original_write_cache = geocode_module._write_cache
+    calls = {"n": 0}
+    sleeps: list[float] = []
+
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"results": [{"lat": 10.1, "lon": 106.1, "rank": {"confidence": 0.9}}]}
+
+    def fake_get(*_a, **_k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError("simulated timeout")
+        return FakeResp()
+
+    try:
+        geocode_module.httpx.get = fake_get
+        geocode_module.time.sleep = lambda s: sleeps.append(s)
+        geocode_module._read_cache = lambda *_a, **_k: None
+        geocode_module._write_cache = lambda *_a, **_k: None
+        result = geocode_module._geocode_query_raw("cache-key-retry-1", "some query, Vietnam")
+    finally:
+        geocode_module.httpx.get = original_get
+        geocode_module.time.sleep = original_sleep
+        geocode_module._read_cache = original_read_cache
+        geocode_module._write_cache = original_write_cache
+
+    assert_equal(calls["n"], 2, "첫 시도 실패 후 두 번째(마지막 허용) 시도까지는 실제로 재시도해야 함")
+    assert_equal(result["status"], "success", "재시도 끝에 성공 응답이 오면 success를 반환해야 함")
+    assert_equal(len(sleeps), 1, "재시도 사이에 딱 1번만 대기해야 함")
+
+
+def test_geocode_query_raw_gives_up_after_bounded_retries_never_infinite() -> None:
+    """계속 실패하면 _TRANSIENT_RETRY_ATTEMPTS번만 시도하고 api_error로
+    포기해야 한다 — 무한 재시도 금지."""
+    original_get = geocode_module.httpx.get
+    original_sleep = geocode_module.time.sleep
+    original_read_cache = geocode_module._read_cache
+    calls = {"n": 0}
+
+    def fake_get(*_a, **_k):
+        calls["n"] += 1
+        raise TimeoutError("simulated timeout")
+
+    try:
+        geocode_module.httpx.get = fake_get
+        geocode_module.time.sleep = lambda s: None
+        geocode_module._read_cache = lambda *_a, **_k: None
+        result = geocode_module._geocode_query_raw("cache-key-retry-2", "some query, Vietnam")
+    finally:
+        geocode_module.httpx.get = original_get
+        geocode_module.time.sleep = original_sleep
+        geocode_module._read_cache = original_read_cache
+
+    assert_equal(calls["n"], geocode_module._TRANSIENT_RETRY_ATTEMPTS, "정확히 허용된 횟수만큼만 시도하고 멈춰야 함(무한 재시도 방지)")
+    assert_equal(result["status"], "api_error", "재시도를 모두 소진하면 api_error를 반환해야 함")
+
+
+def test_geocode_query_raw_never_retries_a_genuine_no_results_response() -> None:
+    """HTTP 요청 자체는 성공했지만 결과가 없는 경우(no_results)는 재시도
+    대상이 아니다 — 진짜 '결과 없음'을 반복 조회로 바꿀 수 없으므로 딱
+    1번만 호출해야 한다."""
+    original_get = geocode_module.httpx.get
+    original_read_cache = geocode_module._read_cache
+    original_write_cache = geocode_module._write_cache
+    calls = {"n": 0}
+
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"results": []}
+
+    def fake_get(*_a, **_k):
+        calls["n"] += 1
+        return FakeResp()
+
+    try:
+        geocode_module.httpx.get = fake_get
+        geocode_module._read_cache = lambda *_a, **_k: None
+        geocode_module._write_cache = lambda *_a, **_k: None
+        result = geocode_module._geocode_query_raw("cache-key-retry-3", "some query, Vietnam")
+    finally:
+        geocode_module.httpx.get = original_get
+        geocode_module._read_cache = original_read_cache
+        geocode_module._write_cache = original_write_cache
+
+    assert_equal(calls["n"], 1, "no_results는 재시도 대상이 아니므로 정확히 1번만 호출해야 함")
+    assert_equal(result["status"], "no_results", "결과가 없으면 no_results를 반환해야 함")
+
+
 def main() -> int:
     tests = [
         test_strip_search_noise_phrases,
         test_build_query_variants_applies_noise_stripping_first,
         test_peek_geocode_cache_never_calls_the_api,
+        test_geocode_query_raw_retries_transient_errors_a_bounded_number_of_times,
+        test_geocode_query_raw_gives_up_after_bounded_retries_never_infinite,
+        test_geocode_query_raw_never_retries_a_genuine_no_results_response,
     ]
     for test in tests:
         test()
