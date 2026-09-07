@@ -28,7 +28,6 @@ from geocode import resolve_coordinate_accuracy, source_coordinate_matches_locat
 from job_quality import (
     CRAWLER_VERSION,
     _NUMBERED_ADMIN_UNIT_RE,
-    _SPECIFIC_PLACE_SIGNAL_RE,
     ascii_key,
     canonical_job_key,
     classify_work_location_candidate,
@@ -137,14 +136,56 @@ def _is_duplicate_location(a: dict, b: dict) -> bool:
     return bool(core_a) and core_a == core_b
 
 
+# 2026-09-07 사용자 지시로 신설 — _segment_has_specific_place_signal()이
+# "이 세그먼트가 실제 물리적 장소를 식별하는가"(그룹핑 병합 판정 전용)를
+# 볼 때, job_quality.classify_work_location_candidate()가 쓰는 공유
+# _SPECIFIC_PLACE_SIGNAL_RE를 그대로 재사용하면 실측 두 가지 결함이 있었다:
+#   (1) 그 regex의 bare \d(숫자 아무 데나)가 "GS25"/"K7"처럼 브랜드명에
+#       박힌 숫자에도 걸려, 실제로는 서로 다른 매장(Quận 1/Quận 7/...)인데도
+#       "Các cửa hàng GS25"가 하나의 물리적 장소인 것처럼 오판됐다(실측
+#       job_id=4596 — GS25 편의점 5개 지점이 1개 행으로 잘못 병합됨).
+#   (2) (아래 _strip_recruitment_region_suffix의 while 루프 자체 결함) 세그먼트가
+#       1개 남으면 신호 여부와 무관하게 멈추다 보니, 그 마지막 세그먼트조차
+#       신호가 전혀 없으면(예: "toàn khu vực"만 남음) 그 범용 필러 문구
+#       자체가 core가 되어, 완전히 다른 구·군을 가리키는 서로 다른 candidate가
+#       우연히 같은 core로 수렴해 병합됐다(실측 job_id=4500 — "toàn khu vực,
+#       Tân Phú"/"Toàn khu vực, Quận 11"이 하나로 뭉개짐, 82건 중 51건의
+#       근무지가 이 패턴으로 소실 — 2026-09-07 완전성 스캔으로 확인).
+# 이 두 결함은 job_quality.py의 공유 regex 자체를 바꾸지 않고(그건
+# address_accuracy 분류 등 훨씬 넓은 범위에 쓰여 손대면 회귀 위험이 큼) 이
+# 파일의 병합 판정 전용 신호를 별도로 엄격하게 정의해 해결한다 — "물리적
+# 장소를 실제로 식별하는 강한 신호"만 인정한다: 글자에 안 붙은 독립 숫자
+# 토큰(진짜 번지수, 예: "212 Hoàng Hoa Thám"/"26/26") 또는 "Số N" 표기,
+# KCN/CCN/공단, 도로/골목류 단어, 이름 있는 건물 유형, Lô, 신도시. "cửa
+# hàng/nhà máy/siêu thị + 브랜드명" 같은 일반 시설어+이름 패턴(job_quality의
+# _GENERIC_FACILITY_WORD_WITH_NAME_RE)은 의도적으로 제외한다 — 체인·
+# 프랜차이즈는 지점이 여러 곳일 수 있어 "이 후보들이 전부 같은 물리적
+# 장소"라는 증거로 쓰기엔 약하다(classify_work_location_candidate()가 이
+# 패턴을 'exact_text'로 분류하는 것 자체는 그대로 — 표시/지오코딩 대상
+# 여부와 "여러 후보를 하나로 합쳐도 되는가"는 서로 다른 질문이다).
+_MERGE_HOUSE_NUMBER_RE = re.compile(
+    r"(?:^|[\s,])\d{1,4}[A-Za-z]?(?:/\d+[A-Za-z]?)*(?=[\s,]|$)"
+    r"|\bsố\s*\d",
+    re.IGNORECASE,
+)
+_MERGE_STRONG_PLACE_SIGNAL_RE = re.compile(
+    r"\bkcn\b|\bccn\b|\bkhu công nghiệp\b|\bcụm công nghiệp\b|\bcụm\s+cn\b"
+    r"|\bđường\b|\bphố\b|\bngõ\b|\bhẻm\b|\bngách\b"
+    r"|\btòa nhà\b|\bplaza\b|\btower\b|\bbuilding\b|\bcao ốc\b"
+    r"|\blô\b|\bkhu đô thị\b|\bkđt\b",
+    re.IGNORECASE,
+)
+
+
 def _segment_has_specific_place_signal(segment: str) -> bool:
     """comma-segment 하나가 (Quận/Phường + 숫자 같은 행정단위 번호 표기는
-    먼저 제외하고) 실제 특정 장소 신호(번지/도로/KCN/건물명/Lô 등)를 담고
-    있는지 — job_quality.classify_work_location_candidate()가 주소 전체에
-    쓰는 것과 동일한 신호 판정(_SPECIFIC_PLACE_SIGNAL_RE/_NUMBERED_ADMIN_
-    UNIT_RE)을 comma-segment 하나 단위로 재사용한다."""
+    먼저 제외하고) 그룹핑 병합을 정당화할 만큼 "실제 물리적 장소를 식별하는
+    강한" 신호를 담고 있는지 — 위 _MERGE_HOUSE_NUMBER_RE/_MERGE_STRONG_
+    PLACE_SIGNAL_RE 설명 참고. job_quality.classify_work_location_candidate()
+    가 address_accuracy(표시/지오코딩 대상 여부) 판정에 쓰는 더 관대한
+    신호와는 의도적으로 다르다."""
     stripped = _NUMBERED_ADMIN_UNIT_RE.sub("", segment)
-    return bool(_SPECIFIC_PLACE_SIGNAL_RE.search(stripped))
+    return bool(_MERGE_HOUSE_NUMBER_RE.search(stripped) or _MERGE_STRONG_PLACE_SIGNAL_RE.search(stripped))
 
 
 def _strip_recruitment_region_suffix(text: str) -> str:
@@ -155,6 +196,17 @@ def _strip_recruitment_region_suffix(text: str) -> str:
     핵심 안전장치(2026-09-04 사용자 지시: "같은 KCN 안의 서로 다른 lot·도로·
     공장까지 잘못 병합하지 않는 테스트 추가").
 
+    2026-09-07 사용자 지시로 추가된 안전장치: 후보 전체(모든 segment)에
+    강한 물리적 장소 신호가 하나도 없으면, 꼬리를 지우지 않고 원문 전체를
+    그대로 반환한다. 신호가 전혀 없는 상태에서 "세그먼트 1개 남으면 멈춤"
+    규칙만 믿으면, 그 마지막 하나 남은 세그먼트가 실제로는 아무 신호도 없는
+    범용 필러 문구(예: "toàn khu vực")일 수 있고, 이걸 core로 써버리면 서로
+    다른 구·군을 가리키는 완전히 다른 candidate들이 그 필러 문구 하나로
+    잘못 수렴해 병합된다(실측 job_id=4500). 신호가 전혀 없는 candidate는
+    애초에 "하나의 물리적 장소"라고 판단할 근거 자체가 없으므로, 원문
+    전체를 core로 남겨 트레일링 구·군이 다르면 core도 달라지게(=병합되지
+    않게) 한다.
+
     오직 두 용도로만 쓴다:
     1. 근무구역 그룹핑 키 비교(_group_candidates_by_core_location) — 저장할
        raw_address 자체는 절대 이 함수를 거치지 않는다(항상 원문 그대로,
@@ -163,8 +215,11 @@ def _strip_recruitment_region_suffix(text: str) -> str:
        없음)는 이 함수를 거치지 않고 원문 그대로 geocode한다(불필요하게
        행정구역 상세 정보를 잃지 않기 위함, resolve_work_locations 참고)."""
     segs = [s.strip() for s in str(text or "").split(",") if s.strip()]
+    original_segs = list(segs)
     while len(segs) > 1 and not _segment_has_specific_place_signal(segs[-1]):
         segs.pop()
+    if not any(_segment_has_specific_place_signal(s) for s in segs):
+        return ", ".join(original_segs)
     return ", ".join(segs)
 
 
@@ -219,6 +274,23 @@ def _group_candidates_by_core_location(candidates: list[dict]) -> list[dict]:
             continue
         placed_group["members"].append(cand)
     return groups
+
+
+def _trailing_district_label(text: str) -> str | None:
+    """2026-09-07 사용자 지시 — 병합된 그룹에서 이 멤버만의 구분 라벨(핵심
+    core를 뺀 나머지 중 마지막 segment, 보통 실제 구·군 이름)을 반환한다.
+    _strip_recruitment_region_suffix()가 잘라낸 꼬리 전체를 그대로 이어
+    붙이면(예: "xã Hiệp Phước, huyện Nhà Bè, Thành phồ Hồ Chí Minh, Bình
+    Chánh") 프런트의 "Tuyển tại: ..." 문구가 지나치게 장황해지므로, 사람이
+    바로 알아볼 수 있는 마지막 admin-unit 하나만 뽑는다. core와 원문이
+    같으면(신호가 있어 잘라낼 꼬리가 없거나, 애초에 신호가 전혀 없어 원문
+    전체가 그대로 core가 된 경우) None을 반환한다 — 이 두 경우 모두 "잘려
+    나가서 보존해야 할 라벨"이 없다는 뜻이다."""
+    core = _strip_recruitment_region_suffix(text)
+    text_segs = [s.strip() for s in str(text or "").split(",") if s.strip()]
+    core_segs = [s.strip() for s in str(core or "").split(",") if s.strip()]
+    trailing_segs = text_segs[len(core_segs):]
+    return trailing_segs[-1] if trailing_segs else None
 
 
 def resolve_work_locations(
@@ -320,11 +392,23 @@ def resolve_work_locations(
         # 다른 지역에 복제하지 않음". 위치별로 실제 매칭된 라벨이라
         # job_work_locations.matched_recruitment_regions로 저장한다(공고
         # 전체 모집지역 local_jobs.recruitment_regions와 의미 구분).
+        #
+        # 2026-09-07 사용자 지시로 추가 — 그룹이 실제로 병합됐을 때(멤버 2개
+        # 이상), region_prefix(광역, 예: "Hà Nội")만으로는 병합 과정에서
+        # 잘려나간 구·군 단위 라벨(예: Đống Đa/Cầu Giấy/Thanh Xuân)이 DB
+        # 어디에도 남지 않는다(실측 job_id=4562/4596에서 이 소실이 실제
+        # 완전성 문제로 이어짐 확인). 병합된 경우에만 각 멤버의 트레일링
+        # 구·군 라벨(_trailing_district_label)도 함께 모은다 — 단일 후보
+        # 그룹(병합 없음)은 기존 동작 그대로 region_prefix만 담는다.
         matched_recruitment_regions: list[str] = []
         for m in members:
             rp = m.get("region_prefix")
             if rp and rp not in matched_recruitment_regions:
                 matched_recruitment_regions.append(rp)
+            if len(members) > 1:
+                trailing = _trailing_district_label(m["text"])
+                if trailing and trailing not in matched_recruitment_regions:
+                    matched_recruitment_regions.append(trailing)
 
         if address_accuracy == "region_only":
             row = {

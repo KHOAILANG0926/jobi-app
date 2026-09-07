@@ -24,6 +24,7 @@ from crawl_topcv import (
     _group_candidates_by_core_location,
     _haversine_km,
     _is_duplicate_location,
+    _segment_has_specific_place_signal,
     _select_group_representative,
     _specificity_score,
     _strip_recruitment_region_suffix,
@@ -1369,6 +1370,91 @@ def test_group_candidates_by_core_location_does_not_merge_different_places() -> 
     assert_equal(len(groups_d), 1, "same lot/road with only an extra trailing recruitment-region tag must still merge")
 
 
+def test_segment_has_specific_place_signal_ignores_digits_inside_brand_names() -> None:
+    """실측 회귀(2026-09-07, job_id=4596 "Các cửa hàng GS25" 4개 지점이 1개
+    행으로 잘못 병합됨) — job_quality._SPECIFIC_PLACE_SIGNAL_RE의 bare \\d는
+    "GS25"/"K7"처럼 브랜드명에 박힌 숫자에도 걸린다. 병합 판정 전용 신호
+    (_segment_has_specific_place_signal, crawl_topcv.py 로컬)는 글자에 안
+    붙은 독립 숫자 토큰(진짜 번지수)만 인정해야 한다 — 브랜드명 속 숫자는
+    신호로 치지 않아야 한다."""
+    assert_false(_segment_has_specific_place_signal("Các cửa hàng GS25"), "브랜드명(GS25)에 박힌 숫자는 물리적 장소 신호가 아니어야 함")
+    assert_false(_segment_has_specific_place_signal("Circle K7"), "브랜드명(K7)에 박힌 숫자도 마찬가지")
+    assert_true(_segment_has_specific_place_signal("212 Hoàng Hoa Thám"), "세그먼트 맨 앞의 독립된 번지수는 여전히 신호여야 함")
+    assert_true(_segment_has_specific_place_signal("Số 26/26 Vương Thừa Vũ"), "'Số N' 표기의 번지수도 여전히 신호여야 함")
+    assert_true(_segment_has_specific_place_signal("KCN ABC"), "KCN 등 기존 강한 신호 키워드는 그대로 유지돼야 함")
+
+
+def test_strip_recruitment_region_suffix_never_collapses_pure_region_only_text_to_shared_filler() -> None:
+    """실측 회귀(2026-09-07, job_id=4500) — "toàn khu vực, Tân Phú"와 "Toàn
+    khu vực, Quận 11"은 서로 다른 근무구역인데, 기존 로직은 둘 다 신호 없는
+    꼬리(구·군)를 전부 지워 "toàn khu vực"라는 같은 필러 문구 하나로
+    수렴시켰다. 후보 전체에 물리적 장소 신호가 하나도 없으면, 꼬리를
+    지우지 않고 원문 전체를 그대로 core로 써야(=서로 다른 구·군이면 core도
+    달라져야) 한다."""
+    core_a = _strip_recruitment_region_suffix("toàn khu vực, Tân Phú")
+    core_b = _strip_recruitment_region_suffix("Toàn khu vực, Quận 11")
+    assert_equal(ascii_key(core_a) == ascii_key(core_b), False, "신호가 전혀 없는 서로 다른 region-only 후보는 core도 달라야 함")
+    assert_equal(core_a, "toàn khu vực, Tân Phú", "신호가 없으면 원문 전체를 그대로 core로 반환해야 함(꼬리를 지우지 않음)")
+
+    # 대조군: 실제 물리적 장소 신호가 있으면 기존처럼 신호 없는 꼬리만 지워야 한다.
+    assert_equal(
+        _strip_recruitment_region_suffix("Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè"),
+        "Khu Công nghiệp Hiệp Phước",
+        "강한 신호가 있는 후보는 기존처럼 신호 없는 꼬리를 정상적으로 지워야 함(회귀 없음 확인)",
+    )
+
+
+def test_group_candidates_by_core_location_does_not_merge_different_region_only_districts() -> None:
+    """실측 회귀(job_id=4500) — region_only 후보 3개(구체적 신호 전혀 없음)가
+    서로 다른 구·군을 가리키면 절대 병합되면 안 된다. 병합되면 "Toàn khu
+    vực, Quận 11"처럼 사라진 구·군은 DB 어디에도 남지 않는다(실측 확인됨)."""
+    candidates = [
+        {"text": "toàn khu vực, Tân Phú", "region_prefix": "TP.HCM"},
+        {"text": "Toàn khu vực, Quận 11", "region_prefix": "TP.HCM"},
+    ]
+    groups = _group_candidates_by_core_location(candidates)
+    assert_equal(len(groups), 2, "서로 다른 구를 가리키는 region-only 후보는 병합되지 않고 각각 별도 그룹이어야 함")
+
+    candidates2 = [
+        {"text": "Toàn khu vực, Vũng Tàu", "region_prefix": "Bà Rịa - Vũng Tàu"},
+        {"text": "Toàn Khu Vực, Biên Hòa", "region_prefix": "Đồng Nai"},
+    ]
+    groups2 = _group_candidates_by_core_location(candidates2)
+    assert_equal(len(groups2), 2, "실측 job_id=4482 사례 — Vũng Tàu와 Biên Hòa는 서로 다른 지역이므로 병합되면 안 됨")
+
+
+def test_group_candidates_by_core_location_does_not_merge_chain_brand_different_districts() -> None:
+    """실측 회귀(job_id=4596, "Các cửa hàng GS25" 편의점 체인) — 같은 브랜드
+    이름이라도 서로 다른 구를 가리키면 서로 다른 실제 매장이므로 병합되면
+    안 된다. 이전 결함: "GS25"의 숫자 '25'가 번지수로 오인돼 5개 지점이
+    1개 행으로 병합됐다(실측 확인)."""
+    candidates = [
+        {"text": "Các cửa hàng GS25, Quận 1", "region_prefix": "TP.HCM"},
+        {"text": "Các cửa hàng GS25, Thủ Đức", "region_prefix": "TP.HCM"},
+        {"text": "Các cửa hàng GS25, Quận 7", "region_prefix": "TP.HCM"},
+        {"text": "Các cửa hàng GS25, Quận 4", "region_prefix": "TP.HCM"},
+        {"text": "Các cửa hàng GS25, Thuận An", "region_prefix": "Bình Dương"},
+    ]
+    groups = _group_candidates_by_core_location(candidates)
+    assert_equal(len(groups), 5, "브랜드명이 같아도 구가 다르면 서로 다른 매장 — 5개 후보가 5개 그룹으로 전부 보존돼야 함")
+
+
+def test_group_candidates_by_core_location_still_merges_real_repeated_physical_address() -> None:
+    """실측 회귀(job_id=4562) — 사용자 지시 3번(기존 의도 보존): 동일한 구체적
+    주소(번지·도로)가 반복되고 뒤의 모집지역(구) 라벨만 다르면, 여전히 하나의
+    실제 근무지로 병합돼야 한다 — 위 두 부정 케이스와의 대조군."""
+    candidates = [
+        {"text": "Số 26/26 Vương Thừa Vũ, Phường Khương Đình, Thành phố Hà Nội, Thanh Xuân", "region_prefix": "Hà Nội"},
+        {"text": "Số 26/26 Vương Thừa Vũ, Phường Khương Đình, Thành phố Hà Nội, Cầu Giấy", "region_prefix": "Hà Nội"},
+        {"text": "Số 26/26 Vương Thừa Vũ, Phường Khương Đình, Thành phố Hà Nội, Đống Đa", "region_prefix": "Hà Nội"},
+        {"text": "Số 26/26 Vương Thừa Vũ, Phường Khương Đình, Thành phố Hà Nội, Hoàng Mai", "region_prefix": "Hà Nội"},
+        {"text": "Số 26/26 Vương Thừa Vũ, Phường Khương Đình, Thành phố Hà Nội, Bắc Từ Liêm", "region_prefix": "Hà Nội"},
+    ]
+    groups = _group_candidates_by_core_location(candidates)
+    assert_equal(len(groups), 1, "동일한 번지·도로 주소가 구·군 라벨만 다르게 반복되면 여전히 1개 그룹으로 병합돼야 함(기존 의도 유지)")
+    assert_equal(len(groups[0]["members"]), 5, "병합된 그룹은 5개 멤버를 모두 보유해야 함")
+
+
 def test_select_group_representative_prefers_specificity_over_shortest_string() -> None:
     """사용자 지시(2026-09-04): "가장 짧은 문자열을 상세주소 대표값으로
     사용하지 않음 — 저장할 raw_address는 번지·도로·lot·건물·공장 정보가
@@ -1407,7 +1493,14 @@ def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_match
     정리되어 전송된다(원문 그대로가 아님 — Bình Chánh/Quận 7/Cần Giuộc 같은
     접미사가 쿼리에 섞이면 Geoapify가 그쪽으로 편향된다는 게 실측 원인이었음).
     matched_recruitment_regions에 4개 후보의 서로 다른 지역 라벨(TP.HCM,
-    Long An)이 중복 없이 전부 모여야 한다."""
+    Long An)이 중복 없이 전부 모여야 한다.
+
+    2026-09-07 사용자 지시로 기댓값 갱신: 병합된 경우에도 사라지는 구·군
+    라벨(대표 원문에서 잘려나간 꼬리의 마지막 세그먼트 — Nhà Bè/Bình
+    Chánh/Quận 7/Cần Giuộc)을 matched_recruitment_regions에 전부 보존해야
+    한다(기존에는 region_prefix인 TP.HCM/Long An만 담아 구·군 단위 정보가
+    사라졌었다 — 실측 job_id=4562/4596에서 이 소실이 실제 DB 완전성
+    문제로 이어짐이 확인됨)."""
     original = geocode._geocode_query_raw
 
     def _success(lat, lng, result_type, state=None, county=None, city=None, name=None, street=None):
@@ -1448,9 +1541,53 @@ def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_match
         assert_equal(resolved[0]["raw_address"], short_addr, "stored raw_address must be the representative original text, never the stripped geocode-query core")
         assert_equal(resolved[0]["coordinate_accuracy"], "exact_candidate", "the cleaned query must actually resolve successfully (sanity: fake geocoder was reached with a valid query)")
         assert_equal(
-            resolved[0]["matched_recruitment_regions"], ["TP.HCM", "Long An"],
-            "the single row must carry both distinct recruitment regions (dedup, first-seen order), not duplicate coordinates across 4 rows",
+            resolved[0]["matched_recruitment_regions"], ["TP.HCM", "Nhà Bè", "Bình Chánh", "Quận 7", "Long An", "Cần Giuộc"],
+            "the single row must carry both distinct recruitment-region prefixes AND every distinct trailing district label "
+            "that got stripped from the 4 members' original text (2026-09-07 fix, first-seen order per member) — not just "
+            "the coarse TP.HCM/Long An prefixes",
         )
+    finally:
+        geocode._geocode_query_raw = original
+
+
+def test_resolve_work_locations_keeps_distinct_region_only_districts_as_separate_rows() -> None:
+    """엔드투엔드 회귀(job_id=4500) — region_only 후보가 서로 다른 구·군이면
+    resolve_work_locations()가 병합하지 않고 각각 별도 행으로 보존해야
+    한다. region_only는 애초에 지오코딩을 시도하지 않으므로(구체적 장소
+    신호가 없어 조회 자체를 생략) 이 테스트는 geocoder를 mock할 필요가
+    없다."""
+    candidates = [
+        {"text": "toàn khu vực, Tân Phú", "region_prefix": "TP.HCM"},
+        {"text": "Toàn khu vực, Quận 11", "region_prefix": "TP.HCM"},
+    ]
+    resolved, had_transient_failure = resolve_work_locations(candidates)
+    assert_false(had_transient_failure, "region_only candidates never reach the geocoder, so no transient failures are possible")
+    assert_equal(len(resolved), 2, "서로 다른 구를 가리키는 region_only 후보 2개는 반드시 2개 행으로 저장돼야 함(병합 금지)")
+    raw_addresses = {r["raw_address"] for r in resolved}
+    assert_equal(raw_addresses, {"toàn khu vực, Tân Phú", "Toàn khu vực, Quận 11"}, "두 원문 주소가 모두 그대로 보존돼야 함")
+
+
+def test_resolve_work_locations_keeps_distinct_chain_stores_as_separate_rows() -> None:
+    """엔드투엔드 회귀(job_id=4596, GS25 편의점 체인) — 같은 브랜드명이라도
+    서로 다른 구를 가리키는 후보는 resolve_work_locations()가 병합하지
+    않고 각각 별도 행으로 저장해야 한다(수정 전에는 'GS25'의 숫자 '25'가
+    번지수로 오인돼 1개 행으로 뭉개졌었다)."""
+    original = geocode._geocode_query_raw
+    try:
+        def _fake(query_text_for_cache, query, bias_province=None, bbox_rect=None):
+            return {"status": "no_results", "lat": None, "lng": None, "top": None}
+
+        geocode._geocode_query_raw = _fake
+
+        candidates = [
+            {"text": "Các cửa hàng GS25, Quận 1", "region_prefix": "TP.HCM"},
+            {"text": "Các cửa hàng GS25, Quận 7", "region_prefix": "TP.HCM"},
+        ]
+        resolved, had_transient_failure = resolve_work_locations(candidates)
+        assert_false(had_transient_failure, "no transient failures expected in this fixture")
+        assert_equal(len(resolved), 2, "서로 다른 구의 GS25 매장은 2개 행으로 각각 저장돼야 함(하나로 병합되면 안 됨)")
+        raw_addresses = {r["raw_address"] for r in resolved}
+        assert_equal(raw_addresses, {"Các cửa hàng GS25, Quận 1", "Các cửa hàng GS25, Quận 7"}, "두 매장 원문 주소가 모두 보존돼야 함")
     finally:
         geocode._geocode_query_raw = original
 
@@ -1793,8 +1930,15 @@ def main() -> int:
         test_group_candidates_by_core_location_kcn_facility_dedup,
         test_group_candidates_by_core_location_plain_address_region_suffix,
         test_group_candidates_by_core_location_does_not_merge_different_places,
+        test_segment_has_specific_place_signal_ignores_digits_inside_brand_names,
+        test_strip_recruitment_region_suffix_never_collapses_pure_region_only_text_to_shared_filler,
+        test_group_candidates_by_core_location_does_not_merge_different_region_only_districts,
+        test_group_candidates_by_core_location_does_not_merge_chain_brand_different_districts,
+        test_group_candidates_by_core_location_still_merges_real_repeated_physical_address,
         test_select_group_representative_prefers_specificity_over_shortest_string,
         test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions,
+        test_resolve_work_locations_keeps_distinct_region_only_districts_as_separate_rows,
+        test_resolve_work_locations_keeps_distinct_chain_stores_as_separate_rows,
         test_resolve_work_locations_geocodes_single_candidate_unstripped,
         test_work_location_rpc_rows_includes_matched_recruitment_regions,
         test_compute_job_recruitment_regions_survives_zero_work_location_rows,
