@@ -153,6 +153,23 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
     'failed'로, 실패 원인은 address_evidence(기존에 이미 있는 감사용 컬럼,
     migration 0015)에 기록한다."""
     lat, lng = coord.get("lat"), coord.get("lng")
+    tier = coord.get("coordinate_accuracy")
+
+    # crawl_topcv.py의 _coordinate_accuracy_for_db()와 동일한 정책(2026-09-04
+    # 사용자 지시): job_work_locations.coordinate_accuracy CHECK 제약
+    # (migration 0015)은 ('exact','ward','region','unresolved')만 허용하고
+    # 'exact_candidate'는 없다 — resolve_coordinate_accuracy()가 내부적으로만
+    # 쓰는 어휘라 그대로 흘려보내면 제약 위반으로 즉시 실패한다(실측: 이
+    # CLI의 첫 실제 --apply 실행에서 id=281 'Aeon Mall Hà Đông'가 바로 이
+    # 위반으로 크래시함). "exact_candidate를 DB의 exact로 단순 매핑하지
+    # 않음 — 독립 검증 성공 시에만 exact" 원칙도 동일 — 이 CLI는 크롤링
+    # 당시의 vieclam24h 원문 좌표 같은 독립 검증 신호(source_verified)를
+    # 애초에 가질 수 없으므로(그 신호는 크롤링 시점에만 존재), exact_candidate는
+    # 여기서 항상 unresolved로 낮추고 좌표도 비운다 — 절대 exact로 승격하지 않는다.
+    if tier == "exact_candidate":
+        tier = "unresolved"
+        lat, lng = None, None
+
     if lat is None or lng is None:
         return {
             "geocode_status": "failed",
@@ -164,7 +181,7 @@ def _build_update_payload(coord: dict, raw_address: str) -> dict:
     return {
         "lat": lat,
         "lng": lng,
-        "coordinate_accuracy": coord.get("coordinate_accuracy"),
+        "coordinate_accuracy": tier,
         "address_accuracy": address_accuracy,
         "province": top.get("state") or guess_province_from_text(raw_address),
         "district": top.get("county") or top.get("city"),

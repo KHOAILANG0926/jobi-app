@@ -102,6 +102,29 @@ def test_update_payload_on_failure_never_touches_address_fields() -> None:
                  "실패 시 payload에는 geocode_status/address_evidence 외 다른 키가 있으면 안 됨")
 
 
+def test_update_payload_downgrades_unverified_exact_candidate_to_unresolved() -> None:
+    """실측 회귀 테스트(2026-09-07, 첫 실제 --apply 실행에서 발견) —
+    id=281 'Aeon Mall Hà Đông, Hà Đông'가 resolve_coordinate_accuracy()의
+    'exact_candidate' 티어를 그대로 job_work_locations.coordinate_accuracy에
+    쓰려다 CHECK 제약('exact'|'ward'|'region'|'unresolved') 위반으로
+    크래시했다. 이 CLI는 crawl_topcv.py의 source_verified(크롤링 당시
+    원문 좌표 검증) 신호를 가질 수 없으므로, exact_candidate는 항상
+    unresolved로 낮추고 좌표를 비워야 한다 — 검증 안 된 좌표를 절대
+    'exact'로 스스로 승격시키지 않는다."""
+    coord = {
+        "lat": 20.9894507, "lng": 105.7506251, "coordinate_accuracy": "exact_candidate",
+        "geocode_source": "geoapify", "evidence": "2 variants converged",
+        "top": {"state": "Hà Nội", "county": None, "city": None},
+    }
+    update = rwl._build_update_payload(coord, "Aeon Mall Hà Đông, Hà Đông")
+    # exact_candidate -> unresolved로 낮춘 뒤 lat/lng가 None이 되므로, 실패
+    # 경로(geocode_status='failed' + address_evidence만)를 타야 한다 — 다른
+    # 실패 payload와 동일하게 coordinate_accuracy 자체가 키에 없어야
+    # job_work_locations.coordinate_accuracy CHECK 제약을 절대 건드리지 않는다.
+    assert_equal(update["geocode_status"], "failed", "좌표를 비웠으므로 성공이 아니라 실패로 기록해야 함")
+    assert_equal(set(update.keys()), {"geocode_status", "address_evidence"}, "실패 payload는 geocode_status/address_evidence 외 다른 컬럼(coordinate_accuracy 포함)을 건드리면 안 됨")
+
+
 def main() -> int:
     tests = [
         test_group_by_normalized_address_dedupes_rows,
@@ -109,6 +132,7 @@ def main() -> int:
         test_build_dry_run_report_excludes_empty_raw_address,
         test_update_payload_only_fills_fields_on_success,
         test_update_payload_on_failure_never_touches_address_fields,
+        test_update_payload_downgrades_unverified_exact_candidate_to_unresolved,
     ]
     for test in tests:
         test()
