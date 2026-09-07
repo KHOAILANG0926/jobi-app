@@ -8,19 +8,99 @@ const DEFAULT = { lat: 16.0471, lng: 108.2068 }
 const PLACES: { keys: string[]; lat: number; lng: number }[] = [
   { keys: ['bac ninh', 'bắc ninh'], lat: 21.1861, lng: 106.0763 },
   { keys: ['ha noi', 'hà nội', 'ha dong', 'hà đông', 'cau giay', 'cầu giấy'], lat: 21.0285, lng: 105.8542 },
-  { keys: ['ho chi minh', 'hồ chí minh', 'tp.hcm', 'tp. hcm', 'sai gon', 'sài gòn', 'quan 1', 'quận 1', 'q1'], lat: 10.7769, lng: 106.7009 },
+  {
+    // 2026-09-07 사용자 지시로 추가된 키: 'ba ria'/'vung tau'/'ba ria vung tau'
+    // — 2025년 성급 통합(crawler/vn_province_merger_2025.py)으로 Bà Rịa -
+    // Vũng Tàu가 Hồ Chí Minh에 합쳐졌다. 실측(job_id=436 "Toàn khu vực, Vũng
+    // Tàu")에서 이 좌표가 나와야 함이 확인됨 — 좌표 자체는 새로 만들지 않고
+    // crawler/job_quality.py의 PROVINCE_COORDS['Hồ Chí Minh']를 그대로 재사용.
+    keys: [
+      'ho chi minh', 'hồ chí minh', 'tp.hcm', 'tp. hcm', 'sai gon', 'sài gòn', 'quan 1', 'quận 1', 'q1',
+      'ba ria', 'bà rịa', 'vung tau', 'vũng tàu', 'ba ria vung tau', 'bà rịa vũng tàu',
+    ],
+    lat: 10.7769, lng: 106.7009,
+  },
   { keys: ['da nang', 'đà nẵng'], lat: 16.0471, lng: 108.2068 },
   { keys: ['binh duong', 'bình dương'], lat: 11.3254, lng: 106.4774 },
-  { keys: ['hai phong', 'hải phòng'], lat: 20.8449, lng: 106.6881 },
+  {
+    // 2026-09-07 사용자 지시로 'hai duong'/'hải dương' 추가 — 2025년 통합으로
+    // Hải Dương가 Hải Phòng에 합쳐짐(vn_province_merger_2025.py).
+    keys: ['hai phong', 'hải phòng', 'hai duong', 'hải dương'],
+    lat: 20.8449, lng: 106.6881,
+  },
   { keys: ['can tho', 'cần thơ'], lat: 10.0452, lng: 105.7469 },
-  { keys: ['nha trang'], lat: 12.2388, lng: 109.1967 },
+  {
+    // 2026-09-07 사용자 지시로 'khanh hoa'/'khánh hòa' 추가 — Khánh Hòa는
+    // 통합 없이 유지된 성(자기 자신 그룹)이고, 그 성도(省都)가 이미 이
+    // 목록에 있는 Nha Trang이라 같은 좌표를 그대로 공유한다.
+    keys: ['nha trang', 'khanh hoa', 'khánh hòa'],
+    lat: 12.2388, lng: 109.1967,
+  },
   { keys: ['hue', 'huế'], lat: 16.4637, lng: 107.5909 },
   { keys: ['hung yen', 'hưng yên'], lat: 20.6567, lng: 106.0511 },
-  { keys: ['dong nai', 'đồng nai', 'bien hoa', 'biên hòa'], lat: 10.9453, lng: 106.8243 },
+  {
+    // 2026-09-07 사용자 지시로 'binh phuoc'/'bình phước' 추가 — 2025년
+    // 통합으로 Bình Phước가 Đồng Nai에 합쳐짐.
+    keys: ['dong nai', 'đồng nai', 'bien hoa', 'biên hòa', 'binh phuoc', 'bình phước'],
+    lat: 10.9453, lng: 106.8243,
+  },
   { keys: ['long an', 'tan an', 'tân an'], lat: 10.5333, lng: 106.4167 },
   { keys: ['quang ninh', 'quảng ninh', 'ha long', 'hạ long'], lat: 20.9515, lng: 107.0797 },
   { keys: ['thai nguyen', 'thái nguyên'], lat: 21.5928, lng: 105.8442 },
   { keys: ['bac giang', 'bắc giang'], lat: 21.2731, lng: 106.1946 },
+
+  // ── 2026-09-07 사용자 지시로 추가 — pending 근무지(region_only)의 실제
+  // 운영 데이터(job_work_locations.matched_recruitment_regions)를 읽기
+  // 전용으로 집계한 결과 findRegionCenter가 인식하지 못하던 성·시들. 좌표는
+  // 임의로 만들지 않고 crawler/job_quality.py의 PROVINCE_COORDS와
+  // crawler/vn_province_merger_2025.py의 2025년 성급 통합표(신뢰할 수 있는
+  // 두 공개 자료로 교차 확인됨)를 그대로 재사용한다 — 통합으로 사라진
+  // 옛 성 이름은 통합된 새 성의 PROVINCE_COORDS 좌표를 그대로 쓴다.
+  {
+    // Hòa Bình -> Phú Thọ(2025년 통합, Phú Thọ + Vĩnh Phúc + Hòa Bình).
+    keys: ['phu tho', 'phú thọ', 'hoa binh', 'hòa bình'],
+    lat: 21.4208, lng: 105.2306,
+  },
+  {
+    // Hà Nam/Nam Định 흡수 통합: Ninh Bình + Hà Nam + Nam Định.
+    keys: ['ninh binh', 'ninh bình', 'ha nam', 'hà nam', 'nam dinh', 'nam định'],
+    lat: 20.2506, lng: 105.9744,
+  },
+  {
+    // Tiền Giang -> Đồng Tháp(2025년 통합, Đồng Tháp + Tiền Giang).
+    keys: ['dong thap', 'đồng tháp', 'tien giang', 'tiền giang'],
+    lat: 10.4938, lng: 105.6881,
+  },
+  { keys: ['nghe an', 'nghệ an'], lat: 18.6796, lng: 105.6813 },
+  {
+    // Lâm Đồng: 통합 없이 유지된 성(Đắk Nông/Bình Thuận을 흡수) — 자기 자신 그룹.
+    keys: ['lam dong', 'lâm đồng'],
+    lat: 11.9404, lng: 108.4583,
+  },
+  {
+    // Trà Vinh/Bến Tre -> Vĩnh Long(2025년 통합, Vĩnh Long + Bến Tre + Trà Vinh).
+    keys: ['vinh long', 'vĩnh long', 'ben tre', 'bến tre', 'tra vinh', 'trà vinh'],
+    lat: 10.2537, lng: 105.9722,
+  },
+  {
+    // Phú Yên -> Đắk Lắk(2025년 통합, Đắk Lắk + Phú Yên).
+    keys: ['dak lak', 'đắk lắk', 'phu yen', 'phú yên'],
+    lat: 12.6667, lng: 108.0500,
+  },
+  {
+    // Yên Bái -> Lào Cai(2025년 통합, Lào Cai + Yên Bái). Lào Cai는 job_quality.
+    // PROVINCE_COORDS에 없어(그 표는 실제로 등장한 성 위주로만 채워짐) 재사용할
+    // 기존 좌표가 없다 — Lào Cai 시(省都)의 공개된 실제 좌표를 직접 사용한다
+    // (임의의 사업장 좌표가 아니라 이미 잘 알려진 행정중심지 좌표).
+    keys: ['lao cai', 'lào cai', 'yen bai', 'yên bái'],
+    lat: 22.4809, lng: 103.9755,
+  },
+  {
+    // Lạng Sơn: 통합 없이 유지된 성. job_quality.PROVINCE_COORDS에 없어(위와
+    // 동일한 이유) Lạng Sơn 시의 공개된 실제 좌표를 직접 사용한다.
+    keys: ['lang son', 'lạng sơn'],
+    lat: 21.8537, lng: 106.7610,
+  },
 ]
 
 /** Chuẩn hoá để so khớp địa điểm / từ khoá (bỏ dấu, thường). */

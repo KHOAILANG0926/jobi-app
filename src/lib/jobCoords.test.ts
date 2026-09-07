@@ -275,9 +275,16 @@ function testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText():
   // 확인한다(addressAccuracy가 'region_only'여도 매칭되는 PLACES 항목이
   // 없으면 여전히 'pending'이어야 함 — 아래 별도 테스트가 매칭되는 경우의
   // 예외를 검증한다).
+  //
+  // 2026-09-07 최종 검증에서 발견된 결함 수정: 이전 버전은 여기 "매칭되는
+  // 지역명이 전혀 없는" 표본으로 "Toàn khu vực, Vũng Tàu"를 썼는데, 그 뒤
+  // PLACES에 Vũng Tàu(운영 데이터 실측으로 확인된 실제 지역)를 추가하면서
+  // 이 표본이 더 이상 "매칭 없음" 사례가 아니게 됐다 — 미등록 지역을
+  // 정상이라고 가정했던 셈이라 잘못된 테스트였다. 실존하지 않는 합성
+  // 지명으로 바꿔 "정말 매칭이 없는 경우"만 검증하도록 정정한다.
   const pendingJob = {
     workLocations: [{
-      rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const,
+      rawAddress: 'Toàn khu vực, Khu Vực Không Xác Định', coordinateAccuracy: 'unresolved' as const,
       geocodeStatus: 'pending' as const, addressAccuracy: 'region_only' as const,
     }],
   }
@@ -290,7 +297,7 @@ function testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText():
   const mixedJob = {
     workLocations: [
       {
-        rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const,
+        rawAddress: 'Toàn khu vực, Khu Vực Không Xác Định', coordinateAccuracy: 'unresolved' as const,
         geocodeStatus: 'pending' as const, addressAccuracy: 'region_only' as const,
       },
       { rawAddress: 'C', lat: 10.4, lng: 106.4, coordinateAccuracy: 'exact' as const, locationVerified: true, geocodeStatus: 'success' as const },
@@ -298,6 +305,31 @@ function testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText():
   }
   const mixedResult = resolveMapLocations(mixedJob)
   assertEqual(mixedResult.source, 'exact', "when at least one work location isn't pending, resolveMapLocations must not force the whole job into 'pending'")
+}
+
+function testRegionOnlyPendingRealVungTauCase(): void {
+  // 2026-09-07 사용자 지시(최종 검증 미완료 사항 보완) — 실측 job_id=436
+  // "Toàn khu vực, Vũng Tàu"(pending, region_only)는 findRegionCenter가
+  // PLACES에 Vũng Tàu를 인식하지 못해 지도 좌표가 전혀 안 나오던 사례.
+  // Bà Rịa - Vũng Tàu가 2025년 성급 통합으로 Hồ Chí Minh에 합쳐졌다는
+  // 기존 백엔드 표준화 자료(vn_province_merger_2025.py)를 재사용해 PLACES를
+  // 보완한 뒤, 이 실제 사례가 요구사항대로 나오는지 직접 확인한다:
+  // source='region'이 아니어도(현재 구현은 'address'를 씀 — 아래 참고)
+  // 최소한 'pending'/'default'가 아니어야 하고, 점 1개, precise=false.
+  const job = {
+    workLocations: [{
+      rawAddress: 'Toàn khu vực, Vũng Tàu',
+      coordinateAccuracy: 'unresolved' as const,
+      geocodeStatus: 'pending' as const,
+      addressAccuracy: 'region_only' as const,
+    }],
+  }
+  const result = resolveMapLocations(job)
+  assertTrue(result.source !== 'pending' && result.source !== 'default', "실측 Vũng Tàu 사례는 PLACES 보완 후 'pending'/'default'로 남으면 안 됨")
+  assertEqual(result.points.length, 1, "지역 대표 좌표 1개가 나와야 함")
+  assertFalse(result.points[0].precise, "정확한 사업장 좌표가 아니므로 precise=false를 유지해야 함")
+  assertEqual(result.points[0].lat, 10.7769, "Bà Rịa - Vũng Tàu가 합쳐진 Hồ Chí Minh의 PROVINCE_COORDS 좌표를 그대로 재사용해야 함")
+  assertEqual(resolveDistanceSearchPoints(job).length, 0, "지역 대표 좌표는 거리검색 대상이 될 수 없다(좌표 없는 region_only 원본)")
 }
 
 function testRegionOnlyPendingStillShowsRegionCenterMap(): void {
@@ -346,6 +378,25 @@ function testExactTextPendingNeverFabricatesMapPointEvenWithMatchableText(): voi
   assertEqual(result.points.length, 0, "exact_text + pending은 지도에 점을 만들면 안 됨")
 }
 
+function testFindRegionCenterCoversEveryProvinceUsedByRegionOnlyProductionData(): void {
+  // 2026-09-07 사용자 지시 — 운영 DB의 job_work_locations(address_accuracy=
+  // 'region_only')에서 matched_recruitment_regions로 실제 쓰이는 고유 성·시
+  // 26개를 읽기 전용으로 집계한 결과(전수 확인, 2026-09-07 기준 region_only
+  // 76건 전체가 matched_recruitment_regions를 최소 1개씩 가짐 — 원문 텍스트만
+  // 보고 판단할 필요가 없었음). 이 26개 전부가 findRegionCenter()에서 null이
+  // 아니어야 한다 — 알려진 성·시를 'pending'으로 방치하지 않는다는 요구사항의
+  // 직접적인 회귀 가드.
+  const productionRegionOnlyProvinces = [
+    'TP.HCM', 'Hà Nội', 'Bình Dương', 'Long An', 'Hải Dương', 'Đồng Nai',
+    'Yên Bái', 'Hòa Bình', 'Ninh Bình', 'Tiền Giang', 'Nghệ An', 'Bình Phước',
+    'Lâm Đồng', 'Trà Vinh', 'Bến Tre', 'Vĩnh Long', 'Lạng Sơn', 'Quảng Ninh',
+    'Thái Nguyên', 'Hà Nam', 'Phú Yên', 'Khánh Hòa', 'Bắc Ninh', 'Hưng Yên',
+    'Nam Định', 'Bà Rịa - Vũng Tàu',
+  ]
+  const unresolved = productionRegionOnlyProvinces.filter((p) => findRegionCenter(p) === null)
+  assertTrue(unresolved.length === 0, `findRegionCenter는 운영 region_only 데이터가 쓰는 26개 성·시 전부를 인식해야 한다 — 미인식: ${JSON.stringify(unresolved)}`)
+}
+
 function main(): void {
   const tests = [
     testResolveWorkLocationQuery,
@@ -355,8 +406,10 @@ function main(): void {
     testRecruitmentRegionFallbackNeverDuplicatesOneCoordinate,
     testCompanyRegisteredAddressNeverUsedAsMapOrDirectionsFallback,
     testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText,
+    testRegionOnlyPendingRealVungTauCase,
     testRegionOnlyPendingStillShowsRegionCenterMap,
     testExactTextPendingNeverFabricatesMapPointEvenWithMatchableText,
+    testFindRegionCenterCoversEveryProvinceUsedByRegionOnlyProductionData,
   ]
   for (const test of tests) {
     test()
