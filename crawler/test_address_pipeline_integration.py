@@ -945,6 +945,9 @@ class _FakeQuery:
     def in_(self, *_a, **_k):
         return self
 
+    def limit(self, *_a, **_k):
+        return self
+
     def eq(self, col, val):
         self._record["filters"][col] = val
         return self
@@ -1086,12 +1089,16 @@ def test_new_job_transient_geocode_failure_still_saves_work_locations() -> None:
     스케줄이 다시 돌기 전까지 근무지 데이터가 영원히 0건으로 남는다(이
     크롤러에는 실패한 신규 공고만 골라 재시도하는 별도 루프가 없다).
 
-    수정: existing이 None이면 had_transient와 무관하게 저장한다(기존
-    공고 재크롤 시의 보호는 그대로 유지 — 아래 대조군 및 기존
+    수정: job_work_locations에 기존 행이 하나도 없으면(_has_existing_
+    work_locations) had_transient와 무관하게 저장한다(기존 공고 재크롤
+    시의 보호는 그대로 유지 — 아래 대조군 및 기존
     test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job
-    참고)."""
+    참고). select_result=[]로 job_work_locations 조회가 항상 "행 없음"을
+    반환하게 해 _has_existing_work_locations()가 실제로 False를 내도록
+    한다(가짜 DB의 기본 fallback은 무조건 truthy를 반환해 이 케이스를
+    검증 못 함)."""
     original_supabase = crawl_topcv.supabase
-    fake = _FakeSupabase()
+    fake = _FakeSupabase(select_result=[])
     crawl_topcv.supabase = fake
     try:
         new_job = _make_rerun_job(
@@ -1127,6 +1134,91 @@ def test_new_job_transient_geocode_failure_still_saves_work_locations() -> None:
             "raw_address는 좌표 확보(geocode) 실패와 무관하게 원문 그대로 보존돼야 함",
         )
         assert_equal(rows[0]["geocode_status"], "failed", "좌표를 못 찾았으므로 geocode_status는 여전히 'failed'(재시도 대상 표시) — 'success'로 조작하면 안 됨")
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
+def test_reprocessed_existing_job_with_zero_work_locations_still_saves_on_transient_failure() -> None:
+    """버그 재현(2026-09-07 실측, job_id=4572 2차 재현) — 위 신규-INSERT
+    수정을 적용한 뒤 실제로 job_id=4572를 `--reprocess-ids`로 다시 돌렸더니
+    또 transient 오류를 만나 여전히 job_work_locations가 0건으로 남았다.
+    원인: `--reprocess-ids`는 대상이 이미 local_jobs에 존재하는 공고이므로
+    match_existing_row()가 항상 existing을 찾아(existing is not None) UPDATE
+    경로를 타고, 1차 수정의 "existing is None이면 저장" 조건이 이 경로에서는
+    전혀 적용되지 않았다 — "지킬 기존 데이터가 있는가"를 local_jobs 매칭
+    여부가 아니라 job_work_locations에 실제 행이 있는가로 판단하도록
+    _has_existing_work_locations()로 교체해 수정한다. 이 테스트는 '이미
+    존재하는 local_jobs 행 + job_work_locations 0건 + 이번 재처리도
+    transient 오류'라는 정확한 재현 조건을 만든다."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase(select_result=[])
+    crawl_topcv.supabase = fake
+    try:
+        existing = _make_existing_row(id=4572, source_url="https://vieclam24h.vn/xay-dung/ky-su-xay-dung-c31p73id200927806.html")
+        by_source_url = {existing["source_url"]: existing}
+        by_key = {canonical_job_key(existing["title"], existing["company"]): existing}
+
+        rerun_job = _make_rerun_job(
+            source_url=existing["source_url"],
+            _had_transient_geocode_failure=True,
+            _resolved_locations=[{
+                "raw_address": "Số 471 Tam Trinh, phường Hoàng Mai (Trụ sở công ty), Hoàng Mai",
+                "normalized_address": "so 471 tam trinh phuong hoang mai tru so cong ty hoang mai",
+                "lat": None, "lng": None,
+                "geocode_status": "failed", "geocode_source": None,
+                "address_accuracy": "exact_text", "coordinate_accuracy": "unresolved",
+                "address_evidence": "geocode API 일시 오류로 이번 판정 불완전", "source_verified": False,
+                "matched_recruitment_regions": ["Hà Nội"],
+            }],
+        )
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(rerun_job, by_source_url, by_key)
+        assert_equal(result["action"] in ("updated", "unchanged"), True, "이미 존재하는 공고를 재처리하는 경로여야 함(INSERT 아님)")
+
+        rpc_calls = [c for c in fake.calls if c["kind"] == "rpc"]
+        assert_equal(
+            len(rpc_calls), 1,
+            "이미 존재하는 공고라도 job_work_locations가 0건이면 지킬 데이터가 없으므로, "
+            "재처리 중 또 transient 오류를 만나도 RPC가 실행돼 raw_address 행이 저장돼야 함",
+        )
+        rows = (rpc_calls[0]["payload"] or {}).get("p_rows") or []
+        assert_equal(len(rows), 1, "1건의 근무지 행이 RPC payload에 담겨야 함")
+        assert_equal(rows[0]["raw_address"], "Số 471 Tam Trinh, phường Hoàng Mai (Trụ sở công ty), Hoàng Mai", "raw_address는 원문 그대로 보존돼야 함")
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
+def test_reprocessed_existing_job_with_existing_work_locations_still_protected_on_transient_failure() -> None:
+    """대조군 — job_work_locations에 이미 좋은 행이 있는 공고를 재처리하다가
+    transient 오류를 만나면, 기존 보호(2026-09-04, DOJI Tower 사례)가 여전히
+    그대로 적용돼 RPC가 실행되면 안 된다. _has_existing_work_locations()로
+    기준을 바꾼 것이 "무조건 저장"으로 퇴행하지 않았는지 확인하는 대조군."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase(select_result=[{"id": 999001}])
+    crawl_topcv.supabase = fake
+    try:
+        existing = _make_existing_row(id=4433, source_url="https://vieclam24h.vn/test-job-4433.html")
+        by_source_url = {existing["source_url"]: existing}
+        by_key = {canonical_job_key(existing["title"], existing["company"]): existing}
+
+        rerun_job = _make_rerun_job(
+            source_url=existing["source_url"],
+            _had_transient_geocode_failure=True,
+            _resolved_locations=[{
+                "raw_address": "Hoàn Kiếm, Hoàn Kiếm",
+                "normalized_address": "hoan kiem hoan kiem",
+                "lat": None, "lng": None,
+                "geocode_status": "failed", "geocode_source": None,
+                "address_accuracy": "region_only", "coordinate_accuracy": "unresolved",
+                "address_evidence": "geocode API 일시 오류", "source_verified": False,
+                "matched_recruitment_regions": ["Hà Nội"],
+            }],
+        )
+        with crawl_topcv.enable_writes():
+            crawl_topcv.upsert_job_record(rerun_job, by_source_url, by_key)
+
+        rpc_calls = [c for c in fake.calls if c["kind"] == "rpc"]
+        assert_equal(rpc_calls, [], "job_work_locations에 이미 행이 있으면 transient 오류 시 여전히 RPC를 건너뛰어야 함(기존 보호 유지)")
     finally:
         crawl_topcv.supabase = original_supabase
 
@@ -1986,6 +2078,8 @@ def main() -> int:
         test_gate_publishes_regardless_of_coordinate_verification_tier,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
         test_new_job_transient_geocode_failure_still_saves_work_locations,
+        test_reprocessed_existing_job_with_zero_work_locations_still_saves_on_transient_failure,
+        test_reprocessed_existing_job_with_existing_work_locations_still_protected_on_transient_failure,
         test_admin_hidden_row_never_republished_by_normal_recrawl,
         test_admin_hidden_survives_load_existing_lookup_maps_and_blocks_active_update,
         test_job_recruitment_regions_reaches_insert_payload_after_migration_0018,

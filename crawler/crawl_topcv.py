@@ -1395,6 +1395,24 @@ def _work_location_rpc_rows(resolved_locations: list[dict]) -> list[dict]:
     return rows
 
 
+def _has_existing_work_locations(job_id: int) -> bool:
+    """이 job_id에 이미 job_work_locations 행이 하나라도 있는지 — transient
+    실패 가드가 "지킬 기존 데이터"의 실제 기준으로 삼는다.
+
+    2026-09-07 사용자 지시로 실측 확인·수정(job_id=4572 재현): 처음 이
+    가드를 고칠 때는 "existing(local_jobs 매칭) is None(브랜드 뉴 잡)"만
+    확인했는데, --reprocess-ids로 '이미 local_jobs 행은 있지만 job_work_
+    locations는 0건'인 공고를 재처리하면 existing이 항상 non-None이라 그
+    수정이 전혀 적용되지 않았다 — job_id=4572를 --reprocess-ids로 다시
+    돌렸을 때 또 다른 transient 오류를 만나 여전히 0건으로 남는 것을 직접
+    확인했다. "지킬 기존 데이터가 있는가"는 local_jobs 매칭 여부가 아니라
+    job_work_locations에 실제 행이 있는가로 판단해야 한다."""
+    if not supabase:
+        return False
+    resp = supabase.table("job_work_locations").select("id").eq("job_id", job_id).limit(1).execute()
+    return bool(resp.data)
+
+
 def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> None:
     """Atomic replace via the replace_job_work_locations(p_job_id, p_rows)
     Postgres function (see supabase/migrations/ — NOT yet applied to the
@@ -1405,14 +1423,19 @@ def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> 
     after the delete but before the insert could leave a job with zero
     known work locations even though good data existed a moment earlier.
 
-    Callers must NOT call this for an EXISTING job when address resolution
-    had a transient failure (geocode API error) for this job this run — see
-    resolve_work_locations()'s had_transient_failure — an incomplete result
-    must never replace previously-known-good rows. This restriction does NOT
-    apply to a brand-new job (no prior job_work_locations rows exist yet) —
+    Callers must NOT call this for a job that already HAS job_work_locations
+    rows when address resolution had a transient failure (geocode API error)
+    for this job this run — see resolve_work_locations()'s had_transient_
+    failure — an incomplete result must never replace previously-known-good
+    rows. This restriction does NOT apply when the job currently has ZERO
+    job_work_locations rows (whether it's a brand-new local_jobs insert, or
+    an existing job being reprocessed that never got its rows written) —
     there is nothing to protect there, and skipping the write would instead
     leave the job permanently addressless until an unrelated future re-crawl
-    happens to succeed (2026-09-07 사용자 지시로 실측 확인·수정, job_id=4572).
+    happens to succeed (2026-09-07 사용자 지시로 실측 확인·수정, job_id=4572 —
+    처음 수정은 신규 INSERT 경로만 고려했으나, 이미 존재하는 job을
+    --reprocess-ids로 재처리하는 경로에서 동일 증상이 재현돼 기준을
+    _has_existing_work_locations()로 교체함).
     """
     _require_write_enabled()
     supabase.rpc(
@@ -1555,19 +1578,21 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     # 그대로 둔다(불완전한 결과로 알고 있던 좋은 데이터를 지우지 않는다) —
     # 단, 이 보호는 "지킬 기존 데이터가 있을 때"만 의미가 있다.
     #
-    # 2026-09-07 사용자 지시로 발견·수정한 버그(실측 job_id=4572 "Kỹ Sư Xây
-    # Dựng" — 원문 근무지 1건이 정상 추출·분류됐는데도 job_work_locations
-    # 행이 0건으로 영구히 남음): existing이 None(이번에 처음 INSERT되는
-    # 브랜드 뉴 잡)인데도 이 가드가 똑같이 적용돼, transient 오류가 나면
-    # 그 공고는 raw_address 행 자체를 영원히 갖지 못했다 — 신규 공고는
-    # 애초에 "지킬 기존 좋은 데이터"가 없으므로 저장을 건너뛸 이유가 없고,
-    # 이 크롤러에는 실패한 신규 공고만 골라 재시도하는 별도 루프도 없어
-    # 다음 번 우연한 재크롤 전까지 근무지 데이터가 계속 비어 있었다. 기존
-    # 공고 재크롤 시의 보호(무언가를 덮어쓰지 않기)는 그대로 유지한다.
-    if job_id and (not had_transient or existing is None):
+    # 2026-09-07 사용자 지시로 두 차례 실측 확인·수정된 버그(job_id=4572
+    # "Kỹ Sư Xây Dựng"): 1차 수정은 "existing(local_jobs 매칭)이 None(신규
+    # INSERT)이면 무조건 저장"이었는데, 이 공고를 --reprocess-ids로 다시
+    # 돌렸을 때 또 transient 오류를 만나면서 여전히 0건으로 남는 것을 직접
+    # 확인했다 — --reprocess-ids는 항상 UPDATE 경로(existing이 non-None)라
+    # 1차 수정이 전혀 적용되지 않았던 것. "지킬 기존 데이터가 있는가"는
+    # local_jobs 매칭 여부가 아니라 job_work_locations에 실제 행이 있는가로
+    # 판단해야 해서 _has_existing_work_locations()로 교체했다 — 신규
+    # INSERT든 기존 job 재처리든, job_work_locations가 이미 0건이면 지킬
+    # 데이터가 없으므로 transient 오류와 무관하게 이번 판정을 저장한다.
+    had_existing_work_locations = _has_existing_work_locations(job_id) if job_id else False
+    if job_id and (not had_transient or not had_existing_work_locations):
         _replace_job_work_locations(job_id, resolved)
         if had_transient:
-            print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 신규 공고(지킬 기존 데이터 없음) — 이번 판정 그대로 저장")
+            print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 기존 근무지 행이 0건(지킬 데이터 없음) — 이번 판정 그대로 저장")
     elif had_transient:
         print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 — 근무지 동기화 보류(기존 데이터 유지)")
 
