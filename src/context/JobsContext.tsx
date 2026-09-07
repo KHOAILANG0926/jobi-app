@@ -90,7 +90,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       // 위치)과 위치별 모집지역 라벨 표시에 쓴다(src/lib/jobCoords.ts 참고).
       const { data: locRows } = await supabase
         .from('job_work_locations')
-        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions')
+        .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status')
         .in('job_id', jobIds)
         .order('sort_order', { ascending: true })
       for (const r of locRows ?? []) {

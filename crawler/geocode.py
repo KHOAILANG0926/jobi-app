@@ -411,6 +411,33 @@ _VN_LAT_RANGE = (8.0, 24.0)
 _VN_LNG_RANGE = (102.0, 110.0)
 
 
+# 2026-09-07 사용자 지시로 신설 — 실제 지명이 아니라 "전체 지역"이라는
+# 뜻만 갖는 범용 문구("Toàn khu vực, Vũng Tàu"처럼 주소 전체가 이 문구
+# 하나뿐인 pending 표본 76건 중 13건에서 실측 확인). 이런 문구가 질의에
+# 남아 있으면 Geoapify가 그 문구 자체를 지명으로 오인해 매칭에 실패하거나
+# 노이즈만 더한다 — 지오코딩을 시도하기 전에 항상 먼저 제거한다.
+_SEARCH_NOISE_PHRASE_RE = re.compile(
+    r"\b(toàn\s+khu\s+vực|toàn\s+bộ\s+khu\s+vực|và\s+các\s+khu\s+vực\s+lân\s+cận|khu\s+vực\s+lân\s+cận)\b\.?",
+    re.IGNORECASE,
+)
+
+
+def strip_search_noise_phrases(address: str) -> str:
+    """지오코딩 질의를 만들기 전에 항상 먼저 적용 — '전체 지역'이라는 뜻만
+    갖는 범용 문구를 제거하고, 그로 인해 생긴 빈 콤마 조각·중복 공백을
+    정리한다. 문구가 통째로 한 세그먼트였다면(예: "Toàn khu vực, Vũng
+    Tàu") 그 세그먼트 자체가 사라지고, 문구 뒤에 실제 지명이 공백으로만
+    붙어 있었다면(예: "Toàn khu vực Hà Nội, Đống Đa") 그 지명이 그대로
+    살아남는다."""
+    text = str(address or "")
+    if not text:
+        return text
+    text = _SEARCH_NOISE_PHRASE_RE.sub("", text)
+    parts = [p.strip() for p in text.split(",")]
+    parts = [p for p in parts if p]
+    return normalize_whitespace(", ".join(parts))
+
+
 def normalize_address_for_query(raw_address: str) -> str:
     """Strategy 3: strip '(cũ)'-style former-name annotations and collapse
     consecutive duplicate comma-segments (e.g. a province name repeated
@@ -520,6 +547,7 @@ def build_query_variants(raw_address: str, province: str | None) -> list[dict]:
     candidate). Each variant is {'type': str, 'query': str, 'bbox_province':
     str|None} — 'bbox_province' marks the one variant that should use a hard
     bounding-box filter (see resolve_bias_province) instead of soft bias."""
+    raw_address = strip_search_noise_phrases(raw_address)
     province_suffix = f"{province}, Vietnam" if province else "Vietnam"
     variants: list[dict] = [{"type": "raw", "query": f"{raw_address}, {province_suffix}"}]
 
@@ -543,6 +571,34 @@ def build_query_variants(raw_address: str, province: str | None) -> list[dict]:
         variants.append({"type": "bbox", "query": f"{raw_address}, {province_suffix}", "bbox_province": bias_province})
 
     return variants
+
+
+def peek_geocode_cache(raw_address: str, province: str | None) -> list[dict]:
+    """2026-09-07 사용자 지시로 신설 — dry-run 전용 조회 함수. resolve_coordinate_
+    accuracy()가 실제로 실행되면 시도할 질의 변형(build_query_variants) 각각에
+    대해 geocode_cache에 이미 결과가 있는지 읽기만 한다 — Geoapify API는
+    캐시가 미스여도 절대 호출하지 않는다(_geocode_query_raw를 부르지 않음).
+    재지오코딩 CLI가 "이 주소를 실제로 처리하면 API를 몇 번 부를지"를 미리
+    보여줄 수 있게 하기 위한 목적 전용 함수 — resolve_coordinate_accuracy()와
+    동일한 cache_key 계산식(_cache_key(raw_address, f"cascade|{variant}|{province}", None))
+    을 그대로 재사용해, 실제 캐시 판정과 어긋나지 않게 한다.
+
+    Returns [{'variant','query','cache_key','cache_hit','cached_status'}, ...],
+    변형(build_query_variants) 순서 그대로."""
+    variants = build_query_variants(raw_address, province)
+    out: list[dict] = []
+    for v in variants:
+        cache_key = _cache_key(raw_address, f"cascade|{v['type']}|{province or ''}", None)
+        cached = _read_cache(cache_key)
+        hit = bool(cached and cached.get("status") in ("success", "no_results"))
+        out.append({
+            "variant": v["type"],
+            "query": v["query"],
+            "cache_key": cache_key,
+            "cache_hit": hit,
+            "cached_status": cached.get("status") if cached else None,
+        })
+    return out
 
 
 def _place_name_matches(top: dict, place_name: str | None) -> bool | None:
@@ -795,6 +851,11 @@ def resolve_coordinate_accuracy(raw_address: str, province: str | None) -> dict:
             "geocode_source": "geoapify" if point else None,
             "evidence": f"{evidence}{_region_breakdown_note(sample)}",
             "had_transient_failure": had_transient_failure,
+            # 2026-09-07 사용자 지시로 추가 — job_work_locations.province/district
+            # 갱신(재지오코딩 CLI)에 쓸 수 있도록, 채택된(또는 그나마 참고할)
+            # Geoapify 원본 결과를 그대로 노출한다. 기존 호출부는 이 키를
+            # 안 쓰므로(딕셔너리에 새 키 추가는 하위 호환) 영향 없음.
+            "top": sample["top"] if sample else None,
         }
 
     if conflicting:

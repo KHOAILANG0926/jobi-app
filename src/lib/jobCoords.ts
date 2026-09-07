@@ -65,7 +65,7 @@ export function findRegionCenter(location: string): { lat: number; lng: number }
   return null
 }
 
-export type MapCoordinateSource = 'exact' | 'address' | 'district' | 'region' | 'default'
+export type MapCoordinateSource = 'exact' | 'address' | 'district' | 'region' | 'pending' | 'default'
 
 export interface ResolvedMapLocation {
   lat: number
@@ -143,6 +143,11 @@ export interface ResolvedMapLocations {
   zoom: number
 }
 
+/** job_work_locations.geocode_status 문자열 — types/job.ts의 GeocodeStatus와
+ *  값 집합은 같지만, 이 파일이 그 타입에 의존하지 않고도 쓸 수 있도록
+ *  별도로 좁혀 선언한다(CoordinateAccuracyLike와 동일한 이유). */
+type GeocodeStatusLike = 'pending' | 'success' | 'failed' | 'manual'
+
 interface WorkLocationLike {
   rawAddress: string
   lat?: number
@@ -150,6 +155,10 @@ interface WorkLocationLike {
   coordinateAccuracy?: CoordinateAccuracyLike
   locationVerified?: boolean
   matchedRecruitmentRegions?: string[]
+  /** 'pending'이면 아직 지오코딩을 시도하지 않은 상태(주로 addressAccuracy
+   *  'region_only') — resolveMapLocations()가 이 값을 최우선으로 확인해
+   *  "위치 확인 중"으로 구분한다(2026-09-07 사용자 지시). */
+  geocodeStatus?: GeocodeStatusLike
 }
 
 /** coordinate_accuracy 문자열 — types/job.ts의 CoordinateAccuracy와 값 집합은
@@ -217,7 +226,19 @@ export function resolveMapLocations(job: {
   workLocations?: WorkLocationLike[]
   recruitmentRegions?: string[]
 }): ResolvedMapLocations {
-  const workLocationPoints = (job.workLocations ?? [])
+  const workLocations = job.workLocations ?? []
+
+  // 2026-09-07 사용자 지시: geocode_status='pending'인 근무지(주로
+  // region_only 주소라 아직 지오코딩을 시도하지 않은 경우)만 있는 공고는
+  // 좌표가 없다는 이유로 숨기거나 베트남 기본 중심(source: 'default')으로
+  // 표시하지 않는다 — 텍스트 매칭으로 우연히 지역 중심을 찾을 수 있어도
+  // (예: "Toàn khu vực Hà Nội"), 그보다 먼저 이 상태를 확인해 명확한
+  // 'pending' 소스로 구분한다("아직 확인 안 됨" ≠ "확인했지만 실패").
+  if (workLocations.length > 0 && workLocations.every((l) => l.geocodeStatus === 'pending')) {
+    return { points: [], source: 'pending', zoom: 5 }
+  }
+
+  const workLocationPoints = workLocations
     .map(resolveWorkLocationMapPoint)
     .filter((p): p is ResolvedMapPoint => p !== null)
 
@@ -240,7 +261,7 @@ export function resolveMapLocations(job: {
 
   // 근무지 행 자체가 0건(원문에 "Địa điểm làm việc" 후보가 아예 없음) —
   // 모집지역만 있으면(정책 Tier E) 지역별로 각자의 중심점을 만든다.
-  if ((job.workLocations?.length ?? 0) === 0 && job.recruitmentRegions && job.recruitmentRegions.length > 0) {
+  if (workLocations.length === 0 && job.recruitmentRegions && job.recruitmentRegions.length > 0) {
     const regionPoints = job.recruitmentRegions
       .map((region): ResolvedMapPoint | null => {
         const center = findRegionCenter(region)

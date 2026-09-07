@@ -16,6 +16,15 @@ export type CoordinateAccuracy = 'exact' | 'ward' | 'region' | 'unresolved'
  *  삭제하지 말고 보존"). 'undetermined'는 애초에 행 자체가 생기지 않는다. */
 export type AddressAccuracy = 'exact_text' | 'region_only'
 
+/** job_work_locations.geocode_status — 이 근무지가 지오코딩 파이프라인의
+ *  어느 단계에 있는지. 'pending'은 "실패"가 아니라 "아직 시도하지 않음"
+ *  (보통 addressAccuracy가 'region_only'라 지오코딩을 미룬 경우)이므로,
+ *  UI는 이 값을 'failed'/좌표 없음과 같은 취급으로 숨기거나 베트남 기본
+ *  중심으로 표시하면 안 되고 "위치 확인 중"으로 별도 구분해야 한다
+ *  (2026-09-07 사용자 지시 — src/lib/jobCoords.ts의 MapCoordinateSource
+ *  'pending' 참고). */
+export type GeocodeStatus = 'pending' | 'success' | 'failed' | 'manual'
+
 export interface JobWorkLocation {
   id: number
   rawAddress: string
@@ -51,6 +60,8 @@ export interface JobWorkLocation {
    *  공고 전체 모집지역(Job.recruitmentRegions)과는 별개 — 근무지 행이 0건이거나
    *  이 위치에 매칭되지 않은 지역은 여기 담기지 않는다. */
   matchedRecruitmentRegions?: string[]
+  /** job_work_locations.geocode_status — GeocodeStatus 참고. */
+  geocodeStatus?: GeocodeStatus
 }
 
 export interface Job {

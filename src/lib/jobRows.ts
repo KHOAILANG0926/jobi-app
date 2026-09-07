@@ -1,7 +1,7 @@
 import { classifyJobCategory } from './jobCategoryRules.ts'
 import { ensureJobFields } from './jobUtils.ts'
 import { supabase } from './supabase.ts'
-import type { AddressAccuracy, CoordinateAccuracy, Job } from '../types/job.ts'
+import type { AddressAccuracy, CoordinateAccuracy, GeocodeStatus, Job } from '../types/job.ts'
 
 /** DB row(local_jobs/job_work_locations) -> Job 매핑 로직 — JobsContext.tsx와
  *  fetchEmployerJobs() 둘 다 이 파일을 공유한다(단일 진실 공급원). 이 파일에
@@ -44,6 +44,7 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
     coordinateAccuracy: coordinateAccuracy ?? undefined,
     locationVerified,
     matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
+    geocodeStatus: (r.geocode_status as GeocodeStatus | null | undefined) ?? undefined,
   }
 }
 
@@ -121,7 +122,7 @@ export interface JobsQueryClient {
 const EMPLOYER_JOBS_SELECT_COLUMNS =
   'id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
-  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions'
+  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status'
 
 /**
  * 로그인한 기업 자신의 공고를 employer_id=auth.uid() 기준으로 직접 조회한다 —

@@ -388,7 +388,15 @@ export function JobDetail() {
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {isRegionOnlyText ? (
+                            {loc.geocodeStatus === 'pending' ? (
+                              // 2026-09-07 사용자 지시: geocode_status='pending'은
+                              // "실패"가 아니라 "아직 지오코딩을 시도하지 않음" —
+                              // isRegionOnlyText와 같은 tier여도 이미 확정된 근사
+                              // 판정처럼 읽히는 문구 대신, 아직 확인 중임을 명시한다.
+                              <p className="jd2-map-pending-note">
+                                Đang xác minh vị trí — hệ thống chưa xác định được tọa độ cho địa chỉ này.
+                              </p>
+                            ) : isRegionOnlyText ? (
                               // Tier C/D — 성·시 또는 구·군·동만 있는 텍스트, 구체적
                               // 상세주소가 아니다. 거리검색에도 쓰이지 않는다.
                               <p className="jd2-map-ward-note">
@@ -484,6 +492,17 @@ export function JobDetail() {
                             : 'Vị trí gần đúng theo khu vực — bản đồ mang tính minh họa, không phải địa chỉ chi tiết.'}
                       </p>
                     </>
+                  )}
+                  {/* mapLocations.source === 'pending'일 때는 hasMapPoints가 항상
+                      false(points: [])라 위 지도 블록이 아예 렌더되지 않는다 —
+                      좌표가 전혀 없다는 이유로 이 카드 전체가 비어 보이지 않도록,
+                      "아직 확인 중"임을 알리는 별도 안내를 지도 대신 보여준다
+                      (2026-09-07 사용자 지시: 베트남 기본 중심 표시도, 완전히
+                      숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
+                  {mapLocations.source === 'pending' && (
+                    <p className="jd2-map-pending-note">
+                      Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
+                    </p>
                   )}
                 </>
               )}

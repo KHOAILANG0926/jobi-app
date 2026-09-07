@@ -268,6 +268,39 @@ function testCompanyRegisteredAddressNeverUsedAsMapOrDirectionsFallback(): void 
   assertEqual(result.source, 'default', "a job with no real work-location/recruitment-region data must fall through to 'default', never silently pick up an unrelated companyAddress-shaped field")
 }
 
+function testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText(): void {
+  // 2026-09-07 사용자 지시: geocode_status='pending'인 근무지만 있는 공고는
+  // 'default'(베트남 전체 중심)로 표시하거나 숨기지 말고 명확한 'pending'
+  // source로 구분해야 한다 — resolveMapLocations()가 이를 점 해석(lat/lng,
+  // findRegionCenter 텍스트 매칭 등)보다 먼저 확인하는지 검증한다.
+  const pendingJob = {
+    workLocations: [{ rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const, geocodeStatus: 'pending' as const }],
+  }
+  const pendingResult = resolveMapLocations(pendingJob)
+  assertEqual(pendingResult.source, 'pending', "geocode_status='pending' work location -> map source 'pending', not 'default'")
+  assertEqual(pendingResult.points.length, 0, "pending source must return zero points (nothing to plot yet)")
+
+  // rawAddress에 실제로 매칭 가능한 지명("Hà Nội")이 들어있어도, geocodeStatus
+  // ==='pending'이면 그 텍스트 매칭보다 먼저 'pending'으로 판정해야 한다 —
+  // "아직 확인 안 됨"과 "확인했더니 지역 중심으로 근사"를 혼동하면 안 된다.
+  const pendingWithMatchableText = {
+    workLocations: [{ rawAddress: 'Toàn khu vực Hà Nội, Đống Đa', coordinateAccuracy: 'unresolved' as const, geocodeStatus: 'pending' as const }],
+  }
+  const pendingWithMatchableTextResult = resolveMapLocations(pendingWithMatchableText)
+  assertEqual(pendingWithMatchableTextResult.source, 'pending', "pending status must win over text-based region-name matching, even when the raw text contains a resolvable place name")
+
+  // 여러 근무지 중 하나라도 pending이 아니면(예: 이미 success로 지오코딩됨)
+  // 더 이상 전부 pending은 아니므로, 기존 로직대로 그 위치를 사용해야 한다.
+  const mixedJob = {
+    workLocations: [
+      { rawAddress: 'Toàn khu vực, Vũng Tàu', coordinateAccuracy: 'unresolved' as const, geocodeStatus: 'pending' as const },
+      { rawAddress: 'C', lat: 10.4, lng: 106.4, coordinateAccuracy: 'exact' as const, locationVerified: true, geocodeStatus: 'success' as const },
+    ],
+  }
+  const mixedResult = resolveMapLocations(mixedJob)
+  assertEqual(mixedResult.source, 'exact', "when at least one work location isn't pending, resolveMapLocations must not force the whole job into 'pending'")
+}
+
 function main(): void {
   const tests = [
     testResolveWorkLocationQuery,
@@ -276,6 +309,7 @@ function main(): void {
     testMapShownForEveryLocationTier,
     testRecruitmentRegionFallbackNeverDuplicatesOneCoordinate,
     testCompanyRegisteredAddressNeverUsedAsMapOrDirectionsFallback,
+    testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText,
   ]
   for (const test of tests) {
     test()
