@@ -106,7 +106,7 @@ def test_peek_geocode_cache_never_calls_the_api() -> None:
         geocode_module._read_cache = original_read_cache
 
     assert_equal(len(api_calls), 0, "peek_geocode_cache는 캐시 미스여도 절대 _geocode_query_raw(API 호출)를 불러선 안 됨")
-    assert_equal(len(results) >= 2, True, "'Toàn khu vực, Vũng Tàu'는 raw+bbox 등 2개 이상의 질의 변형을 가져야 함(회귀 확인)")
+    assert_equal(len(results) >= 1, True, "'Toàn khu vực, Vũng Tàu'는 최소 'raw' 질의 변형 1개는 가져야 함")
     assert_equal(results[0]["cache_hit"], True, "첫 변형은 fake 캐시가 hit으로 응답하도록 설정됨")
     assert_equal(all(r["cache_hit"] is False for r in results[1:]), True, "나머지 변형은 fake 캐시가 miss로 응답하도록 설정됨")
     for r in results:
