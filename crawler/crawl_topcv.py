@@ -1405,10 +1405,14 @@ def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> 
     after the delete but before the insert could leave a job with zero
     known work locations even though good data existed a moment earlier.
 
-    Callers must NOT call this when address resolution had a transient
-    failure (geocode API error) for this job this run — see
+    Callers must NOT call this for an EXISTING job when address resolution
+    had a transient failure (geocode API error) for this job this run — see
     resolve_work_locations()'s had_transient_failure — an incomplete result
-    must never replace previously-known-good rows.
+    must never replace previously-known-good rows. This restriction does NOT
+    apply to a brand-new job (no prior job_work_locations rows exist yet) —
+    there is nothing to protect there, and skipping the write would instead
+    leave the job permanently addressless until an unrelated future re-crawl
+    happens to succeed (2026-09-07 사용자 지시로 실측 확인·수정, job_id=4572).
     """
     _require_write_enabled()
     supabase.rpc(
@@ -1548,9 +1552,22 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
 
     # job_work_locations는 INSERT/UPDATE 양쪽 경로에서 완전히 동일하게, 원자적으로
     # (RPC) 동기화한다. 이번 판정이 geocode API 오류로 불완전하면 기존 데이터를
-    # 그대로 둔다(불완전한 결과로 알고 있던 좋은 데이터를 지우지 않는다).
-    if job_id and not had_transient:
+    # 그대로 둔다(불완전한 결과로 알고 있던 좋은 데이터를 지우지 않는다) —
+    # 단, 이 보호는 "지킬 기존 데이터가 있을 때"만 의미가 있다.
+    #
+    # 2026-09-07 사용자 지시로 발견·수정한 버그(실측 job_id=4572 "Kỹ Sư Xây
+    # Dựng" — 원문 근무지 1건이 정상 추출·분류됐는데도 job_work_locations
+    # 행이 0건으로 영구히 남음): existing이 None(이번에 처음 INSERT되는
+    # 브랜드 뉴 잡)인데도 이 가드가 똑같이 적용돼, transient 오류가 나면
+    # 그 공고는 raw_address 행 자체를 영원히 갖지 못했다 — 신규 공고는
+    # 애초에 "지킬 기존 좋은 데이터"가 없으므로 저장을 건너뛸 이유가 없고,
+    # 이 크롤러에는 실패한 신규 공고만 골라 재시도하는 별도 루프도 없어
+    # 다음 번 우연한 재크롤 전까지 근무지 데이터가 계속 비어 있었다. 기존
+    # 공고 재크롤 시의 보호(무언가를 덮어쓰지 않기)는 그대로 유지한다.
+    if job_id and (not had_transient or existing is None):
         _replace_job_work_locations(job_id, resolved)
+        if had_transient:
+            print(f"    ⚠️  job_id={job_id}: geocode 일시 오류가 있었지만 신규 공고(지킬 기존 데이터 없음) — 이번 판정 그대로 저장")
     elif had_transient:
         print(f"    ⚠️  job_id={job_id}: geocode 일시 오류 — 근무지 동기화 보류(기존 데이터 유지)")
 

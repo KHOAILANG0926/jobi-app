@@ -1068,6 +1068,69 @@ def test_transient_geocode_failure_never_republishes_or_corrupts_existing_verifi
         crawl_topcv.supabase = original_supabase
 
 
+def test_new_job_transient_geocode_failure_still_saves_work_locations() -> None:
+    """버그 재현(2026-09-07 실측, job_id=4572 "Kỹ Sư Xây Dựng" — 원문 근무지
+    "Số 471 Tam Trinh, phường Hoàng Mai (Trụ sở công ty), Hoàng Mai" 1건이
+    classify_work_location_candidate()='exact'로 정상 추출·분류됐는데도
+    job_work_locations 행이 0건으로 남아 있었다).
+
+    추적 결과: upsert_job_record()의 `if job_id and not had_transient:
+    _replace_job_work_locations(...)` 가드는 "재크롤 중 geocode API가
+    일시적으로 실패했을 때, 이미 알고 있던 좋은 기존 데이터를 불완전한
+    결과로 덮어쓰지 않기 위한" 보호(2026-09-04 사용자 지시, DOJI Tower
+    사례)다 — 그런데 이 가드가 existing이 None(이번에 처음 INSERT되는
+    브랜드 뉴 잡)인 경우에도 똑같이 적용됐다. 신규 공고는 애초에 지킬
+    기존 job_work_locations 행이 없으므로, transient 오류가 있어도 이번
+    판정(raw_address 보존 + geocode_status='failed')을 그대로 저장하는
+    것이 유일하게 안전한 선택이다 — 저장을 건너뛰면 그 공고는 재크롤
+    스케줄이 다시 돌기 전까지 근무지 데이터가 영원히 0건으로 남는다(이
+    크롤러에는 실패한 신규 공고만 골라 재시도하는 별도 루프가 없다).
+
+    수정: existing이 None이면 had_transient와 무관하게 저장한다(기존
+    공고 재크롤 시의 보호는 그대로 유지 — 아래 대조군 및 기존
+    test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job
+    참고)."""
+    original_supabase = crawl_topcv.supabase
+    fake = _FakeSupabase()
+    crawl_topcv.supabase = fake
+    try:
+        new_job = _make_rerun_job(
+            source_url="https://vieclam24h.vn/xay-dung/ky-su-xay-dung-c31p73id200927806.html",
+            _had_transient_geocode_failure=True,
+            _resolved_locations=[{
+                "raw_address": "Số 471 Tam Trinh, phường Hoàng Mai (Trụ sở công ty), Hoàng Mai",
+                "normalized_address": "so 471 tam trinh phuong hoang mai tru so cong ty hoang mai",
+                "lat": None, "lng": None,
+                "geocode_status": "failed", "geocode_source": None,
+                "address_accuracy": "exact_text", "coordinate_accuracy": "unresolved",
+                "address_evidence": "geocode API 일시 오류로 이번 판정 불완전", "source_verified": False,
+                "matched_recruitment_regions": ["Hà Nội"],
+            }],
+        )
+        # by_source_url/by_key를 둘 다 비워 match_existing_row()가 아무것도
+        # 못 찾게 한다 — existing=None(브랜드 뉴 잡) 시나리오를 명시적으로 만듦.
+        with crawl_topcv.enable_writes():
+            result = crawl_topcv.upsert_job_record(new_job, {}, {})
+        assert_equal(result["action"], "inserted", "no existing match -> this must be a fresh insert")
+
+        rpc_calls = [c for c in fake.calls if c["kind"] == "rpc"]
+        assert_equal(
+            len(rpc_calls), 1,
+            "브랜드 뉴 잡은 지킬 기존 job_work_locations 데이터가 없으므로, transient 오류가 있어도 "
+            "RPC가 반드시 실행돼 raw_address 행이 저장돼야 함(수정 전에는 0건 — 실측 job_id=4572)",
+        )
+        rpc_payload = rpc_calls[0]["payload"] or {}
+        rows = rpc_payload.get("p_rows") or []
+        assert_equal(len(rows), 1, "1건의 근무지 행이 RPC payload에 그대로 담겨야 함")
+        assert_equal(
+            rows[0]["raw_address"], "Số 471 Tam Trinh, phường Hoàng Mai (Trụ sở công ty), Hoàng Mai",
+            "raw_address는 좌표 확보(geocode) 실패와 무관하게 원문 그대로 보존돼야 함",
+        )
+        assert_equal(rows[0]["geocode_status"], "failed", "좌표를 못 찾았으므로 geocode_status는 여전히 'failed'(재시도 대상 표시) — 'success'로 조작하면 안 됨")
+    finally:
+        crawl_topcv.supabase = original_supabase
+
+
 def test_admin_hidden_row_never_republished_by_normal_recrawl() -> None:
     """실사례 회귀(2026-09-05, 사용자 지시 — VPS cron 재활성화 첫 실행에서
     실제 발견): --verify-write로 격리 저장한 검증용 비공개 공고(active=False,
@@ -1922,6 +1985,7 @@ def main() -> int:
         test_gate_publishes_partially_verified_mixed_tiers,
         test_gate_publishes_regardless_of_coordinate_verification_tier,
         test_transient_geocode_failure_never_republishes_or_corrupts_existing_verified_job,
+        test_new_job_transient_geocode_failure_still_saves_work_locations,
         test_admin_hidden_row_never_republished_by_normal_recrawl,
         test_admin_hidden_survives_load_existing_lookup_maps_and_blocks_active_update,
         test_job_recruitment_regions_reaches_insert_payload_after_migration_0018,
