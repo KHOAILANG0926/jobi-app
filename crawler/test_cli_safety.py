@@ -97,6 +97,33 @@ def test_sample_limit_11_still_blocked_even_with_sample_offset() -> None:
     assert_true("sample-limit" in msg, f"--sample-offset이 있어도 --sample-limit 상한 검증이 먼저 걸려야 함, got: {msg!r}")
 
 
+def test_new_only_requires_sample_limit() -> None:
+    """--new-only는 목표 신규 건수가 필요하므로 --sample-limit 없이는 차단."""
+    msg = _raises_system_exit(["--confirm-full-crawl", "--new-only"])
+    assert_true("new-only" in msg and "sample-limit" in msg, f"--new-only는 --sample-limit이 필요하다는 안내가 있어야 함, got: {msg!r}")
+
+
+def test_new_only_blocks_sample_offset() -> None:
+    """--new-only는 이미 있는 후보를 항상 즉시 건너뛰므로 --sample-offset과 함께 쓸 수 없다."""
+    msg = _raises_system_exit(["--confirm-full-crawl", "--new-only", "--sample-limit", "5", "--sample-offset", "10"])
+    assert_true("new-only" in msg and "sample-offset" in msg, f"--new-only + --sample-offset 조합 차단 안내가 있어야 함, got: {msg!r}")
+
+
+def test_new_only_blocked_with_process_url() -> None:
+    """--new-only는 --confirm-full-crawl 표본 수집 전용 — --process-url 등 다른 모드와는 함께 쓸 수 없다."""
+    msg = _raises_system_exit([
+        "--process-url", "https://vieclam24h.vn/test-a.html", "--confirm-write",
+        "--new-only", "--sample-limit", "5",
+    ])
+    assert_true("new-only" in msg, f"--new-only + --process-url 조합 차단 안내가 있어야 함, got: {msg!r}")
+
+
+def test_new_only_with_sample_limit_and_confirm_full_crawl_is_allowed() -> None:
+    """--new-only + --sample-limit + --confirm-full-crawl(offset 기본값 0)은 정상 진입해야 한다."""
+    mode = _mode_for(["--confirm-full-crawl", "--new-only", "--sample-limit", "5"])
+    assert_equal(mode, "full_crawl", "--new-only + --sample-limit 조합은 허용돼야 함")
+
+
 def test_existing_dry_run_urls_mode_unaffected() -> None:
     """기존 --dry-run-urls는 --confirm-full-crawl 없이도 그대로 정상 동작
     (이번 안전장치의 영향을 받지 않아야 함)."""
@@ -141,6 +168,10 @@ def main() -> int:
         test_sample_offset_negative_is_blocked,
         test_sample_offset_10_with_sample_limit_10_is_allowed,
         test_sample_limit_11_still_blocked_even_with_sample_offset,
+        test_new_only_requires_sample_limit,
+        test_new_only_blocks_sample_offset,
+        test_new_only_blocked_with_process_url,
+        test_new_only_with_sample_limit_and_confirm_full_crawl_is_allowed,
         test_existing_dry_run_urls_mode_unaffected,
         test_existing_process_url_mode_unaffected,
         test_existing_reprocess_ids_mode_unaffected,

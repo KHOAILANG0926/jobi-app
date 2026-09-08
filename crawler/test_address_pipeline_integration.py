@@ -21,6 +21,7 @@ from crawl_topcv import (
     VerifyWriteExistingMatchError,
     _address_core,
     _compute_job_recruitment_regions,
+    _filter_new_only_candidates,
     _group_candidates_by_core_location,
     _haversine_km,
     _is_duplicate_location,
@@ -1667,6 +1668,51 @@ def test_select_sample_window_offset_10_covers_different_candidates_than_offset_
     assert_equal(tail_batch, short_list[10:15], "후보가 부족하면 남은 것만 반환해야 하고 예외가 나면 안 됨")
 
 
+def test_filter_new_only_candidates_skips_existing_and_stops_exactly_at_target() -> None:
+    """2026-09-08 사용자 지시 4/5번 — --new-only 신설의 핵심 회귀 테스트.
+    이미 DB에 있는(href가 existing_hrefs에 있는) 후보는 결과에서 완전히
+    제외되어야 하고(그 후보는 상세 수집·주소 처리·업데이트를 아예 하지
+    않는다는 의미), 새 후보만 target(limit)개에 도달하는 즉시 멈춰야
+    한다 — target을 채운 뒤에 남은 새 후보가 더 있어도 결과에 포함되면
+    안 된다(배치 중간이라도 정확히 종료)."""
+    candidates = [{"href": f"https://vieclam24h.vn/job-{i}.html", "title": f"Job {i}"} for i in range(10)]
+    # 0,2,4는 이미 DB에 있음(기존 공고) -> 즉시 건너뛰어야 하고 절대 결과에 없어야 함.
+    existing_hrefs = {candidates[0]["href"], candidates[2]["href"], candidates[4]["href"]}
+
+    result = _filter_new_only_candidates(candidates, existing_hrefs, limit=3)
+
+    assert_equal(len(result), 3, "target(limit)=3에 정확히 도달해야 함")
+    result_hrefs = {c["href"] for c in result}
+    assert_equal(result_hrefs & existing_hrefs, set(), "이미 있는 후보는 결과에 절대 포함되면 안 됨")
+    # 새 후보는 순서대로 1,3,5,6,7,8,9번째(0,2,4 제외) -> target=3이면 1,3,5번째까지만.
+    assert_equal(result, [candidates[1], candidates[3], candidates[5]], "새 후보를 순서대로 target개만 모으고 그 이후는 보면 안 됨")
+    # candidates[6]~[9](모두 새 후보)는 target 도달 후라 결과에 없어야 함 — "정확히 멈춘다" 확인.
+    later_new_hrefs = {candidates[i]["href"] for i in (6, 7, 8, 9)}
+    assert_equal(result_hrefs & later_new_hrefs, set(), "target 도달 후의 새 후보는 결과에 포함되면 안 됨(정확히 멈춰야 함)")
+
+
+def test_filter_new_only_candidates_returns_fewer_than_limit_when_not_enough_new() -> None:
+    """새 후보가 target보다 적으면(전부 이미 존재하거나 부족하면) 있는
+    만큼만 반환하고 예외 없이 끝나야 한다."""
+    candidates = [{"href": f"https://vieclam24h.vn/job-{i}.html", "title": f"Job {i}"} for i in range(5)]
+    existing_hrefs = {candidates[0]["href"], candidates[1]["href"], candidates[2]["href"]}
+
+    result = _filter_new_only_candidates(candidates, existing_hrefs, limit=10)
+
+    assert_equal(result, [candidates[3], candidates[4]], "새 후보(2개)만 있는 만큼 반환해야 함")
+
+
+def test_filter_new_only_candidates_all_existing_returns_empty() -> None:
+    """모든 후보가 이미 DB에 있으면 빈 목록을 반환해야 한다(신규 0건 —
+    상세 수집·업데이트가 하나도 일어나지 않는다는 뜻)."""
+    candidates = [{"href": f"https://vieclam24h.vn/job-{i}.html", "title": f"Job {i}"} for i in range(4)]
+    existing_hrefs = {c["href"] for c in candidates}
+
+    result = _filter_new_only_candidates(candidates, existing_hrefs, limit=5)
+
+    assert_equal(result, [], "모든 후보가 기존이면 빈 목록이어야 함")
+
+
 def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions() -> None:
     """엔드투엔드 회귀(2026-09-04, 반복주소 수정 + 대표값 선정 수정): KCN Hiệp
     Phước 실사례 4개 후보를 resolve_work_locations()에 그대로 넣으면 — 결과
@@ -2122,6 +2168,9 @@ def main() -> int:
         test_group_candidates_by_core_location_still_merges_real_repeated_physical_address,
         test_select_group_representative_prefers_specificity_over_shortest_string,
         test_select_sample_window_offset_10_covers_different_candidates_than_offset_0,
+        test_filter_new_only_candidates_skips_existing_and_stops_exactly_at_target,
+        test_filter_new_only_candidates_returns_fewer_than_limit_when_not_enough_new,
+        test_filter_new_only_candidates_all_existing_returns_empty,
         test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions,
         test_resolve_work_locations_keeps_distinct_region_only_districts_as_separate_rows,
         test_resolve_work_locations_keeps_distinct_chain_stores_as_separate_rows,

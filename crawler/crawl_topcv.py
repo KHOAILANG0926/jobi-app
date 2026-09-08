@@ -1277,7 +1277,32 @@ def _select_sample_window(unique_raw: list[dict], offset: int, limit: int) -> li
     return unique_raw[offset:offset + limit]
 
 
-async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0) -> list[dict]:
+def _filter_new_only_candidates(candidates: list[dict], existing_hrefs: set[str], limit: int) -> list[dict]:
+    """--new-only 모드 전용 후보 선별 — candidates를 순서대로 보면서 이미
+    DB에 있는 href(existing_hrefs에 있는 것)는 결과에서 완전히 제외한다
+    (그 후보는 상세 페이지 수집·주소 처리·업데이트를 아예 하지 않고 즉시
+    건너뛴다 — crawl_vieclam24h()가 이 함수가 돌려준 목록에만 상세 수집을
+    수행하므로). 새 href만 limit개에 도달할 때까지 모으고, limit개를
+    채우는 즉시 멈춘다 — 뒤에 남은 candidates는 더 보지 않는다(배치
+    중간이라도 정확히 종료). candidates에 새 href가 limit개보다 적으면
+    있는 만큼만 반환한다(예외 없음).
+
+    2026-09-08 사용자 지시로 신설 — 기존 --sample-limit/--sample-offset은
+    "이미 처리한 후보"도 그대로 다시 상세 수집·주소 처리했다(실측: 신규
+    13건을 모으려고 실행한 배치들에서 업데이트 17건이 함께 발생). 순수
+    한 신규 수집만 필요할 때는 이미 있는 공고를 건드리지도, 그 주소 처리
+    비용(Geoapify 호출 등)을 치르지도 않아야 한다."""
+    selected = []
+    for c in candidates:
+        if c["href"] in existing_hrefs:
+            continue
+        selected.append(c)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new_only: bool = False) -> list[dict]:
     """target_count가 주어지면 전역 TARGET_COUNT 대신 그 값으로 이번 실행의
     수집 상한을 대체한다 — 2026-09-06 사용자 지시로 추가(--sample-limit
     CLI 옵션이 이 값을 넘겨준다. 과거 실수로 --confirm-full-crawl 없이
@@ -1288,15 +1313,30 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0) -> 
     제거된 후보 목록에서 이 개수만큼 건너뛴 뒤부터 target_count개를 고른다
     — _select_sample_window() 참고. 카테고리 페이지 수집 자체도 offset+limit
     개를 채울 때까지 계속해야 하므로(안 그러면 건너뛸 후보조차 못 모음),
-    아래 루프의 중단 조건도 offset을 반영한다."""
+    아래 루프의 중단 조건도 offset을 반영한다.
+
+    new_only(2026-09-08 사용자 지시로 추가, --new-only가 넘겨줌, offset과
+    동시 사용 불가 — resolve_cli_mode()가 미리 차단): True면 offset/
+    _select_sample_window() 대신 _filter_new_only_candidates()로 이미
+    DB에 있는 href는 상세 수집 전에 완전히 걸러내고, target_count(=신규
+    목표 건수)개의 새 후보만 상세 수집한다. 카테고리 페이지 수집도 "raw
+    개수"가 아니라 "이미 걸러낸 신규 개수"가 목표에 도달할 때까지
+    계속한다(그래야 이미 아는 후보가 앞쪽에 많아도 목표만큼 신규를 찾을
+    때까지 CATEGORY_URLS를 계속 훑는다 — 새 URL을 추가하지 않고 기존
+    목록 안에서만 더 훑는다는 점에서 범위 확장이 아니다)."""
     limit = target_count if target_count is not None else TARGET_COUNT
     fetch_ceiling = offset + limit
+    existing_hrefs = set(load_existing_lookup_maps()[0].keys()) if new_only else set()
     async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
 
         for cat_url in CATEGORY_URLS:
-            if len(all_raw) >= fetch_ceiling:
+            if new_only:
+                new_so_far = sum(1 for j in all_raw if j["href"] not in existing_hrefs)
+                if new_so_far >= limit:
+                    break
+            elif len(all_raw) >= fetch_ceiling:
                 break
             raw = await crawl_category(page, cat_url)
             for j in raw:
@@ -1312,7 +1352,10 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0) -> 
             if key not in seen_titles:
                 seen_titles.add(key)
                 unique_raw.append(j)
-        unique_raw = _select_sample_window(unique_raw, offset, limit)
+        if new_only:
+            unique_raw = _filter_new_only_candidates(unique_raw, existing_hrefs, limit)
+        else:
+            unique_raw = _select_sample_window(unique_raw, offset, limit)
 
         # 각 공고: 상세 수집 -> 필수정보/주소 추출 -> 판정까지 build_job_record
         # 하나로 처리(신규 발견 여부와 무관 — 저장 단계에서만 신규/기존을 가른다).
@@ -1895,11 +1938,11 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
     return manifest
 
 
-async def main(sample_limit: int | None = None, sample_offset: int = 0):
+async def main(sample_limit: int | None = None, sample_offset: int = 0, new_only: bool = False):
     print("🚀 vieclam24h 크롤링 시작")
     print("─" * 50)
 
-    jobs = await crawl_vieclam24h(target_count=sample_limit, offset=sample_offset)
+    jobs = await crawl_vieclam24h(target_count=sample_limit, offset=sample_offset, new_only=new_only)
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs)
     save_to_supabase(jobs)
@@ -1960,6 +2003,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
              "10)을 여러 번 나눠 실행할 때(예: 1차 --sample-offset 0, 2차 --sample-offset 10) 서로 다른 "
              "공고를 처리하기 위한 용도 — 음수는 허용하지 않는다.",
     )
+    parser.add_argument(
+        "--new-only", action="store_true",
+        help="전체 크롤(--confirm-full-crawl)에서 이미 DB에 있는 source_url은 상세 수집·주소 처리·"
+             "업데이트를 전혀 하지 않고 즉시 건너뛰고, --sample-limit(목표 신규 건수)에 도달하는 즉시 "
+             "정확히 멈춘다 — 2026-09-08 사용자 지시로 추가. --sample-limit을 함께 지정해야 하며, "
+             "이미 있는 후보를 건너뛰는 목적과 겹치므로 --sample-offset(기본값 0 초과)과는 함께 쓸 수 없다.",
+    )
     return parser
 
 
@@ -1993,6 +2043,28 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
     if args.sample_offset < 0:
         raise SystemExit(
             f"--sample-offset은 0 이상이어야 합니다(입력값: {args.sample_offset}). 중단합니다."
+        )
+
+    # 2026-09-08 사용자 지시로 추가 — --new-only는 --confirm-full-crawl
+    # 표본 수집 전용 옵션이라, 목표 신규 건수(=--sample-limit)가 반드시
+    # 있어야 하고, "이미 있는 후보를 건너뛴다"는 목적이 --sample-offset
+    # (상위 몇 개를 건너뛸지 수동 지정)과 겹쳐 함께 쓰면 혼란만 준다 —
+    # 함께 쓰지 못하게 조합 자체를 차단한다. 다른 실행 모드(--process-url
+    # 등)는 URL/ID를 직접 지정해 신규 여부가 이미 정해져 있으므로 이
+    # 옵션과 무관하다.
+    if args.new_only and args.sample_limit is None:
+        raise SystemExit(
+            "--new-only는 목표 신규 건수를 --sample-limit으로 함께 지정해야 합니다. 중단합니다."
+        )
+    if args.new_only and args.sample_offset != 0:
+        raise SystemExit(
+            "--new-only는 --sample-offset과 함께 쓸 수 없습니다(이미 있는 공고는 --new-only 자체가 "
+            "항상 즉시 건너뛰므로 건너뛸 개수를 따로 지정할 필요가 없습니다). 중단합니다."
+        )
+    if args.new_only and (args.process_url or args.reprocess_ids or args.verify_write_urls or args.dry_run_urls):
+        raise SystemExit(
+            "--new-only는 --confirm-full-crawl 표본 수집 전용입니다 — --process-url/--reprocess-ids/"
+            "--verify-write-urls/--dry-run-urls와 함께 쓸 수 없습니다. 중단합니다."
         )
 
     # 사용자 지시(2026-09-04, "운영 적용 준비" 4/5번): --verify-write가
@@ -2073,4 +2145,4 @@ if __name__ == "__main__":
         reports = asyncio.run(process_urls_dry_run(urls))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif mode == "full_crawl":
-        asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset))
+        asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset, new_only=args.new_only))
