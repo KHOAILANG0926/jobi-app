@@ -124,6 +124,36 @@ def test_new_only_with_sample_limit_and_confirm_full_crawl_is_allowed() -> None:
     assert_equal(mode, "full_crawl", "--new-only + --sample-limit 조합은 허용돼야 함")
 
 
+def test_site_defaults_to_vieclam24h() -> None:
+    """--site를 안 주면 기존 동작과 100% 동일하게 vieclam24h여야 한다."""
+    args = crawl_topcv.build_arg_parser().parse_args(["--confirm-full-crawl"])
+    assert_equal(args.site, "vieclam24h", "--site 기본값은 vieclam24h여야 함")
+
+
+def test_site_vietnamworks_with_new_only_and_sample_limit_is_allowed() -> None:
+    """2026-09-08 사용자 지시로 추가 — --site vietnamworks + --new-only +
+    --sample-limit(오프셋 없이) 조합은 정상 진입해야 한다."""
+    mode = _mode_for(["--confirm-full-crawl", "--site", "vietnamworks", "--new-only", "--sample-limit", "10"])
+    assert_equal(mode, "full_crawl", "--site vietnamworks 조합은 허용돼야 함")
+
+
+def test_site_vietnamworks_blocks_sample_offset() -> None:
+    """VietnamWorks는 이번이 첫 크롤이라 --sample-offset을 아직 지원하지 않음 — 조합 차단 확인."""
+    msg = _raises_system_exit([
+        "--confirm-full-crawl", "--site", "vietnamworks", "--sample-limit", "10", "--sample-offset", "5",
+    ])
+    assert_true("vietnamworks" in msg and "sample-offset" in msg, f"--site vietnamworks + --sample-offset 차단 안내가 있어야 함, got: {msg!r}")
+
+
+def test_site_invalid_value_rejected_by_argparse() -> None:
+    """--site는 choices로 제한돼 있어 알 수 없는 값은 argparse 자체가 즉시 차단해야 한다."""
+    try:
+        crawl_topcv.build_arg_parser().parse_args(["--confirm-full-crawl", "--site", "careerviet"])
+    except SystemExit:
+        return
+    raise AssertionError("--site careerviet(알 수 없는 값)는 argparse가 SystemExit으로 차단해야 함")
+
+
 def test_existing_dry_run_urls_mode_unaffected() -> None:
     """기존 --dry-run-urls는 --confirm-full-crawl 없이도 그대로 정상 동작
     (이번 안전장치의 영향을 받지 않아야 함)."""
@@ -172,6 +202,10 @@ def main() -> int:
         test_new_only_blocks_sample_offset,
         test_new_only_blocked_with_process_url,
         test_new_only_with_sample_limit_and_confirm_full_crawl_is_allowed,
+        test_site_defaults_to_vieclam24h,
+        test_site_vietnamworks_with_new_only_and_sample_limit_is_allowed,
+        test_site_vietnamworks_blocks_sample_offset,
+        test_site_invalid_value_rejected_by_argparse,
         test_existing_dry_run_urls_mode_unaffected,
         test_existing_process_url_mode_unaffected,
         test_existing_reprocess_ids_mode_unaffected,

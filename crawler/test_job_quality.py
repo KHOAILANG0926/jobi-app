@@ -786,6 +786,28 @@ def test_normalize_location_province_fallback() -> None:
     assert_true(guess_province_from_text("không có địa danh nào ở đây") is None, "guess_province_from_text returns None when nothing matches")
 
 
+def test_guess_province_from_text_recognizes_english_province_names() -> None:
+    """2026-09-08 사용자 지시로 추가(VietnamWorks 크롤러 신설) — VietnamWorks
+    공고는 근무지 주소가 영어 표기로만 적힌 실제 사례가 확인됐다(예: "...
+    Yen Hoa Ward, Hanoi", 베트남어 표기가 전혀 없음). _PROVINCE_ALIASES에
+    추가한 영어 표기 별칭이 실제로 인식되는지 확인 — 이게 안 되면
+    resolve_coordinate_accuracy()의 지역 검증이 조용히 건너뛰어져(province=
+    None -> _region_text_matches가 무조건 True) 지역 미확정 주소가 success로
+    통과할 수 있다."""
+    assert_equal(
+        guess_province_from_text("5th Floor, CIC Tower building, No. 2 Nguyen Thi Due Street, Yen Hoa Ward, Hanoi"),
+        "Hà Nội",
+        "English 'Hanoi' must resolve to 'Hà Nội'",
+    )
+    assert_equal(guess_province_from_text("Ho Chi Minh City"), "Hồ Chí Minh", "English 'Ho Chi Minh City' must resolve")
+    assert_equal(guess_province_from_text("Da Nang, Vietnam"), "Đà Nẵng", "English 'Da Nang' must resolve")
+    assert_equal(guess_province_from_text("Hai Phong, Vietnam"), "Hải Phòng", "English 'Hai Phong' must resolve")
+    # 목록에 아예 없는 지명(2025년 성급 통합 여부가 불분명한 "Binh Duong" 등)은
+    # 임의로 추가하지 않았으므로 여전히 인식되지 않아야 한다 — 모르는 지명을
+    # 추측해 확정하지 않는다는 원칙 확인.
+    assert_true(guess_province_from_text("Binh Duong, Vietnam") is None, "unlisted English province name must stay unrecognized (not guessed)")
+
+
 def test_location_validation_and_multi_province() -> None:
     # sb-4313 회귀 테스트: 리스트 카드가 location에 제목 전체를 그대로 넘겨도
     # (빈 값이 아니어도) 그걸 그대로 믿지 말고 무효 처리해야 한다.
@@ -1097,7 +1119,8 @@ def main() -> int:
         test_debt_collection_quality_filter_fix,
         test_work_locations, test_address_pipeline_standard, test_compute_job_updates,
         test_parse_listing_card_lines,
-        test_normalize_location_province_fallback, test_location_validation_and_multi_province,
+        test_normalize_location_province_fallback, test_guess_province_from_text_recognizes_english_province_names,
+        test_location_validation_and_multi_province,
         test_work_location_context_filtering, test_unknown_location_never_defaults_to_a_city,
         test_exact_address_takes_priority_over_approximate,
         test_detail_page_company_and_salary_extraction,

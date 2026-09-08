@@ -34,6 +34,7 @@ from job_quality import (
     compute_job_updates,
     extract_salary_from_text,
     gate_auto_publish,
+    guess_province_from_text,
     guess_work_location_provinces,
     has_application_path,
     normalize_location,
@@ -986,8 +987,13 @@ async def fetch_job_detail(page, url: str) -> dict:
         }
 
 
-def format_description(sections: dict) -> str:
-    order = ["Mô tả công việc", "Yêu cầu công việc", "Quyền lợi"]
+def format_description(sections: dict, order: list[str] | None = None) -> str:
+    # order 기본값(vieclam24h 3개 섹션명)은 기존 호출부와 100% 동일하게 유지 —
+    # 2026-09-08 사용자 지시로 VietnamWorks 재사용을 위해 order를 인자로
+    # 뺐을 뿐, 기존 동작은 그대로다(VietnamWorks는 "Quyền lợi" 대신 "Các
+    # phúc lợi dành cho bạn"이라는 다른 이름을 쓰므로 build_vietnamworks_
+    # job_record()가 다른 order를 넘긴다).
+    order = order or ["Mô tả công việc", "Yêu cầu công việc", "Quyền lợi"]
     parts = []
     for key in order:
         if key in sections and sections[key]:
@@ -1383,6 +1389,456 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
         return jobs
 
 
+# ═══════════════════════════════════════════════════════════════════
+# VietnamWorks 크롤러 — 2026-09-08 사용자 지시로 신설.
+#
+# docs/CRAWLER_BASELINE.md에 기록된 기존 공통 저장·주소 판정 로직
+# (resolve_work_locations/upsert_job_record/save_to_supabase/geocode
+# 캐스케이드/공개 게이트/품질 검증)을 그대로 재사용하고, VietnamWorks
+# 고유의 목록·상세 페이지 추출 부분만 새로 추가한다 — vieclam24h 크롤
+# 경로(crawl_vieclam24h/crawl_category/fetch_job_detail/build_job_record)는
+# 이 신설 코드로 인해 전혀 바뀌지 않는다.
+# ═══════════════════════════════════════════════════════════════════
+
+VIETNAMWORKS_CATEGORY_URLS = [
+    "https://www.vietnamworks.com/tim-viec-lam",
+]
+
+
+async def crawl_vietnamworks_category(page, url: str) -> list[dict]:
+    """crawl_category()의 VietnamWorks 버전 — 목록 카드(.view_job_item) 구조가
+    실측으로 확인됨: 카드 전체 텍스트가 항상 "제목\\n회사\\n급여\\n근무지" 4줄
+    (근무지가 여러 곳이면 쉼표로 나열된 한 줄) 순서로 렌더링된다. 이 location
+    줄은 목록 카드의 힌트일 뿐 — 실제 저장에 쓰는 근무지는 항상 상세페이지의
+    "Địa điểm làm việc" 구조화 섹션(fetch_vietnamworks_job_detail)이다."""
+    print(f"  📄 로딩: {url}")
+    await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+    await page.wait_for_timeout(3000)
+
+    for _ in range(3):
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        await page.wait_for_timeout(1500)
+
+    raw_jobs = await page.evaluate("""() => {
+        const items = []
+        const seen = new Set()
+        document.querySelectorAll('.view_job_item').forEach(card => {
+            const a = card.querySelector('a[href*="-jv"]')
+            if (!a) return
+            const href = a.getAttribute('href') || ''
+            if (!href) return
+            const fullHref = href.startsWith('http') ? href : 'https://www.vietnamworks.com' + href
+            if (seen.has(fullHref)) return
+            seen.add(fullHref)
+            const lines = (card.innerText || '').split('\\n').map(s => s.trim()).filter(Boolean)
+            if (!lines[0] || lines[0].length < 5) return
+            const title = lines[0]
+            const company = lines[1] || ''
+            const salary = lines[2] || ''
+            const location = lines[3] || ''
+            items.push({ title, company, salary, location, href: fullHref })
+        })
+        return items
+    }""")
+
+    print(f"    수집: {len(raw_jobs)}개")
+    return raw_jobs
+
+
+def _vietnamworks_location_candidates(location_lines: list[str]) -> list[dict]:
+    """VietnamWorks 상세페이지의 "Địa điểm làm việc" 컨테이너에서 얻은 원문
+    줄 목록(각 줄이 근무지 하나 — fetch_vietnamworks_job_detail 참고)을
+    resolve_work_locations()가 바로 받을 수 있는 candidates_with_region
+    형태로 변환한다.
+
+    split_work_locations()의 정제 로직(빈 줄/5자 미만/노이즈/셔틀버스 문구
+    제거, 중복 제거, 최대 개수 제한)을 그대로 재사용하기 위해 각 줄을
+    "• "로 이어붙여 그 함수에 넘긴다 — vieclam24h처럼 "<지역>:" 접두사가
+    원문에 없으므로 with_region=True는 쓰지 않고(전부 region_prefix=None이
+    될 뿐이라 무의미), 정제된 텍스트마다 별도로 guess_province_from_text()로
+    지역명을 찾는다(2026-09-08 사용자 지시 — job_quality._PROVINCE_ALIASES에
+    영어 표기 성·시 별칭을 추가해 "Hanoi" 같은 영어 주소도 인식되게 함).
+    지역명을 못 찾으면(원문에 알려진 성·시 이름이 전혀 없음) region_prefix는
+    None으로 두고, 이는 아래 build_vietnamworks_job_record()의
+    _enforce_region_confirmed_before_success()가 "지역 미확정 시 success
+    금지" 기준(CRAWLER_BASELINE.md 기준 4)을 적용하는 신호가 된다."""
+    blob = "\n".join(f"• {line}" for line in location_lines if normalize_whitespace(line))
+    cleaned_texts = split_work_locations(blob, with_region=False)
+    return [
+        {"text": text, "region_prefix": guess_province_from_text(text)}
+        for text in cleaned_texts
+    ]
+
+
+def _vietnamworks_title_extra_regions(title: str, structured_texts: list[str]) -> list[str]:
+    """구조화된 "Địa điểm làm việc" 목록(structured_texts)에 없는, 제목에서만
+    언급된 지역을 "별도 근거"로 골라낸다 — 2026-09-08 사용자 지시 3번("제목·
+    본문의 추가 지역은 별도 근거로 기록한다. 충돌하거나 행정구역 개편 여부가
+    불명확하면 임의로 위치를 추가·삭제·확정하지 않는다").
+
+    guess_all_provinces_from_text()가 이미 알려진 성·시 이름(job_quality.
+    LISTING_CITY_KEYWORDS/_PROVINCE_ALIASES)만 인식하므로, 통합·개편 여부가
+    불분명한 지명(예: 그 목록에 아예 없는 "Bạc Liêu" — 실측 확인: SPX
+    EXPRESS 공고 제목엔 있지만 구조화 필드엔 없었다)은 애초에 인식되지
+    않아 이 함수도 반환하지 않는다 — 이것이 정상 동작이다(모르는 지명을
+    임의로 추정해 확정하지 않음). 반환값은 DB에 저장되지 않고 크롤 로그에만
+    출력된다(job_work_locations/recruitment_regions 어디에도 자동 반영
+    안 됨) — 사람이 검토할 근거로만 남긴다."""
+    structured_regions = {
+        guess_province_from_text(text) for text in structured_texts if guess_province_from_text(text)
+    }
+    title_regions = guess_work_location_provinces(title, "")
+    return [r for r in title_regions if r not in structured_regions]
+
+
+def _enforce_region_confirmed_before_success(resolved_locations: list[dict]) -> list[dict]:
+    """VietnamWorks 전용 안전장치(2026-09-08 사용자 지시 5번, CRAWLER_
+    BASELINE.md 기준 3/4) — geocode._region_text_matches()는
+    expected_region_text가 None이면 지역 검증 자체를 건너뛰고 무조건
+    통과시킨다(geocode.py 기존 동작, 변경하지 않음). vieclam24h는 원문이
+    항상 "<지역>:" 접두사를 제공해 이 경로를 사실상 타지 않지만,
+    VietnamWorks 주소는 지역명을 하나도 인식 못 할 수 있다(예: 영어 표기
+    성·시 별칭에도 없는 지명, 또는 매우 드문 오탈자) — 이 경우
+    resolve_work_locations()가 반환한 행의 matched_recruitment_regions가
+    비어 있다(그 행을 만든 candidate 전부 region_prefix=None이었다는 뜻,
+    resolve_work_locations() 내부 로직 참고).
+
+    지역을 하나도 확정하지 못한 행이 geocode_status='success'로 나왔다면
+    — 실제로는 어느 성·시인지도 모르는 좌표를 우연한 수렴만으로 성공
+    처리한 것이므로 — lat/lng을 지우고 실패로 되돌린다. resolve_work_
+    locations()/geocode.py 자체는 전혀 수정하지 않고, 그 출력만 보고
+    판단하는 순수 후처리라 vieclam24h 경로에는 전혀 영향이 없다(vieclam24h는
+    이 함수를 호출하지 않음)."""
+    result = []
+    for row in resolved_locations:
+        if row.get("geocode_status") == "success" and not row.get("matched_recruitment_regions"):
+            row = {
+                **row,
+                "lat": None,
+                "lng": None,
+                "geocode_status": "failed",
+                "coordinate_accuracy": "unresolved",
+                "source_verified": False,
+                "address_evidence": (
+                    (row.get("address_evidence") or "")
+                    + " — 지역(성·시)을 확인할 수 없어 success로 확정하지 않음(CRAWLER_BASELINE.md 기준 4)"
+                ),
+            }
+        result.append(row)
+    return result
+
+
+async def fetch_vietnamworks_job_detail(page, url: str) -> dict:
+    """VietnamWorks 상세페이지 단일 수집 함수 — fetch_job_detail()과 동일한
+    역할이지만 이 사이트의 실제 DOM 구조에 맞춰 새로 작성됐다(2026-09-08
+    사용자 지시로 신설, VietnamWorks 사전 조사에서 실측 확인된 구조 그대로):
+    - 제목: h1
+    - 회사명: "/nha-tuyen-dung/" 링크 텍스트(vieclam24h의 "-ntd" 패턴과 같은
+      방식 — 첫 후보가 "..."로 잘린 경우 다음 후보를 우선)
+    - 마감일: JSON-LD(schema.org JobPosting)의 validThrough — 실측 확인:
+      화면에 보이는 "Hết hạn trong N ngày"(상대 표현)과 날짜가 일치했다.
+      절대 날짜가 필요한데 화면에는 상대 표현만 있어 이 필드만 JSON-LD를
+      쓴다(다른 필드는 전부 화면에 실제로 보이는 DOM 텍스트만 사용).
+    - 근무지("Địa điểm làm việc"): 헤딩 바로 다음 컨테이너의 "직계 자식"
+      각각이 근무지 하나(실측 확인: 단일 근무지는 자식 1개, 다중 근무지는
+      자식 N개 — vieclam24h처럼 <li> 목록이 아니라 <div> 목록). **주의**:
+      JSON-LD의 jobLocation.address.streetAddress는 이 화면 텍스트와 실제로
+      다른 값을 가진 사례가 실측으로 확인됐다(예: 화면 "No. 2 Nguyen Thi
+      Due Street, Yen Hoa Ward" vs JSON-LD "219 Trung Kinh Street, Cau Giay
+      District" — 같은 공고인데 서로 다름). 화면에 실제로 보이는 값이
+      사용자가 보는 정보이므로 이 함수는 JSON-LD 주소를 절대 쓰지 않고
+      DOM 텍스트만 근무지로 채택한다."""
+    try:
+        response = await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        http_status = response.status if response else None
+        # 2026-09-08 실측 발견(canary 실행 중 재현) — 이 사이트는 상세페이지를
+        # 여러 단계로 나눠 그린다: domcontentloaded 직후엔 h1/일부 섹션만 있고,
+        # "Các phúc lợi dành cho bạn"/"Thông tin việc làm"/"Địa điểm làm việc"는
+        # 그 뒤에(실측: navigation 히스토리가 있는 페이지에서 약 3초 후) 별도로
+        # 렌더링된다. 고정 2초 대기만으로는 "Địa điểm làm việc" 렌더링 전에
+        # 읽어버려 근무지가 통째로 빈 값으로 저장되는 결함이 실제로 재현됐다
+        # (job_id=4626 "Senior CAD Engineer" — 실제로는 근무지가 있는데
+        # no_address_text로 저장됨). "Thông tin việc làm"이 항상 근무지
+        # 섹션 바로 앞에 함께 나타나므로(실측 확인) 이 헤딩이 나타날 때까지
+        # 최대 8초 폴링하고, 그래도 없으면(원문 자체에 이 섹션이 없는 드문
+        # 경우) 타임아웃만 조용히 넘기고 있는 그대로 계속 진행한다 — 이 대기
+        # 실패 자체를 fetchOk=False로 처리하지 않는다(vieclam24h와 동일한
+        # 원칙: 못 찾은 섹션은 빈 값일 뿐, 페이지 전체를 실패로 보지 않음).
+        try:
+            await page.wait_for_function(
+                "() => Array.from(document.querySelectorAll('h2,h3,h4'))"
+                ".some(h => h.innerText.trim() === 'Thông tin việc làm')",
+                timeout=8000,
+            )
+        except Exception:
+            pass
+        result = await page.evaluate("""(expiredPatterns) => {
+            const h1 = document.querySelector('h1')
+            const detailTitle = h1 ? h1.innerText.trim() : ''
+
+            const companyCandidates = Array.from(document.querySelectorAll('a'))
+                .filter(a => (a.getAttribute('href') || '').includes('/nha-tuyen-dung/'))
+                .map(a => a.textContent.trim())
+                .filter(t => t)
+            const detailCompany = companyCandidates.find(t => !t.endsWith('...')) || companyCandidates[0] || ''
+
+            const headingEls = Array.from(document.querySelectorAll('h2, h3, h4'))
+            function sectionText(headingText) {
+                const h = headingEls.find(el => el.innerText.trim() === headingText)
+                if (!h) return ''
+                const lines = []
+                let el = h.nextElementSibling
+                while (el && !['H2', 'H3', 'H4'].includes(el.tagName)) {
+                    const txt = (el.innerText || '').trim()
+                    if (txt) lines.push(txt)
+                    el = el.nextElementSibling
+                }
+                return lines.join('\\n')
+            }
+            const sections = {}
+            const moTa = sectionText('Mô tả công việc')
+            const yeuCau = sectionText('Yêu cầu công việc')
+            const phucLoi = sectionText('Các phúc lợi dành cho bạn')
+            if (moTa) sections['Mô tả công việc'] = moTa
+            if (yeuCau) sections['Yêu cầu công việc'] = yeuCau
+            if (phucLoi) sections['Các phúc lợi dành cho bạn'] = phucLoi
+
+            // 근무지 — 헤딩 바로 다음 컨테이너의 직계 자식마다 근무지 1개.
+            const locHeading = headingEls.find(el => el.innerText.trim() === 'Địa điểm làm việc')
+            let locationLines = []
+            if (locHeading && locHeading.nextElementSibling) {
+                const container = locHeading.nextElementSibling
+                if (container.children.length > 0) {
+                    locationLines = Array.from(container.children).map(c => (c.innerText || '').trim()).filter(Boolean)
+                } else {
+                    const txt = (container.innerText || '').trim()
+                    if (txt) locationLines = [txt]
+                }
+            }
+
+            const bodyText = (document.body.innerText || '').toLowerCase()
+            const hasApplyButton = Array.from(document.querySelectorAll('button, a'))
+                .some(el => (el.innerText || '').includes('Nộp đơn'))
+            const expiredBanner = expiredPatterns.some(p => bodyText.includes(p))
+
+            // JSON-LD(schema.org JobPosting) — validThrough(마감일)만 신뢰해서
+            // 쓴다(화면의 상대 표현 "Hết hạn trong N ngày"과 실측 대조로 일치
+            // 확인됨). jobLocation 주소는 화면 텍스트와 다를 수 있어 절대 쓰지
+            // 않는다(위 함수 docstring 참고).
+            let validThrough = null
+            try {
+                const ld = document.querySelector('script[type="application/ld+json"]')
+                if (ld) {
+                    const data = JSON.parse(ld.textContent)
+                    if (data && data.validThrough) validThrough = data.validThrough
+                }
+            } catch (e) {
+                // JSON-LD가 없거나 파싱 실패 — deadline만 못 채움, 나머지는 정상 진행.
+            }
+
+            return {
+                detailTitle, detailCompany, sections, locationLines,
+                hasApplyButton, expiredBanner, validThrough,
+            }
+        }""", _EXPIRED_PAGE_PATTERNS)
+        result = result or {
+            "detailTitle": "", "detailCompany": "", "sections": {}, "locationLines": [],
+            "hasApplyButton": False, "expiredBanner": False, "validThrough": None,
+        }
+        deadline = None
+        if result.get("validThrough"):
+            deadline = str(result["validThrough"])[:10]
+        result["deadline"] = deadline
+        result["httpStatus"] = http_status
+        result["fetchOk"] = True
+        result["fetchError"] = None
+        return result
+    except Exception as exc:
+        print(f"    ⚠️  상세 수집 실패: {url} ({exc})")
+        return {
+            "detailTitle": "", "detailCompany": "", "sections": {}, "locationLines": [],
+            "hasApplyButton": False, "expiredBanner": False, "deadline": None,
+            "httpStatus": None, "fetchOk": False, "fetchError": str(exc),
+        }
+
+
+def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | None = None) -> dict:
+    """build_job_record()의 VietnamWorks 버전 — docs/CRAWLER_BASELINE.md에
+    기록된 기존 공통 저장·주소 판정 로직(resolve_work_locations/
+    gate_auto_publish/validate_job_payload)을 그대로 재사용하고, 이 사이트의
+    실제 DOM에서 얻은 필드만 새로 채운다. vieclam24h build_job_record()는
+    이 함수와 완전히 분리돼 있어 전혀 영향받지 않는다."""
+    listing_hint = listing_hint or {}
+    title = normalize_whitespace(detail.get("detailTitle") or listing_hint.get("title") or "")
+    company = normalize_whitespace(detail.get("detailCompany") or listing_hint.get("company") or "")
+
+    if not detail.get("fetchOk", True):
+        return {
+            "source_url": url, "title": title, "company": company,
+            "_pipeline_failed": True, "_failure_stage": "detail_fetch",
+            "_failure_reason": detail.get("fetchError"),
+        }
+
+    deadline = detail.get("deadline")
+    if deadline and deadline <= TODAY:
+        return {
+            "source_url": url, "title": title, "company": company,
+            "_skip": True, "_skip_reason": "deadline_expired", "_skip_detail": deadline,
+        }
+
+    sections = detail.get("sections", {})
+    desc_text = format_description(sections, order=["Mô tả công việc", "Yêu cầu công việc", "Các phúc lợi dành cho bạn"])
+    description = f"[source:vietnamworks] {desc_text}" if desc_text else f"[source:vietnamworks] {url}"
+
+    listing_salary = listing_hint.get("salary")
+    salary = normalize_salary(listing_salary) if normalize_whitespace(listing_salary) else extract_salary_from_text(desc_text)
+
+    category = classify(title, company, desc_text)
+
+    location_lines = detail.get("locationLines") or []
+    work_locations = _vietnamworks_location_candidates(location_lines)
+    # 2026-09-08 사용자 지시 3번 — 제목/본문의 추가 지역은 별도 근거로만
+    # 기록한다(로그 출력 전용, DB에 저장하지 않음 — job_work_locations/
+    # recruitment_regions 어디에도 자동 반영되지 않는다).
+    extra_regions = _vietnamworks_title_extra_regions(title, [c["text"] for c in work_locations])
+    if extra_regions:
+        print(f"    ⚠️  제목/본문에 추가 지역 언급(구조화 근무지 목록에 없음, 확정하지 않음): {extra_regions}")
+
+    location_label = listing_hint.get("location")
+    location = normalize_location(
+        location_label, detail_text=f"{title} {' '.join(location_lines)}",
+        title=title, company=company, salary=salary,
+    )
+    job_recruitment_regions = _compute_job_recruitment_regions(work_locations)
+
+    resolved_locations, had_transient_geocode_failure = resolve_work_locations(work_locations)
+    resolved_locations = _enforce_region_confirmed_before_success(resolved_locations)
+
+    has_app_path = has_application_path(
+        "", "", url,
+        source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
+        has_apply_affordance=bool(detail.get("hasApplyButton")),
+    )
+    has_location_or_region = len(resolved_locations) > 0 or len(job_recruitment_regions) > 0
+    should_publish, gate_reason = gate_auto_publish(
+        has_location_or_region=has_location_or_region,
+        has_application_path_=has_app_path,
+    )
+
+    job = {
+        "title": title,
+        "company": company,
+        "location": location,
+        "salary": salary,
+        "description": description,
+        "category": category,
+        "posted_at": TODAY,
+        "urgent": False,
+        "employer_phone": "",
+        "application_deadline": deadline,
+        "active": should_publish,
+        "origin": "crawler",
+        "admin_hidden": False,
+        "image_url": None,
+        "source_url": url,
+        "publish_gate_reason": gate_reason,
+        "crawler_version": CRAWLER_VERSION,
+        # VietnamWorks 상세페이지는 이 6개 필드에 대응하는 구조화된 값을
+        # 제공하지 않는다(실측 확인 — "Thông tin việc làm" 표에는 NGÀY ĐĂNG/
+        # CẤP BẬC/NGÀNH NGHỀ만 있고 경력/학력/근무형태/모집인원/근무시간·
+        # 근무일 라벨이 없다). 없는 값을 추정해 채우지 않고 그대로 None —
+        # vieclam24h build_job_record()와 동일한 원칙("원문에 없으면 파서
+        # 실패가 아니라 정상적으로 빈 값").
+        "preference": None,
+        "education": None,
+        "work_period": None,
+        "num_hires": None,
+        "hours": None,
+        "work_days": None,
+    }
+    job["_job_recruitment_regions"] = job_recruitment_regions
+    job["recruitment_regions"] = job_recruitment_regions or None
+    quality_errors = validate_job_payload(job, source="vietnamworks", today=TODAY)
+    if quality_errors:
+        job["_skip"] = True
+        job["_skip_reason"] = "quality_invalid"
+        job["_skip_detail"] = ", ".join(quality_errors)
+        return job
+
+    job["_work_locations"] = work_locations
+    job["_resolved_locations"] = resolved_locations
+    job["_had_transient_geocode_failure"] = had_transient_geocode_failure
+    job["_title_body_extra_regions"] = extra_regions
+    return job
+
+
+async def process_vietnamworks_job_url(page, url: str, listing_hint: dict | None = None) -> dict:
+    detail = await fetch_vietnamworks_job_detail(page, url)
+    return build_vietnamworks_job_record(url, detail, listing_hint)
+
+
+async def crawl_vietnamworks(target_count: int | None = None, new_only: bool = False) -> list[dict]:
+    """crawl_vieclam24h()의 VietnamWorks 버전 — 동일한 --new-only/--sample-limit
+    안전장치(_filter_new_only_candidates(), 최대 10건 상한은 resolve_cli_mode()가
+    그대로 적용)를 재사용한다. VietnamWorks는 이번이 첫 크롤이라 기존 공고가
+    0건이므로 --sample-offset 개념은 필요 없다(2026-09-08 사용자 지시 —
+    vieclam24h의 반복 실행 문제와 달리 처음부터 신규만 모으면 된다)."""
+    limit = target_count if target_count is not None else TARGET_COUNT
+    existing_hrefs = set(load_existing_lookup_maps(source="vietnamworks")[0].keys())
+    async with browser_page() as page:
+        all_raw: list[dict] = []
+        seen_hrefs: set[str] = set()
+
+        for cat_url in VIETNAMWORKS_CATEGORY_URLS:
+            if new_only:
+                new_so_far = sum(1 for j in all_raw if j["href"] not in existing_hrefs)
+                if new_so_far >= limit:
+                    break
+            elif len(all_raw) >= limit:
+                break
+            raw = await crawl_vietnamworks_category(page, cat_url)
+            for j in raw:
+                if j["href"] not in seen_hrefs:
+                    seen_hrefs.add(j["href"])
+                    all_raw.append(j)
+
+        seen_titles = set()
+        unique_raw = []
+        for j in all_raw:
+            key = canonical_job_key(j["title"], j.get("company", ""))
+            if key not in seen_titles:
+                seen_titles.add(key)
+                unique_raw.append(j)
+
+        if new_only:
+            unique_raw = _filter_new_only_candidates(unique_raw, existing_hrefs, limit)
+        else:
+            unique_raw = unique_raw[:limit]
+
+        print(f"\n  📋 상세 페이지 수집 중 ({len(unique_raw)}개)...")
+        jobs = []
+        skipped = 0
+        for idx, j in enumerate(unique_raw):
+            job = await process_vietnamworks_job_url(page, j["href"], listing_hint=j)
+
+            if job.get("_skip"):
+                skipped += 1
+                if job["_skip_reason"] == "quality_invalid":
+                    print(f"    ⏩ 품질 스킵: {job.get('title', '')[:70]} ({job.get('_skip_detail')})")
+                continue
+            if job.get("_pipeline_failed"):
+                skipped += 1
+                continue
+            if not job.get("active"):
+                print(f"    🔒 공개 보류({job.get('publish_gate_reason')}): {job.get('title', '')[:70]}")
+
+            jobs.append(job)
+            if (idx + 1) % 20 == 0:
+                print(f"    {idx + 1}/{len(unique_raw)}개 완료 (제외: {skipped}개)")
+
+        return jobs
+
+
 def save_to_json(jobs: list[dict], filename: str = "jobs_output.json"):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(jobs, f, ensure_ascii=False, indent=2)
@@ -1507,15 +1963,22 @@ def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> 
     ).execute()
 
 
-def load_existing_lookup_maps() -> tuple[dict, dict]:
+def load_existing_lookup_maps(source: str = "vieclam24h") -> tuple[dict, dict]:
     """이 크롤러가 쓰는 기존 공고 조회는 이 함수 하나뿐이다 — 카테고리 전체
     크롤(수백 건)과 --process-url/--reprocess-ids(1~수건) 모두 동일하게
     이 함수로 미리 로드한 맵을 매칭에 쓴다(건별 개별 쿼리 없음).
     Returns (by_source_url, by_key) — source_url이 있는 행은 by_source_url에도
-    같이 들어간다."""
+    같이 들어간다.
+
+    source(2026-09-08 사용자 지시로 추가, 기본값은 기존 동작과 100% 동일한
+    "vieclam24h") — description의 "[source:<site>]" 태그로 사이트별 기존
+    공고를 분리 조회한다. VietnamWorks를 새로 추가하며 site별로 반드시
+    분리해야 하는 이유: 분리하지 않으면 by_key(canonical_job_key(title,
+    company) 기준)에 서로 다른 사이트의 공고가 섞여, 우연히 제목+회사가
+    같은 서로 다른 사이트의 두 공고가 "이미 존재"로 잘못 매칭될 수 있다."""
     existing_raw = supabase.table("local_jobs") \
         .select("id,title,company,salary,application_deadline,description,location,source_url,active,origin,admin_hidden") \
-        .like("description", "%[source:vieclam24h]%") \
+        .like("description", f"%[source:{source}]%") \
         .execute()
     rows = existing_raw.data or []
     by_source_url = {r["source_url"]: r for r in rows if r.get("source_url")}
@@ -1670,13 +2133,13 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     return {"action": action, "id": job_id}
 
 
-def save_to_supabase(jobs: list[dict]):
+def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
     if not supabase:
         print("  ⚠️  Supabase 설정 없음 → JSON만 저장")
         return
 
-    by_source_url, by_key = load_existing_lookup_maps()
-    print(f"  📋 기존 vieclam24h 공고: {len(by_key)}개")
+    by_source_url, by_key = load_existing_lookup_maps(source=source)
+    print(f"  📋 기존 {source} 공고: {len(by_key)}개")
 
     counts = {
         "inserted": 0, "updated": 0, "unchanged": 0,
@@ -1938,14 +2401,17 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
     return manifest
 
 
-async def main(sample_limit: int | None = None, sample_offset: int = 0, new_only: bool = False):
-    print("🚀 vieclam24h 크롤링 시작")
+async def main(sample_limit: int | None = None, sample_offset: int = 0, new_only: bool = False, site: str = "vieclam24h"):
+    print(f"🚀 {site} 크롤링 시작")
     print("─" * 50)
 
-    jobs = await crawl_vieclam24h(target_count=sample_limit, offset=sample_offset, new_only=new_only)
+    if site == "vietnamworks":
+        jobs = await crawl_vietnamworks(target_count=sample_limit, new_only=new_only)
+    else:
+        jobs = await crawl_vieclam24h(target_count=sample_limit, offset=sample_offset, new_only=new_only)
     print(f"\n📊 수집 완료: {len(jobs)}개")
-    save_to_json(jobs)
-    save_to_supabase(jobs)
+    save_to_json(jobs, filename=f"jobs_output_{site}.json")
+    save_to_supabase(jobs, source=site)
     print("\n✨ 완료!")
 
 
@@ -2010,6 +2476,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
              "정확히 멈춘다 — 2026-09-08 사용자 지시로 추가. --sample-limit을 함께 지정해야 하며, "
              "이미 있는 후보를 건너뛰는 목적과 겹치므로 --sample-offset(기본값 0 초과)과는 함께 쓸 수 없다.",
     )
+    parser.add_argument(
+        "--site", choices=["vieclam24h", "vietnamworks"], default="vieclam24h",
+        help="전체 크롤(--confirm-full-crawl)이 어느 사이트를 대상으로 할지 선택한다(기본 vieclam24h) — "
+             "2026-09-08 사용자 지시로 VietnamWorks 크롤러 추가. --sample-offset은 vietnamworks에서는 "
+             "쓰지 않는다(이번이 첫 크롤이라 기존 공고가 0건 — resolve_cli_mode()가 조합을 차단한다).",
+    )
     return parser
 
 
@@ -2065,6 +2537,16 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         raise SystemExit(
             "--new-only는 --confirm-full-crawl 표본 수집 전용입니다 — --process-url/--reprocess-ids/"
             "--verify-write-urls/--dry-run-urls와 함께 쓸 수 없습니다. 중단합니다."
+        )
+    # 2026-09-08 사용자 지시로 추가 — VietnamWorks는 이번이 첫 크롤이라
+    # --sample-offset(이미 처리한 상위 후보를 건너뛰는 용도)이 아직 의미가
+    # 없다. 나중에 반복 실행 문제가 실제로 생기면 그때 vieclam24h처럼
+    # crawl_vietnamworks()에 offset을 추가하면 되고, 지금은 혼란을 피하기
+    # 위해 조합 자체를 차단한다.
+    if args.site == "vietnamworks" and args.sample_offset != 0:
+        raise SystemExit(
+            "--site vietnamworks는 --sample-offset을 아직 지원하지 않습니다(이번이 첫 크롤이라 기존 "
+            "공고가 0건 — 건너뛸 상위 후보 자체가 없습니다). 중단합니다."
         )
 
     # 사용자 지시(2026-09-04, "운영 적용 준비" 4/5번): --verify-write가
@@ -2145,4 +2627,4 @@ if __name__ == "__main__":
         reports = asyncio.run(process_urls_dry_run(urls))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif mode == "full_crawl":
-        asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset, new_only=args.new_only))
+        asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset, new_only=args.new_only, site=args.site))

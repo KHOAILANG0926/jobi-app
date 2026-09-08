@@ -348,9 +348,51 @@ PROVINCE_COORDS: dict[str, tuple[float, float]] = {
 # Common abbreviations that guess_all_provinces_from_text() should still
 # recognize even though they don't contain the full province name as a
 # substring (e.g. "TPHCM" doesn't contain "Hồ Chí Minh").
+#
+# 2026-09-08 사용자 지시로 추가(VietnamWorks 크롤러 신설) — VietnamWorks
+# 공고는 근무지 주소가 영어 표기로만 적힌 경우가 실측으로 확인됐다(예:
+# "5th Floor, CIC Tower building, No. 2 Nguyen Thi Due Street, Yen Hoa Ward,
+# Hanoi" — 베트남어 표기 "Hà Nội"가 전혀 없음). guess_province_from_text()가
+# LISTING_CITY_KEYWORDS(베트남어 표기만)로만 찾으면 이런 주소는 지역을 못
+# 찾아 None이 되고, geocode._region_text_matches()는 expected_region_text가
+# None이면 무조건 True를 반환한다(지역 검증 자체를 건너뜀) — 이는 곧 지역을
+# 확정하지 못한 주소가 좌표 지역검증 없이 success로 통과할 수 있다는 뜻이라
+# CRAWLER_BASELINE.md 기준 3/4("지역 미확정 시 success 금지")을 위협한다.
+# vieclam24h는 원문 자체가 항상 베트남어 지역 접두사를 제공해 이 경로를 사실상
+# 타지 않았지만, VietnamWorks는 실제로 탄다 — 아래 영어 표기 별칭은 이미
+# LISTING_CITY_KEYWORDS/PROVINCE_COORDS에 있는 성·시와 동일한 대상만 추가
+# 인식시킬 뿐, 새로운 성·시를 만들어내지 않는다(2025년 성급 통합 여부가
+# 불분명한 지명은 추가하지 않음 — 예: "Bình Dương"는 이 목록에 아예 없어
+# 임의로 추가하지 않았다).
 _PROVINCE_ALIASES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\btp\.?\s*hcm\b", re.IGNORECASE), 'Hồ Chí Minh'),
     (re.compile(r"\bhcm\b", re.IGNORECASE), 'Hồ Chí Minh'),
+    (re.compile(r"\bho chi minh(?:\s*city)?\b", re.IGNORECASE), 'Hồ Chí Minh'),
+    (re.compile(r"\bhanoi\b", re.IGNORECASE), 'Hà Nội'),
+    (re.compile(r"\bhai phong\b", re.IGNORECASE), 'Hải Phòng'),
+    (re.compile(r"\bquang ninh\b", re.IGNORECASE), 'Quảng Ninh'),
+    (re.compile(r"\bbac ninh\b", re.IGNORECASE), 'Bắc Ninh'),
+    (re.compile(r"\bbac giang\b", re.IGNORECASE), 'Bắc Giang'),
+    (re.compile(r"\bhung yen\b", re.IGNORECASE), 'Hưng Yên'),
+    (re.compile(r"\bthai nguyen\b", re.IGNORECASE), 'Thái Nguyên'),
+    (re.compile(r"\bphu tho\b", re.IGNORECASE), 'Phú Thọ'),
+    (re.compile(r"\bninh binh\b", re.IGNORECASE), 'Ninh Bình'),
+    (re.compile(r"\bthanh hoa\b", re.IGNORECASE), 'Thanh Hóa'),
+    (re.compile(r"\bnghe an\b", re.IGNORECASE), 'Nghệ An'),
+    (re.compile(r"\bha tinh\b", re.IGNORECASE), 'Hà Tĩnh'),
+    (re.compile(r"\bquang tri\b", re.IGNORECASE), 'Quảng Trị'),
+    (re.compile(r"\bhue\b", re.IGNORECASE), 'Huế'),
+    (re.compile(r"\bda nang\b", re.IGNORECASE), 'Đà Nẵng'),
+    (re.compile(r"\bquang ngai\b", re.IGNORECASE), 'Quảng Ngãi'),
+    (re.compile(r"\bdak lak\b", re.IGNORECASE), 'Đắk Lắk'),
+    (re.compile(r"\bkhanh hoa\b", re.IGNORECASE), 'Khánh Hòa'),
+    (re.compile(r"\blam dong\b", re.IGNORECASE), 'Lâm Đồng'),
+    (re.compile(r"\bdong nai\b", re.IGNORECASE), 'Đồng Nai'),
+    (re.compile(r"\btay ninh\b", re.IGNORECASE), 'Tây Ninh'),
+    (re.compile(r"\bdong thap\b", re.IGNORECASE), 'Đồng Tháp'),
+    (re.compile(r"\bvinh long\b", re.IGNORECASE), 'Vĩnh Long'),
+    (re.compile(r"\bcan tho\b", re.IGNORECASE), 'Cần Thơ'),
+    (re.compile(r"\bca mau\b", re.IGNORECASE), 'Cà Mau'),
 ]
 
 
