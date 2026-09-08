@@ -3,6 +3,10 @@
 Python Playwright + stealth 모드로 Cloudflare 차단 없이 크롤링.
 **반드시 베트남 현지 또는 싱가포르 IP VPS에서 실행** (GitHub Actions 등 데이터센터 IP는 차단됨).
 
+> Vieclam24h 크롤러의 확정된 동작 기준(신규/기존 판정, 좌표 등급, 거리검색 제외 규칙 등)은
+> [`docs/CRAWLER_BASELINE.md`](../docs/CRAWLER_BASELINE.md)에 기록돼 있다 — 이 기준을 바꾸는
+> 변경 전에 먼저 확인한다.
+
 운영 기준: **AZDIGI/Vietnam VPS에서 매일 20:00 Vietnam time에 `run_daily.sh` 실행**.
 `run_daily.sh`는 Vieclam24h crawler를 항상 실행하고, Facebook cookie가 `.env`에 있으면 Facebook crawler도 이어서 실행한다.
 
