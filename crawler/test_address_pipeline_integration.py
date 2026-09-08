@@ -26,6 +26,7 @@ from crawl_topcv import (
     _is_duplicate_location,
     _segment_has_specific_place_signal,
     _select_group_representative,
+    _select_sample_window,
     _specificity_score,
     _strip_recruitment_region_suffix,
     resolve_work_locations,
@@ -1640,6 +1641,32 @@ def test_select_group_representative_prefers_specificity_over_shortest_string() 
     assert_equal(rep2["text"], "Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè", "tied specificity -> shortest is only a tie-break, not the primary rule")
 
 
+def test_select_sample_window_offset_10_covers_different_candidates_than_offset_0() -> None:
+    """2026-09-08 사용자 지시 2/3번 — --sample-offset 신설의 핵심 회귀
+    테스트. offset=0/limit=10과 offset=10/limit=10이 서로 다른 후보 집합을
+    골라야 한다(실측 문제: --sample-offset 없이 --sample-limit만 여러 번
+    실행하면 항상 같은 카테고리 페이지의 같은 상위 10개만 재방문돼 2차
+    실행의 신규 건수가 0이었다 — vieclam24h 20건 수집 작업에서 직접 확인)."""
+    candidates = [{"href": f"https://vieclam24h.vn/job-{i}.html", "title": f"Job {i}"} for i in range(30)]
+
+    first_batch = _select_sample_window(candidates, offset=0, limit=10)
+    second_batch = _select_sample_window(candidates, offset=10, limit=10)
+
+    assert_equal(len(first_batch), 10, "offset=0/limit=10은 정확히 10개를 골라야 함")
+    assert_equal(len(second_batch), 10, "offset=10/limit=10도 정확히 10개를 골라야 함")
+    assert_equal(first_batch, candidates[0:10], "offset=0은 후보 목록의 맨 앞 10개여야 함")
+    assert_equal(second_batch, candidates[10:20], "offset=10은 그다음 10개(11~20번째)여야 함")
+
+    first_hrefs = {c["href"] for c in first_batch}
+    second_hrefs = {c["href"] for c in second_batch}
+    assert_equal(first_hrefs & second_hrefs, set(), "두 배치는 절대 겹치는 후보가 있으면 안 됨(합쳐서 서로 다른 20개가 나와야 함)")
+
+    # 경계값: 후보가 offset+limit보다 적으면 남은 만큼만 반환(범위 밖 접근으로 예외가 나면 안 됨).
+    short_list = candidates[:15]
+    tail_batch = _select_sample_window(short_list, offset=10, limit=10)
+    assert_equal(tail_batch, short_list[10:15], "후보가 부족하면 남은 것만 반환해야 하고 예외가 나면 안 됨")
+
+
 def test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions() -> None:
     """엔드투엔드 회귀(2026-09-04, 반복주소 수정 + 대표값 선정 수정): KCN Hiệp
     Phước 실사례 4개 후보를 resolve_work_locations()에 그대로 넣으면 — 결과
@@ -2094,6 +2121,7 @@ def main() -> int:
         test_group_candidates_by_core_location_does_not_merge_chain_brand_different_districts,
         test_group_candidates_by_core_location_still_merges_real_repeated_physical_address,
         test_select_group_representative_prefers_specificity_over_shortest_string,
+        test_select_sample_window_offset_10_covers_different_candidates_than_offset_0,
         test_resolve_work_locations_dedupes_repeated_core_address_and_collects_matched_recruitment_regions,
         test_resolve_work_locations_keeps_distinct_region_only_districts_as_separate_rows,
         test_resolve_work_locations_keeps_distinct_chain_stores_as_separate_rows,

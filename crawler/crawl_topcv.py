@@ -1264,19 +1264,39 @@ async def process_job_url(page, url: str, listing_hint: dict | None = None) -> d
     return build_job_record(url, detail, listing_hint)
 
 
-async def crawl_vieclam24h(target_count: int | None = None) -> list[dict]:
+def _select_sample_window(unique_raw: list[dict], offset: int, limit: int) -> list[dict]:
+    """중복 제거된 후보 목록에서 [offset, offset+limit) 구간만 골라낸다.
+
+    2026-09-08 사용자 지시로 신설 — --sample-limit(최대 10, 기존 안전장치
+    그대로 유지)만으로 여러 번 나눠 실행하면, 매번 같은 카테고리 페이지의
+    같은 상위 후보만 반복 처리돼(실측 확인: 동일 명령 재실행 시 신규 0건)
+    서로 다른 공고 20개를 모을 수 없었다. --sample-offset으로 이미 처리한
+    상위 후보를 건너뛰면(예: 1차 offset=0/limit=10, 2차 offset=10/limit=10)
+    두 배치가 서로 다른 후보를 처리하게 된다. 순수 슬라이싱이라 독립적으로
+    단위 테스트 가능하도록 crawl_vieclam24h() 밖으로 분리했다."""
+    return unique_raw[offset:offset + limit]
+
+
+async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0) -> list[dict]:
     """target_count가 주어지면 전역 TARGET_COUNT 대신 그 값으로 이번 실행의
     수집 상한을 대체한다 — 2026-09-06 사용자 지시로 추가(--sample-limit
     CLI 옵션이 이 값을 넘겨준다. 과거 실수로 --confirm-full-crawl 없이
     일반 실행이 곧바로 전체 운영 크롤(200건 이상 수집)을 시작해버린 사고의
-    재발 방지 — 실제 크롤 동작을 소규모로 직접 검증할 안전한 경로)."""
+    재발 방지 — 실제 크롤 동작을 소규모로 직접 검증할 안전한 경로).
+
+    offset(2026-09-08 사용자 지시로 추가, --sample-offset이 넘겨줌): 중복
+    제거된 후보 목록에서 이 개수만큼 건너뛴 뒤부터 target_count개를 고른다
+    — _select_sample_window() 참고. 카테고리 페이지 수집 자체도 offset+limit
+    개를 채울 때까지 계속해야 하므로(안 그러면 건너뛸 후보조차 못 모음),
+    아래 루프의 중단 조건도 offset을 반영한다."""
     limit = target_count if target_count is not None else TARGET_COUNT
+    fetch_ceiling = offset + limit
     async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
 
         for cat_url in CATEGORY_URLS:
-            if len(all_raw) >= limit:
+            if len(all_raw) >= fetch_ceiling:
                 break
             raw = await crawl_category(page, cat_url)
             for j in raw:
@@ -1292,7 +1312,7 @@ async def crawl_vieclam24h(target_count: int | None = None) -> list[dict]:
             if key not in seen_titles:
                 seen_titles.add(key)
                 unique_raw.append(j)
-        unique_raw = unique_raw[:limit]
+        unique_raw = _select_sample_window(unique_raw, offset, limit)
 
         # 각 공고: 상세 수집 -> 필수정보/주소 추출 -> 판정까지 build_job_record
         # 하나로 처리(신규 발견 여부와 무관 — 저장 단계에서만 신규/기존을 가른다).
@@ -1875,11 +1895,11 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
     return manifest
 
 
-async def main(sample_limit: int | None = None):
+async def main(sample_limit: int | None = None, sample_offset: int = 0):
     print("🚀 vieclam24h 크롤링 시작")
     print("─" * 50)
 
-    jobs = await crawl_vieclam24h(target_count=sample_limit)
+    jobs = await crawl_vieclam24h(target_count=sample_limit, offset=sample_offset)
     print(f"\n📊 수집 완료: {len(jobs)}개")
     save_to_json(jobs)
     save_to_supabase(jobs)
@@ -1933,6 +1953,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="전체 크롤(--confirm-full-crawl)에서 이번 실행 한정으로 수집할 표본 상한(전역 TARGET_COUNT "
              "대신 사용). 사고 재발 방지를 위해 최대 10까지만 허용 — 11 이상이면 실행 전에 오류로 중단한다.",
     )
+    parser.add_argument(
+        "--sample-offset", type=int, default=0,
+        help="전체 크롤(--confirm-full-crawl)에서 중복 제거된 후보 목록 중 이 개수만큼 건너뛴 뒤부터 "
+             "--sample-limit개를 처리한다(기본 0) — 2026-09-08 사용자 지시로 추가. --sample-limit(최대 "
+             "10)을 여러 번 나눠 실행할 때(예: 1차 --sample-offset 0, 2차 --sample-offset 10) 서로 다른 "
+             "공고를 처리하기 위한 용도 — 음수는 허용하지 않는다.",
+    )
     return parser
 
 
@@ -1957,6 +1984,15 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
         raise SystemExit(
             f"--sample-limit은 1~10 사이여야 합니다(입력값: {args.sample_limit}) — "
             "10건을 초과하는 표본 수집은 사고 재발 방지를 위해 차단됩니다. 중단합니다."
+        )
+
+    # 2026-09-08 사용자 지시로 추가 — --sample-offset은 순전히 "이미 처리한
+    # 상위 후보를 건너뛰는" 용도라 상한을 둘 이유는 없지만(그 자체로는 한
+    # 실행에서 처리되는 건수를 늘리지 않는다 — --sample-limit이 여전히
+    # 최대 10을 강제한다), 음수는 의미가 없으므로 차단한다.
+    if args.sample_offset < 0:
+        raise SystemExit(
+            f"--sample-offset은 0 이상이어야 합니다(입력값: {args.sample_offset}). 중단합니다."
         )
 
     # 사용자 지시(2026-09-04, "운영 적용 준비" 4/5번): --verify-write가
@@ -2037,4 +2073,4 @@ if __name__ == "__main__":
         reports = asyncio.run(process_urls_dry_run(urls))
         print(json.dumps(reports, ensure_ascii=False, indent=2, default=str))
     elif mode == "full_crawl":
-        asyncio.run(main(sample_limit=args.sample_limit))
+        asyncio.run(main(sample_limit=args.sample_limit, sample_offset=args.sample_offset))

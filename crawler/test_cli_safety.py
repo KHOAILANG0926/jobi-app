@@ -68,6 +68,35 @@ def test_sample_limit_11_is_blocked() -> None:
     assert_true("sample-limit" in msg2, f"--confirm-full-crawl 없이도 sample-limit 사유로 먼저 차단돼야 함, got: {msg2!r}")
 
 
+def test_sample_offset_defaults_to_zero() -> None:
+    """--sample-offset을 안 주면 0이어야 한다(기존 동작과 100% 동일 —
+    이번 옵션 추가가 기존 --sample-limit 단독 사용에 영향을 주면 안 됨)."""
+    args = crawl_topcv.build_arg_parser().parse_args(["--confirm-full-crawl", "--sample-limit", "10"])
+    assert_equal(args.sample_offset, 0, "--sample-offset 기본값은 0이어야 함")
+
+
+def test_sample_offset_negative_is_blocked() -> None:
+    """--sample-offset 음수 → 실행 전에 오류로 차단."""
+    msg = _raises_system_exit(["--confirm-full-crawl", "--sample-limit", "10", "--sample-offset", "-1"])
+    assert_true("sample-offset" in msg, f"에러 메시지에 --sample-offset 안내가 있어야 함, got: {msg!r}")
+
+
+def test_sample_offset_10_with_sample_limit_10_is_allowed() -> None:
+    """--sample-offset 10 + --sample-limit 10 → 정상 진입해야 한다 —
+    --sample-limit의 기존 1~10 상한 안전장치는 --sample-offset과 무관하게
+    그대로 유지된다(2026-09-08 사용자 지시 1번)."""
+    mode = _mode_for(["--confirm-full-crawl", "--sample-limit", "10", "--sample-offset", "10"])
+    assert_equal(mode, "full_crawl", "--sample-offset 10 + --sample-limit 10은 허용돼야 함")
+
+
+def test_sample_limit_11_still_blocked_even_with_sample_offset() -> None:
+    """--sample-offset이 있어도 --sample-limit의 기존 상한(최대 10) 검증은
+    그대로 유지돼야 한다 — --sample-offset 추가가 기존 안전장치를 우회하는
+    구멍이 되면 안 된다."""
+    msg = _raises_system_exit(["--confirm-full-crawl", "--sample-limit", "11", "--sample-offset", "10"])
+    assert_true("sample-limit" in msg, f"--sample-offset이 있어도 --sample-limit 상한 검증이 먼저 걸려야 함, got: {msg!r}")
+
+
 def test_existing_dry_run_urls_mode_unaffected() -> None:
     """기존 --dry-run-urls는 --confirm-full-crawl 없이도 그대로 정상 동작
     (이번 안전장치의 영향을 받지 않아야 함)."""
@@ -108,6 +137,10 @@ def main() -> int:
         test_confirm_full_crawl_allows_entering_full_crawl_mode,
         test_sample_limit_10_is_allowed,
         test_sample_limit_11_is_blocked,
+        test_sample_offset_defaults_to_zero,
+        test_sample_offset_negative_is_blocked,
+        test_sample_offset_10_with_sample_limit_10_is_allowed,
+        test_sample_limit_11_still_blocked_even_with_sample_offset,
         test_existing_dry_run_urls_mode_unaffected,
         test_existing_process_url_mode_unaffected,
         test_existing_reprocess_ids_mode_unaffected,
