@@ -284,6 +284,29 @@ def canonical_job_key(title: object, company: object) -> tuple[str, str]:
     return (ascii_key(title)[:80], ascii_key(company)[:60])
 
 
+# 2026-09-10 실측(운영 DB 읽기 전용 조회, 신규 크롤링·저장 없음): title에는
+# 현재 활성 공고 중 매칭 0건, description에는 "tuyển gấp"/"cần tuyển gấp" 3건이
+# 실제로 존재하며 전부 "Cần tuyển gấp, đi làm ngay" 형태의 명확한 채용 긴급성
+# 표현이었다(예: job_id 4487/4507/4533). 반면 "khẩn cấp"는 2건 매칭됐지만 전부
+# HSE(안전관리) 직무의 "ứng phó tình huống khẩn cấp"(비상 상황 대응 업무 설명)
+# 였다 — 채용 긴급성과 무관한 오탐. "gấp" 단독 매칭은 이번 표본에서 전부
+# "tuyển gấp"의 일부였고 단독 등장은 없었다. 이 근거로 "tuyển gấp"(붙어 나오는
+# 두 단어) 하나만 명시적 급구 판정 기준으로 채택한다 — "gấp" 단독, 급여 수준,
+# 마감일 임박 등 다른 신호는 추정 판정에 쓰지 않는다.
+_EXPLICIT_URGENT_HIRING_RE = re.compile(r"\btuyen gap\b")
+
+
+def detect_explicit_urgent_hiring(title: object, description: object) -> bool:
+    """제목 또는 본문에 명시적 급구 채용 표현("tuyển gấp"/"cần tuyển gấp" 등
+    "tuyển gấp"을 포함하는 문구)이 실제로 있을 때만 True. 발음 구별 기호·대소문자
+    무관(ascii_key로 정규화), 단어 경계 매칭이라 다른 문맥에 우연히 섞여 든
+    문자열에는 매칭하지 않는다. "gấp" 단독이나 "khẩn cấp"(비상 대응 등 채용과
+    무관한 문맥에서도 흔히 쓰임 — 실측으로 오탐 확인됨)는 판정 근거로 쓰지
+    않는다."""
+    text = ascii_key(f"{title or ''} {description or ''}")
+    return bool(_EXPLICIT_URGENT_HIRING_RE.search(text))
+
+
 def normalize_salary(value: object) -> str:
     salary = normalize_whitespace(value)
     if not salary:

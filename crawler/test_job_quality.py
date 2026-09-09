@@ -10,6 +10,7 @@ from job_quality import (
     classify_work_location_candidate,
     compute_all_locations_c1_verified,
     compute_job_updates,
+    detect_explicit_urgent_hiring,
     extract_salary_from_text,
     extract_work_days_free_text,
     extract_work_hours_free_text,
@@ -1113,6 +1114,53 @@ def test_compute_all_locations_c1_verified_requires_every_location_source_verifi
     )
 
 
+def test_detect_explicit_urgent_hiring() -> None:
+    # 참(True) — 2026-09-10 운영 DB 읽기 전용 조회로 실제 확인된 표현 3건
+    # (job_id 4487/4507/4533)과 동일한 형태.
+    assert_true(
+        detect_explicit_urgent_hiring("", "Cần tuyển gấp, đi làm ngay"),
+        "explicit 'Cần tuyển gấp' phrase in description must be detected",
+    )
+    assert_true(
+        detect_explicit_urgent_hiring("", "• Tuyển gấp, đi làm ngay"),
+        "explicit 'Tuyển gấp' phrase in description must be detected",
+    )
+    assert_true(
+        detect_explicit_urgent_hiring("Tuyển gấp nhân viên bán hàng", ""),
+        "explicit phrase in title must also be detected (not description-only)",
+    )
+    assert_true(
+        detect_explicit_urgent_hiring("", "CẦN TUYỂN GẤP ĐI LÀM NGAY"),
+        "all-caps / diacritic-insensitive match must still be detected",
+    )
+
+    # 거짓(False) — 급구 표현이 전혀 없는 평범한 공고.
+    assert_false(
+        detect_explicit_urgent_hiring("Nhân viên pha chế", "Yêu cầu: nhanh nhẹn, trung thực."),
+        "ordinary posting with no urgency language must not be classified as urgent",
+    )
+
+    # 오탐 방지(2026-09-10 실측 근거) — 'gấp' 단독이나 'khẩn cấp'는 채용
+    # 긴급성과 무관한 문맥(예: HSE 직무의 비상 대응 업무 설명)에서도 흔히
+    # 쓰이는 것이 운영 DB에서 실제로 확인됐다(job_id 4419/4620,
+    # "ứng phó tình huống khẩn cấp") — 이런 문구만으로는 급구로 분류하지 않는다.
+    assert_false(
+        detect_explicit_urgent_hiring(
+            "Nhân Viên An Toàn - HSE",
+            "Xây dựng biện pháp khắc phục và ứng phó khẩn cấp.",
+        ),
+        "'khẩn cấp' in an emergency-response job description must NOT be classified as urgent hiring",
+    )
+    assert_false(
+        detect_explicit_urgent_hiring("", "Công việc đòi hỏi xử lý gấp các đơn hàng trong ngày."),
+        "'gấp' alone (describing task urgency, not hiring urgency) must NOT be classified as urgent",
+    )
+    assert_false(
+        detect_explicit_urgent_hiring("", "Lương cao, thưởng hấp dẫn, hạn nộp hồ sơ 20/09."),
+        "high salary / near deadline alone (no urgency wording) must NOT be classified as urgent",
+    )
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -1127,6 +1175,7 @@ def main() -> int:
         test_extract_work_hours_free_text_preserves_split_shifts,
         test_hours_and_work_days_extraction_fix,
         test_compute_all_locations_c1_verified_requires_every_location_source_verified,
+        test_detect_explicit_urgent_hiring,
     ]
     for test in tests:
         test()

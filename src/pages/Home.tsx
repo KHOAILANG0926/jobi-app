@@ -444,6 +444,13 @@ export function Home() {
   const jobResultRef = useRef<HTMLElement>(null)
   // Ref for the hero search's category <select>, focused by the "Theo ngành nghề" quick filter
   const categorySelectRef = useRef<HTMLSelectElement>(null)
+  // Ref for the existing region panel — "내 주변" 위치 거부/실패 시 지역별 검색으로 안내할 때 사용
+  const regionPanelRef = useRef<HTMLDivElement>(null)
+  const scrollToRegionPanel = () => {
+    window.requestAnimationFrame(() => {
+      regionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
 
   // Scroll to results when a city is selected
   useEffect(() => {
@@ -592,7 +599,7 @@ export function Home() {
         </div>
 
         {/* RIGHT 40%: 지역 제목 + compact 지역 목록만 */}
-        <div className="home-region-panel">
+        <div className="home-region-panel" ref={regionPanelRef}>
           <div className="home-region-panel__head">
             <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
             <button type="button" className="home-region-panel__all" onClick={() => handleRegionClick(null)}>Tất cả ›</button>
@@ -737,32 +744,91 @@ export function Home() {
       {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
       {!selectedCity && (
         <section className="home-section" ref={jobResultRef}>
-          <h2 className="home-section__title">Tất cả kết quả</h2>
-          {filtered.length === 0 ? (
-            // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
-            // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
-            // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).
-            <div className="city-result__empty">
-              <span>🔍</span>
-              <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>
-              <NavLink to="/">← Xem tất cả việc làm</NavLink>
-            </div>
+          {nearMe && !userCoords ? (
+            // "내 주변" — 위치를 아직 확보하지 못한 상태(상단 메뉴 "📍 Gần tôi"로
+            // 바로 들어온 경우 포함). 위치 확보 전에는 전체 공고를 "내 주변"
+            // 결과처럼 보여주면 안 되므로, filtered(이 상태에서는 사실상 전체
+            // 공고)를 렌더링하지 않고 이유 설명 + 버튼만 보여준다.
+            geoErrorMsg ? (
+              <div className="near-me-status near-me-status--error">
+                <span className="near-me-status__icon" aria-hidden>📍</span>
+                <h2 className="home-section__title">Không lấy được vị trí của bạn</h2>
+                <p className="near-me-status__text">{geoErrorMsg}</p>
+                <div className="near-me-status__actions">
+                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe}>
+                    Thử lại
+                  </button>
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={scrollToRegionPanel}>
+                    Tìm việc theo khu vực thay vào đó
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="near-me-status near-me-status--prompt">
+                <span className="near-me-status__icon" aria-hidden>📍</span>
+                <h2 className="home-section__title">Xem việc làm gần bạn</h2>
+                <p className="near-me-status__text">
+                  Chúng tôi cần vị trí hiện tại của bạn để tìm việc làm trong bán kính gần nơi bạn đang
+                  ở — vị trí chỉ dùng để tính khoảng cách ngay trên trình duyệt này, không gửi lên máy
+                  chủ hay lưu lại.
+                </p>
+                <div className="near-me-status__actions">
+                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe}>
+                    Dùng vị trí hiện tại
+                  </button>
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={scrollToRegionPanel}>
+                    Tìm việc theo khu vực thay vào đó
+                  </button>
+                </div>
+              </div>
+            )
           ) : (
-            <div className="home-jobs-grid">
-              {filtered.map((job) => (
-                <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-                  <JobCard
-                    job={job}
-                    isApplied={isApplied(job.id)}
-                    onApply={handleApply}
-                    isSaved={savedIds.has(job.id)}
-                    onToggleSave={handleToggleSave}
-                    distanceKm={jobDistances[job.id]?.km}
-                    distancePrecise={jobDistances[job.id]?.precise}
-                  />
-                </NavLink>
-              ))}
-            </div>
+            <>
+              <h2 className="home-section__title">
+                {nearMe && userCoords ? 'Việc làm gần bạn' : 'Tất cả kết quả'}
+              </h2>
+              {nearMe && userCoords && (
+                <p className="near-me-status__summary">
+                  📍 Đang dùng vị trí hiện tại của bạn · Bán kính {nearRadius} km · {filtered.length} kết quả
+                </p>
+              )}
+              {filtered.length === 0 ? (
+                // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
+                // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
+                // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).
+                <div className="city-result__empty">
+                  <span>🔍</span>
+                  <p>
+                    {nearMe && userCoords
+                      ? `Không có việc làm nào trong bán kính ${nearRadius} km.`
+                      : 'Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.'}
+                  </p>
+                  {nearMe && userCoords && nearRadius < 10 ? (
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => setNearRadius(10)}>
+                      Mở rộng lên 10 km
+                    </button>
+                  ) : (
+                    <NavLink to="/">← Xem tất cả việc làm</NavLink>
+                  )}
+                </div>
+              ) : (
+                <div className="home-jobs-grid">
+                  {filtered.map((job) => (
+                    <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+                      <JobCard
+                        job={job}
+                        isApplied={isApplied(job.id)}
+                        onApply={handleApply}
+                        isSaved={savedIds.has(job.id)}
+                        onToggleSave={handleToggleSave}
+                        distanceKm={jobDistances[job.id]?.km}
+                        distancePrecise={jobDistances[job.id]?.precise}
+                      />
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       )}

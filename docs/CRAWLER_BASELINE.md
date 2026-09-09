@@ -50,6 +50,36 @@ undetermined 판정), `resolve_work_locations()`(4~7단계 파이프라인), `ga
 (공개 게이트), `validate_job_payload(job, source=...)`(품질 검증 — `source`로
 `[source:<site>]` 태그를 사이트별로 검사).
 
+### 1.2-1 급구(urgent) 판정 — 명시적 표현만 인정 (2026-09-10)
+
+- **이전 기준**: `build_job_record()`/`build_vietnamworks_job_record()` 둘 다
+  사이트에 별도 "급구" 배지 필드가 없어(원문 HTML/상세 데이터 어디에도
+  `detailUrgent` 류의 필드가 추출되지 않음, 실측 확인) `"urgent": False`를
+  무조건 저장했다 — 신규 공고는 사이트에 실제로 "Tuyển gấp"이 적혀 있어도
+  항상 `urgent=false`로 들어갔다.
+- **변경**: `job_quality.detect_explicit_urgent_hiring(title, description)` —
+  제목·본문에 **"tuyển gấp"** 문구(발음 구별 기호·대소문자 무관, 단어 경계
+  매칭)가 실제로 있을 때만 `True`. 두 크롤러 모두 이 함수 결과를
+  `"urgent"` 필드에 그대로 쓴다(무조건 `False` 하드코딩 제거).
+- **근거(2026-09-10, 운영 DB 읽기 전용 조회 — 신규 크롤링·저장 없음)**:
+  활성(active=true) 공고 중 description에 "tuyển gấp"이 실제로 3건 있었고
+  (job_id 4487/4507/4533, 전부 vieclam24h 소스), 셋 다 "Cần tuyển gấp, đi
+  làm ngay" 형태의 명확한 채용 긴급성 표현이었다(title 매칭은 0건). 반면
+  "khẩn cấp"은 2건 매칭됐지만(job_id 4419/4620) 전부 HSE(안전관리) 직무의
+  "ứng phó tình huống khẩn cấp"(비상 상황 대응 업무 설명)로, 채용 긴급성과
+  무관한 오탐이었다 — 그래서 "khẩn cấp"과 "gấp" 단독은 판정 근거에서
+  제외했다. 급여 수준·마감일 임박만으로 급구를 추정하지 않는다.
+- **기존 저장 공고에는 적용하지 않음**: `urgent`는 `job_quality.
+  UPDATE_TRACKED_FIELDS`(§1.3)에 포함돼 있지 않으므로, 이미 저장된 공고를
+  재방문(`compute_job_updates()`)해도 `urgent` 값은 절대 갱신되지 않는다 —
+  이 변경은 앞으로 **신규로 처음 저장되는 공고**의 INSERT 값에만 적용된다.
+  기존 3건(4487/4507/4533)을 포함한 기존 운영 공고의 일괄 재분류는 실행하지
+  않았다 — 필요하면 별도 승인 후 진행.
+- **테스트**: `crawler/test_job_quality.py`의
+  `test_detect_explicit_urgent_hiring`(참 4건/거짓 1건/오탐 방지 3건,
+  위 실측 사례를 그대로 테스트 케이스화) — `python test_job_quality.py`로
+  19/19 전체 통과 확인(2026-09-10).
+
 ### 1.3 DB 저장
 
 - 단 하나의 저장 경로: `upsert_job_record()` — 신규든 기존 재방문이든 이 함수만 거친다(vieclam24h/VietnamWorks 공통).
@@ -143,7 +173,7 @@ undetermined 판정), `resolve_work_locations()`(4~7단계 파이프라인), `ga
 | `crawler/test_address_pipeline_integration.py` | §2(그룹핑), §3(transient 보호), §4(`_select_sample_window`/`_filter_new_only_candidates`) 등 순수 로직 회귀 + 주소·근무지 파이프라인 전반 (54/54) — 특히 `test_group_candidates_by_core_location_*`(그룹핑), `test_*_transient_geocode_failure_*`/`test_reprocessed_existing_job_with_zero_work_locations_*`(§3) |
 | `crawler/test_regeocode_work_locations.py` | §5 — `test_resolve_province_hint_prefers_matched_recruitment_regions`, `test_update_payload_forces_manual_when_province_unknown_even_with_real_coordinates`, `test_update_payload_forces_manual_when_region_mismatch`, `test_update_payload_still_succeeds_when_region_genuinely_matches`, `test_failed_and_manual_are_distinguishable_outcomes` (11/11) |
 | `crawler/test_geocode.py` | §3 — 제한적 재시도(무한 재시도 금지), 정상 `no_results`는 재시도 안 함 (6/6) |
-| `crawler/test_job_quality.py` | §6(좌표 등급 CHECK 호환), §5(`test_guess_province_from_text_recognizes_english_province_names` — 영어 지명 별칭) (18/18) |
+| `crawler/test_job_quality.py` | §6(좌표 등급 CHECK 호환), §5(`test_guess_province_from_text_recognizes_english_province_names` — 영어 지명 별칭), §1.2-1(`test_detect_explicit_urgent_hiring` — 급구 판정 참/거짓/오탐 방지) (19/19) |
 | `crawler/test_vietnamworks_extraction.py` | §1.2/§2/§5 VietnamWorks 전용 — 단일 주소/다중 근무지 일치/제목-필드 불일치 3사례, `_enforce_region_confirmed_before_success` (8/8) |
 | `src/lib/jobCoords.test.ts` | §7 — `testPendingGeocodeStatusIsDistinctFromDefaultAndNeverFallsBackToText`, `testRegionOnlyPendingRealVungTauCase`, `testRegionOnlyPendingStillShowsRegionCenterMap`, `testFindRegionCenterCoversEveryProvinceUsedByRegionOnlyProductionData`, `testDistanceSearchOnlyUsesVerifiedLocations`, `testMapShownForEveryLocationTier` |
 

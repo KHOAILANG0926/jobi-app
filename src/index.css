@@ -6341,6 +6341,40 @@ a:hover {
   text-decoration: underline;
 }
 
+/* ── "내 주변" 위치 확인 전 / 거부·실패 상태 안내 (결과 섹션) ────────── */
+.near-me-status {
+  text-align: center;
+  max-width: 480px;
+  margin: 2.5rem auto;
+  padding: 1.5rem 1rem;
+}
+.near-me-status__icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+.near-me-status .home-section__title {
+  margin: 0 0 0.5rem;
+}
+.near-me-status__text {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 1.1rem;
+}
+.near-me-status__actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.near-me-status__summary {
+  color: #555;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: -0.4rem 0 1rem;
+}
+
 /* ── Deadline filter ─────────────────────────────────────────────── */
 .home-deadline-filter {
   display: flex;

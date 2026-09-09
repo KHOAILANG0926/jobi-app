@@ -143,6 +143,32 @@ React Router v6가 정적 세그먼트를 동적 파라미터보다 우선 매�
   문제). 실제 로직(급구만/마감제외/지역필터) 검증은 로컬 테스트 데이터로 진행했다
   — §10 참고.
 
+### 6-1. 크롤러 쪽 urgent 판정 로직 신설 (2026-09-10)
+
+- 위 §6 앞부분에서 "0건"이라 확인된 이유가 실제로 밝혀졌다 — 크롤러
+  (`crawler/crawl_topcv.py`)가 vieclam24h/VietnamWorks 두 사이트 모두
+  `"urgent": False`를 **무조건** 저장하고 있었다(사이트에 별도 급구 배지
+  필드가 없어 애초에 판정 자체를 시도하지 않았음). 이번에 읽기 전용으로
+  운영 DB(`local_jobs`)의 실제 title/description을 조회해 확인한 결과, 활성
+  공고 description에 **"tuyển gấp"** 문구가 실제로 3건(job_id 4487/4507/4533,
+  전부 "Cần tuyển gấp, đi làm ngay" 형태) 존재했지만 전부 `urgent=false`로
+  저장돼 있었다. 상세 근거·구현·테스트는
+  [`docs/CRAWLER_BASELINE.md`](CRAWLER_BASELINE.md) §1.2-1 참고 — 요약하면:
+  - `job_quality.detect_explicit_urgent_hiring(title, description)` 신설 —
+    "tuyển gấp" 문구가 명시적으로 있을 때만 `True`. "khẩn cấp"(실측 결과 HSE
+    직무의 비상 대응 업무 설명에도 등장 — 오탐 확인됨), "gấp" 단독, 급여·
+    마감일 등 다른 신호는 근거로 쓰지 않는다.
+  - 두 크롤러의 `"urgent": False` 하드코딩을 이 함수 호출로 교체 — **신규로
+    처음 저장되는 공고에만 적용**된다. `urgent`는
+    `job_quality.UPDATE_TRACKED_FIELDS`에 없어 기존 공고 재방문 시에도 절대
+    갱신되지 않는다 — 기존 3건을 포함한 기존 운영 공고의 일괄 재분류는
+    실행하지 않았다(요구사항대로 승인 대기).
+  - 테스트: `crawler/test_job_quality.py::test_detect_explicit_urgent_hiring`
+    (참 4/거짓 1/오탐 방지 3, 위 실측 사례 그대로 케이스화) — 19/19 전체 통과.
+  - 이 변경이 실제로 배포·적용되면(다음 신규 크롤 실행부터) 급구 공고 메뉴가
+    더 이상 항상 "0건"이지 않게 될 전망이다 — 프론트 로직(§6 본문) 자체는
+    변경하지 않았다.
+
 ## 7. 내 주변 — 기준 위치·반경 표시/변경 (기존 기능 개선)
 
 - 기존 `내 주변`/지역별·업종별 메뉴는 유지했다(요구사항). `MapView.tsx`(`/ban-do`)는
@@ -154,6 +180,50 @@ React Router v6가 정적 세그먼트를 동적 파라미터보다 우선 매�
 - 거리 계산은 기존 검증 기준(`resolveDistanceSearchPoint()`, `docs/CRAWLER_BASELINE.md`
   §7)을 그대로 재사용한다 — 지역 대표 좌표나 미검증 좌표를 거리검색에 새로 넣지
   않았다(코드 변경 없음, 기존 함수 그대로 호출).
+
+### 7-1. 위치 확인 전/거부·실패 상태에서 전체 공고를 노출하던 결함 수정 (2026-09-10)
+
+- **결함**: 상단 메뉴 "📍 Gần tôi"(`/?near=1`)로 들어오면 `nearMe=true`만
+  URL에서 읽고 위치 요청은 자동으로 하지 않는데(의도된 동작 — 사용자 동의
+  없이 위치 권한을 자동 요청하지 않음), 결과 섹션의 `filtered`는
+  `nearMe && userCoords`일 때만 거리 필터를 적용하므로 `userCoords`가 아직
+  없는 이 상태에서는 필터가 그냥 통과돼 **전체 공고가 "Tất cả kết quả"
+  제목으로 그대로 노출**됐다 — 사용자가 "내 주변"을 보러 왔는데 안내 없이
+  전체 목록을 보게 되는 결함.
+- **수정**(`src/pages/Home.tsx` 결과 섹션 전면 재작성, `src/index.css`에
+  `.near-me-status*` 클래스 추가): `nearMe` 상태를 3가지로 명확히 분기한다.
+  1. **위치 확인 전**(`nearMe && !userCoords && !geoErrorMsg`) — 전체 공고
+     대신 "Xem việc làm gần bạn" 안내 + 위치가 필요한 이유(브라우저 안에서만
+     거리 계산에 쓰고 서버에 보내거나 저장하지 않음) + "Dùng vị trí hiện tại"
+     버튼만 표시. 버튼은 기존 `handleQuickNearMe()`(브라우저
+     `navigator.geolocation.getCurrentPosition` 호출)를 그대로 재사용한다 —
+     새 위치 요청 로직을 만들지 않았다.
+  2. **거부·실패**(`nearMe && !userCoords && geoErrorMsg`) — 실패 사유
+     문구 + "Thử lại"(재시도, 같은 함수 재호출) + "Tìm việc theo khu vực thay
+     vào đó"(지역별 검색 링크) 버튼. 이 링크는 텍스트·동작 모두 거리검색이
+     아니라 기존 지역별 검색 패널(`.home-region-panel`, 이미 화면에 있는
+     "Việc làm theo khu vực")로 스크롤 이동만 한다 — "지역별 검색"을
+     "거리검색"으로 표현하지 않는다.
+  3. **위치 확보됨**(`nearMe && userCoords`) — "Việc làm gần bạn" 제목 +
+     "📍 Đang dùng vị trí hiện tại của bạn · Bán kính Xkm · N kết quả" 요약,
+     이하 실제 거리 필터링된 결과(`filtered`, 기존 `resolveDistanceSearchPoint`
+     기준 그대로) 그리드. 반경 내 결과 0건이면 "내 주변" 전용 안내("Không có
+     việc làm nào trong bán kính Xkm") + (10km 미만이면) "Mở rộng lên 10 km"
+     버튼, 10km에서도 0건이면 "← Xem tất cả việc làm"로 전환.
+- **검증 방법**: 실제 Supabase 위치 권한을 자동화 환경에서 부여할 수 없어,
+  `navigator.geolocation.getCurrentPosition`을 성공/실패 각각 모의(mock)해
+  "기존 브라우저 위치 요청 함수가 실제로 호출되는" 실제 코드 경로를 그대로
+  실행해 확인했다(신규 위치 요청 로직 없음 — 기존 함수 재사용 확인).
+  - `/?near=1` 진입 → 위치 확인 전 안내(버튼 포함) 표시, 전체 공고 미노출 확인.
+  - 위치 거부/실패 모의 → 에러 문구 + 재시도 + 지역별 검색 링크 표시,
+    전체 공고 미노출 확인.
+  - 위치 성공 모의(하노이 좌표) → 기본 5km, 16건 표시 확인 → 반경 1/3/5/10km
+    전환 시 결과 4/13/16/44건으로 실제로 바뀜을 확인(기존 검증된 거리 계산
+    재사용 확인).
+  - 위치를 공고가 전혀 없는 좌표(남중국해)로 모의 → "Không có việc làm nào
+    trong bán kính 5 km" + "Mở rộng lên 10 km" 표시 → 클릭 시 10km로 전환,
+    여전히 0건이라 "← Xem tất cả việc làm"로 전환됨을 확인.
+  - `npx tsc --noEmit` 통과.
 
 ## 8. 변경/미변경 범위 확인
 
@@ -169,11 +239,21 @@ React Router v6가 정적 세그먼트를 동적 파라미터보다 우선 매�
   추가), `src/context/NotificationContext.tsx`(저장 목록 계정 scope 누락 수정 —
   1차 작업에서 `loadSavedJobIds()`를 이 파일 한 곳에서 scope 없이 호출하던 것을
   이번 검증 중 발견해 수정, 아래 §10-2 참고).
+- 변경(3차, 2026-09-10 "내 주변"·"급구" 두 항목만 — §7-1/§6-1): `src/pages/
+  Home.tsx`(내 주변 결과 섹션을 위치 확인 전/거부·실패/확보됨 3상태로
+  재작성), `src/index.css`(`.near-me-status*` 클래스 추가), `crawler/
+  job_quality.py`(`detect_explicit_urgent_hiring()` 신설),
+  `crawler/crawl_topcv.py`(두 build 함수의 `"urgent": False` 하드코딩을
+  위 함수 호출로 교체), `crawler/test_job_quality.py`(관련 테스트 추가,
+  19/19). 다른 메뉴(저장/최근본/맞춤/추천)·전체 공고 메뉴는 이번에 건드리지
+  않았다(요구사항대로).
 - 미변경(요구사항대로 유지): 로고·배너·메인 디자인, 한국 공고 기능
-  (`KoreaHome`/`KoreaJobs`/`KoreaJobDetail`), 크롤러/지오코딩 코드
-  (`crawler/`, `src/lib/jobCoords.ts`의 거리검색 함수 자체), 알바몬 관련 계정/설정,
-  운영 Supabase DB(스키마·데이터 전부 변경 없음 — §10 검증은 전부 로컬 브라우저
-  메모리 상태 조작으로 진행, 네트워크 요청·DB 쓰기 없음).
+  (`KoreaHome`/`KoreaJobs`/`KoreaJobDetail`), 지오코딩 코드, 알바몬 관련
+  계정/설정, 운영 Supabase DB(스키마·데이터 전부 변경 없음 — 3차 검증도
+  1차/2차와 동일하게 로컬 브라우저 메모리 상태 조작 + 읽기 전용 REST 조회만
+  사용, 쓰기 없음). `crawler/`의 기존 좌표 검증·거리검색 제외 기준
+  (`src/lib/jobCoords.ts`)도 이번에 손대지 않았다 — 3차는 근무지 좌표
+  파이프라인이 아니라 urgent 필드 판정 로직만 추가했다.
 
 ## 9. 테스트/검증 결과 (1차, 2026-09-09 초기 구현)
 
