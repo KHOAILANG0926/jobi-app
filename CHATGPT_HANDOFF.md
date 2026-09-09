@@ -1,5 +1,39 @@
 # ChatGPT ↔ Claude Code 인수인계 문서
 
+## ✅ migration 0017 블로커 해소 확인 + 리포 정합화 완료(2026-09-09)
+
+**발견 경위**: 이전 스냅샷(아래 2026-09-05 절)은 "0017이 draft·미실행 상태라
+비공개 표본 저장이 CHECK 위반으로 실패한다"고 기록돼 있었다. 2026-09-09에
+운영 Supabase(`edhuesdnuxlbcfephutq`)를 직접 재조회한 결과, 이는 더 이상
+사실이 아니었다.
+
+**실측으로 확인된 것**: `local_jobs_publish_gate_reason_check` 제약이 이미
+`'no_verified_coordinate'`를 포함한다. `supabase_migrations.schema_migrations`에
+version `20260905015705` / name `publish_gate_reason_add_no_verified_coordinate`로
+적용 이력이 존재하고, 그 `statements`가 리포의 구 `0017_..._draft.sql` 본문과
+완전히 동일함을 직접 조회로 확인했다(제약 재정의 + comment on column, 둘 다
+일치). 적용 시각(버전 타임스탬프, UTC): 2026-09-05 01:57:05 — 즉 0017을
+"미실행 블로커"로 기록한 커밋(6e12edb, 2026-09-05 00:09 +07)보다 **나중에**
+파일·커밋 없이 운영 DB에 직접 적용된 것으로 보인다(TWO-PC 규칙상 migration
+파일이 GitHub master에 포함돼야 하는데 누락돼 있었음).
+
+**변경 내용**: DB는 이미 목표 상태이므로 추가 DDL은 실행하지 않았다. 리포만
+실제 상태에 맞췄다 —
+[supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql](supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql)
+로 파일명 변경(구 `0017_..._draft.sql`), 상단 주석을 "사후 반영, 실행용 아님"
++ 적용 사실/시각으로 교체, 이 핸드오프 문서의 0017 관련 서술을 해소 완료로 갱신.
+
+**테스트 결과**: 코드 변경 없음(순수 문서/파일명 정리) — `tsc`/`build` 대상
+아님. DB 조회로 제약·적용 이력·statements 일치를 직접 검증.
+
+**발견된 문제**: 없음(위 "발견 경위"가 전부) — 단, 향후 세션은 운영 DB에
+직접 적용하고 파일 커밋을 빠뜨리는 일이 재발하지 않도록 주의.
+
+**다음 결정사항**: 아래 "다음 결정사항" 절 참고 — 0017 항목은 제거되고
+나머지(0020, 비공개 표본 저장, cron/GHA)는 그대로 미승인 대기.
+
+---
+
 ## ✅ migration 0018 적용 + recruitment_regions 저장 경로 활성화 완료(2026-09-05)
 
 운영 Supabase(`edhuesdnuxlbcfephutq`)에 **migration 0018을 실제로 적용**했고,
@@ -16,18 +50,15 @@ migration이 건드리지 않았음을 재확인. 크롤러 테스트 50/50, `ts
 커밋 [3fbde0c](https://github.com/KHOAILANG0926/jobi-app/commit/3fbde0cf6b27a74d95cc6375dfe5bb4733d38756),
 master push 완료, VPS `/root/jobi`도 동일 커밋으로 동기화 완료.
 
-**⚠️ 새로 발견된 블로커(비공개 표본 저장 전 반드시 확인 필요)**:
-`supabase/migrations/0017_publish_gate_reason_add_no_verified_coordinate_draft.sql`
-가 아직 draft·미실행 상태다. 운영 DB의 `local_jobs_publish_gate_reason_check`
-CHECK 제약이 지금도 `('ok','no_address_text','no_application_path')`만 허용하고
-`'no_verified_coordinate'`는 없는데, 크롤러가 실제로 계산하는 gate_reason
-값의 절대다수가 이 값이다(이전 라운드 실측: 기업 좌표 커버리지 ~6.7%). **이
-상태로 실제 공고 저장을 시도하면 대부분 CHECK 위반으로 즉시 실패한다.**
-migration 0018과는 독립적이라 이번엔 손대지 않았음 — 다음 단계(비공개 표본
-3~5건 검증) 전에 0017을 먼저 검토/승인해야 한다.
+**~~⚠️ 새로 발견된 블로커~~ → 2026-09-09 해소 확인됨**: 당시엔
+`0017_..._draft.sql`이 미실행이라고 기록했으나, 실제로는 이 문서 작성
+이후 운영 DB에 직접 적용돼 있었다. 자세한 경위는 문서 최상단
+"migration 0017 블로커 해소 확인 + 리포 정합화 완료(2026-09-09)" 절 참고.
+파일은 `supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql`
+로 이름이 바뀌었다.
 
-**아직 안 한 것**: migration 0017 실행, migration 0020(admin_* EXECUTE 축소)
-실행, `--verify-write-urls` 표본 저장, 기존 공고 재처리, cron/GHA 활성화 —
+**아직 안 한 것**: migration 0020(admin_* EXECUTE 축소) 실행,
+`--verify-write-urls` 표본 저장, 기존 공고 재처리, cron/GHA 활성화 —
 전부 별도 승인 대기.
 
 ---
@@ -56,16 +87,14 @@ migration 0018과는 독립적이라 이번엔 손대지 않았음 — 다음 �
 
 ## 다음 결정사항
 
-1. **migration 0017 검토/승인 여부** — publish_gate_reason CHECK에
-   `'no_verified_coordinate'` 추가. 이게 없으면 비공개 표본 저장 자체가
-   대부분 실패한다. 다음으로 가장 먼저 필요한 결정.
-2. 0017 승인·적용되면 → 검증용 소규모 저장(3~5건, `--process-url
-   --confirm-write`)으로 `location_verified`/`matched_recruitment_regions`/
-   `recruitment_regions`이 실제로 채워지는지, CHECK 위반 없이 insert되는지
-   확인 — 이때 위 "부분 검증" 항목들(기업 본인 비공개 공고 실제 화면,
-   admin_hidden=true 실제 행, service_role 실제 요청)도 함께 실측.
-3. migration 0020(admin_* EXECUTE 축소, 별도 하드닝 항목) 승인 여부 대기.
-4. 운영 재개(cron/GHA)는 계속 비승인 — 위 단계들 이후 별도 승인 필요.
+1. 비공개 표본 검증용 소규모 저장(3~5건, `--process-url --confirm-write`)으로
+   `location_verified`/`matched_recruitment_regions`/`recruitment_regions`이
+   실제로 채워지는지, CHECK 위반 없이 insert되는지 확인 — publish_gate_reason
+   CHECK는 이미 `'no_verified_coordinate'`를 허용하므로 더 이상 블로커 아님.
+   이때 위 "부분 검증" 항목들(기업 본인 비공개 공고 실제 화면, admin_hidden=true
+   실제 행, service_role 실제 요청)도 함께 실측.
+2. migration 0020(admin_* EXECUTE 축소, 별도 하드닝 항목) 승인 여부 대기.
+3. 운영 재개(cron/GHA)는 계속 비승인 — 위 단계들 이후 별도 승인 필요.
 
 ## 발견됐으나 범위 밖(수정 안 함, 기록만)
 

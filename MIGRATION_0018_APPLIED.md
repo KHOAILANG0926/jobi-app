@@ -31,6 +31,11 @@ CHECK 제약이 지금도 `('ok','no_address_text','no_application_path')`만
 다음 단계(비공개 표본 저장) 전에 반드시 확인/승인이 필요한 항목이다 —
 아래 "비공개 표본 검증 준비 여부"에 반영.
 
+> **2026-09-09 후속 갱신**: 위 내용은 이 문서 작성 시점(2026-09-05)의
+> 사실이다. 그 이후 파일/커밋 없이 운영 DB에 직접 적용된 것이 확인되어,
+> 리포는 `supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql`
+> 로 정리했다. 최신 상태는 [CHATGPT_HANDOFF.md](CHATGPT_HANDOFF.md) 참고.
+
 ---
 
 ## 7~9. 적용 실행 + 읽기 전용 검증
@@ -117,7 +122,7 @@ migration 성공 확인 후 다음 2개 파일만 수정(커밋 [이 문서 하�
 | 기존 데이터 불변 여부 | ✅ **확인됨**(행 수 + MD5 체크섬 일치) |
 | RPC 보안·원자성 확인 결과 | ✅ **확인됨**(origin 가드/delete+insert 원자성/JSON 타입 안전 처리/service_role 전용/SECURITY DEFINER+search_path 전부 유지) |
 | 코드 활성화 커밋 | ✅ **완료**(아래 커밋 해시 참고) |
-| 비공개 표본 검증을 시작할 준비가 됐는지 | **조건부 NO** — migration 0018 자체는 준비됐지만, **별도 발견된 migration 0017(publish_gate_reason CHECK에 'no_verified_coordinate' 추가, 현재 draft·미실행)이 먼저 적용되지 않으면 이번 세션 대부분의 실제 공고가 그 값으로 저장을 시도하다 CHECK 위반으로 즉시 실패한다.** 0017 검토·승인·적용(또는 이 시나리오를 피하는 대안 확인) 전까지는 표본 저장을 시작하지 않는 것을 권한다. |
+| 비공개 표본 검증을 시작할 준비가 됐는지 (2026-09-05 시점) | 당시엔 **조건부 NO** — migration 0018 자체는 준비됐지만, **별도 발견된 migration 0017(publish_gate_reason CHECK에 'no_verified_coordinate' 추가, 당시 draft·미실행)이 먼저 적용되지 않으면 이번 세션 대부분의 실제 공고가 그 값으로 저장을 시도하다 CHECK 위반으로 즉시 실패한다**는 판단이었다. **2026-09-09 갱신: 이후 해당 migration이 운영 DB에 직접 적용된 것을 확인 — 이 조건은 더 이상 블로커가 아니다. 최신 상태는 [CHATGPT_HANDOFF.md](CHATGPT_HANDOFF.md) 참고.** |
 
 migration 0020, DB 데이터 생성·수정·삭제, 크롤러 실행, cron/GHA 활성화는
 하지 않았다. 실패나 스키마 불일치는 없었으므로 rollback은 실행하지 않았다.
