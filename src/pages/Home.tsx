@@ -466,6 +466,21 @@ export function Home() {
     }
   }, [activeRec, selectedCity])
 
+  // "내 주변"(상단 메뉴 "📍 Gần tôi", /?near=1)으로 들어오면 위치 사용 안내가
+  // 페이지 맨 위(히어로 배너 등)에 가려 스크롤해야만 보이던 결함 수정 — 진입
+  // 직후 즉시(애니메이션 없이) 결과 섹션으로 이동시켜 안내가 바로 보이게 한다.
+  // location.search만 의존하면 같은 "/?near=1"를 다시 클릭했을 때(문자열이
+  // 동일해 리액트가 값 비교상 "변화 없음"으로 보고 이펙트를 다시 실행하지
+  // 않음) 재클릭이 아무 동작도 안 하는 결함이 있었다 — react-router가 매
+  // navigate() 호출마다 새로 발급하는 location.key를 함께 의존성에 넣어
+  // 같은 URL로의 재클릭도 매번 다시 감지되게 한다.
+  useEffect(() => {
+    const p = new URLSearchParams(location.search)
+    if (p.get('near') === '1' && jobResultRef.current) {
+      jobResultRef.current.scrollIntoView({ behavior: 'auto', block: 'start' })
+    }
+  }, [location.search, location.key])
+
   const handleBrandClick = (brandSearch: string) => {
     setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
   }

@@ -161,13 +161,30 @@ React Router v6가 정적 세그먼트를 동적 파라미터보다 우선 매�
   - 두 크롤러의 `"urgent": False` 하드코딩을 이 함수 호출로 교체 — **신규로
     처음 저장되는 공고에만 적용**된다. `urgent`는
     `job_quality.UPDATE_TRACKED_FIELDS`에 없어 기존 공고 재방문 시에도 절대
-    갱신되지 않는다 — 기존 3건을 포함한 기존 운영 공고의 일괄 재분류는
-    실행하지 않았다(요구사항대로 승인 대기).
+    갱신되지 않는다.
   - 테스트: `crawler/test_job_quality.py::test_detect_explicit_urgent_hiring`
     (참 4/거짓 1/오탐 방지 3, 위 실측 사례 그대로 케이스화) — 19/19 전체 통과.
-  - 이 변경이 실제로 배포·적용되면(다음 신규 크롤 실행부터) 급구 공고 메뉴가
-    더 이상 항상 "0건"이지 않게 될 전망이다 — 프론트 로직(§6 본문) 자체는
-    변경하지 않았다.
+
+### 6-2. 기존 급구 후보 3건 반영 완료 (2026-09-10, 운영 DB 반영 — 사용자 명시 승인)
+
+- **재확인**: 반영 직전 3건(job_id 4487/4507/4533)의 현재 title/description/
+  active/application_deadline을 다시 조회 — 셋 다 description에 "tuyển gấp"
+  문구가 여전히 그대로 있고("Cần tuyển gấp, đi làm ngay" 등, §6-1과 동일),
+  `active=true`, 마감일이 전부 조회 시점(2026-09-09) 이후(09-24/09-23/09-30)
+  라 모집 중임을 확인했다. 3건 전부 조건 충족 — 제외된 행 없음.
+- **백업**: 반영 전 3건의 전체 컬럼 스냅샷을
+  `crawler/backup_before_urgent_flag_update_20260909.json`에 저장(git
+  미추적 로컬 파일, 기존 `crawler/backup_*.json` 관례와 동일).
+- **반영**: `UPDATE local_jobs SET urgent = true WHERE id IN (4487,4507,4533)
+  AND active = true AND urgent = false AND (description ILIKE '%tuyển gấp%'
+  OR title ILIKE '%tuyển gấp%')` — `urgent` 컬럼 하나만 변경, 다른 컬럼은
+  건드리지 않음(반영 후 title/company/salary/location/active/
+  application_deadline/last_verified_at을 백업과 대조해 일치 확인). 정확히
+  3행만 영향받음(`RETURNING`으로 확인).
+- 이 3건은 이제 `urgent=true`이고 마감 전이므로, 급구 공고 메뉴
+  (`/viec-lam/tuyen-gap`)와 Home의 `?urgent=1` 필터에 실제로 표시된다(§6
+  본문의 프론트 로직·마감 제외 필터는 변경하지 않음, 이미 있는 로직이 이제
+  실제 데이터로 검증 가능해진 것).
 
 ## 7. 내 주변 — 기준 위치·반경 표시/변경 (기존 기능 개선)
 
@@ -223,6 +240,39 @@ React Router v6가 정적 세그먼트를 동적 파라미터보다 우선 매�
   - 위치를 공고가 전혀 없는 좌표(남중국해)로 모의 → "Không có việc làm nào
     trong bán kính 5 km" + "Mở rộng lên 10 km" 표시 → 클릭 시 10km로 전환,
     여전히 0건이라 "← Xem tất cả việc làm"로 전환됨을 확인.
+  - `npx tsc --noEmit` 통과.
+
+### 7-2. 메뉴 클릭 직후 스크롤 없이 보이도록 수정 + 재클릭 결함 수정 (2026-09-10)
+
+- **결함 1**: §7-1로 안내 패널 자체는 생겼지만, 그 패널이 들어있는 결과
+  섹션(`jobResultRef`)이 히어로 배너·브랜드·지역 패널 등을 한참 지난
+  페이지 하단(약 2500px 이하)에 있어, 메뉴에서 "📍 Gần tôi"를 눌러도
+  사용자가 직접 스크롤해야만 안내가 보였다.
+- **결함 2**: 이미 `/?near=1`에 있는 상태에서 같은 메뉴를 다시 눌러도 아무
+  반응이 없었다 — URL 파싱 `useEffect`가 `location.search`(문자열 값)만
+  의존하는데, 같은 URL로 다시 이동해도 문자열 값 자체는 그대로라 React가
+  "변화 없음"으로 판단해 이펙트가 재실행되지 않았다.
+- **수정**(`src/pages/Home.tsx`, 신규 `useEffect` 1개 추가 — 다른 로직·
+  디자인·위치 권한 요청 방식·거리검색 좌표 기준은 손대지 않음): `near=1`이
+  감지되면 결과 섹션으로 **애니메이션 없이 즉시**(`scrollIntoView({behavior:
+  'auto', block:'start'})`) 이동시킨다. 의존성 배열에 `location.search`
+  뿐 아니라 `location.key`(react-router가 매 `navigate()` 호출마다 새로
+  발급하는 값 — 같은 URL이어도 매번 바뀜)도 포함시켜, 같은 메뉴를 다시
+  눌러도(같은 URL로 재이동) 매번 다시 감지·재실행되게 했다.
+- **검증 방법**: 이 자동화 환경은 세션 내내 Browser 패널이 "hidden" 상태로
+  보고돼(`tabs_context` 응답에 명시) 실제 픽셀 스크롤을 스크린샷으로 확인할
+  수 없었다 — 대신 `Element.prototype.scrollIntoView`를 가로채 실제 호출
+  여부·대상·옵션을 기록하는 방식으로 로직 자체가 정확히 동작하는지 확인했다
+  (스크롤 애니메이션이 브라우저에서 실제로 어떻게 보이는지의 육안 확인은
+  아님 — 아래 §최종 검증에서 운영 사이트로 별도 확인 필요).
+  - 홈 최상단(scrollY=0)에서 메뉴 클릭 → `<section class="home-section">`
+    (안내 패널을 담은 결과 섹션, `jobResultRef`)에 대해
+    `scrollIntoView({behavior:'auto', block:'start'})`가 정확히 1회 호출됨 확인.
+  - 같은 `/?near=1`에서 메뉴를 다시 클릭 → 같은 대상에 대해 `scrollIntoView`가
+    다시 호출됨(재클릭도 동작) 확인.
+  - 안내 패널(`.near-me-status--prompt`)이 그 결과 섹션의 첫 자식으로
+    들어있어, 섹션 상단으로 스크롤하면 안내가 바로 보이는 위치임을 DOM
+    구조로 확인.
   - `npx tsc --noEmit` 통과.
 
 ## 8. 변경/미변경 범위 확인
