@@ -446,10 +446,12 @@ export function Home() {
   const categorySelectRef = useRef<HTMLSelectElement>(null)
   // Ref for the existing region panel — "내 주변" 위치 거부/실패 시 지역별 검색으로 안내할 때 사용
   const regionPanelRef = useRef<HTMLDivElement>(null)
+  // requestAnimationFrame으로 감싸던 이전 구현은 탭이 실제로 그림을 그리는
+  // 중이 아니면(예: 백그라운드 탭) rAF 콜백 자체가 실행되지 않아 클릭해도
+  // 아무 반응이 없는 결함으로 실측 확인됨 — ref는 이미 마운트돼 있어 다음
+  // 프레임까지 기다릴 이유가 없으므로 클릭 즉시 동기 호출한다.
   const scrollToRegionPanel = () => {
-    window.requestAnimationFrame(() => {
-      regionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
+    regionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   // Scroll to results when a city is selected
