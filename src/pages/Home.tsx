@@ -217,7 +217,7 @@ export function Home() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<JobCategory | 'all'>('all')
   const [urgentOnly, setUrgentOnly] = useState(false)
-  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds()))
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds(user?.id)))
   const [selectedCity, setSelectedCity] = useState<JobRegionId | null>(null)
   const [brandFilter, setBrandFilter] = useState<string | null>(null)
 
@@ -245,23 +245,24 @@ export function Home() {
     setUrgentOnly(urgent === '1')
     setNearMe(near === '1')
   }, [location.search])
-  const [nearRadius] = useState(5)
+  const [nearRadius, setNearRadius] = useState(5)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null)
   const [todayOnly, setTodayOnly] = useState(false)
   const [sortMode, setSortMode] = useState<'none' | 'salary' | 'recommended'>('none')
 
   useEffect(() => {
-    const sync = () => setSavedIds(new Set(loadSavedJobIds()))
+    const sync = () => setSavedIds(new Set(loadSavedJobIds(user?.id)))
+    sync()
     window.addEventListener('vgb:saved-jobs', sync)
     window.addEventListener('storage', sync)
     return () => {
       window.removeEventListener('vgb:saved-jobs', sync)
       window.removeEventListener('storage', sync)
     }
-  }, [])
+  }, [user?.id])
 
-  const handleToggleSave = useCallback((job: Job) => { toggleSavedJobId(job.id) }, [])
+  const handleToggleSave = useCallback((job: Job) => { toggleSavedJobId(job.id, user?.id) }, [user?.id])
 
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set())
   const [activityCounts, setActivityCounts] = useState({ cv: 0, applications: 0, messages: 0, interviews: 0 })
@@ -654,6 +655,28 @@ export function Home() {
               </button>
             </div>
             {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
+            {nearMe && userCoords && (
+              <div className="near-me-controls">
+                <span className="near-me-controls__label">
+                  📍 Vị trí hiện tại của bạn · Bán kính {nearRadius} km
+                </span>
+                <div className="near-me-controls__radii" role="group" aria-label="Bán kính tìm kiếm">
+                  {[1, 3, 5, 10].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={`near-me-controls__radius-btn${nearRadius === r ? ' is-active' : ''}`}
+                      onClick={() => setNearRadius(r)}
+                    >
+                      {r} km
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="near-me-controls__refresh" onClick={handleQuickNearMe}>
+                  Cập nhật vị trí
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

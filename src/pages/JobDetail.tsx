@@ -16,6 +16,7 @@ import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
 import { googleMapsLinks, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
+import { recordJobView } from '../lib/viewHistoryStorage'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
@@ -108,7 +109,7 @@ export function JobDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { jobs, loading: jobsLoading } = useJobs()
-  const [saved, setSaved] = useState(() => (id ? isJobSaved(id) : false))
+  const [saved, setSaved] = useState(() => (id ? isJobSaved(id, user?.id) : false))
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
@@ -124,6 +125,16 @@ export function JobDetail() {
     hasAppliedToJob(job.id, user?.id).then((v) => { if (!cancelled) setApplied(v) })
     return () => { cancelled = true }
   }, [job?.id, job?.employerId, user?.id])
+
+  useEffect(() => {
+    if (id) setSaved(isJobSaved(id, user?.id))
+  }, [id, user?.id])
+
+  // "최근 본 공고" — 상세페이지를 실제로 열람했을 때만 기록한다(목록 카드
+  // 노출만으로는 기록하지 않음). 로딩 중이라 job을 아직 못 찾은 상태는 제외.
+  useEffect(() => {
+    if (job) recordJobView(job.id)
+  }, [job?.id])
 
   // jobs는 앱 로드 시 한 번(페이지네이션 포함) 비동기로 불러온다 — 아직 로딩
   // 중일 때 job을 못 찾았다고 "Không tìm thấy"를 바로 띄우면, 직접 URL로 들어오거나
@@ -153,7 +164,7 @@ export function JobDetail() {
     )
   }
 
-  const onToggleSave = () => setSaved(toggleSavedJobId(job.id))
+  const onToggleSave = () => setSaved(toggleSavedJobId(job.id, user?.id))
   const zaloHref = zaloMeUrl(job.zalo || job.employerPhone)
   const showMessageCta = !!job.employerId && user?.role !== 'employer'
 

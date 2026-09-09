@@ -47,12 +47,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [notificationScope])
 
   const check = useCallback(async () => {
-    const savedIds = loadSavedJobIds()
+    const savedIds = loadSavedJobIds(user?.id)
     const savedJobs = jobs.filter((j) => savedIds.includes(j.id))
     const applications = user?.role === 'seeker' ? await loadApplications() : []
     generateNotifications(savedJobs, applications, notificationScope)
     refresh()
-  }, [jobs, notificationScope, refresh, user?.role])
+  }, [jobs, notificationScope, refresh, user?.id, user?.role])
 
   // Run on mount and every 60 s
   useEffect(() => {

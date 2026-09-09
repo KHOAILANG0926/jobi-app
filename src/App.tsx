@@ -28,6 +28,11 @@ const ZaloCallback = lazy(() => import('./pages/ZaloCallback').then((module) => 
 const InterviewTips = lazy(() => import('./pages/InterviewTips').then((module) => ({ default: module.InterviewTips })))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then((module) => ({ default: module.PrivacyPolicy })))
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse').then((module) => ({ default: module.TermsOfUse })))
+const SavedJobsPage = lazy(() => import('./pages/jobsMenu/SavedJobsPage'))
+const RecentlyViewedPage = lazy(() => import('./pages/jobsMenu/RecentlyViewedPage'))
+const MatchedJobsPage = lazy(() => import('./pages/jobsMenu/MatchedJobsPage'))
+const SuggestedJobsPage = lazy(() => import('./pages/jobsMenu/SuggestedJobsPage'))
+const UrgentJobsPage = lazy(() => import('./pages/jobsMenu/UrgentJobsPage'))
 
 function RouteLoading() {
   return <div className="page page--narrow" role="status">Đang tải...</div>
@@ -47,6 +52,11 @@ export default function App() {
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={lazyRoute(<Home />)} />
+                <Route path="/viec-lam/da-luu" element={lazyRoute(<SavedJobsPage />)} />
+                <Route path="/viec-lam/da-xem" element={lazyRoute(<RecentlyViewedPage />)} />
+                <Route path="/viec-lam/phu-hop" element={lazyRoute(<MatchedJobsPage />)} />
+                <Route path="/viec-lam/goi-y" element={lazyRoute(<SuggestedJobsPage />)} />
+                <Route path="/viec-lam/tuyen-gap" element={lazyRoute(<UrgentJobsPage />)} />
                 <Route path="/viec-lam/:id" element={lazyRoute(<JobDetail />)} />
                 <Route path="/dang-tin" element={<RequireEmployer>{lazyRoute(<PostJob />)}</RequireEmployer>} />
                 <Route path="/ho-so" element={lazyRoute(<Profile />)} />

@@ -20,11 +20,28 @@ export const ALL_TIME_SLOTS: TimeSlot[] = [
   'flexible',
 ]
 
+export type WorkDaysPref = 'any' | 'weekday' | 'weekend'
+export type WorkPeriodPref = 'any' | 'long' | 'short'
+
+export const WORK_DAYS_LABELS: Record<WorkDaysPref, string> = {
+  any: 'Không yêu cầu',
+  weekday: 'Ngày thường (T2–T6)',
+  weekend: 'Cuối tuần',
+}
+
+export const WORK_PERIOD_LABELS: Record<WorkPeriodPref, string> = {
+  any: 'Không yêu cầu',
+  long: 'Dài hạn',
+  short: 'Ngắn hạn',
+}
+
 export interface RecommendPrefs {
   regionId: string        // JobRegionId or '' = any
   minHourlySalary: number // 0 = no min
   timeSlots: TimeSlot[]
   categories: JobCategory[]
+  workDays: WorkDaysPref
+  workPeriod: WorkPeriodPref
 }
 
 export interface JobMatch {
@@ -40,6 +57,8 @@ const EMPTY: RecommendPrefs = {
   minHourlySalary: 0,
   timeSlots: [],
   categories: [],
+  workDays: 'any',
+  workPeriod: 'any',
 }
 
 export function loadPrefs(): RecommendPrefs {
@@ -58,7 +77,10 @@ export function savePrefs(prefs: RecommendPrefs): void {
 }
 
 export function hasPrefs(p: RecommendPrefs): boolean {
-  return !!(p.regionId || p.minHourlySalary > 0 || p.timeSlots.length || p.categories.length)
+  return !!(
+    p.regionId || p.minHourlySalary > 0 || p.timeSlots.length || p.categories.length ||
+    p.workDays !== 'any' || p.workPeriod !== 'any'
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -117,51 +139,78 @@ function detectJobSlots(hours: string): Set<TimeSlot> {
 }
 
 // ---------------------------------------------------------------------------
+// Work-days / work-period detection — classify a job's `workDays`/`workPeriod`
+// free-text field. Trả về undefined khi không xác định được (văn bản không rõ
+// ràng) — trường hợp này KHÔNG được tính là khớp, chỉ đơn giản là không có tín
+// hiệu (tránh coi dữ liệu không xác định là "khớp điều kiện").
+// ---------------------------------------------------------------------------
+function detectWorkDaysCategory(workDays: string): 'weekday' | 'weekend' | 'both' | undefined {
+  const d = normalizeViText(workDays || '')
+  if (!d) return undefined
+  const hasWeekend = /(cuoi tuan|thu 7|thu bay|chu nhat|\bt7\b|\bcn\b)/.test(d)
+  const hasWeekday = /(t2\s*-\s*t6|thu 2.*thu 6|ngay thuong|tu thu 2|thu hai.*thu sau)/.test(d)
+  const hasAllDays = /(tat ca cac ngay|ca tuan|7 ngay|các ngày trong tuần|xoay ca)/.test(d)
+  if (hasAllDays || (hasWeekday && hasWeekend)) return 'both'
+  if (hasWeekday) return 'weekday'
+  if (hasWeekend) return 'weekend'
+  return undefined
+}
+
+function detectWorkPeriodCategory(workPeriod: string): 'long' | 'short' | undefined {
+  const p = normalizeViText(workPeriod || '')
+  if (!p) return undefined
+  if (/(dai han|lau dai|toan thoi gian|khong thoi han|on dinh|full.?time)/.test(p)) return 'long'
+  if (/(ngan han|thoi vu|1 thang|2 thang|3 thang|theo mua|part.?time|thoi gian ngan)/.test(p)) return 'short'
+  return undefined
+}
+
+// ---------------------------------------------------------------------------
 // Core scoring — returns 0-100
-// Weights: region 40 | salary 30 | time slot 20 | category 10
+// Weights: region 30 | salary 25 | time slot 15 | category 10 | work days 10 |
+// work period 10
 // ---------------------------------------------------------------------------
 export function scoreJob(job: Job, prefs: RecommendPrefs): JobMatch {
   let score = 0
   const reasons: string[] = []
 
-  // Region (40 pts)
+  // Region (30 pts)
   if (prefs.regionId) {
     if (jobMatchesRegion(job.location, prefs.regionId as JobRegionId)) {
-      score += 40
+      score += 30
       reasons.push('Đúng khu vực')
     }
     // no match → 0 pts (region is a hard signal)
   } else {
-    score += 20 // baseline: no preference
+    score += 15 // baseline: no preference
   }
 
-  // Salary (30 pts)
+  // Salary (25 pts)
   const hourly = parseSalaryToHourly(job.salary)
   if (prefs.minHourlySalary > 0) {
     if (hourly > 0 && hourly >= prefs.minHourlySalary) {
-      score += 30
+      score += 25
       reasons.push('Lương phù hợp')
     } else if (hourly > 0 && hourly >= prefs.minHourlySalary * 0.8) {
-      score += 15
+      score += 12
       reasons.push('Lương gần mức yêu cầu')
     }
   } else {
-    score += 15 // baseline
+    score += 12 // baseline
   }
 
-  // Time slot (20 pts)
+  // Time slot (15 pts)
   if (prefs.timeSlots.length > 0) {
     const jobSlots = detectJobSlots(job.hours ?? '')
     const matched = prefs.timeSlots.filter((ts) => jobSlots.has(ts))
     if (matched.length > 0) {
-      score += 20
+      score += 15
       reasons.push(matched.map((ts) => TIME_SLOT_LABELS[ts]).join(' · '))
     } else if (jobSlots.has('flexible')) {
-      score += 10
+      score += 8
       reasons.push('Ca linh hoạt')
     }
   } else {
-    score += 10 // baseline
+    score += 8 // baseline
   }
 
   // Category (10 pts)
@@ -174,6 +223,29 @@ export function scoreJob(job: Job, prefs: RecommendPrefs): JobMatch {
     score += 5 // baseline
   }
 
+  // Work days (10 pts) — chỉ cộng điểm khi văn bản job.workDays xác định rõ
+  // ràng khớp với lựa chọn; không xác định được thì không tính là khớp.
+  if (prefs.workDays !== 'any') {
+    const jobDays = detectWorkDaysCategory(job.workDays ?? '')
+    if (jobDays === 'both' || jobDays === prefs.workDays) {
+      score += 10
+      reasons.push(WORK_DAYS_LABELS[prefs.workDays])
+    }
+  } else {
+    score += 5 // baseline
+  }
+
+  // Work period (10 pts) — tương tự, chỉ khớp khi xác định được rõ ràng.
+  if (prefs.workPeriod !== 'any') {
+    const jobPeriod = detectWorkPeriodCategory(job.workPeriod ?? '')
+    if (jobPeriod === prefs.workPeriod) {
+      score += 10
+      reasons.push(WORK_PERIOD_LABELS[prefs.workPeriod])
+    }
+  } else {
+    score += 5 // baseline
+  }
+
   if (job.urgent) reasons.push('Tuyển gấp')
 
   return { job, score, reasons }
@@ -181,7 +253,14 @@ export function scoreJob(job: Job, prefs: RecommendPrefs): JobMatch {
 
 export function matchJobs(jobs: Job[], prefs: RecommendPrefs): JobMatch[] {
   if (!hasPrefs(prefs)) return []
-  return jobs
+  // Khu vực là bộ lọc cứng khi người dùng đã chọn — không được trộn công việc
+  // ngoài khu vực đã chọn vào kết quả chỉ vì điểm số ở các tiêu chí khác cao
+  // hơn ngưỡng (scoreJob() vẫn cộng điểm baseline cho khu vực không khớp, nhưng
+  // ở đây phải loại hẳn trước khi xét ngưỡng điểm).
+  const candidates = prefs.regionId
+    ? jobs.filter((j) => jobMatchesRegion(j.location, prefs.regionId as JobRegionId, j.workLocations))
+    : jobs
+  return candidates
     .map((j) => scoreJob(j, prefs))
     .filter((m) => m.score >= 40)
     .sort((a, b) => b.score - a.score)

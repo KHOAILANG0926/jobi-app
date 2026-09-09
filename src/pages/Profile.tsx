@@ -43,7 +43,7 @@ export function Profile() {
   const { jobs } = useJobs()
   const location = useLocation()
   const [profile, setProfile] = useState<SeekerProfile>(() => loadProfile(user?.id))
-  const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds())
+  const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds(user?.id))
   const [savedMsg, setSavedMsg] = useState(false)
   const [seekerTab, setSeekerTab] = useState<SeekerTab>('info')
   const [applications, setApplications] = useState<JobApplication[]>([])
@@ -89,7 +89,8 @@ export function Profile() {
   }, [user?.id, user?.role])
 
   useEffect(() => {
-    const syncSaved = () => setSavedIds(loadSavedJobIds())
+    const syncSaved = () => setSavedIds(loadSavedJobIds(user?.id))
+    syncSaved()
     const onStorage = () => syncSaved()
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', syncSaved)
@@ -99,7 +100,7 @@ export function Profile() {
       window.removeEventListener('focus', syncSaved)
       window.removeEventListener('vgb:saved-jobs', syncSaved)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
     if (user?.role !== 'seeker') {
@@ -497,8 +498,8 @@ export function Profile() {
                     className="saved-list__remove"
                     aria-label={`Bỏ lưu: ${job.title}`}
                     onClick={() => {
-                      toggleSavedJobId(job.id)
-                      setSavedIds(loadSavedJobIds())
+                      toggleSavedJobId(job.id, user?.id)
+                      setSavedIds(loadSavedJobIds(user?.id))
                     }}
                   >
                     ✕

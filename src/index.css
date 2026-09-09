@@ -447,6 +447,22 @@ a:hover {
     scrollbar-width: none;
   }
   .header-tabs__nav::-webkit-scrollbar { display: none; }
+  /* .header-tabs__nav의 overflow-x:auto가 CSS 스펙상 overflow-y도 auto로
+     강제해, 안에 있던 절대위치 드롭다운을 세로로 잘라버렸다 — 모바일에서는
+     Layout.tsx가 이 드롭다운을 document.body로 포탈하고 이 클래스를 붙여
+     nav의 클리핑 밖에서 고정폭 패널로 띄운다(탭 줄 바로 아래, 헤더는
+     position:sticky라 스크롤 중에도 좌표가 안정적). */
+  .mega-menu--mobile {
+    position: fixed;
+    top: 0;
+    left: 0.75rem;
+    right: 0.75rem;
+    min-width: 0;
+    width: auto;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    z-index: 200;
+  }
   .header-tab {
     white-space: nowrap;
     font-size: 0.8rem;
@@ -2788,6 +2804,68 @@ a:hover {
   background: #fee2e2;
   border-color: #f87171;
   color: #dc2626;
+}
+
+.saved-list__item--closed .saved-list__link {
+  opacity: 0.6;
+}
+
+/* ── Jobs menu pages (saved/recent/matched/suggested/urgent) ──────── */
+.jobs-menu-page {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.jm-saved-section {
+  margin-bottom: 1.75rem;
+}
+
+.jm-region-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.jm-region-picker__btn {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.jm-region-picker__btn.is-active {
+  background: #e53935;
+  border-color: #e53935;
+  color: #fff;
+}
+
+.jm-result-count {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin: 0 0 0.75rem;
+}
+
+.jm-recent-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.jm-recent-toolbar__clear {
+  border: none;
+  background: none;
+  color: #e53935;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .job-card-actions {
@@ -6216,6 +6294,51 @@ a:hover {
   margin: 0.5rem 0 0;
   font-size: 0.68rem;
   color: #e53935;
+}
+
+.near-me-controls {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #eee;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.near-me-controls__label {
+  font-size: 0.68rem;
+  color: #555;
+  font-weight: 600;
+  flex: 1 1 100%;
+}
+.near-me-controls__radii {
+  display: flex;
+  gap: 0.3rem;
+}
+.near-me-controls__radius-btn {
+  border: 1px solid #e2e2e2;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+}
+.near-me-controls__radius-btn.is-active {
+  background: #e53935;
+  border-color: #e53935;
+  color: #fff;
+}
+.near-me-controls__refresh {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: #e53935;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* ── Deadline filter ─────────────────────────────────────────────── */

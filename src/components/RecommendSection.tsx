@@ -7,6 +7,8 @@ import { hasAppliedToJob } from '../lib/applicationsStorage'
 import {
   ALL_TIME_SLOTS,
   TIME_SLOT_LABELS,
+  WORK_DAYS_LABELS,
+  WORK_PERIOD_LABELS,
   hasPrefs,
   loadPrefs,
   matchJobs,
@@ -14,6 +16,8 @@ import {
   type JobMatch,
   type RecommendPrefs,
   type TimeSlot,
+  type WorkDaysPref,
+  type WorkPeriodPref,
 } from '../lib/recommendStorage'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
@@ -50,8 +54,12 @@ function RecommendCard({
   onApply: (j: Job) => void
 }) {
   const { job, score, reasons } = match
-  const [saved, setSaved] = useState(() => isJobSaved(job.id))
+  const [saved, setSaved] = useState(() => isJobSaved(job.id, seekerId))
   const [applied, setApplied] = useState(false)
+
+  useEffect(() => {
+    setSaved(isJobSaved(job.id, seekerId))
+  }, [job.id, seekerId])
 
   useEffect(() => {
     let cancelled = false
@@ -61,7 +69,7 @@ function RecommendCard({
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()
-    setSaved(toggleSavedJobId(job.id))
+    setSaved(toggleSavedJobId(job.id, seekerId))
   }
 
   return (
@@ -168,7 +176,9 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
   }
 
   const handleReset = () => {
-    const empty: RecommendPrefs = { regionId: '', minHourlySalary: 0, timeSlots: [], categories: [] }
+    const empty: RecommendPrefs = {
+      regionId: '', minHourlySalary: 0, timeSlots: [], categories: [], workDays: 'any', workPeriod: 'any',
+    }
     setDraft(empty)
     savePrefs(empty)
     setPrefs(empty)
@@ -250,6 +260,40 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
                   onClick={() => toggleSlot(ts)}
                 >
                   {TIME_SLOT_LABELS[ts]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Work days */}
+          <div className="rec-form__field">
+            <span className="rec-form__label">📅 Ngày làm việc</span>
+            <div className="rec-form__chips">
+              {(['any', 'weekday', 'weekend'] as WorkDaysPref[]).map((wd) => (
+                <button
+                  key={wd}
+                  type="button"
+                  className={`rec-chip${draft.workDays === wd ? ' rec-chip--active' : ''}`}
+                  onClick={() => setDraft((d) => ({ ...d, workDays: wd }))}
+                >
+                  {WORK_DAYS_LABELS[wd]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Work period */}
+          <div className="rec-form__field">
+            <span className="rec-form__label">⏳ Thời hạn làm việc</span>
+            <div className="rec-form__chips">
+              {(['any', 'long', 'short'] as WorkPeriodPref[]).map((wp) => (
+                <button
+                  key={wp}
+                  type="button"
+                  className={`rec-chip${draft.workPeriod === wp ? ' rec-chip--active' : ''}`}
+                  onClick={() => setDraft((d) => ({ ...d, workPeriod: wp }))}
+                >
+                  {WORK_PERIOD_LABELS[wp]}
                 </button>
               ))}
             </div>

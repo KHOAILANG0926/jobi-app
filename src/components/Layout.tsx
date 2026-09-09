@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { NotificationBell } from './NotificationBell'
@@ -34,8 +35,14 @@ const MENU_ITEMS: MenuItem[] = [
     dropdown: [
       { heading: 'Phổ biến', links: [
         { label: 'Tất cả việc làm', to: '/' },
-        { label: '🔥 Tuyển gấp', to: '/?urgent=1' },
+        { label: '🔥 Tuyển gấp', to: '/viec-lam/tuyen-gap' },
         { label: '📍 Gần tôi', to: '/?near=1' },
+      ]},
+      { heading: 'Việc làm của tôi', links: [
+        { label: '🔖 Việc làm đã lưu', to: '/viec-lam/da-luu' },
+        { label: '🕘 Việc làm đã xem', to: '/viec-lam/da-xem' },
+        { label: '🎯 Việc làm phù hợp', to: '/viec-lam/phu-hop' },
+        { label: '💡 Gợi ý việc làm', to: '/viec-lam/goi-y' },
       ]},
       { heading: 'Theo khu vực', links: [
         { label: 'Hà Nội', to: '/?region=hanoi' },
@@ -92,23 +99,49 @@ export function Layout() {
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const navRef = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wrapRefs = useRef<(HTMLDivElement | null)[]>([])
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  // 모바일(<=640px)에서는 .header-tabs__nav에 가로 스크롤용 overflow-x:auto가
+  // 걸려 있는데, CSS overflow 스펙상 한쪽 축이 visible이 아니면 다른 축도
+  // auto로 강제된다 — 그 결과 이 nav 안에 있던 절대위치(.mega-menu) 드롭다운이
+  // 세로로 잘려 화면에 실질적으로 보이지 않는 결함이 있었다(2026-09-09 실기기
+  // 터치 환경 재현·확인). 모바일에서만 드롭다운을 document.body로 포탈해
+  // nav의 overflow 클리핑 밖으로 꺼내고, 위치는 탭 줄 하단(고정 헤더 기준)
+  // 좌표를 계산해 고정폭 패널로 띄운다 — 데스크톱은 기존 position:absolute
+  // 그대로 유지(포탈 미사용, 회귀 위험 없음).
+  const [mobileDropdownTop, setMobileDropdownTop] = useState<number | null>(null)
+
+  const isMobileNav = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
 
   const handleMenuEnter = useCallback((i: number) => {
+    if (isMobileNav()) return // 모바일은 클릭으로만 열고 닫는다(hover 이벤트 미사용)
     if (closeTimer.current) clearTimeout(closeTimer.current)
     setOpenMenu(i)
   }, [])
 
   const handleMenuLeave = useCallback(() => {
+    if (isMobileNav()) return
     closeTimer.current = setTimeout(() => setOpenMenu(null), 120)
   }, [])
 
   useEffect(() => { setOpenMenu(null) }, [location])
 
   useEffect(() => {
+    if (openMenu === null || !isMobileNav()) {
+      setMobileDropdownTop(null)
+      return
+    }
+    const wrap = wrapRefs.current[openMenu]
+    if (wrap) setMobileDropdownTop(wrap.getBoundingClientRect().bottom)
+  }, [openMenu])
+
+  useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setOpenMenu(null)
-      }
+      const target = e.target as Node
+      if (navRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
+      setOpenMenu(null)
     }
     document.addEventListener('click', handleClick)
     return () => document.removeEventListener('click', handleClick)
@@ -182,74 +215,87 @@ export function Layout() {
                       {item.label}
                     </NavLink>
                   ))
-                : MENU_ITEMS.map((item, i) => (
-                    <div
-                      key={i}
-                      className={`header-tab-wrap${openMenu === i ? ' header-tab-wrap--open' : ''}`}
-                      onMouseEnter={() => handleMenuEnter(i)}
-                      onMouseLeave={handleMenuLeave}
-                    >
-                      <button
-                        type="button"
-                        className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
-                        onClick={() => {
-                          if (!item.dropdown && !item.cards) {
-                            navigate(item.to)
-                            return
-                          }
-                          setOpenMenu(openMenu === i ? null : i)
-                        }}
+                : MENU_ITEMS.map((item, i) => {
+                    const isOpen = openMenu === i
+                    const isMobilePortal = isOpen && mobileDropdownTop !== null
+                    const dropdownBody = item.dropdown ? (
+                      <div
+                        className={`mega-menu${isMobilePortal ? ' mega-menu--mobile' : ''}`}
+                        ref={isMobilePortal ? dropdownRef : undefined}
+                        style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
-                        {item.label}
-                        {(item.dropdown || item.cards) && (
-                          <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
-                        )}
-                      </button>
-
-                      {item.dropdown && openMenu === i && (
-                        <div className="mega-menu">
-                          <div className="mega-menu__inner">
-                            {item.dropdown.map((col, ci) => (
-                              <div key={ci} className="mega-menu__col">
-                                <h4 className="mega-menu__heading">{col.heading}</h4>
-                                <ul className="mega-menu__list">
-                                  {col.links.map((link, li) => (
-                                    <li key={li}>
-                                      <button
-                                        type="button"
-                                        className="mega-menu__link"
-                                        onClick={() => { setOpenMenu(null); navigate(link.to) }}
-                                      >
-                                        {link.label}
-                                      </button>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="mega-menu__inner">
+                          {item.dropdown.map((col, ci) => (
+                            <div key={ci} className="mega-menu__col">
+                              <h4 className="mega-menu__heading">{col.heading}</h4>
+                              <ul className="mega-menu__list">
+                                {col.links.map((link, li) => (
+                                  <li key={li}>
+                                    <button
+                                      type="button"
+                                      className="mega-menu__link"
+                                      onClick={() => { setOpenMenu(null); navigate(link.to) }}
+                                    >
+                                      {link.label}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
                         </div>
-                      )}
-
-                      {item.cards && openMenu === i && (
-                        <div className="mega-menu mega-menu--cards">
-                          <div className="mega-menu__brand-grid">
-                            {item.cards.map((card, ci) => (
-                              <button
-                                key={ci}
-                                type="button"
-                                className="mega-menu__brand-card"
-                                onClick={() => { setOpenMenu(null); navigate(card.to) }}
-                              >
-                                <BrandCardLogo color={card.color} logo={card.logo} initial={card.initial} />
-                                <span className="mega-menu__brand-card-label">{card.label}</span>
-                              </button>
-                            ))}
-                          </div>
+                      </div>
+                    ) : item.cards ? (
+                      <div
+                        className={`mega-menu mega-menu--cards${isMobilePortal ? ' mega-menu--mobile' : ''}`}
+                        ref={isMobilePortal ? dropdownRef : undefined}
+                        style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
+                      >
+                        <div className="mega-menu__brand-grid">
+                          {item.cards.map((card, ci) => (
+                            <button
+                              key={ci}
+                              type="button"
+                              className="mega-menu__brand-card"
+                              onClick={() => { setOpenMenu(null); navigate(card.to) }}
+                            >
+                              <BrandCardLogo color={card.color} logo={card.logo} initial={card.initial} />
+                              <span className="mega-menu__brand-card-label">{card.label}</span>
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  ))
+                      </div>
+                    ) : null
+
+                    return (
+                      <div
+                        key={i}
+                        ref={(el) => { wrapRefs.current[i] = el }}
+                        className={`header-tab-wrap${isOpen ? ' header-tab-wrap--open' : ''}`}
+                        onMouseEnter={() => handleMenuEnter(i)}
+                        onMouseLeave={handleMenuLeave}
+                      >
+                        <button
+                          type="button"
+                          className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
+                          onClick={() => {
+                            if (!item.dropdown && !item.cards) {
+                              navigate(item.to)
+                              return
+                            }
+                            setOpenMenu(openMenu === i ? null : i)
+                          }}
+                        >
+                          {item.label}
+                          {(item.dropdown || item.cards) && (
+                            <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+                          )}
+                        </button>
+
+                        {isOpen && dropdownBody && (isMobilePortal ? createPortal(dropdownBody, document.body) : dropdownBody)}
+                      </div>
+                    )
+                  })
               )}
             </nav>
 

@@ -1,106 +1,61 @@
 # ChatGPT ↔ Claude Code 인수인계 문서
 
-## ✅ migration 0017 블로커 해소 확인 + 리포 정합화 완료(2026-09-09)
+## 현재 작업
 
-**발견 경위**: 이전 스냅샷(아래 2026-09-05 절)은 "0017이 draft·미실행 상태라
-비공개 표본 저장이 CHECK 위반으로 실패한다"고 기록돼 있었다. 2026-09-09에
-운영 Supabase(`edhuesdnuxlbcfephutq`)를 직접 재조회한 결과, 이는 더 이상
-사실이 아니었다.
+`Việc làm` 6개 서브메뉴(전체/저장/최근본/맞춤/추천/급구) 구현 후, "코드 경로상
+안전"으로만 판단하고 실제 검증하지 않았던 3항목(모바일 메뉴 실제 터치, 계정
+전환 시 저장 목록 분리, 급구+지역 필터)을 실제로 재현·검증 완료했다 — 계정
+전환 항목은 재요청에 따라 데이터 계층 확인에서 **실제 저장한 공고 화면 + 실제
+저장/해제 버튼**까지 포함하도록 한 번 더 강화 검증했다(`AuthContext`의 `user`
+상태를 React 레벨에서 모의 전환, 운영 로그인/계정 생성 없음). 3항목 전부 통과.
+상세 기준·검증 방법·결과는 [`docs/JOBS_MENU_BASELINE.md`](docs/JOBS_MENU_BASELINE.md)
+§10 참고. 이번에 commit → master push → Vercel Production 배포까지 진행한다
+(사용자 승인 완료, MANDATORY WORK MODE의 NORMAL 작업 흐름).
 
-**실측으로 확인된 것**: `local_jobs_publish_gate_reason_check` 제약이 이미
-`'no_verified_coordinate'`를 포함한다. `supabase_migrations.schema_migrations`에
-version `20260905015705` / name `publish_gate_reason_add_no_verified_coordinate`로
-적용 이력이 존재하고, 그 `statements`가 리포의 구 `0017_..._draft.sql` 본문과
-완전히 동일함을 직접 조회로 확인했다(제약 재정의 + comment on column, 둘 다
-일치). 적용 시각(버전 타임스탬프, UTC): 2026-09-05 01:57:05 — 즉 0017을
-"미실행 블로커"로 기록한 커밋(6e12edb, 2026-09-05 00:09 +07)보다 **나중에**
-파일·커밋 없이 운영 DB에 직접 적용된 것으로 보인다(TWO-PC 규칙상 migration
-파일이 GitHub master에 포함돼야 하는데 누락돼 있었음).
+## 변경 내용
 
-**변경 내용**: DB는 이미 목표 상태이므로 추가 DDL은 실행하지 않았다. 리포만
-실제 상태에 맞췄다 —
-[supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql](supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql)
-로 파일명 변경(구 `0017_..._draft.sql`), 상단 주석을 "사후 반영, 실행용 아님"
-+ 적용 사실/시각으로 교체, 이 핸드오프 문서의 0017 관련 서술을 해소 완료로 갱신.
+1. `Việc làm` 6개 메뉴 신규 구현(저장/최근본/맞춤/추천/급구 5개 신규 페이지,
+   전체는 기존 Home 재사용) — 상세는 `docs/JOBS_MENU_BASELINE.md` §1~§8.
+2. 검증 과정에서 발견한 실제 결함 3건 수정:
+   - 모바일 드롭다운이 `.header-tabs__nav`의 overflow-x:auto로 인해 실제로
+     안 보이던 결함 → `Layout.tsx`에서 모바일만 `createPortal`로 렌더링.
+   - 급구 목록에 마감된 공고가 섞여 나오던 결함 → `UrgentJobsPage.tsx`에
+     마감일 필터 추가.
+   - 저장 목록 계정 scope 누락(`NotificationContext.tsx`가 `loadSavedJobIds()`를
+     scope 없이 호출) → 수정.
+3. 참고: 이 커밋에는 원격에 먼저 반영돼 있던
+   [`37fcf27`](https://github.com/KHOAILANG0926/jobi-app/commit/37fcf27)
+   (migration 0017 파일명을 운영 DB에 실제 적용된 버전에 맞춘 문서·마이그레이션
+   정리 — DB는 이미 목표 상태였고 DDL은 실행하지 않음, 0017 블로커는 해소
+   확인됨)가 fast-forward 병합되어 이미 포함돼 있다 — 이번 Việc làm 메뉴
+   작업과 무관한 별도 세션 결과물이며 내용을 변경하지 않았다.
 
-**테스트 결과**: 코드 변경 없음(순수 문서/파일명 정리) — `tsc`/`build` 대상
-아님. DB 조회로 제약·적용 이력·statements 일치를 직접 검증.
+## 테스트 결과
 
-**발견된 문제**: 없음(위 "발견 경위"가 전부) — 단, 향후 세션은 운영 DB에
-직접 적용하고 파일 커밋을 빠뜨리는 일이 재발하지 않도록 주의.
+- `npx tsc --noEmit`, `npm run build` 전부 통과(수정마다 재실행), 배포 전
+  최종 빌드도 통과.
+- 모바일 메뉴: 실제 렌더링된 모바일 DOM에 진짜 `click` 이벤트를 디스패치해
+  열기→1.5초 대기(자동 안 닫힘)→5개 신규 메뉴 링크 각각 선택→이동, 외부 탭
+  닫힘까지 확인(OS 레벨 터치 시뮬레이션 툴은 자동화 환경 제약으로 사용 못함).
+- 계정 전환 분리: React Fiber로 `AuthContext.setUser`를 찾아 `user` 상태를
+  게스트→mock A→로그아웃→mock B로 모의 전환하며, 매 단계 실제
+  `/viec-lam/sb-*` 저장 버튼과 실제 `/viec-lam/da-luu` 화면으로 확인. 저장
+  해제도 실제 화면 버튼으로 검증. 결함 없음.
+- 급구+지역 필터: React 내부 상태(`JobsProvider.setJobs`)에 로컬 테스트
+  데이터 4건 주입(운영 DB 미접촉) — 수정 전 결함 재현, 수정 후 정상화, 지역
+  선택·초기화·결과없음까지 확인.
 
-**다음 결정사항**: 아래 "다음 결정사항" 절 참고 — 0017 항목은 제거되고
-나머지(0020, 비공개 표본 저장, cron/GHA)는 그대로 미승인 대기.
+## 발견된 문제
 
----
-
-## ✅ migration 0018 적용 + recruitment_regions 저장 경로 활성화 완료(2026-09-05)
-
-운영 Supabase(`edhuesdnuxlbcfephutq`)에 **migration 0018을 실제로 적용**했고,
-그 직후 `local_jobs.recruitment_regions` 저장 코드도 활성화했다. 상세 적용
-전후 검증 결과: [MIGRATION_0018_APPLIED.md](MIGRATION_0018_APPLIED.md).
-
-**실측으로 확인된 것**: `local_jobs.recruitment_regions`/`job_work_locations.
-matched_recruitment_regions` 컬럼 추가, `replace_job_work_locations()` RPC의
-`location_verified`/`matched_recruitment_regions` 배선, 기존 데이터는 행 수
-+ MD5 체크섬(기존 컬럼만 대상)으로 완전 불변 확인, RPC 보안장치(origin='crawler'
-가드/원자적 delete+insert/jsonb_typeof 안전 처리/service_role 전용 GRANT/
-SECURITY DEFINER+search_path=public) 전부 유지, RLS(migration 0019)는 이
-migration이 건드리지 않았음을 재확인. 크롤러 테스트 50/50, `tsc`/`build` 통과.
-커밋 [3fbde0c](https://github.com/KHOAILANG0926/jobi-app/commit/3fbde0cf6b27a74d95cc6375dfe5bb4733d38756),
-master push 완료, VPS `/root/jobi`도 동일 커밋으로 동기화 완료.
-
-**~~⚠️ 새로 발견된 블로커~~ → 2026-09-09 해소 확인됨**: 당시엔
-`0017_..._draft.sql`이 미실행이라고 기록했으나, 실제로는 이 문서 작성
-이후 운영 DB에 직접 적용돼 있었다. 자세한 경위는 문서 최상단
-"migration 0017 블로커 해소 확인 + 리포 정합화 완료(2026-09-09)" 절 참고.
-파일은 `supabase/migrations/20260905015705_publish_gate_reason_add_no_verified_coordinate.sql`
-로 이름이 바뀌었다.
-
-**아직 안 한 것**: migration 0020(admin_* EXECUTE 축소) 실행,
-`--verify-write-urls` 표본 저장, 기존 공고 재처리, cron/GHA 활성화 —
-전부 별도 승인 대기.
-
----
-
-## 이전 작업: P1(RLS) 해결 + 기업 접근 경로 정리 완료(2026-09-04)
-
-운영 Supabase의 `local_jobs`/`job_work_locations` anon REST 노출 문제를
-**RLS migration 0019로 실제 수정·검증**했고, 그 뒤 **프론트
-`EmployerDashboard`/`RequireEmployer`도 실제로 그 정책을 활용하도록 수정**했다.
-
-- RLS 적용+검증 결과: [RLS_MIGRATION_0019_FINAL.md](RLS_MIGRATION_0019_FINAL.md)
-  (사전 감사는 [RLS_SECURITY_AUDIT.md](RLS_SECURITY_AUDIT.md))
-- 기업 접근 경로 정리 결과: [EMPLOYER_ACCESS_PATH_FIX.md](EMPLOYER_ACCESS_PATH_FIX.md)
-
-**실측으로 확인된 것**: anon은 공개 공고만(active=false 노출 0건 — 적용 전
-3건에서 전환), 관리자는 전체 접근, 기업은 타사 비공개 공고를 못 봄, 일반
-사용자가 화면 조작해도 seeker 계정으로는 쓰기 조건을 통과 못함(RLS 조건
-직접 평가), Home/공고상세 화면 회귀 없음, `tsc`/`build`/신규 유닛테스트
-(11건) 전부 통과. 커밋 `88c481a` 기준으로 완료 인정됨(사용자 확인).
-
-**부분 검증으로만 표시된 것(과장하지 않음, 사용자 지시로 별도 재조사 안 함
-— 향후 비공개 표본 검증 단계에 포함 예정)**: admin_hidden=true 조합
-2가지(실제 행 없음, 함수 로직만), 기업이 본인 비공개 공고를 실제로 보는지
-(코드/유닛테스트만, 실제 로그인 화면 미확인), service_role 영향 없음(속성
-기반 판단, 실제 요청 안 함), 관리자 화면 회귀(빌드 성공 근거만).
+- 이번 작업으로 발견한 결함 3건은 전부 수정 완료 — 남은 미확인 항목 없음.
+- 모바일 물리 기기 실제 육안 확인, 급구 필터의 실제 운영 데이터(urgent=true
+  이면서 마감된 공고) 유입 후 재확인은 여전히 안 됨 — 데이터/환경이 없어서.
 
 ## 다음 결정사항
 
-1. 비공개 표본 검증용 소규모 저장(3~5건, `--process-url --confirm-write`)으로
-   `location_verified`/`matched_recruitment_regions`/`recruitment_regions`이
-   실제로 채워지는지, CHECK 위반 없이 insert되는지 확인 — publish_gate_reason
-   CHECK는 이미 `'no_verified_coordinate'`를 허용하므로 더 이상 블로커 아님.
-   이때 위 "부분 검증" 항목들(기업 본인 비공개 공고 실제 화면, admin_hidden=true
-   실제 행, service_role 실제 요청)도 함께 실측.
-2. migration 0020(admin_* EXECUTE 축소, 별도 하드닝 항목) 승인 여부 대기.
-3. 운영 재개(cron/GHA)는 계속 비승인 — 위 단계들 이후 별도 승인 필요.
-
-## 발견됐으나 범위 밖(수정 안 함, 기록만)
-
-- `MapView.tsx`가 raw OpenStreetMap 타일을, `JobLocationMap.tsx`가 Geoapify
-  타일을 쓰는 공급자 불일치 — 통일 여부는 사용자 판단 필요.
-- "미확인 지역"(local_jobs.recruitment_regions와 matched_recruitment_regions
-  합집합의 차집합)을 실제로 계산해 보여주는 UI — 데이터 모델만 설계, 구현 안 함.
-- `local_jobs.origin != 'crawler'`인 기존 행의 비-게이트 필드 우연 충돌 가능성.
-- 분류 체계의 `work_mode`(이동·순회근무) 축 — 별도 필드/컬럼 없음, 추가 안 함.
+1. commit/push/Vercel 배포 완료 확인 후, 운영 사이트에서 6개 메뉴 연결만
+   1회 확인(승인된 범위).
+2. 실제 물리 모바일 기기에서의 최종 육안 확인은 필요 시 별도 진행.
+3. migration 0017 블로커는 `37fcf27`로 해소 확인됨(위 참고). migration
+   0020(admin_* EXECUTE 축소)은 여전히 별도 승인 대기 — Việc làm 메뉴
+   작업과는 무관.

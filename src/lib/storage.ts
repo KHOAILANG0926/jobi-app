@@ -75,9 +75,15 @@ export function saveProfile(p: SeekerProfile, scope?: string): void {
   window.dispatchEvent(new CustomEvent('vgb:profile-saved'))
 }
 
-export function loadSavedJobIds(): string[] {
+// 저장한 공고는 계정별로 분리한다(scope = user.id) — 미로그인(scope 없음)일 때는
+// 기존 전역 키(vgb_saved_job_ids)를 그대로 쓴다(하위호환, 기존 게스트 저장 데이터
+// 보존). 로그인 사용자는 vgb_saved_job_ids:<uid> 키를 쓰므로 같은 브라우저를
+// 공유하는 서로 다른 계정끼리 저장 목록이 섞이지 않는다. 다만 이 저장소는 여전히
+// localStorage이므로 기기 간 동기화는 지원하지 않는다(계정 서버 동기화가 실제로
+// 붙기 전까지는 "이 브라우저에서 로그인한 계정" 범위로만 분리됨).
+export function loadSavedJobIds(scope?: string): string[] {
   try {
-    const raw = localStorage.getItem(SAVED_KEY)
+    const raw = localStorage.getItem(scopedKey(SAVED_KEY, scope))
     if (!raw) return []
     const parsed = JSON.parse(raw) as string[]
     return Array.isArray(parsed) ? parsed : []
@@ -86,20 +92,21 @@ export function loadSavedJobIds(): string[] {
   }
 }
 
-export function toggleSavedJobId(id: string): boolean {
-  const ids = new Set(loadSavedJobIds())
+export function toggleSavedJobId(id: string, scope?: string): boolean {
+  const key = scopedKey(SAVED_KEY, scope)
+  const ids = new Set(loadSavedJobIds(scope))
   if (ids.has(id)) {
     ids.delete(id)
-    localStorage.setItem(SAVED_KEY, JSON.stringify([...ids]))
+    localStorage.setItem(key, JSON.stringify([...ids]))
     window.dispatchEvent(new CustomEvent('vgb:saved-jobs'))
     return false
   }
   ids.add(id)
-  localStorage.setItem(SAVED_KEY, JSON.stringify([...ids]))
+  localStorage.setItem(key, JSON.stringify([...ids]))
   window.dispatchEvent(new CustomEvent('vgb:saved-jobs'))
   return true
 }
 
-export function isJobSaved(id: string): boolean {
-  return loadSavedJobIds().includes(id)
+export function isJobSaved(id: string, scope?: string): boolean {
+  return loadSavedJobIds(scope).includes(id)
 }
