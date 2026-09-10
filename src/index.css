@@ -422,6 +422,133 @@ a:hover {
   color: #333;
 }
 
+/* ── "Thương hiệu" 2단 메가메뉴 (업종 → 브랜드, PC 전용) ─────────── */
+.mega-menu--brand {
+  min-width: 640px;
+}
+.mega-menu__brand-layout {
+  display: flex;
+  min-height: 260px;
+}
+.mega-menu__brand-cats {
+  list-style: none;
+  margin: 0;
+  padding: 0.6rem 0;
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.mega-menu__brand-cat {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-left: 3px solid transparent;
+  background: none;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  text-align: left;
+}
+.mega-menu__brand-cat:hover {
+  background: #f3f3f3;
+}
+.mega-menu__brand-cat.is-active {
+  background: #fff;
+  border-left-color: #e53935;
+  color: #e53935;
+}
+.mega-menu__brand-cat-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #999;
+}
+.mega-menu__brand-cat.is-active .mega-menu__brand-cat-count {
+  color: #e53935;
+}
+.mega-menu__brand-list {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  padding: 1rem;
+  align-content: start;
+}
+.mega-menu__brand-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+.mega-menu__brand-item:hover {
+  border-color: #e53935;
+  background: #fef2f2;
+}
+.mega-menu__brand-item-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mega-menu__brand-item-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #e53935;
+  background: #fef2f2;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  flex-shrink: 0;
+}
+.mega-menu__brand-footer {
+  border-top: 1px solid #f0f0f0;
+  padding: 0.6rem 1rem;
+  text-align: right;
+}
+.mega-menu__brand-all {
+  border: none;
+  background: none;
+  color: #e53935;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.mega-menu__brand-empty {
+  padding: 1.5rem;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+/* ── "Tất cả thương hiệu" 전체 페이지(/franchise-jobs) ──────────── */
+.franchise-page {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.franchise-group {
+  margin-bottom: 2rem;
+}
+.franchise-group__grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  padding: 0;
+  margin-top: 0.75rem;
+}
+
 /* Mobile responsive header */
 @media (max-width: 640px) {
   .header-top__inner {

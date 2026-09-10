@@ -1,67 +1,61 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useJobs } from '../context/JobsContext'
+import { computeBrandCounts, groupBrandsByCategory } from '../data/brandDirectory'
 
-const BRANDS = [
-  { name: 'GrabFood', color: '#00B14F', initial: 'G', category: 'Giao hàng' },
-  { name: 'Highlands Coffee', color: '#8B1A1A', initial: 'H', category: 'Nhà hàng' },
-  { name: 'WinMart', color: '#E53935', initial: 'W', category: 'Bán lẻ' },
-  { name: 'Shopee', color: '#EE4D2D', initial: 'S', category: 'Thương mại' },
-  { name: 'Circle K', color: '#E53935', initial: 'C', category: 'Bán lẻ' },
-  { name: 'FamilyMart', color: '#0057A8', initial: 'F', category: 'Bán lẻ' },
-  { name: 'McDonald\'s', color: '#FFC72C', initial: 'M', category: 'Nhà hàng' },
-  { name: 'KFC VN', color: '#E53935', initial: 'K', category: 'Nhà hàng' },
-]
-
+/**
+ * "Tất cả thương hiệu" — 상단 메뉴 브랜드 메가메뉴의 "Tất cả thương hiệu"
+ * 링크가 여는 전체 목록 페이지. 이전 버전은 고정된 8개 브랜드를 하드코딩하고
+ * 클릭해도 필터 없이 "/"로만 이동하는 사실상 미작동 페이지였다 — 이번에
+ * 실제 활성 공고 데이터(src/data/brandDirectory.ts, Layout.tsx의 메가메뉴와
+ * 동일한 계산 로직 재사용)로 교체했다.
+ */
 export default function FranchiseJobs() {
+  const { jobs } = useJobs()
   const navigate = useNavigate()
+  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs)), [jobs])
+
   return (
-    <div style={{ maxWidth: 1120, margin: '0 auto', padding: '2rem 1rem' }}>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-        🏢 Thương hiệu lớn tuyển dụng
-      </h1>
-      <p style={{ color: '#64748b', marginBottom: '2rem' }}>
-        Cơ hội làm việc tại các thương hiệu lớn trên toàn quốc
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-        {BRANDS.map((brand, i) => (
-          <div
-            key={i}
-            onClick={() => navigate('/')}
-            style={{
-              background: 'white',
-              borderRadius: 16,
-              padding: '1.5rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '0.75rem',
-              transition: 'transform 0.2s',
-            }}
-          >
-            <div style={{
-              width: 56, height: 56, borderRadius: 14,
-              background: brand.color,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '1.5rem', fontWeight: 800, color: 'white'
-            }}>
-              {brand.initial}
+    <div className="page franchise-page">
+      <header className="page-header">
+        <h1 className="page-header__title">Thương hiệu tuyển dụng</h1>
+        <p className="page-header__lead">
+          Các thương hiệu chuỗi/cửa hàng đang có tin tuyển dụng thực tế trên Việcganban.
+        </p>
+      </header>
+
+      {groups.length === 0 ? (
+        <div className="city-result__empty">
+          <span>🔍</span>
+          <p>Hiện chưa có thương hiệu nào đang tuyển.</p>
+        </div>
+      ) : (
+        groups.map((g) => (
+          <section key={g.id} className="franchise-group">
+            <h2 className="home-section__title">{g.label}</h2>
+            <div className="mega-menu__brand-grid franchise-group__grid">
+              {g.brands.map((b) => (
+                <button
+                  key={b.name}
+                  type="button"
+                  className="mega-menu__brand-card"
+                  onClick={() => navigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
+                >
+                  <span className="mega-menu__brand-card-logo" style={{ background: b.color }}>
+                    {b.domain ? (
+                      <img src={`https://www.google.com/s2/favicons?sz=64&domain=${b.domain}`} alt="" aria-hidden />
+                    ) : (
+                      <span className="mega-menu__brand-card-initial">{b.initial}</span>
+                    )}
+                  </span>
+                  <span className="mega-menu__brand-card-label">{b.name}</span>
+                  <span className="mega-menu__brand-item-count">{b.count}</span>
+                </button>
+              ))}
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{brand.name}</div>
-              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{brand.category}</div>
-            </div>
-            <button style={{
-              background: '#fee2e2', color: '#e53935',
-              border: 'none', borderRadius: 8,
-              padding: '0.4rem 1rem', fontSize: '0.8rem',
-              fontWeight: 600, cursor: 'pointer'
-            }}>
-              Xem việc làm
-            </button>
-          </div>
-        ))}
-      </div>
+          </section>
+        ))
+      )}
     </div>
   )
 }

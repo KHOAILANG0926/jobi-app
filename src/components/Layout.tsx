@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useJobs } from '../context/JobsContext'
+import { computeBrandCounts, groupBrandsByCategory, type BrandWithCount } from '../data/brandDirectory'
 import { NotificationBell } from './NotificationBell'
 import { ZaloIcon } from './ZaloIcon'
 
@@ -25,6 +27,65 @@ interface MenuItem {
   end?: boolean
   dropdown?: { heading: string; links: MenuLink[] }[]
   cards?: MenuCard[]
+  /** "Thương hiệu" 전용 — 업종→브랜드 2단 메가메뉴(BrandMegaMenu)로 렌더링한다.
+   *  실제 활성 공고 데이터로 매번 다시 계산되므로 여기엔 정적 목록을 두지 않는다. */
+  brandMenu?: true
+}
+
+/** 왼쪽 업종 분류 → 오른쪽 해당 업종의 브랜드(활성 공고 수 포함) 2단 메가메뉴.
+ *  브랜드/업종 모두 실제 useJobs() 데이터로 매 렌더마다 다시 계산되므로,
+ *  공고가 0건이 되면 해당 브랜드·업종은 자동으로 사라진다(하드코딩된 노출
+ *  목록이 아님). */
+function BrandMegaMenu({ jobs, onNavigate }: { jobs: import('../types/job').Job[]; onNavigate: (to: string) => void }) {
+  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs)), [jobs])
+  const [activeCategory, setActiveCategory] = useState(0)
+  const active = groups[Math.min(activeCategory, groups.length - 1)]
+
+  if (groups.length === 0) {
+    return <p className="mega-menu__brand-empty">Chưa có thương hiệu nào đang tuyển.</p>
+  }
+
+  return (
+    <>
+      <div className="mega-menu__brand-layout">
+        <ul className="mega-menu__brand-cats">
+          {groups.map((g, i) => (
+            <li key={g.id}>
+              <button
+                type="button"
+                className={`mega-menu__brand-cat${i === activeCategory ? ' is-active' : ''}`}
+                onMouseEnter={() => setActiveCategory(i)}
+                onFocus={() => setActiveCategory(i)}
+                onClick={() => setActiveCategory(i)}
+              >
+                {g.label}
+                <span className="mega-menu__brand-cat-count">{g.brands.length}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="mega-menu__brand-list">
+          {active?.brands.map((b: BrandWithCount) => (
+            <button
+              key={b.name}
+              type="button"
+              className="mega-menu__brand-item"
+              onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
+            >
+              <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=64&domain=${b.domain}` : undefined} initial={b.initial} />
+              <span className="mega-menu__brand-item-label">{b.name}</span>
+              <span className="mega-menu__brand-item-count">{b.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mega-menu__brand-footer">
+        <button type="button" className="mega-menu__brand-all" onClick={() => onNavigate('/franchise-jobs')}>
+          Tất cả thương hiệu →
+        </button>
+      </div>
+    </>
+  )
 }
 
 const MENU_ITEMS: MenuItem[] = [
@@ -65,12 +126,7 @@ const MENU_ITEMS: MenuItem[] = [
   {
     label: 'Thương hiệu',
     to: '/franchise-jobs',
-    cards: [
-      { label: 'Jollibee', to: '/?brand=Jollibee', color: '#ce1126', logo: 'https://www.google.com/s2/favicons?sz=64&domain=jollibee.com.vn', initial: 'J' },
-      { label: 'The Orange Coffee', to: '/?brand=Orange Coffee', color: '#f97316', initial: 'O' },
-      { label: "D'monter (Bingsu)", to: "/?brand=D'monter", color: '#ec4899', initial: 'D' },
-      { label: 'Coca-Cola', to: '/?brand=Coca-Cola', color: '#e2231a', logo: 'https://www.google.com/s2/favicons?sz=64&domain=coca-cola.com', initial: 'C' },
-    ],
+    brandMenu: true,
   },
   {
     label: 'Công cụ',
@@ -94,6 +150,7 @@ const MENU_ITEMS: MenuItem[] = [
 
 export function Layout() {
   const { user, logout, loginWithZalo } = useAuth()
+  const { jobs } = useJobs()
   const navigate = useNavigate()
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState<number | null>(null)
@@ -265,6 +322,14 @@ export function Layout() {
                           ))}
                         </div>
                       </div>
+                    ) : item.brandMenu ? (
+                      <div
+                        className={`mega-menu mega-menu--brand${isMobilePortal ? ' mega-menu--mobile' : ''}`}
+                        ref={isMobilePortal ? dropdownRef : undefined}
+                        style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
+                      >
+                        <BrandMegaMenu jobs={jobs} onNavigate={(to) => { setOpenMenu(null); navigate(to) }} />
+                      </div>
                     ) : null
 
                     return (
@@ -279,7 +344,7 @@ export function Layout() {
                           type="button"
                           className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
                           onClick={() => {
-                            if (!item.dropdown && !item.cards) {
+                            if (!item.dropdown && !item.cards && !item.brandMenu) {
                               navigate(item.to)
                               return
                             }
@@ -287,7 +352,7 @@ export function Layout() {
                           }}
                         >
                           {item.label}
-                          {(item.dropdown || item.cards) && (
+                          {(item.dropdown || item.cards || item.brandMenu) && (
                             <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
                           )}
                         </button>
