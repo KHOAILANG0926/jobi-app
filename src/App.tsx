@@ -6,6 +6,7 @@ import { RequireAdmin } from './components/RequireAdmin'
 import { RequireEmployer } from './components/RequireEmployer'
 import { AuthProvider } from './context/AuthContext'
 import { JobsProvider } from './context/JobsContext'
+import { BrandsProvider } from './context/BrandsContext'
 import { NotificationProvider } from './context/NotificationContext'
 
 const Community = lazy(() => import('./pages/Community').then((module) => ({ default: module.Community })))
@@ -48,6 +49,7 @@ export default function App() {
       <ScrollToTop />
       <AuthProvider>
         <JobsProvider>
+          <BrandsProvider>
           <NotificationProvider>
             <Routes>
               <Route element={<Layout />}>
@@ -90,6 +92,7 @@ export default function App() {
               />
             </Routes>
           </NotificationProvider>
+          </BrandsProvider>
         </JobsProvider>
       </AuthProvider>
     </BrowserRouter>

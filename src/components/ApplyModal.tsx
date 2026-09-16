@@ -160,6 +160,21 @@ export default function ApplyModal({
           </div>
         )}
 
+        {/* ── UNAVAILABLE STATE (크롤링 출처 공고인데 원문 링크(source_url)도
+             없는 경우 — 실측 기준 현재 활성 공고 0건이지만 JobDetail.tsx와
+             동일하게 방어적으로 처리) ── */}
+        {status === "unavailable" && (
+          <div className="state-center">
+            <p className="state-title">Chưa hỗ trợ ứng tuyển trực tuyến</p>
+            <p className="state-sub">
+              Vui lòng liên hệ trực tiếp qua thông tin công ty.
+            </p>
+            <button className="apply-confirm-btn" onClick={onClose}>
+              Đóng
+            </button>
+          </div>
+        )}
+
         {/* ── ERROR STATE ── */}
         {status === "error" && (
           <div className="state-center">

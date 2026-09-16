@@ -16,6 +16,7 @@ import type { Job } from '../types/job'
 interface JobsContextValue {
   jobs: Job[]
   loading: boolean
+  jobsError: boolean
   refreshJobs: () => Promise<void>
   addPostedJob: (job: Omit<Job, 'id' | 'postedAt'>) => Promise<Job>
   deleteJob: (id: string) => Promise<void>
@@ -40,6 +41,7 @@ const JobsContext = createContext<JobsContextValue | null>(null)
 export function JobsProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [jobsError, setJobsError] = useState(false)
 
   const fetchJobs = useCallback(async () => {
     setLoading(true)
@@ -56,15 +58,21 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     // makes the ordering fully deterministic across pages.
     const PAGE_SIZE = 1000
     const rows: Record<string, unknown>[] = []
+    let fetchFailed = false
     for (let page = 0; page < 20; page++) {
       const from = page * PAGE_SIZE
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('local_jobs')
         .select('id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions')
         .eq('active', true)
         .order('posted_at', { ascending: false })
         .order('id', { ascending: false })
         .range(from, from + PAGE_SIZE - 1)
+      if (error) {
+        console.error('fetchJobs: local_jobs query failed', error)
+        fetchFailed = true
+        break
+      }
       const pageRows = data ?? []
       rows.push(...pageRows)
       if (pageRows.length < PAGE_SIZE) break
@@ -104,7 +112,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     const fetched = rows
       .map((r) => rowToJob(r, locationsByJobId.get(r.id as number)))
       .filter(isPublicJobAllowed)
-    setJobs(fetched.length > 0 ? fetched : DEMO_JOBS)
+    // 조회 실패는 진짜 0건과 다르다 — 실패 시 DEMO_JOBS(가짜 예시 공고)를
+    // 진짜 데이터처럼 보여주면 안 되므로 빈 목록 + jobsError=true로 구분한다.
+    // (일부 페이지만 실패해도 rows를 통째로 버리므로 "일부만 불러온 불완전한
+    // 목록"이 완전한 목록인 것처럼 보이는 일도 없다.)
+    setJobsError(fetchFailed)
+    setJobs(fetchFailed ? [] : fetched.length > 0 ? fetched : DEMO_JOBS)
     setLoading(false)
   }, [])
 
@@ -186,8 +199,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ jobs, loading, refreshJobs, addPostedJob, deleteJob, updateJob }),
-    [jobs, loading, refreshJobs, addPostedJob, deleteJob, updateJob],
+    () => ({ jobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob }),
+    [jobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob],
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

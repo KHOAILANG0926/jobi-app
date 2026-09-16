@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
-import { computeBrandCounts, groupBrandsByCategory, type BrandWithCount } from '../data/brandDirectory'
+import { useBrands } from '../context/BrandsContext'
+import { computeBrandCounts, groupBrandsByCategory, type BrandDefinition, type BrandWithCount } from '../data/brandDirectory'
 import { NotificationBell } from './NotificationBell'
 import { ZaloIcon } from './ZaloIcon'
 
@@ -19,7 +20,10 @@ function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string;
   )
 }
 
-interface MenuLink { label: string; to: string }
+/** state — Profile.tsx가 이미 읽는 location.state 플래그(openCvTab/
+ *  openApplicationsTab)를 그대로 전달할 때만 쓴다. 새 라우팅 규칙을 만들지
+ *  않고 기존 탭 진입 방식에 얹는다. */
+interface MenuLink { label: string; to: string; state?: Record<string, unknown> }
 interface MenuCard { label: string; to: string; color: string; logo?: string; initial: string }
 interface MenuItem {
   label: string
@@ -30,16 +34,60 @@ interface MenuItem {
   /** "Thương hiệu" 전용 — 업종→브랜드 2단 메가메뉴(BrandMegaMenu)로 렌더링한다.
    *  실제 활성 공고 데이터로 매번 다시 계산되므로 여기엔 정적 목록을 두지 않는다. */
   brandMenu?: true
+  /** 2026-09-11 "Công cụ" 재설계(사용자 지시) — 이 탭은 nav에서 오른쪽에 있어
+   *  기존 "Việc làm"처럼 left:0(탭 기준)으로 펼치면 화면 밖으로 넘친다. 헤더
+   *  콘텐츠 영역 기준으로 오른쪽 정렬시키는 .mega-menu--tools를 쓰려면 이
+   *  플래그로 header-tab-wrap도 static으로 바꿔야 한다(Thương hiệu와 동일
+   *  이유, 다른 처리 — 그쪽은 폭 전체, 이쪽은 콘텐츠만큼만 우측 정렬). */
+  alignRight?: true
 }
 
-/** 왼쪽 업종 분류 → 오른쪽 해당 업종의 브랜드(활성 공고 수 포함) 2단 메가메뉴.
- *  브랜드/업종 모두 실제 useJobs() 데이터로 매 렌더마다 다시 계산되므로,
- *  공고가 0건이 되면 해당 브랜드·업종은 자동으로 사라진다(하드코딩된 노출
- *  목록이 아님). */
-function BrandMegaMenu({ jobs, onNavigate }: { jobs: import('../types/job').Job[]; onNavigate: (to: string) => void }) {
-  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs)), [jobs])
-  const [activeCategory, setActiveCategory] = useState(0)
-  const active = groups[Math.min(activeCategory, groups.length - 1)]
+const BRAND_COLUMN_COUNT = 3
+
+/** 업종 그룹을 N개 column에 균형 배치한다(그룹은 쪼개지 않고 통째로 한
+ *  column에 배치) — 가장 무거운(브랜드 수 많은) 그룹부터 그때그때 가장 가벼운
+ *  column에 채우는 greedy bin-packing. groups 자체는 이미 실제 useJobs()
+ *  데이터로 매 렌더마다 다시 계산된 값이라, 이 배치도 데이터가 바뀌면 자동으로
+ *  다시 계산된다 — column 구성을 하드코딩하지 않는다. */
+function distributeIntoColumns<T extends { brands: unknown[] }>(groups: T[], columnCount: number): T[][] {
+  const order = groups.map((g, i) => ({ g, i })).sort((a, b) => b.g.brands.length - a.g.brands.length)
+  const columns: { items: { g: T; i: number }[]; weight: number }[] = Array.from({ length: columnCount }, () => ({ items: [], weight: 0 }))
+  order.forEach(({ g, i }) => {
+    const target = columns.reduce((min, c) => (c.weight < min.weight ? c : min), columns[0])
+    target.items.push({ g, i })
+    target.weight += g.brands.length + 1
+  })
+  return columns.map((c) => c.items.sort((a, b) => a.i - b.i).map((e) => e.g))
+}
+
+/** 2026-09-10 재설계(사용자 지시, 알바몬 "브랜드 알바" 정보 구조 참고) —
+ *  왼쪽 "Thương hiệu theo ngành"은 업종별 브랜드를 카드가 아닌 가벼운 텍스트
+ *  링크로 한 화면에 전부 펼친다(세로 탭 없음, 클릭 없이도 다 보임, 공고 수
+ *  배지 없음 — 숫자가 주인공이 되지 않게). 오른쪽 "Thương hiệu nổi bật"은
+ *  실제 공고가 2건 이상인 "대표 브랜드"만 낮고 납작한 카드로 보여준다(1건뿐인
+ *  브랜드도 왼쪽 텍스트 목록에는 그대로 남아있음 — 대표 카드에서만 빠짐).
+ *  이 컷오프도 실제 useJobs() 데이터로 매 렌더마다 다시 계산되므로 하드코딩된
+ *  브랜드명 목록이 아니다 — 공고가 늘거나 줄면 대표 브랜드 구성도 자동으로
+ *  바뀐다.
+ *  2026-09-10 2차 수정(사용자 지시, 알바몬 캡처 기준 재조정): 왼쪽 목록을
+ *  한 줄로 쭉 흘리지 않고 3개 column으로 균형 배치하고, 메가메뉴 자체를
+ *  탭 위치가 아니라 헤더 콘텐츠 영역(.header-tabs__inner)에 맞춰 정렬해
+ *  화면 오른쪽 경계를 벗어나던 문제를 고친다(아래 .mega-menu--brand
+ *  CSS 참고, position 기준 변경은 JSX의 header-tab-wrap--static 클래스로
+ *  처리).
+ *  2026-09-11 재수정(사용자 지시, 브랜드 DB 전환): 브랜드 목록은 더 이상
+ *  하드코딩(brandDirectory.ts의 BRAND_DIRECTORY)이 아니라 useBrands()로 관리자
+ *  승인 브랜드를 가져온다. "대표 브랜드" 선정도 예전엔 count>=2 자동 임계값
+ *  이었지만, 이제는 관리자가 /admin에서 직접 지정한 featured 플래그를 그대로
+ *  쓴다(공고 수 자동 계산 아님) — 마이그레이션 시 예전 임계값 결과와 동일하게
+ *  8개 브랜드에 featured=true를 심어 화면은 그대로 유지된다. */
+function BrandMegaMenu({ jobs, brands, onNavigate }: { jobs: import('../types/job').Job[]; brands: BrandDefinition[]; onNavigate: (to: string) => void }) {
+  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs, brands)), [jobs, brands])
+  const columns = useMemo(() => distributeIntoColumns(groups, BRAND_COLUMN_COUNT), [groups])
+  const featured = useMemo(
+    () => groups.flatMap((g) => g.brands).filter((b) => b.featured).sort((a, b) => b.count - a.count),
+    [groups],
+  )
 
   if (groups.length === 0) {
     return <p className="mega-menu__brand-empty">Chưa có thương hiệu nào đang tuyển.</p>
@@ -47,36 +95,49 @@ function BrandMegaMenu({ jobs, onNavigate }: { jobs: import('../types/job').Job[
 
   return (
     <>
-      <div className="mega-menu__brand-layout">
-        <ul className="mega-menu__brand-cats">
-          {groups.map((g, i) => (
-            <li key={g.id}>
+      <div className="mega-menu__brand-layout2">
+        <div className="mega-menu__brand-byindustry">
+          <h4 className="mega-menu__heading">Thương hiệu theo ngành</h4>
+          <div className="mega-menu__brand-columns">
+            {columns.map((col, ci) => (
+              <div key={ci} className="mega-menu__brand-column">
+                {col.map((g) => (
+                  <div key={g.id} className="mega-menu__brand-industry-group">
+                    <h5 className="mega-menu__brand-industry-label">{g.label}</h5>
+                    <div className="mega-menu__brand-industry-links">
+                      {g.brands.map((b) => (
+                        <button
+                          key={b.name}
+                          type="button"
+                          className="mega-menu__brand-link"
+                          onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
+                        >
+                          {b.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mega-menu__brand-featured">
+          <h4 className="mega-menu__heading">Thương hiệu nổi bật</h4>
+          <div className="mega-menu__brand-featured-grid">
+            {featured.map((b: BrandWithCount) => (
               <button
+                key={b.name}
                 type="button"
-                className={`mega-menu__brand-cat${i === activeCategory ? ' is-active' : ''}`}
-                onMouseEnter={() => setActiveCategory(i)}
-                onFocus={() => setActiveCategory(i)}
-                onClick={() => setActiveCategory(i)}
+                className="mega-menu__brand-mini-card"
+                onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
               >
-                {g.label}
-                <span className="mega-menu__brand-cat-count">{g.brands.length}</span>
+                <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=64&domain=${b.domain}` : undefined} initial={b.initial} />
+                <span className="mega-menu__brand-mini-card-label">{b.name}</span>
+                <span className="mega-menu__brand-mini-card-count">{b.count}</span>
               </button>
-            </li>
-          ))}
-        </ul>
-        <div className="mega-menu__brand-list">
-          {active?.brands.map((b: BrandWithCount) => (
-            <button
-              key={b.name}
-              type="button"
-              className="mega-menu__brand-item"
-              onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
-            >
-              <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=64&domain=${b.domain}` : undefined} initial={b.initial} />
-              <span className="mega-menu__brand-item-label">{b.name}</span>
-              <span className="mega-menu__brand-item-count">{b.count}</span>
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
       <div className="mega-menu__brand-footer">
@@ -128,13 +189,34 @@ const MENU_ITEMS: MenuItem[] = [
     to: '/franchise-jobs',
     brandMenu: true,
   },
+  /** 2026-09-11 재설계(사용자 지시, 알바몬 "개인서비스" 정보 구조 참고) — 실제
+   *  존재하는 구직자 기능만 4개 영역으로 나열한다. 없는 기능(예: "Quản lý CV"는
+   *  Profile.tsx에 "Tạo CV" 탭 하나뿐이라 별도 화면이 아님, "Cài đặt tài khoản"은
+   *  아예 존재하지 않음)은 넣지 않는다 — 가짜 링크·"Coming soon" 금지. 로그인
+   *  필요 화면(/ho-so)은 기존 auth 규칙 그대로(별도 redirect 로직 추가 안 함) —
+   *  Profile.tsx가 이미 처리하는 location.state.openCvTab/openApplicationsTab에
+   *  얹어서 해당 탭으로 바로 연다. "Việc đã lưu"/"Việc đã xem"은 Profile.tsx
+   *  내부 탭 대신 Việc làm 메뉴와 동일한 기존 전용 라우트를 그대로 재사용한다. */
   {
     label: 'Công cụ',
     to: '/tinh-luong',
+    alignRight: true,
     dropdown: [
-      { heading: 'Tiện ích', links: [
-        { label: '🧮 Tính lương Gross ↔ Net', to: '/tinh-luong' },
-        { label: '💬 Câu hỏi phỏng vấn', to: '/cau-hoi-phong-van' },
+      { heading: 'Hồ sơ xin việc', links: [
+        { label: 'Hồ sơ của tôi', to: '/ho-so' },
+        { label: 'Tạo CV', to: '/ho-so', state: { openCvTab: true } },
+      ]},
+      { heading: 'Hoạt động ứng tuyển', links: [
+        { label: 'Việc đã ứng tuyển', to: '/ho-so', state: { openApplicationsTab: true } },
+        { label: 'Việc làm đã lưu', to: '/viec-lam/da-luu' },
+        { label: 'Việc làm đã xem', to: '/viec-lam/da-xem' },
+      ]},
+      { heading: 'Công cụ việc làm', links: [
+        { label: 'Tính lương Gross ↔ Net', to: '/tinh-luong' },
+        { label: 'Câu hỏi phỏng vấn', to: '/cau-hoi-phong-van' },
+      ]},
+      { heading: 'Tài khoản', links: [
+        { label: 'Thông tin cá nhân', to: '/ho-so' },
       ]},
     ],
   },
@@ -151,6 +233,7 @@ const MENU_ITEMS: MenuItem[] = [
 export function Layout() {
   const { user, logout, loginWithZalo } = useAuth()
   const { jobs } = useJobs()
+  const { brands } = useBrands()
   const navigate = useNavigate()
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState<number | null>(null)
@@ -277,7 +360,7 @@ export function Layout() {
                     const isMobilePortal = isOpen && mobileDropdownTop !== null
                     const dropdownBody = item.dropdown ? (
                       <div
-                        className={`mega-menu${isMobilePortal ? ' mega-menu--mobile' : ''}`}
+                        className={`mega-menu${item.alignRight ? ' mega-menu--tools' : ''}${isMobilePortal ? ' mega-menu--mobile' : ''}`}
                         ref={isMobilePortal ? dropdownRef : undefined}
                         style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
@@ -291,7 +374,7 @@ export function Layout() {
                                     <button
                                       type="button"
                                       className="mega-menu__link"
-                                      onClick={() => { setOpenMenu(null); navigate(link.to) }}
+                                      onClick={() => { setOpenMenu(null); navigate(link.to, link.state ? { state: link.state } : undefined) }}
                                     >
                                       {link.label}
                                     </button>
@@ -328,7 +411,7 @@ export function Layout() {
                         ref={isMobilePortal ? dropdownRef : undefined}
                         style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
-                        <BrandMegaMenu jobs={jobs} onNavigate={(to) => { setOpenMenu(null); navigate(to) }} />
+                        <BrandMegaMenu jobs={jobs} brands={brands} onNavigate={(to) => { setOpenMenu(null); navigate(to) }} />
                       </div>
                     ) : null
 
@@ -336,7 +419,7 @@ export function Layout() {
                       <div
                         key={i}
                         ref={(el) => { wrapRefs.current[i] = el }}
-                        className={`header-tab-wrap${isOpen ? ' header-tab-wrap--open' : ''}`}
+                        className={`header-tab-wrap${isOpen ? ' header-tab-wrap--open' : ''}${(item.brandMenu || item.alignRight) ? ' header-tab-wrap--static' : ''}`}
                         onMouseEnter={() => handleMenuEnter(i)}
                         onMouseLeave={handleMenuLeave}
                       >
@@ -379,9 +462,7 @@ export function Layout() {
             <div className="footer-cs">
               <h4 className="footer-cs__title">Trung tâm hỗ trợ</h4>
               <ul className="footer-cs__links">
-                <li><a href="/thong-bao">Thông báo</a></li>
-                <li><a href="/lien-he">Liên hệ 1:1</a></li>
-                <li><a href="/cau-hoi-thuong-gap">Câu hỏi thường gặp</a></li>
+                <li><a href="mailto:support@viecganban.vn">Liên hệ 1:1</a></li>
               </ul>
             </div>
 
@@ -424,8 +505,6 @@ export function Layout() {
               <a href="/dieu-khoan">Điều khoản sử dụng</a>
               <span className="footer-info__dot">·</span>
               <a href="/chinh-sach-bao-mat">Chính sách bảo mật</a>
-              <span className="footer-info__dot">·</span>
-              <a href="/chinh-sach-quang-cao">Chính sách quảng cáo</a>
             </div>
             <p className="footer-info__copy">© {new Date().getFullYear()} Việt Gần Bạn. All rights reserved.</p>
           </div>

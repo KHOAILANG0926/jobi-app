@@ -145,12 +145,18 @@ export async function fetchEmployerJobs(
   client: JobsQueryClient = supabase as unknown as JobsQueryClient,
 ): Promise<Job[]> {
   if (!employerId) return []
-  const { data } = await client
+  // 2026-09-15 사용자 지시로 수정: 이 쿼리의 error를 확인하지 않아 조회
+  // 실패가 "공고 0건"과 똑같이 보였다(EmployerDashboard가 빈 목록으로
+  // 렌더링) — 실패 시 예외를 던져 호출자가 "공고 없음"과 "불러오기 실패"를
+  // 구분하게 한다. job_work_locations 조회는 기존 설계대로 best-effort로
+  // 남겨둔다(부가 정보일 뿐, 실패해도 공고 목록 자체를 막지 않음).
+  const { data, error } = await client
     .from('local_jobs')
     .select(EMPLOYER_JOBS_SELECT_COLUMNS)
     .eq('employer_id', employerId)
     .order('posted_at', { ascending: false })
     .order('id', { ascending: false })
+  if (error) throw error
   const rows = (data ?? []) as Record<string, unknown>[]
   if (rows.length === 0) return []
 

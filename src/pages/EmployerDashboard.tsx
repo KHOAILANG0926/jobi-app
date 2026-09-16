@@ -22,6 +22,8 @@ import {
 } from '../lib/messagesStorage'
 import { ScheduleInterviewModal } from '../components/ScheduleInterviewModal'
 import { loadEmployerInterviews, subscribeInterviews, type InterviewSlot } from '../lib/interviewStorage'
+import { loadApplicationCvPhoto } from '../lib/accountCvStorage'
+import type { CvData } from '../lib/cvStorage'
 import type { Job } from '../types/job'
 
 type Tab = 'jobs' | 'applicants' | 'messages'
@@ -48,6 +50,10 @@ export function EmployerDashboard() {
   const msgTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null)
   const [applicationError, setApplicationError] = useState('')
+  const [expandedCvId, setExpandedCvId] = useState<string | null>(null)
+  const [cvPhotoById, setCvPhotoById] = useState<Record<string, string>>({})
+  const [cvPhotoLoading, setCvPhotoLoading] = useState<string | null>(null)
+  const [cvPhotoError, setCvPhotoError] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = () => { loadApplications().then(setApplications) }
@@ -71,12 +77,23 @@ export function EmployerDashboard() {
   // 실제로 화면에 뜬다.
   const [myJobs, setMyJobs] = useState<Job[]>([])
   const [myJobsLoading, setMyJobsLoading] = useState(true)
+  // 2026-09-15 사용자 지시로 수정: fetchEmployerJobs()가 실패해도 이전에는
+  // "공고 0건"인 것처럼 빈 화면이 됐다 — 조회 실패와 실제로 공고가 없는
+  // 상태를 구분해서 보여준다.
+  const [myJobsError, setMyJobsError] = useState(false)
 
   const loadMyJobs = useCallback(async () => {
     setMyJobsLoading(true)
-    const result = await fetchEmployerJobs(user.id)
-    setMyJobs(result)
-    setMyJobsLoading(false)
+    setMyJobsError(false)
+    try {
+      const result = await fetchEmployerJobs(user.id)
+      setMyJobs(result)
+    } catch {
+      setMyJobs([])
+      setMyJobsError(true)
+    } finally {
+      setMyJobsLoading(false)
+    }
   }, [user.id])
 
   useEffect(() => { loadMyJobs() }, [loadMyJobs])
@@ -188,6 +205,25 @@ export function EmployerDashboard() {
     setApplications(await loadApplications())
   }
 
+  // "Xem CV" 토글 — 지원 시점 스냅샷(cv_snapshot/cv_photo_snapshot_path)만
+  // 보여준다. 사진은 열 때 처음 한 번만 내려받아 캐시한다(매번 재다운로드
+  // 방지). storage RLS(cv_photos_select_application_snapshot)가 실제 소유
+  // 기업인지 다시 검증하므로, 여기서 실패하면(다른 기업 공고인데 잘못된 id로
+  // 접근 시도 등) 에러 문구만 보여주고 사진 없이 나머지 정보만 표시한다.
+  const toggleCvPanel = (app: JobApplication) => {
+    const key = app.id ?? app.appliedAt
+    if (expandedCvId === key) { setExpandedCvId(null); return }
+    setExpandedCvId(key)
+    setCvPhotoError(null)
+    if (app.cvPhotoSnapshotPath && !cvPhotoById[key]) {
+      setCvPhotoLoading(key)
+      loadApplicationCvPhoto(app.cvPhotoSnapshotPath)
+        .then((dataUrl) => setCvPhotoById((prev) => ({ ...prev, [key]: dataUrl })))
+        .catch(() => setCvPhotoError('Không thể tải ảnh CV.'))
+        .finally(() => setCvPhotoLoading(null))
+    }
+  }
+
   const handleDelete = async (job: Job) => {
     if (deleteConfirmId === job.id) {
       await deleteJob(job.id)
@@ -271,7 +307,15 @@ export function EmployerDashboard() {
       {/* ── Tab: Jobs ── */}
       {tab === 'jobs' && (
         <div className="edb-panel" role="tabpanel">
-          {myJobsLoading ? null : myJobs.length === 0 ? (
+          {myJobsLoading ? null : myJobsError ? (
+            <div className="edb-empty" role="alert">
+              <span className="edb-empty__icon">⚠️</span>
+              <p className="edb-empty__text">Không thể tải danh sách tin đăng. Vui lòng thử lại.</p>
+              <button type="button" className="btn btn--primary" onClick={() => loadMyJobs()}>
+                Thử lại
+              </button>
+            </div>
+          ) : myJobs.length === 0 ? (
             <div className="edb-empty">
               <span className="edb-empty__icon">📝</span>
               <p className="edb-empty__text">Bạn chưa đăng tin nào.</p>
@@ -489,8 +533,11 @@ export function EmployerDashboard() {
             <ul className="edb-applicant-list">
               {filteredApplications.map((app) => {
                 const meta = APPLICATION_STATUS_META[app.status]
+                const cvKey = app.id ?? app.appliedAt
+                const cv = app.cvSnapshot as Partial<CvData> | null
                 return (
-                  <li key={`${app.jobId}-${app.appliedAt}`} className="edb-applicant-item">
+                  <li key={`${app.jobId}-${app.appliedAt}`} className="edb-applicant-item" style={{ display: 'block' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                     <div className="edb-applicant-item__avatar">
                       {(app.seekerName?.trim() || '?')[0].toUpperCase()}
                     </div>
@@ -507,6 +554,13 @@ export function EmployerDashboard() {
                         {app.seekerPhone && ' · '}
                         {app.jobTitle} · {formatDate(app.appliedAt)}
                       </p>
+                      <button
+                        type="button"
+                        className="applications-list__timeline-btn"
+                        onClick={() => toggleCvPanel(app)}
+                      >
+                        {expandedCvId === cvKey ? 'Ẩn CV ▲' : 'Xem CV ▼'}
+                      </button>
                     </div>
                     <div className="edb-applicant-item__status">
                       <select
@@ -548,6 +602,56 @@ export function EmployerDashboard() {
                         )
                       })()}
                     </div>
+                  </div>
+                  {expandedCvId === cvKey && (
+                    <div className="edb-cv-panel" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
+                      {!app.cvSnapshot ? (
+                        <p className="hint">Ứng viên chưa cập nhật CV vào lúc ứng tuyển.</p>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                          {app.cvPhotoSnapshotPath && (
+                            <div style={{ flex: '0 0 auto' }}>
+                              {cvPhotoLoading === cvKey ? (
+                                <p className="hint">Đang tải ảnh...</p>
+                              ) : cvPhotoById[cvKey] ? (
+                                <img src={cvPhotoById[cvKey]} alt="Ảnh CV" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8 }} />
+                              ) : cvPhotoError ? (
+                                <p className="hint">{cvPhotoError}</p>
+                              ) : null}
+                            </div>
+                          )}
+                          <div style={{ flex: '1 1 240px', fontSize: 14, lineHeight: 1.6 }}>
+                            {cv?.headline && <p><strong>{cv.headline}</strong></p>}
+                            {cv?.objective && <p>{cv.objective}</p>}
+                            <p style={{ color: '#666' }}>
+                              {cv?.email && <>✉️ {cv.email} · </>}
+                              {cv?.city && <>📍 {cv.city} · </>}
+                              {cv?.dateOfBirth && <>🎂 {cv.dateOfBirth}</>}
+                            </p>
+                            {!!cv?.experiences?.length && (
+                              <>
+                                <p style={{ fontWeight: 600, marginTop: 8 }}>Kinh nghiệm</p>
+                                {cv.experiences.filter((e) => e.role || e.company).map((e) => (
+                                  <p key={e.id}>{e.role} {e.company && `· ${e.company}`} {e.period && `(${e.period})`}</p>
+                                ))}
+                              </>
+                            )}
+                            {!!cv?.education?.length && (
+                              <>
+                                <p style={{ fontWeight: 600, marginTop: 8 }}>Học vấn</p>
+                                {cv.education.filter((e) => e.school).map((e) => (
+                                  <p key={e.id}>{e.school} {e.degree && `· ${e.degree}`} {e.graduationYear && `(${e.graduationYear})`}</p>
+                                ))}
+                              </>
+                            )}
+                            {!!cv?.skillTags?.length && (
+                              <p style={{ marginTop: 8 }}><strong>Kỹ năng:</strong> {cv.skillTags.join(', ')}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   </li>
                 )
               })}

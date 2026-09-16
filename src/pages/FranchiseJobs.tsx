@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useJobs } from '../context/JobsContext'
+import { useBrands } from '../context/BrandsContext'
 import { computeBrandCounts, groupBrandsByCategory } from '../data/brandDirectory'
 
 /**
@@ -12,8 +13,9 @@ import { computeBrandCounts, groupBrandsByCategory } from '../data/brandDirector
  */
 export default function FranchiseJobs() {
   const { jobs } = useJobs()
+  const { brands } = useBrands()
   const navigate = useNavigate()
-  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs)), [jobs])
+  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs, brands)), [jobs, brands])
 
   return (
     <div className="page franchise-page">

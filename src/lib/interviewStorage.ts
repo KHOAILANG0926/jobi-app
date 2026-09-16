@@ -125,10 +125,14 @@ export async function updateInterviewStatus(id: string, status: InterviewStatus)
   window.dispatchEvent(new CustomEvent('vgb:interviews'))
 }
 
-/** 상대방이 만든/바꾼 면접 일정을 실시간으로 반영. */
+let interviewsChannelSeq = 0
+
+/** 상대방이 만든/바꾼 면접 일정을 실시간으로 반영. 고정된 채널 이름을 여러
+ * 호출자가 동시에 쓰면 messagesStorage.ts의 subscribeMessages()와 같은 이유로
+ * 충돌할 수 있어 호출마다 고유한 채널 이름을 쓴다. */
 export function subscribeInterviews(handler: () => void): () => void {
   const channel = supabase
-    .channel('interviews-changes')
+    .channel(`interviews-changes-${++interviewsChannelSeq}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews' }, () => handler())
     .subscribe()
   return () => {

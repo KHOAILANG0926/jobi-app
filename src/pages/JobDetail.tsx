@@ -13,7 +13,9 @@ import { ReportButton } from '../components/ReportButton'
 import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
-import { formatDeadlineVi, zaloMeUrl } from '../lib/jobUtils'
+import { buildProfile } from '../components/useApply'
+import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
+import { formatDeadlineVi, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
 import { googleMapsLinks, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
@@ -169,14 +171,13 @@ export function JobDetail() {
   const showMessageCta = !!job.employerId && user?.role !== 'employer'
 
   // 크롤링 공고(local_jobs.employer_id가 NULL)는 소유 기업이 없어 내부 지원을 만들면
-  // 아무도 조회할 수 없는 "고아 지원"이 되므로 생성하지 않는다.
-  // 원본 링크는 local_jobs.source_url(신규 backfill로 채워지는 값)을 우선 쓰고,
-  // 없는 옛날 데이터는 description 자체가 URL이던 기존 패턴으로 fallback한다
-  // (DescriptionRenderer의 text.startsWith('http') 처리와 동일 — 회귀 방지).
-  const canApplyInternally = !!job.employerId
-  const sourceUrl = canApplyInternally
-    ? undefined
-    : job.sourceUrl || (job.description?.startsWith('http') ? job.description : undefined)
+  // 아무도 조회할 수 없는 "고아 지원"이 되므로 생성하지 않는다. 판정 로직은
+  // jobUtils.ts의 resolveApplyRoute()로 useApply.ts(다른 지원 화면들)와 공유한다
+  // — 두 곳에 따로 있으면 한쪽만 고쳤을 때 다시 어긋나는 위험이 있다(2026-09-15
+  // 실제로 그렇게 어긋나 있던 걸 발견하고 통합함).
+  const applyRoute = resolveApplyRoute(job)
+  const canApplyInternally = applyRoute.mode === 'internal'
+  const sourceUrl = applyRoute.mode === 'external' ? applyRoute.url : undefined
 
   const onOneClickApply = async () => {
     if (!user) {
@@ -192,7 +193,19 @@ export function JobDetail() {
         setToastOpen(true)
         return
       }
-      const res = await addApplication({ jobId: job.id, jobTitle: job.title, company: job.company, employerId: job.employerId, seekerId: user.id })
+      // 2026-09-16 사용자 지시로 수정(Astra 조사 2번): 이 화면(공고 상세, 가장
+      // 많이 쓰이는 지원 경로)만 seekerName/seekerPhone을 아예 안 보내고
+      // 있었다 — RecommendSection/SuggestedJobsPage(useApply.ts의 confirm())는
+      // buildProfile()로 이름/전화를 채워 보내는데 여기만 빠져 있어서, 같은
+      // 지원인데 어느 화면으로 들어왔는지에 따라 저장 내용이 달랐다(상세
+      // 진입 시 이름/전화가 DB에 null로 저장됨). buildProfile()을 재사용해
+      // 두 경로가 항상 같은 내용을 저장하게 한다.
+      const p = buildProfile(user.id)
+      const cvPhotoSnapshotPath = await snapshotCvPhotoForApplication(user.id, job.id).catch(() => null)
+      const res = await addApplication({
+        jobId: job.id, jobTitle: job.title, company: job.company, employerId: job.employerId,
+        seekerId: user.id, seekerName: p.name, seekerPhone: p.phone, cvPhotoSnapshotPath,
+      })
       if (res.ok) {
         setApplied(true)
         setToastMsg('Đã ứng tuyển thành công!')

@@ -65,7 +65,10 @@ export default function MapView() {
 
   // Get geolocation once on mount
   useEffect(() => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setGeoError('Trình duyệt không hỗ trợ định vị.')
+      return
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude]

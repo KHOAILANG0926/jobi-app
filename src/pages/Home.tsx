@@ -11,7 +11,7 @@ import { hasStoredCv } from '../lib/cvStorage'
 import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint } from '../lib/jobCoords'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
-import { parseSalaryToHourly } from '../lib/recommendStorage'
+import { groupJobsForSalarySort, salaryTierLabel } from '../lib/recommendStorage'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -208,7 +208,7 @@ function BrandLogo({ initial, color, logo }: {
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
-  const { jobs } = useJobs()
+  const { jobs, jobsError } = useJobs()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -397,7 +397,13 @@ export function Home() {
     if (nearMe && userCoords) {
       result = [...result].sort((a, b) => (jobDistances[a.id]?.km ?? 99) - (jobDistances[b.id]?.km ?? 99))
     } else if (sortMode === 'salary') {
-      result = [...result].sort((a, b) => parseSalaryToHourly(b.salary) - parseSalaryToHourly(a.salary))
+      // 2026-09-14: 근거 없는 월↔시급/통화 환산으로 하나의 "고액" 순위를
+      // 만들지 않는다 — 같은 통화·같은 지급 주기 집단 안에서만 정렬하고,
+      // 집단은 표본이 많은 순으로 이어 붙인다(집단 간 우열 비교 아님).
+      // 협의/건당/금액 미상은 맨 뒤로 분리(고액 판정에서 제외) — 원래 salary
+      // 텍스트("Thỏa thuận" 등)가 이미 그 상태를 보여준다.
+      const { groups, unpriced } = groupJobsForSalarySort(result)
+      result = [...groups.flatMap((g) => g.jobs), ...unpriced]
     } else if (sortMode === 'recommended') {
       result = [...result].sort((a, b) => {
         const aMatch = preferredCategories.has(a.category) ? 1 : 0
@@ -408,6 +414,16 @@ export function Home() {
     }
     return result
   }, [jobs, search, brandFilter, category, urgentOnly, todayOnly, isTodayJob, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recFilter, sortMode, preferredCategories])
+
+  // "Lương cao" 정렬일 때만 필요 — 어떤 (통화, 지급 주기) 집단을 기준으로
+  // 정렬했는지, 비교 대상에서 빠진 공고가 몇 건인지 화면에 밝힌다(2026-09-14
+  // 사용자 지시: "비교 집단이 여러 개라면 집단을 선택하거나 구분해서
+  // 표시한다"). filtered는 sortMode==='salary'일 때 이미 그룹별로 이어붙여진
+  // 상태라 여기서 다시 묶어도 같은 그룹 구성이 나온다(순서 무관한 순수 함수).
+  const salaryTiers = useMemo(
+    () => (sortMode === 'salary' ? groupJobsForSalarySort(filtered) : null),
+    [filtered, sortMode],
+  )
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -526,6 +542,12 @@ export function Home() {
 
   return (
     <div className="home-page">
+
+      {jobsError && (
+        <div className="home-jobs-error" role="alert" style={{ background: '#fdecea', color: '#b71c1c', padding: '12px 16px', textAlign: 'center', fontSize: 14 }}>
+          Không thể tải danh sách tin tuyển dụng lúc này. Vui lòng thử lại sau.
+        </div>
+      )}
 
       {/* ── White top section ─────────────────────────────── */}
       <div className="home-top-bg">
@@ -723,6 +745,16 @@ export function Home() {
               </button>
             </div>
 
+            {salaryTiers && salaryTiers.groups.length > 0 && (
+              <p className="near-me-status__summary">
+                💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
+                {salaryTiers.groups.length > 1 && (
+                  <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
+                )}
+                {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
+              </p>
+            )}
+
             {filtered.length === 0 ? (
               <div className="city-result__empty">
                 <span>🔍</span>
@@ -807,6 +839,15 @@ export function Home() {
               {nearMe && userCoords && (
                 <p className="near-me-status__summary">
                   📍 Đang dùng vị trí hiện tại của bạn · Bán kính {nearRadius} km · {filtered.length} kết quả
+                </p>
+              )}
+              {salaryTiers && salaryTiers.groups.length > 0 && (
+                <p className="near-me-status__summary">
+                  💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
+                  {salaryTiers.groups.length > 1 && (
+                    <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
+                  )}
+                  {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
                 </p>
               )}
               {filtered.length === 0 ? (

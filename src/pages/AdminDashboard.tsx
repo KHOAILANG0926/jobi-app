@@ -6,10 +6,12 @@ import type { JobCategory } from '../types/job'
 import type { Job } from '../types/job'
 import { AdminJobs } from '../components/admin/AdminJobs'
 import { AdminUsers } from '../components/admin/AdminUsers'
+import { AdminBrands } from '../components/admin/AdminBrands'
 import { AdminReports } from '../components/admin/AdminReports'
 import { AdminAuditLogs } from '../components/admin/AdminAuditLogs'
+import { listAdminJobs, listAdminUsers } from '../lib/adminOperations'
 
-type Tab = 'dashboard' | 'jobs' | 'users' | 'reports' | 'audit'
+type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'audit'
 
 interface Stats {
   koreaJobs: number
@@ -18,19 +20,18 @@ interface Stats {
   localJobs: number
 }
 
-function loadLocalStats(): Pick<Stats, 'localUsers' | 'localEmployers' | 'localJobs'> {
-  try {
-    const accounts = JSON.parse(localStorage.getItem('vgb_accounts') || '[]')
-    const jobs = JSON.parse(localStorage.getItem('vgb_jobs') || '[]')
-    return {
-      localUsers: accounts.filter((a: { role: string }) => a.role === 'seeker').length,
-      localEmployers: accounts.filter((a: { role: string }) => a.role === 'employer').length,
-      localJobs: jobs.length,
-    }
-  } catch {
-    return { localUsers: 0, localEmployers: 0, localJobs: 0 }
-  }
-}
+/**
+ * 2026-09-16 사용자 지시로 수정(Astra 조사 1번, "관리자 통계의 localStorage
+ * 의존"): 이전엔 이 대시보드 개요 탭만 `localStorage`(`vgb_accounts`/
+ * `vgb_jobs`, 회원가입/게스트 지원 초기 프로토타입 시절의 브라우저별 임시
+ * 저장값 — 실제 Supabase 인증/DB 도입 이후로는 갱신되지 않는 죽은 값이라
+ * 관리자가 보는 통계가 "이 브라우저에서 마지막으로 뭔가 저장됐을 때"의
+ * 스냅샷일 뿐 실제 운영 회원/공고 수와 무관했다)를 썼다 — Users/Jobs 관리
+ * 탭(`AdminUsers.tsx`/`AdminJobs.tsx`)은 이미 실제 Supabase RPC/테이블
+ * (`admin_list_users`/`local_jobs`)을 쓰고 있었으므로, 새 DB/RLS 없이 그
+ * 동일한 함수(`listAdminUsers`/`listAdminJobs`)를 재사용해 개요 탭도 같은
+ * 실제 데이터를 반영하도록 고친다.
+ */
 
 const EMPTY_JOB: Omit<Job, 'id'> = {
   title: '',
@@ -76,7 +77,14 @@ export default function AdminDashboard() {
   // Dashboard state
   const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
   const [loading, setLoading] = useState(false)
-  const [recentAccounts, setRecentAccounts] = useState<{ id: string; name: string; phone: string; role: string; createdAt: string }[]>([])
+  // 2026-09-15 사용자 지시로 수정(Astra 조사): korea_jobs count 조회가
+  // error를 확인하지 않아 실패해도 "0건"으로 보였다 — "0건"과 "조회 실패"를
+  // 각 소스별로 구분한다("Tổng"은 localJobs/koreaJobs 둘 중 하나라도 실패하면
+  // "—").
+  const [koreaJobsError, setKoreaJobsError] = useState(false)
+  const [localJobsError, setLocalJobsError] = useState(false)
+  const [usersError, setUsersError] = useState(false)
+  const [recentAccounts, setRecentAccounts] = useState<{ id: string; name: string; status: string; role: string; createdAt: string }[]>([])
 
   // Post job state
   const [rawText, setRawText] = useState('')
@@ -94,13 +102,34 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setLoading(true)
-    const local = loadLocalStats()
-    try {
-      const accounts = JSON.parse(localStorage.getItem('vgb_accounts') || '[]')
-      setRecentAccounts(accounts.slice(0, 10))
-    } catch {}
-    supabase.from('korea_jobs').select('id', { count: 'exact', head: true }).then(({ count }) => {
-      setStats({ ...local, koreaJobs: count ?? 0 })
+    Promise.all([
+      supabase.from('korea_jobs').select('id', { count: 'exact', head: true }),
+      listAdminUsers().catch(() => null),
+      // "Tin VN đang tuyển"은 실제로 모집 중인(active && !admin_hidden) 공고
+      // 수를 뜻하므로, 관리 목적으로 전체를 반환하는 listAdminJobs() 결과를
+      // 그 기준으로 다시 좁힌다(local_jobs 자체를 다시 조회하지 않음).
+      listAdminJobs().catch(() => null),
+    ]).then(([koreaRes, users, jobs]) => {
+      setKoreaJobsError(!!koreaRes.error)
+      setUsersError(users === null)
+      setLocalJobsError(jobs === null)
+      setStats({
+        koreaJobs: koreaRes.count ?? 0,
+        localUsers: users ? users.filter((u) => u.role === 'seeker').length : 0,
+        localEmployers: users ? users.filter((u) => u.role === 'employer').length : 0,
+        localJobs: jobs ? jobs.filter((j) => j.active && !j.admin_hidden).length : 0,
+      })
+      setRecentAccounts(
+        users
+          ? users.slice(0, 10).map((u) => ({
+              id: u.user_id,
+              name: u.display_name || '(Chưa đặt tên)',
+              role: u.role ?? 'seeker',
+              status: u.status,
+              createdAt: u.joined_at,
+            }))
+          : [],
+      )
       setLoading(false)
     })
   }, [])
@@ -228,7 +257,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
       {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
-        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['reports', '🚩 Reports'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
+        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '14px 24px', fontSize: '14px', fontWeight: tab === t ? 700 : 400,
             color: tab === t ? '#e74c3c' : '#666', background: 'none', border: 'none',
@@ -248,9 +277,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Nhà tuyển dụng', value: stats.localEmployers, icon: '🏢', color: '#27ae60' },
-                  { label: 'Tin VN đang tuyển', value: stats.localJobs, icon: '📋', color: '#e67e22' },
-                  { label: 'Tin Hàn Quốc', value: stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
+                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
+                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
+                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
                 ].map(s => (
                   <div key={s.label} style={{
                     background: '#fff', borderRadius: '16px', padding: '20px',
@@ -270,13 +299,22 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               }}>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng tin tuyển dụng</p>
-                  <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>{stats.localJobs + stats.koreaJobs}</p>
+                  {/* 2026-09-15/16 사용자 지시로 수정: 두 항목(local_jobs 기준
+                      localJobs, korea_jobs 기준 koreaJobs) 중 하나라도 조회가
+                      실패하면 그 값을 0으로 두고 그대로 합산해 "불완전한 합계"를
+                      진짜 합계처럼 보여줬다 — 둘 중 하나라도 실패하면 합계도
+                      "—"로 표시한다(성공 시 합산 동작은 그대로 유지). */}
+                  <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>
+                    {(localJobsError || koreaJobsError) ? '—' : stats.localJobs + stats.koreaJobs}
+                  </p>
                 </div>
               </div>
 
               <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#1a1a1a' }}>Người dùng mới nhất</h2>
-                {recentAccounts.length === 0 ? (
+                {usersError ? (
+                  <p style={{ color: '#c0392b', fontSize: '14px' }} role="alert">Không thể tải danh sách người dùng.</p>
+                ) : recentAccounts.length === 0 ? (
                   <p style={{ color: '#aaa', fontSize: '14px' }}>Chưa có người dùng nào.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -293,7 +331,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                           }}>{acc.role === 'employer' ? '🏢' : '👤'}</div>
                           <div>
                             <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{acc.name}</p>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>{acc.phone}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: acc.status === 'suspended' ? '#c0392b' : '#888' }}>
+                              {acc.status === 'suspended' ? 'Đã tạm khóa' : 'Đang hoạt động'}
+                            </p>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
@@ -519,6 +559,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         )}
 
         {tab === 'users' && <AdminUsers />}
+        {tab === 'brands' && <AdminBrands />}
         {tab === 'reports' && <AdminReports />}
         {tab === 'audit' && <AdminAuditLogs />}
       </div>

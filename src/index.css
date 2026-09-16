@@ -158,6 +158,7 @@ a:hover {
   background: #fff;
 }
 .header-tabs__inner {
+  position: relative;
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 0 1.25rem;
@@ -312,6 +313,13 @@ a:hover {
 .header-tab-wrap {
   position: relative;
 }
+/* "Thương hiệu" 탭 전용 — 이 메뉴만 탭 자신이 아니라 헤더 콘텐츠 영역
+   (.header-tabs__inner, position:relative)을 기준으로 위치를 잡아야
+   화면 오른쪽 경계를 벗어나지 않는다(다른 메뉴는 폭이 좁아 탭 기준
+   position:relative를 그대로 유지, 회귀 위험 없음). */
+.header-tab-wrap--static {
+  position: static;
+}
 .mega-menu {
   position: absolute;
   top: 100%;
@@ -376,6 +384,18 @@ a:hover {
 }
 
 .mega-menu--cards { min-width: 340px; }
+
+/* "Công cụ" 메가메뉴(2026-09-11 재설계) — nav 오른쪽 탭이라 Việc làm처럼
+   left:0(탭 기준)으로 펼치면 화면 밖으로 넘친다. Thương hiệu와 같은 이유로
+   header-tab-wrap을 static으로 바꾸고(JSX의 header-tab-wrap--static) 이
+   .mega-menu가 헤더 콘텐츠 영역(.header-tabs__inner, position:relative)을
+   기준으로 위치를 잡게 한다 — 다만 Thương hiệu처럼 폭 전체를 채우지 않고
+   콘텐츠(4개 column)만큼만 폭을 쓰며 오른쪽 끝을 헤더 콘텐츠 오른쪽 padding에
+   맞춰 고정한다(우측 정렬) — 왼쪽으로는 컨테이너 안쪽이라 넘칠 일이 없다. */
+.mega-menu--tools {
+  left: auto;
+  right: 1.25rem;
+}
 .mega-menu__brand-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -422,98 +442,142 @@ a:hover {
   color: #333;
 }
 
-/* ── "Thương hiệu" 2단 메가메뉴 (업종 → 브랜드, PC 전용) ─────────── */
+/* ── "Thương hiệu" 메가메뉴 — 알바몬 "브랜드 알바" 정보 구조 참고
+   (2026-09-10 재설계, 2차 수정): 왼쪽은 업종별 브랜드를 전부 가벼운 텍스트
+   링크로 3개 column에 균형 배치하고(카드 아님, 세로 탭 아님), 오른쪽은
+   실제 공고가 많은 "대표 브랜드"만 낮고 납작한 카드 3열로 보여준다. 내부
+   스크롤 없이 한 화면에 다 들어오도록 폭·여백을 넓게 잡는다. PC 전용.
+   폭/위치는 탭이 아니라 헤더 콘텐츠 영역(.header-tabs__inner) 기준으로
+   맞춰(JSX의 header-tab-wrap--static 참고) 화면 오른쪽을 넘지 않는다 —
+   left/right를 1.25rem으로 고정해 헤더의 실제 콘텐츠 padding과 동일한
+   값을 쓰므로, 어느 탭에서 열리든 항상 헤더 콘텐츠 영역과 좌우가 정확히
+   일치한다(고정 width 대신 auto-width). ── */
 .mega-menu--brand {
-  min-width: 640px;
+  left: 1.25rem;
+  right: 1.25rem;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
 }
-.mega-menu__brand-layout {
+.mega-menu__brand-layout2 {
   display: flex;
-  min-height: 260px;
+  align-items: flex-start;
 }
-.mega-menu__brand-cats {
-  list-style: none;
-  margin: 0;
-  padding: 0.6rem 0;
-  width: 200px;
-  flex-shrink: 0;
+.mega-menu__brand-byindustry {
+  flex: 0 0 55%;
+  min-width: 0;
+  padding: 1rem 1.2rem;
   border-right: 1px solid #f0f0f0;
-  background: #fafafa;
 }
-.mega-menu__brand-cat {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  border: none;
-  border-left: 3px solid transparent;
-  background: none;
-  font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #444;
-  cursor: pointer;
-  text-align: left;
+.mega-menu__brand-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 1.5rem;
 }
-.mega-menu__brand-cat:hover {
-  background: #f3f3f3;
+.mega-menu__brand-column {
+  min-width: 0;
 }
-.mega-menu__brand-cat.is-active {
-  background: #fff;
-  border-left-color: #e53935;
-  color: #e53935;
+.mega-menu__brand-industry-group {
+  margin-bottom: 0.85rem;
 }
-.mega-menu__brand-cat-count {
+.mega-menu__brand-industry-group:last-child {
+  margin-bottom: 0;
+}
+.mega-menu__brand-column .mega-menu__brand-industry-group:first-child {
+  margin-top: 0;
+}
+.mega-menu__brand-industry-label {
+  margin: 0 0 0.35rem;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #999;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.mega-menu__brand-cat.is-active .mega-menu__brand-cat-count {
-  color: #e53935;
-}
-.mega-menu__brand-list {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
-  padding: 1rem;
-  align-content: start;
-}
-.mega-menu__brand-item {
+.mega-menu__brand-industry-links {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.mega-menu__brand-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+}
+.mega-menu__brand-link:hover {
+  color: #e53935;
+  text-decoration: underline;
+}
+.mega-menu__brand-featured {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 1rem 1.2rem;
+}
+.mega-menu__brand-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
-  padding: 0.55rem 0.7rem;
+  margin-top: 0.6rem;
+}
+/* 뷰포트가 좁아지면(예: 1100px대) 카드 폭을 억지로 유지해 부모 밖으로 밀어내는
+   대신 3열 → 2열로 자연스럽게 줄인다 — .mega-menu--brand 자체는 항상
+   left/right:1.25rem로 헤더 콘텐츠 폭에 맞춰지므로, 이 기준(1200px)보다
+   좁을 때 카드가 비좁아지는 것을 열 수 축소로 미리 방지한다. */
+@media (max-width: 1200px) {
+  .mega-menu__brand-featured-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.mega-menu__brand-mini-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.6rem 0.5rem;
   background: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 10px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
   cursor: pointer;
   font-family: inherit;
-  text-align: left;
+  text-align: center;
   transition: border-color 0.12s, background 0.12s;
 }
-.mega-menu__brand-item:hover {
+.mega-menu__brand-mini-card:hover {
   border-color: #e53935;
   background: #fef2f2;
 }
-.mega-menu__brand-item-label {
-  flex: 1;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.mega-menu__brand-mini-card .mega-menu__brand-card-logo {
+  width: 28px;
+  height: 28px;
 }
-.mega-menu__brand-item-count {
+.mega-menu__brand-mini-card-label {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #e53935;
-  background: #fef2f2;
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-  flex-shrink: 0;
+  color: #333;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mega-menu__brand-mini-card-count {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #aaa;
 }
 .mega-menu__brand-footer {
   border-top: 1px solid #f0f0f0;

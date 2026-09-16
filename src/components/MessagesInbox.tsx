@@ -23,7 +23,6 @@ export function MessagesInbox() {
   const [threads, setThreads] = useState<MessageThread[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
-  const [typing, setTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -51,17 +50,9 @@ export function MessagesInbox() {
     [threads, activeId],
   )
 
-  // Auto-scroll to bottom when messages or typing changes
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [active?.messages.length, typing])
-
-  // Show typing indicator while waiting for employer auto-reply
-  useEffect(() => {
-    if (!active) { setTyping(false); return }
-    const msgs = active.messages
-    if (!msgs.length) { setTyping(false); return }
-    setTyping(msgs[msgs.length - 1].from === 'seeker')
   }, [active?.messages.length])
 
   // Mark thread read when it becomes active or gets new messages
@@ -160,14 +151,6 @@ export function MessagesInbox() {
                   <time dateTime={m.sentAt}>{formatTime(m.sentAt)}</time>
                 </div>
               ))}
-
-              {typing && (
-                <div className="messages-inbox__typing" aria-label="Đang nhập...">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              )}
 
               <div ref={bottomRef} />
             </div>

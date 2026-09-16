@@ -36,16 +36,55 @@ export interface MinimalSupabaseClient {
  * 게이트(RequireEmployer)도 그 판단 기준과 일치시키는 것뿐, 새 권한
  * 체계를 만드는 게 아니다.
  */
+/**
+ * 2026-09-15 사용자 지시로 수정: 이전에는 이 쿼리의 error를 전혀 확인하지
+ * 않아 "실제로 employer 행이 없음"과 "네트워크/세션 만료 등으로 조회 자체가
+ * 실패함"이 똑같이 false로 뭉개졌다 — 그 결과 RequireEmployer가 진짜 기업
+ * 계정 사용자도 조회 실패 시 아무 안내 없이 홈으로 튕겨보냈다. 이제 실패하면
+ * 예외를 던져 호출자(RequireEmployer)가 "권한 없음"과 "조회 실패"를 구분해
+ * 처리할 수 있게 한다.
+ */
 export async function checkIsEmployer(
   userId: string,
   client: MinimalSupabaseClient = supabase as unknown as MinimalSupabaseClient,
 ): Promise<boolean> {
   if (!userId) return false
-  const { data } = await client
+  const { data, error } = await client
     .from('account_roles')
     .select('role')
     .eq('user_id', userId)
     .eq('role', 'employer')
+  if (error) throw error
   const rows = (data ?? []) as Record<string, unknown>[]
   return rows.length > 0
+}
+
+/**
+ * checkIsEmployer()와 같은 이유로 RequireAdmin.tsx가 fake client를 주입할 수
+ * 있게 하는 최소 인터페이스 — supabase-js의 auth.getUser() 응답 중 이 파일이
+ * 실제로 쓰는 모양만 흉내낸다.
+ */
+export interface MinimalAuthClient {
+  auth: {
+    getUser: () => Promise<{
+      data: { user: { app_metadata?: { role?: string } } | null }
+      error: unknown
+    }>
+  }
+}
+
+/**
+ * 2026-09-15 사용자 지시로 수정(Astra 조사에서 확인된, checkIsEmployer와 동일한
+ * 문제): RequireAdmin.tsx가 `supabase.auth.getUser()`의 error를 확인하지 않고
+ * `data.user`만 봐서 "관리자 아님"과 "조회 자체가 실패함"이 똑같이 false로
+ * 뭉개졌다. app_metadata.role은 서버(service_role)에서만 설정 가능해 클라이언트가
+ * 위조할 수 없다는 기존 판정 기준은 그대로 두고, 실패 시 예외를 던지는 부분만
+ * checkIsEmployer와 동일하게 맞춘다.
+ */
+export async function checkIsAdmin(
+  client: MinimalAuthClient = supabase as unknown as MinimalAuthClient,
+): Promise<boolean> {
+  const { data, error } = await client.auth.getUser()
+  if (error) throw error
+  return data.user?.app_metadata?.role === 'admin'
 }

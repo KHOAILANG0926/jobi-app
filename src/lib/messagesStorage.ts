@@ -232,10 +232,16 @@ export async function appendEmployerMessage(threadId: string, body: string): Pro
   return true
 }
 
-/** 상대방이 보낸 메시지/읽음 상태 변경을 실시간으로 반영. */
+let messagesChannelSeq = 0
+
+/** 상대방이 보낸 메시지/읽음 상태 변경을 실시간으로 반영.
+ * Profile.tsx(안 읽은 개수)와 MessagesInbox.tsx(스레드 목록)처럼 같은 화면에서
+ * 동시에 여러 번 호출될 수 있어 채널 이름을 호출마다 고유하게 만든다 — 고정된
+ * 이름을 재사용하면 Supabase가 같은 topic의 기존 채널을 재사용하려 하다가
+ * "cannot add postgres_changes callbacks after subscribe()" 오류로 터진다. */
 export function subscribeMessages(handler: () => void): () => void {
   const channel = supabase
-    .channel('messages-changes')
+    .channel(`messages-changes-${++messagesChannelSeq}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => handler())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'message_threads' }, () => handler())
     .subscribe()

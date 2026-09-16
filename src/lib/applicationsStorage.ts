@@ -13,6 +13,11 @@ export interface StatusHistoryEntry {
   changedAt: string
 }
 
+/** 지원 시점 CV 스냅샷 — user_cvs.cv_data를 그대로 복사한 값(사진 제외,
+ * cvStorage.ts의 CvData에서 profilePhotoDataUrl만 빠진 형태). DB 트리거가
+ * INSERT 시 한 번만 채우고 이후 절대 바뀌지 않는다. */
+export type CvSnapshot = Record<string, unknown> | null
+
 export interface JobApplication {
   id?: string
   jobId: string
@@ -25,6 +30,8 @@ export interface JobApplication {
   appliedAt: string
   status: ApplicationStatus
   statusHistory?: StatusHistoryEntry[]
+  cvSnapshot?: CvSnapshot
+  cvPhotoSnapshotPath?: string | null
 }
 
 export const APPLICATION_STATUS_META: Record<
@@ -51,6 +58,8 @@ function rowToApplication(row: Record<string, unknown>): JobApplication {
     appliedAt: row.applied_at as string,
     status: row.status as ApplicationStatus,
     statusHistory: (row.status_history as StatusHistoryEntry[]) ?? [],
+    cvSnapshot: (row.cv_snapshot as CvSnapshot) ?? null,
+    cvPhotoSnapshotPath: (row.cv_photo_snapshot_path as string) ?? null,
   }
 }
 
@@ -89,6 +98,7 @@ export async function addApplication(entry: {
   seekerId?: string
   seekerName?: string
   seekerPhone?: string
+  cvPhotoSnapshotPath?: string | null
 }): Promise<{ ok: true } | { ok: false; reason: 'duplicate' | 'unauthenticated' | 'error' }> {
   if (!entry.seekerId) return { ok: false, reason: 'unauthenticated' }
   const now = new Date().toISOString()
@@ -100,6 +110,7 @@ export async function addApplication(entry: {
     company: entry.company,
     seeker_name: entry.seekerName ?? null,
     seeker_phone: entry.seekerPhone ?? null,
+    cv_photo_snapshot_path: entry.cvPhotoSnapshotPath ?? null,
     status: 'submitted',
     status_history: [{ status: 'submitted', changedAt: now }],
     applied_at: now,

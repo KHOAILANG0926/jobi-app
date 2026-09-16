@@ -137,6 +137,32 @@ async function testRowToJobMapsActiveAndAdminHidden(): Promise<void> {
   assertEqual(job.adminHidden, true, 'rowToJob must map local_jobs.admin_hidden -> Job.adminHidden')
 }
 
+/** 2026-09-15 사용자 지시로 추가: local_jobs 조회가 실패하면(네트워크/RLS 등)
+ *  예전엔 data=null -> []로 뭉개져 "공고 0건"과 구분이 안 됐다 — 이제는
+ *  예외를 던져야 한다(EmployerDashboard가 이 예외로 "불러오기 실패"를
+ *  "공고 없음"과 구분해서 보여준다). */
+async function testFetchEmployerJobsThrowsOnQueryError(): Promise<void> {
+  const failingClient: JobsQueryClient = {
+    from(_table: string): JobsQueryBuilder {
+      const builder: JobsQueryBuilder = {
+        select: () => builder,
+        eq: () => builder,
+        in: () => builder,
+        order: () => builder,
+        then: (resolve) => Promise.resolve(resolve({ data: null, error: { message: 'network error' } })),
+      }
+      return builder
+    },
+  }
+  let threw = false
+  try {
+    await fetchEmployerJobs('emp-1', failingClient)
+  } catch {
+    threw = true
+  }
+  assertTrue(threw, 'fetchEmployerJobs must throw (not silently return []) when the local_jobs query itself fails')
+}
+
 async function main(): Promise<void> {
   const tests = [
     testFetchEmployerJobsNeverFiltersOnActive,
@@ -144,6 +170,7 @@ async function main(): Promise<void> {
     testFetchEmployerJobsEmptyForNoEmployerId,
     testFetchEmployerJobsAttachesWorkLocations,
     testRowToJobMapsActiveAndAdminHidden,
+    testFetchEmployerJobsThrowsOnQueryError,
   ]
   for (const test of tests) {
     await test()

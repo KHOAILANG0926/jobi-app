@@ -98,3 +98,46 @@ export async function deleteCvPhoto(userId: string, path: string): Promise<void>
   const { error } = await supabase.storage.from(CV_PHOTO_BUCKET).remove([path])
   if (error) throw new Error(error.message)
 }
+
+/** 지원 시점 CV 사진 스냅샷. 원본 경로(`<userId>/profile.ext`)는 재업로드 시
+ * 덮어써지므로, 지원 당시 사진을 나중에도 그대로 보여주려면 별도 불변 경로로
+ * 복사해둬야 한다 — `applications/<jobId>/<seekerId>/...` 경로에만 쓰기가
+ * 허용되는 storage 정책(마이그레이션 20260916090000)과 짝을 이룬다. 원본
+ * 사진이 없으면 그냥 null을 돌려주고(스냅샷 없음), 복사 자체가 실패해도
+ * 지원 흐름 전체를 막지 않도록 호출부에서 실패를 삼킬 수 있게 예외를 던진다. */
+export async function snapshotCvPhotoForApplication(
+  userId: string,
+  jobId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('user_cvs')
+    .select('photo_path')
+    .eq('user_id', userId)
+    .maybeSingle<{ photo_path: string | null }>()
+  if (error) throw new Error(error.message)
+  const sourcePath = data?.photo_path
+  if (!sourcePath) return null
+  const extension = sourcePath.split('.').pop() ?? 'jpg'
+  const destPath = `applications/${jobId}/${userId}/photo.${extension}`
+  const { error: copyError } = await supabase.storage
+    .from(CV_PHOTO_BUCKET)
+    .copy(sourcePath, destPath)
+  if (copyError) throw new Error(copyError.message)
+  return destPath
+}
+
+/** 기업(또는 본인)이 지원 시점 CV 사진 스냅샷을 읽는다. 경로 자체는 서버가
+ * 만든 `applications.cv_photo_snapshot_path` 값을 그대로 쓰며, 실제 접근
+ * 허용 여부는 storage RLS(cv_photos_select_application_snapshot — 그 공고의
+ * employer_id인지, 스냅샷을 낸 본인인지)가 매번 검증한다. 공개 URL이 아니라
+ * 매번 서명 없는 인증된 download() 호출이라 정책을 통과 못 하면 그냥 실패한다. */
+export async function loadApplicationCvPhoto(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(CV_PHOTO_BUCKET).download(path)
+  if (error || !data) throw new Error(error?.message ?? 'CV photo snapshot download failed')
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('CV photo could not be read'))
+    reader.onload = () => resolve(reader.result as string)
+    reader.readAsDataURL(data)
+  })
+}
