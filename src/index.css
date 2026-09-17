@@ -3159,26 +3159,39 @@ a:hover {
 .jm-filter-dropdown__search {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.5rem 0.7rem;
+  /* 2026-09-17 사용자 지시("검색칸이 너무커 반으로 줄여") — 세로 padding을
+   * 절반으로. */
+  padding: 0.25rem 0.7rem;
   border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  /* 2026-09-17 사용자 지시 — 알바몬은 거의 각진 사각형인데 --radius-sm
+   * (10px)는 줄어든 박스 높이 기준으로 알약처럼 보임. 훨씬 작게. */
+  border-radius: 4px;
   font: inherit;
   font-size: 0.9rem;
   margin-bottom: 0.6rem;
 }
 
-/* 2026-09-17 알바몬 캡처본 참고 — 검색창 오른쪽에 돋보기 아이콘 표시. */
+/* 2026-09-17 알바몬 캡처본 참고 — 검색창 오른쪽에 돋보기 아이콘 표시.
+ * margin-bottom을 input이 아니라 wrap에 줘서, wrap의 실제 높이가 input
+ * 높이와 정확히 같게 만든다(아이콘 top:50%가 어긋나지 않도록). */
 .jm-search-input-wrap {
   position: relative;
+  margin-bottom: 0.6rem;
 }
 .jm-search-input-wrap .jm-filter-dropdown__search {
   padding-right: 2.1rem;
+  margin-bottom: 0;
 }
 .jm-search-input-wrap__icon {
+  /* 2026-09-17 사용자 지시("돋보기 위치 봤냐고") — top:0/bottom:0.6rem 조합이
+   * input의 margin-bottom(0.6rem)값에 맞물려 계산되는 방식이라, input
+   * padding을 줄이자 실제 중앙과 어긋났다(계측: icon center 424.6 vs input
+   * center 432.9, 약 8px 위로 뜸). input 높이가 바뀌어도 항상 정확히
+   * 가운데 오도록 top:50%+transform으로 교체(margin 영향 안 받음). */
   position: absolute;
   right: 0.75rem;
-  top: 0;
-  bottom: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   color: var(--color-muted);

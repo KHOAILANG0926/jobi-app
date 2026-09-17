@@ -129,8 +129,12 @@ export default function UrgentJobsPage() {
   // resolvedWards는 crawler/vn_provinces_lookup.py(통계총국 공식 자료)로 확정된
   // 값만 담고 있어 옛/새 이름 혼동이 없다 — 값이 없는 공고(아직 지오코딩
   // 재처리 전)는 지역 필터로 못 찾는 게 맞다(억지로 옛 방식과 섞지 않음).
+  // 2026-09-17 사용자 지시("알바몬처럼 펼쳐진 상태로") — 알바몬은 지역
+  // 패널을 처음 열면 서울이 기본 선택돼 동/읍/면까지 바로 보인다. URL에
+  // ?province= 지정이 없으면 첫 성/시(VN_PROVINCES[0])를 실제 필터로
+  // 기본 적용한다(단순 미리보기가 아니라 진짜 필터 — 사용자 확인함).
   const [selectedProvince, setSelectedProvince] = useState<string | null>(
-    () => searchParams.get('province'),
+    () => searchParams.get('province') ?? VN_PROVINCES[0] ?? null,
   )
   const [selectedWards, setSelectedWards] = useState<Set<string>>(new Set())
   const [categoryIds, setCategoryIds] = useState<Set<JobCategory>>(new Set())
@@ -408,48 +412,6 @@ export default function UrgentJobsPage() {
 
   const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size + includeKeywords.length + excludeKeywords.length
 
-  // 2026-09-17 알바몬 캡처본 참고 — 선택한 조건을 어느 패널을 보고 있든
-  // 항상 태그로 보여주고 개별 삭제 가능하게 한다(지금까지는 각 드롭다운
-  // 버튼의 "(2)" 숫자로만 알 수 있어서, 뭘 선택했는지 보려면 그 패널을
-  // 다시 열어야 했음).
-  type ActiveChip = { key: string; label: string; onRemove: () => void }
-  const activeFilterChips = useMemo<ActiveChip[]>(() => {
-    const chips: ActiveChip[] = []
-    if (selectedProvince && selectedWards.size === 0) {
-      chips.push({ key: 'province', label: shortProvinceName(selectedProvince), onRemove: () => selectProvince(null) })
-    }
-    for (const w of selectedWards) {
-      chips.push({ key: `ward:${w}`, label: w, onRemove: () => toggleWard(w) })
-    }
-    for (const c of categoryIds) {
-      chips.push({ key: `cat:${c}`, label: `Tất cả ${CATEGORY_LABELS[c]}`, onRemove: () => toggleCategoryAll(c) })
-    }
-    for (const key of selectedSubcategoryKeys) {
-      const [cat, subId] = key.split(':') as [JobCategory, string]
-      const label = SUBCATEGORY_LABELS[cat]?.[subId] ?? subId
-      chips.push({ key: `sub:${key}`, label, onRemove: () => toggleSubcategory(cat, subId) })
-    }
-    for (const p of workPeriods) {
-      chips.push({ key: `wp:${p}`, label: p, onRemove: () => toggleWorkPeriod(p) })
-    }
-    for (const d of selectedDays) {
-      chips.push({ key: `day:${d}`, label: DAY_LABELS[d], onRemove: () => toggleDay(d) })
-    }
-    for (const n of selectedDayCounts) {
-      chips.push({ key: `dc:${n}`, label: `${n} ngày`, onRemove: () => toggleDayCount(n) })
-    }
-    for (const t of selectedTimeBuckets) {
-      chips.push({ key: `tb:${t}`, label: TIME_BUCKET_LABELS[t], onRemove: () => toggleTimeBucket(t) })
-    }
-    for (const k of includeKeywords) {
-      chips.push({ key: `inc:${k}`, label: `+ ${k}`, onRemove: () => setIncludeKeywords(includeKeywords.filter((x) => x !== k)) })
-    }
-    for (const k of excludeKeywords) {
-      chips.push({ key: `exc:${k}`, label: `− ${k}`, onRemove: () => setExcludeKeywords(excludeKeywords.filter((x) => x !== k)) })
-    }
-    return chips
-  }, [selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, selectedDays, selectedDayCounts, selectedTimeBuckets, includeKeywords, excludeKeywords])
-
   const clearAllFilters = () => {
     selectProvince(null)
     setCategoryIds(new Set())
@@ -483,7 +445,7 @@ export default function UrgentJobsPage() {
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder="Tìm khu vực... vd: Đà Nẵng"
+              placeholder=""
               value={regionSearch}
               onChange={(e) => setRegionSearch(e.target.value)}
             />
@@ -511,8 +473,8 @@ export default function UrgentJobsPage() {
               )}
             </ul>
           ) : (
-            <div className="jm-region-columns">
-              <div className="jm-region-col">
+            <div className="jm-region-columns jm-region-columns--khu-vuc">
+              <div className="jm-region-col jm-region-col--narrow">
                 <p className="jm-region-col__head">Tỉnh / Thành phố</p>
                 <ul className="jm-region-col__list">
                   {VN_PROVINCES.map((p) => (
@@ -528,7 +490,7 @@ export default function UrgentJobsPage() {
                   ))}
                 </ul>
               </div>
-              <div className="jm-region-col">
+              <div className="jm-region-col jm-region-col--wide">
                 <p className="jm-region-col__head">Xã / Phường</p>
                 {!selectedProvince ? (
                   <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
@@ -570,7 +532,7 @@ export default function UrgentJobsPage() {
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder="Tìm ngành nghề..."
+              placeholder=""
               value={categorySearch}
               onChange={(e) => setCategorySearch(e.target.value)}
             />
@@ -830,17 +792,6 @@ export default function UrgentJobsPage() {
           </div>
         </FilterDropdown>
       </div>
-
-      {activeFilterChips.length > 0 && (
-        <div className="jm-active-filters">
-          {activeFilterChips.map((chip) => (
-            <span key={chip.key} className="jm-active-chip">
-              {chip.label}
-              <button type="button" onClick={chip.onRemove} aria-label={`Xóa ${chip.label}`}>×</button>
-            </span>
-          ))}
-        </div>
-      )}
 
       <div className="jm-urgent-toolbar">
         <p className="jm-result-count">
