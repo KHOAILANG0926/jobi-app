@@ -123,7 +123,11 @@ export default function UrgentJobsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { status, job: applyJob, profile, openApply, confirm, close, retry } = useApply()
 
-  const [openPanel, setOpenPanel] = useState<PanelKey>(null)
+  // 2026-09-18 사용자 지시("패널이 열린상태로 두라고", "화면이 안비게") —
+  // 급구 페이지 진입 시 Khu vực 패널이 닫혀있으면 기본 지역(Cần Thơ)에
+  // 공고가 0건이라 화면이 텅 비어 보인다. 패널을 처음부터 열어두면 빈
+  // 결과창 대신 지역 선택 UI가 바로 채워져 보인다.
+  const [openPanel, setOpenPanel] = useState<PanelKey>('region')
   // 2026-09-16 사용자 지시로 지역 필터를 베트남 2025-07-01 행정구역 개편 반영한
   // 정확한 2단(성/시→동/사) 체계로 교체 — 예전 JOB_REGIONS(29개 임의 묶음, 실제
   // 통합 결과와 안 맞는 부분 확인됨)는 더 이상 쓰지 않는다. resolvedProvince/
