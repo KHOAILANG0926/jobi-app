@@ -3,14 +3,15 @@
 ## 현재 작업
 
 **커밋 완료 + master push + Vercel Production 배포까지 전부 완료**
-(`2fbf38e`→`3ddfaac`→`bd527a0`→`371c084`): 급구 페이지 **대분류/소분류 체계
-전면 재설계**(사용자 지시: "그다음 알바몬에서 세부 일자리 가져왔잖아 ...
-지금 최대한 넣어야된다"). 기존 7개 카테고리(cafe/restaurant/retail/
-delivery/cleaning/factory/office/other)를 폐기하고, 알바몬 실제 사이트
-(albamon.com/jobs/urgent 업직종 필터)에서 직접 확인한 **12개 대분류 + 기타
-1개 = 13개**로 교체, 그 밑에 **소분류 158개**를 붙였다. 크롤러 재설계 →
-기존 DB 273건 전부 재분류(백필) → 프론트 전체 반영 → 배포 후 사용자
-피드백으로 세부 스타일(구두점/폭/글씨크기) 3라운드 추가 수정까지 끝났다.
+(`2fbf38e`→`3ddfaac`→`bd527a0`→`371c084`→`8b63a73`→`6777fd0`): 급구 페이지
+**대분류/소분류 체계 전면 재설계**(사용자 지시: "그다음 알바몬에서 세부
+일자리 가져왔잖아 ... 지금 최대한 넣어야된다"). 기존 7개 카테고리(cafe/
+restaurant/retail/delivery/cleaning/factory/office/other)를 폐기하고,
+알바몬 실제 사이트(albamon.com/jobs/urgent 업직종 필터)에서 직접 확인한
+**12개 대분류 + 기타 1개 = 13개**로 교체, 그 밑에 **소분류 158개**를
+붙였다. 크롤러 재설계 → 기존 DB 273건 전부 재분류(백필) → 프론트 전체
+반영 → 배포 후 사용자 피드백으로 세부 스타일 4라운드 추가 수정까지
+끝났다(구두점/폭/글씨크기 + 지역 패널 UX 6건 — 아래 F 참고).
 
 ## 변경 내용
 
@@ -110,6 +111,35 @@ dry-run → 상세 crosstab 확인 → 사용자 승인 후 실제 적용. `loca
    `.jm-region-row`(1.12rem→0.85rem), `.jm-region-col__head`(1.08rem→
    0.8rem), `.jm-filter-dropdown__search`(1.15rem→0.9rem) 축소.
 
+### F. 지역(Khu vực) 패널 UX 6건 추가 수정 (`6777fd0`)
+1. **Xã/Phường 정렬 버그** — `vnWards.ts` 생성 시 "Phường "/"Xã " 접두어를
+   포함해서 통째로 알파벳 정렬해서, Phường(P)가 Xã(X)보다 항상 먼저 와
+   스크롤 전엔 Phường만 보였다(사용자 스크린샷으로 발견). 실측: Hải Phòng
+   = Phường 45개 · Xã 67개가 실제론 고르게 있음. 접두어를 뗀 지명 자체
+   기준으로 재정렬(crawler에서 vietnam-provinces 패키지로 재생성).
+2. **선택된 필터 칩 바 제거** — `activeFilterChips`/`.jm-active-filters`
+   통째로 삭제(사용자가 "3번째 캡처본처럼 내용이력 남게 하지말고" →
+   "칩 줄 자체를 완전히 제거"로 확답).
+3. **지역 패널 기본값 자동 적용** — 알바몬은 지역 패널을 열면 서울이
+   이미 선택돼 동/읍/면까지 보임. `selectedProvince` 초기값을
+   `VN_PROVINCES[0]`(Cần Thơ)로 변경 — URL에 `?province=` 없으면 실제
+   필터로 자동 적용(단순 미리보기 아님, 사용자가 이 방식으로 확답). **주의**:
+   Cần Thơ에는 현재 급구 공고가 0건이라 첫 방문 시 "Tổng 0 việc làm"으로
+   보임 — 실제 데이터가 적어서 생기는 정직한 결과지 버그 아님. 물량 많은
+   지역으로 기본값을 바꾸고 싶으면 `VN_PROVINCES[0]` 대신 다른 로직 필요.
+4. **검색창 스타일** — 세로 padding 절반(0.5rem→0.25rem), border-radius
+   알약형(10px, `--radius-sm`)에서 각진 사각형(4px)으로, placeholder
+   텍스트("Tìm khu vực...", "Tìm ngành nghề...") 완전 제거(빈 칸).
+5. **돋보기 아이콘 수직 정렬 버그** — `top:0;bottom:0.6rem` 조합이
+   input의 `margin-bottom`(0.6rem)과 맞물려 계산되는 방식이었는데, 검색창
+   padding을 줄이자 실측 8px 어긋남 발생(사용자가 "돋보기 위치 봤냐고"로
+   지적). `margin-bottom`을 input이 아니라 `.jm-search-input-wrap`으로
+   옮기고 `top:50%;transform:translateY(-50%)`로 교체 — 재측정 오차
+   0.01px로 해결.
+6. **지역 패널 칼럼 폭 비대칭화** — Tỉnh/Thành phố(왼쪽)는 `--narrow`
+   고정폭, Xã/Phường(오른쪽)은 `--wide`(flex:1)로 — 업직종 패널과 동일
+   패턴 재사용(사용자가 "1지역 빈공간 너무 많다"고 지적).
+
 ## 테스트 결과
 
 - **크롤러**: `classifier.py` 자체 실행 — 대분류 22/22, 소분류 17/17, 새
@@ -161,3 +191,6 @@ dry-run → 상세 crosstab 확인 → 사용자 승인 후 실제 적용. `loca
 5. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
 6. `applications_insert`의 tautology 조건 수정 여부.
 7. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
+8. 급구 페이지 첫 방문 시 지역 기본값이 `VN_PROVINCES[0]`(Cần Thơ, 현재
+   공고 0건)라 "Tổng 0 việc làm"으로 보임 — 실제 공고가 제일 많은 지역
+   (지금은 Hà Nội 계열)으로 기본값을 바꿀지, 아니면 그대로 둘지.
