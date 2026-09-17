@@ -3179,6 +3179,15 @@ a:hover {
   position: relative;
   margin-bottom: 0.6rem;
 }
+/* 2026-09-18 사용자 지시("검색 사이즈 4/1로 줄여") — 세로 padding(높이)이
+ * 아니라 가로 폭을 줄이라는 뜻이었음("높이를 축소하라는게 아니고 길이를
+ * 축소하라는거야", 알바몬 캡처본은 검색창이 패널 폭 전체가 아니라 왼쪽
+ * 일부만 차지함). Khu vực 패널 검색창만 폭을 원본(패널 100%) 대비 1/4로 —
+ * Ngành nghề 검색창은 이번 지시 대상이 아니라 그대로 둠(.jm-search-input-wrap
+ * 공유 클래스라 별도 modifier로 분리). */
+.jm-search-input-wrap--khu-vuc {
+  width: 25%;
+}
 .jm-search-input-wrap .jm-filter-dropdown__search {
   padding-right: 2.1rem;
   margin-bottom: 0;

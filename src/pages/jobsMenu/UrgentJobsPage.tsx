@@ -469,7 +469,7 @@ export default function UrgentJobsPage() {
           onToggle={() => togglePanel('region')}
           onClose={closePanel}
         >
-          <div className="jm-search-input-wrap">
+          <div className="jm-search-input-wrap jm-search-input-wrap--khu-vuc">
             <input
               type="text"
               className="jm-filter-dropdown__search"
