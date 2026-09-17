@@ -3060,6 +3060,7 @@ a:hover {
 
 /* Tuyển gấp — 필터 패널 + 표 형태 목록 (알바몬 급구 알바 구성 참고) */
 .jm-urgent-filters {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
@@ -3092,7 +3093,12 @@ a:hover {
 }
 
 .jm-filter-dropdown {
-  position: relative;
+  /* 2026-09-17 사용자 지시("이런식으로 상단길이하고 마추라고", 알바몬 실제
+   * 캡처본 참고) — 알바몬은 패널이 클릭한 버튼 밑에서만 좁게 펼쳐지는 게
+   * 아니라, 지역~상세조건 필터 줄 전체 가로 폭에 꽉 차게 펼쳐진다.
+   * position:relative를 여기(개별 버튼)가 아니라 부모 `.jm-urgent-filters`
+   * (필터 줄 전체)에 줘서, 패널이 escape해 그 줄 전체를 기준으로
+   * 위치잡게 한다(아래 .jm-filter-dropdown__panel의 left:0;right:0 참고). */
 }
 
 /* 2026-09-17 사용자 지시 — 처음에 2배로 키웠더니 4개가 한 줄에 안 들어가고
@@ -3133,29 +3139,21 @@ a:hover {
 .jm-filter-dropdown__panel {
   position: absolute;
   top: calc(100% + 6px);
+  /* 2026-09-17 — 개별 버튼이 아니라 `.jm-urgent-filters`(필터 줄 전체)에
+   * 붙는 positioning context라, left:0;right:0로 그 줄의 전체 가로 폭을
+   * 그대로 채운다(알바몬처럼 어느 버튼을 눌러도 같은 폭으로 펼쳐짐). */
   left: 0;
+  right: 0;
   z-index: 20;
-  width: max(320px, 100%);
-  max-width: min(92vw, 480px);
+  min-width: 320px;
   max-height: 360px;
   overflow-y: auto;
+  overflow-x: auto;
   background: #fff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 0.85rem;
-}
-
-/* Khu vực/Ngành nghề 패널은 .jm-region-columns(min-width 420px)를 담는데,
- * 위 기본 width는 트리거 버튼 폭 기준이라 실제로는 320px로 고정돼 버려서
- * 지역 2열이 패널보다 넓어지는 문제가 있었다(내용이 잘리는 게 아니라
- * 패널 안에서 가로 스크롤이 필요해지는데 스크롤바가 잘 안 보여서 마치
- * 이름이 잘린 것처럼 보였음 — 2026-09-17 실제 DOM 계측으로 확인:
- * rowText는 전체 이름이 맞고 columnsScrollWidth(418px) > panelWidth(320px)
- * 였음). 2열이 필요한 패널만 더 넓게 잡아 스크롤 없이 한 화면에 보이게 한다. */
-.jm-filter-dropdown__panel:has(.jm-region-columns) {
-  width: max(466px, 100%);
-  max-width: min(92vw, 520px);
 }
 
 .jm-filter-dropdown__search {
@@ -3331,13 +3329,6 @@ a:hover {
 .jm-region-col__list--grid .jm-region-col__hint-inline .hint {
   padding: 0.4rem 0.25rem;
   margin: 0;
-}
-
-/* 2026-09-17 사용자가 알바몬 캡처본("가로로 넓게 해놔서 보기편해")을 보여줘서
- * 소분류가 한 줄에 더 많이 보이도록 패널을 조금 더 넓힘. */
-.jm-filter-dropdown__panel:has(.jm-region-columns--category) {
-  width: max(560px, 100%);
-  max-width: min(94vw, 760px);
 }
 
 .jm-chip {
