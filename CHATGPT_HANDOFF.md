@@ -2,17 +2,15 @@
 
 ## 현재 작업
 
-**커밋 완료(`227c0b1`~`c038359`, 회사 PC), master push + Production 배포까지
-완료**: 급구 페이지 필터 UX 알바몬 재비교(지역 검색/선택 칩/테두리 색 등).
-
-**이번 라운드(집 PC) — 아직 커밋 안 함**: **대분류/소분류 체계 전면
-재설계**(사용자 지시: "그다음 알바몬에서 세부 일자리 가져왔잖아 ... 지금
-최대한 넣어야된다"). 기존 7개 카테고리(cafe/restaurant/retail/delivery/
-cleaning/factory/office/other)를 폐기하고, 알바몬 실제 사이트
+**커밋 완료 + master push + Vercel Production 배포까지 전부 완료**
+(`2fbf38e`→`3ddfaac`→`bd527a0`→`371c084`): 급구 페이지 **대분류/소분류 체계
+전면 재설계**(사용자 지시: "그다음 알바몬에서 세부 일자리 가져왔잖아 ...
+지금 최대한 넣어야된다"). 기존 7개 카테고리(cafe/restaurant/retail/
+delivery/cleaning/factory/office/other)를 폐기하고, 알바몬 실제 사이트
 (albamon.com/jobs/urgent 업직종 필터)에서 직접 확인한 **12개 대분류 + 기타
-1개 = 13개**로 교체, 그 밑에 **소분류 158개**(라벨은 전부, 분류 규칙은
-실제 검증된 만큼만)를 붙였다. 크롤러 재설계 → 기존 DB 273건 전부
-재분류(백필) → 프론트 전체 반영까지 끝냈다.
+1개 = 13개**로 교체, 그 밑에 **소분류 158개**를 붙였다. 크롤러 재설계 →
+기존 DB 273건 전부 재분류(백필) → 프론트 전체 반영 → 배포 후 사용자
+피드백으로 세부 스타일(구두점/폭/글씨크기) 3라운드 추가 수정까지 끝났다.
 
 ## 변경 내용
 
@@ -26,9 +24,11 @@ Lái xe · Giao hàng(운전·배달) / Y tế · Điều dưỡng · Nghiên c�
 
 베트남어 라벨은 전부 이번 세션에서 직접 번역(알바몬은 한국어 전용이라 공식
 베트남어 원본 없음) — 노래방/PC방/사우나 등도 "지금 공고가 없을 뿐 베트남에
-실존하는 업종"이라는 사용자 지적으로 전부 포함, 영어 그대로 남겨뒀던
-"(valet)"/"(quick service)"/"(narrator model)"/"(QA/Tester)" 4곳은
-"베트남어만 보라"는 지적으로 순수 베트남어로 재번역.
+실존하는 업종"이라는 사용자 지적으로 전부 포함. 구분자는 알바몬 원문이
+"·"(가운뎃점)만 쓰고 "/"는 전혀 안 쓴다는 사용자 지적(`bd527a0`)으로, 158개
+소분류 전체에서 "/"를 "·"로 통일(순수 약어 "PG/PB"·"CAD/CAM"만 예외). 영어
+그대로 남겨뒀던 "(valet)"/"(quick service)"/"(narrator model)"/
+"(QA/Tester)" 4곳도 순수 베트남어로 재번역함.
 
 ### B. crawler/classifier.py 전면 재설계
 기존 검증된 정규식 로직(classify()/classify_subcategory(), 22/17개 테스트)은
@@ -60,15 +60,21 @@ Lái xe · Giao hàng(운전·배달) / Y tế · Điều dưỡng · Nghiên c�
      (더 구체적인 "sales executive"/"nhan vien ban hang" 등은 유지).
 - 소분류 158개 전체를 `SUBCATEGORY_LABELS`(대분류별)에 등록. 셀프 테스트
   67개(22+17+16+12) 전부 통과.
+- **크롤러가 앞으로 자동으로 새 체계를 쓰는지 실제 검증 완료** —
+  `crawl_topcv.py`(2곳)/`crawl_facebook.py`(1곳) 전부 `map_to_new_taxonomy()`
+  호출 확인 + 가상 신규 공고 3건("Pha Chế Cà Phê"/"Tài Xế Giao Hàng"/
+  "Giáo Viên Tiếng Anh")으로 전체 파이프라인 시뮬레이션해서 새 대분류/
+  소분류가 정확히 나오는 것 확인함. **앞으로 크롤링되는 신규 공고는 수동
+  작업 없이 자동으로 새 체계로 DB에 저장됨.**
 
 ### C. DB 백필 — 활성 공고 273건 전부 재분류
 `reclassify_db.py`(기존 도구 재사용, map_to_new_taxonomy() 호출만 추가)로
-dry-run → 상세 crosstab 확인(오래 걸려도 괜찮으니 전부 검토) → 사용자 승인
-후 실제 적용. `local_jobs.category`/`subcategory`는 `text` 컬럼이라 DDL
-마이그레이션 없이 UPDATE만으로 끝남. 최종 분포: khac 53 / san_xuat_xay_dung
-46 / am_thuc_do_uong 46 / van_phong 44 / lai_xe_giao_hang 34 /
-cskh_kinh_doanh 24 / thiet_ke 7 / quan_ly_ban_hang 6 / dich_vu 5 /
-cntt_ky_thuat 5 / giao_duc_giang_day 3 (합계 273, DB 직접 재조회로 확인).
+dry-run → 상세 crosstab 확인 → 사용자 승인 후 실제 적용. `local_jobs.category`/
+`subcategory`는 `text` 컬럼이라 DDL 마이그레이션 없이 UPDATE만으로 끝남.
+최종 분포: khac 53 / san_xuat_xay_dung 46 / am_thuc_do_uong 46 / van_phong
+44 / lai_xe_giao_hang 34 / cskh_kinh_doanh 24 / thiet_ke 7 / quan_ly_ban_hang
+6 / dich_vu 5 / cntt_ky_thuat 5 / giao_duc_giang_day 3 (합계 273, DB 직접
+재조회로 확인).
 
 ### D. 프론트엔드 전체 반영
 - [types/job.ts](src/types/job.ts) — `JobCategory` 13개로 교체.
@@ -76,46 +82,57 @@ cntt_ky_thuat 5 / giao_duc_giang_day 3 (합계 273, DB 직접 재조회로 확�
   COLORS/ALL_CATEGORIES 전부 13개로 재작성.
 - [data/subcategories.ts](src/data/subcategories.ts) — classifier.py의
   `SUBCATEGORY_LABELS`를 Python 스크립트로 그대로 변환해 재생성(158개,
-  손으로 옮기다 어긋나는 위험 차단).
-- **중대 발견**: [lib/jobCategoryRules.ts](src/lib/jobCategoryRules.ts)(이번에
-  삭제)가 `jobRows.ts`의 `rowToJob()`과 `JobCard.tsx`에서 호출되며 **매번
-  title/company/description으로 카테고리를 다시 계산해 DB 값을 덮어쓰고
-  있었다** — classifier.py를 아무리 잘 고쳐도 이 파일 때문에 화면엔 반영이
-  안 될 뻔했음. 옛 7분류 그대로인 구식 정규식이라 타입도 안 맞았음 —
-  제거하고 `job.category`(DB 값)를 그대로 신뢰하도록 변경. `JobCard.tsx`의
-  중복 `CATEGORY_TAGS`도 제거하고 `data/categories.ts`의 `CATEGORY_SHORT`
-  재사용.
-- 그 외 컴파일 오류 8개 파일 수정: `categoryVisuals.ts`(카테고리별 이미지),
-  `brandCandidates.ts`/`.test.ts`(브랜드 후보 탐지 대상 업종), `mockJobs.ts`
-  (샘플 데이터 25건), `RecommendSection.tsx`/`Community.tsx`(카테고리
-  선택 UI — 하드코딩 부분집합 대신 `ALL_CATEGORIES` 전체 사용으로 변경),
-  `AdminDashboard.tsx`(중복 라벨 정의 제거, `data/categories.ts` 재사용),
+  손으로 옮기다 어긋나는 위험 차단 — 라벨 변경할 때마다 이 방식으로 재생성).
+- **중대 발견**: `src/lib/jobCategoryRules.ts`(이번에 삭제)가 `jobRows.ts`의
+  `rowToJob()`과 `JobCard.tsx`에서 호출되며 **매번 title/company/description
+  으로 카테고리를 다시 계산해 DB 값을 덮어쓰고 있었다** — classifier.py를
+  아무리 잘 고쳐도 이 파일 때문에 화면엔 반영이 안 될 뻔했음. 제거하고
+  `job.category`(DB 값)를 그대로 신뢰하도록 변경. `JobCard.tsx`의 중복
+  `CATEGORY_TAGS`도 제거하고 `data/categories.ts`의 `CATEGORY_SHORT` 재사용.
+- 그 외 컴파일 오류 8개 파일 수정: `categoryVisuals.ts`, `brandCandidates.ts`/
+  `.test.ts`, `mockJobs.ts`, `RecommendSection.tsx`/`Community.tsx`(하드코딩
+  부분집합 대신 `ALL_CATEGORIES` 전체 사용), `AdminDashboard.tsx`,
   `recommendStorage.test.ts`.
+
+### E. 배포 후 스타일 수정 3라운드 (사용자가 실사이트 보고 지적)
+1. **버튼 폰트 상속 누락** — `.jm-region-row`/`.jm-chip`/
+   `.jm-filter-dropdown__reset`/`.jm-active-chip button`/`.jm-clear-filters`/
+   `.jm-keyword-tag button` 6곳에 `font-family: inherit` 누락돼 브라우저
+   기본 버튼 폰트(Arial 등)로 렌더링되던 것 발견·수정. (사용자가 "필기체
+   아니냐"고 물어봐서 조사하다 발견 — 실제로는 필기체가 아니라 이 폰트
+   상속 버그였음.)
+2. **필터 패널 폭 구조 변경** — 개별 버튼(`.jm-filter-dropdown`) 밑에서
+   좁게 펼쳐지던 패널을, **필터 줄 전체**(`.jm-urgent-filters`) 폭에 꽉
+   차게 펼쳐지도록 positioning context를 버튼→줄 전체로 이동(사용자가
+   실제 알바몬 캡처본 "이런식으로 상단길이하고 마추라고"로 지시). 소분류
+   그리드가 5칸 이상으로 표시됨(전엔 2칸).
+3. **글씨 크기 축소** — 알바몬 캡처본 대비 너무 크다는 지적으로
+   `.jm-region-row`(1.12rem→0.85rem), `.jm-region-col__head`(1.08rem→
+   0.8rem), `.jm-filter-dropdown__search`(1.15rem→0.9rem) 축소.
 
 ## 테스트 결과
 
 - **크롤러**: `classifier.py` 자체 실행 — 대분류 22/22, 소분류 17/17, 새
   체계 매핑 16/16, 새 대분류 5개 12/12 = **총 67/67 통과**. `test_job_quality.py`
-  19/19 회귀 없음.
+  19/19 회귀 없음. 신규 공고 시뮬레이션 3건 전부 새 체계로 정확히 분류됨.
 - **프론트**: `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test`
-  6/6 파일 전부 통과(59개 테스트, 회귀 없음).
+  6/6 파일 전부 통과(59개 테스트, 회귀 없음) — E 라운드 수정 후에도 매번
+  재확인.
 - **DB**: 백필 후 `select category, count(*) from local_jobs group by
-  category`로 직접 재조회해 273건 분포 확인(위 C 섹션 표와 정확히 일치).
-- **실 브라우저**: 로컬 개발 서버에서 "Ngành nghề" 패널 열어 "Sản xuất ·
-  Xây dựng · Lao động phổ thông" 클릭 → 실제 DB 백필된 소분류(Sản xuất/Gia
-  công/Lắp ráp, Xuất nhập kho/Quản lý kho 등) 정상 표시 확인 — 크롤러→DB→
-  프론트 전체 파이프라인 end-to-end 확인.
-- id=4381/4430 두 버그 수정 후 실제 텍스트로 재확인: 각각 정상적으로
-  quan_ly_ban_hang/other(khac)로 재분류됨, "lẩu bò" 진짜 전골 공고는 여전히
-  am_thuc_do_uong로 정확히 분류됨(회귀 없음).
+  category`로 직접 재조회해 273건 분포 확인.
+- **실 브라우저(로컬+Production 둘 다)**: "Ngành nghề" 패널 열어 실제 DB
+  백필된 소분류 표시 확인, DB 기반 필터링 확인(`lai_xe_giao_hang` 선택 →
+  정확히 1건). 1440px 데스크톱/375px 모바일 둘 다 패널 폭·줄바꿈 확인.
+- id=4381/4430 두 버그 수정 후 실제 텍스트로 재확인, "lẩu bò" 진짜 전골
+  공고는 여전히 am_thuc_do_uong로 정확히 분류(회귀 없음).
 
 ## 발견된 문제
 
 - **jobCategoryRules.ts가 DB 분류 결과를 매번 덮어쓰던 문제**(위 D 참고,
-  이번에 발견·제거) — 앞으로 프론트에서 카테고리를 다시 "추정"하는 코드를
-  추가하지 말 것. `job.category`(DB 값)가 유일한 진실 공급원.
+  발견·제거) — 앞으로 프론트에서 카테고리를 다시 "추정"하는 코드를 추가하지
+  말 것. `job.category`(DB 값)가 유일한 진실 공급원.
 - **truyen_thong/y_te_dieu_duong 분류 규칙 미검증**(위 B 참고) — 실제 공고
-  들어오면 재검증 필요, 자동으로 규칙이 추가되지 않음(수동 작업).
+  들어오면 재검증 필요, **자동으로 규칙이 추가되지 않음**(수동 작업 필요).
 - **PostJob.tsx(기업 직접 등록)에 소분류 선택 필드가 여전히 없음** — 대분류
   드롭다운은 새 13개로 자동 반영됐지만(ALL_CATEGORIES 참조), 소분류는
   여전히 미착수. 크롤링 공고와 달리 직접 등록은 정규식 추정이 아니라
@@ -123,22 +140,24 @@ cntt_ky_thuat 5 / giao_duc_giang_day 3 (합계 273, DB 직접 재조회로 확�
 - `categoryVisuals.ts`의 이미지가 5개 신규 대분류(cntt_ky_thuat/thiet_ke/
   truyen_thong/y_te_dieu_duong/giao_duc_giang_day)는 전용 사진 없이 'khac'
   일반 이미지로 폴백 — 기능은 정상(에러 없음), 장식적 완성도만 낮음.
+- **이 세션의 로컬 메모리(Claude 기억)는 이 PC(집)에만 있고 다른 PC로
+  전달 안 됨** — 예: "작업 전 승인 받기" 지시가 회사 PC 세션에만 저장돼
+  있어서 집 PC 세션이 처음엔 몰랐음. 이 문서(`CHATGPT_HANDOFF.md`)가 git로
+  동기화되는 유일한 인수인계 수단이므로, 세션 끝날 때마다 반드시 최신화할 것.
 - (이전부터 있던 항목, 계속 유지) `applications_insert`의 tautology 조건,
-  korea_jobs 구조 통합 미결정, 기업 계정 헤더에 구직자 메뉴 링크 없음.
-- `.git/hooks/post-commit` 자동 push 훅 — 이번 라운드는 이 문서 작성 후
-  커밋 여부를 사용자에게 먼저 확인할 것(작업 방식 변경 규칙 참고, 위 이전
-  라운드 기록 섹션).
+  korea_jobs 구조 통합 미결정, 기업 계정 헤더에 구직자 메뉴 링크 없음,
+  `.git/hooks/post-commit` 자동 push 훅(이제는 두 PC 동기화에 도움되는
+  쪽으로 활용 중 — 굳이 끌 필요 없어 보임).
 
 ## 다음 결정사항
 
-1. 이번 라운드(대분류/소분류 전면 재설계 + DB 백필 + 프론트 반영) 커밋할지.
-2. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음 — 위 "발견된 문제" 참고).
-3. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지
+1. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음 — 위 "발견된 문제" 참고).
+2. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지
    (크롤러가 계속 새 공고를 가져오므로 주기적으로 category='khac' 표본을
    다시 확인하는 루틴이 있으면 좋음).
-4. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
+3. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
    확대할지 — 여전히 보류 중.
-5. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
-6. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
-7. `applications_insert`의 tautology 조건 수정 여부.
-8. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
+4. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
+5. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
+6. `applications_insert`의 tautology 조건 수정 여부.
+7. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
