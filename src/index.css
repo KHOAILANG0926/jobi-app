@@ -3007,6 +3007,17 @@ a:hover {
   margin: 0 auto;
 }
 
+/* 2026-09-17 사용자가 알바몬 캡처본과 직접 비교하며 지적 — 사이트 전역
+ * --color-border(#fecaca)가 사실 연빨강이라, 급구 페이지의 중립적이어야
+ * 할 테두리(칩/검색창/패널 등)까지 전부 빨간끼가 돌았다. 이 변수는 다른
+ * 화면(다른 jobs-menu 페이지 포함)에서도 널리 쓰여 전역으로 바꾸면 영향
+ * 범위가 너무 커지므로, 급구 페이지 전용 래퍼(.jm-urgent-page)에서만
+ * 무채색 회색으로 재정의한다(CSS 커스텀 프로퍼티는 하위 요소에 그대로
+ * 상속되므로 이 안의 var(--color-border) 전부가 자동으로 적용됨). */
+.jm-urgent-page {
+  --color-border: #e2e2e2;
+}
+
 .jm-saved-section {
   margin-bottom: 1.75rem;
 }
@@ -3151,7 +3162,6 @@ a:hover {
   align-items: center;
   color: var(--color-muted);
   pointer-events: none;
-  font-size: 0.9rem;
 }
 
 .jm-filter-dropdown__chips {
@@ -3232,8 +3242,14 @@ a:hover {
   font-weight: 700;
 }
 
+/* 2026-09-17 알바몬 캡처본 참고 — 알바몬은 "지금 보고 있는 대분류"를
+ * 가는 테두리 선이 아니라 배경 채우기+굵은 빨간 글자로 눈에 띄게 표시한다
+ * (선택 여부와 무관하게, 탐색 상태만으로도). 기존 3px 왼쪽 선만 긋던
+ * 방식은 너무 은은해서 알바몬만큼 눈에 띄지 않는다는 지적으로 강화. */
 .jm-region-row.is-active:not(.is-selected) {
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 700;
 }
 
 /* Ngành nghề 패널 — 알바몬 실제 화면은 대분류(좁은 왼쪽 목록) | 소분류
@@ -3252,16 +3268,27 @@ a:hover {
   flex: 1;
   min-width: 0;
 }
+/* 2026-09-17 알바몬 캡처본과 직접 비교 후 수정 — 알바몬 소분류 항목은
+ * 테두리 있는 알약 박스가 아니라 평문 텍스트를 그리드에 나열한 것뿐이고,
+ * 선택되면 배경 없이 빨간 글자+체크(✓)만 붙는다. 기존엔 항목마다 테두리
+ * 박스를 씌워서(여백 차지) 알바몬(4칸)보다 훨씬 적은 칸(2칸)만 들어갔다 —
+ * 박스를 없애니 자연히 더 많이 들어가고, 보기에도 알바몬처럼 깔끔해졌다. */
 .jm-region-col__list--grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.3rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.35rem 0.6rem;
   padding: 0.5rem;
 }
 .jm-region-col__list--grid .jm-region-row {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
   white-space: normal;
+  padding: 0.2rem 0;
+}
+.jm-region-col__list--grid .jm-region-row.is-selected {
+  background: none;
+  font-weight: 400;
+}
+.jm-region-col__list--grid .jm-region-row.is-selected::before {
+  content: "✓ ";
 }
 
 .jm-region-col__list--grid .jm-region-col__hint-inline {

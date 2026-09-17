@@ -463,7 +463,7 @@ export default function UrgentJobsPage() {
   }
 
   return (
-    <div className="page jobs-menu-page">
+    <div className="page jobs-menu-page jm-urgent-page">
       <header className="page-header">
         <h1 className="page-header__title">🔥 Tuyển gấp</h1>
         <p className="page-header__lead">
@@ -487,7 +487,10 @@ export default function UrgentJobsPage() {
               value={regionSearch}
               onChange={(e) => setRegionSearch(e.target.value)}
             />
-            <span className="jm-search-input-wrap__icon" aria-hidden="true">🔍</span>
+            <svg className="jm-search-input-wrap__icon" aria-hidden="true" width="15" height="15" viewBox="0 0 20 20" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           </div>
           {regionSearch.trim() ? (
             <ul className="jm-region-col__list jm-region-search-results">
@@ -571,7 +574,10 @@ export default function UrgentJobsPage() {
               value={categorySearch}
               onChange={(e) => setCategorySearch(e.target.value)}
             />
-            <span className="jm-search-input-wrap__icon" aria-hidden="true">🔍</span>
+            <svg className="jm-search-input-wrap__icon" aria-hidden="true" width="15" height="15" viewBox="0 0 20 20" fill="none">
+              <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           </div>
           <div className="jm-region-columns jm-region-columns--category">
             <div className="jm-region-col jm-region-col--narrow">
