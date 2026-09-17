@@ -23,7 +23,7 @@ except ImportError:
 
 load_dotenv(Path(__file__).parent / ".env")
 
-from classifier import classify
+from classifier import classify, classify_subcategory
 from geocode import resolve_coordinate_accuracy, source_coordinate_matches_location
 from job_quality import (
     CRAWLER_VERSION,
@@ -1115,6 +1115,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
 
     # 분류: 제목 + 회사 + 본문 첫 300자 활용
     category = classify(title, company, desc_text)
+    subcategory = classify_subcategory(category, title, company, desc_text)
 
     # 목록 카드 키워드 매칭이 실패했거나(빈 값) 값이 있어도 실제로는 location처럼
     # 보이지 않으면(예: 제목/급여/회사명 전체가 그대로 들어온 경우) 신뢰하지 않고,
@@ -1206,6 +1207,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         "salary": salary,
         "description": description,
         "category": category,
+        "subcategory": subcategory,
         "posted_at": TODAY,
         "urgent": detect_explicit_urgent_hiring(title, description),
         "employer_phone": employer_phone_value,
@@ -1695,6 +1697,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
     salary = normalize_salary(listing_salary) if normalize_whitespace(listing_salary) else extract_salary_from_text(desc_text)
 
     category = classify(title, company, desc_text)
+    subcategory = classify_subcategory(category, title, company, desc_text)
 
     location_lines = detail.get("locationLines") or []
     work_locations = _vietnamworks_location_candidates(location_lines)
@@ -1733,6 +1736,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
         "salary": salary,
         "description": description,
         "category": category,
+        "subcategory": subcategory,
         "posted_at": TODAY,
         "urgent": detect_explicit_urgent_hiring(title, description),
         "employer_phone": "",

@@ -31,6 +31,7 @@ from supabase import create_client
 
 from geocode import _region_text_matches, peek_geocode_cache, resolve_coordinate_accuracy
 from job_quality import classify_work_location_candidate, guess_province_from_text
+from vn_provinces_lookup import resolve_current_province, resolve_current_wards
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -40,7 +41,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABAS
 
 SELECT_COLUMNS = (
     "id,job_id,raw_address,normalized_address,geocode_status,geocode_source,"
-    "coordinate_accuracy,address_accuracy,province,district,lat,lng,matched_recruitment_regions"
+    "coordinate_accuracy,address_accuracy,province,district,resolved_province,resolved_wards,"
+    "lat,lng,matched_recruitment_regions"
 )
 
 
@@ -282,13 +284,27 @@ def _build_update_payload(coord: dict, raw_address: str, province: str | None) -
 
     class_result = classify_work_location_candidate(raw_address)
     address_accuracy = "exact_text" if class_result == "exact" else "region_only"
+    geocoded_province = top.get("state") or province
+    geocoded_district = top.get("county") or top.get("city")
+    # Geoapify(county/city)가 2025-07-01 개편 이전 군/구 이름과 이후 동/사 이름을
+    # 섞어서 반환한다(실측 확인 — 군/구 자체가 지금은 폐지됨). resolved_province/
+    # resolved_wards는 vn_provinces_lookup(통계총국 공식 자료)으로 확정한, 지금
+    # 유효한 값만 담는다 — 원본 province/district는 그대로 두고 별도 컬럼에 추가.
+    resolved_province = resolve_current_province(geocoded_province) if geocoded_province else None
+    if not resolved_province and geocoded_district:
+        resolved_province = resolve_current_province(geocoded_district)
+    resolved_wards = resolve_current_wards(geocoded_district, province_hint=resolved_province) if geocoded_district else []
+    if not resolved_wards and raw_address:
+        resolved_wards = resolve_current_wards(raw_address, province_hint=resolved_province)
     return {
         "lat": lat,
         "lng": lng,
         "coordinate_accuracy": tier,
         "address_accuracy": address_accuracy,
-        "province": top.get("state") or province,
-        "district": top.get("county") or top.get("city"),
+        "province": geocoded_province,
+        "district": geocoded_district,
+        "resolved_province": resolved_province,
+        "resolved_wards": resolved_wards or None,
         "geocode_status": "success",
         "geocode_source": coord.get("geocode_source"),
     }

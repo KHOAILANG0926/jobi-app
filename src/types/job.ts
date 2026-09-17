@@ -62,6 +62,15 @@ export interface JobWorkLocation {
   matchedRecruitmentRegions?: string[]
   /** job_work_locations.geocode_status — GeocodeStatus 참고. */
   geocodeStatus?: GeocodeStatus
+  /** job_work_locations.resolved_province — 베트남 2025-07-01 행정구역 개편
+   *  반영, 지금 유효한 성/시 34개 중 하나(crawler/vn_provinces_lookup.py가
+   *  통계총국 공식 자료로 확정). province/district(Geoapify 원문, 옛/새 이름이
+   *  섞여 있을 수 있음)와 별개 — 필터링에는 이 값만 신뢰한다. */
+  resolvedProvince?: string
+  /** job_work_locations.resolved_wards — 지금 유효한 동/사 후보(옛 군/구
+   *  하나가 여러 동으로 쪼개진 경우 여러 개일 수 있음, 후보가 너무 많으면
+   *  crawler에서 이미 걸러짐). 하나로 단정 못 하면 undefined. */
+  resolvedWards?: string[]
 }
 
 export interface Job {
@@ -69,6 +78,11 @@ export interface Job {
   title: string
   company: string
   category: JobCategory
+  /** local_jobs.subcategory — crawler/classifier.py의 classify_subcategory()가
+   *  채우는 대분류 안 세부 분류(예: 'pha_che', 'thu_ngan'). 규칙에 안 걸리면
+   *  undefined — 억지로 끼워맞추지 않는다. 화면에 보여줄 라벨은
+   *  crawler/classifier.py의 SUBCATEGORY_LABELS와 동일한 값이어야 한다. */
+  subcategory?: string
   salary: string
   location: string
   description: string

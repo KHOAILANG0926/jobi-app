@@ -23,7 +23,7 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from job_quality import ascii_key, has_excluded_money_terms
-from classifier import classify
+from classifier import classify, classify_subcategory
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -497,6 +497,7 @@ def parse_post(post: dict) -> dict:
 
     title = extract_title(text)
     company = extract_company(text)
+    category = classify(title, company, text)
 
     return {
         "title": title,
@@ -506,7 +507,8 @@ def parse_post(post: dict) -> dict:
         "employer_phone": phone,
         "zalo": zalo,
         "description": f"[source:facebook] {text}",
-        "category": classify(title, company, text),
+        "category": category,
+        "subcategory": classify_subcategory(category, title, company, text),
         "posted_at": TODAY,
         "urgent": "tuyển gấp" in text.lower() or "gấp" in text.lower(),
         "application_deadline": extract_deadline(text),

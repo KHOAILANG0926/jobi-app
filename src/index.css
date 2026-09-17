@@ -3042,6 +3042,391 @@ a:hover {
   margin: 0 0 0.75rem;
 }
 
+/* Tuyển gấp — 필터 패널 + 표 형태 목록 (알바몬 급구 알바 구성 참고) */
+.jm-urgent-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.jm-urgent-toolbar__select {
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.jm-filter-dropdown {
+  position: relative;
+}
+
+.jm-filter-dropdown__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 130px;
+  padding: 0.45rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.jm-filter-dropdown__btn.is-open {
+  border-color: var(--color-primary);
+}
+
+.jm-filter-dropdown__btn.has-value {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.jm-filter-dropdown__caret {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+.jm-filter-dropdown__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: max(320px, 100%);
+  max-width: min(92vw, 480px);
+  max-height: 360px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 0.85rem;
+}
+
+/* Khu vực/Ngành nghề 패널은 .jm-region-columns(min-width 420px)를 담는데,
+ * 위 기본 width는 트리거 버튼 폭 기준이라 실제로는 320px로 고정돼 버려서
+ * 지역 2열이 패널보다 넓어지는 문제가 있었다(내용이 잘리는 게 아니라
+ * 패널 안에서 가로 스크롤이 필요해지는데 스크롤바가 잘 안 보여서 마치
+ * 이름이 잘린 것처럼 보였음 — 2026-09-17 실제 DOM 계측으로 확인:
+ * rowText는 전체 이름이 맞고 columnsScrollWidth(418px) > panelWidth(320px)
+ * 였음). 2열이 필요한 패널만 더 넓게 잡아 스크롤 없이 한 화면에 보이게 한다. */
+.jm-filter-dropdown__panel:has(.jm-region-columns) {
+  width: max(466px, 100%);
+  max-width: min(92vw, 520px);
+}
+
+.jm-filter-dropdown__search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.7rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.jm-filter-dropdown__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.jm-filter-dropdown__scroll-col {
+  max-height: 180px;
+  overflow-y: auto;
+  align-content: flex-start;
+  padding-right: 0.3rem;
+}
+
+/* 지역 필터 — 알바몬처럼 시도/동·사 두 칼럼을 나란히, 알약 모양 칩이 아니라
+   평범한 목록 줄로(선택되면 배경색+글자색만 바뀜) */
+.jm-region-columns {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  min-width: 420px;
+}
+
+.jm-region-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.jm-region-col + .jm-region-col {
+  border-left: 1px solid var(--color-border);
+}
+
+.jm-region-col__head {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  background: #f7f8fa;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.jm-region-col__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.jm-region-col__hint {
+  padding: 0.75rem;
+  margin: 0;
+}
+
+.jm-region-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.jm-region-row:hover {
+  background: #f7f8fa;
+}
+
+.jm-region-row.is-selected {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.jm-region-row.is-active:not(.is-selected) {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+/* Ngành nghề 패널 — 알바몬 실제 화면은 대분류(좁은 왼쪽 목록) | 소분류
+ * (넓은 오른쪽, 여러 칸으로 줄바꿈되는 그리드)로 폭이 비대칭인데, 처음엔
+ * Khu vực와 같은 50/50 두 칼럼 틀을 그대로 재사용해서 소분류 칸이 좁고
+ * 세로 한 줄 목록으로만 나왔다(2026-09-17 사용자 지시 "세부 항목칸을
+ * 넓게 구성해줘"로 수정). 대분류는 폭 고정으로 좁게, 소분류는 남는 폭을
+ * 다 차지하며 grid로 여러 칸에 줄바꿈되게 한다. */
+.jm-region-columns--category {
+  min-width: 0;
+}
+.jm-region-col--narrow {
+  flex: 0 0 132px;
+}
+.jm-region-col--wide {
+  flex: 1;
+  min-width: 0;
+}
+.jm-region-col__list--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.3rem;
+  padding: 0.5rem;
+}
+.jm-region-col__list--grid .jm-region-row {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  white-space: normal;
+}
+
+.jm-filter-dropdown__panel:has(.jm-region-columns--category) {
+  width: max(560px, 100%);
+  max-width: min(94vw, 640px);
+}
+
+.jm-chip {
+  border: 1.5px solid var(--color-border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.jm-chip.is-selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.jm-filter-dropdown__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.jm-filter-dropdown__reset {
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.jm-keyword-group + .jm-keyword-group {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.jm-keyword-group__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  margin: 0 0 0.4rem;
+}
+
+.jm-keyword-input-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.jm-keyword-input-row .jm-filter-dropdown__search {
+  margin-bottom: 0;
+}
+
+.jm-keyword-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.jm-keyword-tag button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.jm-clear-filters {
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-left: 0.6rem;
+}
+
+.jm-urgent-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.jm-urgent-toolbar .jm-result-count {
+  margin: 0;
+}
+
+.jm-urgent-toolbar__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.jm-urgent-table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.jm-urgent-table th {
+  background: #f7f8fa;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.jm-urgent-table td {
+  vertical-align: middle;
+}
+
+.jm-urgent-table__save {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: #f0a500;
+  line-height: 1;
+  padding: 0;
+}
+
+.jm-urgent-table__region {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.jm-urgent-table__badge {
+  display: inline-block;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-right: 0.4rem;
+}
+
+.jm-urgent-table__title {
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.jm-urgent-table__title:hover {
+  text-decoration: underline;
+}
+
+.jm-urgent-table__company {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.jm-urgent-table__salary {
+  color: var(--color-primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.jm-urgent-table__external {
+  margin-left: 0.4rem;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
 .jm-recent-toolbar {
   display: flex;
   align-items: center;

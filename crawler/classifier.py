@@ -244,6 +244,120 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     return "other"
 
 
+# ══════════════════════════════════════════════════════════
+#  소분류 규칙 (2026-09-16 사용자 지시로 신설) — 7대 대분류 각각을 더
+#  세분화한다. classify()와 완전히 같은 방식(우선순위 순 정규식 매칭)을
+#  재사용한다 — 새 기술이 필요한 게 아니라 대분류 규칙에서 이미 검증된
+#  구문(예: "phu bep"/"bep truong"는 _RESTAURANT에서 이미 오탐 없이 쓰던
+#  패턴)을 재활용해 세분화한 것. 대분류가 'other'거나 목록에 없으면
+#  소분류도 없다(None) — 억지로 끼워맞추지 않는다.
+# ══════════════════════════════════════════════════════════
+SUBCATEGORY_LABELS: dict[str, dict[str, str]] = {
+    "cafe": {
+        "pha_che": "Pha chế / Barista",
+        "phuc_vu_quan": "Phục vụ quán",
+        "thu_ngan": "Thu ngân",
+    },
+    "restaurant": {
+        "bep": "Bếp (đầu bếp / phụ bếp)",
+        "phuc_vu_ban": "Phục vụ bàn",
+        "rua_bat": "Rửa bát / dọn dẹp",
+        "thu_ngan": "Thu ngân",
+    },
+    "retail": {
+        "thu_ngan": "Thu ngân",
+        "ban_hang": "Bán hàng / Tư vấn bán hàng",
+        "quan_ly_cua_hang": "Quản lý cửa hàng",
+        "kinh_doanh": "Kinh doanh / Đại diện kinh doanh",
+    },
+    "delivery": {
+        "giao_hang_xe_may": "Giao hàng xe máy / Shipper",
+        "lai_xe": "Lái xe / Tài xế",
+        "kho_van": "Kho vận / Logistics",
+    },
+    "cleaning": {
+        "ve_sinh_cong_nghiep": "Vệ sinh công nghiệp / văn phòng",
+        "giup_viec_nha": "Giúp việc nhà / Tạp vụ",
+        "cham_soc": "Chăm sóc trẻ em / người cao tuổi",
+    },
+    "factory": {
+        "san_xuat_dong_goi": "Sản xuất / Đóng gói / Lắp ráp",
+        "ky_thuat_bao_tri": "Kỹ thuật / Bảo trì / Vận hành máy",
+        "han_co_khi": "Hàn / Cơ khí",
+    },
+    "office": {
+        "cskh": "Chăm sóc khách hàng / Telesale",
+        "nhap_lieu": "Nhập liệu",
+        "hanh_chinh_nhan_su": "Hành chính / Nhân sự",
+        "le_tan": "Lễ tân",
+        "ke_toan": "Kế toán",
+    },
+}
+
+_SUBCATEGORY_RULES: dict[str, list[tuple[str, "re.Pattern[str]"]]] = {
+    "cafe": [
+        ("pha_che", re.compile(r"pha che\b|barista\b")),
+        ("phuc_vu_quan", re.compile(r"phuc vu quan|nhan vien quan ca phe|nhan vien cafe")),
+        ("thu_ngan", re.compile(r"thu ngan\b")),
+    ],
+    "restaurant": [
+        ("bep", re.compile(r"phu bep|bep chinh|bep truong|dau bep|nau an\b")),
+        ("phuc_vu_ban", re.compile(r"phuc vu ban|phuc vu nha hang|phuc vu khach|nhan vien phuc vu")),
+        ("rua_bat", re.compile(r"rua bat|rua chen")),
+        ("thu_ngan", re.compile(r"thu ngan\b")),
+    ],
+    "retail": [
+        ("thu_ngan", re.compile(r"thu ngan\b")),
+        ("quan_ly_cua_hang", re.compile(r"quan ly cua hang|quan ly sieu thi")),
+        ("kinh_doanh", re.compile(r"nhan vien kinh doanh\b|dai dien kinh doanh|sales executive|sales representative")),
+        ("ban_hang", re.compile(r"nhan vien ban hang|\bsales?\b|nhan vien cua hang|tu van ban hang")),
+    ],
+    "delivery": [
+        # "giao hang"/"shipper" 같은 배달 전용 표현이 있으면, 같은 제목에
+        # "tài xế"(운전기사, 트럭기사에도 쓰이는 범용 단어)가 같이 있어도
+        # 배달 기사로 우선 분류한다(예: "Tài Xế Giao Hàng GrabFood").
+        ("giao_hang_xe_may", re.compile(r"giao hang\b|shipper\b|xe om\b|nhan vien giao hang|nhan vien phat hang")),
+        ("lai_xe", re.compile(r"xe tai\b|xe container|xe dau keo|\btai xe\b|\blai xe\b")),
+        ("kho_van", re.compile(r"kho van\b|nhan vien kho\b|thu kho\b|phu kho\b|logistic")),
+    ],
+    "cleaning": [
+        ("cham_soc", re.compile(r"trong tre\b|bao mau\b|cham soc nguoi cao tuoi|cham soc tre")),
+        ("ve_sinh_cong_nghiep", re.compile(r"ve sinh cong nghiep|ve sinh van phong|ve sinh toa nha|ve sinh moi truong|nhan vien ve sinh|cong nhan ve sinh")),
+        ("giup_viec_nha", re.compile(r"giup viec\b|don dep nha|tap vu\b|lao cong\b")),
+    ],
+    "factory": [
+        ("han_co_khi", re.compile(r"han xi\b|han dien\b|tho han\b|co khi\b")),
+        ("ky_thuat_bao_tri", re.compile(r"ky thuat vien\b|nhan vien ky thuat|bao tri co dien|bao tri dien|bao tri may|co dien\b|van hanh may")),
+        ("san_xuat_dong_goi", re.compile(r"cong nhan san xuat|nhan vien san xuat|dong goi\b|lap rap\b|cong nhan\b")),
+    ],
+    "office": [
+        ("le_tan", re.compile(r"le tan\b|receptionist")),
+        ("nhap_lieu", re.compile(r"nhap lieu\b|data entry")),
+        ("ke_toan", re.compile(r"ke toan\b")),
+        ("hanh_chinh_nhan_su", re.compile(r"hanh chinh nhan su\b|nhan su\b|nhan vien hanh chinh\b|thu ky\b|tro ly\b")),
+        ("cskh", re.compile(r"tong dai\b|cskh\b|cham soc khach hang\b|hotline\b|tu van khach hang\b|inbound\b|telesale\b|telesales\b")),
+    ],
+}
+
+
+def classify_subcategory(category: str, title: str, company: str = "", description: str = "") -> str | None:
+    """
+    이미 정해진 대분류(category) 안에서만 소분류를 찾는다 — classify()가 이미
+    내린 대분류 판정을 다시 검증하거나 바꾸지 않는다. 대분류에 소분류 규칙이
+    없거나(예: 'other') 아무 규칙도 안 걸리면 None(소분류 없음)을 반환한다 —
+    억지로 아무 소분류나 끼워맞추지 않는다.
+    """
+    rules = _SUBCATEGORY_RULES.get(category)
+    if not rules:
+        return None
+    combined = _norm_fields(title, company, description[:300])
+    title_co = _norm_fields(title, company)
+    for sub_id, pattern in rules:
+        if pattern.search(title_co) or pattern.search(combined):
+            return sub_id
+    return None
+
+
 # ── 셀프 테스트 ──────────────────────────────────────────
 if __name__ == "__main__":
     tests = [
@@ -289,5 +403,40 @@ if __name__ == "__main__":
         print(f"  {status} [{got:10}] expected={expected:10} | {title}")
 
     print(f"\n결과: {ok}/{ok+err} 정확")
-    if err:
+
+    # 소분류 셀프 테스트 — 위 대분류 테스트와 같은 제목을 재사용해, 각각이
+    # 어느 소분류로 떨어지는지 검증한다.
+    sub_tests = [
+        ("Nhân Viên Pha Chế Highlands Coffee", "Highlands", "cafe", "pha_che"),
+        ("Phụ Bếp Nhà Hàng Hải Sản", "Quán Hải Sản 999", "restaurant", "bep"),
+        ("Phục Vụ Bàn Jollibee Part-time", "Jollibee", "restaurant", "phuc_vu_ban"),
+        ("Thu Ngân Siêu Thị WinMart", "WinCommerce", "retail", "thu_ngan"),
+        ("Nhân Viên Bán Hàng Cửa Hàng Tiện Lợi", "Circle K", "retail", "ban_hang"),
+        ("Công Nhân Sản Xuất Nhà Máy", "Samsung Bắc Ninh", "factory", "san_xuat_dong_goi"),
+        ("Tài Xế Giao Hàng GrabFood", "Grab", "delivery", "giao_hang_xe_may"),
+        ("Nhân Viên Kho Part-time", "Lazada", "delivery", "kho_van"),
+        ("Nhân Viên Vệ Sinh Văn Phòng", "CleanPro", "cleaning", "ve_sinh_cong_nghiep"),
+        ("Giúp Việc Nhà Bán Thời Gian", "", "cleaning", "giup_viec_nha"),
+        ("Nhân Viên Nhập Liệu Part-time", "Cty ABC", "office", "nhap_lieu"),
+        ("Trực Tổng Đài CSKH Ca Tối", "Call Center 24h", "office", "cskh"),
+        ("Telesale Part-time Buổi Tối", "Edu Online", "office", "cskh"),
+        ("Lễ Tân Văn Phòng Part-time", "Spa ABC", "office", "le_tan"),
+        ("Tổ Trưởng Kỹ Thuật Bảo Trì Cơ Điện", "Mebi Farm", "factory", "ky_thuat_bao_tri"),
+        # 소분류 규칙 어디에도 안 걸려서 None이 나와야 정상인 경우
+        ("Admin Bán Hàng Trực Page Facebook", "Shop Online", "office", None),
+        ("Nhân Viên Tư Vấn Tuyển Sinh", "Cao Đẳng Kỹ Thuật", "office", None),
+    ]
+    sub_ok = sub_err = 0
+    print()
+    for title, company, category, expected in sub_tests:
+        got = classify_subcategory(category, title, company)
+        status = "✅" if got == expected else "❌"
+        if got != expected:
+            sub_err += 1
+        else:
+            sub_ok += 1
+        print(f"  {status} [{category}/{got}] expected={expected} | {title}")
+    print(f"\n소분류 결과: {sub_ok}/{sub_ok+sub_err} 정확")
+
+    if err or sub_err:
         sys.exit(1)

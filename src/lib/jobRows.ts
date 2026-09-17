@@ -45,6 +45,8 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
     locationVerified,
     matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
     geocodeStatus: (r.geocode_status as GeocodeStatus | null | undefined) ?? undefined,
+    resolvedProvince: (r.resolved_province as string | null | undefined) ?? undefined,
+    resolvedWards: (r.resolved_wards as string[] | null | undefined) ?? undefined,
   }
 }
 
@@ -61,6 +63,7 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     title: baseJob.title,
     company: baseJob.company,
     category: classifyJobCategory(baseJob),
+    subcategory: (r.subcategory as string) ?? undefined,
     salary: (r.salary as string) ?? '',
     location: (r.location as string) ?? '',
     hours: (r.hours as string) ?? '',
@@ -120,9 +123,9 @@ export interface JobsQueryClient {
 }
 
 const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions'
+  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
-  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status'
+  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards'
 
 /**
  * 로그인한 기업 자신의 공고를 employer_id=auth.uid() 기준으로 직접 조회한다 —
