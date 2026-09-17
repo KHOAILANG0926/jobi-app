@@ -3135,6 +3135,25 @@ a:hover {
   margin-bottom: 0.6rem;
 }
 
+/* 2026-09-17 알바몬 캡처본 참고 — 검색창 오른쪽에 돋보기 아이콘 표시. */
+.jm-search-input-wrap {
+  position: relative;
+}
+.jm-search-input-wrap .jm-filter-dropdown__search {
+  padding-right: 2.1rem;
+}
+.jm-search-input-wrap__icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 0;
+  bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  color: var(--color-muted);
+  pointer-events: none;
+  font-size: 0.9rem;
+}
+
 .jm-filter-dropdown__chips {
   display: flex;
   flex-wrap: wrap;
@@ -3344,6 +3363,31 @@ a:hover {
   flex-wrap: wrap;
   gap: 0.4rem;
   margin: 0.6rem 0 0.9rem;
+}
+
+/* 2026-09-17 알바몬 캡처본 참고 — 선택된 필터 태그는 색이 들어간 알약형
+ * (.jm-keyword-tag, "포함/제외 키워드" 전용)이 아니라 흰 배경+테두리의
+ * 중립적인 톤으로. */
+.jm-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #fff;
+  color: var(--color-text);
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.jm-active-chip button {
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
 }
 
 .jm-region-search-results {

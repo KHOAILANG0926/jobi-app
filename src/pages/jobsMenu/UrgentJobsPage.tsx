@@ -479,13 +479,16 @@ export default function UrgentJobsPage() {
           onToggle={() => togglePanel('region')}
           onClose={closePanel}
         >
-          <input
-            type="text"
-            className="jm-filter-dropdown__search"
-            placeholder="Tìm khu vực... vd: Đà Nẵng"
-            value={regionSearch}
-            onChange={(e) => setRegionSearch(e.target.value)}
-          />
+          <div className="jm-search-input-wrap">
+            <input
+              type="text"
+              className="jm-filter-dropdown__search"
+              placeholder="Tìm khu vực... vd: Đà Nẵng"
+              value={regionSearch}
+              onChange={(e) => setRegionSearch(e.target.value)}
+            />
+            <span className="jm-search-input-wrap__icon" aria-hidden="true">🔍</span>
+          </div>
           {regionSearch.trim() ? (
             <ul className="jm-region-col__list jm-region-search-results">
               {regionSearchResults.length === 0 ? (
@@ -560,13 +563,16 @@ export default function UrgentJobsPage() {
           onToggle={() => togglePanel('category')}
           onClose={closePanel}
         >
-          <input
-            type="text"
-            className="jm-filter-dropdown__search"
-            placeholder="Tìm ngành nghề..."
-            value={categorySearch}
-            onChange={(e) => setCategorySearch(e.target.value)}
-          />
+          <div className="jm-search-input-wrap">
+            <input
+              type="text"
+              className="jm-filter-dropdown__search"
+              placeholder="Tìm ngành nghề..."
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+            />
+            <span className="jm-search-input-wrap__icon" aria-hidden="true">🔍</span>
+          </div>
           <div className="jm-region-columns jm-region-columns--category">
             <div className="jm-region-col jm-region-col--narrow">
               <p className="jm-region-col__head">Ngành nghề lớn</p>
@@ -822,7 +828,7 @@ export default function UrgentJobsPage() {
       {activeFilterChips.length > 0 && (
         <div className="jm-active-filters">
           {activeFilterChips.map((chip) => (
-            <span key={chip.key} className="jm-keyword-tag">
+            <span key={chip.key} className="jm-active-chip">
               {chip.label}
               <button type="button" onClick={chip.onRemove} aria-label={`Xóa ${chip.label}`}>×</button>
             </span>
