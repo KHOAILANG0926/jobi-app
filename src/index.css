@@ -3255,6 +3255,7 @@ a:hover {
   border: none;
   background: none;
   padding: 0.45rem 0.75rem;
+  font-family: inherit;
   font-size: 1.12rem;
   color: var(--color-text);
   cursor: pointer;
@@ -3344,6 +3345,7 @@ a:hover {
   background: #fff;
   border-radius: 999px;
   padding: 0.3rem 0.75rem;
+  font-family: inherit;
   font-size: 0.8rem;
   color: var(--color-text);
   cursor: pointer;
@@ -3367,6 +3369,7 @@ a:hover {
   border: none;
   background: none;
   color: var(--color-muted);
+  font-family: inherit;
   font-size: 0.8rem;
   cursor: pointer;
   text-decoration: underline;
@@ -3411,6 +3414,7 @@ a:hover {
   background: none;
   color: inherit;
   cursor: pointer;
+  font-family: inherit;
   font-size: 0.9rem;
   line-height: 1;
   padding: 0;
@@ -3445,6 +3449,7 @@ a:hover {
   background: none;
   color: var(--color-muted);
   cursor: pointer;
+  font-family: inherit;
   font-size: 0.9rem;
   line-height: 1;
   padding: 0;
@@ -3460,6 +3465,7 @@ a:hover {
   border: none;
   background: none;
   color: var(--color-primary);
+  font-family: inherit;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
