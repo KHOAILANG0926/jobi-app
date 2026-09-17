@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
+import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
 import { JOB_REGIONS } from '../data/jobRegions'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import {
@@ -303,7 +303,7 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
           <div className="rec-form__field">
             <span className="rec-form__label">🏷 Loại công việc ưu tiên</span>
             <div className="rec-form__chips">
-              {(['factory', 'cafe', 'delivery', 'cleaning', 'retail', 'other'] as JobCategory[]).map(
+              {ALL_CATEGORIES.map(
                 (cat) => (
                   <button
                     key={cat}

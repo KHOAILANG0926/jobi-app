@@ -1,12 +1,27 @@
-﻿export type JobCategory =
-  | 'factory'
-  | 'cafe'
-  | 'restaurant'
-  | 'delivery'
-  | 'cleaning'
-  | 'retail'
-  | 'office'
-  | 'other'
+﻿/**
+ * 2026-09-17 사용자 지시로 알바몬 실제 사이트(albamon.com/jobs/urgent 업직종
+ * 필터)에서 직접 확인한 12개 대분류 + 기타 1개 = 13개로 전면 교체. 예전
+ * 7개(factory/cafe/restaurant/delivery/cleaning/retail/office)는 사실
+ * 소분류 레벨이었음 — crawler/classifier.py의 LEGACY_TO_MAJOR가 예전 값을
+ * 이 새 값으로 결정적으로 매핑하고, subcategories.ts가 새 대분류 밑에
+ * 158개 소분류(라벨은 전부, 분류 규칙은 일부만 검증됨)를 담는다. "당장 쓸모
+ * 있는지"와 무관하게 실제 알바몬 분류 체계 전체를 기틀로 먼저 갖춘다(성/시·
+ * 동/사 전체 목록을 공고 존재 여부와 무관하게 항상 보여주는 것과 같은 원칙).
+ */
+export type JobCategory =
+  | 'am_thuc_do_uong'
+  | 'quan_ly_ban_hang'
+  | 'dich_vu'
+  | 'van_phong'
+  | 'cskh_kinh_doanh'
+  | 'san_xuat_xay_dung'
+  | 'cntt_ky_thuat'
+  | 'thiet_ke'
+  | 'truyen_thong'
+  | 'lai_xe_giao_hang'
+  | 'y_te_dieu_duong'
+  | 'giao_duc_giang_day'
+  | 'khac'
 
 export type CoordinateAccuracy = 'exact' | 'ward' | 'region' | 'unresolved'
 

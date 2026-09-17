@@ -1,4 +1,3 @@
-import { classifyJobCategory } from './jobCategoryRules.ts'
 import { ensureJobFields } from './jobUtils.ts'
 import { supabase } from './supabase.ts'
 import type { AddressAccuracy, CoordinateAccuracy, GeocodeStatus, Job } from '../types/job.ts'
@@ -52,17 +51,15 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
 
 export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLocations']): Job {
   const { description, source } = parseDescription((r.description as string) ?? '')
-  const baseJob = {
-    title: (r.title as string) ?? '',
-    company: (r.company as string) ?? '',
-    category: (r.category as Job['category']) ?? 'other',
-    description,
-  }
   return ensureJobFields({
     id: `sb-${r.id}`,
-    title: baseJob.title,
-    company: baseJob.company,
-    category: classifyJobCategory(baseJob),
+    title: (r.title as string) ?? '',
+    company: (r.company as string) ?? '',
+    // 2026-09-17 사용자 지시로 크롤러(classifier.py)가 알바몬 12개 대분류
+    // 체계로 재분류하고 실제 DB 백필까지 완료함 — 프론트에서 별도 JS
+    // 정규식(jobCategoryRules.ts)으로 다시 분류하던 방식은 이 검증된 값을
+    // 매번 덮어써버려서 제거했다(DB 값을 그대로 신뢰).
+    category: (r.category as Job['category']) ?? 'khac',
     subcategory: (r.subcategory as string) ?? undefined,
     salary: (r.salary as string) ?? '',
     location: (r.location as string) ?? '',

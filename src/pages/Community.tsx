@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
+import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
 import { loadProfile } from '../lib/storage'
 import {
@@ -218,7 +218,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 onChange={(e) => setJobCategory(e.target.value)}
               >
                 <option value="">-- Chọn loại --</option>
-                {(['factory', 'cafe', 'delivery', 'cleaning', 'retail', 'other'] as JobCategory[]).map(
+                {ALL_CATEGORIES.map(
                   (cat) => (
                     <option key={cat} value={cat}>
                       {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}

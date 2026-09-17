@@ -10,6 +10,7 @@ import { AdminBrands } from '../components/admin/AdminBrands'
 import { AdminReports } from '../components/admin/AdminReports'
 import { AdminAuditLogs } from '../components/admin/AdminAuditLogs'
 import { listAdminJobs, listAdminUsers } from '../lib/adminOperations'
+import { CATEGORY_ICONS, CATEGORY_LABELS as CATEGORY_NAME_LABELS } from '../data/categories'
 
 type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'audit'
 
@@ -36,7 +37,7 @@ interface Stats {
 const EMPTY_JOB: Omit<Job, 'id'> = {
   title: '',
   company: '',
-  category: 'other',
+  category: 'khac',
   salary: '',
   location: '',
   hours: '',
@@ -58,16 +59,11 @@ const EMPTY_JOB: Omit<Job, 'id'> = {
   hireCount: undefined,
 }
 
-const CATEGORY_LABELS: Record<JobCategory, string> = {
-  factory:    '🏭 Nhà máy',
-  cafe:       '☕ Cafe',
-  restaurant: '🍽️ Nhà hàng',
-  delivery:   '🛵 Giao hàng',
-  cleaning:   '🧹 Vệ sinh',
-  retail:     '🛍️ Bán lẻ',
-  office:     '💼 Văn phòng',
-  other:      '📌 Khác',
-}
+// 2026-09-17 사용자 지시로 신규 13개 대분류 체계 도입 — 중복 정의 대신
+// data/categories.ts(단일 진실 공급원)의 라벨/아이콘을 그대로 합성한다.
+const CATEGORY_LABELS: Record<JobCategory, string> = Object.fromEntries(
+  (Object.keys(CATEGORY_NAME_LABELS) as JobCategory[]).map((c) => [c, `${CATEGORY_ICONS[c]} ${CATEGORY_NAME_LABELS[c]}`]),
+) as Record<JobCategory, string>
 
 export default function AdminDashboard() {
   const { logout } = useAuth()

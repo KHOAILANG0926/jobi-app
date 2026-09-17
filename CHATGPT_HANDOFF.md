@@ -2,141 +2,143 @@
 
 ## 현재 작업
 
-**커밋 완료(`227c0b1`, `1961207`, `2e6bf10`, `c038359`), master push +
-Vercel Production 배포 + 실사이트 확인까지 완료**:
-급구(Tuyển gấp) 페이지 필터 UX를 알바몬 참고 캡처본 기준으로 4라운드에 걸쳐 수정.
+**커밋 완료(`227c0b1`~`c038359`, 회사 PC), master push + Production 배포까지
+완료**: 급구 페이지 필터 UX 알바몬 재비교(지역 검색/선택 칩/테두리 색 등).
 
-1라운드(`227c0b1`) — 업직종 대분류 클릭이 탐색/선택을 같이 처리하던 결함 수정.
-2라운드(`1961207`) — 지역 검색 + 선택된 필터 칩 목록 추가(아래 상세).
-3라운드(`2e6bf10`) — 사용자가 알바몬 캡처본을 다시 보여주며 "왜 똑같이 못하냐" 지적
-→ 실제 화면을 직접 캡처해 나란히 비교한 결과 구조는 이미 동일했고 세부
-스타일 2가지만 차이(검색창 돋보기 아이콘 없음, 선택된 필터 칩이 색 들어간
-알약형이었음) — 둘 다 수정.
-4라운드(`c038359`) — 3라운드 수정에도 사용자가 또 빨간 테두리를 지적
-("작업하기 전에 뭘 할 건지 허락맡고 진행해"라는 명시적 교정도 이때 받음,
-이후 작업 방식 변경 — 아래 "작업 방식 변경" 참고). 원인은
-`--color-border`(#fecaca)가 사이트 전역에서 이미 연빨강이었던 것 — 이번엔
-승인 먼저 받고, 캡처본을 항목별(색상/구조/표시방식)로 뜯어서 분석한 뒤
-진행. 테두리 무채색화 + 소분류 그리드 박스 제거(평문+체크마크) +
-대분류 탐색 표시 강화까지 한 번에 처리.
-
-### 작업 방식 변경(2026-09-17, 사용자 지시)
-이 저장소 `CLAUDE.md`의 "FAST/NORMAL 작업은 재승인 없이 커밋·배포까지
-진행"이라는 문서화된 규칙과 별개로, **사용자는 코드를 고치기 전에 먼저
-계획을 설명하고 승인을 받길 원한다**(2026-09-17 명시적 지시: "작업하기
-전에 멀 할건지 허락맡고 진행해"). 이후 세션은 이 방식을 따를 것 — 자세한
-경위는 Claude 메모리의 `feedback_jobi_app_ask_before_work` 참고.
+**이번 라운드(집 PC) — 아직 커밋 안 함**: **대분류/소분류 체계 전면
+재설계**(사용자 지시: "그다음 알바몬에서 세부 일자리 가져왔잖아 ... 지금
+최대한 넣어야된다"). 기존 7개 카테고리(cafe/restaurant/retail/delivery/
+cleaning/factory/office/other)를 폐기하고, 알바몬 실제 사이트
+(albamon.com/jobs/urgent 업직종 필터)에서 직접 확인한 **12개 대분류 + 기타
+1개 = 13개**로 교체, 그 밑에 **소분류 158개**(라벨은 전부, 분류 규칙은
+실제 검증된 만큼만)를 붙였다. 크롤러 재설계 → 기존 DB 273건 전부
+재분류(백필) → 프론트 전체 반영까지 끝냈다.
 
 ## 변경 내용
 
-### 1. 업직종 대분류 탐색/선택 분리 (`227c0b1`)
-`toggleCategory`가 클릭 한 번에 탐색(`activeCategoryForSub`)과 필터 선택
-(`categoryIds`)을 동시에 처리해서, 다른 대분류의 소분류를 구경하려고
-클릭할 때마다 이전 대분류가 필터에 계속 쌓이던 버그. `activateCategory`
-(탐색 전용)와 `toggleCategoryAll`(선택 전용)로 분리, 오른쪽 소분류 목록
-맨 위에 "Tất cả <대분류>" 항목 추가(대분류 전체 선택 기능 유지, 소분류
-없는 'Khác'도 다시 선택 가능). 업직종 패널 폭 확대(640→760px), 결과 표
-헤더를 흰 배경+굵은 글씨로 정리.
+### A. 대분류 12개+기타 확정 (실제 알바몬 사이트에서 직접 확인)
+Ẩm thực · Đồ uống(외식·음료) / Quản lý cửa hàng · Bán hàng(매장관리·판매) /
+Dịch vụ(서비스) / Văn phòng(사무직) / Chăm sóc khách hàng · Kinh doanh
+(고객상담·리서치·영업) / Sản xuất · Xây dựng · Lao động phổ thông(생산·건설·
+노무) / CNTT · Kỹ thuật(IT·기술) / Thiết kế(디자인) / Truyền thông(미디어) /
+Lái xe · Giao hàng(운전·배달) / Y tế · Điều dưỡng · Nghiên cứu(병원·간호·
+연구) / Giáo dục · Giảng dạy(교육·강사) / Khác(기타).
 
-### 2. 지역 검색 + 선택된 필터 칩 목록 (`1961207`)
-사용자가 알바몬 캡처본 두 장을 보여주며 요청:
+베트남어 라벨은 전부 이번 세션에서 직접 번역(알바몬은 한국어 전용이라 공식
+베트남어 원본 없음) — 노래방/PC방/사우나 등도 "지금 공고가 없을 뿐 베트남에
+실존하는 업종"이라는 사용자 지적으로 전부 포함, 영어 그대로 남겨뒀던
+"(valet)"/"(quick service)"/"(narrator model)"/"(QA/Tester)" 4곳은
+"베트남어만 보라"는 지적으로 순수 베트남어로 재번역.
 
-- **선택된 필터 칩 바** — `activeFilterChips` useMemo로 지역(성/시 또는
-  개별 동/사)·업직종(대분류 전체 선택/소분류)·근무기간(hình thức/요일/
-  주당 근무일수/시간대)·키워드 포함·제외를 전부 태그로 만들어 필터
-  드롭다운 줄 바로 아래(`.jm-active-filters`, 상시 노출)에 표시. 각 태그
-  옆 "×"로 그 항목만 정확히 제거 가능. 어느 패널을 보고 있든 상관없이
-  전체 선택 현황이 한눈에 보임 — 기존엔 드롭다운 버튼의 "(2)" 숫자로만
-  알 수 있어서 실제로 뭘 선택했는지 보려면 패널을 다시 열어야 했음.
-  **주의**: 필터 드롭다운 패널이 열려 있으면 패널이 칩 바 위에
-  겹쳐서(z-index) 칩 클릭이 안 먹을 수 있음 — 패널을 닫고 클릭해야 함
-  (테스트 중 실제로 이 순서를 안 지켜서 클릭이 안 먹힌 걸 발견, 패널
-  닫고 재시도해서 정상 동작 확인함. 버그는 아니고 드롭다운 UI의 일반적인
-  겹침 동작).
-- **Khu vực 패널 지역 검색창** — 성/시 34개 × 동/사 평균 100개(총 약
-  3,300건)를 `regionSearchIndex`로 한 번만 평탄화, 발음기호 유무와
-  무관하게(`normalizeViText`) 검색어를 매칭해 "Đà Nẵng · Phường ABC"
-  형태로 최대 50개까지 보여줌. 클릭하면 성/시+동/사 두 단계를 순서대로
-  펼치지 않고 바로 그 지역이 선택됨. 검색어가 있으면 기존 2열 목록 대신
-  평탄화된 검색 결과 목록으로 전환.
+### B. crawler/classifier.py 전면 재설계
+기존 검증된 정규식 로직(classify()/classify_subcategory(), 22/17개 테스트)은
+**하나도 안 건드리고** 그대로 둔 채, 그 결과를 새 체계로 번역하는 레이어를
+추가하는 방식으로 안전하게 확장:
+- `LEGACY_CATEGORY_TO_MAJOR`(7→13 결정적 매핑), `LEGACY_SUB_TO_NEW`(기존
+  소분류 21개 → 새 소분류, 25개 항목 — 일부는 대분류 자체가 바뀜: 예)
+  캐셔/thu_ngan은 어느 업종이든 "Quản lý cửa hàng"으로, "안내데스크·리셉션"
+  으로 옮긴 le_tan은 "Văn phòng"이 아니라 "Dịch vụ"로), `map_to_new_taxonomy()`
+  함수가 크롤러 DB 쓰기 직전 마지막 단계에서 번역.
+- **신규 대분류 5개(cntt_ky_thuat/thiet_ke/giao_duc_giang_day/
+  y_te_dieu_duong/truyen_thong)**: 옛 7분류에 대응이 없어 classify()가
+  새 major id를 직접 반환하도록 새 정규식 3세트(`_CNTT_KY_THUAT`/
+  `_THIET_KE`/`_GIAO_DUC_GIANG_DAY`) 추가 — **DB의 category='other' 66건
+  실제 제목을 전부 눈으로 보고** 진짜 신호가 있는 것만 만듦(IT Helpdesk,
+  Giáo Viên Tin Học, Kiến Trúc Sư Thiết Kế Nội Thất, 3D Rigger 등 실제
+  사례로 검증). 나머지 2개(`_Y_TE_DIEU_DUONG`/`_TRUYEN_THONG`)는 이 66건
+  표본에 실제 신호가 0건이었지만, "매번 반복하지 말고 지금 최대한 넣어라"는
+  사용자 지시로 **베트남어 확실한 직군 용어 기반으로 미리 만듦(⚠️ 우리 DB
+  실제 공고로 검증된 게 아니라고 코드 주석에 명시** — 나중에 실제 공고
+  들어오면 재검증 필요).
+- **실사례 오분류 버그 2개 발견·수정**(DB 실 레코드로 확인):
+  1. id=4381 "Nhân Viên Kinh Doanh Tôn Thép"가 restaurant로 오분류 —
+     "lẩu"(전골)/"lâu"(오래, "hợp tác lâu dài")/"lau"(닦다)가 diacritics
+     제거 후 전부 "lau"로 접힘(기존 phở/phổ 버그와 동일 원인). `_LAU_DISH_RE`
+     로 phở 처리와 같은 방식 적용(실제 전골 메뉴 문맥일 때만 인정).
+  2. id=4430 "Nhân Viên R&D"가 retail로 오분류 — 설명문의 "BP sale"(부서명
+     언급)이 `\bsales?\b` 단독 매칭에 걸림. `_RETAIL`에서 단독 sale(s) 제거
+     (더 구체적인 "sales executive"/"nhan vien ban hang" 등은 유지).
+- 소분류 158개 전체를 `SUBCATEGORY_LABELS`(대분류별)에 등록. 셀프 테스트
+  67개(22+17+16+12) 전부 통과.
 
-**알바몬과 의도적으로 다르게 둔 것**: 지역 계층이 한국은 시·도→시·군·구→
-동·읍·면 3단계인데 우리는 성/시→동/사 2단계 — 베트남이 2025-07-01
-행정구역 개편으로 "군/구" 단계 자체를 없앴기 때문(버그 아님, 실제 행정
-구조 차이 반영).
+### C. DB 백필 — 활성 공고 273건 전부 재분류
+`reclassify_db.py`(기존 도구 재사용, map_to_new_taxonomy() 호출만 추가)로
+dry-run → 상세 crosstab 확인(오래 걸려도 괜찮으니 전부 검토) → 사용자 승인
+후 실제 적용. `local_jobs.category`/`subcategory`는 `text` 컬럼이라 DDL
+마이그레이션 없이 UPDATE만으로 끝남. 최종 분포: khac 53 / san_xuat_xay_dung
+46 / am_thuc_do_uong 46 / van_phong 44 / lai_xe_giao_hang 34 /
+cskh_kinh_doanh 24 / thiet_ke 7 / quan_ly_ban_hang 6 / dich_vu 5 /
+cntt_ky_thuat 5 / giao_duc_giang_day 3 (합계 273, DB 직접 재조회로 확인).
 
-### 3. 업직종 패널 알바몬 항목별 재비교 (`c038359`)
-3라운드(`2e6bf10`)에서 "칩 테두리를 흰 배경+테두리로"라고 고쳤는데도
-사용자가 실제 화면에서 여전히 빨간 테두리를 발견하고 재지적. 원인 조사
-결과 사이트 전역 CSS 변수 `--color-border`가 `#fecaca`(연빨강)로
-정의돼 있어서, "무채색으로 만들었다"고 생각한 요소들도 이 변수를 그대로
-물려받아 빨간끼가 남아있었던 것(전역 변수를 직접 안 바꾸고 새 클래스만
-추가했던 게 원인). 이번엔 코드를 고치기 전에 알바몬 캡처본 2장을 항목별로
-(색상/구조/표시방식) 분석해서 목록으로 먼저 제시하고, 사용자 승인("진행")
-을 받은 뒤 한 번에 처리:
-
-- **테두리 무채색화** — `--color-border`는 다른 화면에서도 쓰여 전역으로
-  바꾸면 범위가 커지므로, 급구 페이지 루트에 `.jm-urgent-page` 클래스를
-  추가하고 그 안에서만 `--color-border: #e2e2e2`로 재정의(CSS 커스텀
-  프로퍼티 상속을 이용 — 이 페이지의 `var(--color-border)`를 쓰는 모든
-  하위 요소에 자동 적용됨, 다른 jobsMenu 페이지들은 `.jobs-menu-page`를
-  공유하지만 영향 없음).
-- **검색 아이콘** — 이모지(🔍, 컬러 그림)를 무채색 선 아이콘 SVG로 교체.
-- **소분류 그리드** — 알바몬은 항목마다 테두리 박스가 없는 평문 텍스트
-  나열이고 선택 시 배경 없이 빨간 글자+체크(✓)만 붙는데, 우리는 항목마다
-  테두리 박스를 씌워서 여백을 차지해 알바몬(4칸)보다 적은 2칸만 들어갔음.
-  박스 제거 + 선택 시 `::before`로 "✓ " 붙이는 방식으로 변경(개수 자체가
-  목표가 아니라 "깔끔해 보이는 것"이 목표라는 사용자 지적 반영).
-- **대분류(왼쪽) 탐색 표시 강화** — 기존엔 가는 왼쪽 테두리 선(3px)만
-  긋던 것을, 알바몬처럼 배경 채우기+굵은 빨간 글자로 강화(선택 여부와
-  무관하게 "지금 보고 있는 대분류"를 더 눈에 띄게).
+### D. 프론트엔드 전체 반영
+- [types/job.ts](src/types/job.ts) — `JobCategory` 13개로 교체.
+- [data/categories.ts](src/data/categories.ts) — LABELS/SHORT/ICONS/SOLID/
+  COLORS/ALL_CATEGORIES 전부 13개로 재작성.
+- [data/subcategories.ts](src/data/subcategories.ts) — classifier.py의
+  `SUBCATEGORY_LABELS`를 Python 스크립트로 그대로 변환해 재생성(158개,
+  손으로 옮기다 어긋나는 위험 차단).
+- **중대 발견**: [lib/jobCategoryRules.ts](src/lib/jobCategoryRules.ts)(이번에
+  삭제)가 `jobRows.ts`의 `rowToJob()`과 `JobCard.tsx`에서 호출되며 **매번
+  title/company/description으로 카테고리를 다시 계산해 DB 값을 덮어쓰고
+  있었다** — classifier.py를 아무리 잘 고쳐도 이 파일 때문에 화면엔 반영이
+  안 될 뻔했음. 옛 7분류 그대로인 구식 정규식이라 타입도 안 맞았음 —
+  제거하고 `job.category`(DB 값)를 그대로 신뢰하도록 변경. `JobCard.tsx`의
+  중복 `CATEGORY_TAGS`도 제거하고 `data/categories.ts`의 `CATEGORY_SHORT`
+  재사용.
+- 그 외 컴파일 오류 8개 파일 수정: `categoryVisuals.ts`(카테고리별 이미지),
+  `brandCandidates.ts`/`.test.ts`(브랜드 후보 탐지 대상 업종), `mockJobs.ts`
+  (샘플 데이터 25건), `RecommendSection.tsx`/`Community.tsx`(카테고리
+  선택 UI — 하드코딩 부분집합 대신 `ALL_CATEGORIES` 전체 사용으로 변경),
+  `AdminDashboard.tsx`(중복 라벨 정의 제거, `data/categories.ts` 재사용),
+  `recommendStorage.test.ts`.
 
 ## 테스트 결과
 
-- `npx tsc --noEmit` / `npm run build` / `npm test`(6개 파일, 59개 테스트)
-  전부 통과.
-- 로컬 개발 서버에서 실제 시나리오 확인: 지역 검색창에 "Da Nang"(발음기호
-  없이) 입력 → "Đà Nẵng", "Đà Nẵng · Phường ..." 결과 매칭 확인 →
-  "Đà Nẵng · Phường Hải Châu" 클릭 → 선택되고 칩 바에 "Phường Hải Châu ×"
-  노출; 업직종에서 "Tất cả Quán cà phê" 선택 → 칩 추가되고 "Ngành nghề
-  (1)"로 정확히 반영; 칩의 × 클릭(패널 닫은 상태에서) → 정확히 그 항목만
-  제거되고 카운트도 갱신됨.
-- Production(viecganban.vn) 배포 후 지역 검색창 노출 확인(push 41초 만에
-  Vercel Production 배포 Ready).
-- 3라운드(`2e6bf10`): tsc/build/테스트 전부 재통과 확인, 로컬+Production
-  양쪽에서 검색창 돋보기 아이콘·칩 스타일(흰 배경+테두리) 실제 반영 확인.
-- 4라운드(`c038359`): tsc/build/테스트 전부 재통과 확인. 로컬 개발 서버에서
-  JS로 실제 computed style 직접 확인(`.jm-filter-dropdown__panel`/
-  `.jm-filter-dropdown__search`/`.jm-active-chip` 전부 `borderColor:
-  rgb(226, 226, 226)` — 빨간색 `rgb(254, 202, 202)` 아님). 소분류 그리드
-  박스 제거·평문+체크마크 표시, 대분류 탐색 강조 전부 스크린샷으로 확인.
-  Production(viecganban.vn)에서도 동일 시나리오 재확인(테두리 무채색,
-  소분류 박스 없음, "Giao hàng" 탐색 강조).
+- **크롤러**: `classifier.py` 자체 실행 — 대분류 22/22, 소분류 17/17, 새
+  체계 매핑 16/16, 새 대분류 5개 12/12 = **총 67/67 통과**. `test_job_quality.py`
+  19/19 회귀 없음.
+- **프론트**: `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test`
+  6/6 파일 전부 통과(59개 테스트, 회귀 없음).
+- **DB**: 백필 후 `select category, count(*) from local_jobs group by
+  category`로 직접 재조회해 273건 분포 확인(위 C 섹션 표와 정확히 일치).
+- **실 브라우저**: 로컬 개발 서버에서 "Ngành nghề" 패널 열어 "Sản xuất ·
+  Xây dựng · Lao động phổ thông" 클릭 → 실제 DB 백필된 소분류(Sản xuất/Gia
+  công/Lắp ráp, Xuất nhập kho/Quản lý kho 등) 정상 표시 확인 — 크롤러→DB→
+  프론트 전체 파이프라인 end-to-end 확인.
+- id=4381/4430 두 버그 수정 후 실제 텍스트로 재확인: 각각 정상적으로
+  quan_ly_ban_hang/other(khac)로 재분류됨, "lẩu bò" 진짜 전골 공고는 여전히
+  am_thuc_do_uong로 정확히 분류됨(회귀 없음).
 
 ## 발견된 문제
 
-- (2라운드에서 새로 발견, 위에 기록) 필터 드롭다운 패널이 열린 상태에서
-  그 아래 칩 바를 클릭하면 패널이 시각적으로 겹쳐서 클릭이 패널 쪽으로
-  먹을 수 있음 — 패널을 닫고 클릭하면 정상. 실사용에 큰 지장은 없어
-  보이지만(칩을 보려면 어차피 패널을 닫는 게 자연스러움) 참고용으로 기록.
-- 이 PC(집)의 Vercel CLI 로그인이 만료돼 있음(`vercel whoami` 실패) — 단
-  GitHub↔Vercel 연동으로 `git push`만으로 Production 자동 배포됨, CLI
-  재로그인 없이도 배포엔 문제없음.
-- (이전부터 있던 항목, 계속 유지) PostJob.tsx에 소분류 로직 없음,
-  `applications_insert`의 tautology 조건, korea_jobs 구조 통합 미결정,
-  기업 계정 로그인 시 헤더에 "Việc làm" 메뉴가 없어 급구 페이지 등에
-  URL 직접 입력 없이는 접근 불가(2026-07-27부터 있던 의도된 설계, 이번에
-  사용자가 발견해 논의했지만 변경은 보류 — 필요시 기업 헤더에 최소한의
-  구직자 메뉴 링크 추가 검토).
+- **jobCategoryRules.ts가 DB 분류 결과를 매번 덮어쓰던 문제**(위 D 참고,
+  이번에 발견·제거) — 앞으로 프론트에서 카테고리를 다시 "추정"하는 코드를
+  추가하지 말 것. `job.category`(DB 값)가 유일한 진실 공급원.
+- **truyen_thong/y_te_dieu_duong 분류 규칙 미검증**(위 B 참고) — 실제 공고
+  들어오면 재검증 필요, 자동으로 규칙이 추가되지 않음(수동 작업).
+- **PostJob.tsx(기업 직접 등록)에 소분류 선택 필드가 여전히 없음** — 대분류
+  드롭다운은 새 13개로 자동 반영됐지만(ALL_CATEGORIES 참조), 소분류는
+  여전히 미착수. 크롤링 공고와 달리 직접 등록은 정규식 추정이 아니라
+  드롭다운으로 100% 정확하게 받을 수 있어 우선순위 있음.
+- `categoryVisuals.ts`의 이미지가 5개 신규 대분류(cntt_ky_thuat/thiet_ke/
+  truyen_thong/y_te_dieu_duong/giao_duc_giang_day)는 전용 사진 없이 'khac'
+  일반 이미지로 폴백 — 기능은 정상(에러 없음), 장식적 완성도만 낮음.
+- (이전부터 있던 항목, 계속 유지) `applications_insert`의 tautology 조건,
+  korea_jobs 구조 통합 미결정, 기업 계정 헤더에 구직자 메뉴 링크 없음.
+- `.git/hooks/post-commit` 자동 push 훅 — 이번 라운드는 이 문서 작성 후
+  커밋 여부를 사용자에게 먼저 확인할 것(작업 방식 변경 규칙 참고, 위 이전
+  라운드 기록 섹션).
 
 ## 다음 결정사항
 
-1. 기업 계정 헤더에 "Việc làm"(또는 최소 급구/전체 공고) 링크를 추가할지.
-2. 지역/업종 2단 구조 + 이번 검색/칩 기능을 다른 화면(홈/저장한 공고/
-   맞춤 공고/지도)에도 확대할지 — 사용자가 "홈도 안 바뀌었다"고 언급한
-   적 있으나, 홈 화면은 트래픽이 큰 중요 화면이라 명시적 승인 없이는
-   손대지 않기로 함.
-3. PostJob.tsx에 소분류 로직 추가 방식(드롭다운 vs 자동 추정).
-4. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
-5. `applications_insert`의 tautology 조건 수정 여부.
-6. 결과 표에 리스트/그리드 보기 전환 토글이나 등록일 범위 필터 추가 여부.
+1. 이번 라운드(대분류/소분류 전면 재설계 + DB 백필 + 프론트 반영) 커밋할지.
+2. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음 — 위 "발견된 문제" 참고).
+3. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지
+   (크롤러가 계속 새 공고를 가져오므로 주기적으로 category='khac' 표본을
+   다시 확인하는 루틴이 있으면 좋음).
+4. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
+   확대할지 — 여전히 보류 중.
+5. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
+6. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
+7. `applications_insert`의 tautology 조건 수정 여부.
+8. 기업 계정 헤더에 "Việc làm" 링크 추가할지.

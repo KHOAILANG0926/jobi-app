@@ -24,9 +24,12 @@ const EXCLUDED_MANUFACTURER_KEYWORDS = [
 const CHAIN_SIGNAL_RE = /he thong|chi nhanh|chuoi|cua hang/
 
 // 현재 Thương hiệu 대상 업종(카페/패스트푸드/편의점/베이커리/배송·서비스)에
-// 대응하는 Job.category만 후보 대상으로 본다 — factory/office/cleaning/other는
-// 제조·사무직 위주라 애초에 대상에서 뺀다(제조 대기업 오탐 방지의 2차 안전장치).
-const TARGET_JOB_CATEGORIES: Job['category'][] = ['cafe', 'restaurant', 'retail', 'delivery']
+// 대응하는 Job.category만 후보 대상으로 본다 — 나머지 대분류(사무/생산/IT/
+// 디자인 등)는 제조·사무직 위주라 애초에 대상에서 뺀다(제조 대기업 오탐 방지의
+// 2차 안전장치). 2026-09-17 신규 13개 대분류 체계 반영 — 예전 cafe/restaurant
+// /retail/delivery가 각각 am_thuc_do_uong/quan_ly_ban_hang/lai_xe_giao_hang로
+// 재배치됐다.
+const TARGET_JOB_CATEGORIES: Job['category'][] = ['am_thuc_do_uong', 'quan_ly_ban_hang', 'lai_xe_giao_hang']
 
 const MIN_POSTINGS = 2
 

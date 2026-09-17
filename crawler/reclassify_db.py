@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client
-from classifier import classify, classify_subcategory
+from classifier import classify, classify_subcategory, map_to_new_taxonomy
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -64,8 +64,9 @@ def reclassify_all():
         title = j.get("title") or ""
         company = j.get("company") or ""
 
-        new_cat = classify(title=title, company=company, description=desc_clean)
-        new_sub = classify_subcategory(new_cat, title=title, company=company, description=desc_clean)
+        legacy_cat = classify(title=title, company=company, description=desc_clean)
+        legacy_sub = classify_subcategory(legacy_cat, title=title, company=company, description=desc_clean)
+        new_cat, new_sub = map_to_new_taxonomy(legacy_cat, legacy_sub)
         new_counts[new_cat] = new_counts.get(new_cat, 0) + 1
         if new_sub:
             sub_matched += 1

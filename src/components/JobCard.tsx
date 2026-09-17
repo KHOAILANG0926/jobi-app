@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Job } from '../types/job'
-import { classifyJobCategory } from '../lib/jobCategoryRules'
+import { CATEGORY_SHORT } from '../data/categories'
 import { getCategoryVisual } from '../lib/categoryVisuals'
 import { zaloMeUrl } from '../lib/jobUtils'
 
@@ -53,17 +53,6 @@ export function CompanyLogo({ company, imageUrl, category }: { company: string; 
   )
 }
 
-const CATEGORY_TAGS: Record<string, string> = {
-  factory:    'Nhà máy',
-  cafe:       'Cafe',
-  restaurant: 'Nhà hàng',
-  delivery:   'Giao hàng',
-  cleaning:   'Vệ sinh',
-  retail:     'Bán lẻ',
-  office:     'Văn phòng',
-  other:      'Việc làm',
-}
-
 export function sanitizeSalary(salary: string): string {
   const m = salary.match(/(\d+[\.,]?\d*)\s*(?:triệu|tr)/i)
   if (m) {
@@ -90,10 +79,10 @@ interface JobCardProps {
 export default function JobCard({
   job, isApplied, distanceKm, distancePrecise,
 }: JobCardProps) {
-  const category = classifyJobCategory(job)
+  const category = job.category
   const salary = sanitizeSalary(job.salary || 'Thỏa thuận')
 
-  const catTag = CATEGORY_TAGS[category] ?? ''
+  const catTag = CATEGORY_SHORT[category] ?? ''
   const h = (job.hours ?? '').toLowerCase()
   const hourTag = h.includes('part-time') ? 'Part-time' : h.includes('full-time') ? 'Full-time' : ''
 

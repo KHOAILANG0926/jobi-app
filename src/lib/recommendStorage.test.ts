@@ -67,13 +67,13 @@ const BASE_PREFS: RecommendPrefs = {
 
 // ── 25~35k/시간과 희망 시급 30k: 확실 충족 아님(범위 평균/최댓값만으로 판정 금지) ──
 {
-  const j = job({ salary: '25.000 - 35.000 đ/giờ', category: 'cafe' })
+  const j = job({ salary: '25.000 - 35.000 đ/giờ', category: 'am_thuc_do_uong' })
   const prefs: RecommendPrefs = { ...BASE_PREFS, minHourlySalary: 30_000 }
   const { reasons } = scoreJob(j, prefs)
   assertTrue(!reasons.includes('Lương phù hợp'), '25~35k 공고는 30k 희망급여를 "확실 충족"으로 표시하면 안 됨')
   assertTrue(reasons.includes('Lương gần mức yêu cầu'), '대신 "근접" 신호만 표시')
 
-  const j2 = job({ salary: '35.000 - 45.000 đ/giờ', category: 'cafe' })
+  const j2 = job({ salary: '35.000 - 45.000 đ/giờ', category: 'am_thuc_do_uong' })
   const { reasons: r2 } = scoreJob(j2, prefs)
   assertTrue(r2.includes('Lương phù hợp'), 'min(35k) >= 30k면 확실 충족 표시')
 }
@@ -81,7 +81,7 @@ const BASE_PREFS: RecommendPrefs = {
 // ── 월급과 시급: 근거 없는 환산·직접 비교 없음(추천 판정 + 정렬 양쪽 모두) ──
 {
   // 추천 판정: 월급 공고는 희망 "시급" 조건에 비교 근거가 없으므로 가점 없음.
-  const j = job({ salary: '15 - 20 triệu', category: 'cafe' })
+  const j = job({ salary: '15 - 20 triệu', category: 'am_thuc_do_uong' })
   const prefs: RecommendPrefs = { ...BASE_PREFS, minHourlySalary: 30_000 }
   const { reasons } = scoreJob(j, prefs)
   assertTrue(!reasons.includes('Lương phù hợp') && !reasons.includes('Lương gần mức yêu cầu'), '월급 공고는 희망 시급 조건에 가점/표시 없음(86% 실운영 케이스)')
@@ -89,8 +89,8 @@ const BASE_PREFS: RecommendPrefs = {
 
   // 정렬: 월급 공고와 시급 공고는 같은 그룹으로 묶이지 않는다(월÷160 같은
   // 근거 없는 환산으로 같은 축에 놓지 않음) — groupJobsForSalarySort로 검증.
-  const monthlyJob = job({ id: 'm1', salary: '15 - 20 triệu', category: 'cafe' })
-  const hourlyJob = job({ id: 'h1', salary: '25.000 - 35.000 đ/giờ', category: 'cafe' })
+  const monthlyJob = job({ id: 'm1', salary: '15 - 20 triệu', category: 'am_thuc_do_uong' })
+  const hourlyJob = job({ id: 'h1', salary: '25.000 - 35.000 đ/giờ', category: 'am_thuc_do_uong' })
   const { groups } = groupJobsForSalarySort([monthlyJob, hourlyJob])
   assertEqual(groups.length, 2, '월급과 시급은 서로 다른 두 집단으로 분리됨')
   const monthlyGroup = groups.find((g) => g.jobs.some((j2) => j2.id === 'm1'))
@@ -102,8 +102,8 @@ const BASE_PREFS: RecommendPrefs = {
 
 // ── USD와 VND: 직접 비교 없음 ────────────────────────────────────────
 {
-  const usdJob = job({ id: 'u1', salary: '$ 800-1,000 /tháng', category: 'office' })
-  const vndJob = job({ id: 'v1', salary: '10 - 12 triệu', category: 'office' })
+  const usdJob = job({ id: 'u1', salary: '$ 800-1,000 /tháng', category: 'van_phong' })
+  const vndJob = job({ id: 'v1', salary: '10 - 12 triệu', category: 'van_phong' })
   const { groups } = groupJobsForSalarySort([usdJob, vndJob])
   const usdGroup = groups.find((g) => g.jobs.some((j2) => j2.id === 'u1'))
   const vndGroup = groups.find((g) => g.jobs.some((j2) => j2.id === 'v1'))
@@ -112,7 +112,7 @@ const BASE_PREFS: RecommendPrefs = {
   assertEqual(vndGroup?.currency, 'VND', 'VND 그룹 통화 태그 확인')
 
   // 희망 시급(VND 기준) 매칭에도 USD 시급 공고는 근거로 쓰지 않는다.
-  const usdHourly = job({ salary: '$ 5 - 7 /giờ', category: 'cafe' })
+  const usdHourly = job({ salary: '$ 5 - 7 /giờ', category: 'am_thuc_do_uong' })
   assertNull(parseExplicitHourlyRange('$ 5 - 7 /giờ'), 'USD 시급은 VND 희망 시급과 통화가 달라 비교 근거로 쓰지 않음')
   const { reasons } = scoreJob(usdHourly, { ...BASE_PREFS, minHourlySalary: 20_000 })
   assertTrue(!reasons.includes('Lương phù hợp') && !reasons.includes('Lương gần mức yêu cầu'), 'USD 시급 공고는 VND 희망 시급 조건에 가점 없음')
@@ -131,8 +131,8 @@ const BASE_PREFS: RecommendPrefs = {
   // groupJobsForSalarySort도 이 unknown 그룹을 별도 유지 — 정렬 시 다른 주기
   // 그룹과 섞이지 않는다(같은 unknown끼리는 금액으로 비교 가능 — 전부 동일하게
   // "주기 미상"이라는 동일 조건이므로).
-  const a = job({ id: 'a', salary: '20 - 25 triệu', category: 'office' })
-  const b = job({ id: 'b', salary: '8 - 9 triệu', category: 'office' })
+  const a = job({ id: 'a', salary: '20 - 25 triệu', category: 'van_phong' })
+  const b = job({ id: 'b', salary: '8 - 9 triệu', category: 'van_phong' })
   const { groups } = groupJobsForSalarySort([a, b])
   assertEqual(groups.length, 1, '둘 다 period unknown + VND → 같은 집단 하나')
   assertEqual(groups[0].period, 'unknown', '그 집단의 period는 unknown')
@@ -141,8 +141,8 @@ const BASE_PREFS: RecommendPrefs = {
 
 // ── 정렬 호출부 통합 검증: 협의/미상은 unpriced로 분리, "고액" 판정 제외 ──
 {
-  const priced = job({ id: 'p', salary: '10 - 12 triệu', category: 'office' })
-  const negotiable = job({ id: 'n', salary: 'Thỏa thuận', category: 'office' })
+  const priced = job({ id: 'p', salary: '10 - 12 triệu', category: 'van_phong' })
+  const negotiable = job({ id: 'n', salary: 'Thỏa thuận', category: 'van_phong' })
   const { groups, unpriced } = groupJobsForSalarySort([priced, negotiable])
   assertEqual(unpriced.map((j2) => j2.id), ['n'], '협의 공고는 unpriced로 분리됨')
   assertEqual(groups.flatMap((g) => g.jobs).map((j2) => j2.id), ['p'], '금액 있는 공고만 그룹에 포함')
