@@ -3337,6 +3337,21 @@ a:hover {
   padding: 0;
 }
 
+/* 2026-09-17 알바몬 캡처본 참고 — 선택한 필터를 어느 패널을 보고 있든
+ * 항상 태그로 보여주는 바(패널이 아니라 필터 버튼 줄 바로 아래, 상시 노출). */
+.jm-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0.9rem;
+}
+
+.jm-region-search-results {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  max-height: 260px;
+}
+
 .jm-clear-filters {
   border: none;
   background: none;

@@ -161,6 +161,7 @@ export default function UrgentJobsPage() {
   // 예정 "기간"이 아님) 만들지 않는다 — 사유는 CHATGPT_HANDOFF.md 참고.
   const [selectedDayCounts, setSelectedDayCounts] = useState<Set<number>>(new Set())
   const [categorySearch, setCategorySearch] = useState('')
+  const [regionSearch, setRegionSearch] = useState('')
   const [includeKeywords, setIncludeKeywords] = useState<string[]>([])
   const [excludeKeywords, setExcludeKeywords] = useState<string[]>([])
   const [includeDraft, setIncludeDraft] = useState('')
@@ -300,6 +301,41 @@ export default function UrgentJobsPage() {
     return VN_WARDS_BY_PROVINCE[selectedProvince] ?? []
   }, [selectedProvince])
 
+  // 2026-09-17 사용자가 알바몬 캡처본("대전 치면 이렇게 나오거든") 보여주며
+  // 요청 — 알바몬은 지역 검색창에 "대전"을 치면 성/시·동/사를 가리지 않고
+  // 이름에 포함된 모든 지역을 평탄화해서 한 번에 보여준다. 성/시 34개 ×
+  // 동/사 평균 100개 = 약 3,300건 전체를 한 번만 만들어두고(useMemo, deps
+  // 없음 — 정적 데이터라 재계산 불필요) 검색어로 필터링한다.
+  const regionSearchIndex = useMemo(() => {
+    const list: { key: string; province: string; ward: string | null; label: string }[] = []
+    for (const p of VN_PROVINCES) {
+      list.push({ key: p, province: p, ward: null, label: shortProvinceName(p) })
+      for (const w of VN_WARDS_BY_PROVINCE[p] ?? []) {
+        list.push({ key: `${p}::${w}`, province: p, ward: w, label: `${shortProvinceName(p)} · ${w}` })
+      }
+    }
+    return list
+  }, [])
+  const regionSearchResults = useMemo(() => {
+    const q = normalizeViText(regionSearch.trim())
+    if (!q) return []
+    return regionSearchIndex.filter((item) => normalizeViText(item.label).includes(q)).slice(0, 50)
+  }, [regionSearch, regionSearchIndex])
+  const isRegionResultSelected = (item: { province: string; ward: string | null }) =>
+    item.ward === null
+      ? selectedProvince === item.province && selectedWards.size === 0
+      : selectedProvince === item.province && selectedWards.has(item.ward)
+  const selectRegionSearchResult = (item: { province: string; ward: string | null }) => {
+    if (item.ward === null) {
+      selectProvince(item.province)
+    } else if (selectedProvince !== item.province) {
+      setSelectedProvince(item.province)
+      setSelectedWards(new Set([item.ward]))
+    } else {
+      toggleWard(item.ward)
+    }
+  }
+
   const categoryEntries = useMemo(
     () => (Object.keys(CATEGORY_LABELS) as JobCategory[])
       .filter((c) => !categorySearch || normalizeViText(CATEGORY_LABELS[c]).includes(normalizeViText(categorySearch))),
@@ -371,6 +407,49 @@ export default function UrgentJobsPage() {
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
   const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size + includeKeywords.length + excludeKeywords.length
+
+  // 2026-09-17 알바몬 캡처본 참고 — 선택한 조건을 어느 패널을 보고 있든
+  // 항상 태그로 보여주고 개별 삭제 가능하게 한다(지금까지는 각 드롭다운
+  // 버튼의 "(2)" 숫자로만 알 수 있어서, 뭘 선택했는지 보려면 그 패널을
+  // 다시 열어야 했음).
+  type ActiveChip = { key: string; label: string; onRemove: () => void }
+  const activeFilterChips = useMemo<ActiveChip[]>(() => {
+    const chips: ActiveChip[] = []
+    if (selectedProvince && selectedWards.size === 0) {
+      chips.push({ key: 'province', label: shortProvinceName(selectedProvince), onRemove: () => selectProvince(null) })
+    }
+    for (const w of selectedWards) {
+      chips.push({ key: `ward:${w}`, label: w, onRemove: () => toggleWard(w) })
+    }
+    for (const c of categoryIds) {
+      chips.push({ key: `cat:${c}`, label: `Tất cả ${CATEGORY_LABELS[c]}`, onRemove: () => toggleCategoryAll(c) })
+    }
+    for (const key of selectedSubcategoryKeys) {
+      const [cat, subId] = key.split(':') as [JobCategory, string]
+      const label = SUBCATEGORY_LABELS[cat]?.[subId] ?? subId
+      chips.push({ key: `sub:${key}`, label, onRemove: () => toggleSubcategory(cat, subId) })
+    }
+    for (const p of workPeriods) {
+      chips.push({ key: `wp:${p}`, label: p, onRemove: () => toggleWorkPeriod(p) })
+    }
+    for (const d of selectedDays) {
+      chips.push({ key: `day:${d}`, label: DAY_LABELS[d], onRemove: () => toggleDay(d) })
+    }
+    for (const n of selectedDayCounts) {
+      chips.push({ key: `dc:${n}`, label: `${n} ngày`, onRemove: () => toggleDayCount(n) })
+    }
+    for (const t of selectedTimeBuckets) {
+      chips.push({ key: `tb:${t}`, label: TIME_BUCKET_LABELS[t], onRemove: () => toggleTimeBucket(t) })
+    }
+    for (const k of includeKeywords) {
+      chips.push({ key: `inc:${k}`, label: `+ ${k}`, onRemove: () => setIncludeKeywords(includeKeywords.filter((x) => x !== k)) })
+    }
+    for (const k of excludeKeywords) {
+      chips.push({ key: `exc:${k}`, label: `− ${k}`, onRemove: () => setExcludeKeywords(excludeKeywords.filter((x) => x !== k)) })
+    }
+    return chips
+  }, [selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, selectedDays, selectedDayCounts, selectedTimeBuckets, includeKeywords, excludeKeywords])
+
   const clearAllFilters = () => {
     selectProvince(null)
     setCategoryIds(new Set())
@@ -400,48 +479,75 @@ export default function UrgentJobsPage() {
           onToggle={() => togglePanel('region')}
           onClose={closePanel}
         >
-          <div className="jm-region-columns">
-            <div className="jm-region-col">
-              <p className="jm-region-col__head">Tỉnh / Thành phố</p>
-              <ul className="jm-region-col__list">
-                {VN_PROVINCES.map((p) => (
-                  <li key={p}>
+          <input
+            type="text"
+            className="jm-filter-dropdown__search"
+            placeholder="Tìm khu vực... vd: Đà Nẵng"
+            value={regionSearch}
+            onChange={(e) => setRegionSearch(e.target.value)}
+          />
+          {regionSearch.trim() ? (
+            <ul className="jm-region-col__list jm-region-search-results">
+              {regionSearchResults.length === 0 ? (
+                <p className="hint jm-region-col__hint">Không tìm thấy khu vực phù hợp.</p>
+              ) : (
+                regionSearchResults.map((item) => (
+                  <li key={item.key}>
                     <button
                       type="button"
-                      className={`jm-region-row${selectedProvince === p ? ' is-selected' : ''}`}
-                      onClick={() => selectProvince(selectedProvince === p ? null : p)}
+                      className={`jm-region-row${isRegionResultSelected(item) ? ' is-selected' : ''}`}
+                      onClick={() => selectRegionSearchResult(item)}
                     >
-                      {shortProvinceName(p)}
+                      {item.label}
                     </button>
                   </li>
-                ))}
-              </ul>
-            </div>
-            <div className="jm-region-col">
-              <p className="jm-region-col__head">Xã / Phường</p>
-              {!selectedProvince ? (
-                <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
-              ) : wardOptions.length === 0 ? (
-                <p className="hint jm-region-col__hint">Các tin tuyển gấp ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
-              ) : (
+                ))
+              )}
+            </ul>
+          ) : (
+            <div className="jm-region-columns">
+              <div className="jm-region-col">
+                <p className="jm-region-col__head">Tỉnh / Thành phố</p>
                 <ul className="jm-region-col__list">
-                  {wardOptions.map((w) => (
-                    <li key={w}>
+                  {VN_PROVINCES.map((p) => (
+                    <li key={p}>
                       <button
                         type="button"
-                        className={`jm-region-row${selectedWards.has(w) ? ' is-selected' : ''}`}
-                        onClick={() => toggleWard(w)}
+                        className={`jm-region-row${selectedProvince === p ? ' is-selected' : ''}`}
+                        onClick={() => selectProvince(selectedProvince === p ? null : p)}
                       >
-                        {w}
+                        {shortProvinceName(p)}
                       </button>
                     </li>
                   ))}
                 </ul>
-              )}
+              </div>
+              <div className="jm-region-col">
+                <p className="jm-region-col__head">Xã / Phường</p>
+                {!selectedProvince ? (
+                  <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
+                ) : wardOptions.length === 0 ? (
+                  <p className="hint jm-region-col__hint">Các tin tuyển gấp ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
+                ) : (
+                  <ul className="jm-region-col__list">
+                    {wardOptions.map((w) => (
+                      <li key={w}>
+                        <button
+                          type="button"
+                          className={`jm-region-row${selectedWards.has(w) ? ' is-selected' : ''}`}
+                          onClick={() => toggleWard(w)}
+                        >
+                          {w}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <div className="jm-filter-dropdown__footer">
-            <button type="button" className="jm-filter-dropdown__reset" onClick={() => selectProvince(null)}>
+            <button type="button" className="jm-filter-dropdown__reset" onClick={() => { selectProvince(null); setRegionSearch('') }}>
               ↻ Đặt lại
             </button>
           </div>
@@ -712,6 +818,17 @@ export default function UrgentJobsPage() {
           </div>
         </FilterDropdown>
       </div>
+
+      {activeFilterChips.length > 0 && (
+        <div className="jm-active-filters">
+          {activeFilterChips.map((chip) => (
+            <span key={chip.key} className="jm-keyword-tag">
+              {chip.label}
+              <button type="button" onClick={chip.onRemove} aria-label={`Xóa ${chip.label}`}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="jm-urgent-toolbar">
         <p className="jm-result-count">
