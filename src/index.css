@@ -3160,8 +3160,9 @@ a:hover {
   width: 100%;
   box-sizing: border-box;
   /* 2026-09-17 사용자 지시("검색칸이 너무커 반으로 줄여") — 세로 padding을
-   * 절반으로. */
-  padding: 0.25rem 0.7rem;
+   * 절반으로(0.5rem→0.25rem). 2026-09-18 추가 지시("검색 사이즈 4/1로 줄여")
+   * — 최초 원본(0.5rem) 기준 1/4로(0.5rem→0.125rem). */
+  padding: 0.125rem 0.7rem;
   border: 1.5px solid var(--color-border);
   /* 2026-09-17 사용자 지시 — 알바몬은 거의 각진 사각형인데 --radius-sm
    * (10px)는 줄어든 박스 높이 기준으로 알약처럼 보임. 훨씬 작게. */
@@ -3312,6 +3313,19 @@ a:hover {
 .jm-region-col--wide {
   flex: 1;
   min-width: 0;
+}
+/* 2026-09-18 사용자 지시("제일 긴 지역기준으로 칸 크기 설정") — Khu vực
+ * 패널 전용 칼럼 폭. 실측(canvas measureText, .jm-region-row와 동일 폰트
+ * 700 13.6px 기준)으로 계산: Tỉnh/Thành phố 칸은 전국 34개 중 가장 긴
+ * "Tuyên Quang"(88.3px) + 좌우 패딩(22.4px) + 세로 스크롤바(34개라 넘침,
+ * ~17px) + 여유. Quận/Huyện 칸은 전국 693개 구/현 중 가장 긴 "Thành phố
+ * Phan Rang - Tháp Chàm"(233.7px) 기준(카테고리 패널의 --narrow/--wide와는
+ * 별개 클래스라 서로 영향 없음). */
+.jm-region-col--tinh {
+  flex: 0 0 140px;
+}
+.jm-region-col--quan {
+  flex: 0 0 280px;
 }
 /* 2026-09-17 알바몬 캡처본과 직접 비교 후 수정 — 알바몬 소분류 항목은
  * 테두리 있는 알약 박스가 아니라 평문 텍스트를 그리드에 나열한 것뿐이고,

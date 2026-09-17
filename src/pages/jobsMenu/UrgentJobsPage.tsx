@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_LABELS } from '../../data/categories'
 import { SUBCATEGORY_LABELS } from '../../data/subcategories'
+import { VN_DISTRICTS_BY_PROVINCE, VN_WARDS_BY_DISTRICT } from '../../data/vnDistricts'
 import { VN_PROVINCES } from '../../data/vnProvinces'
 import { VN_WARDS_BY_PROVINCE } from '../../data/vnWards'
 import { loadApplications } from '../../lib/applicationsStorage'
@@ -137,6 +138,13 @@ export default function UrgentJobsPage() {
     () => searchParams.get('province') ?? VN_PROVINCES[0] ?? null,
   )
   const [selectedWards, setSelectedWards] = useState<Set<string>>(new Set())
+  // 2026-09-18 사용자 지시 — 2025년 개편으로 행정상 폐지된 옛 Quận/Huyện(구/현)을
+  // 생활권 중간 탐색 단계로 복원(vnDistricts.ts, 통계총국 공식 legacy 변환표
+  // 기반). 실제 필터는 여전히 성/시+동/사(selectedProvince/selectedWards)로만
+  // 걸린다 — selectedDistrict는 오른쪽 Xã/Phường 열에 어느 구/현의 동만 보여줄지
+  // 결정하는 순수 탐색용 상태이고, 선택 자체는 아니다(알바몬도 시/구/군 클릭은
+  // 오른쪽 목록만 바꾸고 필터는 동/읍/면에서 확정됨).
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null)
   const [categoryIds, setCategoryIds] = useState<Set<JobCategory>>(new Set())
   // 2026-09-17 사용자 지시("업종도 동일하게") — 대분류(카테고리)|소분류 2단
   // 구조로 재구성. activeCategoryForSub은 지금 오른쪽 열에 어느 대분류의
@@ -221,7 +229,9 @@ export default function UrgentJobsPage() {
   const selectProvince = (p: string | null) => {
     setSelectedProvince(p)
     setSelectedWards(new Set())
+    setSelectedDistrict(null)
   }
+  const selectDistrict = (d: string | null) => setSelectedDistrict((cur) => (cur === d ? null : d))
   const toggleWard = (w: string) => setSelectedWards((prev) => {
     const next = new Set(prev)
     if (next.has(w)) next.delete(w); else next.add(w)
@@ -300,10 +310,14 @@ export default function UrgentJobsPage() {
   // 공식 전체 목록)로 항상 전체를 보여줄 수 있다. 선택한 동/사에 실제
   // 매칭되는 공고가 없으면 0건으로 정직하게 보여주면 된다(province와 동일
   // 원칙 — 목록 자체를 job 데이터로 줄이지 않는다).
-  const wardOptions = useMemo(() => {
+  const districtOptions = useMemo(() => {
     if (!selectedProvince) return []
-    return VN_WARDS_BY_PROVINCE[selectedProvince] ?? []
+    return VN_DISTRICTS_BY_PROVINCE[selectedProvince] ?? []
   }, [selectedProvince])
+  const districtWardOptions = useMemo(() => {
+    if (!selectedProvince || !selectedDistrict) return []
+    return VN_WARDS_BY_DISTRICT[selectedProvince]?.[selectedDistrict] ?? []
+  }, [selectedProvince, selectedDistrict])
 
   // 2026-09-17 사용자가 알바몬 캡처본("대전 치면 이렇게 나오거든") 보여주며
   // 요청 — 알바몬은 지역 검색창에 "대전"을 치면 성/시·동/사를 가리지 않고
@@ -329,14 +343,24 @@ export default function UrgentJobsPage() {
     item.ward === null
       ? selectedProvince === item.province && selectedWards.size === 0
       : selectedProvince === item.province && selectedWards.has(item.ward)
+  const findDistrictOfWard = (province: string, ward: string): string | null => {
+    const byDistrict = VN_WARDS_BY_DISTRICT[province]
+    if (!byDistrict) return null
+    for (const [district, wards] of Object.entries(byDistrict)) {
+      if (wards.includes(ward)) return district
+    }
+    return null
+  }
   const selectRegionSearchResult = (item: { province: string; ward: string | null }) => {
     if (item.ward === null) {
       selectProvince(item.province)
     } else if (selectedProvince !== item.province) {
       setSelectedProvince(item.province)
       setSelectedWards(new Set([item.ward]))
+      setSelectedDistrict(findDistrictOfWard(item.province, item.ward))
     } else {
       toggleWard(item.ward)
+      setSelectedDistrict(findDistrictOfWard(item.province, item.ward))
     }
   }
 
@@ -474,7 +498,7 @@ export default function UrgentJobsPage() {
             </ul>
           ) : (
             <div className="jm-region-columns jm-region-columns--khu-vuc">
-              <div className="jm-region-col jm-region-col--narrow">
+              <div className="jm-region-col jm-region-col--tinh">
                 <p className="jm-region-col__head">Tỉnh / Thành phố</p>
                 <ul className="jm-region-col__list">
                   {VN_PROVINCES.map((p) => (
@@ -490,15 +514,37 @@ export default function UrgentJobsPage() {
                   ))}
                 </ul>
               </div>
+              <div className="jm-region-col jm-region-col--quan">
+                <p className="jm-region-col__head">Quận / Huyện</p>
+                {!selectedProvince ? (
+                  <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
+                ) : (
+                  <ul className="jm-region-col__list">
+                    {districtOptions.map((d) => (
+                      <li key={d}>
+                        <button
+                          type="button"
+                          className={`jm-region-row${selectedDistrict === d ? ' is-selected' : ''}`}
+                          onClick={() => selectDistrict(d)}
+                        >
+                          {d}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <div className="jm-region-col jm-region-col--wide">
                 <p className="jm-region-col__head">Xã / Phường</p>
                 {!selectedProvince ? (
                   <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
-                ) : wardOptions.length === 0 ? (
+                ) : !selectedDistrict ? (
+                  <p className="hint jm-region-col__hint">Chọn quận/huyện trước.</p>
+                ) : districtWardOptions.length === 0 ? (
                   <p className="hint jm-region-col__hint">Các tin tuyển gấp ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
                 ) : (
                   <ul className="jm-region-col__list">
-                    {wardOptions.map((w) => (
+                    {districtWardOptions.map((w) => (
                       <li key={w}>
                         <button
                           type="button"
