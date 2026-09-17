@@ -222,14 +222,17 @@ export default function UrgentJobsPage() {
     if (next.has(w)) next.delete(w); else next.add(w)
     return next
   })
-  const toggleCategory = (c: JobCategory) => {
-    setActiveCategoryForSub(c)
-    setCategoryIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(c)) next.delete(c); else next.add(c)
-      return next
-    })
-  }
+  // 2026-09-17 알바몬 참고 캡처본 확인 후 수정 — 대분류 클릭은 탐색(오른쪽에
+  // 어느 대분류의 소분류를 보여줄지)만 하고, 실제 필터 선택은 오른쪽 목록의
+  // 항목(아래 toggleCategoryAll/toggleSubcategory)에서만 일어난다. 원래는
+  // 이 함수가 탐색과 선택을 같이 처리해서, 소분류를 구경하려고 다른 대분류를
+  // 클릭할 때마다 그 대분류가 의도치 않게 필터에 계속 쌓이는 문제가 있었다.
+  const activateCategory = (c: JobCategory) => setActiveCategoryForSub(c)
+  const toggleCategoryAll = (c: JobCategory) => setCategoryIds((prev) => {
+    const next = new Set(prev)
+    if (next.has(c)) next.delete(c); else next.add(c)
+    return next
+  })
   const toggleSubcategory = (category: JobCategory, subId: string) => {
     const key = `${category}:${subId}`
     setSelectedSubcategoryKeys((prev) => {
@@ -466,8 +469,8 @@ export default function UrgentJobsPage() {
                   <li key={c}>
                     <button
                       type="button"
-                      className={`jm-region-row${categoryIds.has(c) ? ' is-selected' : ''}${activeCategoryForSub === c ? ' is-active' : ''}`}
-                      onClick={() => toggleCategory(c)}
+                      className={`jm-region-row${activeCategoryForSub === c ? ' is-active' : ''}`}
+                      onClick={() => activateCategory(c)}
                     >
                       {CATEGORY_LABELS[c]}
                     </button>
@@ -479,24 +482,37 @@ export default function UrgentJobsPage() {
               <p className="jm-region-col__head">Phân loại chi tiết</p>
               {!activeCategoryForSub ? (
                 <p className="hint jm-region-col__hint">Chọn ngành nghề lớn bên trái để xem phân loại chi tiết.</p>
-              ) : !SUBCATEGORY_LABELS[activeCategoryForSub] ? (
-                <p className="hint jm-region-col__hint">{CATEGORY_LABELS[activeCategoryForSub]} chưa có phân loại chi tiết.</p>
               ) : (
                 <ul className="jm-region-col__list jm-region-col__list--grid">
-                  {Object.entries(SUBCATEGORY_LABELS[activeCategoryForSub]!).map(([subId, label]) => {
-                    const key = `${activeCategoryForSub}:${subId}`
-                    return (
-                      <li key={subId}>
-                        <button
-                          type="button"
-                          className={`jm-region-row${selectedSubcategoryKeys.has(key) ? ' is-selected' : ''}`}
-                          onClick={() => toggleSubcategory(activeCategoryForSub, subId)}
-                        >
-                          {label}
-                        </button>
+                  <li>
+                    <button
+                      type="button"
+                      className={`jm-region-row${categoryIds.has(activeCategoryForSub) ? ' is-selected' : ''}`}
+                      onClick={() => toggleCategoryAll(activeCategoryForSub)}
+                    >
+                      Tất cả {CATEGORY_LABELS[activeCategoryForSub]}
+                    </button>
+                  </li>
+                  {SUBCATEGORY_LABELS[activeCategoryForSub]
+                    ? Object.entries(SUBCATEGORY_LABELS[activeCategoryForSub]!).map(([subId, label]) => {
+                        const key = `${activeCategoryForSub}:${subId}`
+                        return (
+                          <li key={subId}>
+                            <button
+                              type="button"
+                              className={`jm-region-row${selectedSubcategoryKeys.has(key) ? ' is-selected' : ''}`}
+                              onClick={() => toggleSubcategory(activeCategoryForSub, subId)}
+                            >
+                              {label}
+                            </button>
+                          </li>
+                        )
+                      })
+                    : (
+                      <li className="jm-region-col__hint-inline">
+                        <p className="hint">{CATEGORY_LABELS[activeCategoryForSub]} chưa có phân loại chi tiết — chọn "Tất cả" ở trên để lọc theo cả ngành này.</p>
                       </li>
-                    )
-                  })}
+                    )}
                 </ul>
               )}
             </div>
