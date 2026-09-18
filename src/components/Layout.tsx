@@ -34,12 +34,6 @@ interface MenuItem {
   /** "Thương hiệu" 전용 — 업종→브랜드 2단 메가메뉴(BrandMegaMenu)로 렌더링한다.
    *  실제 활성 공고 데이터로 매번 다시 계산되므로 여기엔 정적 목록을 두지 않는다. */
   brandMenu?: true
-  /** 2026-09-11 "Công cụ" 재설계(사용자 지시) — 이 탭은 nav에서 오른쪽에 있어
-   *  기존 "Việc làm"처럼 left:0(탭 기준)으로 펼치면 화면 밖으로 넘친다. 헤더
-   *  콘텐츠 영역 기준으로 오른쪽 정렬시키는 .mega-menu--tools를 쓰려면 이
-   *  플래그로 header-tab-wrap도 static으로 바꿔야 한다(Thương hiệu와 동일
-   *  이유, 다른 처리 — 그쪽은 폭 전체, 이쪽은 콘텐츠만큼만 우측 정렬). */
-  alignRight?: true
 }
 
 const BRAND_COLUMN_COUNT = 3
@@ -200,7 +194,6 @@ const MENU_ITEMS: MenuItem[] = [
   {
     label: 'Công cụ',
     to: '/tinh-luong',
-    alignRight: true,
     dropdown: [
       { heading: 'Hồ sơ xin việc', links: [
         { label: 'Hồ sơ của tôi', to: '/ho-so' },
@@ -360,7 +353,7 @@ export function Layout() {
                     const isMobilePortal = isOpen && mobileDropdownTop !== null
                     const dropdownBody = item.dropdown ? (
                       <div
-                        className={`mega-menu${item.alignRight ? ' mega-menu--tools' : ''}${isMobilePortal ? ' mega-menu--mobile' : ''}`}
+                        className={`mega-menu${isMobilePortal ? ' mega-menu--mobile' : ''}`}
                         ref={isMobilePortal ? dropdownRef : undefined}
                         style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
@@ -419,7 +412,7 @@ export function Layout() {
                       <div
                         key={i}
                         ref={(el) => { wrapRefs.current[i] = el }}
-                        className={`header-tab-wrap${isOpen ? ' header-tab-wrap--open' : ''}${(item.brandMenu || item.alignRight) ? ' header-tab-wrap--static' : ''}`}
+                        className={`header-tab-wrap${isOpen ? ' header-tab-wrap--open' : ''}${item.brandMenu ? ' header-tab-wrap--static' : ''}`}
                         onMouseEnter={() => handleMenuEnter(i)}
                         onMouseLeave={handleMenuLeave}
                       >

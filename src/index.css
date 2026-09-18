@@ -390,17 +390,15 @@ a:hover {
 
 .mega-menu--cards { min-width: 340px; }
 
-/* "Công cụ" 메가메뉴(2026-09-11 재설계) — nav 오른쪽 탭이라 Việc làm처럼
-   left:0(탭 기준)으로 펼치면 화면 밖으로 넘친다. Thương hiệu와 같은 이유로
-   header-tab-wrap을 static으로 바꾸고(JSX의 header-tab-wrap--static) 이
-   .mega-menu가 헤더 콘텐츠 영역(.header-tabs__inner, position:relative)을
-   기준으로 위치를 잡게 한다 — 다만 Thương hiệu처럼 폭 전체를 채우지 않고
-   콘텐츠(4개 column)만큼만 폭을 쓰며 오른쪽 끝을 헤더 콘텐츠 오른쪽 padding에
-   맞춰 고정한다(우측 정렬) — 왼쪽으로는 컨테이너 안쪽이라 넘칠 일이 없다. */
-.mega-menu--tools {
-  left: auto;
-  right: 1.25rem;
-}
+/* "Công cụ" 메가메뉴(2026-09-18 재수정) — 2026-09-11엔 이 탭이 nav 맨
+   오른쪽이라 left:0(탭 기준)이면 화면 밖으로 넘친다고 판단해 헤더 콘텐츠
+   영역 전체 기준 우측 정렬로 바꿨었다. 그 뒤 "Cộng đồng"/"KR" 탭이 오른쪽에
+   추가되며 "Công cụ"가 더 이상 맨 오른쪽이 아니게 됐는데 이 특수 처리가
+   안 지워져서, 메뉴가 버튼과 무관하게 헤더 오른쪽 끝에 붙어 보이는
+   문제(사용자 지적)가 생겼다. 지금 위치 기준으로는 기본 정렬(탭 자신
+   left:0)이 화면을 안 넘겨서 특수 클래스 자체를 더 이상 안 쓴다 — 아래
+   폭 넓은 화면 검증 완료. 나중에 nav 구성이 다시 바뀌어 이 탭이 오른쪽
+   끝으로 가면 재검토 필요. */
 .mega-menu__brand-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
