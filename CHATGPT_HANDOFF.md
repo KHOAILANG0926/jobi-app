@@ -206,9 +206,9 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
 1. **Giới tính/Độ tuổi 실제 데이터 연결**: 지금은 UI만 있고 local_jobs에
    컬럼이 없어 필터링 안 됨 — 성별/연령 컬럼을 실제로 추가할지(+PostJob.tsx
    입력 필드도 필요), 아니면 UI만 유지할지 사용자 판단 필요.
-2. `0016_local_jobs_work_duration_draft.sql`(미적용 orphan draft)을 그대로
-   둘지, 삭제할지, 아니면 그 draft가 의도했던 "자유텍스트 계약기간" 개념을
-   별도로 살릴지 — 사용자 판단 필요.
+2. ~~`0016_local_jobs_work_duration_draft.sql`~~ — 삭제 완료(2026-09-18).
+   의도했던 두 개념(근무기간/고용형태)이 job_duration·work_period로 이미
+   커버됨, 원본 데이터도 이 정보를 거의 안 줘서 실익 낮다고 판단.
 3. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음, 이전부터 미착수).
 4. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지.
 5. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
