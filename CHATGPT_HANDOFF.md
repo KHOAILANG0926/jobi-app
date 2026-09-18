@@ -2,40 +2,24 @@
 
 ## 현재 작업
 
-**이번 세션: `job_duration`(근무기간 7구간) 컬럼 추가 + PostJob.tsx 필드 +
-급구 페이지 "근무기간" 필터 + 상세조건 패널에 "고용형태" 섹션 이동 —
-commit/push + Vercel Production 배포까지 완료, 실 사이트 확인함.**
+**이번 세션 최종 상태(여러 라운드 거쳐 완료, commit/push/Production 배포
+전부 끝남 — 라운드별 상세 경위는 아래 요약만 유지, 코드가 실제 근거):**
 
-**이어서(같은 세션)**: 사용자가 알바몬 "근무기간" 패널 실제 캡처본을 보여주며
-"Thời gian làm việc" 패널 레이아웃 재구성 지시 — 라벨(Thời hạn làm việc/Ngày
-làm việc/Khung giờ)을 왼쪽에 굵게 고정, "근무요일"/"근무시간"에 "목록에서
-선택/직접선택" 전환(사각 버튼, 캡처본의 동그라미 라디오 대신) 추가. 1차
-구현 후 사용자가 "동일하게 만들어달라는 말이 어려워?"로 불만 — 내가 모드
-전환 시 한쪽 칩 그룹을 통째로 숨겼는데, 캡처본은 두 그룹(프리셋+개별 요일)
-이 항상 같이 보이고 선택 안 된 쪽만 흐리다는 걸 놓쳤음. 흐림 처리 방식으로
-재수정 + "협의 제외" 체크박스도 추가(캡처본엔 있는데 내가 임의로 뺐었음 —
-가짜 필터가 되지 않도록 "일정 미기재 공고 제외"라는 실제 데이터 기반 필터로
-구현). 전체 commit/push + Production 배포 완료, 실 사이트 확인함.
-
-**세 번째 라운드(같은 세션)**: "상세조건은 또 안맞아" — "Điều kiện khác" 패널이
-여전히 옛 라벨-위-배치(jm-keyword-group) 구조라 "Thời gian làm việc"와
-불일치. 알바몬 "상세조건" 캡처본(성별/연령/고용형태/키워드, 전부 라벨
-왼쪽-굵게 행)에 맞춰 공용 레이아웃으로 통일 — `.jm-workhour-row`를
-`.jm-filter-row`로 일반화(더 이상 근무시간 패널 전용 아님)하고
-"Điều kiện khác"에도 적용: "Loại hình công việc" 행 + "Từ khóa" 행(Bao
-gồm/Loại trừ를 한 라벨 밑에 통합, 알바몬 "키워드" 행처럼). 성별/연령은
-여전히 대응 DB 컬럼이 없어 제외(기존 결정 유지). commit/push + Production
-배포 완료, 실 사이트 확인함.
-
-**네 번째 라운드(같은 세션)**: 세 번째 라운드 배포 후 사용자가 "이거 왜
-반영안했어"로 재지적 — "Loại hình công việc" 칩이 알바몬 캡처본(4종 전부
-항상 표시)과 달리 급구 공고에 실제 존재하는 2종(Bán thời gian cố định/
-Toàn thời gian cố định)만 동적으로 보였음. job_duration과 같은 원칙(고정
-목록 항상 전부 표시)으로 통일 — `workPeriodOptions`를 급구 공고 기준
-동적 계산에서 `WORK_PERIOD_OPTIONS`(local_jobs 전체 기준 실측 확인된
-고정 4종: Toàn thời gian cố định/Bán thời gian cố định/Toàn thời gian tạm
-thời/Khác) 상수로 교체, "데이터 없음" 안내 문구 분기도 제거(이제 항상
-비어있지 않음). commit/push + Production 배포 완료, 실 사이트 확인함.
+- `job_duration`(근무기간 7구간) 컬럼 추가 + PostJob.tsx 필드 + 급구 "Thời
+  gian làm việc" 패널 필터.
+- "Thời gian làm việc" 패널: 라벨 왼쪽-굵게 행 레이아웃(`.jm-filter-row`),
+  "근무요일"/"근무시간"에 "목록에서 선택/직접선택"(사각 버튼) 전환 — 비활성
+  쪽은 숨기지 않고 흐리게(`jm-workhour-inactive`)만, 두 모드 다 항상 같이
+  보임. "협의 제외"는 workDays/hours 빈 공고를 제외하는 실제 필터로 구현.
+- "Điều kiện khác" 패널도 동일한 `.jm-filter-row` 레이아웃으로 통일, 알바몬
+  캡처본과 같은 4행 구성: **Giới tính**(Nam/Nữ 칩, "Không giới hạn" 없음)/
+  **Độ tuổi**(드롭다운)/**Loại hình công việc**(work_period, 급구 공고에
+  실제 존재하는 값만 동적 — job_duration과 달리 크롤러 자유텍스트라 고정
+  목록 아님, 한 번 고정 목록으로 시도했다 사용자 지시로 되돌림)/**Từ
+  khóa**(Bao gồm+Loại trừ 통합). **성별/연령은 DB 컬럼이 없어 실제 필터링에
+  반영 안 되는 UI만**(genderFilter/ageFilter state, activeFilterCount·
+  clearAllFilters 미포함) — 알바몬과 "동일하게" 만들라는 명시적 지시로
+  구조만 맞춤, 추후 실데이터 생기면 연결 필요.
 
 이전 세션들(A~I 라운드: 대분류/소분류 체계 전면 재설계, Khu vực 패널 UX 다수
 수정, 옛 Quận/Huyện 중간 단계 복원, 검색창/그리드/글자크기 재조정)은 전부
@@ -145,12 +129,25 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
 - 더 이상 아무 데서도 안 쓰는 `.jm-keyword-group + .jm-keyword-group` CSS
   규칙(이전엔 옛 구조의 그룹 간 여백용)도 같이 제거.
 
-### "Loại hình công việc" 동적 목록 → 고정 4종으로 (네 번째 라운드)
-- `workPeriodOptions`(급구 공고에 실제 존재하는 값만 동적으로 뽑던 것)를
-  `WORK_PERIOD_OPTIONS`(local_jobs 전체 기준 실측 확인된 고정 4종 상수)로
-  교체. job_duration(Thời hạn làm việc)과 동일한 원칙 — 알바몬은 급구 공고
-  존재 여부와 무관하게 카테고리를 항상 다 보여준다.
-- "데이터 없음" hint 문구 분기 제거(이제 항상 4개가 있으므로 불필요).
+### "Loại hình công việc" 고정 목록 시도 → 되돌림 (네 번째 라운드)
+- job_duration과 같은 원칙(고정 목록 항상 표시)을 work_period에도 적용해봤다가,
+  사용자 지적("근무기간하고 왜 동일하게 하지?")으로 되돌림 — work_period는
+  크롤러 자유텍스트(닫힌 enum 아님)라 job_duration의 "우리가 정의한 닫힌
+  값 집합"과 성격이 다름. 원래대로 급구 공고에 실제 존재하는 값만 동적으로
+  보여주는 방식 유지(+"데이터 없음" hint 문구도 복원).
+
+### "Điều kiện khác" Giới tính/Độ tuổi 행 추가 (다섯 번째 라운드)
+- 사용자가 "상세조건 상단에 성별/연령/고용형태/키워드 이렇게 구성해달라고
+  알바몬하고 동일하게 만들어달라고 캡처해서 보내줬잖아"로 명확히 지시 —
+  이전엔 "DB 컬럼 없어 가짜 필터가 됨"이란 이유로 성별/연령을 제외했었는데,
+  이번엔 구조를 알바몬과 동일하게 맞추라는 명시적 지시라 그대로 따름.
+- **Giới tính**: "Nam"/"Nữ" 칩 버튼(`genderFilter` state, 토글).
+- **Độ tuổi**: `AGE_OPTIONS`(18-24/25-34/35-44/45-54/55+ tuổi) select
+  드롭다운(`ageFilter` state).
+- **둘 다 local_jobs에 대응 컬럼이 없어 `filtered` 계산에는 반영 안 함** —
+  UI 상태만 존재(activeFilterCount/clearAllFilters에도 미포함, "Điều kiện
+  khác" 패널 초기화 버튼에서만 같이 리셋). 나중에 성별/연령 데이터가 생기면
+  실제 필터로 연결 필요.
 
 ## 테스트 결과
 
@@ -181,10 +178,10 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   "Loại hình công việc"/"Từ khóa" 라벨이 왼쪽에 굵게, 내용은 오른쪽에
   나란히 배치되는 것 스크린샷으로 확인(480px 이하에서는 기존 미디어쿼리로
   세로 스택 — "Thời gian làm việc" 패널과 동일 반응형 규칙 공유).
-- **"Loại hình công việc" 고정 4종 재확인**: `npx tsc --noEmit` 클린,
-  `npm run build` 성공, `npm test` 6/6 파일 통과. `get_page_text`로
-  "Toàn thời gian cố định/Bán thời gian cố định/Toàn thời gian tạm thời/
-  Khác" 4개 칩이 항상 다 렌더되는 것 확인(이전엔 2개만 보였음).
+- **되돌림(동적 목록) + Giới tính/Độ tuổi 추가 재확인**: `npx tsc --noEmit`
+  클린, `npm run build` 성공, `npm test` 6/6 파일 통과. `get_page_text`로
+  "Điều kiện khác" 패널이 Giới tính/Độ tuổi/Loại hình công việc(급구 공고
+  실제 값 기준 2개, 동적)/Từ khóa 4행으로 렌더되는 것 확인.
 
 ## 발견된 문제
 
@@ -206,8 +203,9 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
 
 ## 다음 결정사항
 
-1. **이번 레이아웃 재구성분 commit + master push + Vercel Production
-   배포**(FAST/NORMAL 흐름대로 진행 — 2026-09-18 사용자 지시 유효).
+1. **Giới tính/Độ tuổi 실제 데이터 연결**: 지금은 UI만 있고 local_jobs에
+   컬럼이 없어 필터링 안 됨 — 성별/연령 컬럼을 실제로 추가할지(+PostJob.tsx
+   입력 필드도 필요), 아니면 UI만 유지할지 사용자 판단 필요.
 2. `0016_local_jobs_work_duration_draft.sql`(미적용 orphan draft)을 그대로
    둘지, 삭제할지, 아니면 그 draft가 의도했던 "자유텍스트 계약기간" 개념을
    별도로 살릴지 — 사용자 판단 필요.

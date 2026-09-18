@@ -61,6 +61,7 @@ const TIME_PRESETS: { label: string; buckets: TimeBucket[] }[] = [
 // "Chọn thủ công" 시간 드롭다운용 — 실제 필터링에는 안 쓰는 순수 UI라
 // 30분 단위 등 세분화할 필요 없이 정시(00:00~23:00)만 제공한다.
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`)
+const AGE_OPTIONS = ['18 - 24 tuổi', '25 - 34 tuổi', '35 - 44 tuổi', '45 - 54 tuổi', 'Trên 55 tuổi']
 function sameSet<T>(a: Set<T>, items: T[]): boolean {
   return a.size === items.length && items.every((x) => a.has(x))
 }
@@ -201,6 +202,10 @@ export default function UrgentJobsPage() {
   // workDays/hours가 비어있는(=일정 미기재) 공고를 제외하는 진짜 필터.
   const [excludeUnspecifiedDays, setExcludeUnspecifiedDays] = useState(false)
   const [excludeUnspecifiedHours, setExcludeUnspecifiedHours] = useState(false)
+  // "Điều kiện khác" 성별/연령 — local_jobs에 대응 컬럼이 없어 실제 필터링에는
+  // 반영 안 되는 UI 상태만(사용자 지시로 알바몬 캡처본 구조 그대로 추가).
+  const [genderFilter, setGenderFilter] = useState<'male' | 'female' | null>(null)
+  const [ageFilter, setAgeFilter] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
   const [regionSearch, setRegionSearch] = useState('')
   const [includeKeywords, setIncludeKeywords] = useState<string[]>([])
@@ -889,6 +894,41 @@ export default function UrgentJobsPage() {
           onClose={closePanel}
         >
           <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Giới tính</p>
+            <div className="jm-filter-row__body">
+              <div className="jm-filter-dropdown__chips">
+                <button
+                  type="button"
+                  className={`jm-chip${genderFilter === 'male' ? ' is-selected' : ''}`}
+                  onClick={() => setGenderFilter((g) => (g === 'male' ? null : 'male'))}
+                >
+                  Nam
+                </button>
+                <button
+                  type="button"
+                  className={`jm-chip${genderFilter === 'female' ? ' is-selected' : ''}`}
+                  onClick={() => setGenderFilter((g) => (g === 'female' ? null : 'female'))}
+                >
+                  Nữ
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Độ tuổi</p>
+            <div className="jm-filter-row__body">
+              <select
+                className="jm-workhour-manual-select"
+                value={ageFilter}
+                onChange={(e) => setAgeFilter(e.target.value)}
+                aria-label="Độ tuổi"
+              >
+                <option value="">Chọn độ tuổi</option>
+                {AGE_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="jm-filter-row">
             <p className="jm-filter-row__label">Loại hình công việc</p>
             <div className="jm-filter-row__body">
               {workPeriodOptions.length === 0 ? (
@@ -974,7 +1014,7 @@ export default function UrgentJobsPage() {
             <button
               type="button"
               className="jm-filter-dropdown__reset"
-              onClick={() => { setWorkPeriods(new Set()); setIncludeKeywords([]); setExcludeKeywords([]) }}
+              onClick={() => { setGenderFilter(null); setAgeFilter(''); setWorkPeriods(new Set()); setIncludeKeywords([]); setExcludeKeywords([]) }}
             >
               ↻ Đặt lại
             </button>
