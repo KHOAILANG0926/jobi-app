@@ -3246,7 +3246,9 @@ a:hover {
 .jm-region-col__head {
   margin: 0;
   padding: 0.45rem 0.7rem;
-  font-size: 0.8rem;
+  /* 2026-09-18 사용자 지시("제목이 하단보다 글씨가 커야되니까") — 목록
+   * 항목(15px)보다 커야 하는 헤더라 16px로. */
+  font-size: 16px;
   font-weight: 700;
   color: var(--color-muted);
   background: #f7f8fa;
@@ -3280,8 +3282,10 @@ a:hover {
   font-family: inherit;
   /* 2026-09-17 사용자 지시("글씨가 너무 크다", 알바몬 캡처본과 비교) —
    * 1.12rem(17.9px)은 알바몬 실제 패널(훨씬 촘촘한 텍스트)보다 너무 커서
-   * 축소. */
-  font-size: 0.85rem;
+   * 축소했었음. 2026-09-18 재지시 — 15px로 다시 키움(3칸 구조 기준
+   * 실측: 13개 중 1→2개만 2줄로 꺾여 구조는 안 깨짐, 사용자가 비교
+   * 샘플 보고 승인). */
+  font-size: 15px;
   color: var(--color-text);
   cursor: pointer;
 }
