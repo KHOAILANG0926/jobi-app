@@ -3161,8 +3161,10 @@ a:hover {
   box-sizing: border-box;
   /* 2026-09-17 사용자 지시("검색칸이 너무커 반으로 줄여") — 세로 padding을
    * 절반으로(0.5rem→0.25rem). 2026-09-18 추가 지시("검색 사이즈 4/1로 줄여")
-   * — 최초 원본(0.5rem) 기준 1/4로(0.5rem→0.125rem). */
-  padding: 0.125rem 0.7rem;
+   * — 최초 원본(0.5rem) 기준 1/4로(0.5rem→0.125rem). 같은 날 "검색바 높이
+   * 20% 더 키워줘"로 재조정 — 실측 높이(27.2px) 기준 20% 늘린 값
+   * (32.8px)에 맞춰 0.125rem→0.3rem. */
+  padding: 0.3rem 0.7rem;
   border: 1.5px solid var(--color-border);
   /* 2026-09-17 사용자 지시 — 알바몬은 거의 각진 사각형인데 --radius-sm
    * (10px)는 줄어든 박스 높이 기준으로 알약처럼 보임. 훨씬 작게. */
@@ -3185,9 +3187,10 @@ a:hover {
  * 일부만 차지함). 처음엔 Khu vực 패널 검색창만 줄였는데("Ngành nghề는
  * 대상 아님"), 사용자가 다시 캡처본을 보여주며 "계속 그대로야"로 확인 —
  * Ngành nghề 검색창도 동일하게 폭 25%로. */
+/* 2026-09-18 사용자 지시("검색바 너무 줄였다 20% 더 넓혀줘") — 25% → 30%. */
 .jm-search-input-wrap--khu-vuc,
 .jm-search-input-wrap--nganh-nghe {
-  width: 25%;
+  width: 30%;
 }
 .jm-search-input-wrap .jm-filter-dropdown__search {
   padding-right: 2.1rem;
@@ -3323,6 +3326,11 @@ a:hover {
   /* 2026-09-17 사용자 지시 — 132px로는 "Nhà máy / Công nghiệp" 같은 긴
    * 이름이 두 줄로 밀렸음, 폭을 넓혀 한 줄에 더 잘 들어가게 함. */
   flex: 0 0 170px;
+}
+/* 2026-09-18 사용자 지시("목록마다 간격을 만들어줘 너무 붙었어") —
+ * Ngành nghề lớn(대분류) 목록 항목들이 서로 붙어있어 답답해 보였음. */
+.jm-region-col--narrow .jm-region-col__list li + li {
+  margin-top: 0.4rem;
 }
 .jm-region-col--wide {
   flex: 1;
