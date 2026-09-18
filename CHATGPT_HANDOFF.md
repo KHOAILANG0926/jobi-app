@@ -3,8 +3,15 @@
 ## 현재 작업
 
 **이번 세션: `job_duration`(근무기간 7구간) 컬럼 추가 + PostJob.tsx 필드 +
-급구 페이지 "근무기간" 필터 + 상세조건 패널에 "고용형태" 섹션 이동, 코드는
-구현·검증 완료. commit/push 전 상태.**
+급구 페이지 "근무기간" 필터 + 상세조건 패널에 "고용형태" 섹션 이동 —
+commit/push + Vercel Production 배포까지 완료, 실 사이트 확인함.**
+
+**이어서(같은 세션)**: 사용자가 알바몬 "근무기간" 패널 실제 캡처본을 보여주며
+"Thời gian làm việc" 패널 레이아웃 재구성 지시 — 라벨(Thời hạn làm việc/Ngày
+làm việc/Khung giờ)을 왼쪽에 굵게 고정, "근무요일"/"근무시간"에 "목록에서
+선택/직접선택" 전환(사각 버튼, 캡처본의 동그라미 라디오 대신) 추가. 코드
+구현·로컬 검증 완료, commit/push 전 상태 — 아래 "변경 내용"의 두 번째
+항목 참고.
 
 이전 세션들(A~I 라운드: 대분류/소분류 체계 전면 재설계, Khu vực 패널 UX 다수
 수정, 옛 Quận/Huyện 중간 단계 복원, 검색창/그리드/글자크기 재조정)은 전부
@@ -61,6 +68,30 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   4. 상단 주석 2곳(컴포넌트 설명, 예전엔 "성별/연령/고용형태 데이터 없어
      상세조건에서 제외"라던 부분)을 실제 반영된 상태로 갱신.
 
+### "Thời gian làm việc" 패널 레이아웃 재구성 (같은 날, 알바몬 캡처본 참고)
+- 새 CSS 클래스([src/index.css](src/index.css) `.jm-workhour-row` 계열,
+  `.jm-keyword-group__label` 근처): 라벨을 그룹 위가 아니라 왼쪽(고정폭
+  84px)에 굵게 배치, 옵션은 오른쪽 `.jm-workhour-row__body`에. 480px 이하
+  모바일은 미디어쿼리로 세로 스택으로 전환.
+- **"Ngày làm việc" 행**: 기존 "Ngày làm việc"(요일 프리셋)와 "Số ngày làm
+  việc/tuần"(주N일) 두 섹션을 한 행으로 합침 — "Chọn từ danh sách" 모드에서
+  프리셋 칩 + 주N일 칩을 같은 줄에, "Chọn thủ công" 모드에서 요일 하나씩
+  (월~일) 직접 토글. **두 모드 다 기존 `selectedDays`/`selectedDayCounts`
+  state를 그대로 써서 완전히 동작하는 진짜 기능**(가짜 UI 아님).
+- **"Khung giờ" 행**: "Chọn từ danh sách" 모드는 기존 시간대 프리셋+버킷
+  칩(그대로), "Chọn thủ công" 모드는 시작/종료 시각 드롭다운(00:00~23:00,
+  `HOUR_OPTIONS`)을 보여주지만 **실제 필터링에는 반영하지 않는 순수 UI**
+  — local_jobs.hours가 자유텍스트라 정확한 시/분 단위로 거를 데이터가
+  없음(workScheduleParse.ts는 버킷 단위 파싱만 가능). 화면에 "Bộ lọc theo
+  giờ chính xác chưa khả dụng..." 안내 문구로 명시해 사용자를 속이지
+  않도록 함(사용자에게 이 트레이드오프 확인 후 진행 — AskUserQuestion으로
+  확인함).
+- "목록에서 선택/직접선택" 전환 버튼은 캡처본의 동그라미 라디오 대신
+  기존 사각 버튼 스타일(`.jm-workhour-mode-btn`)로 — 사용자 지시
+  ("동그라미 말고 네모칸 유지").
+- "협의 제외"(알바몬 원본에 있는 체크박스)는 이번 범위에 포함 안 함 —
+  대응하는 데이터가 없고 사용자가 명시적으로 요청하지 않아 추가 안 함.
+
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린.
@@ -75,6 +106,11 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   아직 아무도 등록 안 함) 실제 필터링 동작(칩 선택 → 결과 줄어듦)은 로컬
   테스트로 검증 못 함 — 코드 로직은 기존 workPeriod 필터와 완전히 동일한
   패턴이라 구조적으로는 신뢰 가능.
+- 패널 레이아웃 재구성 후 재확인: `npx tsc --noEmit` 클린, `npm run build`
+  성공, `npm test` 6/6 파일 통과(회귀 없음). 로컬 브라우저(데스크톱+375px
+  모바일)로 라벨 왼쪽/굵게, "Chọn từ danh sách"↔"Chọn thủ công" 전환(요일
+  칩↔개별 요일, 시간 프리셋↔시작/종료 드롭다운) 전부 정상 렌더 확인,
+  콘솔 에러 없음(무관한 404 2건은 기존부터 있던 것).
 
 ## 발견된 문제
 
@@ -96,9 +132,8 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
 
 ## 다음 결정사항
 
-1. **commit + master push + Vercel Production 배포**(이번 세션 마무리
-   단계, FAST/NORMAL 흐름대로 별도 승인 없이 진행 — 사용자가 "일단 진행하는건
-   왠만하면 허락받지말고 진행해줘"로 확인함, 2026-09-18).
+1. **이번 레이아웃 재구성분 commit + master push + Vercel Production
+   배포**(FAST/NORMAL 흐름대로 진행 — 2026-09-18 사용자 지시 유효).
 2. `0016_local_jobs_work_duration_draft.sql`(미적용 orphan draft)을 그대로
    둘지, 삭제할지, 아니면 그 draft가 의도했던 "자유텍스트 계약기간" 개념을
    별도로 살릴지 — 사용자 판단 필요.

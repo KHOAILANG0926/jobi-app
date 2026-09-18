@@ -3433,6 +3433,87 @@ a:hover {
   margin: 0 0 0.4rem;
 }
 
+/* "Thời gian làm việc" 패널 전용 — 알바몬 캡처본 참고(2026-09-18 사용자
+ * 지시): 라벨을 위가 아니라 왼쪽에 굵게 고정하고, 옵션은 오른쪽에 배치. */
+.jm-workhour-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.jm-workhour-row + .jm-workhour-row {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.jm-workhour-row__label {
+  flex: 0 0 84px;
+  width: 84px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0.3rem 0 0;
+}
+
+.jm-workhour-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* "목록에서 선택 / 직접선택" 전환 — 캡처본은 라디오(동그라미)지만 사용자
+ * 지시로 동그라미 대신 기존 사각 버튼 스타일을 그대로 쓴다. */
+.jm-workhour-mode-toggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.jm-workhour-mode-btn {
+  border: 1.5px solid var(--color-border);
+  background: #fff;
+  border-radius: 4px;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.jm-workhour-mode-btn.is-selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.jm-workhour-manual-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jm-workhour-manual-select {
+  padding: 0.3rem 0.5rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.jm-workhour-manual-hint {
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 480px) {
+  .jm-workhour-row {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .jm-workhour-row__label {
+    width: auto;
+  }
+}
+
 .jm-keyword-input-row {
   display: flex;
   gap: 0.4rem;
