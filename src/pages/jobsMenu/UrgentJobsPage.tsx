@@ -61,9 +61,6 @@ const TIME_PRESETS: { label: string; buckets: TimeBucket[] }[] = [
 // "Chọn thủ công" 시간 드롭다운용 — 실제 필터링에는 안 쓰는 순수 UI라
 // 30분 단위 등 세분화할 필요 없이 정시(00:00~23:00)만 제공한다.
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`)
-// "Điều kiện khác" 패널 "Loại hình công việc" 행 — local_jobs.work_period는
-// CHECK 제약 없는 자유 text지만, 실측 조회로 확인된 값은 이 4종뿐이다.
-const WORK_PERIOD_OPTIONS = ['Toàn thời gian cố định', 'Bán thời gian cố định', 'Toàn thời gian tạm thời', 'Khác']
 function sameSet<T>(a: Set<T>, items: T[]): boolean {
   return a.size === items.length && items.every((x) => a.has(x))
 }
@@ -331,15 +328,14 @@ export default function UrgentJobsPage() {
     [jobs, todayStr],
   )
 
-  // 2026-09-18 사용자 지시("이거 왜 반영안했어", 알바몬 캡처본은 급구
-  // 공고 존재 여부와 무관하게 "고용형태" 7종을 항상 다 보여줌) — 원래는
-  // 급구 공고에 실제 존재하는 값만 동적으로 뽑았는데(그래서 4종 중 2종만
-  // 보였음), job_duration(Thời hạn làm việc)과 같은 원칙으로 통일한다:
-  // local_jobs.work_period 전체(급구 한정 아님)에서 실측 확인된 4개 고정값
-  // (Toàn thời gian cố định 229건/Bán thời gian cố định 1건/Toàn thời gian
-  // tạm thời 3건/Khác 11건, DB 직접 조회로 확인 — CHATGPT_HANDOFF.md 참고)
-  // 을 항상 전부 보여준다.
-  const workPeriodOptions = WORK_PERIOD_OPTIONS
+  // work_period는 크롤러 자유텍스트(닫힌 enum 아님)라 job_duration과 달리
+  // 고정 목록을 쓰지 않는다 — 실제 존재하는 값만 동적으로 보여준다(2026-09-18
+  // 사용자 지시로 고정 목록 시도 후 되돌림).
+  const workPeriodOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const j of urgentJobs) if (j.workPeriod) set.add(j.workPeriod)
+    return [...set].sort()
+  }, [urgentJobs])
 
   // 성/시(1단계)뿐 아니라 동/사(2단계)도 공고 존재 여부와 무관하게 항상
   // 전체를 보여준다(2026-09-17 사용자 지시 — "2차 지역은 왜 다 안보여?").
@@ -895,18 +891,22 @@ export default function UrgentJobsPage() {
           <div className="jm-filter-row">
             <p className="jm-filter-row__label">Loại hình công việc</p>
             <div className="jm-filter-row__body">
-              <div className="jm-filter-dropdown__chips">
-                {workPeriodOptions.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`jm-chip${workPeriods.has(p) ? ' is-selected' : ''}`}
-                    onClick={() => toggleWorkPeriod(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
+              {workPeriodOptions.length === 0 ? (
+                <p className="hint">Chưa có dữ liệu loại hình công việc cho tin tuyển gấp hiện tại.</p>
+              ) : (
+                <div className="jm-filter-dropdown__chips">
+                  {workPeriodOptions.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`jm-chip${workPeriods.has(p) ? ' is-selected' : ''}`}
+                      onClick={() => toggleWorkPeriod(p)}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="jm-filter-row">
