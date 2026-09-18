@@ -3182,10 +3182,11 @@ a:hover {
 /* 2026-09-18 사용자 지시("검색 사이즈 4/1로 줄여") — 세로 padding(높이)이
  * 아니라 가로 폭을 줄이라는 뜻이었음("높이를 축소하라는게 아니고 길이를
  * 축소하라는거야", 알바몬 캡처본은 검색창이 패널 폭 전체가 아니라 왼쪽
- * 일부만 차지함). Khu vực 패널 검색창만 폭을 원본(패널 100%) 대비 1/4로 —
- * Ngành nghề 검색창은 이번 지시 대상이 아니라 그대로 둠(.jm-search-input-wrap
- * 공유 클래스라 별도 modifier로 분리). */
-.jm-search-input-wrap--khu-vuc {
+ * 일부만 차지함). 처음엔 Khu vực 패널 검색창만 줄였는데("Ngành nghề는
+ * 대상 아님"), 사용자가 다시 캡처본을 보여주며 "계속 그대로야"로 확인 —
+ * Ngành nghề 검색창도 동일하게 폭 25%로. */
+.jm-search-input-wrap--khu-vuc,
+.jm-search-input-wrap--nganh-nghe {
   width: 25%;
 }
 .jm-search-input-wrap .jm-filter-dropdown__search {
@@ -3343,10 +3344,12 @@ a:hover {
  * 박스를 없애니 자연히 더 많이 들어가고, 보기에도 알바몬처럼 깔끔해졌다. */
 .jm-region-col__list--grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  /* 2026-09-17 사용자 지시 — "간격 2배"로 0.35rem/0.6rem → 0.7rem/1.2rem
-   * 했는데 원래 값 자체가 작아서 화면상 차이가 거의 안 보였음
-   * ("사이 간격조정한거 맞아 똑같은데") — 눈에 띄게 확실히 더 벌림. */
+  /* 2026-09-18 사용자 지시 — 구분선(미리보기 3번) 대신 이 방향으로 확정:
+   * 베트남어 라벨이 길어서 4~5칸으로는 거의 다 두 줄로 꺾여 줄 높이가
+   * 들쭉날쭉했다. auto-fill(작은 minmax) 대신 고정 3칸으로 줄이고 칸
+   * 폭을 넓혀서, 대부분 라벨이 한 줄에 들어가게 한다(세로 스크롤은
+   * 늘어나는 것을 감수). */
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem 2.2rem;
   padding: 0.5rem;
 }
