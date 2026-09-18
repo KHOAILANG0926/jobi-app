@@ -17,6 +17,16 @@ làm việc/Khung giờ)을 왼쪽에 굵게 고정, "근무요일"/"근무시�
 가짜 필터가 되지 않도록 "일정 미기재 공고 제외"라는 실제 데이터 기반 필터로
 구현). 전체 commit/push + Production 배포 완료, 실 사이트 확인함.
 
+**세 번째 라운드(같은 세션)**: "상세조건은 또 안맞아" — "Điều kiện khác" 패널이
+여전히 옛 라벨-위-배치(jm-keyword-group) 구조라 "Thời gian làm việc"와
+불일치. 알바몬 "상세조건" 캡처본(성별/연령/고용형태/키워드, 전부 라벨
+왼쪽-굵게 행)에 맞춰 공용 레이아웃으로 통일 — `.jm-workhour-row`를
+`.jm-filter-row`로 일반화(더 이상 근무시간 패널 전용 아님)하고
+"Điều kiện khác"에도 적용: "Loại hình công việc" 행 + "Từ khóa" 행(Bao
+gồm/Loại trừ를 한 라벨 밑에 통합, 알바몬 "키워드" 행처럼). 성별/연령은
+여전히 대응 DB 컬럼이 없어 제외(기존 결정 유지). commit/push + Production
+배포 완료, 실 사이트 확인함.
+
 이전 세션들(A~I 라운드: 대분류/소분류 체계 전면 재설계, Khu vực 패널 UX 다수
 수정, 옛 Quận/Huyện 중간 단계 복원, 검색창/그리드/글자크기 재조정)은 전부
 master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) — 자세한
@@ -109,6 +119,22 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   결과가 0건인 공고를 제외하는 진짜 필터(`excludeUnspecifiedDays`/
   `excludeUnspecifiedHours` state, activeFilterCount·초기화 버튼에도 포함).
 
+### "Điều kiện khác" 패널도 같은 행 레이아웃으로 통일 (세 번째 라운드)
+- CSS 클래스 일반화: `.jm-workhour-row`/`__label`/`__body` → `.jm-filter-row`/
+  `__label`/`__body`(sed로 전체 치환, "Thời gian làm việc"/"Điều kiện khác"
+  둘 다 이제 이 클래스를 공유). `.jm-workhour-mode-toggle` 등 근무시간
+  패널 전용 요소는 이름 그대로 유지(다른 패널에서 안 씀).
+- "Loại hình công việc" 행: 기존 `jm-keyword-group`(라벨 위) → `jm-filter-row`
+  (라벨 왼쪽) 변경, 내용물(work_period 다중선택 칩)은 그대로.
+- "Chỉ hiện tin chứa từ khóa"/"Loại trừ tin chứa từ khóa" 두 개 별도
+  `jm-keyword-group`을 "Từ khóa" 라는 하나의 `jm-filter-row`로 합침(알바몬
+  캡처본의 "키워드" 행이 포함/제외 둘 다 한 라벨 아래 있는 구조와 동일) —
+  내부에 `jm-keyword-group__label`(작은 서브라벨) "Bao gồm (n)"/"Loại trừ
+  (n)"로 구분, 기존 카운트가 없던 것에 개수 표시만 추가(알바몬처럼 "0/20"
+  같은 임의 상한은 만들지 않음 — 우리 쪽엔 실제 글자수 제한이 없어서).
+- 더 이상 아무 데서도 안 쓰는 `.jm-keyword-group + .jm-keyword-group` CSS
+  규칙(이전엔 옛 구조의 그룹 간 여백용)도 같이 제거.
+
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린.
@@ -133,6 +159,11 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   sách"/"Chọn thủ công" 전환 시 비활성 그룹이 숨겨지지 않고 흐려지기만
   하는 것 확인(`get_page_text`로 두 그룹 텍스트가 항상 같이 나오는 것
   확인), "Loại trừ tin chưa rõ..." 체크박스 렌더 확인.
+- **"Điều kiện khác" 레이아웃 통일 재확인**: `npx tsc --noEmit` 클린,
+  `npm run build` 성공, `npm test` 6/6 파일 통과. 브라우저 900px 폭에서
+  "Loại hình công việc"/"Từ khóa" 라벨이 왼쪽에 굵게, 내용은 오른쪽에
+  나란히 배치되는 것 스크린샷으로 확인(480px 이하에서는 기존 미디어쿼리로
+  세로 스택 — "Thời gian làm việc" 패널과 동일 반응형 규칙 공유).
 
 ## 발견된 문제
 

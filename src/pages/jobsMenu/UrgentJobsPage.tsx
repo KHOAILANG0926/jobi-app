@@ -701,9 +701,9 @@ export default function UrgentJobsPage() {
           onToggle={() => togglePanel('workPeriod')}
           onClose={closePanel}
         >
-          <div className="jm-workhour-row">
-            <p className="jm-workhour-row__label">Thời hạn làm việc</p>
-            <div className="jm-workhour-row__body">
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Thời hạn làm việc</p>
+            <div className="jm-filter-row__body">
               <div className="jm-filter-dropdown__chips">
                 {JOB_DURATION_OPTIONS.map((d) => (
                   <button
@@ -718,9 +718,9 @@ export default function UrgentJobsPage() {
               </div>
             </div>
           </div>
-          <div className="jm-workhour-row">
-            <p className="jm-workhour-row__label">Ngày làm việc ({selectedDays.size + selectedDayCounts.size})</p>
-            <div className="jm-workhour-row__body">
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Ngày làm việc ({selectedDays.size + selectedDayCounts.size})</p>
+            <div className="jm-filter-row__body">
               <div className="jm-workhour-mode-toggle">
                 <button
                   type="button"
@@ -786,9 +786,9 @@ export default function UrgentJobsPage() {
               </label>
             </div>
           </div>
-          <div className="jm-workhour-row">
-            <p className="jm-workhour-row__label">Khung giờ ({selectedTimeBuckets.size})</p>
-            <div className="jm-workhour-row__body">
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Khung giờ ({selectedTimeBuckets.size})</p>
+            <div className="jm-filter-row__body">
               <div className="jm-workhour-mode-toggle">
                 <button
                   type="button"
@@ -887,84 +887,87 @@ export default function UrgentJobsPage() {
           onToggle={() => togglePanel('detail')}
           onClose={closePanel}
         >
-          <div className="jm-keyword-group">
-            <p className="jm-keyword-group__label">Loại hình công việc</p>
-            {workPeriodOptions.length === 0 ? (
-              <p className="hint">Chưa có dữ liệu loại hình công việc cho tin tuyển gấp hiện tại.</p>
-            ) : (
-              <div className="jm-filter-dropdown__chips">
-                {workPeriodOptions.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`jm-chip${workPeriods.has(p) ? ' is-selected' : ''}`}
-                    onClick={() => toggleWorkPeriod(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="jm-keyword-group">
-            <p className="jm-keyword-group__label">Chỉ hiện tin chứa từ khóa</p>
-            <div className="jm-keyword-input-row">
-              <input
-                type="text"
-                className="jm-filter-dropdown__search"
-                placeholder="vd: pha chế, giao hàng"
-                value={includeDraft}
-                onChange={(e) => setIncludeDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(includeDraft, includeKeywords, setIncludeKeywords, setIncludeDraft) } }}
-              />
-              <button
-                type="button"
-                className="btn btn--sm btn--ghost"
-                onClick={() => addKeyword(includeDraft, includeKeywords, setIncludeKeywords, setIncludeDraft)}
-              >
-                Thêm
-              </button>
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Loại hình công việc</p>
+            <div className="jm-filter-row__body">
+              {workPeriodOptions.length === 0 ? (
+                <p className="hint">Chưa có dữ liệu loại hình công việc cho tin tuyển gấp hiện tại.</p>
+              ) : (
+                <div className="jm-filter-dropdown__chips">
+                  {workPeriodOptions.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`jm-chip${workPeriods.has(p) ? ' is-selected' : ''}`}
+                      onClick={() => toggleWorkPeriod(p)}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            {includeKeywords.length > 0 && (
-              <div className="jm-filter-dropdown__chips">
-                {includeKeywords.map((k) => (
-                  <span key={k} className="jm-keyword-tag">
-                    {k}
-                    <button type="button" onClick={() => setIncludeKeywords(includeKeywords.filter((x) => x !== k))} aria-label={`Xóa từ khóa ${k}`}>×</button>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-          <div className="jm-keyword-group">
-            <p className="jm-keyword-group__label">Loại trừ tin chứa từ khóa</p>
-            <div className="jm-keyword-input-row">
-              <input
-                type="text"
-                className="jm-filter-dropdown__search"
-                placeholder="vd: bán hàng đa cấp"
-                value={excludeDraft}
-                onChange={(e) => setExcludeDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(excludeDraft, excludeKeywords, setExcludeKeywords, setExcludeDraft) } }}
-              />
-              <button
-                type="button"
-                className="btn btn--sm btn--ghost"
-                onClick={() => addKeyword(excludeDraft, excludeKeywords, setExcludeKeywords, setExcludeDraft)}
-              >
-                Thêm
-              </button>
-            </div>
-            {excludeKeywords.length > 0 && (
-              <div className="jm-filter-dropdown__chips">
-                {excludeKeywords.map((k) => (
-                  <span key={k} className="jm-keyword-tag">
-                    {k}
-                    <button type="button" onClick={() => setExcludeKeywords(excludeKeywords.filter((x) => x !== k))} aria-label={`Xóa từ khóa ${k}`}>×</button>
-                  </span>
-                ))}
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Từ khóa</p>
+            <div className="jm-filter-row__body">
+              <p className="jm-keyword-group__label">Bao gồm ({includeKeywords.length})</p>
+              <div className="jm-keyword-input-row">
+                <input
+                  type="text"
+                  className="jm-filter-dropdown__search"
+                  placeholder="vd: pha chế, giao hàng"
+                  value={includeDraft}
+                  onChange={(e) => setIncludeDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(includeDraft, includeKeywords, setIncludeKeywords, setIncludeDraft) } }}
+                />
+                <button
+                  type="button"
+                  className="btn btn--sm btn--ghost"
+                  onClick={() => addKeyword(includeDraft, includeKeywords, setIncludeKeywords, setIncludeDraft)}
+                >
+                  Thêm
+                </button>
               </div>
-            )}
+              {includeKeywords.length > 0 && (
+                <div className="jm-filter-dropdown__chips">
+                  {includeKeywords.map((k) => (
+                    <span key={k} className="jm-keyword-tag">
+                      {k}
+                      <button type="button" onClick={() => setIncludeKeywords(includeKeywords.filter((x) => x !== k))} aria-label={`Xóa từ khóa ${k}`}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="jm-keyword-group__label jm-keyword-group__label--spaced">Loại trừ ({excludeKeywords.length})</p>
+              <div className="jm-keyword-input-row">
+                <input
+                  type="text"
+                  className="jm-filter-dropdown__search"
+                  placeholder="vd: bán hàng đa cấp"
+                  value={excludeDraft}
+                  onChange={(e) => setExcludeDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(excludeDraft, excludeKeywords, setExcludeKeywords, setExcludeDraft) } }}
+                />
+                <button
+                  type="button"
+                  className="btn btn--sm btn--ghost"
+                  onClick={() => addKeyword(excludeDraft, excludeKeywords, setExcludeKeywords, setExcludeDraft)}
+                >
+                  Thêm
+                </button>
+              </div>
+              {excludeKeywords.length > 0 && (
+                <div className="jm-filter-dropdown__chips">
+                  {excludeKeywords.map((k) => (
+                    <span key={k} className="jm-keyword-tag">
+                      {k}
+                      <button type="button" onClick={() => setExcludeKeywords(excludeKeywords.filter((x) => x !== k))} aria-label={`Xóa từ khóa ${k}`}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="jm-filter-dropdown__footer">
             <button

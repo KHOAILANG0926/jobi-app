@@ -3420,12 +3420,6 @@ a:hover {
   text-decoration: underline;
 }
 
-.jm-keyword-group + .jm-keyword-group {
-  margin-top: 0.85rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--color-border);
-}
-
 .jm-keyword-group__label {
   font-size: 0.8rem;
   font-weight: 600;
@@ -3433,21 +3427,29 @@ a:hover {
   margin: 0 0 0.4rem;
 }
 
-/* "Thời gian làm việc" 패널 전용 — 알바몬 캡처본 참고(2026-09-18 사용자
- * 지시): 라벨을 위가 아니라 왼쪽에 굵게 고정하고, 옵션은 오른쪽에 배치. */
-.jm-workhour-row {
+/* "Điều kiện khác" 패널의 "Từ khóa" 행 안에서 포함/제외 두 서브라벨을
+ * 구분 — 알바몬 캡처본처럼 한 "키워드" 라벨 밑에 둘 다 들어간다. */
+.jm-keyword-group__label--spaced {
+  margin-top: 0.75rem;
+}
+
+/* 필터 패널 공통 행 레이아웃 — 알바몬 캡처본 참고(2026-09-18 사용자 지시):
+ * 라벨을 위가 아니라 왼쪽에 굵게 고정하고, 옵션은 오른쪽에 배치. 처음엔
+ * "Thời gian làm việc" 패널 전용이었는데, "Điều kiện khác"도 같은 구조여야
+ * 한다는 지적("상세조건은 또 안맞아")으로 공용 클래스로 승격. */
+.jm-filter-row {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
 }
 
-.jm-workhour-row + .jm-workhour-row {
+.jm-filter-row + .jm-filter-row {
   margin-top: 0.85rem;
   padding-top: 0.85rem;
   border-top: 1px solid var(--color-border);
 }
 
-.jm-workhour-row__label {
+.jm-filter-row__label {
   flex: 0 0 84px;
   width: 84px;
   font-size: 0.85rem;
@@ -3456,7 +3458,7 @@ a:hover {
   margin: 0.3rem 0 0;
 }
 
-.jm-workhour-row__body {
+.jm-filter-row__body {
   flex: 1;
   min-width: 0;
 }
@@ -3526,11 +3528,11 @@ a:hover {
 }
 
 @media (max-width: 480px) {
-  .jm-workhour-row {
+  .jm-filter-row {
     flex-direction: column;
     gap: 0.35rem;
   }
-  .jm-workhour-row__label {
+  .jm-filter-row__label {
     width: auto;
   }
 }
