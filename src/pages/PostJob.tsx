@@ -1,6 +1,7 @@
 import { FormEvent, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
+import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { supabase } from '../lib/supabase'
@@ -13,6 +14,7 @@ const emptyForm = {
   salary: '',
   location: '',
   hours: '',
+  jobDuration: '',
   description: '',
   employerPhone: '',
   applicationDeadline: '',
@@ -84,6 +86,7 @@ export function PostJob() {
         location: form.location.trim(),
         description: form.description.trim(),
         hours: form.hours.trim() || undefined,
+        jobDuration: form.jobDuration || undefined,
         employerPhone: form.employerPhone.trim(),
         applicationDeadline: deadline,
         urgent: form.urgent,
@@ -156,6 +159,17 @@ export function PostJob() {
           <input className="field__input" value={form.hours}
             onChange={(e) => setForm((f) => ({ ...f, hours: e.target.value }))}
             placeholder="Ca sáng, cuối tuần..." />
+        </label>
+
+        <label className="field">
+          <span className="field__label">Thời hạn làm việc (tuỳ chọn)</span>
+          <select className="field__input" value={form.jobDuration}
+            onChange={(e) => setForm((f) => ({ ...f, jobDuration: e.target.value }))}>
+            <option value="">— Không chọn —</option>
+            {JOB_DURATION_OPTIONS.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </label>
 
         <label className="field">

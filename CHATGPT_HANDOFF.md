@@ -2,384 +2,116 @@
 
 ## 현재 작업
 
-**커밋 완료 + master push + Vercel Production 배포까지 전부 완료**
-(`2fbf38e`→`3ddfaac`→`bd527a0`→`371c084`→`8b63a73`→`6777fd0`→`30e8fcd`→
-`d5cdfad`→`1de8e3f`→`316ad40`→`f59ba6f`→`2337ccc`→`b92c4a9`→`8c626bb`):
-급구 페이지 **대분류/소분류 체계 전면 재설계**(A~E) + **Khu vực(지역)
-패널 UX 수정 3라운드**(F: 정렬/칩바/기본값/검색창/아이콘/폭, G: 옛
-Quận/Huyện 중간 단계 복원+3열 구조, H: 패널 기본 열림+검색창 폭 재수정)
-+ **집 PC에서 이어서 진행한 I라운드**(검색창 폭 통일/소분류 그리드
-3칸/글자크기 재조정/목록 간격/검색창 폭·높이 재확대 — 아래 I 참고).
-기존 7개 카테고리(cafe/restaurant/retail/delivery/cleaning/factory/
-office/other)를 폐기하고 알바몬 실제 사이트에서 직접 확인한 **12개
-대분류+기타=13개**, **소분류 158개**로 교체·전면 반영 완료. 지역 필터는
-2025년 베트남 행정개편 이후 실제 2단계(Tỉnh/Thành phố → Xã/Phường)
-체계를 정확히 반영하면서도, 폐지된 Quận/Huyện을 생활권 탐색용 중간 열로
-복원해 알바몬과 유사한 3열 UI를 제공한다.
+**이번 세션: `job_duration`(근무기간 7구간) 컬럼 추가 + PostJob.tsx 필드 +
+급구 페이지 "근무기간" 필터 + 상세조건 패널에 "고용형태" 섹션 이동, 코드는
+구현·검증 완료. commit/push 전 상태.**
 
-**세션 인계 메모(2026-09-18)**: "나머지는 회사에서 하자"로 끊겼던 세션을
-사용자가 집 PC에서 이어받았는데, 그 시점에 집 PC 로컬에 회사 PC master와
-충돌하는 로컬 전용 커밋(근무기간 패널 라벨-옵션 재배치)이 하나 있었음 —
-`backup-home-2026-09-18-workperiod-panel` 브랜치로 보존해두고 master는
-origin(회사 PC 버전) 기준으로 `git reset --hard` 동기화함. 이 백업 브랜치
-작업은 아직 마스터에 재적용 안 됨(아래 "다음 결정사항" 참고). **작업 방식
-변경**: 이후 세션은 코드 고치기 전에 계획을 먼저 설명하고 승인받은 뒤
-진행(Claude 메모리 `feedback_jobi_app_ask_before_work` 참고, 이 지시가
-집 PC 세션에는 처음엔 전달 안 돼 있었음 — 위 E 라운드 "발견된 문제" 참고).
-
-**세션 인계 메모 2(2026-09-18, "칸이 너무 길어져서 새창으로" 끊김)**: I라운드
-커밋(`0a7af24`) 이후, 코드 변경 없이 **긴 논의만 하고 실행 전에 세션이
-끊김** — 다음 세션은 아래 합의된 계획부터 바로 실행하면 됨(사용자가 이미
-"둘 다 가야지"로 승인함, DDL 실행 직전 단계에서 멈춤):
-
-1. **DB 마이그레이션**(아직 미실행 — 실행 전 사용자에게 정확한 SQL 다시
-   보여주고 확인받을 것, CLAUDE.md STRICT 등급): `ALTER TABLE local_jobs
-   ADD COLUMN job_duration text;`(nullable, 기본값 없음). 값 7종(알바몬
-   "근무기간" 하라/1주일이하/.../1년이상을 베트남어로 매핑): Một ngày /
-   Dưới 1 tuần / 1 tuần - 1 tháng / 1 - 3 tháng / 3 - 6 tháng / 6 tháng -
-   1 năm / Trên 1 năm.
-2. PostJob.tsx(기업 직접등록)에 `job_duration` 선택 필드 추가.
-3. 크롤러는 당장 손 안 댐 — vieclam24h.vn 소스 페이지에 이 정보 자체가
-   구조화돼 있지 않음을 크롤러 코드 주석("Thông tin chung 표에
-   Thời gian làm việc/Ngày làm việc가 애초에 존재하지 않음 — 실측 확인")
-   으로 확인함(직접 재접속은 403 차단으로 불가, 코드 근거로 판단).
-4. 급구 페이지에 "근무기간" 필터 섹션 추가 — 지금은 대부분 미입력으로
-   나올 걸 알고 진행(고용형태 work_period 때와 같은 논리: "가벼울 때
-   미리 만들어두면 나중에 데이터 쌓일 때 저절로 쓸모 생김").
-
-**별개로 합의된 것(아직 미실행)**: 상세조건(Điều kiện khác) 패널에
-"고용형태" 섹션 신설 — `work_period`(현재 근무기간 패널의 "Hình thức"가
-쓰는 것과 동일 컬럼)을 상세조건 쪽으로 옮기되, 라벨은 "Hình thức làm
-việc" 그대로 재사용하지 않고 고용형태(person-centric) 프레임에 맞는
-새 이름으로(예: "Loại hình công việc"). 알바몬 7종이 아니라 실제 DB에
-있는 4개 값만: Toàn thời gian cố định(229건)/Bán thời gian cố định
-(1건)/Toàn thời gian tạm thời(3건)/Khác(11건). 근무기간 패널에서는
-Hình thức 섹션을 빼는 것까지 포함(알바몬 실제 구조는 근무기간=시간
-관련만, 고용형태는 상세조건에 있음 — 캡처본 비교로 확인).
-
-**성별/연령**은 DB 컬럼 자체가 없어 이번 라운드에서 제외 — 알바몬처럼
-만들면 "가짜 필터"가 됨(코드에 이미 있는 설계 원칙과 충돌). 새 컬럼 +
-PostJob.tsx 입력 필요, 별도 논의 필요.
+이전 세션들(A~I 라운드: 대분류/소분류 체계 전면 재설계, Khu vực 패널 UX 다수
+수정, 옛 Quận/Huyện 중간 단계 복원, 검색창/그리드/글자크기 재조정)은 전부
+master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) — 자세한
+내용은 git log(`0a7af24` 이전 커밋들)로 확인 가능, 이 문서는 최신 스냅샷만
+유지하므로 과거 라운드 상세 내역은 누적하지 않는다.
 
 ## 변경 내용
 
-### A. 대분류 12개+기타 확정 (실제 알바몬 사이트에서 직접 확인)
-Ẩm thực · Đồ uống(외식·음료) / Quản lý cửa hàng · Bán hàng(매장관리·판매) /
-Dịch vụ(서비스) / Văn phòng(사무직) / Chăm sóc khách hàng · Kinh doanh
-(고객상담·리서치·영업) / Sản xuất · Xây dựng · Lao động phổ thông(생산·건설·
-노무) / CNTT · Kỹ thuật(IT·기술) / Thiết kế(디자인) / Truyền thông(미디어) /
-Lái xe · Giao hàng(운전·배달) / Y tế · Điều dưỡng · Nghiên cứu(병원·간호·
-연구) / Giáo dục · Giảng dạy(교육·강사) / Khác(기타).
+### DB 마이그레이션 (적용 완료, Production)
+- `ALTER TABLE local_jobs ADD COLUMN job_duration text;` — Supabase MCP로
+  실제 운영 프로젝트(`edhuesdnuxlbcfephutq`)에 적용 완료, `information_schema`
+  재조회로 컬럼 존재 확인함. nullable, CHECK 제약 없음.
+- 마이그레이션 파일: [supabase/migrations/20260918112447_local_jobs_job_duration.sql](supabase/migrations/20260918112447_local_jobs_job_duration.sql)
+  — 아직 커밋 전(git status 확인, add 필요).
+- **주의**: 기존 `supabase/migrations/0016_local_jobs_work_duration_draft.sql`
+  이라는 draft가 이미 있었음 — 이름이 비슷한(`work_duration`) 별개 컬럼으로,
+  ViecLam24h 원문 자유텍스트 계약기간 개념(예: "Dài hạn")이었고 **사용자
+  승인 전 상태로 한 번도 운영 DB에 적용된 적 없음**(grep으로 코드 전체에서
+  참조 0건 확인, 순수 orphan draft). 이번에 추가한 `job_duration`은 알바몬
+  스타일 고정 7구간이라 이름/값 체계가 다른 **별개의 새 컬럼**이다. 0016은
+  지우지 않고 그대로 뒀음 — 지울지는 사용자 판단 필요(아래 "다음 결정사항"
+  참고).
 
-베트남어 라벨은 전부 이번 세션에서 직접 번역(알바몬은 한국어 전용이라 공식
-베트남어 원본 없음) — 노래방/PC방/사우나 등도 "지금 공고가 없을 뿐 베트남에
-실존하는 업종"이라는 사용자 지적으로 전부 포함. 구분자는 알바몬 원문이
-"·"(가운뎃점)만 쓰고 "/"는 전혀 안 쓴다는 사용자 지적(`bd527a0`)으로, 158개
-소분류 전체에서 "/"를 "·"로 통일(순수 약어 "PG/PB"·"CAD/CAM"만 예외). 영어
-그대로 남겨뒀던 "(valet)"/"(quick service)"/"(narrator model)"/
-"(QA/Tester)" 4곳도 순수 베트남어로 재번역함.
-
-### B. crawler/classifier.py 전면 재설계
-기존 검증된 정규식 로직(classify()/classify_subcategory(), 22/17개 테스트)은
-**하나도 안 건드리고** 그대로 둔 채, 그 결과를 새 체계로 번역하는 레이어를
-추가하는 방식으로 안전하게 확장:
-- `LEGACY_CATEGORY_TO_MAJOR`(7→13 결정적 매핑), `LEGACY_SUB_TO_NEW`(기존
-  소분류 21개 → 새 소분류, 25개 항목 — 일부는 대분류 자체가 바뀜: 예)
-  캐셔/thu_ngan은 어느 업종이든 "Quản lý cửa hàng"으로, "안내데스크·리셉션"
-  으로 옮긴 le_tan은 "Văn phòng"이 아니라 "Dịch vụ"로), `map_to_new_taxonomy()`
-  함수가 크롤러 DB 쓰기 직전 마지막 단계에서 번역.
-- **신규 대분류 5개(cntt_ky_thuat/thiet_ke/giao_duc_giang_day/
-  y_te_dieu_duong/truyen_thong)**: 옛 7분류에 대응이 없어 classify()가
-  새 major id를 직접 반환하도록 새 정규식 3세트(`_CNTT_KY_THUAT`/
-  `_THIET_KE`/`_GIAO_DUC_GIANG_DAY`) 추가 — **DB의 category='other' 66건
-  실제 제목을 전부 눈으로 보고** 진짜 신호가 있는 것만 만듦(IT Helpdesk,
-  Giáo Viên Tin Học, Kiến Trúc Sư Thiết Kế Nội Thất, 3D Rigger 등 실제
-  사례로 검증). 나머지 2개(`_Y_TE_DIEU_DUONG`/`_TRUYEN_THONG`)는 이 66건
-  표본에 실제 신호가 0건이었지만, "매번 반복하지 말고 지금 최대한 넣어라"는
-  사용자 지시로 **베트남어 확실한 직군 용어 기반으로 미리 만듦(⚠️ 우리 DB
-  실제 공고로 검증된 게 아니라고 코드 주석에 명시** — 나중에 실제 공고
-  들어오면 재검증 필요).
-- **실사례 오분류 버그 2개 발견·수정**(DB 실 레코드로 확인):
-  1. id=4381 "Nhân Viên Kinh Doanh Tôn Thép"가 restaurant로 오분류 —
-     "lẩu"(전골)/"lâu"(오래, "hợp tác lâu dài")/"lau"(닦다)가 diacritics
-     제거 후 전부 "lau"로 접힘(기존 phở/phổ 버그와 동일 원인). `_LAU_DISH_RE`
-     로 phở 처리와 같은 방식 적용(실제 전골 메뉴 문맥일 때만 인정).
-  2. id=4430 "Nhân Viên R&D"가 retail로 오분류 — 설명문의 "BP sale"(부서명
-     언급)이 `\bsales?\b` 단독 매칭에 걸림. `_RETAIL`에서 단독 sale(s) 제거
-     (더 구체적인 "sales executive"/"nhan vien ban hang" 등은 유지).
-- 소분류 158개 전체를 `SUBCATEGORY_LABELS`(대분류별)에 등록. 셀프 테스트
-  67개(22+17+16+12) 전부 통과.
-- **크롤러가 앞으로 자동으로 새 체계를 쓰는지 실제 검증 완료** —
-  `crawl_topcv.py`(2곳)/`crawl_facebook.py`(1곳) 전부 `map_to_new_taxonomy()`
-  호출 확인 + 가상 신규 공고 3건("Pha Chế Cà Phê"/"Tài Xế Giao Hàng"/
-  "Giáo Viên Tiếng Anh")으로 전체 파이프라인 시뮬레이션해서 새 대분류/
-  소분류가 정확히 나오는 것 확인함. **앞으로 크롤링되는 신규 공고는 수동
-  작업 없이 자동으로 새 체계로 DB에 저장됨.**
-
-### C. DB 백필 — 활성 공고 273건 전부 재분류
-`reclassify_db.py`(기존 도구 재사용, map_to_new_taxonomy() 호출만 추가)로
-dry-run → 상세 crosstab 확인 → 사용자 승인 후 실제 적용. `local_jobs.category`/
-`subcategory`는 `text` 컬럼이라 DDL 마이그레이션 없이 UPDATE만으로 끝남.
-최종 분포: khac 53 / san_xuat_xay_dung 46 / am_thuc_do_uong 46 / van_phong
-44 / lai_xe_giao_hang 34 / cskh_kinh_doanh 24 / thiet_ke 7 / quan_ly_ban_hang
-6 / dich_vu 5 / cntt_ky_thuat 5 / giao_duc_giang_day 3 (합계 273, DB 직접
-재조회로 확인).
-
-### D. 프론트엔드 전체 반영
-- [types/job.ts](src/types/job.ts) — `JobCategory` 13개로 교체.
-- [data/categories.ts](src/data/categories.ts) — LABELS/SHORT/ICONS/SOLID/
-  COLORS/ALL_CATEGORIES 전부 13개로 재작성.
-- [data/subcategories.ts](src/data/subcategories.ts) — classifier.py의
-  `SUBCATEGORY_LABELS`를 Python 스크립트로 그대로 변환해 재생성(158개,
-  손으로 옮기다 어긋나는 위험 차단 — 라벨 변경할 때마다 이 방식으로 재생성).
-- **중대 발견**: `src/lib/jobCategoryRules.ts`(이번에 삭제)가 `jobRows.ts`의
-  `rowToJob()`과 `JobCard.tsx`에서 호출되며 **매번 title/company/description
-  으로 카테고리를 다시 계산해 DB 값을 덮어쓰고 있었다** — classifier.py를
-  아무리 잘 고쳐도 이 파일 때문에 화면엔 반영이 안 될 뻔했음. 제거하고
-  `job.category`(DB 값)를 그대로 신뢰하도록 변경. `JobCard.tsx`의 중복
-  `CATEGORY_TAGS`도 제거하고 `data/categories.ts`의 `CATEGORY_SHORT` 재사용.
-- 그 외 컴파일 오류 8개 파일 수정: `categoryVisuals.ts`, `brandCandidates.ts`/
-  `.test.ts`, `mockJobs.ts`, `RecommendSection.tsx`/`Community.tsx`(하드코딩
-  부분집합 대신 `ALL_CATEGORIES` 전체 사용), `AdminDashboard.tsx`,
-  `recommendStorage.test.ts`.
-
-### E. 배포 후 스타일 수정 3라운드 (사용자가 실사이트 보고 지적)
-1. **버튼 폰트 상속 누락** — `.jm-region-row`/`.jm-chip`/
-   `.jm-filter-dropdown__reset`/`.jm-active-chip button`/`.jm-clear-filters`/
-   `.jm-keyword-tag button` 6곳에 `font-family: inherit` 누락돼 브라우저
-   기본 버튼 폰트(Arial 등)로 렌더링되던 것 발견·수정. (사용자가 "필기체
-   아니냐"고 물어봐서 조사하다 발견 — 실제로는 필기체가 아니라 이 폰트
-   상속 버그였음.)
-2. **필터 패널 폭 구조 변경** — 개별 버튼(`.jm-filter-dropdown`) 밑에서
-   좁게 펼쳐지던 패널을, **필터 줄 전체**(`.jm-urgent-filters`) 폭에 꽉
-   차게 펼쳐지도록 positioning context를 버튼→줄 전체로 이동(사용자가
-   실제 알바몬 캡처본 "이런식으로 상단길이하고 마추라고"로 지시). 소분류
-   그리드가 5칸 이상으로 표시됨(전엔 2칸).
-3. **글씨 크기 축소** — 알바몬 캡처본 대비 너무 크다는 지적으로
-   `.jm-region-row`(1.12rem→0.85rem), `.jm-region-col__head`(1.08rem→
-   0.8rem), `.jm-filter-dropdown__search`(1.15rem→0.9rem) 축소.
-
-### F. 지역(Khu vực) 패널 UX 6건 추가 수정 (`6777fd0`)
-1. **Xã/Phường 정렬 버그** — `vnWards.ts` 생성 시 "Phường "/"Xã " 접두어를
-   포함해서 통째로 알파벳 정렬해서, Phường(P)가 Xã(X)보다 항상 먼저 와
-   스크롤 전엔 Phường만 보였다(사용자 스크린샷으로 발견). 실측: Hải Phòng
-   = Phường 45개 · Xã 67개가 실제론 고르게 있음. 접두어를 뗀 지명 자체
-   기준으로 재정렬(crawler에서 vietnam-provinces 패키지로 재생성).
-2. **선택된 필터 칩 바 제거** — `activeFilterChips`/`.jm-active-filters`
-   통째로 삭제(사용자가 "3번째 캡처본처럼 내용이력 남게 하지말고" →
-   "칩 줄 자체를 완전히 제거"로 확답).
-3. **지역 패널 기본값 자동 적용** — 알바몬은 지역 패널을 열면 서울이
-   이미 선택돼 동/읍/면까지 보임. `selectedProvince` 초기값을
-   `VN_PROVINCES[0]`(Cần Thơ)로 변경 — URL에 `?province=` 없으면 실제
-   필터로 자동 적용(단순 미리보기 아님, 사용자가 이 방식으로 확답). **주의**:
-   Cần Thơ에는 현재 급구 공고가 0건이라 첫 방문 시 "Tổng 0 việc làm"으로
-   보임 — 실제 데이터가 적어서 생기는 정직한 결과지 버그 아님. 물량 많은
-   지역으로 기본값을 바꾸고 싶으면 `VN_PROVINCES[0]` 대신 다른 로직 필요.
-4. **검색창 스타일** — 세로 padding 절반(0.5rem→0.25rem), border-radius
-   알약형(10px, `--radius-sm`)에서 각진 사각형(4px)으로, placeholder
-   텍스트("Tìm khu vực...", "Tìm ngành nghề...") 완전 제거(빈 칸).
-5. **돋보기 아이콘 수직 정렬 버그** — `top:0;bottom:0.6rem` 조합이
-   input의 `margin-bottom`(0.6rem)과 맞물려 계산되는 방식이었는데, 검색창
-   padding을 줄이자 실측 8px 어긋남 발생(사용자가 "돋보기 위치 봤냐고"로
-   지적). `margin-bottom`을 input이 아니라 `.jm-search-input-wrap`으로
-   옮기고 `top:50%;transform:translateY(-50%)`로 교체 — 재측정 오차
-   0.01px로 해결.
-6. **지역 패널 칼럼 폭 비대칭화** — Tỉnh/Thành phố(왼쪽)는 `--narrow`
-   고정폭, Xã/Phường(오른쪽)은 `--wide`(flex:1)로 — 업직종 패널과 동일
-   패턴 재사용(사용자가 "1지역 빈공간 너무 많다"고 지적).
-
-### G. 옛 Quận/Huyện(구/현) 중간 단계 복원 + 3열 구조 (`d5cdfad`)
-2025년 개편으로 구/현은 행정상 폐지됐지만 생활권/검색 단위로는 계속 쓰인다는
-사용자 지적("intermediate 행정 기관은 사라졌지만 ... 생활권 및 지리적 검색
-단위로 계속 사용됩니다") — 실제로 구현 가능한지 확인 후 진행:
-
-- **데이터 출처**: 이미 설치돼있던 `vietnam-provinces` 패키지(통계총국
-  공식 자료) 안에 `_ward_conversion_2025.OLD_TO_NEW`(옛 동→새 동 변환표)와
-  `legacy.District`(옛 구/현 목록)가 이미 들어있음을 확인 — 새로 지어낸
-  데이터 아님. 전국 신규 Xã/Phường 3,321개 중 구/현 1곳에 깔끔히 매핑되는
-  게 3,019개(90.9%), 2~5곳에 걸쳐 합쳐진 게 297개(8.9%, 이런 동은 관련된
-  모든 구/현 밑에 **중복 표시** — 임의로 "대표" 하나를 고르지 않음, 사용자
-  확인), 매핑 없는 게 5개(0.15%, 전부 Bạch Long Vĩ/Cồn Cỏ/Hoàng Sa/Lý Sơn/
-  Côn Đảo — "Đặc khu"라는 원래부터 구/현 하위가 아닌 독립 행정단위였음,
-  local_jobs에 관련 공고 0건 확인함). 이 5곳은 자기 자신을 유일한 원소로
-  하는 구/현 슬롯으로 표시(선택 시 중간 단계 없이 바로 그 섬으로 확정).
-- **[vnDistricts.ts](src/data/vnDistricts.ts)**: 위 데이터로 생성한
-  `VN_DISTRICTS_BY_PROVINCE`(성/시별 구/현 목록)와
-  `VN_WARDS_BY_DISTRICT`(성/시→구/현→동 목록) — vnWards.ts/vnProvinces.ts와
-  동일 출처·생성 방식.
-- **[UrgentJobsPage.tsx](src/pages/jobsMenu/UrgentJobsPage.tsx)**: Khu vực
-  패널을 Tỉnh/Thành phố · Quận/Huyện · Xã/Phường **3열**로 확장(알바몬
-  실사이트 3열 캡처본 기준 — "이런식으로 나오게"). **실제 필터는 여전히
-  성/시+동/사에서만 걸린다** — 구/현(`selectedDistrict`) 선택은 오른쪽
-  열에 어느 구/현의 동만 보여줄지 결정하는 순수 탐색 상태이고, 필터 값
-  자체는 아니다(알바몬도 시/구/군 클릭은 화면만 바꾸고 필터는 동/읍/면
-  에서 확정됨). 지역 검색(정규화 텍스트 검색)으로 동을 바로 고르면
-  `findDistrictOfWard()`로 해당 구/현을 역산해 3열째도 맞춰준다.
-- **칼럼 폭**: "제일 긴 지역기준으로 칸 크기 설정" 지시로 실측(브라우저
-  canvas measureText, `.jm-region-row`와 동일 폰트 `700 13.6px`) 기반 산정
-  — Tỉnh 칸은 전국 34개 중 최장 "Tuyên Quang"(88.3px)+패딩+스크롤바 기준
-  140px, Quận 칸은 전국 693개 중 최장 "Thành phố Phan Rang - Tháp Chàm"
-  (233.7px) 기준 280px(카테고리 패널의 `--narrow`/`--wide`와는 별개
-  클래스라 서로 영향 없음).
-- **검색창 추가 축소**: "검색 사이즈 4/1로 줄여" — 세로 padding을 최초
-  원본(0.5rem) 기준 1/4인 0.125rem으로(전 라운드에서 이미 0.25rem으로
-  반 줄인 상태였음). 돋보기 아이콘 수직 중앙 정렬은 기존 `top:50%+
-  transform` 방식이라 패딩이 더 줄어도 깨지지 않음(재측정: input 중심
-  430.93 vs icon 중심 430.92, 오차 0.01px). **→ 이 해석은 틀렸음, 아래 H
-  참고** — 사용자 의도는 높이가 아니라 폭 축소였음.
-
-### H. 지역 패널 기본 열림 + 검색창 폭 재수정 (`316ad40`, `f59ba6f`)
-1. **패널 기본 열림**: `openPanel` 초기값을 `null`→`'region'`으로. 기본
-   지역(Cần Thơ)에 공고가 0건이라 패널이 닫힌 채로 페이지에 들어가면
-   빈 결과 화면만 덩그러니 보였다(사용자 지적: "화면이 안비게", "급구
-   페이지 들어가면 바로 이렇게 열린창으로 보여달라고 했잖아" — 이전
-   세션에서 이미 지시했던 내용인데 그때 도중에 끊겨 구현이 안 돼 있었음).
-2. **검색창 폭 재수정(G에서의 오역 정정)**: G에서 "검색 사이즈 4/1로 줄여"를
-   세로 padding(높이) 축소로 해석했는데, 실제로는 **가로 폭** 축소
-   요청이었음("높이를 축소하라는게 아니고 길이를 축소하라는거야 알바몬
-   캡쳐 보내줬잖아" — 알바몬 참고 캡처본은 검색창이 패널 폭 전체가 아니라
-   왼쪽 일부만 차지). `.jm-search-input-wrap--khu-vuc` 전용 modifier
-   클래스 추가해 `width: 25%`로(측정: 111.66px / 446.6px = 정확히 0.25) —
-   Ngành nghề 검색창(`.jm-search-input-wrap` 공유)은 이번 지시 대상이
-   아니라 폭 그대로 유지, 스크린샷으로 영향 없음 확인.
-   높이(padding 0.125rem)는 사용자가 되돌리라고 하지 않아 그대로 둠.
-
-### I. 집 PC 이어서 진행 — 검색창/그리드/글자크기/간격 (`2337ccc`, `b92c4a9`, `8c626bb`)
-1. **Ngành nghề 검색창도 폭 축소**(`2337ccc`) — H에서 Khu vực만 25%로
-   줄였는데, 사용자가 "계속 그대로야"로 Ngành nghề도 대상임을 재확인 —
-   `.jm-search-input-wrap--nganh-nghe` 추가해 동일 적용.
-2. **소분류 그리드 4~5칸(auto-fill) → 고정 3칸**(`2337ccc`) — 베트남어
-   라벨이 길어서 좌우 열이 안 맞아 보이는 문제("알바몬은 좌우 열이 맞는데
-   베트남어가 길어서 안 맞아"). 구분선(테두리) 추가 안을 실제로 만들어
-   미리보기했으나 반려("별로다") — 대신 칸을 줄이고 넓히는 안으로 확정.
-   실측: 13개 항목 중 12개가 한 줄에(이전엔 대부분 2줄).
-3. **글자크기 재조정**(`b92c4a9`) — 15px면 틀이 깨지는지 먼저 라이브
-   테스트(3칸 기준 13개 중 wrapped 1→2개, 구조는 안 깨짐)로 확인 후
-   Artifact로 실제 칸폭(254px) 기준 13.6px vs 15px 비교 샘플을 만들어
-   보여주고 승인받음. 항목 15px, 헤더(Ngành nghề lớn/Phân loại chi tiết)는
-   "제목이 하단보다 커야" 지시로 16px.
-4. **대분류 목록 간격 + 검색창 폭/높이 재확대**(`8c626bb`) — "Ngành nghề
-   lớn" 항목들이 붙어 보여 `li+li margin-top:0.4rem` 추가(이 왼쪽 대분류
-   열에만 스코프). 검색창은 "너무 줄였다 20% 더 넓혀줘"로 25%→30%,
-   "높이도 20% 더" 지시로 실측 높이(27.2px) 기준 +20%(0.125rem→0.3rem,
-   결과 33.2px).
-
-**근무기간(Thời gian làm việc) 패널 데이터 커버리지 확인** (코드 변경
-없음, 조사만): 사용자가 "알바몬처럼 요일/시간대까지 세분화할 수 있냐"고
-물어서 운영 DB 직접 조회 — 활성 공고 265건 중 `work_days` 있는 건 25건
-(9.4%), `hours` 있는 건 43건(16.2%)뿐이고, **정작 급구(urgent) 공고
-3건 중엔 work_days 0건·hours 1건**뿐임을 확인. 즉 UI를 알바몬처럼
-세분화해도 급구 페이지 기준으로는 거를 데이터가 사실상 없음 — 사용자
-결정: "일단 2번(그대로 두되 우선순위 낮게)으로 가자, 나중에 규모
-커지면 기업에 세부 데이터 기입을 요청하면 됨". 패널 구조(라벨-왼쪽/
-옵션-오른쪽, 세로 스크롤 축소) 재작업은 당장 안 하기로 함 — 아래
-"다음 결정사항" 참고.
+### 프론트엔드
+- [src/data/jobDuration.ts](src/data/jobDuration.ts) — 근무기간 7종
+  (`Một ngày`/`Dưới 1 tuần`/`1 tuần - 1 tháng`/`1 - 3 tháng`/`3 - 6 tháng`/
+  `6 tháng - 1 năm`/`Trên 1 năm`) 공유 상수. PostJob.tsx와
+  UrgentJobsPage.tsx 둘 다 이 파일 하나를 참조.
+- [src/types/job.ts](src/types/job.ts) — `Job.jobDuration?: string` 추가.
+- [src/lib/jobRows.ts](src/lib/jobRows.ts) — `rowToJob()`에 `job_duration`
+  매핑 추가, `EMPLOYER_JOBS_SELECT_COLUMNS`에 컬럼 추가.
+- [src/context/JobsContext.tsx](src/context/JobsContext.tsx) — 공개 목록
+  select 컬럼에 `job_duration` 추가, `addPostedJob()` insert에
+  `job_duration: draft.jobDuration ?? null` 추가.
+- [src/pages/PostJob.tsx](src/pages/PostJob.tsx) — "Thời hạn làm việc"
+  select 필드 추가(선택 안 함 기본값, 7종 옵션). 기존 "Thời gian làm việc"
+  (근무시간 자유텍스트, `hours` 컬럼) 필드와 라벨이 겹치지 않도록 별도
+  문구로 뺐다 — `hours`="근무시간"(예: "08:00–17:00"), `jobDuration`=
+  "근무기간/계약기간"(하루~1년 이상 구간)으로 개념이 다름.
+- [src/pages/jobsMenu/UrgentJobsPage.tsx](src/pages/jobsMenu/UrgentJobsPage.tsx):
+  1. "Thời gian làm việc" 필터 패널의 "Hình thức" 섹션(work_period, 다이나믹
+     값)을 제거하고, 그 자리에 "Thời hạn làm việc" 섹션(job_duration, 고정
+     7구간 — work_period와 달리 실제 존재하는 값만 뽑지 않고 항상 7개 다
+     보여줌, PostJob.tsx가 정해진 값만 넣게 하므로 가능)을 새로 추가.
+  2. "Điều kiện khác"(상세조건) 패널에 "Loại hình công việc" 섹션 신설 —
+     기존 work_period 다중선택(`workPeriods` state, `workPeriodOptions`
+     다이나믹 목록)을 여기로 그대로 옮김. 라벨은 CHATGPT_HANDOFF.md 이전
+     합의대로 "Hình thức làm việc"를 재사용하지 않고 "Loại hình công việc"
+     로 새로 지음(person-centric 고용형태 프레임에 맞춤).
+  3. `activeFilterCount`/`clearAllFilters`/각 패널 count·초기화 버튼에
+     `jobDurations` 추가, `Điều kiện khác` 패널 count·초기화에 `workPeriods`
+     포함되도록 이동.
+  4. 상단 주석 2곳(컴포넌트 설명, 예전엔 "성별/연령/고용형태 데이터 없어
+     상세조건에서 제외"라던 부분)을 실제 반영된 상태로 갱신.
 
 ## 테스트 결과
 
-- **크롤러**: `classifier.py` 자체 실행 — 대분류 22/22, 소분류 17/17, 새
-  체계 매핑 16/16, 새 대분류 5개 12/12 = **총 67/67 통과**. `test_job_quality.py`
-  19/19 회귀 없음. 신규 공고 시뮬레이션 3건 전부 새 체계로 정확히 분류됨.
-- **프론트**: `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test`
-  6/6 파일 전부 통과(59개 테스트, 회귀 없음) — E 라운드 수정 후에도 매번
-  재확인.
-- **DB**: 백필 후 `select category, count(*) from local_jobs group by
-  category`로 직접 재조회해 273건 분포 확인.
-- **실 브라우저(로컬+Production 둘 다)**: "Ngành nghề" 패널 열어 실제 DB
-  백필된 소분류 표시 확인, DB 기반 필터링 확인(`lai_xe_giao_hang` 선택 →
-  정확히 1건). 1440px 데스크톱/375px 모바일 둘 다 패널 폭·줄바꿈 확인.
-- id=4381/4430 두 버그 수정 후 실제 텍스트로 재확인, "lẩu bò" 진짜 전골
-  공고는 여전히 am_thuc_do_uong로 정확히 분류(회귀 없음).
-- **G(구/현 3열) 별도 확인**: `npx tsc --noEmit` 클린, `npm run build`
-  성공, `npm test` 6/6 파일 통과(회귀 없음). 브라우저로 Cần Thơ→Quận Bình
-  Thuỷ→Phường An Bình 선택 시 "Khu vực (2)"로 정상 반영(필터 실제 작동),
-  Hải Phòng→Đặc khu Bạch Long Vĩ 선택 시 구/현 없이 자기 자신만 동으로
-  뜨는 것 확인, 375px 모바일에서 패널이 가로 스크롤(`overflow-x:auto`,
-  기존 패턴)로 정상 대응, Production 배포 후 CSS 해시(`index-CfD-nvtI.css`)
-  가 로컬 빌드와 정확히 일치함을 확인해 배포 완료 검증.
-- **H(패널 기본 열림+검색창 폭) 별도 확인**: `npx tsc --noEmit` 클린,
-  `npm run build` 성공, `npm test` 6/6 파일 통과. 브라우저로 페이지 최초
-  진입 시 Khu vực 패널이 열린 채로 렌더되는 것 확인, 검색창 폭 111.66px/
-  패널 폭 446.6px = 정확히 0.25 실측 확인, Ngành nghề 검색창은 폭 영향
-  없음 스크린샷 확인. Production CSS 해시(`index-Cy3QVwuK.css`)가 로컬
-  빌드와 일치, 실제 viecganban.vn에서 패널 열림+좁은 검색창 스크린샷으로
-  재확인.
-- **I(검색창/그리드/글자크기/간격) 라운드별 확인**: 매 커밋마다
-  `npx tsc --noEmit`/`npm run build`/`npm test`(6/6) 통과 확인 후 push.
-  3칸 그리드 wrap 개수(JS `getBoundingClientRect`로 직접 측정), 검색창
-  폭(`getComputedStyle` + 부모 content-box 기준 계산 — 처음에 부모의
-  padding을 안 뺀 `getBoundingClientRect`로 나눠서 25.9%로 잘못 측정했다가
-  `clientWidth - padding`으로 재계산해 30% 정확함을 바로잡음), 높이
-  (33.2px), 글자크기(15px/16px), 목록 간격(6.39px) 전부 로컬+Production
-  양쪽에서 JS로 재확인.
+- `npx tsc --noEmit` 클린.
+- `npm run build` 성공(`jobDuration-46umscL_.js` 청크 생성 확인).
+- `npm test` 6/6 파일 전부 통과(회귀 없음, jobRows.test.ts 포함).
+- 로컬 dev 서버(`http://localhost:63624/viec-lam/tuyen-gap`) 브라우저로
+  직접 확인: "Thời gian làm việc" 패널에 "Thời hạn làm việc" 7개 칩 정상
+  렌더, "Điều kiện khác" 패널에 "Loại hình công việc" 섹션(급구 공고 실제
+  값 기준 "Bán thời gian cố định"/"Toàn thời gian cố định" 2개) 정상 렌더.
+  콘솔 에러 없음(무관한 404 2건은 기존부터 있던 리소스, 이번 변경과 무관).
+- **DB에 실제 job_duration 값이 채워진 공고가 아직 0건**이라(PostJob.tsx로
+  아직 아무도 등록 안 함) 실제 필터링 동작(칩 선택 → 결과 줄어듦)은 로컬
+  테스트로 검증 못 함 — 코드 로직은 기존 workPeriod 필터와 완전히 동일한
+  패턴이라 구조적으로는 신뢰 가능.
 
 ## 발견된 문제
 
-- **jobCategoryRules.ts가 DB 분류 결과를 매번 덮어쓰던 문제**(위 D 참고,
-  발견·제거) — 앞으로 프론트에서 카테고리를 다시 "추정"하는 코드를 추가하지
-  말 것. `job.category`(DB 값)가 유일한 진실 공급원.
-- **truyen_thong/y_te_dieu_duong 분류 규칙 미검증**(위 B 참고) — 실제 공고
-  들어오면 재검증 필요, **자동으로 규칙이 추가되지 않음**(수동 작업 필요).
-- **PostJob.tsx(기업 직접 등록)에 소분류 선택 필드가 여전히 없음** — 대분류
-  드롭다운은 새 13개로 자동 반영됐지만(ALL_CATEGORIES 참조), 소분류는
-  여전히 미착수. 크롤링 공고와 달리 직접 등록은 정규식 추정이 아니라
-  드롭다운으로 100% 정확하게 받을 수 있어 우선순위 있음.
-- `categoryVisuals.ts`의 이미지가 5개 신규 대분류(cntt_ky_thuat/thiet_ke/
-  truyen_thong/y_te_dieu_duong/giao_duc_giang_day)는 전용 사진 없이 'khac'
-  일반 이미지로 폴백 — 기능은 정상(에러 없음), 장식적 완성도만 낮음.
-- **이 세션의 로컬 메모리(Claude 기억)는 이 PC(집)에만 있고 다른 PC로
-  전달 안 됨** — 예: "작업 전 승인 받기" 지시가 회사 PC 세션에만 저장돼
-  있어서 집 PC 세션이 처음엔 몰랐음. 이 문서(`CHATGPT_HANDOFF.md`)가 git로
-  동기화되는 유일한 인수인계 수단이므로, 세션 끝날 때마다 반드시 최신화할 것.
-- **구/현(Quận/Huyện) 열은 순수 탐색용, 실제 필터 차원이 아님** — DB에
-  구/현 필드가 없어서(있는 건 성/시+동/사뿐) 구/현 선택 자체를 저장/URL에
-  반영하지 않음. "이 구 전체를 필터로" 같은 클릭 한 번짜리 기능은 아직
-  없음(원하면 선택된 구/현의 동 전체를 `selectedWards`에 합집합으로 넣는
-  방식으로 나중에 추가 가능).
-- 지역 검색창(평탄화 검색)은 여전히 성/시+동/사만 인덱싱함 — 구/현 이름
-  자체로는 검색 안 됨(이번 작업 범위 밖, 필요하면 별도 지시 필요).
+- 위 "주의" 참고 — `0016_local_jobs_work_duration_draft.sql`이 이번 작업
+  전부터 존재했으나 아무도 적용하지 않은 orphan draft였음. 두 세션(회사/집
+  PC) 사이에 이런 미적용 draft가 있었다는 걸 이번에 처음 발견 — 앞으로 새
+  컬럼을 추가하기 전에는 `supabase/migrations/` 디렉토리에 관련 draft가
+  이미 있는지 먼저 확인하는 습관이 필요함.
 - (이전부터 있던 항목, 계속 유지) `applications_insert`의 tautology 조건,
   korea_jobs 구조 통합 미결정, 기업 계정 헤더에 구직자 메뉴 링크 없음,
-  `.git/hooks/post-commit` 자동 push 훅(이제는 두 PC 동기화에 도움되는
-  쪽으로 활용 중 — 굳이 끌 필요 없어 보임).
-- **근무기간(Thời gian làm việc) 세분화 필터의 실데이터 커버리지가 매우
-  낮음**(위 I 참고, DB 직접 조회로 확인) — 활성 공고 265건 중 work_days
-  9.4%·hours 16.2%뿐이고 급구 3건 기준으로는 사실상 0에 가까움. UI를
-  더 세분화해도 걸러질 공고가 없다는 뜻 — 크롤링 소스 자체가 이 정보를
-  구조화해서 안 주는 게 근본 원인. 사용자 결정: 지금은 손 안 대고 우선순위
-  낮게 둠, 나중에 규모 커지면 기업 직접등록(PostJob.tsx)에 필드 요청하는
-  방향으로 해결 예정.
+  `.git/hooks/post-commit` 자동 push 훅, `jobCategoryRules.ts` 제거 완료
+  (DB 값이 유일한 진실 공급원), truyen_thong/y_te_dieu_duong 분류 규칙
+  미검증, PostJob.tsx에 소분류 선택 필드 없음, `categoryVisuals.ts` 신규
+  대분류 5개 전용 이미지 없음.
+- **근무기간(job_duration) 실데이터가 당장 0건**이라 급구 페이지 새 필터
+  섹션은 한동안 "선택해도 결과가 안 줄어드는" 상태로 보일 수 있음 — 이건
+  버그가 아니라 PostJob.tsx로 신규 등록이 쌓이길 기다려야 하는 정상 상태
+  (work_period 때와 같은 논리, 사용자가 이미 승인한 방향).
 
 ## 다음 결정사항
 
-0. **최우선 — 바로 실행 가능**(위 "세션 인계 메모 2" 참고, 이미 승인됨):
-   job_duration 컬럼 마이그레이션(DDL 재확인 후 실행) → PostJob.tsx 필드 →
-   급구 페이지 "근무기간" 필터 섹션. 그리고 별개로: 상세조건 패널에
-   고용형태(work_period 4값) 섹션 신설 + 근무기간 패널에서 Hình thức
-   섹션 제거·이동.
-1. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음 — 위 "발견된 문제" 참고).
-2. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지
-   (크롤러가 계속 새 공고를 가져오므로 주기적으로 category='khac' 표본을
-   다시 확인하는 루틴이 있으면 좋음).
-3. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
+1. **commit + master push + Vercel Production 배포**(이번 세션 마무리
+   단계, FAST/NORMAL 흐름대로 별도 승인 없이 진행 — 사용자가 "일단 진행하는건
+   왠만하면 허락받지말고 진행해줘"로 확인함, 2026-09-18).
+2. `0016_local_jobs_work_duration_draft.sql`(미적용 orphan draft)을 그대로
+   둘지, 삭제할지, 아니면 그 draft가 의도했던 "자유텍스트 계약기간" 개념을
+   별도로 살릴지 — 사용자 판단 필요.
+3. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음, 이전부터 미착수).
+4. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지.
+5. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
    확대할지 — 여전히 보류 중.
-4. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
-5. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
-6. `applications_insert`의 tautology 조건 수정 여부.
-7. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
-8. 급구 페이지 첫 방문 시 지역 기본값이 `VN_PROVINCES[0]`(Cần Thơ, 현재
-   공고 0건)라 "Tổng 0 việc làm"으로 보임 — H에서 패널을 기본으로 열어둬
-   빈 화면처럼 보이는 문제는 완화됐지만, Cần Thơ 자체에 공고 0건인 근본
-   원인은 그대로임. 실제 공고가 제일 많은 지역(지금은 Hà Nội 계열)으로
-   기본값을 바꿀지, 아니면 그대로 둘지 — 여전히 미정.
-9. 구/현 "전체 선택" 원클릭 필터(선택한 구/현의 동 전체를 필터에 합치기),
-   지역 검색창에 구/현 이름도 인덱싱할지 — 둘 다 사용자가 "왜 안한거지"로
-   물어봤지만 "별도 지시하면 진행" 상태로 보류, 아직 미착수.
-10. `backup-home-2026-09-18-workperiod-panel` 브랜치에 있는 근무기간 패널
-    라벨-왼쪽/옵션-오른쪽 재배치 작업을 지금 코드베이스(3칸 그리드/새
-    글자크기 등 반영)에 맞춰 재적용할지 — 세션 도중 제안했으나 사용자가
-    먼저 데이터 커버리지 문제(위 "발견된 문제" 근무기간 항목)를 짚으면서
-    논의가 옮겨감, 명시적으로 보류/거절된 건 아니라 다시 물어봐야 함.
-11. 근무기간 패널의 Ngày làm việc/Số ngày làm việc/Khung giờ 세분화 필터
-    자체를 유지할지, 데이터 쌓일 때까지 숨길지(위 "발견된 문제" 참고) —
-    "일단 2번(유지, 우선순위 낮게)"으로 잠정 결정했지만 최종 확정은 아님.
+6. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
+7. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
+8. `applications_insert`의 tautology 조건 수정 여부.
+9. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
+10. 급구 페이지 첫 방문 시 지역 기본값이 `VN_PROVINCES[0]`(Cần Thơ, 공고
+    0건)인 문제 — 실제 공고 많은 지역으로 바꿀지 여전히 미정.
+11. 구/현 "전체 선택" 원클릭 필터, 지역 검색창에 구/현 이름 인덱싱 — 보류.
+12. `backup-home-2026-09-18-workperiod-panel` 브랜치의 근무기간 패널
+    라벨/옵션 재배치 작업을 현재 코드베이스에 재적용할지 — 미결정.

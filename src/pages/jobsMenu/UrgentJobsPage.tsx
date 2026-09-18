@@ -5,6 +5,7 @@ import { useApply } from '../../components/useApply'
 import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_LABELS } from '../../data/categories'
+import { JOB_DURATION_OPTIONS } from '../../data/jobDuration'
 import { SUBCATEGORY_LABELS } from '../../data/subcategories'
 import { VN_DISTRICTS_BY_PROVINCE, VN_WARDS_BY_DISTRICT } from '../../data/vnDistricts'
 import { VN_PROVINCES } from '../../data/vnProvinces'
@@ -109,12 +110,13 @@ function FilterDropdown({
  * 지역(시도/시구군/동 계단식)·업직종(대/소분류 2단)·근무기간(요일·시간대
  * 구조화 선택)·상세조건(성별/연령/고용형태) 등 훨씬 세분화된 항목을 담고
  * 있다 — 이 앱 데이터에는 그런 계층/구조화 값이 없어(local_jobs에 성별·
- * 연령·고용형태 컬럼 자체가 없고, workPeriod/workDays/hours는 크롤러가 넣은
- * 자유텍스트라 요일·시간대별로 쪼갤 수 없음) 그 부분까지 그대로 베끼면
- * 실제로 아무것도 걸러내지 못하는 가짜 필터가 된다. 그래서 "패널 UI 틀"은
- * 4개 다 그대로 가져오되, 내용물은 실제 있는 데이터 기준으로만 채웠다:
- * 지역/업직종은 검색+다중선택, 근무기간은 다중선택(있는 값만), 상세조건은
- * 키워드 포함/제외 검색만(성별/연령/고용형태는 데이터가 없어 제외).
+ * 연령 컬럼 자체가 없고, workDays/hours는 크롤러가 넣은 자유텍스트라
+ * 요일·시간대별로 쪼갤 수 없음) 그 부분까지 그대로 베끼면 실제로 아무것도
+ * 걸러내지 못하는 가짜 필터가 된다. 그래서 "패널 UI 틀"은 4개 다 그대로
+ * 가져오되, 내용물은 실제 있는 데이터 기준으로만 채웠다: 지역/업직종은
+ * 검색+다중선택, 근무기간은 다중선택(있는 값만 + job_duration 고정
+ * 7구간), 상세조건은 고용형태(work_period, 2026-09-18부터 이 패널로
+ * 이동) + 키워드 포함/제외 검색(성별/연령은 데이터가 없어 제외).
  */
 export default function UrgentJobsPage() {
   const { jobs } = useJobs()
@@ -171,11 +173,12 @@ export default function UrgentJobsPage() {
   // 근무일수(주N일)까지 한 화면에서 바로 고를 수 있게 해뒀다. 조합 프리셋은
   // 기존 selectedDays/selectedTimeBuckets를 그대로 세팅하는 UI 단축키일 뿐이라
   // 새 데이터가 필요 없고, 주당 근무일수는 parseWorkDays(job.workDays).size로
-  // 실제 파싱 결과에서 바로 계산되는 값이라 이것도 진짜 데이터다. 다만
-  // 알바몬의 최상단 "근무기간(하루/1주일~1개월/...)" 섹션은 고용 기간 데이터
-  // 자체가 local_jobs에 없어(workPeriod는 전일제/시간제 구분일 뿐, 근무
-  // 예정 "기간"이 아님) 만들지 않는다 — 사유는 CHATGPT_HANDOFF.md 참고.
+  // 실제 파싱 결과에서 바로 계산되는 값이라 이것도 진짜 데이터다.
   const [selectedDayCounts, setSelectedDayCounts] = useState<Set<number>>(new Set())
+  // 2026-09-18 사용자 지시("둘 다 가야지") — job_duration(알바몬 스타일
+  // 근무기간 7구간, PostJob.tsx 직접등록 전용 컬럼) 추가. 크롤러 공고는
+  // 채우지 않아 대부분 undefined일 걸 알고 진행 — CHATGPT_HANDOFF.md 참고.
+  const [jobDurations, setJobDurations] = useState<Set<string>>(new Set())
   const [categorySearch, setCategorySearch] = useState('')
   const [regionSearch, setRegionSearch] = useState('')
   const [includeKeywords, setIncludeKeywords] = useState<string[]>([])
@@ -263,6 +266,11 @@ export default function UrgentJobsPage() {
   const toggleWorkPeriod = (p: string) => setWorkPeriods((prev) => {
     const next = new Set(prev)
     if (next.has(p)) next.delete(p); else next.add(p)
+    return next
+  })
+  const toggleJobDuration = (d: string) => setJobDurations((prev) => {
+    const next = new Set(prev)
+    if (next.has(d)) next.delete(d); else next.add(d)
     return next
   })
   const toggleDay = (d: DayCode) => setSelectedDays((prev) => {
@@ -388,6 +396,7 @@ export default function UrgentJobsPage() {
       list = list.filter((j) => !!j.subcategory && selectedSubcategoryKeys.has(`${j.category}:${j.subcategory}`))
     }
     if (workPeriods.size > 0) list = list.filter((j) => !!j.workPeriod && workPeriods.has(j.workPeriod))
+    if (jobDurations.size > 0) list = list.filter((j) => !!j.jobDuration && jobDurations.has(j.jobDuration))
     if (selectedDays.size > 0) {
       list = list.filter((j) => {
         const days = parseWorkDays(j.workDays)
@@ -416,7 +425,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, selectedDays, selectedDayCounts, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, selectedDays, selectedDayCounts, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -438,13 +447,14 @@ export default function UrgentJobsPage() {
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
-  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size + includeKeywords.length + excludeKeywords.length
+  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size + includeKeywords.length + excludeKeywords.length
 
   const clearAllFilters = () => {
     selectProvince(null)
     setCategoryIds(new Set())
     setSelectedSubcategoryKeys(new Set())
     setWorkPeriods(new Set())
+    setJobDurations(new Set())
     setSelectedDays(new Set())
     setSelectedDayCounts(new Set())
     setSelectedTimeBuckets(new Set())
@@ -660,29 +670,25 @@ export default function UrgentJobsPage() {
 
         <FilterDropdown
           label="Thời gian làm việc"
-          count={workPeriods.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size}
+          count={jobDurations.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size}
           isOpen={openPanel === 'workPeriod'}
           onToggle={() => togglePanel('workPeriod')}
           onClose={closePanel}
         >
           <div className="jm-keyword-group">
-            <p className="jm-keyword-group__label">Hình thức</p>
-            {workPeriodOptions.length === 0 ? (
-              <p className="hint">Chưa có dữ liệu hình thức làm việc cho tin tuyển gấp hiện tại.</p>
-            ) : (
-              <div className="jm-filter-dropdown__chips">
-                {workPeriodOptions.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`jm-chip${workPeriods.has(p) ? ' is-selected' : ''}`}
-                    onClick={() => toggleWorkPeriod(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
+            <p className="jm-keyword-group__label">Thời hạn làm việc</p>
+            <div className="jm-filter-dropdown__chips">
+              {JOB_DURATION_OPTIONS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`jm-chip${jobDurations.has(d) ? ' is-selected' : ''}`}
+                  onClick={() => toggleJobDuration(d)}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="jm-keyword-group">
             <p className="jm-keyword-group__label">Ngày làm việc ({selectedDays.size})</p>
@@ -757,7 +763,7 @@ export default function UrgentJobsPage() {
             <button
               type="button"
               className="jm-filter-dropdown__reset"
-              onClick={() => { setWorkPeriods(new Set()); setSelectedDays(new Set()); setSelectedDayCounts(new Set()); setSelectedTimeBuckets(new Set()) }}
+              onClick={() => { setJobDurations(new Set()); setSelectedDays(new Set()); setSelectedDayCounts(new Set()); setSelectedTimeBuckets(new Set()) }}
             >
               ↻ Đặt lại
             </button>
@@ -766,11 +772,30 @@ export default function UrgentJobsPage() {
 
         <FilterDropdown
           label="Điều kiện khác"
-          count={includeKeywords.length + excludeKeywords.length}
+          count={workPeriods.size + includeKeywords.length + excludeKeywords.length}
           isOpen={openPanel === 'detail'}
           onToggle={() => togglePanel('detail')}
           onClose={closePanel}
         >
+          <div className="jm-keyword-group">
+            <p className="jm-keyword-group__label">Loại hình công việc</p>
+            {workPeriodOptions.length === 0 ? (
+              <p className="hint">Chưa có dữ liệu loại hình công việc cho tin tuyển gấp hiện tại.</p>
+            ) : (
+              <div className="jm-filter-dropdown__chips">
+                {workPeriodOptions.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`jm-chip${workPeriods.has(p) ? ' is-selected' : ''}`}
+                    onClick={() => toggleWorkPeriod(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="jm-keyword-group">
             <p className="jm-keyword-group__label">Chỉ hiện tin chứa từ khóa</p>
             <div className="jm-keyword-input-row">
@@ -835,7 +860,7 @@ export default function UrgentJobsPage() {
             <button
               type="button"
               className="jm-filter-dropdown__reset"
-              onClick={() => { setIncludeKeywords([]); setExcludeKeywords([]) }}
+              onClick={() => { setWorkPeriods(new Set()); setIncludeKeywords([]); setExcludeKeywords([]) }}
             >
               ↻ Đặt lại
             </button>

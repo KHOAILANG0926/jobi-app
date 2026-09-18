@@ -120,6 +120,10 @@ export interface Job {
   images?: string[]
   source?: string
   workPeriod?: string
+  /** local_jobs.job_duration — 알바몬 스타일 근무기간 7구간(예: "1 - 3 tháng").
+   *  크롤러는 채우지 않고(소스에 구조화된 필드 없음) PostJob.tsx 직접등록
+   *  전용으로 시작해 대부분 undefined일 것으로 예상된다. */
+  jobDuration?: string
   workDays?: string
   education?: string
   preference?: string
