@@ -27,6 +27,16 @@ gồm/Loại trừ를 한 라벨 밑에 통합, 알바몬 "키워드" 행처럼)
 여전히 대응 DB 컬럼이 없어 제외(기존 결정 유지). commit/push + Production
 배포 완료, 실 사이트 확인함.
 
+**네 번째 라운드(같은 세션)**: 세 번째 라운드 배포 후 사용자가 "이거 왜
+반영안했어"로 재지적 — "Loại hình công việc" 칩이 알바몬 캡처본(4종 전부
+항상 표시)과 달리 급구 공고에 실제 존재하는 2종(Bán thời gian cố định/
+Toàn thời gian cố định)만 동적으로 보였음. job_duration과 같은 원칙(고정
+목록 항상 전부 표시)으로 통일 — `workPeriodOptions`를 급구 공고 기준
+동적 계산에서 `WORK_PERIOD_OPTIONS`(local_jobs 전체 기준 실측 확인된
+고정 4종: Toàn thời gian cố định/Bán thời gian cố định/Toàn thời gian tạm
+thời/Khác) 상수로 교체, "데이터 없음" 안내 문구 분기도 제거(이제 항상
+비어있지 않음). commit/push + Production 배포 완료, 실 사이트 확인함.
+
 이전 세션들(A~I 라운드: 대분류/소분류 체계 전면 재설계, Khu vực 패널 UX 다수
 수정, 옛 Quận/Huyện 중간 단계 복원, 검색창/그리드/글자크기 재조정)은 전부
 master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) — 자세한
@@ -135,6 +145,13 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
 - 더 이상 아무 데서도 안 쓰는 `.jm-keyword-group + .jm-keyword-group` CSS
   규칙(이전엔 옛 구조의 그룹 간 여백용)도 같이 제거.
 
+### "Loại hình công việc" 동적 목록 → 고정 4종으로 (네 번째 라운드)
+- `workPeriodOptions`(급구 공고에 실제 존재하는 값만 동적으로 뽑던 것)를
+  `WORK_PERIOD_OPTIONS`(local_jobs 전체 기준 실측 확인된 고정 4종 상수)로
+  교체. job_duration(Thời hạn làm việc)과 동일한 원칙 — 알바몬은 급구 공고
+  존재 여부와 무관하게 카테고리를 항상 다 보여준다.
+- "데이터 없음" hint 문구 분기 제거(이제 항상 4개가 있으므로 불필요).
+
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린.
@@ -164,6 +181,10 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   "Loại hình công việc"/"Từ khóa" 라벨이 왼쪽에 굵게, 내용은 오른쪽에
   나란히 배치되는 것 스크린샷으로 확인(480px 이하에서는 기존 미디어쿼리로
   세로 스택 — "Thời gian làm việc" 패널과 동일 반응형 규칙 공유).
+- **"Loại hình công việc" 고정 4종 재확인**: `npx tsc --noEmit` 클린,
+  `npm run build` 성공, `npm test` 6/6 파일 통과. `get_page_text`로
+  "Toàn thời gian cố định/Bán thời gian cố định/Toàn thời gian tạm thời/
+  Khác" 4개 칩이 항상 다 렌더되는 것 확인(이전엔 2개만 보였음).
 
 ## 발견된 문제
 
