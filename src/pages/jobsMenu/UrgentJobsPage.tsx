@@ -194,6 +194,13 @@ export default function UrgentJobsPage() {
   const [timeFilterMode, setTimeFilterMode] = useState<'list' | 'manual'>('list')
   const [manualStartTime, setManualStartTime] = useState('')
   const [manualEndTime, setManualEndTime] = useState('')
+  // 2026-09-18 사용자 지시("동일하게 만들어") — 알바몬 캡처본은 목록/직접선택
+  // 둘 다 항상 같이 보이고(선택 안 된 쪽만 흐리게) "협의 제외" 체크박스가
+  // 있다. "협의 제외" 자체는 그대로 베끼면 대응 데이터가 없는 가짜 필터가
+  // 되므로, 같은 의도(정보가 불명확한 공고 제외)를 실제 데이터로 구현한다 —
+  // workDays/hours가 비어있는(=일정 미기재) 공고를 제외하는 진짜 필터.
+  const [excludeUnspecifiedDays, setExcludeUnspecifiedDays] = useState(false)
+  const [excludeUnspecifiedHours, setExcludeUnspecifiedHours] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
   const [regionSearch, setRegionSearch] = useState('')
   const [includeKeywords, setIncludeKeywords] = useState<string[]>([])
@@ -421,6 +428,8 @@ export default function UrgentJobsPage() {
     if (selectedDayCounts.size > 0) {
       list = list.filter((j) => selectedDayCounts.has(parseWorkDays(j.workDays).size))
     }
+    if (excludeUnspecifiedDays) list = list.filter((j) => parseWorkDays(j.workDays).size > 0)
+    if (excludeUnspecifiedHours) list = list.filter((j) => parseWorkHourBuckets(j.hours).size > 0)
     if (selectedTimeBuckets.size > 0) {
       list = list.filter((j) => {
         const buckets = parseWorkHourBuckets(j.hours)
@@ -440,7 +449,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, selectedDays, selectedDayCounts, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -462,7 +471,7 @@ export default function UrgentJobsPage() {
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
-  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size + includeKeywords.length + excludeKeywords.length
+  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + selectedDays.size + selectedDayCounts.size + (excludeUnspecifiedDays ? 1 : 0) + selectedTimeBuckets.size + (excludeUnspecifiedHours ? 1 : 0) + includeKeywords.length + excludeKeywords.length
 
   const clearAllFilters = () => {
     selectProvince(null)
@@ -472,7 +481,9 @@ export default function UrgentJobsPage() {
     setJobDurations(new Set())
     setSelectedDays(new Set())
     setSelectedDayCounts(new Set())
+    setExcludeUnspecifiedDays(false)
     setSelectedTimeBuckets(new Set())
+    setExcludeUnspecifiedHours(false)
     setIncludeKeywords([])
     setExcludeKeywords([])
   }
@@ -685,7 +696,7 @@ export default function UrgentJobsPage() {
 
         <FilterDropdown
           label="Thời gian làm việc"
-          count={jobDurations.size + selectedDays.size + selectedDayCounts.size + selectedTimeBuckets.size}
+          count={jobDurations.size + selectedDays.size + selectedDayCounts.size + (excludeUnspecifiedDays ? 1 : 0) + selectedTimeBuckets.size + (excludeUnspecifiedHours ? 1 : 0)}
           isOpen={openPanel === 'workPeriod'}
           onToggle={() => togglePanel('workPeriod')}
           onClose={closePanel}
@@ -726,43 +737,53 @@ export default function UrgentJobsPage() {
                   Chọn thủ công
                 </button>
               </div>
-              {dayFilterMode === 'list' ? (
-                <div className="jm-filter-dropdown__chips">
-                  {DAY_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      className={`jm-chip${sameSet(selectedDays, preset.days) ? ' is-selected' : ''}`}
-                      onClick={() => applyDayPreset(preset.days)}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                  {WEEKLY_DAY_COUNTS.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={`jm-chip${selectedDayCounts.has(n) ? ' is-selected' : ''}`}
-                      onClick={() => toggleDayCount(n)}
-                    >
-                      {n} ngày
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="jm-filter-dropdown__chips">
-                  {DAY_ORDER.map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      className={`jm-chip${selectedDays.has(d) ? ' is-selected' : ''}`}
-                      onClick={() => toggleDay(d)}
-                    >
-                      {DAY_LABELS[d]}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* 2026-09-18 사용자 지시("동일하게 만들어", 알바몬 캡처본) — 목록/
+                  직접선택 둘 다 항상 같이 보이고, 지금 선택 안 된 쪽만
+                  흐리게(jm-workhour-inactive) 처리한다(완전히 숨기지 않음) —
+                  두 칩 그룹 다 같은 selectedDays/selectedDayCounts state를
+                  쓰는 진짜 기능이라 흐려도 클릭은 계속 된다. */}
+              <div className={`jm-filter-dropdown__chips${dayFilterMode === 'manual' ? ' jm-workhour-inactive' : ''}`}>
+                {DAY_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    className={`jm-chip${sameSet(selectedDays, preset.days) ? ' is-selected' : ''}`}
+                    onClick={() => applyDayPreset(preset.days)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                {WEEKLY_DAY_COUNTS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`jm-chip${selectedDayCounts.has(n) ? ' is-selected' : ''}`}
+                    onClick={() => toggleDayCount(n)}
+                  >
+                    {n} ngày
+                  </button>
+                ))}
+              </div>
+              <div className={`jm-filter-dropdown__chips${dayFilterMode === 'list' ? ' jm-workhour-inactive' : ''}`}>
+                {DAY_ORDER.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`jm-chip${selectedDays.has(d) ? ' is-selected' : ''}`}
+                    onClick={() => toggleDay(d)}
+                  >
+                    {DAY_LABELS[d]}
+                  </button>
+                ))}
+              </div>
+              <label className="jm-workhour-exclude">
+                <input
+                  type="checkbox"
+                  checked={excludeUnspecifiedDays}
+                  onChange={(e) => setExcludeUnspecifiedDays(e.target.checked)}
+                />
+                Loại trừ tin chưa rõ ngày làm việc
+              </label>
             </div>
           </div>
           <div className="jm-workhour-row">
@@ -784,68 +805,75 @@ export default function UrgentJobsPage() {
                   Chọn thủ công
                 </button>
               </div>
-              {timeFilterMode === 'list' ? (
-                <>
-                  <div className="jm-filter-dropdown__chips">
-                    {TIME_PRESETS.map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        className={`jm-chip${sameSet(selectedTimeBuckets, preset.buckets) ? ' is-selected' : ''}`}
-                        onClick={() => applyTimePreset(preset.buckets)}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="jm-filter-dropdown__chips">
-                    {TIME_BUCKET_ORDER.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`jm-chip${selectedTimeBuckets.has(t) ? ' is-selected' : ''}`}
-                        onClick={() => toggleTimeBucket(t)}
-                      >
-                        {TIME_BUCKET_LABELS[t]}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="jm-workhour-manual-row">
-                    <select
-                      className="jm-workhour-manual-select"
-                      value={manualStartTime}
-                      onChange={(e) => setManualStartTime(e.target.value)}
-                      aria-label="Thời gian bắt đầu"
-                    >
-                      <option value="">Thời gian bắt đầu</option>
-                      {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                    <span>—</span>
-                    <select
-                      className="jm-workhour-manual-select"
-                      value={manualEndTime}
-                      onChange={(e) => setManualEndTime(e.target.value)}
-                      aria-label="Thời gian kết thúc"
-                    >
-                      <option value="">Thời gian kết thúc</option>
-                      {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                  </div>
-                  <p className="hint jm-workhour-manual-hint">
-                    Bộ lọc theo giờ chính xác chưa khả dụng — dùng khung giờ có sẵn ở chế độ "Chọn từ danh sách" để lọc.
-                  </p>
-                </>
+              <div className={`jm-filter-dropdown__chips${timeFilterMode === 'manual' ? ' jm-workhour-inactive' : ''}`}>
+                {TIME_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    className={`jm-chip${sameSet(selectedTimeBuckets, preset.buckets) ? ' is-selected' : ''}`}
+                    onClick={() => applyTimePreset(preset.buckets)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <div className={`jm-filter-dropdown__chips${timeFilterMode === 'manual' ? ' jm-workhour-inactive' : ''}`}>
+                {TIME_BUCKET_ORDER.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`jm-chip${selectedTimeBuckets.has(t) ? ' is-selected' : ''}`}
+                    onClick={() => toggleTimeBucket(t)}
+                  >
+                    {TIME_BUCKET_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+              {/* 시작/종료 드롭다운은 실제 필터링에 반영하지 않는 순수 UI —
+                  local_jobs.hours가 자유텍스트라 정확한 시/분 단위로 거를 데이터가
+                  없음(workScheduleParse.ts는 버킷 단위 파싱만 가능, 사용자 확인 후
+                  진행). "직접선택" 모드일 때만 흐림 해제해 강조한다. */}
+              <div className={`jm-workhour-manual-row${timeFilterMode === 'list' ? ' jm-workhour-inactive' : ''}`}>
+                <select
+                  className="jm-workhour-manual-select"
+                  value={manualStartTime}
+                  onChange={(e) => setManualStartTime(e.target.value)}
+                  aria-label="Thời gian bắt đầu"
+                >
+                  <option value="">Thời gian bắt đầu</option>
+                  {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <span>—</span>
+                <select
+                  className="jm-workhour-manual-select"
+                  value={manualEndTime}
+                  onChange={(e) => setManualEndTime(e.target.value)}
+                  aria-label="Thời gian kết thúc"
+                >
+                  <option value="">Thời gian kết thúc</option>
+                  {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              {timeFilterMode === 'manual' && (
+                <p className="hint jm-workhour-manual-hint">
+                  Bộ lọc theo giờ chính xác chưa khả dụng — dùng khung giờ có sẵn ở chế độ "Chọn từ danh sách" để lọc.
+                </p>
               )}
+              <label className="jm-workhour-exclude">
+                <input
+                  type="checkbox"
+                  checked={excludeUnspecifiedHours}
+                  onChange={(e) => setExcludeUnspecifiedHours(e.target.checked)}
+                />
+                Loại trừ tin chưa rõ giờ làm việc
+              </label>
             </div>
           </div>
           <div className="jm-filter-dropdown__footer">
             <button
               type="button"
               className="jm-filter-dropdown__reset"
-              onClick={() => { setJobDurations(new Set()); setSelectedDays(new Set()); setSelectedDayCounts(new Set()); setSelectedTimeBuckets(new Set()) }}
+              onClick={() => { setJobDurations(new Set()); setSelectedDays(new Set()); setSelectedDayCounts(new Set()); setExcludeUnspecifiedDays(false); setSelectedTimeBuckets(new Set()); setExcludeUnspecifiedHours(false) }}
             >
               ↻ Đặt lại
             </button>

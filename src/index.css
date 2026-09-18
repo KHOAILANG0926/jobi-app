@@ -3504,6 +3504,27 @@ a:hover {
   margin: 0.5rem 0 0;
 }
 
+/* "목록에서 선택/직접선택" 중 지금 선택 안 된 쪽 — 완전히 숨기지 않고
+ * 흐리게만(알바몬 캡처본처럼 둘 다 항상 보임), 클릭은 계속 가능. */
+.jm-workhour-inactive {
+  opacity: 0.4;
+}
+
+.jm-filter-dropdown__chips + .jm-filter-dropdown__chips,
+.jm-filter-dropdown__chips + .jm-workhour-manual-row {
+  margin-top: 0.4rem;
+}
+
+.jm-workhour-exclude {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
 @media (max-width: 480px) {
   .jm-workhour-row {
     flex-direction: column;
