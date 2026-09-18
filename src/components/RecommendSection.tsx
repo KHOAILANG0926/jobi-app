@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
 import { JOB_REGIONS } from '../data/jobRegions'
+import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import {
   ALL_TIME_SLOTS,
@@ -160,11 +161,27 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
   }
 
   const toggleCat = (cat: JobCategory) => {
+    setDraft((d) => {
+      const nextCategories = d.categories.includes(cat)
+        ? d.categories.filter((c) => c !== cat)
+        : [...d.categories, cat]
+      // 대분류 선택 해제 시 그 밑의 소분류 선택도 같이 정리(선택 안 된
+      // 대분류의 소분류만 남아있으면 UI에 안 보이는데 실제로는 필터에
+      // 살아있는 상태가 되는 것을 방지).
+      const nextSubcategories = nextCategories.includes(cat)
+        ? d.subcategories
+        : d.subcategories.filter((key) => !key.startsWith(`${cat}:`))
+      return { ...d, categories: nextCategories, subcategories: nextSubcategories }
+    })
+  }
+
+  const toggleSubcat = (category: JobCategory, subId: string) => {
+    const key = `${category}:${subId}`
     setDraft((d) => ({
       ...d,
-      categories: d.categories.includes(cat)
-        ? d.categories.filter((c) => c !== cat)
-        : [...d.categories, cat],
+      subcategories: d.subcategories.includes(key)
+        ? d.subcategories.filter((k) => k !== key)
+        : [...d.subcategories, key],
     }))
   }
 
@@ -177,7 +194,7 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
 
   const handleReset = () => {
     const empty: RecommendPrefs = {
-      regionId: '', minHourlySalary: 0, timeSlots: [], categories: [], workDays: 'any', workPeriod: 'any',
+      regionId: '', minHourlySalary: 0, timeSlots: [], categories: [], subcategories: [], workDays: 'any', workPeriod: 'any',
     }
     setDraft(empty)
     savePrefs(empty)
@@ -317,6 +334,33 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
               )}
             </div>
           </div>
+
+          {/* Subcategories — 선택된 대분류 아래 소분류만 보여준다(UrgentJobsPage.tsx의
+              2단 구조와 동일한 원칙, 단 여기는 스코어링 가점용 소프트 조건). */}
+          {draft.categories.length > 0 && (
+            <div className="rec-form__field">
+              <span className="rec-form__label">🔖 Phân loại chi tiết</span>
+              <div className="rec-form__chips">
+                {draft.categories.flatMap((cat) =>
+                  SUBCATEGORY_LABELS[cat]
+                    ? Object.entries(SUBCATEGORY_LABELS[cat]!).map(([subId, label]) => {
+                        const key = `${cat}:${subId}`
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={`rec-chip${draft.subcategories.includes(key) ? ' rec-chip--active' : ''}`}
+                            onClick={() => toggleSubcat(cat, subId)}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })
+                    : [],
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="rec-form__actions">
             <button className="btn btn--primary" onClick={handleSave}>

@@ -20,6 +20,18 @@
   반영 안 되는 UI만**(genderFilter/ageFilter state, activeFilterCount·
   clearAllFilters 미포함) — 알바몬과 "동일하게" 만들라는 명시적 지시로
   구조만 맞춤, 추후 실데이터 생기면 연결 필요.
+- 0016 orphan draft migration 삭제(`job_duration`/`work_period`가 이미
+  같은 개념 커버, 운영 DB에 한 번도 적용 안 됐던 파일).
+- **Home.tsx + 맞춤공고(RecommendSection.tsx)에 소분류 필터 추가**(급구
+  페이지 지역/업종 2단 구조를 다른 화면에도 확대하는 안건 중, 사용자가
+  "지금 UX 유지 + 소분류만 추가"로 확정): Home은 기존 대분류만 있던(실은
+  UI 자체가 없어 죽어있던 categorySelectRef까지 같이 고침) 곳에 대→소분류
+  select 2단 추가 + 안 쓰던 F&B(cafe/restaurant, 구 카테고리 체계 잔재)
+  특수 그룹핑 dead code 제거. RecommendSection은 categories(소프트 스코어링
+  10점)에 subcategories(추가 5점) 매칭 보너스로 추가 — 지역(하드 필터)과
+  달리 소프트 조건이라 URL 필터가 아니라 점수 가산. 저장한 공고/지도는
+  원래 지역·업종 필터 자체가 없던 화면이라 이번 확대 범위에서 제외(사용자
+  확인).
 
 이전 세션들(A~I 라운드: 대분류/소분류 체계 전면 재설계, Khu vực 패널 UX 다수
 수정, 옛 Quận/Huyện 중간 단계 복원, 검색창/그리드/글자크기 재조정)은 전부
@@ -211,8 +223,9 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
    커버됨, 원본 데이터도 이 정보를 거의 안 줘서 실익 낮다고 판단.
 3. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음, 이전부터 미착수).
 4. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지.
-5. 지역/업종 2단 구조를 다른 화면(홈/저장한 공고/맞춤 공고/지도)에도
-   확대할지 — 여전히 보류 중.
+5. ~~지역/업종 2단 구조 확대~~ — Home/맞춤공고에 소분류 완료(2026-09-18).
+   저장한 공고/지도는 원래 지역·업종 필터가 없던 화면이라 범위에서 제외
+   (필요하면 별도 지시).
 6. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
 7. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
 8. `applications_insert`의 tautology 조건 수정 여부.

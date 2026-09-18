@@ -40,6 +40,10 @@ export interface RecommendPrefs {
   minHourlySalary: number // 0 = no min
   timeSlots: TimeSlot[]
   categories: JobCategory[]
+  /** `${category}:${subId}` 복합키 — subcategory id는 대분류마다 겹칠 수
+   *  있어(UrgentJobsPage.tsx의 selectedSubcategoryKeys와 동일 이유) 이 형식
+   *  으로 저장한다. */
+  subcategories: string[]
   workDays: WorkDaysPref
   workPeriod: WorkPeriodPref
 }
@@ -57,6 +61,7 @@ const EMPTY: RecommendPrefs = {
   minHourlySalary: 0,
   timeSlots: [],
   categories: [],
+  subcategories: [],
   workDays: 'any',
   workPeriod: 'any',
 }
@@ -79,7 +84,7 @@ export function savePrefs(prefs: RecommendPrefs): void {
 export function hasPrefs(p: RecommendPrefs): boolean {
   return !!(
     p.regionId || p.minHourlySalary > 0 || p.timeSlots.length || p.categories.length ||
-    p.workDays !== 'any' || p.workPeriod !== 'any'
+    p.subcategories.length || p.workDays !== 'any' || p.workPeriod !== 'any'
   )
 }
 
@@ -410,11 +415,19 @@ export function scoreJob(job: Job, prefs: RecommendPrefs): JobMatch {
     score += 8 // baseline
   }
 
-  // Category (10 pts)
+  // Category (10 pts) + phân loại chi tiết (5 pts thêm nếu khớp)
   if (prefs.categories.length > 0) {
     if (prefs.categories.includes(job.category)) {
       score += 10
       reasons.push('Ngành phù hợp')
+      if (
+        prefs.subcategories.length > 0 &&
+        job.subcategory &&
+        prefs.subcategories.includes(`${job.category}:${job.subcategory}`)
+      ) {
+        score += 5
+        reasons.push('Phân loại chi tiết phù hợp')
+      }
     }
   } else {
     score += 5 // baseline

@@ -5,7 +5,9 @@ import JobCard from '../components/JobCard'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
+import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
 import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
+import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
 import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint } from '../lib/jobCoords'
@@ -216,6 +218,7 @@ export function Home() {
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<JobCategory | 'all'>('all')
+  const [subcategory, setSubcategory] = useState('')
   const [urgentOnly, setUrgentOnly] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds(user?.id)))
   const [selectedCity, setSelectedCity] = useState<JobRegionId | null>(null)
@@ -241,6 +244,7 @@ export function Home() {
     setSearch(q ?? '')
     setBrandFilter(brand ?? null)
     setCategory((cat as JobCategory) ?? 'all')
+    setSubcategory('')
     setSelectedCity((region as JobRegionId) ?? null)
     setUrgentOnly(urgent === '1')
     setNearMe(near === '1')
@@ -359,10 +363,8 @@ export function Home() {
     const weekLater = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10)
     let result = jobs.filter((j) => {
       if (category !== 'all') {
-        // cafe와 restaurant는 같은 F&B 그룹으로 통합 필터링
-        const FNB = ['cafe', 'restaurant']
-        const allowed = FNB.includes(category) ? FNB : [category]
-        if (!allowed.includes(j.category)) return false
+        if (j.category !== category) return false
+        if (subcategory && j.subcategory !== subcategory) return false
       }
       if (urgentOnly && !j.urgent) return false
       if (todayOnly && !isTodayJob(j)) return false
@@ -413,7 +415,7 @@ export function Home() {
       })
     }
     return result
-  }, [jobs, search, brandFilter, category, urgentOnly, todayOnly, isTodayJob, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recFilter, sortMode, preferredCategories])
+  }, [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, isTodayJob, selectedCity, nearMe, userCoords, nearRadius, jobDistances, deadlineFilter, recFilter, sortMode, preferredCategories])
 
   // "Lương cao" 정렬일 때만 필요 — 어떤 (통화, 지급 주기) 집단을 기준으로
   // 정렬했는지, 비교 대상에서 빠진 공고가 몇 건인지 화면에 밝힌다(2026-09-14
@@ -445,6 +447,7 @@ export function Home() {
     setSearch('')
     setBrandFilter(null)
     setCategory('all')
+    setSubcategory('')
     setUrgentOnly(false)
     setNearMe(false)
   }, [])
@@ -500,7 +503,7 @@ export function Home() {
   }, [location.search, location.key])
 
   const handleBrandClick = (brandSearch: string) => {
-    setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setNearMe(false); setSelectedCity(null)
+    setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setSubcategory(''); setNearMe(false); setSelectedCity(null)
   }
 
   // Quick-filter category row: each button gives an isolated single-purpose view,
@@ -699,6 +702,32 @@ export function Home() {
                 <span className="home-quick-filter__icon" aria-hidden>🗂️</span>
                 <span className="home-quick-filter__label">Theo ngành nghề</span>
               </button>
+            </div>
+            <div className="home-category-panel">
+              <p className="home-category-panel__label">Ngành nghề</p>
+              <select
+                ref={categorySelectRef}
+                className="home-category-panel__select"
+                value={category}
+                onChange={(e) => { setCategory(e.target.value as JobCategory | 'all'); setSubcategory('') }}
+              >
+                <option value="all">Tất cả ngành nghề</option>
+                {ALL_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+              {category !== 'all' && SUBCATEGORY_LABELS[category] && (
+                <select
+                  className="home-category-panel__select"
+                  value={subcategory}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                >
+                  <option value="">Tất cả phân loại chi tiết</option>
+                  {Object.entries(SUBCATEGORY_LABELS[category]!).map(([id, label]) => (
+                    <option key={id} value={id}>{label}</option>
+                  ))}
+                </select>
+              )}
             </div>
             {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
             {nearMe && userCoords && (

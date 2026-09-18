@@ -42,7 +42,7 @@ function job(overrides: Partial<Job>): Job {
 }
 
 const BASE_PREFS: RecommendPrefs = {
-  regionId: '', minHourlySalary: 0, timeSlots: [], categories: [], workDays: 'any', workPeriod: 'any',
+  regionId: '', minHourlySalary: 0, timeSlots: [], categories: [], subcategories: [], workDays: 'any', workPeriod: 'any',
 }
 
 // ── 협의·건당·금액 미상 ──────────────────────────────────────────────
