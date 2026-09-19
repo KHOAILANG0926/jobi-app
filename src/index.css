@@ -364,6 +364,13 @@ a:hover {
   flex-wrap: wrap;
   gap: 2rem;
   padding: 1.25rem 1.5rem;
+  /* .mega-menu가 position:absolute라 브라우저가 "한 줄에 다 들어갈 너비"를
+     스스로 못 정하고 shrink-to-fit 계산을 좁게 잡아버려, flex-wrap이 필요
+     이상으로 일찍(2열씩만) 줄바꿈되던 문제가 있었다(2026-09-20, 사용자가
+     "Việc làm" 드롭다운이 세로로 길게 늘어진 걸 스크린샷으로 지적해서 발견).
+     width:max-content로 "줄바꿈 없이 다 폈을 때"의 실제 너비를 먼저
+     계산시키고, max-width로만 진짜 좁을 때(모바일 등) 줄바꿈을 걸리게 한다. */
+  width: max-content;
   max-width: 92vw;
 }
 .mega-menu__col {
