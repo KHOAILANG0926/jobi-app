@@ -25,6 +25,7 @@ const KoreaJobDetail = lazy(() => import('./pages/KoreaJobDetail'))
 const MapView = lazy(() => import('./components/MapView'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const FranchiseJobs = lazy(() => import('./pages/FranchiseJobs'))
+const ToolsHub = lazy(() => import('./pages/ToolsHub'))
 const ZaloCallback = lazy(() => import('./pages/ZaloCallback').then((module) => ({ default: module.ZaloCallback })))
 const InterviewTips = lazy(() => import('./pages/InterviewTips').then((module) => ({ default: module.InterviewTips })))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then((module) => ({ default: module.PrivacyPolicy })))
@@ -63,6 +64,7 @@ export default function App() {
                 <Route path="/dang-tin" element={<RequireEmployer>{lazyRoute(<PostJob />)}</RequireEmployer>} />
                 <Route path="/ho-so" element={lazyRoute(<Profile />)} />
                 <Route path="/tinh-luong" element={lazyRoute(<SalaryCalculator />)} />
+                <Route path="/cong-cu" element={lazyRoute(<ToolsHub />)} />
                 <Route
                   path="/bang-dieu-khien"
                   element={

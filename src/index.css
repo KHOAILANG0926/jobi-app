@@ -858,6 +858,57 @@ a:hover {
   font-size: 1rem;
 }
 
+/* ── Công cụ 허브 페이지(ToolsHub.tsx) ── */
+.th-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.th-group__heading {
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.th-group__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+.th-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.03);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.th-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+}
+.th-card__icon { font-size: 1.4rem; flex-shrink: 0; line-height: 1; margin-top: 0.1rem; }
+.th-card__body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.th-card__label { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+.th-card__desc { font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
+
+@media (prefers-color-scheme: dark) {
+  /* 이 앱의 다크모드는 페이지 배경 자체는 안 바뀌고(body는 항상 밝은
+     회색) 카드류 컴포넌트만 어둡게 뒤집는 방식이다(jd2-card 등과 동일
+     패턴) — .th-group__heading은 카드가 아니라 페이지 배경 위에 바로
+     놓이므로 라이트모드 색(#1e293b, 밝은 배경에서 읽힘)을 다크모드에서도
+     그대로 둬야 한다. 처음엔 실수로 흰색에 가깝게 바꿔서 밝은 배경 위에
+     거의 안 보이는 대비 버그가 있었음(로컬 다크모드 스크린샷으로 발견). */
+  .th-card { background: #1e293b; border-color: #334155; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .th-card__label { color: #f1f5f9; }
+  .th-card__desc { color: #64748b; }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

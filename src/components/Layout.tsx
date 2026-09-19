@@ -209,8 +209,13 @@ const MENU_ITEMS: MenuItem[] = [
    *  얹어서 해당 탭으로 바로 연다. "Việc đã lưu"/"Việc đã xem"은 Profile.tsx
    *  내부 탭 대신 Việc làm 메뉴와 동일한 기존 전용 라우트를 그대로 재사용한다. */
   {
+    // 2026-09-20 사용자 지시 — 알바몬 6개 상단 탭을 전부 클릭해보니 예외 없이
+    // 각자 전용 페이지로 이동했다("Công cụ"만 특별한 게 아니라 이게 알바몬
+    // 전체 원칙). 이전엔 급여계산기(/tinh-luong) 하나로만 점프해서 드롭다운의
+    // 나머지 3개 그룹(이력서/지원현황/계정)은 드롭다운을 열어야만 보였다 —
+    // 4개 그룹을 한눈에 보여주는 허브 페이지(ToolsHub.tsx, /cong-cu) 신설.
     label: 'Công cụ',
-    to: '/tinh-luong',
+    to: '/cong-cu',
     dropdown: [
       { heading: 'Hồ sơ xin việc', links: [
         { label: 'Hồ sơ của tôi', to: '/ho-so' },
