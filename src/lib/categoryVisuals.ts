@@ -32,6 +32,26 @@ export const CATEGORY_VISUALS: Record<string, CategoryVisual> = {
     imageUrl: 'https://images.unsplash.com/photo-1568515387631-8b650bbcdb90?w=600&q=80',
     label: 'LÁI XE / GIAO HÀNG',
   },
+  cntt_ky_thuat: {
+    imageUrl: 'https://images.unsplash.com/photo-1604754742629-3e5728249d73?w=600&q=80',
+    label: 'CNTT · KỸ THUẬT',
+  },
+  thiet_ke: {
+    imageUrl: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=600&q=80',
+    label: 'THIẾT KẾ',
+  },
+  truyen_thong: {
+    imageUrl: 'https://images.unsplash.com/photo-1612544409025-e1f6a56c1152?w=600&q=80',
+    label: 'TRUYỀN THÔNG',
+  },
+  y_te_dieu_duong: {
+    imageUrl: 'https://images.unsplash.com/photo-1691139601099-932c01ec198b?w=600&q=80',
+    label: 'Y TẾ · ĐIỀU DƯỠNG · NGHIÊN CỨU',
+  },
+  giao_duc_giang_day: {
+    imageUrl: 'https://images.unsplash.com/photo-1511629091441-ee46146481b6?w=600&q=80',
+    label: 'GIÁO DỤC · GIẢNG DẠY',
+  },
   khac: {
     imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=80',
     label: 'VIỆC LÀM',
