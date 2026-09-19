@@ -31,6 +31,14 @@
   제목/회사/지역/급여로 표시 확인 → ✕로 언세이브 시 빈 상태로 정상 복귀
   확인 → 상세페이지(`/viec-han-quoc/2`) 북마크 버튼도 "Lưu tin"↔"Bỏ lưu tin"
   정상 토글 확인. 콘솔 에러 없음(무관한 404 2건은 기존부터 있던 것).
+- **배포 직후 실사이트에서 버그 1건 발견·즉시 수정**: 저장 직후 다른
+  페이지로 이동하면 `fetchKoreaJobs()`가 끝나기 전 순간에 "Tin Hàn Quốc
+  không còn tồn tại"(삭제됨)로 잘못 표시되는 깜빡임 — `koreaLoading` state
+  추가해 fetch 완료 전엔 "Đang tải..."만 보이게 수정(`429e969`). **git
+  push(`c4979d6`→`429e969`) → Vercel Production 재배포 → 실사이트에서
+  "Đang tải..." → "Việc làm Hàn Quốc (1)" 정상 전환 재확인 완료**, 테스트로
+  넣었던 `localStorage` 값도 정리함(DB 변경이 아니라 브라우저 저장소라
+  별도 DB 롤백 불필요).
 
 **Truyền thông/마케팅 소분류 누락 수정(2026-09-19, `crawler/classifier.py`만
 변경 — 프론트엔드/Vercel 배포 대상 아님, 다음 크롤러 실행부터 반영)**:
