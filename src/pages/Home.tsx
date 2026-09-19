@@ -10,7 +10,7 @@ import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/j
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
-import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint, resolveMapLocations } from '../lib/jobCoords'
+import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint } from '../lib/jobCoords'
 import { reverseGeocode, searchAddress, type AddressSuggestion } from '../lib/geoapify'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
@@ -1012,27 +1012,34 @@ export function Home() {
                         // 표시(job.location 카드 지도에서 쓰던 근사 위치
                         // 마커 스타일 재사용).
                         { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
-                        // 2026-09-20 버그 수정: 처음엔 job.lat/lng(최상위
-                        // 필드)을 바로 썼는데, 이 필드는 "geocode 실패 시
-                        // 성/시 단위로 추측한 좌표로 back-fill될 수 있다"고
-                        // types/job.ts에 이미 명시돼 있었음 — 실측해보니 그
-                        // 추측 좌표 하나가 베트남 밖 먼 곳으로 튀어서
-                        // fitBounds가 지도를 아시아 전체로 확 축소시켜버리는
-                        // 결함으로 실제 나타남(Production 확인). JobDetail.tsx가
-                        // 이미 쓰는 resolveMapLocations()로 교체 — source가
-                        // 'default'(위치 정보 전혀 없음, 베트남 중심 fallback)
-                        // 이거나 'pending'(아직 지오코딩 안 됨)인 공고는 애초에
-                        // 신뢰할 좌표가 없으므로 핀 자체를 만들지 않는다.
+                        // 2026-09-20 버그 수정 2라운드: 1차 수정(job.lat/lng
+                        // 직접 참조 제거)으로도 지도가 여전히 나라 전체로
+                        // 벌어짐 — Production 실측으로 재조사한 결과 진짜
+                        // 원인은 resolveMapLocations()가 공고 하나의 "모든"
+                        // 근무지 좌표(근무지 여러 곳 = 핀 여러 개)를 돌려주는
+                        // 함수였던 것. "전국 채용" 같은 공고는 근무지 중
+                        // 하나만 반경 안이어도 필터를 통과하는데, 지도엔 그
+                        // 공고의 다른 지역(하노이/다낭 등) 근무지까지 전부
+                        // 찍혀서 fitBounds가 그 먼 지점까지 포함해버렸다.
+                        // "이 공고가 왜 가까운지" 판정에 실제로 쓰이는 값
+                        // (jobDistances 계산에 쓰는 resolveDistanceSearchPoint,
+                        // 공고당 대표 좌표 1개)과 지도 핀을 반드시 같은
+                        // 출처로 맞춰야 한다 — 지도 표시 자격과 거리검색
+                        // 자격은 이번 경우엔 반드시 같아야 하는 특수 케이스
+                        // (jobCoords.ts 주석의 "둘은 별개" 원칙은 JobDetail
+                        // 처럼 공고 하나의 전체 근무지를 다 보여줄 때 얘기고,
+                        // "가까운 순서로 고른 결과"를 지도에 그릴 땐 그 판정에
+                        // 쓴 점만 그려야 앞뒤가 맞는다).
                         ...filtered.flatMap((j) => {
-                          const resolved = resolveMapLocations(j)
-                          if (resolved.source === 'default' || resolved.source === 'pending') return []
-                          return resolved.points.map((p) => ({
-                            lat: p.lat,
-                            lng: p.lng,
+                          const point = resolveDistanceSearchPoint(j)
+                          if (!point) return []
+                          return [{
+                            lat: point.lat,
+                            lng: point.lng,
                             label: `${j.title} · ${j.company}`,
-                            precise: p.precise,
+                            precise: point.precise,
                             href: `/viec-lam/${j.id}`,
-                          }))
+                          }]
                         }),
                       ]}
                     />

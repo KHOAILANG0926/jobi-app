@@ -2,6 +2,38 @@
 
 ## 현재 작업
 
+**"Gần tôi" 지도 줌 버그 — 2라운드 만에 진짜 원인 찾아 수정(2026-09-20)**:
+1차 수정(`job.lat/lng` 직접 참조 제거 → `resolveMapLocations()`로 교체)을
+배포했는데도 Production에서 여전히 줌 레벨 5(국가 단위)로 나오는 걸
+JS로 직접 재확인(타일 URL의 `/z/x/y` 파싱, 스크린샷이 계속 안 찍혀서
+`document.querySelector`로 우회 검증) — 사용자가 "테스트를 하고 있는
+거냐"고 물어본 시점에 이미 이 재조사 중이었음. **진짜 원인**:
+`resolveMapLocations()`는 공고 하나의 "모든" 근무지 좌표(근무지 여러 곳 =
+핀 여러 개)를 돌려주는 함수인데, "가까운 공고"인지 판정([Home.tsx](src/pages/Home.tsx)의
+`jobDistances` useMemo)은 `resolveDistanceSearchPoint()`(공고당 대표
+좌표 1개)를 쓴다 — "전국 채용" 같은 공고는 근무지 중 하나만 반경 안이어도
+필터를 통과하는데, 지도엔 그 공고의 다른 지역(하노이·다낭 등) 근무지까지
+전부 찍혀서 `fitBounds`가 그 먼 지점까지 포함해버렸던 것.
+- [Home.tsx](src/pages/Home.tsx): 지도 마커를 `resolveMapLocations()`
+  대신 `resolveDistanceSearchPoint()`로 교체 — "이 공고가 왜 가까운지"
+  판정에 실제로 쓰인 그 점만 지도에 찍는다(jobDistances 계산과 지도가
+  이제 같은 출처). [jobCoords.ts](src/lib/jobCoords.ts) 주석의 "지도
+  표시 자격과 거리검색 자격은 별개"라는 원칙은 JobDetail처럼 공고 하나의
+  전체 근무지를 다 보여줄 때 얘기고, "가까운 순서로 고른 결과"를 지도에
+  그릴 땐 그 판정에 쓴 점만 그려야 앞뒤가 맞아 이번 경우엔 의도적으로
+  같은 함수로 통일함.
+- `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일
+  통과. **Production 배포 후 줌 레벨이 실제로 도시/구 단위(12~15 정도)로
+  나오는지 재확인 필요**(다음 최우선 확인 항목 — 이번에도 실측 전임,
+  1차 수정 때도 "됐다고 생각했는데 실측하니 안 됐던" 전례가 있어 반드시
+  다시 확인할 것).
+- **디버깅 메모 추가**: 브라우저 pane의 screenshot 도구가 이 세션 후반부
+  내내 자주 "timeout" 또는 흰 화면으로 실패했다 — 이럴 때
+  `mcp__Claude_Browser__javascript_tool`로 `document.querySelector`
+  등을 직접 실행해 DOM 상태(타일 URL, 마커 개수, scrollY 등)를 확인하는
+  우회 경로가 훨씬 안정적이었다. 스크린샷이 안 찍힌다고 검증을 포기하지
+  말고 JS 기반 검증으로 전환할 것.
+
 **"Gần tôi" 지도가 배포 직후 베트남이 아니라 아시아 전체로 축소되던 버그
 수정(2026-09-20, Production 실측으로 직접 발견)**: 바로 아래 "지도+핀"
 절 배포 직후 실사이트에서 확인해보니, 핀 20개 중 하나가 베트남 밖 먼
