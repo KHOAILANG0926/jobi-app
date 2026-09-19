@@ -20,14 +20,19 @@ export function Login() {
   const [role, setRole] = useState<UserRole>(roleParam === 'employer' ? 'employer' : 'seeker')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!email.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Vui lòng điền email và mật khẩu.')
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp.')
       return
     }
     setLoading(true)
@@ -86,6 +91,14 @@ export function Login() {
           value={password}
           onChange={setPassword}
           placeholder="••••••••"
+          autoComplete="current-password"
+        />
+
+        <PasswordField
+          label="Xác nhận mật khẩu *"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          placeholder="Nhập lại mật khẩu"
           autoComplete="current-password"
         />
 
