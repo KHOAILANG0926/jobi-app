@@ -140,12 +140,14 @@ export default function UrgentJobsPage() {
   // resolvedWards는 crawler/vn_provinces_lookup.py(통계총국 공식 자료)로 확정된
   // 값만 담고 있어 옛/새 이름 혼동이 없다 — 값이 없는 공고(아직 지오코딩
   // 재처리 전)는 지역 필터로 못 찾는 게 맞다(억지로 옛 방식과 섞지 않음).
-  // 2026-09-17 사용자 지시("알바몬처럼 펼쳐진 상태로") — 알바몬은 지역
-  // 패널을 처음 열면 서울이 기본 선택돼 동/읍/면까지 바로 보인다. URL에
-  // ?province= 지정이 없으면 첫 성/시(VN_PROVINCES[0])를 실제 필터로
-  // 기본 적용한다(단순 미리보기가 아니라 진짜 필터 — 사용자 확인함).
+  // 2026-09-17 사용자 지시로 한때 URL에 ?province= 없으면 첫 성/시
+  // (VN_PROVINCES[0]=Cần Thơ)를 기본 필터로 자동 적용했었으나, Cần Thơ에
+  // 실제 공고가 0건이라 첫 화면이 계속 빈 목록으로 보이는 문제가 있었다.
+  // 2026-09-19 사용자 지시("아무것도 선택하지 않아도 기본테이블 보이게
+  // 해줘") — 아무 지역도 선택 안 된 상태(null)를 기본값으로 되돌려서,
+  // 처음 들어오면 전체 급구 공고 목록이 필터 없이 그대로 보이게 한다.
   const [selectedProvince, setSelectedProvince] = useState<string | null>(
-    () => searchParams.get('province') ?? VN_PROVINCES[0] ?? null,
+    () => searchParams.get('province') ?? null,
   )
   const [selectedWards, setSelectedWards] = useState<Set<string>>(new Set())
   // 2026-09-18 사용자 지시 — 2025년 개편으로 행정상 폐지된 옛 Quận/Huyện(구/현)을
