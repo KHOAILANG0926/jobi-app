@@ -7478,6 +7478,55 @@ a:hover {
   gap: 0.4rem;
   flex-shrink: 0;
 }
+/* 2026-09-20 사용자 지시(카카오맵 "주변 탐색" 아이콘 줄 캡처) — 위치를
+ * 아직 안 잡은 초기 화면에서 GPS 버튼+반경칩 2단계를 거치지 않고 반경
+ * 버튼 하나로 위치확보+필터링을 한 번에 끝내는 원클릭 진입점. 기존
+ * .home-quick-filter(원형 아이콘+라벨) 시각 언어를 재사용. */
+.near-me-explore {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.near-me-explore__label {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888;
+}
+.near-me-explore__row {
+  display: flex;
+  gap: 1.5rem;
+}
+.near-me-explore__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.near-me-explore__item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.near-me-explore__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #fff5f5;
+  font-size: 1.15rem;
+  transition: background 0.15s, transform 0.15s;
+}
+.near-me-explore__item:hover .near-me-explore__icon { transform: translateY(-2px); }
+.near-me-explore__text {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #444;
+}
 .near-me-status__text--error {
   color: #dc2626;
 }

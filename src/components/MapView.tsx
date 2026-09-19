@@ -55,11 +55,17 @@ export default function MapView() {
     setSavedIds(new Set(loadSavedJobIds(user?.id)))
   }, [user?.id])
 
-  const handleUseCurrentLocation = () => {
+  // 2026-09-20 사용자 지시(카카오맵 "주변 탐색" 아이콘 줄 캡처 — "5km,
+  // 10km 차등을 두고 공고가 자동반영되서 나열되는 식으로 만들고 싶다") —
+  // radius를 넘기면 GPS 확보와 동시에 그 반경으로 바로 설정, 넘기지 않으면
+  // 기존처럼 현재 nearRadius를 그대로 씀("Dùng vị trí hiện tại" 버튼은
+  // 계속 인자 없이 호출).
+  const handleUseCurrentLocation = (radius?: number) => {
     if (locating) return
     if (!navigator.geolocation) { setGeoErrorMsg('Trình duyệt không hỗ trợ định vị.'); return }
     setGeoErrorMsg(null)
     setNearAddressLabel(null)
+    if (radius !== undefined) setNearRadius(radius)
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -183,8 +189,33 @@ export default function MapView() {
               </div>
             )}
           </div>
+          {!userCoords && (
+            <div className="near-me-explore">
+              <p className="near-me-explore__label">Khám phá gần đây</p>
+              <div className="near-me-explore__row">
+                <button
+                  type="button"
+                  className="near-me-explore__item"
+                  onClick={() => handleUseCurrentLocation(5)}
+                  disabled={locating}
+                >
+                  <span className="near-me-explore__icon" aria-hidden>📍</span>
+                  <span className="near-me-explore__text">Trong 5km</span>
+                </button>
+                <button
+                  type="button"
+                  className="near-me-explore__item"
+                  onClick={() => handleUseCurrentLocation(10)}
+                  disabled={locating}
+                >
+                  <span className="near-me-explore__icon" aria-hidden>📍</span>
+                  <span className="near-me-explore__text">Trong 10km</span>
+                </button>
+              </div>
+            </div>
+          )}
           <div className="near-me-view__controls">
-            <button type="button" className="btn btn--primary btn--sm" onClick={handleUseCurrentLocation} disabled={locating}>
+            <button type="button" className="btn btn--primary btn--sm" onClick={() => handleUseCurrentLocation()} disabled={locating}>
               {locating ? 'Đang định vị...' : userCoords ? 'Cập nhật vị trí' : 'Dùng vị trí hiện tại'}
             </button>
             {userCoords && (
