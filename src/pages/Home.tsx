@@ -240,6 +240,10 @@ export function Home() {
     const region = p.get('region')
     const urgent = p.get('urgent')
     const near = p.get('near')
+    // 2026-09-20 사용자 지시("헤더 메가메뉴 탐색축 세분화") — 헤더에서
+    // "Lương cao"로 바로 진입할 수 있도록, 이미 화면 안에 있던 퀵필터 칩
+    // (handleQuickSalary 등)과 동일한 sortMode를 URL로도 설정할 수 있게 한다.
+    const sort = p.get('sort')
 
     setSearch(q ?? '')
     setBrandFilter(brand ?? null)
@@ -248,6 +252,7 @@ export function Home() {
     setSelectedCity((region as JobRegionId) ?? null)
     setUrgentOnly(urgent === '1')
     setNearMe(near === '1')
+    if (sort === 'salary' || sort === 'recommended') setSortMode(sort)
   }, [location.search])
   const [nearRadius, setNearRadius] = useState(5)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)

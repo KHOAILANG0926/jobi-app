@@ -200,7 +200,17 @@ export default function UrgentJobsPage() {
   // 2026-09-18 사용자 지시("둘 다 가야지") — job_duration(알바몬 스타일
   // 근무기간 7구간, PostJob.tsx 직접등록 전용 컬럼) 추가. 크롤러 공고는
   // 채우지 않아 대부분 undefined일 걸 알고 진행 — CHATGPT_HANDOFF.md 참고.
-  const [jobDurations, setJobDurations] = useState<Set<string>>(new Set())
+  // 2026-09-20 사용자 지시("헤더 메가메뉴 탐색축 세분화") — 헤더 "Theo thời
+  // gian"에서 특정 근무기간으로 바로 진입할 수 있도록 province와 동일한
+  // 패턴으로 URL(?duration=)에서 초기값을 읽는다(양방향 동기화는 안 함 —
+  // 다른 필터들도 마찬가지로 진입 시점 프리셋 용도일 뿐).
+  const [jobDurations, setJobDurations] = useState<Set<string>>(
+    () => { const d = searchParams.get('duration'); return d ? new Set([d]) : new Set() },
+  )
+  // 2026-09-20 사용자 지시 — 헤더 "Theo điều kiện"에서 "자가서약(근로계약서/
+  // BHXH) 기업 공고만" 보기로 바로 진입. labor_contract_pledge/
+  // social_insurance_pledge 둘 중 하나라도 true인 공고만 남긴다.
+  const [pledgeOnly, setPledgeOnly] = useState<boolean>(() => searchParams.get('pledge') === '1')
   // 2026-09-18 사용자 지시(알바몬 캡처본 참고) — "근무요일"/"근무시간" 줄에
   // "목록에서 선택/직접선택" 전환을 추가한다. 근무요일은 두 모드 다 기존
   // selectedDays state를 그대로 쓰는 진짜 기능(목록=프리셋 조합, 직접선택=
@@ -479,6 +489,7 @@ export default function UrgentJobsPage() {
     // 지금 시점엔 전부 사라져버림).
     if (genderFilter) list = list.filter((j) => !j.genderRequirement || j.genderRequirement === genderFilter)
     if (ageFilter) list = list.filter((j) => !j.ageRequirement || j.ageRequirement === ageFilter)
+    if (pledgeOnly) list = list.filter((j) => !!j.laborContractPledge || !!j.socialInsurancePledge)
     if (selectedDays.size > 0) {
       list = list.filter((j) => {
         const days = parseWorkDays(j.workDays)
@@ -509,7 +520,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -531,7 +542,7 @@ export default function UrgentJobsPage() {
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
-  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + (genderFilter ? 1 : 0) + (ageFilter ? 1 : 0) + selectedDays.size + selectedDayCounts.size + (excludeUnspecifiedDays ? 1 : 0) + selectedTimeBuckets.size + (excludeUnspecifiedHours ? 1 : 0) + includeKeywords.length + excludeKeywords.length
+  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + (genderFilter ? 1 : 0) + (ageFilter ? 1 : 0) + (pledgeOnly ? 1 : 0) + selectedDays.size + selectedDayCounts.size + (excludeUnspecifiedDays ? 1 : 0) + selectedTimeBuckets.size + (excludeUnspecifiedHours ? 1 : 0) + includeKeywords.length + excludeKeywords.length
 
   const clearAllFilters = () => {
     selectProvince(null)
@@ -541,6 +552,7 @@ export default function UrgentJobsPage() {
     setJobDurations(new Set())
     setGenderFilter(null)
     setAgeFilter('')
+    setPledgeOnly(false)
     setSelectedDays(new Set())
     setSelectedDayCounts(new Set())
     setExcludeUnspecifiedDays(false)
@@ -956,7 +968,7 @@ export default function UrgentJobsPage() {
 
         <FilterDropdown
           label="Điều kiện khác"
-          count={workPeriods.size + (genderFilter ? 1 : 0) + (ageFilter ? 1 : 0) + includeKeywords.length + excludeKeywords.length}
+          count={workPeriods.size + (genderFilter ? 1 : 0) + (ageFilter ? 1 : 0) + (pledgeOnly ? 1 : 0) + includeKeywords.length + excludeKeywords.length}
           isOpen={openPanel === 'detail'}
           onToggle={() => togglePanel('detail')}
           onClose={closePanel}
@@ -995,6 +1007,15 @@ export default function UrgentJobsPage() {
                 <option value="">Chọn độ tuổi</option>
                 {AGE_REQUIREMENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
+            </div>
+          </div>
+          <div className="jm-filter-row">
+            <p className="jm-filter-row__label">Độ tin cậy</p>
+            <div className="jm-filter-row__body">
+              <label className="jm-workhour-exclude">
+                <input type="checkbox" checked={pledgeOnly} onChange={(e) => setPledgeOnly(e.target.checked)} />
+                Chỉ hiện tin có cam kết với người lao động (hợp đồng lao động / BHXH-BHYT)
+              </label>
             </div>
           </div>
           <div className="jm-filter-row">

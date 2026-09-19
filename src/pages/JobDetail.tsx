@@ -119,6 +119,10 @@ export function JobDetail() {
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
   const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
+  // 2026-09-20 사용자 지시("상세페이지 탭 구조") — 알바몬처럼 근무조건/
+  // 상세요강/기업정보 3탭으로 재구성. 사이드바(지원/저장/신고 등)는 탭과
+  // 무관하게 항상 보이고, jd2-main 안쪽 콘텐츠만 탭에 따라 바뀐다.
+  const [activeTab, setActiveTab] = useState<'info' | 'desc' | 'company'>('info')
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
 
@@ -142,6 +146,8 @@ export function JobDetail() {
   useEffect(() => {
     if (id) setSaved(isJobSaved(id, user?.id))
   }, [id, user?.id])
+
+  useEffect(() => { setActiveTab('info') }, [id])
 
   // "최근 본 공고" — 상세페이지를 실제로 열람했을 때만 기록한다(목록 카드
   // 노출만으로는 기록하지 않음). 로딩 중이라 job을 아직 못 찾은 상태는 제외.
@@ -372,6 +378,27 @@ export function JobDetail() {
       <div className="jd2-grid">
         <div className="jd2-main">
 
+          {/* ── Tabs (알바몬 근무조건/상세요강/기업정보 참고) ── */}
+          <div className="jd2-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={activeTab === 'info'}
+              className={`jd2-tab${activeTab === 'info' ? ' jd2-tab--active' : ''}`}
+              onClick={() => setActiveTab('info')}>
+              Thông tin tuyển dụng
+            </button>
+            <button type="button" role="tab" aria-selected={activeTab === 'desc'}
+              className={`jd2-tab${activeTab === 'desc' ? ' jd2-tab--active' : ''}`}
+              onClick={() => setActiveTab('desc')}>
+              Mô tả công việc
+            </button>
+            <button type="button" role="tab" aria-selected={activeTab === 'company'}
+              className={`jd2-tab${activeTab === 'company' ? ' jd2-tab--active' : ''}`}
+              onClick={() => setActiveTab('company')}>
+              Thông tin công ty
+            </button>
+          </div>
+
+          {activeTab === 'info' && <>
+
           {/* ── Recruitment info (merged) ── */}
           <div className="jd2-card">
             <h2 className="jd2-card__title">Thông tin tuyển dụng</h2>
@@ -559,10 +586,24 @@ export function JobDetail() {
             </div>
           )}
 
+          </>}
+
+          {activeTab === 'desc' && <>
+
           {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
-          {job.description && !job.description.startsWith('http') && (
+          {job.description && !job.description.startsWith('http') ? (
             <DescriptionRenderer text={job.description} />
+          ) : (
+            <div className="jd2-card">
+              <div className="jd2-card__body">
+                <p className="jd2-desc__para">Tin này chưa có mô tả chi tiết.</p>
+              </div>
+            </div>
           )}
+
+          </>}
+
+          {activeTab === 'company' && <>
 
           {/* ── Company info ── */}
           {hasCompanyInfo && (
@@ -597,6 +638,8 @@ export function JobDetail() {
           )}
 
           <CompanyReviews company={job.company} />
+
+          </>}
         </div>
 
         {/* ── Sidebar ── */}
