@@ -343,6 +343,12 @@ export function Layout() {
                 ? [
                     { label: 'Bảng điều khiển', to: '/bang-dieu-khien' },
                     { label: 'Đăng tin', to: '/dang-tin' },
+                    // 2026-09-20 사용자 지시 — 기업 계정 로그인 시 구직자용
+                    // "Việc làm" 메뉴 전체가 사라져서 급구 페이지 등에
+                    // URL 직접 입력 없이는 접근할 방법이 없었음(세션에서
+                    // 실제로 겪은 문제). 전체 메가메뉴는 그대로 안 쓰고,
+                    // 홈(전체 공고 탐색 진입점)으로 가는 링크 하나만 추가.
+                    { label: 'Việc làm', to: '/' },
                   ].map((item, i) => (
                     <NavLink key={i} to={item.to} className={({ isActive }) => tabClass(isActive)}>
                       {item.label}
