@@ -286,6 +286,16 @@ export default function UrgentJobsPage() {
     setSelectedDistrict(null)
   }
   const selectDistrict = (d: string | null) => setSelectedDistrict((cur) => (cur === d ? null : d))
+  // 2026-09-20 사용자 지시 — 구/현은 지금까지 순수 탐색용(오른쪽 동/사
+  // 목록만 바꿈)이었는데, "이 구 전체"를 한 번에 필터로 걸고 싶다는 요청.
+  // 업직종 패널의 "Tất cả <대분류>" 패턴과 동일하게, 그 구/현에 속한 동/사
+  // 전체를 selectedWards에 한꺼번에 넣는다(개별 동 선택과 같은 저장소를
+  // 쓰므로 이후 개별 토글도 그대로 동작).
+  const selectAllWardsInDistrict = (province: string, district: string) => {
+    const wards = VN_WARDS_BY_DISTRICT[province]?.[district] ?? []
+    setSelectedDistrict(district)
+    setSelectedWards(new Set(wards))
+  }
   const toggleWard = (w: string) => setSelectedWards((prev) => {
     const next = new Set(prev)
     if (next.has(w)) next.delete(w); else next.add(w)
@@ -384,12 +394,19 @@ export default function UrgentJobsPage() {
   // 이름에 포함된 모든 지역을 평탄화해서 한 번에 보여준다. 성/시 34개 ×
   // 동/사 평균 100개 = 약 3,300건 전체를 한 번만 만들어두고(useMemo, deps
   // 없음 — 정적 데이터라 재계산 불필요) 검색어로 필터링한다.
+  // 2026-09-20 사용자 지시 — 구/현 이름으로도 검색되게(지금까지는 성/시+
+  // 동/사만 인덱싱돼서 "Bình Thuỷ" 같은 구/현 이름을 쳐도 안 나왔음).
+  // district 필드를 추가해 세 종류(성/시만 / 성/시+구/현 / 성/시+동/사)를
+  // 한 목록에 같이 인덱싱한다.
   const regionSearchIndex = useMemo(() => {
-    const list: { key: string; province: string; ward: string | null; label: string }[] = []
+    const list: { key: string; province: string; district: string | null; ward: string | null; label: string }[] = []
     for (const p of VN_PROVINCES) {
-      list.push({ key: p, province: p, ward: null, label: shortProvinceName(p) })
+      list.push({ key: p, province: p, district: null, ward: null, label: shortProvinceName(p) })
+      for (const d of VN_DISTRICTS_BY_PROVINCE[p] ?? []) {
+        list.push({ key: `${p}::d::${d}`, province: p, district: d, ward: null, label: `${shortProvinceName(p)} · ${d}` })
+      }
       for (const w of VN_WARDS_BY_PROVINCE[p] ?? []) {
-        list.push({ key: `${p}::${w}`, province: p, ward: w, label: `${shortProvinceName(p)} · ${w}` })
+        list.push({ key: `${p}::${w}`, province: p, district: null, ward: w, label: `${shortProvinceName(p)} · ${w}` })
       }
     }
     return list
@@ -399,10 +416,6 @@ export default function UrgentJobsPage() {
     if (!q) return []
     return regionSearchIndex.filter((item) => normalizeViText(item.label).includes(q)).slice(0, 50)
   }, [regionSearch, regionSearchIndex])
-  const isRegionResultSelected = (item: { province: string; ward: string | null }) =>
-    item.ward === null
-      ? selectedProvince === item.province && selectedWards.size === 0
-      : selectedProvince === item.province && selectedWards.has(item.ward)
   const findDistrictOfWard = (province: string, ward: string): string | null => {
     const byDistrict = VN_WARDS_BY_DISTRICT[province]
     if (!byDistrict) return null
@@ -411,16 +424,29 @@ export default function UrgentJobsPage() {
     }
     return null
   }
-  const selectRegionSearchResult = (item: { province: string; ward: string | null }) => {
-    if (item.ward === null) {
-      selectProvince(item.province)
-    } else if (selectedProvince !== item.province) {
+  const isRegionResultSelected = (item: { province: string; district: string | null; ward: string | null }) => {
+    if (selectedProvince !== item.province) return false
+    if (item.ward !== null) return selectedWards.has(item.ward)
+    if (item.district !== null) {
+      const districtWards = VN_WARDS_BY_DISTRICT[item.province]?.[item.district] ?? []
+      return districtWards.length > 0 && districtWards.every((w) => selectedWards.has(w))
+    }
+    return selectedWards.size === 0
+  }
+  const selectRegionSearchResult = (item: { province: string; district: string | null; ward: string | null }) => {
+    if (item.ward !== null) {
+      if (selectedProvince !== item.province) {
+        setSelectedProvince(item.province)
+        setSelectedWards(new Set([item.ward]))
+      } else {
+        toggleWard(item.ward)
+      }
+      setSelectedDistrict(findDistrictOfWard(item.province, item.ward))
+    } else if (item.district !== null) {
       setSelectedProvince(item.province)
-      setSelectedWards(new Set([item.ward]))
-      setSelectedDistrict(findDistrictOfWard(item.province, item.ward))
+      selectAllWardsInDistrict(item.province, item.district)
     } else {
-      toggleWard(item.ward)
-      setSelectedDistrict(findDistrictOfWard(item.province, item.ward))
+      selectProvince(item.province)
     }
   }
 
@@ -621,6 +647,15 @@ export default function UrgentJobsPage() {
                   <p className="hint jm-region-col__hint">Các tin tuyển gấp ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
                 ) : (
                   <ul className="jm-region-col__list">
+                    <li>
+                      <button
+                        type="button"
+                        className={`jm-region-row${districtWardOptions.every((w) => selectedWards.has(w)) ? ' is-selected' : ''}`}
+                        onClick={() => selectAllWardsInDistrict(selectedProvince, selectedDistrict)}
+                      >
+                        Tất cả {selectedDistrict}
+                      </button>
+                    </li>
                     {districtWardOptions.map((w) => (
                       <li key={w}>
                         <button
