@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth, type UserRole } from '../context/AuthContext'
 import { ZaloIcon } from '../components/ZaloIcon'
+import { PasswordField } from '../components/PasswordField'
 
 export function Login() {
   const navigate = useNavigate()
@@ -80,17 +81,13 @@ export function Login() {
           />
         </label>
 
-        <label className="field">
-          <span className="field__label">Mật khẩu *</span>
-          <input
-            className="field__input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            autoComplete="current-password"
-          />
-        </label>
+        <PasswordField
+          label="Mật khẩu *"
+          value={password}
+          onChange={setPassword}
+          placeholder="••••••••"
+          autoComplete="current-password"
+        />
 
         <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}

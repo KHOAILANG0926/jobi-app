@@ -2634,6 +2634,28 @@ a:hover {
   min-height: 100px;
 }
 
+.password-field {
+  position: relative;
+}
+.password-field__input {
+  padding-right: 2.6rem;
+}
+.password-field__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.password-field__toggle:hover { color: #475569; }
+
 .form-actions {
   display: flex;
   flex-wrap: wrap;

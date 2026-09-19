@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth, type UserRole } from '../context/AuthContext'
+import { PasswordField } from '../components/PasswordField'
 
 export function Signup() {
   const navigate = useNavigate()
@@ -14,6 +15,7 @@ export function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [role, setRole] = useState<UserRole>(roleParam === 'employer' ? 'employer' : 'seeker')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -30,12 +32,16 @@ export function Signup() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!name.trim() || !email.trim() || !password.trim()) {
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Vui lòng điền đầy đủ thông tin.')
       return
     }
     if (password.length < 6) {
       setError('Mật khẩu tối thiểu 6 ký tự.')
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp.')
       return
     }
     setLoading(true)
@@ -117,12 +123,21 @@ export function Signup() {
             placeholder="example@email.com" autoComplete="email" />
         </label>
 
-        <label className="field">
-          <span className="field__label">Mật khẩu *</span>
-          <input className="field__input" type="password" value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Tối thiểu 6 ký tự" autoComplete="new-password" />
-        </label>
+        <PasswordField
+          label="Mật khẩu *"
+          value={password}
+          onChange={setPassword}
+          placeholder="Tối thiểu 6 ký tự"
+          autoComplete="new-password"
+        />
+
+        <PasswordField
+          label="Xác nhận mật khẩu *"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          placeholder="Nhập lại mật khẩu"
+          autoComplete="new-password"
+        />
 
         <button
           type="submit"

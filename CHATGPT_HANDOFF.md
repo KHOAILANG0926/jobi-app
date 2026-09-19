@@ -2,6 +2,33 @@
 
 ## 현재 작업
 
+**로그인/회원가입 비밀번호 UX 개선(2026-09-20, 사용자가 로그인 화면
+스크린샷으로 직접 지적)**: "비밀번호 숨김 표시만 있으면 내가 뭘 썼는지
+모른다" + "비밀번호 확인란이 더 있어야 한다"는 지적. 수정 전에 "지적한
+화면만 보지 말고 같은 상황이면 전체 적용"하라는 지시에 따라 프로젝트
+전체에서 `type="password"` 입력칸을 전수 검색 — Login.tsx/Signup.tsx
+**두 곳뿐**(비밀번호 변경 등 다른 화면 자체가 없음)임을 확인하고 이해한
+내용을 먼저 사용자에게 설명해 확인받은 뒤 진행.
+- [src/components/PasswordField.tsx](src/components/PasswordField.tsx)
+  신규 — 보기/숨기기 토글(눈 아이콘, lucide-react Eye/EyeOff) 달린 비밀번호
+  입력 공용 컴포넌트. 로그인 1개, 회원가입 2개(비밀번호+확인) 총 3곳에서
+  중복 없이 재사용.
+- [Login.tsx](src/pages/Login.tsx): 기존 `<input type="password">`를
+  `PasswordField`로 교체(토글만 추가, 확인란은 로그인 개념상 불필요 —
+  이미 있는 계정으로 들어가는 화면이라 "확인" 대상이 없음).
+- [Signup.tsx](src/pages/Signup.tsx): `PasswordField`로 교체 + **"Xác
+  nhận mật khẩu"(비밀번호 확인) 필드 신규 추가**, `confirmPassword` state,
+  제출 시 `password !== confirmPassword`면 "Mật khẩu xác nhận không
+  khớp." 에러로 막음(필수 입력 체크에도 포함).
+- 새 CSS `.password-field`/`.password-field__toggle`([index.css](src/index.css))
+  — 입력칸 오른쪽에 눈 아이콘 겹쳐서 배치. 이 앱 폼 입력칸은 다크모드에서도
+  항상 흰 배경이라(기존 `.field__input` 다크 오버라이드 없음, 확인함)
+  토글 아이콘도 별도 다크모드 색 없이 라이트 톤 그대로 사용.
+- `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과.
+  로컬 dev 서버로 로그인 화면 비밀번호 입력 후 토글 클릭 → 평문 노출
+  확인, 회원가입 화면 비밀번호/확인란에 일부러 다른 값 입력 후 제출 →
+  "Mật khẩu xác nhận không khớp." 에러 정상 표시 확인. 콘솔에 새 에러 없음.
+
 **"Việc làm" 메가메뉴가 세로로 길게 늘어지던 버그 수정(2026-09-20, 사용자가
 배포 직후 실사이트 스크린샷으로 지적)**: 바로 위 라운드에서 "Theo thời
 gian"/"Theo điều kiện" 2개 열을 추가하며 `.mega-menu__inner`에
