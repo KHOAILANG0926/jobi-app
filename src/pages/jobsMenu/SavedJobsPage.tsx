@@ -24,6 +24,11 @@ export default function SavedJobsPage() {
   const { jobs } = useJobs()
   const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedJobIds(user?.id))
   const [koreaJobs, setKoreaJobs] = useState<KoreaJob[]>([])
+  // fetchKoreaJobs()가 끝나기 전엔 koreaJobs가 빈 배열이라, 로딩 가드 없이
+  // 바로 "찾음/삭제됨"을 가르면 저장된 공고가 실제로는 있는데도 fetch가
+  // 끝나기 전 순간에 "삭제됨"으로 잘못 보이는 깜빡임이 생긴다(실제로 발견 —
+  // 배포 직후 실사이트에서 저장 직후 새 탭으로 이동하면 재현됨).
+  const [koreaLoading, setKoreaLoading] = useState(false)
 
   useEffect(() => {
     const sync = () => setSavedIds(loadSavedJobIds(user?.id))
@@ -43,9 +48,14 @@ export default function SavedJobsPage() {
   )
 
   useEffect(() => {
-    if (koreaSavedIds.length === 0) { setKoreaJobs([]); return }
+    if (koreaSavedIds.length === 0) { setKoreaJobs([]); setKoreaLoading(false); return }
     let cancelled = false
-    fetchKoreaJobs().then((data) => { if (!cancelled) setKoreaJobs(data) })
+    setKoreaLoading(true)
+    fetchKoreaJobs().then((data) => {
+      if (cancelled) return
+      setKoreaJobs(data)
+      setKoreaLoading(false)
+    })
     return () => { cancelled = true }
   }, [koreaSavedIds.length])
 
@@ -91,7 +101,7 @@ export default function SavedJobsPage() {
         </p>
       </header>
 
-      {resolved.length === 0 && missingIds.length === 0 && koreaResolved.length === 0 && koreaMissingIds.length === 0 ? (
+      {resolved.length === 0 && missingIds.length === 0 && koreaSavedIds.length === 0 ? (
         <div className="city-result__empty">
           <span>🔖</span>
           <p>Chưa có tin nào được lưu.</p>
@@ -152,7 +162,14 @@ export default function SavedJobsPage() {
             </section>
           )}
 
-          {koreaResolved.length > 0 && (
+          {koreaSavedIds.length > 0 && koreaLoading && (
+            <section className="jm-saved-section">
+              <h2 className="home-section__title">Việc làm Hàn Quốc</h2>
+              <p className="empty-state empty-state--inline">Đang tải...</p>
+            </section>
+          )}
+
+          {!koreaLoading && koreaResolved.length > 0 && (
             <section className="jm-saved-section">
               <h2 className="home-section__title">Việc làm Hàn Quốc ({koreaResolved.length})</h2>
               <ul className="saved-list">
@@ -177,7 +194,7 @@ export default function SavedJobsPage() {
             </section>
           )}
 
-          {koreaMissingIds.length > 0 && (
+          {!koreaLoading && koreaMissingIds.length > 0 && (
             <section className="jm-saved-section">
               <h2 className="home-section__title">Tin Hàn Quốc không còn tồn tại ({koreaMissingIds.length})</h2>
               <p className="empty-state empty-state--inline">
