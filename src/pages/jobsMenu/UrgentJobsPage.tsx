@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import ApplyModal from '../../components/ApplyModal'
 import { useApply } from '../../components/useApply'
@@ -66,31 +67,40 @@ function sameSet<T>(a: Set<T>, items: T[]): boolean {
   return a.size === items.length && items.every((x) => a.has(x))
 }
 
-/** 클릭하면 버튼 아래로 패널이 펼쳐지는 필터 드롭다운 — 급구 페이지의 4개
- * 필터(지역/업직종/근무기간/상세조건)가 전부 같은 틀을 쓴다. 패널 바깥을
- * 클릭하면 닫힌다. */
+/** 클릭하면 패널이 펼쳐지는 필터 드롭다운 — 급구 페이지의 4개 필터
+ * (지역/업직종/근무기간/상세조건)가 전부 같은 틀을 쓴다. 패널 바깥을
+ * 클릭하면 닫힌다.
+ * 2026-09-19 사용자 지시("상단 클릭하면 공고가 가려지지?") — 패널을 각
+ * 버튼 밑에서 그대로 렌더하면(과거엔 `position:absolute`로 띄워서) 아래
+ * 공고 목록을 덮어버렸다. 버튼은 `.jm-urgent-filters` 가로줄 안에 그대로
+ * 두되, 패널 내용은 `createPortal`로 그 줄 바로 아래(`panelSlot`, 일반
+ * 문서 흐름)에 옮겨 그려서 목록이 밀려 내려가게 한다. */
 function FilterDropdown({
-  label, count, isOpen, onToggle, onClose, children,
+  label, count, isOpen, onToggle, onClose, panelSlot, children,
 }: {
   label: string
   count: number
   isOpen: boolean
   onToggle: () => void
   onClose: () => void
+  panelSlot: HTMLDivElement | null
   children: ReactNode
 }) {
-  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!isOpen) return
     const onDocMouseDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      const target = e.target as Node
+      const insideButton = btnRef.current?.contains(target)
+      const insidePanel = panelSlot?.contains(target)
+      if (!insideButton && !insidePanel) onClose()
     }
     document.addEventListener('mousedown', onDocMouseDown)
     return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, panelSlot])
 
   return (
-    <div className="jm-filter-dropdown" ref={ref}>
+    <div className="jm-filter-dropdown" ref={btnRef}>
       <button
         type="button"
         className={`jm-filter-dropdown__btn${isOpen ? ' is-open' : ''}${count > 0 ? ' has-value' : ''}`}
@@ -99,7 +109,10 @@ function FilterDropdown({
         {label}{count > 0 ? ` (${count})` : ''}
         <span className="jm-filter-dropdown__caret" aria-hidden>▾</span>
       </button>
-      {isOpen && <div className="jm-filter-dropdown__panel">{children}</div>}
+      {isOpen && panelSlot && createPortal(
+        <div className="jm-filter-dropdown__panel">{children}</div>,
+        panelSlot,
+      )}
     </div>
   )
 }
@@ -134,6 +147,9 @@ export default function UrgentJobsPage() {
   // 공고가 0건이라 화면이 텅 비어 보인다. 패널을 처음부터 열어두면 빈
   // 결과창 대신 지역 선택 UI가 바로 채워져 보인다.
   const [openPanel, setOpenPanel] = useState<PanelKey>('region')
+  // 열린 패널이 실제로 렌더될 위치(.jm-urgent-filters 줄 바로 아래, 일반
+  // 문서 흐름) — FilterDropdown이 createPortal로 이 노드에 그린다.
+  const [panelSlot, setPanelSlot] = useState<HTMLDivElement | null>(null)
   // 2026-09-16 사용자 지시로 지역 필터를 베트남 2025-07-01 행정구역 개편 반영한
   // 정확한 2단(성/시→동/사) 체계로 교체 — 예전 JOB_REGIONS(29개 임의 묶음, 실제
   // 통합 결과와 안 맞는 부분 확인됨)는 더 이상 쓰지 않는다. resolvedProvince/
@@ -512,6 +528,7 @@ export default function UrgentJobsPage() {
           isOpen={openPanel === 'region'}
           onToggle={() => togglePanel('region')}
           onClose={closePanel}
+          panelSlot={panelSlot}
         >
           <div className="jm-search-input-wrap jm-search-input-wrap--khu-vuc">
             <input
@@ -621,6 +638,7 @@ export default function UrgentJobsPage() {
           isOpen={openPanel === 'category'}
           onToggle={() => togglePanel('category')}
           onClose={closePanel}
+          panelSlot={panelSlot}
         >
           <div className="jm-search-input-wrap jm-search-input-wrap--nganh-nghe">
             <input
@@ -708,6 +726,7 @@ export default function UrgentJobsPage() {
           isOpen={openPanel === 'workPeriod'}
           onToggle={() => togglePanel('workPeriod')}
           onClose={closePanel}
+          panelSlot={panelSlot}
         >
           <div className="jm-filter-row">
             <p className="jm-filter-row__label">Thời hạn làm việc</p>
@@ -894,6 +913,7 @@ export default function UrgentJobsPage() {
           isOpen={openPanel === 'detail'}
           onToggle={() => togglePanel('detail')}
           onClose={closePanel}
+          panelSlot={panelSlot}
         >
           <div className="jm-filter-row">
             <p className="jm-filter-row__label">Giới tính</p>
@@ -1023,6 +1043,8 @@ export default function UrgentJobsPage() {
           </div>
         </FilterDropdown>
       </div>
+
+      <div ref={setPanelSlot} className="jm-urgent-panel-slot" />
 
       <div className="jm-urgent-toolbar">
         <p className="jm-result-count">

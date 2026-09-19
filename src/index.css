@@ -3134,15 +3134,17 @@ a:hover {
   color: var(--color-muted);
 }
 
+/* 2026-09-19 사용자 지시("상단 클릭하면 공고가 가려지지?") — 예전엔
+ * position:absolute로 띄워서 패널이 아래 공고 목록을 덮었다. 이제 패널은
+ * `.jm-urgent-panel-slot`(일반 문서 흐름, .jm-urgent-filters 바로 아래)에
+ * createPortal로 그려지므로, absolute 대신 그 슬롯의 폭을 그대로 채우는
+ * 일반 블록으로 — 열리면 아래 내용(공고 수/목록)이 자연스럽게 밀려난다. */
+.jm-urgent-panel-slot:has(.jm-filter-dropdown__panel) {
+  margin-bottom: 0.85rem;
+}
 .jm-filter-dropdown__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  /* 2026-09-17 — 개별 버튼이 아니라 `.jm-urgent-filters`(필터 줄 전체)에
-   * 붙는 positioning context라, left:0;right:0로 그 줄의 전체 가로 폭을
-   * 그대로 채운다(알바몬처럼 어느 버튼을 눌러도 같은 폭으로 펼쳐짐). */
-  left: 0;
-  right: 0;
-  z-index: 20;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 320px;
   max-height: 360px;
   overflow-y: auto;
