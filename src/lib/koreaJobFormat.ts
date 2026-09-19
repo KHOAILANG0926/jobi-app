@@ -27,3 +27,20 @@ export function koreaJobDisplayDescription(job: Pick<KoreaJob, 'description' | '
 export function koreaJobDisplayLocation(job: Pick<KoreaJob, 'province' | 'district' | 'region'>): string | null {
   return job.province ? [job.province, job.district].filter(Boolean).join(' ') : job.region
 }
+
+// local_jobs.id와 korea_jobs.id는 서로 다른 bigint 시퀀스라 같은 저장 목록에
+// 그대로 섞으면 숫자가 우연히 겹칠 수 있다 — "저장한 공고"(storage.ts,
+// vgb_saved_job_ids)는 두 출처를 구분 없이 문자열 id 하나로 저장하므로,
+// korea_jobs 쪽만 이 접두사를 붙여 저장한다.
+const KOREA_SAVED_ID_PREFIX = 'kr-'
+
+export function koreaSavedId(jobId: number): string {
+  return `${KOREA_SAVED_ID_PREFIX}${jobId}`
+}
+
+/** "kr-123" -> 123, 접두사가 없으면(로컬 공고 id) null. */
+export function parseKoreaSavedId(savedId: string): number | null {
+  if (!savedId.startsWith(KOREA_SAVED_ID_PREFIX)) return null
+  const n = Number(savedId.slice(KOREA_SAVED_ID_PREFIX.length))
+  return Number.isFinite(n) ? n : null
+}

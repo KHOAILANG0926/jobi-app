@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { Bookmark, BookmarkCheck } from 'lucide-react'
 import JobLocationMap from '../components/JobLocationMap'
+import { useAuth } from '../context/AuthContext'
 import { resolveMapLocations } from '../lib/jobCoords'
 import { fetchKoreaJob, fetchKoreaJobWorkLocations } from '../lib/koreaJobsApi'
-import { formatKoreaSalary, koreaJobDisplayDescription, koreaJobDisplayLocation, koreaJobDisplayTitle } from '../lib/koreaJobFormat'
+import { formatKoreaSalary, koreaJobDisplayDescription, koreaJobDisplayLocation, koreaJobDisplayTitle, koreaSavedId } from '../lib/koreaJobFormat'
+import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import type { KoreaJob, KoreaJobWorkLocation } from '../types/koreaJob'
 
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -23,9 +26,11 @@ function yesNo(v: boolean | null): string | null {
 
 export default function KoreaJobDetail() {
   const { id } = useParams<{ id: string }>()
+  const { user } = useAuth()
   const [job, setJob] = useState<KoreaJob | null>(null)
   const [workLocations, setWorkLocations] = useState<KoreaJobWorkLocation[]>([])
   const [loading, setLoading] = useState(true)
+  const [saved, setSaved] = useState(() => (id ? isJobSaved(koreaSavedId(Number(id)), user?.id) : false))
 
   useEffect(() => {
     const numericId = Number(id)
@@ -41,6 +46,15 @@ export default function KoreaJobDetail() {
     )
     return () => { cancelled = true }
   }, [id])
+
+  useEffect(() => {
+    if (id) setSaved(isJobSaved(koreaSavedId(Number(id)), user?.id))
+  }, [id, user?.id])
+
+  const onToggleSave = () => {
+    if (!id) return
+    setSaved(toggleSavedJobId(koreaSavedId(Number(id)), user?.id))
+  }
 
   if (loading) {
     return <div className="page page--narrow" role="status" style={{ textAlign: 'center', padding: '64px 24px' }}>Đang tải...</div>
@@ -75,14 +89,30 @@ export default function KoreaJobDetail() {
           ← Quay lại danh sách
         </Link>
 
-        <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', marginTop: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          {job.category && (
-            <span style={{ display: 'inline-block', background: '#fff3f3', color: '#c0392b', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>
-              {job.category}
-            </span>
-          )}
-          <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px', lineHeight: 1.3 }}>{displayTitle}</h1>
-          {job.company && <p style={{ color: '#555', fontWeight: 600, margin: 0 }}>{job.company}</p>}
+        <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', marginTop: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div>
+            {job.category && (
+              <span style={{ display: 'inline-block', background: '#fff3f3', color: '#c0392b', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontWeight: 600, marginBottom: '10px' }}>
+                {job.category}
+              </span>
+            )}
+            <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 8px', lineHeight: 1.3 }}>{displayTitle}</h1>
+            {job.company && <p style={{ color: '#555', fontWeight: 600, margin: 0 }}>{job.company}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onToggleSave}
+            aria-label={saved ? 'Bỏ lưu tin' : 'Lưu tin'}
+            title={saved ? 'Bỏ lưu tin' : 'Lưu tin'}
+            style={{
+              flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '36px', height: '36px', borderRadius: '10px', cursor: 'pointer',
+              border: saved ? '1px solid #f5c6c0' : '1px solid #eee',
+              background: saved ? '#fff3f3' : '#fff', color: '#c0392b',
+            }}
+          >
+            {saved ? <BookmarkCheck size={18} strokeWidth={1.8} /> : <Bookmark size={18} strokeWidth={1.8} />}
+          </button>
         </div>
 
         <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', marginTop: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>

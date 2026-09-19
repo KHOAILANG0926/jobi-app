@@ -2,6 +2,36 @@
 
 ## 현재 작업
 
+**korea_jobs "저장한 공고" 기능 확장(2026-09-19, 옵션 2 선택·구현 완료 —
+아래 "다음 결정사항" 7번 재조사 후 진행)**: "다음 결정사항" 7번에 적혀있던
+4가지 선택지 설명 중 2곳이 실제와 달랐던 걸 재조사로 먼저 바로잡음 —
+① `KoreaConsultModal`이라는 컴포넌트는 코드에 아예 없었음(옵션 3 "기존
+모달 확장" 전제가 틀림), ② "저장한 공고"는 DB 테이블(`saved_jobs`)이 아니라
+순수 `localStorage`(`storage.ts`의 `vgb_saved_job_ids`)라서 옵션 2도
+"FK 하나 추가"가 아니라 **DB 변경 없이 프론트만으로 가능**했음. 이 사실을
+사용자에게 설명 후 "니 선택으로 가자"로 옵션 2 진행 위임받음.
+- `local_jobs.id`와 `korea_jobs.id`가 서로 다른 bigint 시퀀스라 저장 목록에
+  그대로 섞으면 숫자가 겹칠 수 있어, korea_jobs 쪽만 `kr-` 접두사를 붙여
+  저장([koreaJobFormat.ts](src/lib/koreaJobFormat.ts)의 `koreaSavedId`/
+  `parseKoreaSavedId` 신규).
+- [KoreaJobCard.tsx](src/components/korea/KoreaJobCard.tsx): 북마크
+  토글 버튼 추가(JobCard.tsx의 Zalo 버튼과 동일한 이유로 `<a>` 안에 `<button>`
+  + preventDefault/stopPropagation). [KoreaJobs.tsx](src/pages/KoreaJobs.tsx)/
+  [KoreaHome.tsx](src/pages/KoreaHome.tsx) 둘 다 저장 상태 연결.
+- [KoreaJobDetail.tsx](src/pages/KoreaJobDetail.tsx): 상세페이지 헤더에도
+  북마크 버튼 추가.
+- [SavedJobsPage.tsx](src/pages/jobsMenu/SavedJobsPage.tsx): 저장 id를
+  `kr-` 접두사 유무로 local/korea 분리, korea 쪽은 `fetchKoreaJobs()`로
+  별도 조회 → "Việc làm Hàn Quốc" 섹션 신설(찾은 공고/삭제된 공고 둘 다
+  기존 local 섹션과 동일한 UX로 표시).
+- CSS: `.kjc__save` 신규(`.kjc`에 `position: relative` 추가).
+- `npx tsc --noEmit` 클린, `npm run build` 성공. 로컬 dev 서버 브라우저로
+  직접 확인: 홈 화면 카드 북마크 클릭 → `localStorage`에 `["kr-2"]` 저장
+  확인 → `/viec-lam/da-luu`에서 "Việc làm Hàn Quốc (1)" 섹션에 정확한
+  제목/회사/지역/급여로 표시 확인 → ✕로 언세이브 시 빈 상태로 정상 복귀
+  확인 → 상세페이지(`/viec-han-quoc/2`) 북마크 버튼도 "Lưu tin"↔"Bỏ lưu tin"
+  정상 토글 확인. 콘솔 에러 없음(무관한 404 2건은 기존부터 있던 것).
+
 **Truyền thông/마케팅 소분류 누락 수정(2026-09-19, `crawler/classifier.py`만
 변경 — 프론트엔드/Vercel 배포 대상 아님, 다음 크롤러 실행부터 반영)**:
 지난 세션이 "`_TRUYEN_THONG` 정규식에 marketing/PR 키워드가 없다"고 남겨둔
@@ -461,18 +491,23 @@ tính/Độ tuổi UI는 있는데 DB 컬럼이 없어 실제 필터링 안 됨"
    (필요하면 별도 지시).
 6. ~~`categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가~~ — 해결
    (2026-09-20, 위 새 절 참고).
-7. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부. **2026-09-20 재구성한
-   선택지**(원본 "4가지 조사"의 상세 내용은 과거 세션 문서 스냅샷 정책으로
-   유실돼서 이번에 구조 사실 기반으로 다시 정리함, 사용자는 "제일 큰
-   안건이라 다른 거 먼저"로 실행은 보류):
+7. korea_jobs 통합 / 공개 구직자 검색 — **2026-09-19 재조사로 선택지 설명
+   2곳 정정 후 옵션 2 실행 완료**(위 새 절 참고). 재조사 결과: `KoreaConsultModal`
+   컴포넌트는 코드에 없었음(옵션 3 전제 오류), "저장한 공고"는 애초에
+   DB 테이블이 아니라 localStorage라 옵션 2에 FK 자체가 불필요했음. 정정된
+   내용 사용자에게 설명 후 "니 선택으로 가자"로 옵션 2(저장한 공고 확장)
+   위임받아 구현·검증 완료.
+   ~~2) 가벼운 통합(저장한 공고 기능 추가)~~ — 완료.
+   남은 선택지(계속 보류, 착수 여부 미정):
    1) 현행 유지(조회+번역+외부 링크만, 리스크 없음)
-   2) 가벼운 통합(korea_jobs에도 "저장한 공고" 기능만 추가, FK 하나 추가
-      정도로 리스크 낮음)
-   3) 상세조건 연결(기존 `KoreaConsultModal`의 일반 상담 신청을 공고별
-      리드캡처로 확장, 중간 난이도)
-   4) 전체 통합(local_jobs와 스키마 합쳐 지원/메시지/면접 파이프라인 공유
-      — `job_id bigint → local_jobs(id)` FK 전체 재설계 필요, STRICT 등급
-      최대 리스크).
+   3) 상담 리드캡처 신규 제작(상세페이지에 이름/전화/희망공고 받는 폼 —
+      기존 모달 확장이 아니라 처음부터 새로 만들어야 함, 새 DB 테이블
+      1개 + RLS 필요, STRICT 절차 적용 대상)
+   4) 전체 통합(local_jobs/applications와 스키마 합치기) — **korea_jobs엔
+      애초에 `employer_id` 컬럼 자체가 없어서**(지역 사장님이 직접 올리는
+      공고가 아니라 외부 수집 공고라서) "FK 재설계"보다 더 큼, 에이전시/
+      고용주 계정 개념을 새로 발명해야 함. 실제 필요(에이전시 제휴 등)가
+      생기기 전까진 계속 보류 권장.
 8. ~~`applications_insert`의 tautology 조건 수정~~ — 해결(2026-09-20, 위
    새 절 참고, 보안 관련 수정이라 트랜잭션 시뮬레이션으로 검증까지 완료).
 9. ~~기업 계정 헤더에 "Việc làm" 링크 추가~~ — 구현·배포·화면 검증 전부

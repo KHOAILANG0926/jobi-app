@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KoreaJobCard from '../components/korea/KoreaJobCard'
+import { useAuth } from '../context/AuthContext'
 import { fetchKoreaJobs } from '../lib/koreaJobsApi'
+import { koreaSavedId } from '../lib/koreaJobFormat'
+import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { KoreaJob } from '../types/koreaJob'
 
 const SALARY_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -17,8 +20,26 @@ function uniqueSorted(values: (string | null)[]): string[] {
 }
 
 export default function KoreaJobs() {
+  const { user } = useAuth()
   const [jobs, setJobs] = useState<KoreaJob[]>([])
   const [loading, setLoading] = useState(true)
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds(user?.id)))
+
+  useEffect(() => {
+    const sync = () => setSavedIds(new Set(loadSavedJobIds(user?.id)))
+    sync()
+    window.addEventListener('vgb:saved-jobs', sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener('vgb:saved-jobs', sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [user?.id])
+
+  const handleToggleSave = useCallback((job: KoreaJob) => {
+    toggleSavedJobId(koreaSavedId(job.id), user?.id)
+    setSavedIds(new Set(loadSavedJobIds(user?.id)))
+  }, [user?.id])
 
   // KoreaHome의 검색바에서 /viec-han-quoc/tim-viec?q=...&province=...&cat=...
   // 로 넘어올 때 초기값만 읽는다 — 양방향 URL 동기화 같은 큰 리팩터링은
@@ -160,7 +181,14 @@ export default function KoreaJobs() {
             <div className="korea-empty">Không tìm thấy việc làm phù hợp.</div>
           ) : (
             <div className="korea-jobs-grid">
-              {filtered.map((job) => <KoreaJobCard key={job.id} job={job} />)}
+              {filtered.map((job) => (
+                <KoreaJobCard
+                  key={job.id}
+                  job={job}
+                  isSaved={savedIds.has(koreaSavedId(job.id))}
+                  onToggleSave={handleToggleSave}
+                />
+              ))}
             </div>
           )}
         </div>

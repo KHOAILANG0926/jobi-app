@@ -10277,6 +10277,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 /* Job card — .jc(JobCard)와 동일한 시각 리듬(패딩/라운드/그림자/타이포)을
    따르되, local_jobs 전용 Job 타입에 안 묶이도록 별도 컴포넌트로 둔다. */
 .kjc {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -10292,6 +10293,24 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   color: inherit;
 }
 .kjc:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-color: #ddd; }
+.kjc__save {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fff;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.kjc__save:hover { color: #c0392b; border-color: #f5c6c0; background: #fff3f3; }
+.kjc__save--active { color: #c0392b; border-color: #f5c6c0; background: #fff3f3; }
 .kjc__meta {
   margin: 0 0 6px;
   font-size: 0.72rem;

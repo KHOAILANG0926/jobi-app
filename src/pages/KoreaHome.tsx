@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   ArrowRight, BookOpen, Factory, FileCheck2, HardHat,
@@ -6,7 +6,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import KoreaJobCard from '../components/korea/KoreaJobCard'
+import { useAuth } from '../context/AuthContext'
 import { fetchKoreaJobs } from '../lib/koreaJobsApi'
+import { koreaSavedId } from '../lib/koreaJobFormat'
+import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { KoreaJob } from '../types/koreaJob'
 
 const JOB_SEARCH_ROUTE = '/viec-han-quoc/tim-viec'
@@ -111,11 +114,13 @@ const COMMUNITY_PREVIEW: CommunityPreview[] = [
 
 export default function KoreaHome() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [jobs, setJobs] = useState<KoreaJob[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [provinceTerm, setProvinceTerm] = useState('')
   const [discoveryClicked, setDiscoveryClicked] = useState(false)
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds(user?.id)))
 
   useEffect(() => {
     let cancelled = false
@@ -124,6 +129,22 @@ export default function KoreaHome() {
     })
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    const sync = () => setSavedIds(new Set(loadSavedJobIds(user?.id)))
+    sync()
+    window.addEventListener('vgb:saved-jobs', sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener('vgb:saved-jobs', sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [user?.id])
+
+  const handleToggleSave = useCallback((job: KoreaJob) => {
+    toggleSavedJobId(koreaSavedId(job.id), user?.id)
+    setSavedIds(new Set(loadSavedJobIds(user?.id)))
+  }, [user?.id])
 
   // fetchKoreaJobs()가 이미 created_at desc로 정렬해서 반환한다(posted_at은
   // 현재 전 건 NULL이라 신뢰 불가 — 조사 단계에서 확인됨). 여기서는 상위
@@ -274,7 +295,14 @@ export default function KoreaHome() {
         ) : (
           <>
             <div className="kh-jobs-grid">
-              {homeJobs.map((job) => <KoreaJobCard key={job.id} job={job} />)}
+              {homeJobs.map((job) => (
+                <KoreaJobCard
+                  key={job.id}
+                  job={job}
+                  isSaved={savedIds.has(koreaSavedId(job.id))}
+                  onToggleSave={handleToggleSave}
+                />
+              ))}
             </div>
             <div className="kh-jobs-more">
               <NavLink to={JOB_SEARCH_ROUTE} className="kh-jobs-more__link">
