@@ -2,7 +2,16 @@
 
 ## 현재 작업
 
-**이번 세션 최종 상태(여러 라운드 거쳐 완료, commit/push/Production 배포
+**추가 반영(다른 PC 세션, `f2c5da7`, commit/push/Production 배포 완료)**:
+급구 페이지 지역 기본값(Cần Thơ 자동 선택)을 제거 — 아무 필터도 선택 안 한
+초기 상태에서 전체 급구 공고 목록이 바로 보이도록 함. 아래 "다음 결정사항"
+10번 항목이 이걸로 해결됨(상세는 맨 아래 새 절 참고). 이 커밋을 push할 때
+origin/master가 이미 15개 커밋 앞서있어(아래 job_duration 라운드 등) 일반
+`git push`가 거부됨 → `git fetch` + `git rebase origin/master`로 안전하게
+합침(충돌 없음, 강제 push 안 씀) — 두 PC가 동시에 작업할 때는 세션 시작 시
+`git fetch origin && git status`로 먼저 동기화 여부 확인 필요.
+
+**이전 라운드 세션 최종 상태(여러 라운드 거쳐 완료, commit/push/Production 배포
 전부 끝남 — 라운드별 상세 경위는 아래 요약만 유지, 코드가 실제 근거):**
 
 - `job_duration`(근무기간 7구간) 컬럼 추가 + PostJob.tsx 필드 + 급구 "Thời
@@ -161,6 +170,19 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   khác" 패널 초기화 버튼에서만 같이 리셋). 나중에 성별/연령 데이터가 생기면
   실제 필터로 연결 필요.
 
+### 지역 기본값 제거 — 무필터 상태에서 전체 목록 표시 (`f2c5da7`)
+[UrgentJobsPage.tsx](src/pages/jobsMenu/UrgentJobsPage.tsx)의 `selectedProvince`
+초기값을 `VN_PROVINCES[0]`(Cần Thơ)에서 다시 `null`로. 배경: 이전 라운드에서
+Khu vực 패널을 기본으로 열어두는 수정(`openPanel` 초기값 `'region'`)을
+했었는데, 그것과 "Cần Thơ 자동 선택" 로직이 같이 있으면 처음 들어왔을 때
+패널은 열려있지만 그 뒤의 목록은 계속 0건으로 보이는 상태였다. 사용자가
+캡처본 2장(우리 사이트의 빈 목록 vs 알바몬의 실제 목록)을 비교해서 "아무것도
+선택하지 않아도 기본테이블 보이게 해줘"로 명확히 지시 — 지역을 아예 선택 안
+한 무필터 상태를 기본값으로 되돌려 전체 급구 공고가 바로 보이게 했다.
+(참고: 이 지시 전에 사용자가 알바몬 캡처의 "서울 전체 ✕" 칩을 보여주며
+칩 바 부활을 원하는 건지 확인차 되물었는데, 그건 아니었고 순수히 "목록이
+안 보인다"는 지적이었음 — 칩 바는 이전 결정대로 계속 제거된 상태 유지.)
+
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린.
@@ -194,6 +216,11 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
   클린, `npm run build` 성공, `npm test` 6/6 파일 통과. `get_page_text`로
   "Điều kiện khác" 패널이 Giới tính/Độ tuổi/Loại hình công việc(급구 공고
   실제 값 기준 2개, 동적)/Từ khóa 4행으로 렌더되는 것 확인.
+- **지역 기본값 제거 재확인**: `npx tsc --noEmit` 클린, `npm run build`
+  성공, `npm test` 6/6 파일 통과(회귀 없음, rebase로 합쳐진 job_duration
+  라운드 코드까지 포함해서 재검증). 로컬+Production 둘 다 브라우저로
+  `get_page_text` 확인 — 필터 버튼이 "Khu vực"(카운트 없음)로 뜨고, 패널
+  닫으면 "Tổng 3 việc làm tuyển gấp"로 전체 목록이 즉시 표시됨 확인.
 
 ## 발견된 문제
 
@@ -230,8 +257,10 @@ master push + Vercel Production 배포까지 완료된 상태(`0a7af24`까지) �
 7. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
 8. `applications_insert`의 tautology 조건 수정 여부.
 9. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
-10. 급구 페이지 첫 방문 시 지역 기본값이 `VN_PROVINCES[0]`(Cần Thơ, 공고
-    0건)인 문제 — 실제 공고 많은 지역으로 바꿀지 여전히 미정.
+10. ~~급구 페이지 첫 방문 시 지역 기본값이 Cần Thơ(공고 0건)인 문제~~ —
+    해결(2026-09-19). "실제 공고 많은 지역으로 바꾸기" 대신 "지역 필터
+    자체를 기본 미선택 상태로" 방식으로 확정 — 무필터 상태에서 전체 급구
+    공고 목록이 바로 보임(위 새 절 참고).
 11. 구/현 "전체 선택" 원클릭 필터, 지역 검색창에 구/현 이름 인덱싱 — 보류.
 12. `backup-home-2026-09-18-workperiod-panel` 브랜치의 근무기간 패널
     라벨/옵션 재배치 작업을 현재 코드베이스에 재적용할지 — 미결정.
