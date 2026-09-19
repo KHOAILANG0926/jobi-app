@@ -9578,6 +9578,9 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   font-size: 0.82rem;
   color: #64748b;
 }
+/* 자가서약(pledge) — 관리자 검증(companyVerified 등)과 시각적으로
+   섞이지 않도록 살짝 위 여백을 둬 별도 목록임을 드러낸다. */
+.jd2-company__pledges { margin-top: 0.35rem; }
 
 /* ── Sidebar ── */
 .jd2-aside {

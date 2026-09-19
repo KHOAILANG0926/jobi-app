@@ -28,6 +28,8 @@ const emptyForm = {
   employerPhone: '',
   applicationDeadline: '',
   urgent: false,
+  laborContractPledge: false,
+  socialInsurancePledge: false,
 }
 
 export function PostJob() {
@@ -102,6 +104,8 @@ export function PostJob() {
         jobDuration: form.jobDuration || undefined,
         genderRequirement: form.genderRequirement || undefined,
         ageRequirement: form.ageRequirement || undefined,
+        laborContractPledge: form.laborContractPledge || undefined,
+        socialInsurancePledge: form.socialInsurancePledge || undefined,
         employerPhone: form.employerPhone.trim(),
         applicationDeadline: deadline,
         urgent: form.urgent,
@@ -240,6 +244,20 @@ export function PostJob() {
             onChange={(e) => setForm((f) => ({ ...f, urgent: e.target.checked }))} />
           <span className="field__label">🔥 Tuyển gấp</span>
         </label>
+
+        <div className="field">
+          <span className="field__label">Cam kết với người lao động (tuỳ chọn)</span>
+          <label className="field field--row">
+            <input type="checkbox" checked={form.laborContractPledge}
+              onChange={(e) => setForm((f) => ({ ...f, laborContractPledge: e.target.checked }))} />
+            <span className="field__label">Cam kết ký hợp đồng lao động rõ ràng</span>
+          </label>
+          <label className="field field--row">
+            <input type="checkbox" checked={form.socialInsurancePledge}
+              onChange={(e) => setForm((f) => ({ ...f, socialInsurancePledge: e.target.checked }))} />
+            <span className="field__label">Cam kết đóng BHXH/BHYT đầy đủ theo quy định</span>
+          </label>
+        </div>
 
         <div className="field">
           <span className="field__label">Ảnh công ty / nơi làm việc (tuỳ chọn)</span>

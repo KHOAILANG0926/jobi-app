@@ -312,6 +312,7 @@ export function JobDetail() {
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
+    || !!job.laborContractPledge || !!job.socialInsurancePledge
 
   return (
     <div className="jd2-page">
@@ -584,6 +585,12 @@ export function JobDetail() {
                       <li>Đã đăng {employerJobCount} tin tuyển dụng trên Việc Gần Bạn</li>
                     )}
                   </ul>
+                  {(job.laborContractPledge || job.socialInsurancePledge) && (
+                    <ul className="jd2-company__facts jd2-company__pledges">
+                      {job.laborContractPledge && <li>🤝 Cam kết ký hợp đồng lao động rõ ràng</li>}
+                      {job.socialInsurancePledge && <li>🤝 Cam kết đóng BHXH/BHYT đầy đủ theo quy định</li>}
+                    </ul>
+                  )}
                 </div>
               </div>
             </div>

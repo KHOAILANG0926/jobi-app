@@ -137,6 +137,11 @@ export interface Job {
   companyVerified?: boolean
   companyFoundedYear?: number
   hireCount?: number
+  /** local_jobs.labor_contract_pledge / social_insurance_pledge — 관리자가
+   *  검증한 companyVerified와 달리 기업이 스스로 체크한 자가서약(self-pledge).
+   *  크롤러는 채우지 않고 PostJob.tsx 직접등록 전용 체크박스로 시작한다. */
+  laborContractPledge?: boolean
+  socialInsurancePledge?: boolean
   /** Pre-fallback raw values (undefined if the source field was empty) — used where
    *  a field must be hidden rather than shown with injected placeholder text. */
   rawSalary?: string
