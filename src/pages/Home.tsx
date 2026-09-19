@@ -11,7 +11,7 @@ import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
 import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint, VIETNAM_CENTER } from '../lib/jobCoords'
-import { reverseGeocode, searchAddress, type AddressSuggestion } from '../lib/geoapify'
+import { addAddressSearchHistory, clearAddressSearchHistory, getAddressSearchHistory, reverseGeocode, searchAddress, type AddressSuggestion } from '../lib/geoapify'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
 import { groupJobsForSalarySort, salaryTierLabel } from '../lib/recommendStorage'
@@ -283,6 +283,11 @@ export function Home() {
   const [addressSearching, setAddressSearching] = useState(false)
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([])
   const [addressSearched, setAddressSearched] = useState(false)
+  // 최근 검색한 주소(카카오맵 "히스토리" 참고) — localStorage에서만 읽고
+  // 쓰며 서버 전송 없음. 검색할 때마다 갱신해야 하므로 state로 들고 있다
+  // (localStorage 자체를 직접 매번 읽어도 되지만, 매 렌더마다 파싱하는
+  // 비용을 피하려고 state로 캐시).
+  const [addressHistory, setAddressHistory] = useState<string[]>(() => getAddressSearchHistory())
   const [todayOnly, setTodayOnly] = useState(false)
   const [sortMode, setSortMode] = useState<'none' | 'salary' | 'recommended'>('none')
 
@@ -579,11 +584,15 @@ export function Home() {
       { timeout: 10_000 },
     )
   }
-  const handleAddressSearch = () => {
-    if (!addressQuery.trim() || addressSearching) return
+  const handleAddressSearch = (queryOverride?: string) => {
+    const q = (queryOverride ?? addressQuery).trim()
+    if (!q || addressSearching) return
+    if (queryOverride !== undefined) setAddressQuery(queryOverride)
     setAddressSearching(true)
     setAddressSearched(false)
-    searchAddress(addressQuery).then((results) => {
+    addAddressSearchHistory(q)
+    setAddressHistory(getAddressSearchHistory())
+    searchAddress(q).then((results) => {
       setAddressSearching(false)
       setAddressSearched(true)
       setAddressSuggestions(results)
@@ -617,7 +626,7 @@ export function Home() {
         <button
           type="button"
           className="btn btn--ghost btn--sm"
-          onClick={handleAddressSearch}
+          onClick={() => handleAddressSearch()}
           disabled={addressSearching || !addressQuery.trim()}
         >
           {addressSearching ? 'Đang tìm...' : 'Tìm'}
@@ -634,6 +643,30 @@ export function Home() {
       )}
       {addressSearched && addressSuggestions.length === 0 && !addressSearching && (
         <p className="hint">Không tìm thấy địa chỉ phù hợp, hãy thử nhập chi tiết hơn.</p>
+      )}
+      {/* 카카오맵 "히스토리" 참고 — 아직 검색 결과가 없을 때만 최근 검색어를
+          보여준다(결과가 이미 있으면 방해되지 않게 숨김). 클릭하면 그
+          문구로 바로 재검색한다. */}
+      {addressHistory.length > 0 && addressSuggestions.length === 0 && !addressSearched && (
+        <div className="near-me-address-history">
+          <div className="near-me-address-history__head">
+            <span>Lịch sử tìm kiếm</span>
+            <button
+              type="button"
+              className="near-me-address-history__clear"
+              onClick={() => { clearAddressSearchHistory(); setAddressHistory([]) }}
+            >
+              Xóa hết
+            </button>
+          </div>
+          <ul className="near-me-address-suggestions">
+            {addressHistory.map((q) => (
+              <li key={q}>
+                <button type="button" onClick={() => handleAddressSearch(q)}>🕘 {q}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )
@@ -916,42 +949,78 @@ export function Home() {
             // (섹션 자체가 사라졌다 나타나지 않음).
             <div className="near-me-view">
               <h2 className="home-section__title">Việc làm gần bạn</h2>
-              <div className="near-me-view__controls">
-                <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
-                  {locating ? 'Đang định vị...' : userCoords ? 'Cập nhật vị trí' : 'Dùng vị trí hiện tại'}
-                </button>
-                {userCoords && (
-                  <div className="near-me-view__radii" role="group" aria-label="Bán kính tìm kiếm">
-                    {[1, 3, 5, 10].map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        className={`near-me-controls__radius-btn${nearRadius === r ? ' is-active' : ''}`}
-                        onClick={() => setNearRadius(r)}
-                      >
-                        {r} km
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {renderAddressSearch()}
-              </div>
-              {geoErrorMsg && <p className="near-me-status__text near-me-status__text--error">📍 {geoErrorMsg}</p>}
-              <p className="near-me-status__summary">
-                📍 {userCoords
-                  ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km · ${filtered.length} kết quả`
-                  : 'Chưa xác định vị trí — dùng GPS hoặc nhập địa chỉ ở trên để xem việc làm gần bạn.'}
-              </p>
-              {salaryTiers && salaryTiers.groups.length > 0 && (
-                <p className="near-me-status__summary">
-                  💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
-                  {salaryTiers.groups.length > 1 && (
-                    <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
-                  )}
-                  {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
-                </p>
-              )}
+              {/* 2026-09-20 사용자 지시("검색창이 독립된 사이드바로 분리
+                  안됨" — 카카오맵 캡처로 재지적) — 컨트롤(검색/GPS/반경)이
+                  지도 위 가로 줄에 있어 지도와 리스트가 한 덩어리로 붙어
+                  보였다. 카카오맵처럼 왼쪽 사이드바 전체(검색+히스토리+
+                  반경+리스트)를 지도와 완전히 분리된 독립 컬럼으로 옮긴다. */}
               <div className="near-me-view__split">
+                <div className="near-me-view__sidebar">
+                  {renderAddressSearch()}
+                  <div className="near-me-view__controls">
+                    <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
+                      {locating ? 'Đang định vị...' : userCoords ? 'Cập nhật vị trí' : 'Dùng vị trí hiện tại'}
+                    </button>
+                    {userCoords && (
+                      <div className="near-me-view__radii" role="group" aria-label="Bán kính tìm kiếm">
+                        {[1, 3, 5, 10].map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            className={`near-me-controls__radius-btn${nearRadius === r ? ' is-active' : ''}`}
+                            onClick={() => setNearRadius(r)}
+                          >
+                            {r} km
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {geoErrorMsg && <p className="near-me-status__text near-me-status__text--error">📍 {geoErrorMsg}</p>}
+                  <p className="near-me-status__summary">
+                    📍 {userCoords
+                      ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km · ${filtered.length} kết quả`
+                      : 'Chưa xác định vị trí — dùng GPS hoặc nhập địa chỉ ở trên để xem việc làm gần bạn.'}
+                  </p>
+                  {salaryTiers && salaryTiers.groups.length > 0 && (
+                    <p className="near-me-status__summary">
+                      💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
+                      {salaryTiers.groups.length > 1 && (
+                        <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
+                      )}
+                      {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
+                    </p>
+                  )}
+                  {!userCoords ? (
+                    <p className="hint">Danh sách công việc sẽ hiện ra ở đây sau khi xác định vị trí.</p>
+                  ) : filtered.length === 0 ? (
+                    <div className="city-result__empty">
+                      <span>🔍</span>
+                      <p>Không có việc làm nào trong bán kính {nearRadius} km.</p>
+                      {nearRadius < 10 && (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setNearRadius(10)}>
+                          Mở rộng lên 10 km
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="home-jobs-grid">
+                      {filtered.map((job) => (
+                        <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+                          <JobCard
+                            job={job}
+                            isApplied={isApplied(job.id)}
+                            onApply={handleApply}
+                            isSaved={savedIds.has(job.id)}
+                            onToggleSave={handleToggleSave}
+                            distanceKm={jobDistances[job.id]?.km}
+                            distancePrecise={jobDistances[job.id]?.precise}
+                          />
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="near-me-view__map">
                   <Suspense fallback={<div className="near-me-map__loading">Đang tải bản đồ...</div>}>
                     <JobLocationMap
@@ -983,37 +1052,6 @@ export function Home() {
                       ]}
                     />
                   </Suspense>
-                </div>
-                <div className="near-me-view__list">
-                  {!userCoords ? (
-                    <p className="hint">Danh sách công việc sẽ hiện ra ở đây sau khi xác định vị trí.</p>
-                  ) : filtered.length === 0 ? (
-                    <div className="city-result__empty">
-                      <span>🔍</span>
-                      <p>Không có việc làm nào trong bán kính {nearRadius} km.</p>
-                      {nearRadius < 10 && (
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setNearRadius(10)}>
-                          Mở rộng lên 10 km
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="home-jobs-grid">
-                      {filtered.map((job) => (
-                        <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-                          <JobCard
-                            job={job}
-                            isApplied={isApplied(job.id)}
-                            onApply={handleApply}
-                            isSaved={savedIds.has(job.id)}
-                            onToggleSave={handleToggleSave}
-                            distanceKm={jobDistances[job.id]?.km}
-                            distancePrecise={jobDistances[job.id]?.precise}
-                          />
-                        </NavLink>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

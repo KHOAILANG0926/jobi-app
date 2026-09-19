@@ -46,6 +46,39 @@ export interface AddressSuggestion {
   lng: number
 }
 
+// 2026-09-20 사용자 지시("카카오맵처럼 검색창 히스토리도 넣어줘") — 최근
+// 검색한 주소 문구를 브라우저에만 저장(서버 전송 없음, storage.ts의 기존
+// localStorage 패턴과 동일하게 try/catch로 감싸 프라이빗 모드 등에서도
+// 검색 기능 자체는 계속 동작하게 함).
+const HISTORY_KEY = 'vgb_near_me_address_history'
+const MAX_HISTORY = 5
+
+export function getAddressSearchHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export function addAddressSearchHistory(query: string): void {
+  const q = query.trim()
+  if (!q) return
+  try {
+    const existing = getAddressSearchHistory().filter((v) => v.toLowerCase() !== q.toLowerCase())
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([q, ...existing].slice(0, MAX_HISTORY)))
+  } catch {
+    // ignore — 히스토리 저장 실패해도 검색 자체는 계속 동작해야 함
+  }
+}
+
+export function clearAddressSearchHistory(): void {
+  try { localStorage.removeItem(HISTORY_KEY) } catch { /* ignore */ }
+}
+
 /** 주소/지역 텍스트 → 좌표 후보 목록(최대 5개, 베트남 내로 한정). 사용자가
  *  직접 입력한 주소로 "내 주변" 검색을 대신할 때 쓴다. */
 export async function searchAddress(query: string): Promise<AddressSuggestion[]> {

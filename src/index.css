@@ -7421,27 +7421,57 @@ a:hover {
   border-color: var(--color-accent);
   background: #fff5f5;
 }
+.near-me-address-history {
+  margin-top: 0.6rem;
+}
+.near-me-address-history__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+.near-me-address-history__clear {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.near-me-address-history .near-me-address-suggestions button {
+  color: #475569;
+}
 
 /* ── "Gần tôi" 항상 보이는 검색+지도+리스트 뷰(2026-09-20, 카카오맵/
    네이버맵 공통 패턴 참고) — 검색 전엔 지도가 베트남 중심으로 이미 떠
    있고, 위치가 잡히면 그 자리에서 지도/리스트만 갱신된다(섹션 자체가
-   나타났다 사라지지 않음). ── */
+   나타났다 사라지지 않음). 2026-09-20 재수정: "검색창이 독립된 사이드바로
+   분리 안됨"(카카오맵 캡처 재지적) — 검색/GPS/반경/리스트를 전부
+   `.near-me-view__sidebar` 하나의 왼쪽 컬럼으로 합치고, 지도는 완전히
+   분리된 오른쪽 컬럼(`.near-me-view__map`)으로 만든다. ── */
 .near-me-view {
   margin: 0 0 2rem;
+}
+.near-me-view__split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.near-me-view__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 160px;
 }
 .near-me-view__controls {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin: 0.75rem 0;
-}
-.near-me-view__controls .near-me-address-search {
-  flex: 1;
-  min-width: 260px;
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
 }
 .near-me-view__radii {
   display: flex;
@@ -7451,32 +7481,23 @@ a:hover {
 .near-me-status__text--error {
   color: #dc2626;
 }
-.near-me-view__split {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.25rem;
-  align-items: start;
-}
 .near-me-view__map .job-location-map {
   height: 380px;
   position: sticky;
   top: 90px;
 }
-.near-me-view__list {
-  min-height: 160px;
-}
 @media (min-width: 900px) {
   .near-me-view__split {
-    /* 카카오맵과 동일하게 왼쪽 리스트, 오른쪽 큰 지도 */
+    /* 카카오맵과 동일하게 왼쪽 사이드바(검색+리스트), 오른쪽 큰 지도 */
     grid-template-columns: 380px 1fr;
   }
-  .near-me-view__list {
+  .near-me-view__sidebar {
     order: -1;
-    max-height: 560px;
+    max-height: 640px;
     overflow-y: auto;
     padding-right: 0.25rem;
   }
-  .near-me-view__list .home-jobs-grid {
+  .near-me-view__sidebar .home-jobs-grid {
     grid-template-columns: 1fr;
   }
 }
