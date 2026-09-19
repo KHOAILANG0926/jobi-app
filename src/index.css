@@ -7367,6 +7367,44 @@ a:hover {
   margin: -0.4rem 0 1rem;
 }
 
+/* ── 주소 직접 검색(GPS 대신/역지오코딩 결과 확인용) ────────── */
+.near-me-address-search {
+  margin-top: 1.1rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid #f1f5f9;
+  text-align: left;
+}
+.near-me-address-search__row {
+  display: flex;
+  gap: 0.5rem;
+}
+.near-me-address-search__row .field__input {
+  flex: 1;
+  margin-bottom: 0;
+}
+.near-me-address-suggestions {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.near-me-address-suggestions button {
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.near-me-address-suggestions button:hover {
+  border-color: var(--color-accent);
+  background: #fff5f5;
+}
+
 /* ── Deadline filter ─────────────────────────────────────────────── */
 .home-deadline-filter {
   display: flex;

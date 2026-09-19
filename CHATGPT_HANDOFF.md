@@ -2,6 +2,47 @@
 
 ## 현재 작업
 
+**"Gần tôi" 위치 확인 문구 + 주소 직접 검색 추가(2026-09-20, 여러 라운드
+대화 끝에 확정)**: "Dùng vị trí hiện tại" 버튼이 "한 번에 안 눌린다"는
+제보를 조사하다가(로딩 상태 없어서 그런 것으로 결론, 아래 절에서 이미
+`locating` state로 수정) 사용자가 더 근본적인 질문 제기 — "현재위치면
+가입자한테 내가 어디 있냐고 물어봐야 하는거 아니야?" → "GANTOI가 필요한
+기능인가 의문" → "공고는 금방 쌓을 수 있다"(밀도 문제로 기능을 없앨
+이유는 아님) → "핸드폰이나 PC로 위치 공유하면 바로 인근 일자리 찾아줄
+수 있어?"(이미 됨, calcDistanceKm 기반 반경 필터는 기존에 있었음) →
+최종적으로 "1,3" 선택(AskUserQuestion): **주소 검색창 + GPS로 받은 좌표를
+사람이 읽을 주소로 확인시켜주기**.
+- 조사 결과 **이 프로젝트에 런타임 지오코딩(좌표↔주소 변환)이 전혀 없었음**
+  확인(Explore 에이전트로 전체 코드베이스 조사) — 크롤러가 오프라인으로
+  미리 계산해 DB에 저장한 값만 소비하는 구조였음. 지도 타일용
+  `VITE_GEOAPIFY_API_KEY`([JobLocationMap.tsx](src/components/JobLocationMap.tsx))는
+  이미 있어서, 같은 키로 Geoapify의 지오코딩 API도 재사용(새 키/공급자
+  도입 없음).
+- [src/lib/geoapify.ts](src/lib/geoapify.ts) 신규 — `reverseGeocode(lat,lng)`
+  (좌표→"구/현, 성/시" 짧은 주소 문자열, 실패 시 null), `searchAddress(query)`
+  (텍스트→좌표 후보 최대 5개, 베트남 내로 필터). 필드명(`results`/`formatted`/
+  `lat`/`lon`/`suburb`/`district`/`county`/`city`/`state`)은 Geoapify
+  공식 문서로 확인 후 작성(로컬 dev엔 키가 없어 실제 API 응답으로 직접
+  검증은 못 함 — Production 배포 후 확인 필요).
+- [Home.tsx](src/pages/Home.tsx): `nearAddressLabel`/`addressQuery`/
+  `addressSearching`/`addressSuggestions`/`addressSearched` state 추가.
+  GPS 성공 시 `reverseGeocode()` 호출해 "Đang tìm việc gần {주소}"로
+  기존 "Vị trí hiện tại của bạn" 문구 교체(역지오코딩 실패해도 기존처럼
+  좌표만으로 계속 동작 — 가짜 주소 안 만듦). `renderAddressSearch()`
+  렌더 도우미 함수(컴포넌트 아님, Home() 클로저 상태 공유)로 prompt/error
+  두 상태 블록에 동일한 주소 검색 폼(입력창+검색 버튼+제안 목록) 추가 —
+  제안 클릭 시 GPS와 동일한 경로(`clearQuickFilters`→`setUserCoords`→
+  `setNearMe(true)`)로 합류.
+- 새 CSS `.near-me-address-search`/`.near-me-address-suggestions`
+  ([index.css](src/index.css)) — 페이지 배경(카드 아님) 위에 놓이는
+  요소라 다른 `.near-me-status__*`처럼 다크모드 오버라이드 없이 라이트
+  톤 그대로(이 앱 다크모드는 페이지 배경 자체는 안 바뀌는 기존 패턴).
+- `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일
+  통과. 로컬 dev 서버로 검색창 렌더/입력/버튼 클릭/"Không tìm thấy" 빈
+  결과 안내까지 확인(로컬은 키가 없어 실제 지오코딩 결과 자체는 미확인).
+  **Production 배포 후 실제 주소 검색 결과가 나오는지 반드시 재확인
+  필요**(다음 세션 최우선 확인 항목).
+
 **Home.tsx 스크롤 이동이 고정 헤더에 가려지던 버그 수정(2026-09-20,
 사용자가 "Gần tôi" 메뉴 클릭해보라고 지시 후 실사이트 스크린샷 5장으로
 재현 경로 제시)**: "GAN TOI 눌러보고 연결상태가 이상하다"는 제보 →

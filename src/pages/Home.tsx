@@ -11,6 +11,7 @@ import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
 import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint } from '../lib/jobCoords'
+import { reverseGeocode, searchAddress, type AddressSuggestion } from '../lib/geoapify'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
 import { groupJobsForSalarySort, salaryTierLabel } from '../lib/recommendStorage'
@@ -257,6 +258,24 @@ export function Home() {
   const [nearRadius, setNearRadius] = useState(5)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null)
+  // 2026-09-20 사용자 지시("한번에 안눌려 2,3번 눌러야되") — "Dùng vị trí
+  // hiện tại" 클릭 후 브라우저 네이티브 위치 권한 팝업이 뜨는 동안 버튼이
+  // 아무 시각적 반응도 없어서(로딩 표시 없음), 사용자가 "안 눌렸다"고
+  // 오해하고 여러 번 눌렀던 것 — 요청 진행 중 상태를 추가해 버튼을
+  // 비활성화하고 "Đang xác định vị trí..."로 바꿔 실제로 응답 대기 중임을
+  // 보여준다.
+  const [locating, setLocating] = useState(false)
+  // 2026-09-20 사용자 지시("공유하면 바로 인근지역 일자리 찾아줄 수 있어?" →
+  // "1,3" 선택: 주소 검색창 + GPS 받은 좌표를 사람이 읽을 주소로 확인시켜줌)
+  // — 매칭 로직(calcDistanceKm 기반 반경 필터)은 이미 있었고, 결과 화면에
+  // "어디 기준으로 찾았는지"가 전혀 안 보이던 것과 주소 직접 입력이 없던
+  // 것만 빠져있었다. nearAddressLabel은 역지오코딩 실패 시 null로 남아
+  // 기존처럼 좌표만으로도 계속 동작한다(가짜 주소를 만들어 보여주지 않음).
+  const [nearAddressLabel, setNearAddressLabel] = useState<string | null>(null)
+  const [addressQuery, setAddressQuery] = useState('')
+  const [addressSearching, setAddressSearching] = useState(false)
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([])
+  const [addressSearched, setAddressSearched] = useState(false)
   const [todayOnly, setTodayOnly] = useState(false)
   const [sortMode, setSortMode] = useState<'none' | 'salary' | 'recommended'>('none')
 
@@ -539,19 +558,86 @@ export function Home() {
   }
   const handleQuickUrgent = () => { clearQuickFilters(); setUrgentOnly(true); scrollToResults() }
   const handleQuickNearMe = () => {
+    if (locating) return
     if (!navigator.geolocation) { setGeoErrorMsg('Trình duyệt không hỗ trợ định vị.'); return }
     setGeoErrorMsg(null)
+    setNearAddressLabel(null)
+    setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        setLocating(false)
         clearQuickFilters()
-        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setUserCoords(coords)
         setNearMe(true)
         scrollToResults()
+        reverseGeocode(coords.lat, coords.lng).then(setNearAddressLabel)
       },
-      () => setGeoErrorMsg('Không thể lấy vị trí. Hãy cho phép định vị để xem việc gần bạn.'),
+      () => {
+        setLocating(false)
+        setGeoErrorMsg('Không thể lấy vị trí. Hãy cho phép định vị để xem việc gần bạn.')
+      },
       { timeout: 10_000 },
     )
   }
+  const handleAddressSearch = () => {
+    if (!addressQuery.trim() || addressSearching) return
+    setAddressSearching(true)
+    setAddressSearched(false)
+    searchAddress(addressQuery).then((results) => {
+      setAddressSearching(false)
+      setAddressSearched(true)
+      setAddressSuggestions(results)
+    })
+  }
+  const selectAddressSuggestion = (s: AddressSuggestion) => {
+    clearQuickFilters()
+    setGeoErrorMsg(null)
+    setUserCoords({ lat: s.lat, lng: s.lng })
+    setNearAddressLabel(s.label)
+    setNearMe(true)
+    setAddressQuery('')
+    setAddressSuggestions([])
+    setAddressSearched(false)
+    scrollToResults()
+  }
+  // prompt/error 두 상태 블록이 똑같은 주소 검색 폼을 쓰므로 함수로 분리 —
+  // 컴포넌트가 아니라 렌더 도우미 함수라 상태는 전부 Home() 클로저를 그대로
+  // 공유한다(별도 마운트/언마운트 없음).
+  const renderAddressSearch = () => (
+    <div className="near-me-address-search">
+      <div className="near-me-address-search__row">
+        <input
+          type="text"
+          className="field__input"
+          placeholder="Hoặc nhập địa chỉ, quận/huyện, thành phố..."
+          value={addressQuery}
+          onChange={(e) => setAddressQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddressSearch() } }}
+        />
+        <button
+          type="button"
+          className="btn btn--ghost btn--sm"
+          onClick={handleAddressSearch}
+          disabled={addressSearching || !addressQuery.trim()}
+        >
+          {addressSearching ? 'Đang tìm...' : 'Tìm'}
+        </button>
+      </div>
+      {addressSuggestions.length > 0 && (
+        <ul className="near-me-address-suggestions">
+          {addressSuggestions.map((s, i) => (
+            <li key={i}>
+              <button type="button" onClick={() => selectAddressSuggestion(s)}>{s.label}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {addressSearched && addressSuggestions.length === 0 && !addressSearching && (
+        <p className="hint">Không tìm thấy địa chỉ phù hợp, hãy thử nhập chi tiết hơn.</p>
+      )}
+    </div>
+  )
   const handleQuickToday = () => { clearQuickFilters(); setTodayOnly(true); scrollToResults() }
   const handleQuickRecommended = () => { clearQuickFilters(); setSortMode('recommended'); scrollToResults() }
   const handleQuickSalary = () => { clearQuickFilters(); setSortMode('salary'); scrollToResults() }
@@ -703,9 +789,9 @@ export function Home() {
                 <span className="home-quick-filter__icon" aria-hidden>⚡</span>
                 <span className="home-quick-filter__label">Cần gấp</span>
               </button>
-              <button type="button" className={`home-quick-filter${nearMe && userCoords ? ' is-active' : ''}`} onClick={handleQuickNearMe}>
+              <button type="button" className={`home-quick-filter${nearMe && userCoords ? ' is-active' : ''}`} onClick={handleQuickNearMe} disabled={locating}>
                 <span className="home-quick-filter__icon" aria-hidden>📍</span>
-                <span className="home-quick-filter__label">Gần bạn</span>
+                <span className="home-quick-filter__label">{locating ? 'Đang định vị...' : 'Gần bạn'}</span>
               </button>
               <button type="button" className={`home-quick-filter${todayOnly ? ' is-active' : ''}`} onClick={handleQuickToday}>
                 <span className="home-quick-filter__icon" aria-hidden>🗓️</span>
@@ -754,7 +840,7 @@ export function Home() {
             {nearMe && userCoords && (
               <div className="near-me-controls">
                 <span className="near-me-controls__label">
-                  📍 Vị trí hiện tại của bạn · Bán kính {nearRadius} km
+                  📍 {nearAddressLabel ? `Gần ${nearAddressLabel}` : 'Vị trí hiện tại của bạn'} · Bán kính {nearRadius} km
                 </span>
                 <div className="near-me-controls__radii" role="group" aria-label="Bán kính tìm kiếm">
                   {[1, 3, 5, 10].map((r) => (
@@ -768,8 +854,8 @@ export function Home() {
                     </button>
                   ))}
                 </div>
-                <button type="button" className="near-me-controls__refresh" onClick={handleQuickNearMe}>
-                  Cập nhật vị trí
+                <button type="button" className="near-me-controls__refresh" onClick={handleQuickNearMe} disabled={locating}>
+                  {locating ? 'Đang định vị...' : 'Cập nhật vị trí'}
                 </button>
               </div>
             )}
@@ -854,13 +940,14 @@ export function Home() {
                 <h2 className="home-section__title">Không lấy được vị trí của bạn</h2>
                 <p className="near-me-status__text">{geoErrorMsg}</p>
                 <div className="near-me-status__actions">
-                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe}>
-                    Thử lại
+                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
+                    {locating ? 'Đang định vị...' : 'Thử lại'}
                   </button>
                   <button type="button" className="btn btn--ghost btn--sm" onClick={scrollToRegionPanel}>
                     Tìm việc theo khu vực thay vào đó
                   </button>
                 </div>
+                {renderAddressSearch()}
               </div>
             ) : (
               <div className="near-me-status near-me-status--prompt">
@@ -872,13 +959,14 @@ export function Home() {
                   chủ hay lưu lại.
                 </p>
                 <div className="near-me-status__actions">
-                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe}>
-                    Dùng vị trí hiện tại
+                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
+                    {locating ? 'Đang định vị...' : 'Dùng vị trí hiện tại'}
                   </button>
                   <button type="button" className="btn btn--ghost btn--sm" onClick={scrollToRegionPanel}>
                     Tìm việc theo khu vực thay vào đó
                   </button>
                 </div>
+                {renderAddressSearch()}
               </div>
             )
           ) : (
@@ -888,7 +976,7 @@ export function Home() {
               </h2>
               {nearMe && userCoords && (
                 <p className="near-me-status__summary">
-                  📍 Đang dùng vị trí hiện tại của bạn · Bán kính {nearRadius} km · {filtered.length} kết quả
+                  📍 {nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính {nearRadius} km · {filtered.length} kết quả
                 </p>
               )}
               {salaryTiers && salaryTiers.groups.length > 0 && (
