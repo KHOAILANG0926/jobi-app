@@ -156,7 +156,9 @@ export interface ResolvedMapLocation {
 
 // Geographic center of Vietnam — used only when a job has no usable location data at
 // all, so the map still renders something instead of nothing. Never a real workplace.
-const VIETNAM_CENTER = { lat: 14.0583, lng: 108.2772 }
+// Exported (2026-09-20) so Home.tsx's persistent "Gần tôi" map can use the same
+// default center before a search has run, instead of duplicating the constant.
+export const VIETNAM_CENTER = { lat: 14.0583, lng: 108.2772 }
 
 /**
  * Resolves the best available SINGLE point for a job with no job_work_locations

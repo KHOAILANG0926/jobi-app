@@ -10,7 +10,7 @@ import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/j
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
-import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint } from '../lib/jobCoords'
+import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint, VIETNAM_CENTER } from '../lib/jobCoords'
 import { reverseGeocode, searchAddress, type AddressSuggestion } from '../lib/geoapify'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
@@ -512,14 +512,6 @@ export function Home() {
     window.scrollTo({ top, behavior })
   }
 
-  // requestAnimationFrame으로 감싸던 이전 구현은 탭이 실제로 그림을 그리는
-  // 중이 아니면(예: 백그라운드 탭) rAF 콜백 자체가 실행되지 않아 클릭해도
-  // 아무 반응이 없는 결함으로 실측 확인됨 — ref는 이미 마운트돼 있어 다음
-  // 프레임까지 기다릴 이유가 없으므로 클릭 즉시 동기 호출한다.
-  const scrollToRegionPanel = () => {
-    scrollToRefBelowHeader(regionPanelRef.current, 'smooth')
-  }
-
   // Scroll to results when a city is selected
   useEffect(() => {
     if (selectedCity && cityResultRef.current) {
@@ -843,29 +835,6 @@ export function Home() {
                 </select>
               )}
             </div>
-            {geoErrorMsg && <p className="home-quick-filters__error">{geoErrorMsg}</p>}
-            {nearMe && userCoords && (
-              <div className="near-me-controls">
-                <span className="near-me-controls__label">
-                  📍 {nearAddressLabel ? `Gần ${nearAddressLabel}` : 'Vị trí hiện tại của bạn'} · Bán kính {nearRadius} km
-                </span>
-                <div className="near-me-controls__radii" role="group" aria-label="Bán kính tìm kiếm">
-                  {[1, 3, 5, 10].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      className={`near-me-controls__radius-btn${nearRadius === r ? ' is-active' : ''}`}
-                      onClick={() => setNearRadius(r)}
-                    >
-                      {r} km
-                    </button>
-                  ))}
-                </div>
-                <button type="button" className="near-me-controls__refresh" onClick={handleQuickNearMe} disabled={locating}>
-                  {locating ? 'Đang định vị...' : 'Cập nhật vị trí'}
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -936,56 +905,43 @@ export function Home() {
       {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
       {!selectedCity && (
         <section className="home-section" ref={jobResultRef}>
-          {nearMe && !userCoords ? (
-            // "내 주변" — 위치를 아직 확보하지 못한 상태(상단 메뉴 "📍 Gần tôi"로
-            // 바로 들어온 경우 포함). 위치 확보 전에는 전체 공고를 "내 주변"
-            // 결과처럼 보여주면 안 되므로, filtered(이 상태에서는 사실상 전체
-            // 공고)를 렌더링하지 않고 이유 설명 + 버튼만 보여준다.
-            geoErrorMsg ? (
-              <div className="near-me-status near-me-status--error">
-                <span className="near-me-status__icon" aria-hidden>📍</span>
-                <h2 className="home-section__title">Không lấy được vị trí của bạn</h2>
-                <p className="near-me-status__text">{geoErrorMsg}</p>
-                <div className="near-me-status__actions">
-                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
-                    {locating ? 'Đang định vị...' : 'Thử lại'}
-                  </button>
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={scrollToRegionPanel}>
-                    Tìm việc theo khu vực thay vào đó
-                  </button>
-                </div>
+          {nearMe ? (
+            // 2026-09-20 사용자 지시("이런식으로 가자고 한거 아니었어?" —
+            // 카카오맵 캡처 재확인) — 1차 버전은 검색 전엔 작은 안내 카드만
+            // 보이고, 지도는 검색 성공 후에만 나타났다. 이번엔 "Gần tôi"로
+            // 들어오는 순간부터 검색창+지도+리스트가 한 화면에 항상 같이
+            // 있는 구조(카카오맵/네이버맵 공통 패턴)로 바꾼다 — 위치를 아직
+            // 못 받았어도 지도는 베트남 중심(VIETNAM_CENTER)으로 이미 떠
+            // 있고, 검색/GPS로 위치가 잡히면 그 자리에서 지도만 갱신된다
+            // (섹션 자체가 사라졌다 나타나지 않음).
+            <div className="near-me-view">
+              <h2 className="home-section__title">Việc làm gần bạn</h2>
+              <div className="near-me-view__controls">
+                <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
+                  {locating ? 'Đang định vị...' : userCoords ? 'Cập nhật vị trí' : 'Dùng vị trí hiện tại'}
+                </button>
+                {userCoords && (
+                  <div className="near-me-view__radii" role="group" aria-label="Bán kính tìm kiếm">
+                    {[1, 3, 5, 10].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        className={`near-me-controls__radius-btn${nearRadius === r ? ' is-active' : ''}`}
+                        onClick={() => setNearRadius(r)}
+                      >
+                        {r} km
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {renderAddressSearch()}
               </div>
-            ) : (
-              <div className="near-me-status near-me-status--prompt">
-                <span className="near-me-status__icon" aria-hidden>📍</span>
-                <h2 className="home-section__title">Xem việc làm gần bạn</h2>
-                <p className="near-me-status__text">
-                  Chúng tôi cần vị trí hiện tại của bạn để tìm việc làm trong bán kính gần nơi bạn đang
-                  ở — vị trí chỉ dùng để tính khoảng cách ngay trên trình duyệt này, không gửi lên máy
-                  chủ hay lưu lại.
-                </p>
-                <div className="near-me-status__actions">
-                  <button type="button" className="btn btn--primary btn--sm" onClick={handleQuickNearMe} disabled={locating}>
-                    {locating ? 'Đang định vị...' : 'Dùng vị trí hiện tại'}
-                  </button>
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={scrollToRegionPanel}>
-                    Tìm việc theo khu vực thay vào đó
-                  </button>
-                </div>
-                {renderAddressSearch()}
-              </div>
-            )
-          ) : (
-            <>
-              <h2 className="home-section__title">
-                {nearMe && userCoords ? 'Việc làm gần bạn' : 'Tất cả kết quả'}
-              </h2>
-              {nearMe && userCoords && (
-                <p className="near-me-status__summary">
-                  📍 {nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính {nearRadius} km · {filtered.length} kết quả
-                </p>
-              )}
+              {geoErrorMsg && <p className="near-me-status__text near-me-status__text--error">📍 {geoErrorMsg}</p>}
+              <p className="near-me-status__summary">
+                📍 {userCoords
+                  ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km · ${filtered.length} kết quả`
+                  : 'Chưa xác định vị trí — dùng GPS hoặc nhập địa chỉ ở trên để xem việc làm gần bạn.'}
+              </p>
               {salaryTiers && salaryTiers.groups.length > 0 && (
                 <p className="near-me-status__summary">
                   💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
@@ -995,41 +951,24 @@ export function Home() {
                   {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
                 </p>
               )}
-              {nearMe && userCoords && filtered.length > 0 && (
-                // 지도는 좌표가 있는 공고만 핀으로 찍을 수 있다 — 좌표 없는
-                // 공고(job.lat/lng undefined)는 지도에서만 빠지고 아래
-                // 리스트에는 그대로 남는다(filtered 자체를 건드리지 않음).
-                <div className="near-me-map">
+              <div className="near-me-view__split">
+                <div className="near-me-view__map">
                   <Suspense fallback={<div className="near-me-map__loading">Đang tải bản đồ...</div>}>
                     <JobLocationMap
-                      lat={userCoords.lat}
-                      lng={userCoords.lng}
+                      lat={userCoords?.lat ?? VIETNAM_CENTER.lat}
+                      lng={userCoords?.lng ?? VIETNAM_CENTER.lng}
                       title="Vị trí của bạn"
-                      zoom={13}
-                      extraMarkers={[
+                      zoom={userCoords ? 13 : 5}
+                      extraMarkers={!userCoords ? [] : [
                         // precise:false — 공고 핀(정확한 파란 핀)과 시각적으로
-                        // 구분되는 반투명 원으로 "대략 여기가 당신 위치"임을
-                        // 표시(job.location 카드 지도에서 쓰던 근사 위치
-                        // 마커 스타일 재사용).
+                        // 구분되는 반투명 원으로 "대략 여기가 당신 위치"임을 표시.
                         { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
-                        // 2026-09-20 버그 수정 2라운드: 1차 수정(job.lat/lng
-                        // 직접 참조 제거)으로도 지도가 여전히 나라 전체로
-                        // 벌어짐 — Production 실측으로 재조사한 결과 진짜
-                        // 원인은 resolveMapLocations()가 공고 하나의 "모든"
-                        // 근무지 좌표(근무지 여러 곳 = 핀 여러 개)를 돌려주는
-                        // 함수였던 것. "전국 채용" 같은 공고는 근무지 중
-                        // 하나만 반경 안이어도 필터를 통과하는데, 지도엔 그
-                        // 공고의 다른 지역(하노이/다낭 등) 근무지까지 전부
-                        // 찍혀서 fitBounds가 그 먼 지점까지 포함해버렸다.
                         // "이 공고가 왜 가까운지" 판정에 실제로 쓰이는 값
                         // (jobDistances 계산에 쓰는 resolveDistanceSearchPoint,
-                        // 공고당 대표 좌표 1개)과 지도 핀을 반드시 같은
-                        // 출처로 맞춰야 한다 — 지도 표시 자격과 거리검색
-                        // 자격은 이번 경우엔 반드시 같아야 하는 특수 케이스
-                        // (jobCoords.ts 주석의 "둘은 별개" 원칙은 JobDetail
-                        // 처럼 공고 하나의 전체 근무지를 다 보여줄 때 얘기고,
-                        // "가까운 순서로 고른 결과"를 지도에 그릴 땐 그 판정에
-                        // 쓴 점만 그려야 앞뒤가 맞는다).
+                        // 공고당 대표 좌표 1개)과 지도 핀을 반드시 같은 출처로
+                        // 맞춘다 — resolveMapLocations()(공고의 모든 근무지)를
+                        // 쓰면 "전국 채용" 공고의 먼 지점까지 찍혀 지도가
+                        // 벌어지는 결함이 실측으로 확인됐었다(2026-09-20).
                         ...filtered.flatMap((j) => {
                           const point = resolveDistanceSearchPoint(j)
                           if (!point) return []
@@ -1045,6 +984,50 @@ export function Home() {
                     />
                   </Suspense>
                 </div>
+                <div className="near-me-view__list">
+                  {!userCoords ? (
+                    <p className="hint">Danh sách công việc sẽ hiện ra ở đây sau khi xác định vị trí.</p>
+                  ) : filtered.length === 0 ? (
+                    <div className="city-result__empty">
+                      <span>🔍</span>
+                      <p>Không có việc làm nào trong bán kính {nearRadius} km.</p>
+                      {nearRadius < 10 && (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setNearRadius(10)}>
+                          Mở rộng lên 10 km
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="home-jobs-grid">
+                      {filtered.map((job) => (
+                        <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+                          <JobCard
+                            job={job}
+                            isApplied={isApplied(job.id)}
+                            onApply={handleApply}
+                            isSaved={savedIds.has(job.id)}
+                            onToggleSave={handleToggleSave}
+                            distanceKm={jobDistances[job.id]?.km}
+                            distancePrecise={jobDistances[job.id]?.precise}
+                          />
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h2 className="home-section__title">Tất cả kết quả</h2>
+              {salaryTiers && salaryTiers.groups.length > 0 && (
+                <p className="near-me-status__summary">
+                  💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
+                  {salaryTiers.groups.length > 1 && (
+                    <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
+                  )}
+                  {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
+                </p>
               )}
               {filtered.length === 0 ? (
                 // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
@@ -1052,18 +1035,8 @@ export function Home() {
                 // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).
                 <div className="city-result__empty">
                   <span>🔍</span>
-                  <p>
-                    {nearMe && userCoords
-                      ? `Không có việc làm nào trong bán kính ${nearRadius} km.`
-                      : 'Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.'}
-                  </p>
-                  {nearMe && userCoords && nearRadius < 10 ? (
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => setNearRadius(10)}>
-                      Mở rộng lên 10 km
-                    </button>
-                  ) : (
-                    <NavLink to="/">← Xem tất cả việc làm</NavLink>
-                  )}
+                  <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>
+                  <NavLink to="/">← Xem tất cả việc làm</NavLink>
                 </div>
               ) : (
                 <div className="home-jobs-grid">
