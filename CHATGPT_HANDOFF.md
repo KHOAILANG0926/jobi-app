@@ -2,6 +2,25 @@
 
 ## 현재 작업
 
+**"Gần tôi" 지도가 배포 직후 베트남이 아니라 아시아 전체로 축소되던 버그
+수정(2026-09-20, Production 실측으로 직접 발견)**: 바로 아래 "지도+핀"
+절 배포 직후 실사이트에서 확인해보니, 핀 20개 중 하나가 베트남 밖 먼
+곳으로 튀어서 `fitBounds()`가 지도를 남아시아~동남아 전체로 축소시켜버림.
+원인은 마커 좌표를 `job.lat`/`job.lng`(최상위 필드)로 바로 썼는데, 이
+필드는 [types/job.ts](src/types/job.ts) 주석에 이미 "geocode 실패 시
+성/시 단위로 추측한 좌표로 back-fill될 수 있다"고 명시돼 있던 걸 놓친
+것 — JobDetail.tsx는 이미 이 문제를 피하려고 `resolveMapLocations()`를
+쓰고 있었는데 Home.tsx 새 코드만 그걸 재사용 안 했었다.
+- [Home.tsx](src/pages/Home.tsx): 마커 좌표를 `job.lat`/`lng` 직접 참조
+  대신 [jobCoords.ts](src/lib/jobCoords.ts)의 `resolveMapLocations(job)`
+  로 교체 — `source === 'default'`(위치 정보 전혀 없어 베트남 중심으로
+  fallback된 것) 또는 `'pending'`(아직 지오코딩 안 됨)인 공고는 신뢰할
+  좌표가 없으므로 핀 자체를 안 만듦. 여러 근무지가 있는 공고는
+  `resolved.points`의 각 점마다 핀을 따로 찍음(JobDetail.tsx와 동일 로직).
+- `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과.
+  **Production 배포 후 지도가 Quận 1 근처로 정상 확대되는지 재확인
+  필요**(다음 최우선 확인 항목 — 이번 수정이 실측으로 검증되기 전임).
+
 **"Gần tôi" 결과를 지도+핀으로 표시(2026-09-20, "다음 결정사항 17번"을
 같은 세션에 바로 착수)**: "다음 세션에 하자"고 문서에 남겨둔 직후 사용자가
 "그냥 지금 시작하자"로 바로 진행 지시 — 1차 버전(검색창+지도+핀, 핀↔카드

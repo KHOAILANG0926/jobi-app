@@ -10,7 +10,7 @@ import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/j
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
-import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint } from '../lib/jobCoords'
+import { calcDistanceKm, normalizeViText, resolveDistanceSearchPoint, resolveMapLocations } from '../lib/jobCoords'
 import { reverseGeocode, searchAddress, type AddressSuggestion } from '../lib/geoapify'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
@@ -1012,9 +1012,28 @@ export function Home() {
                         // 표시(job.location 카드 지도에서 쓰던 근사 위치
                         // 마커 스타일 재사용).
                         { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
-                        ...filtered
-                          .filter((j): j is Job & { lat: number; lng: number } => typeof j.lat === 'number' && typeof j.lng === 'number')
-                          .map((j) => ({ lat: j.lat, lng: j.lng, label: `${j.title} · ${j.company}`, href: `/viec-lam/${j.id}` })),
+                        // 2026-09-20 버그 수정: 처음엔 job.lat/lng(최상위
+                        // 필드)을 바로 썼는데, 이 필드는 "geocode 실패 시
+                        // 성/시 단위로 추측한 좌표로 back-fill될 수 있다"고
+                        // types/job.ts에 이미 명시돼 있었음 — 실측해보니 그
+                        // 추측 좌표 하나가 베트남 밖 먼 곳으로 튀어서
+                        // fitBounds가 지도를 아시아 전체로 확 축소시켜버리는
+                        // 결함으로 실제 나타남(Production 확인). JobDetail.tsx가
+                        // 이미 쓰는 resolveMapLocations()로 교체 — source가
+                        // 'default'(위치 정보 전혀 없음, 베트남 중심 fallback)
+                        // 이거나 'pending'(아직 지오코딩 안 됨)인 공고는 애초에
+                        // 신뢰할 좌표가 없으므로 핀 자체를 만들지 않는다.
+                        ...filtered.flatMap((j) => {
+                          const resolved = resolveMapLocations(j)
+                          if (resolved.source === 'default' || resolved.source === 'pending') return []
+                          return resolved.points.map((p) => ({
+                            lat: p.lat,
+                            lng: p.lng,
+                            label: `${j.title} · ${j.company}`,
+                            precise: p.precise,
+                            href: `/viec-lam/${j.id}`,
+                          }))
+                        }),
                       ]}
                     />
                   </Suspense>
