@@ -2,6 +2,24 @@
 
 ## 현재 작업
 
+**PostJob.tsx 실사용 검증 완료(2026-09-19, 코드 변경 없음 — 실제 기업 계정으로
+라이브 테스트만 진행)**: "발견된 문제"에 남아있던 마지막 미검증 항목 해결.
+Claude in Chrome으로 실제 로그인된 기업 계정("이종민")에서 `/dang-tin` 폼에
+제목/회사명/카테고리=Thiết kế/소분류=Thiết kế web · Mobile/급여/지역/근무기간=
+1-3 tháng/성별=Nam/연령=25-34 tuổi/전화/설명을 채워 제출 → `sb-4667`로 정상
+등록 확인. **중간에 한 번 "필수 항목을 채워주세요" 검증 실패 발생** — 원인은
+카테고리 select를 바꾸는 과정에서 제목/회사명/급여/지역 텍스트 입력란 값이
+폼 리렌더로 비워진 것으로 추정(브라우저 자동화 stale ref 문제가 아니라 JS로
+직접 `.value` 덤프해 확인한 실제 현상). 네 필드를 다시 채운 뒤 재제출하니
+정상 등록됨 — PostJob.tsx 자체의 재현 가능한 폼 상태 버그일 가능성이 있으니
+사용자가 실제로 카테고리를 여러 번 바꿔가며 등록해볼 때 같은 현상이 재현되면
+알려달라고 안내 필요(코드 수정은 이번에 하지 않음, 범위 밖).
+Production DB(`edhuesdnuxlbcfephutq`)에서 `select ... where company='TEST
+Company - DELETE'`로 저장된 값 전부 정확함을 확인(category/subcategory/
+job_duration/gender_requirement/age_requirement/phone/description 전부
+의도한 값 그대로) → 확인 즉시 `delete ... where id=4667`로 테스트 행 삭제,
+잔여 데이터 없음.
+
 **집 PC 이어서 진행(2026-09-20, `ed5ef50`→`7eeb667`, commit/push/Production
 배포 완료 + RLS 보안 수정 1건)**:
 1. 신규 대분류 5개(cntt_ky_thuat/thiet_ke/truyen_thong/y_te_dieu_duong/
@@ -351,13 +369,22 @@ tính/Độ tuổi UI는 있는데 DB 컬럼이 없어 실제 필터링 안 됨"
   있어(로그인 필요, 테스트 계정 없음) 브라우저 직접 조작 검증은 못 했고
   `tsc`/`build` 통과로만 구조적 정합성을 확인함 — 다음에 실제 기업 계정으로
   한 번 등록해보고 소분류/성별/연령 값이 DB에 제대로 들어가는지 확인 필요.
+- **PostJob.tsx 실등록 라이브 테스트(2026-09-19)**: 실제 기업 계정으로
+  `/dang-tin`에서 전 필드(소분류/근무기간/성별/연령 포함) 채워 제출 →
+  `sb-4667` 정상 등록 → Production DB에서 저장 값 전부 정확함 확인(아래
+  값 그대로: category=thiet_ke, subcategory=thiet_ke_web_mobile,
+  job_duration="1 - 3 tháng", gender_requirement="Nam",
+  age_requirement="25 - 34 tuổi") → 확인 직후 테스트 행 삭제, 잔여 데이터
+  없음. 이로써 위 "구조적으로는 신뢰 가능"이었던 상태가 실측 검증으로 격상.
 
 ## 발견된 문제
 
-- **PostJob.tsx 실사용 미검증** — 로그인(`RequireEmployer`) 필요해서
-  테스트 계정 없이는 브라우저로 폼 제출까지 직접 확인 못 함. 소분류/
-  성별/연령 select가 화면에 잘 뜨는지, 실제 제출 시 DB에 값이 정확히
-  들어가는지 기업 계정으로 한 번 실등록 테스트 필요.
+- ~~PostJob.tsx 실사용 미검증~~ — 해결(2026-09-19, 위 새 절 참고). 실제
+  기업 계정으로 소분류/성별/연령/근무기간까지 포함해 실등록 → DB 값 확인
+  → 테스트 행 삭제까지 완료. **단, 제출 중 카테고리 변경 후 제목/회사명/
+  급여/지역 텍스트 필드가 비워지는 현상을 한 번 관찰** — 재현성 미확인,
+  다음에 실제로 등록하다 같은 현상이 또 나오면 PostJob.tsx 폼 상태 로직
+  점검 필요(이번엔 범위 밖이라 코드 수정 안 함).
 - `PostJob.tsx`의 `category` 기본값이 2026-09-17에 폐기된 구 8분류 잔재
   `'other'`로 남아있던 잠재 버그 발견·수정(2026-09-19, `'khac'`으로) —
   `as JobCategory` 타입 단언 때문에 tsc가 못 잡았던 사례. 다른 파일에도
