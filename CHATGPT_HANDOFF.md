@@ -2,6 +2,24 @@
 
 ## 현재 작업
 
+**Truyền thông/마케팅 소분류 누락 수정(2026-09-19, `crawler/classifier.py`만
+변경 — 프론트엔드/Vercel 배포 대상 아님, 다음 크롤러 실행부터 반영)**:
+지난 세션이 "`_TRUYEN_THONG` 정규식에 marketing/PR 키워드가 없다"고 남겨둔
+보류 항목을 재조사한 결과, **애초에 marketing/PR은 `truyen_thong`(미디어=
+촬영/편집/방송 스태프) 소관이 아니라 `van_phong`(사무직) 소관으로 설계돼
+있었다**는 걸 확인함(`src/data/subcategories.ts:93-94`,
+`crawler/classifier.py:666-667`의 `marketing_quang_cao`/`marketing_sns`가
+전부 `van_phong` 밑에 있음 — 알바몬 원본 구조 그대로). 그리고 `_OFFICE`
+대분류 정규식(`classifier.py:207-223`)엔 이미 `marketing`/`social media`
+등이 포함돼 있어 **대분류 라우팅 자체는 원래도 맞았음**. 진짜 빠진 건
+`_SUBCATEGORY_RULES["office"]`에 marketing 관련 소분류 규칙이 아예 없어서
+마케팅 공고가 대분류만 맞고 소분류는 항상 None으로 빠지던 것 — 이번에
+`marketing_sns`(social media/content creator/KOL/tiktok 특정)와
+`marketing_quang_cao`(marketing/quảng cáo/PR 일반) 두 소분류 규칙을 추가하고
+`LEGACY_SUB_TO_NEW` 매핑도 같이 추가함. `python crawler/classifier.py`
+자체 테스트 전체(대분류 22/22, 소분류 20/20 — 신규 케이스 3개 포함, 신규
+체계 매핑 18/18, 새 대분류 12/12) 통과 확인.
+
 **PostJob.tsx 실사용 검증 완료(2026-09-19, 코드 변경 없음 — 실제 기업 계정으로
 라이브 테스트만 진행)**: "발견된 문제"에 남아있던 마지막 미검증 항목 해결.
 Claude in Chrome으로 실제 로그인된 기업 계정("이종민")에서 `/dang-tin` 폼에
@@ -431,14 +449,13 @@ tính/Độ tuổi UI는 있는데 DB 컬럼이 없어 실제 필터링 안 됨"
    두 카테고리 매칭 0건, 이전과 동일 — "R&D 산업 연구직을 헬스케어로
    오분류하는지"도 같이 확인했는데 `_Y_TE_DIEU_DUONG` 정규식이 y tá/
    điều dưỡng/hộ lý 등 구체적 의료 용어만 매칭해서 오분류 없음 확인).
-   **추가로 발견한 별개 이슈**: `_TRUYEN_THONG` 정규식이 quay phim/
-   dựng phim/biên tập video/phóng viên/đạo diễn(촬영·편집·기자·감독) 등
-   **영상 제작 용어만** 잡고 마케팅/PR/광고는 전혀 안 잡음 — 카테고리
-   이름("미디어")이 암시하는 범위보다 실제 정규식 범위가 훨씬 좁음.
-   마케팅/PR 관련 공고가 들어와도 이 카테고리로 못 걸러짐. 실제 표본이
-   없어 지금 정규식을 넓힐 근거가 약하다고 판단해 보류했지만, 사용자가
-   "미루다가 잊어버릴까봐"로 명시적으로 남겨달라고 함 — **다음에 이
-   카테고리 관련 얘기 나오면 이 마케팅/PR 누락부터 먼저 확인할 것**.
+   여전히 실표본 0건이라 정규식 확장 여부는 보류 상태 유지.
+   ~~"마케팅/PR이 truyen_thong에서 안 잡힌다"는 이슈~~ — **재조사 결과
+   애초에 오분류가 아니었음이 확인돼 해결(2026-09-19, 위 새 절 참고)**.
+   marketing/PR은 설계상 `van_phong`(사무직) 소관이고 대분류 라우팅은
+   원래부터 정상이었으며, 실제로 비어있던 건 `office`의 marketing 소분류
+   규칙뿐이라 그것만 추가함 — `truyen_thong`(영상제작/방송 스태프) 정규식
+   자체는 건드리지 않음.
 5. ~~지역/업종 2단 구조 확대~~ — Home/맞춤공고에 소분류 완료(2026-09-18).
    저장한 공고/지도는 원래 지역·업종 필터가 없던 화면이라 범위에서 제외
    (필요하면 별도 지시).

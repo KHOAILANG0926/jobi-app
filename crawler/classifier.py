@@ -421,6 +421,12 @@ _SUBCATEGORY_RULES: dict[str, list[tuple[str, "re.Pattern[str]"]]] = {
         ("ke_toan", re.compile(r"ke toan\b")),
         ("hanh_chinh_nhan_su", re.compile(r"hanh chinh nhan su\b|nhan su\b|nhan vien hanh chinh\b|thu ky\b|tro ly\b")),
         ("cskh", re.compile(r"tong dai\b|cskh\b|cham soc khach hang\b|hotline\b|tu van khach hang\b|inbound\b|telesale\b|telesales\b")),
+        # marketing/PR는 _OFFICE 대분류 정규식에 이미 걸리지만(→ van_phong로
+        # 정확히 라우팅됨) 소분류가 없어 전부 None으로 빠지던 걸 2026-09-19
+        # 발견 — SNS/콘텐츠 계열을 먼저 특정해서 잡고, 나머지 일반
+        # marketing/quảng cáo/PR은 marketing_quang_cao로 catch-all.
+        ("marketing_sns", re.compile(r"social media\b|content creator\b|kol\b|tiktok\b|marketing sns\b")),
+        ("marketing_quang_cao", re.compile(r"marketing\b|quang cao\b|\bpr\b|quan he cong chung")),
     ],
     # 아래 3개는 이미 새 대분류 id를 키로 쓴다(위 map_to_new_taxonomy() 참고) —
     # 소분류 id도 SUBCATEGORY_LABELS의 새 id를 그대로 쓴다.
@@ -558,6 +564,8 @@ LEGACY_SUB_TO_NEW: dict[tuple[str, str], tuple[str, str | None]] = {
     ("office", "hanh_chinh_nhan_su"): ("van_phong", "nhan_su_hanh_chinh"),
     ("office", "le_tan"):             ("dich_vu", "le_tan"),
     ("office", "ke_toan"):            ("van_phong", "tro_ly_ke_toan"),
+    ("office", "marketing_sns"):      ("van_phong", "marketing_sns"),
+    ("office", "marketing_quang_cao"): ("van_phong", "marketing_quang_cao"),
 }
 
 
@@ -833,6 +841,9 @@ if __name__ == "__main__":
         ("Telesale Part-time Buổi Tối", "Edu Online", "office", "cskh"),
         ("Lễ Tân Văn Phòng Part-time", "Spa ABC", "office", "le_tan"),
         ("Tổ Trưởng Kỹ Thuật Bảo Trì Cơ Điện", "Mebi Farm", "factory", "ky_thuat_bao_tri"),
+        ("Nhân Viên Content Creator Social Media", "Agency ABC", "office", "marketing_sns"),
+        ("Nhân Viên Marketing Online Part-time", "Cty XYZ", "office", "marketing_quang_cao"),
+        ("Chuyên Viên PR Sự Kiện", "Cty Truyền Thông", "office", "marketing_quang_cao"),
         # 소분류 규칙 어디에도 안 걸려서 None이 나와야 정상인 경우
         ("Admin Bán Hàng Trực Page Facebook", "Shop Online", "office", None),
         ("Nhân Viên Tư Vấn Tuyển Sinh", "Cao Đẳng Kỹ Thuật", "office", None),
@@ -865,6 +876,8 @@ if __name__ == "__main__":
         ("office", "cskh", ("cskh_kinh_doanh", "cskh_inbound")),
         ("office", "le_tan", ("dich_vu", "le_tan")),
         ("office", "ke_toan", ("van_phong", "tro_ly_ke_toan")),
+        ("office", "marketing_sns", ("van_phong", "marketing_sns")),
+        ("office", "marketing_quang_cao", ("van_phong", "marketing_quang_cao")),
         ("other", None, ("khac", None)),
     ]
     new_ok = new_err = 0
