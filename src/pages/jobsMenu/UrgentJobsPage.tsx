@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_LABELS } from '../../data/categories'
 import { JOB_DURATION_OPTIONS } from '../../data/jobDuration'
+import { AGE_REQUIREMENT_OPTIONS } from '../../data/jobRequirements'
 import { SUBCATEGORY_LABELS } from '../../data/subcategories'
 import { VN_DISTRICTS_BY_PROVINCE, VN_WARDS_BY_DISTRICT } from '../../data/vnDistricts'
 import { VN_PROVINCES } from '../../data/vnProvinces'
@@ -62,7 +63,6 @@ const TIME_PRESETS: { label: string; buckets: TimeBucket[] }[] = [
 // "Chọn thủ công" 시간 드롭다운용 — 실제 필터링에는 안 쓰는 순수 UI라
 // 30분 단위 등 세분화할 필요 없이 정시(00:00~23:00)만 제공한다.
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`)
-const AGE_OPTIONS = ['18 - 24 tuổi', '25 - 34 tuổi', '35 - 44 tuổi', '45 - 54 tuổi', 'Trên 55 tuổi']
 function sameSet<T>(a: Set<T>, items: T[]): boolean {
   return a.size === items.length && items.every((x) => a.has(x))
 }
@@ -222,7 +222,9 @@ export default function UrgentJobsPage() {
   const [excludeUnspecifiedHours, setExcludeUnspecifiedHours] = useState(false)
   // "Điều kiện khác" 성별/연령 — local_jobs에 대응 컬럼이 없어 실제 필터링에는
   // 반영 안 되는 UI 상태만(사용자 지시로 알바몬 캡처본 구조 그대로 추가).
-  const [genderFilter, setGenderFilter] = useState<'male' | 'female' | null>(null)
+  // local_jobs.gender_requirement 값("Nam"/"Nữ")과 그대로 맞춘다 — 번역
+  // 레이어 없이 바로 비교(filtered useMemo 참고).
+  const [genderFilter, setGenderFilter] = useState<'Nam' | 'Nữ' | null>(null)
   const [ageFilter, setAgeFilter] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
   const [regionSearch, setRegionSearch] = useState('')
@@ -443,6 +445,14 @@ export default function UrgentJobsPage() {
     }
     if (workPeriods.size > 0) list = list.filter((j) => !!j.workPeriod && workPeriods.has(j.workPeriod))
     if (jobDurations.size > 0) list = list.filter((j) => !!j.jobDuration && jobDurations.has(j.jobDuration))
+    // 성별/연령은 "이 공고 자체의 성질"이 아니라 "누가 지원 가능한가"라는
+    // 조건이라 workPeriod/jobDuration과 다르게 다룬다 — 조건 값이 없는
+    // 공고(genderRequirement/ageRequirement가 null)는 "제한 없음"을
+    // 뜻하므로 어느 필터를 선택해도 계속 보여야 한다(선택한 조건과
+    // 정확히 일치하는 공고만 남기면 아직 아무 공고도 이 값을 안 채운
+    // 지금 시점엔 전부 사라져버림).
+    if (genderFilter) list = list.filter((j) => !j.genderRequirement || j.genderRequirement === genderFilter)
+    if (ageFilter) list = list.filter((j) => !j.ageRequirement || j.ageRequirement === ageFilter)
     if (selectedDays.size > 0) {
       list = list.filter((j) => {
         const days = parseWorkDays(j.workDays)
@@ -473,7 +483,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -495,7 +505,7 @@ export default function UrgentJobsPage() {
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
-  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + selectedDays.size + selectedDayCounts.size + (excludeUnspecifiedDays ? 1 : 0) + selectedTimeBuckets.size + (excludeUnspecifiedHours ? 1 : 0) + includeKeywords.length + excludeKeywords.length
+  const activeFilterCount = (selectedProvince ? 1 : 0) + selectedWards.size + categoryIds.size + selectedSubcategoryKeys.size + workPeriods.size + jobDurations.size + (genderFilter ? 1 : 0) + (ageFilter ? 1 : 0) + selectedDays.size + selectedDayCounts.size + (excludeUnspecifiedDays ? 1 : 0) + selectedTimeBuckets.size + (excludeUnspecifiedHours ? 1 : 0) + includeKeywords.length + excludeKeywords.length
 
   const clearAllFilters = () => {
     selectProvince(null)
@@ -503,6 +513,8 @@ export default function UrgentJobsPage() {
     setSelectedSubcategoryKeys(new Set())
     setWorkPeriods(new Set())
     setJobDurations(new Set())
+    setGenderFilter(null)
+    setAgeFilter('')
     setSelectedDays(new Set())
     setSelectedDayCounts(new Set())
     setExcludeUnspecifiedDays(false)
@@ -909,7 +921,7 @@ export default function UrgentJobsPage() {
 
         <FilterDropdown
           label="Điều kiện khác"
-          count={workPeriods.size + includeKeywords.length + excludeKeywords.length}
+          count={workPeriods.size + (genderFilter ? 1 : 0) + (ageFilter ? 1 : 0) + includeKeywords.length + excludeKeywords.length}
           isOpen={openPanel === 'detail'}
           onToggle={() => togglePanel('detail')}
           onClose={closePanel}
@@ -921,15 +933,15 @@ export default function UrgentJobsPage() {
               <div className="jm-filter-dropdown__chips">
                 <button
                   type="button"
-                  className={`jm-chip${genderFilter === 'male' ? ' is-selected' : ''}`}
-                  onClick={() => setGenderFilter((g) => (g === 'male' ? null : 'male'))}
+                  className={`jm-chip${genderFilter === 'Nam' ? ' is-selected' : ''}`}
+                  onClick={() => setGenderFilter((g) => (g === 'Nam' ? null : 'Nam'))}
                 >
                   Nam
                 </button>
                 <button
                   type="button"
-                  className={`jm-chip${genderFilter === 'female' ? ' is-selected' : ''}`}
-                  onClick={() => setGenderFilter((g) => (g === 'female' ? null : 'female'))}
+                  className={`jm-chip${genderFilter === 'Nữ' ? ' is-selected' : ''}`}
+                  onClick={() => setGenderFilter((g) => (g === 'Nữ' ? null : 'Nữ'))}
                 >
                   Nữ
                 </button>
@@ -946,7 +958,7 @@ export default function UrgentJobsPage() {
                 aria-label="Độ tuổi"
               >
                 <option value="">Chọn độ tuổi</option>
-                {AGE_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                {AGE_REQUIREMENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
           </div>

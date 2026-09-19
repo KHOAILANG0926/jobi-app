@@ -83,6 +83,8 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     images: (r.images as string[]) ?? undefined,
     workPeriod: (r.work_period as string) ?? undefined,
     jobDuration: (r.job_duration as string) ?? undefined,
+    genderRequirement: (r.gender_requirement as string) ?? undefined,
+    ageRequirement: (r.age_requirement as string) ?? undefined,
     workDays: (r.work_days as string) ?? undefined,
     education: (r.education as string) ?? undefined,
     preference: (r.preference as string) ?? undefined,
@@ -121,7 +123,7 @@ export interface JobsQueryClient {
 }
 
 const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions'
+  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards'
 

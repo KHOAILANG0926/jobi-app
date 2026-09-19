@@ -63,7 +63,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
       const from = page * PAGE_SIZE
       const { data, error } = await supabase
         .from('local_jobs')
-        .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions')
+        .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,images,source_url,recruitment_regions')
         .eq('active', true)
         .order('posted_at', { ascending: false })
         .order('id', { ascending: false })
@@ -141,6 +141,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         title: draft.title,
         company: draft.company,
         category: draft.category,
+        subcategory: draft.subcategory ?? null,
         salary: draft.salary,
         location: draft.location,
         hours: draft.hours ?? '',
@@ -159,6 +160,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         posted_at: new Date().toISOString().slice(0, 10),
         work_period: draft.workPeriod ?? null,
         job_duration: draft.jobDuration ?? null,
+        gender_requirement: draft.genderRequirement ?? null,
+        age_requirement: draft.ageRequirement ?? null,
         work_days: draft.workDays ?? null,
         education: draft.education ?? null,
         preference: draft.preference ?? null,

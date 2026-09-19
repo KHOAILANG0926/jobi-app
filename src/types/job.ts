@@ -124,6 +124,12 @@ export interface Job {
    *  크롤러는 채우지 않고(소스에 구조화된 필드 없음) PostJob.tsx 직접등록
    *  전용으로 시작해 대부분 undefined일 것으로 예상된다. */
   jobDuration?: string
+  /** local_jobs.gender_requirement — "Nam"/"Nữ" 중 하나를 기대. 크롤러는
+   *  채우지 않고 PostJob.tsx 직접등록 전용. null = 조건 없음(모두 지원 가능). */
+  genderRequirement?: string
+  /** local_jobs.age_requirement — 급구 필터와 동일한 5구간 라벨(예:
+   *  "18 - 24 tuổi"). 크롤러는 채우지 않고 PostJob.tsx 직접등록 전용. */
+  ageRequirement?: string
   workDays?: string
   education?: string
   preference?: string

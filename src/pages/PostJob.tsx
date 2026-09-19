@@ -2,6 +2,8 @@ import { FormEvent, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
 import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
+import { AGE_REQUIREMENT_OPTIONS, GENDER_REQUIREMENT_OPTIONS } from '../data/jobRequirements'
+import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { supabase } from '../lib/supabase'
@@ -10,11 +12,18 @@ import type { JobCategory } from '../types/job'
 const emptyForm = {
   title: '',
   company: '',
-  category: 'other' as JobCategory,
+  // 2026-09-19 수정 — 'other'는 구 8분류(2026-09-17 폐기) 잔재로 지금
+  // JobCategory에 없는 값이라 여기 남아있으면 사용자가 대분류를 안 건드리고
+  // 등록할 때 DB에 유효하지 않은 값이 들어가는 잠재 버그였음('khac'=기타가
+  // 지금의 fallback).
+  category: 'khac' as JobCategory,
+  subcategory: '',
   salary: '',
   location: '',
   hours: '',
   jobDuration: '',
+  genderRequirement: '',
+  ageRequirement: '',
   description: '',
   employerPhone: '',
   applicationDeadline: '',
@@ -31,6 +40,9 @@ export function PostJob() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // 'khac'(기타)는 classifier.py/SUBCATEGORY_LABELS 둘 다 소분류 규칙 자체가
+  // 없어 undefined — 그 경우 소분류 select를 아예 숨긴다.
+  const subcategoryOptions = SUBCATEGORY_LABELS[form.category]
 
   const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -82,11 +94,14 @@ export function PostJob() {
         title: form.title.trim(),
         company: form.company.trim(),
         category: form.category,
+        subcategory: form.subcategory || undefined,
         salary: form.salary.trim(),
         location: form.location.trim(),
         description: form.description.trim(),
         hours: form.hours.trim() || undefined,
         jobDuration: form.jobDuration || undefined,
+        genderRequirement: form.genderRequirement || undefined,
+        ageRequirement: form.ageRequirement || undefined,
         employerPhone: form.employerPhone.trim(),
         applicationDeadline: deadline,
         urgent: form.urgent,
@@ -133,12 +148,25 @@ export function PostJob() {
         <label className="field">
           <span className="field__label">Danh mục *</span>
           <select className="field__input" value={form.category}
-            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as JobCategory }))}>
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as JobCategory, subcategory: '' }))}>
             {ALL_CATEGORIES.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
             ))}
           </select>
         </label>
+
+        {subcategoryOptions && (
+          <label className="field">
+            <span className="field__label">Phân loại chi tiết (tuỳ chọn)</span>
+            <select className="field__input" value={form.subcategory}
+              onChange={(e) => setForm((f) => ({ ...f, subcategory: e.target.value }))}>
+              <option value="">— Không chọn —</option>
+              {Object.entries(subcategoryOptions).map(([id, label]) => (
+                <option key={id} value={id}>{label}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className="field">
           <span className="field__label">Mức lương / chế độ *</span>
@@ -168,6 +196,28 @@ export function PostJob() {
             <option value="">— Không chọn —</option>
             {JOB_DURATION_OPTIONS.map((d) => (
               <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Giới tính yêu cầu (tuỳ chọn)</span>
+          <select className="field__input" value={form.genderRequirement}
+            onChange={(e) => setForm((f) => ({ ...f, genderRequirement: e.target.value }))}>
+            <option value="">— Không yêu cầu —</option>
+            {GENDER_REQUIREMENT_OPTIONS.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span className="field__label">Độ tuổi yêu cầu (tuỳ chọn)</span>
+          <select className="field__input" value={form.ageRequirement}
+            onChange={(e) => setForm((f) => ({ ...f, ageRequirement: e.target.value }))}>
+            <option value="">— Không yêu cầu —</option>
+            {AGE_REQUIREMENT_OPTIONS.map((a) => (
+              <option key={a} value={a}>{a}</option>
             ))}
           </select>
         </label>
