@@ -2,28 +2,6 @@
 
 ## 현재 작업
 
-**집 PC 이어서 진행(2026-09-20, `ed5ef50`→`7eeb667`, commit/push/Production
-배포 완료 + RLS 보안 수정 1건)**:
-1. 신규 대분류 5개(cntt_ky_thuat/thiet_ke/truyen_thong/y_te_dieu_duong/
-   giao_duc_giang_day) 전용 Unsplash 이미지 추가(`categoryVisuals.ts`) —
-   전부 URL 실제 로드 확인 후 반영. `JobCard.tsx`의 폴백 카테고리가 폐기된
-   `'other'`를 참조하던 죽은 코드도 같이 `'khac'`으로 수정.
-2. **`applications_insert` RLS tautology 보안 수정(운영 DB 적용 완료)** —
-   `l.employer_id = l.employer_id`(항상 참, 검증 무효)를
-   `l.employer_id = applications.employer_id`(실제 소유 검증)로 교체.
-   수정 전엔 로그인한 구직자가 API를 직접 조작해 임의의 employer_id로
-   지원서를 위조해 저장할 수 있었음(데이터 무결성 문제). 마이그레이션
-   [supabase/migrations/20260920043000_fix_applications_insert_employer_check.sql](supabase/migrations/20260920043000_fix_applications_insert_employer_check.sql).
-   **검증**: 운영 DB에서 트랜잭션 롤백 기반 시뮬레이션(`set_config`+
-   `set local role authenticated`, 끝에 `rollback`으로 흔적 없음)으로
-   정상 지원(employer_id 일치) 성공·위조 지원(employer_id 불일치) 차단
-   둘 다 실측 확인. Supabase MCP 쓰기 작업이 "Modify Shared Resources"로
-   한 번 자동 차단됐다가 사용자 재승인 후 진행됨 — 운영 DB DDL은 항상 이
-   확인 절차를 거칠 것.
-3. korea_jobs 통합은 "제일 큰 안건이라 나중에"로 보류, applications_insert
-   다음 순서로 categoryVisuals를 먼저 처리(사용자가 번호 순서대로 진행
-   지시).
-
 **추가 반영(다른 PC 세션, `f2c5da7`→`f1c5068`, commit/push/Production 배포
 완료)**:
 1. 급구 페이지 지역 기본값(Cần Thơ 자동 선택)을 제거 — 아무 필터도 선택 안
@@ -350,16 +328,12 @@ tính/Độ tuổi UI는 있는데 DB 컬럼이 없어 실제 필터링 안 됨"
   PC) 사이에 이런 미적용 draft가 있었다는 걸 이번에 처음 발견 — 앞으로 새
   컬럼을 추가하기 전에는 `supabase/migrations/` 디렉토리에 관련 draft가
   이미 있는지 먼저 확인하는 습관이 필요함.
-- ~~`applications_insert`의 tautology 조건~~ — 해결(2026-09-20, 위 새 절
-  참고, 운영 DB RLS 정책 수정 + 트랜잭션 시뮬레이션 검증 완료).
-- ~~`categoryVisuals.ts` 신규 대분류 5개 전용 이미지 없음~~ — 해결
-  (2026-09-20, 위 새 절 참고).
-- (이전부터 있던 항목, 계속 유지) korea_jobs 구조 통합 미결정(방금 "제일
-  큰 안건"으로 뒤로 미룸), 기업 계정 헤더에 구직자 메뉴 링크 없음,
+- (이전부터 있던 항목, 계속 유지) `applications_insert`의 tautology 조건,
+  korea_jobs 구조 통합 미결정, 기업 계정 헤더에 구직자 메뉴 링크 없음,
   `.git/hooks/post-commit` 자동 push 훅, `jobCategoryRules.ts` 제거 완료
   (DB 값이 유일한 진실 공급원), truyen_thong/y_te_dieu_duong 분류 규칙
-  미검증(2026-09-20 재확인해도 여전히 실표본 0건 — 위 "다음 결정사항" 4번
-  참고), PostJob.tsx에 소분류 선택 필드 없음.
+  미검증, PostJob.tsx에 소분류 선택 필드 없음, `categoryVisuals.ts` 신규
+  대분류 5개 전용 이미지 없음.
 - **근무기간(job_duration) 실데이터가 당장 0건**이라 급구 페이지 새 필터
   섹션은 한동안 "선택해도 결과가 안 줄어드는" 상태로 보일 수 있음 — 이건
   버그가 아니라 PostJob.tsx로 신규 등록이 쌓이길 기다려야 하는 정상 상태
@@ -392,22 +366,9 @@ tính/Độ tuổi UI는 있는데 DB 컬럼이 없어 실제 필터링 안 됨"
 5. ~~지역/업종 2단 구조 확대~~ — Home/맞춤공고에 소분류 완료(2026-09-18).
    저장한 공고/지도는 원래 지역·업종 필터가 없던 화면이라 범위에서 제외
    (필요하면 별도 지시).
-6. ~~`categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가~~ — 해결
-   (2026-09-20, 위 새 절 참고).
-7. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부. **2026-09-20 재구성한
-   선택지**(원본 "4가지 조사"의 상세 내용은 과거 세션 문서 스냅샷 정책으로
-   유실돼서 이번에 구조 사실 기반으로 다시 정리함, 사용자는 "제일 큰
-   안건이라 다른 거 먼저"로 실행은 보류):
-   1) 현행 유지(조회+번역+외부 링크만, 리스크 없음)
-   2) 가벼운 통합(korea_jobs에도 "저장한 공고" 기능만 추가, FK 하나 추가
-      정도로 리스크 낮음)
-   3) 상세조건 연결(기존 `KoreaConsultModal`의 일반 상담 신청을 공고별
-      리드캡처로 확장, 중간 난이도)
-   4) 전체 통합(local_jobs와 스키마 합쳐 지원/메시지/면접 파이프라인 공유
-      — `job_id bigint → local_jobs(id)` FK 전체 재설계 필요, STRICT 등급
-      최대 리스크).
-8. ~~`applications_insert`의 tautology 조건 수정~~ — 해결(2026-09-20, 위
-   새 절 참고, 보안 관련 수정이라 트랜잭션 시뮬레이션으로 검증까지 완료).
+6. `categoryVisuals.ts`에 신규 5개 대분류 전용 이미지 추가할지.
+7. korea_jobs 통합 / 공개 구직자 검색 — 착수 여부.
+8. `applications_insert`의 tautology 조건 수정 여부.
 9. 기업 계정 헤더에 "Việc làm" 링크 추가할지.
 10. ~~급구 페이지 첫 방문 시 지역 기본값이 Cần Thơ(공고 0건)인 문제~~ —
     해결(2026-09-19). "실제 공고 많은 지역으로 바꾸기" 대신 "지역 필터
