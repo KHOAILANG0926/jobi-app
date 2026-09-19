@@ -439,22 +439,41 @@ export function Layout() {
                         onMouseEnter={() => handleMenuEnter(i)}
                         onMouseLeave={handleMenuLeave}
                       >
-                        <button
-                          type="button"
-                          className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
-                          onClick={() => {
-                            if (!item.dropdown && !item.cards && !item.brandMenu) {
-                              navigate(item.to)
-                              return
-                            }
-                            setOpenMenu(openMenu === i ? null : i)
-                          }}
-                        >
-                          {item.label}
-                          {(item.dropdown || item.cards || item.brandMenu) && (
-                            <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
-                          )}
-                        </button>
+                        {item.dropdown || item.cards || item.brandMenu ? (
+                          // 2026-09-20 사용자 지시("알바몬은 탭 눌러도 개별
+                          // 페이지로 넘어가는데 우리는 안 넘어가잖아") — 드롭다운이
+                          // 있는 탭도 라벨을 누르면 그 섹션의 대표 페이지(item.to)로
+                          // 실제 이동해야 한다(알바몬 "채용정보" 클릭 시 /jobs/home
+                          // 이동과 동일). 지금까지는 라벨 클릭이 드롭다운 토글
+                          // 전용이라 탭 자체가 링크로 동작하지 않았다. 데스크톱은
+                          // 이미 hover로 드롭다운이 열리므로(handleMenuEnter)
+                          // 라벨을 순수 네비게이션 링크로 바꿔도 드롭다운 접근성이
+                          // 안 줄어들지만, 모바일은 hover가 없어(isMobileNav) 화살표
+                          // 버튼을 라벨과 분리해 토글 전용으로 남겨야 드롭다운
+                          // 항목에 계속 접근할 수 있다.
+                          <div className={`${tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))} header-tab--split`}>
+                            <button type="button" className="header-tab__label" onClick={() => navigate(item.to)}>
+                              {item.label}
+                            </button>
+                            <button
+                              type="button"
+                              className="header-tab__arrow-btn"
+                              aria-label={`Mở danh mục ${item.label}`}
+                              aria-expanded={isOpen}
+                              onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === i ? null : i) }}
+                            >
+                              <svg className="header-tab__arrow" width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
+                            onClick={() => navigate(item.to)}
+                          >
+                            {item.label}
+                          </button>
+                        )}
 
                         {isOpen && dropdownBody && (isMobilePortal ? createPortal(dropdownBody, document.body) : dropdownBody)}
                       </div>

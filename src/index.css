@@ -206,6 +206,24 @@ a:hover {
   opacity: 0.4;
   margin-left: 2px;
 }
+/* 라벨(네비게이션)과 화살표(드롭다운 토글) 클릭 영역 분리 — 위 onClick
+   주석 참고. 바깥 .header-tab--split은 padding 없이 두 버튼을 감싸기만
+   하고, 실제 padding은 각 버튼이 나눠 가져 기존 탭과 같은 전체 크기를
+   유지한다. */
+.header-tab--split { padding: 0; }
+.header-tab__label,
+.header-tab__arrow-btn {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.header-tab__label { padding: 0.9rem 0.15rem 0.9rem 1.5rem; }
+.header-tab__arrow-btn { padding: 0.9rem 1.5rem 0.9rem 0.15rem; }
 
 /* Tab bar actions (right side) */
 .header-tabs__actions {
