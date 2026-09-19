@@ -1,193 +1,266 @@
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { NavLink } from 'react-router-dom'
+import JobCard from './JobCard'
+import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
-import { calcDistanceKm, resolveDistanceSearchPoint } from '../lib/jobCoords'
+import {
+  addAddressSearchHistory,
+  clearAddressSearchHistory,
+  getAddressSearchHistory,
+  reverseGeocode,
+  searchAddress,
+  type AddressSuggestion,
+} from '../lib/geoapify'
+import { calcDistanceKm, resolveDistanceSearchPoint, VIETNAM_CENTER } from '../lib/jobCoords'
+import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job } from '../types/job'
 
-type JobWithDist = Job & { lat: number; lng: number; precise: boolean; distance?: number }
-
-// 근사(precise=false) 위치용 마커 — 정확한 위치가 아님을 시각적으로
-// 구분하기 위해 기본 핀 대신 옅은 회색 원을 쓴다(2026-09-05 2단계
-// 거리검색 정책: 정밀/근사 마커를 구분해야 함).
-const approximateMarkerIcon = L.divIcon({
-  className: 'mapview__approx-marker',
-  html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:#9aa0a6;border:2px solid #fff;box-shadow:0 0 2px rgba(0,0,0,.4)"></span>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-})
+// 2026-09-20 사용자 지시("메인화면 밑으로 하지말고 별도 화면은 만들어줘,
+// Công cụ 이거처럼") — 오늘 Home.tsx에 만들었던 "Gần tôi" 상시 검색+지도+
+// 리스트 뷰(카카오맵 스타일)를 이 전용 페이지(`/ban-do`, 헤더에선 아직
+// 미연결)로 옮긴다. 이 페이지 자체는 원래 있었지만(GPS+반경+지도핀+거리순
+// 리스트, 옛 OSM 타일 직접 호출 방식) 헤더 어디에도 연결이 안 돼 방치돼
+// 있었던 걸 발견 — 새로 만들지 않고 이 기존 라우트를 오늘 만든 기능
+// (Geoapify 타일, 주소 검색+히스토리, 안전한 핀 클릭 링크)으로 교체한다.
+const JobLocationMap = lazy(() => import('./JobLocationMap'))
 
 export default function MapView() {
-  const { jobs: rawJobs } = useJobs()
-  const navigate = useNavigate()
-  // 2026-09-05 최종 제품 정책(2단계 거리검색으로 개정) — 이 "내 주변 채용"
-  // 지도는 거리 기반 기능(반경 필터·거리순 정렬)이므로 지도 표시 자격이
-  // 아니라 거리검색 자격 기준을 써야 한다. resolveDistanceSearchPoint()는
-  // 이제 정밀(location_verified===true)과 근사(미검증이지만 실제
-  // 지오코딩된 exact/ward 좌표) 두 등급을 precise 플래그로 구분해 반환한다
-  // — 행정 중심점/모집지역 중심점/회사 등록주소는 여전히 절대 섞이지
-  // 않는다. 자격 있는 좌표가 아예 없는 공고만 이 지도에서 계속 제외한다.
-  const jobsWithCoords = useMemo<JobWithDist[]>(() => {
-    const out: JobWithDist[] = []
-    for (const j of rawJobs) {
-      const point = resolveDistanceSearchPoint(j)
-      if (!point) continue
-      out.push({ ...j, lat: point.lat, lng: point.lng, precise: point.precise })
-    }
-    return out
-  }, [rawJobs])
+  const { jobs } = useJobs()
+  const { user } = useAuth()
 
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInst = useRef<L.Map | null>(null)
-  const circleRef = useRef<L.Circle | null>(null)
-  const markersRef = useRef<L.Marker[]>([])
-  const userMarkerRef = useRef<L.CircleMarker | null>(null)
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [nearAddressLabel, setNearAddressLabel] = useState<string | null>(null)
+  const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [nearRadius, setNearRadius] = useState(5)
+  const [addressQuery, setAddressQuery] = useState('')
+  const [addressSearching, setAddressSearching] = useState(false)
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([])
+  const [addressSearched, setAddressSearched] = useState(false)
+  const [addressHistory, setAddressHistory] = useState<string[]>(() => getAddressSearchHistory())
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds(user?.id)))
 
-  const [userLoc, setUserLoc] = useState<[number, number] | null>(null)
-  const [radius, setRadius] = useState(5)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [geoError, setGeoError] = useState<string | null>(null)
-
-  // Initialize map once
   useEffect(() => {
-    if (!mapRef.current || mapInst.current) return
-    const map = L.map(mapRef.current).setView([16.0471, 108.2068], 6)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-    }).addTo(map)
-    mapInst.current = map
+    const sync = () => setSavedIds(new Set(loadSavedJobIds(user?.id)))
+    sync()
+    window.addEventListener('vgb:saved-jobs', sync)
+    window.addEventListener('storage', sync)
     return () => {
-      map.remove()
-      mapInst.current = null
+      window.removeEventListener('vgb:saved-jobs', sync)
+      window.removeEventListener('storage', sync)
     }
-  }, [])
+  }, [user?.id])
+  const handleToggleSave = useCallback((job: Job) => {
+    toggleSavedJobId(job.id, user?.id)
+    setSavedIds(new Set(loadSavedJobIds(user?.id)))
+  }, [user?.id])
 
-  // Get geolocation once on mount
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setGeoError('Trình duyệt không hỗ trợ định vị.')
-      return
-    }
+  const handleUseCurrentLocation = () => {
+    if (locating) return
+    if (!navigator.geolocation) { setGeoErrorMsg('Trình duyệt không hỗ trợ định vị.'); return }
+    setGeoErrorMsg(null)
+    setNearAddressLabel(null)
+    setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const loc: [number, number] = [pos.coords.latitude, pos.coords.longitude]
-        setUserLoc(loc)
-        mapInst.current?.setView(loc, 13)
+        setLocating(false)
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setUserCoords(coords)
+        reverseGeocode(coords.lat, coords.lng).then(setNearAddressLabel)
       },
-      () => setGeoError('Không thể lấy vị trí. Hãy cho phép định vị.'),
+      () => {
+        setLocating(false)
+        setGeoErrorMsg('Không thể lấy vị trí. Hãy cho phép định vị để xem việc gần bạn.')
+      },
       { timeout: 10_000 },
     )
-  }, [])
-
-  // Update user location marker and radius circle
-  useEffect(() => {
-    if (!userLoc || !mapInst.current) return
-    userMarkerRef.current?.remove()
-    userMarkerRef.current = L.circleMarker(userLoc, {
-      radius: 10,
-      color: '#4285F4',
-      fillColor: '#4285F4',
-      fillOpacity: 1,
-    }).addTo(mapInst.current)
-
-    circleRef.current?.remove()
-    circleRef.current = L.circle(userLoc, {
-      radius: radius * 1000,
-      color: '#4285F4',
-      fillOpacity: 0.08,
-      weight: 2,
-    }).addTo(mapInst.current)
-  }, [userLoc, radius])
-
-  // Compute filtered + sorted jobs
-  const filteredJobs = useMemo<JobWithDist[]>(() => {
-    if (!userLoc) return jobsWithCoords
-    return jobsWithCoords
-      .map((j) => ({ ...j, distance: calcDistanceKm(userLoc[0], userLoc[1], j.lat, j.lng) }))
-      .filter((j) => j.distance! <= radius)
-      .sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99))
-  }, [jobsWithCoords, userLoc, radius])
-
-  // Sync map markers with filtered jobs
-  useEffect(() => {
-    if (!mapInst.current) return
-    markersRef.current.forEach((m) => m.remove())
-    markersRef.current = []
-    filteredJobs.forEach((job) => {
-      const distHtml =
-        job.distance !== undefined
-          ? `<br/><span style="color:#888;font-size:11px">📍 ${job.precise ? '' : '~'}${job.distance.toFixed(1)} km</span>`
-          : ''
-      const m = L.marker([job.lat, job.lng], job.precise ? undefined : { icon: approximateMarkerIcon })
-        .addTo(mapInst.current!)
-        .bindPopup(
-          `<b style="color:#E84040">${job.title}</b><br/>${job.company}<br/><b style="color:#E84040">${job.salary}</b>${distHtml}`,
-        )
-        .on('click', () => setSelectedId(job.id))
-      markersRef.current.push(m)
+  }
+  const handleAddressSearch = (queryOverride?: string) => {
+    const q = (queryOverride ?? addressQuery).trim()
+    if (!q || addressSearching) return
+    if (queryOverride !== undefined) setAddressQuery(queryOverride)
+    setAddressSearching(true)
+    setAddressSearched(false)
+    addAddressSearchHistory(q)
+    setAddressHistory(getAddressSearchHistory())
+    searchAddress(q).then((results) => {
+      setAddressSearching(false)
+      setAddressSearched(true)
+      setAddressSuggestions(results)
     })
-  }, [filteredJobs])
+  }
+  const selectAddressSuggestion = (s: AddressSuggestion) => {
+    setGeoErrorMsg(null)
+    setUserCoords({ lat: s.lat, lng: s.lng })
+    setNearAddressLabel(s.label)
+    setAddressQuery('')
+    setAddressSuggestions([])
+    setAddressSearched(false)
+  }
 
-  const hasLoc = userLoc !== null
+  const jobDistances = useMemo<Record<string, { km: number; precise: boolean }>>(() => {
+    if (!userCoords) return {}
+    const r: Record<string, { km: number; precise: boolean }> = {}
+    for (const job of jobs) {
+      const point = resolveDistanceSearchPoint(job)
+      if (!point) continue
+      r[job.id] = { km: calcDistanceKm(userCoords.lat, userCoords.lng, point.lat, point.lng), precise: point.precise }
+    }
+    return r
+  }, [jobs, userCoords])
+
+  const filtered = useMemo(() => {
+    if (!userCoords) return []
+    return jobs
+      .filter((j) => {
+        const d = jobDistances[j.id]
+        return d !== undefined && d.km <= nearRadius
+      })
+      .sort((a, b) => (jobDistances[a.id]?.km ?? 99) - (jobDistances[b.id]?.km ?? 99))
+  }, [jobs, userCoords, jobDistances, nearRadius])
 
   return (
-    <div className="mapview">
-      <div className="mapview__bar">
-        <span className="mapview__title">📍 Việc làm gần bạn</span>
-        <div className="mapview__radii" role="group" aria-label="Bán kính">
-          {[1, 3, 5, 10].map((r) => (
-            <button
-              key={r}
-              className={`mapview__radius-btn${radius === r ? ' mapview__radius-btn--active' : ''}`}
-              onClick={() => setRadius(r)}
-              disabled={!hasLoc}
-            >
-              {r} km
-            </button>
-          ))}
-        </div>
-        <span className="mapview__count">{filteredJobs.length} việc làm</span>
-      </div>
-
-      {geoError && <p className="home-geo-error" role="alert">{geoError}</p>}
-
-      <div ref={mapRef} className="mapview__map" />
-
-      <div className="mapview__list">
-        <p className="mapview__list-hint">
-          {hasLoc ? `Trong vòng ${radius} km từ vị trí của bạn` : 'Tất cả khu vực — cho phép định vị để lọc theo khoảng cách'}
+    <div className="page mapview-page">
+      <header className="page-header">
+        <h1 className="page-header__title">📍 Việc làm gần bạn</h1>
+        <p className="page-header__lead">
+          Dùng vị trí hiện tại hoặc nhập địa chỉ để xem việc làm trong bán kính gần bạn trên bản đồ.
         </p>
-        {filteredJobs.length === 0 ? (
-          <div className="mapview__empty">
-            Không có việc làm trong vòng {radius} km
-            <button className="mapview__expand-btn" onClick={() => setRadius(10)}>
-              Mở rộng lên 10 km
-            </button>
-          </div>
-        ) : (
-          <ul className="mapview__items">
-            {filteredJobs.map((job) => (
-              <li
-                key={job.id}
-                className={`mapview__item${selectedId === job.id ? ' mapview__item--selected' : ''}`}
-                onClick={() => {
-                  setSelectedId(job.id)
-                  navigate(`/viec-lam/${job.id}`)
-                }}
+      </header>
+
+      <div className="near-me-view__split">
+        <div className="near-me-view__sidebar">
+          <div className="near-me-address-search">
+            <div className="near-me-address-search__row">
+              <input
+                type="text"
+                className="field__input"
+                placeholder="Nhập địa chỉ, quận/huyện, thành phố..."
+                value={addressQuery}
+                onChange={(e) => setAddressQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddressSearch() } }}
+              />
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => handleAddressSearch()}
+                disabled={addressSearching || !addressQuery.trim()}
               >
-                <div className="mapview__item-info">
-                  <span className="mapview__item-title">{job.title}</span>
-                  <span className="mapview__item-meta">{job.company} · {job.location}</span>
-                  {job.distance !== undefined && (
-                    <span className="mapview__item-dist">📍 {job.precise ? '' : '~'}{job.distance.toFixed(1)} km</span>
-                  )}
+                {addressSearching ? 'Đang tìm...' : 'Tìm'}
+              </button>
+            </div>
+            {addressSuggestions.length > 0 && (
+              <ul className="near-me-address-suggestions">
+                {addressSuggestions.map((s, i) => (
+                  <li key={i}>
+                    <button type="button" onClick={() => selectAddressSuggestion(s)}>{s.label}</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {addressSearched && addressSuggestions.length === 0 && !addressSearching && (
+              <p className="hint">Không tìm thấy địa chỉ phù hợp, hãy thử nhập chi tiết hơn.</p>
+            )}
+            {addressHistory.length > 0 && addressSuggestions.length === 0 && !addressSearched && (
+              <div className="near-me-address-history">
+                <div className="near-me-address-history__head">
+                  <span>Lịch sử tìm kiếm</span>
+                  <button
+                    type="button"
+                    className="near-me-address-history__clear"
+                    onClick={() => { clearAddressSearchHistory(); setAddressHistory([]) }}
+                  >
+                    Xóa hết
+                  </button>
                 </div>
-                <span className="mapview__item-salary">{job.salary}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+                <ul className="near-me-address-suggestions">
+                  {addressHistory.map((q) => (
+                    <li key={q}>
+                      <button type="button" onClick={() => handleAddressSearch(q)}>🕘 {q}</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <div className="near-me-view__controls">
+            <button type="button" className="btn btn--primary btn--sm" onClick={handleUseCurrentLocation} disabled={locating}>
+              {locating ? 'Đang định vị...' : userCoords ? 'Cập nhật vị trí' : 'Dùng vị trí hiện tại'}
+            </button>
+            {userCoords && (
+              <div className="near-me-view__radii" role="group" aria-label="Bán kính tìm kiếm">
+                {[1, 3, 5, 10].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={`near-me-controls__radius-btn${nearRadius === r ? ' is-active' : ''}`}
+                    onClick={() => setNearRadius(r)}
+                  >
+                    {r} km
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {geoErrorMsg && <p className="near-me-status__text near-me-status__text--error">📍 {geoErrorMsg}</p>}
+          <p className="near-me-status__summary">
+            📍 {userCoords
+              ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km · ${filtered.length} kết quả`
+              : 'Chưa xác định vị trí — dùng GPS hoặc nhập địa chỉ ở trên để xem việc làm gần bạn.'}
+          </p>
+          {!userCoords ? (
+            <p className="hint">Danh sách công việc sẽ hiện ra ở đây sau khi xác định vị trí.</p>
+          ) : filtered.length === 0 ? (
+            <div className="city-result__empty">
+              <span>🔍</span>
+              <p>Không có việc làm nào trong bán kính {nearRadius} km.</p>
+              {nearRadius < 10 && (
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => setNearRadius(10)}>
+                  Mở rộng lên 10 km
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="home-jobs-grid">
+              {filtered.map((job) => (
+                <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+                  <JobCard
+                    job={job}
+                    isApplied={false}
+                    isSaved={savedIds.has(job.id)}
+                    onToggleSave={handleToggleSave}
+                    distanceKm={jobDistances[job.id]?.km}
+                    distancePrecise={jobDistances[job.id]?.precise}
+                  />
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="near-me-view__map">
+          <Suspense fallback={<div className="near-me-map__loading">Đang tải bản đồ...</div>}>
+            <JobLocationMap
+              lat={userCoords?.lat ?? VIETNAM_CENTER.lat}
+              lng={userCoords?.lng ?? VIETNAM_CENTER.lng}
+              title="Vị trí của bạn"
+              zoom={userCoords ? 13 : 5}
+              extraMarkers={!userCoords ? [] : [
+                { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
+                ...filtered.flatMap((j) => {
+                  const point = resolveDistanceSearchPoint(j)
+                  if (!point) return []
+                  return [{
+                    lat: point.lat,
+                    lng: point.lng,
+                    label: `${j.title} · ${j.company}`,
+                    precise: point.precise,
+                    href: `/viec-lam/${j.id}`,
+                  }]
+                }),
+              ]}
+            />
+          </Suspense>
+        </div>
       </div>
     </div>
   )

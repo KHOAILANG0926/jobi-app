@@ -152,7 +152,7 @@ const MENU_ITEMS: MenuItem[] = [
       { heading: 'Phổ biến', links: [
         { label: 'Tất cả việc làm', to: '/' },
         { label: '🔥 Tuyển gấp', to: '/viec-lam/tuyen-gap' },
-        { label: '📍 Gần tôi', to: '/?near=1' },
+        { label: '📍 Gần tôi', to: '/ban-do' },
       ]},
       { heading: 'Việc làm của tôi', links: [
         { label: '🔖 Việc làm đã lưu', to: '/viec-lam/da-luu' },
