@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
@@ -17,6 +17,13 @@ import { loadThreads } from '../lib/messagesStorage'
 import { groupJobsForSalarySort, salaryTierLabel } from '../lib/recommendStorage'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
+
+// 2026-09-20 "Gần tôi" 결과를 지도+핀으로 보여주는 기능(카카오맵 스타일)
+// 추가 — Leaflet(148KB대)을 "Gần tôi" 실제 사용 시에만 불러오도록 지연
+// 로딩한다(Home은 모든 방문자가 거치는 페이지라, 이 기능을 안 쓰는
+// 사람에게까지 지도 라이브러리를 미리 물리지 않기 위함). JobDetail.tsx는
+// 이미 거의 모든 방문에서 지도를 쓰므로 그쪽은 그대로 즉시 import 유지.
+const JobLocationMap = lazy(() => import('../components/JobLocationMap'))
 
 /* ── Static data ─────────────────────────────────────────────────── */
 
@@ -987,6 +994,31 @@ export function Home() {
                   )}
                   {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
                 </p>
+              )}
+              {nearMe && userCoords && filtered.length > 0 && (
+                // 지도는 좌표가 있는 공고만 핀으로 찍을 수 있다 — 좌표 없는
+                // 공고(job.lat/lng undefined)는 지도에서만 빠지고 아래
+                // 리스트에는 그대로 남는다(filtered 자체를 건드리지 않음).
+                <div className="near-me-map">
+                  <Suspense fallback={<div className="near-me-map__loading">Đang tải bản đồ...</div>}>
+                    <JobLocationMap
+                      lat={userCoords.lat}
+                      lng={userCoords.lng}
+                      title="Vị trí của bạn"
+                      zoom={13}
+                      extraMarkers={[
+                        // precise:false — 공고 핀(정확한 파란 핀)과 시각적으로
+                        // 구분되는 반투명 원으로 "대략 여기가 당신 위치"임을
+                        // 표시(job.location 카드 지도에서 쓰던 근사 위치
+                        // 마커 스타일 재사용).
+                        { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
+                        ...filtered
+                          .filter((j): j is Job & { lat: number; lng: number } => typeof j.lat === 'number' && typeof j.lng === 'number')
+                          .map((j) => ({ lat: j.lat, lng: j.lng, label: `${j.title} · ${j.company}`, href: `/viec-lam/${j.id}` })),
+                      ]}
+                    />
+                  </Suspense>
+                </div>
               )}
               {filtered.length === 0 ? (
                 // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도

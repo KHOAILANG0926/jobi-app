@@ -2359,6 +2359,23 @@ a:hover {
   font-size: 0.72rem;
   color: #aaa;
 }
+/* ── "Gần tôi" 결과 지도(카카오맵 스타일 — 검색+지도+리스트) ────── */
+.near-me-map {
+  margin: 0 0 1.25rem;
+}
+.near-me-map .job-location-map {
+  height: 320px;
+}
+.near-me-map__loading {
+  height: 320px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
 .job-location-map__error {
   margin: 0;
   padding: 1rem;

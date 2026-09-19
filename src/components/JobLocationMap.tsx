@@ -26,6 +26,12 @@ interface JobLocationMapMarker {
    *  (2026-09-05 정책: "정확한 핀처럼 오해되지 않도록 다른 마커 스타일 또는
    *  범위 원 사용"). Omitted/true renders the normal pin. */
   precise?: boolean
+  /** 2026-09-20 "Gần tôi" 지도 결과("카카오맵 스타일" — 검색하면 지도+핀
+   *  자동 표시) 추가 — 핀 클릭 시 해당 공고 상세로 이동하는 링크. 있으면
+   *  팝업을 DOM으로 직접 조립해(textContent만 사용, innerHTML 없음) 라벨을
+   *  링크 텍스트로 안전하게 넣는다 — label/title이 공고 제목처럼 사용자
+   *  입력값이라 문자열을 그대로 HTML에 꽂으면 XSS 위험이 있어 피한다. */
+  href?: string
 }
 
 interface JobLocationMapProps {
@@ -68,10 +74,23 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
       if (loadedCount === 0) setTileError(true)
     })
 
+    // href가 있으면(예: "Gần tôi" 결과 지도의 공고 핀) 팝업을 DOM으로 직접
+    // 조립한다 — label(공고 제목 등 사용자 입력일 수 있음)을 textContent로만
+    // 넣어 HTML 문자열 삽입으로 인한 XSS를 피한다.
+    const buildPopupContent = (label: string | undefined, href: string | undefined): string | HTMLElement => {
+      const text = label || title
+      if (!href) return text
+      const link = document.createElement('a')
+      link.href = href
+      link.textContent = text
+      return link
+    }
+
     const markers: JobLocationMapMarker[] =
       extraMarkers && extraMarkers.length > 0 ? extraMarkers : [{ lat, lng }]
     const bounds: [number, number][] = []
     markers.forEach((m) => {
+      const popupContent = buildPopupContent(m.label, m.href)
       if (m.precise === false) {
         // Approximate/fallback point — a translucent circle, not the default
         // precise-location pin, so it never reads as a confirmed exact marker.
@@ -81,9 +100,9 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
           weight: 2,
           fillColor: '#f59e0b',
           fillOpacity: 0.25,
-        }).addTo(map).bindPopup(m.label || title)
+        }).addTo(map).bindPopup(popupContent)
       } else {
-        L.marker([m.lat, m.lng]).addTo(map).bindPopup(m.label || title)
+        L.marker([m.lat, m.lng]).addTo(map).bindPopup(popupContent)
       }
       bounds.push([m.lat, m.lng])
     })
