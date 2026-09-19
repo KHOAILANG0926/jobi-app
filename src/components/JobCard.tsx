@@ -44,7 +44,7 @@ export function CompanyLogo({ company, imageUrl, category }: { company: string; 
   if (imageUrl && !imgFailed) {
     return <img src={imageUrl} alt={company} className="jc__logo" onError={() => setImgFailed(true)} />
   }
-  const visual = getCategoryVisual(category || 'other')
+  const visual = getCategoryVisual(category || 'khac')
   return (
     <span
       className="jc__logo jc__logo--category"
