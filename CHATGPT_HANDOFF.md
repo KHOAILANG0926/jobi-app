@@ -11,6 +11,12 @@
    `position:absolute`로 띄우던 방식에서 `createPortal`로 필터 줄 바로
    아래 일반 문서 흐름에 그리는 방식으로 변경, 패널이 열리면 목록이 자연
    스럽게 밀려 내려감(상세는 맨 아래 새 절 참고).
+3. **성별/연령 조건 실제로 작동하게 만듦** — "발견된 문제"에 있던 "UI만
+   있고 필터링 안 됨" 항목 해결. `local_jobs`에 `gender_requirement`/
+   `age_requirement` 컬럼 추가(Production 적용 완료), 급구 페이지 Giới
+   tính/Độ tuổi를 실제 filtered 로직에 연결, PostJob.tsx에 성별/연령
+   조건 입력란 + 그동안 없던 소분류 드롭다운도 같이 추가(상세는 맨 아래
+   새 절 참고).
 
 이 커밋들을 push할 때 origin/master가 이미 15개 커밋 앞서있어(아래
 job_duration 라운드 등) 일반 `git push`가 한 번 거부됨 → `git fetch` +
@@ -212,6 +218,42 @@ DOM 서브트리에 속해있어서, 일반 문서 흐름으로 바꾸면 그 �
 DOM(`btnRef`)뿐 아니라 포털된 패널(`panelSlot`) 안쪽 클릭까지 "안쪽"으로
 인식하도록 같이 고쳤다(안 그러면 패널 안을 클릭해도 바로 닫혀버림).
 
+### 성별/연령 조건 실제 필터로 연결 + PostJob 소분류 추가 (`543cafa`)
+사용자가 "다음 뭐하지?" 질문에 대한 답으로 남아있던 미결정 항목("Giới
+tính/Độ tuổi UI는 있는데 DB 컬럼이 없어 실제 필터링 안 됨")을 골랐고, "8개
+항목 중 같이 할 만한 거 있나?"에 PostJob 소분류 드롭다운(우선순위 있던
+별도 미착수 항목)을 같이 묶는 걸로 확정했다.
+
+- **DB(Production 적용 완료)**: `local_jobs`에 `gender_requirement`/
+  `age_requirement` text 컬럼 추가(job_duration과 동일 패턴 — nullable,
+  CHECK 제약 없음, `information_schema` 재조회로 존재 확인).
+  [migration 파일](supabase/migrations/20260919030243_local_jobs_gender_age_requirement.sql).
+- **[data/jobRequirements.ts](src/data/jobRequirements.ts)** 신규 —
+  `AGE_REQUIREMENT_OPTIONS`(급구 필터에 있던 5구간, `UrgentJobsPage.tsx`
+  로컬 상수에서 이동)/`GENDER_REQUIREMENT_OPTIONS`("Nam"/"Nữ"). PostJob.tsx
+  ·UrgentJobsPage.tsx 둘 다 공유(job_duration.ts와 동일 패턴).
+- **[UrgentJobsPage.tsx](src/pages/jobsMenu/UrgentJobsPage.tsx)**: 지금까지
+  클릭만 되고 결과에 아무 영향 없던 `genderFilter`/`ageFilter`를 `filtered`
+  useMemo에 실제로 연결. **다른 필터(workPeriod/jobDuration 등)와 다르게
+  설계** — 성별/연령은 "공고 자체의 성질"이 아니라 "누가 지원 가능한가"라는
+  조건이라, 조건 값이 비어있는(null) 공고는 "제한 없음"을 뜻하므로 어느
+  값을 선택해도 계속 보여야 한다(반대로 strict 매칭했다면 지금 이 값을
+  채운 공고가 0건이라 필터를 건드리는 순간 결과가 전부 사라져버렸을 것).
+  `genderFilter` 내부 타입도 `'male'|'female'`에서 DB 값과 그대로 같은
+  `'Nam'|'Nữ'`로 바꿔 번역 레이어 없앰. "Điều kiện khác" 버튼 자체의 카운트
+  배지(`count` prop)도 gender/age 반영하도록 같이 수정(빠뜨렸으면 배지에는
+  안 뜨는데 실제로는 필터가 걸리는 어긋남이 생겼을 것 — 직접 브라우저로
+  발견해서 수정).
+- **[PostJob.tsx](src/pages/PostJob.tsx)**: 대분류만 있고 없던 **소분류
+  드롭다운** 추가(`SUBCATEGORY_LABELS[category]` 기반, 대분류 바꾸면 초기화,
+  'khac'은 소분류 규칙 자체가 없어 select 숨김) + **Giới tính/Độ tuổi
+  조건 선택란** 추가. 겸사겸사 `category` 기본값이 2026-09-17에 폐기된
+  구 8분류 잔재 `'other'`로 남아있던 걸 발견해 `'khac'`으로 수정(대분류를
+  안 건드리고 등록하면 DB에 유효하지 않은 값이 들어가던 잠재 버그 —
+  `as JobCategory` 타입 단언 때문에 tsc가 못 잡고 있었음).
+- 크롤러 소스는 이 정보를 안 주므로(job_duration과 동일 이유) 값은 앞으로
+  PostJob.tsx로 직접 등록하는 공고부터만 채워진다.
+
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린.
@@ -258,9 +300,29 @@ DOM(`btnRef`)뿐 아니라 포털된 패널(`panelSlot`) 안쪽 클릭까지 "�
   정상 확인. Production 배포 후 `getBoundingClientRect()`로 실측 —
   `panelBottom: 780.9px`, `toolbarTop: 794.5px`(목록이 패널보다 아래)로
   실제 반영 확인.
+- **성별/연령/소분류 확인**: `npx tsc --noEmit` 클린, `npm run build` 성공,
+  `npm test` 6/6 파일 통과. Production DB `information_schema` 재조회로
+  `gender_requirement`/`age_requirement` 컬럼 실제 생성 확인. 로컬+
+  Production 둘 다 브라우저로 "Điều kiện khác" 패널에서 "Nam" 칩 클릭 →
+  버튼 배지가 "Điều kiện khác (1)"로 반영됨을 `querySelector`로 직접 확인,
+  현재 이 값을 채운 공고가 0건이라 "Tổng 3 việc làm"으로 결과가 그대로
+  유지되는 것도 확인(strict 매칭이었다면 0건이 됐을 것 — null-passthrough
+  로직이 의도대로 동작). PostJob.tsx는 `RequireEmployer` 라우트 가드 뒤에
+  있어(로그인 필요, 테스트 계정 없음) 브라우저 직접 조작 검증은 못 했고
+  `tsc`/`build` 통과로만 구조적 정합성을 확인함 — 다음에 실제 기업 계정으로
+  한 번 등록해보고 소분류/성별/연령 값이 DB에 제대로 들어가는지 확인 필요.
 
 ## 발견된 문제
 
+- **PostJob.tsx 실사용 미검증** — 로그인(`RequireEmployer`) 필요해서
+  테스트 계정 없이는 브라우저로 폼 제출까지 직접 확인 못 함. 소분류/
+  성별/연령 select가 화면에 잘 뜨는지, 실제 제출 시 DB에 값이 정확히
+  들어가는지 기업 계정으로 한 번 실등록 테스트 필요.
+- `PostJob.tsx`의 `category` 기본값이 2026-09-17에 폐기된 구 8분류 잔재
+  `'other'`로 남아있던 잠재 버그 발견·수정(2026-09-19, `'khac'`으로) —
+  `as JobCategory` 타입 단언 때문에 tsc가 못 잡았던 사례. 다른 파일에도
+  비슷하게 타입 단언으로 숨겨진 구 타입값이 더 있을 수 있음(전수조사는
+  안 함, 필요하면 별도 지시).
 - 위 "주의" 참고 — `0016_local_jobs_work_duration_draft.sql`이 이번 작업
   전부터 존재했으나 아무도 적용하지 않은 orphan draft였음. 두 세션(회사/집
   PC) 사이에 이런 미적용 draft가 있었다는 걸 이번에 처음 발견 — 앞으로 새
@@ -279,13 +341,15 @@ DOM(`btnRef`)뿐 아니라 포털된 패널(`panelSlot`) 안쪽 클릭까지 "�
 
 ## 다음 결정사항
 
-1. **Giới tính/Độ tuổi 실제 데이터 연결**: 지금은 UI만 있고 local_jobs에
-   컬럼이 없어 필터링 안 됨 — 성별/연령 컬럼을 실제로 추가할지(+PostJob.tsx
-   입력 필드도 필요), 아니면 UI만 유지할지 사용자 판단 필요.
+1. ~~Giới tính/Độ tuổi 실제 데이터 연결~~ — 해결(2026-09-19). "실제로 작동
+   하게 만들기"로 확정, gender_requirement/age_requirement 컬럼 추가 +
+   필터 연결 완료(위 새 절 참고). 크롤러는 안 채우므로 PostJob.tsx 직접
+   등록 공고에 값이 쌓이는 걸 계속 지켜볼 것.
 2. ~~`0016_local_jobs_work_duration_draft.sql`~~ — 삭제 완료(2026-09-18).
    의도했던 두 개념(근무기간/고용형태)이 job_duration·work_period로 이미
    커버됨, 원본 데이터도 이 정보를 거의 안 줘서 실익 낮다고 판단.
-3. PostJob.tsx에 소분류 드롭다운 추가(우선순위 있음, 이전부터 미착수).
+3. ~~PostJob.tsx에 소분류 드롭다운 추가~~ — 해결(2026-09-19, 성별/연령
+   작업과 같이 진행, 위 새 절 참고).
 4. truyen_thong/y_te_dieu_duong 분류 규칙을 언제 실제 데이터로 재검증할지.
 5. ~~지역/업종 2단 구조 확대~~ — Home/맞춤공고에 소분류 완료(2026-09-18).
    저장한 공고/지도는 원래 지역·업종 필터가 없던 화면이라 범위에서 제외
