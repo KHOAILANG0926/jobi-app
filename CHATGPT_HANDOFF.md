@@ -2,14 +2,21 @@
 
 ## 현재 작업
 
-**추가 반영(다른 PC 세션, `f2c5da7`, commit/push/Production 배포 완료)**:
-급구 페이지 지역 기본값(Cần Thơ 자동 선택)을 제거 — 아무 필터도 선택 안 한
-초기 상태에서 전체 급구 공고 목록이 바로 보이도록 함. 아래 "다음 결정사항"
-10번 항목이 이걸로 해결됨(상세는 맨 아래 새 절 참고). 이 커밋을 push할 때
-origin/master가 이미 15개 커밋 앞서있어(아래 job_duration 라운드 등) 일반
-`git push`가 거부됨 → `git fetch` + `git rebase origin/master`로 안전하게
-합침(충돌 없음, 강제 push 안 씀) — 두 PC가 동시에 작업할 때는 세션 시작 시
-`git fetch origin && git status`로 먼저 동기화 여부 확인 필요.
+**추가 반영(다른 PC 세션, `f2c5da7`→`f1c5068`, commit/push/Production 배포
+완료)**:
+1. 급구 페이지 지역 기본값(Cần Thơ 자동 선택)을 제거 — 아무 필터도 선택 안
+   한 초기 상태에서 전체 급구 공고 목록이 바로 보이도록 함. 아래 "다음
+   결정사항" 10번 항목이 이걸로 해결됨(상세는 맨 아래 새 절 참고).
+2. 필터 패널이 열릴 때 아래 공고 목록을 덮던 문제 수정 — 패널을
+   `position:absolute`로 띄우던 방식에서 `createPortal`로 필터 줄 바로
+   아래 일반 문서 흐름에 그리는 방식으로 변경, 패널이 열리면 목록이 자연
+   스럽게 밀려 내려감(상세는 맨 아래 새 절 참고).
+
+이 커밋들을 push할 때 origin/master가 이미 15개 커밋 앞서있어(아래
+job_duration 라운드 등) 일반 `git push`가 한 번 거부됨 → `git fetch` +
+`git rebase origin/master`로 안전하게 합침(충돌 없음, 강제 push 안 씀) —
+두 PC가 동시에 작업할 때는 세션 시작 시 `git fetch origin && git status`로
+먼저 동기화 여부 확인 필요.
 
 **이전 라운드 세션 최종 상태(여러 라운드 거쳐 완료, commit/push/Production 배포
 전부 끝남 — 라운드별 상세 경위는 아래 요약만 유지, 코드가 실제 근거):**
@@ -183,6 +190,28 @@ Khu vực 패널을 기본으로 열어두는 수정(`openPanel` 초기값 `'reg
 칩 바 부활을 원하는 건지 확인차 되물었는데, 그건 아니었고 순수히 "목록이
 안 보인다"는 지적이었음 — 칩 바는 이전 결정대로 계속 제거된 상태 유지.)
 
+### 필터 패널이 공고 목록을 덮던 문제 수정 (`f1c5068`)
+위 수정 후 사용자가 실제로 패널을 열어보고 "상단 클릭하면 공고가 가려지지?"
+로 새 문제를 지적 — `.jm-filter-dropdown__panel`이 `position: absolute`로
+떠 있어서(2026-09-17에 "필터 줄 전체 폭에 맞추려고" 도입한 방식), 패널이
+열릴 때마다 그 아래 있는 공고 목록을 덮어버리고 있었다(알바몬은 패널이
+열리면 목록이 밀려 내려감, 덮지 않음).
+
+**원인**: 각 `FilterDropdown`이 자기 버튼 바로 밑에 패널을 `position:
+absolute`로 렌더 — `.jm-urgent-filters`(필터 4버튼 한 줄) 안의 한 버튼
+DOM 서브트리에 속해있어서, 일반 문서 흐름으로 바꾸면 그 버튼 하나만 커지고
+나머지 3버튼이 옆으로 밀리는 이상한 레이아웃이 됨.
+
+**해결**: `FilterDropdown`이 패널을 자기 자리에 직접 렌더하지 않고,
+`createPortal`로 `.jm-urgent-filters` 줄 바로 다음에 있는 공유 DOM 노드
+(`panelSlot`, `<div ref={setPanelSlot} className="jm-urgent-panel-slot" />`)
+에 그리도록 변경 — 버튼 4개는 그대로 한 줄에 남고, 열린 패널만 그 줄 밑에
+일반 블록으로 나타나 아래 내용을 자연스럽게 밀어낸다. CSS도
+`position:absolute`+`left/right:0` 조합을 제거하고 `width:100%`인 평범한
+블록으로 바꿈. 바깥 클릭 감지(`FilterDropdown`의 `useEffect`)도 버튼
+DOM(`btnRef`)뿐 아니라 포털된 패널(`panelSlot`) 안쪽 클릭까지 "안쪽"으로
+인식하도록 같이 고쳤다(안 그러면 패널 안을 클릭해도 바로 닫혀버림).
+
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린.
@@ -221,6 +250,14 @@ Khu vực 패널을 기본으로 열어두는 수정(`openPanel` 초기값 `'reg
   라운드 코드까지 포함해서 재검증). 로컬+Production 둘 다 브라우저로
   `get_page_text` 확인 — 필터 버튼이 "Khu vực"(카운트 없음)로 뜨고, 패널
   닫으면 "Tổng 3 việc làm tuyển gấp"로 전체 목록이 즉시 표시됨 확인.
+- **패널 오버레이 수정 재확인**: `npx tsc --noEmit` 클린, `npm run build`
+  성공, `npm test` 6/6 파일 통과. 로컬 브라우저로 패널 연 상태에서 스크린샷
+  → 목록이 패널 밑으로 정상 표시(가려지지 않음) 확인, 패널 안(지역 선택)
+  클릭해도 안 닫히는 것 확인(Hà Nội 선택 후 "Khu vực (1)"로 정상 반영),
+  바깥 클릭 시 정상적으로 닫히는 것 확인, 375px 모바일에서도 레이아웃
+  정상 확인. Production 배포 후 `getBoundingClientRect()`로 실측 —
+  `panelBottom: 780.9px`, `toolbarTop: 794.5px`(목록이 패널보다 아래)로
+  실제 반영 확인.
 
 ## 발견된 문제
 
