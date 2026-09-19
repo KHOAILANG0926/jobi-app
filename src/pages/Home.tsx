@@ -470,25 +470,41 @@ export function Home() {
   const categorySelectRef = useRef<HTMLSelectElement>(null)
   // Ref for the existing region panel — "내 주변" 위치 거부/실패 시 지역별 검색으로 안내할 때 사용
   const regionPanelRef = useRef<HTMLDivElement>(null)
+  // 2026-09-20 사용자 지시("Tìm việc theo khu vực thay vào đó" 눌러도
+  // 변화가 없어 보인다고 실사이트 스크린샷으로 지적) — 원인은 scrollIntoView
+  // 자체가 아니라, `.layout__header`가 `position: sticky`인데 target의
+  // block:'start' 스크롤이 헤더 높이를 고려 안 해서, 목적지 섹션의 맨 위
+  // (제목·실제 클릭할 내용)가 고정 헤더 뒤로 가려지는 것이었다(모바일은
+  // 헤더가 3줄이라 ~200px로 더 심함). 헤더 높이를 매번 실측해서 그만큼
+  // 여유를 두고 window.scrollTo로 직접 이동한다 — CSS scroll-margin-top
+  // 고정값은 모바일/데스크톱 헤더 높이가 달라 하나로 못 맞춘다.
+  const scrollToRefBelowHeader = (el: HTMLElement | null, behavior: ScrollBehavior) => {
+    if (!el) return
+    const headerEl = document.querySelector('.layout__header')
+    const headerHeight = headerEl instanceof HTMLElement ? headerEl.getBoundingClientRect().height : 0
+    const top = el.getBoundingClientRect().top + window.scrollY - headerHeight - 12
+    window.scrollTo({ top, behavior })
+  }
+
   // requestAnimationFrame으로 감싸던 이전 구현은 탭이 실제로 그림을 그리는
   // 중이 아니면(예: 백그라운드 탭) rAF 콜백 자체가 실행되지 않아 클릭해도
   // 아무 반응이 없는 결함으로 실측 확인됨 — ref는 이미 마운트돼 있어 다음
   // 프레임까지 기다릴 이유가 없으므로 클릭 즉시 동기 호출한다.
   const scrollToRegionPanel = () => {
-    regionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollToRefBelowHeader(regionPanelRef.current, 'smooth')
   }
 
   // Scroll to results when a city is selected
   useEffect(() => {
     if (selectedCity && cityResultRef.current) {
-      cityResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollToRefBelowHeader(cityResultRef.current, 'smooth')
     }
   }, [selectedCity])
 
   // Scroll to the job list instantly when a quick-filter chip is tapped
   useEffect(() => {
     if (activeRec && !selectedCity && jobResultRef.current) {
-      jobResultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollToRefBelowHeader(jobResultRef.current, 'smooth')
     }
   }, [activeRec, selectedCity])
 
@@ -503,7 +519,7 @@ export function Home() {
   useEffect(() => {
     const p = new URLSearchParams(location.search)
     if (p.get('near') === '1' && jobResultRef.current) {
-      jobResultRef.current.scrollIntoView({ behavior: 'auto', block: 'start' })
+      scrollToRefBelowHeader(jobResultRef.current, 'auto')
     }
   }, [location.search, location.key])
 
@@ -518,7 +534,7 @@ export function Home() {
   }
   const scrollToResults = () => {
     window.requestAnimationFrame(() => {
-      jobResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      scrollToRefBelowHeader(jobResultRef.current, 'smooth')
     })
   }
   const handleQuickUrgent = () => { clearQuickFilters(); setUrgentOnly(true); scrollToResults() }
