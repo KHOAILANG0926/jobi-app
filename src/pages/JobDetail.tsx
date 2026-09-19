@@ -16,6 +16,7 @@ import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { buildProfile } from '../components/useApply'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
+import { fetchEmployerJobCount } from '../lib/jobRows'
 import { googleMapsLinks, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
@@ -117,8 +118,18 @@ export function JobDetail() {
   const [toastMsg, setToastMsg] = useState('')
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
+
+  // "신뢰 정보" 카드용 — 이 기업이 지금까지 등록한 공개 공고 수. 크롤링
+  // 공고(employerId 없음)는 실제 소유 기업 계정이 없어 조회 대상이 아니다.
+  useEffect(() => {
+    if (!job?.employerId) { setEmployerJobCount(undefined); return }
+    let cancelled = false
+    fetchEmployerJobCount(job.employerId).then((n) => { if (!cancelled) setEmployerJobCount(n) })
+    return () => { cancelled = true }
+  }, [job?.employerId])
 
   useEffect(() => {
     // 크롤링 공고(employerId 없음)는 내부 지원을 아예 만들지 않으므로 조회도 스킵
@@ -300,7 +311,7 @@ export function JobDetail() {
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
 
-  const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount
+  const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
 
   return (
     <div className="jd2-page">
@@ -569,6 +580,9 @@ export function JobDetail() {
                     {job.companyVerified && <li>✓ Doanh nghiệp đã xác minh</li>}
                     {job.companyFoundedYear && <li>Thành lập năm {job.companyFoundedYear}</li>}
                     {job.hireCount !== undefined && job.hireCount > 0 && <li>Đã tuyển: {job.hireCount}</li>}
+                    {employerJobCount !== undefined && employerJobCount > 0 && (
+                      <li>Đã đăng {employerJobCount} tin tuyển dụng trên Việc Gần Bạn</li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -606,6 +620,16 @@ export function JobDetail() {
             {applyLabel}
           </button>
           <span className="jd2-aside-hint">{applyHint}</span>
+
+          <div className="jd2-scam-notice">
+            <span className="jd2-scam-notice__icon">⚠️</span>
+            <p>
+              Việc Gần Bạn không thu phí từ người tìm việc. Hãy cẩn trọng nếu nhà
+              tuyển dụng yêu cầu chuyển tiền đặt cọc, mua thiết bị/tài liệu trước,
+              hoặc cung cấp mã OTP, số tài khoản, mật khẩu ngân hàng — đó có thể
+              là dấu hiệu lừa đảo.
+            </p>
+          </div>
 
           <ReportButton
             targetType="job"

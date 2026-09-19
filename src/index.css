@@ -9627,6 +9627,17 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   text-align: center;
   line-height: 1.5;
 }
+.jd2-scam-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+.jd2-scam-notice__icon { font-size: 0.95rem; flex-shrink: 0; margin-top: 0.05rem; }
+.jd2-scam-notice p { margin: 0; font-size: 0.76rem; color: #78350f; line-height: 1.55; }
 
 /* CTA buttons */
 .jd2-btn-apply {
@@ -9787,6 +9798,8 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-company__logo { background: #0f172a; border-color: #334155; color: #94a3b8; }
   .jd2-company__name { color: #f1f5f9; }
   .jd2-company__facts { color: #94a3b8; }
+  .jd2-scam-notice { background: #451a03; border-color: #78350f; }
+  .jd2-scam-notice p { color: #fde68a; }
 }
 
 /* ══════════════════════════════════════════

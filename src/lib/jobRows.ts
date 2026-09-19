@@ -128,6 +128,26 @@ const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards'
 
 /**
+ * 공개 상세페이지(JobDetail)의 "신뢰 정보" 카드에 쓰는 기업 등록 공고 수 —
+ * fetchEmployerJobs()와 달리 본인 소유가 아닌 누구나 볼 수 있어야 하므로
+ * 공개 목록과 동일한 .eq('active', true) 필터를 걸고, 행 전체가 아니라
+ * count만 가져온다(head:true — 응답 바디 없이 헤더의 count만). 단순 단건
+ * 조회라 fetchEmployerJobs()의 테스트용 주입 인터페이스(JobsQueryBuilder)는
+ * 쓰지 않고 실제 supabase 클라이언트를 바로 쓴다 — count/head 옵션은 그
+ * 인터페이스가 흉내내는 select(columns) 체인 모양과 맞지 않는다.
+ */
+export async function fetchEmployerJobCount(employerId: string): Promise<number> {
+  if (!employerId) return 0
+  const { count, error } = await supabase
+    .from('local_jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('employer_id', employerId)
+    .eq('active', true)
+  if (error) return 0
+  return count ?? 0
+}
+
+/**
  * 로그인한 기업 자신의 공고를 employer_id=auth.uid() 기준으로 직접 조회한다 —
  * 공개(.eq('active', true)) 목록에서 필터링하지 않는다.
  *
