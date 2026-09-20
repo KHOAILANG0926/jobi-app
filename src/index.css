@@ -7880,22 +7880,26 @@ a:hover {
 }
 .home-featured__row::-webkit-scrollbar { display: none; }
 
-/* 2026-09-20 사용자 지적("사람인 다시 확인해" — 카드 4면을 얇게 감싸는
- * 진짜 테두리였음, "이전 사이즈 좋아 그 사이즈 기준 건들지마" — 두께는
- * 처음 만든 얇은 값 그대로) — padding-box/border-box 이중 배경 기법으로
- * 둥근 모서리까지 자연스럽게 도는 그라데이션 테두리를 그린다(border-image는
- * border-radius와 함께 쓰면 브라우저마다 렌더링이 불안정해 이 방식을 씀).
- * 두께는 border-width(2.5px)로 결정 — 이전 상단 막대 두께와 동일. */
+/* 2026-09-20 사용자 재정정("상단에서 꺾이는 부분이라고 초반에 얘기했잖아")
+ * — 카드 4면 전체 테두리가 아니라 상단(+모서리 곡선까지)만 맞다. 높이는
+ * "현재 기준 10% 높게"(이전 2.5px → 2.75px). */
 .featured-job-wrap {
   flex: 0 0 240px;
+  position: relative;
   min-width: 0;
-  border: 2.5px solid transparent;
-  border-radius: 11px;
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
 }
-.featured-job-wrap .home-card-wrap { display: block; height: 100%; }
-.featured-job-wrap .jc { height: 100%; border-radius: 9px; }
+.featured-job-wrap .home-card-wrap { height: 100%; }
+.featured-job-wrap .jc { height: 100%; }
+.featured-job-wrap__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.75px;
+  border-radius: 10px 10px 0 0;
+  z-index: 1;
+  pointer-events: none;
+}
 
 .home-brands {
   margin-bottom: 1.25rem;
