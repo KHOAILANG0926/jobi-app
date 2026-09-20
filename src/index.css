@@ -3831,6 +3831,78 @@ a:hover {
   text-decoration: none;
 }
 
+.jm-urgent-table__title--muted {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+/* 2026-09-20 사용자 지시("Việc làm của tôi" 4개 페이지 전부에 알바몬 스타일
+ * 표 뷰 적용) — JobsListToolbar.tsx/JobsTable.tsx가 공유하는 카드/표 전환
+ * 토글과 선택삭제 버튼. */
+.jm-view-toggle {
+  display: flex;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.jm-view-toggle__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: #fff;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.jm-view-toggle__btn + .jm-view-toggle__btn {
+  border-left: 1.5px solid var(--color-border);
+}
+
+.jm-view-toggle__btn.is-active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.jm-urgent-toolbar__delete {
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.85rem;
+  background: #fff;
+  color: #e53935;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jm-urgent-toolbar__delete:disabled {
+  color: var(--color-muted);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.jm-select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+}
+
+.jm-table-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
 .jm-recent-toolbar {
   display: flex;
   align-items: center;

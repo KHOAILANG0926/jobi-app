@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import ApplyModal from '../../components/ApplyModal'
+import JobsListToolbar from '../../components/JobsListToolbar'
+import JobsTable, { type JobsTableRow } from '../../components/JobsTable'
 import { useApply } from '../../components/useApply'
 import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_LABELS } from '../../data/categories'
 import { JOB_REGIONS, jobMatchesRegion, type JobRegionId } from '../../data/jobRegions'
 import { loadApplications } from '../../lib/applicationsStorage'
+import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../../lib/jobsListView'
 import { hasPrefs, loadPrefs } from '../../lib/recommendStorage'
 import { loadSavedJobIds } from '../../lib/storage'
 import type { Job, JobCategory } from '../../types/job'
+
+function formatShortDate(iso: string | undefined) {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return undefined
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
 
 /**
  * 추천 공고 — "맞춤 공고"(사용자가 직접 설정하는 조건)와는 다르게, 사용자의
@@ -28,6 +38,11 @@ export default function SuggestedJobsPage() {
   const [appliedJobs, setAppliedJobs] = useState<Job[]>([])
   const prefs = useMemo(() => loadPrefs(), [])
   const prefsActive = hasPrefs(prefs)
+
+  const [view, setView] = useState<JobsViewMode>(() => loadJobsViewMode())
+  const [dateRange, setDateRange] = useState<DateRangeFilter>('all')
+  const [pageSize, setPageSize] = useState<number>(20)
+  const handleViewChange = (v: JobsViewMode) => { setView(v); saveJobsViewMode(v) }
 
   useEffect(() => {
     const sync = () => setSavedIds(loadSavedJobIds(user?.id))
@@ -98,8 +113,13 @@ export default function SuggestedJobsPage() {
 
     return withReasons
       .sort((a, b) => b.weight - a.weight || (b.job.hireCount ?? 0) - (a.job.hireCount ?? 0))
-      .slice(0, 30)
   }, [hasSignal, jobs, prefs.regionId, regionLabel, preferredCategories, savedJobs, appliedJobs])
+
+  const filteredSuggestions = useMemo(
+    () => suggestions.filter((s) => matchesDateRange(s.job.postedAt, dateRange)),
+    [suggestions, dateRange],
+  )
+  const visibleSuggestions = filteredSuggestions.slice(0, pageSize)
 
   const handleApply = useCallback((job: Job) => {
     if (!user) { navigate('/dang-nhap'); return }
@@ -129,30 +149,65 @@ export default function SuggestedJobsPage() {
           <NavLink to="/">← Xem tất cả việc làm</NavLink>
         </div>
       ) : (
-        <ul className="rec-list">
-          {suggestions.map(({ job, reasons }) => (
-            <li key={job.id} className="rec-card">
-              <div className="rec-card__score-row">
-                <div className="rec-card__reasons">
-                  {reasons.map((r) => (
-                    <span key={r} className="rec-card__reason">{r}</span>
-                  ))}
-                </div>
-              </div>
-              <Link to={`/viec-lam/${job.id}`} className="rec-card__link">
-                <p className="rec-card__title">{job.title}</p>
-                <p className="rec-card__company">{job.company}</p>
-                <p className="rec-card__salary">{job.salary}</p>
-                <p className="rec-card__location">📍 {job.location}</p>
-              </Link>
-              <div className="rec-card__actions">
-                <button className="btn btn--primary btn--sm" onClick={() => handleApply(job)}>
-                  Ứng tuyển
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <JobsListToolbar
+            count={filteredSuggestions.length}
+            countLabel="việc gợi ý"
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            view={view}
+            onViewChange={handleViewChange}
+          />
+          {view === 'table' ? (
+            <JobsTable
+              dateColumnLabel="Ngày đăng"
+              showTrailingColumn
+              rows={visibleSuggestions.map(({ job, reasons }): JobsTableRow => ({
+                id: job.id,
+                href: `/viec-lam/${job.id}`,
+                region: job.location,
+                title: job.title,
+                company: job.company,
+                salary: job.salary,
+                hours: job.hours,
+                dateLabel: formatShortDate(job.postedAt),
+                badge: reasons[0],
+                trailing: (
+                  <button className="btn btn--primary btn--sm" onClick={() => handleApply(job)}>
+                    Ứng tuyển
+                  </button>
+                ),
+              }))}
+            />
+          ) : (
+            <ul className="rec-list">
+              {visibleSuggestions.map(({ job, reasons }) => (
+                <li key={job.id} className="rec-card">
+                  <div className="rec-card__score-row">
+                    <div className="rec-card__reasons">
+                      {reasons.map((r) => (
+                        <span key={r} className="rec-card__reason">{r}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <Link to={`/viec-lam/${job.id}`} className="rec-card__link">
+                    <p className="rec-card__title">{job.title}</p>
+                    <p className="rec-card__company">{job.company}</p>
+                    <p className="rec-card__salary">{job.salary}</p>
+                    <p className="rec-card__location">📍 {job.location}</p>
+                  </Link>
+                  <div className="rec-card__actions">
+                    <button className="btn btn--primary btn--sm" onClick={() => handleApply(job)}>
+                      Ứng tuyển
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       <ApplyModal status={status} job={applyJob} profile={profile} onConfirm={confirm} onClose={close} onRetry={retry} />

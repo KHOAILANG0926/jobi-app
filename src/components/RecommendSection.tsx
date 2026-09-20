@@ -5,6 +5,7 @@ import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categor
 import { JOB_REGIONS } from '../data/jobRegions'
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
+import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../lib/jobsListView'
 import {
   ALL_TIME_SLOTS,
   TIME_SLOT_LABELS,
@@ -24,6 +25,8 @@ import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 import { useApply } from './useApply'
 import ApplyModal from './ApplyModal'
+import JobsListToolbar from './JobsListToolbar'
+import JobsTable, { type JobsTableRow } from './JobsTable'
 
 const SALARY_OPTIONS = [
   { value: 0, label: 'Không giới hạn' },
@@ -42,6 +45,65 @@ function ScoreBadge({ score }: { score: number }) {
     <span className={`score-badge ${cls}`} title={`Độ phù hợp: ${pct}%`}>
       {pct}%
     </span>
+  )
+}
+
+function formatShortDate(iso: string | undefined) {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return undefined
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+// 표 뷰(JobsTable)의 마지막 열 — RecommendCard와 같은 지원/저장 상태·로직을
+// 그대로 쓰되, 카드 전체가 아니라 버튼 2개만 필요해서 별도로 뺐다.
+function RecommendRowActions({ job, seekerId, onApply }: { job: Job; seekerId?: string; onApply: (j: Job) => void }) {
+  const [saved, setSaved] = useState(() => isJobSaved(job.id, seekerId))
+  const [applied, setApplied] = useState(false)
+
+  useEffect(() => {
+    setSaved(isJobSaved(job.id, seekerId))
+  }, [job.id, seekerId])
+
+  useEffect(() => {
+    let cancelled = false
+    hasAppliedToJob(job.id, seekerId).then((v) => { if (!cancelled) setApplied(v) })
+    return () => { cancelled = true }
+  }, [job.id, seekerId])
+
+  const handleSave = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setSaved(toggleSavedJobId(job.id, seekerId))
+  }
+
+  return (
+    <div className="jm-table-row-actions">
+      <button
+        className={`btn btn--primary btn--sm${applied ? ' btn--ghost' : ''}`}
+        disabled={applied}
+        onClick={() => !applied && onApply(job)}
+      >
+        {applied ? 'Đã ứng tuyển' : 'Ứng tuyển'}
+      </button>
+      <button
+        className={`job-card__bookmark${saved ? ' job-card__bookmark--saved' : ''}`}
+        onClick={handleSave}
+        aria-label={saved ? 'Bỏ lưu' : 'Lưu tin'}
+        title={saved ? 'Bỏ lưu' : 'Lưu tin'}
+      >
+        <svg
+          className="job-card__bookmark-icon"
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill={saved ? 'currentColor' : 'none'}
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+        </svg>
+      </button>
+    </div>
   )
 }
 
@@ -127,8 +189,12 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
   const [prefs, setPrefs] = useState<RecommendPrefs>(() => loadPrefs())
   const [draft, setDraft] = useState<RecommendPrefs>(() => loadPrefs())
   const [open, setOpen] = useState(false)
-  const [showAll, setShowAll] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
+
+  const [view, setView] = useState<JobsViewMode>(() => loadJobsViewMode())
+  const [dateRange, setDateRange] = useState<DateRangeFilter>('all')
+  const [pageSize, setPageSize] = useState<number>(20)
+  const handleViewChange = (v: JobsViewMode) => { setView(v); saveJobsViewMode(v) }
 
   const { status, job: applyJob, profile, openApply, confirm, close, retry } = useApply()
 
@@ -148,7 +214,8 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
   }, [open])
 
   const matches = matchJobs(jobs, prefs)
-  const visible = showAll ? matches : matches.slice(0, 4)
+  const filteredMatches = matches.filter((m) => matchesDateRange(m.job.postedAt, dateRange))
+  const visible = filteredMatches.slice(0, pageSize)
   const active = hasPrefs(prefs)
 
   const toggleSlot = (slot: TimeSlot) => {
@@ -189,7 +256,6 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
     savePrefs(draft)
     setPrefs(draft)
     setOpen(false)
-    setShowAll(false)
   }
 
   const handleReset = () => {
@@ -200,7 +266,6 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
     savePrefs(empty)
     setPrefs(empty)
     setOpen(false)
-    setShowAll(false)
   }
 
   return (
@@ -402,23 +467,39 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
 
       {!open && active && matches.length > 0 && (
         <>
-          <ul className="rec-list">
-            {visible.map((m) => (
-              <RecommendCard key={m.job.id} match={m} seekerId={user?.id} onApply={openApply} />
-            ))}
-          </ul>
-          {matches.length > 4 && (
-            <div className="rec-section__more">
-              {showAll ? (
-                <button className="btn btn--ghost btn--sm" onClick={() => setShowAll(false)}>
-                  Thu gọn
-                </button>
-              ) : (
-                <button className="btn btn--ghost btn--sm" onClick={() => setShowAll(true)}>
-                  Xem thêm {matches.length - 4} việc phù hợp
-                </button>
-              )}
-            </div>
+          <JobsListToolbar
+            count={filteredMatches.length}
+            countLabel="việc phù hợp"
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            view={view}
+            onViewChange={handleViewChange}
+          />
+          {view === 'table' ? (
+            <JobsTable
+              dateColumnLabel="Ngày đăng"
+              showTrailingColumn
+              rows={visible.map((m): JobsTableRow => ({
+                id: m.job.id,
+                href: `/viec-lam/${m.job.id}`,
+                region: m.job.location,
+                title: m.job.title,
+                company: m.job.company,
+                salary: m.job.salary,
+                hours: m.job.hours,
+                dateLabel: formatShortDate(m.job.postedAt),
+                badge: `${Math.min(100, m.score)}%`,
+                trailing: <RecommendRowActions job={m.job} seekerId={user?.id} onApply={openApply} />,
+              }))}
+            />
+          ) : (
+            <ul className="rec-list">
+              {visible.map((m) => (
+                <RecommendCard key={m.job.id} match={m} seekerId={user?.id} onApply={openApply} />
+              ))}
+            </ul>
           )}
         </>
       )}
