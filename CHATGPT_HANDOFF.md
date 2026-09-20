@@ -2,37 +2,37 @@
 
 ## 현재 작업
 
-**헤더 "Đăng tuyển" → "Tuyển dụng" 파란 버튼으로 변경 완료(2026-09-20)**.
-"등록 없이 빠르게 게시" 기능 배포 후 사용자가 실사이트를 보며 "Đăng
-nhập/Đăng ký/Đăng CV/Đăng tuyển" 4개가 전부 "Đăng ___" 형태의 흐린
-텍스트라 첫 방문자가 "Đăng ký"(가입)와 "Đăng tuyển"(공고 등록)을
-구분 못 한다고 지적 — 여러 대안(가입 안에 통합 등) 논의 끝에 이름을
-명사형 "Tuyển dụng"으로 바꾸고 파란 채움 버튼으로 승격하기로 확정.
-IMPLEMENTED → VERIFIED(로컬 라이트/다크/모바일) → MASTER PUSHED
-(`8ea5bbe`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
+**회원가입 역할 선택 화면 색상 변경 완료(2026-09-20)**. 헤더 "Tuyển
+dụng" 버튼을 파란색으로 바꾼 직후, 사용자가 회원가입(`/dang-ky`) 화면
+캡처를 보여주며 "검은색 계열을 쓰지마" + "왼쪽 빨간색도 바꾸자, 추천해줘"
+요청 → 헤더에서 이미 확정한 파랑(기업)을 재사용하고, 구직자 쪽은 주황을
+추천해 승인받음. IMPLEMENTED → VERIFIED(로컬+Production) → MASTER
+PUSHED(`67c135d`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
 
 ## 변경 내용
 
-- [Layout.tsx](src/components/Layout.tsx): 헤더 버튼 + 푸터 링크 텍스트
-  "Đăng tuyển" → "Tuyển dụng"(대상 페이지 `/dang-tin`은 그대로).
-- [index.css](src/index.css) `.header-tabs__post*`: 기존 흐린 회색
-  텍스트+테두리 스타일 → 파란 채움 버튼(`#2563eb`, 프로젝트에 이미
-  쓰이던 색 재사용, 새 색 도입 안 함)으로 전면 교체. "Đăng ký"(빨강,
-  구직자용)와 색으로 확실히 구분됨 — 굵기/크기도 살짝 키워 존재감 강화.
+- [index.css](src/index.css) `.signup-role-card__btn--seeker`/
+  `--employer` + `.signup-role-card:hover`/`--employer:hover`(테두리·
+  그림자): 빨강(`#e53935`)→주황(`#f97316`), 검정(`#222`)→파랑
+  (`#2563eb`, 헤더 "Tuyển dụng" 버튼과 동일한 색 재사용).
+- [Signup.tsx](src/pages/Signup.tsx): 역할 선택 후 이어지는 폼의 제출
+  버튼(인라인 스타일)도 같은 색으로 맞춰 플로우 전체 일관성 유지 —
+  카드에서만 바뀌고 폼 버튼은 예전 색으로 남는 것을 방지.
 
-**논의 경위(참고)**: 처음엔 "Tuyển dụng" 진입점을 "Đăng ký" 안으로 합치는
-방안도 나왔으나, 바로 전에 만든 "가입 없이 등록 가능" 기능과 모순된다고
-판단해(합치면 "가입해야 등록 가능한 것"처럼 오해 유발) 기각 — 대신 색으로
-구분하는 방향으로 확정.
+**색 체계 정리(참고)**: 이제 사이트 전체에서 "기업/채용" 관련 요소는
+파랑(`#2563eb`), "구직자" 관련 요소는 주황(`#f97316`)으로 통일되는 방향.
+단, 헤더의 "Đăng ký"(회원가입, 대상 불문)와 로고/브랜드 포인트 색은
+여전히 기존 브랜드 빨강(`#e53935`)을 유지 — 이 셋을 어떻게 정리할지는
+아직 전체적으로 재검토 안 했음(사용자가 필요시 다시 요청할 것으로 예상).
 
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과.
-- 로컬 dev 서버: 로그아웃 상태에서 "Đăng ký"(빨강)/"Tuyển dụng"(파랑)
-  색 구분 스크린샷 확인, 다크모드(헤더는 라이트 톤 유지하는 기존
-  컨벤션대로 정상), 모바일(375px) 4개 버튼 전부 정상 배치 확인.
-- **Production 실측 완료**: `viecganban.vn` 로그아웃 상태에서 동일하게
-  파란 "Tuyển dụng" 버튼 정상 렌더 확인.
+- 로컬 dev 서버: 회원가입 선택 화면(카드 2개)과 "Tuyển dụng" 클릭 후
+  이어지는 폼의 제출 버튼 둘 다 스크린샷으로 색 확인.
+- **Production 실측**: `viecganban.vn/dang-ky`에서 `getComputedStyle()`로
+  직접 확인 — `.signup-role-card__btn--seeker` = `rgb(249,115,22)`,
+  `--employer` = `rgb(37,99,235)` 정확히 일치 확인.
 
 ## 발견된 문제
 
@@ -40,6 +40,9 @@ IMPLEMENTED → VERIFIED(로컬 라이트/다크/모바일) → MASTER PUSHED
 
 ## 다음 결정사항
 
+- (사용자가 명시적으로 미룸) 헤더 "Đăng ký"/로고 빨강을 포함한 전체
+  색 체계 재검토 — 이번엔 회원가입 화면만 범위로 확정했고, 더 넓은
+  재검토는 다음에 필요시 요청하기로 함.
 - (낮은 우선순위, 아직 요청 안 됨) `index.css`에 예전 단순 버전
   MapView.tsx가 쓰던 `.mapview__*` 죽은 CSS 규칙 22개가 남아있음.
 - (별개 논의, 미정) 구글 로그인(OAuth) — Google Cloud Console 외부
