@@ -299,8 +299,9 @@ export function PostJob() {
             </div>
             {postMode === 'quick' ? (
               <p className="hint">
-                Tin hiển thị ngay lập tức. Sau khi đăng, bạn sẽ nhận được một link riêng để chỉnh sửa/ngừng đăng —
-                hãy lưu lại link đó vì đây là cách duy nhất để quản lý tin (không có tài khoản).
+                Tin hiển thị ngay lập tức và <strong>tự động hết hạn sau 7 ngày</strong> nếu bạn không chọn hạn nộp
+                khác bên dưới. Sau khi đăng, bạn sẽ nhận được một link riêng để chỉnh sửa/ngừng đăng/gia hạn — hãy
+                lưu lại link đó vì đây là cách duy nhất để quản lý tin (không có tài khoản).
               </p>
             ) : (
               <label className="field">
