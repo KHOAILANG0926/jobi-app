@@ -65,28 +65,21 @@ export const CATEGORY_SOLID: Record<JobCategory | 'all', string> = {
   khac:               '#ec4899',
 }
 
-/** 2026-09-20 사용자 지시 — 사람인 카드 테두리 캡처를 보여주며 "쿠팡은
- *  왼쪽 진한초록 오른쪽 초록 가운데는 그 중간색", "신세계는 왼쪽 초록
- *  가운데 연초록 오른쪽 진한노랑"처럼 옆으로 갈수록 색이 뚜렷하게(다른
- *  색상까지) 변하는 그라데이션이라고 지적 — 기존엔 같은 색 계열 안에서만
- *  밝기만 바뀌어 티가 잘 안 났다. 3단(다른 색상까지 걸치는) 그라데이션으로
- *  다시 정의. 이 상수는 지금 FeaturedJobsSection.tsx 하나에서만 쓰여
- *  다른 화면에 영향 없음(grep 확인). */
 export const CATEGORY_COLORS: Record<JobCategory | 'all', string> = {
-  all:                'linear-gradient(135deg,#dc2626,#f97316,#facc15)',
-  am_thuc_do_uong:    'linear-gradient(135deg,#7c2d12,#ea580c,#fbbf24)',
-  quan_ly_ban_hang:   'linear-gradient(135deg,#5b21b6,#a855f7,#f0abfc)',
-  dich_vu:            'linear-gradient(135deg,#065f46,#10b981,#a3e635)',
-  van_phong:          'linear-gradient(135deg,#1e3a8a,#0ea5e9,#67e8f9)',
-  cskh_kinh_doanh:    'linear-gradient(135deg,#92400e,#f59e0b,#fde047)',
-  san_xuat_xay_dung:  'linear-gradient(135deg,#c2410c,#f97316,#fde047)',
-  cntt_ky_thuat:      'linear-gradient(135deg,#1e3a8a,#3b82f6,#7dd3fc)',
-  thiet_ke:           'linear-gradient(135deg,#86198f,#d946ef,#f9a8d4)',
-  truyen_thong:       'linear-gradient(135deg,#5b21b6,#8b5cf6,#f0abfc)',
-  lai_xe_giao_hang:   'linear-gradient(135deg,#1e40af,#3b82f6,#5eead4)',
-  y_te_dieu_duong:    'linear-gradient(135deg,#991b1b,#ef4444,#fda4af)',
-  giao_duc_giang_day: 'linear-gradient(135deg,#115e59,#14b8a6,#bef264)',
-  khac:               'linear-gradient(135deg,#9d174d,#ec4899,#fda4af)',
+  all:                'linear-gradient(135deg,#ef4444,#f97316)',
+  am_thuc_do_uong:    'linear-gradient(135deg,#9a3412,#dc6b19)',
+  quan_ly_ban_hang:   'linear-gradient(135deg,#6d28d9,#a78bfa)',
+  dich_vu:            'linear-gradient(135deg,#065f46,#10b981)',
+  van_phong:          'linear-gradient(135deg,#0369a1,#0ea5e9)',
+  cskh_kinh_doanh:    'linear-gradient(135deg,#b45309,#f59e0b)',
+  san_xuat_xay_dung:  'linear-gradient(135deg,#f97316,#fb923c)',
+  cntt_ky_thuat:      'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+  thiet_ke:           'linear-gradient(135deg,#a21caf,#e879f9)',
+  truyen_thong:       'linear-gradient(135deg,#7e22ce,#c084fc)',
+  lai_xe_giao_hang:   'linear-gradient(135deg,#1d4ed8,#60a5fa)',
+  y_te_dieu_duong:    'linear-gradient(135deg,#b91c1c,#f87171)',
+  giao_duc_giang_day: 'linear-gradient(135deg,#0f766e,#2dd4bf)',
+  khac:               'linear-gradient(135deg,#be185d,#ec4899)',
 }
 
 export const ALL_CATEGORIES: JobCategory[] = [
