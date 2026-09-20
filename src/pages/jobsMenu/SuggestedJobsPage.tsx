@@ -41,6 +41,7 @@ export default function SuggestedJobsPage() {
 
   const [view, setView] = useState<JobsViewMode>(() => loadJobsViewMode())
   const [dateRange, setDateRange] = useState<DateRangeFilter>('all')
+  const [sortValue, setSortValue] = useState<'weight' | 'posted'>('weight')
   const [pageSize, setPageSize] = useState<number>(20)
   const handleViewChange = (v: JobsViewMode) => { setView(v); saveJobsViewMode(v) }
 
@@ -119,7 +120,10 @@ export default function SuggestedJobsPage() {
     () => suggestions.filter((s) => matchesDateRange(s.job.postedAt, dateRange)),
     [suggestions, dateRange],
   )
-  const visibleSuggestions = filteredSuggestions.slice(0, pageSize)
+  const sortedSuggestions = sortValue === 'posted'
+    ? [...filteredSuggestions].sort((a, b) => b.job.postedAt.localeCompare(a.job.postedAt))
+    : filteredSuggestions
+  const visibleSuggestions = sortedSuggestions.slice(0, pageSize)
 
   const handleApply = useCallback((job: Job) => {
     if (!user) { navigate('/dang-nhap'); return }
@@ -155,6 +159,12 @@ export default function SuggestedJobsPage() {
             countLabel="việc gợi ý"
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
+            sortOptions={[
+              { value: 'weight', label: 'Phù hợp nhất' },
+              { value: 'posted', label: 'Đăng gần đây nhất' },
+            ]}
+            sortValue={sortValue}
+            onSortChange={(v) => setSortValue(v as 'weight' | 'posted')}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             view={view}

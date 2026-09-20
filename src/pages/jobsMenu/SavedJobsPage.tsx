@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import JobsListToolbar from '../../components/JobsListToolbar'
+import JobsStatusTabs, { type JobsStatusFilter } from '../../components/JobsStatusTabs'
 import JobsTable, { type JobsTableRow } from '../../components/JobsTable'
 import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
@@ -19,22 +20,32 @@ function formatShortDate(iso: string | null | undefined) {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+type SortValue = 'saved' | 'posted'
+const SORT_OPTIONS = [
+  { value: 'saved', label: 'Lưu gần đây nhất' },
+  { value: 'posted', label: 'Đăng gần đây nhất' },
+]
+
+interface SavedRow {
+  key: string
+  status: 'open' | 'closed'
+  postedAt?: string
+  savedIndex: number
+  tableRow: JobsTableRow
+}
+
 /**
  * 저장한 공고 — storage.ts의 계정별 scope(사용자 로그인 시 user.id, 아니면
  * 게스트 전역 키)로 분리된 저장 목록을 읽는다. jobs(useJobs())에 없는 id는
- * 공고가 내려갔거나 비활성화된 것으로 간주해 별도 섹션에 "삭제됨"으로 안내
- * 한다(재구현하지 않고 그대로 목록에서만 제거 가능하게 함). 기기 간 동기화는
- * 지원하지 않는다 — 이 브라우저(로그인 시 이 브라우저의 이 계정)에만 저장됨.
+ * 공고가 내려갔거나 비활성화된 것으로 간주해 "Đã hết hạn" 탭에 포함한다.
+ * 기기 간 동기화는 지원하지 않는다 — 이 브라우저(로그인 시 이 브라우저의
+ * 이 계정)에만 저장됨.
  *
  * korea_jobs 저장분("kr-" 접두사, koreaJobFormat.ts 참고)은 local_jobs와
- * id 시퀀스가 겹칠 수 있어 별도로 구분해 읽고, 별도 섹션(아래)에 표시한다.
- *
- * 2026-09-20 사용자 지시(알바몬 "찜한 공고함" 캡처, "이렇게 표기해줘" +
- * "여기(저장/본/맞춤/추천 4개)에 다 적용 가능해") — 표 뷰(JobsTable)를
- * 추가하고, 체크박스로 여러 건을 한 번에 선택해 삭제(=저장 해제)하는
- * 기능을 신설한다. 선택 상태는 이 페이지의 모든 구간(진행중/마감/한국/
- * 삭제된 공고)에 걸쳐 공유된다 — "저장 해제"는 어느 구간의 항목이든 같은
- * handleUnsave(id) 한 함수로 동일하게 처리되기 때문.
+ * id 시퀀스가 겹칠 수 있어 별도로 구분해 읽지만, 화면에는 로컬/한국 구분
+ * 없이 하나의 표에 섞어 보여준다(2026-09-20 두 번째 라운드 — 알바몬 "최근
+ * 본 알바" 캡처 재지적: "섹션을 쌓지 말고 탭 하나로 표 전체를 필터링하는
+ * 구조여야 한다"). 상태 탭(Tất cả/Đang tuyển/Đã hết hạn)이 그 구분을 대신한다.
  */
 export default function SavedJobsPage() {
   const { user } = useAuth()
@@ -48,7 +59,9 @@ export default function SavedJobsPage() {
   const [koreaLoading, setKoreaLoading] = useState(false)
 
   const [view, setView] = useState<JobsViewMode>(() => loadJobsViewMode())
+  const [statusTab, setStatusTab] = useState<JobsStatusFilter>('all')
   const [dateRange, setDateRange] = useState<DateRangeFilter>('all')
+  const [sortValue, setSortValue] = useState<SortValue>('saved')
   const [pageSize, setPageSize] = useState<number>(20)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -106,17 +119,6 @@ export default function SavedJobsPage() {
   }, [koreaSavedIds, koreaJobs])
 
   const todayStr = new Date().toISOString().slice(0, 10)
-  const allOpenJobs = resolved.filter((j) => !j.applicationDeadline || j.applicationDeadline >= todayStr)
-  const closedJobs = resolved.filter((j) => j.applicationDeadline && j.applicationDeadline < todayStr)
-
-  const openJobs = useMemo(
-    () => allOpenJobs.filter((j) => matchesDateRange(j.postedAt, dateRange)).slice(0, pageSize),
-    [allOpenJobs, dateRange, pageSize],
-  )
-  const openJobsTotal = useMemo(
-    () => allOpenJobs.filter((j) => matchesDateRange(j.postedAt, dateRange)).length,
-    [allOpenJobs, dateRange],
-  )
 
   const handleUnsave = (id: string) => {
     toggleSavedJobId(id, user?.id)
@@ -128,6 +130,86 @@ export default function SavedJobsPage() {
       return next
     })
   }
+
+  // 저장 목록 전체를 지역/공고 출처 구분 없이 상태 탭 하나로 합쳐 다루기
+  // 위한 통합 행 — 한국 채용/삭제된 공고까지 전부 여기서 한 배열로 모인다.
+  const combinedRows = useMemo<SavedRow[]>(() => {
+    const rows: SavedRow[] = []
+    for (const job of resolved) {
+      const isOpen = !job.applicationDeadline || job.applicationDeadline >= todayStr
+      rows.push({
+        key: job.id,
+        status: isOpen ? 'open' : 'closed',
+        postedAt: job.postedAt,
+        savedIndex: savedIds.indexOf(job.id),
+        tableRow: {
+          id: job.id,
+          href: `/viec-lam/${job.id}`,
+          region: job.location,
+          title: job.title,
+          company: job.company,
+          salary: job.salary,
+          hours: job.hours,
+          dateLabel: isOpen ? formatShortDate(job.postedAt) : `Hạn nộp: ${formatDeadlineVi(job.applicationDeadline)}`,
+        },
+      })
+    }
+    for (const id of missingIds) {
+      rows.push({
+        key: id,
+        status: 'closed',
+        savedIndex: savedIds.indexOf(id),
+        tableRow: { id, title: 'Tin đã gỡ hoặc ngừng đăng' },
+      })
+    }
+    for (const job of koreaResolved) {
+      const isOpen = !job.deadline || job.deadline >= todayStr
+      const sid = koreaSavedId(job.id)
+      rows.push({
+        key: sid,
+        status: isOpen ? 'open' : 'closed',
+        postedAt: job.posted_at ?? undefined,
+        savedIndex: savedIds.indexOf(sid),
+        tableRow: {
+          id: sid,
+          href: `/viec-han-quoc/${job.id}`,
+          region: koreaJobDisplayLocation(job) ?? undefined,
+          title: koreaJobDisplayTitle(job) ?? '',
+          company: job.company ?? undefined,
+          salary: formatKoreaSalary(job) || 'Thỏa thuận',
+          hours: job.working_hours ?? undefined,
+          dateLabel: isOpen ? formatShortDate(job.posted_at) : job.deadline ? `Hạn nộp: ${formatShortDate(job.deadline)}` : undefined,
+        },
+      })
+    }
+    for (const id of koreaMissingIds) {
+      rows.push({
+        key: id,
+        status: 'closed',
+        savedIndex: savedIds.indexOf(id),
+        tableRow: { id, title: 'Tin đã gỡ hoặc hết hạn' },
+      })
+    }
+    return rows
+  }, [resolved, missingIds, koreaResolved, koreaMissingIds, savedIds, todayStr])
+
+  const filteredRows = useMemo(() => {
+    return combinedRows
+      .filter((r) => statusTab === 'all' || r.status === statusTab)
+      .filter((r) => matchesDateRange(r.postedAt, dateRange))
+  }, [combinedRows, statusTab, dateRange])
+
+  const sortedRows = useMemo(() => {
+    const list = [...filteredRows]
+    if (sortValue === 'posted') {
+      list.sort((a, b) => (b.postedAt ?? '').localeCompare(a.postedAt ?? ''))
+    } else {
+      list.sort((a, b) => b.savedIndex - a.savedIndex)
+    }
+    return list
+  }, [filteredRows, sortValue])
+
+  const visibleRows = sortedRows.slice(0, pageSize)
 
   const handleDeleteSelected = () => {
     for (const id of selectedIds) toggleSavedJobId(id, user?.id)
@@ -144,43 +226,17 @@ export default function SavedJobsPage() {
     })
   }
 
-  const jobRow = (job: Job): JobsTableRow => ({
-    id: job.id,
-    href: `/viec-lam/${job.id}`,
-    region: job.location,
-    title: job.title,
-    company: job.company,
-    salary: job.salary,
-    hours: job.hours,
-    dateLabel: formatShortDate(job.postedAt),
-  })
-
-  const koreaRow = (job: KoreaJob): JobsTableRow => ({
-    id: koreaSavedId(job.id),
-    href: `/viec-han-quoc/${job.id}`,
-    region: koreaJobDisplayLocation(job) ?? undefined,
-    title: koreaJobDisplayTitle(job) ?? '',
-    company: job.company ?? undefined,
-    salary: formatKoreaSalary(job) || 'Thỏa thuận',
-    hours: job.working_hours ?? undefined,
-    dateLabel: formatShortDate(job.posted_at),
-  })
-
-  const missingRow = (id: string, label: string): JobsTableRow => ({
-    id,
-    title: label,
-  })
-
-  const allSelectableIds = [
-    ...allOpenJobs.map((j) => j.id),
-    ...closedJobs.map((j) => j.id),
-    ...koreaResolved.map((j) => koreaSavedId(j.id)),
-    ...koreaMissingIds,
-    ...missingIds,
-  ]
-  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id))
-  const toggleAll = () => {
-    setSelectedIds(allSelected ? new Set() : new Set(allSelectableIds))
+  const visibleIds = visibleRows.map((r) => r.key)
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const toggleAllVisible = () => {
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev)
+        for (const id of visibleIds) next.delete(id)
+        return next
+      }
+      return new Set([...prev, ...visibleIds])
+    })
   }
 
   return (
@@ -194,7 +250,7 @@ export default function SavedJobsPage() {
         </p>
       </header>
 
-      {resolved.length === 0 && missingIds.length === 0 && koreaSavedIds.length === 0 ? (
+      {combinedRows.length === 0 ? (
         <div className="city-result__empty">
           <span>🔖</span>
           <p>Chưa có tin nào được lưu.</p>
@@ -202,11 +258,15 @@ export default function SavedJobsPage() {
         </div>
       ) : (
         <>
+          <JobsStatusTabs value={statusTab} onChange={setStatusTab} />
           <JobsListToolbar
-            count={openJobsTotal}
-            countLabel="tin đang tuyển đã lưu"
+            count={filteredRows.length}
+            countLabel="tin đã lưu"
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
+            sortOptions={SORT_OPTIONS}
+            sortValue={sortValue}
+            onSortChange={(v) => setSortValue(v as SortValue)}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             view={view}
@@ -214,201 +274,50 @@ export default function SavedJobsPage() {
             selectedCount={selectedIds.size}
             onDeleteSelected={handleDeleteSelected}
           />
-          {allSelectableIds.length > 0 && (
-            <label className="jm-select-all-row">
-              <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-              Chọn tất cả
-            </label>
-          )}
+          {koreaLoading && <p className="empty-state empty-state--inline">Đang tải việc làm Hàn Quốc...</p>}
 
-          <section className="jm-saved-section">
-            <h2 className="home-section__title">Đang tuyển ({openJobsTotal})</h2>
-            {openJobs.length === 0 ? (
-              <p className="empty-state empty-state--inline">Không có tin đang tuyển trong danh sách đã lưu.</p>
-            ) : view === 'table' ? (
-              <JobsTable
-                rows={openJobs.map(jobRow)}
-                dateColumnLabel="Ngày đăng"
-                selectable
-                selectedIds={selectedIds}
-                onToggleRow={toggleRow}
-              />
-            ) : (
-              <ul className="saved-list">
-                {openJobs.map((job) => (
-                  <li key={job.id} className="saved-list__item">
-                    <Link to={`/viec-lam/${job.id}`} className="saved-list__link">
-                      <span className="saved-list__title">{job.title}</span>
-                      <span className="saved-list__meta">{job.company} · {job.location}</span>
-                      <span className="saved-list__meta">{job.salary}</span>
+          {visibleRows.length === 0 ? (
+            <div className="city-result__empty">
+              <span>🔍</span>
+              <p>Không có tin nào phù hợp với bộ lọc hiện tại.</p>
+            </div>
+          ) : view === 'table' ? (
+            <JobsTable
+              rows={visibleRows.map((r) => r.tableRow)}
+              dateColumnLabel="Ngày đăng"
+              selectable
+              selectedIds={selectedIds}
+              onToggleRow={toggleRow}
+              onToggleAll={toggleAllVisible}
+              allSelected={allVisibleSelected}
+            />
+          ) : (
+            <ul className="saved-list">
+              {visibleRows.map(({ tableRow }) => (
+                <li key={tableRow.id} className="saved-list__item">
+                  {tableRow.href ? (
+                    <Link to={tableRow.href} className="saved-list__link">
+                      <span className="saved-list__title">{tableRow.title}</span>
+                      <span className="saved-list__meta">{tableRow.company} · {tableRow.region}</span>
+                      <span className="saved-list__meta">{tableRow.salary || tableRow.dateLabel}</span>
                     </Link>
-                    <button
-                      type="button"
-                      className="saved-list__remove"
-                      aria-label={`Bỏ lưu: ${job.title}`}
-                      onClick={() => handleUnsave(job.id)}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {closedJobs.length > 0 && (
-            <section className="jm-saved-section">
-              <h2 className="home-section__title">Đã hết hạn ({closedJobs.length})</h2>
-              {view === 'table' ? (
-                <JobsTable
-                  rows={closedJobs.map((job) => ({
-                    ...jobRow(job),
-                    dateLabel: `Hạn nộp: ${formatDeadlineVi(job.applicationDeadline)}`,
-                  }))}
-                  dateColumnLabel="Hạn nộp"
-                  selectable
-                  selectedIds={selectedIds}
-                  onToggleRow={toggleRow}
-                />
-              ) : (
-                <ul className="saved-list">
-                  {closedJobs.map((job) => (
-                    <li key={job.id} className="saved-list__item saved-list__item--closed">
-                      <Link to={`/viec-lam/${job.id}`} className="saved-list__link">
-                        <span className="saved-list__title">{job.title}</span>
-                        <span className="saved-list__meta">
-                          {job.company} · Hạn nộp: {formatDeadlineVi(job.applicationDeadline)}
-                        </span>
-                      </Link>
-                      <button
-                        type="button"
-                        className="saved-list__remove"
-                        aria-label={`Bỏ lưu: ${job.title}`}
-                        onClick={() => handleUnsave(job.id)}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {koreaSavedIds.length > 0 && koreaLoading && (
-            <section className="jm-saved-section">
-              <h2 className="home-section__title">Việc làm Hàn Quốc</h2>
-              <p className="empty-state empty-state--inline">Đang tải...</p>
-            </section>
-          )}
-
-          {!koreaLoading && koreaResolved.length > 0 && (
-            <section className="jm-saved-section">
-              <h2 className="home-section__title">Việc làm Hàn Quốc ({koreaResolved.length})</h2>
-              {view === 'table' ? (
-                <JobsTable
-                  rows={koreaResolved.map(koreaRow)}
-                  dateColumnLabel="Ngày đăng"
-                  selectable
-                  selectedIds={selectedIds}
-                  onToggleRow={toggleRow}
-                />
-              ) : (
-                <ul className="saved-list">
-                  {koreaResolved.map((job) => (
-                    <li key={job.id} className="saved-list__item">
-                      <Link to={`/viec-han-quoc/${job.id}`} className="saved-list__link">
-                        <span className="saved-list__title">{koreaJobDisplayTitle(job)}</span>
-                        <span className="saved-list__meta">{job.company} · {koreaJobDisplayLocation(job)}</span>
-                        <span className="saved-list__meta">{formatKoreaSalary(job) || 'Thỏa thuận'}</span>
-                      </Link>
-                      <button
-                        type="button"
-                        className="saved-list__remove"
-                        aria-label={`Bỏ lưu: ${koreaJobDisplayTitle(job)}`}
-                        onClick={() => handleUnsave(koreaSavedId(job.id))}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {!koreaLoading && koreaMissingIds.length > 0 && (
-            <section className="jm-saved-section">
-              <h2 className="home-section__title">Tin Hàn Quốc không còn tồn tại ({koreaMissingIds.length})</h2>
-              <p className="empty-state empty-state--inline">
-                Các tin dưới đây đã bị gỡ hoặc hết hạn — chỉ có thể bỏ lưu, không thể xem lại chi tiết.
-              </p>
-              {view === 'table' ? (
-                <JobsTable
-                  rows={koreaMissingIds.map((id) => missingRow(id, 'Tin đã gỡ hoặc hết hạn'))}
-                  dateColumnLabel="—"
-                  selectable
-                  selectedIds={selectedIds}
-                  onToggleRow={toggleRow}
-                />
-              ) : (
-                <ul className="saved-list">
-                  {koreaMissingIds.map((id) => (
-                    <li key={id} className="saved-list__item saved-list__item--closed">
-                      <span className="saved-list__link">
-                        <span className="saved-list__title">Tin đã gỡ hoặc hết hạn</span>
-                        <span className="saved-list__meta">Mã tin: {id}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className="saved-list__remove"
-                        aria-label="Bỏ lưu"
-                        onClick={() => handleUnsave(id)}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {missingIds.length > 0 && (
-            <section className="jm-saved-section">
-              <h2 className="home-section__title">Không còn tồn tại ({missingIds.length})</h2>
-              <p className="empty-state empty-state--inline">
-                Các tin dưới đây đã bị gỡ hoặc ngừng đăng — chỉ có thể bỏ lưu, không thể xem lại chi tiết.
-              </p>
-              {view === 'table' ? (
-                <JobsTable
-                  rows={missingIds.map((id) => missingRow(id, 'Tin đã gỡ hoặc ngừng đăng'))}
-                  dateColumnLabel="—"
-                  selectable
-                  selectedIds={selectedIds}
-                  onToggleRow={toggleRow}
-                />
-              ) : (
-                <ul className="saved-list">
-                  {missingIds.map((id) => (
-                    <li key={id} className="saved-list__item saved-list__item--closed">
-                      <span className="saved-list__link">
-                        <span className="saved-list__title">Tin đã gỡ hoặc ngừng đăng</span>
-                        <span className="saved-list__meta">Mã tin: {id}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className="saved-list__remove"
-                        aria-label="Bỏ lưu"
-                        onClick={() => handleUnsave(id)}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+                  ) : (
+                    <span className="saved-list__link">
+                      <span className="saved-list__title">{tableRow.title}</span>
+                      <span className="saved-list__meta">Mã tin: {tableRow.id}</span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="saved-list__remove"
+                    aria-label={`Bỏ lưu: ${tableRow.title}`}
+                    onClick={() => handleUnsave(tableRow.id)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </>
       )}

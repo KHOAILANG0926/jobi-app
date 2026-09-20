@@ -4,11 +4,22 @@ import type { DateRangeFilter, JobsViewMode } from '../lib/jobsListView'
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
 export const SHOW_ALL_PAGE_SIZE = Number.MAX_SAFE_INTEGER
 
+export interface SortOption {
+  value: string
+  label: string
+}
+
 interface JobsListToolbarProps {
   count: number
   countLabel: string
   dateRange: DateRangeFilter
   onDateRangeChange: (v: DateRangeFilter) => void
+  /** 넘기면(알바몬 "최근본순" 드롭다운에 대응) 정렬 기준 선택도 같이 보여준다
+   *  — 페이지마다 정렬 의미가 달라서(저장한 순/본 순/적합도 등) 옵션 목록
+   *  자체는 호출 쪽에서 정의한다. */
+  sortOptions?: SortOption[]
+  sortValue?: string
+  onSortChange?: (v: string) => void
   pageSize: number
   onPageSizeChange: (v: number) => void
   view: JobsViewMode
@@ -25,6 +36,9 @@ export default function JobsListToolbar({
   countLabel,
   dateRange,
   onDateRangeChange,
+  sortOptions,
+  sortValue,
+  onSortChange,
   pageSize,
   onPageSizeChange,
   view,
@@ -49,6 +63,20 @@ export default function JobsListToolbar({
           <option value="7d">7 ngày qua</option>
           <option value="30d">30 ngày qua</option>
         </select>
+        {sortOptions && sortOptions.length > 0 && (
+          <select
+            className="jm-urgent-toolbar__select"
+            value={sortValue}
+            onChange={(e) => onSortChange?.(e.target.value)}
+            aria-label="Sắp xếp"
+          >
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           className="jm-urgent-toolbar__select"
           value={pageSize}

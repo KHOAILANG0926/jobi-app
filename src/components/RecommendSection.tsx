@@ -193,6 +193,7 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
 
   const [view, setView] = useState<JobsViewMode>(() => loadJobsViewMode())
   const [dateRange, setDateRange] = useState<DateRangeFilter>('all')
+  const [sortValue, setSortValue] = useState<'score' | 'posted'>('score')
   const [pageSize, setPageSize] = useState<number>(20)
   const handleViewChange = (v: JobsViewMode) => { setView(v); saveJobsViewMode(v) }
 
@@ -215,7 +216,10 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
 
   const matches = matchJobs(jobs, prefs)
   const filteredMatches = matches.filter((m) => matchesDateRange(m.job.postedAt, dateRange))
-  const visible = filteredMatches.slice(0, pageSize)
+  const sortedMatches = sortValue === 'posted'
+    ? [...filteredMatches].sort((a, b) => b.job.postedAt.localeCompare(a.job.postedAt))
+    : filteredMatches
+  const visible = sortedMatches.slice(0, pageSize)
   const active = hasPrefs(prefs)
 
   const toggleSlot = (slot: TimeSlot) => {
@@ -472,6 +476,12 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
             countLabel="việc phù hợp"
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
+            sortOptions={[
+              { value: 'score', label: 'Độ phù hợp cao nhất' },
+              { value: 'posted', label: 'Đăng gần đây nhất' },
+            ]}
+            sortValue={sortValue}
+            onSortChange={(v) => setSortValue(v as 'score' | 'posted')}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             view={view}
