@@ -2,60 +2,59 @@
 
 ## 현재 작업
 
-**`/ban-do`(Gần tôi 전용 페이지)에 카카오맵 "주변 탐색" 스타일 원클릭
-반경 버튼 추가 완료(2026-09-20)**. 사용자가 카카오맵 초기 검색화면
-캡처(히스토리+주변 탐색 아이콘 줄+내 장소)를 보여주며 "10km, 5km
-차등을 두고 우리 올라와있는 공고가 자동반영되서 나열되는 식으로
-만들고 싶다"고 지시 → 이해한 내용을 먼저 설명해 확인받은 뒤("맞아,
-현실적으로 가능하고 대충 구현할거면 안하는게 맞고") 진행. IMPLEMENTED
-→ VERIFIED(로컬) → MASTER PUSHED(`7db0e09`) → PRODUCTION DEPLOYED →
-PRODUCTION VERIFIED 전부 완료.
+**`/ban-do`(Gần tôi 전용 페이지)에 마우스 휠 줌인/줌아웃 추가
+완료(2026-09-20, 같은 세션 "주변 탐색" 버튼 바로 다음 라운드)**. 사용자가
+지도 스크린샷을 보여주며 "주황색 동그라미는 주변 일자리인거지?" 질문 +
+"지도에 마우스를 올려서 휠을 올리면 줌인 내리면 줌 아웃 기능도 넣고
+싶은데"로 지시. 주황 동그라미 질문에 먼저 답변(정확한 위치 검증 안 된
+공고+본인 위치 마커 = 반투명 주황 원, 검증된 공고 = 파란 핀)한 뒤
+휠줌 기능 구현. IMPLEMENTED → VERIFIED(로컬+Production) → MASTER
+PUSHED(`5c0a3b3`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 전부 완료.
 
 ## 변경 내용
 
-- [src/components/MapView.tsx](src/components/MapView.tsx):
-  - `handleUseCurrentLocation`이 이제 선택적 `radius` 인자를 받음 —
-    넘기면 GPS 확보와 동시에 `nearRadius`를 그 값으로 설정, 안 넘기면
-    (기존 "Dùng vị trí hiện tại" 버튼) 현재 `nearRadius` 그대로 유지.
-    핸들러 하나를 재사용해 중복 없이 구현.
-  - 위치를 아직 안 잡은 초기 화면(`!userCoords`)에만 노출되는
-    `.near-me-explore` 블록 신설 — "Khám phá gần đây" 라벨 아래 원형
-    핀 아이콘 버튼 2개("Trong 5km"/"Trong 10km"), 클릭 시
-    `handleUseCurrentLocation(5)`/`(10)` 호출. 위치가 잡히면 이 블록은
-    사라지고 기존 결과 화면(반경칩+리스트+지도)으로 자연스럽게 전환.
-- [src/index.css](src/index.css): `.near-me-explore*` 신규 — 기존
-  Home.tsx의 `.home-quick-filter`(원형 아이콘+라벨, 알바몬 벤치마킹
-  때 만든 패턴)와 동일한 시각 언어를 재사용해 새 디자인 패턴을 발명하지
-  않음. 이 페이지의 다른 `.near-me-*` 요소들처럼 다크모드 오버라이드
-  없이 라이트 톤 그대로(기존 컨벤션).
+- [src/components/JobLocationMap.tsx](src/components/JobLocationMap.tsx):
+  `scrollWheelZoom?: boolean`(기본 `false`) prop 신설 —
+  `L.map(el, { scrollWheelZoom })`으로 Leaflet 지도 생성 시 그대로 전달.
+  **의도적으로 기본값을 꺼둠**: 이 컴포넌트는 JobDetail/KoreaJobDetail
+  (공고 상세페이지 본문 중간에 작게 끼어있는 지도)과 MapView(`/ban-do`,
+  화면 전체가 지도인 전용 페이지) 셋이 공유하는데, 앞의 둘은 휠줌을 켜면
+  사용자가 페이지를 스크롤하다 커서가 지도를 지나는 순간 스크롤이 줌으로
+  먹혀버리는("scroll jail") 문제가 생겨서 그대로 둠.
+- [src/components/MapView.tsx](src/components/MapView.tsx): `<JobLocationMap>`
+  호출에 `scrollWheelZoom`(값 없는 shorthand = `true`) 추가 — `/ban-do`
+  에서만 명시적으로 켬.
 
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과.
-- 로컬 dev 서버: `/ban-do` 진입 시 "Khám phá gần đây" 줄 정상 렌더
-  스크린샷 확인(카카오맵 캡처와 동일한 원형 아이콘+라벨 구조). "Trong
-  5km" 클릭 → GPS 요청이 실제로 발동되는 것 확인(자동화 브라우저라
-  권한 자동 거부로 에러 메시지 뜸 — 이건 이미 Production에서 검증된
-  기존 GPS 버튼과 완전히 같은 코드 경로라 실제 브라우저에서 권한
-  허용 시 정상 동작 예상).
-- **Production 실측 완료**: `https://viecganban.vn/ban-do`에서
-  "Khám phá gần đây" 줄 정상 렌더 스크린샷으로 확인. 콘솔 에러 없음.
-  **단, 버튼 클릭 시 실제 GPS 권한 허용→위치확보→반경 자동 적용까지
-  이어지는 전체 흐름은 자동화 브라우저의 geolocation 권한 제약상
-  실사용자 기기에서 직접 눌러봐야 최종 확인 가능** — 로직은 기존
-  Production에서 이미 실측 검증된 "Dùng vị trí hiện tại" 버튼과 100%
-  동일한 경로(같은 `navigator.geolocation.getCurrentPosition` 호출,
-  같은 성공/실패 핸들러)라 별도 버그 가능성은 낮음.
+- 로컬 dev 서버: `/ban-do`에서 JS로 합성한 `WheelEvent` 디스패치 →
+  타일 zoom level이 5→7로 실제로 바뀌는 것 확인. 공고 상세페이지
+  (`sb-4638`)에서 동일한 이벤트를 지도에 쐈을 때는 zoom level이
+  그대로(변화 없음) — 의도대로 상세페이지 지도만 휠줌 비활성 유지됨을
+  확인.
+- **Production 실측**: 처음엔 JS `WheelEvent` 합성 디스패치로 테스트했더니
+  타일이 안 바뀌어서(로컬과 다른 결과) 의아했는데, **원인은 실제 버그가
+  아니라 테스트 방법의 한계**였음 — 배포된 청크(`MapView-DldxTXxS.js`)를
+  직접 fetch해 `scrollWheelZoom` 문자열이 포함된 것으로 코드 반영은
+  확인됐고, 브라우저의 진짜 휠 입력을 흉내 내는 `computer` 도구의
+  `scroll` 액션(합성 JS 이벤트가 아니라 OS 레벨에 더 가까운 입력)으로
+  재시도하니 스크린샷상 베트남 전체 보기 → Gia Lai/Kon Tum 지역 단위로
+  실제 확대되는 것 확인됨. (교훈: Leaflet 휠줌은 `element.dispatchEvent
+  (new WheelEvent(...))`로는 신뢰성 있게 재현 안 될 수 있음 — 검증 시
+  `computer` 도구의 `scroll` 액션을 우선 쓸 것.)
 
 ## 발견된 문제
 
-없음.
+없음 — 위 "Production 실측" 항목의 초기 불일치는 실제 버그가 아니라
+브라우저 자동화 테스트 방법의 한계였음이 재확인으로 밝혀짐.
 
 ## 다음 결정사항
 
-- 사용자가 실기기(휴대폰/PC)로 "Trong 5km"/"Trong 10km" 버튼을 직접
-  눌러 위치 권한 허용 후 결과가 정상 표시되는지 확인 필요(자동화
-  브라우저 한계로 이 부분만 실사용자 확인 대기 중).
+- 사용자가 실기기(휴대폰/PC)로 `/ban-do`의 "Trong 5km"/"Trong 10km"
+  주변 탐색 버튼을 직접 눌러 위치 권한 허용 후 결과가 정상 표시되는지
+  최종 확인 필요(자동화 브라우저는 위치 권한을 자동 거부해 이 부분만
+  실사용자 확인 대기 중 — 바로 위 라운드에서 이미 안내함).
 - (낮은 우선순위, 아직 요청 안 됨) `index.css`에 예전 단순 버전
   MapView.tsx가 쓰던 `.mapview__*` 죽은 CSS 규칙 22개가 남아있음 —
   지금 정리 안 함, 필요하면 다음에.
