@@ -327,7 +327,7 @@ export function Layout() {
       )}
       <NavLink to="/ho-so?tab=cv" className="header-tabs__cv">Đăng CV</NavLink>
       <div className="header-tabs__post-wrap">
-        <NavLink to="/dang-tin" className="header-tabs__post">Đăng tuyển</NavLink>
+        <NavLink to="/dang-tin" className="header-tabs__post">Tuyển dụng</NavLink>
         <button
           type="button"
           className="header-tabs__post-arrow"
@@ -510,7 +510,7 @@ export function Layout() {
               <h4 className="footer-cs__title">Dịch vụ</h4>
               <ul className="footer-cs__links">
                 <li><a href="/">Tìm việc làm</a></li>
-                <li><a href="/dang-tin">Đăng tuyển</a></li>
+                <li><a href="/dang-tin">Tuyển dụng</a></li>
                 <li><a href="/cong-dong">Cộng đồng</a></li>
               </ul>
             </div>

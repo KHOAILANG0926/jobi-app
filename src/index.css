@@ -293,43 +293,47 @@ a:hover {
   color: #e53935;
   text-decoration: none;
 }
+/* 2026-09-20 사용자 지시("Đăng ký"/"Đăng tuyển"이 둘 다 "Đăng ___" 형태의
+ * 흐린 텍스트라 첫 방문자가 구분을 못 함) — "Tuyển dụng"(기업용 진입점)을
+ * "Đăng ký"(구직자용, 빨강)와 확실히 구분되는 파란 채움 버튼으로 승격.
+ * 파란색(#2563eb)은 이미 프로젝트에서 쓰던 색을 재사용(새 색 도입 안 함). */
 .header-tabs__post-wrap {
   display: flex;
   align-items: stretch;
-  border: 1px solid #e0e0e0;
+  background: #2563eb;
   border-radius: 6px;
   overflow: hidden;
-  transition: border-color 0.15s;
+  transition: background 0.15s;
 }
 .header-tabs__post-wrap:hover {
-  border-color: #e53935;
+  background: #1d4ed8;
 }
 .header-tabs__post {
-  font-size: 0.88rem;
-  font-weight: 500;
-  color: #333;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
   text-decoration: none;
-  padding: 0.4rem 0.75rem;
+  padding: 0.45rem 0.9rem;
   border: none;
   transition: color 0.15s;
 }
 .header-tabs__post:hover {
-  color: #e53935;
+  color: #fff;
   text-decoration: none;
 }
 .header-tabs__post-arrow {
   background: none;
   border: none;
-  border-left: 1px solid #e0e0e0;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
   padding: 0 0.5rem;
-  color: #666;
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
-  transition: color 0.15s;
+  transition: opacity 0.15s;
 }
 .header-tabs__post-arrow:hover {
-  color: #e53935;
+  opacity: 0.8;
 }
 
 /* ── Mega menu dropdown ── */
