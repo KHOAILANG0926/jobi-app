@@ -7858,24 +7858,17 @@ a:hover {
 /* ── Featured brands ──────────────────────────────────────────────── */
 
 /* 2026-09-20 사용자 지시 — 사람인 "꼭 봐야 할 공고(플래티넘)" 캐러셀
- * 디자인 참고(FeaturedJobsSection.tsx 주석 참고). 상단 색줄은 유료 등급이
- * 아니라 CATEGORY_COLORS(업직종 색) 재사용. */
+ * 디자인 참고(FeaturedJobsSection.tsx 주석 참고). 처음엔 사진이 큰 별도
+ * 카드로 만들었다가, "이게 우리 기본틀이야 이 틀을 지켜"로 정정 — 기존
+ * .jc(JobCard) 그대로 쓰고 얇은 색줄만 절대위치로 겹쳐 그린다. 이모지도
+ * "진지한 사이트로" 지시로 안 씀. */
 .home-featured {
   margin-bottom: 1.25rem;
-}
-.home-featured__head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-}
-.home-featured__icon {
-  font-size: 1.1rem;
 }
 .home-featured__title {
   font-size: 0.95rem;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 0.75rem;
 }
 .home-featured__row {
   display: flex;
@@ -7887,72 +7880,23 @@ a:hover {
 }
 .home-featured__row::-webkit-scrollbar { display: none; }
 
-.featured-job-card {
-  flex: 0 0 220px;
-  display: block;
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+.featured-job-wrap {
+  flex: 0 0 240px;
+  position: relative;
+  min-width: 0;
 }
-.featured-job-card:hover {
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-  transform: translateY(-2px);
-}
-.featured-job-card__bar {
-  display: block;
-  height: 5px;
-  width: 100%;
-}
-.featured-job-card__company {
-  margin: 0.6rem 0.8rem 0.1rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--color-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.featured-job-card__title {
-  margin: 0 0.8rem 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.2em;
-}
-.featured-job-card__photo {
-  height: 120px;
-  background-color: #f3f4f6;
-  background-size: cover;
-  background-position: center;
-}
-.featured-job-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.6rem 0.8rem;
-}
-.featured-job-card__salary {
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: #e53935;
-  white-space: nowrap;
-}
-.featured-job-card__location {
-  font-size: 0.7rem;
-  color: var(--color-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.featured-job-wrap .home-card-wrap { height: 100%; }
+.featured-job-wrap .jc { height: 100%; }
+.featured-job-wrap__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* 2026-09-20 사용자 지시("색깔 높이를 반으로 줄이고") — 얇게. */
+  height: 2.5px;
+  border-radius: 10px 10px 0 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .home-brands {

@@ -14,7 +14,7 @@ import { hasStoredCv } from '../lib/cvStorage'
 import { normalizeViText } from '../lib/jobCoords'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
-import { groupJobsForSalarySort, salaryTierLabel } from '../lib/recommendStorage'
+import { groupJobsForSalarySort } from '../lib/recommendStorage'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -390,15 +390,6 @@ export function Home() {
     return result
   }, [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, isTodayJob, selectedCity, deadlineFilter, recFilter, sortMode, preferredCategories])
 
-  // "Lương cao" 정렬일 때만 필요 — 어떤 (통화, 지급 주기) 집단을 기준으로
-  // 정렬했는지, 비교 대상에서 빠진 공고가 몇 건인지 화면에 밝힌다(2026-09-14
-  // 사용자 지시: "비교 집단이 여러 개라면 집단을 선택하거나 구분해서
-  // 표시한다"). filtered는 sortMode==='salary'일 때 이미 그룹별로 이어붙여진
-  // 상태라 여기서 다시 묶어도 같은 그룹 구성이 나온다(순서 무관한 순수 함수).
-  const salaryTiers = useMemo(
-    () => (sortMode === 'salary' ? groupJobsForSalarySort(filtered) : null),
-    [filtered, sortMode],
-  )
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
@@ -686,7 +677,13 @@ export function Home() {
 
       </div>{/* /.home-top-bg */}
 
-      <FeaturedJobsSection jobs={jobs} />
+      <FeaturedJobsSection
+        jobs={jobs}
+        isApplied={isApplied}
+        onApply={handleApply}
+        isSaved={(id) => savedIds.has(id)}
+        onToggleSave={handleToggleSave}
+      />
 
       {/* ── City filtered results ──────────────────────────────── */}
       {selectedCity && (() => {
@@ -703,16 +700,6 @@ export function Home() {
                 ✕ Bỏ chọn
               </button>
             </div>
-
-            {salaryTiers && salaryTiers.groups.length > 0 && (
-              <p className="near-me-status__summary">
-                💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
-                {salaryTiers.groups.length > 1 && (
-                  <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
-                )}
-                {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
-              </p>
-            )}
 
             {filtered.length === 0 ? (
               <div className="city-result__empty">
@@ -753,15 +740,6 @@ export function Home() {
       {!selectedCity && (
         <section className="home-section" ref={jobResultRef}>
           <h2 className="home-section__title">Tất cả kết quả</h2>
-          {salaryTiers && salaryTiers.groups.length > 0 && (
-            <p className="near-me-status__summary">
-              💰 Đang xếp theo lương cao trong nhóm <strong>{salaryTierLabel(salaryTiers.groups[0])}</strong> ({salaryTiers.groups[0].jobs.length} tin)
-              {salaryTiers.groups.length > 1 && (
-                <> · {salaryTiers.groups.slice(1).map((g) => `${salaryTierLabel(g)} (${g.jobs.length})`).join(', ')} không cùng nhóm nên không so sánh trực tiếp</>
-              )}
-              {salaryTiers.unpriced.length > 0 && <> · {salaryTiers.unpriced.length} tin lương thỏa thuận/chưa rõ mức lương xếp cuối, không tính là lương cao</>}
-            </p>
-          )}
           {filtered.length === 0 ? (
             // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
             // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
