@@ -2,67 +2,44 @@
 
 ## 현재 작업
 
-**관리자 화면에 "미가입 등록"(게스트 공고) 확인 기능 추가 + 회원가입
-트리거 버그 발견·수정 완료(2026-09-20)**. "등록 없이 빠르게 게시" 기능을
-막 배포한 뒤 사용자가 "그럼 미가입 등록은 어디서 확인하지" → "내가 봐야
-확인을 하지"로 실제 눈으로 보는 관리 화면을 요청. 기존 AdminDashboard의
-"Jobs" 탭(`/admin`)이 이미 모든 공고를 보여주고 있었지만 게스트 공고를
-구분할 방법이 없었음 — 새 화면을 만들지 않고 그 탭에 필터/배지만 추가.
-검증 중 실제 회원가입 자체가 깨지는 별개의 진짜 버그를 우연히 발견해
-같이 수정. IMPLEMENTED → VERIFIED(로컬, 실제 admin 테스트 계정으로
-end-to-end) → MASTER PUSHED(`2b10ff0`) → PRODUCTION DEPLOYED(배포 폴링
-중) 진행.
+**헤더 "Đăng tuyển" → "Tuyển dụng" 파란 버튼으로 변경 완료(2026-09-20)**.
+"등록 없이 빠르게 게시" 기능 배포 후 사용자가 실사이트를 보며 "Đăng
+nhập/Đăng ký/Đăng CV/Đăng tuyển" 4개가 전부 "Đăng ___" 형태의 흐린
+텍스트라 첫 방문자가 "Đăng ký"(가입)와 "Đăng tuyển"(공고 등록)을
+구분 못 한다고 지적 — 여러 대안(가입 안에 통합 등) 논의 끝에 이름을
+명사형 "Tuyển dụng"으로 바꾸고 파란 채움 버튼으로 승격하기로 확정.
+IMPLEMENTED → VERIFIED(로컬 라이트/다크/모바일) → MASTER PUSHED
+(`8ea5bbe`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
 
 ## 변경 내용
 
-### DB 마이그레이션 (적용 완료, Production)
-[supabase/migrations/20260920130000_fix_handle_new_auth_user_role_null.sql](supabase/migrations/20260920130000_fix_handle_new_auth_user_role_null.sql)
-- `handle_new_auth_user_role()` 트리거 버그 수정 — SQL에서
-  `NULL not in ('seeker','employer')`가 거짓이 아니라 NULL(알 수 없음)로
-  평가되는 특성 때문에, `raw_user_meta_data`에 `role` 키 자체가 없는
-  가입(=NULL)에서는 "기본값 seeker로" 처리가 건너뛰어지고 `account_roles.
-  role` NOT NULL 제약 위반으로 **회원가입 자체가 500 에러로 실패**하던
-  버그. `coalesce(..., 'seeker')`로 NULL을 먼저 처리하도록 수정.
-  **발견 경위**: 오늘 만든 게스트 등록(항상 `role:'employer'`를 명시)은
-  전혀 영향 없었지만, admin 테스트 계정을 만들려고 role 없이
-  `signUp()`을 호출했다가 실제로 재현됨 — Supabase `auth_logs`에서
-  정확한 SQLSTATE(23502) 원인 확인. 실패한 트랜잭션은 정상 롤백돼
-  DB 오염 없었음(직접 확인).
+- [Layout.tsx](src/components/Layout.tsx): 헤더 버튼 + 푸터 링크 텍스트
+  "Đăng tuyển" → "Tuyển dụng"(대상 페이지 `/dang-tin`은 그대로).
+- [index.css](src/index.css) `.header-tabs__post*`: 기존 흐린 회색
+  텍스트+테두리 스타일 → 파란 채움 버튼(`#2563eb`, 프로젝트에 이미
+  쓰이던 색 재사용, 새 색 도입 안 함)으로 전면 교체. "Đăng ký"(빨강,
+  구직자용)와 색으로 확실히 구분됨 — 굵기/크기도 살짝 키워 존재감 강화.
 
-### 프론트엔드
-- [AdminJobs.tsx](src/components/admin/AdminJobs.tsx)(`/admin` → Jobs 탭):
-  `isGuestPost(job)` = `origin==='employer' && employer_id===null`로
-  게스트 공고 판정(새 쿼리/컬럼 불필요, 이미 있던 `employer_id`만 활용).
-  "Chỉ tin đăng nhanh (không đăng ký)" 체크박스로 필터, 목록에 "⚡ Không
-  đăng ký" 배지 표시. **SĐT(전화번호) 열 신규 추가** — 관리 링크를
-  잃어버린 사용자가 문의해오면 전화번호 대조로 본인확인하는 용도(이전
-  라운드에서 정한 지원 절차 그대로).
-- [adminOperations.ts](src/lib/adminOperations.ts): `AdminJob` 타입/
-  `listAdminJobs()` select에 `employer_phone` 추가.
+**논의 경위(참고)**: 처음엔 "Tuyển dụng" 진입점을 "Đăng ký" 안으로 합치는
+방안도 나왔으나, 바로 전에 만든 "가입 없이 등록 가능" 기능과 모순된다고
+판단해(합치면 "가입해야 등록 가능한 것"처럼 오해 유발) 기각 — 대신 색으로
+구분하는 방향으로 확정.
 
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과.
-- **로컬에서 실제 admin 테스트 계정으로 end-to-end 검증**: 임시 테스트
-  계정 생성(수정된 트리거로 정상 가입 확인) → `app_metadata.role='admin'`
-  임시 부여 → 재로그인으로 JWT 갱신 → `/admin` Jobs 탭 정상 접근 →
-  SQL로 게스트 공고 테스트 행 직접 삽입 → 새 체크박스 켜니 264건 중
-  정확히 1건(그 테스트 행)만 필터링, "⚡ Không đăng ký" 배지와 전화번호
-  정상 표시 확인 → 테스트 계정+행 전부 흔적 없이 정리.
-- **트리거 수정 자체도 직접 재현·검증**: 수정 전 `role` 없이 `signUp()`
-  → 500 에러 재현 확인 → 마이그레이션 적용 → 동일 호출 재시도 →
-  성공 + `account_roles.role='seeker'` 정상 확인.
-- Production 배포는 폴링 중 — 다음 세션 시작 시 배포 상태 먼저 확인 필요
-  (배포 후 실사이트 재확인 아직 안 함).
+- 로컬 dev 서버: 로그아웃 상태에서 "Đăng ký"(빨강)/"Tuyển dụng"(파랑)
+  색 구분 스크린샷 확인, 다크모드(헤더는 라이트 톤 유지하는 기존
+  컨벤션대로 정상), 모바일(375px) 4개 버튼 전부 정상 배치 확인.
+- **Production 실측 완료**: `viecganban.vn` 로그아웃 상태에서 동일하게
+  파란 "Tuyển dụng" 버튼 정상 렌더 확인.
 
 ## 발견된 문제
 
-없음 — 이번에 발견한 트리거 버그는 같은 라운드에 수정·검증까지 완료.
+없음.
 
 ## 다음 결정사항
 
-- **Production 배포 확인 필요**(다음 세션 최우선) — 이 문서 갱신 시점엔
-  배포 폴링이 아직 끝나지 않았음.
 - (낮은 우선순위, 아직 요청 안 됨) `index.css`에 예전 단순 버전
   MapView.tsx가 쓰던 `.mapview__*` 죽은 CSS 규칙 22개가 남아있음.
 - (별개 논의, 미정) 구글 로그인(OAuth) — Google Cloud Console 외부
