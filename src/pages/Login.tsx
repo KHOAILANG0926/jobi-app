@@ -1,48 +1,63 @@
 import { useState } from 'react'
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
-import { useAuth, type UserRole } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext'
 import { ZaloIcon } from '../components/ZaloIcon'
 import { PasswordField } from '../components/PasswordField'
+import { checkIsEmployer } from '../lib/accountRoles'
+import { supabase } from '../lib/supabase'
 
+/**
+ * 2026-09-20 사용자 지시("Đăng nhập이랑 Đăng ký가 똑같아 보인다") — 로그인
+ * 화면에 있던 역할 선택 칩("🔍 Tìm việc/🏢 Tuyển dụng")과 "Xác nhận mật
+ * khẩu"(비밀번호 재입력) 둘 다 원래 로그인의 목적과 안 맞아서 제거한다:
+ * - 재입력 확인은 "새 비밀번호를 만들 때"(가입/재설정) 오타 방지용이지,
+ *   이미 있는 비밀번호를 입력하는 로그인에는 의미가 없다.
+ * - 역할은 이미 계정에 정해져 있으므로 로그인 시 다시 고를 필요가 없다
+ *   — 로그인 성공 후 실제 서버 판정(checkIsEmployer, account_roles 기반
+ *   — RequireEmployer.tsx와 동일한 신뢰 기준, user_metadata.role은 클라
+ *   이언트가 스스로 바꿀 수 있어 신뢰하지 않음)으로 이동 위치를 정한다.
+ */
 export function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, loginWithZalo } = useAuth()
   const [searchParams] = useSearchParams()
 
-  const roleParam = searchParams.get('role') as UserRole | null
   // 두 경로 다 지원: JobDetail의 "지원하기"는 navigate state(state.from)로 넘기고,
   // ReportButton/RequireAdmin/RequireEmployer는 URL의 ?redirect=로 넘긴다 — state가
   // 있으면 그걸 우선하고, 없으면 기존 쿼리파라미터 방식으로 그대로 fallback한다.
   const stateFrom = (location.state as { from?: string } | null)?.from
-  const redirectTo = stateFrom || searchParams.get('redirect') || (roleParam === 'employer' ? '/bang-dieu-khien' : '/')
+  const explicitRedirect = stateFrom || searchParams.get('redirect')
 
-  const [role, setRole] = useState<UserRole>(roleParam === 'employer' ? 'employer' : 'seeker')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError('Vui lòng điền email và mật khẩu.')
-      return
-    }
-    if (password !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp.')
       return
     }
     setLoading(true)
     const result = await login(email.trim(), password)
-    setLoading(false)
     if (!result.ok) {
+      setLoading(false)
       setError('Email hoặc mật khẩu không đúng.')
       return
     }
-    navigate(redirectTo, { replace: true })
+
+    let target = explicitRedirect
+    if (!target) {
+      const { data } = await supabase.auth.getUser()
+      const uid = data.user?.id
+      const isEmployer = uid ? await checkIsEmployer(uid).catch(() => false) : false
+      target = isEmployer ? '/bang-dieu-khien' : '/'
+    }
+    setLoading(false)
+    navigate(target, { replace: true })
   }
 
   return (
@@ -53,26 +68,6 @@ export function Login() {
       </header>
       <form className="form-card" onSubmit={onSubmit} noValidate>
         {error && <p className="form-error" role="alert">{error}</p>}
-
-        <fieldset className="role-picker">
-          <legend className="role-picker__legend">Đăng nhập với tư cách</legend>
-          <div className="role-picker__options" role="group">
-            <button
-              type="button"
-              className={`role-picker__btn${role === 'seeker' ? ' role-picker__btn--active' : ''}`}
-              onClick={() => setRole('seeker')}
-            >
-              🔍 Tìm việc
-            </button>
-            <button
-              type="button"
-              className={`role-picker__btn${role === 'employer' ? ' role-picker__btn--active' : ''}`}
-              onClick={() => setRole('employer')}
-            >
-              🏢 Tuyển dụng
-            </button>
-          </div>
-        </fieldset>
 
         <label className="field">
           <span className="field__label">Email *</span>
@@ -97,14 +92,6 @@ export function Login() {
           <Link to="/quen-mat-khau" className="text-link">Quên mật khẩu?</Link>
         </p>
 
-        <PasswordField
-          label="Xác nhận mật khẩu *"
-          value={confirmPassword}
-          onChange={setConfirmPassword}
-          placeholder="Nhập lại mật khẩu"
-          autoComplete="current-password"
-        />
-
         <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
@@ -121,10 +108,7 @@ export function Login() {
 
         <p className="auth-page__footer">
           Chưa có tài khoản?{' '}
-          <Link
-            to={`/dang-ky?role=${role}`}
-            className="text-link"
-          >
+          <Link to="/dang-ky" className="text-link">
             Đăng ký
           </Link>
         </p>
