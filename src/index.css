@@ -7889,15 +7889,16 @@ a:hover {
   min-width: 0;
 }
 .featured-job-wrap .home-card-wrap { height: 100%; }
-.featured-job-wrap .jc { height: 100%; }
+/* 2026-09-20 사용자 지시("모서리 16px로 키우자") — 사람인 실측(16px)과
+ * 맞춤(JobCard.tsx 원본은 10px 그대로, 이 섹션에서만 덮어씀). */
+.featured-job-wrap .jc { height: 100%; border-radius: 16px; }
 .featured-job-wrap__bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  /* 2026-09-20 사용자 지시("3px 수정") — 명시적 확정값. */
   height: 3px;
-  border-radius: 10px 10px 0 0;
+  border-radius: 16px 16px 0 0;
   z-index: 1;
   pointer-events: none;
 }
