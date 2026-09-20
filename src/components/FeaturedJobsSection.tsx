@@ -1,19 +1,20 @@
+import type { CSSProperties } from 'react'
 import { NavLink } from 'react-router-dom'
 import JobCard from './JobCard'
 import { CATEGORY_COLORS } from '../data/categories'
 import type { Job } from '../types/job'
 
 /** 2026-09-20 사용자 지시 — 사람인 "꼭 봐야 할 공고(플래티넘)" 캐러셀 참고,
- *  단 유료 등급 개념은 우리에게 없어 순수 디자인만 차용한다. 처음엔 사진이
- *  크게 들어간 별도 세로형 카드로 만들었는데, 사용자가 "이게 우리 기본틀이야
- *  이 틀을 지켜"로 기존 JobCard 그대로 쓰고 상단에 얇은 색깔 줄만 얹으라고
- *  정정함. 중간에 "카드 전체를 감싸는 테두리"로 잘못 해석해 4면을 다 칠했다가
- *  "상단에서 꺾이는 부분이라고 초반에 얘기했잖아"로 재정정 — **상단(+모서리
- *  곡선까지만)**이 맞다. 높이는 "현재 기준 10% 높게"(이전 2.5px 기준
- *  2.75px). JobCard.tsx 자체는 안 건드리고 절대위치 막대로 겹쳐 그린다.
- *  색은 업직종(CATEGORY_COLORS, 옆으로 갈수록 다른 색상까지 뚜렷하게
- *  변하는 3단 그라데이션 — "그라데이션이 들어가다 만거같아" 지적 반영).
- *  이모지/설명 문구는 "진지한 사이트로" 지시로 넣지 않는다. Home 전용. */
+ *  단 유료 등급 개념은 우리에게 없어 순수 디자인만 차용한다. JobCard.tsx
+ *  자체는 안 건드리고 기존 틀 그대로 재사용, 상단(+양쪽 위 모서리 곡선)에만
+ *  얇은 색선을 표시한다. 절대위치 막대(고정 높이) 방식은 카드 모서리 곡선
+ *  (16px)만큼 굵어야만 곡선을 덮을 수 있어 "직선 막대가 곡선까지 침범한다"
+ *  는 문제가 있었다 — 최종적으로 카드 테두리 전체를 얇게 감싸는 그라데이션
+ *  링을 CSS mask로 만들고(`.featured-job-wrap::before`, index.css),
+ *  clip-path로 상단(+모서리 곡선 끝나는 지점까지)만 노출하는 방식으로
+ *  교체 — 곡선이 끝나는 정확한 지점에서 색선도 끝나고, 양옆 직선 구간·
+ *  하단에는 색이 전혀 안 보인다. 색은 업직종(CATEGORY_COLORS, 다른
+ *  색상까지 뚜렷하게 변하는 3단 그라데이션). Home 전용. */
 const FEATURED_COUNT = 8
 
 /** 2026-09-20 사용자 지적("왜 다 빨간색이야?") — 그냥 최신순 8개를 뽑으면
@@ -67,12 +68,11 @@ export default function FeaturedJobsSection({
       <h2 className="home-featured__title">Việc làm nổi bật</h2>
       <div className="home-featured__row">
         {featured.map((job) => (
-          <div key={job.id} className="featured-job-wrap">
-            <span
-              className="featured-job-wrap__bar"
-              style={{ background: CATEGORY_COLORS[job.category] }}
-              aria-hidden
-            />
+          <div
+            key={job.id}
+            className="featured-job-wrap"
+            style={{ '--card-gradient': CATEGORY_COLORS[job.category] } as CSSProperties}
+          >
             <NavLink className="home-card-wrap" to={`/viec-lam/${job.id}`}>
               <JobCard
                 job={job}
