@@ -7895,7 +7895,10 @@ a:hover {
   top: 0;
   left: 0;
   right: 0;
-  height: 2.75px;
+  /* 2026-09-20 사용자 지시("굴곡있는 부분 거기까지 색칠해줘") — .jc의
+   * border-radius(10px)와 정확히 같아야 곡선이 끝나는 지점까지 막대가
+   * 덮는다(이보다 얇으면 곡선 중간에서 색이 끊겨 흰 배경이 비침). */
+  height: 10px;
   border-radius: 10px 10px 0 0;
   z-index: 1;
   pointer-events: none;
