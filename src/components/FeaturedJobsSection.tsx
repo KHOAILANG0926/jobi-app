@@ -14,8 +14,38 @@ import type { Job } from '../types/job'
  *  목적이 있어 확대 안 함). */
 const FEATURED_COUNT = 8
 
+/** 2026-09-20 사용자 지적("왜 다 빨간색이야?") — 그냥 최신순 8개를 뽑으면
+ *  실제 DB에 압도적으로 많은 'khac'(기타) 카테고리 공고가 대부분을 차지해
+ *  카드 색이 죄다 같아 보였다(실측: 최신 10건 중 8건이 khac). 업직종당
+ *  최신 1건씩 먼저 채워서 색이 실제로 다양하게 보이도록 한다. */
 export function selectFeaturedJobs(jobs: Job[]): Job[] {
-  return [...jobs].sort((a, b) => b.postedAt.localeCompare(a.postedAt)).slice(0, FEATURED_COUNT)
+  const sorted = [...jobs].sort((a, b) => b.postedAt.localeCompare(a.postedAt))
+  const byCategory = new Map<string, Job[]>()
+  for (const j of sorted) {
+    const list = byCategory.get(j.category) ?? []
+    list.push(j)
+    byCategory.set(j.category, list)
+  }
+  const picked: Job[] = []
+  const usedIds = new Set<string>()
+  // 1라운드: 업직종마다 최신 1건씩(최신순 카테고리 우선)
+  for (const j of sorted) {
+    if (picked.length >= FEATURED_COUNT) break
+    if (usedIds.has(j.category)) continue
+    picked.push(j)
+    usedIds.add(j.category)
+  }
+  // 남는 자리는(업직종 수 < FEATURED_COUNT) 최신순으로 채움
+  if (picked.length < FEATURED_COUNT) {
+    const pickedJobIds = new Set(picked.map((j) => j.id))
+    for (const j of sorted) {
+      if (picked.length >= FEATURED_COUNT) break
+      if (pickedJobIds.has(j.id)) continue
+      picked.push(j)
+      pickedJobIds.add(j.id)
+    }
+  }
+  return picked.sort((a, b) => b.postedAt.localeCompare(a.postedAt))
 }
 
 export default function FeaturedJobsSection({
