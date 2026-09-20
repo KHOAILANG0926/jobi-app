@@ -2851,13 +2851,13 @@ a:hover {
   text-align: center;
 }
 .signup-role-card:hover {
-  border-color: #e53935;
-  box-shadow: 0 8px 32px rgba(229,57,53,0.14);
+  border-color: #f97316;
+  box-shadow: 0 8px 32px rgba(249,115,22,0.14);
   transform: translateY(-4px);
 }
 .signup-role-card--employer:hover {
-  border-color: #222;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  border-color: #2563eb;
+  box-shadow: 0 8px 32px rgba(37,99,235,0.14);
 }
 .signup-role-card__title {
   font-size: 1.5rem;
@@ -2894,10 +2894,10 @@ a:hover {
   text-align: center;
 }
 .signup-role-card__btn--seeker {
-  background: #e53935;
+  background: #f97316;
 }
 .signup-role-card__btn--employer {
-  background: #222;
+  background: #2563eb;
 }
 .signup-choose__footer {
   display: flex;

@@ -142,7 +142,7 @@ export function Signup() {
         <button
           type="submit"
           className="btn btn--block"
-          style={{ background: role === 'seeker' ? '#e53935' : '#222', color: '#fff', fontWeight: 700, fontSize: '1rem', padding: '0.85rem' }}
+          style={{ background: role === 'seeker' ? '#f97316' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: '1rem', padding: '0.85rem' }}
           disabled={loading}
         >
           {loading ? 'Đang tạo tài khoản...' : role === 'seeker' ? 'Đăng ký tìm việc' : 'Đăng ký tuyển dụng'}
