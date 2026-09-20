@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
+import FeaturedJobsSection from '../components/FeaturedJobsSection'
 import JobCard from '../components/JobCard'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
@@ -684,6 +685,8 @@ export function Home() {
       </div>
 
       </div>{/* /.home-top-bg */}
+
+      <FeaturedJobsSection jobs={jobs} />
 
       {/* ── City filtered results ──────────────────────────────── */}
       {selectedCity && (() => {
