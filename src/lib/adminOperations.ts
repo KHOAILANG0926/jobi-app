@@ -14,6 +14,7 @@ export interface AdminJob {
   active: boolean
   admin_hidden: boolean
   employer_id: string | null
+  employer_phone: string | null
   created_at: string
 }
 
@@ -59,7 +60,7 @@ function unwrap<T>(data: T | null, error: { message: string } | null): T {
 export async function listAdminJobs(): Promise<AdminJob[]> {
   const { data, error } = await supabase
     .from('local_jobs')
-    .select('id,title,company,origin,active,admin_hidden,employer_id,created_at')
+    .select('id,title,company,origin,active,admin_hidden,employer_id,employer_phone,created_at')
     .order('created_at', { ascending: false })
   return unwrap((data ?? []) as AdminJob[], error)
 }

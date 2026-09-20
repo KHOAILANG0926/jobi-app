@@ -10508,6 +10508,9 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .admin-action,.admin-actions button { border:1px solid #d8dee8; background:#fff; border-radius:7px; padding:6px 9px; cursor:pointer; }
 .admin-actions { display:flex; gap:5px; white-space:nowrap; }
 .admin-error { color:#c62828; }
+.admin-checkbox { display:flex; align-items:center; gap:6px; font-size:13px; color:#4a5568; white-space:nowrap; }
+.admin-badge { display:inline-block; font-size:11px; font-weight:700; padding:1px 6px; border-radius:999px; margin-top:2px; }
+.admin-badge--guest { background:#fff5cc; color:#8a6d00; }
 .report-control { position:relative; }
 .report-button { border:0; background:none; color:#7b8494; text-decoration:underline; cursor:pointer; padding:5px 0; }
 .report-confirmation { color:#27854a; font-size:13px; }
