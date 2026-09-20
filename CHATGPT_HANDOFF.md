@@ -2,66 +2,90 @@
 
 ## 현재 작업
 
-**`/ban-do`(Gần tôi 전용 페이지)에 마우스 휠 줌인/줌아웃 추가
-완료(2026-09-20, 같은 세션 "주변 탐색" 버튼 바로 다음 라운드)**. 사용자가
-지도 스크린샷을 보여주며 "주황색 동그라미는 주변 일자리인거지?" 질문 +
-"지도에 마우스를 올려서 휠을 올리면 줌인 내리면 줌 아웃 기능도 넣고
-싶은데"로 지시. 주황 동그라미 질문에 먼저 답변(정확한 위치 검증 안 된
-공고+본인 위치 마커 = 반투명 주황 원, 검증된 공고 = 파란 핀)한 뒤
-휠줌 기능 구현. IMPLEMENTED → VERIFIED(로컬+Production) → MASTER
-PUSHED(`5c0a3b3`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 전부 완료.
+**"Việc làm của tôi"(저장한 공고/최근 본 공고/맞춤 공고/추천 공고) 4개
+페이지에 알바몬 스타일 표 뷰 추가 완료(2026-09-20)**. 사용자가 알바몬
+"찜한 공고함" 캡처(체크박스+지역/제목/급여/근무시간/등록일 열+정렬+개수
+선택+목록·그리드 전환+삭제)를 보여주며 "이렇게 표기해줘" → "여기(4개
+페이지) 다 적용 가능해" → 체크박스+삭제 기능을 4곳 다 넣을지 물었을 때
+"맞춤/추천 공고는 저장된 목록이 아니라 조건 계산 결과라 삭제 대상이
+없다"고 설명해 저장/본 2곳에만 적용하기로 합의 → "ok 스타일은 알바몬하고
+최대한 동일하게"로 확정. IMPLEMENTED → VERIFIED(로컬+Production 4페이지
+전부) → MASTER PUSHED(`521b71b`) → PRODUCTION DEPLOYED → PRODUCTION
+VERIFIED 전부 완료.
 
 ## 변경 내용
 
-- [src/components/JobLocationMap.tsx](src/components/JobLocationMap.tsx):
-  `scrollWheelZoom?: boolean`(기본 `false`) prop 신설 —
-  `L.map(el, { scrollWheelZoom })`으로 Leaflet 지도 생성 시 그대로 전달.
-  **의도적으로 기본값을 꺼둠**: 이 컴포넌트는 JobDetail/KoreaJobDetail
-  (공고 상세페이지 본문 중간에 작게 끼어있는 지도)과 MapView(`/ban-do`,
-  화면 전체가 지도인 전용 페이지) 셋이 공유하는데, 앞의 둘은 휠줌을 켜면
-  사용자가 페이지를 스크롤하다 커서가 지도를 지나는 순간 스크롤이 줌으로
-  먹혀버리는("scroll jail") 문제가 생겨서 그대로 둠.
-- [src/components/MapView.tsx](src/components/MapView.tsx): `<JobLocationMap>`
-  호출에 `scrollWheelZoom`(값 없는 shorthand = `true`) 추가 — `/ban-do`
-  에서만 명시적으로 켬.
+- [src/lib/jobsListView.ts](src/lib/jobsListView.ts) 신규 — 카드↔표 뷰
+  모드(4개 페이지가 localStorage 키 하나로 공유, 한 번 고르면 어느
+  페이지든 유지) + 등록일 필터(`all`/`today`/`7d`/`30d`, Home.tsx/
+  UrgentJobsPage.tsx가 이미 쓰던 날짜 문자열 비교 패턴 재사용).
+- [src/components/JobsTable.tsx](src/components/JobsTable.tsx) 신규 —
+  [UrgentJobsPage.tsx](src/pages/jobsMenu/UrgentJobsPage.tsx)가 이미 쓰고
+  있던 `.jm-urgent-table*`(지역/제목+기업명/급여/근무시간/등록일 열) 표
+  스타일을 그대로 재사용하는 공용 표 렌더러. 체크박스 선택(`selectable`)은
+  옵션이고, 헤더 "전체선택" 체크박스는 `onToggleAll`을 넘겼을 때만 렌더
+  (안 넘기면 빈 칸 — 안 그러면 동작 안 하는 체크박스가 남아 React
+  `checked`-without-`onChange` 경고가 뜨는 걸 로컬 테스트로 발견해 수정).
+- [src/components/JobsListToolbar.tsx](src/components/JobsListToolbar.tsx)
+  신규 — "Tổng N건" 카운터, 등록일 필터, 표시 개수(20/50/100/전체),
+  카드·표 전환 아이콘(lucide-react `LayoutGrid`/`List`), 선택삭제 버튼
+  (옵션 — 넘길 때만 렌더). 4개 페이지가 전부 이 토글바 하나를 재사용.
+- [SavedJobsPage.tsx](src/pages/jobsMenu/SavedJobsPage.tsx): 위 3개를
+  적용, 구간(진행중/마감/한국/삭제된 공고)별로 표·카드 전환 + 체크박스
+  선택 상태는 페이지 전체(모든 구간)에 걸쳐 공유, "Xóa (N)"가 어느
+  구간이든 선택된 것 전부를 `toggleSavedJobId()`로 일괄 해제.
+- [RecentlyViewedPage.tsx](src/pages/jobsMenu/RecentlyViewedPage.tsx):
+  동일 패턴 적용, 마지막 열은 "Ngày đăng"(공고 게시일)이 아니라
+  "Đã xem lúc"(열람 시각)로 명확히 구분 — 등록일 필터 자체는 그래도
+  공고 게시일(`job.postedAt`) 기준으로 통일.
+- [RecommendSection.tsx](src/components/RecommendSection.tsx)(맞춤 공고가
+  쓰는 컴포넌트): 기존 "Xem thêm/Thu gọn"(4개씩 더 보기) 방식을 새
+  표시개수 드롭다운으로 대체(같은 목적의 두 컨트롤이 공존하지 않게 정리).
+  표 뷰에서는 배지에 매칭 점수(`55%`) 표시, 마지막 열은 지원 버튼+저장
+  버튼(`RecommendRowActions` 신규 — 기존 카드용 `RecommendCard`와 같은
+  저장/지원 로직을 표 셀 크기에 맞게 분리).
+- [SuggestedJobsPage.tsx](src/pages/jobsMenu/SuggestedJobsPage.tsx):
+  기존 결과 개수 하드 상한(`.slice(0, 30)`)을 제거하고 새 표시개수
+  드롭다운으로 대체. 표 뷰 배지는 첫 번째 추천 근거(예: "Ngành quan
+  tâm: Khác") 표시.
+- [src/index.css](src/index.css): `.jm-view-toggle*`/`.jm-urgent-toolbar__delete`/
+  `.jm-select-all-row`/`.jm-table-row-actions`/`.jm-urgent-table__title--muted`
+  신규 — 기존 `.jm-urgent-table*`/`.admin-table` 톤 그대로 확장, 새
+  디자인 패턴 발명 없음. 이 표들은 다른 `.jm-urgent-table*`처럼 다크모드
+  오버라이드 없음(기존 컨벤션 — 이 앱 다크모드는 카드류만 뒤집고 표 같은
+  요소는 라이트 톤 유지).
 
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과.
-- 로컬 dev 서버: `/ban-do`에서 JS로 합성한 `WheelEvent` 디스패치 →
-  타일 zoom level이 5→7로 실제로 바뀌는 것 확인. 공고 상세페이지
-  (`sb-4638`)에서 동일한 이벤트를 지도에 쐈을 때는 zoom level이
-  그대로(변화 없음) — 의도대로 상세페이지 지도만 휠줌 비활성 유지됨을
-  확인.
-- **Production 실측**: 처음엔 JS `WheelEvent` 합성 디스패치로 테스트했더니
-  타일이 안 바뀌어서(로컬과 다른 결과) 의아했는데, **원인은 실제 버그가
-  아니라 테스트 방법의 한계**였음 — 배포된 청크(`MapView-DldxTXxS.js`)를
-  직접 fetch해 `scrollWheelZoom` 문자열이 포함된 것으로 코드 반영은
-  확인됐고, 브라우저의 진짜 휠 입력을 흉내 내는 `computer` 도구의
-  `scroll` 액션(합성 JS 이벤트가 아니라 OS 레벨에 더 가까운 입력)으로
-  재시도하니 스크린샷상 베트남 전체 보기 → Gia Lai/Kon Tum 지역 단위로
-  실제 확대되는 것 확인됨. (교훈: Leaflet 휠줌은 `element.dispatchEvent
-  (new WheelEvent(...))`로는 신뢰성 있게 재현 안 될 수 있음 — 검증 시
-  `computer` 도구의 `scroll` 액션을 우선 쓸 것.)
+- 로컬 dev 서버에 실제 저장/열람/조건 데이터를 localStorage로 주입해
+  4개 페이지 전부 실측: 카드→표 전환, 체크박스 선택→"Xóa (N)" 카운트
+  반영→실제 삭제(저장 해제/열람기록 삭제) 확인, 맞춤 공고 표에서 북마크
+  버튼 클릭→`vgb_saved_job_ids`에 실제로 반영 확인, 모바일(375px)
+  가로 스크롤 정상, 다크모드 회귀 없음.
+- **버그 1건 발견·즉시 수정**: 체크박스 선택 기능이 없는 하위 구간
+  (예: 저장한 공고의 "Đã hết hạn" 섹션)에서 표 헤더의 "전체선택"
+  체크박스가 `onChange` 없이 `checked`만 있어 React 경고 + 클릭해도
+  아무 반응 없는 죽은 체크박스로 남던 것 — `onToggleAll`을 실제로 넘긴
+  경우에만 헤더 체크박스 자체를 렌더하도록 수정, 재검증으로 경고 사라짐
+  확인(새 탭에서 콘솔 완전히 깨끗함 확인).
+- **Production 실측 완료**: `viecganban.vn`의 4개 페이지(`/viec-lam/da-luu`,
+  `/viec-lam/da-xem`, `/viec-lam/phu-hop`, `/viec-lam/goi-y`) 전부
+  실제 공고 데이터로 표 뷰 렌더 확인, "Việc làm đã lưu"에서 체크박스
+  선택→삭제까지 실제로 동작(총 2건→1건으로 줄어드는 것 확인). 콘솔에
+  새 에러 없음(기존 404 2건만). 테스트용으로 주입한 localStorage 값은
+  전부 정리함.
 
 ## 발견된 문제
 
-없음 — 위 "Production 실측" 항목의 초기 불일치는 실제 버그가 아니라
-브라우저 자동화 테스트 방법의 한계였음이 재확인으로 밝혀짐.
+없음 — 위에서 발견한 체크박스 경고는 같은 라운드에 수정·재검증 완료.
 
 ## 다음 결정사항
 
-- 사용자가 실기기(휴대폰/PC)로 `/ban-do`의 "Trong 5km"/"Trong 10km"
-  주변 탐색 버튼을 직접 눌러 위치 권한 허용 후 결과가 정상 표시되는지
-  최종 확인 필요(자동화 브라우저는 위치 권한을 자동 거부해 이 부분만
-  실사용자 확인 대기 중 — 바로 위 라운드에서 이미 안내함).
 - (낮은 우선순위, 아직 요청 안 됨) `index.css`에 예전 단순 버전
-  MapView.tsx가 쓰던 `.mapview__*` 죽은 CSS 규칙 22개가 남아있음 —
-  지금 정리 안 함, 필요하면 다음에.
+  MapView.tsx가 쓰던 `.mapview__*` 죽은 CSS 규칙 22개가 남아있음.
 - (별개 논의, 미정) 기업용 "인재 검색"(알바몬 "인재정보"에 해당) 기능
-  부재 — 이전 세션에 발견됐고 AskUserQuestion으로 두 번 물었으나 응답
-  없이 스킵됨. 사용자가 먼저 꺼내지 않으면 이쪽에서 다시 확인 필요.
+  부재 — AskUserQuestion으로 두 번 물었으나 응답 없이 스킵됨.
 - (별개 논의, 미정) korea_jobs 구조를 비엣간반 본체와 나중에 분리할
-  가능성이 있다고 사용자가 언급한 바 있음 — 앞으로 korea_jobs 관련
-  기능은 가능하면 로컬 상태/프론트 레벨에서 해결하고, 본체 DB 스키마와
-  깊게 엮는 선택은 분리 결정이 확정되기 전까진 지양할 것.
+  가능성 — korea_jobs 관련 기능은 가능하면 로컬 상태/프론트 레벨에서
+  해결하고, 본체 DB 스키마와 깊게 엮는 선택은 지양할 것.
