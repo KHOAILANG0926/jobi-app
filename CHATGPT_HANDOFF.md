@@ -3,15 +3,17 @@
 ## 현재 작업
 
 **Home에 "Việc làm nổi bật"(사람인 참고 추천 공고) 섹션 완료(2026-09-20,
-2라운드 수정 거침)**. 사람인(saramin.co.kr) "꼭 봐야 할 공고(플래티넘)"
+3라운드 수정 거침)**. 사람인(saramin.co.kr) "꼭 봐야 할 공고(플래티넘)"
 캐러셀 캡처를 보고 카드 디자인을 참고 — 1차로 사진이 크게 들어간 별도
 세로형 카드를 만들었으나, 사용자가 실제 화면을 보고 "이게 우리 기본틀이야
-이 틀을 지켜"(기존 캡처로 지금 쓰는 `JobCard` 틀 제시)로 정정. 최종적으로
+이 틀을 지켜"(기존 캡처로 지금 쓰는 `JobCard` 틀 제시)로 정정. 2차로
 **기존 JobCard를 그대로 쓰고 상단에 얇은 업직종 색줄만 추가**하는 형태로
-확정·배포 완료. 진행 중 "유치하다"/"진지한 사이트를 만들어야 한다" 지적으로
-이모지(🌟/💰)와 장황한 설명 문구도 함께 제거.
+바꾸고, "유치하다"/"진지한 사이트를 만들어야 한다" 지적으로 이모지(🌟/💰)와
+장황한 설명 문구도 제거. 3차로 실제 화면 보고 **① 색줄이 카드 모서리
+곡선보다 얇아서 흰 배경이 비치던 문제, ② 최신순 선택이라 카드가 거의 다
+같은 색(khac 카테고리 편중)으로 보이던 문제** 2건을 추가 수정.
 IMPLEMENTED → VERIFIED(로컬+Production 데스크톱/모바일, JS 실측) →
-MASTER PUSHED(`ecdde79`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
+MASTER PUSHED(`00a8eae`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
 
 ## 변경 내용
 
@@ -37,17 +39,27 @@ MASTER PUSHED(`ecdde79`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
   `.featured-job-wrap*` — `.home-brands__row`와 동일한 가로 스크롤 패턴
   재사용. **1차 버전에서 쓰던 `.featured-job-card*`(사진 큰 카드) 클래스
   일체 삭제**.
+- **(3차 수정)** `.featured-job-wrap__bar` 높이를 2.5px→**10px**로(`.jc`의
+  `border-radius: 10px`와 정확히 맞춤 — 색줄이 카드 radius보다 얇으면
+  모서리 곡선 중간에서 색이 끊겨 흰 배경이 비쳐 보였음).
+  `FeaturedJobsSection.tsx`의 `selectFeaturedJobs()`를 단순 최신순
+  8개에서 **업직종마다 최신 1건씩 우선 채우고 남는 자리만 최신순으로
+  채우는 방식**으로 변경(실측: DB 최신 10건 중 8건이 'khac' 카테고리라
+  단순 최신순으로는 카드 색이 거의 다 똑같아 보였음).
 
 ## 테스트 결과
 
 - `npx tsc --noEmit` 클린, `npm run build` 성공, `npm test` 6/6 파일 통과
-  (1차·2차 버전 둘 다 각각 확인).
+  (1차·2차·3차 버전 매번 각각 확인).
 - 로컬+Production 둘 다 브라우저로 확인: 카드가 기존 JobCard 모양(로고/
   태그/제목/급여/"Xem chi tiết") 그대로, 상단에만 업직종별 색줄 표시.
-  JS로 실측 — `barHeight: 2.5px`, `gap: 0`(카드에 딱 붙음), 배경이 실제
-  `linear-gradient` 확인. `headingText`에 이모지 없음, 급여 설명 배너
-  DOM에서 완전히 사라짐(`salaryBannerExists: false`) Production 재확인.
-  1440px 데스크톱/375px 모바일 레이아웃 둘 다 확인.
+  JS로 실측 — `headingText`에 이모지 없음, 급여 설명 배너 DOM에서 완전히
+  사라짐(`salaryBannerExists: false`) Production 재확인. 1440px 데스크톱/
+  375px 모바일 레이아웃 둘 다 확인.
+- **(3차 수정 재확인)** Production JS 실측 — 카드 8개 전부
+  `barHeight: 10px`(카드 radius와 일치), `new Set(colors).size === 8`
+  (전부 서로 다른 색) 확인. 스크린샷으로 모서리 곡선이 흰 배경 비침 없이
+  깔끔하게 색으로 덮이는 것도 확인.
 
 ## 발견된 문제
 
