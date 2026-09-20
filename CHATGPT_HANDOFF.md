@@ -3,14 +3,15 @@
 ## 현재 작업
 
 **Home에 "Việc làm nổi bật"(사람인 참고 추천 공고) 섹션 완료(2026-09-20,
-5라운드 수정 거침 — 아래 "변경 내용"에 라운드별 정리)**.
+6라운드 수정 거침 — 아래 "변경 내용"에 라운드별 정리)**.
 IMPLEMENTED → VERIFIED(로컬+Production 데스크톱/모바일, JS 실측) →
-MASTER PUSHED(`d0e2367`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
+MASTER PUSHED(`ab87ca5`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
 
 **최종 결과물**: 기존 `JobCard` 컴포넌트를 그대로 재사용(수정 안 함)하고,
-카드 **상단(+모서리 곡선까지)에만** 절대위치 막대(높이 2.75px)로 얇은
-색줄을 얹는다(카드 4면 전체를 감싸는 테두리가 **아님** — 4차에서 잘못
-바꿨다가 5차에서 재정정됨). 색은 업직종별 3단 그라데이션
+카드 **상단(+모서리 곡선까지)에만** 절대위치 막대(높이 **10px** — `.jc`의
+`border-radius`와 정확히 맞춰 곡선 전체를 덮음)로 얇은 색줄을 얹는다
+(카드 4면 전체를 감싸는 테두리가 **아님** — 4차에서 잘못 바꿨다가 5차에서
+재정정됨). 색은 업직종별 3단 그라데이션
 (`CATEGORY_COLORS`, 다른 색상까지 걸치는 뚜렷한 전환). 선택 로직은
 업직종마다 최신 1건씩 우선 채워 카드 색이 실제로 다양하게 보이게 함.
 이모지·장식 문구 없음(진지한 톤 유지). Home 화면 전용.
@@ -37,12 +38,17 @@ MASTER PUSHED(`d0e2367`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
    **그라데이션이 다른 색상까지 걸치도록 뚜렷해야 한다**고 지적 —
    `CATEGORY_COLORS`를 2단(같은 색 계열 밝기만 다름)에서 3단(다른 색상
    까지 걸침) 그라데이션으로 재정의(이 부분은 5차에서도 유지됨).
-5. **5차(최종)**: 사용자가 "상단에서 꺾이는 부분이라고 초반에 얘기했잖아"
-   로 4차의 "4면 전체 테두리" 해석이 틀렸음을 재확인 — **상단(+모서리
+5. **5차**: 사용자가 "상단에서 꺾이는 부분이라고 초반에 얘기했잖아"로
+   4차의 "4면 전체 테두리" 해석이 틀렸음을 재확인 — **상단(+모서리
    곡선까지)만**이 맞는 해석이었음. 4면 감싸는 방식을 버리고 다시 상단
    전용 절대위치 막대로 되돌림. 높이는 "현재 기준 10% 높게" 지시대로
-   2.5px → 2.75px. `CATEGORY_COLORS`(3단 그라데이션)는 이 컴포넌트
-   하나에서만 쓰여(grep 확인) 다른 화면 영향 없음.
+   2.5px → 2.75px.
+6. **6차(최종)**: 사용자가 "좋아, 하지만... 굴곡있는 부분 거기까지
+   색칠해줘"로 2.75px가 여전히 `.jc`의 `border-radius`(10px)보다 얇아
+   곡선을 다 못 덮는다고 지적 — 높이를 radius와 정확히 같은 **10px**로
+   맞춰 곡선 전체가 색으로 덮이도록 최종 확정. `CATEGORY_COLORS`(3단
+   그라데이션)는 이 컴포넌트 하나에서만 쓰여(grep 확인) 다른 화면 영향
+   없음.
 
 **관련 파일**: [components/FeaturedJobsSection.tsx](src/components/FeaturedJobsSection.tsx),
 [pages/Home.tsx](src/pages/Home.tsx), [data/categories.ts](src/data/categories.ts)
@@ -54,9 +60,12 @@ MASTER PUSHED(`d0e2367`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
   `npm test` 6/6 파일 통과 재확인.
 - 4차 Production JS 실측(이후 5차에서 폐기됨): `.featured-job-wrap`의
   `backgroundImage`가 3단 그라데이션 padding-box/border-box로 적용됨 확인.
-- **최종(5차) Production JS 실측**: `.featured-job-wrap__bar` 실제
-  존재(`barExists: true`), 높이 `2.75px`, `.featured-job-wrap` 자체는
-  `borderWidth: 0px`(4차의 4면 테두리가 남아있지 않음) 확인.
+- 5차 Production JS 실측(이후 6차에서 높이만 조정됨): `.featured-job-wrap__bar`
+  실제 존재, 높이 `2.75px`, `.featured-job-wrap` 자체는 `borderWidth: 0px`
+  (4차의 4면 테두리가 남아있지 않음) 확인.
+- **최종(6차) Production JS 실측**: `.featured-job-wrap__bar` 높이
+  `10px` 확인 — 스크린샷으로 카드 모서리 곡선이 흰 배경 비침 없이
+  끝까지 색으로 덮이는 것도 확인.
 
 ## 발견된 문제
 
