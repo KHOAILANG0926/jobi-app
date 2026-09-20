@@ -2726,6 +2726,25 @@ a:hover {
   color: var(--color-muted);
 }
 
+.auth-page__forgot {
+  margin: -0.5rem 0 0;
+  text-align: right;
+  font-size: 0.82rem;
+}
+
+.post-job-manage-link {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+.post-job-manage-link .field__input {
+  flex: 1;
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
 /* ── Zalo login button ── */
 .auth-divider {
   display: flex;

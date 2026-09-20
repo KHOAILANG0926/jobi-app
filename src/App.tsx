@@ -19,6 +19,9 @@ const PostJob = lazy(() => import('./pages/PostJob').then((module) => ({ default
 const Profile = lazy(() => import('./pages/Profile').then((module) => ({ default: module.Profile })))
 const SalaryCalculator = lazy(() => import('./pages/SalaryCalculator').then((module) => ({ default: module.SalaryCalculator })))
 const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })))
+const ManageGuestJob = lazy(() => import('./pages/ManageGuestJob'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const KoreaHome = lazy(() => import('./pages/KoreaHome'))
 const KoreaJobs = lazy(() => import('./pages/KoreaJobs'))
 const KoreaJobDetail = lazy(() => import('./pages/KoreaJobDetail'))
@@ -61,7 +64,8 @@ export default function App() {
                 <Route path="/viec-lam/goi-y" element={lazyRoute(<SuggestedJobsPage />)} />
                 <Route path="/viec-lam/tuyen-gap" element={lazyRoute(<UrgentJobsPage />)} />
                 <Route path="/viec-lam/:id" element={lazyRoute(<JobDetail />)} />
-                <Route path="/dang-tin" element={<RequireEmployer>{lazyRoute(<PostJob />)}</RequireEmployer>} />
+                <Route path="/dang-tin" element={lazyRoute(<PostJob />)} />
+                <Route path="/quan-ly-tin/:id" element={lazyRoute(<ManageGuestJob />)} />
                 <Route path="/ho-so" element={lazyRoute(<Profile />)} />
                 <Route path="/tinh-luong" element={lazyRoute(<SalaryCalculator />)} />
                 <Route path="/cong-cu" element={lazyRoute(<ToolsHub />)} />
@@ -77,6 +81,8 @@ export default function App() {
                 <Route path="/cong-dong/:id" element={lazyRoute(<CommunityPostDetail />)} />
                 <Route path="/dang-nhap" element={lazyRoute(<Login />)} />
                 <Route path="/dang-ky" element={lazyRoute(<Signup />)} />
+                <Route path="/quen-mat-khau" element={lazyRoute(<ForgotPassword />)} />
+                <Route path="/dat-lai-mat-khau" element={lazyRoute(<ResetPassword />)} />
                 <Route path="/ban-do" element={lazyRoute(<MapView />)} />
                 <Route path="/viec-han-quoc" element={lazyRoute(<KoreaHome />)} />
                 <Route path="/viec-han-quoc/tim-viec" element={lazyRoute(<KoreaJobs />)} />

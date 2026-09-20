@@ -18,7 +18,10 @@ interface JobsContextValue {
   loading: boolean
   jobsError: boolean
   refreshJobs: () => Promise<void>
-  addPostedJob: (job: Omit<Job, 'id' | 'postedAt'>) => Promise<Job>
+  /** guestManageToken이 있으면 employerId 없이(비로그인 게스트 등록) 저장한다 —
+   *  20260920120000_local_jobs_guest_posting.sql의 local_jobs_guest_insert
+   *  정책이 "employer_id is null AND guest_manage_token is not null"만 허용. */
+  addPostedJob: (job: Omit<Job, 'id' | 'postedAt'> & { guestManageToken?: string }) => Promise<Job>
   deleteJob: (id: string) => Promise<void>
   updateJob: (id: string, patch: Partial<Job>) => Promise<void>
 }
@@ -125,7 +128,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
 
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])
 
-  const addPostedJob = useCallback(async (draft: Omit<Job, 'id' | 'postedAt'>) => {
+  const addPostedJob = useCallback(async (draft: Omit<Job, 'id' | 'postedAt'> & { guestManageToken?: string }) => {
     const draftForPolicy = ensureJobFields({
       ...draft,
       id: 'draft',
@@ -154,6 +157,10 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         lat: draft.lat ?? null,
         lng: draft.lng ?? null,
         employer_id: draft.employerId ?? null,
+        // 2026-09-20 "등록 없이 빠르게 게시" — 비로그인 게스트 등록은
+        // employer_id 없이 guest_manage_token만으로 온다(local_jobs_guest_insert
+        // RLS가 이 조합만 anon INSERT를 허용). 로그인 경로는 항상 undefined.
+        guest_manage_token: draft.guestManageToken ?? null,
         origin: 'employer',
         admin_hidden: false,
         active: true,
@@ -172,7 +179,11 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         labor_contract_pledge: draft.laborContractPledge ?? null,
         social_insurance_pledge: draft.socialInsurancePledge ?? null,
       })
-      .select()
+      // guest_manage_token 컬럼은 anon/authenticated 양쪽 다 컬럼 단위로 SELECT가
+      // REVOKE돼 있다(마이그레이션 참고) — bare .select()(=select=*)로 반환받으면
+      // 막 INSERT한 이 요청 본인한테까지도 권한 오류가 날 수 있어, 공개 목록
+      // 조회(fetchJobs)와 동일한 안전한 컬럼 목록만 명시적으로 돌려받는다.
+      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,source_url,recruitment_regions')
       .single()
 
     if (error || !data) throw new Error(error?.message ?? 'Đăng tin thất bại')

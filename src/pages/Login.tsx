@@ -93,6 +93,9 @@ export function Login() {
           placeholder="••••••••"
           autoComplete="current-password"
         />
+        <p className="auth-page__forgot">
+          <Link to="/quen-mat-khau" className="text-link">Quên mật khẩu?</Link>
+        </p>
 
         <PasswordField
           label="Xác nhận mật khẩu *"
