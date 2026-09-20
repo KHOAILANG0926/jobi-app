@@ -44,9 +44,16 @@ interface JobLocationMapProps {
    *  locations for one job posting). Optional and additive — omitting it keeps
    *  the original single-marker behavior exactly as before. */
   extraMarkers?: JobLocationMapMarker[]
+  /** 2026-09-20 사용자 지시("마우스 올려서 휠 올리면 줌인/내리면 줌아웃")
+   *  — 기본값 false 유지. JobDetail/KoreaJobDetail처럼 지도가 페이지
+   *  본문 흐름 중간에 작게 끼어있는 곳에서 켜면, 사용자가 페이지를
+   *  스크롤하다가 커서가 지도 위를 지나는 순간 스크롤이 아니라 지도
+   *  줌으로 먹혀버리는("scroll jail") 문제가 생긴다 — /ban-do처럼 지도가
+   *  전용 화면의 주 콘텐츠인 곳에서만 명시적으로 켠다. */
+  scrollWheelZoom?: boolean
 }
 
-export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarkers }: JobLocationMapProps) {
+export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarkers, scrollWheelZoom = false }: JobLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<L.Map | null>(null)
   const [tileError, setTileError] = useState(false)
@@ -54,7 +61,7 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
   useEffect(() => {
     if (!mapRef.current) return
     setTileError(false)
-    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], zoom)
+    const map = L.map(mapRef.current, { scrollWheelZoom }).setView([lat, lng], zoom)
     const geoapifyKey = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
     const tiles = L.tileLayer(
       `https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=${geoapifyKey ?? ''}`,
@@ -120,7 +127,7 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
       map.remove()
       mapInst.current = null
     }
-  }, [lat, lng, title, zoom, extraMarkers])
+  }, [lat, lng, title, zoom, extraMarkers, scrollWheelZoom])
 
   if (tileError) {
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>

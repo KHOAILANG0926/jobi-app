@@ -275,6 +275,7 @@ export default function MapView() {
               lng={userCoords?.lng ?? VIETNAM_CENTER.lng}
               title="Vị trí của bạn"
               zoom={userCoords ? 13 : 5}
+              scrollWheelZoom
               extraMarkers={!userCoords ? [] : [
                 { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
                 ...filtered.flatMap((j) => {
