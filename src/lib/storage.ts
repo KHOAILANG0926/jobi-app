@@ -45,7 +45,11 @@ export interface SeekerProfile {
 }
 
 export function hasStoredProfile(scope?: string): boolean {
-  return localStorage.getItem(scopedKey(PROFILE_KEY, scope)) !== null
+  try {
+    return localStorage.getItem(scopedKey(PROFILE_KEY, scope)) !== null
+  } catch {
+    return false
+  }
 }
 
 const defaultProfile: SeekerProfile = {

@@ -1,5 +1,17 @@
 {
   "rewrites": [
+    { "source": "/viec-lam/tuyen-gap", "destination": "/api/ssr" },
+    { "source": "/viec-lam/tim-kiem", "destination": "/api/ssr" },
+    { "source": "/viec-lam/:id((?!da-luu$|da-xem$|phu-hop$|goi-y$|tuyen-gap$|tim-kiem$).+)", "destination": "/api/ssr" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap.xml" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/ssr.js": {
+      "includeFiles": "dist/**"
+    },
+    "api/sitemap.xml.js": {
+      "includeFiles": "dist/**"
+    }
+  }
 }

@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dang-nhap
+Disallow: /dang-ky
+Disallow: /quen-mat-khau
+Disallow: /dat-lai-mat-khau
+Disallow: /bang-dieu-khien
+Disallow: /admin
+Disallow: /quan-ly-tin/
+Disallow: /ho-so
+Disallow: /viec-lam/da-luu
+Disallow: /viec-lam/da-xem
+Disallow: /viec-lam/phu-hop
+Disallow: /viec-lam/goi-y
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+Sitemap: https://viecganban.vn/sitemap.xml

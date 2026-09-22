@@ -11,10 +11,9 @@ import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/j
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { loadApplications } from '../lib/applicationsStorage'
 import { hasStoredCv } from '../lib/cvStorage'
-import { normalizeViText } from '../lib/jobCoords'
 import { loadSeekerInterviews } from '../lib/interviewStorage'
 import { loadThreads } from '../lib/messagesStorage'
-import { groupJobsForSalarySort } from '../lib/recommendStorage'
+import { computePreferredCategories, filterAndSortJobs } from '../lib/jobSearch'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -225,12 +224,7 @@ export function Home() {
   const [selectedCity, setSelectedCity] = useState<JobRegionId | null>(null)
   const [brandFilter, setBrandFilter] = useState<string | null>(null)
 
-  const [deadlineFilter] = useState<'all' | 'today' | 'week'>('all')
   const [activeRec] = useState<string | null>(null)
-  // include: title+company에서 하나라도 매칭 (OR)
-  // exclude: title에서 하나라도 매칭되면 제외
-  // cats: job.category가 목록에 있으면 include 없이 통과
-  const [recFilter] = useState<{ include: string[]; exclude: string[]; cats: string[] } | null>(null)
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -313,82 +307,19 @@ export function Home() {
 
 
 
-  // "Làm hôm nay" — no dedicated DB field for immediate-start/day-work postings,
-  // so approximate via Vietnamese phrasing commonly used for these listings.
-  const TODAY_KEYWORDS = ['lam ngay', 'di lam ngay', 'nhan viec ngay', 'viec lam ngay', 'ngay hom nay', 'nhan lam ngay']
-  const isTodayJob = useCallback((j: Job) => {
-    const text = normalizeViText(`${j.title} ${j.description ?? ''} ${j.hours ?? ''} ${j.workPeriod ?? ''}`)
-    return TODAY_KEYWORDS.some((kw) => text.includes(kw))
-  }, [])
-
   // "Gợi ý cho bạn" — no popularity/click-count field, so: logged-in users get jobs
   // matching the categories they've saved/applied to ranked first; everyone else
   // (and logged-in users with no history yet) falls back to hireCount desc as a
   // "nhiều vị trí đang cần tuyển" popularity proxy.
-  const preferredCategories = useMemo(() => {
-    const cats = new Map<JobCategory, number>()
-    for (const j of jobs) {
-      if (savedIds.has(j.id) || appliedIds.has(j.id)) {
-        cats.set(j.category, (cats.get(j.category) ?? 0) + 1)
-      }
-    }
-    return cats
-  }, [jobs, savedIds, appliedIds])
+  const preferredCategories = useMemo(
+    () => computePreferredCategories(jobs, savedIds, appliedIds),
+    [jobs, savedIds, appliedIds],
+  )
 
-  const filtered = useMemo(() => {
-    const q = normalizeViText(search)
-    const now = new Date()
-    const todayStr = now.toISOString().slice(0, 10)
-    const weekLater = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10)
-    let result = jobs.filter((j) => {
-      if (category !== 'all') {
-        if (j.category !== category) return false
-        if (subcategory && j.subcategory !== subcategory) return false
-      }
-      if (urgentOnly && !j.urgent) return false
-      if (todayOnly && !isTodayJob(j)) return false
-      if (selectedCity && !jobMatchesRegion(j.location, selectedCity, j.workLocations)) return false
-      if (brandFilter) {
-        const nb = normalizeViText(brandFilter)
-        // 프랜차이즈 매장은 회사명이 운영사(예: Wincommerce)로 등록되고
-        // 브랜드명은 공고 제목에만 나오는 경우가 많아 title도 함께 검사
-        const matches = normalizeViText(j.company).includes(nb) || normalizeViText(j.title).includes(nb)
-        if (!matches) return false
-      }
-      if (q && !normalizeViText(`${j.title} ${j.company} ${j.location}`).includes(q)) return false
-      if (recFilter) {
-        const titleCo = normalizeViText(`${j.title} ${j.company}`)
-        // category 목록에 있으면 자동 통과, 아니면 include 키워드 확인
-        const catPass = recFilter.cats.includes(j.category)
-        const includePass = catPass || recFilter.include.some(kw => titleCo.includes(kw))
-        if (!includePass) return false
-        // exclude 키워드가 title에 있으면 제외
-        if (recFilter.exclude.some(kw => titleCo.includes(kw))) return false
-      }
-      if (deadlineFilter !== 'all' && j.applicationDeadline) {
-        if (deadlineFilter === 'today' && j.applicationDeadline > todayStr) return false
-        if (deadlineFilter === 'week' && j.applicationDeadline > weekLater) return false
-      }
-      return true
-    })
-    if (sortMode === 'salary') {
-      // 2026-09-14: 근거 없는 월↔시급/통화 환산으로 하나의 "고액" 순위를
-      // 만들지 않는다 — 같은 통화·같은 지급 주기 집단 안에서만 정렬하고,
-      // 집단은 표본이 많은 순으로 이어 붙인다(집단 간 우열 비교 아님).
-      // 협의/건당/금액 미상은 맨 뒤로 분리(고액 판정에서 제외) — 원래 salary
-      // 텍스트("Thỏa thuận" 등)가 이미 그 상태를 보여준다.
-      const { groups, unpriced } = groupJobsForSalarySort(result)
-      result = [...groups.flatMap((g) => g.jobs), ...unpriced]
-    } else if (sortMode === 'recommended') {
-      result = [...result].sort((a, b) => {
-        const aMatch = preferredCategories.has(a.category) ? 1 : 0
-        const bMatch = preferredCategories.has(b.category) ? 1 : 0
-        if (aMatch !== bMatch) return bMatch - aMatch
-        return (b.hireCount ?? 0) - (a.hireCount ?? 0)
-      })
-    }
-    return result
-  }, [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, isTodayJob, selectedCity, deadlineFilter, recFilter, sortMode, preferredCategories])
+  const filtered = useMemo(
+    () => filterAndSortJobs(jobs, { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
+    [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
+  )
 
 
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])

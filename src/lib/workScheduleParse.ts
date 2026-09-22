@@ -49,6 +49,17 @@ const DAY_TOKENS: [RegExp, DayCode][] = [
 
 const NGHI_RE = /\bnghi\b/g
 
+// 2026-09-22 실제 DB 재현 사례로 발견된 버그 수정 — "nghỉ chiều Thứ 7, Chủ
+// nhật"처럼 "nghỉ" 뒤에 시간대 단어(chiều)와 콤마로 이어지는 요일 목록이
+// 오면, 기존의 "nghỉ로부터 15글자 이내" 고정 거리 방식은 두 번째 요일
+// (Chủ nhật)가 15글자를 넘어가 버려 부정 처리가 빠졌었다("nghỉ ngày Chủ
+// nhật"처럼 짧은 경우만 우연히 맞았음). 고정 거리 대신, "nghỉ" 뒤에서
+// 요일 토큰을 하나씩 순서대로 따라가며 그 사이(gap)가 콤마/공백/"và"(and)/
+// "ngày"(day)/시간대 단어(chiều/sáng/tối/đêm)로만 이루어진 동안은 계속
+// 부정 목록에 포함시키고, 그 외의 실제 내용이 끼면 그 nghỉ 절은 거기서
+// 끊는다(다른 문장의 요일까지 잘못 부정하지 않기 위함).
+const NGHI_CONNECTOR_RE = /^[\s,-]*((va|ngay|chieu|sang|toi|dem)[\s,-]*)*$/
+
 /** work_days 자유 문장에서 요일 집합을 뽑는다. "A đến B" 형태는 그 사이
  * 모든 요일로 채우고, "nghỉ X" 근처의 요일은 제외한다. 요일 언급이 전혀
  * 없으면 빈 Set(억지로 추측하지 않음). */
@@ -57,12 +68,12 @@ export function parseWorkDays(text: string | null | undefined): Set<DayCode> {
   if (!text) return result
   const norm = normalizeKeepingPunctuation(text)
 
-  const found: { index: number; day: DayCode }[] = []
+  const found: { index: number; end: number; day: DayCode }[] = []
   for (const [re, day] of DAY_TOKENS) {
     re.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = re.exec(norm))) {
-      found.push({ index: m.index, day })
+      found.push({ index: m.index, end: m.index + m[0].length, day })
       if (m.index === re.lastIndex) re.lastIndex++
     }
   }
@@ -72,11 +83,18 @@ export function parseWorkDays(text: string | null | undefined): Set<DayCode> {
   const nghiPositions: number[] = []
   NGHI_RE.lastIndex = 0
   let nm: RegExpExecArray | null
-  while ((nm = NGHI_RE.exec(norm))) nghiPositions.push(nm.index)
+  while ((nm = NGHI_RE.exec(norm))) nghiPositions.push(nm.index + nm[0].length)
 
   const negated = new Set<DayCode>()
-  for (const f of found) {
-    if (nghiPositions.some((p) => f.index > p && f.index - p < 15)) negated.add(f.day)
+  for (const nghiEnd of nghiPositions) {
+    let cursor = nghiEnd
+    for (const f of found) {
+      if (f.index < cursor) continue
+      const gap = norm.slice(cursor, f.index)
+      if (!NGHI_CONNECTOR_RE.test(gap)) break
+      negated.add(f.day)
+      cursor = f.end
+    }
   }
 
   for (let i = 0; i < found.length; i++) {
@@ -117,17 +135,71 @@ function bucketForHour(h: number): TimeBucket {
   return 'dem'
 }
 
+// 2026-09-22 실제 DB 재현 사례로 발견된 버그 수정 — "8:00 – 17:00"(순수
+// 주간 근무)처럼 종료 시각이 정각으로 "저녁(tối, 17~22시)" 경계에 딱
+// 걸리는 공고가, 예전엔 시작/종료 시각을 각각 독립적으로 버킷 판정해서
+// "저녁에도 일한다"로 오탐 처리됐었다(실제 활성 공고 4450/4426/4482/4525/
+// 4517 등 "8:00-17:00"류 순수 주간 근무 다수가 재현됨). 종료 시각이 정각
+// (분=0)이면 그 시각 자체는 근무 종료 시점이지 근무 시간이 아니므로
+// 제외하고, 분이 남아있으면(예: 17h30) 그만큼은 실제로 그 버킷에 걸쳐
+// 있으므로 포함한다. "X - Y"/"X đến Y" 형태로 짝지어진 두 시각만 이
+// 규칙을 적용하고, 짝이 안 되는 단독 시각 언급은 기존처럼 그 시각 자체의
+// 버킷만 더한다.
+const RANGE_CONNECTOR_RE = /^\s*(-|–|—|đến)\s*$/i
+
+function bucketsForRange(startHour: number, endHour: number, endMinute: number): TimeBucket[] {
+  const buckets = new Set<TimeBucket>()
+  if (startHour === endHour && endMinute === 0) {
+    // "8h-8h"처럼 사실상 구간이 없는 표기(드묾) — 시작 시각 하나만.
+    buckets.add(bucketForHour(startHour))
+    return [...buckets]
+  }
+  // 분이 남아 있으면 종료 시각 버킷까지 포함, 정각이면 그 직전 시각까지만
+  // (자정을 넘는 구간은 24로 모듈러 연산).
+  const inclusiveEnd = endMinute > 0 ? endHour : (endHour - 1 + 24) % 24
+  let h = startHour
+  let guard = 0
+  while (guard++ < 25) {
+    buckets.add(bucketForHour(h))
+    if (h === inclusiveEnd) break
+    h = (h + 1) % 24
+  }
+  return [...buckets]
+}
+
 /** hours 자유 문장에서 실제 시계 시각(예: "8h00", "17:30")이 있는 것만
  * 인식해 시간대로 묶는다. "8 tiếng/ngày"처럼 기간 표현이거나 시각이 아예
  *없으면 빈 Set — 절대 추측으로 채우지 않는다. */
 export function parseWorkHourBuckets(text: string | null | undefined): Set<TimeBucket> {
   const result = new Set<TimeBucket>()
   if (!text) return result
-  const re = /(\d{1,2})[h:](\d{2})?/g
+  const timeRe = /(\d{1,2})[h:](\d{2})?/g
+  const times: { index: number; end: number; hour: number; minute: number }[] = []
   let m: RegExpExecArray | null
-  while ((m = re.exec(text))) {
-    const h = parseInt(m[1], 10)
-    if (h >= 0 && h <= 24) result.add(bucketForHour(h))
+  while ((m = timeRe.exec(text))) {
+    const rawHour = parseInt(m[1], 10)
+    if (rawHour < 0 || rawHour > 24) continue
+    times.push({
+      index: m.index,
+      end: m.index + m[0].length,
+      hour: rawHour === 24 ? 0 : rawHour,
+      minute: m[2] ? parseInt(m[2], 10) : 0,
+    })
+  }
+
+  const consumed = new Set<number>()
+  for (let i = 0; i < times.length - 1; i++) {
+    if (consumed.has(i)) continue
+    const a = times[i]
+    const b = times[i + 1]
+    if (!RANGE_CONNECTOR_RE.test(text.slice(a.end, b.index))) continue
+    consumed.add(i)
+    consumed.add(i + 1)
+    for (const bucket of bucketsForRange(a.hour, b.hour, b.minute)) result.add(bucket)
+  }
+  for (let i = 0; i < times.length; i++) {
+    if (consumed.has(i)) continue
+    result.add(bucketForHour(times[i].hour))
   }
   return result
 }

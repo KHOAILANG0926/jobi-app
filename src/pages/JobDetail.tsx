@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
   Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
 } from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
-import JobLocationMap from '../components/JobLocationMap'
+import type { JobLocationMapProps } from '../components/JobLocationMap'
 import { MessageEmployerModal } from '../components/MessageEmployerModal'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
@@ -39,6 +39,35 @@ const BENEFIT_CHIP_RULES: { label: string; re: RegExp }[] = [
   { label: 'Du lịch', re: /du lịch/i },
   { label: 'Nghỉ phép', re: /nghỉ phép/i },
 ]
+
+// 2026-09-22 실제 브라우저로 hydration을 검증하다가 발견 — React.lazy()+
+// Suspense로 지도를 감싸는 건 SSR에 안 맞았다. entry-server.tsx는
+// renderToString(구식 동기 API)을 쓰는데, 이 API는 "아직 안 끝난
+// Suspense"를 아예 지원하지 않아서(공식 에러 메시지: "The server used
+// renderToString which does not support Suspense" — renderToPipeableStream
+// 같은 스트리밍 API에서만 지원됨) fallback을 얌전히 보여주는 대신 그
+// 자리를 "에러난 경계"로 취급해버렸다. 그 결과 (1) hydration이 페이지
+// 전체 단위로 깨지고(React error #418/#423, 브라우저 DOM diff로 실측)
+// (2) 에러 마커 안에 서버 파일 절대경로가 담긴 스택 트레이스가 그대로
+// 공개 HTML에 노출되는 문제까지 있었다(curl로 직접 확인). Suspense/lazy를
+// 아예 안 쓰고, "클라이언트에서 마운트된 뒤에만 실제로 import하는" 평범한
+// useEffect 패턴으로 바꿨다 — 서버는 이 컴포넌트를 null로 완결 렌더하고
+// (에러도 미완료 경계도 아님), 클라이언트도 최초 hydration 순간엔 똑같이
+// null이었다가(같은 구조라 mismatch 없음) 그 다음 effect에서 실제 지도로
+// 바뀐다.
+function ClientOnlyMap(props: JobLocationMapProps) {
+  const [Comp, setComp] = useState<ComponentType<JobLocationMapProps> | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    import('../components/JobLocationMap').then((mod) => {
+      if (!cancelled) setComp(() => mod.default)
+    })
+    return () => { cancelled = true }
+  }, [])
+  if (!Comp) return null
+  const Map = Comp
+  return <Map {...props} />
+}
 
 function DescriptionRenderer({ text }: { text: string }) {
   if (text.startsWith('http')) return null
@@ -397,7 +426,13 @@ export function JobDetail() {
             </button>
           </div>
 
-          {activeTab === 'info' && <>
+          {/* hidden(조건부 렌더 아님) — JS 없이 HTML만 읽는 크롤러(GPT 검색 등)도
+              탭 뒤에 숨은 mô tả/공고 텍스트를 그대로 받을 수 있어야 한다(SSR
+              renderToString은 한 번에 activeTab 하나만 렌더하므로, 조건부
+              렌더로 두면 나머지 두 탭 내용이 크롤러에게 영원히 안 보임).
+              시각적으로는 기존과 동일(비활성 탭은 display:none), 클릭 동작도
+              그대로(activeTab만 바뀜) — UI/동작 변경 없음. */}
+          <div className="jd2-tabpanel" hidden={activeTab !== 'info'}>
 
           {/* ── Recruitment info (merged) ── */}
           <div className="jd2-card">
@@ -541,7 +576,7 @@ export function JobDetail() {
                       resolveMapLocations()가 이미 우선순위대로 골라준 점들이다. */}
                   {hasMapPoints && mapCenter && (
                     <>
-                      <JobLocationMap
+                      <ClientOnlyMap
                         lat={mapCenter.lat}
                         lng={mapCenter.lng}
                         title={job.title}
@@ -586,9 +621,9 @@ export function JobDetail() {
             </div>
           )}
 
-          </>}
+          </div>
 
-          {activeTab === 'desc' && <>
+          <div className="jd2-tabpanel" hidden={activeTab !== 'desc'}>
 
           {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
           {job.description && !job.description.startsWith('http') ? (
@@ -601,9 +636,9 @@ export function JobDetail() {
             </div>
           )}
 
-          </>}
+          </div>
 
-          {activeTab === 'company' && <>
+          <div className="jd2-tabpanel" hidden={activeTab !== 'company'}>
 
           {/* ── Company info ── */}
           {hasCompanyInfo && (
@@ -639,7 +674,7 @@ export function JobDetail() {
 
           <CompanyReviews company={job.company} />
 
-          </>}
+          </div>
         </div>
 
         {/* ── Sidebar ── */}

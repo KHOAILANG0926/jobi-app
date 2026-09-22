@@ -67,6 +67,28 @@ function sameSet<T>(a: Set<T>, items: T[]): boolean {
   return a.size === items.length && items.every((x) => a.has(x))
 }
 
+// URL 쿼리스트링 ↔ 필터 상태 직렬화 — 직접 접속/새로고침/뒤로가기 시
+// 조건과 결과가 그대로 유지돼야 하고(사용자 지시), entry-server.tsx가
+// StaticRouter에 이 URL을 그대로 넘기므로 SSR도 같은 초기값을 읽어 클라이언트와
+// 동일한 필터 결과를 렌더한다 — 이 함수들이 서버/클라이언트 필터 일치의
+// 근거다. 콤마는 통제된 값(카테고리 id, 동/사 이름, 요일 코드 등)에만 쓰고,
+// 자유 텍스트인 키워드는 콤마가 값 자체에 들어있을 수 있어 별도로 '|'를
+// 구분자로 쓴다(둘 다 자체적으로 포함할 여지가 없는 문자).
+function readCsvParam(sp: URLSearchParams, key: string): string[] {
+  const v = sp.get(key)
+  return v ? v.split(',').filter(Boolean) : []
+}
+function readCsvSetParam<T extends string>(sp: URLSearchParams, key: string): Set<T> {
+  return new Set(readCsvParam(sp, key) as T[])
+}
+function readNumberSetParam(sp: URLSearchParams, key: string): Set<number> {
+  return new Set(readCsvParam(sp, key).map(Number).filter((n) => !Number.isNaN(n)))
+}
+function readPipeListParam(sp: URLSearchParams, key: string): string[] {
+  const v = sp.get(key)
+  return v ? v.split('|').filter(Boolean) : []
+}
+
 /** 클릭하면 패널이 펼쳐지는 필터 드롭다운 — 급구 페이지의 4개 필터
  * (지역/업직종/근무기간/상세조건)가 전부 같은 틀을 쓴다. 패널 바깥을
  * 클릭하면 닫힌다.
@@ -165,15 +187,32 @@ export default function UrgentJobsPage() {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(
     () => searchParams.get('province') ?? null,
   )
-  const [selectedWards, setSelectedWards] = useState<Set<string>>(new Set())
+  const [selectedWards, setSelectedWards] = useState<Set<string>>(
+    () => readCsvSetParam(searchParams, 'wards'),
+  )
   // 2026-09-18 사용자 지시 — 2025년 개편으로 행정상 폐지된 옛 Quận/Huyện(구/현)을
   // 생활권 중간 탐색 단계로 복원(vnDistricts.ts, 통계총국 공식 legacy 변환표
   // 기반). 실제 필터는 여전히 성/시+동/사(selectedProvince/selectedWards)로만
   // 걸린다 — selectedDistrict는 오른쪽 Xã/Phường 열에 어느 구/현의 동만 보여줄지
   // 결정하는 순수 탐색용 상태이고, 선택 자체는 아니다(알바몬도 시/구/군 클릭은
   // 오른쪽 목록만 바꾸고 필터는 동/읍/면에서 확정됨).
-  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null)
-  const [categoryIds, setCategoryIds] = useState<Set<JobCategory>>(new Set())
+  // URL에 동/사가 이미 있으면(공유 링크/새로고침) 오른쪽 패널이 빈 "구/현을
+  // 먼저 선택하세요" 상태로 뜨지 않게, 첫 동/사가 속한 구/현을 탐색 상태로
+  // 미리 잡아둔다(필터 자체는 selectedWards가 이미 갖고 있어 이 값과 무관).
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(() => {
+    const province = searchParams.get('province')
+    const wards = readCsvParam(searchParams, 'wards')
+    if (!province || wards.length === 0) return null
+    const byDistrict = VN_WARDS_BY_DISTRICT[province]
+    if (!byDistrict) return null
+    for (const [district, districtWards] of Object.entries(byDistrict)) {
+      if (districtWards.includes(wards[0])) return district
+    }
+    return null
+  })
+  const [categoryIds, setCategoryIds] = useState<Set<JobCategory>>(
+    () => readCsvSetParam<JobCategory>(searchParams, 'category'),
+  )
   // 2026-09-17 사용자 지시("업종도 동일하게") — 대분류(카테고리)|소분류 2단
   // 구조로 재구성. activeCategoryForSub은 지금 오른쪽 열에 어느 대분류의
   // 소분류 목록을 보여줄지 결정하는 탐색 상태(선택 여부와 별개)이고,
@@ -181,22 +220,39 @@ export default function UrgentJobsPage() {
   // 대분류마다 겹칠 수 있어("thu_ngan"이 cafe/restaurant/retail에 모두 있음)
   // `${category}:${subId}` 복합키로 저장해 다른 대분류의 같은 이름 소분류와
   // 섞이지 않게 한다.
-  const [activeCategoryForSub, setActiveCategoryForSub] = useState<JobCategory | null>(null)
-  const [selectedSubcategoryKeys, setSelectedSubcategoryKeys] = useState<Set<string>>(new Set())
-  const [workPeriods, setWorkPeriods] = useState<Set<string>>(new Set())
+  const [selectedSubcategoryKeys, setSelectedSubcategoryKeys] = useState<Set<string>>(
+    () => readCsvSetParam(searchParams, 'subcat'),
+  )
+  // URL에 category/subcat이 있으면(공유 링크) 오른쪽 소분류 패널이 빈
+  // "먼저 선택하세요" 상태가 아니라 실제 선택된 대분류를 바로 보여준다.
+  const [activeCategoryForSub, setActiveCategoryForSub] = useState<JobCategory | null>(() => {
+    const first = readCsvParam(searchParams, 'category')[0] as JobCategory | undefined
+    if (first) return first
+    const firstSubKey = readCsvParam(searchParams, 'subcat')[0]
+    return (firstSubKey?.split(':')[0] as JobCategory | undefined) ?? null
+  })
+  const [workPeriods, setWorkPeriods] = useState<Set<string>>(
+    () => readCsvSetParam(searchParams, 'workPeriod'),
+  )
   // 2026-09-17 사용자 지시 — work_days/hours는 크롤러가 자유 문장으로 저장한
   // 값이라(workScheduleParse.ts 참고) 요일/시간대는 job마다 파싱해서 걸러야
   // 한다. 요일 7개·시간대 4개는 고정된 작은 집합이라(수천 개짜리 동/사와
   // 다름) 공고 존재 여부와 무관하게 항상 전부 보여준다(성/시와 같은 원칙).
-  const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(new Set())
-  const [selectedTimeBuckets, setSelectedTimeBuckets] = useState<Set<TimeBucket>>(new Set())
+  const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(
+    () => readCsvSetParam<DayCode>(searchParams, 'days'),
+  )
+  const [selectedTimeBuckets, setSelectedTimeBuckets] = useState<Set<TimeBucket>>(
+    () => readCsvSetParam<TimeBucket>(searchParams, 'timeBuckets'),
+  )
   // 2026-09-17 사용자 지시("한눈에 보이게") — 실제 알바몬 근무기간 패널은
   // 요일/시간대를 개별 선택뿐 아니라 자주 쓰는 조합(월-토/주말 등)과 주당
   // 근무일수(주N일)까지 한 화면에서 바로 고를 수 있게 해뒀다. 조합 프리셋은
   // 기존 selectedDays/selectedTimeBuckets를 그대로 세팅하는 UI 단축키일 뿐이라
   // 새 데이터가 필요 없고, 주당 근무일수는 parseWorkDays(job.workDays).size로
   // 실제 파싱 결과에서 바로 계산되는 값이라 이것도 진짜 데이터다.
-  const [selectedDayCounts, setSelectedDayCounts] = useState<Set<number>>(new Set())
+  const [selectedDayCounts, setSelectedDayCounts] = useState<Set<number>>(
+    () => readNumberSetParam(searchParams, 'dayCounts'),
+  )
   // 2026-09-18 사용자 지시("둘 다 가야지") — job_duration(알바몬 스타일
   // 근무기간 7구간, PostJob.tsx 직접등록 전용 컬럼) 추가. 크롤러 공고는
   // 채우지 않아 대부분 undefined일 걸 알고 진행 — CHATGPT_HANDOFF.md 참고.
@@ -205,7 +261,7 @@ export default function UrgentJobsPage() {
   // 패턴으로 URL(?duration=)에서 초기값을 읽는다(양방향 동기화는 안 함 —
   // 다른 필터들도 마찬가지로 진입 시점 프리셋 용도일 뿐).
   const [jobDurations, setJobDurations] = useState<Set<string>>(
-    () => { const d = searchParams.get('duration'); return d ? new Set([d]) : new Set() },
+    () => readCsvSetParam(searchParams, 'duration'),
   )
   // 2026-09-20 사용자 지시 — 헤더 "Theo điều kiện"에서 "자가서약(근로계약서/
   // BHXH) 기업 공고만" 보기로 바로 진입. labor_contract_pledge/
@@ -228,33 +284,79 @@ export default function UrgentJobsPage() {
   // 있다. "협의 제외" 자체는 그대로 베끼면 대응 데이터가 없는 가짜 필터가
   // 되므로, 같은 의도(정보가 불명확한 공고 제외)를 실제 데이터로 구현한다 —
   // workDays/hours가 비어있는(=일정 미기재) 공고를 제외하는 진짜 필터.
-  const [excludeUnspecifiedDays, setExcludeUnspecifiedDays] = useState(false)
-  const [excludeUnspecifiedHours, setExcludeUnspecifiedHours] = useState(false)
-  // "Điều kiện khác" 성별/연령 — local_jobs에 대응 컬럼이 없어 실제 필터링에는
-  // 반영 안 되는 UI 상태만(사용자 지시로 알바몬 캡처본 구조 그대로 추가).
-  // local_jobs.gender_requirement 값("Nam"/"Nữ")과 그대로 맞춘다 — 번역
-  // 레이어 없이 바로 비교(filtered useMemo 참고).
-  const [genderFilter, setGenderFilter] = useState<'Nam' | 'Nữ' | null>(null)
-  const [ageFilter, setAgeFilter] = useState('')
+  const [excludeUnspecifiedDays, setExcludeUnspecifiedDays] = useState(
+    () => searchParams.get('excludeDays') === '1',
+  )
+  const [excludeUnspecifiedHours, setExcludeUnspecifiedHours] = useState(
+    () => searchParams.get('excludeHours') === '1',
+  )
+  // "Điều kiện khác" 성별/연령 — local_jobs.gender_requirement 값("Nam"/"Nữ")과
+  // 그대로 맞춘다 — 번역 레이어 없이 바로 비교(filtered useMemo 참고).
+  const [genderFilter, setGenderFilter] = useState<'Nam' | 'Nữ' | null>(() => {
+    const g = searchParams.get('gender')
+    return g === 'Nam' || g === 'Nữ' ? g : null
+  })
+  const [ageFilter, setAgeFilter] = useState(() => searchParams.get('age') ?? '')
   const [categorySearch, setCategorySearch] = useState('')
   const [regionSearch, setRegionSearch] = useState('')
-  const [includeKeywords, setIncludeKeywords] = useState<string[]>([])
-  const [excludeKeywords, setExcludeKeywords] = useState<string[]>([])
+  const [includeKeywords, setIncludeKeywords] = useState<string[]>(
+    () => readPipeListParam(searchParams, 'include'),
+  )
+  const [excludeKeywords, setExcludeKeywords] = useState<string[]>(
+    () => readPipeListParam(searchParams, 'exclude'),
+  )
   const [includeDraft, setIncludeDraft] = useState('')
   const [excludeDraft, setExcludeDraft] = useState('')
-  const [sortMode, setSortMode] = useState<SortMode>('newest')
-  const [pageSize, setPageSize] = useState<number>(20)
+  const [sortMode, setSortMode] = useState<SortMode>(
+    () => (searchParams.get('sort') === 'deadline' ? 'deadline' : 'newest'),
+  )
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const n = Number(searchParams.get('pageSize'))
+    return PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number]) ? n : 20
+  })
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set(loadSavedJobIds(user?.id)))
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set())
 
+  // 필터 상태 → URL 통합 동기화. 직접 접속/새로고침/뒤로가기 시 조건과
+  // 결과가 그대로 유지돼야 한다는 요구사항의 핵심 — 이 effect 하나가 모든
+  // 필터를 URL에 반영하고(값이 기본값이면 파라미터 자체를 지워 URL을
+  // 깔끔하게 유지), 위의 각 useState 초기값이 그 반대 방향(URL → 상태)을
+  // 담당한다. entry-server.tsx가 StaticRouter에 동일한 URL을 그대로
+  // 넘기므로 SSR도 같은 결과를 렌더한다(서버/클라이언트 필터 일치의 근거).
+  // 기존 province만 동기화하던 effect를 여기로 통합했다.
   useEffect(() => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
-      if (!selectedProvince) next.delete('province')
-      else next.set('province', selectedProvince)
+      const setOrDelete = (key: string, value: string) => {
+        if (value) next.set(key, value)
+        else next.delete(key)
+      }
+      setOrDelete('province', selectedProvince ?? '')
+      setOrDelete('wards', [...selectedWards].join(','))
+      setOrDelete('category', [...categoryIds].join(','))
+      setOrDelete('subcat', [...selectedSubcategoryKeys].join(','))
+      setOrDelete('workPeriod', [...workPeriods].join(','))
+      setOrDelete('duration', [...jobDurations].join(','))
+      setOrDelete('pledge', pledgeOnly ? '1' : '')
+      setOrDelete('gender', genderFilter ?? '')
+      setOrDelete('age', ageFilter)
+      setOrDelete('days', [...selectedDays].join(','))
+      setOrDelete('dayCounts', [...selectedDayCounts].join(','))
+      setOrDelete('excludeDays', excludeUnspecifiedDays ? '1' : '')
+      setOrDelete('timeBuckets', [...selectedTimeBuckets].join(','))
+      setOrDelete('excludeHours', excludeUnspecifiedHours ? '1' : '')
+      setOrDelete('include', includeKeywords.join('|'))
+      setOrDelete('exclude', excludeKeywords.join('|'))
+      setOrDelete('sort', sortMode === 'deadline' ? 'deadline' : '')
+      setOrDelete('pageSize', pageSize === 20 ? '' : String(pageSize))
       return next
     }, { replace: true })
-  }, [selectedProvince, setSearchParams])
+  }, [
+    selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations,
+    pledgeOnly, genderFilter, ageFilter, selectedDays, selectedDayCounts, excludeUnspecifiedDays,
+    selectedTimeBuckets, excludeUnspecifiedHours, includeKeywords, excludeKeywords, sortMode, pageSize,
+    setSearchParams,
+  ])
 
   useEffect(() => {
     const sync = () => setSavedIds(new Set(loadSavedJobIds(user?.id)))

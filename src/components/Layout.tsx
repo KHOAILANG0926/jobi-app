@@ -539,7 +539,16 @@ export function Layout() {
               <strong>Việt Gần Bạn</strong>
             </p>
             <p className="footer-info__contact">
-              Email: support@viecganban.vn &nbsp;|&nbsp; Giờ làm việc: T2–T6, 09:00–18:00
+              {/* 2026-09-22 실제 hydration 검증 중 발견 — JSX 텍스트의
+                  "&nbsp;" HTML 엔티티를 클라이언트/SSR 두 vite build가
+                  서로 다르게 처리했다(SSR은 실제 U+00A0로 디코딩, 클라이언트
+                  프로덕션 번들은 리터럴 "&nbsp;" 문자열 그대로 유지) — 텍스트
+                  노드 내용이 서버/클라이언트에서 달라져 React가 hydration을
+                  통째로 포기하고 전체 페이지를 클라이언트에서 다시 그리는
+                  원인이었다(브라우저로 직접 재현 확인). 엔티티 대신 실제
+                  유니코드 줄바꿈 방지 공백 문자(U+00A0)를 문자열 리터럴로
+                  직접 쓰면 두 빌드가 더 이상 다르게 해석할 여지가 없다. */}
+              Email: support@viecganban.vn {' | '} Giờ làm việc: T2–T6, 09:00–18:00
             </p>
             <div className="footer-info__legal">
               <a href="/dieu-khoan">Điều khoản sử dụng</a>

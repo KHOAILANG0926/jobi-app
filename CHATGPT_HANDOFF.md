@@ -2,95 +2,88 @@
 
 ## 현재 작업
 
-**Home에 "Việc làm nổi bật"(사람인 참고 추천 공고) 섹션 완료(2026-09-20~21,
-매우 많은 라운드의 수정 거침 — 아래 "변경 내용"에 핵심만 정리, 세부
-경위는 git log 참고: `2fbf38e`~`29d5f5b`)**.
-IMPLEMENTED → VERIFIED(로컬+Production, JS 실측+스크린샷) →
-MASTER PUSHED(`29d5f5b`) → PRODUCTION DEPLOYED → PRODUCTION VERIFIED 완료.
+**GEO/AI 검색 대응 SSR — 2026-09-22 다섯 번째 라운드까지 진행.**
+사용자가 "대표 페이지 관리 구조와 noindex/canonical 정책은 승인"했고,
+이번 라운드는 그 위에 **대표 페이지별 title/description/H1 개별화 +
+URL 정규화**를 추가했다. **"전체 완료" 처리는 계속 보류.**
 
-## 변경 내용 (최종 구현 기준)
+- **공고 상세(`/viec-lam/:id`) + 급구 목록(`/viec-lam/tuyen-gap`) SSR:
+  IMPLEMENTED + VERIFIED.**
+- **일반 검색(`/viec-lam/tim-kiem`) 노출 + 대표 페이지 관리 구조
+  (canonical/robots/sitemap 정책): 사용자 승인 완료.**
+- **대표 페이지별 title/description/H1 개별화 + canonical URL 정규화
+  (이번 라운드): IMPLEMENTED + VERIFIED(로컬).**
+- 급구 목록에 같은 구조 적용, commit, master push, Production 배포 —
+  **전부 계속 보류**(사용자 지시).
 
-**[components/FeaturedJobsSection.tsx](src/components/FeaturedJobsSection.tsx)**:
-- 최신순 상위 8개(`FEATURED_COUNT`) 공고를 가로 스크롤로 표시하되,
-  업직종마다 최신 1건씩 우선 채워 카드 색이 다양하게 보이게 함(DB에
-  'khac' 카테고리가 압도적으로 많아 단순 최신순이면 색이 거의 다 같아
-  보였음).
-- **기존 `JobCard` 컴포넌트를 그대로 재사용**(수정 안 함) — 사용자가
-  "이게 우리 기본틀이야 이 틀을 지켜"로 확정, 사진이 큰 별도 카드 시안은
-  폐기됨.
-- 색은 업직종별 `CATEGORY_COLORS`(3단 그라데이션 — 옆으로 갈수록 다른
-  색상까지 뚜렷하게 변함, 예: "쿠팡은 왼쪽 진한초록→오른쪽 초록", "신세계는
-  초록→연두→진한노랑"). 이 상수는 이 컴포넌트 하나에서만 쓰임(grep 확인).
-- 이모지(🌟/💰)·장황한 설명 문구 없음("진지한 사이트를 만들어야 한다"
-  지적 반영, Home.tsx의 "Lương cao" 정렬 안내 문구도 함께 삭제됨).
-- Home 전용(급구/저장한 공고/최근 본 공고/맞춤 공고는 각자 목적이 있어
-  확대 안 함).
+## 변경 내용 (이번 라운드)
 
-**색선 최종 구현 방식 (가장 많이 시행착오를 거친 부분)**:
-- **시도했다 버린 방식**: 카드 상단에 `position:absolute` 직선 막대를
-  얹는 방식 — 막대 높이가 카드 `border-radius`(최종 16px)보다 얇으면
-  모서리 곡선을 못 덮어 흰 배경이 비치고, 막대를 두껍게(radius와 동일하게)
-  만들면 이번엔 "직선 구간까지 색이 침범한다"는 상반된 문제가 있었음.
-  카드 4면을 감싸는 테두리로도 시도했으나 "상단+모서리 곡선까지만"이
-  맞는 요구사항이었음.
-- **최종 방식**: `.featured-job-wrap::before`에 카드 테두리 두께만큼
-  (3px) `padding` + `mask`(`-webkit-mask-composite: xor` /
-  `mask-composite: exclude`, content-box/border-box 이중 배경)로
-  **카드 전체를 감싸는 얇은 그라데이션 "링"**을 만든 뒤, `clip-path:
-  inset(0 0 calc(100% - 16px) 0)`로 **상단부터 모서리 곡선이 끝나는
-  지점(카드 radius=16px)까지만 노출**한다. 이러면 곡선이 끝나는 정확한
-  지점에서 색선도 자연스럽게 끝나고, 양옆 직선 구간·하단에는 색이 전혀
-  안 보인다. 색은 CSS 변수(`--card-gradient`, React 인라인 style로 카드별
-  주입)로 파라미터화해 `::before` 가상요소에서도 카드별 다른 그라데이션을
-  쓸 수 있게 함. `JobCard.tsx`는 끝까지 안 건드림.
-- 카드 자체의 `border-radius`도 10px→16px로 키움(`.featured-job-wrap
-  .jc`만 덮어씀, JobCard.tsx 원본/다른 화면 영향 없음) — 사용자가 실제
-  사람인 사이트를 Claude가 직접 방문해 개발자도구로 측정하도록 지시했고,
-  측정 결과 사람인 플래티넘 카드가 정확히 `border-radius: 16px`였음
-  (당시 border-top-color가 카드마다 다른 게 아니라 광고 등급별로 고정된
-  단색이라는 것도 확인했으나, 최종적으로는 "우리가 만든 업직종별 그라데이션
-  구조 자체는 유지"로 확정됨 — 색상값만 여러 번 조정됨).
+### 1. 대표 페이지별 title/description/H1 개별화
+- [src/lib/representativeSearchPages.ts](src/lib/representativeSearchPages.ts)에
+  `buildRepresentativePageCopy(normalizedQuery, jobCount)` 추가 — 업직종
+  대표는 `Việc làm {업직종명} mới nhất | Việt Gần Bạn` / 지역 대표는
+  `Việc làm tại {지역명} mới nhất | Việt Gần Bạn` 형식으로 title·
+  description·H1을 만든다. **실제 필터명(CATEGORY_LABELS/지역 라벨)과
+  실제 활성 공고 수만 쓰고, 급여·근무조건처럼 데이터에 없는 내용은
+  넣지 않음**(사용자 지시 그대로 반영, 코드 주석에도 명시).
+- [api/ssr.js](api/ssr.js): 대표 페이지 요청이면 이 함수로 `<title>`/
+  `<meta description>`을 교체(공고 상세 페이지와 같은 방식).
+- [src/pages/JobSearchPage.tsx](src/pages/JobSearchPage.tsx): 화면 H1도
+  **같은 함수**로 계산 — SSR(api/ssr.js)과 클라이언트(컴포넌트)가 서로
+  다른 문구를 만들 여지가 구조적으로 없다(함수 하나 공유). 대표 후보가
+  아니면(기본 페이지/비대표 조합) 기존 공통 문구("Tìm việc làm") 그대로.
 
-## 테스트 결과
+### 2. 대표 후보 정리 — `khac` 제외
+`khac`("기타")는 검색 의도가 불명확하다는 지시로 후보 목록에서 제거.
+나머지 업직종 10개 + 지역 10개(총 20개)는 여전히 **초기 후보**로 유지
+(최종 확정 아님). 공고 수가 줄어도 대표 자격 자체는 유지되고, sitemap
+포함 여부만 기존 정책대로 별도 판단(코드 로직 변경 없음 — 애초에 이미
+그렇게 설계돼 있었음, 이번엔 `khac`만 목록에서 뺐다).
 
-- 매 라운드 `npx tsc --noEmit` 클린 / `npm run build` 성공 / `npm test`
-  6/6 파일 통과 재확인.
-- **최종 Production 실측**: `getComputedStyle(el, '::before').clipPath`
-  === `"inset(0px 0px calc(100% - 16px))"` 확인, `padding: 3px` 확인,
-  카드별로 다른 `background-image`(3단 그라데이션) 확인. 400×500 좁은
-  뷰포트로 카드 1개를 크게 캡처해 상단+모서리만 색이 있고 옆면·하단에는
-  색이 없는 것을 스크린샷으로 최종 확인.
+### 3. URL 정규화 — 대표 canonical에서 sort/page/UTM 제거
+[src/lib/representativeSearchPages.ts](src/lib/representativeSearchPages.ts)의
+`normalizeSearchQuery()` 재작성 — `sort`/`page`/`pageSize`/`utm_*`는
+결과 "내용"을 안 바꾸는 파라미터라 대표 여부 판정·canonical 생성 둘 다
+에서 무시한다. `q`/`sub`/`brand`/`urgent`/`today`(실제 결과 집합을
+바꾸는 파라미터)가 하나라도 있으면 여전히 비대표로 취급. 파라미터
+순서·존재 여부와 무관하게 항상 같은 정규화 결과가 나오므로(직접
+문자열을 새로 조립, 원본 순서를 안 씀) 쿼리 순서가 달라도 동일 대표
+URL로 수렴함을 실측 확인.
+
+## 테스트 결과 (실측, 4개 케이스 전부)
+
+| 케이스 | 예시 URL | title | description | H1 | canonical | robots |
+|---|---|---|---|---|---|---|
+| 대표 업직종 | `?cat=am_thuc_do_uong` | `Việc làm Ẩm thực · Đồ uống mới nhất \| Việt Gần Bạn` | `Xem 45 việc làm Ẩm thực · Đồ uống đang tuyển...` | `Việc làm Ẩm thực · Đồ uống mới nhất` | 자기 자신 | 없음(색인가능) |
+| 대표 지역 | `?region=hcm` | `Việc làm tại TP. Hồ Chí Minh mới nhất \| Việt Gần Bạn` | `Xem 145 việc làm tại TP. Hồ Chí Minh...` | `Việc làm tại TP. Hồ Chí Minh mới nhất` | 자기 자신 | 없음(색인가능) |
+| 비대표(결과27건) | `?cat=van_phong&q=nhan` | 공통 제목 | 공통 문구 | `Tìm việc làm`(공통) | 자기 자신(쿼리 그대로) | `noindex, follow` |
+| 빈 결과 | `?q=zzzz...` | 공통 제목 | 공통 문구 | `Tìm việc làm`(공통) | 자기 자신 | `noindex, follow` |
+
+- curl(SSR raw HTML)과 브라우저 `document.title`/`meta[name=description]`/
+  `.page-header__title`/`link[rel=canonical]`/`meta[name=robots]`를
+  직접 대조 — **완전히 일치**(hydration 전후 드리프트 없음).
+- URL 정규화 검증: `?sort=salary&cat=van_phong` / `?cat=van_phong&sort=salary`
+  / `?utm_source=...&page=3&cat=van_phong&pageSize=50` 세 가지 전부
+  canonical이 동일하게 `.../tim-kiem?cat=van_phong`로 수렴, 세 번째
+  케이스(utm+page+pageSize 포함)도 noindex 안 붙고 정상적으로 대표
+  페이지 title이 뜸을 확인.
+- `npx tsc --noEmit` / `npm run build` / `npm test`(6/6, workScheduleParse
+  17/17): 전부 클린.
+- sitemap.xml: `khac` 완전히 빠짐(0건), 대표 combo 정확히 20개로 감소
+  확인. 공고 상세/급구 목록 라우트 회귀 없음(200/canonical 그대로).
+- 브라우저 콘솔: 대표 카테고리/지역 페이지 둘 다 에러 0건(기존에도
+  있던 무관한 ServiceWorker 경고 제외).
 
 ## 발견된 문제
 
 없음.
 
-## 다음 결정사항
+## 다음 결정사항 (사용자 확인 필요)
 
-- (2026-09-20, 미정) `FEATURED_COUNT`=8, 정렬 기준=최신순(업직종당 1건
-  우선) — 실제 반응 보고 조정할지 필요시 논의.
-- **(진행 방식 관련, 매우 강하게 반복 지적됨 — 다음 세션에서 반드시
-  유의)** 이 작업 전체에서 사용자가 여러 차례 강한 불만을 표시함(""왜
-  지시한 걸 안 하고 엉뚱한 걸 하지?", "내가 하지 말라고 했지", "말귀
-  엄청 못알아듣네" 등). 핵심 원인: (1) 모호한 지시를 받았을 때 구체적
-  수치·해석을 스스로 정해서 바로 적용한 것, (2) 색/두께처럼 서로 다른
-  주제를 혼동해서 엉뚱한 것을 계속 건드린 것, (3) 같은 캡처를 여러 번
-  다시 보여줘야 했던 것. **결국 가장 효과적이었던 해결 방법은 사용자가
-  "사람인 사이트 가서 직접 검색해"로 지시해 Claude가 실제 사이트를
-  브라우저로 방문해 개발자도구로 직접 측정한 것과, 사용자가 구체적인
-  CSS 구현 스펙(mask+clip-path 방식)을 직접 문서로 써준 것**이었음 —
-  말로 된 묘사보다 실측/명시적 스펙이 훨씬 정확하게 전달됨. 다음에 비슷한
-  미세 디자인 조정 요청을 받으면, 이 두 가지 방법(실사이트 직접 확인,
-  구체적 스펙 요청)을 더 빨리 제안할 것.
-- (사용자가 명시적으로 미룸) 헤더 "Đăng ký"/로고 빨강을 포함한 전체
-  색 체계 재검토 — 필요시 다음에 요청하기로 함.
-- (낮은 우선순위, 아직 요청 안 됨) `index.css`에 예전 단순 버전
-  MapView.tsx가 쓰던 `.mapview__*` 죽은 CSS 규칙 22개가 남아있음.
-- (별개 논의, 미정) 구글 로그인(OAuth) — Google Cloud Console 외부
-  설정이 필요해 보류.
-- (별개 논의, 미정) 전화번호(SMS) 인증 — 외부 SMS 서비스 필요해 보류,
-  "등록 없이 빠르게 게시"로 사실상 같은 목적 달성.
-- (별개 논의, 미정) 기업용 "인재 검색" 기능 부재 — 응답 없이 스킵됨.
-- (별개 논의, 미정) korea_jobs 구조를 비엣간반 본체와 나중에 분리할
-  가능성 — 관련 기능은 로컬 상태/프론트 레벨에서 해결, 본체 DB 스키마와
-  깊게 엮는 선택 지양.
+1. 남은 20개 대표 후보 최종 확정 여부(여전히 "초기 후보").
+2. 급구 목록에도 같은 대표 페이지 구조(고정 후보 목록 + 개별화 문구)를
+   적용할지 — 계속 보류 중, 급구 공고가 늘어난 뒤 판단 권장.
+3. Vercel Preview 실제 런타임 검증 — 여전히 SSO 보호로 막혀 있음(이전
+   라운드부터 동일, 이번엔 건드리지 말라는 지시로 시도 안 함).
+4. commit / master push / Production 배포 — 계속 보류 중, 지시만 있으면
+   진행 가능.

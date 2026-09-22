@@ -34,7 +34,7 @@ interface JobLocationMapMarker {
   href?: string
 }
 
-interface JobLocationMapProps {
+export interface JobLocationMapProps {
   lat: number
   lng: number
   title: string
