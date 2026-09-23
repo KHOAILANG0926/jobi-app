@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 export type PostCategory = 'review' | 'tip' | 'question'
 
 export const POST_CATEGORY_META: Record<
@@ -22,215 +24,202 @@ export interface CommunityPost {
   title: string
   body: string
   authorName: string
+  authorId: string
   jobCategory?: string
   company?: string
   rating?: number
+  photoUrls: string[]
   likes: number
+  commentsCount: number
+  views: number
   createdAt: string
-  comments: PostComment[]
 }
 
-const KEY = 'vgb_community_posts'
-const LIKED_KEY = 'vgb_community_liked'
+const PHOTO_BUCKET = 'community-photos'
+const PHOTO_MAX_BYTES = 8 * 1024 * 1024
+const PHOTO_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
 
-const SEED: CommunityPost[] = [
-  {
-    id: 'seed-1',
-    category: 'review',
-    title: 'Làm kho Bình Dương 3 tháng — thực lòng',
-    body: 'Mình làm ở kho logistics Bình Dương được 3 tháng. Công việc đứng liên tục 8–10 tiếng, khá mệt. Nhưng lương đúng hẹn, quản lý không quá khắt khe. Có xe đưa đón từ bến xe Miền Đông, tiết kiệm được kha khá chi phí đi lại.\n\nĐiểm trừ: giờ tăng ca thất thường, khó sắp xếp lịch học. Nếu bạn rảnh toàn thời gian thì ổn, còn sinh viên thì cân nhắc.',
-    authorName: 'Minh Tuấn',
-    jobCategory: 'factory',
-    company: 'Kho logistics Bình Dương',
-    rating: 3,
-    likes: 24,
-    createdAt: '2026-05-10T08:30:00.000Z',
-    comments: [
-      {
-        id: 'c1',
-        body: 'Cảm ơn bạn đã chia sẻ! Mình đang cân nhắc chỗ này.',
-        authorName: 'Lan Anh',
-        createdAt: '2026-05-10T10:00:00.000Z',
-      },
-      {
-        id: 'c2',
-        body: 'Có yêu cầu kinh nghiệm không bạn? Mình mới ra trường.',
-        authorName: 'Trung Kiên',
-        createdAt: '2026-05-10T14:22:00.000Z',
-      },
-    ],
-  },
-  {
-    id: 'seed-2',
-    category: 'tip',
-    title: 'Mẹo thương lượng lương khi phỏng vấn part-time',
-    body: '1. Nghiên cứu mức lương thị trường trước (Jobi có trang tính lương nha).\n2. Đừng nói số đầu tiên — hỏi lại "Mức lương cho vị trí này là bao nhiêu?"\n3. Nếu bị ép thấp, đề xuất thêm quyền lợi: ăn ca, thưởng KPI, phụ cấp xăng...\n4. Không nhận việc ngay tại chỗ, xin 1–2 ngày suy nghĩ để tránh bị áp lực.\n5. Lần phỏng vấn đầu tiên hãy hỏi luôn về lịch thanh toán lương — tránh nơi trả chậm.',
-    authorName: 'Thu Hà',
-    likes: 57,
-    createdAt: '2026-05-08T14:00:00.000Z',
-    comments: [
-      {
-        id: 'c3',
-        body: 'Tip số 2 hay quá, để mình thử xem!',
-        authorName: 'Văn Đức',
-        createdAt: '2026-05-09T09:15:00.000Z',
-      },
-    ],
-  },
-  {
-    id: 'seed-3',
-    category: 'review',
-    title: 'Phục vụ Highlands Coffee cuối tuần — chill lắm',
-    body: 'Làm 2 ca cuối tuần, mỗi ca 8 tiếng. Quản lý dễ chịu, khách không quá khó tính. Lương 25k/h chưa tính tip, cuối ca thường được thêm 50–100k. Đồng phục có sẵn, được ăn ca.\n\nMôi trường trẻ, nhiều bạn sinh viên như mình nên vui lắm. Recommend cho ai muốn kiếm thêm cuối tuần mà không muốn quá mệt.',
-    authorName: 'Ngọc Bích',
-    jobCategory: 'cafe',
-    company: 'Highlands Coffee',
-    rating: 4,
-    likes: 41,
-    createdAt: '2026-05-07T09:15:00.000Z',
-    comments: [],
-  },
-  {
-    id: 'seed-4',
-    category: 'question',
-    title: 'Shipper GrabFood có cần bằng lái xe không?',
-    body: 'Mình mới 18 tuổi, có xe máy nhưng chưa có bằng A1. Nghe nói Grab yêu cầu bằng lái — vậy có cách nào đăng ký không hay phải đợi thi bằng?',
-    authorName: 'Quang Hùng',
-    jobCategory: 'delivery',
-    likes: 12,
-    createdAt: '2026-05-09T11:00:00.000Z',
-    comments: [
-      {
-        id: 'c4',
-        body: 'Grab yêu cầu bằng A1 hoặc B1 bạn ơi, không có bằng sẽ không được duyệt tài khoản đâu.',
-        authorName: 'Tài xế Grab 3 năm',
-        createdAt: '2026-05-09T12:30:00.000Z',
-      },
-      {
-        id: 'c5',
-        body: 'Bạn thử Be hoặc ShopeeFood xem, nghe họ linh hoạt hơn một chút với tài xế mới.',
-        authorName: 'Mai Linh',
-        createdAt: '2026-05-09T15:45:00.000Z',
-      },
-    ],
-  },
-  {
-    id: 'seed-5',
-    category: 'tip',
-    title: 'Cách xin nghỉ không ảnh hưởng uy tín khi làm part-time',
-    body: 'Nhiều bạn ngại xin nghỉ vì sợ mất việc. Đây là cách mình hay làm:\n\n• Báo trước ít nhất 24h, không "báo ca" (báo sát giờ)\n• Đề xuất người thay ca nếu có thể — điểm cộng rất lớn\n• Xin lỗi ngắn gọn, không cần giải thích dài dòng\n• Lần tiếp theo cố gắng gấp đôi để bù lại\n\nNhà tuyển dụng hiểu sinh viên có việc riêng, chỉ cần thông báo kịp thời là ổn.',
-    authorName: 'Kiều Trang',
-    likes: 33,
-    createdAt: '2026-05-06T16:00:00.000Z',
-    comments: [],
-  },
-  {
-    id: 'seed-6',
-    category: 'review',
-    title: 'Shipper GrabFood 2 tháng — lời thật lỗ thật',
-    body: 'Thu nhập: khoảng 200–280k/ngày nếu chạy 6–7 tiếng. Nghe to nhưng trừ xăng (~60k), khấu hao xe, đồ ăn thì còn lại ~150k. Không tệ nếu bạn chạy xe sẵn rồi.\n\nNhưng nắng mưa rất cực, đặc biệt giờ cao điểm tắc đường mà app vẫn tính thời gian. Tháng đầu mình bị phạt hủy đơn vài lần do không hiểu luật.',
-    authorName: 'Đức Anh',
-    jobCategory: 'delivery',
-    company: 'GrabFood',
-    rating: 3,
-    likes: 68,
-    createdAt: '2026-05-05T07:00:00.000Z',
-    comments: [
-      {
-        id: 'c6',
-        body: 'Trời ơi 150k/ngày sau khi trừ chi phí thì không đáng chút nào.',
-        authorName: 'Hữu Phúc',
-        createdAt: '2026-05-05T10:00:00.000Z',
-      },
-    ],
-  },
-]
+interface PostRow {
+  id: string
+  author_id: string
+  author_name: string
+  category: PostCategory
+  title: string
+  body: string
+  job_category: string | null
+  company: string | null
+  rating: number | null
+  photo_paths: string[]
+  likes_count: number
+  comments_count: number
+  views_count: number
+  created_at: string
+}
 
-function initPosts(): CommunityPost[] {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) {
-      localStorage.setItem(KEY, JSON.stringify(SEED))
-      return SEED
-    }
-    const parsed = JSON.parse(raw) as CommunityPost[]
-    return Array.isArray(parsed) ? parsed : SEED
-  } catch {
-    return SEED
+interface CommentRow {
+  id: string
+  body: string
+  author_name: string
+  created_at: string
+}
+
+function photoUrl(path: string): string {
+  return supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+function fromRow(row: PostRow): CommunityPost {
+  return {
+    id: row.id,
+    category: row.category,
+    title: row.title,
+    body: row.body,
+    authorName: row.author_name,
+    authorId: row.author_id,
+    jobCategory: row.job_category ?? undefined,
+    company: row.company ?? undefined,
+    rating: row.rating ?? undefined,
+    photoUrls: (row.photo_paths ?? []).map(photoUrl),
+    likes: row.likes_count,
+    commentsCount: row.comments_count,
+    views: row.views_count,
+    createdAt: row.created_at,
   }
 }
 
-export function loadPosts(): CommunityPost[] {
-  return initPosts()
+export async function loadPosts(): Promise<CommunityPost[]> {
+  const { data, error } = await supabase
+    .from('community_posts')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .returns<PostRow[]>()
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(fromRow)
 }
 
-export function getPost(id: string): CommunityPost | undefined {
-  return loadPosts().find((p) => p.id === id)
+export async function getPost(id: string): Promise<CommunityPost | undefined> {
+  const { data, error } = await supabase
+    .from('community_posts')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle<PostRow>()
+  if (error) throw new Error(error.message)
+  return data ? fromRow(data) : undefined
 }
 
-function persistPosts(list: CommunityPost[]): void {
-  localStorage.setItem(KEY, JSON.stringify(list))
-  window.dispatchEvent(new CustomEvent('vgb:community'))
+export async function loadComments(postId: string): Promise<PostComment[]> {
+  const { data, error } = await supabase
+    .from('community_comments')
+    .select('id,body,author_name,created_at')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true })
+    .returns<CommentRow[]>()
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    body: c.body,
+    authorName: c.author_name,
+    createdAt: c.created_at,
+  }))
 }
 
-export function addPost(
-  draft: Omit<CommunityPost, 'id' | 'likes' | 'createdAt' | 'comments'>,
-): CommunityPost {
-  const post: CommunityPost = {
-    ...draft,
-    id: `post-${crypto.randomUUID()}`,
-    likes: 0,
-    createdAt: new Date().toISOString(),
-    comments: [],
+async function uploadPostPhotos(userId: string, mediaId: string, files: File[]): Promise<string[]> {
+  const paths: string[] = []
+  for (const [index, file] of files.entries()) {
+    const extension = PHOTO_EXTENSIONS[file.type]
+    if (!extension) throw new Error(`Định dạng ảnh không hỗ trợ: ${file.type}`)
+    if (file.size > PHOTO_MAX_BYTES) throw new Error('Mỗi ảnh tối đa 8MB.')
+    const path = `${userId}/${mediaId}/${index}.${extension}`
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
+      contentType: file.type,
+    })
+    if (error) throw new Error(error.message)
+    paths.push(path)
   }
-  persistPosts([post, ...loadPosts()])
-  return post
+  return paths
 }
 
-export function addComment(postId: string, body: string, authorName: string): void {
-  const list = loadPosts()
-  const idx = list.findIndex((p) => p.id === postId)
-  if (idx === -1) return
-  const comment: PostComment = {
-    id: `c-${crypto.randomUUID()}`,
-    body,
-    authorName,
-    createdAt: new Date().toISOString(),
-  }
-  list[idx] = { ...list[idx], comments: [...list[idx].comments, comment] }
-  persistPosts(list)
+export async function addPost(
+  draft: {
+    category: PostCategory
+    title: string
+    body: string
+    authorName: string
+    jobCategory?: string
+    company?: string
+    rating?: number
+  },
+  authorId: string,
+  photoFiles: File[],
+): Promise<CommunityPost> {
+  const mediaId = crypto.randomUUID()
+  const photoPaths = photoFiles.length ? await uploadPostPhotos(authorId, mediaId, photoFiles) : []
+
+  const { data, error } = await supabase
+    .from('community_posts')
+    .insert({
+      author_id: authorId,
+      author_name: draft.authorName,
+      category: draft.category,
+      title: draft.title,
+      body: draft.body,
+      job_category: draft.jobCategory ?? null,
+      company: draft.company ?? null,
+      rating: draft.rating ?? null,
+      photo_paths: photoPaths,
+    })
+    .select('*')
+    .single<PostRow>()
+
+  if (error) throw new Error(error.message)
+  return fromRow(data)
 }
 
-function loadLikedSet(): Set<string> {
-  try {
-    const raw = localStorage.getItem(LIKED_KEY)
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
-  } catch {
-    return new Set()
-  }
+export async function addComment(
+  postId: string,
+  body: string,
+  authorId: string,
+  authorName: string,
+): Promise<PostComment> {
+  const { data, error } = await supabase
+    .from('community_comments')
+    .insert({ post_id: postId, author_id: authorId, author_name: authorName, body })
+    .select('id,body,author_name,created_at')
+    .single<CommentRow>()
+  if (error) throw new Error(error.message)
+  return { id: data.id, body: data.body, authorName: data.author_name, createdAt: data.created_at }
 }
 
-export function isLiked(postId: string): boolean {
-  return loadLikedSet().has(postId)
+export async function loadLikedPostIds(userId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('community_likes')
+    .select('post_id')
+    .eq('user_id', userId)
+    .returns<{ post_id: string }[]>()
+  if (error) throw new Error(error.message)
+  return new Set((data ?? []).map((r) => r.post_id))
 }
 
-export function toggleLike(postId: string): boolean {
-  const liked = loadLikedSet()
-  const list = loadPosts()
-  const idx = list.findIndex((p) => p.id === postId)
-  if (idx === -1) return false
+export async function incrementViews(postId: string): Promise<void> {
+  await supabase.rpc('community_increment_views', { p_post_id: postId })
+}
 
-  if (liked.has(postId)) {
-    liked.delete(postId)
-    list[idx] = { ...list[idx], likes: Math.max(0, list[idx].likes - 1) }
-    localStorage.setItem(LIKED_KEY, JSON.stringify([...liked]))
-    persistPosts(list)
+export async function toggleLike(postId: string, userId: string, currentlyLiked: boolean): Promise<boolean> {
+  if (currentlyLiked) {
+    const { error } = await supabase
+      .from('community_likes')
+      .delete()
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+    if (error) throw new Error(error.message)
     return false
-  } else {
-    liked.add(postId)
-    list[idx] = { ...list[idx], likes: list[idx].likes + 1 }
-    localStorage.setItem(LIKED_KEY, JSON.stringify([...liked]))
-    persistPosts(list)
-    return true
   }
+  const { error } = await supabase
+    .from('community_likes')
+    .insert({ post_id: postId, user_id: userId })
+  if (error) throw new Error(error.message)
+  return true
 }

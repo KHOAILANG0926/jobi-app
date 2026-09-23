@@ -1,14 +1,11 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
-import { useAuth } from '../context/AuthContext'
-import { loadProfile } from '../lib/storage'
+import { useAuth, type AuthUser } from '../context/AuthContext'
 import {
   POST_CATEGORY_META,
   addPost,
-  isLiked,
   loadPosts,
-  toggleLike,
   type CommunityPost,
   type PostCategory,
 } from '../lib/communityStorage'
@@ -51,80 +48,67 @@ function Stars({ rating, interactive = false, onRate }: { rating: number; intera
   )
 }
 
-// ── Post Card ─────────────────────────────────────────────────────────────────
+// ── Post Row (전통 게시판형 리스트) ──────────────────────────────────────────
 
-function PostCard({ post, onLikeChange }: { post: CommunityPost; onLikeChange: () => void }) {
-  const [liked, setLiked] = useState(() => isLiked(post.id))
-  const [count, setCount] = useState(post.likes)
+function PostRow({ post }: { post: CommunityPost }) {
+  const navigate = useNavigate()
+  const meta = POST_CATEGORY_META[post.category]
 
-  const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault()
-    const now = toggleLike(post.id)
-    setLiked(now)
-    setCount((c) => (now ? c + 1 : c - 1))
-    onLikeChange()
+  const go = () => navigate(`/cong-dong/${post.id}`)
+  const goOnKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go() }
   }
 
-  const meta = POST_CATEGORY_META[post.category]
-  const preview = post.body.slice(0, 120) + (post.body.length > 120 ? '…' : '')
-
   return (
-    <li className="community-card">
-      <Link to={`/cong-dong/${post.id}`} className="community-card__main-link">
-      <div className="community-card__top">
+    <tr className="community-row" onClick={go} onKeyDown={goOnKey} tabIndex={0} role="link">
+      <td className="community-row__cat">
         <span className={`post-cat-badge ${meta.colorClass}`}>
           {meta.icon} {meta.label}
         </span>
+      </td>
+      <td className="community-row__title">
         {post.jobCategory && (
-          <span className="community-card__job-cat">
-            {CATEGORY_ICONS[post.jobCategory as JobCategory]}{' '}
-            {CATEGORY_LABELS[post.jobCategory as JobCategory] ?? post.jobCategory}
+          <span className="community-row__job-cat">
+            {CATEGORY_ICONS[post.jobCategory as JobCategory]}
           </span>
         )}
-        {post.rating !== undefined && <Stars rating={post.rating} />}
-      </div>
-
-      <h3 className="community-card__title">{post.title}</h3>
-
-      <p className="community-card__preview">{preview}</p>
-      </Link>
-
-      <div className="community-card__footer">
-        <span className="community-card__author">
-          {post.authorName} · {timeAgo(post.createdAt)}
-        </span>
-        <div className="community-card__actions">
-          <span className="community-card__comments">
-            💬 {post.comments.length}
-          </span>
-          <button
-            className={`community-like-btn${liked ? ' community-like-btn--active' : ''}`}
-            onClick={handleLike}
-            aria-label={liked ? 'Bỏ thích' : 'Thích'}
-          >
-            ♥ {count}
-          </button>
-        </div>
-      </div>
-    </li>
+        <span className="community-row__title-text">{post.title}</span>
+        {post.rating !== undefined && (
+          <span className="community-row__rating">★{post.rating}</span>
+        )}
+        {post.photoUrls.length > 0 && <span className="community-row__photo-icon">🖼</span>}
+        {post.commentsCount > 0 && (
+          <span className="community-row__comment-count">[{post.commentsCount}]</span>
+        )}
+      </td>
+      <td className="community-row__author">
+        <span>{post.authorName}</span>
+        <span className="community-row__date">{timeAgo(post.createdAt)}</span>
+      </td>
+      <td className="community-row__num">{post.views}</td>
+      <td className="community-row__num">{post.likes}</td>
+    </tr>
   )
 }
 
 // ── Create Post Modal ─────────────────────────────────────────────────────────
 
-function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { user } = useAuth()
-  const profile = loadProfile()
-  const defaultName = user ? user.name : profile.fullName || ''
+const MAX_PHOTOS = 4
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024
+const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
+function CreateModal({ user, onClose, onCreated }: { user: AuthUser; onClose: () => void; onCreated: () => void }) {
   const [category, setCategory] = useState<PostCategory>('review')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [authorName, setAuthorName] = useState(defaultName)
+  const [authorName, setAuthorName] = useState('')
   const [jobCategory, setJobCategory] = useState('')
   const [company, setCompany] = useState('')
   const [rating, setRating] = useState(0)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const backdropRef = useRef<HTMLDivElement>(null)
 
@@ -134,24 +118,59 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const handleSubmit = (e: FormEvent) => {
+  useEffect(() => {
+    const urls = photos.map((f) => URL.createObjectURL(f))
+    setPhotoPreviews(urls)
+    return () => urls.forEach((u) => URL.revokeObjectURL(u))
+  }, [photos])
+
+  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length) return
+    if (photos.length + files.length > MAX_PHOTOS) {
+      setError(`Chỉ được tối đa ${MAX_PHOTOS} ảnh.`)
+      return
+    }
+    for (const f of files) {
+      if (!ACCEPTED_PHOTO_TYPES.includes(f.type)) { setError('Chỉ hỗ trợ ảnh JPG, PNG, WEBP.'); return }
+      if (f.size > MAX_PHOTO_BYTES) { setError('Mỗi ảnh tối đa 8MB.'); return }
+    }
+    setError('')
+    setPhotos((prev) => [...prev, ...files])
+  }
+
+  const removePhoto = (idx: number) => setPhotos((prev) => prev.filter((_, i) => i !== idx))
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!title.trim()) { setError('Vui lòng nhập tiêu đề.'); return }
     if (!body.trim()) { setError('Vui lòng nhập nội dung.'); return }
     if (!authorName.trim()) { setError('Vui lòng nhập tên hiển thị.'); return }
     if (category === 'review' && !rating) { setError('Vui lòng chọn số sao đánh giá.'); return }
 
-    addPost({
-      category,
-      title: title.trim(),
-      body: body.trim(),
-      authorName: authorName.trim(),
-      jobCategory: jobCategory || undefined,
-      company: company.trim() || undefined,
-      rating: category === 'review' ? rating : undefined,
-    })
-    onCreated()
-    onClose()
+    setSubmitting(true)
+    try {
+      await addPost(
+        {
+          category,
+          title: title.trim(),
+          body: body.trim(),
+          authorName: authorName.trim(),
+          jobCategory: jobCategory || undefined,
+          company: company.trim() || undefined,
+          rating: category === 'review' ? rating : undefined,
+        },
+        user.id,
+        photos,
+      )
+      onCreated()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể đăng bài, vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -252,6 +271,27 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             />
           </label>
 
+          <div className="field">
+            <span className="field__label">Ảnh (không bắt buộc, tối đa {MAX_PHOTOS} ảnh, mỗi ảnh ≤8MB)</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={handlePhotoChange}
+              disabled={photos.length >= MAX_PHOTOS}
+            />
+            {photoPreviews.length > 0 && (
+              <div className="community-photo-previews">
+                {photoPreviews.map((src, i) => (
+                  <div key={src} className="community-photo-preview">
+                    <img src={src} alt="" />
+                    <button type="button" onClick={() => removePhoto(i)} aria-label="Xoá ảnh">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <label className="field">
             <span className="field__label">Tên hiển thị *</span>
             <input
@@ -266,11 +306,11 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           {error && <p className="form-error" role="alert">{error}</p>}
 
           <div className="modal-panel__actions modal-panel__actions--single">
-            <button type="button" className="btn btn--ghost" onClick={onClose}>
+            <button type="button" className="btn btn--ghost" onClick={onClose} disabled={submitting}>
               Hủy
             </button>
-            <button type="submit" className="btn btn--primary">
-              Đăng bài
+            <button type="submit" className="btn btn--primary" disabled={submitting}>
+              {submitting ? 'Đang đăng…' : 'Đăng bài'}
             </button>
           </div>
         </form>
@@ -289,18 +329,39 @@ const CAT_FILTERS: { value: PostCategory | 'all'; label: string; icon: string }[
 ]
 
 export function Community() {
-  const [posts, setPosts] = useState<CommunityPost[]>(() => loadPosts())
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  const [posts, setPosts] = useState<CommunityPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [catFilter, setCatFilter] = useState<PostCategory | 'all'>('all')
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
   const [sortBy, setSortBy] = useState<'new' | 'popular'>('new')
 
-  const reload = () => setPosts(loadPosts())
-
-  useEffect(() => {
-    window.addEventListener('vgb:community', reload)
-    return () => window.removeEventListener('vgb:community', reload)
+  const reload = useCallback(async () => {
+    setLoading(true)
+    try {
+      const nextPosts = await loadPosts()
+      setPosts(nextPosts)
+      setLoadError('')
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Không thể tải bài viết.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => { reload() }, [reload])
+
+  const handleCreateClick = () => {
+    if (!user) {
+      navigate(`/dang-nhap?redirect=${encodeURIComponent('/cong-dong')}`)
+      return
+    }
+    setCreating(true)
+  }
 
   const filtered = posts
     .filter((p) => catFilter === 'all' || p.category === catFilter)
@@ -323,7 +384,7 @@ export function Community() {
             Chia sẻ kinh nghiệm làm thêm, mẹo hay và giải đáp thắc mắc cùng nhau.
           </p>
         </div>
-        <button className="btn btn--primary community-header__post-btn" onClick={() => setCreating(true)}>
+        <button className="btn btn--primary community-header__post-btn" onClick={handleCreateClick}>
           + Đăng bài
         </button>
       </header>
@@ -365,29 +426,48 @@ export function Community() {
       <div className="community-stats">
         <span>{posts.length} bài viết</span>
         <span>·</span>
-        <span>{posts.reduce((s, p) => s + p.comments.length, 0)} bình luận</span>
+        <span>{posts.reduce((s, p) => s + p.commentsCount, 0)} bình luận</span>
         <span>·</span>
         <span>{posts.reduce((s, p) => s + p.likes, 0)} lượt thích</span>
       </div>
 
       {/* Post list */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="empty-state">
+          <p>Đang tải bài viết…</p>
+        </div>
+      ) : loadError ? (
+        <div className="empty-state">
+          <p>{loadError}</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="empty-state">
           <p>Không tìm thấy bài viết nào.</p>
-          <button className="btn btn--primary btn--sm" onClick={() => setCreating(true)} style={{ marginTop: '0.75rem' }}>
+          <button className="btn btn--primary btn--sm" onClick={handleCreateClick} style={{ marginTop: '0.75rem' }}>
             Đăng bài đầu tiên
           </button>
         </div>
       ) : (
-        <ul className="community-list">
-          {filtered.map((p) => (
-            <PostCard key={p.id} post={p} onLikeChange={reload} />
-          ))}
-        </ul>
+        <table className="community-table">
+          <thead>
+            <tr>
+              <th className="community-table__cat-head">Phân loại</th>
+              <th>Tiêu đề</th>
+              <th className="community-table__author-head">Người đăng</th>
+              <th className="community-table__num-head">Xem</th>
+              <th className="community-table__num-head">Thích</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => (
+              <PostRow key={p.id} post={p} />
+            ))}
+          </tbody>
+        </table>
       )}
 
-      {creating && (
-        <CreateModal onClose={() => setCreating(false)} onCreated={reload} />
+      {creating && user && (
+        <CreateModal user={user} onClose={() => setCreating(false)} onCreated={reload} />
       )}
     </div>
   )

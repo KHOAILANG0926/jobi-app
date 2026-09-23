@@ -1,15 +1,17 @@
-import { FormEvent, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
 import { useAuth } from '../context/AuthContext'
-import { loadProfile } from '../lib/storage'
 import {
   POST_CATEGORY_META,
   addComment,
   getPost,
-  isLiked,
+  incrementViews,
+  loadComments,
+  loadLikedPostIds,
   toggleLike,
   type CommunityPost,
+  type PostComment,
 } from '../lib/communityStorage'
 import type { JobCategory } from '../types/job'
 import { ReportButton } from '../components/ReportButton'
@@ -39,32 +41,96 @@ function Stars({ rating }: { rating: number }) {
 export function CommunityPostDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
-  const profile = loadProfile()
-  const defaultName = user ? user.name : profile.fullName || ''
 
-  const [post, setPost] = useState<CommunityPost | undefined>(() => getPost(id ?? ''))
-  const [liked, setLiked] = useState(() => isLiked(id ?? ''))
-  const [likeCount, setLikeCount] = useState(post?.likes ?? 0)
+  const [post, setPost] = useState<CommunityPost | undefined>(undefined)
+  const [comments, setComments] = useState<PostComment[]>([])
+  const [liked, setLiked] = useState(false)
+  const [likePending, setLikePending] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
   const [commentBody, setCommentBody] = useState('')
-  const [commentName, setCommentName] = useState(defaultName)
+  const [commentName, setCommentName] = useState('')
   const [commentError, setCommentError] = useState('')
+  const [posting, setPosting] = useState(false)
 
-  useEffect(() => {
-    const reload = () => {
-      const p = getPost(id ?? '')
+  const reload = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const [p, c, likedIds] = await Promise.all([
+        getPost(id),
+        loadComments(id),
+        user ? loadLikedPostIds(user.id) : Promise.resolve(new Set<string>()),
+      ])
       setPost(p)
-      setLikeCount(p?.likes ?? 0)
+      setComments(c)
+      setLiked(likedIds.has(id))
+      setLoadError('')
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Không thể tải bài viết.')
+    } finally {
+      setLoading(false)
     }
-    window.addEventListener('vgb:community', reload)
-    return () => window.removeEventListener('vgb:community', reload)
-  }, [id])
+  }, [id, user])
 
-  if (!post) {
+  useEffect(() => { reload() }, [reload])
+  useEffect(() => { if (id) incrementViews(id) }, [id])
+
+  const redirectHref = `/dang-nhap?redirect=${encodeURIComponent(location.pathname)}`
+
+  const handleLike = async () => {
+    if (!post) return
+    if (!user) { navigate(redirectHref); return }
+    if (likePending) return
+    setLikePending(true)
+    try {
+      const now = await toggleLike(post.id, user.id, liked)
+      setLiked(now)
+      setPost((prev) => (prev ? { ...prev, likes: now ? prev.likes + 1 : Math.max(0, prev.likes - 1) } : prev))
+    } catch {
+      // best-effort — reload() on next visit resyncs
+    } finally {
+      setLikePending(false)
+    }
+  }
+
+  const handleComment = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!post) return
+    if (!user) { navigate(redirectHref); return }
+    if (!commentBody.trim()) { setCommentError('Vui lòng nhập nội dung bình luận.'); return }
+    if (!commentName.trim()) { setCommentError('Vui lòng nhập tên hiển thị.'); return }
+
+    setPosting(true)
+    try {
+      const comment = await addComment(post.id, commentBody.trim(), user.id, commentName.trim())
+      setComments((prev) => [...prev, comment])
+      setPost((prev) => (prev ? { ...prev, commentsCount: prev.commentsCount + 1 } : prev))
+      setCommentBody('')
+      setCommentError('')
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'Không thể đăng bình luận.')
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="page post-detail-page">
+        <p>Đang tải…</p>
+      </div>
+    )
+  }
+
+  if (loadError || !post) {
     return (
       <div className="page not-found">
         <h1>Không tìm thấy bài viết</h1>
-        <p>Bài viết này đã bị xoá hoặc không tồn tại.</p>
+        <p>{loadError || 'Bài viết này đã bị xoá hoặc không tồn tại.'}</p>
         <Link to="/cong-dong" className="btn btn--primary">
           Quay lại cộng đồng
         </Link>
@@ -73,24 +139,6 @@ export function CommunityPostDetail() {
   }
 
   const meta = POST_CATEGORY_META[post.category]
-
-  const handleLike = () => {
-    const now = toggleLike(post.id)
-    setLiked(now)
-    setLikeCount((c) => (now ? c + 1 : c - 1))
-  }
-
-  const handleComment = (e: FormEvent) => {
-    e.preventDefault()
-    if (!commentBody.trim()) { setCommentError('Vui lòng nhập nội dung bình luận.'); return }
-    if (!commentName.trim()) { setCommentError('Vui lòng nhập tên hiển thị.'); return }
-    addComment(post.id, commentBody.trim(), commentName.trim())
-    setCommentBody('')
-    setCommentError('')
-    // reload
-    const updated = getPost(post.id)
-    if (updated) setPost(updated)
-  }
 
   return (
     <div className="page post-detail-page">
@@ -127,6 +175,7 @@ export function CommunityPostDetail() {
             )}
             <span className="post-detail__author">✍️ {post.authorName}</span>
             <span className="post-detail__date">🕐 {timeAgo(post.createdAt)}</span>
+            <span className="post-detail__views">👁 {post.views}</span>
           </div>
           <ReportButton
             targetType="community_post"
@@ -134,6 +183,15 @@ export function CommunityPostDetail() {
             snapshot={{ title: post.title, author: post.authorName, url: `/cong-dong/${post.id}` }}
           />
         </header>
+
+        {/* Media */}
+        {post.photoUrls.length > 0 && (
+          <div className="post-detail__gallery">
+            {post.photoUrls.map((url) => (
+              <img key={url} src={url} alt="" loading="lazy" />
+            ))}
+          </div>
+        )}
 
         {/* Body */}
         <div className="post-detail__body">
@@ -147,24 +205,25 @@ export function CommunityPostDetail() {
           <button
             className={`community-like-btn community-like-btn--lg${liked ? ' community-like-btn--active' : ''}`}
             onClick={handleLike}
+            disabled={likePending}
           >
-            ♥ {liked ? 'Đã thích' : 'Thích'} · {likeCount}
+            ♥ {liked ? 'Đã thích' : 'Thích'} · {post.likes}
           </button>
           <span className="post-detail__share">
-            💬 {post.comments.length} bình luận
+            💬 {post.commentsCount} bình luận
           </span>
         </div>
       </article>
 
       {/* Comments */}
       <section className="post-comments">
-        <h2 className="post-comments__title">Bình luận ({post.comments.length})</h2>
+        <h2 className="post-comments__title">Bình luận ({comments.length})</h2>
 
-        {post.comments.length === 0 ? (
+        {comments.length === 0 ? (
           <p className="post-comments__empty">Chưa có bình luận. Hãy là người đầu tiên!</p>
         ) : (
           <ul className="post-comments__list">
-            {post.comments.map((c) => (
+            {comments.map((c) => (
               <li key={c.id} className="post-comment">
                 <div className="post-comment__head">
                   <span className="post-comment__author">{c.authorName}</span>
@@ -177,33 +236,42 @@ export function CommunityPostDetail() {
         )}
 
         {/* Comment form */}
-        <form className="post-comment-form" onSubmit={handleComment}>
-          <h3 className="post-comment-form__title">Thêm bình luận</h3>
-          <label className="field">
-            <span className="field__label">Tên hiển thị</span>
-            <input
-              className="field__input"
-              value={commentName}
-              onChange={(e) => setCommentName(e.target.value)}
-              placeholder="Tên hoặc biệt danh"
-              maxLength={40}
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">Nội dung</span>
-            <textarea
-              className="field__input field__textarea"
-              rows={3}
-              value={commentBody}
-              onChange={(e) => setCommentBody(e.target.value)}
-              placeholder="Chia sẻ ý kiến của bạn..."
-            />
-          </label>
-          {commentError && <p className="form-error" role="alert">{commentError}</p>}
-          <button type="submit" className="btn btn--primary btn--sm">
-            Đăng bình luận
-          </button>
-        </form>
+        {user ? (
+          <form className="post-comment-form" onSubmit={handleComment}>
+            <h3 className="post-comment-form__title">Thêm bình luận</h3>
+            <label className="field">
+              <span className="field__label">Tên hiển thị</span>
+              <input
+                className="field__input"
+                value={commentName}
+                onChange={(e) => setCommentName(e.target.value)}
+                placeholder="Tên hoặc biệt danh"
+                maxLength={40}
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">Nội dung</span>
+              <textarea
+                className="field__input field__textarea"
+                rows={3}
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                placeholder="Chia sẻ ý kiến của bạn..."
+              />
+            </label>
+            {commentError && <p className="form-error" role="alert">{commentError}</p>}
+            <button type="submit" className="btn btn--primary btn--sm" disabled={posting}>
+              {posting ? 'Đang đăng…' : 'Đăng bình luận'}
+            </button>
+          </form>
+        ) : (
+          <div className="post-comment-form post-comment-form--locked">
+            <p>Đăng nhập để bình luận.</p>
+            <Link to={redirectHref} className="btn btn--primary btn--sm">
+              Đăng nhập
+            </Link>
+          </div>
+        )}
       </section>
     </div>
   )
