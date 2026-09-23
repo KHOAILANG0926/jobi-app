@@ -58,6 +58,13 @@ export function PostJob() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const errorRef = useRef<HTMLParagraphElement>(null)
+
+  // 폼이 길어서(제출 버튼은 맨 아래) 에러가 폼 맨 위에만 뜨면 사용자가
+  // 못 보고 "버튼이 안 눌린다"고 느낀다 — 에러가 뜰 때마다 그쪽으로 스크롤한다.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [error])
   // 'khac'(기타)는 classifier.py/SUBCATEGORY_LABELS 둘 다 소분류 규칙 자체가
   // 없어 undefined — 그 경우 소분류 select를 아예 숨긴다.
   const subcategoryOptions = SUBCATEGORY_LABELS[form.category]
@@ -276,7 +283,7 @@ export function PostJob() {
       </header>
 
       <form className="form-card" onSubmit={onSubmit} noValidate>
-        {error && <p className="form-error" role="alert">{error}</p>}
+        {error && <p className="form-error" role="alert" ref={errorRef}>{error}</p>}
 
         {employerCheck === 'guest' && (
           <fieldset className="role-picker">
