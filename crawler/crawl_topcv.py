@@ -503,6 +503,14 @@ CATEGORY_URLS = [
     "https://vieclam24h.vn/viec-lam-dong-nai.html",
     "https://vieclam24h.vn/viec-lam-ha-noi.html",
     "https://vieclam24h.vn/viec-lam-bac-ninh.html",
+    # 2026-09-23 사용자 지시로 추가 — 실제 접근 가능 확인됨(curl 200, 페이지
+    # 구조가 viec-lam-bac-ninh.html과 동일 패턴). 2025-07-01 행정구역 개편으로
+    # Bắc Giang은 Bắc Ninh에 통합됐지만(vn_provinces_lookup.py 실측 확인),
+    # 소스 사이트는 옛 지역명 URL을 그대로 유지하고 있어 위 URL과 다른 공고를
+    # 추가로 잡아낼 수 있다 — 수집 후 resolved_province가 두 URL 결과 모두
+    # 동일하게 "Thành phố Bắc Ninh"로 정규화되므로 검색에서는 하나의 지역으로
+    # 합쳐진다.
+    "https://vieclam24h.vn/viec-lam-bac-giang.html",
     "https://vieclam24h.vn/viec-lam-hai-phong.html",
     "https://vieclam24h.vn/viec-lam-da-nang.html",
     "https://vieclam24h.vn/viec-lam-can-tho.html",

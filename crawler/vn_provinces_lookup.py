@@ -13,13 +13,27 @@
 """
 from __future__ import annotations
 
+import re
+
 from vietnam_provinces import Province, Ward
+
+# 2026-09-23 실측 확인: Geoapify 등 지오코딩 결과가 "Bắc Ninh Province"처럼
+# 영문 행정구역 접미사를 붙여서 돌려줄 때가 있는데, Province.search()/
+# search_from_legacy() 둘 다 이 접미사가 붙은 채로는 못 찾는다(실측:
+# job_work_locations 29건이 이 패턴으로 resolved_province가 NULL이었음).
+# 접미사만 떼고 다시 찾으면 정상 매칭되므로, 매칭 전에 미리 제거한다.
+# "City" 접미사는 실제 DB에 한 건도 없어(실측 확인) 추가하지 않는다 —
+# 확인 안 된 패턴을 추측으로 넣지 않는다.
+_ENGLISH_SUFFIX_RE = re.compile(r"\s+Province\s*$", re.IGNORECASE)
 
 
 def resolve_current_province(text: str) -> str | None:
     """텍스트(옛 성/시 이름이든 지금 성/시 이름이든)로 지금 유효한 성/시 이름을 찾는다.
     못 찾으면 None(억지로 아무거나 반환하지 않음)."""
     text = (text or "").strip()
+    if not text:
+        return None
+    text = _ENGLISH_SUFFIX_RE.sub("", text).strip()
     if not text:
         return None
     current = Province.search(text)
