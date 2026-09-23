@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, RefObject, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
 import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
@@ -60,11 +60,24 @@ export function PostJob() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const errorRef = useRef<HTMLParagraphElement>(null)
 
+  const titleRef = useRef<HTMLInputElement>(null)
+  const companyRef = useRef<HTMLInputElement>(null)
+  const salaryRef = useRef<HTMLInputElement>(null)
+  const locationRef = useRef<HTMLInputElement>(null)
+  const employerPhoneRef = useRef<HTMLInputElement>(null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
+  const guestEmailRef = useRef<HTMLInputElement>(null)
+
   // 폼이 길어서(제출 버튼은 맨 아래) 에러가 폼 맨 위에만 뜨면 사용자가
   // 못 보고 "버튼이 안 눌린다"고 느낀다 — 에러가 뜰 때마다 그쪽으로 스크롤한다.
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [error])
+
+  function goToField(ref: RefObject<HTMLInputElement | HTMLTextAreaElement | null>) {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    ref.current?.focus()
+  }
   // 'khac'(기타)는 classifier.py/SUBCATEGORY_LABELS 둘 다 소분류 규칙 자체가
   // 없어 undefined — 그 경우 소분류 select를 아예 숨긴다.
   const subcategoryOptions = SUBCATEGORY_LABELS[form.category]
@@ -101,19 +114,23 @@ export function PostJob() {
     e.preventDefault()
     setError(null)
 
-    if (
-      !form.title.trim() ||
-      !form.company.trim() ||
-      !form.salary.trim() ||
-      !form.location.trim() ||
-      !form.description.trim() ||
-      !form.employerPhone.trim()
-    ) {
-      setError('Vui lòng điền đầy đủ các trường bắt buộc (*).')
+    const requiredFields: { valid: boolean; message: string; ref: RefObject<HTMLInputElement | HTMLTextAreaElement | null> }[] = [
+      { valid: !!form.title.trim(), message: 'Vui lòng nhập tiêu đề công việc.', ref: titleRef },
+      { valid: !!form.company.trim(), message: 'Vui lòng nhập tên công ty / đơn vị.', ref: companyRef },
+      { valid: !!form.salary.trim(), message: 'Vui lòng nhập mức lương / chế độ.', ref: salaryRef },
+      { valid: !!form.location.trim(), message: 'Vui lòng nhập địa điểm làm việc.', ref: locationRef },
+      { valid: !!form.employerPhone.trim(), message: 'Vui lòng nhập số điện thoại liên hệ.', ref: employerPhoneRef },
+      { valid: !!form.description.trim(), message: 'Vui lòng nhập mô tả chi tiết.', ref: descriptionRef },
+    ]
+    const firstInvalid = requiredFields.find((f) => !f.valid)
+    if (firstInvalid) {
+      setError(firstInvalid.message)
+      goToField(firstInvalid.ref)
       return
     }
     if (employerCheck === 'guest' && postMode === 'email' && !guestEmail.trim()) {
       setError('Vui lòng nhập email để đăng ký.')
+      goToField(guestEmailRef)
       return
     }
 
@@ -313,7 +330,7 @@ export function PostJob() {
             ) : (
               <label className="field">
                 <span className="field__label">Email *</span>
-                <input className="field__input" type="email" value={guestEmail}
+                <input ref={guestEmailRef} className="field__input" type="email" value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="example@email.com" autoComplete="email" />
                 <span className="hint">Chúng tôi sẽ gửi link đặt mật khẩu để bạn đăng nhập quản lý tin sau này.</span>
@@ -324,14 +341,14 @@ export function PostJob() {
 
         <label className="field">
           <span className="field__label">Tiêu đề công việc *</span>
-          <input className="field__input" value={form.title}
+          <input ref={titleRef} className="field__input" value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             placeholder="Ví dụ: Nhân viên phục vụ ca tối" />
         </label>
 
         <label className="field">
           <span className="field__label">Tên công ty / đơn vị *</span>
-          <input className="field__input" value={form.company}
+          <input ref={companyRef} className="field__input" value={form.company}
             onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
             placeholder="Công ty TNHH ..." />
         </label>
@@ -361,14 +378,14 @@ export function PostJob() {
 
         <label className="field">
           <span className="field__label">Mức lương / chế độ *</span>
-          <input className="field__input" value={form.salary}
+          <input ref={salaryRef} className="field__input" value={form.salary}
             onChange={(e) => setForm((f) => ({ ...f, salary: e.target.value }))}
             placeholder="Ví dụ: 30.000 đ/giờ hoặc thỏa thuận" />
         </label>
 
         <label className="field">
           <span className="field__label">Địa điểm làm việc *</span>
-          <input className="field__input" value={form.location}
+          <input ref={locationRef} className="field__input" value={form.location}
             onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
             placeholder="Quận, thành phố" />
         </label>
@@ -415,7 +432,7 @@ export function PostJob() {
 
         <label className="field">
           <span className="field__label">Số điện thoại liên hệ *</span>
-          <input className="field__input" value={form.employerPhone}
+          <input ref={employerPhoneRef} className="field__input" value={form.employerPhone}
             onChange={(e) => setForm((f) => ({ ...f, employerPhone: e.target.value }))}
             inputMode="tel" autoComplete="tel" placeholder="0900 000 000" />
         </label>
@@ -472,7 +489,7 @@ export function PostJob() {
 
         <label className="field">
           <span className="field__label">Mô tả chi tiết *</span>
-          <textarea className="field__input field__textarea" rows={5} value={form.description}
+          <textarea ref={descriptionRef} className="field__input field__textarea" rows={5} value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             placeholder="Nội dung công việc, yêu cầu, quyền lợi..." />
         </label>
