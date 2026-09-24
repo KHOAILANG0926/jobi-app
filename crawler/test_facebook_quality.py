@@ -40,7 +40,12 @@ def test_ambiguous_generic_post_skipped() -> None:
 def test_restaurant_and_salary_with_combining_marks() -> None:
     text = "Quán nhậu cần tuyển\n1/phụ bếp có kinh nghiệm\nLương : 8 triệu đến 12 triệu tuỳ năng lực"
     job = parse_post({"text": text, "location": "Đà Nẵng"})
-    assert_equal(job["category"], "restaurant", "combining-mark restaurant text should classify")
+    # 2026-09-24: parse_post()는 classify() 결과를 map_to_new_taxonomy()로
+    # 변환한 새 13분류 id를 돌려준다("restaurant"는 옛 7분류라 여기선 절대
+    # 안 나옴) — 이 fixture가 map_to_new_taxonomy() 도입 전 옛 값으로
+    # 남아있던 stale 케이스였다(job_quality.VALID_CATEGORIES와 같은 버그
+    # 클래스는 아니고, 단순히 갱신 안 된 테스트 기대값).
+    assert_equal(job["category"], "am_thuc_do_uong", "combining-mark restaurant text should classify")
     assert_equal(job["salary"], "8 triệu", "salary should not be blank")
     assert_false(is_ambiguous_job(job), "clear restaurant role should be allowed")
 

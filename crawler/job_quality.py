@@ -6,6 +6,8 @@ import re
 import unicodedata
 from datetime import date
 
+import classifier
+
 
 # Pure mirror of crawl_category()'s in-browser line-parsing JS in
 # crawl_topcv.py — kept here ONLY so that logic can be unit tested without a
@@ -197,16 +199,13 @@ def extract_work_days_free_text(desc_text: object) -> str:
     return ""
 
 
-VALID_CATEGORIES = {
-    "factory",
-    "cafe",
-    "restaurant",
-    "delivery",
-    "cleaning",
-    "retail",
-    "office",
-    "other",
-}
+# 2026-09-17 도입된 새 13분류(classifier.MAJOR_LABELS)를 유일한 출처로
+# 삼는다. 이전엔 여기가 옛 7분류를 그대로 하드코딩하고 있어서, classify()가
+# 이미 새 대분류 id(예: "am_thuc_do_uong")를 반환하는데도
+# validate_job_payload()가 "invalid category"로 매번 거부하고 있었다
+# (2026-09-24 집 PC에서 발견) — 실제로 그 이후 크롤링이 전부 이 검증에서
+# 막혔는지는 과거 실행 로그로 확인되지 않아 확정하지 않는다.
+VALID_CATEGORIES = set(classifier.MAJOR_LABELS.keys())
 
 # 소비자 대출/여신 상품 영업(신용카드/대출 알선 등) 관련 — 이 범주는 이번
 # 수정 대상이 아니다(실제 오탐 사례가 보고된 적 없음), title/company/

@@ -2048,13 +2048,21 @@ def test_verify_write_created_jobs_excluded_from_public_home_search_map_query() 
     1. (이 테스트 파일, 크롤러 쪽) verify_write는 항상 active=False를 강제
        한다 — 위 test_verify_write_forces_active_false_...로 이미 별도
        검증됨(여기서는 전제로만 재확인).
-    2. (프론트, src/context/JobsContext.tsx) Home/검색/지도가 전부 공유하는
-       단 하나의 공개 조회 경로(useJobs())가 local_jobs를 select할 때
-       ".eq('active', true)"로 반드시 필터링하는지 — 소스 텍스트를 직접
-       읽어 그 필터가 local_jobs 조회 바로 다음 줄에 있는지 확인한다(이
-       필터가 실수로 제거되면 이 테스트가 실패해야 한다).
+    2. (프론트) Home/검색/지도가 전부 공유하는 단 하나의 공개 조회 경로가
+       local_jobs를 select할 때 ".eq('active', true)"로 반드시 필터링하는지
+       — 소스 텍스트를 직접 읽어 그 필터가 local_jobs 조회 바로 다음 줄에
+       있는지 확인한다(이 필터가 실수로 제거되면 이 테스트가 실패해야 한다).
 
-    **중요, 확인된 한계(수정하지 않음, 보고만)**: 이 필터는 앱(JobsContext.tsx)
+       2026-09-24 수정: 이 공개 쿼리는 이후 SSR 리팩터링(commit 76693ad,
+       "on-demand SSR for job detail/urgent/search")으로 src/context/
+       JobsContext.tsx에서 src/lib/fetchJobsData.ts로 옮겨졌다(JobsContext.
+       tsx는 이제 fetchJobsData()를 호출만 하고, 자기 파일 안의 유일한
+       `.from('local_jobs')`는 addPostedJob()의 INSERT 호출임 — active=true
+       필터가 있을 이유가 없는 다른 쿼리를 잘못 찾고 있었다). 실제 필터는
+       계속 살아있었다(fetchJobsData.ts:43) — 보안 회귀가 아니라 테스트가
+       옮겨간 파일을 안 따라간 stale 케이스였다. 대상 파일만 바로잡는다.
+
+    **중요, 확인된 한계(수정하지 않음, 보고만)**: 이 필터는 앱(fetchJobsData.ts)
     레벨에서만 적용된다 — supabase/migrations/0005의 local_jobs_public_select
     RLS 정책은 `using (true)`로, anon key로 PostgREST REST API를 직접
     호출하면 active/admin_hidden과 무관하게 모든 행을 읽을 수 있다(RLS가
@@ -2065,18 +2073,21 @@ def test_verify_write_created_jobs_excluded_from_public_home_search_map_query() 
     STRICT 등급(Auth/RLS)이라 사용자 승인 없이 여기서 고치지 않는다."""
     assert_true(crawl_topcv is not None, "sanity — layer 1 (verify_write forces active=False) is covered by a separate dedicated test above")
 
-    jobs_context_path = os.path.join(os.path.dirname(__file__), "..", "src", "context", "JobsContext.tsx")
-    with open(jobs_context_path, encoding="utf-8") as f:
+    fetch_jobs_data_path = os.path.join(os.path.dirname(__file__), "..", "src", "lib", "fetchJobsData.ts")
+    with open(fetch_jobs_data_path, encoding="utf-8") as f:
         source = f.read()
 
     select_idx = source.find(".from('local_jobs')")
-    assert_true(select_idx != -1, "JobsContext.tsx must still have exactly one public local_jobs query to check")
-    # 그 쿼리 체인 바로 다음(다음 300자 이내)에 active=true 필터가 있어야 한다 —
-    # 이 필터가 다른 곳으로 옮겨지거나 삭제되면 이 테스트가 실패해야 한다.
-    window = source[select_idx:select_idx + 400]
+    assert_true(select_idx != -1, "fetchJobsData.ts must still have exactly one public local_jobs query to check")
+    # 그 쿼리 체인 바로 다음에 active=true 필터가 있어야 한다 — 이 필터가
+    # 다른 곳으로 옮겨지거나 삭제되면 이 테스트가 실패해야 한다. 창 크기는
+    # 600자(2026-09-24 실측: .select() 컬럼 목록이 길어 .eq('active', true)가
+    # .from() 뒤 457자 지점에 있음 — 이전 400자 창은 이 실제 쿼리 형태에도
+    # 못 미쳤던 stale 값이었다).
+    window = source[select_idx:select_idx + 600]
     assert_true(
         ".eq('active', true)" in window,
-        "the public local_jobs query in JobsContext.tsx (shared by Home/search/map via useJobs()) must filter .eq('active', true) — "
+        "the public local_jobs query in fetchJobsData.ts (shared by Home/search/map via useJobs()) must filter .eq('active', true) — "
         "if this assertion fails, a verify-write (or any inactive) job could leak into the public UI",
     )
 

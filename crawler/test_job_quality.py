@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import sys
 
-from classifier import classify
+import classifier
+import job_quality
+from classifier import classify, map_to_new_taxonomy
 from job_quality import (
     canonical_job_key,
     classify_work_location_candidate,
@@ -189,7 +191,7 @@ def test_payload_validation() -> None:
         "location": "Bình Dương",
         "salary": "8 - 12 triệu/tháng",
         "description": "[source:vieclam24h] ## Mô tả công việc\nĐóng gói hàng hóa",
-        "category": "factory",
+        "category": "san_xuat_xay_dung",
         "posted_at": "2026-08-22",
         "urgent": False,
         "employer_phone": "",
@@ -218,7 +220,7 @@ def test_payload_validation() -> None:
         **good_job,
         "title": "NV Kinh Doanh Tôn Thép",
         "description": "[source:vieclam24h] Theo dõi đơn hàng, quản lý và thu hồi công nợ theo quy định công ty.",
-        "category": "retail",
+        "category": "quan_ly_ban_hang",
     }
     errors_for_normal_sales = validate_job_payload(normal_sales_job_with_debt_mention_in_body, today="2026-08-22")
     assert_true(
@@ -231,7 +233,7 @@ def test_payload_validation() -> None:
         **good_job,
         "title": "Nhân Viên Thu Hồi Nợ",
         "description": "[source:vieclam24h] Gọi điện nhắc khách hàng thanh toán khoản vay quá hạn.",
-        "category": "office",
+        "category": "van_phong",
     }
     errors_for_collector = validate_job_payload(real_debt_collector_job, today="2026-08-22")
     assert_true(
@@ -248,7 +250,7 @@ def test_debt_collection_quality_filter_fix() -> None:
     있음)은 여전히 막는지 확인한다. 특정 표본 번호/URL/회사명을 예외처리하는
     코드가 아니라 job_quality.py의 공통 규칙만으로 이 결과가 나와야 한다."""
 
-    def _minimal_job(title: str, description: str, category: str = "office") -> dict:
+    def _minimal_job(title: str, description: str, category: str = "van_phong") -> dict:
         return {
             "title": title,
             "company": "Công Ty TNHH Test",
@@ -285,21 +287,21 @@ def test_debt_collection_quality_filter_fix() -> None:
     sample_3 = _minimal_job(
         "Nhân Viên Kinh Doanh Tôn Thép - Không Yêu Cầu Kinh Nghiệm - Lương Cứng Upto 10Tr",
         "Theo dõi đơn hàng, tiến độ giao hàng, phối hợp xử lý các vấn đề phát sinh và quản lý, thu hồi công nợ theo quy định công ty.",
-        category="retail",
+        category="quan_ly_ban_hang",
     )
     _assert_not_money_excluded(sample_3, "sample_3 (steel sales, 'thu hồi công nợ' only in body)")
 
     sample_4 = _minimal_job(
         "Chuyên Viên Kinh Doanh Phụ Gia & Nguyên Liệu Thực Phẩm",
         "Báo giá, đàm phán, ký kết hợp đồng và theo dõi đơn hàng, công nợ",
-        category="office",
+        category="van_phong",
     )
     _assert_not_money_excluded(sample_4, "sample_4 (food additive sales, 'công nợ' only in body)")
 
     sample_8 = _minimal_job(
         "Kế Toán Tổng Hợp",
         "Theo dõi và quản lý công nợ",
-        category="office",
+        category="van_phong",
     )
     _assert_not_money_excluded(sample_8, "sample_8 (general accountant, 'quản lý công nợ' only in body)")
 
@@ -681,7 +683,7 @@ def test_compute_job_updates() -> None:
     # title/company/category are the matching key / not tracked at all — even
     # if a caller's job dict carries different values for them, they must
     # never leak into the update payload.
-    with_untracked_fields = {**existing, "title": "Different Title", "category": "retail"}
+    with_untracked_fields = {**existing, "title": "Different Title", "category": "quan_ly_ban_hang"}
     assert_equal(
         compute_job_updates(existing, with_untracked_fields),
         {},
@@ -883,7 +885,7 @@ def test_unknown_location_never_defaults_to_a_city() -> None:
         ),
         "salary": "Thỏa thuận",
         "description": "[source:vieclam24h] test",
-        "category": "office",
+        "category": "van_phong",
         "origin": "crawler",
         "active": True,
         "admin_hidden": False,
@@ -1161,6 +1163,49 @@ def test_detect_explicit_urgent_hiring() -> None:
     )
 
 
+def test_valid_categories_matches_new_taxonomy_and_classify_output_passes_validation() -> None:
+    """2026-09-24 회귀 테스트 — job_quality.VALID_CATEGORIES가 옛 7분류로
+    남아있던 버그 재발 방지(집 PC에서 발견, 2026-09-17 도입된 새 13분류
+    classifier.MAJOR_LABELS 대신 하드코딩된 옛 집합을 쓰고 있었음).
+
+    crawl_topcv.py는 classify() -> map_to_new_taxonomy()를 거친 새 대분류
+    id를 job["category"]에 넣고 나서 validate_job_payload()를 부른다
+    (map_to_new_taxonomy() 자체의 docstring이 "DB에 쓰기 직전 마지막 단계에서
+    반드시 호출한다"고 명시함). VALID_CATEGORIES가 옛 분류에 머물러 있으면
+    이 경로로 나온 모든 카테고리가 "invalid category"로 거부돼 크롤러가
+    수집한 공고를 전부 스킵하게 된다 — 이 테스트는 그 경로 전체를 재현해
+    통과하는지 확인한다."""
+    assert_equal(
+        job_quality.VALID_CATEGORIES,
+        set(classifier.MAJOR_LABELS.keys()),
+        "VALID_CATEGORIES must always mirror classifier.MAJOR_LABELS (single source of truth)",
+    )
+
+    legacy_category = classify("Công Nhân Sản Xuất Nhà Máy", "Samsung Bắc Ninh", "")
+    assert_equal(legacy_category, "factory", "classify() still returns legacy id by design")
+    new_category, _new_subcategory = map_to_new_taxonomy(legacy_category, None)
+    assert_equal(new_category, "san_xuat_xay_dung", "map_to_new_taxonomy() converts factory -> san_xuat_xay_dung")
+
+    job = {
+        "title": "Công Nhân Sản Xuất Nhà Máy",
+        "company": "Samsung Bắc Ninh",
+        "location": "Bắc Ninh",
+        "salary": "8 - 12 triệu/tháng",
+        "description": "[source:vieclam24h] Sản xuất, đóng gói.",
+        "category": new_category,
+        "posted_at": "2026-09-24",
+        "urgent": False,
+        "employer_phone": "",
+        "application_deadline": "2026-10-24",
+        "active": True,
+        "origin": "crawler",
+        "admin_hidden": False,
+        "image_url": None,
+    }
+    errors = validate_job_payload(job, source="vieclam24h", today="2026-09-24")
+    assert_equal(errors, [], f"classify()+map_to_new_taxonomy() output must pass validate_job_payload(), got {errors!r}")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -1176,6 +1221,7 @@ def main() -> int:
         test_hours_and_work_days_extraction_fix,
         test_compute_all_locations_c1_verified_requires_every_location_source_verified,
         test_detect_explicit_urgent_hiring,
+        test_valid_categories_matches_new_taxonomy_and_classify_output_passes_validation,
     ]
     for test in tests:
         test()
