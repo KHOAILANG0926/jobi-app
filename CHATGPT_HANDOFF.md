@@ -2,97 +2,56 @@
 
 ## 현재 작업
 
-**Viecganban 데이터/크롤러 개선 1차 작업 — 회사 PC에서 여기까지 완료, 집 PC로 인계.**
-"생활조건 기반 일자리 매칭"을 위한 구조화 데이터 기반 마련(급여/근무시간
-구조화, 지역 정규화, Bắc Giang 수집 경로 추가)까지 완료. 대량 크롤링은
-아직 실행 안 됨 — 실행하려면 아래 "다음 결정사항" 확인 필요.
+**크롤러 category 검증 버그 수정 + 신규 8건 실 수집 검증 + "조건 저장·매칭 알림" 서비스 설계 완료.** 이 노트북(LAPTOP-1GF55Q0D, 회사/집 어디서든 동일 경로 `C:\Users\HP\Downloads\jobi-app`)에서 진행. "조건 등록하면 계속 맞는 공고를 찾아주는" 신규 기능은 **설계만 완료, 코드/DB 구현은 아직 시작 안 함** — 다음 세션이 여기서 이어감.
 
-- **IMPLEMENTED + VERIFIED + MASTER PUSHED.** commit `4851389`까지 push
-  확인됨. PRODUCTION DB(Supabase)에도 마이그레이션 전부 적용 완료.
-  프론트엔드 코드 변경은 없음(DB/크롤러만 변경) — 별도 Vercel 배포 대상 아님.
+- **IMPLEMENTED + VERIFIED + MASTER PUSHED(`77c4d8a`).** Production DB에는 신규 공고 8건만 저장됨(스키마 변경 없음).
 
 ## 변경 내용 (이번 라운드)
 
-### 1. 커뮤니티 게시판 (localStorage → Supabase 공유 DB)
-- `community_posts`/`community_comments`/`community_likes` 테이블 + RLS,
-  `community-photos` storage 버킷, 조회수(`views_count`) + 자동 증가 RPC.
-- 목록 UI를 카드형 → 전통 게시판형 리스트(분류/제목/글쓴이/조회/좋아요)로
-  재구성(사용자가 카드형 반려 → A/B 목업 비교 후 결정).
-- 표시 이름 자동완성(실명 노출) 제거.
-- 공고 등록 폼(`PostJob.tsx`) 버그 2건 발견·수정: `field--row` CSS
-  누락으로 체크박스 정렬 깨짐, 에러 메시지가 폼 맨 위에만 떠서 안 보이던
-  문제(이제 해당 입력칸으로 자동 스크롤+포커스).
-- `deactivate_expired_jobs()`(만료 공고 자동 비활성화 함수)가 스케줄러에
-  연결 안 돼 있던 걸 발견해 pg_cron으로 매일 00:00(VN) 자동 실행되게 연결.
+### 1. 크롤러 치명적 버그 발견·수정
+- `job_quality.VALID_CATEGORIES`가 2026-09-17 도입된 새 13분류(`classifier.MAJOR_LABELS`) 대신 옛 7분류 그대로 하드코딩돼 있어서, **그 이후 크롤링된 공고가 전부 "invalid category"로 저장 직전 스킵되고 있었음**(실제 로그로 정확한 기간은 확정 못 함, 코드 경로상 확실). `VALID_CATEGORIES = set(classifier.MAJOR_LABELS.keys())`로 수정.
+- 연쇄로 stale해진 테스트 3개 파일도 정리(job_quality/facebook_quality/address_pipeline_integration) — 전부 실제 최신 코드 동작에 맞게 정정, 회귀 테스트 1개 추가.
+- `test_address_pipeline_integration.py`의 active=true 필터 검사가 SSR 리팩터링 이후 옮겨간 파일(`fetchJobsData.ts`)을 안 따라가서 엉뚱한 곳을 보고 있었음 — **보안 회귀 아님**, 실제 필터는 계속 정상 작동 중이었고 테스트 대상만 정정.
 
-### 2. 데이터 구조화 (신규)
-- `local_jobs`에 `salary_min/max/currency/period/negotiable` 추가 —
-  기존 273건 100% 파싱 성공(원문 salary는 그대로 보존).
-- `local_jobs`에 `shift_type/work_start_time/work_end_time` 추가 — 시간
-  패턴이 명확한 경우만 채움(추측 금지 원칙), 나머지는 NULL.
-- `job_work_locations.resolved_province` 정규화 버그 수정(지오코딩 결과의
-  영문 "Province" 접미사 문제, 29건 영향) + 기존 데이터 백필.
-- **중요 발견**: Bắc Giang은 2025-07-01 행정구역 개편으로 Bắc Ninh에
-  통합되어 더 이상 별도 지역이 아님(`vietnam_provinces` 패키지가 이미
-  이렇게 반영 중, 실측 확인) — "Bắc Giang 공고 0건"은 데이터 누락이
-  아니라 애초에 지금은 독립 지역이 아니기 때문.
-- `crawler/crawl_topcv.py`(실제로는 vieclam24h.vn을 크롤링하는 파일 —
-  이름은 안 바꿈, 불필요한 리팩터링 지시로 유지)에 Bắc Giang 전용 목록
-  URL 추가(실제 접근 확인됨, curl 200).
+### 2. 실제 크롤 저장 검증 (신규 5건 → 통과 확인 후 계속)
+- 이 노트북에서 Playwright가 실제로 동작함을 확인(이전 세션 실패는 이 환경 문제 아니었던 것으로 추정 — 원인 불명, 재확인 안 함).
+- `crawler/.env` 신규 생성(사용자가 직접 service_role 키 입력, 저도 값은 안 보고 파일에만 반영) — **`.env`는 `.gitignore`로 제외 확인됨, 커밋 안 됨.**
+- `--confirm-full-crawl --new-only` 4회 실행: 신규 3건→5건→0건→0건(같은 후보만 반복 발견돼 중단) = **총 8건**(273→281). 50건 목표는 못 채움 — 현재 크롤러가 도는 카테고리 페이지들의 신규 공급 자체가 소진된 것으로 보임.
+- 5건 표본을 원문과 대조: 카테고리·급여원문·주소·중복 전부 정상. **단, salary_min/max·shift_type 등 어제 만든 구조화 컬럼은 신규 저장분에 전혀 안 채워짐**(어제 그 파서를 273건에 한 번만 백필했지, 상시 자동화 안 해둠) — 사용자가 "지금은 보류, 50건까지 먼저 채우고 나중에 일괄 백필"로 결정, 트리거 추가 안 함.
+
+### 3. 구직자 7명 실제 매칭 가능성 조사 (DB + 실사이트 라이브 검색)
+- 실제 인터뷰 프로필 7명 조건으로 DB(281건) 매칭 시도 → **7명 전원 완전 충족 후보 0건.**
+- vieclam24h.vn 실시간 검색(기존 크롤러가 쓰는 것과 동일한 `tim-kiem-viec-lam-nhanh?q=` 패턴)으로 재확인 → 일부 근접 후보 발견(예: 물류영업 5번은 지역·직무 일치, 급여만 "협의"라 미확인 / 마케팅디자인 7번은 지역·급여 거의 일치). 회계(4번, Hải Phòng)는 실사이트 검색에서도 0건 — 진짜 공급 부족으로 판단.
+- 결론: 원문 사이트에 `it-phan-mem`(IT), `quan-ly-tieu-chuan-va-chat-luong`(QA/QC) 카테고리가 실존하는데 현재 크롤러 `CATEGORY_URLS`에 없음 — 확장 여지 확인됨(아직 미구현).
+
+### 4. "조건 저장 → 신규 공고 자동 매칭·알림" 서비스 설계 (코드/DB 미착수)
+- 기존 `recommendStorage.ts`(RecommendPrefs/scoreJob/matchJobs)를 최대한 재사용하는 방향으로 설계 확정.
+- 핵심 설계 결정: 필수조건은 `scoreJob` 점수가 아니라 **충족/불일치/미확인 3분류 판정(신규 함수 필요)**, 그 안에서만 `scoreJob`으로 선호조건 정렬. 미확인 공고는 알림에 안 섞음.
+- 외부 알림 채널 **전부 미구현 확인**(이메일/SMS/푸시/Zalo 메시지 발송 전부 없음, Zalo는 로그인만 있음) — 1차로 이메일 제안(비용 낮음, 다만 이 사용자층엔 전달력 낮을 수 있음), Zalo OA는 다음 단계 후보로만 남김.
+- 필요 테이블(제시만, 미생성): `saved_job_conditions`(필수/선호/조건부 태그 포함), `condition_match_notifications`(중복 알림 방지), `user_profiles.employer_visible_opt_in`/`stats_opt_in`(공개 동의와 통계 동의 분리).
 
 ## 테스트 결과
 
-- `npx tsc --noEmit`, `npm run build`(SSR 포함), `npm test`(6/6 파일
-  전부), `crawler/test_job_quality.py`(19/19), `crawler/
-  vn_provinces_lookup.py` 자체 테스트(11/11) — 전부 통과.
-- 급여 파서: 273건 전수 100% 파싱 성공(range/협의/달러 3패턴).
-- 근무시간 파서: 실제 원문 6개 케이스(단일 구간/자정 넘김/교대/모호한
-  다중 구간/day-night 경계) 전부 수작업 대조로 정확성 확인.
-- 지역 정규화: Bắc Ninh/Bắc Giang 7개 표기 변형 전부 동일 지역으로
-  정규화됨을 직접 확인.
+- `crawler/test_job_quality.py`(20/20), `test_facebook_quality.py`(7/7), `test_address_pipeline_integration.py`(54/54), `test_geocode.py`(6/6) — 전부 통과.
+- 프론트엔드 코드 변경 없음 → `tsc`/`build` 재실행 불필요(안 함).
 
 ## 발견된 문제
 
-1. **이 PC(회사 PC)에서 Playwright 크롤러 실행 불가** — Python 3.14(너무
-   최신, `greenlet` prebuilt wheel 없음) + Microsoft C++ Build Tools
-   미설치로 소스 빌드도 실패. 그래서 이번엔 실제 크롤링(샘플조차)을 못
-   돌렸고, 대신 이미 DB에 있는 source_url 25건을 `curl`로 읽어서 파서만
-   검증했음.
-2. AZDIGI VPS 접속 정보도 이 세션/이 PC에서 못 찾음(과거 인수인계 기록상
-   "VPS 실접속 미확인" 상태로 남아있던 것도 확인됨).
-3. dormitory 키워드("nhà ở")가 주소명과 충돌해 오탐 발생 — 통근버스/
-   기숙사/식사/수당 컬럼은 이번에 일부러 추가 안 함(지시사항), 실제
-   원문 출현율만 25건 샘플로 조사(dormitory 0%, meal 16%, allowance 44%,
-   shuttle_bus 0% — 단, 표본이 사무직 위주라 공장직군엔 대표성 부족).
+1. 신규 크롤링분은 어제 만든 salary/shift 구조화 컬럼이 자동으로 안 채워짐(위 2번 참고, 의도적 보류).
+2. 크롤러 신규 공급 소진(같은 카테고리 페이지 반복 시 0건) — 카테고리/지역 확장이나 재크롤 주기 조정 필요할 수 있음.
+3. `test_geocode.py`의 예전 실패(사용자가 집 PC에서 보고한 "expected 2, got 0")는 이 환경에서 재현 안 됨(단독/연속 실행 둘 다 6/6 클린) — 원인 미상, 재발 시 재조사 필요.
 
-## 다음 결정사항 (사용자 확인 필요 — 집 PC에서 이어갈 것)
+## 다음 결정사항 (사용자 확인 필요)
 
-1. **대량 크롤링 실행 여부** — 코드/DB 준비는 끝났지만 아직 미실행.
-   실행하려면 (a) AZDIGI VPS 접속 정보 확보, 또는 (b) 로컬 PC에 Visual
-   C++ Build Tools 설치(시스템 변경이라 사전 확인 필요) 둘 중 하나가
-   먼저 필요.
-2. **기업 공고 유료 상품 정책** — "기간제 우선 노출" 1개만 우선 설계하기로
-   방향은 잡았으나 구현 전 단계, 아직 보류 중.
-3. **커뮤니티 초기 콘텐츠** — 운영자가 직접 작성하거나 지인에게 요청하는
-   방식으로 채우기로 함(코드 작업 아님).
-4. 통근버스/기숙사/식사/수당 구조화 여부 — 이번 조사 결과(불안정한 표현,
-   샘플 부족)를 보고 진행할지 판단 필요.
+1. **"조건 저장·알림" 기능 실제 구현 시작 여부** — 설계는 승인됐으나(재사용 방향 채택, 4가지 보완사항 반영 완료) 코드/DB 작업은 아직 안 함. 위 합의된 순서(saved_job_conditions 테이블 → 확정 UI → 판정 함수 → 알림)대로 시작할지 결정 필요.
+2. 크롤러 카테고리 확장(`it-phan-mem`, `quan-ly-tieu-chuan-va-chat-luong` 등 검색어 URL 추가) 진행 여부.
+3. 이메일 알림 채널(Resend 등) 실제 연동 착수 여부 — 계정/비용 확인 필요.
+4. (계속 보류 중) Bắc Ninh/Bắc Giang 통근버스·기숙사 등 생활조건 컬럼 신설 — 25건 조사 결과(불안정) 기준 판단 필요.
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-이 문서 위 본문은 매번 최신 작업으로 덮어써지므로, 두 PC를 오가며 세션이
-여러 번 연달아 끝나면 직전 세션들의 "뭘 끝냈는지"가 통째로 사라지는 문제가
-있었다(2026-09-23 실제 발생 — SSR 작업 완료 요약이 그 뒤 커뮤니티 게시판/
-데이터 구조화 두 작업에 연달아 덮어써져서 다음 세션이 못 찾음). 아래는 그
-사고 이후 추가한 최소 이력 — 상세 내용은 각 commit을 `git show <hash>`로.
-
-1. **2026-09-23 — 데이터 구조화 1차 완료** — MASTER PUSHED(`4851389`) +
-   PRODUCTION DB 마이그레이션 적용 완료. 프론트엔드 변경 없음(DB/크롤러만).
-2. **2026-09-23 — 커뮤니티 게시판 Supabase 전환 완료** — MASTER
-   PUSHED(`4be84e8`). PRODUCTION DEPLOYED 여부는 이 로그에 기록 안 남아있음
-   (필요하면 커밋/배포 로그로 직접 확인).
-3. **2026-09-22~23 — GEO/AI 검색 대응 SSR(공고상세/급구/공개검색) 완료** —
-   MASTER PUSHED(`76693ad`) + PRODUCTION DEPLOYED(`viecganban.vn`에서
-   실측 검증 완료: 대표 페이지 20개, sitemap 286개 URL).
-4. **2026-09-21 — 추천 공고 카드(Saramin 스타일 그라데이션 링) 완료** —
-   MASTER PUSHED(`29d5f5b`) + PRODUCTION DEPLOYED.
+1. **2026-09-24 — 크롤러 category 버그 수정 + 신규 8건 검증 + 매칭서비스 설계** — MASTER PUSHED(`77c4d8a`). PRODUCTION DB에 신규 8건 저장(273→281), 스키마 변경 없음.
+2. **2026-09-23 — 데이터 구조화 1차 완료** — MASTER PUSHED(`4851389`) + PRODUCTION DB 마이그레이션 적용 완료. 프론트엔드 변경 없음(DB/크롤러만).
+3. **2026-09-23 — 커뮤니티 게시판 Supabase 전환 완료** — MASTER PUSHED(`4be84e8`). PRODUCTION DEPLOYED 여부는 이 로그에 기록 안 남아있음(필요하면 커밋/배포 로그로 직접 확인).
+4. **2026-09-22~23 — GEO/AI 검색 대응 SSR(공고상세/급구/공개검색) 완료** — MASTER PUSHED(`76693ad`) + PRODUCTION DEPLOYED(`viecganban.vn`에서 실측 검증 완료: 대표 페이지 20개, sitemap 286개 URL).
+5. **2026-09-21 — 추천 공고 카드(Saramin 스타일 그라데이션 링) 완료** — MASTER PUSHED(`29d5f5b`) + PRODUCTION DEPLOYED.
