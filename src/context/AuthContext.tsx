@@ -24,7 +24,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>
   signup: (name: string, email: string, password: string, role: UserRole) => Promise<{ ok: true } | { ok: false; error: string }>
   logout: () => Promise<void>
-  loginWithZalo: () => void
+  loginWithZalo: (redirectTo?: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  const loginWithZalo = useCallback(() => {
+  const loginWithZalo = useCallback((redirectTo?: string) => {
     const appId = import.meta.env.VITE_ZALO_APP_ID as string | undefined
     if (!appId) { alert('Zalo App ID chưa được cấu hình.'); return }
 
@@ -94,13 +94,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const codeVerifier = btoa(String.fromCharCode(...array))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
     sessionStorage.setItem('zalo_cv', codeVerifier)
+    // 로그인 시작 전 있던 화면으로 콜백 후 돌아가기 위한 값 — Zalo OAuth는
+    // 브라우저가 실제로 페이지를 떠났다 돌아오므로(이메일 로그인과 달리
+    // React state로 못 넘김), code_verifier와 같은 방식(sessionStorage)으로
+    // 들고 있다가 ZaloCallback.tsx가 읽어서 navigate한다. 없으면 콜백이 '/'로
+    // fallback.
+    if (redirectTo) sessionStorage.setItem('zalo_redirect', redirectTo)
+    else sessionStorage.removeItem('zalo_redirect')
 
     crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier)).then(buf => {
       const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(buf)))
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
       const redirectUri = encodeURIComponent(`${window.location.origin}/zalo-callback`)
       window.location.href =
-        `https://oauth.zaloapp.com/v4/permission?app_id=${appId}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}`
+        `https://oauth.zaloapp.com/v4/permission?app_id=${appId}&redirect_uri=${redirectUri}` +
+        `&code_challenge=${codeChallenge}&code_challenge_method=S256`
     })
   }, [])
 

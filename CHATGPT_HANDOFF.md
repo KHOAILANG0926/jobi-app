@@ -2,56 +2,91 @@
 
 ## 현재 작업
 
-**크롤러 category 검증 버그 수정 + 신규 8건 실 수집 검증 + "조건 저장·매칭 알림" 서비스 설계 완료.** 이 노트북(LAPTOP-1GF55Q0D, 회사/집 어디서든 동일 경로 `C:\Users\HP\Downloads\jobi-app`)에서 진행. "조건 등록하면 계속 맞는 공고를 찾아주는" 신규 기능은 **설계만 완료, 코드/DB 구현은 아직 시작 안 함** — 다음 세션이 여기서 이어감.
+**Zalo 로그인 검증/수정 — 진행 중, 중단 지점에서 이어받을 것.** 이 노트북
+(LAPTOP-1GF55Q0D, 회사/집 어디서든 동일 경로 `C:\Users\HP\Downloads\jobi-app`)
+에서 진행. **실제 Zalo 로그인 성공 검증 전까지 "완료"로 기록하지 말 것**
+(사용자 명시 지시).
 
-- **IMPLEMENTED + VERIFIED + MASTER PUSHED(`77c4d8a`).** Production DB에는 신규 공고 8건만 저장됨(스키마 변경 없음).
+- **IMPLEMENTED + VERIFIED(부분) + MASTER PUSHED.** 아래 3번(보안 리뷰
+  체크리스트)은 지시만 받고 **아직 시작 전** — 다음 세션이 여기부터 시작.
 
 ## 변경 내용 (이번 라운드)
 
-### 1. 크롤러 치명적 버그 발견·수정
-- `job_quality.VALID_CATEGORIES`가 2026-09-17 도입된 새 13분류(`classifier.MAJOR_LABELS`) 대신 옛 7분류 그대로 하드코딩돼 있어서, **그 이후 크롤링된 공고가 전부 "invalid category"로 저장 직전 스킵되고 있었음**(실제 로그로 정확한 기간은 확정 못 함, 코드 경로상 확실). `VALID_CATEGORIES = set(classifier.MAJOR_LABELS.keys())`로 수정.
-- 연쇄로 stale해진 테스트 3개 파일도 정리(job_quality/facebook_quality/address_pipeline_integration) — 전부 실제 최신 코드 동작에 맞게 정정, 회귀 테스트 1개 추가.
-- `test_address_pipeline_integration.py`의 active=true 필터 검사가 SSR 리팩터링 이후 옮겨간 파일(`fetchJobsData.ts`)을 안 따라가서 엉뚱한 곳을 보고 있었음 — **보안 회귀 아님**, 실제 필터는 계속 정상 작동 중이었고 테스트 대상만 정정.
+### 1. Zalo 로그인 기존 구현 확인
+기존에 이미 전체 흐름이 구현돼 있었음(Login.tsx/Layout.tsx 버튼 →
+AuthContext.loginWithZalo(PKCE 시작) → ZaloCallback.tsx → api/zalo-token.js
+(토큰 교환+Supabase 계정 생성)). HANDOFF 문서엔 이 존재 자체가 기록된 적
+없었음 — 이번에 코드 읽어서 처음 파악.
 
-### 2. 실제 크롤 저장 검증 (신규 5건 → 통과 확인 후 계속)
-- 이 노트북에서 Playwright가 실제로 동작함을 확인(이전 세션 실패는 이 환경 문제 아니었던 것으로 추정 — 원인 불명, 재확인 안 함).
-- `crawler/.env` 신규 생성(사용자가 직접 service_role 키 입력, 저도 값은 안 보고 파일에만 반영) — **`.env`는 `.gitignore`로 제외 확인됨, 커밋 안 됨.**
-- `--confirm-full-crawl --new-only` 4회 실행: 신규 3건→5건→0건→0건(같은 후보만 반복 발견돼 중단) = **총 8건**(273→281). 50건 목표는 못 채움 — 현재 크롤러가 도는 카테고리 페이지들의 신규 공급 자체가 소진된 것으로 보임.
-- 5건 표본을 원문과 대조: 카테고리·급여원문·주소·중복 전부 정상. **단, salary_min/max·shift_type 등 어제 만든 구조화 컬럼은 신규 저장분에 전혀 안 채워짐**(어제 그 파서를 273건에 한 번만 백필했지, 상시 자동화 안 해둠) — 사용자가 "지금은 보류, 50건까지 먼저 채우고 나중에 일괄 백필"로 결정, 트리거 추가 안 함.
+### 2. 발견·수정한 버그 3개
+- **로그인 후 항상 `/`로만 이동, 원래 화면 복귀 안 됨** — 이메일 로그인엔
+  있는 기능이 Zalo 경로엔 없었음. `loginWithZalo(redirectTo?)`로 시그니처
+  변경, `sessionStorage['zalo_redirect']`로 콜백까지 전달.
+- **Layout.tsx 헤더 버튼의 숨은 버그**: `onClick={loginWithZalo}`로 함수를
+  직접 넘겨서, 파라미터 추가 시 클릭 이벤트 객체가 redirectTo로 잘못
+  들어갈 뻔함(`"[object Object]"`가 저장됨) — 화살표 함수로 감싸 수정.
+- **PKCE `code_challenge_method=S256` 파라미터 누락** — SHA-256으로
+  challenge를 만들면서 방식 명시를 안 하고 있었음. 추가.
 
-### 3. 구직자 7명 실제 매칭 가능성 조사 (DB + 실사이트 라이브 검색)
-- 실제 인터뷰 프로필 7명 조건으로 DB(281건) 매칭 시도 → **7명 전원 완전 충족 후보 0건.**
-- vieclam24h.vn 실시간 검색(기존 크롤러가 쓰는 것과 동일한 `tim-kiem-viec-lam-nhanh?q=` 패턴)으로 재확인 → 일부 근접 후보 발견(예: 물류영업 5번은 지역·직무 일치, 급여만 "협의"라 미확인 / 마케팅디자인 7번은 지역·급여 거의 일치). 회계(4번, Hải Phòng)는 실사이트 검색에서도 0건 — 진짜 공급 부족으로 판단.
-- 결론: 원문 사이트에 `it-phan-mem`(IT), `quan-ly-tieu-chuan-va-chat-luong`(QA/QC) 카테고리가 실존하는데 현재 크롤러 `CATEGORY_URLS`에 없음 — 확장 여지 확인됨(아직 미구현).
-
-### 4. "조건 저장 → 신규 공고 자동 매칭·알림" 서비스 설계 (코드/DB 미착수)
-- 기존 `recommendStorage.ts`(RecommendPrefs/scoreJob/matchJobs)를 최대한 재사용하는 방향으로 설계 확정.
-- 핵심 설계 결정: 필수조건은 `scoreJob` 점수가 아니라 **충족/불일치/미확인 3분류 판정(신규 함수 필요)**, 그 안에서만 `scoreJob`으로 선호조건 정렬. 미확인 공고는 알림에 안 섞음.
-- 외부 알림 채널 **전부 미구현 확인**(이메일/SMS/푸시/Zalo 메시지 발송 전부 없음, Zalo는 로그인만 있음) — 1차로 이메일 제안(비용 낮음, 다만 이 사용자층엔 전달력 낮을 수 있음), Zalo OA는 다음 단계 후보로만 남김.
-- 필요 테이블(제시만, 미생성): `saved_job_conditions`(필수/선호/조건부 태그 포함), `condition_match_notifications`(중복 알림 방지), `user_profiles.employer_visible_opt_in`/`stats_opt_in`(공개 동의와 통계 동의 분리).
+### 3. 사용자가 추가로 요청한 보안 검토 항목 — **미착수, 다음 세션 시작점**
+사용자가 다음 5가지를 확인/필요시 수정하라고 지시했고, 세션이 중단돼
+**하나도 시작 못 함**:
+- 서버가 Zalo에서 직접 확인한 사용자 ID만 신원 근거로 쓰는지(api/zalo-token.js
+  가 클라이언트가 보낸 값이 아니라 Zalo API 응답의 `zaloUser.id`만 신뢰하는지
+  재확인 필요).
+- `zalo_<id>@viecganban.vn` 합성 이메일의 **기존 계정을 무조건 로그인시키지
+  않는지** — 이전 라운드에서 "구조적으로 충돌 불가능"이라고 코드 검토만으로
+  판단했는데, 사용자가 "그렇게 단정하지 말라"고 명시적으로 반려함. 더 엄격한
+  검증(예: 기존 계정에 이미 다른 zalo_id가 연결돼 있는데 다른 Zalo 계정으로
+  로그인 시도하는 경우 등)이 필요한지 다시 봐야 함.
+- OAuth 요청↔콜백을 잇는 **state 파라미터 검증**이 있는지(현재 코드에는
+  없어 보임 — CSRF 방지용, 이번에 다시 확인 필요) — PKCE(code_verifier/
+  code_challenge)와는 별개의 항목.
+- 로그인 후 복귀 경로(`zalo_redirect`)가 **사이트 내부 경로만 허용**하는지
+  — 지금 구현은 `sessionStorage`에 넣은 값을 검증 없이 그대로
+  `navigate()`에 넘김. open redirect류 문제 가능성 재검토 필요.
+  (`redirectTo`를 어디서 받는지도 같이 볼 것: Login.tsx의 `explicitRedirect`
+  는 `searchParams.get('redirect')`도 받으므로 외부에서 URL로 임의 값을
+  주입할 수 있는 입력임.)
+- 인증 취소·실패·성공 후 `sessionStorage`의 `zalo_cv`/`zalo_redirect`가
+  각 경로에서 실제로 정리(삭제)되는지 — 성공 경로는 확인함(ZaloCallback.tsx
+  가 `hashed_token` 받자마자 `zalo_cv` 삭제, 세션 생성 후 `zalo_redirect`
+  삭제). **취소/실패 경로는 아직 확인 안 함** — 에러 시 `zalo_cv`/
+  `zalo_redirect`가 sessionStorage에 남아있을 가능성 있음.
 
 ## 테스트 결과
 
-- `crawler/test_job_quality.py`(20/20), `test_facebook_quality.py`(7/7), `test_address_pipeline_integration.py`(54/54), `test_geocode.py`(6/6) — 전부 통과.
-- 프론트엔드 코드 변경 없음 → `tsc`/`build` 재실행 불필요(안 함).
+- `npx tsc --noEmit`, `npm run build` — 위 2번 수정 3건 반영 후 통과.
+- 로컬 dev 서버 + 가짜 App ID로 프론트 흐름만 실제 브라우저 클릭으로 확인:
+  PKCE code_verifier(43자) 생성, `zalo_redirect`에 원래 화면 경로 정확히
+  저장, `oauth.zaloapp.com`으로 올바른 파라미터(`code_challenge_method=S256`
+  포함)와 함께 리다이렉트되는 것까지 확인. **실제 Zalo 인증 완료·세션 생성은
+  검증 안 됨**(진짜 App ID/Secret 없음).
 
 ## 발견된 문제
 
-1. 신규 크롤링분은 어제 만든 salary/shift 구조화 컬럼이 자동으로 안 채워짐(위 2번 참고, 의도적 보류).
-2. 크롤러 신규 공급 소진(같은 카테고리 페이지 반복 시 0건) — 카테고리/지역 확장이나 재크롤 주기 조정 필요할 수 있음.
-3. `test_geocode.py`의 예전 실패(사용자가 집 PC에서 보고한 "expected 2, got 0")는 이 환경에서 재현 안 됨(단독/연속 실행 둘 다 6/6 클린) — 원인 미상, 재발 시 재조사 필요.
+1. 위 3번 보안 검토 항목 5개 — 미착수.
+2. `VITE_ZALO_APP_ID`/`ZALO_APP_SECRET`/`SUPABASE_SERVICE_ROLE_KEY` 모두
+   로컬에 없고, Vercel 쪽 설정 여부도 **확인 못함**(이 로컬 사본이 Vercel
+   프로젝트에 연결 안 돼 있어 `vercel env ls` 실행 불가 — 로그인 필요해서
+   진행 안 함).
+3. Zalo 개발자 콘솔에 콜백 URL(`https://www.viecganban.vn/zalo-callback`,
+   로컬 테스트용 `http://localhost:5173/zalo-callback`) 등록 여부 미확인
+   (사용자가 직접 확인해야 하는 영역).
 
 ## 다음 결정사항 (사용자 확인 필요)
 
-1. **"조건 저장·알림" 기능 실제 구현 시작 여부** — 설계는 승인됐으나(재사용 방향 채택, 4가지 보완사항 반영 완료) 코드/DB 작업은 아직 안 함. 위 합의된 순서(saved_job_conditions 테이블 → 확정 UI → 판정 함수 → 알림)대로 시작할지 결정 필요.
-2. 크롤러 카테고리 확장(`it-phan-mem`, `quan-ly-tieu-chuan-va-chat-luong` 등 검색어 URL 추가) 진행 여부.
-3. 이메일 알림 채널(Resend 등) 실제 연동 착수 여부 — 계정/비용 확인 필요.
-4. (계속 보류 중) Bắc Ninh/Bắc Giang 통근버스·기숙사 등 생활조건 컬럼 신설 — 25건 조사 결과(불안정) 기준 판단 필요.
+1. 위 5개 보안 검토 항목부터 이어서 처리(다음 세션 시작점).
+2. Zalo 개발자 콘솔 설정(App ID/Secret 발급, 콜백 URL 등록) 완료 여부.
+3. Vercel 환경변수(`VITE_ZALO_APP_ID`/`ZALO_APP_SECRET`) 설정 여부 — 설정
+   후에만 실제 로그인 E2E 검증 가능.
+4. (계속 보류 중, 이 작업과 무관) "조건 저장·알림" 기능 — 건드리지 않음,
+   설계만 있고 코드/DB 미착수 상태 그대로.
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-09-24 — 크롤러 category 버그 수정 + 신규 8건 검증 + 매칭서비스 설계** — MASTER PUSHED(`77c4d8a`). PRODUCTION DB에 신규 8건 저장(273→281), 스키마 변경 없음.
-2. **2026-09-23 — 데이터 구조화 1차 완료** — MASTER PUSHED(`4851389`) + PRODUCTION DB 마이그레이션 적용 완료. 프론트엔드 변경 없음(DB/크롤러만).
-3. **2026-09-23 — 커뮤니티 게시판 Supabase 전환 완료** — MASTER PUSHED(`4be84e8`). PRODUCTION DEPLOYED 여부는 이 로그에 기록 안 남아있음(필요하면 커밋/배포 로그로 직접 확인).
-4. **2026-09-22~23 — GEO/AI 검색 대응 SSR(공고상세/급구/공개검색) 완료** — MASTER PUSHED(`76693ad`) + PRODUCTION DEPLOYED(`viecganban.vn`에서 실측 검증 완료: 대표 페이지 20개, sitemap 286개 URL).
-5. **2026-09-21 — 추천 공고 카드(Saramin 스타일 그라데이션 링) 완료** — MASTER PUSHED(`29d5f5b`) + PRODUCTION DEPLOYED.
+1. **2026-09-25 — Zalo 로그인 버그 3건 수정(부분 검증), 보안 검토 착수 전 중단** — 사용자 요청으로 여기서 중단, 완료 아님.
+2. **2026-09-24 — 크롤러 category 버그 수정 + 신규 8건 검증 + 매칭서비스 설계** — MASTER PUSHED(`77c4d8a`). PRODUCTION DB에 신규 8건 저장(273→281), 스키마 변경 없음.
+3. **2026-09-23 — 데이터 구조화 1차 완료** — MASTER PUSHED(`4851389`) + PRODUCTION DB 마이그레이션 적용 완료. 프론트엔드 변경 없음(DB/크롤러만).
+4. **2026-09-23 — 커뮤니티 게시판 Supabase 전환 완료** — MASTER PUSHED(`4be84e8`). PRODUCTION DEPLOYED 여부는 이 로그에 기록 안 남아있음(필요하면 커밋/배포 로그로 직접 확인).
+5. **2026-09-22~23 — GEO/AI 검색 대응 SSR(공고상세/급구/공개검색) 완료** — MASTER PUSHED(`76693ad`) + PRODUCTION DEPLOYED(`viecganban.vn`에서 실측 검증 완료: 대표 페이지 20개, sitemap 286개 URL).

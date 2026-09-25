@@ -34,7 +34,9 @@ export function ZaloCallback() {
           type: 'magiclink',
         })
         if (error) throw error
-        navigate('/', { replace: true })
+        const redirectTo = sessionStorage.getItem('zalo_redirect')
+        sessionStorage.removeItem('zalo_redirect')
+        navigate(redirectTo || '/', { replace: true })
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Đăng nhập Zalo thất bại.'

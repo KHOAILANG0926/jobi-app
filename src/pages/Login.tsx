@@ -99,7 +99,7 @@ export function Login() {
         {import.meta.env.VITE_ZALO_APP_ID && (
           <>
             <div className="auth-divider"><span>hoặc</span></div>
-            <button type="button" className="btn-zalo-login" onClick={loginWithZalo}>
+            <button type="button" className="btn-zalo-login" onClick={() => loginWithZalo(explicitRedirect ?? undefined)}>
               <ZaloIcon size={22} />
               Đăng nhập bằng Zalo
             </button>

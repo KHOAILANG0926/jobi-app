@@ -316,7 +316,7 @@ export function Layout() {
       ) : (
         <>
           {import.meta.env.VITE_ZALO_APP_ID && (
-            <button type="button" className="btn-zalo-header" onClick={loginWithZalo}>
+            <button type="button" className="btn-zalo-header" onClick={() => loginWithZalo(location.pathname)}>
               <ZaloIcon />
               <span>Zalo</span>
             </button>
