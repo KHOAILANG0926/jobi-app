@@ -39,9 +39,17 @@ export default async function handler(req, res) {
   }
 
   // 2. Get Zalo user profile
-  // Zalo OAuth v4 토큰은 쿼리스트링이 아니라 access_token 헤더로 보내야 한다.
-  const userRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
-    headers: { access_token: tokenData.access_token },
+  // Zalo는 베트남 밖 IP의 /me 호출을 -501로 막는다(Vercel 함수는 미국 리전).
+  // 그래서 베트남 VPS의 중계 서버(crawler/zalo_relay.py)를 거쳐 조회한다.
+  const relayUrl = process.env.ZALO_RELAY_URL
+  const relayKey = process.env.ZALO_RELAY_KEY
+  if (!relayUrl || !relayKey) {
+    return res.status(500).json({ error: 'Server misconfigured: missing relay env vars' })
+  }
+  const userRes = await fetch(relayUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Relay-Key': relayKey },
+    body: JSON.stringify({ access_token: tokenData.access_token }),
   })
   const zaloUser = await userRes.json()
   if (!zaloUser.id) {
