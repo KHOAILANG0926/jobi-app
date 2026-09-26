@@ -2,16 +2,17 @@
 
 ## 현재 작업
 
-**Zalo 로그인 — 라이브 계정탈취 결함 긴급 수정 + Production 배포 완료.**
-집 PC 세션. **실제 사람이 진짜 Zalo 계정으로 로그인 성공/재로그인/타인
-계정 충돌 거부까지 끝까지 확인하기 전까지는 "완료"로 기록하지 말 것**
-(계속 유효한 사용자 지시) — 단, 오늘 발견된 라이브 취약점 자체는 수정·
-배포·서버 레벨로 확인 완료.
+**Zalo 로그인 — 계정탈취 결함 수정 + VPS relay HTTPS 전환까지 전부 완료,
+남은 건 사람의 실제 로그인 E2E뿐.** 집 PC 세션. **실제 사람이 진짜 Zalo
+계정으로 로그인 성공/재로그인/타인 계정 충돌 거부까지 끝까지 확인하기
+전까지는 "완료"로 기록하지 말 것**(계속 유효한 사용자 지시) — 코드·서버·
+VPS 인프라 쪽은 전부 실측 확인 완료, 아래 "실제 로그인 테스트 순서"만
+남음.
 
-- **IMPLEMENTED + VERIFIED(코드/서버 레벨) + MASTER PUSHED(`c5d7e8f`) +
-  PRODUCTION DEPLOYED(`viecganban.vn`에 실제 반영 확인).** 사람이 진짜
-  Zalo 계정으로 로그인하는 E2E만 미검증 — 이유는 아래 "발견된 문제" 참고
-  (에이전트가 Zalo 계정을 가질 수 없어 직접 못 함).
+- **IMPLEMENTED + VERIFIED(코드/서버/VPS 인프라 레벨) + MASTER PUSHED
+  (`c5d7e8f`~`31b76fa`) + PRODUCTION DEPLOYED(`viecganban.vn`에 실제 반영
+  확인).** 사람이 진짜 Zalo 계정으로 로그인하는 E2E만 남음 — 에이전트는
+  Zalo 계정을 가질 수 없어 여기부터는 사람이 직접 해야 함.
 
 ### 오늘 있었던 일 (시간순)
 
@@ -48,16 +49,26 @@
    미응답 — `generateLink()` 자체는 이미 성공해서 유효한 토큰이 발급된
    뒤이므로 "미발급"이 아니라 "발급된 토큰을 응답에서 버림"이 정확한
    표현). 기존 계정 메타데이터는 검증 전에 절대 덮어쓰지 않는다.
-2. **VPS relay 평문 전송 차단**: 지금 `crawler/zalo_relay.py`는 HTTPS가
-   아니라 평문 HTTP만 서빙한다 — 그대로 두면 Zalo access_token과
-   `X-Relay-Key`가 Vercel↔VPS 공인망 구간에서 암호화 없이 오간다. VPS에
-   SSH 접근 권한이 없어 이번 세션에서 실제 TLS(nginx/caddy+인증서 등)를
-   붙이는 작업은 못했다 — 대신 `api/zalo-token.js`에 `ZALO_RELAY_URL`이
-   `https://`로 시작하지 않으면 503으로 막는 가드를 추가해, **HTTPS로
-   전환되기 전까지는 Zalo 로그인 자체가 서버에서 거부되게(fail-closed)**
-   했다. `ZALO_RELAY_URL`을 `https://`로 바꾸는 순간 자동으로 다시
-   동작한다 — **다음에 VPS 작업 가능한 사람/세션이 relay 앞단에 실제
-   TLS를 붙이는 게 필요함** (아래 "다음 결정사항" 참고).
+2. **VPS relay 평문 전송 차단 → 실제 HTTPS 전환까지 완료**: `api/
+   zalo-token.js`에 `ZALO_RELAY_URL`이 `https://`가 아니면 Zalo API를
+   부르기도 전에 503으로 막는 가드를 추가했고(사용자 지적으로 위치를
+   Zalo 토큰교환보다 앞으로 재배치, `0cc72e3`), **이번엔 실제로 이 저장소의
+   SSH 키(`~/.ssh/jobi_vps`, `known_hosts`에 이미 등록돼 있었음)로 VPS
+   접속에 성공해서 HTTPS까지 실제로 붙였다**(`31b76fa`):
+   - VPS(`103.221.223.71`)엔 이 프로젝트용 도메인이 없고, DNS(Matbao)
+     관리 권한도 이 세션엔 없어서, DNS를 새로 안 건드리고도 신뢰되는
+     인증서를 받으려고 **sslip.io**(IP를 그대로 호스트명으로 매핑해주는
+     공개 wildcard DNS)를 썼다 — 도메인: `103-221-223-71.sslip.io`.
+   - Caddy를 설치해 `:443`에서 이 도메인으로 실제 Let's Encrypt 인증서를
+     자동 발급받고 `localhost:8787`(zalo_relay.py)로 중계하도록 설정.
+   - `ufw`를 활성화해 `22`/`80`/`443`만 외부에 열고 **8787(평문 relay
+     포트)은 외부 차단** — 이전엔 `ufw`가 아예 비활성 상태라 8787이
+     전세계에 그대로 열려 있었음(추가로 발견한 문제, 같이 고침).
+   - Vercel Production의 `ZALO_RELAY_URL`을
+     `https://103-221-223-71.sslip.io/zalo/me`로 갱신 후 재배포.
+   - 자세한 절차는 `crawler/README.md`의 "Zalo relay TLS(Caddy)" 절,
+     재설치 스크립트는 `crawler/install_zalo_relay.sh`(더 이상 8787을
+     외부에 열지 않도록 같이 고침).
 3. **open redirect + 정리 안 된 sessionStorage**: `AuthContext.tsx`에
    `sanitizeInternalRedirect()`를 추가해 `zalo_redirect`(및 그 출처
    `?redirect=`)가 `/`로 시작하는 내부 절대경로일 때만 저장/사용되게
@@ -82,45 +93,77 @@
   차단, 내부 redirect 정상 저장, 취소 시나리오에서 3개 sessionStorage 키
   전부 정리 — 전부 확인.
 - **Production(`viecganban.vn`) 서버 레벨 확인**(비밀값/토큰 출력 없이):
-  - `curl -X POST https://www.viecganban.vn/api/zalo-token`에 가짜
-    `app_id`로 요청 → "Server misconfigured"가 아니라 Zalo 서버가 직접
-    돌려준 `Invalid appId`(-14002) 응답을 받음 — `ZALO_APP_SECRET`/
-    `SUPABASE_SERVICE_ROLE_KEY`가 실제로 설정돼 있고 새 코드가 정말
-    Zalo API를 호출한다는 것 확인.
+  - HTTPS 전환 전: 가짜 요청 → 503 "relay not HTTPS"(Zalo API를 부르기도
+    전에 막힘) — `ZALO_RELAY_URL`이 그때 HTTP였다는 것을 값을 보지 않고
+    동작만으로 확정.
+  - HTTPS 전환 + 재배포 후: 같은 가짜 요청 → 503이 사라지고 Zalo 서버가
+    직접 준 `Invalid appId`(-14002) 응답으로 바뀜 — 가드가 정상적으로
+    풀렸고 새 코드가 실제로 Zalo API까지 도달한다는 것 확인.
+  - `curl https://103-221-223-71.sslip.io/health` → 실제 신뢰되는 인증서로
+    200 확인(`curl -k` 없이, 즉 진짜 공인 CA 체인). `/zalo/me`에 키 없이
+    POST → 401 "unauthorized"(relay 자체 인증 로직이 HTTPS 뒤에서도 정상
+    동작).
+  - `curl http://103.221.223.71:8787/health`(외부에서 직접) → 타임아웃 —
+    평문 포트가 이제 외부에서 완전히 막혔다는 것 확인.
   - 실제 사이트에서 "Đăng nhập bằng Zalo" 버튼 클릭 → 실제
     `id.zalo.me`의 진짜 로그인 화면까지 정상 도달(redirect_uri/App ID
     불일치 에러 없음) — 여기서 중단, 실제 계정으로 로그인 시도는 안 함
     (에이전트가 Zalo 계정을 가질 수 없음).
-  - **미검증**: 실제 사람이 진짜 Zalo 계정으로 로그인 완료 → Supabase
-    세션 생성 → 재로그인 → 서로 다른 Zalo 계정이 같은 합성 이메일에서
-    충돌 안 하는지, 이 4가지는 사람이 직접 해봐야 확인 가능.
+  - **미검증(사람이 해야 함)**: 실제 사람이 진짜 Zalo 계정으로 로그인
+    완료 → Supabase 세션 생성 → 재로그인 → 서로 다른 Zalo 계정이 같은
+    합성 이메일에서 충돌 안 하는지. 아래 "실제 로그인 테스트 순서" 참고.
 
 ## 발견된 문제
 
-1. **VPS relay가 여전히 평문 HTTP** — 위 503 가드로 로그인 자체가 막혀
-   있어 당장 위험하진 않지만, 실제 로그인을 켜려면 VPS(103.221.223.71)에
-   SSH로 들어가서 relay 앞단에 실제 TLS를 붙이고 `ZALO_RELAY_URL`을
-   `https://`로 바꿔야 한다 — 이 세션은 그 VPS에 대한 SSH 접근 권한이
-   없어서 여기까지만 함.
-2. 사람이 직접 하는 실제 로그인 E2E(신규가입/재로그인/계정충돌 거부) —
-   위 1번이 해결돼야 시도라도 가능. 그 전까진 "완료"로 기록 안 함.
+1. VPS(`103.221.223.71`)에 이 프로젝트용 도메인이 없고, DNS(Matbao)
+   관리 권한도 이 세션엔 없었음 — sslip.io로 우회해서 해결(위 "변경
+   내용 2" 참고), 앞으로 이 VPS의 IP가 바뀌면 sslip.io 도메인과
+   `ZALO_RELAY_URL`을 새 IP 기준으로 다시 맞춰야 함.
+2. VPS의 `ufw`가 이번 작업 전까지 **아예 비활성 상태**였음 — 8787뿐
+   아니라 이론상 이 VPS의 다른 어떤 포트도 방화벽 보호가 없었다는 뜻.
+   이번에 SSH/80/443만 열도록 활성화했지만, 이 VPS에서 크롤러 등
+   다른 용도로 추가로 열어야 하는 포트가 있었는지는 확인 안 함 —
+   크롤러(`run_daily.sh`)는 아웃바운드만 쓰는 걸로 보여 문제없을
+   가능성이 높지만 다음에 크롤링이 갑자기 안 되면 이 방화벽 활성화가
+   원인일 수 있다는 것 기억해둘 것.
 3. Zalo 개발자 콘솔 설정(App ID/Secret, 콜백 URL) 자체는 오늘 다른
    세션이 등록 완료 주장 + 실제 로그인 화면 도달로 간접 확인됨(콘솔
-   내부는 직접 못 봄).
+   내부는 직접 못 봄) — 콜백 URL이 `www.viecganban.vn`과
+   `viecganban.vn` 중 어느 쪽으로 등록됐는지는 불명확(아래 테스트
+   순서에서 `www` 버전을 우선 권장하는 이유).
+
+## 실제 로그인 테스트 순서 (사람이 직접 — 여기부터는 에이전트가 못 함)
+
+1. **신규가입 테스트**: 아직 이 사이트에 로그인한 적 없는 실제 Zalo
+   계정으로 https://www.viecganban.vn/dang-nhap 접속 → "Đăng nhập bằng
+   Zalo" 클릭 → Zalo 로그인 화면에서 정상 로그인 + 권한 동의 → 자동으로
+   viecganban.vn으로 돌아와 로그인된 상태가 되는지 확인.
+   - 만약 Zalo 로그인 화면 자체에서 "redirect_uri 불일치"류 에러가
+     뜨면: `https://viecganban.vn/dang-nhap`(www 없이)로 다시 시도 —
+     Zalo 콘솔에 어느 쪽 콜백 URL이 등록됐는지 몰라서 그렇다.
+   - 사이트로 안전하게 돌아왔는데 "Đăng nhập Zalo thất bại"류 에러가
+     뜨면 화면에 나오는 에러 메시지 그대로 알려줄 것(어느 단계에서
+     막혔는지 바로 특정 가능).
+2. **재로그인 테스트**: 1번 성공 후 로그아웃 → 같은 Zalo 계정으로
+   "Đăng nhập bằng Zalo" 다시 클릭 → 새 계정을 또 만들지 않고 같은
+   계정으로 바로 로그인되는지 확인.
+3. **(선택, 두 번째 Zalo 계정이 있을 때만) 계정 충돌 거부 확인**: 코드
+   레벨로는 이미 회귀 테스트로 검증됐지만, 실제로 확인하고 싶다면 —
+   서로 다른 두 Zalo 계정으로 각각 로그인해서 서로 다른 Supabase
+   계정이 생기는지(합성 이메일이 Zalo id별로 다르므로 정상적으로는
+   당연히 분리됨, 이건 "충돌이 실제로 발생하지 않는다"만 확인하는
+   용도).
 
 ## 다음 결정사항 (사용자 확인 필요)
 
-1. **VPS relay HTTPS 전환** — SSH 접근 가능한 사람/세션이 이어서 처리.
-   전환 후 `ZALO_RELAY_URL`을 `https://...`로 바꾸면 로그인이 자동으로
-   다시 켜진다(코드 추가 변경 불필요).
-2. 1번이 끝나면 실제 Zalo 계정으로 신규가입·재로그인·계정충돌 거부
-   E2E를 사람이 직접 확인.
-3. (계속 보류 중, 이 작업과 무관) "조건 저장·알림" 기능 — 건드리지 않음,
+1. 위 "실제 로그인 테스트 순서" 사람이 직접 진행 → 결과(성공/실패,
+   에러 메시지)를 알려주면 이어서 처리.
+2. (계속 보류 중, 이 작업과 무관) "조건 저장·알림" 기능 — 건드리지 않음,
    설계만 있고 코드/DB 미착수 상태 그대로.
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-09-26 — Zalo 로그인 라이브 계정탈취 결함 긴급 수정** — MASTER PUSHED(`c5d7e8f`) + PRODUCTION DEPLOYED(서버 레벨 확인 완료). 사람의 실제 로그인 E2E는 VPS relay HTTPS 전환 후로 보류.
+1. **2026-09-26 — Zalo 로그인 계정탈취 긴급수정 + VPS relay HTTPS 전환까지 완료** — MASTER PUSHED(`c5d7e8f`~`31b76fa`) + PRODUCTION DEPLOYED + VPS(Caddy/sslip.io/ufw) 실측 확인. 사람의 실제 로그인 E2E만 남음(HANDOFF 본문의 "실제 로그인 테스트 순서" 참고).
 2. **2026-09-24 — 크롤러 category 버그 수정 + 신규 8건 검증 + 매칭서비스 설계** — MASTER PUSHED(`77c4d8a`). PRODUCTION DB에 신규 8건 저장(273→281), 스키마 변경 없음.
 3. **2026-09-23 — 데이터 구조화 1차 완료** — MASTER PUSHED(`4851389`) + PRODUCTION DB 마이그레이션 적용 완료. 프론트엔드 변경 없음(DB/크롤러만).
 4. **2026-09-23 — 커뮤니티 게시판 Supabase 전환 완료** — MASTER PUSHED(`4be84e8`). PRODUCTION DEPLOYED 여부는 이 로그에 기록 안 남아있음(필요하면 커밋/배포 로그로 직접 확인).
