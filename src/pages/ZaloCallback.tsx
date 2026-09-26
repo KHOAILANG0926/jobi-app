@@ -12,6 +12,15 @@ export function ZaloCallback() {
     const code = searchParams.get('code')
     const codeVerifier = sessionStorage.getItem('zalo_cv')
     const appId = import.meta.env.VITE_ZALO_APP_ID as string | undefined
+    const state = searchParams.get('state')
+    const savedState = sessionStorage.getItem('zalo_state')
+    sessionStorage.removeItem('zalo_state')
+
+    if (!state || !savedState || state !== savedState) {
+      setErrorMsg('Xác thực Zalo thất bại. Phiên đăng nhập không hợp lệ, vui lòng thử lại.')
+      setStatus('error')
+      return
+    }
 
     if (!code || !codeVerifier || !appId) {
       setErrorMsg('Xác thực Zalo thất bại. Thiếu thông tin.')
