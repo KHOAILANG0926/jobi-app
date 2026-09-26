@@ -94,6 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const codeVerifier = btoa(String.fromCharCode(...array))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
     sessionStorage.setItem('zalo_cv', codeVerifier)
+    // Zalo OAuth v4는 state 파라미터가 필수(-14036 "State was required").
+    // CSRF 방지용으로 무작위 값을 만들어 두고 ZaloCallback.tsx에서 대조한다.
+    const stateArr = new Uint8Array(16)
+    crypto.getRandomValues(stateArr)
+    const state = Array.from(stateArr, b => b.toString(16).padStart(2, '0')).join('')
+    sessionStorage.setItem('zalo_state', state)
     // 로그인 시작 전 있던 화면으로 콜백 후 돌아가기 위한 값 — Zalo OAuth는
     // 브라우저가 실제로 페이지를 떠났다 돌아오므로(이메일 로그인과 달리
     // React state로 못 넘김), code_verifier와 같은 방식(sessionStorage)으로
@@ -108,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const redirectUri = encodeURIComponent(`${window.location.origin}/zalo-callback`)
       window.location.href =
         `https://oauth.zaloapp.com/v4/permission?app_id=${appId}&redirect_uri=${redirectUri}` +
-        `&code_challenge=${codeChallenge}&code_challenge_method=S256`
+        `&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}`
     })
   }, [])
 
