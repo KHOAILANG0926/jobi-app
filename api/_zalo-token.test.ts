@@ -48,6 +48,7 @@ let generateLinkImpl: (args: Record<string, unknown>) => Promise<{ data: unknown
 function resetAdminState(): void {
   adminCalls = []
   relayCalls.length = 0
+  zaloTokenExchangeCalls.length = 0
   process.env.ZALO_RELAY_URL = FAKE_RELAY_URL_HTTPS
   createUserImpl = async () => ({ data: { user: null }, error: null })
   generateLinkImpl = async () => ({ data: null, error: { message: 'not configured' } })
@@ -85,11 +86,13 @@ mock.module('@supabase/supabase-js', {
 let currentZaloId = ''
 let currentZaloName = 'Test User'
 const relayCalls: unknown[] = []
+const zaloTokenExchangeCalls: unknown[] = []
 const FAKE_RELAY_URL_HTTPS = 'https://relay.example.test/zalo/me'
 
 globalThis.fetch = (async (input: unknown) => {
   const url = String(input)
   if (url.startsWith('https://oauth.zaloapp.com/v4/access_token')) {
+    zaloTokenExchangeCalls.push(url)
     return { json: async () => ({ access_token: 'fake-access-token' }) } as Response
   }
   if (url === process.env.ZALO_RELAY_URL) {
@@ -230,7 +233,7 @@ async function testNoOwnershipLinkIsRejectedWithoutToken(): Promise<void> {
   assertTrue(!state.jsonBody || !('hashed_token' in state.jsonBody), 'no token may be returned when there is no trusted ownership link')
 }
 
-async function testHttpRelayIsRejectedBeforeAnyLoginWork(): Promise<void> {
+async function testHttpRelayIsRejectedBeforeCallingZaloOrRelay(): Promise<void> {
   resetAdminState()
   currentZaloId = 'zalo-whatever'
   process.env.ZALO_RELAY_URL = 'http://103.221.223.71:8787/zalo/me'
@@ -245,6 +248,10 @@ async function testHttpRelayIsRejectedBeforeAnyLoginWork(): Promise<void> {
 
   assertEqual(state.statusCode, 503, 'a non-HTTPS relay URL must fail closed with 503, not silently use plaintext HTTP')
   assertTrue(!state.jsonBody || !('hashed_token' in state.jsonBody), 'no token may be returned while the relay is HTTP')
+  // 2026-09-26: 이 가드는 Zalo 토큰교환(oauth.zaloapp.com)보다도 먼저 와야
+  // 한다 — 이전 버전은 relay 호출 직전에만 있어서 매 요청이 이미 Zalo API를
+  // 한 번 부른 뒤에야 막혔다(사용자가 직접 지적해서 재배치).
+  assertEqual(zaloTokenExchangeCalls.length, 0, 'the Zalo token-exchange API must never be called while the relay is HTTP — the guard must run before it, not just before the relay call')
   assertEqual(relayCalls.length, 0, 'the relay must never actually be called over HTTP — the guard must run before the fetch')
   assertEqual(adminCalls.length, 0, 'no Supabase admin calls should happen at all when login is disabled by the HTTPS guard')
 }
@@ -274,7 +281,7 @@ async function main(): Promise<void> {
     testExistingAccountNotOverwrittenAndReturningLoginSucceeds,
     testForgedUserMetadataIsRejectedWithoutToken,
     testNoOwnershipLinkIsRejectedWithoutToken,
-    testHttpRelayIsRejectedBeforeAnyLoginWork,
+    testHttpRelayIsRejectedBeforeCallingZaloOrRelay,
     testDifferentZaloIdAlreadyLinkedIsRejectedWithoutToken,
   ]
   for (const test of tests) {

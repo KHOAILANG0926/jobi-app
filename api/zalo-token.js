@@ -10,9 +10,25 @@ export default async function handler(req, res) {
   const { code, code_verifier, app_id } = req.body ?? {}
   const appSecret = process.env.ZALO_APP_SECRET
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const relayUrl = process.env.ZALO_RELAY_URL
+  const relayKey = process.env.ZALO_RELAY_KEY
 
-  if (!appSecret || !serviceKey) {
+  if (!appSecret || !serviceKey || !relayUrl || !relayKey) {
     return res.status(500).json({ error: 'Server misconfigured: missing env vars' })
+  }
+  // 2026-09-26 보안 검토 — 이 가드는 반드시 Zalo 토큰교환(아래 1번)보다도
+  // 먼저 와야 한다. relay(crawler/zalo_relay.py)가 지금 평문 HTTP만 서빙해서
+  // Zalo access_token과 X-Relay-Key가 Vercel↔VPS 구간에서 그대로 노출되는데,
+  // 이 체크가 relay 호출 직전(2번)에만 있으면 매 요청마다 이미 Zalo API를
+  // 한 번 불필요하게 호출한 뒤에야 막힌다 — 위험하진 않지만(oauth.zaloapp.com
+  // 호출 자체는 HTTPS) 있으나 마나 한 순서다. HTTPS로 전환되기 전까지는
+  // Zalo를 부르기도 전에 여기서 막는다. ZALO_RELAY_URL을 https://로 바꾸면
+  // 자동으로 통과된다.
+  if (!relayUrl.startsWith('https://')) {
+    return res.status(503).json({
+      error: 'Zalo login temporarily unavailable',
+      detail: 'The Zalo profile relay is not using HTTPS yet — login is disabled until it does.',
+    })
   }
   if (!code || !code_verifier || !app_id) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -41,23 +57,8 @@ export default async function handler(req, res) {
   // 2. Get Zalo user profile
   // Zalo는 베트남 밖 IP의 /me 호출을 -501로 막는다(Vercel 함수는 미국 리전).
   // 그래서 베트남 VPS의 중계 서버(crawler/zalo_relay.py)를 거쳐 조회한다.
-  const relayUrl = process.env.ZALO_RELAY_URL
-  const relayKey = process.env.ZALO_RELAY_KEY
-  if (!relayUrl || !relayKey) {
-    return res.status(500).json({ error: 'Server misconfigured: missing relay env vars' })
-  }
-  // 2026-09-26 보안 검토 — 지금 이 relay(crawler/zalo_relay.py)는 평문 HTTP만
-  // 서빙한다. 그대로 두면 Zalo access_token과 X-Relay-Key가 Vercel↔VPS 구간
-  // 공인망에서 암호화 없이 오간다. VPS에 실제 TLS(nginx/caddy+인증서 등)를
-  // 붙이기 전까지는 이 경로 자체를 막는다(사용자 지시: "전환 전에는 해당
-  // 중계 경로를 운영에 노출하지 마") — ZALO_RELAY_URL을 https://로 바꾸는
-  // 순간 이 가드는 자동으로 통과된다.
-  if (!relayUrl.startsWith('https://')) {
-    return res.status(503).json({
-      error: 'Zalo login temporarily unavailable',
-      detail: 'The Zalo profile relay is not using HTTPS yet — login is disabled until it does.',
-    })
-  }
+  // (relayUrl/relayKey 존재 확인 + HTTPS 가드는 핸들러 맨 위로 옮겼다 — Zalo
+  // 토큰교환보다 먼저 막아야 하므로.)
   const userRes = await fetch(relayUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Relay-Key': relayKey },
