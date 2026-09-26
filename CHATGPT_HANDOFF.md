@@ -10,6 +10,34 @@
 - **IMPLEMENTED + VERIFIED(부분) + MASTER PUSHED.** 아래 3번(보안 리뷰
   체크리스트)은 지시만 받고 **아직 시작 전** — 다음 세션이 여기부터 시작.
 
+**2026-09-26 추가 — 이 세션과 별개로 claude.ai 채팅 + GitHub 웹 업로드로
+Zalo 관련 작업이 더 진행됨(commit `f76ebc6`까지, 이 저장소에 fast-forward
+pull로 반영·push까지 완료, 충돌 없음, tsc 통과 확인). 요약:**
+- Zalo 도메인 인증(meta 태그) + 앱 설정(App ID/Callback URL 등록) 완료
+  주장(Zalo 개발자 콘솔 쪽이라 이 세션에서 직접 확인 못함).
+- Vercel Production 환경변수 추가 주장: `VITE_ZALO_APP_ID`,
+  `ZALO_APP_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `ZALO_RELAY_URL`,
+  `ZALO_RELAY_KEY`(값은 이 세션에서 안 보고 안 확인함).
+- **아래 3번 보안 검토 항목 중 "state 검증"은 이미 반영된 것을
+  코드로 직접 확인함**(`AuthContext.tsx`가 `zalo_state`를 sessionStorage에
+  저장, `ZaloCallback.tsx`가 `state !== savedState`면 즉시 에러 처리 후
+  `zalo_state` 삭제) — 나머지 4개 항목(신원 근거, 계정 충돌, redirect
+  내부경로 제한, 취소/실패 시 정리)은 **아직 재확인 안 함**.
+- `api/zalo-token.js`가 Zalo `/me` 조회를 AZDIGI VPS 중계 서버
+  (`crawler/zalo_relay.py`, 103.221.223.71:8787) 경유로 바꿈 — 이유는
+  "Zalo -501: 베트남 밖 IP는 개인정보 조회 제한, Vercel 함수가 미국 리전"
+  이라는 설명(이 세션에서 직접 검증 안 함). 이 중계 서버는 HTTP 평문 —
+  요약본 자체가 "추후 HTTPS 적용 검토" 필요 항목으로 남김.
+- **GitHub 웹 업로드 실수로 생긴 더미 파일 3개가 저장소에 그대로 있음**
+  (`index (1).html`, `src/context/AuthContext (1).tsx`,
+  `src/pages/ZaloCallback (1).tsx`) — 파일명에 공백/괄호가 있어 빌드에는
+  안 걸림(tsc 통과 확인됨), 하지만 정리 안 된 쓰레기 파일이라 다음 세션이
+  삭제 여부 판단 필요.
+- **다음 세션 시작 시 반드시 먼저 할 것**: 위 주장들(도메인 인증, Vercel
+  환경변수, VPS 중계서버 동작)을 실제로 검증하고, 이 문서 3번의 보안 검토
+  나머지 4개 항목을 새 코드 기준으로 이어서 진행. 실제 Zalo 로그인 성공
+  여부는 여전히 미검증.
+
 ## 변경 내용 (이번 라운드)
 
 ### 1. Zalo 로그인 기존 구현 확인
