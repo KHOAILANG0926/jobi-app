@@ -29,6 +29,17 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// 2026-09-26 보안 검토 — zalo_redirect(및 그 출처인 Login.tsx의 ?redirect=)는
+// 사용자가 URL로 임의 값을 주입할 수 있는 입력이다. 절대경로 하나("/...")만
+// 허용하고, "//evil.com"(프로토콜 상대 URL)이나 "https://..." 같은 외부
+// 목적지, 백슬래시 트릭("/\evil.com")은 전부 거부한다. ZaloCallback.tsx의
+// navigate() 호출 직전에도 다시 한번 이 함수로 걸러 방어를 이중화한다.
+export function sanitizeInternalRedirect(path: string | null | undefined): string | undefined {
+  if (!path) return undefined
+  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/\\')) return undefined
+  return path
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -105,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // React state로 못 넘김), code_verifier와 같은 방식(sessionStorage)으로
     // 들고 있다가 ZaloCallback.tsx가 읽어서 navigate한다. 없으면 콜백이 '/'로
     // fallback.
-    if (redirectTo) sessionStorage.setItem('zalo_redirect', redirectTo)
+    // open redirect 방지 — 내부 절대경로만 저장한다(sanitizeInternalRedirect 참고).
+    const safeRedirect = sanitizeInternalRedirect(redirectTo)
+    if (safeRedirect) sessionStorage.setItem('zalo_redirect', safeRedirect)
     else sessionStorage.removeItem('zalo_redirect')
 
     crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier)).then(buf => {

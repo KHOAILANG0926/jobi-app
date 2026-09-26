@@ -1,12 +1,16 @@
-// Runs every src/**/*.test.ts sequentially (Node's native TS execution +
-// ts-extensionless-loader.mjs so pre-existing extensionless relative imports
-// resolve). Each test file is plain assertions that throw on failure and
-// print a "... all assertions passed" line on success (see jobRows.test.ts).
+// Runs every src/**/*.test.ts and api/**/*.test.ts sequentially (Node's
+// native TS execution + ts-extensionless-loader.mjs so pre-existing
+// extensionless relative imports resolve). Each test file is plain
+// assertions that throw on failure and print a "... all assertions passed"
+// line on success (see jobRows.test.ts). api/ is included alongside src/
+// because it holds Vercel serverless functions (Node-only globals like
+// process/node:test) that intentionally sit outside tsconfig.json's
+// `include: ["src"]" — see api/_zalo-token.test.ts.
 import { execFileSync } from 'node:child_process'
 import { readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
-const root = join(import.meta.dirname, '..', 'src')
+const roots = [join(import.meta.dirname, '..', 'src'), join(import.meta.dirname, '..', 'api')]
 
 function findTests(dir) {
   const out = []
@@ -18,7 +22,7 @@ function findTests(dir) {
   return out
 }
 
-const tests = findTests(root)
+const tests = roots.flatMap(findTests)
 let failed = 0
 const cwd = process.cwd()
 const toPosixRelative = (p) => relative(cwd, p).split('\\').join('/')
@@ -33,7 +37,11 @@ for (const file of tests) {
   try {
     execFileSync(
       process.execPath,
-      ['--experimental-strip-types', '--import', registerPath, rel],
+      // --experimental-test-module-mocks: needed by api/_zalo-token.test.ts's
+      // node:test mock.module() (stubs @supabase/supabase-js so it can run the
+      // real api/zalo-token.js handler without touching production Auth).
+      // Purely additive — a no-op for every other test file.
+      ['--experimental-strip-types', '--experimental-test-module-mocks', '--import', registerPath, rel],
       { stdio: 'inherit', cwd },
     )
   } catch {

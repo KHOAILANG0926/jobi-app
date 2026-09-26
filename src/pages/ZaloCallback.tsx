@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { sanitizeInternalRedirect } from '../context/AuthContext'
 
 export function ZaloCallback() {
   const [searchParams] = useSearchParams()
@@ -9,14 +10,23 @@ export function ZaloCallback() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
+    // 2026-09-26 보안 검토 — 성공/취소/실패 경로 전부에서 1회용 인증정보가
+    // sessionStorage에 남지 않도록, 읽는 즉시(가드 실패로 조기 종료하는
+    // 경우까지 포함해서) 전부 제거한다. 이전엔 zalo_redirect가 성공 경로
+    // 끝에서만 지워져서, Zalo 동의 화면에서 취소하거나(code 없이 콜백) 토큰
+    // 교환이 실패하면 zalo_cv/zalo_redirect가 그대로 남아있었다.
     const code = searchParams.get('code')
+    const returnedState = searchParams.get('state')
     const codeVerifier = sessionStorage.getItem('zalo_cv')
-    const appId = import.meta.env.VITE_ZALO_APP_ID as string | undefined
-    const state = searchParams.get('state')
     const savedState = sessionStorage.getItem('zalo_state')
+    const redirectTo = sanitizeInternalRedirect(sessionStorage.getItem('zalo_redirect'))
+    sessionStorage.removeItem('zalo_cv')
     sessionStorage.removeItem('zalo_state')
+    sessionStorage.removeItem('zalo_redirect')
 
-    if (!state || !savedState || state !== savedState) {
+    const appId = import.meta.env.VITE_ZALO_APP_ID as string | undefined
+
+    if (!returnedState || !savedState || returnedState !== savedState) {
       setErrorMsg('Xác thực Zalo thất bại. Phiên đăng nhập không hợp lệ, vui lòng thử lại.')
       setStatus('error')
       return
@@ -35,7 +45,6 @@ export function ZaloCallback() {
     })
       .then(r => r.json())
       .then(async (data: { hashed_token?: string; error?: string }) => {
-        sessionStorage.removeItem('zalo_cv')
         if (!data.hashed_token) throw new Error(data.error ?? 'Token error')
 
         const { error } = await supabase.auth.verifyOtp({
@@ -43,8 +52,6 @@ export function ZaloCallback() {
           type: 'magiclink',
         })
         if (error) throw error
-        const redirectTo = sessionStorage.getItem('zalo_redirect')
-        sessionStorage.removeItem('zalo_redirect')
         navigate(redirectTo || '/', { replace: true })
       })
       .catch((err: unknown) => {

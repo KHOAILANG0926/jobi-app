@@ -46,6 +46,18 @@ export default async function handler(req, res) {
   if (!relayUrl || !relayKey) {
     return res.status(500).json({ error: 'Server misconfigured: missing relay env vars' })
   }
+  // 2026-09-26 보안 검토 — 지금 이 relay(crawler/zalo_relay.py)는 평문 HTTP만
+  // 서빙한다. 그대로 두면 Zalo access_token과 X-Relay-Key가 Vercel↔VPS 구간
+  // 공인망에서 암호화 없이 오간다. VPS에 실제 TLS(nginx/caddy+인증서 등)를
+  // 붙이기 전까지는 이 경로 자체를 막는다(사용자 지시: "전환 전에는 해당
+  // 중계 경로를 운영에 노출하지 마") — ZALO_RELAY_URL을 https://로 바꾸는
+  // 순간 이 가드는 자동으로 통과된다.
+  if (!relayUrl.startsWith('https://')) {
+    return res.status(503).json({
+      error: 'Zalo login temporarily unavailable',
+      detail: 'The Zalo profile relay is not using HTTPS yet — login is disabled until it does.',
+    })
+  }
   const userRes = await fetch(relayUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Relay-Key': relayKey },
@@ -66,7 +78,16 @@ export default async function handler(req, res) {
   const { error: createError } = await supabaseAdmin.auth.admin.createUser({
     email: syntheticEmail,
     email_confirm: true,
-    user_metadata: { name: zaloUser.name, role: 'seeker', zalo_id: zaloUser.id },
+    user_metadata: { name: zaloUser.name, role: 'seeker' },
+    // zalo_id는 app_metadata에만 저장한다 — user_metadata는 로그인한 본인이
+    // supabase.auth.updateUser({ data })로 직접 바꿀 수 있는 값이라 신원
+    // 근거로 못 쓴다(app_metadata는 서비스 롤만 수정 가능, auth-js 타입
+    // 정의로 확인). 2026-09-26: Production에 이미 배포됐던 이전 버전이
+    // user_metadata.zalo_id + 소유권 검증 없이 바로 토큰을 내주고 있어서,
+    // 공격자가 피해자의 zalo_id로 합성 이메일 계정을 먼저 만들어두면
+    // 피해자의 실제 Zalo 로그인을 가로챌 수 있는 상태였다(계정 탈취) — 즉시
+    // 아래 소유권 검증과 함께 고침.
+    app_metadata: { zalo_id: zaloUser.id },
   })
 
   // Ignore "already registered" error
@@ -82,6 +103,20 @@ export default async function handler(req, res) {
 
   if (linkError || !linkData?.properties?.hashed_token) {
     return res.status(500).json({ error: 'Failed to generate session token', detail: linkError?.message })
+  }
+
+  // 기존 계정(이메일 일치)이 지금 로그인 중인 Zalo 사용자가 만든 게 맞는지
+  // 확인 — app_metadata.zalo_id가 정확히 일치할 때만 허용한다. generateLink()
+  // 는 이 체크와 무관하게 이미 유효한 hashed_token을 발급한 뒤이므로, 거부는
+  // "토큰 미발급"이 아니라 "발급된 토큰을 응답에 포함하지 않고 버림"이다 —
+  // 이메일 발송 없이 여기서만 쓰므로 그 토큰은 어디에도 전달되지 않고 Supabase
+  // OTP 만료 시간이 지나면 소멸한다.
+  const existingZaloId = linkData.user?.app_metadata?.zalo_id
+  if (existingZaloId !== zaloUser.id) {
+    return res.status(409).json({
+      error: 'Email already in use by a different account',
+      detail: 'This synthetic email is already associated with an account that was not created via Zalo login.',
+    })
   }
 
   return res.status(200).json({
