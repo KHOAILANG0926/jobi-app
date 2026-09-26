@@ -2,118 +2,125 @@
 
 ## 현재 작업
 
-**Zalo 로그인 검증/수정 — 진행 중, 중단 지점에서 이어받을 것.** 이 노트북
-(LAPTOP-1GF55Q0D, 회사/집 어디서든 동일 경로 `C:\Users\HP\Downloads\jobi-app`)
-에서 진행. **실제 Zalo 로그인 성공 검증 전까지 "완료"로 기록하지 말 것**
-(사용자 명시 지시).
+**Zalo 로그인 — 라이브 계정탈취 결함 긴급 수정 + Production 배포 완료.**
+집 PC 세션. **실제 사람이 진짜 Zalo 계정으로 로그인 성공/재로그인/타인
+계정 충돌 거부까지 끝까지 확인하기 전까지는 "완료"로 기록하지 말 것**
+(계속 유효한 사용자 지시) — 단, 오늘 발견된 라이브 취약점 자체는 수정·
+배포·서버 레벨로 확인 완료.
 
-- **IMPLEMENTED + VERIFIED(부분) + MASTER PUSHED.** 아래 3번(보안 리뷰
-  체크리스트)은 지시만 받고 **아직 시작 전** — 다음 세션이 여기부터 시작.
+- **IMPLEMENTED + VERIFIED(코드/서버 레벨) + MASTER PUSHED(`c5d7e8f`) +
+  PRODUCTION DEPLOYED(`viecganban.vn`에 실제 반영 확인).** 사람이 진짜
+  Zalo 계정으로 로그인하는 E2E만 미검증 — 이유는 아래 "발견된 문제" 참고
+  (에이전트가 Zalo 계정을 가질 수 없어 직접 못 함).
 
-**2026-09-26 추가 — 이 세션과 별개로 claude.ai 채팅 + GitHub 웹 업로드로
-Zalo 관련 작업이 더 진행됨(commit `f76ebc6`까지, 이 저장소에 fast-forward
-pull로 반영·push까지 완료, 충돌 없음, tsc 통과 확인). 요약:**
-- Zalo 도메인 인증(meta 태그) + 앱 설정(App ID/Callback URL 등록) 완료
-  주장(Zalo 개발자 콘솔 쪽이라 이 세션에서 직접 확인 못함).
-- Vercel Production 환경변수 추가 주장: `VITE_ZALO_APP_ID`,
-  `ZALO_APP_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `ZALO_RELAY_URL`,
-  `ZALO_RELAY_KEY`(값은 이 세션에서 안 보고 안 확인함).
-- **아래 3번 보안 검토 항목 중 "state 검증"은 이미 반영된 것을
-  코드로 직접 확인함**(`AuthContext.tsx`가 `zalo_state`를 sessionStorage에
-  저장, `ZaloCallback.tsx`가 `state !== savedState`면 즉시 에러 처리 후
-  `zalo_state` 삭제) — 나머지 4개 항목(신원 근거, 계정 충돌, redirect
-  내부경로 제한, 취소/실패 시 정리)은 **아직 재확인 안 함**.
-- `api/zalo-token.js`가 Zalo `/me` 조회를 AZDIGI VPS 중계 서버
-  (`crawler/zalo_relay.py`, 103.221.223.71:8787) 경유로 바꿈 — 이유는
-  "Zalo -501: 베트남 밖 IP는 개인정보 조회 제한, Vercel 함수가 미국 리전"
-  이라는 설명(이 세션에서 직접 검증 안 함). 이 중계 서버는 HTTP 평문 —
-  요약본 자체가 "추후 HTTPS 적용 검토" 필요 항목으로 남김.
-- **GitHub 웹 업로드 실수로 생긴 더미 파일 3개가 저장소에 그대로 있음**
-  (`index (1).html`, `src/context/AuthContext (1).tsx`,
-  `src/pages/ZaloCallback (1).tsx`) — 파일명에 공백/괄호가 있어 빌드에는
-  안 걸림(tsc 통과 확인됨), 하지만 정리 안 된 쓰레기 파일이라 다음 세션이
-  삭제 여부 판단 필요.
-- **다음 세션 시작 시 반드시 먼저 할 것**: 위 주장들(도메인 인증, Vercel
-  환경변수, VPS 중계서버 동작)을 실제로 검증하고, 이 문서 3번의 보안 검토
-  나머지 4개 항목을 새 코드 기준으로 이어서 진행. 실제 Zalo 로그인 성공
-  여부는 여전히 미검증.
+### 오늘 있었던 일 (시간순)
 
-## 변경 내용 (이번 라운드)
+1. 이 세션과 별개로 **claude.ai 채팅 + GitHub 웹 업로드**로 Zalo 작업이
+   더 진행됨(`3a506b1`~`93a767b`, 14개 커밋) — Zalo 도메인 인증, App ID/
+   Callback 등록, **Vercel Production에 실제 환경변수 5개 등록**
+   (`VITE_ZALO_APP_ID`/`ZALO_APP_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/
+   `ZALO_RELAY_URL`/`ZALO_RELAY_KEY`), state 파라미터 검증 추가, Zalo가
+   베트남 밖 IP(Vercel=미국 리전)의 `/me` 조회를 -501로 막는 문제를
+   피하려고 AZDIGI VPS 중계 서버(`crawler/zalo_relay.py`) 신설, 사이트
+   타이틀 오타 수정("Việt Gần Bạn"→"Việc gần Bạn" — "Việt"는 베트남,
+   "Việc"이 일/직업이라 도메인 viecganban.vn과 맞는 표기), + Production
+   배포까지 실제로 완료.
+2. 이 PC가 집에 돌아와 동기화하다가 발견: **위 세션이 배포한
+   `api/zalo-token.js`는 어제(2026-09-25) 발견해 로컬에서만 고쳐뒀던
+   계정탈취 결함이 전혀 반영 안 된 원본 그대로였고, 그 상태로 실제
+   Production에 살아있는 채로 배포돼 있었음** — 즉 공격자가 피해자의
+   Zalo id를 알면 `zalo_<id>@viecganban.vn`으로 먼저 가입해둬서 피해자의
+   실제 Zalo 로그인을 가로챌 수 있는 상태가 **실제 라이브 사이트에서 열려
+   있었음**(어제 로컬 수정은 push 전이라 반영 안 된 상태 그대로 묻혀있었음).
+3. 사용자 승인으로 **즉시 수정 → 커밋 → push → Production 배포**까지 완료.
 
-### 1. Zalo 로그인 기존 구현 확인
-기존에 이미 전체 흐름이 구현돼 있었음(Login.tsx/Layout.tsx 버튼 →
-AuthContext.loginWithZalo(PKCE 시작) → ZaloCallback.tsx → api/zalo-token.js
-(토큰 교환+Supabase 계정 생성)). HANDOFF 문서엔 이 존재 자체가 기록된 적
-없었음 — 이번에 코드 읽어서 처음 파악.
+## 변경 내용 (오늘 긴급 수정, commit `c5d7e8f`)
 
-### 2. 발견·수정한 버그 3개
-- **로그인 후 항상 `/`로만 이동, 원래 화면 복귀 안 됨** — 이메일 로그인엔
-  있는 기능이 Zalo 경로엔 없었음. `loginWithZalo(redirectTo?)`로 시그니처
-  변경, `sessionStorage['zalo_redirect']`로 콜백까지 전달.
-- **Layout.tsx 헤더 버튼의 숨은 버그**: `onClick={loginWithZalo}`로 함수를
-  직접 넘겨서, 파라미터 추가 시 클릭 이벤트 객체가 redirectTo로 잘못
-  들어갈 뻔함(`"[object Object]"`가 저장됨) — 화살표 함수로 감싸 수정.
-- **PKCE `code_challenge_method=S256` 파라미터 누락** — SHA-256으로
-  challenge를 만들면서 방식 명시를 안 하고 있었음. 추가.
+기준: 오피스 세션이 배포한 relay 아키텍처(그대로 유지) 위에 아래 3개를
+추가로 고침.
 
-### 3. 사용자가 추가로 요청한 보안 검토 항목 — **미착수, 다음 세션 시작점**
-사용자가 다음 5가지를 확인/필요시 수정하라고 지시했고, 세션이 중단돼
-**하나도 시작 못 함**:
-- 서버가 Zalo에서 직접 확인한 사용자 ID만 신원 근거로 쓰는지(api/zalo-token.js
-  가 클라이언트가 보낸 값이 아니라 Zalo API 응답의 `zaloUser.id`만 신뢰하는지
-  재확인 필요).
-- `zalo_<id>@viecganban.vn` 합성 이메일의 **기존 계정을 무조건 로그인시키지
-  않는지** — 이전 라운드에서 "구조적으로 충돌 불가능"이라고 코드 검토만으로
-  판단했는데, 사용자가 "그렇게 단정하지 말라"고 명시적으로 반려함. 더 엄격한
-  검증(예: 기존 계정에 이미 다른 zalo_id가 연결돼 있는데 다른 Zalo 계정으로
-  로그인 시도하는 경우 등)이 필요한지 다시 봐야 함.
-- OAuth 요청↔콜백을 잇는 **state 파라미터 검증**이 있는지(현재 코드에는
-  없어 보임 — CSRF 방지용, 이번에 다시 확인 필요) — PKCE(code_verifier/
-  code_challenge)와는 별개의 항목.
-- 로그인 후 복귀 경로(`zalo_redirect`)가 **사이트 내부 경로만 허용**하는지
-  — 지금 구현은 `sessionStorage`에 넣은 값을 검증 없이 그대로
-  `navigate()`에 넘김. open redirect류 문제 가능성 재검토 필요.
-  (`redirectTo`를 어디서 받는지도 같이 볼 것: Login.tsx의 `explicitRedirect`
-  는 `searchParams.get('redirect')`도 받으므로 외부에서 URL로 임의 값을
-  주입할 수 있는 입력임.)
-- 인증 취소·실패·성공 후 `sessionStorage`의 `zalo_cv`/`zalo_redirect`가
-  각 경로에서 실제로 정리(삭제)되는지 — 성공 경로는 확인함(ZaloCallback.tsx
-  가 `hashed_token` 받자마자 `zalo_cv` 삭제, 세션 생성 후 `zalo_redirect`
-  삭제). **취소/실패 경로는 아직 확인 안 함** — 에러 시 `zalo_cv`/
-  `zalo_redirect`가 sessionStorage에 남아있을 가능성 있음.
+1. **계정 탈취 방지**: `api/zalo-token.js`의 `createUser()`가 이제
+   `zalo_id`를 `app_metadata`(서비스 롤만 수정 가능)에 저장하고,
+   `user_metadata`(로그인 사용자 본인이 `supabase.auth.updateUser()`로
+   직접 바꿀 수 있어 신원 근거로 못 씀)는 안 쓴다. `generateLink()` 이후
+   기존 계정의 `app_metadata.zalo_id`가 지금 로그인 중인 Zalo 사용자와
+   정확히 일치할 때만 `hashed_token`을 응답한다(불일치 시 409, 토큰
+   미응답 — `generateLink()` 자체는 이미 성공해서 유효한 토큰이 발급된
+   뒤이므로 "미발급"이 아니라 "발급된 토큰을 응답에서 버림"이 정확한
+   표현). 기존 계정 메타데이터는 검증 전에 절대 덮어쓰지 않는다.
+2. **VPS relay 평문 전송 차단**: 지금 `crawler/zalo_relay.py`는 HTTPS가
+   아니라 평문 HTTP만 서빙한다 — 그대로 두면 Zalo access_token과
+   `X-Relay-Key`가 Vercel↔VPS 공인망 구간에서 암호화 없이 오간다. VPS에
+   SSH 접근 권한이 없어 이번 세션에서 실제 TLS(nginx/caddy+인증서 등)를
+   붙이는 작업은 못했다 — 대신 `api/zalo-token.js`에 `ZALO_RELAY_URL`이
+   `https://`로 시작하지 않으면 503으로 막는 가드를 추가해, **HTTPS로
+   전환되기 전까지는 Zalo 로그인 자체가 서버에서 거부되게(fail-closed)**
+   했다. `ZALO_RELAY_URL`을 `https://`로 바꾸는 순간 자동으로 다시
+   동작한다 — **다음에 VPS 작업 가능한 사람/세션이 relay 앞단에 실제
+   TLS를 붙이는 게 필요함** (아래 "다음 결정사항" 참고).
+3. **open redirect + 정리 안 된 sessionStorage**: `AuthContext.tsx`에
+   `sanitizeInternalRedirect()`를 추가해 `zalo_redirect`(및 그 출처
+   `?redirect=`)가 `/`로 시작하는 내부 절대경로일 때만 저장/사용되게
+   하고, `ZaloCallback.tsx`가 `zalo_cv`/`zalo_state`/`zalo_redirect`
+   3개를 읽는 즉시(가드 통과 여부 무관) 전부 지우도록 고쳐서 성공/취소/
+   실패 전 경로에서 1회용 인증정보가 안 남게 했다.
+4. **회귀 테스트 신설**: `api/_zalo-token.test.ts` — 실제
+   `api/zalo-token.js` 핸들러를 `node:test`의 `mock.module()`로 Zalo/
+   relay/Supabase 외부 호출만 모킹한 채 그대로 실행. 6개 시나리오(신규
+   가입 시 app_metadata 저장 확인, 기존 계정 미변조+재로그인 성공, 위조/
+   연결없음/타계정 거부+토큰 미응답 3건, HTTP relay 차단) 전부 통과 —
+   `npm test`에 영구 편입(`scripts/run-tests.mjs`가 `api/`도 스캔하도록
+   확장).
+5. GitHub 웹 업로드 실수로 남아있던 더미 파일 3개(`index (1).html` 등,
+   실제 파일과 내용 동일 확인됨) 삭제.
 
 ## 테스트 결과
 
-- `npx tsc --noEmit`, `npm run build` — 위 2번 수정 3건 반영 후 통과.
-- 로컬 dev 서버 + 가짜 App ID로 프론트 흐름만 실제 브라우저 클릭으로 확인:
-  PKCE code_verifier(43자) 생성, `zalo_redirect`에 원래 화면 경로 정확히
-  저장, `oauth.zaloapp.com`으로 올바른 파라미터(`code_challenge_method=S256`
-  포함)와 함께 리다이렉트되는 것까지 확인. **실제 Zalo 인증 완료·세션 생성은
-  검증 안 됨**(진짜 App ID/Secret 없음).
+- `npx tsc --noEmit`, `npm run build`(클라이언트+SSR), `npm test`(7/7
+  파일, 새 relay/app_metadata 테스트 6/6 포함) — 전부 통과.
+- 로컬 `vite preview` + 가짜 App ID로 브라우저 직접 재현: 외부 redirect
+  차단, 내부 redirect 정상 저장, 취소 시나리오에서 3개 sessionStorage 키
+  전부 정리 — 전부 확인.
+- **Production(`viecganban.vn`) 서버 레벨 확인**(비밀값/토큰 출력 없이):
+  - `curl -X POST https://www.viecganban.vn/api/zalo-token`에 가짜
+    `app_id`로 요청 → "Server misconfigured"가 아니라 Zalo 서버가 직접
+    돌려준 `Invalid appId`(-14002) 응답을 받음 — `ZALO_APP_SECRET`/
+    `SUPABASE_SERVICE_ROLE_KEY`가 실제로 설정돼 있고 새 코드가 정말
+    Zalo API를 호출한다는 것 확인.
+  - 실제 사이트에서 "Đăng nhập bằng Zalo" 버튼 클릭 → 실제
+    `id.zalo.me`의 진짜 로그인 화면까지 정상 도달(redirect_uri/App ID
+    불일치 에러 없음) — 여기서 중단, 실제 계정으로 로그인 시도는 안 함
+    (에이전트가 Zalo 계정을 가질 수 없음).
+  - **미검증**: 실제 사람이 진짜 Zalo 계정으로 로그인 완료 → Supabase
+    세션 생성 → 재로그인 → 서로 다른 Zalo 계정이 같은 합성 이메일에서
+    충돌 안 하는지, 이 4가지는 사람이 직접 해봐야 확인 가능.
 
 ## 발견된 문제
 
-1. 위 3번 보안 검토 항목 5개 — 미착수.
-2. `VITE_ZALO_APP_ID`/`ZALO_APP_SECRET`/`SUPABASE_SERVICE_ROLE_KEY` 모두
-   로컬에 없고, Vercel 쪽 설정 여부도 **확인 못함**(이 로컬 사본이 Vercel
-   프로젝트에 연결 안 돼 있어 `vercel env ls` 실행 불가 — 로그인 필요해서
-   진행 안 함).
-3. Zalo 개발자 콘솔에 콜백 URL(`https://www.viecganban.vn/zalo-callback`,
-   로컬 테스트용 `http://localhost:5173/zalo-callback`) 등록 여부 미확인
-   (사용자가 직접 확인해야 하는 영역).
+1. **VPS relay가 여전히 평문 HTTP** — 위 503 가드로 로그인 자체가 막혀
+   있어 당장 위험하진 않지만, 실제 로그인을 켜려면 VPS(103.221.223.71)에
+   SSH로 들어가서 relay 앞단에 실제 TLS를 붙이고 `ZALO_RELAY_URL`을
+   `https://`로 바꿔야 한다 — 이 세션은 그 VPS에 대한 SSH 접근 권한이
+   없어서 여기까지만 함.
+2. 사람이 직접 하는 실제 로그인 E2E(신규가입/재로그인/계정충돌 거부) —
+   위 1번이 해결돼야 시도라도 가능. 그 전까진 "완료"로 기록 안 함.
+3. Zalo 개발자 콘솔 설정(App ID/Secret, 콜백 URL) 자체는 오늘 다른
+   세션이 등록 완료 주장 + 실제 로그인 화면 도달로 간접 확인됨(콘솔
+   내부는 직접 못 봄).
 
 ## 다음 결정사항 (사용자 확인 필요)
 
-1. 위 5개 보안 검토 항목부터 이어서 처리(다음 세션 시작점).
-2. Zalo 개발자 콘솔 설정(App ID/Secret 발급, 콜백 URL 등록) 완료 여부.
-3. Vercel 환경변수(`VITE_ZALO_APP_ID`/`ZALO_APP_SECRET`) 설정 여부 — 설정
-   후에만 실제 로그인 E2E 검증 가능.
-4. (계속 보류 중, 이 작업과 무관) "조건 저장·알림" 기능 — 건드리지 않음,
+1. **VPS relay HTTPS 전환** — SSH 접근 가능한 사람/세션이 이어서 처리.
+   전환 후 `ZALO_RELAY_URL`을 `https://...`로 바꾸면 로그인이 자동으로
+   다시 켜진다(코드 추가 변경 불필요).
+2. 1번이 끝나면 실제 Zalo 계정으로 신규가입·재로그인·계정충돌 거부
+   E2E를 사람이 직접 확인.
+3. (계속 보류 중, 이 작업과 무관) "조건 저장·알림" 기능 — 건드리지 않음,
    설계만 있고 코드/DB 미착수 상태 그대로.
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-09-25 — Zalo 로그인 버그 3건 수정(부분 검증), 보안 검토 착수 전 중단** — 사용자 요청으로 여기서 중단, 완료 아님.
+1. **2026-09-26 — Zalo 로그인 라이브 계정탈취 결함 긴급 수정** — MASTER PUSHED(`c5d7e8f`) + PRODUCTION DEPLOYED(서버 레벨 확인 완료). 사람의 실제 로그인 E2E는 VPS relay HTTPS 전환 후로 보류.
 2. **2026-09-24 — 크롤러 category 버그 수정 + 신규 8건 검증 + 매칭서비스 설계** — MASTER PUSHED(`77c4d8a`). PRODUCTION DB에 신규 8건 저장(273→281), 스키마 변경 없음.
 3. **2026-09-23 — 데이터 구조화 1차 완료** — MASTER PUSHED(`4851389`) + PRODUCTION DB 마이그레이션 적용 완료. 프론트엔드 변경 없음(DB/크롤러만).
 4. **2026-09-23 — 커뮤니티 게시판 Supabase 전환 완료** — MASTER PUSHED(`4be84e8`). PRODUCTION DEPLOYED 여부는 이 로그에 기록 안 남아있음(필요하면 커밋/배포 로그로 직접 확인).
