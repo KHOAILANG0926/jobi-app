@@ -155,6 +155,39 @@ crontab -e
 
 ---
 
+## Zalo relay TLS (Caddy)
+
+`crawler/zalo_relay.py`(Zalo `/me` 조회를 이 VPS 경유로 중계 — Zalo가
+베트남 밖 IP의 조회를 막아서 필요)는 `install_zalo_relay.sh`가 설치하는
+그대로는 `localhost:8787`에서 **평문 HTTP만** 서빙한다. 이 VPS(AZDIGI,
+`103.221.223.71`)엔 이 프로젝트용 도메인이 없어서, DNS를 새로 설정하지
+않고도 실제 신뢰되는 TLS 인증서를 받으려고 **sslip.io**(IP를 그대로
+호스트명으로 매핑해주는 공개 wildcard DNS, 소유권 검증 없이 그 IP 서버가
+직접 인증서를 받을 수 있음)를 썼다:
+
+- 도메인: `103-221-223-71.sslip.io` (IP `103.221.223.71`을 그대로 인코딩 —
+  sslip.io 쪽에서 자동으로 그 IP로 풀림, 별도 DNS 레코드 설정 필요 없음).
+- **Caddy**(`apt install caddy`)가 `:443`에서 이 도메인으로 자동 Let's
+  Encrypt 인증서를 받아서, `/etc/caddy/Caddyfile`에 설정된 대로
+  `localhost:8787`(zalo_relay.py)로 그대로 넘겨준다:
+  ```caddyfile
+  103-221-223-71.sslip.io {
+      reverse_proxy localhost:8787
+  }
+  ```
+- `ufw`(방화벽)를 활성화해서 `22`(SSH)/`80`/`443`만 외부에 열고, **8787은
+  외부에서 막았다**(Caddy가 같은 서버 안에서 loopback으로 붙으므로 외부
+  공개가 필요 없음) — `install_zalo_relay.sh`를 다시 실행해도 이제
+  8787을 다시 열지 않는다(2026-09-26 수정, 예전엔 열었었음).
+- Vercel Production의 `ZALO_RELAY_URL`은 이제
+  `https://103-221-223-71.sslip.io/zalo/me`를 쓴다. `api/zalo-token.js`가
+  이 값이 `https://`로 시작하지 않으면 로그인 자체를 503으로 막도록 돼
+  있으니(계정 탈취/평문전송 방지 가드), **이 값을 절대 다시 http://로
+  되돌리지 말 것**.
+- Caddy는 인증서를 자동 갱신한다(Let's Encrypt 90일 주기, 별도 조치
+  불필요) — 다만 이 VPS가 재설치되거나 IP가 바뀌면 `Caddyfile`의 도메인과
+  Vercel의 `ZALO_RELAY_URL`을 새 IP 기준으로 다시 맞춰야 한다.
+
 ## 코드 업데이트
 
 VPS에서 최신 코드 받기:

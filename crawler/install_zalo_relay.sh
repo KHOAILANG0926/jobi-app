@@ -22,10 +22,14 @@ WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
 systemctl enable --now zalo-relay
-command -v ufw >/dev/null && ufw status | grep -q active && ufw allow 8787/tcp || true
 sleep 1
 curl -s http://127.0.0.1:8787/health && echo
 echo
-echo "=== Vercel에 넣을 값 ==="
-echo "ZALO_RELAY_URL=http://103.221.223.71:8787/zalo/me"
+# 2026-09-26 — 8787을 공인망에 직접 열지 않는다(예전엔 여기서 ufw allow
+# 8787/tcp를 했었다). Caddy가 103-221-223-71.sslip.io로 443/HTTPS를 받아서
+# localhost:8787로만 넘겨준다 — 자세한 건 crawler/README.md의
+# "Zalo relay TLS(Caddy)" 절 참고. 8787은 로컬(localhost)에서만 필요하고
+# 외부에는 절대 열지 않는다.
+echo "=== Vercel에 넣을 값 (relay는 Caddy가 넘겨주는 HTTPS 주소를 쓴다) ==="
+echo "ZALO_RELAY_URL=https://103-221-223-71.sslip.io/zalo/me"
 grep ZALO_RELAY_KEY "$ENV_FILE"
