@@ -39,12 +39,13 @@ export default async function handler(req, res) {
   }
 
   // 2. Get Zalo user profile
-  const userRes = await fetch(
-    `https://graph.zalo.me/v2.0/me?access_token=${tokenData.access_token}&fields=id,name,picture`
-  )
+  // Zalo OAuth v4 토큰은 쿼리스트링이 아니라 access_token 헤더로 보내야 한다.
+  const userRes = await fetch('https://graph.zalo.me/v2.0/me?fields=id,name,picture', {
+    headers: { access_token: tokenData.access_token },
+  })
   const zaloUser = await userRes.json()
   if (!zaloUser.id) {
-    return res.status(400).json({ error: 'Failed to get Zalo user info' })
+    return res.status(400).json({ error: 'Failed to get Zalo user info', detail: zaloUser })
   }
 
   // 3. Create or reuse Supabase user
