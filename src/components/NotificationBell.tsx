@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNotifications } from '../context/NotificationContext'
 
@@ -17,6 +17,7 @@ export function NotificationBell() {
   const { notifications, unreadCount, markRead, markAllRead, clearAll } = useNotifications()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -27,6 +28,32 @@ export function NotificationBell() {
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  // 패널은 CSS상 벨 오른쪽 끝에 맞춰 열리는데, 좁은 화면에서는 헤더가 줄바꿈돼
+  // 벨이 화면 왼쪽에 오므로 패널이 왼쪽 밖으로 잘렸다(544px 폭 실측 left -304px).
+  // 열릴 때와 창 크기가 바뀔 때 실제 위치를 재서, 화면 양쪽에 16px 여백이 남도록
+  // 가로 위치만 보정한다. 넓은 화면(잘리지 않는 경우)은 CSS 위치 그대로 둔다.
+  useLayoutEffect(() => {
+    if (!open) return
+    const GUTTER = 16
+    const place = () => {
+      const el = panelRef.current
+      if (!el) return
+      el.style.right = ''
+      const rect = el.getBoundingClientRect()
+      const viewportWidth = document.documentElement.clientWidth
+      let shift = 0
+      if (rect.left < GUTTER) shift = GUTTER - rect.left
+      else if (rect.right > viewportWidth - GUTTER) shift = viewportWidth - GUTTER - rect.right
+      if (shift !== 0) {
+        const cssRight = parseFloat(getComputedStyle(el).right) || 0
+        el.style.right = `${cssRight - shift}px`
+      }
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
   }, [open])
 
   return (
@@ -58,7 +85,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="notif-panel" role="dialog" aria-label="Thông báo">
+        <div className="notif-panel" role="dialog" aria-label="Thông báo" ref={panelRef}>
           <div className="notif-panel__header">
             <span className="notif-panel__title">Thông báo</span>
             <div className="notif-panel__actions">

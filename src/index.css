@@ -6559,7 +6559,8 @@ a:hover {
   top: calc(100% + 10px);
   right: 0;
   z-index: 400;
-  width: min(360px, calc(100vw - 1.5rem));
+  /* 좁은 화면에서도 양쪽 16px 여백 안에 들어가도록(위치는 NotificationBell.tsx가 보정) */
+  width: min(360px, calc(100vw - 32px));
   max-height: 480px;
   display: flex;
   flex-direction: column;
