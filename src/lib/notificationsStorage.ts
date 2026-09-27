@@ -1,7 +1,9 @@
 import type { Job } from '../types/job'
 import type { JobApplication } from './applicationsStorage'
 
-export type NotificationType = 'deadline' | 'status_change'
+// 'job_match'는 localStorage가 아니라 서버(job_alert_notifications)에서 오는
+// 희망조건 매칭 알림 — NotificationContext가 이 목록에 합쳐서 보여준다.
+export type NotificationType = 'deadline' | 'status_change' | 'job_match'
 
 export interface AppNotification {
   id: string
