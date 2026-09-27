@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useNotifications } from '../context/NotificationContext'
 
 function relativeTime(iso: string): string {
@@ -90,20 +89,11 @@ export function NotificationBell() {
                   onClick={() => !n.read && markRead(n.id)}
                 >
                   <span className="notif-item__icon" aria-hidden="true">
-                    {n.type === 'deadline' ? '⏰' : n.type === 'job_match' ? '💼' : '📋'}
+                    {n.type === 'deadline' ? '⏰' : '📋'}
                   </span>
                   <div className="notif-item__body">
                     <p className="notif-item__title">{n.title}</p>
                     <p className="notif-item__text">{n.body}</p>
-                    {n.type === 'job_match' && (
-                      <Link
-                        to={`/viec-lam/${n.jobId}`}
-                        className="notif-item__text"
-                        onClick={() => setOpen(false)}
-                      >
-                        Xem tin →
-                      </Link>
-                    )}
                     <p className="notif-item__time">{relativeTime(n.createdAt)}</p>
                   </div>
                   {!n.read && <span className="notif-item__dot" aria-hidden="true" />}

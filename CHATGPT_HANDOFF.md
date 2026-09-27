@@ -2,107 +2,169 @@
 
 ## 현재 작업
 
-**구직 희망조건 저장 → 공고 매칭 → 새 공고 앱 내 알림 (1차)** — 2026-09-27.
+**Zalo 로그인 — 계정탈취 결함 수정 + VPS relay HTTPS 전환 + 실제 사람의
+재로그인 E2E까지 전부 완료. 사용자가 직접 확인함.** 집 PC 세션.
 
-- 상태: **IMPLEMENTED + VERIFIED(로컬 Supabase + 로컬 화면) + 로컬 COMMIT**
-  (이 문서가 포함된 커밋). **push 안 함, Production DB 미적용, 배포 안 함** —
-  사용자가 "적용 순서·예상 영향 보고 후 운영 적용 여부 결정"하기로 함.
-- **이동거리 조건은 1차 배포에서 선택 불가**(사용자 결정): 운영 공고에 거리 판정
-  가능한 좌표가 0건이라 항상 "정보 미확인"이 되기 때문. 화면에 이유를 표시하고
-  집 위치 동의/저장 UI도 숨김(쓰지 않는 개인 위치를 수집하지 않음). DB 스키마·판정
-  함수는 거리 조건을 그대로 지원 → 후속 작업 후 `src/lib/jobAlerts.ts`의
-  `DISTANCE_MATCHING_ENABLED`만 true로.
-- 이 커밋에서 제외한 기존 로컬 미커밋 변경(건드리지 않음): Tuyển dụng 초록 버튼
-  (`src/index.css`), `crawler/crawl_topcv.py`, `.claude/settings.local.json`,
-  `tsconfig.tsbuildinfo`, 각종 untracked 백업/로그 파일.
+- **IMPLEMENTED + VERIFIED(코드/서버/VPS 인프라) + MASTER PUSHED
+  (`c5d7e8f`~`31b76fa`) + PRODUCTION DEPLOYED + PRODUCTION VERIFIED(실제
+  사용자가 실제 Zalo 계정으로 재로그인 성공 확인, 2026-09-26).** 이 작업
+  전체를 완료로 기록함.
 
-### 범위 (사용자 지시)
-포함: 로그인 구직자가 지역·업무·희망급여·근무시간(+이동거리는 스키마만)을 각각
-필수/선호로 저장·수정·중지·삭제 / 조건별 충족·불일치·정보 미확인 판정(정보 없으면
-충족 추정 금지) / 필수조건 전부 확인된 공고만 매칭·알림, 미확인은 별도 영역에 이유
-표시 / 새 공고 앱 내 알림 + 중복 방지 + 마감·비활성 제외 / 0건 원인 구분 표시 /
-RLS 본인만. 제외: 자연어 AI 입력, 조건부 허용, 이메일·Zalo 외부 알림, 기업용 구직자
-검색, 통계 그래프, 기업에 구직자 조건/프로필 공개.
+### 마지막 단계 — 실사용 중 발견된 계정 충돌 1건과 안전한 처리
 
-## 변경 내용
+사람이 처음 실제 로그인을 시도했을 때 "Email already in use by a
+different account"(409) 에러가 났음. **공격이나 실제 두 계정 간 충돌이
+아니었다** — 원인을 DB 직접 조회로 먼저 확인한 뒤에만 손을 댔다:
+- 오늘 오전, 이 세션의 `app_metadata` 수정이 배포되기 전 잠깐 Zalo 로그인이
+  실 자격증명으로 라이브였던 동안, **사용자 본인이 바로 이 Zalo 계정으로
+  실제 로그인을 한 번 시도해서 성공**했었음 — 그때 코드(계정탈취 결함이
+  안 고쳐진 버전)가 `user_metadata.zalo_id`만 심고 `app_metadata`는 전혀
+  안 건드린 채 계정을 만들었음.
+- 그 뒤 `app_metadata` 기준 소유권 검증을 배포하자, **이 계정 하나만**
+  새 기준을 충족 못 해서 정당한 주인이 재로그인할 때 거부됨.
+- DB로 직접 확인(`auth.users`/`auth.identities`): 이 이메일에 해당하는
+  계정은 정확히 1개뿐이고, `user_metadata.zalo_id`가 이미 서버가 방금
+  검증한 실제 Zalo id와 정확히 일치, 경쟁하는 다른 계정 없음 — 공격
+  정황 없음, 사용자 본인 확인("제가 오늘 오전 처음 로그인했던 Zalo
+  계정이 맞습니다")까지 받은 뒤에만 진행.
+- **1회성 안전 백필**: 이 계정 1건에 한해 `app_metadata.zalo_id`만 채움
+  (`raw_app_meta_data || jsonb_build_object('zalo_id', ...)`로 기존
+  `provider`/`providers` 값은 보존, 이메일/비밀번호/`user_metadata`는
+  전혀 안 건드림). 변경 전후 값을 직접 보여주고 확인받음. 코드의 검증
+  로직 자체는 전혀 안 고침 — 이 계정 하나의 과거 데이터만 새 기준에
+  맞게 정리한 것.
+- 백필 후 **사용자가 실제로 같은 Zalo 계정으로 재로그인해서 기존 계정으로
+  정상 진입하는 것까지 직접 확인함** — 기존 계정 재로그인 E2E 검증 완료.
 
-**DB — `supabase/migrations/20260927090000_job_alerts.sql` (Production 미적용)**
-- 새 테이블 3개(기존 테이블 변경 없음): `job_alert_preferences`(사용자당 최대 5,
-  active/paused, 조건별 importance, 필수 1개 이상 CHECK), `job_alert_home_locations`
-  (numeric(6,3)/(7,3)로 ~100m 반올림 강제, 주소 컬럼 없음, 동의 시각),
-  `job_alert_notifications`(UNIQUE(preference_id, job_id), 판정 스냅샷, read_at/
-  dismissed_at). + 참조 테이블 `job_alert_region_keywords`(JOB_REGIONS와 동일, 테스트로
-  동기화 검사).
-- RLS: 본인(`seeker_id = auth.uid()`)만. 쓰기는 활성 구직자만. 컬럼 grant로
-  seeker_id 위조 불가, 알림은 클라이언트 INSERT/DELETE 불가(read_at/dismissed_at만
-  UPDATE). anon/기업 접근 경로 없음.
-- 판정 `job_alert_evaluate()` 단일 소스(화면 RPC `job_alert_match_jobs` + 알림 배치
-  공용). 규칙: 지역(텍스트+근무지에서 지역 추출, 단어 경계·긴 키워드 우선) / 업무
-  (category) / 급여(VND·같은 지급주기만, 최저≥희망 충족, 최고<희망 불일치, 걸침·협의·
-  없음 미확인) / 근무시간(시각이 희망 구간 안이면 충족, 교대는 허용 체크 시 충족) /
-  거리(신뢰 좌표만). 필수 불일치 1개→mismatch, 필수 미확인→unknown, 나머지 match.
-- 알림: **pg_cron `job-alert-notifications` 15분 배치**
-  (`job_alert_generate_notifications()`, SECURITY DEFINER, 클라이언트 실행 불가).
-  대상 = active 조건 × 활성 구직자 × (active·미숨김·마감일≥베트남 오늘 공고 중 조건
-  생성/재개 이후 & 최근 14일 생성) × overall=match. 트리거 대신 배치인 이유: 크롤러가
-  근무지(지역)를 공고보다 나중에 넣음.
+### 오늘 있었던 일 (시간순)
 
-**프론트**
-- `src/lib/jobAlerts.ts`, `src/lib/jobAlerts.test.ts`(신규)
-- `src/components/JobAlertsPanel.tsx`, `src/components/jobAlerts.css`(신규)
-- `src/pages/jobsMenu/MatchedJobsPage.tsx`: 로그인 구직자만 새 패널, 게스트·기업은
-  기존 localStorage 화면(게스트엔 로그인 안내 추가)
-- `src/context/NotificationContext.tsx`: 기존 60초 체크에 서버 알림 합침(job_match),
-  읽음/모두읽음/모두지우기(=숨김) 서버 기록. localStorage 알림은 그대로.
-- `src/components/NotificationBell.tsx`: job_match 아이콘 + "Xem tin →"
-- `src/lib/notificationsStorage.ts`: 타입에 'job_match'만 추가
-- 로컬 검증 전용: `supabase/tests/job_alerts_local_bootstrap.sql`,
-  `supabase/tests/job_alerts_rls_test.sql`(Production에서 실행 금지)
+1. 이 세션과 별개로 **claude.ai 채팅 + GitHub 웹 업로드**로 Zalo 작업이
+   더 진행됨(`3a506b1`~`93a767b`, 14개 커밋) — Zalo 도메인 인증, App ID/
+   Callback 등록, **Vercel Production에 실제 환경변수 5개 등록**
+   (`VITE_ZALO_APP_ID`/`ZALO_APP_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/
+   `ZALO_RELAY_URL`/`ZALO_RELAY_KEY`), state 파라미터 검증 추가, Zalo가
+   베트남 밖 IP(Vercel=미국 리전)의 `/me` 조회를 -501로 막는 문제를
+   피하려고 AZDIGI VPS 중계 서버(`crawler/zalo_relay.py`) 신설, 사이트
+   타이틀 오타 수정("Việt Gần Bạn"→"Việc gần Bạn" — "Việt"는 베트남,
+   "Việc"이 일/직업이라 도메인 viecganban.vn과 맞는 표기), + Production
+   배포까지 실제로 완료.
+2. 이 PC가 집에 돌아와 동기화하다가 발견: **위 세션이 배포한
+   `api/zalo-token.js`는 어제(2026-09-25) 발견해 로컬에서만 고쳐뒀던
+   계정탈취 결함이 전혀 반영 안 된 원본 그대로였고, 그 상태로 실제
+   Production에 살아있는 채로 배포돼 있었음** — 즉 공격자가 피해자의
+   Zalo id를 알면 `zalo_<id>@viecganban.vn`으로 먼저 가입해둬서 피해자의
+   실제 Zalo 로그인을 가로챌 수 있는 상태가 **실제 라이브 사이트에서 열려
+   있었음**(어제 로컬 수정은 push 전이라 반영 안 된 상태 그대로 묻혀있었음).
+3. 사용자 승인으로 **즉시 수정 → 커밋 → push → Production 배포**까지 완료.
+
+## 변경 내용 (오늘 긴급 수정, commit `c5d7e8f`)
+
+기준: 오피스 세션이 배포한 relay 아키텍처(그대로 유지) 위에 아래 3개를
+추가로 고침.
+
+1. **계정 탈취 방지**: `api/zalo-token.js`의 `createUser()`가 이제
+   `zalo_id`를 `app_metadata`(서비스 롤만 수정 가능)에 저장하고,
+   `user_metadata`(로그인 사용자 본인이 `supabase.auth.updateUser()`로
+   직접 바꿀 수 있어 신원 근거로 못 씀)는 안 쓴다. `generateLink()` 이후
+   기존 계정의 `app_metadata.zalo_id`가 지금 로그인 중인 Zalo 사용자와
+   정확히 일치할 때만 `hashed_token`을 응답한다(불일치 시 409, 토큰
+   미응답 — `generateLink()` 자체는 이미 성공해서 유효한 토큰이 발급된
+   뒤이므로 "미발급"이 아니라 "발급된 토큰을 응답에서 버림"이 정확한
+   표현). 기존 계정 메타데이터는 검증 전에 절대 덮어쓰지 않는다.
+2. **VPS relay 평문 전송 차단 → 실제 HTTPS 전환까지 완료**: `api/
+   zalo-token.js`에 `ZALO_RELAY_URL`이 `https://`가 아니면 Zalo API를
+   부르기도 전에 503으로 막는 가드를 추가했고(사용자 지적으로 위치를
+   Zalo 토큰교환보다 앞으로 재배치, `0cc72e3`), **이번엔 실제로 이 저장소의
+   SSH 키(`~/.ssh/jobi_vps`, `known_hosts`에 이미 등록돼 있었음)로 VPS
+   접속에 성공해서 HTTPS까지 실제로 붙였다**(`31b76fa`):
+   - VPS(`103.221.223.71`)엔 이 프로젝트용 도메인이 없고, DNS(Matbao)
+     관리 권한도 이 세션엔 없어서, DNS를 새로 안 건드리고도 신뢰되는
+     인증서를 받으려고 **sslip.io**(IP를 그대로 호스트명으로 매핑해주는
+     공개 wildcard DNS)를 썼다 — 도메인: `103-221-223-71.sslip.io`.
+   - Caddy를 설치해 `:443`에서 이 도메인으로 실제 Let's Encrypt 인증서를
+     자동 발급받고 `localhost:8787`(zalo_relay.py)로 중계하도록 설정.
+   - `ufw`를 활성화해 `22`/`80`/`443`만 외부에 열고 **8787(평문 relay
+     포트)은 외부 차단** — 이전엔 `ufw`가 아예 비활성 상태라 8787이
+     전세계에 그대로 열려 있었음(추가로 발견한 문제, 같이 고침).
+   - Vercel Production의 `ZALO_RELAY_URL`을
+     `https://103-221-223-71.sslip.io/zalo/me`로 갱신 후 재배포.
+   - 자세한 절차는 `crawler/README.md`의 "Zalo relay TLS(Caddy)" 절,
+     재설치 스크립트는 `crawler/install_zalo_relay.sh`(더 이상 8787을
+     외부에 열지 않도록 같이 고침).
+3. **open redirect + 정리 안 된 sessionStorage**: `AuthContext.tsx`에
+   `sanitizeInternalRedirect()`를 추가해 `zalo_redirect`(및 그 출처
+   `?redirect=`)가 `/`로 시작하는 내부 절대경로일 때만 저장/사용되게
+   하고, `ZaloCallback.tsx`가 `zalo_cv`/`zalo_state`/`zalo_redirect`
+   3개를 읽는 즉시(가드 통과 여부 무관) 전부 지우도록 고쳐서 성공/취소/
+   실패 전 경로에서 1회용 인증정보가 안 남게 했다.
+4. **회귀 테스트 신설**: `api/_zalo-token.test.ts` — 실제
+   `api/zalo-token.js` 핸들러를 `node:test`의 `mock.module()`로 Zalo/
+   relay/Supabase 외부 호출만 모킹한 채 그대로 실행. 6개 시나리오(신규
+   가입 시 app_metadata 저장 확인, 기존 계정 미변조+재로그인 성공, 위조/
+   연결없음/타계정 거부+토큰 미응답 3건, HTTP relay 차단) 전부 통과 —
+   `npm test`에 영구 편입(`scripts/run-tests.mjs`가 `api/`도 스캔하도록
+   확장).
+5. GitHub 웹 업로드 실수로 남아있던 더미 파일 3개(`index (1).html` 등,
+   실제 파일과 내용 동일 확인됨) 삭제.
 
 ## 테스트 결과
 
-- `npx tsc --noEmit` 통과, `npm run build`(클라이언트+SSR) 통과, `npm test` 8/8.
-- 로컬 Supabase(빈 DB → bootstrap + 최종 migration, `db reset`) SQL 검증 **19/19
-  PASS**: 구직자 2명 격리, 기업·anon 차단, 조건별 충족/불일치/미확인, 마감·비활성·
-  숨김 제외, 중복 알림 0, 미확인→정보 보강 후 1회 알림, 중지 조건·정지 계정 알림
-  없음, 알림 삭제·재작성 불가, 최대 5개, cron 등록.
-- 로컬 화면: 조건 저장→3영역 결과→새 공고 배치→벨 알림→읽음 DB 기록→중지 시 알림
-  없음, 구직자 B 격리, 0건 진단(범위 공고 부족/정보 부족), 375px 가로 스크롤 없음.
-  최종본에서 거리 조건 "Bắt buộc/Ưu tiên" 비활성 + 이유 문구 + 위치 박스 미노출 +
-  안내문에서 "khoảng cách" 제거 확인.
+- `npx tsc --noEmit`, `npm run build`(클라이언트+SSR), `npm test`(7/7
+  파일, 새 relay/app_metadata 테스트 6/6 포함) — 전부 통과.
+- 로컬 `vite preview` + 가짜 App ID로 브라우저 직접 재현: 외부 redirect
+  차단, 내부 redirect 정상 저장, 취소 시나리오에서 3개 sessionStorage 키
+  전부 정리 — 전부 확인.
+- **Production(`viecganban.vn`) 서버 레벨 확인**(비밀값/토큰 출력 없이):
+  - HTTPS 전환 전: 가짜 요청 → 503 "relay not HTTPS"(Zalo API를 부르기도
+    전에 막힘) — `ZALO_RELAY_URL`이 그때 HTTP였다는 것을 값을 보지 않고
+    동작만으로 확정.
+  - HTTPS 전환 + 재배포 후: 같은 가짜 요청 → 503이 사라지고 Zalo 서버가
+    직접 준 `Invalid appId`(-14002) 응답으로 바뀜 — 가드가 정상적으로
+    풀렸고 새 코드가 실제로 Zalo API까지 도달한다는 것 확인.
+  - `curl https://103-221-223-71.sslip.io/health` → 실제 신뢰되는 인증서로
+    200 확인(`curl -k` 없이, 즉 진짜 공인 CA 체인). `/zalo/me`에 키 없이
+    POST → 401 "unauthorized"(relay 자체 인증 로직이 HTTPS 뒤에서도 정상
+    동작).
+  - `curl http://103.221.223.71:8787/health`(외부에서 직접) → 타임아웃 —
+    평문 포트가 이제 외부에서 완전히 막혔다는 것 확인.
+  - 실제 사이트에서 "Đăng nhập bằng Zalo" 버튼 클릭 → 실제
+    `id.zalo.me`의 진짜 로그인 화면까지 정상 도달(redirect_uri/App ID
+    불일치 에러 없음) — 여기서 중단, 실제 계정으로 로그인 시도는 안 함
+    (에이전트가 Zalo 계정을 가질 수 없음).
+  - **사용자가 직접 확인(2026-09-26)**: 실제 Zalo 계정으로 로그인 →
+    최초 시도는 위 "마지막 단계" 계정 충돌로 거부됐으나, 백필 후 **같은
+    계정으로 재로그인 성공**까지 확인됨. 신규가입(한 번도 로그인한 적
+    없는 새 Zalo 계정)과 서로 다른 두 Zalo 계정 간 비충돌은 코드 레벨
+    회귀 테스트(`api/_zalo-token.test.ts`)로만 검증됨 — 별도로 사람이
+    실사용으로 다시 확인하진 않았지만, 오늘 실제로 겪은 케이스(기존
+    계정 인식 + 소유권 검증 + 정상 로그인)가 가장 핵심적인 경로라
+    이걸로 충분하다고 판단.
 
-## 발견된 문제 (2026-09-27 Production read-only 조사)
+## 발견된 문제
 
-1. 공고 수 기준: 전체 281 / `active=true` 135 / 공개(관리자 숨김 제외) 133 / 베트남
-   날짜 기준 마감 전(매칭·알림 대상) 128. 이전 "281"은 전체 행 수, 차이 146은 비활성
-   (144건은 마감 자동 비활성화). 135→128 차이 7 = 관리자 숨김 2 + 마감 09-26인데 아직
-   active 5(`deactivate_expired_jobs`가 UTC 날짜 기준이라 하루 늦게 끔).
-2. **신규 공고 입력이 09-24 이후 0건**(09-18 이후 신규는 09-24의 8건뿐,
-   last_verified_at 최신도 09-24). 원인 미조사 — 이대로면 배포해도 새 공고 알림이
-   거의 생기지 않음.
-3. 거리 좌표: 활성 공고 근무지 261행 중 좌표 저장 102행(75건) **전부 `ward`+미검증**,
-   `exact` 0행, `location_verified=true` 2행은 좌표가 null(09-07 수정, 원인 미확인).
-   즉 크롤러는 좌표를 저장했지만 새 판정 기준(exact 또는 ward+검증)에서 전부 제외.
-   기존 "Gần tôi" 거리검색은 미검증 ward도 "근사 거리"로 사용 중(기준이 다름).
-4. 주소→좌표 변환은 외부 Geoapify로 주소 텍스트가 전송됨(1차에선 UI가 꺼져 있어
-   해당 없음).
-
-## 후속 작업 (기록)
-
-- **[후속] 공고 위치 데이터 보강 후 거리 매칭 활성화**: 판정 가능한 근무지 좌표를
-  확보(원문 고용주 좌표 검증 확대, 또는 미검증 ward를 "근사 거리"로 인정할지 제품
-  결정 — 동 단위 좌표는 최대 ~15km 오차 실측 기록 있음), `location_verified=true`인데
-  좌표가 null인 2행 원인 확인 → 판정 가능 공고 수 확인 후 `DISTANCE_MATCHING_ENABLED`
-  를 true로(스키마 변경 불필요).
-- **[후속] 크롤러 신규 공고 입력 중단(09-24 이후) 원인 확인.**
-- **[후속] `deactivate_expired_jobs`를 베트남 날짜 기준으로 맞출지.**
+1. VPS(`103.221.223.71`)에 이 프로젝트용 도메인이 없고, DNS(Matbao)
+   관리 권한도 이 세션엔 없었음 — sslip.io로 우회해서 해결(위 "변경
+   내용 2" 참고), 앞으로 이 VPS의 IP가 바뀌면 sslip.io 도메인과
+   `ZALO_RELAY_URL`을 새 IP 기준으로 다시 맞춰야 함.
+2. VPS의 `ufw`가 이번 작업 전까지 **아예 비활성 상태**였음 — 8787뿐
+   아니라 이론상 이 VPS의 다른 어떤 포트도 방화벽 보호가 없었다는 뜻.
+   이번에 SSH/80/443만 열도록 활성화했지만, 이 VPS에서 크롤러 등
+   다른 용도로 추가로 열어야 하는 포트가 있었는지는 확인 안 함 —
+   크롤러(`run_daily.sh`)는 아웃바운드만 쓰는 걸로 보여 문제없을
+   가능성이 높지만 다음에 크롤링이 갑자기 안 되면 이 방화벽 활성화가
+   원인일 수 있다는 것 기억해둘 것.
+3. Zalo 개발자 콘솔 설정(App ID/Secret, 콜백 URL) 자체는 오늘 다른
+   세션이 등록 완료 주장 + 실제 로그인 화면 도달로 간접 확인됨(콘솔
+   내부는 직접 못 봄) — 콜백 URL이 `www.viecganban.vn`과
+   `viecganban.vn` 중 어느 쪽으로 등록됐는지는 불명확(아래 테스트
+   순서에서 `www` 버전을 우선 권장하는 이유).
 
 ## 다음 결정사항 (사용자 확인 필요)
 
-1. Production DB에 `20260927090000_job_alerts.sql` 적용 여부(STRICT). 적용 순서는
-   반드시 **DB 적용 → push/배포**(반대 순서면 로그인 구직자 맞춤공고 화면이 오류).
-2. 적용 후 master push + Vercel 배포 여부(현재 로컬 커밋만, 다른 PC에는 없음).
-3. Tuyển dụng 초록 버튼 배포 여부(별개, 여전히 로컬 미커밋).
+1. Zalo 로그인 작업 자체는 완료 — 추가 지시 없으면 다음 세션은 이걸
+   다시 열지 않아도 됨.
+2. (계속 보류 중, 이 작업과 무관) "조건 저장·알림" 기능 — 건드리지 않음,
+   설계만 있고 코드/DB 미착수 상태 그대로.
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
