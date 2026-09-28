@@ -11,7 +11,9 @@ from crawl_facebook import (
     feed_end_decision,
     filter_new_jobs,
     is_self_promotion,
+    is_truncated_post,
     merge_seen_keys,
+    missing_required,
     parse_time_label,
     post_key,
     extract_district,
@@ -179,6 +181,49 @@ def test_db_dedup_survives_extraction_change_and_lost_state() -> None:
     assert_equal(len(filter_new_jobs([other], existing)), 1, "different post is kept")
 
 
+# 2026-09-28 VPS DRY-RUN에서 실제 수집된 두 글
+PM_JOB_TEXT = """TUYỂN DỤNG QUẢN LÝ DỰ ÁN - KCN VSIP BẮC NINH
+ LƯƠNG: upto 30 TRIỆU/THÁNG
+ YÊU CẦU
+Nam, CĐ/ĐH, ưu tiên chuyên ngành kỹ thuật.
+Tiếng Trung HSK4/5 – 4 kỹ năng, giao tiếp tốt.
+≥1 năm kinh nghiệm phiên dịch kỹ thuật/sản xuất hoặc đi làm dự án, quản lý dự án.
+Nhanh nhẹn, chăm chỉ, nhiệt tình, linh hoạt.
+Sẵn sàng đi công tác.
+ QUYỀN LỢI
+ 8h00–17h00 | T2–T6 + 2 T7/tháng.
+Đóng đầy đủ BHXH, BHYT, BHTN theo quy định.
+Thưởng lễ, Tết, du lịch hằng năm.
+Môi trường năng động, sếp thoải mái.
+ ỨNG TUYỂN/ZALO: 0344 849 982"""
+TRUNCATED_TUTOR_TEXT = "TRUNG TÂM TIẾNG ANH ARMY ENGLISH TUYỂN DỤNG TRỢ GIẢNG GIÁO VIÊN NƯỚC NGOÀI FULL-TIME \n…"
+
+
+def test_truncated_post_detection() -> None:
+    assert_true(is_truncated_post(TRUNCATED_TUTOR_TEXT), "ellipsis ending = truncated")
+    assert_true(is_truncated_post("Cần tuyển phục vụ quán cafe lương 7tr...", False), "three dots")
+    assert_true(is_truncated_post("Cần tuyển phục vụ quán cafe\n더 보기"), "see-more label at end")
+    assert_true(is_truncated_post(PM_JOB_TEXT, has_see_more=True), "button still present")
+    assert_false(is_truncated_post(PM_JOB_TEXT), "full text is not truncated")
+
+
+def test_required_fields_block_truncated_and_accept_full() -> None:
+    tutor = parse_post({"text": TRUNCATED_TUTOR_TEXT, "location": "Bắc Ninh"})
+    assert_true("본문 잘림" in missing_required(tutor), "truncated tutor post must not be saved")
+    assert_true("연락처 없음" in missing_required(tutor), "no contact in truncated preview")
+    pm = parse_post({"text": PM_JOB_TEXT, "location": "Bắc Ninh"})
+    assert_equal(missing_required(pm), [], "full PM post passes")
+    seeker = parse_post({"text": SEEKER_POST_20260928, "location": "Bắc Ninh"})
+    assert_true("구직자 홍보글" in missing_required(seeker), "seeker blocked at save too")
+
+
+def test_salary_and_company_from_real_posts() -> None:
+    pm = parse_post({"text": PM_JOB_TEXT, "location": "Bắc Ninh"})
+    assert_equal(pm["salary"], "30 TRIỆU/THÁNG", "uppercase month suffix kept")
+    assert_equal(pm["employer_phone"], "0344849982", "spaced phone")
+    assert_equal(extract_company(TRUNCATED_TUTOR_TEXT), "TIẾNG ANH ARMY ENGLISH", "company stops before TUYỂN DỤNG")
+
+
 def test_merge_seen_keys_newest_first_and_capped() -> None:
     merged = merge_seen_keys(["id:1", "id:2", "id:3"], ["id:9", "id:2"], limit=3)
     assert_equal(merged, ["id:9", "id:2", "id:1"], "new first, dedup, cap")
@@ -204,6 +249,9 @@ def main() -> int:
         test_self_promotion_keeps_real_job_ads,
         test_feed_end_not_declared_while_placeholders_remain,
         test_db_dedup_survives_extraction_change_and_lost_state,
+        test_truncated_post_detection,
+        test_required_fields_block_truncated_and_accept_full,
+        test_salary_and_company_from_real_posts,
     ]
     for test in tests:
         test()

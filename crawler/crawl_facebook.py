@@ -197,7 +197,7 @@ def extract_salary(text: str) -> str:
     patterns = [
         r"\d+[\.,]?\d*\s*[-–~]\s*\d+[\.,]?\d*\s*(?:triệu|tr)(?:/\s*\w+|\s*tháng|\s*month)?",
         r"(?:từ|from)\s*\d+[\.,]?\d*\s*(?:triệu|tr)",
-        r"\d+[\.,]?\d*\s*(?:triệu|tr)(?:/|\s*tháng|\s*month)?",
+        r"\d+[\.,]?\d*\s*(?:triệu|tr)(?:\s*/\s*\w+|/|\s*tháng|\s*month)?",
         r"\d+\s*[-–]\s*\d+\s*\$",
         r"(?:thỏa thuận|thoả thuận|cạnh tranh)",
     ]
@@ -238,7 +238,9 @@ def extract_company(text: str) -> str:
     )
     if m:
         candidate = m.group(1).strip()
-        if not re.match(r"^(?:có|ho tro|hỗ trợ|can|cần|tuyen|tuyển)\b", candidate, re.IGNORECASE):
+        # "TRUNG TÂM TIẾNG ANH X TUYỂN DỤNG TRỢ GIẢNG…" → "TIẾNG ANH X"
+        candidate = re.sub(r"\s*[-–]?\s*(?:cần tuyển|tuyển dụng|tuyển)\b.*$", "", candidate, flags=re.IGNORECASE).strip()
+        if candidate and not re.match(r"^(?:có|ho tro|hỗ trợ|can|cần|tuyen|tuyển)\b", candidate, re.IGNORECASE):
             return candidate
     for line in lines[:4]:
         if "tuyển dụng" in line.lower() and len(line) < 120:
@@ -553,13 +555,13 @@ def save_seen_state(state: dict, group_stats: list[dict], path: Path = SEEN_STAT
 
 
 async def expand_visible_posts(page) -> None:
-    await page.evaluate("""() => {
-        document.querySelectorAll('[role="button"], a').forEach(el => {
-            const t = (el.innerText || el.textContent || '').trim()
-            if (t.includes('더 보기') || t.includes('See more') || t.includes('Xem thêm')) {
-                try { el.click() } catch {}
-            }
-        })
+    """최상위 게시물 본문의 '더 보기' 버튼만 누른다(2026-09-28: 예전엔 페이지 전체의
+    링크까지 '더 보기'를 포함하면 눌러 엉뚱한 곳을 누를 수 있었다)."""
+    await page.evaluate("() => {" + TOP_LEVEL_POSTS_JS + """
+        for (const el of tops) {
+            const btn = seeMoreBtn(el)
+            if (btn) { try { btn.click() } catch {} }
+        }
     }""")
 
 
@@ -581,6 +583,10 @@ TOP_LEVEL_POSTS_JS = """
     const tops = [...document.querySelectorAll(CAND)]
         .filter(el => !(el.parentElement && el.parentElement.closest(CAND)))
     const LINK = 'a[href*="/posts/"], a[href*="story_fbid"], a[href*="/permalink/"], a[href*="multi_permalinks"]'
+    const SEE_MORE = new Set(['더 보기', 'Xem thêm', 'See more'])
+    // 이 게시물 본문 소속(댓글 등 중첩 후보 아님)의 '더 보기' 버튼
+    const seeMoreBtn = el => [...el.querySelectorAll('[role="button"]')].find(b =>
+        SEE_MORE.has((b.innerText || '').trim()) && !b.closest('a[href]') && b.closest(CAND) === el)
     const textOf = el => {
         const preview = el.querySelector('[data-ad-preview="message"]')
         const nodes = preview ? [preview] : [...el.querySelectorAll('[dir="auto"]')]
@@ -602,7 +608,8 @@ async def extract_visible_posts(page) -> dict:
         const posts = []
         let placeholders = 0
 
-        for (const el of tops) {
+        for (const [idx, el] of tops.entries()) {
+            el.setAttribute('data-jobi-idx', String(idx))
             const text = textOf(el)
             const linkEl = el.querySelector(LINK)
             const postUrl = linkEl ? linkEl.href : ''
@@ -626,11 +633,41 @@ async def extract_visible_posts(page) -> dict:
             const timeLabel = linkEl
                 ? ((linkEl.innerText || '').trim() || linkEl.getAttribute('aria-label') || '')
                 : ''
-            posts.push({ text, images: imgs, postUrl, timeLabel,
-                         posinset: el.getAttribute('aria-posinset') })
+            posts.push({ text, images: imgs, postUrl, timeLabel, idx,
+                         posinset: el.getAttribute('aria-posinset'),
+                         hasSeeMore: !!seeMoreBtn(el) })
         }
         return { posts, placeholders, total: tops.length }
     }""")
+
+
+SEE_MORE_LABELS = ("더 보기", "Xem thêm", "See more")
+
+
+def is_truncated_post(raw_text: str, has_see_more: bool = False) -> bool:
+    """'더 보기'를 못 펼친 미리보기 본문인지. 버튼이 남아 있거나, 본문이 말줄임표/
+    '더 보기' 문구로 끝나면 잘린 것으로 본다(2026-09-28 보조강사 공고: 제목 + '…'만 수집)."""
+    if has_see_more:
+        return True
+    t = (raw_text or "").rstrip()
+    return t.endswith(("…", "...")) or t.endswith(SEE_MORE_LABELS)
+
+
+async def expand_and_reread(page, idx: int) -> dict | None:
+    """잘린 게시물 하나만 실제 마우스 클릭으로 펼친 뒤 다시 읽는다(실패 시 None)."""
+    post = page.locator(f'[data-jobi-idx="{idx}"]')
+    try:
+        btn = post.get_by_role("button", name=re.compile(r"^(더 보기|Xem thêm|See more)$")).first
+        await btn.scroll_into_view_if_needed(timeout=3000)
+        await btn.click(timeout=3000)
+        await page.wait_for_timeout(1500)
+    except Exception:
+        return None
+    return await page.evaluate("(idx) => {" + TOP_LEVEL_POSTS_JS + """
+        const el = document.querySelector(`[data-jobi-idx="${idx}"]`)
+        if (!el) return null
+        return { text: textOf(el), hasSeeMore: !!seeMoreBtn(el) }
+    }""", idx)
 
 
 async def placeholder_count(page) -> int:
@@ -678,7 +715,8 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
         "overlap": 0, "new_keys": [], "jobs": 0, "max_placeholders": 0,
         "placeholder_waits": 0, "loading_delay_steps": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
         "final_placeholders": 0,
-        "skipped": {"dup_text": 0, "not_job": 0, "self_promo": 0, "money": 0, "office": 0,
+        "expanded": 0,
+        "skipped": {"truncated": 0, "dup_text": 0, "not_job": 0, "self_promo": 0, "money": 0, "office": 0,
                     "ambiguous": 0, "dup_title": 0},
     }
 
@@ -747,6 +785,16 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
             if key in prev_seen:
                 stats["overlap"] += 1
                 continue
+            if is_truncated_post(r.get("text", ""), r.get("hasSeeMore", False)):
+                again = await expand_and_reread(page, r["idx"])
+                if again and not is_truncated_post(again["text"], again["hasSeeMore"]):
+                    r = {**r, "text": again["text"], "hasSeeMore": False}
+                    stats["expanded"] += 1
+                else:
+                    # 전문을 못 얻은 글은 저장하지 않고, "본 글"로도 기록하지 않아 다음 실행에서 재시도
+                    stats["skipped"]["truncated"] += 1
+                    print(f"    ⏩ 본문 펼치기 실패(잘린 글) 스킵: {key}")
+                    continue
             stats["new_keys"].append(key)
             time_info = parse_time_label(r.get("timeLabel", ""))
             if len(stats["time_labels"]) < 40:
@@ -917,10 +965,38 @@ def fetch_existing_facebook_rows(page_size: int = 1000) -> list[dict]:
         start += page_size
 
 
-def save_to_supabase(jobs: list[dict]):
+def missing_required(job: dict) -> list[str]:
+    """DB 저장 전 필수 조건. 비어 있지 않으면 저장하지 않는다."""
+    body = (job.get("description") or "").replace("[source:facebook]", "", 1)
+    problems = []
+    if is_truncated_post(body):
+        problems.append("본문 잘림")
+    if not (job.get("title") or "").strip():
+        problems.append("제목 없음")
+    if not (job.get("employer_phone") or job.get("zalo")):
+        problems.append("연락처 없음")
+    if not (job.get("location") or "").strip():
+        problems.append("지역 없음")
+    if is_self_promotion(body):
+        problems.append("구직자 홍보글")
+    return problems
+
+
+def save_to_supabase(jobs: list[dict]) -> list[dict]:
+    """저장한 행(id,title)을 돌려준다."""
     if not supabase:
         print("  ⚠️  Supabase 없음")
-        return
+        return []
+
+    # 잘린 본문·필수 정보 누락은 어떤 경로로 들어와도 저장하지 않는다(최종 방어선)
+    complete = []
+    for job in jobs:
+        problems = missing_required(job)
+        if problems:
+            print(f"  ⛔ 저장 제외({', '.join(problems)}): {job.get('title', '')[:60]}")
+        else:
+            complete.append(job)
+    jobs = complete
 
     existing_rows = fetch_existing_facebook_rows()
     print(f"  📋 기존 facebook 공고: {len(existing_rows)}개")
@@ -969,15 +1045,43 @@ def save_to_supabase(jobs: list[dict]):
     def to_db_payload(job: dict) -> dict:
         return {k: v for k, v in job.items() if k in db_columns}
 
-    inserted = 0
+    saved: list[dict] = []
     for i in range(0, len(new_jobs), 50):
         batch = [to_db_payload(j) for j in new_jobs[i:i+50]]
-        supabase.table("local_jobs").insert(batch).execute()
-        inserted += len(batch)
-        print(f"  ✅ 저장: {inserted}/{len(new_jobs)}개")
+        res = supabase.table("local_jobs").insert(batch).execute()
+        saved.extend({"id": r.get("id"), "title": r.get("title")} for r in (res.data or []))
+        print(f"  ✅ 저장: {len(saved)}/{len(new_jobs)}개")
 
     if not new_jobs:
         print("  ℹ️  새 공고 없음 — 기존 데이터 유지")
+    return saved
+
+
+def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) -> int:
+    """DRY-RUN 결과 파일에서 지정한 게시물만 저장(페이스북 재접속 없음). 사람이 원문을
+    대조한 뒤 소량 저장할 때 쓴다."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    by_key = {j.get("fb_post_key"): j for j in data.get("jobs", [])}
+    picked = []
+    for key in post_keys:
+        job = by_key.get(key)
+        if not job:
+            print(f"  ⛔ 결과 파일에 없는 게시물: {key}")
+            continue
+        picked.append(job)
+    if len(picked) > max_save:
+        print(f"  ⛔ 선택 {len(picked)}건 > 최대 {max_save}건 — 저장 안 함")
+        return 1
+    existing = fetch_existing_facebook_rows()
+    fresh_keys = {j.get("fb_post_key") for j in filter_new_jobs(picked, existing)}
+    for job in picked:
+        state = "신규" if job.get("fb_post_key") in fresh_keys else "DB 중복"
+        print(f"  저장 전 점검: {job.get('fb_post_key')} / {state} / 필수조건 문제: {missing_required(job) or '없음'}")
+    saved = save_to_supabase(picked)
+    for row in saved:
+        print(f"  💾 저장 ID {row['id']}: {row['title']}")
+    print(f"  결과: 선택 {len(picked)} / 저장 {len(saved)}")
+    return 0
 
 
 def parse_args(argv=None):
@@ -986,11 +1090,21 @@ def parse_args(argv=None):
                         help="DB 저장·수집 상태 갱신 없이 결과만 state/에 파일로 남김")
     parser.add_argument("--group", default="",
                         help="URL에 이 문자열이 들어간 그룹만 수집(예: timvieclamthembacninh)")
+    parser.add_argument("--save-from", default="",
+                        help="DRY-RUN 결과 JSON에서 --post-keys 게시물만 저장(브라우저·페이스북 접속 없음)")
+    parser.add_argument("--post-keys", default="", help="쉼표 구분 게시물 키(예: id:123,id:456)")
+    parser.add_argument("--max-save", type=int, default=2)
     return parser.parse_args(argv)
 
 
 async def main(argv=None) -> int:
     args = parse_args(argv)
+    if args.save_from:
+        keys = [k.strip() for k in args.post_keys.split(",") if k.strip()]
+        if not keys:
+            print("  ⚠️  --post-keys가 필요합니다.")
+            return 1
+        return save_selected_from_dryrun(args.save_from, keys, args.max_save)
     print("🚀 Facebook 그룹 크롤링 시작 (생활밀착형 우선)" + (" [DRY-RUN: DB 저장 안 함]" if args.dry_run else ""))
     print("─" * 50)
 
