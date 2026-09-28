@@ -420,6 +420,12 @@ async def crawl_group(page, target: dict) -> list[dict]:
     seen = set()
     step = 0
     used_mobile_fallback = False
+    no_growth_streak = 0
+    # 2026-09-28 실측: article 수가 2→4로 한 번 늘었다가 바로 다음 스크롤에서
+    # 안 늘어난 경우가 있었음 — Facebook의 다음 배치 로딩이 스크롤 1회보다
+    # 느릴 수 있어, 안 늘어난 게 1번뿐이면 계속 시도하고 2번 연속일 때만
+    # 실제로 "더 이상 없음"으로 판단한다(무한루프 방지를 위해 여전히 상한은 둠).
+    MAX_NO_GROWTH_STREAK = 2
 
     while len(posts) < TARGET_PER_GROUP:
         step += 1
@@ -474,12 +480,17 @@ async def crawl_group(page, target: dict) -> list[dict]:
             await page.keyboard.press("ArrowDown")
             await page.wait_for_timeout(random.randint(100, 300))
 
-        await page.wait_for_timeout(random.randint(2000, 4000))
+        await page.wait_for_timeout(random.randint(3000, 5000))
 
         new_count = await article_count(page)
         if new_count == prev_count:
-            print(f"    더 이상 게시물 없음 (총 {len(posts)}개)")
-            break
+            no_growth_streak += 1
+            if no_growth_streak >= MAX_NO_GROWTH_STREAK:
+                print(f"    더 이상 게시물 없음 (총 {len(posts)}개, {no_growth_streak}회 연속 미증가)")
+                break
+            print(f"    (article 수 안 늘어남 {no_growth_streak}/{MAX_NO_GROWTH_STREAK} — 한 번 더 시도)")
+        else:
+            no_growth_streak = 0
 
     return posts
 
