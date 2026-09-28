@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from crawl_facebook import (
+    classify_page_signals,
     extract_company,
+    extract_post_id,
+    merge_seen_keys,
+    parse_time_label,
+    post_key,
     extract_district,
     extract_salary,
     is_job_post,
@@ -69,6 +76,60 @@ def test_salary_keeps_month_suffix() -> None:
     assert_equal(extract_salary("8.5 – 10tr/tháng"), "8.5 – 10tr/tháng", "salary month suffix")
 
 
+NOW = datetime(2026, 9, 28, 12, 0)
+
+
+def test_post_id_from_permalink() -> None:
+    url = "https://www.facebook.com/groups/timvieclamthembacninh/posts/1437419115190226/"
+    assert_equal(extract_post_id(url), "1437419115190226", "numeric post id")
+    assert_equal(extract_post_id("https://www.facebook.com/permalink.php?story_fbid=pfbid0abc&id=1"), "pfbid0abc", "story_fbid")
+    assert_equal(post_key({"postUrl": url, "text": "x"}), "id:1437419115190226", "key prefers id")
+
+
+def test_post_key_without_link_is_stable_text_hash() -> None:
+    a = post_key({"postUrl": "", "text": "Cần tuyển  phục vụ\nLương 8tr"})
+    b = post_key({"postUrl": "", "text": "cần tuyển phục vụ lương 8tr"})
+    assert_true(a.startswith("h:"), "hash fallback")
+    assert_equal(a, b, "whitespace/case-insensitive hash")
+
+
+def test_time_label_relative() -> None:
+    assert_equal(parse_time_label("방금", NOW)["precision"], "minute", "ko just now")
+    assert_equal(parse_time_label("3시간", NOW)["estimate"], "2026-09-28T09:00", "ko hours")
+    assert_equal(parse_time_label("15 phút", NOW)["estimate"], "2026-09-28T11:45", "vi minutes")
+    assert_equal(parse_time_label("Hôm qua lúc 14:20", NOW)["precision"], "day", "vi yesterday")
+    assert_equal(parse_time_label("2d", NOW)["estimate"], "2026-09-26T12:00", "en days")
+    assert_equal(parse_time_label("1주", NOW)["precision"], "week", "ko week")
+
+
+def test_time_label_absolute_dates() -> None:
+    assert_equal(parse_time_label("9월 20일 오후 3:15", NOW)["estimate"], "2026-09-20T00:00", "ko date not N일")
+    assert_equal(parse_time_label("12월 30일", NOW)["estimate"], "2025-12-30T00:00", "future date -> last year")
+    assert_equal(parse_time_label("20 tháng 9", NOW)["estimate"], "2026-09-20T00:00", "vi date")
+    assert_equal(parse_time_label("September 20, 2025", NOW)["estimate"], "2025-09-20T00:00", "en date")
+
+
+def test_time_label_unknown_is_none() -> None:
+    assert_equal(parse_time_label("", NOW), None, "empty")
+    assert_equal(parse_time_label("Nhóm công khai", NOW), None, "not a time label")
+
+
+def test_page_state_classification() -> None:
+    feed = "https://www.facebook.com/groups/x"
+    assert_equal(classify_page_signals(feed, True, True, "댓글 달기 좋아요 log in"), "ok",
+                 "korean feed with a stray 'log in' word is not a login wall")
+    assert_equal(classify_page_signals("https://www.facebook.com/checkpoint/123", True, False, ""), "checkpoint", "checkpoint url")
+    assert_equal(classify_page_signals(feed, True, False, "Vui lòng xác minh danh tính của bạn"), "checkpoint", "checkpoint text")
+    assert_equal(classify_page_signals("https://www.facebook.com/login/?next=x", True, False, ""), "session_expired", "login url")
+    assert_equal(classify_page_signals(feed, False, True, ""), "session_expired", "c_user cookie cleared")
+    assert_equal(classify_page_signals(feed, True, False, "Đăng nhập"), "anomaly", "logged in but no feed")
+
+
+def test_merge_seen_keys_newest_first_and_capped() -> None:
+    merged = merge_seen_keys(["id:1", "id:2", "id:3"], ["id:9", "id:2"], limit=3)
+    assert_equal(merged, ["id:9", "id:2", "id:1"], "new first, dedup, cap")
+
+
 def main() -> int:
     tests = [
         test_non_job_money_post,
@@ -78,6 +139,13 @@ def main() -> int:
         test_company_from_recruitment_heading,
         test_district_pattern_does_not_match_plain_letter_p,
         test_salary_keeps_month_suffix,
+        test_post_id_from_permalink,
+        test_post_key_without_link_is_stable_text_hash,
+        test_time_label_relative,
+        test_time_label_absolute_dates,
+        test_time_label_unknown_is_none,
+        test_page_state_classification,
+        test_merge_seen_keys_newest_first_and_capped,
     ]
     for test in tests:
         test()

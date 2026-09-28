@@ -6,3 +6,6 @@ dist
 .env
 supabase/.temp/
 backups/
+
+# Facebook 크롤러 수집 상태/증거/dry-run 결과 (PC·서버 로컬, 게시자 정보 포함 가능)
+crawler/state/
