@@ -677,6 +677,9 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
         "group": url, "state": "ok", "steps": 0, "stop_reason": None,
         "overlap": 0, "new_keys": [], "jobs": 0, "max_placeholders": 0,
         "placeholder_waits": 0, "loading_delay_steps": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
+        "final_placeholders": 0,
+        "skipped": {"dup_text": 0, "not_job": 0, "self_promo": 0, "money": 0, "office": 0,
+                    "ambiguous": 0, "dup_title": 0},
     }
 
     if not await goto_with_retry(page, url):
@@ -751,19 +754,26 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
 
             text = clean_text(r.get("text", ""))
             text_key = text[:80]
-            if not text or text_key in seen_text or not is_job_post(text):
+            if not text or text_key in seen_text:
+                stats["skipped"]["dup_text"] += 1
+                continue
+            if not is_job_post(text):
+                stats["skipped"]["not_job"] += 1
                 continue
 
             if is_self_promotion(text):
+                stats["skipped"]["self_promo"] += 1
                 print(f"    ⏩ 구직자 홍보글 스킵: {text[:50]!r}")
                 continue
 
             if has_excluded_money_terms(text):
+                stats["skipped"]["money"] += 1
                 print(f"    ⏩ 대출/채권회수 공고 스킵")
                 continue
 
             # 사무/전문직은 건너뜀 (생활밀착형 집중)
             if is_office_job(text):
+                stats["skipped"]["office"] += 1
                 print(f"    ⏩ 사무/전문직 스킵")
                 continue
 
@@ -807,6 +817,7 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
 
     stats["steps"] = step
     stats["jobs"] = len(posts)
+    stats["final_placeholders"] = await placeholder_count(page)
     print(f"    종료: {stats['stop_reason']} (스텝 {step}, 신규 게시물 {len(stats['new_keys'])}, "
           f"이전 실행과 겹침 {stats['overlap']})")
     if prev_seen and stats["overlap"] == 0:
@@ -1036,10 +1047,13 @@ async def main(argv=None) -> int:
             for post in posts:
                 job = parse_post(post)
                 if is_ambiguous_job(job):
+                    stats["skipped"]["ambiguous"] += 1
                     print(f"    ⏩ 애매한 공고 스킵: {job['title'][:70]}")
                     continue
                 key = job["title"].lower()[:50]
-                if key not in seen_titles:
+                if key in seen_titles:
+                    stats["skipped"]["dup_title"] += 1
+                else:
                     seen_titles.add(key)
                     # DB 컬럼이 아니라 to_db_payload()에서 걸러짐 — 결과 파일 확인용
                     job["fb_post_key"] = post.get("post_key")
@@ -1057,10 +1071,22 @@ async def main(argv=None) -> int:
     summary = [{k: v for k, v in s.items() if k != "new_keys"} | {"new_posts": len(s["new_keys"])}
                for s in group_stats]
 
+    for s in summary:
+        print(f"  [{s['group'].rstrip('/').split('/')[-1]}] 상태 {s['state']} / 종료 {s['stop_reason']} / "
+              f"채워진 게시물 {s['new_posts'] + s['overlap']}(이전과 겹침 {s['overlap']}) / "
+              f"빈 칸 최대 {s['max_placeholders']}·마지막 {s['final_placeholders']} / "
+              f"공고 {s['jobs']} / 스킵 {s['skipped']}")
+
     if args.dry_run:
+        # DB와의 중복은 읽기 전용으로만 센다(쓰기 없음)
+        db_dup = None
+        if supabase and all_jobs:
+            db_dup = len(all_jobs) - len(filter_new_jobs(all_jobs, fetch_existing_facebook_rows()))
+            print(f"  📋 DB 기존 facebook 공고와 중복(읽기 전용 확인): {db_dup}개")
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         out = STATE_DIR / f"facebook_dryrun_{datetime.now():%Y%m%d_%H%M%S}.json"
-        out.write_text(json.dumps({"stop_state": stop_state, "groups": summary, "jobs": all_jobs},
+        out.write_text(json.dumps({"stop_state": stop_state, "db_duplicates": db_dup,
+                                   "groups": summary, "jobs": all_jobs},
                                   ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"  💾 DRY-RUN 결과: {out} (DB·수집 상태 변경 없음)")
     else:
