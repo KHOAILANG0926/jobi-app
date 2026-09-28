@@ -583,10 +583,28 @@ TOP_LEVEL_POSTS_JS = """
     const tops = [...document.querySelectorAll(CAND)]
         .filter(el => !(el.parentElement && el.parentElement.closest(CAND)))
     const LINK = 'a[href*="/posts/"], a[href*="story_fbid"], a[href*="/permalink/"], a[href*="multi_permalinks"]'
-    const SEE_MORE = new Set(['더 보기', 'Xem thêm', 'See more'])
-    // 이 게시물 본문 소속(댓글 등 중첩 후보 아님)의 '더 보기' 버튼
-    const seeMoreBtn = el => [...el.querySelectorAll('[role="button"]')].find(b =>
-        SEE_MORE.has((b.innerText || '').trim()) && !b.closest('a[href]') && b.closest(CAND) === el)
+    const SEE_MORE_RE = /^(더 보기|Xem thêm|See more)(\\.\\.\\.|…)?$/
+    // 이 게시물 본문 소속(댓글 등 중첩 후보·링크 아님)의 '더 보기' — 글자가 정확히 일치하는
+    // 가장 안쪽 요소를 찾고, 클릭은 가장 가까운 role=button(없으면 그 요소)에 한다.
+    // (2026-09-28 VPS: role=button만 찾던 방식은 실제 페이스북에서 펼치기 실패)
+    const seeMoreBtn = el => {
+        const hits = [...el.querySelectorAll('div, span, [role="button"]')]
+            .filter(n => SEE_MORE_RE.test((n.innerText || '').trim()))
+        const deepest = hits.filter(n => !hits.some(m => m !== n && n.contains(m)))
+        for (const n of deepest) {
+            if (n.closest('a[href]')) continue
+            if (n.closest(CAND) !== el) continue
+            return n.closest('[role="button"]') || n
+        }
+        return null
+    }
+    // 펼치기 실패 진단용: 후보 요소 구조만(본문 값 없음)
+    const seeMoreDebug = el => [...el.querySelectorAll('div, span, [role="button"], a')]
+        .filter(n => /더 보기|Xem thêm|See more/.test((n.innerText || '').trim()) && (n.innerText || '').trim().length < 20)
+        .slice(0, 8)
+        .map(n => ({ tag: n.tagName, role: n.getAttribute('role'), text: (n.innerText || '').trim(),
+                     inLink: !!n.closest('a[href]'), ownPost: n.closest(CAND) === el,
+                     children: n.children.length }))
     const textOf = el => {
         const preview = el.querySelector('[data-ad-preview="message"]')
         const nodes = preview ? [preview] : [...el.querySelectorAll('[dir="auto"]')]
@@ -653,21 +671,39 @@ def is_truncated_post(raw_text: str, has_see_more: bool = False) -> bool:
     return t.endswith(("…", "...")) or t.endswith(SEE_MORE_LABELS)
 
 
-async def expand_and_reread(page, idx: int) -> dict | None:
-    """잘린 게시물 하나만 실제 마우스 클릭으로 펼친 뒤 다시 읽는다(실패 시 None)."""
-    post = page.locator(f'[data-jobi-idx="{idx}"]')
-    try:
-        btn = post.get_by_role("button", name=re.compile(r"^(더 보기|Xem thêm|See more)$")).first
-        await btn.scroll_into_view_if_needed(timeout=3000)
-        await btn.click(timeout=3000)
-        await page.wait_for_timeout(1500)
-    except Exception:
-        return None
-    return await page.evaluate("(idx) => {" + TOP_LEVEL_POSTS_JS + """
+async def expand_and_reread(page, idx: int) -> dict:
+    """잘린 게시물 하나만 실제 마우스 클릭으로 펼친 뒤 다시 읽는다.
+    실패 시 {"text": None, "debug": {...}} — 후보 요소 구조를 남겨 원인 판단에 쓴다."""
+    READ = "(idx) => {" + TOP_LEVEL_POSTS_JS + """
         const el = document.querySelector(`[data-jobi-idx="${idx}"]`)
         if (!el) return null
-        return { text: textOf(el), hasSeeMore: !!seeMoreBtn(el) }
-    }""", idx)
+        const btn = seeMoreBtn(el)
+        if (btn) btn.setAttribute('data-jobi-more', String(idx))
+        return { text: textOf(el), hasSeeMore: !!btn, candidates: seeMoreDebug(el),
+                 tail: textOf(el).slice(-12) }
+    }"""
+    before = await page.evaluate(READ, idx)
+    if not before:
+        return {"text": None, "debug": {"reason": "element_gone"}}
+    if not before["hasSeeMore"]:
+        return {"text": None, "debug": {"reason": "no_button", "candidates": before["candidates"],
+                                        "tail": before["tail"]}}
+    try:
+        btn = page.locator(f'[data-jobi-more="{idx}"]').first
+        await btn.scroll_into_view_if_needed(timeout=3000)
+        await btn.click(timeout=3000)
+    except Exception as e:
+        return {"text": None, "debug": {"reason": f"click_failed: {type(e).__name__}",
+                                        "candidates": before["candidates"]}}
+    after = None
+    for _ in range(6):  # 최대 3초 동안 펼쳐지기를 기다림
+        await page.wait_for_timeout(500)
+        after = await page.evaluate(READ, idx)
+        if after and not is_truncated_post(after["text"], after["hasSeeMore"]):
+            return {"text": after["text"], "hasSeeMore": False}
+    return {"text": None, "debug": {"reason": "still_truncated_after_click",
+                                    "candidates": (after or before)["candidates"],
+                                    "tail": (after or before)["tail"]}}
 
 
 async def placeholder_count(page) -> int:
@@ -715,7 +751,7 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
         "overlap": 0, "new_keys": [], "jobs": 0, "max_placeholders": 0,
         "placeholder_waits": 0, "loading_delay_steps": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
         "final_placeholders": 0,
-        "expanded": 0,
+        "expanded": 0, "truncated_debug": [],
         "skipped": {"truncated": 0, "dup_text": 0, "not_job": 0, "self_promo": 0, "money": 0, "office": 0,
                     "ambiguous": 0, "dup_title": 0},
     }
@@ -787,10 +823,11 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
                 continue
             if is_truncated_post(r.get("text", ""), r.get("hasSeeMore", False)):
                 again = await expand_and_reread(page, r["idx"])
-                if again and not is_truncated_post(again["text"], again["hasSeeMore"]):
+                if again.get("text"):
                     r = {**r, "text": again["text"], "hasSeeMore": False}
                     stats["expanded"] += 1
                 else:
+                    stats["truncated_debug"].append({"key": key, **again["debug"]})
                     # 전문을 못 얻은 글은 저장하지 않고, "본 글"로도 기록하지 않아 다음 실행에서 재시도
                     stats["skipped"]["truncated"] += 1
                     print(f"    ⏩ 본문 펼치기 실패(잘린 글) 스킵: {key}")
