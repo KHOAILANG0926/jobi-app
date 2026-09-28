@@ -172,4 +172,7 @@
 - GitHub: `KHOAILANG0926/jobi-app`
 - 배포: Vercel, 운영 도메인 `https://viecganban.vn`
 - VPS: AZDIGI, `103.221.223.71`, SSH key `C:\Users\Admin\.ssh\jobi_vps`
+- VPS SSH key(회사 PC `LAPTOP-1GF55Q0D`, 사용자 `HP`, 2026-09-28 등록·접속 확인): `C:\Users\HP\.ssh\jobi_vps_hp`
+  (ed25519, 개인키는 이 PC에만 있음 — 저장소엔 공개키 `ops/jobi_vps_hp.pub`만. 접속:
+  `ssh -i ~/.ssh/jobi_vps_hp root@103.221.223.71`)
 - 관련 문서: `CHATGPT_HANDOFF.md`(최신 세션 1개 스냅샷, 누적 안 함), `VIECGANBAN_STRUCTURE_BASELINE.md`(전체 구조), `CLAUDE.md`/`AGENTS.md`(자동화 세션 규칙)
