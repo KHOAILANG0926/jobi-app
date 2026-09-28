@@ -6,6 +6,7 @@ from datetime import datetime
 
 from crawl_facebook import (
     classify_page_signals,
+    clean_text,
     extract_company,
     extract_post_id,
     evaluate_post,
@@ -165,6 +166,12 @@ def test_self_promotion_keeps_real_job_ads() -> None:
     ]
     for text in employer_posts:
         assert_false(is_self_promotion(text), f"employer post must pass: {text[:40]}")
+
+
+def test_clean_text_strips_see_less_toggle() -> None:
+    raw = "Hotline: 0966 361 896\nĐịa điểm làm việc: [ TDP Tăng Quang, Phường Việt Yên ] 적게 보기"
+    assert_true(not clean_text(raw).endswith("적게 보기"), "Korean see-less removed")
+    assert_true(clean_text("Liên hệ 0911111111\nẨn bớt").endswith("0911111111"), "Vietnamese see-less removed")
 
 
 def test_stall_ends_only_after_consecutive_no_progress() -> None:
@@ -336,6 +343,7 @@ def main() -> int:
         test_merge_seen_keys_newest_first_and_capped,
         test_self_promotion_seeker_posts_rejected,
         test_self_promotion_keeps_real_job_ads,
+        test_clean_text_strips_see_less_toggle,
         test_stall_ends_only_after_consecutive_no_progress,
         test_evaluate_post_pipeline_order_and_reasons,
         test_order_consistency_and_miss_risk,

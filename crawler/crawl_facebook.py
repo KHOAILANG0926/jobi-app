@@ -340,8 +340,13 @@ NOISE_PATTERNS = re.compile(
     re.MULTILINE
 )
 
+# 펼친 뒤 본문 끝에 붙는 '접기' 버튼 문구(2026-09-28 VPS: "...Tăng Quang)] 적게 보기")
+TRAILING_TOGGLE_RE = re.compile(r"\s*(?:적게 보기|Ẩn bớt|See less)\s*$", re.IGNORECASE)
+
+
 def clean_text(text: str) -> str:
     text = NOISE_PATTERNS.sub("", text)
+    text = TRAILING_TOGGLE_RE.sub("", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
@@ -957,6 +962,8 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
                 "age_h": None if age_h is None else round(age_h, 1),
                 "time_precision": (time_info or {}).get("precision"),
                 "decision": decision, "reasons": reasons, "first_line": first_line,
+                # 놓친 구인글(오판) 측정용 본문 앞부분 — 결과 파일은 서버 state/(gitignore)에만 남는다
+                "text_head": text[:300],
             })
             stats["counts"][decision] = stats["counts"].get(decision, 0) + 1
             (stats["final_keys"] if decision in FINAL_DECISIONS else stats["retry_keys"]).append(key)
@@ -972,7 +979,10 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
         before = await feed_metrics(page)
         await advance_feed(page)
         after = await feed_metrics(page)
-        progress = bool(new_ids) or after["total"] > data["total"] or after["docHeight"] > before["docHeight"]
+        # 문서 높이는 새 글 없이도 수십 px씩 늘 수 있어(2026-09-28 Bắc Ninh: 스텝마다 +16px)
+        # 200px 이상 늘었을 때만 진전으로 본다.
+        progress = (bool(new_ids) or after["total"] > data["total"]
+                    or after["docHeight"] - before["docHeight"] >= 200)
         stats["trace"].append({
             "step": step, "total": data["total"], "filled": len(data["posts"]),
             "empty_above": data["above"], "empty_pending": data["pending"],
