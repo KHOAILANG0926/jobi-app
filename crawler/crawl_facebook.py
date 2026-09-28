@@ -57,6 +57,26 @@ STATE_DIR = Path(__file__).parent / "state"
 SEEN_STATE_PATH = STATE_DIR / "facebook_seen.json"
 EVIDENCE_DIR = STATE_DIR / "evidence"
 LAST_RUN_PATH = STATE_DIR / "facebook_last_run.json"  # 마지막 실행 요약(운영 점검·알림용)
+# 계정 이상(checkpoint/session_expired) 감지 시 자동 생성되는 잠금. 있으면 크롤러가 아예
+# 시작하지 않는다(dry-run 포함) — 사람이 일반 브라우저로 계정을 확인하고 쿠키를 갱신한 뒤
+# 직접 지워야 풀린다. (2026-09-28 17:15 VPS에서 세션 만료 — 반복 접속으로 계정 위험을
+# 키우지 않도록 정기 실행이든 수동 실행이든 여기서 막는다.)
+ACCOUNT_LOCK_PATH = STATE_DIR / "FACEBOOK_ACCOUNT_LOCK"
+
+
+def write_account_lock(state: str, group_url: str, path: Path = ACCOUNT_LOCK_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"state={state}\ngroup={group_url}\nat={datetime.now().isoformat(timespec='seconds')}\n"
+        "해제: 일반 브라우저로 계정 상태 확인 → 필요 시 쿠키 갱신 → 이 파일 삭제\n",
+        encoding="utf-8")
+
+
+def account_lock_reason(path: Path = ACCOUNT_LOCK_PATH) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
 
 TARGETS = [
     {"url": "https://www.facebook.com/groups/timvieclamthembacninh", "location": "Bắc Ninh"},
@@ -1296,6 +1316,11 @@ async def main(argv=None) -> int:
         print("  ⚠️  FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
         return 1
 
+    lock = account_lock_reason()
+    if lock:
+        print(f"  🛑 계정 잠금 파일이 있어 실행하지 않습니다({ACCOUNT_LOCK_PATH.name}):\n{lock}")
+        return 3
+
     wanted = [g.strip() for g in args.group.split(",") if g.strip()]
     targets = [t for t in TARGETS if not wanted or any(g in t["url"] for g in wanted)]
     if not targets:
@@ -1331,6 +1356,8 @@ async def main(argv=None) -> int:
             except AccountStop as e:
                 print(f"\n  🛑 {e.state} — 전체 중단. 사람이 일반 브라우저로 계정 상태를 확인하기 전까지 재실행 금지")
                 stop_state = e.state
+                write_account_lock(e.state, e.group_url)
+                print(f"  🔒 {ACCOUNT_LOCK_PATH.name} 생성 — 삭제 전까지 크롤러가 시작되지 않음")
                 break
             group_stats.append(stats)
 
