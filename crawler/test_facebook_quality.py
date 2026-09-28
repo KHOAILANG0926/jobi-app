@@ -8,6 +8,9 @@ from crawl_facebook import (
     classify_page_signals,
     extract_company,
     extract_post_id,
+    feed_end_decision,
+    filter_new_jobs,
+    is_self_promotion,
     merge_seen_keys,
     parse_time_label,
     post_key,
@@ -125,6 +128,57 @@ def test_page_state_classification() -> None:
     assert_equal(classify_page_signals(feed, True, False, "Đăng nhập"), "anomaly", "logged in but no feed")
 
 
+SEEKER_POST_20260928 = """EM NHẬN LAU NHÀ Ạ – AI CẦN THÌ ỦNG HỘ EM!
+Mình ở Kinh Bắc, Bắc Ninh, chuyên nhận lau dọn nhà cửa.
+Mình không ngại nhà nhiều việc, miễn là mình thống nhất công việc trước.
+ Lau sàn
+ Vệ sinh bếp
+ Cọ nhà vệ sinh
+Mình tự mang đầy đủ dụng cụ . làm cẩn thận và có trách nhiệm.
+ Zalo: 0988741119
+Mọi người biết ai đang cần người lau dọn thì giới thiệu giúp em với ạ. Em cảm ơn cả nhà rất nhiều!"""
+
+
+def test_self_promotion_seeker_posts_rejected() -> None:
+    # 실제 2026-09-28 DRY-RUN에서 통과했던 글: "cần người"로 구인 키워드엔 걸림
+    assert_true(is_job_post(SEEKER_POST_20260928), "fixture reproduces the keyword hit")
+    assert_true(is_self_promotion(SEEKER_POST_20260928), "cleaning self-promo is not a job ad")
+    assert_true(is_self_promotion("Em đang cần tìm việc làm ca tối ạ, ai biết chỗ nào giới thiệu giúp em với"), "job seeker")
+    assert_true(is_self_promotion("Mình nhận giúp việc theo giờ khu Kinh Bắc, ai cần liên hệ 0912345678"), "maid service offer")
+
+
+def test_self_promotion_keeps_real_job_ads() -> None:
+    employer_posts = [
+        "Quán em cần người phụ bếp, lương 8tr, liên hệ 0912345678",
+        "Bạn nào đang tìm việc làm thêm thì inbox mình, bên mình cần 3 bạn đóng gói 25k/giờ",
+        "Cần tuyển 2 bạn nữ lau dọn nhà, lương 7 triệu/tháng, Zalo 0988000111",
+        "Em cần tuyển gấp 5nv làm tạp vụ lau hành lang chung cư 423 Minh Khai",
+        "Quán nhậu cần tuyển\n1/phụ bếp có kinh nghiệm\nLương : 8 triệu đến 12 triệu tuỳ năng lực",
+        "Mình cần tìm 2 bạn phục vụ quán cafe ca tối, 22k/h, nhận hồ sơ qua Zalo",
+    ]
+    for text in employer_posts:
+        assert_false(is_self_promotion(text), f"employer post must pass: {text[:40]}")
+
+
+def test_feed_end_not_declared_while_placeholders_remain() -> None:
+    assert_equal(feed_end_decision(False, 3, 1, 2), (0, False), "placeholders left = loading delay, not end")
+    assert_equal(feed_end_decision(False, 0, 0, 2), (1, False), "first real no-growth")
+    assert_equal(feed_end_decision(False, 0, 1, 2), (2, True), "second real no-growth ends")
+    assert_equal(feed_end_decision(True, 0, 1, 2), (0, False), "growth resets")
+
+
+def test_db_dedup_survives_extraction_change_and_lost_state() -> None:
+    text = "Cần tuyển 2 bạn phục vụ quán cafe, lương 7 triệu/tháng, Zalo 0988000111"
+    job = parse_post({"text": text, "location": "Bắc Ninh"})
+    # 이전에 저장된 행: 같은 본문이지만 옛 추출 로직 때문에 제목/회사가 달랐던 경우
+    existing = [{"title": "옛 제목", "company": "옛 회사", "description": "[source:facebook] " + text}]
+    assert_equal(filter_new_jobs([job], existing), [], "same body must not be re-saved")
+    # 같은 실행에서 두 번 모인 경우
+    assert_equal(len(filter_new_jobs([job, dict(job)], [])), 1, "in-run duplicate")
+    other = parse_post({"text": "Cần tuyển bảo vệ ca đêm, lương 8 triệu, Zalo 0977000222", "location": "Bắc Ninh"})
+    assert_equal(len(filter_new_jobs([other], existing)), 1, "different post is kept")
+
+
 def test_merge_seen_keys_newest_first_and_capped() -> None:
     merged = merge_seen_keys(["id:1", "id:2", "id:3"], ["id:9", "id:2"], limit=3)
     assert_equal(merged, ["id:9", "id:2", "id:1"], "new first, dedup, cap")
@@ -146,6 +200,10 @@ def main() -> int:
         test_time_label_unknown_is_none,
         test_page_state_classification,
         test_merge_seen_keys_newest_first_and_capped,
+        test_self_promotion_seeker_posts_rejected,
+        test_self_promotion_keeps_real_job_ads,
+        test_feed_end_not_declared_while_placeholders_remain,
+        test_db_dedup_survives_extraction_change_and_lost_state,
     ]
     for test in tests:
         test()

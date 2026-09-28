@@ -29,7 +29,8 @@ run_crawler() {
 }
 
 if grep -q '^FB_C_USER=.' .env && grep -q '^FB_XS=.' .env; then
-  run_crawler "Facebook" "${FACEBOOK_CRAWLER_TIMEOUT:-45m}" python3 -u crawl_facebook.py
+  # 2026-09-28: 그룹당 최대 ~250초(스크롤/시간 상한) x 8 + 그룹 간 60~120초 대기 ≈ 47분이라 45m→60m
+  run_crawler "Facebook" "${FACEBOOK_CRAWLER_TIMEOUT:-60m}" python3 -u crawl_facebook.py
 else
   echo "[$(date -Is)] Skipping Facebook crawler: FB_C_USER/FB_XS not configured"
 fi

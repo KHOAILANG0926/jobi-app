@@ -127,6 +127,33 @@ def is_job_post(text: str) -> bool:
     return any(kw in t for kw in LOCAL_JOB_TYPES) and any(kw in t for kw in COMPENSATION_KEYWORDS)
 
 
+# ── 구직자 자기홍보글 (2026-09-28) ─────────────────────────────────
+# "EM NHẬN LAU NHÀ Ạ – AI CẦN THÌ ỦNG HỘ EM!"(청소 일 받습니다) 같은 글이
+# "ai đang cần người lau dọn"의 "cần người"로 구인 키워드에 걸려 통과했다.
+# 1인칭 + 일을 받는다/일을 찾는다 표현이 있고, 구인 측 신호(tuyển/lương/
+# 급여 단위/ứng viên/hồ sơ…)가 전혀 없을 때만 자기홍보로 본다 — "Quán em cần
+# người phụ bếp, lương 8tr"처럼 1인칭 구인글을 잘못 거르지 않기 위해.
+SELF_PROMO_PATTERNS = [
+    re.compile(r"\b(?:em|minh|toi|chau)\s+(?:chuyen\s+)?nhan\s+(?:lam|lau|don|giup viec|trong|cham|nau|sua|ve sinh|day|kem|cho|cat|may|giat|phu)\b"),
+    re.compile(r"\bchuyen nhan\s+(?:lau|don|ve sinh|giup viec|trong|cham|nau|sua|day|kem|cho|giat)\b"),
+    re.compile(r"\b(?:em|minh|toi|chau)\s+(?:dang\s+|can\s+|muon\s+)*(?:tim|xin)\s+(?:viec|cong viec)\b"),
+    re.compile(r"\bung ho em\b|\bgioi thieu giup (?:em|minh)\b"),
+]
+EMPLOYER_SIGNAL_RE = re.compile(
+    r"\btuyen\b|\bluong\b|thu nhap|ung vien|ho so|phong van|dai ngo|trieu|"
+    r"\d+\s*k\s*/\s*(?:gio|h|ngay|ca)\b|\d+\s*tr\b|ben (?:minh|em) can|"
+    r"\bcan\s+\d+\s+(?:ban|nguoi|nv|nhan vien)\b"
+)
+
+
+def is_self_promotion(text: str) -> bool:
+    """구직자가 자기 노동/서비스를 홍보하는 글(구인 공고 아님)."""
+    t = ascii_key(text)
+    if not any(p.search(t) for p in SELF_PROMO_PATTERNS):
+        return False
+    return not EMPLOYER_SIGNAL_RE.search(t)
+
+
 def is_local_priority(text: str) -> bool:
     """생활밀착형 직종이면 True"""
     t = text.lower()
@@ -272,7 +299,9 @@ def is_ambiguous_job(job: dict) -> bool:
 
     if is_generic_title and not has_role:
         return True
-    if fallback_company and job.get("category") == "other" and not has_role:
+    # 2026-09-28: 09-24 이후 category는 새 13분류 id라 "기타"는 "khac" —
+    # "other"만 비교하던 이 조건은 그동안 한 번도 성립하지 않았다.
+    if fallback_company and job.get("category") in ("other", "khac") and not has_role:
         return True
     if len(description.replace("[source:facebook]", "").strip()) < 80 and not has_role:
         return True
@@ -604,6 +633,21 @@ async def extract_visible_posts(page) -> dict:
     }""")
 
 
+async def placeholder_count(page) -> int:
+    return await page.evaluate("() => {" + TOP_LEVEL_POSTS_JS + """
+        return tops.filter(el => !textOf(el) && !el.querySelector(LINK)).length
+    }""")
+
+
+def feed_end_decision(grew: bool, placeholders_left: int, streak: int, max_streak: int) -> tuple[int, bool]:
+    """스크롤 뒤 (새 streak, 종료 여부). 빈 칸이 남아 있으면 로딩 지연인지 목록 끝인지
+    구분할 수 없으므로 '증가 없음'으로 세지 않는다 — 그 경우는 스크롤/시간 상한이 끝낸다."""
+    if grew or placeholders_left > 0:
+        return 0, False
+    streak += 1
+    return streak, streak >= max_streak
+
+
 async def scroll_to_first_placeholder(page) -> None:
     await page.evaluate("() => {" + TOP_LEVEL_POSTS_JS + """
         const ph = tops.find(el => !textOf(el) && !el.querySelector(LINK))
@@ -632,7 +676,7 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
     stats = {
         "group": url, "state": "ok", "steps": 0, "stop_reason": None,
         "overlap": 0, "new_keys": [], "jobs": 0, "max_placeholders": 0,
-        "placeholder_waits": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
+        "placeholder_waits": 0, "loading_delay_steps": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
     }
 
     if not await goto_with_retry(page, url):
@@ -710,6 +754,10 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
             if not text or text_key in seen_text or not is_job_post(text):
                 continue
 
+            if is_self_promotion(text):
+                print(f"    ⏩ 구직자 홍보글 스킵: {text[:50]!r}")
+                continue
+
             if has_excluded_money_terms(text):
                 print(f"    ⏩ 대출/채권회수 공고 스킵")
                 continue
@@ -741,16 +789,21 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
 
         await page.wait_for_timeout(random.randint(3000, 5000))
 
+        # 2026-09-28 DRY-RUN: 빈 칸 3~4개가 남은 채 "2회 연속 미증가"로 끝나 5개만
+        # 읽었다 — 빈 칸이 남아 있으면 끝으로 보지 않는다(feed_end_decision).
         new_count = await article_count(page)
-        if new_count == prev_count:
-            no_growth_streak += 1
-            if no_growth_streak >= MAX_NO_GROWTH_STREAK:
-                print(f"    더 이상 게시물 없음 (총 {len(posts)}개, {no_growth_streak}회 연속 미증가)")
-                stats["stop_reason"] = "no_growth"
-                break
+        placeholders_left = await placeholder_count(page)
+        grew = new_count > prev_count
+        if not grew and placeholders_left > 0:
+            stats["loading_delay_steps"] += 1
+            print(f"    (article 수 그대로, 빈 칸 {placeholders_left}개 남음 — 로딩 지연으로 보고 계속)")
+        no_growth_streak, ended = feed_end_decision(grew, placeholders_left, no_growth_streak, MAX_NO_GROWTH_STREAK)
+        if ended:
+            print(f"    더 이상 게시물 없음 (총 {len(posts)}개, 빈 칸 없이 {no_growth_streak}회 연속 미증가)")
+            stats["stop_reason"] = "no_growth"
+            break
+        if not grew and placeholders_left == 0:
             print(f"    (article 수 안 늘어남 {no_growth_streak}/{MAX_NO_GROWTH_STREAK} — 한 번 더 시도)")
-        else:
-            no_growth_streak = 0
 
     stats["steps"] = step
     stats["jobs"] = len(posts)
@@ -800,21 +853,66 @@ def parse_post(post: dict) -> dict:
     }
 
 
+# ── DB 재저장 방지 (2026-09-28) ─────────────────────────────────────
+# 게시물 ID 중복 판별(state/facebook_seen.json)과 원문 링크의 사용자 노출
+# (source_url — 지원 버튼 이동처)은 분리한다. source_url을 비워둔 채로 DB
+# 재저장을 막는 건 아래 두 키: ① 기존 title+company, ② 본문 지문(저장된
+# description 본문을 정규화한 해시). ②는 추출 로직(제목/회사)이 바뀌어도
+# 같은 글이면 같은 값이라, 상태 파일이 없어져도 같은 글이 다시 들어가지 않는다.
+FACEBOOK_DESCRIPTION_PREFIX = "[source:facebook] "
+
+
+def title_company_key(job: dict) -> tuple[str, str]:
+    return ((job.get("title") or "").strip().lower()[:60], (job.get("company") or "").strip().lower()[:40])
+
+
+def text_fingerprint(description: str) -> str:
+    body = (description or "").replace("[source:facebook]", "", 1)
+    normalized = ascii_key(body)[:300]
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+
+def filter_new_jobs(jobs: list[dict], existing_rows: list[dict]) -> list[dict]:
+    """기존 facebook 행(title/company/description)과 겹치지 않는 공고만. 같은 실행 안의
+    중복도 걸러낸다."""
+    seen_tc = {title_company_key(r) for r in existing_rows}
+    seen_fp = {text_fingerprint(r.get("description", "")) for r in existing_rows}
+    fresh = []
+    for job in jobs:
+        tc, fp = title_company_key(job), text_fingerprint(job.get("description", ""))
+        if tc in seen_tc or fp in seen_fp:
+            continue
+        seen_tc.add(tc)
+        seen_fp.add(fp)
+        fresh.append(job)
+    return fresh
+
+
+def fetch_existing_facebook_rows(page_size: int = 1000) -> list[dict]:
+    """PostgREST 기본 행 제한(1000)에 잘리지 않도록 페이지 단위로 전부 읽는다."""
+    rows: list[dict] = []
+    start = 0
+    while True:
+        res = supabase.table("local_jobs") \
+            .select("id,title,company,description") \
+            .like("description", "%[source:facebook]%") \
+            .order("id") \
+            .range(start, start + page_size - 1) \
+            .execute()
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < page_size:
+            return rows
+        start += page_size
+
+
 def save_to_supabase(jobs: list[dict]):
     if not supabase:
         print("  ⚠️  Supabase 없음")
         return
 
-    # 기존 facebook 공고 title 세트 조회 (중복 방지용)
-    existing_raw = supabase.table("local_jobs") \
-        .select("title,company") \
-        .like("description", "%[source:facebook]%") \
-        .execute()
-    existing_keys = {
-        (r["title"].strip().lower()[:60], r["company"].strip().lower()[:40])
-        for r in (existing_raw.data or [])
-    }
-    print(f"  📋 기존 facebook 공고: {len(existing_keys)}개")
+    existing_rows = fetch_existing_facebook_rows()
+    print(f"  📋 기존 facebook 공고: {len(existing_rows)}개")
 
     # 생활밀착형 우선 정렬
     priority = [j for j in jobs if j.get("is_local_priority")]
@@ -822,10 +920,7 @@ def save_to_supabase(jobs: list[dict]):
     ordered  = priority + others
 
     # 신규 공고만 필터링 (누적 추가)
-    new_jobs = [
-        j for j in ordered
-        if (j["title"].strip().lower()[:60], j["company"].strip().lower()[:40]) not in existing_keys
-    ]
+    new_jobs = filter_new_jobs(ordered, existing_rows)
     print(f"  📊 생활밀착형: {len(priority)}개 / 기타: {len(others)}개")
     print(f"  ➕ 신규 공고: {len(new_jobs)}개 / 중복 스킵: {len(ordered) - len(new_jobs)}개")
 
