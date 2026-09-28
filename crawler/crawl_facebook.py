@@ -751,7 +751,7 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
         "overlap": 0, "new_keys": [], "jobs": 0, "max_placeholders": 0,
         "placeholder_waits": 0, "loading_delay_steps": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
         "final_placeholders": 0,
-        "expanded": 0, "truncated_debug": [],
+        "expanded": 0, "author_ellipsis": 0, "truncated_debug": [],
         "skipped": {"truncated": 0, "dup_text": 0, "not_job": 0, "self_promo": 0, "money": 0, "office": 0,
                     "ambiguous": 0, "dup_title": 0},
     }
@@ -823,9 +823,14 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
                 continue
             if is_truncated_post(r.get("text", ""), r.get("hasSeeMore", False)):
                 again = await expand_and_reread(page, r["idx"])
+                dbg = again.get("debug") or {}
                 if again.get("text"):
                     r = {**r, "text": again["text"], "hasSeeMore": False}
                     stats["expanded"] += 1
+                elif dbg.get("reason") == "no_button" and not dbg.get("candidates"):
+                    # 2026-09-28 VPS 진단: '…'로 끝나지만 게시물 안에 '더 보기' 요소가 전혀
+                    # 없음 = 작성자가 말줄임표로 끝낸 전문(페이스북이 자를 땐 항상 버튼이 붙음)
+                    stats["author_ellipsis"] += 1
                 else:
                     stats["truncated_debug"].append({"key": key, **again["debug"]})
                     # 전문을 못 얻은 글은 저장하지 않고, "본 글"로도 기록하지 않아 다음 실행에서 재시도
@@ -863,7 +868,7 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
                 continue
 
             seen_text.add(text_key)
-            posts.append({**r, "text": text, "location": location,
+            posts.append({**r, "text": text, "location": location, "full_text_confirmed": True,
                           "post_key": key, "time_info": time_info})
             if len(posts) >= TARGET_PER_GROUP:
                 break
@@ -1006,7 +1011,9 @@ def missing_required(job: dict) -> list[str]:
     """DB 저장 전 필수 조건. 비어 있지 않으면 저장하지 않는다."""
     body = (job.get("description") or "").replace("[source:facebook]", "", 1)
     problems = []
-    if is_truncated_post(body):
+    tail = body.rstrip()
+    if tail.endswith(SEE_MORE_LABELS) or (tail.endswith(("…", "...")) and not job.get("fb_full_text_confirmed")):
+        # 말줄임표로 끝나는 글은 크롤링 중 '더 보기' 요소가 없음을 화면에서 확인한 경우만 허용
         problems.append("본문 잘림")
     if not (job.get("title") or "").strip():
         problems.append("제목 없음")
@@ -1101,9 +1108,18 @@ def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) ->
     by_key = {j.get("fb_post_key"): j for j in data.get("jobs", [])}
     picked = []
     for key in post_keys:
-        job = by_key.get(key)
-        if not job:
+        old = by_key.get(key)
+        if not old:
             print(f"  ⛔ 결과 파일에 없는 게시물: {key}")
+            continue
+        # 결과 파일의 옛 추출값 대신 원문에서 현재 로직으로 다시 추출
+        text = (old.get("description") or "").replace("[source:facebook]", "", 1).strip()
+        group_location = (old.get("location") or "").split(", ")[-1]
+        job = parse_post({"text": text, "location": group_location, "images": old.get("images") or []})
+        job["fb_post_key"] = key
+        job["fb_full_text_confirmed"] = bool(old.get("fb_full_text_confirmed"))
+        if is_ambiguous_job(job):
+            print(f"  ⛔ 애매한 공고로 판정 — 제외: {key}")
             continue
         picked.append(job)
     if len(picked) > max_save:
@@ -1208,6 +1224,7 @@ async def main(argv=None) -> int:
                     seen_titles.add(key)
                     # DB 컬럼이 아니라 to_db_payload()에서 걸러짐 — 결과 파일 확인용
                     job["fb_post_key"] = post.get("post_key")
+                    job["fb_full_text_confirmed"] = bool(post.get("full_text_confirmed"))
                     job["fb_time"] = post.get("time_info")
                     all_jobs.append(job)
 

@@ -217,6 +217,16 @@ def test_required_fields_block_truncated_and_accept_full() -> None:
     assert_true("구직자 홍보글" in missing_required(seeker), "seeker blocked at save too")
 
 
+def test_author_ellipsis_allowed_only_when_screen_confirmed() -> None:
+    text = "Cần tuyển 2 bạn phục vụ quán cafe, lương 7 triệu/tháng, Zalo 0988000111. Ai cần việc thì vô đây nào …"
+    job = parse_post({"text": text, "location": "Bắc Ninh"})
+    assert_true("본문 잘림" in missing_required(job), "ellipsis without screen confirmation is rejected")
+    job["fb_full_text_confirmed"] = True
+    assert_equal(missing_required(job), [], "confirmed no see-more element -> author's own ellipsis is full text")
+    job["description"] = "[source:facebook] Cần tuyển phục vụ, Zalo 0988000111\n더 보기"
+    assert_true("본문 잘림" in missing_required(job), "see-more label at end is always truncated")
+
+
 def test_salary_and_company_from_real_posts() -> None:
     pm = parse_post({"text": PM_JOB_TEXT, "location": "Bắc Ninh"})
     assert_equal(pm["salary"], "30 TRIỆU/THÁNG", "uppercase month suffix kept")
@@ -252,6 +262,7 @@ def main() -> int:
         test_truncated_post_detection,
         test_required_fields_block_truncated_and_accept_full,
         test_salary_and_company_from_real_posts,
+        test_author_ellipsis_allowed_only_when_screen_confirmed,
     ]
     for test in tests:
         test()
