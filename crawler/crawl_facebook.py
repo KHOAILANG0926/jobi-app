@@ -56,6 +56,7 @@ MAX_CONSECUTIVE_ANOMALY_GROUPS = 2
 STATE_DIR = Path(__file__).parent / "state"
 SEEN_STATE_PATH = STATE_DIR / "facebook_seen.json"
 EVIDENCE_DIR = STATE_DIR / "evidence"
+LAST_RUN_PATH = STATE_DIR / "facebook_last_run.json"  # 마지막 실행 요약(운영 점검·알림용)
 
 TARGETS = [
     {"url": "https://www.facebook.com/groups/timvieclamthembacninh", "location": "Bắc Ninh"},
@@ -522,14 +523,19 @@ def parse_time_label(label: str, now: datetime | None = None) -> dict | None:
 
 # ── 이전 실행 상태 (그룹별 이미 처리한 게시물 키) ──────────────────────
 def load_seen_state(path: Path = SEEN_STATE_PATH) -> dict:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        # 깨진 상태 파일은 "처음 실행"과 같게 취급(상한 + DB 제목 중복 방지가 막아줌)
-        print(f"  ⚠️ 상태 파일 읽기 실패 — 빈 상태로 진행: {e}")
-        return {}
+    """상태 파일 → 없거나 깨졌으면 .bak → 그것도 없으면 빈 상태. 빈 상태여도 DB 중복
+    방지(본문 지문·제목+회사)가 재저장을 막는다(처리 시간만 늘어남)."""
+    for candidate in (path, path.with_suffix(path.suffix + ".bak")):
+        try:
+            data = json.loads(candidate.read_text(encoding="utf-8"))
+            if candidate != path:
+                print(f"  ⚠️ 상태 파일 대신 백업 사용: {candidate.name}")
+            return data
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            print(f"  ⚠️ 상태 파일 읽기 실패({candidate.name}): {e}")
+    return {}
 
 
 def merge_seen_keys(old_keys: list[str], new_keys: list[str], limit: int = SEEN_KEYS_PER_GROUP) -> list[str]:
@@ -546,12 +552,23 @@ def save_seen_state(state: dict, group_stats: list[dict], path: Path = SEEN_STAT
             continue
         entry = state.get(stats["group"], {})
         state[stats["group"]] = {
-            "keys": merge_seen_keys(entry.get("keys", []), stats["new_keys"]),
+            # 최종 판정된 글만 '본 글'로 기록(잘림·시각 미확인은 다음 실행에서 재시도)
+            "keys": merge_seen_keys(entry.get("keys", []), stats["final_keys"]),
             "updated_at": datetime.now().isoformat(timespec="seconds"),
         }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
+    write_json_atomic(path, state, keep_backup=True)
     print(f"  💾 수집 상태 저장: {path.name}")
+
+
+def write_json_atomic(path: Path, data, keep_backup: bool = False) -> None:
+    """임시 파일에 쓴 뒤 교체 — 쓰는 도중 중단돼도 기존 파일이 깨지지 않는다.
+    keep_backup이면 직전 파일을 .bak으로 한 부 보존(상태 파일 소실·손상 대비)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    if keep_backup and path.exists():
+        os.replace(path, path.with_suffix(path.suffix + ".bak"))
+    os.replace(tmp, path)
 
 
 async def expand_visible_posts(page) -> None:
@@ -625,13 +642,16 @@ async def extract_visible_posts(page) -> dict:
         const seen = new Set()
         const posts = []
         let placeholders = 0
+        const emptyIdx = []
+        let lastFilled = -1
 
         for (const [idx, el] of tops.entries()) {
             el.setAttribute('data-jobi-idx', String(idx))
             const text = textOf(el)
             const linkEl = el.querySelector(LINK)
             const postUrl = linkEl ? linkEl.href : ''
-            if (!text && !postUrl) { placeholders++; continue }
+            if (!text && !postUrl) { placeholders++; emptyIdx.push(idx); continue }
+            lastFilled = idx
             if (!text || text.length < 30) continue
 
             const key = text.slice(0, 120)
@@ -655,7 +675,10 @@ async def extract_visible_posts(page) -> dict:
                          posinset: el.getAttribute('aria-posinset'),
                          hasSeeMore: !!seeMoreBtn(el) })
         }
-        return { posts, placeholders, total: tops.length }
+        // 마지막으로 채워진 글보다 위의 빈 칸 = 화면 밖으로 밀려 비워진(이미 읽은) 글,
+        // 아래의 빈 칸 = 아직 채워지는 중인 글
+        const above = emptyIdx.filter(i => i < lastFilled).length
+        return { posts, placeholders, above, pending: placeholders - above, total: tops.length }
     }""")
 
 
@@ -706,28 +729,6 @@ async def expand_and_reread(page, idx: int) -> dict:
                                     "tail": (after or before)["tail"]}}
 
 
-async def placeholder_count(page) -> int:
-    return await page.evaluate("() => {" + TOP_LEVEL_POSTS_JS + """
-        return tops.filter(el => !textOf(el) && !el.querySelector(LINK)).length
-    }""")
-
-
-def feed_end_decision(grew: bool, placeholders_left: int, streak: int, max_streak: int) -> tuple[int, bool]:
-    """스크롤 뒤 (새 streak, 종료 여부). 빈 칸이 남아 있으면 로딩 지연인지 목록 끝인지
-    구분할 수 없으므로 '증가 없음'으로 세지 않는다 — 그 경우는 스크롤/시간 상한이 끝낸다."""
-    if grew or placeholders_left > 0:
-        return 0, False
-    streak += 1
-    return streak, streak >= max_streak
-
-
-async def scroll_to_first_placeholder(page) -> None:
-    await page.evaluate("() => {" + TOP_LEVEL_POSTS_JS + """
-        const ph = tops.find(el => !textOf(el) && !el.querySelector(LINK))
-        if (ph) ph.scrollIntoView({behavior: 'smooth', block: 'center'})
-    }""")
-
-
 async def goto_with_retry(page, url: str) -> bool:
     """네트워크성 로딩 실패만 60초 뒤 1회 재시도."""
     for attempt in (1, 2):
@@ -742,18 +743,124 @@ async def goto_with_retry(page, url: str) -> bool:
     return False
 
 
-async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dict], dict]:
+# ── 저장 전 검사 흐름 (2026-09-28) ─────────────────────────────────────
+# 순서: 구인 여부 → 본문 전문 여부 → 게시 시각 신뢰도·최신성 → 필수 정보 → (중복은
+# 같은 실행 안 본문 중복 + 저장 직전 DB 중복). 모든 판정은 코드+사유로 결과에 남긴다.
+#
+# 최신성 기준 FB_MAX_POST_AGE_DAYS(기본 3일)의 근거:
+#  - local_jobs.posted_at에는 수집일이 들어가므로, 오래된 글을 저장하면 사이트에 "오늘
+#    올라온 공고"처럼 보인다(2026-09-28 HCM DRY-RUN에서 2019~2021년 글 2건이 구인 후보로
+#    통과 — 이 기준이 없으면 그대로 저장될 뻔함).
+#  - 그룹 구인글은 급구·단기가 많아 며칠 지나면 마감된 경우가 많다.
+#  - 하루 1회 실행이면 1일치로 충분하지만, 실행 실패·지연을 2일 여유로 흡수한다.
+#  근거가 바뀌면 환경변수/--max-age-days로 조정한다.
+MAX_POST_AGE_DAYS = float(os.getenv("FB_MAX_POST_AGE_DAYS", "3"))
+FEED_STALL_STEPS = 3  # 새 ID·새 요소·문서 높이 증가가 모두 없는 스텝이 이만큼 연속이면 종료
+
+# 다음 실행에서 다시 볼 필요가 없는 판정(= 수집 상태에 '본 글'로 기록)
+FINAL_DECISIONS = {"accepted", "not_job", "self_promo", "money", "office", "too_old",
+                   "ambiguous", "missing_required", "dup_in_run"}
+# 다음 실행에서 다시 시도할 판정(기록하지 않음)
+RETRY_DECISIONS = {"truncated", "time_unknown"}
+
+
+def post_age_hours(time_info: dict | None, now: datetime) -> float | None:
+    if not time_info or not time_info.get("estimate"):
+        return None
+    try:
+        est = datetime.fromisoformat(time_info["estimate"])
+    except ValueError:
+        return None
+    return max(0.0, (now - est).total_seconds() / 3600)
+
+
+def evaluate_post(text: str, time_info: dict | None, full_text_ok: bool, location: str,
+                  images: list | None = None, now: datetime | None = None,
+                  max_age_days: float | None = None) -> tuple[str, list[str], dict | None]:
+    """(판정 코드, 사유, 저장 후보 job 또는 None)."""
+    now = now or datetime.now()
+    max_age = MAX_POST_AGE_DAYS if max_age_days is None else max_age_days
+    if not text or not is_job_post(text):
+        return "not_job", ["구인 키워드 없음"], None
+    if is_self_promotion(text):
+        return "self_promo", ["구직자 자기홍보"], None
+    if has_excluded_money_terms(text):
+        return "money", ["대출/채권추심"], None
+    if is_office_job(text):
+        return "office", ["사무/전문직(수집 범위 밖)"], None
+    if not full_text_ok:
+        return "truncated", ["본문 전문 미확보('더 보기' 펼치기 실패)"], None
+    age_h = post_age_hours(time_info, now)
+    if age_h is None:
+        return "time_unknown", ["게시 시각 해석 불가"], None
+    if age_h > max_age * 24:
+        return "too_old", [f"게시 {age_h / 24:.1f}일 전 > 기준 {max_age:g}일"], None
+    job = parse_post({"text": text, "location": location, "images": images or []})
+    job["fb_full_text_confirmed"] = True
+    problems = missing_required(job)
+    if problems:
+        return "missing_required", problems, None
+    if is_ambiguous_job(job):
+        return "ambiguous", ["직무/연락처가 불분명한 일반 모집글"], None
+    return "accepted", [], job
+
+
+def stall_decision(progress: bool, stall: int, limit: int = FEED_STALL_STEPS) -> tuple[int, bool]:
+    """스크롤 뒤 (새 stall 수, 종료 여부). 진전 = 새 게시물 ID·새 요소·문서 높이 증가 중 하나."""
+    if progress:
+        return 0, False
+    stall += 1
+    return stall, stall >= limit
+
+
+def order_consistency(ages_in_reading_order: list[float]) -> float | None:
+    """읽은 순서대로 게시 시각이 오래돼 가는 비율(1.0 = 최신순, 낮을수록 활동순/섞임)."""
+    pairs = list(zip(ages_in_reading_order, ages_in_reading_order[1:]))
+    if not pairs:
+        return None
+    return round(sum(1 for a, b in pairs if b >= a - 1) / len(pairs), 2)
+
+
+def miss_risk(prev_seen: bool, overlap: int, oldest_age_h: float | None, interval_h: float = 24) -> str:
+    """놓친 글 가능성 추정.
+    - 이전 실행 기록이 있으면: 겹친 글이 있으면 그 사이 구간을 끝까지 읽었다는 뜻 → low.
+    - 없으면: 읽은 가장 오래된 글이 실행 간격+여유(6h)보다 오래됐는지로 판단."""
+    if prev_seen:
+        return "low" if overlap > 0 else "high(이전 실행과 겹침 0)"
+    if oldest_age_h is None:
+        return "unknown(시각 없음)"
+    return "low" if oldest_age_h >= interval_h + 6 else f"high(읽은 범위 {oldest_age_h:.0f}h < {interval_h + 6:.0f}h)"
+
+
+async def feed_metrics(page) -> dict:
+    return await page.evaluate("() => {" + TOP_LEVEL_POSTS_JS + """
+        return { total: tops.length, scrollY: Math.round(window.scrollY),
+                 docHeight: document.documentElement.scrollHeight }
+    }""")
+
+
+async def advance_feed(page) -> None:
+    """앞으로만 스크롤: 마우스 휠 몇 번 + 문서 맨 아래로. (2026-09-28 이전 방식 —
+    마지막 후보 요소 scrollIntoView + 방향키, 그리고 '첫 빈 칸으로 스크롤' — 은 화면 밖으로
+    비워진 위쪽 글로 되돌아가 스크롤이 위아래로 진동했다: HCM 요소 합계 15 고정, 채움 4↔6.)"""
+    await page.mouse.move(640, 450)
+    for _ in range(3):
+        await page.mouse.wheel(0, random.randint(900, 1300))
+        await page.wait_for_timeout(random.randint(500, 900))
+    await page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
+    await page.wait_for_timeout(random.randint(2500, 4000))
+
+
+async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: float | None = None) -> tuple[list[dict], dict]:
     url = target["url"]
     location = target["location"]
+    now = datetime.now()
     print(f"\n  📄 그룹: {url}")
     stats = {
-        "group": url, "state": "ok", "steps": 0, "stop_reason": None,
-        "overlap": 0, "new_keys": [], "jobs": 0, "max_placeholders": 0,
-        "placeholder_waits": 0, "loading_delay_steps": 0, "had_previous_state": bool(prev_seen), "time_labels": [],
-        "final_placeholders": 0,
-        "expanded": 0, "author_ellipsis": 0, "truncated_debug": [],
-        "skipped": {"truncated": 0, "dup_text": 0, "not_job": 0, "self_promo": 0, "money": 0, "office": 0,
-                    "ambiguous": 0, "dup_title": 0},
+        "group": url, "state": "ok", "steps": 0, "stop_reason": None, "had_previous_state": bool(prev_seen),
+        "overlap": 0, "final_keys": [], "retry_keys": [], "counts": {}, "decisions": [], "trace": [],
+        "expanded": 0, "author_ellipsis": 0, "truncated_debug": [], "id_missing": 0, "jobs": 0,
+        "max_age_days": MAX_POST_AGE_DAYS if max_age_days is None else max_age_days,
     }
 
     if not await goto_with_retry(page, url):
@@ -777,20 +884,15 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
 
     print(f"  ✅ 로그인 확인: {(await page.title())[:50]}")
 
-    posts = []
-    seen_text = set()
-    processed = set()
+    jobs: list[dict] = []
+    seen_text: set[str] = set()
+    processed: set[str] = set()
     step = 0
-    no_growth_streak = 0
+    stall = 0
     started = time.monotonic()
-    # 2026-09-28 실측: article 수가 2→4로 한 번 늘었다가 바로 다음 스크롤에서
-    # 안 늘어난 경우가 있었음 — Facebook의 다음 배치 로딩이 스크롤 1회보다
-    # 느릴 수 있어, 안 늘어난 게 1번뿐이면 계속 시도하고 2번 연속일 때만
-    # 실제로 "더 이상 없음"으로 판단한다(무한루프 방지를 위해 여전히 상한은 둠).
-    MAX_NO_GROWTH_STREAK = 2
 
     while True:
-        if len(posts) >= TARGET_PER_GROUP:
+        if len(jobs) >= TARGET_PER_GROUP:
             stats["stop_reason"] = "target_jobs"
             break
         if step >= MAX_SCROLL_STEPS:
@@ -804,23 +906,27 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
         await expand_visible_posts(page)
         await page.wait_for_timeout(random.randint(800, 1500))
         data = await extract_visible_posts(page)
-        if data["total"] and data["placeholders"] * 2 > data["total"]:
-            # 절반 넘게 빈 칸 — 해당 위치로 천천히 가서 채워질 시간을 한 번 준다
-            stats["placeholder_waits"] += 1
-            await scroll_to_first_placeholder(page)
+        if data["pending"] > 0:
+            # 마지막 글 아래의 빈 칸 = 아직 채워지는 중일 수 있음 → 스크롤 없이 한 번만 더 기다림
             await page.wait_for_timeout(2000)
             await expand_visible_posts(page)
             data = await extract_visible_posts(page)
-        stats["max_placeholders"] = max(stats["max_placeholders"], data["placeholders"])
 
+        new_ids: list[str] = []
         for r in data["posts"]:
             key = post_key(r)
             if key in processed:
                 continue
             processed.add(key)
+            new_ids.append(key)
+            if not r.get("postUrl"):
+                stats["id_missing"] += 1
             if key in prev_seen:
                 stats["overlap"] += 1
+                stats["decisions"].append({"key": key, "step": step, "decision": "seen_before"})
                 continue
+
+            full_text_ok = True
             if is_truncated_post(r.get("text", ""), r.get("hasSeeMore", False)):
                 again = await expand_and_reread(page, r["idx"])
                 dbg = again.get("debug") or {}
@@ -828,91 +934,77 @@ async def crawl_group(page, target: dict, prev_seen: set[str]) -> tuple[list[dic
                     r = {**r, "text": again["text"], "hasSeeMore": False}
                     stats["expanded"] += 1
                 elif dbg.get("reason") == "no_button" and not dbg.get("candidates"):
-                    # 2026-09-28 VPS 진단: '…'로 끝나지만 게시물 안에 '더 보기' 요소가 전혀
-                    # 없음 = 작성자가 말줄임표로 끝낸 전문(페이스북이 자를 땐 항상 버튼이 붙음)
+                    # '…'로 끝나지만 '더 보기' 요소가 전혀 없음 = 작성자 말줄임표(전문)
                     stats["author_ellipsis"] += 1
                 else:
-                    stats["truncated_debug"].append({"key": key, **again["debug"]})
-                    # 전문을 못 얻은 글은 저장하지 않고, "본 글"로도 기록하지 않아 다음 실행에서 재시도
-                    stats["skipped"]["truncated"] += 1
-                    print(f"    ⏩ 본문 펼치기 실패(잘린 글) 스킵: {key}")
-                    continue
-            stats["new_keys"].append(key)
-            time_info = parse_time_label(r.get("timeLabel", ""))
-            if len(stats["time_labels"]) < 40:
-                stats["time_labels"].append({"key": key, "label": r.get("timeLabel", ""), "parsed": time_info})
+                    full_text_ok = False
+                    stats["truncated_debug"].append({"key": key, **dbg})
 
             text = clean_text(r.get("text", ""))
-            text_key = text[:80]
-            if not text or text_key in seen_text:
-                stats["skipped"]["dup_text"] += 1
-                continue
-            if not is_job_post(text):
-                stats["skipped"]["not_job"] += 1
-                continue
+            label = r.get("timeLabel", "")
+            time_info = parse_time_label(label)
+            decision, reasons, job = evaluate_post(text, time_info, full_text_ok, location,
+                                                   r.get("images"), now, stats["max_age_days"])
+            if decision == "accepted":
+                if text[:80] in seen_text:
+                    decision, reasons, job = "dup_in_run", ["같은 실행 안에서 같은 본문"], None
+                else:
+                    seen_text.add(text[:80])
+            age_h = post_age_hours(time_info, now)
+            first_line = next((l.strip() for l in text.split("\n") if l.strip()), "")[:70]
+            stats["decisions"].append({
+                "key": key, "step": step, "time_label": label,
+                "age_h": None if age_h is None else round(age_h, 1),
+                "time_precision": (time_info or {}).get("precision"),
+                "decision": decision, "reasons": reasons, "first_line": first_line,
+            })
+            stats["counts"][decision] = stats["counts"].get(decision, 0) + 1
+            (stats["final_keys"] if decision in FINAL_DECISIONS else stats["retry_keys"]).append(key)
+            if decision in ("self_promo", "truncated", "too_old", "time_unknown", "accepted"):
+                print(f"    [{decision}] {key} {label!r} {first_line[:50]!r}")
+            if job:
+                job.update({"fb_post_key": key, "fb_time": time_info,
+                            "fb_age_hours": None if age_h is None else round(age_h, 1)})
+                jobs.append(job)
+                if len(jobs) >= TARGET_PER_GROUP:
+                    break
 
-            if is_self_promotion(text):
-                stats["skipped"]["self_promo"] += 1
-                print(f"    ⏩ 구직자 홍보글 스킵: {text[:50]!r}")
-                continue
-
-            if has_excluded_money_terms(text):
-                stats["skipped"]["money"] += 1
-                print(f"    ⏩ 대출/채권회수 공고 스킵")
-                continue
-
-            # 사무/전문직은 건너뜀 (생활밀착형 집중)
-            if is_office_job(text):
-                stats["skipped"]["office"] += 1
-                print(f"    ⏩ 사무/전문직 스킵")
-                continue
-
-            seen_text.add(text_key)
-            posts.append({**r, "text": text, "location": location, "full_text_confirmed": True,
-                          "post_key": key, "time_info": time_info})
-            if len(posts) >= TARGET_PER_GROUP:
-                break
-
-        print(f"    스텝 {step}: 게시물 {len(data['posts'])}개(빈 칸 {data['placeholders']}), "
-              f"신규 {len(stats['new_keys'])} / 이전과 겹침 {stats['overlap']}, 공고 {len(posts)}개")
-
-        prev_count = await article_count(page)
-        await page.evaluate(f"""() => {{
-            const candidates = document.querySelectorAll('[role="article"], div[aria-posinset], div[data-ft]')
-            const last = candidates[candidates.length - 1]
-            if (last) last.scrollIntoView({{behavior: 'smooth', block: 'end'}})
-        }}""")
-
-        for _ in range(random.randint(5, 10)):
-            await page.keyboard.press("ArrowDown")
-            await page.wait_for_timeout(random.randint(100, 300))
-
-        await page.wait_for_timeout(random.randint(3000, 5000))
-
-        # 2026-09-28 DRY-RUN: 빈 칸 3~4개가 남은 채 "2회 연속 미증가"로 끝나 5개만
-        # 읽었다 — 빈 칸이 남아 있으면 끝으로 보지 않는다(feed_end_decision).
-        new_count = await article_count(page)
-        placeholders_left = await placeholder_count(page)
-        grew = new_count > prev_count
-        if not grew and placeholders_left > 0:
-            stats["loading_delay_steps"] += 1
-            print(f"    (article 수 그대로, 빈 칸 {placeholders_left}개 남음 — 로딩 지연으로 보고 계속)")
-        no_growth_streak, ended = feed_end_decision(grew, placeholders_left, no_growth_streak, MAX_NO_GROWTH_STREAK)
+        before = await feed_metrics(page)
+        await advance_feed(page)
+        after = await feed_metrics(page)
+        progress = bool(new_ids) or after["total"] > data["total"] or after["docHeight"] > before["docHeight"]
+        stats["trace"].append({
+            "step": step, "total": data["total"], "filled": len(data["posts"]),
+            "empty_above": data["above"], "empty_pending": data["pending"],
+            "new_ids": new_ids, "total_after_scroll": after["total"],
+            "doc_height": [before["docHeight"], after["docHeight"]], "scroll_y": [before["scrollY"], after["scrollY"]],
+        })
+        print(f"    스텝 {step}: 요소 {data['total']}(채움 {len(data['posts'])}·위 빈칸 {data['above']}·아래 빈칸 {data['pending']}) "
+              f"새 ID {len(new_ids)} → 스크롤 후 요소 {after['total']}, 문서 높이 {before['docHeight']}→{after['docHeight']}")
+        stall, ended = stall_decision(progress, stall)
         if ended:
-            print(f"    더 이상 게시물 없음 (총 {len(posts)}개, 빈 칸 없이 {no_growth_streak}회 연속 미증가)")
-            stats["stop_reason"] = "no_growth"
+            stats["stop_reason"] = "feed_end" if data["pending"] == 0 else "feed_stalled"
             break
-        if not grew and placeholders_left == 0:
-            print(f"    (article 수 안 늘어남 {no_growth_streak}/{MAX_NO_GROWTH_STREAK} — 한 번 더 시도)")
 
     stats["steps"] = step
-    stats["jobs"] = len(posts)
-    stats["final_placeholders"] = await placeholder_count(page)
-    print(f"    종료: {stats['stop_reason']} (스텝 {step}, 신규 게시물 {len(stats['new_keys'])}, "
-          f"이전 실행과 겹침 {stats['overlap']})")
-    if prev_seen and stats["overlap"] == 0:
-        print("    ⚠️ 이전 실행과 겹친 게시물 0개 — 그 사이 새 글이 상한보다 많았을 수 있음(누락 가능)")
-    return posts, stats
+    stats["jobs"] = len(jobs)
+    filled_total = len(processed)
+    ages = [d["age_h"] for d in stats["decisions"] if d.get("age_h") is not None]
+    stats["posts_seen"] = filled_total
+    stats["newest_age_h"] = min(ages) if ages else None
+    stats["oldest_age_h"] = max(ages) if ages else None
+    stats["order_consistency"] = order_consistency(ages)
+    stats["miss_risk"] = miss_risk(bool(prev_seen), stats["overlap"], stats["oldest_age_h"])
+    if filled_total == 0:
+        # 로그인·피드는 정상인데 게시물을 하나도 못 읽음 = 화면 구조 변경 의심
+        stats["state"] = "no_posts"
+        await save_evidence(page, url, "no_posts")
+    elif stats["id_missing"] * 2 > filled_total:
+        stats["structure_warning"] = f"게시물 ID 미확보 {stats['id_missing']}/{filled_total}"
+        await save_evidence(page, url, "structure_warning")
+    print(f"    종료: {stats['stop_reason']} (스텝 {step}, 읽은 글 {filled_total}, 이전 실행과 겹침 {stats['overlap']}, "
+          f"판정 {stats['counts']}, 놓친 글 위험 {stats['miss_risk']})")
+    return jobs, stats
 
 
 def parse_post(post: dict) -> dict:
@@ -973,18 +1065,33 @@ def text_fingerprint(description: str) -> str:
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
 
 
+def body_tail_fingerprint(description: str) -> str | None:
+    """첫 줄(제목)을 뺀 본문 지문 — 상태 파일이 없을 때 작성자가 제목만 고친 글이 다시
+    저장되는 것을 막는다. 남은 본문이 너무 짧으면(60자 미만) 오탐 방지를 위해 쓰지 않는다."""
+    body = (description or "").replace("[source:facebook]", "", 1).strip()
+    lines = [l for l in body.split("\n") if l.strip()]
+    tail = ascii_key("\n".join(lines[1:]))
+    if len(tail) < 60:
+        return None
+    return hashlib.sha1(tail[:300].encode("utf-8")).hexdigest()
+
+
 def filter_new_jobs(jobs: list[dict], existing_rows: list[dict]) -> list[dict]:
     """기존 facebook 행(title/company/description)과 겹치지 않는 공고만. 같은 실행 안의
-    중복도 걸러낸다."""
+    중복도 걸러낸다. 키: ① 제목+회사 ② 본문 지문 ③ 제목 뺀 본문 지문."""
     seen_tc = {title_company_key(r) for r in existing_rows}
     seen_fp = {text_fingerprint(r.get("description", "")) for r in existing_rows}
+    seen_tail = {body_tail_fingerprint(r.get("description", "")) for r in existing_rows} - {None}
     fresh = []
     for job in jobs:
-        tc, fp = title_company_key(job), text_fingerprint(job.get("description", ""))
-        if tc in seen_tc or fp in seen_fp:
+        desc = job.get("description", "")
+        tc, fp, tail = title_company_key(job), text_fingerprint(desc), body_tail_fingerprint(desc)
+        if tc in seen_tc or fp in seen_fp or (tail and tail in seen_tail):
             continue
         seen_tc.add(tc)
         seen_fp.add(fp)
+        if tail:
+            seen_tail.add(tail)
         fresh.append(job)
     return fresh
 
@@ -1137,16 +1244,30 @@ def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) ->
     return 0
 
 
+def summarize_group(g: dict) -> dict:
+    keep = ("group", "state", "stop_reason", "steps", "posts_seen", "overlap", "counts", "newest_age_h",
+            "oldest_age_h", "order_consistency", "miss_risk", "expanded", "author_ellipsis", "jobs",
+            "had_previous_state", "max_age_days", "structure_warning", "id_missing")
+    out = {k: g.get(k) for k in keep}
+    out["group_slug"] = g["group"].rstrip("/").split("/")[-1]
+    out["truncated"] = len(g.get("truncated_debug") or [])
+    out["posts_seen"] = g.get("posts_seen", 0)
+    return out
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Facebook 그룹 채용공고 크롤러")
     parser.add_argument("--dry-run", action="store_true",
                         help="DB 저장·수집 상태 갱신 없이 결과만 state/에 파일로 남김")
     parser.add_argument("--group", default="",
-                        help="URL에 이 문자열이 들어간 그룹만 수집(예: timvieclamthembacninh)")
+                        help="URL에 이 문자열이 들어간 그룹만 수집(쉼표로 여러 개, 예: timvieclamthembacninh)")
+    parser.add_argument("--max-age-days", type=float, default=None,
+                        help=f"이보다 오래된 글은 저장 안 함(기본 FB_MAX_POST_AGE_DAYS={MAX_POST_AGE_DAYS:g})")
     parser.add_argument("--save-from", default="",
                         help="DRY-RUN 결과 JSON에서 --post-keys 게시물만 저장(브라우저·페이스북 접속 없음)")
     parser.add_argument("--post-keys", default="", help="쉼표 구분 게시물 키(예: id:123,id:456)")
-    parser.add_argument("--max-save", type=int, default=2)
+    parser.add_argument("--max-save", type=int, default=None,
+                        help="저장 상한(--save-from 기본 2, 정기 실행 기본 무제한)")
     return parser.parse_args(argv)
 
 
@@ -1157,7 +1278,7 @@ async def main(argv=None) -> int:
         if not keys:
             print("  ⚠️  --post-keys가 필요합니다.")
             return 1
-        return save_selected_from_dryrun(args.save_from, keys, args.max_save)
+        return save_selected_from_dryrun(args.save_from, keys, args.max_save or 2)
     print("🚀 Facebook 그룹 크롤링 시작 (생활밀착형 우선)" + (" [DRY-RUN: DB 저장 안 함]" if args.dry_run else ""))
     print("─" * 50)
 
@@ -1165,7 +1286,8 @@ async def main(argv=None) -> int:
         print("  ⚠️  FB_C_USER, FB_XS 쿠키가 .env에 없습니다.")
         return 1
 
-    targets = [t for t in TARGETS if args.group in t["url"]]
+    wanted = [g.strip() for g in args.group.split(",") if g.strip()]
+    targets = [t for t in TARGETS if not wanted or any(g in t["url"] for g in wanted)]
     if not targets:
         print(f"  ⚠️  '{args.group}'에 해당하는 그룹 없음")
         return 1
@@ -1195,14 +1317,14 @@ async def main(argv=None) -> int:
         for i, target in enumerate(targets):
             prev_seen = set(seen_state.get(target["url"], {}).get("keys", []))
             try:
-                posts, stats = await crawl_group(page, target, prev_seen)
+                jobs, stats = await crawl_group(page, target, prev_seen, args.max_age_days)
             except AccountStop as e:
                 print(f"\n  🛑 {e.state} — 전체 중단. 사람이 일반 브라우저로 계정 상태를 확인하기 전까지 재실행 금지")
                 stop_state = e.state
                 break
             group_stats.append(stats)
 
-            if stats["state"] == "anomaly":
+            if stats["state"] in ("anomaly", "no_posts"):
                 consecutive_anomaly += 1
                 if consecutive_anomaly >= MAX_CONSECUTIVE_ANOMALY_GROUPS:
                     print(f"\n  🛑 {consecutive_anomaly}개 그룹 연속 페이지 이상 — 전체 중단, 사람 확인 필요(state/evidence 참고)")
@@ -1211,22 +1333,14 @@ async def main(argv=None) -> int:
             else:
                 consecutive_anomaly = 0
 
-            for post in posts:
-                job = parse_post(post)
-                if is_ambiguous_job(job):
-                    stats["skipped"]["ambiguous"] += 1
-                    print(f"    ⏩ 애매한 공고 스킵: {job['title'][:70]}")
-                    continue
+            for job in jobs:
+                # 여러 그룹에 같은 글(같은 제목)이 올라온 경우 한 번만
                 key = job["title"].lower()[:50]
                 if key in seen_titles:
-                    stats["skipped"]["dup_title"] += 1
-                else:
-                    seen_titles.add(key)
-                    # DB 컬럼이 아니라 to_db_payload()에서 걸러짐 — 결과 파일 확인용
-                    job["fb_post_key"] = post.get("post_key")
-                    job["fb_full_text_confirmed"] = bool(post.get("full_text_confirmed"))
-                    job["fb_time"] = post.get("time_info")
-                    all_jobs.append(job)
+                    stats["counts"]["dup_in_run"] = stats["counts"].get("dup_in_run", 0) + 1
+                    continue
+                seen_titles.add(key)
+                all_jobs.append(job)
 
             if i < len(targets) - 1:
                 pause = random.randint(*GROUP_PAUSE_SEC)
@@ -1235,35 +1349,45 @@ async def main(argv=None) -> int:
 
         await browser.close()
 
-    print(f"\n📊 수집 완료: {len(all_jobs)}개")
-    summary = [{k: v for k, v in s.items() if k != "new_keys"} | {"new_posts": len(s["new_keys"])}
-               for s in group_stats]
-
+    print(f"\n📊 저장 후보: {len(all_jobs)}개")
+    summary = [summarize_group(s) for s in group_stats]
     for s in summary:
-        print(f"  [{s['group'].rstrip('/').split('/')[-1]}] 상태 {s['state']} / 종료 {s['stop_reason']} / "
-              f"채워진 게시물 {s['new_posts'] + s['overlap']}(이전과 겹침 {s['overlap']}) / "
-              f"빈 칸 최대 {s['max_placeholders']}·마지막 {s['final_placeholders']} / "
-              f"공고 {s['jobs']} / 스킵 {s['skipped']}")
+        print(f"  [{s['group_slug']}] 상태 {s['state']} / 종료 {s['stop_reason']} / 스텝 {s['steps']} / 읽은 글 {s['posts_seen']} "
+              f"(이전과 겹침 {s['overlap']}) / 판정 {s['counts']} / 최신·최고령 {s['newest_age_h']}h·{s['oldest_age_h']}h / "
+              f"순서 일관성 {s['order_consistency']} / 놓친 글 위험 {s['miss_risk']} / 펼침 {s['expanded']}·잘림 {s['truncated']}")
 
+    saved: list[dict] = []
+    db_dup = None
     if args.dry_run:
         # DB와의 중복은 읽기 전용으로만 센다(쓰기 없음)
-        db_dup = None
         if supabase and all_jobs:
             db_dup = len(all_jobs) - len(filter_new_jobs(all_jobs, fetch_existing_facebook_rows()))
             print(f"  📋 DB 기존 facebook 공고와 중복(읽기 전용 확인): {db_dup}개")
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
         out = STATE_DIR / f"facebook_dryrun_{datetime.now():%Y%m%d_%H%M%S}.json"
-        out.write_text(json.dumps({"stop_state": stop_state, "db_duplicates": db_dup,
-                                   "groups": summary, "jobs": all_jobs},
-                                  ensure_ascii=False, indent=1), encoding="utf-8")
+        write_json_atomic(out, {"stop_state": stop_state, "db_duplicates": db_dup,
+                                "groups": [{**s, **{k: g[k] for k in ("decisions", "trace", "truncated_debug")}}
+                                           for s, g in zip(summary, group_stats)],
+                                "jobs": all_jobs})
         print(f"  💾 DRY-RUN 결과: {out} (DB·수집 상태 변경 없음)")
     else:
+        to_save = all_jobs
+        if args.max_save is not None and len(all_jobs) > args.max_save:
+            to_save = all_jobs[:args.max_save]
+            # 상한 때문에 저장 못 한 글은 '본 글'로 기록하지 않아 다음 실행에서 다시 다룬다
+            unsaved = {j["fb_post_key"] for j in all_jobs[args.max_save:]}
+            for g in group_stats:
+                g["final_keys"] = [k for k in g["final_keys"] if k not in unsaved]
         with open("facebook_jobs.json", "w", encoding="utf-8") as f:
-            json.dump(all_jobs, f, ensure_ascii=False, indent=2)
-        print("  💾 facebook_jobs.json 저장")
-        save_to_supabase(all_jobs)
-        # DB 저장이 끝난 뒤에만 "처리함"으로 기록 — 저장 실패 시 다음 실행에서 다시 처리
+            json.dump(to_save, f, ensure_ascii=False, indent=2)
+        saved = save_to_supabase(to_save)
+        # DB 저장이 끝난 뒤에만 "처리함"으로 기록 — 저장 실패(예외) 시 다음 실행에서 다시 처리
         save_seen_state(seen_state, group_stats)
+
+    write_json_atomic(LAST_RUN_PATH, {
+        "finished_at": datetime.now().isoformat(timespec="seconds"), "dry_run": args.dry_run,
+        "stop_state": stop_state, "candidates": len(all_jobs), "db_duplicates": db_dup,
+        "saved_ids": [r["id"] for r in saved], "groups": summary,
+    })
 
     print("\n✨ 완료!" if not stop_state else f"\n🛑 중단: {stop_state}")
     return 2 if stop_state else 0

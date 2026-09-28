@@ -8,8 +8,13 @@ from crawl_facebook import (
     classify_page_signals,
     extract_company,
     extract_post_id,
-    feed_end_decision,
+    evaluate_post,
     filter_new_jobs,
+    load_seen_state,
+    miss_risk,
+    order_consistency,
+    stall_decision,
+    write_json_atomic,
     is_self_promotion,
     is_truncated_post,
     merge_seen_keys,
@@ -162,11 +167,85 @@ def test_self_promotion_keeps_real_job_ads() -> None:
         assert_false(is_self_promotion(text), f"employer post must pass: {text[:40]}")
 
 
-def test_feed_end_not_declared_while_placeholders_remain() -> None:
-    assert_equal(feed_end_decision(False, 3, 1, 2), (0, False), "placeholders left = loading delay, not end")
-    assert_equal(feed_end_decision(False, 0, 0, 2), (1, False), "first real no-growth")
-    assert_equal(feed_end_decision(False, 0, 1, 2), (2, True), "second real no-growth ends")
-    assert_equal(feed_end_decision(True, 0, 1, 2), (0, False), "growth resets")
+def test_stall_ends_only_after_consecutive_no_progress() -> None:
+    # 2026-09-28 HCM: 요소 합계 15 고정, 채움 4<->6 진동 — 빈 칸은 '로딩 중'이 아니라
+    # 화면 밖으로 비워진 글이었다. 진전(새 ID/새 요소/문서 높이) 기준으로 끝을 판단한다.
+    assert_equal(stall_decision(True, 2), (0, False), "progress resets")
+    assert_equal(stall_decision(False, 0), (1, False), "1st stall")
+    assert_equal(stall_decision(False, 1), (2, False), "2nd stall")
+    assert_equal(stall_decision(False, 2), (3, True), "3rd consecutive stall ends")
+
+
+NOW_EVAL = datetime(2026, 9, 28, 17, 0)
+
+
+def test_evaluate_post_pipeline_order_and_reasons() -> None:
+    fresh = {"estimate": "2026-09-28T15:00", "precision": "hour"}
+    old = parse_time_label("2021년 1월 19일", NOW_EVAL)  # HCM DRY-RUN에 실제로 보인 날짜
+    pm = PM_JOB_TEXT
+    assert_equal(evaluate_post("Ai đi cà phê không, chiều nay rảnh", fresh, True, "Bắc Ninh", now=NOW_EVAL)[0],
+                 "not_job", "not a job")
+    assert_equal(evaluate_post(SEEKER_POST_20260928, fresh, True, "Bắc Ninh", now=NOW_EVAL)[0],
+                 "self_promo", "seeker")
+    assert_equal(evaluate_post(pm, fresh, False, "Bắc Ninh", now=NOW_EVAL)[0], "truncated", "not full text")
+    assert_equal(evaluate_post(pm, None, True, "Bắc Ninh", now=NOW_EVAL)[0], "time_unknown", "no time")
+    d, reasons, job = evaluate_post(pm, old, True, "Bắc Ninh", now=NOW_EVAL)
+    assert_equal((d, job), ("too_old", None), "2021 post must not be saved")
+    assert_true("기준" in reasons[0], "reason explains threshold")
+    assert_equal(evaluate_post(pm, parse_time_label("4일", NOW_EVAL), True, "Bắc Ninh", now=NOW_EVAL,
+                               max_age_days=3)[0], "too_old", "4 days > 3")
+    assert_equal(evaluate_post(pm, parse_time_label("3일", NOW_EVAL), True, "Bắc Ninh", now=NOW_EVAL,
+                               max_age_days=3)[0], "accepted", "3 days is within 3")
+    no_contact = "Cần tuyển 2 bạn phục vụ quán cafe khu Kinh Bắc, lương 7 triệu/tháng, làm ca sáng, ưu tiên nữ nhanh nhẹn"
+    assert_equal(evaluate_post(no_contact, fresh, True, "Bắc Ninh", now=NOW_EVAL)[:2],
+                 ("missing_required", ["연락처 없음"]), "missing contact")
+    d, reasons, job = evaluate_post(pm, fresh, True, "Bắc Ninh", now=NOW_EVAL)
+    assert_equal(d, "accepted", "complete fresh job accepted")
+    assert_equal(job["salary"], "30 TRIỆU/THÁNG", "job parsed")
+    assert_true(job["fb_full_text_confirmed"], "full text flag set")
+
+
+def test_order_consistency_and_miss_risk() -> None:
+    assert_equal(order_consistency([2, 9, 21, 24, 48, 72]), 1.0, "Bắc Ninh 16:11: newest-first")
+    assert_true(order_consistency([10, 200, 5, 300, 1]) < 0.6, "mixed order detected")
+    assert_equal(order_consistency([5]), None, "not enough data")
+    assert_equal(miss_risk(True, 3, 50), "low", "overlap with previous run")
+    assert_true(miss_risk(True, 0, 50).startswith("high"), "no overlap with previous run")
+    assert_equal(miss_risk(False, 0, 72), "low", "read back 3 days on first run")
+    assert_true(miss_risk(False, 0, 10).startswith("high"), "read only 10h on first run")
+
+
+def test_dedup_title_edit_and_cross_group_repost() -> None:
+    original = parse_post({"text": PM_JOB_TEXT, "location": "Bắc Ninh"})
+    existing = [{"title": original["title"], "company": original["company"], "description": original["description"]}]
+    # 상태 파일 소실 + 작성자가 제목(첫 줄)만 수정 → 제목+회사·전체 지문은 달라지지만 제목 뺀 본문 지문으로 차단
+    edited = parse_post({"text": PM_JOB_TEXT.replace("TUYỂN DỤNG QUẢN LÝ DỰ ÁN", "TUYỂN GẤP QUẢN LÝ DỰ ÁN (HSK5)", 1),
+                         "location": "Bắc Ninh"})
+    assert_true(edited["title"] != original["title"], "title really changed")
+    assert_equal(filter_new_jobs([edited], existing), [], "title-only edit is still a duplicate")
+    # 다른 그룹에 같은 글(다른 게시물 ID) → 본문 지문으로 차단
+    repost = parse_post({"text": PM_JOB_TEXT, "location": "Hà Nội"})
+    assert_equal(filter_new_jobs([repost], existing), [], "cross-group repost is a duplicate")
+    # 짧은 본문은 '제목 뺀 지문'을 쓰지 않아 다른 공고를 잘못 막지 않는다
+    a = parse_post({"text": "Cần tuyển phục vụ\nZalo 0911111111", "location": "Bắc Ninh"})
+    b = parse_post({"text": "Cần tuyển bảo vệ ca đêm\nZalo 0911111111", "location": "Bắc Ninh"})
+    assert_equal(len(filter_new_jobs([b], [{"title": a["title"], "company": "x", "description": a["description"]}])), 1,
+                 "short bodies are not over-deduplicated")
+
+
+def test_seen_state_backup_used_when_main_file_corrupt() -> None:
+    import tempfile
+    from pathlib import Path
+    d = Path(tempfile.mkdtemp())
+    path = d / "facebook_seen.json"
+    write_json_atomic(path, {"g": {"keys": ["id:1"]}}, keep_backup=True)
+    write_json_atomic(path, {"g": {"keys": ["id:2", "id:1"]}}, keep_backup=True)
+    assert_equal(load_seen_state(path)["g"]["keys"], ["id:2", "id:1"], "main file")
+    path.write_text("{broken", encoding="utf-8")  # 쓰기 중 손상 가정
+    assert_equal(load_seen_state(path)["g"]["keys"], ["id:1"], "falls back to .bak")
+    path.unlink()
+    path.with_suffix(".json.bak").unlink()
+    assert_equal(load_seen_state(path), {}, "both gone -> empty (DB dedup still protects)")
 
 
 def test_db_dedup_survives_extraction_change_and_lost_state() -> None:
@@ -257,7 +336,11 @@ def main() -> int:
         test_merge_seen_keys_newest_first_and_capped,
         test_self_promotion_seeker_posts_rejected,
         test_self_promotion_keeps_real_job_ads,
-        test_feed_end_not_declared_while_placeholders_remain,
+        test_stall_ends_only_after_consecutive_no_progress,
+        test_evaluate_post_pipeline_order_and_reasons,
+        test_order_consistency_and_miss_risk,
+        test_dedup_title_edit_and_cross_group_repost,
+        test_seen_state_backup_used_when_main_file_corrupt,
         test_db_dedup_survives_extraction_change_and_lost_state,
         test_truncated_post_detection,
         test_required_fields_block_truncated_and_accept_full,
