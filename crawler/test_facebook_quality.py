@@ -168,6 +168,28 @@ def test_self_promotion_keeps_real_job_ads() -> None:
         assert_false(is_self_promotion(text), f"employer post must pass: {text[:40]}")
 
 
+def test_agency_wage_post_detected_and_non_jobs_unchanged() -> None:
+    # 2026-09-29 VPS dry-run에서 '구인글 아님'으로 오판된 실제 글(전화번호만 가짜로 교체)
+    agency = "Cty Khvatec Qv1 - Tan ca tt luôn,\nNgày 350, Đêm 380,\nCn ngày 500, Cn đêm 550,\nTuần 350 - 400 - 550 - 600,\nZl: 0900000000."
+    assert_true(is_job_post(agency), "factory shift-wage ad without 'tuyển' is a job post")
+    # 같은 실행의 나머지 7건(실제 본문, 전화번호 가짜) — 계속 비구인이어야 함
+    non_jobs = [
+        "LH sdt e 0900000001 có cả Zalo hoặc inbox mình ạ\n_ Quán em bán đồ ăn vặt, mỳ cay , trà sữa , đồ nhậu ạ. e có đầy đủ nhé:\n_ Mỳ cay - bún đậu - nem nướng -mỳ xào - đồ ăn vặt ....",
+        "Mình nhận thu muaa điện thoại cũ hỏng giá cao từ 500-5 triệu lấy tận nơi nhé ai có quăng vô đây nào …",
+        "Mọi người thử đoán xem món này là gì?",
+        "KHAI GIẢNG LỚP TIẾNG TRUNG CHO NGƯỜI MỚI BẮT ĐẦU\nBạn muốn học tiếng Trung nhưng chưa biết bắt đầu từ đâu?",
+        "THANH LÍ VECPA TRẮNG GIÁ RẺ \n ĐỦ ĐK\n GIÁ HỌC SINH\nHỖ CHỢ TRẢ GÓP.\nLH\n 0900000002\nGIANG LIỄU.QUẾ VÕ.BĂC Ninh",
+        "Mình nhận thu muaa điện thoại cũ hỏng giá cao lấy tận nơi nhé ai có quăng vô đây nào …",
+        "Tin vui ai có điện thoại cũ hỏng mình nhận mua giá cao lấy tận nơi ai có quăng vô đây nào …",
+    ]
+    for t in non_jobs:
+        assert_false(is_job_post(t), f"still not a job post: {t[:40]}")
+    # 좁은 조건: 회사 표시·교대 금액 2개·연락처 중 하나라도 빠지면 인정하지 않음
+    assert_false(is_job_post("Ngày 350, Đêm 380, Zl: 0900000000"), "no employer marker -> not detected")
+    assert_false(is_job_post("Cty ABC ngày 350, Zl: 0900000000"), "only one shift wage -> not detected")
+    assert_false(is_job_post("Cty ABC Ngày 350, Đêm 380"), "no contact -> not detected")
+
+
 def test_clean_text_strips_see_less_toggle() -> None:
     raw = "Hotline: 0966 361 896\nĐịa điểm làm việc: [ TDP Tăng Quang, Phường Việt Yên ] 적게 보기"
     assert_true(not clean_text(raw).endswith("적게 보기"), "Korean see-less removed")
@@ -343,6 +365,7 @@ def main() -> int:
         test_merge_seen_keys_newest_first_and_capped,
         test_self_promotion_seeker_posts_rejected,
         test_self_promotion_keeps_real_job_ads,
+        test_agency_wage_post_detected_and_non_jobs_unchanged,
         test_clean_text_strips_see_less_toggle,
         test_stall_ends_only_after_consecutive_no_progress,
         test_evaluate_post_pipeline_order_and_reasons,

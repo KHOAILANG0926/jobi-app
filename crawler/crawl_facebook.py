@@ -139,11 +139,27 @@ NON_JOB_PATTERNS = re.compile(
 )
 
 
+# 인력모집 일당표 광고(2026-09-29 VPS dry-run 실측 오판: "Cty Khvatec Qv1 - Tan ca tt luôn,
+# Ngày 350, Đêm 380, Cn ngày 500, Cn đêm 550, … Zl: 09…" — '구인' 단어 없이 회사·교대별
+# 일당·연락처만 있는 형태). 좁게만 인정한다: 회사·공장 표시 + 교대별 금액 2개 이상 + 연락처.
+AGENCY_EMPLOYER_RE = re.compile(r"\b(?:cty|cong ty|nha may|xuong|kcn)\b")
+AGENCY_SHIFT_WAGE_RE = re.compile(r"\b(?:cn\s+)?(?:ca\s+)?(?:ngay|dem)\s*:?\s*\d{3}\b")
+AGENCY_CONTACT_RE = re.compile(r"\b(?:zl|zalo|lh|sdt)\b|\b0\d{9}\b")
+
+
+def is_agency_wage_post(text: str) -> bool:
+    t = ascii_key(text)
+    return (bool(AGENCY_EMPLOYER_RE.search(t)) and len(AGENCY_SHIFT_WAGE_RE.findall(t)) >= 2
+            and bool(AGENCY_CONTACT_RE.search(t)))
+
+
 def is_job_post(text: str) -> bool:
     t = text.lower()
     if NON_JOB_PATTERNS.search(t):
         return False
     if any(kw in t for kw in JOB_KEYWORDS):
+        return True
+    if is_agency_wage_post(text):
         return True
     return any(kw in t for kw in LOCAL_JOB_TYPES) and any(kw in t for kw in COMPENSATION_KEYWORDS)
 
