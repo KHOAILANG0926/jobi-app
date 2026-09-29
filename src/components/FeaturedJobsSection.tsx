@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { NavLink } from 'react-router-dom'
 import JobCard from './JobCard'
 import { CATEGORY_COLORS } from '../data/categories'
@@ -61,12 +61,42 @@ export default function FeaturedJobsSection({
   onToggleSave: (job: Job) => void
 }) {
   const featured = selectFeaturedJobs(jobs)
+  // 2026-09-29 사용자 지시(B안): 카드 폭을 하단 목록 칸과 같게 맞추고(한 화면에 딱 떨어지게,
+  // 잘린 카드 없음) 좌우 화살표로 한 화면씩 넘긴다. 화살표는 넘길 곳이 있을 때만 보인다.
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [canPrev, setCanPrev] = useState(false)
+  const [canNext, setCanNext] = useState(false)
+  const updateArrows = useCallback(() => {
+    const el = rowRef.current
+    if (!el) return
+    setCanPrev(el.scrollLeft > 4)
+    setCanNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }, [])
+  useEffect(() => {
+    updateArrows()
+    window.addEventListener('resize', updateArrows)
+    return () => window.removeEventListener('resize', updateArrows)
+  }, [updateArrows, featured.length])
+  const scrollByPage = (dir: 1 | -1) => {
+    const el = rowRef.current
+    if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: 'smooth' })
+  }
+
   if (featured.length === 0) return null
 
   return (
     <section className="home-featured">
       <h2 className="home-featured__title">Việc làm nổi bật</h2>
-      <div className="home-featured__row">
+      <div className="home-featured__viewport">
+      {canPrev && (
+        <button type="button" className="home-featured__arrow home-featured__arrow--prev"
+          aria-label="Xem việc làm trước" onClick={() => scrollByPage(-1)}>‹</button>
+      )}
+      {canNext && (
+        <button type="button" className="home-featured__arrow home-featured__arrow--next"
+          aria-label="Xem thêm việc làm" onClick={() => scrollByPage(1)}>›</button>
+      )}
+      <div className="home-featured__row" ref={rowRef} onScroll={updateArrows}>
         {featured.map((job) => (
           <div
             key={job.id}
@@ -84,6 +114,7 @@ export default function FeaturedJobsSection({
             </NavLink>
           </div>
         ))}
+      </div>
       </div>
     </section>
   )
