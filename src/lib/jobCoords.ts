@@ -177,12 +177,10 @@ export const VIETNAM_CENTER = { lat: 14.0583, lng: 108.2772 }
  * job_work_locations rows carrying a geocoder-derived (but unverified) coordinate.
  */
 export function resolveMapLocation(job: { rawLat?: number; rawLng?: number; rawLocation?: string }): ResolvedMapLocation {
-  if (
-    typeof job.rawLat === 'number' && typeof job.rawLng === 'number' &&
-    Number.isFinite(job.rawLat) && Number.isFinite(job.rawLng)
-  ) {
-    return { lat: job.rawLat, lng: job.rawLng, source: 'exact', zoom: 15 }
-  }
+  // 2026-09-29(공고 4682 사고): local_jobs.lat/lng에는 출처·검증 정보가 전혀 없다. 예전엔 값이
+  // 있기만 하면 'exact'로 취급해, 자동 지오코딩이 거절한 공단 중심점을 수동으로 넣자 곧바로
+  // "Vị trí chính xác"로 표시됐다. 정확한 위치의 근거는 job_work_locations.location_verified
+  // 하나뿐이므로(isVerifiedWorkLocation), 여기서는 rawLat/rawLng를 위치 근거로 쓰지 않는다.
   const loc = job.rawLocation?.trim()
   if (loc) {
     const region = findRegionCenter(loc)
@@ -278,6 +276,14 @@ type AddressAccuracyLike = 'exact_text' | 'region_only'
  * 신뢰 근거다. */
 function isPreciseWorkLocation(l: { locationVerified?: boolean }): boolean {
   return l.locationVerified === true
+}
+
+/** 핀·길찾기·거리 계산에 쓸 수 있는 "확인된 근무지" — location_verified이고 좌표가 있을 때만.
+ *  (2026-09-29: 사이트 지도, 외부 지도 링크, 내 주변/거리 계산이 모두 이 하나의 기준을 쓴다.) */
+export function isVerifiedWorkLocation(l: { locationVerified?: boolean; lat?: number; lng?: number }): boolean {
+  return isPreciseWorkLocation(l) &&
+    typeof l.lat === 'number' && typeof l.lng === 'number' &&
+    Number.isFinite(l.lat) && Number.isFinite(l.lng)
 }
 
 /**
@@ -391,15 +397,6 @@ export function resolveMapLocations(job: {
   }
 }
 
-/** 이 근무지가 "근사(approximate)" 거리검색 자격을 갖는지 — location_
- *  verified는 없지만, 최소한 실제 특정 장소를 지오코딩한 좌표(coordinate
- *  Accuracy가 'exact' 또는 'ward')는 있어 대략적인 거리 계산에 쓸 수 있는
- *  경우. 'region'(행정 중심)/'unresolved'(좌표 없음)는 여기 포함되지
- *  않는다 — 지도·길찾기는 유지하되 거리계산·거리순 정렬에서는 제외한다. */
-function isApproximateDistanceEligible(l: { coordinateAccuracy?: CoordinateAccuracyLike }): boolean {
-  return l.coordinateAccuracy === 'exact' || l.coordinateAccuracy === 'ward'
-}
-
 export interface DistanceSearchPoint {
   lat: number
   lng: number
@@ -427,13 +424,52 @@ export interface DistanceSearchPoint {
 export function resolveDistanceSearchPoints(job: {
   workLocations?: WorkLocationLike[]
 }): DistanceSearchPoint[] {
+  // 2026-09-29: 미검증 exact/ward 좌표의 '근사 거리검색'(09-05 2단계 정책)을 중단한다 —
+  // 확인되지 않은 후보 좌표는 내 주변·거리 계산에 쓰지 않는다(사용자 지시, 4682 사고 후속).
   return (job.workLocations ?? [])
-    .filter((l): l is WorkLocationLike & { lat: number; lng: number } =>
-      typeof l.lat === 'number' && typeof l.lng === 'number' &&
-      Number.isFinite(l.lat) && Number.isFinite(l.lng) &&
-      (isPreciseWorkLocation(l) || isApproximateDistanceEligible(l)),
-    )
-    .map((l) => ({ lat: l.lat, lng: l.lng, precise: isPreciseWorkLocation(l) }))
+    .filter((l): l is WorkLocationLike & { lat: number; lng: number } => isVerifiedWorkLocation(l))
+    .map((l) => ({ lat: l.lat, lng: l.lng, precise: true }))
+}
+
+export interface ExternalMapLinks {
+  view: string
+  /** 'exact' = 확인된 근무지 핀, 'area' = 지역·공단 수준 지도 화면(핀 없음) */
+  viewKind: 'exact' | 'area'
+  /** 확인된 근무지일 때만 — 미확인 위치를 길찾기 목적지로 주지 않는다 */
+  directions: string | null
+}
+
+/**
+ * 외부(Google) 지도 링크 — 사이트 지도와 같은 좌표를 쓴다(2026-09-29, 4682 사고).
+ * 예전엔 글자 검색(googleMapsLinks)이라 Google이 "KCN VSIP, Bắc Ninh"을 논 한가운데
+ * 한 점으로 추측했다. 확인된 근무지는 그 좌표로 핀+길찾기, 그 외는 같은 좌표를 중심으로
+ * 한 지역 지도 화면만(핀·길찾기 없음) 연다.
+ */
+export function externalMapLinks(
+  point: { lat: number; lng: number } | null | undefined,
+  verified: boolean,
+  areaZoom = 13,
+): ExternalMapLinks | null {
+  if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null
+  const ll = `${point.lat},${point.lng}`
+  if (verified) {
+    return {
+      view: `https://www.google.com/maps/search/?api=1&query=${ll}`,
+      viewKind: 'exact',
+      directions: `https://www.google.com/maps/dir/?api=1&destination=${ll}`,
+    }
+  }
+  return {
+    view: `https://www.google.com/maps/@?api=1&map_action=map&center=${ll}&zoom=${areaZoom}`,
+    viewKind: 'area',
+    directions: null,
+  }
+}
+
+/** 근무지 1곳의 외부 지도 링크 — 사이트 지도 점(resolveWorkLocationMapPoint)과 같은 점 사용 */
+export function workLocationExternalLinks(l: WorkLocationLike): ExternalMapLinks | null {
+  const point = resolveWorkLocationMapPoint(l)
+  return externalMapLinks(point, isVerifiedWorkLocation(l), l.addressAccuracy === 'region_only' ? 11 : 14)
 }
 
 /**
@@ -504,6 +540,8 @@ export function resolveWorkLocationQuery(
  * locationVerified와 무관하게 항상 호출해도 안전하다(애초에 좌표를 아예
  * 참조하지 않음).
  */
+/** @deprecated 2026-09-29 — 글자 검색은 Google이 위치를 추측하므로 목적지로 쓰지 않는다.
+ *  공고 상세에서는 externalMapLinks()/workLocationExternalLinks()를 쓴다. */
 export function googleMapsLinks(query: string): { view: string; directions: string } {
   const q = encodeURIComponent(query)
   return {

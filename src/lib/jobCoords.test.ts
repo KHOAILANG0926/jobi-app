@@ -5,13 +5,12 @@
  */
 import {
   findRegionCenter,
-  googleMapsLinks,
   resolveDistanceSearchPoint,
   resolveDistanceSearchPoints,
   resolveMapLocations,
   resolveWorkLocationQuery,
+  workLocationExternalLinks,
 } from './jobCoords.ts'
-import type { CoordinateAccuracy } from '../types/job.ts'
 
 function assertEqual<T>(actual: T, expected: T, label: string): void {
   if (actual !== expected) {
@@ -66,52 +65,53 @@ function testResolveWorkLocationQuery(): void {
 }
 
 function testDirectionsAlwaysAvailableRegardlessOfLocationState(): void {
-  // 2026-09-04 사용자 지시("길찾기 정책 수정"): "location_verified=false인
-  // ward도 길찾기 버튼을 숨기지 않음 — 마커와 정확한 거리 계산만 제외. 길찾기는
-  // 좌표 대신 raw_address + 상위 시·도 + Vietnam 텍스트 검색으로 실행. 공개된
-  // 모든 위치 상태에서 길찾기가 존재하는 회귀 테스트 추가."
-  //
-  // googleMapsLinks()는 텍스트 쿼리만 받고 좌표/coordinateAccuracy/
-  // locationVerified를 아예 파라미터로도 받지 않는다 — 즉 by construction
-  // 모든 위치 상태에서 항상 유효한 길찾기 링크를 만들 수 있다. 이 테스트는
-  // 실제 발행 가능한 모든 coordinateAccuracy 등급 × locationVerified × lat/lng
-  // 유무 조합에 대해 resolveWorkLocationQuery()가 항상 비어있지 않은 쿼리를
-  // 만들고, 그 결과로 googleMapsLinks()가 항상 유효한 view/directions URL을
-  // 만드는지 exhaustively 확인한다 — JobDetail.tsx가 이 값들로 링크 표시 여부를
-  // 절대 게이팅하면 안 된다는 사실을 함수 시그니처 수준에서 증명한다.
-  const tiers: (CoordinateAccuracy | undefined)[] = ['exact', 'ward', 'region', 'unresolved', undefined]
-  const verifiedStates = [true, false, undefined]
-  const coordStates: { lat?: number; lng?: number }[] = [{ lat: 10.7, lng: 106.7 }, {}]
+  // 2026-09-29 개정(공고 4682 사고): 예전 테스트는 "모든 위치 상태에서 글자 검색 길찾기 URL이
+  // 만들어진다"(URL 형식)만 검사해, Google이 "KCN VSIP, Bắc Ninh"을 논 한가운데로 추측한
+  // 실제 목적지 오류를 잡지 못했다. 이제는 목적지 좌표가 사이트 지도 점과 같은지, 미확인
+  // 위치에는 길찾기 목적지를 주지 않는지를 검사한다.
+  const verified = { rawAddress: 'Lô A1, KCN X', lat: 10.7, lng: 106.7, coordinateAccuracy: 'exact' as const, locationVerified: true }
+  const unverifiedWard = { rawAddress: '45 Trần Mai Ninh, Tân Bình', lat: 10.8, lng: 106.65, coordinateAccuracy: 'ward' as const, locationVerified: false, addressAccuracy: 'exact_text' as const }
+  const noCoords = { rawAddress: 'Khu Công nghiệp Hiệp Phước', coordinateAccuracy: 'unresolved' as const, locationVerified: false, addressAccuracy: 'exact_text' as const, geocodeStatus: 'failed' as const }
 
-  for (const coordinateAccuracy of tiers) {
-    for (const locationVerified of verifiedStates) {
-      for (const coords of coordStates) {
-        const loc = {
-          rawAddress: 'Khu Công nghiệp Hiệp Phước, xã Hiệp Phước, Nhà Bè',
-          coordinateAccuracy,
-          locationVerified,
-          ...coords,
-        }
-        const query = resolveWorkLocationQuery(loc, 'TP.HCM')
-        const label = `tier=${coordinateAccuracy} verified=${locationVerified} hasCoords=${'lat' in coords}`
-        if (!query || query.trim().length === 0) {
-          throw new Error(`${label}: resolveWorkLocationQuery must never return an empty query`)
-        }
-        const links = googleMapsLinks(query)
-        if (!links.view.startsWith('https://www.google.com/maps/search/')) {
-          throw new Error(`${label}: view link must always be constructible`)
-        }
-        if (!links.directions.startsWith('https://www.google.com/maps/dir/')) {
-          throw new Error(`${label}: directions link must always be constructible, regardless of coordinate trust state`)
-        }
-        // 길찾기는 좌표가 아니라 텍스트 검색이다 — destination 파라미터 안에
-        // encode된 주소 텍스트가 그대로 들어있어야 한다(좌표 쌍이 아님).
-        if (!links.directions.includes(encodeURIComponent('Khu Công nghiệp Hiệp Phước'))) {
-          throw new Error(`${label}: directions must be text-search based (raw_address encoded in the URL), not coordinate-based`)
-        }
-      }
-    }
+  const v = workLocationExternalLinks(verified)
+  assertTrue(v !== null && v.viewKind === 'exact', 'verified location -> exact pin link')
+  assertEqual(v?.directions, 'https://www.google.com/maps/dir/?api=1&destination=10.7,106.7', 'directions destination = the verified coordinate, not a text guess')
+  assertTrue(!!v?.view.includes('query=10.7,106.7'), 'view link pins the same verified coordinate')
+
+  const u = workLocationExternalLinks(unverifiedWard)
+  assertTrue(u !== null && u.viewKind === 'area' && u.directions === null, 'unverified coordinate -> area view only, NO directions')
+  assertTrue(!!u?.view.includes('center=10.8,106.65'), 'area view centers on the same point the site map shows')
+  assertFalse(!!u?.view.includes('query='), 'area view must not drop a pin')
+
+  // 좌표도 지역 매칭도 없으면 외부 링크 자체를 만들지 않는다(글자 검색으로 추측시키지 않음)
+  assertEqual(workLocationExternalLinks(noCoords), null, 'no confirmed point at all -> no external link')
+
+  // 목적지 URL에 글자 주소가 들어가면 안 된다(Google이 해석·추측하는 경로 차단)
+  for (const links of [v, u]) {
+    assertFalse(!!links && (links.view + (links.directions ?? '')).includes(encodeURIComponent('Trần Mai Ninh')), 'external links must be coordinate-based, never a text query')
   }
+}
+
+function testCase4682IndustrialParkCenterIsNotACompanyLocation(): void {
+  // 공고 4682(2026-09-28): 원문엔 "KCN VSIP BẮC NINH"만 있음. 자동 지오코딩 거절 후 공단 중심점을
+  // local_jobs.lat/lng에 수동 입력 → 'exact'로 판정돼 "Vị trí chính xác" 표시, 외부 링크는 글자
+  // 검색이라 Google이 논을 목적지로 찍었다.
+  const manualRaw = resolveMapLocations({ rawLat: 21.0799208, rawLng: 105.9807154, rawLocation: 'KCN VSIP, Bắc Ninh' })
+  assertTrue(manualRaw.source !== 'exact' && manualRaw.points.every((p) => !p.precise),
+    'local_jobs.lat/lng (no provenance) must never be shown as an exact location')
+
+  // 수정안: 공단 수준 근무지 행(미검증, 공단 중심점) — 지역 수준으로만 표시
+  const park = {
+    rawAddress: 'Khu công nghiệp VSIP Bắc Ninh', lat: 21.0799208, lng: 105.9807154,
+    coordinateAccuracy: 'region' as const, addressAccuracy: 'exact_text' as const,
+    locationVerified: false, geocodeStatus: 'manual' as const,
+  }
+  const map = resolveMapLocations({ rawLocation: 'KCN VSIP, Bắc Ninh', workLocations: [park] })
+  assertTrue(map.source !== 'exact' && map.points.length === 1 && !map.points[0].precise, 'park center shown as approximate, not exact')
+  const links = workLocationExternalLinks(park)
+  assertTrue(links !== null && links.viewKind === 'area' && links.directions === null, 'park-level location: no directions, area view only')
+  assertTrue(!!links?.view.includes(`center=${map.points[0].lat},${map.points[0].lng}`), 'external area view uses the same point as the site map')
+  assertEqual(resolveDistanceSearchPoint({ workLocations: [park] }), null, 'park center must not be used for near-me / distance')
 }
 
 function testDistanceSearchOnlyUsesVerifiedLocations(): void {
@@ -129,9 +129,8 @@ function testDistanceSearchOnlyUsesVerifiedLocations(): void {
   const regionTier = { rawAddress: 'D', lat: 10.4, lng: 106.4, coordinateAccuracy: 'region' as const }
   const noCoords = { rawAddress: 'E', coordinateAccuracy: 'unresolved' as const, locationVerified: true }
 
-  // lat/lng 있음 + exact + locationVerified=false → 근사 거리검색 포함(precise=false).
-  const onlyExactUnverified = resolveDistanceSearchPoint({ workLocations: [exactUnverified] })
-  assertTrue(onlyExactUnverified !== null && onlyExactUnverified.lat === 10.1 && onlyExactUnverified.precise === false, "lat/lng present + coordinateAccuracy='exact' + locationVerified=false must be INCLUDED as APPROXIMATE (precise=false)")
+  // 2026-09-29: 미검증 좌표는 근사 거리검색에서도 제외(4682 후속, 사용자 지시).
+  assertEqual(resolveDistanceSearchPoint({ workLocations: [exactUnverified] }), null, "unverified exact-tagged coordinate must be EXCLUDED from distance search")
 
   // lat/lng 있음 + exact + locationVerified=true → 정밀 거리검색 포함(precise=true).
   const onlyExactVerified = resolveDistanceSearchPoint({ workLocations: [exactVerified] })
@@ -141,9 +140,7 @@ function testDistanceSearchOnlyUsesVerifiedLocations(): void {
   const onlyWardVerified = resolveDistanceSearchPoint({ workLocations: [verifiedWard] })
   assertTrue(onlyWardVerified !== null && onlyWardVerified.lat === 10.2 && onlyWardVerified.lng === 106.2 && onlyWardVerified.precise === true, "lat/lng present + ward + locationVerified=true must be INCLUDED as PRECISE (coordinateAccuracy tier is irrelevant once verified)")
 
-  // lat/lng 있음 + ward + locationVerified=false → 근사 거리검색 포함(precise=false).
-  const onlyWardUnverified = resolveDistanceSearchPoint({ workLocations: [unverifiedWard] })
-  assertTrue(onlyWardUnverified !== null && onlyWardUnverified.lat === 10.3 && onlyWardUnverified.precise === false, "lat/lng present + ward + locationVerified=false must be INCLUDED as APPROXIMATE (precise=false)")
+  assertEqual(resolveDistanceSearchPoint({ workLocations: [unverifiedWard] }), null, "unverified ward coordinate must be EXCLUDED from distance search")
 
   // lat/lng 있음 + region → 등급 무관 완전 제외(행정 중심, 근사 거리검색도 안 됨).
   assertEqual(resolveDistanceSearchPoint({ workLocations: [regionTier] }), null, "region-tier point must be EXCLUDED from distance search even though it has real lat/lng, and even as an approximate point")
@@ -154,11 +151,10 @@ function testDistanceSearchOnlyUsesVerifiedLocations(): void {
 
   // 복수 근무지 — 정밀 2개 + 근사 2개 + region(좌표 있음) + 좌표없음, 총 4개만 포함.
   const mixed = resolveDistanceSearchPoints({ workLocations: [exactUnverified, exactVerified, verifiedWard, unverifiedWard, regionTier, noCoords] })
-  assertEqual(mixed.length, 4, "the two precise + two approximate locations count; region-tier and no-coords are excluded")
+  assertEqual(mixed.length, 2, "only the two verified locations count; unverified, region-tier and no-coords are excluded")
   assertTrue(mixed.some((p) => p.lat === 10.15 && p.lng === 106.15 && p.precise), "verified exact point must be included as precise")
   assertTrue(mixed.some((p) => p.lat === 10.2 && p.lng === 106.2 && p.precise), "verified ward point must be included as precise")
-  assertTrue(mixed.some((p) => p.lat === 10.1 && !p.precise), "unverified exact-tagged point must be included as approximate")
-  assertTrue(mixed.some((p) => p.lat === 10.3 && !p.precise), "unverified ward point must be included as approximate")
+  assertFalse(mixed.some((p) => p.lat === 10.1 || p.lat === 10.3), "unverified points must be excluded")
   assertFalse(mixed.some((p) => p.lat === 10.4), "region-tier point must be excluded even though it has real lat/lng")
 
   // 대표 1점은 정밀이 하나라도 있으면 정밀을 우선한다(같은 공고 안에 정밀/
@@ -401,6 +397,7 @@ function main(): void {
   const tests = [
     testResolveWorkLocationQuery,
     testDirectionsAlwaysAvailableRegardlessOfLocationState,
+    testCase4682IndustrialParkCenterIsNotACompanyLocation,
     testDistanceSearchOnlyUsesVerifiedLocations,
     testMapShownForEveryLocationTier,
     testRecruitmentRegionFallbackNeverDuplicatesOneCoordinate,

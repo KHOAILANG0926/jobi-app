@@ -75,8 +75,8 @@ FB 접속 중단, 사용자의 계정 상태 확인 대기.** 서버 `crawler/st
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-09-29 — 메인 추천 공고 카드 폭을 하단 목록과 동일(4/2/1칸)+좌우 화살표** — MASTER PUSHED(`d996587`) + PRODUCTION VERIFIED(1700px: 카드 330px=하단 330px, 잘림 없음). FB 작업 스냅샷(본문)은 그대로 유효.
-2. **2026-09-28 — FB 수집 기초 재구성(관찰·판정 흐름·중복·자동 잠금) + 세션 만료로 중단** — MASTER PUSHED(`613048b`), VPS PULLED, DB 변경 없음, FB 잠금 중.
-3. **2026-09-28 — FB 크롤러 전문 추출·잘림 차단 + Bắc Ninh 1건 Production 저장(id 4682)** — MASTER PUSHED(`4dcd75a`), VPS PULLED, PRODUCTION DB 1건, 사이트 상세 확인.
-4. **2026-09-28 — VPS 회사PC 키 등록 + FB 정기실행 일시중지 + 최신코드 반영 + Bắc Ninh DRY-RUN(세션 만료로 중단)** — MASTER PUSHED, VPS PULLED(`4fc348f`). DB 변경 없음.
-5. **2026-09-28 — Facebook 크롤러 보완(빈 칸 조기종료·구직자 홍보글·DB 중복키)** — MASTER PUSHED(`f64f6ab`). 페이스북 재접속·Production DB 저장·VPS 실행 없음.
+1. **2026-09-29 — 잘못된 위치 안내 차단(지도 정밀화 전체 아님)** — MASTER PUSHED + PRODUCTION DEPLOYED. 정확 위치·핀·길찾기·내 주변 거리는 job_work_locations.location_verified+좌표만 사용(local_jobs.lat/lng는 근거로 안 씀), 외부 지도 링크는 사이트와 같은 점(미확인=지역 화면만, 길찾기 없음), 내 주변은 확인 좌표 0건이면 준비 중 안내+지역 검색, 재수집 시 manual 근무지 보존. DB: 4682 lat/lng→null(공단 텍스트 유지). **후속(미착수): 좌표 후보 보관·관리자 위치 승인 기능** — 현재 활성 공고 중 확인된 좌표 0건이라 길찾기·거리 검색은 사실상 비활성.
+2. **2026-09-29 — 메인 추천 공고 카드 폭을 하단 목록과 동일(4/2/1칸)+좌우 화살표** — MASTER PUSHED(`d996587`) + PRODUCTION VERIFIED(1700px: 카드 330px=하단 330px, 잘림 없음). FB 작업 스냅샷(본문)은 그대로 유효.
+3. **2026-09-28 — FB 수집 기초 재구성(관찰·판정 흐름·중복·자동 잠금) + 세션 만료로 중단** — MASTER PUSHED(`613048b`), VPS PULLED, DB 변경 없음, FB 잠금 중.
+4. **2026-09-28 — FB 크롤러 전문 추출·잘림 차단 + Bắc Ninh 1건 Production 저장(id 4682)** — MASTER PUSHED(`4dcd75a`), VPS PULLED, PRODUCTION DB 1건, 사이트 상세 확인.
+5. **2026-09-28 — VPS 회사PC 키 등록 + FB 정기실행 일시중지 + 최신코드 반영 + Bắc Ninh DRY-RUN(세션 만료로 중단)** — MASTER PUSHED, VPS PULLED(`4fc348f`). DB 변경 없음.

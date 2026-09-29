@@ -17,7 +17,7 @@ import { buildProfile } from '../components/useApply'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
 import { fetchEmployerJobCount } from '../lib/jobRows'
-import { googleMapsLinks, resolveMapLocations, resolveWorkLocationQuery } from '../lib/jobCoords'
+import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 
@@ -339,9 +339,11 @@ export function JobDetail() {
   // 텍스트만 있음)에서만 쓰는 단일 Google Maps 링크 — 근무지가 있으면 각
   // 주소별로, 모집지역만 있으면 지역별로 따로 만든다(아래 렌더링 부분).
   const hasRecruitmentRegionsOnly = !hasWorkLocationList && (job.recruitmentRegions?.length ?? 0) > 0
+  // 2026-09-29: 외부 지도 링크는 사이트 지도와 같은 점을 쓴다(글자 검색 X). 근무지 행이 없는
+  // 레거시 공고는 지역 수준 점뿐이라 지역 화면만 열고 길찾기는 주지 않는다.
   const singleLocationGmaps =
-    !hasWorkLocationList && !hasRecruitmentRegionsOnly && locationText
-      ? googleMapsLinks(`${locationText}, Vietnam`)
+    !hasWorkLocationList && !hasRecruitmentRegionsOnly && locationText && mapLocations.source !== 'default'
+      ? externalMapLinks(mapLocations.points[0], false, 11)
       : null
 
   const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
@@ -463,17 +465,15 @@ export function JobDetail() {
               ) : (
                 <>
                   {hasWorkLocationList ? (
-                    // 항목별로 coordinate_accuracy/address_accuracy가 다를 수 있다 —
-                    // 상세주소 텍스트와 길찾기는 정확도와 무관하게 항상 보여준다
-                    // (2026-09-05 최종 정책: "모든 위치 등급에서 길찾기 링크 표시").
-                    // googleMapsLinks()는 좌표를 전혀 쓰지 않는 텍스트 검색 기반이라
-                    // 신뢰도와 무관하게 항상 안전하다.
+                    // 2026-09-29(4682 사고): 정확 여부·핀·길찾기·거리 모두 isVerifiedWorkLocation()
+                    // 하나로 판단한다. 예전 "모든 등급에서 글자 검색 길찾기 표시"(09-05)는 Google이
+                    // 모호한 글자를 엉뚱한 곳(논)으로 추측해 폐기 — 미확인 위치는 지역 화면만 연다.
                     <ul className="jd2-map-addr-list">
                       {job.workLocations?.map((loc) => {
-                        const gmaps = googleMapsLinks(resolveWorkLocationQuery(loc, job.location))
+                        const gmaps = workLocationExternalLinks(loc)
                         const tier = loc.coordinateAccuracy ?? 'unresolved'
-                        const verifiedWard = tier === 'ward' && loc.locationVerified === true
-                        const isPreciseLoc = tier === 'exact' || verifiedWard
+                        const isPreciseLoc = isVerifiedWorkLocation(loc)
+                        const verifiedWard = isPreciseLoc && tier === 'ward'
                         const isRegionOnlyText = loc.addressAccuracy === 'region_only'
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
@@ -509,17 +509,14 @@ export function JobDetail() {
                               <p className="jd2-map-verified-ward-note">
                                 Khu vực làm việc đã xác nhận — có thể chưa phải vị trí chính xác của tòa nhà.
                               </p>
-                            ) : tier !== 'exact' ? (
-                              // Tier B — 구체적 주소 텍스트는 있으나 좌표 미검증.
+                            ) : !isPreciseLoc ? (
+                              // 미확인 — 좌표가 있어도(공단 중심·동 단위 추정 등) 근무지 위치로 주장하지 않는다.
                               <p className="jd2-map-ward-note">
-                                Vị trí gần đúng — địa chỉ cụ thể chưa được xác minh tọa độ chính xác, không dùng để tính khoảng cách.
+                                Vị trí gần đúng theo khu vực — chưa xác minh vị trí chính xác của nơi làm việc, không dùng để chỉ đường hay tính khoảng cách.
                               </p>
                             ) : null}
-                            <div className="jd2-map-gmaps-links">
-                              <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                              <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                            </div>
-                            {isPreciseLoc && (
+                            <MapLinks links={gmaps} />
+                            {isPreciseLoc && !verifiedWard && (
                               <p className="jd2-map-exact-note">Vị trí chính xác.</p>
                             )}
                           </li>
@@ -536,17 +533,14 @@ export function JobDetail() {
                       </p>
                       <ul className="jd2-map-addr-list">
                         {job.recruitmentRegions?.map((region) => {
-                          const gmaps = googleMapsLinks(`${region}, Vietnam`)
+                          const gmaps = externalMapLinks(findRegionCenter(region), false, 11)
                           return (
                             <li key={region} className="jd2-map-addr-item">
                               <p className="jd2-map-addr">
                                 <MapPin size={13} strokeWidth={1.8} />
                                 {region}
                               </p>
-                              <div className="jd2-map-gmaps-links">
-                                <a href={gmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                                <a href={gmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                              </div>
+                              <MapLinks links={gmaps} />
                             </li>
                           )
                         })}
@@ -562,12 +556,7 @@ export function JobDetail() {
                         {/* job_work_locations도 recruitmentRegions도 없는 완전 레거시
                             케이스 — 길찾기는 등급과 무관하게 항상 보여준다(2026-09-05
                             정책: "길찾기는 어떤 위치 등급에서도 숨기지 않는다"). */}
-                        {singleLocationGmaps && (
-                          <div className="jd2-map-gmaps-links">
-                            <a href={singleLocationGmaps.view} target="_blank" rel="noopener noreferrer">Xem trên bản đồ lớn ↗</a>
-                            <a href={singleLocationGmaps.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-                          </div>
-                        )}
+                        <MapLinks links={singleLocationGmaps} />
                       </>
                     )
                   )}
@@ -780,6 +769,22 @@ export function JobDetail() {
 
       <Toast message={toastMsg} open={toastOpen} onClose={() => setToastOpen(false)} />
       <MessageEmployerModal open={messageOpen} job={job} user={user} onClose={() => setMessageOpen(false)} />
+    </div>
+  )
+}
+
+
+/** 외부 지도 링크 — 확인된 근무지만 핀+길찾기, 그 외는 지역 화면만(2026-09-29). */
+function MapLinks({ links }: { links: ExternalMapLinks | null }) {
+  if (!links) return null
+  return (
+    <div className="jd2-map-gmaps-links">
+      <a href={links.view} target="_blank" rel="noopener noreferrer">
+        {links.viewKind === 'exact' ? 'Xem trên bản đồ lớn ↗' : 'Xem khu vực trên bản đồ ↗'}
+      </a>
+      {links.directions && (
+        <a href={links.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
+      )}
     </div>
   )
 }

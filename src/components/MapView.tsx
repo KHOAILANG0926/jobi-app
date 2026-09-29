@@ -115,6 +115,10 @@ export default function MapView() {
     return r
   }, [jobs, userCoords])
 
+  // 2026-09-29: 거리 계산은 확인된 근무지 좌표만 쓴다 — 아직 한 건도 없으면 빈 목록/'0건' 대신
+  // "위치 확인 중" 안내와 지역 검색 이동을 보여준다(잘못된 위치 안내 차단 작업).
+  const distanceReady = useMemo(() => jobs.some((j) => resolveDistanceSearchPoint(j) !== null), [jobs])
+
   const filtered = useMemo(() => {
     if (!userCoords) return []
     return jobs
@@ -236,10 +240,16 @@ export default function MapView() {
           {geoErrorMsg && <p className="near-me-status__text near-me-status__text--error">📍 {geoErrorMsg}</p>}
           <p className="near-me-status__summary">
             📍 {userCoords
-              ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km · ${filtered.length} kết quả`
+              ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km${distanceReady ? ` · ${filtered.length} kết quả` : ''}`
               : 'Chưa xác định vị trí — dùng GPS hoặc nhập địa chỉ ở trên để xem việc làm gần bạn.'}
           </p>
-          {!userCoords ? (
+          {!distanceReady ? (
+            <div className="city-result__empty near-me-preparing">
+              <span>📍</span>
+              <p>Chúng tôi đang xác minh vị trí nơi làm việc, nên tính năng tìm việc theo khoảng cách đang được chuẩn bị.</p>
+              <NavLink to="/viec-lam/tim-kiem" className="btn btn--primary btn--sm">Tìm việc theo khu vực</NavLink>
+            </div>
+          ) : !userCoords ? (
             <p className="hint">Danh sách công việc sẽ hiện ra ở đây sau khi xác định vị trí.</p>
           ) : filtered.length === 0 ? (
             <div className="city-result__empty">

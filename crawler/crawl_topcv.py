@@ -1972,10 +1972,40 @@ def _replace_job_work_locations(job_id: int, resolved_locations: list[dict]) -> 
     _has_existing_work_locations()로 교체함).
     """
     _require_write_enabled()
+    protected = _fetch_protected_work_locations(job_id)
     supabase.rpc(
         "replace_job_work_locations",
-        {"p_job_id": job_id, "p_rows": _work_location_rpc_rows(resolved_locations)},
+        {"p_job_id": job_id, "p_rows": merge_protected_work_locations(protected, _work_location_rpc_rows(resolved_locations))},
     ).execute()
+
+
+# 2026-09-29(공고 4682 후속): replace_job_work_locations()는 공고의 근무지 행을 전부 지우고
+# 다시 넣는다 — 사람이 직접 확인·입력한 위치(geocode_status='manual'이면서 좌표가 있거나
+# location_verified)가 재수집 때 사라지지 않도록, 그 행들은 그대로 다시 넣고 같은 주소의
+# 자동 결과는 버린다(수동 결과가 우선). DB 함수는 바꾸지 않는다.
+_PROTECTED_COLUMNS = ("raw_address", "normalized_address", "lat", "lng", "geocode_status", "geocode_source",
+                      "address_accuracy", "coordinate_accuracy", "address_evidence", "location_verified",
+                      "matched_recruitment_regions")
+
+
+def is_protected_work_location(row: dict) -> bool:
+    return row.get("geocode_status") == "manual" and (row.get("location_verified") is True or row.get("lat") is not None)
+
+
+def _fetch_protected_work_locations(job_id: int) -> list[dict]:
+    rows = supabase.table("job_work_locations").select(",".join(_PROTECTED_COLUMNS))         .eq("job_id", job_id).eq("geocode_status", "manual").execute().data or []
+    return [r for r in rows if is_protected_work_location(r)]
+
+
+def merge_protected_work_locations(protected: list[dict], new_rows: list[dict]) -> list[dict]:
+    def key(r: dict) -> str:
+        return re.sub(r"\s+", " ", (r.get("normalized_address") or r.get("raw_address") or "").strip().lower())
+    kept = [{k: r.get(k) for k in _PROTECTED_COLUMNS} for r in protected]
+    protected_keys = {key(r) for r in kept}
+    merged = kept + [r for r in new_rows if key(r) not in protected_keys]
+    for idx, r in enumerate(merged):
+        r["sort_order"] = idx
+    return merged
 
 
 def load_existing_lookup_maps(source: str = "vieclam24h") -> tuple[dict, dict]:
