@@ -3,22 +3,18 @@ import { withJobCoordinates } from './jobCoords.ts'
 
 export type ApplyRoute =
   | { mode: 'internal' }
-  | { mode: 'external'; url: string }
   | { mode: 'unavailable' }
 
 /**
  * 2026-09-15: 크롤링 출처(employer_id 없음) 공고는 내부 지원(applications
  * insert)을 만들어도 조회할 owner가 없는 "고아 지원"이 되고, RLS
- * (applications_insert 정책, employer_id IS NOT NULL 요구)가 실제로 막는다 —
- * 원문 사이트(source_url)로 보내는 게 맞는 동작이다. 이 판정을 JobDetail.tsx와
- * useApply.ts 두 곳에 각각 복제해뒀다가 한쪽만 고치면 다시 어긋날 위험이
- * 있어(2026-09-15 실제로 useApply.ts만 이 판정이 없어 발생한 결함을 수정한
- * 직후 발견) 하나로 합쳤다.
+ * (applications_insert 정책, employer_id IS NOT NULL 요구)가 실제로 막는다.
+ * 2026-09-29 긴급 원복(사용자 지시): 지원 버튼이 원문 사이트(source_url)를 여는
+ * 동작은 제거 — 크롤링 공고는 'unavailable'로 두고 사이트 안에서 지원 불가 사실과
+ * 공고에 등록된 연락 방법만 보여준다. 판정은 JobDetail.tsx와 useApply.ts가 공유한다.
  */
-export function resolveApplyRoute(job: Pick<Job, 'employerId' | 'sourceUrl' | 'description'>): ApplyRoute {
-  if (job.employerId) return { mode: 'internal' }
-  const url = job.sourceUrl || (job.description?.startsWith('http') ? job.description : undefined)
-  return url ? { mode: 'external', url } : { mode: 'unavailable' }
+export function resolveApplyRoute(job: Pick<Job, 'employerId'>): ApplyRoute {
+  return job.employerId ? { mode: 'internal' } : { mode: 'unavailable' }
 }
 
 export function ensureJobFields(j: Job): Job {

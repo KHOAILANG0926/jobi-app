@@ -14,6 +14,7 @@ import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { buildProfile } from '../components/useApply'
+import { ApplyUnavailableNotice } from '../components/ApplyUnavailableNotice'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
 import { fetchEmployerJobCount } from '../lib/jobRows'
@@ -221,9 +222,9 @@ export function JobDetail() {
   // jobUtils.ts의 resolveApplyRoute()로 useApply.ts(다른 지원 화면들)와 공유한다
   // — 두 곳에 따로 있으면 한쪽만 고쳤을 때 다시 어긋나는 위험이 있다(2026-09-15
   // 실제로 그렇게 어긋나 있던 걸 발견하고 통합함).
-  const applyRoute = resolveApplyRoute(job)
-  const canApplyInternally = applyRoute.mode === 'internal'
-  const sourceUrl = applyRoute.mode === 'external' ? applyRoute.url : undefined
+  // 2026-09-29 긴급 원복: 원문 사이트로 보내는 지원 동작 제거 — 지원 불가 공고는
+  // 화면 안 안내(ApplyUnavailableNotice)로 사실과 등록된 연락 방법만 보여준다.
+  const canApplyInternally = resolveApplyRoute(job).mode === 'internal'
 
   const onOneClickApply = async () => {
     if (!user) {
@@ -274,23 +275,12 @@ export function JobDetail() {
       onOneClickApply()
       return
     }
-    if (sourceUrl) {
-      window.open(sourceUrl, '_blank', 'noopener,noreferrer')
-      return
-    }
-    setToastMsg('Tin này chưa hỗ trợ ứng tuyển trực tuyến. Vui lòng liên hệ trực tiếp qua thông tin công ty.')
-    setToastOpen(true)
+    document.getElementById('jd2-apply-unavailable')?.scrollIntoView({ behavior: 'instant', block: 'center' })
   }
 
   const applyLabel = canApplyInternally
     ? (applied ? 'Đã ứng tuyển' : applying ? 'Đang gửi...' : 'Ứng tuyển ngay')
-    : (sourceUrl ? 'Xem tin gốc & Ứng tuyển ↗' : 'Ứng tuyển ngay')
-
-  const applyHint = canApplyInternally
-    ? 'Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ'
-    : sourceUrl
-      ? 'Tin từ nguồn bên ngoài — ứng tuyển trực tiếp tại trang gốc'
-      : 'Vui lòng liên hệ trực tiếp qua thông tin công ty bên dưới'
+    : 'Xem cách liên hệ'
 
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
@@ -701,7 +691,13 @@ export function JobDetail() {
           >
             {applyLabel}
           </button>
-          <span className="jd2-aside-hint">{applyHint}</span>
+          {canApplyInternally ? (
+            <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
+          ) : (
+            <div id="jd2-apply-unavailable">
+              <ApplyUnavailableNotice job={job} onShowDescription={() => setActiveTab('desc')} />
+            </div>
+          )}
 
           <div className="jd2-scam-notice">
             <span className="jd2-scam-notice__icon">⚠️</span>

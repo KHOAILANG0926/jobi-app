@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import type { ApplyStatus, UserProfile } from "./useApply";
 import type { Job } from "../types/job";
+import { ApplyUnavailableNotice } from "./ApplyUnavailableNotice";
 
 interface ApplyModalProps {
   status: ApplyStatus;
@@ -160,15 +162,14 @@ export default function ApplyModal({
           </div>
         )}
 
-        {/* ── UNAVAILABLE STATE (크롤링 출처 공고인데 원문 링크(source_url)도
-             없는 경우 — 실측 기준 현재 활성 공고 0건이지만 JobDetail.tsx와
-             동일하게 방어적으로 처리) ── */}
+        {/* ── UNAVAILABLE STATE (크롤링 출처 공고 — 2026-09-29 긴급 원복 후
+             원문 사이트로 보내지 않고 지원 불가 사실과 등록된 연락 방법만 표시) ── */}
         {status === "unavailable" && (
           <div className="state-center">
-            <p className="state-title">Chưa hỗ trợ ứng tuyển trực tuyến</p>
-            <p className="state-sub">
-              Vui lòng liên hệ trực tiếp qua thông tin công ty.
-            </p>
+            <ApplyUnavailableNotice job={job} />
+            <Link className="apply-cancel-btn" to={`/viec-lam/${job.id}`} onClick={onClose}>
+              Xem chi tiết tin
+            </Link>
             <button className="apply-confirm-btn" onClick={onClose}>
               Đóng
             </button>

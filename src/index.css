@@ -10349,6 +10349,26 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   text-align: center;
   line-height: 1.5;
 }
+/* 2026-09-29: 지원 불가(크롤링) 공고 안내 — 공고 상세 사이드와 지원 모달 공용 */
+.apply-unavailable {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+}
+.apply-unavailable__title { margin: 0 0 4px; font-size: 0.85rem; font-weight: 700; color: #9a3412; }
+.apply-unavailable__text { margin: 0; font-size: 0.8rem; line-height: 1.5; color: #475569; }
+.apply-unavailable__contacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.apply-unavailable__contact {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0;
+  font-size: 0.8rem; font-weight: 600; color: #1e293b; text-decoration: none;
+}
+.apply-unavailable__link {
+  padding: 0; border: 0; background: none; font: inherit; font-weight: 600;
+  color: #2563eb; text-decoration: underline; cursor: pointer;
+}
 .jd2-scam-notice {
   display: flex;
   align-items: flex-start;
@@ -10505,6 +10525,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-aside-salary { background: #450a0a; }
   .jd2-aside-row__val { color: #f1f5f9; }
   .jd2-aside-divider { background: #334155; }
+  .apply-unavailable { background: #431407; border-color: #7c2d12; }
+  .apply-unavailable__title { color: #fdba74; }
+  .apply-unavailable__text { color: #cbd5e1; }
+  .apply-unavailable__contact { background: #1e293b; border-color: #334155; color: #f1f5f9; }
   .jd2-btn-phone { background: #0f172a; border-color: #334155; color: #94a3b8; }
   .jd2-btn-ghost { border-color: #334155; color: #94a3b8; }
   .jd2-btn-ghost:hover { background: #0f172a; color: #f1f5f9; }

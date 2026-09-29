@@ -47,12 +47,10 @@ export function useApply() {
   // JobDetail.tsx와 함께 jobUtils.ts의 resolveApplyRoute()로 통합했다(같은
   // 판정이 두 파일에 따로 있으면 한쪽만 고쳤을 때 다시 어긋나는 위험이 있음 —
   // 이번에 실제로 그렇게 어긋나 있던 걸 발견하고 고쳤다).
+  // 2026-09-29 긴급 원복: 원문 사이트를 여는 분기 제거 — 크롤링 공고는 모달에서
+  // 지원 불가 사실과 연락 방법을 보여준다(ApplyModal 'unavailable').
   const openApply = useCallback((j: Job) => {
     const route = resolveApplyRoute(j)
-    if (route.mode === 'external') {
-      window.open(route.url, '_blank', 'noopener,noreferrer')
-      return
-    }
     setJob(j)
     setStatus(route.mode === 'unavailable' ? 'unavailable' : 'confirming')
   }, [])
