@@ -75,8 +75,8 @@ FB 접속 중단, 사용자의 계정 상태 확인 대기.** 서버 `crawler/st
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-09-28 — FB 수집 기초 재구성(관찰·판정 흐름·중복·자동 잠금) + 세션 만료로 중단** — MASTER PUSHED(`613048b`), VPS PULLED, DB 변경 없음, FB 잠금 중.
-2. **2026-09-28 — FB 크롤러 전문 추출·잘림 차단 + Bắc Ninh 1건 Production 저장(id 4682)** — MASTER PUSHED(`4dcd75a`), VPS PULLED, PRODUCTION DB 1건, 사이트 상세 확인.
-3. **2026-09-28 — VPS 회사PC 키 등록 + FB 정기실행 일시중지 + 최신코드 반영 + Bắc Ninh DRY-RUN(세션 만료로 중단)** — MASTER PUSHED, VPS PULLED(`4fc348f`). DB 변경 없음.
-4. **2026-09-28 — Facebook 크롤러 보완(빈 칸 조기종료·구직자 홍보글·DB 중복키)** — MASTER PUSHED(`f64f6ab`). 페이스북 재접속·Production DB 저장·VPS 실행 없음.
-5. **2026-09-28 — Facebook 크롤러 증분 수집·페이지 판정 재설계 구현 + dry-run 1회** — MASTER PUSHED(`dccf50e`). 크롤러 전용이라 Vercel 배포 무관, VPS 반영은 서버 git pull 필요(미실행).
+1. **2026-09-29 — 메인 추천 공고 카드 폭을 하단 목록과 동일(4/2/1칸)+좌우 화살표** — MASTER PUSHED(`d996587`) + PRODUCTION VERIFIED(1700px: 카드 330px=하단 330px, 잘림 없음). FB 작업 스냅샷(본문)은 그대로 유효.
+2. **2026-09-28 — FB 수집 기초 재구성(관찰·판정 흐름·중복·자동 잠금) + 세션 만료로 중단** — MASTER PUSHED(`613048b`), VPS PULLED, DB 변경 없음, FB 잠금 중.
+3. **2026-09-28 — FB 크롤러 전문 추출·잘림 차단 + Bắc Ninh 1건 Production 저장(id 4682)** — MASTER PUSHED(`4dcd75a`), VPS PULLED, PRODUCTION DB 1건, 사이트 상세 확인.
+4. **2026-09-28 — VPS 회사PC 키 등록 + FB 정기실행 일시중지 + 최신코드 반영 + Bắc Ninh DRY-RUN(세션 만료로 중단)** — MASTER PUSHED, VPS PULLED(`4fc348f`). DB 변경 없음.
+5. **2026-09-28 — Facebook 크롤러 보완(빈 칸 조기종료·구직자 홍보글·DB 중복키)** — MASTER PUSHED(`f64f6ab`). 페이스북 재접속·Production DB 저장·VPS 실행 없음.
