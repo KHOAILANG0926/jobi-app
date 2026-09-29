@@ -3,6 +3,7 @@ import type { Job } from '../types/job'
 import { CATEGORY_SHORT } from '../data/categories'
 import { getCategoryVisual } from '../lib/categoryVisuals'
 import { zaloMeUrl } from '../lib/jobUtils'
+import { formatDistanceLabel } from '../lib/jobCoords'
 
 const FAVICON_DOMAINS: Record<string, string> = {
   'Highlands Coffee': 'highlandscoffee.com.vn',
@@ -113,7 +114,7 @@ export default function JobCard({
       {/* 2열: #태그 · 지역 · 회사명 */}
       <p className="jc__meta">
         {metaParts.join(' · ')}
-        {distanceKm !== undefined && ` · \u{1F4CD}${distancePrecise ? '' : '~'}${distanceKm.toFixed(1)}km`}
+        {distanceKm !== undefined && ` · \u{1F4CD}${formatDistanceLabel(distanceKm, distancePrecise)}`}
       </p>
 
       {/* 3열: 제목 */}

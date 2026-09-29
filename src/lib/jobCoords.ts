@@ -189,6 +189,12 @@ export function resolveMapLocation(job: { rawLat?: number; rawLng?: number; rawL
   return { ...VIETNAM_CENTER, source: 'default', zoom: 5 }
 }
 
+/** 거리 표시 — calcDistanceKm()은 두 점 사이 직선거리(하버사인)라 이동거리로 오해하지 않게
+ *  "đường chim bay"(직선거리)를 항상 붙인다(2026-09-29). */
+export function formatDistanceLabel(km: number, precise = true): string {
+  return `${precise ? '' : '~'}${km.toFixed(1)} km đường chim bay`
+}
+
 export function calcDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -249,6 +255,8 @@ interface WorkLocationLike {
    *  아니었다(geocodeStatus가 'pending'으로 영구히 남는 게 정상). 위
    *  geocodeStatus 설명 참고. */
   addressAccuracy?: AddressAccuracyLike
+  /** 사람이 승인한 근무지 좌표(job_location_candidates) — types/job.ts JobWorkLocation.approvedPoint */
+  approvedPoint?: { lat: number; lng: number; placePrecision: 'entrance' | 'building' | 'site' }
 }
 
 /** coordinate_accuracy 문자열 — types/job.ts의 CoordinateAccuracy와 값 집합은
@@ -278,12 +286,32 @@ function isPreciseWorkLocation(l: { locationVerified?: boolean }): boolean {
   return l.locationVerified === true
 }
 
-/** 핀·길찾기·거리 계산에 쓸 수 있는 "확인된 근무지" — location_verified이고 좌표가 있을 때만.
+/** 핀·길찾기·거리 계산에 쓸 "확인된 근무지 좌표" — 두 경로 중 하나로 확인된 경우만:
+ *  ① 사람이 승인한 근무지(approvedPoint, job_location_candidates) — 우선
+ *  ② location_verified(원본 사이트 좌표와 대조 검증)이고 좌표가 있음
  *  (2026-09-29: 사이트 지도, 외부 지도 링크, 내 주변/거리 계산이 모두 이 하나의 기준을 쓴다.) */
-export function isVerifiedWorkLocation(l: { locationVerified?: boolean; lat?: number; lng?: number }): boolean {
-  return isPreciseWorkLocation(l) &&
-    typeof l.lat === 'number' && typeof l.lng === 'number' &&
-    Number.isFinite(l.lat) && Number.isFinite(l.lng)
+export function verifiedWorkLocationPoint(l: {
+  locationVerified?: boolean; lat?: number; lng?: number
+  approvedPoint?: { lat: number; lng: number }
+}): { lat: number; lng: number } | null {
+  const a = l.approvedPoint
+  if (a && Number.isFinite(a.lat) && Number.isFinite(a.lng)) return { lat: a.lat, lng: a.lng }
+  if (isPreciseWorkLocation(l) && typeof l.lat === 'number' && typeof l.lng === 'number' &&
+      Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
+    return { lat: l.lat, lng: l.lng }
+  }
+  return null
+}
+
+export function isVerifiedWorkLocation(l: Parameters<typeof verifiedWorkLocationPoint>[0]): boolean {
+  return verifiedWorkLocationPoint(l) !== null
+}
+
+/** 길찾기 목적지로 줘도 되는지 — 출입구까지 사람이 확인한 승인(placePrecision='entrance')만.
+ *  건물·부지 승인이나 location_verified(원본 사이트 좌표 검증)는 "그 건물·사업장이 여기"까지만
+ *  확인한 것이라 핀·거리 계산에는 쓰되 정확한 길찾기는 열지 않는다(2026-09-29). */
+export function isEntranceConfirmed(l: { approvedPoint?: { placePrecision: string } }): boolean {
+  return l.approvedPoint?.placePrecision === 'entrance'
 }
 
 /**
@@ -300,8 +328,10 @@ export function isVerifiedWorkLocation(l: { locationVerified?: boolean; lat?: nu
  *    근무지가 있으면 그쪽은 계속 표시된다.
  */
 function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | null {
+  const verified = verifiedWorkLocationPoint(l)
+  if (verified) return { ...verified, label: l.rawAddress, precise: true }
   if (typeof l.lat === 'number' && typeof l.lng === 'number' && Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
-    return { lat: l.lat, lng: l.lng, label: l.rawAddress, precise: isPreciseWorkLocation(l) }
+    return { lat: l.lat, lng: l.lng, label: l.rawAddress, precise: false }
   }
   // 2026-09-07 사용자 지시(충돌 수정): addressAccuracy==='exact_text'인데
   // geocodeStatus==='pending'(아직 지오코딩을 시도조차 안 함)이면, 원문
@@ -427,8 +457,9 @@ export function resolveDistanceSearchPoints(job: {
   // 2026-09-29: 미검증 exact/ward 좌표의 '근사 거리검색'(09-05 2단계 정책)을 중단한다 —
   // 확인되지 않은 후보 좌표는 내 주변·거리 계산에 쓰지 않는다(사용자 지시, 4682 사고 후속).
   return (job.workLocations ?? [])
-    .filter((l): l is WorkLocationLike & { lat: number; lng: number } => isVerifiedWorkLocation(l))
-    .map((l) => ({ lat: l.lat, lng: l.lng, precise: true }))
+    .map((l) => verifiedWorkLocationPoint(l))
+    .filter((p): p is { lat: number; lng: number } => p !== null)
+    .map((p) => ({ ...p, precise: true }))
 }
 
 export interface ExternalMapLinks {
@@ -449,6 +480,7 @@ export function externalMapLinks(
   point: { lat: number; lng: number } | null | undefined,
   verified: boolean,
   areaZoom = 13,
+  allowDirections = false,
 ): ExternalMapLinks | null {
   if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null
   const ll = `${point.lat},${point.lng}`
@@ -456,7 +488,7 @@ export function externalMapLinks(
     return {
       view: `https://www.google.com/maps/search/?api=1&query=${ll}`,
       viewKind: 'exact',
-      directions: `https://www.google.com/maps/dir/?api=1&destination=${ll}`,
+      directions: allowDirections ? `https://www.google.com/maps/dir/?api=1&destination=${ll}` : null,
     }
   }
   return {
@@ -469,7 +501,8 @@ export function externalMapLinks(
 /** 근무지 1곳의 외부 지도 링크 — 사이트 지도 점(resolveWorkLocationMapPoint)과 같은 점 사용 */
 export function workLocationExternalLinks(l: WorkLocationLike): ExternalMapLinks | null {
   const point = resolveWorkLocationMapPoint(l)
-  return externalMapLinks(point, isVerifiedWorkLocation(l), l.addressAccuracy === 'region_only' ? 11 : 14)
+  return externalMapLinks(point, isVerifiedWorkLocation(l), l.addressAccuracy === 'region_only' ? 11 : 14,
+    isEntranceConfirmed(l))
 }
 
 /**

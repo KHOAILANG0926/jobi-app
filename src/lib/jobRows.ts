@@ -200,3 +200,43 @@ export async function fetchEmployerJobs(
   }
   return rows.map((r) => rowToJob(r, locationsByJobId.get(r.id as number)))
 }
+
+
+/** 공고 회사명·근무지 텍스트 비교용 정규화(대소문자·공백·유니코드 조합 차이 무시). */
+function normalizeForApproval(v: unknown): string {
+  return String(v ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 사람이 승인한 근무지(job_location_candidates, status='approved')를 공고 근무지에 붙인다(2026-09-29).
+ * 승인 당시 스냅샷(회사명·근무지 텍스트)이 현재 공고와 다르면 붙이지 않는다 — 회사나 주소가
+ * 바뀐 공고는 관리자 재검토 전까지 승인 위치를 쓰지 않는다. 좌표 값 자체는 크롤러 재수집과
+ * 무관한 별도 테이블에 있어 재수집으로 사라지지 않는다.
+ */
+export function applyLocationApprovals(jobs: Job[], approvals: Record<string, unknown>[]): Job[] {
+  if (approvals.length === 0) return jobs
+  const byJobId = new Map<string, Record<string, unknown>[]>()
+  for (const a of approvals) {
+    const key = `sb-${a.job_id}`
+    byJobId.set(key, [...(byJobId.get(key) ?? []), a])
+  }
+  return jobs.map((job) => {
+    const mine = byJobId.get(job.id)
+    if (!mine || !job.workLocations?.length) return job
+    const valid = mine.filter((a) => normalizeForApproval(a.company_snapshot) === normalizeForApproval(job.company))
+    if (valid.length === 0) return job
+    return {
+      ...job,
+      workLocations: job.workLocations.map((loc) => {
+        const a = valid.find((x) => normalizeForApproval(x.address_snapshot) === normalizeForApproval(loc.rawAddress))
+        const lat = Number(a?.lat), lng = Number(a?.lng)
+        const placePrecision = a?.place_precision
+        if (!a || !Number.isFinite(lat) || !Number.isFinite(lng) ||
+            (placePrecision !== 'entrance' && placePrecision !== 'building' && placePrecision !== 'site')) {
+          return loc
+        }
+        return { ...loc, approvedPoint: { lat, lng, placePrecision } }
+      }),
+    }
+  })
+}

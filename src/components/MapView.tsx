@@ -240,7 +240,7 @@ export default function MapView() {
           {geoErrorMsg && <p className="near-me-status__text near-me-status__text--error">📍 {geoErrorMsg}</p>}
           <p className="near-me-status__summary">
             📍 {userCoords
-              ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km${distanceReady ? ` · ${filtered.length} kết quả` : ''}`
+              ? `${nearAddressLabel ? `Đang tìm việc gần ${nearAddressLabel}` : 'Đang dùng vị trí hiện tại của bạn'} · Bán kính ${nearRadius} km (đường chim bay)${distanceReady ? ` · ${filtered.length} kết quả` : ''}`
               : 'Chưa xác định vị trí — dùng GPS hoặc nhập địa chỉ ở trên để xem việc làm gần bạn.'}
           </p>
           {!distanceReady ? (

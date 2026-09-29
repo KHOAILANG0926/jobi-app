@@ -10,7 +10,10 @@ import {
   resolveMapLocations,
   resolveWorkLocationQuery,
   workLocationExternalLinks,
+  formatDistanceLabel,
 } from './jobCoords.ts'
+import { applyLocationApprovals } from './jobRows.ts'
+import type { Job } from '../types/job.ts'
 
 function assertEqual<T>(actual: T, expected: T, label: string): void {
   if (actual !== expected) {
@@ -75,8 +78,11 @@ function testDirectionsAlwaysAvailableRegardlessOfLocationState(): void {
 
   const v = workLocationExternalLinks(verified)
   assertTrue(v !== null && v.viewKind === 'exact', 'verified location -> exact pin link')
-  assertEqual(v?.directions, 'https://www.google.com/maps/dir/?api=1&destination=10.7,106.7', 'directions destination = the verified coordinate, not a text guess')
   assertTrue(!!v?.view.includes('query=10.7,106.7'), 'view link pins the same verified coordinate')
+  // location_verified는 "그 건물이 여기"까지의 확인 — 출입구 미확인이라 길찾기는 열지 않는다
+  assertEqual(v?.directions, null, 'building-level verification (no entrance) -> no directions')
+  const entrance = workLocationExternalLinks({ ...verified, approvedPoint: { lat: 10.71, lng: 106.71, placePrecision: 'entrance' as const } })
+  assertEqual(entrance?.directions, 'https://www.google.com/maps/dir/?api=1&destination=10.71,106.71', 'entrance-confirmed approval -> directions to that exact point')
 
   const u = workLocationExternalLinks(unverifiedWard)
   assertTrue(u !== null && u.viewKind === 'area' && u.directions === null, 'unverified coordinate -> area view only, NO directions')
@@ -112,6 +118,49 @@ function testCase4682IndustrialParkCenterIsNotACompanyLocation(): void {
   assertTrue(links !== null && links.viewKind === 'area' && links.directions === null, 'park-level location: no directions, area view only')
   assertTrue(!!links?.view.includes(`center=${map.points[0].lat},${map.points[0].lng}`), 'external area view uses the same point as the site map')
   assertEqual(resolveDistanceSearchPoint({ workLocations: [park] }), null, 'park center must not be used for near-me / distance')
+}
+
+function testDistanceLabelSaysStraightLine(): void {
+  // calcDistanceKm()은 직선거리(하버사인) — 표시도 이동거리로 오해하지 않게 '직선거리'를 명시
+  assertEqual(formatDistanceLabel(1.234), '1.2 km đường chim bay', 'precise distance labelled as straight-line')
+  assertEqual(formatDistanceLabel(3, false), '~3.0 km đường chim bay', 'approximate distance keeps ~ and straight-line label')
+}
+
+function testHumanApprovedLocationLifecycle(): void {
+  // 2026-09-29: 사람이 승인한 근무지(job_location_candidates)만 핀·거리에 쓰이고, 길찾기는 출입구까지
+  // 확인된 승인만. 회사명·근무지 텍스트가 바뀌거나 승인이 철회되면 지역 수준으로 돌아간다.
+  // (좌표 값은 테스트용 임의값 — 실제 공고 좌표 아님)
+  const addr = 'Số 10, đường 5, KCN VSIP Bắc Ninh, Phù Chẩn, Từ Sơn, Bắc Ninh, Từ Sơn'
+  const baseJob = {
+    id: 'sb-4453', company: 'Công Ty Cổ Phần Als Đông Hà Nội',
+    workLocations: [{ id: 1, rawAddress: addr, lat: 21.07, lng: 105.97, coordinateAccuracy: 'ward', locationVerified: false, addressAccuracy: 'exact_text' }],
+  } as unknown as Job
+  const building = { job_id: 4453, company_snapshot: 'Công Ty Cổ Phần Als Đông Hà Nội', address_snapshot: addr, lat: 21.05, lng: 105.95, place_precision: 'building' }
+
+  const before = baseJob.workLocations![0]
+  assertEqual(workLocationExternalLinks(before)?.directions, null, 'before approval: no directions')
+  assertEqual(resolveDistanceSearchPoint(baseJob), null, 'before approval: excluded from near-me')
+
+  const [approvedJob] = applyLocationApprovals([baseJob], [building])
+  const loc = approvedJob.workLocations![0]
+  const map = resolveMapLocations(approvedJob)
+  assertTrue(map.source === 'exact' && map.points[0].precise && map.points[0].lat === 21.05, 'building approved: precise pin at the approved coordinate')
+  assertTrue(!!workLocationExternalLinks(loc)?.view.includes('query=21.05,105.95'), 'building approved: external view pins the same point as the site map')
+  assertEqual(workLocationExternalLinks(loc)?.directions, null, 'building approved: still NO directions (entrance not confirmed)')
+  const d = resolveDistanceSearchPoint(approvedJob)
+  assertTrue(d !== null && d.lat === 21.05 && d.precise, 'building approved: used for near-me distance at the same point')
+
+  const [entranceJob] = applyLocationApprovals([baseJob], [{ ...building, place_precision: 'entrance' }])
+  assertEqual(workLocationExternalLinks(entranceJob.workLocations![0])?.directions,
+    'https://www.google.com/maps/dir/?api=1&destination=21.05,105.95', 'entrance approved: directions to the approved point')
+
+  const [companyChanged] = applyLocationApprovals([{ ...baseJob, company: 'Công ty khác' } as Job], [building])
+  assertEqual(resolveDistanceSearchPoint(companyChanged), null, 'company changed -> approval not applied until re-review')
+  const movedJob = { ...baseJob, workLocations: [{ ...before, rawAddress: 'Lô B2, KCN Quế Võ' }] } as Job
+  assertEqual(resolveDistanceSearchPoint(applyLocationApprovals([movedJob], [building])[0]), null, 'address changed -> approval not applied')
+  const [areaJob] = applyLocationApprovals([baseJob], [{ ...building, place_precision: 'area' }])
+  assertEqual(resolveDistanceSearchPoint(areaJob), null, 'area-level record is never used as a workplace pin')
+  assertEqual(resolveDistanceSearchPoint(applyLocationApprovals([baseJob], [])[0]), null, 'after revoke: back to area-level only')
 }
 
 function testDistanceSearchOnlyUsesVerifiedLocations(): void {
@@ -398,6 +447,8 @@ function main(): void {
     testResolveWorkLocationQuery,
     testDirectionsAlwaysAvailableRegardlessOfLocationState,
     testCase4682IndustrialParkCenterIsNotACompanyLocation,
+    testHumanApprovedLocationLifecycle,
+    testDistanceLabelSaysStraightLine,
     testDistanceSearchOnlyUsesVerifiedLocations,
     testMapShownForEveryLocationTier,
     testRecruitmentRegionFallbackNeverDuplicatesOneCoordinate,

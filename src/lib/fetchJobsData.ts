@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isPublicJobAllowed } from './jobQualityFilter'
 import { ensureJobFields } from './jobUtils'
-import { rowToJob, rowToWorkLocation } from './jobRows'
+import { applyLocationApprovals, rowToJob, rowToWorkLocation } from './jobRows'
 import type { Job } from '../types/job'
 
 /** 2026-09-22 JobsContext.tsx의 fetchJobs() 본문을 그대로 뽑아낸 것 — React
@@ -78,9 +78,21 @@ export async function fetchJobsData(client: SupabaseClient): Promise<FetchJobsRe
     }
   }
 
-  const fetched = rows
-    .map((r) => rowToJob(r, locationsByJobId.get(r.id as number)))
-    .filter(isPublicJobAllowed)
+  // 사람이 승인한 근무지(2026-09-29) — 부가 정보라 조회 실패 시 승인 없이 진행(best-effort)
+  let approvals: Record<string, unknown>[] = []
+  if (rows.length > 0) {
+    const { data: approvalRows } = await client
+      .from('job_location_candidates')
+      .select('job_id,company_snapshot,address_snapshot,lat,lng,place_precision')
+      .eq('status', 'approved')
+      .in('job_id', rows.map((r) => r.id as number))
+    approvals = (approvalRows ?? []) as Record<string, unknown>[]
+  }
+
+  const fetched = applyLocationApprovals(
+    rows.map((r) => rowToJob(r, locationsByJobId.get(r.id as number))),
+    approvals,
+  ).filter(isPublicJobAllowed)
 
   return {
     jobsError: fetchFailed,

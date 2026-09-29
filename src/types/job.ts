@@ -86,6 +86,10 @@ export interface JobWorkLocation {
    *  하나가 여러 동으로 쪼개진 경우 여러 개일 수 있음, 후보가 너무 많으면
    *  crawler에서 이미 걸러짐). 하나로 단정 못 하면 undefined. */
   resolvedWards?: string[]
+  /** 사람이 승인한 근무지 좌표(job_location_candidates.status='approved', 2026-09-29).
+   *  location_verified(원본 사이트 좌표 검증)와 별개인 두 번째 확인 경로 — 승인 당시 회사명·
+   *  근무지 텍스트가 현재 공고와 같을 때만 붙는다(다르면 재검토 필요로 보고 붙이지 않음). */
+  approvedPoint?: { lat: number; lng: number; placePrecision: 'entrance' | 'building' | 'site' }
 }
 
 export interface Job {

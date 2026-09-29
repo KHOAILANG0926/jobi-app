@@ -473,7 +473,8 @@ export function JobDetail() {
                         const gmaps = workLocationExternalLinks(loc)
                         const tier = loc.coordinateAccuracy ?? 'unresolved'
                         const isPreciseLoc = isVerifiedWorkLocation(loc)
-                        const verifiedWard = isPreciseLoc && tier === 'ward'
+                        const approved = loc.approvedPoint
+                        const verifiedWard = isPreciseLoc && !approved && tier === 'ward'
                         const isRegionOnlyText = loc.addressAccuracy === 'region_only'
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
@@ -497,6 +498,13 @@ export function JobDetail() {
                               <p className="jd2-map-pending-note">
                                 Đang xác minh vị trí — hệ thống chưa xác định được tọa độ cho địa chỉ này.
                               </p>
+                            ) : approved ? (
+                              // 사람이 회사 공식 정보·원문을 대조해 승인한 근무지(2026-09-29)
+                              <p className="jd2-map-verified-ward-note">
+                                {approved.placePrecision === 'entrance'
+                                  ? 'Vị trí nơi làm việc đã được xác minh (cổng/lối vào).'
+                                  : 'Vị trí nơi làm việc đã được xác minh theo thông tin chính thức của công ty — lối vào cụ thể chưa được xác minh.'}
+                              </p>
                             ) : isRegionOnlyText ? (
                               // Tier C/D — 성·시 또는 구·군·동만 있는 텍스트, 구체적
                               // 상세주소가 아니다. 거리검색에도 쓰이지 않는다.
@@ -516,7 +524,7 @@ export function JobDetail() {
                               </p>
                             ) : null}
                             <MapLinks links={gmaps} />
-                            {isPreciseLoc && !verifiedWard && (
+                            {isPreciseLoc && !verifiedWard && !approved && (
                               <p className="jd2-map-exact-note">Vị trí chính xác.</p>
                             )}
                           </li>
@@ -576,7 +584,7 @@ export function JobDetail() {
                         {mapLocations.source === 'exact'
                           ? mapLocations.points.length > 1
                             ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
-                            : 'Vị trí chính xác trên bản đồ.'
+                            : 'Vị trí nơi làm việc đã được xác minh trên bản đồ.'
                           : mapLocations.source === 'address'
                             ? 'Vị trí gần đúng dựa trên địa chỉ — chưa được xác minh chính xác.'
                             : 'Vị trí gần đúng theo khu vực — bản đồ mang tính minh họa, không phải địa chỉ chi tiết.'}
