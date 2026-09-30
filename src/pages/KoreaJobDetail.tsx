@@ -164,7 +164,9 @@ export default function KoreaJobDetail() {
           <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>CÁCH LIÊN HỆ ỨNG TUYỂN</h2>
           {/* 2026-09-30 사용자 지시: 크롤링·수집한 원본 채용사이트로 연결하지 않는다(CLAUDE.md 규칙). */}
           <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.6, marginBottom: 0 }}>
-            {job.contact_method || 'Tin này chưa có thông tin liên hệ trực tiếp.'}
+            {job.contact_method && !/원본|tin gốc|trang gốc|website gốc|original/i.test(job.contact_method)
+              ? job.contact_method
+              : 'Tin này chưa có thông tin liên hệ trực tiếp.'}
           </p>
         </div>
       </div>

@@ -320,8 +320,11 @@ export function JobDetail() {
   // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
   // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
   // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
-  const hasMapPoints = mapLocations.points.length > 0 && mapLocations.source !== 'default'
-  const mapCenter = mapLocations.points[0]
+  // 2026-09-30 사용자 지시: 지역·공단 중심 좌표로 대신 표시하지 않는다. 확인된 근무지(precise)만 지도에
+  // 그리고, 없으면 '위치 미확인'으로 표시한다(길찾기·거리 계산에서도 이미 제외됨).
+  const verifiedMapPoints = mapLocations.points.filter((p) => p.precise)
+  const hasMapPoints = verifiedMapPoints.length > 0
+  const mapCenter = verifiedMapPoints[0]
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
   // 있으면 항상 보여준다.
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
@@ -499,7 +502,7 @@ export function JobDetail() {
                               // Tier C/D — 성·시 또는 구·군·동만 있는 텍스트, 구체적
                               // 상세주소가 아니다. 거리검색에도 쓰이지 않는다.
                               <p className="jd2-map-ward-note">
-                                Vị trí gần đúng theo khu vực hành chính (tỉnh/thành hoặc quận/huyện) — không phải địa chỉ chi tiết, không dùng để tính khoảng cách chính xác.
+                                Chỉ có khu vực hành chính (tỉnh/thành hoặc quận/huyện) — vị trí nơi làm việc chưa được xác minh.
                               </p>
                             ) : verifiedWard ? (
                               // Tier A(원문 좌표로 확인된 근무구역) — exact와 동일한
@@ -510,7 +513,7 @@ export function JobDetail() {
                             ) : !isPreciseLoc ? (
                               // 미확인 — 좌표가 있어도(공단 중심·동 단위 추정 등) 근무지 위치로 주장하지 않는다.
                               <p className="jd2-map-ward-note">
-                                Vị trí gần đúng theo khu vực — chưa xác minh vị trí chính xác của nơi làm việc, không dùng để chỉ đường hay tính khoảng cách.
+                                Vị trí nơi làm việc chưa được xác minh — không hiển thị trên bản đồ, không dùng để chỉ đường hay tính khoảng cách.
                               </p>
                             ) : null}
                             <MapLinks links={gmaps} />
@@ -568,18 +571,19 @@ export function JobDetail() {
                         lng={mapCenter.lng}
                         title={job.title}
                         zoom={mapLocations.zoom}
-                        extraMarkers={mapLocations.points}
+                        extraMarkers={verifiedMapPoints}
                       />
                       <p className="jd2-map-note">
-                        {mapLocations.source === 'exact'
-                          ? mapLocations.points.length > 1
-                            ? `Công việc này có ${mapLocations.points.length} địa điểm làm việc.`
-                            : 'Vị trí nơi làm việc đã được xác minh trên bản đồ.'
-                          : mapLocations.source === 'address'
-                            ? 'Vị trí gần đúng dựa trên địa chỉ — chưa được xác minh chính xác.'
-                            : 'Vị trí gần đúng theo khu vực — bản đồ mang tính minh họa, không phải địa chỉ chi tiết.'}
+                        {verifiedMapPoints.length > 1
+                          ? `Công việc này có ${verifiedMapPoints.length} địa điểm làm việc đã xác minh.`
+                          : 'Vị trí nơi làm việc đã được xác minh trên bản đồ.'}
                       </p>
                     </>
+                  )}
+                  {!hasMapPoints && mapLocations.source !== 'pending' && (
+                    <p className="jd2-map-pending-note">
+                      Vị trí nơi làm việc chưa được xác minh — chưa hiển thị bản đồ, chỉ đường và khoảng cách.
+                    </p>
                   )}
                   {/* mapLocations.source === 'pending'일 때는 hasMapPoints가 항상
                       false(points: [])라 위 지도 블록이 아예 렌더되지 않는다 —
@@ -780,7 +784,8 @@ export function JobDetail() {
 
 /** 외부 지도 링크 — 확인된 근무지만 핀+길찾기, 그 외는 지역 화면만(2026-09-29). */
 function MapLinks({ links }: { links: ExternalMapLinks | null }) {
-  if (!links) return null
+  // 2026-09-30: 지역 수준(area) 지도 화면 링크도 지역 중심 좌표 대체 표시라 내보내지 않는다
+  if (!links || links.viewKind !== 'exact') return null
   return (
     <div className="jd2-map-gmaps-links">
       <a href={links.view} target="_blank" rel="noopener noreferrer">

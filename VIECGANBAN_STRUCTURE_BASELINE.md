@@ -38,7 +38,7 @@
 
 ## 2. 구직자 전체 흐름
 
-**[확인된 현재 구조]**: 회원가입(이메일)→로그인→공고 검색/필터/상세조회→저장(찜)→CV작성 까지는 실제 동작. 마감임박 알림도 동작. 크롤링 공고(`employer_id` NULL)는 "지원" 버튼을 눌러도 내부 지원을 시도하지 않고 원문 URL로 이동시키거나(추출 가능한 경우) 안내 토스트만 띄움(`JobDetail.tsx`의 `canApplyInternally` 분기) — 이 경로는 DB 테이블 없이도 의도대로 동작.
+**[확인된 현재 구조]**: 회원가입(이메일)→로그인→공고 검색/필터/상세조회→저장(찜)→CV작성 까지는 실제 동작. 마감임박 알림도 동작. 크롤링 공고(`employer_id` NULL)는 "지원" 버튼을 눌러도 내부 지원을 시도하지 않고, 사이트 안에서 공고에 적힌 전화·Zalo 연락 방법만 안내함(`ApplyUnavailableNotice`). **원문 URL로 이동시키지 않음** — 2026-09-30 `CLAUDE.md` '원본 채용사이트 연결 금지' 규칙(이전 기록의 '원문 URL로 이동'은 폐기된 동작).
 **[확인된 현재 구조]**: 기업이 직접 등록한 공고(`employer_id` 있음)에 대한 지원 생성·중복 차단·기업 조회·상태 변경·구직자 상태 조회·지원 취소는 `applications` 테이블과 RLS를 실제 적용하고 격리 E2E로 검증 완료. 크롤링 공고의 내부 application 생성도 DB 정책에서 차단됨.
 **[확인된 현재 구조]**: 기업 직접등록 공고의 구직자↔해당 기업 메시지 흐름은 운영 DB 적용 및 격리 E2E 22개 항목(양방향 송수신·Realtime·타인 접근/소유권/역할 위조/빈 본문/크롤링 공고 차단·실패 UI) 검증 완료.
 **[확인된 현재 구조]**: 면접 일정은 운영 `interviews` 테이블과 RLS/Realtime에 연결됐고, 소유 기업·해당 seeker 허용 및 outsider·타 기업·크롤링 공고·application 없는 조합 차단을 격리 E2E로 검증했다.
@@ -94,7 +94,7 @@
 
 ## 9. `local_jobs`와 `korea_jobs`의 현재 역할
 
-**[확인된 현재 구조]**: 스키마가 서로 다름 — `local_jobs`(26컬럼: category/lat·lng/employer_phone/urgent/images 등)는 국내 상시채용 공고, `korea_jobs`(8컬럼: id/created_at/title/company/region/salary/deadline/source_url/description)는 한국행 해외취업 정보. `KoreaJobs.tsx`는 순수 조회+번역+표시 전용이며, 각 카드 CTA는 `source_url`로의 외부 링크(WorkNet 등 원본 사이트 이동)일 뿐 앱 내부 동작이 아님. **지원/메시지/면접 파이프라인은 `local_jobs`만 참조하며 `korea_jobs`와는 전혀 연결돼 있지 않음.**
+**[확인된 현재 구조]**: 스키마가 서로 다름 — `local_jobs`(26컬럼: category/lat·lng/employer_phone/urgent/images 등)는 국내 상시채용 공고, `korea_jobs`(8컬럼: id/created_at/title/company/region/salary/deadline/source_url/description)는 한국행 해외취업 정보. `KoreaJobs.tsx`는 순수 조회+번역+표시 전용이며, 각 카드는 원본 사이트(WorkNet 등)로 연결하지 않음 — 2026-09-30 `CLAUDE.md` '원본 채용사이트 연결 금지' 규칙으로 `source_url` 외부 링크 제거(이전 기록의 외부 링크 CTA는 폐기된 동작). **지원/메시지/면접 파이프라인은 `local_jobs`만 참조하며 `korea_jobs`와는 전혀 연결돼 있지 않음.**
 **[확인 불가]**: `korea_jobs`를 채우는 크롤러/수집 스크립트의 소재.
 
 ---
