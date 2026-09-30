@@ -117,8 +117,11 @@ function FilterDropdown({
       const insidePanel = panelSlot?.contains(target)
       if (!insideButton && !insidePanel) onClose()
     }
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
+    // 2026-09-30: 'mousedown'에서 닫으면 패널이 접히며 표가 위로 밀려, 누른 위치의 공고 제목 링크가
+    // 뗄 때 다른 곳이 되어 첫 클릭이 사라졌다(지역 패널이 기본으로 열려 있어 항상 재현). 클릭이 끝난 뒤
+    // ('click') 닫아 링크 이동이 먼저 처리되게 한다.
+    document.addEventListener('click', onDocMouseDown)
+    return () => document.removeEventListener('click', onDocMouseDown)
   }, [isOpen, onClose, panelSlot])
 
   return (
