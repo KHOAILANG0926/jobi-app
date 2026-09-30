@@ -100,7 +100,6 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     rawPreference: (r.preference as string)?.trim() || undefined,
     rawLat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
     rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
-    sourceUrl: (r.source_url as string) ?? undefined,
     workLocations: workLocations && workLocations.length > 0 ? workLocations : undefined,
     recruitmentRegions: (r.recruitment_regions as string[] | null | undefined) ?? undefined,
   })
@@ -125,7 +124,7 @@ export interface JobsQueryClient {
 }
 
 const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,source_url,recruitment_regions'
+  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards'
 

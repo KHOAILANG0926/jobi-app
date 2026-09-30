@@ -1291,18 +1291,6 @@ export default function UrgentJobsPage() {
                   <td>{job.hours || '—'}</td>
                   <td>
                     {formatShortDate(job.postedAt)}
-                    {job.sourceUrl && (
-                      <a
-                        href={job.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="jm-urgent-table__external"
-                        aria-label="Xem tin gốc"
-                        title="Xem tin gốc"
-                      >
-                        ↗
-                      </a>
-                    )}
                   </td>
                   <td>
                     <button

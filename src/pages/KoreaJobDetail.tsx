@@ -162,24 +162,10 @@ export default function KoreaJobDetail() {
 
         <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', marginTop: '16px', marginBottom: '32px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>CÁCH LIÊN HỆ ỨNG TUYỂN</h2>
-          <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.6, marginBottom: job.source_url ? '16px' : 0 }}>
-            {job.contact_method || 'Vui lòng xem chi tiết tại tin tuyển dụng gốc để biết cách liên hệ.'}
+          {/* 2026-09-30 사용자 지시: 크롤링·수집한 원본 채용사이트로 연결하지 않는다(CLAUDE.md 규칙). */}
+          <p style={{ fontSize: '14px', color: '#333', lineHeight: 1.6, marginBottom: 0 }}>
+            {job.contact_method || 'Tin này chưa có thông tin liên hệ trực tiếp.'}
           </p>
-          {job.source_url && (
-            <a
-              href={job.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                padding: '10px 20px', background: 'linear-gradient(135deg, #c0392b, #e74c3c)',
-                color: '#fff', borderRadius: '10px', fontSize: '14px', fontWeight: 700,
-                textDecoration: 'none', boxShadow: '0 2px 8px rgba(192,57,43,0.3)',
-              }}
-            >
-              Xem tin gốc & Liên hệ ↗
-            </a>
-          )}
         </div>
       </div>
     </div>

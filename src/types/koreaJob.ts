@@ -35,8 +35,6 @@ export interface KoreaJob {
   contact_method: string | null
   posted_at: string | null
   expires_at: string | null
-  /** show_source_link=false인 원본 행은 null로 내려온다(뷰에서 이미 처리됨). */
-  source_url: string | null
 }
 
 export interface KoreaJobWorkLocation {

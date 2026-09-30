@@ -156,8 +156,7 @@ export interface Job {
    *  unlike `lat`/`lng` which may be back-filled with a guessed province-level location. */
   rawLat?: number
   rawLng?: number
-  /** Original posting URL (crawler source), when known. */
-  sourceUrl?: string
+  // sourceUrl(크롤링 원문 주소)은 2026-09-30 제거 — 원본 채용사이트로 연결하지 않으므로 브라우저에 내려보내지 않는다.
   /** Real work-site addresses for this job (job_work_locations), 0..N. Undefined/empty
    *  means no structured work-location data — callers must keep using rawLocation/
    *  rawLat/rawLng as before (this is purely additive, never required). */

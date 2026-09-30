@@ -8,7 +8,7 @@ const KOREA_JOB_PUBLIC_FIELDS =
   'id,created_at,title,title_vi,company,region,salary,deadline,description,description_vi,category,province,district,' +
   'salary_type,salary_min,salary_max,working_hours,working_days,days_off,headcount,' +
   'gender_condition,age_condition,korean_level_required,experience_required,visa_status_required,' +
-  'dormitory,meals,transportation,contact_method,posted_at,expires_at,source_url'
+  'dormitory,meals,transportation,contact_method,posted_at,expires_at'
 
 const KOREA_WORK_LOCATION_PUBLIC_FIELDS =
   'id,job_id,raw_address,normalized_address,sido,sigungu,eupmyeondong,lat,lng,sort_order'

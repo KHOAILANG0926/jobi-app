@@ -39,7 +39,7 @@ export async function fetchJobsData(client: SupabaseClient): Promise<FetchJobsRe
     const from = page * PAGE_SIZE
     const { data, error } = await client
       .from('local_jobs')
-      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,source_url,recruitment_regions')
+      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions')
       .eq('active', true)
       .order('posted_at', { ascending: false })
       .order('id', { ascending: false })

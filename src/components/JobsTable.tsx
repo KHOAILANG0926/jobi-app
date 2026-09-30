@@ -21,7 +21,6 @@ export interface JobsTableRow {
    *  lúc") 호출 쪽에서 직접 포맷해 넘긴다. */
   dateLabel?: string
   badge?: string
-  externalUrl?: string
   /** 마지막 열(지원 버튼/저장 별 등) — showTrailingColumn이 true일 때만 렌더. */
   trailing?: ReactNode
 }
@@ -101,18 +100,6 @@ export default function JobsTable({
               <td>{row.hours || '—'}</td>
               <td>
                 {row.dateLabel || '—'}
-                {row.externalUrl && (
-                  <a
-                    href={row.externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="jm-urgent-table__external"
-                    aria-label="Xem tin gốc"
-                    title="Xem tin gốc"
-                  >
-                    ↗
-                  </a>
-                )}
               </td>
               {showTrailingColumn && <td>{row.trailing}</td>}
             </tr>
