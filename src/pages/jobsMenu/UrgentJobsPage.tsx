@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
+import JobApplyButton from '../../components/JobApplyButton'
 import ApplyModal from '../../components/ApplyModal'
 import { useApply } from '../../components/useApply'
 import { useAuth } from '../../context/AuthContext'
@@ -1296,14 +1297,7 @@ export default function UrgentJobsPage() {
                     {formatShortDate(job.postedAt)}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn--primary btn--sm"
-                      onClick={() => handleApply(job)}
-                      disabled={isApplied(job.id)}
-                    >
-                      {isApplied(job.id) ? 'Đã ứng tuyển' : 'Ứng tuyển'}
-                    </button>
+                    <JobApplyButton job={job} applied={isApplied(job.id)} onInternalApply={handleApply} />
                   </td>
                 </tr>
               ))}

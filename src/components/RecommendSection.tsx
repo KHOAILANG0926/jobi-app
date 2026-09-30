@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import JobApplyButton from './JobApplyButton'
 import { useAuth } from '../context/AuthContext'
 import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
 import { JOB_REGIONS } from '../data/jobRegions'
@@ -78,13 +79,7 @@ function RecommendRowActions({ job, seekerId, onApply }: { job: Job; seekerId?: 
 
   return (
     <div className="jm-table-row-actions">
-      <button
-        className={`btn btn--primary btn--sm${applied ? ' btn--ghost' : ''}`}
-        disabled={applied}
-        onClick={() => !applied && onApply(job)}
-      >
-        {applied ? 'Đã ứng tuyển' : 'Ứng tuyển'}
-      </button>
+      <JobApplyButton job={job} applied={applied} onInternalApply={onApply} />
       <button
         className={`job-card__bookmark${saved ? ' job-card__bookmark--saved' : ''}`}
         onClick={handleSave}
@@ -154,13 +149,7 @@ function RecommendCard({
         <p className="rec-card__location">📍 {job.location}</p>
       </Link>
       <div className="rec-card__actions">
-        <button
-          className={`btn btn--primary btn--sm${applied ? ' btn--ghost' : ''}`}
-          disabled={applied}
-          onClick={() => !applied && onApply(job)}
-        >
-          {applied ? 'Đã ứng tuyển' : 'Ứng tuyển'}
-        </button>
+        <JobApplyButton job={job} applied={applied} onInternalApply={onApply} />
         <button
           className={`job-card__bookmark${saved ? ' job-card__bookmark--saved' : ''}`}
           onClick={handleSave}

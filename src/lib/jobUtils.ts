@@ -17,6 +17,23 @@ export function resolveApplyRoute(job: Pick<Job, 'employerId'>): ApplyRoute {
   return job.employerId ? { mode: 'internal' } : { mode: 'unavailable' }
 }
 
+/**
+ * 목록·상세의 지원 버튼 동작(2026-09-30) — 모든 화면이 이 하나의 기준을 쓴다.
+ * - internal: 플랫폼 구인자 공고(employer_id 있음) → 로그인 → 내부 지원
+ * - contact: 직접 연락형(employer_id 없음 + 공고에 적힌 전화/Zalo 있음) → 로그인 없이 내부 상세의 연락 안내
+ * - none: 연락처 없는 크롤링 공고 → 지원 가능하다고 표시하지 않음
+ * 외부 채용사이트로는 어떤 경우에도 보내지 않는다(CLAUDE.md '원본 채용사이트 연결 금지').
+ */
+export type ApplyAction = 'internal' | 'contact' | 'none'
+
+export function resolveApplyAction(job: Pick<Job, 'employerId' | 'employerPhone' | 'zalo'>): ApplyAction {
+  if (job.employerId) return 'internal'
+  return job.employerPhone?.trim() || job.zalo?.trim() ? 'contact' : 'none'
+}
+
+/** 상세 페이지 연락 안내 위치(목록의 '연락 방법 보기'가 이 해시로 이동) */
+export const JOB_CONTACT_HASH = 'lien-he'
+
 export function ensureJobFields(j: Job): Job {
   const text = `${j.title} ${j.description}`.toLowerCase()
   const inferredUrgent = text.includes('tuyển gấp') || text.includes('gấp')

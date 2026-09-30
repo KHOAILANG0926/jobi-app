@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
   Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
@@ -16,7 +16,7 @@ import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { buildProfile } from '../components/useApply'
 import { ApplyUnavailableNotice } from '../components/ApplyUnavailableNotice'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
-import { formatDeadlineVi, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
+import { formatDeadlineVi, JOB_CONTACT_HASH, resolveApplyAction, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
 import { fetchEmployerJobCount } from '../lib/jobRows'
 import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
@@ -155,6 +155,15 @@ export function JobDetail() {
   const [activeTab, setActiveTab] = useState<'info' | 'desc' | 'company'>('info')
 
   const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
+  // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
+  const location = useLocation()
+  useEffect(() => {
+    if (!job || location.hash !== `#${JOB_CONTACT_HASH}`) return
+    const t = window.setTimeout(() => {
+      document.getElementById('jd2-apply-unavailable')?.scrollIntoView({ behavior: 'instant', block: 'center' })
+    }, 50)
+    return () => window.clearTimeout(t)
+  }, [job, location.hash])
 
   // "신뢰 정보" 카드용 — 이 기업이 지금까지 등록한 공개 공고 수. 크롤링
   // 공고(employerId 없음)는 실제 소유 기업 계정이 없어 조회 대상이 아니다.
@@ -278,9 +287,12 @@ export function JobDetail() {
     document.getElementById('jd2-apply-unavailable')?.scrollIntoView({ behavior: 'instant', block: 'center' })
   }
 
+  // 2026-09-30: 목록과 같은 기준(resolveApplyAction) — 연락처 없는 크롤링 공고는 지원·연락 가능하다고 표시하지 않는다
+  const applyAction = resolveApplyAction(job)
   const applyLabel = canApplyInternally
     ? (applied ? 'Đã ứng tuyển' : applying ? 'Đang gửi...' : 'Ứng tuyển ngay')
-    : 'Xem cách liên hệ'
+    : applyAction === 'contact' ? 'Xem cách liên hệ' : 'Chưa có thông tin liên hệ'
+  const applyDisabled = canApplyInternally ? (applied || applying) : applyAction === 'none'
 
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
@@ -691,7 +703,7 @@ export function JobDetail() {
             type="button"
             className="jd2-btn-apply"
             onClick={onApplyClick}
-            disabled={canApplyInternally && (applied || applying)}
+            disabled={applyDisabled}
           >
             {applyLabel}
           </button>
@@ -769,7 +781,7 @@ export function JobDetail() {
           type="button"
           className="jd2-mobile-cta__apply"
           onClick={onApplyClick}
-          disabled={canApplyInternally && (applied || applying)}
+          disabled={applyDisabled}
         >
           {applyLabel}
         </button>
