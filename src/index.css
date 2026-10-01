@@ -11590,7 +11590,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   margin: 16px auto 24px;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) clamp(300px, 28%, 400px);
-  height: clamp(500px, 60vh, 580px);
+  height: clamp(440px, calc(25vh + 245px), 510px);
   grid-template-rows: minmax(0, 1fr);
   background: #fff;
   border: 1px solid #e5e7eb;
