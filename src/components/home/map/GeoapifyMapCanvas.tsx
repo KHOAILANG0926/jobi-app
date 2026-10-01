@@ -104,7 +104,11 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
 
     const reportViewport = () => {
       const center = map.getCenter()
-      propsRef.current.onViewportChange({ center: { lat: center.lat, lng: center.lng }, zoom: map.getZoom() })
+      const zoom = map.getZoom()
+      box.dataset.mapCenterLat = String(center.lat)
+      box.dataset.mapCenterLng = String(center.lng)
+      box.dataset.mapZoom = String(zoom)
+      propsRef.current.onViewportChange({ center: { lat: center.lat, lng: center.lng }, zoom })
     }
     const reportFailure = () => {
       setTileError(true)

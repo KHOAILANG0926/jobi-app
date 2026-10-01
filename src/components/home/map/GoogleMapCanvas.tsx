@@ -151,6 +151,9 @@ export default function GoogleMapCanvas(props: HomeMapProviderProps) {
           const zoom = map.getZoom()
           if (!center || typeof zoom !== 'number') return
           const viewport = { center: { lat: center.lat(), lng: center.lng() }, zoom }
+          box.dataset.mapCenterLat = String(viewport.center.lat)
+          box.dataset.mapCenterLng = String(viewport.center.lng)
+          box.dataset.mapZoom = String(zoom)
           const serialized = `${viewport.center.lat.toFixed(7)},${viewport.center.lng.toFixed(7)},${zoom.toFixed(4)}`
           if (serialized !== lastReported) {
             lastReported = serialized
