@@ -8,7 +8,7 @@
 - 변경: 메인 HomeMapCanvas만 MapLibre `osm-bright/style.json`으로 전환. 도로/라벨/산업지역/POI 표현 조정, Vite worker 별도 번들, 빨간 공고 핀·파란 위치점·반경 원 및 수동 시점 유지. 다른 페이지 Leaflet 유지.
 - 수정 파일: `src/components/home/HomeMapCanvas.tsx`, `src/index.css`, `package.json`, `package-lock.json`, `CHATGPT_HANDOFF.md`, `WORK_LOG.md`.
 - 검증: tsc/build/기존 테스트 10파일 통과. 개발·Production 빌드 미리보기 Chrome 1366/1440/1920/모바일 375에서 타일·스타일·worker·콘솔·hydration 오류 없음, 높이 425/440/485px 및 정렬 유지. wheel/drag/+→radius 시점 유지, 지역/현재 위치 재정렬, fixture 핀 선택/강조 확인.
-- commit/push/deploy: 진행 중. Production 실사이트 확인 후 갱신.
+- commit/push/deploy: 코드·기록 `315eb91` master push, Vercel Production Ready, viecganban.vn에서 MapLibre·vector style HTTP 200·높이 440px·콘솔 오류 0 확인. 이 문서의 최종 상태 갱신 커밋이 뒤따름.
 - 남은 문제: 실제 verified 핀 데이터가 적어 핀 브라우저 검증은 fixture 사용. 메인 지도 lazy 청크는 Leaflet 대비 커짐.
 
 ## 2026-10-01 22:03 — 메인 지도 시각 높이·여백 축소 + 수동 시점 유지

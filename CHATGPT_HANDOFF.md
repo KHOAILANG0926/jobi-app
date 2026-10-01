@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-**메인 지도 Geoapify 벡터 전환 (2026-10-01).** 상태: VERIFIED, commit/push 및 Production 확인 진행 중. branch: master. 기존 확정 PC 높이·가로 비율·필터 정책 유지.
+**메인 지도 Geoapify 벡터 전환 (2026-10-01).** 상태: DEPLOYED. master 코드 커밋 `315eb91` push, Vercel Production Ready 및 viecganban.vn 실사이트 확인. 기존 확정 PC 높이·가로 비율·필터 정책 유지.
 
 ## 변경 내용
 
@@ -16,6 +16,7 @@
 - `npx tsc --noEmit`, `npm run build`, `npm test` 통과(기존 10개 테스트 파일). SSR 빌드 통과.
 - 로컬 개발 서버와 Production 빌드 미리보기의 실제 Chrome: 1366×768=425px, 1440×900=440px, 1920×1080=485px, 모바일 375px 정상. 3열 상·하단 정렬과 canvas 부모 높이 일치. 콘솔/hydration 오류, Geoapify style/tile 요청 오류 없음.
 - wheel→radius, drag→radius, + 버튼→radius에서 시점 유지. 새 지역 및 현재 위치 선택에서 재정렬. 브라우저 fixture로 핀 클릭→선택 상태/선택 핀 강조 확인.
+- Production 1440×900: MapLibre 렌더링, 지도 높이 440px, Geoapify vector style HTTP 200, 위치점 표시, 콘솔 오류 없음.
 
 ## 발견된 문제
 
@@ -24,7 +25,7 @@
 
 ## 다음 결정사항
 
-- 이 변경의 Production 배포 상태를 확인한 뒤 상태를 DEPLOYED로 갱신한다.
+- 현재 작업은 Production 확인 완료. 추후 실제 verified 공고 데이터가 늘면 운영 핀 분포를 확인할 수 있다.
 
 ## 최근 완료 작업 로그 (최근 5개)
 
