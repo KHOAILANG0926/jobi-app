@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-**메인 지도 Google Native provider + Geoapify fallback (2026-10-02).** 상태: VERIFIED, Production 배포 대기. Google 키가 없는 현재 환경에서는 Geoapify가 즉시 선택되며 Google SDK 요청이 발생하지 않는다.
+**메인 지도 Google Native provider + Geoapify fallback (2026-10-02).** 상태: DEPLOYED. 코드·검증 기록 커밋 `1b71607` master push, Vercel Production Ready 및 운영 도메인 확인. Google 키가 없는 현재 Production에서는 Geoapify가 즉시 선택되며 Google SDK 요청이 발생하지 않는다.
 
 ## 변경 내용
 
@@ -19,6 +19,7 @@
 - Bắc Ninh 3km 원의 계산상 화면 지름 0.65. wheel→radius, drag→radius, zoom +→radius에서 center/zoom 유지. 새 지역과 현재 위치에서만 재정렬.
 - Google 가짜 key 환경에서 script abort, 12초 stall, `gm_authFailure`, map constructor 예외가 모두 Geoapify 한 개로 fallback. hydration 오류 없음. key 없는 빌드는 Google 요청 0건, Geoapify style 정상.
 - 실제 Google 지도 검증은 Production/Preview 키가 없어 `PENDING_NO_KEY`. Production 전환 전 제한된 Preview 키로 ROADMAP/HYBRID·quota·billing을 확인해야 한다.
+- Production `viecganban.vn`: Geoapify provider, Google 요청 0건, Geoapify style 성공, 425/440/485px, console/hydration 오류 없음.
 
 ## 발견된 문제
 
@@ -27,5 +28,4 @@
 
 ## 다음 결정사항
 
-- 검증 브랜치를 master에 통합하고 Production에서 Geoapify 유지, Google 요청 0건, 425/440/485px를 재확인한다.
 - Google primary 전환은 별도 제한된 Preview 키를 준비한 뒤 진행한다. 허용 referrer는 안정된 Preview alias로 제한하고, Production 키는 `https://viecganban.vn/*`, `https://www.viecganban.vn/*`와 Maps JavaScript API만 허용한다.

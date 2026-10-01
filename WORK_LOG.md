@@ -8,7 +8,7 @@
 - 변경: provider coordinator, Google/Geoapify 캔버스 분리, 12초 timeout·loader/init/auth fallback, 충돌 안전 `gm_authFailure` registry, job-id marker layer, 공통 meter/65% viewport 계산, 브라우저 실패 주입 harness 추가. DB·필터·확정 레이아웃 수치 변경 없음.
 - 검증: 1/3/5/10km=1000/3000/5000/10000m, Bắc Ninh 3km 화면 지름 0.65. tsc/build/test 통과. 1366/1440/1920/375 브라우저와 wheel/drag/zoom→radius 유지, 지역/현재 위치 재정렬 통과. abort/timeout/auth/init failure 모두 Geoapify fallback.
 - key 상태: Production Geoapify key 있음, Google key 없음. 실제 Google 지도는 Preview 제한 키 준비 전까지 PENDING이며 Production provider는 Geoapify로 유지.
-- commit/push/deploy: 기능 브랜치 검증 완료, master 통합·Production 배포 대기.
+- commit/push/deploy: 코드·검증 기록 `1b71607` master push, Vercel Production Ready. `viecganban.vn`에서 Geoapify, Google 요청 0건, style 성공, 425/440/485px, console/hydration 오류 없음 확인.
 - 남은 문제: Google quota/billing 신호는 SDK에서 완전 감지할 수 없어 Cloud quota cap·budget alert·referrer/API 제한 필요.
 
 ## 2026-10-01 — 메인 지도 Geoapify 벡터 전환
