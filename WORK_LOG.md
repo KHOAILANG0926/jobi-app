@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-01 (회사 PC) — PC 메인 중간 영역 지도 탐색 개편
+
+- 요청: 한국 입구 아래 ~ Việc làm nổi bật 위 중간 영역을 "내 주변 일자리 지도 + 선택 공고 패널"로 교체(조사→구현→검증→문서→배포)
+- 변경: HomeMapExplorer·HomeMapCanvas·homeMapFilters 신규, Home.tsx 중간 블록 교체·전용 코드 정리, index.css `.hme*` 추가
+- 설계 이유: 지도·거리는 확인된 근무지만(기존 원칙). 데이터 없는 조건은 가짜 판정 없이 비활성, `match`만 채우면 활성화되는 구조. 직접채용은 employer_id로 단정하지 않음.
+- 수정 파일: src/components/home/HomeMapExplorer.tsx, src/components/home/HomeMapCanvas.tsx, src/lib/homeMapFilters.ts, src/pages/Home.tsx, src/index.css, CHATGPT_HANDOFF.md, WORK_LOG.md
+- 검증: tsc·build 통과, npm test 9/9, vite preview + 응답 가로채기로 PC 1366/1920·모바일 375 동작 확인(반경·원·급여·업종·조건·핀↔패널·위치 허용/거부·빈 상태·넘침 0·콘솔 오류 없음)
+- commit: 이 커밋 / push: master / deploy: Vercel 자동(Production 확인은 HANDOFF·채팅 보고)
+- 남은 문제: test-home-composition.mjs 구식, 실제 데이터 핀 0(등록 양식·위치 확인 필요), 하단 목록 연동 미구현
+
 ## 2026-10-01 (회사 PC) — 한국 영역 장기 분리 점검
 
 - 요청: 대량 데이터·별도 DB 전제로 한국 영역 결합 점검 → MUST FIX NOW 수정, 규칙 문서화

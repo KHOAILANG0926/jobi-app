@@ -1,50 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
+import HomeMapExplorer from '../components/home/HomeMapExplorer'
 import FeaturedJobsSection from '../components/FeaturedJobsSection'
 import JobCard from '../components/JobCard'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
-import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
-import { jobMatchesRegion, REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
-import { SUBCATEGORY_LABELS } from '../data/subcategories'
+import { REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
-import { hasStoredCv } from '../lib/cvStorage'
-import { loadSeekerInterviews } from '../lib/interviewStorage'
-import { loadThreads } from '../lib/messagesStorage'
 import { computePreferredCategories, filterAndSortJobs } from '../lib/jobSearch'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
 /* ── Static data ─────────────────────────────────────────────────── */
 
-const FEATURED_BRANDS = [
-  { name: 'GrabFood',         search: 'Grab',      initial: 'G', color: '#00b14f', logo: 'https://www.google.com/s2/favicons?sz=64&domain=grab.com' },
-  { name: 'Highlands',        search: 'Highlands', initial: 'H', color: '#006241', logo: 'https://www.google.com/s2/favicons?sz=64&domain=highlandscoffee.com.vn' },
-  { name: 'Shopee',           search: 'Shopee',    initial: 'S', color: '#ff5722', logo: 'https://www.google.com/s2/favicons?sz=64&domain=shopee.vn' },
-  { name: 'Samsung',          search: 'Samsung',   initial: 'S', color: '#1428a0', logo: 'https://www.google.com/s2/favicons?sz=64&domain=samsung.com' },
-  { name: "McDonald's",       search: 'McDonald',  initial: 'M', color: '#FFC72C', logo: 'https://www.google.com/s2/favicons?sz=64&domain=mcdonalds.com' },
-  { name: 'KFC',              search: 'KFC',       initial: 'K', color: '#e4003b', logo: 'https://www.google.com/s2/favicons?sz=64&domain=kfc.com' },
-  { name: 'Lotteria',         search: 'Lotteria',  initial: 'L', color: '#e60028', logo: 'https://www.google.com/s2/favicons?sz=64&domain=lotteria.com' },
-  { name: 'Circle K',         search: 'Circle',    initial: 'C', color: '#c8102e', logo: 'https://www.google.com/s2/favicons?sz=64&domain=circlek.com' },
-  { name: 'FamilyMart',       search: 'Family',    initial: 'F', color: '#00539f', logo: 'https://www.google.com/s2/favicons?sz=64&domain=familymart.com' },
-  { name: 'WinMart',          search: 'WinMart',   initial: 'W', color: '#e30613', logo: 'https://www.google.com/s2/favicons?sz=64&domain=winmart.vn' },
-]
 
-const HOME_REGION_LIST: { id: JobRegionId; label: string }[] = [
-  { id: 'hanoi', label: 'Hà Nội' },
-  { id: 'haiphong', label: 'Hải Phòng' },
-  { id: 'bacninh', label: 'Bắc Ninh' },
-  { id: 'bacgiang', label: 'Bắc Giang' },
-  { id: 'thainguyen', label: 'Thái Nguyên' },
-  { id: 'danang', label: 'Đà Nẵng' },
-  { id: 'hue', label: 'Huế' },
-  { id: 'khanhhoa', label: 'Khánh Hòa' },
-  { id: 'hcm', label: 'TP. HCM' },
-  { id: 'dongnai', label: 'Đồng Nai' },
-  { id: 'cantho', label: 'Cần Thơ' },
-]
 
 
 /* ── Ad slot (replace <div className="ad-slot__ph"> with real ad code) */
@@ -187,26 +158,6 @@ function AdSlot({ slotId }: AdSlotProps) {
   )
 }
 
-/* ── Brand logo with image + initial fallback ───────────────────── */
-
-function BrandLogo({ initial, color, logo }: {
-  name: string; initial: string; color: string; logo: string
-}) {
-  const [failed, setFailed] = useState(false)
-  if (failed) {
-    return (
-      <span className="home-brand__logo" style={{ background: color }}>
-        <span className="home-brand__logo-initial">{initial}</span>
-      </span>
-    )
-  }
-  return (
-    <span className="home-brand__logo home-brand__logo--img">
-      <img src={logo} alt="" aria-hidden className="home-brand__logo-img" onError={() => setFailed(true)} />
-    </span>
-  )
-}
-
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
@@ -246,7 +197,8 @@ export function Home() {
     setUrgentOnly(urgent === '1')
     if (sort === 'salary' || sort === 'recommended') setSortMode(sort)
   }, [location.search])
-  const [todayOnly, setTodayOnly] = useState(false)
+  // 2026-10-01: 'Làm hôm nay' 빠른 필터 버튼은 메인 지도 개편으로 빠졌다(필터 로직은 유지).
+  const todayOnly = false
   const [sortMode, setSortMode] = useState<'none' | 'salary' | 'recommended'>('none')
 
   useEffect(() => {
@@ -263,45 +215,20 @@ export function Home() {
   const handleToggleSave = useCallback((job: Job) => { toggleSavedJobId(job.id, user?.id) }, [user?.id])
 
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set())
-  const [activityCounts, setActivityCounts] = useState({ cv: 0, applications: 0, messages: 0, interviews: 0 })
   useEffect(() => {
-    if (!user?.id) {
-      setAppliedIds(new Set())
-      setActivityCounts({ cv: 0, applications: 0, messages: 0, interviews: 0 })
-      return
-    }
+    if (!user?.id) { setAppliedIds(new Set()); return }
     let cancelled = false
     const syncApplications = () => {
       loadApplications().then((apps) => {
         if (cancelled) return
-        const mine = apps.filter((a) => a.seekerId === user.id)
-        setAppliedIds(new Set(mine.map((a) => a.jobId)))
-        setActivityCounts((prev) => ({ ...prev, cv: hasStoredCv() ? 1 : 0, applications: mine.length }))
-      })
-    }
-    const syncMessages = () => {
-      loadThreads().then((threads) => {
-        if (cancelled) return
-        setActivityCounts((prev) => ({ ...prev, messages: threads.length }))
-      })
-    }
-    const syncInterviews = () => {
-      loadSeekerInterviews(user.id).then((list) => {
-        if (cancelled) return
-        setActivityCounts((prev) => ({ ...prev, interviews: list.length }))
+        setAppliedIds(new Set(apps.filter((a) => a.seekerId === user.id).map((a) => a.jobId)))
       })
     }
     syncApplications()
-    syncMessages()
-    syncInterviews()
     window.addEventListener('vgb:applications', syncApplications)
-    window.addEventListener('vgb:messages', syncMessages)
-    window.addEventListener('vgb:interviews', syncInterviews)
     return () => {
       cancelled = true
       window.removeEventListener('vgb:applications', syncApplications)
-      window.removeEventListener('vgb:messages', syncMessages)
-      window.removeEventListener('vgb:interviews', syncInterviews)
     }
   }, [user?.id])
 
@@ -325,27 +252,6 @@ export function Home() {
   const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
   const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
 
-  // 지역별 실제 활성 공고 수 기준 TOP3 자동 선정 (나머지는 원래 순서로 숨기지 않고 표시)
-  const rankedRegions = useMemo(() => {
-    const withCounts = HOME_REGION_LIST.map((r) => ({
-      ...r,
-      count: jobs.reduce((n, j) => n + (jobMatchesRegion(j.location, r.id, j.workLocations) ? 1 : 0), 0),
-    }))
-    const top3 = [...withCounts].sort((a, b) => b.count - a.count).slice(0, 3)
-    const top3Ids = new Set(top3.map((r) => r.id))
-    const rest = HOME_REGION_LIST.filter((r) => !top3Ids.has(r.id))
-    return { top3, rest }
-  }, [jobs])
-
-  const handleRegionClick = useCallback((id: JobRegionId | null) => {
-    setSelectedCity(id)
-    setSearch('')
-    setBrandFilter(null)
-    setCategory('all')
-    setSubcategory('')
-    setUrgentOnly(false)
-  }, [])
-
   const handleApply = useCallback((job: Job) => {
     if (!user) { navigate('/dang-nhap'); return }
     openApply(job)
@@ -355,10 +261,6 @@ export function Home() {
   const cityResultRef = useRef<HTMLElement>(null)
   // Ref for scrolling to the main job list (quick-filter chips)
   const jobResultRef = useRef<HTMLElement>(null)
-  // Ref for the hero search's category <select>, focused by the "Theo ngành nghề" quick filter
-  const categorySelectRef = useRef<HTMLSelectElement>(null)
-  // Ref for the existing region panel — "내 주변" 위치 거부/실패 시 지역별 검색으로 안내할 때 사용
-  const regionPanelRef = useRef<HTMLDivElement>(null)
   // 2026-09-20 사용자 지시("Tìm việc theo khu vực thay vào đó" 눌러도
   // 변화가 없어 보인다고 실사이트 스크린샷으로 지적) — 원인은 scrollIntoView
   // 자체가 아니라, `.layout__header`가 `position: sticky`인데 target의
@@ -388,31 +290,6 @@ export function Home() {
       scrollToRefBelowHeader(jobResultRef.current, 'smooth')
     }
   }, [activeRec, selectedCity])
-
-  const handleBrandClick = (brandSearch: string) => {
-    setBrandFilter(brandSearch); setSearch(''); setCategory('all'); setSubcategory(''); setSelectedCity(null)
-  }
-
-  // Quick-filter category row: each button gives an isolated single-purpose view,
-  // so clicking one clears the other quick-filter states first.
-  const clearQuickFilters = () => {
-    setUrgentOnly(false); setTodayOnly(false); setSortMode('none'); setSelectedCity(null)
-  }
-  const scrollToResults = () => {
-    window.requestAnimationFrame(() => {
-      scrollToRefBelowHeader(jobResultRef.current, 'smooth')
-    })
-  }
-  const handleQuickUrgent = () => { clearQuickFilters(); setUrgentOnly(true); scrollToResults() }
-  const handleQuickToday = () => { clearQuickFilters(); setTodayOnly(true); scrollToResults() }
-  const handleQuickRecommended = () => { clearQuickFilters(); setSortMode('recommended'); scrollToResults() }
-  const handleQuickSalary = () => { clearQuickFilters(); setSortMode('salary'); scrollToResults() }
-  const handleQuickCategory = () => {
-    window.requestAnimationFrame(() => {
-      categorySelectRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      categorySelectRef.current?.focus()
-    })
-  }
 
   const isApplied = useCallback((id: string) => appliedIds.has(id), [appliedIds])
 
@@ -450,161 +327,8 @@ export function Home() {
         </div>
       </section>
 
-      {/* ── Curated opportunities: same card rhythm ───────────── */}
-      <section className="home-discovery">
-        <div className="home-discovery__grid">
-          <div className="home-discovery__card home-discovery__card--skill">
-            <AdSlot slotId="header" />
-          </div>
-          <div className="home-discovery__card home-discovery__card--account">
-            <div className="home-discovery-account__copy">
-              {user ? (
-                <>
-                  <strong>Tình hình việc làm của tôi</strong>
-                  <p>{`CV ${activityCounts.cv} · Ứng tuyển ${activityCounts.applications} · Tin nhắn ${activityCounts.messages} · Phỏng vấn ${activityCounts.interviews}`}</p>
-                  <div className="home-discovery-account__actions">
-                    <NavLink to="/ho-so" className="home-discovery-account__button">Xem hoạt động của tôi →</NavLink>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <strong>Chuẩn bị xin việc, quản lý ngay tại đây</strong>
-                  <p>Tạo CV để theo dõi từ ứng tuyển đến phỏng vấn — tất cả ở một nơi.</p>
-                  <div className="home-discovery-account__actions">
-                    <NavLink to="/ho-so" state={{ openCvTab: true }} className="home-discovery-account__button">Tạo CV</NavLink>
-                    <NavLink to="/ho-so" state={{ openApplicationsTab: true }} className="home-discovery-account__link">Xem tình trạng ứng tuyển →</NavLink>
-                  </div>
-                </>
-              )}
-            </div>
-            <img src="/images/mascot-turtle-mint.webp" className="home-discovery-account__mascot" aria-hidden alt="" />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Brands + Region: 독립된 60:40 compact 섹션 (브랜드/지역만) ── */}
-      <div className="home-brands-region-grid">
-
-        {/* LEFT 60%: 브랜드 로고 + 그 아래 붙인 광고 배너 2개 */}
-        <div className="home-brands-left">
-          <section className="home-brands-section">
-            <div className="home-brands-box">
-              <div className="home-brands-box__head">
-                <h2 className="home-brands-box__title">Thương hiệu tuyển dụng</h2>
-                <span className="home-brands-box__sub">Nhấn để xem việc làm</span>
-              </div>
-              <div className="home-brands-box__row">
-                <div className="home-brands-box__track">
-                  {[...FEATURED_BRANDS, ...FEATURED_BRANDS].map((b, i) => (
-                    <button key={`${b.name}-${i}`} className="home-brand" onClick={() => handleBrandClick(b.search)} title={b.name}>
-                      <BrandLogo name={b.name} initial={b.initial} color={b.color} logo={b.logo} />
-                      <span className="home-brand__name">{b.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── 기업 프로모션 카드: 브랜드 로고 목록 바로 아래 ── */}
-          <div className="home-ad-cards">
-            <AdSlot slotId="card1" />
-            <AdSlot slotId="card2" />
-          </div>
-        </div>
-
-        {/* RIGHT 40%: 지역 제목 + compact 지역 목록만 */}
-        <div className="home-region-panel" ref={regionPanelRef}>
-          <div className="home-region-panel__head">
-            <h2 className="home-region-panel__title">Việc làm theo khu vực</h2>
-            <button type="button" className="home-region-panel__all" onClick={() => handleRegionClick(null)}>Tất cả ›</button>
-          </div>
-
-          <div className="home-region-panel__top3">
-            {rankedRegions.top3.map((p, i) => (
-              <span key={p.id}>
-                {i > 0 && <span className="home-region-panel__top3-sep"> · </span>}
-                <button
-                  type="button"
-                  className={`home-region-panel__top3-btn${selectedCity === p.id ? ' is-active' : ''}`}
-                  onClick={() => handleRegionClick(p.id)}
-                >
-                  {p.label}
-                </button>
-              </span>
-            ))}
-          </div>
-
-          <div className="home-region-panel__rest">
-            {rankedRegions.rest.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className={`home-region-panel__rest-btn${selectedCity === p.id ? ' is-active' : ''}`}
-                onClick={() => handleRegionClick(p.id)}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── 빠른 필터 카테고리 (알바몬 스타일 원형 아이콘 + 텍스트, 3열) ── */}
-          <div className="home-quick-filters">
-            <div className="home-quick-filters__list">
-              <button type="button" className={`home-quick-filter${urgentOnly ? ' is-active' : ''}`} onClick={handleQuickUrgent}>
-                <span className="home-quick-filter__icon" aria-hidden>⚡</span>
-                <span className="home-quick-filter__label">Cần gấp</span>
-              </button>
-              <NavLink to="/ban-do" className="home-quick-filter">
-                <span className="home-quick-filter__icon" aria-hidden>📍</span>
-                <span className="home-quick-filter__label">Gần bạn</span>
-              </NavLink>
-              <button type="button" className={`home-quick-filter${todayOnly ? ' is-active' : ''}`} onClick={handleQuickToday}>
-                <span className="home-quick-filter__icon" aria-hidden>🗓️</span>
-                <span className="home-quick-filter__label">Làm hôm nay</span>
-              </button>
-              <button type="button" className={`home-quick-filter${sortMode === 'recommended' ? ' is-active' : ''}`} onClick={handleQuickRecommended}>
-                <span className="home-quick-filter__icon" aria-hidden>✨</span>
-                <span className="home-quick-filter__label">Gợi ý cho bạn</span>
-              </button>
-              <button type="button" className={`home-quick-filter${sortMode === 'salary' ? ' is-active' : ''}`} onClick={handleQuickSalary}>
-                <span className="home-quick-filter__icon" aria-hidden>💰</span>
-                <span className="home-quick-filter__label">Lương cao</span>
-              </button>
-              <button type="button" className="home-quick-filter" onClick={handleQuickCategory}>
-                <span className="home-quick-filter__icon" aria-hidden>🗂️</span>
-                <span className="home-quick-filter__label">Theo ngành nghề</span>
-              </button>
-            </div>
-            <div className="home-category-panel">
-              <p className="home-category-panel__label">Ngành nghề</p>
-              <select
-                ref={categorySelectRef}
-                className="home-category-panel__select"
-                value={category}
-                onChange={(e) => { setCategory(e.target.value as JobCategory | 'all'); setSubcategory('') }}
-              >
-                <option value="all">Tất cả ngành nghề</option>
-                {ALL_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-                ))}
-              </select>
-              {category !== 'all' && SUBCATEGORY_LABELS[category] && (
-                <select
-                  className="home-category-panel__select"
-                  value={subcategory}
-                  onChange={(e) => setSubcategory(e.target.value)}
-                >
-                  <option value="">Tất cả phân loại chi tiết</option>
-                  {Object.entries(SUBCATEGORY_LABELS[category]!).map(([id, label]) => (
-                    <option key={id} value={id}>{label}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
+      <HomeMapExplorer />
 
       </div>{/* /.home-top-bg */}
 
