@@ -110,7 +110,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
         hire_count: draft.hireCount ?? null,
         labor_contract_pledge: draft.laborContractPledge ?? null,
         social_insurance_pledge: draft.socialInsurancePledge ?? null,
-        // 근무조건(20261001090000) — 입력하지 않은 항목은 NULL(미확인) 그대로 저장
+        // 근무조건(20261001100601) — 입력하지 않은 항목은 NULL(미확인) 그대로 저장
         shift_type: draft.shiftType ?? null,
         shuttle_bus: draft.shuttleBus ?? null,
         dormitory: draft.dormitory ?? null,

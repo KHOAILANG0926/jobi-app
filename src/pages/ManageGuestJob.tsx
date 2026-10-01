@@ -5,7 +5,7 @@ import JobConditionsFields from '../components/job-form/JobConditionsFields'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 
-/** get_job_conditions() 결과(20261001090000) — 근무조건 + 게시자 핀 */
+/** get_job_conditions() 결과(20261001100601) — 근무조건 + 게시자 핀 */
 interface ConditionsRow {
   shift_type: JobConditions['shiftType']
   shuttle_bus: boolean | null

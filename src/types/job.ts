@@ -128,7 +128,7 @@ export interface Job {
   images?: string[]
   source?: string
   workPeriod?: string
-  /** 2026-10-01 근무조건(20261001090000). null = 정보 미확인 — false/없음으로 추정하지 않는다.
+  /** 2026-10-01 근무조건(20261001100601). null = 정보 미확인 — false/없음으로 추정하지 않는다.
    *  shiftType은 기존 local_jobs.shift_type(hours 텍스트에서 시간대가 하나일 때만 구조화)을 그대로 쓴다. */
   shiftType?: ShiftType | null
   shuttleBus?: boolean | null
