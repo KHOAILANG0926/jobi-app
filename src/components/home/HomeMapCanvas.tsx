@@ -1,8 +1,8 @@
-// 메인 지도 탐색용 Leaflet 캔버스. 지도는 한 번만 만들고, 기준 위치·반경 원·공고 핀만 갱신한다
-// (반경 슬라이더를 움직일 때마다 지도를 다시 만들지 않기 위해 JobLocationMap과 별도).
-// leaflet은 window를 참조하므로 이 파일은 반드시 lazy import로만 불러온다(SSR 번들 보호).
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+// 메인 지도만 Geoapify 벡터 스타일로 렌더링한다. 상위 컴포넌트가 lazy import하여 SSR에서 실행되지 않는다.
+import * as maplibregl from 'maplibre-gl'
+import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useEffect, useRef, useState } from 'react'
 
 export interface HomeMapMarker {
@@ -14,7 +14,6 @@ export interface HomeMapMarker {
 
 interface Props {
   origin: { lat: number; lng: number }
-  /** true = 실제 현재 위치, false = 사용자가 고른 지역 중심 */
   originIsUser: boolean
   radiusKm: number
   recenterRequest: number
@@ -23,14 +22,8 @@ interface Props {
   onSelect: (id: string) => void
 }
 
-function jobIcon(selected: boolean): L.DivIcon {
-  return L.divIcon({
-    className: '',
-    html: `<span class="hme-pin${selected ? ' is-selected' : ''}"></span>`,
-    iconSize: selected ? [30, 30] : [24, 24],
-    iconAnchor: selected ? [15, 30] : [12, 24],
-  })
-}
+const CIRCLE_SOURCE = 'home-search-radius'
+maplibregl.setWorkerUrl(mapWorkerUrl)
 
 function zoomForRadius(km: number): number {
   if (km <= 2) return 14
@@ -40,86 +33,164 @@ function zoomForRadius(km: number): number {
   return 10
 }
 
-export default function HomeMapCanvas({ origin, originIsUser, radiusKm, recenterRequest, markers, selectedId, onSelect }: Props) {
+function radiusGeoJSON(origin: Props['origin'], radiusKm: number) {
+  const lat = origin.lat * Math.PI / 180
+  const lng = origin.lng * Math.PI / 180
+  const angular = radiusKm / 6371.0088
+  const coordinates: [number, number][] = []
+  for (let i = 0; i <= 96; i++) {
+    const bearing = i * Math.PI * 2 / 96
+    const pointLat = Math.asin(Math.sin(lat) * Math.cos(angular) + Math.cos(lat) * Math.sin(angular) * Math.cos(bearing))
+    const pointLng = lng + Math.atan2(Math.sin(bearing) * Math.sin(angular) * Math.cos(lat), Math.cos(angular) - Math.sin(lat) * Math.sin(pointLat))
+    coordinates.push([pointLng * 180 / Math.PI, pointLat * 180 / Math.PI])
+  }
+  return { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: [coordinates] }, properties: {} }
+}
+
+function tuneStyle(map: MapLibreMap) {
+  const paint = (id: string, property: Parameters<MapLibreMap['setPaintProperty']>[1], value: string | number) => {
+    if (map.getLayer(id)) map.setPaintProperty(id, property, value)
+  }
+  const hide = (id: string) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none') }
+  paint('landuse-industrial', 'fill-color', '#e5e9ed')
+  paint('landuse-industrial', 'fill-opacity', 0.75)
+  paint('water', 'fill-color', '#cfe8f7')
+  paint('park', 'fill-color', '#e4f2df')
+  paint('building', 'fill-color', '#e9ecef')
+  paint('building-top', 'fill-color', '#e9ecef')
+  paint('highway-primary', 'line-color', '#fff0bd')
+  paint('highway-trunk', 'line-color', '#ffe5a6')
+  paint('highway-motorway', 'line-color', '#ffdda0')
+  paint('highway-secondary-tertiary', 'line-color', '#ffffff')
+  paint('highway-minor', 'line-color', '#ffffff')
+  paint('boundary-land-level-4', 'line-opacity', 0.25)
+  paint('boundary-land-level-2', 'line-opacity', 0.35)
+  for (const id of ['place-village', 'place-town', 'place-city', 'place-city-capital']) {
+    paint(id, 'text-color', '#334155')
+    paint(id, 'text-halo-color', '#ffffff')
+    paint(id, 'text-halo-width', 1.5)
+  }
+  paint('highway-name-major', 'text-color', '#475569')
+  paint('highway-name-minor', 'text-color', '#7c8998')
+  hide('poi-level-2')
+  hide('poi-level-3')
+}
+
+export default function HomeMapCanvas(props: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<L.Map | null>(null)
-  const circleRef = useRef<L.Circle | null>(null)
-  const originRef = useRef<L.CircleMarker | null>(null)
-  const layerRef = useRef<L.LayerGroup | null>(null)
-  const onSelectRef = useRef(onSelect)
+  const mapRef = useRef<MapLibreMap | null>(null)
+  const readyRef = useRef(false)
+  const originMarkerRef = useRef<Marker | null>(null)
+  const jobMarkersRef = useRef<Marker[]>([])
+  const propsRef = useRef(props)
   const userInteractedRef = useRef(false)
+  const lastViewportRef = useRef({ origin: props.origin, recenterRequest: props.recenterRequest })
   const [tileError, setTileError] = useState(false)
-  onSelectRef.current = onSelect
+  propsRef.current = props
+
+  const updateMarkers = () => {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    jobMarkersRef.current.forEach((marker) => marker.remove())
+    jobMarkersRef.current = propsRef.current.markers.map((job) => {
+      const selected = job.id === propsRef.current.selectedId
+      const element = document.createElement('div')
+      element.className = 'hme-map__job-marker'
+      element.style.width = selected ? '30px' : '24px'
+      element.style.height = selected ? '30px' : '24px'
+      element.style.zIndex = selected ? '2' : '1'
+      element.title = job.label
+      element.setAttribute('role', 'button')
+      element.setAttribute('aria-label', job.label)
+      element.tabIndex = 0
+      const pin = document.createElement('span')
+      pin.className = `hme-pin${selected ? ' is-selected' : ''}`
+      element.appendChild(pin)
+      element.addEventListener('click', () => propsRef.current.onSelect(job.id))
+      element.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          propsRef.current.onSelect(job.id)
+        }
+      })
+      return new maplibregl.Marker({ element, anchor: 'bottom' }).setLngLat([job.lng, job.lat]).addTo(map)
+    })
+  }
 
   useEffect(() => {
-    if (!boxRef.current) return
-    const map = L.map(boxRef.current, { scrollWheelZoom: true, zoomControl: true }).setView([origin.lat, origin.lng], zoomForRadius(radiusKm))
+    const box = boxRef.current
+    if (!box) return
+    const initial = propsRef.current
     const key = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
-    const tiles = L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${key ?? ''}`, {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | © <a href="https://openmaptiles.org/">OpenMapTiles</a> | © <a href="https://www.geoapify.com/">Geoapify</a>',
-    }).addTo(map)
-    let loaded = 0
-    tiles.on('tileload', () => { loaded += 1 })
-    tiles.on('load', () => { if (loaded === 0) setTileError(true) })
-    circleRef.current = L.circle([origin.lat, origin.lng], {
-      radius: radiusKm * 1000, color: '#2563eb', weight: 1.5, fillColor: '#3b82f6', fillOpacity: 0.08, interactive: false,
-    }).addTo(map)
-    originRef.current = L.circleMarker([origin.lat, origin.lng], {
-      radius: 8, color: '#ffffff', weight: 3, fillColor: '#2563eb', fillOpacity: 1, interactive: false,
-    }).addTo(map)
-    layerRef.current = L.layerGroup().addTo(map)
+    const map = new maplibregl.Map({
+      container: box,
+      style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${encodeURIComponent(key ?? '')}`,
+      center: [initial.origin.lng, initial.origin.lat],
+      zoom: zoomForRadius(initial.radiusKm),
+      attributionControl: false,
+    })
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
+    map.addControl(new maplibregl.AttributionControl({ compact: true }))
     mapRef.current = map
-    // 지연 로딩·그리드 배치 직후엔 컨테이너 크기가 0/변동일 수 있어, 크기가 바뀔 때마다 다시 잰다.
     const markUserInteraction = () => { userInteractedRef.current = true }
     const markZoomControlClick = (event: MouseEvent) => {
-      if (event.target instanceof Element && event.target.closest('.leaflet-control-zoom a')) markUserInteraction()
+      if (event.target instanceof Element && event.target.closest('.maplibregl-ctrl-zoom-in, .maplibregl-ctrl-zoom-out')) markUserInteraction()
     }
-    boxRef.current.addEventListener('wheel', markUserInteraction, { passive: true })
-    boxRef.current.addEventListener('click', markZoomControlClick)
+    box.addEventListener('wheel', markUserInteraction, { passive: true })
+    box.addEventListener('click', markZoomControlClick)
     map.on('dragstart', markUserInteraction)
-    const ro = new ResizeObserver(() => map.invalidateSize({ pan: !userInteractedRef.current }))
-    ro.observe(boxRef.current)
-    const box = boxRef.current
+    map.on('error', () => setTileError(true))
+    map.on('load', () => {
+      readyRef.current = true
+      tuneStyle(map)
+      const current = propsRef.current
+      const firstSymbol = map.getStyle().layers.find((layer) => layer.type === 'symbol')?.id
+      map.addSource(CIRCLE_SOURCE, { type: 'geojson', data: radiusGeoJSON(current.origin, current.radiusKm) })
+      map.addLayer({ id: 'home-radius-fill', type: 'fill', source: CIRCLE_SOURCE, paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.08 } }, firstSymbol)
+      map.addLayer({ id: 'home-radius-line', type: 'line', source: CIRCLE_SOURCE, paint: { 'line-color': '#2563eb', 'line-width': 1.5, 'line-opacity': 0.75 } }, firstSymbol)
+      const dot = document.createElement('div')
+      dot.className = 'hme-map__origin'
+      dot.style.backgroundColor = current.originIsUser ? '#2563eb' : '#64748b'
+      originMarkerRef.current = new maplibregl.Marker({ element: dot, anchor: 'center' })
+        .setLngLat([current.origin.lng, current.origin.lat]).addTo(map)
+      updateMarkers()
+    })
+    const ro = new ResizeObserver(() => map.resize())
+    ro.observe(box)
     return () => {
       ro.disconnect()
       box.removeEventListener('wheel', markUserInteraction)
       box.removeEventListener('click', markZoomControlClick)
       map.off('dragstart', markUserInteraction)
+      jobMarkersRef.current.forEach((marker) => marker.remove())
+      jobMarkersRef.current = []
+      originMarkerRef.current?.remove()
+      originMarkerRef.current = null
       map.remove()
       mapRef.current = null
+      readyRef.current = false
     }
-    // 지도는 최초 1회만 만든다 — 이후 변경은 아래 effect들이 반영.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 반경은 원만 바꾼다. 명시적인 지역·현재 위치 선택에서만 시점을 다시 맞춘다.
-  const lastViewport = useRef({ origin, recenterRequest })
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    circleRef.current?.setLatLng([origin.lat, origin.lng]).setRadius(radiusKm * 1000)
-    originRef.current?.setLatLng([origin.lat, origin.lng])
-    originRef.current?.setStyle({ fillColor: originIsUser ? '#2563eb' : '#64748b' })
-    const moved = lastViewport.current.origin.lat !== origin.lat || lastViewport.current.origin.lng !== origin.lng
-      || lastViewport.current.recenterRequest !== recenterRequest
-    lastViewport.current = { origin, recenterRequest }
+    const { origin, originIsUser, radiusKm, recenterRequest } = props
+    const source = map.getSource(CIRCLE_SOURCE) as GeoJSONSource | undefined
+    source?.setData(radiusGeoJSON(origin, radiusKm))
+    originMarkerRef.current?.setLngLat([origin.lng, origin.lat])
+    if (originMarkerRef.current) originMarkerRef.current.getElement().style.backgroundColor = originIsUser ? '#2563eb' : '#64748b'
+    const previous = lastViewportRef.current
+    const moved = previous.origin.lat !== origin.lat || previous.origin.lng !== origin.lng || previous.recenterRequest !== recenterRequest
+    lastViewportRef.current = { origin, recenterRequest }
     if (moved) {
       userInteractedRef.current = false
-      map.setView([origin.lat, origin.lng], zoomForRadius(radiusKm))
+      map.jumpTo({ center: [origin.lng, origin.lat], zoom: zoomForRadius(radiusKm) })
     }
-  }, [origin, originIsUser, radiusKm, recenterRequest])
+  }, [props.origin, props.originIsUser, props.radiusKm, props.recenterRequest])
 
-  useEffect(() => {
-    const layer = layerRef.current
-    if (!layer) return
-    layer.clearLayers()
-    for (const m of markers) {
-      const selected = m.id === selectedId
-      L.marker([m.lat, m.lng], { icon: jobIcon(selected), title: m.label, zIndexOffset: selected ? 1000 : 0, keyboard: true })
-        .on('click', () => onSelectRef.current(m.id))
-        .addTo(layer)
-    }
-  }, [markers, selectedId])
+  useEffect(() => { updateMarkers() }, [props.markers, props.selectedId])
 
   return (
     <div className="hme-map">
