@@ -2,6 +2,15 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-01 22:03 — 메인 지도 시각 높이·여백 축소 + 수동 시점 유지
+
+- 요청: PC 지도 모듈 높이와 주변 여백 축소, 빈 오른쪽 패널 경량화, 사용자가 휠·드래그·줌 버튼으로 조작한 지도를 radius 변경 시 그대로 유지.
+- 변경: PC 높이 425/440/485px, Korea–지도 8px·지도–추천 33px, 빈 패널 간소화. 반경의 `fitBounds` 제거, 수동 조작 기록, 지역/현재 위치 명시 선택 때만 재정렬. 가로·DB·필터 구조·Geoapify·모바일 정책 유지.
+- 수정 파일: src/index.css, src/components/home/HomeMapCanvas.tsx, src/components/home/HomeMapExplorer.tsx, CHATGPT_HANDOFF.md, WORK_LOG.md.
+- 검증: tsc·build 통과. 로컬 PC 3종+모바일 375에서 배치·스크롤·핀/패널 확인. 수정 전 wheel/drag/+→radius에서 줌 리셋 재현 후 수정 후 줌·중심 유지, 지역·현재 위치·반복 현재 위치 재정렬 확인. Production 세 PC 크기·간격·추천 영역, 1440 wheel+radius 시점 유지 확인.
+- commit: `a1560c9`(코드) + 이 문서 커밋 / push: master / deploy: Vercel Production Ready 및 실제 사이트 확인.
+- 남은 문제: 이번 변경 신규 문제 없음.
+
 ## 2026-10-01 21:33 — 메인 지도 탐색 영역 PC 높이 추가 축소
 
 - 요청: 가로 비율·기능은 유지하고 PC 지도 모듈 높이만 440/470/510px로 축소, 추천 영역 첫 화면 노출 확인 후 배포.
