@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-**메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선 (2026-10-01, 집 PC).** 기존 기능/DB 로직은 그대로 유지. 상태: 로컬 VERIFIED, master push·Production 확인은 이 작업의 후속 단계.
+**메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선 (2026-10-01, 집 PC).** 기존 기능/DB 로직은 그대로 유지. 상태: VERIFIED → MASTER PUSHED(`3b69325`) → PRODUCTION VERIFIED(Vercel Ready, viecganban.vn 확인).
 
 ## 변경 내용
 
@@ -15,21 +15,21 @@
 
 - `npx tsc --noEmit` 통과, `npm run build` 통과.
 - 로컬 브라우저 1366×768 / 1440×900 / 1920×1080 / 모바일 375×812: 높이, 3열 상·하단 정렬, Leaflet 크기, 조건 펼침 높이 유지와 좌·우 내부 스크롤, 반경 변경, verified 핀 클릭→오른쪽 패널 연결, 가로 넘침·페이지 오류 없음 확인. `osm-bright` 타일 URL 적용 확인.
-- 로컬 `.env.local`에 Geoapify 키가 없어 타일 이미지 자체는 회색으로 표시됨. Production의 실제 키/타일 로딩은 배포 후 확인 필요.
+- 로컬 `.env.local`에 Geoapify 키가 없어 타일 이미지는 회색. Production 1440×900에서는 540px·3열 정렬·실제 `osm-bright` 타일(256px 이미지 로딩)·페이지 오류 0 확인.
 
 ## 발견된 문제
 
-- 로컬 키 부재로 밝은 타일의 실제 색상은 로컬 브라우저에서 시각 검증하지 못함. Production 확인 필요.
+- 로컬 키 부재로 로컬 타일 이미지 시각 검증은 제한됨. Production 타일 로딩 확인 완료.
 - 기존 과제: 실제 공개 공고 핀 데이터 부족, `scripts/test-home-composition.mjs` 구식, 고용주 전체 수정 화면 없음(이번 범위 밖).
 
 ## 다음 결정사항
 
-- master push 후 Vercel Production 배포와 실제 지도 타일·정렬 확인. 키가 Production에도 없으면 새 API 키를 임의로 만들지 않고 사용자에게 보고.
+- 이번 UI 작업 완료. 이후 지도 핀 데이터·하단 목록 연동 등은 별도 요청 시 진행.
 - Chợ Tốt 수집 전용 계정 테스트는 별도 보류. DB/크롤러/연락처 정책 변경 금지.
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-10-01 — 메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선** — 로컬 VERIFIED(4종 브라우저·tsc·build), master push·Production 확인은 후속 단계.
+1. **2026-10-01 — 메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선** — MASTER PUSHED(`3b69325`) + PRODUCTION VERIFIED(4종 로컬 브라우저·tsc·build, 실제 사이트 540px·타일 로딩).
 
 2. **2026-10-01 — PC 메인 중간 영역 지도 탐색 개편** — MASTER PUSHED(`a7df8d8`) + PRODUCTION VERIFIED(빈 지도 + 안내, 한국 입구·Việc làm nổi bật 정상).
 3. **2026-10-01 — ChatGPT 추적용 기록 규칙 + 한국 분리 규칙·장기 보강(문서)** — MASTER PUSHED(`1244c8c`, `6e0e32c`, `4d3a9f5`). 코드 변경 없음.
