@@ -53,8 +53,8 @@ export default function HomeMapCanvas({ origin, originIsUser, radiusKm, markers,
     if (!boxRef.current) return
     const map = L.map(boxRef.current, { scrollWheelZoom: true, zoomControl: true }).setView([origin.lat, origin.lng], zoomForRadius(radiusKm))
     const key = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
-    const tiles = L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=${key ?? ''}`, {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | © <a href="https://www.geoapify.com/">Geoapify</a>',
+    const tiles = L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${key ?? ''}`, {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | © <a href="https://openmaptiles.org/">OpenMapTiles</a> | © <a href="https://www.geoapify.com/">Geoapify</a>',
     }).addTo(map)
     let loaded = 0
     tiles.on('tileload', () => { loaded += 1 })

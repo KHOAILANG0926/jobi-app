@@ -2,6 +2,15 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-01 21:21 — 메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선
+
+- 요청: 메인 지도 UI만 축소·3열 정렬·패널 내부 스크롤·밝은 지도 타일로 변경하고 브라우저 검증 후 배포.
+- 변경: PC 높이 clamp(500px, 60vh, 580px), 단일 grid 행과 Leaflet 부모 높이 정합, 좌·우·모바일 필터 내부 스크롤, 기존 Geoapify 키의 osm-bright 타일과 필수 출처 표시.
+- 수정 파일: src/index.css, src/components/home/HomeMapCanvas.tsx, CHATGPT_HANDOFF.md, WORK_LOG.md.
+- 검증: tsc·build 통과. 1366×768/1440×900/1920×1080/375×812 브라우저에서 높이·정렬·스크롤·반경·verified 핀→패널·타일 URL·가로 넘침 없음 확인. 로컬 키 부재로 실제 타일 색상은 Production 확인 필요.
+- commit: 이 커밋 / push: master / deploy: Vercel Production 확인 예정.
+- 남은 문제: Production 타일 로딩·배포 확인.
+
 ## 2026-10-01 (회사 PC) — 공고 근무조건 + 게시자 지도 핀
 
 - 요청: 메인 지도 필터가 실제 데이터로 동작하도록 공고 데이터 구조 확장(조사→migration→등록/수정 UI→타입/API→필터→검증→배포)
