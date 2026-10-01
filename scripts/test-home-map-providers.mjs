@@ -210,13 +210,18 @@ function googleFixture({ throwOnMap = false } = {}) {
     class FakeMap {
       constructor(element, options) {
         if (${throwOnMap}) throw new Error('forced init failure');
-        this.element = element; this.center = options.center; this.zoom = options.zoom; this.listeners = {};
+        if (options.renderingType !== 'VECTOR') throw new Error('Google map did not request VECTOR rendering');
+        if (options.mapTypeId !== 'roadmap') throw new Error('Google map did not default to ROADMAP');
+        if (options.styles !== undefined) throw new Error('Google map applied unexpected custom styles');
+        if (options.mapTypeControlOptions?.mapTypeIds?.join(',') !== 'roadmap,hybrid') throw new Error('ROADMAP/HYBRID toggle regressed');
+        this.element = element; this.center = options.center; this.zoom = options.zoom; this.renderingType = options.renderingType; this.listeners = {};
         setTimeout(() => this.emit('idle'), 0);
       }
       addListener(type, callback) { (this.listeners[type] ||= []).push(callback); return { remove: () => { this.listeners[type] = (this.listeners[type] || []).filter(x => x !== callback); } }; }
       emit(type) { for (const callback of this.listeners[type] || []) callback(); }
       getCenter() { const p = this.center; return { lat: () => Number(p.lat), lng: () => Number(p.lng) }; }
       getZoom() { return this.zoom; }
+      getRenderingType() { return this.renderingType; }
       setCenter(center) { this.center = center; this.emit('idle'); }
       setZoom(zoom) { this.zoom = zoom; this.emit('idle'); }
     }
@@ -228,7 +233,9 @@ function googleFixture({ throwOnMap = false } = {}) {
     }
     const maps = { Map: FakeMap, Circle: FakeCircle, OverlayView: FakeOverlayView,
       MapTypeId: { ROADMAP: 'roadmap', HYBRID: 'hybrid' }, MapTypeControlStyle: { HORIZONTAL_BAR: 1 },
+      RenderingType: { VECTOR: 'VECTOR', RASTER: 'RASTER', UNINITIALIZED: 'UNINITIALIZED' },
       event: { trigger: () => {} } };
+    window.google.maps.event = maps.event;
     window.google.maps.importLibrary = async () => maps;
     old();
   })();`
@@ -255,14 +262,30 @@ async function verifyFailure(browser, mode) {
   await page.close()
 }
 
+async function verifyVectorConfiguration(browser) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  const errors = attachDiagnostics(page)
+  await page.route('**/maps.googleapis.com/maps/api/js?**', (route) => route.fulfill({
+    contentType: 'application/javascript',
+    body: googleFixture(),
+  }))
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
+  await waitForProvider(page, 'google')
+  await page.waitForFunction(() => document.querySelector('.hme-map__canvas')?.dataset.mapRenderingType === 'VECTOR')
+  if (errors.length) throw new Error(errors.join('; '))
+  await page.close()
+  return { requestedRenderingType: 'VECTOR', defaultMapType: 'ROADMAP', toggle: 'ROADMAP/HYBRID', customStyles: 'NONE' }
+}
+
 const browser = await chromium.launch({ headless: true })
-const report = { keyAbsent: null, failures: {}, actualGoogle: realGoogleKeyPresent ? 'NOT_RUN' : 'PENDING_NO_KEY' }
+const report = { keyAbsent: null, vectorConfiguration: null, failures: {}, actualGoogle: realGoogleKeyPresent ? 'NOT_RUN' : 'PENDING_NO_KEY' }
 try {
   await build('')
   report.keyAbsent = await withPreview(() => verifyNoKeyGeoapify(browser))
 
   await build('browser-fixture-key')
   await withPreview(async () => {
+    report.vectorConfiguration = await verifyVectorConfiguration(browser)
     for (const mode of ['abort', 'timeout', 'auth', 'init']) {
       await verifyFailure(browser, mode)
       report.failures[mode] = 'PASS'

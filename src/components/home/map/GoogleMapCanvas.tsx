@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createGoogleJobMarkerLayer, type GoogleJobMarkerLayer } from './GoogleJobMarkerLayer'
 import { subscribeGoogleAuthFailure, type GoogleAuthFailureHost } from './googleAuthFailure'
 import { loadGoogleMaps } from './googleMapsLoader'
+import { createGoogleMapOptions } from './googleMapOptions'
 import { calculateInitialZoom, radiusKmToMeters } from './homeMapGeometry'
 import type { HomeMapProviderProps, MapPoint, MapViewportSize } from './HomeMapTypes'
 
@@ -112,20 +113,11 @@ export default function GoogleMapCanvas(props: HomeMapProviderProps) {
       try {
         const current = propsRef.current
         const initialViewport = current.initialViewport
-        const map = new maps.Map(box, {
-          center: initialViewport?.center ?? current.origin,
-          zoom: initialViewport?.zoom ?? calculateInitialZoom(current.origin.lat, current.radiusKm, canvasSize(box)),
-          mapTypeId: maps.MapTypeId.ROADMAP,
-          isFractionalZoomEnabled: true,
-          zoomControl: true,
-          streetViewControl: false,
-          fullscreenControl: false,
-          mapTypeControl: true,
-          mapTypeControlOptions: {
-            style: maps.MapTypeControlStyle.HORIZONTAL_BAR,
-            mapTypeIds: [maps.MapTypeId.ROADMAP, maps.MapTypeId.HYBRID],
-          },
-        })
+        const map = new maps.Map(box, createGoogleMapOptions(
+          maps,
+          initialViewport?.center ?? current.origin,
+          initialViewport?.zoom ?? calculateInitialZoom(current.origin.lat, current.radiusKm, canvasSize(box)),
+        ))
         mapRef.current = map
         lastRecenterRef.current = { origin: current.origin, recenterRequest: current.recenterRequest }
 
@@ -145,11 +137,16 @@ export default function GoogleMapCanvas(props: HomeMapProviderProps) {
         jobLayerRef.current.setMarkers(current.markers, current.selectedId, current.onSelect)
 
         listeners.push(map.addListener('dragstart', markUserInteraction))
+        const reportRenderingType = () => {
+          if (isActive()) box.dataset.mapRenderingType = String(map.getRenderingType())
+        }
+        listeners.push(map.addListener('renderingtype_changed', reportRenderingType))
         listeners.push(map.addListener('idle', () => {
           if (!isActive()) return
           const center = map.getCenter()
           const zoom = map.getZoom()
           if (!center || typeof zoom !== 'number') return
+          reportRenderingType()
           const viewport = { center: { lat: center.lat(), lng: center.lng() }, zoom }
           box.dataset.mapCenterLat = String(viewport.center.lat)
           box.dataset.mapCenterLng = String(viewport.center.lng)
