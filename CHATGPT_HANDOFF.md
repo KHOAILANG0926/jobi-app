@@ -2,35 +2,30 @@
 
 ## 현재 작업
 
-**메인 지도 Geoapify 벡터 전환 (2026-10-01).** 상태: DEPLOYED. master 코드 커밋 `315eb91` push, Vercel Production Ready 및 viecganban.vn 실사이트 확인. 기존 확정 PC 높이·가로 비율·필터 정책 유지.
+**메인 지도 Google Native provider + Geoapify fallback (2026-10-02).** 상태: VERIFIED, Production 배포 대기. Google 키가 없는 현재 환경에서는 Geoapify가 즉시 선택되며 Google SDK 요청이 발생하지 않는다.
 
 ## 변경 내용
 
-- 메인 `HomeMapCanvas`만 Leaflet raster → MapLibre GL + 기존 `VITE_GEOAPIFY_API_KEY`의 Geoapify `osm-bright/style.json` vector로 전환. Leaflet은 다른 지도 화면이 사용하므로 dependency 유지.
-- 벡터 스타일의 주요 도로 계층, 지명 대비, 물·녹지·산업지역·건물 색상을 조정하고 소형 POI 2·3단계를 숨김. 공고 핀 빨강/선택 강조, 위치 점 파랑, 반경 원 연파랑 유지.
-- 최초 로딩 및 지역/현재 위치 명시 선택에만 시점을 설정. 반경 변경은 원 데이터와 기존 필터 결과만 갱신하며 wheel·drag·+/− 조작 후 center/zoom 유지. MapLibre worker를 Vite 별도 청크로 번들링하고 기존 lazy import 및 ResizeObserver 유지.
-- 수정 범위: `HomeMapCanvas.tsx`, `src/index.css`의 핀/위치점 스타일, `package.json`/lockfile, 이 문서와 `WORK_LOG.md`. DB·필터 로직·PC/모바일 레이아웃 수치 변경 없음.
+- `HomeMapCanvas`는 provider 선택·12초 초기화 timeout·마지막 center/zoom 승계만 관리한다. `GoogleMapCanvas`는 Google Maps JavaScript API ROADMAP/HYBRID를, `GeoapifyMapCanvas`는 기존 MapLibre + Geoapify `osm-bright/style.json`을 담당한다.
+- Google loader reject, 초기화 예외, `gm_authFailure`, timeout에서 Geoapify로 한 번만 전환한다. 전역 인증 callback은 기존 handler 보존·다중 구독·Strict Mode·외부 handler 교체를 안전하게 처리한다.
+- 공고 marker는 job id identity의 독립 `GoogleJobMarkerLayer`로 분리했다. 동일 좌표 공고도 별도 record이며 향후 clustering/spiderfy/다른 renderer로 교체할 수 있다. 이번 작업에는 clustering을 추가하지 않았다.
+- 검색 반경은 1/3/5/10km를 정확히 1000/3000/5000/10000m로 유지한다. 최초 진입·지역 선택·현재 위치에서만 원 지름이 화면의 약 65%가 되도록 zoom을 계산하며, radius 변경은 circle과 결과만 갱신한다.
+- Google key는 `VITE_GOOGLE_MAPS_API_KEY`만 참조하고 값은 하드코딩하지 않는다. key가 없으면 Google component와 SDK를 실행하지 않는다. DB·필터 구조·지도 높이·가로 비율·모바일 구조는 변경하지 않았다.
 
 ## 테스트 결과
 
-- `npx tsc --noEmit`, `npm run build`, `npm test` 통과(기존 10개 테스트 파일). SSR 빌드 통과.
-- 로컬 개발 서버와 Production 빌드 미리보기의 실제 Chrome: 1366×768=425px, 1440×900=440px, 1920×1080=485px, 모바일 375px 정상. 3열 상·하단 정렬과 canvas 부모 높이 일치. 콘솔/hydration 오류, Geoapify style/tile 요청 오류 없음.
-- wheel→radius, drag→radius, + 버튼→radius에서 시점 유지. 새 지역 및 현재 위치 선택에서 재정렬. 브라우저 fixture로 핀 클릭→선택 상태/선택 핀 강조 확인.
-- Production 1440×900: MapLibre 렌더링, 지도 높이 440px, Geoapify vector style HTTP 200, 위치점 표시, 콘솔 오류 없음.
+- `npx tsc --noEmit`, `npm run build`, `npm test` 통과. client와 SSR 빌드에서 window/document/google 서버 오류 없음.
+- 브라우저: 1366×768=425px, 1440×900=440px, 1920×1080=485px, 모바일 375px 통과. 3열 상·하단 정렬, 내부 scroll, 가로 overflow 없음, Featured/Korea 영역 유지.
+- Bắc Ninh 3km 원의 계산상 화면 지름 0.65. wheel→radius, drag→radius, zoom +→radius에서 center/zoom 유지. 새 지역과 현재 위치에서만 재정렬.
+- Google 가짜 key 환경에서 script abort, 12초 stall, `gm_authFailure`, map constructor 예외가 모두 Geoapify 한 개로 fallback. hydration 오류 없음. key 없는 빌드는 Google 요청 0건, Geoapify style 정상.
+- 실제 Google 지도 검증은 Production/Preview 키가 없어 `PENDING_NO_KEY`. Production 전환 전 제한된 Preview 키로 ROADMAP/HYBRID·quota·billing을 확인해야 한다.
 
 ## 발견된 문제
 
-- 메인 지도 지연 청크는 Leaflet 때보다 커짐(약 1.04 MB minified, 282 KB gzip). 메인 페이지 초기 번들과 분리되어 로딩됨.
-- Production의 실제 verified 핀이 현재 적어 브라우저 핀 테스트는 fixture로 검증. 기존 공개 데이터 제약.
+- Google Maps 기본 지도는 모든 quota/billing/tile 실패를 일관된 JavaScript 오류로 제공하지 않는다. 코드 fallback은 loader/auth/init/timeout 신호를 처리하며, 운영 한계는 Google Cloud quota cap·budget alert·key 제한으로 보완해야 한다.
+- 기존 Geoapify lazy chunk 크기 경고(약 1.04MB minified)는 유지된다. Google provider 추가로 key 없는 운영 초기 경로의 provider 실행 방식은 바뀌지 않는다.
 
 ## 다음 결정사항
 
-- 현재 작업은 Production 확인 완료. 추후 실제 verified 공고 데이터가 늘면 운영 핀 분포를 확인할 수 있다.
-
-## 최근 완료 작업 로그 (최근 5개)
-
-1. **2026-10-01 — 메인 지도 시각 높이·여백 축소 + 수동 시점 유지** — MASTER PUSHED(`a1560c9`) + PRODUCTION VERIFIED.
-2. **2026-10-01 — 메인 지도 탐색 영역 PC 세로 높이 추가 축소** — MASTER PUSHED(`4817df2`) + PRODUCTION VERIFIED.
-3. **2026-10-01 — 메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선** — MASTER PUSHED(`3b69325`) + PRODUCTION VERIFIED.
-4. **2026-10-01 — PC 메인 중간 영역 지도 탐색 개편** — MASTER PUSHED(`a7df8d8`) + PRODUCTION VERIFIED.
-5. **2026-10-01 — ChatGPT 추적용 기록 규칙 + 한국 분리 규칙·장기 보강** — MASTER PUSHED(`1244c8c`, `6e0e32c`, `4d3a9f5`).
+- 검증 브랜치를 master에 통합하고 Production에서 Geoapify 유지, Google 요청 0건, 425/440/485px를 재확인한다.
+- Google primary 전환은 별도 제한된 Preview 키를 준비한 뒤 진행한다. 허용 referrer는 안정된 Preview alias로 제한하고, Production 키는 `https://viecganban.vn/*`, `https://www.viecganban.vn/*`와 Maps JavaScript API만 허용한다.
