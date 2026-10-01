@@ -92,6 +92,10 @@ export interface JobWorkLocation {
   approvedPoint?: { lat: number; lng: number; placePrecision: 'entrance' | 'building' | 'site' }
 }
 
+export type ShiftType = 'day' | 'night' | 'rotating' | 'other'
+export type RecruitmentType = 'direct' | 'agency' | 'unknown'
+export type WorkSchedule = '5_days' | '6_days' | 'other'
+
 export interface Job {
   id: string
   title: string
@@ -124,6 +128,16 @@ export interface Job {
   images?: string[]
   source?: string
   workPeriod?: string
+  /** 2026-10-01 근무조건(20261001090000). null = 정보 미확인 — false/없음으로 추정하지 않는다.
+   *  shiftType은 기존 local_jobs.shift_type(hours 텍스트에서 시간대가 하나일 때만 구조화)을 그대로 쓴다. */
+  shiftType?: ShiftType | null
+  shuttleBus?: boolean | null
+  dormitory?: boolean | null
+  mealProvided?: boolean | null
+  immediateStart?: boolean | null
+  recruitmentType?: RecruitmentType | null
+  workSchedule?: WorkSchedule | null
+  weekendWork?: boolean | null
   /** local_jobs.job_duration — 알바몬 스타일 근무기간 7구간(예: "1 - 3 tháng").
    *  크롤러는 채우지 않고(소스에 구조화된 필드 없음) PostJob.tsx 직접등록
    *  전용으로 시작해 대부분 undefined일 것으로 예상된다. */

@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import JobConditionsFields from '../components/job-form/JobConditionsFields'
+import type { PinPoint } from '../components/job-form/LocationPinPicker'
+import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
+
+/** get_job_conditions() 결과(20261001090000) — 근무조건 + 게시자 핀 */
+interface ConditionsRow {
+  shift_type: JobConditions['shiftType']
+  shuttle_bus: boolean | null
+  dormitory: boolean | null
+  meal_provided: boolean | null
+  recruitment_type: JobConditions['recruitmentType']
+  immediate_start: boolean | null
+  work_schedule: JobConditions['workSchedule']
+  weekend_work: boolean | null
+  pin_lat: number | null
+  pin_lng: number | null
+}
 
 interface GuestJobRow {
   id: number
@@ -42,6 +59,9 @@ export default function ManageGuestJob() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [conditions, setConditions] = useState<JobConditions>(EMPTY_CONDITIONS)
+  const [pin, setPin] = useState<PinPoint | null>(null)
+  const [initialPin, setInitialPin] = useState<PinPoint | null>(null)
 
   useEffect(() => {
     if (!id || !token) { setNotFound(true); setLoading(false); return }
@@ -53,6 +73,17 @@ export default function ManageGuestJob() {
         const row = (data as GuestJobRow[] | null)?.[0]
         if (rpcError || !row) { setNotFound(true); setLoading(false); return }
         setJob(row)
+        supabase.rpc('get_job_conditions', { p_job_id: Number(id), p_token: token }).then(({ data: cData }) => {
+          const c = (cData as ConditionsRow[] | null)?.[0]
+          if (cancelled || !c) return
+          setConditions({
+            shiftType: c.shift_type, shuttleBus: c.shuttle_bus, dormitory: c.dormitory, mealProvided: c.meal_provided,
+            recruitmentType: c.recruitment_type, immediateStart: c.immediate_start, workSchedule: c.work_schedule, weekendWork: c.weekend_work,
+          })
+          const p = c.pin_lat != null && c.pin_lng != null ? { lat: c.pin_lat, lng: c.pin_lng } : null
+          setPin(p)
+          setInitialPin(p)
+        })
         setDraft({
           title: row.title,
           company: row.company,
@@ -85,11 +116,29 @@ export default function ManageGuestJob() {
       p_application_deadline: draft.application_deadline || null,
       p_description: draft.description.trim(),
     })
-    setSaving(false)
     if (rpcError || !(data as unknown[] | null)?.length) {
+      setSaving(false)
       setError('Không thể lưu thay đổi. Vui lòng thử lại.')
       return
     }
+    const { error: condError } = await supabase.rpc('update_job_conditions', {
+      p_job_id: Number(id), p_token: token,
+      p_shift_type: conditions.shiftType, p_shuttle_bus: conditions.shuttleBus, p_dormitory: conditions.dormitory,
+      p_meal_provided: conditions.mealProvided, p_recruitment_type: conditions.recruitmentType,
+      p_immediate_start: conditions.immediateStart, p_work_schedule: conditions.workSchedule, p_weekend_work: conditions.weekendWork,
+    })
+    const pinChanged = pin?.lat !== initialPin?.lat || pin?.lng !== initialPin?.lng
+    const { error: pinError } = pinChanged
+      ? await supabase.rpc('set_job_pinned_location', {
+          p_job_id: Number(id), p_token: token, p_address: draft.location.trim(), p_lat: pin?.lat ?? null, p_lng: pin?.lng ?? null,
+        })
+      : { error: null }
+    setSaving(false)
+    if (condError || pinError) {
+      setError('Đã lưu thông tin chính, nhưng chưa lưu được điều kiện làm việc hoặc vị trí bản đồ. Vui lòng thử lại.')
+      return
+    }
+    setInitialPin(pin)
     setSaved(true)
     setJob((prev) => (prev ? { ...prev, ...draft, hours: draft.hours } : prev))
   }
@@ -178,6 +227,9 @@ export default function ManageGuestJob() {
           <input className="field__input" value={draft.hours}
             onChange={(e) => setDraft((d) => ({ ...d, hours: e.target.value }))} />
         </label>
+
+        <JobConditionsFields conditions={conditions} onConditionsChange={setConditions}
+          pin={pin} onPinChange={setPin} addressHint={draft.location} />
 
         <label className="field">
           <span className="field__label">Số điện thoại liên hệ *</span>

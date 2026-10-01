@@ -8,6 +8,9 @@ import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { checkIsEmployer } from '../lib/accountRoles'
 import { supabase } from '../lib/supabase'
+import JobConditionsFields from '../components/job-form/JobConditionsFields'
+import type { PinPoint } from '../components/job-form/LocationPinPicker'
+import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 import type { JobCategory } from '../types/job'
 
 const emptyForm = {
@@ -53,6 +56,9 @@ export function PostJob() {
   const { user } = useAuth()
   const { addPostedJob } = useJobs()
   const [form, setForm] = useState(emptyForm)
+  const [conditions, setConditions] = useState<JobConditions>(EMPTY_CONDITIONS)
+  const [pin, setPin] = useState<PinPoint | null>(null)
+  const [pinWarning, setPinWarning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -166,7 +172,18 @@ export function PostJob() {
         employerPhone: form.employerPhone.trim(),
         urgent: form.urgent,
         imageUrl,
+        ...conditions,
       }
+
+      // 근무지 핀은 공고 저장 뒤 소유 확인 RPC로 저장한다(실패해도 공고는 유지 — 관리 화면에서 다시 지정 가능).
+      const savePin = async (jobId: string, token: string | null) => {
+        if (!pin) return
+        const { error: pinError } = await supabase.rpc('set_job_pinned_location', {
+          p_job_id: Number(jobId.replace(/^sb-/, '')), p_token: token, p_address: form.location.trim(), p_lat: pin.lat, p_lng: pin.lng,
+        })
+        if (pinError) setPinWarning(true)
+      }
+      const resetForm = () => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null) }
 
       if (employerCheck === 'guest' && postMode === 'email') {
         // "이메일로 등록" — 화면엔 별도 가입 단계를 안 보여주고, 뒤에서
@@ -191,10 +208,11 @@ export function PostJob() {
         }
         const deadline = form.applicationDeadline.trim() || addDays(14)
         const job = await addPostedJob({ ...baseFields, applicationDeadline: deadline, employerId: newUserId })
+        await savePin(job.id, null)
         await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/dat-lai-mat-khau`,
         })
-        setForm(emptyForm)
+        resetForm()
         setImageFile(null)
         setImagePreview(null)
         setEmailSuccess({ jobId: job.id, email })
@@ -211,8 +229,9 @@ export function PostJob() {
           employerId: undefined,
           guestManageToken: token,
         })
+        await savePin(job.id, token)
         const rawId = job.id.replace(/^sb-/, '')
-        setForm(emptyForm)
+        resetForm()
         setImageFile(null)
         setImagePreview(null)
         setGuestSuccess({
@@ -223,7 +242,8 @@ export function PostJob() {
         // 기존 기업 계정 경로 — 그대로 유지.
         const deadline = form.applicationDeadline.trim() || addDays(14)
         const job = await addPostedJob({ ...baseFields, applicationDeadline: deadline, employerId: user?.id })
-        setForm(emptyForm)
+        await savePin(job.id, null)
+        resetForm()
         setImageFile(null)
         setImagePreview(null)
         navigate(`/viec-lam/${job.id}`, { replace: true })
@@ -243,6 +263,7 @@ export function PostJob() {
         </header>
         <div className="form-card">
           <p>Tin của bạn đã hiển thị công khai ngay bây giờ.</p>
+          {pinWarning && <p className="jcf-help">Chưa lưu được vị trí trên bản đồ. Bạn có thể chọn lại ở trang quản lý tin.</p>}
           <p>
             <strong>Lưu lại link này để sau này chỉnh sửa hoặc ngừng đăng tin</strong> — vì bạn đăng không qua tài
             khoản, đây là cách duy nhất để quản lý tin sau này:
@@ -397,6 +418,9 @@ export function PostJob() {
             placeholder="Ca sáng, cuối tuần..." />
         </label>
 
+        <JobConditionsFields conditions={conditions} onConditionsChange={setConditions}
+          pin={pin} onPinChange={setPin} addressHint={form.location} />
+
         <label className="field">
           <span className="field__label">Thời hạn làm việc (tuỳ chọn)</span>
           <select className="field__input" value={form.jobDuration}
@@ -498,7 +522,7 @@ export function PostJob() {
           <button type="submit" className="btn btn--primary" disabled={submitting || employerCheck === 'checking'}>
             {submitting ? 'Đang đăng...' : 'Đăng tin'}
           </button>
-          <button type="button" className="btn btn--ghost" onClick={() => { setForm(emptyForm); setImageFile(null); setImagePreview(null) }} disabled={submitting}>
+          <button type="button" className="btn btn--ghost" onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }} disabled={submitting}>
             Xoá form
           </button>
         </div>

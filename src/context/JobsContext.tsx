@@ -110,12 +110,21 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
         hire_count: draft.hireCount ?? null,
         labor_contract_pledge: draft.laborContractPledge ?? null,
         social_insurance_pledge: draft.socialInsurancePledge ?? null,
+        // 근무조건(20261001090000) — 입력하지 않은 항목은 NULL(미확인) 그대로 저장
+        shift_type: draft.shiftType ?? null,
+        shuttle_bus: draft.shuttleBus ?? null,
+        dormitory: draft.dormitory ?? null,
+        meal_provided: draft.mealProvided ?? null,
+        immediate_start: draft.immediateStart ?? null,
+        recruitment_type: draft.recruitmentType ?? null,
+        work_schedule: draft.workSchedule ?? null,
+        weekend_work: draft.weekendWork ?? null,
       })
       // guest_manage_token 컬럼은 anon/authenticated 양쪽 다 컬럼 단위로 SELECT가
       // REVOKE돼 있다(마이그레이션 참고) — bare .select()(=select=*)로 반환받으면
       // 막 INSERT한 이 요청 본인한테까지도 권한 오류가 날 수 있어, 공개 목록
       // 조회(fetchJobs)와 동일한 안전한 컬럼 목록만 명시적으로 돌려받는다.
-      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions')
+      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work')
       .single()
 
     if (error || !data) throw new Error(error?.message ?? 'Đăng tin thất bại')

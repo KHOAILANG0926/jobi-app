@@ -23,8 +23,8 @@ export const PRIMARY_CATEGORIES: JobCategory[] = [
 ]
 
 /**
- * "Thêm điều kiện"의 장기 조건 목록. match가 없는 조건은 아직 저장 필드가 없어 화면에서
- * 비활성으로만 보여준다 — 데이터 필드가 생기면 match만 채우면 바로 활성화된다.
+ * "Thêm điều kiện"의 조건 목록. 각 match는 확인된 값(=== true / 명시 선택지)만 통과시킨다 —
+ * NULL(정보 미확인)은 어떤 조건도 만족하지 않는다. match가 없는 조건은 화면에서 비활성.
  */
 export type ExtraConditionKey =
   | 'shift_day' | 'shift_night' | 'shift_rotating'
@@ -42,28 +42,28 @@ export interface ExtraCondition {
 
 export const EXTRA_CONDITION_GROUPS: { title: string; items: ExtraCondition[] }[] = [
   { title: 'Ca làm việc', items: [
-    { key: 'shift_day', label: 'Ca ngày' },
-    { key: 'shift_night', label: 'Ca đêm' },
-    { key: 'shift_rotating', label: 'Xoay ca' },
+    { key: 'shift_day', label: 'Ca ngày', match: (job) => job.shiftType === 'day' },
+    { key: 'shift_night', label: 'Ca đêm', match: (job) => job.shiftType === 'night' },
+    { key: 'shift_rotating', label: 'Xoay ca', match: (job) => job.shiftType === 'rotating' },
   ] },
   { title: 'Đi lại · Phúc lợi', items: [
-    { key: 'shuttle_bus', label: 'Xe đưa đón' },
-    { key: 'dormitory', label: 'Ký túc xá' },
-    { key: 'meals', label: 'Có bữa ăn' },
+    { key: 'shuttle_bus', label: 'Xe đưa đón', match: (job) => job.shuttleBus === true },
+    { key: 'dormitory', label: 'Ký túc xá', match: (job) => job.dormitory === true },
+    { key: 'meals', label: 'Có bữa ăn', match: (job) => job.mealProvided === true },
   ] },
-  // 직접채용/도급은 신뢰할 판정 데이터가 아직 없다(employer_id 유무로 단정하지 않음).
+  // 직접채용/도급은 recruitment_type 명시값으로만 판정한다(employer_id 유무로 단정하지 않음).
   { title: 'Hình thức tuyển', items: [
-    { key: 'direct_hire', label: 'Tuyển trực tiếp' },
-    { key: 'agency', label: 'Qua công ty cung ứng' },
+    { key: 'direct_hire', label: 'Tuyển trực tiếp', match: (job) => job.recruitmentType === 'direct' },
+    { key: 'agency', label: 'Qua công ty cung ứng', match: (job) => job.recruitmentType === 'agency' },
   ] },
   { title: 'Tình trạng tuyển', items: [
     { key: 'urgent', label: 'Tuyển gấp', match: (job) => job.urgent === true },
-    { key: 'start_now', label: 'Đi làm ngay' },
+    { key: 'start_now', label: 'Đi làm ngay', match: (job) => job.immediateStart === true },
   ] },
   { title: 'Lịch làm việc', items: [
-    { key: 'days_5', label: '5 ngày/tuần' },
-    { key: 'days_6', label: '6 ngày/tuần' },
-    { key: 'weekend', label: 'Làm cuối tuần' },
+    { key: 'days_5', label: '5 ngày/tuần', match: (job) => job.workSchedule === '5_days' },
+    { key: 'days_6', label: '6 ngày/tuần', match: (job) => job.workSchedule === '6_days' },
+    { key: 'weekend', label: 'Làm cuối tuần', match: (job) => job.weekendWork === true },
   ] },
 ]
 

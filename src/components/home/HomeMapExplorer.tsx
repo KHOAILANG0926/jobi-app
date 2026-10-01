@@ -9,6 +9,7 @@ import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_LABELS, CATEGORY_SHORT, ALL_CATEGORIES } from '../../data/categories'
 import { REGION_MACRO_TABS } from '../../data/jobRegions'
 import { findRegionCenter, formatDistanceLabel } from '../../lib/jobCoords'
+import { conditionBadges } from '../../lib/jobConditions'
 import {
   DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, PRIMARY_CATEGORIES, RADIUS_MAX_KM, RADIUS_MIN_KM, SALARY_OPTIONS,
   findNearbyJobs, formatSalaryOption, isConditionAvailable,
@@ -185,7 +186,7 @@ export default function HomeMapExplorer() {
                   </div>
                 </div>
               ))}
-              <p className="hme-extra__note">Các điều kiện mờ sẽ dùng được khi tin tuyển dụng có đủ thông tin.</p>
+              <p className="hme-extra__note">Chỉ hiện tin đã ghi rõ điều kiện này. Tin chưa cập nhật thông tin sẽ không được tính.</p>
               {activeExtraCount > 0 && (
                 <button type="button" className="hme-more-link" onClick={() => update({ extras: [] })}>Bỏ chọn điều kiện</button>
               )}
@@ -217,6 +218,9 @@ export default function HomeMapExplorer() {
               {selected.job.salary && <span className="hme-tag hme-tag--salary">{selected.job.salary}</span>}
               {selected.job.urgent && <span className="hme-tag hme-tag--urgent">Tuyển gấp</span>}
               <span className="hme-tag">{CATEGORY_SHORT[selected.job.category]}</span>
+              {conditionBadges(selected.job).map((b) => (
+                <span key={b.key} className={`hme-tag hme-tag--${b.tone}`}>{b.label}</span>
+              ))}
             </div>
             <dl className="hme-job__rows">
               <div><dt><MapPin size={14} aria-hidden /> Khu vực</dt><dd>{selected.job.location || 'Chưa cập nhật'}</dd></div>

@@ -82,6 +82,14 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     imageUrl: (r.image_url as string) ?? undefined,
     images: (r.images as string[]) ?? undefined,
     workPeriod: (r.work_period as string) ?? undefined,
+    shiftType: (r.shift_type as Job['shiftType']) ?? null,
+    shuttleBus: (r.shuttle_bus as boolean | null | undefined) ?? null,
+    dormitory: (r.dormitory as boolean | null | undefined) ?? null,
+    mealProvided: (r.meal_provided as boolean | null | undefined) ?? null,
+    immediateStart: (r.immediate_start as boolean | null | undefined) ?? null,
+    recruitmentType: (r.recruitment_type as Job['recruitmentType']) ?? null,
+    workSchedule: (r.work_schedule as Job['workSchedule']) ?? null,
+    weekendWork: (r.weekend_work as boolean | null | undefined) ?? null,
     jobDuration: (r.job_duration as string) ?? undefined,
     genderRequirement: (r.gender_requirement as string) ?? undefined,
     ageRequirement: (r.age_requirement as string) ?? undefined,
@@ -124,7 +132,7 @@ export interface JobsQueryClient {
 }
 
 const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions'
+  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards'
 
