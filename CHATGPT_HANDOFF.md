@@ -21,6 +21,7 @@
 
 ## 발견된 문제
 
+0. **집 PC에서 먼저 재확인:** 회사 PC 메모리 부족(여유 ~1GB)으로 마이그레이션 파일명 변경 후 PGlite 재실행(`npm i --no-save @electric-sql/pglite@0.5.8 && node supabase/tests/job_conditions_pins.pglite.test.mjs`)과 마지막 주석 커밋(`00216c3`)의 `npx tsc --noEmit`을 못 돌림 — 같은 SQL은 이름 변경 전 20/20, 주석만 변경.
 1. 로그인 고용주용 공고 전체 수정 화면은 원래 없음(대시보드는 급구 토글만) — 이번 범위 밖. 고용주도 RPC로 수정 가능한 구조는 준비됨.
 2. 실제 공개 공고에 핀·조건 데이터가 아직 없어 메인 지도는 비어 있음(새 등록부터 채워짐).
 3. `scripts/test-home-composition.mjs`는 옛 메인 구성 기준(구식).
