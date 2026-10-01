@@ -1,4 +1,4 @@
-// supabase/migrations/20261001090000_local_jobs_work_conditions_and_pins.sql 의 SQL 로직 검증(PGlite).
+// supabase/migrations/20261001100601_local_jobs_work_conditions_and_pins.sql 의 SQL 로직 검증(PGlite).
 //
 // 실행(저장소 의존성에 추가하지 않음 — 일회성 설치):
 //   npm i --no-save @electric-sql/pglite@0.5.8 && node supabase/tests/job_conditions_pins.pglite.test.mjs
@@ -8,7 +8,7 @@
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 
-const MIG = new URL('../migrations/20261001090000_local_jobs_work_conditions_and_pins.sql', import.meta.url)
+const MIG = new URL('../migrations/20261001100601_local_jobs_work_conditions_and_pins.sql', import.meta.url)
 const db = new PGlite()
 let pass = 0, fail = 0
 const ok = (c, m) => { if (c) { pass++; console.log('✅', m) } else { fail++; console.log('❌', m) } }

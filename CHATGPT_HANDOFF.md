@@ -2,35 +2,34 @@
 
 ## 현재 작업
 
-**PC 메인 중간 영역 → "내 주변 일자리 지도 + 선택 공고 패널" (2026-10-01, 회사 PC)** — 구현·검증 완료, master push(이 커밋) → Vercel Production 자동 배포.
-- **기존 방향에서 바뀐 것:** 메인의 광고 슬롯·브랜드 로고·Highlands/WinMart 카드·내 활동 카드·지역별 일자리·빠른 필터 아이콘·업종 select 블록을 메인에서 제거(컴포넌트·CSS 파일은 남김). 그 자리를 지도 탐색이 대체. 한국 입구(hero)·`Việc làm nổi bật` 이하·상세·SEO·한국 모듈은 그대로.
-- 지도·거리에는 **확인된 근무지만**(verifiedWorkLocationPoint) — 현재 Production 공개 공고 중 확인된 근무지 0건이라 실제 화면은 빈 지도 + 안내 문구(의도된 상태).
+**공고 근무조건 + 게시자 지도 핀 (2026-10-01, 회사 PC)** — Production migration `20261001100601` 적용·검증, 코드 master push(이 커밋) → Vercel Production 자동 배포.
+- **기존 방향에서 바뀐 것:** 게시자가 등록/관리 화면에서 지도에 직접 찍은 핀을 "확인된 근무지"로 인정(job_work_locations.location_verified=true, verification_method='poster_pin'). 이전 미결정 항목("게시자 핀을 L1로 볼지")을 사용자 지시로 확정.
+- 기존 공고는 새 칸 전부 NULL(정보 미확인) — backfill 없음. 크롤링 공고는 핀/조건 RPC로 바꿀 수 없음.
 
 ## 변경 내용
 
-- `src/components/home/HomeMapExplorer.tsx`(신규): 왼쪽 탐색(위치 드롭다운: 현재 위치/지역 선택 + 반경 슬라이더 1~20km, 기본 Bắc Ninh 8km / 최소 월급 칩 10·12·15·20·30M+ + 협의 포함 / 업종 상위 6 + Xem thêm / Thêm điều kiện 아코디언) + 지도 + 오른쪽 패널(선택 전: 기준 위치·반경·급여·업종·지도 공고 수·현재 위치 버튼 / 선택 후: 회사·제목·거리·급여·급구·업종·지역·근무시간·Xem chi tiết → `/viec-lam/:id`).
-- `src/components/home/HomeMapCanvas.tsx`(신규, lazy — leaflet은 SSR 번들 밖): 지도 1회 생성, 반경 원·기준점·핀만 갱신, 핀 클릭→선택, ResizeObserver로 크기 재계산.
-- `src/lib/homeMapFilters.ts`(신규): 확인된 좌표·반경·급여(VND·월/주기 미표기만, 환산 없음)·업종·추가 조건 판정. **추가 조건 13개 중 '급구'만 데이터 연결**, 나머지(주야간·교대·통근버스·기숙사·식사·직접채용/도급·즉시출근·주5/6일·주말)는 필드가 없어 비활성 — 필드 생기면 `match`만 채우면 활성화. 직접채용은 employer_id 유무로 판정하지 않음.
-- `src/pages/Home.tsx`: 중간 블록을 `<HomeMapExplorer />`로 교체, 그 블록 전용 상태·핸들러·import 제거(URL 파라미터 필터·하단 목록 로직은 유지).
-- `src/index.css`: `.hme*` 스타일 추가(PC 3열, ≤1100px 패널 아래로, ≤760px 세로 + 반경 5/10/20 빠른 버튼).
+- DB(`supabase/migrations/20261001100601_local_jobs_work_conditions_and_pins.sql`): local_jobs에 shuttle_bus·dormitory·meal_provided·immediate_start(boolean, NULL=미확인), recruitment_type(direct/agency/unknown), work_schedule(5_days/6_days/other), weekend_work. 근무 형태는 기존 shift_type(day/night/rotating/other) 재사용. job_work_locations.verification_method(source_coordinate/admin_approved/poster_pin). RPC: set_job_pinned_location / update_job_conditions / get_job_conditions(소유 확인 = 로그인 고용주 본인 또는 게스트 관리 토큰, 헬퍼 can_manage_local_job는 직접 호출 불가). authenticated에 새 컬럼 UPDATE grant.
+- 화면: `/dang-tin`과 게스트 관리(`/quan-ly-tin/:id`)에 공용 `JobConditionsFields`(지도 핀 선택 `LocationPinPicker` + Có/Không/Chưa rõ 조건). 메인 지도 조건 13개 전부 실제 필드 연결(NULL은 어떤 조건도 만족 안 함), 선택 패널에 확인된 값만 배지.
+- 데이터 흐름: Job 타입·rowToJob·공개 select 3곳·insert payload에 새 필드.
+- 지도가 고정 헤더 위로 겹치던 문제 수정(.jcf-map/.hme__map isolation).
 
 ## 테스트 결과
 
-- `npx tsc --noEmit` 통과, `npm run build` 통과, `npm test` 9/9.
-- vite preview + Supabase 응답 가로채기(가짜 공고 4건, 운영 DB 쓰기 없음) — PC 1366(위치 거부)·PC 1920(위치 허용)·모바일 375: 확인 근무지 2건만 핀(미확인·28km 밖 제외), 반경 5km→1건·원 크기 변경, 12M+→1건, 업종→1건, 조건 더보기 비활성 12·급구 동작·열고 닫기, 핀 클릭→패널·상세 링크·핀 강조, 위치 거부→안내+지역 선택 유지 / 허용→"Vị trí hiện tại", 빈 상태 안내, 가로 넘침 0, 한국 입구·Việc làm nổi bật 정상, 콘솔 오류 없음(1920에서 기존 Google iframe CSP report-only 경고 1건, 이번 변경과 무관).
-- 실제 Production 데이터: 핀 0 + 빈 상태 안내.
+- PGlite SQL 20/20, tsc·build 통과, npm test 10/10(homeMapFilters NULL 처리 테스트 추가).
+- 로컬 E2E(응답 가로채기, 운영 DB 쓰기 없음): 등록 PC·모바일(핀 지정·조건 선택 → insert payload·핀 RPC 확인, 넘침 0, 콘솔 오류 없음), 관리 화면(기존값 표시·수정 저장·핀 해제), 메인(조건별 필터·배지).
+- Production DB: schema 재조회(컬럼·제약·함수 권한), 기존 공고 새 칸 비어있음 0건 변경, 게스트 역할로 생성→핀→조회→수정→재조회·잘못된 토큰 거부·크롤링 공고 핀 거부를 한 트랜잭션에서 확인 후 롤백(남은 테스트 데이터 0).
 
 ## 발견된 문제
 
-1. `scripts/test-home-composition.mjs`(수동 e2e, CI 미연결)는 옛 메인 구성(.home-discovery 등)을 검사 → 이제 맞지 않음. 다음에 메인 검증 스크립트로 교체 필요.
-2. 지도 탐색에 필요한 조건 데이터(근무 형태·통근버스·기숙사·채용 형태 등)와 확인된 근무지가 없어 실제 화면은 비어 있음 → 공고 등록 양식(위치 핀·조건 체크)이 다음 핵심.
-3. 하단 공고 목록은 아직 지도 결과와 연동 안 됨(의도 — 별도 작업).
+1. 로그인 고용주용 공고 전체 수정 화면은 원래 없음(대시보드는 급구 토글만) — 이번 범위 밖. 고용주도 RPC로 수정 가능한 구조는 준비됨.
+2. 실제 공개 공고에 핀·조건 데이터가 아직 없어 메인 지도는 비어 있음(새 등록부터 채워짐).
+3. `scripts/test-home-composition.mjs`는 옛 메인 구성 기준(구식).
 
 ## 다음 결정사항
 
-### A. 메인 지도 이후
-- 다음 후보: ① 공고 등록 양식(`src/pages/PostJob.tsx:388` 자유 텍스트 근무지 → 지도 핀+동네 선택, 근무 형태·통근버스·기숙사·식사·채용 형태·근무 일정 체크) ② 하단 목록과 지도 결과 연동 ③ L2(동네 수준) 표시 허용 여부(현재 규칙: 확인된 근무지만).
-- 한국 일자리: 홈 입구 유지, 분리 규칙은 CLAUDE.md "한국 일자리 모듈 분리 규칙".
+### A. 다음 후보
+- 하단 공고 목록과 지도 결과 연동 / 크롤링·수집 공고의 조건·위치 분류(필드는 준비됨) / 로그인 고용주 공고 수정 화면 / L2(동네 수준) 표시 여부.
+- 한국 일자리: CLAUDE.md "한국 일자리 모듈 분리 규칙".
 
 ### B. Chợ Tốt 수집 전용 계정 테스트 (보류)
 1. `cd scripts/research/contact_sources && python chotot_login.py` → 사람이 수집 전용 계정으로 로그인 → 창 닫기.
@@ -50,8 +49,8 @@
 
 ## 최근 완료 작업 로그 (최근 5개만 유지, CLAUDE.md 규칙 5 참고)
 
-1. **2026-10-01 — ChatGPT 추적용 기록 규칙 + 한국 분리 규칙·장기 보강(문서)** — MASTER PUSHED(`1244c8c`, `6e0e32c`, `4d3a9f5`). 코드 변경 없음.
-2. **2026-09-30~10-01 — 연락처 출처 조사(Chợ Tốt 수집 전용 계정 테스트 준비) + 메인 개편 논의** — MASTER PUSHED(`018a3c1`, `cc909bb`, `b79d94b`). 문서·조사 스크립트만, 테스트는 미실행.
-3. **2026-09-30 — 공고 공개 기준 복원 표 + 인계 문서 정리** — MASTER PUSHED(`a88ac27`, `7ec8d5b`). 기존 공개 게이트(09-05, job_quality.gate_auto_publish) 복원, Facebook 게이트 우회(crawl_facebook.py:1070 active=True 고정)·지원 경로 기준 충돌 발견. 문서만, 코드·DB 변경 없음.
-4. **2026-09-30 — 지원 버튼을 실제 지원 방식별로 연결(내부 지원 / 직접 연락 / 연락처 없음)** — MASTER PUSHED(이 커밋). 공용 판정 resolveApplyAction()+JobApplyButton: employer_id 있음=로그인→내부 지원, 없음+전화/Zalo=로그인 없이 내부 상세 연락 안내(/viec-lam/sb-ID#lien-he), 연락처 없음=지원 표시 안 함('Chưa có thông tin liên hệ', 상세 버튼 비활성). 적용: 상세·급구 페이지·추천 표/카드. 이전: 급구 페이지는 직접 연락형도 비로그인이면 /dang-nhap으로 보냈음. 검증: 빌드 미리보기+응답 가로채기 가짜 3유형(운영 DB 쓰기 없음), 데스크톱·모바일 첫 클릭 목적지 정상, 외부 링크·새 창 0, 단위 테스트 3/3. **4682 상태(미확인 유지)**: 전화·Zalo 번호가 원문(페이스북 게시물)의 번호와 일치하는 것만 확인. 게시자가 실제 채용 담당자인지, 회사명·실제 근무지·담당자와 회사 관계는 모두 미확인(원문에 회사명 없음, 웹 검색으로 특정 불가). 연락·숨김·DB 변경 없음.
-5. **2026-09-30 — 급구 표 첫 클릭 무시 버그 수정 + 4682 근무지 확인 시도** — MASTER PUSHED(`63ff498`) + PRODUCTION DEPLOYED. 급구 페이지 지역 패널(기본 열림)을 mousedown에 닫아 표가 밀리며 제목·지원 버튼 첫 클릭이 사라지던 문제 → click 시점에 닫도록 수정. 검증: 빌드 미리보기(vite preview) + Supabase 응답 가로채기로 가짜 급구 1건(운영 DB 쓰기 없음), 데스크톱 1280·모바일 375 모두 제목 클릭→내부 상세, 'Ứng tuyển'→내부 /dang-nhap(비로그인), 외부 링크·새 창 0. 4682: 원문에 회사명 없음, Zalo 번호·공고 문구 웹 검색으로도 회사·사업장 특정 불가 → '위치 미확인' 유지, DB 변경 없음. 참고: 이 PC 여유 메모리 부족(약 1.6GB)으로 vite dev 서버·빌드가 간헐적으로 OOM.
+1. **2026-10-01 — PC 메인 중간 영역 지도 탐색 개편** — MASTER PUSHED(`a7df8d8`) + PRODUCTION VERIFIED(빈 지도 + 안내, 한국 입구·Việc làm nổi bật 정상).
+2. **2026-10-01 — ChatGPT 추적용 기록 규칙 + 한국 분리 규칙·장기 보강(문서)** — MASTER PUSHED(`1244c8c`, `6e0e32c`, `4d3a9f5`). 코드 변경 없음.
+3. **2026-09-30~10-01 — 연락처 출처 조사(Chợ Tốt 수집 전용 계정 테스트 준비) + 메인 개편 논의** — MASTER PUSHED(`018a3c1`, `cc909bb`, `b79d94b`). 문서·조사 스크립트만, 테스트는 미실행.
+4. **2026-09-30 — 공고 공개 기준 복원 표 + 인계 문서 정리** — MASTER PUSHED(`a88ac27`, `7ec8d5b`). 기존 공개 게이트(09-05, job_quality.gate_auto_publish) 복원, Facebook 게이트 우회(crawl_facebook.py:1070 active=True 고정)·지원 경로 기준 충돌 발견. 문서만, 코드·DB 변경 없음.
+5. **2026-09-30 — 지원 버튼을 실제 지원 방식별로 연결(내부 지원 / 직접 연락 / 연락처 없음)** — MASTER PUSHED(이 커밋). 공용 판정 resolveApplyAction()+JobApplyButton: employer_id 있음=로그인→내부 지원, 없음+전화/Zalo=로그인 없이 내부 상세 연락 안내(/viec-lam/sb-ID#lien-he), 연락처 없음=지원 표시 안 함('Chưa có thông tin liên hệ', 상세 버튼 비활성). 적용: 상세·급구 페이지·추천 표/카드. 이전: 급구 페이지는 직접 연락형도 비로그인이면 /dang-nhap으로 보냈음. 검증: 빌드 미리보기+응답 가로채기 가짜 3유형(운영 DB 쓰기 없음), 데스크톱·모바일 첫 클릭 목적지 정상, 외부 링크·새 창 0, 단위 테스트 3/3. **4682 상태(미확인 유지)**: 전화·Zalo 번호가 원문(페이스북 게시물)의 번호와 일치하는 것만 확인. 게시자가 실제 채용 담당자인지, 회사명·실제 근무지·담당자와 회사 관계는 모두 미확인(원문에 회사명 없음, 웹 검색으로 특정 불가). 연락·숨김·DB 변경 없음.

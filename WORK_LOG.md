@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-01 (회사 PC) — 공고 근무조건 + 게시자 지도 핀
+
+- 요청: 메인 지도 필터가 실제 데이터로 동작하도록 공고 데이터 구조 확장(조사→migration→등록/수정 UI→타입/API→필터→검증→배포)
+- 변경: migration 20261001100601(근무조건 7칸 + verification_method + 소유 확인 RPC 3개), JobConditionsFields·LocationPinPicker·jobConditions 신규, PostJob·ManageGuestJob·JobsContext·jobRows·fetchJobsData·types·homeMapFilters·HomeMapExplorer 연결
+- 설계 이유: NULL=정보 미확인(추정 금지). 좌표는 job_work_locations 한 곳, 게시자 핀은 verified poster_pin. 게스트는 테이블 직접 쓰기 권한이 없어 소유 확인 SECURITY DEFINER RPC만 허용.
+- 수정 파일: supabase/migrations/20261001100601_local_jobs_work_conditions_and_pins.sql, supabase/tests/job_conditions_pins.pglite.test.mjs, src/components/job-form/*, src/lib/jobConditions.ts, src/lib/homeMapFilters.ts(+test), src/components/home/HomeMapExplorer.tsx, src/pages/PostJob.tsx, src/pages/ManageGuestJob.tsx, src/context/JobsContext.tsx, src/lib/jobRows.ts, src/lib/fetchJobsData.ts, src/types/job.ts, src/index.css
+- 검증: PGlite 20/20, tsc·build, npm test 10/10, 로컬 E2E(등록 PC/모바일·관리·메인), Production schema 재조회 + 롤백 트랜잭션 생성/수정/조회·권한 거부 확인(잔여 데이터 0)
+- commit: 이 커밋 / push: master / deploy: Vercel 자동
+- 남은 문제: 고용주 전체 수정 화면 없음, 실제 핀 데이터 0, test-home-composition.mjs 구식
+
 ## 2026-10-01 (회사 PC) — PC 메인 중간 영역 지도 탐색 개편
 
 - 요청: 한국 입구 아래 ~ Việc làm nổi bật 위 중간 영역을 "내 주변 일자리 지도 + 선택 공고 패널"로 교체(조사→구현→검증→문서→배포)
