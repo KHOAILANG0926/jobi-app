@@ -60,6 +60,20 @@
 - 배포: 사용자가 그 작업에서 "배포하지 마 / 로컬만 / 검토만 / 코드 수정하지 마 / Production 건드리지 마"라고 하면 그 지시가 FAST/NORMAL보다 우선한다.
 - 채팅 완료 보고는 1~3줄. 세부는 두 문서에 기록하고 채팅에 반복하지 않는다. 민감정보는 두 문서에도 쓰지 않는다.
 
+## 한국 일자리 모듈 분리 규칙 — MANDATORY (2026-10-01 사용자 지시)
+
+한국 일자리 영역은 향후 별도 서비스로 분리될 수 있으므로 다음 원칙을 유지한다.
+(근거 조사: 2026-10-01 — 현재 korea_* 객체는 local_jobs 계열과 FK·함수 결합 없음.)
+
+- korea_jobs 및 한국 전용 데이터 구조는 local_jobs 계열과 분리 유지
+- 한국 지원/메시지/면접 기능을 추가할 경우 기존 applications/message_threads/interviews에 섞지 않고 한국 전용 구조 사용
+- 저장공고를 DB화할 경우 한국 저장공고는 별도 테이블 또는 별도 저장 구조 사용
+- 기존 local_jobs FK를 풀거나 job_type 컬럼을 추가해 한국/베트남 공고를 한 테이블 흐름에 섞지 않음
+- 한국 전용 DB 객체는 korea_ 접두어 사용
+- 한국 SSR/sitemap/SEO 기능을 추가할 경우 한국 전용 모듈로 분리
+- 베트남 전용 공용 함수(jobCoords/jobRows/jobUtils 등)는 한국 화면에 새로 직접 의존하지 않도록 주의
+  (기존 의존: KoreaJobDetail → jobCoords.resolveMapLocations — 한국 상세 화면 작업 시 정리 대상)
+
 ## 원본 채용사이트 연결 금지 — MANDATORY (2026-09-30 사용자 지시)
 
 크롤링·수집한 공고의 원본 채용사이트(vieclam24h, TopCV, VietnamWorks, WorkNet/고용24, 페이스북 등)로

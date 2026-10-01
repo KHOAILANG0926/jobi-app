@@ -6,6 +6,8 @@
 - 상태: branch `master`, Production 코드 변경 없음(마지막 코드 배포는 09-30 지원 버튼 작업).
 - **기존 방향에서 바뀐 것:** 논의는 ChatGPT(또는 claude.ai 채팅)에서, 구현은 Claude Code에서. 이를 위해 `WORK_LOG.md`(최근 10개) 신설, CLAUDE.md에 "ChatGPT 추적용 기록" 섹션 추가. HANDOFF 스냅샷·FAST/NORMAL 배포·짧은 보고 규칙은 그대로.
 
+- **추가(회사 PC, 같은 날):** 한국 일자리 분리 가능성 조사(읽기 전용) 후 CLAUDE.md에 "한국 일자리 모듈 분리 규칙" 섹션 추가. 요약·남은 문제는 WORK_LOG.md 최상단.
+
 ## 변경 내용
 
 - `CLAUDE.md`: "ChatGPT 추적용 기록" 섹션 추가(HANDOFF=스냅샷, WORK_LOG=최근 10개, 명시적 "배포하지 마" 등은 배포 규칙보다 우선, 새 세션 읽기 순서).
