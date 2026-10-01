@@ -2,6 +2,17 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-01 (회사 PC) — 한국 영역 장기 분리 점검
+
+- 요청: 대량 데이터·별도 DB 전제로 한국 영역 결합 점검 → MUST FIX NOW 수정, 규칙 문서화
+- 판단: MUST FIX NOW 없음(데이터 축적에 따라 비용이 커지는 결합이 현재 존재하지 않음 — korea_* 는 local_jobs 계열·account_roles·reports·storage와 FK/함수/트리거 결합 없음, korea 전용 트리거 1개뿐, 공개 접근은 korea_*_public 뷰만). 코드 수정 없음.
+- RULE NOW: CLAUDE.md 한국 분리 규칙에 "장기 분리 보강" 7줄 추가(도메인 접두 식별자, account_roles/user_cvs 재사용 금지, reports/audit/alert 전용화, korea- bucket+상대 path, /viec-han-quoc/ 고정, 이벤트 product 구분, 관리자 query는 한국 API 경유).
+- SAFE TO DEFER: KoreaJobDetail→jobCoords.resolveMapLocations(코드 결합, 데이터 비용 무관 — 한국 상세 작업 시 분리), 저장공고 localStorage 단일 키+kr- 접두(브라우저 데이터, DB화할 때 분리), 한국 SSR/sitemap/canonical 공백(간판화 시 한국 전용 모듈로), 분석 도구 없음(도입 시 규칙 적용).
+- 별건 발견: local_jobs 이미지가 vieclam24h CDN URL을 직접 참조(외부 원본 사이트 자원 의존) — 한국과 무관, 별도 판단 필요.
+- 수정 파일: CLAUDE.md, WORK_LOG.md, CHATGPT_HANDOFF.md
+- 검증: 문서만 변경 — typecheck/build 해당 없음
+- commit: 이 커밋 / push: master / deploy: 해당 없음
+
 ## 2026-10-01 (회사 PC)
 
 - 요청: 한국 일자리 분리 가능성 전제로 코드·DB 결합 상태 읽기 전용 조사 → 분리 규칙을 CLAUDE.md에 저장

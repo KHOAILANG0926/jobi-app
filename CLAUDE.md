@@ -73,6 +73,14 @@
 - 한국 SSR/sitemap/SEO 기능을 추가할 경우 한국 전용 모듈로 분리
 - 베트남 전용 공용 함수(jobCoords/jobRows/jobUtils 등)는 한국 화면에 새로 직접 의존하지 않도록 주의
   (기존 의존: KoreaJobDetail → jobCoords.resolveMapLocations — 한국 상세 화면 작업 시 정리 대상)
+- 장기 분리 보강(2026-10-01, 대량 데이터·별도 DB 전제):
+  - 두 도메인이 한곳에 모이는 참조(통계·이벤트·API 응답·알림·외부 연동)에는 숫자 id 단독 금지 → `kr-123` 같은 도메인 접두 식별자 사용(korea_jobs.id·local_jobs.id는 각자 시퀀스라 합치면 충돌).
+  - 한국 기업·구직자 역할/프로필은 `account_roles`(user_id당 역할 1개)·`user_profiles`·`user_cvs` 재사용 금지 → korea_ 전용 테이블. auth.users 공유는 허용하되 user_id 참조만.
+  - 한국 대상 신고·관리자 감사로그·알림은 기존 `reports`/`admin_audit_logs`/`job_alert_*`에 넣지 않고 korea_ 전용 테이블(분리 시 WHERE 필터 없이 dump 가능해야 함).
+  - 한국 파일은 korea- 접두 Storage bucket, DB에는 전체 URL이 아닌 bucket+상대 path 저장. 기존 cv-photos·job-images 재사용 금지.
+  - 한국 페이지 URL은 `/viec-han-quoc/` 아래만 사용(도메인 이전 시 301 규칙 1개로 이동 가능하게).
+  - 분석·이벤트 수집을 도입하면 처음부터 product(vn/korea) 구분 필수.
+  - 관리자 UI는 공용 가능, 한국 데이터 조회/수정은 한국 전용 API 모듈(koreaJobsApi 등)만 경유.
 
 ## 원본 채용사이트 연결 금지 — MANDATORY (2026-09-30 사용자 지시)
 
