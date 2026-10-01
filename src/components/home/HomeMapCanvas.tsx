@@ -17,6 +17,7 @@ interface Props {
   /** true = 실제 현재 위치, false = 사용자가 고른 지역 중심 */
   originIsUser: boolean
   radiusKm: number
+  recenterRequest: number
   markers: HomeMapMarker[]
   selectedId: string | null
   onSelect: (id: string) => void
@@ -39,13 +40,14 @@ function zoomForRadius(km: number): number {
   return 10
 }
 
-export default function HomeMapCanvas({ origin, originIsUser, radiusKm, markers, selectedId, onSelect }: Props) {
+export default function HomeMapCanvas({ origin, originIsUser, radiusKm, recenterRequest, markers, selectedId, onSelect }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const circleRef = useRef<L.Circle | null>(null)
   const originRef = useRef<L.CircleMarker | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
   const onSelectRef = useRef(onSelect)
+  const userInteractedRef = useRef(false)
   const [tileError, setTileError] = useState(false)
   onSelectRef.current = onSelect
 
@@ -68,36 +70,44 @@ export default function HomeMapCanvas({ origin, originIsUser, radiusKm, markers,
     layerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
     // 지연 로딩·그리드 배치 직후엔 컨테이너 크기가 0/변동일 수 있어, 크기가 바뀔 때마다 다시 잰다.
-    const ro = new ResizeObserver(() => map.invalidateSize())
+    const markUserInteraction = () => { userInteractedRef.current = true }
+    const markZoomControlClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('.leaflet-control-zoom a')) markUserInteraction()
+    }
+    boxRef.current.addEventListener('wheel', markUserInteraction, { passive: true })
+    boxRef.current.addEventListener('click', markZoomControlClick)
+    map.on('dragstart', markUserInteraction)
+    const ro = new ResizeObserver(() => map.invalidateSize({ pan: !userInteractedRef.current }))
     ro.observe(boxRef.current)
-    return () => { ro.disconnect(); map.remove(); mapRef.current = null }
+    const box = boxRef.current
+    return () => {
+      ro.disconnect()
+      box.removeEventListener('wheel', markUserInteraction)
+      box.removeEventListener('click', markZoomControlClick)
+      map.off('dragstart', markUserInteraction)
+      map.remove()
+      mapRef.current = null
+    }
     // 지도는 최초 1회만 만든다 — 이후 변경은 아래 effect들이 반영.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 기준 위치·반경 변경 → 원·중심 마커 갱신, 기준 위치가 바뀌면 시점 이동
-  const lastOrigin = useRef(origin)
+  // 반경은 원만 바꾼다. 명시적인 지역·현재 위치 선택에서만 시점을 다시 맞춘다.
+  const lastViewport = useRef({ origin, recenterRequest })
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     circleRef.current?.setLatLng([origin.lat, origin.lng]).setRadius(radiusKm * 1000)
     originRef.current?.setLatLng([origin.lat, origin.lng])
     originRef.current?.setStyle({ fillColor: originIsUser ? '#2563eb' : '#64748b' })
-    const moved = lastOrigin.current.lat !== origin.lat || lastOrigin.current.lng !== origin.lng
-    lastOrigin.current = origin
-    if (moved) map.setView([origin.lat, origin.lng], zoomForRadius(radiusKm))
-  }, [origin, originIsUser, radiusKm])
-
-  // 반경을 키워 원이 화면 밖으로 나갈 때만 원 전체가 보이게 줌아웃한다 —
-  // 줄일 때는 줌을 그대로 둬서 원이 실제로 작아지는 게 보이게 한다.
-  useEffect(() => {
-    const map = mapRef.current
-    const circle = circleRef.current
-    if (!map || !circle) return
-    if (!map.getBounds().contains(circle.getBounds())) {
-      map.fitBounds(circle.getBounds(), { padding: [16, 16], animate: false })
+    const moved = lastViewport.current.origin.lat !== origin.lat || lastViewport.current.origin.lng !== origin.lng
+      || lastViewport.current.recenterRequest !== recenterRequest
+    lastViewport.current = { origin, recenterRequest }
+    if (moved) {
+      userInteractedRef.current = false
+      map.setView([origin.lat, origin.lng], zoomForRadius(radiusKm))
     }
-  }, [radiusKm])
+  }, [origin, originIsUser, radiusKm, recenterRequest])
 
   useEffect(() => {
     const layer = layerRef.current

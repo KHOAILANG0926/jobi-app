@@ -39,6 +39,7 @@ export default function HomeMapExplorer() {
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [recenterRequest, setRecenterRequest] = useState(0)
 
   const nearby = useMemo(() => findNearbyJobs(jobs, origin.point, filters), [jobs, origin, filters])
   const selected = nearby.find((n) => n.job.id === selectedId) ?? null
@@ -58,7 +59,7 @@ export default function HomeMapExplorer() {
     if (typeof navigator === 'undefined' || !navigator.geolocation) { setGeoState('unsupported'); return }
     setGeoState('loading')
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setOrigin({ kind: 'user', point: { lat: pos.coords.latitude, lng: pos.coords.longitude } }); setGeoState('idle') },
+      (pos) => { setOrigin({ kind: 'user', point: { lat: pos.coords.latitude, lng: pos.coords.longitude } }); setRecenterRequest((v) => v + 1); setGeoState('idle') },
       () => { setGeoState('denied'); setLocMenuOpen(true) },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
     )
@@ -66,7 +67,7 @@ export default function HomeMapExplorer() {
 
   const chooseRegion = (label: string) => {
     const next = regionOrigin(label)
-    if (next) { setOrigin(next); setGeoState('idle'); setLocMenuOpen(false) }
+    if (next) { setOrigin(next); setRecenterRequest((v) => v + 1); setGeoState('idle'); setLocMenuOpen(false) }
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
@@ -197,7 +198,7 @@ export default function HomeMapExplorer() {
 
       <div className="hme__map">
         <Suspense fallback={<div className="hme-map hme-map--loading">Đang tải bản đồ…</div>}>
-          <HomeMapCanvas origin={origin.point} originIsUser={origin.kind === 'user'} radiusKm={filters.radiusKm}
+          <HomeMapCanvas origin={origin.point} originIsUser={origin.kind === 'user'} radiusKm={filters.radiusKm} recenterRequest={recenterRequest}
             markers={markers} selectedId={selectedId} onSelect={setSelectedId} />
         </Suspense>
         {nearby.length === 0 && (
@@ -233,12 +234,7 @@ export default function HomeMapExplorer() {
         ) : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
-            <dl className="hme-intro__rows">
-              <div><dt>Vị trí</dt><dd>{originLabel}</dd></div>
-              <div><dt>Bán kính</dt><dd>{filters.radiusKm} km</dd></div>
-              <div><dt>Lương</dt><dd>{filters.minSalary ? `Từ ${formatSalaryOption(filters.minSalary).replace('+', '')}/tháng` : 'Tất cả'}</dd></div>
-              <div><dt>Ngành nghề</dt><dd>{filters.categories.length ? filters.categories.map((c) => CATEGORY_SHORT[c]).join(', ') : 'Tất cả'}</dd></div>
-            </dl>
+            <p className="hme-intro__summary">{originLabel} · {filters.radiusKm} km</p>
             <div className="hme-intro__count"><strong>{nearby.length}</strong> việc làm có nơi làm việc đã xác minh trên bản đồ</div>
             <p className="hme-intro__hint">
               {nearby.length > 0 ? 'Chọn một ghim trên bản đồ để xem thông tin tin tuyển dụng.' : 'Thử tăng bán kính, đổi khu vực hoặc bỏ bớt điều kiện.'}
