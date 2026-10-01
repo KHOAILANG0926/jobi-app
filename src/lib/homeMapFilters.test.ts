@@ -22,6 +22,23 @@ function testUnverifiedLocationIsNotOnMap(): void {
   assert(r.length === 1 && r[0].job.id === 'a', 'only verified work locations are mapped')
 }
 
+function testRadiusUsesKilometersWithoutVisualScaling(): void {
+  for (const radiusKm of [1, 3, 5, 10]) {
+    const pointAtRadius = job(`edge-${radiusKm}`, {
+      workLocations: [{
+        id: radiusKm,
+        rawAddress: 'edge',
+        lat: ORIGIN.lat + radiusKm / 111.19508023352181,
+        lng: ORIGIN.lng,
+        sortOrder: 0,
+        locationVerified: true,
+      }],
+    })
+    const results = findNearbyJobs([pointAtRadius], ORIGIN, { ...DEFAULT_FILTERS, radiusKm })
+    assert(results.length === 1, `${radiusKm}km filter uses the same geographic kilometer radius`)
+  }
+}
+
 function testNullConditionNeverMatches(): void {
   const f = { ...DEFAULT_FILTERS, extras: ['shuttle_bus' as const] }
   assert(matchesFilters(job('yes', { shuttleBus: true }), f), 'shuttleBus true matches')
@@ -42,6 +59,6 @@ function testBadgesSkipUnknownValues(): void {
   assert(!labels.some((l) => /Xe đưa đón|Ký túc xá/.test(l)), 'false/null values are not shown as badges')
 }
 
-const tests = [testUnverifiedLocationIsNotOnMap, testNullConditionNeverMatches, testRecruitmentTypeUsesExplicitValueOnly, testBadgesSkipUnknownValues]
+const tests = [testUnverifiedLocationIsNotOnMap, testRadiusUsesKilometersWithoutVisualScaling, testNullConditionNeverMatches, testRecruitmentTypeUsesExplicitValueOnly, testBadgesSkipUnknownValues]
 for (const t of tests) { t(); console.log(`✅ ${t.name}`) }
 console.log(`\n결과: ${tests.length}/${tests.length} homeMapFilters tests passed`)
