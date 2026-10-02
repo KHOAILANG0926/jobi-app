@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-**TomTom Orbis home map provider 후보 추가 (2026-10-02).** 상태: branch `codex/tomtom-orbis-provider`, IMPLEMENTED / STATIC·NO-KEY FALLBACK VERIFIED / PREVIEW KEY PENDING / PRODUCTION UNCHANGED.
+**TomTom Orbis home map provider 후보 추가 (2026-10-02).** 상태: branch `codex/tomtom-orbis-provider` commit `654bdf4`, IMPLEMENTED / STATIC·NO-KEY FALLBACK VERIFIED / PREVIEW DEPLOYED·KEY PENDING / PRODUCTION UNCHANGED.
 
 ## 변경 내용
 
@@ -19,6 +19,7 @@
 - `npx tsc --noEmit`: 통과.
 - `npm run build`: client + SSR 통과. 기존 MapLibre chunk 크기 경고만 유지.
 - Preview env 기준 로컬 브라우저 1440×900: `VITE_TOMTOM_API_KEY` 부재로 `data-map-provider=geoapify`, TomTom 요청 0건, Geoapify 요청 15건, console error 0건.
+- Vercel Preview `dpl_zy2AeR2sJ1ZFvAJB1rtRwCyf9HXE`: READY. Production 배포 없음.
 
 ## 발견된 문제
 

@@ -8,7 +8,7 @@
 - 변경: MapLibre 기반 `TomTomMapCanvas`, Orbis `basic_street-light` style URL helper, TomTom 우선 provider state, Places 타입 경계 추가. Google 파일은 보존·비활성, Places 네트워크 호출 없음.
 - 수정 파일: `HomeMapCanvas.tsx`, `TomTomMapCanvas.tsx`, `TomTomPlacesTypes.ts`, `tomTomMapStyle.ts`/test, `homeMapProviderState.ts`/test, `CHATGPT_HANDOFF.md`, `WORK_LOG.md`.
 - 검증: TDD red 확인 후 17/17 tests, tsc, client+SSR build 통과. Preview env key 부재 브라우저에서 Geoapify·TomTom 요청 0·console error 0 확인.
-- commit/push/deploy: Preview branch 준비 중. Production 변경 없음.
+- commit/push/deploy: `654bdf4` → `codex/tomtom-orbis-provider` push, Vercel Preview `dpl_zy2AeR2sJ1ZFvAJB1rtRwCyf9HXE` READY. Production 변경 없음.
 - 남은 문제: Preview `VITE_TOMTOM_API_KEY` 추가 후 지정 3좌표·3 viewport에서 Geoapify 품질 비교 필요. 합격 전 Production 적용 금지.
 
 ## 2026-10-02 — Google VECTOR 전환 + 기본 반경 UX 검토
