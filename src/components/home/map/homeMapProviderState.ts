@@ -1,8 +1,8 @@
 import type { HomeMapFailureReason, HomeMapViewport } from './HomeMapTypes'
 
-export const GOOGLE_MAP_INIT_TIMEOUT_MS = 12_000
+export const PRIMARY_MAP_INIT_TIMEOUT_MS = 12_000
 
-export type HomeMapProvider = 'geoapify' | 'google-loading' | 'google-ready'
+export type HomeMapProvider = 'geoapify' | 'tomtom-loading' | 'tomtom-ready'
 
 export interface HomeMapProviderState {
   provider: HomeMapProvider
@@ -12,15 +12,15 @@ export interface HomeMapProviderState {
 }
 
 export type HomeMapProviderEvent =
-  | { type: 'GOOGLE_READY'; generation: number }
-  | { type: 'GOOGLE_FAILED'; generation: number; reason: HomeMapFailureReason }
-  | { type: 'GOOGLE_TIMEOUT'; generation: number }
+  | { type: 'TOMTOM_READY'; generation: number }
+  | { type: 'TOMTOM_FAILED'; generation: number; reason: HomeMapFailureReason }
+  | { type: 'TOMTOM_TIMEOUT'; generation: number }
   | { type: 'VIEWPORT_CHANGED'; generation: number; viewport: HomeMapViewport }
-  | { type: 'RESET_GENERATION'; hasGoogleKey: boolean }
+  | { type: 'RESET_GENERATION'; hasTomTomKey: boolean }
 
-export function createHomeMapProviderState(hasGoogleKey: boolean): HomeMapProviderState {
+export function createHomeMapProviderState(hasTomTomKey: boolean): HomeMapProviderState {
   return {
-    provider: hasGoogleKey ? 'google-loading' : 'geoapify',
+    provider: hasTomTomKey ? 'tomtom-loading' : 'geoapify',
     generation: 1,
     lastViewport: null,
     failureReason: null,
@@ -33,7 +33,7 @@ export function homeMapProviderReducer(
 ): HomeMapProviderState {
   if (event.type === 'RESET_GENERATION') {
     return {
-      provider: event.hasGoogleKey ? 'google-loading' : 'geoapify',
+      provider: event.hasTomTomKey ? 'tomtom-loading' : 'geoapify',
       generation: state.generation + 1,
       lastViewport: state.lastViewport,
       failureReason: null,
@@ -44,14 +44,14 @@ export function homeMapProviderReducer(
   switch (event.type) {
     case 'VIEWPORT_CHANGED':
       return { ...state, lastViewport: event.viewport }
-    case 'GOOGLE_READY':
-      return state.provider === 'google-loading' ? { ...state, provider: 'google-ready' } : state
-    case 'GOOGLE_TIMEOUT':
-      return state.provider === 'google-loading'
+    case 'TOMTOM_READY':
+      return state.provider === 'tomtom-loading' ? { ...state, provider: 'tomtom-ready' } : state
+    case 'TOMTOM_TIMEOUT':
+      return state.provider === 'tomtom-loading'
         ? { ...state, provider: 'geoapify', failureReason: 'timeout' }
         : state
-    case 'GOOGLE_FAILED':
-      return state.provider === 'google-loading' || state.provider === 'google-ready'
+    case 'TOMTOM_FAILED':
+      return state.provider === 'tomtom-loading' || state.provider === 'tomtom-ready'
         ? { ...state, provider: 'geoapify', failureReason: event.reason }
         : state
   }

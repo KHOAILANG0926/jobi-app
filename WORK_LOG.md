@@ -2,6 +2,15 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-02 — TomTom Orbis provider 후보 구현
+
+- 요청: 기존 provider 계약을 유지하며 TomTom Orbis를 Preview primary 후보로 추가하고 Geoapify fallback·Google 코드·지도 UX를 보존. Production 배포 금지.
+- 변경: MapLibre 기반 `TomTomMapCanvas`, Orbis `basic_street-light` style URL helper, TomTom 우선 provider state, Places 타입 경계 추가. Google 파일은 보존·비활성, Places 네트워크 호출 없음.
+- 수정 파일: `HomeMapCanvas.tsx`, `TomTomMapCanvas.tsx`, `TomTomPlacesTypes.ts`, `tomTomMapStyle.ts`/test, `homeMapProviderState.ts`/test, `CHATGPT_HANDOFF.md`, `WORK_LOG.md`.
+- 검증: TDD red 확인 후 17/17 tests, tsc, client+SSR build 통과. Preview env key 부재 브라우저에서 Geoapify·TomTom 요청 0·console error 0 확인.
+- commit/push/deploy: Preview branch 준비 중. Production 변경 없음.
+- 남은 문제: Preview `VITE_TOMTOM_API_KEY` 추가 후 지정 3좌표·3 viewport에서 Geoapify 품질 비교 필요. 합격 전 Production 적용 금지.
+
 ## 2026-10-02 — Google VECTOR 전환 + 기본 반경 UX 검토
 
 - 요청: Google provider를 VECTOR rendering으로 전환하고 건물·POI 표현 및 기본 반경 UX를 검토.
@@ -84,14 +93,3 @@
 - 수정 파일: CLAUDE.md, WORK_LOG.md, CHATGPT_HANDOFF.md
 - 검증: 문서만 변경 — typecheck/build 해당 없음
 - commit: 이 커밋 / push: master / deploy: 해당 없음
-
-## 2026-10-01 (회사 PC)
-
-- 요청: 한국 일자리 분리 가능성 전제로 코드·DB 결합 상태 읽기 전용 조사 → 분리 규칙을 CLAUDE.md에 저장
-- 변경: CLAUDE.md에 "한국 일자리 모듈 분리 규칙" 섹션 추가
-- 조사 요약: korea_* 테이블·뷰는 local_jobs 계열과 FK·DB 함수 결합 없음. korea_jobs 4건, applications/threads/interviews 0건(모두 FK→local_jobs). 저장공고는 localStorage 같은 키에 kr- 접두어. 한국 페이지는 SSR/sitemap/canonical 미포함. KoreaJobDetail이 jobCoords.resolveMapLocations 공유(베트남 위치 규칙이 한국 지도에 적용됨).
-- 수정 파일: CLAUDE.md, WORK_LOG.md, CHATGPT_HANDOFF.md
-- 검증: 문서만 변경 — typecheck/build 해당 없음
-- commit: 이 커밋 / push: master / deploy: 해당 없음
-- 남은 문제: 지도 함수 공유 정리(한국 상세 작업 시), 한국 SEO 공백(간판화 시 결정)
-

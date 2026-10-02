@@ -1,8 +1,8 @@
-// 메인 지도 provider 선택, Google 초기화 timeout, Geoapify fallback과 viewport 승계를 관리한다.
+// 메인 지도 provider 선택, TomTom 초기화 timeout, Geoapify fallback과 viewport 승계를 관리한다.
 import { lazy, useEffect, useReducer } from 'react'
 import type { HomeMapMarker, HomeMapProviderProps } from './map/HomeMapTypes'
 import {
-  GOOGLE_MAP_INIT_TIMEOUT_MS,
+  PRIMARY_MAP_INIT_TIMEOUT_MS,
   createHomeMapProviderState,
   homeMapProviderReducer,
 } from './map/homeMapProviderState'
@@ -14,23 +14,23 @@ type Props = Pick<
   'origin' | 'originIsUser' | 'radiusKm' | 'recenterRequest' | 'markers' | 'selectedId' | 'onSelect'
 >
 
-const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim() ?? ''
-const GoogleMapCanvas = GOOGLE_MAPS_API_KEY ? lazy(() => import('./map/GoogleMapCanvas')) : null
+const TOMTOM_API_KEY = (import.meta.env.VITE_TOMTOM_API_KEY as string | undefined)?.trim() ?? ''
+const TomTomMapCanvas = TOMTOM_API_KEY ? lazy(() => import('./map/TomTomMapCanvas')) : null
 const GeoapifyMapCanvas = lazy(() => import('./map/GeoapifyMapCanvas'))
 
 export default function HomeMapCanvas(props: Props) {
   const [state, dispatch] = useReducer(
     homeMapProviderReducer,
-    GOOGLE_MAPS_API_KEY.length > 0,
+    TOMTOM_API_KEY.length > 0,
     createHomeMapProviderState,
   )
   const generation = state.generation
 
   useEffect(() => {
-    if (state.provider !== 'google-loading') return
+    if (state.provider !== 'tomtom-loading') return
     const timeout = window.setTimeout(() => {
-      dispatch({ type: 'GOOGLE_TIMEOUT', generation })
-    }, GOOGLE_MAP_INIT_TIMEOUT_MS)
+      dispatch({ type: 'TOMTOM_TIMEOUT', generation })
+    }, PRIMARY_MAP_INIT_TIMEOUT_MS)
     return () => window.clearTimeout(timeout)
   }, [generation, state.provider])
 
@@ -41,7 +41,7 @@ export default function HomeMapCanvas(props: Props) {
     },
   }
 
-  if (state.provider === 'geoapify' || !GoogleMapCanvas) {
+  if (state.provider === 'geoapify' || !TomTomMapCanvas) {
     return (
       <GeoapifyMapCanvas
         {...sharedProps}
@@ -53,10 +53,10 @@ export default function HomeMapCanvas(props: Props) {
   }
 
   return (
-    <GoogleMapCanvas
+    <TomTomMapCanvas
       {...sharedProps}
-      onReady={() => dispatch({ type: 'GOOGLE_READY', generation })}
-      onFailure={(reason) => dispatch({ type: 'GOOGLE_FAILED', generation, reason })}
+      onReady={() => dispatch({ type: 'TOMTOM_READY', generation })}
+      onFailure={(reason) => dispatch({ type: 'TOMTOM_FAILED', generation, reason })}
     />
   )
 }
