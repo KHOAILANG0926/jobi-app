@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-02 — Google VECTOR 전환 + 기본 반경 UX 검토
+
+- 요청: Google provider를 VECTOR rendering으로 전환하고 건물·POI 표현 및 기본 반경 UX를 검토.
+- 변경: `renderingType: VECTOR` 옵션 helper와 테스트, 실제 rendering type 진단값 추가. ROADMAP/HYBRID·기본 스타일·fallback·반경/marker/viewport 계약 유지.
+- 검증: tsc/build, 16/16 tests, Google fixture VECTOR/ROADMAP/HYBRID/no-style 및 네 실패 fallback 통과. Production은 key 부재로 Geoapify, 8km·zoom 11.3428·원 지름 0.65·Geoapify 오류 0.
+- commit/push/deploy: `90bf841` master push, Vercel `dpl_FSNAYRTi8EfukY48TjHadNXZb77b` READY.
+- 남은 문제: 실제 Google raster/VECTOR/HYBRID 비교는 PENDING_NO_KEY. 기본 8km와 빠른 선택 5/10/20 불일치; 5km 기본값 권장, 결정 전 변경하지 않음.
+
 ## 2026-10-02 — Google Native provider + Geoapify fallback 검증
 
 - 요청: 승인된 provider 설계대로 Google Maps JavaScript API ROADMAP/HYBRID provider를 추가하되, 현재 Google key가 없는 Production은 기존 Geoapify를 유지하고 radius/viewport UX를 회귀시키지 않기.
@@ -87,13 +95,3 @@
 - commit: 이 커밋 / push: master / deploy: 해당 없음
 - 남은 문제: 지도 함수 공유 정리(한국 상세 작업 시), 한국 SEO 공백(간판화 시 결정)
 
-## 2026-10-01 (집 PC)
-
-- 요청: ChatGPT가 Claude Code 직접 작업도 추적할 수 있도록 기록 규칙 추가
-- 변경: CLAUDE.md에 "ChatGPT 추적용 기록" 섹션 추가, WORK_LOG.md 생성, CHATGPT_HANDOFF.md 스냅샷 갱신(메인 지도 논의 반영)
-- 수정 파일: CLAUDE.md, WORK_LOG.md(신규), CHATGPT_HANDOFF.md
-- 검증: 문서만 변경 — typecheck/build 해당 없음
-- commit: 이 커밋
-- push: master
-- deploy: 해당 없음(문서)
-- 남은 문제: 없음
