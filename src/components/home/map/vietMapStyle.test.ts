@@ -5,9 +5,13 @@ function assert(condition: boolean, label: string): void {
 }
 
 const url = createVietMapStyleUrl('key with symbols/+')
-assert(url.startsWith('https://maps.vietmap.vn/maps/styles/tm/style.json?'), 'uses the official VIETMAP Vector Street style')
+assert(url.startsWith('https://maps.vietmap.vn/maps/styles/tm/style.json?'), 'street mode uses the official VIETMAP Vector Street style')
 assert(new URL(url).searchParams.get('apikey') === 'key with symbols/+', 'encodes the Tilemap key')
-assert(!url.includes('/styles/lm/') && !url.includes('/styles/hm/'), 'does not select Light, Satellite, or Hybrid')
+assert(!url.includes('/styles/lm/') && !url.includes('/styles/hm/'), 'street mode does not select Light or Hybrid')
+
+const satellite = createVietMapStyleUrl('k', 'satellite')
+assert(satellite.startsWith('https://maps.vietmap.vn/maps/styles/hm/style.json?'), 'satellite mode uses the official VIETMAP Hybrid style')
+assert(new URL(satellite).searchParams.get('apikey') === 'k', 'satellite mode keeps the same Tilemap key')
 
 let emptyKeyRejected = false
 try {
@@ -17,4 +21,4 @@ try {
 }
 assert(emptyKeyRejected, 'rejects an empty Tilemap key before requesting map assets')
 
-console.log('vietMapStyle.test.ts: official Vector Street style assertions passed')
+console.log('vietMapStyle.test.ts: official Vector Street / Hybrid style assertions passed')

@@ -4,6 +4,7 @@ import {
   calculateInitialZoom,
   createRadiusPolygon,
   radiusKmToMeters,
+  radiusWithinLoadedTiles,
 } from './homeMapGeometry.ts'
 
 function assert(condition: boolean, label: string): void {
@@ -64,5 +65,13 @@ for (const [label, radiusKm, size] of [
   const zoom = calculateInitialZoom(origin.lat, radiusKm, size)
   assert(Number.isFinite(zoom) && zoom >= 3 && zoom <= 18, `${label} returns a finite clamped zoom`)
 }
+
+// z16 tile ≈ 0.0055° wide. A view spanning several tiles around the origin covers 300 m;
+// a view that stops just north of the origin does not cover 500 m to the north.
+const wide = { north: origin.lat + 0.012, south: origin.lat - 0.012, east: origin.lng + 0.012, west: origin.lng - 0.012 }
+assert(radiusWithinLoadedTiles(origin, 300, wide, 16), '300 m is covered when the view spans the surrounding tiles')
+assert(radiusWithinLoadedTiles(origin, 500, wide, 16.7), 'fractional zoom uses the integer tile zoom')
+const shortNorth = { ...wide, north: origin.lat + 0.0005 }
+assert(!radiusWithinLoadedTiles(origin, 2000, shortNorth, 16), 'radius beyond loaded tiles is reported as partial')
 
 console.log('homeMapGeometry.test.ts: radius and viewport assertions passed')

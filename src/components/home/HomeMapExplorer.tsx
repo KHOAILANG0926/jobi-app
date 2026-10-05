@@ -12,11 +12,15 @@ import { findRegionCenter, formatDistanceLabel } from '../../lib/jobCoords'
 import { conditionBadges } from '../../lib/jobConditions'
 import {
   DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, PRIMARY_CATEGORIES, RADIUS_MAX_KM, RADIUS_MIN_KM, SALARY_OPTIONS,
-  findNearbyJobs, formatSalaryOption, isConditionAvailable,
+  findNearbyJobs, formatSalaryOption, isConditionAvailable, verifiedJobPoints,
   type ExtraConditionKey, type HomeMapFilterState, type MapJobPoint,
 } from '../../lib/homeMapFilters'
 import type { JobCategory } from '../../types/job'
 import { formatSearchRadius, locationAccuracyWarning, normalizeSearchRadius, summarizeMapJobs } from '../../lib/homeMapSearch'
+import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
+import NearbyLifePanel from './NearbyLifePanel'
+import PlaceDetailPanel from './PlaceDetailPanel'
+import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
 
 const HomeMapCanvas = lazy(() => import('./HomeMapCanvas'))
 
@@ -42,6 +46,10 @@ export default function HomeMapExplorer() {
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [recenterRequest, setRecenterRequest] = useState(0)
+  const [nearbyState, setNearbyState] = useState<NearbyState>({ status: 'idle' })
+  const [pickedPlace, setPickedPlace] = useState<PickedPlace | null>(null)
+  const [placeZoomRequest, setPlaceZoomRequest] = useState(0)
+  const [mapMode, setMapMode] = useState<HomeMapMode>('street')
   const locationRequest = useRef(0)
   useEffect(() => () => { locationRequest.current += 1 }, [])
 
@@ -53,6 +61,12 @@ export default function HomeMapExplorer() {
   useEffect(() => {
     if (selectedId && !nearby.some((n) => n.job.id === selectedId)) setSelectedId(null)
   }, [nearby, selectedId])
+
+  // 클릭한 건물/시설 주변 공고: 필터와 무관하게 확인된 근무지 좌표가 있는 모든 공고 기준.
+  const verifiedJobs = useMemo(() => mapJobs.map((job) => ({ job, points: verifiedJobPoints(job) })).filter((j) => j.points.length > 0), [mapJobs])
+  const placeJobs = useMemo(() => (pickedPlace ? jobsNearPlace(pickedPlace, verifiedJobs) : []), [pickedPlace, verifiedJobs])
+  const selectableIds = useMemo(() => new Set(nearby.map((n) => n.job.id)), [nearby])
+  const selectJob = (id: string) => { setPickedPlace(null); setSelectedId(id) }
 
   const markers = useMemo(
     () => nearby.map((n) => ({ id: n.job.id, lat: n.point.lat, lng: n.point.lng, label: `${n.job.title} · ${n.job.company}` })),
@@ -225,12 +239,26 @@ export default function HomeMapExplorer() {
       <div className="hme__map">
         <Suspense fallback={<div className="hme-map hme-map--loading">Đang tải bản đồ…</div>}>
           <HomeMapCanvas origin={origin.point} originIsUser={origin.kind === 'user'} radiusKm={filters.radiusKm} recenterRequest={recenterRequest}
-            markers={markers} selectedId={selectedId} onSelect={setSelectedId} />
+            markers={markers} selectedId={selectedId} onSelect={selectJob} onNearbyChange={setNearbyState}
+            mapMode={mapMode} onMapModeChange={setMapMode} pickedPlace={pickedPlace} onPlacePick={setPickedPlace} placeZoomRequest={placeZoomRequest} />
         </Suspense>
       </div>
 
       <aside className="hme__panel" aria-live="polite">
-        {selected ? (
+        {pickedPlace ? (
+          <PlaceDetailPanel
+            place={pickedPlace}
+            origin={{ label: origin.kind === 'user' ? 'vị trí của bạn' : `trung tâm ${origin.label}`, point: origin.point }}
+            selectedJob={selected ? { title: selected.job.title, point: selected.point } : null}
+            jobs={placeJobs}
+            selectableIds={selectableIds}
+            mapMode={mapMode}
+            onMapModeChange={setMapMode}
+            onSelectJob={selectJob}
+            onRequestZoom={() => setPlaceZoomRequest((v) => v + 1)}
+            onClose={() => setPickedPlace(null)}
+          />
+        ) : selected ? (
           <div className="hme-job">
             <button type="button" className="hme-job__close" aria-label="Bỏ chọn tin" onClick={() => setSelectedId(null)}><X size={18} /></button>
             <div className="hme-job__company">{selected.job.company}</div>
@@ -251,6 +279,7 @@ export default function HomeMapExplorer() {
             </dl>
             <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>
             <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
+            <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />
           </div>
         ) : (
           <div className="hme-intro">

@@ -11650,6 +11650,61 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .hme-map__job-picker button:hover, .hme-map__job-picker button:focus-visible { border-color: #dc2626; background: #fef2f2; }
 @media (max-width: 600px) { .hme-map__job-picker { max-height: 150px; overflow-y: auto; } }
 .hme-map__origin { width: 16px; height: 16px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); box-sizing: border-box; pointer-events: none; }
+/* 생활지도 (2026-10-05): Bản đồ/Vệ tinh 전환, 핀 묶음, 선택 공고 주변 생활환경 */
+.hme-map__modes { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; background: #fff; border: 1px solid #d6dbe3; border-radius: 9px; box-shadow: 0 1px 4px rgba(15, 23, 42, .18); overflow: hidden; }
+.hme-map__modes button { border: 0; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; }
+.hme-map__modes button + button { border-left: 1px solid #e2e8f0; }
+.hme-map__modes button.is-active { background: #0f172a; color: #fff; }
+.hme-map__modes button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.hme-map__cluster { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(185, 28, 28, .9); color: #fff; font-weight: 700; font-size: 13px; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(185, 28, 28, .22), 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; box-sizing: border-box; }
+.hme-map__cluster:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.hme-life { margin-top: 14px; padding-top: 14px; border-top: 1px solid #eef0f3; display: flex; flex-direction: column; gap: 10px; }
+.hme-life__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hme-life__title { margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; }
+.hme-life__radius { display: flex; border: 1px solid #e2e8f0; border-radius: 999px; overflow: hidden; }
+.hme-life__radius button { border: 0; background: #fff; padding: 4px 10px; font: inherit; font-size: 12px; color: #475569; cursor: pointer; }
+.hme-life__radius button.is-active { background: #e11d48; color: #fff; font-weight: 600; }
+.hme-life__lead { margin: 0; font-size: 13px; color: #475569; }
+.hme-life__lead strong { font-size: 18px; color: #0f172a; }
+.hme-life__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.hme-life__grid li { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid #eef0f3; border-radius: 8px; font-size: 12px; color: #334155; min-width: 0; }
+.hme-life__grid li strong { margin-left: auto; font-size: 14px; color: #0f172a; }
+.hme-life__grid li.is-empty { color: #94a3b8; }
+.hme-life__grid li.is-empty strong { color: #cbd5e1; font-weight: 600; }
+.hme-life__label { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+.hme-life__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.hme-life__sub { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 4px; }
+.hme-life__nearest ul, .hme-life__work ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.hme-life__nearest li, .hme-life__work li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #334155; min-width: 0; }
+.hme-life__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hme-life__dist { flex-shrink: 0; color: #64748b; font-variant-numeric: tabular-nums; }
+.hme-life__note { margin: 0; font-size: 11px; color: #94a3b8; }
+/* 생활지도 2차 (2026-10-05): 지도에서 고른 건물/시설 상세 */
+.hme-place { display: flex; flex-direction: column; gap: 10px; }
+.hme-place__bar { display: flex; align-items: center; justify-content: space-between; min-height: 24px; }
+.hme-place__bar .hme-job__close { margin-left: auto; }
+.hme-place__back { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; font: inherit; font-size: 12px; color: #2563eb; cursor: pointer; }
+.hme-place__category { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #475569; }
+.hme-place__title { margin: 0; font-size: 18px; line-height: 1.3; color: #0f172a; overflow-wrap: anywhere; }
+.hme-place__title.is-unknown { color: #64748b; font-size: 16px; }
+.hme-place__inside { font-size: 12px; color: #475569; background: #f8fafc; border: 1px solid #eef0f3; border-radius: 8px; padding: 8px 10px; }
+.hme-place__inside p { margin: 0; }
+.hme-place__inside ul { margin: 6px 0 0; padding-left: 16px; }
+.hme-place__inside li span { color: #94a3b8; }
+.hme-place__rows { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.hme-place__rows div { display: flex; justify-content: space-between; gap: 10px; }
+.hme-place__rows dt { color: #64748b; }
+.hme-place__rows dd { margin: 0; color: #0f172a; text-align: right; font-variant-numeric: tabular-nums; }
+.hme-place__sat { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; font-size: 13px; font-weight: 600; color: #0f172a; cursor: pointer; }
+.hme-place__sat[aria-pressed="true"] { background: #0f172a; color: #fff; border-color: #0f172a; }
+.hme-place__jobs { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid #eef0f3; }
+.hme-place__jobs ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hme-place__job { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font: inherit; color: inherit; text-decoration: none; cursor: pointer; box-sizing: border-box; }
+.hme-place__job:hover { border-color: #fca5a5; background: #fff7f7; }
+.hme-place__job-title { font-size: 13px; font-weight: 600; color: #0f172a; }
+.hme-place__job-meta { font-size: 12px; color: #64748b; }
+.hme-place__empty { margin: 0; font-size: 13px; color: #64748b; background: #f8fafc; border-radius: 8px; padding: 8px 10px; }
+.hme-place__partial { color: #b45309; }
 .hme-intro__title { margin: 0 0 6px; font-size: 17px; color: #0f172a; }
 .hme-intro__summary { margin: 0; font-size: 13px; color: #64748b; }
 .hme-intro__rows, .hme-job__rows { margin: 0; display: flex; flex-direction: column; gap: 8px; }

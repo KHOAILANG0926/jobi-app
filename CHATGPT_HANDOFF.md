@@ -2,37 +2,40 @@
 
 ## 현재 작업
 
-**VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화 (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·build·tests) / PREVIEW APPROVED(사용자) / MASTER PUSHED(`8f0498f`, fast-forward) / PRODUCTION DEPLOYED(`jobi-c29zpgkiq`) / PRODUCTION VERIFIED(2026-10-05 viecganban.vn: VietMap style·tile 요청 실패 0, Geoapify 요청 0, 콘솔 오류 0, Bắc Ninh 8km 지도 표시).
+**생활지도 1차(건물·근무지·생활시설 중심) + 2차(건물/시설 클릭 상세 패널) (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 26/26·build·로컬 화면) / **PREVIEW APPROVED(사용자, 2026-10-05, Preview `jobi-ifofpmbdx`)** / BRANCH PUSHED(`feat/life-map-buildings-poi`). **master merge·Production deploy 안 함**(사용자 지시: 별도 승인 대기). 승인 후 코드 수정 없음.
 
-- branch: `feat/home-map-vietmap-sync` (master `ade2926` 기반, origin에 push). worktree: 집 PC `C:\Users\HP\Downloads\jobi-vietmap-sync`.
-- 승인된 Preview: https://jobi-1cre9b7j6-mshw1895-6089s-projects.vercel.app/?mapAcceptance=1 (이 branch 작업 트리에서 CLI Preview 배포, 커밋 내용과 동일).
-- Production 메인 지도는 이제 VietMap(기존 key `…18ea45`, 도메인 제한·한도 없음 — 아래 권한 문제).
-- 기존 방향에서 바뀐 것: 메인 지도 primary provider가 Google → **VIETMAP**(`VITE_VIETMAP_TILEMAP_KEY`)으로 바뀜. 키가 없거나 실패하면 기존 Geoapify fallback. Google provider 파일은 삭제하지 않았지만 더 이상 `HomeMapCanvas`에서 쓰지 않는다. TomTom 후보는 탈락, 코드 미포함.
+- branch: `feat/life-map-buildings-poi`(master `a01f3c6` 기반, 승인된 Preview 소스 그대로 commit·push). 집 PC `C:\Users\Admin\Desktop\JOBI`.
+- 검토용 Preview(1차+2차, 미커밋 소스를 깨끗한 worktree 사본에서 CLI 배포): https://jobi-ifofpmbdx-mshw1895-6089s-projects.vercel.app/?mapAcceptance=1 (1차만: jobi-l5craw8h8)
+- 승인된 Preview 소스 = 이 branch commit(종료 게이트 충족).
+- 기존 방향에서 바뀐 것: 메인 지도가 "도로 중심 공식 스타일 그대로" → **공식 style JSON을 앱에서 변환**(건물 z14부터·윤곽선, 근무지/생활 POI 우선, 도로 0.8배). 위성은 VietMap 공식 Hybrid(`hm`) 사용. 주변시설은 지도에 로드된 벡터 타일 POI로 계산(별도 API 없음).
 
 ## 변경 내용
 
-- 원본: Codex가 미커밋 상태로 CLI 배포했던 검증 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`의 source를 Vercel API로 회수해 master 위에 필요한 지도 파일만 반영. 격리 폴더(`qkd\work\jobi-shared-pin-sync`)는 일부 파일이 빠진 불완전 사본이라 기준으로 쓰지 않음.
-- VietMap: `VietMapMapCanvas`, `vietMapStyle`, `vietMapDetail`, `vietMapError` 추가, `HomeMapCanvas`/`homeMapProviderState` provider 교체. dependency `@vietmap/vietmap-gl-js` 6.0.1(`npm install`로 lock 갱신).
-- 공동 핀: `groupHomeMapMarkers`로 같은 좌표 공고를 숫자 핀 하나로 묶고 목록 팝업 표시. `sharedJobPopupOptions`(`focusAfterOpen: false`)로 팝업 첫 항목 자동 포커스가 선택처럼 보이던 문제 수정.
-- 반경: `RADIUS_MIN_KM` 1 → 0.1, `homeMapSearch`(반경 정규화/표시, 위치 정확도 경고, 결과 카운트), 빠른 버튼 100m/300m/500m/1/3/5/10/20km, 관련 CSS. pan/zoom 후 반경 변경 시 viewport 유지.
-- acceptance: `previewMapAcceptanceJobs` 5건은 Vercel Preview 빌드 + `?mapAcceptance=1`에서만 로드(`vite.config` `VITE_MAP_ACCEPTANCE`). Production 빌드에는 포함되지 않음을 확인.
-- 제외: TomTom 파일, `vietMapDiagnostics`(+`VITE_MAP_DIAGNOSTICS`), 깨진 `Home.deployed.tsx`.
-- CLAUDE.md에 "작업 브랜치·Preview·Git 종료 게이트 — MANDATORY" 추가.
+- `lifeMapStyle.ts`: building minzoom 17→14 + 대비 색 + `home-life-building-outline` 선. company/industrial z13·텍스트 진하게, 생활시설(식당·카페·약국·병원·버스·숙소·마트·ATM) z15, 근무지→생활시설 순으로 도로 라벨 위로 이동(충돌 시 우선), `text-optional`(라벨 숨겨져도 아이콘 유지). 일반↔위성 교체 시 앱 layer/source 이월.
+- `vietMapStyle.ts`: `street`(tm) / `satellite`(hm, 2026-10-05 지원 확인).
+- `VietMapMapCanvas.tsx`: style JSON fetch→변환→지도 생성, Bản đồ/Vệ tinh 토글(viewport·핀·반경·현재 위치·선택 유지, 위성 style 실패 시 일반으로 복귀), 준비 후 개별 타일 오류는 Geoapify로 내려가지 않음. 선택 공고 시 z16 이동→실제 POI 집계, 300/500m 점선 링 + 종류별 점(공식 아이콘 아래).
+- `homeMapClusters.ts`: 공동 핀 + viewport filtering + z<14 화면 격자 cluster(클릭 시 확대), 선택 공고는 항상 단독 핀. 마커 DOM 재사용.
+- `nearbyFacilities.ts` + `NearbyLifePanel.tsx`: 300/500m 종류별 수(없으면 "—"), 종류별 가장 가까운 시설, 주변 회사·공장 목록. housing·무분류 POI는 이름(Nhà nghỉ/KTX/Cty…)이 분명할 때만 인정.
+- `homeMapGeometry.radiusWithinLoadedTiles`: 반경이 로드된 타일 밖이면 "일부 미집계" 안내.
+- 삭제: `vietMapDetail.ts`(+test) — `lifeMapStyle`로 대체.
+- 2차 클릭 상세: `mapPlace.ts`(폴리곤 포함 판정·건물명 규칙·주변 공고), `PlaceDetailPanel.tsx`, 캔버스 `queryRenderedFeatures` 클릭(POI 8px → 건물 폴리곤, 핀·팝업·토글 클릭 제외), 강조 `home-picked-*`, 위성용 투명 건물 hit layer, 지도 모드를 상위 상태로(패널의 위성 버튼). 건물명은 폴리곤 안 POI 정확히 1개일 때만, 0개 이름 없음, 2개 이상 목록만. 주소 데이터 없음 → 좌표. 주변 공고는 확인된 근무지 좌표(같은 건물/좌표 우선, 500m). 클릭 시 viewport 유지, 낮은 zoom이면 확대 버튼.
 
 ## 테스트 결과
 
-- `npx tsc --noEmit` 통과, `npm test` 23/23 파일 통과, `npm run build` 통과.
-- Production 빌드에 acceptance 데이터 0건, Preview(`VERCEL_ENV=preview`) 빌드에는 포함. 더미 키 빌드에서 VietMap chunk(774kB) 정상 생성.
-- Preview 동작 검증(Senna → 공동 핀 → Terminal 3건 → Pizza Hut)은 사용자가 확인·승인. Claude 브라우저는 Vercel 로그인 벽으로 직접 확인하지 못함.
+- tsc 통과, `npm test` 26/26(신규: lifeMapStyle, homeMapClusters, nearbyFacilities, mapPlace, 타일 커버리지), build 통과.
+- 2차 검증(로컬): 이름 있는 회사 건물(Cty In Báo Hà Nội Mới, 폴리곤 안 POI 1개) / 이름 없는 건물(Bắc Ninh) / 생활시설(Coffee And Tea Cây Bàng, NgH VietinBank 실제 마우스) / 공고 근처 POI(Terminal 공동 핀 3건 90m, 클릭 시 공고 선택) / 위성↔일반 전환 후 선택·강조·viewport 유지 / 위성에서 건물 클릭 / 빈 곳 클릭 시 닫힘 / 핀 실제 클릭은 공고 선택. Bắc Ninh에는 회사 POI가 들어 있는 건물 폴리곤이 없어 이름 있는 건물 사례는 Hà Nội로 확인.
+- 로컬(Production DB + acceptance 5건): Senna 선택 → z16, 500m 생활시설 87(식당 10·편의 16·카페 5·약국 20·병원 27·숙소 4·ATM 5, 버스·마트 0), 회사 31. 위성 전환 전후 zoom·중심·선택 핀·현재 위치·패널 동일. 5,000건 핀 계획 <200ms, ≤100 DOM. 지도 애니메이션 ~75fps. 375px 가로 넘침 없음.
+- VietMap 데이터 실측: 생활 POI는 z16 타일에만 온전(300m 안 z15 7개 → z16 89개). building은 class/height 없음, landuse에 industrial 없음, 공단 건물 데이터 희소(Yên Phong z15 10개) → 위성으로 보완.
 
 ## 발견된 문제
 
-- Preview 환경에 `VITE_ZALO_APP_ID`가 없어 Preview 헤더에 Zalo 버튼이 안 보임(Production에는 있음). 코드 문제 아님, 별도 작업.
-- 실제 휴대폰 GPS 검증 미완료.
-- chunk 크기 경고: Geoapify 1.04MB(기존), VietMap 774kB(lazy).
-- 반경 빠른 버튼 200m vs 300m 결정 보류.
+- VietMap 데이터 한계: 공단 공장 건물 폴리곤 누락 다수, 버스정류장 POI 적음, company는 z15 타일부터만 존재(z13 표시 설정해도 데이터 없음).
+- 비용: 위성 raster 타일과 z16 이동으로 VietMap 요청 증가 가능(Transaction 단가 미확인). Places/Search API는 사용하지 않음.
+- Preview 환경에 `VITE_ZALO_APP_ID`, 휴대폰 GPS 실기기 검증, 반경 200m/300m 결정 — 이전과 동일.
 
 ## 다음 결정사항
+
+- **생활지도 1차+2차: master merge·Production deploy 여부**(사용자 별도 승인 필요). Production에 Vercel env `VITE_VIETMAP_TILEMAP_KEY` 있음.
 
 - **VietMap 키 제한 — 권한 부족으로 보류(2026-10-05 확인, 사용자 결정: 배포는 막지 않음).**
   - 계정 `viecganban` Console에서 Consumer 생성(화면은 성공 표시, 서버 목록 미반영), API key 생성, 기존 key(`…18ea45`, consumer `public tile`) Referers 수정, consumer 일/월 한도 수정 모두 API 응답 `UN_AUTHORIZED`. 실제 변경 0건.

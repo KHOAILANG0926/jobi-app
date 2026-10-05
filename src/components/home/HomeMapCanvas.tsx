@@ -11,7 +11,8 @@ export type { HomeMapMarker }
 
 type Props = Pick<
   HomeMapProviderProps,
-  'origin' | 'originIsUser' | 'radiusKm' | 'recenterRequest' | 'markers' | 'selectedId' | 'onSelect'
+  | 'origin' | 'originIsUser' | 'radiusKm' | 'recenterRequest' | 'markers' | 'selectedId' | 'onSelect' | 'onNearbyChange'
+  | 'mapMode' | 'onMapModeChange' | 'pickedPlace' | 'onPlacePick' | 'placeZoomRequest'
 >
 
 const VIETMAP_TILEMAP_KEY = (import.meta.env.VITE_VIETMAP_TILEMAP_KEY as string | undefined)?.trim() ?? ''
@@ -33,6 +34,15 @@ export default function HomeMapCanvas(props: Props) {
     }, PRIMARY_MAP_INIT_TIMEOUT_MS)
     return () => window.clearTimeout(timeout)
   }, [generation, state.provider])
+
+  // Geoapify fallback에는 POI 조회 기능이 없다 → 주변시설은 "지원 안 됨"으로 알린다(가짜 0 아님).
+  const fallbackActive = state.provider === 'geoapify' || !VietMapMapCanvas
+  const { onNearbyChange, onPlacePick, selectedId } = props
+  useEffect(() => {
+    if (fallbackActive) onNearbyChange?.(selectedId ? { status: 'unavailable', jobId: selectedId } : { status: 'idle' })
+  }, [fallbackActive, onNearbyChange, selectedId])
+  // 건물/시설 클릭 상세는 VietMap 벡터 데이터가 필요하다 → fallback 전환 시 닫는다.
+  useEffect(() => { if (fallbackActive) onPlacePick?.(null) }, [fallbackActive, onPlacePick])
 
   const sharedProps = {
     ...props,

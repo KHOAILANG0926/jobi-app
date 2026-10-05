@@ -2,6 +2,22 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-05 — 생활지도 2차: 건물/시설 클릭 상세 패널 — PREVIEW APPROVED, BRANCH PUSHED
+
+- 요청: 건물·회사·생활시설 클릭 → 강조 + 우측 상세(이름·종류·좌표·거리·300/500m 시설·주변 회사·근처 공고·위성 전환), 가짜 데이터 금지.
+- 변경: `mapPlace.ts`(+test), `PlaceDetailPanel.tsx`, `VietMapMapCanvas`(클릭/hover/강조/재집계), `lifeMapStyle`(위성 투명 건물 hit layer), `HomeMapExplorer`(장소 상태·지도 모드), `NearbyLifePanel`(요약 뷰 재사용), CSS.
+- 규칙: 건물명은 폴리곤 안 POI 1개일 때만, 주소 없음 → 좌표, 근처 바깥 POI 이름을 건물에 붙이지 않음.
+- 검증: tsc, tests 26/26, build, 로컬 5개 시나리오 + 실제 마우스 클릭.
+- commit/push: 사용자 승인(Preview `jobi-ifofpmbdx`) 후 승인 소스 그대로 branch `feat/life-map-buildings-poi` commit·push. master merge·Production deploy 안 함(별도 승인 대기).
+
+## 2026-10-05 — 생활지도 고도화(건물·근무지·생활시설) — PREVIEW APPROVED, BRANCH PUSHED
+
+- 요청: VietMap 유지, 건물·회사·생활시설 중심 지도, 선택 공고 주변 300/500m 생활환경 패널, 위성 토글, 대량 공고 대비 구조.
+- 변경: `lifeMapStyle`(style 변환), `vietMapStyle`(hm 위성), `VietMapMapCanvas`(fetch→변환, 토글, 주변 POI 집계·링·점), `homeMapClusters`(viewport/cluster), `nearbyFacilities`+`NearbyLifePanel`, `homeMapGeometry.radiusWithinLoadedTiles`, CSS. `vietMapDetail` 삭제(대체).
+- 이유: VietMap 원본은 건물 z17·POI 대부분 z18부터라 동네 단위에서 도로만 보였음. 생활 POI는 z16 타일에만 온전 → 선택 시 z16 기준 집계.
+- 검증: tsc, tests 25/25, build, 로컬 화면(데스크톱·375px·위성 전환 유지·87개 시설 집계).
+- commit/push: 2차와 함께 승인(Preview `jobi-ifofpmbdx`) 후 branch `feat/life-map-buildings-poi` commit·push. 1차 단독 Preview `jobi-l5craw8h8`. master·Production 안 함.
+- 남은 문제: 공단 건물 데이터 희소, 위성/z16 사용량 증가 가능, VietMap key 권한 문제(기존).
 ## 2026-10-05 — VietMap 키 제한 시도: 권한 부족(UN_AUTHORIZED)
 
 - 요청: Production/Preview Consumer·key 분리, 도메인 제한, 일/월 한도 설정. 안 되면 기존 key에 적용.
@@ -67,23 +83,4 @@
 - 검증: tsc·build 통과. 로컬·Production 브라우저 PC 1366×768/1440×900/1920×1080에서 목표 높이·3열 정렬·첫 화면 `Việc làm nổi bật` 노출 확인. 로컬 조건 펼침·내부 스크롤·반경·verified 핀→패널·가로 넘침·페이지 오류 0 확인.
 - commit: `4817df2`(UI) + 이 문서 커밋 / push: master / deploy: Vercel Production Ready, viecganban.vn 확인.
 - 남은 문제: 이번 작업 신규 문제 없음.
-
-## 2026-10-01 21:21 — 메인 지도 탐색 영역 UI 높이·정렬·타일 스타일 개선
-
-- 요청: 메인 지도 UI만 축소·3열 정렬·패널 내부 스크롤·밝은 지도 타일로 변경하고 브라우저 검증 후 배포.
-- 변경: PC 높이 clamp(500px, 60vh, 580px), 단일 grid 행과 Leaflet 부모 높이 정합, 좌·우·모바일 필터 내부 스크롤, 기존 Geoapify 키의 osm-bright 타일과 필수 출처 표시.
-- 수정 파일: src/index.css, src/components/home/HomeMapCanvas.tsx, CHATGPT_HANDOFF.md, WORK_LOG.md.
-- 검증: tsc·build 통과. 1366×768/1440×900/1920×1080/375×812 브라우저에서 높이·정렬·스크롤·반경·verified 핀→패널·타일 URL·가로 넘침 없음 확인. 로컬 키 부재로 로컬 타일 색상 확인 제한; Production 1440×900에서 밝은 타일 256px 로딩·540px·3열 정렬·오류 0 확인.
-- commit: `3b69325`(UI) + 이 문서 커밋 / push: master / deploy: Vercel Production Ready 및 실제 사이트 확인.
-- 남은 문제: 로컬 환경에는 Geoapify 키가 없음(Production에는 기존 키 설정됨).
-
-## 2026-10-01 (회사 PC) — 공고 근무조건 + 게시자 지도 핀
-
-- 요청: 메인 지도 필터가 실제 데이터로 동작하도록 공고 데이터 구조 확장(조사→migration→등록/수정 UI→타입/API→필터→검증→배포)
-- 변경: migration 20261001100601(근무조건 7칸 + verification_method + 소유 확인 RPC 3개), JobConditionsFields·LocationPinPicker·jobConditions 신규, PostJob·ManageGuestJob·JobsContext·jobRows·fetchJobsData·types·homeMapFilters·HomeMapExplorer 연결
-- 설계 이유: NULL=정보 미확인(추정 금지). 좌표는 job_work_locations 한 곳, 게시자 핀은 verified poster_pin. 게스트는 테이블 직접 쓰기 권한이 없어 소유 확인 SECURITY DEFINER RPC만 허용.
-- 수정 파일: supabase/migrations/20261001100601_local_jobs_work_conditions_and_pins.sql, supabase/tests/job_conditions_pins.pglite.test.mjs, src/components/job-form/*, src/lib/jobConditions.ts, src/lib/homeMapFilters.ts(+test), src/components/home/HomeMapExplorer.tsx, src/pages/PostJob.tsx, src/pages/ManageGuestJob.tsx, src/context/JobsContext.tsx, src/lib/jobRows.ts, src/lib/fetchJobsData.ts, src/types/job.ts, src/index.css
-- 검증: PGlite 20/20, tsc·build, npm test 10/10, 로컬 E2E(등록 PC/모바일·관리·메인), Production schema 재조회 + 롤백 트랜잭션 생성/수정/조회·권한 거부 확인(잔여 데이터 0)
-- commit: 이 커밋 / push: master / deploy: Vercel 자동
-- 남은 문제: 고용주 전체 수정 화면 없음, 실제 핀 데이터 0, test-home-composition.mjs 구식
 
