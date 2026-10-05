@@ -34,11 +34,14 @@
 
 ## 다음 결정사항
 
-- **진행 중(2026-10-05, 집 PC에서 이어서): VietMap 키 도메인 제한.** 순서: VietMap Console(https://maps.vietmap.vn/console/, Consumers → 프로젝트 Detail)에 사용자가 직접 로그인 → Production 전용 Tilemap key(허용: `viecganban.vn`, `www.viecganban.vn`) + Preview 전용 key 생성 → 두 키 일일 사용량 제한 → 기존 키는 삭제하지 않음 → Vercel env 교체(Production/Preview 각각) → style + 실제 tile 요청으로 live/preview 허용, 임의 도메인·Referer 없음 차단 재테스트. 결과 확인 전 master merge·Production deploy 금지. 제한이 tile에 적용되지 않으면 문서에 기록하고 사용량 한도·Daily Report 모니터링 추가 후 배포 진행.
-- 현재 기존 VietMap 키는 임의 도메인·Referer 없음에서도 style.json 200(도메인 제한 미적용 상태).
+- **VietMap 키 제한 — 권한 부족으로 보류(2026-10-05 확인, 사용자 결정: 배포는 막지 않음).**
+  - 계정 `viecganban` Console에서 Consumer 생성(화면은 성공 표시, 서버 목록 미반영), API key 생성, 기존 key(`…18ea45`, consumer `public tile`) Referers 수정, consumer 일/월 한도 수정 모두 API 응답 `UN_AUTHORIZED`. 실제 변경 0건.
+  - 기존 key 유지(삭제·재생성 금지). 현재 Referers·한도 없음 → 임의 도메인에서도 사용 가능. Tilemap key는 브라우저 공개용이고 사용량 낮음(2026-10-05 기준 월 20 Transaction).
+  - **VietMap에 요청할 권한**: Consumer/API key 수정, Referers 설정, 일/월 usage limit 설정.
+  - **권한이 생기면 즉시**: Referers `viecganban.vn; www.viecganban.vn`(+ 필요 시 Preview branch alias `jobi-git-feat-home-map-vietmap-sync-mshw1895-6089s-projects.vercel.app`), usage limit 설정(합의안 Production 일 500/월 10,000, Preview 일 100/월 2,000 — 분리 불가 시 공용 600/12,000), 가능하면 Production/Preview key 분리 후 Vercel env 교체.
+- **Production 배포 후 모니터링**: VietMap Console → Daily Report에서 일 Transaction 확인. 급증(일 100 이상 등) 시 사용자 보고.
 - Vercel env 정리 완료(2026-10-05): `VITE_VIETMAP_TILEMAP_KEY` Production 추가(Preview와 동일 값, Config), `VITE_ZALO_APP_ID` Preview 추가(Production과 동일 값). 둘 다 다음 배포부터 반영.
 - 위 작업 후: 이 branch를 master에 합치고 Production 배포.
-- 집 PC 시작: `git fetch origin` → `feat/home-map-vietmap-sync` checkout(또는 worktree) → 이 문서 확인.
 - `D:\Codex\JOBI`(`feat/korea-home-p1`, master에 이미 병합된 오래된 branch)의 미커밋 4개 처리 — 별도 작업. 이 branch에서 건드리지 않음.
 
 ## 최근 완료 작업 로그

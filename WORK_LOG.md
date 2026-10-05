@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-05 — VietMap 키 제한 시도: 권한 부족(UN_AUTHORIZED)
+
+- 요청: Production/Preview Consumer·key 분리, 도메인 제한, 일/월 한도 설정. 안 되면 기존 key에 적용.
+- 결과: Consumer 생성·key 생성·기존 key Referers 수정·consumer 한도 수정 모두 `UN_AUTHORIZED`(HTTP 200 본문). 변경 0건, 기존 key `…18ea45` 유지.
+- 결정(사용자): 이 문제로 Production 배포를 막지 않음. VietMap에 Consumer/key 수정·Referers·usage limit 권한 요청, 권한 생기면 즉시 도메인 제한·한도·key 분리. 배포 후 Daily Report 사용량 모니터링.
+- 수정 파일: CHATGPT_HANDOFF.md, WORK_LOG.md(문서만).
+
 ## 2026-10-05 — VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화
 
 - 요청: 검증된 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE` source를 master `ade2926` 기반 branch에 복원, `focusAfterOpen:false` 포함, TomTom·진단·깨진 파일 제외.
@@ -79,12 +86,3 @@
 - commit: 이 커밋 / push: master / deploy: Vercel 자동
 - 남은 문제: 고용주 전체 수정 화면 없음, 실제 핀 데이터 0, test-home-composition.mjs 구식
 
-## 2026-10-01 (회사 PC) — PC 메인 중간 영역 지도 탐색 개편
-
-- 요청: 한국 입구 아래 ~ Việc làm nổi bật 위 중간 영역을 "내 주변 일자리 지도 + 선택 공고 패널"로 교체(조사→구현→검증→문서→배포)
-- 변경: HomeMapExplorer·HomeMapCanvas·homeMapFilters 신규, Home.tsx 중간 블록 교체·전용 코드 정리, index.css `.hme*` 추가
-- 설계 이유: 지도·거리는 확인된 근무지만(기존 원칙). 데이터 없는 조건은 가짜 판정 없이 비활성, `match`만 채우면 활성화되는 구조. 직접채용은 employer_id로 단정하지 않음.
-- 수정 파일: src/components/home/HomeMapExplorer.tsx, src/components/home/HomeMapCanvas.tsx, src/lib/homeMapFilters.ts, src/pages/Home.tsx, src/index.css, CHATGPT_HANDOFF.md, WORK_LOG.md
-- 검증: tsc·build 통과, npm test 9/9, vite preview + 응답 가로채기로 PC 1366/1920·모바일 375 동작 확인(반경·원·급여·업종·조건·핀↔패널·위치 허용/거부·빈 상태·넘침 0·콘솔 오류 없음)
-- commit: 이 커밋 / push: master / deploy: Vercel 자동(Production 확인은 HANDOFF·채팅 보고)
-- 남은 문제: test-home-composition.mjs 구식, 실제 데이터 핀 0(등록 양식·위치 확인 필요), 하단 목록 연동 미구현
