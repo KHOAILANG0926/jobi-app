@@ -2,11 +2,11 @@
 
 ## 현재 작업
 
-**VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화 (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·build·tests) / PREVIEW APPROVED(사용자) / BRANCH PUSHED. **master 미반영, Production 미배포.**
+**VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화 (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·build·tests) / PREVIEW APPROVED(사용자) / MASTER PUSHED(`8f0498f`, fast-forward) / PRODUCTION DEPLOYED(`jobi-c29zpgkiq`) / PRODUCTION VERIFIED(2026-10-05 viecganban.vn: VietMap style·tile 요청 실패 0, Geoapify 요청 0, 콘솔 오류 0, Bắc Ninh 8km 지도 표시).
 
 - branch: `feat/home-map-vietmap-sync` (master `ade2926` 기반, origin에 push). worktree: 집 PC `C:\Users\HP\Downloads\jobi-vietmap-sync`.
 - 승인된 Preview: https://jobi-1cre9b7j6-mshw1895-6089s-projects.vercel.app/?mapAcceptance=1 (이 branch 작업 트리에서 CLI Preview 배포, 커밋 내용과 동일).
-- Production은 기존 상태(Geoapify) 유지.
+- Production 메인 지도는 이제 VietMap(기존 key `…18ea45`, 도메인 제한·한도 없음 — 아래 권한 문제).
 - 기존 방향에서 바뀐 것: 메인 지도 primary provider가 Google → **VIETMAP**(`VITE_VIETMAP_TILEMAP_KEY`)으로 바뀜. 키가 없거나 실패하면 기존 Geoapify fallback. Google provider 파일은 삭제하지 않았지만 더 이상 `HomeMapCanvas`에서 쓰지 않는다. TomTom 후보는 탈락, 코드 미포함.
 
 ## 변경 내용
@@ -41,10 +41,9 @@
   - **권한이 생기면 즉시**: Referers `viecganban.vn; www.viecganban.vn`(+ 필요 시 Preview branch alias `jobi-git-feat-home-map-vietmap-sync-mshw1895-6089s-projects.vercel.app`), usage limit 설정(합의안 Production 일 500/월 10,000, Preview 일 100/월 2,000 — 분리 불가 시 공용 600/12,000), 가능하면 Production/Preview key 분리 후 Vercel env 교체.
 - **Production 배포 후 모니터링**: VietMap Console → Daily Report에서 일 Transaction 확인. 급증(일 100 이상 등) 시 사용자 보고.
 - Vercel env 정리 완료(2026-10-05): `VITE_VIETMAP_TILEMAP_KEY` Production 추가(Preview와 동일 값, Config), `VITE_ZALO_APP_ID` Preview 추가(Production과 동일 값). 둘 다 다음 배포부터 반영.
-- 위 작업 후: 이 branch를 master에 합치고 Production 배포.
 - `D:\Codex\JOBI`(`feat/korea-home-p1`, master에 이미 병합된 오래된 branch)의 미커밋 4개 처리 — 별도 작업. 이 branch에서 건드리지 않음.
 
 ## 최근 완료 작업 로그
 
-- VietMap 지도 Preview 소스 복원 + 공동 핀 동기화 — 2026-10-05 — BRANCH PUSHED(`feat/home-map-vietmap-sync`), Production 미배포
+- VietMap 메인 지도 + 공동 핀 동기화 — 2026-10-05 — MASTER PUSHED(`8f0498f`) / PRODUCTION DEPLOYED·VERIFIED. VietMap key 제한은 권한 부족으로 보류
 - Google 지도 VECTOR 전환 + 기본 반경 UX 검토 — 2026-10-02 — MASTER PUSHED / PRODUCTION DEPLOYED (`90bf841`)
