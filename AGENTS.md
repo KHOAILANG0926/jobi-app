@@ -44,3 +44,19 @@
 - 새 세션은 `AGENTS.md`, `CLAUDE.md`, `CHATGPT_HANDOFF.md`를 먼저 읽고 상태를 복원한다.
 - 화면 캡처가 제공되면 추측보다 실제 화면을 우선하며, 확인되지 않은 상태를 완료로 보고하지 않는다.
 - 반복 작업으로 사용자 시간과 토큰을 낭비하지 않는다.
+
+## 작업 종료 게이트 — MANDATORY (2026-10-05 사용자 지시)
+
+근거: VietMap 최종 Preview(`dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`)가 sandbox 폴더의 미커밋 소스로 CLI 배포됐고,
+그 폴더의 remote는 GitHub가 아닌 로컬 폴더였다. 승인 후에도 GitHub에 소스가 없어
+Vercel deployment source를 API로 다시 회수해야 했다.
+
+1. 작업 시작 전 canonical branch/worktree(GitHub remote를 가진 것)를 확인하고 고정한다.
+2. 승인된 Preview가 있으면 다음 작업 전에 그 소스를 commit하고 GitHub에 push한다.
+3. GitHub에 존재하지 않는 변경은 완료로 간주하지 않는다.
+4. sandbox/local-only remote에 commit한 것만으로 완료 처리하지 않는다.
+5. 현재 환경에서 GitHub push가 불가능하면 즉시 사용자에게 보고한다.
+6. push가 불가능한 상태에서 Preview만 남기고 다음 작업으로 넘어가지 않는다.
+7. commit/push 후 `git status`가 clean인지 확인한다.
+8. CLAUDE.md의 "작업 브랜치·Preview·Git 종료 게이트"와 충돌하면 더 엄격한 규칙을 적용한다.
+9. Preview 승인 후 GitHub 보존 전에는 다음 기능 작업을 시작하지 않는다.
