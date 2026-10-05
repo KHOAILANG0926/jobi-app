@@ -6,6 +6,7 @@ import {
   createHomeMapProviderState,
   homeMapProviderReducer,
 } from './map/homeMapProviderState'
+import { startVisibleTimeout } from './map/visibleTimeout'
 
 export type { HomeMapMarker }
 
@@ -27,12 +28,12 @@ export default function HomeMapCanvas(props: Props) {
   )
   const generation = state.generation
 
+  // 숨겨진 탭에서는 지도 SDK의 rAF가 멈춰 초기화가 진행되지 않는다 → 보이는 시간만 센다.
   useEffect(() => {
     if (state.provider !== 'vietmap-loading') return
-    const timeout = window.setTimeout(() => {
+    return startVisibleTimeout(PRIMARY_MAP_INIT_TIMEOUT_MS, () => {
       dispatch({ type: 'VIETMAP_TIMEOUT', generation })
-    }, PRIMARY_MAP_INIT_TIMEOUT_MS)
-    return () => window.clearTimeout(timeout)
+    })
   }, [generation, state.provider])
 
   // Geoapify fallback에는 POI 조회 기능이 없다 → 주변시설은 "지원 안 됨"으로 알린다(가짜 0 아님).

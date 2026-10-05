@@ -7,8 +7,9 @@ import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import type { HomeMapMarker, HomeMapProviderProps, MapViewportSize } from './HomeMapTypes'
 import { calculateInitialZoom, createRadiusPolygon, radiusWithinLoadedTiles } from './homeMapGeometry'
+import { HOME_MAP_GESTURE_OPTIONS } from './homeMapGestures'
 import { sanitizeVietMapError } from './vietMapError'
-import { createVietMapStyleUrl, type VietMapStyleKind } from './vietMapStyle'
+import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './vietMapStyle'
 import { BUILDING_CLICK_LAYERS, applyLifeMapStyle, type StyleLike } from './lifeMapStyle'
 import { pointInPolygon, poisInsideBuilding, polygonCenter, type LngLat, type PickedPlace, type PolygonRings } from '../../../lib/mapPlace'
 import { planHomeMapMarkers, type MarkerPlanItem } from './homeMapClusters'
@@ -302,8 +303,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     }
 
     // 공식 style JSON을 먼저 받아 생활지도 변환 후 지도를 만든다(빈 style → 교체 과정 없음).
-    fetch(styleUrl, { signal: controller.signal })
-      .then((res) => { if (!res.ok) throw new Error(`style ${res.status}`); return res.json() as Promise<StyleSpecification> })
+    fetchVietMapStyle<StyleSpecification>(styleUrl, { signal: controller.signal })
       .then((official) => {
         if (controller.signal.aborted) return
         const initial = propsRef.current
@@ -316,6 +316,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
               : [initial.origin.lng, initial.origin.lat],
             zoom: initial.initialViewport?.zoom ?? calculateInitialZoom(initial.origin.lat, initial.radiusKm, canvasSize(box)),
             attributionControl: false,
+            ...HOME_MAP_GESTURE_OPTIONS,
           })
         } catch {
           initial.onFailure('initialization-error')

@@ -2,6 +2,21 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-06 — 생활지도 회귀(POI 클릭 안 됨·POI 밀도 감소) 수정 — PREVIEW APPROVED, BRANCH PUSHED
+
+- 원인: 메인 지도가 VietMap 대신 Geoapify 예비 지도로 전환된 상태(장소 클릭 패널·생활지도 스타일·위성 없음). 전환 경로 ① 숨겨진 탭에서 로드 시 SDK rAF 정지로 준비 안 됨 → 12초 timeout(숨겨진 동안에도 흐름) → 탭을 열어도 예비 지도 유지(로컬 재현) ② VietMap style.json 간헐 지연(Production 실측 12.3초, 평소 46~274ms).
+- 변경: `visibleTimeout.ts`(+test) 보이는 시간만 세는 초기화 timeout, `fetchVietMapStyle`(5초 제한 후 1회 재시도, HTTP 오류는 즉시 실패, +test). 스타일·클릭 로직 변경 없음.
+- 검증: tsc, tests 28/28, build. 숨겨진 탭 20초 후에도 vietmap, 탭 표시 후 준비 완료. 실제 마우스 A 카페 아이콘·B 라벨·C 회사·D 생활시설·E 이름 없는 건물·F 공고 핀(공고 패널)·G 빈 곳 닫힘 통과.
+- 밀도(같은 좌표·줌·463x419): Production VietMap = 로컬 동일(예 BN 중심 z15 POI 27/회사 13/식음 5), Production 예비 지도는 같은 지점 z16 POI 4·회사 0·식음 0 vs VietMap 8·3·2.
+- commit/push: 통합 Preview `jobi-jkuypvkg8` 승인 후 소스 그대로 branch `fix/page-scroll-map` commit·push. master·Production 안 함.
+
+## 2026-10-06 — 지도 위 페이지 스크롤 막힘 수정 — PREVIEW APPROVED, BRANCH PUSHED
+
+- 원인: VietMap/MapLibre 기본 제스처(휠=지도 확대·preventDefault, 한 손가락 드래그=지도 이동, 캔버스 `touch-action: none`). Production 실측: 지도 위 휠 시 scrollY 변화 0·지도 zoom 11.28→10.88.
+- 변경: `homeMapGestures.ts`(+test) `cooperativeGestures: true` + 베트남어 안내, VietMap·Geoapify 지도 옵션에 적용. 레이아웃/CSS 변경 없음.
+- 검증: tsc, tests 27/27, build. 로컬: 지도 위 휠 → 페이지 +300px·zoom 불변, Ctrl+휠 확대, 마우스 드래그 이동, 최상단→하단(1939px) 연속, 위성·상세패널 열린 상태 동일, 375px 캔버스 `touch-action: pan-x pan-y`·핀 탭 선택·가로 넘침 0.
+- commit/push: 회귀 수정과 함께 통합 Preview `jobi-jkuypvkg8`로 승인, branch `fix/page-scroll-map` commit·push(master `f84a02a` 기반). 실기기 1손가락 스크롤 미검증.
+
 ## 2026-10-06 — 생활지도 1차+2차 Production 반영
 
 - 요청: 승인된 `106e8e4`(Preview `jobi-ifofpmbdx`)를 master merge·Production 배포·검증.
@@ -65,22 +80,4 @@
 - key 상태: Production Geoapify key 있음, Google key 없음. 실제 Google 지도는 Preview 제한 키 준비 전까지 PENDING이며 Production provider는 Geoapify로 유지.
 - commit/push/deploy: 코드·검증 기록 `1b71607` master push, Vercel Production Ready. `viecganban.vn`에서 Geoapify, Google 요청 0건, style 성공, 425/440/485px, console/hydration 오류 없음 확인.
 - 남은 문제: Google quota/billing 신호는 SDK에서 완전 감지할 수 없어 Cloud quota cap·budget alert·referrer/API 제한 필요.
-
-## 2026-10-01 — 메인 지도 Geoapify 벡터 전환
-
-- 요청: 기존 키로 MapLibre + Geoapify vector 전환을 검토하고, 도로·지역명·산업지역을 더 선명하게 하되 모든 지도 UX·크기·필터·DB 정책을 유지하여 배포.
-- 변경: 메인 HomeMapCanvas만 MapLibre `osm-bright/style.json`으로 전환. 도로/라벨/산업지역/POI 표현 조정, Vite worker 별도 번들, 빨간 공고 핀·파란 위치점·반경 원 및 수동 시점 유지. 다른 페이지 Leaflet 유지.
-- 수정 파일: `src/components/home/HomeMapCanvas.tsx`, `src/index.css`, `package.json`, `package-lock.json`, `CHATGPT_HANDOFF.md`, `WORK_LOG.md`.
-- 검증: tsc/build/기존 테스트 10파일 통과. 개발·Production 빌드 미리보기 Chrome 1366/1440/1920/모바일 375에서 타일·스타일·worker·콘솔·hydration 오류 없음, 높이 425/440/485px 및 정렬 유지. wheel/drag/+→radius 시점 유지, 지역/현재 위치 재정렬, fixture 핀 선택/강조 확인.
-- commit/push/deploy: 코드·기록 `315eb91` master push, Vercel Production Ready, viecganban.vn에서 MapLibre·vector style HTTP 200·높이 440px·콘솔 오류 0 확인. 이 문서의 최종 상태 갱신 커밋이 뒤따름.
-- 남은 문제: 실제 verified 핀 데이터가 적어 핀 브라우저 검증은 fixture 사용. 메인 지도 lazy 청크는 Leaflet 대비 커짐.
-
-## 2026-10-01 22:03 — 메인 지도 시각 높이·여백 축소 + 수동 시점 유지
-
-- 요청: PC 지도 모듈 높이와 주변 여백 축소, 빈 오른쪽 패널 경량화, 사용자가 휠·드래그·줌 버튼으로 조작한 지도를 radius 변경 시 그대로 유지.
-- 변경: PC 높이 425/440/485px, Korea–지도 8px·지도–추천 33px, 빈 패널 간소화. 반경의 `fitBounds` 제거, 수동 조작 기록, 지역/현재 위치 명시 선택 때만 재정렬. 가로·DB·필터 구조·Geoapify·모바일 정책 유지.
-- 수정 파일: src/index.css, src/components/home/HomeMapCanvas.tsx, src/components/home/HomeMapExplorer.tsx, CHATGPT_HANDOFF.md, WORK_LOG.md.
-- 검증: tsc·build 통과. 로컬 PC 3종+모바일 375에서 배치·스크롤·핀/패널 확인. 수정 전 wheel/drag/+→radius에서 줌 리셋 재현 후 수정 후 줌·중심 유지, 지역·현재 위치·반복 현재 위치 재정렬 확인. Production 세 PC 크기·간격·추천 영역, 1440 wheel+radius 시점 유지 확인.
-- commit: `a1560c9`(코드) + 이 문서 커밋 / push: master / deploy: Vercel Production Ready 및 실제 사이트 확인.
-- 남은 문제: 이번 변경 신규 문제 없음.
 

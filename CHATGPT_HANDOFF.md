@@ -2,6 +2,8 @@
 
 ## 현재 작업
 
+**지도 위 페이지 스크롤 막힘 수정 + 생활지도 회귀(예비 지도 전환) 수정 (2026-10-06)** — PREVIEW APPROVED(`jobi-jkuypvkg8`) / BRANCH PUSHED(`fix/page-scroll-map`). master merge·Production deploy 안 함(별도 지시 대기). 실기기 미검증: 모바일 1손가락 스크롤(터치 설정값만 확인), 현재 위치(브라우저 권한 불가). z18 전용 무분류 POI 표시 시점은 손대지 않음. 회귀 원인: 숨겨진 탭 로드·VietMap style 지연 시 12초 timeout으로 Geoapify 예비 지도 전환 → 장소 패널·POI 밀도 상실. 수정: 보이는 시간만 세는 timeout + style 요청 재시도. 원인: 지도 SDK 기본 제스처가 휠·한 손가락 스와이프를 가로챔(캔버스 touch-action none). 수정: `cooperativeGestures`(휠/한 손가락=페이지, Ctrl+휠/두 손가락=지도). 아래 생활지도 스냅샷은 Production 반영 완료 상태.
+
 **생활지도 1차(건물·근무지·생활시설 중심) + 2차(건물/시설 클릭 상세 패널) (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 26/26·build·로컬 화면) / PREVIEW APPROVED(사용자, Preview `jobi-ifofpmbdx`) / BRANCH PUSHED / **MASTER PUSHED(`106e8e4`, fast-forward) / PRODUCTION DEPLOYED(`jobi-pi2g7lxz1`) / PRODUCTION VERIFIED(2026-10-06)**. 승인 후 코드 수정 없음.
 
 - branch: `feat/life-map-buildings-poi`(master `a01f3c6` 기반, 승인된 Preview 소스 그대로 commit·push). 집 PC `C:\Users\Admin\Desktop\JOBI`.
