@@ -2,7 +2,7 @@
 
 ## 현재 작업
 
-**생활지도 1차(건물·근무지·생활시설 중심) + 2차(건물/시설 클릭 상세 패널) (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 26/26·build·로컬 화면) / **PREVIEW APPROVED(사용자, 2026-10-05, Preview `jobi-ifofpmbdx`)** / BRANCH PUSHED(`feat/life-map-buildings-poi`). **master merge·Production deploy 안 함**(사용자 지시: 별도 승인 대기). 승인 후 코드 수정 없음.
+**생활지도 1차(건물·근무지·생활시설 중심) + 2차(건물/시설 클릭 상세 패널) (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 26/26·build·로컬 화면) / PREVIEW APPROVED(사용자, Preview `jobi-ifofpmbdx`) / BRANCH PUSHED / **MASTER PUSHED(`106e8e4`, fast-forward) / PRODUCTION DEPLOYED(`jobi-pi2g7lxz1`) / PRODUCTION VERIFIED(2026-10-06)**. 승인 후 코드 수정 없음.
 
 - branch: `feat/life-map-buildings-poi`(master `a01f3c6` 기반, 승인된 Preview 소스 그대로 commit·push). 집 PC `C:\Users\Admin\Desktop\JOBI`.
 - 검토용 Preview(1차+2차, 미커밋 소스를 깨끗한 worktree 사본에서 CLI 배포): https://jobi-ifofpmbdx-mshw1895-6089s-projects.vercel.app/?mapAcceptance=1 (1차만: jobi-l5craw8h8)
@@ -35,7 +35,8 @@
 
 ## 다음 결정사항
 
-- **생활지도 1차+2차: master merge·Production deploy 여부**(사용자 별도 승인 필요). Production에 Vercel env `VITE_VIETMAP_TILEMAP_KEY` 있음.
+- **Production 검증(2026-10-06, viecganban.vn, 실제 마우스)**: VietMap 로드·Geoapify 요청 0·콘솔 오류 0, 건물 z16 윤곽·회사 POI(Cty TV XD Thiên Phúc)·생활시설 표시, 이름 없는 건물 클릭→강조+패널(500m 시설 83), 회사·식당(NH Lộc Vừng) 클릭→패널, Bản đồ↔Vệ tinh 전환 후 선택·viewport·반경 8km·현재 위치 표시 유지, 위성에서 건물 클릭, 375px 가로 넘침 0.
+- **Production 미검증(데이터 없음)**: 공동 핀·선택 공고 상세 동기화·JOBI 공고 연결 — Production에 확인된 근무지 좌표 공고 0건(loaded 1, verified 0). 승인 Preview(acceptance 5건)에서만 확인됨. 좌표 승인된 공고가 생기면 재확인.
 
 - **VietMap 키 제한 — 권한 부족으로 보류(2026-10-05 확인, 사용자 결정: 배포는 막지 않음).**
   - 계정 `viecganban` Console에서 Consumer 생성(화면은 성공 표시, 서버 목록 미반영), API key 생성, 기존 key(`…18ea45`, consumer `public tile`) Referers 수정, consumer 일/월 한도 수정 모두 API 응답 `UN_AUTHORIZED`. 실제 변경 0건.
@@ -48,5 +49,6 @@
 
 ## 최근 완료 작업 로그
 
+- 생활지도 1차+2차(건물·근무지·생활시설 지도, 위성, 클릭 상세 패널) — 2026-10-06 — MASTER PUSHED(`106e8e4`) / PRODUCTION DEPLOYED·VERIFIED
 - VietMap 메인 지도 + 공동 핀 동기화 — 2026-10-05 — MASTER PUSHED(`8f0498f`) / PRODUCTION DEPLOYED·VERIFIED. VietMap key 제한은 권한 부족으로 보류
 - Google 지도 VECTOR 전환 + 기본 반경 UX 검토 — 2026-10-02 — MASTER PUSHED / PRODUCTION DEPLOYED (`90bf841`)
