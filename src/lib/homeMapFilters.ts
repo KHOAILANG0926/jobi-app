@@ -5,7 +5,7 @@ import { calcDistanceKm, verifiedWorkLocationPoint } from './jobCoords'
 import { parseSalaryInfo } from './recommendStorage'
 import type { Job, JobCategory } from '../types/job'
 
-export const RADIUS_MIN_KM = 1
+export const RADIUS_MIN_KM = 0.1
 export const RADIUS_MAX_KM = 20
 export const RADIUS_DEFAULT_KM = 8
 

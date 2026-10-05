@@ -1,8 +1,8 @@
 import type { HomeMapFailureReason, HomeMapViewport } from './HomeMapTypes'
 
-export const GOOGLE_MAP_INIT_TIMEOUT_MS = 12_000
+export const PRIMARY_MAP_INIT_TIMEOUT_MS = 12_000
 
-export type HomeMapProvider = 'geoapify' | 'google-loading' | 'google-ready'
+export type HomeMapProvider = 'geoapify' | 'vietmap-loading' | 'vietmap-ready'
 
 export interface HomeMapProviderState {
   provider: HomeMapProvider
@@ -12,15 +12,15 @@ export interface HomeMapProviderState {
 }
 
 export type HomeMapProviderEvent =
-  | { type: 'GOOGLE_READY'; generation: number }
-  | { type: 'GOOGLE_FAILED'; generation: number; reason: HomeMapFailureReason }
-  | { type: 'GOOGLE_TIMEOUT'; generation: number }
+  | { type: 'VIETMAP_READY'; generation: number }
+  | { type: 'VIETMAP_FAILED'; generation: number; reason: HomeMapFailureReason }
+  | { type: 'VIETMAP_TIMEOUT'; generation: number }
   | { type: 'VIEWPORT_CHANGED'; generation: number; viewport: HomeMapViewport }
-  | { type: 'RESET_GENERATION'; hasGoogleKey: boolean }
+  | { type: 'RESET_GENERATION'; hasVietMapKey: boolean }
 
-export function createHomeMapProviderState(hasGoogleKey: boolean): HomeMapProviderState {
+export function createHomeMapProviderState(hasVietMapKey: boolean): HomeMapProviderState {
   return {
-    provider: hasGoogleKey ? 'google-loading' : 'geoapify',
+    provider: hasVietMapKey ? 'vietmap-loading' : 'geoapify',
     generation: 1,
     lastViewport: null,
     failureReason: null,
@@ -33,7 +33,7 @@ export function homeMapProviderReducer(
 ): HomeMapProviderState {
   if (event.type === 'RESET_GENERATION') {
     return {
-      provider: event.hasGoogleKey ? 'google-loading' : 'geoapify',
+      provider: event.hasVietMapKey ? 'vietmap-loading' : 'geoapify',
       generation: state.generation + 1,
       lastViewport: state.lastViewport,
       failureReason: null,
@@ -44,14 +44,14 @@ export function homeMapProviderReducer(
   switch (event.type) {
     case 'VIEWPORT_CHANGED':
       return { ...state, lastViewport: event.viewport }
-    case 'GOOGLE_READY':
-      return state.provider === 'google-loading' ? { ...state, provider: 'google-ready' } : state
-    case 'GOOGLE_TIMEOUT':
-      return state.provider === 'google-loading'
+    case 'VIETMAP_READY':
+      return state.provider === 'vietmap-loading' ? { ...state, provider: 'vietmap-ready' } : state
+    case 'VIETMAP_TIMEOUT':
+      return state.provider === 'vietmap-loading'
         ? { ...state, provider: 'geoapify', failureReason: 'timeout' }
         : state
-    case 'GOOGLE_FAILED':
-      return state.provider === 'google-loading' || state.provider === 'google-ready'
+    case 'VIETMAP_FAILED':
+      return state.provider === 'vietmap-loading' || state.provider === 'vietmap-ready'
         ? { ...state, provider: 'geoapify', failureReason: event.reason }
         : state
   }

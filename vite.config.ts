@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ isSsrBuild }) => ({
   plugins: [react()],
+  define: {
+    // Map acceptance records are opt-in and never enabled in a Production build.
+    'import.meta.env.VITE_MAP_ACCEPTANCE': JSON.stringify(process.env.VERCEL_ENV === 'preview' ? 'true' : 'false'),
+  },
   build: {
     // api/ssr.js가 실제 해시 파일명을 찾을 수 있게 클라이언트 빌드에만
     // manifest.json을 남긴다(SSR 빌드는 Node에서 직접 import하므로 불필요).

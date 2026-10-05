@@ -2,35 +2,43 @@
 
 ## 현재 작업
 
-**Google 지도 VECTOR 전환 + 기본 반경 UX 검토 (2026-10-02).** 상태: VECTOR 코드 `90bf841` IMPLEMENTED / STATIC·FALLBACK VERIFIED / PRODUCTION DEPLOYED. Google 키가 없는 현재 Production은 Geoapify를 유지하며 실제 Google 건물·POI 시각 비교는 `PENDING_NO_KEY`다.
+**VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화 (2026-10-05).** 상태: IMPLEMENTED / VERIFIED(tsc·build·tests) / PREVIEW APPROVED(사용자) / BRANCH PUSHED. **master 미반영, Production 미배포.**
+
+- branch: `feat/home-map-vietmap-sync` (master `ade2926` 기반, origin에 push). worktree: 집 PC `C:\Users\HP\Downloads\jobi-vietmap-sync`.
+- 승인된 Preview: https://jobi-1cre9b7j6-mshw1895-6089s-projects.vercel.app/?mapAcceptance=1 (이 branch 작업 트리에서 CLI Preview 배포, 커밋 내용과 동일).
+- Production은 기존 상태(Geoapify) 유지.
+- 기존 방향에서 바뀐 것: 메인 지도 primary provider가 Google → **VIETMAP**(`VITE_VIETMAP_TILEMAP_KEY`)으로 바뀜. 키가 없거나 실패하면 기존 Geoapify fallback. Google provider 파일은 삭제하지 않았지만 더 이상 `HomeMapCanvas`에서 쓰지 않는다. TomTom 후보는 탈락, 코드 미포함.
 
 ## 변경 내용
 
-- `HomeMapCanvas`는 provider 선택·12초 초기화 timeout·마지막 center/zoom 승계만 관리한다. `GoogleMapCanvas`는 Google Maps JavaScript API ROADMAP/HYBRID를, `GeoapifyMapCanvas`는 기존 MapLibre + Geoapify `osm-bright/style.json`을 담당한다.
-- Google loader reject, 초기화 예외, `gm_authFailure`, timeout에서 Geoapify로 한 번만 전환한다. 전역 인증 callback은 기존 handler 보존·다중 구독·Strict Mode·외부 handler 교체를 안전하게 처리한다.
-- 공고 marker는 job id identity의 독립 `GoogleJobMarkerLayer`로 분리했다. 동일 좌표 공고도 별도 record이며 향후 clustering/spiderfy/다른 renderer로 교체할 수 있다. 이번 작업에는 clustering을 추가하지 않았다.
-- 검색 반경은 1/3/5/10km를 정확히 1000/3000/5000/10000m로 유지한다. 최초 진입·지역 선택·현재 위치에서만 원 지름이 화면의 약 65%가 되도록 zoom을 계산하며, radius 변경은 circle과 결과만 갱신한다.
-- Google key는 `VITE_GOOGLE_MAPS_API_KEY`만 참조하고 값은 하드코딩하지 않는다. key가 없으면 Google component와 SDK를 실행하지 않는다. DB·필터 구조·지도 높이·가로 비율·모바일 구조는 변경하지 않았다.
-- `GoogleMapCanvas`는 `renderingType: google.maps.RenderingType.VECTOR`를 명시한다. 기본 ROADMAP, ROADMAP/HYBRID 토글, Google 기본 도로·건물·POI 스타일을 유지하고 custom style은 적용하지 않았다. 공식 문서상 이 VECTOR 지정에는 Map ID가 필요하지 않다.
+- 원본: Codex가 미커밋 상태로 CLI 배포했던 검증 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`의 source를 Vercel API로 회수해 master 위에 필요한 지도 파일만 반영. 격리 폴더(`qkd\work\jobi-shared-pin-sync`)는 일부 파일이 빠진 불완전 사본이라 기준으로 쓰지 않음.
+- VietMap: `VietMapMapCanvas`, `vietMapStyle`, `vietMapDetail`, `vietMapError` 추가, `HomeMapCanvas`/`homeMapProviderState` provider 교체. dependency `@vietmap/vietmap-gl-js` 6.0.1(`npm install`로 lock 갱신).
+- 공동 핀: `groupHomeMapMarkers`로 같은 좌표 공고를 숫자 핀 하나로 묶고 목록 팝업 표시. `sharedJobPopupOptions`(`focusAfterOpen: false`)로 팝업 첫 항목 자동 포커스가 선택처럼 보이던 문제 수정.
+- 반경: `RADIUS_MIN_KM` 1 → 0.1, `homeMapSearch`(반경 정규화/표시, 위치 정확도 경고, 결과 카운트), 빠른 버튼 100m/300m/500m/1/3/5/10/20km, 관련 CSS. pan/zoom 후 반경 변경 시 viewport 유지.
+- acceptance: `previewMapAcceptanceJobs` 5건은 Vercel Preview 빌드 + `?mapAcceptance=1`에서만 로드(`vite.config` `VITE_MAP_ACCEPTANCE`). Production 빌드에는 포함되지 않음을 확인.
+- 제외: TomTom 파일, `vietMapDiagnostics`(+`VITE_MAP_DIAGNOSTICS`), 깨진 `Home.deployed.tsx`.
+- CLAUDE.md에 "작업 브랜치·Preview·Git 종료 게이트 — MANDATORY" 추가.
 
 ## 테스트 결과
 
-- `npx tsc --noEmit`, `npm run build`, `npm test` 통과. client와 SSR 빌드에서 window/document/google 서버 오류 없음.
-- 브라우저: 1366×768=425px, 1440×900=440px, 1920×1080=485px, 모바일 375px 통과. 3열 상·하단 정렬, 내부 scroll, 가로 overflow 없음, Featured/Korea 영역 유지.
-- Bắc Ninh 3km 원의 계산상 화면 지름 0.65. wheel→radius, drag→radius, zoom +→radius에서 center/zoom 유지. 새 지역과 현재 위치에서만 재정렬.
-- Google 가짜 key 환경에서 script abort, 12초 stall, `gm_authFailure`, map constructor 예외가 모두 Geoapify 한 개로 fallback. hydration 오류 없음. key 없는 빌드는 Google 요청 0건, Geoapify style 정상.
-- 실제 Google 지도 검증은 Production/Preview 키가 없어 `PENDING_NO_KEY`. Production 전환 전 제한된 Preview 키로 ROADMAP/HYBRID·quota·billing을 확인해야 한다.
-- Production `viecganban.vn`: Geoapify provider, Google 요청 0건, Geoapify style 성공, 425/440/485px, console/hydration 오류 없음.
-- VECTOR 변경 후 `npx tsc --noEmit`, `npm run build`, `npm test` 16/16 통과. Google fixture에서 VECTOR/ROADMAP/HYBRID/no-custom-style와 네 실패 fallback을 확인했다. Vercel 배포 `dpl_FSNAYRTi8EfukY48TjHadNXZb77b` READY.
-- 운영 1440×900 재검토: 기본 반경 8km, center Bắc Ninh, zoom 11.3428, 원 지름 비율 0.6500, Geoapify 응답 15건 실패 0, console/page 오류 0.
+- `npx tsc --noEmit` 통과, `npm test` 23/23 파일 통과, `npm run build` 통과.
+- Production 빌드에 acceptance 데이터 0건, Preview(`VERCEL_ENV=preview`) 빌드에는 포함. 더미 키 빌드에서 VietMap chunk(774kB) 정상 생성.
+- Preview 동작 검증(Senna → 공동 핀 → Terminal 3건 → Pizza Hut)은 사용자가 확인·승인. Claude 브라우저는 Vercel 로그인 벽으로 직접 확인하지 못함.
 
 ## 발견된 문제
 
-- Google Maps 기본 지도는 모든 quota/billing/tile 실패를 일관된 JavaScript 오류로 제공하지 않는다. 코드 fallback은 loader/auth/init/timeout 신호를 처리하며, 운영 한계는 Google Cloud quota cap·budget alert·key 제한으로 보완해야 한다.
-- 기존 Geoapify lazy chunk 크기 경고(약 1.04MB minified)는 유지된다. Google provider 추가로 key 없는 운영 초기 경로의 provider 실행 방식은 바뀌지 않는다.
-- 기본 반경은 8km인데 빠른 선택은 5/10/20km라 시작값과 버튼 체계가 맞지 않는다. 8km를 65%로 표시하는 zoom 11.34는 지역·간선도로용 축척이며 건물 상세용 축척이 아니다. Google 기본 vector 3D 건물은 공식 문서상 zoom 17+에서 나타나므로 반경 자체를 줄이는 것만으로 건물 문제를 해결하면 검색 UX가 왜곡된다.
+- Preview 환경에 `VITE_ZALO_APP_ID`가 없어 Preview 헤더에 Zalo 버튼이 안 보임(Production에는 있음). 코드 문제 아님, 별도 작업.
+- 실제 휴대폰 GPS 검증 미완료.
+- chunk 크기 경고: Geoapify 1.04MB(기존), VietMap 774kB(lazy).
+- 반경 빠른 버튼 200m vs 300m 결정 보류.
 
 ## 다음 결정사항
 
-- Google primary 전환은 별도 제한된 Preview 키를 준비한 뒤 같은 Bắc Ninh center/zoom에서 raster ROADMAP·VECTOR ROADMAP·HYBRID를 캡처 비교한다. 허용 referrer는 안정된 Preview alias로 제한하고, Production 키는 운영 도메인과 Maps JavaScript API만 허용한다.
-- 기본 반경은 빠른 선택과 일치하는 5km를 권장하되 제품 결정 전 값은 8km로 유지한다. 건물 상세는 사용자가 확대했을 때 확인하고, 기본 검색 viewport는 반경 원 65% 원칙을 유지한다.
+- 이 branch를 master에 합치고 Production 배포할지(Production에 `VITE_VIETMAP_TILEMAP_KEY` 존재 여부 먼저 확인 필요).
+- Preview env에 `VITE_ZALO_APP_ID` 추가 여부.
+- `D:\Codex\JOBI`(`feat/korea-home-p1`, master에 이미 병합된 오래된 branch)의 미커밋 4개 처리 — 별도 작업. 이 branch에서 건드리지 않음.
+
+## 최근 완료 작업 로그
+
+- VietMap 지도 Preview 소스 복원 + 공동 핀 동기화 — 2026-10-05 — BRANCH PUSHED(`feat/home-map-vietmap-sync`), Production 미배포
+- Google 지도 VECTOR 전환 + 기본 반경 UX 검토 — 2026-10-02 — MASTER PUSHED / PRODUCTION DEPLOYED (`90bf841`)

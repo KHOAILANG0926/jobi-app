@@ -230,3 +230,28 @@ WORK MODE는 "언제 다음 단계로 진행하는가"를, 이 섹션은 "다음
 중요:
 이 규칙은 특정 작업에만 적용되는 것이 아니라
 Viecganban 프로젝트의 모든 향후 작업에 적용한다.
+
+## 작업 브랜치·Preview·Git 종료 게이트 — MANDATORY (2026-10-05 사용자 지시)
+
+재발 방지 근거: VietMap 최종 Preview(`dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`)가 미커밋 CLI 배포 소스에서
+만들어졌다. 검증은 끝났지만 GitHub/master에 최종 소스가 남지 않아 Vercel deployment source를
+다시 회수해야 했다. 그래서 Preview 승인 이후 Git 보존을 강제하는 종료 게이트를 둔다.
+
+1. 모든 작업은 시작 전에 기준 branch/worktree를 명확히 고정한다.
+2. 다른 오래된 branch나 임시 worktree를 기준으로 새 기능을 이어서 개발하지 않는다.
+3. 표준 순서는 반드시:
+   기준 branch 고정 → 수정 → tsc/build/tests → Preview 배포 → 사용자 검증/승인
+   → commit → push → git status clean 확인 → HANDOFF/WORK_LOG 기록 → 다음 작업
+4. 사용자에게 승인된 Preview가 있는데 그 소스가 아직 commit/push되지 않았다면
+   다음 기능 작업을 시작하지 않는다.
+5. 미커밋 상태로 CLI/API Preview를 배포할 수는 있지만, 그 Preview가 승인되면
+   동일 소스를 즉시 Git branch에 보존한다.
+6. Preview만 존재하고 GitHub/정식 working tree에 소스가 없는 상태를 만들지 않는다.
+7. 여러 branch/worktree가 존재하면 작업 시작 전에 어느 것이 canonical source인지 확인한다.
+8. 기존 미커밋 변경이 있는 다른 worktree를 임의로 merge/reset/rebase/checkout 하지 않는다.
+9. Production 배포 전에는 반드시 다음을 거친다:
+   - 승인된 Preview와 Git 소스 일치
+   - commit/push 완료
+   - git status 확인
+10. 실험 provider/임시 코드/acceptance fixture는 정식 기준 branch에 합칠 때
+    포함/제외를 명시적으로 판단한다.

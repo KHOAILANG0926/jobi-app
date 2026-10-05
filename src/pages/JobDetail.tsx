@@ -141,7 +141,7 @@ export function JobDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { jobs, loading: jobsLoading } = useJobs()
+  const { jobs, mapAcceptanceJobs, loading: jobsLoading } = useJobs()
   const [saved, setSaved] = useState(() => (id ? isJobSaved(id, user?.id) : false))
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
@@ -154,7 +154,7 @@ export function JobDetail() {
   // 무관하게 항상 보이고, jd2-main 안쪽 콘텐츠만 탭에 따라 바뀐다.
   const [activeTab, setActiveTab] = useState<'info' | 'desc' | 'company'>('info')
 
-  const job = useMemo(() => jobs.find((j) => j.id === id), [jobs, id])
+  const job = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
   const location = useLocation()
   useEffect(() => {
@@ -506,7 +506,9 @@ export function JobDetail() {
                             ) : approved ? (
                               // 사람이 회사 공식 정보·원문을 대조해 승인한 근무지(2026-09-29)
                               <p className="jd2-map-verified-ward-note">
-                                {approved.placePrecision === 'entrance'
+                                {job.id.startsWith('acceptance-')
+                                  ? 'Điểm cơ sở được đối chiếu với địa điểm công khai để kiểm thử Preview; chưa xác minh lối vào hoặc tuyển dụng trực tiếp.'
+                                  : approved.placePrecision === 'entrance'
                                   ? 'Vị trí nơi làm việc đã được xác minh (cổng/lối vào).'
                                   : 'Vị trí nơi làm việc đã được xác minh theo thông tin chính thức của công ty — lối vào cụ thể chưa được xác minh.'}
                               </p>

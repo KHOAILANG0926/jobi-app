@@ -16,6 +16,7 @@ import type { Job } from '../types/job'
 
 interface JobsContextValue {
   jobs: Job[]
+  mapAcceptanceJobs: Job[]
   loading: boolean
   jobsError: boolean
   refreshJobs: () => Promise<void>
@@ -41,6 +42,7 @@ interface JobsProviderProps {
 export function JobsProvider({ children, initialJobs, initialJobsError }: JobsProviderProps) {
   const hasInitialJobs = initialJobs !== undefined
   const [jobs, setJobs] = useState<Job[]>(initialJobs ?? [])
+  const [acceptanceJobs, setAcceptanceJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(!hasInitialJobs)
   const [jobsError, setJobsError] = useState(initialJobsError ?? false)
 
@@ -57,6 +59,18 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
     fetchJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchJobs])
+
+  useEffect(() => {
+    // The five reviewed records exist only in an explicitly opened Preview/dev
+    // acceptance session. No DB write, SSR injection, or Production import.
+    if (!(import.meta.env.DEV || import.meta.env.VITE_MAP_ACCEPTANCE === 'true')) return
+    if (new URLSearchParams(window.location.search).get('mapAcceptance') !== '1') return
+    let active = true
+    void import('../data/previewMapAcceptanceJobs').then(({ previewMapAcceptanceJobs }) => {
+      if (active) setAcceptanceJobs(previewMapAcceptanceJobs)
+    })
+    return () => { active = false }
+  }, [])
 
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])
 
@@ -157,8 +171,8 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
   }, [])
 
   const value = useMemo(
-    () => ({ jobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob }),
-    [jobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob],
+    () => ({ jobs, mapAcceptanceJobs: acceptanceJobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob }),
+    [jobs, acceptanceJobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob],
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

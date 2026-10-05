@@ -16,6 +16,9 @@ function assertClose(actual: number, expected: number, tolerance: number, label:
 
 const origin = { lat: 21.1861, lng: 106.0763 }
 const radiusCases: ReadonlyArray<readonly [number, number]> = [
+  [0.1, 100],
+  [0.3, 300],
+  [0.5, 500],
   [1, 1000],
   [3, 3000],
   [5, 5000],

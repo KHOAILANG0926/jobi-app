@@ -2,6 +2,21 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-05 — VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화
+
+- 요청: 검증된 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE` source를 master `ade2926` 기반 branch에 복원, `focusAfterOpen:false` 포함, TomTom·진단·깨진 파일 제외.
+- 변경: VietMap provider·공동 핀 grouping/팝업 옵션·0.1km 반경·homeMapSearch·CSS·acceptance(Preview+`?mapAcceptance=1` 한정)·테스트, `@vietmap/vietmap-gl-js` 6.0.1.
+- 검증: tsc, build, tests 23/23 통과. Production 빌드 acceptance 0건. 새 Preview `jobi-1cre9b7j6` 사용자 승인.
+- commit/push: branch `feat/home-map-vietmap-sync` push. master·Production 미반영.
+- 남은 문제: Preview `VITE_ZALO_APP_ID` 누락, 휴대폰 GPS 미검증, 200m 버튼 결정 보류.
+
+## 2026-10-05 — 작업 브랜치·Preview·Git 종료 게이트 규칙 추가
+
+- 요청: Preview 승인 후 Git 보존을 강제하는 종료 게이트를 CLAUDE.md에 MANDATORY로 추가.
+- 변경: CLAUDE.md "작업 브랜치·Preview·Git 종료 게이트 — MANDATORY" 섹션(10개 규칙 + 근거) 추가. 코드 변경 없음.
+- 근거: VietMap 최종 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`가 미커밋 CLI 배포 소스에서 만들어져, master에 소스가 없어 Vercel deployment source를 회수해야 했음.
+- 상태: branch `feat/home-map-vietmap-sync`(master `ade2926` 기반) 작업 트리에 지도 복원과 함께 미커밋. commit/push/deploy 없음.
+
 ## 2026-10-02 — Google VECTOR 전환 + 기본 반경 UX 검토
 
 - 요청: Google provider를 VECTOR rendering으로 전환하고 건물·POI 표현 및 기본 반경 UX를 검토.
@@ -73,25 +88,3 @@
 - 검증: tsc·build 통과, npm test 9/9, vite preview + 응답 가로채기로 PC 1366/1920·모바일 375 동작 확인(반경·원·급여·업종·조건·핀↔패널·위치 허용/거부·빈 상태·넘침 0·콘솔 오류 없음)
 - commit: 이 커밋 / push: master / deploy: Vercel 자동(Production 확인은 HANDOFF·채팅 보고)
 - 남은 문제: test-home-composition.mjs 구식, 실제 데이터 핀 0(등록 양식·위치 확인 필요), 하단 목록 연동 미구현
-
-## 2026-10-01 (회사 PC) — 한국 영역 장기 분리 점검
-
-- 요청: 대량 데이터·별도 DB 전제로 한국 영역 결합 점검 → MUST FIX NOW 수정, 규칙 문서화
-- 판단: MUST FIX NOW 없음(데이터 축적에 따라 비용이 커지는 결합이 현재 존재하지 않음 — korea_* 는 local_jobs 계열·account_roles·reports·storage와 FK/함수/트리거 결합 없음, korea 전용 트리거 1개뿐, 공개 접근은 korea_*_public 뷰만). 코드 수정 없음.
-- RULE NOW: CLAUDE.md 한국 분리 규칙에 "장기 분리 보강" 7줄 추가(도메인 접두 식별자, account_roles/user_cvs 재사용 금지, reports/audit/alert 전용화, korea- bucket+상대 path, /viec-han-quoc/ 고정, 이벤트 product 구분, 관리자 query는 한국 API 경유).
-- SAFE TO DEFER: KoreaJobDetail→jobCoords.resolveMapLocations(코드 결합, 데이터 비용 무관 — 한국 상세 작업 시 분리), 저장공고 localStorage 단일 키+kr- 접두(브라우저 데이터, DB화할 때 분리), 한국 SSR/sitemap/canonical 공백(간판화 시 한국 전용 모듈로), 분석 도구 없음(도입 시 규칙 적용).
-- 별건 발견: local_jobs 이미지가 vieclam24h CDN URL을 직접 참조(외부 원본 사이트 자원 의존) — 한국과 무관, 별도 판단 필요.
-- 수정 파일: CLAUDE.md, WORK_LOG.md, CHATGPT_HANDOFF.md
-- 검증: 문서만 변경 — typecheck/build 해당 없음
-- commit: 이 커밋 / push: master / deploy: 해당 없음
-
-## 2026-10-01 (회사 PC)
-
-- 요청: 한국 일자리 분리 가능성 전제로 코드·DB 결합 상태 읽기 전용 조사 → 분리 규칙을 CLAUDE.md에 저장
-- 변경: CLAUDE.md에 "한국 일자리 모듈 분리 규칙" 섹션 추가
-- 조사 요약: korea_* 테이블·뷰는 local_jobs 계열과 FK·DB 함수 결합 없음. korea_jobs 4건, applications/threads/interviews 0건(모두 FK→local_jobs). 저장공고는 localStorage 같은 키에 kr- 접두어. 한국 페이지는 SSR/sitemap/canonical 미포함. KoreaJobDetail이 jobCoords.resolveMapLocations 공유(베트남 위치 규칙이 한국 지도에 적용됨).
-- 수정 파일: CLAUDE.md, WORK_LOG.md, CHATGPT_HANDOFF.md
-- 검증: 문서만 변경 — typecheck/build 해당 없음
-- commit: 이 커밋 / push: master / deploy: 해당 없음
-- 남은 문제: 지도 함수 공유 정리(한국 상세 작업 시), 한국 SEO 공백(간판화 시 결정)
-

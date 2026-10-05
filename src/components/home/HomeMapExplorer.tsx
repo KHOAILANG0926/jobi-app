@@ -2,7 +2,7 @@
 // 왼쪽: 탐색 조건(위치·반경 / 급여 / 업종 / Thêm điều kiện) + 지도, 오른쪽: 선택 공고 1차 판단 패널.
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, Wallet, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
@@ -16,13 +16,14 @@ import {
   type ExtraConditionKey, type HomeMapFilterState, type MapJobPoint,
 } from '../../lib/homeMapFilters'
 import type { JobCategory } from '../../types/job'
+import { formatSearchRadius, locationAccuracyWarning, normalizeSearchRadius, summarizeMapJobs } from '../../lib/homeMapSearch'
 
 const HomeMapCanvas = lazy(() => import('./HomeMapCanvas'))
 
 const DEFAULT_REGION = 'Bắc Ninh'
 
 type Origin =
-  | { kind: 'user'; point: MapJobPoint }
+  | { kind: 'user'; point: MapJobPoint; accuracyMeters: number }
   | { kind: 'region'; label: string; point: MapJobPoint }
 
 function regionOrigin(label: string): Origin | null {
@@ -31,7 +32,8 @@ function regionOrigin(label: string): Origin | null {
 }
 
 export default function HomeMapExplorer() {
-  const { jobs } = useJobs()
+  const { jobs, mapAcceptanceJobs, loading, jobsError } = useJobs()
+  const mapJobs = useMemo(() => [...jobs, ...mapAcceptanceJobs], [jobs, mapAcceptanceJobs])
   const [origin, setOrigin] = useState<Origin>(() => regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
   const [filters, setFilters] = useState<HomeMapFilterState>(DEFAULT_FILTERS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -40,8 +42,11 @@ export default function HomeMapExplorer() {
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [recenterRequest, setRecenterRequest] = useState(0)
+  const locationRequest = useRef(0)
+  useEffect(() => () => { locationRequest.current += 1 }, [])
 
-  const nearby = useMemo(() => findNearbyJobs(jobs, origin.point, filters), [jobs, origin, filters])
+  const nearby = useMemo(() => findNearbyJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
+  const counts = useMemo(() => summarizeMapJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
   const selected = nearby.find((n) => n.job.id === selectedId) ?? null
 
   // 필터·위치 변경으로 선택 공고가 결과에서 빠지면 선택을 해제한다.
@@ -58,16 +63,22 @@ export default function HomeMapExplorer() {
     setLocMenuOpen(false)
     if (typeof navigator === 'undefined' || !navigator.geolocation) { setGeoState('unsupported'); return }
     setGeoState('loading')
+    const request = ++locationRequest.current
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setOrigin({ kind: 'user', point: { lat: pos.coords.latitude, lng: pos.coords.longitude } }); setRecenterRequest((v) => v + 1); setGeoState('idle') },
-      () => { setGeoState('denied'); setLocMenuOpen(true) },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+      (pos) => {
+        if (request !== locationRequest.current) return
+        setOrigin({ kind: 'user', point: { lat: pos.coords.latitude, lng: pos.coords.longitude }, accuracyMeters: pos.coords.accuracy })
+        setRecenterRequest((v) => v + 1)
+        setGeoState('idle')
+      },
+      () => { if (request === locationRequest.current) { setGeoState('denied'); setLocMenuOpen(true) } },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     )
   }
 
   const chooseRegion = (label: string) => {
     const next = regionOrigin(label)
-    if (next) { setOrigin(next); setRecenterRequest((v) => v + 1); setGeoState('idle'); setLocMenuOpen(false) }
+    if (next) { locationRequest.current += 1; setOrigin(next); setRecenterRequest((v) => v + 1); setGeoState('idle'); setLocMenuOpen(false) }
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
@@ -80,6 +91,12 @@ export default function HomeMapExplorer() {
   const distanceFrom = origin.kind === 'user' ? 'từ vị trí của bạn' : `từ trung tâm ${origin.label}`
   const visibleCategories = showAllCategories ? ALL_CATEGORIES : PRIMARY_CATEGORIES
   const activeExtraCount = filters.extras.length
+  const emptyReason = loading ? 'Đang tải việc làm…'
+    : jobsError ? 'Chưa tải được đầy đủ việc làm. Vui lòng thử lại sau.'
+    : counts.loaded === 0 ? 'Chưa có tin tuyển dụng trong dữ liệu hiện tại.'
+    : counts.verified === 0 ? 'Các tin hiện có chưa có vị trí làm việc được xác minh.'
+    : counts.inRadius === 0 ? `Chưa có việc làm đã xác minh trong ${formatSearchRadius(filters.radiusKm)} ${distanceFrom}.`
+    : `Có ${counts.inRadius} việc làm trong bán kính này, nhưng chưa khớp các điều kiện đã chọn.`
 
   return (
     <section className="hme" aria-label="Tìm việc quanh bạn trên bản đồ">
@@ -112,17 +129,26 @@ export default function HomeMapExplorer() {
               </div>
             )}
           </div>
+          {origin.kind === 'user' && (
+            <p className="hme-loc__hint" role="status">
+              {Number.isFinite(origin.accuracyMeters) ? `Độ chính xác vị trí: khoảng ${Math.round(origin.accuracyMeters)} m.` : 'Chưa xác định được độ chính xác vị trí.'}
+              {locationAccuracyWarning(origin.accuracyMeters, filters.radiusKm) && ' Sai số lớn hơn bán kính tìm kiếm; kết quả gần bạn có thể chưa chính xác.'}
+            </p>
+          )}
+          {origin.kind === 'region' && filters.radiusKm < 1 && (
+            <p className="hme-loc__hint">Bán kính tính từ trung tâm {origin.label}. Dùng vị trí hiện tại để tìm sát nơi bạn đứng.</p>
+          )}
           <div className="hme-radius">
             <div className="hme-radius__row">
               <span>Bán kính tìm kiếm</span>
-              <strong>{filters.radiusKm} km</strong>
+              <strong>{formatSearchRadius(filters.radiusKm)}</strong>
             </div>
-            <input type="range" min={RADIUS_MIN_KM} max={RADIUS_MAX_KM} step={1} value={filters.radiusKm}
-              aria-label="Bán kính tìm kiếm (km)" onChange={(e) => update({ radiusKm: Number(e.target.value) })} />
-            <div className="hme-radius__scale"><span>{RADIUS_MIN_KM} km</span><span>{RADIUS_MAX_KM} km</span></div>
+            <input type="range" min={RADIUS_MIN_KM} max={RADIUS_MAX_KM} step={0.1} value={filters.radiusKm}
+              aria-label="Bán kính tìm kiếm (km)" aria-valuetext={formatSearchRadius(filters.radiusKm)} onChange={(e) => update({ radiusKm: normalizeSearchRadius(Number(e.target.value)) })} />
+            <div className="hme-radius__scale"><span>{formatSearchRadius(RADIUS_MIN_KM)}</span><span>{formatSearchRadius(RADIUS_MAX_KM)}</span></div>
             <div className="hme-radius__quick" aria-label="Chọn nhanh bán kính">
-              {[5, 10, 20].map((km) => (
-                <button key={km} type="button" className={filters.radiusKm === km ? 'is-active' : ''} onClick={() => update({ radiusKm: km })}>{km} km</button>
+              {[0.1, 0.3, 0.5, 1, 3, 5, 10, 20].map((km) => (
+                <button key={km} type="button" aria-pressed={filters.radiusKm === km} className={filters.radiusKm === km ? 'is-active' : ''} onClick={() => update({ radiusKm: km })}>{formatSearchRadius(km)}</button>
               ))}
             </div>
           </div>
@@ -201,11 +227,6 @@ export default function HomeMapExplorer() {
           <HomeMapCanvas origin={origin.point} originIsUser={origin.kind === 'user'} radiusKm={filters.radiusKm} recenterRequest={recenterRequest}
             markers={markers} selectedId={selectedId} onSelect={setSelectedId} />
         </Suspense>
-        {nearby.length === 0 && (
-          <div className="hme__map-empty" role="status">
-            Chưa có nơi làm việc đã xác minh nào trong phạm vi và điều kiện hiện tại.
-          </div>
-        )}
       </div>
 
       <aside className="hme__panel" aria-live="polite">
@@ -229,15 +250,15 @@ export default function HomeMapExplorer() {
               {selected.job.workPeriod && <div><dt><Briefcase size={14} aria-hidden /> Hình thức</dt><dd>{selected.job.workPeriod}</dd></div>}
             </dl>
             <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>
-            <NavLink to={`/viec-lam/${selected.job.id}`} className="hme-job__detail">Xem chi tiết</NavLink>
+            <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
           </div>
         ) : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
-            <p className="hme-intro__summary">{originLabel} · {filters.radiusKm} km</p>
+            <p className="hme-intro__summary">{originLabel} · {formatSearchRadius(filters.radiusKm)}</p>
             <div className="hme-intro__count"><strong>{nearby.length}</strong> việc làm có nơi làm việc đã xác minh trên bản đồ</div>
             <p className="hme-intro__hint">
-              {nearby.length > 0 ? 'Chọn một ghim trên bản đồ để xem thông tin tin tuyển dụng.' : 'Thử tăng bán kính, đổi khu vực hoặc bỏ bớt điều kiện.'}
+              {nearby.length > 0 ? 'Chọn một ghim trên bản đồ để xem thông tin tin tuyển dụng.' : emptyReason}
             </p>
             {origin.kind !== 'user' && (
               <button type="button" className="hme-intro__locate" onClick={useCurrentLocation} disabled={geoState === 'loading'}>
@@ -248,6 +269,9 @@ export default function HomeMapExplorer() {
           </div>
         )}
       </aside>
+      <span hidden data-testid="home-map-job-counts" data-loaded={counts.loaded} data-verified={counts.verified}
+        data-in-radius={counts.inRadius} data-matched={counts.matched} data-unverified={counts.unverified}
+        data-outside-radius={counts.outsideRadius} data-filtered-out={counts.filteredOut} />
     </section>
   )
 }
