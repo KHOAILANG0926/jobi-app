@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-06 — 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) Production 반영
+
+- 요청: job_work_locations exact 좌표 0건 → VietMap 상가·회사(POI)를 근무지 좌표 기준으로 연결. 기존 승인 체계(8d30c0d)에 붙이고 새 체계는 만들지 않음.
+- 변경: AdminLocations를 VietMap 지도·위성으로, 1클릭 승인·거절·철회, 지도·위성 클릭 직접 지정 패널(POI 이름 자동 입력), 자동 후보 생성 스크립트(VIETMAP_SERVICE_KEY 없으면 건너뜀, 기본 dry-run, 새 공고만), 회사명·행정구역 일치 판정. DDL 없음(근거는 evidence 텍스트).
+- 검증: tsc, tests 31/31, build. 로컬 실제 클릭(핀·좌표·버튼·POI 이름·위성), 사용자 실제 관리자 화면·저장 테스트(#4613 추가→승인→철회, 감사 로그 3건, 공고·근무지 837 기준값 동일, 공개 영향 없음). 클릭 실패 최초 보고는 재현 안 됨(원인 미확정, 방어 처리+?mapDebug=1 진단 추가).
+- commit/push/deploy: `71acf9a` → master fast-forward, Production `jobi-bo6e6kzkn`(`dpl_GvH2AbDrcqdrL5wppJxUfNVs6fHo`) Ready. `/admin` 200, 서빙 번들에 새 관리자 코드 확인(로그인 화면은 미확인).
+- 남은 문제: 사용자 Production 관리자 화면 확인 대기(확인 전 PRODUCTION VERIFIED(사용자) 기록 금지), VietMap 서버용 키 없음(Search v4 HTTP 423) → 자동 후보 꺼짐, Production DB에 테스트 후보 1건(revoked)·감사 로그 3건 남음.
+
 ## 2026-10-06 — 지도 제스처 재정비 + 모바일 bottom sheet Production 반영 + AI 전략 문서
 
 - 요청: 승인 Preview(`jobi-6msh3jqki`) 소스를 master 반영·Production 배포, AI_DISCOVERY_STRATEGY.md 추가.
@@ -73,11 +81,3 @@
 - 결정(사용자): 이 문제로 Production 배포를 막지 않음. VietMap에 Consumer/key 수정·Referers·usage limit 권한 요청, 권한 생기면 즉시 도메인 제한·한도·key 분리. 배포 후 Daily Report 사용량 모니터링.
 - 수정 파일: CHATGPT_HANDOFF.md, WORK_LOG.md(문서만).
 - 배포: `feat/home-map-vietmap-sync`를 master에 fast-forward(`8f0498f`) push → Vercel Production `jobi-c29zpgkiq` Ready. viecganban.vn에서 VietMap style·tile 정상(실패 0), Geoapify 0, 콘솔 오류 0. 검증: tsc, tests 23/23, build.
-
-## 2026-10-05 — VietMap 지도 Preview 소스 복원 + 공동 핀 selectedJob 동기화
-
-- 요청: 검증된 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE` source를 master `ade2926` 기반 branch에 복원, `focusAfterOpen:false` 포함, TomTom·진단·깨진 파일 제외.
-- 변경: VietMap provider·공동 핀 grouping/팝업 옵션·0.1km 반경·homeMapSearch·CSS·acceptance(Preview+`?mapAcceptance=1` 한정)·테스트, `@vietmap/vietmap-gl-js` 6.0.1.
-- 검증: tsc, build, tests 23/23 통과. Production 빌드 acceptance 0건. 새 Preview `jobi-1cre9b7j6` 사용자 승인.
-- commit/push: branch `feat/home-map-vietmap-sync` push. master·Production 미반영.
-- 남은 문제: Preview `VITE_ZALO_APP_ID` 누락, 휴대폰 GPS 미검증, 200m 버튼 결정 보류.
