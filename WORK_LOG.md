@@ -8,7 +8,8 @@
 - 변경: master `35b7cce` → `cccd767` fast-forward(코드 변경 없음). 문서: AI_DISCOVERY_STRATEGY.md(사용자 원문 그대로), CLAUDE.md에 "참고용 배경 문서, 임의 구현 금지" 한 줄, HANDOFF 전략 참고 한 줄.
 - 검증: tsc, tests 30/30, build. Production `jobi-cx74ww02v` Ready(viecganban.vn). 자동 검증: VietMap 로드·Geoapify 0·콘솔 오류 0, 데스크톱 휠 줌·드래그 설정, 모바일 터치 설정·sheet 코드.
 - commit/push/deploy: master `cccd767` push → Vercel Production 자동 배포 Ready.
-- 남은 문제: 사용자 PC 마우스·Android 최종 확인 대기(확인 전 PRODUCTION VERIFIED(사용자) 기록 금지), VietMap 키 제한 권한 대기.
+- 사용자 확인: 2026-10-06 실제 PC 마우스·Android 최종 확인 완료 → PRODUCTION VERIFIED(사용자).
+- 남은 문제: VietMap 키 제한 권한 대기.
 
 ## 2026-10-06 — 지도 제스처 재정비 + 모바일 생활지도 bottom sheet — PREVIEW APPROVED, BRANCH PUSHED
 

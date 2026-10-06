@@ -4,7 +4,7 @@
 
 장기 AI/Agent 전략은 AI_DISCOVERY_STRATEGY.md 참고
 
-**지도 제스처 재정비 + 모바일 생활지도 bottom sheet (2026-10-06).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 30/30·build) / PREVIEW APPROVED(사용자, 실제 Android, `jobi-6msh3jqki`) / BRANCH PUSHED(`520031f`) / **MASTER PUSHED(`cccd767`, fast-forward) / PRODUCTION DEPLOYED(`jobi-cx74ww02v`, `dpl_FzUtnYjhtcr3NUZuMkV8KHCnNbb7`) / 자동 검증 완료 / 사용자 PC 마우스·Android 최종 확인 대기**. 승인 후 코드 수정 없음.
+**지도 제스처 재정비 + 모바일 생활지도 bottom sheet (2026-10-06).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 30/30·build) / PREVIEW APPROVED(사용자, 실제 Android, `jobi-6msh3jqki`) / BRANCH PUSHED(`520031f`) / **MASTER PUSHED(`cccd767`, fast-forward) / PRODUCTION DEPLOYED(`jobi-cx74ww02v`, `dpl_FzUtnYjhtcr3NUZuMkV8KHCnNbb7`) / 자동 검증 완료 / PRODUCTION VERIFIED(사용자, 2026-10-06: 실제 PC 마우스·Android 최종 확인)**. 승인 후 코드 수정 없음.
 
 - 자동 검증(2026-10-06, viecganban.vn, 브라우저 자동화 — 실제 손가락·물리 마우스 아님): VietMap 로드(vietmap 요청 11, Geoapify 0), 콘솔 오류 0. 데스크톱 cooperativeGestures off·scrollZoom on·dragPan on. 모바일 에뮬레이션(375px) touch 기기 판정·760px 레이아웃 true, touchPitch off, 캔버스 touch-action none(SDK 지도 조작), 선택 전 sheet 없음, sheet 코드 번들 포함. 미검증: 실제 휠·드래그 체감, 패널 끝 휠→페이지, POI/건물 클릭, sheet 열기/닫기, 실제 터치 제스처.
 - branch: `fix/map-wheel-page-scroll`(master `35b7cce` 기반, master에 fast-forward 반영). 회사 PC worktree `C:\Users\HP\Downloads\jobi-wheel-fix`.
@@ -37,7 +37,7 @@
 
 ## 다음 결정사항
 
-- **사용자 최종 확인 대기(Production)**: 데스크톱 실제 마우스(휠=줌, 드래그=이동, 좌우 패널 끝 휠→페이지, POI/건물 클릭), Android(선택 시 sheet, 접기/펼치기, 내부 스크롤, 한 손가락 이동, 핀치). 확인 전에는 PRODUCTION VERIFIED(사용자)로 기록하지 않는다.
+- **사용자 최종 확인 완료(2026-10-06)**: 실제 PC 마우스(휠=줌, 드래그=이동, 좌우 패널 끝 휠→페이지, POI/건물 클릭)·Android(선택 시 sheet, 접기/펼치기, 내부 스크롤, 한 손가락 이동, 핀치) Production 확인 완료.
 - **VietMap 키 제한 — 권한 부족으로 보류(2026-10-05, 배포는 막지 않음)**: Console 변경 API가 `UN_AUTHORIZED`. VietMap에 Consumer/API key 수정·Referers·usage limit 권한 요청. 권한이 생기면 Referers `viecganban.vn; www.viecganban.vn`, 한도(Production 일 500/월 10,000, Preview 일 100/월 2,000), 가능하면 key 분리.
 - **모니터링**: VietMap Console → Daily Report 일 Transaction(일 100 이상 급증 시 보고).
 - Vercel env(2026-10-05 정리): `VITE_VIETMAP_TILEMAP_KEY` Production/Preview, `VITE_ZALO_APP_ID` Production/Preview.
@@ -45,7 +45,7 @@
 
 ## 최근 완료 작업 로그
 
-- 지도 제스처 재정비 + 모바일 bottom sheet — 2026-10-06 — MASTER PUSHED(`cccd767`) / PRODUCTION DEPLOYED(`jobi-cx74ww02v`) / 자동 검증 완료 / 사용자 PC 마우스·Android 최종 확인 대기
+- 지도 제스처 재정비 + 모바일 bottom sheet — 2026-10-06 — MASTER PUSHED(`cccd767`) / PRODUCTION DEPLOYED(`jobi-cx74ww02v`) / PRODUCTION VERIFIED(사용자)
 - 지도 위 페이지 스크롤 수정 + VietMap 예비 지도 오전환 수정 — 2026-10-06 — MASTER PUSHED(`6d02be6`) / PRODUCTION DEPLOYED·VERIFIED. (cooperativeGestures 방식은 위 작업에서 폐기)
 - 생활지도 1차+2차(건물·근무지·생활시설 지도, 위성, 클릭 상세 패널) — 2026-10-06 — MASTER PUSHED(`106e8e4`) / PRODUCTION DEPLOYED·VERIFIED
 - VietMap 메인 지도 + 공동 핀 동기화 — 2026-10-05 — MASTER PUSHED(`8f0498f`) / PRODUCTION DEPLOYED·VERIFIED. VietMap key 제한은 권한 부족으로 보류
