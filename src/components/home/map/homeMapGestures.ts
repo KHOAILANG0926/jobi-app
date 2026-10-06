@@ -1,15 +1,38 @@
-// 메인 지도 제스처 (2026-10-06). 지도가 페이지 한가운데 있으므로 지도 위에서도 페이지
-// 스크롤이 우선이다. MapLibre/VietMap 기본값은 휠=지도 확대, 한 손가락 드래그=지도 이동이고
-// 캔버스에 `touch-action: none`을 걸어 지도 위에서 페이지가 스크롤되지 않았다.
-// SDK 내장 cooperativeGestures를 켜면:
-// - 데스크톱: 휠은 페이지 스크롤, Ctrl(맥 ⌘)+휠·트랙패드 핀치는 지도 확대, 드래그 이동 유지
-// - 모바일: 한 손가락은 페이지 스크롤(touch-action: pan-x pan-y), 두 손가락으로 지도 이동·확대
-// 안내 문구는 SDK가 지도 위에 잠깐 띄운다(베트남어로 지정).
-export const HOME_MAP_GESTURE_OPTIONS = {
-  cooperativeGestures: true,
-  locale: {
-    'CooperativeGesturesHandler.WindowsHelpText': 'Giữ Ctrl và cuộn chuột để phóng to/thu nhỏ bản đồ',
-    'CooperativeGesturesHandler.MacHelpText': 'Giữ ⌘ và cuộn để phóng to/thu nhỏ bản đồ',
-    'CooperativeGesturesHandler.MobileHelpText': 'Dùng hai ngón tay để di chuyển bản đồ',
-  },
-} as const
+// 메인 지도 제스처 (2026-10-06 사용자 최종 결정). 데스크톱·모바일 모두 지도 조작 우선.
+// - 데스크톱(마우스): MapLibre/VietMap 기본값 — 지도 위 일반 휠=지도 줌, 드래그=지도 이동.
+//   지도 밖·왼쪽 필터·오른쪽 패널의 페이지 스크롤은 pageScrollChain.ts가 담당한다.
+// - 모바일(터치): SDK 기본값 — 한 손가락=지도 이동(상하좌우), 두 손가락=확대·축소(+이동),
+//   탭=POI·건물·공고 핀 선택. 페이지 스크롤은 지도 밖에서. 지도 위 페이지 스크롤을 위해
+//   제스처를 바꾸는 시도(cooperativeGestures, 직접 만든 제스처, 지도 조작 모드)는 폐기했다.
+//   불편하면 제스처가 아니라 레이아웃(지도 높이·여백)으로 해결한다.
+export const TOUCH_DEVICE_QUERY = '(hover: none) and (pointer: coarse)'
+
+/** SDK cooperativeGestures는 쓰지 않는다(Ctrl+휠 강제·한 손가락 페이지 스크롤·안내 overlay 없음). */
+export const HOME_MAP_GESTURE_OPTIONS = { cooperativeGestures: false } as const
+
+export function isTouchDevice(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(TOUCH_DEVICE_QUERY).matches
+}
+
+/** 터치 기기 지도에서 끄는 SDK 핸들러(VietMap·MapLibre 공통). */
+export interface TouchMapDefaultsMap {
+  touchZoomRotate: { disableRotation(): void }
+  touchPitch?: { disable(): void }
+}
+
+/** 터치 기기에서만 호출: 두 손가락 회전·기울기를 끈다. 나침반 버튼이 없어(showCompass: false)
+ *  실수로 돌아간 지도를 되돌릴 방법이 없기 때문. 한 손가락 이동·핀치 확대는 SDK 기본 그대로. */
+export function applyTouchMapDefaults(map: TouchMapDefaultsMap): void {
+  map.touchZoomRotate.disableRotation()
+  map.touchPitch?.disable()
+}
+
+/** 장소(POI) 탭 허용 오차(px): 아이콘·라벨 박스 밖이면 아이콘 중심에서 이 거리 안만 인정. */
+export const POI_TAP_TOLERANCE_PX = { mouse: 2, touch: 6 } as const
+/** POI 아이콘 반지름(px) 근사. 공식 POI 아이콘 약 16~18px. */
+export const POI_ICON_RADIUS_PX = 9
+
+/** 패딩 조회로만 잡힌 POI가 실제 아이콘 근처인지(아이콘 반지름 + 오차 안). */
+export function withinPoiIcon(distancePx: number, tolerancePx: number): boolean {
+  return distancePx <= POI_ICON_RADIUS_PX + tolerancePx
+}

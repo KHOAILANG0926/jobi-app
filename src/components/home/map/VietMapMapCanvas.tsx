@@ -7,7 +7,7 @@ import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import type { HomeMapMarker, HomeMapProviderProps, MapViewportSize } from './HomeMapTypes'
 import { calculateInitialZoom, createRadiusPolygon, radiusWithinLoadedTiles } from './homeMapGeometry'
-import { HOME_MAP_GESTURE_OPTIONS } from './homeMapGestures'
+import { HOME_MAP_GESTURE_OPTIONS, POI_TAP_TOLERANCE_PX, applyTouchMapDefaults, isTouchDevice, withinPoiIcon } from './homeMapGestures'
 import { sanitizeVietMapError } from './vietMapError'
 import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './vietMapStyle'
 import { BUILDING_CLICK_LAYERS, applyLifeMapStyle, type StyleLike } from './lifeMapStyle'
@@ -239,16 +239,25 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     const layers = map.getStyle().layers
     const poiLayers = layers.filter((l) => l.type === 'symbol' && (l as { 'source-layer'?: string })['source-layer'] === 'poi').map((l) => l.id)
     if (map.getLayer('home-nearby-dot')) poiLayers.push('home-nearby-dot')
-    const pad = 8
-    const hits = map.queryRenderedFeatures([[point.x - pad, point.y - pad], [point.x + pad, point.y + pad]], { layers: poiLayers })
-      .filter((f) => f.geometry.type === 'Point' && String(f.properties?.name ?? '').trim())
+    // 2026-10-06 실제 Android 검수: ±8px 상자 조회는 라벨·아이콘 충돌 상자 여백까지 더해져
+    // 장소 주변 빈 곳 탭도 선택됐다. 1) 탭 지점이 아이콘·라벨 상자 안이면 그 장소,
+    // 2) 아니면 작은 오차(마우스 2px / 터치 6px) 상자로 찾되 아이콘 중심 근처만 인정.
+    const named = (f: { geometry: { type: string }; properties?: Record<string, unknown> | null }) =>
+      f.geometry.type === 'Point' && String(f.properties?.name ?? '').trim() !== ''
+    const tolerance = isTouchDevice() ? POI_TAP_TOLERANCE_PX.touch : POI_TAP_TOLERANCE_PX.mouse
+    const withDistance = (features: ReturnType<typeof map.queryRenderedFeatures>) => features.filter(named).map((f) => {
+      const c = f.geometry.type === 'Point' ? (f.geometry.coordinates as [number, number]) : [0, 0] as [number, number]
+      const p = map.project(c)
+      return { f, c, d: Math.hypot(p.x - point.x, p.y - point.y) }
+    }).sort((a, b) => a.d - b.d)
+    let hits = withDistance(map.queryRenderedFeatures([point.x, point.y], { layers: poiLayers }))
+    if (!hits.length) {
+      const r = tolerance
+      hits = withDistance(map.queryRenderedFeatures([[point.x - r, point.y - r], [point.x + r, point.y + r]], { layers: poiLayers }))
+        .filter((h) => withinPoiIcon(h.d, tolerance))
+    }
     if (hits.length) {
-      const nearest = hits
-        .map((f) => ({ f, c: f.geometry.type === 'Point' ? (f.geometry.coordinates as [number, number]) : [0, 0] }))
-        .sort((a, b) => {
-          const pa = map.project(a.c as [number, number]); const pb = map.project(b.c as [number, number])
-          return Math.hypot(pa.x - point.x, pa.y - point.y) - Math.hypot(pb.x - point.x, pb.y - point.y)
-        })[0]
+      const nearest = hits[0]
       const [lng, lat] = nearest.c
       const name = String(nearest.f.properties?.name)
       const cls = nearest.f.properties?.class !== undefined ? String(nearest.f.properties.class) : String(nearest.f.properties?.cls ?? '')
@@ -344,6 +353,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     map.addControl(new vietmapgl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new vietmapgl.AttributionControl({ compact: true }))
     mapRef.current = map
+    if (isTouchDevice()) applyTouchMapDefaults(map)
     if (import.meta.env.DEV) (window as unknown as { __homeMap?: VietMap }).__homeMap = map
 
     const reportViewport = () => {

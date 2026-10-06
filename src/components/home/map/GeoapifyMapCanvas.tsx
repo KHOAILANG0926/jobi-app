@@ -6,7 +6,7 @@ import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useEffect, useRef, useState } from 'react'
 import type { HomeMapProviderProps, MapViewportSize } from './HomeMapTypes'
 import { calculateInitialZoom, createRadiusPolygon } from './homeMapGeometry'
-import { HOME_MAP_GESTURE_OPTIONS } from './homeMapGestures'
+import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './homeMapGestures'
 
 const CIRCLE_SOURCE = 'home-search-radius'
 maplibregl.setWorkerUrl(mapWorkerUrl)
@@ -103,6 +103,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }))
     mapRef.current = map
+    if (isTouchDevice()) applyTouchMapDefaults(map)
 
     const reportViewport = () => {
       const center = map.getCenter()

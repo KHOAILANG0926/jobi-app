@@ -20,11 +20,15 @@ import { formatSearchRadius, locationAccuracyWarning, normalizeSearchRadius, sum
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
 import NearbyLifePanel from './NearbyLifePanel'
 import PlaceDetailPanel from './PlaceDetailPanel'
+import { chainWheelToPage } from './pageScrollChain'
+import MobileDetailSheet from './MobileDetailSheet'
 import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
 
 const HomeMapCanvas = lazy(() => import('./HomeMapCanvas'))
 
 const DEFAULT_REGION = 'Bắc Ninh'
+/** index.css의 .hme 모바일 레이아웃 기준과 같은 값. */
+const MOBILE_LAYOUT_QUERY = '(max-width: 760px)'
 
 type Origin =
   | { kind: 'user'; point: MapJobPoint; accuracyMeters: number }
@@ -52,6 +56,22 @@ export default function HomeMapExplorer() {
   const [mapMode, setMapMode] = useState<HomeMapMode>('street')
   const locationRequest = useRef(0)
   useEffect(() => () => { locationRequest.current += 1 }, [])
+  // 모바일 레이아웃(index.css의 .hme 760px 기준)에서만 상세를 하단 sheet로 띄운다. SSR·데스크톱은 false.
+  const [isMobileLayout, setIsMobileLayout] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia(MOBILE_LAYOUT_QUERY)
+    const update = () => setIsMobileLayout(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  const controlsRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  // 필터·패널 스크롤이 끝에 닿으면 같은 휠 동작을 페이지 스크롤로 잇는다(pageScrollChain.ts).
+  useEffect(() => {
+    const cleanups = [controlsRef.current, panelRef.current].filter((el): el is HTMLElement => !!el).map(chainWheelToPage)
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [])
 
   const nearby = useMemo(() => findNearbyJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
   const counts = useMemo(() => summarizeMapJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
@@ -112,9 +132,48 @@ export default function HomeMapExplorer() {
     : counts.inRadius === 0 ? `Chưa có việc làm đã xác minh trong ${formatSearchRadius(filters.radiusKm)} ${distanceFrom}.`
     : `Có ${counts.inRadius} việc làm trong bán kính này, nhưng chưa khớp các điều kiện đã chọn.`
 
+  // 선택 상세(장소·건물 또는 공고). 데스크톱은 오른쪽 패널, 모바일(≤760px)은 하단 sheet(MobileDetailSheet).
+  const detail = pickedPlace ? (
+    <PlaceDetailPanel
+      place={pickedPlace}
+      origin={{ label: origin.kind === 'user' ? 'vị trí của bạn' : `trung tâm ${origin.label}`, point: origin.point }}
+      selectedJob={selected ? { title: selected.job.title, point: selected.point } : null}
+      jobs={placeJobs}
+      selectableIds={selectableIds}
+      mapMode={mapMode}
+      onMapModeChange={setMapMode}
+      onSelectJob={selectJob}
+      onRequestZoom={() => setPlaceZoomRequest((v) => v + 1)}
+      onClose={() => setPickedPlace(null)}
+    />
+  ) : selected ? (
+    <div className="hme-job">
+      <button type="button" className="hme-job__close" aria-label="Bỏ chọn tin" onClick={() => setSelectedId(null)}><X size={18} /></button>
+      <div className="hme-job__company">{selected.job.company}</div>
+      <h3 className="hme-job__title">{selected.job.title}</h3>
+      <div className="hme-job__chips">
+        <span className="hme-tag hme-tag--distance">{formatDistanceLabel(selected.distanceKm)}</span>
+        {selected.job.salary && <span className="hme-tag hme-tag--salary">{selected.job.salary}</span>}
+        {selected.job.urgent && <span className="hme-tag hme-tag--urgent">Tuyển gấp</span>}
+        <span className="hme-tag">{CATEGORY_SHORT[selected.job.category]}</span>
+        {conditionBadges(selected.job).map((b) => (
+          <span key={b.key} className={`hme-tag hme-tag--${b.tone}`}>{b.label}</span>
+        ))}
+      </div>
+      <dl className="hme-job__rows">
+        <div><dt><MapPin size={14} aria-hidden /> Khu vực</dt><dd>{selected.job.location || 'Chưa cập nhật'}</dd></div>
+        <div><dt><Clock size={14} aria-hidden /> Giờ làm</dt><dd>{selected.job.hours || 'Chưa cập nhật'}</dd></div>
+        {selected.job.workPeriod && <div><dt><Briefcase size={14} aria-hidden /> Hình thức</dt><dd>{selected.job.workPeriod}</dd></div>}
+      </dl>
+      <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>
+      <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
+      <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />
+    </div>
+  ) : null
+
   return (
     <section className="hme" aria-label="Tìm việc quanh bạn trên bản đồ">
-      <div className="hme__controls">
+      <div className="hme__controls" ref={controlsRef}>
         {/* 위치 + 검색 반경 — 하나의 기능 */}
         <div className="hme-block">
           <div className="hme-block__head"><MapPin size={16} aria-hidden /> <span>Vị trí</span></div>
@@ -244,44 +303,8 @@ export default function HomeMapExplorer() {
         </Suspense>
       </div>
 
-      <aside className="hme__panel" aria-live="polite">
-        {pickedPlace ? (
-          <PlaceDetailPanel
-            place={pickedPlace}
-            origin={{ label: origin.kind === 'user' ? 'vị trí của bạn' : `trung tâm ${origin.label}`, point: origin.point }}
-            selectedJob={selected ? { title: selected.job.title, point: selected.point } : null}
-            jobs={placeJobs}
-            selectableIds={selectableIds}
-            mapMode={mapMode}
-            onMapModeChange={setMapMode}
-            onSelectJob={selectJob}
-            onRequestZoom={() => setPlaceZoomRequest((v) => v + 1)}
-            onClose={() => setPickedPlace(null)}
-          />
-        ) : selected ? (
-          <div className="hme-job">
-            <button type="button" className="hme-job__close" aria-label="Bỏ chọn tin" onClick={() => setSelectedId(null)}><X size={18} /></button>
-            <div className="hme-job__company">{selected.job.company}</div>
-            <h3 className="hme-job__title">{selected.job.title}</h3>
-            <div className="hme-job__chips">
-              <span className="hme-tag hme-tag--distance">{formatDistanceLabel(selected.distanceKm)}</span>
-              {selected.job.salary && <span className="hme-tag hme-tag--salary">{selected.job.salary}</span>}
-              {selected.job.urgent && <span className="hme-tag hme-tag--urgent">Tuyển gấp</span>}
-              <span className="hme-tag">{CATEGORY_SHORT[selected.job.category]}</span>
-              {conditionBadges(selected.job).map((b) => (
-                <span key={b.key} className={`hme-tag hme-tag--${b.tone}`}>{b.label}</span>
-              ))}
-            </div>
-            <dl className="hme-job__rows">
-              <div><dt><MapPin size={14} aria-hidden /> Khu vực</dt><dd>{selected.job.location || 'Chưa cập nhật'}</dd></div>
-              <div><dt><Clock size={14} aria-hidden /> Giờ làm</dt><dd>{selected.job.hours || 'Chưa cập nhật'}</dd></div>
-              {selected.job.workPeriod && <div><dt><Briefcase size={14} aria-hidden /> Hình thức</dt><dd>{selected.job.workPeriod}</dd></div>}
-            </dl>
-            <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>
-            <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
-            <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />
-          </div>
-        ) : (
+      <aside className="hme__panel" aria-live="polite" ref={panelRef}>
+        {detail && !isMobileLayout ? detail : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
             <p className="hme-intro__summary">{originLabel} · {formatSearchRadius(filters.radiusKm)}</p>
@@ -298,6 +321,12 @@ export default function HomeMapExplorer() {
           </div>
         )}
       </aside>
+      {isMobileLayout && detail && (
+        <MobileDetailSheet selectionKey={pickedPlace?.key ?? selectedId ?? ''} label={pickedPlace ? 'Thông tin địa điểm' : 'Thông tin tin tuyển dụng'}
+          onClose={() => { setPickedPlace(null); setSelectedId(null) }}>
+          {detail}
+        </MobileDetailSheet>
+      )}
       <span hidden data-testid="home-map-job-counts" data-loaded={counts.loaded} data-verified={counts.verified}
         data-in-radius={counts.inRadius} data-matched={counts.matched} data-unverified={counts.unverified}
         data-outside-radius={counts.outsideRadius} data-filtered-out={counts.filteredOut} />
