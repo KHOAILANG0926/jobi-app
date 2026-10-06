@@ -2,6 +2,15 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-06 — 지도 제스처 재정비 + 모바일 생활지도 bottom sheet — PREVIEW APPROVED, BRANCH PUSHED
+
+- 요청: 6d02be6 cooperativeGestures 방식이 실제 마우스·Android에서 실패 → 데스크톱 휠=지도 줌, 모바일 지도 조작 우선 + 상세 하단 sheet.
+- 변경: cooperativeGestures 폐기(SDK 기본 제스처), 터치 기기 회전·기울기만 끔, POI 탭 판정 정밀화, 데스크톱 좌우 패널 끝 휠→페이지(pageScrollChain), 모바일(≤760px) 상세 bottom sheet(접힘 38%/펼침 85%, 손잡이 드래그, 내부 스크롤).
+- 이유: Android Chrome은 pan-y 계열 touch-action에서 첫 손가락 이동 후 두 번째 손가락을 앱에 전달하지 않음(실기기 로그). 직접 제스처·지도 조작 모드도 거쳐 SDK 기본 + sheet로 확정.
+- 검증: tsc, tests 30/30, build. 사용자 실제 Android 승인(Preview `jobi-6msh3jqki`). 실패 Preview: mxku84k2y, 2c0mhtph5, fycayo97n, f5g8m0ji5, hdwhiwnd7 등.
+- commit/push: `520031f` → `origin/fix/map-wheel-page-scroll`. master·Production 미반영.
+- 남은 문제: master merge·Production 배포 결정, 데스크톱 실제 마우스 1회 확인 권장, VietMap 키 제한 권한 대기.
+
 ## 2026-10-06 — 스크롤 수정 + 예비 지도 오전환 수정 Production 반영
 
 - 요청: 승인된 `6d02be6`(Preview `jobi-jkuypvkg8`)를 master·Production 반영 후 검증.
@@ -63,19 +72,3 @@
 - 검증: tsc, build, tests 23/23 통과. Production 빌드 acceptance 0건. 새 Preview `jobi-1cre9b7j6` 사용자 승인.
 - commit/push: branch `feat/home-map-vietmap-sync` push. master·Production 미반영.
 - 남은 문제: Preview `VITE_ZALO_APP_ID` 누락, 휴대폰 GPS 미검증, 200m 버튼 결정 보류.
-
-## 2026-10-05 — 작업 브랜치·Preview·Git 종료 게이트 규칙 추가
-
-- 요청: Preview 승인 후 Git 보존을 강제하는 종료 게이트를 CLAUDE.md에 MANDATORY로 추가.
-- 변경: CLAUDE.md "작업 브랜치·Preview·Git 종료 게이트 — MANDATORY" 섹션(10개 규칙 + 근거) 추가. 코드 변경 없음.
-- 근거: VietMap 최종 Preview `dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`가 미커밋 CLI 배포 소스에서 만들어져, master에 소스가 없어 Vercel deployment source를 회수해야 했음.
-- 상태: branch `feat/home-map-vietmap-sync`(master `ade2926` 기반) 작업 트리에 지도 복원과 함께 미커밋. commit/push/deploy 없음.
-
-## 2026-10-02 — Google VECTOR 전환 + 기본 반경 UX 검토
-
-- 요청: Google provider를 VECTOR rendering으로 전환하고 건물·POI 표현 및 기본 반경 UX를 검토.
-- 변경: `renderingType: VECTOR` 옵션 helper와 테스트, 실제 rendering type 진단값 추가. ROADMAP/HYBRID·기본 스타일·fallback·반경/marker/viewport 계약 유지.
-- 검증: tsc/build, 16/16 tests, Google fixture VECTOR/ROADMAP/HYBRID/no-style 및 네 실패 fallback 통과. Production은 key 부재로 Geoapify, 8km·zoom 11.3428·원 지름 0.65·Geoapify 오류 0.
-- commit/push/deploy: `90bf841` master push, Vercel `dpl_FSNAYRTi8EfukY48TjHadNXZb77b` READY.
-- 남은 문제: 실제 Google raster/VECTOR/HYBRID 비교는 PENDING_NO_KEY. 기본 8km와 빠른 선택 5/10/20 불일치; 5km 기본값 권장, 결정 전 변경하지 않음.
-
