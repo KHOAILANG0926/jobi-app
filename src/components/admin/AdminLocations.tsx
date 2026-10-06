@@ -1,9 +1,14 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
+import type { AdminMapMarker, AdminMapPick } from './AdminVietMap'
 
 // 근무지 좌표 후보 검토·승인(2026-09-29). 승인된 위치만 사이트의 지도 핀·길찾기·내 주변 거리에
 // 쓰인다. 공단·지역 중심(place_precision='area')은 DB에서 승인 자체가 막힌다.
-const JobLocationMap = lazy(() => import('../JobLocationMap'))
+// 2026-10-06: 후보를 VietMap 일반지도·위성에서 보고 승인·거절 1클릭(메모는 선택). 지도에 후보가 없으면
+// 관리자가 지도·위성을 직접 찍어 후보를 추가(+바로 승인)한다 — 기존 RPC(admin_add/admin_review)만 사용.
+// 자동 후보(scripts/generate-location-candidates.ts, source=map_listing)는 근거에 VietMap POI·주소 일치 여부가 적힌다.
+const AdminVietMap = lazy(() => import('./AdminVietMap'))
 
 export interface LocationCandidate {
   id: number
@@ -34,10 +39,26 @@ const PRECISION_LABEL: Record<LocationCandidate['place_precision'], string> = {
   area: 'Khu công nghiệp/khu vực — không thể duyệt',
 }
 
+const SOURCE_LABEL: Record<string, string> = {
+  map_listing: 'Bản đồ VietMap (cửa hàng/công ty)',
+  company_official: 'Thông tin chính thức của công ty',
+  original_post: 'Tin tuyển dụng gốc',
+  site_visit: 'Khảo sát thực tế',
+  other: 'Khác (chọn trên ảnh vệ tinh…)',
+}
+
+const DEFAULT_APPROVE_NOTE = 'Đã đối chiếu trên bản đồ VietMap/vệ tinh'
+const DEFAULT_CENTER = { lat: 21.1861, lng: 106.0763 } // Bắc Ninh
+
+const mapFallback = <p>Đang tải bản đồ…</p>
+
 export function AdminLocations() {
   const [items, setItems] = useState<LocationCandidate[]>([])
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [error, setError] = useState('')
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
   const reload = async () => {
     const { data, error: e } = await supabase.rpc('admin_list_location_candidates')
     if (e) setError(e.message)
@@ -45,13 +66,13 @@ export function AdminLocations() {
   }
   useEffect(() => { void reload() }, [])
 
+  // 1클릭: 메모 칸은 선택(비우면 승인은 기본 문구, 거절·철회는 빈 메모).
   async function review(c: LocationCandidate, action: 'approve' | 'reject' | 'revoke') {
-    const note = window.prompt(
-      action === 'approve' ? 'Ghi chú duyệt (bằng chứng đã kiểm tra):' : action === 'reject' ? 'Lý do từ chối:' : 'Lý do thu hồi:',
-      '',
-    )
-    if (note === null) return
+    const typed = (notes[c.id] ?? '').trim()
+    const note = typed || (action === 'approve' ? DEFAULT_APPROVE_NOTE : '')
+    setBusyId(c.id)
     const { error: e } = await supabase.rpc('admin_review_location_candidate', { p_candidate_id: c.id, p_action: action, p_note: note })
+    setBusyId(null)
     if (e) setError(e.message)
     else { setError(''); await reload() }
   }
@@ -63,14 +84,17 @@ export function AdminLocations() {
         <option value="pending">Chờ duyệt</option>
         <option value="all">Tất cả</option>
       </select>
+      <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? 'Đóng' : '＋ Tự chọn vị trí trên bản đồ'}</button>
       <small>Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.</small>
     </div>
     {error && <p className="admin-error">{error}</p>}
+    {manualOpen && <ManualLocationPanel candidates={items} onDone={async () => { setError(''); await reload() }} onError={setError} />}
     {shown.length === 0 && <p>Không có ứng viên vị trí.</p>}
     {shown.map((c) => {
       const companyChanged = c.company_snapshot.trim().toLowerCase() !== (c.current_company ?? '').trim().toLowerCase()
       const needsReview = companyChanged || !c.address_still_present
       const canApprove = (c.status === 'pending' || c.status === 'revoked') && c.place_precision !== 'area' && !needsReview
+      const busy = busyId === c.id
       return <article key={c.id} className="admin-location-card" style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, marginBottom: 16 }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
@@ -79,28 +103,149 @@ export function AdminLocations() {
           </div>
           <span className={`admin-badge admin-badge--${c.status}`}>{c.status}</span>
         </header>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16, marginTop: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginTop: 12 }}>
           <div>
             <p><b>Địa chỉ trong tin:</b> {c.address_snapshot}
               {!c.address_still_present && <b style={{ color: '#dc2626' }}> — không còn trong tin hiện tại, cần xem lại</b>}</p>
-            <p><b>Mức vị trí:</b> {PRECISION_LABEL[c.place_precision]} · <b>Nguồn tọa độ:</b> {c.source}</p>
-            <p><b>Tọa độ:</b> {c.lat}, {c.lng} · <a href={`https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`} target="_blank" rel="noopener noreferrer">Google Maps ↗</a> · <a href={`https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=18/${c.lat}/${c.lng}`} target="_blank" rel="noopener noreferrer">OSM ↗</a></p>
+            <p><b>Mức vị trí:</b> {PRECISION_LABEL[c.place_precision]} · <b>Nguồn tọa độ:</b> {SOURCE_LABEL[c.source] ?? c.source}</p>
+            <p><b>Tọa độ:</b> {c.lat.toFixed(6)}, {c.lng.toFixed(6)}</p>
             <p style={{ whiteSpace: 'pre-wrap' }}><b>Bằng chứng:</b> {c.evidence}</p>
             {c.evidence_urls.length > 0 && <ul>{c.evidence_urls.map((u) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer">{u}</a></li>)}</ul>}
             {c.review_note && <p><b>Ghi chú duyệt:</b> {c.review_note}</p>}
+            {(canApprove || c.status === 'pending' || c.status === 'approved') && (
+              <input type="text" placeholder="Ghi chú (không bắt buộc)" value={notes[c.id] ?? ''} disabled={busy}
+                onChange={(e) => setNotes((n) => ({ ...n, [c.id]: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+            )}
             <div className="admin-actions">
-              {canApprove && <button onClick={() => review(c, 'approve')}>Duyệt vị trí</button>}
-              {c.status === 'pending' && <button onClick={() => review(c, 'reject')}>Từ chối</button>}
-              {c.status === 'approved' && <button onClick={() => review(c, 'revoke')}>Thu hồi</button>}
+              {canApprove && <button disabled={busy} onClick={() => review(c, 'approve')}>Duyệt vị trí</button>}
+              {c.status === 'pending' && <button disabled={busy} onClick={() => review(c, 'reject')}>Từ chối</button>}
+              {c.status === 'approved' && <button disabled={busy} onClick={() => review(c, 'revoke')}>Thu hồi</button>}
             </div>
           </div>
-          <div style={{ minHeight: 220 }}>
-            <Suspense fallback={<p>Đang tải bản đồ…</p>}>
-              <JobLocationMap lat={c.lat} lng={c.lng} title={c.job_title} zoom={17} />
-            </Suspense>
-          </div>
+          <Suspense fallback={mapFallback}>
+            <AdminVietMap center={{ lat: c.lat, lng: c.lng }} markers={[{ id: String(c.id), lat: c.lat, lng: c.lng, label: c.job_title, status: c.status }]} />
+          </Suspense>
         </div>
       </article>
     })}
   </section>
+}
+
+interface WorkLocationRow { id: number; raw_address: string | null; lat: number | null; lng: number | null }
+
+/** 지도에 후보가 없을 때: 공고·주소를 고르고 VietMap 지도·위성을 찍어 후보 추가(+바로 승인). */
+function ManualLocationPanel({ candidates, onDone, onError }: { candidates: LocationCandidate[]; onDone: () => Promise<void>; onError: (m: string) => void }) {
+  const [jobs, setJobs] = useState<AdminJob[]>([])
+  const [query, setQuery] = useState('')
+  const [jobId, setJobId] = useState<number | null>(null)
+  const [jobLocation, setJobLocation] = useState('')
+  const [locations, setLocations] = useState<WorkLocationRow[]>([])
+  const [address, setAddress] = useState('')
+  const [pick, setPick] = useState<AdminMapPick | null>(null)
+  const [precision, setPrecision] = useState<'building' | 'site' | 'entrance'>('building')
+  const [source, setSource] = useState('map_listing')
+  const [evidence, setEvidence] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { listAdminJobs().then(setJobs).catch((e: Error) => onError(e.message)) }, [onError])
+
+  useEffect(() => {
+    setLocations([]); setAddress(''); setPick(null); setJobLocation('')
+    if (jobId === null) return
+    void Promise.all([
+      supabase.from('job_work_locations').select('id,raw_address,lat,lng').eq('job_id', jobId).order('sort_order'),
+      supabase.from('local_jobs').select('location').eq('id', jobId).single(),
+    ]).then(([locs, job]) => {
+      const rows = (locs.data ?? []) as WorkLocationRow[]
+      setLocations(rows)
+      setJobLocation(String(job.data?.location ?? ''))
+      setAddress(rows.find((r) => r.raw_address)?.raw_address ?? String(job.data?.location ?? ''))
+    })
+  }, [jobId])
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return jobs.slice(0, 20)
+    return jobs.filter((j) => String(j.id) === q || j.title.toLowerCase().includes(q) || j.company.toLowerCase().includes(q)).slice(0, 20)
+  }, [jobs, query])
+  const job = jobs.find((j) => j.id === jobId) ?? null
+  const addressOptions = [...new Set([...locations.map((l) => l.raw_address ?? '').filter(Boolean), jobLocation].filter(Boolean))]
+  const focus = locations.find((l) => l.raw_address === address && l.lat !== null && l.lng !== null)
+  const center = pick ?? (focus ? { lat: focus.lat as number, lng: focus.lng as number } : DEFAULT_CENTER)
+  const jobCandidates = candidates.filter((c) => c.job_id === jobId)
+  const markers: AdminMapMarker[] = [
+    ...jobCandidates.map((c) => ({ id: String(c.id), lat: c.lat, lng: c.lng, label: `#${c.id} ${c.status}`, status: c.status })),
+    ...(pick ? [{ id: 'picked', lat: pick.lat, lng: pick.lng, label: pick.poiName ?? 'Vị trí đã chọn', status: 'picked' as const }] : []),
+  ]
+
+  const onPick = (p: AdminMapPick) => {
+    setPick(p)
+    setSource(p.poiName ? 'map_listing' : 'other')
+    setEvidence(p.poiName ? `Chọn trên bản đồ VietMap: ${p.poiName}` : 'Chọn thủ công trên bản đồ/ảnh vệ tinh VietMap')
+  }
+
+  async function save(approve: boolean) {
+    if (!job || !pick || !address.trim() || !evidence.trim()) { onError('Chọn tin, địa chỉ, vị trí trên bản đồ và nhập bằng chứng.'); return }
+    setSaving(true)
+    const workLocationId = locations.find((l) => l.raw_address === address)?.id ?? null
+    const { data, error } = await supabase.rpc('admin_add_location_candidate', {
+      p_job_id: job.id, p_address: address, p_lat: pick.lat, p_lng: pick.lng, p_precision: precision,
+      p_source: source, p_evidence: evidence, p_evidence_urls: [], p_work_location_id: workLocationId,
+    })
+    let failure = error?.message ?? ''
+    if (!failure && approve) {
+      const added = data as { id: number } | null
+      const r = added ? await supabase.rpc('admin_review_location_candidate', { p_candidate_id: added.id, p_action: 'approve', p_note: DEFAULT_APPROVE_NOTE }) : null
+      failure = r?.error?.message ?? (added ? '' : 'Không nhận được ứng viên vừa thêm.')
+    }
+    setSaving(false)
+    if (failure) { onError(failure); return }
+    setPick(null)
+    await onDone()
+  }
+
+  return <div style={{ border: '1px dashed #94a3b8', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+    <h3 style={{ marginTop: 0 }}>Tự chọn vị trí trên bản đồ</h3>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <input type="search" placeholder="Tìm tin: mã, tiêu đề hoặc công ty" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <select value={jobId ?? ''} onChange={(e) => setJobId(e.target.value ? Number(e.target.value) : null)}>
+          <option value="">— Chọn tin —</option>
+          {matches.map((j) => <option key={j.id} value={j.id}>#{j.id} · {j.company} · {j.title}</option>)}
+        </select>
+        {job && <>
+          <label>Địa chỉ trong tin
+            <select value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: '100%' }}>
+              {addressOptions.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </label>
+          <label>Mức vị trí
+            <select value={precision} onChange={(e) => setPrecision(e.target.value as typeof precision)} style={{ width: '100%' }}>
+              <option value="building">{PRECISION_LABEL.building}</option>
+              <option value="site">{PRECISION_LABEL.site}</option>
+              <option value="entrance">{PRECISION_LABEL.entrance} (dùng cho chỉ đường)</option>
+            </select>
+          </label>
+          <label>Nguồn tọa độ
+            <select value={source} onChange={(e) => setSource(e.target.value)} style={{ width: '100%' }}>
+              {Object.entries(SOURCE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+          <label>Bằng chứng
+            <textarea rows={3} value={evidence} onChange={(e) => setEvidence(e.target.value)} style={{ width: '100%' }} />
+          </label>
+          <p style={{ margin: 0 }}><small>{pick ? `Đã chọn: ${pick.lat.toFixed(6)}, ${pick.lng.toFixed(6)}${pick.poiName ? ` · ${pick.poiName}` : ''}` : 'Bấm lên bản đồ hoặc ảnh vệ tinh để chọn vị trí.'}</small></p>
+          <div className="admin-actions">
+            <button type="button" disabled={saving || !pick} onClick={() => save(false)}>Thêm ứng viên</button>
+            <button type="button" disabled={saving || !pick} onClick={() => save(true)}>Thêm và duyệt</button>
+          </div>
+        </>}
+      </div>
+      {job && (
+        <Suspense fallback={mapFallback}>
+          <AdminVietMap center={center} zoom={focus || pick ? 17 : 12} markers={markers} onPick={onPick} height={360} />
+        </Suspense>
+      )}
+    </div>
+  </div>
 }
