@@ -4,7 +4,7 @@
 
 장기 AI/Agent 전략은 AI_DISCOVERY_STRATEGY.md 참고
 
-**근무지 정확 좌표 — VietMap 기준 관리자 검토 화면 + 직접 지정 + 자동 후보 생성(키 있을 때만) (2026-10-06).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 31/31·build) / PREVIEW APPROVED(사용자, `jobi-4i40fr4nw`, 실제 관리자 화면·저장 테스트) / BRANCH PUSHED(`71acf9a`) / **MASTER PUSHED(`71acf9a`, fast-forward) / PRODUCTION DEPLOYED(`jobi-bo6e6kzkn`, `dpl_GvH2AbDrcqdrL5wppJxUfNVs6fHo`) / 자동 확인 완료 / 사용자 Production 관리자 화면 확인 대기**. 승인 후 코드 수정 없음. DB 스키마(DDL) 변경 없음.
+**근무지 정확 좌표 — VietMap 기준 관리자 검토 화면 + 직접 지정 + 자동 후보 생성(키 있을 때만) (2026-10-06).** 상태: IMPLEMENTED / VERIFIED(tsc·tests 31/31·build) / PREVIEW APPROVED(사용자, `jobi-4i40fr4nw`, 실제 관리자 화면·저장 테스트) / BRANCH PUSHED(`71acf9a`) / **MASTER PUSHED(`71acf9a`, fast-forward) / PRODUCTION DEPLOYED(`jobi-bo6e6kzkn`, `dpl_GvH2AbDrcqdrL5wppJxUfNVs6fHo`) / 자동 확인 완료 / PRODUCTION VERIFIED(사용자, 2026-10-06: Production 관리자 > 📍 Vị trí 지도 클릭·위성 정상, 저장은 하지 않음)**. 승인 후 코드 수정 없음. DB 스키마(DDL) 변경 없음.
 
 - 배경: 근무지 exact 좌표 0건(글자 지오코딩은 ward 수준까지). 생활지도에 이미 VietMap POI·건물이 정확히 표시되므로 이를 근무지 좌표의 기준으로 삼는다. 새 승인 체계는 만들지 않고 기존 8d30c0d(`job_location_candidates`·관리자 RPC·`jobCoords` 규칙)에 붙였다.
 - branch: `feat/location-candidates-vietmap`(master `86812fb` 기반, master에 fast-forward 반영). 회사 PC worktree `C:\Users\HP\Downloads\jobi-wheel-fix`.
@@ -36,7 +36,7 @@
 
 ## 다음 결정사항
 
-- **사용자 확인 대기**: Production 관리자 > 📍 Vị trí 화면이 열리고 지도(Bản đồ/Vệ tinh)·직접 지정 패널이 보이는지(저장 버튼은 누르지 말 것). 확인 전에는 PRODUCTION VERIFIED(사용자)로 기록하지 않는다.
+- **사용자 확인 완료(2026-10-06)**: Production 관리자 > 📍 Vị trí 화면이 열리고 지도 클릭·위성(Vệ tinh) 정상 — 저장 버튼은 누르지 않음(DB 쓰기 없음).
 - **VietMap에 서버용 키 요청**(Search v4·Place v4 허용) 후: 키를 Vercel/크롤러 환경에 `VIETMAP_SERVICE_KEY`로 설정 → `node scripts/generate-location-candidates.ts`(dry-run) 결과 확인 → 별도 승인 후 `--apply`(Production DB 쓰기) → 크롤러 연결 여부 결정. match_meta 컬럼(DDL)은 보류.
 - **VietMap 키 제한 — 권한 부족으로 보류(2026-10-05, 배포는 막지 않음)**: Console 변경 API가 `UN_AUTHORIZED`. Consumer/API key 수정·Referers·usage limit 권한 요청. 권한이 생기면 Referers `viecganban.vn; www.viecganban.vn`, 한도(Production 일 500/월 10,000, Preview 일 100/월 2,000), 가능하면 key 분리.
 - 모니터링: VietMap Console → Daily Report 일 Transaction(일 100 이상 급증 시 보고). Search/Place 호출이 켜지면 근무지 1곳당 최대 4 transaction.
@@ -45,7 +45,7 @@
 
 ## 최근 완료 작업 로그
 
-- 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) — 2026-10-06 — MASTER PUSHED(`71acf9a`) / PRODUCTION DEPLOYED(`jobi-bo6e6kzkn`) / 사용자 Production 관리자 화면 확인 대기
+- 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) — 2026-10-06 — MASTER PUSHED(`71acf9a`) / PRODUCTION DEPLOYED(`jobi-bo6e6kzkn`) / PRODUCTION VERIFIED(사용자)
 - 지도 제스처 재정비 + 모바일 bottom sheet — 2026-10-06 — MASTER PUSHED(`cccd767`) / PRODUCTION DEPLOYED(`jobi-cx74ww02v`) / PRODUCTION VERIFIED(사용자)
 - 지도 위 페이지 스크롤 수정 + VietMap 예비 지도 오전환 수정 — 2026-10-06 — MASTER PUSHED(`6d02be6`) / PRODUCTION DEPLOYED·VERIFIED. (cooperativeGestures 방식은 이후 작업에서 폐기)
 - 생활지도 1차+2차(건물·근무지·생활시설 지도, 위성, 클릭 상세 패널) — 2026-10-06 — MASTER PUSHED(`106e8e4`) / PRODUCTION DEPLOYED·VERIFIED

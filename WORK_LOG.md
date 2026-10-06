@@ -8,7 +8,8 @@
 - 변경: AdminLocations를 VietMap 지도·위성으로, 1클릭 승인·거절·철회, 지도·위성 클릭 직접 지정 패널(POI 이름 자동 입력), 자동 후보 생성 스크립트(VIETMAP_SERVICE_KEY 없으면 건너뜀, 기본 dry-run, 새 공고만), 회사명·행정구역 일치 판정. DDL 없음(근거는 evidence 텍스트).
 - 검증: tsc, tests 31/31, build. 로컬 실제 클릭(핀·좌표·버튼·POI 이름·위성), 사용자 실제 관리자 화면·저장 테스트(#4613 추가→승인→철회, 감사 로그 3건, 공고·근무지 837 기준값 동일, 공개 영향 없음). 클릭 실패 최초 보고는 재현 안 됨(원인 미확정, 방어 처리+?mapDebug=1 진단 추가).
 - commit/push/deploy: `71acf9a` → master fast-forward, Production `jobi-bo6e6kzkn`(`dpl_GvH2AbDrcqdrL5wppJxUfNVs6fHo`) Ready. `/admin` 200, 서빙 번들에 새 관리자 코드 확인(로그인 화면은 미확인).
-- 남은 문제: 사용자 Production 관리자 화면 확인 대기(확인 전 PRODUCTION VERIFIED(사용자) 기록 금지), VietMap 서버용 키 없음(Search v4 HTTP 423) → 자동 후보 꺼짐, Production DB에 테스트 후보 1건(revoked)·감사 로그 3건 남음.
+- 사용자 확인: 2026-10-06 Production 관리자 > 📍 Vị trí 지도 클릭·위성 정상(저장 안 함) → PRODUCTION VERIFIED(사용자).
+- 남은 문제: VietMap 서버용 키 없음(Search v4 HTTP 423) → 자동 후보 꺼짐, Production DB에 테스트 후보 1건(revoked)·감사 로그 3건 남음.
 
 ## 2026-10-06 — 지도 제스처 재정비 + 모바일 bottom sheet Production 반영 + AI 전략 문서
 
