@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-06 — 지도 제스처 재정비 + 모바일 bottom sheet Production 반영 + AI 전략 문서
+
+- 요청: 승인 Preview(`jobi-6msh3jqki`) 소스를 master 반영·Production 배포, AI_DISCOVERY_STRATEGY.md 추가.
+- 변경: master `35b7cce` → `cccd767` fast-forward(코드 변경 없음). 문서: AI_DISCOVERY_STRATEGY.md(사용자 원문 그대로), CLAUDE.md에 "참고용 배경 문서, 임의 구현 금지" 한 줄, HANDOFF 전략 참고 한 줄.
+- 검증: tsc, tests 30/30, build. Production `jobi-cx74ww02v` Ready(viecganban.vn). 자동 검증: VietMap 로드·Geoapify 0·콘솔 오류 0, 데스크톱 휠 줌·드래그 설정, 모바일 터치 설정·sheet 코드.
+- commit/push/deploy: master `cccd767` push → Vercel Production 자동 배포 Ready.
+- 남은 문제: 사용자 PC 마우스·Android 최종 확인 대기(확인 전 PRODUCTION VERIFIED(사용자) 기록 금지), VietMap 키 제한 권한 대기.
+
 ## 2026-10-06 — 지도 제스처 재정비 + 모바일 생활지도 bottom sheet — PREVIEW APPROVED, BRANCH PUSHED
 
 - 요청: 6d02be6 cooperativeGestures 방식이 실제 마우스·Android에서 실패 → 데스크톱 휠=지도 줌, 모바일 지도 조작 우선 + 상세 하단 sheet.

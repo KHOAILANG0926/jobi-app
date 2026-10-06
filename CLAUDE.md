@@ -3,6 +3,8 @@
 이 파일은 GitHub Actions 등 자동화 환경에서 실행되는 Claude Code를 포함해,
 이 저장소에서 작업하는 모든 Claude Code 세션이 지켜야 할 최소 규칙이다.
 
+AI_DISCOVERY_STRATEGY.md는 참고용 배경 문서다. 이 문서를 근거로 임의 구현하지 말고, 사용자가 결정해 지시한 작업만 한다.
+
 ## 우선 원칙
 
 1. **기존 설계 우선**: 코드를 수정하기 전에 `VIECGANBAN_STRUCTURE_BASELINE.md`를
