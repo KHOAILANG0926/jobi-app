@@ -105,9 +105,9 @@ _DELIVERY = re.compile(
 _CLEANING = re.compile(
     r"nhan vien ve sinh|cong nhan ve sinh|to ve sinh\b|doi ve sinh\b"
     r"|ve sinh cong nghiep|ve sinh van phong|ve sinh toa nha|ve sinh moi truong"
-    r"|giup viec|lao cong\b|don dep nha|tạp vu\b|tap vu\b"
+    r"|giup viec|lao cong\b|don dep nha\b|tạp vu\b|tap vu\b"
     r"|trong tre|bao mau|cham soc nguoi cao tuoi|cham soc tre"
-    r"|dich vu don dep|dich vu nha|housekeeper|janitor|cleaner\b"
+    r"|dich vu don dep|dich vu nha\b|housekeeper|janitor|cleaner\b"
 )
 
 # 3. 공장 / 생산 (Nhà máy / Sản xuất)
@@ -280,6 +280,27 @@ _TRUYEN_THONG = re.compile(
 )
 
 
+def _classify_title(title_norm: str) -> str | None:
+    """제목만으로 판정(2026-10-06 제목 우선). 기존 classify()와 같은 우선순위, 걸리지 않으면 None."""
+    if not title_norm:
+        return None
+    if _DELIVERY.search(title_norm):  return "delivery"
+    if _CLEANING.search(title_norm):  return "cleaning"
+    if _CAFE.search(title_norm):      return "cafe"
+    if (_RESTAURANT.search(title_norm) or _PHO_TITLE_RE.search(title_norm)
+            or _PHO_DISH_RE.search(title_norm) or _LAU_DISH_RE.search(title_norm)):
+        return "restaurant"
+    if _GIAO_DUC_GIANG_DAY.search(title_norm): return "giao_duc_giang_day"
+    if _CNTT_KY_THUAT.search(title_norm):      return "cntt_ky_thuat"
+    if _THIET_KE.search(title_norm):           return "thiet_ke"
+    if _Y_TE_DIEU_DUONG.search(title_norm):    return "y_te_dieu_duong"
+    if _TRUYEN_THONG.search(title_norm):       return "truyen_thong"
+    if _OFFICE.search(title_norm):    return "office"
+    if _RETAIL.search(title_norm):    return "retail"
+    if _FACTORY.search(title_norm):   return "factory"
+    return None
+
+
 def classify(title: str, company: str = "", description: str = "") -> str:
     """
     공고 텍스트를 분석해 7대 카테고리 중 하나를 반환.
@@ -289,15 +310,24 @@ def classify(title: str, company: str = "", description: str = "") -> str:
     """
     combined  = _norm_fields(title, company, description[:300])
     title_co  = _norm_fields(title, company)
+    # 2026-10-06 사용자 지시: 카페·청소 규칙은 회사명으로 판정하지 않는다. "Kế Toán Tổng Hợp"이
+    # 회사명 "...Dịch Vụ Nhất Long"(청소 규칙 'dich vu nha')·"Americano Coffee"(카페 규칙) 때문에
+    # 청소·카페로 분류되던 문제.
+    title_desc = _norm_fields(title, description[:300])
 
     # 블랙리스트: 제목+회사 기준 (본문은 false positive 위험)
     if _SENIOR_PROFESSIONAL_TITLES_RE.search(title_co):
         return "other"
 
+    # 2026-10-06 사용자 지시: 제목 우선. 제목만으로 직무 신호가 잡히면 회사명·본문으로 뒤집지 않는다.
+    by_title = _classify_title(_norm_fields(title))
+    if by_title:
+        return by_title
+
     # 순서 = 우선순위 (중복 키워드는 먼저 매칭된 카테고리 승)
     if _DELIVERY.search(combined):   return "delivery"
-    if _CLEANING.search(combined):   return "cleaning"
-    if _CAFE.search(combined):       return "cafe"
+    if _CLEANING.search(title_desc): return "cleaning"
+    if _CAFE.search(title_desc):     return "cafe"
     if _RESTAURANT.search(combined) or _PHO_DISH_RE.search(combined) or _PHO_TITLE_RE.search(title_co) or _LAU_DISH_RE.search(combined):
         return "restaurant"
     # 제목/회사에 명확한 사무/영업 신호가 있으면 본문 속 업종 단어보다 우선한다.
@@ -319,12 +349,10 @@ def classify(title: str, company: str = "", description: str = "") -> str:
 
     # fallback: 제목+회사만으로 재시도
     if _FACTORY.search(title_co):    return "factory"
-    if _CAFE.search(title_co):       return "cafe"
     if _RESTAURANT.search(title_co) or _PHO_TITLE_RE.search(title_co): return "restaurant"
     if _RETAIL.search(title_co):     return "retail"
     if _OFFICE.search(title_co):     return "office"
     if _DELIVERY.search(title_co):   return "delivery"
-    if _CLEANING.search(title_co):   return "cleaning"
 
     return "other"
 

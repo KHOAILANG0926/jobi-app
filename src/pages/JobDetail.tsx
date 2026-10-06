@@ -21,6 +21,7 @@ import { fetchEmployerJobCount } from '../lib/jobRows'
 import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
+import { companyLogoUrl } from '../lib/companyLogo'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
@@ -351,7 +352,9 @@ export function JobDetail() {
       ? externalMapLinks(mapLocations.points[0], false, 11)
       : null
 
-  const extraImages = job.images?.filter((u) => u !== job.imageUrl) ?? []
+  // 출처 사이트·Facebook CDN 이미지는 회사 로고로 쓰지 않는다(companyLogo.ts, 2026-10-06) — 없으면 이니셜.
+  const logoUrl = companyLogoUrl(job.imageUrl)
+  const extraImages = job.images?.filter((u) => u !== logoUrl) ?? []
 
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
     || !!job.laborContractPledge || !!job.socialInsurancePledge
@@ -369,8 +372,8 @@ export function JobDetail() {
       <div className="jd2-header">
         <div className="jd2-header__left">
           <div className="jd2-logo">
-            {job.imageUrl
-              ? <img src={job.imageUrl} alt={job.company} className="jd2-logo__img" />
+            {logoUrl
+              ? <img src={logoUrl} alt={job.company} className="jd2-logo__img" />
               : <span className="jd2-logo__fallback">{job.company?.[0] ?? 'J'}</span>
             }
           </div>
@@ -651,8 +654,8 @@ export function JobDetail() {
               <h2 className="jd2-card__title">Thông tin công ty</h2>
               <div className="jd2-card__body jd2-company">
                 <div className="jd2-company__logo">
-                  {job.imageUrl
-                    ? <img src={job.imageUrl} alt={job.company} className="jd2-logo__img" />
+                  {logoUrl
+                    ? <img src={logoUrl} alt={job.company} className="jd2-logo__img" />
                     : <span className="jd2-logo__fallback">{job.company?.[0] ?? 'J'}</span>
                   }
                 </div>

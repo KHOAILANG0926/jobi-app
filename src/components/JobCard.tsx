@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Job } from '../types/job'
 import { CATEGORY_SHORT } from '../data/categories'
 import { getCategoryVisual } from '../lib/categoryVisuals'
+import { companyLogoUrl } from '../lib/companyLogo'
 import { zaloMeUrl } from '../lib/jobUtils'
 import { formatDistanceLabel } from '../lib/jobCoords'
 
@@ -106,7 +107,7 @@ export default function JobCard({
       <div className="jc__logo-wrap">
         <CompanyLogo
           company={job.company}
-          imageUrl={job.source !== 'facebook' ? job.imageUrl : undefined}
+          imageUrl={companyLogoUrl(job.imageUrl)}
           category={category}
         />
       </div>

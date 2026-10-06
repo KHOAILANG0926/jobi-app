@@ -1099,9 +1099,11 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     # 대출 영업/전문 채권추심 제외는 이 체크와 완전히 별개인
     # job_quality.classify_money_job_exclusion()이 그대로 담당한다.
 
-    logo = listing_hint.get("logoUrl", "")
+    # 2026-10-06 사용자 지시: 출처 사이트 CDN 로고(listing_hint["logoUrl"])는 저장하지 않는다.
+    # 로고가 없는 회사에는 vieclam24h 자체 기본 로고가 들어가 출처 사이트를 노출했다. 화면은 회사명 이니셜.
     desc_text = format_description(detail.get("sections", {}))
-    description = f"[source:vieclam24h] {desc_text}" if desc_text else f"[source:vieclam24h] {url}"
+    # 2026-10-06 사용자 지시: 본문이 없어도 원문 URL을 넣지 않는다(원본 채용사이트 연결 금지 — CLAUDE.md).
+    description = f"[source:vieclam24h] {desc_text}" if desc_text else "[source:vieclam24h]"
     # 'Địa điểm làm việc' 섹션(있을 때만)에서 실제 근무지 주소를 추출한다.
     # 회사 개요/연락처 섹션(예: QTSC 본사 주소)은 이 heading 밑에 오지 않으므로
     # fetch_job_detail의 heading 경계 추출 자체가 혼입을 막는다.
@@ -1224,7 +1226,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         "active": should_publish,
         "origin": "crawler",
         "admin_hidden": False,
-        "image_url": logo if logo and logo.startswith("http") else None,
+        "image_url": None,  # 출처 사이트 로고는 저장하지 않음(2026-10-06)
         "source_url": url,
         # local_jobs 실제 컬럼(migration 0015로 추가됨) — insert/update 양쪽
         # 경로에서 항상 함께 저장된다(과거엔 insert 경로에서 publish_gate_reason이
@@ -1700,7 +1702,8 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
 
     sections = detail.get("sections", {})
     desc_text = format_description(sections, order=["Mô tả công việc", "Yêu cầu công việc", "Các phúc lợi dành cho bạn"])
-    description = f"[source:vietnamworks] {desc_text}" if desc_text else f"[source:vietnamworks] {url}"
+    # 2026-10-06 사용자 지시: 본문이 없어도 원문 URL을 넣지 않는다(원본 채용사이트 연결 금지 — CLAUDE.md).
+    description = f"[source:vietnamworks] {desc_text}" if desc_text else "[source:vietnamworks]"
 
     listing_salary = listing_hint.get("salary")
     salary = normalize_salary(listing_salary) if normalize_whitespace(listing_salary) else extract_salary_from_text(desc_text)

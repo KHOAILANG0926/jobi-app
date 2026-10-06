@@ -1206,6 +1206,26 @@ def test_valid_categories_matches_new_taxonomy_and_classify_output_passes_valida
     assert_equal(errors, [], f"classify()+map_to_new_taxonomy() output must pass validate_job_payload(), got {errors!r}")
 
 
+def test_title_first_classification_company_not_used_for_cafe_cleaning() -> None:
+    """2026-10-06 사용자 지시: 제목 우선 판정, 카페·청소 규칙에서 회사명 제외, 'dich vu nha' 단어 경계.
+    실제 Production 오분류 사례(#4680, #4582)를 그대로 고정한다."""
+    # #4680: 회사명 "...Dịch Vụ Nhất Long"이 청소 규칙 'dich vu nha'에 걸려 cleaning(Dịch vụ)이 됐었다.
+    assert_equal(
+        classify("Kế Toán Tổng Hợp (Lương Từ 20 Triệu - 25 Triệu)", "Công Ty Cổ Phần Đầu Tư Thương Mại Và Phát Triển Dịch Vụ Nhất Long", ""),
+        "office", "회계 공고는 회사명의 '...Dịch Vụ Nhất...' 때문에 청소(Dịch vụ)가 되면 안 됨",
+    )
+    # #4582: 회사명 "Americano Coffee"가 카페 규칙에 걸려 cafe(음식·음료)가 됐었다.
+    assert_equal(
+        classify("Kế Toán Kho", "Công Ty Cổ Phần Americano Coffee", ""),
+        "office", "창고 회계 공고는 회사명 'Coffee' 때문에 카페가 되면 안 됨",
+    )
+    # 단어 경계: 'dịch vụ nhà'(가사 서비스) 자체는 여전히 청소, 'dịch vụ nhất'은 아님
+    assert_equal(classify("Nhân Viên Dịch Vụ Nhà Ở", "", ""), "cleaning", "'dịch vụ nhà' 직무는 여전히 청소로 분류")
+    # 제목에 직무 신호가 없으면 기존처럼 회사명·본문으로 판정(카페 회사의 일반직은 본문/제목 신호가 있을 때만 카페)
+    assert_equal(classify("Nhân Viên Pha Chế", "Công Ty ABC", ""), "cafe", "제목에 카페 직무가 있으면 카페")
+    assert_equal(classify("Nhân Viên", "Highlands Coffee", ""), "other", "제목에 신호가 없고 회사명만 카페면 카페로 단정하지 않음")
+
+
 def main() -> int:
     tests = [
         test_classifier, test_quality_helpers, test_payload_validation,
@@ -1222,6 +1242,7 @@ def main() -> int:
         test_compute_all_locations_c1_verified_requires_every_location_source_verified,
         test_detect_explicit_urgent_hiring,
         test_valid_categories_matches_new_taxonomy_and_classify_output_passes_validation,
+        test_title_first_classification_company_not_used_for_cafe_cleaning,
     ]
     for test in tests:
         test()
