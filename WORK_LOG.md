@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-06 — 스크롤 수정 + 예비 지도 오전환 수정 Production 반영
+
+- 요청: 승인된 `6d02be6`(Preview `jobi-jkuypvkg8`)를 master·Production 반영 후 검증.
+- merge/push: master `f84a02a` → `6d02be6` fast-forward(merge commit 없음), branch·master 양쪽 tsc·tests 28/28·build 통과. Vercel Production `jobi-oo9vd5ibp` Ready.
+- Production 검증: 일반 휠 페이지 스크롤(+312px, zoom 불변), Ctrl+휠 확대(합성 이벤트, 11.28→12.28), 숨겨진 탭 25초 → vietmap 유지·활성화 후 준비·Geoapify 0, 클릭 A~E·G 통과, 위성 전환 유지, 콘솔 오류 0.
+- 미검증(실기기): 모바일 1손가락 페이지 스크롤(touch-action `pan-x pan-y`만 확인), 실제 위치 권한 현재 위치. 공고 핀 관련은 Production 확인 좌표 공고 0건이라 미검증(기존).
+
 ## 2026-10-06 — 생활지도 회귀(POI 클릭 안 됨·POI 밀도 감소) 수정 — PREVIEW APPROVED, BRANCH PUSHED
 
 - 원인: 메인 지도가 VietMap 대신 Geoapify 예비 지도로 전환된 상태(장소 클릭 패널·생활지도 스타일·위성 없음). 전환 경로 ① 숨겨진 탭에서 로드 시 SDK rAF 정지로 준비 안 됨 → 12초 timeout(숨겨진 동안에도 흐름) → 탭을 열어도 예비 지도 유지(로컬 재현) ② VietMap style.json 간헐 지연(Production 실측 12.3초, 평소 46~274ms).
@@ -71,13 +78,4 @@
 - 검증: tsc/build, 16/16 tests, Google fixture VECTOR/ROADMAP/HYBRID/no-style 및 네 실패 fallback 통과. Production은 key 부재로 Geoapify, 8km·zoom 11.3428·원 지름 0.65·Geoapify 오류 0.
 - commit/push/deploy: `90bf841` master push, Vercel `dpl_FSNAYRTi8EfukY48TjHadNXZb77b` READY.
 - 남은 문제: 실제 Google raster/VECTOR/HYBRID 비교는 PENDING_NO_KEY. 기본 8km와 빠른 선택 5/10/20 불일치; 5km 기본값 권장, 결정 전 변경하지 않음.
-
-## 2026-10-02 — Google Native provider + Geoapify fallback 검증
-
-- 요청: 승인된 provider 설계대로 Google Maps JavaScript API ROADMAP/HYBRID provider를 추가하되, 현재 Google key가 없는 Production은 기존 Geoapify를 유지하고 radius/viewport UX를 회귀시키지 않기.
-- 변경: provider coordinator, Google/Geoapify 캔버스 분리, 12초 timeout·loader/init/auth fallback, 충돌 안전 `gm_authFailure` registry, job-id marker layer, 공통 meter/65% viewport 계산, 브라우저 실패 주입 harness 추가. DB·필터·확정 레이아웃 수치 변경 없음.
-- 검증: 1/3/5/10km=1000/3000/5000/10000m, Bắc Ninh 3km 화면 지름 0.65. tsc/build/test 통과. 1366/1440/1920/375 브라우저와 wheel/drag/zoom→radius 유지, 지역/현재 위치 재정렬 통과. abort/timeout/auth/init failure 모두 Geoapify fallback.
-- key 상태: Production Geoapify key 있음, Google key 없음. 실제 Google 지도는 Preview 제한 키 준비 전까지 PENDING이며 Production provider는 Geoapify로 유지.
-- commit/push/deploy: 코드·검증 기록 `1b71607` master push, Vercel Production Ready. `viecganban.vn`에서 Geoapify, Google 요청 0건, style 성공, 425/440/485px, console/hydration 오류 없음 확인.
-- 남은 문제: Google quota/billing 신호는 SDK에서 완전 감지할 수 없어 Cloud quota cap·budget alert·referrer/API 제한 필요.
 
