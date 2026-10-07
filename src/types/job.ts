@@ -150,6 +150,9 @@ export interface Job {
   rotatingShifts?: 2 | 3
   benefitTags?: string[]
   requiredDocuments?: string
+  /** 20261007031726 — 원문이 명시한 언어 조건(원문 그대로) / 출장 가능 여부(true=가능, false=불가). 없으면 undefined. */
+  languageRequirement?: string
+  businessTrip?: boolean
   /** local_jobs.job_duration — 알바몬 스타일 근무기간 7구간(예: "1 - 3 tháng").
    *  크롤러는 채우지 않고(소스에 구조화된 필드 없음) PostJob.tsx 직접등록
    *  전용으로 시작해 대부분 undefined일 것으로 예상된다. */

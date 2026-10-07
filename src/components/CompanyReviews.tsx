@@ -82,6 +82,9 @@ export function CompanyReviews({ company }: Props) {
     }
   }
 
+  // 2026-10-07 사용자 결정: 리뷰가 0건이면 영역 전체를 숨긴다.
+  if (summary.count === 0) return null
+
   const avgDisplay = summary.count > 0 ? summary.average.toFixed(1) : '—'
 
   return (

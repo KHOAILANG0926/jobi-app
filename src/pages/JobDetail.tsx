@@ -390,6 +390,8 @@ export function JobDetail() {
     row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement)),
     row('gender', <Users size={14} strokeWidth={1.8} />, 'Giới tính', nonEmpty(job.genderRequirement)),
     row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
+    row('language', <Award size={14} strokeWidth={1.8} />, 'Ngoại ngữ', job.languageRequirement),
+    row('trip', <MapPin size={14} strokeWidth={1.8} />, 'Đi công tác', job.businessTrip === true ? 'Có thể đi công tác' : job.businessTrip === false ? 'Không đi công tác' : undefined),
   ].filter(Boolean) as InfoField[]
 
   // 2026-09-05 최종 제품 정책: "모든 공개 공고에 근무지역 텍스트, 지도,

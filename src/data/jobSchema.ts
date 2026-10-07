@@ -62,6 +62,8 @@ export const JOB_FIELDS: readonly JobFieldDef[] = [
   f('ageRequirement', 'local_jobs.age_requirement', 'recruit'),
   f('genderRequirement', 'local_jobs.gender_requirement', 'recruit'),
   f('requiredDocuments', 'local_jobs.required_documents', 'recruit'),
+  f('languageRequirement', 'local_jobs.language_requirement', 'recruit'),
+  f('businessTrip', 'local_jobs.business_trip', 'recruit'),
   // ③ 근무지역
   f('workLocationAddress', 'job_work_locations.raw_address', 'location'),
   f('industrialPark', 'job_work_locations.industrial_park', 'location'),
@@ -76,9 +78,12 @@ export const JOB_FIELDS: readonly JobFieldDef[] = [
   f('contactZalo', 'local_jobs.contact_zalo', 'company'),
 ]
 
-/** 이번 DDL로 추가하는 9개 컬럼(migration 20261007013659과 동일). */
+/** 이번 DDL로 추가하는 9개 컬럼(migration 20261007013659과 동일 — 2차는 NEW_DDL_COLUMNS_2). */
 export const NEW_DDL_COLUMNS = [
   'local_jobs.salary_basis', 'local_jobs.salary_note', 'local_jobs.employment_type',
   'local_jobs.rotating_shifts', 'local_jobs.benefit_tags', 'local_jobs.required_documents',
   'local_jobs.contact_zalo', 'job_work_locations.industrial_park', 'job_work_locations.shuttle_route',
 ] as const
+
+/** 2차 DDL(20261007031726) — 원문에서 뽑은 언어 조건·출장 가능 여부. 원문 백업 테이블 local_jobs_description_backup은 화면 항목이 아니라 목록에 없다. */
+export const NEW_DDL_COLUMNS_2 = ['local_jobs.language_requirement', 'local_jobs.business_trip'] as const

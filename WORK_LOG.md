@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — #4682 원문 추출 DB 반영 + 언어·출장 DDL + 리뷰 0건 숨김
+
+- 요청: #4682 추출 결과 DB 반영(원문 백업 후), 언어(text)·출장(boolean) 컬럼 추가, BHXH는 태그로 대체, 리뷰 0건이면 숨김.
+- 변경: migration 20261007031726(컬럼 2 + 백업 테이블), #4682 UPDATE(백업 1행·md5 일치 조건), jobSchema 36항목, 모집조건에 Ngoại ngữ·Đi công tác 행, CompanyReviews 0건 숨김.
+- DB 전후: 새 컬럼 0→2, 백업 테이블 0→1(백업 행 0→1), #4682 갱신 1/1.
+- 검증: tsc, tests 35/35, build. commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
+- 남은 문제: 다른 공고 일괄 추출은 별도 승인, 리뷰 작성 경로, 모바일 실기기 확인.
+
 ## 2026-10-07 — 공고 상세 개편(알바몬 구조) + 원문 항목 추출 dry-run
 
 - 요청: 상세 화면 알바몬 구조·디자인, 연락처 중복 정리, 기업정보 숨김, description 항목 추출(#4682 dry-run 먼저).
@@ -73,12 +81,4 @@
 - 변경: `homeMapGestures.ts`(+test) `cooperativeGestures: true` + 베트남어 안내, VietMap·Geoapify 지도 옵션에 적용. 레이아웃/CSS 변경 없음.
 - 검증: tsc, tests 27/27, build. 로컬: 지도 위 휠 → 페이지 +300px·zoom 불변, Ctrl+휠 확대, 마우스 드래그 이동, 최상단→하단(1939px) 연속, 위성·상세패널 열린 상태 동일, 375px 캔버스 `touch-action: pan-x pan-y`·핀 탭 선택·가로 넘침 0.
 - commit/push: 회귀 수정과 함께 통합 Preview `jobi-jkuypvkg8`로 승인, branch `fix/page-scroll-map` commit·push(master `f84a02a` 기반). 실기기 1손가락 스크롤 미검증.
-
-## 2026-10-06 — 생활지도 1차+2차 Production 반영
-
-- 요청: 승인된 `106e8e4`(Preview `jobi-ifofpmbdx`)를 master merge·Production 배포·검증.
-- 확인: 코드 파일 최종 수정(10-05 21:28) < Preview 생성(21:32), 승인 후 변경은 문서뿐. branch·master에서 tsc, tests 26/26, build 통과.
-- merge/push: master `a01f3c6` → `106e8e4` fast-forward(merge commit 없음), push 완료. Vercel Production `jobi-pi2g7lxz1` Ready.
-- Production 검증: VietMap·Geoapify 0·콘솔 오류 0, 건물/회사/생활시설 클릭 패널·강조, 위성 전환 유지, 375px 넘침 0.
-- 남은 문제: Production 확인된 근무지 좌표 공고 0건 → 공동 핀·선택 공고 동기화·공고 연결은 Production 실데이터 미검증. VietMap key 권한 문제(기존).
 

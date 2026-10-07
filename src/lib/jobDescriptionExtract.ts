@@ -1,12 +1,10 @@
 // 공고 원문(description)에서 구조화 항목을 뽑는다 (2026-10-07, docs/JOB_FIELDS_AND_DETAIL_DESIGN.md).
 // 원칙: **원문에 적힌 값만** — 추정·보정·번역 금지. 한 줄이 아니라 한 "조각"씩 규칙에 맞을 때만 뽑고,
 // 규칙에 안 맞는 문장은 그대로 남긴다. 뽑은 값이 문장 전체를 대신할 때만(whole) 상세요강에서 빼고,
-// 일부만 대신하면(partial) 남은 부분만 남긴다. 값을 담을 컬럼(jobSchema)이 없는 항목(언어·출장)은
-// 추출 결과에만 표시하고 문장은 그대로 둔다.
+// 일부만 대신하면(partial) 남은 부분만 남긴다.
 // 이 파일은 순수 함수 — DB를 읽거나 쓰지 않는다(적용은 별도 승인 후 스크립트가 한다).
 
-export type ExtractField = 'hours' | 'workDays' | 'benefitTags' | 'genderRequirement' | 'education' | 'preference' | 'contactZalo'
-export type NoColumnField = 'languages' | 'businessTrip'
+export type ExtractField = 'hours' | 'workDays' | 'benefitTags' | 'genderRequirement' | 'education' | 'preference' | 'contactZalo' | 'languageRequirement' | 'businessTrip'
 
 export interface ExtractedFields {
   hours?: string
@@ -16,14 +14,17 @@ export interface ExtractedFields {
   education?: string
   preference?: string
   contactZalo?: string
+  /** 언어 조건(원문 문장 그대로) — local_jobs.language_requirement */
+  languageRequirement?: string
+  /** 출장 가능 — local_jobs.business_trip. 원문이 명시한 경우만("Sẵn sàng đi công tác"=true, "Không đi công tác"=false) */
+  businessTrip?: boolean
 }
 
 export interface ExtractItem {
   /** 원문 한 줄 */
   line: string
-  /** 뽑은 항목(여러 개 가능). 컬럼 없는 항목은 noColumn에 */
-  picked: { field: ExtractField; value: string | string[] }[]
-  noColumn?: { field: NoColumnField; value: string }
+  /** 뽑은 항목(여러 개 가능). */
+  picked: { field: ExtractField; value: string | string[] | boolean }[]
   /** whole=문장 전체 대체(상세요강에서 제거) / partial=남은 부분만 유지 / kept=그대로 유지 */
   action: 'whole' | 'partial' | 'kept'
   remainder?: string
@@ -58,7 +59,8 @@ const GENDER_RE = /^(Nam|Nữ)(\s*\/\s*(Nam|Nữ))?\s*(,|$)/i
 const EDU_RE = /(CĐ\s*\/\s*ĐH|ĐH\s*\/\s*CĐ|Cao đẳng|Đại học|Trung cấp|Tốt nghiệp THPT|THPT|CĐ|ĐH)/i
 const EXPERIENCE_RE = /(?:[≥>]=?\s*)?\d+\s*năm\s+kinh nghiệm|kinh nghiệm\s+(?:từ\s+)?\d+\s*năm/i
 const LANGUAGE_RE = /tiếng\s+(trung|anh|hàn|nhật|đài)|\bhsk\b|\btoeic\b|\bielts\b|\btopik\b|\bjlpt\b/i
-const TRIP_RE = /đi công tác|công tác/i
+const TRIP_YES_RE = /^(sẵn sàng|có thể|chấp nhận)\s+(đi\s+)?công tác$|^đi công tác$/i
+const TRIP_NO_RE = /^không\s+(phải\s+)?(đi\s+)?công tác$/i
 const INSURANCE_RE = /\b(BHXH|BHYT|BHTN)\b/g
 const SALARY_LABEL_RE = /^\s*(lương|mức lương|thu nhập)\s*:/i
 const CONTACT_RE = /^\s*(ứng tuyển|liên hệ|zalo|sđt|hotline)[^:]*:\s*([0-9][0-9 .\-]{7,})\s*$/i
@@ -174,9 +176,20 @@ export function extractJobFields(description: string, ctx: ExtractContext = {}):
       continue
     }
 
-    // 7·8) 언어·출장 — 담을 컬럼이 없음(jobSchema에 항목 없음): 문장 유지, 추출 결과에만 표시
-    if (LANGUAGE_RE.test(raw)) { items.push({ line: raw, picked: [], noColumn: { field: 'languages', value: stripTrailingDot(raw) }, action: 'kept' }); out.push(raw); continue }
-    if (TRIP_RE.test(raw)) { items.push({ line: raw, picked: [], noColumn: { field: 'businessTrip', value: stripTrailingDot(raw) }, action: 'kept' }); out.push(raw); continue }
+    // 7) 언어 조건 — 문장 전체를 그대로(번역·요약 금지)
+    if (LANGUAGE_RE.test(raw)) {
+      const v = stripTrailingDot(raw)
+      fields.languageRequirement = fields.languageRequirement ? `${fields.languageRequirement}; ${v}` : v
+      items.push({ line: raw, picked: [{ field: 'languageRequirement', value: v }], action: 'whole' })
+      continue
+    }
+    // 8) 출장 — 문장 전체가 출장 가능/불가를 명시하는 경우만(그 외 "công tác" 언급은 그대로 둔다)
+    const trip = TRIP_YES_RE.test(stripTrailingDot(raw)) ? true : TRIP_NO_RE.test(stripTrailingDot(raw)) ? false : undefined
+    if (trip !== undefined) {
+      fields.businessTrip = trip
+      items.push({ line: raw, picked: [{ field: 'businessTrip', value: trip }], action: 'whole' })
+      continue
+    }
 
     items.push({ line: raw, picked: [], action: 'kept' })
     out.push(raw)

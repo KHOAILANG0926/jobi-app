@@ -9,7 +9,7 @@ if (!Number.isInteger(id)) { console.error('usage: node scripts/extract-job-fiel
 
 const { data, error } = await supabase
   .from('local_jobs')
-  .select('id,title,salary,employer_phone,hours,work_days,education,preference,gender_requirement,benefit_tags,contact_zalo,description')
+  .select('id,title,salary,employer_phone,hours,work_days,education,preference,gender_requirement,benefit_tags,contact_zalo,language_requirement,business_trip,description')
   .eq('id', id).maybeSingle()
 if (error || !data) { console.error('조회 실패', error?.message ?? 'not found'); process.exit(1) }
 
@@ -17,12 +17,11 @@ const r = extractJobFields(String(data.description ?? ''), { salary: data.salary
 console.log(`# #${data.id} ${data.title}\n`)
 console.log('| 원문 문장 | 추출 항목 → 값 | 상세요강 처리 |\n|---|---|---|')
 for (const it of r.items) {
-  const picked = it.picked.map((p) => `${p.field} = ${Array.isArray(p.value) ? p.value.join(' / ') : p.value}`)
-  if (it.noColumn) picked.push(`${it.noColumn.field} = (jobSchema에 항목·컬럼 없음)`)
+  const picked = it.picked.map((p) => `${p.field} = ${Array.isArray(p.value) ? p.value.join(' / ') : String(p.value)}`)
   const action = it.action === 'whole' ? '제거' : it.action === 'partial' ? `일부 유지: ${it.remainder}` : '유지'
   console.log(`| ${it.line} | ${picked.join('; ') || '—'} | ${action}${it.note ? ` (${it.note})` : ''} |`)
 }
 console.log('\n## 제안 UPDATE (현재 DB 값 → 추출 값)')
-const cur: Record<string, unknown> = { hours: data.hours, workDays: data.work_days, education: data.education, preference: data.preference, genderRequirement: data.gender_requirement, benefitTags: data.benefit_tags, contactZalo: data.contact_zalo }
+const cur: Record<string, unknown> = { hours: data.hours, workDays: data.work_days, education: data.education, preference: data.preference, genderRequirement: data.gender_requirement, benefitTags: data.benefit_tags, contactZalo: data.contact_zalo, languageRequirement: data.language_requirement, businessTrip: data.business_trip }
 for (const [k, v] of Object.entries(r.fields)) console.log(`- ${k}: ${JSON.stringify(cur[k] ?? null)} → ${JSON.stringify(v)}`)
 console.log('\n## 새 상세요강(description) — DB에는 맨 앞 출처 태그를 유지해 저장\n' + (r.sourceTag ? `${r.sourceTag} ` : '') + r.remaining)

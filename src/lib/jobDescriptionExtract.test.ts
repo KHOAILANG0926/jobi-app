@@ -15,14 +15,16 @@ assert(r.fields.education === 'CĐ/ĐH', 'education')
 assert(r.fields.preference === '≥1 năm kinh nghiệm phiên dịch kỹ thuật/sản xuất hoặc đi làm dự án, quản lý dự án', 'experience')
 assert(r.fields.contactZalo === '0344849982', 'zalo')
 
-// 컬럼 없는 항목(언어·출장)은 문장을 지우지 않는다
-const langItem = r.items.find((i) => i.noColumn?.field === 'languages')
-const tripItem = r.items.find((i) => i.noColumn?.field === 'businessTrip')
-assert(!!langItem && langItem.action === 'kept' && !!tripItem && tripItem.action === 'kept', 'language/business-trip kept, no column')
-assert(r.remaining.includes('Tiếng Trung HSK4/5') && r.remaining.includes('Sẵn sàng đi công tác'), 'language/trip sentences stay in description')
+// 언어·출장 → 전용 항목(local_jobs.language_requirement / business_trip), 문장은 상세요강에서 이동
+assert(r.fields.languageRequirement === 'Tiếng Trung HSK4/5 – 4 kỹ năng, giao tiếp tốt', 'language requirement keeps the original wording')
+assert(r.fields.businessTrip === true, 'business trip = true only because the text says "Sẵn sàng đi công tác"')
+assert(!r.remaining.includes('Tiếng Trung HSK4/5') && !r.remaining.includes('đi công tác'), 'language/trip sentences moved out of the description')
+assert(extractJobFields('Không đi công tác').fields.businessTrip === false, 'explicit "no business trip" = false')
+assert(extractJobFields('Công tác phí theo quy định công ty').fields.businessTrip === undefined, 'other business-trip mentions are not guessed')
+assert(extractJobFields('Công tác phí theo quy định công ty').remaining === 'Công tác phí theo quy định công ty', 'unmatched business-trip mention stays')
 
 // 뽑힌 문장은 빠지고, 부분 대체는 남은 말만 남는다
-for (const gone of ['LƯƠNG:', '8h00–17h00', 'BHXH', 'Thưởng lễ', '≥1 năm', 'ZALO:', 'Nam,']) assert(!r.remaining.includes(gone), `removed: ${gone}`)
+for (const gone of ['LƯƠNG:', '8h00–17h00', 'BHXH', 'Thưởng lễ', '≥1 năm', 'ZALO:', 'Nam,', 'HSK', 'công tác']) assert(!r.remaining.includes(gone), `removed: ${gone}`)
 assert(r.remaining.includes('Ưu tiên chuyên ngành kỹ thuật.'), 'partial sentence keeps the remainder')
 assert(r.remaining.includes('Nhanh nhẹn, chăm chỉ') && r.remaining.includes('Môi trường năng động'), 'unmatched sentences stay')
 assert(r.remaining.includes('YÊU CẦU') && r.remaining.includes('QUYỀN LỢI') && !r.remaining.includes('[source:'), 'headings stay, source tag stripped')
