@@ -1,6 +1,6 @@
-import { INDUSTRIAL_PARKS } from '../data/industrialParks.ts'
+import { INDUSTRIAL_PARKS, type IndustrialPark } from '../data/industrialParks.ts'
 import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines.ts'
-import { findIndustrialPark, industrialParkDirectionsUrl } from './industrialPark.ts'
+import { findIndustrialPark, industrialParkDirectionsNote, industrialParkDirectionsUrl } from './industrialPark.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
 const id = (...t: (string | undefined)[]) => findIndustrialPark(...t)?.id
@@ -25,10 +25,25 @@ for (const p of INDUSTRIAL_PARKS) {
 }
 assert(Object.keys(INDUSTRIAL_PARK_OUTLINES).length === INDUSTRIAL_PARKS.length, 'no orphan outlines')
 
-// 길찾기 링크는 좌표로만(이름 검색 금지 — 2026-09-29 VSIP 오안내 재발 방지)
+// 길찾기: 영역 중심은 절대 목적지로 쓰지 않는다 — 출처 있는 정문·관리사무소(destination)가 있는 공단만 링크를 만든다
 const vsip = findIndustrialPark('KCN VSIP, Bắc Ninh')!
-assert(industrialParkDirectionsUrl(vsip) === 'https://www.google.com/maps/dir/?api=1&destination=21.0800324,105.9835287', 'directions use the park center coordinates')
-assert(INDUSTRIAL_PARKS.every((p) => /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=-?\d+\.\d+,-?\d+\.\d+$/.test(industrialParkDirectionsUrl(p))), 'every directions URL is coordinates only')
+assert(industrialParkDirectionsUrl(vsip) === null, 'VSIP Bắc Ninh: no sourced gate/office yet → no directions (button hidden)')
+for (const p of INDUSTRIAL_PARKS) {
+  const url = industrialParkDirectionsUrl(p)
+  if (!p.destination) { assert(url === null, `${p.id}: no destination → no directions`); continue }
+  const d = p.destination
+  assert(d.source.ref.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(d.satelliteChecked), `${p.id}: destination has a source id and a satellite check date`)
+  assert(url === `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`, `${p.id}: directions use the destination coordinates`)
+  assert(!(d.lat === p.lat && d.lng === p.lng), `${p.id}: destination is never the area-center`)
+  const o = INDUSTRIAL_PARK_OUTLINES[p.source.ref]
+  const pad = 0.003 // ~300 m — 정문·사무소는 공단 윤곽 안이거나 바로 인접해야 한다
+  assert(d.lng >= o.bounds[0] - pad && d.lng <= o.bounds[2] + pad && d.lat >= o.bounds[1] - pad && d.lat <= o.bounds[3] + pad, `${p.id}: destination is at the park`)
+}
+// 목적지가 있는 경우의 링크·안내문(합성 데이터)
+const fake = { destination: { kind: 'gate', lat: 21.0801, lng: 105.968, source: { provider: 'OpenStreetMap', ref: 'node/1' }, satelliteChecked: '2026-10-07' } } as Pick<IndustrialPark, 'destination'>
+assert(industrialParkDirectionsUrl(fake) === 'https://www.google.com/maps/dir/?api=1&destination=21.0801,105.968', 'URL from destination coordinates only')
+assert(industrialParkDirectionsNote(fake.destination!).includes('chưa phải cổng nhà máy'), 'gate note says it is not the factory gate')
+assert(industrialParkDirectionsNote({ ...fake.destination!, kind: 'office' }).includes('Ban quản lý'), 'office note')
 
 // 실제 공고 근무지 텍스트
 assert(id('KCN VSIP, Bắc Ninh') === 'vsip-bac-ninh', '"KCN VSIP, Bắc Ninh" (#4682) = VSIP Bắc Ninh — the only VSIP in Bắc Ninh')

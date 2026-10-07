@@ -2,6 +2,15 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — KCN 길찾기 목적지에서 도형 중심 제거(정문·관리사무소만) + VSIP Bắc Ninh 조사
+
+- 요청: KCN 길찾기가 도형 중심(빈 부지)으로 안내됨 → 중심 사용 금지, 목적지 ① OSM 공단 정문 node ② KCN 관리사무소 POI(출처 id·위성 확인), 없으면 버튼 숨김, VSIP Bắc Ninh 결과 먼저 보고.
+- 변경: industrialParks `destination`(kind·좌표·출처·위성 확인일, 현재 0개), industrialParkDirectionsUrl/Note(destination 없으면 null), JobDetail 버튼 조건부, 테스트(중심≠목적지·destination 구조 검증), CLAUDE.md·HANDOFF 규칙 정정.
+- 조사: VSIP Bắc Ninh — 공단 way node 태그 0, 근처 lift_gate는 위성상 주거 단지 입구(제외), OSM·VietMap에 관리사무소/정문 이름 0 → 목적지 없음 → 버튼 숨김.
+- 검증: tsc, tests 37/37, build, 헤드리스 Chrome(#4682 지도·윤곽·위성·Phóng to 정상, 길찾기 버튼 없음).
+- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
+- 남은 문제: 28개 KCN 모두 목적지 미조사(길찾기 숨김), VSIP 후보 결정.
+
 ## 2026-10-07 — 길찾기 복구(좌표 링크) + KCN 영역 윤곽·이름표·축소 배율(상세·Phóng to)
 
 - 요청: Google 길찾기 허용(좌표로만), 승인 근무지 "Chỉ đường"·KCN "Chỉ đường đến KCN …"+정문 아님 안내, 공단 영역 테두리+이름표, 축소 배율, Phóng to에도 적용, CLAUDE.md·HANDOFF 규칙 정정.
@@ -73,13 +82,4 @@
 - commit/push/deploy: `71acf9a` → master fast-forward, Production `jobi-bo6e6kzkn`(`dpl_GvH2AbDrcqdrL5wppJxUfNVs6fHo`) Ready. `/admin` 200, 서빙 번들에 새 관리자 코드 확인(로그인 화면은 미확인).
 - 사용자 확인: 2026-10-06 Production 관리자 > 📍 Vị trí 지도 클릭·위성 정상(저장 안 함) → PRODUCTION VERIFIED(사용자).
 - 남은 문제: VietMap 서버용 키 없음(Search v4 HTTP 423) → 자동 후보 꺼짐, Production DB에 테스트 후보 1건(revoked)·감사 로그 3건 남음.
-
-## 2026-10-06 — 지도 제스처 재정비 + 모바일 bottom sheet Production 반영 + AI 전략 문서
-
-- 요청: 승인 Preview(`jobi-6msh3jqki`) 소스를 master 반영·Production 배포, AI_DISCOVERY_STRATEGY.md 추가.
-- 변경: master `35b7cce` → `cccd767` fast-forward(코드 변경 없음). 문서: AI_DISCOVERY_STRATEGY.md(사용자 원문 그대로), CLAUDE.md에 "참고용 배경 문서, 임의 구현 금지" 한 줄, HANDOFF 전략 참고 한 줄.
-- 검증: tsc, tests 30/30, build. Production `jobi-cx74ww02v` Ready(viecganban.vn). 자동 검증: VietMap 로드·Geoapify 0·콘솔 오류 0, 데스크톱 휠 줌·드래그 설정, 모바일 터치 설정·sheet 코드.
-- commit/push/deploy: master `cccd767` push → Vercel Production 자동 배포 Ready.
-- 사용자 확인: 2026-10-06 실제 PC 마우스·Android 최종 확인 완료 → PRODUCTION VERIFIED(사용자).
-- 남은 문제: VietMap 키 제한 권한 대기.
 

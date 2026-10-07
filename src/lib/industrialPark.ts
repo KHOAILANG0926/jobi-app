@@ -33,8 +33,19 @@ export function findIndustrialPark(...texts: (string | null | undefined)[]): Ind
   return undefined
 }
 
-/** 공단 중심 좌표로 가는 Google 지도 길찾기 — 반드시 좌표(destination=lat,lng)이고 이름 검색은 쓰지 않는다.
- *  목적지는 OSM 공단 면의 중심이지 공장 정문이 아니므로 화면에 그 사실을 한 줄로 함께 안내한다. */
-export function industrialParkDirectionsUrl(park: Pick<IndustrialPark, 'lat' | 'lng'>): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${park.lat},${park.lng}`
+/** 공단 길찾기 — 출처 있는 정문(gate)·관리사무소(office) 좌표(`destination`)로만 만든다.
+ *  영역 중심(lat/lng)은 절대 쓰지 않는다(빈 부지로 안내됨, 2026-10-07). 목적지가 없으면 null → 버튼 숨김.
+ *  링크는 반드시 좌표(destination=lat,lng)이고 이름 검색은 쓰지 않는다. */
+export function industrialParkDirectionsUrl(park: Pick<IndustrialPark, 'destination'>): string | null {
+  const d = park.destination
+  if (!d || !Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return null
+  return `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
+}
+
+/** 길찾기 버튼 아래 한 줄 안내 — 목적지 종류별(공장 정문이 아님을 항상 밝힌다) */
+export function industrialParkDirectionsNote(d: NonNullable<IndustrialPark['destination']>): string {
+  const src = d.source.provider === 'OpenStreetMap' ? 'OpenStreetMap' : 'VietMap'
+  return d.kind === 'gate'
+    ? `Điểm đến là cổng khu công nghiệp theo ${src}, chưa phải cổng nhà máy bạn sẽ làm việc.`
+    : `Điểm đến là văn phòng Ban quản lý khu công nghiệp theo ${src}, không phải cổng nhà máy.`
 }

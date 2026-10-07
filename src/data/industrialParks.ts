@@ -3,7 +3,9 @@
 // 같은 id를 별도 호출로 한 번 더 대조)이다. 출처(`source.ref`)가 없는 공단은 이 표에 넣지 않는다 — 좌표를 추정하거나
 // 행정구역 중심으로 대신하지 않는다. 표에 없으면 화면은 지도 없이 글자 안내만 보여준다.
 // 라이선스: ODbL — 화면에 "© OpenStreetMap contributors"를 함께 표시한다.
-// 이 좌표는 공단 "일대"를 보여주는 용도일 뿐, 근무지 정확 위치(핀·길찾기·거리 계산)가 아니다.
+// 이 좌표(lat/lng = OSM 면의 bbox 중심)는 공단 "일대"를 보여주는 용도일 뿐 — 길찾기 목적지로 쓰지 않는다
+// (2026-10-07: 도형 중심이 빈 부지·들판이라 길찾기가 엉뚱한 곳으로 안내됨). 길찾기는 `destination`(공단 정문 또는
+// KCN 관리사무소, 실제 도로에 접한 지점)이 출처와 함께 있는 공단에만 열고, 없으면 길찾기 버튼을 숨긴다.
 // 재검증: https://www.openstreetmap.org/<source.ref> (예: https://www.openstreetmap.org/way/642274405)
 
 export interface IndustrialPark {
@@ -16,7 +18,20 @@ export interface IndustrialPark {
   lat: number
   lng: number
   source: { provider: 'OpenStreetMap'; ref: string; osmName: string }
+  /** 길찾기 목적지(영역 중심과 별개). 우선순위 ① OSM 공단 정문(barrier=gate·entrance, 공단 way에 붙은 node) ② OSM/VietMap의
+   *  KCN 관리사무소(Ban quản lý) POI. 출처 id를 반드시 적고 실제 도로에 접한 지점인지 위성으로 확인한 뒤에만 넣는다. 없으면 길찾기 없음. */
+  destination?: IndustrialParkDestination
   note?: string
+}
+
+export interface IndustrialParkDestination {
+  kind: 'gate' | 'office'
+  lat: number
+  lng: number
+  /** 출처 — 예: { provider: 'OpenStreetMap', ref: 'node/123', name: 'Cổng chính KCN …' } */
+  source: { provider: 'OpenStreetMap' | 'VietMap'; ref: string; name?: string }
+  /** 위성(VietMap Hybrid)으로 도로에 접한 지점임을 확인한 날짜(YYYY-MM-DD) */
+  satelliteChecked: string
 }
 
 export const INDUSTRIAL_PARKS: readonly IndustrialPark[] = [
