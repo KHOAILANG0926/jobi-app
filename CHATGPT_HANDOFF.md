@@ -10,7 +10,7 @@
 
 - `src/data/jobSchema.ts`(+test): 공고 항목 34개·구역 5개 순서·대분류 13개·고정 값 목록·신규 DDL 9개를 한 곳에 고정, 바뀌면 테스트 실패.
 - migration `20261007013659_job_fields_structured_columns.sql`: `local_jobs` 7개 + `job_work_locations` 2개 컬럼(nullable, backfill 없음). Production 적용 완료·파일 포함.
-- Production DB(실행 전→후): DDL 컬럼 0→9 / `local_jobs.image_url` 비어있지 않음 244→0 / 재분류 26건 갱신(26/26). 제외 #4577·#4594·#4598·#4601은 그대로, 소분류만 바뀌는 3건(#4592·#4562·#4547)도 적용 안 함(재dry-run 잔여 7건 = 제외 4 + 소분류 3).
+- Production DB(실행 전→후): DDL 컬럼 0→9 / `local_jobs.image_url` 비어있지 않음 244→0 / 재분류 26건 갱신(26/26). 제외 #4577·#4594·#4598·#4601은 그대로. 소분류만 바뀌는 3건(#4592→phuc_vu_ban, #4562·#4547→marketing_quang_cao)은 사용자 승인 후 추가 적용(소분류 null 0→3건). 재dry-run 잔여는 제외 4건뿐.
 - 이전 커밋(`af83e25`): 출처 로고 화면 차단·수집 중단, 제목 우선 분류, 출처 URL 본문 차단, 설계 문서.
 
 ## 테스트 결과

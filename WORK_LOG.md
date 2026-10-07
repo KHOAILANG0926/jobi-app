@@ -5,8 +5,8 @@
 ## 2026-10-07 — 공고 항목 jobSchema + Production DB 적용(DDL 9·로고 244·재분류 26)
 
 - 요청: 승인된 즉시 수정 실행. master merge·배포 금지, DB는 전후 건수만 보고.
-- 변경: jobSchema.ts(+test), migration 20261007013659(컬럼 9개), `local_jobs.image_url` 244건 null, 재분류 26건(#4577·#4594·#4598·#4601 제외, 소분류만 바뀌는 3건 제외).
-- 검증: tsc, tests 33/33. DB 전후: 컬럼 0→9, 로고 244→0, 재분류 26/26, 재dry-run 잔여 7.
+- 변경: jobSchema.ts(+test), migration 20261007013659(컬럼 9개), `local_jobs.image_url` 244건 null, 재분류 26건(#4577·#4594·#4598·#4601 제외, 소분류만 바뀌는 3건은 별도 승인 후 추가 적용: 소분류 null 0→3).
+- 검증: tsc, tests 33/33. DB 전후: 컬럼 0→9, 로고 244→0, 재분류 26/26, 재dry-run 잔여 4(제외 건).
 - commit/push: branch `fix/source-logo-and-classifier`. master·코드 배포 미반영.
 - 남은 문제: 새 컬럼 미사용(상세 개편), 제외 4건 규칙 보완.
 
