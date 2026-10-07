@@ -10622,7 +10622,30 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-aside-contact { display: none !important; }
 }
 
+/* ══ 2026-10-07 알바몬식 탭(3칸·균등·칸마다 1px 테두리) + 분홍 테두리 박스 ══ */
+.jd2-tabs--sticky { display: flex; gap: 0; border: 0; background: #fff; overflow: hidden; border-radius: 0; margin: 1rem 0; padding: 0; }
+.jd2-tabs--sticky .jd2-tab {
+  flex: 1 1 0; min-width: 0; margin: 0 0 0 -1px; padding: 0.9rem 0.5rem; text-align: center;
+  background: #f3f4f6; color: #6b7280; font-size: 0.95rem; font-weight: 600;
+  border: 1px solid #d1d5db; border-radius: 0; white-space: nowrap;
+}
+.jd2-tabs--sticky .jd2-tab:first-child { margin-left: 0; }
+.jd2-tabs--sticky .jd2-tab:hover { color: #374151; background: #eceef1; }
+.jd2-tabs--sticky .jd2-tab--active,
+.jd2-tabs--sticky .jd2-tab[aria-current='true'] {
+  background: #fff; color: #e53935; font-weight: 800; border-bottom-color: #fff; position: relative;
+}
+.jd2-box, .jd2-header { border: 1px solid #f5c6d0; }
+.jd2-header { background: #fff; }
+.jd2-kv--single { grid-template-columns: 1fr !important; }
+.jd2-kv--single .jd2-kv__row { grid-template-columns: 8.5rem minmax(0, 1fr); }
+.jd2-kv dd .jd2-desc__list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.jd2-map-area-note strong { font-weight: 800; }
+
 @media (prefers-color-scheme: dark) {
+  .jd2-tabs--sticky .jd2-tab { background: #0f172a; color: #94a3b8; border-color: #334155; }
+  .jd2-tabs--sticky .jd2-tab--active, .jd2-tabs--sticky .jd2-tab[aria-current='true'] { background: #1e293b; color: #fca5a5; border-bottom-color: #1e293b; }
+  .jd2-box, .jd2-header { border-color: #7f1d1d; }
   .jd2-sec__title, .jd2-box__sub { color: #f1f5f9; }
   .jd2-box { background: #1e293b; border-color: #475569; }
   .jd2-aside { background: #1e293b; border-color: #1e3a5f; }

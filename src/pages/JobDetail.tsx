@@ -23,27 +23,14 @@ import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, weekendLabel } from '../lib/jobDetailView'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, isKcnLevelText, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
+import { descriptionRows } from '../lib/jobDescriptionRows'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
   return t ? t : undefined
 }
-
-/* ── Description renderer ── */
-// Quyền lợi 섹션에서 급여/보상 관련 문구는 눈에 띄게 볼드 처리
-const BENEFIT_HIGHLIGHT_RE = /lương|thưởng|thu nhập|phụ cấp|bảo hiểm/i
-
-// 원본 Quyền lợi 텍스트에 실제로 언급된 항목만 compact chip으로 요약 — 목록에 없는 복지를 임의 추가하지 않는다.
-const BENEFIT_CHIP_RULES: { label: string; re: RegExp }[] = [
-  { label: 'BHXH / BHYT', re: /bhxh|bhyt|bảo hiểm xã hội|bảo hiểm y tế/i },
-  { label: 'Thưởng', re: /thưởng/i },
-  { label: 'Đào tạo', re: /đào tạo|training/i },
-  { label: 'Khám sức khỏe', re: /khám sức kh(ỏe|oẻ)/i },
-  { label: 'Du lịch', re: /du lịch/i },
-  { label: 'Nghỉ phép', re: /nghỉ phép/i },
-]
 
 // 2026-09-22 실제 브라우저로 hydration을 검증하다가 발견 — React.lazy()+
 // Suspense로 지도를 감싸는 건 SSR에 안 맞았다. entry-server.tsx는
@@ -74,71 +61,6 @@ function ClientOnlyMap(props: JobLocationMapProps) {
   return <Map {...props} />
 }
 
-function DescriptionRenderer({ text }: { text: string }) {
-  if (text.startsWith('http')) return null
-
-  // One "## Heading" = one card, no matter how many blank lines sit inside it. The
-  // crawler sometimes leaves stray blank lines or an unheaded sub-list (e.g. "Ưu
-  // tiên:") in the middle of a section; splitting on every blank line (the previous
-  // behavior) turned those stray gaps into extra unheaded cards, fracturing a single
-  // MÔ TẢ/YÊU CẦU/QUYỀN LỢI section into several. Splitting on heading boundaries
-  // instead keeps everything between one "## " line and the next as one block. Text
-  // with no "## " heading at all (unstructured crawler paste) keeps the previous
-  // paragraph-per-blank-line behavior, unchanged.
-  const hasHeadings = /^## /m.test(text)
-  const blocks = hasHeadings ? text.split(/(?=^## )/m) : text.split(/\n\n+/)
-
-  return (
-    <>
-      {blocks.map((rawBlock, i) => {
-        const block = rawBlock.trim()
-        if (!block) return null
-        if (block.startsWith('## ')) {
-          const [heading, ...lines] = block.split('\n')
-          const headingText = heading.replace('## ', '')
-          const isBenefits = /quyền lợi/i.test(headingText)
-          const chips = isBenefits
-            ? BENEFIT_CHIP_RULES.filter((r) => r.re.test(lines.join(' '))).map((r) => r.label)
-            : []
-          return (
-            <div key={i} className="jd2-card jd2-desc-card">
-              <h2 className="jd2-card__title">{headingText}</h2>
-              <div className="jd2-card__body">
-                {chips.length > 0 && (
-                  <div className="jd2-chips">
-                    {chips.map((c) => <span key={c} className="jd2-chip-benefit">{c}</span>)}
-                  </div>
-                )}
-                <ul className="jd2-desc__list">
-                  {lines.map((line, j) => {
-                    if (line.startsWith('• ')) {
-                      const content = line.replace('• ', '')
-                      const highlight = isBenefits && BENEFIT_HIGHLIGHT_RE.test(content)
-                      return (
-                        <li key={j} className={`jd2-desc__item${highlight ? ' jd2-desc__item--highlight' : ''}`}>
-                          {content}
-                        </li>
-                      )
-                    }
-                    return line.trim() ? <p key={j} className="jd2-desc__line">{line}</p> : null
-                  })}
-                </ul>
-              </div>
-            </div>
-          )
-        }
-        return (
-          <div key={i} className="jd2-card jd2-desc-card">
-            <div className="jd2-card__body">
-              <p className="jd2-desc__para">{block}</p>
-            </div>
-          </div>
-        )
-      })}
-    </>
-  )
-}
-
 type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
 
 export function JobDetail() {
@@ -155,7 +77,7 @@ export function JobDetail() {
   const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
   // 2026-10-07 상세 개편(알바몬 구조): 탭은 내용을 숨기지 않고 해당 구역으로 스크롤만 한다.
   // 구역 순서·키는 data/jobSchema.ts(JOB_SECTIONS)가 정본. 활성 탭은 스크롤 위치(IntersectionObserver)로 갱신.
-  const [activeSection, setActiveSection] = useState<JobSection>('conditions')
+  const [activeTab, setActiveTab] = useState<JobTabKey>('conditions')
   const [tabsTop, setTabsTop] = useState(0)
 
   const job = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
@@ -190,7 +112,7 @@ export function JobDetail() {
     if (id) setSaved(isJobSaved(id, user?.id))
   }, [id, user?.id])
 
-  useEffect(() => { setActiveSection('conditions') }, [id])
+  useEffect(() => { setActiveTab('conditions') }, [id])
 
   // 고정 탭 바는 사이트 헤더(sticky) 바로 아래에 붙는다 — 헤더 높이를 실측해 CSS 변수로 전달.
   useEffect(() => {
@@ -217,7 +139,7 @@ export function JobDetail() {
         if ((document.getElementById(jobSectionId(k)) as HTMLElement).getBoundingClientRect().top <= line) current = k
       }
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = present[present.length - 1]
-      setActiveSection(current)
+      setActiveTab(tabOfSection(current))
     }
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
@@ -226,7 +148,7 @@ export function JobDetail() {
   }, [jobId, tabsTop])
 
   const scrollToSection = useCallback((k: JobSection) => {
-    setActiveSection(k)
+    setActiveTab(tabOfSection(k))
     document.getElementById(jobSectionId(k))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
@@ -353,6 +275,8 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
+  const benefits = benefitList(job)
+  const descRows = descriptionRows(job.description, job.title)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
@@ -380,6 +304,7 @@ export function JobDetail() {
     row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
     row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
     row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
+    row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', benefits.length > 0 ? benefits.join(' · ') : undefined),
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', catLabel),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
@@ -409,6 +334,14 @@ export function JobDetail() {
   const verifiedMapPoints = mapLocations.points.filter((p) => p.precise)
   const hasMapPoints = verifiedMapPoints.length > 0
   const mapCenter = verifiedMapPoints[0]
+  // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 핀 없이 그 일대 지도 + "Vị trí chính xác chưa xác minh".
+  // 좌표는 공단 경계가 아니라 지오코딩/지역 중심이므로 길찾기·거리 계산에는 쓰지 않는다.
+  const isKcnLevel = !hasMapPoints && (
+    isKcnLevelText(job.rawLocation) || !!job.workLocations?.some((l) => !!l.industrialPark || isKcnLevelText(l.rawAddress))
+  )
+  const areaPoint = isKcnLevel && mapLocations.source !== 'default' && mapLocations.source !== 'pending'
+    ? mapLocations.points.find((p) => !p.precise)
+    : undefined
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
   // 있으면 항상 보여준다.
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
@@ -432,7 +365,9 @@ export function JobDetail() {
 
   // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
   const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
-  const visibleSections = JOB_SECTION_ORDER.filter((k) => k !== 'company' || showCompanySection)
+  // 상세요강은 남은 문장 행(또는 추가 사진)이 하나도 없으면 구역·탭을 숨긴다.
+  const showDescriptionSection = descRows.length > 0 || extraImages.length > 0
+  const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
     <div className="jd2-page" style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
@@ -504,15 +439,15 @@ export function JobDetail() {
 
       {/* ── Sticky tabs: 내용을 숨기지 않고 구역으로 스크롤만 ── */}
       <nav className="jd2-tabs jd2-tabs--sticky" aria-label="Các phần của tin tuyển dụng">
-        {visibleSections.map((k) => (
+        {visibleTabs.map((t) => (
           <button
-            key={k}
+            key={t.key}
             type="button"
-            aria-current={activeSection === k ? 'true' : undefined}
-            className={`jd2-tab${activeSection === k ? ' jd2-tab--active' : ''}`}
-            onClick={() => scrollToSection(k)}
+            aria-current={activeTab === t.key ? 'true' : undefined}
+            className={`jd2-tab${activeTab === t.key ? ' jd2-tab--active' : ''}`}
+            onClick={() => scrollToSection(t.sections[0])}
           >
-            {JOB_SECTION_LABELS[k]}
+            {t.label}
           </button>
         ))}
       </nav>
@@ -692,7 +627,15 @@ export function JobDetail() {
                       </p>
                     </>
                   )}
-                  {!hasMapPoints && mapLocations.source !== 'pending' && (
+                  {areaPoint && (
+                    <>
+                      <ClientOnlyMap lat={areaPoint.lat} lng={areaPoint.lng} title={job.title} zoom={Math.min(mapLocations.zoom, 13)} pinless />
+                      <p className="jd2-map-pending-note jd2-map-area-note">
+                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực lân cận (khu công nghiệp), không phải vị trí chính xác — không dùng để chỉ đường hay tính khoảng cách.
+                      </p>
+                    </>
+                  )}
+                  {!hasMapPoints && !areaPoint && mapLocations.source !== 'pending' && (
                     <p className="jd2-map-pending-note">
                       Vị trí nơi làm việc chưa được xác minh — chưa hiển thị bản đồ, chỉ đường và khoảng cách.
                     </p>
@@ -714,31 +657,38 @@ export function JobDetail() {
           </div>
           </section>
 
-          {/* ④ 상세요강 */}
+          {/* ④ 상세요강 — 제목 반복·소제목 제거, 남은 문장을 행으로. 비면 구역 숨김 */}
+          {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
-          <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-          {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
-          {job.description && !job.description.startsWith('http') ? (
-            <DescriptionRenderer text={job.description} />
-          ) : (
-            <div className="jd2-card">
-              <div className="jd2-card__body">
-                <p className="jd2-desc__para">Tin này chưa có mô tả chi tiết.</p>
+            <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
+            {descRows.length > 0 && (
+              <div className="jd2-box">
+                <dl className="jd2-kv jd2-kv--single">
+                  {descRows.map((r) => (
+                    <div className="jd2-kv__row" key={r.key}>
+                      <dt>{r.label}</dt>
+                      <dd>
+                        {r.lines.length === 1 ? r.lines[0] : (
+                          <ul className="jd2-desc__list">{r.lines.map((l) => <li key={l} className="jd2-desc__item">{l}</li>)}</ul>
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
-            </div>
-          )}
-
-          {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
-          {extraImages.length > 0 && (
-            <div className="jd2-card">
-              <div className="jd2-card__body">
-                {extraImages.map((url, i) => (
-                  <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
-                ))}
+            )}
+            {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
+            {extraImages.length > 0 && (
+              <div className="jd2-box">
+                <div className="jd2-card__body">
+                  {extraImages.map((url, i) => (
+                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
           </section>
+          )}
 
           {/* ⑤ 기업정보 */}
           {showCompanySection && (

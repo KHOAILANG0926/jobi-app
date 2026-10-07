@@ -51,9 +51,11 @@ export interface JobLocationMapProps {
    *  줌으로 먹혀버리는("scroll jail") 문제가 생긴다 — /ban-do처럼 지도가
    *  전용 화면의 주 콘텐츠인 곳에서만 명시적으로 켠다. */
   scrollWheelZoom?: boolean
+  /** true면 핀·원을 그리지 않고 그 일대 지도만 보여준다(공단 수준까지만 아는 근무지, 2026-10-07). */
+  pinless?: boolean
 }
 
-export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarkers, scrollWheelZoom = false }: JobLocationMapProps) {
+export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarkers, scrollWheelZoom = false, pinless = false }: JobLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInst = useRef<L.Map | null>(null)
   const [tileError, setTileError] = useState(false)
@@ -93,8 +95,9 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
       return link
     }
 
-    const markers: JobLocationMapMarker[] =
-      extraMarkers && extraMarkers.length > 0 ? extraMarkers : [{ lat, lng }]
+    const markers: JobLocationMapMarker[] = pinless
+      ? []
+      : extraMarkers && extraMarkers.length > 0 ? extraMarkers : [{ lat, lng }]
     const bounds: [number, number][] = []
     markers.forEach((m) => {
       const popupContent = buildPopupContent(m.label, m.href)
@@ -127,7 +130,7 @@ export default function JobLocationMap({ lat, lng, title, zoom = 15, extraMarker
       map.remove()
       mapInst.current = null
     }
-  }, [lat, lng, title, zoom, extraMarkers, scrollWheelZoom])
+  }, [lat, lng, title, zoom, extraMarkers, scrollWheelZoom, pinless])
 
   if (tileError) {
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>

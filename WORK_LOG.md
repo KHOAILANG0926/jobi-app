@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 상세 탭 3개·분홍 테두리·상세요강 행·KCN 일대 지도·헤더 태그 정리
+
+- 요청: 알바몬식 3탭(Điều kiện 묶음)·박스/제목 박스 #f5c6d0, 상세요강 행화(비면 숨김), KCN 수준 근무지 핀 없는 지도, 헤더 태그는 결정 요소만+Phúc lợi 행.
+- 변경: JOB_TABS, jobDescriptionRows, benefitList/isKcnLevelText, JobLocationMap pinless, CSS.
+- 검증: tsc, tests 36/36, build, 로컬 PC 1280px·모바일 375px(#4682). 공개 공고가 #4682 1건뿐이라 다른 형식은 단위 테스트로만 확인.
+- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
+- 남은 문제: KCN 일대 지도는 지역 중심 좌표(공단 경계 아님), 실제 폰·여러 공고 형식 확인.
+
 ## 2026-10-07 — #4682 원문 추출 DB 반영 + 언어·출장 DDL + 리뷰 0건 숨김
 
 - 요청: #4682 추출 결과 DB 반영(원문 백업 후), 언어(text)·출장(boolean) 컬럼 추가, BHXH는 태그로 대체, 리뷰 0건이면 숨김.
@@ -74,11 +82,4 @@
 - 검증: tsc, tests 28/28, build. 숨겨진 탭 20초 후에도 vietmap, 탭 표시 후 준비 완료. 실제 마우스 A 카페 아이콘·B 라벨·C 회사·D 생활시설·E 이름 없는 건물·F 공고 핀(공고 패널)·G 빈 곳 닫힘 통과.
 - 밀도(같은 좌표·줌·463x419): Production VietMap = 로컬 동일(예 BN 중심 z15 POI 27/회사 13/식음 5), Production 예비 지도는 같은 지점 z16 POI 4·회사 0·식음 0 vs VietMap 8·3·2.
 - commit/push: 통합 Preview `jobi-jkuypvkg8` 승인 후 소스 그대로 branch `fix/page-scroll-map` commit·push. master·Production 안 함.
-
-## 2026-10-06 — 지도 위 페이지 스크롤 막힘 수정 — PREVIEW APPROVED, BRANCH PUSHED
-
-- 원인: VietMap/MapLibre 기본 제스처(휠=지도 확대·preventDefault, 한 손가락 드래그=지도 이동, 캔버스 `touch-action: none`). Production 실측: 지도 위 휠 시 scrollY 변화 0·지도 zoom 11.28→10.88.
-- 변경: `homeMapGestures.ts`(+test) `cooperativeGestures: true` + 베트남어 안내, VietMap·Geoapify 지도 옵션에 적용. 레이아웃/CSS 변경 없음.
-- 검증: tsc, tests 27/27, build. 로컬: 지도 위 휠 → 페이지 +300px·zoom 불변, Ctrl+휠 확대, 마우스 드래그 이동, 최상단→하단(1939px) 연속, 위성·상세패널 열린 상태 동일, 375px 캔버스 `touch-action: pan-x pan-y`·핀 탭 선택·가로 넘침 0.
-- commit/push: 회귀 수정과 함께 통합 Preview `jobi-jkuypvkg8`로 승인, branch `fix/page-scroll-map` commit·push(master `f84a02a` 기반). 실기기 1손가락 스크롤 미검증.
 

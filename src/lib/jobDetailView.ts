@@ -40,18 +40,41 @@ export function salaryPeriodLabel(p: Job['salaryPeriod'] | null | undefined): st
 
 export const EMPLOYMENT_TYPE_LABEL = { full_time: 'Toàn thời gian', seasonal: 'Thời vụ', part_time: 'Bán thời gian' } as const
 
-/** 강조 태그 — 값이 true/확인된 것만(null·없음은 추정하지 않고 숨김). */
+/** 상단 탭(알바몬식 3개). Điều kiện 탭이 근무조건·모집조건·근무지역을 묶는다. 구역 키·순서는 jobSchema(JOB_SECTIONS)가 정본. */
+export type JobTabKey = 'conditions' | 'description' | 'company'
+export const JOB_TABS: readonly { key: JobTabKey; label: string; sections: readonly JobSection[] }[] = [
+  { key: 'conditions', label: 'Điều kiện', sections: ['conditions', 'recruit', 'location'] },
+  { key: 'description', label: 'Mô tả công việc', sections: ['description'] },
+  { key: 'company', label: 'Thông tin công ty', sections: ['company'] },
+]
+export const tabOfSection = (s: JobSection): JobTabKey => JOB_TABS.find((t) => t.sections.includes(s))!.key
+
+const WEEKLY_PAY_RE = /(\/|trên|mỗi|theo)\s*tuần|lương\s+tuần|(hàng|hằng|mỗi)\s+tuần/i
+
+/** 헤더 태그 — 지원 결정에 직결되는 것만(통근버스·기숙사·식사·즉시출근·주급). 값이 true/확인된 것만, 추정 금지.
+ *  BHXH·상여·여행 등은 근무조건의 "Phúc lợi" 행(benefitList)으로. */
 export function jobTags(job: Job): string[] {
   const tags: string[] = []
-  if (job.employmentType) tags.push(EMPLOYMENT_TYPE_LABEL[job.employmentType])
   if (job.shuttleBus === true) tags.push('Xe đưa đón')
   if (job.dormitory === true) tags.push('Ký túc xá')
   if (job.mealProvided === true) tags.push('Bao ăn')
-  if (job.socialInsurancePledge) tags.push('BHXH')
   if (job.immediateStart === true) tags.push('Đi làm ngay')
-  if (job.shiftType === 'rotating' && job.rotatingShifts) tags.push(`Ca xoay ${job.rotatingShifts} ca`)
-  for (const t of job.benefitTags ?? []) if (!tags.includes(t)) tags.push(t)
+  if (job.rawSalary && WEEKLY_PAY_RE.test(job.rawSalary)) tags.push('Lương tuần')
   return tags
+}
+
+/** 근무조건 "Phúc lợi" 행 — BHXH 서약 + 원문에서 뽑은 복리후생. 헤더 태그와 겹치는 항목은 제외. */
+export function benefitList(job: Job): string[] {
+  const header = new Set(jobTags(job))
+  const out: string[] = []
+  if (job.socialInsurancePledge && !(job.benefitTags ?? []).some((t) => /bhxh/i.test(t))) out.push('BHXH')
+  for (const t of job.benefitTags ?? []) if (!header.has(t) && !out.includes(t)) out.push(t)
+  return out
+}
+
+/** 공단(KCN/KCX/CCN) 수준 주소 텍스트 — 건물·매장 단위가 아니라 공단 단위까지만 있는 근무지. */
+export function isKcnLevelText(text: string | null | undefined): boolean {
+  return !!text && /(?:^|[^\p{L}])(?:kcn|kcx|ccn)(?![\p{L}])|khu công nghiệp|khu chế xuất|cụm công nghiệp/iu.test(text.normalize('NFC'))
 }
 
 const SHIFT_LABEL = { day: 'Ca ngày', night: 'Ca đêm', rotating: 'Ca xoay', other: 'Ca khác' } as const
