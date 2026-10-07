@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 공고 상세 개편(알바몬 구조) master 병합·Production 배포·검증 + Chợ Tốt 시험 공개 3건 되돌림
+
+- 요청(사용자 승인): feat/job-detail-sections를 master에 병합 전 tsc·test·build 확인 → 병합·푸시·Production 배포 → #4682 상세 확인(탭·연락처 한 곳·문구 제거·KCN 지도). 시험 공개 3건은 보류하고 이걸 먼저.
+- 시험 공개: 지시 직전에 #4751·#4714·#4774를 admin_hidden=false로 전환해 둔 상태였음 → "보류" 지시에 맞춰 즉시 true로 되돌림(chotot 100건 전부 비공개 재확인). 공개 전환 때 확인된 것: anon 3건 노출, `/viec-lam/sb-<id>` 3개 200·사이트맵 포함, HTML에 `chotot` 문자열 1회씩(설명 태그 추정, 링크 아님 — 재확인 예정).
+- 검증: tsc 통과, 테스트 37/37, build 통과. 병합 파일에 SQL 데이터·CSV·백업·.env 없음(`cleanup_local_jobs_delete.sql`은 데이터 없는 실행 SQL로 의도적으로 포함, batch 데이터 SQL·CSV·backups/는 gitignore). master는 브랜치보다 앞서지 않아 fast-forward(충돌 없음).
+- 배포: master `264d7d7` push → Vercel Production `jobi-8vizwbcra`(Ready, 58s) https://viecganban.vn. 이전 Production `jobi-1a2utn2n6`(롤백 대상, 필요 없었음).
+- Production 확인(#4682, https://viecganban.vn/viec-lam/sb-4682, Chrome 1281px): 탭 2개(Điều kiện / Mô tả công việc — 회사 정보가 자리표시자라 Thông tin công ty 탭은 설계대로 숨김), 연락처는 오른쪽 박스 한 곳(Gọi 0344849982 + Zalo), "Xem cách liên hệ"·"chưa nhận hồ sơ" 없음, KCN VSIP Bắc Ninh 점선 윤곽+이름표+"Vị trí chính xác chưa xác minh"+OSM 출처, Bản đồ/Vệ tinh 전환·Phóng to 보임. 내장 브라우저 창이 가려져 첫 시도는 지도 캔버스 0 → Chrome 확장으로 재확인.
+- 주의: 사용자가 기대한 "탭 3개"는 이 공고에서는 2개(설계상 회사 정보 없으면 숨김). 모바일 실화면은 미확인.
+- 남은 문제: Chợ Tốt 시험 공개 3건 재진행(전화/Zalo 표시 확인 포함), 좌표 작업.
+
 ## 2026-10-07 — 기존 크롤러 281건 정리 확인 + Chợ Tốt 100건 local_jobs 반영(비공개) 완료
 
 - 정리 확인(사용자 실행 후): local_jobs 1건(#4682), source_url 0건, job_work_locations 0건 — 삭제 전 읽기 전용 재확인 후 진행.
@@ -89,12 +99,4 @@
 - 검증: tsc, tests 38/38, build. 로컬(#4682): Geoapify 0·Leaflet 0, VietMap style/sprite/font 요청 확인, 핀 0, 홈 바로가기 → 홈 "KCN VSIP Bắc Ninh · 3 km". 지도 타일 실제 렌더링은 창 최소화(rAF 없음)로 미확인.
 - commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
 - 남은 문제: 타일 렌더링·위성 전환 실화면 확인, 표에 없는 KCN(좌표 출처 못 찾음)은 지도 없음, OSM way 중심이 공단 정문과 다를 수 있음.
-
-## 2026-10-07 — 상세 탭 3개·분홍 테두리·상세요강 행·KCN 일대 지도·헤더 태그 정리
-
-- 요청: 알바몬식 3탭(Điều kiện 묶음)·박스/제목 박스 #f5c6d0, 상세요강 행화(비면 숨김), KCN 수준 근무지 핀 없는 지도, 헤더 태그는 결정 요소만+Phúc lợi 행.
-- 변경: JOB_TABS, jobDescriptionRows, benefitList/isKcnLevelText, JobLocationMap pinless, CSS.
-- 검증: tsc, tests 36/36, build, 로컬 PC 1280px·모바일 375px(#4682). 공개 공고가 #4682 1건뿐이라 다른 형식은 단위 테스트로만 확인.
-- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
-- 남은 문제: KCN 일대 지도는 지역 중심 좌표(공단 경계 아님), 실제 폰·여러 공고 형식 확인.
 

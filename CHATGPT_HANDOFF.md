@@ -4,7 +4,7 @@
 
 장기 AI/Agent 전략은 AI_DISCOVERY_STRATEGY.md 참고
 
-**공고 상세 화면 개편 (알바몬 구조) (2026-10-07).** branch `feat/job-detail-sections`(master `5f596a4` 기반, worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 37/37·build, 로컬 PC 1280px) / BRANCH PUSHED / **사용자 미승인 · master 미반영 · Production 미배포**. Preview는 SSO 보호.
+**공고 상세 화면 개편 (알바몬 구조) (2026-10-07).** branch `feat/job-detail-sections`(master `5f596a4` 기반, worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 37/37·build, 로컬 PC 1280px) / **사용자 승인(2026-10-07) → MASTER PUSHED(`264d7d7`, fast-forward) → PRODUCTION DEPLOYED(`jobi-8vizwbcra`, https://viecganban.vn) → PRODUCTION VERIFIED(#4682: 탭 2개 Điều kiện/Mô tả công việc — 회사 정보가 자리표시자("Nhà tuyển dụng Facebook")라 Thông tin công ty 탭은 설계대로 숨김, 연락처는 오른쪽 박스 한 곳(Gọi+Zalo), "Xem cách liên hệ"·"chưa nhận hồ sơ" 없음, KCN VSIP Bắc Ninh 점선 윤곽+이름표 지도 표시)**.
 
 - 구조(2026-10-07 갱신): 탭은 3개(Điều kiện / Mô tả công việc / Thông tin công ty, 칸 균등·칸마다 1px 테두리, 비선택=회색·선택=흰 배경+빨간 글씨+아래 테두리 없음). Điều kiện 탭이 근무조건·모집조건·근무지역 3구역을 묶고, 5구역은 한 페이지에 모두 노출(탭은 스크롤 이동만, 스크롤 위치로 활성 탭). 구역·탭 정의는 `src/data/jobSchema.ts`·`src/lib/jobDetailView.ts`(JOB_TABS). 구역 제목은 박스 밖 위에 크게, 박스·제목(헤더) 박스 테두리 #f5c6d0 1px, 요약 박스 #bcd7f5. "라벨 | 값" 2열 표(PC 2칸), 값 없는 행은 숨김. 급여 앞 Lương tháng/ngày/giờ 배지. 헤더 태그는 결정 요소만(통근버스·기숙사·식사·즉시출근·주급), BHXH 등 복리후생은 근무조건 "Phúc lợi" 행. 새 컬럼을 select·타입·화면에 연결.
 - 상세요강: 제목 반복·소제목 제거, 남은 문장을 행으로(Ưu tiên / Yêu cầu khác / Quyền lợi · Môi trường làm việc, 수집 공고의 "## Mô tả" 본문은 Nội dung công việc, 소제목 없는 문장은 Thông tin khác) — `src/lib/jobDescriptionRows.ts`. 행이 없으면 구역·탭 숨김.
@@ -35,6 +35,7 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 ## 다음 결정사항
 
 - **박닌 Chợ Tốt 100건 — local_jobs 반영 완료(비공개), 2026-10-07**: 기존 크롤러 281건 삭제 확인(local_jobs 1건 #4682, source_url 0) 후 batch01(10건 확인)→02~10 실행, **실패·롤백 0**. **chotot ID 4685~4784**, 전부 admin_hidden=true·source_url NULL·`source='chotot:<광고번호>'`, job_work_locations 100행(좌표 없음), 체크섬(회사·전화·급여) 원본 일치, anon 조회 0건(공개로 보이는 공고는 #4682 하나). 실행기 `scripts/research/bn_apply_chotot_rest.py`(재실행 안전). **다음: 사용자가 Preview로 확인 후 공개 전환(admin_hidden=false) 승인 → 좌표 작업(KCN 31건 영역 표시 가능, 69건 좌표 없음).** 크롤러는 계속 꺼져 있어야 함(VPS crontab 미확인).
+- **Chợ Tốt 시험 공개 3건 — 보류 중(2026-10-07)**: 후보 #4751(AMPHENOL, KCN 매칭)·#4714(Giao Hàng Nhanh, 일반)·#4774(GRGR, 대행사). 공개 전환 직후 사용자가 상세 개편 병합을 먼저 하라고 해 **3건 모두 admin_hidden=true로 되돌림**(나머지 97건 포함 chotot 100건 전부 비공개). 전환 때 확인된 것: anon 목록 조회 3건만 노출, 상세 URL https://viecganban.vn/viec-lam/sb-4751·sb-4714·sb-4774 모두 200이고 사이트맵에 포함, 상세 HTML에 `chotot` 문자열 1회(설명의 [source:chotot] 태그로 추정 — 링크 아님, 다음 시험 공개 때 화면·HTML에서 재확인). 전화·Zalo 화면 표시는 아직 미확인.
 - **좌표 — 반영 후 별도 작업(2026-10-07 사용자 지시)**: 위 100건은 lat/lng 모두 NULL(geocode pending). KCN 매칭 31건은 industrial_park·주소 텍스트로 KCN 영역 표시만 가능, **나머지 69건은 근무지 좌표 없음**. 기존 승인·좌표 절차(VietMap 후보 → 관리자 승인)로 처리.
 - **기존 크롤러 행의 source_url 노출(발견, 미조치)**: `local_jobs.source_url`은 anon에게 SELECT 권한이 있고 기존 크롤러 행 약 280건이 경쟁 사이트 원문 URL을 담고 있다. 지금은 대부분 비공개(RLS)라 노출 안 되지만, 공개 전환하면 API로 읽힌다. 컬럼 권한 변경·값 정리는 STRICT 작업이라 별도 승인 필요.
 - **VietMap에 서버용 키 요청**(Search v4·Place v4 허용) 후: 키를 Vercel/크롤러 환경에 `VIETMAP_SERVICE_KEY`로 설정 → `node scripts/generate-location-candidates.ts`(dry-run) 결과 확인 → 별도 승인 후 `--apply`(Production DB 쓰기) → 크롤러 연결 여부 결정. match_meta 컬럼(DDL)은 보류.
@@ -45,7 +46,7 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 
 ## 최근 완료 작업 로그
 
-- 공고 상세 화면 개편(알바몬 구조) — 2026-10-07 — BRANCH PUSHED(`feat/job-detail-sections`) / 사용자 미승인·master·Production 미반영
+- 공고 상세 화면 개편(알바몬 구조) — 2026-10-07 — MASTER PUSHED(`264d7d7`) / PRODUCTION DEPLOYED(`jobi-8vizwbcra`) / PRODUCTION VERIFIED(#4682)
 - 공고 항목 설계 + 즉시 수정 실행(jobSchema·DDL 9·로고 244·재분류 26) + SSR 번들 장애 복구 — 2026-10-07 — MASTER PUSHED(`cd0eeeb`) / PRODUCTION DEPLOYED·VERIFIED
 - 공고 항목 설계 + 즉시 수정(출처 로고 차단·분류 개선) — 2026-10-06 — BRANCH PUSHED(`fix/source-logo-and-classifier`, Preview `jobi-xg3h9jbxb`) / master·Production·DB 미적용(승인 완료, 실행 대기)
 - 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) — 2026-10-06 — MASTER PUSHED(`71acf9a`) / PRODUCTION DEPLOYED(`jobi-bo6e6kzkn`) / PRODUCTION VERIFIED(사용자)
