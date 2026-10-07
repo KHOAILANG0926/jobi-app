@@ -10642,6 +10642,16 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-kv dd .jd2-desc__list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .jd2-map-area-note strong { font-weight: 800; }
 
+/* 상세 근무지역 VietMap(홈 생활지도와 같은 provider·스타일) */
+.jd2-vmap { position: relative; width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; margin-top: 0.75rem; }
+.jd2-vmap__canvas { position: absolute; inset: 0; }
+.jd2-vmap__modes { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+.jd2-vmap__modes button { border: 0; padding: 6px 10px; font-size: 12px; font-weight: 600; background: #fff; color: #0f172a; cursor: pointer; }
+.jd2-vmap__modes button[aria-pressed='true'] { background: #0f172a; color: #fff; }
+.jd2-map-home-link { display: inline-block; margin-top: 0.6rem; font-size: 0.9rem; font-weight: 700; color: #1d4ed8; text-decoration: none; }
+.jd2-map-home-link:hover { text-decoration: underline; }
+.jd2-map-credit { display: block; margin-top: 0.25rem; font-size: 0.72rem; font-weight: 400; color: #64748b; }
+
 @media (prefers-color-scheme: dark) {
   .jd2-tabs--sticky .jd2-tab { background: #0f172a; color: #94a3b8; border-color: #334155; }
   .jd2-tabs--sticky .jd2-tab--active, .jd2-tabs--sticky .jd2-tab[aria-current='true'] { background: #1e293b; color: #fca5a5; border-bottom-color: #1e293b; }

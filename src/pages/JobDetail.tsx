@@ -5,7 +5,7 @@ import {
   Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
 } from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
-import type { JobLocationMapProps } from '../components/JobLocationMap'
+import type { JobVietMapProps } from '../components/JobVietMap'
 import { MessageEmployerModal } from '../components/MessageEmployerModal'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
@@ -23,8 +23,10 @@ import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, isKcnLevelText, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
+import { findIndustrialPark } from '../lib/industrialPark'
+import { buildMapDeepLink } from '../lib/mapDeepLink'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -47,11 +49,11 @@ function nonEmpty(v: string | null | undefined): string | undefined {
 // (에러도 미완료 경계도 아님), 클라이언트도 최초 hydration 순간엔 똑같이
 // null이었다가(같은 구조라 mismatch 없음) 그 다음 effect에서 실제 지도로
 // 바뀐다.
-function ClientOnlyMap(props: JobLocationMapProps) {
-  const [Comp, setComp] = useState<ComponentType<JobLocationMapProps> | null>(null)
+function ClientOnlyMap(props: JobVietMapProps) {
+  const [Comp, setComp] = useState<ComponentType<JobVietMapProps> | null>(null)
   useEffect(() => {
     let cancelled = false
-    import('../components/JobLocationMap').then((mod) => {
+    import('../components/JobVietMap').then((mod) => {
       if (!cancelled) setComp(() => mod.default)
     })
     return () => { cancelled = true }
@@ -334,13 +336,11 @@ export function JobDetail() {
   const verifiedMapPoints = mapLocations.points.filter((p) => p.precise)
   const hasMapPoints = verifiedMapPoints.length > 0
   const mapCenter = verifiedMapPoints[0]
-  // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 핀 없이 그 일대 지도 + "Vị trí chính xác chưa xác minh".
-  // 좌표는 공단 경계가 아니라 지오코딩/지역 중심이므로 길찾기·거리 계산에는 쓰지 않는다.
-  const isKcnLevel = !hasMapPoints && (
-    isKcnLevelText(job.rawLocation) || !!job.workLocations?.some((l) => !!l.industrialPark || isKcnLevelText(l.rawAddress))
-  )
-  const areaPoint = isKcnLevel && mapLocations.source !== 'default' && mapLocations.source !== 'pending'
-    ? mapLocations.points.find((p) => !p.precise)
+  // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 "해당 KCN 중심 좌표"로 핀 없이 지도 + "Vị trí chính xác chưa xác minh".
+  // 중심 좌표는 출처(OpenStreetMap way)가 있는 공단 표(data/industrialParks.ts)에서만 가져온다 — 표에 없으면
+  // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
+  const park = !hasMapPoints
+    ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
     : undefined
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
   // 있으면 항상 보여준다.
@@ -618,8 +618,11 @@ export function JobDetail() {
                         lng={mapCenter.lng}
                         title={job.title}
                         zoom={mapLocations.zoom}
-                        extraMarkers={verifiedMapPoints}
+                        markers={verifiedMapPoints.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label }))}
                       />
+                      <Link className="jd2-map-home-link" to={buildMapDeepLink({ lat: mapCenter.lat, lng: mapCenter.lng, radiusKm: 1, label: mapCenter.label || job.title })}>
+                        Xem trên bản đồ khu vực →
+                      </Link>
                       <p className="jd2-map-note">
                         {verifiedMapPoints.length > 1
                           ? `Công việc này có ${verifiedMapPoints.length} địa điểm làm việc đã xác minh.`
@@ -627,15 +630,19 @@ export function JobDetail() {
                       </p>
                     </>
                   )}
-                  {areaPoint && (
+                  {park && (
                     <>
-                      <ClientOnlyMap lat={areaPoint.lat} lng={areaPoint.lng} title={job.title} zoom={Math.min(mapLocations.zoom, 13)} pinless />
+                      <ClientOnlyMap lat={park.lat} lng={park.lng} title={park.name} zoom={14} pinless />
                       <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực lân cận (khu công nghiệp), không phải vị trí chính xác — không dùng để chỉ đường hay tính khoảng cách.
+                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (không có ghim) — không dùng để chỉ đường hay tính khoảng cách.
+                        <span className="jd2-map-credit"> Tâm khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
                       </p>
+                      <Link className="jd2-map-home-link" to={buildMapDeepLink({ lat: park.lat, lng: park.lng, radiusKm: 3, label: park.name })}>
+                        Xem trên bản đồ khu vực →
+                      </Link>
                     </>
                   )}
-                  {!hasMapPoints && !areaPoint && mapLocations.source !== 'pending' && (
+                  {!hasMapPoints && !park && mapLocations.source !== 'pending' && (
                     <p className="jd2-map-pending-note">
                       Vị trí nơi làm việc chưa được xác minh — chưa hiển thị bản đồ, chỉ đường và khoảng cách.
                     </p>

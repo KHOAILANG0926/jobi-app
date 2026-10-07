@@ -3,7 +3,7 @@
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, Wallet, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_LABELS, CATEGORY_SHORT, ALL_CATEGORIES } from '../../data/categories'
@@ -17,6 +17,7 @@ import {
 } from '../../lib/homeMapFilters'
 import type { JobCategory } from '../../types/job'
 import { formatSearchRadius, locationAccuracyWarning, normalizeSearchRadius, summarizeMapJobs } from '../../lib/homeMapSearch'
+import { parseMapDeepLink } from '../../lib/mapDeepLink'
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
 import NearbyLifePanel from './NearbyLifePanel'
 import PlaceDetailPanel from './PlaceDetailPanel'
@@ -42,8 +43,23 @@ function regionOrigin(label: string): Origin | null {
 export default function HomeMapExplorer() {
   const { jobs, mapAcceptanceJobs, loading, jobsError } = useJobs()
   const mapJobs = useMemo(() => [...jobs, ...mapAcceptanceJobs], [jobs, mapAcceptanceJobs])
-  const [origin, setOrigin] = useState<Origin>(() => regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
-  const [filters, setFilters] = useState<HomeMapFilterState>(DEFAULT_FILTERS)
+  // 공고 상세의 "Xem trên bản đồ khu vực" 바로가기(?mapLat&mapLng&mapR&mapLabel) — 해당 위치·반경으로 연다.
+  const { search } = useLocation()
+  const deepLink = useMemo(() => parseMapDeepLink(search), [search])
+  const [origin, setOrigin] = useState<Origin>(() => deepLink
+    ? { kind: 'region', label: deepLink.label, point: { lat: deepLink.lat, lng: deepLink.lng } }
+    : regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
+  const [filters, setFilters] = useState<HomeMapFilterState>(() => deepLink ? { ...DEFAULT_FILTERS, radiusKm: deepLink.radiusKm } : DEFAULT_FILTERS)
+  // 이미 홈에 있는 상태에서 바로가기 주소만 바뀌면(뒤로가기·다른 공고) 다시 그 위치로 이동
+  const appliedDeepLink = useRef(search)
+  useEffect(() => {
+    if (appliedDeepLink.current === search) return
+    appliedDeepLink.current = search
+    if (!deepLink) return
+    setOrigin({ kind: 'region', label: deepLink.label, point: { lat: deepLink.lat, lng: deepLink.lng } })
+    setFilters((f) => ({ ...f, radiusKm: deepLink.radiusKm }))
+    setRecenterRequest((v) => v + 1)
+  }, [search, deepLink])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [locMenuOpen, setLocMenuOpen] = useState(false)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
