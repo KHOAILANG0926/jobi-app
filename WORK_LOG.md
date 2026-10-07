@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — chotot 좌표 후보 VietMap Search/Place 재 dry-run — 키가 이 PC에 없어 중단, 스크립트 준비
+
+- 요청: `VIETMAP_SERVICE_KEY`(Trial "Key API (search, route…)")로 chotot 100건 Search/Place 검색 dry-run, 하루 250회(한도 500의 절반) 이내, 타일 후보와 비교, DB 쓰기 금지.
+- 중단: 이 PC의 `crawler/.env`에 `VIETMAP_SERVICE_KEY` 없음(파일은 2026-09-24 이후 수정 없음, 변수 이름은 SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY·CRAWLER_BROWSER_CHANNEL뿐), 환경변수·다른 .env도 없음. 키는 PC-local이라 GitHub에 없음 — 다른 PC에 넣으신 것으로 보임. 호출 0회, DB 쓰기 없음.
+- 준비: `scripts/research/bn_vietmap_search_dryrun.mjs` — 같은 (회사명, 구·xã) 질의 80건으로 묶어 Search 최대 80 + Place(이름 유사도 ≥0.5 상위 2건) 최대 160 = 최대 240회 예상, 하루 합계 250회 상한(out/vietmap_search_usage.json 날짜별 누적, 응답 캐시로 재호출 없음, 넘으면 중단하고 다음날 이어서). 키는 출력·저장 안 함. 판정은 타일 dry-run과 같은 기준(이름 정확 일치 + 공단 윤곽 안/광고 대략 위치 1.5 km 이내 + 1곳 = 자동, 비슷하거나 위치 불충족 = 검토, 없음) + 주소 행정구역 일치 확인, 기존 타일 상태와 비교 건수·CSV(`out/chotot_vietmap_search_candidates.csv`) 출력. 키 없이 `--dry-plan`과 키 없음 종료만 검증(실제 API 호출 경로는 키가 없어 미검증).
+- 다음: 이 PC `crawler/.env`에 `VIETMAP_SERVICE_KEY=…` 한 줄 추가(값은 채팅에 붙이지 않기) → `node --import ./scripts/ts-extensionless-register.mjs scripts/research/bn_vietmap_search_dryrun.mjs`.
+
 ## 2026-10-07 — 관리자 Vị trí 후보 지도 라벨(길 이름·POI) 안 보임 수정
 
 - 증상: 지도에 길은 그려지지만 길 이름·POI·건물 라벨이 없음. 실제 /admin → Vị trí(로그인된 Chrome)에서 재현, "수정 전" 스크린샷 저장.
@@ -92,15 +99,4 @@
 - 좌표: 100건 모두 lat/lng NULL(geocode pending). KCN 31건은 industrial_park·주소 텍스트로 KCN 영역 표시만 가능, 나머지 69건은 근무지 좌표 없음 → 반영 후 별도 작업.
 - commit/push: branch `feat/job-detail-sections`(스크립트·문서만, SQL·CSV 제외). master·Production·DB 미반영.
 - 남은 문제: 사용자 승인 후 batch SQL 실행(10회), 좌표 작업, 모호 건(Samsung·AQUA·Panasonic 등 브랜드 공고 5건 안팎, KCN만 근거인 대행사 공고는 회사명이 게시자) 검토.
-
-## 2026-10-07 — 박닌 Chợ Tốt 재수집(1페이지부터) 연락처 있는 공고 100건 채움 (DB 쓰기 없음)
-
-- 요청: 이 PC에서 Chợ Tốt 박닌을 1페이지부터 다시 수집, 연락처 있는 공고 100건까지. 옛 박장 제외, 대행 공고는 근무 회사·KCN 근거 있을 때만 채택, 같은 회사 최대 2건, 손으로 옮겨 쓰기 금지, DB 쓰기 금지. 이후 지시: 대기업·브랜드(Samsung·Coca-Cola·Amphenol 등)는 대행사가 아니라 "근무 회사", CSV에 "근무 회사"/"게시자" 분리.
-- 결과: 목록 1~20페이지(399링크) 중 상세 279건 방문(데이터 274 / 상세 로드 실패 5) → 번호 확인 261건("Hiện số" 있음 263 중 2건 미열림, 버튼 없음 16건=게시자가 번호 비공개). **채택 100건**(연락처 있음, KCN 매칭 31, 대행사 게시 17, 고유 번호 71) + 목표 초과로 보류 15건. 제외: 같은 근무 회사 3번째 이후 55·대행사 근거 없음 56·개인명/상호 불명 27·연락처 없음 15·내부 중복 5·상세 실패 5·옛 박장 1.
-- 변경: `bn_collect_chotot_ext.js`(화면 개편 대응 — 텍스트 파싱 대신 상세 `__NEXT_DATA__` ad 객체에서 제목·회사·주소·본문 추출, 번호 열기 연속 3건 실패 시 중단), 신규 `bn_build_chotot_csv.mjs`(판정·CSV). CSV는 `scripts/research/out/bacninh_chotot_review.csv`(gitignore)와 바탕화면 `bacninh_handoff/`.
-- 판정 기준(애매하면 제외): 대행사 = 이름·계정에 nhân lực/tuyển dụng/việc làm/HR/RRD/GRGR/Adtek/Sức Bật/Almustech 등. 대행사는 본문에 알려진 대기업 브랜드 또는 "Công ty/Nhà máy + 이름"이 있거나 KCN 표기가 있어야 채택. 개인명은 성씨·이름 패턴(Nguyễn…, Anh Khoa…)으로만 판정, 3자 이하 상호('a','Hip')는 상호 불명 제외(단 LG 등 브랜드·대행사 이름은 예외).
-- 한계: 옛 박장 판정은 주소·본문에 Bắc Giang·옛 박장 huyện 이름이 있을 때만(합병 후 신 지명 phường/xã만 쓰인 공고는 구분 불가). 대행사 근무 회사 추출은 브랜드 목록·정규식 기반이라 누락/오탐 가능 — 검토 시 "근무 회사" 열 확인 필요. 같은 번호가 여러 공고에 쓰임(고유 번호 71/100).
-- 사고 기록: 화면 개편으로 기존 스크립트 파싱 실패(→ __NEXT_DATA__로 교체), 탭 멈춤 2회(navigate로 복구, 데이터는 localStorage 유지), 자동 다운로드 2회째 Chrome 차단·로컬 서버 전송 차단 → 클릭 제스처로 클립보드 복사 후 PowerShell로 파일 저장(전사 없음).
-- commit/push: branch `feat/job-detail-sections`(스크립트·문서만, CSV 제외). master·Production 미반영.
-- 남은 문제: 사용자 CSV 검토, 반영 방식 결정(승인 전 DB 금지), Muaban·Facebook은 이후.
 
