@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 길찾기 복구(좌표 링크) + KCN 영역 윤곽·이름표·축소 배율(상세·Phóng to)
+
+- 요청: Google 길찾기 허용(좌표로만), 승인 근무지 "Chỉ đường"·KCN "Chỉ đường đến KCN …"+정문 아님 안내, 공단 영역 테두리+이름표, 축소 배율, Phóng to에도 적용, CLAUDE.md·HANDOFF 규칙 정정.
+- 변경: jobCoords `hasApprovedPoint`(출입구→승인 전체, 테스트 갱신), industrialParkOutlines(OSM 윤곽 28개)·industrialParkDirectionsUrl(+test), JobVietMap 윤곽 레이어(`home-kcn-area*`, 스타일 전환 시 유지)·fitBounds·길찾기 note, JobDetail 버튼, CLAUDE.md 규칙 정정.
+- 검증: tsc, tests 37/37, build. 헤드리스 Chrome(WebGL) 실제 렌더: #4682 윤곽·이름표·길찾기 버튼(href 좌표)·위성·Phóng to·닫기, acceptance 승인 근무지 "Chỉ đường"(좌표) 상세·Phóng to, Geoapify 0·콘솔 오류 0.
+- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
+- 남은 문제: 사용자 PC·폰 확인, 길찾기 버튼은 Google 지도 새 탭(외부) — 실제 클릭 도착 화면은 미확인.
+
 ## 2026-10-07 — 상세 지도 빈 화면 수정 + "Phóng to" 전체화면 지도(홈 바로가기 제거)
 
 - 요청: Preview에서 상세 지도가 빈 화면 → 원인 확인·수정, 홈 이동 링크 제거, Phóng to 전체화면 모달 지도(주변 POI, 길찾기는 승인 좌표만).
@@ -74,13 +82,4 @@
 - commit/push/deploy: master `cccd767` push → Vercel Production 자동 배포 Ready.
 - 사용자 확인: 2026-10-06 실제 PC 마우스·Android 최종 확인 완료 → PRODUCTION VERIFIED(사용자).
 - 남은 문제: VietMap 키 제한 권한 대기.
-
-## 2026-10-06 — 지도 제스처 재정비 + 모바일 생활지도 bottom sheet — PREVIEW APPROVED, BRANCH PUSHED
-
-- 요청: 6d02be6 cooperativeGestures 방식이 실제 마우스·Android에서 실패 → 데스크톱 휠=지도 줌, 모바일 지도 조작 우선 + 상세 하단 sheet.
-- 변경: cooperativeGestures 폐기(SDK 기본 제스처), 터치 기기 회전·기울기만 끔, POI 탭 판정 정밀화, 데스크톱 좌우 패널 끝 휠→페이지(pageScrollChain), 모바일(≤760px) 상세 bottom sheet(접힘 38%/펼침 85%, 손잡이 드래그, 내부 스크롤).
-- 이유: Android Chrome은 pan-y 계열 touch-action에서 첫 손가락 이동 후 두 번째 손가락을 앱에 전달하지 않음(실기기 로그). 직접 제스처·지도 조작 모드도 거쳐 SDK 기본 + sheet로 확정.
-- 검증: tsc, tests 30/30, build. 사용자 실제 Android 승인(Preview `jobi-6msh3jqki`). 실패 Preview: mxku84k2y, 2c0mhtph5, fycayo97n, f5g8m0ji5, hdwhiwnd7 등.
-- commit/push: `520031f` → `origin/fix/map-wheel-page-scroll`. master·Production 미반영.
-- 남은 문제: master merge·Production 배포 결정, 데스크톱 실제 마우스 1회 확인 권장, VietMap 키 제한 권한 대기.
 

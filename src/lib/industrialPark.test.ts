@@ -1,5 +1,6 @@
 import { INDUSTRIAL_PARKS } from '../data/industrialParks.ts'
-import { findIndustrialPark } from './industrialPark.ts'
+import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines.ts'
+import { findIndustrialPark, industrialParkDirectionsUrl } from './industrialPark.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
 const id = (...t: (string | undefined)[]) => findIndustrialPark(...t)?.id
@@ -13,6 +14,21 @@ for (const p of INDUSTRIAL_PARKS) {
   assert(p.lat > 8 && p.lat < 24 && p.lng > 102 && p.lng < 110, `${p.id} is inside Vietnam`)
   assert(p.aliases.length > 0 && p.aliases.every((a) => a === a.toLowerCase() && !/[^a-z0-9 ]/.test(a)), `${p.id} aliases are folded`)
 }
+
+// 영역 윤곽: 모든 공단에 같은 OSM way의 닫힌 링이 있고, 중심 좌표가 윤곽 bounds 안(= bbox 중심)에 있다
+for (const p of INDUSTRIAL_PARKS) {
+  const o = INDUSTRIAL_PARK_OUTLINES[p.source.ref]
+  assert(!!o && o.ring.length >= 4, `${p.id} has an outline`)
+  assert(o.ring[0][0] === o.ring[o.ring.length - 1][0] && o.ring[0][1] === o.ring[o.ring.length - 1][1], `${p.id} outline ring is closed`)
+  assert(p.lng >= o.bounds[0] && p.lng <= o.bounds[2] && p.lat >= o.bounds[1] && p.lat <= o.bounds[3], `${p.id} center is inside its outline bounds`)
+  assert(Math.abs((o.bounds[0] + o.bounds[2]) / 2 - p.lng) < 2e-5 && Math.abs((o.bounds[1] + o.bounds[3]) / 2 - p.lat) < 2e-5, `${p.id} center = outline bbox center (Overpass out center)`)
+}
+assert(Object.keys(INDUSTRIAL_PARK_OUTLINES).length === INDUSTRIAL_PARKS.length, 'no orphan outlines')
+
+// 길찾기 링크는 좌표로만(이름 검색 금지 — 2026-09-29 VSIP 오안내 재발 방지)
+const vsip = findIndustrialPark('KCN VSIP, Bắc Ninh')!
+assert(industrialParkDirectionsUrl(vsip) === 'https://www.google.com/maps/dir/?api=1&destination=21.0800324,105.9835287', 'directions use the park center coordinates')
+assert(INDUSTRIAL_PARKS.every((p) => /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=-?\d+\.\d+,-?\d+\.\d+$/.test(industrialParkDirectionsUrl(p))), 'every directions URL is coordinates only')
 
 // 실제 공고 근무지 텍스트
 assert(id('KCN VSIP, Bắc Ninh') === 'vsip-bac-ninh', '"KCN VSIP, Bắc Ninh" (#4682) = VSIP Bắc Ninh — the only VSIP in Bắc Ninh')

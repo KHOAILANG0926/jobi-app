@@ -79,10 +79,10 @@ function testDirectionsAlwaysAvailableRegardlessOfLocationState(): void {
   const v = workLocationExternalLinks(verified)
   assertTrue(v !== null && v.viewKind === 'exact', 'verified location -> exact pin link')
   assertTrue(!!v?.view.includes('query=10.7,106.7'), 'view link pins the same verified coordinate')
-  // location_verified는 "그 건물이 여기"까지의 확인 — 출입구 미확인이라 길찾기는 열지 않는다
-  assertEqual(v?.directions, null, 'building-level verification (no entrance) -> no directions')
-  const entrance = workLocationExternalLinks({ ...verified, approvedPoint: { lat: 10.71, lng: 106.71, placePrecision: 'entrance' as const } })
-  assertEqual(entrance?.directions, 'https://www.google.com/maps/dir/?api=1&destination=10.71,106.71', 'entrance-confirmed approval -> directions to that exact point')
+  // location_verified만 있고 사람이 승인한 좌표가 없으면 길찾기는 열지 않는다
+  assertEqual(v?.directions, null, 'verified-only (no approval) -> no directions')
+  const approved = workLocationExternalLinks({ ...verified, approvedPoint: { lat: 10.71, lng: 106.71, placePrecision: 'site' as const } })
+  assertEqual(approved?.directions, 'https://www.google.com/maps/dir/?api=1&destination=10.71,106.71', 'approved location -> directions by coordinates to the approved point (never by name)')
 
   const u = workLocationExternalLinks(unverifiedWard)
   assertTrue(u !== null && u.viewKind === 'area' && u.directions === null, 'unverified coordinate -> area view only, NO directions')
@@ -146,7 +146,7 @@ function testHumanApprovedLocationLifecycle(): void {
   const map = resolveMapLocations(approvedJob)
   assertTrue(map.source === 'exact' && map.points[0].precise && map.points[0].lat === 21.05, 'building approved: precise pin at the approved coordinate')
   assertTrue(!!workLocationExternalLinks(loc)?.view.includes('query=21.05,105.95'), 'building approved: external view pins the same point as the site map')
-  assertEqual(workLocationExternalLinks(loc)?.directions, null, 'building approved: still NO directions (entrance not confirmed)')
+  assertEqual(workLocationExternalLinks(loc)?.directions, 'https://www.google.com/maps/dir/?api=1&destination=21.05,105.95', 'building approved: directions by coordinates to the approved point')
   const d = resolveDistanceSearchPoint(approvedJob)
   assertTrue(d !== null && d.lat === 21.05 && d.precise, 'building approved: used for near-me distance at the same point')
 

@@ -25,7 +25,7 @@ import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
-import { findIndustrialPark } from '../lib/industrialPark'
+import { findIndustrialPark, industrialParkDirectionsUrl } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -348,6 +348,10 @@ export function JobDetail() {
   const park = !hasMapPoints
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
     : undefined
+  // 공단 수준 길찾기 — 공단 중심 좌표(OSM)로만(이름 검색 금지), 공장 정문이 아님을 한 줄로 안내
+  const parkDirection = park
+    ? { label: `Chỉ đường đến ${park.name}`, href: industrialParkDirectionsUrl(park), note: 'Điểm đến là tâm khu công nghiệp theo OpenStreetMap, không phải cổng nhà máy.' }
+    : undefined
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
   // 있으면 항상 보여준다.
   const hasWorkLocationList = (job.workLocations?.length ?? 0) > 0
@@ -634,13 +638,17 @@ export function JobDetail() {
                       </p>
                     </>
                   )}
-                  {park && (
+                  {park && parkDirection && (
                     <>
-                      <ClientOnlyMap lat={park.lat} lng={park.lng} title={park.name} zoom={14} pinless />
+                      <ClientOnlyMap lat={park.lat} lng={park.lng} title={park.name} zoom={14} pinless parkRef={park.source.ref} parkName={park.name} directions={[parkDirection]} />
                       <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (không có ghim) — không dùng để chỉ đường hay tính khoảng cách.
-                        <span className="jd2-map-credit"> Tâm khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
+                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (viền nét đứt, không có ghim) — chưa dùng để tính khoảng cách.
+                        <span className="jd2-map-credit"> Tâm và viền khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
                       </p>
+                      <div className="jd2-map-links">
+                        <a className="jd2-map-dir" href={parkDirection.href} target="_blank" rel="noopener noreferrer">{parkDirection.label} ↗</a>
+                        <p className="jd2-map-dir-note">{parkDirection.note}</p>
+                      </div>
                     </>
                   )}
                   {!hasMapPoints && !park && mapLocations.source !== 'pending' && (

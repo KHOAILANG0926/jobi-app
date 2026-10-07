@@ -10657,6 +10657,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-vmap-modal__close { border: 0; border-radius: 8px; padding: 8px 16px; background: #0f172a; color: #fff; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
 .jd2-vmap-modal__map { position: relative; flex: 1; min-height: 0; }
 .jd2-vmap-modal__hint { margin: 0; padding: 0.5rem 0.9rem; font-size: 0.8rem; color: #475569; border-top: 1px solid #e2e8f0; background: #fff; }
+.jd2-map-links { margin-top: 0.6rem; }
+.jd2-map-dir { display: inline-block; padding: 0.55rem 0.9rem; border-radius: 10px; background: #1d4ed8; color: #fff; font-size: 0.9rem; font-weight: 700; text-decoration: none; }
+.jd2-map-dir:hover { background: #1e40af; }
+.jd2-map-dir-note { margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b; line-height: 1.5; }
 .jd2-map-credit { display: block; margin-top: 0.25rem; font-size: 0.72rem; font-weight: 400; color: #64748b; }
 
 @media (prefers-color-scheme: dark) {

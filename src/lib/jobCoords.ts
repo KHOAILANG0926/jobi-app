@@ -307,11 +307,13 @@ export function isVerifiedWorkLocation(l: Parameters<typeof verifiedWorkLocation
   return verifiedWorkLocationPoint(l) !== null
 }
 
-/** 길찾기 목적지로 줘도 되는지 — 출입구까지 사람이 확인한 승인(placePrecision='entrance')만.
- *  건물·부지 승인이나 location_verified(원본 사이트 좌표 검증)는 "그 건물·사업장이 여기"까지만
- *  확인한 것이라 핀·거리 계산에는 쓰되 정확한 길찾기는 열지 않는다(2026-09-29). */
-export function isEntranceConfirmed(l: { approvedPoint?: { placePrecision: string } }): boolean {
-  return l.approvedPoint?.placePrecision === 'entrance'
+/** 길찾기 목적지로 줘도 되는지 — 사람이 승인한 근무지(approvedPoint: 출입구·건물·부지 어느 정밀도든)만.
+ *  목적지는 반드시 승인된 좌표(destination=lat,lng)이고 이름·주소 글자 검색은 쓰지 않는다
+ *  (2026-09-29 VSIP 오안내 재발 방지). 승인 없이 location_verified(원본 사이트 좌표 검증)·지역·공단 좌표만
+ *  있는 근무지는 핀·거리 계산 대상일 뿐 이 함수로는 길찾기를 열지 않는다. 2026-10-07 사용자 지시로
+ *  "출입구 승인만"에서 "승인 근무지"로 넓혔다(공단 수준 길찾기는 industrialPark.ts가 따로 담당). */
+export function hasApprovedPoint(l: { approvedPoint?: { lat: number; lng: number } }): boolean {
+  return !!l.approvedPoint && Number.isFinite(l.approvedPoint.lat) && Number.isFinite(l.approvedPoint.lng)
 }
 
 /**
@@ -502,7 +504,7 @@ export function externalMapLinks(
 export function workLocationExternalLinks(l: WorkLocationLike): ExternalMapLinks | null {
   const point = resolveWorkLocationMapPoint(l)
   return externalMapLinks(point, isVerifiedWorkLocation(l), l.addressAccuracy === 'region_only' ? 11 : 14,
-    isEntranceConfirmed(l))
+    hasApprovedPoint(l))
 }
 
 /**

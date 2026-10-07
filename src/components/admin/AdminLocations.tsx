@@ -223,7 +223,7 @@ function ManualLocationPanel({ candidates, onDone, onError }: { candidates: Loca
             <select value={precision} onChange={(e) => setPrecision(e.target.value as typeof precision)} style={{ width: '100%' }}>
               <option value="building">{PRECISION_LABEL.building}</option>
               <option value="site">{PRECISION_LABEL.site}</option>
-              <option value="entrance">{PRECISION_LABEL.entrance} (dùng cho chỉ đường)</option>
+              <option value="entrance">{PRECISION_LABEL.entrance}</option>
             </select>
           </label>
           <label>Nguồn tọa độ

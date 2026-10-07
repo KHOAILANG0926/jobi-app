@@ -8,10 +8,11 @@ import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { applyLifeMapStyle, type StyleLike } from './home/map/lifeMapStyle'
 import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './home/map/vietMapStyle'
+import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines'
 
 export interface JobVietMapMarker { lat: number; lng: number; label?: string }
-/** 길찾기 링크 — 승인된 출입구 좌표(기존 규칙)가 있는 근무지만 넘긴다 */
-export interface JobVietMapDirection { label: string; href: string }
+/** 길찾기 링크 — 승인된 근무지 좌표 또는 공단 중심 좌표(좌표로만, 이름 검색 금지). note는 버튼 아래 한 줄 안내 */
+export interface JobVietMapDirection { label: string; href: string; note?: string }
 
 export interface JobVietMapProps {
   lat: number
@@ -22,7 +23,10 @@ export interface JobVietMapProps {
   markers?: JobVietMapMarker[]
   /** true면 핀·원을 그리지 않고 그 일대 지도만 보여준다 */
   pinless?: boolean
-  /** 전체화면(Phóng to)에서만 보이는 길찾기 링크 */
+  /** 공단 영역 표시 — industrialParks.ts의 source.ref(way id). 있으면 그 윤곽(점선 테두리)·이름표를 그리고 윤곽 전체가 보이게 맞춘다 */
+  parkRef?: string
+  parkName?: string
+  /** 전체화면(Phóng to)에서 보이는 길찾기 링크 */
   directions?: JobVietMapDirection[]
   height?: number
 }
@@ -37,7 +41,7 @@ interface CanvasProps extends Omit<JobVietMapProps, 'directions' | 'height'> {
   interactive: boolean
 }
 
-function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, interactive }: CanvasProps) {
+function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkRef, parkName, interactive }: CanvasProps) {
   const boxRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<VietMap | null>(null)
   const markerRefs = useRef<Marker[]>([])
@@ -46,6 +50,11 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, inter
   const [failed, setFailed] = useState(false)
   // markers 배열은 렌더마다 새로 만들어지므로 내용 키로 비교(지도를 보던 중 중심이 되돌아가지 않게)
   const markersKey = JSON.stringify(markers ?? null)
+  const outline = parkRef ? INDUSTRIAL_PARK_OUTLINES[parkRef] : undefined
+  const outlineRef = useRef(outline)
+  outlineRef.current = outline
+  const nameRef = useRef(parkName ?? title)
+  nameRef.current = parkName ?? title
 
   const syncMarkers = () => {
     const map = mapRef.current
@@ -61,6 +70,27 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, inter
       list.forEach((m) => b.extend([m.lng, m.lat]))
       map.fitBounds(b, { padding: 40, maxZoom: 17 })
     }
+  }
+
+  // 공단 영역: 점선 테두리 + 옅은 면 + 이름표. 'home-' 접두 id라 Bản đồ↔Vệ tinh 전환 때 applyLifeMapStyle이 그대로 옮긴다.
+  const addAreaLayers = (map: VietMap) => {
+    const o = outlineRef.current
+    if (!o || map.getSource('home-kcn-area')) return
+    const font = (map.getStyle()?.layers ?? []).map((l) => (l.layout as Record<string, unknown> | undefined)?.['text-font']).find((f) => Array.isArray(f)) as string[] | undefined
+    map.addSource('home-kcn-area', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [o.ring] } } })
+    map.addSource('home-kcn-area-label', { type: 'geojson', data: { type: 'Feature', properties: { name: nameRef.current }, geometry: { type: 'Point', coordinates: [lng, lat] } } })
+    map.addLayer({ id: 'home-kcn-area-fill', type: 'fill', source: 'home-kcn-area', paint: { 'fill-color': '#e53935', 'fill-opacity': 0.07 } })
+    map.addLayer({ id: 'home-kcn-area-line', type: 'line', source: 'home-kcn-area', layout: { 'line-join': 'round' }, paint: { 'line-color': '#e53935', 'line-width': 2.5, 'line-dasharray': [3, 2] } })
+    map.addLayer({
+      id: 'home-kcn-area-label', type: 'symbol', source: 'home-kcn-area-label',
+      layout: { 'text-field': ['get', 'name'], 'text-font': font ?? ['Noto Sans Regular'], 'text-size': 14, 'text-allow-overlap': true, 'text-anchor': 'center' },
+      paint: { 'text-color': '#b71c1c', 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
+    })
+  }
+
+  const fitOutline = (map: VietMap) => {
+    const o = outlineRef.current
+    if (o) map.fitBounds([[o.bounds[0], o.bounds[1]], [o.bounds[2], o.bounds[3]]], { padding: 28, maxZoom: 16, duration: 0 })
   }
 
   // 지도는 한 번만 만든다(공식 style을 받아 생활지도 변환 후 생성). 이동·핀은 아래 effect가 처리.
@@ -79,8 +109,10 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, inter
         map = new vietmapgl.Map({
           container: box,
           style: applyLifeMapStyle(official as unknown as StyleLike, 'street') as unknown as StyleSpecification,
-          center: [lng, lat],
-          zoom,
+          // 공단 영역이 있으면 윤곽 전체가 보이게(축소 배율), 없으면 지정한 중심·배율
+          ...(outlineRef.current
+            ? { bounds: outlineRef.current.bounds, fitBoundsOptions: { padding: 28, maxZoom: 16 } }
+            : { center: [lng, lat] as [number, number], zoom }),
           attributionControl: false,
           scrollZoom: interactive,
           dragPan,
@@ -91,6 +123,8 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, inter
         map.addControl(new vietmapgl.AttributionControl({ compact: true }))
         if (interactive) map.touchZoomRotate.disableRotation()
         mapRef.current = map
+        const created = map
+        created.on('style.load', () => addAreaLayers(created))
         // 컨테이너 크기가 나중에 바뀌어도(레이아웃 확정·모달 열림) 캔버스를 다시 맞춘다 — 홈 지도와 같은 방식.
         resizeObserver = new ResizeObserver(() => map?.resize())
         resizeObserver.observe(box)
@@ -110,7 +144,8 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, inter
   }, [])
 
   useEffect(() => {
-    mapRef.current?.jumpTo({ center: [lng, lat], zoom })
+    const map = mapRef.current
+    if (map) { if (outlineRef.current) fitOutline(map); else map.jumpTo({ center: [lng, lat], zoom }) }
     syncMarkers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, zoom, pinless, markersKey])
@@ -144,7 +179,7 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, inter
   )
 }
 
-export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinless = false, directions, height = 280 }: JobVietMapProps) {
+export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinless = false, parkRef, parkName, directions, height = 280 }: JobVietMapProps) {
   const [open, setOpen] = useState(false)
 
   // 전체화면: Esc로 닫기, 배경 페이지 스크롤 잠금. 닫으면 공고 화면(스크롤 위치 포함)으로 그대로 복귀.
@@ -160,7 +195,7 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
   return (
     <>
       <div className="jd2-vmap" style={{ height }}>
-        <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} interactive={false} />
+        <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} interactive={false} />
         <button type="button" className="jd2-vmap__zoom" onClick={() => setOpen(true)}>Phóng to</button>
       </div>
       {open && (
@@ -173,10 +208,11 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
             <button type="button" className="jd2-vmap-modal__close" onClick={() => setOpen(false)} autoFocus>Đóng</button>
           </div>
           <div className="jd2-vmap-modal__map">
-            <MapCanvas lat={lat} lng={lng} title={title} zoom={Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} interactive />
+            <MapCanvas lat={lat} lng={lng} title={title} zoom={parkRef ? zoom : Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} interactive />
           </div>
           <p className="jd2-vmap-modal__hint">
-            {pinless ? 'Vị trí chính xác chưa xác minh — bản đồ chỉ cho biết khu vực lân cận. ' : ''}Phóng to để xem cửa hàng, tòa nhà xung quanh.
+            {pinless ? 'Vị trí chính xác chưa xác minh — bản đồ chỉ cho biết khu vực lân cận. ' : ''}
+            {directions?.map((d) => d.note).filter(Boolean).join(' ')}{directions?.some((d) => d.note) ? ' ' : ''}Phóng to để xem cửa hàng, tòa nhà xung quanh.
           </p>
         </div>
       )}

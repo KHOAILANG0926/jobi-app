@@ -32,3 +32,9 @@ export function findIndustrialPark(...texts: (string | null | undefined)[]): Ind
   }
   return undefined
 }
+
+/** 공단 중심 좌표로 가는 Google 지도 길찾기 — 반드시 좌표(destination=lat,lng)이고 이름 검색은 쓰지 않는다.
+ *  목적지는 OSM 공단 면의 중심이지 공장 정문이 아니므로 화면에 그 사실을 한 줄로 함께 안내한다. */
+export function industrialParkDirectionsUrl(park: Pick<IndustrialPark, 'lat' | 'lng'>): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${park.lat},${park.lng}`
+}
