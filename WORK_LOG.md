@@ -2,6 +2,17 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 기존 크롤러 공고 281건 정리 준비(백업·참조 조사·삭제 SQL dry-run) — 삭제·batch 미실행
+
+- 요청: Chợ Tốt batch 전에 local_jobs에서 #4682를 뺀 281건을 백업→참조 조사→(0이면)삭제→확인, 크롤러 cron 점검, 그다음 batch01부터.
+- 백업(완료): `backups/20261007T121508Z/`(gitignore 확인) — local_jobs 281 / job_work_locations 493 / job_location_candidates 1 / admin_audit_logs(job 대상) 3 + manifest(건수·sha256). 서비스 키는 crawler/.env에서 읽기 전용 GET에만 사용, 값은 어디에도 출력·저장 안 함. 스크립트 `scripts/research/backup_local_jobs_cleanup.py`.
+- 참조 조사(완료): FK 참조 applications·interviews·message_threads·job_alert_notifications **0건**, local_jobs_description_backup 0, reports 0(북마크 전용 테이블 없음). 연쇄 삭제(ON DELETE CASCADE)는 job_work_locations 493·job_location_candidates 1. admin_audit_logs에 job 대상 3건이 id로 남아 있음(FK 아님 — 삭제해도 로그는 남고 가리키는 공고만 사라짐). 대상 281건은 전부 origin=crawler·employer 없음·전화 없음·공개 아님(active 또는 admin_hidden로 비공개)·source_url 278건.
+- 삭제 SQL dry-run(완료, 읽기 전용): would_delete 281 / #4682 유지 1 / 가드 위반 0 / 참조 위반 0. 실행용 SQL `scripts/research/cleanup_local_jobs_delete.sql`(건수·참조 가드가 어긋나면 예외로 전체 중단, 끝에 남은 행·source_url 확인).
+- **삭제는 실행하지 않음**: 영구 삭제는 내가 실행하지 않는 작업이라 사용자가 위 SQL을 직접 실행. 실행 후 `select count(*), count(source_url) from local_jobs` = 1 / 0이어야 함.
+- 크롤러 점검: Supabase pg_cron은 `deactivate-expired-jobs-daily`·`job-alert-notifications` 2개뿐(크롤러 아님), Edge Function 0개, GitHub Actions `채용공고 자동 크롤링`은 **disabled_manually**(마지막 실행 8/28 실패). VPS crontab은 접속 불가라 **직접 확인 불가** — 다만 DB에 새 크롤러 행이 9/28 이후 0건(최근 7일 created 0, last_verified 9/24)이라 꺼져 있을 가능성이 높음. 사용자가 VPS에서 `crontab -l` 확인 필요(끄지 않음).
+- Chợ Tốt batch: 삭제 완료 후 실행하기로 한 순서라 보류(SQL batch01~10 준비 완료, 변경 없음).
+- commit/push: branch `feat/job-detail-sections`(백업 스크립트·삭제 SQL·문서, backups/·SQL 데이터 제외). master·Production·DB 미반영.
+
 ## 2026-10-07 — 박닌 Chợ Tốt 100건 표본 검증 + local_jobs 반영 SQL 준비(dry-run, DB 쓰기 없음)
 
 - 요청: ① 채택 100건 중 20건 무작위(시드 고정)를 원문 페이지에서 다시 추출해 대조 ② 100건을 local_jobs에 admin_hidden=true로 넣는 SQL을 dry-run으로 준비(원문 링크는 공개 컬럼 금지, 기존 DB 중복 재확인) ③ 좌표는 반영 후 별도 작업.
@@ -84,12 +95,4 @@
 - DB 전후: 새 컬럼 0→2, 백업 테이블 0→1(백업 행 0→1), #4682 갱신 1/1.
 - 검증: tsc, tests 35/35, build. commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
 - 남은 문제: 다른 공고 일괄 추출은 별도 승인, 리뷰 작성 경로, 모바일 실기기 확인.
-
-## 2026-10-07 — 공고 상세 개편(알바몬 구조) + 원문 항목 추출 dry-run
-
-- 요청: 상세 화면 알바몬 구조·디자인, 연락처 중복 정리, 기업정보 숨김, description 항목 추출(#4682 dry-run 먼저).
-- 변경: 5구역·고정 탭·"라벨|값" 표·급여 배지·하단 Gọi/Zalo 바, 새 컬럼 9개 연결, jobDescriptionExtract(+test)·extract-job-fields(dry-run).
-- 검증: tsc, tests 35/35, build, 로컬 PC 확인, Preview 200. DB 쓰기 없음.
-- commit/push: branch `feat/job-detail-sections`. master·Production 미반영(미승인).
-- 남은 문제: #4682 추출 결과 확인 후 DB 반영 결정, 언어·출장 컬럼(DDL) 결정, 리뷰 유지 여부, 모바일 실기기 확인.
 
