@@ -13,3 +13,6 @@ crawler/state/
 # 연락처 출처 조사 스크립트의 로컬 전용 산출물(로그인 프로필·번호 포함 결과) — 절대 커밋 금지
 scripts/research/contact_sources/*-profile/
 scripts/research/contact_sources/*.tsv
+
+# 박닌 수집 검토용 산출물(경쟁 사이트 공고 데이터) — 커밋 금지
+scripts/research/out/

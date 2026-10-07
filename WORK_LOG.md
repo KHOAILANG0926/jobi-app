@@ -2,6 +2,17 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 박닌 공고 100건 검토용 수집(Vieclam24h + Chợ Tốt, DB 쓰기 없음)
+
+- 요청: 박닌만·회사명 없음 제외·원문 링크 미저장·천천히·**연락처 있는 공고 100건 기준**(CLAUDE.md "공고 수집 소스 규칙" 신설, 커밋 92df0a9). 산출물 CSV, 승인 전 DB 반영 금지.
+- 변경: `scripts/research/bn_collect_v24h.py`(Vieclam24h, `province_ids[]=90`+상세 근무지 재검증), `bn_collect_chotot_ext.js`(Chợ Tốt, 로그인된 Chrome 탭 + 확장), `bn_build_csv.mjs`(제외·중복·KCN·연락처 유무→`out/bacninh_review.csv`). out/은 .gitignore(번호·경쟁사 데이터 포함).
+- 결과: **연락처 있는 채택 80건 / 목표 100 → 20건 부족.** Chợ Tốt 목록 103건 방문(추출 성공 101, 번호 확인 92) → 채택 82(연락처 78)/제외 19(회사명 없음 10·내부 중복 9). Vieclam24h 121건 방문 → 채택 114(연락처 2)/제외 7(옛 박장 3·마감 2·기존 DB 중복 1·박닌 아님 1). 채택 합계 196, 그중 연락처 80(chotot 78 + v24h 2), KCN 매칭 10.
+- 미수집: Chợ Tốt 목록 6페이지 이후(총 673건 중 103건만 링크 수집), Muaban·Facebook·TopCV·CareerViet·VietnamWorks 미실행.
+- 검증: DB read-only 대조(v24h source id 1건 중복, Chợ Tốt는 DB에 소스 없음). 번호 확인은 로그인 계정으로 'Hiện số' 1회씩(경고·제한 신호 없음).
+- 주의: Chợ Tốt "회사명"은 게시자명(RRD·ADTEK·GRGR·Sức Bật 등 인력/대행 성격 다수) — 같은 번호로 여러 회사명 공고. 직접채용 판정은 안 함. 헤드리스 접속은 Cloudflare 403(우회 안 함, 확장 방식 사용).
+- 사고 기록: Chrome 탭이 가끔 멈춤(navigate로 새로고침), 경고 정규식 오탐 2회(고침). commit/deploy 없음(문서·스크립트 커밋만).
+- 남은 문제: 20건 부족(Chợ Tốt 추가 페이지 또는 Muaban/Facebook), 옛 박장 포함 여부, 반영 방식 결정.
+
 ## 2026-10-07 — KCN 길찾기 목적지에서 도형 중심 제거(정문·관리사무소만) + VSIP Bắc Ninh 조사
 
 - 요청: KCN 길찾기가 도형 중심(빈 부지)으로 안내됨 → 중심 사용 금지, 목적지 ① OSM 공단 정문 node ② KCN 관리사무소 POI(출처 id·위성 확인), 없으면 버튼 숨김, VSIP Bắc Ninh 결과 먼저 보고.
@@ -73,13 +84,3 @@
 - 검증: tsc, tests 33/33. DB 전후: 컬럼 0→9, 로고 244→0, 재분류 26/26, 재dry-run 잔여 4(제외 건).
 - commit/push: branch `fix/source-logo-and-classifier`. master·코드 배포 미반영.
 - 남은 문제: 새 컬럼 미사용(상세 개편), 제외 4건 규칙 보완.
-
-## 2026-10-06 — 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) Production 반영
-
-- 요청: job_work_locations exact 좌표 0건 → VietMap 상가·회사(POI)를 근무지 좌표 기준으로 연결. 기존 승인 체계(8d30c0d)에 붙이고 새 체계는 만들지 않음.
-- 변경: AdminLocations를 VietMap 지도·위성으로, 1클릭 승인·거절·철회, 지도·위성 클릭 직접 지정 패널(POI 이름 자동 입력), 자동 후보 생성 스크립트(VIETMAP_SERVICE_KEY 없으면 건너뜀, 기본 dry-run, 새 공고만), 회사명·행정구역 일치 판정. DDL 없음(근거는 evidence 텍스트).
-- 검증: tsc, tests 31/31, build. 로컬 실제 클릭(핀·좌표·버튼·POI 이름·위성), 사용자 실제 관리자 화면·저장 테스트(#4613 추가→승인→철회, 감사 로그 3건, 공고·근무지 837 기준값 동일, 공개 영향 없음). 클릭 실패 최초 보고는 재현 안 됨(원인 미확정, 방어 처리+?mapDebug=1 진단 추가).
-- commit/push/deploy: `71acf9a` → master fast-forward, Production `jobi-bo6e6kzkn`(`dpl_GvH2AbDrcqdrL5wppJxUfNVs6fHo`) Ready. `/admin` 200, 서빙 번들에 새 관리자 코드 확인(로그인 화면은 미확인).
-- 사용자 확인: 2026-10-06 Production 관리자 > 📍 Vị trí 지도 클릭·위성 정상(저장 안 함) → PRODUCTION VERIFIED(사용자).
-- 남은 문제: VietMap 서버용 키 없음(Search v4 HTTP 423) → 자동 후보 꺼짐, Production DB에 테스트 후보 1건(revoked)·감사 로그 3건 남음.
-

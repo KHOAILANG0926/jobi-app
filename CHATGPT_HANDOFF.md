@@ -34,6 +34,7 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 
 ## 다음 결정사항
 
+- **박닌 공고 100건 검토(2026-10-07, DB 미반영)**: 기준은 '연락처 있는 공고'(CLAUDE.md 소스 규칙). 현재 **80/100**(Chợ Tốt 78 + Vieclam24h 2), 검토 CSV는 로컬 `scripts/research/out/bacninh_review.csv`(gitignore)와 바탕화면 `bacninh_handoff/`. 다음: Chợ Tốt 목록 6페이지~ 추가(총 673건, 현재 103건만 링크 수집, `bn_collect_chotot_ext.js`) → 부족하면 Muaban→Facebook 순. 결정: ① 옛 박장 지역 포함 여부 ② Chợ Tốt 게시자(대행) 다수 — 직접채용 판정 방식 ③ 반영 방식(승인 전 DB 금지).
 - **VietMap에 서버용 키 요청**(Search v4·Place v4 허용) 후: 키를 Vercel/크롤러 환경에 `VIETMAP_SERVICE_KEY`로 설정 → `node scripts/generate-location-candidates.ts`(dry-run) 결과 확인 → 별도 승인 후 `--apply`(Production DB 쓰기) → 크롤러 연결 여부 결정. match_meta 컬럼(DDL)은 보류.
 - **VietMap 키 제한 — 권한 부족으로 보류(2026-10-05, 배포는 막지 않음)**: Console 변경 API가 `UN_AUTHORIZED`. Consumer/API key 수정·Referers·usage limit 권한 요청. 권한이 생기면 Referers `viecganban.vn; www.viecganban.vn`, 한도(Production 일 500/월 10,000, Preview 일 100/월 2,000), 가능하면 key 분리.
 - 모니터링: VietMap Console → Daily Report 일 Transaction(일 100 이상 급증 시 보고). Search/Place 호출이 켜지면 근무지 1곳당 최대 4 transaction.
