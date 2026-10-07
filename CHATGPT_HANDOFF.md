@@ -4,13 +4,12 @@
 
 장기 AI/Agent 전략은 AI_DISCOVERY_STRATEGY.md 참고
 
-**공고 상세 화면 개편 (알바몬 구조) (2026-10-07).** branch `feat/job-detail-sections`(master `5f596a4` 기반, worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 38/38·build, 로컬 PC 1280px) / BRANCH PUSHED / **사용자 미승인 · master 미반영 · Production 미배포**. Preview는 SSO 보호.
+**공고 상세 화면 개편 (알바몬 구조) (2026-10-07).** branch `feat/job-detail-sections`(master `5f596a4` 기반, worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 37/37·build, 로컬 PC 1280px) / BRANCH PUSHED / **사용자 미승인 · master 미반영 · Production 미배포**. Preview는 SSO 보호.
 
 - 구조(2026-10-07 갱신): 탭은 3개(Điều kiện / Mô tả công việc / Thông tin công ty, 칸 균등·칸마다 1px 테두리, 비선택=회색·선택=흰 배경+빨간 글씨+아래 테두리 없음). Điều kiện 탭이 근무조건·모집조건·근무지역 3구역을 묶고, 5구역은 한 페이지에 모두 노출(탭은 스크롤 이동만, 스크롤 위치로 활성 탭). 구역·탭 정의는 `src/data/jobSchema.ts`·`src/lib/jobDetailView.ts`(JOB_TABS). 구역 제목은 박스 밖 위에 크게, 박스·제목(헤더) 박스 테두리 #f5c6d0 1px, 요약 박스 #bcd7f5. "라벨 | 값" 2열 표(PC 2칸), 값 없는 행은 숨김. 급여 앞 Lương tháng/ngày/giờ 배지. 헤더 태그는 결정 요소만(통근버스·기숙사·식사·즉시출근·주급), BHXH 등 복리후생은 근무조건 "Phúc lợi" 행. 새 컬럼을 select·타입·화면에 연결.
 - 상세요강: 제목 반복·소제목 제거, 남은 문장을 행으로(Ưu tiên / Yêu cầu khác / Quyền lợi · Môi trường làm việc, 수집 공고의 "## Mô tả" 본문은 Nội dung công việc, 소제목 없는 문장은 Thông tin khác) — `src/lib/jobDescriptionRows.ts`. 행이 없으면 구역·탭 숨김.
-- 근무지역 지도(2026-10-07 갱신): 상세는 **VietMap**(`src/components/JobVietMap.tsx`, 홈 생활지도와 같은 provider·`applyLifeMapStyle`·Bản đồ/Vệ tinh 전환)만 사용 — 상세에서 Geoapify·Leaflet 요청 0(JobDetail은 JobLocationMap을 더 이상 import하지 않음). 확인된 근무지만 핀, 터치 기기에선 드래그·핀치를 꺼 페이지 스크롤을 막지 않음(+/- 버튼).
+- 근무지역 지도(2026-10-07 갱신): 상세는 **VietMap**(`src/components/JobVietMap.tsx`, 홈 생활지도와 같은 provider·`applyLifeMapStyle`·Bản đồ/Vệ tinh 전환)만 사용 — 상세에서 Geoapify·Leaflet 요청 0(JobDetail은 JobLocationMap을 더 이상 import하지 않음). 확인된 근무지만 핀, 작은 지도는 휠 줌을 끄고 터치 기기에선 드래그·핀치도 꺼 페이지 스크롤을 막지 않음(+/- 버튼). 지도 위 "Phóng to" 버튼 → 공고 화면 안 전체화면 모달 지도(주변 상가·건물 POI가 보이도록 z16 이상, Esc·Đóng로 닫으면 공고 복귀, 배경 스크롤 잠금). 길찾기 링크는 전체화면 상단에 승인된 출입구 좌표(기존 규칙)가 있을 때만. **빈 지도 원인(수정됨)**: 벤더 CSS가 지도 청크와 함께 늦게 로드돼 컨테이너의 position/크기를 덮어써 높이 0이 됨 → 인라인 position/크기 + ResizeObserver로 고정(홈 지도와 같은 방식).
 - 공단(KCN) 수준 근무지: **출처 있는 KCN 중심 좌표만**(`src/data/industrialParks.ts`, 28개 — OpenStreetMap landuse=industrial way 중심, Overpass `out center` 2026-10-07 조회 후 별도 호출로 id·좌표 재대조, 각 항목에 `source.ref`=way id). 매칭 `src/lib/industrialPark.ts`: KCN 표기 바로 뒤 이름이 별칭과 정확히 같을 때만(순번 다르면 불일치, 같은 이름 다른 지역은 `requires`로 구분). 표에 없으면 지도 없이 글자 안내(지역 중심 좌표로 대신하지 않음). 핀·길찾기·거리 계산 없음, 화면에 "Vị trí chính xác chưa xác minh" + OSM 출처·© OpenStreetMap contributors 표기. **기존 방향에서 바뀐 것**: 2026-09-30 "공단 중심 좌표로 대신 표시하지 않는다"를 사용자가 일부 변경(출처 있는 KCN 중심의 핀 없는 일대 지도만 허용). 표에 없는 KCN(예: Châu Đức·Deep C·Gia Thuận·Thạch Thất-Quốc Oai·Thuận Đạo·Tân Bình·Thăng Long(Đông Anh)·Hải Sơn 확장·Lê Minh Xuân 3·Mỹ Phước 2·Cát Lái)은 OSM에서 이름이 정확히 맞는 면을 못 찾아 제외.
-- 홈 바로가기: 지도 아래 "Xem trên bản đồ khu vực →"가 `/?mapLat&mapLng&mapR&mapLabel`(`src/lib/mapDeepLink.ts`, 값 검증·반경 클램프)로 홈 생활지도를 그 위치·반경(KCN 3 km, 확인된 근무지 1 km)으로 연다(`HomeMapExplorer`가 읽음).
 - 연락(2026-10-07 갱신): 연락처는 화면에 한 곳만 — PC(≥761px)는 오른쪽 요약 박스(옅은 파란 테두리 #bcd7f5·흰 배경)에 Gọi 번호·Zalo 버튼, 하단 고정 바는 모바일(≤760px)에서만. 연락처가 있으면 연락처가 있으면 별도 지원 버튼·"chưa nhận hồ sơ" 박스·"Xem cách liên hệ" 없음. 내부 지원(기업 계정 공고)이거나 연락처가 없을 때만 지원 영역 표시.
 - 기업정보: 회사 정보·같은 회사 다른 공고가 없으면 구역(탭 포함) 숨김. 자리표시자 회사명("Nhà tuyển dụng Facebook")은 같은 회사로 묶지 않음. 리뷰는 0건이면 숨김.
 - **원문 항목 추출 — #4682 1건 Production DB 반영 완료(2026-10-07, 사용자 승인)**: `jobDescriptionExtract.ts`(+test)·`scripts/extract-job-fields.ts`(dry-run 전용, 반영 기능은 없음 — 반영은 승인받은 SQL로 직접 실행). 원문에 있는 값만 뽑고 문장은 상세요강에서 이동(출처 태그 `[source:…]` 유지). #4682: hours·work_days·education·preference·gender_requirement·benefit_tags·contact_zalo·language_requirement·business_trip 채움, description 정리. **원문 백업**: 신규 테이블 `local_jobs_description_backup`(RLS 켬·공개 접근 없음, job_id·description·reason·backed_up_at) 1행(원문 md5 `3fcc74d0…`). 다른 공고에는 아직 적용하지 않음(승인 필요).
@@ -24,7 +23,7 @@
 
 ## 테스트 결과
 
-tsc 통과, `npm test` 38/38, build 통과. 로컬 PC 1280px: 5구역 순서·고정 탭·활성 탭 전환·하단 Gọi/Zalo·구역 숨김 확인. 모바일 375px은 가로 넘침 없음·하단 바 정상(측정). Preview 200(상세·tim-kiem·sitemap).
+tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·고정 탭·활성 탭 전환·하단 Gọi/Zalo·구역 숨김 확인. 모바일 375px은 가로 넘침 없음·하단 바 정상(측정). Preview 200(상세·tim-kiem·sitemap).
 
 ## 발견된 문제
 

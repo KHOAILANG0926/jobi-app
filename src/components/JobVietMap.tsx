@@ -1,5 +1,6 @@
 // 공고 상세 근무지역 지도 — 홈 생활지도와 같은 VietMap provider·스타일(applyLifeMapStyle), Bản đồ/Vệ tinh 전환 (2026-10-07).
 // Geoapify/Leaflet은 쓰지 않는다. 핀은 "확인된 근무지(markers)"에만 찍고, 공단(KCN) 일대 표시(pinless)는 핀 없이 지도만 보여준다.
+// "Phóng to" 버튼으로 공고 화면 안에서 전체화면 지도(모달)를 열어 주변 상가·건물(POI)을 본다. 닫으면 공고로 복귀.
 // 브라우저 전용 — JobDetail이 마운트 뒤 동적 import 한다(SSR 안전).
 import * as vietmapgl from '@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
 import type { Map as VietMap, Marker, StyleSpecification } from '@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
@@ -9,6 +10,8 @@ import { applyLifeMapStyle, type StyleLike } from './home/map/lifeMapStyle'
 import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './home/map/vietMapStyle'
 
 export interface JobVietMapMarker { lat: number; lng: number; label?: string }
+/** 길찾기 링크 — 승인된 출입구 좌표(기존 규칙)가 있는 근무지만 넘긴다 */
+export interface JobVietMapDirection { label: string; href: string }
 
 export interface JobVietMapProps {
   lat: number
@@ -19,12 +22,22 @@ export interface JobVietMapProps {
   markers?: JobVietMapMarker[]
   /** true면 핀·원을 그리지 않고 그 일대 지도만 보여준다 */
   pinless?: boolean
+  /** 전체화면(Phóng to)에서만 보이는 길찾기 링크 */
+  directions?: JobVietMapDirection[]
   height?: number
 }
 
 const TILEMAP_KEY = (import.meta.env.VITE_VIETMAP_TILEMAP_KEY as string | undefined)?.trim() ?? ''
 
-export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinless = false, height = 280 }: JobVietMapProps) {
+/** 전체화면은 주변 상가·건물(POI)이 보이도록 더 가깝게 연다(생활지도 POI는 z15~16부터 표시). */
+const FULLSCREEN_MIN_ZOOM = 16
+
+interface CanvasProps extends Omit<JobVietMapProps, 'directions' | 'height'> {
+  /** 전체화면: 휠 줌·드래그를 항상 켠다. 작은 지도는 페이지 스크롤을 막지 않게 휠 줌을 끈다. */
+  interactive: boolean
+}
+
+function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, interactive }: CanvasProps) {
   const boxRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<VietMap | null>(null)
   const markerRefs = useRef<Marker[]>([])
@@ -33,44 +46,6 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
   const [failed, setFailed] = useState(false)
   // markers 배열은 렌더마다 새로 만들어지므로 내용 키로 비교(지도를 보던 중 중심이 되돌아가지 않게)
   const markersKey = JSON.stringify(markers ?? null)
-
-  // 지도는 한 번만 만든다(공식 style을 받아 생활지도 변환 후 생성). 이동·핀은 아래 effect가 처리.
-  useEffect(() => {
-    const box = boxRef.current
-    if (!box || !TILEMAP_KEY) return
-    const controller = new AbortController()
-    let map: VietMap | null = null
-    // 터치 기기에서는 지도가 한 손가락 스크롤을 가로채 페이지가 안 내려가는 문제가 있어 드래그·핀치를 끄고 +/- 버튼만 쓴다.
-    const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
-    fetchVietMapStyle<StyleSpecification>(createVietMapStyleUrl(TILEMAP_KEY, 'street'), { signal: controller.signal })
-      .then((official) => {
-        if (controller.signal.aborted) return
-        map = new vietmapgl.Map({
-          container: box,
-          style: applyLifeMapStyle(official as unknown as StyleLike, 'street') as unknown as StyleSpecification,
-          center: [lng, lat],
-          zoom,
-          attributionControl: false,
-          scrollZoom: false,
-          dragPan: !coarse,
-          touchZoomRotate: false,
-          dragRotate: false,
-        })
-        map.addControl(new vietmapgl.NavigationControl({ showCompass: false }), 'top-left')
-        map.addControl(new vietmapgl.AttributionControl({ compact: true }))
-        mapRef.current = map
-        syncMarkers()
-      })
-      .catch(() => { if (!controller.signal.aborted) setFailed(true) })
-    return () => {
-      controller.abort()
-      markerRefs.current.forEach((m) => m.remove())
-      markerRefs.current = []
-      map?.remove()
-      mapRef.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const syncMarkers = () => {
     const map = mapRef.current
@@ -84,9 +59,55 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
     if (list.length > 1) {
       const b = new vietmapgl.LngLatBounds()
       list.forEach((m) => b.extend([m.lng, m.lat]))
-      map.fitBounds(b, { padding: 40, maxZoom: 16 })
+      map.fitBounds(b, { padding: 40, maxZoom: 17 })
     }
   }
+
+  // 지도는 한 번만 만든다(공식 style을 받아 생활지도 변환 후 생성). 이동·핀은 아래 effect가 처리.
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box || !TILEMAP_KEY) return
+    const controller = new AbortController()
+    let map: VietMap | null = null
+    let resizeObserver: ResizeObserver | null = null
+    // 터치 기기의 작은 지도는 한 손가락 스크롤을 가로채 페이지가 안 내려가므로 드래그·핀치를 끄고 +/- 버튼만 쓴다(전체화면은 항상 켬).
+    const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+    const dragPan = interactive || !coarse
+    fetchVietMapStyle<StyleSpecification>(createVietMapStyleUrl(TILEMAP_KEY, 'street'), { signal: controller.signal })
+      .then((official) => {
+        if (controller.signal.aborted) return
+        map = new vietmapgl.Map({
+          container: box,
+          style: applyLifeMapStyle(official as unknown as StyleLike, 'street') as unknown as StyleSpecification,
+          center: [lng, lat],
+          zoom,
+          attributionControl: false,
+          scrollZoom: interactive,
+          dragPan,
+          touchZoomRotate: interactive,
+          dragRotate: false,
+        })
+        map.addControl(new vietmapgl.NavigationControl({ showCompass: false }), 'top-left')
+        map.addControl(new vietmapgl.AttributionControl({ compact: true }))
+        if (interactive) map.touchZoomRotate.disableRotation()
+        mapRef.current = map
+        // 컨테이너 크기가 나중에 바뀌어도(레이아웃 확정·모달 열림) 캔버스를 다시 맞춘다 — 홈 지도와 같은 방식.
+        resizeObserver = new ResizeObserver(() => map?.resize())
+        resizeObserver.observe(box)
+        map.resize()
+        syncMarkers()
+      })
+      .catch(() => { if (!controller.signal.aborted) setFailed(true) })
+    return () => {
+      controller.abort()
+      resizeObserver?.disconnect()
+      markerRefs.current.forEach((m) => m.remove())
+      markerRefs.current = []
+      map?.remove()
+      mapRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     mapRef.current?.jumpTo({ center: [lng, lat], zoom })
@@ -109,8 +130,9 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
     return <p className="job-location-map__error">Không thể tải bản đồ.</p>
   }
   return (
-    <div className="jd2-vmap" style={{ height }}>
-      <div ref={boxRef} className="jd2-vmap__canvas" />
+    <>
+      {/* 벤더 CSS(.maplibregl-map 등)가 늦게 로드돼 position/size를 덮어쓰지 않도록 인라인으로 고정한다(관리자 지도와 같은 방식). */}
+      <div ref={boxRef} className="jd2-vmap__canvas" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%' }} />
       <div className="jd2-vmap__modes" role="group" aria-label="Kiểu bản đồ">
         {(['street', 'satellite'] as const).map((k) => (
           <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}>
@@ -118,6 +140,46 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
           </button>
         ))}
       </div>
-    </div>
+    </>
+  )
+}
+
+export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinless = false, directions, height = 280 }: JobVietMapProps) {
+  const [open, setOpen] = useState(false)
+
+  // 전체화면: Esc로 닫기, 배경 페이지 스크롤 잠금. 닫으면 공고 화면(스크롤 위치 포함)으로 그대로 복귀.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [open])
+
+  return (
+    <>
+      <div className="jd2-vmap" style={{ height }}>
+        <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} interactive={false} />
+        <button type="button" className="jd2-vmap__zoom" onClick={() => setOpen(true)}>Phóng to</button>
+      </div>
+      {open && (
+        <div className="jd2-vmap-modal" role="dialog" aria-modal="true" aria-label={`Bản đồ — ${title}`}>
+          <div className="jd2-vmap-modal__bar">
+            <strong className="jd2-vmap-modal__title">{title}</strong>
+            {directions?.map((d) => (
+              <a key={d.href} className="jd2-vmap-modal__dir" href={d.href} target="_blank" rel="noopener noreferrer">{d.label}</a>
+            ))}
+            <button type="button" className="jd2-vmap-modal__close" onClick={() => setOpen(false)} autoFocus>Đóng</button>
+          </div>
+          <div className="jd2-vmap-modal__map">
+            <MapCanvas lat={lat} lng={lng} title={title} zoom={Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} interactive />
+          </div>
+          <p className="jd2-vmap-modal__hint">
+            {pinless ? 'Vị trí chính xác chưa xác minh — bản đồ chỉ cho biết khu vực lân cận. ' : ''}Phóng to để xem cửa hàng, tòa nhà xung quanh.
+          </p>
+        </div>
+      )}
+    </>
   )
 }

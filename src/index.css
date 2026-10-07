@@ -10648,8 +10648,15 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-vmap__modes { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
 .jd2-vmap__modes button { border: 0; padding: 6px 10px; font-size: 12px; font-weight: 600; background: #fff; color: #0f172a; cursor: pointer; }
 .jd2-vmap__modes button[aria-pressed='true'] { background: #0f172a; color: #fff; }
-.jd2-map-home-link { display: inline-block; margin-top: 0.6rem; font-size: 0.9rem; font-weight: 700; color: #1d4ed8; text-decoration: none; }
-.jd2-map-home-link:hover { text-decoration: underline; }
+.jd2-vmap__zoom { position: absolute; left: 8px; bottom: 28px; z-index: 2; border: 1px solid #cbd5e1; background: #fff; color: #0f172a; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.jd2-vmap-modal { position: fixed; inset: 0; z-index: 1000; background: #fff; display: flex; flex-direction: column; }
+.jd2-vmap-modal__bar { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.9rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
+.jd2-vmap-modal__title { flex: 1; min-width: 0; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jd2-vmap-modal__dir { font-size: 0.85rem; font-weight: 700; color: #1d4ed8; text-decoration: none; white-space: nowrap; }
+.jd2-vmap-modal__dir:hover { text-decoration: underline; }
+.jd2-vmap-modal__close { border: 0; border-radius: 8px; padding: 8px 16px; background: #0f172a; color: #fff; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+.jd2-vmap-modal__map { position: relative; flex: 1; min-height: 0; }
+.jd2-vmap-modal__hint { margin: 0; padding: 0.5rem 0.9rem; font-size: 0.8rem; color: #475569; border-top: 1px solid #e2e8f0; background: #fff; }
 .jd2-map-credit { display: block; margin-top: 0.25rem; font-size: 0.72rem; font-weight: 400; color: #64748b; }
 
 @media (prefers-color-scheme: dark) {

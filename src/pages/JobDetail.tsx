@@ -26,7 +26,6 @@ import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
 import { findIndustrialPark } from '../lib/industrialPark'
-import { buildMapDeepLink } from '../lib/mapDeepLink'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -339,6 +338,13 @@ export function JobDetail() {
   // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 "해당 KCN 중심 좌표"로 핀 없이 지도 + "Vị trí chính xác chưa xác minh".
   // 중심 좌표는 출처(OpenStreetMap way)가 있는 공단 표(data/industrialParks.ts)에서만 가져온다 — 표에 없으면
   // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
+  // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
+  const mapDirections = (job.workLocations ?? []).flatMap((loc) => {
+    const links = isVerifiedWorkLocation(loc) ? workLocationExternalLinks(loc) : null
+    return links && links.viewKind === 'exact' && links.directions
+      ? [{ label: (job.workLocations?.length ?? 0) > 1 ? `Chỉ đường — ${loc.rawAddress}` : 'Chỉ đường', href: links.directions }]
+      : []
+  })
   const park = !hasMapPoints
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
     : undefined
@@ -619,10 +625,8 @@ export function JobDetail() {
                         title={job.title}
                         zoom={mapLocations.zoom}
                         markers={verifiedMapPoints.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label }))}
+                        directions={mapDirections}
                       />
-                      <Link className="jd2-map-home-link" to={buildMapDeepLink({ lat: mapCenter.lat, lng: mapCenter.lng, radiusKm: 1, label: mapCenter.label || job.title })}>
-                        Xem trên bản đồ khu vực →
-                      </Link>
                       <p className="jd2-map-note">
                         {verifiedMapPoints.length > 1
                           ? `Công việc này có ${verifiedMapPoints.length} địa điểm làm việc đã xác minh.`
@@ -637,9 +641,6 @@ export function JobDetail() {
                         <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (không có ghim) — không dùng để chỉ đường hay tính khoảng cách.
                         <span className="jd2-map-credit"> Tâm khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
                       </p>
-                      <Link className="jd2-map-home-link" to={buildMapDeepLink({ lat: park.lat, lng: park.lng, radiusKm: 3, label: park.name })}>
-                        Xem trên bản đồ khu vực →
-                      </Link>
                     </>
                   )}
                   {!hasMapPoints && !park && mapLocations.source !== 'pending' && (

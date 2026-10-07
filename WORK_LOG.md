@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 상세 지도 빈 화면 수정 + "Phóng to" 전체화면 지도(홈 바로가기 제거)
+
+- 요청: Preview에서 상세 지도가 빈 화면 → 원인 확인·수정, 홈 이동 링크 제거, Phóng to 전체화면 모달 지도(주변 POI, 길찾기는 승인 좌표만).
+- 원인: 벤더 CSS 지연 로드가 지도 컨테이너 position/크기를 덮어씀(높이 0). 수정: 인라인 position/크기 + ResizeObserver. 홈 바로가기(mapDeepLink·HomeMapExplorer 변경)는 제거.
+- 검증: tsc, tests 37/37, build. 헤드리스 Chrome(SwiftShader WebGL, CDP)으로 실제 렌더 확인: #4682 일반지도·위성·전체화면(POI·건물 표시)·닫기 복귀, 확인된 근무지(acceptance-pizza) 핀, 모바일 390px 전체화면, Geoapify 0·콘솔 오류 0.
+- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
+- 남은 문제: 실제 사용자 PC·폰 확인, 길찾기 링크 표시(출입구 승인 좌표 공고가 없어 화면으로는 미확인).
+
 ## 2026-10-07 — 상세 근무지역 지도를 VietMap으로 + 출처 있는 KCN 중심 좌표 + 홈 생활지도 바로가기
 
 - 요청: Leaflet/Geoapify 대신 VietMap(홈과 같은 스타일·Bản đồ/Vệ tinh), KCN 중심 좌표(출처 필수·핀/길찾기 없음), 지도 아래 홈 지도 이동 버튼.
@@ -75,11 +83,4 @@
 - 검증: tsc, tests 30/30, build. 사용자 실제 Android 승인(Preview `jobi-6msh3jqki`). 실패 Preview: mxku84k2y, 2c0mhtph5, fycayo97n, f5g8m0ji5, hdwhiwnd7 등.
 - commit/push: `520031f` → `origin/fix/map-wheel-page-scroll`. master·Production 미반영.
 - 남은 문제: master merge·Production 배포 결정, 데스크톱 실제 마우스 1회 확인 권장, VietMap 키 제한 권한 대기.
-
-## 2026-10-06 — 스크롤 수정 + 예비 지도 오전환 수정 Production 반영
-
-- 요청: 승인된 `6d02be6`(Preview `jobi-jkuypvkg8`)를 master·Production 반영 후 검증.
-- merge/push: master `f84a02a` → `6d02be6` fast-forward(merge commit 없음), branch·master 양쪽 tsc·tests 28/28·build 통과. Vercel Production `jobi-oo9vd5ibp` Ready.
-- Production 검증: 일반 휠 페이지 스크롤(+312px, zoom 불변), Ctrl+휠 확대(합성 이벤트, 11.28→12.28), 숨겨진 탭 25초 → vietmap 유지·활성화 후 준비·Geoapify 0, 클릭 A~E·G 통과, 위성 전환 유지, 콘솔 오류 0.
-- 미검증(실기기): 모바일 1손가락 페이지 스크롤(touch-action `pan-x pan-y`만 확인), 실제 위치 권한 현재 위치. 공고 핀 관련은 Production 확인 좌표 공고 0건이라 미검증(기존).
 
