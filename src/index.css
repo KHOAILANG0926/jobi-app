@@ -10603,9 +10603,29 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-mobile-cta__zalo { flex: 0 0 150px; }
   .jd2-mobile-cta__apply { flex: 1; }
 }
+/* 오른쪽 요약 박스: 옅은 파란 테두리 + 흰 배경. 연락처(Gọi/Zalo)는 PC=요약 박스, 모바일=하단 고정 바 (한 곳만) */
+.jd2-aside { background: #fff; border: 1px solid #bcd7f5; }
+.jd2-aside-contact { display: none; }
+.jd2-aside-contact__call, .jd2-aside-contact__zalo {
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.75rem 0.5rem; color: #fff; font-size: 0.95rem; font-weight: 700;
+  border-radius: 12px; text-decoration: none;
+}
+.jd2-aside-contact__call { background: #16a34a; }
+.jd2-aside-contact__zalo { background: #0068ff; }
+@media (min-width: 761px) {
+  .jd2-aside-contact { display: flex; flex-direction: column; gap: 0.5rem; }
+  .jd2-mobile-cta { display: none !important; }
+  .jd2-page { padding-bottom: 3rem; }
+}
+@media (max-width: 760px) {
+  .jd2-aside-contact { display: none !important; }
+}
+
 @media (prefers-color-scheme: dark) {
   .jd2-sec__title, .jd2-box__sub { color: #f1f5f9; }
   .jd2-box { background: #1e293b; border-color: #475569; }
+  .jd2-aside { background: #1e293b; border-color: #1e3a5f; }
   .jd2-kv__row { border-color: #334155; }
   .jd2-kv dt { color: #64748b; }
   .jd2-kv dd, .jd2-kv dd.jd2-info-val--salary { color: #f1f5f9; }

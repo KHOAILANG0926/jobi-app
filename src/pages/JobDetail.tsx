@@ -829,6 +829,24 @@ export function JobDetail() {
             </div>
           ) : null}
 
+          {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
+          {hasContact && (
+            <div className="jd2-aside-contact">
+              {contact.phone && (
+                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call">
+                  <Phone size={17} strokeWidth={2} />
+                  Gọi {contact.phone}
+                </a>
+              )}
+              {contact.zalo && (
+                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo">
+                  <MessageCircle size={17} strokeWidth={2} />
+                  Zalo
+                </a>
+              )}
+            </div>
+          )}
+
           <ReportButton
             targetType="job"
             targetId={job.id}
@@ -863,7 +881,7 @@ export function JobDetail() {
           {contact.phone && (
             <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-mobile-cta__call">
               <Phone size={17} strokeWidth={2} />
-              Gọi<span className="jd2-cta-num"> {contact.phone}</span>
+              Gọi
             </a>
           )}
           {contact.zalo && (
