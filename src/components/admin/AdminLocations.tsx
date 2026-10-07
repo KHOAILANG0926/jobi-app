@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
 import type { AdminMapMarker, AdminMapPick } from './AdminVietMap'
@@ -51,6 +51,24 @@ const DEFAULT_APPROVE_NOTE = 'Đã đối chiếu trên bản đồ VietMap/vệ
 const DEFAULT_CENTER = { lat: 21.1861, lng: 106.0763 } // Bắc Ninh
 
 const mapFallback = <p>Đang tải bản đồ…</p>
+
+/**
+ * 화면에 보이는 카드에서만 지도를 만든다(2026-10-07). 후보가 33건이 되자 카드마다 WebGL 지도를 동시에 만들어
+ * 브라우저의 WebGL 컨텍스트 한도(Chrome 약 16개)를 넘었고, 오래된 지도부터 캔버스가 사라져 핀(점)만 남았다.
+ * 화면 밖으로 나가면 지도를 해제해 동시에 열려 있는 지도 수를 몇 개로 묶는다.
+ */
+function VisibleOnly({ children, height = 260 }: { children: React.ReactNode; height?: number }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') { setVisible(true); return }
+    const io = new IntersectionObserver((entries) => setVisible(entries.some((e) => e.isIntersecting)), { rootMargin: '150px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return <div ref={boxRef} style={{ minHeight: height }}>{visible ? children : null}</div>
+}
 
 export function AdminLocations() {
   const [items, setItems] = useState<LocationCandidate[]>([])
@@ -122,9 +140,11 @@ export function AdminLocations() {
               {c.status === 'approved' && <button disabled={busy} onClick={() => review(c, 'revoke')}>Thu hồi</button>}
             </div>
           </div>
-          <Suspense fallback={mapFallback}>
-            <AdminVietMap center={{ lat: c.lat, lng: c.lng }} markers={[{ id: String(c.id), lat: c.lat, lng: c.lng, label: c.job_title, status: c.status }]} />
-          </Suspense>
+          <VisibleOnly>
+            <Suspense fallback={mapFallback}>
+              <AdminVietMap center={{ lat: c.lat, lng: c.lng }} markers={[{ id: String(c.id), lat: c.lat, lng: c.lng, label: c.job_title, status: c.status }]} />
+            </Suspense>
+          </VisibleOnly>
         </div>
       </article>
     })}

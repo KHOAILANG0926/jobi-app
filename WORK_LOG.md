@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 관리자 Vị trí 후보 지도 빈 칸(점만) 원인 확인·수정
+
+- 증상: 후보 33건이 생긴 뒤 관리자 Vị trí 화면 지도가 길·건물 없이 핀(점)만 보임.
+- 한도 확인(Chrome, 같은 공개 타일 키): 스타일 tm·hm, 타일 2개 모두 **HTTP 200**(423/429 없음) → 한도 초과 아님. 오늘 VietMap 요청 추정: 좌표 스캔 타일 ≈298 + 위성 확인 래스터 ≈100~150 + 스타일·스프라이트·글꼴·시험 호출 수십 건 + 정상 사이트 트래픽 ≈ 최소 450~600건(콘솔 일 사용량은 조회 권한이 없어 확인 못 함). 계정 한도(Trial 일 500 등)는 문서상 값이 확정돼 있지 않고 지금 응답으로는 제한 신호가 없음.
+- 원인: `AdminLocations`가 후보 카드마다 `AdminVietMap`(WebGL 지도)을 **동시에 33개** 생성 → 브라우저 WebGL 컨텍스트 한도(Chrome 약 16개) 초과 → 오래된 지도부터 캔버스 상실, DOM 마커(점)만 남음. (후보가 몇 건일 때는 드러나지 않았음)
+- 수정: `src/components/admin/AdminLocations.tsx` — `VisibleOnly`(IntersectionObserver, 화면 ±150px일 때만 지도 생성, 벗어나면 해제)로 카드 지도를 감쌈. 동시에 열린 지도는 화면 안 몇 개로 제한. 한도 초과가 원인이 아니라서 "Bản đồ tạm thời không tải được" 공통 안내와 CLAUDE.md 스캔 한도 규칙은 이번엔 넣지 않음(사용자 지시 3번은 한도 초과가 원인일 때 조건).
+- 검증: tsc·npm test 37/37·build 통과. 관리자 로그인이 필요해 이 세션에서 화면으로 확인하지 못함 — 배포 후 사용자 확인 필요.
+- commit/push: master → Production 자동 배포.
+- 남은 문제: 사용자가 /admin → 📍 Vị trí에서 지도가 보이는지 확인. 안 보이면 콘솔의 "Too many active WebGL contexts" 경고·네트워크 응답 코드를 알려줄 것(그때는 한도 쪽 안내 처리를 진행).
+
 ## 2026-10-07 — chotot 좌표 후보 33건 job_location_candidates에 pending 반영(승인 후 실행)
 
 - 요청(승인): 좌표 dry-run의 자동 1 + 검토 필요 32를 pending 후보로 저장. 후보 좌표·출처 id·일치 근거 함께 저장, job_work_locations 좌표는 건드리지 않음(승인 전 핀 없음). 관리자 검토 화면에서 33건 확인, "없음" 67건은 그대로 두고 사유별 건수 기록.
@@ -95,13 +105,4 @@
 - 주의: Chợ Tốt "회사명"은 게시자명(RRD·ADTEK·GRGR·Sức Bật 등 인력/대행 성격 다수) — 같은 번호로 여러 회사명 공고. 직접채용 판정은 안 함. 헤드리스 접속은 Cloudflare 403(우회 안 함, 확장 방식 사용).
 - 사고 기록: Chrome 탭이 가끔 멈춤(navigate로 새로고침), 경고 정규식 오탐 2회(고침). commit/deploy 없음(문서·스크립트 커밋만).
 - 남은 문제: 20건 부족(Chợ Tốt 추가 페이지 또는 Muaban/Facebook), 옛 박장 포함 여부, 반영 방식 결정.
-
-## 2026-10-07 — KCN 길찾기 목적지에서 도형 중심 제거(정문·관리사무소만) + VSIP Bắc Ninh 조사
-
-- 요청: KCN 길찾기가 도형 중심(빈 부지)으로 안내됨 → 중심 사용 금지, 목적지 ① OSM 공단 정문 node ② KCN 관리사무소 POI(출처 id·위성 확인), 없으면 버튼 숨김, VSIP Bắc Ninh 결과 먼저 보고.
-- 변경: industrialParks `destination`(kind·좌표·출처·위성 확인일, 현재 0개), industrialParkDirectionsUrl/Note(destination 없으면 null), JobDetail 버튼 조건부, 테스트(중심≠목적지·destination 구조 검증), CLAUDE.md·HANDOFF 규칙 정정.
-- 조사: VSIP Bắc Ninh — 공단 way node 태그 0, 근처 lift_gate는 위성상 주거 단지 입구(제외), OSM·VietMap에 관리사무소/정문 이름 0 → 목적지 없음 → 버튼 숨김.
-- 검증: tsc, tests 37/37, build, 헤드리스 Chrome(#4682 지도·윤곽·위성·Phóng to 정상, 길찾기 버튼 없음).
-- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
-- 남은 문제: 28개 KCN 모두 목적지 미조사(길찾기 숨김), VSIP 후보 결정.
 
