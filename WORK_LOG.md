@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 공고 항목 jobSchema + Production DB 적용(DDL 9·로고 244·재분류 26)
+
+- 요청: 승인된 즉시 수정 실행. master merge·배포 금지, DB는 전후 건수만 보고.
+- 변경: jobSchema.ts(+test), migration 20261007013659(컬럼 9개), `local_jobs.image_url` 244건 null, 재분류 26건(#4577·#4594·#4598·#4601 제외, 소분류만 바뀌는 3건 제외).
+- 검증: tsc, tests 33/33. DB 전후: 컬럼 0→9, 로고 244→0, 재분류 26/26, 재dry-run 잔여 7.
+- commit/push: branch `fix/source-logo-and-classifier`. master·코드 배포 미반영.
+- 남은 문제: 새 컬럼 미사용(상세 개편), 제외 4건 규칙 보완.
+
 ## 2026-10-06 — 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) Production 반영
 
 - 요청: job_work_locations exact 좌표 0건 → VietMap 상가·회사(POI)를 근무지 좌표 기준으로 연결. 기존 승인 체계(8d30c0d)에 붙이고 새 체계는 만들지 않음.
@@ -75,10 +83,3 @@
 - 검증: tsc, tests 25/25, build, 로컬 화면(데스크톱·375px·위성 전환 유지·87개 시설 집계).
 - commit/push: 2차와 함께 승인(Preview `jobi-ifofpmbdx`) 후 branch `feat/life-map-buildings-poi` commit·push. 1차 단독 Preview `jobi-l5craw8h8`. master·Production 안 함.
 - 남은 문제: 공단 건물 데이터 희소, 위성/z16 사용량 증가 가능, VietMap key 권한 문제(기존).
-## 2026-10-05 — VietMap 키 제한 시도: 권한 부족(UN_AUTHORIZED)
-
-- 요청: Production/Preview Consumer·key 분리, 도메인 제한, 일/월 한도 설정. 안 되면 기존 key에 적용.
-- 결과: Consumer 생성·key 생성·기존 key Referers 수정·consumer 한도 수정 모두 `UN_AUTHORIZED`(HTTP 200 본문). 변경 0건, 기존 key `…18ea45` 유지.
-- 결정(사용자): 이 문제로 Production 배포를 막지 않음. VietMap에 Consumer/key 수정·Referers·usage limit 권한 요청, 권한 생기면 즉시 도메인 제한·한도·key 분리. 배포 후 Daily Report 사용량 모니터링.
-- 수정 파일: CHATGPT_HANDOFF.md, WORK_LOG.md(문서만).
-- 배포: `feat/home-map-vietmap-sync`를 master에 fast-forward(`8f0498f`) push → Vercel Production `jobi-c29zpgkiq` Ready. viecganban.vn에서 VietMap style·tile 정상(실패 0), Geoapify 0, 콘솔 오류 0. 검증: tsc, tests 23/23, build.
