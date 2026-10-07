@@ -7,8 +7,9 @@
 - 증상: 지도에 길은 그려지지만 길 이름·POI·건물 라벨이 없음. 실제 /admin → Vị trí(로그인된 Chrome)에서 재현, "수정 전" 스크린샷 저장.
 - 원인: 관리자 지도는 `applyLifeMapStyle` 없이 VietMap 공식 `tm` 스타일을 그대로 썼다. 공식 스타일은 회사·ATM·상점 POI 레이어가 z18부터(34개 레이어 minzoom 18)이고 글씨도 옅은 회색이라, 관리자 기본 배율 z17에서는 라벨이 0개(z18에서도 흐릿하게 겨우). 요청 문제는 아님(글꼴·스프라이트·스타일 전부 200). 홈·상세 지도는 `applyLifeMapStyle`이 POI를 z13~16으로 당기고 `text-optional`로 라벨을 살려서 보임.
 - 수정: `src/components/admin/AdminVietMap.tsx`만 — 공식 style을 받아 `applyLifeMapStyle(…,'street')`로 변환해 지도 생성, Bản đồ↔Vệ tinh 전환도 같은 transformStyle. 스타일 요청 실패 시 빈 지도 대신 "Bản đồ tạm thời không tải được." 안내. `lifeMapStyle.ts`·`JobVietMap`·홈 지도 코드는 변경 없음.
-- 검증: tsc·npm test 37/37·build 통과. 배포 후 /admin Vị trí에서 전후 스크린샷 비교(아래 HANDOFF/보고).
-- commit/push: master → Production.
+- 검증: tsc·npm test 37/37·build 통과. Production `jobi-fck9ccmdx`(Ready 44s)에서 /admin → Vị trí 실제 화면 전후 비교: 전 — 길만, 라벨·POI 없음(핀 점만) / 후 — 후보 핀 옆에 POI 아이콘+이름("ATM Shinhan Bank Jang Won Tech Vina") 표시, Vệ tinh 전환도 정상(래스터 로드에 10~20초). 지도 요청은 모두 200.
+- 한계: 길 이름은 타일에 이름 있는 도로가 적어(범위 내 9개) 이 구역에서는 여전히 안 보임 — 데이터 한계.
+- commit/push: master `655166b` → Production.
 
 ## 2026-10-07 — 관리자 Vị trí 후보 지도 빈 칸(점만) 원인 확인·수정
 
