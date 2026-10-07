@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — #4682 비공개 전환 + chotot 근무 회사 VietMap 좌표 후보 — 키 없어 중단
+
+- 요청(앞선 지도 스타일·시험 공개 3건 지시는 취소): ① #4682 비공개(회사명 자리표시자 = 공개 제외 규칙 위반) ② chotot 100건(4685~4784) 근무 회사를 VietMap POI와 연결해 좌표 후보 dry-run, `VIETMAP_SERVICE_KEY` 없으면 중단·보고.
+- 완료: #4682 `admin_hidden=true`(DB 직접 수정 1행, 확인됨). 현재 공개로 보이는 local_jobs 0건(chotot 100 + #4682 모두 비공개).
+- 중단: `VIETMAP_SERVICE_KEY`가 환경변수·`.env`·`crawler/.env`·Vercel Production/Preview 어디에도 없음(Vercel에는 `VITE_VIETMAP_TILEMAP_KEY`만 있고, 이 키는 Search v4가 HTTP 423으로 막힘 — 2026-10-06 시험 결과이며 이번에 쓰지 않음). 좌표 후보 조회·CSV·위성 대조는 시작하지 않음. DB 쓰기 없음.
+- commit/push: 문서만(master).
+- 다음: VietMap에서 서버용 키(Search v4·Place v4 허용) 발급 → `VIETMAP_SERVICE_KEY`를 로컬 환경에 설정(Vercel/크롤러 환경 설정은 별도) → `scripts/generate-location-candidates.ts` 구조로 chotot 100건 dry-run(공고별 후보 CSV, 자동 승인/검토 필요/없음 건수, 자동 승인 5건 위성 대조). 비용은 근무지 1곳당 최대 4 transaction이라 100건이면 최대 400회 — 일일 한도(Production 일 500) 확인 필요.
+
 ## 2026-10-07 — 공고 상세 개편(알바몬 구조) master 병합·Production 배포·검증 + Chợ Tốt 시험 공개 3건 되돌림
 
 - 요청(사용자 승인): feat/job-detail-sections를 master에 병합 전 tsc·test·build 확인 → 병합·푸시·Production 배포 → #4682 상세 확인(탭·연락처 한 곳·문구 제거·KCN 지도). 시험 공개 3건은 보류하고 이걸 먼저.
@@ -91,12 +99,4 @@
 - 검증: tsc, tests 37/37, build. 헤드리스 Chrome(SwiftShader WebGL, CDP)으로 실제 렌더 확인: #4682 일반지도·위성·전체화면(POI·건물 표시)·닫기 복귀, 확인된 근무지(acceptance-pizza) 핀, 모바일 390px 전체화면, Geoapify 0·콘솔 오류 0.
 - commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
 - 남은 문제: 실제 사용자 PC·폰 확인, 길찾기 링크 표시(출입구 승인 좌표 공고가 없어 화면으로는 미확인).
-
-## 2026-10-07 — 상세 근무지역 지도를 VietMap으로 + 출처 있는 KCN 중심 좌표 + 홈 생활지도 바로가기
-
-- 요청: Leaflet/Geoapify 대신 VietMap(홈과 같은 스타일·Bản đồ/Vệ tinh), KCN 중심 좌표(출처 필수·핀/길찾기 없음), 지도 아래 홈 지도 이동 버튼.
-- 변경: JobVietMap(신규), industrialParks(OSM way 28개, 출처 id 포함)·industrialPark 매칭(+test), mapDeepLink(+test)·HomeMapExplorer 읽기, JobDetail 연결·CSS.
-- 검증: tsc, tests 38/38, build. 로컬(#4682): Geoapify 0·Leaflet 0, VietMap style/sprite/font 요청 확인, 핀 0, 홈 바로가기 → 홈 "KCN VSIP Bắc Ninh · 3 km". 지도 타일 실제 렌더링은 창 최소화(rAF 없음)로 미확인.
-- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
-- 남은 문제: 타일 렌더링·위성 전환 실화면 확인, 표에 없는 KCN(좌표 출처 못 찾음)은 지도 없음, OSM way 중심이 공단 정문과 다를 수 있음.
 
