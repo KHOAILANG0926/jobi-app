@@ -39,7 +39,7 @@ export async function fetchJobsData(client: SupabaseClient): Promise<FetchJobsRe
     const from = page * PAGE_SIZE
     const { data, error } = await client
       .from('local_jobs')
-      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work')
+      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period')
       .eq('active', true)
       .order('posted_at', { ascending: false })
       .order('id', { ascending: false })
@@ -67,7 +67,7 @@ export async function fetchJobsData(client: SupabaseClient): Promise<FetchJobsRe
     const jobIds = rows.map((r) => r.id as number)
     const { data: locRows } = await client
       .from('job_work_locations')
-      .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards')
+      .select('id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route')
       .in('job_id', jobIds)
       .order('sort_order', { ascending: true })
     for (const r of locRows ?? []) {

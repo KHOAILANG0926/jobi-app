@@ -86,6 +86,9 @@ export interface JobWorkLocation {
    *  하나가 여러 동으로 쪼개진 경우 여러 개일 수 있음, 후보가 너무 많으면
    *  crawler에서 이미 걸러짐). 하나로 단정 못 하면 undefined. */
   resolvedWards?: string[]
+  /** job_work_locations.industrial_park / shuttle_route (20261007013659) — 원문이 준 값만, 없으면 undefined. */
+  industrialPark?: string
+  shuttleRoute?: string
   /** 사람이 승인한 근무지 좌표(job_location_candidates.status='approved', 2026-09-29).
    *  location_verified(원본 사이트 좌표 검증)와 별개인 두 번째 확인 경로 — 승인 당시 회사명·
    *  근무지 텍스트가 현재 공고와 같을 때만 붙는다(다르면 재검토 필요로 보고 붙이지 않음). */
@@ -138,6 +141,15 @@ export interface Job {
   recruitmentType?: RecruitmentType | null
   workSchedule?: WorkSchedule | null
   weekendWork?: boolean | null
+  /** 20261007013659 — 전부 nullable, 원문이 구조화해 준 값만(없으면 undefined). docs/JOB_FIELDS_AND_DETAIL_DESIGN.md §3 */
+  /** local_jobs.salary_period — 급여 형태 배지(Lương tháng/ngày/giờ). 'other'·null은 배지 없음. */
+  salaryPeriod?: 'hour' | 'day' | 'month' | 'other'
+  salaryBasis?: 'base' | 'total_with_overtime'
+  salaryNote?: string
+  employmentType?: 'full_time' | 'seasonal' | 'part_time'
+  rotatingShifts?: 2 | 3
+  benefitTags?: string[]
+  requiredDocuments?: string
   /** local_jobs.job_duration — 알바몬 스타일 근무기간 7구간(예: "1 - 3 tháng").
    *  크롤러는 채우지 않고(소스에 구조화된 필드 없음) PostJob.tsx 직접등록
    *  전용으로 시작해 대부분 undefined일 것으로 예상된다. */

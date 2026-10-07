@@ -10502,6 +10502,126 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-mobile-cta__apply:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
 }
 
+/* ══ 2026-10-07 상세 개편(알바몬 구조) — 공통: 고정 탭·구역·태그·하단 고정 바. 데스크톱(>760px) 배치는 아래 별도 media ══ */
+.jd2-page { padding-bottom: 5.5rem; }
+.jd2-sec { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: calc(var(--jd-tabs-top, 0px) + 56px); }
+.jd2-tabs--sticky {
+  position: sticky;
+  top: var(--jd-tabs-top, 0px);
+  z-index: 40;
+  background: #fff;
+  margin: 1rem 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 2px solid #f1f5f9;
+}
+.jd2-tabs--sticky::-webkit-scrollbar { display: none; }
+.jd2-tabs--sticky .jd2-tab { flex: 1 0 auto; white-space: nowrap; }
+.jd2-tab[aria-current='true'] { color: #e53935; border-bottom-color: #e53935; }
+
+.jd2-dday { font-weight: 800; }
+.jd2-dday--normal { background: #eff6ff; color: #1d4ed8; }
+.jd2-dday--soon { background: #fee2e2; color: #b91c1c; }
+.jd2-dday--expired { background: #e2e8f0; color: #64748b; }
+.jd2-hl-salary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.6rem; margin: 0.5rem 0 0; }
+.jd2-hl-salary__val { font-size: 1.35rem; font-weight: 800; color: #e53935; line-height: 1.2; }
+.jd2-hl-salary__basis { font-size: 0.78rem; font-weight: 700; color: #b45309; background: #fef3c7; padding: 0.1rem 0.5rem; border-radius: 999px; }
+.jd2-hl-salary__note { font-size: 0.82rem; color: #64748b; }
+.jd2-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.6rem 0 0; }
+.jd2-tag { font-size: 0.78rem; font-weight: 700; color: #be123c; background: #fff1f2; border: 1px solid #fecdd3; padding: 0.15rem 0.6rem; border-radius: 999px; }
+.jd2-warn1 { margin: 0.6rem 0 0; font-size: 0.76rem; color: #92400e; line-height: 1.5; }
+.jd2-info-val--soon { color: #b91c1c; }
+.jd2-map-extra { margin: 0.2rem 0 0; font-size: 0.82rem; color: #475569; }
+.jd2-other-jobs { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.jd2-other-jobs a { color: #1d4ed8; font-weight: 600; text-decoration: none; }
+.jd2-other-jobs a:hover { text-decoration: underline; }
+
+/* 하단 고정 바 — PC·모바일 공통(Gọi · Zalo · 지원) */
+.jd2-mobile-cta {
+  display: block;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  padding: 0.6rem 0.85rem calc(0.6rem + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+}
+.jd2-mobile-cta__inner { display: flex; gap: 0.6rem; max-width: 1060px; margin: 0 auto; }
+.jd2-mobile-cta__call, .jd2-mobile-cta__zalo {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.75rem 0.5rem; color: #fff; font-size: 0.92rem; font-weight: 700;
+  border-radius: 12px; text-decoration: none;
+}
+.jd2-mobile-cta__call { background: #16a34a; }
+.jd2-mobile-cta__zalo { background: #0068ff; }
+.jd2-mobile-cta__apply {
+  flex: 2; padding: 0.75rem 0.5rem; background: linear-gradient(135deg, #ef4444, #f97316);
+  color: #fff; font-size: 0.92rem; font-weight: 800; border: none; border-radius: 12px; cursor: pointer;
+}
+.jd2-mobile-cta__apply:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+
+/* 알바몬식 구역: 제목은 박스 밖 위에 크고 굵게, 박스는 얇은 회색 테두리+둥근 모서리, "회색 라벨 | 검정 값" 2열 표 */
+.jd2-main { gap: 2.25rem; }
+.jd2-sec { gap: 0; }
+.jd2-sec__title { margin: 0 0 0.85rem; font-size: 1.35rem; font-weight: 800; color: #111827; letter-spacing: -0.01em; }
+.jd2-box { background: #fff; border: 1px solid #b8bec9; border-radius: 12px; overflow: hidden; }
+.jd2-box + .jd2-box, .jd2-box + .jd2-card, .jd2-card + .jd2-box { margin-top: 1.25rem; }
+.jd2-box__sub { margin: 0; padding: 1rem 1.25rem 0; font-size: 0.95rem; font-weight: 700; color: #111827; }
+.jd2-kv { margin: 0; display: grid; grid-template-columns: 1fr; padding: 0.4rem 1.25rem; }
+.jd2-kv__row { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0.75rem; align-items: baseline; padding: 0.8rem 0; border-bottom: 1px solid #f3f4f6; }
+.jd2-kv__row:last-child { border-bottom: none; }
+.jd2-kv dt { margin: 0; font-size: 0.9rem; font-weight: 500; color: #9ca3af; }
+.jd2-kv dd { margin: 0; font-size: 0.95rem; font-weight: 600; color: #111827; line-height: 1.5; word-break: break-word; }
+.jd2-kv dd.jd2-info-val--salary { font-size: 1.05rem; font-weight: 800; color: #111827; }
+.jd2-kv dd.jd2-info-val--soon { color: #b91c1c; }
+.jd2-cta-num { display: none; font-weight: 600; }
+@media (min-width: 761px) { .jd2-cta-num { display: inline; } }
+.jd2-pay-badge {
+  display: inline-block; margin-right: 0.45rem; padding: 0.05rem 0.45rem;
+  border: 1px solid #9ca3af; border-radius: 4px; background: #fff;
+  font-size: 0.72rem; font-weight: 700; color: #4b5563; vertical-align: 0.1em; line-height: 1.5;
+}
+.jd2-hl-salary .jd2-pay-badge { font-size: 0.78rem; margin-right: 0; }
+
+/* 데스크톱(>760px) 레이아웃만 개편 — 모바일(≤760px)은 기존 배치 유지 */
+@media (min-width: 761px) {
+  .jd2-kv { grid-template-columns: 1fr 1fr; column-gap: 2.5rem; padding: 0.5rem 1.75rem; }
+  .jd2-kv__row { grid-template-columns: 6.5rem minmax(0, 1fr); }
+  .jd2-kv__row:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+  .jd2-header { padding: 1.5rem 1.75rem; }
+  .jd2-header__title { font-size: 1.6rem; }
+  .jd2-hl-salary__val { font-size: 1.7rem; }
+  .jd2-tabs--sticky { margin: 1.25rem 0 1rem; border-radius: 12px 12px 0 0; }
+  .jd2-tabs--sticky .jd2-tab { flex: 1; text-align: center; font-size: 0.95rem; padding: 0.9rem 1rem; }
+  .jd2-grid { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 1.5rem; }
+  .jd2-info-grid { grid-template-columns: 1fr 1fr; gap: 0.25rem 1.5rem; padding: 0.5rem 0.5rem 0.75rem; }
+  .jd2-info-row { border-bottom: 1px solid #f8fafc; padding: 0.75rem 1rem; }
+  .jd2-aside { top: calc(var(--jd-tabs-top, 0px) + 64px); }
+  .jd2-mobile-cta { padding: 0.75rem 1.25rem 0.75rem; }
+  .jd2-mobile-cta__call { flex: 0 0 220px; }
+  .jd2-mobile-cta__zalo { flex: 0 0 150px; }
+  .jd2-mobile-cta__apply { flex: 1; }
+}
+@media (prefers-color-scheme: dark) {
+  .jd2-sec__title, .jd2-box__sub { color: #f1f5f9; }
+  .jd2-box { background: #1e293b; border-color: #475569; }
+  .jd2-kv__row { border-color: #334155; }
+  .jd2-kv dt { color: #64748b; }
+  .jd2-kv dd, .jd2-kv dd.jd2-info-val--salary { color: #f1f5f9; }
+  .jd2-pay-badge { background: transparent; border-color: #64748b; color: #cbd5e1; }
+  .jd2-tabs--sticky { background: #1e293b; }
+  .jd2-hl-salary__val { color: #fca5a5; }
+  .jd2-hl-salary__basis { background: #451a03; color: #fcd34d; }
+  .jd2-tag { background: #450a0a; border-color: #7f1d1d; color: #fca5a5; }
+  .jd2-warn1 { color: #fde68a; }
+  .jd2-dday--normal { background: #1e3a8a; color: #bfdbfe; }
+  .jd2-dday--soon { background: #450a0a; color: #fca5a5; }
+  .jd2-dday--expired { background: #334155; color: #94a3b8; }
+  .jd2-map-extra { color: #94a3b8; }
+  .jd2-other-jobs a { color: #60a5fa; }
+}
+
 /* ── Dark mode ── */
 @media (prefers-color-scheme: dark) {
   .jd2-header, .jd2-card, .jd2-aside {

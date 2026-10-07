@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
@@ -22,6 +22,9 @@ import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapL
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl } from '../lib/companyLogo'
+import { companyKeyFromName } from '../lib/reviewsStorage'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, weekendLabel } from '../lib/jobDetailView'
+import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
@@ -136,7 +139,7 @@ function DescriptionRenderer({ text }: { text: string }) {
   )
 }
 
-type InfoField = { key: string; icon: ReactNode; label: string; value: string }
+type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
 
 export function JobDetail() {
   const { id } = useParams<{ id: string }>()
@@ -150,10 +153,10 @@ export function JobDetail() {
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
   const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
-  // 2026-09-20 사용자 지시("상세페이지 탭 구조") — 알바몬처럼 근무조건/
-  // 상세요강/기업정보 3탭으로 재구성. 사이드바(지원/저장/신고 등)는 탭과
-  // 무관하게 항상 보이고, jd2-main 안쪽 콘텐츠만 탭에 따라 바뀐다.
-  const [activeTab, setActiveTab] = useState<'info' | 'desc' | 'company'>('info')
+  // 2026-10-07 상세 개편(알바몬 구조): 탭은 내용을 숨기지 않고 해당 구역으로 스크롤만 한다.
+  // 구역 순서·키는 data/jobSchema.ts(JOB_SECTIONS)가 정본. 활성 탭은 스크롤 위치(IntersectionObserver)로 갱신.
+  const [activeSection, setActiveSection] = useState<JobSection>('conditions')
+  const [tabsTop, setTabsTop] = useState(0)
 
   const job = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
@@ -187,7 +190,45 @@ export function JobDetail() {
     if (id) setSaved(isJobSaved(id, user?.id))
   }, [id, user?.id])
 
-  useEffect(() => { setActiveTab('info') }, [id])
+  useEffect(() => { setActiveSection('conditions') }, [id])
+
+  // 고정 탭 바는 사이트 헤더(sticky) 바로 아래에 붙는다 — 헤더 높이를 실측해 CSS 변수로 전달.
+  useEffect(() => {
+    const header = document.querySelector('.layout__header') as HTMLElement | null
+    if (!header) return
+    const update = () => setTabsTop(header.offsetHeight)
+    update()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
+    ro?.observe(header)
+    window.addEventListener('resize', update)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', update) }
+  }, [])
+
+  const jobId = job?.id
+  useEffect(() => {
+    if (!jobId) return
+    const update = () => {
+      // 고정 탭 바 바로 아래(+여유)에 닿은 마지막 구역이 현재 구역. 페이지 맨 아래면 마지막 구역.
+      const line = tabsTop + 56 + 24
+      const present = JOB_SECTION_ORDER.filter((k) => document.getElementById(jobSectionId(k)))
+      if (present.length === 0) return
+      let current: JobSection = present[0]
+      for (const k of present) {
+        if ((document.getElementById(jobSectionId(k)) as HTMLElement).getBoundingClientRect().top <= line) current = k
+      }
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = present[present.length - 1]
+      setActiveSection(current)
+    }
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    update()
+    return () => { window.removeEventListener('scroll', update); window.removeEventListener('resize', update) }
+  }, [jobId, tabsTop])
+
+  const scrollToSection = useCallback((k: JobSection) => {
+    setActiveSection(k)
+    document.getElementById(jobSectionId(k))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   // "최근 본 공고" — 상세페이지를 실제로 열람했을 때만 기록한다(목록 카드
   // 노출만으로는 기록하지 않음). 로딩 중이라 job을 아직 못 찾은 상태는 제외.
@@ -224,7 +265,6 @@ export function JobDetail() {
   }
 
   const onToggleSave = () => setSaved(toggleSavedJobId(job.id, user?.id))
-  const zaloHref = zaloMeUrl(job.zalo || job.employerPhone)
   const showMessageCta = !!job.employerId && user?.role !== 'employer'
 
   // 크롤링 공고(local_jobs.employer_id가 NULL)는 소유 기업이 없어 내부 지원을 만들면
@@ -294,6 +334,9 @@ export function JobDetail() {
     ? (applied ? 'Đã ứng tuyển' : applying ? 'Đang gửi...' : 'Ứng tuyển ngay')
     : applyAction === 'contact' ? 'Xem cách liên hệ' : 'Chưa có thông tin liên hệ'
   const applyDisabled = canApplyInternally ? (applied || applying) : applyAction === 'none'
+  // 연락처가 있으면(Gọi/Zalo) 별도 지원·'연락 방법' 버튼과 안내 박스를 두지 않는다 — 내부 지원(기업 계정 공고)이거나 연락처가 아예 없을 때만 지원 영역을 그린다.
+  const hasContact = !!(contactOf(job).phone || contactOf(job).zalo)
+  const showApply = canApplyInternally || !hasContact
 
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
@@ -308,19 +351,45 @@ export function JobDetail() {
   const workPeriodText = nonEmpty(job.workPeriod)
   const deadlineText = formatDeadlineVi(job.applicationDeadline)
 
-  const summaryParts = [salaryText, locationText, preferenceText, workPeriodText].filter(Boolean) as string[]
+  const badge = deadlineBadge(job.applicationDeadline)
+  const tags = jobTags(job)
+  const contact = contactOf(job)
+  const shift = shiftLabel(job)
+  const weekend = weekendLabel(job.weekendWork)
+  const employmentText = job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText
+  const otherJobsOfCompany = isGenericCompanyName(job.company) ? [] : jobs
+    .filter((j) => j.id !== job.id && companyKeyFromName(j.company) === companyKeyFromName(job.company))
+    .slice(0, 5)
 
-  const infoFields: InfoField[] = [
-    salaryText && { key: 'salary', icon: <Briefcase size={14} strokeWidth={1.8} />, label: 'Mức lương', value: salaryText },
-    locationText && { key: 'location', icon: <MapPin size={14} strokeWidth={1.8} />, label: 'Địa điểm', value: locationText },
-    { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText },
-    preferenceText && { key: 'preference', icon: <Award size={14} strokeWidth={1.8} />, label: 'Kinh nghiệm', value: preferenceText },
-    educationText && { key: 'education', icon: <GraduationCap size={14} strokeWidth={1.8} />, label: 'Học vấn', value: educationText },
-    numHiresText && { key: 'numHires', icon: <Users size={14} strokeWidth={1.8} />, label: 'Số lượng tuyển', value: numHiresText },
-    workPeriodText && { key: 'workPeriod', icon: <Briefcase size={14} strokeWidth={1.8} />, label: 'Hình thức làm việc', value: workPeriodText },
-    hoursText && { key: 'hours', icon: <Clock size={14} strokeWidth={1.8} />, label: 'Thời gian làm việc', value: hoursText },
-    workDaysText && { key: 'workDays', icon: <Calendar size={14} strokeWidth={1.8} />, label: 'Ngày làm việc', value: workDaysText },
-    { key: 'category', icon: <Building2 size={14} strokeWidth={1.8} />, label: 'Ngành nghề', value: catLabel },
+  // ① 근무조건 / ② 모집조건 — 원문이 채운 값만 표시, 나머지는 행 자체를 숨긴다(추정·가짜 값 금지).
+  const periodLabel = salaryPeriodLabel(job.salaryPeriod)
+  const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
+    value ? ({ key, icon, label, value, cls } as InfoField) : null
+  const conditionFields = [
+    row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
+      salaryText ? (
+        <>
+          {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
+          {salaryText}{job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+        </>
+      ) : undefined, 'jd2-info-val--salary'),
+    row('salaryNote', <Briefcase size={14} strokeWidth={1.8} />, 'Ghi chú lương', job.salaryNote),
+    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
+    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
+    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
+    row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
+    row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
+    row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', catLabel),
+  ].filter(Boolean) as InfoField[]
+  const recruitFields = [
+    { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText + (badge ? ` (${badge.label})` : ''), cls: badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined } as InfoField,
+    row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
+    row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
+    row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
+    row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement)),
+    row('gender', <Users size={14} strokeWidth={1.8} />, 'Giới tính', nonEmpty(job.genderRequirement)),
+    row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
   ].filter(Boolean) as InfoField[]
 
   // 2026-09-05 최종 제품 정책: "모든 공개 공고에 근무지역 텍스트, 지도,
@@ -359,8 +428,12 @@ export function JobDetail() {
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
     || !!job.laborContractPledge || !!job.socialInsurancePledge
 
+  // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
+  const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
+  const visibleSections = JOB_SECTION_ORDER.filter((k) => k !== 'company' || showCompanySection)
+
   return (
-    <div className="jd2-page">
+    <div className="jd2-page" style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
 
       {/* ── Back ── */}
       <button type="button" className="jd2-back" onClick={() => navigate(-1)}>
@@ -368,7 +441,7 @@ export function JobDetail() {
         Quay lại
       </button>
 
-      {/* ── Header card ── */}
+      {/* ── Header card: 급여·D-day·태그 강조, 경고는 한 줄 ── */}
       <div className="jd2-header">
         <div className="jd2-header__left">
           <div className="jd2-logo">
@@ -381,9 +454,23 @@ export function JobDetail() {
             <div className="jd2-header__chips">
               <span className="jd2-chip">{catLabel}</span>
               {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
+              {badge && <span className={`jd2-chip jd2-dday jd2-dday--${badge.tone}`}>{badge.label}</span>}
             </div>
             <h1 className="jd2-header__title">{job.title}</h1>
             <p className="jd2-header__company">{job.company}</p>
+            {(salaryText || job.salaryBasis) && (
+              <p className="jd2-hl-salary">
+                {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
+                <span className="jd2-hl-salary__val">{salaryText ?? 'Thỏa thuận'}</span>
+                {job.salaryBasis && <span className="jd2-hl-salary__basis">{SALARY_BASIS_LABEL[job.salaryBasis]}</span>}
+                {job.salaryNote && <span className="jd2-hl-salary__note">{job.salaryNote}</span>}
+              </p>
+            )}
+            {tags.length > 0 && (
+              <div className="jd2-tags">
+                {tags.map((t) => <span key={t} className="jd2-tag">{t}</span>)}
+              </div>
+            )}
             <div className="jd2-header__meta">
               {locationText && (
                 <>
@@ -398,9 +485,9 @@ export function JobDetail() {
                 Đăng {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             </div>
-            {summaryParts.length > 0 && (
-              <p className="jd2-summary">{summaryParts.join(' · ')}</p>
-            )}
+            <p className="jd2-warn1">
+              <span aria-hidden="true">⚠️</span> Việc Gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
+            </p>
           </div>
         </div>
         <button
@@ -413,56 +500,60 @@ export function JobDetail() {
         </button>
       </div>
 
+      {/* ── Sticky tabs: 내용을 숨기지 않고 구역으로 스크롤만 ── */}
+      <nav className="jd2-tabs jd2-tabs--sticky" aria-label="Các phần của tin tuyển dụng">
+        {visibleSections.map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-current={activeSection === k ? 'true' : undefined}
+            className={`jd2-tab${activeSection === k ? ' jd2-tab--active' : ''}`}
+            onClick={() => scrollToSection(k)}
+          >
+            {JOB_SECTION_LABELS[k]}
+          </button>
+        ))}
+      </nav>
+
       {/* ── Main grid ── */}
       <div className="jd2-grid">
         <div className="jd2-main">
 
-          {/* ── Tabs (알바몬 근무조건/상세요강/기업정보 참고) ── */}
-          <div className="jd2-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={activeTab === 'info'}
-              className={`jd2-tab${activeTab === 'info' ? ' jd2-tab--active' : ''}`}
-              onClick={() => setActiveTab('info')}>
-              Thông tin tuyển dụng
-            </button>
-            <button type="button" role="tab" aria-selected={activeTab === 'desc'}
-              className={`jd2-tab${activeTab === 'desc' ? ' jd2-tab--active' : ''}`}
-              onClick={() => setActiveTab('desc')}>
-              Mô tả công việc
-            </button>
-            <button type="button" role="tab" aria-selected={activeTab === 'company'}
-              className={`jd2-tab${activeTab === 'company' ? ' jd2-tab--active' : ''}`}
-              onClick={() => setActiveTab('company')}>
-              Thông tin công ty
-            </button>
-          </div>
-
-          {/* hidden(조건부 렌더 아님) — JS 없이 HTML만 읽는 크롤러(GPT 검색 등)도
-              탭 뒤에 숨은 mô tả/공고 텍스트를 그대로 받을 수 있어야 한다(SSR
-              renderToString은 한 번에 activeTab 하나만 렌더하므로, 조건부
-              렌더로 두면 나머지 두 탭 내용이 크롤러에게 영원히 안 보임).
-              시각적으로는 기존과 동일(비활성 탭은 display:none), 클릭 동작도
-              그대로(activeTab만 바뀜) — UI/동작 변경 없음. */}
-          <div className="jd2-tabpanel" hidden={activeTab !== 'info'}>
-
-          {/* ── Recruitment info (merged) ── */}
-          <div className="jd2-card">
-            <h2 className="jd2-card__title">Thông tin tuyển dụng</h2>
-            <div className="jd2-info-grid">
-              {infoFields.map((f) => (
-                <div className="jd2-info-row" key={f.key}>
-                  <span className="jd2-info-icon">{f.icon}</span>
-                  <div>
-                    <div className="jd2-info-label">{f.label}</div>
-                    <div className={`jd2-info-val${f.key === 'salary' ? ' jd2-info-val--salary' : ''}`}>{f.value}</div>
+          {/* ① 근무조건 */}
+          <section id={jobSectionId('conditions')} className="jd2-sec">
+            <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
+            <div className="jd2-box">
+              <dl className="jd2-kv">
+                {conditionFields.map((f) => (
+                  <div className="jd2-kv__row" key={f.key}>
+                    <dt>{f.label}</dt>
+                    <dd className={f.cls}>{f.value}</dd>
                   </div>
-                </div>
-              ))}
+                ))}
+              </dl>
             </div>
-          </div>
+          </section>
 
+          {/* ② 모집조건 */}
+          <section id={jobSectionId('recruit')} className="jd2-sec">
+            <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.recruit}</h2>
+            <div className="jd2-box">
+              <dl className="jd2-kv">
+                {recruitFields.map((f) => (
+                  <div className="jd2-kv__row" key={f.key}>
+                    <dt>{f.label}</dt>
+                    <dd className={f.cls}>{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </section>
+
+          {/* ③ 근무지역 */}
+          <section id={jobSectionId('location')} className="jd2-sec">
+          <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.location}</h2>
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
-          <div className="jd2-card">
-            <h2 className="jd2-card__title">Khu vực làm việc</h2>
+          <div className="jd2-box">
             <div className="jd2-card__body">
               {!hasWorkLocationList && !hasRecruitmentRegionsOnly && !locationText ? (
                 // 근무지도, 모집지역도, 텍스트 위치도 전부 없는 경우에만 안내 문구만
@@ -490,6 +581,8 @@ export function JobDetail() {
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
+                            {loc.industrialPark && <p className="jd2-map-extra">Khu công nghiệp: <strong>{loc.industrialPark}</strong></p>}
+                            {loc.shuttleRoute && <p className="jd2-map-extra">Tuyến xe đưa đón: <strong>{loc.shuttleRoute}</strong></p>}
                             {loc.matchedRecruitmentRegions && loc.matchedRecruitmentRegions.length > 1 && (
                               <p className="jd2-map-recruitment-regions">
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
@@ -617,22 +710,11 @@ export function JobDetail() {
               )}
             </div>
           </div>
+          </section>
 
-          {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
-          {extraImages.length > 0 && (
-            <div className="jd2-card">
-              <div className="jd2-card__body">
-                {extraImages.map((url, i) => (
-                  <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          </div>
-
-          <div className="jd2-tabpanel" hidden={activeTab !== 'desc'}>
-
+          {/* ④ 상세요강 */}
+          <section id={jobSectionId('description')} className="jd2-sec">
+          <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
           {/* ── Description (Mô tả / Yêu cầu / Quyền lợi — each its own card) ── */}
           {job.description && !job.description.startsWith('http') ? (
             <DescriptionRenderer text={job.description} />
@@ -644,14 +726,25 @@ export function JobDetail() {
             </div>
           )}
 
-          </div>
+          {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
+          {extraImages.length > 0 && (
+            <div className="jd2-card">
+              <div className="jd2-card__body">
+                {extraImages.map((url, i) => (
+                  <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
+                ))}
+              </div>
+            </div>
+          )}
+          </section>
 
-          <div className="jd2-tabpanel" hidden={activeTab !== 'company'}>
-
+          {/* ⑤ 기업정보 */}
+          {showCompanySection && (
+          <section id={jobSectionId('company')} className="jd2-sec">
+          <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.company}</h2>
           {/* ── Company info ── */}
           {hasCompanyInfo && (
-            <div className="jd2-card">
-              <h2 className="jd2-card__title">Thông tin công ty</h2>
+            <div className="jd2-box">
               <div className="jd2-card__body jd2-company">
                 <div className="jd2-company__logo">
                   {logoUrl
@@ -680,9 +773,21 @@ export function JobDetail() {
             </div>
           )}
 
-          <CompanyReviews company={job.company} />
+            {otherJobsOfCompany.length > 0 && (
+              <div className="jd2-box">
+                <p className="jd2-box__sub">Tin khác của công ty</p>
+                <ul className="jd2-card__body jd2-other-jobs">
+                  {otherJobsOfCompany.map((j) => (
+                    <li key={j.id}><Link to={`/viec-lam/${j.id}`}>{j.title}</Link></li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          </div>
+            <CompanyReviews company={job.company} />
+          </section>
+          )}
+          {!showCompanySection && <CompanyReviews company={job.company} />}
         </div>
 
         {/* ── Sidebar ── */}
@@ -703,54 +808,30 @@ export function JobDetail() {
 
           <div className="jd2-aside-divider" />
 
-          {/* Primary CTA — Apply */}
-          <button
-            type="button"
-            className="jd2-btn-apply"
-            onClick={onApplyClick}
-            disabled={applyDisabled}
-          >
-            {applyLabel}
-          </button>
+          {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
+          {showApply && (
+            <button
+              type="button"
+              className="jd2-btn-apply"
+              onClick={onApplyClick}
+              disabled={applyDisabled}
+            >
+              {applyLabel}
+            </button>
+          )}
           {canApplyInternally ? (
             <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
-          ) : (
+          ) : !hasContact ? (
             <div id="jd2-apply-unavailable">
-              <ApplyUnavailableNotice job={job} onShowDescription={() => setActiveTab('desc')} />
+              <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
             </div>
-          )}
-
-          <div className="jd2-scam-notice">
-            <span className="jd2-scam-notice__icon">⚠️</span>
-            <p>
-              Việc Gần Bạn không thu phí từ người tìm việc. Hãy cẩn trọng nếu nhà
-              tuyển dụng yêu cầu chuyển tiền đặt cọc, mua thiết bị/tài liệu trước,
-              hoặc cung cấp mã OTP, số tài khoản, mật khẩu ngân hàng — đó có thể
-              là dấu hiệu lừa đảo.
-            </p>
-          </div>
+          ) : null}
 
           <ReportButton
             targetType="job"
             targetId={job.id}
             snapshot={{ title: job.title, company: job.company, url: `/viec-lam/${job.id}` }}
           />
-
-          {/* Zalo */}
-          {job.employerPhone && (
-            <a href={zaloHref} target="_blank" rel="noopener noreferrer" className="jd2-btn-zalo">
-              <MessageCircle size={17} strokeWidth={2} />
-              Chat qua Zalo
-            </a>
-          )}
-
-          {/* Phone */}
-          {job.employerPhone && (
-            <a href={`tel:${job.employerPhone.replace(/\s/g, '')}`} className="jd2-btn-phone">
-              <Phone size={15} strokeWidth={1.8} />
-              {job.employerPhone}
-            </a>
-          )}
 
           {/* Message employer */}
           {showMessageCta && (
@@ -774,22 +855,32 @@ export function JobDetail() {
         </aside>
       </div>
 
-      {/* ── Mobile floating CTA bar ── */}
-      <div className="jd2-mobile-cta">
-        {job.employerPhone && (
-          <a href={zaloHref} target="_blank" rel="noopener noreferrer" className="jd2-mobile-cta__zalo">
-            <MessageCircle size={18} strokeWidth={2} />
-            Chat qua Zalo
-          </a>
-        )}
-        <button
-          type="button"
-          className="jd2-mobile-cta__apply"
-          onClick={onApplyClick}
-          disabled={applyDisabled}
-        >
-          {applyLabel}
-        </button>
+      {/* ── 하단 고정 바(PC·모바일 공통): Gọi / Zalo / 지원. 연락처가 없으면 Gọi·Zalo는 그리지 않는다 ── */}
+      <div className="jd2-mobile-cta" role="region" aria-label="Liên hệ nhanh">
+        <div className="jd2-mobile-cta__inner">
+          {contact.phone && (
+            <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-mobile-cta__call">
+              <Phone size={17} strokeWidth={2} />
+              Gọi<span className="jd2-cta-num"> {contact.phone}</span>
+            </a>
+          )}
+          {contact.zalo && (
+            <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-mobile-cta__zalo">
+              <MessageCircle size={18} strokeWidth={2} />
+              Zalo
+            </a>
+          )}
+          {showApply && (
+            <button
+              type="button"
+              className="jd2-mobile-cta__apply"
+              onClick={onApplyClick}
+              disabled={applyDisabled}
+            >
+              {applyLabel}
+            </button>
+          )}
+        </div>
       </div>
 
       <Toast message={toastMsg} open={toastOpen} onClose={() => setToastOpen(false)} />

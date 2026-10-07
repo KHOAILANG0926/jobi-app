@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 공고 상세 개편(알바몬 구조) + 원문 항목 추출 dry-run
+
+- 요청: 상세 화면 알바몬 구조·디자인, 연락처 중복 정리, 기업정보 숨김, description 항목 추출(#4682 dry-run 먼저).
+- 변경: 5구역·고정 탭·"라벨|값" 표·급여 배지·하단 Gọi/Zalo 바, 새 컬럼 9개 연결, jobDescriptionExtract(+test)·extract-job-fields(dry-run).
+- 검증: tsc, tests 35/35, build, 로컬 PC 확인, Preview 200. DB 쓰기 없음.
+- commit/push: branch `feat/job-detail-sections`. master·Production 미반영(미승인).
+- 남은 문제: #4682 추출 결과 확인 후 DB 반영 결정, 언어·출장 컬럼(DDL) 결정, 리뷰 유지 여부, 모바일 실기기 확인.
+
 ## 2026-10-07 — master 반영 + Production SSR 500 장애 복구
 
 - 요청: `7907b8b` master fast-forward·배포 확인 → 장애 발견 후 복구 승인.
@@ -73,12 +81,4 @@
 - merge/push: master `a01f3c6` → `106e8e4` fast-forward(merge commit 없음), push 완료. Vercel Production `jobi-pi2g7lxz1` Ready.
 - Production 검증: VietMap·Geoapify 0·콘솔 오류 0, 건물/회사/생활시설 클릭 패널·강조, 위성 전환 유지, 375px 넘침 0.
 - 남은 문제: Production 확인된 근무지 좌표 공고 0건 → 공동 핀·선택 공고 동기화·공고 연결은 Production 실데이터 미검증. VietMap key 권한 문제(기존).
-
-## 2026-10-05 — 생활지도 2차: 건물/시설 클릭 상세 패널 — PREVIEW APPROVED, BRANCH PUSHED
-
-- 요청: 건물·회사·생활시설 클릭 → 강조 + 우측 상세(이름·종류·좌표·거리·300/500m 시설·주변 회사·근처 공고·위성 전환), 가짜 데이터 금지.
-- 변경: `mapPlace.ts`(+test), `PlaceDetailPanel.tsx`, `VietMapMapCanvas`(클릭/hover/강조/재집계), `lifeMapStyle`(위성 투명 건물 hit layer), `HomeMapExplorer`(장소 상태·지도 모드), `NearbyLifePanel`(요약 뷰 재사용), CSS.
-- 규칙: 건물명은 폴리곤 안 POI 1개일 때만, 주소 없음 → 좌표, 근처 바깥 POI 이름을 건물에 붙이지 않음.
-- 검증: tsc, tests 26/26, build, 로컬 5개 시나리오 + 실제 마우스 클릭.
-- commit/push: 사용자 승인(Preview `jobi-ifofpmbdx`) 후 승인 소스 그대로 branch `feat/life-map-buildings-poi` commit·push. master merge·Production deploy 안 함(별도 승인 대기).
 

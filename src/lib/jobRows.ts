@@ -46,6 +46,8 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
     geocodeStatus: (r.geocode_status as GeocodeStatus | null | undefined) ?? undefined,
     resolvedProvince: (r.resolved_province as string | null | undefined) ?? undefined,
     resolvedWards: (r.resolved_wards as string[] | null | undefined) ?? undefined,
+    industrialPark: (r.industrial_park as string | null | undefined)?.trim() || undefined,
+    shuttleRoute: (r.shuttle_route as string | null | undefined)?.trim() || undefined,
   }
 }
 
@@ -65,7 +67,7 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     location: (r.location as string) ?? '',
     hours: (r.hours as string) ?? '',
     employerPhone: (r.employer_phone as string) ?? '',
-    zalo: (r.zalo as string) ?? undefined,
+    zalo: ((r.contact_zalo ?? r.zalo) as string | null | undefined)?.trim() || undefined,
     applicationDeadline: (r.application_deadline as string) ?? '',
     urgent: (r.urgent as boolean) ?? false,
     description,
@@ -90,6 +92,13 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     recruitmentType: (r.recruitment_type as Job['recruitmentType']) ?? null,
     workSchedule: (r.work_schedule as Job['workSchedule']) ?? null,
     weekendWork: (r.weekend_work as boolean | null | undefined) ?? null,
+    salaryPeriod: (r.salary_period as Job['salaryPeriod'] | null | undefined) ?? undefined,
+    salaryBasis: (r.salary_basis as Job['salaryBasis'] | null | undefined) ?? undefined,
+    salaryNote: (r.salary_note as string | null | undefined)?.trim() || undefined,
+    employmentType: (r.employment_type as Job['employmentType'] | null | undefined) ?? undefined,
+    rotatingShifts: (r.rotating_shifts as Job['rotatingShifts'] | null | undefined) ?? undefined,
+    benefitTags: (r.benefit_tags as string[] | null | undefined)?.filter((t) => t?.trim()) ?? undefined,
+    requiredDocuments: (r.required_documents as string | null | undefined)?.trim() || undefined,
     jobDuration: (r.job_duration as string) ?? undefined,
     genderRequirement: (r.gender_requirement as string) ?? undefined,
     ageRequirement: (r.age_requirement as string) ?? undefined,
@@ -132,9 +141,9 @@ export interface JobsQueryClient {
 }
 
 const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work'
+  'id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
-  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards'
+  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route'
 
 /**
  * 공개 상세페이지(JobDetail)의 "신뢰 정보" 카드에 쓰는 기업 등록 공고 수 —
