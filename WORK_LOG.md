@@ -2,6 +2,17 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 박닌 Chợ Tốt 재수집(1페이지부터) 연락처 있는 공고 100건 채움 (DB 쓰기 없음)
+
+- 요청: 이 PC에서 Chợ Tốt 박닌을 1페이지부터 다시 수집, 연락처 있는 공고 100건까지. 옛 박장 제외, 대행 공고는 근무 회사·KCN 근거 있을 때만 채택, 같은 회사 최대 2건, 손으로 옮겨 쓰기 금지, DB 쓰기 금지. 이후 지시: 대기업·브랜드(Samsung·Coca-Cola·Amphenol 등)는 대행사가 아니라 "근무 회사", CSV에 "근무 회사"/"게시자" 분리.
+- 결과: 목록 1~20페이지(399링크) 중 상세 279건 방문(데이터 274 / 상세 로드 실패 5) → 번호 확인 261건("Hiện số" 있음 263 중 2건 미열림, 버튼 없음 16건=게시자가 번호 비공개). **채택 100건**(연락처 있음, KCN 매칭 31, 대행사 게시 17, 고유 번호 71) + 목표 초과로 보류 15건. 제외: 같은 근무 회사 3번째 이후 55·대행사 근거 없음 56·개인명/상호 불명 27·연락처 없음 15·내부 중복 5·상세 실패 5·옛 박장 1.
+- 변경: `bn_collect_chotot_ext.js`(화면 개편 대응 — 텍스트 파싱 대신 상세 `__NEXT_DATA__` ad 객체에서 제목·회사·주소·본문 추출, 번호 열기 연속 3건 실패 시 중단), 신규 `bn_build_chotot_csv.mjs`(판정·CSV). CSV는 `scripts/research/out/bacninh_chotot_review.csv`(gitignore)와 바탕화면 `bacninh_handoff/`.
+- 판정 기준(애매하면 제외): 대행사 = 이름·계정에 nhân lực/tuyển dụng/việc làm/HR/RRD/GRGR/Adtek/Sức Bật/Almustech 등. 대행사는 본문에 알려진 대기업 브랜드 또는 "Công ty/Nhà máy + 이름"이 있거나 KCN 표기가 있어야 채택. 개인명은 성씨·이름 패턴(Nguyễn…, Anh Khoa…)으로만 판정, 3자 이하 상호('a','Hip')는 상호 불명 제외(단 LG 등 브랜드·대행사 이름은 예외).
+- 한계: 옛 박장 판정은 주소·본문에 Bắc Giang·옛 박장 huyện 이름이 있을 때만(합병 후 신 지명 phường/xã만 쓰인 공고는 구분 불가). 대행사 근무 회사 추출은 브랜드 목록·정규식 기반이라 누락/오탐 가능 — 검토 시 "근무 회사" 열 확인 필요. 같은 번호가 여러 공고에 쓰임(고유 번호 71/100).
+- 사고 기록: 화면 개편으로 기존 스크립트 파싱 실패(→ __NEXT_DATA__로 교체), 탭 멈춤 2회(navigate로 복구, 데이터는 localStorage 유지), 자동 다운로드 2회째 Chrome 차단·로컬 서버 전송 차단 → 클릭 제스처로 클립보드 복사 후 PowerShell로 파일 저장(전사 없음).
+- commit/push: branch `feat/job-detail-sections`(스크립트·문서만, CSV 제외). master·Production 미반영.
+- 남은 문제: 사용자 CSV 검토, 반영 방식 결정(승인 전 DB 금지), Muaban·Facebook은 이후.
+
 ## 2026-10-07 — 박닌 공고 100건 검토용 수집(Vieclam24h + Chợ Tốt, DB 쓰기 없음)
 
 - 요청: 박닌만·회사명 없음 제외·원문 링크 미저장·천천히·**연락처 있는 공고 100건 기준**(CLAUDE.md "공고 수집 소스 규칙" 신설, 커밋 92df0a9). 산출물 CSV, 승인 전 DB 반영 금지.
@@ -77,10 +88,3 @@
 - 검증: tsc·tests 33/33·build, Production 상세·tim-kiem·tuyen-gap·sitemap·홈 200, 상세 로고 이니셜.
 - commit/push: master `cd0eeeb`(fast-forward) → 자동 배포 Ready. 장애 약 1시간. 재발 시 로그의 `Cannot find module` 확인.
 
-## 2026-10-07 — 공고 항목 jobSchema + Production DB 적용(DDL 9·로고 244·재분류 26)
-
-- 요청: 승인된 즉시 수정 실행. master merge·배포 금지, DB는 전후 건수만 보고.
-- 변경: jobSchema.ts(+test), migration 20261007013659(컬럼 9개), `local_jobs.image_url` 244건 null, 재분류 26건(#4577·#4594·#4598·#4601 제외, 소분류만 바뀌는 3건은 별도 승인 후 추가 적용: 소분류 null 0→3).
-- 검증: tsc, tests 33/33. DB 전후: 컬럼 0→9, 로고 244→0, 재분류 26/26, 재dry-run 잔여 4(제외 건).
-- commit/push: branch `fix/source-logo-and-classifier`. master·코드 배포 미반영.
-- 남은 문제: 새 컬럼 미사용(상세 개편), 제외 4건 규칙 보완.
