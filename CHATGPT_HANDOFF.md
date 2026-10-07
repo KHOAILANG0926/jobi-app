@@ -4,6 +4,8 @@
 
 장기 AI/Agent 전략은 AI_DISCOVERY_STRATEGY.md 참고
 
+**⚠ Production 장애(2026-10-07)**: master `7907b8b` 반영 후 SSR 함수(`/viec-lam/*`·`sitemap.xml`)가 500 — 로그 `Cannot find module react-router/dist/development/dom-export.js`. 같은 소스(`522643e`)를 redeploy해도 동일해 코드가 아니라 함수 번들(파일 추적) 문제. **수정 검증됨**: `vercel.json` functions `includeFiles`에 `node_modules/react-router/dist/**` 추가 → Preview `jobi-52rw1yemz` 공고 상세·tim-kiem·sitemap 200(대조 Preview는 500). 수정은 branch에만 있고 master·Production 미반영(사용자 지시: master push 금지). Production은 현재 SSR 500 상태.
+
 **공고 항목 설계 + 즉시 수정 실행 (2026-10-07).** branch `fix/source-logo-and-classifier`(worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 33/33) / BRANCH PUSHED / **Production DB 적용 완료(DDL 9개·로고 244건·재분류 26건)** / **master 미반영 · Production 코드 미배포**(사용자 지시: merge·배포 금지).
 
 ## 변경 내용

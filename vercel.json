@@ -8,10 +8,10 @@
   ],
   "functions": {
     "api/ssr.js": {
-      "includeFiles": "dist/**"
+      "includeFiles": "{dist/**,node_modules/react-router/dist/**}"
     },
     "api/sitemap.xml.js": {
-      "includeFiles": "dist/**"
+      "includeFiles": "{dist/**,node_modules/react-router/dist/**}"
     }
   }
 }
