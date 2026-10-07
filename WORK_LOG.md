@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — chotot 좌표 후보 33건 job_location_candidates에 pending 반영(승인 후 실행)
+
+- 요청(승인): 좌표 dry-run의 자동 1 + 검토 필요 32를 pending 후보로 저장. 후보 좌표·출처 id·일치 근거 함께 저장, job_work_locations 좌표는 건드리지 않음(승인 전 핀 없음). 관리자 검토 화면에서 33건 확인, "없음" 67건은 그대로 두고 사유별 건수 기록.
+- 실행: `scripts/research/bn_apply_poi_candidates.py --apply` — 공고당 1순위 후보 1건씩 **33행 INSERT**, 실패·건너뜀 0. status=pending, source=map_listing, work_location_id 연결, evidence_urls 비움. place_precision: POI building 28 / OSM 면 site 2 / KCN 자체 area 3(area는 승인 불가 제약 — 참고용). evidence(베트남어)에 후보 이름·일치 정도(정확/포함/유사 N%)·공고 회사명·거리·공단 안 여부·출처 id(VietMap POI는 id가 없어 `이름@위도,경도 + z15 타일 x/y`, OSM은 `way|node|relation/ID`)·"chưa duyệt" 문구. 경쟁 사이트 이름·링크·광고 좌표는 evidence에 없음(DB 확인 0건).
+- 확인(DB): job_location_candidates 총 33행(chotot 4685~4784 중 33공고, 모두 pending), job_work_locations 100행 모두 lat/lng NULL 유지(변경 0), 공개 공고 0건. 관리자 RPC `admin_list_location_candidates`와 같은 조건 조회에서 33행·pending 33·주소 일치(address_still_present) 33.
+- 관리자 화면: /admin → 탭 "locations"(AdminDashboard `tab==='locations'` → AdminLocations), 기본 필터 "Chờ duyệt"(pending). 화면 자체는 관리자 로그인이 필요해 이 세션에서 직접 열어 보지 못함(로그인 정보 입력 불가) — RPC와 같은 쿼리로 33행 확인까지.
+- "없음" 67건(그대로, DB 변경 없음): 범위 안 일치·유사 POI 없음 57 / 근무 회사 없음(대행사 게시·KCN 근거만) 9 / 회사명에서 구별 가능한 단어 없음 1.
+- commit/push: 스크립트·문서만. master 코드 변경 없음.
+- 남은 문제: 관리자가 지도·위성으로 33건 대조 후 승인/거절(검토 후보 다수는 이름만 비슷한 오탐 가능 — 예: KINH ĐÔ→경찰서, KHO SPX→Kho Bạc, AQUA→수족관), area 3건은 승인 불가, 승인 전까지 핀 표시 없음.
+
 ## 2026-10-07 — chotot 100건 근무 회사 ↔ VietMap 타일 POI·OSM 좌표 후보 dry-run (DB 쓰기 없음)
 
 - 요청: 서버 키 없이 `VITE_VIETMAP_TILEMAP_KEY`로 벡터 타일 POI + OSM(Overpass) 이름 있는 공장을 대조해 chotot 100건(4685~4784) 좌표 후보를 찾는다. 자동 승인 후보/검토 필요/없음 건수, 자동 후보는 위성 확인. dry-run만.
@@ -94,12 +104,4 @@
 - 검증: tsc, tests 37/37, build, 헤드리스 Chrome(#4682 지도·윤곽·위성·Phóng to 정상, 길찾기 버튼 없음).
 - commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
 - 남은 문제: 28개 KCN 모두 목적지 미조사(길찾기 숨김), VSIP 후보 결정.
-
-## 2026-10-07 — 길찾기 복구(좌표 링크) + KCN 영역 윤곽·이름표·축소 배율(상세·Phóng to)
-
-- 요청: Google 길찾기 허용(좌표로만), 승인 근무지 "Chỉ đường"·KCN "Chỉ đường đến KCN …"+정문 아님 안내, 공단 영역 테두리+이름표, 축소 배율, Phóng to에도 적용, CLAUDE.md·HANDOFF 규칙 정정.
-- 변경: jobCoords `hasApprovedPoint`(출입구→승인 전체, 테스트 갱신), industrialParkOutlines(OSM 윤곽 28개)·industrialParkDirectionsUrl(+test), JobVietMap 윤곽 레이어(`home-kcn-area*`, 스타일 전환 시 유지)·fitBounds·길찾기 note, JobDetail 버튼, CLAUDE.md 규칙 정정.
-- 검증: tsc, tests 37/37, build. 헤드리스 Chrome(WebGL) 실제 렌더: #4682 윤곽·이름표·길찾기 버튼(href 좌표)·위성·Phóng to·닫기, acceptance 승인 근무지 "Chỉ đường"(좌표) 상세·Phóng to, Geoapify 0·콘솔 오류 0.
-- commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
-- 남은 문제: 사용자 PC·폰 확인, 길찾기 버튼은 Google 지도 새 탭(외부) — 실제 클릭 도착 화면은 미확인.
 
