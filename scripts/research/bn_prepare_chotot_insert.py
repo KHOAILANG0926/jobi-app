@@ -102,7 +102,7 @@ def clean_body(body: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", out).strip()
 
 
-def main() -> None:
+def build_jobs() -> tuple[list[dict], list[dict]]:
     rows = [r for r in json.loads((OUT / "bacninh_chotot_rows.json").read_text("utf-8")) if not r["excluded"]]
     raw = {}
     for f in sorted(OUT.glob("ct_res_*.json")):
@@ -145,6 +145,11 @@ def main() -> None:
             errors.append({"id": r["id"], "title": title[:50], "errors": errs})
         jobs.append(job)
 
+    return jobs, errors
+
+
+def main() -> None:
+    jobs, errors = build_jobs()
     # ── SQL 생성: 10건씩 한 트랜잭션, 광고 번호(source) 기준 재실행 안전(이미 있으면 건너뜀)
     cols = ["title", "company", "category", "subcategory", "salary", "location", "employer_phone", "urgent", "description",
             "posted_at", "active", "origin", "admin_hidden", "source", "source_url", "crawler_version", "publish_gate_reason",

@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 기존 크롤러 281건 정리 확인 + Chợ Tốt 100건 local_jobs 반영(비공개) 완료
+
+- 정리 확인(사용자 실행 후): local_jobs 1건(#4682), source_url 0건, job_work_locations 0건 — 삭제 전 읽기 전용 재확인 후 진행.
+- 반영: batch01만 먼저 → DB에서 10건 확인(admin_hidden=true 10, source_url NULL 10, job_work_locations 10, `source|회사|전화|급여` md5가 원본과 일치) → 이상 없어 batch02~10 실행. **실패·롤백 0건.** 방식: SQL 파일을 손으로 옮기지 않고 같은 데이터를 `scripts/research/bn_apply_chotot_rest.py`(PostgREST, 서비스 키는 crawler/.env에서 읽고 출력 안 함, `source` 중복이면 건너뜀·오류 시 즉시 중단)로 넣음. SQL batch 파일(`out/bn_chotot_insert_batch*.sql`)과 같은 값. 준비 스크립트는 `build_jobs()`로 분리.
+- 결과: local_jobs 101행(#4682 + chotot 100), **chotot ID 범위 4685~4784**(10건씩 4685-4694, …, 4775-4784; 4683·4684는 identity가 건너뜀). 전부 admin_hidden=true·origin=crawler·active=true(공개 게이트 ok, 비공개라 안 보임), source_url NULL 100, `source='chotot:<광고번호>'`, job_work_locations 100행(100건 모두 lat/lng NULL·geocode pending, industrial_park 31, address_accuracy region_only/exact_text), recruitment_type=agency 18. 설명 본문(태그 제외)에 URL·사이트명 0건. 전체 체크섬(`source|회사|전화|급여` md5 294a6909…) 로컬 값과 일치.
+- anon 조회(공개 API, 게시용 키): chotot 100건 조회 0건, id 4685~4784 0건, 위치 0건, source_url not null 0건, 공개로 보이는 공고 전체 1건(#4682).
+- 크롤러: 정리 시점 점검 결과 그대로(GitHub Actions disabled, Supabase cron에 크롤러 없음, VPS crontab 미확인 — 9/28 이후 신규 크롤러 행 없음). 실행 후에도 신규 크롤러 행이 생기지 않았는지는 다음 세션에서 재확인 필요.
+- commit/push: branch `feat/job-detail-sections`(실행기·분리 리팩터링·문서만, 데이터·백업 제외). master·Production 코드는 그대로(DB만 반영). 공개 전환은 사용자가 Preview를 보고 따로 승인.
+- 남은 문제: 좌표(KCN 31건 영역 표시만, 69건 좌표 없음) 별도 작업, 공개 전환(admin_hidden=false) 승인 대기.
+
 ## 2026-10-07 — 기존 크롤러 공고 281건 정리 준비(백업·참조 조사·삭제 SQL dry-run) — 삭제·batch 미실행
 
 - 요청: Chợ Tốt batch 전에 local_jobs에서 #4682를 뺀 281건을 백업→참조 조사→(0이면)삭제→확인, 크롤러 cron 점검, 그다음 batch01부터.
@@ -87,12 +97,4 @@
 - 검증: tsc, tests 36/36, build, 로컬 PC 1280px·모바일 375px(#4682). 공개 공고가 #4682 1건뿐이라 다른 형식은 단위 테스트로만 확인.
 - commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
 - 남은 문제: KCN 일대 지도는 지역 중심 좌표(공단 경계 아님), 실제 폰·여러 공고 형식 확인.
-
-## 2026-10-07 — #4682 원문 추출 DB 반영 + 언어·출장 DDL + 리뷰 0건 숨김
-
-- 요청: #4682 추출 결과 DB 반영(원문 백업 후), 언어(text)·출장(boolean) 컬럼 추가, BHXH는 태그로 대체, 리뷰 0건이면 숨김.
-- 변경: migration 20261007031726(컬럼 2 + 백업 테이블), #4682 UPDATE(백업 1행·md5 일치 조건), jobSchema 36항목, 모집조건에 Ngoại ngữ·Đi công tác 행, CompanyReviews 0건 숨김.
-- DB 전후: 새 컬럼 0→2, 백업 테이블 0→1(백업 행 0→1), #4682 갱신 1/1.
-- 검증: tsc, tests 35/35, build. commit/push: branch `feat/job-detail-sections`. master·Production 미반영.
-- 남은 문제: 다른 공고 일괄 추출은 별도 승인, 리뷰 작성 경로, 모바일 실기기 확인.
 
