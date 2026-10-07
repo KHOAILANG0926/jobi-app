@@ -2,6 +2,18 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 박닌 Chợ Tốt 100건 표본 검증 + local_jobs 반영 SQL 준비(dry-run, DB 쓰기 없음)
+
+- 요청: ① 채택 100건 중 20건 무작위(시드 고정)를 원문 페이지에서 다시 추출해 대조 ② 100건을 local_jobs에 admin_hidden=true로 넣는 SQL을 dry-run으로 준비(원문 링크는 공개 컬럼 금지, 기존 DB 중복 재확인) ③ 좌표는 반영 후 별도 작업.
+- 표본 20건 결과: 전화·게시자·제목·주소 **20/20 일치(오류 0%)**(번호는 "Hiện số"를 다시 눌러 재확인). 판정 오류는 2건: ⓐ KCN 오매칭 1/9 — "gần khu công nghiệp Đông Thọ"(근처)를 KCN으로 잡음 → "gần/cạnh/đối diện … KCN" 표현은 근거에서 제외 ⓑ 대행사 근무 회사 모호 1/3 — "BÁN HÀNG SAMSUNG ĐIỆN MÁY XANH"처럼 브랜드(제품)와 고용주가 불명확한 공고. 유통 체인으로 대체하는 보정은 근거가 약해 시도 후 되돌림(AQUA 공고는 "Aqua 대표"라 고용주가 Mediamart라고 단정 불가) → 브랜드를 그대로 두고 모호 건으로만 기록.
+- 표본 밖에서 추가로 고친 것: KCN 이름이 첫 글자("KCN Q")로 잘리던 버그(industrial_park에 들어갈 값) → 주소 단어 앞까지 전체 이름 / 근무지 줄에 다른 성(Hà Nội 등)이 있고 박닌이 없으면 제외(KCN Phú Minh·Đông Ngạc Hà Nội 2건, 다성 모집 3건) / 중복 기준을 회사+제목+전화로 일치(주소만 다른 2건 → 보류분으로 대체). 고친 뒤 100건 전체 재판정 → 채택 100(KCN 31, 대행사 게시 18, 같은 근무 회사 최대 2건).
+- 반영 준비(실행 안 함): `scripts/research/bn_prepare_chotot_insert.py` → `out/bn_chotot_insert_batch01~10.sql`(10건씩 한 트랜잭션, `source='chotot:<광고번호>'`로 재실행 안전). local_jobs 100행 + job_work_locations 100행. 컬럼 채움: title/company/category/salary/location/employer_phone/description/posted_at/source/crawler_version/recruitment_regions 100, subcategory 64, recruitment_type(agency) 18, salary_min 85/max 90/currency·period 92/negotiable 99, industrial_park 31, **source_url 0**. active=true·admin_hidden=true(공개 게이트 ok, 비공개). 분류는 기존 `crawler/classifier.py`·`job_quality.validate_job_payload`(오류 0건).
+- 원문 링크: **`source_url`은 NULL** — `anon`이 이 컬럼을 SELECT할 수 있어(컬럼 권한 확인) 비공개를 풀면 공개 API로 경쟁 사이트 링크가 나간다. 내부 추적은 링크가 아닌 광고 번호(`source`)만. description의 URL·사이트명 줄도 제거. (참고: 기존 크롤러 행 약 280건은 source_url에 원문 URL이 들어 있고 anon이 읽을 수 있음 — 별도 정리 필요, 권한 변경이라 이번엔 건드리지 않음)
+- 중복 확인(운영 DB 읽기 전용): 전화 70종 일치 0 / 회사+제목 96종 일치 0 / 기존 chotot 행 0 → 빠지는 건 0건. 키는 체크섬으로 전달 일치 확인. INSERT는 `EXPLAIN`(미실행)으로 컬럼·타입 검증.
+- 좌표: 100건 모두 lat/lng NULL(geocode pending). KCN 31건은 industrial_park·주소 텍스트로 KCN 영역 표시만 가능, 나머지 69건은 근무지 좌표 없음 → 반영 후 별도 작업.
+- commit/push: branch `feat/job-detail-sections`(스크립트·문서만, SQL·CSV 제외). master·Production·DB 미반영.
+- 남은 문제: 사용자 승인 후 batch SQL 실행(10회), 좌표 작업, 모호 건(Samsung·AQUA·Panasonic 등 브랜드 공고 5건 안팎, KCN만 근거인 대행사 공고는 회사명이 게시자) 검토.
+
 ## 2026-10-07 — 박닌 Chợ Tốt 재수집(1페이지부터) 연락처 있는 공고 100건 채움 (DB 쓰기 없음)
 
 - 요청: 이 PC에서 Chợ Tốt 박닌을 1페이지부터 다시 수집, 연락처 있는 공고 100건까지. 옛 박장 제외, 대행 공고는 근무 회사·KCN 근거 있을 때만 채택, 같은 회사 최대 2건, 손으로 옮겨 쓰기 금지, DB 쓰기 금지. 이후 지시: 대기업·브랜드(Samsung·Coca-Cola·Amphenol 등)는 대행사가 아니라 "근무 회사", CSV에 "근무 회사"/"게시자" 분리.
@@ -80,11 +92,4 @@
 - 검증: tsc, tests 35/35, build, 로컬 PC 확인, Preview 200. DB 쓰기 없음.
 - commit/push: branch `feat/job-detail-sections`. master·Production 미반영(미승인).
 - 남은 문제: #4682 추출 결과 확인 후 DB 반영 결정, 언어·출장 컬럼(DDL) 결정, 리뷰 유지 여부, 모바일 실기기 확인.
-
-## 2026-10-07 — master 반영 + Production SSR 500 장애 복구
-
-- 요청: `7907b8b` master fast-forward·배포 확인 → 장애 발견 후 복구 승인.
-- 원인/수정: SSR 함수 번들에 react-router dom-export.js 누락 → `vercel.json` includeFiles에 `node_modules/react-router/dist/**` 추가(Preview 대조 검증: 수정 없음 500 / 있음 200).
-- 검증: tsc·tests 33/33·build, Production 상세·tim-kiem·tuyen-gap·sitemap·홈 200, 상세 로고 이니셜.
-- commit/push: master `cd0eeeb`(fast-forward) → 자동 배포 Ready. 장애 약 1시간. 재발 시 로그의 `Cannot find module` 확인.
 
