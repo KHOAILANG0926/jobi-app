@@ -40,9 +40,15 @@ async function call(kind, url, params) {
   const ck = kind + '|' + url + '|' + JSON.stringify(params)
   if (cache[ck]) return cache[ck]
   if (used() >= BUDGET) throw new BudgetStop(`하루 예산 ${BUDGET}회 도달`)
-  usage[today][kind]++ // 호출 전에 센다(실패해도 한도에 포함됐다고 보수적으로 가정)
-  const res = await fetch(`${url}?${new URLSearchParams({ ...params, apikey: KEY })}`, { signal: AbortSignal.timeout(10_000) })
-  const text = await res.text()
+  let res, text
+  for (let attempt = 0; attempt < 2; attempt++) { // 일시적 연결 오류는 1회만 재시도(재시도도 호출 수에 포함)
+    if (used() >= BUDGET) throw new BudgetStop(`하루 예산 ${BUDGET}회 도달`)
+    usage[today][kind]++ // 호출 전에 센다(실패해도 한도에 포함됐다고 보수적으로 가정)
+    try {
+      res = await fetch(`${url}?${new URLSearchParams({ ...params, apikey: KEY })}`, { signal: AbortSignal.timeout(20_000) })
+      text = await res.text(); break
+    } catch (e) { save(); if (attempt === 1) throw new Error(`연결 실패: ${String(e.cause?.code ?? e.message).replace(KEY, '[KEY]')}`); await new Promise(r => setTimeout(r, 1500)) }
+  }
   if (!res.ok) { save(); throw new Error(`HTTP ${res.status} ${text.slice(0, 60).replace(KEY, '[KEY]')}`) }
   cache[ck] = JSON.parse(text); save()
   await new Promise(r => setTimeout(r, 400)) // 천천히

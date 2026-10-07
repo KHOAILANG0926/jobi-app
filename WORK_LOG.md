@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — chotot 좌표 후보 VietMap Search/Place 재 dry-run 실행 (DB 쓰기 없음)
+
+- 요청: 서버 키(`VIETMAP_SERVICE_KEY`, 값 출력 금지)로 chotot 100건을 Search/Place 검색해 타일 후보와 비교, 하루 250회 이내, DB 쓰기 금지.
+- 호출: 80개 (회사·구) 질의 → Search 81(첫 시험 실패 1 포함) + Place 46 = **127회**(스크립트 집계) + 연결 문제 확인용 수동 시험 약 7회 = 약 134회/일(상한 250, Trial 500의 약 27%). 첫 실행은 일시적 연결 실패(10초 타임아웃)였고, 원인 확인 후 타임아웃 20초·재시도 1회를 넣어 재실행. 키는 출력·저장하지 않음.
+- 결과: **자동 승인 후보 5 / 검토 필요 29 / 없음 66**(조회 못 한 건 0). 없음 66 = 이름 유사 POI 없음 57 + 근무 회사 없음(대행사) 9. 타일 dry-run(자동 1/검토 32/없음 67)과 비교: 둘 다 자동 1(#4720) · Search만 자동 4 · 타일만 자동 0 · 둘 다 검토 이상 15 · 새로 검토로 올라옴 14 · 타일 검토가 Search에서는 없음 14(타일의 이름만 비슷한 오탐이 사라진 것으로 보임).
+- 자동 5건 위성 확인(VietMap Hybrid, 4곳 — #4713·#4721은 같은 POI): #4720 Pizza Hut Bắc Ninh ✓(전날 확인, 도심 Lê Thái Tổ 인근, 공고 주소와 일치) / #4755 Toll — 핀이 대형 창고·물류 건물 위 ✓ 타당(주소 일치도 partial) / #4696 Môi Trường Ngôi Sao Xanh — 연못·야적장 있는 소규모 시설 부지 가장자리 ✓ 타당(환경 회사) / **#4713·#4721 "Công Ty Tnhh Pizza Việt Nam" — 핀이 붉은 지붕 주택가 한가운데 ✗ 법인 등록 주소 POI로 보임(실제 매장 POI #4720은 약 560 m 떨어진 Lê Thái Tổ)** → 자동 승인 후보로는 부적합, 승인 전 거절 권장.
+- 산출물: `scripts/research/out/chotot_vietmap_search_candidates.csv`(바탕화면 `bacninh_handoff/`에도 복사), `vietmap_search_usage.json`·`vietmap_search_cache.json`(gitignore). 스크립트 `bn_vietmap_search_dryrun.mjs`에 타임아웃 20초·1회 재시도 추가.
+- DB 쓰기 없음. 이미 `job_location_candidates`에 들어간 33건(타일 기준)과는 별개 — Search 결과를 추가/교체할지는 승인 후.
+- 다음(승인 후): Search 자동 4곳(#4720·#4696·#4755 + 참고용 #4713·#4721은 제외 권장)을 기존 pending 후보 옆에 추가하거나 대체, 새로 올라온 검토 14건 후보 추가.
+
 ## 2026-10-07 — chotot 좌표 후보 VietMap Search/Place 재 dry-run — 키가 이 PC에 없어 중단, 스크립트 준비
 
 - 요청: `VIETMAP_SERVICE_KEY`(Trial "Key API (search, route…)")로 chotot 100건 Search/Place 검색 dry-run, 하루 250회(한도 500의 절반) 이내, 타일 후보와 비교, DB 쓰기 금지.
@@ -87,16 +97,4 @@
 - 크롤러 점검: Supabase pg_cron은 `deactivate-expired-jobs-daily`·`job-alert-notifications` 2개뿐(크롤러 아님), Edge Function 0개, GitHub Actions `채용공고 자동 크롤링`은 **disabled_manually**(마지막 실행 8/28 실패). VPS crontab은 접속 불가라 **직접 확인 불가** — 다만 DB에 새 크롤러 행이 9/28 이후 0건(최근 7일 created 0, last_verified 9/24)이라 꺼져 있을 가능성이 높음. 사용자가 VPS에서 `crontab -l` 확인 필요(끄지 않음).
 - Chợ Tốt batch: 삭제 완료 후 실행하기로 한 순서라 보류(SQL batch01~10 준비 완료, 변경 없음).
 - commit/push: branch `feat/job-detail-sections`(백업 스크립트·삭제 SQL·문서, backups/·SQL 데이터 제외). master·Production·DB 미반영.
-
-## 2026-10-07 — 박닌 Chợ Tốt 100건 표본 검증 + local_jobs 반영 SQL 준비(dry-run, DB 쓰기 없음)
-
-- 요청: ① 채택 100건 중 20건 무작위(시드 고정)를 원문 페이지에서 다시 추출해 대조 ② 100건을 local_jobs에 admin_hidden=true로 넣는 SQL을 dry-run으로 준비(원문 링크는 공개 컬럼 금지, 기존 DB 중복 재확인) ③ 좌표는 반영 후 별도 작업.
-- 표본 20건 결과: 전화·게시자·제목·주소 **20/20 일치(오류 0%)**(번호는 "Hiện số"를 다시 눌러 재확인). 판정 오류는 2건: ⓐ KCN 오매칭 1/9 — "gần khu công nghiệp Đông Thọ"(근처)를 KCN으로 잡음 → "gần/cạnh/đối diện … KCN" 표현은 근거에서 제외 ⓑ 대행사 근무 회사 모호 1/3 — "BÁN HÀNG SAMSUNG ĐIỆN MÁY XANH"처럼 브랜드(제품)와 고용주가 불명확한 공고. 유통 체인으로 대체하는 보정은 근거가 약해 시도 후 되돌림(AQUA 공고는 "Aqua 대표"라 고용주가 Mediamart라고 단정 불가) → 브랜드를 그대로 두고 모호 건으로만 기록.
-- 표본 밖에서 추가로 고친 것: KCN 이름이 첫 글자("KCN Q")로 잘리던 버그(industrial_park에 들어갈 값) → 주소 단어 앞까지 전체 이름 / 근무지 줄에 다른 성(Hà Nội 등)이 있고 박닌이 없으면 제외(KCN Phú Minh·Đông Ngạc Hà Nội 2건, 다성 모집 3건) / 중복 기준을 회사+제목+전화로 일치(주소만 다른 2건 → 보류분으로 대체). 고친 뒤 100건 전체 재판정 → 채택 100(KCN 31, 대행사 게시 18, 같은 근무 회사 최대 2건).
-- 반영 준비(실행 안 함): `scripts/research/bn_prepare_chotot_insert.py` → `out/bn_chotot_insert_batch01~10.sql`(10건씩 한 트랜잭션, `source='chotot:<광고번호>'`로 재실행 안전). local_jobs 100행 + job_work_locations 100행. 컬럼 채움: title/company/category/salary/location/employer_phone/description/posted_at/source/crawler_version/recruitment_regions 100, subcategory 64, recruitment_type(agency) 18, salary_min 85/max 90/currency·period 92/negotiable 99, industrial_park 31, **source_url 0**. active=true·admin_hidden=true(공개 게이트 ok, 비공개). 분류는 기존 `crawler/classifier.py`·`job_quality.validate_job_payload`(오류 0건).
-- 원문 링크: **`source_url`은 NULL** — `anon`이 이 컬럼을 SELECT할 수 있어(컬럼 권한 확인) 비공개를 풀면 공개 API로 경쟁 사이트 링크가 나간다. 내부 추적은 링크가 아닌 광고 번호(`source`)만. description의 URL·사이트명 줄도 제거. (참고: 기존 크롤러 행 약 280건은 source_url에 원문 URL이 들어 있고 anon이 읽을 수 있음 — 별도 정리 필요, 권한 변경이라 이번엔 건드리지 않음)
-- 중복 확인(운영 DB 읽기 전용): 전화 70종 일치 0 / 회사+제목 96종 일치 0 / 기존 chotot 행 0 → 빠지는 건 0건. 키는 체크섬으로 전달 일치 확인. INSERT는 `EXPLAIN`(미실행)으로 컬럼·타입 검증.
-- 좌표: 100건 모두 lat/lng NULL(geocode pending). KCN 31건은 industrial_park·주소 텍스트로 KCN 영역 표시만 가능, 나머지 69건은 근무지 좌표 없음 → 반영 후 별도 작업.
-- commit/push: branch `feat/job-detail-sections`(스크립트·문서만, SQL·CSV 제외). master·Production·DB 미반영.
-- 남은 문제: 사용자 승인 후 batch SQL 실행(10회), 좌표 작업, 모호 건(Samsung·AQUA·Panasonic 등 브랜드 공고 5건 안팎, KCN만 근거인 대행사 공고는 회사명이 게시자) 검토.
 
