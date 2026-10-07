@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — 관리자 Vị trí 후보 지도 라벨(길 이름·POI) 안 보임 수정
+
+- 증상: 지도에 길은 그려지지만 길 이름·POI·건물 라벨이 없음. 실제 /admin → Vị trí(로그인된 Chrome)에서 재현, "수정 전" 스크린샷 저장.
+- 원인: 관리자 지도는 `applyLifeMapStyle` 없이 VietMap 공식 `tm` 스타일을 그대로 썼다. 공식 스타일은 회사·ATM·상점 POI 레이어가 z18부터(34개 레이어 minzoom 18)이고 글씨도 옅은 회색이라, 관리자 기본 배율 z17에서는 라벨이 0개(z18에서도 흐릿하게 겨우). 요청 문제는 아님(글꼴·스프라이트·스타일 전부 200). 홈·상세 지도는 `applyLifeMapStyle`이 POI를 z13~16으로 당기고 `text-optional`로 라벨을 살려서 보임.
+- 수정: `src/components/admin/AdminVietMap.tsx`만 — 공식 style을 받아 `applyLifeMapStyle(…,'street')`로 변환해 지도 생성, Bản đồ↔Vệ tinh 전환도 같은 transformStyle. 스타일 요청 실패 시 빈 지도 대신 "Bản đồ tạm thời không tải được." 안내. `lifeMapStyle.ts`·`JobVietMap`·홈 지도 코드는 변경 없음.
+- 검증: tsc·npm test 37/37·build 통과. 배포 후 /admin Vị trí에서 전후 스크린샷 비교(아래 HANDOFF/보고).
+- commit/push: master → Production.
+
 ## 2026-10-07 — 관리자 Vị trí 후보 지도 빈 칸(점만) 원인 확인·수정
 
 - 증상: 후보 33건이 생긴 뒤 관리자 Vị trí 화면 지도가 길·건물 없이 핀(점)만 보임.
@@ -94,15 +102,4 @@
 - 사고 기록: 화면 개편으로 기존 스크립트 파싱 실패(→ __NEXT_DATA__로 교체), 탭 멈춤 2회(navigate로 복구, 데이터는 localStorage 유지), 자동 다운로드 2회째 Chrome 차단·로컬 서버 전송 차단 → 클릭 제스처로 클립보드 복사 후 PowerShell로 파일 저장(전사 없음).
 - commit/push: branch `feat/job-detail-sections`(스크립트·문서만, CSV 제외). master·Production 미반영.
 - 남은 문제: 사용자 CSV 검토, 반영 방식 결정(승인 전 DB 금지), Muaban·Facebook은 이후.
-
-## 2026-10-07 — 박닌 공고 100건 검토용 수집(Vieclam24h + Chợ Tốt, DB 쓰기 없음)
-
-- 요청: 박닌만·회사명 없음 제외·원문 링크 미저장·천천히·**연락처 있는 공고 100건 기준**(CLAUDE.md "공고 수집 소스 규칙" 신설, 커밋 92df0a9). 산출물 CSV, 승인 전 DB 반영 금지.
-- 변경: `scripts/research/bn_collect_v24h.py`(Vieclam24h, `province_ids[]=90`+상세 근무지 재검증), `bn_collect_chotot_ext.js`(Chợ Tốt, 로그인된 Chrome 탭 + 확장), `bn_build_csv.mjs`(제외·중복·KCN·연락처 유무→`out/bacninh_review.csv`). out/은 .gitignore(번호·경쟁사 데이터 포함).
-- 결과: **연락처 있는 채택 80건 / 목표 100 → 20건 부족.** Chợ Tốt 목록 103건 방문(추출 성공 101, 번호 확인 92) → 채택 82(연락처 78)/제외 19(회사명 없음 10·내부 중복 9). Vieclam24h 121건 방문 → 채택 114(연락처 2)/제외 7(옛 박장 3·마감 2·기존 DB 중복 1·박닌 아님 1). 채택 합계 196, 그중 연락처 80(chotot 78 + v24h 2), KCN 매칭 10.
-- 미수집: Chợ Tốt 목록 6페이지 이후(총 673건 중 103건만 링크 수집), Muaban·Facebook·TopCV·CareerViet·VietnamWorks 미실행.
-- 검증: DB read-only 대조(v24h source id 1건 중복, Chợ Tốt는 DB에 소스 없음). 번호 확인은 로그인 계정으로 'Hiện số' 1회씩(경고·제한 신호 없음).
-- 주의: Chợ Tốt "회사명"은 게시자명(RRD·ADTEK·GRGR·Sức Bật 등 인력/대행 성격 다수) — 같은 번호로 여러 회사명 공고. 직접채용 판정은 안 함. 헤드리스 접속은 Cloudflare 403(우회 안 함, 확장 방식 사용).
-- 사고 기록: Chrome 탭이 가끔 멈춤(navigate로 새로고침), 경고 정규식 오탐 2회(고침). commit/deploy 없음(문서·스크립트 커밋만).
-- 남은 문제: 20건 부족(Chợ Tốt 추가 페이지 또는 Muaban/Facebook), 옛 박장 포함 여부, 반영 방식 결정.
 
