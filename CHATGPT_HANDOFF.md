@@ -4,9 +4,9 @@
 
 장기 AI/Agent 전략은 AI_DISCOVERY_STRATEGY.md 참고
 
-**⚠ Production 장애(2026-10-07)**: master `7907b8b` 반영 후 SSR 함수(`/viec-lam/*`·`sitemap.xml`)가 500 — 로그 `Cannot find module react-router/dist/development/dom-export.js`. 같은 소스(`522643e`)를 redeploy해도 동일해 코드가 아니라 함수 번들(파일 추적) 문제. **수정 검증됨**: `vercel.json` functions `includeFiles`에 `node_modules/react-router/dist/**` 추가 → Preview `jobi-52rw1yemz` 공고 상세·tim-kiem·sitemap 200(대조 Preview는 500). 수정은 branch에만 있고 master·Production 미반영(사용자 지시: master push 금지). Production은 현재 SSR 500 상태.
+**Production 장애 복구 완료(2026-10-07).** master `7907b8b` 반영 직후 SSR 함수(`/viec-lam/*`·`sitemap.xml`)가 500 — 원인: 함수 번들에 `react-router/dist/development/dom-export.js`가 빠짐(로그 `Cannot find module`). 같은 소스(`522643e`) redeploy도 동일 → 코드가 아니라 Vercel 함수 파일 추적 문제(16시간 전엔 같은 소스가 정상). 수정: `vercel.json` functions `includeFiles`를 `{dist/**,node_modules/react-router/dist/**}`로 확장(Preview 검증 후). master `cd0eeeb` fast-forward push → 자동 Production 배포 → 공고 상세·tim-kiem·tuyen-gap·sitemap.xml·홈 모두 200, 상세 로고 자리 이니셜(출처 이미지 0). 장애 구간: 약 1시간(7907b8b 배포~복구). 참고: `vercel rollback`은 요금제상 직전 배포까지만 가능.
 
-**공고 항목 설계 + 즉시 수정 실행 (2026-10-07).** branch `fix/source-logo-and-classifier`(worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 33/33) / BRANCH PUSHED / **Production DB 적용 완료(DDL 9개·로고 244건·재분류 26건)** / **master 미반영 · Production 코드 미배포**(사용자 지시: merge·배포 금지).
+**공고 항목 설계 + 즉시 수정 실행 (2026-10-07).** branch `fix/source-logo-and-classifier`(worktree `C:\Users\HP\Downloads\jobi-wheel-fix`). 상태: IMPLEMENTED / VERIFIED(tsc·tests 33/33) / MASTER PUSHED(`cd0eeeb`) / PRODUCTION DEPLOYED·VERIFIED(위 복구 포함) / **Production DB 적용 완료(DDL 9개·로고 244건·재분류 26건)**.
 
 ## 변경 내용
 
@@ -33,7 +33,7 @@
 
 ## 최근 완료 작업 로그
 
-- 공고 항목 설계 + 즉시 수정 실행(jobSchema·DDL 9·로고 244·재분류 26) — 2026-10-07 — DB 적용 완료 / BRANCH PUSHED(`fix/source-logo-and-classifier`) / master·코드 배포 미반영
+- 공고 항목 설계 + 즉시 수정 실행(jobSchema·DDL 9·로고 244·재분류 26) + SSR 번들 장애 복구 — 2026-10-07 — MASTER PUSHED(`cd0eeeb`) / PRODUCTION DEPLOYED·VERIFIED
 - 공고 항목 설계 + 즉시 수정(출처 로고 차단·분류 개선) — 2026-10-06 — BRANCH PUSHED(`fix/source-logo-and-classifier`, Preview `jobi-xg3h9jbxb`) / master·Production·DB 미적용(승인 완료, 실행 대기)
 - 근무지 좌표 VietMap 관리자 검토·직접 지정·자동 후보(꺼짐) — 2026-10-06 — MASTER PUSHED(`71acf9a`) / PRODUCTION DEPLOYED(`jobi-bo6e6kzkn`) / PRODUCTION VERIFIED(사용자)
 - 지도 제스처 재정비 + 모바일 bottom sheet — 2026-10-06 — MASTER PUSHED(`cccd767`) / PRODUCTION DEPLOYED(`jobi-cx74ww02v`) / PRODUCTION VERIFIED(사용자)

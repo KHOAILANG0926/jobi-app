@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-07 — master 반영 + Production SSR 500 장애 복구
+
+- 요청: `7907b8b` master fast-forward·배포 확인 → 장애 발견 후 복구 승인.
+- 원인/수정: SSR 함수 번들에 react-router dom-export.js 누락 → `vercel.json` includeFiles에 `node_modules/react-router/dist/**` 추가(Preview 대조 검증: 수정 없음 500 / 있음 200).
+- 검증: tsc·tests 33/33·build, Production 상세·tim-kiem·tuyen-gap·sitemap·홈 200, 상세 로고 이니셜.
+- commit/push: master `cd0eeeb`(fast-forward) → 자동 배포 Ready. 장애 약 1시간. 재발 시 로그의 `Cannot find module` 확인.
+
 ## 2026-10-07 — 공고 항목 jobSchema + Production DB 적용(DDL 9·로고 244·재분류 26)
 
 - 요청: 승인된 즉시 수정 실행. master merge·배포 금지, DB는 전후 건수만 보고.
@@ -75,11 +82,3 @@
 - 검증: tsc, tests 26/26, build, 로컬 5개 시나리오 + 실제 마우스 클릭.
 - commit/push: 사용자 승인(Preview `jobi-ifofpmbdx`) 후 승인 소스 그대로 branch `feat/life-map-buildings-poi` commit·push. master merge·Production deploy 안 함(별도 승인 대기).
 
-## 2026-10-05 — 생활지도 고도화(건물·근무지·생활시설) — PREVIEW APPROVED, BRANCH PUSHED
-
-- 요청: VietMap 유지, 건물·회사·생활시설 중심 지도, 선택 공고 주변 300/500m 생활환경 패널, 위성 토글, 대량 공고 대비 구조.
-- 변경: `lifeMapStyle`(style 변환), `vietMapStyle`(hm 위성), `VietMapMapCanvas`(fetch→변환, 토글, 주변 POI 집계·링·점), `homeMapClusters`(viewport/cluster), `nearbyFacilities`+`NearbyLifePanel`, `homeMapGeometry.radiusWithinLoadedTiles`, CSS. `vietMapDetail` 삭제(대체).
-- 이유: VietMap 원본은 건물 z17·POI 대부분 z18부터라 동네 단위에서 도로만 보였음. 생활 POI는 z16 타일에만 온전 → 선택 시 z16 기준 집계.
-- 검증: tsc, tests 25/25, build, 로컬 화면(데스크톱·375px·위성 전환 유지·87개 시설 집계).
-- commit/push: 2차와 함께 승인(Preview `jobi-ifofpmbdx`) 후 branch `feat/life-map-buildings-poi` commit·push. 1차 단독 Preview `jobi-l5craw8h8`. master·Production 안 함.
-- 남은 문제: 공단 건물 데이터 희소, 위성/z16 사용량 증가 가능, VietMap key 권한 문제(기존).
