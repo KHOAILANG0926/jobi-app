@@ -1,5 +1,5 @@
 import {
-  addressMatch, buildCandidateEvidence, evaluateAutoApproval, isExactCompanyName, pointInRing, distanceMeters, isDuplicateCandidate, MIN_NAME_SIMILARITY, nameSimilarity, normalizePlaceText,
+  addressMatch, buildCandidateEvidence, looksLikeRegisteredAddress, evaluateAutoApproval, isExactCompanyName, pointInRing, distanceMeters, isDuplicateCandidate, MIN_NAME_SIMILARITY, nameSimilarity, normalizePlaceText,
 } from './locationCandidateMatch.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
@@ -58,5 +58,10 @@ const otherDistrict = evaluateAutoApproval({ company: 'Goertek Vina', poiName: '
 assert(!otherDistrict.approve && otherDistrict.reason === 'address_not_inside', 'exact name but another district → no pin')
 const similar = evaluateAutoApproval({ company: 'Goertek', poiName: 'Goertek Vina', jobAddress: jobAddr, poiUnits: units, insideKcn: true })
 assert(!similar.approve && similar.reason === 'name_not_exact', 'similar (not exact) name → no pin even inside the KCN')
+
+assert(looksLikeRegisteredAddress('Công Ty Tnhh Pizza Việt Nam') && looksLikeRegisteredAddress('CTY CP Abc') && !looksLikeRegisteredAddress('Pizza Hut Bắc Ninh'), 'legal-form POI names look like registered addresses')
+const registered = evaluateAutoApproval({ company: 'Pizza Việt Nam', poiName: 'Công Ty Tnhh Pizza Việt Nam', jobAddress: jobAddr, poiUnits: units, insideKcn: null })
+assert(!registered.approve && registered.reason === 'registered_address_like', 'legal-name POI outside any KCN outline → no pin (registered address)')
+assert(evaluateAutoApproval({ company: 'Pizza Việt Nam', poiName: 'Công Ty Tnhh Pizza Việt Nam', jobAddress: jobAddr, poiUnits: units, insideKcn: true }).approve, 'legal-name POI inside the KCN outline is a factory → auto')
 
 console.log('locationCandidateMatch auto-approval assertions passed')

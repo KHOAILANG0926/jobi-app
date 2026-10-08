@@ -146,7 +146,16 @@ export function isExactCompanyName(company: string, poiName: string): boolean {
   return a.length > 0 && a.join(' ') === b.join(' ')
 }
 
-export type AutoApprovalReason = 'exact_name_inside_kcn' | 'exact_name_in_district' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside'
+/**
+ * 법인 등록 주소로 보이는 POI인지. VietMap에는 "Công ty TNHH ○○"처럼 법인명 그대로 주택가·사무실 주소에 찍힌 POI가 있다
+ * (2026-10-08 확인: "Công Ty Tnhh Pizza Việt Nam"이 주택가 한가운데, 실제 매장은 560 m 떨어진 곳).
+ * 공단 윤곽 안이 아닌데 이름이 법인 형태로 시작하면 등록 주소로 보고 자동 승인하지 않는다.
+ */
+export function looksLikeRegisteredAddress(poiName: string): boolean {
+  return /^(cong ty|cty|doanh nghiep|chi nhanh|van phong|tnhh|co phan)\b/.test(normalizePlaceText(poiName))
+}
+
+export type AutoApprovalReason = 'exact_name_inside_kcn' | 'exact_name_in_district' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside' | 'registered_address_like'
 
 /**
  * 자동 승인 핀 기준(2026-10-08 사용자 지시): 회사명이 정확히 일치하고, POI가 공고 주소(구·KCN) 안에 있을 때만.
@@ -167,6 +176,7 @@ export function evaluateAutoApproval(input: {
   if (input.insideKcn !== null) {
     return input.insideKcn ? { approve: true, reason: 'exact_name_inside_kcn' } : { approve: false, reason: 'outside_kcn' }
   }
+  if (looksLikeRegisteredAddress(input.poiName)) return { approve: false, reason: 'registered_address_like' }
   const m = addressMatch(input.jobAddress, input.poiUnits)
   if (m.district || m.result === 'match') return { approve: true, reason: 'exact_name_in_district' }
   return { approve: false, reason: 'address_not_inside' }
@@ -178,4 +188,5 @@ export const AUTO_APPROVAL_NOTE: Record<AutoApprovalReason, string> = {
   name_not_exact: 'Không tự động duyệt: tên công ty không khớp chính xác.',
   outside_kcn: 'Không tự động duyệt: vị trí nằm ngoài khu công nghiệp ghi trong địa chỉ.',
   address_not_inside: 'Không tự động duyệt: vị trí không nằm trong quận/huyện ghi trong địa chỉ.',
+  registered_address_like: 'Không tự động duyệt: điểm này giống địa chỉ đăng ký pháp nhân (tên dạng "Công ty TNHH…" ngoài khu công nghiệp), không chắc là nơi làm việc.',
 }

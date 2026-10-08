@@ -17,7 +17,7 @@ function makeRes() {
 }
 
 function makeDeps(opts: { role?: string; configured?: boolean; used?: number; counterFails?: boolean; upstreamOk?: boolean } = {}) {
-  const calls = { upstream: 0, take: 0, urls: [] as string[] }
+  const calls = { upstream: 0, take: 0, read: 0, urls: [] as string[] }
   let used = opts.used ?? 0
   const deps = {
     vietmapConfigured: () => opts.configured ?? true,
@@ -31,6 +31,11 @@ function makeDeps(opts: { role?: string; configured?: boolean; used?: number; co
       if (used >= limit) return { ok: false, used }
       used++
       return { ok: true, used }
+    },
+    async readUsage(_day: string) {
+      calls.read++
+      if (opts.counterFails) throw new Error('usage_counter_unavailable')
+      return { used }
     },
     async upstream(url: string, params: Record<string, string>) {
       calls.upstream++
@@ -97,6 +102,19 @@ async function run(deps: ReturnType<typeof makeDeps>['deps'], req: { method?: st
   const { deps } = makeDeps({ upstreamOk: false })
   const r = await run(deps, { body: { action: 'search', text: 'x' } })
   assert(r.code === 502 && (r.body as { upstreamStatus: number }).upstreamStatus === 423, 'upstream failure → 502 with status only')
+}
+{
+  const { deps, calls } = makeDeps({ used: 37, configured: false })
+  const r = await run(deps, { body: { action: 'usage' } })
+  const body = r.body as { ok: boolean; used: number; limit: number }
+  assert(r.code === 200 && body.used === 37 && body.limit === DAILY_LIMIT, 'usage action returns today used/limit')
+  assert(calls.upstream === 0 && calls.take === 0 && calls.read === 1, 'usage never calls VietMap and does not count')
+  const denied = await run(makeDeps({ role: 'employer' }).deps, { body: { action: 'usage' } })
+  assert(denied.code === 403, 'usage is admin only')
+  const none = await run(makeDeps().deps, { headers: {}, body: { action: 'usage' } })
+  assert(none.code === 401, 'usage needs a token')
+  const broken = await run(makeDeps({ counterFails: true }).deps, { body: { action: 'usage' } })
+  assert(broken.code === 503, 'usage counter unavailable → 503')
 }
 assert(vietnamDay(new Date('2026-10-07T18:00:00Z')) === '2026-10-08', 'Vietnam day rolls at UTC+7')
 

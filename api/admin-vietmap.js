@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 // - 하루 250회 상한(베트남 날짜 기준) — Supabase vietmap_usage_take RPC로 원자적으로 센다.
 //   카운터를 쓸 수 없으면(RPC 미적용 등) VietMap을 호출하지 않는다(fail closed).
 // - 호출 전에 센다(upstream 실패도 한도에 포함 — 보수적).
+// - action 'usage'는 오늘 사용 횟수만 읽는다(VietMap을 부르지 않고 세지도 않음).
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co'
 const SEARCH_URL = 'https://maps.vietmap.vn/api/search/v4'
 const PLACE_URL = 'https://maps.vietmap.vn/api/place/v4'
@@ -38,6 +39,11 @@ function runtimeDependencies() {
       if (!row || typeof row.ok !== 'boolean') throw new Error('usage_counter_unavailable')
       return { ok: row.ok, used: Number(row.used) }
     },
+    async readUsage(day) {
+      const { data, error } = await admin.from('vietmap_usage_daily').select('calls').eq('day', day).maybeSingle()
+      if (error) throw new Error('usage_counter_unavailable')
+      return { used: Number(data?.calls ?? 0) }
+    },
     async upstream(url, params) {
       const query = new URLSearchParams({ ...params, apikey: process.env.VIETMAP_SERVICE_KEY })
       const res = await fetch(`${url}?${query}`, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) })
@@ -62,6 +68,7 @@ function validate(body) {
     }
     return { action, text, focus: focus ?? null }
   }
+  if (action === 'usage') return { action }
   if (action === 'place') {
     if (typeof body.refId !== 'string' || !REF_ID.test(body.refId)) return null
     return { action, refId: body.refId }
@@ -88,6 +95,10 @@ export function createAdminVietmapHandler(injected) {
     try {
       const caller = await deps.verifyCaller(token)
       if (caller?.app_metadata?.role !== 'admin') return res.status(403).json({ error: 'Admin access required' })
+      if (request.action === 'usage') {
+        const { used } = await deps.readUsage(vietnamDay())
+        return res.status(200).json({ ok: true, used, limit: DAILY_LIMIT })
+      }
       if (!deps.vietmapConfigured()) return res.status(503).json({ error: 'not_configured' })
 
       const usage = await deps.takeUsage(vietnamDay(), DAILY_LIMIT)

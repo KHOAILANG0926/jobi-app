@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
 import type { AdminMapMarker, AdminMapPick } from './AdminVietMap'
+import { AdminAutoLocate } from './AdminAutoLocate'
 
 // 근무지 좌표 후보 검토·승인(2026-09-29). 승인된 위치만 사이트의 지도 핀·길찾기·내 주변 거리에
 // 쓰인다. 공단·지역 중심(place_precision='area')은 DB에서 승인 자체가 막힌다.
@@ -105,6 +106,7 @@ export function AdminLocations() {
       <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? 'Đóng' : '＋ Tự chọn vị trí trên bản đồ'}</button>
       <small>Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.</small>
     </div>
+    <AdminAutoLocate onChanged={reload} />
     {error && <p className="admin-error">{error}</p>}
     {manualOpen && <ManualLocationPanel candidates={items} onDone={async () => { setError(''); await reload() }} onError={setError} />}
     {shown.length === 0 && <p>Không có ứng viên vị trí.</p>}
