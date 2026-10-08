@@ -1,6 +1,6 @@
 # CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
 
-갱신: 2026-10-08(토요일 이어받기용). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
+갱신: 2026-10-08(xã/phường 동네 지도 반영). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
 
 ## ▶ 이어받기 (토요일 ChatGPT/Codex) — 끝난 단계 / 남은 단계 / 다음 첫 작업
 
@@ -11,14 +11,16 @@
 4. **`/admin` → Vị trí 탭 "Tìm vị trí tự động (chotot)" 버튼** — PR #19, master `a20f08b`, Production 번들에 버튼 포함 확인. 관리자가 누르면 chotot 100건(ID 4685~4784)을 서버 API로 검색 → 자동 승인 기준(회사명 정확 일치 + 주소 구·KCN 안, 법인 등록 주소형 POI 제외)만 승인 좌표 반영, 나머지 핀 없음, 하루 250회·한도 시 멈추고 다음 날 이어서, 결과(검색/자동 승인/핀 없음/미처리/오늘 남은 호출) 화면 표시. 로직 `src/lib/chototAutoLocate.ts`(+테스트), UI `src/components/admin/AdminAutoLocate.tsx`.
    - **버그 수정 1 (PR #21)**: DB에서 4건만 읽혀 "완료"로 표시 → ID 범위 ∪ `source like 'chotot:%'`로 읽고 100건 판정 시에만 완료. 사용자 재실행에서 Đã đọc 100/100 확인.
    - **버그 수정 2 (이번)**: 재실행에서 10/100만 처리·"완료" 표시·서버 호출 132회 소모·화면 호출 0. 수정: 완료 문구는 실행 종료+100건 판정일 때만, 공고당 Search 1 + 정확히 일치하는 후보 1개만 Place 1(상한 2, 지점 여럿이면 Place 0), 호출은 시도 단위로 집계, 연속 5회 실패 시 중단, 실행 상태 유지, 서버 카운터 증가분 병기(차이 나면 경고). **10건에서 멈춘 정확한 이유는 DB·로그 접근이 없어 확정 못 함** — 다음 실행의 서버 증가분·중단 사유 표시로 확인. 100건 전부 처리 시 정확히 200호출 이내(250 한도 안).
+5. **xã/phường "동네 지도" (코드, 실행 전)**: 핀·KCN 영역이 없고 행정구역만 있는 공고는 xã 위치를 VietMap으로 한 번 찾아 비공개 저장소(`research_artifacts` `autolocate/ward_centers`)에 캐시 → 공고에 zoom 13 핀 없는 지도 + "Khu vực …, vị trí chính xác chưa xác minh" + "Gọi hỏi đường"(Chỉ đường·거리 없음). 관리자 **Vị trí 탭 "Tìm khu vực xã/phường (chotot)" 버튼**(`AdminWardLocate.tsx`, `wardLocate.ts`)을 눌러야 채워진다: 대상 64건/xã·phường 24곳, 호출 최대 72(xã당 Search≤2+Place 1, 보통 48), 캐시된 xã는 재호출 없음. 공개 조회 `api/ward-area.js`는 요청한 xã의 좌표만 반환(VietMap 호출 없음). VietMap에 `layers`를 뺀 검색이 xã를 돌려주는지는 실제 호출 전엔 미확인 — 실패는 "Xem chi tiết … không tìm được"에 사유로 표시되고 `WARD_SEARCH_VERSION`을 올리면 실패분만 재시도.
 
 **남은 단계**
+- **xã/phường 버튼 실행(사용자)**: `/admin` → Vị trí → "Tìm khu vực xã/phường (chotot)". 결과(찾음/못 찾음/호출/남은 한도)를 알려 주면 지도 없는 공고 수를 다시 집계한다. 실행 전 Production 지도 없는 공고 = 68건.
 - (완료) 자동 위치 검색 버튼 실행 — 100건 처리: 자동 승인 0 / 기존 승인 2 / 핀 없음 98.
 - (완료) chotot 100건 공개 전환 — 사용자가 `supabase/pending/20261008100000_publish_chotot_jobs.sql`을 SQL Editor에서 실행(2026-10-08). 확인 쿼리 결과: chotot_public 100 / chotot_still_hidden 0 / chotot_total 100 / all_public_jobs 100. **PRODUCTION VERIFIED(2026-10-08)**: sb-4685·4686(Gọi hỏi đường, 지도 없음)·sb-4702(핀+Chỉ đường `destination=lat,lng`)·sb-4687(KCN 글자만, 지도 없음) 모두 200, 회사명·전화·Zalo 표시, `[source:`/경쟁 사이트 문구 없음, 홈·tìm kiếm에 카드 표시.
 - **상세주소 검색 버튼(2026-10-08) 실행 완료**: 22건 검색 → 자동 승인 2(#4713·#4750), 핀 없음 18, 호출 11 = 서버 증가분 11, 남은 100/250. 승인 핀은 이제 #4702·#4713·#4720·#4750 4건(Chỉ đường). 코드 `src/lib/addressLocate.ts`·`addressParse.ts`: 공고당 Search 1 + 번지·도로명이 모두 맞는 1곳일 때만 Place 1. 번지+도로명이 없는 주소·서로 다른 시·도가 섞인 주소(#4691·#4692)는 호출 없이 핀 없음. 상세 화면: phường/xã 없이 시·군·구까지만 있는 근무지에 "Khu vực rộng"(현재 chotot 100건엔 해당 0건).
 - KCN 정문 후보(`docs/ops/2026-10-08_kcn_gate_dryrun.md`)를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후).
 
-**다음에 할 첫 작업**: 배포 후 공개 화면 확인(승인 핀 4건 Chỉ đường, KCN 지도 28건, 대행사 18건 "Qua công ty cung ứng" 칩). 이어서 KCN 정문 좌표 보강, 옛 xã 경계 데이터 출처 결정(사용자). **이 작업에서 DB 쓰기·DDL 적용은 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
+**다음에 할 첫 작업**: 사용자가 xã/phường 버튼을 실행하면 그 결과로 Production 지도 없는 공고를 재집계(현재 68건). 이어서 KCN 정문 좌표 보강. **이 작업에서 DB 쓰기·DDL 적용은 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
 
 ## 1. 현재 상태
 
@@ -42,7 +44,7 @@
 
 1. **공개 후 화면 확인**: chotot 공개 완료. URL 3개(KCN 1·일반 1·대행사 1, 형식 `/viec-lam/sb-<id>`)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고르고 홈·상세·길찾기(0건→N건 화면 영향 포함) 확인. 상세 `docs/ops/2026-10-08_chotot_publish_dryrun.md`.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
-3. **지도 없는 공고 68건(공개 100 = 승인 핀 4 + KCN 영역 지도 28 + 지도 없이 Gọi hỏi đường만 68)**: KCN 윤곽 4곳(Quế Võ III·Nam Sơn–Hạp Lĩnh·Thuận Thành 3·Đại Đồng–Hoàn Sơn)과 별칭(VSIP/VISIP·Yên Phong "Khu mở rộng") 추가로 KCN 지도 13→28건. 아직 KCN 글자가 있는데 지도 없는 3건: #4687 "KCN YÊN PHONG"(Yên Phong은 1기·II·IIC·mở rộng 여러 곳이라 단계 불명 → 추정 금지), #4769 "KCN Thuận Thành"(2·3기 구분 불가), #4752 "Khu công nghiệp III"(Quế Võ III로 보이나 이름만으로 확정 불가). **PRODUCTION VERIFIED(2026-10-08, 100페이지 브라우저 집계)**: 100/100 렌더, 지도(canvas) 32 = 승인 핀 4(Chỉ đường) + KCN 영역 지도 28, 지도 없음 68(전부 Gọi hỏi đường), 대행사 칩 18, `[source:`/경쟁 사이트 문구 0. 행정구역(옛 xã) 경계 지도는 **보류**: OSM에 phường/xã 경계 면이 없고(Overpass·Nominatim 확인), HDX COD(2025-09)는 성(admin1)까지만 있어 출처 있는 옛 xã 윤곽을 구할 수 없음 — 공식 xã 경계 데이터(예: 라이선스 확인된 GIS 원본)가 있어야 진행. 선택: pending 후보 수동 승인으로 핀 늘리기.
+3. **지도 없는 공고 68건(공개 100 = 승인 핀 4 + KCN 영역 지도 28 + 지도 없이 Gọi hỏi đường만 68)**: KCN 윤곽 4곳(Quế Võ III·Nam Sơn–Hạp Lĩnh·Thuận Thành 3·Đại Đồng–Hoàn Sơn)과 별칭(VSIP/VISIP·Yên Phong "Khu mở rộng") 추가로 KCN 지도 13→28건. 아직 KCN 글자가 있는데 지도 없는 3건: #4687 "KCN YÊN PHONG"(Yên Phong은 1기·II·IIC·mở rộng 여러 곳이라 단계 불명 → 추정 금지), #4769 "KCN Thuận Thành"(2·3기 구분 불가), #4752 "Khu công nghiệp III"(Quế Võ III로 보이나 이름만으로 확정 불가). **PRODUCTION VERIFIED(2026-10-08, 100페이지 브라우저 집계)**: 100/100 렌더, 지도(canvas) 32 = 승인 핀 4(Chỉ đường) + KCN 영역 지도 28, 지도 없음 68(전부 Gọi hỏi đường), 대행사 칩 18, `[source:`/경쟁 사이트 문구 0. xã 경계선(윤곽) 지도는 **보류**: OSM에 phường/xã 경계 면이 없고, HDX COD(2025-09)는 성(admin1)까지만 있음 → 대신 위 5번의 "동네 중심 지도(윤곽 없음)"로 진행. 선택: pending 후보 수동 승인으로 핀 늘리기.
 
 ## 3. 필수 규칙 (전문은 `CLAUDE.md`·`AGENTS.md`, 항상 먼저 읽기)
 

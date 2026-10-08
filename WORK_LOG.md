@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — 행정구역(xã/phường)만 있는 공고 "동네 지도" 구현 (실행 전, DB 쓰기·API 호출 없음)
+
+- 요청: 지도 없는 68건 중 xã/phường만 있는 공고는 VietMap 검색으로 그 xã 위치를 찾아 xã 수준 지도(핀·Chỉ đường·거리 없음, "Khu vực …, vị trí chính xác chưa xác minh" + "Gọi hỏi đường" 유지). 좌표는 서버 API로 한 번만 찾아 비공개 저장소에 캐시(같은 xã 재호출 없음, 하루 한도 안). 배포 후 지도 없는 공고 재집계.
+- 구현: `wardArea.ts`(주소 끝 3단 "Xã/Phường, Huyện/Thị xã/Thành phố, Tỉnh"에서 단위·key 추출; 여러 xã 나열·여러 시·도 혼합은 제외) / `wardLocate.ts`+`AdminWardLocate.tsx`(관리자 버튼 "Tìm khu vực xã/phường (chotot)": xã 1곳당 Search 최대 2(전체 주소→구 제외 주소)+Place 1, 이름이 정확히 같고 구·성이 맞는 1곳만 인정, 성공은 영구 캐시·실패는 검색 버전이 바뀔 때만 재시도, 한도 시 저장 후 중단) / `api/ward-area.js`(공개 읽기 전용: 요청한 key 하나의 좌표만 반환, VietMap 호출·한도 소모 없음, CDN 캐시) / `JobDetail`(핀·KCN 없을 때만 조회, 있으면 zoom 13 핀 없는 지도+안내). 캐시는 `research_artifacts(kind=autolocate, name=ward_centers)`.
+- 한계: 서버 API는 관리자 로그인이 필요해 이 환경에서 못 부른다 → 캐시가 비어 있어 **버튼을 누르기 전까지 지도 없는 공고는 68건 그대로**. 공개 DB 기준 예상: 대상 64건/서로 다른 xã·phường 24곳(제외 4건: #4688 xã 13곳 나열, #4689 "TP Bắc Ninh Cũ" 혼합 표기, #4691·#4692 Hải Phòng 혼합) → 호출 최대 72(보통 48).
+- 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패), 브라우저 mock(found→지도+안내+Gọi hỏi đường·Chỉ đường 없음, miss→기존 안내, 승인 핀 공고는 조회 안 함).
+
 ## 2026-10-08 — 주소 검색 결과 반영 + KCN 윤곽·별칭 추가 + 대행사 칩 (DB 쓰기 없음)
 
 - 사용자 실행 결과(상세주소 버튼): 22건 검색 / 자동 승인 2(#4713·#4750) / 핀 없음 18 / 호출 11 = 서버 11 / 남은 100 → HANDOFF 반영. 승인 핀 총 4건.
@@ -62,13 +69,6 @@
 - 요청: DDL 요약 보고 → chotot 100건 재검색·자동 승인 → KCN 정문 보강 → 공개 전환 dry-run.
 - 확인: Vercel에 키 설정·Redeploy 후 `/api/admin-vietmap` 비로그인 호출은 401(키 값 노출 없음). VietMap 호출 0회, DB 쓰기 없음.
 - 차단: ① DDL 미승인 → 일일 상한 카운터 RPC 없음(API는 fail closed) ② 이 환경에 관리자 로그인 세션·서비스 자격증명 없음(API는 관리자 JWT 필요, 승인 좌표 반영도 관리자 RPC) → 2~4단계는 승인·세션 후 진행.
-
-## 2026-10-08 — PR #15 master 병합·Production 배포·검증 (DB 쓰기 없음)
-
-- 요청: PR #15 병합·배포 후 가짜 공고 제거와 길찾기 3단계를 Production에서 확인.
-- 처리: 빠른 전진(fast-forward)으로 master `447e380` 반영(PR MERGED) → Vercel Production 배포 success(`jobi-7nlzfo3as`).
-- 확인(https://viecganban.vn): 홈·tim-kiem·tuyen-gap 공고 카드 0·빈 상태 문구·`[source:` 0. 공개 공고가 없어 길찾기는 브라우저 안 mock 응답으로 확인: Chỉ đường / Gọi hỏi đường / 버튼 없음 정상, Đến cổng KCN은 정문 좌표 0개라 미확인. mock은 GET만, 쓰기 요청 0.
-- 남은 일: DDL 승인, `VIETMAP_SERVICE_KEY`·GitHub Secrets 설정, KCN 정문 후보 확인.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
