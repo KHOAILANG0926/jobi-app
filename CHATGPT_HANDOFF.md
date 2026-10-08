@@ -1,6 +1,6 @@
 # CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
 
-갱신: 2026-10-08(xã/phường 동네 지도 반영). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
+갱신: 2026-10-08(xã/phường 동네 지도 + /admin 개요 집계 수정). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
 
 ## ▶ 이어받기 (토요일 ChatGPT/Codex) — 끝난 단계 / 남은 단계 / 다음 첫 작업
 
@@ -12,6 +12,8 @@
    - **버그 수정 1 (PR #21)**: DB에서 4건만 읽혀 "완료"로 표시 → ID 범위 ∪ `source like 'chotot:%'`로 읽고 100건 판정 시에만 완료. 사용자 재실행에서 Đã đọc 100/100 확인.
    - **버그 수정 2 (이번)**: 재실행에서 10/100만 처리·"완료" 표시·서버 호출 132회 소모·화면 호출 0. 수정: 완료 문구는 실행 종료+100건 판정일 때만, 공고당 Search 1 + 정확히 일치하는 후보 1개만 Place 1(상한 2, 지점 여럿이면 Place 0), 호출은 시도 단위로 집계, 연속 5회 실패 시 중단, 실행 상태 유지, 서버 카운터 증가분 병기(차이 나면 경고). **10건에서 멈춘 정확한 이유는 DB·로그 접근이 없어 확정 못 함** — 다음 실행의 서버 증가분·중단 사유 표시로 확인. 100건 전부 처리 시 정확히 200호출 이내(250 한도 안).
 5. **xã/phường "동네 지도" (PR #30 MASTER MERGED·PRODUCTION DEPLOYED, 버튼 실행 전)**: 핀·KCN 영역이 없고 행정구역만 있는 공고는 xã 위치를 VietMap으로 한 번 찾아 비공개 저장소(`research_artifacts` `autolocate/ward_centers`)에 캐시 → 공고에 zoom 13 핀 없는 지도 + "Khu vực …, vị trí chính xác chưa xác minh" + "Gọi hỏi đường"(Chỉ đường·거리 없음). 관리자 **Vị trí 탭 "Tìm khu vực xã/phường (chotot)" 버튼**(`AdminWardLocate.tsx`, `wardLocate.ts`)을 눌러야 채워진다: 대상 64건/xã·phường 24곳, 호출 최대 72(xã당 Search≤2+Place 1, 보통 48), 캐시된 xã는 재호출 없음. 공개 조회 `api/ward-area.js`는 요청한 xã의 좌표만 반환(VietMap 호출 없음). VietMap에 `layers`를 뺀 검색이 xã를 돌려주는지는 실제 호출 전엔 미확인 — 실패는 "Xem chi tiết … không tìm được"에 사유로 표시되고 `WARD_SEARCH_VERSION`을 올리면 실패분만 재시도.
+
+6. **/admin 개요 "Tổng tin tuyển dụng" "—" 수정**: `korea_jobs` 베이스 테이블 count는 권한이 없어(0012) 항상 실패 → 공개 뷰 `korea_jobs_public`로 센다(Tin Hàn Quốc 1, Tổng = Tin VN + Hàn Quốc). Vị trí 탭의 xã/phường 박스는 위쪽으로 옮김(Production에 이미 있었음).
 
 **남은 단계**
 - **xã/phường 버튼 실행(사용자)**: `/admin` → Vị trí → "Tìm khu vực xã/phường (chotot)". 결과(찾음/못 찾음/호출/남은 한도)를 알려 주면 지도 없는 공고 수를 다시 집계한다. 실행 전 Production 집계(100페이지): canvas 지도 32(핀 4+KCN 28)·지도 없음 68(전부 Gọi hỏi đường)·`[source:` 0. `/api/ward-area` Production 200(`found:false`), 가짜 응답을 주입한 화면에서 지도(zoom 13)+안내+Gọi hỏi đường, Chỉ đường 없음 확인(저장 없음).

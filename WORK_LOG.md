@@ -2,6 +2,12 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — /admin 개요 "Tổng tin tuyển dụng"이 "—" + xã/phường 버튼 안 보임 신고 (DB 쓰기 없음)
+
+- 원인(개요): 대시보드가 베이스 테이블 `korea_jobs`를 직접 count — 0012 설계상 anon/authenticated에 권한이 없어 관리자 로그인에서도 permission denied → `koreaJobsError` → "Tin Hàn Quốc"과 "Tổng"이 항상 "—"(Tin VN은 별도 조회라 100). 수정: 공개 뷰 `korea_jobs_public`(status='active'·미만료)로 count. 현재 값 = 100 + 1.
+- 버튼: Production 번들(`AdminDashboard-ClM6G6ez.js`, master `b64b2f8` 배포 06:26 UTC)에 "Tìm khu vực xã/phường (chotot)"가 이미 포함됨. 관리자 세션을 흉내 낸 브라우저(Production, 네트워크 mock)에서 Vị trí 탭에 버튼 3개 모두 렌더 확인 → 사용자 화면의 2개는 이전 번들/이전 시점으로 보임. 확실히 보이도록 해당 박스를 기존 박스 위로 이동.
+- 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패).
+
 ## 2026-10-08 — 행정구역(xã/phường)만 있는 공고 "동네 지도" 구현 (실행 전, DB 쓰기·API 호출 없음)
 
 - 요청: 지도 없는 68건 중 xã/phường만 있는 공고는 VietMap 검색으로 그 xã 위치를 찾아 xã 수준 지도(핀·Chỉ đường·거리 없음, "Khu vực …, vị trí chính xác chưa xác minh" + "Gọi hỏi đường" 유지). 좌표는 서버 API로 한 번만 찾아 비공개 저장소에 캐시(같은 xã 재호출 없음, 하루 한도 안). 배포 후 지도 없는 공고 재집계.
@@ -63,12 +69,6 @@
 - 처리: `api/admin-vietmap.js`에 `usage` 액션(오늘 사용량 읽기, 호출·카운트 없음), `src/lib/chototAutoLocate.ts`(검색→판정→승인, 캐시, 한도 중단), `AdminAutoLocate.tsx`, `evaluateAutoApproval`에 법인 등록 주소형 제외(`registered_address_like`). 검색 캐시는 `research_artifacts`(kind `autolocate`)에 저장해 다음 날 이어서 실행.
 - 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패 1건), 로컬 브라우저 mock 흐름(승인 1/핀 없음 3, 호출 수 표시) 확인. master `a20f08b` 병합·Production 배포 success, 번들에 버튼 문구 확인. 실제 관리자 로그인 실행은 하지 않음.
 - 남은 일: DDL 적용(Claude), 버튼 실행, KCN 정문 보강, 공개 전환 dry-run.
-
-## 2026-10-08 — VIETMAP_SERVICE_KEY 설정 후 후속 4단계 요청 — 1단계 보고만, 2~4단계 차단
-
-- 요청: DDL 요약 보고 → chotot 100건 재검색·자동 승인 → KCN 정문 보강 → 공개 전환 dry-run.
-- 확인: Vercel에 키 설정·Redeploy 후 `/api/admin-vietmap` 비로그인 호출은 401(키 값 노출 없음). VietMap 호출 0회, DB 쓰기 없음.
-- 차단: ① DDL 미승인 → 일일 상한 카운터 RPC 없음(API는 fail closed) ② 이 환경에 관리자 로그인 세션·서비스 자격증명 없음(API는 관리자 JWT 필요, 승인 좌표 반영도 관리자 RPC) → 2~4단계는 승인·세션 후 진행.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
