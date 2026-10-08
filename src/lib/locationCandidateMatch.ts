@@ -1,6 +1,7 @@
 // 근무지 좌표 후보(job_location_candidates) 자동 생성용 순수 판정 (2026-10-06).
 // VietMap Search v4로 찾은 상가·회사(POI)를 공고의 회사명·근무지 주소와 비교한다.
-// 결과는 "후보"로만 저장되고(자동 승인 없음), 관리자가 AdminLocations에서 승인·거절한다.
+// 결과는 "후보"로 저장된다. 자동 승인 핀은 아래 evaluateAutoApproval 기준(회사명 정확 일치 + 구·KCN 안)을 통과한 1곳뿐이고,
+// 나머지는 핀 없음(pending)으로 두며 관리자가 AdminLocations(예외 처리용)에서 승인·거절한다.
 // - 지점이 여러 곳인 업체는 이름만으로 확정하지 않도록 행정구역(phường/xã·quận/huyện·tỉnh/TP) 일치 여부를
 //   함께 기록해 관리자에게 보여준다.
 // 외부 import 없이 앱과 scripts/generate-location-candidates.ts 양쪽에서 쓴다.
@@ -122,4 +123,59 @@ export function isDuplicateCandidate(
   next: { address: string; lat: number; lng: number },
 ): boolean {
   return existing.some((c) => c.address_snapshot === next.address && distanceMeters(c, next) <= DUPLICATE_RADIUS_M)
+}
+
+/** 점이 닫힌 링 안에 있는지(ray casting). ring은 [경도, 위도] 순서(industrialParkOutlines와 같음). */
+export function pointInRing(lat: number, lng: number, ring: ReadonlyArray<readonly [number, number]>): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+// 회사명 정확 일치 비교에서 지역·시설 일반어는 무시한다("Pizza Hut" = "Pizza Hut Bắc Ninh").
+const EXACT_IGNORED = new Set(['bac', 'ninh', 'kcn', 'khu', 'nghiep', 'cong', 'nha', 'may', 'xuong', 'kho'])
+
+/** 회사명 ↔ POI 이름이 법인 형태·지역 일반어를 빼고 단어 그대로 같은지(순서 포함). 비슷한 이름은 정확 일치가 아니다. */
+export function isExactCompanyName(company: string, poiName: string): boolean {
+  const a = companyTokens(company).filter((t) => !EXACT_IGNORED.has(t))
+  const b = companyTokens(poiName).filter((t) => !EXACT_IGNORED.has(t))
+  return a.length > 0 && a.join(' ') === b.join(' ')
+}
+
+export type AutoApprovalReason = 'exact_name_inside_kcn' | 'exact_name_in_district' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside'
+
+/**
+ * 자동 승인 핀 기준(2026-10-08 사용자 지시): 회사명이 정확히 일치하고, POI가 공고 주소(구·KCN) 안에 있을 때만.
+ * 그 밖에는 모두 "핀 없음"(후보로만 남고 관리자가 예외로 처리).
+ * - insideKcn: 공고 주소가 윤곽이 있는 KCN이면 POI가 그 윤곽 안인지(true/false), KCN 윤곽을 모르면 null.
+ *   KCN 윤곽이 있으면 구 일치만으로는 통과시키지 않는다(KCN 밖 같은 구의 다른 지점일 수 있음).
+ * - 윤곽이 없으면 주소의 구(quận/huyện)가 같거나, phường/xã + tỉnh가 모두 같을 때(addressMatch 'match')만 "안".
+ * 같은 회사명 후보가 여러 곳이면(지점 여럿) 호출 쪽에서 자동 승인하지 않는다.
+ */
+export function evaluateAutoApproval(input: {
+  company: string
+  poiName: string
+  jobAddress: string
+  poiUnits: AdminUnits
+  insideKcn: boolean | null
+}): { approve: boolean; reason: AutoApprovalReason } {
+  if (!isExactCompanyName(input.company, input.poiName)) return { approve: false, reason: 'name_not_exact' }
+  if (input.insideKcn !== null) {
+    return input.insideKcn ? { approve: true, reason: 'exact_name_inside_kcn' } : { approve: false, reason: 'outside_kcn' }
+  }
+  const m = addressMatch(input.jobAddress, input.poiUnits)
+  if (m.district || m.result === 'match') return { approve: true, reason: 'exact_name_in_district' }
+  return { approve: false, reason: 'address_not_inside' }
+}
+
+export const AUTO_APPROVAL_NOTE: Record<AutoApprovalReason, string> = {
+  exact_name_inside_kcn: 'Tự động duyệt: tên công ty khớp chính xác và vị trí nằm trong khu công nghiệp ghi trong địa chỉ.',
+  exact_name_in_district: 'Tự động duyệt: tên công ty khớp chính xác và vị trí nằm trong quận/huyện (hoặc phường/xã + tỉnh) ghi trong địa chỉ.',
+  name_not_exact: 'Không tự động duyệt: tên công ty không khớp chính xác.',
+  outside_kcn: 'Không tự động duyệt: vị trí nằm ngoài khu công nghiệp ghi trong địa chỉ.',
+  address_not_inside: 'Không tự động duyệt: vị trí không nằm trong quận/huyện ghi trong địa chỉ.',
 }

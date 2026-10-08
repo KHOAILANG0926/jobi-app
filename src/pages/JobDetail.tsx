@@ -25,6 +25,7 @@ import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
+import { planDirections } from '../lib/directionsPlan'
 import { findIndustrialPark, industrialParkDirectionsNote, industrialParkDirectionsUrl } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
 
@@ -349,9 +350,15 @@ export function JobDetail() {
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
     : undefined
   // 공단 수준 길찾기 — 출처 있는 정문·관리사무소 좌표(destination)로만. 없으면(영역 중심은 쓰지 않음) 버튼 숨김
-  const parkDirectionsHref = park ? industrialParkDirectionsUrl(park) : null
-  const parkDirection = park && park.destination && parkDirectionsHref
-    ? { label: `Chỉ đường đến ${park.name}`, href: parkDirectionsHref, note: industrialParkDirectionsNote(park.destination) }
+  // 길찾기 3단계(2026-10-08): ① 승인 좌표 Chỉ đường → ② KCN 정문 좌표 Đến cổng KCN → ③ 둘 다 없으면 Gọi hỏi đường(전화).
+  const directionsPlan = planDirections({
+    approvedLinks: mapDirections,
+    gateHref: park ? industrialParkDirectionsUrl(park) : null,
+    gateNote: park?.destination ? industrialParkDirectionsNote(park.destination) : undefined,
+    phone: contact.phone,
+  })
+  const parkDirection = directionsPlan.tier === 'gate'
+    ? { label: directionsPlan.link.label, href: directionsPlan.link.href, note: directionsPlan.note }
     : undefined
   // 주소 "텍스트 목록" 표시는 좌표(geocoding) 유무와 무관하게 원본에 근무지가
   // 있으면 항상 보여준다.
@@ -669,6 +676,12 @@ export function JobDetail() {
                     <p className="jd2-map-pending-note">
                       Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
                     </p>
+                  )}
+                  {directionsPlan.tier === 'call' && (
+                    <div className="jd2-map-links">
+                      <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label} ({directionsPlan.phone})</a>
+                      <p className="jd2-map-dir-note">Chưa có tọa độ đã xác minh — hãy gọi nhà tuyển dụng để hỏi đường.</p>
+                    </div>
                   )}
                 </>
               )}

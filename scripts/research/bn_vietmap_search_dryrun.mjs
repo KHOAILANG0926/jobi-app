@@ -7,7 +7,7 @@
 // 호출 수 줄이기: 같은 (회사명, 시/군·구) 질의는 한 번만. Place는 이름 유사도 ≥0.5 인 상위 2건만.
 // 실행: node --import ./scripts/ts-extensionless-register.mjs scripts/research/bn_vietmap_search_dryrun.mjs [--dry-plan]
 import { loadArtifact, saveArtifact, vietmapCall } from './lib/privateStore.mjs'
-import { nameSimilarity, companyTokens, normalizePlaceText, MIN_NAME_SIMILARITY, addressMatch } from '../../src/lib/locationCandidateMatch.ts'
+import { nameSimilarity, companyTokens, normalizePlaceText, MIN_NAME_SIMILARITY, addressMatch, evaluateAutoApproval } from '../../src/lib/locationCandidateMatch.ts'
 import { INDUSTRIAL_PARK_OUTLINES } from '../../src/data/industrialParkOutlines.ts'
 import { INDUSTRIAL_PARKS } from '../../src/data/industrialParks.ts'
 
@@ -81,7 +81,7 @@ try {
 } catch (e) { stopped = e instanceof BudgetStop ? e.message : `오류 중단: ${e.message}` }
 await save()
 
-// 판정: 타일 dry-run과 같은 기준(이름 정확 일치 + 공단 윤곽 안 | 광고 대략 위치 1.5 km 이내 + 후보 1곳)
+// 판정: 자동 승인 핀 기준(회사명 정확 일치 + 공단 윤곽 안 | 주소의 구 안, 후보 1곳). 아니면 핀 없음.
 const ckTokens = n => companyTokens(n).filter(t => !['bac', 'ninh', 'kcn', 'khu', 'nghiep', 'cong', 'nha', 'may', 'xuong', 'kho'].includes(t))
 const rows = []
 for (const j of jobs) {
@@ -95,10 +95,11 @@ for (const j of jobs) {
   const scored = f.places.map(pl => {
     const exact = ckTokens(j.work).length > 0 && ckTokens(j.work).join(' ') === ckTokens(pl.name).join(' ')
     const inside = !!(ring && inRing(pl.lng, pl.lat, ring)), d = center ? Math.round(dist(pl.lat, pl.lng, center[0], center[1])) : null
-    return { ...pl, exact, inside, d, sim: +nameSimilarity(j.work, pl.name).toFixed(2), addr: addressMatch(j.addr, pl.units).result }
+    const auto = evaluateAutoApproval({ company: j.work, poiName: pl.name, jobAddress: j.addr, poiUnits: pl.units, insideKcn: ring ? inside : null }).approve
+    return { ...pl, exact, inside, d, auto, sim: +nameSimilarity(j.work, pl.name).toFixed(2), addr: addressMatch(j.addr, pl.units).result }
   }).sort((a, b) => (b.exact - a.exact) || (b.sim - a.sim) || ((a.d ?? 1e9) - (b.d ?? 1e9)))
   row.cand = scored[0] ?? null
-  const ok = scored.filter(s => s.exact && (ring ? s.inside : (s.d !== null && s.d <= 1500)) && s.addr !== 'mismatch')
+  const ok = scored.filter(s => s.auto) // 자동 승인 핀 기준(2026-10-08): 회사명 정확 일치 + 구·KCN 안. 1곳일 때만 자동
   if (ok.length === 1) { row.status = '자동 승인 후보'; row.reason = '이름 정확 일치 + 위치 일치 1곳' }
   else if (scored.length) { row.status = '검토 필요'; row.reason = ok.length > 1 ? `정확 일치 ${ok.length}곳(지점 여럿)` : '이름이 비슷하거나 위치 조건 불충족' }
   else row.reason = f.hits ? '검색 결과는 있으나 이름 유사 POI 없음' : '검색 결과 없음'

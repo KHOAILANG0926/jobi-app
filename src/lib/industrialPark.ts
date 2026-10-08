@@ -33,12 +33,13 @@ export function findIndustrialPark(...texts: (string | null | undefined)[]): Ind
   return undefined
 }
 
-/** 공단 길찾기 — 출처 있는 정문(gate)·관리사무소(office) 좌표(`destination`)로만 만든다.
- *  영역 중심(lat/lng)은 절대 쓰지 않는다(빈 부지로 안내됨, 2026-10-07). 목적지가 없으면 null → 버튼 숨김.
+/** 공단 길찾기("Đến cổng KCN") — 출처 있는 KCN 정문(gate) 좌표(`destination`)로만 만든다(2026-10-08 사용자 지시).
+ *  영역 중심(lat/lng)은 절대 쓰지 않는다(빈 부지로 안내됨, 2026-10-07). 관리사무소(office)는 정문이 아니므로 쓰지 않는다.
+ *  목적지가 없으면 null → 3단계(Gọi hỏi đường)로 넘어간다.
  *  링크는 반드시 좌표(destination=lat,lng)이고 이름 검색은 쓰지 않는다. */
 export function industrialParkDirectionsUrl(park: Pick<IndustrialPark, 'destination'>): string | null {
   const d = park.destination
-  if (!d || !Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return null
+  if (!d || d.kind !== 'gate' || !Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return null
   return `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
 }
 

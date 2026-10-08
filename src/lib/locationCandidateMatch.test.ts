@@ -1,5 +1,5 @@
 import {
-  addressMatch, buildCandidateEvidence, distanceMeters, isDuplicateCandidate, MIN_NAME_SIMILARITY, nameSimilarity, normalizePlaceText,
+  addressMatch, buildCandidateEvidence, evaluateAutoApproval, isExactCompanyName, pointInRing, distanceMeters, isDuplicateCandidate, MIN_NAME_SIMILARITY, nameSimilarity, normalizePlaceText,
 } from './locationCandidateMatch.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
@@ -38,3 +38,25 @@ assert(!isDuplicateCandidate(existing, { address: jobAddr, lat: 21.1871, lng: 10
 assert(!isDuplicateCandidate(existing, { address: 'Địa chỉ khác', lat: 21.1861, lng: 106.0763 }), 'other address of the same job is separate')
 
 console.log('locationCandidateMatch.test.ts: candidate matching assertions passed')
+
+// 자동 승인 핀 기준(2026-10-08): 회사명 정확 일치 + 구·KCN 안. 아니면 핀 없음.
+assert(isExactCompanyName('PIZZA HUT', 'Pizza Hut Bắc Ninh'), 'exact after dropping legal form + place words')
+assert(isExactCompanyName('Công ty TNHH Goertek Vina', 'Goertek Vina'), 'legal form ignored')
+assert(!isExactCompanyName('Goertek', 'Goertek Vina'), 'extra distinguishing word → not exact')
+assert(!isExactCompanyName('Công ty TNHH', 'Công ty TNHH'), 'legal form alone is never exact')
+assert(!isExactCompanyName('KINH ĐÔ', 'Công an phường Kinh Bắc'), 'similar words are not exact')
+
+const square: [number, number][] = [[105, 21], [106, 21], [106, 22], [105, 22], [105, 21]]
+assert(pointInRing(21.5, 105.5, square) && !pointInRing(20.5, 105.5, square) && !pointInRing(21.5, 106.5, square), 'point in ring')
+
+const units = { ward: 'Xã Long Châu', district: 'Huyện Yên Phong', province: 'Tỉnh Bắc Ninh' }
+assert(evaluateAutoApproval({ company: 'Goertek Vina', poiName: 'Goertek Vina', jobAddress: jobAddr, poiUnits: units, insideKcn: true }).approve, 'exact name + inside KCN outline → auto')
+const outsideKcn = evaluateAutoApproval({ company: 'Goertek Vina', poiName: 'Goertek Vina', jobAddress: jobAddr, poiUnits: units, insideKcn: false })
+assert(!outsideKcn.approve && outsideKcn.reason === 'outside_kcn', 'exact name but outside the KCN outline → no pin (district match is not enough)')
+assert(evaluateAutoApproval({ company: 'Goertek Vina', poiName: 'Goertek Vina', jobAddress: jobAddr, poiUnits: units, insideKcn: null }).approve, 'no KCN outline: same district → auto')
+const otherDistrict = evaluateAutoApproval({ company: 'Goertek Vina', poiName: 'Goertek Vina', jobAddress: jobAddr, poiUnits: { ward: 'Phường Dịch Vọng', district: 'Quận Cầu Giấy', province: 'Thành phố Hà Nội' }, insideKcn: null })
+assert(!otherDistrict.approve && otherDistrict.reason === 'address_not_inside', 'exact name but another district → no pin')
+const similar = evaluateAutoApproval({ company: 'Goertek', poiName: 'Goertek Vina', jobAddress: jobAddr, poiUnits: units, insideKcn: true })
+assert(!similar.approve && similar.reason === 'name_not_exact', 'similar (not exact) name → no pin even inside the KCN')
+
+console.log('locationCandidateMatch auto-approval assertions passed')
