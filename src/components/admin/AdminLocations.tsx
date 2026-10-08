@@ -107,8 +107,8 @@ export function AdminLocations() {
       <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? 'Đóng' : '＋ Tự chọn vị trí trên bản đồ'}</button>
       <small>Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.</small>
     </div>
-    <AdminAutoLocate onChanged={reload} />
     <AdminWardLocate />
+    <AdminAutoLocate onChanged={reload} />
     {error && <p className="admin-error">{error}</p>}
     {manualOpen && <ManualLocationPanel candidates={items} onDone={async () => { setError(''); await reload() }} onError={setError} />}
     {shown.length === 0 && <p>Không có ứng viên vị trí.</p>}

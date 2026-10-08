@@ -100,7 +100,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     setLoading(true)
     Promise.all([
-      supabase.from('korea_jobs').select('id', { count: 'exact', head: true }),
+      // 베이스 테이블 korea_jobs는 anon/authenticated에 권한을 주지 않는다(0012) — 관리자 로그인으로도 count가 permission denied가 되어
+      // "Tin Hàn Quốc"·"Tổng"이 항상 "—"였다(2026-10-08). 공개 뷰 korea_jobs_public(status='active'·미만료)으로 센다.
+      supabase.from('korea_jobs_public').select('id', { count: 'exact', head: true }),
       listAdminUsers().catch(() => null),
       // "Tin VN đang tuyển"은 실제로 모집 중인(active && !admin_hidden) 공고
       // 수를 뜻하므로, 관리 목적으로 전체를 반환하는 listAdminJobs() 결과를
