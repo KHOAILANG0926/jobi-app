@@ -5,7 +5,7 @@
 // 하루 250회 상한은 서버가 센다. 한도에 닿으면(DailyLimitError) 지금까지의 응답 캐시를 비공개 저장소에 남기고 멈춘다 —
 // 다음 날 같은 버튼을 누르면 캐시된 질의는 다시 부르지 않고 이어서 진행한다.
 import {
-  AUTO_APPROVAL_NOTE, MIN_NAME_SIMILARITY, buildCandidateEvidence, distanceMeters, evaluateAutoApproval, isDuplicateCandidate,
+  AUTO_APPROVAL_NOTE, buildCandidateEvidence, distanceMeters, evaluateAutoApproval, isDuplicateCandidate,
   isExactCompanyName, nameSimilarity, normalizePlaceText, pointInRing, type AdminUnits, type AutoApprovalReason, type PoiCandidate,
 } from './locationCandidateMatch'
 import { findIndustrialPark } from './industrialPark'
@@ -16,14 +16,22 @@ export const CHOTOT_ID_MIN = 4685
 export const CHOTOT_ID_MAX = 4784
 /** 처리해야 할 chotot 공고 수. 이보다 적게 읽혔으면 "끝"이 아니라 "chưa xử lý"로 센다. */
 export const CHOTOT_EXPECTED_TOTAL = 100
-const MAX_PLACES_PER_QUERY = 2
+/** 근무지 1곳당 VietMap 호출 상한: Search 1회 + (이름이 정확히 같은 후보가 정해졌을 때만) Place 1회. */
+export const MAX_CALLS_PER_TARGET = 2
+/** 연속으로 이만큼 조회가 실패하면(VietMap 장애·키 문제) 호출을 더 낭비하지 않고 멈춘다. */
+export const MAX_CONSECUTIVE_FAILURES = 5
 const CACHE_SAVE_EVERY = 10
 
 export interface AutoLocateTarget { workLocationId: number | null; address: string; focus: { lat: number; lng: number } | null }
 export interface ExistingCandidate { id: number; address_snapshot: string; lat: number; lng: number; status: string }
 export interface AutoLocateJob { id: number; company: string; location: string; targets: AutoLocateTarget[]; existing: ExistingCandidate[] }
 
-export interface SearchedPlaces { hits: number; pois: PoiCandidate[] }
+export interface SearchedPlaces {
+  hits: number
+  pois: PoiCandidate[]
+  /** 이름이 정확히 같은 후보가 여러 곳이고 주소로도 하나로 좁혀지지 않음 → 지점 여럿, Place를 부르지 않고 핀 없음 */
+  multipleExact?: boolean
+}
 export type SearchCache = Record<string, SearchedPlaces>
 
 export interface AutoLocateDeps {
@@ -72,12 +80,18 @@ export interface AutoLocateSummary {
   autoApproved: number
   alreadyApproved: number
   noPin: number
+  /** 조회 오류로 판정하지 못한 공고 수 — "검색 완료"에 넣지 않고 chưa xử lý로 남겨 다음 실행에서 다시 한다 */
+  lookupFailed: number
   /** jobsTotal - searched: 읽지 못한 공고·한도/중단으로 남은 공고를 모두 포함 */
   notProcessed: number
+  /** 이번 실행에서 이 브라우저가 서버에 보낸 VietMap 요청 수(실패·타임아웃 포함, 429 한도 거절은 제외 — 서버도 세지 않음) */
   callsThisRun: number
-  /** 서버가 알려준 오늘 남은 호출 수. 이번 실행에서 호출이 없으면 null */
+  /** 서버 카운터가 이번 실행 동안 늘어난 양(usedAtStart를 알 때만). callsThisRun보다 크면 다른 곳(다른 탭·스크립트)도 같은 카운터를 쓴 것 */
+  serverCallsDelta: number | null
+  /** 서버가 알려준 오늘 남은 호출 수. 아직 응답이 없으면 null */
   remainingToday: number | null
-  stopped: 'done' | 'incomplete' | 'daily_limit' | 'user' | 'error'
+  /** running: 실행 중(완료 문구 금지) */
+  stopped: 'running' | 'done' | 'incomplete' | 'daily_limit' | 'user' | 'error'
   errorMessage?: string
   outcomes: AutoLocateOutcome[]
 }
@@ -115,15 +129,27 @@ export function queryKey(company: string, address: string): string {
 interface SearchHit { ref_id?: string; name?: string; address?: string; display?: string }
 interface PlaceDetail { name?: string; display?: string; address?: string; lat?: number; lng?: number; ward?: string; district?: string; city?: string }
 
-/** 이름이 정확히 같은 후보를 먼저, 그다음 유사도 순으로 최대 MAX_PLACES_PER_QUERY곳만 Place 조회 대상으로 고른다. */
-export function pickHitsToResolve(company: string, hits: unknown): SearchHit[] {
+const ADMIN_PREFIX = /^(phuong|xa|thi tran|quan|huyen|thi xa|thanh pho|tp|tinh)\s+/
+
+/** 검색 결과 한 곳의 주소 글자에 공고 주소의 phường/xã·quận/huyện 이름이 들어 있는지(성·시 단위는 제외). */
+function mentionsAddress(hit: SearchHit, jobAddress: string): boolean {
+  const parts = districtOf(jobAddress).split(',').map((x) => normalizePlaceText(x).replace(ADMIN_PREFIX, '').trim()).filter((x) => x.length > 1)
+  const cores = parts.length >= 2 ? parts.slice(0, -1) : parts
+  const text = ` ${normalizePlaceText(`${hit.address ?? ''} ${hit.display ?? ''}`)} `
+  return cores.some((c) => text.includes(` ${c} `))
+}
+
+/**
+ * Place(좌표) 조회 대상을 최대 1곳만 고른다. 자동 승인은 회사명 정확 일치 + 1곳일 때만 가능하므로
+ * 이름이 정확히 같은 후보만 본다. 정확히 같은 곳이 여럿이면 주소 글자로 하나로 좁히고, 못 좁히면 지점 여럿(multiple) → Place 없이 핀 없음.
+ */
+export function pickHitToResolve(company: string, jobAddress: string, hits: unknown): { hit: SearchHit | null; multiple: boolean } {
   const list = (Array.isArray(hits) ? hits : []) as SearchHit[]
-  return list
-    .filter((h) => h.ref_id && h.name && nameSimilarity(company, h.name) >= MIN_NAME_SIMILARITY)
-    .map((h, i) => ({ h, i, exact: isExactCompanyName(company, h.name as string), sim: nameSimilarity(company, h.name as string) }))
-    .sort((a, b) => Number(b.exact) - Number(a.exact) || b.sim - a.sim || a.i - b.i)
-    .slice(0, MAX_PLACES_PER_QUERY)
-    .map((x) => x.h)
+  const exact = list.filter((h) => h.ref_id && h.name && isExactCompanyName(company, h.name))
+  if (exact.length === 0) return { hit: null, multiple: false }
+  if (exact.length === 1) return { hit: exact[0], multiple: false }
+  const near = exact.filter((h) => mentionsAddress(h, jobAddress))
+  return near.length === 1 ? { hit: near[0], multiple: false } : { hit: null, multiple: true }
 }
 
 function toPoi(place: PlaceDetail, hit: SearchHit): PoiCandidate | null {
@@ -136,6 +162,7 @@ export interface Judgement { approvePoi: PoiCandidate | null; reason: NoPinReaso
 
 /** 한 근무지의 POI 후보들에서 자동 승인 1곳 또는 핀 없음 사유를 정한다(순수 함수). */
 export function judgePois(company: string, job: { address: string; location: string }, found: SearchedPlaces): Judgement {
+  if (found.multipleExact) return { approvePoi: null, reason: 'multiple_exact' }
   if (found.pois.length === 0) return { approvePoi: null, reason: 'no_search_result' }
   const park = findIndustrialPark(job.address, job.location)
   const ring = park ? INDUSTRIAL_PARK_OUTLINES[park.source.ref]?.ring ?? null : null
@@ -154,16 +181,31 @@ export function judgePois(company: string, job: { address: string; location: str
 export async function runAutoLocate(
   jobs: AutoLocateJob[],
   deps: AutoLocateDeps,
-  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number } = {},
+  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number; usedAtStart?: number } = {},
 ): Promise<AutoLocateSummary> {
   const summary: AutoLocateSummary = {
-    jobsTotal: opts.expectedTotal ?? jobs.length, jobsFound: jobs.length, searched: 0, autoApproved: 0, alreadyApproved: 0, noPin: 0, notProcessed: opts.expectedTotal ?? jobs.length,
-    callsThisRun: 0, remainingToday: null, stopped: 'done', outcomes: [],
+    jobsTotal: opts.expectedTotal ?? jobs.length, jobsFound: jobs.length, searched: 0, autoApproved: 0, alreadyApproved: 0, noPin: 0, lookupFailed: 0, notProcessed: opts.expectedTotal ?? jobs.length,
+    callsThisRun: 0, serverCallsDelta: null, remainingToday: null, stopped: 'running', outcomes: [],
   }
   const cache: SearchCache = (await deps.loadCache().catch(() => null)) ?? {}
   let unsaved = 0
   const flush = async () => { if (unsaved > 0) { await deps.saveCache(cache).catch(() => undefined); unsaved = 0 } }
-  const noteCall = (r: { used: number; limit: number }) => { summary.callsThisRun++; summary.remainingToday = Math.max(0, r.limit - r.used) }
+  const noteServer = (used: number, limit: number) => {
+    summary.remainingToday = Math.max(0, limit - used)
+    if (opts.usedAtStart !== undefined) summary.serverCallsDelta = Math.max(0, used - opts.usedAtStart)
+  }
+  // 모든 VietMap 요청은 이 함수를 지난다 — 응답을 못 받은 요청(실패·타임아웃)도 서버는 세므로 시도 시점에 센다.
+  async function counted<T extends { used: number; limit: number }>(send: () => Promise<T>): Promise<T> {
+    summary.callsThisRun++
+    try {
+      const reply = await send()
+      noteServer(reply.used, reply.limit)
+      return reply
+    } catch (e) {
+      if (e instanceof DailyLimitError) { summary.callsThisRun--; noteServer(e.used, e.limit) }
+      throw e
+    }
+  }
   const emit = () => opts.onProgress?.({ ...summary, outcomes: [...summary.outcomes] })
 
   let jobOutcomes: AutoLocateOutcome[] = []
@@ -173,35 +215,38 @@ export async function runAutoLocate(
   }
   // 공고 단위로 센다: 한 공고의 모든 근무지 판정이 끝났을 때만 "검색 완료"로 올린다(한도·중단으로 끊긴 공고는 chưa xử lý).
   const finishJob = () => {
+    if (jobOutcomes.some((o) => o.reason === 'lookup_failed')) { summary.lookupFailed++; return }
     if (jobOutcomes.some((o) => o.status === 'approved')) summary.autoApproved++
     else if (jobOutcomes.some((o) => o.status === 'already_approved')) summary.alreadyApproved++
     else summary.noPin++
     summary.searched++
     summary.notProcessed = Math.max(0, summary.jobsTotal - summary.searched)
   }
+  const failJob = () => { summary.lookupFailed++ }
 
   async function resolve(company: string, address: string, focus: AutoLocateTarget['focus']): Promise<SearchedPlaces> {
     const key = queryKey(company, address)
     if (cache[key]) return cache[key]
     const text = `${company} ${districtOf(address)}`.trim()
-    const searchReply = await deps.search({ action: 'search', text, focus })
-    noteCall(searchReply)
+    const searchReply = await counted(() => deps.search({ action: 'search', text, focus }))
     const hits = Array.isArray(searchReply.data) ? searchReply.data : []
-    const pois: PoiCandidate[] = []
-    for (const hit of pickHitsToResolve(company, hits)) {
-      const placeReply = await deps.place({ action: 'place', refId: hit.ref_id as string })
-      noteCall(placeReply)
+    const pick = pickHitToResolve(company, address, hits)
+    let result: SearchedPlaces = { hits: hits.length, pois: [] }
+    if (pick.multiple) result = { hits: hits.length, pois: [], multipleExact: true }
+    else if (pick.hit) {
+      const hit = pick.hit
+      const placeReply = await counted(() => deps.place({ action: 'place', refId: hit.ref_id as string }))
       const poi = toPoi((placeReply.data ?? {}) as PlaceDetail, hit)
-      if (poi) pois.push(poi)
-      await deps.pause?.()
+      result = { hits: hits.length, pois: poi ? [poi] : [] }
     }
-    cache[key] = { hits: hits.length, pois }
+    cache[key] = result
     unsaved++
     if (unsaved >= CACHE_SAVE_EVERY) await flush()
     await deps.pause?.()
-    return cache[key]
+    return result
   }
 
+  let consecutiveFailures = 0
   try {
     outer: for (const job of jobs) {
       if (opts.shouldStop?.()) { summary.stopped = 'user'; break }
@@ -224,8 +269,16 @@ export async function runAutoLocate(
             summary.remainingToday = 0
             break outer
           }
-          record({ ...base, status: 'no_pin', reason: 'lookup_failed' }); continue
+          record({ ...base, status: 'no_pin', reason: 'lookup_failed' })
+          if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            summary.stopped = 'error'
+            summary.errorMessage = `VietMap lỗi ${MAX_CONSECUTIVE_FAILURES} lần liên tiếp (${e instanceof Error ? e.message : 'error'}) — dừng để không tốn thêm lượt. Thử lại sau.`
+            failJob()
+            break outer
+          }
+          continue
         }
+        consecutiveFailures = 0
         const verdict = judgePois(company, { address, location: job.location }, found)
         if (!verdict.approvePoi) { record({ ...base, status: 'no_pin', reason: verdict.reason ?? 'no_search_result' }); continue }
         const poi = verdict.approvePoi
@@ -262,7 +315,7 @@ export async function runAutoLocate(
     summary.errorMessage = e instanceof Error ? e.message : 'error'
   }
   summary.notProcessed = Math.max(0, summary.jobsTotal - summary.searched)
-  if (summary.stopped === 'done' && summary.notProcessed > 0) summary.stopped = 'incomplete'
+  if (summary.stopped === 'running') summary.stopped = summary.notProcessed > 0 ? 'incomplete' : 'done'
   await flush()
   emit()
   return summary

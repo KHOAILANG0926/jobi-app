@@ -1,4 +1,4 @@
-import { runAutoLocate, judgePois, queryKey, districtOf, reportJobLoad, CHOTOT_EXPECTED_TOTAL, type AutoLocateDeps, type AutoLocateJob, type SearchCache } from './chototAutoLocate.ts'
+import { runAutoLocate, judgePois, pickHitToResolve, queryKey, districtOf, reportJobLoad, CHOTOT_EXPECTED_TOTAL, MAX_CALLS_PER_TARGET, MAX_CONSECUTIVE_FAILURES, type AutoLocateDeps, type AutoLocateJob, type SearchCache } from './chototAutoLocate.ts'
 import { DailyLimitError } from './adminVietmapClient.ts'
 
 function assert(cond: boolean, msg: string) {
@@ -57,7 +57,7 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
   assert(by[1].status === 'approved' && state.added.includes(1) && state.approved.length === 1, 'exact name inside the address district → approved coordinate')
   assert(by[2].status === 'no_pin' && by[2].reason === 'registered_address_like', 'legal-name POI (registered address) is excluded')
   assert(by[3].status === 'no_pin' && by[3].reason === 'multiple_exact', 'several exact-name POIs (branches) → no pin')
-  assert(by[4].status === 'no_pin' && by[4].reason === 'name_not_exact', 'similar-but-not-exact name → no pin')
+  assert(by[4].status === 'no_pin' && by[4].reason === 'no_search_result' && state.places === 3, 'similar-but-not-exact name → no pin and no Place call spent on it')
   assert(by[5].status === 'no_pin' && by[5].reason === 'address_not_inside', 'exact name but POI outside the address district → no pin')
   assert(by[6].reason === 'no_search_result' && by[7].reason === 'no_company', 'nothing found / no company → no pin')
   assert(r.searched === 7 && r.autoApproved === 1 && r.noPin === 6 && r.stopped === 'done' && r.notProcessed === 0, 'summary counts')
@@ -92,10 +92,43 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
 }
 {
   const failing: AutoLocateDeps = { ...makeDeps({}).deps, async search() { throw new Error('boom') } }
-  const r = await runAutoLocate([job(1, 'X')], failing)
-  assert(r.noPin === 1 && r.outcomes[0].reason === 'lookup_failed' && r.stopped === 'done', 'a failed lookup is a no-pin, not a crash')
+  const r = await runAutoLocate([job(1, 'X')], failing, { expectedTotal: 1 })
+  assert(r.searched === 0 && r.lookupFailed === 1 && r.notProcessed === 1 && r.stopped === 'incomplete', 'a failed lookup is not "searched": it stays unprocessed and the run is not "done"')
+  assert(r.callsThisRun === 1, 'a failed request is still counted (the server counts it too)')
   const j = judgePois('Goertek Vina', { address: ADDR, location: ADDR }, { hits: 1, pois: [] })
   assert(j.approvePoi === null && j.reason === 'no_search_result', 'judgePois with no POI')
+}
+{
+  // 연속 실패는 호출을 낭비하지 않도록 멈춘다.
+  let calls = 0
+  const failing: AutoLocateDeps = { ...makeDeps({}).deps, async search() { calls++; throw new Error('upstream_error') } }
+  const many = Array.from({ length: 20 }, (_, i) => job(100 + i, `F${i}`))
+  const r = await runAutoLocate(many, failing, { expectedTotal: 20 })
+  assert(calls === MAX_CONSECUTIVE_FAILURES && r.stopped === 'error' && !!r.errorMessage && r.notProcessed === 20, 'consecutive failures stop the run early')
+}
+{
+  // 공고 1곳당 호출 상한: Search 1 + Place 1.
+  const places: Record<string, Place[]> = {}
+  const nm = (i: number) => `Alpha${String.fromCharCode(97 + Math.floor(i / 26))}${String.fromCharCode(97 + (i % 26))}x Prime`
+  const all = Array.from({ length: 100 }, (_, i) => { places[q(nm(i))] = [poi(nm(i)), poi(`${nm(i)} Plus`), poi(`${nm(i)} Annex`)]; return job(4685 + i, nm(i)) })
+  const { deps, state } = makeDeps(places)
+  const r = await runAutoLocate(all, deps, { expectedTotal: 100, usedAtStart: 0 })
+  assert(MAX_CALLS_PER_TARGET === 2 && state.searches === 100 && state.places === 100, 'exactly Search 1 + Place 1 per job when one exact-name hit exists')
+  assert(r.callsThisRun === 200 && r.serverCallsDelta === 200 && r.remainingToday === 50 && r.stopped === 'done', 'client call count matches the server counter, 200 of 250 for 100 jobs')
+}
+{
+  // 서버 카운터가 다른 곳에서도 늘어나면 delta가 callsThisRun보다 커서 화면이 경고한다.
+  const { deps } = makeDeps({ [q('Z1')]: [poi('Z1')] })
+  const bumped: AutoLocateDeps = { ...deps, async search(b) { const r = await deps.search(b); return { ...r, used: r.used + 10 } }, async place(b) { const r = await deps.place(b); return { ...r, used: r.used + 10 } } }
+  const r = await runAutoLocate([job(1, 'Z1')], bumped, { usedAtStart: 0 })
+  assert(r.serverCallsDelta !== null && r.serverCallsDelta > r.callsThisRun, 'extra server-side consumption is visible')
+}
+{
+  const hit = (ref: string, address: string) => ({ ref_id: ref, name: 'Acme', address })
+  const pick = pickHitToResolve('Acme', ADDR, [hit('a', 'Xã Long Châu, Huyện Yên Phong, Bắc Ninh'), hit('b', 'Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội'), { ref_id: 'c', name: 'Acme Plus' }])
+  assert(pick.hit?.ref_id === 'a' && !pick.multiple, 'several exact-name hits are narrowed by the address text')
+  assert(pickHitToResolve('Acme', ADDR, [hit('a', 'x'), hit('b', 'y')]).multiple === true, 'cannot narrow → multiple branches, no Place call')
+  assert(pickHitToResolve('Acme', ADDR, [{ ref_id: 'c', name: 'Acme Plus' }]).hit === null, 'no exact name → no Place call')
 }
 {
   const { deps } = makeDeps({ [q('S1')]: [poi('S1')], [q('S2')]: [poi('S2')] })
@@ -131,6 +164,13 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
   assert(rep.found === 3 && rep.hidden === 2 && rep.visible === 1 && rep.missingCount === 97 && rep.missingIds.length === 20 && rep.missingIds[0] === 4687, 'load report lists what was not read')
   const none = reportJobLoad(Array.from({ length: 100 }, (_, i) => ({ id: 4685 + i })))
   assert(none.missingCount === 0 && none.found === 100, 'full read has nothing missing')
+}
+
+{
+  const { deps } = makeDeps({ [q('P1')]: [poi('P1')], [q('P2')]: [poi('P2')] })
+  const seen: string[] = []
+  const r = await runAutoLocate([job(1, 'P1'), job(2, 'P2')], deps, { onProgress: (s) => seen.push(s.stopped) })
+  assert(seen.slice(0, -1).every((x) => x === 'running') && r.stopped === 'done', 'progress snapshots are "running"; only the final result may say done')
 }
 
 console.log('chototAutoLocate tests: all assertions passed')
