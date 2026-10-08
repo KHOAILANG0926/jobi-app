@@ -15,9 +15,10 @@
 **남은 단계**
 - (완료) 자동 위치 검색 버튼 실행 — 100건 처리: 자동 승인 0 / 기존 승인 2 / 핀 없음 98.
 - (완료) chotot 100건 공개 전환 — 사용자가 `supabase/pending/20261008100000_publish_chotot_jobs.sql`을 SQL Editor에서 실행(2026-10-08). 확인 쿼리 결과: chotot_public 100 / chotot_still_hidden 0 / chotot_total 100 / all_public_jobs 100. **PRODUCTION VERIFIED(2026-10-08)**: sb-4685·4686(Gọi hỏi đường, 지도 없음)·sb-4702(핀+Chỉ đường `destination=lat,lng`)·sb-4687(KCN 글자만, 지도 없음) 모두 200, 회사명·전화·Zalo 표시, `[source:`/경쟁 사이트 문구 없음, 홈·tìm kiếm에 카드 표시.
+- **상세주소 검색 버튼 IMPLEMENTED(2026-10-08, 이 세션은 DB 쓰기·API 호출 없음, 실행 대기)**: `src/lib/addressLocate.ts`·`addressParse.ts`. 공고당 Search 1 + 번지·도로명이 모두 맞는 결과 1곳일 때만 Place 1(상한 2). 자동 승인 = 번지(첫 번지) + 도로명 단어 전부 + 공고 주소의 옛 phường/xã·huyện 이름 일치. 번지+도로명 없는 주소(lô/thôn/KCN 안/도로 번호만), 서로 다른 시·도가 섞인 주소(#4691·#4692 Panasonic: Hải Phòng+Bắc Ninh)는 호출 없이 핀 없음. 결과 캐시·마지막 실행 결과는 `chotot_address_*`로 따로 저장. 상세 화면: 시·군·구까지만 있는 근무지(phường/xã·번지 없음)에 "Khu vực rộng" 표시(현재 chotot 100건은 전부 phường/xã가 있어 해당 0건).
 - KCN 정문 후보(`docs/ops/2026-10-08_kcn_gate_dryrun.md`)를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후).
 
-**다음에 할 첫 작업**: 공개된 chotot 공고 화면 확인 — 확인 URL 3개(KCN 영역 지도 / 일반 Gọi hỏi đường / 대행사)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고른 뒤(`https://viecganban.vn/viec-lam/sb-<id>`) 지도·길찾기·가짜 공고/`[source:` 없음 확인, 이어서 KCN 정문 좌표 보강. **이 작업에서 DB 쓰기·DDL 적용은 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
+**다음에 할 첫 작업**: 관리자 로그인 상태에서 Vị trí 탭의 **"Tìm theo địa chỉ chi tiết (chotot)"** 버튼 실행(코드 배포 후 새로고침) → 결과 건수(자동 승인/핀 없음/사유별)를 `WORK_LOG.md`에 기록하고 HANDOFF에 반영. 대상은 공개 DB 주소 분석 기준 상세주소 22건 중 번지+도로명이 있는 13건(최대 26호출). 그 다음 공개 화면 확인(승인된 건은 Chỉ đường), 이어서 KCN 정문 좌표 보강. **이 작업에서 DB 쓰기·DDL 적용은 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
 
 ## 1. 현재 상태
 

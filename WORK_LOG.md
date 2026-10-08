@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — 상세주소 공고 VietMap 주소 검색 버튼·"Khu vực rộng" 표시 구현 (실행 전, DB 쓰기·API 호출 없음)
+
+- 요청: 번지·도로·thôn 등 상세주소 공고(약 12건)를 VietMap 주소 검색으로 찾아 주소가 맞으면 승인 좌표로(관리자 버튼과 같은 서버 API·하루 한도 안), 결과 건수 보고. 옛 xã 경계 우선, huyện만 있는 공고는 "Khu vực rộng".
+- 결과 건수는 **미보고**: 서버 API는 관리자 로그인이 필요해 이 환경에서 호출 못 함. 대신 관리자 버튼 "Tìm theo địa chỉ chi tiết (chotot)" 구현. 공개 DB 주소 분석: 상세주소 22건 중 번지+도로명 13건이 검색 대상(최대 26호출), 나머지 9건(lô/thôn/KCN 안·도로 번호만·Panasonic 주소 충돌 등)은 호출 없이 핀 없음.
+- 판정: 첫 번지 + 도로명 단어 전부가 검색 결과에 있고 공고 주소의 phường/xã·huyện(옛 이름 그대로)이 맞는 1곳만 Place→승인. 결과 여러 곳이면 핀 없음. 질의는 "번지 도로명, 공고에 적힌 phường/xã, huyện, tỉnh".
+- 코드: `runAutoLocate`에 `strategy` 추가(기본=회사명 동작 그대로), `addressLocate.ts`(검색 방식)·`addressParse.ts`(주소 분석, 공개 화면에서도 사용), `JobDetail`에 Khu vực rộng 표시, 단위 테스트(`addressLocate.test.ts`).
+- 검증: tsc·build 통과, `npm test` 42/43(기존 zalo 실패 1건).
+
 ## 2026-10-08 — chotot 공개 후 Production 화면 확인 (DB 쓰기 없음)
 
 - 사용자 확인 쿼리: chotot_public 100 / still_hidden 0 / total 100 / all_public_jobs 100 → HANDOFF 반영.
@@ -62,16 +70,6 @@
 - 처리: 커밋 46b2195(5·6), 571f1ae(1·2), 73b58b1(3), 6d2b253(4) + 7·8·문서. tsc·build 통과, npm test 40/41(기존 zalo 테스트 실패).
 - KCN dry-run: 주요 22곳 A 0 / B 후보 9곳 / 없음 13, 위성·VietMap POI 미수행 — 정문 좌표 미반영.
 - 미적용: DDL(`supabase/pending`, 승인 대기), Vercel `VIETMAP_SERVICE_KEY`·GitHub Secrets(사용자 설정), master·Production(PR 후).
-
-## 2026-10-08 — chotot 좌표 후보 VietMap Search/Place 재 dry-run 실행 (DB 쓰기 없음)
-
-- 요청: 서버 키(`VIETMAP_SERVICE_KEY`, 값 출력 금지)로 chotot 100건을 Search/Place 검색해 타일 후보와 비교, 하루 250회 이내, DB 쓰기 금지.
-- 호출: 80개 (회사·구) 질의 → Search 81(첫 시험 실패 1 포함) + Place 46 = **127회**(스크립트 집계) + 연결 문제 확인용 수동 시험 약 7회 = 약 134회/일(상한 250, Trial 500의 약 27%). 첫 실행은 일시적 연결 실패(10초 타임아웃)였고, 원인 확인 후 타임아웃 20초·재시도 1회를 넣어 재실행. 키는 출력·저장하지 않음.
-- 결과: **자동 승인 후보 5 / 검토 필요 29 / 없음 66**(조회 못 한 건 0). 없음 66 = 이름 유사 POI 없음 57 + 근무 회사 없음(대행사) 9. 타일 dry-run(자동 1/검토 32/없음 67)과 비교: 둘 다 자동 1(#4720) · Search만 자동 4 · 타일만 자동 0 · 둘 다 검토 이상 15 · 새로 검토로 올라옴 14 · 타일 검토가 Search에서는 없음 14(타일의 이름만 비슷한 오탐이 사라진 것으로 보임).
-- 자동 5건 위성 확인(VietMap Hybrid, 4곳 — #4713·#4721은 같은 POI): #4720 Pizza Hut Bắc Ninh ✓(전날 확인, 도심 Lê Thái Tổ 인근, 공고 주소와 일치) / #4755 Toll — 핀이 대형 창고·물류 건물 위 ✓ 타당(주소 일치도 partial) / #4696 Môi Trường Ngôi Sao Xanh — 연못·야적장 있는 소규모 시설 부지 가장자리 ✓ 타당(환경 회사) / **#4713·#4721 "Công Ty Tnhh Pizza Việt Nam" — 핀이 붉은 지붕 주택가 한가운데 ✗ 법인 등록 주소 POI로 보임(실제 매장 POI #4720은 약 560 m 떨어진 Lê Thái Tổ)** → 자동 승인 후보로는 부적합, 승인 전 거절 권장.
-- 산출물: `scripts/research/out/chotot_vietmap_search_candidates.csv`(바탕화면 `bacninh_handoff/`에도 복사), `vietmap_search_usage.json`·`vietmap_search_cache.json`(gitignore). 스크립트 `bn_vietmap_search_dryrun.mjs`에 타임아웃 20초·1회 재시도 추가.
-- DB 쓰기 없음. 이미 `job_location_candidates`에 들어간 33건(타일 기준)과는 별개 — Search 결과를 추가/교체할지는 승인 후.
-- 다음(승인 후): Search 자동 4곳(#4720·#4696·#4755 + 참고용 #4713·#4721은 제외 권장)을 기존 pending 후보 옆에 추가하거나 대체, 새로 올라온 검토 14건 후보 추가.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
