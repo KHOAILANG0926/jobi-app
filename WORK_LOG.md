@@ -2,6 +2,12 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — 주소 검색 결과 반영 + KCN 윤곽·별칭 추가 + 대행사 칩 (DB 쓰기 없음)
+
+- 사용자 실행 결과(상세주소 버튼): 22건 검색 / 자동 승인 2(#4713·#4750) / 핀 없음 18 / 호출 11 = 서버 11 / 남은 100 → HANDOFF 반영. 승인 핀 총 4건.
+- 직전 1~3번 요청은 이 세션 메시지에 없어(받은 메시지는 4번부터) 이번에 요청 문구대로 진행: ① KCN 윤곽·별칭: OSM way 4곳 추가(Quế Võ III·Nam Sơn–Hạp Lĩnh·Thuận Thành 3·Đại Đồng–Hoàn Sơn, `scripts/ops/fetch_osm_outline.mjs`), VSIP/VISIP·Yên Phong "Khu mở rộng" 별칭, `requires`를 같은 공고의 다른 주소 글자에서도 찾도록 확장(지역 불명 "KCN VSIP"는 Bắc Ninh 주소일 때만). 모호한 3건(Yên Phong 단계 불명·Thuận Thành 2/3·"KCN III")은 추정 금지로 제외. ② 옛 xã 경계 지도: OSM에 phường/xã 경계 면 없음, HDX COD는 성 단위까지 → 출처 있는 윤곽 확보 불가, 보류. ③ 대행사 칩 "Qua công ty cung ứng"(공고 상세 헤더, `recruitment_type='agency'`).
+- 검증: tsc·build 통과, `npm test` 42/43(기존 zalo 실패), `industrialPark.test.ts`에 새 매칭·모호 케이스 추가.
+
 ## 2026-10-08 — 상세주소 공고 VietMap 주소 검색 버튼·"Khu vực rộng" 표시 구현 (실행 전, DB 쓰기·API 호출 없음)
 
 - 요청: 번지·도로·thôn 등 상세주소 공고(약 12건)를 VietMap 주소 검색으로 찾아 주소가 맞으면 승인 좌표로(관리자 버튼과 같은 서버 API·하루 한도 안), 결과 건수 보고. 옛 xã 경계 우선, huyện만 있는 공고는 "Khu vực rộng".
@@ -63,13 +69,6 @@
 - 처리: 빠른 전진(fast-forward)으로 master `447e380` 반영(PR MERGED) → Vercel Production 배포 success(`jobi-7nlzfo3as`).
 - 확인(https://viecganban.vn): 홈·tim-kiem·tuyen-gap 공고 카드 0·빈 상태 문구·`[source:` 0. 공개 공고가 없어 길찾기는 브라우저 안 mock 응답으로 확인: Chỉ đường / Gọi hỏi đường / 버튼 없음 정상, Đến cổng KCN은 정문 좌표 0개라 미확인. mock은 GET만, 쓰기 요청 0.
 - 남은 일: DDL 승인, `VIETMAP_SERVICE_KEY`·GitHub Secrets 설정, KCN 정문 후보 확인.
-
-## 2026-10-08 — 저장 원칙·VietMap 서버 이전·길찾기 3단계·가짜 공고/source 태그 제거·keep-alive·규칙 기록 (branch, DB 쓰기 없음)
-
-- 요청: 8단계 일괄(저장 원칙 / VietMap 서버 API / 길찾기 3단계·자동 승인 / KCN 정문 dry-run / DEMO 제거 / source 태그 숨김 / Supabase keep-alive / 규칙 기록).
-- 처리: 커밋 46b2195(5·6), 571f1ae(1·2), 73b58b1(3), 6d2b253(4) + 7·8·문서. tsc·build 통과, npm test 40/41(기존 zalo 테스트 실패).
-- KCN dry-run: 주요 22곳 A 0 / B 후보 9곳 / 없음 13, 위성·VietMap POI 미수행 — 정문 좌표 미반영.
-- 미적용: DDL(`supabase/pending`, 승인 대기), Vercel `VIETMAP_SERVICE_KEY`·GitHub Secrets(사용자 설정), master·Production(PR 후).
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
