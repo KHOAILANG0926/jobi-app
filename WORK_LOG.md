@@ -2,6 +2,12 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — VIETMAP_SERVICE_KEY 설정 후 후속 4단계 요청 — 1단계 보고만, 2~4단계 차단
+
+- 요청: DDL 요약 보고 → chotot 100건 재검색·자동 승인 → KCN 정문 보강 → 공개 전환 dry-run.
+- 확인: Vercel에 키 설정·Redeploy 후 `/api/admin-vietmap` 비로그인 호출은 401(키 값 노출 없음). VietMap 호출 0회, DB 쓰기 없음.
+- 차단: ① DDL 미승인 → 일일 상한 카운터 RPC 없음(API는 fail closed) ② 이 환경에 관리자 로그인 세션·서비스 자격증명 없음(API는 관리자 JWT 필요, 승인 좌표 반영도 관리자 RPC) → 2~4단계는 승인·세션 후 진행.
+
 ## 2026-10-08 — PR #15 master 병합·Production 배포·검증 (DB 쓰기 없음)
 
 - 요청: PR #15 병합·배포 후 가짜 공고 제거와 길찾기 3단계를 Production에서 확인.
