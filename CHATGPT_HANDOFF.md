@@ -13,11 +13,11 @@
    - **버그 수정 2 (이번)**: 재실행에서 10/100만 처리·"완료" 표시·서버 호출 132회 소모·화면 호출 0. 수정: 완료 문구는 실행 종료+100건 판정일 때만, 공고당 Search 1 + 정확히 일치하는 후보 1개만 Place 1(상한 2, 지점 여럿이면 Place 0), 호출은 시도 단위로 집계, 연속 5회 실패 시 중단, 실행 상태 유지, 서버 카운터 증가분 병기(차이 나면 경고). **10건에서 멈춘 정확한 이유는 DB·로그 접근이 없어 확정 못 함** — 다음 실행의 서버 증가분·중단 사유 표시로 확인. 100건 전부 처리 시 정확히 200호출 이내(250 한도 안).
 
 **남은 단계**
-- 관리자가 버튼 실행(하루 250회 이내, 한도에 걸리면 다음 날 같은 버튼으로 이어서) → 결과 건수 확인.
+- (완료) 자동 위치 검색 버튼 실행 — 100건 처리: 자동 승인 0 / 기존 승인 2 / 핀 없음 98.
+- (완료) chotot 100건 공개 전환 — 사용자가 `supabase/pending/20261008100000_publish_chotot_jobs.sql`을 SQL Editor에서 실행(2026-10-08). 공개 후 화면 확인(URL 형식 `/viec-lam/sb-<id>`, 고르기 `docs/ops/2026-10-08_chotot_publish_urls.sql`)은 사용자 확인 대기.
 - KCN 정문 후보(`docs/ops/2026-10-08_kcn_gate_dryrun.md`)를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후).
-- chotot 중 회사명 있는 공고 공개 전환 dry-run(공개 건수·핀 있는 건수·"Gọi hỏi đường"만 있는 건수) → 사용자 승인 후 공개.
 
-**다음에 할 첫 작업**: 관리자 로그인 상태에서 Vị trí 탭 버튼을 눌러(하루 250회 이내, 공고당 최대 2호출, 한도 시 다음 날 이어서) 결과 건수를 `WORK_LOG.md`에 기록하고, 이어서 아래 dry-run 2건을 한다. 옛 번들이 열린 탭은 새로고침 후 실행(옛 코드는 완료 문구·호출 집계 버그가 있음). **이 작업에서 DB 쓰기·DDL 적용·공고 공개는 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
+**다음에 할 첫 작업**: 공개된 chotot 공고 화면 확인 — 확인 URL 3개(KCN 영역 지도 / 일반 Gọi hỏi đường / 대행사)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고른 뒤(`https://viecganban.vn/viec-lam/sb-<id>`) 지도·길찾기·가짜 공고/`[source:` 없음 확인, 이어서 KCN 정문 좌표 보강. **이 작업에서 DB 쓰기·DDL 적용은 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
 
 ## 1. 현재 상태
 
@@ -29,8 +29,8 @@
 - 이 시점 이전 기록(공고 상세 개편 `jobi-8vizwbcra` 등)은 `WORK_LOG.md`.
 
 **DB (shared Supabase Production)**
-- 공개 공고 0건. `local_jobs`는 #4682(비공개 전환) + Chợ Tốt 100건(ID 4685~4784, 전부 `admin_hidden=true`, `source_url` NULL, `job_work_locations` 100행·좌표 없음).
-- `job_location_candidates`에 pending 33건(관리자 /admin → locations 탭). 승인 전이라 핀 없음.
+- **chotot 100건(ID 4685~4784) 공개 완료**(사용자가 SQL Editor로 `admin_hidden=false` 실행, 2026-10-08; `source_url` NULL, `job_work_locations` 100행). 위치: 승인 좌표 2건(Chỉ đường), 나머지는 핀 없이 KCN 영역 지도 / Gọi hỏi đường. `local_jobs` #4682는 비공개 유지. (이전: 공개 0건 → 홈은 빈 상태 안내였음.)
+- `job_location_candidates`: 기존 pending 33건 + 자동 위치 검색 결과(자동 승인 0, 기존 승인 2, 핀 없음 98). 승인 핀은 승인된 2건만.
 - `local_jobs_description_backup`(RLS 켬, 1행). `local_jobs`에 `language_requirement`·`business_trip` 컬럼 추가됨(2026-10-07 DDL).
 - 비공개 저장 DDL(`research_artifacts`·`vietmap_usage_daily`·관리자 RPC)은 **적용됨**(사용자가 Supabase SQL Editor로 실행, 버튼에서 "Hôm nay còn N/250" 표시 확인). 파일 `supabase/pending/20261008000000_private_research_store.sql`, 기록 `docs/ops/2026-10-08_private_store_ddl_dry_run.md`.
 - 이번 작업에서 DB 쓰기·공고 공개는 하지 않았다.
@@ -39,9 +39,9 @@
 
 ## 2. 다음 할 일 3개
 
-1. **버튼 실행**: 관리자 Vị trí 탭 "Tìm vị trí tự động (chotot)"(새로고침 후) → 자동 승인/핀 없음/미처리 건수와 "서버 증가분"을 `WORK_LOG.md`에 기록. 하루 250회, 한도 시 다음 날 이어서.
+1. **공개 후 화면 확인**: chotot 공개 완료. URL 3개(KCN 1·일반 1·대행사 1, 형식 `/viec-lam/sb-<id>`)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고르고 홈·상세·길찾기(0건→N건 화면 영향 포함) 확인. 상세 `docs/ops/2026-10-08_chotot_publish_dryrun.md`.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
-3. **chotot 공개 전환(사용자 결정: 핀 없이도 공개)** — 준비 완료, 실행 대기: dry-run `docs/ops/2026-10-08_chotot_publish_dryrun.sql` 결과(`publish_targets`)를 공개 SQL `supabase/pending/20261008100000_publish_chotot_jobs.sql`의 `v_expected`에 넣고 사용자가 SQL Editor에서 실행. 건수 보고(KCN 영역 지도/Gọi hỏi đường만)는 dry-run의 `rows` JSON을 받아 `scripts/ops/chotot_publish_classify.ts`로 계산. 상세·확인 URL: `docs/ops/2026-10-08_chotot_publish_dryrun.md`. 공개 직후 홈·상세·길찾기 재확인(0건→N건 화면 영향 포함).
+3. **핀 없는 공고 보강(선택)**: 자동 승인 0·핀 없음 98건. 관리자 Vị trí 탭의 pending 후보를 지도·위성으로 대조해 수동 승인(1클릭)하면 해당 공고가 "Chỉ đường"으로 올라간다. 승인은 관리자 판단.
 
 ## 3. 필수 규칙 (전문은 `CLAUDE.md`·`AGENTS.md`, 항상 먼저 읽기)
 

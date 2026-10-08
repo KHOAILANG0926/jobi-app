@@ -1,4 +1,4 @@
--- 공개 후 확인할 URL 3개를 고른다 (읽기 전용). 공개 전·후 어느 때나 실행 가능. 형식: https://viecganban.vn/viec-lam/<id>
+-- 공개 후 확인할 URL 3개를 고른다 (읽기 전용). 공개 전·후 어느 때나 실행 가능. 형식: https://viecganban.vn/viec-lam/sb-<id>
 -- 1) KCN 영역 지도 1건(승인 핀 없음 + 근무지에 KCN 글자) 2) 일반 1건(핀·KCN 없음, 직접 모집 → Gọi hỏi đường만) 3) 대행사 1건
 -- 4) 승인 핀 1건(있으면 Chỉ đường 확인용, 추가 참고)
 with base as (
@@ -12,15 +12,15 @@ with base as (
     and (j.application_deadline is null or j.application_deadline > (now() at time zone 'Asia/Ho_Chi_Minh')::date)
 )
 select * from (
-  select 1 as n, 'KCN 영역 지도' as kind, 'https://viecganban.vn/viec-lam/' || min(id) as url, company from base
+  select 1 as n, 'KCN 영역 지도' as kind, 'https://viecganban.vn/viec-lam/sb-' || min(id) as url, company from base
     where kcn_text and not approved_pin group by company order by min(id) limit 1) a
 union all select * from (
-  select 2, '일반(Gọi hỏi đường만)', 'https://viecganban.vn/viec-lam/' || min(id), company from base
+  select 2, '일반(Gọi hỏi đường만)', 'https://viecganban.vn/viec-lam/sb-' || min(id), company from base
     where not kcn_text and not approved_pin and recruitment_type is distinct from 'agency' group by company order by min(id) limit 1) b
 union all select * from (
-  select 3, '대행사', 'https://viecganban.vn/viec-lam/' || min(id), company from base
+  select 3, '대행사', 'https://viecganban.vn/viec-lam/sb-' || min(id), company from base
     where recruitment_type = 'agency' group by company order by min(id) limit 1) c
 union all select * from (
-  select 4, '승인 핀(Chỉ đường)', 'https://viecganban.vn/viec-lam/' || min(id), company from base
+  select 4, '승인 핀(Chỉ đường)', 'https://viecganban.vn/viec-lam/sb-' || min(id), company from base
     where approved_pin group by company order by min(id) limit 1) d
 order by 1;

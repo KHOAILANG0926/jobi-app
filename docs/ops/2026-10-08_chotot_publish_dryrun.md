@@ -18,7 +18,7 @@
 
 ## 공개 후 확인할 URL 3개(+1)
 
-ID는 DB를 봐야 정해져서, 고르는 쿼리를 따로 두었다: `docs/ops/2026-10-08_chotot_publish_urls.sql`(읽기 전용, 공개 전·후 아무 때나). 형식 `https://viecganban.vn/viec-lam/<id>`.
+ID는 DB를 봐야 정해져서, 고르는 쿼리를 따로 두었다: `docs/ops/2026-10-08_chotot_publish_urls.sql`(읽기 전용, 공개 전·후 아무 때나). 형식 `https://viecganban.vn/viec-lam/sb-<id>`.
 
 | 구분 | 고르는 기준 | 화면에서 볼 것 |
 |---|---|---|
