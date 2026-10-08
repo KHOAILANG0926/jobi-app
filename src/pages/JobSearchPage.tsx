@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
+import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
@@ -234,7 +235,9 @@ export function JobSearchPage() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
+      {jobs.length === 0 ? (
+        <NoPublicJobs />
+      ) : visible.length === 0 ? (
         <div className="city-result__empty">
           <span>🔍</span>
           <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>

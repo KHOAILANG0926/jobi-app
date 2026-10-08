@@ -1,5 +1,6 @@
 import { ensureJobFields } from './jobUtils.ts'
 import { supabase } from './supabase.ts'
+import { stripSourceTags } from './sourceTag.ts'
 import type { AddressAccuracy, CoordinateAccuracy, GeocodeStatus, Job } from '../types/job.ts'
 
 /** DB row(local_jobs/job_work_locations) -> Job 매핑 로직 — JobsContext.tsx와
@@ -9,12 +10,11 @@ import type { AddressAccuracy, CoordinateAccuracy, GeocodeStatus, Job } from '..
  *  파싱을 못 해 직접 테스트할 수 없다. */
 
 export function parseDescription(raw: string): { description: string; source?: string } {
-  const match = raw?.match(/\[source:([^\]]+)\]/)
+  const match = raw?.match(/\[\s*source\s*:([^\]]+)\]/i)
   if (!match) return { description: raw ?? '' }
-  const rest = raw.replace(match[0], '').trim()
   return {
-    description: rest,
-    source: match[1],
+    description: stripSourceTags(raw),
+    source: match[1].trim(),
   }
 }
 

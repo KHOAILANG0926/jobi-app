@@ -8,6 +8,8 @@ import {
   normalizeSearchQuery,
   countSearchResults,
   buildRepresentativePageCopy,
+  stripSourceTags,
+  toPublicJobs,
 } from '../dist/server/entry-server.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -60,7 +62,7 @@ function buildJobPostingJsonLd(job, canonicalUrl) {
   // "## Mô tả công việc" 같은 마크다운 헤딩 기호(##)는 화면에서만 카드
   // 제목으로 렌더되는 내부 구분자라, JSON-LD의 순수 텍스트 description에는
   // 기호 없이 줄바꿈만 남긴다(내용 자체는 원문 그대로 — 새로 만들지 않음).
-  const plainDescription = (job.description ?? '').replace(/^## /gm, '').trim() || job.title
+  const plainDescription = stripSourceTags(job.description ?? '').replace(/^## /gm, '').trim() || job.title
 
   const jsonLd = {
     '@context': 'https://schema.org/',
@@ -136,6 +138,9 @@ export default async function handler(req, res) {
     notFound = foundJob === null
   }
 
+  // 내부 출처 표식([source:...])·source 값은 공개 HTML 어디에도 내보내지 않는다.
+  jobs = toPublicJobs(jobs)
+  foundJob = foundJob ? jobs.find((j) => j.id === foundJob.id) ?? null : null
   const appHtml = render(pathname + search, jobs, jobsError)
   const template = getIndexHtmlTemplate()
 
@@ -215,7 +220,7 @@ export default async function handler(req, res) {
   // 구분·인용할 근거(제목·요약)가 없다. 목록 페이지는 그대로 둔다(공고가
   // 수시로 바뀌어 대표 제목을 정하기 애매함).
   if (foundJob) {
-    const descSnippet = (foundJob.description ?? '')
+    const descSnippet = stripSourceTags(foundJob.description ?? '')
       .replace(/^##.*$/gm, '')
       .replace(/\s+/g, ' ')
       .trim()
@@ -237,6 +242,8 @@ export default async function handler(req, res) {
       `<script type="application/ld+json">${jsonLd}</script></head>`,
     )
   }
+
+  finalHtml = finalHtml.replace(/\[\s*source\s*:[^\]]*\]/gi, '')
 
   res.statusCode = notFound ? 404 : 200
   res.setHeader('Content-Type', 'text/html; charset=utf-8')

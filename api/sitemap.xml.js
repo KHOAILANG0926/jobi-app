@@ -2,9 +2,8 @@ import { loadJobsForSSR, computeSitemapPages } from '../dist/server/entry-server
 
 const SITE_ORIGIN = 'https://viecganban.vn'
 
-// entry-server.js가 실제 활성 공고가 하나도 없을 때만 쓰는 가짜 예시
-// 데이터(demo-1 등) — sitemap에 가짜 공고 URL을 실제 공고처럼 올리면 절대
-// 안 되므로 id 패턴으로 명시적으로 걸러낸다.
+// 예시·가짜 공고(demo-*)는 더 이상 만들어지지 않지만(2026-10-08 제거), 혹시
+// 섞여 들어와도 sitemap에는 올리지 않도록 id 패턴 방어선을 유지한다.
 function isRealJob(job) {
   return typeof job.id === 'string' && !job.id.startsWith('demo-')
 }

@@ -17,6 +17,7 @@ import {
   buildRepresentativePageCopy,
 } from './lib/representativeSearchPages'
 import { filterAndSortJobs, parseJobSearchParamsFromQueryString } from './lib/jobSearch'
+import { stripSourceTags, toPublicJobs } from './lib/sourceTag'
 import type { Job } from './types/job'
 
 /** api/ssr.js(순수 컴파일된 JS, Vercel Node 런타임에서 TS 소스를 직접
@@ -27,7 +28,7 @@ export async function loadJobsForSSR(): Promise<{ jobs: Job[]; jobsError: boolea
 }
 
 // api/ssr.js·api/sitemap.xml.js가 TS 소스를 직접 못 읽으므로 재수출.
-export { isRepresentativeCandidate, normalizeSearchQuery, buildRepresentativePageCopy }
+export { isRepresentativeCandidate, normalizeSearchQuery, buildRepresentativePageCopy, stripSourceTags, toPublicJobs }
 
 // sitemap.xml.js가 대표 후보 중 지금 실제로 sitemap에 올릴 만큼(기준
 // 이상) 공고가 있는 것만 뽑는다 — countSearchResults(아래)를 그대로

@@ -4,6 +4,7 @@ import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
 import FeaturedJobsSection from '../components/FeaturedJobsSection'
 import JobCard from '../components/JobCard'
+import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
@@ -395,7 +396,9 @@ export function Home() {
       {!selectedCity && (
         <section className="home-section" ref={jobResultRef}>
           <h2 className="home-section__title">Tất cả kết quả</h2>
-          {filtered.length === 0 ? (
+          {jobs.length === 0 ? (
+            <NoPublicJobs />
+          ) : filtered.length === 0 ? (
             // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
             // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
             // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).

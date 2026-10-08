@@ -16,6 +16,7 @@ import { VN_WARDS_BY_PROVINCE } from '../../data/vnWards'
 import { loadApplications } from '../../lib/applicationsStorage'
 import { normalizeViText } from '../../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
+import { NoPublicJobs } from '../../components/NoPublicJobs'
 import {
   DAY_LABELS,
   DAY_ORDER,
@@ -1250,7 +1251,9 @@ export default function UrgentJobsPage() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
+      {jobs.length === 0 ? (
+        <NoPublicJobs />
+      ) : visible.length === 0 ? (
         <div className="city-result__empty">
           <span>🔍</span>
           <p>Chưa có việc làm tuyển gấp phù hợp với điều kiện đã chọn.</p>
