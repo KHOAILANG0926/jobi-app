@@ -44,6 +44,7 @@
 
 ## 2. 다음 할 일 3개
 
+0. **[버그, 수정 중] 주소 파서 약어·상호명 처리**: sb-4685 주소 "MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH"가 행정구역만 있음으로 잘못 분류됨(상세주소 검색 대상에서 빠짐). `src/lib/addressParse.ts`가 "Đ."·"P."·"TP." 약어와 앞에 붙은 상호명("MEDIAMART - …")을 처리하도록 수정 → chotot 100건 재분류(상세주소 대상 증가 건수 보고) → 배포 후 사용자가 "Tìm theo địa chỉ chi tiết" 버튼을 다시 누른다.
 1. **공개 후 화면 확인**: chotot 공개 완료. URL 3개(KCN 1·일반 1·대행사 1, 형식 `/viec-lam/sb-<id>`)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고르고 홈·상세·길찾기(0건→N건 화면 영향 포함) 확인. 상세 `docs/ops/2026-10-08_chotot_publish_dryrun.md`.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
 3. **지도 없는 공고 68건(공개 100 = 승인 핀 4 + KCN 영역 지도 28 + 지도 없이 Gọi hỏi đường만 68)**: KCN 윤곽 4곳(Quế Võ III·Nam Sơn–Hạp Lĩnh·Thuận Thành 3·Đại Đồng–Hoàn Sơn)과 별칭(VSIP/VISIP·Yên Phong "Khu mở rộng") 추가로 KCN 지도 13→28건. 아직 KCN 글자가 있는데 지도 없는 3건: #4687 "KCN YÊN PHONG"(Yên Phong은 1기·II·IIC·mở rộng 여러 곳이라 단계 불명 → 추정 금지), #4769 "KCN Thuận Thành"(2·3기 구분 불가), #4752 "Khu công nghiệp III"(Quế Võ III로 보이나 이름만으로 확정 불가). **PRODUCTION VERIFIED(2026-10-08, 100페이지 브라우저 집계)**: 100/100 렌더, 지도(canvas) 32 = 승인 핀 4(Chỉ đường) + KCN 영역 지도 28, 지도 없음 68(전부 Gọi hỏi đường), 대행사 칩 18, `[source:`/경쟁 사이트 문구 0. xã 경계선(윤곽) 지도는 **보류**: OSM에 phường/xã 경계 면이 없고, HDX COD(2025-09)는 성(admin1)까지만 있음 → 대신 위 5번의 "동네 중심 지도(윤곽 없음)"로 진행. 선택: pending 후보 수동 승인으로 핀 늘리기.
