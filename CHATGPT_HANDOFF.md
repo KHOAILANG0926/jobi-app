@@ -13,12 +13,11 @@
    - **버그 수정 2 (이번)**: 재실행에서 10/100만 처리·"완료" 표시·서버 호출 132회 소모·화면 호출 0. 수정: 완료 문구는 실행 종료+100건 판정일 때만, 공고당 Search 1 + 정확히 일치하는 후보 1개만 Place 1(상한 2, 지점 여럿이면 Place 0), 호출은 시도 단위로 집계, 연속 5회 실패 시 중단, 실행 상태 유지, 서버 카운터 증가분 병기(차이 나면 경고). **10건에서 멈춘 정확한 이유는 DB·로그 접근이 없어 확정 못 함** — 다음 실행의 서버 증가분·중단 사유 표시로 확인. 100건 전부 처리 시 정확히 200호출 이내(250 한도 안).
 
 **남은 단계**
-- (Claude가 별도 처리) `supabase/pending/20261008000000_private_research_store.sql` 적용 — 적용 전엔 서버 API가 일일 카운터가 없어 fail closed, 버튼의 검색 캐시도 저장되지 않음.
 - 관리자가 버튼 실행(하루 250회 이내, 한도에 걸리면 다음 날 같은 버튼으로 이어서) → 결과 건수 확인.
 - KCN 정문 후보(`docs/ops/2026-10-08_kcn_gate_dryrun.md`)를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후).
 - chotot 중 회사명 있는 공고 공개 전환 dry-run(공개 건수·핀 있는 건수·"Gọi hỏi đường"만 있는 건수) → 사용자 승인 후 공개.
 
-**다음에 할 첫 작업**: DDL이 적용됐는지 사용자/Claude에게 확인한다(관리자 Vị trí 탭의 "Hôm nay còn X/250 lượt"가 숫자로 나오면 적용된 것, 오류 문구면 미적용). 적용됐으면 관리자 로그인 상태에서 버튼을 눌러 결과를 받아 `WORK_LOG.md`에 건수를 기록하고, 다음으로 위 dry-run 2건을 이어서 한다. **이 작업에서 DB 쓰기·DDL 적용·공고 공개는 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
+**다음에 할 첫 작업**: 관리자 로그인 상태에서 Vị trí 탭 버튼을 눌러(하루 250회 이내, 공고당 최대 2호출, 한도 시 다음 날 이어서) 결과 건수를 `WORK_LOG.md`에 기록하고, 이어서 아래 dry-run 2건을 한다. 옛 번들이 열린 탭은 새로고침 후 실행(옛 코드는 완료 문구·호출 집계 버그가 있음). **이 작업에서 DB 쓰기·DDL 적용·공고 공개는 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
 
 ## 1. 현재 상태
 
@@ -33,14 +32,14 @@
 - 공개 공고 0건. `local_jobs`는 #4682(비공개 전환) + Chợ Tốt 100건(ID 4685~4784, 전부 `admin_hidden=true`, `source_url` NULL, `job_work_locations` 100행·좌표 없음).
 - `job_location_candidates`에 pending 33건(관리자 /admin → locations 탭). 승인 전이라 핀 없음.
 - `local_jobs_description_backup`(RLS 켬, 1행). `local_jobs`에 `language_requirement`·`business_trip` 컬럼 추가됨(2026-10-07 DDL).
-- **미적용 DDL**: `supabase/pending/20261008000000_private_research_store.sql`(`research_artifacts`·`vietmap_usage_daily`·관리자 RPC). dry-run 문서 `docs/ops/2026-10-08_private_store_ddl_dry_run.md`. 사용자 승인 전까지 적용 금지.
+- 비공개 저장 DDL(`research_artifacts`·`vietmap_usage_daily`·관리자 RPC)은 **적용됨**(사용자가 Supabase SQL Editor로 실행, 버튼에서 "Hôm nay còn N/250" 표시 확인). 파일 `supabase/pending/20261008000000_private_research_store.sql`, 기록 `docs/ops/2026-10-08_private_store_ddl_dry_run.md`.
 - 이번 작업에서 DB 쓰기·공고 공개는 하지 않았다.
 
 **환경변수**: Vercel Production `VIETMAP_SERVICE_KEY` 설정·Redeploy 완료(사용자, 2026-10-08; `/api/admin-vietmap`은 비로그인 401 확인, 값 출력 금지). keep-alive는 GitHub Secrets가 필요 없다.
 
 ## 2. 다음 할 일 3개
 
-1. **DDL 적용 확인 → 버튼 실행**: `research_store` DDL(비공개 테이블 2개 `research_artifacts`·`vietmap_usage_daily` + 관리자 RPC 4개, 기존 테이블 변경 없음, RLS 켬)은 Claude가 별도로 적용. 적용 후 관리자 Vị trí 탭 버튼 실행(하루 250회, 한도 시 다음 날 이어서) → 자동 승인/핀 없음 건수 기록.
+1. **버튼 실행**: 관리자 Vị trí 탭 "Tìm vị trí tự động (chotot)"(새로고침 후) → 자동 승인/핀 없음/미처리 건수와 "서버 증가분"을 `WORK_LOG.md`에 기록. 하루 250회, 한도 시 다음 날 이어서.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
 3. **chotot 공개 전환 준비(dry-run)**: 회사명 있는 공고 기준 공개될 건수 / 핀 있는 건수 / "Gọi hỏi đường"만 있는 건수 보고 → 사용자 승인 후 공개(`admin_hidden=false`), 공개 직후 홈·상세·길찾기 재확인(0건→N건 화면 영향 포함).
 
