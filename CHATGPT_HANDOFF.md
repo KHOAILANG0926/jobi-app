@@ -1,6 +1,6 @@
 # CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
 
-갱신: 2026-10-08(xã/phường 동네 지도 + /admin 개요 집계 수정). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
+갱신: 2026-10-08(주소 파서 약어·상호명 수정). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
 
 ## ▶ 이어받기 (토요일 ChatGPT/Codex) — 끝난 단계 / 남은 단계 / 다음 첫 작업
 
@@ -44,7 +44,7 @@
 
 ## 2. 다음 할 일 3개
 
-0. **[버그, 수정 중] 주소 파서 약어·상호명 처리**: sb-4685 주소 "MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH"가 행정구역만 있음으로 잘못 분류됨(상세주소 검색 대상에서 빠짐). `src/lib/addressParse.ts`가 "Đ."·"P."·"TP." 약어와 앞에 붙은 상호명("MEDIAMART - …")을 처리하도록 수정 → chotot 100건 재분류(상세주소 대상 증가 건수 보고) → 배포 후 사용자가 "Tìm theo địa chỉ chi tiết" 버튼을 다시 누른다.
+0. **[수정·배포됨 → 사용자 실행 대기] 주소 파서 약어·상호명 처리**: sb-4685 "MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH"가 화면에서 "Chỉ có khu vực hành chính"(행정구역만)으로 보인 원인 = 수집 단계가 DB `address_accuracy`를 `region_only`로 저장(chotot 100건 중 85건). 수정(코드만, DB 값은 그대로): ① `addressParse.ts` — 상호만 있는 앞 구간 건너뛰기("Pizza Hut, 1A Đ. Lê Thái Tổ, P, Võ Cường…"), 쉼표 없이 붙은 "P."·"TP." 약어 절단, 단독 "P" 구간을 행정구역 시작으로 인식, 검색 글자에서 상호 접두어 제거·"Đ."→"Đường" ② `jobRows.ts` `correctedAddressAccuracy` — `region_only`라도 주소에 번지·도로가 있으면 화면·지도 판단에서 `exact_text`로 본다(재분류 8건: 4685·4686·4716·4720·4721·4727·4761·4765). 상세주소 대상 22→23건, 검색 가능(번지+도로명) 13→14건(+#4721). 다음: 사용자가 "Tìm theo địa chỉ chi tiết" 재실행(새 호출 최대 약 4회: #4685·#4721, 나머지는 캐시).
 1. **공개 후 화면 확인**: chotot 공개 완료. URL 3개(KCN 1·일반 1·대행사 1, 형식 `/viec-lam/sb-<id>`)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고르고 홈·상세·길찾기(0건→N건 화면 영향 포함) 확인. 상세 `docs/ops/2026-10-08_chotot_publish_dryrun.md`.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
 3. **지도 없는 공고 68건(공개 100 = 승인 핀 4 + KCN 영역 지도 28 + 지도 없이 Gọi hỏi đường만 68)**: KCN 윤곽 4곳(Quế Võ III·Nam Sơn–Hạp Lĩnh·Thuận Thành 3·Đại Đồng–Hoàn Sơn)과 별칭(VSIP/VISIP·Yên Phong "Khu mở rộng") 추가로 KCN 지도 13→28건. 아직 KCN 글자가 있는데 지도 없는 3건: #4687 "KCN YÊN PHONG"(Yên Phong은 1기·II·IIC·mở rộng 여러 곳이라 단계 불명 → 추정 금지), #4769 "KCN Thuận Thành"(2·3기 구분 불가), #4752 "Khu công nghiệp III"(Quế Võ III로 보이나 이름만으로 확정 불가). **PRODUCTION VERIFIED(2026-10-08, 100페이지 브라우저 집계)**: 100/100 렌더, 지도(canvas) 32 = 승인 핀 4(Chỉ đường) + KCN 영역 지도 28, 지도 없음 68(전부 Gọi hỏi đường), 대행사 칩 18, `[source:`/경쟁 사이트 문구 0. xã 경계선(윤곽) 지도는 **보류**: OSM에 phường/xã 경계 면이 없고, HDX COD(2025-09)는 성(admin1)까지만 있음 → 대신 위 5번의 "동네 중심 지도(윤곽 없음)"로 진행. 선택: pending 후보 수동 승인으로 핀 늘리기.

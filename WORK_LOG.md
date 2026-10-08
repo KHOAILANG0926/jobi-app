@@ -2,6 +2,12 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — 주소 파서: 상호 접두어·"Đ."·"P."·"TP." 약어 처리 + region_only 보정 (DB 쓰기 없음)
+
+- 증상: sb-4685가 "행정구역만 있음"으로 표시. 원인: 표시 문구는 DB `address_accuracy`(수집 단계 값)에서 오며 4685·4686·4721 등이 `region_only`(chotot 100건 중 85건). 앱 파서(`addressParse.ts`)는 4685를 이미 검색 가능으로 봤지만 검색 글자에 상호 접두어("MEDIAMART - …")와 "Đ."가 그대로 들어갔고, 4721은 상호만 있는 앞 구간·단독 "P" 구간 때문에 상세주소로 못 봤다.
+- 수정: `addressParse.ts`(상호 구간 건너뛰기·단독/붙은 약어 절단·접두어 제거·"Đ."→"Đường") + `jobRows.ts correctedAddressAccuracy`(DB 값은 그대로, 화면·지도 판단에서만 `exact_text`로 보정). 재분류 8건. 상세주소 22→23, 검색 가능 13→14(+#4721).
+- 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패), `addressLocate.test.ts`에 약어·상호 케이스 추가.
+
 ## 2026-10-08 — /admin 개요 "Tổng tin tuyển dụng"이 "—" + xã/phường 버튼 안 보임 신고 (DB 쓰기 없음)
 
 - 원인(개요): 대시보드가 베이스 테이블 `korea_jobs`를 직접 count — 0012 설계상 anon/authenticated에 권한이 없어 관리자 로그인에서도 permission denied → `koreaJobsError` → "Tin Hàn Quốc"과 "Tổng"이 항상 "—"(Tin VN은 별도 조회라 100). 수정: 공개 뷰 `korea_jobs_public`(status='active'·미만료)로 count. 현재 값 = 100 + 1.
@@ -62,13 +68,6 @@
 - 확인: 판정 루프는 100건을 넣으면 100건 모두 처리(단위 테스트). 문제는 (1) 대상 조회가 4건만 돌려줬는데 그 4건을 끝내면 "완료"로 표시, (2) 미처리를 읽어 온 건수 기준으로만 셈. 조회가 4건만 돌려준 이유는 이 환경에서 관리자 DB 접근이 없어 확정 못 함(anon은 범위 내 0건, RLS상 관리자는 전부 읽어야 함).
 - 수정: 대상을 ID 범위 + `source like 'chotot:%'` 합집합으로 조회(페이지·ID 분할), "đọc được N/100"·숨김/표시 수·읽히지 않은 ID 목록 표시, `jobsTotal`=100 기준으로 chưa xử lý 계산, 100건이 모두 판정됐을 때만 "xong"(적게 읽히면 "CHƯA xong"). 건수는 공고 단위.
 - 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패), 단위 테스트(100/100 done, 4/100 incomplete·96 미처리, 한도 중단) + 브라우저 mock(4건 읽힘 → 경고·"CHƯA xong").
-
-## 2026-10-08 — 관리자 Vị trí 탭 "Tìm vị trí tự động (chotot)" 버튼 구현·병합·배포 (코드만, DB 쓰기·DDL·공개 없음)
-
-- 요청: 서버 API로 chotot 100건 검색 → 자동 승인 기준만 승인 좌표 반영, 하루 250회·이어서 실행, 결과 표시. PR #18·#19 병합·배포.
-- 처리: `api/admin-vietmap.js`에 `usage` 액션(오늘 사용량 읽기, 호출·카운트 없음), `src/lib/chototAutoLocate.ts`(검색→판정→승인, 캐시, 한도 중단), `AdminAutoLocate.tsx`, `evaluateAutoApproval`에 법인 등록 주소형 제외(`registered_address_like`). 검색 캐시는 `research_artifacts`(kind `autolocate`)에 저장해 다음 날 이어서 실행.
-- 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패 1건), 로컬 브라우저 mock 흐름(승인 1/핀 없음 3, 호출 수 표시) 확인. master `a20f08b` 병합·Production 배포 success, 번들에 버튼 문구 확인. 실제 관리자 로그인 실행은 하지 않음.
-- 남은 일: DDL 적용(Claude), 버튼 실행, KCN 정문 보강, 공개 전환 dry-run.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
