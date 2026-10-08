@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — 저장 원칙·VietMap 서버 이전·길찾기 3단계·가짜 공고/source 태그 제거·keep-alive·규칙 기록 (branch, DB 쓰기 없음)
+
+- 요청: 8단계 일괄(저장 원칙 / VietMap 서버 API / 길찾기 3단계·자동 승인 / KCN 정문 dry-run / DEMO 제거 / source 태그 숨김 / Supabase keep-alive / 규칙 기록).
+- 처리: 커밋 46b2195(5·6), 571f1ae(1·2), 73b58b1(3), 6d2b253(4) + 7·8·문서. tsc·build 통과, npm test 40/41(기존 zalo 테스트 실패).
+- KCN dry-run: 주요 22곳 A 0 / B 후보 9곳 / 없음 13, 위성·VietMap POI 미수행 — 정문 좌표 미반영.
+- 미적용: DDL(`supabase/pending`, 승인 대기), Vercel `VIETMAP_SERVICE_KEY`·GitHub Secrets(사용자 설정), master·Production(PR 후).
+
 ## 2026-10-08 — chotot 좌표 후보 VietMap Search/Place 재 dry-run 실행 (DB 쓰기 없음)
 
 - 요청: 서버 키(`VIETMAP_SERVICE_KEY`, 값 출력 금지)로 chotot 100건을 Search/Place 검색해 타일 후보와 비교, 하루 250회 이내, DB 쓰기 금지.
@@ -86,15 +93,3 @@
 - 크롤러: 정리 시점 점검 결과 그대로(GitHub Actions disabled, Supabase cron에 크롤러 없음, VPS crontab 미확인 — 9/28 이후 신규 크롤러 행 없음). 실행 후에도 신규 크롤러 행이 생기지 않았는지는 다음 세션에서 재확인 필요.
 - commit/push: branch `feat/job-detail-sections`(실행기·분리 리팩터링·문서만, 데이터·백업 제외). master·Production 코드는 그대로(DB만 반영). 공개 전환은 사용자가 Preview를 보고 따로 승인.
 - 남은 문제: 좌표(KCN 31건 영역 표시만, 69건 좌표 없음) 별도 작업, 공개 전환(admin_hidden=false) 승인 대기.
-
-## 2026-10-07 — 기존 크롤러 공고 281건 정리 준비(백업·참조 조사·삭제 SQL dry-run) — 삭제·batch 미실행
-
-- 요청: Chợ Tốt batch 전에 local_jobs에서 #4682를 뺀 281건을 백업→참조 조사→(0이면)삭제→확인, 크롤러 cron 점검, 그다음 batch01부터.
-- 백업(완료): `backups/20261007T121508Z/`(gitignore 확인) — local_jobs 281 / job_work_locations 493 / job_location_candidates 1 / admin_audit_logs(job 대상) 3 + manifest(건수·sha256). 서비스 키는 crawler/.env에서 읽기 전용 GET에만 사용, 값은 어디에도 출력·저장 안 함. 스크립트 `scripts/research/backup_local_jobs_cleanup.py`.
-- 참조 조사(완료): FK 참조 applications·interviews·message_threads·job_alert_notifications **0건**, local_jobs_description_backup 0, reports 0(북마크 전용 테이블 없음). 연쇄 삭제(ON DELETE CASCADE)는 job_work_locations 493·job_location_candidates 1. admin_audit_logs에 job 대상 3건이 id로 남아 있음(FK 아님 — 삭제해도 로그는 남고 가리키는 공고만 사라짐). 대상 281건은 전부 origin=crawler·employer 없음·전화 없음·공개 아님(active 또는 admin_hidden로 비공개)·source_url 278건.
-- 삭제 SQL dry-run(완료, 읽기 전용): would_delete 281 / #4682 유지 1 / 가드 위반 0 / 참조 위반 0. 실행용 SQL `scripts/research/cleanup_local_jobs_delete.sql`(건수·참조 가드가 어긋나면 예외로 전체 중단, 끝에 남은 행·source_url 확인).
-- **삭제는 실행하지 않음**: 영구 삭제는 내가 실행하지 않는 작업이라 사용자가 위 SQL을 직접 실행. 실행 후 `select count(*), count(source_url) from local_jobs` = 1 / 0이어야 함.
-- 크롤러 점검: Supabase pg_cron은 `deactivate-expired-jobs-daily`·`job-alert-notifications` 2개뿐(크롤러 아님), Edge Function 0개, GitHub Actions `채용공고 자동 크롤링`은 **disabled_manually**(마지막 실행 8/28 실패). VPS crontab은 접속 불가라 **직접 확인 불가** — 다만 DB에 새 크롤러 행이 9/28 이후 0건(최근 7일 created 0, last_verified 9/24)이라 꺼져 있을 가능성이 높음. 사용자가 VPS에서 `crontab -l` 확인 필요(끄지 않음).
-- Chợ Tốt batch: 삭제 완료 후 실행하기로 한 순서라 보류(SQL batch01~10 준비 완료, 변경 없음).
-- commit/push: branch `feat/job-detail-sections`(백업 스크립트·삭제 SQL·문서, backups/·SQL 데이터 제외). master·Production·DB 미반영.
-
