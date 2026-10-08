@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — chotot 공개 후 Production 화면 확인 (DB 쓰기 없음)
+
+- 사용자 확인 쿼리: chotot_public 100 / still_hidden 0 / total 100 / all_public_jobs 100 → HANDOFF 반영.
+- Production(브라우저 실행): sb-4687·4685·4686·4702 모두 200, 회사명·전화·Zalo·Gọi 버튼 정상, `[source:`·경쟁 사이트 문구 없음, 홈·tìm kiếm 카드 표시. sb-4702는 지도+Chỉ đường(좌표 링크).
+- 문제: sb-4687(KCN YÊN PHONG)은 영역 지도 없음 — 공단 표에 "Yên Phong mở rộng"만 있어 매칭 안 됨(추정 금지 설계). 공개 100건 분류: 승인 핀 2 / KCN 지도 13 / Gọi hỏi đường만 85 → KCN 글자 31건 중 18건 지도 없음(HANDOFF 다음 할 일 3번).
+- 참고: 상세 화면에 대행사 표기는 없음(기존 동작, `recruitmentType`은 화면에 안 씀).
+
 ## 2026-10-08 — chotot 공개 완료 반영 + 확인 URL SQL 형식 수정 (코드·DB 쓰기 없음)
 
 - 사용자 보고: chotot 100건 공개 완료(SQL Editor 직접 실행). 확인 URL SQL이 `/viec-lam/<id>`로 만들어 404.
@@ -65,13 +72,6 @@
 - 산출물: `scripts/research/out/chotot_vietmap_search_candidates.csv`(바탕화면 `bacninh_handoff/`에도 복사), `vietmap_search_usage.json`·`vietmap_search_cache.json`(gitignore). 스크립트 `bn_vietmap_search_dryrun.mjs`에 타임아웃 20초·1회 재시도 추가.
 - DB 쓰기 없음. 이미 `job_location_candidates`에 들어간 33건(타일 기준)과는 별개 — Search 결과를 추가/교체할지는 승인 후.
 - 다음(승인 후): Search 자동 4곳(#4720·#4696·#4755 + 참고용 #4713·#4721은 제외 권장)을 기존 pending 후보 옆에 추가하거나 대체, 새로 올라온 검토 14건 후보 추가.
-
-## 2026-10-07 — chotot 좌표 후보 VietMap Search/Place 재 dry-run — 키가 이 PC에 없어 중단, 스크립트 준비
-
-- 요청: `VIETMAP_SERVICE_KEY`(Trial "Key API (search, route…)")로 chotot 100건 Search/Place 검색 dry-run, 하루 250회(한도 500의 절반) 이내, 타일 후보와 비교, DB 쓰기 금지.
-- 중단: 이 PC의 `crawler/.env`에 `VIETMAP_SERVICE_KEY` 없음(파일은 2026-09-24 이후 수정 없음, 변수 이름은 SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY·CRAWLER_BROWSER_CHANNEL뿐), 환경변수·다른 .env도 없음. 키는 PC-local이라 GitHub에 없음 — 다른 PC에 넣으신 것으로 보임. 호출 0회, DB 쓰기 없음.
-- 준비: `scripts/research/bn_vietmap_search_dryrun.mjs` — 같은 (회사명, 구·xã) 질의 80건으로 묶어 Search 최대 80 + Place(이름 유사도 ≥0.5 상위 2건) 최대 160 = 최대 240회 예상, 하루 합계 250회 상한(out/vietmap_search_usage.json 날짜별 누적, 응답 캐시로 재호출 없음, 넘으면 중단하고 다음날 이어서). 키는 출력·저장 안 함. 판정은 타일 dry-run과 같은 기준(이름 정확 일치 + 공단 윤곽 안/광고 대략 위치 1.5 km 이내 + 1곳 = 자동, 비슷하거나 위치 불충족 = 검토, 없음) + 주소 행정구역 일치 확인, 기존 타일 상태와 비교 건수·CSV(`out/chotot_vietmap_search_candidates.csv`) 출력. 키 없이 `--dry-plan`과 키 없음 종료만 검증(실제 API 호출 경로는 키가 없어 미검증).
-- 다음: 이 PC `crawler/.env`에 `VIETMAP_SERVICE_KEY=…` 한 줄 추가(값은 채팅에 붙이지 않기) → `node --import ./scripts/ts-extensionless-register.mjs scripts/research/bn_vietmap_search_dryrun.mjs`.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

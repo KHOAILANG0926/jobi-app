@@ -14,7 +14,7 @@
 
 **남은 단계**
 - (완료) 자동 위치 검색 버튼 실행 — 100건 처리: 자동 승인 0 / 기존 승인 2 / 핀 없음 98.
-- (완료) chotot 100건 공개 전환 — 사용자가 `supabase/pending/20261008100000_publish_chotot_jobs.sql`을 SQL Editor에서 실행(2026-10-08). 공개 후 화면 확인(URL 형식 `/viec-lam/sb-<id>`, 고르기 `docs/ops/2026-10-08_chotot_publish_urls.sql`)은 사용자 확인 대기.
+- (완료) chotot 100건 공개 전환 — 사용자가 `supabase/pending/20261008100000_publish_chotot_jobs.sql`을 SQL Editor에서 실행(2026-10-08). 확인 쿼리 결과: chotot_public 100 / chotot_still_hidden 0 / chotot_total 100 / all_public_jobs 100. **PRODUCTION VERIFIED(2026-10-08)**: sb-4685·4686(Gọi hỏi đường, 지도 없음)·sb-4702(핀+Chỉ đường `destination=lat,lng`)·sb-4687(KCN 글자만, 지도 없음) 모두 200, 회사명·전화·Zalo 표시, `[source:`/경쟁 사이트 문구 없음, 홈·tìm kiếm에 카드 표시.
 - KCN 정문 후보(`docs/ops/2026-10-08_kcn_gate_dryrun.md`)를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후).
 
 **다음에 할 첫 작업**: 공개된 chotot 공고 화면 확인 — 확인 URL 3개(KCN 영역 지도 / 일반 Gọi hỏi đường / 대행사)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고른 뒤(`https://viecganban.vn/viec-lam/sb-<id>`) 지도·길찾기·가짜 공고/`[source:` 없음 확인, 이어서 KCN 정문 좌표 보강. **이 작업에서 DB 쓰기·DDL 적용은 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
@@ -29,7 +29,7 @@
 - 이 시점 이전 기록(공고 상세 개편 `jobi-8vizwbcra` 등)은 `WORK_LOG.md`.
 
 **DB (shared Supabase Production)**
-- **chotot 100건(ID 4685~4784) 공개 완료**(사용자가 SQL Editor로 `admin_hidden=false` 실행, 2026-10-08; `source_url` NULL, `job_work_locations` 100행). 위치: 승인 좌표 2건(Chỉ đường), 나머지는 핀 없이 KCN 영역 지도 / Gọi hỏi đường. `local_jobs` #4682는 비공개 유지. (이전: 공개 0건 → 홈은 빈 상태 안내였음.)
+- **chotot 100건(ID 4685~4784) 공개 완료·Production 확인**(공개 100 / 비공개 0 / 전체 공개 공고 100; `source_url` NULL). 위치 분류(공개 DB 읽기 + 앱 규칙, 2026-10-08): 승인 핀 2(#4702·#4720, Chỉ đường) / KCN 영역 지도 13(정문 좌표 0 → Gọi hỏi đường 병행) / 지도 없이 Gọi hỏi đường만 85. 전화 없음·회사명 없음 0건. `local_jobs` #4682는 비공개 유지.
 - `job_location_candidates`: 기존 pending 33건 + 자동 위치 검색 결과(자동 승인 0, 기존 승인 2, 핀 없음 98). 승인 핀은 승인된 2건만.
 - `local_jobs_description_backup`(RLS 켬, 1행). `local_jobs`에 `language_requirement`·`business_trip` 컬럼 추가됨(2026-10-07 DDL).
 - 비공개 저장 DDL(`research_artifacts`·`vietmap_usage_daily`·관리자 RPC)은 **적용됨**(사용자가 Supabase SQL Editor로 실행, 버튼에서 "Hôm nay còn N/250" 표시 확인). 파일 `supabase/pending/20261008000000_private_research_store.sql`, 기록 `docs/ops/2026-10-08_private_store_ddl_dry_run.md`.
@@ -41,7 +41,7 @@
 
 1. **공개 후 화면 확인**: chotot 공개 완료. URL 3개(KCN 1·일반 1·대행사 1, 형식 `/viec-lam/sb-<id>`)를 `docs/ops/2026-10-08_chotot_publish_urls.sql`로 고르고 홈·상세·길찾기(0건→N건 화면 영향 포함) 확인. 상세 `docs/ops/2026-10-08_chotot_publish_dryrun.md`.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
-3. **핀 없는 공고 보강(선택)**: 자동 승인 0·핀 없음 98건. 관리자 Vị trí 탭의 pending 후보를 지도·위성으로 대조해 수동 승인(1클릭)하면 해당 공고가 "Chỉ đường"으로 올라간다. 승인은 관리자 판단.
+3. **KCN 이름이 공단 표에 없어 지도가 안 나오는 18건**: 근무지에 KCN 글자가 있는 31건 중 18건은 `src/data/industrialParks.ts`에 없는 이름이라 영역 지도 없이 글자+Gọi hỏi đường만 나온다(VSIP/VISIP 7, Yên Phong 2(표에는 "mở rộng"만 있음), Quế Võ 3 2, Nam Sơn Hạp Lĩnh 3, Thuận Thành 2, Đại Đồng 1, "Khu công nghiệp III" 1). 출처(OSM way) 있는 윤곽을 표·`industrialParkOutlines.ts`에 추가하면 지도가 나온다(DB 쓰기 없음, 추정 좌표 금지). 선택: pending 후보 수동 승인으로 핀 늘리기.
 
 ## 3. 필수 규칙 (전문은 `CLAUDE.md`·`AGENTS.md`, 항상 먼저 읽기)
 
