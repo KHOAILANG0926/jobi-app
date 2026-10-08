@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — Vị trí 자동 검색 버튼 버그: 100건 중 4건만 처리하고 "완료" 표시 (수정, DB 쓰기 없음)
+
+- 증상(사용자 실행 결과): Đã tìm 4/100, 호출 3, 자동 승인 0, 핀 없음 4, chưa xử lý 0, "Đã xử lý xong tất cả tin".
+- 확인: 판정 루프는 100건을 넣으면 100건 모두 처리(단위 테스트). 문제는 (1) 대상 조회가 4건만 돌려줬는데 그 4건을 끝내면 "완료"로 표시, (2) 미처리를 읽어 온 건수 기준으로만 셈. 조회가 4건만 돌려준 이유는 이 환경에서 관리자 DB 접근이 없어 확정 못 함(anon은 범위 내 0건, RLS상 관리자는 전부 읽어야 함).
+- 수정: 대상을 ID 범위 + `source like 'chotot:%'` 합집합으로 조회(페이지·ID 분할), "đọc được N/100"·숨김/표시 수·읽히지 않은 ID 목록 표시, `jobsTotal`=100 기준으로 chưa xử lý 계산, 100건이 모두 판정됐을 때만 "xong"(적게 읽히면 "CHƯA xong"). 건수는 공고 단위.
+- 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패), 단위 테스트(100/100 done, 4/100 incomplete·96 미처리, 한도 중단) + 브라우저 mock(4건 읽힘 → 경고·"CHƯA xong").
+
 ## 2026-10-08 — 관리자 Vị trí 탭 "Tìm vị trí tự động (chotot)" 버튼 구현·병합·배포 (코드만, DB 쓰기·DDL·공개 없음)
 
 - 요청: 서버 API로 chotot 100건 검색 → 자동 승인 기준만 승인 좌표 반영, 하루 250회·이어서 실행, 결과 표시. PR #18·#19 병합·배포.
@@ -74,17 +81,6 @@
 - "없음" 67건(그대로, DB 변경 없음): 범위 안 일치·유사 POI 없음 57 / 근무 회사 없음(대행사 게시·KCN 근거만) 9 / 회사명에서 구별 가능한 단어 없음 1.
 - commit/push: 스크립트·문서만. master 코드 변경 없음.
 - 남은 문제: 관리자가 지도·위성으로 33건 대조 후 승인/거절(검토 후보 다수는 이름만 비슷한 오탐 가능 — 예: KINH ĐÔ→경찰서, KHO SPX→Kho Bạc, AQUA→수족관), area 3건은 승인 불가, 승인 전까지 핀 표시 없음.
-
-## 2026-10-07 — chotot 100건 근무 회사 ↔ VietMap 타일 POI·OSM 좌표 후보 dry-run (DB 쓰기 없음)
-
-- 요청: 서버 키 없이 `VITE_VIETMAP_TILEMAP_KEY`로 벡터 타일 POI + OSM(Overpass) 이름 있는 공장을 대조해 chotot 100건(4685~4784) 좌표 후보를 찾는다. 자동 승인 후보/검토 필요/없음 건수, 자동 후보는 위성 확인. dry-run만.
-- 방법: ① VietMap 타일은 독자 형식(첫 바이트 `01 01 01 1b`, 표준 MVT 아님, 압축·XOR 시도 실패)이라 Node 직접 디코딩 불가 → 공식 SDK(@vietmap/vietmap-gl-js, CDN)를 viecganban.vn 탭에서 열어 `querySourceFeatures`로 읽음. 키는 사이트 지도가 이미 요청한 style URL에서 읽어 로컬 임시 파일에만 두고 작업 후 삭제(출력·커밋 없음). ② 탐색 범위: 공단 윤곽이 있는 KCN 13건은 윤곽 bbox 타일, 나머지는 Chợ Tốt 광고 대략 좌표(구·xã 수준, 탐색용으로만 사용·후보 좌표 아님) 주변 3×3 타일, 광고 좌표가 박닌 밖인 4건은 같은 구 중앙값(3건)/없음. 총 **z15 타일 298개**(소스 maxzoom이 15라 z16 요청도 z15 타일 데이터), 위치당 1타일·0.7초 간격·지도 캐시. 이름 있는 POI **12,187개**(회사 995·상점·ATM 등). ③ OSM Overpass 1회(박닌 bbox, 이름 있는 industrial/works/office/warehouse) 415개. ④ 매칭: `locationCandidateMatch.ts`(`companyTokens`·`nameSimilarity`) 재사용. 자동 승인 = 이름 정확 일치 + (공단 윤곽 안 | 광고 대략 위치 1.5 km 이내) + 후보 1곳.
-- 요청 수: VietMap 타일 ≈298(+스타일·스프라이트·폰트 소량, 위성 확인 래스터 약 5화면), Overpass 1, Chợ Tốt 상세 HTML 100(대략 좌표 읽기, 번호 열기 없음).
-- 결과: **자동 승인 후보 1 / 검토 필요 32 / 없음 67.** 자동 후보 = #4720 PIZZA HUT → "Pizza Hut Bắc Ninh"(VietMap, 광고 위치에서 1,078 m, 공고 주소 "Pizza Hut Bắc Ninh: 1A Lê Thái Tổ"와 같은 거리). 검토 필요: 이름이 비슷한 후보만 17, 회사명이 POI 이름에 포함 13(GOERTEK⊂"…Goertek Vina" 등), 이름 정확 일치지만 위치 불충족 2(#4773 Goertek 4.8 km, #4738 Goldsun 1.9 km). 없음: 범위 안 일치 없음 57, 근무 회사 없음(대행사 게시) 9, 구별 단어 없음 1.
-- 위성 확인(VietMap Hybrid, z17~18, 5곳): #4720 Pizza Hut — 도심 Lê Thái Tổ 로터리 인근 건물, 공고 주소와 일치(간판은 위성으로 확인 불가) / #4773 Goertek — 핀이 대형 공장 지붕 단지 위(공장 위치로 타당) / #4738 Goldsun — OSM 중심점이 대형 청색 지붕 공장 옆 빈 부지 가장자리(근접하지만 건물 위는 아님) / #4779 Jang Won Tech — 공장 내 ATM 기준, 공단 도로변 공장 밀집지(공장 대문 위치는 아님). 자동 후보가 5건이 안 되어 검토 필요 중 이름이 가장 강한 후보로 대체.
-- 판단: 이 방법은 **일부만 가능**. 이유 — 타일·OSM에 Getac·Amphenol·Avery Dennison·Yuzhan·Power Plus·Nae Tech 같은 외자 공장 이름 자체가 없음(회사명 일치 검색 0건), 있는 곳(Misumi·Goertek)도 광고 대략 좌표가 4~9 km 어긋나 거리 조건에서 탈락, 유통 브랜드(Hasaki·Pizza Hut·Vinamilk)는 지점이 여럿이라 주소 대조가 필요. KCN 31건 중 윤곽 매칭은 13건뿐(KCN 이름 표기 차이로 "Nam Sơn–Hạp Lĩnh" 등 일부 미매칭).
-- 산출물(gitignore `out/`, 바탕화면 `bacninh_handoff/`에도 CSV): `chotot_poi_candidates.csv`(공고별 후보1·2, 상태, 사유, 거리, 공단 안 여부), `.json`. 스크립트(커밋): `bn_poi_plan.mjs`·`bn_poi_plan2.mjs`·`bn_poi_scan_browser.js`·`bn_overpass_fetch.mjs`·`bn_poi_match.mjs`.
-- DB 쓰기 없음. 다음(승인 후): ① 자동 후보 1건·검토 후보를 사람이 확인 후 `job_location_candidates`에 pending으로 ② 나머지는 좌표 없는 상태 유지 또는 수동 지정/기존 관리자 VietMap 검토 화면 사용 ③ 서버용 VietMap 키(Search v4)가 생기면 이름 검색으로 재시도.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

@@ -14,6 +14,8 @@ import { DailyLimitError } from './adminVietmapClient'
 
 export const CHOTOT_ID_MIN = 4685
 export const CHOTOT_ID_MAX = 4784
+/** 처리해야 할 chotot 공고 수. 이보다 적게 읽혔으면 "끝"이 아니라 "chưa xử lý"로 센다. */
+export const CHOTOT_EXPECTED_TOTAL = 100
 const MAX_PLACES_PER_QUERY = 2
 const CACHE_SAVE_EVERY = 10
 
@@ -61,19 +63,45 @@ export interface AutoLocateOutcome {
 }
 
 export interface AutoLocateSummary {
+  /** 처리해야 하는 전체 공고 수(기대값). 읽어 온 수가 아니다. */
   jobsTotal: number
-  /** 이번 실행에서 판정을 끝낸 근무지(주소) 수 — 캐시 응답으로 판정한 것 포함 */
+  /** 실제로 읽어 온 공고 수 */
+  jobsFound: number
+  /** 이번 실행에서 모든 근무지의 판정을 끝낸 공고 수 — 캐시 응답으로 판정한 것 포함 */
   searched: number
   autoApproved: number
   alreadyApproved: number
   noPin: number
+  /** jobsTotal - searched: 읽지 못한 공고·한도/중단으로 남은 공고를 모두 포함 */
   notProcessed: number
   callsThisRun: number
   /** 서버가 알려준 오늘 남은 호출 수. 이번 실행에서 호출이 없으면 null */
   remainingToday: number | null
-  stopped: 'done' | 'daily_limit' | 'user' | 'error'
+  stopped: 'done' | 'incomplete' | 'daily_limit' | 'user' | 'error'
   errorMessage?: string
   outcomes: AutoLocateOutcome[]
+}
+
+export interface JobLoadReport {
+  expected: number
+  found: number
+  hidden: number
+  visible: number
+  /** ID 범위 안에서 읽히지 않은 ID(최대 20개) — 없거나 읽기 권한이 없는 공고 */
+  missingIds: number[]
+  missingCount: number
+}
+
+/** 읽어 온 공고 행으로 "기대한 chotot 100건 중 몇 건을 읽었는지"를 요약한다(완료 표시 전에 반드시 보여준다). */
+export function reportJobLoad(rows: Array<{ id: number; admin_hidden?: boolean | null }>, expected = CHOTOT_EXPECTED_TOTAL): JobLoadReport {
+  const ids = new Set(rows.map((r) => r.id))
+  const missing: number[] = []
+  let missingCount = 0
+  for (let id = CHOTOT_ID_MIN; id <= CHOTOT_ID_MAX; id++) {
+    if (!ids.has(id)) { missingCount++; if (missing.length < 20) missing.push(id) }
+  }
+  const hidden = rows.filter((r) => r.admin_hidden === true).length
+  return { expected, found: rows.length, hidden, visible: rows.length - hidden, missingIds: missing, missingCount }
 }
 
 export function districtOf(address: string): string {
@@ -126,10 +154,10 @@ export function judgePois(company: string, job: { address: string; location: str
 export async function runAutoLocate(
   jobs: AutoLocateJob[],
   deps: AutoLocateDeps,
-  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void } = {},
+  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number } = {},
 ): Promise<AutoLocateSummary> {
   const summary: AutoLocateSummary = {
-    jobsTotal: jobs.length, searched: 0, autoApproved: 0, alreadyApproved: 0, noPin: 0, notProcessed: 0,
+    jobsTotal: opts.expectedTotal ?? jobs.length, jobsFound: jobs.length, searched: 0, autoApproved: 0, alreadyApproved: 0, noPin: 0, notProcessed: opts.expectedTotal ?? jobs.length,
     callsThisRun: 0, remainingToday: null, stopped: 'done', outcomes: [],
   }
   const cache: SearchCache = (await deps.loadCache().catch(() => null)) ?? {}
@@ -138,12 +166,18 @@ export async function runAutoLocate(
   const noteCall = (r: { used: number; limit: number }) => { summary.callsThisRun++; summary.remainingToday = Math.max(0, r.limit - r.used) }
   const emit = () => opts.onProgress?.({ ...summary, outcomes: [...summary.outcomes] })
 
+  let jobOutcomes: AutoLocateOutcome[] = []
   const record = (o: AutoLocateOutcome) => {
     summary.outcomes.push(o)
-    if (o.status === 'approved') summary.autoApproved++
-    else if (o.status === 'already_approved') summary.alreadyApproved++
+    jobOutcomes.push(o)
+  }
+  // 공고 단위로 센다: 한 공고의 모든 근무지 판정이 끝났을 때만 "검색 완료"로 올린다(한도·중단으로 끊긴 공고는 chưa xử lý).
+  const finishJob = () => {
+    if (jobOutcomes.some((o) => o.status === 'approved')) summary.autoApproved++
+    else if (jobOutcomes.some((o) => o.status === 'already_approved')) summary.alreadyApproved++
     else summary.noPin++
     summary.searched++
+    summary.notProcessed = Math.max(0, summary.jobsTotal - summary.searched)
   }
 
   async function resolve(company: string, address: string, focus: AutoLocateTarget['focus']): Promise<SearchedPlaces> {
@@ -169,8 +203,9 @@ export async function runAutoLocate(
   }
 
   try {
-    outer: for (const [index, job] of jobs.entries()) {
-      if (opts.shouldStop?.()) { summary.stopped = 'user'; summary.notProcessed = jobs.length - index; break }
+    outer: for (const job of jobs) {
+      if (opts.shouldStop?.()) { summary.stopped = 'user'; break }
+      jobOutcomes = []
       const company = (job.company ?? '').trim()
       for (const target of job.targets) {
         const address = target.address.trim()
@@ -187,7 +222,6 @@ export async function runAutoLocate(
           if (e instanceof DailyLimitError) {
             summary.stopped = 'daily_limit'
             summary.remainingToday = 0
-            summary.notProcessed = jobs.length - index
             break outer
           }
           record({ ...base, status: 'no_pin', reason: 'lookup_failed' }); continue
@@ -220,12 +254,15 @@ export async function runAutoLocate(
           record({ ...base, status: 'no_pin', reason: 'lookup_failed', poiName: poi.name })
         }
       }
+      finishJob()
       emit()
     }
   } catch (e) {
     summary.stopped = 'error'
     summary.errorMessage = e instanceof Error ? e.message : 'error'
   }
+  summary.notProcessed = Math.max(0, summary.jobsTotal - summary.searched)
+  if (summary.stopped === 'done' && summary.notProcessed > 0) summary.stopped = 'incomplete'
   await flush()
   emit()
   return summary

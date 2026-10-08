@@ -9,6 +9,7 @@
 2. Supabase keep-alive 워크플로(Secrets 불필요) — PR #17, 실행 성공(HTTP 200).
 3. Vercel `VIETMAP_SERVICE_KEY` 설정(사용자) — `/api/admin-vietmap` 비로그인 401 확인.
 4. **`/admin` → Vị trí 탭 "Tìm vị trí tự động (chotot)" 버튼** — PR #19, master `a20f08b`, Production 번들에 버튼 포함 확인. 관리자가 누르면 chotot 100건(ID 4685~4784)을 서버 API로 검색 → 자동 승인 기준(회사명 정확 일치 + 주소 구·KCN 안, 법인 등록 주소형 POI 제외)만 승인 좌표 반영, 나머지 핀 없음, 하루 250회·한도 시 멈추고 다음 날 이어서, 결과(검색/자동 승인/핀 없음/미처리/오늘 남은 호출) 화면 표시. 로직 `src/lib/chototAutoLocate.ts`(+테스트), UI `src/components/admin/AdminAutoLocate.tsx`.
+   - **버그 수정(2026-10-08, PR 뒤따름)**: 첫 실제 실행에서 DB에서 4건만 읽혀 "4건 처리 = 완료"로 표시됨. 이제 대상은 ID 4685~4784 **와** `source like 'chotot:%'` 두 경로를 합쳐 읽고(1000행 페이지·ID 50개씩 분할), 완료 문구는 100건이 모두 판정됐을 때만. 적게 읽히면 "Đã đọc N/100"과 읽히지 않은 ID 목록을 보여주고 나머지는 chưa xử lý로 센다. **왜 4건만 읽혔는지는 아직 모름**(RLS상 관리자는 숨김 공고도 읽을 수 있어야 하고 anon은 0건) — 다음 실행 화면의 "Thiếu … 마지막 ID 목록"으로 확인.
 
 **남은 단계**
 - (Claude가 별도 처리) `supabase/pending/20261008000000_private_research_store.sql` 적용 — 적용 전엔 서버 API가 일일 카운터가 없어 fail closed, 버튼의 검색 캐시도 저장되지 않음.

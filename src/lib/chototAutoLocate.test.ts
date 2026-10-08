@@ -1,4 +1,4 @@
-import { runAutoLocate, judgePois, queryKey, districtOf, type AutoLocateDeps, type AutoLocateJob, type SearchCache } from './chototAutoLocate.ts'
+import { runAutoLocate, judgePois, queryKey, districtOf, reportJobLoad, CHOTOT_EXPECTED_TOTAL, type AutoLocateDeps, type AutoLocateJob, type SearchCache } from './chototAutoLocate.ts'
 import { DailyLimitError } from './adminVietmapClient.ts'
 
 function assert(cond: boolean, msg: string) {
@@ -102,6 +102,35 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
   let n = 0
   const r = await runAutoLocate([job(1, 'S1'), job(2, 'S2')], deps, { shouldStop: () => n++ >= 1 })
   assert(r.stopped === 'user' && r.autoApproved === 1 && r.notProcessed === 1, 'stop button halts between jobs')
+}
+
+{
+  // 100건을 모두 읽어 모두 판정했을 때만 "done".
+  const places: Record<string, Place[]> = {}
+  const all = Array.from({ length: 100 }, (_, i) => job(4685 + i, `Co ${i}`))
+  const { deps } = makeDeps(places)
+  const full = await runAutoLocate(all, deps, { expectedTotal: CHOTOT_EXPECTED_TOTAL })
+  assert(full.searched === 100 && full.jobsFound === 100 && full.notProcessed === 0 && full.stopped === 'done', '100 of 100 judged → done')
+  assert(full.noPin === 100 && full.autoApproved === 0, 'counts are per job')
+
+  // 4건만 읽혔다면(조회 누락) 4건을 처리해도 "done"이 아니라 incomplete, 나머지 96건은 chưa xử lý.
+  const partial = await runAutoLocate(all.slice(0, 4), makeDeps(places).deps, { expectedTotal: CHOTOT_EXPECTED_TOTAL })
+  assert(partial.searched === 4 && partial.jobsTotal === 100 && partial.notProcessed === 96 && partial.stopped === 'incomplete', 'only 4 of 100 read → incomplete, 96 not processed')
+
+  // 한도로 끊기면 끊긴 공고부터 전부 chưa xử lý에 포함.
+  const limited = await runAutoLocate(all.slice(0, 10), makeDeps(places, { limitAfter: 3 }).deps, { expectedTotal: 100 })
+  assert(limited.stopped === 'daily_limit' && limited.searched === 3 && limited.notProcessed === 97, 'daily limit: unfinished jobs counted as not processed')
+
+  // 한 공고에 근무지가 여러 개여도 공고 1건으로 센다.
+  const multi: AutoLocateJob = { id: 1, company: 'Multi', location: ADDR, existing: [], targets: [{ workLocationId: 1, address: ADDR, focus: null }, { workLocationId: 2, address: OTHER, focus: null }] }
+  const m = await runAutoLocate([multi], makeDeps({}).deps)
+  assert(m.searched === 1 && m.noPin === 1 && m.outcomes.length === 2, 'job counted once, details per address')
+}
+{
+  const rep = reportJobLoad([{ id: 4685, admin_hidden: true }, { id: 4686, admin_hidden: false }, { id: 4700, admin_hidden: true }])
+  assert(rep.found === 3 && rep.hidden === 2 && rep.visible === 1 && rep.missingCount === 97 && rep.missingIds.length === 20 && rep.missingIds[0] === 4687, 'load report lists what was not read')
+  const none = reportJobLoad(Array.from({ length: 100 }, (_, i) => ({ id: 4685 + i })))
+  assert(none.missingCount === 0 && none.found === 100, 'full read has nothing missing')
 }
 
 console.log('chototAutoLocate tests: all assertions passed')
