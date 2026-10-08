@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — PR #15 master 병합·Production 배포·검증 (DB 쓰기 없음)
+
+- 요청: PR #15 병합·배포 후 가짜 공고 제거와 길찾기 3단계를 Production에서 확인.
+- 처리: 빠른 전진(fast-forward)으로 master `447e380` 반영(PR MERGED) → Vercel Production 배포 success(`jobi-7nlzfo3as`).
+- 확인(https://viecganban.vn): 홈·tim-kiem·tuyen-gap 공고 카드 0·빈 상태 문구·`[source:` 0. 공개 공고가 없어 길찾기는 브라우저 안 mock 응답으로 확인: Chỉ đường / Gọi hỏi đường / 버튼 없음 정상, Đến cổng KCN은 정문 좌표 0개라 미확인. mock은 GET만, 쓰기 요청 0.
+- 남은 일: DDL 승인, `VIETMAP_SERVICE_KEY`·GitHub Secrets 설정, KCN 정문 후보 확인.
+
 ## 2026-10-08 — 저장 원칙·VietMap 서버 이전·길찾기 3단계·가짜 공고/source 태그 제거·keep-alive·규칙 기록 (branch, DB 쓰기 없음)
 
 - 요청: 8단계 일괄(저장 원칙 / VietMap 서버 API / 길찾기 3단계·자동 승인 / KCN 정문 dry-run / DEMO 제거 / source 태그 숨김 / Supabase keep-alive / 규칙 기록).

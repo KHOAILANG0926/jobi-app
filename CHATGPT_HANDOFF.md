@@ -4,13 +4,11 @@
 
 ## 1. 현재 상태
 
-**코드**
-- 작업 브랜치 `cursor/policy-vietmap-fake-jobs-c794` → [PR #15](https://github.com/KHOAILANG0926/jobi-app/pull/15) (base `master`). IMPLEMENTED + VERIFIED(tsc 통과, build 통과, `npm test` 40/41 — 실패 1건은 기존 `api/_zalo-token.test.ts`, Node 22.14 `mock.module` 문제로 무관). **master 미반영 / Production 미배포.**
-- PR #15 내용: DEMO_JOBS 제거+공개 0건 안내(`NoPublicJobs`), `[source:…]` 태그 SSR·메타·JSON-LD·sitemap 제거(`src/lib/sourceTag.ts`), VietMap 검색 관리자 서버 API(`api/admin-vietmap.js`, 하루 250회·키 비노출), 길찾기 3단계(`src/lib/directionsPlan.ts`)·자동 승인(`evaluateAutoApproval`), 연구 데이터·백업 비공개 저장소 스크립트(`scripts/research/lib/privateStore.mjs`), `.github/workflows/supabase-keepalive.yml`, 규칙 기록(`CLAUDE.md`·`AGENTS.md`·`.cursor/rules/project-rules.mdc`).
-
-**배포(Production https://viecganban.vn)**
-- 마지막으로 기록된 코드 배포: 공고 상세 개편(`jobi-8vizwbcra`, master `264d7d7`). 그 뒤 master에는 문서·dry-run 스크립트 커밋만 있음(`d3940fa`). PR #15 코드는 아직 아님.
-- **지금 Production은 공개 공고 0건이라 가짜 DEMO_JOBS가 보이는 상태**(PR #15 배포 전까지 유지).
+**코드·배포**
+- PR #15 **MASTER MERGED**(master `447e380`) → **PRODUCTION DEPLOYED**(Vercel Production, `jobi-7nlzfo3as`, https://viecganban.vn) → **PRODUCTION VERIFIED**(2026-10-08): 홈·tim-kiem·tuyen-gap에 가짜 공고 없음, "Hiện chưa có tin tuyển dụng nào đang mở" 빈 상태 표시, 공개 HTML·sitemap에 `source:` 0건. 검증: tsc·build 통과, `npm test` 40/41(실패 1건은 기존 `api/_zalo-token.test.ts`, 무관).
+- 길찾기 3단계 Production 확인: 공개 공고가 0건이라 실제 상세 페이지가 없어, Production 번들에 가짜 DB 응답(브라우저 안 mock, DB 쓰기 0)을 주입해 확인 — 승인 좌표 → "Chỉ đường"(`destination=lat,lng`), 승인 좌표 없음+전화 → "Gọi hỏi đường"(`tel:`), 둘 다 없음 → 버튼 없음. **"Đến cổng KCN"은 정문 좌표가 0개라 화면에서 확인 불가**(단위 테스트로만 검증).
+- 내용: DEMO_JOBS 제거+빈 상태, `[source:…]` 제거(SSR·메타·JSON-LD·sitemap), VietMap 관리자 서버 API(`api/admin-vietmap.js`, 하루 250회·키 비노출), 길찾기 3단계(`src/lib/directionsPlan.ts`)·자동 승인, 비공개 저장소 스크립트, keep-alive 워크플로(Secrets 설정 전엔 실패로 표시됨), 규칙 기록(`CLAUDE.md`·`AGENTS.md`·`.cursor/rules/project-rules.mdc`).
+- 이 시점 이전 기록(공고 상세 개편 `jobi-8vizwbcra` 등)은 `WORK_LOG.md`.
 
 **DB (shared Supabase Production)**
 - 공개 공고 0건. `local_jobs`는 #4682(비공개 전환) + Chợ Tốt 100건(ID 4685~4784, 전부 `admin_hidden=true`, `source_url` NULL, `job_work_locations` 100행·좌표 없음).
@@ -23,7 +21,7 @@
 
 ## 2. 다음 할 일 3개
 
-1. **(사용자 승인 대기) PR #15 → master 반영 → Vercel Production 배포 → Production에서 3·5·6번 화면 확인**: 3 길찾기 3단계 표시, 5 가짜 공고 대신 빈 상태 안내, 6 공개 HTML·메타·JSON-LD에 `[source:` 없음.
+1. **공개 공고 0건 상태 정리**: 지금 Production 공개 공고가 0건이라 빈 상태 안내만 보인다. 공개 전환(`admin_hidden=false`)은 사용자 승인 후에만 — 공개 후 상세 길찾기·회사 표기를 실제 공고로 재확인.
 2. **(사용자 승인 대기) `supabase/pending` DDL 검토·승인 후 적용 + Vercel `VIETMAP_SERVICE_KEY`·GitHub Secrets 설정**. 그 뒤 keep-alive 워크플로를 `workflow_dispatch`로 1회 실행해 통과 확인.
 3. **KCN 정문 좌표**: `docs/ops/2026-10-08_kcn_gate_dryrun.md`(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13) 후보를 VietMap POI + 위성으로 확인해 출처 id 있는 것만 `src/data/industrialParks.ts` `destination`에 승격(DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내("Gọi hỏi đường")로 동작.
 
