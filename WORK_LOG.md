@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — chotot 공개 전환 준비: dry-run·공개 SQL·확인 URL (DB 쓰기·공개 없음)
+
+- 요청(사용자 결정: 핀 없이도 공개): 공개 대상/KCN 영역 지도/Gọi hỏi đường만 건수 보고, 건수 가드 있는 공개 SQL, 공개 후 확인 URL.
+- 건수는 **미보고**: 관리자 DB 접근이 없고 anon은 비공개 0건. 대신 dry-run SELECT(`docs/ops/2026-10-08_chotot_publish_dryrun.sql`) + 정확한 KCN 분류 스크립트(`scripts/ops/chotot_publish_classify.ts`, 앱의 `findIndustrialPark` 사용).
+- 공개 SQL `supabase/pending/20261008100000_publish_chotot_jobs.sql`: chotot 100건 확인·대상 건수=`v_expected` 가드(null이면 중단)·갱신 건수 가드·끝에 공개 건수 확인 쿼리. URL 고르는 쿼리 `…_chotot_publish_urls.sql`, 설명 `…_chotot_publish_dryrun.md`.
+- 검증: PGlite로 합성 100행 실행(가드 3종·정상 갱신·확인 쿼리), tsc·build 통과.
+
 ## 2026-10-08 — Vị trí 자동 검색 버튼: 10/100 처리인데 "완료" 표시·호출 132회 소모·화면 호출 0 (수정, DB 쓰기 없음)
 
 - 증상(사용자 실행): Đã đọc 100/100, Đã tìm 10/100, chưa xử lý 90, 그런데 "Đã xử lý xong…" 표시. 오늘 남은 호출 247→115(132 소모), 화면 "gọi VietMap lần này: 0".
@@ -69,16 +76,6 @@
 - 검증: tsc·npm test 37/37·build 통과. Production `jobi-fck9ccmdx`(Ready 44s)에서 /admin → Vị trí 실제 화면 전후 비교: 전 — 길만, 라벨·POI 없음(핀 점만) / 후 — 후보 핀 옆에 POI 아이콘+이름("ATM Shinhan Bank Jang Won Tech Vina") 표시, Vệ tinh 전환도 정상(래스터 로드에 10~20초). 지도 요청은 모두 200.
 - 한계: 길 이름은 타일에 이름 있는 도로가 적어(범위 내 9개) 이 구역에서는 여전히 안 보임 — 데이터 한계.
 - commit/push: master `655166b` → Production.
-
-## 2026-10-07 — 관리자 Vị trí 후보 지도 빈 칸(점만) 원인 확인·수정
-
-- 증상: 후보 33건이 생긴 뒤 관리자 Vị trí 화면 지도가 길·건물 없이 핀(점)만 보임.
-- 한도 확인(Chrome, 같은 공개 타일 키): 스타일 tm·hm, 타일 2개 모두 **HTTP 200**(423/429 없음) → 한도 초과 아님. 오늘 VietMap 요청 추정: 좌표 스캔 타일 ≈298 + 위성 확인 래스터 ≈100~150 + 스타일·스프라이트·글꼴·시험 호출 수십 건 + 정상 사이트 트래픽 ≈ 최소 450~600건(콘솔 일 사용량은 조회 권한이 없어 확인 못 함). 계정 한도(Trial 일 500 등)는 문서상 값이 확정돼 있지 않고 지금 응답으로는 제한 신호가 없음.
-- 원인: `AdminLocations`가 후보 카드마다 `AdminVietMap`(WebGL 지도)을 **동시에 33개** 생성 → 브라우저 WebGL 컨텍스트 한도(Chrome 약 16개) 초과 → 오래된 지도부터 캔버스 상실, DOM 마커(점)만 남음. (후보가 몇 건일 때는 드러나지 않았음)
-- 수정: `src/components/admin/AdminLocations.tsx` — `VisibleOnly`(IntersectionObserver, 화면 ±150px일 때만 지도 생성, 벗어나면 해제)로 카드 지도를 감쌈. 동시에 열린 지도는 화면 안 몇 개로 제한. 한도 초과가 원인이 아니라서 "Bản đồ tạm thời không tải được" 공통 안내와 CLAUDE.md 스캔 한도 규칙은 이번엔 넣지 않음(사용자 지시 3번은 한도 초과가 원인일 때 조건).
-- 검증: tsc·npm test 37/37·build 통과. 관리자 로그인이 필요해 이 세션에서 화면으로 확인하지 못함 — 배포 후 사용자 확인 필요.
-- commit/push: master → Production 자동 배포.
-- 남은 문제: 사용자가 /admin → 📍 Vị trí에서 지도가 보이는지 확인. 안 보이면 콘솔의 "Too many active WebGL contexts" 경고·네트워크 응답 코드를 알려줄 것(그때는 한도 쪽 안내 처리를 진행).
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

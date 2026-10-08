@@ -41,7 +41,7 @@
 
 1. **버튼 실행**: 관리자 Vị trí 탭 "Tìm vị trí tự động (chotot)"(새로고침 후) → 자동 승인/핀 없음/미처리 건수와 "서버 증가분"을 `WORK_LOG.md`에 기록. 하루 250회, 한도 시 다음 날 이어서.
 2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
-3. **chotot 공개 전환 준비(dry-run)**: 회사명 있는 공고 기준 공개될 건수 / 핀 있는 건수 / "Gọi hỏi đường"만 있는 건수 보고 → 사용자 승인 후 공개(`admin_hidden=false`), 공개 직후 홈·상세·길찾기 재확인(0건→N건 화면 영향 포함).
+3. **chotot 공개 전환(사용자 결정: 핀 없이도 공개)** — 준비 완료, 실행 대기: dry-run `docs/ops/2026-10-08_chotot_publish_dryrun.sql` 결과(`publish_targets`)를 공개 SQL `supabase/pending/20261008100000_publish_chotot_jobs.sql`의 `v_expected`에 넣고 사용자가 SQL Editor에서 실행. 건수 보고(KCN 영역 지도/Gọi hỏi đường만)는 dry-run의 `rows` JSON을 받아 `scripts/ops/chotot_publish_classify.ts`로 계산. 상세·확인 URL: `docs/ops/2026-10-08_chotot_publish_dryrun.md`. 공개 직후 홈·상세·길찾기 재확인(0건→N건 화면 영향 포함).
 
 ## 3. 필수 규칙 (전문은 `CLAUDE.md`·`AGENTS.md`, 항상 먼저 읽기)
 
