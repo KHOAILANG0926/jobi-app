@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — Vị trí 자동 검색 버튼: 10/100 처리인데 "완료" 표시·호출 132회 소모·화면 호출 0 (수정, DB 쓰기 없음)
+
+- 증상(사용자 실행): Đã đọc 100/100, Đã tìm 10/100, chưa xử lý 90, 그런데 "Đã xử lý xong…" 표시. 오늘 남은 호출 247→115(132 소모), 화면 "gọi VietMap lần này: 0".
+- 코드상 원인: (1) 진행 중 요약의 초기 `stopped='done'`가 그대로 노출돼 완료 문구가 뜸 → 완료 문구는 실행 종료(phase=finished)+100건 모두 판정일 때만. (2) 화면 호출 수는 성공 응답만 셌는데 서버는 호출 전에 차감(실패·타임아웃도 소모) → 시도 단위로 집계. (3) 기존 로직은 공고당 Search 여러 번+Place 최대 3회까지 가능 → 공고당 Search 1 + 이름이 정확히 일치하는 후보 1개만 Place 1(상한 2). 일치 후보가 없거나 여러 개(지점)면 Place 0. (4) 연속 5회 실패 시 호출 낭비 없이 중단(오류 표시), 조회 실패 공고는 미처리로 셈.
+- 화면: 실행 상태는 모듈 단위 저장소(탭 이동·리마운트에도 유지), "이번 실행 호출(화면)"과 "서버 카운터 증가분"을 같이 표시하고 차이가 나면 다른 탭/스크립트가 같은 카운터를 쓴 것이라는 경고.
+- 확정 못 한 것: 왜 10건에서 멈췄고 132회가 소모됐는지는 관리자 DB·로그 접근이 없어 증명 불가(가설: 이전 코드의 공고당 다중 호출 + 한도 외 소모). 새 화면의 서버 증가분 표시로 다음 실행에서 확인 가능.
+- 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패), 단위 테스트(100건=정확히 200호출·남은 50, 연속 실패 중단, 서버 delta 경고, 진행 중 스냅샷 not-done).
+
 ## 2026-10-08 — Vị trí 자동 검색 버튼 버그: 100건 중 4건만 처리하고 "완료" 표시 (수정, DB 쓰기 없음)
 
 - 증상(사용자 실행 결과): Đã tìm 4/100, 호출 3, 자동 승인 0, 핀 없음 4, chưa xử lý 0, "Đã xử lý xong tất cả tin".
@@ -71,16 +79,6 @@
 - 검증: tsc·npm test 37/37·build 통과. 관리자 로그인이 필요해 이 세션에서 화면으로 확인하지 못함 — 배포 후 사용자 확인 필요.
 - commit/push: master → Production 자동 배포.
 - 남은 문제: 사용자가 /admin → 📍 Vị trí에서 지도가 보이는지 확인. 안 보이면 콘솔의 "Too many active WebGL contexts" 경고·네트워크 응답 코드를 알려줄 것(그때는 한도 쪽 안내 처리를 진행).
-
-## 2026-10-07 — chotot 좌표 후보 33건 job_location_candidates에 pending 반영(승인 후 실행)
-
-- 요청(승인): 좌표 dry-run의 자동 1 + 검토 필요 32를 pending 후보로 저장. 후보 좌표·출처 id·일치 근거 함께 저장, job_work_locations 좌표는 건드리지 않음(승인 전 핀 없음). 관리자 검토 화면에서 33건 확인, "없음" 67건은 그대로 두고 사유별 건수 기록.
-- 실행: `scripts/research/bn_apply_poi_candidates.py --apply` — 공고당 1순위 후보 1건씩 **33행 INSERT**, 실패·건너뜀 0. status=pending, source=map_listing, work_location_id 연결, evidence_urls 비움. place_precision: POI building 28 / OSM 면 site 2 / KCN 자체 area 3(area는 승인 불가 제약 — 참고용). evidence(베트남어)에 후보 이름·일치 정도(정확/포함/유사 N%)·공고 회사명·거리·공단 안 여부·출처 id(VietMap POI는 id가 없어 `이름@위도,경도 + z15 타일 x/y`, OSM은 `way|node|relation/ID`)·"chưa duyệt" 문구. 경쟁 사이트 이름·링크·광고 좌표는 evidence에 없음(DB 확인 0건).
-- 확인(DB): job_location_candidates 총 33행(chotot 4685~4784 중 33공고, 모두 pending), job_work_locations 100행 모두 lat/lng NULL 유지(변경 0), 공개 공고 0건. 관리자 RPC `admin_list_location_candidates`와 같은 조건 조회에서 33행·pending 33·주소 일치(address_still_present) 33.
-- 관리자 화면: /admin → 탭 "locations"(AdminDashboard `tab==='locations'` → AdminLocations), 기본 필터 "Chờ duyệt"(pending). 화면 자체는 관리자 로그인이 필요해 이 세션에서 직접 열어 보지 못함(로그인 정보 입력 불가) — RPC와 같은 쿼리로 33행 확인까지.
-- "없음" 67건(그대로, DB 변경 없음): 범위 안 일치·유사 POI 없음 57 / 근무 회사 없음(대행사 게시·KCN 근거만) 9 / 회사명에서 구별 가능한 단어 없음 1.
-- commit/push: 스크립트·문서만. master 코드 변경 없음.
-- 남은 문제: 관리자가 지도·위성으로 33건 대조 후 승인/거절(검토 후보 다수는 이름만 비슷한 오탐 가능 — 예: KINH ĐÔ→경찰서, KHO SPX→Kho Bạc, AQUA→수족관), area 3건은 승인 불가, 승인 전까지 핀 표시 없음.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
