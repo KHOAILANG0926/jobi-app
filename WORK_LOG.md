@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-08 — 관리자 Vị trí 탭 "Tìm vị trí tự động (chotot)" 버튼 구현·병합·배포 (코드만, DB 쓰기·DDL·공개 없음)
+
+- 요청: 서버 API로 chotot 100건 검색 → 자동 승인 기준만 승인 좌표 반영, 하루 250회·이어서 실행, 결과 표시. PR #18·#19 병합·배포.
+- 처리: `api/admin-vietmap.js`에 `usage` 액션(오늘 사용량 읽기, 호출·카운트 없음), `src/lib/chototAutoLocate.ts`(검색→판정→승인, 캐시, 한도 중단), `AdminAutoLocate.tsx`, `evaluateAutoApproval`에 법인 등록 주소형 제외(`registered_address_like`). 검색 캐시는 `research_artifacts`(kind `autolocate`)에 저장해 다음 날 이어서 실행.
+- 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패 1건), 로컬 브라우저 mock 흐름(승인 1/핀 없음 3, 호출 수 표시) 확인. master `a20f08b` 병합·Production 배포 success, 번들에 버튼 문구 확인. 실제 관리자 로그인 실행은 하지 않음.
+- 남은 일: DDL 적용(Claude), 버튼 실행, KCN 정문 보강, 공개 전환 dry-run.
+
 ## 2026-10-08 — VIETMAP_SERVICE_KEY 설정 후 후속 4단계 요청 — 1단계 보고만, 2~4단계 차단
 
 - 요청: DDL 요약 보고 → chotot 100건 재검색·자동 승인 → KCN 정문 보강 → 공개 전환 dry-run.

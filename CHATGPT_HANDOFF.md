@@ -1,12 +1,29 @@
 # CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
 
-갱신: 2026-10-08. 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
+갱신: 2026-10-08(토요일 이어받기용). 상세 이력·이전 본문은 `WORK_LOG.md`(맨 아래 "보관" 포함). 이 파일은 누적하지 않고 항상 최신 스냅샷으로 덮어쓴다.
+
+## ▶ 이어받기 (토요일 ChatGPT/Codex) — 끝난 단계 / 남은 단계 / 다음 첫 작업
+
+**끝난 단계 (2026-10-08, 모두 코드 MASTER MERGED + PRODUCTION DEPLOYED, DB 쓰기·공고 공개 없음)**
+1. 저장 원칙·VietMap 관리자 서버 API(`api/admin-vietmap.js`)·길찾기 3단계·가짜 공고 제거·`[source:]` 숨김·규칙 기록 — PR #15, Production에서 확인 완료.
+2. Supabase keep-alive 워크플로(Secrets 불필요) — PR #17, 실행 성공(HTTP 200).
+3. Vercel `VIETMAP_SERVICE_KEY` 설정(사용자) — `/api/admin-vietmap` 비로그인 401 확인.
+4. **`/admin` → Vị trí 탭 "Tìm vị trí tự động (chotot)" 버튼** — PR #19, master `a20f08b`, Production 번들에 버튼 포함 확인. 관리자가 누르면 chotot 100건(ID 4685~4784)을 서버 API로 검색 → 자동 승인 기준(회사명 정확 일치 + 주소 구·KCN 안, 법인 등록 주소형 POI 제외)만 승인 좌표 반영, 나머지 핀 없음, 하루 250회·한도 시 멈추고 다음 날 이어서, 결과(검색/자동 승인/핀 없음/미처리/오늘 남은 호출) 화면 표시. 로직 `src/lib/chototAutoLocate.ts`(+테스트), UI `src/components/admin/AdminAutoLocate.tsx`.
+
+**남은 단계**
+- (Claude가 별도 처리) `supabase/pending/20261008000000_private_research_store.sql` 적용 — 적용 전엔 서버 API가 일일 카운터가 없어 fail closed, 버튼의 검색 캐시도 저장되지 않음.
+- 관리자가 버튼 실행(하루 250회 이내, 한도에 걸리면 다음 날 같은 버튼으로 이어서) → 결과 건수 확인.
+- KCN 정문 후보(`docs/ops/2026-10-08_kcn_gate_dryrun.md`)를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후).
+- chotot 중 회사명 있는 공고 공개 전환 dry-run(공개 건수·핀 있는 건수·"Gọi hỏi đường"만 있는 건수) → 사용자 승인 후 공개.
+
+**다음에 할 첫 작업**: DDL이 적용됐는지 사용자/Claude에게 확인한다(관리자 Vị trí 탭의 "Hôm nay còn X/250 lượt"가 숫자로 나오면 적용된 것, 오류 문구면 미적용). 적용됐으면 관리자 로그인 상태에서 버튼을 눌러 결과를 받아 `WORK_LOG.md`에 건수를 기록하고, 다음으로 위 dry-run 2건을 이어서 한다. **이 작업에서 DB 쓰기·DDL 적용·공고 공개는 사용자 승인 없이 하지 않는다.** 이미 VERIFIED인 코드는 다시 만들지 않는다.
 
 ## 1. 현재 상태
 
 **코드·배포**
 - PR #15 **MASTER MERGED**(master `447e380`) → **PRODUCTION DEPLOYED**(Vercel Production, `jobi-7nlzfo3as`, https://viecganban.vn) → **PRODUCTION VERIFIED**(2026-10-08): 홈·tim-kiem·tuyen-gap에 가짜 공고 없음, "Hiện chưa có tin tuyển dụng nào đang mở" 빈 상태 표시, 공개 HTML·sitemap에 `source:` 0건. 검증: tsc·build 통과, `npm test` 40/41(실패 1건은 기존 `api/_zalo-token.test.ts`, 무관).
 - 길찾기 3단계 Production 확인: 공개 공고가 0건이라 실제 상세 페이지가 없어, Production 번들에 가짜 DB 응답(브라우저 안 mock, DB 쓰기 0)을 주입해 확인 — 승인 좌표 → "Chỉ đường"(`destination=lat,lng`), 승인 좌표 없음+전화 → "Gọi hỏi đường"(`tel:`), 둘 다 없음 → 버튼 없음. **"Đến cổng KCN"은 정문 좌표가 0개라 화면에서 확인 불가**(단위 테스트로만 검증).
+- 이후 master `a20f08b`(PR #18·#19 병합) → Production 배포 success, 관리자 Vị trí 자동 검색 버튼 포함(위 4번). 검증: tsc·build 통과, `npm test` 41/42(실패 1건 동일), 로컬 브라우저 mock으로 버튼 흐름 확인(실제 관리자 로그인 실행은 아직 안 함).
 - 내용: DEMO_JOBS 제거+빈 상태, `[source:…]` 제거(SSR·메타·JSON-LD·sitemap), VietMap 관리자 서버 API(`api/admin-vietmap.js`, 하루 250회·키 비노출), 길찾기 3단계(`src/lib/directionsPlan.ts`)·자동 승인, 비공개 저장소 스크립트, keep-alive 워크플로(`src/lib/supabase.ts`의 공개 URL·anon 키를 읽어 Secrets 없이 동작), 규칙 기록(`CLAUDE.md`·`AGENTS.md`·`.cursor/rules/project-rules.mdc`).
 - 이 시점 이전 기록(공고 상세 개편 `jobi-8vizwbcra` 등)은 `WORK_LOG.md`.
 
@@ -21,9 +38,9 @@
 
 ## 2. 다음 할 일 3개
 
-1. **DDL 승인 대기(차단 요인)**: `supabase/pending/20261008000000_private_research_store.sql` — 새 비공개 테이블 2개(`research_artifacts` 수집·백업 보관, `vietmap_usage_daily` 하루 호출 카운터; 둘 다 RLS 켬·anon/authenticated 접근 전부 회수) + 관리자 전용 RPC 4개(`admin_save/get/list_research_artifact(s)`, `vietmap_usage_take`는 service_role만). 기존 테이블 변경·삭제 없음. 승인 전엔 서버 검색 API의 일일 상한 카운터가 없어 호출이 막힌다(fail closed).
-2. **승인 후 순서**: DDL 적용 → (관리자 로그인 세션이 있는 환경에서) chotot 100건(ID 4685~4784) 서버 API 재검색(하루 250회 이내, 자동 승인 기준만 승인 좌표 반영, 법인 등록 주소형 POI 제외) → KCN 정문 후보를 VietMap 검색으로 보강(출처 있는 것만, DB 쓰기는 승인 후) → 공개 전환 dry-run(공개 건수·핀 있는 건수·"Gọi hỏi đường"만 있는 건수). 이 환경에는 관리자 자격증명이 없어 사용자가 관리자 세션으로 실행하거나 세션을 제공해야 한다. 공개 전환 자체는 별도 승인.
-3. **KCN 정문 좌표(2번에 포함)**: `docs/ops/2026-10-08_kcn_gate_dryrun.md`(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13) 후보를 VietMap POI + 위성으로 확인해 출처 id 있는 것만 `src/data/industrialParks.ts` `destination`에 승격(DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내("Gọi hỏi đường")로 동작.
+1. **DDL 적용 확인 → 버튼 실행**: `research_store` DDL(비공개 테이블 2개 `research_artifacts`·`vietmap_usage_daily` + 관리자 RPC 4개, 기존 테이블 변경 없음, RLS 켬)은 Claude가 별도로 적용. 적용 후 관리자 Vị trí 탭 버튼 실행(하루 250회, 한도 시 다음 날 이어서) → 자동 승인/핀 없음 건수 기록.
+2. **KCN 정문 좌표 보강**: dry-run 후보(주요 22곳 중 A 0 / B 후보 9곳 / 없음 13)를 VietMap 검색 + 위성으로 확인해 출처 id 있는 것만 후보로 정리(`src/data/industrialParks.ts` `destination` 승격은 승인 후, DB 쓰기 없음). 그 전엔 정문 좌표 0개 → 전화 안내로 동작.
+3. **chotot 공개 전환 준비(dry-run)**: 회사명 있는 공고 기준 공개될 건수 / 핀 있는 건수 / "Gọi hỏi đường"만 있는 건수 보고 → 사용자 승인 후 공개(`admin_hidden=false`), 공개 직후 홈·상세·길찾기 재확인(0건→N건 화면 영향 포함).
 
 ## 3. 필수 규칙 (전문은 `CLAUDE.md`·`AGENTS.md`, 항상 먼저 읽기)
 
