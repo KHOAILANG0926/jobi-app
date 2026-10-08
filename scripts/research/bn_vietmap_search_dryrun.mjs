@@ -1,34 +1,26 @@
 // chotot 100건 근무 회사 → VietMap Search v4 / Place v4 좌표 후보 dry-run (DB 쓰기 없음).
-// 키: crawler/.env 의 VIETMAP_SERVICE_KEY (Console Trial "Key API (search, route…)"). 값은 출력·파일·로그에 남기지 않는다. 없으면 호출 없이 종료.
-// 한도: Trial API별 하루 500회 → 이 스크립트는 하루 합계(Search+Place) 250회 이내로만 호출한다(out/vietmap_search_usage.json에 날짜별 누적).
-//       넘으면 중단하고 내일 같은 명령으로 이어서 실행(응답은 out/vietmap_search_cache.json에 캐시되어 같은 질의는 다시 부르지 않는다).
+// 키: 이 PC에 없다. 서버 API(api/admin-vietmap, Vercel 환경변수 VIETMAP_SERVICE_KEY)가 호출하고 하루 250회를 센다.
+// 입력·캐시·결과: PC 파일(out/)이 아니라 Supabase 비공개 테이블(research_artifacts, kind=bn_research)에서 읽고 쓴다.
+//   (처음 한 번 `node scripts/research/migrate_out_to_private_store.mjs`로 기존 out/ 파일을 올린다)
+// 인증: 관리자 로그인(터미널 입력, 저장 안 함) 또는 ADMIN_ACCESS_TOKEN 환경변수.
+// 한도: 서버가 429(daily_limit)를 돌려주면 중단 — 내일 같은 명령으로 이어서 실행(응답은 비공개 캐시에 남아 같은 질의는 다시 부르지 않는다).
 // 호출 수 줄이기: 같은 (회사명, 시/군·구) 질의는 한 번만. Place는 이름 유사도 ≥0.5 인 상위 2건만.
-// 실행: node --import ./scripts/ts-extensionless-register.mjs scripts/research/bn_vietmap_search_dryrun.mjs [--budget=250] [--dry-plan]
-import fs from 'node:fs'
+// 실행: node --import ./scripts/ts-extensionless-register.mjs scripts/research/bn_vietmap_search_dryrun.mjs [--dry-plan]
+import { loadArtifact, saveArtifact, vietmapCall } from './lib/privateStore.mjs'
 import { nameSimilarity, companyTokens, normalizePlaceText, MIN_NAME_SIMILARITY, addressMatch } from '../../src/lib/locationCandidateMatch.ts'
 import { INDUSTRIAL_PARK_OUTLINES } from '../../src/data/industrialParkOutlines.ts'
 import { INDUSTRIAL_PARKS } from '../../src/data/industrialParks.ts'
 
-const OUT = 'scripts/research/out/'
+const KIND = 'bn_research'
 const args = new Map(process.argv.slice(2).map(a => { const [k, v] = a.replace(/^--/, '').split('='); return [k, v ?? 'true'] }))
-const BUDGET = Number(args.get('budget') ?? 250)
-const J = f => JSON.parse(fs.readFileSync(OUT + f, 'utf8'))
+const J = async name => { const v = await loadArtifact(KIND, name); if (v == null) throw new Error(`비공개 저장소에 ${name} 없음 — migrate_out_to_private_store.mjs를 먼저 실행하세요`); return v }
 const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)
 
-function loadKey() {
-  for (const line of fs.readFileSync('crawler/.env', 'utf8').split(/\r?\n/)) if (line.startsWith('VIETMAP_SERVICE_KEY=')) return line.slice(20).trim().replace(/^['"]|['"]$/g, '')
-  return ''
-}
-const KEY = loadKey()
-if (!KEY && !args.has('dry-plan')) { console.log('VIETMAP_SERVICE_KEY 없음(crawler/.env) — 호출하지 않고 종료.'); process.exit(0) }
-
-const jobs = J('chotot_jobs.json'), geo = J('chotot_geo.json'), plan = J('poi_plan2.json'), tiles = J('chotot_poi_candidates.json')
+const jobs = await J('chotot_jobs.json'), geo = await J('chotot_geo.json'), plan = await J('poi_plan2.json'), tiles = await J('chotot_poi_candidates.json')
 const planBy = Object.fromEntries(plan.perJob.map(p => [p.jid, p])), tileBy = Object.fromEntries(tiles.map(r => [r.jid, r]))
-const usage = fs.existsSync(OUT + 'vietmap_search_usage.json') ? J('vietmap_search_usage.json') : {}
-const cache = fs.existsSync(OUT + 'vietmap_search_cache.json') ? J('vietmap_search_cache.json') : {}
-usage[today] ??= { search: 0, place: 0 }
-const used = () => usage[today].search + usage[today].place
-const save = () => { fs.writeFileSync(OUT + 'vietmap_search_usage.json', JSON.stringify(usage, null, 1)); fs.writeFileSync(OUT + 'vietmap_search_cache.json', JSON.stringify(cache)) }
+const cache = (await loadArtifact(KIND, 'vietmap_search_cache.json')) ?? {}
+let serverUsed = null, unsaved = 0
+const save = async () => { await saveArtifact(KIND, 'vietmap_search_cache.json', cache, { entries: Object.keys(cache).length, day: today }); unsaved = 0 }
 
 const R = 6371000, rad = d => d * Math.PI / 180
 const dist = (a, b, c, d) => { const x = rad(c - a), y = rad(d - b); const h = Math.sin(x / 2) ** 2 + Math.cos(rad(a)) * Math.cos(rad(c)) * Math.sin(y / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)) }
@@ -36,22 +28,25 @@ const inRing = (lng, lat, ring) => { let ins = false; for (let i = 0, j = ring.l
 const parkById = Object.fromEntries(INDUSTRIAL_PARKS.map(p => [p.id, p]))
 
 class BudgetStop extends Error {}
+// 캐시 키는 예전 로컬 캐시와 같은 형식(kind|url|params)이라, 기존 out/vietmap_search_cache.json을 올리면 그대로 재사용된다.
 async function call(kind, url, params) {
   const ck = kind + '|' + url + '|' + JSON.stringify(params)
   if (cache[ck]) return cache[ck]
-  if (used() >= BUDGET) throw new BudgetStop(`하루 예산 ${BUDGET}회 도달`)
-  let res, text
-  for (let attempt = 0; attempt < 2; attempt++) { // 일시적 연결 오류는 1회만 재시도(재시도도 호출 수에 포함)
-    if (used() >= BUDGET) throw new BudgetStop(`하루 예산 ${BUDGET}회 도달`)
-    usage[today][kind]++ // 호출 전에 센다(실패해도 한도에 포함됐다고 보수적으로 가정)
-    try {
-      res = await fetch(`${url}?${new URLSearchParams({ ...params, apikey: KEY })}`, { signal: AbortSignal.timeout(20_000) })
-      text = await res.text(); break
-    } catch (e) { save(); if (attempt === 1) throw new Error(`연결 실패: ${String(e.cause?.code ?? e.message).replace(KEY, '[KEY]')}`); await new Promise(r => setTimeout(r, 1500)) }
+  const body = kind === 'search'
+    ? { action: 'search', text: params.text, ...(params.focus ? { focus: { lat: Number(params.focus.split(',')[0]), lng: Number(params.focus.split(',')[1]) } } : {}) }
+    : { action: 'place', refId: params.refid }
+  let r
+  for (let attempt = 0; attempt < 2; attempt++) { // 일시적 연결 오류는 1회만 재시도(재시도도 서버가 호출 수에 포함)
+    try { r = await vietmapCall(body); break } catch (e) {
+      if (e.code === 'DAILY_LIMIT') { await save(); throw new BudgetStop(`서버 하루 상한 도달(오늘 ${e.used}회)`) }
+      if (attempt === 1) { await save(); throw e }
+      await new Promise(res => setTimeout(res, 1500))
+    }
   }
-  if (!res.ok) { save(); throw new Error(`HTTP ${res.status} ${text.slice(0, 60).replace(KEY, '[KEY]')}`) }
-  cache[ck] = JSON.parse(text); save()
-  await new Promise(r => setTimeout(r, 400)) // 천천히
+  serverUsed = r.used
+  cache[ck] = r.data
+  if (++unsaved >= 10) await save()
+  await new Promise(res => setTimeout(res, 400)) // 천천히
   return cache[ck]
 }
 
@@ -66,7 +61,7 @@ for (const j of jobs) {
   const q = queries.get(key); q.jobs.push(j)
   if (!q.focus) q.focus = p.center ?? (p.park ? [parkById[p.park].lat, parkById[p.park].lng] : null) ?? ((+g.lat > 20.95 && +g.lat < 21.35 && +g.lng > 105.85 && +g.lng < 106.45) ? [+g.lat, +g.lng] : null)
 }
-console.log(`검색 대상 회사·지역 ${queries.size}건(공고 ${jobs.filter(j => j.work).length}건), 예산 ${BUDGET}회, 오늘 사용 ${used()}회, 최대 예상 호출 ${queries.size}~${queries.size * 3}회`)
+console.log(`검색 대상 회사·지역 ${queries.size}건(공고 ${jobs.filter(j => j.work).length}건), 서버 상한 250회/일, 최대 예상 호출 ${queries.size}~${queries.size * 3}회`)
 if (args.has('dry-plan')) process.exit(0)
 
 const found = {}
@@ -84,7 +79,7 @@ try {
     }
   }
 } catch (e) { stopped = e instanceof BudgetStop ? e.message : `오류 중단: ${e.message}` }
-save()
+await save()
 
 // 판정: 타일 dry-run과 같은 기준(이름 정확 일치 + 공단 윤곽 안 | 광고 대략 위치 1.5 km 이내 + 후보 1곳)
 const ckTokens = n => companyTokens(n).filter(t => !['bac', 'ninh', 'kcn', 'khu', 'nghiep', 'cong', 'nha', 'may', 'xuong', 'kho'].includes(t))
@@ -114,5 +109,5 @@ const cmp = { 둘다자동: 0, 새로자동: 0, 타일자동만: 0, 둘다검토
 for (const r of rows) { const t = tileBy[r.jid]?.status ?? '없음'; if (r.status === '자동 승인 후보' && t === '자동 승인 후보') cmp.둘다자동++; else if (r.status === '자동 승인 후보') cmp.새로자동++; else if (t === '자동 승인 후보') cmp.타일자동만++; else if (r.status === '검토 필요' && t === '검토 필요') cmp.둘다검토이상++; else if (r.status === '검토 필요' && t === '없음') cmp.새로생김++; else if (r.status === '없음' && t === '검토 필요') cmp.새로사라짐++ }
 const esc = v => `"${String(v ?? '').replace(/"/g, '""').replace(/\n/g, ' ')}"`
 const head = ['local_jobs ID', '근무 회사', 'Search 상태', '사유', '후보 이름', '후보 refId', '위도', '경도', '이름 유사도', '정확 일치', '공단 안', '거리(m)', '주소 일치', '타일 dry-run 상태']
-fs.writeFileSync(OUT + 'chotot_vietmap_search_candidates.csv', '﻿' + [head.join(','), ...rows.map(r => [r.jid, r.company, r.status, r.reason, r.cand?.name, r.cand?.refId, r.cand?.lat, r.cand?.lng, r.cand?.sim, r.cand?.exact ? 'Y' : '', r.cand?.inside ? 'Y' : '', r.cand?.d, r.cand?.addr, tileBy[r.jid]?.status].map(esc).join(','))].join('\r\n'))
-console.log(JSON.stringify({ 자동: cnt('자동 승인 후보'), 검토: cnt('검토 필요'), 없음: cnt('없음'), 미조회: cnt('미조회'), 오늘호출: usage[today], 비교: cmp, 중단: stopped || null }))
+await saveArtifact(KIND, 'chotot_vietmap_search_candidates.csv', { text: '\ufeff' + [head.join(','), ...rows.map(r => [r.jid, r.company, r.status, r.reason, r.cand?.name, r.cand?.refId, r.cand?.lat, r.cand?.lng, r.cand?.sim, r.cand?.exact ? 'Y' : '', r.cand?.inside ? 'Y' : '', r.cand?.d, r.cand?.addr, tileBy[r.jid]?.status].map(esc).join(','))].join('\r\n') }, { rows: rows.length, day: today })
+console.log(JSON.stringify({ 자동: cnt('자동 승인 후보'), 검토: cnt('검토 필요'), 없음: cnt('없음'), 미조회: cnt('미조회'), 서버오늘호출: serverUsed, 비교: cmp, 중단: stopped || null }))
