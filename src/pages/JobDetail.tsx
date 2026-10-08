@@ -28,6 +28,8 @@ import { descriptionRows } from '../lib/jobDescriptionRows'
 import { planDirections } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
+import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
+import { useWardCenter } from '../lib/wardAreaClient'
 import { findIndustrialPark, industrialParkDirectionsNote, industrialParkDirectionsUrl } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
 
@@ -129,6 +131,16 @@ export function JobDetail() {
     window.addEventListener('resize', update)
     return () => { ro?.disconnect(); window.removeEventListener('resize', update) }
   }, [])
+
+  // 2026-10-08: 핀·KCN 영역이 없고 행정구역(xã/phường)만 아는 공고 — 그 동네 중심(서버가 한 번 찾아 캐시한 좌표)을 조회한다.
+  // 핀·KCN이 있으면 조회하지 않는다. 훅은 early return 앞에 둬야 하므로 여기서 같은 규칙으로 미리 판단한다.
+  const wardUnit = useMemo(() => {
+    if (!job) return null
+    if (resolveMapLocations(job).points.some((p) => p.precise)) return null
+    if (findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))) return null
+    return wardUnitForAddresses(job.workLocations?.length ? job.workLocations.map((l) => l.rawAddress) : [job.rawLocation])
+  }, [job])
+  const wardCenter = useWardCenter(wardUnit)
 
   const jobId = job?.id
   useEffect(() => {
@@ -665,7 +677,16 @@ export function JobDetail() {
                       )}
                     </>
                   )}
-                  {!hasMapPoints && !park && mapLocations.source !== 'pending' && (
+                  {!hasMapPoints && !park && wardUnit && wardCenter && (
+                    <>
+                      <ClientOnlyMap lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
+                      <p className="jd2-map-pending-note jd2-map-area-note">
+                        <strong>Khu vực {wardUnit.label}, vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực lân cận (không có ghim) — chưa dùng để chỉ đường hay tính khoảng cách.
+                        <span className="jd2-map-credit"> Vị trí khu vực: VietMap.</span>
+                      </p>
+                    </>
+                  )}
+                  {!hasMapPoints && !park && !(wardUnit && wardCenter) && mapLocations.source !== 'pending' && (
                     <p className="jd2-map-pending-note">
                       Vị trí nơi làm việc chưa được xác minh — chưa hiển thị bản đồ, chỉ đường và khoảng cách.
                     </p>
@@ -676,7 +697,7 @@ export function JobDetail() {
                       "아직 확인 중"임을 알리는 별도 안내를 지도 대신 보여준다
                       (2026-09-07 사용자 지시: 베트남 기본 중심 표시도, 완전히
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
-                  {mapLocations.source === 'pending' && (
+                  {mapLocations.source === 'pending' && !(wardUnit && wardCenter) && (
                     <p className="jd2-map-pending-note">
                       Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
                     </p>

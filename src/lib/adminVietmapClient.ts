@@ -17,7 +17,7 @@ export class DailyLimitError extends Error {
 export interface VietmapReply { data: unknown; used: number; limit: number }
 
 export type VietmapRequest =
-  | { action: 'search'; text: string; focus?: { lat: number; lng: number } | null }
+  | { action: 'search'; text: string; focus?: { lat: number; lng: number } | null; any?: boolean }
   | { action: 'place'; refId: string }
   | { action: 'usage' }
 

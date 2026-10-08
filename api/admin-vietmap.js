@@ -66,7 +66,7 @@ function validate(body) {
       if (typeof focus.lat !== 'number' || typeof focus.lng !== 'number' ||
           focus.lat < 8 || focus.lat > 24 || focus.lng < 102 || focus.lng > 110) return null
     }
-    return { action, text, focus: focus ?? null }
+    return { action, text, focus: focus ?? null, any: body.any === true }
   }
   if (action === 'usage') return { action }
   if (action === 'place') {
@@ -106,7 +106,9 @@ export function createAdminVietmapHandler(injected) {
 
       const upstream = request.action === 'search'
         ? await deps.upstream(SEARCH_URL, {
-            text: request.text, display_type: '1', layers: 'POI',
+            text: request.text, display_type: '1',
+            // any=true: 행정구역(xã/phường) 검색 — POI로 제한하지 않는다.
+            ...(request.any ? {} : { layers: 'POI' }),
             ...(request.focus ? { focus: `${request.focus.lat},${request.focus.lng}` } : {}),
           })
         : await deps.upstream(PLACE_URL, { refid: request.refId })

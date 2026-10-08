@@ -56,7 +56,7 @@ async function fetchJobRows(build: (from: number, to: number) => PromiseLike<{ d
   return rows
 }
 
-async function loadJobs(): Promise<{ jobs: AutoLocateJob[]; report: JobLoadReport }> {
+export async function loadJobs(): Promise<{ jobs: AutoLocateJob[]; report: JobLoadReport }> {
   const columns = 'id,company,location,admin_hidden'
   const [byId, bySource] = await Promise.all([
     fetchJobRows((from, to) => supabase.from('local_jobs').select(columns).gte('id', CHOTOT_ID_MIN).lte('id', CHOTOT_ID_MAX).order('id').range(from, to)),

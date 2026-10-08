@@ -116,6 +116,13 @@ async function run(deps: ReturnType<typeof makeDeps>['deps'], req: { method?: st
   const broken = await run(makeDeps({ counterFails: true }).deps, { body: { action: 'usage' } })
   assert(broken.code === 503, 'usage counter unavailable → 503')
 }
+{
+  const { deps, calls } = makeDeps()
+  await run(deps, { body: { action: 'search', text: 'Xã Tam Đa, Bắc Ninh', any: true } })
+  await run(deps, { body: { action: 'search', text: 'Pizza Hut' } })
+  assert(!calls.urls[0].includes('layers=') && calls.urls[1].includes('layers=POI'), 'any=true searches all layers; default stays POI-only')
+  assert(calls.take === 2 && calls.upstream === 2, 'both kinds are counted')
+}
 assert(vietnamDay(new Date('2026-10-07T18:00:00Z')) === '2026-10-08', 'Vietnam day rolls at UTC+7')
 
 console.log('admin-vietmap api tests: all assertions passed')

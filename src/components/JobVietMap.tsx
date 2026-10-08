@@ -208,7 +208,7 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
             <button type="button" className="jd2-vmap-modal__close" onClick={() => setOpen(false)} autoFocus>Đóng</button>
           </div>
           <div className="jd2-vmap-modal__map">
-            <MapCanvas lat={lat} lng={lng} title={title} zoom={parkRef ? zoom : Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} interactive />
+            <MapCanvas lat={lat} lng={lng} title={title} zoom={parkRef || pinless ? zoom : Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} interactive />
           </div>
           <p className="jd2-vmap-modal__hint">
             {pinless ? 'Vị trí chính xác chưa xác minh — bản đồ chỉ cho biết khu vực lân cận. ' : ''}
