@@ -27,6 +27,7 @@ import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EM
 import { descriptionRows } from '../lib/jobDescriptionRows'
 import { planDirections } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
+import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import { findIndustrialPark, industrialParkDirectionsNote, industrialParkDirectionsUrl } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
 
@@ -409,6 +410,7 @@ export function JobDetail() {
           <div className="jd2-header__info">
             <div className="jd2-header__chips">
               <span className="jd2-chip">{catLabel}</span>
+              {job.recruitmentType === 'agency' && <span className="jd2-chip">{RECRUITMENT_LABELS.agency}</span>}
               {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
               {badge && <span className={`jd2-chip jd2-dday jd2-dday--${badge.tone}`}>{badge.label}</span>}
             </div>

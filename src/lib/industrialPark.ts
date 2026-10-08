@@ -11,6 +11,9 @@ const KCN_TOKEN = /(?:^| )(?:kcn|kcx|ccn|khu cong nghiep|khu che xuat|cum cong n
 const NUMBERING = /^(?:\d+|i|ii|iii|iv|v|vi)$/
 
 export function findIndustrialPark(...texts: (string | null | undefined)[]): IndustrialPark | undefined {
+  // `requires`(같은 이름의 다른 지역 공단 구분)는 이 글자뿐 아니라 같은 공고의 다른 주소 글자(구·시)에서도 찾는다 —
+  // 공단 이름과 지역이 서로 다른 칸에 적힌 공고("KCN VSIP" + "Phường Từ Sơn, Bắc Ninh")를 위해.
+  const context = foldText(texts.filter(Boolean).join(' '))
   for (const raw of texts) {
     if (!raw) continue
     const folded = foldText(raw)
@@ -18,7 +21,7 @@ export function findIndustrialPark(...texts: (string | null | undefined)[]): Ind
     for (const m of folded.matchAll(KCN_TOKEN)) {
       const after = folded.slice((m.index ?? 0) + m[0].length).trim()
       for (const park of INDUSTRIAL_PARKS) {
-        if (park.requires && !park.requires.test(folded)) continue
+        if (park.requires && !park.requires.test(folded) && !park.requires.test(context)) continue
         for (const alias of park.aliases) {
           if (after !== alias && !after.startsWith(`${alias} `)) continue
           // 이름 바로 뒤에 순번이 붙으면(예: "quế võ 2") 다른 공단이다. alias 자체가 순번으로 끝나면 해당 없음.

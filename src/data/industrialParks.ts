@@ -37,7 +37,9 @@ export interface IndustrialParkDestination {
 export const INDUSTRIAL_PARKS: readonly IndustrialPark[] = [
   {
     id: 'vsip-bac-ninh', name: 'KCN VSIP Bắc Ninh',
-    aliases: ['vsip bac ninh'],
+    // "KCN VSIP"·"KCN VISIP"(오타)만 쓴 공고도 주소에 Bắc Ninh/Từ Sơn이 있을 때만 이 공단(다른 VSIP는 vsip 1·vsip 2로 따로 있음)
+    aliases: ['vsip bac ninh', 'vsip', 'visip'],
+    requires: /bac ninh|tu son|phu chan|tien du/,
     lat: 21.0800324, lng: 105.9835287,
     source: { provider: 'OpenStreetMap', ref: 'way/642274405', osmName: 'Khu công nghiệp VSIP Bắc Ninh' },
   },
@@ -49,9 +51,35 @@ export const INDUSTRIAL_PARKS: readonly IndustrialPark[] = [
   },
   {
     id: 'yen-phong-mo-rong', name: 'KCN Yên Phong mở rộng',
-    aliases: ['yen phong mo rong'],
+    aliases: ['yen phong mo rong', 'yen phong khu mo rong'],
     lat: 21.2291794, lng: 106.0047924,
     source: { provider: 'OpenStreetMap', ref: 'way/805410975', osmName: 'Khu công nghiệp Yên Phong mở rộng' },
+  },
+  {
+    id: 'que-vo-3', name: 'KCN Quế Võ III',
+    aliases: ['que vo 3', 'que vo iii'],
+    lat: 21.14788, lng: 106.181135,
+    source: { provider: 'OpenStreetMap', ref: 'way/1184113104', osmName: 'Khu công nghiệp Quế Võ III' },
+  },
+  {
+    id: 'nam-son-hap-linh', name: 'KCN Nam Sơn – Hạp Lĩnh',
+    aliases: ['nam son hap linh'],
+    lat: 21.1302, lng: 106.094475,
+    source: { provider: 'OpenStreetMap', ref: 'way/1265422032', osmName: 'Khu công nghiệp Nam Sơn - Hạp Lĩnh' },
+  },
+  {
+    id: 'thuan-thanh-3', name: 'KCN Thuận Thành 3',
+    aliases: ['thuan thanh 3', 'thuan thanh iii'],
+    lat: 21.042315, lng: 106.05691,
+    source: { provider: 'OpenStreetMap', ref: 'way/1119170923', osmName: 'Khu công nghiệp Thuận Thành 3' },
+    note: 'OSM에 같은 이름의 면이 하나 더 있다(way/1467190501 "Thuận Thành III") — 둘 중 way/1119170923만 쓴다. "KCN Thuận Thành"만 쓴 공고는 2·3을 구분할 수 없어 매칭하지 않는다.',
+  },
+  {
+    id: 'dai-dong-hoan-son', name: 'KCN Đại Đồng – Hoàn Sơn',
+    aliases: ['dai dong', 'dai dong hoan son'],
+    requires: /bac ninh|tu son|tien du/,
+    lat: 21.10059, lng: 105.994585,
+    source: { provider: 'OpenStreetMap', ref: 'way/642268651', osmName: 'Khu công nghiệp Đại Đồng - Hoàn Sơn' },
   },
   {
     id: 'thang-long-2-hung-yen', name: 'KCN Thăng Long II (Hưng Yên)',

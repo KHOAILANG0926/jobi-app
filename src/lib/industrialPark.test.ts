@@ -6,7 +6,7 @@ function assert(value: boolean, label: string) { if (!value) throw new Error(lab
 const id = (...t: (string | undefined)[]) => findIndustrialPark(...t)?.id
 
 // 데이터 무결성: 전부 출처(OSM way)가 있고, 베트남 안이며, id·출처가 중복되지 않는다
-assert(INDUSTRIAL_PARKS.length === 28, `28 sourced parks (got ${INDUSTRIAL_PARKS.length})`)
+assert(INDUSTRIAL_PARKS.length === 32, `32 sourced parks (got ${INDUSTRIAL_PARKS.length})`)
 assert(new Set(INDUSTRIAL_PARKS.map((p) => p.id)).size === INDUSTRIAL_PARKS.length, 'unique ids')
 assert(new Set(INDUSTRIAL_PARKS.map((p) => p.source.ref)).size === INDUSTRIAL_PARKS.length, 'unique sources')
 for (const p of INDUSTRIAL_PARKS) {
@@ -71,5 +71,15 @@ assert(id('Công ty Quang Minh, 12 Nguyễn Trãi, Hà Nội') === undefined, 'a
 assert(id('123 Nguyễn Trãi, Quận 1') === undefined && id(undefined, '') === undefined, 'non-park texts')
 // 여러 텍스트 중 처음 맞는 것
 assert(id('KCN lạ, Bắc Ninh', 'KCN Đình Vũ, Hải An') === 'dinh-vu', 'first matching text wins')
+
+// 2026-10-08: Bắc Ninh 공고에서 이름만 적힌 KCN(주소 칸에 지역이 따로 적힘)과 새로 윤곽을 넣은 공단
+assert(id('KCN VSIP', 'Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh') === 'vsip-bac-ninh' && id('KCN VISIP', 'Phường Từ Sơn, Thị xã Từ Sơn') === 'vsip-bac-ninh', '"KCN VSIP"/"VISIP" + Từ Sơn address = VSIP Bắc Ninh')
+assert(id('KCN VSIP', 'Thuận An, Bình Dương') === undefined && id('KCN VSIP, Thuận An, Bình Dương') === undefined, 'plain "KCN VSIP" without a Bắc Ninh address is not guessed')
+assert(id('Khu công nghiệp Vsip 1, Thuận An') === 'vsip-1' && id('KCN VSIP 2, Tân Uyên') === 'vsip-2', 'VSIP 1/2 stay separate')
+assert(id('KCN QUẾ VÕ 3', 'Phường Quế Võ, Huyện Quế Võ') === 'que-vo-3' && id('KCN Quế võ 3') === 'que-vo-3', 'Quế Võ 3 = Quế Võ III, not Quế Võ 1')
+assert(id('KCN Nam sơn hạp lĩnh') === 'nam-son-hap-linh' && id('Lô A2, khu công nghiệp Nam Sơn–Hạp Lĩnh, Xã Tân Chi') === 'nam-son-hap-linh', 'Nam Sơn – Hạp Lĩnh')
+assert(id('KCN Thuận Thành 3, Phường Trí Quả') === 'thuan-thanh-3' && id('Khu công nghiệp Thuận Thành', 'Phường Mão Điền, Huyện Thuận Thành') === undefined, 'Thuận Thành 3 only; plain Thuận Thành is ambiguous → none')
+assert(id('KCN ĐẠI ĐỒNG', 'Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh') === 'dai-dong-hoan-son' && id('KCN Đại Đồng, Hải Dương') === undefined, 'Đại Đồng needs a Bắc Ninh address')
+assert(id('KCN YÊN PHONG', 'Xã Tam Đa, Huyện Yên Phong') === undefined && id('Khu công nghiệp Yên Phong (Khu mở rộng), Xã Yên Trung') === 'yen-phong-mo-rong', 'plain Yên Phong (several phases) none; "(Khu mở rộng)" = mở rộng')
 
 console.log('industrialPark.test.ts: all assertions passed')
