@@ -6,6 +6,7 @@ import {
   CHOTOT_EXPECTED_TOTAL, CHOTOT_ID_MAX, CHOTOT_ID_MIN, MAX_CALLS_PER_TARGET, NO_PIN_LABEL, reportJobLoad, runAutoLocate,
   type AutoLocateDeps, type AutoLocateJob, type AutoLocateSummary, type ExistingCandidate, type JobLoadReport, type SearchCache,
 } from '../../lib/chototAutoLocate'
+import { ADDRESS_STRATEGY, isDetailedAddress } from '../../lib/addressLocate'
 
 // Vị trí 탭 "Tìm vị trí tự động (chotot)" (2026-10-08).
 // 관리자가 누르면 chotot 공고(ID 4685~4784)의 근무 회사를 서버 API(/api/admin-vietmap)로 VietMap 검색하고,
@@ -16,8 +17,12 @@ import {
 // 마지막 실행 결과는 비공개 저장소(research_artifacts)에도 남겨 새로고침 뒤에도 보인다.
 
 const CACHE_KIND = 'autolocate'
-const CACHE_NAME = 'chotot_search_cache'
-const LAST_RUN_NAME = 'chotot_last_run'
+type Mode = 'company' | 'address'
+// 상세주소 검색(2026-10-08): 번지·도로가 있는 근무지를 주소로 검색. 같은 서버 API·하루 250회·같은 비공개 저장소를 쓰되 캐시·결과 이름만 따로 둔다.
+const NAMES: Record<Mode, { cache: string; lastRun: string }> = {
+  company: { cache: 'chotot_search_cache', lastRun: 'chotot_last_run' },
+  address: { cache: 'chotot_address_cache', lastRun: 'chotot_address_last_run' },
+}
 const DEFAULT_APPROVE_NOTE = 'Tự động duyệt (chotot)'
 const PERSIST_EVERY_JOBS = 5
 
@@ -112,20 +117,21 @@ interface RunState {
   restored: boolean
   restoreTried: boolean
   showDetails: boolean
+  mode: Mode
 }
 
 let state: RunState = {
   phase: 'idle', summary: null, report: null, error: '', cacheWarning: '', remaining: null, limit: 250, usedAtStart: null,
-  stop: false, restored: false, restoreTried: false, showDetails: false,
+  stop: false, restored: false, restoreTried: false, showDetails: false, mode: 'company',
 }
 const listeners = new Set<() => void>()
 const getState = () => state
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
 function setState(patch: Partial<RunState>) { state = { ...state, ...patch }; listeners.forEach((fn) => fn()) }
 
-async function persistRun(summary: AutoLocateSummary, usedAtStart: number | null) {
+async function persistRun(summary: AutoLocateSummary, usedAtStart: number | null, mode: Mode) {
   const { error } = await supabase.rpc('admin_save_research_artifact', {
-    p_kind: CACHE_KIND, p_name: LAST_RUN_NAME,
+    p_kind: CACHE_KIND, p_name: NAMES[mode].lastRun,
     p_payload: { savedAt: new Date().toISOString(), usedAtStart, summary },
     p_meta: { stopped: summary.stopped, searched: summary.searched, jobsTotal: summary.jobsTotal },
   })
@@ -135,13 +141,18 @@ async function persistRun(summary: AutoLocateSummary, usedAtStart: number | null
 async function restoreLastRun() {
   if (state.restoreTried) return
   setState({ restoreTried: true })
-  const { data, error } = await supabase.rpc('admin_get_research_artifact', { p_kind: CACHE_KIND, p_name: LAST_RUN_NAME })
-  if (error || state.phase !== 'idle') return
-  const saved = (data as { payload?: { summary?: AutoLocateSummary } } | null)?.payload?.summary
-  if (!saved) return
+  const [company, address] = await Promise.all((['company', 'address'] as Mode[]).map((m) => supabase.rpc('admin_get_research_artifact', { p_kind: CACHE_KIND, p_name: NAMES[m].lastRun })))
+  if (state.phase !== 'idle') return
+  type Saved = { payload?: { savedAt?: string; summary?: AutoLocateSummary } } | null
+  const picks = ([['company', company], ['address', address]] as const)
+    .filter(([, r]) => !r.error && (r.data as Saved)?.payload?.summary)
+    .map(([m, r]) => ({ mode: m as Mode, at: (r.data as Saved)?.payload?.savedAt ?? '', summary: (r.data as Saved)!.payload!.summary! }))
+    .sort((a, b) => b.at.localeCompare(a.at))
+  if (picks.length === 0) return
+  const { mode, summary: saved } = picks[0]
   const interrupted = saved.stopped === 'running'
   setState({
-    phase: 'finished', restored: true,
+    phase: 'finished', restored: true, mode,
     summary: interrupted ? { ...saved, stopped: 'error', errorMessage: 'Lần chạy trước bị gián đoạn (đóng/tải lại trang). Các tin chưa xử lý sẽ được chạy tiếp khi bấm lại.' } : saved,
   })
 }
@@ -159,17 +170,22 @@ async function refreshUsage() {
 
 let activeRun = false
 
-async function startRun(onChanged: () => Promise<void>) {
+async function startRun(onChanged: () => Promise<void>, mode: Mode = 'company') {
   if (activeRun) return
   activeRun = true
-  setState({ phase: 'loading', error: '', cacheWarning: '', summary: null, report: null, restored: false, stop: false, showDetails: false })
+  setState({ phase: 'loading', error: '', cacheWarning: '', summary: null, report: null, restored: false, stop: false, showDetails: false, mode })
   try {
     const usage = await callAdminVietmap({ action: 'usage' })
     const usedAtStart = usage.used
     setState({ remaining: Math.max(0, usage.limit - usage.used), limit: usage.limit, usedAtStart })
-    const { jobs, report } = await loadJobs()
+    const loaded = await loadJobs()
+    const { report } = loaded
     setState({ report })
-    if (jobs.length === 0) { setState({ phase: 'idle', error: `Không đọc được tin chotot nào (ID ${CHOTOT_ID_MIN}–${CHOTOT_ID_MAX}).` }); return }
+    if (loaded.jobs.length === 0) { setState({ phase: 'idle', error: `Không đọc được tin chotot nào (ID ${CHOTOT_ID_MIN}–${CHOTOT_ID_MAX}).` }); return }
+    const jobs = mode === 'address'
+      ? loaded.jobs.map((j) => ({ ...j, targets: j.targets.filter((t) => isDetailedAddress(t.address)) })).filter((j) => j.targets.length > 0)
+      : loaded.jobs
+    if (jobs.length === 0) { setState({ phase: 'idle', error: 'Không có tin nào có địa chỉ chi tiết (số nhà/đường/thôn) để tìm.' }); return }
     setState({ phase: 'running' })
     const deps: AutoLocateDeps = {
       search: (body) => callAdminVietmap(body),
@@ -187,13 +203,13 @@ async function startRun(onChanged: () => Promise<void>) {
         if (e) throw new Error(e.message)
       },
       async loadCache() {
-        const { data, error: e } = await supabase.rpc('admin_get_research_artifact', { p_kind: CACHE_KIND, p_name: CACHE_NAME })
+        const { data, error: e } = await supabase.rpc('admin_get_research_artifact', { p_kind: CACHE_KIND, p_name: NAMES[mode].cache })
         if (e) { setState({ cacheWarning: 'Chưa đọc được bộ nhớ đệm tìm kiếm (cần áp dụng DDL research_store) — lần sau có thể phải tra lại.' }); return null }
         return ((data as { payload?: SearchCache } | null)?.payload ?? null)
       },
       async saveCache(cache) {
         const { error: e } = await supabase.rpc('admin_save_research_artifact', {
-          p_kind: CACHE_KIND, p_name: CACHE_NAME, p_payload: cache, p_meta: { entries: Object.keys(cache).length },
+          p_kind: CACHE_KIND, p_name: NAMES[mode].cache, p_payload: cache, p_meta: { entries: Object.keys(cache).length },
         })
         if (e) { setState({ cacheWarning: 'Không lưu được bộ nhớ đệm tìm kiếm (cần áp dụng DDL research_store) — lần sau có thể phải tra lại.' }); throw new Error(e.message) }
       },
@@ -201,16 +217,17 @@ async function startRun(onChanged: () => Promise<void>) {
     }
     let lastPersistedAt = 0
     const result = await runAutoLocate(jobs, deps, {
-      expectedTotal: CHOTOT_EXPECTED_TOTAL,
+      expectedTotal: mode === 'address' ? jobs.length : CHOTOT_EXPECTED_TOTAL,
+      strategy: mode === 'address' ? ADDRESS_STRATEGY : undefined,
       usedAtStart,
       shouldStop: () => state.stop,
       onProgress: (s) => {
         setState({ summary: s, ...(s.remainingToday !== null ? { remaining: s.remainingToday } : {}) })
-        if (s.searched - lastPersistedAt >= PERSIST_EVERY_JOBS) { lastPersistedAt = s.searched; void persistRun(s, usedAtStart) }
+        if (s.searched - lastPersistedAt >= PERSIST_EVERY_JOBS) { lastPersistedAt = s.searched; void persistRun(s, usedAtStart, mode) }
       },
     })
     setState({ summary: result, phase: 'finished', ...(result.remainingToday !== null ? { remaining: result.remainingToday } : {}), ...(result.stopped === 'error' && result.errorMessage ? { error: result.errorMessage } : {}) })
-    await persistRun(result, usedAtStart)
+    await persistRun(result, usedAtStart, mode)
     await onChanged()
   } catch (e) {
     setState({ phase: state.summary ? 'finished' : 'idle', error: e instanceof Error ? e.message : 'Lỗi không xác định.' })
@@ -234,12 +251,16 @@ export function AdminAutoLocate({ onChanged }: { onChanged: () => Promise<void> 
   const extraServerCalls = summary && summary.serverCallsDelta !== null ? summary.serverCallsDelta - summary.callsThisRun : 0
   return <div style={{ border: '1px solid #bfdbfe', background: '#f8fbff', borderRadius: 12, padding: 16, marginBottom: 16 }}>
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-      <button type="button" disabled={busy} onClick={() => void startRun(onChanged)}>Tìm vị trí tự động (chotot)</button>
+      <button type="button" disabled={busy} onClick={() => void startRun(onChanged, 'company')}>Tìm vị trí tự động (chotot)</button>
+      <button type="button" disabled={busy} onClick={() => void startRun(onChanged, 'address')}>Tìm theo địa chỉ chi tiết (chotot)</button>
       {st.phase === 'running' && <button type="button" onClick={() => setState({ stop: true })}>Dừng</button>}
       <small>Hôm nay còn {st.remaining === null ? '—' : st.remaining}/{st.limit} lượt gọi VietMap.</small>
     </div>
     <p style={{ margin: '8px 0 0' }}><small>
-      Tìm công ty làm việc của tin chotot (ID {CHOTOT_ID_MIN}–{CHOTOT_ID_MAX}) trên VietMap, tối đa {MAX_CALLS_PER_TARGET} lượt/tin (Search 1 + Place 1 chỉ khi có điểm trùng tên chính xác). Chỉ tên công ty khớp chính xác và nằm trong quận/huyện hoặc khu công nghiệp ghi trong địa chỉ mới được duyệt thành ghim; điểm giống địa chỉ đăng ký pháp nhân bị loại. Còn lại: không có ghim.
+      <b>Địa chỉ chi tiết:</b> chỉ các tin có số nhà + tên đường (hoặc thôn/lô). Tìm theo địa chỉ trên VietMap (tên phường/xã, quận/huyện cũ ghi trong tin), tối đa {MAX_CALLS_PER_TARGET} lượt/tin; chỉ duyệt thành ghim khi số nhà + tên đường khớp chính xác và phường/xã hoặc quận/huyện khớp. Lô/thôn/trong KCN không có số nhà + tên đường thì không có ghim.
+    </small></p>
+    <p style={{ margin: '8px 0 0' }}><small>
+      <b>Theo tên công ty:</b> Tìm công ty làm việc của tin chotot (ID {CHOTOT_ID_MIN}–{CHOTOT_ID_MAX}) trên VietMap, tối đa {MAX_CALLS_PER_TARGET} lượt/tin (Search 1 + Place 1 chỉ khi có điểm trùng tên chính xác). Chỉ tên công ty khớp chính xác và nằm trong quận/huyện hoặc khu công nghiệp ghi trong địa chỉ mới được duyệt thành ghim; điểm giống địa chỉ đăng ký pháp nhân bị loại. Còn lại: không có ghim.
     </small></p>
     {st.phase === 'loading' && <p><small>Đang đọc danh sách tin…</small></p>}
     {st.phase === 'running' && <p><b>Đang chạy…</b> <small>(đừng đóng trang; có thể chuyển tab quản trị rồi quay lại)</small></p>}

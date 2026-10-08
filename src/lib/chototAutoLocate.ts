@@ -46,7 +46,7 @@ export interface AutoLocateDeps {
 
 export type NoPinReason =
   | 'no_company' | 'no_address' | 'no_search_result' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside'
-  | 'registered_address_like' | 'multiple_exact' | 'previously_rejected' | 'lookup_failed'
+  | 'registered_address_like' | 'multiple_exact' | 'previously_rejected' | 'lookup_failed' | 'no_house_number' | 'address_not_found' | 'address_conflict'
 
 export const NO_PIN_LABEL: Record<NoPinReason, string> = {
   no_company: 'Không có tên công ty',
@@ -59,6 +59,9 @@ export const NO_PIN_LABEL: Record<NoPinReason, string> = {
   multiple_exact: 'Nhiều điểm khớp chính xác (nhiều chi nhánh)',
   previously_rejected: 'Quản trị viên đã từ chối vị trí này trước đó',
   lookup_failed: 'Lỗi khi tra cứu',
+  no_house_number: 'Địa chỉ không có số nhà + tên đường để tìm (lô/thôn/trong KCN…)',
+  address_not_found: 'VietMap không có kết quả khớp số nhà + tên đường + phường/xã',
+  address_conflict: 'Địa chỉ ghi lẫn nhiều tỉnh/thành khác nhau — không rõ số nhà thuộc nơi nào',
 }
 
 export interface AutoLocateOutcome {
@@ -132,7 +135,7 @@ interface PlaceDetail { name?: string; display?: string; address?: string; lat?:
 const ADMIN_PREFIX = /^(phuong|xa|thi tran|quan|huyen|thi xa|thanh pho|tp|tinh)\s+/
 
 /** 검색 결과 한 곳의 주소 글자에 공고 주소의 phường/xã·quận/huyện 이름이 들어 있는지(성·시 단위는 제외). */
-function mentionsAddress(hit: SearchHit, jobAddress: string): boolean {
+export function mentionsAddress(hit: SearchHit, jobAddress: string): boolean {
   const parts = districtOf(jobAddress).split(',').map((x) => normalizePlaceText(x).replace(ADMIN_PREFIX, '').trim()).filter((x) => x.length > 1)
   const cores = parts.length >= 2 ? parts.slice(0, -1) : parts
   const text = ` ${normalizePlaceText(`${hit.address ?? ''} ${hit.display ?? ''}`)} `
@@ -158,7 +161,19 @@ function toPoi(place: PlaceDetail, hit: SearchHit): PoiCandidate | null {
   return { name: place.name || hit.name || '', address: place.display || place.address || hit.address || '', lat: place.lat, lng: place.lng, refId: hit.ref_id as string, units }
 }
 
-export interface Judgement { approvePoi: PoiCandidate | null; reason: NoPinReason | null; approvalReason?: AutoApprovalReason }
+export interface Judgement { approvePoi: PoiCandidate | null; reason: NoPinReason | null; approvalReason?: AutoApprovalReason; note?: string }
+
+/** 검색 방식: 기본은 회사명, 상세주소 검색은 addressLocate.ts의 ADDRESS_STRATEGY. 호출 상한(Search 1 + Place 1)·캐시·중복·한도 처리는 공통. */
+export interface LocateStrategy {
+  requireCompany: boolean
+  /** 호출 전에 걸러낼 사유(없으면 null) */
+  precheck?(address: string): NoPinReason | null
+  cacheKey(company: string, address: string): string
+  searchText(company: string, address: string): string
+  pick(company: string, address: string, hits: unknown): { hit: SearchHit | null; multiple: boolean }
+  judge(company: string, job: { address: string; location: string }, found: SearchedPlaces): Judgement
+  evidence(input: { company: string; address: string; poi: PoiCandidate; distanceM: number | null }): string
+}
 
 /** 한 근무지의 POI 후보들에서 자동 승인 1곳 또는 핀 없음 사유를 정한다(순수 함수). */
 export function judgePois(company: string, job: { address: string; location: string }, found: SearchedPlaces): Judgement {
@@ -178,15 +193,25 @@ export function judgePois(company: string, job: { address: string; location: str
   return { approvePoi: null, reason: best as NoPinReason }
 }
 
+export const COMPANY_STRATEGY: LocateStrategy = {
+  requireCompany: true,
+  cacheKey: (company, address) => queryKey(company, address),
+  searchText: (company, address) => `${company} ${districtOf(address)}`.trim(),
+  pick: (company, address, hits) => pickHitToResolve(company, address, hits),
+  judge: (company, job, found) => judgePois(company, job, found),
+  evidence: ({ company, address, poi, distanceM }) => buildCandidateEvidence({ company, jobAddress: address, poi, similarity: nameSimilarity(company, poi.name), distanceM }),
+}
+
 export async function runAutoLocate(
   jobs: AutoLocateJob[],
   deps: AutoLocateDeps,
-  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number; usedAtStart?: number } = {},
+  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number; usedAtStart?: number; strategy?: LocateStrategy } = {},
 ): Promise<AutoLocateSummary> {
   const summary: AutoLocateSummary = {
     jobsTotal: opts.expectedTotal ?? jobs.length, jobsFound: jobs.length, searched: 0, autoApproved: 0, alreadyApproved: 0, noPin: 0, lookupFailed: 0, notProcessed: opts.expectedTotal ?? jobs.length,
     callsThisRun: 0, serverCallsDelta: null, remainingToday: null, stopped: 'running', outcomes: [],
   }
+  const strategy = opts.strategy ?? COMPANY_STRATEGY
   const cache: SearchCache = (await deps.loadCache().catch(() => null)) ?? {}
   let unsaved = 0
   const flush = async () => { if (unsaved > 0) { await deps.saveCache(cache).catch(() => undefined); unsaved = 0 } }
@@ -225,12 +250,12 @@ export async function runAutoLocate(
   const failJob = () => { summary.lookupFailed++ }
 
   async function resolve(company: string, address: string, focus: AutoLocateTarget['focus']): Promise<SearchedPlaces> {
-    const key = queryKey(company, address)
+    const key = strategy.cacheKey(company, address)
     if (cache[key]) return cache[key]
-    const text = `${company} ${districtOf(address)}`.trim()
+    const text = strategy.searchText(company, address)
     const searchReply = await counted(() => deps.search({ action: 'search', text, focus }))
     const hits = Array.isArray(searchReply.data) ? searchReply.data : []
-    const pick = pickHitToResolve(company, address, hits)
+    const pick = strategy.pick(company, address, hits)
     let result: SearchedPlaces = { hits: hits.length, pois: [] }
     if (pick.multiple) result = { hits: hits.length, pois: [], multipleExact: true }
     else if (pick.hit) {
@@ -255,11 +280,13 @@ export async function runAutoLocate(
       for (const target of job.targets) {
         const address = target.address.trim()
         const base = { jobId: job.id, company, address }
-        if (!company) { record({ ...base, status: 'no_pin', reason: 'no_company' }); continue }
+        if (strategy.requireCompany && !company) { record({ ...base, status: 'no_pin', reason: 'no_company' }); continue }
         if (!address) { record({ ...base, status: 'no_pin', reason: 'no_address' }); continue }
         if (job.existing.some((c) => c.status === 'approved' && c.address_snapshot === address)) {
           record({ ...base, status: 'already_approved' }); continue
         }
+        const skip = strategy.precheck?.(address) ?? null
+        if (skip) { record({ ...base, status: 'no_pin', reason: skip }); continue }
         let found: SearchedPlaces
         try {
           found = await resolve(company, address, target.focus)
@@ -279,13 +306,13 @@ export async function runAutoLocate(
           continue
         }
         consecutiveFailures = 0
-        const verdict = judgePois(company, { address, location: job.location }, found)
+        const verdict = strategy.judge(company, { address, location: job.location }, found)
         if (!verdict.approvePoi) { record({ ...base, status: 'no_pin', reason: verdict.reason ?? 'no_search_result' }); continue }
         const poi = verdict.approvePoi
 
         // 같은 위치(30 m)의 기존 후보가 있으면 새로 만들지 않는다: 대기 중이면 그것을 승인, 거절·철회된 것은 존중, 승인된 것은 그대로.
         const dup = job.existing.find((c) => c.address_snapshot === address && isDuplicateCandidate([c], { address, lat: poi.lat, lng: poi.lng }))
-        const note = AUTO_APPROVAL_NOTE[verdict.approvalReason ?? 'exact_name_in_district']
+        const note = verdict.note ?? AUTO_APPROVAL_NOTE[verdict.approvalReason ?? 'exact_name_in_district']
         try {
           if (dup) {
             if (dup.status === 'approved') { record({ ...base, status: 'already_approved', poiName: poi.name }); continue }
@@ -293,10 +320,7 @@ export async function runAutoLocate(
             await deps.approve(dup.id, note)
             dup.status = 'approved'
           } else {
-            const evidence = buildCandidateEvidence({
-              company, jobAddress: address, poi, similarity: nameSimilarity(company, poi.name),
-              distanceM: target.focus ? distanceMeters(target.focus, poi) : null,
-            })
+            const evidence = strategy.evidence({ company, address, poi, distanceM: target.focus ? distanceMeters(target.focus, poi) : null })
             const added = await deps.addCandidate({ jobId: job.id, address, lat: poi.lat, lng: poi.lng, evidence, workLocationId: target.workLocationId })
             job.existing.push({ id: added.id, address_snapshot: address, lat: poi.lat, lng: poi.lng, status: 'pending' })
             await deps.approve(added.id, note)

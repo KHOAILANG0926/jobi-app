@@ -26,6 +26,7 @@ import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
 import { planDirections } from '../lib/directionsPlan'
+import { isWideAreaAddress } from '../lib/addressParse'
 import { findIndustrialPark, industrialParkDirectionsNote, industrialParkDirectionsUrl } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
 
@@ -567,6 +568,7 @@ export function JobDetail() {
                               // Tier C/D — 성·시 또는 구·군·동만 있는 텍스트, 구체적
                               // 상세주소가 아니다. 거리검색에도 쓰이지 않는다.
                               <p className="jd2-map-ward-note">
+                                {isWideAreaAddress(loc.rawAddress) && <><strong className="jd2-map-wide-badge">Khu vực rộng</strong>{' — '}</>}
                                 Chỉ có khu vực hành chính (tỉnh/thành hoặc quận/huyện) — vị trí nơi làm việc chưa được xác minh.
                               </p>
                             ) : verifiedWard ? (
