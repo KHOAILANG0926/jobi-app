@@ -1,6 +1,7 @@
 import { parseStreetAddress, isWideAreaAddress, isDetailedAddress, hasConflictingProvinces, pickAddressHit, judgeAddressPois, ADDRESS_STRATEGY } from './addressLocate.ts'
 import { runAutoLocate, type AutoLocateDeps, type AutoLocateJob } from './chototAutoLocate.ts'
 import { DailyLimitError } from './adminVietmapClient.ts'
+import { correctedAddressAccuracy } from './jobRows.ts'
 
 function assert(cond: boolean, msg: string) { if (!cond) throw new Error(`FAIL: ${msg}`) }
 
@@ -18,6 +19,26 @@ const A1 = '374 Trần Phú, Phường Tam Sơn, Thị xã Từ Sơn, Bắc Ninh
   assert(!parseStreetAddress('KCN VISIP, Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh').detailed, 'KCN name alone is not a detailed address')
   assert(!isDetailedAddress('Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh'), 'ward-level address is not detailed')
   assert(isDetailedAddress('Phố Nguyễn Trãi, Phường Hạp Lĩnh, Thành phố Bắc Ninh'), 'street without number is detailed (but not searchable)')
+}
+{
+  const a = parseStreetAddress('MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH, TỈNH BẮC NINH, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh')
+  assert(a.searchable && a.numbers[0] === '37' && a.nameTokens.join(' ') === 'ly thai to', 'company prefix + "Đ." + "P."/"TP." abbreviations → number + street name')
+  assert(a.street === '37 Đường LÝ THÁI TỔ', 'search text drops the company prefix and expands "Đ." to "Đường"')
+  assert(!isWideAreaAddress('MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh'), 'a street address is not "Khu vực rộng"')
+  const b = parseStreetAddress('Pizza Hut,  1A Đ. Lê Thái Tổ, P, Võ Cường, Bắc Ninh, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh')
+  assert(b.searchable && b.numbers[0] === '1a' && b.nameTokens.join(' ') === 'le thai to' && b.street === '1A Đường Lê Thái Tổ', 'a bare company name segment before the street is skipped')
+  const c = parseStreetAddress('37 Đ. Lý Thái Tổ P. Võ Cường, Thành phố Bắc Ninh, Bắc Ninh')
+  assert(c.street === '37 Đường Lý Thái Tổ' && c.searchable, 'abbreviation glued to the street segment (no comma) is cut')
+  const d = parseStreetAddress('Công ty ABC, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh')
+  assert(!d.detailed && d.street === 'Công ty ABC', 'company name alone is still not a detailed address')
+  const e = parseStreetAddress('6–8 Trần Hưng Đạo, Khu 1,, Phường Quế Võ, Huyện Quế Võ, Bắc Ninh')
+  assert(e.street === '6–8 Trần Hưng Đạo, Khu 1', 'following street segments are kept')
+}
+{
+  const street = 'MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh'
+  assert(correctedAddressAccuracy('region_only', street) === 'exact_text', 'region_only from the collector is corrected when the address has a street')
+  assert(correctedAddressAccuracy('region_only', 'Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh') === 'region_only', 'a ward-only address stays region_only')
+  assert(correctedAddressAccuracy('exact_text', 'Phường Võ Cường, Thành phố Bắc Ninh') === 'exact_text' && correctedAddressAccuracy(undefined, street) === undefined, 'other values are untouched')
 }
 {
   assert(isWideAreaAddress('Huyện Yên Phong, Bắc Ninh') && isWideAreaAddress('Thị xã Từ Sơn, Bắc Ninh') && isWideAreaAddress('Bắc Ninh'), 'district/province-only → Khu vực rộng')

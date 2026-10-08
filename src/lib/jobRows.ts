@@ -1,6 +1,7 @@
 import { ensureJobFields } from './jobUtils.ts'
 import { supabase } from './supabase.ts'
 import { stripSourceTags } from './sourceTag.ts'
+import { isDetailedAddress } from './addressParse.ts'
 import type { AddressAccuracy, CoordinateAccuracy, GeocodeStatus, Job } from '../types/job.ts'
 
 /** DB row(local_jobs/job_work_locations) -> Job 매핑 로직 — JobsContext.tsx와
@@ -16,6 +17,16 @@ export function parseDescription(raw: string): { description: string; source?: s
     description: stripSourceTags(raw),
     source: match[1].trim(),
   }
+}
+
+
+/**
+ * 수집 단계가 'region_only'(행정구역만)로 분류했어도 주소 글자에 번지·도로 등 구체적 표현이 있으면 'exact_text'로 본다
+ * (예: "MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH" — 상호 접두어·"Đ."·"P."·"TP." 약어 때문에 행정구역만으로 오분류됨).
+ * DB 값은 바꾸지 않고 화면·지도 판단에서만 보정한다.
+ */
+export function correctedAddressAccuracy(accuracy: AddressAccuracy | undefined, rawAddress: string): AddressAccuracy | undefined {
+  return accuracy === 'region_only' && isDetailedAddress(rawAddress) ? 'exact_text' : accuracy
 }
 
 export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocations'] extends (infer U)[] | undefined ? U : never {
@@ -39,7 +50,7 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
     lat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
     lng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
     sortOrder: (r.sort_order as number) ?? 0,
-    addressAccuracy: (r.address_accuracy as AddressAccuracy | null | undefined) ?? undefined,
+    addressAccuracy: correctedAddressAccuracy((r.address_accuracy as AddressAccuracy | null | undefined) ?? undefined, (r.raw_address as string) ?? ''),
     coordinateAccuracy: coordinateAccuracy ?? undefined,
     locationVerified,
     matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
