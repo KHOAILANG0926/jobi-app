@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch: {}
+  push:
+    paths:
+      - .github/workflows/supabase-keepalive.yml
 
 permissions:
   contents: read
@@ -13,20 +16,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: src/lib/supabase.ts
+          sparse-checkout-cone-mode: false
+
+      # URL과 anon 키는 사이트 번들에 이미 공개된 값(src/lib/supabase.ts)이라 Secrets 없이 그 파일에서 읽는다.
+      # service_role 등 비공개 키는 여기서 쓰지 않는다.
       - name: Query public API (local_jobs, 1 row)
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          file=src/lib/supabase.ts
+          SUPABASE_URL=$(grep -oE "https://[a-z0-9]+\.supabase\.co" "$file" | head -1)
+          SUPABASE_ANON_KEY=$(grep -oE "eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+" "$file" | head -1)
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::GitHub Secrets SUPABASE_URL / SUPABASE_ANON_KEY 가 설정되지 않았습니다."
+            echo "::error::$file 에서 Supabase URL/anon 키를 찾지 못했습니다(파일 형식이 바뀌었는지 확인)."
+            exit 1
+          fi
+          role=$(echo "$SUPABASE_ANON_KEY" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | grep -o '"role":"[a-z_]*"' || true)
+          if [ "$role" != '"role":"anon"' ]; then
+            echo "::error::읽은 키의 role이 anon이 아닙니다. 중단합니다."
             exit 1
           fi
           status=$(curl --silent --show-error --max-time 30 --retry 2 \
             --output /tmp/body.json --write-out '%{http_code}' \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "${SUPABASE_URL%/}/rest/v1/local_jobs?select=id&limit=1")
+            "$SUPABASE_URL/rest/v1/local_jobs?select=id&limit=1")
           echo "HTTP $status"
           if [ "$status" != "200" ]; then
             echo "::error::Supabase 공개 API 조회 실패(HTTP $status) — 프로젝트 일시정지·장애 여부를 확인하세요."
