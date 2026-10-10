@@ -81,3 +81,11 @@ Vercel deployment source를 API로 다시 회수해야 했다.
 7. commit/push 후 `git status`가 clean인지 확인한다.
 8. CLAUDE.md의 "작업 브랜치·Preview·Git 종료 게이트"와 충돌하면 더 엄격한 규칙을 적용한다.
 9. Preview 승인 후 GitHub 보존 전에는 다음 기능 작업을 시작하지 않는다.
+
+## Cursor Cloud specific instructions
+
+- 개발 서버는 `npm run dev` (Vite, 포트 5173). `vite.config.ts`가 이미 `host: true`다.
+- 공개 공고 조회는 `src/lib/supabase.ts`만으로 된다. 로컬 `.env`는 필요 없다. 지도 키(`VITE_GEOAPIFY_API_KEY`, `VITE_GOOGLE_MAPS_API_KEY`, `VITE_VIETMAP_TILEMAP_KEY`)가 없으면 홈 지도는 fallback이고, 공고 목록·상세·검색은 동작한다.
+- `npm test`는 Node.js 24가 필요하다. 이미지 기본 Node 22.14에서는 `api/_zalo-token.test.ts`의 `mock.module`이 실패한다. Node 24.21.0은 `/usr/local/bin`에 두고, 셸 PATH에서 그 경로가 먼저여야 한다.
+- 검증 명령: `npx tsc --noEmit`, `npm test`, `npm run build`.
+- 이 환경에서 Production DB에 쓰지 않는다. DDL은 `supabase/pending/`에만 두고 사용자 승인 후에 적용한다.

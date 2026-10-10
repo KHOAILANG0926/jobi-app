@@ -27,6 +27,7 @@
 ## 1. 현재 상태
 
 **코드·배포**
+- Cloud Agent 개발 환경(2026-10-10, 앱 코드·DB 변경 없음): Node 24.21.0, `npm ci`, `npm run dev`(포트 5173). 공개 공고는 `src/lib/supabase.ts`로 조회하고 로컬 `.env`는 필요 없다. 안내는 `AGENTS.md` "Cursor Cloud specific instructions".
 - PR #15 **MASTER MERGED**(master `447e380`) → **PRODUCTION DEPLOYED**(Vercel Production, `jobi-7nlzfo3as`, https://viecganban.vn) → **PRODUCTION VERIFIED**(2026-10-08): 홈·tim-kiem·tuyen-gap에 가짜 공고 없음, "Hiện chưa có tin tuyển dụng nào đang mở" 빈 상태 표시, 공개 HTML·sitemap에 `source:` 0건. 검증: tsc·build 통과, `npm test` 40/41(실패 1건은 기존 `api/_zalo-token.test.ts`, 무관).
 - 길찾기 3단계 Production 확인: 공개 공고가 0건이라 실제 상세 페이지가 없어, Production 번들에 가짜 DB 응답(브라우저 안 mock, DB 쓰기 0)을 주입해 확인 — 승인 좌표 → "Chỉ đường"(`destination=lat,lng`), 승인 좌표 없음+전화 → "Gọi hỏi đường"(`tel:`), 둘 다 없음 → 버튼 없음. **"Đến cổng KCN"은 정문 좌표가 0개라 화면에서 확인 불가**(단위 테스트로만 검증).
 - 이후 master `a20f08b`(PR #18·#19 병합) → Production 배포 success, 관리자 Vị trí 자동 검색 버튼 포함(위 4번). 검증: tsc·build 통과, `npm test` 41/42(실패 1건 동일), 로컬 브라우저 mock으로 버튼 흐름 확인(실제 관리자 로그인 실행은 아직 안 함).
