@@ -190,6 +190,7 @@ async function startRun(onChanged: () => Promise<void>, mode: Mode = 'company') 
     const deps: AutoLocateDeps = {
       search: (body) => callAdminVietmap(body),
       place: (body) => callAdminVietmap(body),
+      readUsage: () => callAdminVietmap({ action: 'usage' }),
       async addCandidate(input) {
         const { data, error: e } = await supabase.rpc('admin_add_location_candidate', {
           p_job_id: input.jobId, p_address: input.address, p_lat: input.lat, p_lng: input.lng, p_precision: 'building',
@@ -220,6 +221,7 @@ async function startRun(onChanged: () => Promise<void>, mode: Mode = 'company') 
       expectedTotal: mode === 'address' ? jobs.length : CHOTOT_EXPECTED_TOTAL,
       strategy: mode === 'address' ? ADDRESS_STRATEGY : undefined,
       usedAtStart,
+      usageDayAtStart: usage.day,
       shouldStop: () => state.stop,
       onProgress: (s) => {
         setState({ summary: s, ...(s.remainingToday !== null ? { remaining: s.remainingToday } : {}) })
@@ -248,7 +250,12 @@ export function AdminAutoLocate({ onChanged }: { onChanged: () => Promise<void> 
   const summary = st.summary
   const finished = st.phase === 'finished'
   const noPinOutcomes = summary?.outcomes.filter((o) => o.status === 'no_pin') ?? []
-  const extraServerCalls = summary && summary.serverCallsDelta !== null ? summary.serverCallsDelta - summary.callsThisRun : 0
+  const detailOutcomes = st.mode === 'address' ? (summary?.outcomes ?? []) : noPinOutcomes
+  const serverDelta = typeof summary?.serverCallsDelta === 'number' ? summary.serverCallsDelta : null
+  const counterDifference = serverDelta === null ? 0 : serverDelta - summary!.callsThisRun
+  const counterDayChanged = Boolean(summary?.serverDayAtStart && summary?.serverDayAtEnd && summary.serverDayAtStart !== summary.serverDayAtEnd)
+  const hasModernCounterTrace = typeof summary?.serverEndStatus === 'string'
+  const serverEndKnown = summary?.serverEndStatus === 'verified' || summary?.serverEndStatus === 'fallback'
   return <div style={{ border: '1px solid #bfdbfe', background: '#f8fbff', borderRadius: 12, padding: 16, marginBottom: 16 }}>
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
       <button type="button" disabled={busy} onClick={() => void startRun(onChanged, 'company')}>Tìm vị trí tự động (chotot)</button>
@@ -278,17 +285,32 @@ export function AdminAutoLocate({ onChanged }: { onChanged: () => Promise<void> 
         <li>Không có ghim: <b>{summary.noPin}</b></li>
         {summary.lookupFailed > 0 && <li>Tra cứu lỗi (tính là chưa xử lý, sẽ thử lại): <b>{summary.lookupFailed}</b></li>}
         <li>Chưa xử lý: <b>{summary.notProcessed}</b></li>
-        <li>Gọi VietMap lần này: <b>{summary.callsThisRun}</b> yêu cầu từ trang này{summary.serverCallsDelta !== null && <> · bộ đếm server tăng: <b>{summary.serverCallsDelta}</b></>}</li>
+        <li>Yêu cầu trang này đã thử: <b>{summary.callsThisRun}</b> (gồm lỗi, hết thời gian chờ và từ chối do giới hạn)</li>
+        <li>Bộ đếm server dùng chung: <b>{typeof summary.serverUsedAtStart === 'number' ? summary.serverUsedAtStart : '—'}</b>{summary.serverDayAtStart ? ` (${summary.serverDayAtStart})` : ''} → <b>{serverEndKnown && typeof summary.serverUsedAtEnd === 'number' ? summary.serverUsedAtEnd : '—'}</b>{serverEndKnown && summary.serverDayAtEnd ? ` (${summary.serverDayAtEnd})` : ''}{serverDelta !== null && <> (tăng <b>{serverDelta}</b>)</>}</li>
         <li>Hôm nay còn: <b>{summary.remainingToday === null ? (st.remaining ?? '—') : summary.remainingToday}</b> lượt</li>
       </ul>
-      {extraServerCalls > 0 && <p style={{ color: '#b45309', margin: '6px 0 0' }}><small>
-        Bộ đếm server tăng nhiều hơn số yêu cầu của trang này (+{extraServerCalls}): có thể tab khác hoặc script đang dùng cùng bộ đếm 250 lượt/ngày.
+      {counterDifference > 0 && <p style={{ color: '#b45309', margin: '6px 0 0' }}><small>
+        Bộ đếm server tăng nhiều hơn số lần trang này thử (+{counterDifference}). Đây là bộ đếm dùng chung; tab hoặc tiến trình khác có thể đã gọi trong cùng khoảng thời gian.
+      </small></p>}
+      {counterDifference < 0 && <p style={{ color: '#b45309', margin: '6px 0 0' }}><small>
+        Số lần trang này thử nhiều hơn mức tăng của server ({counterDifference}). Một số yêu cầu có thể bị từ chối trước khi tăng bộ đếm, hoặc ảnh chụp bộ đếm không cùng thời điểm/ngày.
+      </small></p>}
+      {counterDayChanged && <p style={{ color: '#b45309', margin: '6px 0 0' }}><small>
+        Lần chạy đi qua thời điểm đổi ngày Việt Nam; không tính mức tăng giữa hai bộ đếm của hai ngày khác nhau.
+      </small></p>}
+      {finished && summary.serverEndStatus === 'unavailable' && <p style={{ color: '#b45309', margin: '6px 0 0' }}><small>
+        Không đọc được bộ đếm lúc kết thúc nên mức tăng chưa xác định.{typeof summary.serverLastObservedUsed === 'number' ? ` Lần ghi nhận gần nhất: ${summary.serverLastObservedUsed}${summary.serverLastObservedDay ? ` (${summary.serverLastObservedDay})` : ''}.` : ''}
+      </small></p>}
+      {st.restored && !hasModernCounterTrace && <p style={{ color: '#6b7280', margin: '6px 0 0' }}><small>
+        Kết quả cũ không có ảnh chụp bộ đếm cuối; tổng yêu cầu cũ có thể chưa tính lần bị từ chối do giới hạn.
       </small></p>}
       {finished && <p style={{ margin: '8px 0' }}><small>{STOP_TEXT[summary.stopped]}</small></p>}
-      {noPinOutcomes.length > 0 && <>
-        <button type="button" onClick={() => setState({ showDetails: !st.showDetails })}>{st.showDetails ? 'Ẩn chi tiết' : `Xem chi tiết ${noPinOutcomes.length} tin không có ghim`}</button>
+      {detailOutcomes.length > 0 && <>
+        <button type="button" onClick={() => setState({ showDetails: !st.showDetails })}>{st.showDetails ? 'Ẩn chi tiết' : st.mode === 'address' ? `Xem dấu vết ${detailOutcomes.length} kết quả địa chỉ` : `Xem chi tiết ${detailOutcomes.length} tin không có ghim`}</button>
         {st.showDetails && <ul style={{ margin: '8px 0 0', paddingLeft: 18, maxHeight: 280, overflow: 'auto' }}>
-          {noPinOutcomes.map((o, i) => <li key={`${o.jobId}-${i}`}><small>#{o.jobId} · {o.company || '—'} — {o.reason ? NO_PIN_LABEL[o.reason] : ''}{o.poiName ? ` (${o.poiName})` : ''}</small></li>)}
+          {detailOutcomes.map((o, i) => <li key={`${o.jobId}-${i}`}><small>
+            #{o.jobId} · {o.lookupSource ?? '—'} · {typeof o.requestCount === 'number' ? o.requestCount : '—'} yêu cầu · {o.reason ? NO_PIN_LABEL[o.reason] : o.status === 'approved' ? 'Đã tự động duyệt' : o.status === 'already_approved' ? 'Đã được duyệt trước đó' : 'Không có ghim'}
+          </small></li>)}
         </ul>}
       </>}
     </div>}

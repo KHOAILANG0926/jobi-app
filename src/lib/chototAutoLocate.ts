@@ -10,7 +10,7 @@ import {
 } from './locationCandidateMatch'
 import { findIndustrialPark } from './industrialPark'
 import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines'
-import { DailyLimitError } from './adminVietmapClient'
+import { DailyLimitError, VietmapRequestError } from './adminVietmapClient'
 
 export const CHOTOT_ID_MIN = 4685
 export const CHOTOT_ID_MAX = 4784
@@ -35,8 +35,9 @@ export interface SearchedPlaces {
 export type SearchCache = Record<string, SearchedPlaces>
 
 export interface AutoLocateDeps {
-  search(body: { action: 'search'; text: string; focus?: { lat: number; lng: number } | null }): Promise<{ data: unknown; used: number; limit: number }>
-  place(body: { action: 'place'; refId: string }): Promise<{ data: unknown; used: number; limit: number }>
+  search(body: { action: 'search'; text: string; focus?: { lat: number; lng: number } | null }): Promise<{ data: unknown; used: number; limit: number; day?: string }>
+  place(body: { action: 'place'; refId: string }): Promise<{ data: unknown; used: number; limit: number; day?: string }>
+  readUsage?(): Promise<{ used: number; limit: number; day?: string }>
   addCandidate(input: { jobId: number; address: string; lat: number; lng: number; evidence: string; workLocationId: number | null }): Promise<{ id: number }>
   approve(candidateId: number, note: string): Promise<void>
   loadCache(): Promise<SearchCache | null>
@@ -47,6 +48,7 @@ export interface AutoLocateDeps {
 export type NoPinReason =
   | 'no_company' | 'no_address' | 'no_search_result' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside'
   | 'registered_address_like' | 'multiple_exact' | 'previously_rejected' | 'lookup_failed' | 'no_house_number' | 'address_not_found' | 'address_conflict'
+  | 'daily_limit'
 
 export const NO_PIN_LABEL: Record<NoPinReason, string> = {
   no_company: 'Không có tên công ty',
@@ -62,6 +64,7 @@ export const NO_PIN_LABEL: Record<NoPinReason, string> = {
   no_house_number: 'Địa chỉ không có số nhà + tên đường để tìm (lô/thôn/trong KCN…)',
   address_not_found: 'VietMap không có kết quả khớp số nhà + tên đường + phường/xã',
   address_conflict: 'Địa chỉ ghi lẫn nhiều tỉnh/thành khác nhau — không rõ số nhà thuộc nơi nào',
+  daily_limit: 'Bị dừng vì đã chạm giới hạn gọi hằng ngày',
 }
 
 export interface AutoLocateOutcome {
@@ -69,6 +72,8 @@ export interface AutoLocateOutcome {
   company: string
   address: string
   status: 'approved' | 'already_approved' | 'no_pin'
+  lookupSource: 'cache' | 'fresh' | 'skipped'
+  requestCount: number
   reason?: NoPinReason
   poiName?: string
 }
@@ -87,10 +92,24 @@ export interface AutoLocateSummary {
   lookupFailed: number
   /** jobsTotal - searched: 읽지 못한 공고·한도/중단으로 남은 공고를 모두 포함 */
   notProcessed: number
-  /** 이번 실행에서 이 브라우저가 서버에 보낸 VietMap 요청 수(실패·타임아웃 포함, 429 한도 거절은 제외 — 서버도 세지 않음) */
+  /** 이번 실행에서 이 브라우저가 서버에 보낸 VietMap 요청 시도 수(실패·타임아웃·429 한도 거절 포함) */
   callsThisRun: number
-  /** 서버 카운터가 이번 실행 동안 늘어난 양(usedAtStart를 알 때만). callsThisRun보다 크면 다른 곳(다른 탭·스크립트)도 같은 카운터를 쓴 것 */
+  /** 실행 시작 시 서버가 알려준 공유 카운터. 시작값을 읽지 못했으면 null */
+  serverUsedAtStart: number | null
+  /** 실행 시작 카운터의 베트남 날짜. 이전 저장 결과에는 없을 수 있다. */
+  serverDayAtStart: string | null
+  /** 요청 응답이나 오류에서 마지막으로 확인한 서버 공유 카운터 */
+  serverLastObservedUsed: number | null
+  /** 마지막 관측 카운터의 베트남 날짜 */
+  serverLastObservedDay: string | null
+  /** 실행 종료 시 서버가 알려준 공유 카운터. 종료값을 읽지 못했으면 null */
+  serverUsedAtEnd: number | null
+  /** 실행 종료 카운터의 베트남 날짜 */
+  serverDayAtEnd: string | null
+  /** 서버 공유 카운터가 이번 실행 동안 늘어난 양. 다른 실행의 호출도 포함될 수 있다. */
   serverCallsDelta: number | null
+  /** verified: 종료 usage 조회 성공, fallback: 종료 조회 기능 없음, unavailable: 종료 조회 실패 */
+  serverEndStatus: 'verified' | 'fallback' | 'unavailable'
   /** 서버가 알려준 오늘 남은 호출 수. 아직 응답이 없으면 null */
   remainingToday: number | null
   /** running: 실행 중(완료 문구 금지) */
@@ -168,7 +187,7 @@ export interface LocateStrategy {
   requireCompany: boolean
   /** 호출 전에 걸러낼 사유(없으면 null) */
   precheck?(address: string): NoPinReason | null
-  cacheKey(company: string, address: string): string
+  cacheKey(company: string, address: string, jobId: number): string
   searchText(company: string, address: string): string
   pick(company: string, address: string, hits: unknown): { hit: SearchHit | null; multiple: boolean }
   judge(company: string, job: { address: string; location: string }, found: SearchedPlaces): Judgement
@@ -205,29 +224,53 @@ export const COMPANY_STRATEGY: LocateStrategy = {
 export async function runAutoLocate(
   jobs: AutoLocateJob[],
   deps: AutoLocateDeps,
-  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number; usedAtStart?: number; strategy?: LocateStrategy } = {},
+  opts: { shouldStop?: () => boolean; onProgress?: (s: AutoLocateSummary) => void; expectedTotal?: number; usedAtStart?: number; usageDayAtStart?: string; strategy?: LocateStrategy } = {},
 ): Promise<AutoLocateSummary> {
   const summary: AutoLocateSummary = {
     jobsTotal: opts.expectedTotal ?? jobs.length, jobsFound: jobs.length, searched: 0, autoApproved: 0, alreadyApproved: 0, noPin: 0, lookupFailed: 0, notProcessed: opts.expectedTotal ?? jobs.length,
-    callsThisRun: 0, serverCallsDelta: null, remainingToday: null, stopped: 'running', outcomes: [],
+    callsThisRun: 0,
+    serverUsedAtStart: opts.usedAtStart ?? null,
+    serverDayAtStart: opts.usageDayAtStart ?? null,
+    serverLastObservedUsed: null,
+    serverLastObservedDay: null,
+    serverUsedAtEnd: null,
+    serverDayAtEnd: null,
+    serverCallsDelta: null,
+    serverEndStatus: deps.readUsage ? 'unavailable' : 'fallback',
+    remainingToday: null,
+    stopped: 'running', outcomes: [],
   }
   const strategy = opts.strategy ?? COMPANY_STRATEGY
   const cache: SearchCache = (await deps.loadCache().catch(() => null)) ?? {}
   let unsaved = 0
   const flush = async () => { if (unsaved > 0) { await deps.saveCache(cache).catch(() => undefined); unsaved = 0 } }
-  const noteServer = (used: number, limit: number) => {
+  const noteObservedServer = (used: number, limit: number, day?: string | null) => {
+    summary.serverLastObservedUsed = used
+    summary.serverLastObservedDay = day ?? null
     summary.remainingToday = Math.max(0, limit - used)
-    if (opts.usedAtStart !== undefined) summary.serverCallsDelta = Math.max(0, used - opts.usedAtStart)
+  }
+  const setFinalServer = (used: number, day: string | null | undefined, status: 'verified' | 'fallback') => {
+    summary.serverUsedAtEnd = used
+    summary.serverDayAtEnd = day ?? null
+    summary.serverEndStatus = status
+    if (summary.serverUsedAtStart !== null) {
+      const sameDay = !summary.serverDayAtStart || !day || summary.serverDayAtStart === day
+      summary.serverCallsDelta = sameDay && used >= summary.serverUsedAtStart ? used - summary.serverUsedAtStart : null
+    }
+  }
+  const noteFinalServer = (used: number, limit: number, day: string | null | undefined, status: 'verified' | 'fallback') => {
+    noteObservedServer(used, limit, day)
+    setFinalServer(used, day, status)
   }
   // 모든 VietMap 요청은 이 함수를 지난다 — 응답을 못 받은 요청(실패·타임아웃)도 서버는 세므로 시도 시점에 센다.
-  async function counted<T extends { used: number; limit: number }>(send: () => Promise<T>): Promise<T> {
+  async function counted<T extends { used: number; limit: number; day?: string }>(send: () => Promise<T>): Promise<T> {
     summary.callsThisRun++
     try {
       const reply = await send()
-      noteServer(reply.used, reply.limit)
+      noteObservedServer(reply.used, reply.limit, reply.day)
       return reply
     } catch (e) {
-      if (e instanceof DailyLimitError) { summary.callsThisRun--; noteServer(e.used, e.limit) }
+      if (e instanceof VietmapRequestError && e.used !== null && e.limit !== null) noteObservedServer(e.used, e.limit, e.day)
       throw e
     }
   }
@@ -249,8 +292,7 @@ export async function runAutoLocate(
   }
   const failJob = () => { summary.lookupFailed++ }
 
-  async function resolve(company: string, address: string, focus: AutoLocateTarget['focus']): Promise<SearchedPlaces> {
-    const key = strategy.cacheKey(company, address)
+  async function resolve(company: string, address: string, focus: AutoLocateTarget['focus'], key: string): Promise<SearchedPlaces> {
     if (cache[key]) return cache[key]
     const text = strategy.searchText(company, address)
     const searchReply = await counted(() => deps.search({ action: 'search', text, focus }))
@@ -280,23 +322,28 @@ export async function runAutoLocate(
       for (const target of job.targets) {
         const address = target.address.trim()
         const base = { jobId: job.id, company, address }
-        if (strategy.requireCompany && !company) { record({ ...base, status: 'no_pin', reason: 'no_company' }); continue }
-        if (!address) { record({ ...base, status: 'no_pin', reason: 'no_address' }); continue }
+        const skipped = { lookupSource: 'skipped' as const, requestCount: 0 }
+        if (strategy.requireCompany && !company) { record({ ...base, ...skipped, status: 'no_pin', reason: 'no_company' }); continue }
+        if (!address) { record({ ...base, ...skipped, status: 'no_pin', reason: 'no_address' }); continue }
         if (job.existing.some((c) => c.status === 'approved' && c.address_snapshot === address)) {
-          record({ ...base, status: 'already_approved' }); continue
+          record({ ...base, ...skipped, status: 'already_approved' }); continue
         }
         const skip = strategy.precheck?.(address) ?? null
-        if (skip) { record({ ...base, status: 'no_pin', reason: skip }); continue }
+        if (skip) { record({ ...base, ...skipped, status: 'no_pin', reason: skip }); continue }
+        const key = strategy.cacheKey(company, address, job.id)
+        const lookupSource = Object.prototype.hasOwnProperty.call(cache, key) ? 'cache' as const : 'fresh' as const
+        const requestsBefore = summary.callsThisRun
         let found: SearchedPlaces
         try {
-          found = await resolve(company, address, target.focus)
+          found = await resolve(company, address, target.focus, key)
         } catch (e) {
           if (e instanceof DailyLimitError) {
+            record({ ...base, lookupSource, requestCount: summary.callsThisRun - requestsBefore, status: 'no_pin', reason: 'daily_limit' })
             summary.stopped = 'daily_limit'
             summary.remainingToday = 0
             break outer
           }
-          record({ ...base, status: 'no_pin', reason: 'lookup_failed' })
+          record({ ...base, lookupSource, requestCount: summary.callsThisRun - requestsBefore, status: 'no_pin', reason: 'lookup_failed' })
           if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
             summary.stopped = 'error'
             summary.errorMessage = `VietMap lỗi ${MAX_CONSECUTIVE_FAILURES} lần liên tiếp (${e instanceof Error ? e.message : 'error'}) — dừng để không tốn thêm lượt. Thử lại sau.`
@@ -305,9 +352,10 @@ export async function runAutoLocate(
           }
           continue
         }
+        const trace = { lookupSource, requestCount: summary.callsThisRun - requestsBefore }
         consecutiveFailures = 0
         const verdict = strategy.judge(company, { address, location: job.location }, found)
-        if (!verdict.approvePoi) { record({ ...base, status: 'no_pin', reason: verdict.reason ?? 'no_search_result' }); continue }
+        if (!verdict.approvePoi) { record({ ...base, ...trace, status: 'no_pin', reason: verdict.reason ?? 'no_search_result' }); continue }
         const poi = verdict.approvePoi
 
         // 같은 위치(30 m)의 기존 후보가 있으면 새로 만들지 않는다: 대기 중이면 그것을 승인, 거절·철회된 것은 존중, 승인된 것은 그대로.
@@ -315,8 +363,8 @@ export async function runAutoLocate(
         const note = verdict.note ?? AUTO_APPROVAL_NOTE[verdict.approvalReason ?? 'exact_name_in_district']
         try {
           if (dup) {
-            if (dup.status === 'approved') { record({ ...base, status: 'already_approved', poiName: poi.name }); continue }
-            if (dup.status !== 'pending') { record({ ...base, status: 'no_pin', reason: 'previously_rejected', poiName: poi.name }); continue }
+            if (dup.status === 'approved') { record({ ...base, ...trace, status: 'already_approved', poiName: poi.name }); continue }
+            if (dup.status !== 'pending') { record({ ...base, ...trace, status: 'no_pin', reason: 'previously_rejected', poiName: poi.name }); continue }
             await deps.approve(dup.id, note)
             dup.status = 'approved'
           } else {
@@ -326,9 +374,9 @@ export async function runAutoLocate(
             await deps.approve(added.id, note)
             job.existing[job.existing.length - 1].status = 'approved'
           }
-          record({ ...base, status: 'approved', poiName: poi.name })
+          record({ ...base, ...trace, status: 'approved', poiName: poi.name })
         } catch {
-          record({ ...base, status: 'no_pin', reason: 'lookup_failed', poiName: poi.name })
+          record({ ...base, ...trace, status: 'no_pin', reason: 'lookup_failed', poiName: poi.name })
         }
       }
       finishJob()
@@ -341,6 +389,18 @@ export async function runAutoLocate(
   summary.notProcessed = Math.max(0, summary.jobsTotal - summary.searched)
   if (summary.stopped === 'running') summary.stopped = summary.notProcessed > 0 ? 'incomplete' : 'done'
   await flush()
+  if (deps.readUsage) {
+    const usage = await deps.readUsage().catch(() => null)
+    if (usage) noteFinalServer(usage.used, usage.limit, usage.day, 'verified')
+    else {
+      summary.serverUsedAtEnd = null
+      summary.serverDayAtEnd = null
+      summary.serverCallsDelta = null
+      summary.serverEndStatus = 'unavailable'
+    }
+  } else if (summary.serverLastObservedUsed !== null) {
+    setFinalServer(summary.serverLastObservedUsed, summary.serverLastObservedDay, 'fallback')
+  }
   emit()
   return summary
 }

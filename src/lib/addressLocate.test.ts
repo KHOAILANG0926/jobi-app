@@ -94,4 +94,30 @@ const A1 = '374 Trần Phú, Phường Tam Sơn, Thị xã Từ Sơn, Bắc Ninh
   assert(r.callsThisRun === 3 && calls.added.join() === '1' && calls.approved.join() === '901', 'one candidate created and approved')
   void DailyLimitError
 }
+{
+  // 4685·4721만 기존 실패 캐시를 새 버전으로 한 번 우회하고, 다른 ID의 캐시는 그대로 쓴다.
+  const legacyKey = ADDRESS_STRATEGY.cacheKey('', A1, 4686)
+  const cache = { [legacyKey]: { hits: 0, pois: [] } }
+  let searches = 0
+  const deps: AutoLocateDeps = {
+    async search() { searches++; return { data: [], used: searches, limit: 250 } },
+    async place() { throw new Error('Place must not run for an empty search result') },
+    async addCandidate() { throw new Error('No candidate expected') },
+    async approve() { throw new Error('No approval expected') },
+    async loadCache() { return cache },
+    async saveCache(next) { Object.assign(cache, next) },
+  }
+  const mk = (id: number): AutoLocateJob => ({ id, company: '', location: 'Bắc Ninh', existing: [], targets: [{ workLocationId: id, address: A1, focus: null }] })
+  const first = await runAutoLocate([mk(4685), mk(4686), mk(4721)], deps, { strategy: ADDRESS_STRATEGY, expectedTotal: 3 })
+  assert(searches === 2, 'only 4685 and 4721 bypass the legacy address cache')
+  const byId = Object.fromEntries(first.outcomes.map((o) => [o.jobId, o]))
+  assert(byId[4685].lookupSource === 'fresh' && byId[4685].requestCount === 1, '4685 is traced as one fresh request')
+  assert(byId[4686].lookupSource === 'cache' && byId[4686].requestCount === 0, 'other jobs keep using the legacy cache')
+  assert(byId[4721].lookupSource === 'fresh' && byId[4721].requestCount === 1, '4721 is traced as one fresh request')
+
+  searches = 0
+  const second = await runAutoLocate([mk(4685), mk(4686), mk(4721)], deps, { strategy: ADDRESS_STRATEGY, expectedTotal: 3 })
+  assert(searches === 0 && second.callsThisRun === 0, 'the versioned retry result is cached for subsequent runs')
+  assert(second.outcomes.every((o) => o.lookupSource === 'cache' && o.requestCount === 0), 'all subsequent outcomes identify cache reuse')
+}
 console.log('addressLocate tests: all assertions passed')

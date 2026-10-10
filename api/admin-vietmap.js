@@ -86,6 +86,7 @@ export function createAdminVietmapHandler(injected) {
     if (!request) return res.status(400).json({ error: 'Invalid request' })
 
     let deps
+    let reservedUsage = null
     try {
       deps = injected || runtimeDependencies()
     } catch {
@@ -95,14 +96,16 @@ export function createAdminVietmapHandler(injected) {
     try {
       const caller = await deps.verifyCaller(token)
       if (caller?.app_metadata?.role !== 'admin') return res.status(403).json({ error: 'Admin access required' })
+      const day = vietnamDay()
       if (request.action === 'usage') {
-        const { used } = await deps.readUsage(vietnamDay())
-        return res.status(200).json({ ok: true, used, limit: DAILY_LIMIT })
+        const { used } = await deps.readUsage(day)
+        return res.status(200).json({ ok: true, used, limit: DAILY_LIMIT, day })
       }
       if (!deps.vietmapConfigured()) return res.status(503).json({ error: 'not_configured' })
 
-      const usage = await deps.takeUsage(vietnamDay(), DAILY_LIMIT)
-      if (!usage.ok) return res.status(429).json({ error: 'daily_limit', used: usage.used, limit: DAILY_LIMIT })
+      const usage = await deps.takeUsage(day, DAILY_LIMIT)
+      if (!usage.ok) return res.status(429).json({ error: 'daily_limit', used: usage.used, limit: DAILY_LIMIT, day })
+      reservedUsage = { ...usage, day }
 
       const upstream = request.action === 'search'
         ? await deps.upstream(SEARCH_URL, {
@@ -115,15 +118,18 @@ export function createAdminVietmapHandler(injected) {
 
       if (!upstream.ok) {
         console.error(`api/admin-vietmap: upstream status ${upstream.status}`)
-        return res.status(502).json({ error: 'upstream_error', upstreamStatus: upstream.status, used: usage.used, limit: DAILY_LIMIT })
+        return res.status(502).json({ error: 'upstream_error', upstreamStatus: upstream.status, used: usage.used, limit: DAILY_LIMIT, day })
       }
-      return res.status(200).json({ ok: true, used: usage.used, limit: DAILY_LIMIT, data: upstream.json })
+      return res.status(200).json({ ok: true, used: usage.used, limit: DAILY_LIMIT, day, data: upstream.json })
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       if (message === 'Invalid access token') return res.status(401).json({ error: message })
       if (message === 'usage_counter_unavailable' || message === 'not_configured') return res.status(503).json({ error: message })
       console.error('api/admin-vietmap: failed', error instanceof Error ? error.name : 'error')
-      return res.status(500).json({ error: 'Operation failed' })
+      return res.status(500).json({
+        error: 'Operation failed',
+        ...(reservedUsage ? { used: reservedUsage.used, limit: DAILY_LIMIT, day: reservedUsage.day } : {}),
+      })
     }
   }
 }
