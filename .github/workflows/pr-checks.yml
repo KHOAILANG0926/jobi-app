@@ -1,0 +1,30 @@
+name: PR 검사 (병합 전 필수)
+
+# 모든 PR과 master push에서 타입 검사·테스트·빌드를 돌린다.
+# master 보호 설정에서 이 검사(checks)를 필수로 걸어, 실패한 변경은 누구도(GPT·Cursor·Claude 포함) 병합할 수 없다.
+# DB·VietMap·Secret을 쓰지 않는다.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 타입 검사
+        run: npx tsc --noEmit
+      - name: 테스트
+        run: npm test
+      - name: 빌드
+        run: npm run build
