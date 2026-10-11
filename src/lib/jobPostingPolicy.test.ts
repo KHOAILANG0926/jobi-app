@@ -48,3 +48,11 @@ for (const fixture of cases) {
   assert.deepEqual(evaluateJobPostingPolicy(cachedInput),
     evaluateJobPostingPolicy(fixture.input), 'cached approval must not bypass current policy')
 }
+
+assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-v2-singular-professional')!.input).reason,
+  'professional_incentive_sales', 'singular sale executive is professional')
+assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-v2-b2b-showroom-contract')!.input).reason,
+  'b2b_business_contract_sales', 'explicit B2B contract must outrank showroom wording')
+assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-v2-market-no-evidence')!.input).decision,
+  'review', 'market wording alone does not prove consumer outlet distribution')
+console.log('v2: singular professional and B2B contract precedence verified; operational originals NOT supplied')
