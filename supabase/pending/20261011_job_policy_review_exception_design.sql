@@ -1,0 +1,35 @@
+-- PENDING DESIGN ONLY. All lines commented; no executable DDL/data writes.
+-- Prerequisites: user approval, live catalog/grants/RLS and disposable DB tests.
+-- REVIEW 신규 공고: retain local_jobs.active=false; preserve admin_hidden.
+-- Proposed VN-only local_job_policy_reviews sidecar:
+-- job_id FK local_jobs, policy_version, content_fingerprint, reason_code,
+-- review_state pending/allowed/denied, first/last_seen, reviewed_at, reviewer/reason.
+-- Unique(job_id, version, fingerprint). Admin-only SELECT; no raw contacts/tokens.
+-- Re-entry must never automatically reactivate a pending row.
+-- Existing public job becomes REVIEW: keep the current public row unchanged;
+-- stage proposed changed content privately, do not overwrite/hide automatically.
+-- EXCLUDE remains skip; ALLOW follows existing saving unless review is pending.
+-- Proposed atomic crawler save RPC classifies FINAL row and saves REVIEW privately.
+-- No UI-created override/status boolean is trusted. No Korea/location guard changes.
+--
+-- ADMIN EXCEPTION proposal: admin_review_job_policy(job_id, expected_version,
+-- expected_fingerprint, action, reason), with mandatory nonempty reason.
+-- Validate auth.uid() and existing public.is_admin(); lock row/recompute policy.
+-- allow only normal ALLOW; exception acknowledges an EXCLUDE/REVIEW false positive.
+-- Proposed local_job_policy_exceptions: job_id/version/fingerprint/actor/reason,
+-- created_at/revoked_at/optional expires_at. Immutable VN admin audit event.
+-- Direct anon/authenticated writes denied; caller-supplied actor/role ignored.
+-- SECURITY DEFINER only if needed; fixed search_path=pg_catalog,public,
+-- schema-qualified objects, PUBLIC EXECUTE revoked, tested authenticated grant.
+-- Normal service-role payload cannot mint an administrator exception.
+-- Future public trigger permits non-ALLOW only with matching live exemption.
+-- Content/policy changes invalidate exemption and require a new reason.
+-- App helpers must verify exception server-side with the trigger; no client bypass.
+-- Existing app helpers do not yet honor exceptions. No exception path deployed.
+-- Policy exception must not clear moderation admin_hidden or approve coordinates.
+-- Adapt grants/audit schema only after catalog inspection and user approval.
+--
+-- ROLLBACK proposal: pause automatic collection; remove app RPC dependencies first.
+-- Keep review rows private and preserve review/exception history.
+-- Drop only newly introduced named trigger/functions; no CASCADE/data mutations.
+-- Keep sidecar tables/RLS for evidence; destructive removal requires new approval.
