@@ -1,3 +1,4 @@
+import { checkedAdminCreateJob } from '../lib/jobPolicyWrite'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -194,7 +195,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
     }
     setSaving(true)
     setParseError('')
-    const { error } = await supabase.rpc('admin_create_job', { payload: {
+    let error: { message: string } | null = null
+    try {
+      const result = await checkedAdminCreateJob(supabase, {
       title: jobForm.title,
       company: jobForm.company,
       category: jobForm.category,
@@ -219,7 +222,11 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       company_verified: jobForm.companyVerified ?? false,
       company_founded_year: jobForm.companyFoundedYear ?? null,
       hire_count: jobForm.hireCount ?? null,
-    } })
+    })
+      error = result.error
+    } catch (cause) {
+      error = { message: cause instanceof Error ? cause.message : 'Không thể kiểm tra tin.' }
+    }
     if (error) {
       setParseError('Lỗi lưu dữ liệu: ' + error.message)
     } else {
