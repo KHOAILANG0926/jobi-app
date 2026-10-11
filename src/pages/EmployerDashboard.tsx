@@ -50,6 +50,7 @@ export function EmployerDashboard() {
   const msgTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null)
   const [applicationError, setApplicationError] = useState('')
+  const [jobPolicyError, setJobPolicyError] = useState('')
   const [expandedCvId, setExpandedCvId] = useState<string | null>(null)
   const [cvPhotoById, setCvPhotoById] = useState<Record<string, string>>({})
   const [cvPhotoLoading, setCvPhotoLoading] = useState<string | null>(null)
@@ -237,12 +238,18 @@ export function EmployerDashboard() {
   }
 
   const handleToggleUrgent = async (job: Job) => {
-    await updateJob(job.id, { urgent: !job.urgent })
-    await loadMyJobs()
+    setJobPolicyError('')
+    try {
+      await updateJob(job.id, { urgent: !job.urgent })
+      await loadMyJobs()
+    } catch (cause) {
+      setJobPolicyError(cause instanceof Error ? cause.message : 'Không thể cập nhật tin.')
+    }
   }
 
   return (
     <div className="page employer-dashboard">
+      {jobPolicyError && <p className="form-error" role="alert">{jobPolicyError}</p>}
       {/* Hero */}
       <header className="employer-dashboard__hero">
         <p className="employer-dashboard__greeting">Xin chào, {user.name}</p>
