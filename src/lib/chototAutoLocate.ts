@@ -48,7 +48,7 @@ export interface AutoLocateDeps {
 export type NoPinReason =
   | 'no_company' | 'no_address' | 'no_search_result' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside'
   | 'registered_address_like' | 'multiple_exact' | 'previously_rejected' | 'lookup_failed' | 'no_house_number' | 'address_not_found' | 'address_conflict'
-  | 'daily_limit'
+  | 'daily_limit' | 'name_only_no_house'
 
 export const NO_PIN_LABEL: Record<NoPinReason, string> = {
   no_company: 'Không có tên công ty',
@@ -57,6 +57,7 @@ export const NO_PIN_LABEL: Record<NoPinReason, string> = {
   name_not_exact: 'Tên công ty không khớp chính xác',
   outside_kcn: 'Nằm ngoài khu công nghiệp trong địa chỉ',
   address_not_inside: 'Không nằm trong quận/huyện của địa chỉ',
+  name_only_no_house: 'Chỉ khớp tên công ty, chưa xác nhận số nhà',
   registered_address_like: 'Giống địa chỉ đăng ký pháp nhân',
   multiple_exact: 'Nhiều điểm khớp chính xác (nhiều chi nhánh)',
   previously_rejected: 'Quản trị viên đã từ chối vị trí này trước đó',
@@ -207,7 +208,7 @@ export function judgePois(company: string, job: { address: string; location: str
   const passed = verdicts.filter((x) => x.v.approve)
   if (passed.length === 1) return { approvePoi: passed[0].poi, reason: null, approvalReason: passed[0].v.reason }
   if (passed.length > 1) return { approvePoi: null, reason: 'multiple_exact' }
-  const priority: AutoApprovalReason[] = ['registered_address_like', 'outside_kcn', 'address_not_inside', 'name_not_exact']
+  const priority: AutoApprovalReason[] = ['name_only_no_house', 'registered_address_like', 'outside_kcn', 'address_not_inside', 'name_not_exact']
   const best = priority.find((r) => verdicts.some((x) => x.v.reason === r)) ?? 'name_not_exact'
   return { approvePoi: null, reason: best as NoPinReason }
 }

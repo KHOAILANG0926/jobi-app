@@ -267,7 +267,7 @@ export function AdminAutoLocate({ onChanged }: { onChanged: () => Promise<void> 
       <b>Địa chỉ chi tiết:</b> chỉ các tin có số nhà + tên đường (hoặc thôn/lô). Tìm theo địa chỉ trên VietMap (tên phường/xã, quận/huyện cũ ghi trong tin), tối đa {MAX_CALLS_PER_TARGET} lượt/tin; chỉ duyệt thành ghim khi số nhà + tên đường khớp chính xác và phường/xã hoặc quận/huyện khớp. Lô/thôn/trong KCN không có số nhà + tên đường thì không có ghim.
     </small></p>
     <p style={{ margin: '8px 0 0' }}><small>
-      <b>Theo tên công ty:</b> Tìm công ty làm việc của tin chotot (ID {CHOTOT_ID_MIN}–{CHOTOT_ID_MAX}) trên VietMap, tối đa {MAX_CALLS_PER_TARGET} lượt/tin (Search 1 + Place 1 chỉ khi có điểm trùng tên chính xác). Chỉ tên công ty khớp chính xác và nằm trong quận/huyện hoặc khu công nghiệp ghi trong địa chỉ mới được duyệt thành ghim; điểm giống địa chỉ đăng ký pháp nhân bị loại. Còn lại: không có ghim.
+      <b>Theo tên công ty:</b> Tìm công ty làm việc của tin chotot (ID {CHOTOT_ID_MIN}–{CHOTOT_ID_MAX}) trên VietMap, tối đa {MAX_CALLS_PER_TARGET} lượt/tin (Search 1 + Place 1 chỉ khi có điểm trùng tên chính xác). Chỉ tên công ty khớp chính xác và nằm trong ranh khu công nghiệp ghi trong địa chỉ mới được duyệt thành ghim (ngoài KCN, chỉ khớp tên thì không ghim — cần khớp số nhà + tên đường ở mục tìm theo địa chỉ); điểm giống địa chỉ đăng ký pháp nhân bị loại. Còn lại: không có ghim.
     </small></p>
     {st.phase === 'loading' && <p><small>Đang đọc danh sách tin…</small></p>}
     {st.phase === 'running' && <p><b>Đang chạy…</b> <small>(đừng đóng trang; có thể chuyển tab quản trị rồi quay lại)</small></p>}

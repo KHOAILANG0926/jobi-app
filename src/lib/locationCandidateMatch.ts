@@ -155,10 +155,11 @@ export function looksLikeRegisteredAddress(poiName: string): boolean {
   return /^(cong ty|cty|doanh nghiep|chi nhanh|van phong|tnhh|co phan)\b/.test(normalizePlaceText(poiName))
 }
 
-export type AutoApprovalReason = 'exact_name_inside_kcn' | 'exact_name_in_district' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside' | 'registered_address_like'
+export type AutoApprovalReason = 'exact_name_inside_kcn' | 'exact_name_in_district' | 'name_not_exact' | 'outside_kcn' | 'address_not_inside' | 'registered_address_like' | 'name_only_no_house'
 
 /**
- * 자동 승인 핀 기준(2026-10-08 사용자 지시): 회사명이 정확히 일치하고, POI가 공고 주소(구·KCN) 안에 있을 때만.
+ * 자동 승인 핀 기준(2026-10-08 사용자 지시, 2026-10-11 B안으로 변경): 회사명 정확 일치 + KCN 윤곽 안일 때만.
+ * KCN 윤곽 밖(구 일치)은 회사명만으로 승인하지 않는다(name_only_no_house).
  * 그 밖에는 모두 "핀 없음"(후보로만 남고 관리자가 예외로 처리).
  * - insideKcn: 공고 주소가 윤곽이 있는 KCN이면 POI가 그 윤곽 안인지(true/false), KCN 윤곽을 모르면 null.
  *   KCN 윤곽이 있으면 구 일치만으로는 통과시키지 않는다(KCN 밖 같은 구의 다른 지점일 수 있음).
@@ -178,7 +179,10 @@ export function evaluateAutoApproval(input: {
   }
   if (looksLikeRegisteredAddress(input.poiName)) return { approve: false, reason: 'registered_address_like' }
   const m = addressMatch(input.jobAddress, input.poiUnits)
-  if (m.district || m.result === 'match') return { approve: true, reason: 'exact_name_in_district' }
+  // 2026-10-11 사용자 결정(B안): KCN 윤곽 밖에서는 회사명 일치만으로 핀을 찍지 않는다.
+  // 같은 이름의 지점이 여러 곳인 회사(예: #4702 Pizza Hut)가 다른 지점에 찍혔기 때문.
+  // 번지·도로가 맞는지는 주소 검색(addressLocate.ts)이 확인하고, 거기서만 핀을 승인한다.
+  if (m.district || m.result === 'match') return { approve: false, reason: 'name_only_no_house' }
   return { approve: false, reason: 'address_not_inside' }
 }
 
@@ -188,5 +192,6 @@ export const AUTO_APPROVAL_NOTE: Record<AutoApprovalReason, string> = {
   name_not_exact: 'Không tự động duyệt: tên công ty không khớp chính xác.',
   outside_kcn: 'Không tự động duyệt: vị trí nằm ngoài khu công nghiệp ghi trong địa chỉ.',
   address_not_inside: 'Không tự động duyệt: vị trí không nằm trong quận/huyện ghi trong địa chỉ.',
+  name_only_no_house: 'Không tự động duyệt: chỉ khớp tên công ty, chưa xác nhận số nhà + tên đường.',
   registered_address_like: 'Không tự động duyệt: điểm này giống địa chỉ đăng ký pháp nhân (tên dạng "Công ty TNHH…" ngoài khu công nghiệp), không chắc là nơi làm việc.',
 }
