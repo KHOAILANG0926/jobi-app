@@ -39,7 +39,10 @@ for (const fixture of cases) {
   ]
   for (const action of actions) {
     const db = fake(row)
-    if (fixture.expected === 'allow') await action(db.client)
+    if (fixture.expected === 'allow') {
+      await action(db.client)
+      assert.equal(db.writes.length, 1, fixture.id + ' allowed write must reach mocked boundary')
+    }
     else {
       let rejected = false
       try { await action(db.client) } catch { rejected = true }
@@ -71,4 +74,4 @@ assert.equal(ending.writes.length, 1, 'guest can deactivate excluded job')
 const bypass = fake(safe)
 await bypass.client.rpc('admin_create_job', { payload: blocked })
 assert.equal(bypass.writes.length, 1)
-console.log('policy write helpers: 33 cases x 7 paths, content edit, reactivation, deactivation, read failure and unresolved raw-RPC bypass passed')
+console.log('policy write helpers: ' + cases.length + ' cases x 7 paths, content edit, reactivation, deactivation, read failure and unresolved raw-RPC bypass passed')
