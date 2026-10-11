@@ -54,7 +54,8 @@
     "\\bfinancial (sales|advisor)\\b"
   ],
   "sales_role": [
-    "\\b(sales|sale|kinh doanh|ban hang|telesales|tu van tai chinh)\\b"
+    "\\b(sales|sale|kinh doanh|ban hang|telesales|tu van tai chinh)\\b",
+    "\\b(salesperson|salesman|saleswoman|business development|moi gioi|tu van bat dong san)\\b"
   ],
   "loan_product": [
     "\\b(vay tien|cho vay|khoan vay|tin dung|tai chinh tieu dung|loan|credit card)\\b"
@@ -70,7 +71,8 @@
     "\\b(quan ly|cham soc|phat trien) (he thong )?(dai ly|nha phan phoi)\\b",
     "\\b(tim kiem|gap go|tham|di tham|phat trien) (khach hang doanh nghiep|khach hang b2b|dai ly|nha phan phoi)\\b",
     "\\b(field sales|outside sales|dealer management|distributor management)\\b",
-    "\\b(b2b|khach hang doanh nghiep)\\b.{0,80}\\b(thi truong|ngoai thi truong|di thi truong|ngoai hien truong|di gap)\\b"
+    "\\b(b2b|khach hang doanh nghiep)\\b.{0,80}\\b(thi truong|ngoai thi truong|di thi truong|ngoai hien truong|di gap)\\b",
+    "\\b(manage|managing) (dealers|distributors)\\b"
   ],
   "b2b_signal": [
     "\\b(b2b|khach hang doanh nghiep|dai ly|nha phan phoi)\\b"
