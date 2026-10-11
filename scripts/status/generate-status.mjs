@@ -7,7 +7,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { renderStatus, parseTestSummary } from './status-lib.mjs'
+import { renderStatus, parseTestSummary, extractVietmapRef } from './status-lib.mjs'
 
 const env = process.env
 const need = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'GITHUB_TOKEN', 'GITHUB_REPOSITORY']
@@ -82,7 +82,7 @@ const jobs = await attempt('공고', async () => {
 })
 
 const approvals = await attempt('승인 핀', async () => {
-  const cands = await sb('job_location_candidates?select=job_id,reviewed_at,evidence&status=eq.approved&order=reviewed_at.asc')
+  const cands = await sb('job_location_candidates?select=job_id,reviewed_at,evidence,lat,lng&status=eq.approved&order=reviewed_at.asc')
   if (!cands.length) return []
   const ids = [...new Set(cands.map((c) => c.job_id))].join(',')
   const [locs, js] = await Promise.all([
@@ -96,8 +96,32 @@ const approvals = await attempt('승인 핀', async () => {
     rawAddress: locs.find((l) => l.job_id === c.job_id)?.raw_address ?? null,
     company: js.find((j) => j.id === c.job_id)?.company ?? null,
     visible: jobs ? jobs.visibleIds.has(c.job_id) : true,
+    stored: { lat: c.lat, lng: c.lng },
   }))
 })
+
+// VietMap 재확인(읽기 전용 Place 조회, 최대 RECHECK_CAP회). 키는 GitHub Secrets에만 있고 출력하지 않는다.
+const RECHECK_CAP = 20
+let recheckCalls = 0
+if (approvals) {
+  for (const a of approvals) {
+    const ref = extractVietmapRef(a.evidence)
+    if (!env.VIETMAP_SERVICE_KEY) { a.recheck = { state: 'no_key' }; continue }
+    if (!ref) { a.recheck = { state: 'no_ref' }; continue }
+    if (recheckCalls >= RECHECK_CAP) { a.recheck = { state: 'skipped' }; continue }
+    recheckCalls++
+    try {
+      const q = new URLSearchParams({ apikey: env.VIETMAP_SERVICE_KEY, refid: ref })
+      const r = await fetch(`https://maps.vietmap.vn/api/place/v4?${q}`)
+      if (!r.ok) { a.recheck = { state: 'error', error: `HTTP ${r.status}` }; continue }
+      const p = await r.json()
+      if (typeof p?.lat !== 'number' || typeof p?.lng !== 'number') { a.recheck = { state: 'error', error: '응답에 좌표 없음' }; continue }
+      a.recheck = { state: 'ok', stored: a.stored, fetched: { lat: p.lat, lng: p.lng } }
+    } catch (e) {
+      a.recheck = { state: 'error', error: e.name === 'TypeError' ? '연결 실패' : e.name }
+    }
+  }
+}
 
 const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
 const vietmap = await attempt('VietMap 호출 수', () => sb(`vietmap_usage_daily?select=day,calls,updated_at&day=gte.${since}&order=day.desc`))
@@ -113,7 +137,7 @@ const { markdown, problems } = renderStatus({
   runUrl: env.RUN_URL,
   selfHash,
   checks: { tsc: env.TSC_OUTCOME, build: env.BUILD_OUTCOME, testsOutcome: env.TEST_OUTCOME, tests },
-  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges,
+  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls,
 })
 
 const errBlock = errors.length

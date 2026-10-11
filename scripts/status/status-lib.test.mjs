@@ -36,3 +36,16 @@ assert.ok(problems.some((p) => p.startsWith('핀 #4720')))
 assert.ok(problems.some((p) => p.startsWith('핀 #4750')))
 assert.ok(!problems.some((p) => p.startsWith('핀 #4713')))
 console.log('status-lib: all assertions passed')
+
+// VietMap 재확인 판정
+import { extractVietmapRef, judgeRecheck } from './status-lib.mjs'
+assert.equal(extractVietmapRef('...\nVietMap ref: geocode:ABC123\n...'), 'geocode:ABC123')
+assert.equal(extractVietmapRef('VietMap tile POI: x'), null)
+const P = { lat: 21.1719011, lng: 106.061922 }
+assert.ok(judgeRecheck({ state: 'ok', stored: P, fetched: { lat: 21.17191, lng: 106.06193 } }).ok, 'same point → ✅')
+const far = judgeRecheck({ state: 'ok', stored: P, fetched: { lat: 21.1758, lng: 106.0619 } })
+assert.ok(!far.ok && far.label.startsWith('❌'), 'faked coordinate ~430 m away → ❌')
+assert.ok(!judgeRecheck({ state: 'no_key' }).ok && !judgeRecheck({ state: 'no_ref' }).ok)
+const rp = renderStatus({ generatedAt: '2026-10-11T03:00:00Z', approvals: [{ ...cases[2], visible: true, recheck: { state: 'ok', stored: P, fetched: { lat: 21.1758, lng: 106.0619 } } }] })
+assert.ok(rp.problems.some((p) => p.includes('VietMap 재확인')), 'recheck mismatch is surfaced in 한눈에 보기')
+console.log('status-lib recheck: all assertions passed')

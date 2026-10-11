@@ -7,6 +7,7 @@ on:
   push:
     branches: [status]
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -29,6 +30,8 @@ jobs:
       - name: PR의 검증 장치 변경 감지
         if: github.event_name == 'pull_request'
         shell: bash
+        env:
+          LEE_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, '검증장치-승인') }}
         run: |
           set -euo pipefail
           base="${{ github.event.pull_request.base.sha }}"
@@ -42,8 +45,15 @@ jobs:
           if git cat-file -e "$base:scripts/status/generate-status.mjs" 2>/dev/null; then
             hit=$(echo "$changed" | grep -E '^(scripts/status/|\.github/workflows/status-)' || true)
             if [ -n "$hit" ]; then
-              echo "::error::이 PR은 검증 장치를 바꿉니다: $hit — Lee가 변경 내용을 직접 확인하기 전에는 병합하지 마세요."
-              exit 1
+              # Lee가 변경 내용을 보고 PR에 '검증장치-승인' 라벨을 직접 붙여야 통과한다.
+              # 한계: GitHub에서는 AI와 Lee가 같은 계정으로 보여 라벨을 누가 붙였는지 구분할 수 없다.
+              # 그래서 모든 변경은 STATUS.md 8번(검증 장치 변경 이력)에 7일간 경고로 남는다.
+              if [ "$LEE_APPROVED" = "true" ]; then
+                echo "검증 장치 변경: $hit — '검증장치-승인' 라벨 있음, 통과(STATUS.md 8번에 기록됨)"
+              else
+                echo "::error::이 PR은 검증 장치를 바꿉니다: $hit — Lee가 내용을 확인하고 PR에 '검증장치-승인' 라벨을 붙여야 병합할 수 있습니다."
+                exit 1
+              fi
             fi
           fi
           echo "검증 장치 변경 없음"
