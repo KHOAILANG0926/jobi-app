@@ -44,6 +44,7 @@ assert.equal(evaluateJobPostingPolicy(cases.find((r: { id: string }) => r.id ===
 console.log('posting policy: ' + cases.length + ' shared cases, edit/reactivation/hide regression passed')
 
 for (const fixture of cases) {
-  assert.deepEqual(evaluateJobPostingPolicy({ ...fixture.input, policy_decision: 'allow', policy_version: 'old' }),
+  const cachedInput = { ...fixture.input, policy_decision: 'allow', policy_version: 'old' }
+  assert.deepEqual(evaluateJobPostingPolicy(cachedInput),
     evaluateJobPostingPolicy(fixture.input), 'cached approval must not bypass current policy')
 }
