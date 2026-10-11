@@ -68,6 +68,23 @@ jobs:
         continue-on-error: true
         run: npm run build
 
+      - name: 배포 완료 대기 (master 반영 때만, 최대 10분)
+        # 배포가 끝나기 전에 기록하면 "배포 불일치" 가짜 경보가 뜬다(2026-10-11 세 번 발생). Vercel 배포 기록이 끝날 때까지 기다린다.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          for i in $(seq 1 40); do
+            id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=Production&sha=$GITHUB_SHA" --jq '.[0].id // empty')
+            if [ -n "$id" ]; then
+              st=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" --jq '.[0].state // empty')
+              case "$st" in success|failure|error|inactive) echo "배포 상태: $st"; exit 0;; esac
+            fi
+            sleep 15
+          done
+          echo "::warning::10분 안에 이 커밋의 배포 완료 기록이 없어 그대로 기록합니다."
+
       - name: STATUS 생성
         id: gen
         continue-on-error: true
