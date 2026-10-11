@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-11 12:09 (VN)**
-- 기준 커밋: `2d52265` (Merge pull request #44 from KHOAILANG0926/fix/status-generator-restore)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38113851179
+- 생성 시각: **2026-10-11 12:12 (VN)**
+- 기준 커밋: `9157ced` (Merge pull request #45 from KHOAILANG0926/docs/handoff-final-1011)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38113983017
 - 검증 스크립트 지문(SHA-256): `ee61465a031d5604`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `2d52265` · 상태 **success** · 2026-10-11 12:09 (VN)
+- 마지막 Production 배포: `9157ced` · 상태 **success** · 2026-10-11 12:11 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #45 | 2026-10-11 12:11 (VN) | `9157ced` | docs: HANDOFF·WORK_LOG 최종 정리 (10/11) |
 | #44 | 2026-10-11 12:08 (VN) | `2d52265` | fix(status): 생성기 조회 복구 + 생성기 전체 실행 점검 추가 |
 | #43 | 2026-10-11 12:05 (VN) | `74ab37f` | feat(status): VietMap 재확인을 사이트 서버로 (GitHub OIDC, 키 재등록 불필요) |
 | #42 | 2026-10-11 11:59 (VN) | `8b434aa` | fix(status): 배포 대기·검증장치 승인 라벨 + 근거 없는 승인 차단 SQL 초안 |
@@ -45,7 +46,6 @@
 | #38 | 2026-10-11 10:39 (VN) | `f87a352` | fix(locate): 승인 규칙 B안 — KCN 밖 회사명 일치만으로는 핀 없음 |
 | #37 | 2026-10-11 09:56 (VN) | `f6eed59` | chore: STATUS 자동 기록·위조 감시, 보고 검증 규정 |
 | #36 | 2026-10-11 07:17 (VN) | `c8ec35a` | Update handoff after PR 35 deployment |
-| #35 | 2026-10-11 07:07 (VN) | `4375492` | Trace address-cache retries and VietMap usage |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
