@@ -1,0 +1,23 @@
+name: Offline crawler CLI regression
+
+on:
+  pull_request:
+    paths:
+      - 'crawler/**'
+      - '.github/workflows/crawl.yml'
+      - '.github/workflows/crawler-cli-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # Standard library only. Never import crawler runtime or provide secrets.
+      - run: python -I crawler/test_scheduled_cli.py
