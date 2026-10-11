@@ -48,7 +48,15 @@ def evaluate_job_posting_policy(job):
     if not fields["title"] or not fields["description"] or _matches("ambiguous_title", fields["title"]):
         return result("review", "incomplete_role_evidence")
     text = fields["title"] + " " + fields["description"]
+    # Explicit enterprise-contract B2B wins over retail words/brands.
+    if (_matches("b2b_title", fields["title"]) and _matches("business_customer", fields["description"])
+            and _matches("customer_outreach", fields["description"]) and _matches("business_contract", fields["description"])):
+        return result("exclude", "b2b_business_contract_sales")
     sales = _matches("sales_role", fields["title"])
+    if (sales and not _matches("b2b_title", fields["title"]) and _matches("market_sales", text)
+            and (_matches("consumer_distribution", fields["company"] + " " + text)
+                 or _matches("retail_supply", fields["description"]))):
+        return result("allow", "consumer_retail_distribution_sales")
     retail = _matches("retail_primary", text)
     b2b = _matches("b2b_primary", text)
     if sales and b2b:
