@@ -361,5 +361,49 @@
       "category": ""
     },
     "expected": "allow"
+  },
+  {
+    "id": "retail-loan-benefit",
+    "input": {
+      "title": "Nhân viên bán hàng cửa hàng",
+      "company": "Synthetic Employer",
+      "description": "Bán hàng tại cửa hàng, được hỗ trợ vay tiền nếu cần.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "sales-loan-benefit",
+    "input": {
+      "title": "Nhân viên kinh doanh",
+      "company": "Synthetic Employer",
+      "description": "Tư vấn sản phẩm, nhân viên được vay tiền theo phúc lợi.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "financial-advisor",
+    "input": {
+      "title": "Financial Advisor",
+      "company": "Synthetic Employer",
+      "description": "Advise on loan products.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "credit-card-sales",
+    "input": {
+      "title": "Nhân viên bán thẻ tín dụng",
+      "company": "Synthetic Employer",
+      "description": "Tư vấn sản phẩm thẻ tín dụng.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
   }
 ]
