@@ -1,0 +1,45 @@
+-- DESIGN ONLY: all lines intentionally commented. No DDL is applied by this file.
+-- User has authorized application checks, NOT a DB evaluator/trigger.
+-- Required before executable SQL: live pg_trigger/pg_proc/pg_policies/GRANT,
+-- jobs/local_jobs relationship, deployed Edge/VPS writers and DB role privileges.
+--
+-- Proposed evaluator signature:
+-- public.evaluate_local_job_policy(payload jsonb) RETURNS jsonb
+-- decision = allow|exclude|review; reason; policy_version. No raw contacts or tokens.
+-- SECURITY INVOKER, SET search_path = pg_catalog, public; schema-qualified objects.
+-- Pure data-only function; no HTTP, dynamic SQL, writes or lookup of private rows.
+-- Derive rule constants from policy/job-posting-rules.json and test actual SQL
+-- against the same fixtures in a disposable DB before approval.
+-- Browser/Python preflight may call the approved evaluator later; do not introduce
+-- RPC dependence until privileges/version/errors and fixture parity are verified.
+--
+-- Proposed BEFORE INSERT OR UPDATE ON public.local_jobs, FOR EACH ROW:
+-- evaluate FINAL NEW.title/company/category/salary/description.
+-- If NEW.active IS TRUE AND NEW.admin_hidden IS FALSE and decision <> allow,
+-- RAISE EXCEPTION (stable policy code); rollback entire statement.
+-- Never trust caller policy_decision/policy_version or role-based administrator override.
+-- Allow inactive/hidden correction and deactivation. Review candidates are NOT
+-- automatically persisted under any new DB storage scheme.
+--
+-- Effects needing approval:
+-- Existing public violations would fail ordinary edits/reactivation; installation
+-- alone does not modify/hide them. Identify IDs/count by approved SELECT only.
+-- service-role/SECURITY DEFINER writes normally fire table triggers; a DB owner
+-- can disable triggers/change replication behavior, so no absolute bypass claim.
+-- Current app preflight has read/write race and direct RPC/REST/SQL bypass.
+--
+-- Approval-time migration outline (not executable here):
+-- BEGIN; create evaluator; restrict public default privileges;
+-- grant only tested caller EXECUTE roles; create dedicated trigger function;
+-- create named local_jobs_posting_policy_guard trigger; COMMIT.
+-- Preserve existing grants/RLS/admin/guest authorization; no Korea tables touched.
+--
+-- Approval-time rollback outline (only if this new deployment exists):
+-- BEGIN; DROP TRIGGER local_jobs_posting_policy_guard ON public.local_jobs;
+-- DROP FUNCTION public.enforce_local_job_posting_policy();
+-- DROP FUNCTION public.evaluate_local_job_policy(jsonb); COMMIT.
+-- No CASCADE, no DROP of existing objects, no data UPDATE/DELETE.
+-- If app wrappers are switched to RPC later, deploy compatible app rollback first
+-- or preserve evaluator until clients are reverted; otherwise registration fails.
+-- Recheck role/public exposure and metadata after either operation.
+-- Location approval guard / protected STATUS mechanisms are unrelated and untouched.
