@@ -1,5 +1,5 @@
 import { runAutoLocate, judgePois, pickHitToResolve, queryKey, districtOf, reportJobLoad, CHOTOT_EXPECTED_TOTAL, MAX_CALLS_PER_TARGET, MAX_CONSECUTIVE_FAILURES, type AutoLocateDeps, type AutoLocateJob, type SearchCache } from './chototAutoLocate.ts'
-import { DailyLimitError } from './adminVietmapClient.ts'
+import { DailyLimitError, VietmapRequestError } from './adminVietmapClient.ts'
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`FAIL: ${msg}`)
@@ -92,11 +92,59 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
 }
 {
   const failing: AutoLocateDeps = { ...makeDeps({}).deps, async search() { throw new Error('boom') } }
-  const r = await runAutoLocate([job(1, 'X')], failing, { expectedTotal: 1 })
+  failing.readUsage = async () => ({ used: 3, limit: 250 })
+  const r = await runAutoLocate([job(1, 'X')], failing, { expectedTotal: 1, usedAtStart: 0 })
   assert(r.searched === 0 && r.lookupFailed === 1 && r.notProcessed === 1 && r.stopped === 'incomplete', 'a failed lookup is not "searched": it stays unprocessed and the run is not "done"')
   assert(r.callsThisRun === 1, 'a failed request is still counted (the server counts it too)')
+  assert(r.serverUsedAtStart === 0 && r.serverUsedAtEnd === 3 && r.serverCallsDelta === 3, 'final usage snapshot captures server increments even when the request failed')
   const j = judgePois('Goertek Vina', { address: ADDR, location: ADDR }, { hits: 1, pois: [] })
   assert(j.approvePoi === null && j.reason === 'no_search_result', 'judgePois with no POI')
+}
+{
+  // 캐시만 쓴 실행에서도 시작/종료 서버 카운터를 별도로 읽어 다른 실행의 증가를 현재 페이지 호출로 오인하지 않는다.
+  const cached = makeDeps({}, { cache: { [queryKey('Cached', ADDR)]: { hits: 0, pois: [] } } })
+  cached.deps.readUsage = async () => ({ used: 13, limit: 250 })
+  const r = await runAutoLocate([job(1, 'Cached')], cached.deps, { usedAtStart: 10 })
+  assert(r.callsThisRun === 0 && r.serverUsedAtStart === 10 && r.serverUsedAtEnd === 13 && r.serverCallsDelta === 3, 'zero page attempts stay separate from a shared server-counter increase')
+}
+{
+  // 서버 일일 한도 429도 페이지가 보낸 시도에는 포함하되 서버 증가분은 0이다.
+  const limited = makeDeps({ [q('Limit')]: [poi('Limit')] }, { limitAfter: 0 })
+  limited.deps.readUsage = async () => ({ used: 250, limit: 250 })
+  const r = await runAutoLocate([job(1, 'Limit')], limited.deps, { usedAtStart: 250 })
+  assert(r.stopped === 'daily_limit' && r.callsThisRun === 1, 'daily-limit rejection remains visible as one page attempt')
+  assert(r.serverUsedAtStart === 250 && r.serverUsedAtEnd === 250 && r.serverCallsDelta === 0, 'daily-limit rejection does not increment the server counter')
+  assert(r.outcomes[0]?.jobId === 1 && r.outcomes[0]?.reason === 'daily_limit' && r.outcomes[0]?.requestCount === 1, 'daily-limit rejection keeps a per-job failure trace')
+}
+{
+  // 자정이 지나 공유 카운터가 초기화되면 음수를 0으로 꾸미지 않고 날짜와 delta 미확정을 보존한다.
+  const cached = makeDeps({}, { cache: { [queryKey('Midnight', ADDR)]: { hits: 0, pois: [] } } })
+  cached.deps.readUsage = async () => ({ used: 2, limit: 250, day: '2026-10-11' })
+  const r = await runAutoLocate([job(1, 'Midnight')], cached.deps, { usedAtStart: 249, usageDayAtStart: '2026-10-10' })
+  assert(r.serverDayAtStart === '2026-10-10' && r.serverDayAtEnd === '2026-10-11' && r.serverCallsDelta === null, 'day rollover leaves shared-counter delta unknown')
+}
+{
+  // 프록시가 실패 응답에 돌려준 예약 카운터는 종료 usage 재조회가 실패해도 잃지 않는다.
+  const failing: AutoLocateDeps = { ...makeDeps({}).deps, async search() { throw new VietmapRequestError('upstream_error', 8, 250, '2026-10-10') } }
+  failing.readUsage = async () => { throw new Error('usage read failed') }
+  const r = await runAutoLocate([job(1, 'Proxy Failure')], failing, { usedAtStart: 7, usageDayAtStart: '2026-10-10' })
+  assert(r.serverLastObservedUsed === 8 && r.serverLastObservedDay === '2026-10-10' && r.serverEndStatus === 'unavailable' && r.serverUsedAtEnd === null && r.serverCallsDelta === null, 'failed response usage metadata remains a last observation without impersonating a final snapshot')
+}
+{
+  // 마지막 usage 조회가 실패하면 중간 응답을 종료 스냅샷으로 가장하지 않는다.
+  let calls = 0
+  const partial: AutoLocateDeps = {
+    ...makeDeps({}).deps,
+    async search() {
+      calls++
+      if (calls === 1) return { data: [], used: 11, limit: 250, day: '2026-10-10' }
+      throw new Error('no usable response')
+    },
+    async readUsage() { throw new Error('usage read failed') },
+  }
+  const r = await runAutoLocate([job(1, 'First'), job(2, 'Second')], partial, { usedAtStart: 10, usageDayAtStart: '2026-10-10' })
+  assert(r.callsThisRun === 2 && r.serverLastObservedUsed === 11, 'the last usable response remains available as an observation')
+  assert(r.serverEndStatus === 'unavailable' && r.serverUsedAtEnd === null && r.serverCallsDelta === null, 'failed final usage read leaves end and delta unverified')
 }
 {
   // 연속 실패는 호출을 낭비하지 않도록 멈춘다.

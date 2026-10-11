@@ -26,6 +26,15 @@ export function pickAddressHit(address: string, hits: unknown): { hit: Hit | nul
 
 export const ADDRESS_APPROVAL_NOTE = 'Tự động duyệt: số nhà + tên đường khớp chính xác với kết quả VietMap và phường/xã hoặc quận/huyện (tên cũ ghi trong tin) khớp.'
 
+const ADDRESS_CACHE_RETRY_VERSION = 'address-v2'
+const ADDRESS_CACHE_RETRY_JOB_IDS = new Set([4685, 4721])
+
+/** 파서 보정 뒤 재조회가 필요한 두 공고만 새 캐시 키를 쓴다. 다른 공고와 기존 캐시는 그대로 유지한다. */
+export function addressCacheKey(address: string, jobId: number): string {
+  const base = `addr|${normalizePlaceText(`${parseStreetAddress(address).street} ${districtOf(address)}`)}`
+  return ADDRESS_CACHE_RETRY_JOB_IDS.has(jobId) ? `${base}|${ADDRESS_CACHE_RETRY_VERSION}|job-${jobId}` : base
+}
+
 export function judgeAddressPois(job: { address: string }, found: SearchedPlaces): Judgement {
   if (found.multipleExact) return { approvePoi: null, reason: 'multiple_exact' }
   const poi = found.pois[0]
@@ -40,7 +49,7 @@ export const ADDRESS_STRATEGY: LocateStrategy = {
     if (hasConflictingProvinces(address)) return 'address_conflict'
     return parseStreetAddress(address).searchable ? null : 'no_house_number'
   },
-  cacheKey: (_company, address) => `addr|${normalizePlaceText(`${parseStreetAddress(address).street} ${districtOf(address)}`)}`,
+  cacheKey: (_company, address, jobId) => addressCacheKey(address, jobId),
   searchText: (_company, address) => `${parseStreetAddress(address).street}, ${districtOf(address)}`.trim(),
   pick: (_company, address, hits) => pickAddressHit(address, hits),
   judge: (_company, job, found) => judgeAddressPois(job, found),

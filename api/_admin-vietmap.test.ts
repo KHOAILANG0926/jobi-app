@@ -16,7 +16,7 @@ function makeRes() {
   return res
 }
 
-function makeDeps(opts: { role?: string; configured?: boolean; used?: number; counterFails?: boolean; upstreamOk?: boolean } = {}) {
+function makeDeps(opts: { role?: string; configured?: boolean; used?: number; counterFails?: boolean; upstreamOk?: boolean; upstreamStatus?: number; upstreamThrows?: boolean } = {}) {
   const calls = { upstream: 0, take: 0, read: 0, urls: [] as string[] }
   let used = opts.used ?? 0
   const deps = {
@@ -40,7 +40,8 @@ function makeDeps(opts: { role?: string; configured?: boolean; used?: number; co
     async upstream(url: string, params: Record<string, string>) {
       calls.upstream++
       calls.urls.push(`${url}?${new URLSearchParams(params)}`)
-      return opts.upstreamOk === false ? { ok: false, status: 423 } : { ok: true, status: 200, json: [{ ref_id: 'r1', name: 'Pizza Hut' }] }
+      if (opts.upstreamThrows) throw Object.assign(new Error('timeout'), { name: 'TimeoutError' })
+      return opts.upstreamOk === false ? { ok: false, status: opts.upstreamStatus ?? 423 } : { ok: true, status: 200, json: [{ ref_id: 'r1', name: 'Pizza Hut' }] }
     },
   }
   return { deps, calls }
@@ -87,7 +88,7 @@ async function run(deps: ReturnType<typeof makeDeps>['deps'], req: { method?: st
 {
   const { deps, calls } = makeDeps({ used: DAILY_LIMIT })
   const r = await run(deps, { body: { action: 'search', text: 'x' } })
-  assert(r.code === 429 && calls.upstream === 0, `limit ${DAILY_LIMIT} reached → 429 and upstream not called`)
+  assert(r.code === 429 && calls.upstream === 0 && (r.body as { day?: string }).day === vietnamDay(), `limit ${DAILY_LIMIT} reached → 429 and upstream not called`)
   assert(DAILY_LIMIT === 250, 'daily limit is 250')
 }
 {
@@ -101,13 +102,21 @@ async function run(deps: ReturnType<typeof makeDeps>['deps'], req: { method?: st
 {
   const { deps } = makeDeps({ upstreamOk: false })
   const r = await run(deps, { body: { action: 'search', text: 'x' } })
-  assert(r.code === 502 && (r.body as { upstreamStatus: number }).upstreamStatus === 423, 'upstream failure → 502 with status only')
+  const body = r.body as { upstreamStatus: number; used: number; limit: number; day?: string }
+  assert(r.code === 502 && body.upstreamStatus === 423 && body.used === 1 && body.limit === DAILY_LIMIT && body.day === vietnamDay(), 'upstream failure → safe 502 with reserved usage count and day')
+  const rateLimited = await run(makeDeps({ upstreamOk: false, upstreamStatus: 429 }).deps, { body: { action: 'search', text: 'x' } })
+  assert(rateLimited.code === 502 && (rateLimited.body as { upstreamStatus: number; used: number }).upstreamStatus === 429 && (rateLimited.body as { used: number }).used === 1, 'upstream 429 is counted before proxying and reported without an upstream body')
+}
+{
+  const r = await run(makeDeps({ upstreamThrows: true }).deps, { body: { action: 'search', text: 'x' } })
+  const body = r.body as { error: string; used?: number; limit?: number; day?: string }
+  assert(r.code === 500 && body.error === 'Operation failed' && body.used === 1 && body.limit === DAILY_LIMIT && body.day === vietnamDay(), 'timeout after reservation returns the safe server count and day')
 }
 {
   const { deps, calls } = makeDeps({ used: 37, configured: false })
   const r = await run(deps, { body: { action: 'usage' } })
-  const body = r.body as { ok: boolean; used: number; limit: number }
-  assert(r.code === 200 && body.used === 37 && body.limit === DAILY_LIMIT, 'usage action returns today used/limit')
+  const body = r.body as { ok: boolean; used: number; limit: number; day?: string }
+  assert(r.code === 200 && body.used === 37 && body.limit === DAILY_LIMIT && body.day === vietnamDay(), 'usage action returns today used/limit/day')
   assert(calls.upstream === 0 && calls.take === 0 && calls.read === 1, 'usage never calls VietMap and does not count')
   const denied = await run(makeDeps({ role: 'employer' }).deps, { body: { action: 'usage' } })
   assert(denied.code === 403, 'usage is admin only')
