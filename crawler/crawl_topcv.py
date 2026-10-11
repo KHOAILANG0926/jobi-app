@@ -44,6 +44,7 @@ from job_quality import (
     split_work_locations,
     validate_job_payload,
 )
+from job_posting_policy import crawler_policy_errors
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -2085,6 +2086,11 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             print(f"       기존 id={existing['id']} 데이터는 그대로 둠(실패한 결과로 덮어쓰지 않음)")
             return {"action": "failed_existing_untouched", "id": existing["id"]}
         return {"action": "failed_new_skipped", "id": None}
+
+    policy_errors = crawler_policy_errors(job)
+    if policy_errors:
+        print(f"    ⛔ 정책 수집 제외: {policy_errors}")
+        return {"action": "policy_skipped", "id": existing.get("id") if existing else None}
 
     resolved = job.get("_resolved_locations") or []
     had_transient = job.get("_had_transient_geocode_failure", False)
