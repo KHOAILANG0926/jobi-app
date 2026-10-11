@@ -1,8 +1,25 @@
-import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import cases from '../../policy/job-posting-fixtures.mjs'
 import { evaluateJobPostingPolicy, assertJobPublishable, assertPublicJobWrite, hasExcludedMoneyRole } from './jobPostingPolicy.mjs'
 import { hasExcludedMoneyTerms } from './jobQualityFilter.ts'
-const cases = JSON.parse(readFileSync(new URL('../../policy/job-posting-fixtures.json', import.meta.url), 'utf8'))
+const assert = {
+  equal(actual: unknown, expected: unknown, label = '') {
+    if (actual !== expected) throw new Error(label + ': expected ' + String(expected) + ', got ' + String(actual))
+  },
+  deepEqual(actual: unknown, expected: unknown, label = '') {
+    this.equal(JSON.stringify(actual), JSON.stringify(expected), label)
+  },
+  throws(fn: () => unknown) {
+    let rejected = false
+    try { fn() } catch { rejected = true }
+    this.equal(rejected, true, 'expected rejection')
+  },
+  doesNotThrow(fn: () => unknown) { fn() },
+  async rejects(fn: () => Promise<unknown>) {
+    let rejected = false
+    try { await fn() } catch { rejected = true }
+    this.equal(rejected, true, 'expected async rejection')
+  },
+}
 for (const fixture of cases) {
   const result = evaluateJobPostingPolicy(fixture.input)
   assert.equal(result.decision, fixture.expected, fixture.id)
@@ -23,7 +40,7 @@ for (const fixture of cases) {
   }
 }
 assert.equal(evaluateJobPostingPolicy({ title: 'Công nhân', description: '[source:legacy]' }).decision, 'review')
-assert.equal(evaluateJobPostingPolicy(cases.find((r: { id: string }) => r.id === 'high-incentive').input).reason, 'professional_incentive_sales')
+assert.equal(evaluateJobPostingPolicy(cases.find((r: { id: string }) => r.id === 'high-incentive')!.input).reason, 'professional_incentive_sales')
 console.log('posting policy: ' + cases.length + ' shared cases, edit/reactivation/hide regression passed')
 
 for (const fixture of cases) {
