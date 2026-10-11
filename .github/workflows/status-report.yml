@@ -26,6 +26,7 @@ jobs:
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -76,9 +77,10 @@ jobs:
         shell: bash
         run: |
           for i in $(seq 1 40); do
-            id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=Production&sha=$GITHUB_SHA" --jq '.[0].id // empty')
+            # 조회 실패(일시 오류)로 실행 전체가 멈추지 않게 한다(2026-10-11 GPT 교차 검증 지적).
+            id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=Production&sha=$GITHUB_SHA" --jq '.[0].id // empty' 2>/dev/null || true)
             if [ -n "$id" ]; then
-              st=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" --jq '.[0].state // empty')
+              st=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" --jq '.[0].state // empty' 2>/dev/null || true)
               case "$st" in success|failure|error|inactive) echo "배포 상태: $st"; exit 0;; esac
             fi
             sleep 15

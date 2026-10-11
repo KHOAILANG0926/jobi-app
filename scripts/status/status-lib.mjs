@@ -80,6 +80,31 @@ export const VERDICT_LABEL = {
   NO_JOB_HOUSE: '❌ 공고 주소에 번지 없음',
 }
 
+export function extractVietmapRef(evidence) {
+  const m = String(evidence ?? '').match(/VietMap ref:\s*(\S+)/)
+  return m ? m[1] : null
+}
+
+export function distanceM(a, b) {
+  const R = 6371000, rad = (x) => (x * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+// VietMap 재확인: 근거에 적힌 ref로 VietMap에 다시 물어 받은 좌표가 저장된 핀과 같은지(30 m 이내).
+// 근거 글자는 지어낼 수 있어도 VietMap 응답은 지어낼 수 없다(2026-10-11 GPT 교차 검증 지적 반영).
+export const RECHECK_MAX_M = 30
+export function judgeRecheck(r) {
+  if (!r) return { ok: false, label: '— 재확인 안 함' }
+  if (r.state === 'no_key') return { ok: false, label: '⚠️ 재확인 불가 (VietMap 키 없음)' }
+  if (r.state === 'no_ref') return { ok: false, label: '⚠️ 재확인 불가 (근거에 VietMap ref 없음)' }
+  if (r.state === 'error') return { ok: false, label: `⚠️ 재확인 실패 (${r.error})` }
+  if (r.state === 'skipped') return { ok: false, label: '⚠️ 재확인 안 함 (호출 상한)' }
+  const d = Math.round(distanceM(r.stored, r.fetched))
+  return d <= RECHECK_MAX_M ? { ok: true, label: `✅ 일치 (${d} m)` } : { ok: false, label: `❌ 불일치 — VietMap 좌표와 ${d} m 차이` }
+}
+
 export function parseTestSummary(output) {
   const m = String(output ?? '').match(/(\d+)\/(\d+) test files passed/)
   return m ? { passed: Number(m[1]), total: Number(m[2]) } : null
@@ -159,13 +184,15 @@ export function renderStatus(d) {
   L.push('판정은 공고 주소와 승인 근거의 번지·도로명·회사명을 문자열로 대조한 결과다.')
   L.push('')
   if (d.approvals?.length) {
-    L.push('| 공고 | 승인 시각 | 판정 | 공고 주소 번지 | 근거 번지 | 근거 POI |')
-    L.push('|---|---|---|---|---|---|')
+    L.push('| 공고 | 승인 시각 | 판정 | VietMap 재확인 | 공고 주소 번지 | 근거 번지 | 근거 POI |')
+    L.push('|---|---|---|---|---|---|---|')
     for (const a of d.approvals) {
       const r = judgeApproval(a)
       const h = (x) => (x ? `${x.num} ${x.street}` : '—')
-      L.push(`| #${a.jobId}${a.visible ? '' : ' (비공개)'} | ${fmtVN(a.reviewedAt)} | ${VERDICT_LABEL[r.verdict]} | ${esc(h(r.jobHouse))} | ${esc(h(r.evidenceHouse))} | ${esc(r.poiName)} |`)
+      const rc = judgeRecheck(a.recheck)
+      L.push(`| #${a.jobId}${a.visible ? '' : ' (비공개)'} | ${fmtVN(a.reviewedAt)} | ${VERDICT_LABEL[r.verdict]} | ${esc(rc.label)} | ${esc(h(r.jobHouse))} | ${esc(h(r.evidenceHouse))} | ${esc(r.poiName)} |`)
       if (r.verdict !== 'OK' && a.visible) bad.push(`핀 #${a.jobId}: ${VERDICT_LABEL[r.verdict]}`)
+      if (a.recheck && !rc.ok && a.visible) bad.push(`핀 #${a.jobId}: VietMap 재확인 ${rc.label}`)
     }
   } else L.push('- 승인된 핀 없음')
   L.push('')
@@ -178,6 +205,7 @@ export function renderStatus(d) {
     L.push('|---|---|---|')
     for (const u of d.vietmap) L.push(`| ${u.day} | ${u.calls} | ${fmtVN(u.updated_at)} |`)
   } else L.push('- 최근 7일 호출 기록 없음')
+  if (typeof d.recheckCalls === 'number') L.push(`- 이번 STATUS 재확인에 쓴 VietMap 호출: ${d.recheckCalls}회 (앱 서버 카운터와 별도)`)
   L.push('')
 
   // 7. 관리자 기록
