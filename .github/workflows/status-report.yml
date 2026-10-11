@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # VietMap 재확인용 GitHub OIDC 토큰(api/status-recheck가 이 실행인지 확인)
   deployments: read
   pull-requests: read
 
@@ -26,7 +27,6 @@ jobs:
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:

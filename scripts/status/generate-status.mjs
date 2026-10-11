@@ -100,32 +100,35 @@ const approvals = await attempt('승인 핀', async () => {
   }))
 })
 
-// VietMap 재확인(읽기 전용 Place 조회, 최대 RECHECK_CAP회). 키는 GitHub Secrets에만 있고 출력하지 않는다.
-const RECHECK_CAP = 20
-let recheckCalls = 0
-if (approvals) {
-  for (const a of approvals) {
-    const ref = extractVietmapRef(a.evidence)
-    if (!env.VIETMAP_SERVICE_KEY) { a.recheck = { state: 'no_key' }; continue }
-    if (!ref) { a.recheck = { state: 'no_ref' }; continue }
-    if (recheckCalls >= RECHECK_CAP) { a.recheck = { state: 'skipped' }; continue }
-    recheckCalls++
+// VietMap 재확인 — 우리 사이트 서버(api/status-recheck)에 부탁한다(2026-10-11 사용자 결정 A안).
+// GitHub이 서명한 OIDC 토큰으로 이 STATUS 실행임을 증명하므로 VietMap 키를 GitHub에 따로 등록하지 않는다.
+// 서버가 근거의 VietMap ref로 Place를 다시 조회해 저장 좌표와 받은 좌표를 돌려주고, 판정은 judgeRecheck가 한다.
+let recheckCalls = null
+if (approvals?.length) {
+  const fail = (state, error) => { for (const a of approvals) a.recheck = { state, error } }
+  if (!env.ACTIONS_ID_TOKEN_REQUEST_URL || !env.ACTIONS_ID_TOKEN_REQUEST_TOKEN) {
+    fail('error', 'OIDC 토큰 없음(워크플로 id-token 권한 확인)')
+  } else {
     try {
-      const q = new URLSearchParams({ apikey: env.VIETMAP_SERVICE_KEY, refid: ref })
-      const r = await fetch(`https://maps.vietmap.vn/api/place/v4?${q}`)
-      if (!r.ok) { a.recheck = { state: 'error', error: `HTTP ${r.status}` }; continue }
-      const p = await r.json()
-      if (typeof p?.lat !== 'number' || typeof p?.lng !== 'number') { a.recheck = { state: 'error', error: '응답에 좌표 없음' }; continue }
-      a.recheck = { state: 'ok', stored: a.stored, fetched: { lat: p.lat, lng: p.lng } }
+      const t = await fetch(`${env.ACTIONS_ID_TOKEN_REQUEST_URL}&audience=viecganban-status`, { headers: { Authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` } })
+      const oidc = (await t.json()).value
+      const r = await fetch(env.RECHECK_URL ?? 'https://viecganban.vn/api/status-recheck', { method: 'POST', headers: { Authorization: `Bearer ${oidc}` } })
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}))
+        fail('error', `서버 HTTP ${r.status}${body.error ? ` ${body.error}` : ''}`)
+      } else {
+        const { calls, results } = await r.json()
+        recheckCalls = calls
+        for (const a of approvals) {
+          const x = results.find((y) => y.jobId === a.jobId)
+          a.recheck = x ?? { state: 'error', error: '서버 결과에 없음' }
+        }
+      }
     } catch (e) {
-      a.recheck = { state: 'error', error: e.name === 'TypeError' ? '연결 실패' : e.name }
+      fail('error', e.name === 'TypeError' ? '서버 연결 실패' : e.name)
     }
   }
 }
-
-const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
-const vietmap = await attempt('VietMap 호출 수', () => sb(`vietmap_usage_daily?select=day,calls,updated_at&day=gte.${since}&order=day.desc`))
-const audit = await attempt('관리자 기록', () => sb('admin_audit_logs?select=action,target_type,target_id,created_at&order=created_at.desc&limit=10'))
 
 let tests = null
 if (env.TEST_LOG && existsSync(env.TEST_LOG)) tests = parseTestSummary(readFileSync(env.TEST_LOG, 'utf8'))
