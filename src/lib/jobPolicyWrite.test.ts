@@ -92,3 +92,50 @@ const bypass = fake(safe)
 await bypass.client.rpc('admin_create_job', { payload: blocked })
 assert.equal(bypass.writes.length, 1)
 console.log('policy write helpers: ' + cases.length + ' cases x 7 paths, content edit, reactivation, deactivation, read failure and unresolved raw-RPC bypass passed')
+
+function legacyGuest(row: Record<string, unknown>, visible: boolean, publicReadError = false) {
+  const writes: Record<string, unknown>[] = []
+  const publicReads: string[] = []
+  const client = {
+    from: () => {
+      const chain = {
+        select: (columns: string) => { publicReads.push(columns); return chain },
+        eq: () => chain,
+        maybeSingle: async () => ({
+          data: visible ? { id: 1 } : null,
+          error: publicReadError ? { message: 'read failed' } : null,
+        }),
+      }
+      return chain
+    },
+    rpc: async (name: string, params: Record<string, unknown>) => {
+      if (name === 'get_guest_job') return { data: [row], error: null }
+      writes.push(params)
+      return { data: [{ id: 1, active: row.active }], error: null }
+    },
+  } as unknown as SupabaseClient
+  return { client, writes, publicReads }
+}
+const { admin_hidden: _hidden, ...legacyBlocked } = { ...blocked, active: true, admin_hidden: true }
+const hiddenEdit = legacyGuest(legacyBlocked, false)
+await checkedGuestJobUpdate(hiddenEdit.client, { p_job_id: 1, p_token: 'synthetic', p_description: blocked.description })
+assert.equal(hiddenEdit.writes.length, 1, 'legacy hidden edit must be saved')
+assert.equal(Object.hasOwn(hiddenEdit.writes[0], 'admin_hidden'), false, 'hidden not changed by guest')
+assert.deepEqual(hiddenEdit.publicReads, ['id'], 'no private fields read')
+const publicEdit = legacyGuest(legacyBlocked, true)
+await assert.rejects(() => checkedGuestJobUpdate(publicEdit.client, {
+  p_job_id: 1, p_token: 'synthetic', p_description: blocked.description,
+}))
+assert.equal(publicEdit.writes.length, 0, 'same public excluded edit must fail')
+const unknownVisibility = legacyGuest(legacyBlocked, false, true)
+await assert.rejects(() => checkedGuestJobUpdate(unknownVisibility.client, { p_job_id: 1, p_token: 'synthetic' }))
+assert.equal(unknownVisibility.writes.length, 0, 'public SELECT errors fail closed')
+const legacyActivation = legacyGuest({ ...legacyBlocked, active: false }, false)
+await assert.rejects(() => checkedGuestJobUpdate(legacyActivation.client, {
+  p_job_id: 1, p_token: 'synthetic', p_active: true,
+}))
+assert.equal(legacyActivation.writes.length, 0, 'legacy activation still blocked')
+const knownHidden = fake({ ...blocked, active: true, admin_hidden: true })
+await checkedGuestJobUpdate(knownHidden.client, { p_job_id: 1, p_token: 'synthetic', p_description: blocked.description })
+assert.equal(knownHidden.writes.length, 1, 'future token RPC known hidden edit allowed')
+console.log('guest hidden regression: legacy hidden/public, SELECT errors, activation and known-hidden cases passed')
