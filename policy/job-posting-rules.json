@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-11-v1",
+  "version": "2026-10-12-v2",
   "debt": [
     [
       "thu hoi",
@@ -65,7 +65,8 @@
   ],
   "retail_primary": [
     "\\b(cua hang|sieu thi|minimart|thu ngan|cashier|store assistant|shop assistant|retail assistant)\\b",
-    "\\bretail store\\b"
+    "\\bretail store\\b",
+    "\\b(dien may|showroom|noi that)\\b"
   ],
   "b2b_primary": [
     "\\b(quan ly|cham soc|phat trien) (he thong )?(dai ly|nha phan phoi)\\b",
@@ -78,7 +79,7 @@
     "\\b(b2b|khach hang doanh nghiep|dai ly|nha phan phoi)\\b"
   ],
   "professional_sales": [
-    "\\b(chuyen vien|sales executive|sales specialist|key account|bat dong san|professional sales)\\b"
+    "\\b(chuyen vien|sales? executive|sales specialist|key account|bat dong san|professional sales)\\b"
   ],
   "incentive": [
     "\\b(hoa hong|commission|incentive)\\b"
@@ -95,5 +96,26 @@
     "\\b(tiep can|tim kiem) khach hang (vay|vay tien)\\b",
     "\\b(ban|tu van) the tin dung\\b",
     "\\b(sell|selling|advise on) (loans|loan products|credit cards)\\b"
+  ],
+  "b2b_title": [
+    "\\bb2b\\b"
+  ],
+  "business_customer": [
+    "\\b(f b|fnb|doanh nghiep|khach hang doanh nghiep|business clients?|corporate clients?|cua hang|nha hang|quan ca phe|quan an)\\b"
+  ],
+  "customer_outreach": [
+    "\\b(tim kiem|tiep can|di gap|gap go|tham|di tham|visit|visiting|prospect|prospecting|approach)\\b"
+  ],
+  "business_contract": [
+    "\\b(hop dong|ky ket|ky hop dong|contract|contracts|contracting)\\b"
+  ],
+  "market_sales": [
+    "\\b(sales? thi truong|kinh doanh thi truong|nhan vien thi truong)\\b"
+  ],
+  "consumer_distribution": [
+    "\\b(coca cola|kinh do|unilever|panasonic|nha phan phoi|cong ty phan phoi|hang tieu dung|fmcg)\\b"
+  ],
+  "retail_supply": [
+    "\\b(tap hoa|diem ban|cua hang ban le|cua hang|sieu thi|retail outlets?|retail shops?)\\b"
   ]
 }
