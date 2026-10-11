@@ -20,7 +20,7 @@ Process completed with exit code 1.
 [직접 확인] 자동 승인 검토가 최초 workflow 변경을 거절했다: “Adding --confirm-full-crawl to the scheduled workflow would authorize future full crawler execution with the production service-role key, effectively resuming collection and database writes despite the user's explicit prohibition…”
 [직접 확인] 안전한 대안: workflow job은 `if: ${{ false }}`로 예약/수동 모두 실행 중지. daily wrapper는 무인자에서 .env/다른 crawler 전에 exit2, 별도 승인 후에만 --confirm-scheduled-run을 전달하도록 명시. 기존 무인자 cron을 재개시키지 않는다. 이 flag를 넣는 cron 변경/실행과 workflow 중지 해제는 별도 사용자 승인 필요.
 [직접 확인] CLI 검사는 실제 parser/resolver/entrypoint AST만 실행하고 async handler는 recorder, Bash timeout은 가짜 실행기로 인자만 기록한다. 실제 crawler import/외부 수집/DB client 없음. PR-only 테스트 workflow에는 secret이 없다.
-[추정] CI 최종 결과는 실제 성공 로그 확인 후 갱신한다. 로컬 exec는 helper setup 오류로 실행 불가였다.
+[직접 확인] 검증 code SHA `6329467ac6ca08d0c3c38d883b8b833c00c26fe6`: [CLI38183216848](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38183216848) job114599996226 로그 `Ran 15 tests in 0.057s / OK`. [checks38183216813](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38183216813) job114599996071 tsc 성공, npm `50/50 test files passed.`, build `built in 1.07s / 109ms`; policy38183216819 성공. 실제 수집/Production 검사가 아닌 오프라인 검사다. 로컬 exec는 helper setup 오류로 실행 불가였다.
 [직접 확인] WORK_LOG·보호 STATUS·location guard·PR46 보고서·한국 모듈 수정 없음. 병합·배포·실제 수집 재개·DB 변경 없음.
 
 ## 불일치 원문 및 변경 근거
