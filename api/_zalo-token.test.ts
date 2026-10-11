@@ -57,8 +57,10 @@ function resetAdminState(): void {
 // api/zalo-token.js는 매 요청마다 자체적으로 createClient(...)를 호출해
 // admin 클라이언트를 만든다(의존성 주입 구조가 아님) — 그래서 실제 핸들러를
 // 그대로 실행하면서 Supabase만 갈아끼우려면 모듈 자체를 모킹해야 한다.
+// Node 22의 mock.module은 `namedExports`만 인식한다(`exports` 옵션은 더 새 Node에서 추가됨).
+// `exports`로 쓰면 Node 22에서 무시되어 createClient가 없는 가짜 모듈이 되고 테스트가 시작조차 못 했다(2026-10-11 확인).
 mock.module('@supabase/supabase-js', {
-  exports: {
+  namedExports: {
     createClient: () => ({
       auth: {
         admin: {
