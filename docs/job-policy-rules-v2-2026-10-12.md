@@ -15,7 +15,7 @@
 
 ## 테스트
 [직접 확인] Python [run38185718447](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38185718447), job114607482950 `Ran 6 tests in 0.163s / OK`, 기존 품질21/21·문법 성공. 원문16건 검증 미실행.
-[추정] tsc/npm/build 결과는 최종 성공 로그 확인 후 추가한다.
+[직접 확인] Code SHA `5dccc93e2508a77d5ade3670500126abbf43fa8f`: [checks38185718433](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38185718433), job114607482790 타입 검사 성공; 로그 `53 shared cases`, `53 cases x 7 paths`, `singular professional and B2B contract precedence verified; operational originals NOT supplied`, npm `50/50 test files passed.`, build `1.06s / 114ms`. CLI38185718450·guard38185718456도 성공. 원문16건 테스트 미실행과 별개다.
 [직접 확인] 수집 workflow의 if:false와 daily 무인자 중지 유지. STATUS 보호·location guard·한국 모듈·PR46 보고서·WORK_LOG 변경 없음. DB 공통 trigger/관리자예외 강제는 미구현 상태다.
 [직접 확인] 수정 파일: policy/job-posting-rules.json, policy/job-posting-fixtures.json, policy/operational-fixture-requirements.json, src/lib/jobPostingPolicy.mjs, src/lib/jobPostingPolicy.test.ts, crawler/job_posting_policy.py, 이 문서와 HANDOFF.
 
