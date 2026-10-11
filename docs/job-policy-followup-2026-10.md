@@ -90,7 +90,7 @@
 ## 7. 실행 검사 및 미확인
 [직접 확인] 첫 회귀 CI run38155327690의 타입 검사에서 Object.hasOwn ES target 호환 오류가 났고 npm/build는 skipped였다. 프로젝트 target 변경 없이 hasOwnProperty.call로 수정했다. 이 실패를 통과로 기록하지 않는다.
 [직접 확인] 로컬 exec helper setup 오류와 Node kernel unexpected exit로 skill 파일/로컬 테스트 실행 불가. 원격 GitHub Actions 격리 검사로 진행한다. Production 검증은 포함되지 않는다.
-[추정] 최종 CI 결과는 다음 문서 갱신에서 실제 로그와 함께 기록한다.
+[직접 확인] 회귀 수정 code SHA `082911b790bdbe4fcfbef0bee1b5455574659ce7`: [checks38155634979](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38155634979), job114517927697 로그 `guest hidden regression: legacy hidden/public, SELECT errors, activation and known-hidden cases passed`, `50/50 test files passed.`; tsc 성공, build `built in 749ms / 212ms`. [Python38155634893](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38155634893), job114517927311 `Ran 6 tests in 0.134s / OK`, `21/21 job quality tests passed`; 문법검사 성공. 실제 DB·브라우저 통합 검사가 아니다.
 [직접 확인] WORK_LOG 갱신 보류·기존 운영 지침/미완료 Goong 항목 보존. 보호된 STATUS/location guard/PR46 보고/한국 모듈 변경 없음. 병합·배포·수집·DB 적용 없음.
 
 ## 원문 코드 근거
