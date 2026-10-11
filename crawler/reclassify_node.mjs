@@ -1,3 +1,4 @@
+import { assertPublicJobWrite } from '../src/lib/jobPostingPolicy.mjs'
 // Node port of classifier.py (kept in sync manually) — used because this
 // environment has no working Python interpreter. Mirrors classify() 1:1.
 import fs from 'fs'
@@ -145,7 +146,7 @@ async function fetchAllJobs() {
   const pageSize = 1000
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/local_jobs?select=id,title,company,category,description&order=id.asc&offset=${page * pageSize}&limit=${pageSize}`,
+      `${SUPABASE_URL}/rest/v1/local_jobs?select=id,title,company,category,description,salary,active,admin_hidden&order=id.asc&offset=${page * pageSize}&limit=${pageSize}`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     )
     const batch = await res.json()
@@ -167,6 +168,8 @@ for (const j of jobs) {
   const desc = j.description || ''
   const descClean = desc.includes(']') ? desc.split(']').slice(1).join(']').trim() : desc
   const newCat = classify(j.title || '', j.company || '', descClean)
+  try { assertPublicJobWrite(j, { category: newCat }) }
+  catch { console.log('policy skip id=' + j.id); continue }
   if (newCat !== oldCat) {
     updates.push({ id: j.id, old: oldCat, new: newCat, title: j.title, company: j.company })
   }
