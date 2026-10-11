@@ -63,7 +63,8 @@
     "\\b(cong ty tai chinh|fe credit|home credit|mcredit|mirae asset|shinhan finance|vpbank finance)\\b"
   ],
   "retail_primary": [
-    "\\b(cua hang|sieu thi|minimart|thu ngan|cashier|store assistant|shop assistant|retail assistant)\\b"
+    "\\b(cua hang|sieu thi|minimart|thu ngan|cashier|store assistant|shop assistant|retail assistant)\\b",
+    "\\bretail store\\b"
   ],
   "b2b_primary": [
     "\\b(quan ly|cham soc|phat trien) (he thong )?(dai ly|nha phan phoi)\\b",
