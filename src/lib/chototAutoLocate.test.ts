@@ -38,6 +38,9 @@ const job = (id: number, company: string, address = ADDR, existing: AutoLocateJo
 })
 const q = (company: string, address = ADDR) => `${company} ${districtOf(address)}`
 const poi = (name: string, extra: Partial<Place> = {}): Place => ({ name, lat: 21.2, lng: 106.05, ...UNITS, ...extra })
+// B안(2026-10-11) 이후 회사명 자동 승인은 KCN 윤곽 안에서만 일어난다. 승인 흐름(한도·재개·후보 재사용) 테스트는 VSIP 윤곽 안 좌표로 한다.
+const KADDR = 'KCN VSIP, Xã Phù Chẩn, Thị xã Từ Sơn, Tỉnh Bắc Ninh'
+const kpoi = (name: string): Place => ({ name, lat: 21.0800324, lng: 105.9835287, ward: 'Xã Phù Chẩn', district: 'Thị xã Từ Sơn', city: 'Tỉnh Bắc Ninh' })
 
 assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ninh' && queryKey('A', ADDR).includes('|'), 'query is built from the district part only')
 
@@ -54,15 +57,15 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
     job(1, 'Goertek Vina'), job(2, 'Pizza Việt Nam'), job(3, 'Acme'), job(4, 'Foo Bar'), job(5, 'Moved Co', OTHER), job(6, 'Nobody'), job(7, ''),
   ], deps)
   const by = Object.fromEntries(r.outcomes.map((o) => [o.jobId, o]))
-  assert(by[1].status === 'approved' && state.added.includes(1) && state.approved.length === 1, 'exact name inside the address district → approved coordinate')
+  assert(by[1].status === 'no_pin' && by[1].reason === 'name_only_no_house' && state.approved.length === 0, 'exact name inside the address district only → no pin (B안 2026-10-11: house number required)')
   assert(by[2].status === 'no_pin' && by[2].reason === 'registered_address_like', 'legal-name POI (registered address) is excluded')
   assert(by[3].status === 'no_pin' && by[3].reason === 'multiple_exact', 'several exact-name POIs (branches) → no pin')
   assert(by[4].status === 'no_pin' && by[4].reason === 'no_search_result' && state.places === 3, 'similar-but-not-exact name → no pin and no Place call spent on it')
   assert(by[5].status === 'no_pin' && by[5].reason === 'address_not_inside', 'exact name but POI outside the address district → no pin')
   assert(by[6].reason === 'no_search_result' && by[7].reason === 'no_company', 'nothing found / no company → no pin')
-  assert(r.searched === 7 && r.autoApproved === 1 && r.noPin === 6 && r.stopped === 'done' && r.notProcessed === 0, 'summary counts')
+  assert(r.searched === 7 && r.autoApproved === 0 && r.noPin === 7 && r.stopped === 'done' && r.notProcessed === 0, 'summary counts')
   assert(r.callsThisRun === state.searches + state.places && r.remainingToday === 250 - r.callsThisRun, 'remaining calls come from the server counter')
-  assert(state.added.length === 1 && state.approved.length === 1, 'only the auto-approved one is written')
+  assert(state.added.length === 0 && state.approved.length === 0, 'nothing is written when no job qualifies for a pin')
   assert(state.saved >= 1, 'search cache saved to the private store')
 
   const second = makeDeps({}, { cache: state.cache })
@@ -70,22 +73,22 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
   assert(again.callsThisRun === 0 && second.state.searches === 0 && again.noPin === 2 && again.remainingToday === null, 'cached queries are not called again')
 }
 {
-  const { deps, state } = makeDeps({ [q('A1')]: [poi('A1')], [q('A2')]: [poi('A2')], [q('A3')]: [poi('A3')] }, { limitAfter: 4 })
-  const r = await runAutoLocate([job(1, 'A1'), job(2, 'A2'), job(3, 'A3')], deps)
+  const { deps, state } = makeDeps({ [q('A1', KADDR)]: [kpoi('A1')], [q('A2', KADDR)]: [kpoi('A2')], [q('A3', KADDR)]: [kpoi('A3')] }, { limitAfter: 4 })
+  const r = await runAutoLocate([job(1, 'A1', KADDR), job(2, 'A2', KADDR), job(3, 'A3', KADDR)], deps)
   assert(r.stopped === 'daily_limit' && r.remainingToday === 0, 'daily limit stops the run')
   assert(r.autoApproved === 2 && r.notProcessed === 1 && r.searched === 2, 'finished jobs kept, the rest left for tomorrow')
   assert(state.saved >= 1 && Object.keys(state.cache).length === 2, 'cache saved so tomorrow continues without repeating calls')
-  const next = makeDeps({ [q('A3')]: [poi('A3')] }, { cache: state.cache })
-  const resumed = await runAutoLocate([job(1, 'A1', ADDR, [{ id: 500, address_snapshot: ADDR, lat: 21.2, lng: 106.05, status: 'approved' }]), job(2, 'A2', ADDR, [{ id: 501, address_snapshot: ADDR, lat: 21.2, lng: 106.05, status: 'approved' }]), job(3, 'A3')], next.deps)
+  const next = makeDeps({ [q('A3', KADDR)]: [kpoi('A3')] }, { cache: state.cache })
+  const resumed = await runAutoLocate([job(1, 'A1', KADDR, [{ id: 500, address_snapshot: KADDR, lat: 21.0800324, lng: 105.9835287, status: 'approved' }]), job(2, 'A2', KADDR, [{ id: 501, address_snapshot: KADDR, lat: 21.0800324, lng: 105.9835287, status: 'approved' }]), job(3, 'A3', KADDR)], next.deps)
   assert(resumed.alreadyApproved === 2 && resumed.autoApproved === 1 && next.state.searches === 1, 'next day resumes: approved jobs skipped, only the remaining one is searched')
 }
 {
-  const { deps, state } = makeDeps({ [q('B1')]: [poi('B1')], [q('B2')]: [poi('B2')], [q('B3')]: [poi('B3')] })
-  const same = { address_snapshot: ADDR, lat: 21.2, lng: 106.05 }
+  const { deps, state } = makeDeps({ [q('B1', KADDR)]: [kpoi('B1')], [q('B2', KADDR)]: [kpoi('B2')], [q('B3', KADDR)]: [kpoi('B3')] })
+  const same = { address_snapshot: KADDR, lat: 21.0800324, lng: 105.9835287 }
   const r = await runAutoLocate([
-    job(1, 'B1', ADDR, [{ id: 11, status: 'pending', ...same }]),
-    job(2, 'B2', ADDR, [{ id: 12, status: 'rejected', ...same }]),
-    job(3, 'B3', ADDR, [{ id: 13, status: 'revoked', ...same }]),
+    job(1, 'B1', KADDR, [{ id: 11, status: 'pending', ...same }]),
+    job(2, 'B2', KADDR, [{ id: 12, status: 'rejected', ...same }]),
+    job(3, 'B3', KADDR, [{ id: 13, status: 'revoked', ...same }]),
   ], deps)
   assert(state.approved.join() === '11' && state.added.length === 0, 'existing pending candidate at the same spot is approved, no duplicate created')
   assert(r.outcomes[1].reason === 'previously_rejected' && r.outcomes[2].reason === 'previously_rejected', 'rejected/revoked decisions are respected')
@@ -109,9 +112,9 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
 }
 {
   // 서버 일일 한도 429도 페이지가 보낸 시도에는 포함하되 서버 증가분은 0이다.
-  const limited = makeDeps({ [q('Limit')]: [poi('Limit')] }, { limitAfter: 0 })
+  const limited = makeDeps({ [q('Limit', KADDR)]: [kpoi('Limit')] }, { limitAfter: 0 })
   limited.deps.readUsage = async () => ({ used: 250, limit: 250 })
-  const r = await runAutoLocate([job(1, 'Limit')], limited.deps, { usedAtStart: 250 })
+  const r = await runAutoLocate([job(1, 'Limit', KADDR)], limited.deps, { usedAtStart: 250 })
   assert(r.stopped === 'daily_limit' && r.callsThisRun === 1, 'daily-limit rejection remains visible as one page attempt')
   assert(r.serverUsedAtStart === 250 && r.serverUsedAtEnd === 250 && r.serverCallsDelta === 0, 'daily-limit rejection does not increment the server counter')
   assert(r.outcomes[0]?.jobId === 1 && r.outcomes[0]?.reason === 'daily_limit' && r.outcomes[0]?.requestCount === 1, 'daily-limit rejection keeps a per-job failure trace')
@@ -166,9 +169,9 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
 }
 {
   // 서버 카운터가 다른 곳에서도 늘어나면 delta가 callsThisRun보다 커서 화면이 경고한다.
-  const { deps } = makeDeps({ [q('Z1')]: [poi('Z1')] })
+  const { deps } = makeDeps({ [q('Z1', KADDR)]: [kpoi('Z1')] })
   const bumped: AutoLocateDeps = { ...deps, async search(b) { const r = await deps.search(b); return { ...r, used: r.used + 10 } }, async place(b) { const r = await deps.place(b); return { ...r, used: r.used + 10 } } }
-  const r = await runAutoLocate([job(1, 'Z1')], bumped, { usedAtStart: 0 })
+  const r = await runAutoLocate([job(1, 'Z1', KADDR)], bumped, { usedAtStart: 0 })
   assert(r.serverCallsDelta !== null && r.serverCallsDelta > r.callsThisRun, 'extra server-side consumption is visible')
 }
 {
@@ -179,9 +182,9 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
   assert(pickHitToResolve('Acme', ADDR, [{ ref_id: 'c', name: 'Acme Plus' }]).hit === null, 'no exact name → no Place call')
 }
 {
-  const { deps } = makeDeps({ [q('S1')]: [poi('S1')], [q('S2')]: [poi('S2')] })
+  const { deps } = makeDeps({ [q('S1', KADDR)]: [kpoi('S1')], [q('S2', KADDR)]: [kpoi('S2')] })
   let n = 0
-  const r = await runAutoLocate([job(1, 'S1'), job(2, 'S2')], deps, { shouldStop: () => n++ >= 1 })
+  const r = await runAutoLocate([job(1, 'S1', KADDR), job(2, 'S2', KADDR)], deps, { shouldStop: () => n++ >= 1 })
   assert(r.stopped === 'user' && r.autoApproved === 1 && r.notProcessed === 1, 'stop button halts between jobs')
 }
 
@@ -215,9 +218,9 @@ assert(districtOf(ADDR) === 'Xã Long Châu, Huyện Yên Phong, Tỉnh Bắc Ni
 }
 
 {
-  const { deps } = makeDeps({ [q('P1')]: [poi('P1')], [q('P2')]: [poi('P2')] })
+  const { deps } = makeDeps({ [q('P1', KADDR)]: [kpoi('P1')], [q('P2', KADDR)]: [kpoi('P2')] })
   const seen: string[] = []
-  const r = await runAutoLocate([job(1, 'P1'), job(2, 'P2')], deps, { onProgress: (s) => seen.push(s.stopped) })
+  const r = await runAutoLocate([job(1, 'P1', KADDR), job(2, 'P2', KADDR)], deps, { onProgress: (s) => seen.push(s.stopped) })
   assert(seen.slice(0, -1).every((x) => x === 'running') && r.stopped === 'done', 'progress snapshots are "running"; only the final result may say done')
 }
 

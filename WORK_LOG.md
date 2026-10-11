@@ -2,6 +2,16 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-11 10:40 — 거짓 보고 대책(STATUS 자동 기록) + 승인 규칙 B안 + 핀 2건 철회 (Claude)
+
+- 요청: GPT의 허위 보고(하지 않은 웹 검색을 했다고 보고·출처 첨부) 이후 지금까지 작업 검증, 재발 방지 장치, 승인 규칙 B안.
+- 검증 결과 [직접 확인 2026-10-11 DB·GitHub 조회]: PR #35·#36 병합은 사실. 그러나 HANDOFF의 "npm test 46/46"은 master 재실행·GitHub Actions 모두 45/46(`api/_zalo-token.test.ts` 실패), "원격 tree가 로컬 커밋 e615566과 일치"는 e615566이 GitHub에 없어 검증 불가, 10/8 "주소 재실행 신규 승인 0건"은 DB에 #4721 승인(07:27 UTC) 기록이 있어 사실과 다름.
+- 변경 1 (PR #37 `f6eed59`): `scripts/status/`·`status-report.yml`·`status-guard.yml` — DB·GitHub를 직접 조회해 `status` 브랜치 STATUS.md를 봇이 생성(master 반영·매일 06:47 VN). AGENTS.md·CLAUDE.md·Cursor 규칙 맨 위에 보고 검증 규정.
+- 변경 2 (이 PR): `evaluateAutoApproval` — KCN 윤곽 밖에서 회사명 일치만으로는 핀 없음(`name_only_no_house`). 주소 검색(번지+도로 일치) 승인은 그대로. 테스트 기대값 갱신(승인 흐름 테스트는 VSIP 윤곽 안 좌표로 이동). 규칙 문구 3개 파일 갱신.
+- DB (사용자 승인): 후보 37(#4702)·18(#4720) approved→revoked + admin_audit_logs 기록(executor=claude-service-sql). 남은 승인 핀: #4713·#4721·#4750.
+- 검증: tsc 통과, `npm test` 45/46(기존 zalo 실패만), build 통과.
+- 남은 문제: zalo 테스트 실패, 병합 차단(branch protection) 미설정, Goong 비교(계정 활성화 대기), #4685 VietMap 주소 미발견.
+
 ## 2026-10-10 — sb-4685·sb-4721 주소 캐시 재조회 + VietMap 호출 추적 (DB 쓰기·유료 API 호출 없음)
 
 - 두 공고에만 공고 ID가 포함된 `address-v2` 캐시 키를 적용해 기존 실패 캐시를 우회하고, 다른 공고 캐시는 유지했다. 주소·회사명·행정구역·자동 승인 조건은 변경하지 않았다.
@@ -62,14 +72,6 @@
 - 건수는 **미보고**: 관리자 DB 접근이 없고 anon은 비공개 0건. 대신 dry-run SELECT(`docs/ops/2026-10-08_chotot_publish_dryrun.sql`) + 정확한 KCN 분류 스크립트(`scripts/ops/chotot_publish_classify.ts`, 앱의 `findIndustrialPark` 사용).
 - 공개 SQL `supabase/pending/20261008100000_publish_chotot_jobs.sql`: chotot 100건 확인·대상 건수=`v_expected` 가드(null이면 중단)·갱신 건수 가드·끝에 공개 건수 확인 쿼리. URL 고르는 쿼리 `…_chotot_publish_urls.sql`, 설명 `…_chotot_publish_dryrun.md`.
 - 검증: PGlite로 합성 100행 실행(가드 3종·정상 갱신·확인 쿼리), tsc·build 통과.
-
-## 2026-10-08 — Vị trí 자동 검색 버튼: 10/100 처리인데 "완료" 표시·호출 132회 소모·화면 호출 0 (수정, DB 쓰기 없음)
-
-- 증상(사용자 실행): Đã đọc 100/100, Đã tìm 10/100, chưa xử lý 90, 그런데 "Đã xử lý xong…" 표시. 오늘 남은 호출 247→115(132 소모), 화면 "gọi VietMap lần này: 0".
-- 코드상 원인: (1) 진행 중 요약의 초기 `stopped='done'`가 그대로 노출돼 완료 문구가 뜸 → 완료 문구는 실행 종료(phase=finished)+100건 모두 판정일 때만. (2) 화면 호출 수는 성공 응답만 셌는데 서버는 호출 전에 차감(실패·타임아웃도 소모) → 시도 단위로 집계. (3) 기존 로직은 공고당 Search 여러 번+Place 최대 3회까지 가능 → 공고당 Search 1 + 이름이 정확히 일치하는 후보 1개만 Place 1(상한 2). 일치 후보가 없거나 여러 개(지점)면 Place 0. (4) 연속 5회 실패 시 호출 낭비 없이 중단(오류 표시), 조회 실패 공고는 미처리로 셈.
-- 화면: 실행 상태는 모듈 단위 저장소(탭 이동·리마운트에도 유지), "이번 실행 호출(화면)"과 "서버 카운터 증가분"을 같이 표시하고 차이가 나면 다른 탭/스크립트가 같은 카운터를 쓴 것이라는 경고.
-- 확정 못 한 것: 왜 10건에서 멈췄고 132회가 소모됐는지는 관리자 DB·로그 접근이 없어 증명 불가(가설: 이전 코드의 공고당 다중 호출 + 한도 외 소모). 새 화면의 서버 증가분 표시로 다음 실행에서 확인 가능.
-- 검증: tsc·build 통과, `npm test` 41/42(기존 zalo 실패), 단위 테스트(100건=정확히 200호출·남은 50, 연속 실패 중단, 서버 delta 경고, 진행 중 스냅샷 not-done).
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
