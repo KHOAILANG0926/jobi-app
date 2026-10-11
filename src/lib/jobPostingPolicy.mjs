@@ -23,8 +23,8 @@ function moneyReason(fields) {
   }
   if (matches('loan_role', title)) return 'dedicated_finance_sales'
   if (matches('sales_role', title)
-      && (matches('loan_product', title + ' ' + fields.description)
-          || matches('finance_company', fields.company))) return 'dedicated_finance_sales'
+      && (matches('loan_product', title) || matches('loan_duty', fields.description)
+          || (matches('finance_company', fields.company) && !matches('retail_primary', title)))) return 'dedicated_finance_sales'
   return null
 }
 export function evaluateJobPostingPolicy(job = {}) {
