@@ -427,5 +427,159 @@
       "category": ""
     },
     "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-appliances",
+    "input": {
+      "title": "Nhân viên bán hàng điện máy",
+      "description": "Tư vấn sản phẩm điện máy và bán hàng cho người mua.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-furniture",
+    "input": {
+      "title": "Sale nội thất",
+      "description": "Tư vấn đồ nội thất và bán hàng cho người mua.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-showroom",
+    "input": {
+      "title": "Sales Executive Showroom",
+      "description": "Tư vấn tại showroom, hoa hồng theo doanh số.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Coca-Cola",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Coca-Cola",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Kinh Đô",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Kinh Đô",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Unilever",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Unilever",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Panasonic",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Panasonic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-delivery",
+    "input": {
+      "title": "Sale thị trường",
+      "description": "Tìm kiếm cửa hàng bán lẻ và cung cấp hàng hóa đến điểm bán.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-b2b-contract",
+    "input": {
+      "title": "Sale Executive B2B",
+      "description": "Tìm kiếm và đi gặp khách hàng F&B, cửa hàng và doanh nghiệp để ký hợp đồng.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-b2b-brand-contract",
+    "input": {
+      "title": "Sale thị trường B2B",
+      "description": "Tìm kiếm và đi gặp cửa hàng, doanh nghiệp để ký hợp đồng.",
+      "company": "Coca-Cola",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-b2b-showroom-contract",
+    "input": {
+      "title": "Sale Executive B2B nội thất",
+      "description": "Tìm kiếm và đi gặp doanh nghiệp để ký hợp đồng, làm tại showroom.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-singular-professional",
+    "input": {
+      "title": "Sale Executive",
+      "description": "Thu nhập 30 triệu, hoa hồng chiếm phần lớn thu nhập.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "review"
+  },
+  {
+    "id": "synthetic-v2-market-no-evidence",
+    "input": {
+      "title": "Sale thị trường",
+      "description": "Tư vấn sản phẩm cho khách hàng.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "review"
+  },
+  {
+    "id": "synthetic-v2-finance-market-brand",
+    "input": {
+      "title": "Sale thị trường",
+      "description": "Tư vấn khoản vay cho khách hàng.",
+      "company": "Coca-Cola",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
   }
 ]
