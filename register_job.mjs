@@ -1,3 +1,4 @@
+import { assertJobPublishable } from './src/lib/jobPostingPolicy.mjs'
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
 
@@ -12,6 +13,9 @@ const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
 const jobsFile = process.argv[2]
 const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf-8'))
+
+// Preflight the whole batch before any upload/INSERT; no partial policy publication.
+for (const job of jobs) assertJobPublishable(job)
 
 for (const job of jobs) {
   // 이미지 업로드
