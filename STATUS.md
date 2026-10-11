@@ -3,15 +3,19 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-11 11:05 (VN)**
-- 기준 커밋: `95d0dfa` (Merge pull request #41 from KHOAILANG0926/docs/handoff-protection)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38110432899
-- 검증 스크립트 지문(SHA-256): `5bd7a7ea318eccce`
+- 생성 시각: **2026-10-11 12:00 (VN)**
+- 기준 커밋: `8b434aa` (Merge pull request #42 from KHOAILANG0926/fix/status-timing-and-guard)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38113336448
+- 검증 스크립트 지문(SHA-256): `3ae9df1f029e823a`
 
 ## 한눈에 보기
 
-**확인 필요 1건**
+**확인 필요 5건**
 
+- 핀 #4713: VietMap 재확인 ⚠️ 재확인 불가 (VietMap 키 없음)
+- 핀 #4721: VietMap 재확인 ⚠️ 재확인 불가 (VietMap 키 없음)
+- 검증 장치가 최근 바뀜 (862591c)
+- 검증 장치가 최근 바뀜 (8c6f26a)
 - 검증 장치가 최근 바뀜 (46cfb0a)
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
@@ -24,14 +28,15 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `e5150b2` · 상태 **success** · 2026-10-11 10:52 (VN)
-- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
+- 마지막 Production 배포: `8b434aa` · 상태 **success** · 2026-10-11 12:00 (VN)
+- master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #42 | 2026-10-11 11:59 (VN) | `8b434aa` | fix(status): 배포 대기·검증장치 승인 라벨 + 근거 없는 승인 차단 SQL 초안 |
 | #41 | 2026-10-11 11:04 (VN) | `95d0dfa` | docs: HANDOFF·WORK_LOG 갱신 (master 보호·Zalo 테스트·#4750) |
 | #40 | 2026-10-11 10:51 (VN) | `e5150b2` | ci: PR 검사(타입·테스트·빌드) 추가 |
 | #39 | 2026-10-11 10:48 (VN) | `db95ad2` | test(zalo): mock.module namedExports — Node 22에서 테스트 미실행 수정 |
@@ -41,7 +46,6 @@
 | #35 | 2026-10-11 07:07 (VN) | `4375492` | Trace address-cache retries and VietMap usage |
 | #33 | 2026-10-08 14:31 (VN) | `71c51fd` | docs: HANDOFF에 주소 재실행 결과·호출 집계 불일치·xã 지도 완료 기록 |
 | #32 | 2026-10-08 14:10 (VN) | `4d79400` | fix(address): 상호 접두어·Đ./P./TP. 약어 처리, region_only 보정 |
-| #31 | 2026-10-08 13:37 (VN) | `b900458` | fix(admin): 개요 "Tổng tin tuyển dụng" "—" 수정 (korea_jobs_public 집계) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -52,10 +56,10 @@
 
 판정은 공고 주소와 승인 근거의 번지·도로명·회사명을 문자열로 대조한 결과다.
 
-| 공고 | 승인 시각 | 판정 | 공고 주소 번지 | 근거 번지 | 근거 POI |
-|---|---|---|---|---|---|
-| #4713 | 2026-10-08 12:23 (VN) | ✅ 번지·도로·회사명 일치 | 1a le thai to | 1a le thai to | Pizza Hut Bắc Ninh |
-| #4721 | 2026-10-08 14:27 (VN) | ✅ 번지·도로·회사명 일치 | 1a le thai to | 1a le thai to | Pizza Hut Bắc Ninh |
+| 공고 | 승인 시각 | 판정 | VietMap 재확인 | 공고 주소 번지 | 근거 번지 | 근거 POI |
+|---|---|---|---|---|---|---|
+| #4713 | 2026-10-08 12:23 (VN) | ✅ 번지·도로·회사명 일치 | ⚠️ 재확인 불가 (VietMap 키 없음) | 1a le thai to | 1a le thai to | Pizza Hut Bắc Ninh |
+| #4721 | 2026-10-08 14:27 (VN) | ✅ 번지·도로·회사명 일치 | ⚠️ 재확인 불가 (VietMap 키 없음) | 1a le thai to | 1a le thai to | Pizza Hut Bắc Ninh |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
@@ -63,6 +67,7 @@
 |---|---|---|
 | 2026-10-11 | 1 | 2026-10-11 07:43 (VN) |
 | 2026-10-08 | 201 | 2026-10-08 14:27 (VN) |
+- 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
 
@@ -83,4 +88,6 @@
 
 이 파일을 만드는 스크립트·워크플로가 바뀌면 여기에 나온다. 7일 이내 변경이 있으면 Lee가 직접 확인한다.
 
+- 2026-10-11 11:26 (VN) `862591c` fix(status): GPT 교차 검증 반영 — 배포 대기 조회 오류 내성, VietMap 재확인 추가, DB 트리거 초안 보류
+- 2026-10-11 11:21 (VN) `8c6f26a` fix(status): 배포 완료 대기 후 기록, 검증 장치 변경은 '검증장치-승인' 라벨 필수 + 근거 없는 승인 차단 SQL 초안(미적용)
 - 2026-10-11 09:50 (VN) `46cfb0a` chore: STATUS 자동 기록(기계 생성)·위조 감시 워크플로, 보고 검증 규정
