@@ -30,8 +30,8 @@ def _money_reason(fields):
     if _matches("loan_role", fields["title"]):
         return "dedicated_finance_sales"
     if _matches("sales_role", fields["title"]) and (
-        _matches("loan_product", fields["title"] + " " + fields["description"])
-        or _matches("finance_company", fields["company"])
+        _matches("loan_product", fields["title"]) or _matches("loan_duty", fields["description"])
+        or (_matches("finance_company", fields["company"]) and not _matches("retail_primary", fields["title"]))
     ):
         return "dedicated_finance_sales"
     return None
