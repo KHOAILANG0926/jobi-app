@@ -1,9 +1,26 @@
-import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import cases from '../../policy/job-posting-fixtures.mjs'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { checkedPublicJobInsert, checkedAdminCreateJob, checkedAdminUnhide, checkedGuestJobUpdate, checkedLocalJobUpdate } from './jobPolicyWrite.ts'
 
-const cases = JSON.parse(readFileSync(new URL('../../policy/job-posting-fixtures.json', import.meta.url), 'utf8'))
+const assert = {
+  equal(actual: unknown, expected: unknown, label = '') {
+    if (actual !== expected) throw new Error(label + ': expected ' + String(expected) + ', got ' + String(actual))
+  },
+  deepEqual(actual: unknown, expected: unknown, label = '') {
+    this.equal(JSON.stringify(actual), JSON.stringify(expected), label)
+  },
+  throws(fn: () => unknown) {
+    let rejected = false
+    try { fn() } catch { rejected = true }
+    this.equal(rejected, true, 'expected rejection')
+  },
+  doesNotThrow(fn: () => unknown) { fn() },
+  async rejects(fn: () => Promise<unknown>) {
+    let rejected = false
+    try { await fn() } catch { rejected = true }
+    this.equal(rejected, true, 'expected async rejection')
+  },
+}
 function fake(row: Record<string, unknown>, readError = false) {
   let stored = { ...row }
   const writes: string[] = []
@@ -18,7 +35,7 @@ function fake(row: Record<string, unknown>, readError = false) {
       }
       return chain
     },
-    rpc: async (name: string, params: Record<string, unknown>) => {
+    rpc: async (name: string, _params: Record<string, unknown>) => {
       if (name === 'get_guest_job') return { data: readError ? null : [stored], error: readError ? { message: 'read failed' } : null }
       writes.push(name)
       return { data: [stored], error: null }
@@ -51,8 +68,8 @@ for (const fixture of cases) {
     }
   }
 }
-const safe = { ...cases.find((r: { expected: string }) => r.expected === 'allow').input, active: true, admin_hidden: false }
-const blocked = cases.find((r: { id: string }) => r.id === 'b2b-4750-type-synthetic').input
+const safe = { ...cases.find((r: { expected: string }) => r.expected === 'allow')!.input, active: true, admin_hidden: false }
+const blocked = cases.find((r: { id: string }) => r.id === 'b2b-4750-type-synthetic')!.input
 for (const operation of [
   (client: SupabaseClient) => checkedLocalJobUpdate(client, 1, blocked),
   (client: SupabaseClient) => checkedGuestJobUpdate(client, {
