@@ -28,3 +28,7 @@ jobs:
         run: npm test
       - name: 빌드
         run: npm run build
+      - name: STATUS 생성기 점검 (가짜 응답으로 끝까지 실행)
+        run: |
+          node scripts/status/status-lib.test.mjs
+          node scripts/status/generate-status.smoke.mjs

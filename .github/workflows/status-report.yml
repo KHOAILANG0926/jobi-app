@@ -49,7 +49,9 @@ jobs:
       - run: npm ci
 
       - name: 검증 스크립트 자체 테스트
-        run: node scripts/status/status-lib.test.mjs
+        run: |
+          node scripts/status/status-lib.test.mjs
+          node scripts/status/generate-status.smoke.mjs
 
       - name: 타입 검사
         id: tsc
