@@ -26,6 +26,7 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from job_quality import ascii_key, has_excluded_money_terms
+from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -809,8 +810,6 @@ def evaluate_post(text: str, time_info: dict | None, full_text_ok: bool, locatio
         return "not_job", ["구인 키워드 없음"], None
     if is_self_promotion(text):
         return "self_promo", ["구직자 자기홍보"], None
-    if has_excluded_money_terms(text):
-        return "money", ["대출/채권추심"], None
     if is_office_job(text):
         return "office", ["사무/전문직(수집 범위 밖)"], None
     if not full_text_ok:
@@ -821,6 +820,10 @@ def evaluate_post(text: str, time_info: dict | None, full_text_ok: bool, locatio
     if age_h > max_age * 24:
         return "too_old", [f"게시 {age_h / 24:.1f}일 전 > 기준 {max_age:g}일"], None
     job = parse_post({"text": text, "location": location, "images": images or []})
+    decision = evaluate_job_posting_policy(job)
+    if decision["decision"] != "allow":
+        code = "money" if decision["reason"].startswith("dedicated_") else "ambiguous"
+        return code, [decision["reason"]], None
     job["fb_full_text_confirmed"] = True
     problems = missing_required(job)
     if problems:
@@ -1147,7 +1150,7 @@ def fetch_existing_facebook_rows(page_size: int = 1000) -> list[dict]:
 def missing_required(job: dict) -> list[str]:
     """DB 저장 전 필수 조건. 비어 있지 않으면 저장하지 않는다."""
     body = (job.get("description") or "").replace("[source:facebook]", "", 1)
-    problems = []
+    problems = crawler_policy_errors(job)
     tail = body.rstrip()
     if tail.endswith(SEE_MORE_LABELS) or (tail.endswith(("…", "...")) and not job.get("fb_full_text_confirmed")):
         # 말줄임표로 끝나는 글은 크롤링 중 '더 보기' 요소가 없음을 화면에서 확인한 경우만 허용
