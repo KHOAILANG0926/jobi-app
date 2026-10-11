@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { isPublicJobAllowed } from '../lib/jobQualityFilter'
+import { assertJobPublishable } from '../lib/jobPostingPolicy.mjs'
+import { checkedLocalJobUpdate, checkedPublicJobInsert } from '../lib/jobPolicyWrite'
 import { ensureJobFields } from '../lib/jobUtils'
 import { rowToJob } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
@@ -80,13 +81,9 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       id: 'draft',
       postedAt: new Date().toISOString().slice(0, 10),
     } as Job)
-    if (!isPublicJobAllowed(draftForPolicy)) {
-      throw new Error('Tin tuyển dụng liên quan đến vay tiền hoặc thu hồi công nợ không phù hợp với Viecganban.')
-    }
+    assertJobPublishable(draftForPolicy)
 
-    const { data, error } = await supabase
-      .from('local_jobs')
-      .insert({
+    const { data, error } = await checkedPublicJobInsert(supabase, {
         title: draft.title,
         company: draft.company,
         category: draft.category,
@@ -155,7 +152,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
 
   const updateJob = useCallback(async (id: string, patch: Partial<Job>) => {
     const rawId = id.replace(/^sb-/, '')
-    await supabase.from('local_jobs').update({
+    const payload = {
       title: patch.title,
       company: patch.company,
       category: patch.category,
@@ -166,7 +163,12 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       employer_phone: patch.employerPhone,
       application_deadline: patch.applicationDeadline,
       urgent: patch.urgent,
-    }).eq('id', rawId)
+      active: patch.active,
+    }
+    // Undefined fields are omitted by PostgREST; merge only what is written.
+    const defined = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
+    const { error } = await checkedLocalJobUpdate(supabase, rawId, defined)
+    if (error) throw new Error(error.message)
     setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j))
   }, [])
 
