@@ -1,11 +1,11 @@
 # CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
 
-갱신: 2026-10-10. 상세 이력은 `WORK_LOG.md`. 이 파일은 누적하지 않고 최신 스냅샷으로 덮어쓴다.
+갱신: 2026-10-11. 상세 이력은 `WORK_LOG.md`. 이 파일은 누적하지 않고 최신 스냅샷으로 덮어쓴다.
 
 ## 1. 현재 상태
 
-- 작업: 주소 검색 재조회·VietMap 호출 추적. branch `fix/address-vietmap-tracing`, base `origin/master` `71c51fd`; 원본 checkout의 modified 2개·untracked 1개는 그대로다.
-- 상태: **IMPLEMENTED / LOCAL VERIFIED / PUSH·PR BLOCKED**. `npx tsc --noEmit`, `npm test` 46/46, `npm run build`가 통과했다. 현재 GitHub CLI 토큰은 만료됐고 Git Credential Manager는 이 샌드박스에서 접근 거부되어, 인증 복구 뒤 push와 PR 생성이 필요하다. Production DB·DDL·유료 VietMap 호출·Production 배포는 하지 않았다.
+- 작업: 주소 검색 재조회·VietMap 호출 추적. PR #35가 `master`에 병합됐고 merge commit은 `4375492`; 원본 checkout의 modified 2개·untracked 1개는 그대로다.
+- 상태: **IMPLEMENTED / VERIFIED / MASTER MERGED / PRODUCTION VERIFIED**. `npx tsc --noEmit`, `npm test` 46/46, `npm run build`가 통과했고 PR #35 CI가 성공했다. GitHub App Git Data API로 보존한 원격 tree는 로컬 검증 커밋 `e615566`의 tree와 일치한다. Vercel Production 배포 `dpl_2zLF3Z5t96bYedop5AFy2Kf2pCBK`가 READY이며 `https://viecganban.vn/` 응답 200을 확인했다. Production DB·DDL·유료 VietMap 호출은 하지 않았다.
 - 주소 캐시: `sb-4685`·`sb-4721`만 `address-v2|job-<id>` 버전 키로 기존 실패 캐시를 우회한다. 다른 공고 캐시는 유지하며, 두 공고가 같은 정규화 주소를 공유해도 공고별 키가 충돌하지 않는다.
 - 승인 조건: 주소 파싱·회사명·번지/도로·행정구역·후보 유일성·자동 승인 판정은 변경하지 않았다. 새 조회가 실패해도 임의 승인하지 않는다.
 - 관리자 주소 결과: 공고 ID별 `cache/fresh/skipped`, 현재 공고 요청 시도 수, 승인/실패 사유를 표시한다. 회사명·주소·POI명·전화번호·Secret은 추적 목록에 표시하지 않는다.
@@ -16,9 +16,9 @@
 
 ## 2. 다음 할 일 3개
 
-1. GitHub 인증을 복구한 뒤 현재 branch를 push하고 `master` 대상 PR을 만든다. PR 소스 SHA와 Preview 소스 SHA가 같을 때만 Preview를 검증한다.
-2. CI와 PR 리뷰를 확인한다. Preview는 관리자 화면 정적 표시 확인이 필요할 때만 사용하며, Production 배포·유료 VietMap 호출·DB 쓰기는 하지 않는다.
-3. 사용자 승인 후 병합·배포하고, 별도 승인된 관리자 재실행에서 `sb-4685`·`sb-4721`의 fresh 사유와 시작/종료 서버 카운터를 수집해 원인을 확정한다.
+1. 별도 승인된 관리자 재실행에서 `sb-4685`·`sb-4721`의 fresh 사유와 시작/종료 서버 카운터를 수집한다.
+2. 재실행 결과로 기존 서버 잔여 52→49의 3회 주체와 두 공고의 실패 원인을 운영 로그 범위에서 확정한다.
+3. 후속 변경이 필요하면 최신 `origin/master`와 서비스 권한·GitHub 보존 경로를 먼저 확인한 뒤 최소 범위로 진행한다.
 
 ## 3. 필수 규칙
 
