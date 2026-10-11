@@ -20,6 +20,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import bn_prepare_chotot_insert as prep  # noqa: E402
+from job_posting_policy import crawler_policy_errors  # prep sets crawler import path
 
 ROOT = HERE.parents[1]
 OUT = HERE / "out"
@@ -44,6 +45,10 @@ def red(s: str) -> str:
 
 
 def post(table: str, body: dict) -> dict:
+    if table == "local_jobs":
+        errors = crawler_policy_errors(body)
+        if errors:
+            raise ValueError("posting policy skip: " + "; ".join(errors))
     r = requests.post(f"{URL}/rest/v1/{table}", headers={**H, "Prefer": "return=representation"}, data=json.dumps(body), timeout=60)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"POST {table}: HTTP {r.status_code} {red(r.text[:400])}")
