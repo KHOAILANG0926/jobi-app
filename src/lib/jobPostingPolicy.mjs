@@ -35,7 +35,16 @@ export function evaluateJobPostingPolicy(job = {}) {
   const money = moneyReason(fields)
   if (money) return result('exclude', money)
   if (!fields.title || !fields.description || matches('ambiguous_title', fields.title)) return result('review', 'incomplete_role_evidence')
+  const text = fields.title + ' ' + fields.description
+  // Explicit enterprise-contract B2B evidence wins over retail words/brands.
+  if (matches('b2b_title', fields.title) && matches('business_customer', fields.description)
+      && matches('customer_outreach', fields.description) && matches('business_contract', fields.description))
+    return result('exclude', 'b2b_business_contract_sales')
   const sales = matches('sales_role', fields.title)
+  // Consumer-distributor outlet supply is allowed; brand alone is insufficient.
+  if (sales && !matches('b2b_title', fields.title) && matches('market_sales', text)
+      && (matches('consumer_distribution', fields.company + ' ' + text) || matches('retail_supply', fields.description)))
+    return result('allow', 'consumer_retail_distribution_sales')
   const retail = matches('retail_primary', fields.title + ' ' + fields.description)
   const b2b = matches('b2b_primary', fields.title + ' ' + fields.description)
   if (sales && b2b) return retail
