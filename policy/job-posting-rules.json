@@ -50,7 +50,8 @@
     "\\b(loan officer|loan sales|credit sales|credit officer)\\b",
     "\\b(nhan vien|chuyen vien) (tin dung|cho vay)\\b",
     "\\btu van tai chinh\\b",
-    "\\b(ban|tu van) the tin dung\\b"
+    "\\b(ban|tu van) the tin dung\\b",
+    "\\bfinancial (sales|advisor)\\b"
   ],
   "sales_role": [
     "\\b(sales|sale|kinh doanh|ban hang|telesales|tu van tai chinh)\\b"
@@ -85,5 +86,11 @@
   ],
   "ambiguous_title": [
     "^(tuyen (dung )?(nhan vien|lao dong)|nhan vien|viec lam|cong viec|staff|hiring staff)$"
+  ],
+  "loan_duty": [
+    "\\btu van (san pham )?(khoan vay|cho vay|vay|tin dung)\\b",
+    "\\b(tiep can|tim kiem) khach hang (vay|vay tien)\\b",
+    "\\b(ban|tu van) the tin dung\\b",
+    "\\b(sell|selling|advise on) (loans|loan products|credit cards)\\b"
   ]
 }
