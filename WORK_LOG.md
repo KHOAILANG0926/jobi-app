@@ -11,6 +11,7 @@
 - DB (사용자 승인): 후보 37(#4702)·18(#4720) approved→revoked + admin_audit_logs 기록(executor=claude-service-sql). 남은 승인 핀: #4713·#4721·#4750.
 - 검증: tsc 통과, `npm test` 45/46(기존 zalo 실패만), build 통과.
 - 후속(같은 날): Zalo 테스트 mock 수정(PR #39, 46/46), PR 검사 워크플로 추가(PR #40), 사용자가 master 보호 설정(필수 검사 checks·guard, 우회 금지) — API로 확인. #4750 B2B 영업직 숨김·핀 철회(사용자 지시).
+- 후속2: GPT 교차 검증(PR #42 리뷰)에서 배포 대기 조회 오류·DB 트리거 위조 가능 지적 → 수정·보류. VietMap 재확인을 사이트 서버(OIDC)로 이전(PR #43). #43에서 Claude가 조회 선언을 지워 STATUS 1회 실패 → PR #44 복구 + 생성기 전체 실행 점검을 PR 검사에 추가. 12:09 STATUS 성공, 핀 2건 VietMap ✅.
 - 남은 문제: Goong 비교(계정 활성화 대기), #4685 VietMap 주소 미발견, B2B 영업직 필터 미구현.
 
 ## 2026-10-10 — sb-4685·sb-4721 주소 캐시 재조회 + VietMap 호출 추적 (DB 쓰기·유료 API 호출 없음)
