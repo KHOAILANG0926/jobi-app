@@ -1,0 +1,107 @@
+name: STATUS 자동 기록 (AI 보고 대신 보는 기계 기록)
+
+# master에 변경이 들어올 때마다, 그리고 매일 아침 06:47(베트남) 한 번 실행한다.
+# 결과는 master가 아니라 별도 `status` 브랜치의 STATUS.md 한 파일에만 쓴다(master 직접 push 금지 규칙 준수).
+# Supabase에는 읽기(GET)만 한다. VietMap은 호출하지 않는다. AI를 쓰지 않는다.
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '47 23 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  deployments: read
+  pull-requests: read
+
+concurrency:
+  group: status-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 키 등록 확인
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY가 없습니다. 등록 후 다시 실행하세요."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: 검증 스크립트 자체 테스트
+        run: node scripts/status/status-lib.test.mjs
+
+      - name: 타입 검사
+        id: tsc
+        continue-on-error: true
+        run: npx tsc --noEmit
+
+      - name: 테스트
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/test.log"
+
+      - name: 빌드
+        id: build
+        continue-on-error: true
+        run: npm run build
+
+      - name: STATUS 생성
+        id: gen
+        continue-on-error: true
+        env:
+          TSC_OUTCOME: ${{ steps.tsc.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TEST_LOG: ${{ runner.temp }}/test.log
+          OUT: ${{ runner.temp }}/STATUS.md
+        run: node scripts/status/generate-status.mjs
+
+      - name: status 브랜치에 기록
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/STATUS.md" || { echo "::error::STATUS.md가 만들어지지 않았습니다."; exit 1; }
+          cat "$RUNNER_TEMP/STATUS.md" >> "$GITHUB_STEP_SUMMARY"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin status >/dev/null; then
+            git fetch --depth 1 origin status
+            git checkout -f -B status FETCH_HEAD
+          else
+            git checkout --orphan status
+            git rm -rfq .
+          fi
+          cp "$RUNNER_TEMP/STATUS.md" STATUS.md
+          git add STATUS.md
+          git commit -qm "status: ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" || echo "변경 없음"
+          git push origin status
+
+      - name: 실패하면 실행을 실패로 표시 (GitHub 알림 메일)
+        if: steps.tsc.outcome != 'success' || steps.tests.outcome != 'success' || steps.build.outcome != 'success' || steps.gen.outcome != 'success'
+        run: |
+          echo "::error::타입검사=${{ steps.tsc.outcome }} 테스트=${{ steps.tests.outcome }} 빌드=${{ steps.build.outcome }} STATUS생성=${{ steps.gen.outcome }}"
+          exit 1

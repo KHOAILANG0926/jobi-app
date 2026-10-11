@@ -1,0 +1,49 @@
+name: STATUS 위조 감시
+
+# 1) status 브랜치에 GitHub 봇이 아닌 계정(사람·AI)이 push하면 실패 → GitHub이 알림 메일을 보낸다.
+#    (봇의 push는 GITHUB_TOKEN이라 이 워크플로를 실행시키지 않는다. 즉 여기서 실행되면 곧 사람·AI가 손댄 것이다.)
+# 2) PR이 검증 장치(스크립트·워크플로)나 STATUS.md를 바꾸면 실패 → Lee가 직접 확인하기 전에는 빨간 표시가 남는다.
+on:
+  push:
+    branches: [status]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: status 브랜치 직접 수정 감지
+        if: github.event_name == 'push'
+        run: |
+          echo "::error::status 브랜치에 '${{ github.actor }}' 계정이 직접 push했습니다. STATUS.md는 봇만 쓸 수 있습니다. 이 기록은 믿지 마세요."
+          exit 1
+
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+
+      - name: PR의 검증 장치 변경 감지
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          changed=$(git diff --name-only "$base" HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -qx 'STATUS.md'; then
+            echo "::error::PR이 STATUS.md를 만들거나 고칩니다. STATUS.md는 status 브랜치에서 봇만 씁니다."
+            exit 1
+          fi
+          # 검증 장치가 이미 설치된 뒤의 변경만 막는다(최초 설치 PR은 통과).
+          if git cat-file -e "$base:scripts/status/generate-status.mjs" 2>/dev/null; then
+            hit=$(echo "$changed" | grep -E '^(scripts/status/|\.github/workflows/status-)' || true)
+            if [ -n "$hit" ]; then
+              echo "::error::이 PR은 검증 장치를 바꿉니다: $hit — Lee가 변경 내용을 직접 확인하기 전에는 병합하지 마세요."
+              exit 1
+            fi
+          fi
+          echo "검증 장치 변경 없음"
