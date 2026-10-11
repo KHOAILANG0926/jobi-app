@@ -7,10 +7,10 @@
 
 ## 1. 현재 상태
 
-- **[직접 확인] 현재 작업:** `codex/job-posting-policy`, Draft PR #48. 시작/재확인 master `9157ced522d024b2c378958f623beffbdfeb1aba`. 신규 공고 정책 앱 검사 구현; DB 강제는 미구현. 구현 근거·전체 수정 목록: `docs/job-posting-policy-implementation-2026-10.md`.
-- **[직접 확인] 변경:** Python/TS 공통 JSON 역할 규칙·39개 합성 사례. 금융/채권추심/B2B 외근·대리점 전담 제외, 전문 고수입·인센티브 영업 review, 금액만으로 제외 금지, 정상 매장/마트/생산/QC 허용. crawler의 review/exclude는 skip. 앱 등록·수정·재공개 preflight 및 공개 fetch hidden 조건 연결.
-- **[직접 확인] 테스트:** 코드 SHA `1bc622d2f9b52dd14c5860935a52ed3fcd89e557`; Actions 38154323163 tsc 성공·npm test 50/50 파일·build 성공. Actions 38154323195 Python 정책 6개/기존 품질 21/21·문법 검사 성공. 실제 수집·Production 쓰기·브라우저/RLS 통합 검사 없음.
-- **[직접 확인]/[추정] 발견된 문제:** raw RPC/REST/SQL/service-role 및 SELECT→UPDATE 경쟁 조건 우회가 남음. DB/Edge/VPS 설치 상태와 영향 ID는 미확인. pending 정책 SQL은 주석 설계/롤백만; 적용 금지. 기존 공개 위반 공고의 편집·재활성 거절 가능, 게스트 active 편집은 hidden 상태 불명으로 보수적 검사.
+- **[직접 확인] 현재 작업:** 같은 `codex/job-posting-policy`, Draft PR48 미병합. master `9157ced522d024b2c378958f623beffbdfeb1aba`. 후속 근거: `docs/job-policy-followup-2026-10.md`(운영 조회 미실행·설계·50커밋·crawl 인자 근거).
+- **[직접 확인] 변경/테스트:** guest hidden=false 가정을 제거해 비공개 편집 보존·공개 membership 검사. code SHA `082911b790bdbe4fcfbef0bee1b5455574659ce7`, checks38155634979 tsc/npm50/50/build 성공, Python38155634893 정책6/품질21/21 성공. 정상 공고39 합성 사례 유지. 실제 운영/브라우저 검증 아님.
+- **[직접 확인]/[추정] 발견된 문제:** 운영 전체 판정은 연결 미확보 및 임시 감사 생성 차단으로 미실행; 건수·ID·제목 미확인. raw RPC/SQL/service-role와 race 우회 남음. 리뷰 보존·관리자 사유 예외는 `supabase/pending/20261011_job_policy_review_exception_design.sql` 주석 설계뿐. crawl.yml/run_daily.sh 무인자와 confirmation guard 불일치 유지, VPS 미확인.
+
 - **[직접 확인] PR #47:** Draft·미병합, head `443468b24c554ad5ea44df6c8e4a53e41c925dc8`. PR #48도 병합·배포·자동 수집 재개 금지. STATUS·location guard·한국 모듈·PR46 보고서 변경 없음.
 - **[기존 기록] 아래 운영 항목은 이전 snapshot에서 보존한 기록이며 이번에 Production 재검증하지 않았다. 숫자·상태는 STATUS 생성 2026-10-11 12:12(VN)를 우선한다(master 검사 47/47, 아래 이전 46/46 문구보다 우선).
 
@@ -27,7 +27,7 @@
 ## 2. 다음 할 일 3개
 
 1. 사용자 지시 대기: Goong 계정 활성화 후 상세주소 14건 VietMap·Goong 비교(결과 저장·지도 표시 없이 비교표만). Goong 약관(좌표 저장·타사 지도 표시) 서면 확인 전에는 실사용 금지.
-2. [직접 확인] 기존 B2B 필터 구현 대기는 PR #48 앱 구현/오프라인 검증으로 진행됨. 다음 결정사항: 이 Draft 검토, review 공개 거절/skip 방식·기존 공개 공고 편집 제한·DB 강제/관리자 예외 승인 여부. [추정] 승인된 Production SELECT로 영향 ID·catalog 확인 후 별도 DB 격리 검증. 운영 알림/재검증 자동화는 미구현.
+2. [직접 확인] 다음 결정사항: 승인된 Production 읽기 연결 확보→전체 공개 판정·영향 ID 제출; review 비공개 보존·관리자 사유 예외의 DB 설계 승인→격리 검증. 지금 DB 적용/공고 변경/수집 재개 금지, PR47/48 Draft 유지. 운영 알림은 미구현.
 3. 작업을 시작하면 먼저 STATUS.md와 이 파일을 대조하고, 다른 점만 보고한다.
 
 ## 3. 필수 규칙
