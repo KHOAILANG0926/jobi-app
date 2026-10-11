@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-11 10:51 (VN)**
-- 기준 커밋: `e5150b2` (Merge pull request #40 from KHOAILANG0926/ci/pr-checks)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38109708464
+- 생성 시각: **2026-10-11 11:05 (VN)**
+- 기준 커밋: `95d0dfa` (Merge pull request #41 from KHOAILANG0926/docs/handoff-protection)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38110432899
 - 검증 스크립트 지문(SHA-256): `5bd7a7ea318eccce`
 
 ## 한눈에 보기
@@ -24,7 +24,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `db95ad2` · 상태 **success** · 2026-10-11 10:49 (VN)
+- 마지막 Production 배포: `e5150b2` · 상태 **success** · 2026-10-11 10:52 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -32,6 +32,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #41 | 2026-10-11 11:04 (VN) | `95d0dfa` | docs: HANDOFF·WORK_LOG 갱신 (master 보호·Zalo 테스트·#4750) |
 | #40 | 2026-10-11 10:51 (VN) | `e5150b2` | ci: PR 검사(타입·테스트·빌드) 추가 |
 | #39 | 2026-10-11 10:48 (VN) | `db95ad2` | test(zalo): mock.module namedExports — Node 22에서 테스트 미실행 수정 |
 | #38 | 2026-10-11 10:39 (VN) | `f87a352` | fix(locate): 승인 규칙 B안 — KCN 밖 회사명 일치만으로는 핀 없음 |
@@ -41,7 +42,6 @@
 | #33 | 2026-10-08 14:31 (VN) | `71c51fd` | docs: HANDOFF에 주소 재실행 결과·호출 집계 불일치·xã 지도 완료 기록 |
 | #32 | 2026-10-08 14:10 (VN) | `4d79400` | fix(address): 상호 접두어·Đ./P./TP. 약어 처리, region_only 보정 |
 | #31 | 2026-10-08 13:37 (VN) | `b900458` | fix(admin): 개요 "Tổng tin tuyển dụng" "—" 수정 (korea_jobs_public 집계) |
-| #30 | 2026-10-08 13:25 (VN) | `b64b2f8` | feat(map): xã/phường 동네 지도 (핀 없음) + 관리자 xã 위치 검색(비공개 캐시) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
