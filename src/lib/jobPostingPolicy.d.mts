@@ -1,5 +1,4 @@
 export interface PolicyInput {
-  [key: string]: unknown
   title?: unknown
   company?: unknown
   description?: unknown
@@ -17,6 +16,7 @@ export function evaluateJobPostingPolicy(job?: PolicyInput): PolicyResult
 export function hasExcludedMoneyRole(job: PolicyInput): boolean
 export function assertJobPublishable(job: PolicyInput): PolicyResult
 export interface PolicyWriteInput extends PolicyInput {
+  [key: string]: unknown
   active?: boolean
   admin_hidden?: boolean
 }
