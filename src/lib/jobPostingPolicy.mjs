@@ -61,7 +61,7 @@ export function assertJobPublishable(job) {
     const message = result.decision === 'review'
       ? 'Tin cần được xem xét hoặc bổ sung mô tả công việc trước khi đăng công khai.'
       : 'Công việc tài chính, thu hồi nợ hoặc kinh doanh B2B ngoài thị trường không phù hợp.'
-    throw new Error(message + ' (' + result.reason + ')')
+    throw new Error(message)
   }
   return result
 }
