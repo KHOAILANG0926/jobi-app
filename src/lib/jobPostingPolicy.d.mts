@@ -16,5 +16,5 @@ export function evaluateJobPostingPolicy(job?: PolicyInput): PolicyResult
 export function hasExcludedMoneyRole(job: PolicyInput): boolean
 export function assertJobPublishable(job: PolicyInput): PolicyResult
 export function assertPublicJobWrite<T extends PolicyInput & { active?: boolean; admin_hidden?: boolean }>(
-  previous: T, patch?: Partial<T>
+  previous: T, patch?: Partial<T> & Record<string, unknown>
 ): T
