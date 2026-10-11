@@ -7,9 +7,12 @@
 
 ## 1. 현재 상태
 
+- **[직접 확인] 2026-10-12 인자 수정:** 같은 PR48 브랜치, 안전장치 유지·caller confirmation 정합화. 수집 금지 준수: Actions job `if: false` 중지, daily 무인자 exit2; 재개 승인 후에만 `--confirm-scheduled-run` 전달. 근거 `docs/crawler-cli-fix-2026-10-12.md`. 실제 수집/DB 변경 없음.
+- **[직접 확인]/[추정] 운영 로그:** 최신 조회 crawl run33221622201·33128901992는 설치 libasound2/exit100 failure, 크롤링 skipped. 현재 인자 오류로 운영 실패 중이라는 증거 없음, VPS 상태 미확인. CLI 오프라인15개 성공(run38183216848); 최신 checks는 최종 PR 실행 기록 참조.
+
 - **[직접 확인] 현재 작업:** 같은 `codex/job-posting-policy`, Draft PR48 미병합. master `9157ced522d024b2c378958f623beffbdfeb1aba`. 후속 근거: `docs/job-policy-followup-2026-10.md`(운영 조회 미실행·설계·50커밋·crawl 인자 근거).
 - **[직접 확인] 변경/테스트:** guest hidden=false 가정을 제거해 비공개 편집 보존·공개 membership 검사. code SHA `082911b790bdbe4fcfbef0bee1b5455574659ce7`, checks38155634979 tsc/npm50/50/build 성공, Python38155634893 정책6/품질21/21 성공. 정상 공고39 합성 사례 유지. 실제 운영/브라우저 검증 아님.
-- **[직접 확인]/[추정] 발견된 문제:** 운영 전체 판정은 연결 미확보 및 임시 감사 생성 차단으로 미실행; 건수·ID·제목 미확인. raw RPC/SQL/service-role와 race 우회 남음. 리뷰 보존·관리자 사유 예외는 `supabase/pending/20261011_job_policy_review_exception_design.sql` 주석 설계뿐. crawl.yml/run_daily.sh 무인자와 confirmation guard 불일치 유지, VPS 미확인.
+- **[직접 확인]/[추정] 발견된 문제:** 운영 전체 판정은 연결 미확보 및 임시 감사 생성 차단으로 미실행; 건수·ID·제목 미확인. raw RPC/SQL/service-role와 race 우회 남음. 리뷰 보존·관리자 사유 예외는 `supabase/pending/20261011_job_policy_review_exception_design.sql` 주석 설계뿐. crawl.yml/run_daily.sh 인자 불일치는 2026-10-12 수정했으나 실행 중지 유지, VPS 미확인.
 
 - **[직접 확인] PR #47:** Draft·미병합, head `443468b24c554ad5ea44df6c8e4a53e41c925dc8`. PR #48도 병합·배포·자동 수집 재개 금지. STATUS·location guard·한국 모듈·PR46 보고서 변경 없음.
 - **[기존 기록] 아래 운영 항목은 이전 snapshot에서 보존한 기록이며 이번에 Production 재검증하지 않았다. 숫자·상태는 STATUS 생성 2026-10-11 12:12(VN)를 우선한다(master 검사 47/47, 아래 이전 46/46 문구보다 우선).
