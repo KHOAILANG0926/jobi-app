@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client
+from job_posting_policy import evaluate_job_posting_policy
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 
 load_dotenv(Path(__file__).parent / ".env")
@@ -31,7 +32,7 @@ def fetch_all_jobs() -> list[dict]:
     page_size = 1000
     while True:
         res = supabase.table("local_jobs") \
-            .select("id,title,company,category,subcategory,description") \
+            .select("id,title,company,category,subcategory,description,salary,active,admin_hidden") \
             .range(page * page_size, (page + 1) * page_size - 1) \
             .execute()
         batch = res.data or []
@@ -71,6 +72,11 @@ def reclassify_all():
         if new_sub:
             sub_matched += 1
 
+        if j.get("active") is True and j.get("admin_hidden") is False:
+            policy = evaluate_job_posting_policy({**j, "category": new_cat})
+            if policy["decision"] != "allow":
+                print(f"policy skip id={j['id']}: {policy['reason']}")
+                continue
         if new_cat != old_cat or new_sub != old_sub:
             updates.append({
                 "id": j["id"], "old_cat": old_cat, "new_cat": new_cat,
