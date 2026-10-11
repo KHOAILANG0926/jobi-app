@@ -120,7 +120,7 @@ const { admin_hidden: _hidden, ...legacyBlocked } = { ...blocked, active: true, 
 const hiddenEdit = legacyGuest(legacyBlocked, false)
 await checkedGuestJobUpdate(hiddenEdit.client, { p_job_id: 1, p_token: 'synthetic', p_description: blocked.description })
 assert.equal(hiddenEdit.writes.length, 1, 'legacy hidden edit must be saved')
-assert.equal(Object.hasOwn(hiddenEdit.writes[0], 'admin_hidden'), false, 'hidden not changed by guest')
+assert.equal(Object.prototype.hasOwnProperty.call(hiddenEdit.writes[0], 'admin_hidden'), false, 'hidden not changed by guest')
 assert.deepEqual(hiddenEdit.publicReads, ['id'], 'no private fields read')
 const publicEdit = legacyGuest(legacyBlocked, true)
 await assert.rejects(() => checkedGuestJobUpdate(publicEdit.client, {
