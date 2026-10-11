@@ -405,5 +405,27 @@
       "category": ""
     },
     "expected": "exclude"
+  },
+  {
+    "id": "real-estate-incentive",
+    "input": {
+      "title": "Chuyên viên môi giới bất động sản",
+      "company": "Synthetic Employer",
+      "description": "Thu nhập 30 triệu, hoa hồng theo doanh số.",
+      "salary": "30 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "b2b-salesperson",
+    "input": {
+      "title": "Salesperson",
+      "company": "Synthetic Employer",
+      "description": "Manage dealers in the field.",
+      "salary": "30 million VND",
+      "category": ""
+    },
+    "expected": "exclude"
   }
 ]
