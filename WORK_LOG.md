@@ -10,7 +10,8 @@
 - 변경 2 (이 PR): `evaluateAutoApproval` — KCN 윤곽 밖에서 회사명 일치만으로는 핀 없음(`name_only_no_house`). 주소 검색(번지+도로 일치) 승인은 그대로. 테스트 기대값 갱신(승인 흐름 테스트는 VSIP 윤곽 안 좌표로 이동). 규칙 문구 3개 파일 갱신.
 - DB (사용자 승인): 후보 37(#4702)·18(#4720) approved→revoked + admin_audit_logs 기록(executor=claude-service-sql). 남은 승인 핀: #4713·#4721·#4750.
 - 검증: tsc 통과, `npm test` 45/46(기존 zalo 실패만), build 통과.
-- 남은 문제: zalo 테스트 실패, 병합 차단(branch protection) 미설정, Goong 비교(계정 활성화 대기), #4685 VietMap 주소 미발견.
+- 후속(같은 날): Zalo 테스트 mock 수정(PR #39, 46/46), PR 검사 워크플로 추가(PR #40), 사용자가 master 보호 설정(필수 검사 checks·guard, 우회 금지) — API로 확인. #4750 B2B 영업직 숨김·핀 철회(사용자 지시).
+- 남은 문제: Goong 비교(계정 활성화 대기), #4685 VietMap 주소 미발견, B2B 영업직 필터 미구현.
 
 ## 2026-10-10 — sb-4685·sb-4721 주소 캐시 재조회 + VietMap 호출 추적 (DB 쓰기·유료 API 호출 없음)
 
