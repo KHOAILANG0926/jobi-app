@@ -2,7 +2,7 @@
 [직접 확인] master `9157ced522d024b2c378958f623beffbdfeb1aba`, 시작 PR48 head `dc5190453335b1eb22527c1338cbce265c0c6e1c`; 같은 codex/job-posting-policy 브랜치. AGENTS/CLAUDE/baseline 원문 조회 완료. STATUS 생성 시각 2026-10-11 12:12(VN), master 테스트47/47 기록. Draft·미병합 유지.
 
 ## 1. 운영 공개 공고 전체 판정 — 미실행
-[직접 확인] 도구 목록에 이 저장소의 Supabase/SSH SELECT 연결 없음. 기존 status-report.yml은 GitHub Secrets 연결(C10). 이 연결을 사용하는 임시 GET-only audit script/workflow 생성 요청이 성공 응답/commit SHA 없이 반환됐다. 후속 GitHub fetch_file은 두 파일 모두404였다. 자동 승인 검토에서 생성이 허용되지 않아 실행하지 못했으며 상세 거절 사유는 확보하지 못했다.
+[직접 확인] 도구 목록에 이 저장소의 Supabase/SSH SELECT 연결 없음. 기존 status-report.yml은 GitHub Secrets 연결(C10). 이 연결을 사용하는 임시 GET-only audit script/workflow 생성 요청이 성공 응답/commit SHA 없이 반환됐다. 후속 GitHub fetch_file은 두 파일 모두404였다. 실행하지 못했다. 상세 도구 응답을 확보하지 못해 거절 사유·차단 주체는 미확인이다. [추정] 앞서 자동 승인 검토 차단으로 안내했으나 이를 확정할 근거는 확보하지 못했다.
 [추정] 차단/검토/허용 건수 및 차단·검토 ID·제목 목록은 **미확인**, 0건이 아니다. Production 조회·DB 변경·RPC·수집 실행 없음. 원문·연락처·키·백업을 회사 PC/PR에 저장하지 않았다. 승인된 읽기 연결 경로를 사용자에게 요청했다.
 [추정] 승인된 경로 확보 후: SELECT/GET active=true AND admin_hidden=false, id/title/company/category/salary/description만 메모리 판정; pagination·중복·총수 검증. 출력은 집계 및 non-allow ID/연락처 제거 제목/reason/version만. 조회 시간 범위와 비transaction snapshot 한계를 명시한다. 동작 권한 우회는 하지 않는다.
 
