@@ -1,0 +1,33 @@
+name: Offline posting policy parity
+
+on:
+  pull_request:
+    paths:
+      - 'policy/**'
+      - 'src/lib/jobPost*'
+      - 'src/lib/jobPolicy*'
+      - 'src/lib/jobQualityFilter*'
+      - 'crawler/**'
+      - 'scripts/job-policy-results.mjs'
+      - '.github/workflows/job-policy-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  python-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Standard-library Python + pure JS only: no browser, keys or DB client.
+      - run: python crawler/test_job_posting_policy.py
+      - run: python crawler/test_job_quality.py
+      - name: Changed Python syntax
+        run: python -m py_compile crawler/job_posting_policy.py crawler/job_quality.py crawler/crawl_topcv.py crawler/crawl_facebook.py crawler/reclassify_db.py scripts/research/bn_apply_chotot_rest.py
