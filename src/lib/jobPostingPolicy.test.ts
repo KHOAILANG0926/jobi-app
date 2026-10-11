@@ -24,7 +24,7 @@ for (const fixture of cases) {
 }
 assert.equal(evaluateJobPostingPolicy({ title: 'Công nhân', description: '[source:legacy]' }).decision, 'review')
 assert.equal(evaluateJobPostingPolicy(cases.find((r: { id: string }) => r.id === 'high-incentive').input).reason, 'professional_incentive_sales')
-console.log('posting policy: 33 shared cases (11 exclude, 8 review, 14 allow), edit/reactivation/hide regression passed')
+console.log('posting policy: ' + cases.length + ' shared cases, edit/reactivation/hide regression passed')
 
 for (const fixture of cases) {
   assert.deepEqual(evaluateJobPostingPolicy({ ...fixture.input, policy_decision: 'allow', policy_version: 'old' }),
