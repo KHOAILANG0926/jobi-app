@@ -1,3 +1,4 @@
+import { evaluateJobPostingPolicy } from '../src/lib/jobPostingPolicy.mjs'
 /**
  * 베트남 채용공고 크롤러 (Playwright 기반)
  * 대상: vietnamworks.com, topcv.vn, timviecnhanh.com, careerbuilder.vn, vieclam24h.vn
@@ -235,6 +236,7 @@ async function saveJobs(jobs) {
   const seen = new Set()
   const unique = jobs.filter(j => {
     if (!j.title || j.title.length < 3) return false
+    if (evaluateJobPostingPolicy(j).decision !== 'allow') return false
     const key = `${j.title}__${j.company}`.toLowerCase()
     if (seen.has(key)) return false
     seen.add(key)
