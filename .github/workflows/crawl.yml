@@ -3,10 +3,18 @@ name: 채용공고 자동 크롤링
 on:
   schedule:
     - cron: '0 15 * * *'  # 매일 저녁 10시 (UTC+7 → 15:00 UTC)
-  workflow_dispatch:       # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      confirm_full_crawl:
+        description: '전체 수집·DB 저장을 실행합니다. 명시적으로 확인한 경우만 선택하세요.'
+        type: boolean
+        required: true
+        default: false
 
 jobs:
   crawl:
+    # 예약은 이 workflow가 승인 인자를 전달; 수동 실행은 별도 확인이 필수.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.confirm_full_crawl == true)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,4 +32,4 @@ jobs:
         env:
           SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python crawler/crawl_topcv.py
+        run: python crawler/crawl_topcv.py --confirm-full-crawl
