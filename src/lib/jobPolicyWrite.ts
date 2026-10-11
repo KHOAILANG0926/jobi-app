@@ -38,9 +38,25 @@ export async function checkedGuestJobUpdate(client: SupabaseClient, params: Reco
     // update_guest_job COALESCE semantics: null does not clear existing fields.
     if (params['p_' + field] != null) patch[field] = params['p_' + field]
   }
-  // Guest RPC exposes active but not admin_hidden; conservatively check any active
-  // write without requesting hidden/private/token columns via public SELECT.
-  assertPublicJobWrite({ ...previous, admin_hidden: false }, patch)
+  if (typeof previous.active !== 'boolean') throw new Error('Không xác định được trạng thái tin.')
+  // Legacy token RPC omits admin_hidden. Check public membership rather than
+  // inventing admin_hidden=false (which rejected edits to already hidden jobs).
+  // No private columns/token are requested and no guest caller controls hidden.
+  let currentlyPublic: boolean
+  if (typeof previous.admin_hidden === 'boolean') {
+    currentlyPublic = previous.active && !previous.admin_hidden
+  } else {
+    const { data: publicRow, error: publicError } = await client.from('local_jobs')
+      .select('id').eq('id', params.p_job_id)
+      .eq('active', true).eq('admin_hidden', false).maybeSingle()
+    if (publicError) throw new Error('Không xác định được trạng thái công khai của tin.')
+    currentlyPublic = publicRow != null
+  }
+  // Hidden edits preserve DB hidden state; explicit activation still requires
+  // policy approval when legacy RPC cannot tell if hidden. Race/RPC bypass remains.
+  const activating = params.p_active === true && previous.active === false
+  if ((currentlyPublic && patch.active !== false) || activating)
+    assertJobPublishable({ ...previous, ...patch })
   return client.rpc('update_guest_job', params)
 }
 
