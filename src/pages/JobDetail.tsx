@@ -25,7 +25,7 @@ import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
-import { planJobDirections } from '../lib/directionsPlan'
+import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
@@ -700,6 +700,7 @@ export function JobDetail() {
                           <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label} ↗</a>
                         </span>
                       ))}
+                      {directionsPlan.call && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call} ({directionsPlan.call.phone})</a>}
                       <p className="jd2-map-dir-note">{directionsPlan.note}</p>
                     </div>
                   )}

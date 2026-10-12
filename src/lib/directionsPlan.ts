@@ -1,6 +1,6 @@
 import { isVerifiedWorkLocation, workLocationExternalLinks } from './jobCoords'
 import { findIndustrialPark, industrialParkDirectionsUrl, industrialParkDirectionsNote } from './industrialPark'
-import { contactOf } from './jobDetailView'
+import { contactOf, isGenericCompanyName } from './jobDetailView'
 import type { Job } from '../types/job'
 
 // 길찾기 3단계 (2026-10-08 사용자 지시) — 위에서부터 하나만 보여준다.
@@ -8,7 +8,9 @@ import type { Job } from '../types/job'
 //   2) 없고 KCN 정문 좌표가 있으면 "Đến cổng KCN"   — 출처 있는 KCN 정문 좌표(공장 정문 아님)
 //   3) 둘 다 없고 정확한 거리 주소가 있으면 "Chỉ đường" — 주소 글자로 Google Maps에 넘김(2026-10-12 사용자 결정 A안,
 //      VietMap 최신 반영이 늦어서). 번지+도로명 + 일치하는 동/구/성만. KCN·Lô·Khu 주소, 행정구역이 서로 다른 주소는 제외.
-//   4) 그것도 없으면              "Gọi hỏi đường"  — 공고 전화번호로 거는 전화 버튼(연락처 없으면 아무것도 안 보임)
+//   3') 그것도 없으면 회사명+동/구/성으로 Google Maps 검색(2026-10-13 사용자 지시: 길찾기를 숨기지 않는다).
+//      Google이 찾은 위치이며 확인 안 됨 안내 + 전화 버튼을 함께 보여준다. 회사명이 없으면 지역으로.
+//   4) 위치 정보가 전혀 없으면      "Gọi hỏi đường"  — 공고 전화번호로 거는 전화 버튼(연락처 없으면 아무것도 안 보임)
 // 회사명·공단명·지역명만으로 만든 검색 링크는 여전히 금지(2026-09-29 KCN VSIP 오안내 재발 방지).
 
 export const DIRECTIONS_LABEL = {
@@ -22,7 +24,7 @@ export interface DirectionsLink { label: string; href: string; viewHref?: string
 export type DirectionsPlan =
   | { tier: 'approved'; links: DirectionsLink[] }
   | { tier: 'gate'; link: DirectionsLink; note?: string }
-  | { tier: 'address'; links: DirectionsLink[]; note: string }
+  | { tier: 'address'; links: DirectionsLink[]; note: string; call?: { href: string; phone: string } }
   | { tier: 'call'; label: string; href: string; phone: string }
   | { tier: 'none' }
 
@@ -31,6 +33,7 @@ export function planDirections(input: {
   gateHref: string | null
   gateNote?: string
   addressQuery?: string | null
+  addressNote?: string
   phone?: string | null
 }): DirectionsPlan {
   const links = input.approvedLinks.flatMap((link) => {
@@ -39,13 +42,15 @@ export function planDirections(input: {
   })
   if (links.length > 0) return { tier: 'approved', links }
   if (input.gateHref && googleDestination(input.gateHref)) return { tier: 'gate', link: { label: DIRECTIONS_LABEL.gate, href: input.gateHref }, note: input.gateNote }
+  const digits = (input.phone ?? '').replace(/[^\d+]/g, '')
+  const hasPhone = digits.replace(/\D/g, '').length >= 8
   if (input.addressQuery) {
     const q = encodeURIComponent(input.addressQuery)
-    return { tier: 'address', note: ADDRESS_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
-      href: `https://www.google.com/maps/dir/?api=1&destination=${q}`, viewHref: `https://www.google.com/maps/search/?api=1&query=${q}` }] }
+    return { tier: 'address', note: input.addressNote ?? ADDRESS_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
+      href: `https://www.google.com/maps/dir/?api=1&destination=${q}`, viewHref: `https://www.google.com/maps/search/?api=1&query=${q}` }],
+      ...(hasPhone ? { call: { href: `tel:${digits}`, phone: input.phone!.trim() } } : {}) }
   }
-  const digits = (input.phone ?? '').replace(/[^\d+]/g, '')
-  if (digits.replace(/\D/g, '').length >= 8) {
+  if (hasPhone) {
     return { tier: 'call', label: DIRECTIONS_LABEL.call, href: `tel:${digits}`, phone: input.phone!.trim() }
   }
   return { tier: 'none' }
@@ -73,8 +78,24 @@ export function planJobDirections(job: Job): DirectionsPlan {
   const park = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
   const addressQuery = (job.workLocations ?? []).length === 1
     ? preciseStreetAddressQuery(job.workLocations![0].rawAddress, job.workLocations![0].industrialPark) : null
+  const searchQuery = addressQuery ? null : companyAreaQuery(job)
   return planDirections({ approvedLinks, gateHref: park ? industrialParkDirectionsUrl(park) : null,
-    gateNote: park?.destination ? industrialParkDirectionsNote(park.destination) : undefined, addressQuery, phone: contactOf(job).phone })
+    gateNote: park?.destination ? industrialParkDirectionsNote(park.destination) : undefined,
+    addressQuery: addressQuery ?? searchQuery?.query, addressNote: addressQuery ? undefined : searchQuery?.note, phone: contactOf(job).phone })
+}
+
+export const COMPANY_AREA_NOTE = 'Vị trí do Google Maps tìm theo tên công ty và khu vực — chưa xác minh, nên gọi nhà tuyển dụng để xác nhận.'
+export const AREA_ONLY_NOTE = 'Chỉ đường tới khu vực ghi trong tin, không phải địa chỉ nơi làm việc — hãy gọi nhà tuyển dụng để hỏi đường.'
+
+/** 2026-10-13: 정확한 위치가 없어도 길찾기를 숨기지 않는다 — 회사명(일반 명칭 제외) + 동/구/성. */
+export function companyAreaQuery(job: Pick<Job, 'company' | 'rawLocation' | 'workLocations'>): { query: string; note: string } | null {
+  const raw = job.workLocations?.[0]?.rawAddress || job.rawLocation || ''
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean)
+  const area = parts.slice(-3).join(', ')
+  if (!area) return null
+  const company = (job.company ?? '').trim()
+  if (company && !isGenericCompanyName(company)) return { query: `${company}, ${area}`, note: COMPANY_AREA_NOTE }
+  return { query: area, note: AREA_ONLY_NOTE }
 }
 
 export const ADDRESS_NOTE = 'Vị trí theo địa chỉ trong tin, chưa xác minh trên bản đồ.'
