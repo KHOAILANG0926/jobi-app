@@ -8,7 +8,7 @@
 ## 1. 현재 상태
 
 - **[직접 확인 2026-10-12] 공고 제외 정책 운영 적용 완료:** PR #48 master `45c372c` 병합, Vercel Production 배포(viecganban.vn 번들에 `2026-10-12-v3`·`jobPolicyWrite` 확인). PR #47·#49·#50은 #48로 대체돼 Close.
-- **[직접 확인 2026-10-12] DB 강제(트리거) 적용(사용자 승인):** `local_jobs` BEFORE INSERT/UPDATE 트리거 `trg_enforce_job_posting_policy` — exclude 저장 거부, review는 비공개 저장(관리자 JWT 공개 허용). anon REST·service-role·VPS 크롤러·SQL 경로 모두 적용. 마이그레이션 `supabase/migrations/20261012153000_job_posting_policy_db_enforcement.sql`. 검증: fixtures 57/57, 운영 공개 101건 전부 allow, #4750 exclude, 트리거 시험 7건 의도대로. 규칙 JSON 변경 시 DB 함수도 새 마이그레이션 필요(`src/lib/jobPolicyDbSync.test.ts`가 불일치 검출).
+- **[직접 확인 2026-10-12] DB 강제(트리거) 적용(사용자 승인):** `local_jobs` BEFORE INSERT/UPDATE 트리거 `trg_enforce_job_posting_policy` — exclude 저장 거부, review는 비공개 저장(관리자 JWT 공개 허용). anon REST·service-role·VPS 크롤러·SQL 경로 모두 적용. 마이그레이션 `supabase/migrations/20261012153000_job_posting_policy_db_enforcement.sql`. 검증: fixtures 57/57, 운영 공개 101건 전부 allow, #4750 exclude, 트리거 시험 7건 의도대로. 규칙 JSON 변경 시 DB 함수도 새 마이그레이션 필요(`api/_job-policy-db-sync.test.ts`가 불일치 검출).
 - **후속(차단 목표와 무관):** VPS 크롤러 `git pull`은 수동(`crawler/deploy.sh`) — 수집 재개 전 갱신 권장. 임시 폴더 `JOBI-deploy-45c372c` 삭제. 원래 작업 폴더 master 미커밋 변경(+24,168) 정체 확인.
 
 - **[직접 확인] 현재 판정 조정:** policy v3(2026-10-12), 제외 증거 없는 일반 영업 허용; 소비재 브랜드+소매 공급은 market 제목 없이 허용; 단독 B2B 단어는 review이나 매장/교대 증거가 있으면 허용. 금융·명시적 B2B계약·전문 인센티브 증거는 유지. 근거 `docs/job-policy-rules-v3-2026-10-12.md`, PR48 Draft·미병합.

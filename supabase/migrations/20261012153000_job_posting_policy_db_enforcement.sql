@@ -6,7 +6,7 @@
 --   이미 공개된 행의 내용(title/company/description/category/salary)이 바뀌지 않은 UPDATE는 재평가하지 않음.
 -- 규칙 원본: policy/job-posting-rules.json (version 2026-10-12-v3). JS 판정기: src/lib/jobPostingPolicy.mjs.
 --   job_policy_rules()의 JSON은 원본 규칙에서 \b→\y 변환, debt 창(window) 규칙을 debt_win 정규식으로 펼친 것.
---   규칙 JSON을 바꾸면 이 함수도 새 마이그레이션으로 함께 바꿔야 한다(src/lib/jobPolicyDbSync.test.ts가 불일치를 잡음).
+--   규칙 JSON을 바꾸면 이 함수도 새 마이그레이션으로 함께 바꿔야 한다(api/_job-policy-db-sync.test.ts가 불일치를 잡음).
 -- 검증(적용 시 직접 확인): fixtures 57/57 일치, 운영 공개 101건 전부 allow, #4750 exclude,
 --   트리거 시험 7건(원문 #4750 등록·숨김해제·채권추심·대출 제목변경 거부, 애매한 B2B 비공개 저장, 정상 공개, 단순 수정 통과).
 

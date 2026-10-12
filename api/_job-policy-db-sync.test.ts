@@ -4,10 +4,10 @@
 // and point MIGRATION below at it.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import rules from '../../policy/job-posting-rules.json' with { type: 'json' }
+import rules from '../policy/job-posting-rules.json' with { type: 'json' }
 
 const MIGRATION = 'supabase/migrations/20261012153000_job_posting_policy_db_enforcement.sql'
-const root = join(import.meta.dirname, '..', '..')
+const root = join(import.meta.dirname, '..')
 const sql = readFileSync(join(root, MIGRATION), 'utf8')
 const m = sql.match(/select '(\{.*\})'::jsonb/)
 if (!m) throw new Error('job_policy_rules() JSON not found in ' + MIGRATION)
