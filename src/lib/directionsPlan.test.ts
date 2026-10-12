@@ -78,3 +78,15 @@ assert(planDirections({ approvedLinks: approved, gateHref: null, addressQuery: '
 assert(planDirections({ approvedLinks: [], gateHref: gate, addressQuery: 'x', phone: '' }).tier === 'gate', 'KCN gate beats address')
 assert(planDirections({ approvedLinks: [], gateHref: null, addressQuery: null, phone: '0344849982' }).tier === 'call', 'no precise address → telephone')
 console.log('address tier (A안) tests: all assertions passed')
+
+// 2026-10-13: 길찾기를 숨기지 않는다 — 정확한 위치가 없으면 회사명+지역으로 Google
+import { companyAreaQuery, COMPANY_AREA_NOTE, AREA_ONLY_NOTE } from './directionsPlan.ts'
+const wardJob = { title: 'x', company: 'Công ty Cổ phần In và Bao bì Goldsun', rawLocation: '', employerPhone: '0393708349',
+  workLocations: [{ rawAddress: 'Phường Phương Liễu, Huyện Quế Võ, Bắc Ninh', locationVerified: false }] } as unknown as Job
+const ward = planJobDirections(wardJob)
+assert(ward.tier === 'address' && ward.note === COMPANY_AREA_NOTE && ward.links.length === 1 && ward.call?.href === 'tel:0393708349'
+  && decodeURIComponent(ward.links[0].href).endsWith('destination=Công ty Cổ phần In và Bao bì Goldsun, Phường Phương Liễu, Huyện Quế Võ, Bắc Ninh'),
+  'ward-only job still gets Google directions (company + area) and keeps the phone button')
+assert(companyAreaQuery({ ...wardJob, company: 'Nhà tuyển dụng ẩn danh' })?.note === AREA_ONLY_NOTE, 'generic company → area-only query with explicit note')
+assert(companyAreaQuery({ ...wardJob, rawLocation: '', workLocations: [] }) === null, 'no location at all → no Google link')
+console.log('directions never hidden (2026-10-13): all assertions passed')

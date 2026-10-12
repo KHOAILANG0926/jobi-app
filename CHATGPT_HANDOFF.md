@@ -7,6 +7,8 @@
 
 ## 1. 현재 상태
 
+- **[직접 확인 2026-10-13] 길찾기 숨김 금지(사용자 반복 지적):** 정확한 위치가 없으면 회사명+동·구·성으로 Google Maps 위치 보기·길찾기 + "chưa xác minh" + 전화 버튼. 위치 정보 전무일 때만 전화 단독. `companyAreaQuery`. 규칙 3개 파일에 명시. 위치 후보 32건 검토: 승인 권장 4(#4738·4779·4780·4781), 확인 필요 3(#4773·4715·4729), 나머지 오답 — 승인은 사용자 결정 대기.
+
 - **[직접 확인 2026-10-12] 길찾기 A안(사용자 결정):** VietMap 최신 반영이 늦어 승인 좌표·KCN 정문이 없을 때 **번지+도로명+일치하는 동·구·성** 주소는 글자로 Google Maps 위치 보기·길찾기(“chưa xác minh” 안내). KCN·Lô·Khu·행정구역 충돌 주소는 제외. `src/lib/directionsPlan.ts` `preciseStreetAddressQuery`. 운영 주소 기준 대상 7건(4685·4686·4702·4720·4764·4765 등). 규칙 문구 CLAUDE.md·AGENTS.md·Cursor 규칙 갱신.
 
 - [직접 확인] Google 링크 작업: 기준 origin/master b0487a2067ae9cf5e3925de6463d8cb38c8ed0c7, 별도 codex/google-maps-links-20261012. 기존 directionsPlan/승인 helper를 재사용해 홈 선택 패널과 상세 화면의 승인 좌표 보기·길찾기, KCN 정문, 전화 fallback을 일치시켰다. 좌표 URL만 허용하며 미승인 보기 링크도 숨긴다. VietMap/필터/승인/연락 공개/DB/크롤러/한국 모듈/Vercel 설정 불변. 병합·Preview·Production 배포 금지.
