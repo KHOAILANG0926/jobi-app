@@ -7,6 +7,10 @@
 
 ## 1. 현재 상태
 
+- [직접 확인] Google 링크 작업: 기준 origin/master b0487a2067ae9cf5e3925de6463d8cb38c8ed0c7, 별도 codex/google-maps-links-20261012. 기존 directionsPlan/승인 helper를 재사용해 홈 선택 패널과 상세 화면의 승인 좌표 보기·길찾기, KCN 정문, 전화 fallback을 일치시켰다. 좌표 URL만 허용하며 미승인 보기 링크도 숨긴다. VietMap/필터/승인/연락 공개/DB/크롤러/한국 모듈/Vercel 설정 불변. 병합·Preview·Production 배포 금지.
+- [직접 확인] 검증: 새 좌표 보기 assertion 최초 실패 후 수정·통과, tsc 성공, npm test 51/51, client/SSR build 성공. 최종 gate 표시 수정 뒤 영향 테스트·tsc·client/SSR build 재통과. 외부 링크 target=_blank·noopener noreferrer, 기존 모바일/PC 공통 panel 재사용 확인. [미확인] 실제 모바일 Google 앱 전환·Preview 화면(최신 지시로 배포 없음). 기존 WORK_LOG 갱신 보류 유지.
+
+
 - **[직접 확인 2026-10-12] 공고 제외 정책 운영 적용 완료:** PR #48 master `45c372c` 병합, Vercel Production 배포(viecganban.vn 번들에 `2026-10-12-v3`·`jobPolicyWrite` 확인). PR #47·#49·#50은 #48로 대체돼 Close.
 - **[직접 확인 2026-10-12] DB 강제(트리거) 적용(사용자 승인):** `local_jobs` BEFORE INSERT/UPDATE 트리거 `trg_enforce_job_posting_policy` — exclude 저장 거부, review는 비공개 저장(관리자 JWT 공개 허용). anon REST·service-role·VPS 크롤러·SQL 경로 모두 적용. 마이그레이션 `supabase/migrations/20261012153000_job_posting_policy_db_enforcement.sql`. 검증: fixtures 57/57, 운영 공개 101건 전부 allow, #4750 exclude, 트리거 시험 7건 의도대로. 규칙 JSON 변경 시 DB 함수도 새 마이그레이션 필요(`api/_job-policy-db-sync.test.ts`가 불일치 검출).
 - **후속(차단 목표와 무관):** VPS 크롤러 `git pull`은 수동(`crawler/deploy.sh`) — 수집 재개 전 갱신 권장. 임시 폴더 `JOBI-deploy-45c372c` 삭제. 원래 작업 폴더 master 미커밋 변경(+24,168) 정체 확인.

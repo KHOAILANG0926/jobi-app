@@ -1,4 +1,5 @@
-import { planDirections } from './directionsPlan.ts'
+import type { Job } from '../types/job'
+import { planDirections, planJobDirections } from './directionsPlan.ts'
 import { industrialParkDirectionsUrl } from './industrialPark.ts'
 
 function assert(cond: boolean, msg: string) {
@@ -31,3 +32,21 @@ assert(industrialParkDirectionsUrl({ destination: { ...parkBase, kind: 'office' 
 assert(industrialParkDirectionsUrl({ destination: undefined }) === null, '정문 좌표 없으면 null')
 
 console.log('directionsPlan tests: all assertions passed')
+
+assert(t1.tier === 'approved' && t1.links[0].viewHref === 'https://www.google.com/maps/search/?api=1&query=21.1,105.9', 'approved coordinate has a Google view link')
+for (const href of ['https://www.google.com/maps/dir/?api=1&destination=Company', 'https://evil.example/?destination=21.1,105.9', 'https://www.google.com/maps/dir/?api=1&destination=91,105.9']) {
+  assert(planDirections({ approvedLinks: [{ label: 'Chỉ đường', href }], gateHref: null, phone: '0344849982' }).tier === 'call', 'invalid/text coordinates must fall back to telephone')
+}
+assert(planDirections({ approvedLinks: [], gateHref: 'https://www.google.com/maps/dir/?api=1&destination=Park' }).tier === 'none', 'text gate destination forbidden')
+
+const job = { title: 'Synthetic job', rawLocation: '', employerPhone: '0344849982', workLocations: [{ rawAddress: 'Synthetic', locationVerified: true, verificationStatus: 'verified', geocodeStatus: 'precise', addressAccuracy: 'exact_text', lat: 10.7, lng: 106.7 }] } as unknown as Job
+assert(planJobDirections(job).tier !== 'approved', 'verified coordinate without approval cannot be used')
+const approvedJob = { ...job, workLocations: [{ ...job.workLocations![0], approvedPoint: { lat: 10.71, lng: 106.71, placePrecision: 'site' as const } }] }
+const approvedPlan = planJobDirections(approvedJob)
+assert(approvedPlan.tier === 'approved' && approvedPlan.links[0].href.endsWith('destination=10.71,106.71') && approvedPlan.links[0].viewHref?.endsWith('query=10.71,106.71') === true, 'home/detail destination is the approved point, never the marker center')
+assert(planJobDirections({ ...job, workLocations: [] }).tier !== 'approved', 'no work location cannot expose Google links')
+console.log('Google links: coordinate view/directions, invalid destinations and shared approval rules passed')
+
+assert(planJobDirections({ ...job, workLocations: [] }).tier === 'call', 'no approved coordinate keeps existing telephone fallback')
+assert(planJobDirections({ ...job, employerPhone: '', workLocations: [] }).tier === 'none', 'no coordinate and no phone produces no buttons')
+assert(planDirections({ approvedLinks: [], gateHref: gate, gateNote: 'Verified park gate, not factory.' }).tier === 'gate', 'gate tier preserves note')
