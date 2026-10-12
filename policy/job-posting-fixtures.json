@@ -151,7 +151,7 @@
       "salary": "10 triệu VND",
       "category": ""
     },
-    "expected": "review"
+    "expected": "allow"
   },
   {
     "id": "high-incentive",
@@ -382,7 +382,7 @@
       "salary": "10 triệu VND",
       "category": ""
     },
-    "expected": "review"
+    "expected": "allow"
   },
   {
     "id": "financial-advisor",
@@ -569,7 +569,7 @@
       "category": "",
       "salary": "30 triệu VND"
     },
-    "expected": "review"
+    "expected": "allow"
   },
   {
     "id": "synthetic-v2-finance-market-brand",
@@ -581,5 +581,49 @@
       "salary": "30 triệu VND"
     },
     "expected": "exclude"
+  },
+  {
+    "id": "synthetic-4689-kinhdo-outlets",
+    "input": {
+      "title": "Nhân viên kinh doanh",
+      "company": "Kinh Đô",
+      "description": "Đi xe máy thăm 30-35 tạp hóa và điểm bán, trưng bày và giao hàng.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-4725-aqua-shifts",
+    "input": {
+      "title": "Nhân viên tư vấn bán hàng",
+      "company": "AQUA",
+      "description": "Tư vấn bán hàng, làm việc theo ca.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-4729-samsung-dealer-shifts",
+    "input": {
+      "title": "Nhân viên bán hàng",
+      "company": "Samsung",
+      "description": "Làm việc tại đại lý, ca 1/ca 2, xoay ca.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-4740-unilever-display",
+    "input": {
+      "title": "Nhân viên bán hàng",
+      "company": "Unilever",
+      "description": "Khuyến mãi và trưng bày sản phẩm.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
   }
 ]
