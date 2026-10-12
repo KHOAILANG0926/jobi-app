@@ -1,8 +1,6 @@
 name: 채용공고 자동 크롤링
 
 on:
-  schedule:
-    - cron: '0 15 * * *'  # 매일 저녁 10시 (UTC+7 → 15:00 UTC)
   workflow_dispatch:
     inputs:
       confirm_full_crawl:
@@ -13,8 +11,8 @@ on:
 
 jobs:
   crawl:
-    # 예약은 이 workflow가 승인 인자를 전달; 수동 실행은 별도 확인이 필수.
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.confirm_full_crawl == true)
+    # 예약 수집 일시 중지: 명시적으로 확인한 수동 실행만 허용.
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_full_crawl == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

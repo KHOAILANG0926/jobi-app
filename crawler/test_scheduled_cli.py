@@ -172,9 +172,9 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("confirm_full_crawl:", source)
         self.assertIn("type: boolean", source)
         self.assertIn("default: false", source)
-        self.assertIn("if: github.event_name == 'schedule' || "
-                      "(github.event_name == 'workflow_dispatch' && "
-                      "inputs.confirm_full_crawl == true)", source)
+        self.assertNotIn("  schedule:", source)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' && "
+                      "inputs.confirm_full_crawl == true", source)
 
     def run_daily_with_fake_timeout(self, exit_code):
         if not shutil.which("bash"):

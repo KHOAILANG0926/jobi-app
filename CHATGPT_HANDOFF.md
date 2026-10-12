@@ -4,6 +4,8 @@
 
 ## 1. 현재 상태
 
+- [직접 확인] 2026-10-12 예약 차단 후속: master crawl.yml은 if:false로 실행 차단. PR50은 schedule 제거, workflow_dispatch+명시 확인만 유지. VPS 접속 경로/cron 중단은 미확인이므로 병합·배포 보류. DB·실제 수집 변경 없음. 변경 필수 검사 CLI14/14·tsc·client/SSR build 성공; 기존 정책 suite 수동 재실행 없음.
+
 - [직접 확인] master 기준 9157ced522d024b2c378958f623beffbdfeb1aba; 통합 로컬 브랜치 codex/integrate-crawler-policy-20261012. PR47 443468b24c554ad5ea44df6c8e4a53e41c925dc8 + PR49 cc14ea45e7889d6155680cdb535e4b4ee5e258d6. 원본 checkout master/d3940fa와 26개 기존 변경 보존, 기존 두 PR Draft 유지.
 - [직접 확인] merge-tree/실제 무커밋 병합 충돌은 HANDOFF뿐. crawler 자동 병합. PR47 예약 confirmation·수동 default=false·축약/혼합 인자 차단과 PR49 금융/B2B 정책·공개 쓰기 gate를 함께 유지한다. --confirm-full-crawl 안전장치 유지; 통합은 수집 재개 승인이 아니다.
 - [직접 확인] vercel.json은 기존 PR49 브랜치 false와 새 통합 브랜치 false만 유지/추가. 최초 원격 브랜치 생성 전에 이 설정이 포함된 로컬 커밋을 검증한다. 첫 push 후 branch/SHA별 Vercel 배포 0건을 확인하기 전 PR 작성 금지; 예상치 못한 배포면 즉시 중단.
