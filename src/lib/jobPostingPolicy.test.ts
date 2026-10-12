@@ -67,5 +67,5 @@ assert.equal(evaluateJobPostingPolicy(shiftedProfessional).decision, 'review',
 assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'unclear-b2b')!.input).decision,
   'review', 'B2B signal without retail/shift evidence remains review')
 assert.equal(evaluateJobPostingPolicy({
-  title: 'Sales', company: 'Kinh Đô', description: 'Chăm sóc đại lý.',
+  title: 'Sales', company: 'Kinh Đô', description: 'Thông tin sản phẩm do đại lý giới thiệu.',
 }).decision, 'review', 'consumer brand alone must not override dealer ambiguity')
