@@ -21,7 +21,10 @@
 
 ## 검사 기록
 [직접 확인] 초기 Python run38186570390은 추가 경계 테스트에서 “Chăm sóc đại lý”를 단순 단어 증거로 취급해 예상 review와 실제 primary-dealer exclude가 달라 실패했다. 단어만 나오는 “Thông tin sản phẩm do đại lý giới thiệu”로 테스트 입력을 교정했고 정책의 primary dealer 제외 규칙은 변경하지 않았다.
-[추정] 최종 tsc/npm/build/Python/CI는 실제 로그 조회 후 기록한다. 로컬 명령은 helper setup 오류로 실행 불가여서 원격 Actions의 오프라인 검사만 사용한다.
+[직접 확인] Code SHA `70377858ce4b5aaefe1829c148c8c42ad0ba440f`: [checks run38186699966](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38186699966), job114610447997 타입 검사 성공(`npx tsc --noEmit`), 로그 `57 shared cases` / `57 cases x 7 paths` / `50/50 test files passed.`; build `built in 1.24s / 231ms`.
+[직접 확인] [Python run38186699994](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38186699994), job114610448099 `Ran 7 tests in 0.090s / OK`, 기존 `21/21 job quality tests passed`, Python/JS 문법 검사 성공.
+[직접 확인] [CLI run38186699976](https://github.com/KHOAILANG0926/jobi-app/actions/runs/38186699976), job114610448057 `Ran 15 tests in 0.085s / OK`; 가짜 timeout/AST 검사이며 실제 수집 없음. 로컬 명령은 helper setup 오류로 실행 불가여서 원격 Actions의 오프라인 검사만 사용한다.
+[직접 확인] 원래53개 input은 모두 동일하고 expected 수정은 위3개뿐임을 JSON 비교로 재확인했다. 추가 fixture는 위 합성4개만이다.
 
 ## 남은 범위·금지 유지
 [직접 확인] 운영101 재판정은 요청대로 Claude 확인 대상이며 본 세션에서는 조회하지 않는다. DB 공통 강제·관리자 예외·review 보존은 pending 설계 상태, raw RPC/SQL/service-role/race 우회는 남는다.
