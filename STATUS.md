@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-12 23:18 (VN)**
-- 기준 커밋: `c3407f8` (Reuse approved coordinate Google Maps links in home and detail (#54))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38275178208
+- 생성 시각: **2026-10-12 23:39 (VN)**
+- 기준 커밋: `66cb9a3` (feat: 정확한 거리 주소는 Google Maps 위치·길찾기로 (A안) (#55))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38277617874
 - 검증 스크립트 지문(SHA-256): `ee61465a031d5604`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `91d9197` · 상태 **success** · 2026-10-12 21:26 (VN)
+- 마지막 Production 배포: `b0487a2` · 상태 **success** · 2026-10-12 23:34 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #55 | 2026-10-12 23:28 (VN) | `66cb9a3` | feat: 정확한 거리 주소는 Google Maps 위치·길찾기로 (A안) |
 | #54 | 2026-10-12 23:07 (VN) | `c3407f8` | feat: 선택 공고에 승인 좌표 Google Maps 링크 표시 |
 | #53 | 2026-10-12 22:49 (VN) | `b0487a2` | db: 공고 제외 정책 DB 트리거 마이그레이션 기록 (Production 적용분) |
 | #48 | 2026-10-12 21:56 (VN) | `45c372c` | feat: 공고 제외·검토 정책과 공통 오프라인 회귀 검사 |
@@ -45,7 +46,6 @@
 | #43 | 2026-10-11 12:05 (VN) | `74ab37f` | feat(status): VietMap 재확인을 사이트 서버로 (GitHub OIDC, 키 재등록 불필요) |
 | #42 | 2026-10-11 11:59 (VN) | `8b434aa` | fix(status): 배포 대기·검증장치 승인 라벨 + 근거 없는 승인 차단 SQL 초안 |
 | #41 | 2026-10-11 11:04 (VN) | `95d0dfa` | docs: HANDOFF·WORK_LOG 갱신 (master 보호·Zalo 테스트·#4750) |
-| #40 | 2026-10-11 10:51 (VN) | `e5150b2` | ci: PR 검사(타입·테스트·빌드) 추가 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
