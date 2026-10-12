@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-12-v2",
+  "version": "2026-10-12-v3",
   "debt": [
     [
       "thu hoi",
@@ -117,5 +117,11 @@
   ],
   "retail_supply": [
     "\\b(tap hoa|diem ban|cua hang ban le|cua hang|sieu thi|retail outlets?|retail shops?)\\b"
+  ],
+  "shift_work": [
+    "\\bca (1|2)\\b",
+    "\\bxoay ca\\b",
+    "\\b(lam|lam viec|ban hang|tu van) (theo )?ca\\b",
+    "\\bshift work\\b"
   ]
 }
