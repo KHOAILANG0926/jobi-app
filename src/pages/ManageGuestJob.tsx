@@ -1,3 +1,4 @@
+import { assertJobChange } from '../../policy/job-posting.mjs'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -99,9 +100,23 @@ export default function ManageGuestJob() {
     return () => { cancelled = true }
   }, [id, token])
 
+  async function checkPublication(patch: Record<string, unknown> = {}): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('get_guest_job', { p_job_id: Number(id), p_token: token })
+      const current = (data as GuestJobRow[] | null)?.[0]
+      if (error || !current) throw new Error('Không thể kiểm tra tin trước khi công khai.')
+      assertJobChange(current, patch)
+      return true
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Không thể kiểm tra chính sách.')
+      return false
+    }
+  }
+
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!id) return
+    if (!await checkPublication(draft)) return
     setError(null)
     setSaving(true)
     const { data, error: rpcError } = await supabase.rpc('update_guest_job', {
@@ -145,6 +160,7 @@ export default function ManageGuestJob() {
 
   const toggleActive = async () => {
     if (!id || !job) return
+    if (!job.active && !await checkPublication()) return
     setSaving(true)
     setError(null)
     const { data, error: rpcError } = await supabase.rpc('update_guest_job', {

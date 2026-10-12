@@ -1,3 +1,4 @@
+import { assertJobPolicy } from '../../policy/job-posting.mjs'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -190,6 +191,10 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
   async function handleSave() {
     if (!jobForm.title || !jobForm.company) {
       setParseError('Vui lòng điền ít nhất Tiêu đề và Công ty.')
+      return
+    }
+    try { assertJobPolicy(jobForm) } catch (error) {
+      setParseError(error instanceof Error ? error.message : 'Không thể kiểm tra chính sách.')
       return
     }
     setSaving(true)

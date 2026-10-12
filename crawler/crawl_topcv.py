@@ -4,6 +4,7 @@ vieclam24h.vn 채용공고 크롤러
 - 실행: python3 crawl_topcv.py
 """
 
+from job_posting_policy import evaluate_job_policy
 import argparse
 import asyncio
 import json
@@ -2071,6 +2072,9 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
     VerifyWriteExistingMatchError로 즉시 중단한다 — 검증 저장은 항상 신규
     INSERT만 허용, 기존(운영) 공고는 절대 건드리지 않는다."""
     _require_write_enabled()
+    verdict = evaluate_job_policy(job)
+    if verdict['decision'] != 'allow':
+        return {'action': 'policy_skipped', 'id': None, 'reason': verdict['reason']}
     existing = match_existing_row(job, by_source_url, by_key)
 
     if verify_write and existing is not None:

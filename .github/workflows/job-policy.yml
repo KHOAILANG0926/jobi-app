@@ -1,0 +1,25 @@
+name: Offline job policy
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  policy-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s crawler -p 'test_job_posting_policy.py'
+      - run: python -m unittest discover -s crawler -p 'test_policy_write_gates.py'
+      - run: python crawler/test_job_quality.py
+  policy-sql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/test-job-policy-sql.mjs

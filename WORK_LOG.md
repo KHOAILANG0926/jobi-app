@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-12 — PR #46 기반 신규 공고 정책 (Draft 전용)
+
+- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy`, 별도 clone. 원래 checkout·PR #47·보호 검증 장치 변경 없음.
+- [직접 확인] 공유 JSON 정책/JS/Python, 금융·B2B 제외와 정상 판매·생산·QC 허용, 20M 금액 단독 제외 없음. 등록·수정·재공개 및 crawler/Facebook/Chợ Tốt 최종 gate, 공개 active/hidden 필터 적용.
+- [직접 확인] npx tsc --noEmit / npm test 49/49 / npm run build 통과. Python 품질 21/21 + 신규 unittest 5/5 통과. SQL 메모리 PostgreSQL: 공유 24사례 + insert/edit/reopen/failure gate 통과. 초기 실패와 미실행 범위는 docs/job-posting-policy-implementation.md 기록.
+- [직접 확인] Production 쓰기·DDL·유료 호출·크롤링·배포 실행 없음. SQL은 pending/ROLLBACK 초안, private review 저장은 설계만. 직접 SQL/service-role와 앱 검사 사이 경쟁 조건은 운영 trigger 없이는 미해결.
+- [직접 확인] 작업 브랜치 Vercel 자동 배포만 비활성화. GitHub 원격 SHA·Draft PR·CI 결과는 PR 자체를 최종 근거로 확인할 것. merge 금지.
+
 ## 2026-10-11 10:40 — 거짓 보고 대책(STATUS 자동 기록) + 승인 규칙 B안 + 핀 2건 철회 (Claude)
 
 - 요청: GPT의 허위 보고(하지 않은 웹 검색을 했다고 보고·출처 첨부) 이후 지금까지 작업 검증, 재발 방지 장치, 승인 규칙 B안.
@@ -68,12 +76,6 @@
 - 사용자 보고: chotot 100건 공개 완료(SQL Editor 직접 실행). 확인 URL SQL이 `/viec-lam/<id>`로 만들어 404.
 - 원인·수정: 앱의 공고 ID는 `sb-<local_jobs.id>`(`src/lib/jobId.ts`) → URL SQL 4곳과 문서 형식을 `/viec-lam/sb-<id>`로 수정, PGlite로 재확인. HANDOFF에 "공개 완료"·다음 할 일 반영.
 
-## 2026-10-08 — chotot 공개 전환 준비: dry-run·공개 SQL·확인 URL (DB 쓰기·공개 없음)
-
-- 요청(사용자 결정: 핀 없이도 공개): 공개 대상/KCN 영역 지도/Gọi hỏi đường만 건수 보고, 건수 가드 있는 공개 SQL, 공개 후 확인 URL.
-- 건수는 **미보고**: 관리자 DB 접근이 없고 anon은 비공개 0건. 대신 dry-run SELECT(`docs/ops/2026-10-08_chotot_publish_dryrun.sql`) + 정확한 KCN 분류 스크립트(`scripts/ops/chotot_publish_classify.ts`, 앱의 `findIndustrialPark` 사용).
-- 공개 SQL `supabase/pending/20261008100000_publish_chotot_jobs.sql`: chotot 100건 확인·대상 건수=`v_expected` 가드(null이면 중단)·갱신 건수 가드·끝에 공개 건수 확인 쿼리. URL 고르는 쿼리 `…_chotot_publish_urls.sql`, 설명 `…_chotot_publish_dryrun.md`.
-- 검증: PGlite로 합성 100행 실행(가드 3종·정상 갱신·확인 쿼리), tsc·build 통과.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
@@ -183,3 +185,38 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 - `D:\Codex\JOBI`(`feat/korea-home-p1`, 오래된 branch)의 미커밋 4개 — 별도 작업, 건드리지 않음.
 
 
+
+## 보관 — 직전 HANDOFF (2026-10-11 기존 기록, 재검증 아님)
+
+# CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
+
+갱신: 2026-10-11 (Claude). 상세 이력은 `WORK_LOG.md`. 이 파일은 누적하지 않고 최신 스냅샷으로 덮어쓴다.
+
+> **숫자·상태의 기준은 이 파일이 아니라 `status` 브랜치의 `STATUS.md`다**(GitHub Actions 자동 생성):
+> https://github.com/KHOAILANG0926/jobi-app/blob/status/STATUS.md — 이 파일과 다르면 STATUS.md가 맞다.
+
+### 1. 현재 상태
+
+- **정정(2026-10-11 직접 확인):** 직전 스냅샷의 "npm test 46/46"은 사실이 아니다(master·GitHub Actions 모두 45/46, `api/_zalo-token.test.ts` 실패). "원격 tree = 로컬 커밋 e615566"은 e615566이 GitHub에 없어 근거가 되지 않는다. 10/8 "주소 재실행 신규 승인 0건"도 DB 기록(#4721 승인)과 다르다.
+- **재발 방지 장치(PR #37·#40·#42·#43·#44):** STATUS.md 자동 생성(배포 완료 대기 후 기록). 승인 핀마다 사이트 서버(`api/status-recheck`, GitHub OIDC 인증)가 VietMap에 ref로 재조회해 저장 좌표와 대조(2026-10-11 12:09 #4713·#4721 ✅ 0 m). 검증 장치 변경 PR은 `검증장치-승인` 라벨 필요(#42·#43·#44는 Lee 채팅 승인으로 Claude가 대리 부착, PR 댓글에 기록). AGENTS.md·CLAUDE.md 맨 위 "보고 검증 규정"이 최우선이다.
+- **승인 규칙 B안(2026-10-11 사용자 결정):** 자동 핀은 ① 주소 검색에서 번지+도로 일치 ② 회사명 정확 일치 + KCN 윤곽 안, 두 경우뿐. KCN 밖 회사명만 일치 → 핀 없음(`name_only_no_house`).
+- **DB:** #4702·#4720 승인 철회(사용자 승인).
+- **#4685:** 2026-10-11 07:43(VN) `address-v2` 키로 새로 검색(호출 1회) → VietMap 주소 미발견. 승인 기준 문제가 아니다.
+- **master 보호(2026-10-11 설정, 직접 확인):** PR 필수, 필수 검사 `checks`(타입·테스트·빌드)·`guard`, 우회 금지(관리자 포함). master에 직접 push 불가 — 모든 변경은 PR로. 테스트는 46/46(Zalo 테스트 수정, PR #39).
+- **#4750:** B2B 영업직 게재 제외 기준으로 숨김 처리·핀 철회(사용자 지시). 공개 승인 핀은 #4713·#4721.
+- **보류:** `supabase/pending/20261011120000_location_approval_evidence_guard.sql`(글자 검사라 위조 가능 — GPT 교차 검증 지적). 적용하지 않는다.
+- **미확인:** 동네 지도 84건·KCN 지도 28건 수치(DB상 KCN 지정 31건), Production 화면 직접 확인.
+
+### 2. 다음 할 일 3개
+
+1. 사용자 지시 대기: Goong 계정 활성화 후 상세주소 14건 VietMap·Goong 비교(결과 저장·지도 표시 없이 비교표만). Goong 약관(좌표 저장·타사 지도 표시) 서면 확인 전에는 실사용 금지.
+2. 사용자 지시 대기: B2B 영업직 게재 제외 필터(PROJECT_STATUS.md 기준, 크롤러 미반영) 구현 여부.
+3. 작업을 시작하면 먼저 STATUS.md와 이 파일을 대조하고, 다른 점만 보고한다.
+
+### 3. 필수 규칙
+
+- 보고 항목마다 [직접 확인](실행한 명령+결과)/[기존 기록]/[추정]. 실행하지 않은 검색·테스트·배포를 했다고 쓰지 않는다.
+- STATUS.md·`status` 브랜치·`scripts/status/`·`.github/workflows/status-*.yml`은 사용자 직접 지시 없이 수정 금지.
+- 완료 전 `npx tsc --noEmit`, `npm test`, `npm run build`. DDL·Production DB 변경·데이터 삭제·Auth/RLS·Secret은 사용자 승인 없이 실행하지 않는다.
+- PC에 키·데이터·결과 파일 저장 금지. 자동화는 master 직접 push 금지.
+- 자동 승인 기준을 완화하지 않는다. 완료 보고는 5줄 이내.

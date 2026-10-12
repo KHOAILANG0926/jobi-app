@@ -1,0 +1,196 @@
+[
+  {
+    "name": "loan",
+    "job": {
+      "title": "Tư vấn tín dụng",
+      "description": "Tư vấn sản phẩm cho vay"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "debt",
+    "job": {
+      "title": "Nhân viên thu hồi nợ",
+      "description": "Liên hệ khách hàng"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "korean finance",
+    "job": {
+      "title": "금융 상담 전담",
+      "description": "대출 상담 담당"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "b2b",
+    "job": {
+      "title": "Sales B2B",
+      "description": "Tìm khách hàng doanh nghiệp"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "dealer duty",
+    "job": {
+      "title": "Nhân viên kinh doanh",
+      "description": "Nhiệm vụ chính quản lý đại lý"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "retail",
+    "job": {
+      "title": "Sales cửa hàng",
+      "description": "Bán hàng tại quầy"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "mart",
+    "job": {
+      "title": "Thu ngân siêu thị",
+      "description": "Thanh toán hàng hóa"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "production high salary",
+    "job": {
+      "title": "Công nhân sản xuất",
+      "description": "Vận hành máy",
+      "salary": "25.000.000 VND"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "qc high salary",
+    "job": {
+      "title": "QC",
+      "description": "Kiểm tra chất lượng",
+      "salary": "20.000.000 VND"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "incidental receivables",
+    "job": {
+      "title": "Kế toán",
+      "description": "Theo dõi công nợ và thu hồi công nợ"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "finance company production",
+    "job": {
+      "title": "Công nhân sản xuất",
+      "company": "Home Credit",
+      "description": "Vận hành máy"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "professional incentives",
+    "job": {
+      "title": "Sales",
+      "description": "Thu nhập cao, hoa hồng không giới hạn"
+    },
+    "decision": "review"
+  },
+  {
+    "name": "unclear sales",
+    "job": {
+      "title": "Kinh doanh",
+      "description": "Công việc sẽ trao đổi"
+    },
+    "decision": "review"
+  },
+  {
+    "name": "missing description",
+    "job": {
+      "title": "Nhân viên"
+    },
+    "decision": "review"
+  },
+  {
+    "name": "negated loan duty",
+    "job": {
+      "title": "Chăm sóc khách hàng",
+      "description": "Không tư vấn vay, nhiệm vụ chưa rõ"
+    },
+    "decision": "review"
+  },
+  {
+    "name": "korean store",
+    "job": {
+      "title": "매장 판매",
+      "description": "마트 계산 및 상품 진열"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "retail with ordinary bonus",
+    "job": {
+      "title": "Sales cửa hàng",
+      "description": "Bán hàng tại quầy, thưởng hoa hồng"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "vague duties",
+    "job": {
+      "title": "Nhân viên",
+      "description": "Công việc sẽ trao đổi khi phỏng vấn"
+    },
+    "decision": "review"
+  },
+  {
+    "name": "dedicated debt without bad suffix",
+    "job": {
+      "title": "Chuyên viên xử lý nợ",
+      "description": "Liên hệ khách hàng"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "finance benefit not duty",
+    "job": {
+      "title": "QC",
+      "description": "Kiểm tra chất lượng. Phúc lợi hỗ trợ vay tiền mua nhà"
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "b2b field sales",
+    "job": {
+      "title": "Nhân viên kinh doanh thị trường",
+      "description": "Đi thị trường, phát triển đại lý là công việc chính"
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "generic recruitment without duties",
+    "job": {
+      "title": "Nhân viên",
+      "description": "Lương hấp dẫn. Liên hệ Zalo để ứng tuyển."
+    },
+    "decision": "review"
+  },
+  {
+    "name": "primary debt duty",
+    "job": {
+      "title": "Nhân viên chăm sóc khách hàng",
+      "description": "Nhiệm vụ chính: thu hồi nợ và gọi điện nhắc nợ khách hàng."
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "store customers not retail workplace",
+    "job": {
+      "title": "Nhân viên Sales",
+      "description": "Tìm kiếm khách hàng mới, thu nhập cao, hoa hồng không giới hạn. Khách hàng là các cửa hàng."
+    },
+    "decision": "review"
+  }
+]

@@ -174,6 +174,7 @@ export async function fetchEmployerJobCount(employerId: string): Promise<number>
     .select('id', { count: 'exact', head: true })
     .eq('employer_id', employerId)
     .eq('active', true)
+    .eq('admin_hidden', false)
   if (error) return 0
   return count ?? 0
 }

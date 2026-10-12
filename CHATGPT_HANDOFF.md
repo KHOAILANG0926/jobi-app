@@ -1,32 +1,25 @@
-# CHATGPT_HANDOFF — 이 파일만 읽고 이어받기 (1페이지)
+# CHATGPT_HANDOFF — 최신 작업 스냅샷
 
-갱신: 2026-10-11 (Claude). 상세 이력은 `WORK_LOG.md`. 이 파일은 누적하지 않고 최신 스냅샷으로 덮어쓴다.
-
-> **숫자·상태의 기준은 이 파일이 아니라 `status` 브랜치의 `STATUS.md`다**(GitHub Actions 자동 생성):
-> https://github.com/KHOAILANG0926/jobi-app/blob/status/STATUS.md — 이 파일과 다르면 STATUS.md가 맞다.
+갱신: 2026-10-12. 상세 이력은 WORK_LOG.md. 아래 검증은 격리 환경만 해당한다.
+숫자·운영 상태 기준은 [status 브랜치 STATUS.md](https://github.com/KHOAILANG0926/jobi-app/blob/status/STATUS.md)이며 이 파일이 대체하지 않는다.
 
 ## 1. 현재 상태
 
-- **정정(2026-10-11 직접 확인):** 직전 스냅샷의 "npm test 46/46"은 사실이 아니다(master·GitHub Actions 모두 45/46, `api/_zalo-token.test.ts` 실패). "원격 tree = 로컬 커밋 e615566"은 e615566이 GitHub에 없어 근거가 되지 않는다. 10/8 "주소 재실행 신규 승인 0건"도 DB 기록(#4721 승인)과 다르다.
-- **재발 방지 장치(PR #37·#40·#42·#43·#44):** STATUS.md 자동 생성(배포 완료 대기 후 기록). 승인 핀마다 사이트 서버(`api/status-recheck`, GitHub OIDC 인증)가 VietMap에 ref로 재조회해 저장 좌표와 대조(2026-10-11 12:09 #4713·#4721 ✅ 0 m). 검증 장치 변경 PR은 `검증장치-승인` 라벨 필요(#42·#43·#44는 Lee 채팅 승인으로 Claude가 대리 부착, PR 댓글에 기록). AGENTS.md·CLAUDE.md 맨 위 "보고 검증 규정"이 최우선이다.
-- **승인 규칙 B안(2026-10-11 사용자 결정):** 자동 핀은 ① 주소 검색에서 번지+도로 일치 ② 회사명 정확 일치 + KCN 윤곽 안, 두 경우뿐. KCN 밖 회사명만 일치 → 핀 없음(`name_only_no_house`).
-- **DB:** #4702·#4720 승인 철회(사용자 승인).
-- **#4685:** 2026-10-11 07:43(VN) `address-v2` 키로 새로 검색(호출 1회) → VietMap 주소 미발견. 승인 기준 문제가 아니다.
-- **master 보호(2026-10-11 설정, 직접 확인):** PR 필수, 필수 검사 `checks`(타입·테스트·빌드)·`guard`, 우회 금지(관리자 포함). master에 직접 push 불가 — 모든 변경은 PR로. 테스트는 46/46(Zalo 테스트 수정, PR #39).
-- **#4750:** B2B 영업직 게재 제외 기준으로 숨김 처리·핀 철회(사용자 지시). 공개 승인 핀은 #4713·#4721.
-- **보류:** `supabase/pending/20261011120000_location_approval_evidence_guard.sql`(글자 검사라 위조 가능 — GPT 교차 검증 지적). 적용하지 않는다.
-- **미확인:** 동네 지도 84건·KCN 지도 28건 수치(DB상 KCN 지정 31건), Production 화면 직접 확인.
+- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy`에서 PR #46 문서 근거로 신규 공고 정책 구현. 공유 JSON/JS/Python, 등록·수정·재공개·수집 최종 gate, 공개 active/hidden 필터. 상세: docs/job-posting-policy-implementation.md.
+- [직접 확인] tsc / npm 49/49 / build, Python 기존 21/21 + 신규 5/5, 메모리 PostgreSQL 정책 24사례 및 원자적 차단 테스트 통과. Production UI·RPC·권한 미확인. Facebook 전체 suite 미실행; writer만 격리 검증.
+- [직접 확인] SQL evaluator/trigger는 pending/ROLLBACK 초안만. 직접 SQL/service-role·동시 수정 우회는 운영 DB trigger 없이 해결되지 않는다. 비공개 검토 저장도 설계만.
+- [직접 확인] 기존 checkout·PR #47·보호 검증 장치 변경 없음. Production DDL/쓰기·기존 공고 변경·유료 API·실제 크롤링·배포 실행 없음. 이번 브랜치 자동 Vercel 배포만 차단.
+- [기존 기록] PR #46/#47은 시작 시 Draft/open. 운영 위치 승인 B안·Goong 보류·과거 보고 정정은 이전 스냅샷을 WORK_LOG 보관에 유지. 운영 재확인으로 취급하지 말 것.
+- 원격 최종 SHA·Draft PR·CI 상태는 해당 PR에서 확인. 이 작업은 master 병합·배포 승인 아님.
 
 ## 2. 다음 할 일 3개
 
-1. 사용자 지시 대기: Goong 계정 활성화 후 상세주소 14건 VietMap·Goong 비교(결과 저장·지도 표시 없이 비교표만). Goong 약관(좌표 저장·타사 지도 표시) 서면 확인 전에는 실사용 금지.
-2. 사용자 지시 대기: B2B 영업직 게재 제외 필터(PROJECT_STATUS.md 기준, 크롤러 미반영) 구현 여부.
-3. 작업을 시작하면 먼저 STATUS.md와 이 파일을 대조하고, 다른 점만 보고한다.
+1. Draft PR의 코드·CI와 정책 사례를 사용자 검토. PR #47·master 병합 금지 유지.
+2. 별도 DDL 승인 전 운영 권한/RPC·trigger 배치 계획과 롤백을 검토. pending 위치 승인 SQL은 적용 금지.
+3. 배포·자동 수집 재개·기존 공고 조치는 별도 지시를 기다린다. 비공개 검토 저장은 별도 설계 승인 필요.
 
 ## 3. 필수 규칙
 
-- 보고 항목마다 [직접 확인](실행한 명령+결과)/[기존 기록]/[추정]. 실행하지 않은 검색·테스트·배포를 했다고 쓰지 않는다.
-- STATUS.md·`status` 브랜치·`scripts/status/`·`.github/workflows/status-*.yml`은 사용자 직접 지시 없이 수정 금지.
-- 완료 전 `npx tsc --noEmit`, `npm test`, `npm run build`. DDL·Production DB 변경·데이터 삭제·Auth/RLS·Secret은 사용자 승인 없이 실행하지 않는다.
-- PC에 키·데이터·결과 파일 저장 금지. 자동화는 master 직접 push 금지.
-- 자동 승인 기준을 완화하지 않는다. 완료 보고는 5줄 이내.
+- 각 보고는 [직접 확인]/[기존 기록]/[추정]을 구분. STATUS.md·status 브랜치·scripts/status·status-*·기존 보호 검증 장치 변경 금지.
+- 기존 checkout/미커밋 변경 보존. PC 인증키·데이터·백업 저장 및 gh auth login 금지. master 직접 push/merge/배포 금지.
+- DDL/Production DB 쓰기·유료 API·자동 수집 재개는 사용자 별도 승인 필요. 최종 보고 5줄 이내.

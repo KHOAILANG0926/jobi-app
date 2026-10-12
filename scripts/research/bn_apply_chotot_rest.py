@@ -22,6 +22,9 @@ sys.path.insert(0, str(HERE))
 import bn_prepare_chotot_insert as prep  # noqa: E402
 
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / "crawler"))
+from job_posting_policy import require_allowed
+
 OUT = HERE / "out"
 APPLIED = OUT / "bn_chotot_applied.json"
 
@@ -44,6 +47,8 @@ def red(s: str) -> str:
 
 
 def post(table: str, body: dict) -> dict:
+    if table == "local_jobs":
+        require_allowed(body)
     r = requests.post(f"{URL}/rest/v1/{table}", headers={**H, "Prefer": "return=representation"}, data=json.dumps(body), timeout=60)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"POST {table}: HTTP {r.status_code} {red(r.text[:400])}")

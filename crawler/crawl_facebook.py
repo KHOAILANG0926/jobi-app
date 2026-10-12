@@ -4,6 +4,7 @@ Facebook 그룹 채용공고 크롤러 (쿠키 세션 방식)
 - 구/군/동 상세 위치 + Zalo/전화번호 필수 추출
 """
 
+from job_posting_policy import evaluate_job_policy
 import argparse
 import asyncio
 import hashlib
@@ -809,8 +810,6 @@ def evaluate_post(text: str, time_info: dict | None, full_text_ok: bool, locatio
         return "not_job", ["구인 키워드 없음"], None
     if is_self_promotion(text):
         return "self_promo", ["구직자 자기홍보"], None
-    if has_excluded_money_terms(text):
-        return "money", ["대출/채권추심"], None
     if is_office_job(text):
         return "office", ["사무/전문직(수집 범위 밖)"], None
     if not full_text_ok:
@@ -821,6 +820,9 @@ def evaluate_post(text: str, time_info: dict | None, full_text_ok: bool, locatio
     if age_h > max_age * 24:
         return "too_old", [f"게시 {age_h / 24:.1f}일 전 > 기준 {max_age:g}일"], None
     job = parse_post({"text": text, "location": location, "images": images or []})
+    verdict = evaluate_job_policy(job)
+    if verdict['decision'] != 'allow':
+        return 'policy_skipped', [verdict['reason']], None
     job["fb_full_text_confirmed"] = True
     problems = missing_required(job)
     if problems:
@@ -1173,6 +1175,9 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
     complete = []
     for job in jobs:
         problems = missing_required(job)
+        verdict = evaluate_job_policy(job)
+        if verdict['decision'] != 'allow':
+            problems.append('job_policy:' + verdict['reason'])
         if problems:
             print(f"  ⛔ 저장 제외({', '.join(problems)}): {job.get('title', '')[:60]}")
         else:

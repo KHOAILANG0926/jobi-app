@@ -1,3 +1,4 @@
+import { assertJobPolicy } from './policy/job-posting.mjs'
 import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
 
@@ -14,6 +15,7 @@ const jobsFile = process.argv[2]
 const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf-8'))
 
 for (const job of jobs) {
+  assertJobPolicy(job)
   // 이미지 업로드
   if (job._imagePath) {
     const bytes = fs.readFileSync(job._imagePath)

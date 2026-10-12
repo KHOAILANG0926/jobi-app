@@ -7,6 +7,7 @@ import unicodedata
 from datetime import date
 
 import classifier
+from job_posting_policy import evaluate_job_policy
 
 
 # Pure mirror of crawl_category()'s in-browser line-parsing JS in
@@ -206,64 +207,6 @@ def extract_work_days_free_text(desc_text: object) -> str:
 # (2026-09-24 집 PC에서 발견) — 실제로 그 이후 크롤링이 전부 이 검증에서
 # 막혔는지는 과거 실행 로그로 확인되지 않아 확정하지 않는다.
 VALID_CATEGORIES = set(classifier.MAJOR_LABELS.keys())
-
-# 소비자 대출/여신 상품 영업(신용카드/대출 알선 등) 관련 — 이 범주는 이번
-# 수정 대상이 아니다(실제 오탐 사례가 보고된 적 없음), title/company/
-# description 전체에서 그대로 검사한다(기존 동작 유지).
-EXCLUDED_LOAN_FINANCE_RE = re.compile(
-    r"vay tien|cho vay|ho tro vay|tu van vay|tin dung|the tin dung"
-    r"|tai chinh tieu dung|cong ty tai chinh|fe credit|home credit|mcredit"
-    r"|mirae asset|shinhan finance|vpbank finance|loan",
-    re.IGNORECASE,
-)
-
-# 2026-09-05 사용자 지시로 정정(실사례 오탐 3건 발견 — 표본 3/4/8, vieclam24h-
-# blind-10 독립검증): 예전 EXCLUDED_MONEY_JOB_RE의 "cong no" 단독 매칭이
-# "quản lý công nợ"/"theo dõi công nợ"/"đối chiếu công nợ"/(주문·납품·영업·
-# 회계 업무 중 일부인) "thu hồi công nợ" 같은 완전히 정상적인 일반 업무
-# 문맥까지 전부 추심 전담 공고로 오판정했다. "công nợ" 언급 자체는 더 이상
-# 절대 제외 근거가 아니다.
-#
-# 이제 아래 5개 "어근 조합"이 실제 채용 "제목" 또는 "직종(category)" 필드
-# 에서 서로 가까이 나타날 때만("본문에만 있으면 근거로 쓰지 않음") 추심
-# 전담 공고로 확정 제외한다 — 완성된 문장 하나를 하드코딩하지 않고, 각
-# 항목은 (근처 어근, 목표 어근들, 두 어근 사이 허용 문자 수, 규칙 이름)
-# 이다. "đòi"(독촉/요구)는 ascii_key() 정규화(tone mark 제거) 후 "đối"
-# (대조/비교 — "đối chiếu công nợ"는 명시적으로 허용된 일반 회계 문맥)와
-# 똑같이 "doi"가 되어 구분이 안 된다 — 그래서 이 쌍만 훨씬 좁은 인접
-# 거리(2자, 사실상 공백 하나)를 써서 "đòi nợ"(인접)는 잡고 "đối chiếu ...
-# công nợ"(사이에 다른 단어가 있음)는 걸러낸다.
-_DEBT_COLLECTION_TITLE_STEM_PAIRS: tuple[tuple[str, tuple[str, ...], int, str], ...] = (
-    ("thu hoi", ("no", "cong no", "khoan vay"), 15, "thu_hoi+no/cong_no/khoan_vay"),
-    ("xu ly", ("no xau", "no"), 15, "xu_ly+no/no_xau"),
-    ("nhac", ("no", "thanh toan"), 15, "nhac+no/thanh_toan"),
-    ("doi", ("no",), 2, "doi+no"),
-    ("field", ("collection",), 15, "field+collection"),
-)
-
-
-def _find_debt_collection_stem_match(ascii_normalized_text: str) -> tuple[str, str] | None:
-    """ascii_normalized_text는 ascii_key()로 이미 정규화된 상태여야 한다
-    (소문자, 탈문자, 문장부호 제거). 매칭되면 (rule_name, matched_substring)
-    을 반환하고, 없으면 None. LLM 판정/단어 비율/임의 점수는 쓰지 않는다 —
-    순수 정규식 근접 매칭뿐이다.
-
-    2026-09-05 사용자 지시로 정정(실사례 오탐 — "Xử Lý Nước [Hà Nội]"가
-    "xu ly...no"로 오판정됨): root/target을 부분 문자열로만 찾으면 "no"가
-    "Hà Nội"→"ha noi"의 앞 두 글자(실제로는 "nội"의 일부)나 다른 단어에
-    우연히 걸릴 수 있다. \\b로 각 root/target을 정규화된 텍스트(공백으로
-    구분된 단어들) 안에서 독립된 단어/구문으로만 인정하도록 앵커링한다 —
-    "no"는 이제 그 자체로 하나의 토큰일 때만 매칭되고, "noi"/"nuoc" 같은
-    더 긴 단어의 일부로는 절대 매칭되지 않는다."""
-    for root, targets, window, rule_name in _DEBT_COLLECTION_TITLE_STEM_PAIRS:
-        root_re = rf"\b{re.escape(root)}\b"
-        for target in targets:
-            target_re = rf"\b{re.escape(target)}\b"
-            pattern = rf"(?:{root_re}.{{0,{window}}}{target_re}|{target_re}.{{0,{window}}}{root_re})"
-            m = re.search(pattern, ascii_normalized_text)
-            if m:
-                return rule_name, m.group(0)
-    return None
 
 
 def normalize_whitespace(value: object) -> str:
@@ -865,30 +808,10 @@ def classify_money_job_exclusion(
     description: object = "",
     category: object = "",
 ) -> tuple[bool, str]:
-    """(excluded, log_line) — 대출/여신 상품 영업은 title+company+description
-    전체에서 그대로 검사한다(기존 동작, 오탐 보고 없음). 추심 전담 판정만
-    2026-09-05로 정정된 규칙을 쓴다: title 또는 category(실제 직종 필드)
-    에서만 어근 조합을 검사하고, description(본문)은 절대 근거로 쓰지
-    않는다 — "공nợ"가 본문에 있다는 사실만으로는 제외하지 않는다.
-
-    log_line에는 검사 대상(title/company+description/category), 매칭된
-    규칙 이름, 매칭된 원문 substring, 최종 allow/exclude를 그대로 남긴다."""
-    loan_finance_text = ascii_key(" ".join(str(p or "") for p in (title, company, description)))
-    loan_match = EXCLUDED_LOAN_FINANCE_RE.search(loan_finance_text)
-    if loan_match:
-        return True, (
-            f"exclude target=title+company+description rule=EXCLUDED_LOAN_FINANCE_RE "
-            f"matched={loan_match.group(0)!r}"
-        )
-
-    for target_name, target_value in (("title", title), ("category", category)):
-        normalized = ascii_key(str(target_value or ""))
-        found = _find_debt_collection_stem_match(normalized)
-        if found:
-            rule_name, matched_text = found
-            return True, f"exclude target={target_name} rule={rule_name} matched={matched_text!r}"
-
-    return False, "allow checked_targets=title,category,company+description(loan/finance only) no rule matched"
+    """Shared role-based decision; logs contain reason codes, never source text."""
+    verdict = evaluate_job_policy(dict(title=title, company=company, description=description, category=category))
+    excluded = verdict['decision'] == 'exclude' and verdict['reason'].startswith(('finance_', 'debt_'))
+    return excluded, f"{verdict['decision']} rule={verdict['reason']}"
 
 
 def has_excluded_money_terms(
@@ -930,9 +853,10 @@ def validate_job_payload(job: dict, source: str = "vieclam24h", today: str | Non
         errors.append(f"invalid category: {category}")
     if not has_source_tag(description, source):
         errors.append(f"missing source tag: {source}")
-    money_excluded, money_log_line = classify_money_job_exclusion(title, company, description, category)
-    if money_excluded:
-        errors.append(f"excluded money/debt collection job ({money_log_line})")
+    verdict = evaluate_job_policy(job)
+    if verdict['decision'] != 'allow':
+        prefix = 'excluded money/debt collection job' if verdict['reason'].startswith(('finance_', 'debt_')) else 'job_policy'
+        errors.append(prefix + ':' + verdict['reason'])
     if job.get("origin") != "crawler":
         errors.append("origin must be crawler")
     # active/admin_hidden은 여기서 검사하지 않는다 — active는 공개 게이트

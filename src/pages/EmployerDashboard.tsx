@@ -81,6 +81,7 @@ export function EmployerDashboard() {
   // "공고 0건"인 것처럼 빈 화면이 됐다 — 조회 실패와 실제로 공고가 없는
   // 상태를 구분해서 보여준다.
   const [myJobsError, setMyJobsError] = useState(false)
+  const [jobPolicyError, setJobPolicyError] = useState('')
 
   const loadMyJobs = useCallback(async () => {
     setMyJobsLoading(true)
@@ -237,8 +238,13 @@ export function EmployerDashboard() {
   }
 
   const handleToggleUrgent = async (job: Job) => {
-    await updateJob(job.id, { urgent: !job.urgent })
-    await loadMyJobs()
+    setJobPolicyError('')
+    try {
+      await updateJob(job.id, { urgent: !job.urgent })
+      await loadMyJobs()
+    } catch (error) {
+      setJobPolicyError(error instanceof Error ? error.message : 'Không thể kiểm tra chính sách.')
+    }
   }
 
   return (
@@ -307,6 +313,7 @@ export function EmployerDashboard() {
       {/* ── Tab: Jobs ── */}
       {tab === 'jobs' && (
         <div className="edb-panel" role="tabpanel">
+          {jobPolicyError && <p className="form-error" role="alert">{jobPolicyError}</p>}
           {myJobsLoading ? null : myJobsError ? (
             <div className="edb-empty" role="alert">
               <span className="edb-empty__icon">⚠️</span>

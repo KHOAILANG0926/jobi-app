@@ -1,3 +1,4 @@
+import { assertJobPolicy } from '../../policy/job-posting.mjs'
 import { supabase } from './supabase'
 import type { BrandCategoryId } from '../data/brandDirectory'
 
@@ -66,6 +67,12 @@ export async function listAdminJobs(): Promise<AdminJob[]> {
 }
 
 export async function setJobHidden(jobId: number, hidden: boolean, reason = ''): Promise<void> {
+  if (!hidden) {
+    const { data, error } = await supabase.from('local_jobs')
+      .select('title,description,category').eq('id', jobId).single()
+    if (error || !data) throw new Error('Không thể kiểm tra tin trước khi công khai.')
+    assertJobPolicy(data)
+  }
   const { error } = await supabase.rpc('admin_set_job_hidden', {
     target_job_id: jobId,
     hidden,

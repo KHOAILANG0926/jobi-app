@@ -1,0 +1,102 @@
+{
+  "version": "job-posting-v1",
+  "rules": [
+    {
+      "id": "finance_role",
+      "decision": "exclude",
+      "fields": [
+        "title"
+      ],
+      "pattern": "(loan|credit|tin dung|tu van vay|cho vay|vay tien|tai chinh|대출|금융|여신)"
+    },
+    {
+      "id": "debt_role",
+      "decision": "exclude",
+      "fields": [
+        "title",
+        "category"
+      ],
+      "pattern": "(thu hoi (cong )?no|nhac no|doi no|thu no|xu ly no( xau)?|debt collect(or|ion)|field collection|채권추심)"
+    },
+    {
+      "id": "debt_duty",
+      "decision": "exclude",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(nhiem vu chinh|cong viec chinh|chuyen trach|chu yeu|primary dut(y|ies)|main responsibilit(y|ies)|주 업무).*(thu hoi no|nhac no|debt collection|채권추심)"
+    },
+    {
+      "id": "finance_duty",
+      "decision": "exclude",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(tu van|ban|chao ban|gioi thieu|tiep thi|kinh doanh) (san pham )?(cho vay|vay|tin dung|the tin dung)|loan (sales|officer)|대출 (상담|모집|영업)|금융 상품 영업"
+    },
+    {
+      "id": "b2b_role",
+      "decision": "exclude",
+      "fields": [
+        "title"
+      ],
+      "pattern": "(b2b (sales|account)|sales b2b|kinh doanh b2b|kinh doanh khach hang doanh nghiep|quan ly dai ly|phat trien dai ly|dai dien thuong mai|영업.*대리점|대리점 관리|기업 대상 외근 영업)"
+    },
+    {
+      "id": "b2b_duty",
+      "decision": "exclude",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(nhiem vu chinh|cong viec chinh|chu yeu|primary dut(y|ies)|main responsibilit(y|ies)|주 업무).*(quan ly dai ly|phat trien dai ly|khach hang doanh nghiep|b2b|대리점|기업 고객)|(di thi truong|ngoai thi truong|field sales).*(phat trien dai ly|quan ly dai ly|khach hang doanh nghiep)"
+    },
+    {
+      "id": "incentive_sales",
+      "decision": "review",
+      "fields": [
+        "title",
+        "description"
+      ],
+      "pattern": "(hoa hong|commission|thu nhap khong gioi han|thu nhap cao|인센티브|고소득)",
+      "requires": "sales",
+      "unless": "local_work"
+    },
+    {
+      "id": "unclear_b2b",
+      "decision": "review",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(khach hang doanh nghiep|quan ly dai ly|phat trien dai ly|b2b|대리점 관리|기업 고객)",
+      "requires": "sales"
+    },
+    {
+      "id": "ambiguous_role",
+      "decision": "review",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(cong viec se trao doi|trao doi khi phong van|lien he de biet them|details on interview|업무 미정)"
+    }
+  ],
+  "sales": "(sales|kinh doanh|영업)",
+  "local_work": "(cua hang|sieu thi|ban hang tai quay|thu ngan|retail|store|supermarket|san xuat|cong nhan|qc|kiem tra chat luong|매장|마트|생산|품질)",
+  "negation": "(khong (lam|phai|ban|tu van)|not (a|involved)|no (loan|debt)|없음|아님|금지)",
+  "messages": {
+    "finance_role": "Không công khai: công việc chuyên về tài chính hoặc cho vay.",
+    "finance_duty": "Không công khai: nhiệm vụ bán hoặc tư vấn sản phẩm cho vay.",
+    "debt_role": "Không công khai: công việc chuyên thu hồi nợ.",
+    "b2b_role": "Không công khai: công việc B2B hoặc quản lý đại lý.",
+    "b2b_duty": "Không công khai: nhiệm vụ chính là B2B hoặc quản lý đại lý.",
+    "incentive_sales": "Cần làm rõ nhiệm vụ và cơ cấu thu nhập trước khi công khai.",
+    "unclear_b2b": "Cần làm rõ nhiệm vụ B2B trước khi công khai.",
+    "unclear_sales": "Cần mô tả nơi làm việc và nhiệm vụ bán hàng trước khi công khai.",
+    "missing_content": "Cần nhập tiêu đề và mô tả công việc trước khi công khai.",
+    "ambiguous_role": "Cần làm rõ nhiệm vụ công việc trước khi công khai.",
+    "policy_unavailable": "Không thể kiểm tra chính sách. Chưa công khai tin; vui lòng thử lại.",
+    "debt_duty": "Không công khai: nhiệm vụ chính là thu hồi nợ."
+  },
+  "local_duty": "(ban hang tai (quay|cua hang|sieu thi)|lam viec tai (cua hang|sieu thi)|thu ngan|san xuat|dong goi|kiem tra chat luong|매장 판매|마트 계산|생산|품질 검사)",
+  "generic_title": "^(tuyen (dung )?)?(nhan vien|nhan su|cong tac vien|staff|employee|직원|직원 모집)$",
+  "substantive_duty": "(ban hang tai|thu ngan|san xuat|dong goi|kiem tra chat luong|van hanh|phuc vu|pha che|phu bep|giao hang|bao ve|ve sinh|ke toan|sua chua|cham soc khach hang|매장 판매|계산|생산|검사|배달|청소)"
+}

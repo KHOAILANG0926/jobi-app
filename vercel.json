@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/job-posting-policy": false
+    }
+  },
   "rewrites": [
     { "source": "/viec-lam/tuyen-gap", "destination": "/api/ssr" },
     { "source": "/viec-lam/tim-kiem", "destination": "/api/ssr" },

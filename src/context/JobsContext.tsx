@@ -7,8 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { isPublicJobAllowed } from '../lib/jobQualityFilter'
-import { ensureJobFields } from '../lib/jobUtils'
+import { assertJobPolicy, assertJobChange } from '../../policy/job-posting.mjs'
 import { rowToJob } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
 import { fetchJobsData } from '../lib/fetchJobsData'
@@ -75,14 +74,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])
 
   const addPostedJob = useCallback(async (draft: Omit<Job, 'id' | 'postedAt'> & { guestManageToken?: string }) => {
-    const draftForPolicy = ensureJobFields({
-      ...draft,
-      id: 'draft',
-      postedAt: new Date().toISOString().slice(0, 10),
-    } as Job)
-    if (!isPublicJobAllowed(draftForPolicy)) {
-      throw new Error('Tin tuyển dụng liên quan đến vay tiền hoặc thu hồi công nợ không phù hợp với Viecganban.')
-    }
+    assertJobPolicy(draft)
 
     const { data, error } = await supabase
       .from('local_jobs')
@@ -138,10 +130,11 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       // REVOKE돼 있다(마이그레이션 참고) — bare .select()(=select=*)로 반환받으면
       // 막 INSERT한 이 요청 본인한테까지도 권한 오류가 날 수 있어, 공개 목록
       // 조회(fetchJobs)와 동일한 안전한 컬럼 목록만 명시적으로 돌려받는다.
-      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip')
+      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip')
       .single()
 
     if (error || !data) throw new Error(error?.message ?? 'Đăng tin thất bại')
+    if (data.active !== true || data.admin_hidden !== false) throw new Error('Tin chưa được công khai.')
     const job = rowToJob(data)
     setJobs((prev) => [job, ...prev])
     return job
@@ -155,7 +148,12 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
 
   const updateJob = useCallback(async (id: string, patch: Partial<Job>) => {
     const rawId = id.replace(/^sb-/, '')
-    await supabase.from('local_jobs').update({
+    const { data: current, error: readError } = await supabase.from('local_jobs')
+      .select('title,description,category,active,admin_hidden').eq('id', rawId).single()
+    if (readError || !current) throw new Error('Không thể kiểm tra tin trước khi lưu.')
+    // No private review persistence is introduced. Check all edits, including closed jobs.
+    assertJobChange(current, patch)
+    const { error } = await supabase.from('local_jobs').update({
       title: patch.title,
       company: patch.company,
       category: patch.category,
@@ -167,6 +165,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       application_deadline: patch.applicationDeadline,
       urgent: patch.urgent,
     }).eq('id', rawId)
+    if (error) throw new Error(error.message)
     setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j))
   }, [])
 
