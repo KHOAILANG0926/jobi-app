@@ -44,7 +44,9 @@ else
   echo "[$(date -Is)] Skipping Facebook crawler: FB_C_USER/FB_XS not configured"
 fi
 
-run_crawler "Vieclam24h" "${TOPCV_CRAWLER_TIMEOUT:-60m}" python3 -u crawl_topcv.py
+# 정기 실행 wrapper는 전체 수집을 명시적으로 확인한다.
+# 단건/검증 수동 작업은 이 wrapper 대신 crawl_topcv.py의 해당 CLI 모드를 사용한다.
+run_crawler "Vieclam24h" "${TOPCV_CRAWLER_TIMEOUT:-60m}" python3 -u crawl_topcv.py --confirm-full-crawl
 
 echo "[$(date -Is)] Daily crawler finished"
 exit "$STATUS"

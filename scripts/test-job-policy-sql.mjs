@@ -33,6 +33,22 @@ await assert.rejects(() => db.exec("UPDATE local_jobs SET title='Sales B2B' WHER
 await db.exec("INSERT INTO local_jobs VALUES (2,'Sales B2B','B2B','',false,true);")
 await assert.rejects(() => db.exec('UPDATE local_jobs SET active=true,admin_hidden=false WHERE id=2;'), /job_policy/)
 await assert.rejects(() => db.exec("INSERT INTO local_jobs VALUES (3,'Tư vấn tín dụng','Cho vay','',true,false);"), /job_policy/)
+// Normal retail/mart/production/QC lifecycle, entirely in the disposable DB.
+const normalCases = cases.filter(c => ['retail', 'mart', 'production high salary', 'qc high salary'].includes(c.name))
+assert.equal(normalCases.length, 4)
+for (const [index, c] of normalCases.entries()) {
+  const id = 100 + index
+  await db.query('INSERT INTO local_jobs VALUES ($1,$2,$3,$4,true,false)', [id,c.job.title,c.job.description,''])
+  await db.query('UPDATE local_jobs SET description=$1 WHERE id=$2', [c.job.description + ' ca',id])
+  await db.query('UPDATE local_jobs SET active=false WHERE id=$1', [id])
+  await db.query('UPDATE local_jobs SET active=true WHERE id=$1', [id])
+  await db.query('UPDATE local_jobs SET admin_hidden=true WHERE id=$1', [id])
+  await db.query('UPDATE local_jobs SET admin_hidden=false WHERE id=$1', [id])
+  const row = (await db.query('SELECT active,admin_hidden FROM local_jobs WHERE id=$1', [id])).rows[0]
+  assert.deepEqual(row, {active:true,admin_hidden:false}, c.name + ': normal lifecycle')
+  await db.query('DELETE FROM local_jobs WHERE id=$1', [id])
+}
+console.log('Normal SQL lifecycle: retail/mart/production/QC create/edit/deactivate/reactivate/hide/unhide passed (memory only)')
 await db.exec('DROP FUNCTION evaluate_job_policy_v1(jsonb);')
 await assert.rejects(() => db.exec("INSERT INTO local_jobs VALUES (4,'QC','Kiểm tra chất lượng','',true,false);"))
 assert.equal((await db.query('SELECT count(*)::int AS count FROM local_jobs')).rows[0].count, 2)

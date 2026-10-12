@@ -32,3 +32,15 @@ let failedClosed = false
 try { assertJobChange(null) } catch { failedClosed = true }
 if (!failedClosed) throw new Error('unreadable current row must block republish')
 console.log(`job policy: ${cases.length} shared cases passed`)
+
+for (const c of cases.filter(c => ['retail', 'mart', 'production high salary', 'qc high salary'].includes(c.name))) {
+  assertJobPolicy(c.job)
+  assertJobChange(c.job, {description:(c.job.description || '') + ' ca', salary:'30.000.000 VND'})
+  assertJobChange(c.job, {active:false})
+  assertJobChange(c.job, {admin_hidden:true})
+  const inactive = {...c.job, active:false}
+  assertJobChange(inactive, {active:true}, true)
+  const hidden = {...c.job, admin_hidden:true}
+  assertJobChange(hidden, {admin_hidden:false}, true)
+}
+console.log('normal application lifecycle: retail/mart/production/QC registration/edit/depublication/republication passed')

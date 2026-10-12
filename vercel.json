@@ -1,7 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "codex/job-posting-policy-implementation-20261012": false
+      "codex/job-posting-policy-implementation-20261012": false,
+      "codex/integrate-crawler-policy-20261012": false
     }
   },
   "rewrites": [
