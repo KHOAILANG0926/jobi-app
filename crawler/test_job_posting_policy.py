@@ -71,7 +71,7 @@ class PostingPolicyTests(unittest.TestCase):
             "salary": "30 triệu VND",
         })["decision"], "review")
         self.assertEqual(evaluate_job_posting_policy({
-            "title": "Sales", "company": "Kinh Đô", "description": "Chăm sóc đại lý.",
+            "title": "Sales", "company": "Kinh Đô", "description": "Thông tin sản phẩm do đại lý giới thiệu.",
         })["decision"], "review")
 
     def test_source_tag_is_not_role_evidence(self):
