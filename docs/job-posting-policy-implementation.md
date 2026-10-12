@@ -34,6 +34,6 @@
 - `@electric-sql/pglite@0.5.8` 메모리 DB에서 SQL fixture 24개, INSERT/수정/재공개/함수 실패의 원자적 차단 통과. 실행: `npm ci --ignore-scripts` 후 `node scripts/test-job-policy-sql.mjs`. 재현 가능한 격리 CI를 위해 PGlite 0.5.8을 devDependency에 고정했다. 운영 PostgreSQL·역할 권한 검증을 대체하지 않는다.
 - 최초 debt fixture는 review/exclude 불일치로 실패한 뒤 수정 후 통과. 기존 Python 테스트는 Windows 출력 인코딩 오류 후 `-X utf8`로 실행했고, 오류 문구 호환을 수정하여 21/21 통과했다. 매장 보너스 오차단 fixture도 실패를 확인 후 수정했다.
 - Facebook 전체 기존 suite는 credential 초기화 및 파일 백업 테스트를 포함하므로 실행하지 않았다. 최종 저장 함수는 AST로 추출해 외부 의존성 없는 격리 테스트로 실행했다. 실제 브라우저 UI E2E·Production RPC·기존 데이터는 미확인.
-- Vercel 자동 배포 방지: `vercel.json`의 `git.deploymentEnabled`에서 이번 `codex/job-posting-policy` 브랜치만 false. [공식 문서](https://vercel.com/docs/project-configuration/git-configuration). 다른 브랜치 설정은 변경하지 않았다.
+- Vercel 자동 배포 방지: `vercel.json`의 `git.deploymentEnabled`에서 이번 `codex/job-posting-policy-implementation-20261012` 브랜치만 false. [공식 문서](https://vercel.com/docs/project-configuration/git-configuration). 다른 브랜치 설정은 변경하지 않았다.
 
 - 독립 코드 리뷰의 generic 역할·본문 전담 추심·매장 고객 언급 3건을 실패 fixture로 재현 후 수정했고 재검토로 확인했다. 패키지 설치의 일시적 ENOTFOUND는 네트워크 권한 승인 후 해결했다.

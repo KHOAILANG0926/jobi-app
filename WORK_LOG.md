@@ -4,7 +4,7 @@
 
 ## 2026-10-12 — PR #46 기반 신규 공고 정책 (Draft 전용)
 
-- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy`, 별도 clone. 원래 checkout·PR #47·보호 검증 장치 변경 없음.
+- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy-implementation-20261012`, 별도 clone. 원래 checkout·PR #47·보호 검증 장치 변경 없음.
 - [직접 확인] 공유 JSON 정책/JS/Python, 금융·B2B 제외와 정상 판매·생산·QC 허용, 20M 금액 단독 제외 없음. 등록·수정·재공개 및 crawler/Facebook/Chợ Tốt 최종 gate, 공개 active/hidden 필터 적용.
 - [직접 확인] npx tsc --noEmit / npm test 49/49 / npm run build 통과. Python 품질 21/21 + 신규 unittest 5/5 통과. SQL 메모리 PostgreSQL: 공유 24사례 + insert/edit/reopen/failure gate 통과. 초기 실패와 미실행 범위는 docs/job-posting-policy-implementation.md 기록.
 - [직접 확인] Production 쓰기·DDL·유료 호출·크롤링·배포 실행 없음. SQL은 pending/ROLLBACK 초안, private review 저장은 설계만. 직접 SQL/service-role와 앱 검사 사이 경쟁 조건은 운영 trigger 없이는 미해결.

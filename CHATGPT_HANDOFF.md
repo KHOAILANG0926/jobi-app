@@ -5,7 +5,7 @@
 
 ## 1. 현재 상태
 
-- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy`에서 PR #46 문서 근거로 신규 공고 정책 구현. 공유 JSON/JS/Python, 등록·수정·재공개·수집 최종 gate, 공개 active/hidden 필터. 상세: docs/job-posting-policy-implementation.md.
+- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy-implementation-20261012`에서 PR #46 문서 근거로 신규 공고 정책 구현. 공유 JSON/JS/Python, 등록·수정·재공개·수집 최종 gate, 공개 active/hidden 필터. 상세: docs/job-posting-policy-implementation.md.
 - [직접 확인] tsc / npm 49/49 / build, Python 기존 21/21 + 신규 5/5, 메모리 PostgreSQL 정책 24사례 및 원자적 차단 테스트 통과. Production UI·RPC·권한 미확인. Facebook 전체 suite 미실행; writer만 격리 검증.
 - [직접 확인] SQL evaluator/trigger는 pending/ROLLBACK 초안만. 직접 SQL/service-role·동시 수정 우회는 운영 DB trigger 없이 해결되지 않는다. 비공개 검토 저장도 설계만.
 - [직접 확인] 기존 checkout·PR #47·보호 검증 장치 변경 없음. Production DDL/쓰기·기존 공고 변경·유료 API·실제 크롤링·배포 실행 없음. 이번 브랜치 자동 Vercel 배포만 차단.

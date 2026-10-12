@@ -1,7 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
-      "codex/job-posting-policy": false
+      "codex/job-posting-policy-implementation-20261012": false
     }
   },
   "rewrites": [
