@@ -176,6 +176,10 @@ export default function HomeMapExplorer() {
           <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
         </span>)}
         {directions?.tier === 'gate' && <><a className="jd2-map-dir" href={directions.link.href} target="_blank" rel="noopener noreferrer">{directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
+        {directions?.tier === 'address' && <>{directions.links.map((link) => <span key={link.href}>
+          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
+          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
+        </span>)}<p className="jd2-map-dir-note">{directions.note}</p></>}
         {directions?.tier === 'call' && <a className="jd2-map-dir" href={directions.href}>{directions.label}</a>}
       </div>
       <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />

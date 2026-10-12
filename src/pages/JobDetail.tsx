@@ -692,6 +692,17 @@ export function JobDetail() {
                       <p className="jd2-map-dir-note">{parkDirection.note}</p>
                     </div>
                   )}
+                  {directionsPlan.tier === 'address' && (
+                    <div className="jd2-map-links">
+                      {directionsPlan.links.map((link) => (
+                        <span key={link.href}>
+                          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps ↗</a>{' '}
+                          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label} ↗</a>
+                        </span>
+                      ))}
+                      <p className="jd2-map-dir-note">{directionsPlan.note}</p>
+                    </div>
+                  )}
                   {directionsPlan.tier === 'call' && (
                     <div className="jd2-map-links">
                       <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label} ({directionsPlan.phone})</a>

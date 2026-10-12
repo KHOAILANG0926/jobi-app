@@ -50,3 +50,31 @@ console.log('Google links: coordinate view/directions, invalid destinations and 
 assert(planJobDirections({ ...job, workLocations: [] }).tier === 'call', 'no approved coordinate keeps existing telephone fallback')
 assert(planJobDirections({ ...job, employerPhone: '', workLocations: [] }).tier === 'none', 'no coordinate and no phone produces no buttons')
 assert(planDirections({ approvedLinks: [], gateHref: gate, gateNote: 'Verified park gate, not factory.' }).tier === 'gate', 'gate tier preserves note')
+
+// 2026-10-12 A안: 정확한 거리 주소만 Google 주소 검색으로 (운영 주소 원문 기준 사례)
+import { preciseStreetAddressQuery, ADDRESS_NOTE } from './directionsPlan.ts'
+const ok: [string, string][] = [
+  ['37 Lý Thái Tổ, Tp Bắc Ninh, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh', '37 Lý Thái Tổ, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh'],
+  ['MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH, TỈNH BẮC NINH, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh', '37 Đ. LÝ THÁI TỔ, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh'],
+  ['1A Lý Thái Tổ, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh', '1A Lý Thái Tổ, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh'],
+]
+for (const [raw, want] of ok) assert(preciseStreetAddressQuery(raw) === want, 'precise street address accepted: ' + raw)
+const rejected: [string, string | null][] = [
+  ['Số 354 Đường Thanh Niên, Phường Tân Hưng, Thành phố Hải Phòng, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh', null], // 행정구역 충돌
+  ['Số 6, Đường 5, KCN VSIP, Phù Chẩn, Từ Sơn, Bắc Ninh, Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh', null], // KCN
+  ['LÔ A1 VÀ A2, THỬA ĐẤT 50 VÀ 51, KHU DÂN CƯ DỊCH VỤ ĐỒNG KHU, P.ĐÌNH BẢNG, TX. TỪ SƠN, T. BẮC NINH, Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh', null], // Lô
+  ['6-8 Khu 1, phường Quế Võ, tỉnh Bắc Ninh, Phường Quế Võ, Huyện Quế Võ, Bắc Ninh', null], // Khu
+  ['Đường Số 14, Xã Tam Đa, Huyện Yên Phong, Bắc Ninh', null], // 번지 없음
+  ['Đường tỉnh 284, Xã Trung Chính, Huyện Lương Tài, Bắc Ninh', null], // 번지 없음
+  ['KCN VSIP, Bắc Ninh', null], // 2026-09-29 오안내 사례
+  ['374 Trần Phú, Phường Tam Sơn, Thị xã Từ Sơn, Bắc Ninh', 'KCN X'], // 근무지가 KCN으로 분류되면 제외
+]
+for (const [raw, park] of rejected) assert(preciseStreetAddressQuery(raw, park) === null, 'not precise → no address link: ' + raw)
+
+const addr = planDirections({ approvedLinks: [], gateHref: null, addressQuery: '37 Lý Thái Tổ, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh', phone: '0344849982' })
+assert(addr.tier === 'address' && addr.note === ADDRESS_NOTE && addr.links[0].href.startsWith('https://www.google.com/maps/dir/?api=1&destination=37%20L')
+  && addr.links[0].viewHref!.startsWith('https://www.google.com/maps/search/?api=1&query=37%20L'), 'address tier → Google dir/search with encoded address and unverified note')
+assert(planDirections({ approvedLinks: approved, gateHref: null, addressQuery: 'x', phone: '' }).tier === 'approved', 'approved coordinate beats address')
+assert(planDirections({ approvedLinks: [], gateHref: gate, addressQuery: 'x', phone: '' }).tier === 'gate', 'KCN gate beats address')
+assert(planDirections({ approvedLinks: [], gateHref: null, addressQuery: null, phone: '0344849982' }).tier === 'call', 'no precise address → telephone')
+console.log('address tier (A안) tests: all assertions passed')
