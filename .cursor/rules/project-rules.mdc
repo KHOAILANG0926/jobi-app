@@ -42,7 +42,7 @@ Claude Code·Cursor·Codex 모두 적용한다(`.cursor/rules/project-rules.mdc`
 ### 3. 위치·길찾기 기준
 - 자동 승인 핀은 두 경우뿐(2026-10-11 B안): ① 주소 검색에서 **번지+도로명**이 VietMap 결과와 일치(회사명은 참고) ② 회사명 정확 일치 + **KCN 윤곽 안**. KCN 밖에서 회사명만 일치하면 핀 없음(지점 여럿인 회사 오안내 방지, 예: #4702 Pizza Hut). 관리자 Vị trí 입력은 예외용이다.
 - 길찾기는 3단계: 승인 좌표 "Chỉ đường" / KCN 정문 좌표 "Đến cổng KCN" / 둘 다 없으면 "Gọi hỏi đường"(전화 버튼).
-- 지도·길찾기 링크는 좌표(`destination=lat,lng`)만. 이름·주소 검색 링크 금지.
+- 지도·길찾기 링크는 좌표(`destination=lat,lng`)가 원칙. 예외(2026-10-12 사용자 결정 A안, VietMap 최신 반영 지연): 승인 좌표·KCN 정문이 없고 주소가 **번지+도로명 + 서로 일치하는 동·구·성**이면 그 주소 글자로 Google Maps 위치 보기·길찾기를 연다("chưa xác minh" 안내 포함). 회사명·공단명·지역명 검색, KCN·Lô·Khu 주소, 행정구역이 엇갈리는 주소는 계속 금지. 구현 `src/lib/directionsPlan.ts` `preciseStreetAddressQuery`.
 
 ### 5. 가짜 공고·화면 영향 확인
 - 예시·가짜 공고(DEMO·샘플·placeholder 공고)를 공개 화면에 표시하지 않는다. 공개 0건이면 빈 상태 안내를 보여준다.
