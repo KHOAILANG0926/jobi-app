@@ -53,21 +53,23 @@ def evaluate_job_posting_policy(job):
             and _matches("customer_outreach", fields["description"]) and _matches("business_contract", fields["description"])):
         return result("exclude", "b2b_business_contract_sales")
     sales = _matches("sales_role", fields["title"])
-    if (sales and not _matches("b2b_title", fields["title"]) and _matches("market_sales", text)
-            and (_matches("consumer_distribution", fields["company"] + " " + text)
-                 or _matches("retail_supply", fields["description"]))):
+    if (sales and not _matches("b2b_title", fields["title"])
+            and ((_matches("consumer_distribution", fields["company"] + " " + text) and _matches("retail_supply", fields["description"]))
+                 or (_matches("market_sales", text)
+                     and (_matches("consumer_distribution", fields["company"] + " " + text)
+                          or _matches("retail_supply", fields["description"]))))):
         return result("allow", "consumer_retail_distribution_sales")
     retail = _matches("retail_primary", text)
     b2b = _matches("b2b_primary", text)
     if sales and b2b:
         return result("review", "mixed_retail_b2b") if retail else result("exclude", "primary_b2b_field_dealer_sales")
-    if sales and _matches("b2b_signal", text):
+    if sales and _matches("b2b_signal", text) and not retail and not _matches("shift_work", text):
         return result("review", "unclear_b2b_role")
     pay = fields["description"] + " " + fields["salary"]
     if sales and not retail and _matches("professional_sales", fields["title"]) and _matches("incentive", pay) and _matches("high_income", pay):
         return result("review", "professional_incentive_sales")
     if sales and not retail:
-        return result("review", "unclear_sales_role")
+        return result("allow", "ordinary_sales_without_exclusion_evidence")
     return result("allow", "no_excluded_role_evidence")
 
 
