@@ -54,5 +54,18 @@ assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-v2-sin
 assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-v2-b2b-showroom-contract')!.input).reason,
   'b2b_business_contract_sales', 'explicit B2B contract must outrank showroom wording')
 assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-v2-market-no-evidence')!.input).decision,
-  'review', 'market wording alone does not prove consumer outlet distribution')
-console.log('v2: singular professional and B2B contract precedence verified; operational originals NOT supplied')
+  'allow', 'ordinary sales without exclusion evidence are allowed by the v3 policy')
+console.log('v3: ordinary sales allowed; four user-described synthetic jobs allowed; B2B/finance/professional exclusions retained')
+
+const shiftedProfessional = {
+  title: 'Sale Executive', company: 'Synthetic',
+  description: 'Đại lý, ca 1/ca 2, thu nhập 30 triệu, hoa hồng là phần lớn thu nhập.',
+  salary: '30 triệu VND',
+}
+assert.equal(evaluateJobPostingPolicy(shiftedProfessional).decision, 'review',
+  'shift evidence must not override explicit professional incentive sales')
+assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'unclear-b2b')!.input).decision,
+  'review', 'B2B signal without retail/shift evidence remains review')
+assert.equal(evaluateJobPostingPolicy({
+  title: 'Sales', company: 'Kinh Đô', description: 'Chăm sóc đại lý.',
+}).decision, 'review', 'consumer brand alone must not override dealer ambiguity')
