@@ -19,10 +19,10 @@
 ## 첫 원격 생성 gate
 [직접 확인] vercel.json의 기존 PR49 branch false를 유지하고 새 고정 통합 branch false만 추가했다. first commit을 만든 뒤 git show COMMIT:vercel.json으로 두 false, branch name, working tree clean, 부모47/49를 확인하고 SHA를 기록해야 한다. 다른 배포 설정/프로젝트 설정은 변경하지 않는다.
 [기존 기록] Vercel 실제 설정은 GitHub KHOAILANG0926/jobi-app 연동, Production Branch=master, Preview Branch Tracking=All unassigned branches enabled. 기존 false는 새 branch에 적용되지 않으므로 새 false가 첫 원격 commit에 반드시 있어야 한다.
-[추정/미확인] 첫 push 후 branch/SHA별 Preview 및 Production 배포 조회가 아직 남아 있다. 배포0 확인 전 PR 생성 금지; 예상치 못한 배포는 중단/보고하며 프로젝트 설정 변경·배포 삭제로 해결하지 않는다. 실제 최초 SHA/조회 응답/새 Draft PR CI run IDs는 PR 설명과 최종 보고에 기록한다.
+[직접 확인] 최초 push SHA 50a7bb501407d0ceddb43db3935ac399afcb4ab9. git show HEAD:vercel.json으로 두 브랜치 false와 부모 PR47/49를 확인한 뒤 원격 생성. Vercel exact branch/SHA 조회 Preview 0 / Production 0 (2026-10-12 14:19:31 UTC); PR 생성 후 재조회도 0. Draft PR #50 https://github.com/KHOAILANG0926/jobi-app/pull/50. 최초 SHA 필수 CI: STATUS 위조 감시: 38262081479 success; Offline crawler CLI regression: 38262081531 success; Offline job policy: 38262081460 success; PR 검사 (병합 전 필수): 38262081499 success. CI 로그: tsc/npm 49/49/build, Python 정책2+쓰기3/품질21, SQL35 및 정상4직종 lifecycle, CLI14 모두 성공. 아래 문서 스냅샷 갱신 커밋의 CI/배포 여부는 최종 PR 설명에서 추가 확인한다.
 
 ## 남은 위험·승인 항목
-[직접 확인] Production trigger 미적용이라 direct SQL/service-role 및 TOCTOU 우회 미해결. UI/RPC 운영 원자성/권한은 격리 검증으로 대신하지 않는다. 검토 비공개 저장·관리자 예외·DDL·수집 재개는 별도 승인이다.
+[기존 기록/미확인] Production trigger 미적용은 PR49 기록이며 이번 운영 조회는 불가. direct SQL/service-role 및 TOCTOU 우회 차단은 미확인이다. UI/RPC 운영 원자성/권한은 격리 검증으로 대신하지 않는다. 검토 비공개 저장·관리자 예외·DDL·수집 재개는 별도 승인이다.
 [직접 확인] PR47의 schedule 설정은 소스 변경만 결합했고 dispatch/실제 수집은 실행하지 않았다. master/기존PR/Production/기존공고/위치 승인 SQL/보호 STATUS 장치를 변경하지 않았다.
 [추정] git.deploymentEnabled는 Vercel Git 자동 배포 차단이며 CLI/API/Deploy Hook 호출은 별도 경로다. 최초 ref는 차단 commit을 직접 가리켜야 하고, 이후 모든 통합 push에도 false를 유지한다. 병합 전 차단 정리 및 운영 적용은 새로운 승인 범위다.
 

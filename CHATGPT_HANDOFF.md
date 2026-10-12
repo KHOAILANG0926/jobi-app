@@ -7,7 +7,7 @@
 - [직접 확인] master 기준 9157ced522d024b2c378958f623beffbdfeb1aba; 통합 로컬 브랜치 codex/integrate-crawler-policy-20261012. PR47 443468b24c554ad5ea44df6c8e4a53e41c925dc8 + PR49 cc14ea45e7889d6155680cdb535e4b4ee5e258d6. 원본 checkout master/d3940fa와 26개 기존 변경 보존, 기존 두 PR Draft 유지.
 - [직접 확인] merge-tree/실제 무커밋 병합 충돌은 HANDOFF뿐. crawler 자동 병합. PR47 예약 confirmation·수동 default=false·축약/혼합 인자 차단과 PR49 금융/B2B 정책·공개 쓰기 gate를 함께 유지한다. --confirm-full-crawl 안전장치 유지; 통합은 수집 재개 승인이 아니다.
 - [직접 확인] vercel.json은 기존 PR49 브랜치 false와 새 통합 브랜치 false만 유지/추가. 최초 원격 브랜치 생성 전에 이 설정이 포함된 로컬 커밋을 검증한다. 첫 push 후 branch/SHA별 Vercel 배포 0건을 확인하기 전 PR 작성 금지; 예상치 못한 배포면 즉시 중단.
-- [직접 확인] 로컬 통합 Python 정책2+쓰기3, 품질21/21, CLI14/14(기존 safety21 포함), JS/Python/SQL35 memory parity·정상4직종 lifecycle, tsc/npm49/49/client·SSR build 통과. 새 Draft PR/최초 remote SHA/Vercel 배포0/CI는 다음 gate에서 확인한다. [추정/미확인] 운영 RPC/RLS/trigger/권한, UI E2E, Facebook 전체 suite, VPS SHA/crontab/runtime/import는 미확인.
+- [직접 확인] 로컬 통합 Python 정책2+쓰기3, 품질21/21, CLI14/14(기존 safety21 포함), JS/Python/SQL35 memory parity·정상4직종 lifecycle, tsc/npm49/49/client·SSR build 통과. [직접 확인] 최초 push SHA 50a7bb501407d0ceddb43db3935ac399afcb4ab9. git show HEAD:vercel.json으로 두 브랜치 false와 부모 PR47/49를 확인한 뒤 원격 생성. Vercel exact branch/SHA 조회 Preview 0 / Production 0 (2026-10-12 14:19:31 UTC); PR 생성 후 재조회도 0. Draft PR #50 https://github.com/KHOAILANG0926/jobi-app/pull/50. 최초 SHA 필수 CI: STATUS 위조 감시: 38262081479 success; Offline crawler CLI regression: 38262081531 success; Offline job policy: 38262081460 success; PR 검사 (병합 전 필수): 38262081499 success. CI 로그: tsc/npm 49/49/build, Python 정책2+쓰기3/품질21, SQL35 및 정상4직종 lifecycle, CLI14 모두 성공. 아래 문서 스냅샷 갱신 커밋의 CI/배포 여부는 최종 PR 설명에서 추가 확인한다. [추정/미확인] 운영 RPC/RLS/trigger/권한, UI E2E, Facebook 전체 suite, VPS SHA/crontab/runtime/import는 미확인.
 - [기존 기록] PR49 금융 전담/부수 채권관리 구분, B2B 외근 주업무 제한·내근/매장 허용, 20M 단독 제외 없음. 기존 공개 소급 숨김 방지, 일반 수정/비공개 전환 허용, 내용 수정/재공개 실패 시 차단. 예외 #4394/#4455·과거37건은 master 주석 기록이며 운영 원문 미확인.
 - [직접 확인] SQL은 pending/ROLLBACK 초안만이며 격리 메모리 DB 이외 적용 금지. 운영 trigger 없이는 직접 SQL/service-role·동시 수정 우회 미해결. 공개 RPC evaluator·관리자 예외·비공개 검토 저장은 별도 승인 필요.
 - [기존 기록] Vercel Git 연동 jobi, Production Branch master, Preview Branch Tracking 모든 미지정 브랜치 활성. 브랜치 false는 master/다른 브랜치를 차단하지 않으며 CLI/API/Deploy Hook을 막지 않는다. 향후 승인된 병합 전 임시 차단 항목 처리는 외부 배포 차단을 실제 확인한 뒤 별도 결정한다.
@@ -24,7 +24,7 @@
 
 ## 2. 다음 할 일 3개
 
-1. 통합 격리 검사→첫 커밋 차단 검증·SHA 기록→최초 push→Vercel Preview/Production 배포 0건 확인→새 Draft PR/필수 CI. 두 원본 PR 병합/종료·배포·실제 수집 금지.
+1. 통합 격리 검사·첫 차단 커밋 push·Vercel 배포0 확인·Draft PR #50·필수 CI 성공까지 확인. 문서 스냅샷 갱신 후 최종 SHA의 CI/배포0를 PR 설명에서 재확인. 두 원본 PR 병합/종료·배포·실제 수집 금지.
 2. 승인된 읽기 연결에서 운영 권한/RPC/RLS/trigger·VPS 실행/로그·필요 원문·UI를 검증. DB 강제·검토 저장·수집 재개·임시 배포 차단 해제는 각각 별도 승인. 기존 B2B 필터 구현 대기는 PR49 앱 구현 단계로 진행됐으나 운영 적용은 미승인.
 3. Goong 계정 활성화 후 상세주소14건 VietMap/Goong 비교는 사용자 지시 대기(결과 저장·지도 표시 없이 비교표만). 좌표 저장/타사 지도 표시 약관 서면 확인 전 실사용 금지. 새 작업은 STATUS와 이 파일의 차이부터 보고한다.
 
