@@ -42,22 +42,25 @@ export function evaluateJobPostingPolicy(job = {}) {
     return result('exclude', 'b2b_business_contract_sales')
   const sales = matches('sales_role', fields.title)
   // Consumer-distributor outlet supply is allowed; brand alone is insufficient.
-  if (sales && !matches('b2b_title', fields.title) && matches('market_sales', text)
-      && (matches('consumer_distribution', fields.company + ' ' + text) || matches('retail_supply', fields.description)))
+  if (sales && !matches('b2b_title', fields.title)
+      && ((matches('consumer_distribution', fields.company + ' ' + text) && matches('retail_supply', fields.description))
+          || (matches('market_sales', text)
+              && (matches('consumer_distribution', fields.company + ' ' + text) || matches('retail_supply', fields.description)))))
     return result('allow', 'consumer_retail_distribution_sales')
   const retail = matches('retail_primary', fields.title + ' ' + fields.description)
   const b2b = matches('b2b_primary', fields.title + ' ' + fields.description)
   if (sales && b2b) return retail
     ? result('review', 'mixed_retail_b2b')
     : result('exclude', 'primary_b2b_field_dealer_sales')
-  if (sales && matches('b2b_signal', fields.title + ' ' + fields.description))
+  if (sales && matches('b2b_signal', fields.title + ' ' + fields.description)
+      && !retail && !matches('shift_work', text))
     return result('review', 'unclear_b2b_role')
   // Income never excludes a job. Store/mart/factory/QC salaries do not trigger this.
   if (sales && !retail && matches('professional_sales', fields.title)
       && matches('incentive', fields.description + ' ' + fields.salary)
       && matches('high_income', fields.description + ' ' + fields.salary))
     return result('review', 'professional_incentive_sales')
-  if (sales && !retail) return result('review', 'unclear_sales_role')
+  if (sales && !retail) return result('allow', 'ordinary_sales_without_exclusion_evidence')
   return result('allow', 'no_excluded_role_evidence')
 }
 export function hasExcludedMoneyRole(job) {
