@@ -7,8 +7,8 @@
 
 ## 1. 현재 상태
 
-- **[직접 확인] 현재 판정 조정:** policy v2(2026-10-12), 가전/가구/showroom 및 소비재 소매납품 시장영업 허용, 명시적 B2B 사업체 방문 계약 우선 차단, sale executive 단수 전문영업 포함. 같은 PR48 Draft, 근거 `docs/job-policy-rules-v2-2026-10-12.md`.
-- **[직접 확인]/[추정] 검증 범위:** 기존39 decision 변화0, 합성14 추가(운영 원문 아님); 전체53사례. 사용자 지정 허용15/#4750 원문16건은 미확보라 required fixture 검증 미완료. 원문 자료 위치 요청 대기. 운영101건은 사용자 지시대로 Claude 별도 확인 대상이며 여기서 조회하지 않았다.
+- **[직접 확인] 현재 판정 조정:** policy v3(2026-10-12), 제외 증거 없는 일반 영업 허용; 소비재 브랜드+소매 공급은 market 제목 없이 허용; 단독 B2B 단어는 review이나 매장/교대 증거가 있으면 허용. 금융·명시적 B2B계약·전문 인센티브 증거는 유지. 근거 `docs/job-policy-rules-v3-2026-10-12.md`, PR48 Draft·미병합.
+- **[직접 확인]/[기존 기록] 검증 범위:** 기존53 중 unclear-sales/sales-loan-benefit/synthetic-v2-market-no-evidence만 review→allow; 나머지50 동일. 사용자 설명 합성4건 추가, 총57(allow30/review9/exclude18). 운영101건97/4/0 및 #4750 exclude는 Claude 결과를 전달받은 기존 기록; 이번 운영 재조회 없음. 운영 재판정은 Claude 확인 대상.
 
 - **[직접 확인] 2026-10-12 인자 수정:** 같은 PR48 브랜치, 안전장치 유지·caller confirmation 정합화. 수집 금지 준수: Actions job `if: false` 중지, daily 무인자 exit2; 재개 승인 후에만 `--confirm-scheduled-run` 전달. 근거 `docs/crawler-cli-fix-2026-10-12.md`. 실제 수집/DB 변경 없음.
 - **[직접 확인]/[추정] 운영 로그:** 최신 조회 crawl run33221622201·33128901992는 설치 libasound2/exit100 failure, 크롤링 skipped. 현재 인자 오류로 운영 실패 중이라는 증거 없음, VPS 상태 미확인. CLI 오프라인15개 성공(run38183216848); 최신 checks는 최종 PR 실행 기록 참조.
