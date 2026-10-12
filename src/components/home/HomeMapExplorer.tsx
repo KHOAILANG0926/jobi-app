@@ -1,3 +1,4 @@
+import { planJobDirections } from '../../lib/directionsPlan'
 // 메인 중간 영역 — "내 주변 일자리 지도 + 선택한 공고 패널" (2026-10-01).
 // 왼쪽: 탐색 조건(위치·반경 / 급여 / 업종 / Thêm điều kiện) + 지도, 오른쪽: 선택 공고 1차 판단 패널.
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
@@ -76,6 +77,8 @@ export default function HomeMapExplorer() {
   const nearby = useMemo(() => findNearbyJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
   const counts = useMemo(() => summarizeMapJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
   const selected = nearby.find((n) => n.job.id === selectedId) ?? null
+
+  const directions = selected ? planJobDirections(selected.job) : null
 
   // 필터·위치 변경으로 선택 공고가 결과에서 빠지면 선택을 해제한다.
   useEffect(() => {
@@ -167,6 +170,14 @@ export default function HomeMapExplorer() {
       </dl>
       <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>
       <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
+      <div className="jd2-map-links">
+        {directions?.tier === 'approved' && directions.links.map((link) => <span key={link.href}>
+          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
+          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
+        </span>)}
+        {directions?.tier === 'gate' && <><a className="jd2-map-dir" href={directions.link.href} target="_blank" rel="noopener noreferrer">{directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
+        {directions?.tier === 'call' && <a className="jd2-map-dir" href={directions.href}>{directions.label}</a>}
+      </div>
       <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />
     </div>
   ) : null

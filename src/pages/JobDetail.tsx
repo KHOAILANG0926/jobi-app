@@ -25,12 +25,12 @@ import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { descriptionRows } from '../lib/jobDescriptionRows'
-import { planDirections } from '../lib/directionsPlan'
+import { planJobDirections } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
 import { useWardCenter } from '../lib/wardAreaClient'
-import { findIndustrialPark, industrialParkDirectionsNote, industrialParkDirectionsUrl } from '../lib/industrialPark'
+import { findIndustrialPark } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -354,23 +354,13 @@ export function JobDetail() {
   // 중심 좌표는 출처(OpenStreetMap way)가 있는 공단 표(data/industrialParks.ts)에서만 가져온다 — 표에 없으면
   // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
   // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
-  const mapDirections = (job.workLocations ?? []).flatMap((loc) => {
-    const links = isVerifiedWorkLocation(loc) ? workLocationExternalLinks(loc) : null
-    return links && links.viewKind === 'exact' && links.directions
-      ? [{ label: (job.workLocations?.length ?? 0) > 1 ? `Chỉ đường — ${loc.rawAddress}` : 'Chỉ đường', href: links.directions }]
-      : []
-  })
+  const directionsPlan = planJobDirections(job)
+  const mapDirections = directionsPlan.tier === 'approved' ? directionsPlan.links : []
   const park = !hasMapPoints
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
     : undefined
   // 공단 수준 길찾기 — 출처 있는 정문·관리사무소 좌표(destination)로만. 없으면(영역 중심은 쓰지 않음) 버튼 숨김
   // 길찾기 3단계(2026-10-08): ① 승인 좌표 Chỉ đường → ② KCN 정문 좌표 Đến cổng KCN → ③ 둘 다 없으면 Gọi hỏi đường(전화).
-  const directionsPlan = planDirections({
-    approvedLinks: mapDirections,
-    gateHref: park ? industrialParkDirectionsUrl(park) : null,
-    gateNote: park?.destination ? industrialParkDirectionsNote(park.destination) : undefined,
-    phone: contact.phone,
-  })
   const parkDirection = directionsPlan.tier === 'gate'
     ? { label: directionsPlan.link.label, href: directionsPlan.link.href, note: directionsPlan.note }
     : undefined
@@ -669,12 +659,6 @@ export function JobDetail() {
                         <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (viền nét đứt, không có ghim) — chưa dùng để tính khoảng cách.
                         <span className="jd2-map-credit"> Viền khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
                       </p>
-                      {parkDirection && (
-                        <div className="jd2-map-links">
-                          <a className="jd2-map-dir" href={parkDirection.href} target="_blank" rel="noopener noreferrer">{parkDirection.label} ↗</a>
-                          <p className="jd2-map-dir-note">{parkDirection.note}</p>
-                        </div>
-                      )}
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
@@ -701,6 +685,12 @@ export function JobDetail() {
                     <p className="jd2-map-pending-note">
                       Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
                     </p>
+                  )}
+                  {parkDirection && (
+                    <div className="jd2-map-links">
+                      <a className="jd2-map-dir" href={parkDirection.href} target="_blank" rel="noopener noreferrer">{parkDirection.label} ↗</a>
+                      <p className="jd2-map-dir-note">{parkDirection.note}</p>
+                    </div>
                   )}
                   {directionsPlan.tier === 'call' && (
                     <div className="jd2-map-links">
@@ -917,14 +907,14 @@ export function JobDetail() {
 }
 
 
-/** 외부 지도 링크 — 확인된 근무지만 핀+길찾기, 그 외는 지역 화면만(2026-09-29). */
+/** Google links only when the existing approval helper permits directions. */
 function MapLinks({ links }: { links: ExternalMapLinks | null }) {
   // 2026-09-30: 지역 수준(area) 지도 화면 링크도 지역 중심 좌표 대체 표시라 내보내지 않는다
-  if (!links || links.viewKind !== 'exact') return null
+  if (!links || links.viewKind !== 'exact' || !links.directions) return null
   return (
     <div className="jd2-map-gmaps-links">
       <a href={links.view} target="_blank" rel="noopener noreferrer">
-        {links.viewKind === 'exact' ? 'Xem trên bản đồ lớn ↗' : 'Xem khu vực trên bản đồ ↗'}
+        Xem trên Google Maps
       </a>
       {links.directions && (
         <a href={links.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
