@@ -2,6 +2,14 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-12 — PR #49 후속 검토·수정
+
+- 요청: 기존 Draft #49에서 오차단·언어 동등성·수정/재공개·PR #47 충돌·배포 설정 재검토.
+- [직접 확인] 정책 JSON/JS/Python/pending SQL, 공개 호환 필터, JobsContext/ManageGuestJob, 회귀 fixture/테스트/격리 CI 수정. 외근 주업무 근거 없는 B2B·금융사 QC·부수 채권관리 오차단 해소; 일반 수정·숨김 허용, 명시적 재공개 재검사. 상세 문서 참조.
+- [직접 확인] tsc, npm test 49개 파일, build 통과. Python 21/21 + 5/5, PGlite에서 공유 35사례의 JS/Python/SQL 전체 verdict 일치·원자적 gate 통과. 실패 회귀 재현 후 수정, 독립 표적 리뷰 완료. Facebook 전체 suite·UI E2E·운영 권한/원문 미확인.
+- [직접 확인] #47과 merge-tree는 HANDOFF만 충돌. #49 먼저, #47 및 수집 재개는 별도 승인 제안. Vercel 정확한 브랜치 차단은 master에 영향 없으나 제거 시 Preview 위험으로 유지; 향후 외부 차단 확인 후 제거 필요.
+- commit/push: 기존 #49 브랜치에만 보존, 최종 SHA/CI는 PR 기준. deploy/merge/Production DB/DDL/수집/유료 호출 없음. DB 우회·동시수정 위험 및 실제 #4394/#4455 판정 미확인.
+
 ## 2026-10-12 — PR #46 기반 신규 공고 정책 (Draft 전용)
 
 - [직접 확인] master `9157ced` 기반 `codex/job-posting-policy-implementation-20261012`, 별도 clone. 원래 checkout·PR #47·보호 검증 장치 변경 없음.
@@ -70,12 +78,6 @@
 - Production(브라우저 실행): sb-4687·4685·4686·4702 모두 200, 회사명·전화·Zalo·Gọi 버튼 정상, `[source:`·경쟁 사이트 문구 없음, 홈·tìm kiếm 카드 표시. sb-4702는 지도+Chỉ đường(좌표 링크).
 - 문제: sb-4687(KCN YÊN PHONG)은 영역 지도 없음 — 공단 표에 "Yên Phong mở rộng"만 있어 매칭 안 됨(추정 금지 설계). 공개 100건 분류: 승인 핀 2 / KCN 지도 13 / Gọi hỏi đường만 85 → KCN 글자 31건 중 18건 지도 없음(HANDOFF 다음 할 일 3번).
 - 참고: 상세 화면에 대행사 표기는 없음(기존 동작, `recruitmentType`은 화면에 안 씀).
-
-## 2026-10-08 — chotot 공개 완료 반영 + 확인 URL SQL 형식 수정 (코드·DB 쓰기 없음)
-
-- 사용자 보고: chotot 100건 공개 완료(SQL Editor 직접 실행). 확인 URL SQL이 `/viec-lam/<id>`로 만들어 404.
-- 원인·수정: 앱의 공고 ID는 `sb-<local_jobs.id>`(`src/lib/jobId.ts`) → URL SQL 4곳과 문서 형식을 `/viec-lam/sb-<id>`로 수정, PGlite로 재확인. HANDOFF에 "공개 완료"·다음 할 일 반영.
-
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
@@ -220,3 +222,31 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 - 완료 전 `npx tsc --noEmit`, `npm test`, `npm run build`. DDL·Production DB 변경·데이터 삭제·Auth/RLS·Secret은 사용자 승인 없이 실행하지 않는다.
 - PC에 키·데이터·결과 파일 저장 금지. 자동화는 master 직접 push 금지.
 - 자동 승인 기준을 완화하지 않는다. 완료 보고는 5줄 이내.
+
+## 보관 — PR #49 후속 검토 전 HANDOFF (2026-10-12 기존 기록)
+
+# CHATGPT_HANDOFF — 최신 작업 스냅샷
+
+갱신: 2026-10-12. 상세 이력은 WORK_LOG.md. 아래 검증은 격리 환경만 해당한다.
+숫자·운영 상태 기준은 [status 브랜치 STATUS.md](https://github.com/KHOAILANG0926/jobi-app/blob/status/STATUS.md)이며 이 파일이 대체하지 않는다.
+
+## 1. 현재 상태
+
+- [직접 확인] master `9157ced` 기반 `codex/job-posting-policy-implementation-20261012`에서 PR #46 문서 근거로 신규 공고 정책 구현. 공유 JSON/JS/Python, 등록·수정·재공개·수집 최종 gate, 공개 active/hidden 필터. 상세: docs/job-posting-policy-implementation.md.
+- [직접 확인] tsc / npm 49/49 / build, Python 기존 21/21 + 신규 5/5, 메모리 PostgreSQL 정책 24사례 및 원자적 차단 테스트 통과. Production UI·RPC·권한 미확인. Facebook 전체 suite 미실행; writer만 격리 검증.
+- [직접 확인] SQL evaluator/trigger는 pending/ROLLBACK 초안만. 직접 SQL/service-role·동시 수정 우회는 운영 DB trigger 없이 해결되지 않는다. 비공개 검토 저장도 설계만.
+- [직접 확인] 기존 checkout·PR #47·보호 검증 장치 변경 없음. Production DDL/쓰기·기존 공고 변경·유료 API·실제 크롤링·배포 실행 없음. 이번 브랜치 자동 Vercel 배포만 차단.
+- [기존 기록] PR #46/#47은 시작 시 Draft/open. 운영 위치 승인 B안·Goong 보류·과거 보고 정정은 이전 스냅샷을 WORK_LOG 보관에 유지. 운영 재확인으로 취급하지 말 것.
+- 원격 최종 SHA·Draft PR·CI 상태는 해당 PR에서 확인. 이 작업은 master 병합·배포 승인 아님.
+
+## 2. 다음 할 일 3개
+
+1. Draft PR의 코드·CI와 정책 사례를 사용자 검토. PR #47·master 병합 금지 유지.
+2. 별도 DDL 승인 전 운영 권한/RPC·trigger 배치 계획과 롤백을 검토. pending 위치 승인 SQL은 적용 금지.
+3. 배포·자동 수집 재개·기존 공고 조치는 별도 지시를 기다린다. 비공개 검토 저장은 별도 설계 승인 필요.
+
+## 3. 필수 규칙
+
+- 각 보고는 [직접 확인]/[기존 기록]/[추정]을 구분. STATUS.md·status 브랜치·scripts/status·status-*·기존 보호 검증 장치 변경 금지.
+- 기존 checkout/미커밋 변경 보존. PC 인증키·데이터·백업 저장 및 gh auth login 금지. master 직접 push/merge/배포 금지.
+- DDL/Production DB 쓰기·유료 API·자동 수집 재개는 사용자 별도 승인 필요. 최종 보고 5줄 이내.

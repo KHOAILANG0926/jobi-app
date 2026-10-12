@@ -3,7 +3,7 @@ import spec from './job-posting-v1.json' with { type: 'json' }
 export const POLICY_VERSION = spec.version
 export function normalizePolicyText(value) {
   return typeof value === 'string' ? value.toLowerCase().normalize('NFD')
-    .replace(/đ/g, 'd').replace(/[\u0300-\u036f]/g, '').normalize('NFC').replace(/[^a-z0-9가-힣\s]/g, ' ').replace(/\s+/g, ' ').trim() : ''
+    .replace(/đ/g, 'd').replace(/[\u0300-\u036f]/g, '').normalize('NFC').replace(/[^a-z0-9가-힣]/g, ' ').replace(/ +/g, ' ').trim() : ''
 }
 const matches = (pattern, text) => new RegExp(`(^|[^a-z0-9])(?:${pattern})(?=$|[^a-z0-9])`, 'u').test(text)
 const result = (decision, reason) => ({decision, reason, version: POLICY_VERSION})
@@ -15,10 +15,13 @@ export function evaluateJobPolicy(input) {
     const fields = Object.fromEntries(['title','description','category'].map(k => [k, normalizePolicyText(input[k])]))
     const role = `${fields.title} ${fields.description}`
     const localWork = matches(spec.local_work, fields.title) || matches(spec.local_duty, fields.description)
+    const establishedSales = localWork || matches(spec.office_sales, fields.description)
     let review
     for (const rule of spec.rules) {
+      if (rule.unless === 'office_sales' && matches(spec.office_sales, fields.description)) continue
       if (rule.unless === 'local_work' && localWork) continue
-      if (rule.requires === 'sales' && !matches(spec.sales, role)) continue
+      if (rule.unless === 'established_sales' && establishedSales) continue
+      if (rule.requires && !matches(spec[rule.requires], role)) continue
       for (const field of rule.fields) {
         if (!matches(rule.pattern, fields[field])) continue
         // A negated or mixed duty is ambiguous, never affirmative exclusion evidence.
@@ -30,7 +33,7 @@ export function evaluateJobPolicy(input) {
     if (!fields.title || !fields.description) return result('review', 'missing_content')
     if (review) return result('review', review)
     if (matches(spec.generic_title, fields.title) && !matches(spec.substantive_duty, fields.description)) return result('review', 'ambiguous_role')
-    if (matches(spec.sales, role) && !localWork) return result('review', 'unclear_sales')
+    if (matches(spec.sales, role) && !establishedSales) return result('review', 'unclear_sales')
     return result('allow', 'allowed')
   } catch { return result('review', 'policy_unavailable') }
 }
@@ -44,8 +47,11 @@ export function assertJobPolicy(input) {
   return decision
 }
 
-export function assertJobChange(current, patch = {}) {
+export function assertJobChange(current, patch = {}, publishing = false) {
   if (!current || typeof current !== 'object') throw new Error(spec.messages.policy_unavailable)
   const definedPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined))
+  if (definedPatch.active === false || definedPatch.admin_hidden === true) return result('allow', 'depublication')
+  const contentChanged = ['title', 'description', 'category'].some(key => key in definedPatch && definedPatch[key] !== current[key])
+  if (!publishing && !contentChanged && definedPatch.active !== true && definedPatch.admin_hidden !== false) return result('allow', 'unchanged_policy_content')
   return assertJobPolicy({ ...current, ...definedPatch })
 }

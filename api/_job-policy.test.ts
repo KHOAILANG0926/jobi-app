@@ -36,6 +36,11 @@ assert.equal(writes, 0, 'read failure prevents publication')
 failed = false
 await setJobHidden(1, false)
 assert.equal(writes, 1)
+row = null
+failed = true
+await setJobHidden(1, true)
+assert.equal(writes, 2, 'hiding bypasses policy lookup even if content cannot be read')
+failed = false
 await fetchJobsData(client as never)
 assert.ok(filters.some(([key,value]) => key === 'active' && value === true))
 assert.ok(filters.some(([key,value]) => key === 'admin_hidden' && value === false))

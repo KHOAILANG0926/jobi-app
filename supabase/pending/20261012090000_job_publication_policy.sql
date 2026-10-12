@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION public.job_policy_normalize_v1(value text)
 RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog AS $$
   SELECT trim(regexp_replace(regexp_replace(normalize(regexp_replace(
     replace(normalize(lower(value), NFD), 'đ', 'd'), '[̀-ͯ]', '', 'g'), NFC),
-    '[^a-z0-9가-힣[:space:]]', ' ', 'g'), '[[:space:]]+', ' ', 'g'));
+    '[^a-z0-9가-힣]', ' ', 'g'), ' +', ' ', 'g'));
 $$;
 CREATE OR REPLACE FUNCTION public.evaluate_job_policy_v1(job jsonb)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog, public AS $body$
@@ -19,7 +19,7 @@ DECLARE
       "fields": [
         "title"
       ],
-      "pattern": "(loan|credit|tin dung|tu van vay|cho vay|vay tien|tai chinh|대출|금융|여신)"
+      "pattern": "(loan (officer|sales|advisor)|credit (officer|sales)|tu van (vay|tin dung|tai chinh)|chuyen vien (tin dung|tai chinh)|nhan vien (tin dung|cho vay)|cho vay|vay tien|대출 (상담|영업)|금융 상담|여신 담당)"
     },
     {
       "id": "debt_role",
@@ -36,7 +36,7 @@ DECLARE
       "fields": [
         "description"
       ],
-      "pattern": "(nhiem vu chinh|cong viec chinh|chuyen trach|chu yeu|primary dut(y|ies)|main responsibilit(y|ies)|주 업무).*(thu hoi no|nhac no|debt collection|채권추심)"
+      "pattern": "(nhiem vu chinh|cong viec chinh|chuyen trach|chu yeu|primary duty|main responsibility|주 업무) (la |ve )?(thu hoi no|nhac no|debt collection|채권추심)"
     },
     {
       "id": "finance_duty",
@@ -52,7 +52,16 @@ DECLARE
       "fields": [
         "title"
       ],
-      "pattern": "(b2b (sales|account)|sales b2b|kinh doanh b2b|kinh doanh khach hang doanh nghiep|quan ly dai ly|phat trien dai ly|dai dien thuong mai|영업.*대리점|대리점 관리|기업 대상 외근 영업)"
+      "pattern": "(b2b (sales|account)|sales b2b|kinh doanh b2b|kinh doanh khach hang doanh nghiep|기업 대상 외근 영업)",
+      "requires": "field_sales"
+    },
+    {
+      "id": "dealer_role",
+      "decision": "exclude",
+      "fields": [
+        "title"
+      ],
+      "pattern": "(quan ly dai ly|phat trien dai ly|대리점 관리)"
     },
     {
       "id": "b2b_duty",
@@ -60,7 +69,16 @@ DECLARE
       "fields": [
         "description"
       ],
-      "pattern": "(nhiem vu chinh|cong viec chinh|chu yeu|primary dut(y|ies)|main responsibilit(y|ies)|주 업무).*(quan ly dai ly|phat trien dai ly|khach hang doanh nghiep|b2b|대리점|기업 고객)|(di thi truong|ngoai thi truong|field sales).*(phat trien dai ly|quan ly dai ly|khach hang doanh nghiep)"
+      "pattern": "(nhiem vu chinh|cong viec chinh|chu yeu|primary duty|main responsibility|주 업무) (la )?(quan ly dai ly|phat trien dai ly|대리점 관리)"
+    },
+    {
+      "id": "b2b_duty",
+      "decision": "exclude",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(di thi truong|ngoai thi truong|field sales).*(phat trien dai ly|quan ly dai ly|khach hang doanh nghiep)",
+      "requires": "field_sales"
     },
     {
       "id": "incentive_sales",
@@ -80,7 +98,8 @@ DECLARE
         "description"
       ],
       "pattern": "(khach hang doanh nghiep|quan ly dai ly|phat trien dai ly|b2b|대리점 관리|기업 고객)",
-      "requires": "sales"
+      "requires": "sales",
+      "unless": "established_sales"
     },
     {
       "id": "ambiguous_role",
@@ -89,6 +108,16 @@ DECLARE
         "description"
       ],
       "pattern": "(cong viec se trao doi|trao doi khi phong van|lien he de biet them|details on interview|업무 미정)"
+    },
+    {
+      "id": "unclear_b2b",
+      "decision": "review",
+      "fields": [
+        "title"
+      ],
+      "pattern": "(b2b|khach hang doanh nghiep|기업 고객)",
+      "requires": "sales",
+      "unless": "office_sales"
     }
   ],
   "sales": "(sales|kinh doanh|영업)",
@@ -98,7 +127,7 @@ DECLARE
     "finance_role": "Không công khai: công việc chuyên về tài chính hoặc cho vay.",
     "finance_duty": "Không công khai: nhiệm vụ bán hoặc tư vấn sản phẩm cho vay.",
     "debt_role": "Không công khai: công việc chuyên thu hồi nợ.",
-    "b2b_role": "Không công khai: công việc B2B hoặc quản lý đại lý.",
+    "b2b_role": "Không công khai: công việc chính là kinh doanh B2B ngoài thị trường.",
     "b2b_duty": "Không công khai: nhiệm vụ chính là B2B hoặc quản lý đại lý.",
     "incentive_sales": "Cần làm rõ nhiệm vụ và cơ cấu thu nhập trước khi công khai.",
     "unclear_b2b": "Cần làm rõ nhiệm vụ B2B trước khi công khai.",
@@ -106,15 +135,20 @@ DECLARE
     "missing_content": "Cần nhập tiêu đề và mô tả công việc trước khi công khai.",
     "ambiguous_role": "Cần làm rõ nhiệm vụ công việc trước khi công khai.",
     "policy_unavailable": "Không thể kiểm tra chính sách. Chưa công khai tin; vui lòng thử lại.",
-    "debt_duty": "Không công khai: nhiệm vụ chính là thu hồi nợ."
+    "debt_duty": "Không công khai: nhiệm vụ chính là thu hồi nợ.",
+    "dealer_role": "Không công khai: công việc chuyên quản lý hoặc phát triển đại lý."
   },
   "local_duty": "(ban hang tai (quay|cua hang|sieu thi)|lam viec tai (cua hang|sieu thi)|thu ngan|san xuat|dong goi|kiem tra chat luong|매장 판매|마트 계산|생산|품질 검사)",
   "generic_title": "^(tuyen (dung )?)?(nhan vien|nhan su|cong tac vien|staff|employee|직원|직원 모집)$",
-  "substantive_duty": "(ban hang tai|thu ngan|san xuat|dong goi|kiem tra chat luong|van hanh|phuc vu|pha che|phu bep|giao hang|bao ve|ve sinh|ke toan|sua chua|cham soc khach hang|매장 판매|계산|생산|검사|배달|청소)"
+  "substantive_duty": "(ban hang tai|thu ngan|san xuat|dong goi|kiem tra chat luong|van hanh|phuc vu|pha che|phu bep|giao hang|bao ve|ve sinh|ke toan|sua chua|cham soc khach hang|매장 판매|계산|생산|검사|배달|청소)",
+  "field_sales": "(kinh doanh thi truong|sales thi truong|field sales|outside sales|기업 대상 외근 영업|(nhiem vu chinh|cong viec chinh|chu yeu|primary duty|주 업무) (la )?(di thi truong|gap khach hang tai|외근))",
+  "office_sales": "(xu ly don hang tai van phong|ban hang tai van phong|inside sales|order desk|내근 주문 처리)"
 }$spec$::jsonb;
   fields jsonb;
   role_text text;
   local_work boolean;
+  office_sales boolean;
+  established_sales boolean;
   rule jsonb;
   field_name text;
   review_reason text;
@@ -122,14 +156,18 @@ DECLARE
   decision text := 'allow';
 BEGIN
   fields := jsonb_build_object(
-    'title', public.job_policy_normalize_v1(coalesce(job->>'title', '')),
-    'description', public.job_policy_normalize_v1(coalesce(job->>'description', '')),
-    'category', public.job_policy_normalize_v1(coalesce(job->>'category', '')));
+    'title', public.job_policy_normalize_v1(CASE WHEN jsonb_typeof(job->'title') = 'string' THEN job->>'title' ELSE '' END),
+    'description', public.job_policy_normalize_v1(CASE WHEN jsonb_typeof(job->'description') = 'string' THEN job->>'description' ELSE '' END),
+    'category', public.job_policy_normalize_v1(CASE WHEN jsonb_typeof(job->'category') = 'string' THEN job->>'category' ELSE '' END));
   role_text := (fields->>'title') || ' ' || (fields->>'description');
   local_work := (fields->>'title') ~ ('(^|[^a-z0-9])(?:' || (spec->>'local_work') || ')(?=$|[^a-z0-9])') OR (fields->>'description') ~ ('(^|[^a-z0-9])(?:' || (spec->>'local_duty') || ')(?=$|[^a-z0-9])');
+  office_sales := (fields->>'description') ~ ('(^|[^a-z0-9])(?:' || (spec->>'office_sales') || ')(?=$|[^a-z0-9])');
+  established_sales := local_work OR office_sales;
   FOR rule IN SELECT value FROM jsonb_array_elements(spec->'rules') LOOP
     IF rule->>'unless' = 'local_work' AND local_work THEN CONTINUE; END IF;
-    IF rule->>'requires' = 'sales' AND NOT role_text ~ ('(^|[^a-z0-9])(?:' || (spec->>'sales') || ')(?=$|[^a-z0-9])') THEN CONTINUE; END IF;
+    IF rule->>'unless' = 'office_sales' AND office_sales THEN CONTINUE; END IF;
+    IF rule->>'unless' = 'established_sales' AND established_sales THEN CONTINUE; END IF;
+    IF rule ? 'requires' AND NOT role_text ~ ('(^|[^a-z0-9])(?:' || (spec->>(rule->>'requires')) || ')(?=$|[^a-z0-9])') THEN CONTINUE; END IF;
     FOR field_name IN SELECT jsonb_array_elements_text(rule->'fields') LOOP
       IF NOT (fields->>field_name) ~ ('(^|[^a-z0-9])(?:' || (rule->>'pattern') || ')(?=$|[^a-z0-9])') THEN CONTINUE; END IF;
       IF (fields->>field_name) ~ ('(^|[^a-z0-9])(?:' || (spec->>'negation') || ')(?=$|[^a-z0-9])') THEN
@@ -148,7 +186,7 @@ BEGIN
   ELSIF (fields->>'title') ~ (spec->>'generic_title') AND NOT (fields->>'description') ~ ('(^|[^a-z0-9])(?:' || (spec->>'substantive_duty') || ')(?=$|[^a-z0-9])') THEN
     decision := 'review'; reason := 'ambiguous_role';
   ELSIF role_text ~ ('(^|[^a-z0-9])(?:' || (spec->>'sales') || ')(?=$|[^a-z0-9])')
-    AND NOT local_work THEN
+    AND NOT established_sales THEN
     decision := 'review'; reason := 'unclear_sales';
   END IF;
   RETURN jsonb_build_object('decision',decision,'reason',reason,'version',spec->>'version');
@@ -161,6 +199,14 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, 
 DECLARE verdict jsonb;
 BEGIN
   IF NEW.active IS TRUE AND NEW.admin_hidden IS FALSE THEN
+    -- Existing public metadata edits must not trigger retrospective moderation.
+    -- Content edits and every private -> public transition still re-evaluate.
+    IF TG_OP = 'UPDATE' THEN
+      IF OLD.active IS TRUE AND OLD.admin_hidden IS FALSE
+        AND ROW(NEW.title,NEW.description,NEW.category) IS NOT DISTINCT FROM ROW(OLD.title,OLD.description,OLD.category) THEN
+        RETURN NEW;
+      END IF;
+    END IF;
     verdict := public.evaluate_job_policy_v1(to_jsonb(NEW));
     IF verdict->>'decision' IS DISTINCT FROM 'allow' THEN
       RAISE EXCEPTION USING ERRCODE='23514', MESSAGE='job_policy:' || coalesce(verdict->>'reason','policy_unavailable');

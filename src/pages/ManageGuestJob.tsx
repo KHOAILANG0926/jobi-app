@@ -100,12 +100,12 @@ export default function ManageGuestJob() {
     return () => { cancelled = true }
   }, [id, token])
 
-  async function checkPublication(patch: Record<string, unknown> = {}): Promise<boolean> {
+  async function checkPublication(patch: Record<string, unknown> = {}, publishing = false): Promise<boolean> {
     try {
       const { data, error } = await supabase.rpc('get_guest_job', { p_job_id: Number(id), p_token: token })
       const current = (data as GuestJobRow[] | null)?.[0]
       if (error || !current) throw new Error('Không thể kiểm tra tin trước khi công khai.')
-      assertJobChange(current, patch)
+      assertJobChange(current, patch, publishing)
       return true
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Không thể kiểm tra chính sách.')
@@ -160,7 +160,7 @@ export default function ManageGuestJob() {
 
   const toggleActive = async () => {
     if (!id || !job) return
-    if (!job.active && !await checkPublication()) return
+    if (!job.active && !await checkPublication({}, true)) return
     setSaving(true)
     setError(null)
     const { data, error: rpcError } = await supabase.rpc('update_guest_job', {

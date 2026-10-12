@@ -29,7 +29,7 @@
       "title": "Sales B2B",
       "description": "Tìm khách hàng doanh nghiệp"
     },
-    "decision": "exclude"
+    "decision": "review"
   },
   {
     "name": "dealer duty",
@@ -192,5 +192,93 @@
       "description": "Tìm kiếm khách hàng mới, thu nhập cao, hoa hồng không giới hạn. Khách hàng là các cửa hàng."
     },
     "decision": "review"
+  },
+  {
+    "name": "historical call-centre pattern synthetic not 4394 original",
+    "job": {
+      "title": "Nhân viên chăm sóc khách hàng",
+      "description": "Nhiệm vụ chính: khảo sát chất lượng dịch vụ, hỗ trợ khách hàng, nhắc nợ theo kịch bản."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "historical incidental bad debt synthetic not 4455 original",
+    "job": {
+      "title": "Sales cửa hàng thiết bị",
+      "description": "Bán hàng tại quầy, theo dõi công nợ xử lý nợ xấu sau bán hàng."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "documentary collection accounting",
+    "job": {
+      "title": "Kế toán",
+      "description": "Thanh toán documentary collection và đối chiếu công nợ."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "inside b2b order desk",
+    "job": {
+      "title": "Sales B2B văn phòng",
+      "description": "Xử lý đơn hàng tại văn phòng. Hỗ trợ khách hàng doanh nghiệp."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "retail business customers",
+    "job": {
+      "title": "Sales cửa hàng",
+      "description": "Bán hàng tại quầy cho khách hàng doanh nghiệp."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "primary outside b2b",
+    "job": {
+      "title": "Sales B2B",
+      "description": "Nhiệm vụ chính: đi thị trường, tìm khách hàng doanh nghiệp."
+    },
+    "decision": "exclude"
+  },
+  {
+    "name": "finance company in QC title",
+    "job": {
+      "title": "QC Home Credit",
+      "description": "Kiểm tra chất lượng hệ thống."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "numeric title",
+    "job": {
+      "title": 42,
+      "description": "Kiểm tra chất lượng"
+    },
+    "decision": "review"
+  },
+  {
+    "name": "numeric description",
+    "job": {
+      "title": "QC",
+      "description": 42
+    },
+    "decision": "review"
+  },
+  {
+    "name": "whitespace normalization",
+    "job": {
+      "title": "Salescửa hàng",
+      "description": "Bán hàng tại quầy."
+    },
+    "decision": "allow"
+  },
+  {
+    "name": "retail incidental outside delivery",
+    "job": {
+      "title": "Sales cửa hàng",
+      "description": "Bán hàng tại quầy. Thỉnh thoảng đi thị trường giao hàng cho khách hàng doanh nghiệp."
+    },
+    "decision": "allow"
   }
 ]

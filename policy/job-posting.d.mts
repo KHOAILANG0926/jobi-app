@@ -5,4 +5,4 @@ export function normalizePolicyText(value: unknown): string
 export function evaluateJobPolicy(input: PolicyInput | null | undefined): PolicyDecision
 export function policyMessage(decision: PolicyDecision): string
 export function assertJobPolicy(input: PolicyInput | null | undefined): PolicyDecision
-export function assertJobChange(current: PolicyInput | null | undefined, patch?: Record<string, unknown>): PolicyDecision
+export function assertJobChange(current: PolicyInput | null | undefined, patch?: Record<string, unknown>, publishing?: boolean): PolicyDecision

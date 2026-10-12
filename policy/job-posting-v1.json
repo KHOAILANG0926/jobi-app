@@ -7,7 +7,7 @@
       "fields": [
         "title"
       ],
-      "pattern": "(loan|credit|tin dung|tu van vay|cho vay|vay tien|tai chinh|대출|금융|여신)"
+      "pattern": "(loan (officer|sales|advisor)|credit (officer|sales)|tu van (vay|tin dung|tai chinh)|chuyen vien (tin dung|tai chinh)|nhan vien (tin dung|cho vay)|cho vay|vay tien|대출 (상담|영업)|금융 상담|여신 담당)"
     },
     {
       "id": "debt_role",
@@ -24,7 +24,7 @@
       "fields": [
         "description"
       ],
-      "pattern": "(nhiem vu chinh|cong viec chinh|chuyen trach|chu yeu|primary dut(y|ies)|main responsibilit(y|ies)|주 업무).*(thu hoi no|nhac no|debt collection|채권추심)"
+      "pattern": "(nhiem vu chinh|cong viec chinh|chuyen trach|chu yeu|primary duty|main responsibility|주 업무) (la |ve )?(thu hoi no|nhac no|debt collection|채권추심)"
     },
     {
       "id": "finance_duty",
@@ -40,7 +40,16 @@
       "fields": [
         "title"
       ],
-      "pattern": "(b2b (sales|account)|sales b2b|kinh doanh b2b|kinh doanh khach hang doanh nghiep|quan ly dai ly|phat trien dai ly|dai dien thuong mai|영업.*대리점|대리점 관리|기업 대상 외근 영업)"
+      "pattern": "(b2b (sales|account)|sales b2b|kinh doanh b2b|kinh doanh khach hang doanh nghiep|기업 대상 외근 영업)",
+      "requires": "field_sales"
+    },
+    {
+      "id": "dealer_role",
+      "decision": "exclude",
+      "fields": [
+        "title"
+      ],
+      "pattern": "(quan ly dai ly|phat trien dai ly|대리점 관리)"
     },
     {
       "id": "b2b_duty",
@@ -48,7 +57,16 @@
       "fields": [
         "description"
       ],
-      "pattern": "(nhiem vu chinh|cong viec chinh|chu yeu|primary dut(y|ies)|main responsibilit(y|ies)|주 업무).*(quan ly dai ly|phat trien dai ly|khach hang doanh nghiep|b2b|대리점|기업 고객)|(di thi truong|ngoai thi truong|field sales).*(phat trien dai ly|quan ly dai ly|khach hang doanh nghiep)"
+      "pattern": "(nhiem vu chinh|cong viec chinh|chu yeu|primary duty|main responsibility|주 업무) (la )?(quan ly dai ly|phat trien dai ly|대리점 관리)"
+    },
+    {
+      "id": "b2b_duty",
+      "decision": "exclude",
+      "fields": [
+        "description"
+      ],
+      "pattern": "(di thi truong|ngoai thi truong|field sales).*(phat trien dai ly|quan ly dai ly|khach hang doanh nghiep)",
+      "requires": "field_sales"
     },
     {
       "id": "incentive_sales",
@@ -68,7 +86,8 @@
         "description"
       ],
       "pattern": "(khach hang doanh nghiep|quan ly dai ly|phat trien dai ly|b2b|대리점 관리|기업 고객)",
-      "requires": "sales"
+      "requires": "sales",
+      "unless": "established_sales"
     },
     {
       "id": "ambiguous_role",
@@ -77,6 +96,16 @@
         "description"
       ],
       "pattern": "(cong viec se trao doi|trao doi khi phong van|lien he de biet them|details on interview|업무 미정)"
+    },
+    {
+      "id": "unclear_b2b",
+      "decision": "review",
+      "fields": [
+        "title"
+      ],
+      "pattern": "(b2b|khach hang doanh nghiep|기업 고객)",
+      "requires": "sales",
+      "unless": "office_sales"
     }
   ],
   "sales": "(sales|kinh doanh|영업)",
@@ -86,7 +115,7 @@
     "finance_role": "Không công khai: công việc chuyên về tài chính hoặc cho vay.",
     "finance_duty": "Không công khai: nhiệm vụ bán hoặc tư vấn sản phẩm cho vay.",
     "debt_role": "Không công khai: công việc chuyên thu hồi nợ.",
-    "b2b_role": "Không công khai: công việc B2B hoặc quản lý đại lý.",
+    "b2b_role": "Không công khai: công việc chính là kinh doanh B2B ngoài thị trường.",
     "b2b_duty": "Không công khai: nhiệm vụ chính là B2B hoặc quản lý đại lý.",
     "incentive_sales": "Cần làm rõ nhiệm vụ và cơ cấu thu nhập trước khi công khai.",
     "unclear_b2b": "Cần làm rõ nhiệm vụ B2B trước khi công khai.",
@@ -94,9 +123,12 @@
     "missing_content": "Cần nhập tiêu đề và mô tả công việc trước khi công khai.",
     "ambiguous_role": "Cần làm rõ nhiệm vụ công việc trước khi công khai.",
     "policy_unavailable": "Không thể kiểm tra chính sách. Chưa công khai tin; vui lòng thử lại.",
-    "debt_duty": "Không công khai: nhiệm vụ chính là thu hồi nợ."
+    "debt_duty": "Không công khai: nhiệm vụ chính là thu hồi nợ.",
+    "dealer_role": "Không công khai: công việc chuyên quản lý hoặc phát triển đại lý."
   },
   "local_duty": "(ban hang tai (quay|cua hang|sieu thi)|lam viec tai (cua hang|sieu thi)|thu ngan|san xuat|dong goi|kiem tra chat luong|매장 판매|마트 계산|생산|품질 검사)",
   "generic_title": "^(tuyen (dung )?)?(nhan vien|nhan su|cong tac vien|staff|employee|직원|직원 모집)$",
-  "substantive_duty": "(ban hang tai|thu ngan|san xuat|dong goi|kiem tra chat luong|van hanh|phuc vu|pha che|phu bep|giao hang|bao ve|ve sinh|ke toan|sua chua|cham soc khach hang|매장 판매|계산|생산|검사|배달|청소)"
+  "substantive_duty": "(ban hang tai|thu ngan|san xuat|dong goi|kiem tra chat luong|van hanh|phuc vu|pha che|phu bep|giao hang|bao ve|ve sinh|ke toan|sua chua|cham soc khach hang|매장 판매|계산|생산|검사|배달|청소)",
+  "field_sales": "(kinh doanh thi truong|sales thi truong|field sales|outside sales|기업 대상 외근 영업|(nhiem vu chinh|cong viec chinh|chu yeu|primary duty|주 업무) (la )?(di thi truong|gap khach hang tai|외근))",
+  "office_sales": "(xu ly don hang tai van phong|ban hang tai van phong|inside sales|order desk|내근 주문 처리)"
 }

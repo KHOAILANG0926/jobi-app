@@ -142,7 +142,8 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
 
   const deleteJob = useCallback(async (id: string) => {
     const rawId = id.replace(/^sb-/, '')
-    await supabase.from('local_jobs').update({ active: false }).eq('id', rawId)
+    const { error } = await supabase.from('local_jobs').update({ active: false }).eq('id', rawId)
+    if (error) throw new Error(error.message)
     setJobs((prev) => prev.filter((j) => j.id !== id))
   }, [])
 
@@ -151,8 +152,9 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
     const { data: current, error: readError } = await supabase.from('local_jobs')
       .select('title,description,category,active,admin_hidden').eq('id', rawId).single()
     if (readError || !current) throw new Error('Không thể kiểm tra tin trước khi lưu.')
-    // No private review persistence is introduced. Check all edits, including closed jobs.
-    assertJobChange(current, patch)
+    // Metadata-only edits preserve existing moderation; changed policy content is rechecked.
+    // Only policy fields actually sent below; this endpoint does not write active/admin_hidden.
+    assertJobChange(current, { title: patch.title, description: patch.description, category: patch.category })
     const { error } = await supabase.from('local_jobs').update({
       title: patch.title,
       company: patch.company,
