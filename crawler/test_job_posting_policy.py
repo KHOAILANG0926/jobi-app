@@ -64,6 +64,16 @@ class PostingPolicyTests(unittest.TestCase):
             self.assertEqual(any(p.startswith("posting policy skip") for p in ns["missing_required"](job)),
                              fixture["expected"] != "allow")
 
+    def test_shift_does_not_override_professional_sales_or_brand_ambiguity(self):
+        self.assertEqual(evaluate_job_posting_policy({
+            "title": "Sale Executive", "company": "Synthetic",
+            "description": "Đại lý, ca 1/ca 2, thu nhập 30 triệu, hoa hồng là phần lớn thu nhập.",
+            "salary": "30 triệu VND",
+        })["decision"], "review")
+        self.assertEqual(evaluate_job_posting_policy({
+            "title": "Sales", "company": "Kinh Đô", "description": "Chăm sóc đại lý.",
+        })["decision"], "review")
+
     def test_source_tag_is_not_role_evidence(self):
         self.assertEqual(evaluate_job_posting_policy({
             "title": "Công nhân", "description": "[source:legacy]",
