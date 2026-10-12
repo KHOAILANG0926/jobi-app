@@ -69,3 +69,6 @@ assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'unclear-b2b')!.i
 assert.equal(evaluateJobPostingPolicy({
   title: 'Sales', company: 'Kinh Đô', description: 'Thông tin sản phẩm do đại lý giới thiệu.',
 }).decision, 'review', 'consumer brand alone must not override dealer ambiguity')
+
+assert.equal(evaluateJobPostingPolicy(cases.find(r => r.id === 'synthetic-4689-kinhdo-outlets')!.input).reason,
+  'consumer_retail_distribution_sales', 'brand and outlet supply allowed without market title')
