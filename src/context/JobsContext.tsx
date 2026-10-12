@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { isPublicJobAllowed } from '../lib/jobQualityFilter'
+import { assertJobPublishable } from '../lib/jobPostingPolicy.mjs'
+import { checkedLocalJobUpdate, checkedPublicJobInsert } from '../lib/jobPolicyWrite'
 import { ensureJobFields } from '../lib/jobUtils'
 import { rowToJob } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
@@ -80,13 +81,9 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       id: 'draft',
       postedAt: new Date().toISOString().slice(0, 10),
     } as Job)
-    if (!isPublicJobAllowed(draftForPolicy)) {
-      throw new Error('Tin tuyển dụng liên quan đến vay tiền hoặc thu hồi công nợ không phù hợp với Viecganban.')
-    }
+    assertJobPublishable(draftForPolicy)
 
-    const { data, error } = await supabase
-      .from('local_jobs')
-      .insert({
+    const { data, error } = await checkedPublicJobInsert(supabase, {
         title: draft.title,
         company: draft.company,
         category: draft.category,
@@ -138,12 +135,14 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       // REVOKE돼 있다(마이그레이션 참고) — bare .select()(=select=*)로 반환받으면
       // 막 INSERT한 이 요청 본인한테까지도 권한 오류가 날 수 있어, 공개 목록
       // 조회(fetchJobs)와 동일한 안전한 컬럼 목록만 명시적으로 돌려받는다.
-      .select('id,title,company,category,subcategory,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip')
+      .select('id,title,company,category,subcategory,admin_hidden,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip')
       .single()
 
     if (error || !data) throw new Error(error?.message ?? 'Đăng tin thất bại')
     const job = rowToJob(data)
-    setJobs((prev) => [job, ...prev])
+    if (data.active === true && data.admin_hidden === false) {
+      setJobs((prev) => [job, ...prev])
+    }
     return job
   }, [])
 
@@ -155,7 +154,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
 
   const updateJob = useCallback(async (id: string, patch: Partial<Job>) => {
     const rawId = id.replace(/^sb-/, '')
-    await supabase.from('local_jobs').update({
+    const payload = {
       title: patch.title,
       company: patch.company,
       category: patch.category,
@@ -166,8 +165,14 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       employer_phone: patch.employerPhone,
       application_deadline: patch.applicationDeadline,
       urgent: patch.urgent,
-    }).eq('id', rawId)
-    setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j))
+      active: patch.active,
+    }
+    // Undefined fields are omitted by PostgREST; merge only what is written.
+    const defined = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
+    const { error } = await checkedLocalJobUpdate(supabase, rawId, defined)
+    if (error) throw new Error(error.message)
+    setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j)
+      .filter((j) => j.active !== false && j.adminHidden !== true))
   }, [])
 
   const value = useMemo(

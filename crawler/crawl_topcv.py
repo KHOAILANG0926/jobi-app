@@ -44,6 +44,7 @@ from job_quality import (
     split_work_locations,
     validate_job_payload,
 )
+from job_posting_policy import crawler_policy_errors
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -2086,6 +2087,11 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             return {"action": "failed_existing_untouched", "id": existing["id"]}
         return {"action": "failed_new_skipped", "id": None}
 
+    policy_errors = crawler_policy_errors(job)
+    if policy_errors:
+        print(f"    ⛔ 정책 수집 제외: {policy_errors}")
+        return {"action": "policy_skipped", "id": existing.get("id") if existing else None}
+
     resolved = job.get("_resolved_locations") or []
     had_transient = job.get("_had_transient_geocode_failure", False)
 
@@ -2467,7 +2473,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     """CLI 인자 정의를 별도 함수로 분리 — resolve_cli_mode()와 함께 실제
     실행(asyncio.run/네트워크/DB) 없이 인자 파싱·검증만 단위 테스트할 수
     있게 한다(2026-09-06 사용자 지시)."""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument(
         "--process-url", type=str, default="",
         help="vieclam24h 상세페이지 URL 1건만 표준 파이프라인으로 처리(신규/기존 자동 판별, 목록 수집 없음)",
@@ -2596,6 +2602,16 @@ def resolve_cli_mode(args: argparse.Namespace) -> str:
             "--site vietnamworks는 --sample-offset을 아직 지원하지 않습니다(이번이 첫 크롤이라 기존 "
             "공고가 0건 — 건너뛸 상위 후보 자체가 없습니다). 중단합니다."
         )
+
+    # 전체 수집 확인을 다른 실행 모드에 섞어도 승인으로 취급하지 않는다.
+    # 여러 대상 모드를 지정했을 때 기존 우선순위로 하나가 조용히 실행되는 것도 차단한다.
+    explicit_modes = [
+        args.process_url, args.reprocess_ids, args.verify_write_urls, args.dry_run_urls,
+    ]
+    if sum(bool(value) for value in explicit_modes) > 1:
+        raise SystemExit("실행 모드는 하나만 지정하세요. 중단합니다.")
+    if args.confirm_full_crawl and any(explicit_modes):
+        raise SystemExit("--confirm-full-crawl은 다른 실행 모드와 함께 쓸 수 없습니다. 중단합니다.")
 
     # 사용자 지시(2026-09-04, "운영 적용 준비" 4/5번): --verify-write가
     # 일반 --process-url이나 --reprocess-ids(UPDATE 경로)로 잘못 새어들어가지

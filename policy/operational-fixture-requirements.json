@@ -1,0 +1,34 @@
+{
+  "source": "User-provided job IDs; operational title/body/salary not yet supplied or queried",
+  "verification": "NOT_RUN_MISSING_ORIGINALS",
+  "allow_ids": [
+    4685,
+    4690,
+    4725,
+    4729,
+    4739,
+    4757,
+    4689,
+    4691,
+    4692,
+    4701,
+    4708,
+    4715,
+    4730,
+    4731,
+    4740
+  ],
+  "exclude_ids": [
+    4750
+  ],
+  "required_fields": [
+    "title",
+    "description",
+    "salary"
+  ],
+  "expected_counts": {
+    "allow": 15,
+    "exclude": 1
+  },
+  "notes": "ID list is not an operational-text fixture. Synthetic-v2 cases must not be relabeled as these jobs."
+}

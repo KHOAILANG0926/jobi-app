@@ -1,3 +1,4 @@
+import { checkedAdminUnhide } from './jobPolicyWrite'
 import { supabase } from './supabase'
 import type { BrandCategoryId } from '../data/brandDirectory'
 
@@ -66,11 +67,11 @@ export async function listAdminJobs(): Promise<AdminJob[]> {
 }
 
 export async function setJobHidden(jobId: number, hidden: boolean, reason = ''): Promise<void> {
-  const { error } = await supabase.rpc('admin_set_job_hidden', {
+  const { error } = hidden ? await supabase.rpc('admin_set_job_hidden', {
     target_job_id: jobId,
     hidden,
     reason,
-  })
+  }) : await checkedAdminUnhide(supabase, jobId, reason)
   if (error) throw new Error(error.message)
 }
 

@@ -1,0 +1,127 @@
+{
+  "version": "2026-10-12-v3",
+  "debt": [
+    [
+      "thu hoi",
+      [
+        "no",
+        "cong no",
+        "khoan vay"
+      ],
+      15
+    ],
+    [
+      "xu ly",
+      [
+        "no xau",
+        "no"
+      ],
+      15
+    ],
+    [
+      "nhac",
+      [
+        "no",
+        "thanh toan"
+      ],
+      15
+    ],
+    [
+      "doi",
+      [
+        "no"
+      ],
+      2
+    ],
+    [
+      "field",
+      [
+        "collection"
+      ],
+      15
+    ]
+  ],
+  "debt_role": [
+    "\\bdebt (collector|collection)\\b",
+    "\\bthu no\\b"
+  ],
+  "loan_role": [
+    "\\b(tu van|ho tro|moi gioi) (vay|cho vay|tin dung)\\b",
+    "\\b(loan officer|loan sales|credit sales|credit officer)\\b",
+    "\\b(nhan vien|chuyen vien) (tin dung|cho vay)\\b",
+    "\\btu van tai chinh\\b",
+    "\\b(ban|tu van) the tin dung\\b",
+    "\\bfinancial (sales|advisor)\\b"
+  ],
+  "sales_role": [
+    "\\b(sales|sale|kinh doanh|ban hang|telesales|tu van tai chinh)\\b",
+    "\\b(salesperson|salesman|saleswoman|business development|moi gioi|tu van bat dong san)\\b"
+  ],
+  "loan_product": [
+    "\\b(vay tien|cho vay|khoan vay|tin dung|tai chinh tieu dung|loan|credit card)\\b"
+  ],
+  "finance_company": [
+    "\\b(cong ty tai chinh|fe credit|home credit|mcredit|mirae asset|shinhan finance|vpbank finance)\\b"
+  ],
+  "retail_primary": [
+    "\\b(cua hang|sieu thi|minimart|thu ngan|cashier|store assistant|shop assistant|retail assistant)\\b",
+    "\\bretail store\\b",
+    "\\b(dien may|showroom|noi that)\\b"
+  ],
+  "b2b_primary": [
+    "\\b(quan ly|cham soc|phat trien) (he thong )?(dai ly|nha phan phoi)\\b",
+    "\\b(tim kiem|gap go|tham|di tham|phat trien) (khach hang doanh nghiep|khach hang b2b|dai ly|nha phan phoi)\\b",
+    "\\b(field sales|outside sales|dealer management|distributor management)\\b",
+    "\\b(b2b|khach hang doanh nghiep)\\b.{0,80}\\b(thi truong|ngoai thi truong|di thi truong|ngoai hien truong|di gap)\\b",
+    "\\b(manage|managing) (dealers|distributors)\\b"
+  ],
+  "b2b_signal": [
+    "\\b(b2b|khach hang doanh nghiep|dai ly|nha phan phoi)\\b"
+  ],
+  "professional_sales": [
+    "\\b(chuyen vien|sales? executive|sales specialist|key account|bat dong san|professional sales)\\b"
+  ],
+  "incentive": [
+    "\\b(hoa hong|commission|incentive)\\b"
+  ],
+  "high_income": [
+    "\\b([2-9][0-9]|[1-9][0-9]{2,}) (trieu|million)\\b",
+    "\\b([2-9][0-9] 000 000|[1-9][0-9]{2,} 000 000|[2-9][0-9]000000|[1-9][0-9]{2,}000000) (vnd|dong)\\b"
+  ],
+  "ambiguous_title": [
+    "^(tuyen (dung )?(nhan vien|lao dong)|nhan vien|viec lam|cong viec|staff|hiring staff)$"
+  ],
+  "loan_duty": [
+    "\\btu van (san pham )?(khoan vay|cho vay|vay|tin dung)\\b",
+    "\\b(tiep can|tim kiem) khach hang (vay|vay tien)\\b",
+    "\\b(ban|tu van) the tin dung\\b",
+    "\\b(sell|selling|advise on) (loans|loan products|credit cards)\\b"
+  ],
+  "b2b_title": [
+    "\\bb2b\\b"
+  ],
+  "business_customer": [
+    "\\b(f b|fnb|doanh nghiep|khach hang doanh nghiep|business clients?|corporate clients?|cua hang|nha hang|quan ca phe|quan an)\\b"
+  ],
+  "customer_outreach": [
+    "\\b(tim kiem|tiep can|di gap|gap go|tham|di tham|visit|visiting|prospect|prospecting|approach)\\b"
+  ],
+  "business_contract": [
+    "\\b(hop dong|ky ket|ky hop dong|contract|contracts|contracting)\\b"
+  ],
+  "market_sales": [
+    "\\b(sales? thi truong|kinh doanh thi truong|nhan vien thi truong)\\b"
+  ],
+  "consumer_distribution": [
+    "\\b(coca cola|kinh do|unilever|panasonic|nha phan phoi|cong ty phan phoi|hang tieu dung|fmcg)\\b"
+  ],
+  "retail_supply": [
+    "\\b(tap hoa|diem ban|cua hang ban le|cua hang|sieu thi|retail outlets?|retail shops?)\\b"
+  ],
+  "shift_work": [
+    "\\bca (1|2)\\b",
+    "\\bxoay ca\\b",
+    "\\b(lam|lam viec|ban hang|tu van) (theo )?ca\\b",
+    "\\bshift work\\b"
+  ]
+}

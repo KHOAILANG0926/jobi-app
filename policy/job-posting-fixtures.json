@@ -1,0 +1,629 @@
+[
+  {
+    "id": "loan-title",
+    "input": {
+      "title": "Tư vấn vay tín dụng",
+      "description": "Tư vấn khoản vay cá nhân.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "loan-sales",
+    "input": {
+      "title": "Nhân viên kinh doanh",
+      "description": "Tư vấn cho vay và tiếp cận khách hàng vay tiền.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "credit-company-sales",
+    "input": {
+      "title": "Sales",
+      "description": "Tư vấn sản phẩm.",
+      "company": "FE Credit",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "debt-reminder",
+    "input": {
+      "title": "Nhân viên nhắc nợ",
+      "description": "Làm việc văn phòng.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "debt-field",
+    "input": {
+      "title": "Field Collection Specialist",
+      "description": "Contact debtors.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "debt-thuhoi",
+    "input": {
+      "title": "Nhân viên thu hồi công nợ",
+      "description": "Thu hồi công nợ khách hàng.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "debt-xuly",
+    "input": {
+      "title": "Chuyên viên xử lý nợ xấu",
+      "description": "Làm việc văn phòng.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "debt-doi",
+    "input": {
+      "title": "Nhân viên đòi nợ",
+      "description": "Làm việc văn phòng.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "b2b-4750-type-synthetic",
+    "input": {
+      "title": "Nhân viên kinh doanh B2B",
+      "description": "Quản lý hệ thống đại lý và đi thị trường.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "b2b-field-en",
+    "input": {
+      "title": "Outside Sales Representative",
+      "description": "Visit business clients in the field.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "b2b-dealers",
+    "input": {
+      "title": "Sales Executive",
+      "description": "Chăm sóc nhà phân phối.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "mixed-role",
+    "input": {
+      "title": "Nhân viên bán hàng",
+      "description": "Bán hàng tại cửa hàng và quản lý đại lý.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "unclear-b2b",
+    "input": {
+      "title": "Nhân viên kinh doanh B2B",
+      "description": "Tư vấn sản phẩm cho khách hàng.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "unclear-sales",
+    "input": {
+      "title": "Nhân viên kinh doanh",
+      "description": "Tư vấn sản phẩm cho khách hàng.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "high-incentive",
+    "input": {
+      "title": "Chuyên viên kinh doanh",
+      "description": "Thu nhập 30 triệu, hoa hồng chiếm phần lớn thu nhập.",
+      "company": "Synthetic Employer",
+      "salary": "30 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "high-max",
+    "input": {
+      "title": "Sales Executive",
+      "description": "Commission based income up to 30 million VND.",
+      "company": "Synthetic Employer",
+      "salary": "Up to 30 million VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "factory-high",
+    "input": {
+      "title": "Công nhân sản xuất",
+      "description": "Làm việc tại nhà máy, sản xuất theo ca.",
+      "company": "Synthetic Employer",
+      "salary": "30 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "qc-high",
+    "input": {
+      "title": "Nhân viên QC",
+      "description": "Kiểm tra chất lượng sản phẩm theo ca.",
+      "company": "Synthetic Employer",
+      "salary": "25,000,000 VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "retail-high",
+    "input": {
+      "title": "Nhân viên bán hàng cửa hàng",
+      "description": "Bán hàng trong cửa hàng, thu nhập 30 triệu gồm hoa hồng.",
+      "company": "Synthetic Employer",
+      "salary": "30 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "mart",
+    "input": {
+      "title": "Nhân viên bán hàng siêu thị",
+      "description": "Sắp xếp hàng hóa trong siêu thị.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "cashier",
+    "input": {
+      "title": "Cashier",
+      "description": "Work in a store.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "retail-sales-word",
+    "input": {
+      "title": "Sales Assistant",
+      "description": "Work in a retail store, serve customers.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "receivables-body",
+    "input": {
+      "title": "Kế toán tổng hợp",
+      "description": "Theo dõi, thu hồi công nợ và đối chiếu công nợ.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "reminder-incidental",
+    "input": {
+      "title": "Nhân viên chăm sóc khách hàng",
+      "description": "Khảo sát chất lượng dịch vụ và nhắc nợ theo kịch bản.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "accountant-loan-benefit",
+    "input": {
+      "title": "Kế toán",
+      "description": "Làm kế toán, được hỗ trợ vay tiền khi cần.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "qc-finance-company",
+    "input": {
+      "title": "Nhân viên QC",
+      "description": "Kiểm thử phần mềm và kiểm tra chất lượng.",
+      "company": "Công ty tài chính",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "no-water-false-positive",
+    "input": {
+      "title": "Nhân viên xử lý nước Hà Nội",
+      "description": "Vận hành hệ thống xử lý nước.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "doi-chieu-false-positive",
+    "input": {
+      "title": "Kế toán đối chiếu công nợ",
+      "description": "Đối chiếu số liệu.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "documentary-collection",
+    "input": {
+      "title": "Nhân viên xuất nhập khẩu",
+      "description": "Documentary collection for trade.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "empty-role",
+    "input": {
+      "title": "",
+      "description": "Liên hệ để biết công việc.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "generic-role",
+    "input": {
+      "title": "Tuyển nhân viên",
+      "description": "Liên hệ để biết công việc.",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "missing-body",
+    "input": {
+      "title": "Nhân viên bán hàng cửa hàng",
+      "description": "",
+      "company": "Synthetic Employer",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "technical-high",
+    "input": {
+      "title": "Kỹ thuật viên điện",
+      "description": "Bảo trì máy móc trong nhà máy.",
+      "company": "Synthetic Employer",
+      "salary": "50 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "retail-loan-benefit",
+    "input": {
+      "title": "Nhân viên bán hàng cửa hàng",
+      "company": "Synthetic Employer",
+      "description": "Bán hàng tại cửa hàng, được hỗ trợ vay tiền nếu cần.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "sales-loan-benefit",
+    "input": {
+      "title": "Nhân viên kinh doanh",
+      "company": "Synthetic Employer",
+      "description": "Tư vấn sản phẩm, nhân viên được vay tiền theo phúc lợi.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "financial-advisor",
+    "input": {
+      "title": "Financial Advisor",
+      "company": "Synthetic Employer",
+      "description": "Advise on loan products.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "credit-card-sales",
+    "input": {
+      "title": "Nhân viên bán thẻ tín dụng",
+      "company": "Synthetic Employer",
+      "description": "Tư vấn sản phẩm thẻ tín dụng.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "real-estate-incentive",
+    "input": {
+      "title": "Chuyên viên môi giới bất động sản",
+      "company": "Synthetic Employer",
+      "description": "Thu nhập 30 triệu, hoa hồng theo doanh số.",
+      "salary": "30 triệu VND",
+      "category": ""
+    },
+    "expected": "review"
+  },
+  {
+    "id": "b2b-salesperson",
+    "input": {
+      "title": "Salesperson",
+      "company": "Synthetic Employer",
+      "description": "Manage dealers in the field.",
+      "salary": "30 million VND",
+      "category": ""
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-appliances",
+    "input": {
+      "title": "Nhân viên bán hàng điện máy",
+      "description": "Tư vấn sản phẩm điện máy và bán hàng cho người mua.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-furniture",
+    "input": {
+      "title": "Sale nội thất",
+      "description": "Tư vấn đồ nội thất và bán hàng cho người mua.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-showroom",
+    "input": {
+      "title": "Sales Executive Showroom",
+      "description": "Tư vấn tại showroom, hoa hồng theo doanh số.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Coca-Cola",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Coca-Cola",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Kinh Đô",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Kinh Đô",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Unilever",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Unilever",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-Panasonic",
+    "input": {
+      "title": "Nhân viên Sale thị trường",
+      "description": "Chăm sóc điểm bán, cung cấp hàng hóa đến các cửa hàng bán lẻ.",
+      "company": "Panasonic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-market-delivery",
+    "input": {
+      "title": "Sale thị trường",
+      "description": "Tìm kiếm cửa hàng bán lẻ và cung cấp hàng hóa đến điểm bán.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-b2b-contract",
+    "input": {
+      "title": "Sale Executive B2B",
+      "description": "Tìm kiếm và đi gặp khách hàng F&B, cửa hàng và doanh nghiệp để ký hợp đồng.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-b2b-brand-contract",
+    "input": {
+      "title": "Sale thị trường B2B",
+      "description": "Tìm kiếm và đi gặp cửa hàng, doanh nghiệp để ký hợp đồng.",
+      "company": "Coca-Cola",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-b2b-showroom-contract",
+    "input": {
+      "title": "Sale Executive B2B nội thất",
+      "description": "Tìm kiếm và đi gặp doanh nghiệp để ký hợp đồng, làm tại showroom.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-v2-singular-professional",
+    "input": {
+      "title": "Sale Executive",
+      "description": "Thu nhập 30 triệu, hoa hồng chiếm phần lớn thu nhập.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "review"
+  },
+  {
+    "id": "synthetic-v2-market-no-evidence",
+    "input": {
+      "title": "Sale thị trường",
+      "description": "Tư vấn sản phẩm cho khách hàng.",
+      "company": "Synthetic",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-v2-finance-market-brand",
+    "input": {
+      "title": "Sale thị trường",
+      "description": "Tư vấn khoản vay cho khách hàng.",
+      "company": "Coca-Cola",
+      "category": "",
+      "salary": "30 triệu VND"
+    },
+    "expected": "exclude"
+  },
+  {
+    "id": "synthetic-4689-kinhdo-outlets",
+    "input": {
+      "title": "Nhân viên kinh doanh",
+      "company": "Kinh Đô",
+      "description": "Đi xe máy thăm 30-35 tạp hóa và điểm bán, trưng bày và giao hàng. Đại lý cung cấp thông tin điểm bán.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-4725-aqua-shifts",
+    "input": {
+      "title": "Nhân viên tư vấn bán hàng",
+      "company": "AQUA",
+      "description": "Tư vấn bán hàng, làm việc theo ca.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-4729-samsung-dealer-shifts",
+    "input": {
+      "title": "Nhân viên bán hàng",
+      "company": "Samsung",
+      "description": "Làm việc tại đại lý, ca 1/ca 2, xoay ca.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  },
+  {
+    "id": "synthetic-4740-unilever-display",
+    "input": {
+      "title": "Nhân viên bán hàng",
+      "company": "Unilever",
+      "description": "Khuyến mãi và trưng bày sản phẩm.",
+      "salary": "10 triệu VND",
+      "category": ""
+    },
+    "expected": "allow"
+  }
+]

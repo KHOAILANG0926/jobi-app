@@ -1,3 +1,4 @@
+import { checkedGuestJobUpdate } from '../lib/jobPolicyWrite'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -104,7 +105,7 @@ export default function ManageGuestJob() {
     if (!id) return
     setError(null)
     setSaving(true)
-    const { data, error: rpcError } = await supabase.rpc('update_guest_job', {
+    const { data, error: rpcError } = await checkedGuestJobUpdate(supabase, {
       p_job_id: Number(id),
       p_token: token,
       p_title: draft.title.trim(),
@@ -115,10 +116,10 @@ export default function ManageGuestJob() {
       p_employer_phone: draft.employer_phone.trim(),
       p_application_deadline: draft.application_deadline || null,
       p_description: draft.description.trim(),
-    })
+    }).catch((cause: unknown) => ({ data: null, error: { message: cause instanceof Error ? cause.message : 'Không thể kiểm tra tin.' } }))
     if (rpcError || !(data as unknown[] | null)?.length) {
       setSaving(false)
-      setError('Không thể lưu thay đổi. Vui lòng thử lại.')
+      setError(rpcError?.message ?? 'Không thể lưu thay đổi. Vui lòng thử lại.')
       return
     }
     const { error: condError } = await supabase.rpc('update_job_conditions', {
@@ -147,14 +148,14 @@ export default function ManageGuestJob() {
     if (!id || !job) return
     setSaving(true)
     setError(null)
-    const { data, error: rpcError } = await supabase.rpc('update_guest_job', {
+    const { data, error: rpcError } = await checkedGuestJobUpdate(supabase, {
       p_job_id: Number(id),
       p_token: token,
       p_active: !job.active,
-    })
+    }).catch((cause: unknown) => ({ data: null, error: { message: cause instanceof Error ? cause.message : 'Không thể kiểm tra tin.' } }))
     setSaving(false)
     const row = (data as GuestJobRow[] | null)?.[0]
-    if (rpcError || !row) { setError('Không thể cập nhật trạng thái. Vui lòng thử lại.'); return }
+    if (rpcError || !row) { setError(rpcError?.message ?? 'Không thể cập nhật trạng thái. Vui lòng thử lại.'); return }
     setJob((prev) => (prev ? { ...prev, active: row.active } : prev))
   }
 
