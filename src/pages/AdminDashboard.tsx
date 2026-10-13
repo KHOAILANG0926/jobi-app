@@ -1,3 +1,4 @@
+import { parseAdminJobDraft, adminSavedJob } from '../lib/adminJobDraft'
 import { checkedAdminCreateJob } from '../lib/jobPolicyWrite'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -91,7 +92,19 @@ export default function AdminDashboard() {
   const [source, setSource] = useState('Facebook')
   const [parseError, setParseError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [savedJob, setSavedJob] = useState<ReturnType<typeof adminSavedJob> | null>(null)
+  const [previewReady, setPreviewReady] = useState(false)
+  const [jobsRevision, setJobsRevision] = useState(0)
+  useEffect(() => { setPreviewReady(false) }, [jobForm, source])
+
+  function importDraft() {
+    try {
+      const draft = parseAdminJobDraft(rawText, Object.keys(CATEGORY_LABELS))
+      setJobForm({ ...EMPTY_JOB, ...draft, postedAt: new Date().toISOString().slice(0, 10) })
+      setParseError('')
+      setSavedJob(null)
+    } catch (cause) { setParseError(cause instanceof Error ? cause.message : 'Bản nháp không hợp lệ.') }
+  }
 
   async function handleLogout() {
     await logout()
@@ -189,6 +202,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
   }
 
   async function handleSave() {
+    if (saving || !previewReady) return
     if (!jobForm.title || !jobForm.company) {
       setParseError('Vui lòng điền ít nhất Tiêu đề và Công ty.')
       return
@@ -196,6 +210,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
     setSaving(true)
     setParseError('')
     let error: { message: string } | null = null
+    let saved: ReturnType<typeof adminSavedJob> | null = null
     try {
       const result = await checkedAdminCreateJob(supabase, {
       title: jobForm.title,
@@ -224,18 +239,19 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       hire_count: jobForm.hireCount ?? null,
     })
       error = result.error
+      if (!error) saved = adminSavedJob(result.data)
     } catch (cause) {
       error = { message: cause instanceof Error ? cause.message : 'Không thể kiểm tra tin.' }
     }
     if (error) {
       setParseError('Lỗi lưu dữ liệu: ' + error.message)
     } else {
-      setSaveSuccess(true)
+      setSavedJob(saved)
+      setJobsRevision(value => value + 1)
       setRawText('')
       setJobForm(EMPTY_JOB)
       setSource('Facebook')
-      setStats(prev => ({ ...prev, localJobs: prev.localJobs + 1 }))
-      setTimeout(() => setSaveSuccess(false), 3000)
+      if (saved?.isPublic) setStats(prev => ({ ...prev, localJobs: prev.localJobs + 1 }))
     }
     setSaving(false)
   }
@@ -364,14 +380,14 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         {/* ── POST JOB TAB ── */}
         {tab === 'jobs' && (
           <div>
-            <AdminJobs />
+            <AdminJobs key={jobsRevision} />
             {/* Step 1: Paste */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
-                📋 Bước 1 — Dán bài đăng Facebook
+                📋 Bước 1 — Nhập bản nháp hoặc bài đăng
               </h2>
               <p style={{ fontSize: '13px', color: '#888', margin: '0 0 16px' }}>
-                Copy bài đăng tuyển dụng từ Facebook rồi dán vào đây. AI sẽ tự động điền form.
+                Dán bản nháp JSON đã chuẩn bị rồi chọn Nhập bản nháp. Bạn cũng có thể điền trực tiếp ở bước 2.
               </p>
               <textarea
                 value={rawText}
@@ -383,6 +399,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit'
                 }}
               />
+              <button type="button" onClick={importDraft} disabled={saving || !rawText.trim()} style={{ marginTop: '12px', marginRight: '12px', padding: '12px 20px' }}>Nhập bản nháp JSON</button>
               <button
                 onClick={handleParse}
                 disabled={parsing || !rawText.trim()}
@@ -403,7 +420,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 ✏️ Bước 2 — Kiểm tra & lưu tin
               </h2>
               <p style={{ fontSize: '13px', color: '#888', margin: '0 0 20px' }}>
-                Kiểm tra lại thông tin, chỉnh sửa nếu cần rồi bấm Lưu tin.
+                Kiểm tra thông tin, xem trước rồi chọn Đăng công khai. Chỉ tài khoản quản trị của bạn thực hiện việc đăng.
               </p>
 
               {parseError && (
@@ -412,9 +429,12 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 </div>
               )}
 
-              {saveSuccess && (
+              {savedJob && (
                 <div style={{ background: '#eafaf1', border: '1px solid #27ae60', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '13px', color: '#1e8449' }}>
-                  ✅ Đã lưu tin tuyển dụng thành công!
+                  {savedJob.isPublic ? 'Đã lưu và bật công khai' : 'Đã lưu nhưng chưa công khai'} — #{savedJob.id}.
+                  {savedJob.isPublic
+                    ? <a href={savedJob.href} target="_blank" rel="noreferrer"> Xem tin trên ứng dụng</a>
+                    : <span> Kiểm tra trạng thái trong danh sách quản lý ở phía trên.</span>}
                 </div>
               )}
 
@@ -546,14 +566,32 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 </div>
               </div>
 
+              <button type="button" disabled={saving} onClick={() => {
+                if (!jobForm.title.trim() || !jobForm.company.trim()) { setParseError('Vui lòng điền tiêu đề và công ty.'); return }
+                setParseError(''); setPreviewReady(true)
+              }} style={{ marginTop: '20px', padding: '12px 20px' }}>Xem trước tin</button>
+              {previewReady && <section aria-label="Xem trước tin tuyển dụng" style={{ marginTop: '16px', padding: '16px', border: '1px solid #ddd', borderRadius: '10px' }}>
+                <h3>{jobForm.title}</h3><p>{jobForm.company}</p>
+                <dl>
+                  <dt>Ngành nghề</dt><dd>{CATEGORY_NAME_LABELS[jobForm.category]}</dd>
+                  <dt>Tiền công</dt><dd>{jobForm.salary || 'Chưa cung cấp'}</dd>
+                  <dt>Địa điểm</dt><dd>{jobForm.location || 'Chưa cung cấp'}</dd>
+                  <dt>Giờ làm</dt><dd>{jobForm.hours || 'Chưa cung cấp'}</dd>
+                  <dt>Liên hệ</dt><dd>{jobForm.employerPhone || 'Chưa cung cấp'}</dd>
+                </dl>
+                <p style={{ whiteSpace: 'pre-wrap' }}>{jobForm.description}</p>
+                {jobForm.imageUrl && <img src={jobForm.imageUrl} alt="Ảnh công việc" style={{ maxWidth: '100%', maxHeight: '200px' }} />}
+                <p>Đăng công khai sẽ đưa tin vào danh sách việc làm. Vị trí chưa xác minh có thể chưa xuất hiện trên bản đồ.</p>
+              </section>}
+
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                <button onClick={handleSave} disabled={saving} style={{
+                <button onClick={handleSave} disabled={saving || !previewReady} style={{
                   flex: 1, padding: '14px',
                   background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
                   color: '#fff', border: 'none', borderRadius: '12px',
                   fontSize: '15px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer'
                 }}>
-                  {saving ? '⏳ Đang lưu...' : '💾 Lưu tin tuyển dụng'}
+                  {saving ? '⏳ Đang lưu...' : 'Đăng công khai'}
                 </button>
                 <button onClick={() => { setJobForm(EMPTY_JOB); setRawText(''); setParseError(''); setSource('Facebook') }} style={{
                   padding: '14px 20px', background: '#f0f0f0', color: '#666',
