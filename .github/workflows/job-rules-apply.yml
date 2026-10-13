@@ -1,0 +1,74 @@
+name: 공고 규칙 DB 적용·시험
+
+# PR 병합(master) 시 규칙 마이그레이션을 운영 DB에 적용하고, 같은 실행에서 실제 DB 시험(R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml))을 돌린다.
+# 키는 GitHub Secrets에만 있다(PC에 저장 금지). 시험 결과는 job_posting_rules.last_test_*에 기록되고,
+# 이어서 STATUS 생성기를 다시 돌려 status 브랜치 STATUS.md에 반영된다.
+# 필요한 Secrets: SUPABASE_DB_URL (운영 DB 직접 연결 문자열, 이미 등록됨)
+on:
+  push:
+    branches: [master]
+    paths:
+      - supabase/migrations/20261013100000_job_posting_rules.sql
+      - supabase/tests/job_posting_rules_test.sql
+      - scripts/ocr/**
+      - .github/workflows/job-rules-apply.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: write   # 끝에서 status-report 워크플로를 실행시키기 위함
+
+concurrency:
+  group: job-rules-apply
+  cancel-in-progress: false
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 키 등록 확인
+        run: |
+          test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
+
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: OCR 대조 로직 시험 (KDA 급여 310.000đ = 310k 포함)
+        run: node scripts/ocr/ocr-compare.test.mjs
+
+      - name: 마이그레이션 적용 (한 트랜잭션, 멱등)
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261013100000_job_posting_rules.sql
+
+      - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
+        run: |
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261013100000','job_posting_rules') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
+
+      - name: 실제 DB 시험 R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml) (시험 공고는 시험 후 삭제)
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_posting_rules_test.sql
+
+      - name: 시험 결과 확인
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -c "select rule_key, last_test_result, last_tested_at from public.job_posting_rules order by id"
+          bad=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.job_posting_rules where rule_key ~ '^(R[1-3567]|U2)_' and last_test_result is distinct from '통과'")
+          left=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.local_jobs where title like '[RULE-TEST%'")
+          echo "통과 못한 규칙: $bad / 남은 시험 공고: $left"
+          test "$bad" = "0" && test "$left" = "0"
+
+      - name: STATUS 다시 생성 요청
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run status-report.yml --repo "$GITHUB_REPOSITORY" --ref master || echo "::warning::STATUS 재실행 요청 실패"

@@ -231,6 +231,26 @@ export function renderStatus(d) {
   } else L.push('- 조회 결과 없음')
   L.push('')
 
+  // 9. 공고 규칙 자동 시험 결과 (job_posting_rules, 2026-10-13)
+  L.push('## 9. 공고 규칙 시험 결과 (DB 규칙 표 직접 조회)')
+  L.push('')
+  L.push('규칙 표의 마지막시험 칸은 Actions의 자동 시험(supabase/tests/job_posting_rules_test.sql)만 채운다. 말로 하는 "완료" 보고는 인정하지 않는다.')
+  L.push('')
+  if (d.rules?.length) {
+    L.push('| 규칙 | 차단방식 | 마지막시험 | 결과 |')
+    L.push('|---|---|---|---|')
+    for (const r of d.rules) {
+      const res = r.last_test_result === '통과' ? '✅ 통과' : r.last_test_result === '실패' ? '❌ 실패' : '— 시험 없음'
+      L.push(`| \`${esc(r.rule_key)}\` | ${esc(r.block_mode)} | ${r.last_tested_at ? fmtVN(r.last_tested_at) : '—'} | ${res} |`)
+      if (r.last_test_result === '실패') bad.push(`규칙 시험 실패: ${r.rule_key}`)
+    }
+  } else L.push('- 조회 결과 없음')
+  if (d.ocr) {
+    L.push('')
+    L.push(`- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **${d.ocr.unreadable}건** · OCR 불일치 보류: **${d.ocr.mismatch}건**`)
+  }
+  L.push('')
+
   // 맨 위 요약은 나중에 끼워 넣는다
   const summary = ['## 한눈에 보기', '']
   if (bad.length) {
