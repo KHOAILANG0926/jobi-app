@@ -245,6 +245,10 @@ export function renderStatus(d) {
       if (r.last_test_result === '실패') bad.push(`규칙 시험 실패: ${r.rule_key}`)
     }
   } else L.push('- 조회 결과 없음')
+  if (d.ocr) {
+    L.push('')
+    L.push(`- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **${d.ocr.unreadable}건** · OCR 불일치 보류: **${d.ocr.mismatch}건**`)
+  }
   L.push('')
 
   // 맨 위 요약은 나중에 끼워 넣는다

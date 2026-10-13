@@ -136,6 +136,14 @@ const audit = await attempt('관리자 기록', () => sb('admin_audit_logs?selec
 
 const rules = await attempt('공고 규칙 표', () => sb('job_posting_rules?select=rule_key,block_mode,last_tested_at,last_test_result&order=id'))
 
+const ocr = await attempt('OCR 상태 건수', async () => {
+  const [u, m] = await Promise.all([
+    sb('local_jobs?select=id&ocr_check-%3E%3Estatus=eq.unreadable&limit=1000'),
+    sb('local_jobs?select=id&ocr_check-%3E%3Estatus=eq.mismatch&limit=1000'),
+  ])
+  return { unreadable: u.length, mismatch: m.length }
+})
+
 let tests = null
 if (env.TEST_LOG && existsSync(env.TEST_LOG)) tests = parseTestSummary(readFileSync(env.TEST_LOG, 'utf8'))
 
@@ -146,7 +154,7 @@ const { markdown, problems } = renderStatus({
   runUrl: env.RUN_URL,
   selfHash,
   checks: { tsc: env.TSC_OUTCOME, build: env.BUILD_OUTCOME, testsOutcome: env.TEST_OUTCOME, tests },
-  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls, rules,
+  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls, rules, ocr,
 })
 
 const errBlock = errors.length

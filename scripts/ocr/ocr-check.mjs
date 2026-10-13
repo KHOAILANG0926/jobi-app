@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareWithOcr } from './ocr-compare.mjs'
+import { compareWithOcr, canRepublish } from './ocr-compare.mjs'
 
 const { SUPABASE_DB_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
 if (!SUPABASE_DB_URL || !SUPABASE_URL) { console.error('SUPABASE_DB_URL / SUPABASE_URL 필요'); process.exit(1) }
@@ -30,7 +30,8 @@ async function download(url) {
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
 const { rows } = await client.query(`
-  select id, images, employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max, active
+  select id, images, employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max, active,
+    publish_gate_reason, admin_hidden, created_at, application_deadline
   from public.local_jobs
   where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
     and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
@@ -58,6 +59,19 @@ try {
         `update public.local_jobs set ocr_text = $2, ocr_check = jsonb_set($3::jsonb, '{images_hash}', to_jsonb(md5(images::text))) ${hold ? ', active = false' : ''} where id = $1`,
         [job.id, text, JSON.stringify(check)])
       if (hold) { held++; console.log(`보류 #${job.id}: ${res.mismatches.map((m) => m.field).join(', ')}`) } else ok++
+      // OCR 'ok' → OCR 단계에서 공개로 되돌린다(기존 공개 조건 통과분만). 정책 판정(R4)·U2는 DB 트리거가 강제:
+      // 제외 대상이면 저장이 거부되고, 검토/나이 미만이면 active=false로 남는다 → 어느 쪽이든 비공개 유지.
+      if (res.status === 'ok' && !job.active && canRepublish(job)) {
+        let note
+        try {
+          const r = await client.query('update public.local_jobs set active = true where id = $1 returning active', [job.id])
+          note = r.rows[0].active ? 'published' : 'kept_hidden_by_trigger'
+        } catch (e) {
+          note = /job_posting_policy_excluded/.test(e.message) ? 'kept_hidden_policy_excluded' : /job_rule_/.test(e.message) ? 'kept_hidden_rule_violation' : 'kept_hidden_error'
+        }
+        await client.query(`update public.local_jobs set ocr_check = ocr_check || jsonb_build_object('publish', $2::text) where id = $1`, [job.id, note])
+        console.log(`재공개 판정 #${job.id}: ${note}`)
+      }
     } catch (e) {
       failed++
       console.error(`#${job.id} 실패: ${e.message}`)   // 다음 실행에서 다시 시도한다(ocr_check를 쓰지 않음)

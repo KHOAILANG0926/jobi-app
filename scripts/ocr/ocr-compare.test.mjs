@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { compareWithOcr, moneyValues } from './ocr-compare.mjs'
+import { compareWithOcr, moneyValues, canRepublish } from './ocr-compare.mjs'
 
 const ocr = 'CÔNG TY KDA TUYỂN GẤP\nLiên hệ: NGOC ANH DUONG\nSĐT: 0877 880 756\nLương 8.000.000 - 12.000.000\nTuổi 14-50t'
 const base = { employer_phone: '0877880756', contact_zalo: null, salary: '8.000.000 - 12.000.000', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }
@@ -20,4 +20,11 @@ assert.equal(compareWithOcr({ ...kda, salary: '320.000đ' }, kdaOcr).status, 'mi
 assert.ok(moneyValues('310k').has(310000) && moneyValues('310.000').has(310000) && moneyValues('310 nghìn').has(310000))
 assert.ok(moneyValues('8,5 triệu').has(8500000) && moneyValues('8 000 000').has(8000000) && !moneyValues('11h').size)
 assert.equal(compareWithOcr(base, '').status, 'unreadable')
+const j0 = { publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
+assert.equal(canRepublish(j0, '2026-10-15'), true)
+assert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)
+assert.equal(canRepublish({ ...j0, publish_gate_reason: null }, '2026-10-15'), false)
+assert.equal(canRepublish({ ...j0, admin_hidden: true }, '2026-10-15'), false)
+assert.equal(canRepublish({ ...j0, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)
+assert.equal(canRepublish({ ...j0, application_deadline: '2026-10-01' }, '2026-10-15'), false)
 console.log('ocr-compare: all assertions passed')
