@@ -1,0 +1,32 @@
+name: 운영 - 공고 숨김 해제 (수동 실행)
+
+# 사용자 승인 후에만 수동 실행한다(workflow_dispatch). 지정한 id의 숨김(admin_hidden)만 푼다.
+# 규칙 트리거(trg_enforce_job_posting_policy, trg_zz_enforce_job_posting_rules)를 그대로 거친다. 우회 없음.
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: '숨김 해제할 local_jobs id (쉼표 구분, 예: 4819,4820)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      IDS: ${{ inputs.ids }}
+    steps:
+      - name: 입력 확인 (숫자·쉼표만)
+        run: |
+          echo "$IDS" | grep -Eq '^[0-9]+(,[0-9]+)*$' || { echo "::error::ids 형식 오류"; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 숨김 해제 (한 트랜잭션)
+        run: |
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -c "update public.local_jobs set admin_hidden = false where id = any(string_to_array('$IDS', ',')::bigint[]) returning id, active, admin_hidden"
+      - name: 결과 확인
+        run: |
+          psql "$SUPABASE_DB_URL" -X -c "select id, active, admin_hidden, (active and not admin_hidden) as public_now from public.local_jobs where id = any(string_to_array('$IDS', ',')::bigint[]) order by id"
