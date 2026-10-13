@@ -1,4 +1,8 @@
-import assert from 'node:assert/strict'
+const assert = {
+  equal(actual: unknown, expected: unknown) { if (actual !== expected) throw new Error('Expected ' + String(expected) + ', got ' + String(actual)) },
+  deepEqual(actual: unknown, expected: unknown) { if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Objects differ') },
+  throws(action: () => unknown) { let threw = false; try { action() } catch { threw = true }; if (!threw) throw new Error('Expected rejection') },
+}
 import { parseAdminJobDraft, adminSavedJob } from './adminJobDraft'
 const draft = parseAdminJobDraft(JSON.stringify({title:'Công nhân',company:'KDA',category:'factory',employerPhone:'0877880756',lat:null,lng:null,active:true,adminHidden:false}), ['factory'])
 assert.equal(draft.employerPhone,'0877880756')
