@@ -445,9 +445,6 @@ export function JobDetail() {
                 Đăng {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             </div>
-            <p className="jd2-warn1">
-              <span aria-hidden="true">⚠️</span> Việc Gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
-            </p>
           </div>
         </div>
         <button
@@ -881,6 +878,10 @@ export function JobDetail() {
               : <><Bookmark size={15} strokeWidth={1.8} /> Lưu tin</>
             }
           </button>
+
+          <p className="jd2-warn1">
+            <span aria-hidden="true">⚠️</span> Việc Gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
+          </p>
         </aside>
       </div>
 
