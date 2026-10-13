@@ -20,11 +20,17 @@ assert.equal(compareWithOcr({ ...kda, salary: '320.000đ' }, kdaOcr).status, 'mi
 assert.ok(moneyValues('310k').has(310000) && moneyValues('310.000').has(310000) && moneyValues('310 nghìn').has(310000))
 assert.ok(moneyValues('8,5 triệu').has(8500000) && moneyValues('8 000 000').has(8000000) && !moneyValues('11h').size)
 assert.equal(compareWithOcr(base, '').status, 'unreadable')
-const j0 = { publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
+const j0 = { origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
 assert.equal(canRepublish(j0, '2026-10-15'), true)
 assert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...j0, publish_gate_reason: null }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...j0, admin_hidden: true }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...j0, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...j0, application_deadline: '2026-10-01' }, '2026-10-15'), false)
+// admin 공고: publish_gate_reason이 NULL이어도 재공개 가능, 나머지 조건은 동일
+const ja = { ...j0, origin: 'admin', publish_gate_reason: null }
+assert.equal(canRepublish(ja, '2026-10-15'), true)
+assert.equal(canRepublish({ ...ja, admin_hidden: true }, '2026-10-15'), false)
+assert.equal(canRepublish({ ...ja, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)
+assert.equal(canRepublish({ ...ja, application_deadline: '2026-10-01' }, '2026-10-15'), false)
 console.log('ocr-compare: all assertions passed')

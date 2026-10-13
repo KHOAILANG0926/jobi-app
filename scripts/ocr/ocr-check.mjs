@@ -31,7 +31,7 @@ const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
 const { rows } = await client.query(`
   select id, images, employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max, active,
-    publish_gate_reason, admin_hidden, created_at, application_deadline
+    origin, publish_gate_reason, admin_hidden, created_at, application_deadline
   from public.local_jobs
   where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
     and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
