@@ -100,7 +100,7 @@ begin
       src_changed := NEW.origin is distinct from OLD.origin
         or NEW.source_text is distinct from OLD.source_text or NEW.source_url is distinct from OLD.source_url
         or NEW.images is distinct from OLD.images or NEW.company is distinct from OLD.company
-        or NEW.contact_name is distinct from OLD.contact_name or NEW.industrial_park is distinct from OLD.industrial_park
+        or NEW.contact_name is distinct from OLD.contact_name
         or NEW.age_min is distinct from OLD.age_min or NEW.age_max is distinct from OLD.age_max
         or (coalesce(NEW.active,false) and not NEW.admin_hidden
             and not (coalesce(OLD.active,false) and not OLD.admin_hidden));
@@ -130,9 +130,6 @@ begin
       if nullif(trim(coalesce(NEW.contact_name,'')),'') is not null and not public.job_source_contains(NEW.source_text, NEW.contact_name) then
         raise exception 'job_rule_R5: contact_name "%" 가 source_text에 같은 글자로 없음', NEW.contact_name using errcode = 'check_violation';
       end if;
-      if nullif(trim(coalesce(NEW.industrial_park,'')),'') is not null and not public.job_source_contains(NEW.source_text, NEW.industrial_park) then
-        raise exception 'job_rule_R5: industrial_park "%" 가 source_text에 같은 글자로 없음', NEW.industrial_park using errcode = 'check_violation';
-      end if;
       -- R6 원문 연령 보존
       if public.job_source_has_age_range(NEW.source_text) and (NEW.age_min is null or NEW.age_max is null) then
         raise exception 'job_rule_R6: 원문에 연령 범위가 있는데 age_min/age_max가 비어 있음' using errcode = 'check_violation';
@@ -153,7 +150,7 @@ insert into public.job_posting_rules (rule_key, content, decided_on, incidents, 
 ('R2_decision_columns_code_only','policy_decision은 트리거가 항상 다시 계산해 덮어쓴다(직접 넣은 값 무효).','2026-10-13',null,'가능','없음','trigger trg_zz_enforce_job_posting_rules / job_policy_decision()'),
 ('R2b_publish_gate_reason_code_only','publish_gate_reason도 코드만 채운다. 현재 계산이 DB 밖(crawler/job_quality.py gate_auto_publish)에 있어 DB 강제는 미구현 — 계산을 DB로 옮길지 사용자 결정 필요.','2026-10-13',null,'불가능','없음','미구현'),
 ('R3_source_evidence_required','origin이 crawler/admin인 공고는 source_text가 있어야 하고, source_url 또는 images 중 하나는 있어야 한다.','2026-10-13',null,'가능','저장거부','trigger trg_zz_enforce_job_posting_rules'),
-('R5_verbatim_names','company, contact_name, industrial_park는 source_text 안에 같은 글자로 있어야 한다(대소문자 무시, 성조 구별).','2026-10-13','2026-10-13: 원문 "NGOC ANH DUONG"을 AI가 "Ngọc Anh Dương"으로 성조를 붙여 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_contains()'),
+('R5_verbatim_names','company, contact_name은 source_text 안에 같은 글자로 있어야 한다(대소문자 무시, 성조 구별).','2026-10-13','2026-10-13: 원문 "NGOC ANH DUONG"을 AI가 "Ngọc Anh Dương"으로 성조를 붙여 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_contains()'),
 ('R6_age_preserved','source_text에 "14-50t", "18-35 tuổi" 같은 연령 범위가 있는데 age_min·age_max가 비어 있으면 저장 거부.','2026-10-13','2026-10-13: 원문 "14-50t"를 AI가 "연령 확인 필요"로 바꿔 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_has_age_range()'),
 ('R4_policy_exclusion_trigger','공고 제외 정책 판정 트리거(2026-10-12 승인). 이 규칙 표에는 등록만 하고 동작은 바꾸지 않았다.','2026-10-12',null,'가능','저장거부','trigger trg_enforce_job_posting_policy / enforce_job_posting_policy()'),
 ('R7_ocr_crosscheck','[공개 전 대조] images가 있는 crawler/admin 공고는 ocr_check.status가 ok(현재 images와 같은 해시)가 되기 전까지 트리거가 active=false로 강제한다(읽기불가·불일치도 비공개 유지, 읽기불가는 사람 확인 대상이 아니라 STATUS에 건수만 표시). OCR이 ok가 되면 OCR 단계(job-ocr-check.yml)가 active=true로 되돌리되, 기존 공개 조건(crawler: publish_gate_reason=ok / admin: 관리자 등록이 곧 승인이라 publish_gate_reason을 보지 않음 — 그 값을 채우는 코드가 없음 · 공통: 관리자 미숨김·미만료·R7 이후 생성분)과 정책 판정(R4)을 통과한 경우에만(걸리면 트리거가 비공개 유지). 급여는 310k=310000=310.000처럼 k·천 단위 표기를 같은 숫자로 본다. 이미지 저장 시 Tesseract(vie)로 따로 읽어 ocr_text에 저장하고, 전화번호(숫자만)·급여 숫자·contact_name·company·연령이 ocr_text에도 있는지 대조. 없는 항목이 있으면 그 공고만 보류(active=false)하고 어긋난 항목을 ocr_check에 기록. OCR도 틀릴 수 있어 저장 거부는 하지 않는다. 이름은 OCR이 성조를 자주 놓쳐 성조 무시로 비교(R5가 성조 포함 원문 대조를 따로 담당).','2026-10-13',null,'가능','보류','workflow job-ocr-check.yml / scripts/ocr/ocr-check.mjs + ocr-compare.mjs; trigger가 ocr_text/ocr_check 쓰기를 기계 계정으로 제한 + 공개 전 active=false 강제'),
