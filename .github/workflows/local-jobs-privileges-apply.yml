@@ -1,0 +1,44 @@
+name: local_jobs 열 권한 적용·점검
+
+# PR 병합(master) 시 열 단위 읽기 권한 마이그레이션을 운영 DB에 적용하고, 같은 실행에서 anon·authenticated가
+# source_url / source_text / ocr_text / ocr_check / guest_manage_token을 읽을 수 없는지, 앱이 읽는 열은 읽히는지 확인한다.
+# 키는 GitHub Secrets에만 있다(PC 저장 금지). 필요한 Secret: SUPABASE_DB_URL (이미 등록됨)
+on:
+  push:
+    branches: [master]
+    paths:
+      - supabase/migrations/20261014100000_local_jobs_column_privileges.sql
+      - supabase/tests/local_jobs_column_privileges_check.sql
+      - .github/workflows/local-jobs-privileges-apply.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-jobs-privileges-apply
+  cancel-in-progress: false
+
+jobs:
+  apply-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 키 등록 확인
+        run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 선행 마이그레이션 확인 (규칙 칸 20261013100000)
+        run: |
+          n=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from information_schema.columns where table_schema='public' and table_name='local_jobs' and column_name in ('source_text','ocr_text','ocr_check')")
+          test "$n" = "3" || { echo "::error::source_text/ocr_text/ocr_check 칸이 아직 없습니다. job-rules-apply 먼저."; exit 1; }
+      - name: 열 권한 적용 (한 트랜잭션, 멱등)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261014100000_local_jobs_column_privileges.sql
+      - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
+        run: |
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261014100000','local_jobs_column_privileges') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
+      - name: 열 권한 점검
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/local_jobs_column_privileges_check.sql

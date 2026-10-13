@@ -54,9 +54,12 @@ def extract_contact_name(text: str | None) -> str | None:
     return None
 
 
-def source_fields(title: str | None, body: str | None) -> dict:
-    """저장 payload에 합칠 원문 근거 칸 4개(+contact_name)."""
-    text = build_source_text(title, body)
+def source_fields(title: str | None, body: str | None, extras: tuple | list = ()) -> dict:
+    """저장 payload에 합칠 원문 근거 칸 4개(+contact_name).
+
+    extras: 원문 페이지의 구조화된 칸(회사명·연락처·급여·주소 등)에서 읽은 값. 가공 없이 제목과 본문 사이에 줄 단위로 넣는다.
+    페이지에 없던 값(우리가 추정·보정한 값)은 넣지 않는다 — 넣으면 R5(원문 그대로) 대조가 무의미해진다."""
+    text = build_source_text(title, *[str(x) for x in extras if x is not None], body)
     age_min, age_max = extract_age_range(text)
     return {
         "source_text": text or None,

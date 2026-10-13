@@ -30,6 +30,11 @@ def test_source_text_is_verbatim_join():
     assert source_fields("a", "b")["age_min"] is None and source_fields("", "")["source_text"] is None
 
 
+def test_extras_inserted_verbatim_between_title_and_body():
+    f = source_fields("Tiêu đề", "Nội dung", extras=("CÔNG TY KDA", None, "310.000đ"))
+    assert f["source_text"] == "Tiêu đề\nCÔNG TY KDA\n310.000đ\nNội dung"
+
+
 def test_rule_code_and_counter():
     assert rule_code('{"message":"job_rule_R3: source_text(원문)가 비어 있음"}') == "job_rule_R3"
     assert rule_code("job_posting_policy_excluded: exclude:x") == "job_posting_policy_excluded"

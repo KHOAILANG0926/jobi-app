@@ -1013,10 +1013,10 @@ def format_description(sections: dict, order: list[str] | None = None) -> str:
     return "\n\n".join(parts)[:5000]
 
 
-def _source_fields_from_sections(title: str, company: str, sections: dict) -> dict:
+def _source_fields_from_sections(title: str, company: str, sections: dict, extras: tuple | list = ()) -> dict:
     """원문 근거 칸(source_text 등). 상세페이지에서 읽은 제목·회사·섹션 본문을 가공 없이(format_description의 2000자 절단 없이) 이어 붙인다."""
     body = "\n\n".join(f"{k}\n{str(v).strip()}" for k, v in (sections or {}).items() if v and str(v).strip())
-    return source_fields(title, f"{company}\n{body}" if company else body)
+    return source_fields(title, body, extras=(company, *extras))
 
 
 @asynccontextmanager
@@ -1235,7 +1235,10 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         "origin": "crawler",
         "admin_hidden": False,
         "image_url": None,  # 출처 사이트 로고는 저장하지 않음(2026-10-06)
-        **_source_fields_from_sections(title, company, detail.get("sections", {})),
+        **_source_fields_from_sections(
+            title, company, detail.get("sections", {}),
+            extras=(listing_hint.get("salary"), detail.get("detailExperience"), detail.get("detailEducation"),
+                    detail.get("detailWorkType"), detail.get("detailHeadcount"))),
         "source_url": url,
         # local_jobs 실제 컬럼(migration 0015로 추가됨) — insert/update 양쪽
         # 경로에서 항상 함께 저장된다(과거엔 insert 경로에서 publish_gate_reason이
@@ -1767,7 +1770,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
         "origin": "crawler",
         "admin_hidden": False,
         "image_url": None,
-        **_source_fields_from_sections(title, company, sections),
+        **_source_fields_from_sections(title, company, sections, extras=(listing_hint.get("salary"), *(detail.get("locationLines") or []))),
         "source_url": url,
         "publish_gate_reason": gate_reason,
         "crawler_version": CRAWLER_VERSION,

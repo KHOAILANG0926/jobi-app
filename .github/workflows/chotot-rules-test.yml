@@ -1,0 +1,50 @@
+name: Chợ Tốt 박닌 5건 규칙 시험 (일회성)
+
+# 일회성 시험: Chợ Tốt 박닌 공고 5건을 운영 DB에 넣어 보고, 들어간 건수 / 규칙 거부 건수·사유를 확인한다.
+# 시험에만 scripts/research/bn_*.py를 쓴다(정식 입구는 크롤러). PC 키를 쓰지 않고 GitHub Secrets에서만 실행한다.
+# 입력 데이터(제3자 연락처 포함)는 저장소에 두지 않고 Secret CHOTOT_TEST_ROWS(JSON)로만 받는다. 시험 후 Secret은 삭제한다.
+# 넣는 공고는 admin_hidden=true(비공개). 크롤러 cron은 건드리지 않는다.
+on:
+  push:
+    branches: ['claude/**']
+    paths:
+      - .github/workflows/chotot-rules-test.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chotot-rules-test
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CHOTOT_TEST_ROWS: ${{ secrets.CHOTOT_TEST_ROWS }}
+      RESEARCH_OUT: ${{ runner.temp }}/out
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 입력 확인
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
+          test -n "$CHOTOT_TEST_ROWS" || { echo "::error::Secret CHOTOT_TEST_ROWS 없음"; exit 1; }
+      - run: python -m pip install requests
+      - name: 시험 데이터 준비 (로그에 출력하지 않음)
+        run: |
+          mkdir -p "$RESEARCH_OUT"
+          printf '%s' "$CHOTOT_TEST_ROWS" > "$RESEARCH_OUT/bacninh_chotot_rows.json"
+          echo '{}' > "$RESEARCH_OUT/ct_res_1.json"
+          python -c "import json,os; r=json.load(open(os.environ['RESEARCH_OUT']+'/bacninh_chotot_rows.json',encoding='utf-8')); print('시험 행 수:', len(r))"
+      - name: 넣기 (batch 1, 5건)
+        run: |
+          python scripts/research/bn_apply_chotot_rest.py 1 5 | tee "$RUNNER_TEMP/result.txt"
+          { echo '## Chợ Tốt 박닌 5건 시험 결과'; echo; echo '```'; cat "$RUNNER_TEMP/result.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
