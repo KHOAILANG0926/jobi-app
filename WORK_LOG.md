@@ -1,3 +1,11 @@
+## 2026-10-13 관리자 공고 등록 확인
+- 요청: SQL을 사용자에게 매번 실행시키지 않고 관리자 화면에서 공고 확인·게시.
+- 변경: 기존 폼 JSON 초안 가져오기, 편집 후 미리보기, 서버 반환 저장 상태·공고 링크, 관리 목록 갱신.
+- 파일: src/pages/AdminDashboard.tsx, src/lib/adminJobDraft.ts, src/lib/adminJobDraft.test.ts.
+- 검증: 핵심 테스트 red→green 확인. 전체 CI는 PR에서 확인. 실제 운영 관리자 등록은 미검증.
+- GitHub 브랜치 codex/admin-job-preview-publish-20261013. master/배포/DB 쓰기 없음.
+- 한계: 이미 active=false로 저장된 행의 재활성화 기능은 이 변경에 포함하지 않음. 기존 admin_set_job_hidden RPC는 active를 변경하지 않음.
+
 # WORK_LOG
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
