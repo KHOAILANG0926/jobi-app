@@ -16,7 +16,7 @@ create function public.is_admin() returns boolean language sql stable as $$ sele
 create table public.local_jobs (id bigint generated always as identity primary key, title text not null, company text not null,
   category text default 'other', salary text, employer_phone text, description text, active boolean default true,
   origin text not null default 'legacy', admin_hidden boolean not null default false, source_url text, images jsonb,
-  industrial_park text, contact_zalo text, policy_decision text);
+  contact_zalo text, policy_decision text);
 grant all on public.local_jobs to service_role; grant usage on schema public to service_role;
 `)
 await db.exec(f('../migrations/20261012153000_job_posting_policy_db_enforcement.sql'))
