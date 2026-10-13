@@ -10,6 +10,7 @@ on:
     paths:
       - supabase/migrations/20261013100000_job_posting_rules.sql
       - supabase/tests/job_posting_rules_test.sql
+      - scripts/ocr/**
       - .github/workflows/job-rules-apply.yml
   workflow_dispatch: {}
 
@@ -37,6 +38,12 @@ jobs:
       - name: PostgreSQL 클라이언트 설치
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: OCR 대조 로직 시험 (KDA 급여 310.000đ = 310k 포함)
+        run: node scripts/ocr/ocr-compare.test.mjs
+
       - name: 마이그레이션 적용 (한 트랜잭션, 멱등)
         run: |
           set -euo pipefail
@@ -55,7 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           psql "$SUPABASE_DB_URL" -X -c "select rule_key, last_test_result, last_tested_at from public.job_posting_rules order by id"
-          bad=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.job_posting_rules where rule_key ~ '^R[1-3567]_' and last_test_result is distinct from '통과'")
+          bad=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.job_posting_rules where rule_key ~ '^(R[1-3567]|U2)_' and last_test_result is distinct from '통과'")
           left=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.local_jobs where title like '[RULE-TEST%'")
           echo "통과 못한 규칙: $bad / 남은 시험 공고: $left"
           test "$bad" = "0" && test "$left" = "0"

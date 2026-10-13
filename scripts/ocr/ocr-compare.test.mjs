@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { compareWithOcr } from './ocr-compare.mjs'
+import { compareWithOcr, moneyValues } from './ocr-compare.mjs'
 
 const ocr = 'CÔNG TY KDA TUYỂN GẤP\nLiên hệ: NGOC ANH DUONG\nSĐT: 0877 880 756\nLương 8.000.000 - 12.000.000\nTuổi 14-50t'
 const base = { employer_phone: '0877880756', contact_zalo: null, salary: '8.000.000 - 12.000.000', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }
@@ -12,5 +12,12 @@ assert.equal(r.status, 'mismatch'); assert.deepEqual(r.mismatches.map((m) => m.f
 // "연령 확인 필요"로 바꿔 age를 못 옮긴 경우가 아니라, 값이 원문과 다른 경우
 assert.deepEqual(compareWithOcr({ ...base, age_min: 18 }, ocr).mismatches.map((m) => m.field), ['age_min'])
 assert.deepEqual(compareWithOcr({ ...base, salary: '15 triệu' }, ocr).mismatches.map((m) => m.field), ['salary'])
+// KDA 사례: 급여 "310.000đ" 과 OCR "310k/11h" 는 일치
+const kda = { employer_phone: '0877880756', salary: '310.000đ', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }
+const kdaOcr = 'CÔNG TY KDA TUYỂN GẤP NGOC ANH DUONG 08.778.807.56 Lương 310k/11h Tuổi 14-50t'
+assert.deepEqual(compareWithOcr(kda, kdaOcr), { status: 'ok', mismatches: [] })
+assert.equal(compareWithOcr({ ...kda, salary: '320.000đ' }, kdaOcr).status, 'mismatch')
+assert.ok(moneyValues('310k').has(310000) && moneyValues('310.000').has(310000) && moneyValues('310 nghìn').has(310000))
+assert.ok(moneyValues('8,5 triệu').has(8500000) && moneyValues('8 000 000').has(8000000) && !moneyValues('11h').size)
 assert.equal(compareWithOcr(base, '').status, 'unreadable')
 console.log('ocr-compare: all assertions passed')

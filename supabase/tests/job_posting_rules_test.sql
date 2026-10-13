@@ -94,6 +94,31 @@ begin
   exception when others then reset role; ok := false; end;
   res := res || jsonb_build_object('R7_ocr_crosscheck', ok);
 
+  -- R7 공개 전 대조: images가 있으면 ocr_check ok 전까지 active=false 강제, ok(해시 일치)면 공개 유지
+  begin
+    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, source_text, source_url, images, contact_name, age_min, age_max)
+    values (mark||' R7gate','KDA','Cong nhan dong goi','admin',true,false,'Cong ty KDA tuyen gap','test://x','["job-images/x.png"]',null,18,50) returning id into id1;
+    select active into v from public.local_jobs where id = id1;
+    ok := v.active = false;
+    update public.local_jobs set ocr_check = jsonb_build_object('status','ok','images_hash',md5(images::text)) , active = true where id = id1;
+    select active into v from public.local_jobs where id = id1;
+    ok := ok and v.active = true;
+    update public.local_jobs set images = '["job-images/y.png"]', active = true where id = id1;   -- images 바뀜 → 해시 불일치
+    select active into v from public.local_jobs where id = id1;
+    ok := ok and v.active = false;
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('R7_ocr_crosscheck', coalesce((res->>'R7_ocr_crosscheck')::boolean, true) and ok);
+
+  -- U2: age_min<15 공개 시도는 active=false로 강제, 18은 그대로
+  begin
+    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max)
+    values (mark||' U2a','KDA','Cong nhan dong goi','legacy',true,false,14,50) returning id into id1;
+    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max)
+    values (mark||' U2b','KDA','Cong nhan dong goi','legacy',true,false,18,50) returning id into id2;
+    ok := (select active from public.local_jobs where id = id1) = false and (select active from public.local_jobs where id = id2) = true;
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('U2_age_min_under_15', ok);
+
   -- 정리: 시험 공고 삭제 후 0건 확인
   delete from public.local_jobs where title like mark || '%';
   if exists (select 1 from public.local_jobs where title like mark || '%') then

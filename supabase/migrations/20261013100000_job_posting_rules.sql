@@ -106,6 +106,14 @@ begin
             and not (coalesce(OLD.active,false) and not OLD.admin_hidden));
     end if;
 
+    -- R7 공개 전 대조: images가 있는 공고는 OCR 대조가 'ok'(현재 images와 같은 해시)가 되기 전까지 비공개로 강제.
+    -- 이미 공개 중이고 근거 칸이 안 바뀐 행(만료 처리 등 일반 수정)은 건드리지 않는다.
+    if (TG_OP = 'INSERT' or src_changed) and coalesce(NEW.active, false)
+       and jsonb_typeof(NEW.images) = 'array' and jsonb_array_length(NEW.images) > 0
+       and not (coalesce(NEW.ocr_check->>'status','') = 'ok' and NEW.ocr_check->>'images_hash' = md5(NEW.images::text)) then
+      NEW.active := false;
+    end if;
+
     if src_changed then
       -- R3 원문 근거 필수
       if nullif(trim(coalesce(NEW.source_text,'')),'') is null then
@@ -131,6 +139,11 @@ begin
       end if;
     end if;
   end if;
+  -- U2 (미정): age_min이 15 미만이면 비공개 보류. 게시 허용 여부는 사용자 결정 전까지 미정.
+  if NEW.age_min is not null and NEW.age_min < 15 then
+    NEW.active := false;
+  end if;
+
   return NEW;
 end $f$;
 
@@ -148,9 +161,9 @@ insert into public.job_posting_rules (rule_key, content, decided_on, incidents, 
 ('R5_verbatim_names','company, contact_name, industrial_park는 source_text 안에 같은 글자로 있어야 한다(대소문자 무시, 성조 구별).','2026-10-13','2026-10-13: 원문 "NGOC ANH DUONG"을 AI가 "Ngọc Anh Dương"으로 성조를 붙여 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_contains()'),
 ('R6_age_preserved','source_text에 "14-50t", "18-35 tuổi" 같은 연령 범위가 있는데 age_min·age_max가 비어 있으면 저장 거부.','2026-10-13','2026-10-13: 원문 "14-50t"를 AI가 "연령 확인 필요"로 바꿔 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_has_age_range()'),
 ('R4_policy_exclusion_trigger','공고 제외 정책 판정 트리거(2026-10-12 승인). 이 규칙 표에는 등록만 하고 동작은 바꾸지 않았다.','2026-10-12',null,'가능','저장거부','trigger trg_enforce_job_posting_policy / enforce_job_posting_policy()'),
-('R7_ocr_crosscheck','이미지 저장 시 Tesseract(vie)로 따로 읽어 ocr_text에 저장하고, 전화번호(숫자만)·급여 숫자·contact_name·company·연령이 ocr_text에도 있는지 대조. 없는 항목이 있으면 그 공고만 보류(active=false)하고 어긋난 항목을 ocr_check에 기록. OCR도 틀릴 수 있어 저장 거부는 하지 않는다. 이름은 OCR이 성조를 자주 놓쳐 성조 무시로 비교(R5가 성조 포함 원문 대조를 따로 담당).','2026-10-13',null,'가능','보류','workflow job-ocr-check.yml / scripts/ocr/ocr-check.mjs + ocr-compare.mjs; trigger가 ocr_text/ocr_check 쓰기를 기계 계정으로 제한'),
+('R7_ocr_crosscheck','[공개 전 대조] images가 있는 crawler/admin 공고는 ocr_check.status가 ok(현재 images와 같은 해시)가 되기 전까지 트리거가 active=false로 강제한다(읽기불가·불일치도 비공개 유지, OCR 통과 후에만 공개 판정으로 넘어감). 급여는 310k=310000=310.000처럼 k·천 단위 표기를 같은 숫자로 본다. 이미지 저장 시 Tesseract(vie)로 따로 읽어 ocr_text에 저장하고, 전화번호(숫자만)·급여 숫자·contact_name·company·연령이 ocr_text에도 있는지 대조. 없는 항목이 있으면 그 공고만 보류(active=false)하고 어긋난 항목을 ocr_check에 기록. OCR도 틀릴 수 있어 저장 거부는 하지 않는다. 이름은 OCR이 성조를 자주 놓쳐 성조 무시로 비교(R5가 성조 포함 원문 대조를 따로 담당).','2026-10-13',null,'가능','보류','workflow job-ocr-check.yml / scripts/ocr/ocr-check.mjs + ocr-compare.mjs; trigger가 ocr_text/ocr_check 쓰기를 기계 계정으로 제한 + 공개 전 active=false 강제'),
 ('U1_industrial_park_pin_publish','미정: 공단명만 있는 공고의 "공단 입구 대표 핀"을 공개 조건(좌표 정확 요구)에서 어떻게 취급할지. 사용자 결정 전까지 구현 안 함.','2026-10-13',null,'불가능','없음','미구현(미정)'),
-('U2_age_min_under_15','미정: age_min이 15 미만인 공고를 게시할지. 사용자 결정 전까지는 비공개 보류가 원칙이나 DB 강제는 구현 안 함.','2026-10-13','2026-10-13: 원문 14-50t','불가능','없음','미구현(미정)')
+('U2_age_min_under_15','미정: age_min이 15 미만인 공고를 게시할지. 사용자 결정 전까지 트리거가 active=false로 강제(보류). 게시 허용 여부 자체는 미정.','2026-10-13','2026-10-13: 원문 14-50t','가능','보류','trigger trg_zz_enforce_job_posting_rules (미정 — 결정 시 변경)')
 on conflict (rule_key) do update set
   content = excluded.content, decided_on = excluded.decided_on, incidents = excluded.incidents,
   machine_checkable = excluded.machine_checkable, block_mode = excluded.block_mode, implementation = excluded.implementation;

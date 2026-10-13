@@ -33,6 +33,7 @@ const { rows } = await client.query(`
   select id, images, employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max, active
   from public.local_jobs
   where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
+    and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text))
   order by id limit 50`)
 console.log(`OCR 대상 ${rows.length}건`)

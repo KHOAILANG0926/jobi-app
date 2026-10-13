@@ -3,6 +3,23 @@
 const fold = (x) => String(x ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 const digits = (x) => String(x ?? '').replace(/[^0-9]/g, '')
 
+// 금액 표기를 원 단위 숫자 집합으로 바꾼다. "310k"·"310 nghìn"→310000, "8tr"·"8 triệu"→8000000, "310.000"·"8 000 000"→그대로.
+// 단위 없이 1000 미만인 숫자(근무시간 "11h" 등)는 금액이 아니므로 버린다.
+export function moneyValues(text) {
+  const t = String(text ?? '').toLowerCase().replace(/(\d)[ ](?=\d{3}(?!\d))/g, '$1').replace(/(\d)[ ](?=\d{3}(?!\d))/g, '$1')
+  const out = new Set()
+  for (const m of t.matchAll(/(\d+(?:[.,]\d+)*)\s*(?:(k|nghìn|nghin|ngàn|ngan|triệu|trieu|tr|m)(?![a-zà-ỹ]))?/g)) {
+    let raw = m[1]; const unit = m[2]
+    const thousands = /^\d{1,3}([.,]\d{3})+$/.test(raw)
+    const num = thousands ? Number(raw.replace(/[.,]/g, '')) : Number(raw.replace(',', '.').replace(/\.(?=.*\.)/g, ''))
+    if (!Number.isFinite(num)) continue
+    const mult = unit ? (/^(k|nghìn|nghin|ngàn|ngan)$/.test(unit) ? 1000 : 1e6) : 1
+    const v = Math.round(num * mult)
+    if (v >= 1000) out.add(v)
+  }
+  return out
+}
+
 // job: { employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max }
 export function compareWithOcr(job, ocrText) {
   const ocr = String(ocrText ?? '')
@@ -15,8 +32,9 @@ export function compareWithOcr(job, ocrText) {
     const d = digits(job[f])
     if (d && !ocrDigits.includes(d)) mismatches.push({ field: f, value: d })
   }
-  const salaryNums = [...new Set((String(job.salary ?? '').match(/\d[\d.,]*/g) ?? []).map(digits).filter((n) => n.length >= 2))]
-  for (const n of salaryNums) if (!ocrDigits.includes(n)) mismatches.push({ field: 'salary', value: n })
+  // 급여: 310k = 310000 = 310.000 = 310 nghìn 처럼 표기가 달라도 같은 숫자로 비교한다.
+  const ocrMoney = moneyValues(ocr)
+  for (const n of moneyValues(job.salary)) if (!ocrMoney.has(n) && !ocrDigits.includes(String(n))) mismatches.push({ field: 'salary', value: n })
   for (const f of ['contact_name', 'company']) {
     const v = fold(job[f])
     if (v && !ocrFold.includes(` ${v} `)) mismatches.push({ field: f, value: job[f] })
