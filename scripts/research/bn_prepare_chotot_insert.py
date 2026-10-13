@@ -29,8 +29,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 import classifier  # noqa: E402
 import job_quality as q  # noqa: E402
+from source_fields import source_fields  # noqa: E402
 
-OUT = ROOT / "scripts" / "research" / "out"
+import os  # noqa: E402
+OUT = Path(os.environ.get("RESEARCH_OUT") or ROOT / "scripts" / "research" / "out")
 VERSION = "2026-10-07.chotot-bacninh-v1"
 SOURCE_TAG = "chotot"
 TODAY = (datetime.now(timezone.utc) + timedelta(hours=7)).date().isoformat()
@@ -123,7 +125,10 @@ def build_jobs() -> tuple[list[dict], list[dict]]:
         salary = q.normalize_salary(r["salary"]) if r["salary"] else ""
         smin, smax, scur, sper, sneg = parse_salary(salary)
         gate_ok, gate_reason = q.gate_auto_publish(True, bool(q.normalize_whitespace(r["contact"])))
+        # 원문 근거 칸: 수집한 제목+본문 글자 그대로(clean_body 등 가공 전). 요약·번역·성조 추가 금지.
+        src_fields = source_fields(r["title"], r.get("body", ""))
         job = {
+            **src_fields,
             "title": title, "company": company, "category": category, "subcategory": subcategory,
             "salary": salary or None, "location": "Bắc Ninh", "employer_phone": r["contact"],
             "urgent": q.detect_explicit_urgent_hiring(title, description), "description": description,
@@ -153,7 +158,8 @@ def main() -> None:
     # ── SQL 생성: 10건씩 한 트랜잭션, 광고 번호(source) 기준 재실행 안전(이미 있으면 건너뜀)
     cols = ["title", "company", "category", "subcategory", "salary", "location", "employer_phone", "urgent", "description",
             "posted_at", "active", "origin", "admin_hidden", "source", "source_url", "crawler_version", "publish_gate_reason",
-            "recruitment_regions", "recruitment_type", "salary_min", "salary_max", "salary_currency", "salary_period", "salary_negotiable"]
+            "recruitment_regions", "recruitment_type", "salary_min", "salary_max", "salary_currency", "salary_period", "salary_negotiable",
+            "source_text", "contact_name", "age_min", "age_max"]
     for old in OUT.glob("bn_chotot_insert_batch*.sql"):
         old.unlink()
     batches = [jobs[i:i + 10] for i in range(0, len(jobs), 10)]

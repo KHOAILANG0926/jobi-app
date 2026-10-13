@@ -21,13 +21,17 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import bn_prepare_chotot_insert as prep  # noqa: E402
 from job_posting_policy import crawler_policy_errors  # prep sets crawler import path
+from source_fields import REJECTIONS, rule_code  # noqa: E402
 
 ROOT = HERE.parents[1]
-OUT = HERE / "out"
+OUT = prep.OUT  # RESEARCH_OUT 환경변수로 바꿀 수 있다
 APPLIED = OUT / "bn_chotot_applied.json"
 
 
 def load_env() -> tuple[str, str]:
+    import os
+    if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):  # 키를 PC 파일에 두지 않고 환경변수로 받을 수 있다
+        return os.environ["SUPABASE_URL"].rstrip("/"), os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     vals = {}
     for line in (ROOT / "crawler" / ".env").read_text("utf-8").splitlines():
         for k in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"):
@@ -57,10 +61,14 @@ def post(table: str, body: dict) -> dict:
 
 def main() -> None:
     n = int(sys.argv[1])
+    limit = int(sys.argv[2]) if len(sys.argv) > 2 else 10  # 선택: batch 앞에서 N건만(시험용)
     jobs, errors = prep.build_jobs()
-    if errors:
-        raise SystemExit(f"validation errors, stop: {errors}")
-    batch = jobs[(n - 1) * 10: n * 10]
+    # 검증/정책 제외 오류가 있는 공고는 멈추지 않고 그 공고만 건너뛰며 사유를 남긴다.
+    bad = {f"chotot:{e['id']}": e["errors"] for e in errors}
+    for src, errs in bad.items():
+        print(f"  SKIP(검증/정책) {src}: {errs}")
+    jobs = [j for j in jobs if j["source"] not in bad]
+    batch = jobs[(n - 1) * 10: (n - 1) * 10 + limit]
     applied = json.loads(APPLIED.read_text("utf-8")) if APPLIED.exists() else {}
     done, skipped = [], []
     for j in batch:
@@ -74,7 +82,14 @@ def main() -> None:
             continue
         row = {k: v for k, v in j.items() if not k.startswith("_")}
         try:
-            created = post("local_jobs", row)
+            try:
+                created = post("local_jobs", row)
+            except RuntimeError as e:
+                code = rule_code(e)
+                if not code:
+                    raise
+                REJECTIONS.add(code, f"{src} {j['title']}")  # 규칙에 걸린 공고만 건너뛰고 계속한다(규칙 우회·완화 없음)
+                continue
             loc = j["_loc"]
             post("job_work_locations", {
                 "job_id": created["id"], "raw_address": loc["raw_address"], "country": "VN", "province": "Bắc Ninh",
@@ -89,7 +104,8 @@ def main() -> None:
         done.append(created["id"])
     APPLIED.write_text(json.dumps(applied, indent=1), "utf-8")
     line = "\n".join(sorted(f"{j['source']}|{j['company']}|{j['employer_phone']}|{j['salary'] or ''}" for j in batch))
-    print(json.dumps({"batch": n, "inserted": len(done), "skipped_existing": len(skipped), "ids": sorted(done),
+    REJECTIONS.report()
+    print(json.dumps({"batch": n, "inserted": len(done), "rule_rejected": dict(REJECTIONS.by_rule), "skipped_existing": len(skipped), "ids": sorted(done),
                       "id_range": [min(done), max(done)] if done else None,
                       "check_md5": hashlib.md5(line.encode()).hexdigest()}, ensure_ascii=False))
 

@@ -45,6 +45,7 @@ from job_quality import (
     validate_job_payload,
 )
 from job_posting_policy import crawler_policy_errors
+from source_fields import REJECTIONS, rule_code, source_fields
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -1012,6 +1013,12 @@ def format_description(sections: dict, order: list[str] | None = None) -> str:
     return "\n\n".join(parts)[:5000]
 
 
+def _source_fields_from_sections(title: str, company: str, sections: dict) -> dict:
+    """원문 근거 칸(source_text 등). 상세페이지에서 읽은 제목·회사·섹션 본문을 가공 없이(format_description의 2000자 절단 없이) 이어 붙인다."""
+    body = "\n\n".join(f"{k}\n{str(v).strip()}" for k, v in (sections or {}).items() if v and str(v).strip())
+    return source_fields(title, f"{company}\n{body}" if company else body)
+
+
 @asynccontextmanager
 async def browser_page():
     """One shared browser/page setup — used by the category crawl, a single
@@ -1228,6 +1235,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
         "origin": "crawler",
         "admin_hidden": False,
         "image_url": None,  # 출처 사이트 로고는 저장하지 않음(2026-10-06)
+        **_source_fields_from_sections(title, company, detail.get("sections", {})),
         "source_url": url,
         # local_jobs 실제 컬럼(migration 0015로 추가됨) — insert/update 양쪽
         # 경로에서 항상 함께 저장된다(과거엔 insert 경로에서 publish_gate_reason이
@@ -1759,6 +1767,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
         "origin": "crawler",
         "admin_hidden": False,
         "image_url": None,
+        **_source_fields_from_sections(title, company, sections),
         "source_url": url,
         "publish_gate_reason": gate_reason,
         "crawler_version": CRAWLER_VERSION,
@@ -2106,7 +2115,15 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             insert_payload["active"] = False
             insert_payload["admin_hidden"] = True
             insert_payload["origin"] = "crawler"
-        result = supabase.table("local_jobs").insert(insert_payload).execute()
+        try:
+            result = supabase.table("local_jobs").insert(insert_payload).execute()
+        except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
+            code = rule_code(exc)
+            if not code:
+                raise
+            REJECTIONS.add(code, job.get("title", ""))
+            print(f"    🚧 규칙 거부({code}): {job.get('title', '')[:60]!r} — 이 공고는 건너뜀")
+            return {"action": "rule_rejected", "id": None, "rule": code}
         row = (result.data or [{}])[0]
         job_id = row.get("id")
         action = "inserted"
@@ -2147,7 +2164,15 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
         elif existing.get("origin") == "crawler" and had_transient:
             print(f"    ⚠️  id={existing['id']}: geocode 일시 오류 — 공개 상태/게이트 사유 갱신 보류(기존 값 유지)")
         if field_updates:
-            supabase.table("local_jobs").update(field_updates).eq("id", existing["id"]).execute()
+            try:
+                supabase.table("local_jobs").update(field_updates).eq("id", existing["id"]).execute()
+            except Exception as exc:  # noqa: BLE001
+                code = rule_code(exc)
+                if not code:
+                    raise
+                REJECTIONS.add(code, job.get("title", ""))
+                print(f"    🚧 규칙 거부({code}): id={existing['id']} 갱신 안 함(기존 값 유지)")
+                return {"action": "rule_rejected", "id": existing["id"], "rule": code}
             action = "updated"
         else:
             action = "unchanged"
@@ -2218,6 +2243,7 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
         f" / 🔻 재크롤 후 보류 전환: {demoted}개"
         f" / ❌ 실패: {counts['failed_existing_untouched'] + counts['failed_new_skipped']}개"
     )
+    REJECTIONS.report()
     if work_location_rows_total:
         print(f"  📍 근무지 주소 저장: {work_location_rows_total}건 (job_work_locations)")
     if not jobs:
@@ -2428,6 +2454,12 @@ async def process_urls_verify_write(urls: list[str]) -> dict:
                 else:
                     with enable_writes():
                         result = upsert_job_record(job, by_source_url, by_key, verify_write=True)
+                    if result.get("action") == "rule_rejected":
+                        entry["status"] = "rule_rejected"
+                        entry["detail"] = result.get("rule")
+                        manifest["entries"].append(entry)
+                        print(f"    🧪 [rule_rejected] {url} -> {result.get('rule')}")
+                        continue
                     entry["status"] = "created"
                     entry["id"] = result["id"]
                     # 같은 배치 안의 다음 URL이 우연히 같은 canonical key를
