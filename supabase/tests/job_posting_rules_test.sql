@@ -51,29 +51,48 @@ begin
   exception when others then ok := false; end;
   res := res || jsonb_build_object('R3_source_evidence_required', ok);
 
-  -- R4: 성조 붙인 "Ngọc Anh Dương"은 거부, 원문 그대로 "NGOC ANH DUONG"은 통과
+  -- R5: 성조 붙인 "Ngọc Anh Dương"은 거부, 원문 그대로 "NGOC ANH DUONG"은 통과
   begin
     begin
       insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name, age_min, age_max)
-      values (mark||' R4a','KDA','admin',false,true,src,'test://x','Ngọc Anh Dương',14,50);
+      values (mark||' R5a','KDA','admin',false,true,src,'test://x','Ngọc Anh Dương',14,50);
       ok := false;
-    exception when check_violation then ok := sqlerrm like 'job_rule_R4%'; end;
+    exception when check_violation then ok := sqlerrm like 'job_rule_R5%'; end;
     if ok then
       insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name, age_min, age_max)
-      values (mark||' R4b','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG',14,50);
+      values (mark||' R5b','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG',14,50);
     end if;
   exception when others then ok := false; end;
-  res := res || jsonb_build_object('R4_verbatim_names', ok);
+  res := res || jsonb_build_object('R5_verbatim_names', ok);
 
-  -- R5: 원문에 14-50t가 있는데 age_min·age_max가 비면 거부
+  -- R6: 원문에 14-50t가 있는데 age_min·age_max가 비면 거부
   begin
     begin
       insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name)
-      values (mark||' R5','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG');
+      values (mark||' R6','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG');
       ok := false;
-    exception when check_violation then ok := sqlerrm like 'job_rule_R5%'; end;
+    exception when check_violation then ok := sqlerrm like 'job_rule_R6%'; end;
   exception when others then ok := false; end;
-  res := res || jsonb_build_object('R5_age_preserved', ok);
+  res := res || jsonb_build_object('R6_age_preserved', ok);
+
+    -- R7 보호: service_role이 ocr_text를 쓰려 하면 거부
+  begin
+    insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name, age_min, age_max)
+    values (mark||' R7','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG',14,50) returning id into id1;
+    begin
+      set local role service_role;
+      update public.local_jobs set ocr_text = 'AI가 쓴 값' where id = id1;
+      reset role;
+      ok := false;
+    exception when insufficient_privilege then
+      reset role;
+      ok := sqlerrm like 'job_rule_R7%' or sqlerrm like 'permission denied%';
+    end;
+    update public.local_jobs set ocr_text = '기계가 쓴 값' where id = id1;   -- 소유자 계정은 가능
+    select ocr_text into v from public.local_jobs where id = id1;
+    ok := ok and v.ocr_text = '기계가 쓴 값';
+  exception when others then reset role; ok := false; end;
+  res := res || jsonb_build_object('R7_ocr_crosscheck', ok);
 
   -- 정리: 시험 공고 삭제 후 0건 확인
   delete from public.local_jobs where title like mark || '%';

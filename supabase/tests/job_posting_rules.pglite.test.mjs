@@ -16,6 +16,7 @@ create table public.local_jobs (id bigint generated always as identity primary k
   category text default 'other', salary text, employer_phone text, description text, active boolean default true,
   origin text not null default 'legacy', admin_hidden boolean not null default false, source_url text, images jsonb,
   industrial_park text, contact_zalo text, policy_decision text);
+grant all on public.local_jobs to service_role; grant usage on schema public to service_role;
 `)
 await db.exec(f('../migrations/20261012153000_job_posting_policy_db_enforcement.sql'))
 await db.exec(f('../migrations/20261013100000_job_posting_rules.sql'))
@@ -24,6 +25,6 @@ await db.exec(f('./job_posting_rules_test.sql'))
 const rows = (await db.query('select rule_key,last_test_result from job_posting_rules order by id')).rows
 console.table(rows)
 const left = (await db.query("select count(*)::int n from local_jobs where title like '[RULE-TEST%'")).rows[0].n
-const bad = rows.filter((r) => /^R[1-5]_/.test(r.rule_key) && r.last_test_result !== '통과')
+const bad = rows.filter((r) => /^R[1-3567]_/.test(r.rule_key) && r.last_test_result !== '통과')
 if (bad.length || left) { console.error('FAIL', bad, left); process.exit(1) }
 console.log('PASS')

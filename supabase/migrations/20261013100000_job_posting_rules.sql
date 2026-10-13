@@ -24,6 +24,8 @@ grant select on public.job_posting_rules to service_role;   -- STATUS 생성기�
 -- ── 2. 공고 표 칸 추가 ─────────────────────────────────────
 alter table public.local_jobs
   add column if not exists source_text text,
+  add column if not exists ocr_text text,
+  add column if not exists ocr_check jsonb,
   add column if not exists contact_name text,
   add column if not exists age_min smallint,
   add column if not exists age_max smallint;
@@ -33,10 +35,12 @@ do $$ begin
       check ((age_min is null or age_min between 0 and 100) and (age_max is null or age_max between 0 and 100));
   end if;
 end $$;
-comment on column public.local_jobs.source_text is '원문 글자 그대로(포스터·게시글을 옮겨 적은 것). 규칙 R3·R4·R5의 근거.';
-comment on column public.local_jobs.contact_name is '연락처 이름. 원문 표기 그대로(규칙 R4).';
-comment on column public.local_jobs.age_min is '원문에 적힌 최소 연령(규칙 R5).';
-comment on column public.local_jobs.age_max is '원문에 적힌 최대 연령(규칙 R5).';
+comment on column public.local_jobs.source_text is '원문 글자 그대로(포스터·게시글을 옮겨 적은 것). 규칙 R3·R5·R6의 근거.';
+comment on column public.local_jobs.ocr_text is 'OCR(Tesseract vie)이 이미지에서 읽은 글자. 기계(DB 소유자 계정, Actions)만 쓴다. 트리거가 그 외 쓰기를 거부(규칙 R7).';
+comment on column public.local_jobs.ocr_check is 'R7 옮겨 적기 대조 결과 {status, checked_at, images_hash, mismatches[]}. 기계만 쓴다.';
+comment on column public.local_jobs.contact_name is '연락처 이름. 원문 표기 그대로(규칙 R5).';
+comment on column public.local_jobs.age_min is '원문에 적힌 최소 연령(규칙 R6).';
+comment on column public.local_jobs.age_max is '원문에 적힌 최대 연령(규칙 R6).';
 
 -- ── 3. 함수 ────────────────────────────────────────────────
 -- R1: 숫자만 남긴다. 번호 비교도 이 함수로만 한다.
@@ -50,7 +54,7 @@ language sql immutable set search_path = pg_catalog, public as $f$
      and public.job_phone_digits(a) is not null
 $f$;
 
--- R4: 대소문자만 무시, 성조 표시는 구별. 유니코드 합성 방식(NFC/NFD)·공백 길이 차이는 같은 글자로 본다.
+-- R5: 대소문자만 무시, 성조 표시는 구별. 유니코드 합성 방식(NFC/NFD)·공백 길이 차이는 같은 글자로 본다.
 create or replace function public.job_text_norm(x text) returns text
 language sql immutable set search_path = pg_catalog, public as $f$
   select lower(regexp_replace(normalize(coalesce(x,''), NFC), '\s+', ' ', 'g'))
@@ -60,7 +64,7 @@ language sql immutable set search_path = pg_catalog, public as $f$
   select position(public.job_text_norm(trim(val)) in public.job_text_norm(src)) > 0
 $f$;
 
--- R5: 원문에 "14-50t", "18-35 tuổi", "tuổi: 18-35" 같은 연령 범위가 있는가.
+-- R6: 원문에 "14-50t", "18-35 tuổi", "tuổi: 18-35" 같은 연령 범위가 있는가.
 create or replace function public.job_source_has_age_range(src text) returns boolean
 language sql immutable set search_path = pg_catalog, public as $f$
   select public.job_text_norm(src) ~ '(^|[^0-9])[0-9]{2}\s*[-–~]\s*[0-9]{2}\s*(t|tuổi|tuoi)(?![[:alpha:]])'
@@ -75,6 +79,13 @@ declare
   src_changed boolean;
   n_img int;
 begin
+  -- R7 보호: ocr_text / ocr_check는 기계(DB 소유자 계정)만 쓴다. AI·앱(service_role 포함)은 거부.
+  if current_user not in ('postgres','supabase_admin') and (
+       (TG_OP = 'INSERT' and (NEW.ocr_text is not null or NEW.ocr_check is not null))
+    or (TG_OP = 'UPDATE' and (NEW.ocr_text is distinct from OLD.ocr_text or NEW.ocr_check is distinct from OLD.ocr_check))) then
+    raise exception 'job_rule_R7: ocr_text/ocr_check는 기계만 쓸 수 있음' using errcode = 'insufficient_privilege';
+  end if;
+
   -- R1 전화번호: 항상 숫자만
   NEW.employer_phone := public.job_phone_digits(NEW.employer_phone);
   NEW.contact_zalo   := public.job_phone_digits(NEW.contact_zalo);
@@ -104,19 +115,19 @@ begin
       if nullif(trim(coalesce(NEW.source_url,'')),'') is null and n_img = 0 then
         raise exception 'job_rule_R3: source_url과 images가 둘 다 없음' using errcode = 'check_violation';
       end if;
-      -- R4 원문 그대로
+      -- R5 원문 그대로
       if nullif(trim(coalesce(NEW.company,'')),'') is not null and not public.job_source_contains(NEW.source_text, NEW.company) then
-        raise exception 'job_rule_R4: company "%" 가 source_text에 같은 글자로 없음', NEW.company using errcode = 'check_violation';
+        raise exception 'job_rule_R5: company "%" 가 source_text에 같은 글자로 없음', NEW.company using errcode = 'check_violation';
       end if;
       if nullif(trim(coalesce(NEW.contact_name,'')),'') is not null and not public.job_source_contains(NEW.source_text, NEW.contact_name) then
-        raise exception 'job_rule_R4: contact_name "%" 가 source_text에 같은 글자로 없음', NEW.contact_name using errcode = 'check_violation';
+        raise exception 'job_rule_R5: contact_name "%" 가 source_text에 같은 글자로 없음', NEW.contact_name using errcode = 'check_violation';
       end if;
       if nullif(trim(coalesce(NEW.industrial_park,'')),'') is not null and not public.job_source_contains(NEW.source_text, NEW.industrial_park) then
-        raise exception 'job_rule_R4: industrial_park "%" 가 source_text에 같은 글자로 없음', NEW.industrial_park using errcode = 'check_violation';
+        raise exception 'job_rule_R5: industrial_park "%" 가 source_text에 같은 글자로 없음', NEW.industrial_park using errcode = 'check_violation';
       end if;
-      -- R5 원문 연령 보존
+      -- R6 원문 연령 보존
       if public.job_source_has_age_range(NEW.source_text) and (NEW.age_min is null or NEW.age_max is null) then
-        raise exception 'job_rule_R5: 원문에 연령 범위가 있는데 age_min/age_max가 비어 있음' using errcode = 'check_violation';
+        raise exception 'job_rule_R6: 원문에 연령 범위가 있는데 age_min/age_max가 비어 있음' using errcode = 'check_violation';
       end if;
     end if;
   end if;
@@ -134,9 +145,10 @@ insert into public.job_posting_rules (rule_key, content, decided_on, incidents, 
 ('R2_decision_columns_code_only','policy_decision은 트리거가 항상 다시 계산해 덮어쓴다(직접 넣은 값 무효).','2026-10-13',null,'가능','없음','trigger trg_zz_enforce_job_posting_rules / job_policy_decision()'),
 ('R2b_publish_gate_reason_code_only','publish_gate_reason도 코드만 채운다. 현재 계산이 DB 밖(crawler/job_quality.py gate_auto_publish)에 있어 DB 강제는 미구현 — 계산을 DB로 옮길지 사용자 결정 필요.','2026-10-13',null,'불가능','없음','미구현'),
 ('R3_source_evidence_required','origin이 crawler/admin인 공고는 source_text가 있어야 하고, source_url 또는 images 중 하나는 있어야 한다.','2026-10-13',null,'가능','저장거부','trigger trg_zz_enforce_job_posting_rules'),
-('R4_verbatim_names','company, contact_name, industrial_park는 source_text 안에 같은 글자로 있어야 한다(대소문자 무시, 성조 구별).','2026-10-13','2026-10-13: 원문 "NGOC ANH DUONG"을 AI가 "Ngọc Anh Dương"으로 성조를 붙여 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_contains()'),
-('R5_age_preserved','source_text에 "14-50t", "18-35 tuổi" 같은 연령 범위가 있는데 age_min·age_max가 비어 있으면 저장 거부.','2026-10-13','2026-10-13: 원문 "14-50t"를 AI가 "연령 확인 필요"로 바꿔 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_has_age_range()'),
-('R6_policy_exclusion_trigger','공고 제외 정책 판정 트리거(2026-10-12 승인). 이 규칙 표에는 등록만 하고 동작은 바꾸지 않았다.','2026-10-12',null,'가능','저장거부','trigger trg_enforce_job_posting_policy / enforce_job_posting_policy()'),
+('R5_verbatim_names','company, contact_name, industrial_park는 source_text 안에 같은 글자로 있어야 한다(대소문자 무시, 성조 구별).','2026-10-13','2026-10-13: 원문 "NGOC ANH DUONG"을 AI가 "Ngọc Anh Dương"으로 성조를 붙여 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_contains()'),
+('R6_age_preserved','source_text에 "14-50t", "18-35 tuổi" 같은 연령 범위가 있는데 age_min·age_max가 비어 있으면 저장 거부.','2026-10-13','2026-10-13: 원문 "14-50t"를 AI가 "연령 확인 필요"로 바꿔 씀','가능','저장거부','trigger trg_zz_enforce_job_posting_rules / job_source_has_age_range()'),
+('R4_policy_exclusion_trigger','공고 제외 정책 판정 트리거(2026-10-12 승인). 이 규칙 표에는 등록만 하고 동작은 바꾸지 않았다.','2026-10-12',null,'가능','저장거부','trigger trg_enforce_job_posting_policy / enforce_job_posting_policy()'),
+('R7_ocr_crosscheck','이미지 저장 시 Tesseract(vie)로 따로 읽어 ocr_text에 저장하고, 전화번호(숫자만)·급여 숫자·contact_name·company·연령이 ocr_text에도 있는지 대조. 없는 항목이 있으면 그 공고만 보류(active=false)하고 어긋난 항목을 ocr_check에 기록. OCR도 틀릴 수 있어 저장 거부는 하지 않는다. 이름은 OCR이 성조를 자주 놓쳐 성조 무시로 비교(R5가 성조 포함 원문 대조를 따로 담당).','2026-10-13',null,'가능','보류','workflow job-ocr-check.yml / scripts/ocr/ocr-check.mjs + ocr-compare.mjs; trigger가 ocr_text/ocr_check 쓰기를 기계 계정으로 제한'),
 ('U1_industrial_park_pin_publish','미정: 공단명만 있는 공고의 "공단 입구 대표 핀"을 공개 조건(좌표 정확 요구)에서 어떻게 취급할지. 사용자 결정 전까지 구현 안 함.','2026-10-13',null,'불가능','없음','미구현(미정)'),
 ('U2_age_min_under_15','미정: age_min이 15 미만인 공고를 게시할지. 사용자 결정 전까지는 비공개 보류가 원칙이나 DB 강제는 구현 안 함.','2026-10-13','2026-10-13: 원문 14-50t','불가능','없음','미구현(미정)')
 on conflict (rule_key) do update set

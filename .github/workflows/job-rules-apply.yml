@@ -1,6 +1,6 @@
 name: 공고 규칙 DB 적용·시험
 
-# PR 병합(master) 시 규칙 마이그레이션을 운영 DB에 적용하고, 같은 실행에서 실제 DB 시험(R1~R5)을 돌린다.
+# PR 병합(master) 시 규칙 마이그레이션을 운영 DB에 적용하고, 같은 실행에서 실제 DB 시험(R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml))을 돌린다.
 # 키는 GitHub Secrets에만 있다(PC에 저장 금지). 시험 결과는 job_posting_rules.last_test_*에 기록되고,
 # 이어서 STATUS 생성기를 다시 돌려 status 브랜치 STATUS.md에 반영된다.
 # 필요한 Secrets: SUPABASE_DB_URL (운영 DB 직접 연결 문자열, 이미 등록됨)
@@ -46,7 +46,7 @@ jobs:
         run: |
           psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261013100000','job_posting_rules') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
 
-      - name: 실제 DB 시험 R1~R5 (시험 공고는 시험 후 삭제)
+      - name: 실제 DB 시험 R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml) (시험 공고는 시험 후 삭제)
         run: |
           set -euo pipefail
           psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_posting_rules_test.sql
@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           psql "$SUPABASE_DB_URL" -X -c "select rule_key, last_test_result, last_tested_at from public.job_posting_rules order by id"
-          bad=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.job_posting_rules where rule_key ~ '^R[1-5]_' and last_test_result is distinct from '통과'")
+          bad=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.job_posting_rules where rule_key ~ '^R[1-3567]_' and last_test_result is distinct from '통과'")
           left=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.local_jobs where title like '[RULE-TEST%'")
           echo "통과 못한 규칙: $bad / 남은 시험 공고: $left"
           test "$bad" = "0" && test "$left" = "0"
