@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-13 22:55 (VN)**
+- 생성 시각: **2026-10-13 22:56 (VN)**
 - 기준 커밋: `f3a843f` (db: 채용공고 규칙 표 + 자동 차단 장치 (R1~R5) (#60))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38425964781
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38426099267
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
