@@ -1,0 +1,51 @@
+name: 운영 - 포스터 공고 등록 (수동 실행)
+
+# 사용자 승인 후에만 수동 실행한다(workflow_dispatch).
+# scripts/ops/jobs/<name>.png 를 job-images 버킷에 올리고, scripts/ops/jobs/<name>.sql 을 실행한다.
+# 규칙 트리거를 그대로 거친다(우회 없음). 이미지가 있으므로 R7 OCR 대조 통과 전까지 비공개.
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'scripts/ops/jobs 안의 파일 이름(확장자 없이), 예: kda-20261013'
+        required: true
+      storage_path:
+        description: 'job-images 버킷 안 저장 경로, 예: kda/kda-20261013.png'
+        required: true
+
+permissions:
+  contents: read
+  actions: write   # 끝에서 OCR 대조 워크플로를 실행시키기 위함
+
+jobs:
+  insert:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      NAME: ${{ inputs.name }}
+      STORAGE_PATH: ${{ inputs.storage_path }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 입력 확인
+        run: |
+          echo "$NAME" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::name 형식 오류"; exit 1; }
+          echo "$STORAGE_PATH" | grep -Eq '^[a-z0-9/_.-]+\.png$' || { echo "::error::storage_path 형식 오류"; exit 1; }
+          test -f "scripts/ops/jobs/$NAME.png" && test -f "scripts/ops/jobs/$NAME.sql"
+      - name: 포스터 이미지 업로드 (job-images)
+        run: |
+          code=$(curl -sS -o /tmp/up.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: image/png" -H "x-upsert: true" \
+            --data-binary "@scripts/ops/jobs/$NAME.png" \
+            "$SUPABASE_URL/storage/v1/object/job-images/$STORAGE_PATH")
+          echo "upload HTTP $code"; [ "$code" = "200" ] || { cat /tmp/up.txt; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 공고 등록 (한 트랜잭션, 규칙 트리거 적용)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "scripts/ops/jobs/$NAME.sql"
+      - name: OCR 대조 실행 요청
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run job-ocr-check.yml --repo "$GITHUB_REPOSITORY" --ref master || echo "::warning::OCR 실행 요청 실패(30분 주기 실행이 처리함)"
