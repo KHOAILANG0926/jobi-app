@@ -4,6 +4,7 @@ import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
 import type { AdminMapMarker, AdminMapPick } from './AdminVietMap'
 import { AdminAutoLocate } from './AdminAutoLocate'
 import { AdminWardLocate } from './AdminWardLocate'
+import AdminExactAddressReview from './AdminExactAddressReview'
 
 // 근무지 좌표 후보 검토·승인(2026-09-29). 승인된 위치만 사이트의 지도 핀·길찾기·내 주변 거리에
 // 쓰인다. 공단·지역 중심(place_precision='area')은 DB에서 승인 자체가 막힌다.
@@ -107,6 +108,7 @@ export function AdminLocations() {
       <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? 'Đóng' : '＋ Tự chọn vị trí trên bản đồ'}</button>
       <small>Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.</small>
     </div>
+    <AdminExactAddressReview />
     <AdminWardLocate />
     <AdminAutoLocate onChanged={reload} />
     {error && <p className="admin-error">{error}</p>}

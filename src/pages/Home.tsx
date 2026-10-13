@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
+import ExactAddressJobs from '../components/home/ExactAddressJobs'
 import FeaturedJobsSection from '../components/FeaturedJobsSection'
 import JobCard from '../components/JobCard'
 import { NoPublicJobs } from '../components/NoPublicJobs'
@@ -329,6 +330,7 @@ export function Home() {
       </section>
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
+      <ExactAddressJobs />
       <HomeMapExplorer />
 
       </div>{/* /.home-top-bg */}
