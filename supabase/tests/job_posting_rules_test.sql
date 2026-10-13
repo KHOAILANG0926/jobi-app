@@ -1,0 +1,88 @@
+-- 규칙 R1~R5 실제 DB 시험 (KDA 사례 그대로). job-rules-apply.yml이 psql로 실행한다.
+-- 시험 공고는 active=false·admin_hidden=true로 넣고, 끝나면 삭제한다(삭제 0건 확인까지 포함).
+-- 결과는 job_posting_rules.last_tested_at / last_test_result에 기록한다(자동 시험만 채움).
+do $t$
+declare
+  res jsonb := '{}'::jsonb;
+  ok boolean;
+  v record;
+  src constant text := 'TUYỂN GẤP - Công ty KDA - Liên hệ: NGOC ANH DUONG - SĐT 08.778.807.56 - Tuổi 14-50t - KCN VSIP Bắc Ninh';
+  mark constant text := '[RULE-TEST-20261013]';
+  id1 bigint; id2 bigint;
+begin
+  delete from public.local_jobs where title like mark || '%';
+
+  -- R1: "08.778.807.56"과 "0877.880.756"이 둘 다 0877880756으로 저장
+  begin
+    insert into public.local_jobs (title, company, origin, active, admin_hidden, employer_phone, contact_zalo, source_text, source_url, contact_name, age_min, age_max)
+    values (mark||' R1','KDA','admin',false,true,'08.778.807.56','0877.880.756',src,'test://x','NGOC ANH DUONG',14,50) returning id into id1;
+    select employer_phone, contact_zalo into v from public.local_jobs where id = id1;
+    ok := v.employer_phone = '0877880756' and v.contact_zalo = '0877880756' and public.job_phones_equal('08.778.807.56','0877 880 756');
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('R1_phone_digits_only', ok);
+
+  -- R2: 임의 policy_decision을 넣어도 트리거 값으로 바뀜(INSERT, UPDATE 모두)
+  begin
+    insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, policy_decision)
+    values (mark||' R2','KDA','admin',false,true,'KDA test','test://x','allow:FAKE@hand-written') returning id into id2;
+    select policy_decision into v from public.local_jobs where id = id2;
+    ok := v.policy_decision is distinct from 'allow:FAKE@hand-written'
+          and v.policy_decision = public.job_policy_decision(mark||' R2','KDA',null,'other',null);
+    update public.local_jobs set policy_decision = 'allow:FAKE2' where id = id2;
+    select policy_decision into v from public.local_jobs where id = id2;
+    ok := ok and v.policy_decision <> 'allow:FAKE2';
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('R2_decision_columns_code_only', ok);
+
+  -- R3: source_text가 빈 admin 공고는 거부 / source_url·images 둘 다 없어도 거부
+  begin
+    begin
+      insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url)
+      values (mark||' R3','KDA','admin',false,true,'','test://x');
+      ok := false;
+    exception when check_violation then ok := sqlerrm like 'job_rule_R3%'; end;
+    if ok then
+      begin
+        insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text)
+        values (mark||' R3b','KDA','admin',false,true,'KDA text');
+        ok := false;
+      exception when check_violation then ok := sqlerrm like 'job_rule_R3%'; end;
+    end if;
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('R3_source_evidence_required', ok);
+
+  -- R4: 성조 붙인 "Ngọc Anh Dương"은 거부, 원문 그대로 "NGOC ANH DUONG"은 통과
+  begin
+    begin
+      insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name, age_min, age_max)
+      values (mark||' R4a','KDA','admin',false,true,src,'test://x','Ngọc Anh Dương',14,50);
+      ok := false;
+    exception when check_violation then ok := sqlerrm like 'job_rule_R4%'; end;
+    if ok then
+      insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name, age_min, age_max)
+      values (mark||' R4b','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG',14,50);
+    end if;
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('R4_verbatim_names', ok);
+
+  -- R5: 원문에 14-50t가 있는데 age_min·age_max가 비면 거부
+  begin
+    begin
+      insert into public.local_jobs (title, company, origin, active, admin_hidden, source_text, source_url, contact_name)
+      values (mark||' R5','KDA','admin',false,true,src,'test://x','NGOC ANH DUONG');
+      ok := false;
+    exception when check_violation then ok := sqlerrm like 'job_rule_R5%'; end;
+  exception when others then ok := false; end;
+  res := res || jsonb_build_object('R5_age_preserved', ok);
+
+  -- 정리: 시험 공고 삭제 후 0건 확인
+  delete from public.local_jobs where title like mark || '%';
+  if exists (select 1 from public.local_jobs where title like mark || '%') then
+    raise exception '시험 공고 삭제 실패';
+  end if;
+
+  update public.job_posting_rules r
+     set last_tested_at = now(),
+         last_test_result = case when (res ->> r.rule_key)::boolean then '통과' else '실패' end
+   where res ? r.rule_key;
+end $t$;

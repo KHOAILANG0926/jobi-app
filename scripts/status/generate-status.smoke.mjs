@@ -23,6 +23,7 @@ writeFileSync(mock, `globalThis.fetch = async (url) => {
   if (u.includes('job_work_locations')) return j([{ job_id: 4713, raw_address: '1A Lê Thái Tổ, Bắc Ninh' }])
   if (u.includes('local_jobs?select=id,company')) return j([{ id: 4713, company: 'PIZZA' }])
   if (u.includes('vietmap_usage_daily')) return j([{ day: '2026-10-11', calls: 1, updated_at: '2026-10-11T00:00:00Z' }])
+  if (u.includes('job_posting_rules')) return j([{ rule_key: 'R1_phone_digits_only', block_mode: '없음', last_tested_at: '2026-10-13T00:00:00Z', last_test_result: '통과' }])
   if (u.includes('admin_audit_logs')) return j([{ action: 'x', target_type: 'job', target_id: '1', created_at: '2026-10-11T00:00:00Z' }])
   return j([])
 }`)
@@ -33,6 +34,6 @@ execFileSync(process.execPath, ['--import', mock, join(import.meta.dirname, 'gen
   stdio: 'inherit',
 })
 const md = readFileSync(out, 'utf8')
-for (const part of ['## 1.', '## 5.', '## 6.', '## 7.', '## 8.', '✅ 일치']) assert.ok(md.includes(part), `STATUS에 ${part} 있음`)
+for (const part of ['## 1.', '## 5.', '## 6.', '## 7.', '## 8.', '## 9.', 'R1_phone_digits_only', '✅ 일치']) assert.ok(md.includes(part), `STATUS에 ${part} 있음`)
 assert.ok(!md.includes('조회 실패'), '조회 실패 없음')
 console.log('generate-status smoke: all assertions passed')
