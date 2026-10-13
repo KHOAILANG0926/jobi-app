@@ -10529,6 +10529,15 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-hl-salary__note { font-size: 0.82rem; color: #64748b; }
 .jd2-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.6rem 0 0; }
 .jd2-tag { font-size: 0.78rem; font-weight: 700; color: #be123c; background: #fff1f2; border: 1px solid #fecdd3; padding: 0.15rem 0.6rem; border-radius: 999px; }
+.jd2-tag--bus { display: inline-flex; align-items: center; gap: 0.3rem; overflow: hidden; }
+.jd2-bus-icon { flex: none; animation: jd2-bus-drive 1.6s ease-in-out infinite; }
+@keyframes jd2-bus-drive {
+  0%, 100% { transform: translateX(-2px); }
+  25% { transform: translateX(1px) translateY(-1px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(1px) translateY(-1px); }
+}
+@media (prefers-reduced-motion: reduce) { .jd2-bus-icon { animation: none; } }
 .jd2-warn1 { margin: 0.6rem 0 0; font-size: 0.76rem; color: #92400e; line-height: 1.5; }
 .jd2-info-val--soon { color: #b91c1c; }
 .jd2-map-extra { margin: 0.2rem 0 0; font-size: 0.82rem; color: #475569; }

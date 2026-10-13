@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSS
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
-  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft,
+  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft, Bus,
 } from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
 import type { JobVietMapProps } from '../components/JobVietMap'
@@ -428,7 +428,9 @@ export function JobDetail() {
             )}
             {tags.length > 0 && (
               <div className="jd2-tags">
-                {tags.map((t) => <span key={t} className="jd2-tag">{t}</span>)}
+                {tags.map((t) => t === 'Xe đưa đón'
+                  ? <span key={t} className="jd2-tag jd2-tag--bus"><Bus size={14} strokeWidth={2.2} className="jd2-bus-icon" aria-hidden="true" />{t}</span>
+                  : <span key={t} className="jd2-tag">{t}</span>)}
               </div>
             )}
             <div className="jd2-header__meta">
