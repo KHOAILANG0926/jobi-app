@@ -109,13 +109,13 @@ begin
   exception when others then ok := false; end;
   res := res || jsonb_build_object('R7_ocr_crosscheck', coalesce((res->>'R7_ocr_crosscheck')::boolean, true) and ok);
 
-  -- U2: age_min<15 공개 시도는 active=false로 강제, 18은 그대로
+  -- U2: age_min 14 공고도 공개 유지(게시 허용 결정), 18도 공개
   begin
     insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max)
     values (mark||' U2a','KDA','Cong nhan dong goi','legacy',true,false,14,50) returning id into id1;
     insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max)
     values (mark||' U2b','KDA','Cong nhan dong goi','legacy',true,false,18,50) returning id into id2;
-    ok := (select active from public.local_jobs where id = id1) = false and (select active from public.local_jobs where id = id2) = true;
+    ok := (select active from public.local_jobs where id = id1) = true and (select active from public.local_jobs where id = id2) = true;
   exception when others then ok := false; end;
   res := res || jsonb_build_object('U2_age_min_under_15', ok);
 

@@ -46,7 +46,7 @@ export function compareWithOcr(job, ocrText) {
 }
 
 // OCR가 'ok'가 된 뒤 OCR 단계에서 active=true로 돌려도 되는 공고인가(기존 공개 조건 부분).
-// 정책 판정(R4)·U2(age_min<15)는 DB 트리거가 최종 강제하므로 여기서는 보지 않는다(걸리면 트리거가 비공개 유지/거부).
+// 정책 판정(R4)은 DB 트리거가 최종 강제하므로 여기서는 보지 않는다(걸리면 트리거가 비공개 유지/거부).
 // crawler 공고는 publish_gate_reason='ok'가 필요하고 admin 공고는 이 값을 보지 않는다. 관리자가 끈 공고·만료로 꺼진 공고·R7 이전 공고를 되살리지 않도록 R7 도입 이후 생성분만 대상으로 한다.
 export const OCR_REPUBLISH_FROM = '2026-10-13'
 export function canRepublish(job, today = new Date().toISOString().slice(0, 10)) {
