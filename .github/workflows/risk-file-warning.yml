@@ -1,0 +1,75 @@
+name: 위험 파일 경고
+
+# PR에서 검사·규칙·DB·서버 파일이 바뀌면 PR에 쉬운 한국어 경고 댓글과 라벨을 붙인다.
+# 목적: AI가 코드 대신 검사(테스트·워크플로)를 약하게 고쳐 통과시키는 것을 사람이 바로 알아보게 한다.
+# 병합을 막지는 않는다(경고만). 파일 이름으로만 판단하며 AI를 쓰지 않는다. Secret을 쓰지 않는다.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  warn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const groups = [
+              { name: '검사·자동 실행 설정', why: '검사를 약하게 바꾸면 잘못된 코드도 통과합니다',
+                test: f => f.startsWith('.github/') || /(^|\/)(tests?|e2e|__tests__)\//.test(f) || /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) || f.startsWith('scripts/status/') },
+              { name: 'DB 변경', why: '운영 데이터에 직접 영향을 줍니다',
+                test: f => f.startsWith('supabase/') },
+              { name: '서버 코드', why: '키를 쓰는 서버 기능입니다',
+                test: f => f.startsWith('api/') },
+              { name: 'AI 규칙 문서', why: 'AI가 지켜야 할 규칙이 바뀝니다',
+                test: f => ['AGENTS.md', 'CLAUDE.md'].includes(f) || f.startsWith('.cursor/') },
+              { name: '배포·패키지 설정', why: '사이트 배포 방식이나 설치 프로그램이 바뀝니다',
+                test: f => ['package.json', 'package-lock.json', 'vercel.json'].includes(f) || /^vite\.config\./.test(f) },
+            ];
+
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request.number;
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: pr, per_page: 100 });
+            const names = files.map(x => x.filename);
+
+            const hits = groups
+              .map(g => ({ ...g, files: names.filter(g.test) }))
+              .filter(g => g.files.length > 0);
+
+            const marker = '<!-- risk-file-warning -->';
+            let body;
+            if (hits.length === 0) {
+              body = `${marker}\n✅ **위험 파일 없음** — 화면·기능 코드만 바뀌었습니다.`;
+            } else {
+              const lines = hits.map(g =>
+                `- **${g.name}** (${g.files.length}개) — ${g.why}\n` +
+                g.files.slice(0, 10).map(f => `  - \`${f}\``).join('\n') +
+                (g.files.length > 10 ? `\n  - …외 ${g.files.length - 10}개` : ''));
+              body = `${marker}\n🔴 **위험 파일 변경 있음 — 병합 전에 확인하세요**\n\n${lines.join('\n')}\n\n` +
+                     `이 PR이 왜 이 파일을 바꿨는지 설명이 없으면 병합하지 마세요.`;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr, per_page: 100 });
+            const mine = comments.find(c => c.body && c.body.includes(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr, body });
+            }
+
+            const label = '위험 파일 변경';
+            if (hits.length > 0) {
+              try { await github.rest.issues.getLabel({ owner, repo, name: label }); }
+              catch { await github.rest.issues.createLabel({ owner, repo, name: label, color: 'd73a4a' }); }
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr, labels: [label] });
+            } else {
+              try { await github.rest.issues.removeLabel({ owner, repo, issue_number: pr, name: label }); } catch {}
+            }
+
+            core.summary.addRaw(body.replace(marker, '')).write();
