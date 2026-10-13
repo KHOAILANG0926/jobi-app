@@ -28,6 +28,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from job_quality import ascii_key, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
+from source_fields import REJECTIONS, rule_code, source_fields
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -1065,6 +1066,7 @@ def parse_post(post: dict) -> dict:
         "employer_phone": phone,
         "zalo": zalo,
         "description": f"[source:facebook] {text}",
+        **source_fields("", text),  # 원문 근거 칸: 게시글 전문 그대로(요약·가공 없음)
         "category": category,
         "subcategory": subcategory,
         "posted_at": TODAY,
@@ -1198,11 +1200,14 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
     db_columns = {
         "active",
         "admin_hidden",
+        "age_max",
+        "age_min",
         "application_deadline",
         "category",
         "company",
         "company_founded_year",
         "company_verified",
+        "contact_name",
         "description",
         "education",
         "employer_id",
@@ -1220,6 +1225,7 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
         "preference",
         "salary",
         "source",
+        "source_text",
         "title",
         "urgent",
         "work_days",
@@ -1232,9 +1238,24 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
     saved: list[dict] = []
     for i in range(0, len(new_jobs), 50):
         batch = [to_db_payload(j) for j in new_jobs[i:i+50]]
-        res = supabase.table("local_jobs").insert(batch).execute()
-        saved.extend({"id": r.get("id"), "title": r.get("title")} for r in (res.data or []))
+        try:
+            res = supabase.table("local_jobs").insert(batch).execute()
+            rows = res.data or []
+        except Exception as exc:  # noqa: BLE001 — 규칙 거부가 섞여 있으면 한 건씩 넣어 걸린 공고만 건너뛴다
+            if not rule_code(exc):
+                raise
+            rows = []
+            for payload in batch:
+                try:
+                    rows.extend(supabase.table("local_jobs").insert(payload).execute().data or [])
+                except Exception as one:  # noqa: BLE001
+                    code = rule_code(one)
+                    if not code:
+                        raise
+                    REJECTIONS.add(code, payload.get("title", ""))
+        saved.extend({"id": r.get("id"), "title": r.get("title")} for r in rows)
         print(f"  ✅ 저장: {len(saved)}/{len(new_jobs)}개")
+    REJECTIONS.report()
 
     if not new_jobs:
         print("  ℹ️  새 공고 없음 — 기존 데이터 유지")

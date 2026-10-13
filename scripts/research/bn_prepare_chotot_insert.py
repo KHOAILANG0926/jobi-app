@@ -9,7 +9,7 @@
 
 정책(사용자 지시 2026-10-07):
 - admin_hidden=true(비공개)로 넣는다. 공개는 별도 승인 후 admin_hidden=false로.
-- 경쟁 사이트 원문 링크는 어떤 컬럼에도 넣지 않는다: source_url=NULL(anon이 source_url을 SELECT할 수 있어 공개 API로 새기 때문),
+- source_url에는 원문 광고 주소를 둔다(2026-10-14 사용자 결정: 규칙 R3 근거). 공개 API로 새지 않도록 20261014100000 마이그레이션이 anon·authenticated의 source_url 읽기를 막는다. (이전 정책은 NULL),
   description의 URL은 제거, 내부 추적용 광고 번호만 source='chotot:<광고번호>'(링크 아님)에 둔다.
 - 좌표는 넣지 않는다(lat/lng NULL, geocode_status='pending', coordinate_accuracy='unresolved') — 반영 후 별도 작업.
 - industrial_park는 공고 본문·주소가 KCN을 직접 말한 경우만(원문이 준 값만).
@@ -29,8 +29,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 import classifier  # noqa: E402
 import job_quality as q  # noqa: E402
+from source_fields import source_fields  # noqa: E402
 
-OUT = ROOT / "scripts" / "research" / "out"
+import os  # noqa: E402
+OUT = Path(os.environ.get("RESEARCH_OUT") or ROOT / "scripts" / "research" / "out")
 VERSION = "2026-10-07.chotot-bacninh-v1"
 SOURCE_TAG = "chotot"
 TODAY = (datetime.now(timezone.utc) + timedelta(hours=7)).date().isoformat()
@@ -123,12 +125,16 @@ def build_jobs() -> tuple[list[dict], list[dict]]:
         salary = q.normalize_salary(r["salary"]) if r["salary"] else ""
         smin, smax, scur, sper, sneg = parse_salary(salary)
         gate_ok, gate_reason = q.gate_auto_publish(True, bool(q.normalize_whitespace(r["contact"])))
+        # 원문 근거 칸: 수집한 제목+본문 글자 그대로(clean_body 등 가공 전). 요약·번역·성조 추가 금지.
+        # 구조화된 칸(게시자명·급여·주소·연락처)도 페이지에 적힌 글자 그대로 넣는다. 우리가 보정한 값(work 등)은 넣지 않는다.
+        src_fields = source_fields(r["title"], r.get("body", ""), extras=(r.get("poster"), r.get("salary"), r.get("address"), r.get("contact")))
         job = {
+            **src_fields,
             "title": title, "company": company, "category": category, "subcategory": subcategory,
             "salary": salary or None, "location": "Bắc Ninh", "employer_phone": r["contact"],
             "urgent": q.detect_explicit_urgent_hiring(title, description), "description": description,
             "posted_at": posted_date(src.get("lt")), "active": gate_ok, "origin": "crawler", "admin_hidden": True,
-            "source": f"{SOURCE_TAG}:{r['id']}", "source_url": None, "crawler_version": VERSION,
+            "source": f"{SOURCE_TAG}:{r['id']}", "source_url": f"https://www.chotot.com/{r['id']}.htm", "crawler_version": VERSION,
             "publish_gate_reason": gate_reason, "recruitment_regions": ["Bắc Ninh"],
             "recruitment_type": "agency" if agency else None,
             "salary_min": smin, "salary_max": smax, "salary_currency": scur, "salary_period": sper, "salary_negotiable": sneg,
@@ -153,7 +159,8 @@ def main() -> None:
     # ── SQL 생성: 10건씩 한 트랜잭션, 광고 번호(source) 기준 재실행 안전(이미 있으면 건너뜀)
     cols = ["title", "company", "category", "subcategory", "salary", "location", "employer_phone", "urgent", "description",
             "posted_at", "active", "origin", "admin_hidden", "source", "source_url", "crawler_version", "publish_gate_reason",
-            "recruitment_regions", "recruitment_type", "salary_min", "salary_max", "salary_currency", "salary_period", "salary_negotiable"]
+            "recruitment_regions", "recruitment_type", "salary_min", "salary_max", "salary_currency", "salary_period", "salary_negotiable",
+            "source_text", "contact_name", "age_min", "age_max"]
     for old in OUT.glob("bn_chotot_insert_batch*.sql"):
         old.unlink()
     batches = [jobs[i:i + 10] for i in range(0, len(jobs), 10)]
