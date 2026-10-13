@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-13 23:01 (VN)**
+- 생성 시각: **2026-10-13 23:02 (VN)**
 - 기준 커밋: `fad0d3d` (fix(db): 규칙 트리거에서 local_jobs에 없는 industrial_park 참조 제거 (#62))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38426928149
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38426994670
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
