@@ -2,6 +2,13 @@
 
 작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
 
+## 2026-10-13 13:40 — 관리자 주소 지오코딩 시험 API (Claude)
+
+- 요청: 핀은 가게 기준이 아니라 주소 기준으로(사용자 지시). VietMap 검색은 "37 Lý Thái Tổ"에 33·39번지 가게만 돌려줌(번지 주소 자체 없음, 직접 확인).
+- 변경: `api/admin-geocode.js`(관리자 전용, TomTom·Goong 주소 검색 결과를 정리해 반환, DB 쓰기·핀 생성 없음) + `api/_admin-geocode.test.ts`.
+- 필요: Vercel Production 서버 환경변수 `TOMTOM_API_KEY`(필수), `GOONG_API_KEY`(Goong 계정 활성화 후).
+- 검증: 새 테스트 통과, tsc 통과, npm test 52/52, build 통과.
+
 ## 2026-10-13 06:20 — 길찾기 숨김 금지: 회사명+지역 Google 링크 (Claude)
 
 - 요청: 정확한 위치 없는 공고(약 92건)에 전화 버튼만 남긴 것은 "길찾기 숨기지 말라"는 기존 지시 위반 — 수정.
