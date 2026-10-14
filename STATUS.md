@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-14 08:41 (VN)**
-- 기준 커밋: `aba6ef6` (docs: record main card deployment and verification limits (#71))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38496955664
+- 생성 시각: **2026-10-14 08:51 (VN)**
+- 기준 커밋: `99295fb` (Merge pull request #72 from KHOAILANG0926/fix/compact-kda-card-20261014)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38497813368
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `aba6ef6` · 상태 **success** · 2026-10-14 08:40 (VN)
+- 마지막 Production 배포: `99295fb` · 상태 **success** · 2026-10-14 08:50 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #72 | 2026-10-14 08:49 (VN) | `99295fb` | Restore compact job card layout |
 | #71 | 2026-10-14 08:40 (VN) | `aba6ef6` | Record main card production deployment and remaining browser verification |
 | #70 | 2026-10-14 08:35 (VN) | `ecd7b38` | Fix duplicate home job cards and display source wages |
 | #69 | 2026-10-14 00:12 (VN) | `a663c13` | feat(ui): Xe đưa đón 태그에 움직이는 버스 아이콘 |
@@ -45,7 +46,6 @@
 | #65 | 2026-10-13 23:36 (VN) | `112f940` | ops: KDA 포스터 공고 등록 |
 | #64 | 2026-10-13 23:24 (VN) | `773f9e6` | ops: 공고 숨김 해제 수동 실행 워크플로 |
 | #63 | 2026-10-13 23:21 (VN) | `c11d612` | crawler: 원문 근거 칸 채우기 + 규칙 거부 건너뛰기 |
-| #62 | 2026-10-13 23:00 (VN) | `fad0d3d` | fix(db): 규칙 트리거의 없는 칸(industrial_park) 참조 제거 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
