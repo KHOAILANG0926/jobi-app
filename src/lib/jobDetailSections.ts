@@ -75,5 +75,5 @@ export function sourceRecruitmentEligibility(description: string | null | undefi
   if (!sections.preserved) return undefined
   const eligibility = sections.sections.find(s => s.key === '02')
   if (!eligibility) return undefined
-  return eligibility.lines.find(line => /(?:^|\\s)(?:tuyển|tuyen|nam|nữ|nu|tuổi|tuoi)(?:\\s|[,:.(]|$)/iu.test(line) && /^\\s*[-•*]?\\s*(?:tuyển|tuyen|nam|nữ|nu)/iu.test(line))
+  return eligibility.lines.find(line => /^\s*[-•*]?\s*(?:tuyển|tuyen|nam|nữ|nu)(?:\s|[,:.(]|$)/iu.test(line))
 }
