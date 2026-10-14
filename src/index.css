@@ -12041,3 +12041,20 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) {
   .jd2-benefit--active .jd2-benefit__icon svg { animation: none !important; }
 }
+
+/* Detail header final adjustments: keep card height and content dimensions unchanged. */
+.jd2-header .jd2-save-btn { width: 42px; height: 42px; min-width: 42px; min-height: 42px; padding: 0; align-self: flex-start; justify-content: center; align-items: center; }
+.jd2-header .jd2-header__meta { justify-content: flex-end; column-gap: 16px; }
+.jd2-header .jd2-header__meta .jd2-meta-item { margin-left: auto; }
+.jd2-header .jd2-meta-date { margin-left: 0; }
+/* Redistribute existing gaps; no change to card padding or min-height. */
+.jd2-header .jd2-header__company { margin-bottom: 0.4rem; }
+.jd2-header .jd2-hl-salary { margin-top: 0.15rem; }
+.jd2-header .jd2-benefits { margin-top: 11px; margin-bottom: 6px; }
+@media (max-width: 760px) {
+  .jd2-header .jd2-benefits { margin-top: 9px; margin-bottom: 5px; }
+  .jd2-header .jd2-header__meta { column-gap: 8px; }
+}
+
+/* Detail salary badge and amount: align centers, not different baselines. */
+.jd2-header .jd2-hl-salary { align-items: center; }

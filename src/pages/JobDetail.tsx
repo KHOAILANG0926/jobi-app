@@ -466,7 +466,7 @@ export function JobDetail() {
           onClick={onToggleSave}
           title={saved ? 'Bỏ lưu' : 'Lưu tin'}
         >
-          {saved ? <BookmarkCheck size={18} strokeWidth={1.8} /> : <Bookmark size={18} strokeWidth={1.8} />}
+          {saved ? <BookmarkCheck size={27} strokeWidth={1.8} /> : <Bookmark size={27} strokeWidth={1.8} />}
         </button>
       </div>
 
