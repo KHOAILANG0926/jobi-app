@@ -18,10 +18,10 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'>): CardSalar
   if (!clauses.length) return null
   for (const period of ['hour', 'day', 'month'] as const) {
     const matching = clauses.filter(clause => amount.test(clause) && units[period].test(clause))
-    if (matching.length) return { label: labels[period], text: matching.join('; ') }
+    if (matching.length) return { label: labels[period], text: matching[0].trim() }
   }
   const period = job.salaryPeriod
-  return { label: period && period in labels ? labels[period as keyof typeof labels] : 'Tiền công', text: clauses.join('; ') }
+  return { label: period && period in labels ? labels[period as keyof typeof labels] : 'Tiền công', text: clauses[0].trim() }
 }
 
 /** Main-page presentation only; the shared search/map/detail collection is untouched. */
