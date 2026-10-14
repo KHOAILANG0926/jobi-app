@@ -489,8 +489,8 @@ export function JobDetail() {
       </nav>
 
       {/* ── Main grid ── */}
-      <div className="jd2-grid">
-        <div className="jd2-main">
+      <div className="jd2-grid jd2-grid--detail-redesign">
+        <div className="jd2-main jd2-main--first">
 
           {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
           {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
@@ -506,6 +506,57 @@ export function JobDetail() {
             </div>
           </section>}
 
+        </div>
+        <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
+          {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
+          {showApply && (
+            <button
+              type="button"
+              className="jd2-btn-apply"
+              onClick={onApplyClick}
+              disabled={applyDisabled}
+            >
+              {applyLabel}
+            </button>
+          )}
+          {canApplyInternally ? (
+            <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
+          ) : !hasContact ? (
+            <div id="jd2-apply-unavailable">
+              <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
+            </div>
+          ) : null}
+
+          {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
+          {hasContact && (
+            <div className="jd2-aside-contact">
+              {contact.phone && (
+                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call">
+                  <Phone size={17} strokeWidth={2} />
+                  Gọi {contact.phone}
+                </a>
+              )}
+              {contact.zalo && (
+                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo">
+                  <MessageCircle size={17} strokeWidth={2} />
+                  Zalo
+                </a>
+              )}
+            </div>
+          )}
+
+
+          {/* Message employer */}
+          {showMessageCta && (
+            <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
+              <MessageCircle size={17} strokeWidth={2} />
+              Nhắn tin nhà tuyển dụng
+            </button>
+          )}
+
+
+        </aside>
+        <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
           {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
@@ -812,91 +863,21 @@ export function JobDetail() {
           {!showCompanySection && <CompanyReviews company={job.company} />}
         </div>
 
-        {/* ── Sidebar ── */}
-        <aside className="jd2-aside">
-          {/* Salary */}
-          {salaryText && (
-            <div className="jd2-aside-salary">
-              <span className="jd2-aside-salary__label">Mức lương</span>
-              <span className="jd2-aside-salary__val">{salaryText}</span>
-            </div>
-          )}
 
-          {/* Deadline */}
-          <div className="jd2-aside-row">
-            <span className="jd2-aside-row__label">Hạn nộp hồ sơ</span>
-            <span className="jd2-aside-row__val">{deadlineText}</span>
-          </div>
+      </div>
 
-          <div className="jd2-aside-divider" />
-
-          {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
-          {showApply && (
-            <button
-              type="button"
-              className="jd2-btn-apply"
-              onClick={onApplyClick}
-              disabled={applyDisabled}
-            >
-              {applyLabel}
-            </button>
-          )}
-          {canApplyInternally ? (
-            <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
-          ) : !hasContact ? (
-            <div id="jd2-apply-unavailable">
-              <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
-            </div>
-          ) : null}
-
-          {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
-          {hasContact && (
-            <div className="jd2-aside-contact">
-              {contact.phone && (
-                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call">
-                  <Phone size={17} strokeWidth={2} />
-                  Gọi {contact.phone}
-                </a>
-              )}
-              {contact.zalo && (
-                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo">
-                  <MessageCircle size={17} strokeWidth={2} />
-                  Zalo
-                </a>
-              )}
-            </div>
-          )}
-
+      <div className="jd2-detail-footer">
           <ReportButton
             targetType="job"
             targetId={job.id}
             snapshot={{ title: job.title, company: job.company, url: `/viec-lam/${job.id}` }}
           />
 
-          {/* Message employer */}
-          {showMessageCta && (
-            <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
-              <MessageCircle size={17} strokeWidth={2} />
-              Nhắn tin nhà tuyển dụng
-            </button>
-          )}
-
-          {/* Save */}
-          <button
-            type="button"
-            className={`jd2-btn-ghost jd2-btn-ghost--save${saved ? ' active' : ''}`}
-            onClick={onToggleSave}
-          >
-            {saved
-              ? <><BookmarkCheck size={15} strokeWidth={1.8} /> Đã lưu tin</>
-              : <><Bookmark size={15} strokeWidth={1.8} /> Lưu tin</>
-            }
-          </button>
 
           <p className="jd2-warn1">
             <span aria-hidden="true">⚠️</span> Việc Gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
           </p>
-        </aside>
+
       </div>
 
       {/* ── 하단 고정 바(PC·모바일 공통): Gọi / Zalo / 지원. 연락처가 없으면 Gọi·Zalo는 그리지 않는다 ── */}
