@@ -604,10 +604,10 @@ export function JobDetail() {
                   )}
                   {/* VietMap always renders; this is a browsing viewport, NEVER a verified workplace pin. */}
                   <ClientOnlyMap
-                    lat={mapLocations.points[0]?.lat ?? 16.2}
-                    lng={mapLocations.points[0]?.lng ?? 106.2}
+                    lat={(findRegionCenter([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].filter(Boolean).join(', ')) ?? (/(?:yên phong|yen phong)/iu.test([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].join(' ')) ? findRegionCenter('Bắc Ninh') : null))?.lat ?? mapLocations.points[0]?.lat ?? 16.2}
+                    lng={(findRegionCenter([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].filter(Boolean).join(', ')) ?? (/(?:yên phong|yen phong)/iu.test([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].join(' ')) ? findRegionCenter('Bắc Ninh') : null))?.lng ?? mapLocations.points[0]?.lng ?? 106.2}
                     title={job.title}
-                    zoom={mapLocations.points.length > 0 ? Math.min(mapLocations.zoom, 11) : 5}
+                    zoom={10}
                     pinless
                   />
                   <div className="jd2-map-links">
