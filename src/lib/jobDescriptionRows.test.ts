@@ -61,7 +61,7 @@ assert(!shown.includes('8tr'), 'exact pure salary line is hidden')
 assert(shown.includes('Phụ cấp nhà ở 500k'), 'allowance preserved')
 assert(shown.includes('SĐT: 000 111 2222'), 'different source contact preserved')
 assert(shown.includes('KCN Quế Võ, cổng B'), 'similar but distinct worksite preserved')
-const unknown = descriptionRows('LƯƠNG KHÔNG RÕ\\nCÓ XE ĐƯA ĐÓN', 'x')
+const unknown = descriptionRows('LƯƠNG KHÔNG RÕ\nCÓ XE ĐƯA ĐÓN', 'x')
 assert(unknown.flatMap((r) => r.lines).length === 2, 'unknown uppercase lines must not vanish')
 // Every non-empty data line appears in a section, except recognized headings, title repeats,
 // and three explicitly approved verified duplicate categories.
