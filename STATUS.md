@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-14 11:06 (VN)**
-- 기준 커밋: `a9b5699` (Merge pull request #81 from KHOAILANG0926/fix/detail-benefits-auto-motion-20261014)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38509614672
+- 생성 시각: **2026-10-14 11:11 (VN)**
+- 기준 커밋: `788458b` (Merge pull request #82 from KHOAILANG0926/fix/detail-meta-stack-spacing-20261014)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38510027876
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `a9b5699` · 상태 **success** · 2026-10-14 11:06 (VN)
+- 마지막 Production 배포: `788458b` · 상태 **success** · 2026-10-14 11:11 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #82 | 2026-10-14 11:10 (VN) | `788458b` | Stack location above date and redistribute vertical spacing |
 | #81 | 2026-10-14 11:05 (VN) | `a9b5699` | Animate confirmed benefit icons automatically |
 | #80 | 2026-10-14 11:03 (VN) | `a9a21de` | Align detail metadata right and resize bookmark glyph without card height changes |
 | #79 | 2026-10-14 10:56 (VN) | `8b777ed` | Integrate compact job detail header and 7 verified benefit icons |
@@ -45,7 +46,6 @@
 | #75 | 2026-10-14 09:58 (VN) | `626436e` | Nudge card company information right |
 | #74 | 2026-10-14 08:59 (VN) | `306e1ee` | Keep only one daily wage in job cards |
 | #73 | 2026-10-14 08:56 (VN) | `388c4a5` | Restore approved horizontal job card and single salary |
-| #72 | 2026-10-14 08:49 (VN) | `99295fb` | Restore compact job card layout |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
