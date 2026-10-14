@@ -12223,3 +12223,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   border-radius: 9px; box-shadow: none; font-weight: 600;
 }
 .jd2-grid--detail-redesign .jd2-map-dir:hover { background: #f1f5f9; color: #0f172a; }
+
+/* Distinguish external Google Maps links from ordinary internal controls. */
+.jd2-grid--detail-redesign .jd2-map-dir--google { color: #b91c1c; border-color: #fca5a5; background: #fff; }
+.jd2-grid--detail-redesign .jd2-map-dir--google:hover { color: #991b1b; border-color: #ef4444; background: #fef2f2; }
