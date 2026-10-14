@@ -599,7 +599,7 @@ export function JobDetail() {
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
-                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","category"].includes(f.key))].map((group, i) => (
+                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
                     {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>
