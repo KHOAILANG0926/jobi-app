@@ -361,9 +361,12 @@ export function JobDetail() {
   const yenPhongText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.rawAddress, loc.industrialPark])].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
   const genericYenPhong = /(?:kcn|khu cong nghiep)\s+yen phong\b/.test(yenPhongText)
     && !/(?:yen phong\s*(?:mo rong|ii|2|giai doan|i-a|1a))/.test(yenPhongText)
-  const yenPhongParks = INDUSTRIAL_PARKS.filter((entry) => ['yen-phong-giai-doan-1','yen-phong-mo-rong'].includes(entry.id))
-  const yenPhongOverview = genericYenPhong && yenPhongParks.length === 2
-    ? { lat: (yenPhongParks[0].lat + yenPhongParks[1].lat) / 2, lng: (yenPhongParks[0].lng + yenPhongParks[1].lng) / 2, zoom: 12 }
+  // Browsing viewport only: OSM way/598146230 (Yên Phong phase 1) and
+  // existing sourced OSM way/805410975 (mở rộng). A generic KCN name does not
+  // identify a specific phase or workplace. Never use this for routes or distance.
+  const yenPhongExpansion = INDUSTRIAL_PARKS.find((entry) => entry.id === 'yen-phong-mo-rong')
+  const yenPhongOverview = genericYenPhong && yenPhongExpansion
+    ? { lat: (21.19899 + yenPhongExpansion.lat) / 2, lng: (105.99695 + yenPhongExpansion.lng) / 2, zoom: 12 }
     : null
   const unverifiedMapViewport = yenPhongOverview
     ? yenPhongOverview
