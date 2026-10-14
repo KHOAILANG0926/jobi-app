@@ -50,6 +50,13 @@ export const INDUSTRIAL_PARKS: readonly IndustrialPark[] = [
     source: { provider: 'OpenStreetMap', ref: 'way/597872887', osmName: 'Khu công nghiệp Quế Võ' },
   },
   {
+    id: 'yen-phong-phase-1', name: 'KCN Yên Phong (1단지)',
+    aliases: ['yen phong', 'yen phong 1', 'yen phong giai doan 1'],
+    lat: 21.19899, lng: 105.99695,
+    // OSM industrial landuse way center. Representative point, NOT a gate or factory.
+    source: { provider: 'OpenStreetMap', ref: 'way/598146230', osmName: 'Yen Phong Industrial Zone - Phase 1' },
+  },
+  {
     id: 'yen-phong-mo-rong', name: 'KCN Yên Phong mở rộng',
     aliases: ['yen phong mo rong', 'yen phong khu mo rong'],
     lat: 21.2291794, lng: 106.0047924,
