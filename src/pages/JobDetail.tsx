@@ -602,10 +602,14 @@ export function JobDetail() {
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
                   )}
-                  <div className="jd2-location-pending-placeholder" role="status">
-                    <MapPin size={20} strokeWidth={1.8} />
-                    <span>Chưa xác minh vị trí chính xác</span>
-                  </div>
+                  {/* VietMap always renders; this is a browsing viewport, NEVER a verified workplace pin. */}
+                  <ClientOnlyMap
+                    lat={mapLocations.points[0]?.lat ?? 16.2}
+                    lng={mapLocations.points[0]?.lng ?? 106.2}
+                    title={job.title}
+                    zoom={mapLocations.points.length > 0 ? Math.min(mapLocations.zoom, 11) : 5}
+                    pinless
+                  />
                   <div className="jd2-map-links">
                     {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
                       <a key={link.href} className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
