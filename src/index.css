@@ -12210,3 +12210,16 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-location-pending-placeholder { min-height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: .55rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; color: #64748b; text-align: center; font-size: .9rem; }
 .jd2-location-pending-compact .jd2-map-links { margin: 0; }
 .jd2-location-pending-compact .jd2-map-dir-note { margin: 0; color: #64748b; font-size: .8rem; }
+
+/* Shared vertical rhythm between major detail sections, including the grid break
+   after working conditions. Keeps all major sections at the same 2.25rem interval. */
+.jd2-grid--detail-redesign { row-gap: 2.25rem; }
+.jd2-grid--detail-redesign .jd2-main--full,
+.jd2-grid--detail-redesign .jd2-main--first { gap: 2.25rem; }
+.jd2-grid--detail-redesign .jd2-sec { margin-block: 0; }
+/* Google Maps directions is a neutral secondary action, not the primary blue CTA. */
+.jd2-grid--detail-redesign .jd2-map-dir {
+  background: #fff; color: #334155; border: 1px solid #cbd5e1;
+  border-radius: 9px; box-shadow: none; font-weight: 600;
+}
+.jd2-grid--detail-redesign .jd2-map-dir:hover { background: #f1f5f9; color: #0f172a; }
