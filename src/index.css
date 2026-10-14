@@ -12197,3 +12197,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-conditions-with-contact { display: block; }
   .jd2-conditions-with-contact .jd2-aside--contact-only { display: none; }
 }
+
+/* Job location title and real source address are outside the map card. */
+.jd2-location-above-map { display: flex; flex-direction: column; gap: .45rem; margin: 0 0 .85rem; }
+.jd2-location-above-map__row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; font-size: .95rem; color: #1f2937; }
+.jd2-location-copy { font-size: .78rem; color: #2563eb; border: none; background: transparent; cursor: pointer; padding: .25rem .4rem; }
+.jd2-map-addr--duplicate-outside { display: none; }
+.jd2-recruit-empty { margin: .3rem 0; font-size: .9rem; color: #64748b; }
