@@ -12133,3 +12133,18 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-two-col-card__grid { grid-template-columns: minmax(0, 1fr); }
   .jd2-two-col-card__row { grid-template-columns: 6.5rem minmax(0, 1fr); }
 }
+
+/* Detail redesign: top condition/contact row 70:30; all subsequent sections full width. */
+.jd2-grid--detail-redesign { grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); align-items: stretch; gap: 1.1rem; }
+.jd2-grid--detail-redesign .jd2-main--first { min-width: 0; }
+.jd2-grid--detail-redesign .jd2-main--full { grid-column: 1 / -1; min-width: 0; }
+.jd2-grid--detail-redesign .jd2-aside--contact-only { position: static; top: auto; align-self: stretch; min-width: 0; justify-content: center; border: 1px solid #f5c6d0; }
+.jd2-grid--detail-redesign .jd2-main--first .jd2-sec { height: 100%; display: flex; flex-direction: column; }
+.jd2-grid--detail-redesign .jd2-main--first .jd2-box { flex: 1; }
+.jd2-detail-footer { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem; font-size: 0.85rem; }
+.jd2-detail-footer .jd2-warn1 { margin: 0; }
+@media (max-width: 760px) {
+  .jd2-grid--detail-redesign { grid-template-columns: minmax(0,1fr); }
+  .jd2-grid--detail-redesign .jd2-aside--contact-only { display: none; }
+  .jd2-grid--detail-redesign .jd2-main--full { grid-column: 1; }
+}
