@@ -57,7 +57,7 @@ export const INDUSTRIAL_PARKS: readonly IndustrialPark[] = [
   },
   {
     id: 'yen-phong-giai-doan-1', name: 'KCN Yên Phong – Giai đoạn 1',
-    aliases: ['yen phong giai doan 1', 'yen phong 1', 'yen phong'],
+    aliases: ['yen phong giai doan 1', 'yen phong 1'],
     // OSM landuse=industrial polygon (NOT a factory entrance or route destination).
     // Mapcarta / OpenStreetMap way/598146230: 21.19899, 105.99695
     // Must remain separate from Yên Phong mở rộng / II / II-C.
