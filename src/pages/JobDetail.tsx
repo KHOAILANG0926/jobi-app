@@ -308,7 +308,7 @@ export function JobDetail() {
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
-  const salaryFields = [
+  const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
       salaryText || (salaryNote && !isAllowanceNote) ? (
         <>
@@ -319,19 +319,15 @@ export function JobDetail() {
       ) : undefined, 'jd2-info-val--salary'),
     row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng',
       isAllowanceNote ? salaryNote : undefined),
-  ].filter(Boolean) as InfoField[]
-  const conditionFields = [
-    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
-    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
-    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
     row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
+    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
+    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
     row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
+    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
     row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
-    row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', benefits.length > 0 ? benefits.join(' · ') : undefined),
-    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', /^(other|khác)$/i.test(catLabel.trim()) ? undefined : catLabel),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
-    { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText + (badge ? ` (${badge.label})` : ''), cls: badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined } as InfoField,
+    row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
     row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
@@ -340,6 +336,7 @@ export function JobDetail() {
     row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
     row('language', <Award size={14} strokeWidth={1.8} />, 'Ngoại ngữ', job.languageRequirement),
     row('trip', <MapPin size={14} strokeWidth={1.8} />, 'Đi công tác', job.businessTrip === true ? 'Có thể đi công tác' : job.businessTrip === false ? 'Không đi công tác' : undefined),
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', job.category === 'other' ? undefined : catLabel),
   ].filter(Boolean) as InfoField[]
 
   // 2026-09-05 최종 제품 정책: "모든 공개 공고에 근무지역 텍스트, 지도,
@@ -496,23 +493,8 @@ export function JobDetail() {
       <div className="jd2-grid">
         <div className="jd2-main">
 
-          {/* 급여: 기존 정보 카드 스타일의 최대 2개 행. 상단 요약/연락 패널 유지. */}
-          {salaryFields.length > 0 && <section className="jd2-sec jd2-sec--salary" aria-label="Lương · Thu nhập">
-            <h2 className="jd2-sec__title">Lương · Thu nhập</h2>
-            <div className="jd2-box">
-              <dl className="jd2-kv">
-                {salaryFields.map((f) => (
-                  <div className="jd2-kv__row" key={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd className={f.cls}>{f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </section>}
-
           {/* ① 근무조건 */}
-          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec">
+          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
@@ -527,7 +509,7 @@ export function JobDetail() {
           </section>}
 
           {/* ② 모집조건 */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec">
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.recruit}</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
