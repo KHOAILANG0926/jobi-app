@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-14 00:13 (VN)**
-- 기준 커밋: `a663c13` (feat(ui): 공고 상세 'Xe đưa đón' 태그에 움직이는 버스 아이콘 (#69))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38436800828
+- 생성 시각: **2026-10-14 08:37 (VN)**
+- 기준 커밋: `ecd7b38` (fix: deduplicate home job cards and show verified pay (#70))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38496598125
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -23,12 +23,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 53/53 파일 통과 |
+| 테스트 `npm test` | ✅ 54/54 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `a663c13` · 상태 **success** · 2026-10-14 00:13 (VN)
+- 마지막 Production 배포: `ecd7b38` · 상태 **success** · 2026-10-14 08:36 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #70 | 2026-10-14 08:35 (VN) | `ecd7b38` | Fix duplicate home job cards and display source wages |
 | #69 | 2026-10-14 00:12 (VN) | `a663c13` | feat(ui): Xe đưa đón 태그에 움직이는 버스 아이콘 |
 | #68 | 2026-10-14 00:09 (VN) | `1b582a9` | fix(ui): 수수료 경고 문구를 지원 카드 하단으로 |
 | #67 | 2026-10-14 00:02 (VN) | `81babd9` | ops: KDA 외 공고 삭제 + KDA 포스터 표시 |
@@ -45,7 +46,6 @@
 | #63 | 2026-10-13 23:21 (VN) | `c11d612` | crawler: 원문 근거 칸 채우기 + 규칙 거부 건너뛰기 |
 | #62 | 2026-10-13 23:00 (VN) | `fad0d3d` | fix(db): 규칙 트리거의 없는 칸(industrial_park) 참조 제거 |
 | #60 | 2026-10-13 22:53 (VN) | `f3a843f` | db: 채용공고 규칙 표 + 자동 차단 장치 (R1~R5) |
-| #61 | 2026-10-13 22:37 (VN) | `a2b486f` | fix(admin): 초안 불러오기·게시 전 확인·저장 공고 링크 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
