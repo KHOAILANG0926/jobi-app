@@ -12172,3 +12172,28 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-grid--detail-redesign { grid-template-columns: minmax(0, 1fr); }
   .jd2-grid--detail-redesign .jd2-aside--contact-only { display: none; }
 }
+
+/* Compact contact tiles INSIDE the working-conditions card, aligned to its right edge. */
+.jd2-grid--detail-redesign { grid-template-columns: minmax(0, 1fr); }
+.jd2-grid--detail-redesign .jd2-main--first,
+.jd2-grid--detail-redesign .jd2-main--full { grid-column: 1 / -1; }
+.jd2-conditions-with-contact { display: grid; grid-template-columns: minmax(0,1fr) 62px; gap: 0.8rem; align-items: start; }
+.jd2-conditions-with-contact .jd2-two-col-card__grid { min-width: 0; }
+.jd2-conditions-with-contact .jd2-aside--contact-only {
+  position: static; align-self: start; width: 54px; min-width: 0;
+  background: transparent; border: 0; box-shadow: none; padding: 0; margin: 0;
+  justify-self: end; display: flex; gap: 0.5rem;
+}
+.jd2-conditions-with-contact .jd2-aside-contact { display: flex; flex-direction: column; gap: 0.5rem; align-items: end; }
+.jd2-conditions-with-contact .jd2-aside-contact__call,
+.jd2-conditions-with-contact .jd2-aside-contact__zalo {
+  width: 54px; height: 54px; min-height: 54px; padding: 0.2rem; border-radius: 15px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 0.68rem; line-height: 1; text-decoration: none;
+}
+.jd2-conditions-with-contact .jd2-aside-contact__call svg,
+.jd2-conditions-with-contact .jd2-aside-contact__zalo svg { width: 17px; height: 17px; }
+@media (max-width: 760px) {
+  .jd2-conditions-with-contact { display: block; }
+  .jd2-conditions-with-contact .jd2-aside--contact-only { display: none; }
+}
