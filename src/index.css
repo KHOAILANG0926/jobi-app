@@ -11975,3 +11975,24 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 /* Leaflet 패널 z-index(400+)가 고정 헤더 위로 올라오지 않게 지도마다 쌓임 맥락을 분리 */
 .jcf-map, .hme__map { isolation: isolate; z-index: 0; }
+
+/* Job detail header typography contract (2026-10-14).
+   Title tiers are based on displayed title after removal of a duplicate company prefix;
+   CSS handles viewport-specific sizing. This is limited to the detail header. */
+.jd2-header .jd2-header__title { line-height: 1.3; overflow-wrap: anywhere; }
+.jd2-header .jd2-header__company { font-size: 14px; }
+.jd2-header .jd2-header__meta { font-size: 12px; }
+.jd2-header .jd2-chip, .jd2-header .jd2-tag { font-size: 11px; }
+.jd2-header .jd2-hl-salary__val { font-size: 20px; }
+.jd2-header .jd2-header__title--short { font-size: 20px; }
+.jd2-header .jd2-header__title--medium { font-size: 19px; }
+.jd2-header .jd2-header__title--long { font-size: 18px; }
+@media (min-width: 761px) {
+  .jd2-header .jd2-header__title--short { font-size: 26px; }
+  .jd2-header .jd2-header__title--medium { font-size: 23px; }
+  .jd2-header .jd2-header__title--long { font-size: 20px; }
+  .jd2-header .jd2-header__company { font-size: 16px; }
+  .jd2-header .jd2-header__meta { font-size: 13px; }
+  .jd2-header .jd2-chip, .jd2-header .jd2-tag { font-size: 12px; }
+  .jd2-header .jd2-hl-salary__val { font-size: 25px; }
+}
