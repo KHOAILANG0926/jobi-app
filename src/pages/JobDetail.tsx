@@ -321,7 +321,7 @@ export function JobDetail() {
     row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
     row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
     row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', benefits.length > 0 ? benefits.join(' · ') : undefined),
-    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', catLabel),
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', /^(other|khác)$/i.test(catLabel.trim()) ? undefined : catLabel),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
     { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText + (badge ? ` (${badge.label})` : ''), cls: badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined } as InfoField,
@@ -490,7 +490,7 @@ export function JobDetail() {
         <div className="jd2-main">
 
           {/* ① 근무조건 */}
-          <section id={jobSectionId('conditions')} className="jd2-sec">
+          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
@@ -502,10 +502,10 @@ export function JobDetail() {
                 ))}
               </dl>
             </div>
-          </section>
+          </section>}
 
           {/* ② 모집조건 */}
-          <section id={jobSectionId('recruit')} className="jd2-sec">
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.recruit}</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
@@ -517,7 +517,7 @@ export function JobDetail() {
                 ))}
               </dl>
             </div>
-          </section>
+          </section>}
 
           {/* ③ 근무지역 */}
           <section id={jobSectionId('location')} className="jd2-sec">
@@ -751,7 +751,7 @@ export function JobDetail() {
               <div className="jd2-box">
                 <div className="jd2-card__body">
                   {extraImages.map((url, i) => (
-                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" />
+                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
                   ))}
                 </div>
               </div>
