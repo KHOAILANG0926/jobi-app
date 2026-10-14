@@ -25,8 +25,49 @@ assert(descriptionRows('', 'x').length === 0 && descriptionRows(null, 'x').lengt
 assert(descriptionRows('https://example.com/x', 'x').length === 0, 'url-only description → no rows')
 assert(descriptionRows(`[source:facebook] ${T}\nYÊU CẦU`, T).length === 0, 'only title + headings → no rows')
 // 소제목 없는 본문은 "Thông tin khác"
-assert(same(descriptionRows('Làm việc vui vẻ', 'x').map((r) => r.key), ['other']), 'unheaded text → other info')
+assert(same(descriptionRows('Làm việc vui vẻ', 'x').map((r) => r.key), ['unclassified']), 'unheaded text → unclassified info')
 // 같은 문장 중복 제거
-assert(descriptionRows('Chăm chỉ\nChăm chỉ', 'x')[0].lines.length === 1, 'duplicate lines removed')
+assert(descriptionRows('Chăm chỉ\nChăm chỉ', 'x')[0].lines.length === 2, 'repeated non-heading lines preserved')
 
 console.log('jobDescriptionRows.test.ts: all assertions passed')
+
+// Expected outcomes were specified independently of the previous buggy classifier.
+// Synthetic text and non-dialable numbers only: never commit real contacts into this public repo.
+const fixture = [
+  'Lương và phúc lợi',
+  'Lương 8tr + chuyên cần 500k',
+  'Liên hệ',
+  'SĐT: 000 000 0000',
+  'Địa điểm làm việc',
+  'KCN Quế Võ, Bắc Ninh',
+  'CHƯA PHÂN LOẠI',
+].join('\n')
+const classified = descriptionRows(fixture, 'Synthetic job', {
+  salaryText: '8tr', contactPhone: '0000000000', locationText: 'KCN Quế Võ, Bắc Ninh',
+})
+assert(classified.some((r) => r.key === 'salary' && r.lines.includes('Lương 8tr + chuyên cần 500k')), 'mixed salary + attendance survives in salary section')
+assert(!classified.some((r) => r.lines.includes('SĐT: 000 000 0000')), 'same normalized phone may be omitted')
+assert(!classified.some((r) => r.lines.includes('KCN Quế Võ, Bắc Ninh')), 'identical accent-sensitive address may be omitted')
+assert(classified.some((r) => r.key === 'workplace' && r.lines.includes('CHƯA PHÂN LOẠI')), 'unrecognised content stays visible in current section')
+
+const neverLose = descriptionRows([
+  'Lương thưởng', '8tr', 'Phụ cấp nhà ở 500k', 'Liên hệ',
+  'SĐT: 000 111 2222', 'Địa điểm làm việc', 'KCN Quế Võ, cổng B',
+].join('\n'), 'Another job', {
+  salaryText: '8tr', contactPhone: '0009999999', locationText: 'KCN Quế Võ',
+})
+const shown = neverLose.flatMap((r) => r.lines)
+assert(!shown.includes('8tr'), 'exact pure salary line is hidden')
+assert(shown.includes('Phụ cấp nhà ở 500k'), 'allowance preserved')
+assert(shown.includes('SĐT: 000 111 2222'), 'different source contact preserved')
+assert(shown.includes('KCN Quế Võ, cổng B'), 'similar but distinct worksite preserved')
+const unknown = descriptionRows('LƯƠNG KHÔNG RÕ\nCÓ XE ĐƯA ĐÓN', 'x')
+assert(unknown.flatMap((r) => r.lines).length === 2, 'unknown uppercase lines must not vanish')
+// Every non-empty data line appears in a section, except recognized headings, title repeats,
+// and three explicitly approved verified duplicate categories.
+const raw = ['Mô tả công việc', 'Lắp ráp linh kiện', 'Yêu cầu tuyển dụng', 'Chăm chỉ', 'Lương và phúc lợi', 'Lương 8tr + chuyên cần 500k', 'Thông tin chưa rõ']
+const result = descriptionRows(raw.join('\n'), 'Synthetic job')
+const visible = result.flatMap((r) => r.lines)
+for (const line of raw.filter((v) => !['Mô tả công việc','Yêu cầu tuyển dụng','Lương và phúc lợi'].includes(v))) {
+  assert(visible.includes(line), 'lossless source line: ' + line)
+}
