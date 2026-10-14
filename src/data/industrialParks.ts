@@ -56,7 +56,7 @@ export const INDUSTRIAL_PARKS: readonly IndustrialPark[] = [
     source: { provider: 'OpenStreetMap', ref: 'way/805410975', osmName: 'Khu công nghiệp Yên Phong mở rộng' },
   },
   {
-    id: 'yen-phong-phase-1', name: 'KCN Yên Phong (1단지)',
+    id: 'yen-phong-phase-1', name: 'KCN Yên Phong (Giai đoạn 1)',
     aliases: ['yen phong', 'yen phong 1', 'yen phong giai doan 1'],
     lat: 21.19899, lng: 105.99695,
     // OSM industrial landuse way center. Representative point, NOT a gate or factory.
