@@ -307,6 +307,12 @@ export function JobDetail() {
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
+  // Fixed future-proof slots: missing values do not remove the field definition.
+  // Only populated slots render; don't fabricate values or infer benefits from source text.
+  const conditionColumns = [
+    ['salary', 'allowance', 'jobDuration', 'workDays', 'hours'],
+    ['workPeriod', 'shift', 'weekend'],
+  ] as const
   const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
       salaryText || (salaryNote && !isAllowanceNote) ? (
@@ -497,9 +503,11 @@ export function JobDetail() {
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
               <div className="jd2-two-col-card__grid">
-                {[conditionFields.filter((f) => ["salary","allowance","hours","workDays"].includes(f.key)), conditionFields.filter((f) => !["salary","allowance","hours","workDays"].includes(f.key))].map((group, i) => (
+                {conditionColumns.map((keys, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
-                    {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
+                    {keys.map((key) => conditionFields.find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
+                      <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
+                    ))}
                   </dl>
                 ))}
               </div>
