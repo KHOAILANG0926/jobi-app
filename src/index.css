@@ -12227,3 +12227,22 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 /* Distinguish external Google Maps links from ordinary internal controls. */
 .jd2-grid--detail-redesign .jd2-map-dir--google { color: #b91c1c; border-color: #fca5a5; background: #fff; }
 .jd2-grid--detail-redesign .jd2-map-dir--google:hover { color: #991b1b; border-color: #ef4444; background: #fef2f2; }
+
+/* PR #86: uncluttered Google Maps link, B-motion (3px, 2s). */
+.jd2-grid--detail-redesign .jd2-map-dir--google,
+.jd2-grid--detail-redesign .jd2-map-dir--google:hover {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 7px 0; border: 0; border-radius: 0;
+  background: transparent; box-shadow: none; text-decoration: none;
+  color: inherit;
+}
+.jd2-google-label { font-size: 16px; font-weight: 600; }
+.jd2-google-brand { display: inline-flex; font-family: Arial, sans-serif; font-size: 30px; font-weight: 650; letter-spacing: -1.7px; line-height: 1; }
+.jd2-google-brand span:nth-child(1), .jd2-google-brand span:nth-child(4) { color: #4285f4; }
+.jd2-google-brand span:nth-child(2), .jd2-google-brand span:nth-child(6) { color: #ea4335; }
+.jd2-google-brand span:nth-child(3) { color: #fbbc05; }
+.jd2-google-brand span:nth-child(5) { color: #34a853; }
+.jd2-google-maps { font-size: 17px; font-weight: 600; }
+.jd2-google-arrow { width: 25px; height: 25px; stroke: #dc2626; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; animation: jd2-google-glide 2s ease-in-out infinite; }
+@keyframes jd2-google-glide { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(3px, -3px); } }
+@media (prefers-reduced-motion: reduce) { .jd2-google-arrow { animation: none; } }
