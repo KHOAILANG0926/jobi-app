@@ -20,9 +20,9 @@ const stripBullet = (s: string) => s.replace(/^[•\-–*·]\s+/, '').trim()
 function headingType(value: string): DescRowKey | undefined {
   const h = foldHeading(value.replace(/^##\s*/, '').replace(/:\s*$/, ''))
   if (/^(mo ta cong viec|cong viec|nhiem vu|trach nhiem)$/.test(h)) return 'duty'
-  if (/^(yeu cau|yeu cau tuyen dung|doi tuong|tieu chuan)$/.test(h)) return 'otherReq'
+  if (/^(yeu cau(?: tuyen dung| cong viec)?|doi tuong|tieu chuan)$/.test(h)) return 'otherReq'
   if (/^(luong|luong thuong|luong va phuc loi|thu nhap|muc luong)$/.test(h)) return 'salary'
-  if (/^(quyen loi|phuc loi|che do|moi truong)$/.test(h)) return 'environment'
+  if (/^(quyen loi(?: duoc huong)?|phuc loi|che do(?: phuc loi)?|moi truong)$/.test(h)) return 'environment'
   if (/^(dia diem lam viec|dia chi lam viec|noi lam viec)$/.test(h)) return 'workplace'
   if (/^(lien he|thong tin lien he|so dien thoai)$/.test(h)) return 'contact'
   return undefined
@@ -38,6 +38,15 @@ function phoneKey(s: string): string | undefined {
     if (mapped) return mapped + digits.slice(4)
   }
   return digits
+}
+// Warn only when a clearly labelled telephone in the source is demonstrably different.
+export function hasDifferentContactPhone(lines: string[], panelPhone: string | undefined): boolean {
+  const target = panelPhone && phoneKey(panelPhone)
+  if (!target) return false
+  return lines.some((line) => {
+    const match = line.match(/^(?:sđt|sdt|điện thoại|số điện thoại|phone|tel|liên hệ)\s*[:：-]?\s*(\+?[\d\s().-]+)$/iu)
+    return !!match && !!phoneKey(match[1]) && phoneKey(match[1]) !== target
+  })
 }
 function isPurePhoneLine(line: string, phone: string): boolean {
   const match = line.match(/^(?:(?:sđt|sdt|điện thoại|số điện thoại|phone|tel|liên hệ|zalo)\s*[:：-]?\s*)?(\+?[\d\s().-]+)$/iu)
