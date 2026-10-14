@@ -567,22 +567,35 @@ export function JobDetail() {
 
         <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
+          {<section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
-              <div className="jd2-two-col-card__grid">
+              {recruitFields.length === 0 ? (
+                <p className="jd2-recruit-empty">Chưa có thông tin chi tiết về yêu cầu tuyển dụng.</p>
+              ) : <div className="jd2-two-col-card__grid">
                 {[recruitFields.filter((f) => ["deadline","numHires","age","gender","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","category"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
                     {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>
                 ))}
-              </div>
+              </div>}
             </div>
           </section>}
 
           {/* ③ 근무지역 */}
           <section id={jobSectionId('location')} className="jd2-sec">
           <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.location}</h2>
+          <div className="jd2-location-above-map">
+            {(job.workLocations?.length ? job.workLocations.map((loc) => loc.rawAddress).filter(Boolean) :
+              hasRecruitmentRegionsOnly ? (job.recruitmentRegions ?? []) : locationText ? [locationText] : []).map((addr, i) => (
+              <div className="jd2-location-above-map__row" key={i}>
+                <MapPin size={15} strokeWidth={1.8} />
+                <span>{addr}</span>
+                <button type="button" className="jd2-location-copy" onClick={() => { void navigator.clipboard?.writeText(addr) }}>Sao chép</button>
+              </div>
+            ))}
+          </div>
+
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
             <div className="jd2-card__body">
@@ -608,7 +621,7 @@ export function JobDetail() {
                         const isRegionOnlyText = loc.addressAccuracy === 'region_only'
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
-                            <p className="jd2-map-addr">
+                            <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
@@ -679,7 +692,7 @@ export function JobDetail() {
                           const gmaps = externalMapLinks(findRegionCenter(region), false, 11)
                           return (
                             <li key={region} className="jd2-map-addr-item">
-                              <p className="jd2-map-addr">
+                              <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
                                 <MapPin size={13} strokeWidth={1.8} />
                                 {region}
                               </p>
@@ -692,7 +705,7 @@ export function JobDetail() {
                   ) : (
                     locationText && (
                       <>
-                        <p className="jd2-map-addr">
+                        <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
                           <MapPin size={13} strokeWidth={1.8} />
                           {locationText}
                         </p>
