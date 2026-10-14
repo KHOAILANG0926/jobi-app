@@ -31,7 +31,6 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
 import { useWardCenter } from '../lib/wardAreaClient'
 import { findIndustrialPark } from '../lib/industrialPark'
-import { INDUSTRIAL_PARKS } from '../data/industrialParks'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -356,18 +355,6 @@ export function JobDetail() {
   // Do not infer a specific industrial park from similarly named areas.
   const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
     ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
-  // A generic "KCN Yên Phong" does NOT uniquely identify a phase.
-  // Frame the two sourced Yên Phong areas together; no worksite pin/directions to either center.
-  const yenPhongText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.rawAddress, loc.industrialPark])].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
-  const genericYenPhong = /(?:kcn|khu cong nghiep)\s+yen phong\b/.test(yenPhongText)
-    && !/(?:yen phong\s*(?:mo rong|ii|2|giai doan|i-a|1a))/.test(yenPhongText)
-  // Browsing viewport only: OSM way/598146230 (Yên Phong phase 1) and
-  // existing sourced OSM way/805410975 (mở rộng). A generic KCN name does not
-  // identify a specific phase or workplace. Never use this for routes or distance.
-  const yenPhongExpansion = INDUSTRIAL_PARKS.find((entry) => entry.id === 'yen-phong-mo-rong')
-  const yenPhongOverview = genericYenPhong && yenPhongExpansion
-    ? { lat: (21.19899 + yenPhongExpansion.lat) / 2, lng: (105.99695 + yenPhongExpansion.lng) / 2, zoom: 12 }
-    : null
   // Display-only Google Maps search: send text, never import Google's coordinates
   // into VietMap. Applies automatically to employer + KCN job listings.
   const companyParkText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress])].filter(Boolean).join(' ')
@@ -378,16 +365,17 @@ export function JobDetail() {
   const googleCompanyParkLink = googleCompanyParkText
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
     : null
-  const unverifiedMapViewport = yenPhongOverview
-    ? yenPhongOverview
+  const genericPark = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
+  const unverifiedMapViewport = genericPark
+    ? { lat: genericPark.destination?.kind === 'gate' ? genericPark.destination.lat : genericPark.lat,
+        lng: genericPark.destination?.kind === 'gate' ? genericPark.destination.lng : genericPark.lng, zoom: 14 }
     : wardCenter
-    ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
-    : mappedRegion
-      ? { ...mappedRegion, zoom: 11 }
-      : mapLocations.points.length > 0
-        ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
-        : { lat: 14.0583, lng: 108.2772, zoom: 5 }
-
+      ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
+      : mappedRegion
+        ? { ...mappedRegion, zoom: 11 }
+        : mapLocations.points.length > 0
+          ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
+          : { lat: 14.0583, lng: 108.2772, zoom: 5 }
 
   // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
   // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
@@ -640,14 +628,13 @@ export function JobDetail() {
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
                   )}
-                  {/* VietMap always renders; this is a browsing viewport, NEVER a verified workplace pin. */}
                   <ClientOnlyMap
                     lat={unverifiedMapViewport.lat}
                     lng={unverifiedMapViewport.lng}
-                    title={job.title}
+                    title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
                     zoom={unverifiedMapViewport.zoom}
-                    pinless
                   />
+                  <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
                   <div className="jd2-map-links">
                     {googleCompanyParkLink ? (
                       <a className="jd2-map-dir" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
@@ -801,7 +788,7 @@ export function JobDetail() {
                   )}
                   {park && (
                     <>
-                      <ClientOnlyMap lat={park.lat} lng={park.lng} title={park.name} zoom={14} pinless parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
+                      <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
                       <p className="jd2-map-pending-note jd2-map-area-note">
                         <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (viền nét đứt, không có ghim) — chưa dùng để tính khoảng cách.
                         <span className="jd2-map-credit"> Viền khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
