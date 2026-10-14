@@ -114,7 +114,8 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
             ? { bounds: outlineRef.current.bounds, fitBoundsOptions: { padding: 28, maxZoom: 16 } }
             : { center: [lng, lat] as [number, number], zoom }),
           attributionControl: false,
-          scrollZoom: interactive,
+          // Desktop inline map supports wheel zoom; touch devices keep page scrolling.
+          scrollZoom: interactive || !coarse,
           dragPan,
           touchZoomRotate: interactive,
           dragRotate: false,
