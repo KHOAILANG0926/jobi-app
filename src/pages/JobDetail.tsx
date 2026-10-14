@@ -567,18 +567,16 @@ export function JobDetail() {
 
         <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
-          {<section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
-              {recruitFields.length === 0 ? (
-                <p className="jd2-recruit-empty">Chưa có thông tin chi tiết về yêu cầu tuyển dụng.</p>
-              ) : <div className="jd2-two-col-card__grid">
+              <div className="jd2-two-col-card__grid">
                 {[recruitFields.filter((f) => ["deadline","numHires","age","gender","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","category"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
                     {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>
                 ))}
-              </div>}
+              </div>
             </div>
           </section>}
 
@@ -625,14 +623,14 @@ export function JobDetail() {
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
-                            {loc.industrialPark && <p className="jd2-map-extra">Khu công nghiệp: <strong>{loc.industrialPark}</strong></p>}
+                            {loc.industrialPark && loc.industrialPark.toLocaleLowerCase('vi').trim() !== loc.rawAddress.toLocaleLowerCase('vi').replace(/^kcn\s+/i, '').trim() && <p className="jd2-map-extra">Khu công nghiệp: <strong>{loc.industrialPark}</strong></p>}
                             {loc.shuttleRoute && <p className="jd2-map-extra">Tuyến xe đưa đón: <strong>{loc.shuttleRoute}</strong></p>}
                             {loc.matchedRecruitmentRegions && loc.matchedRecruitmentRegions.length > 1 && (
                               <p className="jd2-map-recruitment-regions">
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {loc.geocodeStatus === 'pending' && !isRegionOnlyText ? (
+                            {loc.geocodeStatus === 'pending' && mapLocations.source !== 'pending' && !isRegionOnlyText ? (
                               // 2026-09-07 사용자 지시: geocode_status='pending'은
                               // "실패"가 아니라 "아직 지오코딩을 시도하지 않음" —
                               // exact_text인데 아직 시도 안 한 경우에만 이 문구를
@@ -780,11 +778,10 @@ export function JobDetail() {
                     <div className="jd2-map-links">
                       {directionsPlan.links.map((link) => (
                         <span key={link.href}>
-                          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps ↗</a>{' '}
-                          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label} ↗</a>
+                          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
                         </span>
                       ))}
-                      {directionsPlan.call && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call} ({directionsPlan.call.phone})</a>}
+                      {directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
                       <p className="jd2-map-dir-note">{directionsPlan.note}</p>
                     </div>
                   )}
