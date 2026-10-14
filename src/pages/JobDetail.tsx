@@ -492,33 +492,31 @@ export function JobDetail() {
       <div className="jd2-grid">
         <div className="jd2-main">
 
-          {/* ① 근무조건 */}
-          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className={`jd2-sec jd2-sec--conditions-grid${conditionFields.length === 1 ? ' jd2-sec--single-detail' : ''}`}>
+          {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
+          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
-            <div className="jd2-box">
-              <dl className="jd2-kv">
-                {conditionFields.map((f) => (
-                  <div className="jd2-kv__row" key={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd className={f.cls}>{f.value}</dd>
-                  </div>
+            <div className="jd2-box jd2-two-col-card">
+              <div className="jd2-two-col-card__grid">
+                {[conditionFields.filter((f) => ["salary","allowance","hours","workDays"].includes(f.key)), conditionFields.filter((f) => !["salary","allowance","hours","workDays"].includes(f.key))].map((group, i) => (
+                  <dl className="jd2-two-col-card__column" key={i}>
+                    {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
+                  </dl>
                 ))}
-              </dl>
+              </div>
             </div>
           </section>}
 
-          {/* ② 모집조건 */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitFields.length === 1 ? ' jd2-sec--single-detail' : ''}`}>
-            <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.recruit}</h2>
-            <div className="jd2-box">
-              <dl className="jd2-kv">
-                {recruitFields.map((f) => (
-                  <div className="jd2-kv__row" key={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd className={f.cls}>{f.value}</dd>
-                  </div>
+          {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
+            <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
+            <div className="jd2-box jd2-two-col-card">
+              <div className="jd2-two-col-card__grid">
+                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","category"].includes(f.key))].map((group, i) => (
+                  <dl className="jd2-two-col-card__column" key={i}>
+                    {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
+                  </dl>
                 ))}
-              </dl>
+              </div>
             </div>
           </section>}
 
