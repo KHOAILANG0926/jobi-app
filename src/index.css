@@ -12013,11 +12013,19 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-benefit__icon { width: 33px; height: 33px; border-radius: 9px; display: grid; place-items: center; flex: none; background: #f1f5f9; color: #a1a1aa; }
 .jd2-benefit__label { font-size: 10px; line-height: 1.15; font-weight: 600; color: #64748b; overflow-wrap: anywhere; }
 .jd2-benefit--unknown .jd2-benefit__label { color: #9ca3af; }
-.jd2-benefit--active .jd2-benefit__icon svg { animation: jd2-benefit-enter .6s ease-out both; }
-.jd2-benefit--active:hover .jd2-benefit__icon svg,
-.jd2-benefit--active:active .jd2-benefit__icon svg { animation: jd2-benefit-wiggle .55s ease-in-out; }
-@keyframes jd2-benefit-enter { from { opacity: .55; transform: translateY(3px) scale(.88); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes jd2-benefit-wiggle { 0%,100% { transform: translateX(0) rotate(0); } 35% { transform: translateX(2px) rotate(8deg); } 70% { transform: translateX(-2px) rotate(-6deg); } }
+/* Only source-confirmed benefits move: a short motion, then rest, staggered by type. */
+.jd2-benefit--active .jd2-benefit__icon svg { animation: jd2-benefit-pop 4.2s ease-in-out infinite; transform-origin: center; }
+.jd2-benefit--active:nth-child(1) .jd2-benefit__icon svg { animation-name: jd2-benefit-bus; animation-delay: 0s; }
+.jd2-benefit--active:nth-child(2) .jd2-benefit__icon svg { animation-name: jd2-benefit-pop; animation-delay: -.6s; }
+.jd2-benefit--active:nth-child(3) .jd2-benefit__icon svg { animation-name: jd2-benefit-tilt; animation-delay: -1.2s; }
+.jd2-benefit--active:nth-child(4) .jd2-benefit__icon svg { animation-name: jd2-benefit-pop; animation-delay: -1.8s; }
+.jd2-benefit--active:nth-child(5) .jd2-benefit__icon svg { animation-name: jd2-benefit-rise; animation-delay: -2.4s; }
+.jd2-benefit--active:nth-child(6) .jd2-benefit__icon svg { animation-name: jd2-benefit-tilt; animation-delay: -3s; }
+.jd2-benefit--active:nth-child(7) .jd2-benefit__icon svg { animation-name: jd2-benefit-rise; animation-delay: -3.6s; }
+@keyframes jd2-benefit-bus { 0%,11%,100% { transform: translateX(0); } 4% { transform: translateX(3px); } 8% { transform: translateX(-1px); } }
+@keyframes jd2-benefit-pop { 0%,11%,100% { transform: scale(1); } 5% { transform: scale(1.16); } }
+@keyframes jd2-benefit-tilt { 0%,11%,100% { transform: rotate(0); } 4% { transform: rotate(-10deg); } 8% { transform: rotate(6deg); } }
+@keyframes jd2-benefit-rise { 0%,11%,100% { transform: translateY(0); } 5% { transform: translateY(-3px); } }
 .jd2-header .jd2-header__meta { justify-content: space-between; gap: 8px; width: 100%; }
 .jd2-meta-date { margin-left: auto; white-space: nowrap; font-size: 11px; color: #94a3b8; }
 @media (min-width: 761px) {
