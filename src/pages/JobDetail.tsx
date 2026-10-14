@@ -493,7 +493,7 @@ export function JobDetail() {
         <div className="jd2-main">
 
           {/* ① 근무조건 */}
-          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
+          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className={`jd2-sec jd2-sec--conditions-grid${conditionFields.length === 1 ? ' jd2-sec--single-detail' : ''}`}>
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
@@ -508,7 +508,7 @@ export function JobDetail() {
           </section>}
 
           {/* ② 모집조건 */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitFields.length === 1 ? ' jd2-sec--single-detail' : ''}`}>
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.recruit}</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
