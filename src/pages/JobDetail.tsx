@@ -597,7 +597,24 @@ export function JobDetail() {
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
             <div className="jd2-card__body">
-              {!hasWorkLocationList && !hasRecruitmentRegionsOnly && !locationText ? (
+              {mapLocations.source === 'pending' && !hasMapPoints && !park && !(wardUnit && wardCenter) ? (
+                <div className="jd2-location-pending-compact">
+                  {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
+                    <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
+                  )}
+                  <div className="jd2-location-pending-placeholder" role="status">
+                    <MapPin size={20} strokeWidth={1.8} />
+                    <span>Chưa xác minh vị trí chính xác</span>
+                  </div>
+                  <div className="jd2-map-links">
+                    {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
+                      <a key={link.href} className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
+                    )}
+                    {directionsPlan.tier === 'call' && <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label}</a>}
+                  </div>
+                  <p className="jd2-map-dir-note">Chưa xác minh địa điểm làm việc chính xác. Vui lòng xác nhận với nhà tuyển dụng trước khi đến.</p>
+                </div>
+              ) : !hasWorkLocationList && !hasRecruitmentRegionsOnly && !locationText ? (
                 // 근무지도, 모집지역도, 텍스트 위치도 전부 없는 경우에만 안내 문구만
                 // 표시한다(정책: "근무지와 모집지역 모두 없음" — 사실 이 조합은 공개
                 // 게이트 자체가 no_address_text로 막으므로 공개된 공고에서는 거의
