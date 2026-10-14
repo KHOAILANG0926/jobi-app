@@ -23,8 +23,8 @@ import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, benefitList, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { descriptionRows } from '../lib/jobDescriptionRows'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
+import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility } from '../lib/jobDetailSections'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -291,8 +291,8 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
-  const benefits = benefitList(job)
-  const descRows = descriptionRows(job.description, job.title)
+  const detail = detailSections(job.description)
+  const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
@@ -305,34 +305,45 @@ export function JobDetail() {
   const periodLabel = salaryPeriodLabel(job.salaryPeriod)
   const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
     value ? ({ key, icon, label, value, cls } as InfoField) : null
+  // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
+  const salaryNote = nonEmpty(job.salaryNote)
+  const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
+  // Fixed future-proof slots: missing values do not remove the field definition.
+  // Only populated slots render; don't fabricate values or infer benefits from source text.
+  const conditionColumns = [
+    ['salary', 'allowance', 'jobDuration', 'workDays', 'hours'],
+    ['workPeriod', 'shift', 'weekend'],
+  ] as const
   const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
-      salaryText ? (
+      salaryText || (salaryNote && !isAllowanceNote) ? (
         <>
-          {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
-          {salaryText}{job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
+          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    row('salaryNote', <Briefcase size={14} strokeWidth={1.8} />, 'Ghi chú lương', job.salaryNote),
-    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
-    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
-    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
+    row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng',
+      isAllowanceNote ? salaryNote : undefined),
     row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
+    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
+    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
     row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
+    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
     row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
-    row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', benefits.length > 0 ? benefits.join(' · ') : undefined),
-    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', /^(other|khác)$/i.test(catLabel.trim()) ? undefined : catLabel),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
-    { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText + (badge ? ` (${badge.label})` : ''), cls: badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined } as InfoField,
+    row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
     row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
     row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement)),
+    row('sourceEligibility', <Users size={14} strokeWidth={1.8} />, 'Đối tượng tuyển', !nonEmpty(job.ageRequirement) || !nonEmpty(job.genderRequirement) ? sourceEligibility : undefined),
     row('gender', <Users size={14} strokeWidth={1.8} />, 'Giới tính', nonEmpty(job.genderRequirement)),
     row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
     row('language', <Award size={14} strokeWidth={1.8} />, 'Ngoại ngữ', job.languageRequirement),
     row('trip', <MapPin size={14} strokeWidth={1.8} />, 'Đi công tác', job.businessTrip === true ? 'Có thể đi công tác' : job.businessTrip === false ? 'Không đi công tác' : undefined),
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
   ].filter(Boolean) as InfoField[]
 
   // 2026-09-05 최종 제품 정책: "모든 공개 공고에 근무지역 텍스트, 지도,
@@ -342,6 +353,32 @@ export function JobDetail() {
   // 최종 우선순위를 이미 계산해준다 — 이 컴포넌트는 그 결과 하나만 쓰면
   // 된다(예전처럼 mapLocation/mapCenter를 별도로 다시 계산하지 않는다).
   const mapLocations = resolveMapLocations(job)
+  // Browse-only VietMap viewport: reuse verified region / ward context, never a workplace pin.
+  // Do not infer a specific industrial park from similarly named areas.
+  const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
+    ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
+  // Display-only Google Maps search: send text, never import Google's coordinates
+  // into VietMap. Applies automatically to employer + KCN job listings.
+  const companyParkText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress])].filter(Boolean).join(' ')
+  const hasNamedPark = /(?:kcn|khu công nghiệp|khu cong nghiep)\s+/iu.test(companyParkText)
+  const googleCompanyParkText = hasNamedPark && job.company?.trim()
+    ? `${job.company.trim()}, ${(job.workLocations?.find((loc) => /(?:kcn|khu công nghiệp|khu cong nghiep)/iu.test(loc.rawAddress))?.rawAddress || job.rawLocation || companyParkText).trim()}`
+    : null
+  const googleCompanyParkLink = googleCompanyParkText
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
+    : null
+  const genericPark = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
+  const unverifiedMapViewport = genericPark
+    ? { lat: genericPark.destination?.kind === 'gate' ? genericPark.destination.lat : genericPark.lat,
+        lng: genericPark.destination?.kind === 'gate' ? genericPark.destination.lng : genericPark.lng, zoom: 14 }
+    : wardCenter
+      ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
+      : mappedRegion
+        ? { ...mappedRegion, zoom: 11 }
+        : mapLocations.points.length > 0
+          ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
+          : { lat: 14.0583, lng: 108.2772, zoom: 5 }
+
   // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
   // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
   // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
@@ -400,7 +437,7 @@ export function JobDetail() {
   // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
   const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
   // 상세요강은 남은 문장 행(또는 추가 사진)이 하나도 없으면 구역·탭을 숨긴다.
-  const showDescriptionSection = descRows.length > 0 || extraImages.length > 0
+  const showDescriptionSection = detail.sections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
@@ -486,46 +523,135 @@ export function JobDetail() {
       </nav>
 
       {/* ── Main grid ── */}
-      <div className="jd2-grid">
-        <div className="jd2-main">
+      <div className={`jd2-grid jd2-grid--detail-redesign${!hasContact && !showApply && !showMessageCta ? ' jd2-grid--no-contact' : ''}`}>
+        <div className="jd2-main jd2-main--first">
 
-          {/* ① 근무조건 */}
-          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec">
+          {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
+          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
-            <div className="jd2-box">
-              <dl className="jd2-kv">
-                {conditionFields.map((f) => (
-                  <div className="jd2-kv__row" key={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd className={f.cls}>{f.value}</dd>
-                  </div>
+            <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
+              <div className="jd2-two-col-card__grid">
+                {conditionColumns.map((keys, i) => (
+                  <dl className="jd2-two-col-card__column" key={i}>
+                    {keys.map((key) => conditionFields.find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
+                      <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
+                    ))}
+                  </dl>
                 ))}
-              </dl>
+              </div>
+        <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
+          {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
+          {showApply && (
+            <button
+              type="button"
+              className="jd2-btn-apply"
+              onClick={onApplyClick}
+              disabled={applyDisabled}
+            >
+              {applyLabel}
+            </button>
+          )}
+          {canApplyInternally ? (
+            <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
+          ) : !hasContact ? (
+            <div id="jd2-apply-unavailable">
+              <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
+            </div>
+          ) : null}
+
+          {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
+          {hasContact && (
+            <div className="jd2-aside-contact">
+              {contact.phone && (
+                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call" title={`Gọi ${contact.phone}`} aria-label={`Gọi ${contact.phone}`}>
+                  <Phone size={17} strokeWidth={2} />
+                  <span className="jd2-contact-action-label">Gọi</span>
+                </a>
+              )}
+              {contact.zalo && (
+                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo" title="Liên hệ qua Zalo" aria-label="Liên hệ qua Zalo">
+                  <MessageCircle size={17} strokeWidth={2} />
+                  <span className="jd2-contact-action-label">Zalo</span>
+                </a>
+              )}
+            </div>
+          )}
+
+
+          {/* Message employer */}
+          {showMessageCta && (
+            <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
+              <MessageCircle size={17} strokeWidth={2} />
+              Nhắn tin nhà tuyển dụng
+            </button>
+          )}
+
+
+        </aside>
             </div>
           </section>}
 
-          {/* ② 모집조건 */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec">
-            <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.recruit}</h2>
-            <div className="jd2-box">
-              <dl className="jd2-kv">
-                {recruitFields.map((f) => (
-                  <div className="jd2-kv__row" key={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd className={f.cls}>{f.value}</dd>
-                  </div>
+        </div>
+
+        <div className="jd2-main jd2-main--full">
+          {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
+            <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
+            <div className="jd2-box jd2-two-col-card">
+              <div className="jd2-two-col-card__grid">
+                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key))].map((group, i) => (
+                  <dl className="jd2-two-col-card__column" key={i}>
+                    {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
+                  </dl>
                 ))}
-              </dl>
+              </div>
             </div>
           </section>}
 
           {/* ③ 근무지역 */}
           <section id={jobSectionId('location')} className="jd2-sec">
           <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.location}</h2>
+          <div className="jd2-location-above-map">
+            {(job.workLocations?.length ? job.workLocations.map((loc) => loc.rawAddress).filter(Boolean) :
+              hasRecruitmentRegionsOnly ? (job.recruitmentRegions ?? []) : locationText ? [locationText] : []).map((addr, i) => (
+              <div className="jd2-location-above-map__row" key={i}>
+                <MapPin size={15} strokeWidth={1.8} />
+                <span>{addr}</span>
+                <button type="button" className="jd2-location-copy" onClick={() => { void navigator.clipboard?.writeText(addr) }}>Sao chép</button>
+              </div>
+            ))}
+          </div>
+
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
             <div className="jd2-card__body">
-              {!hasWorkLocationList && !hasRecruitmentRegionsOnly && !locationText ? (
+              {mapLocations.source === 'pending' && !hasMapPoints && !park && !(wardUnit && wardCenter) ? (
+                <div className="jd2-location-pending-compact">
+                  {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
+                    <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
+                  )}
+                  <ClientOnlyMap
+                    lat={unverifiedMapViewport.lat}
+                    lng={unverifiedMapViewport.lng}
+                    title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
+                    zoom={unverifiedMapViewport.zoom}
+                  />
+                  <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
+                  <div className="jd2-map-links">
+                    {googleCompanyParkLink ? (
+                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+                    ) : (
+                      <>
+                        {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
+                          <a key={link.href} className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
+                        )}
+                        {directionsPlan.tier === 'call' && <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label}</a>}
+                      </>
+                    )}
+                  </div>
+                  <p className="jd2-map-dir-note">Chưa xác minh địa điểm làm việc chính xác. Vui lòng xác nhận với nhà tuyển dụng trước khi đến.</p>
+                </div>
+              ) : !hasWorkLocationList && !hasRecruitmentRegionsOnly && !locationText ? (
                 // 근무지도, 모집지역도, 텍스트 위치도 전부 없는 경우에만 안내 문구만
                 // 표시한다(정책: "근무지와 모집지역 모두 없음" — 사실 이 조합은 공개
                 // 게이트 자체가 no_address_text로 막으므로 공개된 공고에서는 거의
@@ -547,18 +673,18 @@ export function JobDetail() {
                         const isRegionOnlyText = loc.addressAccuracy === 'region_only'
                         return (
                           <li key={loc.id} className="jd2-map-addr-item">
-                            <p className="jd2-map-addr">
+                            <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
                               <MapPin size={13} strokeWidth={1.8} />
                               {loc.rawAddress}
                             </p>
-                            {loc.industrialPark && <p className="jd2-map-extra">Khu công nghiệp: <strong>{loc.industrialPark}</strong></p>}
+                            {loc.industrialPark && loc.industrialPark.toLocaleLowerCase('vi').trim() !== loc.rawAddress.toLocaleLowerCase('vi').replace(/^kcn\s+/i, '').trim() && <p className="jd2-map-extra">Khu công nghiệp: <strong>{loc.industrialPark}</strong></p>}
                             {loc.shuttleRoute && <p className="jd2-map-extra">Tuyến xe đưa đón: <strong>{loc.shuttleRoute}</strong></p>}
                             {loc.matchedRecruitmentRegions && loc.matchedRecruitmentRegions.length > 1 && (
                               <p className="jd2-map-recruitment-regions">
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {loc.geocodeStatus === 'pending' && !isRegionOnlyText ? (
+                            {loc.geocodeStatus === 'pending' && mapLocations.source !== 'pending' && !isRegionOnlyText ? (
                               // 2026-09-07 사용자 지시: geocode_status='pending'은
                               // "실패"가 아니라 "아직 지오코딩을 시도하지 않음" —
                               // exact_text인데 아직 시도 안 한 경우에만 이 문구를
@@ -593,9 +719,7 @@ export function JobDetail() {
                               </p>
                             ) : !isPreciseLoc ? (
                               // 미확인 — 좌표가 있어도(공단 중심·동 단위 추정 등) 근무지 위치로 주장하지 않는다.
-                              <p className="jd2-map-ward-note">
-                                Vị trí nơi làm việc chưa được xác minh — không hiển thị trên bản đồ, không dùng để chỉ đường hay tính khoảng cách.
-                              </p>
+                              null
                             ) : null}
                             <MapLinks links={gmaps} />
                             {isPreciseLoc && !verifiedWard && !approved && (
@@ -618,7 +742,7 @@ export function JobDetail() {
                           const gmaps = externalMapLinks(findRegionCenter(region), false, 11)
                           return (
                             <li key={region} className="jd2-map-addr-item">
-                              <p className="jd2-map-addr">
+                              <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
                                 <MapPin size={13} strokeWidth={1.8} />
                                 {region}
                               </p>
@@ -631,7 +755,7 @@ export function JobDetail() {
                   ) : (
                     locationText && (
                       <>
-                        <p className="jd2-map-addr">
+                        <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
                           <MapPin size={13} strokeWidth={1.8} />
                           {locationText}
                         </p>
@@ -664,11 +788,8 @@ export function JobDetail() {
                   )}
                   {park && (
                     <>
-                      <ClientOnlyMap lat={park.lat} lng={park.lng} title={park.name} zoom={14} pinless parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
-                      <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (viền nét đứt, không có ghim) — chưa dùng để tính khoảng cách.
-                        <span className="jd2-map-credit"> Viền khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
-                      </p>
+                      <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
+                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
@@ -691,10 +812,10 @@ export function JobDetail() {
                       "아직 확인 중"임을 알리는 별도 안내를 지도 대신 보여준다
                       (2026-09-07 사용자 지시: 베트남 기본 중심 표시도, 완전히
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
-                  {mapLocations.source === 'pending' && !(wardUnit && wardCenter) && (
-                    <p className="jd2-map-pending-note">
-                      Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
-                    </p>
+                  {park && googleCompanyParkLink && (
+                    <div className="jd2-map-links">
+                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+                    </div>
                   )}
                   {parkDirection && (
                     <div className="jd2-map-links">
@@ -702,15 +823,14 @@ export function JobDetail() {
                       <p className="jd2-map-dir-note">{parkDirection.note}</p>
                     </div>
                   )}
-                  {directionsPlan.tier === 'address' && (
+                  {!googleCompanyParkLink && directionsPlan.tier === 'address' && (
                     <div className="jd2-map-links">
                       {directionsPlan.links.map((link) => (
                         <span key={link.href}>
-                          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps ↗</a>{' '}
-                          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label} ↗</a>
+                          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
                         </span>
                       ))}
-                      {directionsPlan.call && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call} ({directionsPlan.call.phone})</a>}
+                      {directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
                       <p className="jd2-map-dir-note">{directionsPlan.note}</p>
                     </div>
                   )}
@@ -730,27 +850,23 @@ export function JobDetail() {
           {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-            {descRows.length > 0 && (
-              <div className="jd2-box">
-                <dl className="jd2-kv jd2-kv--single">
-                  {descRows.map((r) => (
-                    <div className="jd2-kv__row" key={r.key}>
-                      <dt>{r.label}</dt>
-                      <dd>
-                        {r.lines.length === 1 ? r.lines[0] : (
-                          <ul className="jd2-desc__list">{r.lines.map((l) => <li key={l} className="jd2-desc__item">{l}</li>)}</ul>
-                        )}
-                      </dd>
+            {detail.sections.length > 0 && (
+              <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+                {detail.sections.map((section) => (
+                  <section key={section.key} className="jd2-detail-section">
+                    <h3 className="jd2-detail-section__title">{section.label}</h3>
+                    <div className="jd2-detail-section__lines">
+                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line}</p>)}
                     </div>
-                  ))}
-                </dl>
+                  </section>
+                ))}
               </div>
             )}
             {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
             {extraImages.length > 0 && (
               <div className="jd2-box">
                 <div className="jd2-card__body">
-                  {extraImages.map((url, i) => (
+                  <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>\n                  {extraImages.map((url, i) => (
                     <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
                   ))}
                 </div>
@@ -811,91 +927,21 @@ export function JobDetail() {
           {!showCompanySection && <CompanyReviews company={job.company} />}
         </div>
 
-        {/* ── Sidebar ── */}
-        <aside className="jd2-aside">
-          {/* Salary */}
-          {salaryText && (
-            <div className="jd2-aside-salary">
-              <span className="jd2-aside-salary__label">Mức lương</span>
-              <span className="jd2-aside-salary__val">{salaryText}</span>
-            </div>
-          )}
 
-          {/* Deadline */}
-          <div className="jd2-aside-row">
-            <span className="jd2-aside-row__label">Hạn nộp hồ sơ</span>
-            <span className="jd2-aside-row__val">{deadlineText}</span>
-          </div>
+      </div>
 
-          <div className="jd2-aside-divider" />
-
-          {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
-          {showApply && (
-            <button
-              type="button"
-              className="jd2-btn-apply"
-              onClick={onApplyClick}
-              disabled={applyDisabled}
-            >
-              {applyLabel}
-            </button>
-          )}
-          {canApplyInternally ? (
-            <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
-          ) : !hasContact ? (
-            <div id="jd2-apply-unavailable">
-              <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
-            </div>
-          ) : null}
-
-          {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
-          {hasContact && (
-            <div className="jd2-aside-contact">
-              {contact.phone && (
-                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call">
-                  <Phone size={17} strokeWidth={2} />
-                  Gọi {contact.phone}
-                </a>
-              )}
-              {contact.zalo && (
-                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo">
-                  <MessageCircle size={17} strokeWidth={2} />
-                  Zalo
-                </a>
-              )}
-            </div>
-          )}
-
+      <div className="jd2-detail-footer">
           <ReportButton
             targetType="job"
             targetId={job.id}
             snapshot={{ title: job.title, company: job.company, url: `/viec-lam/${job.id}` }}
           />
 
-          {/* Message employer */}
-          {showMessageCta && (
-            <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
-              <MessageCircle size={17} strokeWidth={2} />
-              Nhắn tin nhà tuyển dụng
-            </button>
-          )}
-
-          {/* Save */}
-          <button
-            type="button"
-            className={`jd2-btn-ghost jd2-btn-ghost--save${saved ? ' active' : ''}`}
-            onClick={onToggleSave}
-          >
-            {saved
-              ? <><BookmarkCheck size={15} strokeWidth={1.8} /> Đã lưu tin</>
-              : <><Bookmark size={15} strokeWidth={1.8} /> Lưu tin</>
-            }
-          </button>
 
           <p className="jd2-warn1">
             <span aria-hidden="true">⚠️</span> Việc Gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
           </p>
-        </aside>
+
       </div>
 
       {/* ── 하단 고정 바(PC·모바일 공통): Gọi / Zalo / 지원. 연락처가 없으면 Gọi·Zalo는 그리지 않는다 ── */}
