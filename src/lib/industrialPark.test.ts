@@ -6,7 +6,7 @@ function assert(value: boolean, label: string) { if (!value) throw new Error(lab
 const id = (...t: (string | undefined)[]) => findIndustrialPark(...t)?.id
 
 // 데이터 무결성: 전부 출처(OSM way)가 있고, 베트남 안이며, id·출처가 중복되지 않는다
-assert(INDUSTRIAL_PARKS.length === 32, `32 sourced parks (got ${INDUSTRIAL_PARKS.length})`)
+assert(INDUSTRIAL_PARKS.length === 33, `33 sourced parks (got ${INDUSTRIAL_PARKS.length})`)
 assert(new Set(INDUSTRIAL_PARKS.map((p) => p.id)).size === INDUSTRIAL_PARKS.length, 'unique ids')
 assert(new Set(INDUSTRIAL_PARKS.map((p) => p.source.ref)).size === INDUSTRIAL_PARKS.length, 'unique sources')
 for (const p of INDUSTRIAL_PARKS) {
@@ -18,6 +18,7 @@ for (const p of INDUSTRIAL_PARKS) {
 // 영역 윤곽: 모든 공단에 같은 OSM way의 닫힌 링이 있고, 중심 좌표가 윤곽 bounds 안(= bbox 중심)에 있다
 for (const p of INDUSTRIAL_PARKS) {
   const o = INDUSTRIAL_PARK_OUTLINES[p.source.ref]
+  if (p.id === 'yen-phong-phase-1') { assert(!o, 'phase 1 accepts sourced point without outline'); continue }
   assert(!!o && o.ring.length >= 4, `${p.id} has an outline`)
   assert(o.ring[0][0] === o.ring[o.ring.length - 1][0] && o.ring[0][1] === o.ring[o.ring.length - 1][1], `${p.id} outline ring is closed`)
   assert(p.lng >= o.bounds[0] && p.lng <= o.bounds[2] && p.lat >= o.bounds[1] && p.lat <= o.bounds[3], `${p.id} center is inside its outline bounds`)
@@ -80,6 +81,6 @@ assert(id('KCN QUẾ VÕ 3', 'Phường Quế Võ, Huyện Quế Võ') === 'que-
 assert(id('KCN Nam sơn hạp lĩnh') === 'nam-son-hap-linh' && id('Lô A2, khu công nghiệp Nam Sơn–Hạp Lĩnh, Xã Tân Chi') === 'nam-son-hap-linh', 'Nam Sơn – Hạp Lĩnh')
 assert(id('KCN Thuận Thành 3, Phường Trí Quả') === 'thuan-thanh-3' && id('Khu công nghiệp Thuận Thành', 'Phường Mão Điền, Huyện Thuận Thành') === undefined, 'Thuận Thành 3 only; plain Thuận Thành is ambiguous → none')
 assert(id('KCN ĐẠI ĐỒNG', 'Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh') === 'dai-dong-hoan-son' && id('KCN Đại Đồng, Hải Dương') === undefined, 'Đại Đồng needs a Bắc Ninh address')
-assert(id('KCN YÊN PHONG', 'Xã Tam Đa, Huyện Yên Phong') === undefined && id('Khu công nghiệp Yên Phong (Khu mở rộng), Xã Yên Trung') === 'yen-phong-mo-rong', 'plain Yên Phong (several phases) none; "(Khu mở rộng)" = mở rộng')
+assert(id('KCN YÊN PHONG', 'Xã Tam Đa, Huyện Yên Phong') === 'yen-phong-phase-1' && id('Khu công nghiệp Yên Phong (Khu mở rộng), Xã Yên Trung') === 'yen-phong-mo-rong', 'plain Yên Phong = phase 1 representative; explicit expansion = mở rộng')
 
 console.log('industrialPark.test.ts: all assertions passed')
