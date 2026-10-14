@@ -403,20 +403,19 @@ export function JobDetail() {
       {/* ── Header card: 급여·D-day·태그 강조, 경고는 한 줄 ── */}
       <div className="jd2-header">
         <div className="jd2-header__left">
-          <div className="jd2-logo">
-            {logoUrl
-              ? <img src={logoUrl} alt={job.company} className="jd2-logo__img" />
-              : <span className="jd2-logo__fallback">{job.company?.[0] ?? 'J'}</span>
-            }
-          </div>
+          {logoUrl && (
+            <div className="jd2-logo">
+              <img src={logoUrl} alt={job.company} className="jd2-logo__img" />
+            </div>
+          )}
           <div className="jd2-header__info">
             <div className="jd2-header__chips">
-              <span className="jd2-chip">{catLabel}</span>
+              {catLabel.toLowerCase() !== 'other' && catLabel.toLowerCase() !== 'khác' && <span className="jd2-chip">{catLabel}</span>}
               {job.recruitmentType === 'agency' && <span className="jd2-chip">{RECRUITMENT_LABELS.agency}</span>}
               {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
               {badge && <span className={`jd2-chip jd2-dday jd2-dday--${badge.tone}`}>{badge.label}</span>}
             </div>
-            <h1 className="jd2-header__title">{job.title}</h1>
+            <h1 className="jd2-header__title">{job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h1>
             <p className="jd2-header__company">{job.company}</p>
             {(salaryText || job.salaryBasis) && (
               <p className="jd2-hl-salary">
