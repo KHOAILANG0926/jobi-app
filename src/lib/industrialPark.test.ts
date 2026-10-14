@@ -24,7 +24,7 @@ for (const p of INDUSTRIAL_PARKS) {
   assert(p.lng >= o.bounds[0] && p.lng <= o.bounds[2] && p.lat >= o.bounds[1] && p.lat <= o.bounds[3], `${p.id} center is inside its outline bounds`)
   assert(Math.abs((o.bounds[0] + o.bounds[2]) / 2 - p.lng) < 2e-5 && Math.abs((o.bounds[1] + o.bounds[3]) / 2 - p.lat) < 2e-5, `${p.id} center = outline bbox center (Overpass out center)`)
 }
-assert(Object.keys(INDUSTRIAL_PARK_OUTLINES).length === INDUSTRIAL_PARKS.length, 'no orphan outlines')
+assert(Object.keys(INDUSTRIAL_PARK_OUTLINES).every((ref) => INDUSTRIAL_PARKS.some((park) => park.source.ref === ref)), 'no orphan outlines')
 
 // 길찾기: 영역 중심은 절대 목적지로 쓰지 않는다 — 출처 있는 정문·관리사무소(destination)가 있는 공단만 링크를 만든다
 const vsip = findIndustrialPark('KCN VSIP, Bắc Ninh')!
