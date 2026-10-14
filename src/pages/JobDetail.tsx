@@ -78,6 +78,7 @@ export function JobDetail() {
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  const [failedExtraImages, setFailedExtraImages] = useState<string[]>([])
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
   const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
@@ -393,7 +394,6 @@ export function JobDetail() {
   ] as const
   const logoUrl = companyLogoUrl(job.imageUrl)
   const extraImages = [...new Set(job.images?.filter((u) => u && u !== logoUrl && u !== job.imageUrl) ?? [])]
-  const [failedExtraImages, setFailedExtraImages] = useState<string[]>([])
   const visibleExtraImages = extraImages.filter((url) => !failedExtraImages.includes(url))
 
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
