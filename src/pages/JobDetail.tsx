@@ -292,8 +292,8 @@ export function JobDetail() {
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
   const benefits = benefitList(job)
-  const descRows = descriptionRows(job.description, job.title)
   const contact = contactOf(job)
+  const descRows = descriptionRows(job.description, job.title, { salaryText: salaryText, contactPhone: contact.phone, locationText })
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
   const employmentText = job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText
@@ -392,7 +392,9 @@ export function JobDetail() {
     { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
   ] as const
   const logoUrl = companyLogoUrl(job.imageUrl)
-  const extraImages = job.images?.filter((u) => u !== logoUrl) ?? []
+  const extraImages = [...new Set(job.images?.filter((u) => u && u !== logoUrl && u !== job.imageUrl) ?? [])]
+  const [failedExtraImages, setFailedExtraImages] = useState<string[]>([])
+  const visibleExtraImages = extraImages.filter((url) => !failedExtraImages.includes(url))
 
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
     || !!job.laborContractPledge || !!job.socialInsurancePledge
@@ -400,7 +402,7 @@ export function JobDetail() {
   // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
   const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
   // 상세요강은 남은 문장 행(또는 추가 사진)이 하나도 없으면 구역·탭을 숨긴다.
-  const showDescriptionSection = descRows.length > 0 || extraImages.length > 0
+  const showDescriptionSection = descRows.length > 0 || visibleExtraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
@@ -747,11 +749,11 @@ export function JobDetail() {
               </div>
             )}
             {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
-            {extraImages.length > 0 && (
+            {visibleExtraImages.length > 0 && (
               <div className="jd2-box">
                 <div className="jd2-card__body">
-                  {extraImages.map((url, i) => (
-                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                  {visibleExtraImages.map((url, i) => (
+                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={() => setFailedExtraImages((prev) => prev.includes(url) ? prev : [...prev, url])} />
                   ))}
                 </div>
               </div>
