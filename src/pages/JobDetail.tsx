@@ -305,15 +305,22 @@ export function JobDetail() {
   const periodLabel = salaryPeriodLabel(job.salaryPeriod)
   const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
     value ? ({ key, icon, label, value, cls } as InfoField) : null
-  const conditionFields = [
+  // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
+  const salaryNote = nonEmpty(job.salaryNote)
+  const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
+  const salaryFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
-      salaryText ? (
+      salaryText || (salaryNote && !isAllowanceNote) ? (
         <>
-          {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
-          {salaryText}{job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
+          {salaryText}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    row('salaryNote', <Briefcase size={14} strokeWidth={1.8} />, 'Ghi chú lương', job.salaryNote),
+    row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng',
+      isAllowanceNote ? salaryNote : undefined),
+  ].filter(Boolean) as InfoField[]
+  const conditionFields = [
     row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
     row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
     row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
@@ -488,6 +495,21 @@ export function JobDetail() {
       {/* ── Main grid ── */}
       <div className="jd2-grid">
         <div className="jd2-main">
+
+          {/* 급여: 기존 정보 카드 스타일의 최대 2개 행. 상단 요약/연락 패널 유지. */}
+          {salaryFields.length > 0 && <section className="jd2-sec" aria-label="Lương · Thu nhập">
+            <h2 className="jd2-sec__title">Lương · Thu nhập</h2>
+            <div className="jd2-box">
+              <dl className="jd2-kv">
+                {salaryFields.map((f) => (
+                  <div className="jd2-kv__row" key={f.key}>
+                    <dt>{f.label}</dt>
+                    <dd className={f.cls}>{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </section>}
 
           {/* ① 근무조건 */}
           {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec">
