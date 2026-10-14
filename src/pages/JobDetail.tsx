@@ -495,7 +495,7 @@ export function JobDetail() {
           {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
           {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
-            <div className="jd2-box jd2-two-col-card">
+            <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
               <div className="jd2-two-col-card__grid">
                 {[conditionFields.filter((f) => ["salary","allowance","hours","workDays"].includes(f.key)), conditionFields.filter((f) => !["salary","allowance","hours","workDays"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
@@ -503,10 +503,6 @@ export function JobDetail() {
                   </dl>
                 ))}
               </div>
-            </div>
-          </section>}
-
-        </div>
         <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
           {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
           {showApply && (
@@ -556,6 +552,11 @@ export function JobDetail() {
 
 
         </aside>
+            </div>
+          </section>}
+
+        </div>
+
         <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
           {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
