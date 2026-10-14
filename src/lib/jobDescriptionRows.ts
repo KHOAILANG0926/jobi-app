@@ -21,7 +21,7 @@ function sectionOf(heading: string): DescRowKey {
   const h = fold(heading)
   if (/(mo ta|cong viec|trach nhiem|nhiem vu)/.test(h)) return 'duty'
   if (/(yeu cau|doi tuong|ung vien|tieu chuan)/.test(h)) return 'otherReq'
-  if (/(quyen loi|phuc loi|che do|moi truong)/.test(h)) return 'environment'
+  if (/(quyen loi|phuc loi|che do|moi truong|luong va phuc loi|luong thuong)/.test(h)) return 'environment'
   return 'other'
 }
 
@@ -38,6 +38,12 @@ export function descriptionRows(description: string | null | undefined, title: s
     const line = rawLine.trim()
     if (!line) continue
     if (line.startsWith('## ')) { current = sectionOf(line.slice(3)); continue }
+    // Short mixed-case headings are common in scraped Vietnamese job posters.
+    // Only known headings are classified; ordinary sentences stay intact.
+    if (/^(?:công việc|mô tả công việc|yêu cầu|yêu cầu tuyển dụng|lương và phúc lợi|quyền lợi|phúc lợi|liên hệ|địa điểm làm việc)\s*:?$/iu.test(line)) {
+      current = sectionOf(line)
+      continue
+    }
     // 소제목: 짧은 전부 대문자 줄(숫자 없음) — 맥락만 바꾸고 화면에는 내지 않는다
     if (HEADING_RE.test(line) && !/\d/.test(line) && line.split(' ').length <= 4) { current = sectionOf(line); continue }
     if (titleKey && fold(line) === titleKey) continue // 제목 반복
