@@ -368,6 +368,16 @@ export function JobDetail() {
   const yenPhongOverview = genericYenPhong && yenPhongExpansion
     ? { lat: (21.19899 + yenPhongExpansion.lat) / 2, lng: (105.99695 + yenPhongExpansion.lng) / 2, zoom: 12 }
     : null
+  // Display-only Google Maps search: send text, never import Google's coordinates
+  // into VietMap. Applies automatically to employer + KCN job listings.
+  const companyParkText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress])].filter(Boolean).join(' ')
+  const hasNamedPark = /(?:kcn|khu công nghiệp|khu cong nghiep)\s+/iu.test(companyParkText)
+  const googleCompanyParkText = hasNamedPark && job.company?.trim()
+    ? `${job.company.trim()}, ${(job.workLocations?.find((loc) => /(?:kcn|khu công nghiệp|khu cong nghiep)/iu.test(loc.rawAddress))?.rawAddress || job.rawLocation || companyParkText).trim()}`
+    : null
+  const googleCompanyParkLink = googleCompanyParkText
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
+    : null
   const unverifiedMapViewport = yenPhongOverview
     ? yenPhongOverview
     : wardCenter
@@ -639,10 +649,16 @@ export function JobDetail() {
                     pinless
                   />
                   <div className="jd2-map-links">
-                    {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
-                      <a key={link.href} className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
+                    {googleCompanyParkLink ? (
+                      <a className="jd2-map-dir" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
+                    ) : (
+                      <>
+                        {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
+                          <a key={link.href} className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
+                        )}
+                        {directionsPlan.tier === 'call' && <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label}</a>}
+                      </>
                     )}
-                    {directionsPlan.tier === 'call' && <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label}</a>}
                   </div>
                   <p className="jd2-map-dir-note">Chưa xác minh địa điểm làm việc chính xác. Vui lòng xác nhận với nhà tuyển dụng trước khi đến.</p>
                 </div>
