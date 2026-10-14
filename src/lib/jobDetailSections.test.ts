@@ -1,4 +1,4 @@
-import { detailSections, sourceLines, verifyDescriptionPreserved } from './jobDetailSections.ts'
+import { detailSections, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 // Production read-only source: local_jobs.id=4824, checked 2026-10-14.
 // Deliberately exact punctuation, diacritics, headings, and duplicates are preserved.
@@ -35,3 +35,6 @@ assert(!verifyDescriptionPreserved(kda, edited), 'KDA FAIL CASE: rewritten text 
 const repeated = detailSections('Chăm chỉ\nChăm chỉ')
 assert(repeated.preserved && repeated.sections[0].lines.length === 2, 'duplicate sentences preserved')
 console.log('jobDetailSections.test.ts: KDA PASS and negative FAIL cases verified')
+
+assert(sourceRecruitmentEligibility(kda) === '- Tuyển nam, nữ (14-50 tuổi).', 'KDA recruitment line appears unchanged in top recruitment card')
+assert(sourceRecruitmentEligibility('Chăm chỉ') === undefined, 'No fabricated recruitment condition')
