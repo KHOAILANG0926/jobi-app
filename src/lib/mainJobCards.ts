@@ -13,7 +13,7 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'>): CardSalar
   const text = (job.salary || '').trim()
   const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vnd\b|đ|usd\b)|\$\s*\d)/iu
   if (!amount.test(text)) return null
-  const clauses = text.split(/\s*[;|\n]\s*/).filter(clause => amount.test(clause)
+  const clauses = text.split(/\s*[,;|\n]\s*/).filter(clause => amount.test(clause)
     && !/chuyên cần|chuyen can|phụ cấp|phu cap|thưởng|thuong/iu.test(clause))
   if (!clauses.length) return null
   for (const period of ['hour', 'day', 'month'] as const) {
