@@ -637,7 +637,7 @@ export function JobDetail() {
                   <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
                   <div className="jd2-map-links">
                     {googleCompanyParkLink ? (
-                      <a className="jd2-map-dir" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
+                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
                     ) : (
                       <>
                         {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
@@ -812,7 +812,7 @@ export function JobDetail() {
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
                   {park && googleCompanyParkLink && (
                     <div className="jd2-map-links">
-                      <a className="jd2-map-dir" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
+                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
                     </div>
                   )}
                   {parkDirection && (
