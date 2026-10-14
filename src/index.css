@@ -12055,3 +12055,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-header .jd2-benefits { margin-top: 9px; margin-bottom: 5px; }
   .jd2-header .jd2-header__meta { column-gap: 8px; }
 }
+
+/* Detail salary badge and amount: align centers, not different baselines. */
+.jd2-header .jd2-hl-salary { align-items: center; }
