@@ -637,7 +637,7 @@ export function JobDetail() {
                   <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
                   <div className="jd2-map-links">
                     {googleCompanyParkLink ? (
-                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
+                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
                     ) : (
                       <>
                         {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
@@ -812,7 +812,7 @@ export function JobDetail() {
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
                   {park && googleCompanyParkLink && (
                     <div className="jd2-map-links">
-                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
+                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
                     </div>
                   )}
                   {parkDirection && (
