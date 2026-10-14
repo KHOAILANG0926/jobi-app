@@ -10583,6 +10583,17 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-kv dt { margin: 0; font-size: 0.9rem; font-weight: 500; color: #9ca3af; }
 .jd2-kv dd { margin: 0; font-size: 0.95rem; font-weight: 600; color: #111827; line-height: 1.5; word-break: break-word; }
 .jd2-kv dd.jd2-info-val--salary { font-size: 1.05rem; font-weight: 800; color: #111827; }
+/* Detail salary only: compact, full-width rows; unchanged other cards and top summary. */
+.jd2-sec--salary .jd2-kv { grid-template-columns: minmax(0, 1fr); padding: 0.25rem 0.9rem; }
+.jd2-sec--salary .jd2-kv__row { grid-template-columns: 6rem minmax(0, 1fr); gap: 0.6rem; padding: 0.65rem 0; }
+.jd2-sec--salary .jd2-kv dd { min-width: 0; }
+.jd2-salary-lines { display: inline-flex; flex-direction: column; vertical-align: top; margin-left: 0.4rem; }
+.jd2-salary-line { display: block; }
+@media (max-width: 430px) {
+  .jd2-sec--salary .jd2-kv__row { grid-template-columns: 5.4rem minmax(0, 1fr); gap: 0.4rem; }
+  .jd2-salary-lines { margin-left: 0.25rem; }
+}
+
 .jd2-kv dd.jd2-info-val--soon { color: #b91c1c; }
 .jd2-cta-num { display: none; font-weight: 600; }
 @media (min-width: 761px) { .jd2-cta-num { display: inline; } }
