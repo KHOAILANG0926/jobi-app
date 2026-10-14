@@ -12066,3 +12066,31 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 
 /* Detail salary badge and amount: align centers, not different baselines. */
 .jd2-header .jd2-hl-salary { align-items: center; }
+
+/* 2026-10-14: Right-side location above date, reuse the existing row height.
+   Reallocate vertical whitespace; leave the benefit grid's columns/gap untouched. */
+.jd2-header .jd2-header__meta {
+  position: relative;
+  height: 16px;
+  min-height: 16px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+.jd2-header .jd2-header__meta .jd2-meta-item {
+  position: absolute;
+  right: 0;
+  bottom: 16px;
+  margin-left: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jd2-header .jd2-meta-date { margin-left: 0; }
+.jd2-header .jd2-header__company { margin-bottom: 0.55rem; }
+.jd2-header .jd2-hl-salary { margin-top: 0.3rem; }
+.jd2-header .jd2-benefits { margin-top: 13px; margin-bottom: 0; }
+@media (max-width: 760px) {
+  .jd2-header .jd2-benefits { margin-top: 11px; margin-bottom: 0; }
+}
