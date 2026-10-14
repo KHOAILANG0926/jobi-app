@@ -415,7 +415,7 @@ export function JobDetail() {
               {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
               {badge && <span className={`jd2-chip jd2-dday jd2-dday--${badge.tone}`}>{badge.label}</span>}
             </div>
-            <h1 className="jd2-header__title">{job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h1>
+            <h1 className={`jd2-header__title jd2-header__title--${(job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title).length > 85 ? 'long' : (job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title).length > 45 ? 'medium' : 'short'}`}>{job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h1>
             <p className="jd2-header__company">{job.company}</p>
             {(salaryText || job.salaryBasis) && (
               <p className="jd2-hl-salary">
