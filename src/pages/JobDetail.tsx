@@ -489,7 +489,7 @@ export function JobDetail() {
       </nav>
 
       {/* ── Main grid ── */}
-      <div className="jd2-grid jd2-grid--detail-redesign">
+      <div className={`jd2-grid jd2-grid--detail-redesign${!hasContact && !showApply && !showMessageCta ? ' jd2-grid--no-contact' : ''}`}>
         <div className="jd2-main jd2-main--first">
 
           {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
@@ -531,15 +531,15 @@ export function JobDetail() {
           {hasContact && (
             <div className="jd2-aside-contact">
               {contact.phone && (
-                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call">
+                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call" title={`Gọi ${contact.phone}`} aria-label={`Gọi ${contact.phone}`}>
                   <Phone size={17} strokeWidth={2} />
-                  Gọi {contact.phone}
+                  <span className="jd2-contact-action-label">Gọi</span>
                 </a>
               )}
               {contact.zalo && (
-                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo">
+                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo" title="Liên hệ qua Zalo" aria-label="Liên hệ qua Zalo">
                   <MessageCircle size={17} strokeWidth={2} />
-                  Zalo
+                  <span className="jd2-contact-action-label">Zalo</span>
                 </a>
               )}
             </div>
