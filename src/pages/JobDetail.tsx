@@ -787,7 +787,7 @@ export function JobDetail() {
                   {park && (
                     <>
                       <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
-                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng. Xem vị trí chính xác của công ty trên Google Maps.</p>
+                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
