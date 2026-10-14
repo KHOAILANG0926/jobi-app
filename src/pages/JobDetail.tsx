@@ -717,9 +717,7 @@ export function JobDetail() {
                               </p>
                             ) : !isPreciseLoc ? (
                               // 미확인 — 좌표가 있어도(공단 중심·동 단위 추정 등) 근무지 위치로 주장하지 않는다.
-                              <p className="jd2-map-ward-note">
-                                Vị trí nơi làm việc chưa được xác minh — không hiển thị trên bản đồ, không dùng để chỉ đường hay tính khoảng cách.
-                              </p>
+                              null
                             ) : null}
                             <MapLinks links={gmaps} />
                             {isPreciseLoc && !verifiedWard && !approved && (
@@ -789,10 +787,7 @@ export function JobDetail() {
                   {park && (
                     <>
                       <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
-                      <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Vị trí chính xác chưa xác minh.</strong> {park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`}. Ghim đại diện, không phải vị trí nhà máy; không dùng để tính khoảng cách.
-                        <span className="jd2-map-credit"> Nguồn vị trí KCN: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
-                      </p>
+                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng. Xem vị trí chính xác của công ty trên Google Maps.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
@@ -815,11 +810,6 @@ export function JobDetail() {
                       "아직 확인 중"임을 알리는 별도 안내를 지도 대신 보여준다
                       (2026-09-07 사용자 지시: 베트남 기본 중심 표시도, 완전히
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
-                  {mapLocations.source === 'pending' && !(wardUnit && wardCenter) && (
-                    <p className="jd2-map-pending-note">
-                      Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
-                    </p>
-                  )}
                   {park && googleCompanyParkLink && (
                     <div className="jd2-map-links">
                       <a className="jd2-map-dir" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
