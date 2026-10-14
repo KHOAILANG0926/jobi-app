@@ -67,3 +67,13 @@ export function detailSections(description: string | null | undefined): DetailRe
   }
   return { sections, preserved: true, usedFallback: false }
 }
+
+/** Exact original recruitment eligibility line for the top recruitment card.
+ * Never infer a gender/age value or rewrite the source sentence. */
+export function sourceRecruitmentEligibility(description: string | null | undefined): string | undefined {
+  const sections = detailSections(description)
+  if (!sections.preserved) return undefined
+  const eligibility = sections.sections.find(s => s.key === '02')
+  if (!eligibility) return undefined
+  return eligibility.lines.find(line => /(?:^|\\s)(?:tuyển|tuyen|nam|nữ|nu|tuổi|tuoi)(?:\\s|[,:.(]|$)/iu.test(line) && /^\\s*[-•*]?\\s*(?:tuyển|tuyen|nam|nữ|nu)/iu.test(line))
+}
