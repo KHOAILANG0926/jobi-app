@@ -141,18 +141,6 @@ export function JobDetail() {
     return wardUnitForAddresses(job.workLocations?.length ? job.workLocations.map((l) => l.rawAddress) : [job.rawLocation])
   }, [job])
   const wardCenter = useWardCenter(wardUnit)
-  // Browse-only VietMap viewport: reuse verified region / ward context, never a workplace pin.
-  // Do not infer a specific industrial park from similarly named areas.
-  const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
-    ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
-  const unverifiedMapViewport = wardCenter
-    ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
-    : mappedRegion
-      ? { ...mappedRegion, zoom: 11 }
-      : mapLocations.points.length > 0
-        ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
-        : { lat: 14.0583, lng: 108.2772, zoom: 5 }
-
 
   const jobId = job?.id
   useEffect(() => {
@@ -363,6 +351,19 @@ export function JobDetail() {
   // 최종 우선순위를 이미 계산해준다 — 이 컴포넌트는 그 결과 하나만 쓰면
   // 된다(예전처럼 mapLocation/mapCenter를 별도로 다시 계산하지 않는다).
   const mapLocations = resolveMapLocations(job)
+  // Browse-only VietMap viewport: reuse verified region / ward context, never a workplace pin.
+  // Do not infer a specific industrial park from similarly named areas.
+  const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
+    ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
+  const unverifiedMapViewport = wardCenter
+    ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
+    : mappedRegion
+      ? { ...mappedRegion, zoom: 11 }
+      : mapLocations.points.length > 0
+        ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
+        : { lat: 14.0583, lng: 108.2772, zoom: 5 }
+
+
   // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
   // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
   // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
