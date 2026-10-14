@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSS
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
-  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft, Bus,
+  Bookmark, BookmarkCheck, Phone, MessageCircle, ChevronLeft, Bus, BedDouble, Utensils, CalendarCheck, House, Fuel, ChartNoAxesColumnIncreasing,
 } from 'lucide-react'
 import { CompanyReviews } from '../components/CompanyReviews'
 import type { JobVietMapProps } from '../components/JobVietMap'
@@ -379,6 +379,18 @@ export function JobDetail() {
       : null
 
   // 출처 사이트·Facebook CDN 이미지는 회사 로고로 쓰지 않는다(companyLogo.ts, 2026-10-06) — 없으면 이니셜.
+  // Header benefits: verified positives only. Unknown values stay neutral (never mean 'not provided').
+  const evidence = [job.description ?? '', ...(job.benefitTags ?? [])].join(' ').normalize('NFC')
+  const explicitBenefit = (pattern: RegExp) => pattern.test(evidence)
+  const benefitIcons = [
+    { key: 'bus', label: 'Xe đưa đón', active: job.shuttleBus === true, icon: Bus, color: '#2563eb', bg: '#dbeafe' },
+    { key: 'dorm', label: 'Ký túc xá', active: job.dormitory === true, icon: BedDouble, color: '#7c3aed', bg: '#ede9fe' },
+    { key: 'meal', label: 'Ăn ca', active: job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
+    { key: 'attendance', label: 'Chuyên cần', active: explicitBenefit(/(?:chuyên cần|chuyen can)(?:\\s*[:：-]?\\s*[\\d.,]+\\s*(?:k|đ|vnd|đồng))?/i), icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
+    { key: 'housing', label: 'Nhà ở', active: explicitBenefit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i), icon: House, color: '#db2777', bg: '#fce7f3' },
+    { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i), icon: Fuel, color: '#0891b2', bg: '#cffafe' },
+    { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
+  ] as const
   const logoUrl = companyLogoUrl(job.imageUrl)
   const extraImages = job.images?.filter((u) => u !== logoUrl) ?? []
 
@@ -425,26 +437,26 @@ export function JobDetail() {
                 {job.salaryNote && <span className="jd2-hl-salary__note">{job.salaryNote}</span>}
               </p>
             )}
-            {tags.length > 0 && (
+            <div className="jd2-benefits" aria-label="Phúc lợi: màu thể hiện quyền lợi được xác nhận; màu xám là chưa có thông tin">
+              {benefitIcons.map(({ key, label, active, icon: Icon, color, bg }) => (
+                <span key={key} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
+                  <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
+                    <Icon size={19} strokeWidth={1.9} aria-hidden="true" />
+                  </span>
+                  <span className="jd2-benefit__label">{label}</span>
+                </span>
+              ))}
+            </div>
+            {tags.filter((t) => !['Xe đưa đón', 'Ký túc xá', 'Bao ăn'].includes(t)).length > 0 && (
               <div className="jd2-tags">
-                {tags.map((t) => t === 'Xe đưa đón'
-                  ? <span key={t} className="jd2-tag jd2-tag--bus"><Bus size={14} strokeWidth={2.2} className="jd2-bus-icon" aria-hidden="true" />{t}</span>
-                  : <span key={t} className="jd2-tag">{t}</span>)}
+                {tags.filter((t) => !['Xe đưa đón', 'Ký túc xá', 'Bao ăn'].includes(t)).map((t) => <span key={t} className="jd2-tag">{t}</span>)}
               </div>
             )}
             <div className="jd2-header__meta">
-              {locationText && (
-                <>
-                  <span className="jd2-meta-item">
-                    <MapPin size={13} strokeWidth={1.8} />
-                    {locationText}
-                  </span>
-                  <span className="jd2-meta-sep">·</span>
-                </>
-              )}
-              <span className="jd2-meta-item">
-                Đăng {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
+              {locationText && <span className="jd2-meta-item"><MapPin size={13} strokeWidth={1.8} />{locationText}</span>}
+              <time className="jd2-meta-date" dateTime={job.postedAt}>
+                {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </time>
             </div>
           </div>
         </div>
