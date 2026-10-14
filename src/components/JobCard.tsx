@@ -53,7 +53,7 @@ export default function JobCard({
         {job.location}
         {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
       </p>
-      <h3 className="jc__title">{job.title}</h3>
+      <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
       <div className="jc__footer">
         <span className="jc__salary">
           {salary ? <><span className="jc__salary-type">{salary.label}: </span>{salary.text}</> : 'Chưa xác nhận tiền công'}
