@@ -24,7 +24,7 @@ import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { descriptionRows } from '../lib/jobDescriptionRows'
+import { detailSections, DETAIL_LABELS } from '../lib/jobDetailSections'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -291,7 +291,7 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
-  const descRows = descriptionRows(job.description, job.title)
+  const detail = detailSections(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
@@ -435,7 +435,7 @@ export function JobDetail() {
   // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
   const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
   // 상세요강은 남은 문장 행(또는 추가 사진)이 하나도 없으면 구역·탭을 숨긴다.
-  const showDescriptionSection = descRows.length > 0 || extraImages.length > 0
+  const showDescriptionSection = detail.sections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
@@ -848,27 +848,23 @@ export function JobDetail() {
           {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-            {descRows.length > 0 && (
-              <div className="jd2-box">
-                <dl className="jd2-kv jd2-kv--single">
-                  {descRows.map((r) => (
-                    <div className="jd2-kv__row" key={r.key}>
-                      <dt>{r.label}</dt>
-                      <dd>
-                        {r.lines.length === 1 ? r.lines[0] : (
-                          <ul className="jd2-desc__list">{r.lines.map((l) => <li key={l} className="jd2-desc__item">{l}</li>)}</ul>
-                        )}
-                      </dd>
+            {detail.sections.length > 0 && (
+              <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+                {detail.sections.map((section) => (
+                  <section key={section.key} className="jd2-detail-section">
+                    <h3 className="jd2-detail-section__title">{section.label}</h3>
+                    <div className="jd2-detail-section__lines">
+                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line}</p>)}
                     </div>
-                  ))}
-                </dl>
+                  </section>
+                ))}
               </div>
             )}
             {/* ── Extra photos (excludes the company logo already shown in the header) ── */}
             {extraImages.length > 0 && (
               <div className="jd2-box">
                 <div className="jd2-card__body">
-                  {extraImages.map((url, i) => (
+                  <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>\n                  {extraImages.map((url, i) => (
                     <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
                   ))}
                 </div>
