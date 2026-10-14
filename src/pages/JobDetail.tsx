@@ -790,8 +790,8 @@ export function JobDetail() {
                     <>
                       <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
                       <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực {park.name} (viền nét đứt, không có ghim) — chưa dùng để tính khoảng cách.
-                        <span className="jd2-map-credit"> Viền khu vực: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
+                        <strong>Vị trí chính xác chưa xác minh.</strong> {park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`}. Ghim đại diện, không phải vị trí nhà máy; không dùng để tính khoảng cách.
+                        <span className="jd2-map-credit"> Nguồn vị trí KCN: OpenStreetMap ({park.source.ref}) · © OpenStreetMap contributors.</span>
                       </p>
                     </>
                   )}
@@ -820,13 +820,18 @@ export function JobDetail() {
                       Đang xác minh vị trí trên bản đồ — hệ thống sẽ cập nhật khi có tọa độ chính xác.
                     </p>
                   )}
+                  {park && googleCompanyParkLink && (
+                    <div className="jd2-map-links">
+                      <a className="jd2-map-dir" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer">Xem vị trí · Chỉ đường (Google Maps) ↗</a>
+                    </div>
+                  )}
                   {parkDirection && (
                     <div className="jd2-map-links">
                       <a className="jd2-map-dir" href={parkDirection.href} target="_blank" rel="noopener noreferrer">{parkDirection.label} ↗</a>
                       <p className="jd2-map-dir-note">{parkDirection.note}</p>
                     </div>
                   )}
-                  {directionsPlan.tier === 'address' && (
+                  {!googleCompanyParkLink && directionsPlan.tier === 'address' && (
                     <div className="jd2-map-links">
                       {directionsPlan.links.map((link) => (
                         <span key={link.href}>
