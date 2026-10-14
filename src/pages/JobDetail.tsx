@@ -313,7 +313,7 @@ export function JobDetail() {
       salaryText || (salaryNote && !isAllowanceNote) ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
-          {salaryText}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
         </>
       ) : undefined, 'jd2-info-val--salary'),
@@ -497,7 +497,7 @@ export function JobDetail() {
         <div className="jd2-main">
 
           {/* 급여: 기존 정보 카드 스타일의 최대 2개 행. 상단 요약/연락 패널 유지. */}
-          {salaryFields.length > 0 && <section className="jd2-sec" aria-label="Lương · Thu nhập">
+          {salaryFields.length > 0 && <section className="jd2-sec jd2-sec--salary" aria-label="Lương · Thu nhập">
             <h2 className="jd2-sec__title">Lương · Thu nhập</h2>
             <div className="jd2-box">
               <dl className="jd2-kv">
