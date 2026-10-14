@@ -24,7 +24,7 @@ import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { detailSections, DETAIL_LABELS } from '../lib/jobDetailSections'
+import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility } from '../lib/jobDetailSections'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -292,6 +292,7 @@ export function JobDetail() {
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
   const detail = detailSections(job.description)
+  const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
@@ -337,6 +338,7 @@ export function JobDetail() {
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
     row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
     row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement)),
+    row('sourceEligibility', <Users size={14} strokeWidth={1.8} />, 'Đối tượng tuyển', !nonEmpty(job.ageRequirement) || !nonEmpty(job.genderRequirement) ? sourceEligibility : undefined),
     row('gender', <Users size={14} strokeWidth={1.8} />, 'Giới tính', nonEmpty(job.genderRequirement)),
     row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
     row('language', <Award size={14} strokeWidth={1.8} />, 'Ngoại ngữ', job.languageRequirement),
@@ -597,7 +599,7 @@ export function JobDetail() {
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
-                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","category"].includes(f.key))].map((group, i) => (
+                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","category"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
                     {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>
