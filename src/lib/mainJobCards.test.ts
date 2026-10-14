@@ -17,7 +17,7 @@ const job = (id: string, salary: string, extra: Partial<Job> = {}): Job => ({
 })
 const kda = job('sb-4824', '310k/11h ca ngày, 360k/11h ca đêm', { salaryPeriod: 'day' })
 assert.equal(cardSalary(kda)?.label, 'Lương ngày')
-assert.equal(cardSalary(kda)?.text, kda.salary, 'shift rates must not be divided into invented hourly wages')
+assert.equal(cardSalary(kda)?.text, '310k/11h ca ngày', 'show only the first source shift wage without conversion')
 assert.equal(cardSalary(job('hour', '30.000 đồng/giờ; 240.000 đồng/ngày; 6 triệu/tháng'))?.text, '30.000 đồng/giờ')
 assert.equal(cardSalary(job('day', '240.000 đồng/ngày; 6 triệu/tháng'))?.label, 'Lương ngày')
 assert.equal(cardSalary(job('spaced', '240k/ngày; 30k / giờ'))?.text, '30k / giờ')
