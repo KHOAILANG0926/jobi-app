@@ -291,7 +291,6 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
-  const benefits = benefitList(job)
   const descRows = descriptionRows(job.description, job.title)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
@@ -336,7 +335,7 @@ export function JobDetail() {
     row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
     row('language', <Award size={14} strokeWidth={1.8} />, 'Ngoại ngữ', job.languageRequirement),
     row('trip', <MapPin size={14} strokeWidth={1.8} />, 'Đi công tác', job.businessTrip === true ? 'Có thể đi công tác' : job.businessTrip === false ? 'Không đi công tác' : undefined),
-    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', job.category === 'other' ? undefined : catLabel),
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
   ].filter(Boolean) as InfoField[]
 
   // 2026-09-05 최종 제품 정책: "모든 공개 공고에 근무지역 텍스트, 지도,
