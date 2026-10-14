@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
-import FeaturedJobsSection from '../components/FeaturedJobsSection'
+import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
+import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
 import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
@@ -245,13 +246,16 @@ export function Home() {
   )
 
   const filtered = useMemo(
-    () => filterAndSortJobs(jobs, { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
+    () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
     [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
 
 
-  const urgentJobs  = useMemo(() => filtered.filter((j) => j.urgent), [filtered])
-  const regularJobs = useMemo(() => filtered.filter((j) => !j.urgent), [filtered])
+  const { featured, remaining } = useMemo(
+    () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
+  )
+  const urgentJobs = useMemo(() => remaining.filter(j => j.urgent), [remaining])
+  const regularJobs = useMemo(() => remaining.filter(j => !j.urgent), [remaining])
 
   const handleApply = useCallback((job: Job) => {
     if (!user) { navigate('/dang-nhap'); return }
@@ -334,7 +338,7 @@ export function Home() {
       </div>{/* /.home-top-bg */}
 
       <FeaturedJobsSection
-        jobs={jobs}
+        jobs={featured}
         isApplied={isApplied}
         onApply={handleApply}
         isSaved={(id) => savedIds.has(id)}
@@ -407,9 +411,11 @@ export function Home() {
               <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>
               <NavLink to="/">← Xem tất cả việc làm</NavLink>
             </div>
+          ) : remaining.length === 0 ? (
+            <p className="home-list-note">Các việc làm phù hợp được hiển thị trong mục Việc làm nổi bật phía trên.</p>
           ) : (
             <div className="home-jobs-grid">
-              {filtered.map((job) => (
+              {remaining.map((job) => (
                 <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
                   <JobCard
                     job={job}
