@@ -12246,3 +12246,11 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-google-arrow { width: 25px; height: 25px; stroke: #dc2626; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; animation: jd2-google-glide 2s ease-in-out infinite; }
 @keyframes jd2-google-glide { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(3px, -3px); } }
 @media (prefers-reduced-motion: reduce) { .jd2-google-arrow { animation: none; } }
+
+/* Lossless job detail sections: render only populated buckets, without list rewriting. */
+.jd2-detail-sections { padding: 1.35rem 1.55rem; }
+.jd2-detail-section + .jd2-detail-section { border-top: 1px solid #e7eaf0; margin-top: 1.2rem; padding-top: 1.2rem; }
+.jd2-detail-section__title { font-size: 1.03rem; font-weight: 750; color: #172b4d; margin: 0 0 .65rem; }
+.jd2-detail-section__lines { display: grid; gap: .4rem; }
+.jd2-detail-section__line { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; margin: 0; color: #334155; }
+@media (max-width: 640px) { .jd2-detail-sections { padding: 1rem; } .jd2-detail-section__title { font-size: 1rem; } }
