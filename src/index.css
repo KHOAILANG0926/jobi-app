@@ -12134,8 +12134,8 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-two-col-card__row { grid-template-columns: 6.5rem minmax(0, 1fr); }
 }
 
-/* Detail redesign: top condition/contact row 70:30; all subsequent sections full width. */
-.jd2-grid--detail-redesign { grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); align-items: stretch; gap: 1.1rem; }
+/* Detail redesign: top condition/contact row 90:10; all subsequent sections full width. */
+.jd2-grid--detail-redesign { grid-template-columns: minmax(0, 9fr) minmax(76px, 1fr); align-items: stretch; gap: 0.75rem; }
 .jd2-grid--detail-redesign .jd2-main--first { min-width: 0; }
 .jd2-grid--detail-redesign .jd2-main--full { grid-column: 1 / -1; min-width: 0; }
 .jd2-grid--detail-redesign .jd2-aside--contact-only { position: static; top: auto; align-self: stretch; min-width: 0; justify-content: center; border: 1px solid #f5c6d0; }
@@ -12147,4 +12147,28 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-grid--detail-redesign { grid-template-columns: minmax(0,1fr); }
   .jd2-grid--detail-redesign .jd2-aside--contact-only { display: none; }
   .jd2-grid--detail-redesign .jd2-main--full { grid-column: 1; }
+}
+
+/* Compact independent friendly contact tiles, without a surrounding card. */
+.jd2-grid--detail-redesign .jd2-aside--contact-only {
+  background: transparent; box-shadow: none; border: none; border-radius: 0;
+  padding: 0; gap: 0.55rem; align-items: stretch; justify-content: center;
+}
+.jd2-grid--detail-redesign .jd2-aside-contact { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; }
+.jd2-grid--detail-redesign .jd2-aside-contact__call,
+.jd2-grid--detail-redesign .jd2-aside-contact__zalo {
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  width: 100%; min-height: 66px; padding: 0.6rem 0.2rem; gap: 0.24rem;
+  border-radius: 18px; text-align: center; font-size: 0.76rem; font-weight: 700;
+  box-shadow: 0 3px 10px rgba(17,24,39,.10); transition: transform .15s ease, box-shadow .15s ease;
+}
+.jd2-grid--detail-redesign .jd2-aside-contact__call:hover,
+.jd2-grid--detail-redesign .jd2-aside-contact__zalo:hover { transform: translateY(-2px); box-shadow: 0 5px 13px rgba(17,24,39,.15); }
+.jd2-grid--detail-redesign .jd2-aside-contact__call svg,
+.jd2-grid--detail-redesign .jd2-aside-contact__zalo svg { width: 21px; height: 21px; }
+.jd2-grid--no-contact { grid-template-columns: minmax(0, 1fr); }
+.jd2-grid--no-contact .jd2-aside--contact-only { display: none; }
+@media (max-width: 760px) {
+  .jd2-grid--detail-redesign { grid-template-columns: minmax(0, 1fr); }
+  .jd2-grid--detail-redesign .jd2-aside--contact-only { display: none; }
 }
