@@ -47,16 +47,20 @@ export default function JobCard({
 
   return (
     <article className={`jc${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
-      {imageUrl && <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} /></div>}
-      <p className="jc__company">{job.company}</p>
-      <p className="jc__meta">
-        {job.location}
-        {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
-      </p>
+      <div className="jc__header">
+        {imageUrl && <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} /></div>}
+        <div className="jc__identity">
+          <p className="jc__company">{job.company}</p>
+          <p className="jc__meta">
+            {job.location}
+            {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
+          </p>
+        </div>
+      </div>
       <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
       <div className="jc__footer">
         <span className="jc__salary">
-          {salary ? <><span className="jc__salary-type">{salary.label}: </span>{salary.text}</> : 'Chưa xác nhận tiền công'}
+          {salary ? salary.text : 'Chưa xác nhận tiền công'}
         </span>
       </div>
       {conditions.length > 0 && <>
