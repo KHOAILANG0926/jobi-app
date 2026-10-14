@@ -31,6 +31,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
 import { useWardCenter } from '../lib/wardAreaClient'
 import { findIndustrialPark } from '../lib/industrialPark'
+import { INDUSTRIAL_PARKS } from '../data/industrialParks'
 import type { JobSection } from '../data/jobSchema'
 
 function nonEmpty(v: string | null | undefined): string | undefined {
@@ -355,7 +356,18 @@ export function JobDetail() {
   // Do not infer a specific industrial park from similarly named areas.
   const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
     ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
-  const unverifiedMapViewport = wardCenter
+  // A generic "KCN Yên Phong" does NOT uniquely identify a phase.
+  // Frame the two sourced Yên Phong areas together; no worksite pin/directions to either center.
+  const yenPhongText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.rawAddress, loc.industrialPark])].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
+  const genericYenPhong = /(?:kcn|khu cong nghiep)\s+yen phong\b/.test(yenPhongText)
+    && !/(?:yen phong\s*(?:mo rong|ii|2|giai doan|i-a|1a))/.test(yenPhongText)
+  const yenPhongParks = INDUSTRIAL_PARKS.filter((entry) => ['yen-phong-giai-doan-1','yen-phong-mo-rong'].includes(entry.id))
+  const yenPhongOverview = genericYenPhong && yenPhongParks.length === 2
+    ? { lat: (yenPhongParks[0].lat + yenPhongParks[1].lat) / 2, lng: (yenPhongParks[0].lng + yenPhongParks[1].lng) / 2, zoom: 12 }
+    : null
+  const unverifiedMapViewport = yenPhongOverview
+    ? yenPhongOverview
+    : wardCenter
     ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
     : mappedRegion
       ? { ...mappedRegion, zoom: 11 }
