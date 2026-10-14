@@ -370,6 +370,17 @@ export function JobDetail() {
     : undefined
   // 공단 수준 길찾기 — 출처 있는 정문·관리사무소 좌표(destination)로만. 없으면(영역 중심은 쓰지 않음) 버튼 숨김
   // 길찾기 3단계(2026-10-08): ① 승인 좌표 Chỉ đường → ② KCN 정문 좌표 Đến cổng KCN → ③ 둘 다 없으면 Gọi hỏi đường(전화).
+  // Browse-only VietMap viewport: reuse verified region / ward context, never a workplace pin.
+  // Do not infer a specific industrial park from similarly named areas.
+  const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
+    ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
+  const unverifiedMapViewport = wardCenter
+    ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
+    : mappedRegion
+      ? { ...mappedRegion, zoom: 11 }
+      : mapLocations.points.length > 0
+        ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
+        : { lat: 14.0583, lng: 108.2772, zoom: 5 }
   const parkDirection = directionsPlan.tier === 'gate'
     ? { label: directionsPlan.link.label, href: directionsPlan.link.href, note: directionsPlan.note }
     : undefined
@@ -604,10 +615,10 @@ export function JobDetail() {
                   )}
                   {/* VietMap always renders; this is a browsing viewport, NEVER a verified workplace pin. */}
                   <ClientOnlyMap
-                    lat={(findRegionCenter([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].filter(Boolean).join(', ')) ?? (/(?:yên phong|yen phong)/iu.test([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].join(' ')) ? findRegionCenter('Bắc Ninh') : null))?.lat ?? mapLocations.points[0]?.lat ?? 16.2}
-                    lng={(findRegionCenter([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].filter(Boolean).join(', ')) ?? (/(?:yên phong|yen phong)/iu.test([locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress)].join(' ')) ? findRegionCenter('Bắc Ninh') : null))?.lng ?? mapLocations.points[0]?.lng ?? 106.2}
+                    lat={unverifiedMapViewport.lat}
+                    lng={unverifiedMapViewport.lng}
                     title={job.title}
-                    zoom={10}
+                    zoom={unverifiedMapViewport.zoom}
                     pinless
                   />
                   <div className="jd2-map-links">
