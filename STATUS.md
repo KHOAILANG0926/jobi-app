@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-14 10:05 (VN)**
-- 기준 커밋: `a69f96a` (Merge pull request #76 from KHOAILANG0926/fix/visible-company-shift-20261014)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38504340884
+- 생성 시각: **2026-10-14 10:25 (VN)**
+- 기준 커밋: `03a6519` (Merge pull request #77 from KHOAILANG0926/fix/detail-header-compact-20261014)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38506063367
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `a69f96a` · 상태 **success** · 2026-10-14 10:05 (VN)
+- 마지막 Production 배포: `03a6519` · 상태 **success** · 2026-10-14 10:25 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #77 | 2026-10-14 10:24 (VN) | `03a6519` | Simplify job detail header without increasing height |
 | #76 | 2026-10-14 10:04 (VN) | `a69f96a` | Move company block visibly right |
 | #75 | 2026-10-14 09:58 (VN) | `626436e` | Nudge card company information right |
 | #74 | 2026-10-14 08:59 (VN) | `306e1ee` | Keep only one daily wage in job cards |
@@ -45,7 +46,6 @@
 | #70 | 2026-10-14 08:35 (VN) | `ecd7b38` | Fix duplicate home job cards and display source wages |
 | #69 | 2026-10-14 00:12 (VN) | `a663c13` | feat(ui): Xe đưa đón 태그에 움직이는 버스 아이콘 |
 | #68 | 2026-10-14 00:09 (VN) | `1b582a9` | fix(ui): 수수료 경고 문구를 지원 카드 하단으로 |
-| #67 | 2026-10-14 00:02 (VN) | `81babd9` | ops: KDA 외 공고 삭제 + KDA 포스터 표시 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
