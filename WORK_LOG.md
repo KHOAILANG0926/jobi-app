@@ -1,3 +1,10 @@
+## 2026-10-15 10:00 — 직업분류 마스터 DDL·입력 SQL (미적용) (Claude)
+
+- 요청: 2단계 진행 — 공식 코드 테이블. 운영 적용은 승인 후.
+- 변경: `supabase/pending/20261015100000_occupation_master.sql`(occupation_master·occupation_descriptions·occupation_aliases, RLS 공개 읽기만), `_rollback.sql`, `20261015100100_occupation_master_seed.sql`(자동 생성), `scripts/occupations/build_seed_sql.py`, `supabase/tests/occupation_master.pglite.test.mjs`.
+- 검증: [직접 확인] PGlite 2회 실행(멱등) — master 1505(10/48/152/509/786), 설명 603, 동의어 21, 부모 누락 0, 잘못된 코드·계층·anon 쓰기 거부, 롤백 확인.
+- 운영 DB 적용·master·배포 없음. job_categories(구직자 검색 분류)는 화면 결정 필요로 보류.
+
 ## 2026-10-15 09:30 — 34/2020 공식 직업분류 원본 확보·추출 (Claude)
 
 - 요청: Viecganban 직업군을 정부 공식 분류(QĐ 34/2020/QĐ-TTg) 기준으로. 1단계 = 원본 추출만(DB·배포 금지).
@@ -72,12 +79,6 @@
 - 증상: sb-4685가 "행정구역만 있음"으로 표시. 원인: 표시 문구는 DB `address_accuracy`(수집 단계 값)에서 오며 4685·4686·4721 등이 `region_only`(chotot 100건 중 85건). 앱 파서(`addressParse.ts`)는 4685를 이미 검색 가능으로 봤지만 검색 글자에 상호 접두어("MEDIAMART - …")와 "Đ."가 그대로 들어갔고, 4721은 상호만 있는 앞 구간·단독 "P" 구간 때문에 상세주소로 못 봤다.
 - 수정: `addressParse.ts`(상호 구간 건너뛰기·단독/붙은 약어 절단·접두어 제거·"Đ."→"Đường") + `jobRows.ts correctedAddressAccuracy`(DB 값은 그대로, 화면·지도 판단에서만 `exact_text`로 보정). 재분류 8건. 상세주소 22→23, 검색 가능 13→14(+#4721).
 - 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패), `addressLocate.test.ts`에 약어·상호 케이스 추가.
-
-## 2026-10-08 — /admin 개요 "Tổng tin tuyển dụng"이 "—" + xã/phường 버튼 안 보임 신고 (DB 쓰기 없음)
-
-- 원인(개요): 대시보드가 베이스 테이블 `korea_jobs`를 직접 count — 0012 설계상 anon/authenticated에 권한이 없어 관리자 로그인에서도 permission denied → `koreaJobsError` → "Tin Hàn Quốc"과 "Tổng"이 항상 "—"(Tin VN은 별도 조회라 100). 수정: 공개 뷰 `korea_jobs_public`(status='active'·미만료)로 count. 현재 값 = 100 + 1.
-- 버튼: Production 번들(`AdminDashboard-ClM6G6ez.js`, master `b64b2f8` 배포 06:26 UTC)에 "Tìm khu vực xã/phường (chotot)"가 이미 포함됨. 관리자 세션을 흉내 낸 브라우저(Production, 네트워크 mock)에서 Vị trí 탭에 버튼 3개 모두 렌더 확인 → 사용자 화면의 2개는 이전 번들/이전 시점으로 보임. 확실히 보이도록 해당 박스를 기존 박스 위로 이동.
-- 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패).
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
