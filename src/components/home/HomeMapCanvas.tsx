@@ -12,9 +12,9 @@ export type { HomeMapMarker }
 
 type Props = Pick<
   HomeMapProviderProps,
-  | 'origin' | 'originIsUser' | 'radiusKm' | 'recenterRequest' | 'markers' | 'selectedId' | 'onSelect' | 'onNearbyChange'
-  | 'mapMode' | 'onMapModeChange' | 'pickedPlace' | 'onPlacePick' | 'placeZoomRequest'
->
+  | 'selectedPoint' | 'origin' | 'originIsUser' | 'radiusKm' | 'recenterRequest' | 'markers' | 'selectedId' | 'onSelect' | 'onNearbyChange'
+  | 'initialViewport' | 'radiusActive' | 'pickingOrigin' | 'onOriginPick' | 'cameraRequest' | 'mapMode' | 'onMapModeChange' | 'pickedPlace' | 'onPlacePick' | 'placeZoomRequest'
+> & { onViewportChange?: HomeMapProviderProps['onViewportChange'] }
 
 const VIETMAP_TILEMAP_KEY = (import.meta.env.VITE_VIETMAP_TILEMAP_KEY as string | undefined)?.trim() ?? ''
 const VietMapMapCanvas = VIETMAP_TILEMAP_KEY ? lazy(() => import('./map/VietMapMapCanvas')) : null
@@ -48,7 +48,7 @@ export default function HomeMapCanvas(props: Props) {
   const sharedProps = {
     ...props,
     onViewportChange: (viewport: Parameters<HomeMapProviderProps['onViewportChange']>[0]) => {
-      dispatch({ type: 'VIEWPORT_CHANGED', generation, viewport })
+      dispatch({ type: 'VIEWPORT_CHANGED', generation, viewport }); props.onViewportChange?.(viewport)
     },
   }
 
@@ -56,7 +56,7 @@ export default function HomeMapCanvas(props: Props) {
     return (
       <GeoapifyMapCanvas
         {...sharedProps}
-        initialViewport={state.lastViewport ?? undefined}
+        initialViewport={state.lastViewport ?? props.initialViewport}
         onReady={() => undefined}
         onFailure={() => undefined}
       />

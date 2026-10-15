@@ -95,12 +95,14 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     element.style.width = selected ? '30px' : '24px'
     element.style.height = selected ? '30px' : '24px'
     element.style.zIndex = selected ? '2' : '1'
-    element.title = group.length === 1 ? job.label : `${group.length} việc làm cùng địa điểm`
+    element.title = group.length === 1 ? job.label : `${group.length} việc làm cùng điểm trên bản đồ${group.some(m => m.kind && m.kind !== 'exact') ? ' · Có vị trí đại diện' : ''}`
     element.setAttribute('role', 'button')
     element.setAttribute('aria-label', element.title)
     element.tabIndex = 0
     const pin = document.createElement('span')
-    pin.className = `hme-pin${selected ? ' is-selected' : ''}`
+    pin.className = `hme-pin${selected ? ' is-selected' : ''}${group.some(m => m.kind && m.kind !== 'exact') ? ' hme-pin--representative' : ''}`
+      element.dataset.locationKinds = [...new Set(group.map(m => m.kind ?? 'exact'))].join(' ')
+      element.dataset.locationKind = job.kind ?? 'exact'
     element.appendChild(pin)
     if (group.length > 1) {
       const count = document.createElement('span')
@@ -109,7 +111,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
       element.appendChild(count)
     }
     const choose = () => {
-      if (group.length === 1) { propsRef.current.onSelect(job.id); return }
+      if (group.length === 1) { propsRef.current.onSelect(job.id, job); return }
       jobPickerRef.current?.remove()
       const list = document.createElement('div')
       list.className = 'hme-map__job-picker'
@@ -121,7 +123,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
         button.type = 'button'
         button.textContent = m.label
         button.dataset.jobId = m.id
-        button.addEventListener('click', () => propsRef.current.onSelect(m.id))
+        button.addEventListener('click', () => propsRef.current.onSelect(m.id, m))
         list.appendChild(button)
       }
       jobPickerRef.current = new vietmapgl.Popup(SHARED_JOB_POPUP_OPTIONS).setLngLat([job.lng, job.lat]).setDOMContent(list).addTo(map)
@@ -147,7 +149,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     for (const item of plan) {
       const ids = item.markers.map((m) => m.id).join(',')
       const selected = item.kind === 'group' && item.markers.some((m) => m.id === selectedId)
-      const signature = `${item.kind}|${ids}|${selected ? 1 : 0}|${item.markers.map((m) => m.label).join('\u0001')}`
+      const signature = `${item.kind}|${ids}|${selected ? 1 : 0}|${item.markers.map((m) => `${m.kind}:${m.label}`).join('\u0001')}`
       const existing = markerElementsRef.current.get(item.key)
       if (existing && existing.signature === signature) { next.set(item.key, existing); continue }
       existing?.marker.remove()
@@ -166,7 +168,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     if (!map) return
     const current = propsRef.current
     const firstSymbol = map.getStyle().layers.find((layer) => layer.type === 'symbol')?.id
-    if (!map.getSource(CIRCLE_SOURCE)) map.addSource(CIRCLE_SOURCE, { type: 'geojson', data: createRadiusPolygon(current.origin, current.radiusKm) })
+    if (!map.getSource(CIRCLE_SOURCE)) map.addSource(CIRCLE_SOURCE, { type: 'geojson', data: current.radiusActive === false ? { type: 'FeatureCollection', features: [] } : createRadiusPolygon(current.origin, current.radiusKm) })
     if (!map.getLayer('home-radius-fill')) map.addLayer({ id: 'home-radius-fill', type: 'fill', source: CIRCLE_SOURCE, paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.08 } }, firstSymbol)
     if (!map.getLayer('home-radius-line')) map.addLayer({ id: 'home-radius-line', type: 'line', source: CIRCLE_SOURCE, paint: { 'line-color': '#2563eb', 'line-width': 1.5, 'line-opacity': 0.75 } }, firstSymbol)
     if (!map.getSource(RING_SOURCE)) map.addSource(RING_SOURCE, { type: 'geojson', data: ringFeatures(nearbyDataRef.current.center) })
@@ -362,7 +364,8 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
       box.dataset.mapCenterLat = String(center.lat)
       box.dataset.mapCenterLng = String(center.lng)
       box.dataset.mapZoom = String(zoom)
-      propsRef.current.onViewportChange({ center: { lat: center.lat, lng: center.lng }, zoom })
+      const b = map.getBounds()
+      propsRef.current.onViewportChange({ center: { lat: center.lat, lng: center.lng }, zoom, bounds: { west: b.getWest(), east: b.getEast(), south: b.getSouth(), north: b.getNorth() } })
     }
     const reportFailure = (event: { error?: { message?: string }; tile?: unknown; sourceId?: string }) => {
       if (failedRef.current) return
@@ -390,6 +393,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
       const current = propsRef.current
       const dot = document.createElement('div')
       dot.className = 'hme-map__origin'
+      dot.style.display = current.radiusActive === false ? 'none' : ''
       dot.style.backgroundColor = current.originIsUser ? '#2563eb' : '#64748b'
       originMarkerRef.current = new vietmapgl.Marker({ element: dot, anchor: 'center' }).setLngLat([current.origin.lng, current.origin.lat]).addTo(map)
       renderMarkers()
@@ -410,6 +414,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     const onClick = (e: { point: { x: number; y: number }; lngLat: { lng: number; lat: number }; originalEvent: MouseEvent }) => {
       const target = e.originalEvent?.target as HTMLElement | null
       if (target?.closest?.('.vietmapgl-marker, .vietmapgl-popup, .hme-map__modes')) return
+      if (propsRef.current.pickingOrigin) { propsRef.current.onOriginPick?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }); return }
       const place = pickAt(e.point, e.lngLat)
       pickedRef.current = place
       propsRef.current.onPlacePick?.(place)
@@ -467,14 +472,15 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     const box = boxRef.current
     if (!map || !box) return
     const { origin, originIsUser, radiusKm, recenterRequest } = props
-    ;(map.getSource(CIRCLE_SOURCE) as GeoJSONSource | undefined)?.setData(createRadiusPolygon(origin, radiusKm))
+    ;(map.getSource(CIRCLE_SOURCE) as GeoJSONSource | undefined)?.setData(props.radiusActive === false ? { type: 'FeatureCollection', features: [] } : createRadiusPolygon(origin, radiusKm))
     originMarkerRef.current?.setLngLat([origin.lng, origin.lat])
+    if (originMarkerRef.current) originMarkerRef.current.getElement().style.display = props.radiusActive === false ? 'none' : ''
     if (originMarkerRef.current) originMarkerRef.current.getElement().style.backgroundColor = originIsUser ? '#2563eb' : '#64748b'
     const previous = lastViewportRef.current
     const recenter = previous.origin.lat !== origin.lat || previous.origin.lng !== origin.lng || previous.recenterRequest !== recenterRequest
     lastViewportRef.current = { origin, recenterRequest }
     if (recenter) map.jumpTo({ center: [origin.lng, origin.lat], zoom: calculateInitialZoom(origin.lat, radiusKm, canvasSize(box)) })
-  }, [props.origin, props.originIsUser, props.radiusKm, props.recenterRequest])
+  }, [props.origin, props.originIsUser, props.radiusKm, props.recenterRequest, props.radiusActive])
 
   useEffect(() => { renderMarkers() }, [props.markers, props.selectedId])
 
@@ -500,7 +506,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
   const chooseMode = (next: VietMapStyleKind) => { setMode(next); propsRef.current.onMapModeChange?.(next) }
 
   // 선택 공고 주변 생활시설: 근무지로 이동(z16) → 타일 로드 완료 후 실제 POI만 집계.
-  const selectedMarker: HomeMapMarker | null = props.selectedId ? props.markers.find((m) => m.id === props.selectedId) ?? null : null
+  const selectedMarker: HomeMapMarker | null = props.selectedId ? props.markers.find((m) => m.id === props.selectedId && (!m.kind || m.kind === 'exact') && (!props.selectedPoint || (m.lat === props.selectedPoint.lat && m.lng === props.selectedPoint.lng))) ?? null : null
   const selLat = selectedMarker?.lat
   const selLng = selectedMarker?.lng
   useEffect(() => {
@@ -548,6 +554,11 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     return () => { window.clearTimeout(fallback); map.off('idle', compute); map.off('style.load', run) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.selectedId, selLat, selLng])
+
+  useEffect(() => {
+    const v = props.cameraRequest
+    if (v && mapRef.current) mapRef.current.jumpTo({ center: [v.center.lng, v.center.lat], zoom: v.zoom })
+  }, [props.cameraRequest])
 
   return (
     <div className="hme-map" data-map-provider="vietmap" data-map-mode={mode}>

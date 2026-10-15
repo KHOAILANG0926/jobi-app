@@ -1,0 +1,81 @@
+// Synthetic network fixtures ONLY, never published or inserted into a real DB.
+import {chromium} from 'playwright'
+import assert from 'node:assert/strict'
+const base=process.env.BASE_URL || 'http://127.0.0.1:5173'
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader']})
+const center={lat:21.0285,lng:105.8542}
+const jobs=[1,2,3,4,5].map(id=>({id,title:`Synthetic map test ${id}`,company:'Synthetic fixture',location:'Hà Nội',salary:'15 triệu/tháng',category:'dich_vu',occupation_code:'82022',active:true,admin_hidden:false,employer_phone:'0900000000',description:'Synthetic test only',posted_at:'2026-10-15',source:'manual:poster'}))
+const style={version:8,sources:{openmaptiles:{type:'vector',tiles:[]}},layers:[{id:'background',type:'background',paint:{'background-color':'#e9edf0'}}]}
+for (const mobile of [false,true]) {
+ const ctx=await browser.newContext({viewport:mobile?{width:390,height:844}:{width:1366,height:900},isMobile:mobile,hasTouch:mobile,permissions:['geolocation'],geolocation:{latitude:center.lat,longitude:center.lng,accuracy:10}})
+ let gpsCalls=0, styleCalls=0
+ await ctx.exposeFunction('noteGps',()=>gpsCalls++)
+ await ctx.addInitScript(()=>{const original=navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);navigator.geolocation.getCurrentPosition=(...args)=>{window.noteGps();return original(...args)}})
+ await ctx.route('**/*',async route=>{
+  const url=new URL(route.request().url())
+  const json=(data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})
+  if(url.hostname==='maps.vietmap.vn'){styleCalls++;return json(style)}
+  if(url.pathname==='/api/map-locations')return json({points:{'sb-3':{kind:'gate',...center,source:'OSM node/fixture',checkedAt:'2026-10-15'},'sb-4':{kind:'area',lat:21.15,lng:106.0,source:'VietMap fixture',checkedAt:'2026-10-15'}}})
+  if(url.hostname.endsWith('supabase.co')){
+   if(url.pathname.endsWith('/local_jobs'))return json(jobs)
+   if(url.pathname.endsWith('/job_work_locations'))return json([1,2].map(id=>({id,job_id:id,raw_address:'Hà Nội',...center,location_verified:true,coordinate_accuracy:'exact',sort_order:0})))
+   if(url.pathname.endsWith('/occupation_master'))return json([{code:'82',name_vi:'Thợ lắp ráp',level:2}])
+   return json([])
+  }
+  if(url.origin===base || url.protocol==='data:')return route.continue()
+  return route.abort()
+ })
+ const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message))
+ await page.goto(base)
+ await page.locator('.hme__map').scrollIntoViewIfNeeded()
+ await page.waitForFunction(()=>window.__homeMap?.isStyleLoaded())
+ await page.waitForFunction(()=>document.querySelector('[data-testid="home-map-job-counts"]')?.dataset.matched==='4')
+ assert.equal(gpsCalls,0,'initial page never requests GPS')
+ assert.equal(await page.locator('.hme-radius').count(),0,'unlimited initial search')
+ const initial=await page.evaluate(()=>({center:window.__homeMap.getCenter(),zoom:window.__homeMap.getZoom(),bounds:window.__homeMap.getBounds()}))
+ assert(Math.abs(initial.center.lat-center.lat)<0.01 && initial.zoom===8,'Hanoi initial camera')
+ const callsBefore=styleCalls
+ await page.locator('.hme__controls').getByRole('button',{name:'10M+',exact:true}).click()
+ assert.equal(styleCalls,callsBefore,'salary updates do not reload style')
+ await page.locator('.hme__controls').getByRole('button',{name:'Gần tôi',exact:true}).click()
+ await page.waitForFunction(()=>document.querySelector('[data-testid="home-map-job-counts"]')?.dataset.radiusActive==='true')
+ assert.equal(gpsCalls,1)
+ await page.locator('.hme-radius__quick').getByRole('button',{name:'500 m',exact:true}).click()
+ await page.waitForFunction(()=>document.querySelector('[data-testid="home-map-job-counts"]')?.dataset.inRadius==='2')
+ assert.equal(await page.locator('[data-location-kinds~="gate"]').count()>0,true,'representative stays on map')
+ await page.getByRole('button',{name:'Bỏ giới hạn bán kính',exact:true}).click()
+ await page.locator('.hme__controls').getByRole('button',{name:'Chọn điểm trên bản đồ',exact:true}).click()
+ await page.locator('.hme__map').scrollIntoViewIfNeeded()
+ const canvas=page.locator('.hme__map canvas').first();const box=await canvas.boundingBox()
+ await canvas.click({position:{x:box.width*0.65,y:box.height*0.65}})
+ await page.waitForFunction(()=>document.querySelector('.hme-loc__label')?.textContent==='Điểm đã chọn')
+ assert.equal(await page.getByRole('button',{name:'Chọn điểm trên bản đồ',exact:true}).getAttribute('aria-pressed'),'false','one tap exits picking')
+ await page.getByRole('button',{name:'Bỏ giới hạn bán kính',exact:true}).click()
+ await page.evaluate(()=>window.__homeMap.jumpTo({center:[107,22],zoom:12}))
+ await page.waitForFunction(()=>document.querySelector('[data-testid="home-map-job-counts"]')?.dataset.matched==='0')
+ await page.reload();await page.locator('.hme__map').scrollIntoViewIfNeeded();await page.waitForFunction(()=>window.__homeMap?.isStyleLoaded())
+ const restored=await page.evaluate(()=>({lat:window.__homeMap.getCenter().lat,zoom:window.__homeMap.getZoom()}))
+ assert(Math.abs(restored.lat-22)<0.001&&restored.zoom===12,'last viewport restored')
+ await page.evaluate(()=>localStorage.setItem('vgb:map-r1:viewport','{"center":{"lat":999,"lng":105},"zoom":9}'))
+ await page.reload();await page.locator('.hme__map').scrollIntoViewIfNeeded();await page.waitForFunction(()=>window.__homeMap?.isStyleLoaded())
+ assert.equal(await page.evaluate(()=>window.__homeMap.getZoom()),8,'bad storage falls back')
+ await page.evaluate(()=>{navigator.geolocation.getCurrentPosition=(_ok,fail)=>fail({code:1,message:'denied'})})
+ await page.locator('.hme__controls').getByRole('button',{name:'Gần tôi',exact:true}).click()
+ assert.equal(await page.locator('.hme-radius').count(),0,'GPS denial does not enable radius')
+ await page.evaluate(()=>window.__homeMap.jumpTo({center:[105.8542,21.0285],zoom:16}))
+ await page.locator('.hme__map').scrollIntoViewIfNeeded()
+ await page.locator('.hme-map__modes').getByRole('button',{name:/Vệ tinh/}).click()
+ await page.waitForFunction(()=>document.querySelector('[data-map-mode]')?.getAttribute('data-map-mode')==='satellite')
+ await page.locator('.hme-map__modes').getByRole('button',{name:/Bản đồ/}).click()
+ await page.waitForFunction(()=>document.querySelector('[data-map-mode]')?.getAttribute('data-map-mode')==='street')
+ // Add a synthetic rendered building to the actual SDK and exercise the existing click path.
+ await page.evaluate(()=>{const m=window.__homeMap;m.addSource('fixture-building',{type:'geojson',data:{type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[[[105.8546,21.0287],[105.855,21.0287],[105.855,21.0291],[105.8546,21.0291],[105.8546,21.0287]]]}}]}});m.addLayer({id:'building',type:'fill',source:'fixture-building',paint:{'fill-color':'#999'}})})
+ await page.waitForTimeout(300)
+ const click=await page.evaluate(()=>{const p=window.__homeMap.project([105.8548,21.0289]);return {x:p.x,y:p.y}})
+ await canvas.click({position:click})
+ await page.waitForFunction(()=>document.querySelector('.hme-place'))
+ assert.equal(errors.length,0,errors.join('\n'))
+ console.log(`${mobile?'mobile':'desktop'}: initial/restore/GPS/radius/representative/count/style/building checks passed`)
+ await ctx.close()
+}
+await browser.close()

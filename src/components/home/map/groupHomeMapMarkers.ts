@@ -6,7 +6,7 @@ export function groupHomeMapMarkers(markers: HomeMapMarker[]): HomeMapMarker[][]
   for (const marker of markers) {
     const key = `${marker.lat},${marker.lng}`
     const group = groups.get(key)
-    if (group) group.push(marker)
+    if (group) { if (!group.some(m => m.id === marker.id)) group.push(marker) }
     else groups.set(key, [marker])
   }
   return [...groups.values()]

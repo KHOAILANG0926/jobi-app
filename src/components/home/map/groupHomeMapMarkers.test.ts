@@ -15,3 +15,5 @@ assert(groups[0].map((marker) => marker.id).join(',') === 'reception,bar,service
 assert(groups[0][0].lat === 21.1868716 && groups[0][0].lng === 106.0685263, 'workplace is not jittered')
 assert(groups[1].map((marker) => marker.id).join(',') === 'pizza', 'other location remains separate')
 console.log('groupHomeMapMarkers.test.ts: same-coordinate jobs remain individually addressable')
+const duplicate = {id:'same',label:'Same',lat:21,lng:106}
+assert(groupHomeMapMarkers([duplicate,duplicate])[0].length === 1, 'duplicate workplace rows count job once')

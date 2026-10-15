@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { useEffect, useRef, useState } from 'react'
 import type { HomeMapProviderProps, MapViewportSize } from './HomeMapTypes'
+import { groupHomeMapMarkers } from './groupHomeMapMarkers'
 import { calculateInitialZoom, createRadiusPolygon } from './homeMapGeometry'
 import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './homeMapGestures'
 
@@ -51,6 +52,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
   const readyRef = useRef(false)
   const failedRef = useRef(false)
   const originMarkerRef = useRef<Marker | null>(null)
+  const jobPickerRef = useRef<maplibregl.Popup | null>(null)
   const jobMarkersRef = useRef<Marker[]>([])
   const propsRef = useRef(props)
   const lastViewportRef = useRef({ origin: props.origin, recenterRequest: props.recenterRequest })
@@ -61,8 +63,9 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     const map = mapRef.current
     if (!map || !readyRef.current) return
     jobMarkersRef.current.forEach((marker) => marker.remove())
-    jobMarkersRef.current = propsRef.current.markers.map((job) => {
-      const selected = job.id === propsRef.current.selectedId
+    jobMarkersRef.current = groupHomeMapMarkers(propsRef.current.markers).map((group) => {
+      const job = group[0]
+      const selected = group.some(m => m.id === propsRef.current.selectedId)
       const element = document.createElement('div')
       element.className = 'hme-map__job-marker'
       element.style.width = selected ? '30px' : '24px'
@@ -73,13 +76,34 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       element.setAttribute('aria-label', job.label)
       element.tabIndex = 0
       const pin = document.createElement('span')
-      pin.className = `hme-pin${selected ? ' is-selected' : ''}`
+      pin.className = `hme-pin${selected ? ' is-selected' : ''}${group.some(m => m.kind && m.kind !== 'exact') ? ' hme-pin--representative' : ''}`
+      element.dataset.locationKind = job.kind ?? 'exact'
       element.appendChild(pin)
-      element.addEventListener('click', () => propsRef.current.onSelect(job.id))
+      if (group.length > 1) {
+        const count = document.createElement('span')
+        count.className = 'hme-map__job-count'
+        count.textContent = String(group.length)
+        element.appendChild(count)
+      }
+      const choose = () => {
+        if (group.length === 1) { propsRef.current.onSelect(job.id, job); return }
+        jobPickerRef.current?.remove()
+        const list = document.createElement('div')
+        list.className = 'hme-map__job-picker'
+        for (const m of group) {
+          const button = document.createElement('button')
+          button.type = 'button'
+          button.textContent = m.label
+          button.addEventListener('click', () => propsRef.current.onSelect(m.id, m))
+          list.appendChild(button)
+        }
+        jobPickerRef.current = new maplibregl.Popup({closeOnClick:true}).setLngLat([job.lng,job.lat]).setDOMContent(list).addTo(map)
+      }
+      element.addEventListener('click', choose)
       element.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          propsRef.current.onSelect(job.id)
+          choose()
         }
       })
       return new maplibregl.Marker({ element, anchor: 'bottom' }).setLngLat([job.lng, job.lat]).addTo(map)
@@ -111,7 +135,8 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       box.dataset.mapCenterLat = String(center.lat)
       box.dataset.mapCenterLng = String(center.lng)
       box.dataset.mapZoom = String(zoom)
-      propsRef.current.onViewportChange({ center: { lat: center.lat, lng: center.lng }, zoom })
+      const b = map.getBounds()
+      propsRef.current.onViewportChange({ center: { lat: center.lat, lng: center.lng }, zoom, bounds: { west: b.getWest(), east: b.getEast(), south: b.getSouth(), north: b.getNorth() } })
     }
     const reportFailure = () => {
       setTileError(true)
@@ -120,6 +145,8 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
         propsRef.current.onFailure('render-error')
       }
     }
+    const pickOrigin = (e: { lngLat: { lat: number; lng: number } }) => { if (propsRef.current.pickingOrigin) propsRef.current.onOriginPick?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }) }
+    map.on('click', pickOrigin)
     map.on('moveend', reportViewport)
     map.on('error', reportFailure)
     map.on('load', () => {
@@ -127,11 +154,12 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       tuneStyle(map)
       const current = propsRef.current
       const firstSymbol = map.getStyle().layers.find((layer) => layer.type === 'symbol')?.id
-      map.addSource(CIRCLE_SOURCE, { type: 'geojson', data: createRadiusPolygon(current.origin, current.radiusKm) })
+      map.addSource(CIRCLE_SOURCE, { type: 'geojson', data: current.radiusActive === false ? { type: 'FeatureCollection', features: [] } : createRadiusPolygon(current.origin, current.radiusKm) })
       map.addLayer({ id: 'home-radius-fill', type: 'fill', source: CIRCLE_SOURCE, paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.08 } }, firstSymbol)
       map.addLayer({ id: 'home-radius-line', type: 'line', source: CIRCLE_SOURCE, paint: { 'line-color': '#2563eb', 'line-width': 1.5, 'line-opacity': 0.75 } }, firstSymbol)
       const dot = document.createElement('div')
       dot.className = 'hme-map__origin'
+      dot.style.display = current.radiusActive === false ? 'none' : ''
       dot.style.backgroundColor = current.originIsUser ? '#2563eb' : '#64748b'
       originMarkerRef.current = new maplibregl.Marker({ element: dot, anchor: 'center' })
         .setLngLat([current.origin.lng, current.origin.lat]).addTo(map)
@@ -150,6 +178,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       jobMarkersRef.current = []
       originMarkerRef.current?.remove()
       originMarkerRef.current = null
+      jobPickerRef.current?.remove()
       map.remove()
       mapRef.current = null
       readyRef.current = false
@@ -165,8 +194,9 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     if (!map || !box) return
     const { origin, originIsUser, radiusKm, recenterRequest } = props
     const source = map.getSource(CIRCLE_SOURCE) as GeoJSONSource | undefined
-    source?.setData(createRadiusPolygon(origin, radiusKm))
+    source?.setData(props.radiusActive === false ? { type: 'FeatureCollection', features: [] } : createRadiusPolygon(origin, radiusKm))
     originMarkerRef.current?.setLngLat([origin.lng, origin.lat])
+    if (originMarkerRef.current) originMarkerRef.current.getElement().style.display = props.radiusActive === false ? 'none' : ''
     if (originMarkerRef.current) originMarkerRef.current.getElement().style.backgroundColor = originIsUser ? '#2563eb' : '#64748b'
     const previous = lastViewportRef.current
     const recenter = previous.origin.lat !== origin.lat || previous.origin.lng !== origin.lng || previous.recenterRequest !== recenterRequest
@@ -174,9 +204,14 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     if (recenter) {
       map.jumpTo({ center: [origin.lng, origin.lat], zoom: calculateInitialZoom(origin.lat, radiusKm, canvasSize(box)) })
     }
-  }, [props.origin, props.originIsUser, props.radiusKm, props.recenterRequest])
+  }, [props.origin, props.originIsUser, props.radiusKm, props.recenterRequest, props.radiusActive])
 
   useEffect(() => { updateMarkers() }, [props.markers, props.selectedId])
+
+  useEffect(() => {
+    const v = props.cameraRequest
+    if (v && mapRef.current) mapRef.current.jumpTo({ center: [v.center.lng, v.center.lat], zoom: v.zoom })
+  }, [props.cameraRequest])
 
   return (
     <div className="hme-map" data-map-provider="geoapify">

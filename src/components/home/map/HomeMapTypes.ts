@@ -18,11 +18,13 @@ export type NearbyState =
 export interface HomeMapMarker extends MapPoint {
   id: string
   label: string
+  kind?: 'exact' | 'gate' | 'area'
 }
 
 export interface HomeMapViewport {
   center: MapPoint
   zoom: number
+  bounds?: { west: number; east: number; south: number; north: number }
 }
 
 export type HomeMapFailureReason =
@@ -36,11 +38,16 @@ export interface HomeMapProviderProps {
   origin: MapPoint
   originIsUser: boolean
   radiusKm: number
+  radiusActive?: boolean
+  pickingOrigin?: boolean
+  onOriginPick?: (point: MapPoint) => void
+  cameraRequest?: HomeMapViewport
   recenterRequest: number
   markers: HomeMapMarker[]
   selectedId: string | null
   initialViewport?: HomeMapViewport
-  onSelect: (id: string) => void
+  selectedPoint?: {lat: number; lng: number} | null
+  onSelect: (id: string, point?: {lat: number; lng: number}) => void
   onViewportChange: (viewport: HomeMapViewport) => void
   onReady: () => void
   onFailure: (reason: HomeMapFailureReason) => void
