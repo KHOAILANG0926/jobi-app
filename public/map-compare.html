@@ -29,7 +29,7 @@
   <span id="styles"></span>
 </header>
 <div id="map"></div>
-<div id="note">Bản đồ miễn phí OpenFreeMap (dữ liệu OpenStreetMap). Trang so sánh, không phải trang chính.</div>
+<div id="note">Bản đồ miễn phí OpenFreeMap (dữ liệu OpenStreetMap). Trang so sánh, không phải trang chính. Bấm vào bản đồ để cắm ghim thử, bấm vào ghim để xem tọa độ.</div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
   const PLACES = [
@@ -44,7 +44,14 @@
   map.addControl(new maplibregl.NavigationControl(), 'top-right')
   // 공고 핀 예시(빨간 점) — 위치는 예시
   const pin = () => { const el = document.createElement('div'); el.style.cssText = 'width:18px;height:18px;background:#e53935;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.35)'; return el }
-  new maplibregl.Marker({ element: pin() }).setLngLat([106.0763, 21.1861]).addTo(map)
+  new maplibregl.Marker({ element: pin() }).setLngLat([106.0763, 21.1861])
+    .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML('<b>Ví dụ tin tuyển dụng</b><br>Ghim mẫu ở trung tâm Bắc Ninh')).addTo(map)
+  // 지도를 누르면 그 자리에 핀(시험용). 핀을 누르면 좌표가 보인다.
+  map.on('click', (e) => {
+    const { lng, lat } = e.lngLat
+    new maplibregl.Marker({ element: pin() }).setLngLat([lng, lat])
+      .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(`Ghim thử<br>${lat.toFixed(5)}, ${lng.toFixed(5)}`)).addTo(map)
+  })
   const group = (id, items, onPick) => {
     const box = document.getElementById(id)
     items.forEach((it, i) => {
