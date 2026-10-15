@@ -1,4 +1,4 @@
--- 2026-10-15 [미적용 · 사용자 승인 대기] 공식 직업분류 34/2020 데이터 입력. 자동 생성 파일 — 직접 수정 금지.
+-- 2026-10-15 [2026-10-15 사용자 승인 — 병합 시 occupation-master-apply.yml 로 적용] 공식 직업분류 34/2020 데이터 입력. 자동 생성 파일 — 직접 수정 금지.
 -- 생성: python3 scripts/occupations/build_seed_sql.py  (원본: data/occupations/34-2020/*.json)
 -- 건수: occupation_master 1505, occupation_descriptions 603
 begin;

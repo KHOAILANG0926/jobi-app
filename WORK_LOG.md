@@ -3,7 +3,7 @@
 - 요청: 2단계 진행 — 공식 코드 테이블. 운영 적용은 승인 후.
 - 변경: `supabase/pending/20261015100000_occupation_master.sql`(occupation_master·occupation_descriptions·occupation_aliases, RLS 공개 읽기만), `_rollback.sql`, `20261015100100_occupation_master_seed.sql`(자동 생성), `scripts/occupations/build_seed_sql.py`, `supabase/tests/occupation_master.pglite.test.mjs`.
 - 검증: [직접 확인] PGlite 2회 실행(멱등) — master 1505(10/48/152/509/786), 설명 603, 동의어 21, 부모 누락 0, 잘못된 코드·계층·anon 쓰기 거부, 롤백 확인.
-- 운영 DB 적용·master·배포 없음. job_categories(구직자 검색 분류)는 화면 결정 필요로 보류.
+- 이후 사용자 승인: SQL을 migrations로 이동, 적용 워크플로 `occupation-master-apply.yml` + 점검 `supabase/tests/occupation_master_check.sql` 추가. 직업군 화면은 Cấp2 48개 기본으로 결정.
 
 ## 2026-10-15 09:30 — 34/2020 공식 직업분류 원본 확보·추출 (Claude)
 

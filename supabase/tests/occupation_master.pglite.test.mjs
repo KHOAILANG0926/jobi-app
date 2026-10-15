@@ -7,8 +7,8 @@ import assert from 'node:assert/strict'
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
 const codes = JSON.parse(read('../../data/occupations/34-2020/occupation_codes.json'))
 const descriptions = JSON.parse(read('../../data/occupations/34-2020/descriptions.json'))
-const ddl = read('../pending/20261015100000_occupation_master.sql')
-const seed = read('../pending/20261015100100_occupation_master_seed.sql')
+const ddl = read('../migrations/20261015100000_occupation_master.sql')
+const seed = read('../migrations/20261015100100_occupation_master_seed.sql')
 const rollback = read('../pending/20261015100000_occupation_master_rollback.sql')
 
 const db = new PGlite()
@@ -46,6 +46,9 @@ for (const role of ['anon', 'authenticated']) {
   await assert.rejects(as(role, `insert into public.occupation_master values ('8', 1, null, 'x', 'f', 1)`), /permission denied|row-level security/, `${role} 쓰기 차단`)
   await assert.rejects(as(role, `update public.occupation_master set name_vi = 'x' where code = '7212'`), /permission denied|row-level security/, `${role} 수정 차단`)
 }
+
+// 운영 점검 SQL도 같은 상태에서 통과해야 한다
+await db.exec(read('./occupation_master_check.sql'))
 
 // 롤백 후 테이블 없음
 await db.exec(rollback)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build supabase/pending/20261015100100_occupation_master_seed.sql from data/occupations/34-2020/*.json.
+"""Build supabase/migrations/20261015100100_occupation_master_seed.sql from data/occupations/34-2020/*.json.
 
 The seed is idempotent (insert ... on conflict do update) and inserts levels 1→5 in order so the
 parent foreign key always resolves. Usage: python3 scripts/occupations/build_seed_sql.py
@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / 'data/occupations/34-2020'
-OUT = ROOT / 'supabase/pending/20261015100100_occupation_master_seed.sql'
+OUT = ROOT / 'supabase/migrations/20261015100100_occupation_master_seed.sql'
 
 
 def q(value):
@@ -34,7 +34,7 @@ def main():
     descriptions = json.loads((DATA / 'descriptions.json').read_text(encoding='utf-8'))
     names = {c['code']: c['name_vi'] for c in codes}
     lines = [
-        '-- 2026-10-15 [미적용 · 사용자 승인 대기] 공식 직업분류 34/2020 데이터 입력. 자동 생성 파일 — 직접 수정 금지.',
+        '-- 2026-10-15 [2026-10-15 사용자 승인 — 병합 시 occupation-master-apply.yml 로 적용] 공식 직업분류 34/2020 데이터 입력. 자동 생성 파일 — 직접 수정 금지.',
         '-- 생성: python3 scripts/occupations/build_seed_sql.py  (원본: data/occupations/34-2020/*.json)',
         f'-- 건수: occupation_master {len(codes)}, occupation_descriptions {len(descriptions)}',
         'begin;',
