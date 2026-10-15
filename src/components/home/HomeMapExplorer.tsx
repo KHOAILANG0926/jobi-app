@@ -7,16 +7,15 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, Wallet, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
-import { CATEGORY_LABELS, CATEGORY_SHORT, ALL_CATEGORIES } from '../../data/categories'
+import { CATEGORY_SHORT } from '../../data/categories'
 import { REGION_MACRO_TABS } from '../../data/jobRegions'
 import { findRegionCenter, formatDistanceLabel } from '../../lib/jobCoords'
 import { conditionBadges } from '../../lib/jobConditions'
 import {
-  DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, PRIMARY_CATEGORIES, RADIUS_MAX_KM, RADIUS_MIN_KM, SALARY_OPTIONS,
+  DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, RADIUS_MAX_KM, RADIUS_MIN_KM, SALARY_OPTIONS,
   findNearbyJobs, formatSalaryOption, isConditionAvailable, verifiedJobPoints,
   type ExtraConditionKey, type HomeMapFilterState, type MapJobPoint,
 } from '../../lib/homeMapFilters'
-import type { JobCategory } from '../../types/job'
 import { formatSearchRadius, locationAccuracyWarning, normalizeSearchRadius, summarizeMapJobs } from '../../lib/homeMapSearch'
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
 import NearbyLifePanel from './NearbyLifePanel'
@@ -24,8 +23,11 @@ import PlaceDetailPanel from './PlaceDetailPanel'
 import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
 import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
+import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupations'
 
 const HomeMapCanvas = lazy(() => import('./HomeMapCanvas'))
+/** 'Ngành nghề'에 처음부터 보이는 그룹 수(공고 많은 순). 나머지는 'Xem thêm'. */
+const OCCUPATION_GROUPS_PRIMARY = 6
 
 const DEFAULT_REGION = 'Bắc Ninh'
 /** index.css의 .hme 모바일 레이아웃 기준과 같은 값. */
@@ -75,6 +77,18 @@ export default function HomeMapExplorer() {
   }, [])
 
   const nearby = useMemo(() => findNearbyJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
+  // 직업군 칩의 공고 수 = 지금 반경·다른 조건 안에서, 확인된 근무지가 있는 공고만(직업군 선택 자체는 빼고 센다).
+  // 2026-10-15 사용자 지적: 전체 공고로 세면 반경(100m·8km)과 무관하게 같은 숫자가 나왔다.
+  const occupationGroups = useMemo(
+    () => {
+      const inRadius = occupationGroupsInJobs(findNearbyJobs(mapJobs, origin.point, { ...filters, occupationGroups: [] }).map((n) => n.job))
+      // 이미 고른 그룹은 반경을 줄여 0건이 돼도 칩을 남긴다(선택을 풀 수 있게).
+      const missing = (filters.occupationGroups ?? []).filter((c) => !inRadius.some((g) => g.code === c)).map((code) => ({ code, count: 0 }))
+      return [...inRadius, ...missing]
+    },
+    [mapJobs, origin, filters],
+  )
+  const occupationNames = useOccupationNames(occupationGroups.map((g) => g.code))
   const counts = useMemo(() => summarizeMapJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
   const selected = nearby.find((n) => n.job.id === selectedId) ?? null
 
@@ -119,14 +133,16 @@ export default function HomeMapExplorer() {
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
-  const toggleCategory = (c: JobCategory) =>
-    update({ categories: filters.categories.includes(c) ? filters.categories.filter((x) => x !== c) : [...filters.categories, c] })
+  // 2026-10-15 사용자 결정: 'Ngành nghề'는 공식 직업분류 2단계 그룹 — 실제 공고가 있는 그룹만 보여준다.
+  const selectedGroups = filters.occupationGroups ?? []
+  const toggleOccupationGroup = (code: string) =>
+    update({ occupationGroups: selectedGroups.includes(code) ? selectedGroups.filter((x) => x !== code) : [...selectedGroups, code] })
   const toggleExtra = (k: ExtraConditionKey) =>
     update({ extras: filters.extras.includes(k) ? filters.extras.filter((x) => x !== k) : [...filters.extras, k] })
 
   const originLabel = origin.kind === 'user' ? 'Vị trí hiện tại của bạn' : origin.label
   const distanceFrom = origin.kind === 'user' ? 'từ vị trí của bạn' : `từ trung tâm ${origin.label}`
-  const visibleCategories = showAllCategories ? ALL_CATEGORIES : PRIMARY_CATEGORIES
+  const visibleGroups = showAllCategories ? occupationGroups : occupationGroups.slice(0, OCCUPATION_GROUPS_PRIMARY)
   const activeExtraCount = filters.extras.length
   const emptyReason = loading ? 'Đang tải việc làm…'
     : jobsError ? 'Chưa tải được đầy đủ việc làm. Vui lòng thử lại sau.'
@@ -262,17 +278,29 @@ export default function HomeMapExplorer() {
         {/* 업종 */}
         <div className="hme-block">
           <div className="hme-block__head"><Briefcase size={16} aria-hidden /> <span>Ngành nghề</span></div>
-          <div className="hme-chips hme-chips--grid">
-            {visibleCategories.map((c) => (
-              <button key={c} type="button" title={CATEGORY_LABELS[c]} className={`hme-chip${filters.categories.includes(c) ? ' is-active' : ''}`}
-                aria-pressed={filters.categories.includes(c)} onClick={() => toggleCategory(c)}>
-                {CATEGORY_SHORT[c]}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="hme-more-link" onClick={() => setShowAllCategories((v) => !v)}>
-            {showAllCategories ? 'Thu gọn' : 'Xem thêm'} {showAllCategories ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-          </button>
+          {occupationGroups.length === 0 ? (
+            <p className="hme-empty-note">{loading ? 'Đang tải…' : 'Chưa có việc làm phân loại theo nghề trong bán kính này.'}</p>
+          ) : (
+            <>
+              <div className="hme-chips hme-chips--list">
+                {visibleGroups.map((g) => {
+                  const name = occupationNames.get(g.code) ?? `Nhóm nghề ${g.code}`
+                  const active = selectedGroups.includes(g.code)
+                  return (
+                    <button key={g.code} type="button" title={name} className={`hme-chip${active ? ' is-active' : ''}`}
+                      aria-pressed={active} onClick={() => toggleOccupationGroup(g.code)}>
+                      {name} <span className="hme-chip__count">{g.count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {occupationGroups.length > OCCUPATION_GROUPS_PRIMARY && (
+                <button type="button" className="hme-more-link" onClick={() => setShowAllCategories((v) => !v)}>
+                  {showAllCategories ? 'Thu gọn' : 'Xem thêm'} {showAllCategories ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* 조건 더보기 */}

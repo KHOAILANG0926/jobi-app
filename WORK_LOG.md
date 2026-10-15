@@ -1,3 +1,11 @@
+## 2026-10-15 11:50 — 화면: 'Ngành nghề' 필터를 공식 직업분류 2단계 그룹으로 (Claude)
+
+- 요청: 직업분류 계속 진행(사용자 결정: 공식 Cấp2 기본, 공고 있는 그룹만).
+- 변경: `src/lib/occupationGroups.ts`(+test), `src/lib/occupations.ts`(occupation_master 이름 조회), `homeMapFilters.ts`(occupationGroups), `HomeMapExplorer.tsx`(업종 칩 → 공식 그룹 칩·공고 수), `JobDetail.tsx`(Ngành nghề = 공식 직업명, 미분류면 기존 업종), `jobRows.ts`·`fetchJobsData.ts` select에 occupation_code/evidence, `index.css`.
+- 검증: [직접 확인] tsc 0, npm test 55/55, build 성공. 운영 DB: anon이 occupation_code·evidence·occupation_master 읽기 가능, #4824 = "Thợ lắp ráp thiết bị điện tử/linh kiện điện tử" / 그룹 "Thợ lắp ráp".
+- 수정(사용자 지적): 칩 숫자를 전체 공고가 아니라 반경 안·확인된 근무지 공고로 셈(#4824는 위치 미확인이라 0). 고른 그룹은 0건이어도 칩 유지.
+- 한계: 미분류 공고는 그룹을 고르면 목록에서 빠진다(선택 없으면 전체 표시). 기존 13개 업종(category)은 카드 이미지·추천 등 다른 곳에 그대로 남음.
+
 ## 2026-10-15 11:20 — 크롤러 직업 분류 연결 + 주간 미분류 보고 + 매달 관보 확인 (Claude)
 
 - 요청: R8 적용 후 계속 진행(사용자). [직접 확인] R8 run 38673944719 성공, #4824 = 82022 "làm linh kiện tai nghe", active=true/admin_hidden=false 유지.
@@ -67,18 +75,6 @@
 - 변경: `policy_decision` 컬럼, 함수 `job_policy_rules/norm/match/decision`, `enforce_job_posting_policy` + 트리거. 저장소에 동일 SQL 마이그레이션과 규칙 동기화 테스트 추가.
 - 검증 [직접 확인]: DB 판정 fixtures 57/57, 운영 공개 101 allow, #4750 exclude. 트리거 시험(임시 테이블에 동일 함수) 7건 의도대로. 운영 데이터 변경 없음(103/101/#4750 숨김 유지).
 - 남은 문제: VPS 코드 갱신은 수집 재개 전(트리거가 차단은 보장). 운영 테이블 직접 쓰기 시험은 승인 단계에서 막혀 임시 테이블로 대체.
-
-## 2026-10-11 10:40 — 거짓 보고 대책(STATUS 자동 기록) + 승인 규칙 B안 + 핀 2건 철회 (Claude)
-
-- 요청: GPT의 허위 보고(하지 않은 웹 검색을 했다고 보고·출처 첨부) 이후 지금까지 작업 검증, 재발 방지 장치, 승인 규칙 B안.
-- 검증 결과 [직접 확인 2026-10-11 DB·GitHub 조회]: PR #35·#36 병합은 사실. 그러나 HANDOFF의 "npm test 46/46"은 master 재실행·GitHub Actions 모두 45/46(`api/_zalo-token.test.ts` 실패), "원격 tree가 로컬 커밋 e615566과 일치"는 e615566이 GitHub에 없어 검증 불가, 10/8 "주소 재실행 신규 승인 0건"은 DB에 #4721 승인(07:27 UTC) 기록이 있어 사실과 다름.
-- 변경 1 (PR #37 `f6eed59`): `scripts/status/`·`status-report.yml`·`status-guard.yml` — DB·GitHub를 직접 조회해 `status` 브랜치 STATUS.md를 봇이 생성(master 반영·매일 06:47 VN). AGENTS.md·CLAUDE.md·Cursor 규칙 맨 위에 보고 검증 규정.
-- 변경 2 (이 PR): `evaluateAutoApproval` — KCN 윤곽 밖에서 회사명 일치만으로는 핀 없음(`name_only_no_house`). 주소 검색(번지+도로 일치) 승인은 그대로. 테스트 기대값 갱신(승인 흐름 테스트는 VSIP 윤곽 안 좌표로 이동). 규칙 문구 3개 파일 갱신.
-- DB (사용자 승인): 후보 37(#4702)·18(#4720) approved→revoked + admin_audit_logs 기록(executor=claude-service-sql). 남은 승인 핀: #4713·#4721·#4750.
-- 검증: tsc 통과, `npm test` 45/46(기존 zalo 실패만), build 통과.
-- 후속(같은 날): Zalo 테스트 mock 수정(PR #39, 46/46), PR 검사 워크플로 추가(PR #40), 사용자가 master 보호 설정(필수 검사 checks·guard, 우회 금지) — API로 확인. #4750 B2B 영업직 숨김·핀 철회(사용자 지시).
-- 후속2: GPT 교차 검증(PR #42 리뷰)에서 배포 대기 조회 오류·DB 트리거 위조 가능 지적 → 수정·보류. VietMap 재확인을 사이트 서버(OIDC)로 이전(PR #43). #43에서 Claude가 조회 선언을 지워 STATUS 1회 실패 → PR #44 복구 + 생성기 전체 실행 점검을 PR 검사에 추가. 12:09 STATUS 성공, 핀 2건 VietMap ✅.
-- 남은 문제: Goong 비교(계정 활성화 대기), #4685 VietMap 주소 미발견, B2B 영업직 필터 미구현.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

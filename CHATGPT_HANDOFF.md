@@ -11,7 +11,7 @@
 ## 2. 다음 할 일 3개
 1. [직접 확인] R8 운영 적용 완료(#4824 = 82022). 크롤러 분류 연결·주간 미분류 보고·매달 관보 확인: PR feat/occupation-crawler.
 2. 주간 보고 첫 실행 결과 확인(ANTHROPIC_API_KEY 없으면 보고만).
-3. 화면: 공고가 있는 Cấp2 직업군만 필터로 표시, 상세에 공식 직업명.
+3. 화면(PR feat/occupation-ui): 지도 탐색 'Ngành nghề' = 공식 Cấp2 그룹(공고 있는 것만), 상세 = 공식 직업명. Preview 확인 후 Production.
 
 ## 3. 필수 규칙
 - AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·추정 구분. 원본에 없는 직업코드·명칭 생성 금지.

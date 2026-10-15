@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext'
 import { ReportButton } from '../components/ReportButton'
 import { CATEGORY_LABELS } from '../data/categories'
 import { useJobs } from '../context/JobsContext'
+import { useOccupationNames } from '../lib/occupations'
 import { addApplication, hasAppliedToJob } from '../lib/applicationsStorage'
 import { buildProfile } from '../components/useApply'
 import { ApplyUnavailableNotice } from '../components/ApplyUnavailableNotice'
@@ -87,6 +88,8 @@ export function JobDetail() {
   const [tabsTop, setTabsTop] = useState(0)
 
   const job = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
+  // 공식 직업분류(R8) 직업명 — DB occupation_master에서만 가져온다. 미분류면 기존 업종 라벨을 쓴다.
+  const occupationNames = useOccupationNames(job?.occupationCode ? [job.occupationCode] : [])
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
   const location = useLocation()
   useEffect(() => {
@@ -277,6 +280,8 @@ export function JobDetail() {
   const showApply = canApplyInternally || !hasContact
 
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
+  const occupationName = job.occupationCode ? occupationNames.get(job.occupationCode) : undefined
+  const occupationLabel = occupationName ?? (/^(other|khác)$/i.test(catLabel.trim()) ? undefined : catLabel)
 
   // ── 빈 데이터 처리: 원본이 명시적으로 채운 값만 표시, 나머지는 필드 자체를 숨긴다 ──
   const salaryText = nonEmpty(job.rawSalary)
@@ -321,7 +326,7 @@ export function JobDetail() {
     row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
     row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
     row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', benefits.length > 0 ? benefits.join(' · ') : undefined),
-    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', /^(other|khác)$/i.test(catLabel.trim()) ? undefined : catLabel),
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', occupationLabel),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
     { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText + (badge ? ` (${badge.label})` : ''), cls: badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined } as InfoField,
