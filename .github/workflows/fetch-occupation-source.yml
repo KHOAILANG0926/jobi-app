@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install certificate helper
+        run: pip install --quiet cryptography==43.0.3
       - name: Download and verify the six official DOC files
         shell: python
         run: |
@@ -60,7 +62,39 @@ jobs:
                   official(newurl)
                   return super().redirect_request(req, fp, code, msg, headers, newurl)
 
-          opener = build_opener(OfficialRedirects())
+          # Some official hosts omit their intermediate certificate. Fetch it from the
+          # certificate's own AIA URL and verify the full chain normally (verification stays ON).
+          import socket, ssl
+          from urllib.request import HTTPSHandler, urlopen
+          from cryptography import x509
+          from cryptography.hazmat.primitives.serialization import Encoding
+          from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
+          ctx = ssl.create_default_context()
+          def add_missing_intermediates(host):
+              probe = ssl.create_default_context(); probe.check_hostname = False; probe.verify_mode = ssl.CERT_NONE
+              with socket.create_connection((host, 443), timeout=30) as sock:
+                  with probe.wrap_socket(sock, server_hostname=host) as tls:
+                      leaf = x509.load_der_x509_certificate(tls.getpeercert(True))
+              cert = leaf
+              for _ in range(3):
+                  try:
+                      aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS).value
+                  except x509.ExtensionNotFound:
+                      return
+                  urls = [d.access_location.value for d in aia if d.access_method == AuthorityInformationAccessOID.CA_ISSUERS]
+                  if not urls:
+                      return
+                  data = urlopen(urls[0], timeout=30).read()
+                  try:
+                      cert = x509.load_der_x509_certificate(data)
+                  except ValueError:
+                      cert = x509.load_pem_x509_certificate(data)
+                  ctx.load_verify_locations(cadata=cert.public_bytes(Encoding.PEM).decode())
+                  print(f'Added intermediate for {host}: {cert.subject.rfc4514_string()}', flush=True)
+                  if cert.issuer == cert.subject:
+                      return
+          add_missing_intermediates('g7.cdnchinhphu.vn')
+          opener = build_opener(OfficialRedirects(), HTTPSHandler(context=ctx))
 
           def download(url):
               try:
