@@ -111,3 +111,10 @@ def classify_occupation(title: str, source_text: str = '') -> dict | None:
         return None
     code, evidence = hit
     return {'occupation_code': code, 'occupation_evidence': evidence}
+
+
+def occupation_fields(job: dict) -> dict:
+    """크롤러 저장용: local_jobs.occupation_code / occupation_evidence 두 칸(미분류면 둘 다 None).
+    제목과 원문(source_text, 없으면 description)만 본다 — 회사명은 넘기지 않는다."""
+    got = classify_occupation(job.get('title') or '', job.get('source_text') or job.get('description') or '')
+    return got or {'occupation_code': None, 'occupation_evidence': None}

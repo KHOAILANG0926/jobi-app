@@ -1,3 +1,10 @@
+## 2026-10-15 11:20 — 크롤러 직업 분류 연결 + 주간 미분류 보고 + 매달 관보 확인 (Claude)
+
+- 요청: R8 적용 후 계속 진행(사용자). [직접 확인] R8 run 38673944719 성공, #4824 = 82022 "làm linh kiện tai nghe", active=true/admin_hidden=false 유지.
+- 변경: `crawler/crawl_facebook.py`(parse_post + 저장 칸 목록), `crawler/crawl_topcv.py`(TopCV·VietnamWorks 공고 생성 2곳)에 `occupation_fields()`. `.github/workflows/occupation-weekly-unclassified.yml`(매주 월, A안), `occupation-gazette-monthly-check.yml`(매달 1일).
+- 검증: [직접 확인] 분류기 unittest 11/11(Facebook parse_post #4824 원문 → 82022 포함). 크롤러 pytest 전후 동일(170 통과 / 11 실패는 변경 전부터 — 이 환경에 없는 모듈·도구).
+- 한계: ANTHROPIC_API_KEY 등록 여부는 이 환경에서 조회 불가 → 없으면 주간 작업은 보고만. 관보 확인 파서는 병합 후 수동 실행으로 확인 예정.
+
 ## 2026-10-15 10:40 — R8 직업군 규칙 SQL + 자동 분류기 (미적용) (Claude)
 
 - 요청: 직업분류 계속 진행(사용자). 운영 적용 결과: [직접 확인] occupation-master-apply run 38671967420 성공, 운영 DB 1505/603/21.
@@ -72,15 +79,6 @@
 - 후속(같은 날): Zalo 테스트 mock 수정(PR #39, 46/46), PR 검사 워크플로 추가(PR #40), 사용자가 master 보호 설정(필수 검사 checks·guard, 우회 금지) — API로 확인. #4750 B2B 영업직 숨김·핀 철회(사용자 지시).
 - 후속2: GPT 교차 검증(PR #42 리뷰)에서 배포 대기 조회 오류·DB 트리거 위조 가능 지적 → 수정·보류. VietMap 재확인을 사이트 서버(OIDC)로 이전(PR #43). #43에서 Claude가 조회 선언을 지워 STATUS 1회 실패 → PR #44 복구 + 생성기 전체 실행 점검을 PR 검사에 추가. 12:09 STATUS 성공, 핀 2건 VietMap ✅.
 - 남은 문제: Goong 비교(계정 활성화 대기), #4685 VietMap 주소 미발견, B2B 영업직 필터 미구현.
-
-## 2026-10-10 — sb-4685·sb-4721 주소 캐시 재조회 + VietMap 호출 추적 (DB 쓰기·유료 API 호출 없음)
-
-- 두 공고에만 공고 ID가 포함된 `address-v2` 캐시 키를 적용해 기존 실패 캐시를 우회하고, 다른 공고 캐시는 유지했다. 주소·회사명·행정구역·자동 승인 조건은 변경하지 않았다.
-- 관리자 주소 결과에 공고 ID별 cache/fresh/skipped, 요청 시도 수, 실패/승인 사유를 표시한다. 추적 목록에서 회사명·주소·POI명·전화번호·Secret은 제외했다.
-- 페이지 시도 수(실패·타임아웃·일일 한도 거절 포함)와 서버 공유 카운터 시작/검증된 종료/마지막 관측값·증가분·베트남 날짜를 분리했다. 429 공고도 추적에 남기고, upstream 실패·429·타임아웃 뒤 예약된 서버 사용량을 보존하며, 종료 usage 실패나 날짜 변경 시 delta를 미확정으로 둔다.
-- 확정 불가: 운영 재실행 전에는 두 공고의 새 실패 사유와 기존 잔여 52→49의 3회 주체를 알 수 없다. Production DB/DDL/배포와 실제 VietMap 호출은 하지 않았다.
-- 기존 운영 결과 인수인계: 사용자가 xã/phường 24개·84건 적용 완료를 보고했으며, 사전 예상 64건과 20건 차이는 아직 원인 미확정이다.
-- 검증: 관련 회귀 테스트 추가, `npm test` 46/46·`npx tsc --noEmit`·`npm run build` 통과. build는 제한된 환경에서 `RAYON_NUM_THREADS=1`, Node heap 512MB로 순차 실행했다. branch `fix/address-vietmap-tracing`; GitHub 인증 만료로 push/PR 대기.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

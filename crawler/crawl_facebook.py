@@ -28,6 +28,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from job_quality import ascii_key, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
+from occupation_classifier import occupation_fields
 from source_fields import REJECTIONS, rule_code, source_fields
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -1058,7 +1059,7 @@ def parse_post(post: dict) -> dict:
     subcategory = classify_subcategory(category, title, company, text)
     category, subcategory = map_to_new_taxonomy(category, subcategory)
 
-    return {
+    job = {
         "title": title,
         "company": company or "Nhà tuyển dụng Facebook",
         "location": full_location,
@@ -1079,6 +1080,8 @@ def parse_post(post: dict) -> dict:
         "images": images if images else None,
         "is_local_priority": is_local_priority(text),
     }
+    job.update(occupation_fields(job))  # 규칙 R8: 공식 직업코드 + 원문 근거(미분류면 None)
+    return job
 
 
 # ── DB 재저장 방지 (2026-09-28) ─────────────────────────────────────
@@ -1220,6 +1223,8 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
         "lng",
         "location",
         "num_hires",
+        "occupation_code",
+        "occupation_evidence",
         "origin",
         "posted_at",
         "preference",
