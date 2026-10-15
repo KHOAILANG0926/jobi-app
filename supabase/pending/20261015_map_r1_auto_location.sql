@@ -107,9 +107,10 @@ create function public.map_r1_complete(p_id bigint,p_lease uuid,p_result jsonb) 
 language plpgsql security invoker set search_path = pg_catalog, public as $$
 declare r public.map_r1_location_jobs; k text; candidate_id bigint; addr text; wid bigint; latv double precision; lngv double precision;
 begin
- -- Existing admin review writes take RowExclusiveLock. Serialize the decision check and insert
- -- against those writes, without rewriting any pending/approved/rejected/revoked candidate.
- lock table public.job_location_candidates in share row exclusive mode;
+ -- Admin review first takes RowShareLock (SELECT FOR UPDATE), then RowExclusiveLock.
+ -- EXCLUSIVE conflicts with BOTH phases: a review already holding its candidate row
+ -- must finish before the decision check/insert. Ordinary public SELECT remains allowed.
+ lock table public.job_location_candidates in exclusive mode;
  perform 1 from public.local_jobs where id=p_id for update;
  select * into r from public.map_r1_location_jobs where job_id=p_id for update;
  if not found or r.lease is distinct from p_lease or r.state<>'processing' then return false; end if;

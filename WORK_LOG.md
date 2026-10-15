@@ -1,3 +1,31 @@
+## 2026-10-15 22:32 — PR #99 최종 사전 검증 (Codex)
+
+- 요청: 9475d0c의 CI/기존 SQL/승인·주소 이력/환경·비용/적용·롤백 검증. 운영 DB·실제 API·활성화·병합·운영 배포 금지.
+- [직접 확인] 관리자 SELECT FOR UPDATE 이후 UPDATE 전 경합에서 자동 승인과 관리자 거부 공존을 재현. pending SQL EXCLUSIVE 잠금으로 수정. 새 Python before_update 검사는 기존 SQL에서 실패, 수정 SQL에서 before/after 모두 성공.
+- [직접 확인] 실제 후보/RPC·캐시/quota·R4/R1-R7/R8 트리거를 네이티브 격리 PostgreSQL 17.10에 로드. 기본/주소·검토/preflight SQL 검사 및 두 단계 동시성 검사 성공. 인증·기반 테이블은 합성 fixture, 운영 drift 미검증.
+- [직접 확인] 수정 소스 tsc/build·resolver/API 모의 검사 성공. 기존 SHA 원격 CI 3개 성공(원본 로그 60/60). npm audit 기존 취약점 4건(high 2) 실패, 실제 악용은 미검증. package/lock 변경 없음.
+- 수정 파일: pending MAP-R1 SQL, fixture·동시성·preflight assertion, docs/MAP-R1-preflight.md, report/HANDOFF/WORK_LOG. 운영 적용·롤백은 문서만 작성.
+- commit/push: 이 항목과 동일 커밋을 기존 feature 브랜치/PR #99로 보존. [skip ci]로 운영 공개 API를 읽는 화면 CI의 재실행을 차단하므로 최종 SHA 원격 CI는 미검증. 운영 deploy 없음.
+- 상세 근거·미검증·환경변수·비용 경계·운영 적용/롤백: docs/MAP-R1-preflight.md.
+
+<details><summary>이전 CHATGPT_HANDOFF 원문 보존</summary>
+# CHATGPT_HANDOFF — MAP-R1
+갱신: 2026-10-15
+PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft, 미병합)
+
+- [직접 확인] 브랜치 feat/map-r1-auto-location-20261015, 기반 origin/master 1abb6a4. 최신 fetch 후 master 추가 변경 없음. 사용자 지시: PR까지만, 병합·운영 배포·운영 DB 변경 금지.
+- [직접 확인] 지도 viewport/거리 원점 분리, 기본 무제한, GPS/한 번 탭, 정확·대표 핀, 화면 ID별 수, 선택 근무지 보존, 상세 휠 확대 구현.
+- [직접 확인] 관리자/Actions 공통 resolver, 공고·주소 집합별 최대 2회 외부 검색(이전 주소 복귀 시 사용량 유지), 캐시, 공유 일일 250회 예약, 임대·멱등 저장. 공개 상태·기존 정확 좌표 변경 안 함.
+- [직접 확인] npm test 60/60, 타입·빌드, PC/모바일 Chromium 및 로컬 PostgreSQL 검사 통과. 실제 운영 위치 처리/API 호출 0회.
+- [직접 확인] pending SQL만 작성·격리 DB 검증. 운영 적용 없음. MAP_R1_ENABLED는 GitHub 변수와 서버 환경에 각각 필요하며 현재 활성화하지 않음.
+- [직접 확인] Yên Phong 1단지 누락 확인. Overpass CONNECT 403으로 입구·OSM ID 미검증, 좌표 추가 없음.
+- 다음: PR 검토 → 사용자 승인 후 pending SQL 적용/활성화 및 운영 데이터 검증. 지도 타일 과금의 공급자 측 상한은 이번 작업으로 검증되지 않음.
+- 상세 결과/재현 명령: docs/MAP-R1-report.md. 이전 기록은 WORK_LOG.md.
+
+- [직접 확인] PR #99 후속 수정: 주소별 검색 이력 보존, 기존 승인/거부/철회·대기 후보 보호, 다른 공고 근무지 ID 차단. 실제 기존 승인 SQL/RPC 격리 검사 및 동시 관리자 거부 검사 통과. 수정 후 전체 60/60·타입·빌드 통과. 운영 변경 없음.
+
+</details>
+
 ## 2026-10-15 — PR #99 운영 전 검토 수정 (Codex)
 
 - [직접 확인] 주소 A 2회 뒤 B에도 2회가 남는 문제를 격리 SQL로 재현하고 주소 집합별 history로 수정. A→B→A, 회사명/공백/대소문자/근무지 ID/순서 변경 시 한도 보존 검사 통과.
@@ -88,32 +116,6 @@
 - 검증: [직접 확인] Actions run 38667313009 성공(커밋 dae1da4). 추출 결과 Cấp1~5 = 10/48/152/509/786, 합계 1505. 중복·부모 누락·단계 불일치·빈 명칭 0. 설명 연결 603(Cấp5·그룹1 하위는 원본에 설명 없음).
 - 명칭이 다른 20건은 코드 기준으로 연결(사용자 결정: 직업군은 코드가 기준), 부록 II 명칭은 alias_vi로 보관. 원본 오타 row 52(Cấp5 "1330")는 13300으로 보정.
 - master/배포/DB 쓰기 없음. 브랜치 feat/occupation-master-extract, PR #87.
-
-## 2026-10-13 관리자 공고 등록 확인
-- 요청: SQL을 사용자에게 매번 실행시키지 않고 관리자 화면에서 공고 확인·게시.
-- 변경: 기존 폼 JSON 초안 가져오기, 편집 후 미리보기, 서버 반환 저장 상태·공고 링크, 관리 목록 갱신.
-- 파일: src/pages/AdminDashboard.tsx, src/lib/adminJobDraft.ts, src/lib/adminJobDraft.test.ts.
-- 검증: 핵심 테스트 red→green 확인. 전체 CI는 PR에서 확인. 실제 운영 관리자 등록은 미검증.
-- GitHub 브랜치 codex/admin-job-preview-publish-20261013. master/배포/DB 쓰기 없음.
-- 한계: 이미 active=false로 저장된 행의 재활성화 기능은 이 변경에 포함하지 않음. 기존 admin_set_job_hidden RPC는 active를 변경하지 않음.
-
-# WORK_LOG
-
-작업 단위 짧은 실행 기록. 최근 10개만 유지(맨 아래 "보관" 섹션은 제외, 넘으면 가장 오래된 것 삭제, 장기 이력은 git log). 규칙: CLAUDE.md "ChatGPT 추적용 기록".
-
-## 2026-10-13 13:40 — 관리자 주소 지오코딩 시험 API (Claude)
-
-- 요청: 핀은 가게 기준이 아니라 주소 기준으로(사용자 지시). VietMap 검색은 "37 Lý Thái Tổ"에 33·39번지 가게만 돌려줌(번지 주소 자체 없음, 직접 확인).
-- 변경: `api/admin-geocode.js`(관리자 전용, TomTom·Goong 주소 검색 결과를 정리해 반환, DB 쓰기·핀 생성 없음) + `api/_admin-geocode.test.ts`.
-- 필요: Vercel Production 서버 환경변수 `TOMTOM_API_KEY`(필수), `GOONG_API_KEY`(Goong 계정 활성화 후).
-- 검증: 새 테스트 통과, tsc 통과, npm test 52/52, build 통과.
-
-## 2026-10-13 06:20 — 길찾기 숨김 금지: 회사명+지역 Google 링크 (Claude)
-
-- 요청: 정확한 위치 없는 공고(약 92건)에 전화 버튼만 남긴 것은 "길찾기 숨기지 말라"는 기존 지시 위반 — 수정.
-- 변경: directionsPlan에 회사명+동·구·성 Google 검색·길찾기 단계, 안내 문구, 전화 버튼 병기. 상세·홈 지도. 규칙 3개 파일.
-- 검증: tsc 통과, npm test 51/51, build 통과.
-- 남은 문제: Production 배포(Vercel 권한 없음). 위치 후보 4건 승인 대기.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
@@ -293,4 +295,3 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 - AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·추정 구분, STATUS 검증 장치 수정 금지.
 - #4824 포함 공고 데이터 변경·삭제 금지. 표시만 변경.
 - 테스트·GitHub 보존·배포·운영 브라우저 검증 구분. Secret 출력 금지.
-

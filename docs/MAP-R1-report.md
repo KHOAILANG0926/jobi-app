@@ -52,3 +52,6 @@ GPS 오류는 기존 오류 표시로 처리한다. 거부 경로는 브라우�
 4. 수정 후 `npm test` 60/60, `npx tsc --noEmit` 종료 0, `npm run build` 종료 0. 운영 DB 변경·master 병합·운영 배포 없음. 변경은 기존 PR #99에만 반영한다.
 
 격리 SQL 재현: 일회용 PostgreSQL 17에 supabase 디렉터리를 복사한 뒤 tests/map_r1_fixture.sql → pending/20261015_map_r1_auto_location.sql → tests/map_r1_assertions.sql → tests/map_r1_review_assertions.sql 순으로 `psql -v ON_ERROR_STOP=1 -f ...` 실행. fixture가 실제 기존 승인 스키마를 상대 경로로 읽으므로 디렉터리 구조를 유지해야 한다. 운영 DB에서 실행하지 않는다.
+
+## 최종 사전 검증 후속
+[직접 확인] 관리자 UPDATE 전 경합 결함 수정 및 격리 재검증, 원격 CI 근거·환경/비용 경계·운영 적용/롤백 절차는 docs/MAP-R1-preflight.md 참조. 과거 성공 기록은 최종 수정 SHA의 원격 CI/운영 검증을 뜻하지 않는다.
