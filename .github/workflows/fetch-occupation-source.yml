@@ -28,6 +28,11 @@ jobs:
       - name: Download and verify the six official DOC files
         shell: python
         run: |
+          import sys
+          def _report(t, e, tb):
+              print('::error::' + (str(e).replace('\n', ' | ')[:900]), flush=True)
+              sys.__excepthook__(t, e, tb)
+          sys.excepthook = _report
           import hashlib
           import json
           import re
