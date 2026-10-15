@@ -1,3 +1,11 @@
+## 2026-10-15 09:30 — 34/2020 공식 직업분류 원본 확보·추출 (Claude)
+
+- 요청: Viecganban 직업군을 정부 공식 분류(QĐ 34/2020/QĐ-TTg) 기준으로. 1단계 = 원본 추출만(DB·배포 금지).
+- 변경: `.github/workflows/fetch-occupation-source.yml`(관보 .doc 6개 다운로드, 인증서 중간체 AIA 보충·검증 유지), `scripts/occupations/extract_34_2020.py`, `data/occupations/34-2020/`(source·occupation_codes·descriptions·needs_review·VALIDATION).
+- 검증: [직접 확인] Actions run 38667313009 성공(커밋 dae1da4). 추출 결과 Cấp1~5 = 10/48/152/509/785, 합계 1504. 중복·부모 누락·단계 불일치·빈 명칭 0. 설명 연결 599(Cấp5는 원본에 설명 없음, 그룹1 하위 116개도 원본에 설명 없음).
+- 확인 필요 21건: 원본 표 오타 1(row 52 Cấp5 칸 "1330"), 부록 I·II 명칭 상이 4(2262·3333·3514·7513, 미연결), 경미한 표기 차이 16(연결함).
+- master/배포/DB 쓰기 없음. 브랜치 feat/occupation-master-extract, PR #87.
+
 ## 2026-10-13 관리자 공고 등록 확인
 - 요청: SQL을 사용자에게 매번 실행시키지 않고 관리자 화면에서 공고 확인·게시.
 - 변경: 기존 폼 JSON 초안 가져오기, 편집 후 미리보기, 서버 반환 저장 상태·공고 링크, 관리 목록 갱신.
@@ -70,46 +78,6 @@
 - 원인(개요): 대시보드가 베이스 테이블 `korea_jobs`를 직접 count — 0012 설계상 anon/authenticated에 권한이 없어 관리자 로그인에서도 permission denied → `koreaJobsError` → "Tin Hàn Quốc"과 "Tổng"이 항상 "—"(Tin VN은 별도 조회라 100). 수정: 공개 뷰 `korea_jobs_public`(status='active'·미만료)로 count. 현재 값 = 100 + 1.
 - 버튼: Production 번들(`AdminDashboard-ClM6G6ez.js`, master `b64b2f8` 배포 06:26 UTC)에 "Tìm khu vực xã/phường (chotot)"가 이미 포함됨. 관리자 세션을 흉내 낸 브라우저(Production, 네트워크 mock)에서 Vị trí 탭에 버튼 3개 모두 렌더 확인 → 사용자 화면의 2개는 이전 번들/이전 시점으로 보임. 확실히 보이도록 해당 박스를 기존 박스 위로 이동.
 - 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패).
-
-## 2026-10-08 — 행정구역(xã/phường)만 있는 공고 "동네 지도" 구현 (실행 전, DB 쓰기·API 호출 없음)
-
-- 요청: 지도 없는 68건 중 xã/phường만 있는 공고는 VietMap 검색으로 그 xã 위치를 찾아 xã 수준 지도(핀·Chỉ đường·거리 없음, "Khu vực …, vị trí chính xác chưa xác minh" + "Gọi hỏi đường" 유지). 좌표는 서버 API로 한 번만 찾아 비공개 저장소에 캐시(같은 xã 재호출 없음, 하루 한도 안). 배포 후 지도 없는 공고 재집계.
-- 구현: `wardArea.ts`(주소 끝 3단 "Xã/Phường, Huyện/Thị xã/Thành phố, Tỉnh"에서 단위·key 추출; 여러 xã 나열·여러 시·도 혼합은 제외) / `wardLocate.ts`+`AdminWardLocate.tsx`(관리자 버튼 "Tìm khu vực xã/phường (chotot)": xã 1곳당 Search 최대 2(전체 주소→구 제외 주소)+Place 1, 이름이 정확히 같고 구·성이 맞는 1곳만 인정, 성공은 영구 캐시·실패는 검색 버전이 바뀔 때만 재시도, 한도 시 저장 후 중단) / `api/ward-area.js`(공개 읽기 전용: 요청한 key 하나의 좌표만 반환, VietMap 호출·한도 소모 없음, CDN 캐시) / `JobDetail`(핀·KCN 없을 때만 조회, 있으면 zoom 13 핀 없는 지도+안내). 캐시는 `research_artifacts(kind=autolocate, name=ward_centers)`.
-- 한계: 서버 API는 관리자 로그인이 필요해 이 환경에서 못 부른다 → 캐시가 비어 있어 **버튼을 누르기 전까지 지도 없는 공고는 68건 그대로**. 공개 DB 기준 예상: 대상 64건/서로 다른 xã·phường 24곳(제외 4건: #4688 xã 13곳 나열, #4689 "TP Bắc Ninh Cũ" 혼합 표기, #4691·#4692 Hải Phòng 혼합) → 호출 최대 72(보통 48).
-- 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패), 브라우저 mock(found→지도+안내+Gọi hỏi đường·Chỉ đường 없음, miss→기존 안내, 승인 핀 공고는 조회 안 함).
-
-## 2026-10-08 — 주소 검색 결과 반영 + KCN 윤곽·별칭 추가 + 대행사 칩 (DB 쓰기 없음)
-
-- 사용자 실행 결과(상세주소 버튼): 22건 검색 / 자동 승인 2(#4713·#4750) / 핀 없음 18 / 호출 11 = 서버 11 / 남은 100 → HANDOFF 반영. 승인 핀 총 4건.
-- 직전 1~3번 요청은 이 세션 메시지에 없어(받은 메시지는 4번부터) 이번에 요청 문구대로 진행: ① KCN 윤곽·별칭: OSM way 4곳 추가(Quế Võ III·Nam Sơn–Hạp Lĩnh·Thuận Thành 3·Đại Đồng–Hoàn Sơn, `scripts/ops/fetch_osm_outline.mjs`), VSIP/VISIP·Yên Phong "Khu mở rộng" 별칭, `requires`를 같은 공고의 다른 주소 글자에서도 찾도록 확장(지역 불명 "KCN VSIP"는 Bắc Ninh 주소일 때만). 모호한 3건(Yên Phong 단계 불명·Thuận Thành 2/3·"KCN III")은 추정 금지로 제외. ② 옛 xã 경계 지도: OSM에 phường/xã 경계 면 없음, HDX COD는 성 단위까지 → 출처 있는 윤곽 확보 불가, 보류. ③ 대행사 칩 "Qua công ty cung ứng"(공고 상세 헤더, `recruitment_type='agency'`).
-- 검증: tsc·build 통과, `npm test` 42/43(기존 zalo 실패), `industrialPark.test.ts`에 새 매칭·모호 케이스 추가.
-
-## 2026-10-08 — 상세주소 공고 VietMap 주소 검색 버튼·"Khu vực rộng" 표시 구현 (실행 전, DB 쓰기·API 호출 없음)
-
-- 요청: 번지·도로·thôn 등 상세주소 공고(약 12건)를 VietMap 주소 검색으로 찾아 주소가 맞으면 승인 좌표로(관리자 버튼과 같은 서버 API·하루 한도 안), 결과 건수 보고. 옛 xã 경계 우선, huyện만 있는 공고는 "Khu vực rộng".
-- 결과 건수는 **미보고**: 서버 API는 관리자 로그인이 필요해 이 환경에서 호출 못 함. 대신 관리자 버튼 "Tìm theo địa chỉ chi tiết (chotot)" 구현. 공개 DB 주소 분석: 상세주소 22건 중 번지+도로명 13건이 검색 대상(최대 26호출), 나머지 9건(lô/thôn/KCN 안·도로 번호만·Panasonic 주소 충돌 등)은 호출 없이 핀 없음.
-- 판정: 첫 번지 + 도로명 단어 전부가 검색 결과에 있고 공고 주소의 phường/xã·huyện(옛 이름 그대로)이 맞는 1곳만 Place→승인. 결과 여러 곳이면 핀 없음. 질의는 "번지 도로명, 공고에 적힌 phường/xã, huyện, tỉnh".
-- 코드: `runAutoLocate`에 `strategy` 추가(기본=회사명 동작 그대로), `addressLocate.ts`(검색 방식)·`addressParse.ts`(주소 분석, 공개 화면에서도 사용), `JobDetail`에 Khu vực rộng 표시, 단위 테스트(`addressLocate.test.ts`).
-- 검증: tsc·build 통과, `npm test` 42/43(기존 zalo 실패 1건).
-
-## 2026-10-08 — chotot 공개 후 Production 화면 확인 (DB 쓰기 없음)
-
-- 사용자 확인 쿼리: chotot_public 100 / still_hidden 0 / total 100 / all_public_jobs 100 → HANDOFF 반영.
-- Production(브라우저 실행): sb-4687·4685·4686·4702 모두 200, 회사명·전화·Zalo·Gọi 버튼 정상, `[source:`·경쟁 사이트 문구 없음, 홈·tìm kiếm 카드 표시. sb-4702는 지도+Chỉ đường(좌표 링크).
-- 문제: sb-4687(KCN YÊN PHONG)은 영역 지도 없음 — 공단 표에 "Yên Phong mở rộng"만 있어 매칭 안 됨(추정 금지 설계). 공개 100건 분류: 승인 핀 2 / KCN 지도 13 / Gọi hỏi đường만 85 → KCN 글자 31건 중 18건 지도 없음(HANDOFF 다음 할 일 3번).
-- 참고: 상세 화면에 대행사 표기는 없음(기존 동작, `recruitmentType`은 화면에 안 씀).
-
-## 2026-10-08 — chotot 공개 완료 반영 + 확인 URL SQL 형식 수정 (코드·DB 쓰기 없음)
-
-- 사용자 보고: chotot 100건 공개 완료(SQL Editor 직접 실행). 확인 URL SQL이 `/viec-lam/<id>`로 만들어 404.
-- 원인·수정: 앱의 공고 ID는 `sb-<local_jobs.id>`(`src/lib/jobId.ts`) → URL SQL 4곳과 문서 형식을 `/viec-lam/sb-<id>`로 수정, PGlite로 재확인. HANDOFF에 "공개 완료"·다음 할 일 반영.
-
-## 2026-10-08 — chotot 공개 전환 준비: dry-run·공개 SQL·확인 URL (DB 쓰기·공개 없음)
-
-- 요청(사용자 결정: 핀 없이도 공개): 공개 대상/KCN 영역 지도/Gọi hỏi đường만 건수 보고, 건수 가드 있는 공개 SQL, 공개 후 확인 URL.
-- 건수는 **미보고**: 관리자 DB 접근이 없고 anon은 비공개 0건. 대신 dry-run SELECT(`docs/ops/2026-10-08_chotot_publish_dryrun.sql`) + 정확한 KCN 분류 스크립트(`scripts/ops/chotot_publish_classify.ts`, 앱의 `findIndustrialPark` 사용).
-- 공개 SQL `supabase/pending/20261008100000_publish_chotot_jobs.sql`: chotot 100건 확인·대상 건수=`v_expected` 가드(null이면 중단)·갱신 건수 가드·끝에 공개 건수 확인 쿼리. URL 고르는 쿼리 `…_chotot_publish_urls.sql`, 설명 `…_chotot_publish_dryrun.md`.
-- 검증: PGlite로 합성 100행 실행(가드 3종·정상 갱신·확인 쿼리), tsc·build 통과.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 
@@ -268,3 +236,25 @@ tsc 통과, `npm test` 37/37, build 통과. 로컬 PC 1280px: 5구역 순서·�
 - 필수 검사 tsc/npm test/build, GitHub 보존·배포·실제 사이트 검증을 구분. Secret 출력 금지.
 
 직접 확인: PR70 checks/guard 성공, master ecd7b3829a708cd71e2899e9ba9ffefbfcce45c2, Production dpl_8HhvvvseHveftSXM9EvSWqdadYmd READY 및 viecganban.vn alias. 운영 홈 HTTP200 새 index-D3r8bCNy.js, 상세 HTTP200 KDA 제목·실제 이미지·Zalo 확인. 로컬 Chromium + live read-only DB: KDA 카드1개·이미지 로드·PC hover·모바일 펼치기/접기·상세 Zalo 통과. 운영 도메인 직접 브라우저는 프록시403 차단, 미검증. CA 영구 신뢰 등록은 자동 검토 거절로 미적용. DB 쓰기 없음.
+
+## 2026-10-15 이전 HANDOFF 보존 (메인 공고 카드)
+
+갱신: 2026-10-14
+
+### 1. 현재 상태
+- [직접 확인] PR #70 병합, 코드 master ecd7b38. Production dpl_8HhvvvseHveftSXM9EvSWqdadYmd READY, viecganban.vn alias 확인.
+- 메인 추천/전체 카드는 ID별 한 번 표시. 급여 미확인 카드는 메인 제외. 실제 이미지·회사명·지역·제목·원문 급여, 시급→일급→월급 우선(환산 없음). 업종 이미지·카드 Zalo 제거, PC hover·모바일 펼치기. 공유 검색·지도·상세 데이터 유지.
+- [직접 확인] tsc/build 성공, npm test 54/54 및 PR CI checks/guard 성공. 로컬 Chromium + 운영 읽기 DB에서 KDA 카드1개·실제 이미지 로드·hover·모바일 펼치기/접기·상세 Zalo 확인.
+- [직접 확인] 운영 홈/상세 HTTP200, 홈 새 JS 번들, 상세 KDA 제목·이미지·Zalo 확인. 운영 홈 직접 브라우저의 카드 개수·상호작용은 도메인 프록시403 때문에 미검증.
+- [직접 확인] #4824 active=true/admin_hidden=false. 모든 공고 DB 쓰기·삭제 없음. CA 영구 신뢰 등록은 자동 승인 검토 거절로 미적용; TLS 검증 유지.
+
+### 2. 다음 할 일 3개
+1. 환경 네트워크에 viecganban.vn/www.viecganban.vn 허용 후 운영 브라우저 검증 재개.
+2. 운영 홈 #4824 한 번 표시·실제 이미지·급여·PC hover·모바일 펼치기 확인.
+3. 운영 검색·지도·상세 회귀 검증 결과만 추가 기록. 같은 기능 재구현 금지.
+
+### 3. 필수 규칙
+- AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·추정 구분, STATUS 검증 장치 수정 금지.
+- #4824 포함 공고 데이터 변경·삭제 금지. 표시만 변경.
+- 테스트·GitHub 보존·배포·운영 브라우저 검증 구분. Secret 출력 금지.
+

@@ -1,0 +1,277 @@
+[
+ {
+  "source_file": "2020_1141 + 1142_34-2020-QĐ-TTg.doc",
+  "row": 52,
+  "cells": [
+   "",
+   "",
+   "",
+   "1330",
+   "1330",
+   "Chánh án, Phó Chánh án Tòa án khác (trừ Tòa án Quân sự) do luật định"
+  ],
+  "reason": "code '1330' in Cấp 5 column has wrong length; not imported"
+ },
+ {
+  "codes": [
+   "2262"
+  ],
+  "appendix_ii_title": "Dược sĩ",
+  "appendix_i_names": [
+   "Dược sỹ"
+  ],
+  "similarity": 0.857,
+  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 642,
+  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
+ },
+ {
+  "codes": [
+   "3333"
+  ],
+  "appendix_ii_title": "Nhân viên giới thiệu việc làm và nhà thầu",
+  "appendix_i_names": [
+   "Nhân viên môi giới việc làm và nhà thầu"
+  ],
+  "similarity": 0.875,
+  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 425,
+  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
+ },
+ {
+  "codes": [
+   "3514"
+  ],
+  "appendix_ii_title": "Kỹ thuật viên trang web",
+  "appendix_i_names": [
+   "Kỹ thuật viên web"
+  ],
+  "similarity": 0.85,
+  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 962,
+  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
+ },
+ {
+  "codes": [
+   "7513"
+  ],
+  "appendix_ii_title": "Thợ sản xuất sản phẩm từ sữa",
+  "appendix_i_names": [
+   "Thợ làm sản phẩm từ sữa"
+  ],
+  "similarity": 0.784,
+  "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 1790,
+  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
+ },
+ {
+  "codes": [
+   "221"
+  ],
+  "appendix_ii_title": "Bác sĩ y khoa",
+  "appendix_i_names": [
+   "Bác sỹ y khoa"
+  ],
+  "similarity": 0.923,
+  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 394,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "2211"
+  ],
+  "appendix_ii_title": "Bác sĩ đa khoa",
+  "appendix_i_names": [
+   "Bác sỹ đa khoa"
+  ],
+  "similarity": 0.929,
+  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 397,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "225",
+   "2250"
+  ],
+  "appendix_ii_title": "Bác sĩ thú y",
+  "appendix_i_names": [
+   "Bác sỹ thú y",
+   "Bác sỹ thú y"
+  ],
+  "similarity": 0.917,
+  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 584,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "2261"
+  ],
+  "appendix_ii_title": "Bác sỹ răng hàm mặt",
+  "appendix_i_names": [
+   "Bác sỹ răng - hàm - mặt"
+  ],
+  "similarity": 0.905,
+  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 614,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "265"
+  ],
+  "appendix_ii_title": "Nghệ sĩ sáng tạo và trình diễn",
+  "appendix_i_names": [
+   "Nghệ sỹ sáng tạo và trình diễn"
+  ],
+  "similarity": 0.967,
+  "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 628,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "2651"
+  ],
+  "appendix_ii_title": "Nghệ sĩ hình ảnh",
+  "appendix_i_names": [
+   "Nghệ sỹ hình ảnh"
+  ],
+  "similarity": 0.938,
+  "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 631,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "2652"
+  ],
+  "appendix_ii_title": "Nhạc công, ca sỹ và nhạc sĩ",
+  "appendix_i_names": [
+   "Nhạc công, ca sỹ và nhạc sỹ"
+  ],
+  "similarity": 0.963,
+  "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 656,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "2659"
+  ],
+  "appendix_ii_title": "Nghệ sĩ sáng tạo và trình diễn liên quan khác chưa được phân vào đâu",
+  "appendix_i_names": [
+   "Nghệ sỹ sáng tạo và trình diễn liên quan khác chưa được phân vào đâu"
+  ],
+  "similarity": 0.985,
+  "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 755,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "3252"
+  ],
+  "appendix_ii_title": "Nhân viên ghi chép sổ sách y tế và thông tin về sức khỏe",
+  "appendix_i_names": [
+   "Kỹ thuật viên ghi chép sổ sách y tế và thông tin về sức khỏe"
+  ],
+  "similarity": 0.914,
+  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 59,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "3339"
+  ],
+  "appendix_ii_title": "Nhân viên đại lý dịch vụ kinh doanh khác chưa được phân vào đâu",
+  "appendix_i_names": [
+   "Nhân viên/đại lý dịch vụ kinh doanh khác chưa được phân vào đâu"
+  ],
+  "similarity": 0.984,
+  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 460,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "6"
+  ],
+  "appendix_ii_title": "Lao động có kỹ năng trong nông nghiệp, lâm nghiệp và thủy sản",
+  "appendix_i_names": [
+   "Lao động có kỹ năng trong nông nghiệp, lâm nghệp và thủy sản"
+  ],
+  "similarity": 0.992,
+  "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 419,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "713"
+  ],
+  "appendix_ii_title": "Thợ sơn, người lau dọn toà nhà và lao động có liên quan",
+  "appendix_i_names": [
+   "Thợ sơn, người lau dọn tòa nhà và lao động có liên quan"
+  ],
+  "similarity": 0.964,
+  "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 1060,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "7522"
+  ],
+  "appendix_ii_title": "Thợ sản xuất đồ gỗ và các thợ có liên quan",
+  "appendix_i_names": [
+   "Thợ sản xuất làm đồ gỗ và các thợ có liên quan"
+  ],
+  "similarity": 0.955,
+  "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 1875,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "8143"
+  ],
+  "appendix_ii_title": "Thợ vận hành máy sản xuất sản phẩm từ giấy và thùng cac-tông",
+  "appendix_i_names": [
+   "Thợ vận hành máy sản xuất sản phẩm từ giấy và thùng catong"
+  ],
+  "similarity": 0.966,
+  "source_file": "2020_1151 + 1152_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 510,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "8156"
+  ],
+  "appendix_ii_title": "Thợ vận hành máy đóng giày, dép và các thợ có liên quan",
+  "appendix_i_names": [
+   "Thợ vận hành máy đóng giầy, dép và các thợ có liên quan"
+  ],
+  "similarity": 0.982,
+  "source_file": "2020_1151 + 1152_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 635,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ },
+ {
+  "codes": [
+   "818"
+  ],
+  "appendix_ii_title": "Thợ vận hành máy móc, thiết bị khác",
+  "appendix_i_names": [
+   "Thợ vận hành máy móc thiết bị khác"
+  ],
+  "similarity": 0.986,
+  "source_file": "2020_1151 + 1152_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 746,
+  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+ }
+]
