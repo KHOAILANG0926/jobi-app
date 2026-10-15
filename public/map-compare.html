@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>So sánh bản đồ OpenFreeMap</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  /* 비교 전용(Preview만). 운영 반영 없음. */
+  :root { --bg:#f8fafc; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#e53935; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; }
+  header { padding: 10px max(16px, env(safe-area-inset-left)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); background: #fff; }
+  header strong { margin-right: 8px; }
+  button { font: inherit; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+  button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+  #map { flex: 1; min-height: 300px; }
+  #note { padding: 6px max(16px, env(safe-area-inset-left)); color: var(--muted); font-size: 12px; background: #fff; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <strong>OpenFreeMap</strong>
+  <span id="places"></span>
+  <span class="sep"></span>
+  <span id="styles"></span>
+</header>
+<div id="map"></div>
+<div id="note">Bản đồ miễn phí OpenFreeMap (dữ liệu OpenStreetMap). Trang so sánh, không phải trang chính.</div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+  const PLACES = [
+    ['Bắc Ninh', [106.0763, 21.1861], 13],
+    ['KCN Yên Phong', [105.95, 21.20], 14],
+    ['Hà Nội · Hoàn Kiếm', [105.8542, 21.0285], 15],
+    ['TP.HCM · Quận 1', [106.7009, 10.7769], 15],
+  ]
+  const STYLES = [['Liberty', 'liberty'], ['Bright', 'bright'], ['Positron', 'positron']]
+  const styleUrl = (s) => `https://tiles.openfreemap.org/styles/${s}`
+  const map = new maplibregl.Map({ container: 'map', style: styleUrl('liberty'), center: PLACES[0][1], zoom: PLACES[0][2] })
+  map.addControl(new maplibregl.NavigationControl(), 'top-right')
+  // 공고 핀 예시(빨간 점) — 위치는 예시
+  const pin = () => { const el = document.createElement('div'); el.style.cssText = 'width:18px;height:18px;background:#e53935;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.35)'; return el }
+  new maplibregl.Marker({ element: pin() }).setLngLat([106.0763, 21.1861]).addTo(map)
+  const group = (id, items, onPick) => {
+    const box = document.getElementById(id)
+    items.forEach((it, i) => {
+      const b = document.createElement('button'); b.textContent = it[0]; if (i === 0) b.className = 'on'
+      b.onclick = () => { box.querySelectorAll('button').forEach((x) => x.className = ''); b.className = 'on'; onPick(it) }
+      box.appendChild(b)
+    })
+  }
+  group('places', PLACES, ([, c, z]) => map.flyTo({ center: c, zoom: z }))
+  group('styles', STYLES, ([, s]) => map.setStyle(styleUrl(s)))
+</script>
+</body>
+</html>
