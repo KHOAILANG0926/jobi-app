@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-15 08:53 (VN)**
-- 기준 커밋: `22abc80` (Merge pull request #83 from KHOAILANG0926/feat/detail-information-cleanup-20261014)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38667979965
+- 생성 시각: **2026-10-15 09:38 (VN)**
+- 기준 커밋: `51e4ee8` (feat: 34/2020 공식 직업분류 마스터 (원본 추출 + DB 테이블·데이터) (#87))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38671967357
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `22abc80` · 상태 **success** · 2026-10-14 11:28 (VN)
+- 마지막 Production 배포: `51e4ee8` · 상태 **success** · 2026-10-15 09:38 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #87 | 2026-10-15 09:37 (VN) | `51e4ee8` | feat: 34/2020 공식 직업분류 원본 확보·추출 (1단계, DB·배포 없음) |
 | #83 | 2026-10-14 11:27 (VN) | `22abc80` | Clean job detail information without changing map or contact panel |
 | #82 | 2026-10-14 11:10 (VN) | `788458b` | Stack location above date and redistribute vertical spacing |
 | #81 | 2026-10-14 11:05 (VN) | `a9b5699` | Animate confirmed benefit icons automatically |
@@ -45,7 +46,6 @@
 | #77 | 2026-10-14 10:24 (VN) | `03a6519` | Simplify job detail header without increasing height |
 | #76 | 2026-10-14 10:04 (VN) | `a69f96a` | Move company block visibly right |
 | #75 | 2026-10-14 09:58 (VN) | `626436e` | Nudge card company information right |
-| #74 | 2026-10-14 08:59 (VN) | `306e1ee` | Keep only one daily wage in job cards |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
