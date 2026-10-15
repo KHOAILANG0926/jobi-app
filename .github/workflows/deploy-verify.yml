@@ -1,0 +1,69 @@
+name: 운영 배포 확인·실제 화면 검사
+
+# 배포 강제 규칙 DR1·DR2·DR3·DR6 (2026-10-15 사용자 지시). master에 들어간 커밋마다:
+#  1) Vercel이 이 커밋(github.sha)을 Production으로 배포해 READY(GitHub deployment 'success')가 됐는지 확인(최대 20분 대기)
+#  2) 운영 주소(viecganban.vn)를 실제 브라우저(PC·모바일)로 열어 메인·공고 상세 검사
+#  3) 실패하면 이 실행이 빨간색이 되고 '운영 배포 검증 실패' 이슈를 만든다(완료 보고 금지 근거).
+# Vercel은 빌드가 실패한 배포를 운영 주소에 연결하지 않으므로 빌드 실패 시 기존 정상 버전이 그대로 유지된다.
+# 화면 검사만 실패한 경우의 되돌리기(rollback)는 운영 변경이라 자동으로 하지 않고 사용자 승인 후 진행한다.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  deployments: read
+  issues: write
+
+concurrency:
+  group: deploy-verify-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PROD_URL: https://viecganban.vn
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vercel Production 배포 READY 확인 (이 커밋)
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            id=$(gh api "repos/${{ github.repository }}/deployments?sha=${{ github.sha }}&environment=Production&per_page=1" --jq '.[0].id // empty')
+            if [ -n "$id" ]; then
+              state=$(gh api "repos/${{ github.repository }}/deployments/$id/statuses?per_page=1" --jq '.[0].state // "pending"')
+              echo "시도 $i: deployment=$id state=$state"
+              if [ "$state" = "success" ]; then
+                echo "- Production 배포 READY: \`${{ github.sha }}\` (deployment $id)" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+              if [ "$state" = "failure" ] || [ "$state" = "error" ]; then
+                echo "::error::Vercel Production 배포 실패(state=$state). 운영 주소는 이전 정상 버전 유지."
+                exit 1
+              fi
+            else
+              echo "시도 $i: 이 커밋의 Production 배포 아직 없음"
+            fi
+            sleep 30
+          done
+          echo "::error::20분 안에 이 커밋의 Production 배포가 READY가 되지 않음"
+          exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+      - name: 운영 주소 실제 화면 검사 (PC·모바일)
+        run: BASE_URL="$PROD_URL" node scripts/ops/app-smoke.mjs
+      - name: 실패 기록 (이슈)
+        if: failure()
+        run: |
+          printf '커밋 %s 의 운영 배포 확인 또는 실제 화면 검사가 실패했습니다.\n실행 기록: %s\n이 커밋 작업은 완료로 보고하지 않습니다(배포 강제 규칙 DR6).\n' \
+            "$GITHUB_SHA" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > body.md
+          gh issue create --title "운영 배포 검증 실패: ${GITHUB_SHA::7}" --body-file body.md || true

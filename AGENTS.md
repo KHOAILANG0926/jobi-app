@@ -137,3 +137,9 @@ Vercel deployment source를 API로 다시 회수해야 했다.
 8. CLAUDE.md의 "작업 브랜치·Preview·Git 종료 게이트"와 충돌하면 더 엄격한 규칙을 적용한다.
    그 밖의 규칙 충돌은 상단 "규칙 우선순위" 절을 따른다.
 9. Preview 승인 후 GitHub 보존 전에는 다음 기능 작업을 시작하지 않는다.
+
+## 배포 강제 규칙 DR1~DR7 (2026-10-15 사용자 지시) — CLAUDE.md 동일 절 참조, 모든 에이전트 적용
+- 작업 완료 = 운영 배포 + 실제 화면 자동 검사 통과. 코드 작성·PR 생성만으로 완료 보고 금지.
+- 검사 장치: `app-screen-check.yml`(PR), `deploy-verify.yml`(master→Production READY·sha 일치·화면 검사), `unmerged-work-alert.yml`(미병합 경고).
+- 작업 시작·이전 버전 복구 전 이슈 "미병합 작업 목록"과 열린 PR을 먼저 확인.
+- 실패 시 완료 보고 금지. 운영 DB·파괴적 작업은 자동 배포 제외(별도 승인).

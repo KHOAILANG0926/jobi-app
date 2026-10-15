@@ -49,3 +49,8 @@ Claude Code·Cursor·Codex 모두 적용한다(`.cursor/rules/project-rules.mdc`
 - 예시·가짜 공고(DEMO·샘플·placeholder 공고)를 공개 화면에 표시하지 않는다. 공개 0건이면 빈 상태 안내를 보여준다.
 - DB 변경(공개/비공개 전환, 삭제, 정리 포함)을 할 때는 화면에 미치는 영향(0건·빈 목록 등)까지 확인한다.
 
+## 배포 강제 규칙 DR1~DR7 (2026-10-15 사용자 지시) — CLAUDE.md 동일 절 참조, 모든 에이전트 적용
+- 작업 완료 = 운영 배포 + 실제 화면 자동 검사 통과. 코드 작성·PR 생성만으로 완료 보고 금지.
+- 검사 장치: `app-screen-check.yml`(PR), `deploy-verify.yml`(master→Production READY·sha 일치·화면 검사), `unmerged-work-alert.yml`(미병합 경고).
+- 작업 시작·이전 버전 복구 전 이슈 "미병합 작업 목록"과 열린 PR을 먼저 확인.
+- 실패 시 완료 보고 금지. 운영 DB·파괴적 작업은 자동 배포 제외(별도 승인).
