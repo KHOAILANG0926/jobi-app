@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-15 13:18 (VN)**
-- 기준 커밋: `2cdc563` (revert: restore job detail to pre-PR93 implementation (#94))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38691548545
+- 생성 시각: **2026-10-15 13:24 (VN)**
+- 기준 커밋: `7800ae5` (Restore Oct 14 midnight job detail layout (#95))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38692077998
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -23,12 +23,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 56/56 파일 통과 |
+| 테스트 `npm test` | ✅ 57/57 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `2cdc563` · 상태 **success** · 2026-10-15 13:18 (VN)
+- 마지막 Production 배포: `7800ae5` · 상태 **success** · 2026-10-15 13:24 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #95 | 2026-10-15 13:23 (VN) | `7800ae5` | Restore Oct 14 midnight job detail layout |
 | #94 | 2026-10-15 13:17 (VN) | `2cdc563` | revert: restore job detail before PR #93 |
 | #93 | 2026-10-15 12:57 (VN) | `687ee10` | fix: 상세 화면 중복 정보 제거 |
 | #92 | 2026-10-15 11:31 (VN) | `601b786` | perf: 메인 지도는 화면에 보일 때만 로딩 |
@@ -45,7 +46,6 @@
 | #88 | 2026-10-15 10:00 (VN) | `bd5b755` | feat: R8 공고 직업군 규칙(미적용 SQL) + 자동 직업 분류기 |
 | #87 | 2026-10-15 09:37 (VN) | `51e4ee8` | feat: 34/2020 공식 직업분류 원본 확보·추출 (1단계, DB·배포 없음) |
 | #83 | 2026-10-14 11:27 (VN) | `22abc80` | Clean job detail information without changing map or contact panel |
-| #82 | 2026-10-14 11:10 (VN) | `788458b` | Stack location above date and redistribute vertical spacing |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
