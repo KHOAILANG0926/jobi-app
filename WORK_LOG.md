@@ -1,3 +1,10 @@
+## 2026-10-15 13:40 — 배포 강제 규칙 DR1~DR7 시스템 적용 (Claude)
+
+- 요청: "작업 완료 = 운영 배포 + 실제 화면 검증"을 GitHub·Vercel 검사로 강제(사용자). 계기: 10/14 PR #84·#85·#86 미병합으로 반영 누락.
+- 변경: `scripts/ops/app-smoke.mjs`(Playwright PC·모바일 메인·상세), `.github/workflows/app-screen-check.yml`(PR), `deploy-verify.yml`(master→Production READY·sha 확인→운영 화면 검사→실패 시 이슈), `unmerged-work-alert.yml`(매일·master 변경 시 미병합 목록 이슈). CLAUDE.md·AGENTS.md·.cursor 규칙에 DR1~DR7.
+- 검증: YAML·스크립트 문법 확인. 브라우저 검사는 이 작업 환경에서 실행 불가(Chromium 다운로드 차단) → 첫 실행 결과는 PR/master Actions로 확인.
+- STATUS 장치(scripts/status, status-*.yml)는 건드리지 않음(잠금 규칙).
+
 ## 2026-10-15 11:40 — 메인 지도: 화면에 보일 때만 로딩 (Claude)
 
 - 요청: 지도 비용 절감 1단계(사용자·GPT 합의: 절감책이며 상한 보장 아님).
@@ -68,13 +75,6 @@
 - 변경: directionsPlan에 회사명+동·구·성 Google 검색·길찾기 단계, 안내 문구, 전화 버튼 병기. 상세·홈 지도. 규칙 3개 파일.
 - 검증: tsc 통과, npm test 51/51, build 통과.
 - 남은 문제: Production 배포(Vercel 권한 없음). 위치 후보 4건 승인 대기.
-
-## 2026-10-12 23:40 — 길찾기 A안: 정확한 거리 주소는 Google 주소 검색으로 (Claude)
-
-- 요청: VietMap 최신 반영 지연 → 위치·길찾기는 Google로(사용자 결정 A안). 좌표 없는 공고도 정확한 주소면 Google에 넘김.
-- 변경: directionsPlan에 address 단계(승인 좌표 > KCN 정문 > 정확한 주소 > 전화). 상세·홈 지도 버튼. 규칙 3개 파일 문구.
-- 검증: tsc 통과, npm test 51/51, build 통과. 운영 주소 14건 중 7건 대상, KCN·Lô·Khu·행정구역 충돌은 제외(테스트 고정).
-- 남은 문제: Production 배포 필요(이 환경에 Vercel CLI 권한 없음).
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

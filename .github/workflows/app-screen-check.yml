@@ -1,0 +1,36 @@
+name: 실제 화면 검사 (PR, 병합 전 필수)
+
+# 배포 강제 규칙 DR3 (2026-10-15 사용자 지시): 화면 자동 검사를 통과하기 전에는 완료로 보지 않는다.
+# PR 코드를 빌드해 이 실행 안에서 띄우고(vite preview), 실제 브라우저(PC·모바일)로 메인·공고 상세를 연다.
+# 데이터는 운영 DB의 공개 조회(anon, 읽기만)를 쓴다. 키·Secret 불필요.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-screen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app-screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+      - name: 앱 띄우기
+        run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
+          cat preview.log; exit 1
+      - name: PC·모바일 화면 검사
+        run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs

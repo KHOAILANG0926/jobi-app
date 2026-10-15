@@ -1,0 +1,54 @@
+name: 미병합 작업 경고
+
+# 배포 강제 규칙 DR4·DR5 (2026-10-15 사용자 지시): 운영에 안 들어간 작업(열린 PR, PR 없이 master에 없는 최근 브랜치)을
+# 매일·master 변경 때마다 목록으로 만들어 Summary와 이슈 '미병합 작업 목록'(하나만 유지, 내용 갱신)에 남긴다.
+# 이전 버전 복구·같은 작업 재시작 전에 이 목록부터 확인한다. 읽기·이슈 갱신만 하고 코드·DB는 건드리지 않는다.
+on:
+  schedule:
+    - cron: '13 1 * * *'   # 매일 08:13 (UTC+7)
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: 목록 만들기
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          open_heads=$(gh api "repos/$REPO/pulls?state=open&per_page=100" --jq '.[].head.ref')
+          {
+            echo "## 미병합 작업 ($(date -u +%Y-%m-%d) 기준)"
+            echo
+            echo "### 열린 PR (운영 미반영)"
+            gh api "repos/$REPO/pulls?state=open&per_page=100" --jq '.[] | "- #\(.number) \(.title) — `\(.head.ref)` (마지막 변경 \(.updated_at[:10]))"'
+            echo
+            echo "### PR 없이 master에 없는 최근 브랜치 (14일 이내)"
+            gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' | while read -r b; do
+              if [ "$b" = "master" ] || [ "$b" = "status" ]; then continue; fi
+              if echo "$open_heads" | grep -qx "$b"; then continue; fi
+              cmp=$(gh api "repos/$REPO/compare/master...$b" --jq '[.ahead_by, (.commits[-1].commit.committer.date // "")] | @tsv' 2>/dev/null || true)
+              ahead=$(echo "$cmp" | cut -f1); when=$(echo "$cmp" | cut -f2)
+              if [ -n "$ahead" ] && [ "$ahead" -gt 0 ] && [[ "$when" > "$since" ]]; then
+                echo "- \`$b\` — master보다 커밋 $ahead개 앞섬 (마지막 ${when:0:10})"
+              fi
+            done
+          } > list.md
+          cat list.md >> "$GITHUB_STEP_SUMMARY"
+          cat list.md
+      - name: 이슈 갱신
+        run: |
+          num=$(gh issue list -R "$REPO" --state open --search 'in:title "미병합 작업 목록"' --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then gh issue edit "$num" -R "$REPO" --body-file list.md
+          else gh issue create -R "$REPO" --title "미병합 작업 목록" --body-file list.md; fi
