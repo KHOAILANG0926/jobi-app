@@ -28,6 +28,8 @@ jobs:
           set -euo pipefail
           since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
           open_heads=$(gh api "repos/$REPO/pulls?state=open&per_page=100" --jq '.[].head.ref')
+          # 병합(squash 포함)된 PR의 브랜치는 내용이 이미 master에 있으므로 제외
+          merged_heads=$(gh api --paginate "repos/$REPO/pulls?state=closed&per_page=100" --jq '.[] | select(.merged_at != null) | .head.ref')
           {
             echo "## 미병합 작업 ($(date -u +%Y-%m-%d) 기준)"
             echo
@@ -38,6 +40,7 @@ jobs:
             gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' | while read -r b; do
               if [ "$b" = "master" ] || [ "$b" = "status" ]; then continue; fi
               if echo "$open_heads" | grep -qx "$b"; then continue; fi
+              if echo "$merged_heads" | grep -qx "$b"; then continue; fi
               cmp=$(gh api "repos/$REPO/compare/master...$b" --jq '[.ahead_by, (.commits[-1].commit.committer.date // "")] | @tsv' 2>/dev/null || true)
               ahead=$(echo "$cmp" | cut -f1); when=$(echo "$cmp" | cut -f2)
               if [ -n "$ahead" ] && [ "$ahead" -gt 0 ] && [[ "$when" > "$since" ]]; then
