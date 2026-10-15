@@ -1,3 +1,11 @@
+## 2026-10-15 10:40 — R8 직업군 규칙 SQL + 자동 분류기 (미적용) (Claude)
+
+- 요청: 직업분류 계속 진행(사용자). 운영 적용 결과: [직접 확인] occupation-master-apply run 38671967420 성공, 운영 DB 1505/603/21.
+- 변경: `supabase/pending/20261015120000_local_jobs_occupation_r8.sql`(+rollback), `supabase/tests/local_jobs_occupation_r8.pglite.test.mjs`, `crawler/occupation_classifier.py`(+test).
+- 검증: [직접 확인] PGlite 통과(없는 코드·1~3단계·근거 없음·원문에 없는 근거 거부, 글 수정 시 미분류 복귀, 공개 상태 불변, 롤백). 분류기 unittest 9/9, #4824 → 82022 근거 "làm linh kiện tai nghe".
+- 한계: PGlite에는 운영의 기존 트리거 2개가 없음 → R8 트리거 이름을 trg_zzz_로 해 기존 규칙 뒤에 실행. 크롤러 연결·화면은 DB 적용 후(칸이 없으면 저장 실패하므로).
+- 이후 사용자 승인: SQL을 migrations로, `occupation-r8-apply.yml`(적용 + `scripts/occupations/backfill_occupations.py` 기존 공고 분류 + 공개 상태 전후 비교 + `local_jobs_occupation_r8_check.sql`).
+
 ## 2026-10-15 10:00 — 직업분류 마스터 DDL·입력 SQL (미적용) (Claude)
 
 - 요청: 2단계 진행 — 공식 코드 테이블. 운영 적용은 승인 후.
@@ -73,12 +81,6 @@
 - 확정 불가: 운영 재실행 전에는 두 공고의 새 실패 사유와 기존 잔여 52→49의 3회 주체를 알 수 없다. Production DB/DDL/배포와 실제 VietMap 호출은 하지 않았다.
 - 기존 운영 결과 인수인계: 사용자가 xã/phường 24개·84건 적용 완료를 보고했으며, 사전 예상 64건과 20건 차이는 아직 원인 미확정이다.
 - 검증: 관련 회귀 테스트 추가, `npm test` 46/46·`npx tsc --noEmit`·`npm run build` 통과. build는 제한된 환경에서 `RAYON_NUM_THREADS=1`, Node heap 512MB로 순차 실행했다. branch `fix/address-vietmap-tracing`; GitHub 인증 만료로 push/PR 대기.
-
-## 2026-10-08 — 주소 파서: 상호 접두어·"Đ."·"P."·"TP." 약어 처리 + region_only 보정 (DB 쓰기 없음)
-
-- 증상: sb-4685가 "행정구역만 있음"으로 표시. 원인: 표시 문구는 DB `address_accuracy`(수집 단계 값)에서 오며 4685·4686·4721 등이 `region_only`(chotot 100건 중 85건). 앱 파서(`addressParse.ts`)는 4685를 이미 검색 가능으로 봤지만 검색 글자에 상호 접두어("MEDIAMART - …")와 "Đ."가 그대로 들어갔고, 4721은 상호만 있는 앞 구간·단독 "P" 구간 때문에 상세주소로 못 봤다.
-- 수정: `addressParse.ts`(상호 구간 건너뛰기·단독/붙은 약어 절단·접두어 제거·"Đ."→"Đường") + `jobRows.ts correctedAddressAccuracy`(DB 값은 그대로, 화면·지도 판단에서만 `exact_text`로 보정). 재분류 8건. 상세주소 22→23, 검색 가능 13→14(+#4721).
-- 검증: tsc·build 통과, `npm test` 45/46(기존 zalo 실패), `addressLocate.test.ts`에 약어·상호 케이스 추가.
 
 ## 보관 (HANDOFF에서 이동, 2026-10-08) — 최근 10개 제한 대상 아님
 

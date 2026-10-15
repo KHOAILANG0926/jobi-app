@@ -1,0 +1,57 @@
+name: R8 직업군 규칙 적용·기존 공고 분류·점검
+
+# PR 병합(master) 시 규칙 R8(local_jobs 직업코드 칸 2개 + 트리거)을 운영 DB에 적용하고,
+# 미분류 공고에 자동 분류기(crawler/occupation_classifier.py) 결과를 채운 뒤 점검한다.
+# 공개 상태(active·admin_hidden)는 바꾸지 않는다(전후 비교로 확인). 키는 GitHub Secrets에만: SUPABASE_DB_URL
+on:
+  push:
+    branches: [master]
+    paths:
+      - supabase/migrations/20261015120000_local_jobs_occupation_r8.sql
+      - supabase/tests/local_jobs_occupation_r8_check.sql
+      - crawler/occupation_classifier.py
+      - scripts/occupations/backfill_occupations.py
+      - .github/workflows/occupation-r8-apply.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: occupation-r8-apply
+  cancel-in-progress: false
+
+jobs:
+  apply-backfill-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 키 등록 확인
+        run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 선행 확인 (occupation_master)
+        run: |
+          n=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.occupation_master")
+          test "$n" = "1505" || { echo "::error::occupation_master가 1505건이 아닙니다($n)."; exit 1; }
+      - name: 공개 상태 기록 (전)
+        run: psql "$SUPABASE_DB_URL" -X -At -c "select coalesce(md5(string_agg(id||':'||coalesce(active::text,'')||':'||admin_hidden::text, ',' order by id)),'') from public.local_jobs" > before.txt
+      - name: R8 적용 (한 트랜잭션, 멱등)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261015120000_local_jobs_occupation_r8.sql
+      - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
+        run: |
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261015120000','local_jobs_occupation_r8') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
+      - name: 미분류 공고 자동 분류
+        run: |
+          psql "$SUPABASE_DB_URL" -X -At -c "select coalesce(json_agg(json_build_object('id', id, 'title', title, 'source_text', source_text)), '[]') from public.local_jobs where occupation_code is null" > rows.json
+          python3 -I scripts/occupations/backfill_occupations.py < rows.json > backfill.sql
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f backfill.sql
+      - name: 공개 상태 비교 (후)
+        run: |
+          psql "$SUPABASE_DB_URL" -X -At -c "select coalesce(md5(string_agg(id||':'||coalesce(active::text,'')||':'||admin_hidden::text, ',' order by id)),'') from public.local_jobs" > after.txt
+          cmp before.txt after.txt || { echo "::error::공개 상태가 바뀌었습니다."; exit 1; }
+      - name: 점검
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/local_jobs_occupation_r8_check.sql
