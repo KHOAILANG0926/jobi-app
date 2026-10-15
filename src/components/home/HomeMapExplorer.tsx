@@ -45,8 +45,6 @@ function regionOrigin(label: string): Origin | null {
 export default function HomeMapExplorer() {
   const { jobs, mapAcceptanceJobs, loading, jobsError } = useJobs()
   const mapJobs = useMemo(() => [...jobs, ...mapAcceptanceJobs], [jobs, mapAcceptanceJobs])
-  const occupationGroups = useMemo(() => occupationGroupsInJobs(mapJobs), [mapJobs])
-  const occupationNames = useOccupationNames(occupationGroups.map((g) => g.code))
   const [origin, setOrigin] = useState<Origin>(() => regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
   const [filters, setFilters] = useState<HomeMapFilterState>(DEFAULT_FILTERS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -79,6 +77,18 @@ export default function HomeMapExplorer() {
   }, [])
 
   const nearby = useMemo(() => findNearbyJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
+  // 직업군 칩의 공고 수 = 지금 반경·다른 조건 안에서, 확인된 근무지가 있는 공고만(직업군 선택 자체는 빼고 센다).
+  // 2026-10-15 사용자 지적: 전체 공고로 세면 반경(100m·8km)과 무관하게 같은 숫자가 나왔다.
+  const occupationGroups = useMemo(
+    () => {
+      const inRadius = occupationGroupsInJobs(findNearbyJobs(mapJobs, origin.point, { ...filters, occupationGroups: [] }).map((n) => n.job))
+      // 이미 고른 그룹은 반경을 줄여 0건이 돼도 칩을 남긴다(선택을 풀 수 있게).
+      const missing = (filters.occupationGroups ?? []).filter((c) => !inRadius.some((g) => g.code === c)).map((code) => ({ code, count: 0 }))
+      return [...inRadius, ...missing]
+    },
+    [mapJobs, origin, filters],
+  )
+  const occupationNames = useOccupationNames(occupationGroups.map((g) => g.code))
   const counts = useMemo(() => summarizeMapJobs(mapJobs, origin.point, filters), [mapJobs, origin, filters])
   const selected = nearby.find((n) => n.job.id === selectedId) ?? null
 
@@ -269,7 +279,7 @@ export default function HomeMapExplorer() {
         <div className="hme-block">
           <div className="hme-block__head"><Briefcase size={16} aria-hidden /> <span>Ngành nghề</span></div>
           {occupationGroups.length === 0 ? (
-            <p className="hme-empty-note">{loading ? 'Đang tải…' : 'Chưa có tin được phân loại theo nghề.'}</p>
+            <p className="hme-empty-note">{loading ? 'Đang tải…' : 'Chưa có việc làm phân loại theo nghề trong bán kính này.'}</p>
           ) : (
             <>
               <div className="hme-chips hme-chips--list">

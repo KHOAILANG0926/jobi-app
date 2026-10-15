@@ -3,6 +3,7 @@
 - 요청: 직업분류 계속 진행(사용자 결정: 공식 Cấp2 기본, 공고 있는 그룹만).
 - 변경: `src/lib/occupationGroups.ts`(+test), `src/lib/occupations.ts`(occupation_master 이름 조회), `homeMapFilters.ts`(occupationGroups), `HomeMapExplorer.tsx`(업종 칩 → 공식 그룹 칩·공고 수), `JobDetail.tsx`(Ngành nghề = 공식 직업명, 미분류면 기존 업종), `jobRows.ts`·`fetchJobsData.ts` select에 occupation_code/evidence, `index.css`.
 - 검증: [직접 확인] tsc 0, npm test 55/55, build 성공. 운영 DB: anon이 occupation_code·evidence·occupation_master 읽기 가능, #4824 = "Thợ lắp ráp thiết bị điện tử/linh kiện điện tử" / 그룹 "Thợ lắp ráp".
+- 수정(사용자 지적): 칩 숫자를 전체 공고가 아니라 반경 안·확인된 근무지 공고로 셈(#4824는 위치 미확인이라 0). 고른 그룹은 0건이어도 칩 유지.
 - 한계: 미분류 공고는 그룹을 고르면 목록에서 빠진다(선택 없으면 전체 표시). 기존 13개 업종(category)은 카드 이미지·추천 등 다른 곳에 그대로 남음.
 
 ## 2026-10-15 11:20 — 크롤러 직업 분류 연결 + 주간 미분류 보고 + 매달 관보 확인 (Claude)
