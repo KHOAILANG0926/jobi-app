@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-15 11:32 (VN)**
-- 기준 커밋: `601b786` (perf: 메인 지도는 화면에 보일 때만 로딩 (#92))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38681925549
+- 생성 시각: **2026-10-15 12:58 (VN)**
+- 기준 커밋: `687ee10` (fix(detail): remove repeated salary, deadline and location pending notice (#93))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38689610356
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `601b786` · 상태 **success** · 2026-10-15 11:32 (VN)
+- 마지막 Production 배포: `687ee10` · 상태 **success** · 2026-10-15 12:58 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #93 | 2026-10-15 12:57 (VN) | `687ee10` | fix: 상세 화면 중복 정보 제거 |
 | #92 | 2026-10-15 11:31 (VN) | `601b786` | perf: 메인 지도는 화면에 보일 때만 로딩 |
 | #91 | 2026-10-15 10:40 (VN) | `4e286bb` | feat: 'Ngành nghề' 필터를 공식 직업분류 그룹으로 + 상세 공식 직업명 |
 | #90 | 2026-10-15 10:10 (VN) | `f30f82d` | fix: 매달 관보 확인 — HTML 기호 처리 |
@@ -45,7 +46,6 @@
 | #83 | 2026-10-14 11:27 (VN) | `22abc80` | Clean job detail information without changing map or contact panel |
 | #82 | 2026-10-14 11:10 (VN) | `788458b` | Stack location above date and redistribute vertical spacing |
 | #81 | 2026-10-14 11:05 (VN) | `a9b5699` | Animate confirmed benefit icons automatically |
-| #80 | 2026-10-14 11:03 (VN) | `a9a21de` | Align detail metadata right and resize bookmark glyph without card height changes |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
