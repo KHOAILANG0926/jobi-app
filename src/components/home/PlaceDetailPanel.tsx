@@ -12,7 +12,7 @@ import { calcDistanceKm } from '../../lib/jobCoords'
 
 interface Props {
   place: PickedPlace
-  origin: { label: string; point: { lat: number; lng: number } }
+  origin: { label: string; point: { lat: number; lng: number } } | null
   selectedJob: { title: string; point: { lat: number; lng: number } } | null
   jobs: JobNearPlace<Job>[]
   /** 지도 결과(현재 필터·반경)에 있는 공고 id — 지도에서 선택 가능. */
@@ -60,7 +60,7 @@ export default function PlaceDetailPanel({ place, origin, selectedJob, jobs, sel
 
       <dl className="hme-place__rows">
         <div><dt>Tọa độ</dt><dd>{place.lat.toFixed(5)}, {place.lng.toFixed(5)}{place.kind === 'building' ? ' (giữa tòa nhà)' : ''}</dd></div>
-        <div><dt>Từ {origin.label}</dt><dd>{formatMeters(distanceM(origin.point, place))} · đường chim bay</dd></div>
+        {origin && <div><dt>Từ {origin.label}</dt><dd>{formatMeters(distanceM(origin.point, place))} · đường chim bay</dd></div>}
         {selectedJob && <div><dt>Từ tin đang chọn</dt><dd>{formatMeters(distanceM(selectedJob.point, place))}</dd></div>}
       </dl>
       <p className="hme-job__note">Bản đồ chưa có địa chỉ chính thức cho điểm này — hiển thị theo tọa độ.</p>

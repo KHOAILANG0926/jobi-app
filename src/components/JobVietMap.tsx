@@ -8,6 +8,7 @@ import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { applyLifeMapStyle, type StyleLike } from './home/map/lifeMapStyle'
 import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './home/map/vietMapStyle'
+import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './home/map/homeMapGestures'
 import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines'
 
 export interface JobVietMapMarker { lat: number; lng: number; label?: string }
@@ -36,12 +37,9 @@ const TILEMAP_KEY = (import.meta.env.VITE_VIETMAP_TILEMAP_KEY as string | undefi
 /** 전체화면은 주변 상가·건물(POI)이 보이도록 더 가깝게 연다(생활지도 POI는 z15~16부터 표시). */
 const FULLSCREEN_MIN_ZOOM = 16
 
-interface CanvasProps extends Omit<JobVietMapProps, 'directions' | 'height'> {
-  /** 전체화면: 휠 줌·드래그를 항상 켠다. 작은 지도는 페이지 스크롤을 막지 않게 휠 줌을 끈다. */
-  interactive: boolean
-}
+type CanvasProps = Omit<JobVietMapProps, 'directions' | 'height'>
 
-function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkRef, parkName, interactive }: CanvasProps) {
+function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkRef, parkName }: CanvasProps) {
   const boxRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<VietMap | null>(null)
   const markerRefs = useRef<Marker[]>([])
@@ -100,9 +98,6 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
     const controller = new AbortController()
     let map: VietMap | null = null
     let resizeObserver: ResizeObserver | null = null
-    // 터치 기기의 작은 지도는 한 손가락 스크롤을 가로채 페이지가 안 내려가므로 드래그·핀치를 끄고 +/- 버튼만 쓴다(전체화면은 항상 켬).
-    const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
-    const dragPan = interactive || !coarse
     fetchVietMapStyle<StyleSpecification>(createVietMapStyleUrl(TILEMAP_KEY, 'street'), { signal: controller.signal })
       .then((official) => {
         if (controller.signal.aborted) return
@@ -114,14 +109,12 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
             ? { bounds: outlineRef.current.bounds, fitBoundsOptions: { padding: 28, maxZoom: 16 } }
             : { center: [lng, lat] as [number, number], zoom }),
           attributionControl: false,
-          scrollZoom: interactive,
-          dragPan,
-          touchZoomRotate: interactive,
+          ...HOME_MAP_GESTURE_OPTIONS,
           dragRotate: false,
         })
         map.addControl(new vietmapgl.NavigationControl({ showCompass: false }), 'top-left')
         map.addControl(new vietmapgl.AttributionControl({ compact: true }))
-        if (interactive) map.touchZoomRotate.disableRotation()
+        if (isTouchDevice()) applyTouchMapDefaults(map)
         mapRef.current = map
         const created = map
         created.on('style.load', () => addAreaLayers(created))
@@ -195,7 +188,7 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
   return (
     <>
       <div className="jd2-vmap" style={{ height }}>
-        <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} interactive={false} />
+        <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} />
         <button type="button" className="jd2-vmap__zoom" onClick={() => setOpen(true)}>Phóng to</button>
       </div>
       {open && (
@@ -208,7 +201,7 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
             <button type="button" className="jd2-vmap-modal__close" onClick={() => setOpen(false)} autoFocus>Đóng</button>
           </div>
           <div className="jd2-vmap-modal__map">
-            <MapCanvas lat={lat} lng={lng} title={title} zoom={parkRef || pinless ? zoom : Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} interactive />
+            <MapCanvas lat={lat} lng={lng} title={title} zoom={parkRef || pinless ? zoom : Math.max(zoom, FULLSCREEN_MIN_ZOOM)} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} />
           </div>
           <p className="jd2-vmap-modal__hint">
             {pinless ? 'Vị trí chính xác chưa xác minh — bản đồ chỉ cho biết khu vực lân cận. ' : ''}

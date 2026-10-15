@@ -12254,3 +12254,9 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-detail-section__lines { display: grid; gap: .4rem; }
 .jd2-detail-section__line { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; margin: 0; color: #334155; }
 @media (max-width: 640px) { .jd2-detail-sections { padding: 1rem; } .jd2-detail-section__title { font-size: 1rem; } }
+
+/* MAP-R1: representative workplace markers remain visibly approximate. */
+.hme-pin--representative { background: #fff !important; border: 3px dashed #e53935; }
+.hme-map-r1-results { display: grid; gap: 8px; margin-top: 12px; }
+.hme-map-r1-results button { text-align: left; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; color: #334155; }
+.hme-map-r1-results small { display: block; margin-top: 4px; }

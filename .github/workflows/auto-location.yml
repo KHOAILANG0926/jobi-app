@@ -1,0 +1,30 @@
+name: MAP-R1 new job locations
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: map-r1-auto-location
+  cancel-in-progress: false
+jobs:
+  locate:
+    # Explicit opt-in only AFTER pending SQL is reviewed/applied. No execution on feature branches.
+    if: github.ref == 'refs/heads/master' && vars.MAP_R1_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Resolve at most 10 unprocessed jobs (two calls per job, shared daily cap)
+        env:
+          MAP_R1_ENABLED: 'true'
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/auto-location/run.mjs

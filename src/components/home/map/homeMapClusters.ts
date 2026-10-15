@@ -48,8 +48,8 @@ export function planHomeMapMarkers(markers: HomeMapMarker[], options: MarkerPlan
     if (cell.groups.length === 1) { out.push({ kind: 'group', key: groupKey(cell.groups[0]), markers: cell.groups[0] }); continue }
     const lat = cell.markers.reduce((s, m) => s + m.lat, 0) / cell.markers.length
     const lng = cell.markers.reduce((s, m) => s + m.lng, 0) / cell.markers.length
-    const ids = cell.markers.map((m) => m.id).sort()
-    out.push({ kind: 'cluster', key: `c:${ids[0]}:${ids.length}`, count: cell.markers.length, lat, lng, markers: cell.markers })
+    const ids = [...new Set(cell.markers.map((m) => m.id))].sort()
+    out.push({ kind: 'cluster', key: `c:${ids[0]}:${ids.length}`, count: ids.length, lat, lng, markers: cell.markers })
   }
   return out
 }
