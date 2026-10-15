@@ -12094,3 +12094,9 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 @media (max-width: 760px) {
   .jd2-header .jd2-benefits { margin-top: 11px; margin-bottom: 0; }
 }
+
+/* 2026-10-15 공식 직업분류 2단계 그룹 칩: 공식 명칭이 길어 한 줄 전체 폭 + 줄바꿈 허용 */
+.hme-chips--list { display: flex; flex-direction: column; align-items: stretch; }
+.hme-chips--list .hme-chip { white-space: normal; text-align: left; border-radius: 10px; line-height: 1.35; display: flex; justify-content: space-between; gap: 8px; }
+.hme-chip__count { flex: none; font-size: 11px; color: #64748b; font-weight: 600; }
+.hme-empty-note { margin: 0; font-size: 12px; color: #94a3b8; }

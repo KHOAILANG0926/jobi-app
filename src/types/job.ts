@@ -109,6 +109,10 @@ export interface Job {
    *  undefined — 억지로 끼워맞추지 않는다. 화면에 보여줄 라벨은
    *  crawler/classifier.py의 SUBCATEGORY_LABELS와 동일한 값이어야 한다. */
   subcategory?: string
+  /** local_jobs.occupation_code — 공식 직업코드(QĐ 34/2020, 4·5단계). 없으면 미분류. 규칙 R8. */
+  occupationCode?: string
+  /** local_jobs.occupation_evidence — 위 코드를 붙인 원문 글자 그대로. */
+  occupationEvidence?: string
   salary: string
   location: string
   description: string
