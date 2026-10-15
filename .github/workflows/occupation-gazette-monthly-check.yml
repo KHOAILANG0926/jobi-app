@@ -22,7 +22,7 @@ jobs:
       - name: 관보 관계도 확인
         shell: python
         run: |
-          import os, re, sys
+          import html as htmllib, os, re, sys, unicodedata
           from urllib.request import Request, urlopen
           PAGE = 'https://congbao.chinhphu.vn/van-ban/quyet-dinh-so-34-2020-qd-ttg-32578/33542.htm'
           html = urlopen(Request(PAGE, headers={'User-Agent': 'occupation-gazette-check/1.0'}), timeout=60).read().decode('utf-8', 'replace')
@@ -30,11 +30,15 @@ jobs:
               print('::error::관보 페이지에서 34/2020/QĐ-TTg를 찾지 못함 (페이지 구조 변경 가능)'); sys.exit(1)
           watch = ['Văn bản sửa đổi bổ sung/đính chính', 'Văn bản thay thế/bãi bỏ/hủy bỏ/đình chỉ một phần',
                    'Văn bản bị thay thế/bãi bỏ/hủy bỏ/đình chỉ', 'Văn bản hướng dẫn']
-          text = re.sub(r'<[^>]+>', ' ', html)
+          # 글자가 HTML 기호(&#7917; 등)·분해형 유니코드로 올 수 있어 풀고 맞춘다.
+          text = unicodedata.normalize('NFC', htmllib.unescape(re.sub(r'<[^>]+>', ' ', html)))
+          text = re.sub(r'\s+', ' ', text)
           found, changed = {}, []
           for label in watch:
-              m = re.search(re.escape(label) + r'\s*\[(\d+)\]', text)
+              m = re.search(re.escape(label) + r'\s*\[\s*(\d+)\s*\]', text)
               if not m:
+                  i = text.find('Lược đồ')
+                  print('::warning::page snippet: ' + (text[i:i + 900] if i >= 0 else text[:900]))
                   print(f'::error::관계도 항목을 찾지 못함: {label} (페이지 구조 변경 가능)'); sys.exit(1)
               found[label] = int(m.group(1))
               if found[label]:
