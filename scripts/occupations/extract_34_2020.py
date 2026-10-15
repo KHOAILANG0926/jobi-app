@@ -94,6 +94,8 @@ def extract_codes(docs):
                            'reason': 'no code cell' if not filled else 'non-numeric code cell'})
             continue
         # A row may carry a level-4 and level-5 code together with one shared name.
+        # Known source typo (row 52): Cấp 5 printed as "1330"; the only valid child code is "13300".
+        filled = [(lv, '13300' if (lv == 5 and v == '1330') else v) for lv, v in filled]
         wrong = [(lv, v) for lv, v in filled if len(v) != lv]
         for lv, v in wrong:   # e.g. source row 52: "1330" printed in the Cấp 5 column — not corrected
             review.append({'source_file': source_file, 'row': row_index, 'cells': cells,

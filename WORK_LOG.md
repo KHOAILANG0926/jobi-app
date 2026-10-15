@@ -2,8 +2,8 @@
 
 - 요청: Viecganban 직업군을 정부 공식 분류(QĐ 34/2020/QĐ-TTg) 기준으로. 1단계 = 원본 추출만(DB·배포 금지).
 - 변경: `.github/workflows/fetch-occupation-source.yml`(관보 .doc 6개 다운로드, 인증서 중간체 AIA 보충·검증 유지), `scripts/occupations/extract_34_2020.py`, `data/occupations/34-2020/`(source·occupation_codes·descriptions·needs_review·VALIDATION).
-- 검증: [직접 확인] Actions run 38667313009 성공(커밋 dae1da4). 추출 결과 Cấp1~5 = 10/48/152/509/785, 합계 1504. 중복·부모 누락·단계 불일치·빈 명칭 0. 설명 연결 603(Cấp5·그룹1 하위는 원본에 설명 없음).
-- 명칭이 다른 20건은 코드 기준으로 연결(사용자 결정: 직업군은 코드가 기준), 부록 II 명칭은 alias_vi로 보관. 미해결 1건: 원본 표 오타(row 52 Cấp5 칸 "1330").
+- 검증: [직접 확인] Actions run 38667313009 성공(커밋 dae1da4). 추출 결과 Cấp1~5 = 10/48/152/509/786, 합계 1505. 중복·부모 누락·단계 불일치·빈 명칭 0. 설명 연결 603(Cấp5·그룹1 하위는 원본에 설명 없음).
+- 명칭이 다른 20건은 코드 기준으로 연결(사용자 결정: 직업군은 코드가 기준), 부록 II 명칭은 alias_vi로 보관. 원본 오타 row 52(Cấp5 "1330")는 13300으로 보정.
 - master/배포/DB 쓰기 없음. 브랜치 feat/occupation-master-extract, PR #87.
 
 ## 2026-10-13 관리자 공고 등록 확인

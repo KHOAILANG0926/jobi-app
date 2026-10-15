@@ -680,6 +680,14 @@
   "source_row": 52
  },
  {
+  "code": "13300",
+  "level": 5,
+  "parent_code": "1330",
+  "name_vi": "Chánh án, Phó Chánh án Tòa án khác (trừ Tòa án Quân sự) do luật định",
+  "source_file": "2020_1141 + 1142_34-2020-QĐ-TTg.doc",
+  "source_row": 52
+ },
+ {
   "code": "14",
   "level": 2,
   "parent_code": "1",
