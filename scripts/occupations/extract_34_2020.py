@@ -152,13 +152,15 @@ def extract_descriptions(docs, ordered_names, codes):
             names = {key(by_code[c]['name_vi']) for c in heading_codes}
             exact = key(title) in names
             close = max(difflib.SequenceMatcher(None, key(title), n).ratio() for n in names)
-            if not exact and close < 0.9 and len(heading_codes) == 1 and re.match(r'^\d{4}\.', text):
-                unlinked.append({'codes': heading_codes, 'appendix_ii_title': norm(title),
-                                 'appendix_i_names': [by_code[c]['name_vi'] for c in heading_codes],
-                                 'similarity': round(close, 3), 'source_file': source_file,
-                                 'source_paragraph': index})
-            if exact or close >= 0.9:
-                record = {'code': None, 'name_vi': norm(title), 'description': [], 'main_tasks': [],
+            # A single 4-digit code heading ("7513. ...") is linked by code even when the wording
+            # differs from Phụ lục I: the code fixes the occupation group (user decision 2026-10-15).
+            # Fuzzy guard stays for other headings so numbered list items are never mistaken for codes.
+            code_heading = len(heading_codes) == 1 and re.match(r'^\d{4}\.', text)
+            if exact or close >= 0.9 or code_heading:
+                official = by_code[heading_codes[-1]]['name_vi']
+                record = {'code': None, 'name_vi': official,
+                          'alias_vi': None if exact else norm(title),
+                          'description': [], 'main_tasks': [],
                           'examples': [], 'exclusions': [], 'skill_note': [],
                           'source_file': source_file, 'source_paragraph': index,
                           'heading_codes': heading_codes}
@@ -223,8 +225,7 @@ def main():
         docs = convert(filenames, Path(tmp))
         codes, review = extract_codes(docs)
         descriptions, name_notes, dup_headings, unlinked = extract_descriptions(docs, filenames, codes)
-    review += [dict(u, reason='Phụ lục II heading has this code but a different title; NOT linked') for u in unlinked]
-    review += [dict(n, reason='Phụ lục II title differs slightly from Phụ lục I name') for n in name_notes]
+    review += [dict(n, reason='Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi') for n in name_notes]
     review += [dict(d, reason='code explained twice in Phụ lục II; last one kept') for d in dup_headings]
     report = validate(codes, descriptions, review)
     dump = lambda name, data: (BASE / name).write_text(json.dumps(data, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')

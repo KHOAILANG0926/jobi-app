@@ -4,12 +4,12 @@
 ## 1. 현재 상태
 - 코드: master 22abc80(변경 없음). 작업 브랜치 feat/occupation-master-extract, PR #87(미병합). Production·DB 변경 없음.
 - [직접 확인] 관보 .doc 6개 저장소 보관(`data/occupations/34-2020/source/`, MANIFEST에 SHA256). Actions run 38667313009 성공.
-- [직접 확인] 추출: Cấp1~5 = 10/48/152/509/785(합계 1504), 무결성 검사 0건. 설명 연결 599. 확인 필요 21건(`needs_review.json`).
+- [직접 확인] 추출: Cấp1~5 = 10/48/152/509/785(합계 1504), 무결성 검사 0건. 설명 연결 603. 명칭 차이 20건은 코드 기준 연결·alias_vi 보관. 미해결 1건: 원본 오타 row 52.
 - Codex 작업 환경은 외부·GitHub 접속 불가(proxy 8080) → 다운로드는 GitHub Actions, 추출은 Claude가 수행.
 - 이전 메인 공고 카드 상태(PR #70, Production 반영)는 WORK_LOG 하단 "이전 HANDOFF 보존"으로 이동.
 
 ## 2. 다음 할 일 3개
-1. 사용자: 확인 필요 21건 처리 방침 결정(특히 원본 오타 row 52, 명칭 상이 4건).
+1. 사용자: 원본 오타 row 52(Cấp5 "1330") 처리 결정.
 2. 2단계: occupation_master 등 테이블 DDL을 `supabase/pending/`에 작성(dry-run·롤백 SQL), 적용은 승인 후.
 3. 메인 공고 카드 운영 브라우저 검증(기존 남은 일) — viecganban.vn 네트워크 허용 후.
 

@@ -14,58 +14,6 @@
  },
  {
   "codes": [
-   "2262"
-  ],
-  "appendix_ii_title": "Dược sĩ",
-  "appendix_i_names": [
-   "Dược sỹ"
-  ],
-  "similarity": 0.857,
-  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
-  "source_paragraph": 642,
-  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
- },
- {
-  "codes": [
-   "3333"
-  ],
-  "appendix_ii_title": "Nhân viên giới thiệu việc làm và nhà thầu",
-  "appendix_i_names": [
-   "Nhân viên môi giới việc làm và nhà thầu"
-  ],
-  "similarity": 0.875,
-  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
-  "source_paragraph": 425,
-  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
- },
- {
-  "codes": [
-   "3514"
-  ],
-  "appendix_ii_title": "Kỹ thuật viên trang web",
-  "appendix_i_names": [
-   "Kỹ thuật viên web"
-  ],
-  "similarity": 0.85,
-  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
-  "source_paragraph": 962,
-  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
- },
- {
-  "codes": [
-   "7513"
-  ],
-  "appendix_ii_title": "Thợ sản xuất sản phẩm từ sữa",
-  "appendix_i_names": [
-   "Thợ làm sản phẩm từ sữa"
-  ],
-  "similarity": 0.784,
-  "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
-  "source_paragraph": 1790,
-  "reason": "Phụ lục II heading has this code but a different title; NOT linked"
- },
- {
-  "codes": [
    "221"
   ],
   "appendix_ii_title": "Bác sĩ y khoa",
@@ -75,7 +23,7 @@
   "similarity": 0.923,
   "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
   "source_paragraph": 394,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -88,7 +36,7 @@
   "similarity": 0.929,
   "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
   "source_paragraph": 397,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -103,7 +51,7 @@
   "similarity": 0.917,
   "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
   "source_paragraph": 584,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -116,7 +64,20 @@
   "similarity": 0.905,
   "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
   "source_paragraph": 614,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
+ },
+ {
+  "codes": [
+   "2262"
+  ],
+  "appendix_ii_title": "Dược sĩ",
+  "appendix_i_names": [
+   "Dược sỹ"
+  ],
+  "similarity": 0.857,
+  "source_file": "2020_1143 + 1144_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 642,
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -129,7 +90,7 @@
   "similarity": 0.967,
   "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
   "source_paragraph": 628,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -142,7 +103,7 @@
   "similarity": 0.938,
   "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
   "source_paragraph": 631,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -155,7 +116,7 @@
   "similarity": 0.963,
   "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
   "source_paragraph": 656,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -168,7 +129,7 @@
   "similarity": 0.985,
   "source_file": "2020_1145 + 1146_34-2020-QĐ-TTg.doc",
   "source_paragraph": 755,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -181,7 +142,20 @@
   "similarity": 0.914,
   "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
   "source_paragraph": 59,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
+ },
+ {
+  "codes": [
+   "3333"
+  ],
+  "appendix_ii_title": "Nhân viên giới thiệu việc làm và nhà thầu",
+  "appendix_i_names": [
+   "Nhân viên môi giới việc làm và nhà thầu"
+  ],
+  "similarity": 0.875,
+  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 425,
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -194,7 +168,20 @@
   "similarity": 0.984,
   "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
   "source_paragraph": 460,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
+ },
+ {
+  "codes": [
+   "3514"
+  ],
+  "appendix_ii_title": "Kỹ thuật viên trang web",
+  "appendix_i_names": [
+   "Kỹ thuật viên web"
+  ],
+  "similarity": 0.85,
+  "source_file": "2020_1147 + 1148_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 962,
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -207,7 +194,7 @@
   "similarity": 0.992,
   "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
   "source_paragraph": 419,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -220,7 +207,20 @@
   "similarity": 0.964,
   "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
   "source_paragraph": 1060,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
+ },
+ {
+  "codes": [
+   "7513"
+  ],
+  "appendix_ii_title": "Thợ sản xuất sản phẩm từ sữa",
+  "appendix_i_names": [
+   "Thợ làm sản phẩm từ sữa"
+  ],
+  "similarity": 0.784,
+  "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
+  "source_paragraph": 1790,
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -233,7 +233,7 @@
   "similarity": 0.955,
   "source_file": "2020_1149 + 1150_34-2020-QĐ-TTg.doc",
   "source_paragraph": 1875,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -246,7 +246,7 @@
   "similarity": 0.966,
   "source_file": "2020_1151 + 1152_34-2020-QĐ-TTg.doc",
   "source_paragraph": 510,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -259,7 +259,7 @@
   "similarity": 0.982,
   "source_file": "2020_1151 + 1152_34-2020-QĐ-TTg.doc",
   "source_paragraph": 635,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  },
  {
   "codes": [
@@ -272,6 +272,6 @@
   "similarity": 0.986,
   "source_file": "2020_1151 + 1152_34-2020-QĐ-TTg.doc",
   "source_paragraph": 746,
-  "reason": "Phụ lục II title differs slightly from Phụ lục I name"
+  "reason": "Phụ lục II title differs from Phụ lục I name; linked by code, title kept as alias_vi"
  }
 ]
