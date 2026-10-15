@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-15 10:00 (VN)**
-- 기준 커밋: `bd5b755` (feat: R8 공고 직업군 규칙 + 자동 직업 분류기 (#88))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38673944571
+- 생성 시각: **2026-10-15 10:07 (VN)**
+- 기준 커밋: `dbf224f` (feat: 크롤러 직업 자동 분류 연결 + 주간 미분류 보고 + 매달 관보 확인 (#89))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38674510780
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `bd5b755` · 상태 **success** · 2026-10-15 10:00 (VN)
+- 마지막 Production 배포: `dbf224f` · 상태 **success** · 2026-10-15 10:06 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #89 | 2026-10-15 10:06 (VN) | `dbf224f` | feat: 크롤러 직업 자동 분류 연결 + 주간 미분류 보고 + 매달 관보 확인 |
 | #88 | 2026-10-15 10:00 (VN) | `bd5b755` | feat: R8 공고 직업군 규칙(미적용 SQL) + 자동 직업 분류기 |
 | #87 | 2026-10-15 09:37 (VN) | `51e4ee8` | feat: 34/2020 공식 직업분류 원본 확보·추출 (1단계, DB·배포 없음) |
 | #83 | 2026-10-14 11:27 (VN) | `22abc80` | Clean job detail information without changing map or contact panel |
@@ -45,7 +46,6 @@
 | #79 | 2026-10-14 10:56 (VN) | `8b777ed` | Integrate compact job detail header and 7 verified benefit icons |
 | #78 | 2026-10-14 10:51 (VN) | `1bc6815` | Responsive typography hierarchy for job detail header |
 | #77 | 2026-10-14 10:24 (VN) | `03a6519` | Simplify job detail header without increasing height |
-| #76 | 2026-10-14 10:04 (VN) | `a69f96a` | Move company block visibly right |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
