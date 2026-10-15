@@ -24,6 +24,7 @@ except ImportError:
 load_dotenv(Path(__file__).parent / ".env")
 
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
+from occupation_classifier import occupation_fields
 from geocode import resolve_coordinate_accuracy, source_coordinate_matches_location
 from job_quality import (
     CRAWLER_VERSION,
@@ -1259,6 +1260,7 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     # "_"로 시작해 insert/update payload에서는 자동 제외됨)는 그대로 유지 —
     # 두 값은 항상 같은 내용이다.
     job["_job_recruitment_regions"] = job_recruitment_regions
+    job.update(occupation_fields(job))  # 규칙 R8: 공식 직업코드 + 원문 근거(미분류면 None)
     job["recruitment_regions"] = job_recruitment_regions or None
     quality_errors = validate_job_payload(job, source="vieclam24h", today=TODAY)
     if quality_errors:
@@ -1788,6 +1790,7 @@ def build_vietnamworks_job_record(url: str, detail: dict, listing_hint: dict | N
         "work_days": None,
     }
     job["_job_recruitment_regions"] = job_recruitment_regions
+    job.update(occupation_fields(job))  # 규칙 R8: 공식 직업코드 + 원문 근거(미분류면 None)
     job["recruitment_regions"] = job_recruitment_regions or None
     quality_errors = validate_job_payload(job, source="vietnamworks", today=TODAY)
     if quality_errors:

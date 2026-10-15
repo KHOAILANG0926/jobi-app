@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from occupation_classifier import RULES, classify_occupation
+from occupation_classifier import RULES, classify_occupation, occupation_fields
 
 ROOT = Path(__file__).resolve().parents[1]
 CODES = {c['code']: c for c in json.loads((ROOT / 'data/occupations/34-2020/occupation_codes.json').read_text('utf-8'))}
@@ -57,6 +57,21 @@ class OccupationClassifierTests(unittest.TestCase):
     def test_unaccented_input(self):
         got = classify_occupation('tuyen tho han luong cao')
         self.assertEqual(got, {'occupation_code': '7212', 'occupation_evidence': 'tho han'})
+
+    def test_occupation_fields_for_crawler_payload(self):
+        self.assertEqual(occupation_fields({'title': 'Tuyển gấp', 'source_text': 'Cần tuyển phụ bếp ca tối', 'company': 'Nhà hàng Bếp Việt'}),
+                         {'occupation_code': '9402', 'occupation_evidence': 'phụ bếp'})
+        # 회사명만 직무처럼 보여도 쓰지 않는다
+        self.assertEqual(occupation_fields({'title': 'Tuyển gấp', 'company': 'Công ty Bảo Vệ Long Hải'}),
+                         {'occupation_code': None, 'occupation_evidence': None})
+        # source_text가 없으면 description을 본다(VietnamWorks 경로)
+        self.assertEqual(occupation_fields({'title': 'Tuyển gấp', 'description': 'Vị trí: thợ hàn'})['occupation_code'], '7212')
+
+    def test_facebook_parse_post_carries_occupation(self):
+        import crawl_facebook
+        job = crawl_facebook.parse_post({'text': 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong\nLiên hệ 0877880756',
+                                         'images': [], 'location': 'Bắc Ninh'})
+        self.assertEqual((job['occupation_code'], job['occupation_evidence']), ('82022', 'làm linh kiện tai nghe'))
 
 
 if __name__ == '__main__':

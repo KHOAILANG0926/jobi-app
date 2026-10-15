@@ -1,0 +1,46 @@
+name: 직업분류(34/2020) 개정 여부 매달 확인
+
+# 정부 관보(congbao.chinhphu.vn) 문서 페이지의 "Lược đồ"에서 이 결정을 고치거나 대체한 문서 수를 읽는다.
+# 하나라도 0이 아니면 실패로 끝나 알림이 가고, Summary에 어떤 항목이 바뀌었는지 남긴다. DB·저장소 쓰기 없음.
+# 개정이 확인되면: 새 원본을 받아(fetch-occupation-source 방식) 추출·비교 PR → 사용자 승인 후 운영 반영.
+on:
+  schedule:
+    - cron: '23 1 1 * *'   # 매달 1일 08:23 (UTC+7)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 관보 관계도 확인
+        shell: python
+        run: |
+          import os, re, sys
+          from urllib.request import Request, urlopen
+          PAGE = 'https://congbao.chinhphu.vn/van-ban/quyet-dinh-so-34-2020-qd-ttg-32578/33542.htm'
+          html = urlopen(Request(PAGE, headers={'User-Agent': 'occupation-gazette-check/1.0'}), timeout=60).read().decode('utf-8', 'replace')
+          if '34/2020/QĐ-TTg' not in html:
+              print('::error::관보 페이지에서 34/2020/QĐ-TTg를 찾지 못함 (페이지 구조 변경 가능)'); sys.exit(1)
+          watch = ['Văn bản sửa đổi bổ sung/đính chính', 'Văn bản thay thế/bãi bỏ/hủy bỏ/đình chỉ một phần',
+                   'Văn bản bị thay thế/bãi bỏ/hủy bỏ/đình chỉ', 'Văn bản hướng dẫn']
+          text = re.sub(r'<[^>]+>', ' ', html)
+          found, changed = {}, []
+          for label in watch:
+              m = re.search(re.escape(label) + r'\s*\[(\d+)\]', text)
+              if not m:
+                  print(f'::error::관계도 항목을 찾지 못함: {label} (페이지 구조 변경 가능)'); sys.exit(1)
+              found[label] = int(m.group(1))
+              if found[label]:
+                  changed.append(label)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## 34/2020 관계도\n' + ''.join(f'- {k}: {v}\n' for k, v in found.items()))
+          if changed:
+              print('::error::직업분류 결정에 관련 문서가 생김: ' + ', '.join(changed) + ' — 원본 재확인 필요'); sys.exit(1)
+          print('변경 없음:', found)
