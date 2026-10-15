@@ -1,0 +1,42 @@
+name: 직업분류 마스터 적용·점검
+
+# PR 병합(master) 시 공식 직업분류(34/2020) 테이블·데이터를 운영 DB에 적용하고 같은 실행에서 점검한다.
+# 새 테이블 추가만 함(기존 테이블 변경 없음). 두 파일 모두 멱등. 키는 GitHub Secrets에만: SUPABASE_DB_URL
+on:
+  push:
+    branches: [master]
+    paths:
+      - supabase/migrations/20261015100000_occupation_master.sql
+      - supabase/migrations/20261015100100_occupation_master_seed.sql
+      - supabase/tests/occupation_master_check.sql
+      - .github/workflows/occupation-master-apply.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: occupation-master-apply
+  cancel-in-progress: false
+
+jobs:
+  apply-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 키 등록 확인
+        run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 테이블 생성 (멱등)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015100000_occupation_master.sql
+      - name: 데이터 입력 (멱등)
+        run: psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=1 -f supabase/migrations/20261015100100_occupation_master_seed.sql
+      - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
+        run: |
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261015100000','occupation_master'),('20261015100100','occupation_master_seed') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
+      - name: 점검
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/occupation_master_check.sql

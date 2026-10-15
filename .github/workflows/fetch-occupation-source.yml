@@ -1,0 +1,188 @@
+name: Fetch official occupation source documents
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/occupation-master-extract]
+    paths: ['.github/workflows/fetch-occupation-source.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-occupation-source-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    if: github.ref == 'refs/heads/feat/occupation-master-extract'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install certificate helper
+        run: pip install --quiet cryptography==43.0.3
+      - name: Download and verify the six official DOC files
+        shell: python
+        run: |
+          import sys
+          def _report(t, e, tb):
+              print('::error::' + (str(e).replace('\n', ' | ')[:900]), flush=True)
+              sys.__excepthook__(t, e, tb)
+          sys.excepthook = _report
+          import hashlib
+          import json
+          import re
+          import tempfile
+          from datetime import datetime, timezone
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.error import HTTPError, URLError
+          from urllib.parse import unquote, urljoin, urlsplit
+          from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+          PAGE = 'https://congbao.chinhphu.vn/van-ban/quyet-dinh-so-34-2020-qd-ttg-32578/33542.htm'
+          DEST = Path('data/occupations/34-2020/source')
+
+          def official(url):
+              parts = urlsplit(url)
+              host = (parts.hostname or '').lower()
+              if (parts.scheme != 'https' or parts.username or parts.password
+                      or not any(host == d or host.endswith('.' + d) for d in ('chinhphu.vn', 'cdnchinhphu.vn'))):
+                  raise ValueError(f'Non-official or insecure URL rejected: {url}')
+              return url
+
+          class OfficialRedirects(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  official(newurl)
+                  return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+          # Some official hosts omit their intermediate certificate. Fetch it from the
+          # certificate's own AIA URL and verify the full chain normally (verification stays ON).
+          import socket, ssl
+          from urllib.request import HTTPSHandler, urlopen
+          from cryptography import x509
+          from cryptography.hazmat.primitives.serialization import Encoding
+          from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
+          ctx = ssl.create_default_context()
+          def add_missing_intermediates(host):
+              probe = ssl.create_default_context(); probe.check_hostname = False; probe.verify_mode = ssl.CERT_NONE
+              with socket.create_connection((host, 443), timeout=30) as sock:
+                  with probe.wrap_socket(sock, server_hostname=host) as tls:
+                      leaf = x509.load_der_x509_certificate(tls.getpeercert(True))
+              cert = leaf
+              for _ in range(3):
+                  try:
+                      aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS).value
+                  except x509.ExtensionNotFound:
+                      return
+                  urls = [d.access_location.value for d in aia if d.access_method == AuthorityInformationAccessOID.CA_ISSUERS]
+                  if not urls:
+                      return
+                  data = urlopen(urls[0], timeout=30).read()
+                  try:
+                      cert = x509.load_der_x509_certificate(data)
+                  except ValueError:
+                      cert = x509.load_pem_x509_certificate(data)
+                  ctx.load_verify_locations(cadata=cert.public_bytes(Encoding.PEM).decode())
+                  print(f'Added intermediate for {host}: {cert.subject.rfc4514_string()}', flush=True)
+                  if cert.issuer == cert.subject:
+                      return
+          add_missing_intermediates('g7.cdnchinhphu.vn')
+          opener = build_opener(OfficialRedirects(), HTTPSHandler(context=ctx))
+
+          def download(url):
+              try:
+                  request = Request(official(url), headers={'User-Agent': 'occupation-source-fetch/1.0'})
+                  with opener.open(request, timeout=60) as response:
+                      body = response.read()
+                      return body, official(response.url), response.headers
+              except (HTTPError, URLError, TimeoutError, ValueError) as error:
+                  raise RuntimeError(f'Download failed: {url}\n{error}') from error
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__(convert_charrefs=True)
+                  self.links = []
+                  self.current = None
+
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  if tag == 'a' and attrs.get('href'):
+                      self.current = [attrs['href'], attrs.get('download', ''), '']
+
+              def handle_data(self, text):
+                  if self.current is not None:
+                      self.current[2] += text
+
+              def handle_endtag(self, tag):
+                  if tag == 'a' and self.current is not None:
+                      self.links.append(self.current)
+                      self.current = None
+
+          page, page_url, headers = download(PAGE)
+          parser = Links()
+          parser.feed(page.decode(headers.get_content_charset() or 'utf-8'))
+          candidates = {}
+          for href, download_name, label in parser.links:
+              url = urljoin(page_url, href).split('#', 1)[0]
+              # Require a DOC filename, never a PDF or a DOCX substitute.
+              names = [unquote(Path(urlsplit(url).path).name), download_name, label.strip()]
+              names += re.findall(r'[^/?&=\s]+\.doc(?=$|[?&#\s])', unquote(url), re.I)
+              filename = next((name for name in names if re.fullmatch(r'[^/\\]+\.doc', name, re.I)), None)
+              if filename:
+                  official(url)
+                  candidates.setdefault(url, {'filename': filename, 'page_label': label.strip()})
+          if len(candidates) != 6:
+              raise RuntimeError(f'Expected exactly 6 unique DOC links on {PAGE}; found {len(candidates)}: {list(candidates)}')
+          filenames = [entry['filename'] for entry in candidates.values()]
+          if len(set(name.casefold() for name in filenames)) != 6:
+              raise RuntimeError(f'Duplicate DOC filenames: {filenames}')
+          for name in filenames:
+              if name in ('.', '..') or any(ord(char) < 32 for char in name):
+                  raise RuntimeError(f'Unsafe filename: {name!r}')
+
+          # Stage all six before publishing anything into the repository directory.
+          with tempfile.TemporaryDirectory() as temporary:
+              staged = Path(temporary)
+              files = []
+              for url, entry in candidates.items():
+                  body, final_url, _ = download(url)
+                  if not body:
+                      raise RuntimeError(f'Zero-byte DOC rejected: {url}')
+                  if not body.startswith(bytes.fromhex('d0cf11e0a1b11ae1')):
+                      raise RuntimeError(f'Expected binary Word DOC, received other content: {url}')
+                  (staged / entry['filename']).write_bytes(body)
+                  files.append({**entry, 'url': url, 'final_url': final_url,
+                                'size_bytes': len(body), 'sha256': hashlib.sha256(body).hexdigest(),
+                                'downloaded_at': datetime.now(timezone.utc).isoformat()})
+              DEST.mkdir(parents=True, exist_ok=True)
+              # Do not silently retain stale source documents on a repeat run.
+              expected = set(filenames) | {'MANIFEST.json'}
+              unexpected = [p.name for p in DEST.iterdir() if p.name not in expected]
+              if unexpected:
+                  raise RuntimeError(f'Unexpected existing source files; review manually: {unexpected}')
+              for entry in files:
+                  (DEST / entry['filename']).write_bytes((staged / entry['filename']).read_bytes())
+              manifest = {'source_page': PAGE, 'files': files}
+              (DEST / 'MANIFEST.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+              print(json.dumps(manifest, ensure_ascii=False, indent=2))
+              print('Verified: 6 nonempty official DOC files with SHA256 manifests')
+      - name: Commit sources to the same branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- data/occupations/34-2020/source/
+          if git diff --cached --quiet; then
+            echo 'No source changes to commit.'
+            exit 0
+          fi
+          git commit -m 'data: fetch six official 34/2020 occupation source documents'
+          git push origin HEAD:refs/heads/feat/occupation-master-extract
