@@ -18,6 +18,9 @@
   button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
   #map { flex: 1; min-height: 300px; }
+  .gl { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .gl a { display: block; padding: 6px 10px; border-radius: 8px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; text-align: center; }
+  .gl a + a { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
   #note { padding: 6px max(16px, env(safe-area-inset-left)); color: var(--muted); font-size: 12px; background: #fff; border-top: 1px solid var(--line); }
 </style>
 </head>
@@ -29,7 +32,7 @@
   <span id="styles"></span>
 </header>
 <div id="map"></div>
-<div id="note">Bản đồ miễn phí OpenFreeMap (dữ liệu OpenStreetMap). Trang so sánh, không phải trang chính. Bấm vào bản đồ để cắm ghim thử, bấm vào ghim để xem tọa độ.</div>
+<div id="note">Bản đồ miễn phí OpenFreeMap (dữ liệu OpenStreetMap). Trang so sánh, không phải trang chính. Bấm vào bản đồ để cắm ghim thử, bấm vào ghim để xem tọa độ và mở chỉ đường Google.</div>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
   const PLACES = [
@@ -44,13 +47,19 @@
   map.addControl(new maplibregl.NavigationControl(), 'top-right')
   // 공고 핀 예시(빨간 점) — 위치는 예시
   const pin = () => { const el = document.createElement('div'); el.style.cssText = 'width:18px;height:18px;background:#e53935;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.35)'; return el }
-  new maplibregl.Marker({ element: pin() }).setLngLat([106.0763, 21.1861])
-    .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML('<b>Ví dụ tin tuyển dụng</b><br>Ghim mẫu ở trung tâm Bắc Ninh')).addTo(map)
+  // 구글 연결은 좌표만 사용(이름·주소 글자 검색 금지 — CLAUDE.md 길찾기 규칙)
+  const googleLinks = (lat, lng) => {
+    const p = `${lat.toFixed(6)},${lng.toFixed(6)}`
+    return `<div class="gl"><a href="https://www.google.com/maps/dir/?api=1&destination=${p}" target="_blank" rel="noopener">Chỉ đường (Google)</a>`
+      + `<a href="https://www.google.com/maps/search/?api=1&query=${p}" target="_blank" rel="noopener">Xem trên Google Maps</a></div>`
+  }
+  const addPin = (lng, lat, html) => new maplibregl.Marker({ element: pin() }).setLngLat([lng, lat])
+    .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(html + googleLinks(lat, lng))).addTo(map)
+  addPin(106.0763, 21.1861, '<b>Ví dụ tin tuyển dụng</b><br>Ghim mẫu ở trung tâm Bắc Ninh')
   // 지도를 누르면 그 자리에 핀(시험용). 핀을 누르면 좌표가 보인다.
   map.on('click', (e) => {
     const { lng, lat } = e.lngLat
-    new maplibregl.Marker({ element: pin() }).setLngLat([lng, lat])
-      .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(`Ghim thử<br>${lat.toFixed(5)}, ${lng.toFixed(5)}`)).addTo(map)
+    addPin(lng, lat, `Ghim thử<br>${lat.toFixed(5)}, ${lng.toFixed(5)}`)
   })
   const group = (id, items, onPick) => {
     const box = document.getElementById(id)
