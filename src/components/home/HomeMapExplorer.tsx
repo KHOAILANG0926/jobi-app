@@ -24,6 +24,7 @@ import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
 import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
 import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupations'
+import { observeInViewOnce } from '../../lib/inViewOnce'
 
 const HomeMapCanvas = lazy(() => import('./HomeMapCanvas'))
 /** 'Ngành nghề'에 처음부터 보이는 그룹 수(공고 많은 순). 나머지는 'Xem thêm'. */
@@ -58,6 +59,14 @@ export default function HomeMapExplorer() {
   const [placeZoomRequest, setPlaceZoomRequest] = useState(0)
   const [mapMode, setMapMode] = useState<HomeMapMode>('street')
   const locationRequest = useRef(0)
+  // 지도는 화면 근처에 처음 보일 때만 불러온다(그 전엔 타일 요청 0). 한 번 불러오면 유지.
+  const mapBoxRef = useRef<HTMLDivElement>(null)
+  const [mapInView, setMapInView] = useState(false)
+  useEffect(() => {
+    const el = mapBoxRef.current
+    if (!el || mapInView) return
+    return observeInViewOnce(el, () => setMapInView(true))
+  }, [mapInView])
   useEffect(() => () => { locationRequest.current += 1 }, [])
   // 모바일 레이아웃(index.css의 .hme 760px 기준)에서만 상세를 하단 sheet로 띄운다. SSR·데스크톱은 false.
   const [isMobileLayout, setIsMobileLayout] = useState(false)
@@ -338,12 +347,14 @@ export default function HomeMapExplorer() {
         </div>
       </div>
 
-      <div className="hme__map">
+      <div className="hme__map" ref={mapBoxRef}>
+        {!mapInView ? <div className="hme-map hme-map--loading">Đang tải bản đồ…</div> : (
         <Suspense fallback={<div className="hme-map hme-map--loading">Đang tải bản đồ…</div>}>
           <HomeMapCanvas origin={origin.point} originIsUser={origin.kind === 'user'} radiusKm={filters.radiusKm} recenterRequest={recenterRequest}
             markers={markers} selectedId={selectedId} onSelect={selectJob} onNearbyChange={setNearbyState}
             mapMode={mapMode} onMapModeChange={setMapMode} pickedPlace={pickedPlace} onPlacePick={setPickedPlace} placeZoomRequest={placeZoomRequest} />
         </Suspense>
+        )}
       </div>
 
       <aside className="hme__panel" aria-live="polite" ref={panelRef}>
