@@ -4,7 +4,7 @@
 - 변경: `supabase/pending/20261015120000_local_jobs_occupation_r8.sql`(+rollback), `supabase/tests/local_jobs_occupation_r8.pglite.test.mjs`, `crawler/occupation_classifier.py`(+test).
 - 검증: [직접 확인] PGlite 통과(없는 코드·1~3단계·근거 없음·원문에 없는 근거 거부, 글 수정 시 미분류 복귀, 공개 상태 불변, 롤백). 분류기 unittest 9/9, #4824 → 82022 근거 "làm linh kiện tai nghe".
 - 한계: PGlite에는 운영의 기존 트리거 2개가 없음 → R8 트리거 이름을 trg_zzz_로 해 기존 규칙 뒤에 실행. 크롤러 연결·화면은 DB 적용 후(칸이 없으면 저장 실패하므로).
-- 운영 DB 변경·배포 없음.
+- 이후 사용자 승인: SQL을 migrations로, `occupation-r8-apply.yml`(적용 + `scripts/occupations/backfill_occupations.py` 기존 공고 분류 + 공개 상태 전후 비교 + `local_jobs_occupation_r8_check.sql`).
 
 ## 2026-10-15 10:00 — 직업분류 마스터 DDL·입력 SQL (미적용) (Claude)
 

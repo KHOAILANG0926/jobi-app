@@ -17,7 +17,7 @@ insert into public.local_jobs (id, title, company, source_text, category) values
  (4824, 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', 'CTY KDA', 'KCN YÊN PHONG\nCTY KDA\nLàm ngồi linh kiện tai nghe', 'san_xuat_xay_dung');`)
 await db.exec(read('../migrations/20261015100000_occupation_master.sql'))
 await db.exec(read('../migrations/20261015100100_occupation_master_seed.sql'))
-const mig = read('../pending/20261015120000_local_jobs_occupation_r8.sql')
+const mig = read('../migrations/20261015120000_local_jobs_occupation_r8.sql')
 await db.exec(mig); await db.exec(mig) // 멱등
 
 const one = async (sql) => (await db.query(sql)).rows[0]
@@ -52,6 +52,9 @@ await db.exec('set role anon')
 assert.equal((await db.query('select occupation_code, occupation_evidence from public.local_jobs where id = 4824')).rows[0].occupation_code, '82022')
 await assert.rejects(db.query('select source_text from public.local_jobs'), /permission denied/)
 await db.exec('reset role')
+
+// 운영 점검 SQL도 같은 상태에서 통과해야 한다
+await db.exec(read('./local_jobs_occupation_r8_check.sql'))
 
 // 롤백
 await db.exec(read('../pending/20261015120000_local_jobs_occupation_r8_rollback.sql'))
