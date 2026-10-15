@@ -6,8 +6,13 @@ do $$ begin
 end $$;
 create table local_jobs(id bigint primary key,company text,location text,active boolean default true,admin_hidden boolean default false);
 create table job_work_locations(id bigint primary key,job_id bigint,raw_address text,sort_order int,location_verified boolean default false,lat double precision,lng double precision);
-create table job_location_candidates(id bigint generated always as identity primary key,job_id bigint,work_location_id bigint,company_snapshot text,address_snapshot text,lat double precision,lng double precision,place_precision text,source text,evidence text,status text,review_note text,reviewed_at timestamptz);
-create unique index one_approved on job_location_candidates(job_id,address_snapshot) where status='approved';
+-- Load the real candidate constraints and review RPC, not a permissive imitation.
+create schema auth;
+create table auth.users(id uuid primary key);
+insert into auth.users values('99999999-9999-9999-9999-999999999999');
+create function public.require_admin() returns uuid language sql as $$select '99999999-9999-9999-9999-999999999999'::uuid$$;
+create table public.admin_audit_logs(admin_user_id uuid,action text,target_type text,target_id text,metadata jsonb);
+\ir ../migrations/20260929120000_job_location_approvals.sql
 create table vietmap_usage_daily(day date primary key,calls int default 0,updated_at timestamptz default now());
 create function vietmap_usage_take(p_day date,p_limit integer) returns table(ok boolean,used integer) language plpgsql as $$
 begin

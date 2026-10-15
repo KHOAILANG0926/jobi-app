@@ -5,6 +5,7 @@ begin;
 create table public.map_r1_location_jobs (
   job_id bigint primary key references public.local_jobs(id) on delete cascade,
   snapshot jsonb not null,
+  search_key text not null,
   state text not null check (state in ('processing','done','failed','deferred')),
   calls integer not null default 0 check (calls between 0 and 2),
   failures integer not null default 0,
@@ -15,6 +16,28 @@ create table public.map_r1_location_jobs (
 alter table public.map_r1_location_jobs enable row level security;
 revoke all on public.map_r1_location_jobs from public, anon, authenticated;
 grant select, insert, update on public.map_r1_location_jobs to service_role;
+
+-- Address budgets survive A -> B -> A edits. Company/row-id/order changes do not replenish calls.
+create table public.map_r1_search_history (
+ job_id bigint not null references public.local_jobs(id) on delete cascade,
+ search_key text not null,
+ search_input jsonb not null,
+ calls integer not null default 0 check (calls between 0 and 2),
+ failures integer not null default 0,
+ result jsonb,
+ updated_at timestamptz not null default now(),
+ primary key(job_id,search_key)
+);
+alter table public.map_r1_search_history enable row level security;
+revoke all on public.map_r1_search_history from public,anon,authenticated;
+grant select,insert,update on public.map_r1_search_history to service_role;
+create function public.map_r1_search_input(p_snapshot jsonb) returns jsonb
+language sql immutable security invoker set search_path=pg_catalog,public as $$
+ select jsonb_build_object('location',lower(regexp_replace(btrim(p_snapshot->>'location'),'\s+',' ','g')),
+ 'addresses',coalesce((select jsonb_agg(a order by a) from
+ (select distinct lower(regexp_replace(btrim(t->>'address'),'\s+',' ','g')) a
+ from jsonb_array_elements(p_snapshot->'targets') t) x),'[]'::jsonb))
+$$;
 
 -- All functions are invoker and service-role-only, including the snapshot helper.
 create function public.map_r1_snapshot(p_id bigint) returns jsonb
@@ -33,7 +56,7 @@ $$;
 create function public.map_r1_claim_batch(p_limit integer, p_lease uuid)
 returns table(job_id bigint, snapshot jsonb, calls integer)
 language plpgsql security invoker set search_path = pg_catalog, public as $$
-declare j record; snap jsonb; r public.map_r1_location_jobs; n integer:=0;
+declare j record; snap jsonb; input jsonb; key text; h public.map_r1_search_history; r public.map_r1_location_jobs; n integer:=0;
 begin
  if p_limit < 1 or p_limit > 20 or p_lease is null then raise exception 'invalid batch'; end if;
  -- Global transaction lock shared by administrator and Actions. Does not rely on workflow concurrency alone.
@@ -44,16 +67,23 @@ begin
    -- Respect human rejection/revocation. Manual exception remains available.
    if exists(select 1 from public.job_location_candidates c where c.job_id=j.id and c.status in ('rejected','revoked')) then continue; end if;
    snap:=public.map_r1_snapshot(j.id);
+   input:=public.map_r1_search_input(snap);
+   key:=md5(input::text);
    select * into r from public.map_r1_location_jobs s where s.job_id=j.id for update;
    if found then
      if r.state='processing' and r.updated_at > now()-interval '10 minutes' then continue; end if;
      if r.snapshot=snap and r.state='done' then continue; end if;
      if r.snapshot=snap and r.state='deferred' and r.updated_at > now()-interval '1 hour' then continue; end if;
      if r.snapshot=snap and r.state='failed' and (r.failures>=2 or r.calls>=2 or r.updated_at > now()-interval '1 hour') then continue; end if;
-     update public.map_r1_location_jobs s set snapshot=snap,state='processing',lease=p_lease,updated_at=now(),result=null where s.job_id=j.id;
-   else
-     insert into public.map_r1_location_jobs(job_id,snapshot,state,lease) values(j.id,snap,'processing',p_lease);
    end if;
+   insert into public.map_r1_search_history(job_id,search_key,search_input) values(j.id,key,input) on conflict do nothing;
+   select * into h from public.map_r1_search_history s where s.job_id=j.id and s.search_key=key for update;
+   -- Even returning to an older address never resets the spent budget/failure history.
+   insert into public.map_r1_location_jobs(job_id,snapshot,search_key,state,lease,calls,failures)
+   values(j.id,snap,key,'processing',p_lease,h.calls,h.failures)
+   on conflict on constraint map_r1_location_jobs_pkey do update
+   set snapshot=excluded.snapshot,search_key=excluded.search_key,state='processing',lease=excluded.lease,
+       calls=excluded.calls,failures=excluded.failures,updated_at=now(),result=null;
    return query select s.job_id,s.snapshot,s.calls from public.map_r1_location_jobs s where s.job_id=j.id;
    n:=n+1;
  end loop;
@@ -63,16 +93,23 @@ language plpgsql security invoker set search_path = pg_catalog, public as $$
 declare r public.map_r1_location_jobs; quota record;
 begin
  select * into r from public.map_r1_location_jobs where job_id=p_id for update;
- if not found or r.lease is distinct from p_lease or r.state<>'processing' or r.calls>=2 then return false; end if;
+ if not found or r.lease is distinct from p_lease or r.state<>'processing' or r.calls>=2
+   or r.snapshot is distinct from public.map_r1_snapshot(p_id) then return false; end if;
  select * into quota from public.vietmap_usage_take((now() at time zone 'Asia/Ho_Chi_Minh')::date,250);
  if not quota.ok then return false; end if;
+ update public.map_r1_search_history set calls=calls+1,updated_at=now()
+ where job_id=p_id and search_key=r.search_key and calls<2;
+ if not found then return false; end if;
  update public.map_r1_location_jobs set calls=calls+1,updated_at=now() where job_id=p_id;
  return true;
 end $$;
 create function public.map_r1_complete(p_id bigint,p_lease uuid,p_result jsonb) returns boolean
 language plpgsql security invoker set search_path = pg_catalog, public as $$
-declare r public.map_r1_location_jobs; k text; candidate_id bigint; addr text; latv double precision; lngv double precision;
+declare r public.map_r1_location_jobs; k text; candidate_id bigint; addr text; wid bigint; latv double precision; lngv double precision;
 begin
+ -- Existing admin review writes take RowExclusiveLock. Serialize the decision check and insert
+ -- against those writes, without rewriting any pending/approved/rejected/revoked candidate.
+ lock table public.job_location_candidates in share row exclusive mode;
  perform 1 from public.local_jobs where id=p_id for update;
  select * into r from public.map_r1_location_jobs where job_id=p_id for update;
  if not found or r.lease is distinct from p_lease or r.state<>'processing' then return false; end if;
@@ -87,21 +124,23 @@ begin
    if latv is null or lngv is null or not(latv between 8 and 24 and lngv between 102 and 110)
      or coalesce(p_result->>'source','')='' or coalesce(p_result->>'checkedAt','')='' then raise exception 'missing provenance'; end if;
  end if;
- if k='exact' and not public.map_r1_has_exact(p_id) then
-   addr:=p_result->>'address';
-   if coalesce(r.snapshot->>'company','')='' or coalesce(p_result->>'evidence','')=''
-     or not(addr=r.snapshot->>'location' or exists(select 1 from jsonb_array_elements(r.snapshot->'targets') t where t->>'address'=addr)) then raise exception 'invalid exact evidence'; end if;
-   if exists(select 1 from public.job_location_candidates where job_id=p_id and status in ('rejected','revoked')) then return false; end if;
-   select id into candidate_id from public.job_location_candidates where job_id=p_id and address_snapshot=addr and company_snapshot=r.snapshot->>'company'
-     and status='pending' and abs(lat-latv)<0.0001 and abs(lng-lngv)<0.0001 order by id limit 1;
-   if candidate_id is not null then
-     update public.job_location_candidates set status='approved',place_precision='site',source='map_listing',evidence=p_result->>'evidence',review_note='MAP-R1 verified matching',reviewed_at=now() where id=candidate_id;
-   else
-     insert into public.job_location_candidates(job_id,work_location_id,company_snapshot,address_snapshot,lat,lng,place_precision,source,evidence,status,review_note,reviewed_at)
-     values(p_id,(p_result->>'workLocationId')::bigint,r.snapshot->>'company',addr,latv,lngv,'site','map_listing',p_result->>'evidence','approved','MAP-R1 verified matching',now())
-     on conflict (job_id,address_snapshot) where status='approved' do nothing;
-   end if;
+ if k='exact' then
+   addr:=p_result->>'address'; wid:=(p_result->>'workLocationId')::bigint;
+   if public.map_r1_has_exact(p_id) then return false; end if;
+   if coalesce(btrim(r.snapshot->>'company'),'')='' or coalesce(btrim(p_result->>'evidence'),'')=''
+     or addr is null or not(addr=r.snapshot->>'location' or exists(select 1 from jsonb_array_elements(r.snapshot->'targets') t where t->>'address'=addr))
+     or (wid is not null and not exists(select 1 from public.job_work_locations w where w.id=wid and w.job_id=p_id and w.raw_address=addr))
+     then raise exception 'invalid exact evidence'; end if;
+   -- Human decisions are never reversed or silently superseded, including stale-company approvals.
+   if exists(select 1 from public.job_location_candidates where job_id=p_id and
+      (status in ('rejected','revoked') or (status='approved' and address_snapshot=addr))) then return false; end if;
+   insert into public.job_location_candidates(job_id,work_location_id,company_snapshot,address_snapshot,lat,lng,place_precision,source,evidence,status,review_note,reviewed_at)
+   values(p_id,wid,r.snapshot->>'company',addr,latv,lngv,'site','map_listing',p_result->>'evidence','approved','MAP-R1 verified matching',now())
+   returning id into candidate_id;
  end if;
+ update public.map_r1_search_history set result=p_result,
+ failures=failures+case when coalesce((p_result->>'failed')::boolean,false) then 1 else 0 end,updated_at=now()
+ where job_id=p_id and search_key=r.search_key;
  -- No writes to local_jobs or job_work_locations; public/hidden flags are untouched.
  update public.map_r1_location_jobs set result=p_result,state=case when coalesce((p_result->>'deferred')::boolean,false) then 'deferred' when coalesce((p_result->>'failed')::boolean,false) then 'failed' else 'done' end,
  failures=failures+case when coalesce((p_result->>'failed')::boolean,false) then 1 else 0 end,lease=null,updated_at=now() where job_id=p_id;
@@ -115,6 +154,6 @@ language sql stable security invoker set search_path=pg_catalog,public as $$
  and s.result->>'kind' in ('gate','area') and s.state in ('done','failed','deferred') and s.snapshot=public.map_r1_snapshot(s.job_id)
  and not public.map_r1_has_exact(s.job_id)
 $$;
-revoke all on function public.map_r1_snapshot(bigint),public.map_r1_has_exact(bigint),public.map_r1_claim_batch(integer,uuid),public.map_r1_reserve_call(bigint,uuid),public.map_r1_complete(bigint,uuid,jsonb),public.map_r1_public_points(bigint[]) from public,anon,authenticated;
-grant execute on function public.map_r1_snapshot(bigint),public.map_r1_has_exact(bigint),public.map_r1_claim_batch(integer,uuid),public.map_r1_reserve_call(bigint,uuid),public.map_r1_complete(bigint,uuid,jsonb),public.map_r1_public_points(bigint[]) to service_role;
+revoke all on function public.map_r1_search_input(jsonb),public.map_r1_snapshot(bigint),public.map_r1_has_exact(bigint),public.map_r1_claim_batch(integer,uuid),public.map_r1_reserve_call(bigint,uuid),public.map_r1_complete(bigint,uuid,jsonb),public.map_r1_public_points(bigint[]) from public,anon,authenticated;
+grant execute on function public.map_r1_search_input(jsonb),public.map_r1_snapshot(bigint),public.map_r1_has_exact(bigint),public.map_r1_claim_batch(integer,uuid),public.map_r1_reserve_call(bigint,uuid),public.map_r1_complete(bigint,uuid,jsonb),public.map_r1_public_points(bigint[]) to service_role;
 commit;

@@ -6,7 +6,7 @@ PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft). GitHub 원격 CI 
 
 - `src/lib/mapR1.ts`, `HomeMapExplorer`, `HomeMapCanvas`, `map/*Canvas`, `HomeMapTypes`, `PlaceDetailPanel`: 하노이 중심 z8(박닌 포함), 브라우저 카메라 복원/유효성, 기본 무제한, 버튼 GPS/한 번 탭 출발점, 직선거리 반경 해제, 대표 위치 라벨·정확 결과 제외, viewport 내 공고 ID 수, 중첩 ID 집계. 공식 직업 필터 유지.
 - `JobVietMap.tsx`: 상세 지도 휠·터치 확대를 기존 메인 제스처에 맞춤. 다중 근무지 핀의 선택 좌표를 거리·생활시설 패널에 전달.
-- `autoLocationResolver.ts`, `api/_lib/auto-location-runtime.mjs`, `api/admin-auto-location.js`, `Admin*Locate`, `scripts/auto-location/run.mjs`, `.github/workflows/auto-location.yml`: 기존 주소/회사/동 판정 재사용, 예약 후 검색, 공고별 영속 최대 2회, 검색 캐시, 기존 공유 일일 250회 한도, 10건 배치(관리자 5건), 실행 임대, 실패 후 제한 재시도, 캐시/예산 장애 시 호출 중단. 기존 정확 위치·공개 상태 보존.
+- `autoLocationResolver.ts`, `api/_lib/auto-location-runtime.mjs`, `api/admin-auto-location.js`, `Admin*Locate`, `scripts/auto-location/run.mjs`, `.github/workflows/auto-location.yml`: 기존 주소/회사/동 판정 재사용, 예약 후 검색, 공고·주소 집합별 영속 최대 2회, 검색 캐시, 기존 공유 일일 250회 한도, 10건 배치(관리자 5건), 실행 임대, 실패 후 제한 재시도, 캐시/예산 장애 시 호출 중단. 기존 정확 위치·공개 상태 보존.
 - `api/map-locations.js`: 공개 공고의 대표 좌표·출처·확인일만 반환. 원문 증거/내부 상태 제외.
 - `supabase/pending/20261015_map_r1_auto_location.sql`: service-role 전용 RLS 처리 테이블/RPC. 기존 테이블 삭제·공개 상태 변경 없음.
 
@@ -42,3 +42,13 @@ GPS 오류는 기존 오류 표시로 처리한다. 거부 경로는 브라우�
 승인 후 필요한 설정: GitHub Secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VIETMAP_SERVICE_KEY`; GitHub variable `MAP_R1_ENABLED=true`; 관리자 서버도 동일 비밀 환경 변수와 `MAP_R1_ENABLED=true`. master에서 정기·수동 실행한다. 활성화/Secret 쓰기는 수행하지 않았다.
 
 운영 반영 여부: **미반영**. PR 생성 후에도 병합·운영 배포는 사용자 승인 대상이다.
+
+
+## PR #99 운영 적용 전 수정 — 2026-10-15 [직접 확인]
+
+1. 검색 한도를 공고 ID + 정규화한 주소 집합 이력으로 분리했다. 새 주소는 별도 2회, 동일 주소와 A→B→A 복귀는 기존 사용량을 유지한다. 회사명·공백/대소문자·근무지 행 ID·순서만 바뀌어도 사용량은 초기화되지 않는다. 이전 주소의 호출 수·실패·결과를 service-role 전용 `map_r1_search_history`에 보존한다. 주소 수정 중인 오래된 실행은 예약·완료를 거부한다.
+2. 기존 승인 후보를 덮어쓰거나 근처의 대기/지역 후보를 자동 승격하지 않는다. 자동 판정으로 검증한 좌표를 새 후보로만 저장하고, 사람의 승인·거부·철회(회사명 변경 전 승인 포함)와 충돌하면 저장을 중단한다. 다른 공고의 근무지 ID를 참조할 수 없다. 기존 보류 중 evidence guard는 적용하지 않았으며, 번지·도로명 일치 또는 회사명 일치+공단 내부라는 기존 resolver 판정도 유지했다.
+3. 실제 `20260929120000_job_location_approvals.sql`의 제약·관리자 review RPC를 격리 fixture에 로드했다. `map_r1_assertions.sql` 및 새 `map_r1_review_assertions.sql` 모두 통과했다. `python3 supabase/tests/map_r1_concurrency.py map-r1-review-db map_r1_final_review`는 두 세션의 실제 잠금으로 관리자 거부가 자동 승인보다 우선 보존됨을 확인했다.
+4. 수정 후 `npm test` 60/60, `npx tsc --noEmit` 종료 0, `npm run build` 종료 0. 운영 DB 변경·master 병합·운영 배포 없음. 변경은 기존 PR #99에만 반영한다.
+
+격리 SQL 재현: 일회용 PostgreSQL 17에 supabase 디렉터리를 복사한 뒤 tests/map_r1_fixture.sql → pending/20261015_map_r1_auto_location.sql → tests/map_r1_assertions.sql → tests/map_r1_review_assertions.sql 순으로 `psql -v ON_ERROR_STOP=1 -f ...` 실행. fixture가 실제 기존 승인 스키마를 상대 경로로 읽으므로 디렉터리 구조를 유지해야 한다. 운영 DB에서 실행하지 않는다.
