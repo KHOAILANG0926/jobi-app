@@ -311,6 +311,13 @@ export function JobDetail() {
   const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
     value ? ({ key, icon, label, value, cls } as InfoField) : null
   const conditionFields = [
+    row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
+      salaryText ? (
+        <>
+          {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
+          {salaryText}{job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+        </>
+      ) : undefined, 'jd2-info-val--salary'),
     row('salaryNote', <Briefcase size={14} strokeWidth={1.8} />, 'Ghi chú lương', job.salaryNote),
     row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
     row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
@@ -322,6 +329,7 @@ export function JobDetail() {
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', occupationLabel),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
+    { key: 'deadline', icon: <Timer size={14} strokeWidth={1.8} />, label: 'Hạn nộp hồ sơ', value: deadlineText + (badge ? ` (${badge.label})` : ''), cls: badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined } as InfoField,
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
     row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
@@ -555,7 +563,18 @@ export function JobDetail() {
                                 Tuyển tại: {loc.matchedRecruitmentRegions.join(', ')}
                               </p>
                             )}
-                            {loc.geocodeStatus === 'pending' && !isRegionOnlyText ? null : approved ? (
+                            {loc.geocodeStatus === 'pending' && !isRegionOnlyText ? (
+                              // 2026-09-07 사용자 지시: geocode_status='pending'은
+                              // "실패"가 아니라 "아직 지오코딩을 시도하지 않음" —
+                              // exact_text인데 아직 시도 안 한 경우에만 이 문구를
+                              // 보여준다. region_only는 원문 자체가 지역 수준이라
+                              // pending 여부와 무관하게 항상 기존 지역 안내문을
+                              // 그대로 보여줘야 한다(충돌 수정 — 아래 isRegionOnlyText
+                              // 분기가 그 문구를 그대로 담당).
+                              <p className="jd2-map-pending-note">
+                                Đang xác minh vị trí — hệ thống chưa xác định được tọa độ cho địa chỉ này.
+                              </p>
+                            ) : approved ? (
                               // 사람이 회사 공식 정보·원문을 대조해 승인한 근무지(2026-09-29)
                               <p className="jd2-map-verified-ward-note">
                                 {job.id.startsWith('acceptance-')
