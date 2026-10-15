@@ -2,6 +2,9 @@ name: Fetch official occupation source documents
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/occupation-master-extract]
+    paths: ['.github/workflows/fetch-occupation-source.yml']
 
 permissions:
   contents: write
@@ -43,7 +46,7 @@ jobs:
               parts = urlsplit(url)
               host = (parts.hostname or '').lower()
               if (parts.scheme != 'https' or parts.username or parts.password
-                      or not (host == 'chinhphu.vn' or host.endswith('.chinhphu.vn'))):
+                      or not any(host == d or host.endswith('.' + d) for d in ('chinhphu.vn', 'cdnchinhphu.vn'))):
                   raise ValueError(f'Non-official or insecure URL rejected: {url}')
               return url
 
