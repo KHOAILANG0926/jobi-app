@@ -1,5 +1,6 @@
 # CHATGPT_HANDOFF — MAP-R1
 갱신: 2026-10-15
+PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft, 미병합)
 
 - [직접 확인] 브랜치 feat/map-r1-auto-location-20261015, 기반 origin/master 1abb6a4. 최신 fetch 후 master 추가 변경 없음. 사용자 지시: PR까지만, 병합·운영 배포·운영 DB 변경 금지.
 - [직접 확인] 지도 viewport/거리 원점 분리, 기본 무제한, GPS/한 번 탭, 정확·대표 핀, 화면 ID별 수, 선택 근무지 보존, 상세 휠 확대 구현.

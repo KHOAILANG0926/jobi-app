@@ -1,5 +1,7 @@
 # MAP-R1 검증 기록 — 2026-10-15
 
+PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft). GitHub 원격 CI 결과는 생성 시점 미확인.
+
 ## 변경 파일·동작 [직접 확인]
 
 - `src/lib/mapR1.ts`, `HomeMapExplorer`, `HomeMapCanvas`, `map/*Canvas`, `HomeMapTypes`, `PlaceDetailPanel`: 하노이 중심 z8(박닌 포함), 브라우저 카메라 복원/유효성, 기본 무제한, 버튼 GPS/한 번 탭 출발점, 직선거리 반경 해제, 대표 위치 라벨·정확 결과 제외, viewport 내 공고 ID 수, 중첩 ID 집계. 공식 직업 필터 유지.
