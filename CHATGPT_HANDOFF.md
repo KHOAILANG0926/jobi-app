@@ -1,18 +1,18 @@
-# CHATGPT_HANDOFF — 후속 위치 검사 현재 DOM 반영
+# CHATGPT_HANDOFF — 전체 검사 마지막 좌표 로더 수정
 갱신: 2026-10-16 Asia/Bangkok
 
 ## 1. 현재 상태
-- master af1a0d1: 공고 목록3개 검증 성공(중복0/중첩링크0), PC/mobile 운영 검사 성공.
-- 후속 위치 검사는 같은 일반목록 selector에 추가timeout. 상세 제목과 지도 선택자도 현재 코드와 불일치.
-- 검사 스크립트만 추천+일반 목록/h1.jd2-header__title/VietMap marker·container DOM 반영. 현행 규정의 미확인지역 지도는 명시 경고·실제주소·정확사업장 주장 없음 검사. 가짜정확핀·지도와 unknown 동시표시·경고누락 등9종 회귀 통과.
-- 앱/CSS/DB/위치 승인정책 불변. 사전 범위표 PR#114 후2파일 구현PR 진행. 최종 전체workflow 성공 전 완료 보고 금지.
+- master5664d1f: 공고3개/중복0/중첩0, 실제 상세위치3/3 통과. PR 위치9종 및 공고6종 회귀 성공.
+- 마지막 jobCoords 단독 CI명령만 로더가 없어 ERR_MODULE_NOT_FOUND 발생. 기존 npm test 공식 TS로더 명령으로 통일. 해당명령 로컬14/14 통과.
+- 앱/CSS/DB/좌표정책 변경 없음. workflow2파일의2영역만 변경. 사전범위 PR#116 후 구현/최종CI 진행.
+- 모든 최종workflow·운영검사가 성공하기 전 전체완료 보고 금지.
 
 ## 2. 다음 할 일 3개
-1. 범위표 검사/병합 후 정확한 위치검사·workflow2파일만 구현 병합.
-2. 실제3개 상세·jobCoords·공고목록·운영 PC/mobile 모두 성공 확인.
-3. 관리자우회 차단 복구는 사용자 설정 확인 필요. 실패/skip 남으면 보고에 누락 금지.
+1. 사전범위 PR#116 병합 후 정확한2영역 수정 PR검사/병합.
+2. Job card integrity workflow 모든 단계와 Production READY/PCmobile smoke 성공 확인.
+3. 관리자우회 차단 복구는 사용자 설정 확인 필요. 최종근거는 구현PR 기록.
 
 ## 3. 필수 규칙
-- 기존 틀 보존, 사용자 지시 범위 외 UI/데이터 변경 금지.
-- 코드보다 범위표 먼저반영. 검사 실패를 단순생략으로 숨기지 않음.
-- DB/Auth/RLS/STATUS 보호, 회사PC 저장 안내 금지.
+- 기준 CTY KDA 틀 유지, 지시 범위 밖 UI/데이터 변경 금지.
+- 범위표 먼저고정 후 코드변경. 실패검사 생략/성공위조 금지.
+- 회사PC 저장 안내·DB/Auth/RLS/STATUS 변경 금지.
