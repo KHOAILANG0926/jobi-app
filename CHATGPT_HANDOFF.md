@@ -1,21 +1,20 @@
-# CHATGPT_HANDOFF — MAP-R1
-갱신: 2026-10-15 (Asia/Bangkok)
+# CHATGPT_HANDOFF — 모바일 홈 구성 1차
+갱신: 2026-10-16 (Asia/Bangkok)
 
 ## 1. 현재 상태
-- [직접 확인] 기존 Draft PR #99, branch feat/map-r1-auto-location-20261015. 검증 시작 SHA 9475d0c. 이번 수정은 동일 브랜치에서만 보존한다.
-- [직접 확인] 9475d0c 원격 CI 3개 성공, 로그 60/60·타입·빌드·화면 검사 통과. 원격 CI checkout은 GitHub 테스트 병합 ea9211c이며 실제 master 병합이 아니다.
-- [직접 확인] 관리자 검토가 SELECT FOR UPDATE 후 UPDATE 전일 때 자동 승인이 끼어드는 결함 재현·수정(EXCLUSIVE 잠금). 수정 SQL+실제 후보/RPC·캐시/quota·R4/R1-R7/R8 트리거 격리 검사, 주소 이력·거부/철회 회귀, before/after 경합 통과. 수정 소스 tsc/build·resolver/API 모의 검사 통과.
-- [직접 확인] npm audit는 기존 취약점 4건(high 2)으로 실패. package/lock은 master 대비 변경 없음. 실제 악용/운영 영향 미검증.
-- [미검증] 운영 schema/GRANT drift·키 등록·VietMap 실연동/계정 과금 상한·Yên Phong 1단지 입구. 이번 수정은 [skip ci]로 제출: 화면 CI가 운영 공개 API를 읽기 때문에 최종 수정 SHA 원격 CI 미검증.
-- [직접 확인] 이번 세션 운영 DB/API·자동화 설정·master/운영 배포 변경 없음. 운영 활성화 상태는 이번에 직접 조회하지 않음.
-- 상세: docs/MAP-R1-preflight.md (PASS/FAIL/미검증, 적용·롤백). 이전 검증: docs/MAP-R1-report.md. 이전 HANDOFF는 WORK_LOG.md에 보존.
+- [직접 확인] 기준 origin/master eb36b53, 별도 branch feat/mobile-home-composition-20261016. 기존 모바일 PR #102 및 검사 PR #101/#103 조회; 다른 방향/제스처 변경이 섞여 있어 병합하지 않음.
+- [직접 확인] 영상 기준 모바일 상단 위치/검색/메뉴, 공고 3개 묶음 좌우 넘김, 5개 바로가기, 가로 필터, 지도/목록 전환, 데이터 기반 공고 영역과 하단 4개 실제 라우트 구현. 기존 지도 제스처/좌표 승인/연락/상세 정책 유지.
+- [직접 확인] PC/mobile 첫 방문 위치 선택 안내. GPS는 명시 클릭 뒤 기존 함수만 호출; 거부 시 지역 직접 선택. sessionStorage에는 안내 닫힘 여부만 추가(좌표 아님). 홈 카드/목록은 같은 지도 필터 결과 사용. 지역 선택 시 실제 지역 매칭; 미확인 좌표는 반경 결과에서 제외.
+- [직접 확인] 타입/클라이언트+SSR 빌드, npm test 61/61 성공. 그룹 0/1/2/3/4/7건·중복 제거 검사. 브라우저 설치 CDN 다운로드가 0바이트 zip으로 실패해 원격 환경 실제 화면 미검증. 새 PR CI에서 360/390/412/1366px 실공개 캡처 및 격리 브라우저 fixture 동작 검사를 실행할 예정.
+- [기존 기록] STATUS 생성 2026-10-16 08:42 VN: master/Production eb36b53 success, 공개 공고 3건. 운영 DB 직접 조회/변경 없음.
+- [미검증] 새 브랜치 Vercel Preview·원격 화면 검사. IMPLEMENTED이며 VERIFIED/APPROVED/DEPLOYED 아님. 상세 docs/MOBILE-HOME-R1-report.md.
 
 ## 2. 다음 할 일 3개
-1. PR #99의 잠금 수정·격리 검증을 검토하고 기존 의존성 경고를 별도 보안 패치 범위로 판단.
-2. 운영 조회 허용 후 최종 SHA 필수 CI 및 실제 schema/GRANT·키/공급자 비용 제한 확인. 기존 성공 검사를 이유 없이 반복하지 않음.
-3. 별도 사용자 승인 이후에만 문서 순서대로 DB 적용·실연동·병합/배포·활성화. 롤백 시 flag=false만으로 기존 승인 핀이 제거되지 않음에 주의.
+1. 원격 화면 CI와 Vercel Preview에서 캡처/동작 확인, 같은 원인 2회 실패 시 반복 중단.
+2. 실제 캡처·Preview URL·검증 결과를 사용자에게 제시하고 수정사항 반영.
+3. 사용자 미리보기 검토 전 master 병합/Production 배포 금지. 운영 DB/Auth/권한/좌표 정책 변경 금지.
 
 ## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·미검증 구분, secret 값 출력 금지.
-- 이번 지시: 운영 DB 변경·실제 API 호출·자동화 활성화·master 병합·운영 배포 금지. 사용자 금지가 일반 배포 규칙보다 우선.
-- 추정 좌표 추가·기존 수동 승인 덮어쓰기·공개 상태 변경·주소 이력/일일 카운터 초기화 금지. pending 폴더 일괄 적용 금지.
+- AGENTS.md/CLAUDE.md, 직접 확인·기존 기록·미검증 분리. GitHub에 소스 보존 전 완료 처리 금지.
+- 가짜 공고/급여 환산/미확인 조건 생성 금지. 한국 슬롯은 Korea 전용 API/컴포넌트.
+- STATUS/status 브랜치/검증 장치 기존 파일 수정 금지. 새 모바일 화면 workflow는 읽기 전용, secret 없음.

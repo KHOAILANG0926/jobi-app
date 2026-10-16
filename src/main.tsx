@@ -4,6 +4,7 @@ import App from './App'
 import type { Job } from './types/job'
 import './index.css'
 import './components/apply.css'
+import './components/home/homeDiscovery.css'
 
 const rootEl = document.getElementById('root')!
 

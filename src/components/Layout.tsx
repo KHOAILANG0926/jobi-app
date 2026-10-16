@@ -7,6 +7,7 @@ import { useBrands } from '../context/BrandsContext'
 import { computeBrandCounts, groupBrandsByCategory, type BrandDefinition, type BrandWithCount } from '../data/brandDirectory'
 import { NotificationBell } from './NotificationBell'
 import { ZaloIcon } from './ZaloIcon'
+import MobileBottomNavigation from './MobileBottomNavigation'
 
 function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string; initial: string }) {
   const [failed, setFailed] = useState(false)
@@ -494,6 +495,7 @@ export function Layout() {
       <main className="layout__main">
         <Outlet />
       </main>
+      <MobileBottomNavigation />
 
       <footer className="layout__footer">
         {/* 고객센터 */}

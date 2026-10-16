@@ -3,12 +3,12 @@ import { planJobDirections } from '../../lib/directionsPlan'
 // 왼쪽: 탐색 조건(위치·반경 / 급여 / 업종 / Thêm điều kiện) + 지도, 오른쪽: 선택 공고 1차 판단 패널.
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, Wallet, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_SHORT } from '../../data/categories'
-import { REGION_MACRO_TABS } from '../../data/jobRegions'
+import { REGION_MACRO_TABS, jobMatchesRegion } from '../../data/jobRegions'
 import { findRegionCenter, formatDistanceLabel } from '../../lib/jobCoords'
 import { conditionBadges } from '../../lib/jobConditions'
 import {
@@ -27,6 +27,7 @@ import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupation
 import { DEFAULT_VIEWPORT, VIEWPORT_KEY, readViewport, mapSearch, selectedMapEntry, LOCATION_LABELS, validPoint, type RepresentativePoints, type MapBounds } from '../../lib/mapR1'
 import type { HomeMapViewport } from './map/HomeMapTypes'
 import { observeInViewOnce } from '../../lib/inViewOnce'
+import type { Job } from '../../types/job'
 
 const HomeMapCanvas = lazy(() => import('./HomeMapCanvas'))
 /** 'Ngành nghề'에 처음부터 보이는 그룹 수(공고 많은 순). 나머지는 'Xem thêm'. */
@@ -46,9 +47,34 @@ function regionOrigin(label: string): Origin | null {
   return point ? { kind: 'region', label, point } : null
 }
 
-export default function HomeMapExplorer() {
+export interface HomeDiscoveryState {
+  jobs: Job[]
+  originLabel: string
+  geoState: 'idle' | 'loading' | 'denied' | 'unsupported'
+  loading: boolean
+  jobsError: boolean
+  filterCount: number
+  locate: () => void
+  openLocation: () => void
+  openFilters: (section: number) => void
+  showMap: () => void
+  reset: () => void
+}
+
+interface HomeMapExplorerProps {
+  jobsOverride?: Job[]
+  renderBeforeMap?: (state: HomeDiscoveryState) => ReactNode
+  renderAfterMap?: (state: HomeDiscoveryState) => ReactNode
+}
+
+export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderAfterMap }: HomeMapExplorerProps = {}) {
   const { jobs, mapAcceptanceJobs, loading, jobsError } = useJobs()
-  const mapJobs = useMemo(() => [...jobs, ...mapAcceptanceJobs], [jobs, mapAcceptanceJobs])
+  const [chosenRegion, setChosenRegion] = useState<string | null>(null)
+  const mapJobs = useMemo(() => {
+    const source = [...(jobsOverride ?? jobs), ...mapAcceptanceJobs]
+    const region = REGION_MACRO_TABS.flatMap(tab => tab.provinces).find(item => item.label === chosenRegion)
+    return region ? source.filter(job => jobMatchesRegion(job.location, region.id, job.workLocations)) : source
+  }, [jobsOverride, jobs, mapAcceptanceJobs, chosenRegion])
   const [origin, setOrigin] = useState<Origin>(() => regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
   const [initialViewport, setInitialViewport] = useState<HomeMapViewport>(DEFAULT_VIEWPORT)
   const [viewportReady, setViewportReady] = useState(false)
@@ -88,6 +114,10 @@ export default function HomeMapExplorer() {
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [mobileView, setMobileView] = useState<'map' | 'list'>('map')
+  const filterFocus = useRef<HTMLElement | null>(null)
+  const explorerRef = useRef<HTMLElement>(null)
   const [recenterRequest, setRecenterRequest] = useState(0)
   const [nearbyState, setNearbyState] = useState<NearbyState>({ status: 'idle' })
   const [pickedPlace, setPickedPlace] = useState<PickedPlace | null>(null)
@@ -114,6 +144,22 @@ export default function HomeMapExplorer() {
   }, [])
   const controlsRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!mobileFiltersOpen || !isMobileLayout) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileFiltersOpen(false)
+      if (event.key !== 'Tab') return
+      const elements = [...(controlsRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select, input, a[href]') ?? [])].filter(el => el.getClientRects().length)
+      const first = elements[0], last = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    }
+    controlsRef.current?.querySelector<HTMLElement>('button')?.focus()
+    document.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', onKey); filterFocus.current?.focus() }
+  }, [mobileFiltersOpen, isMobileLayout])
   // 필터·패널 스크롤이 끝에 닿으면 같은 휠 동작을 페이지 스크롤로 잇는다(pageScrollChain.ts).
   useEffect(() => {
     const cleanups = [controlsRef.current, panelRef.current].filter((el): el is HTMLElement => !!el).map(chainWheelToPage)
@@ -125,7 +171,8 @@ export default function HomeMapExplorer() {
   const nearby = result.entries
   const occupationGroups = useMemo(() => {
     const r = mapSearch(mapJobs, { ...filters, occupationGroups: [] }, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives)
-    const available = radiusActive ? r.radiusJobs : r.entries.filter(e => r.visibleIds.has(e.job.id))
+    // Text-located jobs must remain filterable even while their map pin is unverified.
+    const available = radiusActive ? r.radiusJobs : r.entries
     const groups = occupationGroupsInJobs(available.map(e => e.job))
     const missing = (filters.occupationGroups ?? []).filter(c => !groups.some(g => g.code === c)).map(code => ({ code, count: 0 }))
     return [...groups, ...missing]
@@ -149,6 +196,7 @@ export default function HomeMapExplorer() {
   const markers = result.markers
 
   const useCurrentLocation = () => {
+    setChosenRegion(null)
     setLocMenuOpen(false)
     setPickingOrigin(false)
     if (typeof navigator === 'undefined' || !navigator.geolocation) { setGeoState('unsupported'); return }
@@ -170,7 +218,7 @@ export default function HomeMapExplorer() {
 
   const chooseRegion = (label: string) => {
     const next = regionOrigin(label)
-    if (next) { locationRequest.current += 1; setRadiusActive(false); setPickingOrigin(false); setOrigin(next); setCameraRequest({center: next.point, zoom: 10}); setGeoState('idle'); setLocMenuOpen(false) }
+    if (next) { locationRequest.current += 1; setChosenRegion(label); setRadiusActive(false); setPickingOrigin(false); setOrigin(next); setCameraRequest({center: next.point, zoom: 10}); setGeoState('idle'); setLocMenuOpen(false) }
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
@@ -190,12 +238,31 @@ export default function HomeMapExplorer() {
   const pickOrigin = (point: MapJobPoint) => {
     if (!pickingOrigin || !validPoint(point)) return
     locationRequest.current += 1
+    setChosenRegion(null)
     setOrigin({kind:'chosen', point}); setRadiusActive(true); setPickingOrigin(false); setPickedPlace(null); setRecenterRequest(v => v + 1)
   }
   const distanceLabel = selected?.point && selected.distanceKm !== null
     ? selected.point.kind === 'gate' ? `Cách cổng KCN khoảng ${selected.distanceKm.toFixed(1)} km`
       : selected.point.kind === 'area' ? `Cách điểm đại diện khoảng ${selected.distanceKm.toFixed(1)} km` : formatDistanceLabel(selected.distanceKm)
     : null
+
+  const openFilters = (section: number) => {
+    filterFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    if (section === 3) setMoreOpen(true)
+    setMobileFiltersOpen(true)
+    // Wait for the sheet render before bringing the requested existing section into view.
+    requestAnimationFrame(() => controlsRef.current?.querySelectorAll<HTMLElement>('.hme-block')[section]?.scrollIntoView({ block: 'start' }))
+  }
+  const discoveryState: HomeDiscoveryState = {
+    jobs: listEntries.map(entry => entry.job).filter(job => !job.id.startsWith('acceptance-')),
+    originLabel: radiusActive ? originLabel : chosenRegion ?? 'Chọn khu vực', geoState, loading, jobsError,
+    filterCount: selectedGroups.length + filters.extras.length + (filters.minSalary !== null ? 1 : 0) + (radiusActive || chosenRegion ? 1 : 0),
+    locate: useCurrentLocation,
+    openLocation: () => { setLocMenuOpen(true); openFilters(0) },
+    openFilters,
+    showMap: () => { setMobileView('map'); explorerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) },
+    reset: () => { setFilters(DEFAULT_FILTERS); setChosenRegion(null); clearRadius(); setPickedPlace(null); setSelectedId(null) },
+  }
 
   // 선택 상세(장소·건물 또는 공고). 데스크톱은 오른쪽 패널, 모바일(≤760px)은 하단 sheet(MobileDetailSheet).
   const detail = pickedPlace ? (
@@ -251,8 +318,15 @@ export default function HomeMapExplorer() {
   ) : null
 
   return (
-    <section className="hme" aria-label="Tìm việc quanh bạn trên bản đồ">
-      <div className="hme__controls" ref={controlsRef}>
+    <>
+    {renderBeforeMap?.(discoveryState)}
+    <section ref={explorerRef} className={`hme${mobileFiltersOpen ? ' hme--filters-open' : ''} hme--view-${mobileView}`} aria-label="Tìm việc quanh bạn trên bản đồ">
+      <div className="hme-mobile-toolbar">
+        <h2>Việc làm quanh bạn</h2>
+        <div><button type="button" aria-pressed={mobileView === 'map'} onClick={() => setMobileView('map')}>Bản đồ</button><button type="button" aria-pressed={mobileView === 'list'} onClick={() => setMobileView('list')}>Danh sách</button><button type="button" aria-label="Mở bộ lọc bản đồ" onClick={() => openFilters(0)}><SlidersHorizontal size={17} /></button></div>
+      </div>
+      <div className="hme__controls" ref={controlsRef} role={isMobileLayout && mobileFiltersOpen ? 'dialog' : undefined} aria-modal={isMobileLayout && mobileFiltersOpen ? true : undefined} aria-label="Bộ lọc việc làm">
+        <div className="hme-mobile-filter-head"><h2>Bộ lọc việc làm</h2><button type="button" aria-label="Đóng bộ lọc" onClick={() => setMobileFiltersOpen(false)}><X /></button></div>
         {/* 위치 + 검색 반경 — 하나의 기능 */}
         <div className="hme-block">
           <div className="hme-block__head"><MapPin size={16} aria-hidden /> <span>Vị trí</span></div>
@@ -389,6 +463,7 @@ export default function HomeMapExplorer() {
             </div>
           )}
         </div>
+        <div className="hme-mobile-filter-actions"><button type="button" onClick={discoveryState.reset}>Đặt lại</button><button type="button" onClick={() => setMobileFiltersOpen(false)}>Xem {listEntries.length} việc làm</button></div>
       </div>
 
       <div className="hme__map" ref={mapBoxRef}>
@@ -405,7 +480,7 @@ export default function HomeMapExplorer() {
         {detail && !isMobileLayout ? detail : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
-            <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : 'Hà Nội · Bắc Ninh / Khu vực trên bản đồ · Không giới hạn khoảng cách'}</p>
+            <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : `${chosenRegion ?? 'Tất cả khu vực'} · Không giới hạn khoảng cách`}</p>
             <div className="hme-intro__count"><strong>{result.visibleCount}</strong> việc làm trong khung bản đồ hiện tại</div>
             {radiusActive && <p>{result.radiusJobs.length} việc làm có vị trí chính xác trong bán kính</p>}
             <p>{result.unresolvedCount} tin chưa xác định được vị trí · Ghim nét đứt: vị trí đại diện</p>
@@ -430,9 +505,11 @@ export default function HomeMapExplorer() {
           {detail}
         </MobileDetailSheet>
       )}
-      <span hidden data-testid="home-map-job-counts" data-loaded={new Set(mapJobs.map(j => j.id)).size}
+      <span hidden data-testid="home-map-job-counts" data-loading={loading} data-loaded={new Set(mapJobs.map(j => j.id)).size}
         data-in-radius={result.radiusJobs.length} data-matched={result.visibleCount} data-unverified={result.unresolvedCount} data-radius-active={radiusActive} />
     </section>
+    {renderAfterMap?.(discoveryState)}
+    </>
   )
 }
 

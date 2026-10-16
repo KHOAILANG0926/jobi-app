@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
+import { HomeDiscovery, HomeDiscoverySections } from '../components/home/HomeDiscovery'
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
@@ -318,7 +319,7 @@ export function Home() {
             <span>với việc làm tại Hàn Quốc</span>
           </h1>
           <p className="home-brand-hero__lead">
-            Hàng nghìn cơ hội việc làm tốt đang chờ bạn
+            Khám phá cơ hội việc làm tại Hàn Quốc
           </p>
           <NavLink to="/viec-han-quoc" className="home-hero-search home-hero-cta">
             <span className="home-hero-cta__icon" aria-hidden>🇰🇷</span>
@@ -333,7 +334,9 @@ export function Home() {
       </section>
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
-      <HomeMapExplorer />
+      <HomeMapExplorer jobsOverride={filtered}
+        renderBeforeMap={(state) => <HomeDiscovery state={state} />}
+        renderAfterMap={(state) => <HomeDiscoverySections jobs={state.jobs} />} />
 
       </div>{/* /.home-top-bg */}
 
