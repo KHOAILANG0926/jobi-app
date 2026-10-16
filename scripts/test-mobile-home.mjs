@@ -124,7 +124,7 @@ try {
   rows = [{ ...fixtures[0], salary: 'Thỏa thuận' }]
   await page.reload()
   await ready(page)
-  assert.equal(await page.locator('[data-section="all"] .discovery-job').count(), 1, 'negotiable jobs remain browseable')
+  assert.match(await page.locator('.hme__panel').innerText(), /TEST ONLY — Công việc kiểm tra 1/, 'negotiable jobs remain in map results')
   results.push({ kind: 'browser-only-fixture', case: 'negotiable-salary-preserved', ok: true })
   queryFailed = true
   await page.reload()
