@@ -320,7 +320,8 @@ export function Home() {
             <span>với việc làm tại Hàn Quốc</span>
           </h1>
           <p className="home-brand-hero__lead">
-            Khám phá cơ hội việc làm tại Hàn Quốc
+            <span className="home-desktop-copy">Hàng nghìn cơ hội việc làm tốt đang chờ bạn</span>
+            <span className="home-mobile-copy">Khám phá cơ hội việc làm tại Hàn Quốc</span>
           </p>
           <NavLink to="/viec-han-quoc" className="home-hero-search home-hero-cta">
             <span className="home-hero-cta__icon" aria-hidden>🇰🇷</span>

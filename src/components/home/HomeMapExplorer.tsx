@@ -69,12 +69,14 @@ interface HomeMapExplorerProps {
 
 export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderAfterMap }: HomeMapExplorerProps = {}) {
   const { jobs, mapAcceptanceJobs, loading, jobsError } = useJobs()
+  const [isMobileLayout, setIsMobileLayout] = useState(false)
   const [chosenRegion, setChosenRegion] = useState<string | null>(null)
   const mapJobs = useMemo(() => {
+    if (!isMobileLayout) return [...jobs, ...mapAcceptanceJobs]
     const source = [...(jobsOverride ?? jobs), ...mapAcceptanceJobs]
     const region = REGION_MACRO_TABS.flatMap(tab => tab.provinces).find(item => item.label === chosenRegion)
     return region ? source.filter(job => jobMatchesRegion(job.location, region.id, job.workLocations)) : source
-  }, [jobsOverride, jobs, mapAcceptanceJobs, chosenRegion])
+  }, [jobsOverride, jobs, mapAcceptanceJobs, chosenRegion, isMobileLayout])
   const [origin, setOrigin] = useState<Origin>(() => regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
   const [initialViewport, setInitialViewport] = useState<HomeMapViewport>(DEFAULT_VIEWPORT)
   const [viewportReady, setViewportReady] = useState(false)
@@ -134,7 +136,6 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
   }, [mapInView])
   useEffect(() => () => { locationRequest.current += 1 }, [])
   // 모바일 레이아웃(index.css의 .hme 760px 기준)에서만 상세를 하단 sheet로 띄운다. SSR·데스크톱은 false.
-  const [isMobileLayout, setIsMobileLayout] = useState(false)
   useEffect(() => {
     const query = window.matchMedia(MOBILE_LAYOUT_QUERY)
     const update = () => setIsMobileLayout(query.matches)
@@ -171,12 +172,12 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
   const nearby = result.entries
   const occupationGroups = useMemo(() => {
     const r = mapSearch(mapJobs, { ...filters, occupationGroups: [] }, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives)
-    // Text-located jobs must remain filterable even while their map pin is unverified.
-    const available = radiusActive ? r.radiusJobs : r.entries
+    // Mobile discovery includes text locations; desktop keeps its previous viewport-only occupation scope.
+    const available = radiusActive ? r.radiusJobs : isMobileLayout ? r.entries : r.entries.filter(e => r.visibleIds.has(e.job.id))
     const groups = occupationGroupsInJobs(available.map(e => e.job))
     const missing = (filters.occupationGroups ?? []).filter(c => !groups.some(g => g.code === c)).map(code => ({ code, count: 0 }))
     return [...groups, ...missing]
-  }, [mapJobs, filters, origin, radiusActive, bounds, representatives])
+  }, [mapJobs, filters, origin, radiusActive, bounds, representatives, isMobileLayout])
   const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = radiusActive ? result.radiusJobs : result.entries
@@ -343,9 +344,9 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
                 {geoState === 'denied' && <p className="hme-loc__hint">Không lấy được vị trí. Hãy chọn khu vực bên dưới.</p>}
                 {geoState === 'unsupported' && <p className="hme-loc__hint">Trình duyệt không hỗ trợ định vị. Hãy chọn khu vực.</p>}
                 <label className="hme-loc__select-label" htmlFor="hme-region">Chọn khu vực</label>
-                <select id="hme-region" className="hme-loc__select" value={chosenRegion ?? ''}
+                <select id="hme-region" className="hme-loc__select" value={isMobileLayout ? chosenRegion ?? '' : origin.kind === 'region' ? origin.label : ''}
                   onChange={(e) => chooseRegion(e.target.value)}>
-                  <option value="" disabled>Chọn khu vực</option>
+                  {isMobileLayout ? <option value="" disabled>Chọn khu vực</option> : origin.kind !== 'region' && <option value="">Vị trí hiện tại</option>}
                   {REGION_MACRO_TABS.map((t) => (
                     <optgroup key={t.id} label={t.label}>
                       {t.provinces.map((p) => <option key={p.id} value={p.label}>{p.label}</option>)}
@@ -480,7 +481,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
         {detail && !isMobileLayout ? detail : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
-            <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : `${chosenRegion ?? 'Tất cả khu vực'} · Không giới hạn khoảng cách`}</p>
+            <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : isMobileLayout ? `${chosenRegion ?? 'Tất cả khu vực'} · Không giới hạn khoảng cách` : 'Hà Nội · Bắc Ninh / Khu vực trên bản đồ · Không giới hạn khoảng cách'}</p>
             <div className="hme-intro__count"><strong>{result.visibleCount}</strong> việc làm trong khung bản đồ hiện tại</div>
             {radiusActive && <p>{result.radiusJobs.length} việc làm có vị trí chính xác trong bán kính</p>}
             <p>{result.unresolvedCount} tin chưa xác định được vị trí · Ghim nét đứt: vị trí đại diện</p>
