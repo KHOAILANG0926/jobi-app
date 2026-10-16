@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-16 18:08 (VN)**
-- 기준 커밋: `5664d1f` (test: align location checks with current job detail DOM and area warnings (#115))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38891736322
+- 생성 시각: **2026-10-16 18:13 (VN)**
+- 기준 커밋: `539ff2d` (docs: scope last coordinate CI loader correction (#116))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38892279363
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `5664d1f` · 상태 **success** · 2026-10-16 18:08 (VN)
+- 마지막 Production 배포: `539ff2d` · 상태 **success** · 2026-10-16 18:13 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #116 | 2026-10-16 18:12 (VN) | `539ff2d` | docs: scope final coordinate CI command correction |
 | #115 | 2026-10-16 18:07 (VN) | `5664d1f` | test: repair remaining location-check selectors and current area-state checks |
 | #114 | 2026-10-16 18:05 (VN) | `c97f7e2` | docs: scope remaining legacy location-check correction |
 | #113 | 2026-10-16 17:56 (VN) | `af1a0d1` | test: fix integrity timeout when all jobs are featured |
@@ -45,7 +46,6 @@
 | #108 | 2026-10-16 16:58 (VN) | `e7952d5` | ci: enforce approved job layout using trusted baseline checks |
 | #107 | 2026-10-16 16:53 (VN) | `9577c10` | docs: enforce approved job layout preservation for all agents |
 | #106 | 2026-10-16 16:29 (VN) | `4d7746f` | PC를 모바일 수정 직전 원본 소스로 복원 |
-| #105 | 2026-10-16 16:16 (VN) | `b2bfe48` | PC 홈을 모바일 개편 전 동작과 문구로 복원 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
