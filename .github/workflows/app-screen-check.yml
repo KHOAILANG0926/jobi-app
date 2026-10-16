@@ -34,5 +34,9 @@ jobs:
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
           cat preview.log; exit 1
+      - name: 공고 목록 검사 회귀 (추천만·일반만·혼합·중복·빈 목록)
+        run: node scripts/test-jobcard-integrity.mjs --self-test
+      - name: 실제 공고 목록 중복·링크 검사
+        run: node scripts/test-jobcard-integrity.mjs http://localhost:4173
       - name: PC·모바일 화면 검사
         run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs
