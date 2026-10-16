@@ -1,3 +1,28 @@
+## 2026-10-16 18:02 Asia/Bangkok
+후속 검사: 공고목록 수정은3개/중복0/중첩0통과. 위치검사에 같은 일반목록 selector와 구형 제목/Leaflet 선택자가 남아 추가timeout. 테스트만 현재추천·일반/h1/VietMap 및 경고 있는 미확인지역 상태에 맞춤. 부정상태9종 단위회귀 통과, 앱/DB/정책변경 없음. 범위표 PR#114 후 구현/실제상세/좌표/운영검증 대기.
+
+이전 HANDOFF:
+# CHATGPT_HANDOFF — 공고 목록 검사 시간 초과 수정
+갱신: 2026-10-16 Asia/Bangkok
+
+## 1. 현재 상태
+- 운영 bceb574: 카드 이미지 슬롯 유지와 사전 작업범위 검사 반영. 운영 PC/mobile smoke 성공.
+- 별도 Job card integrity 검사만 일반목록 selector 대기30000ms 실패. 앱은 모든 공고가 추천에 있으면 일반목록을 만들지 않음.
+- 사용자 재지시로 추천+일반 공고 selector를 함께 검사하도록 수정. 빈 화면·중복·중첩 링크 실패 기준 유지. 페이지 오류도 실패로 보고.
+- 브라우저 회귀 fixture6종과 실제목록 검사를 PR app-screen 필수 검사에 추가. 사전 범위표 PR#112. UI/CSS/DB 변경 없음.
+- Cloud Browser는 WebGL2 미지원으로 지도 초기화 오류가 발생해 직접 화면 검증에 사용할 수 없음. 실제 검증은 GitHub Playwright 환경의 CI/운영 검사 결과로 구분.
+
+## 2. 다음 할 일 3개
+1. 범위표 PR#112 검사 통과·병합 후 정확한2파일 구현 PR 진행.
+2. fixture6종·실제 목록·PC/mobile·위치/좌표 회귀까지 최종 SHA 검사 통과 확인.
+3. Production READY·운영 검사 성공 후 보고. 관리자우회 차단 복구는 사용자 설정 확인 필요.
+
+## 3. 필수 규칙
+- 기존 CTY KDA 틀 유지, 이번 수정은 검사에만 한정. 데이터/디자인 임의 수정 금지.
+- 작업범위표는 코드보다 먼저 반영. 실패 검사 남으면 전체 완료 보고 금지.
+- 회사 PC 저장 안내·원본 채용사이트 연결·DB/Auth/RLS/STATUS 변경 금지.
+
+
 ## 2026-10-16 17:55 Asia/Bangkok
 요청: 남은 공고 목록 검사 시간 초과 해결. 원인: test-jobcard-integrity가 일반목록 selector만 기다림; HomeDesktop은 전부추천일 때 일반목록을 만들지 않음. 수정 범위: 검사 스크립트·PR화면 workflow2파일, UI/DB 불변. 추천/일반 전체 공고 검사 및 추천만·일반만·혼합·중복·빈화면·중첩링크 회귀 추가. 사전 범위 PR#112. 최종CI/운영 증거는 후속PR.
 
@@ -268,87 +293,3 @@ PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft, 미병합)
 
 </details>
 
-## 2026-10-15 — PR #99 운영 전 검토 수정 (Codex)
-
-- [직접 확인] 주소 A 2회 뒤 B에도 2회가 남는 문제를 격리 SQL로 재현하고 주소 집합별 history로 수정. A→B→A, 회사명/공백/대소문자/근무지 ID/순서 변경 시 한도 보존 검사 통과.
-- [직접 확인] 근처 pending 후보 직접 승인 제거. 실제 승인 테이블·review RPC로 기존 승인/거부/철회 및 대기 후보 보존, 검증 좌표 신규 저장, 교차 공고 근무지 ID 차단 검사 통과. 실제 두 세션 동시 거부와 자동 승인 경합 검사 통과.
-- [직접 확인] 수정 후 npm test 60/60, tsc, build 통과. 기존 PR #99에만 반영. 운영 DB/master/운영 배포 변경 없음.
-- 이전 HANDOFF의 공고 평생 2회 정책은 이번 사용자 지시로 주소별 2회(복귀 시 기존 이력 유지)로 변경됨. 상세 docs/MAP-R1-report.md.
-
-## 2026-10-15 — MAP-R1 (Codex, 운영 미반영)
-
-- [직접 확인] origin/master 1abb6a4에서 feat/map-r1-auto-location-20261015. 최종 fetch 후 추가 master 커밋 없음(Claude 자동검사 포함).
-- [직접 확인] Hanoi 카메라·브라우저 복원, 기본 무제한/명시적 GPS·지도 지점, 정확/대표 구분·viewport ID 수, 공통 자동 위치 판정·Actions·pending SQL 구현. 상세 휠 확대와 다중 근무지 선택 수정.
-- [직접 확인] npm test 60/60, tsc, build, 로컬 Chromium PC/모바일, 격리 PostgreSQL 17 검사 통과. 운영 DB/API 위치 처리 실행 안 함.
-- [직접 확인] Overpass CONNECT 403. Yên Phong 1단지 입구/윤곽 미확인, 좌표 추가 없음. 신규 자동화와 SQL은 승인 전 비활성.
-- 상세: docs/MAP-R1-report.md. 운영 병합·배포 금지 유지.
-
-<details><summary>이전 CHATGPT_HANDOFF 본문 (2026-10-15 보관)</summary>
-
-# CHATGPT_HANDOFF — 공식 직업분류(34/2020) + R8
-갱신: 2026-10-15
-
-## 1. 현재 상태
-- [직접 확인] master 51e4ee8: PR #87 병합. 운영 DB에 occupation_master 1505 / occupation_descriptions 603 / occupation_aliases 21 적용(run 38671967420 점검 통과). 화면 변화 없음.
-- PR #88(feat/occupation-r8): 사용자 승인(2026-10-15) → R8 SQL `supabase/migrations/20261015120000_local_jobs_occupation_r8.sql`, 병합 시 `occupation-r8-apply.yml`이 적용·기존 공고 자동 분류·공개 상태 전후 비교·점검.
-- 사용자 결정: 신규 직업은 A안(매주 미분류 보고 → 규칙 추가 PR)으로 시작, 미분류가 많아지면 규칙에 안 걸린 공고만 AI 분류(B안) 추가.
-- 사용자 결정(2026-10-15): 직업군은 코드 기준(명칭 차이 무시), 구직자 화면은 공식 Cấp2 48개 기본.
-- Codex 작업 환경은 외부·GitHub 접속 불가 → 다운로드는 Actions, 작업은 Claude.
-
-## 2. 다음 할 일 3개
-1. [직접 확인] R8 운영 적용 완료(#4824 = 82022). 크롤러 분류 연결·주간 미분류 보고·매달 관보 확인: PR feat/occupation-crawler.
-2. 주간 보고 첫 실행 결과 확인(ANTHROPIC_API_KEY 없으면 보고만).
-3. 화면(PR feat/occupation-ui): 지도 탐색 'Ngành nghề' = 공식 Cấp2 그룹(공고 있는 것만), 상세 = 공식 직업명. Preview 확인 후 Production.
-
-## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·추정 구분. 원본에 없는 직업코드·명칭 생성 금지.
-- 회사명·공단명으로 직업군 추정 금지. 미분류에 other 기본값 금지.
-- 운영 DB 변경·Production 배포는 사용자 승인 전 금지. #4824 공개 상태 변경 금지.
-
-</details>
-
-## 2026-10-15 13:40 — 배포 강제 규칙 DR1~DR7 시스템 적용 (Claude)
-
-- 요청: "작업 완료 = 운영 배포 + 실제 화면 검증"을 GitHub·Vercel 검사로 강제(사용자). 계기: 10/14 PR #84·#85·#86 미병합으로 반영 누락.
-- 변경: `scripts/ops/app-smoke.mjs`(Playwright PC·모바일 메인·상세), `.github/workflows/app-screen-check.yml`(PR), `deploy-verify.yml`(master→Production READY·sha 확인→운영 화면 검사→실패 시 이슈), `unmerged-work-alert.yml`(매일·master 변경 시 미병합 목록 이슈). CLAUDE.md·AGENTS.md·.cursor 규칙에 DR1~DR7.
-- 검증: YAML·스크립트 문법 확인. 브라우저 검사는 이 작업 환경에서 실행 불가(Chromium 다운로드 차단) → 첫 실행 결과는 PR/master Actions로 확인.
-- STATUS 장치(scripts/status, status-*.yml)는 건드리지 않음(잠금 규칙).
-
-## 2026-10-15 11:40 — 메인 지도: 화면에 보일 때만 로딩 (Claude)
-
-- 요청: 지도 비용 절감 1단계(사용자·GPT 합의: 절감책이며 상한 보장 아님).
-- 변경: `src/lib/inViewOnce.ts`(+test), `HomeMapExplorer.tsx` — 지도 영역이 화면 200px 안에 처음 들어올 때만 지도·타일 로딩.
-- 검증: [직접 확인] tsc, npm test 56/56, build.
-- 남은 일: VietMap 과금 기준(타일 25요청=1건, 요금표 확인)·사이트 전체 상한 방식(키가 브라우저에 노출 — 계정 쪽 한도·도메인 제한 여부 미확인)·OpenFreeMap 호환성. 상세 페이지 지도(JobVietMap)는 이번 범위 밖.
-
-## 2026-10-15 11:50 — 화면: 'Ngành nghề' 필터를 공식 직업분류 2단계 그룹으로 (Claude)
-
-- 요청: 직업분류 계속 진행(사용자 결정: 공식 Cấp2 기본, 공고 있는 그룹만).
-- 변경: `src/lib/occupationGroups.ts`(+test), `src/lib/occupations.ts`(occupation_master 이름 조회), `homeMapFilters.ts`(occupationGroups), `HomeMapExplorer.tsx`(업종 칩 → 공식 그룹 칩·공고 수), `JobDetail.tsx`(Ngành nghề = 공식 직업명, 미분류면 기존 업종), `jobRows.ts`·`fetchJobsData.ts` select에 occupation_code/evidence, `index.css`.
-- 검증: [직접 확인] tsc 0, npm test 55/55, build 성공. 운영 DB: anon이 occupation_code·evidence·occupation_master 읽기 가능, #4824 = "Thợ lắp ráp thiết bị điện tử/linh kiện điện tử" / 그룹 "Thợ lắp ráp".
-- 수정(사용자 지적): 칩 숫자를 전체 공고가 아니라 반경 안·확인된 근무지 공고로 셈(#4824는 위치 미확인이라 0). 고른 그룹은 0건이어도 칩 유지.
-- 한계: 미분류 공고는 그룹을 고르면 목록에서 빠진다(선택 없으면 전체 표시). 기존 13개 업종(category)은 카드 이미지·추천 등 다른 곳에 그대로 남음.
-
-## 2026-10-15 11:20 — 크롤러 직업 분류 연결 + 주간 미분류 보고 + 매달 관보 확인 (Claude)
-
-- 요청: R8 적용 후 계속 진행(사용자). [직접 확인] R8 run 38673944719 성공, #4824 = 82022 "làm linh kiện tai nghe", active=true/admin_hidden=false 유지.
-- 변경: `crawler/crawl_facebook.py`(parse_post + 저장 칸 목록), `crawler/crawl_topcv.py`(TopCV·VietnamWorks 공고 생성 2곳)에 `occupation_fields()`. `.github/workflows/occupation-weekly-unclassified.yml`(매주 월, A안), `occupation-gazette-monthly-check.yml`(매달 1일).
-- 검증: [직접 확인] 분류기 unittest 11/11(Facebook parse_post #4824 원문 → 82022 포함). 크롤러 pytest 전후 동일(170 통과 / 11 실패는 변경 전부터 — 이 환경에 없는 모듈·도구).
-- 한계: ANTHROPIC_API_KEY 등록 여부는 이 환경에서 조회 불가 → 없으면 주간 작업은 보고만. 관보 확인 파서는 병합 후 수동 실행으로 확인 예정.
-
-## 2026-10-15 10:40 — R8 직업군 규칙 SQL + 자동 분류기 (미적용) (Claude)
-
-- 요청: 직업분류 계속 진행(사용자). 운영 적용 결과: [직접 확인] occupation-master-apply run 38671967420 성공, 운영 DB 1505/603/21.
-- 변경: `supabase/pending/20261015120000_local_jobs_occupation_r8.sql`(+rollback), `supabase/tests/local_jobs_occupation_r8.pglite.test.mjs`, `crawler/occupation_classifier.py`(+test).
-- 검증: [직접 확인] PGlite 통과(없는 코드·1~3단계·근거 없음·원문에 없는 근거 거부, 글 수정 시 미분류 복귀, 공개 상태 불변, 롤백). 분류기 unittest 9/9, #4824 → 82022 근거 "làm linh kiện tai nghe".
-- 한계: PGlite에는 운영의 기존 트리거 2개가 없음 → R8 트리거 이름을 trg_zzz_로 해 기존 규칙 뒤에 실행. 크롤러 연결·화면은 DB 적용 후(칸이 없으면 저장 실패하므로).
-- 이후 사용자 승인: SQL을 migrations로, `occupation-r8-apply.yml`(적용 + `scripts/occupations/backfill_occupations.py` 기존 공고 분류 + 공개 상태 전후 비교 + `local_jobs_occupation_r8_check.sql`).
-
-## 2026-10-15 10:00 — 직업분류 마스터 DDL·입력 SQL (미적용) (Claude)
-
-- 요청: 2단계 진행 — 공식 코드 테이블. 운영 적용은 승인 후.
-- 변경: `supabase/pending/20261015100000_occupation_master.sql`(occupation_master·occupation_descriptions·occupation_aliases, RLS 공개 읽기만), `_rollback.sql`, `20261015100100_occupation_master_seed.sql`(자동 생성), `scripts/occupations/build_seed_sql.py`, `supabase/tests/occupation_master.pglite.test.mjs`.
-- 검증: [직접 확인] PGlite 2회 실행(멱등) — master 1505(10/48/152/509/786), 설명 603, 동의어 21, 부모 누락 0, 잘못된 코드·계층·anon 쓰기 거부, 롤백 확인.
-- 이후 사용자 승인: SQL을 migrations로 이동, 적용 워크플로 `occupation-master-apply.yml` + 점검 `supabase/tests/occupation_master_check.sql` 추가. 직업군 화면은 Cấp2 48개 기본으로 결정.
-
-<!-- R1 review addendum: remote CI 9384c26 passed all four workflows; inspected mobile/PC captures. Fixed negotiable-salary map exclusion, initial region selection, and synchronous WebGL constructor crash. Final source CI and user preview review remain required. -->

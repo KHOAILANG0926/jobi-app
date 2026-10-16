@@ -31,6 +31,7 @@ import { chromium } from 'playwright'
 // directions still shown despite no verified work location).
 const baseUrl = process.argv[2] || 'http://127.0.0.1:4173'
 const MAX_JOBS_TO_CHECK = 12
+const CARD_SELECTOR = '.home-featured .home-card-wrap, .home-jobs-grid .home-card-wrap'
 const SUPABASE_URL = 'https://edhuesdnuxlbcfephutq.supabase.co'
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
@@ -50,31 +51,44 @@ async function fetchGroundTruth(numericId) {
   }
 }
 
-const browser = await chromium.launch({ headless: true })
+
 
 async function readJobDetail(page, href) {
   await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle', timeout: 60_000 })
-  await page.waitForSelector('.jd2-card__title', { timeout: 30_000 })
+  await page.waitForSelector('h1.jd2-header__title', { timeout: 30_000 })
   await page.waitForTimeout(1200) // let the Leaflet map + markers finish mounting
   return page.evaluate(() => {
     const addrItems = [...document.querySelectorAll('.jd2-map-addr-item .jd2-map-addr')].map((el) => el.textContent?.trim() || '')
     const singleAddr = document.querySelector('.jd2-card__body > .jd2-map-addr')?.textContent?.trim() || null
     const note = document.querySelector('.jd2-map-note')?.textContent?.trim() || ''
-    const markerCount = document.querySelectorAll('.leaflet-marker-icon').length
+    const markerCount = document.querySelectorAll('.leaflet-marker-icon, .jd2-vmap .vietmapgl-marker, .jd2-vmap .maplibregl-marker').length
+    const visibleAddresses = [...document.querySelectorAll('.jd2-location-above-map__row span')].map(el => el.textContent?.trim() || '').filter(Boolean)
+    const areaNotes = [...document.querySelectorAll('.jd2-map-area-note, .jd2-location-pending-compact .jd2-map-dir-note')].map(el => el.textContent?.trim() || '').join(' ')
+    const areaState = !!document.querySelector('.jd2-location-pending-compact, .jd2-map-area-note')
     const unknownMsg = document.querySelector('.jd2-map-unknown')?.textContent?.trim() || null
     // "확인 불가" 상태에서는 안내 문구뿐 아니라 지도 자체, "지도 보기"/"길찾기"
     // 버튼까지 전부 없어야 한다 — 안내 문구만 보고 통과시키면 지도/버튼은
     // 여전히 렌더링되는 회귀를 놓친다.
-    const mapContainerCount = document.querySelectorAll('.job-location-map, .leaflet-container').length
-    const gmapsLinkCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].length
-    const viewOnMapCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].filter((a) => (a.textContent || '').includes('bản đồ lớn')).length
-    const directionsCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).length
-    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount }
+    const mapContainerCount = document.querySelectorAll('.jd2-vmap, .job-location-map, .leaflet-container').length
+    const gmapsLinkCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].length
+    const viewOnMapCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('bản đồ lớn')).length
+    const directionsCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).length
+    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, visibleAddresses, areaNotes, areaState }
   })
 }
 
 function checkInvariants(href, d, truth) {
   const failures = []
+  // Current UI distinguishes an explicitly unverified area map from a verified workplace.
+  // Area maps are permitted by the current rules; they must not claim an exact workplace.
+  if (d.areaState) {
+    if (!d.visibleAddresses?.length) failures.push(`${href}: area map has no visible source address`)
+    if (!/chưa.*(?:xác minh|xác định)|ước tính/iu.test(d.areaNotes || '')) failures.push(`${href}: area map lacks unverified warning`)
+    if (d.note) failures.push(`${href}: area map incorrectly claims a verified workplace`)
+    if (d.markerCount > 1) failures.push(`${href}: area map has multiple workplace-like pins`)
+    if (d.unknownMsg) failures.push(`${href}: area map contradicts unknown-location state`)
+    return failures
+  }
   const states = [d.addrItems.length > 0, !!d.singleAddr, !!d.unknownMsg]
   const activeStates = states.filter(Boolean).length
 
@@ -157,14 +171,36 @@ function checkInvariants(href, d, truth) {
   return failures
 }
 
+if (baseUrl === '--self-test') {
+  const base = { addrItems: [], singleAddr: null, note: '', markerCount: 0, unknownMsg: null, mapContainerCount: 0, gmapsLinkCount: 0, viewOnMapCount: 0, directionsCount: 0 }
+  const area = { ...base, areaState: true, areaNotes: 'Khu vực — chưa xác minh vị trí nhà xưởng', visibleAddresses: ['KCN Yên Phong, Bắc Ninh'], markerCount: 1, mapContainerCount: 1 }
+  const cases = [
+    ['explicit unverified area', area, true],
+    ['area without warning', { ...area, areaNotes: '' }, false],
+    ['area without address', { ...area, visibleAddresses: [] }, false],
+    ['area falsely verified', { ...area, note: 'đã xác minh' }, false],
+    ['area multiple pins', { ...area, markerCount: 2 }, false],
+    ['empty location section', base, false],
+    ['unknown without map', { ...base, unknownMsg: 'unknown' }, true],
+    ['unknown with map', { ...base, unknownMsg: 'unknown', mapContainerCount: 1 }, false],
+    ['fabricated precise marker', { ...base, singleAddr: 'Bắc Ninh', markerCount: 1, directionsCount: 1 }, false],
+  ]
+  for (const [name, value, pass] of cases) {
+    const errors = checkInvariants('/fixture', value, { workLocationCount: 0, mappableWorkLocationCount: 0, hasDirectCoords: false })
+    if ((errors.length === 0) !== pass) throw new Error('Location fixture failed: ' + name + ': ' + errors.join('; '))
+    console.log('Location fixture PASS: ' + name)
+  }
+  process.exit(0)
+}
+const browser = await chromium.launch({ headless: true })
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
 
   await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 60_000 })
-  await page.waitForSelector('.home-jobs-grid .home-card-wrap', { timeout: 30_000 })
+  await page.waitForSelector(CARD_SELECTOR, { timeout: 30_000 })
   await page.waitForTimeout(1000)
-  const hrefs = await page.evaluate(() =>
-    [...document.querySelectorAll('.home-jobs-grid .home-card-wrap')].map((el) => el.getAttribute('href') || '').filter(Boolean),
+  const hrefs = await page.evaluate(selector =>
+    [...new Set([...document.querySelectorAll(selector)].map(el => el.getAttribute('href') || '').filter(Boolean))], CARD_SELECTOR,
   )
 
   if (hrefs.length === 0) {

@@ -38,5 +38,9 @@ jobs:
         run: node scripts/test-jobcard-integrity.mjs --self-test
       - name: 실제 공고 목록 중복·링크 검사
         run: node scripts/test-jobcard-integrity.mjs http://localhost:4173
+      - name: 현재 위치 표시 정책 회귀 검사
+        run: node scripts/test-job-location-detail.mjs --self-test
+      - name: 실제 공고 상세 위치 검사
+        run: node scripts/test-job-location-detail.mjs http://localhost:4173
       - name: PC·모바일 화면 검사
         run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs
