@@ -75,3 +75,5 @@ export default function JobCard({
     </article>
   )
 }
+
+// Enforcement probe only: this PR must never merge.
