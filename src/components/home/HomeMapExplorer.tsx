@@ -439,7 +439,7 @@ export default function HomeMapExplorer() {
               <div className="hme-map-r1-results">
                 {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}
               </div>
-            )>
+            )}
             <p className="hme-intro__hint">
               {nearby.length > 0 ? 'Chọn một ghim trên bản đồ để xem thông tin tin tuyển dụng.' : emptyReason}
             </p>
