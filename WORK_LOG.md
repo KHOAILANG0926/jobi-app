@@ -141,3 +141,5 @@ PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft, 미병합)
 - 변경: `supabase/pending/20261015100000_occupation_master.sql`(occupation_master·occupation_descriptions·occupation_aliases, RLS 공개 읽기만), `_rollback.sql`, `20261015100100_occupation_master_seed.sql`(자동 생성), `scripts/occupations/build_seed_sql.py`, `supabase/tests/occupation_master.pglite.test.mjs`.
 - 검증: [직접 확인] PGlite 2회 실행(멱등) — master 1505(10/48/152/509/786), 설명 603, 동의어 21, 부모 누락 0, 잘못된 코드·계층·anon 쓰기 거부, 롤백 확인.
 - 이후 사용자 승인: SQL을 migrations로 이동, 적용 워크플로 `occupation-master-apply.yml` + 점검 `supabase/tests/occupation_master_check.sql` 추가. 직업군 화면은 Cấp2 48개 기본으로 결정.
+
+<!-- R1 review addendum: remote CI 9384c26 passed all four workflows; inspected mobile/PC captures. Fixed negotiable-salary map exclusion, initial region selection, and synchronous WebGL constructor crash. Final source CI and user preview review remain required. -->

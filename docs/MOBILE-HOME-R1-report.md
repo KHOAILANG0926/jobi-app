@@ -21,8 +21,14 @@
 - Dev server on explicit 127.0.0.1 works. Binding all interfaces fails with runtime uv_interface_addresses; no app config changed for that environment issue.
 - Chromium download failed with invalid/truncated 0-byte zip. No local screen verification claimed. `.github/workflows/mobile-home-preview.yml` executes the same production build at 360/390/412/1366px on GitHub and uploads public guest screenshots, with separate browser-only fixtures for sparse/empty data, carousel/filter/region/reset and GPS allow/deny.
 
+## Remote evidence and review
+- Initial source commit 9384c26: all four PR workflows passed, including 360/390/412/1366 public captures and isolated interaction checks: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38853032658
+- Directly inspected the 390px home/filter and 1366px desktop captures. Public records are real, mobile sections fit and desktop controls remain inline.
+- Code review identified and corrected negotiable-salary map job loss and the initial Hà Nội selector value. Added browser regression checks for both.
+- Protected Preview accessed using an authenticated temporary share URL, without disabling protection. Cloud browser rendered the page, then Geoapify threw GPUInitializationError because WebGL2 is unavailable. The synchronous constructor failure previously removed the whole React tree. Added a narrow constructor catch that keeps the home/list visible and shows the existing map-unavailable notice; map gestures and provider choice unchanged.
+- Added a browser test that disables WebGL and checks home survival. Final source CI/Preview outcome is recorded in the PR checks; do not infer it from the earlier passing run.
+
 ## Pending
-- Remote CI results and visual inspection of its screenshots.
-- Vercel exact-commit Preview verification and user review.
+- Final source CI, exact-commit Preview confirmation, and user review.
 - Native OS permission dialog appearance is not validated by simulated allow/deny tests.
 - Not APPROVED, DEPLOYED or Production-complete. No master merge before user review.

@@ -132,6 +132,22 @@ try {
   assert.equal(await page.locator('.home-discovery-empty').isVisible(), false, 'query error is not an empty result')
   results.push({ kind: 'browser-only-fixture', case: 'API-error-distinct-from-empty', ok: true })
   await context.close()
+  const noGpuContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  await noGpuContext.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
+      return kind.startsWith('webgl') ? null : getContext.call(this, kind, ...args)
+    }
+  })
+  const noGpuPage = await noGpuContext.newPage()
+  await noGpuPage.goto(base)
+  await ready(noGpuPage)
+  await noGpuPage.locator('.hme__map').scrollIntoViewIfNeeded()
+  await noGpuPage.locator('.hme-map__notice').waitFor({ timeout: 45000 })
+  assert.equal(await noGpuPage.locator('.home-mobile-header').isVisible(), true, 'map GPU failure must not remove the home page')
+  await noGpuPage.screenshot({ path: `${out}/no-webgl-home.jpg` })
+  results.push({ kind: 'browser-only-fixture', case: 'WebGL-unavailable-preserves-home', ok: true })
+  await noGpuContext.close()
 } finally {
   await browser.close()
   await writeFile(`${out}/results.json`, JSON.stringify(results, null, 2))
