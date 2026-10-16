@@ -1,19 +1,19 @@
-# CHATGPT_HANDOFF — PC 모바일 변경 직전 소스 그대로 복원
+# CHATGPT_HANDOFF — 승인된 공고 틀 자동 차단
 갱신: 2026-10-16 (Asia/Bangkok)
 
 ## 1. 현재 상태
-- [직접 확인] 사용자 재지시: 항목별 수정이 아니라 모바일 변경 직전 PC로 복원. 이전 PR #105 부분 복원은 완료 조건 미달. 기준 eb36b53443e1a9a3a2077d18447c490921baa5bb.
-- [직접 확인] HomeDesktop/LayoutDesktop/DesktopHomeMapExplorer/DesktopHomeMapCanvas/DesktopGeoapifyMapCanvas는 기준 원본을 사용, 분리 파일로 연결하는 import 경로만 변경. 원본 SHA256 대조 검사 5개 및 기존 JobDetail/index.css/apply.css 3개 추가.
-- [직접 확인] Home/Layout은 기존 760px 기준으로 PC 원본 또는 현재 모바일 버전을 선택. 모바일 전용 스타일 전체를 media 블록에 제한해 PC 적용 차단. 모바일 데이터/배너/필터 유지.
-- [직접 확인] 상세페이지와 기존 CSS는 원본 그대로, 새로운 디자인·부분 수정·임의 버전 선택 없음. DB/Auth/RLS/좌표/데이터 변경 없음.
-- [기존 기록] 운영 b2bfe48는 이전 부분 복원. 이번 exact 복원은 새 브랜치 fix/exact-desktop-baseline-20261016, 최종 CI/운영 증거는 새 PR 기록 참조.
+- 사용자 요청은 문서 규칙과 자동 차단 장치. AGENTS.md·CLAUDE.md 규칙 PR #107 master 병합 9577c100.
+- 앱 코드·DB·Auth·좌표 변경 없음. 기존 왼쪽 2개 공고의 이미지 유무에 따른 배치 차이는 이번 작업에서 수정하지 않음.
+- 카드/상세/관련 CSS 및 보호 workflow 8파일 해시 고정. 기준 브랜치 검사기와 기준표로 PR 소스·기준표·검사기 변경 차단. 기존 필수 checks 연결.
+- 검사기 자기 변경으로 우회하지 못하도록 pull_request_target에서 read-only로 실행, 후보 코드는 실행하지 않음.
+- 원격 CI·위반 PR의 병합 거부·운영 결과는 이번 PR 기록으로 확인. 완료 전에는 강제 검증 완료 주장 금지.
 
 ## 2. 다음 할 일 3개
-1. 원본 8파일 일치·tsc/build·PC/mobile 기존 회귀와 캡처 검증.
-2. 사용자 복원 지시에 따라 PR 병합, 같은 SHA Production READY 및 운영 PC/mobile 검사 확인.
-3. 실제 앱 링크와 확인 결과만 보고. 새 디자인 변경·사용자 GitHub 링크 이동 금지.
+1. 최종 CI 통과 후 병합, 보호 workflow 운영 확인.
+2. 임시 위반 PR에서 자동 실패와 병합 거부 확인 후 닫기.
+3. 이번 작업은 왼쪽 공고 수정/전체 롤백이 아님. 추가 UI 변경은 사용자 지시에 따름.
 
 ## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. PC 부분 복원을 전체 원복으로 보고하지 않음. 원본 내용 비교 증거 필수.
-- 모바일 보존, 운영 DB/Auth/보안/좌표 승인 변경 금지. 회사 PC 보관·현장 확인 안내 금지.
-- STATUS와 기존 검증 장치 보호. 동일 성공 SHA 재검사 금지, 같은 원인 수정검증 2회 실패 시 중단.
+- 승인된 틀 임의 변경 금지. 소스 해시 검사를 픽셀 비교로 보고하지 않음.
+- 회사 PC에 키/데이터/작업파일 저장 안내 금지. DB/Auth/RLS/STATUS 보호 유지.
+- 사용자에게 GitHub 이동 링크 금지. 성공 SHA 반복 검증 금지.
