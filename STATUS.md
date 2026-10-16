@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-16 16:30 (VN)**
-- 기준 커밋: `4d7746f` (Restore exact pre-mobile desktop source and isolate mobile (#106))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38880809636
+- 생성 시각: **2026-10-16 16:54 (VN)**
+- 기준 커밋: `9577c10` (docs: mandate preservation of approved job layouts (#107))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38883515704
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `4d7746f` · 상태 **success** · 2026-10-16 16:30 (VN)
+- 마지막 Production 배포: `9577c10` · 상태 **success** · 2026-10-16 16:54 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #107 | 2026-10-16 16:53 (VN) | `9577c10` | docs: enforce approved job layout preservation for all agents |
 | #106 | 2026-10-16 16:29 (VN) | `4d7746f` | PC를 모바일 수정 직전 원본 소스로 복원 |
 | #105 | 2026-10-16 16:16 (VN) | `b2bfe48` | PC 홈을 모바일 개편 전 동작과 문구로 복원 |
 | #104 | 2026-10-16 12:42 (VN) | `edfb732` | 모바일 홈 구성 및 기존 한국 일자리 상단 배너 복원 |
@@ -45,7 +46,6 @@
 | #96 | 2026-10-15 13:33 (VN) | `4d587e4` | ci: 배포 강제 규칙 DR1~DR7 (실제 화면 검사·운영 배포 확인·미병합 경고) |
 | #95 | 2026-10-15 13:23 (VN) | `7800ae5` | Restore Oct 14 midnight job detail layout |
 | #94 | 2026-10-15 13:17 (VN) | `2cdc563` | revert: restore job detail before PR #93 |
-| #93 | 2026-10-15 12:57 (VN) | `687ee10` | fix: 상세 화면 중복 정보 제거 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
