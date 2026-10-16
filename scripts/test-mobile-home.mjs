@@ -94,6 +94,7 @@ try {
   assert.equal(await page.locator('#hme-region').inputValue(), '')
   await page.locator('#hme-region').selectOption({ label: 'Hà Nội' })
   await page.getByRole('dialog', { name: 'Bộ lọc việc làm' }).getByRole('button', { name: /Xem 5 việc làm/ }).waitFor()
+  await page.locator('.hme-loc__current').click()
   await page.locator('#hme-region').selectOption({ label: 'Bắc Ninh' })
   await page.getByRole('dialog', { name: 'Bộ lọc việc làm' }).getByRole('button', { name: /Xem 2 việc làm/ }).click()
   assert.equal(await page.locator('[data-section="all"] .discovery-job').count(), 2)
