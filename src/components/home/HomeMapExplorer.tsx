@@ -401,7 +401,8 @@ export default function HomeMapExplorer() {
         )}
       </div>
 
-      <aside className="hme__panel" aria-live="polite" ref={panelRef}>
+      <a className="hme__skip-map" href="#hme-job-list">Xem danh sách việc làm ↓</a>
+      <aside id="hme-job-list" className="hme__panel" aria-live="polite" ref={panelRef}>
         {detail && !isMobileLayout ? detail : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
