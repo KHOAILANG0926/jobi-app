@@ -1,0 +1,31 @@
+name: 승인된 공고 틀 보호 (기준 브랜치에서 실행)
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# No secrets, no candidate code execution, no persisted checkout credentials.
+permissions:
+  contents: read
+
+jobs:
+  # Existing protected-branch context: checks. Both this trusted guard and PR checks must pass.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: 기준 브랜치 검사기로 변경 코드·기준표·검사 우회 차단
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$HEAD_SHA"
+          candidate=$(mktemp -d)
+          git archive "$HEAD_SHA" | tar -x -C "$candidate"
+          node scripts/check-approved-layout.mjs "$candidate" "$PWD/scripts/approved-layout-lock.json" --trusted

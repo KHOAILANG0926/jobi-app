@@ -22,6 +22,25 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: 승인된 공고 틀 변경 차단
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BASE_SHA" ]; then
+            git fetch --no-tags origin "$BASE_SHA"
+          else
+            BASE_SHA=HEAD
+          fi
+          trusted=$(mktemp -d)
+          if git cat-file -e "$BASE_SHA:scripts/check-approved-layout.mjs" 2>/dev/null; then
+            git show "$BASE_SHA:scripts/check-approved-layout.mjs" > "$trusted/check-approved-layout.mjs"
+            git show "$BASE_SHA:scripts/approved-layout-lock.json" > "$trusted/approved-layout-lock.json"
+            node "$trusted/check-approved-layout.mjs" "$PWD" "$trusted/approved-layout-lock.json" --trusted
+          else
+            node scripts/check-approved-layout.mjs
+          fi
+          node scripts/test-approved-layout-lock.mjs
       - name: 타입 검사
         run: npx tsc --noEmit
       - name: 테스트

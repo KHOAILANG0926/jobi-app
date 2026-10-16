@@ -1,0 +1,14 @@
+{
+  "reference": "User-selected rightmost CTY KDA card; source preservation only, not correction of existing data-dependent differences.",
+  "source_commit": "4d7746fa95e5dbd0b8fab90b67d00ee32863299b",
+  "files": {
+    "src/components/JobCard.tsx": "f33a76715ac4f9de8c8c7ca4af73cab0429b75f916f523c803ad13298f53e403",
+    "src/components/JobCard.css": "495c92b712fcba49641bce452c6a9e90476b0187e79dd0fa393d9810919b8bd0",
+    "src/components/FeaturedJobsSection.tsx": "016dd478a099e3bd0d3486b792b40dac6ed8b2cba80a77260cd045347e7b8c0c",
+    "src/pages/JobDetail.tsx": "d808ea7526df84d08c6b68d409d2183ddcb73b42b8f7a9276f3b1dacd7a259c6",
+    "src/index.css": "a0be889c353ffdc4d573f2da7554a4828891526a216eacbdace9daf68812169a",
+    "src/components/apply.css": "c8f499748176a4ae8ae08c0b2e1bae9ee12239fb7b62225d16af661d10ab244e",
+    ".github/workflows/pr-checks.yml": "7796e31ddd6a14f4f871f84a4d3525791213b2a9ecd1988a71b8a3c7751994fa",
+    ".github/workflows/approved-layout-guard.yml": "17a7060edc145fd7256d8dab4e2da791331fcb8d84a00c3d371469171a09790a"
+  }
+}
