@@ -1,3 +1,5 @@
+/* Mobile styles must never change the restored desktop baseline. */
+@media (max-width: 760px) {
 .home-mobile-copy { display: none; }
 @media (min-width: 761px) { .home-page .home-location-notice { display: none; } }
 /* Home composition v1: existing data and interactions, mobile presentation. */
@@ -108,4 +110,6 @@
   .hme-sheet { bottom: calc(62px + env(safe-area-inset-bottom)); }
   .discovery-job:focus-visible, .home-shortcuts > :focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
   @media (prefers-reduced-motion: reduce) { .discovery-carousel { scroll-behavior: auto; } }
+}
+
 }
