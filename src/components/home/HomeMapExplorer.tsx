@@ -240,12 +240,12 @@ export default function HomeMapExplorer() {
       <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
       <div className="jd2-map-links">
         {directions?.tier === 'approved' && directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
-          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
+          
+          <a className="jd2-map-dir jd2-map-dir--google" href={link.href} target="_blank" rel="noopener noreferrer"><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span> Maps · {link.label}</a>
         </span>)}
-        {directions?.tier === 'gate' && <><a className="jd2-map-dir" href={directions.link.href} target="_blank" rel="noopener noreferrer">{directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
+        {directions?.tier === 'gate' && <><a className="jd2-map-dir jd2-map-dir--google" href={directions.link.href} target="_blank" rel="noopener noreferrer">Google Maps · {directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
         {directions?.tier === 'address' && <>{directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
+          
           <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
         </span>)}{directions.call && <a className="jd2-map-dir" href={directions.call.href}>Gọi hỏi đường</a>}<p className="jd2-map-dir-note">{directions.note}</p></>}
         {directions?.tier === 'call' && <a className="jd2-map-dir" href={directions.href}>{directions.label}</a>}
