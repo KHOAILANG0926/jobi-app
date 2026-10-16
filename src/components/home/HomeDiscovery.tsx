@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Sparkles, Target, Timer, X, Zap } from 'lucide-react'
 import { cardSalary, mainCardJobs } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
 import type { Job } from '../../types/job'
 import type { HomeDiscoveryState } from './HomeMapExplorer'
-import KoreaHomeSlot from '../korea/KoreaHomeSlot'
 
 function JobSummary({ job }: { job: Job }) {
   const salary = cardSalary(job)
   return <NavLink to={`/viec-lam/${job.id}`} className="discovery-job">
-    <span className="discovery-job__company">{job.company}</span>
+    <span className="discovery-job__company">{job.company}<span className="discovery-job__area"> · {job.location}</span></span>
     <strong className="discovery-job__title">{job.title}</strong>
-    <span className="discovery-job__meta"><MapPin size={12} aria-hidden />{job.location}</span>
     {salary && <span className="discovery-job__salary">{salary.label} <strong>{salary.text}</strong></span>}
   </NavLink>
 }
@@ -23,24 +21,33 @@ function ThreeJobCarousel({ jobs }: { jobs: Job[] }) {
   const [active, setActive] = useState(0)
   const signature = pages.flat().map(job => job.id).join('|')
   useEffect(() => { setActive(0); track.current?.scrollTo({ left: 0, behavior: 'instant' }) }, [signature])
-  const go = (index: number) => track.current?.scrollTo({ left: index * track.current.clientWidth, behavior: 'smooth' })
+  const go = (index: number) => {
+    const el = track.current
+    const page = el?.children[index] as HTMLElement | undefined
+    if (el && page) el.scrollTo({ left: page.offsetLeft - (el.children[0] as HTMLElement).offsetLeft, behavior: 'smooth' })
+  }
   if (!pages.length) return null
   return <section className="discovery-featured" aria-label="Việc làm nổi bật">
-    <div className="discovery-section-head"><h2>Việc làm nổi bật</h2><span>{jobs.length} tin phù hợp</span></div>
+    <div className="discovery-featured__caption"><Sparkles size={15} aria-hidden /><span>Khám phá <strong>việc làm đang tuyển</strong></span></div>
     <div className="discovery-carousel" ref={track} onScroll={() => {
       const el = track.current
-      if (el?.clientWidth) setActive(Math.round(el.scrollLeft / el.clientWidth))
+      if (el?.children.length) {
+        const first = (el.children[0] as HTMLElement).offsetLeft
+        let closest = 0
+        Array.from(el.children).forEach((page, index) => {
+          if (Math.abs((page as HTMLElement).offsetLeft - first - el.scrollLeft) < Math.abs((el.children[closest] as HTMLElement).offsetLeft - first - el.scrollLeft)) closest = index
+        })
+        setActive(closest)
+      }
     }}>
       {pages.map((page, index) => <div className="discovery-carousel__page" key={page[0].id} role="group" aria-label={`Nhóm ${index + 1} / ${pages.length}`}>
         {page.map(job => <JobSummary job={job} key={job.id} />)}
       </div>)}
     </div>
-    {pages.length > 1 && <div className="discovery-carousel__paging">
-      <button type="button" aria-label="Nhóm công việc trước" disabled={active === 0} onClick={() => go(active - 1)}><ChevronLeft size={18} /></button>
+    <div className="discovery-carousel__paging">
       <div aria-label="Chọn nhóm công việc">{pages.map((page, index) => <button key={page[0].id} className={index === active ? 'is-active' : ''} aria-label={`Xem nhóm ${index + 1}`} aria-current={index === active ? 'true' : undefined} onClick={() => go(index)} />)}</div>
       <span aria-live="polite">{Math.min(active + 1, pages.length)}/{pages.length}</span>
-      <button type="button" aria-label="Nhóm công việc tiếp theo" disabled={active >= pages.length - 1} onClick={() => go(active + 1)}><ChevronRight size={18} /></button>
-    </div>}
+    </div>
   </section>
 }
 
@@ -75,27 +82,26 @@ export function HomeDiscovery({ state }: { state: HomeDiscoveryState }) {
       <div><strong>Tìm việc gần bạn hơn</strong><p>Dùng vị trí hiện tại hoặc tự chọn khu vực để bắt đầu.</p></div>
       <button className="home-location-notice__close" type="button" aria-label="Để sau" onClick={dismissNotice}><X size={17} /></button>
       <div className="home-location-notice__actions">
-        <button type="button" onClick={() => { dismissNotice(); state.locate() }}><LocateFixed size={15} />Dùng vị trí hiện tại</button>
+        <button type="button" onClick={() => { dismissNotice(); state.locate() }}><LocateFixed size={15} /><span>Dùng vị trí hiện tại</span></button>
         <button type="button" onClick={() => { dismissNotice(); state.openLocation() }}>Chọn khu vực</button>
       </div>
     </aside>}
     <div className="home-mobile-discovery">
       <h1 className="home-discovery-sr">Việc làm gần bạn</h1>
-      <KoreaHomeSlot />
       <ThreeJobCarousel jobs={state.jobs} />
       <nav className="home-shortcuts" aria-label="Khám phá việc làm">
-        <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
-        <button type="button" onClick={() => state.openFilters(2)}><Briefcase /><span>Ngành nghề</span></button>
+        <NavLink to="/viec-lam/tim-kiem?sort=recommended"><Zap /><span>Khám phá</span></NavLink>
+        <button type="button" onClick={() => state.openFilters(2)}><Target /><span>Phù hợp</span></button>
+        <button type="button" onClick={state.openLocation}><MapPin /><span>Khu vực</span></button>
         <NavLink to={'/viec-lam/tuyen-gap?duration=' + encodeURIComponent('Một ngày')}><Timer /><span>Ngắn hạn</span></NavLink>
         <NavLink to="/viec-lam/tuyen-gap"><Flame /><span>Tuyển gấp</span></NavLink>
-        <NavLink to="/viec-han-quoc"><span className="home-shortcuts__flag" aria-hidden>🇰🇷</span><span>Hàn Quốc</span></NavLink>
       </nav>
       <div className="home-filter-rail" aria-label="Bộ lọc việc làm">
-        <button type="button" onClick={() => state.openFilters(0)}><SlidersHorizontal size={16} />Bộ lọc{state.filterCount > 0 && ` · ${state.filterCount}`}</button>
-        <button type="button" onClick={state.openLocation}>Khu vực · Bán kính</button>
-        <button type="button" onClick={() => state.openFilters(2)}>Ngành nghề</button>
-        <button type="button" onClick={() => state.openFilters(1)}>Mức lương</button>
-        <button type="button" onClick={() => state.openFilters(3)}>Ca làm · Phúc lợi</button>
+        <button type="button" aria-label="Bộ lọc" onClick={() => state.openFilters(0)}><SlidersHorizontal size={17} />{state.filterCount > 0 && <span>{state.filterCount}</span>}</button>
+        <button type="button" onClick={() => state.openFilters(2)}>Ngành nghề<ChevronDown size={15} /></button>
+        <button type="button" onClick={() => state.openFilters(1)}>Mức lương<ChevronDown size={15} /></button>
+        <button type="button" onClick={() => state.openFilters(3)}>Ca làm<ChevronDown size={15} /></button>
+        <button type="button" onClick={state.openLocation}>Khu vực<ChevronDown size={15} /></button>
         {state.filterCount > 0 && <button type="button" onClick={state.reset}>Đặt lại</button>}
       </div>
       {state.geoState === 'loading' && <p role="status" className="home-discovery-status">Đang xác định vị trí…</p>}
@@ -110,12 +116,12 @@ export function HomeDiscovery({ state }: { state: HomeDiscoveryState }) {
 export function HomeDiscoverySections({ jobs }: { jobs: Job[] }) {
   const cards = mainCardJobs(jobs)
   const sections = [
+    { id: 'all', title: 'Đang tuyển dụng', jobs: cards, layout: 'horizontal' },
     { id: 'urgent', title: 'Đang tuyển gấp', jobs: cards.filter(job => job.urgent), layout: 'horizontal' },
     { id: 'direct', title: 'Doanh nghiệp đăng trực tiếp', jobs: cards.filter(job => !!job.employerId), layout: 'grid' },
-    { id: 'all', title: 'Việc làm phù hợp', jobs: cards, layout: 'list' },
   ].filter(section => section.jobs.length)
   return <div className="home-mobile-sections">{sections.map(section => <section key={section.id} className="home-discovery-section" data-section={section.id}>
-    <div className="discovery-section-head"><h2>{section.title}</h2><span>{section.jobs.length} tin</span></div>
+    <div className="discovery-section-head"><h2><Flame size={20} aria-hidden />{section.title}</h2><span>{section.jobs.length} tin</span></div>
     <div className={`discovery-jobs discovery-jobs--${section.layout}`}>{section.jobs.map(job => <JobSummary key={job.id} job={job} />)}</div>
   </section>)}</div>
 }

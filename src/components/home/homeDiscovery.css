@@ -16,59 +16,69 @@
 .discovery-section-head h2 { margin: 0; font-size: 17px; font-weight: 800; }
 .discovery-section-head > span { color: #64748b; font-size: 12px; white-space: nowrap; }
 .discovery-section-head button { background: #fff; border: 0; min-width: 42px; min-height: 42px; cursor: pointer; }
+/* Measured against the recording at 00:10, excluding Android status/navigation bars. */
 @media (max-width: 760px) {
   .layout:has(.home-page) > .layout__header { display: none; }
   .layout__main { min-width: 0; }
-  .layout { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
-  .home-page { padding-top: 58px; background: #f6f7f9; }
-  .home-top-bg { padding: 0 0 12px; margin-bottom: 0; background: transparent; }
+  .layout { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .home-page { padding-top: 54px; background: #f7f7f7; color: #242424; }
+  .home-top-bg { padding: 0 0 18px; margin-bottom: 0; background: radial-gradient(ellipse 60% 220px at 55% 140px, #ffd3db99, transparent 85%), radial-gradient(ellipse 65% 210px at 65% 310px, #ffe1b3a6, transparent 85%); }
   .home-brand-hero, .home-page > .home-featured, .home-page > .home-section, .home-page > .city-result { display: none; }
-  .home-mobile-header { position: fixed; top: 0; left: 0; right: 0; z-index: 350; display: flex; align-items: center; gap: 8px; height: 58px; padding: 0 14px; background: #fff; border-bottom: 1px solid #eef0f3; box-shadow: 0 1px 6px #0f172a05; }
-  .home-mobile-header button, .home-mobile-header > a { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; min-width: 40px; border: 0; background: none; color: #172033; cursor: pointer; }
-  .home-mobile-header .home-mobile-header__location { flex: 1; min-width: 0; justify-content: flex-start; font: inherit; font-weight: 750; }
-  .home-mobile-header__location > svg { color: #ef6032; flex-shrink: 0; }
+  .home-mobile-header { position: fixed; top: 0; left: 0; right: 0; z-index: 350; display: flex; align-items: center; gap: 8px; height: 54px; padding: 0 13px; background: #f9f9f9f5; }
+  .home-mobile-header button, .home-mobile-header > a { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; min-width: 36px; border: 0; background: none; color: #252525; cursor: pointer; }
+  .home-mobile-header > a svg, .home-mobile-header > button:last-child svg { width: 23px; height: 23px; stroke-width: 1.8; }
+  .home-mobile-header .home-mobile-header__location { flex: 1; min-width: 0; justify-content: flex-start; font: inherit; font-size: 17px; font-weight: 750; }
+  .home-mobile-header__location > svg { width: 17px; height: 20px; fill: #ff7b22; stroke: #ff7b22; flex-shrink: 0; }
   .home-mobile-header__location > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .home-location-notice { margin: 12px 14px; padding: 14px 30px 14px 14px; gap: 10px; }
-  .home-location-notice__actions { margin-left: 0; }
-  .home-location-notice__actions button { min-height: 42px; }
   .home-mobile-discovery, .home-mobile-sections { display: block; min-width: 0; }
-  .home-korea-slot { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin: 12px 14px 4px; border: 1px solid #dbeafe; border-radius: 12px; background: #eff6ff; color: #1e40af; text-decoration: none; }
-  .home-korea-slot > span:first-child { font-size: 23px; }
+  .home-location-notice { display: flex; justify-content: center; height: 56px; box-sizing: border-box; max-width: none; margin: 0; padding: 0 35px; border: 0; border-radius: 0; background: transparent; }
+  .home-location-notice > div:first-child { display: none; }
+  .home-location-notice__actions { display: flex; flex-wrap: nowrap; justify-content: center; gap: 0; margin: 0; padding: 0 4px; background: #fff; border-radius: 30px; box-shadow: 0 1px 12px #ff963011; }
+  .home-location-notice__actions button { border: 0; background: none; color: #3b3b3b; font-size: 11px; min-height: 34px; padding: 7px 9px; white-space: nowrap; }
+  .home-location-notice__actions button:first-child { color: #f47729; }
+  .home-location-notice__actions button + button { border-left: 1px solid #eee; border-radius: 0; }
+  .home-location-notice .home-location-notice__close { right: 6px; top: 10px; width: 30px; height: 34px; padding: 0; color: #929292; }
+  .home-location-notice + .home-mobile-discovery .discovery-featured__caption { display: none; }
+  .discovery-featured { padding: 0 0 4px; }
+  .discovery-featured__caption { display: flex; align-items: center; justify-content: center; gap: 6px; width: max-content; max-width: calc(100% - 40px); height: 34px; box-sizing: border-box; padding: 0 14px; margin: 10px auto 12px; border-radius: 30px; background: #fff; font-size: 11px; color: #292929; }
+  .discovery-featured__caption svg { color: #ff832a; fill: #ffe9cd; }
+  .discovery-featured__caption strong { color: #ed7d34; font-weight: 500; }
+  .discovery-carousel { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 100%; column-gap: 14px; padding: 10px 32px 0; overflow-x: auto; scroll-padding-inline: 32px; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .discovery-carousel::-webkit-scrollbar { display: none; }
+  .discovery-carousel__page { min-width: 0; display: flex; flex-direction: column; align-self: start; min-height: 258px; box-sizing: border-box; padding: 9px 21px; border: 1px solid #ffcfae; border-radius: 17px; background: #fff; scroll-snap-align: start; box-shadow: 1px 0 0 #ffab7b88; }
+  .discovery-job { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 12px 0; color: #252525; text-decoration: none; }
+  .discovery-job__company { display: block; font-size: 12px; line-height: 17px; color: #858585; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .discovery-job__title { display: block; font-size: 14px; font-weight: 700; line-height: 19px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .discovery-job__salary { display: block; font-size: 12px; line-height: 17px; color: #ee823f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .discovery-job__salary strong { font-size: 12px; font-weight: 600; color: #292929; }
+  .discovery-carousel__page .discovery-job { flex: 1; justify-content: center; padding: 7px 0; }
+  .discovery-carousel__page .discovery-job + .discovery-job { border: 0; }
+  .discovery-carousel__paging { display: flex; align-items: center; justify-content: center; height: 30px; }
+  .discovery-carousel__paging > button, .discovery-carousel__paging > span { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .discovery-carousel__paging > div { display: flex; align-items: center; }
+  .discovery-carousel__paging > div button { position: relative; width: 14px; height: 28px; border: 0; background: transparent; cursor: pointer; }
+  .discovery-carousel__paging > div button::after { content: ''; position: absolute; width: 6px; height: 6px; border-radius: 6px; background: #c8cbd0; left: 4px; top: 11px; }
+  .discovery-carousel__paging > div button.is-active { width: 24px; }
+  .discovery-carousel__paging > div button.is-active::after { width: 17px; left: 3px; background: #ff8126; }
+  .home-shortcuts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 10px 12px 22px; }
+  .home-shortcuts > a, .home-shortcuts > button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 9px; padding: 0; min-height: 62px; border: 0; background: transparent; color: #292929; text-decoration: none; font: inherit; font-size: 11px; text-align: center; cursor: pointer; }
+  .home-shortcuts svg { width: 30px; height: 33px; padding: 0; background: transparent; color: #ff7c20; stroke-width: 2.6; filter: drop-shadow(1px 2px 0 #b7b8b633); }
+  .home-shortcuts > :first-child svg { fill: #ff8222; stroke: #333; transform: skew(-9deg); }
+  .home-shortcuts > :nth-child(2) svg { stroke-width: 3.7; }
+  .home-shortcuts > :nth-child(3) svg { fill: #ff8222; stroke-width: 1.8; }
+  .home-shortcuts > :nth-child(4) svg { fill: #fff0dc; }
+  .home-shortcuts > :nth-child(5) svg { fill: #ff8126; stroke: #ff8126; }
+  .home-filter-rail { display: flex; gap: 7px; padding: 0 15px 15px; overflow-x: auto; scrollbar-width: none; }
+  .home-filter-rail button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; border: 1px solid #eee; border-radius: 30px; padding: 8px 12px; min-height: 33px; background: #fff; color: #8b8d92; font: inherit; font-size: 11px; white-space: nowrap; }
+  .home-filter-rail button:first-child { min-width: 33px; padding: 7px; }
+  .home-discovery-status { margin: 0 15px 12px; padding: 10px; border-radius: 8px; font-size: 12px; background: #fff7ed; }
+  .home-discovery-status button { border: 0; background: transparent; color: #b45309; text-decoration: underline; }
+  .home-discovery-empty { padding: 20px; margin: 0 15px 12px; background: #fff; border-radius: 14px; font-size: 13px; }
+  .home-discovery-empty button { margin: 6px 8px 0 0; padding: 10px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; }
+  .home-korea-slot { display: flex; align-items: center; gap: 10px; padding: 14px; margin: 16px 15px; border: 1px solid #eee; border-radius: 12px; background: #fff; color: #292929; text-decoration: none; }
   .home-korea-slot > span:nth-child(2) { flex: 1; }
   .home-korea-slot strong, .home-korea-slot small { display: block; }
-  .home-korea-slot strong { font-size: 13px; }
-  .home-korea-slot small { margin-top: 2px; font-size: 11px; }
-  .discovery-featured { padding: 18px 0 8px; background: radial-gradient(ellipse at 50% 40%, #ffedd5, #fce7f340 70%, #f6f7f9); }
-  .discovery-featured > .discovery-section-head { padding: 0 16px; }
-  .discovery-carousel { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
-  .discovery-carousel::-webkit-scrollbar { display: none; }
-  .discovery-carousel__page { min-width: 0; display: flex; flex-direction: column; align-self: start; margin: 0 14px; padding: 4px 14px; border: 1px solid #fed7aa; border-radius: 18px; background: #fff; scroll-snap-align: start; box-shadow: 0 5px 20px #e76a2710; }
-  .discovery-job { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 12px 0; color: #172033; text-decoration: none; overflow-wrap: anywhere; }
-  .discovery-job + .discovery-job { border-top: 1px solid #f1f5f9; }
-  .discovery-job__company { font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .discovery-job__title { font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .discovery-job__meta { display: flex; align-items: flex-start; gap: 3px; font-size: 11px; line-height: 1.45; color: #64748b; }
-  .discovery-job__meta svg { flex-shrink: 0; margin-top: 1px; }
-  .discovery-job__salary { font-size: 11px; color: #c2410c; line-height: 1.5; }
-  .discovery-job__salary strong { font-size: 12px; }
-  .discovery-carousel__paging { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 8px 0 0; }
-  .discovery-carousel__paging > button { width: 36px; height: 36px; border: 0; background: transparent; color: #475569; }
-  .discovery-carousel__paging > button:disabled { opacity: .25; }
-  .discovery-carousel__paging > div { display: flex; align-items: center; }
-  .discovery-carousel__paging > div button { position: relative; width: 24px; height: 32px; border: 0; background: transparent; }
-  .discovery-carousel__paging > div button::after { content: ''; position: absolute; width: 6px; height: 6px; border-radius: 6px; background: #cbd5e1; left: 9px; top: 13px; }
-  .discovery-carousel__paging > div button.is-active::after { width: 16px; left: 4px; background: #ea580c; }
-  .discovery-carousel__paging > span { font-size: 11px; color: #64748b; }
-  .home-shortcuts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 16px 8px; }
-  .home-shortcuts > a, .home-shortcuts > button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding: 4px 0; min-height: 65px; border: 0; background: transparent; color: #334155; text-decoration: none; font: inherit; font-size: 10px; text-align: center; }
-  .home-shortcuts svg { width: 27px; height: 27px; padding: 7px; box-sizing: content-box; background: #fff; color: #ea580c; border-radius: 14px; }
-  .home-shortcuts__flag { display: grid; place-items: center; width: 41px; height: 41px; background: #fff; border-radius: 14px; font-size: 25px; }
-  .home-filter-rail { display: flex; gap: 7px; padding: 0 14px 12px; overflow-x: auto; scrollbar-width: none; }
-  .home-filter-rail button { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 30px; padding: 8px 11px; min-height: 38px; background: #fff; color: #475569; font-size: 11px; }
-  .home-discovery-status { margin: 0 14px 12px; padding: 10px; border-radius: 8px; font-size: 12px; background: #fff7ed; }
-  .home-discovery-status button { border: 0; background: transparent; color: #b45309; text-decoration: underline; }
-  .home-discovery-empty { padding: 20px; margin: 0 14px 12px; background: #fff; border-radius: 14px; font-size: 13px; }
-  .home-discovery-empty button { margin: 6px 8px 0 0; padding: 10px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; }
+  .home-korea-slot small { font-size: 11px; margin-top: 4px; color: #888; }
   .hme { margin: 0 14px 16px; min-width: 0; overflow: visible; scroll-margin-top: 70px; }
   .hme-mobile-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; background: white; border-radius: 14px 14px 0 0; }
   .hme-mobile-toolbar h2 { margin: 0; font-size: 15px; }
@@ -93,14 +103,24 @@
   .hme-intro__summary, .hme-intro__count, .hme-intro__hint { font-size: 12px; }
   .hme-map-r1-results { max-height: 250px; overflow-y: auto; }
   .hme-map-r1-results button { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
-  .home-discovery-section { margin: 0 14px 18px; }
-  .discovery-jobs--list { padding: 0 14px; background: #fff; border: 1px solid #edf0f4; border-radius: 14px; }
-  .discovery-jobs--horizontal { display: grid; grid-auto-flow: column; grid-auto-columns: 78%; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; }
-  .discovery-jobs--horizontal > a, .discovery-jobs--grid > a { padding: 14px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; scroll-snap-align: start; }
-  .discovery-jobs--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 400; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); min-height: 62px; box-sizing: border-box; background: #fff; border-top: 1px solid #e2e8f0; }
-  .mobile-bottom-nav > a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 48px; font-size: 10px; color: #64748b; text-decoration: none; }
-  .mobile-bottom-nav > a.active { color: #dc542e; font-weight: 750; }
+  .home-discovery-section { margin: 10px 0 24px; }
+  .home-discovery-section > .discovery-section-head { padding: 0 16px; margin-bottom: 16px; height: 28px; }
+  .home-discovery-section h2 { display: flex; align-items: center; gap: 7px; font-size: 17px; font-weight: 750; }
+  .home-discovery-section h2 svg { color: #ff8428; fill: #ffb528; }
+  .home-discovery-section .discovery-section-head > span { color: #a0a0a0; font-size: 10px; }
+  .discovery-jobs--horizontal { display: grid; grid-auto-flow: column; grid-auto-columns: 51%; gap: 10px; padding: 0 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .discovery-jobs--horizontal > a, .discovery-jobs--grid > a { min-width: 0; padding: 17px 16px; border: 0; background: #fff; border-radius: 15px; scroll-snap-align: start; }
+  .discovery-jobs--horizontal > a { min-height: 186px; justify-content: flex-start; }
+  .discovery-jobs--horizontal .discovery-job__company { height: 48px; color: #3d3d3d; font-size: 13px; font-weight: 750; white-space: normal; line-height: 18px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .discovery-jobs--horizontal .discovery-job__area { display: none; }
+  .discovery-jobs--horizontal .discovery-job__title { font-size: 14px; line-height: 21px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .discovery-jobs--horizontal .discovery-job__salary { margin-top: 7px; }
+  .discovery-jobs--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 16px; }
+  .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 400; display: grid; grid-template-columns: repeat(5, 1fr); padding: 5px 5px calc(5px + env(safe-area-inset-bottom)); min-height: 64px; box-sizing: border-box; background: #fafafaf5; border-top: 1px solid #e5e5e5; }
+  .mobile-bottom-nav > a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 52px; font-size: 10px; color: #282828; text-decoration: none; }
+  .mobile-bottom-nav > a svg { width: 23px; height: 23px; stroke-width: 1.7; }
+  .mobile-bottom-nav > a.active { color: #202020; font-weight: 600; }
+  .mobile-bottom-nav > a:first-child.active svg { fill: #262626; }
   .hme-sheet { bottom: calc(62px + env(safe-area-inset-bottom)); }
   .discovery-job:focus-visible, .home-shortcuts > :focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
   @media (prefers-reduced-motion: reduce) { .discovery-carousel { scroll-behavior: auto; } }

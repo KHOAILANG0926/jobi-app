@@ -34,7 +34,13 @@ try {
     await noOverflow(page)
     await page.screenshot({ path: `${out}/live-home-${width}.jpg` })
     if (width < 760) {
-      assert.equal(await page.locator('.mobile-bottom-nav a:visible').count(), 4)
+      assert.equal(await page.locator('.mobile-bottom-nav a:visible').count(), 5)
+      const boxes = await page.evaluate(() => Object.fromEntries(['.discovery-carousel__page', '.home-shortcuts', '.home-filter-rail', '[data-section="all"]'].map(selector => { const r = document.querySelector(selector).getBoundingClientRect(); return [selector, { top: r.top, bottom: r.bottom }] })))
+      assert.ok(boxes['.discovery-carousel__page'].top < 140, 'three-job card starts near the recording position')
+      assert.ok(boxes['.discovery-carousel__page'].bottom < 420, 'three-job card stays compact')
+      assert.ok(boxes['.home-filter-rail'].bottom < 600, 'shortcuts and filter are in first screen')
+      assert.ok(boxes['[data-section="all"]'].top < 640, 'horizontal recruiting cards precede the map')
+      await page.screenshot({ path: `${out}/live-home-${width}-full.jpg`, fullPage: true })
       await page.getByRole('button', { name: 'Mở tất cả danh mục', exact: true }).click()
       await page.getByRole('dialog', { name: 'Tất cả danh mục' }).waitFor()
       await page.screenshot({ path: `${out}/live-menu-${width}.jpg` })
@@ -54,6 +60,13 @@ try {
       assert.equal(await page.locator('.layout__header').isVisible(), true)
       assert.equal(await page.locator('.home-brand-hero').isVisible(), true)
       assert.equal(await page.locator('.hme__controls').isVisible(), true)
+    }
+    if (width === 390) {
+      await page.locator('.mobile-bottom-nav').getByRole('link', { name: 'Tin nhắn', exact: true }).click()
+      await page.getByRole('tab', { name: 'Tin nhắn', exact: true }).waitFor()
+      await page.locator('[role="tab"][aria-selected="true"]').filter({ hasText: 'Tin nhắn' }).waitFor()
+      await page.locator('.mobile-bottom-nav').getByRole('link', { name: 'MY', exact: true }).click()
+      await page.locator('[role="tab"][aria-selected="true"]').filter({ hasText: 'Thông tin' }).waitFor()
     }
     assert.deepEqual(errors, [], 'no uncaught page errors')
     results.push({ kind: 'public-live', width, ok: true })
@@ -82,7 +95,7 @@ try {
   await ready(page)
   assert.equal(await page.evaluate(() => window.__geoCalls), 0, 'no unsolicited GPS permission request')
   assert.equal(await page.locator('.discovery-carousel__page').count(), 3)
-  await page.getByRole('button', { name: 'Nhóm công việc tiếp theo', exact: true }).click()
+  await page.getByRole('button', { name: 'Xem nhóm 2', exact: true }).click()
   await page.waitForFunction(() => document.querySelector('.discovery-carousel__paging > span')?.textContent === '2/3')
   await page.getByRole('button', { name: 'Mức lương', exact: true }).click()
   await page.getByRole('button', { name: '12M+', exact: true }).click()

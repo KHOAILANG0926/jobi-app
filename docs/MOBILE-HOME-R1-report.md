@@ -32,3 +32,10 @@
 - Final source CI, exact-commit Preview confirmation, and user review.
 - Native OS permission dialog appearance is not validated by simulated allow/deny tests.
 - Not APPROVED, DEPLOYED or Production-complete. No master merge before user review.
+
+## R2 — user rejected visual match, 2026-10-16
+- R1 functional checks did not establish visual fidelity; user rejected it. Re-read the recording at 00:10: compact header/pill, three one-line jobs in a 258px group, centered dots, five shortcuts, horizontal chips, horizontal recruiting cards, five bottom destinations.
+- Corrected mobile geometry and order; removed the big notice and Korea banner from the first viewport, moved horizontal real jobs ahead of the map. Korea slot still uses its own API after the map. First location notice stays functional as a compact pill.
+- Mobile home targets at 360/390/412px: first job group starts before y140 and ends before y420; filters finish before y600; recruiting section begins before y640. These are geometric checks, not a claim of pixel equality.
+- Bottom destinations match the reference categories using real app routes. Message shortcut opens existing profile message tab, without any authentication or data policy change.
+- Exact source/CI/Preview/captures are recorded in PR #104. Production remains unchanged, user review pending.
