@@ -1,0 +1,42 @@
+name: Review existing mobile audit artifacts
+on:
+  pull_request:
+    branches: [master]
+    paths: [.github/workflows/mobile-audit-review.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    if: github.head_ref == 'audit/mobile-production-20261016'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: production-mobile-audit
+          run-id: 38833385035
+          github-token: ${{ github.token }}
+          path: original
+      - run: pip install pillow
+      - name: Preserve data and make smaller review copies
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import shutil
+          out=Path('review');out.mkdir()
+          for f in Path('original').rglob('*'):
+              if f.suffix=='.png':
+                  im=Image.open(f).convert('RGB')
+                  im.save(out/(f.stem+'.jpg'),quality=78)
+                  if f.stem.endswith('-first') or f.stem.endswith('-location') or f.stem.endswith('-menu') or f.stem.endswith('-region-open'):
+                      for y in range(0,im.height,900):
+                          im.crop((0,y,im.width,min(y+900,im.height))).save(out/(f.stem+'-slice-'+str(y)+'.jpg'),quality=78)
+              elif f.is_file(): shutil.copy(f,out/f.name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-audit-review
+          path: review/
+          retention-days: 14
