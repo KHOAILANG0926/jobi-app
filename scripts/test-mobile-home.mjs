@@ -9,7 +9,12 @@ await mkdir(out, { recursive: true })
 const browser = await chromium.launch()
 const results = []
 async function ready(page) {
-  await page.locator('[data-testid="home-map-job-counts"][data-loading="false"]').waitFor({ state: 'attached', timeout: 45000 })
+  await page.locator('[data-testid="home-map-job-counts"]').waitFor({ state: 'attached', timeout: 45000 })
+  if (page.viewportSize().width > 760) {
+    await page.getByText('Đang tải việc làm…', { exact: true }).waitFor({ state: 'hidden', timeout: 45000 })
+  } else {
+    await page.locator('[data-testid="home-map-job-counts"][data-loading="false"]').waitFor({ state: 'attached', timeout: 45000 })
+  }
 }
 async function noOverflow(page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
