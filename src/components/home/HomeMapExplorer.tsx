@@ -343,9 +343,9 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
                 {geoState === 'denied' && <p className="hme-loc__hint">Không lấy được vị trí. Hãy chọn khu vực bên dưới.</p>}
                 {geoState === 'unsupported' && <p className="hme-loc__hint">Trình duyệt không hỗ trợ định vị. Hãy chọn khu vực.</p>}
                 <label className="hme-loc__select-label" htmlFor="hme-region">Chọn khu vực</label>
-                <select id="hme-region" className="hme-loc__select" value={origin.kind === 'region' ? origin.label : ''}
+                <select id="hme-region" className="hme-loc__select" value={chosenRegion ?? ''}
                   onChange={(e) => chooseRegion(e.target.value)}>
-                  {origin.kind !== 'region' && <option value="">Vị trí hiện tại</option>}
+                  <option value="" disabled>Chọn khu vực</option>
                   {REGION_MACRO_TABS.map((t) => (
                     <optgroup key={t.id} label={t.label}>
                       {t.provinces.map((p) => <option key={p.id} value={p.label}>{p.label}</option>)}

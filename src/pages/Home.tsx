@@ -246,11 +246,12 @@ export function Home() {
     [jobs, savedIds, appliedIds],
   )
 
-  const filtered = useMemo(
-    () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
+  const searchResults = useMemo(
+    () => filterAndSortJobs(jobs, { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
     [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
 
+  const filtered = useMemo(() => mainCardJobs(searchResults), [searchResults])
 
   const { featured, remaining } = useMemo(
     () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
@@ -334,7 +335,7 @@ export function Home() {
       </section>
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
-      <HomeMapExplorer jobsOverride={filtered}
+      <HomeMapExplorer jobsOverride={searchResults}
         renderBeforeMap={(state) => <HomeDiscovery state={state} />}
         renderAfterMap={(state) => <HomeDiscoverySections jobs={state.jobs} />} />
 

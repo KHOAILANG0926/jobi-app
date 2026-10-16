@@ -91,6 +91,9 @@ try {
   await page.getByRole('button', { name: 'Đặt lại', exact: true }).click()
   assert.equal(await page.locator('[data-section="all"] .discovery-job').count(), 7)
   await page.locator('.home-mobile-header__location').click()
+  assert.equal(await page.locator('#hme-region').inputValue(), '')
+  await page.locator('#hme-region').selectOption({ label: 'Hà Nội' })
+  await page.getByRole('dialog', { name: 'Bộ lọc việc làm' }).getByRole('button', { name: /Xem 5 việc làm/ }).waitFor()
   await page.locator('#hme-region').selectOption({ label: 'Bắc Ninh' })
   await page.getByRole('dialog', { name: 'Bộ lọc việc làm' }).getByRole('button', { name: /Xem 2 việc làm/ }).click()
   assert.equal(await page.locator('[data-section="all"] .discovery-job').count(), 2)
@@ -117,6 +120,11 @@ try {
     await noOverflow(page)
     results.push({ kind: 'browser-only-fixture', case: `record-count-${count}`, ok: true })
   }
+  rows = [{ ...fixtures[0], salary: 'Thỏa thuận' }]
+  await page.reload()
+  await ready(page)
+  assert.equal(await page.locator('[data-section="all"] .discovery-job').count(), 1, 'negotiable jobs remain browseable')
+  results.push({ kind: 'browser-only-fixture', case: 'negotiable-salary-preserved', ok: true })
   queryFailed = true
   await page.reload()
   await ready(page)
