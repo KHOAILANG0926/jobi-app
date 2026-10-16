@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-16 16:59 (VN)**
-- 기준 커밋: `e7952d5` (ci: block unapproved job layout and guard modifications (#108))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38884094899
+- 생성 시각: **2026-10-16 17:32 (VN)**
+- 기준 커밋: `3fb2402` (docs: pin user-requested card fix and guard repair scope before implementation merge (#111))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38887749810
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `e7952d5` · 상태 **success** · 2026-10-16 16:59 (VN)
+- 마지막 Production 배포: `3fb2402` · 상태 **success** · 2026-10-16 17:32 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #111 | 2026-10-16 17:31 (VN) | `3fb2402` | docs: pin exact requested card fix and scope guard replacement |
 | #108 | 2026-10-16 16:58 (VN) | `e7952d5` | ci: enforce approved job layout using trusted baseline checks |
 | #107 | 2026-10-16 16:53 (VN) | `9577c10` | docs: enforce approved job layout preservation for all agents |
 | #106 | 2026-10-16 16:29 (VN) | `4d7746f` | PC를 모바일 수정 직전 원본 소스로 복원 |
@@ -45,7 +46,6 @@
 | #99 | 2026-10-15 23:03 (VN) | `8bb1a60` | MAP-R1: 지도 탐색·거리 검색 분리 및 신규 공고 자동 위치 결정 |
 | #98 | 2026-10-15 13:40 (VN) | `1abb6a4` | ci: 미병합 경고에서 병합된 PR 브랜치 제외 |
 | #96 | 2026-10-15 13:33 (VN) | `4d587e4` | ci: 배포 강제 규칙 DR1~DR7 (실제 화면 검사·운영 배포 확인·미병합 경고) |
-| #95 | 2026-10-15 13:23 (VN) | `7800ae5` | Restore Oct 14 midnight job detail layout |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
