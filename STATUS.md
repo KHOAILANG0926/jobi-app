@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-16 17:58 (VN)**
-- 기준 커밋: `af1a0d1` (test: inspect featured and regular job cards without weakening integrity checks (#113))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38890566819
+- 생성 시각: **2026-10-16 18:06 (VN)**
+- 기준 커밋: `c97f7e2` (docs: scope remaining legacy location-check correction (#114))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38891488234
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `af1a0d1` · 상태 **success** · 2026-10-16 17:58 (VN)
+- 마지막 Production 배포: `c97f7e2` · 상태 **success** · 2026-10-16 18:06 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #114 | 2026-10-16 18:05 (VN) | `c97f7e2` | docs: scope remaining legacy location-check correction |
 | #113 | 2026-10-16 17:56 (VN) | `af1a0d1` | test: fix integrity timeout when all jobs are featured |
 | #112 | 2026-10-16 17:55 (VN) | `52a76b1` | docs: scope card integrity selector correction without UI changes |
 | #110 | 2026-10-16 17:46 (VN) | `bceb574` | fix: preserve existing cards and block changes outside predeclared task scope |
@@ -45,7 +46,6 @@
 | #106 | 2026-10-16 16:29 (VN) | `4d7746f` | PC를 모바일 수정 직전 원본 소스로 복원 |
 | #105 | 2026-10-16 16:16 (VN) | `b2bfe48` | PC 홈을 모바일 개편 전 동작과 문구로 복원 |
 | #104 | 2026-10-16 12:42 (VN) | `edfb732` | 모바일 홈 구성 및 기존 한국 일자리 상단 배너 복원 |
-| #100 | 2026-10-15 23:16 (VN) | `eb36b53` | fix(map-r1): 자동 위치 실행기의 Supabase URL 기본값 일치 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
