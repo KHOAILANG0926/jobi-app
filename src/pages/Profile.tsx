@@ -153,11 +153,7 @@ export function Profile() {
 
   useEffect(() => {
     const st = location.state as { openCvTab?: boolean; needCvForJob?: string; openApplicationsTab?: boolean } | null
-    if (new URLSearchParams(location.search).get('tab') === 'messages') {
-      setSeekerTab('messages')
-    } else if (new URLSearchParams(location.search).get('tab') === 'info') {
-      setSeekerTab('info')
-    } else if (st?.openCvTab) {
+    if (st?.openCvTab) {
       setSeekerTab('cv')
       if (st.needCvForJob) {
         setCvHint(`Hoàn thành và lưu CV để ứng tuyển nhanh cho: ${st.needCvForJob}`)
@@ -170,7 +166,7 @@ export function Profile() {
       /** Testing: default guests to CV tab so /ho-so opens the builder without login */
       setSeekerTab('cv')
     }
-  }, [location.state, location.search, user])
+  }, [location.state, user])
 
   const savedJobs = savedIds
     .map((id) => jobs.find((j) => j.id === id))

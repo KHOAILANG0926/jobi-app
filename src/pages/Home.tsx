@@ -3,7 +3,6 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
 import { HomeDiscovery, HomeDiscoverySections } from '../components/home/HomeDiscovery'
-import KoreaHomeSlot from '../components/korea/KoreaHomeSlot'
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
@@ -337,8 +336,8 @@ export function Home() {
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
       <HomeMapExplorer jobsOverride={searchResults}
-        renderBeforeMap={(state) => <><HomeDiscovery state={state} /><HomeDiscoverySections jobs={state.jobs} /></>}
-        renderAfterMap={() => <div className="home-mobile-discovery"><KoreaHomeSlot /></div>} />
+        renderBeforeMap={(state) => <HomeDiscovery state={state} />}
+        renderAfterMap={(state) => <HomeDiscoverySections jobs={state.jobs} />} />
 
       </div>{/* /.home-top-bg */}
 
