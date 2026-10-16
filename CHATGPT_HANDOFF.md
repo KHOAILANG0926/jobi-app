@@ -1,21 +1,18 @@
-# CHATGPT_HANDOFF — MAP-R1
-갱신: 2026-10-15 (Asia/Bangkok)
+# CHATGPT_HANDOFF — 상단 한국 배너 복원·배포 요청
+갱신: 2026-10-16 (Asia/Bangkok)
 
 ## 1. 현재 상태
-- [직접 확인] 기존 Draft PR #99, branch feat/map-r1-auto-location-20261015. 검증 시작 SHA 9475d0c. 이번 수정은 동일 브랜치에서만 보존한다.
-- [직접 확인] 9475d0c 원격 CI 3개 성공, 로그 60/60·타입·빌드·화면 검사 통과. 원격 CI checkout은 GitHub 테스트 병합 ea9211c이며 실제 master 병합이 아니다.
-- [직접 확인] 관리자 검토가 SELECT FOR UPDATE 후 UPDATE 전일 때 자동 승인이 끼어드는 결함 재현·수정(EXCLUSIVE 잠금). 수정 SQL+실제 후보/RPC·캐시/quota·R4/R1-R7/R8 트리거 격리 검사, 주소 이력·거부/철회 회귀, before/after 경합 통과. 수정 소스 tsc/build·resolver/API 모의 검사 통과.
-- [직접 확인] npm audit는 기존 취약점 4건(high 2)으로 실패. package/lock은 master 대비 변경 없음. 실제 악용/운영 영향 미검증.
-- [미검증] 운영 schema/GRANT drift·키 등록·VietMap 실연동/계정 과금 상한·Yên Phong 1단지 입구. 이번 수정은 [skip ci]로 제출: 화면 CI가 운영 공개 API를 읽기 때문에 최종 수정 SHA 원격 CI 미검증.
-- [직접 확인] 이번 세션 운영 DB/API·자동화 설정·master/운영 배포 변경 없음. 운영 활성화 상태는 이번에 직접 조회하지 않음.
-- 상세: docs/MAP-R1-preflight.md (PASS/FAIL/미검증, 적용·롤백). 이전 검증: docs/MAP-R1-report.md. 이전 HANDOFF는 WORK_LOG.md에 보존.
+- [직접 확인] 사용자 첨부 image(20261016-053726).png를 열어 작은 파란 한국 일자리 링크를 확인. 사용자가 상단을 기존대로 복원하고 즉시 배포하도록 명시 지시.
+- [직접 확인] 중단된 R2(81020fd)의 추가 개편은 배포에서 제외. 31395bf 기준 시안의 나머지 코드를 유지하고 모바일에서 숨겼던 기존 서울 사진 한국 배너를 다시 표시, 작은 대체 링크 제거. 기존 배너 이미지·문구 구조·한국 라우트 유지.
+- [직접 확인] 작업 브랜치 feat/mobile-home-composition-20261016 / PR #104. 운영 DB/Auth/권한/좌표 변경 없음.
+- [기존 기록] 31395bf의 타입·build·전체 테스트·4개 CI 성공. 이번 복원 커밋은 모바일에서 원래 한국 이미지 표시/링크 대체 제거 검사 추가 후 최종 CI·Production 배포 확인 대상. 최종 증거는 PR #104 참조.
 
 ## 2. 다음 할 일 3개
-1. PR #99의 잠금 수정·격리 검증을 검토하고 기존 의존성 경고를 별도 보안 패치 범위로 판단.
-2. 운영 조회 허용 후 최종 SHA 필수 CI 및 실제 schema/GRANT·키/공급자 비용 제한 확인. 기존 성공 검사를 이유 없이 반복하지 않음.
-3. 별도 사용자 승인 이후에만 문서 순서대로 DB 적용·실연동·병합/배포·활성화. 롤백 시 flag=false만으로 기존 승인 핀이 제거되지 않음에 주의.
+1. 복원 커밋 타입/build와 필수 PR CI 확인. 같은 원인 2회 수정검증 실패 시 중단.
+2. 사용자 즉시 배포 지시에 따라 PR 병합→그 SHA의 Vercel Production READY 확인.
+3. 운영 주소 실제 화면·deploy-verify 결과 확인 후 URL과 결과 보고. 취소된 R2 재개 금지.
 
 ## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·미검증 구분, secret 값 출력 금지.
-- 이번 지시: 운영 DB 변경·실제 API 호출·자동화 활성화·master 병합·운영 배포 금지. 사용자 금지가 일반 배포 규칙보다 우선.
-- 추정 좌표 추가·기존 수동 승인 덮어쓰기·공개 상태 변경·주소 이력/일일 카운터 초기화 금지. pending 폴더 일괄 적용 금지.
+- AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·미검증 구분. GitHub 소스 보존과 최종 SHA 확인.
+- 가짜 공고·임의 급여 환산·운영 데이터/Auth/RLS/위치 승인 변경 금지. 한국 모듈 분리 유지.
+- STATUS/status 브랜치/기존 검증 장치 손대지 않음. 승인 재요청 없이 이번 복원 배포 수행.

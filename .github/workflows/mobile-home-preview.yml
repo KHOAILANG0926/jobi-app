@@ -1,0 +1,39 @@
+name: Mobile home preview verification
+on:
+  pull_request:
+    paths:
+      - 'src/components/home/**'
+      - 'src/components/MobileBottomNavigation.tsx'
+      - 'src/components/korea/KoreaHomeSlot.tsx'
+      - 'src/pages/Home.tsx'
+      - 'src/main.tsx'
+      - 'scripts/test-mobile-home.mjs'
+      - '.github/workflows/mobile-home-preview.yml'
+permissions:
+  contents: read
+jobs:
+  mobile-home:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Run preview and verify mobile home
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/mobile-home-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          BASE_URL=http://127.0.0.1:4173 SCREENSHOT_DIR=/tmp/jobi-mobile-home node scripts/test-mobile-home.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-home-screenshots
+          path: /tmp/jobi-mobile-home
+          retention-days: 14

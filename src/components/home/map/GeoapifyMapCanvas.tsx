@@ -116,7 +116,9 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     const initial = propsRef.current
     const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
     const initialViewport = initial.initialViewport
-    const map = new maplibregl.Map({
+    let map: MapLibreMap
+    try {
+      map = new maplibregl.Map({
       container: box,
       style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${encodeURIComponent(apiKey ?? '')}`,
       center: initialViewport ? [initialViewport.center.lng, initialViewport.center.lat] : [initial.origin.lng, initial.origin.lat],
@@ -124,6 +126,12 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       attributionControl: false,
       ...HOME_MAP_GESTURE_OPTIONS,
     })
+    } catch {
+      // WebGL initialization may throw before MapLibre can emit an error event.
+      setTileError(true)
+      propsRef.current.onFailure('render-error')
+      return
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }))
     mapRef.current = map
