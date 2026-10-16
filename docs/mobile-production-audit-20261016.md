@@ -11,7 +11,7 @@
 2. 모바일 지도 영역이 필터 영역을 덮는다. 거절 후 390/412 캡처에서 급여 제목 아래의 필터가 지도 아래에 가려지며, 허용 후에는 반경 버튼 아래를 지도가 덮는다. 자동 버튼 겹침 후보(10M+/Zoom 등)와 일치. PC 캡처는 좌측 필터/중앙 지도/우측 목록이며 같은 겹침이 보이지 않는다. 근거: 390-denied-location.png, 412-denied-location.png, 390-granted-location.png, 1366-granted-location.png.
 3. 모바일 360 메뉴 캡처에서 드롭다운 글자가 배너 뒤에 희미하게 비쳐 읽기 어렵다. PC 메뉴도 배너 글자가 메뉴 배경을 통해 비친다. 근거: 360-prompt-menu.png, 1366-prompt-menu.png. 첫 화면 내 가로 메뉴의 오른쪽 항목이 잘려 보인다(가로 스크롤 끝까지 이동하는 상호작용은 이번에 검사하지 않음).
 4. 모바일 document.scrollWidth 및 innerWidth가 요청 viewport보다 각각 2px 크다(362/392/414). PC는 1366. 스크립트의 자동 통과 조건은 innerWidth와 비교하여 이 차이를 실패로 잡지 못했다. 따라서 Actions success는 시각 문제 없음이라는 뜻이 아니다. 요소별 overflow 후보에는 가로 스크롤 영역의 화면 밖 카드도 포함되므로 전부 결함으로 보고하지 않는다.
-5. [직접 확인] 지역 선택 후 값 변경, 허용 state=granted와 사용자 위치/8km 반경 표시, 거절 state=denied와 수동 지역 안내를 JSON/캡처에서 확인했다.
+5. [직접 확인] 지역 메뉴 열기·selectOption 실행(기본 Hà Nội 재선택; 다른 지역으로 변경은 미검증), 허용 state=granted와 사용자 위치/8km 반경 표시, 거절 state=denied와 수동 지역 안내를 JSON/캡처에서 확인했다.
 6. [직접 확인] 12개 시나리오 로그에서 console error/pageerror/HTTP>=400 없음. 360-prompt에 WebGL ReadPixels GPU stall 성능 경고 4건. renderer는 ANGLE/SwiftShader(소프트웨어 Vulkan). WebGL context 사용 가능, 이후 지도 타일과 위치 원/지도 화면이 실제 캡처에 표시됨. 지도 생성 실패나 앱 예외로 확인된 경고는 아님. 실제 단말 GPU 성능은 미검증.
 7. 회사명/주소의 clipping 후보는 텍스트 생략 영역으로 기록되었다. 자동 후보만으로 비정상 글자 잘림이라고 확정하지 않았다.
 
