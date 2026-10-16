@@ -88,6 +88,7 @@ export default function HomeMapExplorer() {
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [mobileJobPage, setMobileJobPage] = useState(0)
   const [recenterRequest, setRecenterRequest] = useState(0)
   const [nearbyState, setNearbyState] = useState<NearbyState>({ status: 'idle' })
   const [pickedPlace, setPickedPlace] = useState<PickedPlace | null>(null)
@@ -133,6 +134,9 @@ export default function HomeMapExplorer() {
   const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = radiusActive ? result.radiusJobs : result.entries
+  const mobileJobPages = Math.max(1, Math.ceil(listEntries.length / 6))
+  const currentMobileJobPage = Math.min(mobileJobPage, mobileJobPages - 1)
+  const mobileJobEntries = listEntries.slice(currentMobileJobPage * 6, currentMobileJobPage * 6 + 6)
   const directions = selected ? planJobDirections(selected.job) : null
 
   // 필터·위치 변경으로 선택 공고가 결과에서 빠지면 선택을 해제한다.
@@ -236,12 +240,12 @@ export default function HomeMapExplorer() {
       <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
       <div className="jd2-map-links">
         {directions?.tier === 'approved' && directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
-          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
+          
+          <a className="jd2-map-dir jd2-map-dir--google" href={link.href} target="_blank" rel="noopener noreferrer"><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span> Maps · {link.label}</a>
         </span>)}
-        {directions?.tier === 'gate' && <><a className="jd2-map-dir" href={directions.link.href} target="_blank" rel="noopener noreferrer">{directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
+        {directions?.tier === 'gate' && <><a className="jd2-map-dir jd2-map-dir--google" href={directions.link.href} target="_blank" rel="noopener noreferrer">Google Maps · {directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
         {directions?.tier === 'address' && <>{directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
+          
           <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
         </span>)}{directions.call && <a className="jd2-map-dir" href={directions.call.href}>Gọi hỏi đường</a>}<p className="jd2-map-dir-note">{directions.note}</p></>}
         {directions?.tier === 'call' && <a className="jd2-map-dir" href={directions.href}>{directions.label}</a>}
@@ -401,7 +405,8 @@ export default function HomeMapExplorer() {
         )}
       </div>
 
-      <aside className="hme__panel" aria-live="polite" ref={panelRef}>
+      <a className="hme__skip-map" href="#hme-job-list">Xem danh sách việc làm ↓</a>
+      <aside id="hme-job-list" className="hme__panel" aria-live="polite" ref={panelRef}>
         {detail && !isMobileLayout ? detail : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
@@ -409,9 +414,32 @@ export default function HomeMapExplorer() {
             <div className="hme-intro__count"><strong>{result.visibleCount}</strong> việc làm trong khung bản đồ hiện tại</div>
             {radiusActive && <p>{result.radiusJobs.length} việc làm có vị trí chính xác trong bán kính</p>}
             <p>{result.unresolvedCount} tin chưa xác định được vị trí · Ghim nét đứt: vị trí đại diện</p>
-            <div className="hme-map-r1-results">
-              {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}
-            </div>
+            {isMobileLayout ? (
+              <div className="hme-mobile-jobs">
+                <div className="hme-mobile-jobs__toolbar">
+                  <strong>Việc làm phù hợp</strong>
+                  <div className="hme-mobile-jobs__paging">
+                    <button type="button" aria-label="Trang trước" disabled={currentMobileJobPage === 0} onClick={() => setMobileJobPage(p => Math.max(0, p - 1))}>‹</button>
+                    <span>{currentMobileJobPage + 1}/{mobileJobPages}</span>
+                    <button type="button" aria-label="Trang tiếp" disabled={currentMobileJobPage >= mobileJobPages - 1} onClick={() => setMobileJobPage(p => Math.min(mobileJobPages - 1, p + 1))}>›</button>
+                  </div>
+                </div>
+                <div className="hme-mobile-jobs__grid">
+                  {mobileJobEntries.map(e => (
+                    <button type="button" className="hme-mobile-jobs__card" key={e.job.id} onClick={() => selectJob(e.job.id)}>
+                      <strong>{e.job.title}</strong>
+                      <span>{e.job.company || 'Chưa cập nhật công ty'}</span>
+                      <span>{e.job.location || 'Chưa cập nhật khu vực'}</span>
+                      <span className="hme-mobile-jobs__salary">{e.job.salary || 'Lương thỏa thuận'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="hme-map-r1-results">
+                {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}
+              </div>
+            )}
             <p className="hme-intro__hint">
               {nearby.length > 0 ? 'Chọn một ghim trên bản đồ để xem thông tin tin tuyển dụng.' : emptyReason}
             </p>

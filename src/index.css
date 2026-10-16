@@ -12260,3 +12260,57 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .hme-map-r1-results { display: grid; gap: 8px; margin-top: 12px; }
 .hme-map-r1-results button { text-align: left; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; color: #334155; }
 .hme-map-r1-results small { display: block; margin-top: 4px; }
+
+/* Mobile home usability: keep page scrolling through the map and expose nearby jobs. */
+.hme__skip-map { display: none; }
+@media (max-width: 760px) {
+  .home-top-bg { padding-top: 0.5rem; padding-bottom: 0; margin-bottom: 0.5rem; }
+  .home-brand-hero {
+    min-height: 0;
+    height: 210px;
+    margin-inline: 0;
+    padding: 0.9rem 1rem 3.8rem;
+    background-position: center;
+    background-size: cover;
+  }
+  .home-brand-hero__title { font-size: clamp(1.25rem, 5.4vw, 1.6rem); line-height: 1.15; }
+  .home-brand-hero__lead { font-size: 0.78rem; line-height: 1.35; margin: 0.3rem 0; }
+  .home-hero-search { left: 1rem; right: 1rem; bottom: 0.65rem; padding: 0.55rem 0.7rem; }
+  .home-brand-hero__links { display: none; }
+  .hme { margin: 8px 10px 14px; width: auto; min-width: 0; overflow: hidden; }
+  .hme__controls { height: auto; max-height: none; min-height: 0; flex: 0 0 auto; overflow: visible; }
+  .hme__map { height: 300px; min-height: 300px; flex: 0 0 300px; overflow: hidden; touch-action: pan-y; }
+  .hme__skip-map { display: block; padding: 10px 14px; text-align: center; background: #fff; color: #b91c1c; font-weight: 700; border-top: 1px solid #e5e7eb; }
+  .hme__panel { height: auto; max-height: none; overflow: visible; scroll-margin-top: 140px; }
+  .mega-menu, .mega-menu--mobile { background: #fff; opacity: 1; isolation: isolate; }
+}
+@media (max-width: 640px) {
+  .header-tabs__inner { min-width: 0; padding-inline: 0.75rem; }
+  .header-tabs__nav { min-width: 0; max-width: 100%; }
+}
+
+/* Two columns x three rows, page-based mobile job discovery. */
+.hme-mobile-jobs__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; }
+.hme-mobile-jobs__paging { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
+.hme-mobile-jobs__paging button { min-width: 34px; min-height: 34px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 1.3rem; }
+.hme-mobile-jobs__paging button:disabled { opacity: 0.35; }
+.hme-mobile-jobs__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.hme-mobile-jobs__card { display: flex; flex-direction: column; gap: 5px; min-width: 0; min-height: 145px; padding: 10px; text-align: left; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; overflow-wrap: anywhere; }
+.hme-mobile-jobs__card strong { font-size: 0.88rem; line-height: 1.3; }
+.hme-mobile-jobs__card span { font-size: 0.76rem; color: #64748b; }
+.hme-mobile-jobs__card .hme-mobile-jobs__salary { margin-top: auto; color: #b91c1c; font-weight: 750; }
+@media (max-width: 760px) {
+  .hme__controls { overscroll-behavior: auto; }
+  .hme__map { touch-action: pan-y; }
+  .hme-intro { min-width: 0; }
+}
+
+/* Suppress repetitive SDK cooperative-gesture notice, not the two-finger gesture itself. */
+@media (max-width: 760px) {
+  .hme__map .maplibregl-cooperative-gesture-screen,
+  .hme__map .mapboxgl-cooperative-gesture-screen,
+  .hme__map .vietmapgl-cooperative-gesture-screen { display: none !important; }
+}
+
+/* Mobile map: allow native one-finger SDK drag; do not reserve vertical swipes for page scrolling. */
+@media (max-width:760px) { .hme__map, .hme__map .maplibregl-canvas, .hme__map .mapboxgl-canvas, .hme__map .vietmapgl-canvas { touch-action: none !important; } }
