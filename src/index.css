@@ -12311,3 +12311,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .hme__map .mapboxgl-cooperative-gesture-screen,
   .hme__map .vietmapgl-cooperative-gesture-screen { display: none !important; }
 }
+
+/* Mobile map: allow native one-finger SDK drag; do not reserve vertical swipes for page scrolling. */
+@media (max-width:760px) { .hme__map, .hme__map .maplibregl-canvas, .hme__map .mapboxgl-canvas, .hme__map .vietmapgl-canvas { touch-action: none !important; } }
