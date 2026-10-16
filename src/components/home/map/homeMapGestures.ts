@@ -2,7 +2,7 @@
 export const TOUCH_DEVICE_QUERY = '(hover: none) and (pointer: coarse)'
 
 /** SDK cooperativeGestures는 쓰지 않는다(Ctrl+휠 강제·한 손가락 페이지 스크롤·안내 overlay 없음). */
-export const HOME_MAP_GESTURE_OPTIONS = { cooperativeGestures: isTouchDevice() }
+export const HOME_MAP_GESTURE_OPTIONS = { cooperativeGestures: false }
 
 export function isTouchDevice(): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(TOUCH_DEVICE_QUERY).matches
