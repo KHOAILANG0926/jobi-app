@@ -12304,3 +12304,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .hme__map { touch-action: pan-y; }
   .hme-intro { min-width: 0; }
 }
+
+/* Suppress repetitive SDK cooperative-gesture notice, not the two-finger gesture itself. */
+@media (max-width: 760px) {
+  .hme__map .maplibregl-cooperative-gesture-screen,
+  .hme__map .mapboxgl-cooperative-gesture-screen,
+  .hme__map .vietmapgl-cooperative-gesture-screen { display: none !important; }
+}
