@@ -1,6 +1,6 @@
 {
-  "id": "20261016-location-check-current-dom",
-  "request": "사용자 다시해: 공고 검사 후속 위치 검사의 동일 목록 선택자/오래된 상세 제목·지도 선택자를 현재 구조에 맞추고 관련 검사 모두 통과. 앱/데이터 변경 금지.",
+  "id": "20261016-coordinate-ci-loader",
+  "request": "사용자 다시해: 전체검사 마지막 좌표 회귀의 모듈 로딩 오류를 기존 공식 테스트 명령으로 수정. 앱 변경 금지.",
   "mode": "targeted-fix",
   "rules": {
     "AGENTS.md": "e756dc5a73c11f0a00dac8fcec1ee4c7a30852e8a945f21457b8b77eb5f9a95d",
@@ -9,40 +9,16 @@
   },
   "patches": [
     {
-      "path": "scripts/test-job-location-detail.mjs",
+      "path": ".github/workflows/jobcard-integrity.yml",
       "kind": "replace",
-      "before": "const baseUrl = process.argv[2] || 'http://127.0.0.1:4173'\nconst MAX_JOBS_TO_CHECK = 12\nconst SUPABASE_URL = 'https://edhuesdnuxlbcfephutq.supabase.co'\nconst SUPABASE_ANON_KEY =\n",
-      "after": "const baseUrl = process.argv[2] || 'http://127.0.0.1:4173'\nconst MAX_JOBS_TO_CHECK = 12\nconst CARD_SELECTOR = '.home-featured .home-card-wrap, .home-jobs-grid .home-card-wrap'\nconst SUPABASE_URL = 'https://edhuesdnuxlbcfephutq.supabase.co'\nconst SUPABASE_ANON_KEY =\n"
-    },
-    {
-      "path": "scripts/test-job-location-detail.mjs",
-      "kind": "replace",
-      "before": "}\n\nconst browser = await chromium.launch({ headless: true })\n\nasync function readJobDetail(page, href) {\n  await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle', timeout: 60_000 })\n  await page.waitForSelector('.jd2-card__title', { timeout: 30_000 })\n  await page.waitForTimeout(1200) // let the Leaflet map + markers finish mounting\n  return page.evaluate(() => {\n",
-      "after": "}\n\n\n\nasync function readJobDetail(page, href) {\n  await page.goto(`${baseUrl}${href}`, { waitUntil: 'networkidle', timeout: 60_000 })\n  await page.waitForSelector('h1.jd2-header__title', { timeout: 30_000 })\n  await page.waitForTimeout(1200) // let the Leaflet map + markers finish mounting\n  return page.evaluate(() => {\n"
-    },
-    {
-      "path": "scripts/test-job-location-detail.mjs",
-      "kind": "replace",
-      "before": "    const singleAddr = document.querySelector('.jd2-card__body > .jd2-map-addr')?.textContent?.trim() || null\n    const note = document.querySelector('.jd2-map-note')?.textContent?.trim() || ''\n    const markerCount = document.querySelectorAll('.leaflet-marker-icon').length\n    const unknownMsg = document.querySelector('.jd2-map-unknown')?.textContent?.trim() || null\n    // \"확인 불가\" 상태에서는 안내 문구뿐 아니라 지도 자체, \"지도 보기\"/\"길찾기\"\n    // 버튼까지 전부 없어야 한다 — 안내 문구만 보고 통과시키면 지도/버튼은\n    // 여전히 렌더링되는 회귀를 놓친다.\n    const mapContainerCount = document.querySelectorAll('.job-location-map, .leaflet-container').length\n    const gmapsLinkCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].length\n    const viewOnMapCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].filter((a) => (a.textContent || '').includes('bản đồ lớn')).length\n    const directionsCount = [...document.querySelectorAll('.jd2-map-gmaps-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).length\n    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount }\n  })\n}\n",
-      "after": "    const singleAddr = document.querySelector('.jd2-card__body > .jd2-map-addr')?.textContent?.trim() || null\n    const note = document.querySelector('.jd2-map-note')?.textContent?.trim() || ''\n    const markerCount = document.querySelectorAll('.leaflet-marker-icon, .jd2-vmap .vietmapgl-marker, .jd2-vmap .maplibregl-marker').length\n    const visibleAddresses = [...document.querySelectorAll('.jd2-location-above-map__row span')].map(el => el.textContent?.trim() || '').filter(Boolean)\n    const areaNotes = [...document.querySelectorAll('.jd2-map-area-note, .jd2-location-pending-compact .jd2-map-dir-note')].map(el => el.textContent?.trim() || '').join(' ')\n    const areaState = !!document.querySelector('.jd2-location-pending-compact, .jd2-map-area-note')\n    const unknownMsg = document.querySelector('.jd2-map-unknown')?.textContent?.trim() || null\n    // \"확인 불가\" 상태에서는 안내 문구뿐 아니라 지도 자체, \"지도 보기\"/\"길찾기\"\n    // 버튼까지 전부 없어야 한다 — 안내 문구만 보고 통과시키면 지도/버튼은\n    // 여전히 렌더링되는 회귀를 놓친다.\n    const mapContainerCount = document.querySelectorAll('.jd2-vmap, .job-location-map, .leaflet-container').length\n    const gmapsLinkCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].length\n    const viewOnMapCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('bản đồ lớn')).length\n    const directionsCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).length\n    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, visibleAddresses, areaNotes, areaState }\n  })\n}\n"
-    },
-    {
-      "path": "scripts/test-job-location-detail.mjs",
-      "kind": "replace",
-      "before": "function checkInvariants(href, d, truth) {\n  const failures = []\n  const states = [d.addrItems.length > 0, !!d.singleAddr, !!d.unknownMsg]\n  const activeStates = states.filter(Boolean).length\n",
-      "after": "function checkInvariants(href, d, truth) {\n  const failures = []\n  // Current UI distinguishes an explicitly unverified area map from a verified workplace.\n  // Area maps are permitted by the current rules; they must not claim an exact workplace.\n  if (d.areaState) {\n    if (!d.visibleAddresses?.length) failures.push(`${href}: area map has no visible source address`)\n    if (!/chưa.*(?:xác minh|xác định)|ước tính/iu.test(d.areaNotes || '')) failures.push(`${href}: area map lacks unverified warning`)\n    if (d.note) failures.push(`${href}: area map incorrectly claims a verified workplace`)\n    if (d.markerCount > 1) failures.push(`${href}: area map has multiple workplace-like pins`)\n    if (d.unknownMsg) failures.push(`${href}: area map contradicts unknown-location state`)\n    return failures\n  }\n  const states = [d.addrItems.length > 0, !!d.singleAddr, !!d.unknownMsg]\n  const activeStates = states.filter(Boolean).length\n"
-    },
-    {
-      "path": "scripts/test-job-location-detail.mjs",
-      "kind": "replace",
-      "before": "}\n\ntry {\n  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })\n\n  await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 60_000 })\n  await page.waitForSelector('.home-jobs-grid .home-card-wrap', { timeout: 30_000 })\n  await page.waitForTimeout(1000)\n  const hrefs = await page.evaluate(() =>\n    [...document.querySelectorAll('.home-jobs-grid .home-card-wrap')].map((el) => el.getAttribute('href') || '').filter(Boolean),\n  )\n\n",
-      "after": "}\n\nif (baseUrl === '--self-test') {\n  const base = { addrItems: [], singleAddr: null, note: '', markerCount: 0, unknownMsg: null, mapContainerCount: 0, gmapsLinkCount: 0, viewOnMapCount: 0, directionsCount: 0 }\n  const area = { ...base, areaState: true, areaNotes: 'Khu vực — chưa xác minh vị trí nhà xưởng', visibleAddresses: ['KCN Yên Phong, Bắc Ninh'], markerCount: 1, mapContainerCount: 1 }\n  const cases = [\n    ['explicit unverified area', area, true],\n    ['area without warning', { ...area, areaNotes: '' }, false],\n    ['area without address', { ...area, visibleAddresses: [] }, false],\n    ['area falsely verified', { ...area, note: 'đã xác minh' }, false],\n    ['area multiple pins', { ...area, markerCount: 2 }, false],\n    ['empty location section', base, false],\n    ['unknown without map', { ...base, unknownMsg: 'unknown' }, true],\n    ['unknown with map', { ...base, unknownMsg: 'unknown', mapContainerCount: 1 }, false],\n    ['fabricated precise marker', { ...base, singleAddr: 'Bắc Ninh', markerCount: 1, directionsCount: 1 }, false],\n  ]\n  for (const [name, value, pass] of cases) {\n    const errors = checkInvariants('/fixture', value, { workLocationCount: 0, mappableWorkLocationCount: 0, hasDirectCoords: false })\n    if ((errors.length === 0) !== pass) throw new Error('Location fixture failed: ' + name + ': ' + errors.join('; '))\n    console.log('Location fixture PASS: ' + name)\n  }\n  process.exit(0)\n}\nconst browser = await chromium.launch({ headless: true })\ntry {\n  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })\n\n  await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 60_000 })\n  await page.waitForSelector(CARD_SELECTOR, { timeout: 30_000 })\n  await page.waitForTimeout(1000)\n  const hrefs = await page.evaluate(selector =>\n    [...new Set([...document.querySelectorAll(selector)].map(el => el.getAttribute('href') || '').filter(Boolean))], CARD_SELECTOR,\n  )\n\n"
+      "before": "run: node src/lib/jobCoords.test.ts",
+      "after": "run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts"
     },
     {
       "path": ".github/workflows/app-screen-check.yml",
       "kind": "replace",
-      "before": "      - name: 실제 공고 목록 중복·링크 검사\n        run: node scripts/test-jobcard-integrity.mjs http://localhost:4173\n      - name: PC·모바일 화면 검사\n        run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs\n",
-      "after": "      - name: 실제 공고 목록 중복·링크 검사\n        run: node scripts/test-jobcard-integrity.mjs http://localhost:4173\n      - name: 현재 위치 표시 정책 회귀 검사\n        run: node scripts/test-job-location-detail.mjs --self-test\n      - name: 실제 공고 상세 위치 검사\n        run: node scripts/test-job-location-detail.mjs http://localhost:4173\n      - name: PC·모바일 화면 검사\n        run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs\n"
+      "before": "      - name: PC·모바일 화면 검사",
+      "after": "      - name: 좌표 검사 실행 명령 검증\n        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts\n      - name: PC·모바일 화면 검사"
     }
   ]
 }
