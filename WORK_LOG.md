@@ -1,3 +1,27 @@
+## 2026-10-16 — 마지막 좌표 CI 실행 명령 수정
+공고3개/위치3개 통과 후 jobCoords 단독명령 ERR_MODULE_NOT_FOUND 발견. 기존 전체 테스트의 extensionless TS 로더를 쓰도록 workflow2영역만 수정. 같은 명령 로컬14/14 통과. 앱/데이터/정책 불변. 사전범위 PR#116, 최종전체CI·운영 대기.
+
+이전 HANDOFF:
+# CHATGPT_HANDOFF — 후속 위치 검사 현재 DOM 반영
+갱신: 2026-10-16 Asia/Bangkok
+
+## 1. 현재 상태
+- master af1a0d1: 공고 목록3개 검증 성공(중복0/중첩링크0), PC/mobile 운영 검사 성공.
+- 후속 위치 검사는 같은 일반목록 selector에 추가timeout. 상세 제목과 지도 선택자도 현재 코드와 불일치.
+- 검사 스크립트만 추천+일반 목록/h1.jd2-header__title/VietMap marker·container DOM 반영. 현행 규정의 미확인지역 지도는 명시 경고·실제주소·정확사업장 주장 없음 검사. 가짜정확핀·지도와 unknown 동시표시·경고누락 등9종 회귀 통과.
+- 앱/CSS/DB/위치 승인정책 불변. 사전 범위표 PR#114 후2파일 구현PR 진행. 최종 전체workflow 성공 전 완료 보고 금지.
+
+## 2. 다음 할 일 3개
+1. 범위표 검사/병합 후 정확한 위치검사·workflow2파일만 구현 병합.
+2. 실제3개 상세·jobCoords·공고목록·운영 PC/mobile 모두 성공 확인.
+3. 관리자우회 차단 복구는 사용자 설정 확인 필요. 실패/skip 남으면 보고에 누락 금지.
+
+## 3. 필수 규칙
+- 기존 틀 보존, 사용자 지시 범위 외 UI/데이터 변경 금지.
+- 코드보다 범위표 먼저반영. 검사 실패를 단순생략으로 숨기지 않음.
+- DB/Auth/RLS/STATUS 보호, 회사PC 저장 안내 금지.
+
+
 ## 2026-10-16 18:02 Asia/Bangkok
 후속 검사: 공고목록 수정은3개/중복0/중첩0통과. 위치검사에 같은 일반목록 selector와 구형 제목/Leaflet 선택자가 남아 추가timeout. 테스트만 현재추천·일반/h1/VietMap 및 경고 있는 미확인지역 상태에 맞춤. 부정상태9종 단위회귀 통과, 앱/DB/정책변경 없음. 범위표 PR#114 후 구현/실제상세/좌표/운영검증 대기.
 
@@ -262,34 +286,6 @@
 - AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·미검증 구분, secret 값 출력 금지.
 - 이번 지시: 운영 DB 변경·실제 API 호출·자동화 활성화·master 병합·운영 배포 금지. 사용자 금지가 일반 배포 규칙보다 우선.
 - 추정 좌표 추가·기존 수동 승인 덮어쓰기·공개 상태 변경·주소 이력/일일 카운터 초기화 금지. pending 폴더 일괄 적용 금지.
-
-</details>
-
-## 2026-10-15 22:32 — PR #99 최종 사전 검증 (Codex)
-
-- 요청: 9475d0c의 CI/기존 SQL/승인·주소 이력/환경·비용/적용·롤백 검증. 운영 DB·실제 API·활성화·병합·운영 배포 금지.
-- [직접 확인] 관리자 SELECT FOR UPDATE 이후 UPDATE 전 경합에서 자동 승인과 관리자 거부 공존을 재현. pending SQL EXCLUSIVE 잠금으로 수정. 새 Python before_update 검사는 기존 SQL에서 실패, 수정 SQL에서 before/after 모두 성공.
-- [직접 확인] 실제 후보/RPC·캐시/quota·R4/R1-R7/R8 트리거를 네이티브 격리 PostgreSQL 17.10에 로드. 기본/주소·검토/preflight SQL 검사 및 두 단계 동시성 검사 성공. 인증·기반 테이블은 합성 fixture, 운영 drift 미검증.
-- [직접 확인] 수정 소스 tsc/build·resolver/API 모의 검사 성공. 기존 SHA 원격 CI 3개 성공(원본 로그 60/60). npm audit 기존 취약점 4건(high 2) 실패, 실제 악용은 미검증. package/lock 변경 없음.
-- 수정 파일: pending MAP-R1 SQL, fixture·동시성·preflight assertion, docs/MAP-R1-preflight.md, report/HANDOFF/WORK_LOG. 운영 적용·롤백은 문서만 작성.
-- commit/push: 이 항목과 동일 커밋을 기존 feature 브랜치/PR #99로 보존. [skip ci]로 운영 공개 API를 읽는 화면 CI의 재실행을 차단하므로 최종 SHA 원격 CI는 미검증. 운영 deploy 없음.
-- 상세 근거·미검증·환경변수·비용 경계·운영 적용/롤백: docs/MAP-R1-preflight.md.
-
-<details><summary>이전 CHATGPT_HANDOFF 원문 보존</summary>
-# CHATGPT_HANDOFF — MAP-R1
-갱신: 2026-10-15
-PR: https://github.com/KHOAILANG0926/jobi-app/pull/99 (draft, 미병합)
-
-- [직접 확인] 브랜치 feat/map-r1-auto-location-20261015, 기반 origin/master 1abb6a4. 최신 fetch 후 master 추가 변경 없음. 사용자 지시: PR까지만, 병합·운영 배포·운영 DB 변경 금지.
-- [직접 확인] 지도 viewport/거리 원점 분리, 기본 무제한, GPS/한 번 탭, 정확·대표 핀, 화면 ID별 수, 선택 근무지 보존, 상세 휠 확대 구현.
-- [직접 확인] 관리자/Actions 공통 resolver, 공고·주소 집합별 최대 2회 외부 검색(이전 주소 복귀 시 사용량 유지), 캐시, 공유 일일 250회 예약, 임대·멱등 저장. 공개 상태·기존 정확 좌표 변경 안 함.
-- [직접 확인] npm test 60/60, 타입·빌드, PC/모바일 Chromium 및 로컬 PostgreSQL 검사 통과. 실제 운영 위치 처리/API 호출 0회.
-- [직접 확인] pending SQL만 작성·격리 DB 검증. 운영 적용 없음. MAP_R1_ENABLED는 GitHub 변수와 서버 환경에 각각 필요하며 현재 활성화하지 않음.
-- [직접 확인] Yên Phong 1단지 누락 확인. Overpass CONNECT 403으로 입구·OSM ID 미검증, 좌표 추가 없음.
-- 다음: PR 검토 → 사용자 승인 후 pending SQL 적용/활성화 및 운영 데이터 검증. 지도 타일 과금의 공급자 측 상한은 이번 작업으로 검증되지 않음.
-- 상세 결과/재현 명령: docs/MAP-R1-report.md. 이전 기록은 WORK_LOG.md.
-
-- [직접 확인] PR #99 후속 수정: 주소별 검색 이력 보존, 기존 승인/거부/철회·대기 후보 보호, 다른 공고 근무지 ID 차단. 실제 기존 승인 SQL/RPC 격리 검사 및 동시 관리자 거부 검사 통과. 수정 후 전체 60/60·타입·빌드 통과. 운영 변경 없음.
 
 </details>
 

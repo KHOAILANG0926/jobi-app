@@ -65,4 +65,4 @@ jobs:
         run: node scripts/test-job-location-detail.mjs http://127.0.0.1:4173
 
       - name: Run jobCoords regression tests
-        run: node src/lib/jobCoords.test.ts
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts
