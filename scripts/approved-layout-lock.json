@@ -1,8 +1,8 @@
 {
-  "reference": "User-selected rightmost CTY KDA card; source preservation only, not correction of existing data-dependent differences.",
+  "reference": "2026-10-16 explicit user request: fix two new cards to preserve CTY KDA poster slot; all other protected sources unchanged",
   "source_commit": "4d7746fa95e5dbd0b8fab90b67d00ee32863299b",
   "files": {
-    "src/components/JobCard.tsx": "f33a76715ac4f9de8c8c7ca4af73cab0429b75f916f523c803ad13298f53e403",
+    "src/components/JobCard.tsx": "0710504bda39647c52a0a1f97c3d361ce4be2e7c55dd0bfdfc360ec2cb7a06ae",
     "src/components/JobCard.css": "495c92b712fcba49641bce452c6a9e90476b0187e79dd0fa393d9810919b8bd0",
     "src/components/FeaturedJobsSection.tsx": "016dd478a099e3bd0d3486b792b40dac6ed8b2cba80a77260cd045347e7b8c0c",
     "src/pages/JobDetail.tsx": "d808ea7526df84d08c6b68d409d2183ddcb73b42b8f7a9276f3b1dacd7a259c6",
