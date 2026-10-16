@@ -88,6 +88,7 @@ export default function HomeMapExplorer() {
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [mobileJobPage, setMobileJobPage] = useState(0)
   const [recenterRequest, setRecenterRequest] = useState(0)
   const [nearbyState, setNearbyState] = useState<NearbyState>({ status: 'idle' })
   const [pickedPlace, setPickedPlace] = useState<PickedPlace | null>(null)
@@ -133,6 +134,9 @@ export default function HomeMapExplorer() {
   const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = radiusActive ? result.radiusJobs : result.entries
+  const mobileJobPages = Math.max(1, Math.ceil(listEntries.length / 6))
+  const currentMobileJobPage = Math.min(mobileJobPage, mobileJobPages - 1)
+  const mobileJobEntries = listEntries.slice(currentMobileJobPage * 6, currentMobileJobPage * 6 + 6)
   const directions = selected ? planJobDirections(selected.job) : null
 
   // 필터·위치 변경으로 선택 공고가 결과에서 빠지면 선택을 해제한다.
@@ -410,9 +414,32 @@ export default function HomeMapExplorer() {
             <div className="hme-intro__count"><strong>{result.visibleCount}</strong> việc làm trong khung bản đồ hiện tại</div>
             {radiusActive && <p>{result.radiusJobs.length} việc làm có vị trí chính xác trong bán kính</p>}
             <p>{result.unresolvedCount} tin chưa xác định được vị trí · Ghim nét đứt: vị trí đại diện</p>
-            <div className="hme-map-r1-results">
-              {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}
-            </div>
+            {isMobileLayout ? (
+              <div className="hme-mobile-jobs">
+                <div className="hme-mobile-jobs__toolbar">
+                  <strong>Việc làm phù hợp</strong>
+                  <div className="hme-mobile-jobs__paging">
+                    <button type="button" aria-label="Trang trước" disabled={currentMobileJobPage === 0} onClick={() => setMobileJobPage(p => Math.max(0, p - 1))}>‹</button>
+                    <span>{currentMobileJobPage + 1}/{mobileJobPages}</span>
+                    <button type="button" aria-label="Trang tiếp" disabled={currentMobileJobPage >= mobileJobPages - 1} onClick={() => setMobileJobPage(p => Math.min(mobileJobPages - 1, p + 1))}>›</button>
+                  </div>
+                </div>
+                <div className="hme-mobile-jobs__grid">
+                  {mobileJobEntries.map(e => (
+                    <button type="button" className="hme-mobile-jobs__card" key={e.job.id} onClick={() => selectJob(e.job.id)}>
+                      <strong>{e.job.title}</strong>
+                      <span>{e.job.company || 'Chưa cập nhật công ty'}</span>
+                      <span>{e.job.location || 'Chưa cập nhật khu vực'}</span>
+                      <span className="hme-mobile-jobs__salary">{e.job.salary || 'Lương thỏa thuận'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="hme-map-r1-results">
+                {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}
+              </div>
+            )>
             <p className="hme-intro__hint">
               {nearby.length > 0 ? 'Chọn một ghim trên bản đồ để xem thông tin tin tuyển dụng.' : emptyReason}
             </p>
