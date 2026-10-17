@@ -1,6 +1,6 @@
 {
-  "id": "20261016-coordinate-ci-loader",
-  "request": "사용자 다시해: 전체검사 마지막 좌표 회귀의 모듈 로딩 오류를 기존 공식 테스트 명령으로 수정. 앱 변경 금지.",
+  "id": "20261017-detail-contact-overflow",
+  "request": "마지막 PC 상세 캡처의 세로로 찌그러진 연락처 안내와 큰 빈 공간 수정. 기준 CTY KDA의 54px Gọi/Zalo 버튼과 모바일 틀 보존. DB 변경 없음.",
   "mode": "targeted-fix",
   "rules": {
     "AGENTS.md": "e756dc5a73c11f0a00dac8fcec1ee4c7a30852e8a945f21457b8b77eb5f9a95d",
@@ -9,16 +9,21 @@
   },
   "patches": [
     {
-      "path": ".github/workflows/jobcard-integrity.yml",
+      "path": "src/index.css",
       "kind": "replace",
-      "before": "run: node src/lib/jobCoords.test.ts",
-      "after": "run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts"
+      "before": "/* Job location title and real source address are outside the map card. */",
+      "after": "/* Text notices and application actions must not inherit the 54px call/Zalo tile width. */\n@media (min-width: 761px) {\n  .jd2-conditions-with-contact .jd2-aside--contact-only:has(.apply-unavailable, .jd2-aside-hint, .jd2-btn-message) {\n    grid-column: 1 / -1; width: 100%; justify-self: stretch;\n  }\n}\n\n/* Job location title and real source address are outside the map card. */"
+    },
+    {
+      "path": "scripts/test-detail-contact-layout.mjs",
+      "kind": "create",
+      "after": "// Isolated fixtures only; never published as job data.\nimport assert from 'node:assert/strict'\nimport { readFileSync, mkdirSync } from 'node:fs'\nimport { createServer } from 'vite'\nimport { chromium } from 'playwright'\nimport { createElement } from 'react'\nimport { renderToStaticMarkup } from 'react-dom/server'\nconst server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })\nlet browser\ntry {\n  const { ApplyUnavailableNotice } = await server.ssrLoadModule('/src/components/ApplyUnavailableNotice.tsx')\n  const notice = renderToStaticMarkup(createElement(ApplyUnavailableNotice, { job: {}, onShowDescription() {} }))\n  const styles = readFileSync('src/index.css', 'utf8')\n  const fields = '<div class=\"jd2-two-col-card__grid\"><dl class=\"jd2-two-col-card__column\"><div class=\"jd2-two-col-card__row\"><dt>Thời gian</dt><dd>08:00–17:00</dd></div></dl><dl class=\"jd2-two-col-card__column\"><div class=\"jd2-two-col-card__row\"><dt>Nơi làm việc</dt><dd>Bắc Ninh</dd></div></dl></div>'\n  const cases = {\n    missing: '<button class=\"jd2-btn-apply\" disabled>Chưa có thông tin liên hệ</button>' + notice,\n    internal: '<button class=\"jd2-btn-apply\">Ứng tuyển</button><span class=\"jd2-aside-hint\">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>',\n    message: '<button class=\"jd2-btn-message\">Nhắn tin nhà tuyển dụng</button>',\n    compact: '<div class=\"jd2-aside-contact\"><a class=\"jd2-aside-contact__call\" href=\"tel:000\">Gọi</a><a class=\"jd2-aside-contact__zalo\">Zalo</a></div>',\n  }\n  browser = await chromium.launch()\n  const page = await browser.newPage()\n  mkdirSync('test-artifacts/detail-contact', { recursive: true })\n  for (const width of [360, 390, 412, 1366, 1472]) {\n    await page.setViewportSize({ width, height: 968 })\n    for (const [name, contact] of Object.entries(cases)) {\n      await page.setContent(`<style>${styles}</style><main style=\"width:calc(100% - 32px);max-width:1028px;margin:auto\"><div class=\"jd2-grid jd2-grid--detail-redesign\"><div class=\"jd2-main jd2-main--first\"><section class=\"jd2-sec jd2-sec--conditions-grid\"><h2 class=\"jd2-sec__title\">Điều kiện làm việc</h2><div class=\"jd2-box jd2-two-col-card jd2-conditions-with-contact\">${fields}<aside class=\"jd2-aside jd2-aside--contact-only\">${contact}</aside></div></section></div></div></main>`)\n      const dimensions = await page.evaluate(() => {\n        const card = document.querySelector('.jd2-conditions-with-contact').getBoundingClientRect()\n        const aside = document.querySelector('.jd2-aside--contact-only')\n        const rect = aside.getBoundingClientRect()\n        const notice = document.querySelector('.apply-unavailable')?.getBoundingClientRect()\n        return { cardWidth: card.width, cardHeight: card.height, asideWidth: rect.width, hidden: getComputedStyle(aside).display === 'none', noticeHeight: notice?.height, overflow: document.documentElement.scrollWidth > innerWidth }\n      })\n      assert.equal(dimensions.overflow, false, `${name} ${width}px: horizontal overflow`)\n      if (width <= 760) assert.equal(dimensions.hidden, true, `${name}: preserve existing mobile contact visibility`)\n      else if (name === 'compact') assert.equal(dimensions.asideWidth, 54, 'preserve approved compact call/Zalo tiles')\n      else {\n        assert.ok(dimensions.asideWidth > dimensions.cardWidth * 0.8, `${name} ${width}px: text squeezed to ${dimensions.asideWidth}px`)\n        assert.ok(dimensions.cardHeight < 500, `${name}: contact text creates a tall empty conditions area`)\n        if (name === 'missing') assert.ok(dimensions.noticeHeight < 200, 'unavailable notice must remain readable')\n      }\n      if (width === 1472 && name === 'missing') await page.screenshot({ path: 'test-artifacts/detail-contact/desktop-missing-contact.png', fullPage: true })\n      console.log(`Detail contact ${name} ${width}px: ${JSON.stringify(dimensions)}`)\n    }\n  }\n} finally {\n  if (browser) await browser.close()\n  await server.close()\n}\n"
     },
     {
       "path": ".github/workflows/app-screen-check.yml",
       "kind": "replace",
-      "before": "      - name: PC·모바일 화면 검사",
-      "after": "      - name: 좌표 검사 실행 명령 검증\n        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts\n      - name: PC·모바일 화면 검사"
+      "before": "      - name: 앱 띄우기\n",
+      "after": "      - name: 상세 연락처 안내 폭·빈 공간 회귀 검사\n        run: node scripts/test-detail-contact-layout.mjs\n      - name: 앱 띄우기\n"
     }
   ]
 }
