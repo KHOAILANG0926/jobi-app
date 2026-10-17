@@ -12198,6 +12198,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-conditions-with-contact .jd2-aside--contact-only { display: none; }
 }
 
+/* Text notices and application actions must not inherit the 54px call/Zalo tile width. */
+@media (min-width: 761px) {
+  .jd2-conditions-with-contact .jd2-aside--contact-only:has(.apply-unavailable, .jd2-aside-hint, .jd2-btn-message) {
+    grid-column: 1 / -1; width: 100%; justify-self: stretch;
+  }
+}
+
 /* Job location title and real source address are outside the map card. */
 .jd2-location-above-map { display: flex; flex-direction: column; gap: .45rem; margin: 0 0 .85rem; }
 .jd2-location-above-map__row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; font-size: .95rem; color: #1f2937; }
