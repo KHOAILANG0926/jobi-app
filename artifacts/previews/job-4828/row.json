@@ -1,0 +1,21 @@
+{
+  "id": 4828,
+  "title": "Tuyển công nhân sản xuất dây truyền dữ liệu, dây mạng",
+  "company": "",
+  "category": "san_xuat_xay_dung",
+  "description": "## Công việc\n- Sản xuất dây truyền dữ liệu, dây mạng.\n## Yêu cầu\n- Nhanh nhẹn, chăm chỉ, chịu khó.\n- Có tinh thần trách nhiệm trong công việc.\n## Thời gian làm việc\n- Chuyên ca ngày.\n- Tuyển cả công nhân chính thức và thời vụ, ưu tiên người muốn làm lâu dài.\n## Lương và phúc lợi\n- Lương cơ bản: 5.500.000đ/tháng.\n- Phụ cấp: 1.200.000đ/tháng.\n- Thâm niên sau 2 tháng: +200.000đ; sau 4 tháng: +300.000đ.\n- Làm ngồi, thoải mái. Không bắt buộc tăng ca.\n## Địa điểm làm việc\n- Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh.\n## Liên hệ\n- Điện thoại: 0342017663.",
+  "salary": "5.500.000đ/tháng",
+  "salary_note": "Phụ cấp: 1.200.000đ/tháng; thâm niên sau 2 tháng: +200.000đ, sau 4 tháng: +300.000đ.",
+  "salary_period": "month",
+  "hours": "Chuyên ca ngày",
+  "location": "Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh",
+  "employer_phone": "0342017663",
+  "images": [
+    "https://raw.githubusercontent.com/KHOAILANG0926/jobi-app/6f05097cf8386442f3a11c087a23257dcbe989ab/scripts/ops/jobs/mao-yen-20261017.png",
+    "https://raw.githubusercontent.com/KHOAILANG0926/jobi-app/6f05097cf8386442f3a11c087a23257dcbe989ab/scripts/ops/jobs/mao-yen-20261017-source.png"
+  ],
+  "image_url": "https://raw.githubusercontent.com/KHOAILANG0926/jobi-app/6f05097cf8386442f3a11c087a23257dcbe989ab/scripts/ops/jobs/mao-yen-20261017.png",
+  "posted_at": "2026-10-17",
+  "active": false,
+  "admin_hidden": false
+}

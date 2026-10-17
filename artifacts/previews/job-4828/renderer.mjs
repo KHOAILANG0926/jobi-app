@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import { render } from './dist/server/entry-server.js';
+import { rowToJob } from './src/lib/jobRows.ts';
+const row = JSON.parse(fs.readFileSync('../job4828-preview-row.json','utf8'));
+const job = rowToJob(row);
+const html = render('/viec-lam/sb-4828', [job], false);
+const cssFile=fs.readdirSync('dist/assets').find(x=>/^index-.*\.css$/.test(x));
+const css=fs.readFileSync('dist/assets/'+cssFile,'utf8').replace(/url\(\/(?!\/)/g,'url(https://www.viecganban.vn/');
+const page='<!doctype html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>공고 4828 비공개 미리보기</title><style>'+css+'</style></head><body><div style="padding:12px;text-align:center;background:#fff3cd;color:#513c00;font:14px sans-serif">비공개 검토용 · 공고 #4828 · 실제 사이트에는 공개되지 않았습니다 · 화면 확인 전용</div>'+html.replaceAll('src="/','src="https://www.viecganban.vn/')+'</body></html>';
+fs.writeFileSync('../job4828-preview.html',page);
+console.log(JSON.stringify({bytes:Buffer.byteLength(page),title:job.title,salary:job.salary,phone:job.employerPhone,privateDraft:row.active===false}));
