@@ -31,6 +31,7 @@ const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
 const { rows } = await client.query(`
   select id, images, employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max, active,
+    occupation_code, occupation_evidence, source_text,
     origin, publish_gate_reason, admin_hidden, created_at, application_deadline
   from public.local_jobs
   where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0

@@ -20,7 +20,7 @@ assert.equal(compareWithOcr({ ...kda, salary: '320.000đ' }, kdaOcr).status, 'mi
 assert.ok(moneyValues('310k').has(310000) && moneyValues('310.000').has(310000) && moneyValues('310 nghìn').has(310000))
 assert.ok(moneyValues('8,5 triệu').has(8500000) && moneyValues('8 000 000').has(8000000) && !moneyValues('11h').size)
 assert.equal(compareWithOcr(base, '').status, 'unreadable')
-const j0 = { origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
+const j0 = { occupation_code: '82022', occupation_evidence: 'làm linh kiện tai nghe', source_text: 'CTY KDA tuyển làm linh kiện tai nghe', origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
 assert.equal(canRepublish(j0, '2026-10-15'), true)
 assert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...j0, publish_gate_reason: null }, '2026-10-15'), false)
@@ -33,4 +33,8 @@ assert.equal(canRepublish(ja, '2026-10-15'), true)
 assert.equal(canRepublish({ ...ja, admin_hidden: true }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...ja, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)
 assert.equal(canRepublish({ ...ja, application_deadline: '2026-10-01' }, '2026-10-15'), false)
+
+assert.equal(canRepublish({ ...ja, occupation_code: null }), false, 'unclassified admin must not republish');
+assert.equal(canRepublish({ ...ja, occupation_evidence: '' }), false, 'missing duty evidence must not republish');
+assert.equal(canRepublish({ ...ja, source_text: 'Làm trên ĐT + Máy tính' }), false, 'evidence absent from source must not republish');
 console.log('ocr-compare: all assertions passed')
