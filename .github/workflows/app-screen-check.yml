@@ -29,6 +29,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: 공고 이미지 유무별 틀 동일성 검사
         run: node scripts/test-job-card-layout.mjs
+      - name: 상세 연락처 안내 폭·빈 공간 회귀 검사
+        run: node scripts/test-detail-contact-layout.mjs
       - name: 앱 띄우기
         run: |
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
