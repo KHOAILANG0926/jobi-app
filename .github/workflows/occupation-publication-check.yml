@@ -1,0 +1,38 @@
+name: Occupation publication gate regression
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  publication-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: occupation_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: isolated-test-only
+      PGDATABASE: occupation_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Isolated PostgreSQL publication regression (no production secrets)
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/occupation_publication.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015120000_local_jobs_occupation_r8.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/pending/20261017065122_occupation_publication_gate.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/occupation_publication_check.sql
+      - name: OCR cannot bypass occupation review
+        run: node scripts/ocr/ocr-compare.test.mjs

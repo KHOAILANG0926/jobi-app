@@ -152,3 +152,10 @@ Vercel deployment source를 API로 다시 회수해야 했다.
 - 검사 장치: `app-screen-check.yml`(PR), `deploy-verify.yml`(master→Production READY·sha 일치·화면 검사), `unmerged-work-alert.yml`(미병합 경고).
 - 작업 시작·이전 버전 복구 전 이슈 "미병합 작업 목록"과 열린 PR을 먼저 확인.
 - 실패 시 완료 보고 금지. 운영 DB·파괴적 작업은 자동 배포 제외(별도 승인).
+
+## 공고 등록 전 직업분류 확인 — MANDATORY (2026-10-17)
+- 공개 요청을 받더라도 먼저 실제 업무를 원문에서 확인하고 공식 직업분류의 명칭·업무 설명과 대조한다. 회사명·도구(휴대폰/컴퓨터)·급여만으로 직종을 추정하지 않는다.
+- 등록 기록에 공식 4·5단계 occupation_code와 원문 그대로의 occupation_evidence를 함께 남긴다. 공식 명칭은 occupation_master에서 조회하며 새 명칭/코드를 만들지 않는다.
+- 실제 업무를 특정할 수 없으면 미분류·active=false로 보류하고 사용자에게 이유를 보고한다. khac/기타, 금지 문구 없음, OCR 성공을 업무 확인 대신 사용하지 않는다.
+- 관리자·수집·OCR 모두 같은 DB 공개 게이트를 거친다. 분류 누락/무효 코드/원문 근거 누락은 비공개 유지. 코드와 원문 일부가 있다는 것만으로 의미까지 검증됐다고 보고하지 않는다.
+- 적용 대기 SQL: supabase/pending/20261017065122_occupation_publication_gate.sql. 운영 적용 전에는 강제 장치가 작동한다고 보고하지 않는다.
