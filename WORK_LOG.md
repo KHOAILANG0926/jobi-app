@@ -1,3 +1,10 @@
+## 2026-10-18 21:45
+요청: Lee 결정 — 근무조건 칸 내용이 끊어지면 안 됨, 최대 3줄 / 지도 불일치 원인 파악.
+변경: PR #148(src/lib/conditionLines.ts·test, src/components/ConditionLines.tsx, JobDetail.tsx, index.css, scripts/layout/measure.mjs).
+검증: tsc·build·단위 시험 통과, PR 검사 전부 통과, 브랜치 빌드 측정(run 39135430474) 꺾임 0, 운영 deploy-verify 통과(run 39135606656). commit 70cd250, master push, 운영 배포.
+지도 원인: wardArea.parseWardUnit 2단계 주소 미인식 → MAP-R1 unresolved → 성 중심(HANDOFF 참고). 코드 수정 안 함.
+남은 문제: 도면 재측정, #136 임의 변경 Lee 답 대기, 지도 수정 지시 대기.
+
 ## 2026-10-18 20:35
 요청: 공고 화면 틀을 숫자 도면으로 강제(Lee: 누가 하든 도면대로, 사진 비교 금지) + 상세 화면 수정 지시들.
 변경: 결정 0005 초안·도면·측정기·공고 게이트(PR #141, 승인 보류) / 운영 반영 #137·#138·#140·#142·#143·#144·#145·#146.
