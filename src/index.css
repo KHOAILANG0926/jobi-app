@@ -12277,3 +12277,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .hme-map-r1-results { display: grid; gap: 8px; margin-top: 12px; }
 .hme-map-r1-results button { text-align: left; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; color: #334155; }
 .hme-map-r1-results small { display: block; margin-top: 4px; }
+
+/* 2026-10-18 Lee: Ngành nghề moves into the PC conditions box (right column); mobile keeps it in Thông tin tuyển dụng. */
+@media (max-width: 760px) { .jd2-pc-only { display: none !important; } }
+@media (min-width: 761px) { .jd2-mobile-only { display: none !important; } }

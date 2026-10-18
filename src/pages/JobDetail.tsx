@@ -312,8 +312,10 @@ export function JobDetail() {
   // Only populated slots render; don't fabricate values or infer benefits from source text.
   const conditionColumns = [
     ['salary', 'allowance', 'jobDuration', 'workDays', 'hours'],
-    ['workPeriod', 'shift', 'weekend'],
+    ['category', 'workPeriod', 'shift', 'weekend', 'benefits'],
   ] as const
+  // 2026-10-18 Lee: PC 근무조건 오른쪽 칸에 업종·복리후생(알바몬 2열 구성). 모바일은 기존 그대로라 PC 전용 행.
+  const CONDITION_PC_ONLY = new Set(['category', 'benefits'])
   const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
       salaryText || (salaryNote && !isAllowanceNote) ? (
@@ -428,6 +430,12 @@ export function JobDetail() {
     { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i), icon: Fuel, color: '#0891b2', bg: '#cffafe' },
     { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
   ] as const
+  // 확인된 복리후생만(상단 아이콘과 같은 근거). 없으면 행 없음.
+  const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
+  const conditionPcFields = [
+    row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
+    row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', activeBenefitText || undefined),
+  ].filter(Boolean) as InfoField[]
   const logoUrl = companyLogoUrl(job.imageUrl)
   // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
   // 우리 저장소 공개 주소로 바꿔 포스터를 크게 보여준다(상단 작은 로고와 같은 포스터여도 표시). 허용 목록 밖 이미지는 계속 막는다.
@@ -535,8 +543,8 @@ export function JobDetail() {
               <div className="jd2-two-col-card__grid">
                 {conditionColumns.map((keys, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
-                    {keys.map((key) => conditionFields.find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
-                      <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
+                    {keys.map((key) => [...conditionFields, ...conditionPcFields].find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
+                      <div className={`jd2-two-col-card__row${CONDITION_PC_ONLY.has(f.key) ? ' jd2-pc-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
                     ))}
                   </dl>
                 ))}
@@ -597,13 +605,13 @@ export function JobDetail() {
 
         <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className="jd2-sec jd2-sec--recruit-grid">
+          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitFields.every((f) => f.key === 'category') ? ' jd2-mobile-only' : ''}`}>
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
                 {[recruitFields.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
-                    {group.map((f) => <div className="jd2-two-col-card__row" key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
+                    {group.map((f) => <div className={`jd2-two-col-card__row${f.key === 'category' ? ' jd2-mobile-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>
                 ))}
               </div>
