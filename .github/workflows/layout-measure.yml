@@ -53,7 +53,10 @@ jobs:
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan layout-out-tmp
           git rm -rfq . >/dev/null
+          git clean -fdxq   # 측정에 쓴 프로그램 폴더(node_modules·dist)는 기록에 넣지 않는다
           cp -r /tmp/layout-out/. .
+          # 기록 보관 가지는 Vercel이 배포하지 않게(2026-10-18 배포 한도 초과 원인)
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
           git add -A && git commit -qm "layout-out: ${GITHUB_SHA::7} ${{ github.run_id }}"
           git push -f origin HEAD:layout-out
       - name: 결과
