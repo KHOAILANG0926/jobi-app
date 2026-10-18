@@ -20,7 +20,7 @@ jobs:
           node supabase/tests/occupation_publication.pglite.test.mjs
       - name: OCR republish follows the same occupation rule
         run: node scripts/ocr/ocr-compare.test.mjs
-      - name: Real poster OCR regression (#4828 boxed poster)
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-vie imagemagick
-          node scripts/ocr/ocr-tiles.test.mjs
+      - name: Independent AI reader calibration (real posters #4824, #4828)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/ocr/ai-reader.test.mjs
