@@ -141,7 +141,7 @@ function measureCardInPage(id) {
   const r1 = (n) => Math.round(n * 10) / 10
   const vis = (el) => !!el && !!(el.offsetWidth || el.offsetHeight) && getComputedStyle(el).display !== 'none'
   const card = [...document.querySelectorAll('.jc[data-job-id]')].filter(vis).find((c) => String(c.getAttribute('data-job-id')).replace(/\D/g, '') === String(id))
-  if (!card) return { 'card.missing': true }
+  if (!card) return { 'card.missing': true, 'diag.jc': document.querySelectorAll('.jc').length, 'diag.jcVisible': [...document.querySelectorAll('.jc')].filter(vis).length, 'diag.ids': [...document.querySelectorAll('.jc[data-job-id]')].map((c) => c.getAttribute('data-job-id')).join(','), 'diag.url': location.href }
   const C = card.getBoundingClientRect()
   const out = { 'card.w': r1(C.width), 'card.h': r1(C.height) }
   const st = getComputedStyle(card); out['card.padding'] = st.padding; out['card.radius'] = st.borderRadius; out['card.border'] = st.border
@@ -164,6 +164,8 @@ export async function measureCard(browser, id, view, { blockImages = false } = {
   if (blockImages) await page.route(/\/storage\/v1\/object\/|\.(png|jpe?g|webp|gif)(\?|$)/i, (r) => r.request().resourceType() === 'image' ? r.abort() : r.continue())
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 90_000 }).catch(() => {})
   await page.waitForSelector('.jc[data-job-id]', { timeout: 30_000 }).catch(() => {})
+  // 목록이 스크롤해야 그려지는 경우가 있어 끝까지 내린 뒤 잰다(카드 치수는 카드 기준 상대값이라 스크롤 위치와 무관).
+  for (let i = 0; i < 6; i++) { await page.evaluate(() => window.scrollBy(0, window.innerHeight)); await page.waitForTimeout(400) }
   const [faultId, ...faultCss] = String(process.env.LAYOUT_FAULT || '').split(':')
   if (faultId && faultId === String(id)) await page.addStyleTag({ content: faultCss.join(':') })
   await page.evaluate(() => document.fonts?.ready)
