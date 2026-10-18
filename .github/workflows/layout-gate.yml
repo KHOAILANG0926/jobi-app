@@ -1,0 +1,86 @@
+name: 공고 도면 게이트 (공개 공고 전체)
+
+# 결정 0005: 공개된 모든 공고를 운영 화면에서 도면(숫자)으로 잰다. 틀이 어긋난 공고는 자동 비공개 + 이슈 기록.
+# 기준 공고(#4824)까지 어긋나면 화면 코드·운영 문제이므로 공고는 숨기지 않고 경고 이슈만 남긴다.
+# 실행 시점: 공고 등록·OCR 공개 직후(workflow_run), 30분마다, 수동.
+on:
+  schedule:
+    - cron: '15,45 * * * *'
+  workflow_run:
+    workflows: ['공고 이미지 OCR 대조 (R7)', '운영 - 포스터 공고 등록 (수동 실행)']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      fault:
+        description: '시험 전용 고장 주입 "공고id:CSS" (입력하면 실제 비공개 전환 없이 되돌림 시험만)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: layout-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BASE_URL: https://www.viecganban.vn
+      LAYOUT_FAULT: ${{ inputs.fault }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client jq
+      - name: 측정기 자가시험
+        run: node docs/decisions/drawings/measure.mjs selftest
+      - name: 공개 공고 목록 (운영 DB)
+        id: ids
+        run: |
+          ids=$(psql "$SUPABASE_DB_URL" -X -At -c "select string_agg(id::text, ' ' order by id) from public.local_jobs where active")
+          echo "공개 공고: $ids"; echo "ids=$ids" >> "$GITHUB_OUTPUT"
+      - name: 도면 측정
+        env:
+          LAYOUT_IDS: ${{ steps.ids.outputs.ids }}
+        run: node docs/decisions/drawings/measure.mjs gate all
+      - name: 판정·비공개 전환
+        run: |
+          set -euo pipefail
+          base=$(jq -r .baseOk layout-out/gate.json)
+          n=$(jq '.failing | length' layout-out/gate.json)
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "기준 공고 일치: $base / 어긋난 공고: $n" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$base" != "true" ]; then
+            printf '기준 공고(#4824)가 도면과 다릅니다 → 화면 코드·운영 문제. 공고는 숨기지 않았습니다.\n%s\n' "$run_url" > body.md
+            jq -r '.failing[] | "- #\(.id): \(.problems[0])"' layout-out/gate.json >> body.md || true
+            gh issue create --title "도면 게이트: 기준 공고 불일치" --body-file body.md || true
+            exit 1
+          fi
+          [ "$n" = "0" ] && { echo "모든 공개 공고 도면 일치"; exit 0; }
+          for id in $(jq -r '.failing[].id' layout-out/gate.json); do
+            reason=$(jq -r --argjson id "$id" '.failing[] | select(.id==$id) | .problems[0]' layout-out/gate.json | cut -c1-300)
+            if [ -n "$LAYOUT_FAULT" ]; then
+              echo "시험 모드: #$id 비공개 전환을 실제 트리거로 실행 후 되돌림(ROLLBACK)"
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At <<SQL | tee -a "$GITHUB_STEP_SUMMARY"
+          begin;
+          update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id;
+          select 'rollback-test #' || id || ' active=' || active || ' reason=' || coalesce(publish_gate_reason,'') from public.local_jobs where id = $id;
+          rollback;
+          select 'after-rollback #' || id || ' active=' || active from public.local_jobs where id = $id;
+          SQL
+            else
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -c "update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id returning id, active"
+              printf '공고 #%s 가 도면(결정 0005)과 달라 자동 비공개했습니다.\n이유: %s\n%s\n' "$id" "$reason" "$run_url" > body.md
+              gh issue create --title "도면 불일치로 비공개: #$id" --body-file body.md || true
+            fi
+          done

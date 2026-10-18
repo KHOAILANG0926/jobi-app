@@ -3,3 +3,5 @@
 /docs/decisions/                    @KHOAILANG0926
 /.github/CODEOWNERS                 @KHOAILANG0926
 /.github/workflows/app-screen-check.yml @KHOAILANG0926
+/.github/workflows/layout-gate.yml @KHOAILANG0926
+/.github/workflows/deploy-verify.yml @KHOAILANG0926
