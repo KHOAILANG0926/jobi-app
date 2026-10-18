@@ -94,18 +94,19 @@ jobs:
             reason=$(jq -r --argjson id "$id" '.failing[] | select(.id==$id) | .problems[0]' layout-out/gate.json | cut -c1-300)
             if [ -n "${LAYOUT_FAULT:-}" ]; then
               echo "시험 모드: #$id 비공개 전환을 실제 트리거로 실행 후 되돌림(ROLLBACK)"
-              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At <<SQL | tee -a "$GITHUB_STEP_SUMMARY"
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At > psql.out 2>&1 <<SQL || { sed 's/^/::error::DB: /' psql.out; exit 1; }
           begin;
           update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id;
           select 'rollback-test #' || id || ' active=' || active || ' reason=' || coalesce(publish_gate_reason,'') from public.local_jobs where id = $id;
           rollback;
           select 'after-rollback #' || id || ' active=' || active from public.local_jobs where id = $id;
           SQL
+              cat psql.out | tee -a "$GITHUB_STEP_SUMMARY"
               grep -q "rollback-test #$id active=false reason=layout_mismatch" "$GITHUB_STEP_SUMMARY" || { echo "::error::예행연습: 비공개 전환이 DB에서 적용되지 않음"; exit 1; }
               grep -q "after-rollback #$id active=true" "$GITHUB_STEP_SUMMARY" || { echo "::error::예행연습: 되돌림 후 공개 상태가 아님"; exit 1; }
               echo "예행연습: 실제 DB 트리거로 비공개 전환 확인 후 되돌림 완료" | tee -a "$GITHUB_STEP_SUMMARY"
             else
-              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -c "update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id returning id, active"
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -c "update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id returning id, active" > psql.out 2>&1 || { sed 's/^/::error::DB: /' psql.out; exit 1; }
               printf '공고 #%s 가 도면(결정 0005)과 달라 자동 비공개했습니다.\n이유: %s\n%s\n' "$id" "$reason" "$run_url" > body.md
               gh issue create --title "도면 불일치로 비공개: #$id" --body-file body.md || true
             fi
