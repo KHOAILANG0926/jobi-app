@@ -96,8 +96,9 @@ begin
 
   -- R7 공개 전 대조: images가 있으면 ocr_check ok 전까지 active=false 강제, ok(해시 일치)면 공개 유지
   begin
-    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, source_text, source_url, images, contact_name, age_min, age_max)
-    values (mark||' R7gate','KDA','Cong nhan dong goi','admin',true,false,'Cong ty KDA tuyen gap','test://x','["job-images/x.png"]',null,18,50) returning id into id1;
+    -- 2026-10-18: 직업분류 공개 게이트(20261017070517) 이후 공개 시험 공고는 원문 근거가 있는 직업코드가 필요하다.
+    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, source_text, source_url, images, contact_name, age_min, age_max, occupation_code, occupation_evidence)
+    values (mark||' R7gate','KDA','Cong nhan dong goi','admin',true,false,'Cong ty KDA tuyen gap lam linh kien tai nghe','test://x','["job-images/x.png"]',null,18,50,'82022','linh kien tai nghe') returning id into id1;
     select active into v from public.local_jobs where id = id1;
     ok := v.active = false;
     update public.local_jobs set ocr_check = jsonb_build_object('status','ok','images_hash',md5(images::text)) , active = true where id = id1;
@@ -111,10 +112,10 @@ begin
 
   -- U2: age_min 14 공고도 공개 유지(게시 허용 결정), 18도 공개
   begin
-    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max)
-    values (mark||' U2a','KDA','Cong nhan dong goi','legacy',true,false,14,50) returning id into id1;
-    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max)
-    values (mark||' U2b','KDA','Cong nhan dong goi','legacy',true,false,18,50) returning id into id2;
+    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max, source_text, occupation_code, occupation_evidence)
+    values (mark||' U2a','KDA','Cong nhan dong goi','legacy',true,false,14,50,'Lam linh kien tai nghe','82022','linh kien tai nghe') returning id into id1;
+    insert into public.local_jobs (title, company, description, origin, active, admin_hidden, age_min, age_max, source_text, occupation_code, occupation_evidence)
+    values (mark||' U2b','KDA','Cong nhan dong goi','legacy',true,false,18,50,'Lam linh kien tai nghe','82022','linh kien tai nghe') returning id into id2;
     ok := (select active from public.local_jobs where id = id1) = true and (select active from public.local_jobs where id = id2) = true;
   exception when others then ok := false; end;
   res := res || jsonb_build_object('U2_age_min_under_15', ok);
