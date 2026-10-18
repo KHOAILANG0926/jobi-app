@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-18 18:20 (VN)**
-- 기준 커밋: `d056010` (Job card: keep empty company line (found by drawing measurement on #4828) (#142))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39122796726
+- 생성 시각: **2026-10-18 18:44 (VN)**
+- 기준 커밋: `a376eda` (Mobile home card: keep empty company line (found by drawing measurement on #4828) (#143))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39124423514
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -24,7 +24,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `d056010` · 상태 **success** · 2026-10-18 18:20 (VN)
+- 마지막 Production 배포: `a376eda` · 상태 **success** · 2026-10-18 18:44 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -32,6 +32,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #143 | 2026-10-18 18:44 (VN) | `a376eda` | 모바일 목록 카드: 회사명 빈값이어도 줄 자리 유지 |
 | #142 | 2026-10-18 18:19 (VN) | `d056010` | 공고 카드: 회사명 빈값이어도 줄 자리 유지 |
 | #140 | 2026-10-18 17:52 (VN) | `54ac61c` | 상세 머리: 회사명 빈값이어도 줄 자리 유지 |
 | #139 | 2026-10-18 17:47 (VN) | `4e15cd1` | 도면 치수 측정 도구 (결정 0005 준비) |
@@ -41,7 +42,6 @@
 | #135 | 2026-10-18 15:36 (VN) | `c4635bd` | 기준 화면 비교 장치 (KDA 틀) |
 | #134 | 2026-10-18 15:23 (VN) | `6e531d6` | 결정 0004: 독립 판독자 (Lee 판단: ko/0004 문서) |
 | #132 | 2026-10-18 11:58 (VN) | `e6aebd0` | test: R7·U2 시험 공고에 직업코드 추가 |
-| #131 | 2026-10-18 11:46 (VN) | `b647b2f` | 결정 0002·0003 (Lee 판단 필요) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
