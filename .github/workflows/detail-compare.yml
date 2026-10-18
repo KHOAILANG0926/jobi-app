@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: write
-  deployments: read
 
 jobs:
   compare:
@@ -30,24 +29,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: 비교 대상 주소 (PR이면 그 PR의 Vercel 미리보기, 아니면 운영)
+      - name: 비교 대상 주소 (PR이면 PR 코드를 빌드해 이 안에서 실행, 아니면 운영)
         id: url
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          url=https://www.viecganban.vn
-          if [ -n "$SHA" ]; then
-            for i in $(seq 1 40); do
-              d=$(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$SHA&per_page=10" --jq '.[0].id' || true)
-              if [ -n "$d" ]; then
-                u=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$d/statuses" --jq '[.[]|select(.state=="success")][0].environment_url // empty' || true)
-                [ -n "$u" ] && { url=$u; break; }
-              fi
-              sleep 15
-            done
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npm run build
+            npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+            for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+            echo "url=http://localhost:4173" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://www.viecganban.vn" >> "$GITHUB_OUTPUT"
           fi
-          echo "url=$url" >> "$GITHUB_OUTPUT"; echo "비교 주소: $url"
       - name: 촬영·비교
         id: cmp
         env:

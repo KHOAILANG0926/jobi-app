@@ -42,6 +42,8 @@ try {
       await page.goto(`${BASE}/viec-lam/sb-${id}`, { waitUntil: 'networkidle', timeout: 90_000 }).catch(() => {})
       await page.waitForTimeout(4000)
       await page.screenshot({ path: `${OUT}/${id}-${v.name}.png`, fullPage: true })
+      const isJobPage = await page.locator('.jd2-page').count()
+      if (!isJobPage) { await ctx.close(); throw new Error(`#${id} ${v.name}: 공고 상세 화면이 아님(로그인 화면·오류 등) — 비교 불가`) }
       report[`${id}-${v.name}`] = await read(page)
       await ctx.close()
     }
