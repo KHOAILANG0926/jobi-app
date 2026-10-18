@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-18 11:31 (VN)**
-- 기준 커밋: `48cef87` (fix: 직업분류는 원문 근거로 확인 가능한 단계까지 + OCR 칸 포스터 대응 (#123 재생성) (#128))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39097328530
+- 생성 시각: **2026-10-18 11:48 (VN)**
+- 기준 커밋: `b647b2f` (결정 0002·0003: DB 자동 적용, Lee 승인은 결정 문서만 + 기계 강제, 범위표 2단계 폐지, #4828 공개 요청 (#131))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39098287657
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `48cef87` · 상태 **success** · 2026-10-18 11:30 (VN)
+- 마지막 Production 배포: `b647b2f` · 상태 **success** · 2026-10-18 11:47 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #131 | 2026-10-18 11:46 (VN) | `b647b2f` | 결정 0002·0003 (Lee 판단 필요) |
 | #128 | 2026-10-18 11:29 (VN) | `48cef87` | fix: 직업분류는 원문 근거로 확인 가능한 단계까지 + OCR 칸 포스터 대응 (#123 재생성) |
 | #127 | 2026-10-18 11:17 (VN) | `dc484fe` | 결정 0001: 기본 틀 (Lee 승인 필요) |
 | #124 | 2026-10-18 11:08 (VN) | `36a9c89` | chore: 규칙·검사 장치 파일은 사용자 승인 필수 (CODEOWNERS) |
@@ -45,12 +46,11 @@
 | #115 | 2026-10-16 18:07 (VN) | `5664d1f` | test: repair remaining location-check selectors and current area-state checks |
 | #114 | 2026-10-16 18:05 (VN) | `c97f7e2` | docs: scope remaining legacy location-check correction |
 | #113 | 2026-10-16 17:56 (VN) | `af1a0d1` | test: fix integrity timeout when all jobs are featured |
-| #112 | 2026-10-16 17:55 (VN) | `52a76b1` | docs: scope card integrity selector correction without UI changes |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **1건** (전체 5건, 숨김·비활성 4건)
-- 출처별: manual 1
+- 공개 중: **2건** (전체 5건, 숨김·비활성 3건)
+- 출처별: manual 2
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
