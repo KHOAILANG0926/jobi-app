@@ -30,5 +30,13 @@ export function readImage(file) {
     execFileSync('convert', [tile, '-negate', neg])
     texts.push(tesseract(neg))
   }
+  // 가로 띠(전체 폭 4줄, 3배 확대, 원본·색 반전): 칸 경계에 걸린 긴 글자(전화번호 등)가 세로 조각에서 잘리지 않게
+  for (const [i, b] of tileBoxes(w, h, 1, 4, 0.2).entries()) {
+    const strip = `${file}.strip${i}.png`
+    execFileSync('convert', [`${file}[0]`, '-crop', `${b.w}x${b.h}+${b.x}+${b.y}`, '+repage', '-resize', '300%', strip])
+    texts.push(tesseract(strip))
+    execFileSync('convert', [strip, '-negate', `${strip}.neg.png`])
+    texts.push(tesseract(`${strip}.neg.png`))
+  }
   return texts.join('\n')
 }
