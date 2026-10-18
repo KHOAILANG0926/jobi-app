@@ -12198,6 +12198,22 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-conditions-with-contact { display: block; }
   .jd2-conditions-with-contact .jd2-aside--contact-only { display: none; }
 }
+/* PC only (2026-10-18 Lee): Gọi/Zalo move to the end of the "Điều kiện làm việc" title row. Mobile unchanged. */
+@media (min-width: 761px) {
+  .jd2-sec--conditions-grid { position: relative; }
+  .jd2-conditions-with-contact { display: block; }
+  .jd2-conditions-with-contact .jd2-aside--contact-only {
+    position: absolute; top: 0; right: 0; width: auto; flex-direction: row;
+  }
+  .jd2-conditions-with-contact .jd2-aside-contact { flex-direction: row; align-items: center; }
+  .jd2-conditions-with-contact .jd2-aside-contact__call,
+  .jd2-conditions-with-contact .jd2-aside-contact__zalo {
+    width: auto; height: 32px; min-height: 32px; padding: 0 0.75rem; border-radius: 999px;
+    flex-direction: row; gap: 5px; font-size: 0.8rem;
+  }
+  .jd2-conditions-with-contact .jd2-aside-contact__call svg,
+  .jd2-conditions-with-contact .jd2-aside-contact__zalo svg { width: 15px; height: 15px; }
+}
 
 /* Job location title and real source address are outside the map card. */
 .jd2-location-above-map { display: flex; flex-direction: column; gap: .45rem; margin: 0 0 .85rem; }
