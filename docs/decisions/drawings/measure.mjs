@@ -1,8 +1,10 @@
 // 공고 화면 도면 측정기 (결정 0005, 2026-10-18 Lee 지시)
 // 사진 비교가 아니라 "치수 측정": 화면의 각 영역 위치·폭·높이·간격·글자 크기를 숫자로 재서 도면(숫자)과 대조한다.
 // 사용:
-//   BASE_URL=... node scripts/layout/measure.mjs extract <공고id...>   → 측정값 JSON 출력(도면 초안용)
-//   BASE_URL=... node scripts/layout/measure.mjs check  <공고id...>   → 도면과 대조, 어긋나면 실패
+//   BASE_URL=... node docs/decisions/drawings/measure.mjs extract <공고id...|all>   → 측정값 JSON 출력
+//   BASE_URL=... node docs/decisions/drawings/measure.mjs check  <공고id...|all>   → 도면과 대조, 어긋나면 실패
+// all = 기준 공고(#4824) + 목록 화면에 나오는 모든 공개 공고.
+// 이 파일과 도면은 Lee 승인 없이 바꿀 수 없다(CODEOWNERS: docs/decisions/).
 // 각 공고는 그대로 + 이미지 실패 상태(이미지 요청 차단) 두 번씩 잰다.
 import { chromium } from 'playwright'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
@@ -147,7 +149,33 @@ export function compare(drawing, view, actual, label) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [mode, ...ids] = process.argv.slice(2)
+  const [mode, ...args] = process.argv.slice(2)
+  if (mode === 'selftest') {
+    // 실제 사고 사례를 시험으로 고정(결정 0001 3절): 대조기가 이 어긋남을 반드시 잡아야 한다.
+    const drawing = JSON.parse(readFileSync(DRAWING, 'utf8'))
+    const cases = [
+      ['#4828 회사명 빈값으로 급여가 4px 당겨짐(2026-10-18)', 'pc', { 'header.company→salary.gap': drawing.views.pc['header.company→salary.gap'] - 4 }],
+      ['필수 구역(근무지역) 누락', 'pc', { 'sections.order': 'jd-sec-conditions > jd-sec-description' }],
+      ['로고 칸 축소(이미지 없음)', 'mobile', { 'header.logo.w': 0 }],
+    ]
+    for (const [name, view, patch] of cases) {
+      const found = compare(drawing, view, { ...drawing.views[view], ...patch }, name)
+      if (!found.length) { console.error(`::error::대조기 자가시험 실패 — 못 잡음: ${name}`); process.exit(1) }
+      console.log(`자가시험 통과: ${name} → ${found[0]}`)
+    }
+    if (compare(drawing, 'pc', drawing.views.pc, '기준').length) { console.error('::error::기준 자체가 도면과 불일치'); process.exit(1) }
+    process.exit(0)
+  }
+  let ids = args
+  if (args.includes('all')) {
+    const b = await chromium.launch(); const p = await b.newPage()
+    await p.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 90_000 }).catch(() => {})
+    await p.waitForTimeout(3000)
+    const found = await p.evaluate(() => [...document.querySelectorAll('a[href*="/viec-lam/sb-"]')].map((a) => (a.getAttribute('href').match(/sb-(\d+)/) || [])[1]).filter(Boolean))
+    await b.close()
+    ids = [...new Set(['4824', ...args.filter((x) => x !== 'all'), ...found])]
+    console.log(`측정 대상 공고: ${ids.join(', ')}`)
+  }
   if (!['extract', 'check'].includes(mode) || !ids.length) { console.error('사용: measure.mjs extract|check <공고id...>'); process.exit(2) }
   const browser = await chromium.launch()
   const results = {}

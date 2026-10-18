@@ -32,7 +32,7 @@ jobs:
         id: m
         env:
           BASE_URL: https://www.viecganban.vn
-        run: node scripts/layout/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
+        run: node docs/decisions/drawings/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
         continue-on-error: true
       - name: 측정값 저장 (layout-out 브랜치)
         if: always()

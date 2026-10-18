@@ -2,3 +2,4 @@
 # Only decision records need Lee's approval (decision 0003). Enforced by scripts/check-approval-scope.mjs.
 /docs/decisions/                    @KHOAILANG0926
 /.github/CODEOWNERS                 @KHOAILANG0926
+/.github/workflows/app-screen-check.yml @KHOAILANG0926
