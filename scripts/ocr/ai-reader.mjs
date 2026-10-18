@@ -32,7 +32,6 @@ export async function readImageAI(file, { apiKey = process.env.ANTHROPIC_API_KEY
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 2000,
-      temperature: 0,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mediaType(buf), data: buf.toString('base64') } },
         { type: 'text', text: PROMPT },
