@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-18 10:04 (VN)**
-- 기준 커밋: `19757e0` (scope: 직업분류 공개 조건 과잉 수정 범위 고정 (#120 대체) (#122))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39092247363
+- 생성 시각: **2026-10-18 11:10 (VN)**
+- 기준 커밋: `36a9c89` (chore: 규칙·검사 장치 파일은 사용자 승인 필수 (CODEOWNERS) (#124))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39096081192
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `19757e0` · 상태 **success** · 2026-10-18 10:04 (VN)
+- 마지막 Production 배포: `36a9c89` · 상태 **success** · 2026-10-18 11:09 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #124 | 2026-10-18 11:08 (VN) | `36a9c89` | chore: 규칙·검사 장치 파일은 사용자 승인 필수 (CODEOWNERS) |
 | #122 | 2026-10-18 10:03 (VN) | `19757e0` | scope: 직업분류 공개 조건 과잉 수정 범위 고정 (#120 대체) |
 | #117 | 2026-10-16 18:15 (VN) | `930fdf5` | ci: fix final coordinate regression import loader |
 | #116 | 2026-10-16 18:12 (VN) | `539ff2d` | docs: scope final coordinate CI command correction |
@@ -45,7 +46,6 @@
 | #112 | 2026-10-16 17:55 (VN) | `52a76b1` | docs: scope card integrity selector correction without UI changes |
 | #110 | 2026-10-16 17:46 (VN) | `bceb574` | fix: preserve existing cards and block changes outside predeclared task scope |
 | #111 | 2026-10-16 17:31 (VN) | `3fb2402` | docs: pin exact requested card fix and scope guard replacement |
-| #108 | 2026-10-16 16:58 (VN) | `e7952d5` | ci: enforce approved job layout using trusted baseline checks |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
