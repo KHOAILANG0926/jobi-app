@@ -229,6 +229,8 @@ try {
 
   console.log(JSON.stringify(results, null, 2))
   console.log(`checked ${toCheck.length}/${hrefs.length} job detail page(s)`)
+  // 실패 내용을 GitHub 주석으로도 남긴다(로그를 못 여는 환경에서도 원인 확인 가능, 2026-10-18)
+  for (const f of failures) console.log(`::error::${f.replace(/\r?\n/g, ' ').slice(0, 900)}`)
   if (failures.length) throw new Error(failures.join('; '))
   console.log('✅ job location detail: every checked job is in exactly one consistent location state (multi-address/single/unknown), markers match address counts')
 } finally {
