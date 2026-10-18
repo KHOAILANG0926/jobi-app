@@ -140,7 +140,7 @@ export async function measureJob(browser, id, view, { blockImages = false } = {}
 function measureCardInPage(id) {
   const r1 = (n) => Math.round(n * 10) / 10
   const vis = (el) => !!el && !!(el.offsetWidth || el.offsetHeight) && getComputedStyle(el).display !== 'none'
-  const card = [...document.querySelectorAll('.jc[data-job-id]')].find((c) => String(c.getAttribute('data-job-id')).replace(/\D/g, '') === String(id))
+  const card = [...document.querySelectorAll('.jc[data-job-id]')].filter(vis).find((c) => String(c.getAttribute('data-job-id')).replace(/\D/g, '') === String(id))
   if (!card) return { 'card.missing': true }
   const C = card.getBoundingClientRect()
   const out = { 'card.w': r1(C.width), 'card.h': r1(C.height) }
