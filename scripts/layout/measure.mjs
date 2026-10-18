@@ -46,7 +46,7 @@ function measureInPage() {
   const logo = put('header.logo', header?.querySelector('.jd2-logo'), { size: true })
   const chips = put('header.chips', header?.querySelector('.jd2-header__chips'), { width: false })
   const title = put('header.title', header?.querySelector('h1'), { width: false, f: true })
-  const company = put('header.company', header?.querySelector('.jd2-header__company'), { width: false, f: true })
+  const company = put('header.company', header?.querySelector('.jd2-header__company'), { width: false, size: true, f: true })
   const salary = put('header.salary', header?.querySelector('.jd2-hl-salary'), { width: false })
   const salaryVal = header?.querySelector('.jd2-hl-salary__val'); if (vis(salaryVal)) font('header.salary.value', salaryVal)
   const benefits = put('header.benefits', header?.querySelector('.jd2-benefits'), { size: true })
@@ -73,7 +73,10 @@ function measureInPage() {
     const tb = put(`${key}.title`, t, { width: false, f: true })
     const bx = s.querySelector(':scope > .jd2-box, :scope .jd2-box')
     const bb = put(`${key}.box`, bx, {})
-    gap(`${key}.title→box`, tb, bb)
+    // 근무지역처럼 제목과 칸 사이에 주소 줄이 있으면 주소 길이에 따라 높이가 달라지므로 간격을 둘로 나눠 잰다.
+    const above = s.querySelector('.jd2-location-above-map')
+    if (vis(above)) { const ab = box(above); gap(`${key}.title→address`, tb, ab); gap(`${key}.address→box`, ab, bb) }
+    else gap(`${key}.title→box`, tb, bb)
     if (vis(bx)) { const st = getComputedStyle(bx); out[`${key}.box.padding`] = st.padding; out[`${key}.box.radius`] = st.borderRadius; out[`${key}.box.border`] = st.border }
     prev = sb
   }
