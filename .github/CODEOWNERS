@@ -1,19 +1,4 @@
-# 규칙·검사 장치 = 사용자(KHOAILANG0926) 승인 필수. AI 계정(viecganban-bot)은 이 파일들을 혼자 바꿀 수 없다. (2026-10-18 사용자 결정)
-# Rules and guards require approval from the owner. The AI account cannot change these alone.
-
-# 규칙 문서 / rule documents
-/AGENTS.md                          @KHOAILANG0926
-/CLAUDE.md                          @KHOAILANG0926
-/VIECGANBAN_STRUCTURE_BASELINE.md   @KHOAILANG0926
-/.cursor/rules/                     @KHOAILANG0926
-/policy/                            @KHOAILANG0926
-
-# 작업 범위표 / work-scope order
-/docs/work-orders/                  @KHOAILANG0926
-
-# 결정 기록(기본 틀) / decision records
+# Lee 승인이 필요한 곳은 결정 문서뿐이다(결정 0003). 판단할 것이 없는 승인은 만들지 않는다.
+# Only decision records need Lee's approval (decision 0003). Enforced by scripts/check-approval-scope.mjs.
 /docs/decisions/                    @KHOAILANG0926
-
-# 자동 검사 장치(끄거나 약하게 못 하게) / CI guards and this file
-/.github/                           @KHOAILANG0926
-/scripts/check-work-scope.mjs       @KHOAILANG0926
+/.github/CODEOWNERS                 @KHOAILANG0926

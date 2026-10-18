@@ -1,0 +1,64 @@
+name: 운영 DB 자동 적용 (결정 0002)
+
+# master에 병합된 새 migration을 운영 DB에 자동 적용한다(사용자 결정 0002, 2026-10-18).
+# - 대상: supabase/migrations/ 중 버전이 CUTOFF보다 크고, 아직 schema_migrations에 기록되지 않은 파일
+#   (CUTOFF 이전 파일은 과거에 개별 적용·기록됐으므로 다시 실행하지 않는다)
+# - 파일마다 한 트랜잭션. 실패하면 그 파일은 전부 취소되고 이후 파일은 실행하지 않는다(빨간불).
+# - 적용 후 운영 점검 SQL(supabase/tests/*_production_check.sql)을 실행한다.
+# 키는 GitHub Secrets에만: SUPABASE_DB_URL
+on:
+  push:
+    branches: [master]
+    paths:
+      - supabase/migrations/**
+      - .github/workflows/migrations-apply.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrations-apply
+  cancel-in-progress: false
+
+env:
+  CUTOFF: '20261017070517'
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 키 등록 확인
+        run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 새 migration 적용
+        shell: bash
+        run: |
+          set -euo pipefail
+          applied=$(psql "$SUPABASE_DB_URL" -X -At -c "select version from supabase_migrations.schema_migrations")
+          n=0
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            base=$(basename "$f" .sql); v=${base%%_*}; name=${base#*_}
+            [[ "$v" =~ ^[0-9]{14}$ ]] || continue
+            [[ "$v" > "$CUTOFF" ]] || continue
+            grep -qx "$v" <<<"$applied" && continue
+            echo "적용: $base"
+            psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "$f"
+            psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version, name) values ('$v', '$name') on conflict do nothing"
+            n=$((n+1))
+          done
+          echo "적용한 migration: $n개" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: 운영 점검
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in supabase/tests/*_production_check.sql; do
+            [ -f "$f" ] || continue
+            echo "점검: $f"
+            psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+          done
