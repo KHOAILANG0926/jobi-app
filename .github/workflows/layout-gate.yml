@@ -1,5 +1,6 @@
 name: 공고 도면 게이트 (공개 공고 전체)
 
+# 비공개 사유는 publish_gate_reason(허용값 제한, 2026-10-18 예행연습에서 발견)이 아니라 ocr_check.layout에 기록한다.
 # 결정 0005: 공개된 모든 공고를 운영 화면에서 도면(숫자)으로 잰다. 틀이 어긋난 공고는 자동 비공개 + 이슈 기록.
 # 기준 공고(#4824)까지 어긋나면 화면 코드·운영 문제이므로 공고는 숨기지 않고 경고 이슈만 남긴다.
 # 실행 시점: 공고 등록·OCR 공개 직후(workflow_run), 30분마다, 수동.
@@ -96,17 +97,17 @@ jobs:
               echo "시험 모드: #$id 비공개 전환을 실제 트리거로 실행 후 되돌림(ROLLBACK)"
               psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At > psql.out 2>&1 <<SQL || { sed 's/^/::error::DB: /' psql.out; exit 1; }
           begin;
-          update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id;
-          select 'rollback-test #' || id || ' active=' || active || ' reason=' || coalesce(publish_gate_reason,'') from public.local_jobs where id = $id;
+          update public.local_jobs set active = false, ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('layout', jsonb_build_object('status', 'mismatch', 'at', now())) where id = $id;
+          select 'rollback-test #' || id || ' active=' || active || ' layout=' || coalesce(ocr_check->'layout'->>'status','') from public.local_jobs where id = $id;
           rollback;
           select 'after-rollback #' || id || ' active=' || active from public.local_jobs where id = $id;
           SQL
               cat psql.out | tee -a "$GITHUB_STEP_SUMMARY"
-              grep -q "rollback-test #$id active=false reason=layout_mismatch" "$GITHUB_STEP_SUMMARY" || { echo "::error::예행연습: 비공개 전환이 DB에서 적용되지 않음"; exit 1; }
+              grep -q "rollback-test #$id active=false layout=mismatch" "$GITHUB_STEP_SUMMARY" || { echo "::error::예행연습: 비공개 전환이 DB에서 적용되지 않음"; exit 1; }
               grep -q "after-rollback #$id active=true" "$GITHUB_STEP_SUMMARY" || { echo "::error::예행연습: 되돌림 후 공개 상태가 아님"; exit 1; }
               echo "예행연습: 실제 DB 트리거로 비공개 전환 확인 후 되돌림 완료" | tee -a "$GITHUB_STEP_SUMMARY"
             else
-              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -c "update public.local_jobs set active = false, publish_gate_reason = 'layout_mismatch' where id = $id returning id, active" > psql.out 2>&1 || { sed 's/^/::error::DB: /' psql.out; exit 1; }
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -c "update public.local_jobs set active = false, ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('layout', jsonb_build_object('status', 'mismatch', 'at', now())) where id = $id returning id, active" > psql.out 2>&1 || { sed 's/^/::error::DB: /' psql.out; exit 1; }
               printf '공고 #%s 가 도면(결정 0005)과 달라 자동 비공개했습니다.\n이유: %s\n%s\n' "$id" "$reason" "$run_url" > body.md
               gh issue create --title "도면 불일치로 비공개: #$id" --body-file body.md || true
             fi
