@@ -1,0 +1,50 @@
+name: 도면 치수 측정 (수동)
+
+# 결정 0005: 공고 화면 치수를 숫자로 재서 layout-out 브랜치에 저장한다(도면 초안 작성·확인용). 사진 비교 아님.
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: '측정할 공고 id(공백 구분)'
+        required: true
+        default: '4824 4828'
+      mode:
+        description: 'extract(측정값만) 또는 check(도면 대조)'
+        required: true
+        default: extract
+
+permissions:
+  contents: write
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: 측정 (운영)
+        id: m
+        env:
+          BASE_URL: https://www.viecganban.vn
+        run: node scripts/layout/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
+        continue-on-error: true
+      - name: 측정값 저장 (layout-out 브랜치)
+        if: always()
+        run: |
+          set -e
+          cp -r layout-out /tmp/layout-out
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan layout-out-tmp
+          git rm -rfq . >/dev/null
+          cp -r /tmp/layout-out/. .
+          git add -A && git commit -qm "layout-out: ${GITHUB_SHA::7} ${{ github.run_id }}"
+          git push -f origin HEAD:layout-out
+      - name: 결과
+        if: steps.m.outcome == 'failure'
+        run: exit 1
