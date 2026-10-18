@@ -1,0 +1,22 @@
+name: probe VietMap address (1회 시험)
+on:
+  pull_request:
+    paths: ['.github/workflows/probe-vietmap-address.yml', 'scripts/probe/vietmap-address-probe.mjs']
+permissions:
+  contents: read
+jobs:
+  probe:
+    if: github.head_ref == 'test/vietmap-mao-yen'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
+          PROBE_TEXT: 'Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh'
+        run: node scripts/probe/vietmap-address-probe.mjs
