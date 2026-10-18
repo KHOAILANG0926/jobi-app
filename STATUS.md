@@ -3,20 +3,18 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-18 11:48 (VN)**
-- 기준 커밋: `b647b2f` (결정 0002·0003: DB 자동 적용, Lee 승인은 결정 문서만 + 기계 강제, 범위표 2단계 폐지, #4828 공개 요청 (#131))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39098287657
+- 생성 시각: **2026-10-18 11:59 (VN)**
+- 기준 커밋: `e6aebd0` (test: R7·U2 시험 공고에 직업코드 추가 (#132))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39098908911
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 5건**
+**확인 필요 3건**
 
 - 검증 장치가 최근 바뀜 (f3a843f)
 - 검증 장치가 최근 바뀜 (aa34f5f)
 - 검증 장치가 최근 바뀜 (d54d7dd)
-- 규칙 시험 실패: R7_ocr_crosscheck
-- 규칙 시험 실패: U2_age_min_under_15
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
@@ -28,7 +26,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `b647b2f` · 상태 **success** · 2026-10-18 11:47 (VN)
+- 마지막 Production 배포: `e6aebd0` · 상태 **success** · 2026-10-18 11:58 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +34,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #132 | 2026-10-18 11:58 (VN) | `e6aebd0` | test: R7·U2 시험 공고에 직업코드 추가 |
 | #131 | 2026-10-18 11:46 (VN) | `b647b2f` | 결정 0002·0003 (Lee 판단 필요) |
 | #128 | 2026-10-18 11:29 (VN) | `48cef87` | fix: 직업분류는 원문 근거로 확인 가능한 단계까지 + OCR 칸 포스터 대응 (#123 재생성) |
 | #127 | 2026-10-18 11:17 (VN) | `dc484fe` | 결정 0001: 기본 틀 (Lee 승인 필요) |
@@ -45,7 +44,6 @@
 | #116 | 2026-10-16 18:12 (VN) | `539ff2d` | docs: scope final coordinate CI command correction |
 | #115 | 2026-10-16 18:07 (VN) | `5664d1f` | test: repair remaining location-check selectors and current area-state checks |
 | #114 | 2026-10-16 18:05 (VN) | `c97f7e2` | docs: scope remaining legacy location-check correction |
-| #113 | 2026-10-16 17:56 (VN) | `af1a0d1` | test: fix integrity timeout when all jobs are featured |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -97,16 +95,16 @@
 
 | 규칙 | 차단방식 | 마지막시험 | 결과 |
 |---|---|---|---|
-| `R1_phone_digits_only` | 없음 | 2026-10-18 11:30 (VN) | ✅ 통과 |
-| `R2_decision_columns_code_only` | 없음 | 2026-10-18 11:30 (VN) | ✅ 통과 |
+| `R1_phone_digits_only` | 없음 | 2026-10-18 11:58 (VN) | ✅ 통과 |
+| `R2_decision_columns_code_only` | 없음 | 2026-10-18 11:58 (VN) | ✅ 통과 |
 | `R2b_publish_gate_reason_code_only` | 없음 | — | — 시험 없음 |
-| `R3_source_evidence_required` | 저장거부 | 2026-10-18 11:30 (VN) | ✅ 통과 |
-| `R5_verbatim_names` | 저장거부 | 2026-10-18 11:30 (VN) | ✅ 통과 |
-| `R6_age_preserved` | 저장거부 | 2026-10-18 11:30 (VN) | ✅ 통과 |
+| `R3_source_evidence_required` | 저장거부 | 2026-10-18 11:58 (VN) | ✅ 통과 |
+| `R5_verbatim_names` | 저장거부 | 2026-10-18 11:58 (VN) | ✅ 통과 |
+| `R6_age_preserved` | 저장거부 | 2026-10-18 11:58 (VN) | ✅ 통과 |
 | `R4_policy_exclusion_trigger` | 저장거부 | — | — 시험 없음 |
-| `R7_ocr_crosscheck` | 보류 | 2026-10-18 11:30 (VN) | ❌ 실패 |
+| `R7_ocr_crosscheck` | 보류 | 2026-10-18 11:58 (VN) | ✅ 통과 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
-| `U2_age_min_under_15` | 없음 | 2026-10-18 11:30 (VN) | ❌ 실패 |
+| `U2_age_min_under_15` | 없음 | 2026-10-18 11:58 (VN) | ✅ 통과 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 
 - OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
