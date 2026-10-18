@@ -141,6 +141,24 @@ function measureCardInPage(id) {
   const r1 = (n) => Math.round(n * 10) / 10
   const vis = (el) => !!el && !!(el.offsetWidth || el.offsetHeight) && getComputedStyle(el).display !== 'none'
   const card = [...document.querySelectorAll('.jc[data-job-id]')].filter(vis).find((c) => String(c.getAttribute('data-job-id')).replace(/\D/g, '') === String(id))
+  // 모바일 메인은 다른 목록 카드(.discovery-job, 2026-10-16 모바일 구성)를 쓴다 → 그 카드를 잰다.
+  if (!card) {
+    const m = [...document.querySelectorAll('a.discovery-job')].filter(vis).find((a) => (a.getAttribute('href') || '').replace(/\D/g, '') === String(id))
+    if (m) {
+      const M = m.getBoundingClientRect()
+      const o = { 'mcard.w': r1(M.width), 'mcard.h': r1(M.height) }
+      for (const sel of ['.discovery-job__company', '.discovery-job__title', '.discovery-job__meta', '.discovery-job__salary']) {
+        const el = m.querySelector(sel)
+        const n = `mcard.${sel.slice(16)}`
+        if (!el) continue
+        const b = el.getBoundingClientRect()
+        o[`${n}.x`] = r1(b.left - M.left); o[`${n}.y`] = r1(b.top - M.top); o[`${n}.h`] = r1(b.height)
+        const st = getComputedStyle(el); o[`${n}.font`] = `${st.fontSize} ${st.fontWeight}`
+      }
+      o['structure.mcard'] = [...m.children].map((c) => c.tagName.toLowerCase() + '.' + ([...c.classList][0] || '')).join(' | ')
+      return o
+    }
+  }
   if (!card) return { 'card.missing': true, 'diag.jc': document.querySelectorAll('.jc').length, 'diag.jcVisible': [...document.querySelectorAll('.jc')].filter(vis).length, 'diag.ids': [...document.querySelectorAll('.jc[data-job-id]')].map((c) => c.getAttribute('data-job-id')).join(','), 'diag.url': location.href, 'diag.hiddenBy': (() => { let e = document.querySelector('.jc'); while (e && e !== document.body) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || e.offsetWidth === 0) { const p = e.parentElement; if (!p || getComputedStyle(p).display !== 'none' && p.offsetWidth > 0) return e.tagName + '.' + e.className + ' display=' + cs.display + ' w=' + e.offsetWidth } e = e.parentElement } return 'none' })() }
   const C = card.getBoundingClientRect()
   const out = { 'card.w': r1(C.width), 'card.h': r1(C.height) }
