@@ -56,6 +56,20 @@ function measureInPage() {
   gap('header.chips→title', chips, title); gap('header.title→company', title, company)
   gap('header.company→salary', company, salary); gap('header.salary→benefits', salary, benefits); gap('header.benefits→meta', benefits, meta)
   if (H && meta) out['header.meta→bottom.gap'] = r1(H.bottom - meta.bottom)
+  // 위치·등록일 배치(2026-10-18 Lee 지시): 위치 = 복리후생 줄 오른쪽 끝, 등록일 = 즐겨찾기 왼쪽
+  const loc = header?.querySelector('.jd2-meta-item'), date = header?.querySelector('.jd2-meta-date'), save = header?.querySelector('.jd2-save-btn')
+  const info = header?.querySelector('.jd2-header__info')
+  if (vis(loc) && benefits && vis(info)) {
+    const lb = box(loc), ib = box(info)
+    out['header.location.right-gap'] = r1(ib.r - lb.r)
+    out['header.location.bottom-vs-benefits-bottom'] = r1(lb.bottom - benefits.bottom)
+    out['header.location.left-minus-benefits-right'] = r1(lb.x - (benefits.x + benefits.w))
+  }
+  if (vis(date) && vis(save)) {
+    const db = box(date), sb = box(save)
+    out['header.date.mid-vs-save-mid'] = r1((db.y + db.h / 2) - (sb.y + sb.h / 2))
+    out['header.date.gap-to-save'] = r1(sb.x - db.r)
+  }
 
   // 2) 탭
   const tabs = put('tabs', page.querySelector('.jd2-tabs'), { size: true })
