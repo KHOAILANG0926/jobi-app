@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-17 08:35 (VN)**
+- 생성 시각: **2026-10-18 08:34 (VN)**
 - 기준 커밋: `930fdf5` (ci: run coordinate regression with the existing TypeScript import loader (#117))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/38991464136
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39086947916
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -49,8 +49,8 @@
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **3건** (전체 3건, 숨김·비활성 0건)
-- 출처별: manual 1 · chotot 2
+- 공개 중: **1건** (전체 5건, 숨김·비활성 4건)
+- 출처별: manual 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -107,5 +107,6 @@
 | `R7_ocr_crosscheck` | 보류 | 2026-10-13 23:00 (VN) | ✅ 통과 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
 | `U2_age_min_under_15` | 없음 | 2026-10-13 23:00 (VN) | ✅ 통과 |
+| `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 
-- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
+- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **1건**
