@@ -12288,7 +12288,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 /* 2026-10-18 Lee 지시(PC만): 기준 화면(#136 이전)대로 위치는 복리후생 아이콘 줄 오른쪽 끝,
    등록일은 즐겨찾기 버튼 왼쪽, 상단 급여는 배지+금액만(수당 상세는 근무조건 칸 'Phụ cấp · Thưởng'에만). */
 @media (min-width: 761px) {
-  .jd2-header { position: relative; }
   .jd2-header .jd2-header__meta { height: 0; min-height: 0; display: block; }
   .jd2-header .jd2-header__meta .jd2-meta-item {
     position: absolute; right: 0; bottom: 0; flex: none; display: block;
@@ -12296,9 +12295,12 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
     text-align: right; line-height: 1.35;
   }
   .jd2-header .jd2-header__meta .jd2-meta-item svg { vertical-align: -2px; margin-right: 3px; }
-  .jd2-header .jd2-meta-date {
-    position: absolute; top: calc(1.5rem + 21px); right: calc(1.75rem + 42px + 12px); transform: translateY(-50%);
-    white-space: nowrap;
-  }
+  .jd2-header .jd2-header__meta .jd2-meta-date { display: none; }
+  .jd2-header__actions { display: flex; align-items: center; gap: 12px; align-self: flex-start; }
+  .jd2-header__actions .jd2-meta-date--top { white-space: nowrap; }
   .jd2-header .jd2-hl-salary__note { display: none; }
+}
+@media (max-width: 760px) {
+  .jd2-header__actions { display: contents; }
+  .jd2-header__actions .jd2-meta-date--top { display: none; }
 }

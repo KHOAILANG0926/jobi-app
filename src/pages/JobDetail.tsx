@@ -507,14 +507,20 @@ export function JobDetail() {
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
-          onClick={onToggleSave}
-          title={saved ? 'Bỏ lưu' : 'Lưu tin'}
-        >
-          {saved ? <BookmarkCheck size={27} strokeWidth={1.8} /> : <Bookmark size={27} strokeWidth={1.8} />}
-        </button>
+        <div className="jd2-header__actions">
+          {/* 2026-10-18 Lee 지시(PC): 등록일은 즐겨찾기 왼쪽. 모바일은 기존 위치(아래 줄) 유지 — CSS로 화면별 하나만 보임 */}
+          <time className="jd2-meta-date jd2-meta-date--top" dateTime={job.postedAt}>
+            {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </time>
+          <button
+            type="button"
+            className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
+            onClick={onToggleSave}
+            title={saved ? 'Bỏ lưu' : 'Lưu tin'}
+          >
+            {saved ? <BookmarkCheck size={27} strokeWidth={1.8} /> : <Bookmark size={27} strokeWidth={1.8} />}
+          </button>
+        </div>
       </div>
 
       {/* ── Sticky tabs: 내용을 숨기지 않고 구역으로 스크롤만 ── */}
