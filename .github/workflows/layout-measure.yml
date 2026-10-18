@@ -12,6 +12,10 @@ on:
         description: 'extract(측정값만) 또는 check(도면 대조)'
         required: true
         default: extract
+      target:
+        description: 'prod(운영) 또는 local(이 브랜치 코드를 빌드해 측정)'
+        required: false
+        default: prod
 
 permissions:
   contents: write
@@ -28,11 +32,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: 측정 (운영)
+      - name: 측정
         id: m
-        env:
-          BASE_URL: https://www.viecganban.vn
-        run: node scripts/layout/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
+        run: |
+          if [ "${{ inputs.target }}" = "local" ]; then
+            npm run build
+            npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+            for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+            export BASE_URL=http://localhost:4173
+          else
+            export BASE_URL=https://www.viecganban.vn
+          fi
+          node scripts/layout/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
         continue-on-error: true
       - name: 측정값 저장 (layout-out 브랜치)
         if: always()
