@@ -1,0 +1,22 @@
+name: Occupation publication gate regression
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  publication-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Real-case publication regression (#4824 pass, #4827 hold, #4828 pass; no production access)
+        run: |
+          npm i --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8
+          node supabase/tests/occupation_publication.pglite.test.mjs
+      - name: OCR republish follows the same occupation rule
+        run: node scripts/ocr/ocr-compare.test.mjs
