@@ -50,7 +50,10 @@ export function compareWithOcr(job, ocrText) {
 // crawler 공고는 publish_gate_reason='ok'가 필요하고 admin 공고는 이 값을 보지 않는다. 관리자가 끈 공고·만료로 꺼진 공고·R7 이전 공고를 되살리지 않도록 R7 도입 이후 생성분만 대상으로 한다.
 export const OCR_REPUBLISH_FROM = '2026-10-13'
 export function canRepublish(job, today = new Date().toISOString().slice(0, 10)) {
-  // origin='admin'은 publish_gate_reason을 채우는 코드가 없다(크롤러 전용 값). 관리자가 직접 등록·승인했으므로 이 값은 보지 않는다(2026-10-14 결정 A).
+  // origin='admin'은 publish_gate_reason을 채우는 코드가 없다(크롤러 전용 값). 관리자 등록도 직업코드·원문 근거 확인은 필수이며 이 크롤러 전용 값만 보지 않는다(2026-10-14 결정 A).
+  const evidence = String(job.occupation_evidence ?? '').normalize('NFC').trim().toLowerCase()
+  const source = String(job.source_text ?? '').normalize('NFC').toLowerCase()
+  if (!/^\d{1,5}$/.test(String(job.occupation_code ?? '')) || !evidence || !source.includes(evidence)) return false
   const gateOk = job.origin === 'admin' || job.publish_gate_reason === 'ok'
   return gateOk && job.admin_hidden === false
     && String(job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at).slice(0, 10) >= OCR_REPUBLISH_FROM

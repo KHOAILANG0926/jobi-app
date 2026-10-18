@@ -43,7 +43,7 @@ jobs:
           echo "ready=$n" >> "$GITHUB_OUTPUT"
       - name: Tesseract 설치
         if: steps.ready.outputs.ready == '1'
-        run: sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-vie
+        run: sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-vie imagemagick
       - name: OCR 대조 실행
         if: steps.ready.outputs.ready == '1'
         run: |
