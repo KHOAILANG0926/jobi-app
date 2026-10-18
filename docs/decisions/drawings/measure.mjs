@@ -146,13 +146,18 @@ function measureCardInPage(id) {
     const m = [...document.querySelectorAll('a.discovery-job')].filter(vis).find((a) => (a.getAttribute('href') || '').replace(/\D/g, '') === String(id))
     if (m) {
       const M = m.getBoundingClientRect()
-      const o = { 'mcard.w': r1(M.width), 'mcard.h': r1(M.height) }
+      // 제목은 글 길이에 따라 1~2줄이라 높이·이후 y는 재지 않고, 영역 사이 간격을 잰다.
+      const o = { 'mcard.w': r1(M.width) }
+      let pb = null
       for (const sel of ['.discovery-job__company', '.discovery-job__title', '.discovery-job__meta', '.discovery-job__salary']) {
         const el = m.querySelector(sel)
         const n = `mcard.${sel.slice(16)}`
         if (!el) continue
         const b = el.getBoundingClientRect()
-        o[`${n}.x`] = r1(b.left - M.left); o[`${n}.y`] = r1(b.top - M.top); o[`${n}.h`] = r1(b.height)
+        o[`${n}.x`] = r1(b.left - M.left)
+        if (pb === null) o[`${n}.top`] = r1(b.top - M.top); else o[`${n}.gap`] = r1(b.top - pb)
+        if (!sel.endsWith('title')) o[`${n}.h`] = r1(b.height)
+        pb = b.bottom
         const st = getComputedStyle(el); o[`${n}.font`] = `${st.fontSize} ${st.fontWeight}`
       }
       o['structure.mcard'] = [...m.children].map((c) => c.tagName.toLowerCase() + '.' + ([...c.classList][0] || '')).join(' | ')
@@ -161,16 +166,20 @@ function measureCardInPage(id) {
   }
   if (!card) return { 'card.missing': true, 'diag.jc': document.querySelectorAll('.jc').length, 'diag.jcVisible': [...document.querySelectorAll('.jc')].filter(vis).length, 'diag.ids': [...document.querySelectorAll('.jc[data-job-id]')].map((c) => c.getAttribute('data-job-id')).join(','), 'diag.url': location.href, 'diag.hiddenBy': (() => { let e = document.querySelector('.jc'); while (e && e !== document.body) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || e.offsetWidth === 0) { const p = e.parentElement; if (!p || getComputedStyle(p).display !== 'none' && p.offsetWidth > 0) return e.tagName + '.' + e.className + ' display=' + cs.display + ' w=' + e.offsetWidth } e = e.parentElement } return 'none' })() }
   const C = card.getBoundingClientRect()
-  const out = { 'card.w': r1(C.width), 'card.h': r1(C.height) }
+  const out = { 'card.w': r1(C.width) }
   const st = getComputedStyle(card); out['card.padding'] = st.padding; out['card.radius'] = st.borderRadius; out['card.border'] = st.border
   let prev = null
   for (const sel of ['.jc__header', '.jc__logo-wrap', '.jc__identity', '.jc__company', '.jc__meta', '.jc__title', '.jc__footer', '.jc__salary']) {
     const el = card.querySelector(sel)
     if (!vis(el)) continue
     const b = el.getBoundingClientRect(), n = `card.${sel.slice(5)}`
-    out[`${n}.x`] = r1(b.left - C.left); out[`${n}.y`] = r1(b.top - C.top); out[`${n}.w`] = r1(b.width); out[`${n}.h`] = r1(b.height)
+    out[`${n}.x`] = r1(b.left - C.left); out[`${n}.w`] = r1(b.width)
+    if (['.jc__header', '.jc__logo-wrap', '.jc__identity', '.jc__company'].includes(sel)) out[`${n}.y`] = r1(b.top - C.top)
+    if (sel !== '.jc__title') out[`${n}.h`] = r1(b.height)
     const s = getComputedStyle(el); out[`${n}.font`] = `${s.fontSize} ${s.fontWeight}`
   }
+  const ft = card.querySelector('.jc__footer'); if (vis(ft)) out['card.footer.to-bottom'] = r1(C.bottom - ft.getBoundingClientRect().bottom)
+  const tt = card.querySelector('.jc__title'), hd = card.querySelector('.jc__header'); if (vis(tt) && vis(hd)) out['card.header→title.gap'] = r1(tt.getBoundingClientRect().top - hd.getBoundingClientRect().bottom)
   out['structure.card'] = [...card.children].filter(vis).map((c) => c.tagName.toLowerCase() + '.' + ([...c.classList].find((x) => !/--/.test(x)) || '')).join(' | ')
   return out
 }
