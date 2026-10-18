@@ -73,9 +73,16 @@ async function readJobDetail(page, href) {
     const gmapsLinkCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].length
     const viewOnMapCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('bản đồ lớn')).length
     const directionsCount = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).length
-    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, visibleAddresses, areaNotes, areaState }
+    const directionsHrefs = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).map((a) => a.getAttribute('href') || '')
+    // 2026-10-13 사용자 규칙 "길찾기는 숨기지 않는다": 위치 미확인이면 회사명/지역 글자 검색 길찾기 + 미확인 안내(directionsPlan.ts COMPANY_AREA_NOTE·AREA_ONLY_NOTE)
+    const unverifiedDirNote = /chưa xác minh|không phải địa chỉ nơi làm việc/iu.test(document.body.innerText || '')
+    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState }
   })
 }
+
+// 위치 미확인 공고의 글자 검색 길찾기(좌표 아님) 1개 + 미확인 안내 = 사용자 규칙(2026-10-13)상 허용되는 상태
+const coordDirections = (h) => /destination=-?\d+(\.\d+)?,-?\d+(\.\d+)?(&|$)/.test(h)
+const isSearchOnlyDirections = (d) => d.directionsCount === 1 && d.markerCount === 0 && d.unverifiedDirNote && !(d.directionsHrefs || []).some(coordDirections)
 
 function checkInvariants(href, d, truth) {
   const failures = []
@@ -124,7 +131,7 @@ function checkInvariants(href, d, truth) {
   } else if (d.singleAddr) {
     // State B: one resolved point. Structural pairing: a marker never appears
     // without directions, and directions never appears without a marker.
-    if ((d.markerCount > 0) !== (d.directionsCount > 0)) {
+    if ((d.markerCount > 0) !== (d.directionsCount > 0) && !isSearchOnlyDirections(d)) {
       failures.push(`${href}: marker/directions must appear together or not at all, got markerCount=${d.markerCount} directionsCount=${d.directionsCount}`)
     }
     if (d.markerCount > 1) {
@@ -140,7 +147,7 @@ function checkInvariants(href, d, truth) {
     if (truth && truth.workLocationCount === 0 && !truth.hasDirectCoords) {
       if (d.markerCount !== 0) failures.push(`${href}: no verified work location in DB (0 job_work_locations rows, no local_jobs.lat/lng) but map shows ${d.markerCount} marker(s)`)
       if (d.mapContainerCount !== 0) failures.push(`${href}: no verified work location in DB but map container is rendered (count=${d.mapContainerCount})`)
-      if (d.directionsCount !== 0) failures.push(`${href}: no verified work location in DB but a "Chỉ đường" directions button is rendered`)
+      if (d.directionsCount !== 0 && !isSearchOnlyDirections(d)) failures.push(`${href}: no verified work location in DB but a coordinate/unflagged "Chỉ đường" directions button is rendered: ${JSON.stringify(d.directionsHrefs)}`)
       if (d.gmapsLinkCount > 1) failures.push(`${href}: no verified work location in DB but ${d.gmapsLinkCount} gmaps link(s) rendered (expected at most 1 search-only link)`)
     }
     if (truth && truth.hasDirectCoords) {
