@@ -5,7 +5,7 @@
 
 - 생성 시각: **2026-10-18 11:59 (VN)**
 - 기준 커밋: `e6aebd0` (test: R7·U2 시험 공고에 직업코드 추가 (#132))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39098908911
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39098939999
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
