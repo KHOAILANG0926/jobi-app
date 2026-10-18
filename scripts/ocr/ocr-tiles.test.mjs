@@ -35,5 +35,8 @@ try {
     assert.equal(compareWithOcr({ ...c.job, salary: '9.900.000đ/tháng' }, tiled).status, 'mismatch', `${c.name}: 없는 급여가 통과`)
     assert.equal(compareWithOcr({ ...c.job, employer_phone: '0912345678' }, tiled).status, 'mismatch', `${c.name}: 없는 전화가 통과`)
   }
+} catch (e) {
+  console.log(`::error::${String(e.message).replace(/\r?\n/g, ' ').slice(0, 900)}`)   // 로그를 못 여는 환경에서도 원인 확인
+  throw e
 } finally { rmSync(dir, { recursive: true, force: true }) }
 console.log(`ocr-tiles: ${CASES.length} real poster case(s) passed`)
