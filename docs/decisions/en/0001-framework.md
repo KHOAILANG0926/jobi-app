@@ -1,6 +1,6 @@
 # Decision 0001 — Base framework
 
-- Status: **Proposed** (becomes "Accepted" when Lee approves)
+- Status: **Accepted** (approved by Lee 2026-10-18, PR #127)
 - Date: 2026-10-18
 - Decided by: Lee (directly, in the 2026-10-18 conversation)
 - Korean original: `docs/decisions/ko/0001-기본틀.md` (Lee's copy; same content)
@@ -31,4 +31,4 @@ Any claim without attached evidence (command output or source) is not a fact.
 Existing `CLAUDE.md` / `AGENTS.md` rules stay in force until they are reorganised. If they conflict, **this record wins**.
 
 ## 6. Open (needs Lee's decision)
-- May the AI apply production DB changes automatically once checks pass, or must it ask Lee each time?
+- ~~Automatic production DB apply~~ → decided in 0002
