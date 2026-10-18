@@ -3,13 +3,22 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 
 export async function runLocationBatch(db, request, limit = 10) {
+  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease}))
+}
+
+/** 공고 한 건만(저장 즉시 위치 찾기, api/location-hook). 규칙·한도는 일괄 처리와 같다. */
+export async function runLocationJob(db, request, jobId) {
+  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_job', {p_id:jobId,p_lease:lease}))
+}
+
+async function runClaimed(db, request, claim) {
   const lease = randomUUID()
   const rpc = async (name, args) => {
     const { data, error } = await db.rpc(name, args)
     if (error) throw new Error('location_storage_unavailable')
     return data
   }
-  const claimed = await rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease})
+  const claimed = await claim(rpc, lease)
   const summary = {processed:0,exact:0,representative:0,unresolved:0,apiCalls:0,failed:0,deferred:0}
   for (const row of claimed ?? []) {
     let calls = 0
