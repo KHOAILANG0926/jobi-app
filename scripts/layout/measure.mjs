@@ -106,6 +106,24 @@ function measureInPage() {
   if (dts[0]) { put('conditions.label', dts[0], { f: true }) }
   const dds = [...page.querySelectorAll('.jd2-sec--conditions-grid dd')].filter(vis)
   if (dds[0]) { const b = box(dds[0]); out['conditions.value.x'] = r1(b.x); font('conditions.value', dds[0]) }
+  // 근무조건 내용 규칙(2026-10-18 Lee 결정): 한 항목 = 한 줄(중간 꺾임·칸 밖 넘침 금지), 한 칸 최대 3줄.
+  // 공고마다 값이 달라 도면 숫자와 대조하지 않고 compare()에서 규칙으로 판정한다(content.* 키).
+  let maxLines = 0, broken = 0, more = 0
+  for (const dd of dds) {
+    const items = [...dd.querySelectorAll('.jd2-cond-lines > .jd2-cond-item')].filter(vis)
+    maxLines = Math.max(maxLines, items.length)
+    const right = dd.getBoundingClientRect().right
+    for (const it of items) {
+      const cs = getComputedStyle(it)
+      const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5
+      const b = it.getBoundingClientRect()
+      if (b.height > lh * 1.5 || b.right > right + 1) broken++
+    }
+    if (dd.querySelector('.jd2-cond-more')) more++
+  }
+  out['content.conditions.max-lines'] = maxLines
+  out['content.conditions.broken-items'] = broken
+  out['content.conditions.more'] = more
   const badge = page.querySelector('.jd2-sec--conditions-grid .jd2-pay-badge')
   if (vis(badge)) { out['conditions.badge.h'] = r1(box(badge).h); font('conditions.badge', badge) }
   const call = page.querySelector('.jd2-conditions-with-contact .jd2-aside-contact__call')
@@ -149,7 +167,12 @@ export function compare(drawing, view, actual, label) {
   const problems = []
   const optional = new Set(drawing.optionalAreas ?? [])
   const isOptional = (k) => [...optional].some((p) => k.startsWith(p))
+  // 내용 규칙(도면 숫자와 별개, 항상 검사)
+  const maxLines = drawing.contentRules?.conditionsMaxLines ?? 3
+  if ((actual['content.conditions.max-lines'] ?? 0) > maxLines) problems.push(`${label}: 근무조건 한 칸이 ${actual['content.conditions.max-lines']}줄 (최대 ${maxLines}줄)`)
+  if ((actual['content.conditions.broken-items'] ?? 0) > 0) problems.push(`${label}: 근무조건 항목 ${actual['content.conditions.broken-items']}개가 중간에서 꺾이거나 칸 밖으로 넘침`)
   for (const [k, want] of Object.entries(spec)) {
+    if (k.startsWith('content.')) continue
     const got = actual[k]
     if (got === undefined) { if (!isOptional(k)) problems.push(`${label}: '${k}' 영역이 없음 (도면 ${JSON.stringify(want)})`); continue }
     if (k === 'sections.order') {
