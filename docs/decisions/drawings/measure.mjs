@@ -9,7 +9,7 @@
 import { chromium } from 'playwright'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 
-export const DRAWING = 'docs/decisions/drawings/job-detail-layout.json'
+export const DRAWING = 'docs/decisions/drawings/job-layout.json'
 const BASE = (process.env.BASE_URL || 'https://www.viecganban.vn').replace(/\/$/, '')
 export const VIEWS = {
   pc: { viewport: { width: 1366, height: 900 } },
@@ -237,13 +237,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       ['머리 영역에 도면에 없는 줄 끼워 넣기', 'pc', { 'structure.header.info': drawing.views.pc['structure.header.info'] + ' | p.new-line' }],
       ['도면에 없는 새 구역', 'mobile', { 'sec[jd-sec-new].x': 16 }],
       ['카드 이미지 칸 축소', 'card-pc', { 'card.logo-wrap.w': 0 }],
+      ['모바일 목록 카드 회사명 빈값으로 줄 사라짐(2026-10-18 #4828)', 'card-mobile', { 'mcard.company.h': 0 }],
     ]
     for (const [name, view, patch] of cases) {
       const found = compare(drawing, view, { ...drawing.views[view], ...patch }, name)
       if (!found.length) { console.error(`::error::대조기 자가시험 실패 — 못 잡음: ${name}`); process.exit(1) }
       console.log(`자가시험 통과: ${name} → ${found[0]}`)
     }
-    if (compare(drawing, 'pc', drawing.views.pc, '기준').length) { console.error('::error::기준 자체가 도면과 불일치'); process.exit(1) }
+    for (const v of Object.keys(drawing.views)) if (compare(drawing, v, drawing.views[v], '기준').length) { console.error(`::error::기준 자체가 도면과 불일치 (${v})`); process.exit(1) }
     process.exit(0)
   }
   let ids = args
