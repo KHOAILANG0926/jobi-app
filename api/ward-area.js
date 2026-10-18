@@ -8,7 +8,24 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.s
 const CACHE_KIND = 'autolocate'
 const CACHE_NAME = 'ward_centers'
 // src/lib/wardArea.ts의 WARD_KEY_PATTERN과 같은 형식.
-const KEY_PATTERN = /^(xa|phuong|thi tran):[a-z0-9 ]{1,60}\|[a-z0-9 ]{1,60}\|[a-z0-9 ]{1,60}$/
+const KEY_PATTERN = /^(xa|phuong|thi tran):[a-z0-9 ]{1,60}\|[a-z0-9 ]{0,60}\|[a-z0-9 ]{1,60}$/
+
+// src/lib/wardArea.ts findWardCenter와 같은 규칙: key 그대로 → 없으면 같은 종류·동·성(구 무시) 항목이 모두 같은 곳일 때만.
+// 새 2단계 주소(구 없음, 2025년 개편 후)가 옛 3단계로 저장된 좌표를 다시 쓰게 한다. VietMap 호출 없음.
+const SPLIT = /^([^:]+):([^|]*)\|[^|]*\|(.*)$/
+function findEntry(cache, key) {
+  if (!cache || typeof cache !== 'object') return null
+  const own = Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null
+  if (own && own.status === 'found') return own
+  const m = key.match(SPLIT)
+  if (!m) return null
+  const same = Object.entries(cache).filter(([k, v]) => {
+    const o = k.match(SPLIT)
+    return !!o && o[1] === m[1] && o[2] === m[2] && o[3] === m[3] && v && v.status === 'found' && typeof v.lat === 'number' && typeof v.lng === 'number'
+  }).map(([, v]) => v)
+  if (!same.length) return null
+  return same.every((v) => Math.abs(v.lat - same[0].lat) < 0.002 && Math.abs(v.lng - same[0].lng) < 0.002) ? same[0] : null
+}
 
 function runtimeDependencies() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -42,7 +59,7 @@ export function createWardAreaHandler(injected) {
 
     try {
       const cache = await deps.readCache()
-      const entry = cache && typeof cache === 'object' && Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null
+      const entry = findEntry(cache, key)
       if (entry && entry.status === 'found' && inVietnam(entry.lat, entry.lng)) {
         res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400')
         return res.status(200).json({ found: true, lat: entry.lat, lng: entry.lng })

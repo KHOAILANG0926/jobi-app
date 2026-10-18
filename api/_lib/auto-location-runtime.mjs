@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
+import { findWardCenter } from '../../src/lib/wardArea.ts'
 
 export async function runLocationBatch(db, request, limit = 10) {
   const lease = randomUUID()
@@ -27,6 +28,12 @@ export async function runLocationBatch(db, request, limit = 10) {
           if (error) throw new Error('cache_unavailable')
         },
         reserve: () => rpc('map_r1_reserve_call',{p_id:row.job_id,p_lease:lease}),
+        async wardCenter(unit) {
+          const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','autolocate').eq('name','ward_centers').maybeSingle()
+          if (error) return null
+          const e = findWardCenter(data?.payload ?? null, unit.key)
+          return e && typeof e.lat==='number' && typeof e.lng==='number' ? {lat:e.lat,lng:e.lng,at:e.at||''} : null
+        },
         async request(action,params) { calls++; return request(action,params) },
       })
       const saved = await rpc('map_r1_complete',{p_id:row.job_id,p_lease:lease,p_result:result})
