@@ -17,6 +17,8 @@ for (let y = 0; y < 789; y += 7) for (let x = 0; x < 526; x += 7)
 const CASES = [
   // #4828: 칸 디자인 포스터. 전체만 읽으면 급여 5.500.000을 놓쳐 'mismatch'(2026-10-17 운영 기록)
   { name: '#4828', files: ['4828-mao-yen.png', '4828-mao-yen-source.png'], job: { employer_phone: '0342017663', contact_zalo: null, salary: '5.500.000đ/tháng', contact_name: null, company: '', age_min: null, age_max: null }, fullOnly: 'mismatch' },
+  // #4828 포스터만(표준 등록 경로): 하단 파란 띠의 흰 전화번호는 색 반전으로만 읽힘
+  { name: '#4828 poster-only', files: ['4828-mao-yen.png'], job: { employer_phone: '0342017663', contact_zalo: null, salary: '5.500.000đ/tháng', contact_name: null, company: '', age_min: null, age_max: null }, fullOnly: 'mismatch' },
 ]
 const dir = mkdtempSync(join(tmpdir(), 'ocr-test-'))
 try {

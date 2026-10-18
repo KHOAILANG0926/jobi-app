@@ -37,8 +37,8 @@ const { rows } = await client.query(`
   where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
     and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text)
-         -- 읽는 방식이 바뀌면(조각 읽기 tiles-v1) 예전 방식으로 '불일치' 보류된 공고를 한 번 다시 읽는다
-         or (ocr_check->>'status' = 'mismatch' and ocr_check->>'reader' is distinct from 'tiles-v1'))
+         -- 읽는 방식이 바뀌면(조각 읽기 tiles-v2: 색 반전 추가) 예전 방식으로 '불일치' 보류된 공고를 한 번 다시 읽는다
+         or (ocr_check->>'status' = 'mismatch' and ocr_check->>'reader' is distinct from 'tiles-v2'))
   order by id limit 50`)
 console.log(`OCR 대상 ${rows.length}건`)
 
@@ -55,7 +55,7 @@ try {
       }
       const text = texts.join('\n')
       const res = compareWithOcr(job, text)
-      const check = { status: res.status, reader: 'tiles-v1', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
+      const check = { status: res.status, reader: 'tiles-v2', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.
       const hold = res.status === 'mismatch'
       await client.query(

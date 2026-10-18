@@ -1,4 +1,4 @@
-// 칸(박스)으로 나뉜 포스터 대응(2026-10-18): 전체 1회 + 겹치는 조각(2열×3행)을 2배 확대해 각각 읽고 글을 합친다.
+// 칸(박스)으로 나뉜 포스터 대응(2026-10-18): 전체 1회 + 겹치는 조각(2열×3행)을 2배 확대해 각각(원본·색 반전) 읽고 글을 합친다.
 // 근거: #4828 포스터는 전체를 한 번에 읽으면 왼쪽 급여 칸과 오른쪽 업무 칸이 섞여 '5.500.000'을 놓쳤고,
 //       급여 칸만 읽으면 정확히 읽었다. 조각 글은 원본 이미지에서만 나오므로 없는 값을 만들어내지 않는다.
 import { execFileSync } from 'node:child_process'
@@ -25,6 +25,10 @@ export function readImage(file) {
     const tile = `${file}.tile${i}.png`
     execFileSync('convert', [`${file}[0]`, '-crop', `${b.w}x${b.h}+${b.x}+${b.y}`, '+repage', '-resize', '200%', tile])
     texts.push(tesseract(tile))
+    // 어두운 바탕의 흰 글자(예: #4828 포스터 하단 전화번호)는 색을 뒤집어야 읽힌다(2026-10-18)
+    const neg = `${tile}.neg.png`
+    execFileSync('convert', [tile, '-negate', neg])
+    texts.push(tesseract(neg))
   }
   return texts.join('\n')
 }
