@@ -1,6 +1,6 @@
 name: 공고 이미지 OCR 대조 (R7)
 
-# 이미지가 저장된 공고를 Tesseract(vie)로 따로 읽어 ocr_text에 저장하고, DB 값(전화번호·급여·이름·회사·연령)과 대조한다.
+# 이미지가 저장된 공고를 독립 AI 판독자(결정 0004)로 따로 읽어 ocr_text에 저장하고, DB 값(전화번호·급여·이름·회사·연령)과 대조한다.
 # 어긋난 공고는 그 항목만 기록하고 비공개 보류(active=false). 저장 거부는 하지 않는다(OCR도 틀릴 수 있음).
 # 필요한 Secrets(모두 이미 등록됨): SUPABASE_DB_URL, SUPABASE_SERVICE_ROLE_KEY
 on:
@@ -28,6 +28,7 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,9 +42,9 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           n=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from information_schema.columns where table_name='local_jobs' and column_name='ocr_check'")
           echo "ready=$n" >> "$GITHUB_OUTPUT"
-      - name: Tesseract 설치
+      - name: 판독자 교정 시험 (실패하면 판정하지 않음, 결정 0004)
         if: steps.ready.outputs.ready == '1'
-        run: sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-vie imagemagick
+        run: node scripts/ocr/ai-reader.test.mjs
       - name: OCR 대조 실행
         if: steps.ready.outputs.ready == '1'
         run: |
