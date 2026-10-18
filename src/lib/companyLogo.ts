@@ -20,3 +20,12 @@ export function companyLogoUrl(imageUrl: string | null | undefined): string | un
     return undefined
   }
 }
+
+/** 공고 이미지(저장소 경로 또는 주소) → 우리 저장소 공개 주소. 허용 목록 밖이면 undefined. */
+export function jobImagePublicUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined
+  if (/^https?:\/\//i.test(value)) return companyLogoUrl(value)
+  const path = value.replace(/^\/+/, '').replace(/^job-images\//, '')
+  if (!/^[A-Za-z0-9._\/-]+$/.test(path) || path.split('/').includes('..')) return undefined
+  return `https://${OWN_STORAGE_HOST}${OWN_STORAGE_PATH}job-images/${path}`
+}

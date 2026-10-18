@@ -21,7 +21,7 @@ import { fetchEmployerJobCount } from '../lib/jobRows'
 import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
-import { companyLogoUrl } from '../lib/companyLogo'
+import { companyLogoUrl, jobImagePublicUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility } from '../lib/jobDetailSections'
@@ -429,7 +429,9 @@ export function JobDetail() {
     { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
   ] as const
   const logoUrl = companyLogoUrl(job.imageUrl)
-  const extraImages = job.images?.filter((u) => u !== logoUrl) ?? []
+  // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
+  // 우리 저장소 공개 주소로 바꿔 포스터를 크게 보여준다(상단 작은 로고와 같은 포스터여도 표시). 허용 목록 밖 이미지는 계속 막는다.
+  const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)
 
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
     || !!job.laborContractPledge || !!job.socialInsurancePledge

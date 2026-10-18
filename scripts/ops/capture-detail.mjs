@@ -29,6 +29,7 @@ async function read(page) {
       images: imgs.length,
       brokenImages: imgs.filter((i) => i.complete && i.naturalWidth === 0).map((i) => i.getAttribute('src')),
       literalBackslashN: /\\n/.test(main.innerText || ''),
+      emptyImageBox: [...main.querySelectorAll('.jd2-box')].some((box) => /Hình ảnh tuyển dụng/.test(box.textContent || '') && ![...box.querySelectorAll('img')].some((i) => vis(i) && i.naturalWidth > 0)),
     }
   })
 }
@@ -55,6 +56,7 @@ const problems = []
 for (const id of [baseId, ...targets]) for (const v of VIEWS) {
   const r = report[`${id}-${v.name}`], b = report[`${baseId}-${v.name}`]
   if (r.literalBackslashN) problems.push(`#${id} ${v.name}: 화면에 '\\n' 글자가 그대로 보임`)
+  if (r.emptyImageBox) problems.push(`#${id} ${v.name}: '채용 이미지' 칸이 비어 있음`)
   if (r.brokenImages.length) problems.push(`#${id} ${v.name}: 깨진 이미지 ${r.brokenImages.length}개 ${JSON.stringify(r.brokenImages)}`)
   if (id === baseId) continue
   if (r.map !== b.map) problems.push(`#${id} ${v.name}: 지도 종류가 기준과 다름 (기준 ${b.map}, 대상 ${r.map})`)

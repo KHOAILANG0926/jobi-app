@@ -15,3 +15,8 @@ assert(companyLogoUrl('http://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object
 assert(companyLogoUrl(undefined) === undefined && companyLogoUrl('') === undefined && companyLogoUrl('not a url') === undefined, 'empty or invalid values fall back')
 
 console.log('companyLogo.test.ts: source-site logo blocking assertions passed')
+
+import { jobImagePublicUrl } from './companyLogo'
+assert(jobImagePublicUrl('kda/kda-20261013.png') === 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/kda/kda-20261013.png', 'storage path → public url')
+assert(jobImagePublicUrl('https://raw.githubusercontent.com/x/y.png') === undefined, 'outside allowlist blocked')
+assert(jobImagePublicUrl('../secret.png') === undefined, 'path traversal blocked')
