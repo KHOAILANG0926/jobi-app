@@ -12097,15 +12097,16 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   height: 16px;
   min-height: 16px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: flex-end;
+  gap: 8px;
 }
 .jd2-header .jd2-header__meta .jd2-meta-item {
-  position: absolute;
-  right: 0;
-  bottom: 16px;
+  /* 2026-10-18: 위치 글자가 길면 혜택 아이콘 위로 겹쳐 보이던 문제(KDA·#4828 모바일, #4828 PC) — 겹치지 않게 같은 줄 왼쪽에 두고 넘치면 말줄임 */
+  position: static;
+  flex: 1 1 auto;
+  min-width: 0;
   margin-left: 0;
-  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

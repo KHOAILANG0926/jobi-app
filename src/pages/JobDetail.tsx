@@ -21,7 +21,7 @@ import { fetchEmployerJobCount } from '../lib/jobRows'
 import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
-import { companyLogoUrl } from '../lib/companyLogo'
+import { companyLogoUrl, jobImagePublicUrl } from '../lib/companyLogo'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility } from '../lib/jobDetailSections'
@@ -324,7 +324,7 @@ export function JobDetail() {
         </>
       ) : undefined, 'jd2-info-val--salary'),
     row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng',
-      isAllowanceNote ? salaryNote : undefined),
+      isAllowanceNote && salaryNote ? <span className="jd2-salary-lines">{salaryNote.split(/\s*;\s*/).filter(Boolean).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span> : undefined),
     row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
     row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
     row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
@@ -429,7 +429,9 @@ export function JobDetail() {
     { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
   ] as const
   const logoUrl = companyLogoUrl(job.imageUrl)
-  const extraImages = job.images?.filter((u) => u !== logoUrl) ?? []
+  // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
+  // 우리 저장소 공개 주소로 바꿔 포스터를 크게 보여준다(상단 작은 로고와 같은 포스터여도 표시). 허용 목록 밖 이미지는 계속 막는다.
+  const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)
 
   const hasCompanyInfo = !!job.companyVerified || !!job.companyFoundedYear || !!job.hireCount || !!employerJobCount
     || !!job.laborContractPledge || !!job.socialInsurancePledge
@@ -639,11 +641,11 @@ export function JobDetail() {
                   <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
                   <div className="jd2-map-links">
                     {googleCompanyParkLink ? (
-                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+                      <GoogleDirectionsLink href={googleCompanyParkLink} />
                     ) : (
                       <>
                         {directionsPlan.tier === 'address' && directionsPlan.links.map((link) =>
-                          <a key={link.href} className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
+                          <GoogleDirectionsLink key={link.href} href={link.href} />
                         )}
                         {directionsPlan.tier === 'call' && <a className="jd2-map-dir" href={directionsPlan.href}>{directionsPlan.label}</a>}
                       </>
@@ -814,7 +816,7 @@ export function JobDetail() {
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
                   {park && googleCompanyParkLink && (
                     <div className="jd2-map-links">
-                      <a className="jd2-map-dir jd2-map-dir--google" href={googleCompanyParkLink} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+                      <GoogleDirectionsLink href={googleCompanyParkLink} />
                     </div>
                   )}
                   {parkDirection && (
@@ -827,7 +829,7 @@ export function JobDetail() {
                     <div className="jd2-map-links">
                       {directionsPlan.links.map((link) => (
                         <span key={link.href}>
-                          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">Chỉ đường (Google Maps) ↗</a>
+                          <GoogleDirectionsLink key={link.href} href={link.href} />
                         </span>
                       ))}
                       {directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
@@ -866,7 +868,8 @@ export function JobDetail() {
             {extraImages.length > 0 && (
               <div className="jd2-box">
                 <div className="jd2-card__body">
-                  <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>\n                  {extraImages.map((url, i) => (
+                  <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>
+                  {extraImages.map((url, i) => (
                     <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
                   ))}
                 </div>
@@ -993,4 +996,9 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
       )}
     </div>
   )
+}
+
+// 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
+function GoogleDirectionsLink({ href }: { href: string }) {
+  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
 }
