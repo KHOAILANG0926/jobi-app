@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 
 export const READER_ID = 'ai-v1'
-const MODEL = process.env.OCR_AI_MODEL || 'claude-sonnet-5-5'
+const MODEL = process.env.OCR_AI_MODEL || 'claude-haiku-5-5'
 
 const PROMPT = `Transcribe ALL text visible in this job poster image exactly as printed, line by line.
 Rules:
