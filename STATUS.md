@@ -5,7 +5,7 @@
 
 - 생성 시각: **2026-10-18 11:31 (VN)**
 - 기준 커밋: `48cef87` (fix: 직업분류는 원문 근거로 확인 가능한 단계까지 + OCR 칸 포스터 대응 (#123 재생성) (#128))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39097295065
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39097328530
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
