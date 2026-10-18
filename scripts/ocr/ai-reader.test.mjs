@@ -8,8 +8,8 @@ import { readImageAI } from './ai-reader.mjs'
 
 const fx = (n) => fileURLToPath(new URL(`../../test-fixtures/ocr/${n}`, import.meta.url))
 const CASES = [
-  // #4824 CTY KDA (기준 공고)
-  { name: '#4824 KDA', files: ['4824-kda.png'], job: { employer_phone: '0877880756', contact_zalo: null, salary: '310k/11h ca ngày, 360k/11h ca đêm', contact_name: 'NGOC ANH DUONG', company: 'CTY KDA', age_min: 14, age_max: 50 } },
+  // #4824 CTY KDA (기준 공고). 담당자 이름(NGOC ANH DUONG)은 원본 글에만 있고 포스터에는 없다 → 포스터 판독 정답에서 제외
+  { name: '#4824 KDA', files: ['4824-kda.png'], job: { employer_phone: '0877880756', contact_zalo: null, salary: '310k/11h ca ngày, 360k/11h ca đêm', contact_name: null, company: 'CTY KDA', age_min: 14, age_max: 50 } },
   // #4828 포스터만: 칸 배치 + 파란 띠 흰 글씨 전화번호 (Tesseract 실패 사례)
   { name: '#4828 poster-only', files: ['4828-mao-yen.png'], job: { employer_phone: '0342017663', contact_zalo: null, salary: '5.500.000đ/tháng', contact_name: null, company: '', age_min: null, age_max: null } },
 ]
@@ -22,6 +22,8 @@ for (const c of CASES) {
     // 없는 값을 만들어내지 않는지: 포스터에 없는 전화·급여는 반드시 불일치
     assert.equal(compareWithOcr({ ...c.job, employer_phone: '0912345678' }, text).status, 'mismatch', `${c.name}: 없는 전화가 통과`)
     assert.equal(compareWithOcr({ ...c.job, salary: '9.900.000đ/tháng' }, text).status, 'mismatch', `${c.name}: 없는 급여가 통과`)
+    // 포스터에 없는 이름을 지어내지 않는지
+    assert.equal(compareWithOcr({ ...c.job, contact_name: 'NGOC ANH DUONG' }, text).status, 'mismatch', `${c.name}: 포스터에 없는 이름이 통과`)
     console.log(`PASS ${c.name}`)
   } catch (e) {
     failed++
