@@ -1,6 +1,6 @@
 {
-  "id": "20261016-coordinate-ci-loader",
-  "request": "사용자 다시해: 전체검사 마지막 좌표 회귀의 모듈 로딩 오류를 기존 공식 테스트 명령으로 수정. 앱 변경 금지.",
+  "id": "occupation-any-level-20261018",
+  "request": "사용자 2026-10-18: 과도한 직업분류 공개 조건(공식 4·5단계 필수) 수정. 원문 근거로 확인 가능한 단계(1~5)까지 코드 지정, 세부 코드 미확정만으로 차단 금지. 업무 불명확·근거 누락·OCR 차단 유지. 실제 공고 #4824·#4827·#4828을 시험 사례로 등록. UI·지도 변경 없음. PR #120/#121 대체.",
   "mode": "targeted-fix",
   "rules": {
     "AGENTS.md": "e756dc5a73c11f0a00dac8fcec1ee4c7a30852e8a945f21457b8b77eb5f9a95d",
@@ -9,16 +9,45 @@
   },
   "patches": [
     {
-      "path": ".github/workflows/jobcard-integrity.yml",
-      "kind": "replace",
-      "before": "run: node src/lib/jobCoords.test.ts",
-      "after": "run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts"
+      "path": ".github/workflows/occupation-publication-check.yml",
+      "kind": "create",
+      "after": "name: Occupation publication gate regression\non:\n  pull_request:\n  push:\n    branches: [master]\npermissions:\n  contents: read\njobs:\n  publication-gate:\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 22\n      - name: Real-case publication regression (#4824 pass, #4827 hold, #4828 pass; no production access)\n        run: |\n          npm i --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8\n          node supabase/tests/occupation_publication.pglite.test.mjs\n      - name: OCR republish follows the same occupation rule\n        run: node scripts/ocr/ocr-compare.test.mjs\n"
     },
     {
-      "path": ".github/workflows/app-screen-check.yml",
+      "path": "AGENTS.md",
       "kind": "replace",
-      "before": "      - name: PC·모바일 화면 검사",
-      "after": "      - name: 좌표 검사 실행 명령 검증\n        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts\n      - name: PC·모바일 화면 검사"
+      "before": "- 실패 시 완료 보고 금지. 운영 DB·파괴적 작업은 자동 배포 제외(별도 승인).\n",
+      "after": "- 실패 시 완료 보고 금지. 운영 DB·파괴적 작업은 자동 배포 제외(별도 승인).\n\n## 공고 등록 전 직업분류 확인 — MANDATORY (2026-10-17)\n- 공개 요청을 받더라도 먼저 실제 업무를 원문에서 확인하고 공식 직업분류의 명칭·업무 설명과 대조한다. 회사명·도구(휴대폰/컴퓨터)·급여만으로 직종을 추정하지 않는다.\n- 등록 기록에 원문 근거로 확인 가능한 단계까지의 공식 occupation_code(1~5단계)와 원문 그대로의 occupation_evidence를 함께 남긴다. 미기재 업무(조립/기계 운전 등)를 추정해 세부 코드를 채우지 않으며, 세부 코드 미확정만으로 비공개하지 않는다(2026-10-18). 공식 명칭은 occupation_master에서 조회하며 새 명칭/코드를 만들지 않는다.\n- 실제 업무를 특정할 수 없으면 미분류·active=false로 보류하고 사용자에게 이유를 보고한다. khac/기타, 금지 문구 없음, OCR 성공을 업무 확인 대신 사용하지 않는다.\n- 관리자·수집·OCR 모두 같은 DB 공개 게이트를 거친다. 분류 누락/무효 코드/원문 근거 누락은 비공개 유지. 코드와 원문 일부가 있다는 것만으로 의미까지 검증됐다고 보고하지 않는다.\n- 강제 장치: DB 트리거 trg_zzzz_occupation_publication·R8 + 실제 공고 시험 supabase/tests/occupation_publication.pglite.test.mjs (새 공고 사례는 이 파일에 추가).\n"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "replace",
+      "before": "    포함/제외를 명시적으로 판단한다.\n",
+      "after": "    포함/제외를 명시적으로 판단한다.\n\n## 공고 등록 전 직업분류 확인 — MANDATORY (2026-10-17)\n- 공개 요청을 받더라도 먼저 실제 업무를 원문에서 확인하고 공식 직업분류의 명칭·업무 설명과 대조한다. 회사명·도구(휴대폰/컴퓨터)·급여만으로 직종을 추정하지 않는다.\n- 등록 기록에 원문 근거로 확인 가능한 단계까지의 공식 occupation_code(1~5단계)와 원문 그대로의 occupation_evidence를 함께 남긴다. 미기재 업무(조립/기계 운전 등)를 추정해 세부 코드를 채우지 않으며, 세부 코드 미확정만으로 비공개하지 않는다(2026-10-18). 공식 명칭은 occupation_master에서 조회하며 새 명칭/코드를 만들지 않는다.\n- 실제 업무를 특정할 수 없으면 미분류·active=false로 보류하고 사용자에게 이유를 보고한다. khac/기타, 금지 문구 없음, OCR 성공을 업무 확인 대신 사용하지 않는다.\n- 관리자·수집·OCR 모두 같은 DB 공개 게이트를 거친다. 분류 누락/무효 코드/원문 근거 누락은 비공개 유지. 코드와 원문 일부가 있다는 것만으로 의미까지 검증됐다고 보고하지 않는다.\n- 강제 장치: DB 트리거 trg_zzzz_occupation_publication·R8 + 실제 공고 시험 supabase/tests/occupation_publication.pglite.test.mjs (새 공고 사례는 이 파일에 추가).\n"
+    },
+    {
+      "path": "scripts/ocr/ocr-check.mjs",
+      "kind": "replace",
+      "before": "    origin, publish_gate_reason, admin_hidden, created_at, application_deadline\n",
+      "after": "    occupation_code, occupation_evidence, source_text,\n    origin, publish_gate_reason, admin_hidden, created_at, application_deadline\n"
+    },
+    {
+      "path": "scripts/ocr/ocr-compare.mjs",
+      "kind": "replace",
+      "before": "  // origin='admin'은 publish_gate_reason을 채우는 코드가 없다(크롤러 전용 값). 관리자가 직접 등록·승인했으므로 이 값은 보지 않는다(2026-10-14 결정 A).\n",
+      "after": "  // origin='admin'은 publish_gate_reason을 채우는 코드가 없다(크롤러 전용 값). 관리자 등록도 직업코드·원문 근거 확인은 필수이며 이 크롤러 전용 값만 보지 않는다(2026-10-14 결정 A).\n  const evidence = String(job.occupation_evidence ?? '').normalize('NFC').trim().toLowerCase()\n  const source = String(job.source_text ?? '').normalize('NFC').toLowerCase()\n  if (!/^\\d{1,5}$/.test(String(job.occupation_code ?? '')) || !evidence || !source.includes(evidence)) return false\n"
+    },
+    {
+      "path": "scripts/ocr/ocr-compare.test.mjs",
+      "kind": "replace",
+      "before": "const j0 = { origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }\nassert.equal(canRepublish(j0, '2026-10-15'), true)\nassert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, publish_gate_reason: null }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, admin_hidden: true }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, application_deadline: '2026-10-01' }, '2026-10-15'), false)\n// admin 공고: publish_gate_reason이 NULL이어도 재공개 가능, 나머지 조건은 동일\nconst ja = { ...j0, origin: 'admin', publish_gate_reason: null }\nassert.equal(canRepublish(ja, '2026-10-15'), true)\nassert.equal(canRepublish({ ...ja, admin_hidden: true }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...ja, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...ja, application_deadline: '2026-10-01' }, '2026-10-15'), false)\n",
+      "after": "const j0 = { occupation_code: '82022', occupation_evidence: 'làm linh kiện tai nghe', source_text: 'CTY KDA tuyển làm linh kiện tai nghe', origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }\nassert.equal(canRepublish(j0, '2026-10-15'), true)\nassert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, publish_gate_reason: null }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, admin_hidden: true }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...j0, application_deadline: '2026-10-01' }, '2026-10-15'), false)\n// admin 공고: publish_gate_reason이 NULL이어도 재공개 가능, 나머지 조건은 동일\nconst ja = { ...j0, origin: 'admin', publish_gate_reason: null }\nassert.equal(canRepublish(ja, '2026-10-15'), true)\nassert.equal(canRepublish({ ...ja, admin_hidden: true }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...ja, created_at: '2026-09-01T00:00:00Z' }, '2026-10-15'), false)\nassert.equal(canRepublish({ ...ja, application_deadline: '2026-10-01' }, '2026-10-15'), false)\n\nassert.equal(canRepublish({ ...ja, occupation_code: null }), false, 'unclassified admin must not republish');\nassert.equal(canRepublish({ ...ja, occupation_evidence: '' }), false, 'missing duty evidence must not republish');\nassert.equal(canRepublish({ ...ja, source_text: 'Làm trên ĐT + Máy tính' }), false, 'evidence absent from source must not republish');\n// 2026-10-18: 세부 코드 미확정(1단계 코드)만으로 재공개를 막지 않는다 — 실제 #4828 사례\nassert.equal(canRepublish({ ...ja, occupation_code: '8', occupation_evidence: 'Sản xuất dây truyền dữ liệu, dây mạng', source_text: 'CÔNG VIỆC\\nSản xuất dây truyền dữ liệu, dây mạng.' }, '2026-10-18'), true, 'level-1 code with source evidence may republish');\n"
+    },
+    {
+      "path": "src/types/job.ts",
+      "kind": "replace",
+      "before": "  /** local_jobs.occupation_code — 공식 직업코드(QĐ 34/2020, 4·5단계). 없으면 미분류. 규칙 R8. */\n",
+      "after": "  /** local_jobs.occupation_code — 공식 직업코드(QĐ 34/2020, 1~5단계 — 원문 근거로 확인 가능한 단계까지). 없으면 미분류. 규칙 R8. */\n"
     }
   ]
 }
