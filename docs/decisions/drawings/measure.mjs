@@ -141,7 +141,7 @@ function measureCardInPage(id) {
   const r1 = (n) => Math.round(n * 10) / 10
   const vis = (el) => !!el && !!(el.offsetWidth || el.offsetHeight) && getComputedStyle(el).display !== 'none'
   const card = [...document.querySelectorAll('.jc[data-job-id]')].filter(vis).find((c) => String(c.getAttribute('data-job-id')).replace(/\D/g, '') === String(id))
-  if (!card) return { 'card.missing': true, 'diag.jc': document.querySelectorAll('.jc').length, 'diag.jcVisible': [...document.querySelectorAll('.jc')].filter(vis).length, 'diag.ids': [...document.querySelectorAll('.jc[data-job-id]')].map((c) => c.getAttribute('data-job-id')).join(','), 'diag.url': location.href }
+  if (!card) return { 'card.missing': true, 'diag.jc': document.querySelectorAll('.jc').length, 'diag.jcVisible': [...document.querySelectorAll('.jc')].filter(vis).length, 'diag.ids': [...document.querySelectorAll('.jc[data-job-id]')].map((c) => c.getAttribute('data-job-id')).join(','), 'diag.url': location.href, 'diag.hiddenBy': (() => { let e = document.querySelector('.jc'); while (e && e !== document.body) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || e.offsetWidth === 0) { const p = e.parentElement; if (!p || getComputedStyle(p).display !== 'none' && p.offsetWidth > 0) return e.tagName + '.' + e.className + ' display=' + cs.display + ' w=' + e.offsetWidth } e = e.parentElement } return 'none' })() }
   const C = card.getBoundingClientRect()
   const out = { 'card.w': r1(C.width), 'card.h': r1(C.height) }
   const st = getComputedStyle(card); out['card.padding'] = st.padding; out['card.radius'] = st.borderRadius; out['card.border'] = st.border
