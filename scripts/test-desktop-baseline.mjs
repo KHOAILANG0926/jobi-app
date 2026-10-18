@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-18: JobDetail.tsx·index.css 기준값을 Lee 지시 변경(PR #136·#137·#138·#140) 반영값으로 갱신. 상세 화면 틀은 이제 도면(결정 0005)으로도 검사.
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import assert from 'node:assert/strict'
@@ -47,12 +48,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "d808ea7526df84d08c6b68d409d2183ddcb73b42b8f7a9276f3b1dacd7a259c6",
+    "sha256": "d8b040d064f840470cfae326b9ebee6f6093c0c522ddac30d3464963f96bdf69",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "a0be889c353ffdc4d573f2da7554a4828891526a216eacbdace9daf68812169a",
+    "sha256": "7cd680780d9f0047964d8d9aef5663cc81a201d7dd470f3eb48b779daf53ff7c",
     "restore": []
   },
   {

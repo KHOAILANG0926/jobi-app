@@ -8,6 +8,7 @@ on:
       - 'src/pages/Home.tsx'
       - 'src/main.tsx'
       - 'scripts/test-mobile-home.mjs'
+      - 'scripts/test-desktop-baseline.mjs'
       - '.github/workflows/mobile-home-preview.yml'
 permissions:
   contents: read
