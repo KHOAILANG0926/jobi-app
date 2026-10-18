@@ -12307,3 +12307,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-header__actions { display: contents; }
   .jd2-header__actions .jd2-meta-date--top { display: none; }
 }
+
+/* 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄(항목 중간 꺾임 금지), 한 칸 최대 3줄, 넘치면 'Xem thêm'. PC·모바일 공통. */
+.jd2-sec--conditions-grid dd { position: relative; }
+.jd2-cond-item { white-space: nowrap; }
+.jd2-cond-measure { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+.jd2-cond-measure .jd2-cond-item { display: block; width: max-content; }
+.jd2-cond-more { background: none; border: 0; padding: 0; font: inherit; color: var(--jd2-link, #2563eb); cursor: pointer; text-decoration: underline; }

@@ -22,9 +22,11 @@ import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapL
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl, jobImagePublicUrl } from '../lib/companyLogo'
+import { ConditionLines } from '../components/ConditionLines'
+import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility } from '../lib/jobDetailSections'
+import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -32,6 +34,11 @@ import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
 import { useWardCenter } from '../lib/wardAreaClient'
 import { findIndustrialPark } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
+
+// 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
+const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
+  allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
+}
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
@@ -78,6 +85,18 @@ export function JobDetail() {
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // 근무조건 칸 중 'Xem thêm'으로 접힌 칸(키 → 소제목·이름·원문). 상세요강에 같은 내용이 없으면 그곳에 보여 준다.
+  const [conditionOverflow, setConditionOverflowState] = useState<Record<string, { label: string; text: string }>>({})
+  const setConditionOverflow = useCallback((key: string, label: string, text: string, overflow: boolean) => {
+    setConditionOverflowState((prev) => {
+      const has = prev[key]?.text === text && prev[key]?.label === label
+      if (overflow ? has : !prev[key]) return prev
+      const next = { ...prev }
+      if (overflow) next[key] = { label, text }
+      else delete next[key]
+      return next
+    })
+  }, [])
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
   const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
@@ -166,6 +185,11 @@ export function JobDetail() {
   const scrollToSection = useCallback((k: JobSection) => {
     setActiveTab(tabOfSection(k))
     document.getElementById(jobSectionId(k))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+  const scrollToDetail = useCallback((key: DetailTextKey) => {
+    setActiveTab(tabOfSection('description'))
+    const target = document.getElementById(`jd2-detail-${key}`) ?? document.getElementById(jobSectionId('description'))
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
   // "최근 본 공고" — 상세페이지를 실제로 열람했을 때만 기록한다(목록 카드
@@ -305,6 +329,9 @@ export function JobDetail() {
   const periodLabel = salaryPeriodLabel(job.salaryPeriod)
   const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
     value ? ({ key, icon, label, value, cls } as InfoField) : null
+  // 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄, 최대 3줄, 넘치면 'Xem thêm' → 상세요강 해당 소제목.
+  const textRow = (key: string, icon: ReactNode, label: string, value: string | undefined) =>
+    value ? row(key, icon, label, <ConditionLines text={value} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
@@ -325,14 +352,13 @@ export function JobDetail() {
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng',
-      isAllowanceNote && salaryNote ? <span className="jd2-salary-lines">{salaryNote.split(/\s*;\s*/).filter(Boolean).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span> : undefined),
-    row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
-    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
-    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
-    row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
-    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
-    row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
+    textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
+    textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
+    textRow('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
+    textRow('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
+    textRow('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
+    textRow('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
+    textRow('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
     row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
@@ -434,7 +460,7 @@ export function JobDetail() {
   const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
   const conditionPcFields = [
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
-    row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', activeBenefitText || undefined),
+    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', activeBenefitText || undefined),
   ].filter(Boolean) as InfoField[]
   const logoUrl = companyLogoUrl(job.imageUrl)
   // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
@@ -447,7 +473,21 @@ export function JobDetail() {
   // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
   const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
   // 상세요강은 남은 문장 행(또는 추가 사진)이 하나도 없으면 구역·탭을 숨긴다.
-  const showDescriptionSection = detail.sections.length > 0 || extraImages.length > 0
+  // 접힌 근무조건 칸 중 상세요강에 같은 내용이 없는 것 → 해당 소제목에 원문 그대로 추가 표시(글자 변경 없음)
+  const conditionExtras: Partial<Record<DetailTextKey, { label: string; text: string }[]>> = {}
+  for (const [key, { label, text }] of Object.entries(conditionOverflow)) {
+    const target = CONDITION_DETAIL_KEY[key] ?? '07'
+    const items = conditionItems(text)
+    const lines = detail.sections.find((sec) => sec.key === target)?.lines ?? []
+    if (itemsCoveredBy(items, lines)) continue
+    ;(conditionExtras[target] ??= []).push({ label, text })
+  }
+  const descriptionSections = [...detail.sections]
+  for (const key of Object.keys(conditionExtras) as DetailTextKey[]) {
+    if (!descriptionSections.some((sec) => sec.key === key)) descriptionSections.push({ key, label: DETAIL_LABELS[key], lines: [] })
+  }
+  descriptionSections.sort((a, b) => a.key.localeCompare(b.key))
+  const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
@@ -866,12 +906,15 @@ export function JobDetail() {
           {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-            {detail.sections.length > 0 && (
+            {descriptionSections.length > 0 && (
               <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
-                {detail.sections.map((section) => (
-                  <section key={section.key} className="jd2-detail-section">
+                {descriptionSections.map((section) => (
+                  <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
                     <h3 className="jd2-detail-section__title">{section.label}</h3>
                     <div className="jd2-detail-section__lines">
+                      {conditionExtras[section.key]?.map((extra) => (
+                        <p key={extra.label} className="jd2-detail-section__line jd2-detail-section__line--condition">{extra.label}: {extra.text}</p>
+                      ))}
                       {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line}</p>)}
                     </div>
                   </section>
