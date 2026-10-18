@@ -62,6 +62,10 @@ function measureInPage() {
   if (vis(loc) && benefits && vis(info)) {
     const lb = box(loc), ib = box(info)
     out['header.location.right-gap'] = r1(ib.r - lb.r)
+    out['header.location.right-gap-to-card'] = r1(H.r - lb.r)
+    out['header.location.lines'] = Math.round(lb.h / parseFloat(getComputedStyle(loc).lineHeight || '18'))
+    out['header.info.w'] = r1(ib.w)
+    out['header.title.w'] = r1(box(header.querySelector('h1')).w)
     out['header.location.bottom-vs-benefits-bottom'] = r1(lb.bottom - benefits.bottom)
     out['header.location.left-minus-benefits-right'] = r1(lb.x - (benefits.x + benefits.w))
   }
