@@ -46,3 +46,15 @@ assert(total<=2,'multiple workplaces share the two-call cap')
 console.log('autoLocationResolver: exact match, ambiguity, wrong Place, multi-workplace passed')
 const deferred=await resolver.resolveAutoLocation(job,{...deps,async reserve(){return false}})
 assert(deferred.deferred===true,'daily budget refusal must defer instead of permanently marking unresolved')
+
+{
+  // 2026-10-18 #4828: 새 2단계 주소 + 저장된 동 좌표 → VietMap 호출 0번으로 동 중심
+  let calls = 0
+  const addr = 'Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh'
+  const r = await resolver.resolveAutoLocation({ id: 4828, company: '', location: addr, targets: [{ address: addr, workLocationId: 1 }] }, {
+    ...deps, async reserve() { return true }, async request() { calls++; return [] },
+    async wardCenter(unit) { return unit.key === 'phuong:phuong lieu||bac ninh' ? { lat: 21.1568, lng: 106.1275, at: '2026-10-08T06:40:06Z' } : null },
+  })
+  assert(r.kind === 'area' && calls === 0 && (r as { lat: number }).lat === 21.1568, '2-level address uses stored ward center without VietMap calls')
+  console.log('autoLocationResolver: 2-level ward cache assertions passed')
+}

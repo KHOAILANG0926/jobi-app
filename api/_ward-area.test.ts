@@ -56,4 +56,11 @@ async function run(req: { method?: string; query?: Record<string, unknown> }, pa
   const broken = await run({ query: { key: KEY } }, cache, true)
   assert(broken.res.code === 503 && broken.res.headers['Cache-Control'] === 'no-store', 'store failure → 503, not cached')
 }
+{
+  // 2026-10-18 새 2단계 key(구 빈칸) → 옛 3단계로 저장된 좌표 재사용
+  const two = await run({ query: { key: 'xa:tam da||bac ninh' } })
+  assert(two.res.code === 200 && (two.res.body as { found: boolean; lat: number }).found && (two.res.body as { lat: number }).lat === 21.2, '2-level key reuses stored 3-level center')
+  const none = await run({ query: { key: 'xa:khong co||bac ninh' } })
+  assert(none.res.code === 200 && !(none.res.body as { found: boolean }).found, 'unknown 2-level ward → found:false')
+}
 console.log('ward-area api tests: all assertions passed')

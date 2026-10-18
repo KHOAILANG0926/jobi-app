@@ -60,7 +60,7 @@ export function pickWardHit(unit: WardUnit, hits: unknown): { hit: SearchHit | n
   })
   const scored = named.map((h) => {
     const text = ` ${normalizePlaceText(`${h.address ?? ''} ${h.display ?? ''}`)} `
-    const inDistrict = text.includes(` ${unit.district} `)
+    const inDistrict = !!unit.district && text.includes(` ${unit.district} `)
     const inProvince = text.includes(` ${unit.province} `)
     return { h, score: (inDistrict ? 2 : 0) + (inProvince ? 1 : 0) }
   }).filter((x) => x.score > 0)
