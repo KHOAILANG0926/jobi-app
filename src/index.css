@@ -12349,20 +12349,20 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-ride-bike__seat { stroke: #1f2937; stroke-width: 2.4; }
 .jd2-ride-bike__body { animation: none; } .jd2-ride-bike { display: none; } }
 
-/* 2026-10-19 Lee: 상세요강 알바몬(원익QnC 공고) 방식 — 왼쪽 칸 이름 · 오른쪽 내용, 칸 사이 가는 선, 맨 위 진한 선. 장식·아이콘 없음. */
-.jd2-detail-sections { padding: 1.1rem 1.55rem 1.2rem; }
-.jd2-detail-section {
-  display: grid; grid-template-columns: 190px minmax(0, 1fr); column-gap: 1.5rem;
-  padding: 1.05rem 0; border-top: 1px solid #e5e7eb;
+/* 2026-10-19 Lee: 상세요강 알바몬 공고 디자인 — 칸 제목 왼쪽 옅은 갈색 세로 막대 + 굵은 제목, 내용은 • 점 목록, 칸 사이는 여백만. */
+.jd2-detail-sections { padding: 1.6rem 1.9rem 1.7rem; }
+.jd2-detail-section { padding: 0; border: 0; }
+.jd2-detail-section + .jd2-detail-section { border-top: 0; margin-top: 2.1rem; padding-top: 0; }
+.jd2-detail-section__title {
+  display: flex; align-items: center; gap: .75rem; margin: 0 0 .9rem;
+  font-size: 1.12rem; font-weight: 700; color: #1f2937; line-height: 1.3;
 }
-.jd2-detail-section:first-child { border-top: 2px solid #4b5563; }
-.jd2-detail-section:last-child { border-bottom: 1px solid #e5e7eb; }
-.jd2-detail-section + .jd2-detail-section { margin-top: 0; padding-top: 1.05rem; }
-.jd2-detail-section__title { margin: 0; font-size: .98rem; font-weight: 700; color: #111827; line-height: 1.65; }
-.jd2-detail-section__lines { gap: .3rem; }
-.jd2-detail-section__line { color: #1f2937; line-height: 1.65; }
+.jd2-detail-section__title::before { content: ''; flex: none; width: 6px; height: 1.25em; background: #c09b96; }
+.jd2-detail-section__lines { display: grid; gap: .55rem; padding-left: .35rem; }
+.jd2-detail-section__line { position: relative; padding-left: 1.15rem; color: #1f2937; line-height: 1.6; }
+.jd2-detail-section__line::before { content: ''; position: absolute; left: .2rem; top: .68em; width: 5px; height: 5px; border-radius: 50%; background: #1f2937; }
 @media (max-width: 640px) {
-  .jd2-detail-sections { padding: .9rem 1rem 1rem; }
-  .jd2-detail-section { grid-template-columns: 1fr; row-gap: .45rem; padding: .9rem 0; }
-  .jd2-detail-section + .jd2-detail-section { padding-top: .9rem; }
+  .jd2-detail-sections { padding: 1.1rem 1rem 1.2rem; }
+  .jd2-detail-section + .jd2-detail-section { margin-top: 1.6rem; }
+  .jd2-detail-section__title { font-size: 1.05rem; }
 }

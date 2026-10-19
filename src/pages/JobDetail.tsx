@@ -941,7 +941,7 @@ export function JobDetail() {
                       {conditionExtras[section.key]?.map((extra) => (
                         <p key={extra.label} className="jd2-detail-section__line jd2-detail-section__line--condition">{extra.label}: {extra.text}</p>
                       ))}
-                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line}</p>)}
+                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line.replace(/^\s*[-•*]\s+/, '')}</p>)}
                     </div>
                   </section>
                 ))}
