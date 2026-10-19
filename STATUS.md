@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-20 06:08 (VN)**
+- 생성 시각: **2026-10-20 06:09 (VN)**
 - 기준 커밋: `e6cbbb6` (상세요강 빠진 줄 자동 보충: 원문·포스터에 있는데 공고 글에 없는 줄을 글자 그대로 맞는 칸에 채움 (막지 않음, Lee 2026-10-20) (#167))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39339635322
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39339674476
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
