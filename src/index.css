@@ -12366,3 +12366,16 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-detail-section + .jd2-detail-section { margin-top: 1.6rem; }
   .jd2-detail-section__title { font-size: 1.05rem; }
 }
+
+/* 2026-10-19 Lee: 채용 이미지 갤러리 — 같은 크기 작은 사진 한 줄(휴대폰은 옆으로 밀기), 누르면 크게. 회색 바탕 없음. */
+.jd2-gallery { display: flex; gap: .75rem; overflow-x: auto; padding: .15rem 0 .35rem; scroll-snap-type: x mandatory; }
+.jd2-gallery__thumb { flex: none; width: 150px; height: 150px; padding: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; cursor: zoom-in; scroll-snap-align: start; }
+.jd2-gallery__thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.jd2-gallery__thumb:hover { border-color: #e58aa0; }
+.jd2-lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(15, 23, 42, .88); display: flex; align-items: center; justify-content: center; padding: 3rem 1rem; }
+.jd2-lightbox img { max-width: min(100%, 900px); max-height: 100%; object-fit: contain; border-radius: 4px; background: #fff; }
+.jd2-lightbox__close { position: absolute; top: .75rem; right: 1rem; width: 2.5rem; height: 2.5rem; border: 0; background: transparent; color: #fff; font-size: 2rem; line-height: 1; cursor: pointer; }
+.jd2-lightbox__nav { position: absolute; top: 50%; transform: translateY(-50%); width: 2.75rem; height: 4rem; border: 0; background: rgba(255,255,255,.12); color: #fff; font-size: 2.2rem; cursor: pointer; }
+.jd2-lightbox__nav--prev { left: .5rem; } .jd2-lightbox__nav--next { right: .5rem; }
+.jd2-lightbox__count { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); color: #e5e7eb; font-size: .9rem; }
+@media (max-width: 640px) { .jd2-gallery__thumb { width: 120px; height: 120px; } .jd2-lightbox__nav { display: none; } }
