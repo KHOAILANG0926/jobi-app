@@ -12314,3 +12314,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-cond-measure { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .jd2-cond-measure .jd2-cond-item { display: block; width: max-content; }
 .jd2-cond-more { background: none; border: 0; padding: 0; font: inherit; color: var(--jd2-link, #2563eb); cursor: pointer; text-decoration: underline; }
+
+/* 2026-10-19 Lee 데모(1+4): Google 길찾기 글자 앞 빨간 지도 핀 + 지도 누르면 Google 길찾기 */
+.jd2-google-pin { width: 24px; height: 24px; flex: none; fill: #ea4335; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.jd2-map-tap { cursor: pointer; }

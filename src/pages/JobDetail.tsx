@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
@@ -60,7 +60,8 @@ function nonEmpty(v: string | null | undefined): string | undefined {
 // (에러도 미완료 경계도 아님), 클라이언트도 최초 hydration 순간엔 똑같이
 // null이었다가(같은 구조라 mismatch 없음) 그 다음 effect에서 실제 지도로
 // 바뀐다.
-function ClientOnlyMap(props: JobVietMapProps) {
+// 2026-10-19 Lee 데모(1+4): 지도를 눌렀을 때(끌기가 아니라 짧게 누름) Google 길찾기를 연다. 지도 단추(확대 등)는 제외.
+function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: string }) {
   const [Comp, setComp] = useState<ComponentType<JobVietMapProps> | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -69,9 +70,25 @@ function ClientOnlyMap(props: JobVietMapProps) {
     })
     return () => { cancelled = true }
   }, [])
+  const down = useRef<{ x: number; y: number } | null>(null)
   if (!Comp) return null
   const Map = Comp
-  return <Map {...props} />
+  if (!tapHref) return <Map {...props} />
+  return (
+    <div
+      className="jd2-map-tap"
+      onPointerDown={(e) => { down.current = { x: e.clientX, y: e.clientY } }}
+      onPointerUp={(e) => {
+        const start = down.current
+        down.current = null
+        if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return
+        if ((e.target as HTMLElement).closest('button, a, [class*="ctrl"]')) return
+        window.open(tapHref, '_blank', 'noopener,noreferrer')
+      }}
+    >
+      <Map {...props} />
+    </div>
+  )
 }
 
 type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
@@ -420,6 +437,9 @@ export function JobDetail() {
   // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
   // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
   const directionsPlan = planJobDirections(job)
+  // 지도 누르면 열 Google 길찾기(아래 Google 버튼과 같은 주소). 없으면 지도 누르기는 아무 일도 안 함.
+  const googleMapHref = googleCompanyParkLink
+    ?? (directionsPlan.tier === 'address' || directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : undefined)
   const mapDirections = directionsPlan.tier === 'approved' ? directionsPlan.links : []
   const park = !hasMapPoints
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
@@ -686,7 +706,7 @@ export function JobDetail() {
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
                   )}
-                  <ClientOnlyMap
+                  <ClientOnlyMap tapHref={googleMapHref}
                     lat={unverifiedMapViewport.lat}
                     lng={unverifiedMapViewport.lng}
                     title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
@@ -827,7 +847,7 @@ export function JobDetail() {
                       resolveMapLocations()가 이미 우선순위대로 골라준 점들이다. */}
                   {hasMapPoints && mapCenter && (
                     <>
-                      <ClientOnlyMap
+                      <ClientOnlyMap tapHref={googleMapHref}
                         lat={mapCenter.lat}
                         lng={mapCenter.lng}
                         title={job.title}
@@ -844,13 +864,13 @@ export function JobDetail() {
                   )}
                   {park && (
                     <>
-                      <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
                       <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
                     <>
-                      <ClientOnlyMap lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
                       <p className="jd2-map-pending-note jd2-map-area-note">
                         {/* 2026-10-19 Lee: 구구절절 쓰지 않는다 — 대략 어디인지 + 정확도 한마디만. 정확한 길은 아래 Google 버튼. */}
                         <strong>Khu vực {wardUnit.label}</strong> (vị trí gần đúng)
@@ -1057,5 +1077,5 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
 function GoogleDirectionsLink({ href }: { href: string }) {
-  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
 }
