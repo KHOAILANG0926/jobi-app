@@ -2,7 +2,7 @@
 요청: 상세요강 칸 구성(알바몬 참고)·사진 칸·진행 알림 프로세스.
 변경: #163(상세요강 01~07 + 08 사진 칸, 핑크 세로 막대·글머리표, 사진 썸네일 누르면 크게), #164(결정 0007 공고 상세 구성, 열림·Lee 승인 대기), #165(08 사진 칸 제목 막대 제거 + CLAUDE.md "진행 알림·화면 변경 프로세스").
 수정 파일: src/lib/jobDetailSections.ts·test, src/pages/JobDetail.tsx, src/index.css, CLAUDE.md, docs/decisions/*/0007.
-검증: 정답표 시험(#4824·#4828), PR 필수 검사 통과, #165 Vercel 운영 배포 success(9b926f7). deploy-verify: DEPLOY_VERIFY_RESULT.
+검증: 정답표 시험(#4824·#4828), PR 필수 검사 통과, #165 Vercel 운영 배포 success(9b926f7). deploy-verify: 통과(run 39287685481).
 남은 문제: #4828 상세요강 누락 줄("Không cửa từ…", 회사 소개) + OCR 누락 검사(Lee 답 대기), #154 재작성, 위치 허용, 번지 형식, 도면 재측정.
 
 ## 2026-10-19 21:30
