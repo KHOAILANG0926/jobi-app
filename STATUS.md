@@ -3,28 +3,33 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-19 23:48 (VN)**
-- 기준 커밋: `a6f0efb` (HANDOFF·WORK_LOG 갱신 (10-19 밤) (#166))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39288474156
+- 생성 시각: **2026-10-20 06:08 (VN)**
+- 기준 커밋: `e6cbbb6` (상세요강 빠진 줄 자동 보충: 원문·포스터에 있는데 공고 글에 없는 줄을 글자 그대로 맞는 칸에 채움 (막지 않음, Lee 2026-10-20) (#167))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/39339635322
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 1건**
+**확인 필요 6건**
 
 - 검증 장치가 최근 바뀜 (f3a843f)
+- 규칙 시험 실패: R1_phone_digits_only
+- 규칙 시험 실패: R2_decision_columns_code_only
+- 규칙 시험 실패: R5_verbatim_names
+- 규칙 시험 실패: R7_ocr_crosscheck
+- 규칙 시험 실패: U2_age_min_under_15
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 63/63 파일 통과 |
+| 테스트 `npm test` | ✅ 64/64 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `a6f0efb` · 상태 **success** · 2026-10-19 23:48 (VN)
+- 마지막 Production 배포: `e6cbbb6` · 상태 **success** · 2026-10-20 06:08 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -32,6 +37,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #167 | 2026-10-20 06:07 (VN) | `e6cbbb6` | 상세요강 빠진 줄 자동 보충 (막지 않고 원문 글자 그대로 채움) |
 | #166 | 2026-10-19 23:47 (VN) | `a6f0efb` | HANDOFF·WORK_LOG 갱신 (10-19 밤) |
 | #165 | 2026-10-19 23:42 (VN) | `9b926f7` | 이미지 칸 제목 핑크 막대 빼기 + 진행 알림·화면 변경 프로세스 규정 |
 | #163 | 2026-10-19 23:24 (VN) | `e72dddd` | 상세요강 칸 나누기·알바몬 디자인·이미지 갤러리 (Lee 확정) |
@@ -41,7 +47,6 @@
 | #157 | 2026-10-19 07:52 (VN) | `3cc0902` | 시험: TomTom 번지 주소 검색 (VietMap 실패 8건) |
 | #156 | 2026-10-19 07:51 (VN) | `411490a` | 기록 보관 가지 Vercel 배포 중단 (배포 한도 초과 원인) |
 | #153 | 2026-10-18 23:02 (VN) | `e8a1310` | 위치: 공고 저장 즉시 Vercel에서 위치 찾기 + GitHub 예약 끄기 |
-| #152 | 2026-10-18 22:54 (VN) | `6092911` | 위치: 새 2단계 주소(동, 성) 읽기 + 저장된 동 좌표 재사용 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -93,16 +98,16 @@
 
 | 규칙 | 차단방식 | 마지막시험 | 결과 |
 |---|---|---|---|
-| `R1_phone_digits_only` | 없음 | 2026-10-18 15:23 (VN) | ✅ 통과 |
-| `R2_decision_columns_code_only` | 없음 | 2026-10-18 15:23 (VN) | ✅ 통과 |
+| `R1_phone_digits_only` | 없음 | 2026-10-20 06:08 (VN) | ❌ 실패 |
+| `R2_decision_columns_code_only` | 없음 | 2026-10-20 06:08 (VN) | ❌ 실패 |
 | `R2b_publish_gate_reason_code_only` | 없음 | — | — 시험 없음 |
-| `R3_source_evidence_required` | 저장거부 | 2026-10-18 15:23 (VN) | ✅ 통과 |
-| `R5_verbatim_names` | 저장거부 | 2026-10-18 15:23 (VN) | ✅ 통과 |
-| `R6_age_preserved` | 저장거부 | 2026-10-18 15:23 (VN) | ✅ 통과 |
+| `R3_source_evidence_required` | 저장거부 | 2026-10-20 06:08 (VN) | ✅ 통과 |
+| `R5_verbatim_names` | 저장거부 | 2026-10-20 06:08 (VN) | ❌ 실패 |
+| `R6_age_preserved` | 저장거부 | 2026-10-20 06:08 (VN) | ✅ 통과 |
 | `R4_policy_exclusion_trigger` | 저장거부 | — | — 시험 없음 |
-| `R7_ocr_crosscheck` | 보류 | 2026-10-18 15:23 (VN) | ✅ 통과 |
+| `R7_ocr_crosscheck` | 보류 | 2026-10-20 06:08 (VN) | ❌ 실패 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
-| `U2_age_min_under_15` | 없음 | 2026-10-18 15:23 (VN) | ✅ 통과 |
+| `U2_age_min_under_15` | 없음 | 2026-10-20 06:08 (VN) | ❌ 실패 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 
 - OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
