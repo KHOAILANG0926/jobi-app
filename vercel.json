@@ -34,6 +34,12 @@
     },
     "api/sitemap.xml.js": {
       "includeFiles": "{dist/**,node_modules/react-router/dist/**}"
+    },
+    "api/location-hook.js": {
+      "includeFiles": "dist/api-lib/**"
+    },
+    "api/admin-auto-location.js": {
+      "includeFiles": "dist/api-lib/**"
     }
   }
 }
