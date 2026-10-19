@@ -1,3 +1,10 @@
+## 2026-10-19 23:45
+요청: 상세요강 칸 구성(알바몬 참고)·사진 칸·진행 알림 프로세스.
+변경: #163(상세요강 01~07 + 08 사진 칸, 핑크 세로 막대·글머리표, 사진 썸네일 누르면 크게), #164(결정 0007 공고 상세 구성, 열림·Lee 승인 대기), #165(08 사진 칸 제목 막대 제거 + CLAUDE.md "진행 알림·화면 변경 프로세스").
+수정 파일: src/lib/jobDetailSections.ts·test, src/pages/JobDetail.tsx, src/index.css, CLAUDE.md, docs/decisions/*/0007.
+검증: 정답표 시험(#4824·#4828), PR 필수 검사 통과, #165 Vercel 운영 배포 success(9b926f7). deploy-verify: DEPLOY_VERIFY_RESULT.
+남은 문제: #4828 상세요강 누락 줄("Không cửa từ…", 회사 소개) + OCR 누락 검사(Lee 답 대기), #154 재작성, 위치 허용, 번지 형식, 도면 재측정.
+
 ## 2026-10-19 21:30
 요청: 위치 못 찾는 원인·대안 검토, 상세 근무지 문구·Google 길찾기 시각 효과.
 변경: #156(기록 가지 배포 중단), #157(TomTom 시험 API 서버 출입증 + 시험 워크플로), #160(동 지역 문구 줄임), #161(핀·글자 물결·지도 누르면 Google·스쿠터). #158 status 가지 배포 중단(라벨 대기). #159 원 테두리 효과는 Lee 반대로 닫음.
@@ -166,125 +173,4 @@
 - DB/Auth/RLS/STATUS 변경 금지. 회사 PC 파일 보관 안내 금지.
 - GitHub 링크로 사용자 보내지 않음. 미배포 수정은 운영 완료 보고 금지.
 
-
-## 2026-10-16 17:05 Asia/Bangkok
-요청: 왼쪽 신규 2개 공고 수정. 변경: JobCard 이미지 칸 조건 제거 1줄, CSS/오른쪽 틀 변경 없음. 이미지 없음 재현 테스트 실패 확인 후 수정. 승인된 변경에도 기존 trusted 기준 갱신을 거부하는 잠금 설계 결함 발견. 보호 우회/해제 없이 수정 PR과 실제 화면 CI 준비, 병합 차단 여부 확인 필요.
-
-이전 HANDOFF:
-# CHATGPT_HANDOFF — 승인된 공고 틀 자동 차단
-갱신: 2026-10-16 (Asia/Bangkok)
-
-## 1. 현재 상태
-- 사용자 요청은 문서 규칙과 자동 차단 장치. AGENTS.md·CLAUDE.md 규칙 PR #107 master 병합 9577c100.
-- 앱 코드·DB·Auth·좌표 변경 없음. 기존 왼쪽 2개 공고의 이미지 유무에 따른 배치 차이는 이번 작업에서 수정하지 않음.
-- 카드/상세/관련 CSS 및 보호 workflow 8파일 해시 고정. 기준 브랜치 검사기와 기준표로 PR 소스·기준표·검사기 변경 차단. 기존 필수 checks 연결.
-- 검사기 자기 변경으로 우회하지 못하도록 pull_request_target에서 read-only로 실행, 후보 코드는 실행하지 않음.
-- 원격 CI·위반 PR의 병합 거부·운영 결과는 이번 PR 기록으로 확인. 완료 전에는 강제 검증 완료 주장 금지.
-
-## 2. 다음 할 일 3개
-1. 최종 CI 통과 후 병합, 보호 workflow 운영 확인.
-2. 임시 위반 PR에서 자동 실패와 병합 거부 확인 후 닫기.
-3. 이번 작업은 왼쪽 공고 수정/전체 롤백이 아님. 추가 UI 변경은 사용자 지시에 따름.
-
-## 3. 필수 규칙
-- 승인된 틀 임의 변경 금지. 소스 해시 검사를 픽셀 비교로 보고하지 않음.
-- 회사 PC에 키/데이터/작업파일 저장 안내 금지. DB/Auth/RLS/STATUS 보호 유지.
-- 사용자에게 GitHub 이동 링크 금지. 성공 SHA 반복 검증 금지.
-
-
-## 2026-10-16 16:58 Asia/Bangkok
-요청: 공고 틀 임의 변경 자동 차단. 변경: 소스 해시 잠금·trusted base 검사·필수 checks 연결. 앱/DB 변경 없음. 검증: 수정·삭제·기준표·검사기 변조 차단, tsc/build, 전체 테스트와 원격 CI 추적. 최종 commit/배포 증거는 PR 기록.
-
-이전 HANDOFF:
-# CHATGPT_HANDOFF — PC 모바일 변경 직전 소스 그대로 복원
-갱신: 2026-10-16 (Asia/Bangkok)
-
-## 1. 현재 상태
-- [직접 확인] 사용자 재지시: 항목별 수정이 아니라 모바일 변경 직전 PC로 복원. 이전 PR #105 부분 복원은 완료 조건 미달. 기준 eb36b53443e1a9a3a2077d18447c490921baa5bb.
-- [직접 확인] HomeDesktop/LayoutDesktop/DesktopHomeMapExplorer/DesktopHomeMapCanvas/DesktopGeoapifyMapCanvas는 기준 원본을 사용, 분리 파일로 연결하는 import 경로만 변경. 원본 SHA256 대조 검사 5개 및 기존 JobDetail/index.css/apply.css 3개 추가.
-- [직접 확인] Home/Layout은 기존 760px 기준으로 PC 원본 또는 현재 모바일 버전을 선택. 모바일 전용 스타일 전체를 media 블록에 제한해 PC 적용 차단. 모바일 데이터/배너/필터 유지.
-- [직접 확인] 상세페이지와 기존 CSS는 원본 그대로, 새로운 디자인·부분 수정·임의 버전 선택 없음. DB/Auth/RLS/좌표/데이터 변경 없음.
-- [기존 기록] 운영 b2bfe48는 이전 부분 복원. 이번 exact 복원은 새 브랜치 fix/exact-desktop-baseline-20261016, 최종 CI/운영 증거는 새 PR 기록 참조.
-
-## 2. 다음 할 일 3개
-1. 원본 8파일 일치·tsc/build·PC/mobile 기존 회귀와 캡처 검증.
-2. 사용자 복원 지시에 따라 PR 병합, 같은 SHA Production READY 및 운영 PC/mobile 검사 확인.
-3. 실제 앱 링크와 확인 결과만 보고. 새 디자인 변경·사용자 GitHub 링크 이동 금지.
-
-## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. PC 부분 복원을 전체 원복으로 보고하지 않음. 원본 내용 비교 증거 필수.
-- 모바일 보존, 운영 DB/Auth/보안/좌표 승인 변경 금지. 회사 PC 보관·현장 확인 안내 금지.
-- STATUS와 기존 검증 장치 보호. 동일 성공 SHA 재검사 금지, 같은 원인 수정검증 2회 실패 시 중단.
-
-
-## 2026-10-16 — 모바일 홈 구성 1차 (Codex Work 원격 환경)
-
-- 요청: 사용자 제공 5분27초 알바몬 앱 영상에서 확인한 큰 구성 적용. 별도 브랜치·미리보기 검토 후 운영 반영.
-- 변경: 모바일 위치/검색/메뉴, 실제 공고 3개 묶음 넘김, 바로가기/가로 필터, 지도·목록, 실제 데이터가 있는 공고 섹션, 하단 4개 기존 라우트. PC 최초 위치 안내. 원래 방향: 큰 한국 Hero→지도 우선; 새 모바일 방향: 작은 Korea 모듈 슬롯→대표 공고→탐색→지도/목록.
-- 수정 파일: Home/Layout/main, HomeMapExplorer, HomeDiscovery+CSS, MobileBottomNavigation, KoreaHomeSlot, homeDiscovery helper/test, 브라우저 검사 script+새 workflow. 기존 DB/Auth/승인/제스처·방향 링크 변경 없음. PR #102는 재사용 병합하지 않음.
-- [직접 확인] 기준 eb36b53, 원격 Git clone 성공; git push는 인증 없어 실패. 연결된 GitHub API로 브랜치/트리/커밋 보존 예정. tsc/build 통과, npm test 61/61. 자체 Chromium 설치는 CDN 0바이트 zip 오류, UI 검증은 새 CI로 이동.
-- commit/push/deploy: 이 항목과 같은 커밋을 feat/mobile-home-composition-20261016에 보존. Preview/CI 대기, master/Production/DB 변경 없음. 완료 아님.
-
-<details><summary>이전 CHATGPT_HANDOFF 원문 보존</summary>
-# CHATGPT_HANDOFF — MAP-R1
-갱신: 2026-10-15 (Asia/Bangkok)
-
-## 2026-10-16 16:25 — PC 원본 그대로 복원
-- 요청: 모바일 변경 직전으로 PC 전체 복원. PR105 항목별 복원 거절.
-- 변경: eb36b53의 Home/Layout/지도/provider 소스를 별도 PC 파일로 그대로 사용. import 연결만 변경, 내용 SHA256 비교. 기존 상세/CSS도 원본 일치 검사. 모바일 버전 분리 보존, 신규 스타일 전체 모바일 media로 제한.
-- 검증: scripts/test-desktop-baseline.mjs 원본 비교, tsc/build 및 PC/mobile 회귀. 최종 증거는 새 PR.
-- commit/push/deploy: fix/exact-desktop-baseline-20261016, 사용자 복원 지시로 운영까지 진행.
-- 남은 문제: 원본 자체에 있던 상세 54px 연락 영역을 임의로 재설계하지 않음. 사용자가 요구한 기준 원복 우선.
-<details><summary>이전 부분 복원 HANDOFF</summary>
-
-# CHATGPT_HANDOFF — PC 이전 버전 복원
-갱신: 2026-10-16 (Asia/Bangkok)
-
-## 1. 현재 상태
-- [직접 확인] 사용자: 모바일만 요청했으므로 PC를 마지막 버전으로 복원 지시. 기준은 PR #104 배포 전 master eb36b53, 현재 운영 edfb732.
-- [직접 확인] 새 브랜치 fix/restore-desktop-home-20261016, PC 배너 설명 원문·새 위치 안내 숨김·지도 전체 공고 원본·지역 선택 카메라 동작·기존 업직종 가시영역·기존 요약 문구 복원. 760px 이하 모바일은 현재 배너/공고/필터/안내 유지.
-- [직접 확인] PC와 모바일 분기를 기존 화면 너비 기준에 명시. 데이터/인증/권한/좌표 승인 변경 없음. 공통 WebGL 실패 시 전체 홈 중단을 막는 예외 처리는 유지.
-- [기존 기록] PR #104는 edfb732로 운영 배포 및 운영 검사 통과. 이번 복원 코드와 별개. 복원 최종 커밋·필수 CI·운영 배포 결과는 새 PR 증거 참조.
-
-## 2. 다음 할 일 3개
-1. PC 문구/안내/지역/공고 원본 회귀와 기존 모바일 360/390/412px 검사 통과 확인.
-2. 사용자 PC 복원 지시에 따라 PR 병합·동일 SHA Production READY·운영 PC/mobile 검사 확인.
-3. 실제 앱 링크로 결과 보고. 사용자에게 GitHub 검사 링크로 보내지 않음. 추가 개편 금지.
-
-## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. PC와 모바일 영향 구분. 직접 확인·기존 기록·미검증 구분.
-- 가짜 공고/임의 급여 환산/DB/Auth/RLS/좌표 승인 변경 금지. 한국 모듈 분리 유지.
-- STATUS와 기존 검증 장치 수정 금지. 같은 원인 2회 수정검증 실패 시 중단. 회사 PC 보관 안내 금지.
-
-</details>
-
-## 2026-10-16 13:00 — PC 이전 버전 복원
-- 요청: PC를 모바일 작업 전 마지막 버전으로 복원. 모바일 현재 상태 유지.
-- 변경: eb36b53의 PC 배너 문구·위치 안내 없음·지도 독립 공고 원본·지역 카메라 이동·업직종 가시영역·요약 복원. 기존 760px 기준으로 모바일 동작 분리.
-- 수정: Home.tsx/HomeMapExplorer.tsx/homeDiscovery.css/test-mobile-home.mjs.
-- 검증: PC 원문/안내숨김/기존 지역값/독립 공고 원본 검사와 기존 모바일 회귀. tsc/build 및 최종 CI/배포 증거는 복원 PR.
-- commit/push/deploy: 새 fix/restore-desktop-home-20261016 브랜치, 검증 후 운영 복원까지 진행.
-- 남은 문제: 공통 WebGL crash guard는 유지. 추가 UI 개편은 하지 않음.
-<details><summary>이전 HANDOFF</summary>
-
-# CHATGPT_HANDOFF — 상단 한국 배너 복원·배포 요청
-갱신: 2026-10-16 (Asia/Bangkok)
-
-## 1. 현재 상태
-- [직접 확인] 사용자 첨부 image(20261016-053726).png를 열어 작은 파란 한국 일자리 링크를 확인. 사용자가 상단을 기존대로 복원하고 즉시 배포하도록 명시 지시.
-- [직접 확인] 중단된 R2(81020fd)의 추가 개편은 배포에서 제외. 31395bf 기준 시안의 나머지 코드를 유지하고 모바일에서 숨겼던 기존 서울 사진 한국 배너를 다시 표시, 작은 대체 링크 제거. 기존 배너 이미지·문구 구조·한국 라우트 유지.
-- [직접 확인] 작업 브랜치 feat/mobile-home-composition-20261016 / PR #104. 운영 DB/Auth/권한/좌표 변경 없음.
-- [기존 기록] 31395bf의 타입·build·전체 테스트·4개 CI 성공. 이번 복원 커밋은 모바일에서 원래 한국 이미지 표시/링크 대체 제거 검사 추가 후 최종 CI·Production 배포 확인 대상. 최종 증거는 PR #104 참조.
-
-## 2. 다음 할 일 3개
-1. 복원 커밋 타입/build와 필수 PR CI 확인. 같은 원인 2회 수정검증 실패 시 중단.
-2. 사용자 즉시 배포 지시에 따라 PR 병합→그 SHA의 Vercel Production READY 확인.
-3. 운영 주소 실제 화면·deploy-verify 결과 확인 후 URL과 결과 보고. 취소된 R2 재개 금지.
-
-## 3. 필수 규칙
-- AGENTS.md/CLAUDE.md 준수. 직접 확인·기존 기록·미검증 구분. GitHub 소스 보존과 최종 SHA 확인.
-- 가짜 공고·임의 급여 환산·운영 데이터/Auth/RLS/위치 승인 변경 금지. 한국 모듈 분리 유지.
-- STATUS/status 브랜치/기존 검증 장치 손대지 않음. 승인 재요청 없이 이번 복원 배포 수행.
-
-</details>
 
