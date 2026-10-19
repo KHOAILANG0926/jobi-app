@@ -12314,3 +12314,34 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-cond-measure { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .jd2-cond-measure .jd2-cond-item { display: block; width: max-content; }
 .jd2-cond-more { background: none; border: 0; padding: 0; font: inherit; color: var(--jd2-link, #2563eb); cursor: pointer; text-decoration: underline; }
+
+/* 2026-10-19 Lee 지시: 정확한 근무지는 Google이 찾으므로 "Chỉ đường Google Maps"를 누르고 싶게 시각 효과.
+   크기·위치·간격은 그대로(배경·빛은 ::before 겹침, 레이아웃에 영향 없음). PC·모바일 같은 버튼. 움직임 줄이기 설정이면 효과 끔. */
+.jd2-grid--detail-redesign .jd2-map-dir--google { position: relative; isolation: isolate; }
+.jd2-grid--detail-redesign .jd2-map-dir--google::before {
+  content: ''; position: absolute; inset: -2px -14px; z-index: -1; border-radius: 999px;
+  background: linear-gradient(90deg, #fff5f5 0%, #fff 45%, #eef4ff 100%);
+  border: 1.5px solid #fca5a5;
+  box-shadow: 0 0 0 0 rgba(234, 67, 53, .45);
+  animation: jd2-google-pulse 2.4s ease-out infinite;
+  transition: background-color .15s, border-color .15s, transform .15s;
+}
+.jd2-grid--detail-redesign .jd2-map-dir--google::after {
+  content: ''; position: absolute; inset: -2px -14px; z-index: -1; border-radius: 999px; pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.85) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%; background-position: 150% 0;
+  animation: jd2-google-shine 3.6s ease-in-out infinite;
+}
+.jd2-grid--detail-redesign .jd2-map-dir--google:hover::before { border-color: #ef4444; background: #fef2f2; }
+.jd2-grid--detail-redesign .jd2-map-dir--google:active::before { transform: scale(.97); }
+.jd2-grid--detail-redesign .jd2-map-dir--google:focus-visible { outline: none; }
+.jd2-grid--detail-redesign .jd2-map-dir--google:focus-visible::before { box-shadow: 0 0 0 3px rgba(66, 133, 244, .55); animation: none; }
+@keyframes jd2-google-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(234, 67, 53, .45); }
+  70% { box-shadow: 0 0 0 12px rgba(234, 67, 53, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(234, 67, 53, 0); }
+}
+@keyframes jd2-google-shine { 0%, 55% { background-position: 150% 0; } 100% { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .jd2-grid--detail-redesign .jd2-map-dir--google::before, .jd2-grid--detail-redesign .jd2-map-dir--google::after { animation: none; }
+}

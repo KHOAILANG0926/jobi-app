@@ -1,0 +1,17 @@
+name: 시험 — 운영 동 중심 좌표 조회 (수동)
+# 2026-10-19: #4828 상세 지도가 Phương Liễu 동 대신 성 중심으로 보이는 원인 확인용. 읽기만 한다.
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: 조회
+        run: |
+          for k in 'phuong%3Aphuong%20lieu%7C%7Cbac%20ninh' 'phuong%3Aphuong%20lieu%7Cque%20vo%7Cbac%20ninh'; do
+            r=$(curl -sS -D - "https://www.viecganban.vn/api/ward-area?key=$k" | tr -d '\r' | grep -iE '^(HTTP|x-vercel-cache|age|cache-control)|found' | tr '\n' ' ')
+            echo "::notice::$k => $r"
+          done
