@@ -87,6 +87,8 @@ function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: stri
       }}
     >
       <Map {...props} />
+      {/* 2026-10-19 Lee 데모: 오토바이가 지도 위를 달려 가운데(근무지 쪽)로 가는 모션. 실제 도로를 따라가는 건 아님. 지도 조작을 막지 않음. */}
+      <svg className="jd2-map-bike" viewBox="0 0 34 22" fill="none" aria-hidden="true"><circle cx="7" cy="15" r="4.5" /><circle cx="27" cy="15" r="4.5" /><path d="M7 15h7l4-6h6l3 6M14 15l-3-6H7M24 9l-2-4h4" /></svg>
     </div>
   )
 }
@@ -1076,11 +1078,11 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 }
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
+// 2026-10-19 Lee 데모: 글자 물결(글자가 하나씩 위아래로 출렁임). 글자 하나하나를 span으로 나눠 시간차로 움직인다.
+function WaveText({ text, from }: { text: string; from: number }) {
+  return <>{[...text].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': from + i } as CSSProperties}>{ch === ' ' ? '\u00a0' : ch}</span>)}</>
+}
+
 function GoogleDirectionsLink({ href }: { href: string }) {
-  // 2026-10-19 Lee 데모: 주소 끝 ?motion=wave(물결 밑줄) / ?motion=bike(화살표 끝 오토바이)로 비교. 운영 반영 전 하나로 정함.
-  const [motion, setMotion] = useState<string | null>(null)
-  useEffect(() => { setMotion(new URLSearchParams(window.location.search).get('motion')) }, [])
-  return <a className="jd2-map-dir jd2-map-dir--google" data-motion={motion ?? undefined} href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg>
-    {motion === 'bike' && <svg className="jd2-google-bike" viewBox="0 0 34 22" fill="none" aria-hidden="true"><circle cx="7" cy="15" r="4.5" /><circle cx="27" cy="15" r="4.5" /><path d="M7 15h7l4-6h6l3 6M14 15l-3-6H7M24 9l-2-4h4" /><path className="jd2-google-bike__dust" d="M-6 13h4M-8 17h5" /></svg>}
-  </a>
+  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label" aria-label="Chỉ đường"><WaveText text="Chỉ đường" from={0} /></span><span className="jd2-google-brand" aria-label="Google"><span><WaveText text="G" from={10} /></span><span><WaveText text="o" from={11} /></span><span><WaveText text="o" from={12} /></span><span><WaveText text="g" from={13} /></span><span><WaveText text="l" from={14} /></span><span><WaveText text="e" from={15} /></span></span><span className="jd2-google-maps" aria-label="Maps"><WaveText text="Maps" from={16} /></span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
 }
