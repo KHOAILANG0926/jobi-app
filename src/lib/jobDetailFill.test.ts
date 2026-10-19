@@ -10,12 +10,12 @@ const mySrc = `TUYỂN CÔNG NHÂN\nCHÍNH THỨC & THỜI VỤ\nGắn bó lâu 
 const myCtx = { title: 'Tuyển công nhân sản xuất dây truyền dữ liệu, dây mạng', phones: ['0342017663'], addresses: ['Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh'] }
 const my = fillMissingLines(myDesc, [{ name: 'source_text', text: mySrc }, { name: 'ocr_text', text: myOcr }], myCtx)
 const myWant = [
-  '07 unclassified | Gắn bó lâu dài',
-  '07 unclassified | Việc làm ổn định',
-  '07 unclassified | Thu nhập tốt',
-  '07 unclassified | Môi trường thoải mái',
-  '07 unclassified | Ai có nhu cầu tìm việc, vui lòng liên hệ trực tiếp để trao đổi và nhận việc nhé!',
-  '07 unclassified | Mọi người chia sẻ giúp để ai đang cần việc làm biết đến ạ!',
+  '07 kind_rule | Gắn bó lâu dài',
+  '07 kind_rule | Việc làm ổn định',
+  '07 kind_rule | Thu nhập tốt',
+  '07 kind_rule | Môi trường thoải mái',
+  '07 kind_rule | Ai có nhu cầu tìm việc, vui lòng liên hệ trực tiếp để trao đổi và nhận việc nhé!',
+  '07 kind_rule | Mọi người chia sẻ giúp để ai đang cần việc làm biết đến ạ!',
   '05 heading | Không cửa từ, môi trường làm việc thoải mái.',
   '07 heading | Công ty làm về dây đấu truyền, dây mạng.',
 ]
@@ -33,13 +33,13 @@ const kDesc = `Công việc\n- Làm ngồi linh kiện tai nghe.\n\nYêu cầu\n
 const kSrc=`Liên hệ 08.778.807.56 ( NGOC ANH DUONG)\n\nKCN YÊN PHONG\nCTY KDA\nTUYỂN FULL\nNAM , NỮ (14-50t)\nLàm ngồi linh kiện tai nghe\nMỨC LƯƠNG\nCa ngày: 310k/11h\nCa đếm: 360k/11h\nChuyên cần 50k/tuần\nLương tính và thanh toán theo ngày\nCó xe đưa đón\nĐược mang điện thoại vào xưởng\nThu nhập ổn định\nCông việc lâu dài!\nMôi trường sạch sẽ\n- Quy trình rõ ràng\n- Công việc ổn định\nNhanh tay ứng tuyển để có công việc tốt nhé!\nLiên hệ: 0877 880 756`
 const kda = fillMissingLines(kDesc, [{ name: 'source_text', text: kSrc }], { title: 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', company: 'KDA', phones: ['0877880756'], addresses: ['KCN Yên Phong, Bắc Ninh', 'KCN YÊN PHONG'] })
 const kdaWant = [
-  '07 unclassified | TUYỂN FULL',
-  '07 unclassified | Thu nhập ổn định',
-  '07 unclassified | Công việc lâu dài!',
-  '05 heading | Môi trường sạch sẽ',
-  '07 unclassified | - Quy trình rõ ràng',
-  '07 unclassified | - Công việc ổn định',
-  '07 unclassified | Nhanh tay ứng tuyển để có công việc tốt nhé!',
+  '07 kind_rule | TUYỂN FULL',
+  '07 kind_rule | Thu nhập ổn định',
+  '07 kind_rule | Công việc lâu dài!',
+  '07 kind_rule | Môi trường sạch sẽ',
+  '07 kind_rule | - Quy trình rõ ràng',
+  '07 kind_rule | - Công việc ổn định',
+  '07 kind_rule | Nhanh tay ứng tuyển để có công việc tốt nhé!',
 ]
 assert(JSON.stringify(show(kda)) === JSON.stringify(kdaWant), `#4824 빠진 줄 정답표와 다름: ${JSON.stringify(show(kda))}`)
 
@@ -53,5 +53,7 @@ assert(isCovered('Thâm niên sau 4 tháng: +300.000đ', ['- Thâm niên sau 2 t
 assert(!isCovered('Không cửa từ, môi trường làm việc thoải mái.', ['- Làm ngồi, thoải mái. Không bắt buộc tăng ca.']), '비슷한 낱말 몇 개로는 있음으로 보지 않음')
 // ── 판독 불가 표시·위에 있는 전화는 붙이지 않는다 ──
 assert(fillMissingLines('x', [{ name: 'ocr_text', text: 'Lương [?] tháng\nGọi 0342017663' }], { phones: ['0342017663'] }).added.length === 0, '[?] 줄·전화 줄 제외')
-assert(Array.isArray(KIND_RULES), 'Lee 새 규정 표')
+assert(my.unclassified.length === 0 && kda.unclassified.length === 0, '두루뭉술한 문구는 묻지 않고 기타란(Lee 10-20)')
+// 구체적인 내용이 있는 줄은 두루뭉술한 문구 규정에 걸리지 않는다
+assert(!KIND_RULES.some((r) => r.re.test('khong cua tu, moi truong lam viec thoai mai')), 'Không cửa từ…는 규정 대상 아님')
 console.log('jobDetailFill.test.ts: 정답표 #4824·#4828 + 글자 그대로·중복 방지 검사 통과')

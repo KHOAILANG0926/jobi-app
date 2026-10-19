@@ -23,7 +23,14 @@ const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
  * Lee가 정한 "새 종류" 규정. 줄 글자(성조 무시)로 칸을 정한다.
  * 새 종류가 나오면 Lee와 상의해 여기에 한 줄씩 추가하고, 결정 문서와 시험(jobDetailFill.test.ts)에도 같이 넣는다.
  */
-export const KIND_RULES: Array<{ id: string; re: RegExp; key: DetailTextKey; decided: string }> = []
+export const KIND_RULES: Array<{ id: string; re: RegExp; key: DetailTextKey; decided: string }> = [
+  // 2026-10-20 Lee: "두루뭉술하게 쓴 거잖아… 저런 거는 그냥 기타란으로 넣어야지 넣을 데가 없잖아" → 07, 묻지 않음
+  { id: 'vague_slogan', key: '07', decided: '2026-10-20 Lee',
+    re: /^(?:gan bo lau dai|cong viec lau dai|viec lam lau dai|viec lam on dinh|cong viec on dinh|thu nhap (?:tot|on dinh|cao)|moi truong(?: lam viec)? (?:thoai mai|sach se|than thien|chuyen nghiep)|quy trinh ro rang)$/ },
+  { id: 'closing_call', key: '07', decided: '2026-10-20 Lee',
+    re: /^(?:ai co nhu cau|moi nguoi chia se|nhanh tay ung tuyen|lien he ngay|ib ngay|inbox ngay)\b/ },
+  { id: 'hiring_banner', key: '07', decided: '2026-10-20 Lee', re: /^tuyen full$/ },
+]
 
 export interface FillSource { name: 'source_text' | 'ocr_text'; text: string | null | undefined }
 export interface FillContext { title?: string | null; company?: string | null; phones?: Array<string | null | undefined>; addresses?: Array<string | null | undefined> }
