@@ -12314,3 +12314,37 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-cond-measure { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .jd2-cond-measure .jd2-cond-item { display: block; width: max-content; }
 .jd2-cond-more { background: none; border: 0; padding: 0; font: inherit; color: var(--jd2-link, #2563eb); cursor: pointer; text-decoration: underline; }
+
+/* 2026-10-19 Lee 결정(1+4): Google 길찾기 글자 앞 빨간 지도 핀 + 지도 누르면 Google 길찾기 */
+.jd2-google-pin { width: 24px; height: 24px; flex: none; fill: #ea4335; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.jd2-map-tap { cursor: pointer; }
+
+/* 2026-10-19 Lee 결정 모션: ① 글자 물결(Google 원래 색 유지) ② 화살표 끝에서 출발해 지도 가운데로 달리는 오토바이. 테두리 없음, 크기·위치 그대로. */
+.jd2-google-label, .jd2-google-brand, .jd2-google-maps { white-space: nowrap; }
+.jd2-wave-ch { display: inline-block; animation: jd2-wave-ch 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms); }
+@keyframes jd2-wave-ch { 0%, 30%, 100% { transform: translateY(0); } 15% { transform: translateY(-3px); } }
+.jd2-map-tap { position: relative; }
+.jd2-bike-host { position: relative; }
+.jd2-ride-bike {
+  position: absolute; left: 0; top: 0; z-index: 6; width: 44px; height: 31px; pointer-events: none;
+  offset-rotate: 0deg; offset-anchor: 50% 80%; offset-distance: 0%;
+  fill: none; stroke: #b91c1c; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 1px 2px rgba(0,0,0,.3));
+  animation: jd2-ride 6s cubic-bezier(.45,.05,.35,1) infinite;
+}
+.jd2-ride-bike__frame { fill: #ef4444; }
+.jd2-ride-bike__wheel { fill: #fff; stroke: #1f2937; stroke-width: 2; }
+.jd2-ride-bike__seat { stroke: #1f2937; stroke-width: 2.4; }
+.jd2-ride-bike__body { transform-box: fill-box; transform-origin: center; transform: scaleX(var(--bike-flip, 1)); animation: jd2-ride-bob .35s ease-in-out infinite alternate; }
+@keyframes jd2-ride {
+  0% { offset-distance: 0%; opacity: 0; }
+  6% { opacity: 1; }
+  70% { offset-distance: 100%; opacity: 1; }
+  90% { offset-distance: 100%; opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes jd2-ride-bob { from { translate: 0 0; } to { translate: 0 -1.2px; } }
+@media (prefers-reduced-motion: reduce) { .jd2-wave-ch, .jd2-ride-bike, .jd2-ride-bike__frame { fill: #ef4444; }
+.jd2-ride-bike__wheel { fill: #fff; stroke: #1f2937; stroke-width: 2; }
+.jd2-ride-bike__seat { stroke: #1f2937; stroke-width: 2.4; }
+.jd2-ride-bike__body { animation: none; } .jd2-ride-bike { display: none; } }

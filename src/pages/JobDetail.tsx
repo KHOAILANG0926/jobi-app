@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
@@ -60,7 +60,8 @@ function nonEmpty(v: string | null | undefined): string | undefined {
 // (에러도 미완료 경계도 아님), 클라이언트도 최초 hydration 순간엔 똑같이
 // null이었다가(같은 구조라 mismatch 없음) 그 다음 effect에서 실제 지도로
 // 바뀐다.
-function ClientOnlyMap(props: JobVietMapProps) {
+// 2026-10-19 Lee 결정(1+4): 지도를 눌렀을 때(끌기가 아니라 짧게 누름) Google 길찾기를 연다. 지도 단추(확대 등)는 제외.
+function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: string }) {
   const [Comp, setComp] = useState<ComponentType<JobVietMapProps> | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -69,9 +70,25 @@ function ClientOnlyMap(props: JobVietMapProps) {
     })
     return () => { cancelled = true }
   }, [])
+  const down = useRef<{ x: number; y: number } | null>(null)
   if (!Comp) return null
   const Map = Comp
-  return <Map {...props} />
+  if (!tapHref) return <Map {...props} />
+  return (
+    <div
+      className="jd2-map-tap"
+      onPointerDown={(e) => { down.current = { x: e.clientX, y: e.clientY } }}
+      onPointerUp={(e) => {
+        const start = down.current
+        down.current = null
+        if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return
+        if ((e.target as HTMLElement).closest('button, a, [class*="ctrl"]')) return
+        window.open(tapHref, '_blank', 'noopener,noreferrer')
+      }}
+    >
+      <Map {...props} />
+    </div>
+  )
 }
 
 type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
@@ -420,6 +437,9 @@ export function JobDetail() {
   // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
   // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
   const directionsPlan = planJobDirections(job)
+  // 지도 누르면 열 Google 길찾기(아래 Google 버튼과 같은 주소). 없으면 지도 누르기는 아무 일도 안 함.
+  const googleMapHref = googleCompanyParkLink
+    ?? (directionsPlan.tier === 'address' || directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : undefined)
   const mapDirections = directionsPlan.tier === 'approved' ? directionsPlan.links : []
   const park = !hasMapPoints
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
@@ -680,13 +700,14 @@ export function JobDetail() {
 
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
-            <div className="jd2-card__body">
+            <div className="jd2-card__body jd2-bike-host">
+              <BikeRide />
               {mapLocations.source === 'pending' && !hasMapPoints && !park && !(wardUnit && wardCenter) ? (
                 <div className="jd2-location-pending-compact">
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
                   )}
-                  <ClientOnlyMap
+                  <ClientOnlyMap tapHref={googleMapHref}
                     lat={unverifiedMapViewport.lat}
                     lng={unverifiedMapViewport.lng}
                     title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
@@ -827,7 +848,7 @@ export function JobDetail() {
                       resolveMapLocations()가 이미 우선순위대로 골라준 점들이다. */}
                   {hasMapPoints && mapCenter && (
                     <>
-                      <ClientOnlyMap
+                      <ClientOnlyMap tapHref={googleMapHref}
                         lat={mapCenter.lat}
                         lng={mapCenter.lng}
                         title={job.title}
@@ -844,13 +865,13 @@ export function JobDetail() {
                   )}
                   {park && (
                     <>
-                      <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
                       <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
                     <>
-                      <ClientOnlyMap lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
                       <p className="jd2-map-pending-note jd2-map-area-note">
                         {/* 2026-10-19 Lee: 구구절절 쓰지 않는다 — 대략 어디인지 + 정확도 한마디만. 정확한 길은 아래 Google 버튼. */}
                         <strong>Khu vực {wardUnit.label}</strong> (vị trí gần đúng)
@@ -1056,6 +1077,54 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 }
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
+// 2026-10-19 Lee 결정: 오토바이가 Google 길찾기 화살표 끝에서 출발해 지도 가운데(근무지 쪽)까지 달려간다.
+// 같은 근무지 칸 안에서 화살표·지도 위치를 재서 곡선 길을 만든다(화면 크기가 바뀌면 다시 잼). 실제 도로를 따라가는 건 아님.
+function BikeRide() {
+  const ref = useRef<SVGSVGElement>(null)
+  const [path, setPath] = useState<{ d: string; flip: boolean } | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    const host = el?.parentElement
+    if (!el || !host) return
+    const measure = () => {
+      const arrow = host.querySelector('.jd2-google-arrow')
+      const map = host.querySelector('.jd2-map-tap')
+      if (!arrow || !map) { setPath(null); return }
+      const h = host.getBoundingClientRect(), a = arrow.getBoundingClientRect(), m = map.getBoundingClientRect()
+      const sx = a.right - h.left + 6, sy = a.top + a.height / 2 - h.top
+      const ex = m.left + m.width / 2 - h.left, ey = m.top + m.height / 2 - h.top
+      const r = (n: number) => Math.round(n)
+      // 곡선이 근무지 칸 밖으로 나가지 않게 조절점을 칸 안쪽(좌우 24px 여백)으로 제한한다.
+      const W = h.width, clampX = (x: number) => Math.min(W - 24, Math.max(24, x))
+      const c1x = clampX(sx + 60), c1y = sy - 30
+      const c2x = clampX(ex + (sx > ex ? 120 : -120)), c2y = ey + 80
+      setPath({ d: `M ${r(sx)} ${r(sy)} C ${r(c1x)} ${r(c1y)}, ${r(c2x)} ${r(c2y)}, ${r(ex)} ${r(ey)}`, flip: ex < sx })
+    }
+    measure()
+    const t = window.setTimeout(measure, 1500) // 지도가 늦게 그려지는 경우
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(host)
+    return () => { window.clearTimeout(t); ro?.disconnect() }
+  }, [])
+  return (
+    <svg ref={ref} className="jd2-ride-bike" viewBox="0 0 34 24" aria-hidden="true"
+      style={path ? ({ offsetPath: `path('${path.d}')`, '--bike-flip': path.flip ? -1 : 1 } as CSSProperties) : { display: 'none' }}>
+      <g className="jd2-ride-bike__body">
+        {/* 스쿠터형 오토바이(베트남에서 흔한 모양): 바퀴 2개 + 차체 + 좌석 + 핸들 */}
+        <circle cx="8" cy="18" r="4.2" className="jd2-ride-bike__wheel" /><circle cx="27" cy="18" r="4.2" className="jd2-ride-bike__wheel" />
+        <path className="jd2-ride-bike__frame" d="M4 15.5c1-3.5 4-5 8-5h7.5l2.5-4.5h3l-1 2.5 3.5 8H23.5l-3-4H13.5l-1.8 3.5H4z" />
+        <path className="jd2-ride-bike__seat" d="M11 9.5h7" />
+        <path d="M24.5 6h3.5" />
+      </g>
+    </svg>
+  )
+}
+
+// 2026-10-19 Lee 결정: 글자 물결(글자가 하나씩 위아래로 출렁임). 글자 하나하나를 span으로 나눠 시간차로 움직인다.
+function WaveText({ text, from }: { text: string; from: number }) {
+  return <>{[...text].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': from + i } as CSSProperties}>{ch === ' ' ? '\u00a0' : ch}</span>)}</>
+}
+
 function GoogleDirectionsLink({ href }: { href: string }) {
-  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label" aria-label="Chỉ đường"><WaveText text="Chỉ đường" from={0} /></span><span className="jd2-google-brand" aria-label="Google">{[...'Google'].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': 10 + i } as CSSProperties}>{ch}</span>)}</span><span className="jd2-google-maps" aria-label="Maps"><WaveText text="Maps" from={16} /></span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
 }
