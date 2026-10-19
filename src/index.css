@@ -12348,3 +12348,21 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-ride-bike__wheel { fill: #fff; stroke: #1f2937; stroke-width: 2; }
 .jd2-ride-bike__seat { stroke: #1f2937; stroke-width: 2.4; }
 .jd2-ride-bike__body { animation: none; } .jd2-ride-bike { display: none; } }
+
+/* 2026-10-19 Lee: 상세요강 알바몬(원익QnC 공고) 방식 — 왼쪽 칸 이름 · 오른쪽 내용, 칸 사이 가는 선, 맨 위 진한 선. 장식·아이콘 없음. */
+.jd2-detail-sections { padding: 1.1rem 1.55rem 1.2rem; }
+.jd2-detail-section {
+  display: grid; grid-template-columns: 190px minmax(0, 1fr); column-gap: 1.5rem;
+  padding: 1.05rem 0; border-top: 1px solid #e5e7eb;
+}
+.jd2-detail-section:first-child { border-top: 2px solid #4b5563; }
+.jd2-detail-section:last-child { border-bottom: 1px solid #e5e7eb; }
+.jd2-detail-section + .jd2-detail-section { margin-top: 0; padding-top: 1.05rem; }
+.jd2-detail-section__title { margin: 0; font-size: .98rem; font-weight: 700; color: #111827; line-height: 1.65; }
+.jd2-detail-section__lines { gap: .3rem; }
+.jd2-detail-section__line { color: #1f2937; line-height: 1.65; }
+@media (max-width: 640px) {
+  .jd2-detail-sections { padding: .9rem 1rem 1rem; }
+  .jd2-detail-section { grid-template-columns: 1fr; row-gap: .45rem; padding: .9rem 0; }
+  .jd2-detail-section + .jd2-detail-section { padding-top: .9rem; }
+}
