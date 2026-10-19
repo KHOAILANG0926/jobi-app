@@ -10,5 +10,7 @@ jobs:
     steps:
       - run: |
           for u in https://www.viecganban.vn; do
-            a=$(curl -s -o /tmp/a -w '%{http_code}' "$u/api/admin-auto-location"); echo "::notice::$u GET $a $(head -c 120 /tmp/a | tr '\n' ' ')"
+            a=$(curl -s -o /tmp/a -w '%{http_code}' "$u/api/location-hook"); echo "::notice::$u GET $a $(head -c 120 /tmp/a | tr '\n' ' ')"
           done
+          b=$(curl -s -o /tmp/b -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -d '{"job_id":4828}' https://www.viecganban.vn/api/location-hook); echo "::notice::hook POST-badtoken $b $(head -c 120 /tmp/b)"
+          c=$(curl -s -o /tmp/c -w '%{http_code}' https://www.viecganban.vn/api/admin-auto-location); echo "::notice::admin GET $c $(head -c 120 /tmp/c)"
