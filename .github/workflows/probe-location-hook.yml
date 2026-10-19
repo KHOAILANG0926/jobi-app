@@ -1,0 +1,16 @@
+name: 시험 - location-hook 응답 확인 (병합 금지)
+on:
+  push:
+    branches: ['probe/location-hook']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in https://www.viecganban.vn/api/location-hook https://viecganban.vn/api/location-hook; do
+            echo "== GET $u"; curl -s -i "$u" | head -20
+            echo "== POST no token $u"; curl -s -i -X POST -H 'content-type: application/json' -d '{"job_id":4828}' "$u" | head -20
+            echo "== POST bad token $u"; curl -s -i -X POST -H 'content-type: application/json' -H 'authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -d '{"job_id":4828}' "$u" | head -20
+          done
