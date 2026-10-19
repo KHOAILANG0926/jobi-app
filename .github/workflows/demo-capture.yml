@@ -26,6 +26,6 @@ jobs:
           cp -r out /tmp/out
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan screens-tmp && git rm -rfq . && git clean -fdxq
-          cp /tmp/out/*sheet.png . ; cp /tmp/out/pc-00.png /tmp/out/mobile-00.png . 2>/dev/null || true
+          cp /tmp/out/*sheet.png . ; cp /tmp/out/pc-00.png /tmp/out/mobile-00.png /tmp/out/desc-*.png . 2>/dev/null || true
           echo '{"git":{"deploymentEnabled":false}}' > vercel.json
           git add -A && git commit -qm "demo capture ${GITHUB_SHA::7}" && git push -f origin HEAD:screens
