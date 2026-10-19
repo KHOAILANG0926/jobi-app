@@ -12379,3 +12379,5 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-lightbox__nav--prev { left: .5rem; } .jd2-lightbox__nav--next { right: .5rem; }
 .jd2-lightbox__count { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); color: #e5e7eb; font-size: .9rem; }
 @media (max-width: 640px) { .jd2-gallery__thumb { width: 120px; height: 120px; } .jd2-lightbox__nav { display: none; } }
+/* 2026-10-19 Lee: 이미지 칸(Hình ảnh tuyển dụng) 제목에는 핑크 세로 막대 없음 */
+.jd2-detail-section__title--plain::before { display: none; }
