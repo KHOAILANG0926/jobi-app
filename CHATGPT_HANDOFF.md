@@ -4,7 +4,7 @@
 ## 1. 현재 상태
 - 운영: 공개 공고 2건(#4824 KDA, #4828 Mao Yên). 운영 반영 확인된 마지막 코드 = #152(6092911, deploy-verify 39142616608 통과).
 - **Vercel 배포 한도 초과(10-18 132번, 무료 100번/일)** → #153 코드(api/location-hook.js) 운영 미반영(deploy-verify 39143169739 실패: "Deployment rate limited — retry in 24 hours"). DB 쪽 #153(트리거·pg_net·재시도 예약)은 적용됨 — 받을 곳이 없어 아무 일도 안 함(공고 변화 없음).
-- 원인: 기록 보관 가지 status 26·layout-out 15·screens 7 = 48번 빈 미리보기 + PR 작업. 해결 PR #156(가지 배포 중단, 기록에서 node_modules·dist 제외).
+- 원인: 기록 보관 가지 status 26·layout-out 15·screens 7 = 48번 빈 미리보기 + PR 작업. 해결 PR #156(layout-out·screens 배포 중단, node_modules·dist 제외). status 가지는 검증 장치 파일(status-report.yml)이라 별도 PR #158 — Lee '검증장치-승인' 라벨 필요.
 - #4828 지도 원인(확인됨): 주소 읽는 코드가 2025년 7월 개편 전 3단계(동, 구, 성)만 인정 → 새 2단계 주소 미인식 → VietMap 0번 호출·저장된 동 좌표도 못 씀 → 성 중심. #152로 수정(상세 지도는 저장된 Phương Liễu 좌표 사용).
 - GitHub Secrets의 VIETMAP_SERVICE_KEY는 401(성공 0건). Lee 결정: 키는 Vercel 한 곳만 → GitHub 자동 위치 예약 끔(#153).
 - 결정 0006(못 찾은 공고: 바로 비공개 → 매일 재판정 → 14일 뒤 삭제, 지원 기록 있으면 삭제 안 함) = PR #154 **Lee 문서 확인 대기**. 공단 이름 있는 주소(#4824 KCN Yên Phong — 공단 표에는 '확장 단지'만 있음)는 "찾음" 처리.
