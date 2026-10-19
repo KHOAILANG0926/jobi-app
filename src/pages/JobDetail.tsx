@@ -1077,5 +1077,10 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
 function GoogleDirectionsLink({ href }: { href: string }) {
-  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+  // 2026-10-19 Lee 데모: 주소 끝 ?motion=wave(물결 밑줄) / ?motion=bike(화살표 끝 오토바이)로 비교. 운영 반영 전 하나로 정함.
+  const [motion, setMotion] = useState<string | null>(null)
+  useEffect(() => { setMotion(new URLSearchParams(window.location.search).get('motion')) }, [])
+  return <a className="jd2-map-dir jd2-map-dir--google" data-motion={motion ?? undefined} href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg>
+    {motion === 'bike' && <svg className="jd2-google-bike" viewBox="0 0 34 22" fill="none" aria-hidden="true"><circle cx="7" cy="15" r="4.5" /><circle cx="27" cy="15" r="4.5" /><path d="M7 15h7l4-6h6l3 6M14 15l-3-6H7M24 9l-2-4h4" /><path className="jd2-google-bike__dust" d="M-6 13h4M-8 17h5" /></svg>}
+  </a>
 }
