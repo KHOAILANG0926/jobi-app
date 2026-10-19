@@ -852,8 +852,8 @@ export function JobDetail() {
                     <>
                       <ClientOnlyMap lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
                       <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Khu vực {wardUnit.label}, vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực lân cận (không có ghim) — chưa dùng để chỉ đường hay tính khoảng cách.
-                        <span className="jd2-map-credit"> Vị trí khu vực: VietMap.</span>
+                        {/* 2026-10-19 Lee: 구구절절 쓰지 않는다 — 대략 어디인지 + 정확도 한마디만. 정확한 길은 아래 Google 버튼. */}
+                        <strong>Khu vực {wardUnit.label}</strong> (vị trí gần đúng)
                       </p>
                     </>
                   )}
@@ -887,7 +887,7 @@ export function JobDetail() {
                         </span>
                       ))}
                       {directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
-                      <p className="jd2-map-dir-note">{directionsPlan.note}</p>
+                      {!(!hasMapPoints && !park && wardUnit && wardCenter) && <p className="jd2-map-dir-note">{directionsPlan.note}</p>}
                     </div>
                   )}
                   {directionsPlan.tier === 'call' && (
