@@ -1,0 +1,38 @@
+name: 시험 — TomTom 번지 주소 검색 (수동)
+# 2026-10-19 Lee 지시: VietMap이 번지를 못 찾은 실제 공고 주소 8건(원문 그대로)을 TomTom 번지 검색으로 시험.
+# TomTom 키는 Vercel에만 있다 → Vercel 관리자 주소 시험 API(api/admin-geocode)를 DB 출입증으로 부른다. DB는 바꾸지 않는다.
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client jq
+      - name: 시험
+        shell: bash
+        run: |
+          set -euo pipefail
+          T=$(psql "$SUPABASE_DB_URL" -X -At -c "select decrypted_secret from vault.decrypted_secrets where name='map_r1_hook_token' limit 1")
+          echo "::add-mask::$T"
+          while IFS= read -r a; do
+            [ -z "$a" ] && continue
+            r=$(curl -sS -X POST https://www.viecganban.vn/api/admin-geocode -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+              --data "$(jq -n --arg t "$a" '{provider:"tomtom",text:$t}')")
+            top=$(echo "$r" | jq -c '{err:.error, n:(.results|length), top:(.results[0] // null | if . then {addr:.address,no:.houseNumber,street:.street,ward:.ward,type:.type,lat:.lat,lng:.lng} else null end)}')
+            echo "### $a" >> "$GITHUB_STEP_SUMMARY"; echo "\`$top\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::$a => $top"
+          done <<'LIST'
+          125 Đường Nguyễn Thị Minh Khai, Phường Kinh Bắc, Thành phố Bắc Ninh, Bắc Ninh
+          1A Lý Thái Tổ, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh
+          368 Minh Khai, Phường Đồng Nguyên, Thị xã Từ Sơn, Bắc Ninh
+          37 Lý Thái Tổ, Tp Bắc Ninh, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh
+          374 Trần Phú, Phường Tam Sơn, Thị xã Từ Sơn, Bắc Ninh
+          6–8 Trần Hưng Đạo, Khu 1,, Phường Quế Võ, Huyện Quế Võ, Bắc Ninh
+          Lô CN02-1 Kcn Yên Phong( mở rộng), Xã Yên Trung, Huyện Yên Phong, Bắc Ninh
+          MEDIAMART - 37 Đ. LÝ THÁI TỔ, P. VÕ CƯỜNG, TP. BẮC NINH, TỈNH BẮC NINH, Phường Võ Cường, Thành phố Bắc Ninh, Bắc Ninh
+          LIST

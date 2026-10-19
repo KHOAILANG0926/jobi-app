@@ -59,7 +59,12 @@ function runtimeDependencies() {
   const admin = createClient(SUPABASE_URL, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
   return {
     key: (provider) => (provider === 'tomtom' ? process.env.TOMTOM_API_KEY : process.env.GOONG_API_KEY) || '',
+    // 서버 간 호출(시험 작업 등): DB Vault 출입증(api/location-hook와 같은 것)이면 관리자로 본다. 값은 DB가 확인한다.
     async verifyCaller(token) {
+      if (token.length >= 32 && !token.includes('.')) {
+        const { data: ok, error: e } = await admin.rpc('map_r1_hook_token_ok', { p_token: token })
+        if (!e && ok === true) return { app_metadata: { role: 'admin' } }
+      }
       const { data, error } = await admin.auth.getUser(token)
       if (error || !data.user) throw new Error('Invalid access token')
       return data.user
