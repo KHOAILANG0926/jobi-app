@@ -21,6 +21,8 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
     await box.screenshot({ path: `out/${name}-${String(i).padStart(2, '0')}.png` }).catch((e) => console.log('shot fail', e.message))
     await page.waitForTimeout(450)
   }
+  const desc = page.locator('.jd2-detail-sections').first()
+  if (await desc.count()) { await desc.scrollIntoViewIfNeeded().catch(() => {}); await desc.screenshot({ path: `out/desc-${name}.png` }).catch(() => {}) }
   await ctx.close()
 }
 await browser.close()
