@@ -9,8 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          u=https://www.viecganban.vn/api/location-hook
-          a=$(curl -s -o /tmp/a -w '%{http_code}' "$u"); echo "::notice::GET $a $(head -c 150 /tmp/a | tr '\n' ' ')"
-          b=$(curl -s -o /tmp/b -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"job_id":4828}' "$u"); echo "::notice::POST-notoken $b $(head -c 150 /tmp/b | tr '\n' ' ')"
-          c=$(curl -s -o /tmp/c -w '%{http_code}' -X POST -H 'content-type: application/json' -H 'authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -d '{"job_id":4828}' "$u"); echo "::notice::POST-badtoken $c $(head -c 150 /tmp/c | tr '\n' ' ')"
-          d=$(curl -s -o /tmp/d -w '%{http_code}' "https://www.viecganban.vn/api/ward-area"); echo "::notice::ward-area GET $d $(head -c 100 /tmp/d | tr '\n' ' ')"
+          for u in https://jobi-pdi75el3d-mshw1895-6089s-projects.vercel.app https://jobi-6gzi84c7x-mshw1895-6089s-projects.vercel.app; do
+            a=$(curl -s -o /tmp/a -w '%{http_code}' "$u/api/location-hook"); echo "::notice::$u GET $a $(head -c 120 /tmp/a | tr '\n' ' ')"
+          done
