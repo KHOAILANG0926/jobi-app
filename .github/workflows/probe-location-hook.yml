@@ -9,6 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for u in https://jobi-pdi75el3d-mshw1895-6089s-projects.vercel.app https://jobi-6gzi84c7x-mshw1895-6089s-projects.vercel.app; do
-            a=$(curl -s -o /tmp/a -w '%{http_code}' "$u/api/location-hook"); echo "::notice::$u GET $a $(head -c 120 /tmp/a | tr '\n' ' ')"
+          for u in https://www.viecganban.vn; do
+            a=$(curl -s -o /tmp/a -w '%{http_code}' "$u/api/admin-auto-location"); echo "::notice::$u GET $a $(head -c 120 /tmp/a | tr '\n' ' ')"
           done
