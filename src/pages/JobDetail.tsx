@@ -87,8 +87,6 @@ function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: stri
       }}
     >
       <Map {...props} />
-      {/* 2026-10-19 Lee 데모: 오토바이가 지도 위를 달려 가운데(근무지 쪽)로 가는 모션. 실제 도로를 따라가는 건 아님. 지도 조작을 막지 않음. */}
-      <svg className="jd2-map-bike" viewBox="0 0 34 22" fill="none" aria-hidden="true"><circle cx="7" cy="15" r="4.5" /><circle cx="27" cy="15" r="4.5" /><path d="M7 15h7l4-6h6l3 6M14 15l-3-6H7M24 9l-2-4h4" /></svg>
     </div>
   )
 }
@@ -702,7 +700,8 @@ export function JobDetail() {
 
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
-            <div className="jd2-card__body">
+            <div className="jd2-card__body jd2-bike-host">
+              <BikeRide />
               {mapLocations.source === 'pending' && !hasMapPoints && !park && !(wardUnit && wardCenter) ? (
                 <div className="jd2-location-pending-compact">
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
@@ -1078,11 +1077,44 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 }
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
+// 2026-10-19 Lee 데모: 오토바이가 Google 길찾기 화살표 끝에서 출발해 지도 가운데(근무지 쪽)까지 달려간다.
+// 같은 근무지 칸 안에서 화살표·지도 위치를 재서 곡선 길을 만든다(화면 크기가 바뀌면 다시 잼). 실제 도로를 따라가는 건 아님.
+function BikeRide() {
+  const ref = useRef<SVGSVGElement>(null)
+  const [path, setPath] = useState<{ d: string; flip: boolean } | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    const host = el?.parentElement
+    if (!el || !host) return
+    const measure = () => {
+      const arrow = host.querySelector('.jd2-google-arrow')
+      const map = host.querySelector('.jd2-map-tap')
+      if (!arrow || !map) { setPath(null); return }
+      const h = host.getBoundingClientRect(), a = arrow.getBoundingClientRect(), m = map.getBoundingClientRect()
+      const sx = a.right - h.left + 6, sy = a.top + a.height / 2 - h.top
+      const ex = m.left + m.width / 2 - h.left, ey = m.top + m.height / 2 - h.top
+      const r = (n: number) => Math.round(n)
+      setPath({ d: `M ${r(sx)} ${r(sy)} C ${r(sx + 70)} ${r(sy - 20)}, ${r(ex + (sx > ex ? 140 : -140))} ${r(ey + 90)}, ${r(ex)} ${r(ey)}`, flip: ex < sx })
+    }
+    measure()
+    const t = window.setTimeout(measure, 1500) // 지도가 늦게 그려지는 경우
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(host)
+    return () => { window.clearTimeout(t); ro?.disconnect() }
+  }, [])
+  return (
+    <svg ref={ref} className="jd2-ride-bike" viewBox="0 0 34 24" fill="none" aria-hidden="true"
+      style={path ? ({ offsetPath: `path('${path.d}')`, '--bike-flip': path.flip ? -1 : 1 } as CSSProperties) : { display: 'none' }}>
+      <g className="jd2-ride-bike__body"><circle cx="7" cy="17" r="4.5" /><circle cx="27" cy="17" r="4.5" /><path d="M7 17h7l4-6h6l3 6M14 17l-3-6H7M24 11l-2-4h4" /></g>
+    </svg>
+  )
+}
+
 // 2026-10-19 Lee 데모: 글자 물결(글자가 하나씩 위아래로 출렁임). 글자 하나하나를 span으로 나눠 시간차로 움직인다.
 function WaveText({ text, from }: { text: string; from: number }) {
   return <>{[...text].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': from + i } as CSSProperties}>{ch === ' ' ? '\u00a0' : ch}</span>)}</>
 }
 
 function GoogleDirectionsLink({ href }: { href: string }) {
-  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label" aria-label="Chỉ đường"><WaveText text="Chỉ đường" from={0} /></span><span className="jd2-google-brand" aria-label="Google"><span><WaveText text="G" from={10} /></span><span><WaveText text="o" from={11} /></span><span><WaveText text="o" from={12} /></span><span><WaveText text="g" from={13} /></span><span><WaveText text="l" from={14} /></span><span><WaveText text="e" from={15} /></span></span><span className="jd2-google-maps" aria-label="Maps"><WaveText text="Maps" from={16} /></span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label" aria-label="Chỉ đường"><WaveText text="Chỉ đường" from={0} /></span><span className="jd2-google-brand" aria-label="Google">{[...'Google'].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': 10 + i } as CSSProperties}>{ch}</span>)}</span><span className="jd2-google-maps" aria-label="Maps"><WaveText text="Maps" from={16} /></span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
 }

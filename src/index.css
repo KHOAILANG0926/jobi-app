@@ -12319,23 +12319,25 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-google-pin { width: 24px; height: 24px; flex: none; fill: #ea4335; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
 .jd2-map-tap { cursor: pointer; }
 
-/* 2026-10-19 Lee 데모 모션: ① 글자 물결(Chỉ đường Google Maps 글자가 차례로 출렁임) ② 지도 위 오토바이. 테두리 없음, 크기·위치 그대로. */
-.jd2-wave-ch { display: inline-block; animation: jd2-wave-ch 2.6s ease-in-out infinite; animation-delay: calc(var(--i) * 70ms); }
-@keyframes jd2-wave-ch { 0%, 40%, 100% { transform: translateY(0); } 20% { transform: translateY(-5px); } }
+/* 2026-10-19 Lee 데모 모션: ① 글자 물결(Google 원래 색 유지) ② 화살표 끝에서 출발해 지도 가운데로 달리는 오토바이. 테두리 없음, 크기·위치 그대로. */
+.jd2-wave-ch { display: inline-block; animation: jd2-wave-ch 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms); }
+@keyframes jd2-wave-ch { 0%, 30%, 100% { transform: translateY(0); } 15% { transform: translateY(-3px); } }
 .jd2-map-tap { position: relative; }
-.jd2-map-bike {
-  position: absolute; z-index: 5; width: 34px; height: 22px; margin: -11px 0 0 -17px; pointer-events: none;
-  stroke: #dc2626; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none;
-  filter: drop-shadow(0 1px 1px rgba(255,255,255,.9)) drop-shadow(0 1px 2px rgba(0,0,0,.35));
-  animation: jd2-map-bike 7s ease-in-out infinite;
+.jd2-bike-host { position: relative; }
+.jd2-ride-bike {
+  position: absolute; left: 0; top: 0; z-index: 6; width: 34px; height: 24px; pointer-events: none;
+  offset-rotate: 0deg; offset-anchor: 50% 70%; offset-distance: 0%;
+  stroke: #dc2626; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 1px 2px rgba(0,0,0,.3));
+  animation: jd2-ride 6s cubic-bezier(.45,.05,.35,1) infinite;
 }
-@keyframes jd2-map-bike {
-  0%   { left: 6%;  top: 82%; opacity: 0; transform: scaleX(1); }
-  6%   { opacity: 1; }
-  30%  { left: 26%; top: 70%; }
-  55%  { left: 38%; top: 52%; }
-  75%  { left: 50%; top: 50%; opacity: 1; }
-  88%  { left: 50%; top: 50%; opacity: 1; transform: translateY(-3px); }
-  100% { left: 50%; top: 50%; opacity: 0; transform: translateY(0); }
+.jd2-ride-bike__body { transform-box: fill-box; transform-origin: center; transform: scaleX(var(--bike-flip, 1)); animation: jd2-ride-bob .35s ease-in-out infinite alternate; }
+@keyframes jd2-ride {
+  0% { offset-distance: 0%; opacity: 0; }
+  6% { opacity: 1; }
+  70% { offset-distance: 100%; opacity: 1; }
+  90% { offset-distance: 100%; opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .jd2-wave-ch, .jd2-map-bike { animation: none; } .jd2-map-bike { display: none; } }
+@keyframes jd2-ride-bob { from { translate: 0 0; } to { translate: 0 -1.2px; } }
+@media (prefers-reduced-motion: reduce) { .jd2-wave-ch, .jd2-ride-bike, .jd2-ride-bike__body { animation: none; } .jd2-ride-bike { display: none; } }
