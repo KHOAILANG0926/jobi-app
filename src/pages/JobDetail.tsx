@@ -951,7 +951,7 @@ export function JobDetail() {
             {extraImages.length > 0 && (
               <div className="jd2-box">
                 <div className="jd2-card__body">
-                  <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>
+                  <h3 className="jd2-detail-section__title jd2-detail-section__title--plain">{DETAIL_LABELS["08"]}</h3>
                   <ImageGallery images={extraImages} title={job.title} />
                 </div>
               </div>
