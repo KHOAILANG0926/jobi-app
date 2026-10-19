@@ -332,7 +332,12 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
-  const detail = detailSections(job.description)
+  // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다(급여 줄은 남김).
+  const detail = detailSections(job.description, {
+    title: job.title,
+    phones: [job.employerPhone, job.zalo],
+    addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
+  })
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
@@ -936,7 +941,7 @@ export function JobDetail() {
                       {conditionExtras[section.key]?.map((extra) => (
                         <p key={extra.label} className="jd2-detail-section__line jd2-detail-section__line--condition">{extra.label}: {extra.text}</p>
                       ))}
-                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line}</p>)}
+                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line.replace(/^\s*[-•*]\s+/, '')}</p>)}
                     </div>
                   </section>
                 ))}
@@ -947,9 +952,7 @@ export function JobDetail() {
               <div className="jd2-box">
                 <div className="jd2-card__body">
                   <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>
-                  {extraImages.map((url, i) => (
-                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
-                  ))}
+                  <ImageGallery images={extraImages} title={job.title} />
                 </div>
               </div>
             )}
@@ -1077,6 +1080,56 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 }
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
+// 2026-10-19 Lee: 채용 이미지(포스터·회사·작업장 사진)를 같은 크기 작은 사진 한 줄로, 누르면 크게(옆으로 넘기기·Esc 닫기).
+function ImageGallery({ images, title }: { images: string[]; title: string }) {
+  const [open, setOpen] = useState<number | null>(null)
+  const [broken, setBroken] = useState<Set<string>>(() => new Set())
+  const list = images.filter((u) => !broken.has(u))
+  useEffect(() => {
+    if (open === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(null)
+      if (e.key === 'ArrowRight') setOpen((i) => (i === null ? i : (i + 1) % list.length))
+      if (e.key === 'ArrowLeft') setOpen((i) => (i === null ? i : (i - 1 + list.length) % list.length))
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [open, list.length])
+  const touch = useRef<number | null>(null)
+  if (!list.length) return null
+  return (
+    <>
+      <div className="jd2-gallery">
+        {list.map((url, i) => (
+          <button key={url} type="button" className="jd2-gallery__thumb" onClick={() => setOpen(i)} aria-label={`Xem ảnh ${i + 1}`}>
+            <img src={url} alt={`${title} ${i + 1}`} loading="lazy" onError={() => setBroken((b) => new Set(b).add(url))} />
+          </button>
+        ))}
+      </div>
+      {open !== null && list[open] && (
+        <div className="jd2-lightbox" role="dialog" aria-modal="true" onClick={() => setOpen(null)}
+          onTouchStart={(e) => { touch.current = e.touches[0].clientX }}
+          onTouchEnd={(e) => {
+            const start = touch.current; touch.current = null
+            if (start === null || list.length < 2) return
+            const dx = e.changedTouches[0].clientX - start
+            if (Math.abs(dx) > 40) setOpen((i) => (i === null ? i : (i + (dx < 0 ? 1 : -1) + list.length) % list.length))
+          }}>
+          <img src={list[open]} alt={`${title} ${open + 1}`} onClick={(e) => e.stopPropagation()} />
+          <button type="button" className="jd2-lightbox__close" aria-label="Đóng" onClick={() => setOpen(null)}>×</button>
+          {list.length > 1 && <>
+            <button type="button" className="jd2-lightbox__nav jd2-lightbox__nav--prev" aria-label="Ảnh trước" onClick={(e) => { e.stopPropagation(); setOpen((open - 1 + list.length) % list.length) }}>‹</button>
+            <button type="button" className="jd2-lightbox__nav jd2-lightbox__nav--next" aria-label="Ảnh sau" onClick={(e) => { e.stopPropagation(); setOpen((open + 1) % list.length) }}>›</button>
+            <span className="jd2-lightbox__count">{open + 1} / {list.length}</span>
+          </>}
+        </div>
+      )}
+    </>
+  )
+}
+
 // 2026-10-19 Lee 결정: 오토바이가 Google 길찾기 화살표 끝에서 출발해 지도 가운데(근무지 쪽)까지 달려간다.
 // 같은 근무지 칸 안에서 화살표·지도 위치를 재서 곡선 길을 만든다(화면 크기가 바뀌면 다시 잼). 실제 도로를 따라가는 건 아님.
 function BikeRide() {
