@@ -1094,7 +1094,11 @@ function BikeRide() {
       const sx = a.right - h.left + 6, sy = a.top + a.height / 2 - h.top
       const ex = m.left + m.width / 2 - h.left, ey = m.top + m.height / 2 - h.top
       const r = (n: number) => Math.round(n)
-      setPath({ d: `M ${r(sx)} ${r(sy)} C ${r(sx + 70)} ${r(sy - 20)}, ${r(ex + (sx > ex ? 140 : -140))} ${r(ey + 90)}, ${r(ex)} ${r(ey)}`, flip: ex < sx })
+      // 곡선이 근무지 칸 밖으로 나가지 않게 조절점을 칸 안쪽(좌우 24px 여백)으로 제한한다.
+      const W = h.width, clampX = (x: number) => Math.min(W - 24, Math.max(24, x))
+      const c1x = clampX(sx + 60), c1y = sy - 30
+      const c2x = clampX(ex + (sx > ex ? 120 : -120)), c2y = ey + 80
+      setPath({ d: `M ${r(sx)} ${r(sy)} C ${r(c1x)} ${r(c1y)}, ${r(c2x)} ${r(c2y)}, ${r(ex)} ${r(ey)}`, flip: ex < sx })
     }
     measure()
     const t = window.setTimeout(measure, 1500) // 지도가 늦게 그려지는 경우
@@ -1103,9 +1107,15 @@ function BikeRide() {
     return () => { window.clearTimeout(t); ro?.disconnect() }
   }, [])
   return (
-    <svg ref={ref} className="jd2-ride-bike" viewBox="0 0 34 24" fill="none" aria-hidden="true"
+    <svg ref={ref} className="jd2-ride-bike" viewBox="0 0 34 24" aria-hidden="true"
       style={path ? ({ offsetPath: `path('${path.d}')`, '--bike-flip': path.flip ? -1 : 1 } as CSSProperties) : { display: 'none' }}>
-      <g className="jd2-ride-bike__body"><circle cx="7" cy="17" r="4.5" /><circle cx="27" cy="17" r="4.5" /><path d="M7 17h7l4-6h6l3 6M14 17l-3-6H7M24 11l-2-4h4" /></g>
+      <g className="jd2-ride-bike__body">
+        {/* 스쿠터형 오토바이(베트남에서 흔한 모양): 바퀴 2개 + 차체 + 좌석 + 핸들 */}
+        <circle cx="8" cy="18" r="4.2" className="jd2-ride-bike__wheel" /><circle cx="27" cy="18" r="4.2" className="jd2-ride-bike__wheel" />
+        <path className="jd2-ride-bike__frame" d="M4 15.5c1-3.5 4-5 8-5h7.5l2.5-4.5h3l-1 2.5 3.5 8H23.5l-3-4H13.5l-1.8 3.5H4z" />
+        <path className="jd2-ride-bike__seat" d="M11 9.5h7" />
+        <path d="M24.5 6h3.5" />
+      </g>
     </svg>
   )
 }
