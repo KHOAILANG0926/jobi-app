@@ -27,10 +27,10 @@ const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
 export interface ShownAbove { title?: string | null; phones?: Array<string | null | undefined>; addresses?: Array<string | null | undefined> }
 
 // Normalize ONLY for classification. Never emit normalized strings.
-function fold(value: string) {
+export function fold(value: string) {
   return value.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase()
 }
-const bare = (line: string) => fold(line).replace(/^\s*[-•*]\s*/, '').replace(/[\s.:;,!]+$/g, '').replace(/\s+/g, ' ').trim()
+export const bare = (line: string) => fold(line).replace(/^\s*[-•*]\s*/, '').replace(/[\s.:;,!]+$/g, '').replace(/\s+/g, ' ').trim()
 const digits = (s: string) => s.replace(/\D/g, '')
 
 // 원문 소제목 → 칸. "Lương và phúc lợi"처럼 급여·복리후생이 섞인 제목은 04로 두고, 줄 단위로 05를 골라낸다.
@@ -38,19 +38,19 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:cong viec|mo ta cong viec|noi dung cong viec)$/, '01'],
   [/^(?:yeu cau|yeu cau tuyen dung|yeu cau ung vien)$/, '02'],
   [/^(?:thoi gian lam viec|hinh thuc lam viec|lich lam viec)$/, '03'],
-  [/^(?:luong va phuc loi|luong|luong thuong|muc luong & phu cap|muc luong va phu cap|thu nhap)$/, '04'],
+  [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap)$/, '04'],
   [/^(?:quyen loi|phuc loi|quyen loi & moi truong lam viec|quyen loi va moi truong lam viec|moi truong lam viec)$/, '05'],
   [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen)$/, '06'],
   [/^(?:thong tin khac|ghi chu|thong tin cong ty)$/, '07'],
   [/^(?:dia diem lam viec|dia chi)$/, 'address'],
   [/^(?:lien he)$/, 'contact'],
 ]
-function headingOf(line: string) {
+export function headingOf(line: string) {
   const s = bare(line)
   return HEADINGS.find(([re]) => re.test(s))?.[1]
 }
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
-function lineBucket(line: string, current: DetailTextKey): DetailTextKey {
+export function lineBucket(line: string, current: DetailTextKey): DetailTextKey {
   const s = bare(line)
   if (/^(?:ca ngay|ca dem|luong|thuong|chuyen can|phu cap|tro cap|muc luong|tham nien)\b/.test(s)) return '04'
   if (/^(?:co xe dua don|xe dua don|duoc mang dien thoai|co ky tuc xa|ky tuc xa|co bua an|bua an|ho tro an|bao hiem|phuc loi)\b/.test(s)) return '05'
