@@ -1,0 +1,16 @@
+name: 시험 - 운영 위치 창 포함 확인 (병합 금지)
+on:
+  push:
+    branches: ['probe/loc-prod']
+permissions:
+  contents: read
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          html=$(curl -s https://viecganban.vn/)
+          for a in $(echo "$html" | grep -o '/assets/[^"]*\.js' | sort -u); do
+            if curl -s "https://viecganban.vn$a" | grep -q 'loc-prompt-allow'; then echo "::notice::found in $a"; fi
+          done
+          echo "::notice::assets $(echo "$html" | grep -o '/assets/[^"]*\.js' | sort -u | wc -l)"
