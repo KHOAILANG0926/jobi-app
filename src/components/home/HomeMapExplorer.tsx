@@ -1,5 +1,6 @@
 import { planJobDirections } from '../../lib/directionsPlan'
 import { getUserLocation, onUserLocation } from '../../lib/userLocation'
+import { motorbikeLabel } from '../../lib/commute'
 // 메인 중간 영역 — "내 주변 일자리 지도 + 선택한 공고 패널" (2026-10-01).
 // 왼쪽: 탐색 조건(위치·반경 / 급여 / 업종 / Thêm điều kiện) + 지도, 오른쪽: 선택 공고 1차 판단 패널.
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
@@ -260,6 +261,10 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
     ? selected.point.kind === 'gate' ? `Cách cổng KCN khoảng ${selected.distanceKm.toFixed(1)} km`
       : selected.point.kind === 'area' ? `Cách điểm đại diện khoảng ${selected.distanceKm.toFixed(1)} km` : formatDistanceLabel(selected.distanceKm)
     : null
+  // 오토바이 시간(Lee 10-20): 내 위치 기준 + 정확한 근무지(확인 좌표·공단 입구)일 때만
+  const commuteLabel = origin.kind === 'user' && selected?.point && selected.distanceKm !== null && selected.point.kind !== 'area'
+    ? motorbikeLabel(selected.distanceKm)
+    : null
 
   const openFilters = (section: number) => {
     filterFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -300,6 +305,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
       <h3 className="hme-job__title">{selected.job.title}</h3>
       <div className="hme-job__chips">
         <span className="hme-tag">{selected.point ? LOCATION_LABELS[selected.point.kind] : 'Đang xác minh vị trí'}</span>
+        {commuteLabel && <span className="hme-tag hme-tag--distance">{commuteLabel}</span>}
         {distanceLabel && <span className="hme-tag hme-tag--distance">{distanceLabel}</span>}
         {selected.job.salary && <span className="hme-tag hme-tag--salary">{selected.job.salary}</span>}
         {selected.job.urgent && <span className="hme-tag hme-tag--urgent">Tuyển gấp</span>}

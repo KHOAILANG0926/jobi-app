@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-20 밤: DesktopHomeMapExplorer.tsx 기준값을 오토바이 시간 표시(Lee 지시) 반영값으로 갱신.
 // 2026-10-20: JobDetail.tsx·index.css·DesktopHomeMapExplorer.tsx 기준값을 Lee 지시 변경(#148 근무조건 줄, #161 길찾기, #163·#165 상세요강, 첫 방문 위치 허용 창) 반영값으로 갱신. master에서 이미 #148 이후 기준값과 달랐음(이 검사가 홈 파일 PR에서만 돌아 못 잡음).
 // 2026-10-18: JobDetail.tsx·index.css 기준값을 Lee 지시 변경(PR #136·#137·#138·#140·#145·#146) 반영값으로 갱신. 상세 화면 틀은 이제 도면(결정 0005)으로도 검사.
 import { readFileSync } from 'node:fs'
@@ -22,7 +23,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "110a7b4f68459d849c483bb5cd768dc9cb6f1018c2b3f931682167cad63c8630",
+    "sha256": "28d14cbba73479cb2767e3d956a024a6817bff3c74a36171edc81a16fd1beca7",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
