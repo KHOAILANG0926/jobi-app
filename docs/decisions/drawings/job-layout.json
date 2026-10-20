@@ -19,7 +19,9 @@
     "conditions.badge",
     "conditions.col2",
     "directions",
-    "mobile-cta"
+    "mobile-cta",
+    "header.location.left-minus-benefits-right",
+    "header.date."
   ],
   "views": {
     "pc": {
@@ -139,7 +141,6 @@
       "header.info.w": 816,
       "header.title.w": 816,
       "header.location.bottom-vs-benefits-bottom": 0,
-      "header.location.left-minus-benefits-right": 118,
       "header.date.mid-vs-save-mid": 0,
       "header.date.gap-to-save": 12
     },
@@ -251,10 +252,7 @@
       "header.location.lines": 1,
       "header.info.w": 201.8,
       "header.title.w": 201.8,
-      "header.location.bottom-vs-benefits-bottom": 18,
-      "header.location.left-minus-benefits-right": -201.8,
-      "header.date.mid-vs-save-mid": 299.2,
-      "header.date.gap-to-save": 157.8
+      "header.location.bottom-vs-benefits-bottom": 18
     },
     "card-pc": {
       "card.w": 321,
@@ -319,5 +317,6 @@
       "mcard.salary.font": "11px 400",
       "structure.mcard": "span.discovery-job__company | strong.discovery-job__title | span.discovery-job__meta | span.discovery-job__salary"
     }
-  }
+  },
+  "_가변값": "header.location.left-minus-benefits-right(위치 글자 길이), 모바일 header.date.*(머리 높이)는 공고 내용에 따라 달라 숫자 비교에서 뺐다(2026-10-20 #4828 측정으로 확인). 위치 오른쪽 끝·복리후생 줄 맞춤은 그대로 검사."
 }
