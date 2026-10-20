@@ -1,0 +1,16 @@
+name: 시험 - OSM 공단 조회 (병합 금지)
+on:
+  push:
+    branches: ['probe/overpass-yp4']
+permissions:
+  contents: read
+jobs:
+  q:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          Q='[out:json][timeout:90];(way["landuse"="industrial"](21.17,105.93,21.26,106.06);relation["landuse"="industrial"](21.17,105.93,21.26,106.06););out center tags;'
+          for u in https://overpass.kumi.systems/api/interpreter https://overpass.private.coffee/api/interpreter https://overpass-api.de/api/interpreter; do
+            curl -s --max-time 150 -A "viecganban-probe" --data-urlencode "data=$Q" "$u" > r.json && [ "$(jq '.elements|length' r.json 2>/dev/null || echo 0)" -gt 0 ] && { echo "::notice::from $u"; break; }
+          done
+          jq -r '.elements[] | select(.tags.name != null) | "\(.type)/\(.id) \(.tags.name) \(.center.lat) \(.center.lon)"' r.json | head -40 | while read l; do echo "::notice::$l"; done
