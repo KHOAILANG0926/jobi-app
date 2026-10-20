@@ -168,12 +168,12 @@ const MENU_ITEMS: MenuItem[] = [
         { label: 'Đà Nẵng', to: '/?region=danang' },
       ]},
       { heading: 'Theo ngành', links: [
-        { label: '☕ Cà phê / Nhà hàng / F&B', to: '/?cat=cafe' },
-        { label: '💼 Văn phòng / Part-time / Nhập liệu', to: '/?cat=office' },
-        { label: '🛍️ Bán lẻ / Siêu thị / Cửa hàng', to: '/?cat=retail' },
-        { label: '🏭 Nhà máy / Sản xuất / KCN', to: '/?cat=factory' },
-        { label: '🛵 Giao hàng / Kho vận / Tài xế', to: '/?cat=delivery' },
-        { label: '🧹 Vệ sinh / Giúp việc', to: '/?cat=cleaning' },
+        { label: '☕ Cà phê / Nhà hàng / F&B', to: '/?cat=am_thuc_do_uong' },
+        { label: '💼 Văn phòng / Part-time / Nhập liệu', to: '/?cat=van_phong' },
+        { label: '🛍️ Bán lẻ / Siêu thị / Cửa hàng', to: '/?cat=quan_ly_ban_hang' },
+        { label: '🏭 Nhà máy / Sản xuất / KCN', to: '/?cat=san_xuat_xay_dung' },
+        { label: '🛵 Giao hàng / Kho vận / Tài xế', to: '/?cat=lai_xe_giao_hang' },
+        { label: '🧹 Vệ sinh / Giúp việc', to: '/?cat=dich_vu' },
         { label: '🇰🇷 Lao động Hàn Quốc', to: '/viec-han-quoc' },
       ]},
       // 2026-09-20 사용자 지시("헤더 메가메뉴 탐색축 세분화", 알바몬
