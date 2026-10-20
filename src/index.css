@@ -12381,3 +12381,14 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 @media (max-width: 640px) { .jd2-gallery__thumb { width: 120px; height: 120px; } .jd2-lightbox__nav { display: none; } }
 /* 2026-10-19 Lee: 이미지 칸(Hình ảnh tuyển dụng) 제목에는 핑크 세로 막대 없음 */
 .jd2-detail-section__title--plain::before { display: none; }
+
+/* 첫 방문 위치 허용 창 (2026-10-20 Lee 확정) */
+.loc-prompt-backdrop { position: fixed; inset: 0; z-index: 3000; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.loc-prompt { width: 100%; max-width: 360px; background: #fff; border-radius: 8px; padding: 24px 20px 18px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.2); }
+.loc-prompt-title { margin: 0 0 8px; font-size: 19px; font-weight: 700; color: #0f172a; }
+.loc-prompt-text { margin: 0 0 20px; font-size: 15px; line-height: 1.5; color: #475569; }
+.loc-prompt-actions { display: flex; gap: 8px; }
+.loc-prompt-actions button { flex: 1; height: 44px; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.loc-prompt-later { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+.loc-prompt-allow { background: var(--color-primary); color: #fff; border: 1px solid var(--color-primary); }
+.loc-prompt-actions button:disabled { opacity: 0.7; cursor: default; }
