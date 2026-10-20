@@ -12284,3 +12284,100 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 
 /* 2026-10-18 도면 측정에서 발견(#4828 회사명 빈값): 빈값이어도 회사명 줄 자리를 유지해 아래 영역이 당겨지지 않게 한다. 가짜 값은 넣지 않는다(빈 칸만 유지). */
 .jd2-header .jd2-header__company:empty::before { content: '\00a0'; }
+
+/* 2026-10-18 Lee 지시(PC만): 기준 화면(#136 이전)대로 위치는 복리후생 아이콘 줄 오른쪽 끝,
+   등록일은 즐겨찾기 버튼 왼쪽, 상단 급여는 배지+금액만(수당 상세는 근무조건 칸 'Phụ cấp · Thưởng'에만). */
+@media (min-width: 761px) {
+  /* 위치는 카드 오른쪽 끝(즐겨찾기 아래까지)을 쓴다. 아래 끝 = 복리후생 줄 아래 끝(카드 안쪽 여백 위). */
+  .jd2-header { position: relative; }
+  .jd2-header .jd2-header__meta { height: 0; min-height: 0; display: block; position: static; }
+  .jd2-header .jd2-header__meta .jd2-meta-item {
+    position: absolute; right: 1.75rem; bottom: 1.5rem; flex: none; display: block;
+    max-width: calc(100% - 700px - 1.75rem - 24px); white-space: normal; overflow: visible; text-overflow: clip;
+    text-align: right; line-height: 1.35;
+  }
+  .jd2-header .jd2-header__meta .jd2-meta-item svg { vertical-align: -2px; margin-right: 3px; }
+  .jd2-header .jd2-header__meta .jd2-meta-date { display: none; }
+  /* 등록일은 즐겨찾기 왼쪽에 겹쳐 두고(폭 차지 없음) 제목·내용 칸 폭은 원래대로 */
+  .jd2-header__actions { position: relative; align-self: flex-start; }
+  .jd2-header__actions .jd2-meta-date--top { position: absolute; right: calc(100% + 12px); top: 50%; transform: translateY(-50%); white-space: nowrap; }
+  .jd2-header .jd2-hl-salary__note { display: none; }
+}
+@media (max-width: 760px) {
+  .jd2-header__actions { display: contents; }
+  .jd2-header__actions .jd2-meta-date--top { display: none; }
+}
+
+/* 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄(항목 중간 꺾임 금지), 한 칸 최대 3줄, 넘치면 'Xem thêm'. PC·모바일 공통. */
+.jd2-sec--conditions-grid dd { position: relative; }
+.jd2-cond-item { white-space: nowrap; }
+.jd2-cond-measure { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+.jd2-cond-measure .jd2-cond-item { display: block; width: max-content; }
+.jd2-cond-more { background: none; border: 0; padding: 0; font: inherit; color: var(--jd2-link, #2563eb); cursor: pointer; text-decoration: underline; }
+
+/* 2026-10-19 Lee 결정(1+4): Google 길찾기 글자 앞 빨간 지도 핀 + 지도 누르면 Google 길찾기 */
+.jd2-google-pin { width: 24px; height: 24px; flex: none; fill: #ea4335; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.jd2-map-tap { cursor: pointer; }
+
+/* 2026-10-19 Lee 결정 모션: ① 글자 물결(Google 원래 색 유지) ② 화살표 끝에서 출발해 지도 가운데로 달리는 오토바이. 테두리 없음, 크기·위치 그대로. */
+.jd2-google-label, .jd2-google-brand, .jd2-google-maps { white-space: nowrap; }
+.jd2-wave-ch { display: inline-block; animation: jd2-wave-ch 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms); }
+@keyframes jd2-wave-ch { 0%, 30%, 100% { transform: translateY(0); } 15% { transform: translateY(-3px); } }
+.jd2-map-tap { position: relative; }
+.jd2-bike-host { position: relative; }
+.jd2-ride-bike {
+  position: absolute; left: 0; top: 0; z-index: 6; width: 44px; height: 31px; pointer-events: none;
+  offset-rotate: 0deg; offset-anchor: 50% 80%; offset-distance: 0%;
+  fill: none; stroke: #b91c1c; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 1px 2px rgba(0,0,0,.3));
+  animation: jd2-ride 6s cubic-bezier(.45,.05,.35,1) infinite;
+}
+.jd2-ride-bike__frame { fill: #ef4444; }
+.jd2-ride-bike__wheel { fill: #fff; stroke: #1f2937; stroke-width: 2; }
+.jd2-ride-bike__seat { stroke: #1f2937; stroke-width: 2.4; }
+.jd2-ride-bike__body { transform-box: fill-box; transform-origin: center; transform: scaleX(var(--bike-flip, 1)); animation: jd2-ride-bob .35s ease-in-out infinite alternate; }
+@keyframes jd2-ride {
+  0% { offset-distance: 0%; opacity: 0; }
+  6% { opacity: 1; }
+  70% { offset-distance: 100%; opacity: 1; }
+  90% { offset-distance: 100%; opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes jd2-ride-bob { from { translate: 0 0; } to { translate: 0 -1.2px; } }
+@media (prefers-reduced-motion: reduce) { .jd2-wave-ch, .jd2-ride-bike, .jd2-ride-bike__frame { fill: #ef4444; }
+.jd2-ride-bike__wheel { fill: #fff; stroke: #1f2937; stroke-width: 2; }
+.jd2-ride-bike__seat { stroke: #1f2937; stroke-width: 2.4; }
+.jd2-ride-bike__body { animation: none; } .jd2-ride-bike { display: none; } }
+
+/* 2026-10-19 Lee: 상세요강 알바몬 공고 디자인 — 칸 제목 왼쪽 핑크 세로 막대(상자 테두리 #f5c6d0와 같은 계열) + 굵은 제목, 내용은 • 점 목록, 칸 사이는 여백만. */
+.jd2-detail-sections { padding: 1.6rem 1.9rem 1.7rem; }
+.jd2-detail-section { padding: 0; border: 0; }
+.jd2-detail-section + .jd2-detail-section { border-top: 0; margin-top: 2.1rem; padding-top: 0; }
+.jd2-detail-section__title {
+  display: flex; align-items: center; gap: .75rem; margin: 0 0 .9rem;
+  font-size: 1.12rem; font-weight: 700; color: #1f2937; line-height: 1.3;
+}
+.jd2-detail-section__title::before { content: ''; flex: none; width: 6px; height: 1.25em; background: #e58aa0; }
+.jd2-detail-section__lines { display: grid; gap: .55rem; padding-left: .35rem; }
+.jd2-detail-section__line { position: relative; padding-left: 1.15rem; color: #1f2937; line-height: 1.6; }
+.jd2-detail-section__line::before { content: ''; position: absolute; left: .2rem; top: .68em; width: 5px; height: 5px; border-radius: 50%; background: #1f2937; }
+@media (max-width: 640px) {
+  .jd2-detail-sections { padding: 1.1rem 1rem 1.2rem; }
+  .jd2-detail-section + .jd2-detail-section { margin-top: 1.6rem; }
+  .jd2-detail-section__title { font-size: 1.05rem; }
+}
+
+/* 2026-10-19 Lee: 채용 이미지 갤러리 — 같은 크기 작은 사진 한 줄(휴대폰은 옆으로 밀기), 누르면 크게. 회색 바탕 없음. */
+.jd2-gallery { display: flex; gap: .75rem; overflow-x: auto; padding: .15rem 0 .35rem; scroll-snap-type: x mandatory; }
+.jd2-gallery__thumb { flex: none; width: 150px; height: 150px; padding: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; cursor: zoom-in; scroll-snap-align: start; }
+.jd2-gallery__thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.jd2-gallery__thumb:hover { border-color: #e58aa0; }
+.jd2-lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(15, 23, 42, .88); display: flex; align-items: center; justify-content: center; padding: 3rem 1rem; }
+.jd2-lightbox img { max-width: min(100%, 900px); max-height: 100%; object-fit: contain; border-radius: 4px; background: #fff; }
+.jd2-lightbox__close { position: absolute; top: .75rem; right: 1rem; width: 2.5rem; height: 2.5rem; border: 0; background: transparent; color: #fff; font-size: 2rem; line-height: 1; cursor: pointer; }
+.jd2-lightbox__nav { position: absolute; top: 50%; transform: translateY(-50%); width: 2.75rem; height: 4rem; border: 0; background: rgba(255,255,255,.12); color: #fff; font-size: 2.2rem; cursor: pointer; }
+.jd2-lightbox__nav--prev { left: .5rem; } .jd2-lightbox__nav--next { right: .5rem; }
+.jd2-lightbox__count { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); color: #e5e7eb; font-size: .9rem; }
+@media (max-width: 640px) { .jd2-gallery__thumb { width: 120px; height: 120px; } .jd2-lightbox__nav { display: none; } }
+/* 2026-10-19 Lee: 이미지 칸(Hình ảnh tuyển dụng) 제목에는 핑크 세로 막대 없음 */
+.jd2-detail-section__title--plain::before { display: none; }

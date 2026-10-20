@@ -1,0 +1,31 @@
+name: 데모 움직임 촬영 (demo 브랜치)
+on:
+  push:
+    branches: ['demo/**']
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm run build
+      - run: npx playwright install --with-deps chromium && sudo apt-get install -y -qq imagemagick
+      - name: 촬영
+        run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          node scripts/demo/capture-motion.mjs 4828
+          montage out/pc-*.png -tile 2x -geometry +4+4 out/pc-sheet.png || true
+          montage out/mobile-*.png -tile 4x -geometry +4+4 out/mobile-sheet.png || true
+      - name: 저장 (screens 브랜치)
+        run: |
+          cp -r out /tmp/out
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan screens-tmp && git rm -rfq . && git clean -fdxq
+          cp /tmp/out/*sheet.png . ; cp /tmp/out/pc-00.png /tmp/out/mobile-00.png /tmp/out/desc-*.png . 2>/dev/null || true
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git add -A && git commit -qm "demo capture ${GITHUB_SHA::7}" && git push -f origin HEAD:screens

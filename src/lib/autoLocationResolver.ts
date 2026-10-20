@@ -2,7 +2,7 @@
 import { ADDRESS_STRATEGY, parseStreetAddress, hasConflictingProvinces } from './addressLocate'
 import { COMPANY_STRATEGY, type LocateStrategy } from './chototAutoLocate'
 import { findIndustrialPark } from './industrialPark'
-import { wardUnitForAddresses } from './wardArea'
+import { wardUnitForAddresses, type WardUnit } from './wardArea'
 import { pickWardHit, checkWardPlace } from './wardLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
@@ -16,6 +16,8 @@ export interface ResolverDeps {
   /** Durable job + daily budget reservation BEFORE every attempted upstream call. False means stop. */
   reserve(): Promise<boolean>
   request(action: 'search' | 'place', params: Record<string, string>): Promise<unknown>
+  /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
+  wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
 export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
   let calls = 0
@@ -66,6 +68,8 @@ export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps):
     if (!park) {
       const unit = wardUnitForAddresses(targets.map(t => t.address))
       if (unit && !failed) {
+        const saved = await deps.wardCenter?.(unit)
+        if (saved && validPoint(saved)) return {kind:'area',lat:saved.lat,lng:saved.lng,source:`VietMap ward cache ${unit.key}`,checkedAt:saved.at || at}
         const hits = await query('search', {text:unit.searchText})
         const pick = pickWardHit(unit, hits)
         if (pick.hit?.ref_id && !pick.multiple) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
@@ -22,9 +22,11 @@ import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapL
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl, jobImagePublicUrl } from '../lib/companyLogo'
+import { ConditionLines } from '../components/ConditionLines'
+import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility } from '../lib/jobDetailSections'
+import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -32,6 +34,11 @@ import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
 import { useWardCenter } from '../lib/wardAreaClient'
 import { findIndustrialPark } from '../lib/industrialPark'
 import type { JobSection } from '../data/jobSchema'
+
+// 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
+const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
+  allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
+}
 
 function nonEmpty(v: string | null | undefined): string | undefined {
   const t = v?.trim()
@@ -53,7 +60,8 @@ function nonEmpty(v: string | null | undefined): string | undefined {
 // (에러도 미완료 경계도 아님), 클라이언트도 최초 hydration 순간엔 똑같이
 // null이었다가(같은 구조라 mismatch 없음) 그 다음 effect에서 실제 지도로
 // 바뀐다.
-function ClientOnlyMap(props: JobVietMapProps) {
+// 2026-10-19 Lee 결정(1+4): 지도를 눌렀을 때(끌기가 아니라 짧게 누름) Google 길찾기를 연다. 지도 단추(확대 등)는 제외.
+function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: string }) {
   const [Comp, setComp] = useState<ComponentType<JobVietMapProps> | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -62,9 +70,25 @@ function ClientOnlyMap(props: JobVietMapProps) {
     })
     return () => { cancelled = true }
   }, [])
+  const down = useRef<{ x: number; y: number } | null>(null)
   if (!Comp) return null
   const Map = Comp
-  return <Map {...props} />
+  if (!tapHref) return <Map {...props} />
+  return (
+    <div
+      className="jd2-map-tap"
+      onPointerDown={(e) => { down.current = { x: e.clientX, y: e.clientY } }}
+      onPointerUp={(e) => {
+        const start = down.current
+        down.current = null
+        if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return
+        if ((e.target as HTMLElement).closest('button, a, [class*="ctrl"]')) return
+        window.open(tapHref, '_blank', 'noopener,noreferrer')
+      }}
+    >
+      <Map {...props} />
+    </div>
+  )
 }
 
 type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
@@ -78,6 +102,18 @@ export function JobDetail() {
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // 근무조건 칸 중 'Xem thêm'으로 접힌 칸(키 → 소제목·이름·원문). 상세요강에 같은 내용이 없으면 그곳에 보여 준다.
+  const [conditionOverflow, setConditionOverflowState] = useState<Record<string, { label: string; text: string }>>({})
+  const setConditionOverflow = useCallback((key: string, label: string, text: string, overflow: boolean) => {
+    setConditionOverflowState((prev) => {
+      const has = prev[key]?.text === text && prev[key]?.label === label
+      if (overflow ? has : !prev[key]) return prev
+      const next = { ...prev }
+      if (overflow) next[key] = { label, text }
+      else delete next[key]
+      return next
+    })
+  }, [])
   const [applied, setApplied] = useState(false)
   const [applying, setApplying] = useState(false)
   const [employerJobCount, setEmployerJobCount] = useState<number | undefined>(undefined)
@@ -166,6 +202,11 @@ export function JobDetail() {
   const scrollToSection = useCallback((k: JobSection) => {
     setActiveTab(tabOfSection(k))
     document.getElementById(jobSectionId(k))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+  const scrollToDetail = useCallback((key: DetailTextKey) => {
+    setActiveTab(tabOfSection('description'))
+    const target = document.getElementById(`jd2-detail-${key}`) ?? document.getElementById(jobSectionId('description'))
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
   // "최근 본 공고" — 상세페이지를 실제로 열람했을 때만 기록한다(목록 카드
@@ -291,7 +332,12 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
-  const detail = detailSections(job.description)
+  // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다(급여 줄은 남김).
+  const detail = detailSections(job.description, {
+    title: job.title,
+    phones: [job.employerPhone, job.zalo],
+    addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
+  })
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
@@ -305,6 +351,9 @@ export function JobDetail() {
   const periodLabel = salaryPeriodLabel(job.salaryPeriod)
   const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
     value ? ({ key, icon, label, value, cls } as InfoField) : null
+  // 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄, 최대 3줄, 넘치면 'Xem thêm' → 상세요강 해당 소제목.
+  const textRow = (key: string, icon: ReactNode, label: string, value: string | undefined) =>
+    value ? row(key, icon, label, <ConditionLines text={value} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
@@ -325,14 +374,13 @@ export function JobDetail() {
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng',
-      isAllowanceNote && salaryNote ? <span className="jd2-salary-lines">{salaryNote.split(/\s*;\s*/).filter(Boolean).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span> : undefined),
-    row('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
-    row('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
-    row('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
-    row('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
-    row('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
-    row('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
+    textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
+    textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
+    textRow('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
+    textRow('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
+    textRow('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
+    textRow('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
+    textRow('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
     row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
@@ -394,6 +442,9 @@ export function JobDetail() {
   // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
   // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
   const directionsPlan = planJobDirections(job)
+  // 지도 누르면 열 Google 길찾기(아래 Google 버튼과 같은 주소). 없으면 지도 누르기는 아무 일도 안 함.
+  const googleMapHref = googleCompanyParkLink
+    ?? (directionsPlan.tier === 'address' || directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : undefined)
   const mapDirections = directionsPlan.tier === 'approved' ? directionsPlan.links : []
   const park = !hasMapPoints
     ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
@@ -434,7 +485,7 @@ export function JobDetail() {
   const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
   const conditionPcFields = [
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
-    row('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', activeBenefitText || undefined),
+    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', activeBenefitText || undefined),
   ].filter(Boolean) as InfoField[]
   const logoUrl = companyLogoUrl(job.imageUrl)
   // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
@@ -447,7 +498,21 @@ export function JobDetail() {
   // 회사 정보도, 같은 회사 다른 공고도 없으면 기업정보 구역(탭 포함)을 숨긴다. 리뷰는 구역 밖에서 유지.
   const showCompanySection = hasCompanyInfo || otherJobsOfCompany.length > 0
   // 상세요강은 남은 문장 행(또는 추가 사진)이 하나도 없으면 구역·탭을 숨긴다.
-  const showDescriptionSection = detail.sections.length > 0 || extraImages.length > 0
+  // 접힌 근무조건 칸 중 상세요강에 같은 내용이 없는 것 → 해당 소제목에 원문 그대로 추가 표시(글자 변경 없음)
+  const conditionExtras: Partial<Record<DetailTextKey, { label: string; text: string }[]>> = {}
+  for (const [key, { label, text }] of Object.entries(conditionOverflow)) {
+    const target = CONDITION_DETAIL_KEY[key] ?? '07'
+    const items = conditionItems(text)
+    const lines = detail.sections.find((sec) => sec.key === target)?.lines ?? []
+    if (itemsCoveredBy(items, lines)) continue
+    ;(conditionExtras[target] ??= []).push({ label, text })
+  }
+  const descriptionSections = [...detail.sections]
+  for (const key of Object.keys(conditionExtras) as DetailTextKey[]) {
+    if (!descriptionSections.some((sec) => sec.key === key)) descriptionSections.push({ key, label: DETAIL_LABELS[key], lines: [] })
+  }
+  descriptionSections.sort((a, b) => a.key.localeCompare(b.key))
+  const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
@@ -507,14 +572,20 @@ export function JobDetail() {
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
-          onClick={onToggleSave}
-          title={saved ? 'Bỏ lưu' : 'Lưu tin'}
-        >
-          {saved ? <BookmarkCheck size={27} strokeWidth={1.8} /> : <Bookmark size={27} strokeWidth={1.8} />}
-        </button>
+        <div className="jd2-header__actions">
+          {/* 2026-10-18 Lee 지시(PC): 등록일은 즐겨찾기 왼쪽. 모바일은 기존 위치(아래 줄) 유지 — CSS로 화면별 하나만 보임 */}
+          <time className="jd2-meta-date jd2-meta-date--top" dateTime={job.postedAt}>
+            {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </time>
+          <button
+            type="button"
+            className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
+            onClick={onToggleSave}
+            title={saved ? 'Bỏ lưu' : 'Lưu tin'}
+          >
+            {saved ? <BookmarkCheck size={27} strokeWidth={1.8} /> : <Bookmark size={27} strokeWidth={1.8} />}
+          </button>
+        </div>
       </div>
 
       {/* ── Sticky tabs: 내용을 숨기지 않고 구역으로 스크롤만 ── */}
@@ -634,13 +705,14 @@ export function JobDetail() {
 
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
-            <div className="jd2-card__body">
+            <div className="jd2-card__body jd2-bike-host">
+              <BikeRide />
               {mapLocations.source === 'pending' && !hasMapPoints && !park && !(wardUnit && wardCenter) ? (
                 <div className="jd2-location-pending-compact">
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
                   )}
-                  <ClientOnlyMap
+                  <ClientOnlyMap tapHref={googleMapHref}
                     lat={unverifiedMapViewport.lat}
                     lng={unverifiedMapViewport.lng}
                     title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
@@ -781,7 +853,7 @@ export function JobDetail() {
                       resolveMapLocations()가 이미 우선순위대로 골라준 점들이다. */}
                   {hasMapPoints && mapCenter && (
                     <>
-                      <ClientOnlyMap
+                      <ClientOnlyMap tapHref={googleMapHref}
                         lat={mapCenter.lat}
                         lng={mapCenter.lng}
                         title={job.title}
@@ -798,16 +870,16 @@ export function JobDetail() {
                   )}
                   {park && (
                     <>
-                      <ClientOnlyMap lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
                       <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
                     <>
-                      <ClientOnlyMap lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
                       <p className="jd2-map-pending-note jd2-map-area-note">
-                        <strong>Khu vực {wardUnit.label}, vị trí chính xác chưa xác minh.</strong> Bản đồ chỉ cho biết khu vực lân cận (không có ghim) — chưa dùng để chỉ đường hay tính khoảng cách.
-                        <span className="jd2-map-credit"> Vị trí khu vực: VietMap.</span>
+                        {/* 2026-10-19 Lee: 구구절절 쓰지 않는다 — 대략 어디인지 + 정확도 한마디만. 정확한 길은 아래 Google 버튼. */}
+                        <strong>Khu vực {wardUnit.label}</strong> (vị trí gần đúng)
                       </p>
                     </>
                   )}
@@ -841,7 +913,7 @@ export function JobDetail() {
                         </span>
                       ))}
                       {directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
-                      <p className="jd2-map-dir-note">{directionsPlan.note}</p>
+                      {!(!hasMapPoints && !park && wardUnit && wardCenter) && <p className="jd2-map-dir-note">{directionsPlan.note}</p>}
                     </div>
                   )}
                   {directionsPlan.tier === 'call' && (
@@ -860,13 +932,16 @@ export function JobDetail() {
           {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-            {detail.sections.length > 0 && (
+            {descriptionSections.length > 0 && (
               <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
-                {detail.sections.map((section) => (
-                  <section key={section.key} className="jd2-detail-section">
+                {descriptionSections.map((section) => (
+                  <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
                     <h3 className="jd2-detail-section__title">{section.label}</h3>
                     <div className="jd2-detail-section__lines">
-                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line}</p>)}
+                      {conditionExtras[section.key]?.map((extra) => (
+                        <p key={extra.label} className="jd2-detail-section__line jd2-detail-section__line--condition">{extra.label}: {extra.text}</p>
+                      ))}
+                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line.replace(/^\s*[-•*]\s+/, '')}</p>)}
                     </div>
                   </section>
                 ))}
@@ -876,10 +951,8 @@ export function JobDetail() {
             {extraImages.length > 0 && (
               <div className="jd2-box">
                 <div className="jd2-card__body">
-                  <h3 className="jd2-detail-section__title">{DETAIL_LABELS["08"]}</h3>
-                  {extraImages.map((url, i) => (
-                    <img key={i} src={url} alt={`${job.title} ${i + 1}`} className="jd2-desc-img" loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none' }} />
-                  ))}
+                  <h3 className="jd2-detail-section__title jd2-detail-section__title--plain">{DETAIL_LABELS["08"]}</h3>
+                  <ImageGallery images={extraImages} title={job.title} />
                 </div>
               </div>
             )}
@@ -1007,6 +1080,104 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 }
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
+// 2026-10-19 Lee: 채용 이미지(포스터·회사·작업장 사진)를 같은 크기 작은 사진 한 줄로, 누르면 크게(옆으로 넘기기·Esc 닫기).
+function ImageGallery({ images, title }: { images: string[]; title: string }) {
+  const [open, setOpen] = useState<number | null>(null)
+  const [broken, setBroken] = useState<Set<string>>(() => new Set())
+  const list = images.filter((u) => !broken.has(u))
+  useEffect(() => {
+    if (open === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(null)
+      if (e.key === 'ArrowRight') setOpen((i) => (i === null ? i : (i + 1) % list.length))
+      if (e.key === 'ArrowLeft') setOpen((i) => (i === null ? i : (i - 1 + list.length) % list.length))
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [open, list.length])
+  const touch = useRef<number | null>(null)
+  if (!list.length) return null
+  return (
+    <>
+      <div className="jd2-gallery">
+        {list.map((url, i) => (
+          <button key={url} type="button" className="jd2-gallery__thumb" onClick={() => setOpen(i)} aria-label={`Xem ảnh ${i + 1}`}>
+            <img src={url} alt={`${title} ${i + 1}`} loading="lazy" onError={() => setBroken((b) => new Set(b).add(url))} />
+          </button>
+        ))}
+      </div>
+      {open !== null && list[open] && (
+        <div className="jd2-lightbox" role="dialog" aria-modal="true" onClick={() => setOpen(null)}
+          onTouchStart={(e) => { touch.current = e.touches[0].clientX }}
+          onTouchEnd={(e) => {
+            const start = touch.current; touch.current = null
+            if (start === null || list.length < 2) return
+            const dx = e.changedTouches[0].clientX - start
+            if (Math.abs(dx) > 40) setOpen((i) => (i === null ? i : (i + (dx < 0 ? 1 : -1) + list.length) % list.length))
+          }}>
+          <img src={list[open]} alt={`${title} ${open + 1}`} onClick={(e) => e.stopPropagation()} />
+          <button type="button" className="jd2-lightbox__close" aria-label="Đóng" onClick={() => setOpen(null)}>×</button>
+          {list.length > 1 && <>
+            <button type="button" className="jd2-lightbox__nav jd2-lightbox__nav--prev" aria-label="Ảnh trước" onClick={(e) => { e.stopPropagation(); setOpen((open - 1 + list.length) % list.length) }}>‹</button>
+            <button type="button" className="jd2-lightbox__nav jd2-lightbox__nav--next" aria-label="Ảnh sau" onClick={(e) => { e.stopPropagation(); setOpen((open + 1) % list.length) }}>›</button>
+            <span className="jd2-lightbox__count">{open + 1} / {list.length}</span>
+          </>}
+        </div>
+      )}
+    </>
+  )
+}
+
+// 2026-10-19 Lee 결정: 오토바이가 Google 길찾기 화살표 끝에서 출발해 지도 가운데(근무지 쪽)까지 달려간다.
+// 같은 근무지 칸 안에서 화살표·지도 위치를 재서 곡선 길을 만든다(화면 크기가 바뀌면 다시 잼). 실제 도로를 따라가는 건 아님.
+function BikeRide() {
+  const ref = useRef<SVGSVGElement>(null)
+  const [path, setPath] = useState<{ d: string; flip: boolean } | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    const host = el?.parentElement
+    if (!el || !host) return
+    const measure = () => {
+      const arrow = host.querySelector('.jd2-google-arrow')
+      const map = host.querySelector('.jd2-map-tap')
+      if (!arrow || !map) { setPath(null); return }
+      const h = host.getBoundingClientRect(), a = arrow.getBoundingClientRect(), m = map.getBoundingClientRect()
+      const sx = a.right - h.left + 6, sy = a.top + a.height / 2 - h.top
+      const ex = m.left + m.width / 2 - h.left, ey = m.top + m.height / 2 - h.top
+      const r = (n: number) => Math.round(n)
+      // 곡선이 근무지 칸 밖으로 나가지 않게 조절점을 칸 안쪽(좌우 24px 여백)으로 제한한다.
+      const W = h.width, clampX = (x: number) => Math.min(W - 24, Math.max(24, x))
+      const c1x = clampX(sx + 60), c1y = sy - 30
+      const c2x = clampX(ex + (sx > ex ? 120 : -120)), c2y = ey + 80
+      setPath({ d: `M ${r(sx)} ${r(sy)} C ${r(c1x)} ${r(c1y)}, ${r(c2x)} ${r(c2y)}, ${r(ex)} ${r(ey)}`, flip: ex < sx })
+    }
+    measure()
+    const t = window.setTimeout(measure, 1500) // 지도가 늦게 그려지는 경우
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(host)
+    return () => { window.clearTimeout(t); ro?.disconnect() }
+  }, [])
+  return (
+    <svg ref={ref} className="jd2-ride-bike" viewBox="0 0 34 24" aria-hidden="true"
+      style={path ? ({ offsetPath: `path('${path.d}')`, '--bike-flip': path.flip ? -1 : 1 } as CSSProperties) : { display: 'none' }}>
+      <g className="jd2-ride-bike__body">
+        {/* 스쿠터형 오토바이(베트남에서 흔한 모양): 바퀴 2개 + 차체 + 좌석 + 핸들 */}
+        <circle cx="8" cy="18" r="4.2" className="jd2-ride-bike__wheel" /><circle cx="27" cy="18" r="4.2" className="jd2-ride-bike__wheel" />
+        <path className="jd2-ride-bike__frame" d="M4 15.5c1-3.5 4-5 8-5h7.5l2.5-4.5h3l-1 2.5 3.5 8H23.5l-3-4H13.5l-1.8 3.5H4z" />
+        <path className="jd2-ride-bike__seat" d="M11 9.5h7" />
+        <path d="M24.5 6h3.5" />
+      </g>
+    </svg>
+  )
+}
+
+// 2026-10-19 Lee 결정: 글자 물결(글자가 하나씩 위아래로 출렁임). 글자 하나하나를 span으로 나눠 시간차로 움직인다.
+function WaveText({ text, from }: { text: string; from: number }) {
+  return <>{[...text].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': from + i } as CSSProperties}>{ch === ' ' ? '\u00a0' : ch}</span>)}</>
+}
+
 function GoogleDirectionsLink({ href }: { href: string }) {
-  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><span className="jd2-google-label">Chỉ đường</span><span className="jd2-google-brand" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></span><span className="jd2-google-maps">Maps</span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
+  return <a className="jd2-map-dir jd2-map-dir--google" href={href} target="_blank" rel="noopener noreferrer"><MapPin className="jd2-google-pin" aria-hidden="true" /><span className="jd2-google-label" aria-label="Chỉ đường"><WaveText text="Chỉ đường" from={0} /></span><span className="jd2-google-brand" aria-label="Google">{[...'Google'].map((ch, i) => <span key={i} className="jd2-wave-ch" style={{ '--i': 10 + i } as CSSProperties}>{ch}</span>)}</span><span className="jd2-google-maps" aria-label="Maps"><WaveText text="Maps" from={16} /></span><svg className="jd2-google-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11" /></svg></a>
 }
