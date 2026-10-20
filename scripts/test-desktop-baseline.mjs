@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-20: JobDetail.tsx·index.css·DesktopHomeMapExplorer.tsx 기준값을 Lee 지시 변경(#148 근무조건 줄, #161 길찾기, #163·#165 상세요강, 첫 방문 위치 허용 창) 반영값으로 갱신. master에서 이미 #148 이후 기준값과 달랐음(이 검사가 홈 파일 PR에서만 돌아 못 잡음).
 // 2026-10-18: JobDetail.tsx·index.css 기준값을 Lee 지시 변경(PR #136·#137·#138·#140·#145·#146) 반영값으로 갱신. 상세 화면 틀은 이제 도면(결정 0005)으로도 검사.
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -21,7 +22,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "92482ca2cf005d49aa368c9da99265e0c92d4c03add04c8a501d4a31bdcc65b2",
+    "sha256": "110a7b4f68459d849c483bb5cd768dc9cb6f1018c2b3f931682167cad63c8630",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -48,12 +49,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "2c2268ae32c6dfc37fe03aff780b8e065c2c3347a8e6058119eb610ad8e8b687",
+    "sha256": "5533e5d197e648173e7b50f53d20d8c7cb220b50d020635fde0c15a4c17c6a74",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "400138b734e1a441ca246843ffccd936c305069d55402c7c1a942bef7721865c",
+    "sha256": "dc4151fb39a4c66d72e7b1cd6e0bdfe5285f3a3b0ea514ca069f028c36bbc916",
     "restore": []
   },
   {
