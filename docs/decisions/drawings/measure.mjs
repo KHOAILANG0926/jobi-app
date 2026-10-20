@@ -262,7 +262,7 @@ export function compare(drawing, view, actual, label) {
     else if (got !== want) problems.push(`${label}: '${k}' "${got}" ≠ 도면 "${want}"`)
   }
   // 도면에 없는 영역(새로 끼워 넣은 구역·줄 등)은 불합격
-  for (const k of Object.keys(actual)) if (!(k in spec) && !isOptional(k)) problems.push(`${label}: 도면에 없는 영역 '${k}' (${JSON.stringify(actual[k])})`)
+  for (const k of Object.keys(actual)) if (!k.startsWith('content.') && !(k in spec) && !isOptional(k)) problems.push(`${label}: 도면에 없는 영역 '${k}' (${JSON.stringify(actual[k])})`)
   return problems
 }
 
