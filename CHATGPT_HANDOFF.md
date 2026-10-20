@@ -1,8 +1,8 @@
 # CHATGPT_HANDOFF — 빠진 줄 보충 + 위치 못 찾은 공고 처리 (10-20 아침)
-갱신: 2026-10-20 20:20 Asia/Ho_Chi_Minh
+갱신: 2026-10-20 22:05 Asia/Ho_Chi_Minh
 
 ## 1. 현재 상태
-- 운영: 공개 공고 2건(#4824 KDA, #4828 Mao Yên). master = #177(600a9870), deploy-verify 통과(run 39428820913).
+- 운영: 공개 공고 2건(#4824 KDA, #4828 Mao Yên). master = #180(6d9de1f), deploy-verify 통과.
 - 빠진 줄 자동 보충(#167, Lee 10-20): 원문·포스터(ai-v1)에 있는데 공고 글에 없는 줄을 막지 않고 글자 그대로 칸에 붙임(scripts/ocr/detail-fill.mjs, job-ocr-check.yml에서 OCR 뒤 실행). 규칙에 없는 종류는 07 + ocr_check.detail_fill.unclassified → 매일 08:52 예약 점검이 Lee에게 알림 → Lee가 정하면 src/lib/jobDetailFill.ts KIND_RULES + 결정 문서 + 시험에 추가(규정이 바뀌면 전 공고 자동 재배치). 운영 반영 확인: #4828 15→23줄, #4824 7줄 보충, 두 공고 공개 유지. 두루뭉술한 문구(장점·끝맺음 권유·TUYỂN FULL)는 묻지 않고 07(Lee 10-20, KIND_RULES, #169).
 - 위치 못 찾은 공고(#170, #154 대체, Lee 10-20): 찾음(확인 좌표·공단 입구·동 중심·KCN 이름)=공개 / 원문에 위치 정보 없음=바로 삭제(map_r1_delete_no_info) / 주소 있는데 못 찾음=비공개, 자동 삭제 절대 없음, 매일 03:00 재판정, 매일 20:00 예약 점검(trig_01QD9erq4V4WAUqD8ydyTJpw)이 map_r1_unlocated_report로 Lee에게 원인·해결안 보고. 상세요강 새 종류 알림은 매일 08:52(trig_01UPYmvMx2btwzLHUEvcEv9o).
 - 공고 상세 상세요강(#163): 원문 줄을 01~07 칸에 글자 그대로 옮김. 빼도 되는 줄은 3가지뿐(원문 소제목·제목 반복·위에 이미 있는 주소/전화). 급여 줄은 남김. 한 줄이라도 빠지면 원문 전체를 07에 그대로(기계 검사). 디자인은 알바몬 참고: 핑크 세로 막대(#e58aa0)·글머리표·칸 사이 여백. 08 사진 칸(포스터·회사 사진 등 썸네일, 누르면 크게, 제목 막대 없음 #165). 정답표 시험 #4824·#4828(src/lib/jobDetailSections.test.ts).
@@ -13,7 +13,9 @@
 
 - 첫 방문 위치 허용 창(#177, Lee 10-20): "Tìm việc gần bạn" / Cho phép · Để sau, 한 번만, 허용 위치는 메인 지도 출발점(src/lib/userLocation.ts, LocationPrompt.tsx). 브라우저 권한 창 글자는 휴대폰 언어를 따름(바꿀 수 없음). PC 기준 해시 갱신(test-desktop-baseline, master에서 이미 #148 이후 어긋나 있었음).
 - 도면(PR #141 가지): 10-20 운영 측정값으로 갱신, 공고 #4824·#4828 check 통과(run 39351181722). 결정 문서 0008 PR #175. 둘 다 Lee 승인(CODEOWNERS) 대기.
-- 남은 시험 가지 probe/* 4개(삭제 권한 없음, 병합 금지).
+- 공단 핀(#179·#180): 공단 표에 없는 KCN은 VietMap 공단 이름 검색으로 대략 핀(같은 이름 여럿이면 업종 분류 있는 POI 1곳). [직접 확인] #4824 핀 생김(21.1966,105.9933), 메인 지도 핀 2개. 메뉴 'Theo ngành' 링크를 실제 업종 값으로(옛 값 factory 등 → 0건이었음), 시험 api/_menu-links.test.ts.
+- 오토바이 시간 데모(demo/commute-time)·위치 안내 데모(demo/location-guide)는 Lee가 접음(정확한 위치 공고가 늘면 재검토).
+- 남은 시험 가지 probe/*(삭제 권한 없음, 병합 금지).
 
 ## 2. 다음 할 일 3개
 1. 결정 문서 승인 방식: GitHub 버튼 대신 채팅 확인으로 바꿀지 Lee 답 대기 → 그 뒤 #141·#175 반영.
