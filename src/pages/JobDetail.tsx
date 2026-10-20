@@ -421,7 +421,8 @@ export function JobDetail() {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
     : null
   const genericPark = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
-  const unverifiedMapViewport = genericPark
+  // 메인 지도와 같은 대략 위치가 있으면 그 점을 가운데에 두고 핀을 찍는다(2026-10-21 Lee: 메인·상세 핀 불일치).
+  const unverifiedMapViewport = repPoint ? { lat: repPoint.lat, lng: repPoint.lng, zoom: 14 } : genericPark
     ? { lat: genericPark.destination?.kind === 'gate' ? genericPark.destination.lat : genericPark.lat,
         lng: genericPark.destination?.kind === 'gate' ? genericPark.destination.lng : genericPark.lng, zoom: 14 }
     : wardCenter
@@ -720,6 +721,7 @@ export function JobDetail() {
                     lng={unverifiedMapViewport.lng}
                     title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
                     zoom={unverifiedMapViewport.zoom}
+                    markers={repPoint ? [{ lat: repPoint.lat, lng: repPoint.lng, label: job.company || job.title }] : undefined}
                   />
                   <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
                   <div className="jd2-map-links">
