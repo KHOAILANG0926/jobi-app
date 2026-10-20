@@ -1,0 +1,15 @@
+name: 시험 - OSM 공단 조회 (병합 금지)
+on:
+  push:
+    branches: ['probe/overpass-yp2']
+permissions:
+  contents: read
+jobs:
+  q:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          Q='[out:json][timeout:60];(way["landuse"="industrial"]["name"~"Yên Phong",i](20.9,105.8,21.4,106.4);relation["landuse"="industrial"]["name"~"Yên Phong",i](20.9,105.8,21.4,106.4););out center tags;'
+          curl -s --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter > r.json
+          echo "::notice::bytes $(wc -c < r.json)"
+          jq -r '.elements[] | "::notice::\(.type)/\(.id) \(.tags.name) \(.center.lat) \(.center.lon)"' r.json || head -c 300 r.json
