@@ -31,7 +31,7 @@ export function parkNameFromAddresses(texts: Array<string | null | undefined>): 
   return null
 }
 
-interface Hit { ref_id?: string; name?: string; address?: string; display?: string }
+interface Hit { ref_id?: string; name?: string; address?: string; display?: string; categories?: unknown[] }
 /** 이름이 정확히 같은 공단 1곳만 고른다(성이 알려져 있으면 그 성 안). */
 export function pickParkHit(park: ParkName, hits: unknown): { hit: Hit | null; multiple: boolean } {
   const list = (Array.isArray(hits) ? hits : []) as Hit[]
@@ -44,6 +44,10 @@ export function pickParkHit(park: ParkName, hits: unknown): { hit: Hit | null; m
     return ` ${normalizePlaceText(`${h.address ?? ''} ${h.display ?? ''}`)} `.includes(` ${park.province} `)
   })
   if (same.length === 1) return { hit: same[0], multiple: false }
+  // 같은 이름이 여럿이면 실제 장소(POI, 업종 분류가 있는 결과)가 한 곳뿐일 때 그곳을 쓴다.
+  // 2026-10-20 실측: "Khu Công Nghiệp Yên Phong"이 Xã Yên Trung(분류 없음, 주소 결과)·Xã Yên Phong(분류 6005, 공단 POI) 두 개로 나옴.
+  const poi = same.filter((h) => Array.isArray(h.categories) && h.categories.length > 0)
+  if (poi.length === 1) return { hit: poi[0], multiple: false }
   return { hit: null, multiple: same.length > 1 }
 }
 
