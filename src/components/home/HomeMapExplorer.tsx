@@ -196,6 +196,17 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
   const selectJob = (id: string, point?: MapJobPoint) => { setPickedPlace(null); setSelectedId(id); setSelectedPoint(point ?? null) }
 
   const markers = result.markers
+  // 휴대폰 첫 화면: 지도가 하노이 중심이라 박닌 핀이 지도 끝에 붙어 안 보였다(2026-10-21 Lee "메인에 지도 핀이 없는데").
+  // 공고 핀이 처음 들어오면 한 번, 핀 전체가 보이게 지도 가운데·확대를 맞춘다. 내 위치를 쓰는 중이면 건드리지 않는다.
+  const fittedOnce = useRef(false)
+  useEffect(() => {
+    if (fittedOnce.current || origin.kind === 'user' || markers.length === 0) return
+    fittedOnce.current = true
+    const lats = markers.map((m) => m.lat), lngs = markers.map((m) => m.lng)
+    const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs), 0.01)
+    const zoom = Math.max(7, Math.min(13, Math.floor(Math.log2(360 / span)) - 2))
+    setCameraRequest({ center: { lat: (Math.max(...lats) + Math.min(...lats)) / 2, lng: (Math.max(...lngs) + Math.min(...lngs)) / 2 }, zoom })
+  }, [markers, origin.kind])
 
   // 첫 방문 위치 허용(LocationPrompt)으로 받은 위치를 바로 지도 출발점으로 쓴다(2026-10-20 Lee).
   useEffect(() => {
