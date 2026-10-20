@@ -1,0 +1,22 @@
+name: 시험 - 출퇴근 촬영 (병합 금지)
+on:
+  push:
+    branches: ['probe/commute-shot2']
+permissions:
+  contents: write
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm run build && npx playwright install --with-deps chromium
+      - run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          node scripts/probe/commute-shot.mjs | while read l; do echo "::notice::$l"; done
+      - run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          mkdir -p /tmp/s && cp c-*.png /tmp/s/
+          git checkout --orphan shots-tmp && git rm -rfq . && git clean -fdxq && cp /tmp/s/* . && echo '{"git":{"deploymentEnabled":false}}' > vercel.json && git add -A && git commit -qm shots && git push -f origin HEAD:probe/commute-shot2-out
