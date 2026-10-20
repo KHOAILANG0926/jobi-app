@@ -4,6 +4,7 @@ import { COMPANY_STRATEGY, type LocateStrategy } from './chototAutoLocate'
 import { findIndustrialPark } from './industrialPark'
 import { wardUnitForAddresses, type WardUnit } from './wardArea'
 import { pickWardHit, checkWardPlace } from './wardLocate'
+import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
 
@@ -65,6 +66,16 @@ export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps):
     const gate = park?.destination
     if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred}
     // A known industrial park without a verified gate must not silently become a ward pin.
+    // 공단 표에 없는 공단(예: "KCN Yên Phong"): VietMap에서 같은 이름의 공단 1곳을 찾아 대략 위치 핀(2026-10-20, Lee 10-13 '핀은 무조건').
+    const unlisted = !park ? parkNameFromAddresses([...targets.map(t => t.address), job.location]) : null
+    if (unlisted && !failed) {
+      const hits = await query('search', {text:unlisted.searchText})
+      const pick = pickParkHit(unlisted, hits)
+      if (pick.hit?.ref_id && !pick.multiple) {
+        const place = await query('place', {refid:pick.hit.ref_id}) as {lat?:number;lng?:number;city?:string} | null
+        if (parkPlaceOk(unlisted, place) && validPoint({lat:place!.lat!,lng:place!.lng!})) return {kind:'area',lat:place!.lat!,lng:place!.lng!,source:`VietMap ${pick.hit.ref_id} (KCN)`,checkedAt:at}
+      }
+    }
     if (!park) {
       const unit = wardUnitForAddresses(targets.map(t => t.address))
       if (unit && !failed) {

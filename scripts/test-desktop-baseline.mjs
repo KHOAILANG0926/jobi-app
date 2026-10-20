@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-20 밤: LayoutDesktop.tsx 메뉴 업종 링크를 실제 업종 값으로 고침(Lee: 'Sản xuất 눌렀는데 안 나와').
 // 2026-10-20: JobDetail.tsx·index.css·DesktopHomeMapExplorer.tsx 기준값을 Lee 지시 변경(#148 근무조건 줄, #161 길찾기, #163·#165 상세요강, 첫 방문 위치 허용 창) 반영값으로 갱신. master에서 이미 #148 이후 기준값과 달랐음(이 검사가 홈 파일 PR에서만 돌아 못 잡음).
 // 2026-10-18: JobDetail.tsx·index.css 기준값을 Lee 지시 변경(PR #136·#137·#138·#140·#145·#146) 반영값으로 갱신. 상세 화면 틀은 이제 도면(결정 0005)으로도 검사.
 import { readFileSync } from 'node:fs'
@@ -17,7 +18,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "adf14427edb4bfaa8318cf7487d824d51603a8684397794be0255d4ee86d9c52",
+    "sha256": "7801572f6f3b93dad17efee2413203b46ec63d625cc3084066a0a1c6edff1ad4",
     "restore": []
   },
   {
