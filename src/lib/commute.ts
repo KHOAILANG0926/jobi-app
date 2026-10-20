@@ -18,3 +18,14 @@ export function motorbikeLabel(straightKm: number): string | null {
   if (m > 60) return 'Xe máy hơn 1 giờ'
   return `Xe máy khoảng ${m} phút`
 }
+
+/** 대략 위치(동 중심)용 범위 표시 — 동 중심 오차 실측 3.5~7.6km(2026-10-13)라 ±5km로 잡는다(Lee 2026-10-20 "응"). */
+export const AREA_SPREAD_KM = 5
+export function motorbikeRangeLabel(straightKm: number, spreadKm = AREA_SPREAD_KM): string | null {
+  const lo = motorbikeMinutes(Math.max(0, straightKm - spreadKm))
+  const hi = motorbikeMinutes(straightKm + spreadKm)
+  if (lo == null || hi == null) return null
+  if (lo > 60) return 'Xe máy hơn 1 giờ'
+  if (hi > 60) return `Xe máy khoảng ${lo} phút – hơn 1 giờ`
+  return lo === hi ? `Xe máy khoảng ${lo} phút` : `Xe máy khoảng ${lo}–${hi} phút`
+}

@@ -23,7 +23,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "28d14cbba73479cb2767e3d956a024a6817bff3c74a36171edc81a16fd1beca7",
+    "sha256": "c756d0e1f0607d90970eb50859c3beceab41e4cde268ff738c3fba947e77a5bb",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
