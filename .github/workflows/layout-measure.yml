@@ -43,7 +43,7 @@ jobs:
           else
             export BASE_URL=https://www.viecganban.vn
           fi
-          node scripts/layout/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
+          node docs/decisions/drawings/measure.mjs ${{ inputs.mode }} ${{ inputs.ids }}
         continue-on-error: true
       - name: 측정값 저장 (layout-out 브랜치)
         if: always()

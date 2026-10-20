@@ -61,6 +61,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: 운영 주소 실제 화면 검사 (PC·모바일)
         run: BASE_URL="$PROD_URL" node scripts/ops/app-smoke.mjs
+      - name: 운영 화면 도면 대조 (결정 0005)
+        run: BASE_URL=https://www.viecganban.vn node docs/decisions/drawings/measure.mjs check all
       - name: 실패 기록 (이슈)
         if: failure()
         run: |

@@ -46,10 +46,7 @@ jobs:
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts
       - name: PC·모바일 화면 검사
         run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs
-      - name: 공고 화면 도면 대조 (결정 0005, 치수 측정)
+      - name: 공고 화면 도면 대조 (결정 0005, 치수 측정 — 도면은 Lee만 변경)
         run: |
-          if [ -f docs/decisions/drawings/job-detail-layout.json ]; then
-            BASE_URL=http://localhost:4173 node scripts/layout/measure.mjs check 4824 4828
-          else
-            echo "도면 등록 전(결정 0005 승인 대기) — 대조 생략"
-          fi
+          node docs/decisions/drawings/measure.mjs selftest
+          BASE_URL=http://localhost:4173 node docs/decisions/drawings/measure.mjs check all
