@@ -1,3 +1,8 @@
+## 2026-10-20 07:05
+- 발견: 운영 /api/location-hook·/api/admin-auto-location 시작부터 500(FUNCTION_INVOCATION_FAILED) — Vercel이 src .ts(확장자 없는 import)를 못 읽음. #153 이후 위치 찾기가 한 번도 안 돌았음
+- 변경: #172 vite.api.config.mjs → dist/api-lib/auto-location-runtime.js, 두 함수가 그 파일 사용(includeFiles)
+- 검증: GitHub Actions에서 운영 호출 405/401/503(정상 응답), 재판정 응답 200, #4828 area·#4824 located 공개 유지
+
 ## 2026-10-20 06:55
 - 요청: 두루뭉술 문구는 기타란 / 못 찾은 공고는 삭제 말고 목록 만들어 저녁 8시 알림(Lee 10-20)
 - 변경: #169 KIND_RULES 3개, #170 locationLevel(no_info/our_miss)·map_r1_unlocated·delete_no_info·unlocated_report·03:00 재판정 cron, 14일 삭제 제거
@@ -113,28 +118,3 @@
 - 기존 틀 보존, 사용자 지시 범위 외 UI/데이터 변경 금지.
 - 코드보다 범위표 먼저반영. 검사 실패를 단순생략으로 숨기지 않음.
 - DB/Auth/RLS/STATUS 보호, 회사PC 저장 안내 금지.
-
-
-## 2026-10-16 18:02 Asia/Bangkok
-후속 검사: 공고목록 수정은3개/중복0/중첩0통과. 위치검사에 같은 일반목록 selector와 구형 제목/Leaflet 선택자가 남아 추가timeout. 테스트만 현재추천·일반/h1/VietMap 및 경고 있는 미확인지역 상태에 맞춤. 부정상태9종 단위회귀 통과, 앱/DB/정책변경 없음. 범위표 PR#114 후 구현/실제상세/좌표/운영검증 대기.
-
-이전 HANDOFF:
-# CHATGPT_HANDOFF — 공고 목록 검사 시간 초과 수정
-갱신: 2026-10-16 Asia/Bangkok
-
-## 1. 현재 상태
-- 운영 bceb574: 카드 이미지 슬롯 유지와 사전 작업범위 검사 반영. 운영 PC/mobile smoke 성공.
-- 별도 Job card integrity 검사만 일반목록 selector 대기30000ms 실패. 앱은 모든 공고가 추천에 있으면 일반목록을 만들지 않음.
-- 사용자 재지시로 추천+일반 공고 selector를 함께 검사하도록 수정. 빈 화면·중복·중첩 링크 실패 기준 유지. 페이지 오류도 실패로 보고.
-- 브라우저 회귀 fixture6종과 실제목록 검사를 PR app-screen 필수 검사에 추가. 사전 범위표 PR#112. UI/CSS/DB 변경 없음.
-- Cloud Browser는 WebGL2 미지원으로 지도 초기화 오류가 발생해 직접 화면 검증에 사용할 수 없음. 실제 검증은 GitHub Playwright 환경의 CI/운영 검사 결과로 구분.
-
-## 2. 다음 할 일 3개
-1. 범위표 PR#112 검사 통과·병합 후 정확한2파일 구현 PR 진행.
-2. fixture6종·실제 목록·PC/mobile·위치/좌표 회귀까지 최종 SHA 검사 통과 확인.
-3. Production READY·운영 검사 성공 후 보고. 관리자우회 차단 복구는 사용자 설정 확인 필요.
-
-## 3. 필수 규칙
-- 기존 CTY KDA 틀 유지, 이번 수정은 검사에만 한정. 데이터/디자인 임의 수정 금지.
-- 작업범위표는 코드보다 먼저 반영. 실패 검사 남으면 전체 완료 보고 금지.
-- 회사 PC 저장 안내·원본 채용사이트 연결·DB/Auth/RLS/STATUS 변경 금지.
