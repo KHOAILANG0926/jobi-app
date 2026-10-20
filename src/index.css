@@ -12394,7 +12394,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .loc-prompt-actions button:disabled { opacity: 0.7; cursor: default; }
 
 /* 브라우저 위치 팝업이 떠 있는 동안의 안내 (2026-10-20 Lee) */
-.loc-guide-backdrop { position: fixed; inset: 0; z-index: 3000; background: rgba(15, 23, 42, 0.72); display: flex; align-items: flex-start; justify-content: flex-start; padding: 12px 24px; }
+.loc-guide-backdrop { position: fixed; inset: 0; z-index: 3000; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(3px); display: flex; align-items: flex-start; justify-content: flex-start; padding: 12px 24px; }
 .loc-guide-backdrop--mobile { justify-content: center; padding: 40px 16px; }
 .loc-guide { color: #fff; max-width: 360px; }
 .loc-guide-backdrop--mobile .loc-guide { text-align: center; }
