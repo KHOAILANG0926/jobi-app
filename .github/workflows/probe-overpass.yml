@@ -1,0 +1,21 @@
+name: 시험 - OSM 공단 조회 (병합 금지)
+on:
+  push:
+    branches: ['probe/overpass-yp']
+permissions:
+  contents: read
+jobs:
+  q:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          Q='[out:json][timeout:60];area["name"~"Bắc Ninh"]["admin_level"="4"]->.a;(way["landuse"="industrial"]["name"~"Yên Phong",i](area.a);relation["landuse"="industrial"]["name"~"Yên Phong",i](area.a););out center tags;'
+          curl -s --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter > r.json || true
+          python3 - <<'PY'
+          import json
+          d=json.load(open('r.json'))
+          for e in d.get('elements',[]):
+              c=e.get('center',{})
+              print(f"::notice::{e['type']}/{e['id']} {e.get('tags',{}).get('name')} {c.get('lat')} {c.get('lon')}")
+          print(f"::notice::count {len(d.get('elements',[]))}")
+          PY
