@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-20 저녁: index.css 기준값을 위치 팝업 안내(Lee 지시) 반영값으로 갱신.
 // 2026-10-20: JobDetail.tsx·index.css·DesktopHomeMapExplorer.tsx 기준값을 Lee 지시 변경(#148 근무조건 줄, #161 길찾기, #163·#165 상세요강, 첫 방문 위치 허용 창) 반영값으로 갱신. master에서 이미 #148 이후 기준값과 달랐음(이 검사가 홈 파일 PR에서만 돌아 못 잡음).
 // 2026-10-18: JobDetail.tsx·index.css 기준값을 Lee 지시 변경(PR #136·#137·#138·#140·#145·#146) 반영값으로 갱신. 상세 화면 틀은 이제 도면(결정 0005)으로도 검사.
 import { readFileSync } from 'node:fs'
@@ -54,7 +55,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "dc4151fb39a4c66d72e7b1cd6e0bdfe5285f3a3b0ea514ca069f028c36bbc916",
+    "sha256": "fd50006e8c761c41b51460c28291bc414737b1c35d78cd9036180c41af788d1d",
     "restore": []
   },
   {

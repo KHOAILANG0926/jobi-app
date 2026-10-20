@@ -12392,3 +12392,15 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .loc-prompt-later { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
 .loc-prompt-allow { background: var(--color-primary); color: #fff; border: 1px solid var(--color-primary); }
 .loc-prompt-actions button:disabled { opacity: 0.7; cursor: default; }
+
+/* 브라우저 위치 팝업이 떠 있는 동안의 안내 (2026-10-20 Lee) */
+.loc-guide-backdrop { position: fixed; inset: 0; z-index: 3000; background: rgba(15, 23, 42, 0.72); display: flex; align-items: flex-start; justify-content: flex-start; padding: 12px 24px; }
+.loc-guide-backdrop--mobile { justify-content: center; padding: 40px 16px; }
+.loc-guide { color: #fff; max-width: 360px; }
+.loc-guide-backdrop--mobile .loc-guide { text-align: center; }
+.loc-guide-arrow { display: block; font-size: 44px; line-height: 1; font-weight: 700; margin: 0 0 8px 140px; animation: loc-guide-bounce 1.2s ease-in-out infinite; }
+.loc-guide-text { margin: 0 0 6px; font-size: 20px; font-weight: 700; line-height: 1.4; }
+.loc-guide-text strong { color: #fecaca; }
+.loc-guide-sub { margin: 0; font-size: 15px; line-height: 1.5; color: #e2e8f0; }
+@keyframes loc-guide-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .loc-guide-arrow { animation: none; } }
