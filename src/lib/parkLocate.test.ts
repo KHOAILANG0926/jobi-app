@@ -23,4 +23,13 @@ const r = await resolveAutoLocation({ id: 4824, company: 'KDA', location: 'KCN Y
   async request(action) { calls++; return action === 'search' ? hits : { lat: 21.21, lng: 106.0, city: 'Bắc Ninh' } },
 })
 assert(r.kind === 'area' && (r as { source: string }).source === 'VietMap a (KCN)' && calls === 2, `#4824 → park area pin: ${JSON.stringify(r)}`)
+// 실제 VietMap 응답(2026-10-20 14:40, research_artifacts map-r1-query): 같은 이름 2개 — 공단 POI(분류 6005)만 고른다
+const real = [
+  { ref_id: 'yt', name: 'Khu Công Nghiệp Yên Phong', address: 'Xã Yên Trung, Tỉnh Bắc Ninh', categories: [] },
+  { ref_id: 'yp', name: 'Khu Công Nghiệp Yên Phong', address: 'Xã Yên Phong, Tỉnh Bắc Ninh', categories: ['6005'] },
+  { ref_id: 'y1', name: 'Khu Công Nghiệp Yên Phong 1', address: 'Xã Yên Phong, Tỉnh Bắc Ninh', categories: ['6005'] },
+  { ref_id: 'mr', name: 'Khu Công Nghiệp Yên Phong Mở Rộng', address: 'Xã Yên Trung, Tỉnh Bắc Ninh', categories: ['6005'] },
+]
+assert(pickParkHit(p, real).hit?.ref_id === 'yp', 'real VietMap result → park POI in Xã Yên Phong')
+assert(pickParkHit(p, [real[0], { ...real[1], categories: [] }]).multiple, 'two plain results, no POI → do not guess')
 console.log('parkLocate tests: all assertions passed')
