@@ -3,8 +3,8 @@
   "_explain": "Job screen drawing (decision 0005). Reference = CTY KDA #4824, measured on production 2026-10-18. Detail PC/mobile + list card PC (.jc) / mobile (.discovery-job). Units px. Cannot change without Lee's approval.",
   "reference": {
     "jobId": 4824,
-    "measuredAt": "2026-10-18",
-    "source": "layout-measure run on production"
+    "measuredAt": "2026-10-20",
+    "source": "layout-measure run 39349083025 on production (after #145·#146 header, #161 directions, #163 detail sections — all Lee-approved)"
   },
   "tolerancePx": 1,
   "requiredSections": [
@@ -103,7 +103,7 @@
       "sec[jd-sec-description].box.x": 16,
       "sec[jd-sec-description].box.w": 1028,
       "sec[jd-sec-description].title→box.gap": 13.6,
-      "sec[jd-sec-description].box.padding": "21.6px 24.8px",
+      "sec[jd-sec-description].box.padding": "25.6px 30.4px 27.2px",
       "sec[jd-sec-description].box.radius": "12px",
       "sec[jd-sec-description].box.border": "1px solid rgb(245, 198, 208)",
       "conditions.col1.x": 41,
@@ -130,11 +130,18 @@
       "conditions.zalo.h": 32,
       "conditions.zalo.right": 16,
       "conditions.zalo.mid-vs-title-mid": -0.2,
-      "directions.h": 44,
-      "directions.kind": "jd2-map-dir",
       "structure.page": "button.jd2-back | div.jd2-header | nav.jd2-tabs | div.jd2-grid | div.jd2-detail-footer",
-      "structure.header": "div.jd2-header__left | button.jd2-save-btn",
-      "structure.header.info": "div.jd2-header__chips | h1.jd2-header__title | p.jd2-header__company | p.jd2-hl-salary | div.jd2-benefits | div.jd2-header__meta"
+      "structure.header": "div.jd2-header__left | div.jd2-header__actions",
+      "structure.header.info": "div.jd2-header__chips | h1.jd2-header__title | p.jd2-header__company | p.jd2-hl-salary | div.jd2-benefits | div.jd2-header__meta",
+      "header.location.right-gap": -58,
+      "header.location.right-gap-to-card": 29,
+      "header.location.lines": 1,
+      "header.info.w": 816,
+      "header.title.w": 816,
+      "header.location.bottom-vs-benefits-bottom": 0,
+      "header.location.left-minus-benefits-right": 118,
+      "header.date.mid-vs-save-mid": 0,
+      "header.date.gap-to-save": 12
     },
     "mobile": {
       "header.x": 16,
@@ -217,7 +224,7 @@
       "sec[jd-sec-description].box.x": 16,
       "sec[jd-sec-description].box.w": 338.8,
       "sec[jd-sec-description].title→box.gap": 13.6,
-      "sec[jd-sec-description].box.padding": "16px",
+      "sec[jd-sec-description].box.padding": "17.6px 16px 19.2px",
       "sec[jd-sec-description].box.radius": "12px",
       "sec[jd-sec-description].box.border": "1px solid rgb(245, 198, 208)",
       "conditions.col1.x": 33,
@@ -234,13 +241,20 @@
       "conditions.badge.h": 20.9,
       "conditions.badge.font": "11.52px 700",
       "conditions.badge.color": "rgb(75, 85, 99)",
-      "directions.h": 44,
-      "directions.kind": "jd2-map-dir",
       "structure.page": "button.jd2-back | div.jd2-header | nav.jd2-tabs | div.jd2-grid | div.jd2-detail-footer | div.jd2-mobile-cta",
-      "structure.header": "div.jd2-header__left | button.jd2-save-btn",
+      "structure.header": "div.jd2-header__left",
       "structure.header.info": "div.jd2-header__chips | h1.jd2-header__title | p.jd2-header__company | p.jd2-hl-salary | div.jd2-benefits | div.jd2-header__meta",
       "mobile-cta.h": 66.3,
-      "mobile-cta.w": 390
+      "mobile-cta.w": 390,
+      "header.location.right-gap": 0,
+      "header.location.right-gap-to-card": 63,
+      "header.location.lines": 1,
+      "header.info.w": 201.8,
+      "header.title.w": 201.8,
+      "header.location.bottom-vs-benefits-bottom": 18,
+      "header.location.left-minus-benefits-right": -201.8,
+      "header.date.mid-vs-save-mid": 299.2,
+      "header.date.gap-to-save": 157.8
     },
     "card-pc": {
       "card.w": 321,
