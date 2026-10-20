@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { ScrollToTop } from './components/ScrollToTop'
+import { LocationPrompt } from './components/LocationPrompt'
 import { RequireAdmin } from './components/RequireAdmin'
 import { RequireEmployer } from './components/RequireEmployer'
 import { AuthProvider } from './context/AuthContext'
@@ -75,6 +76,7 @@ export default function App({ initialJobs, initialJobsError }: AppProps = {}) {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <LocationPrompt />
       <AuthProvider>
         <JobsProvider initialJobs={initialJobs} initialJobsError={initialJobsError}>
           <BrandsProvider>

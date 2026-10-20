@@ -1,4 +1,5 @@
 import { planJobDirections } from '../../lib/directionsPlan'
+import { getUserLocation, onUserLocation } from '../../lib/userLocation'
 // 메인 중간 영역 — "내 주변 일자리 지도 + 선택한 공고 패널" (2026-10-01).
 // 왼쪽: 탐색 조건(위치·반경 / 급여 / 업종 / Thêm điều kiện) + 지도, 오른쪽: 선택 공고 1차 판단 패널.
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
@@ -147,6 +148,19 @@ export default function HomeMapExplorer() {
   const selectJob = (id: string, point?: MapJobPoint) => { setPickedPlace(null); setSelectedId(id); setSelectedPoint(point ?? null) }
 
   const markers = result.markers
+
+  // 첫 방문 위치 허용(LocationPrompt)으로 받은 위치를 바로 지도 출발점으로 쓴다(2026-10-20 Lee).
+  useEffect(() => {
+    const apply = (p: { lat: number; lng: number; accuracy: number }) => {
+      if (!validPoint({ lat: p.lat, lng: p.lng })) return
+      setRadiusActive(true)
+      setOrigin({ kind: 'user', point: { lat: p.lat, lng: p.lng }, accuracyMeters: p.accuracy })
+      setRecenterRequest((v) => v + 1)
+    }
+    const now = getUserLocation()
+    if (now) apply(now)
+    return onUserLocation(apply)
+  }, [])
 
   const useCurrentLocation = () => {
     setLocMenuOpen(false)
