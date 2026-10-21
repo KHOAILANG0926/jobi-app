@@ -49,11 +49,13 @@ export function mapSearch(jobs: Job[], filters: HomeMapFilterState, origin: MapJ
     const point = ordered[0] ?? null
     entries.push({ job, points, point, distanceKm: origin && point ? calcDistanceKm(origin.lat, origin.lng, point.lat, point.lng) : null })
   }
-  const radiusJobs = origin && radiusKm !== null ? entries.filter(e => e.point?.kind === 'exact' && e.distanceKm !== null && e.distanceKm <= radiusKm) : []
-  const allowedExact = new Set(radiusJobs.map(e => e.job.id))
-  const markers = entries.flatMap(e => e.points.filter(p => !origin || radiusKm === null || p.kind !== 'exact' || (allowedExact.has(e.job.id) && calcDistanceKm(origin.lat, origin.lng, p.lat, p.lng) <= radiusKm)).map(p => ({ ...p, id: e.job.id, label: `${e.job.title} · ${e.job.company} · ${LOCATION_LABELS[p.kind]}` })))
+  // Representative coordinates narrow the nearby search too; their precision label stays unchanged.
+  const inRadius = (p: LocatedPoint) => !origin || radiusKm === null || calcDistanceKm(origin.lat, origin.lng, p.lat, p.lng) <= radiusKm
+  const radiusJobs = origin && radiusKm !== null ? entries.filter(e => e.points.some(inRadius)) : []
+  const markers = entries.flatMap(e => e.points.filter(inRadius).map(p => ({ ...p, id: e.job.id, label: `${e.job.title} · ${e.job.company} · ${LOCATION_LABELS[p.kind]}` })))
   const visibleIds = new Set(markers.filter(p => bounds && withinBounds(p, bounds)).map(p => p.id))
-  return { entries, radiusJobs, markers, visibleIds, visibleCount: visibleIds.size, unresolvedCount: entries.filter(e => !e.point).length }
+  const visibleEntries = entries.filter(e => visibleIds.has(e.job.id))
+  return { entries, radiusJobs, markers, visibleEntries, visibleIds, visibleCount: visibleIds.size, unresolvedCount: entries.filter(e => !e.point).length }
 }
 
 /** Keep the clicked workplace; list selections default to nearest workplace. */

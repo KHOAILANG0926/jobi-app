@@ -1,5 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 function runtime() {
+  // Preview reuses only published coordinates. Never extend production DB credentials to previews.
+  if (process.env.VERCEL_ENV === 'preview') return {async read(ids) {
+    const response = await fetch(`https://www.viecganban.vn/api/map-locations?ids=${ids.join(',')}`, {signal: AbortSignal.timeout(10000)})
+    if (!response.ok) throw new Error('unavailable')
+    const data = await response.json()
+    return ids.map(id => ({job_id:id, result:data.points?.[`sb-${id}`]}))
+  }}
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!key) throw new Error('not_configured')
   const db=createClient(process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co',key,{auth:{persistSession:false,autoRefreshToken:false}})

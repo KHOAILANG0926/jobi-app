@@ -11,14 +11,14 @@ import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersH
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_SHORT } from '../../data/categories'
 import { REGION_MACRO_TABS } from '../../data/jobRegions'
-import { findRegionCenter, formatDistanceLabel } from '../../lib/jobCoords'
+import { findRegionCenter } from '../../lib/jobCoords'
 import { conditionBadges } from '../../lib/jobConditions'
 import {
   DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, RADIUS_MAX_KM, RADIUS_MIN_KM, SALARY_OPTIONS,
   formatSalaryOption, isConditionAvailable, verifiedJobPoints,
   type ExtraConditionKey, type HomeMapFilterState, type MapJobPoint,
 } from '../../lib/homeMapFilters'
-import { formatSearchRadius, locationAccuracyWarning, normalizeSearchRadius } from '../../lib/homeMapSearch'
+import { formatSearchRadius, normalizeSearchRadius } from '../../lib/homeMapSearch'
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
 import NearbyLifePanel from './NearbyLifePanel'
 import PlaceDetailPanel from './PlaceDetailPanel'
@@ -127,15 +127,19 @@ export default function HomeMapExplorer() {
   const nearby = result.entries
   const occupationGroups = useMemo(() => {
     const r = mapSearch(mapJobs, { ...filters, occupationGroups: [] }, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives)
-    const available = radiusActive ? r.radiusJobs : r.entries.filter(e => r.visibleIds.has(e.job.id))
+    const available = r.visibleEntries
     const groups = occupationGroupsInJobs(available.map(e => e.job))
     const missing = (filters.occupationGroups ?? []).filter(c => !groups.some(g => g.code === c)).map(code => ({ code, count: 0 }))
     return [...groups, ...missing]
   }, [mapJobs, filters, origin, radiusActive, bounds, representatives])
   const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
-  const listEntries = radiusActive ? result.radiusJobs : result.entries
+  const listEntries = result.visibleEntries
   const directions = selected ? planJobDirections(selected.job) : null
+  // Google 길찾기 주소 하나만(확인 좌표 → 공단 입구 → 주소·회사+지역 글자 순, planJobDirections가 정함). 위치 정보가 전혀 없으면 버튼 없음.
+  const directionsHref = !directions ? null
+    : directions.tier === 'approved' || directions.tier === 'address' ? directions.links[0]?.href ?? null
+      : directions.tier === 'gate' ? directions.link.href : null
 
   // 필터·위치 변경으로 선택 공고가 결과에서 빠지면 선택을 해제한다.
   useEffect(() => {
@@ -216,7 +220,6 @@ export default function HomeMapExplorer() {
     update({ extras: filters.extras.includes(k) ? filters.extras.filter((x) => x !== k) : [...filters.extras, k] })
 
   const originLabel = origin.kind === 'user' ? 'Vị trí hiện tại của bạn' : origin.kind === 'chosen' ? 'Điểm đã chọn' : origin.label
-  const distanceFrom = origin.kind === 'user' ? 'từ vị trí của bạn' : 'từ điểm đã chọn'
   const visibleGroups = showAllCategories ? occupationGroups : occupationGroups.slice(0, OCCUPATION_GROUPS_PRIMARY)
   const activeExtraCount = filters.extras.length
   const emptyReason = loading ? 'Đang tải việc làm…' : jobsError ? 'Chưa tải được đầy đủ việc làm. Vui lòng thử lại sau.' : 'Chưa có việc làm phù hợp với điều kiện đã chọn.'
@@ -226,10 +229,6 @@ export default function HomeMapExplorer() {
     locationRequest.current += 1
     setOrigin({kind:'chosen', point}); setRadiusActive(true); setPickingOrigin(false); setPickedPlace(null); setRecenterRequest(v => v + 1)
   }
-  const distanceLabel = selected?.point && selected.distanceKm !== null
-    ? selected.point.kind === 'gate' ? `Cách cổng KCN khoảng ${selected.distanceKm.toFixed(1)} km`
-      : selected.point.kind === 'area' ? `Cách điểm đại diện khoảng ${selected.distanceKm.toFixed(1)} km` : formatDistanceLabel(selected.distanceKm)
-    : null
 
   // 선택 상세(장소·건물 또는 공고). 데스크톱은 오른쪽 패널, 모바일(≤760px)은 하단 sheet(MobileDetailSheet).
   const detail = pickedPlace ? (
@@ -252,7 +251,6 @@ export default function HomeMapExplorer() {
       <h3 className="hme-job__title">{selected.job.title}</h3>
       <div className="hme-job__chips">
         <span className="hme-tag">{selected.point ? LOCATION_LABELS[selected.point.kind] : 'Đang xác minh vị trí'}</span>
-        {distanceLabel && <span className="hme-tag hme-tag--distance">{distanceLabel}</span>}
         {selected.job.salary && <span className="hme-tag hme-tag--salary">{selected.job.salary}</span>}
         {selected.job.urgent && <span className="hme-tag hme-tag--urgent">Tuyển gấp</span>}
         <span className="hme-tag">{CATEGORY_SHORT[selected.job.category]}</span>
@@ -265,20 +263,10 @@ export default function HomeMapExplorer() {
         <div><dt><Clock size={14} aria-hidden /> Giờ làm</dt><dd>{selected.job.hours || 'Chưa cập nhật'}</dd></div>
         {selected.job.workPeriod && <div><dt><Briefcase size={14} aria-hidden /> Hình thức</dt><dd>{selected.job.workPeriod}</dd></div>}
       </dl>
-      {radiusActive && <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>}
-      {selected.point && selected.point.kind !== 'exact' && <p className="hme-job__note">Đây là vị trí đại diện, không phải vị trí chính xác của nơi làm việc.</p>}
-      <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
-      <div className="jd2-map-links">
-        {directions?.tier === 'approved' && directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
-          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
-        </span>)}
-        {directions?.tier === 'gate' && <><a className="jd2-map-dir" href={directions.link.href} target="_blank" rel="noopener noreferrer">{directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
-        {directions?.tier === 'address' && <>{directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
-          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
-        </span>)}{directions.call && <a className="jd2-map-dir" href={directions.call.href}>Gọi hỏi đường</a>}<p className="jd2-map-dir-note">{directions.note}</p></>}
-        {directions?.tier === 'call' && <a className="jd2-map-dir" href={directions.href}>{directions.label}</a>}
+      {/* 2026-10-21 Lee B안: 버튼 2개(상세 보기 / Google 길찾기). 파란 버튼 3개·긴 안내 문장은 뺐다(전화는 상세 화면에 있음). */}
+      <div className="hme-job__actions">
+        <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
+        {directionsHref && <a className="hme-job__dir" href={directionsHref} target="_blank" rel="noopener noreferrer">Chỉ đường</a>}
       </div>
       {selected.point?.kind === 'exact' && <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />}
     </div>
@@ -315,19 +303,10 @@ export default function HomeMapExplorer() {
               </div>
             )}
           </div>
-          {origin.kind === 'user' && (
-            <p className="hme-loc__hint" role="status">
-              {Number.isFinite(origin.accuracyMeters) ? `Độ chính xác vị trí: khoảng ${Math.round(origin.accuracyMeters)} m.` : 'Chưa xác định được độ chính xác vị trí.'}
-              {locationAccuracyWarning(origin.accuracyMeters, filters.radiusKm) && ' Sai số lớn hơn bán kính tìm kiếm; kết quả gần bạn có thể chưa chính xác.'}
-            </p>
-          )}
           <button type="button" className="hme-loc__use" onClick={useCurrentLocation} disabled={geoState === 'loading'}>Gần tôi</button>
-          <button type="button" className="hme-loc__use" aria-pressed={pickingOrigin} onClick={() => { locationRequest.current += 1; setGeoState('idle'); setPickingOrigin(v => !v) }}>Chọn điểm trên bản đồ</button>
-          {pickingOrigin && <p role="status">Chạm một lần trên bản đồ để chọn điểm. <button type="button" onClick={() => setPickingOrigin(false)}>Hủy</button></p>}
-          {!radiusActive && <p className="hme-loc__hint">Không giới hạn khoảng cách. Chọn Gần tôi hoặc một điểm để tìm theo bán kính.</p>}
+          {!radiusActive && <p className="hme-loc__hint">Không giới hạn khoảng cách. Chọn Gần tôi để tìm theo bán kính.</p>}
           {radiusActive && <>
           <button type="button" className="hme-more-link" onClick={clearRadius}>Bỏ giới hạn bán kính</button>
-          <p className="hme-loc__hint">Khoảng cách đường chim bay · {originLabel}</p>
           <div className="hme-radius">
             <div className="hme-radius__row">
               <span>Bán kính tìm kiếm</span>
@@ -441,7 +420,7 @@ export default function HomeMapExplorer() {
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
             <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : 'Hà Nội · Bắc Ninh / Khu vực trên bản đồ · Không giới hạn khoảng cách'}</p>
             <div className="hme-intro__count"><strong>{result.visibleCount}</strong> việc làm trong khung bản đồ hiện tại</div>
-            {radiusActive && <p>{result.radiusJobs.length} việc làm có vị trí chính xác trong bán kính</p>}
+            {radiusActive && <p>{result.radiusJobs.length} việc làm trong bán kính (gồm vị trí đại diện)</p>}
             <p>{result.unresolvedCount} tin chưa xác định được vị trí · Ghim nét đứt: vị trí đại diện</p>
             <div className="hme-map-r1-results">
               {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}

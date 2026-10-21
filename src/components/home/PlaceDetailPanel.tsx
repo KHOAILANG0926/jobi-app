@@ -6,9 +6,7 @@ import { ArrowLeft, Building2, MapPin, Satellite, X } from 'lucide-react'
 import type { Job } from '../../types/job'
 import type { HomeMapMode } from './map/HomeMapTypes'
 import { NearbySummaryView } from './NearbyLifePanel'
-import { formatMeters } from '../../lib/nearbyFacilities'
 import { buildingNameFromInside, isWorkplacePlace, poiCategoryLabel, type JobNearPlace, type PickedPlace } from '../../lib/mapPlace'
-import { calcDistanceKm } from '../../lib/jobCoords'
 
 interface Props {
   place: PickedPlace
@@ -24,11 +22,7 @@ interface Props {
   onClose: () => void
 }
 
-function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  return Math.round(calcDistanceKm(a.lat, a.lng, b.lat, b.lng) * 1000)
-}
-
-export default function PlaceDetailPanel({ place, origin, selectedJob, jobs, selectableIds, mapMode, onMapModeChange, onSelectJob, onRequestZoom, onClose }: Props) {
+export default function PlaceDetailPanel({ place, selectedJob, jobs, selectableIds, mapMode, onMapModeChange, onSelectJob, onRequestZoom, onClose }: Props) {
   const buildingName = place.kind === 'building' ? buildingNameFromInside(place.insidePois) : null
   const title = place.kind === 'poi' ? place.name! : buildingName ?? 'Tòa nhà chưa có tên trên bản đồ'
   const category = place.kind === 'poi' ? poiCategoryLabel(place.cls, place.name) : 'Tòa nhà'
@@ -60,8 +54,6 @@ export default function PlaceDetailPanel({ place, origin, selectedJob, jobs, sel
 
       <dl className="hme-place__rows">
         <div><dt>Tọa độ</dt><dd>{place.lat.toFixed(5)}, {place.lng.toFixed(5)}{place.kind === 'building' ? ' (giữa tòa nhà)' : ''}</dd></div>
-        {origin && <div><dt>Từ {origin.label}</dt><dd>{formatMeters(distanceM(origin.point, place))} · đường chim bay</dd></div>}
-        {selectedJob && <div><dt>Từ tin đang chọn</dt><dd>{formatMeters(distanceM(selectedJob.point, place))}</dd></div>}
       </dl>
       <p className="hme-job__note">Bản đồ chưa có địa chỉ chính thức cho điểm này — hiển thị theo tọa độ.</p>
 
@@ -102,11 +94,11 @@ export default function PlaceDetailPanel({ place, origin, selectedJob, jobs, sel
 }
 
 function JobRow({ item, selectable, onSelect }: { item: JobNearPlace<Job>; selectable: boolean; onSelect: (id: string) => void }) {
-  const { job, distanceM: d } = item
+  const { job } = item
   const body = (
     <>
       <span className="hme-place__job-title">{job.title}</span>
-      <span className="hme-place__job-meta">{job.company} · {item.samePlace ? 'cùng địa điểm' : formatMeters(d)}</span>
+      <span className="hme-place__job-meta">{job.company}{item.samePlace ? ' · cùng địa điểm' : ''}</span>
     </>
   )
   return (
