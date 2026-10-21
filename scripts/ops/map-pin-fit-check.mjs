@@ -43,7 +43,9 @@ try {
       await page.locator('.hme__map').scrollIntoViewIfNeeded()
       if (process.env.MAP_CLEANUP_CHECK === '1') {
         await page.waitForFunction(() => document.querySelector('.hme')?.textContent.includes('Vị trí hiện tại của bạn'))
+        if (width === 390) await page.getByRole('button', {name:'Mở bộ lọc bản đồ'}).click()
         await page.locator('.hme').getByRole('button', {name:'20 km',exact:true}).click()
+        if (width === 390) await page.getByRole('button', {name:'Đóng bộ lọc',exact:true}).click()
       }
       await page.waitForFunction(() => {
         const box = document.querySelector('.hme-map__canvas')?.getBoundingClientRect()
@@ -64,11 +66,15 @@ try {
       if (process.env.MAP_CLEANUP_CHECK === '1') {
         // Real radius controls must filter representative pins and list together.
         const preset = (text) => page.locator('.hme').getByRole('button', {name:text, exact:true})
+        if (width === 390) await page.getByRole('button', {name:'Mở bộ lọc bản đồ'}).click()
         await preset('100 m').click()
+        if (width === 390) await page.getByRole('button', {name:'Đóng bộ lọc',exact:true}).click()
         await page.waitForFunction(() => document.querySelectorAll('.hme-map__job-marker').length === 0)
         if (width === 1366) assert.equal(await page.locator('.hme-map-r1-results > button').count(), 0)
         await page.screenshot({path:`${out}/radius-small-${width}.png`})
+        if (width === 390) await page.getByRole('button', {name:'Mở bộ lọc bản đồ'}).click()
         await preset('20 km').click()
+        if (width === 390) await page.getByRole('button', {name:'Đóng bộ lọc',exact:true}).click()
         await page.waitForFunction(() => document.querySelectorAll('.hme-map__job-marker').length === 2)
         if (width === 1366) assert.equal(await page.locator('.hme-map-r1-results > button').count(), 2)
         await page.screenshot({path:`${out}/radius-large-${width}.png`})
