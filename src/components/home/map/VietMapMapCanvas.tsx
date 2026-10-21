@@ -318,14 +318,16 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
       .then((official) => {
         if (controller.signal.aborted) return
         const initial = propsRef.current
+        // 지도가 만들어지기 전에 들어온 이동 요청(예: 핀 전체 보이기)이 있으면 그 위치로 연다(2026-10-21: 요청이 사라져 핀이 지도 끝에 남던 문제).
+        const start = initial.cameraRequest ?? initial.initialViewport
         try {
           map = new vietmapgl.Map({
             container: box,
             style: applyLifeMapStyle(official as unknown as StyleLike, 'street') as unknown as StyleSpecification,
-            center: initial.initialViewport
-              ? [initial.initialViewport.center.lng, initial.initialViewport.center.lat]
+            center: start
+              ? [start.center.lng, start.center.lat]
               : [initial.origin.lng, initial.origin.lat],
-            zoom: initial.initialViewport?.zoom ?? calculateInitialZoom(initial.origin.lat, initial.radiusKm, canvasSize(box)),
+            zoom: start?.zoom ?? calculateInitialZoom(initial.origin.lat, initial.radiusKm, canvasSize(box)),
             attributionControl: false,
             ...HOME_MAP_GESTURE_OPTIONS,
           })
