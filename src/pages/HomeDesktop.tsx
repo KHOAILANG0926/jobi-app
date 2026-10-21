@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
-import HomeMapExplorer from '../components/home/DesktopHomeMapExplorer'
+import HomeMapExplorer, { type MapSummaryResult } from '../components/home/DesktopHomeMapExplorer'
+import MapSummaryResults from '../components/home/MapSummaryResults'
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
@@ -178,6 +179,9 @@ export function Home() {
   const [brandFilter, setBrandFilter] = useState<string | null>(null)
 
   const [activeRec] = useState<string | null>(null)
+  const [mapResult, setMapResult] = useState<MapSummaryResult>({ jobs: [], categories: [], selectionVersion: 0 })
+  const [clearMapCategoryRequest, setClearMapCategoryRequest] = useState(0)
+  const mapCategorySelected = mapResult.categories.length > 0
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -333,7 +337,7 @@ export function Home() {
       </section>
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
-      <HomeMapExplorer />
+      <HomeMapExplorer onResultsChange={setMapResult} clearCategoryRequest={clearMapCategoryRequest} />
 
       </div>{/* /.home-top-bg */}
 
@@ -345,8 +349,15 @@ export function Home() {
         onToggleSave={handleToggleSave}
       />
 
+      {/* Search results are independent from the featured/promotion placement above.
+          A future paid ranker must receive only these already eligible jobs. */}
+      {mapCategorySelected && <MapSummaryResults result={mapResult}
+        onClear={() => setClearMapCategoryRequest(v => v + 1)}
+        isApplied={isApplied} onApply={handleApply}
+        isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />}
+
       {/* ── City filtered results ──────────────────────────────── */}
-      {selectedCity && (() => {
+      {!mapCategorySelected && selectedCity && (() => {
         const cityLabel = REGION_MACRO_TABS.flatMap(t => t.provinces).find(p => p.id === selectedCity)?.label ?? ''
         return (
           <section className="city-result" ref={cityResultRef}>
@@ -397,7 +408,7 @@ export function Home() {
       })()}
 
       {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
-      {!selectedCity && (
+      {!mapCategorySelected && !selectedCity && (
         <section className="home-section" ref={jobResultRef}>
           <h2 className="home-section__title">Tất cả kết quả</h2>
           {jobs.length === 0 ? (

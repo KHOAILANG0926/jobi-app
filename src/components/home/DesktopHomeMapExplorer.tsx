@@ -1,3 +1,4 @@
+import type { Job, JobCategory } from '../../types/job'
 import { planJobDirections } from '../../lib/directionsPlan'
 import { getUserLocation, onUserLocation } from '../../lib/userLocation'
 import { fitWithNearest } from '../../lib/fitPins'
@@ -49,7 +50,16 @@ function regionOrigin(label: string): Origin | null {
   return point ? { kind: 'region', label, point } : null
 }
 
-export default function HomeMapExplorer() {
+export interface MapSummaryResult {
+  jobs: Job[]
+  categories: JobCategory[]
+  selectionVersion: number
+}
+
+export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest = 0 }: {
+  onResultsChange?: (result: MapSummaryResult) => void
+  clearCategoryRequest?: number
+} = {}) {
   const { jobs, mapAcceptanceJobs, loading, jobsError } = useJobs()
   const mapJobs = useMemo(() => [...jobs, ...mapAcceptanceJobs], [jobs, mapAcceptanceJobs])
   const [origin, setOrigin] = useState<Origin>(() => regionOrigin(DEFAULT_REGION) ?? { kind: 'region', label: 'Hà Nội', point: { lat: 21.0285, lng: 105.8542 } })
@@ -85,6 +95,10 @@ export default function HomeMapExplorer() {
     try { if (validPoint(v.center)) localStorage.setItem(VIEWPORT_KEY, JSON.stringify({ center: v.center, zoom: v.zoom })) } catch { /* optional persistence */ }
   }
   const [filters, setFilters] = useState<HomeMapFilterState>(DEFAULT_FILTERS)
+  const [selectionVersion, setSelectionVersion] = useState(0)
+  useEffect(() => {
+    if (clearCategoryRequest > 0) setFilters(f => ({ ...f, categories: [] }))
+  }, [clearCategoryRequest])
   const [selectedPoint, setSelectedPoint] = useState<MapJobPoint | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [locMenuOpen, setLocMenuOpen] = useState(false)
@@ -136,6 +150,9 @@ export default function HomeMapExplorer() {
   const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = result.visibleEntries
+  useEffect(() => {
+    onResultsChange?.({ jobs: result.visibleEntries.map(e => e.job), categories: filters.categories, selectionVersion })
+  }, [result.visibleEntries, filters.categories, selectionVersion, onResultsChange])
   const directions = selected ? planJobDirections(selected.job) : null
   // Google 길찾기 주소 하나만(확인 좌표 → 공단 입구 → 주소·회사+지역 글자 순, planJobDirections가 정함). 위치 정보가 전혀 없으면 버튼 없음.
   const directionsHref = !directions ? null
@@ -418,7 +435,7 @@ export default function HomeMapExplorer() {
       <aside className="hme__panel" aria-live="polite" ref={panelRef}>
         {detail && !isMobileLayout ? detail : !isMobileLayout ? (
           <MapAreaSummary entries={result.visibleEntries} radiusLabel={radiusActive ? formatSearchRadius(filters.radiusKm) : undefined}
-            selectedCategories={filters.categories} onCategory={(category) => update({ categories: filters.categories.includes(category) ? [] : [category] })}
+            selectedCategories={filters.categories} onCategory={(category) => { update({ categories: filters.categories.includes(category) ? [] : [category] }); setSelectionVersion(v => v + 1) }}
             onClearCategory={() => update({ categories: [] })} loading={loading} error={!!jobsError} />
         ) : (
           <div className="hme-intro">
