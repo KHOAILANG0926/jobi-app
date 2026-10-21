@@ -1,0 +1,28 @@
+name: 시험 - 지도 창 B 촬영 (병합 금지)
+on:
+  push:
+    branches: ['probe/panel-b']
+permissions:
+  contents: write
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: |
+          # 운영 화면에 이미 공개된 지도 타일 키를 운영 JS에서 읽어 이 빌드에만 쓴다(저장소에 넣지 않음)
+          for a in $(curl -s https://viecganban.vn/ | grep -o '/assets/[^"]*\.js' | sort -u); do curl -s "https://viecganban.vn$a"; done > /tmp/all.js
+          k=$(grep -o 'VITE_VIETMAP_TILEMAP_KEY[^,]*' /tmp/all.js | grep -o '[0-9a-f]\{48,64\}' | head -1)
+          [ -z "$k" ] && k=$(grep -o '"[0-9a-f]\{48,64\}"' /tmp/all.js | head -1 | tr -d '"')
+          echo "::add-mask::$k"; echo "VITE_VIETMAP_TILEMAP_KEY=$k" >> $GITHUB_ENV; echo "::notice::key found ${#k}"
+      - run: npm ci && npm run build && npx playwright install --with-deps chromium
+      - run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          node scripts/probe/panel-b.mjs | while read l; do echo "::notice::$l"; done
+      - run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          mkdir -p /tmp/s && cp pb-*.png /tmp/s/
+          git checkout --orphan shots-tmp && git rm -rfq . && git clean -fdxq && cp /tmp/s/* . && echo '{"git":{"deploymentEnabled":false}}' > vercel.json && git add -A && git commit -qm shots && git push -f origin HEAD:probe/panel-b-out
