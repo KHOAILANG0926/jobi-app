@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { Building2 } from 'lucide-react'
 import type { NearbyState } from './map/HomeMapTypes'
-import { FACILITY_CATEGORIES, NEARBY_RADII_M, formatMeters, type NearbyRadius, type NearbySummary } from '../../lib/nearbyFacilities'
+import { FACILITY_CATEGORIES, NEARBY_RADII_M, type NearbyRadius, type NearbySummary } from '../../lib/nearbyFacilities'
 
 const KIND_DOT: Record<string, string> = {
   restaurant: '#f97316', convenience: '#a855f7', cafe: '#b45309', pharmacy: '#0ea5e9', clinic: '#ef4444',
@@ -11,7 +11,7 @@ const KIND_DOT: Record<string, string> = {
 }
 
 /** 300/500 m 생활시설 수 · 가장 가까운 시설 · 주변 회사. */
-export function NearbySummaryView({ summary, title, origin, footer }: {
+export function NearbySummaryView({ summary, title, footer }: {
   summary: NearbySummary
   title: string
   /** 거리 기준 문구(예: "nơi làm việc", "điểm đã chọn"). */
@@ -54,7 +54,6 @@ export function NearbySummaryView({ summary, title, origin, footer }: {
               <li key={c.key}>
                 <span className="hme-life__dot" style={{ background: KIND_DOT[c.key] }} aria-hidden />
                 <span className="hme-life__name" title={c.poi!.name}>{c.poi!.name}</span>
-                <span className="hme-life__dist">{formatMeters(c.poi!.distanceM)}</span>
               </li>
             ))}
           </ul>
@@ -67,7 +66,6 @@ export function NearbySummaryView({ summary, title, origin, footer }: {
             {workShown.map((w) => (
               <li key={`${w.name}-${w.lat}-${w.lng}`}>
                 <span className="hme-life__name" title={w.name}>{w.name}</span>
-                <span className="hme-life__dist">{formatMeters(w.distanceM)}</span>
               </li>
             ))}
           </ul>
@@ -76,7 +74,7 @@ export function NearbySummaryView({ summary, title, origin, footer }: {
           <button type="button" className="hme-more-link" onClick={() => setShowAllWork((v) => !v)}>{showAllWork ? 'Thu gọn' : `Xem tất cả ${work.length}`}</button>
         )}
       </div>
-      <p className="hme-life__note">Theo dữ liệu bản đồ VietMap, có thể chưa đầy đủ. Khoảng cách đường chim bay từ {origin}.</p>
+      <p className="hme-life__note">Theo dữ liệu bản đồ VietMap, có thể chưa đầy đủ.</p>
       {footer}
     </section>
   )

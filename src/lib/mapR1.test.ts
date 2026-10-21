@@ -29,3 +29,11 @@ assert.equal(model.locationPoints(rep, {three:{...reps.three,kind:'exact'}}).len
 
 const multi = model.mapSearch([job('multi', [{lat:21.03,lng:105.85,locationVerified:true},{lat:21.2,lng:106,locationVerified:true}])], DEFAULT_FILTERS, null, null, bounds, {}).entries[0]
 assert.equal(model.selectedMapEntry(multi, {lat:21.2,lng:106}, {lat:21.2,lng:106})?.distanceKm, 0, 'clicked workplace supplies distance')
+
+// PC 목록은 지도 안 핀 수와 같은 공고만 표시한다. 이동하면 전체 목록 대신 해당 화면으로 바뀐다.
+assert.deepEqual(all.visibleEntries?.map(e => e.job.id), ['one', 'three'], 'viewport list excludes outside/unlocated jobs and duplicates')
+assert.deepEqual(radius.visibleEntries?.map(e => e.job.id), ['one', 'three'], 'representative pins in viewport remain in the list while radius is active')
+const moved = model.mapSearch([exact, far, rep], DEFAULT_FILTERS, null, null,
+  { west: 105.95, east: 106.05, south: 21.15, north: 21.25 }, reps)
+assert.deepEqual(moved.visibleEntries?.map(e => e.job.id), ['two'], 'panning changes the list to the other visible job')
+assert.deepEqual(model.mapSearch([exact, far, rep], DEFAULT_FILTERS, null, null, null, reps).visibleEntries, [], 'unknown viewport does not show all jobs')

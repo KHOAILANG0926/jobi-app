@@ -1,3 +1,4 @@
+// 2026-10-21: Lee 2~5번 — 지도 정확도·점 선택·직선거리 제거, PC 화면 안 공고 목록, 핀 창 B안(데모만).
 // 2026-10-21: fix/fit-after-pins — 위치 다음에 도착한 핀 재조정만 변경, PC JSX/CSS 변경 없음.
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
 // 2026-10-21: JobDetail.tsx — 상세 지도 핀을 메인 지도와 같은 점으로(Lee: '핀 위치가 안 맞는다, 큰 문제').
@@ -27,7 +28,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "59c897ce1a3d30fcc0083e3df98d5c0014a719ac21ca348af2cdc0aead0bb7bb",
+    "sha256": "b36e287003bf094d3949a0302edf1f2e74157e92f4ee14715a847f6962e83ce3",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -59,7 +60,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "b86851f1928691670230b20b417e26e03c8fe94beed29b97b6d6f41563c0c440",
+    "sha256": "0cb8b1b8bb6e61a441268302c7bc4c7200f21901fb24e43e23f2c354b752620c",
     "restore": []
   },
   {

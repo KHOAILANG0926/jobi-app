@@ -53,7 +53,8 @@ export function mapSearch(jobs: Job[], filters: HomeMapFilterState, origin: MapJ
   const allowedExact = new Set(radiusJobs.map(e => e.job.id))
   const markers = entries.flatMap(e => e.points.filter(p => !origin || radiusKm === null || p.kind !== 'exact' || (allowedExact.has(e.job.id) && calcDistanceKm(origin.lat, origin.lng, p.lat, p.lng) <= radiusKm)).map(p => ({ ...p, id: e.job.id, label: `${e.job.title} · ${e.job.company} · ${LOCATION_LABELS[p.kind]}` })))
   const visibleIds = new Set(markers.filter(p => bounds && withinBounds(p, bounds)).map(p => p.id))
-  return { entries, radiusJobs, markers, visibleIds, visibleCount: visibleIds.size, unresolvedCount: entries.filter(e => !e.point).length }
+  const visibleEntries = entries.filter(e => visibleIds.has(e.job.id))
+  return { entries, radiusJobs, markers, visibleEntries, visibleIds, visibleCount: visibleIds.size, unresolvedCount: entries.filter(e => !e.point).length }
 }
 
 /** Keep the clicked workplace; list selections default to nearest workplace. */
