@@ -52,8 +52,11 @@ export function mapSearch(jobs: Job[], filters: HomeMapFilterState, origin: MapJ
   // Representative coordinates narrow the nearby search too; their precision label stays unchanged.
   const inRadius = (p: LocatedPoint) => !origin || radiusKm === null || calcDistanceKm(origin.lat, origin.lng, p.lat, p.lng) <= radiusKm
   const radiusJobs = origin && radiusKm !== null ? entries.filter(e => e.points.some(inRadius)) : []
-  const markers = entries.flatMap(e => e.points.filter(inRadius).map(p => ({ ...p, id: e.job.id, label: `${e.job.title} · ${e.job.company} · ${LOCATION_LABELS[p.kind]}` })))
-  const visibleIds = new Set(markers.filter(p => bounds && withinBounds(p, bounds)).map(p => p.id))
+  // 대략 위치 핀(공단·동 중심)은 반경 밖이어도 지도에서 지우지 않는다(Lee 10-13 '메인 지도에 핀은 무조건', 2026-10-21 #190 후 핀 사라짐 재발 방지).
+  // 반경은 목록·건수만 좁힌다. 정확한 근무지 핀만 반경 밖이면 숨긴다(기존 규칙).
+  const markers = entries.flatMap(e => e.points.filter(p => p.kind !== 'exact' || inRadius(p)).map(p => ({ ...p, id: e.job.id, label: `${e.job.title} · ${e.job.company} · ${LOCATION_LABELS[p.kind]}` })))
+  // 목록·건수는 지도 화면 안 + (반경을 쓰면) 반경 안 핀만. 지도에는 대략 위치 핀이 남아 있어도 목록은 반경을 따른다.
+  const visibleIds = new Set(markers.filter(p => bounds && withinBounds(p, bounds) && inRadius(p)).map(p => p.id))
   const visibleEntries = entries.filter(e => visibleIds.has(e.job.id))
   return { entries, radiusJobs, markers, visibleEntries, visibleIds, visibleCount: visibleIds.size, unresolvedCount: entries.filter(e => !e.point).length }
 }
