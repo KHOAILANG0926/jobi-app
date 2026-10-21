@@ -21,6 +21,7 @@ import {
 import { formatSearchRadius, normalizeSearchRadius } from '../../lib/homeMapSearch'
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
 import NearbyLifePanel from './NearbyLifePanel'
+import MapAreaSummary from './MapAreaSummary'
 import PlaceDetailPanel from './PlaceDetailPanel'
 import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
@@ -415,7 +416,11 @@ export default function HomeMapExplorer() {
       </div>
 
       <aside className="hme__panel" aria-live="polite" ref={panelRef}>
-        {detail && !isMobileLayout ? detail : (
+        {detail && !isMobileLayout ? detail : !isMobileLayout ? (
+          <MapAreaSummary entries={result.visibleEntries} radiusLabel={radiusActive ? formatSearchRadius(filters.radiusKm) : undefined}
+            selectedCategories={filters.categories} onCategory={(category) => update({ categories: filters.categories.includes(category) ? [] : [category] })}
+            onClearCategory={() => update({ categories: [] })} loading={loading} error={!!jobsError} />
+        ) : (
           <div className="hme-intro">
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
             <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : 'Hà Nội · Bắc Ninh / Khu vực trên bản đồ · Không giới hạn khoảng cách'}</p>
