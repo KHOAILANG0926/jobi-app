@@ -1,3 +1,4 @@
+// 2026-10-21: Lee 반경 검색 수정 — 대표 위치 포함 결과 문구를 실제 필터와 일치.
 // 2026-10-21: Lee 2~5번 — 지도 정확도·점 선택·직선거리 제거, PC 화면 안 공고 목록, 핀 창 B안(데모만).
 // 2026-10-21: fix/fit-after-pins — 위치 다음에 도착한 핀 재조정만 변경, PC JSX/CSS 변경 없음.
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
@@ -28,7 +29,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "b36e287003bf094d3949a0302edf1f2e74157e92f4ee14715a847f6962e83ce3",
+    "sha256": "26a831be8dba8bf6e0b72092e6b265fee636ed71f4922e59fb9f4627a3b35ae1",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",

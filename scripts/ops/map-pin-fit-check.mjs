@@ -26,7 +26,7 @@ try {
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
-    await context.route('**/api/map-locations?**', async route => {
+    if (new URL(base).hostname === 'localhost') await context.route('**/api/map-locations?**', async route => {
       const url = new URL(route.request().url())
       const response = await context.request.get(`https://www.viecganban.vn${url.pathname}${url.search}`)
       assert.equal(response.status(), 200, 'real public map-locations response')
@@ -58,6 +58,17 @@ try {
         assert.equal(await page.locator('.hme-map__notice:visible').count(), 0, 'production map must not show tile/style failure')
       }
       if (process.env.MAP_CLEANUP_CHECK === '1') {
+        // Real radius controls must filter representative pins and list together.
+        const preset = (text) => page.locator('.hme').getByRole('button', {name:text, exact:true})
+        await preset('100 m').click()
+        await page.waitForFunction(() => document.querySelectorAll('.hme-map__job-marker').length === 0)
+        if (width === 1366) assert.equal(await page.locator('.hme-map-r1-results > button').count(), 0)
+        await page.screenshot({path:`${out}/radius-small-${width}.png`})
+        await preset('20 km').click()
+        await page.waitForFunction(() => document.querySelectorAll('.hme-map__job-marker').length === 2)
+        if (width === 1366) assert.equal(await page.locator('.hme-map-r1-results > button').count(), 2)
+        await page.screenshot({path:`${out}/radius-large-${width}.png`})
+
         assert.doesNotMatch(await page.locator('.hme').innerText(), /Độ chính xác vị trí|Chọn điểm trên bản đồ|đường chim bay|Cách điểm đại diện|Cách cổng KCN/i)
         if (width === 1366) assert.equal(await page.locator('.hme-map-r1-results > button').count(), 2, 'PC list agrees with two visible pins even with location enabled')
         await page.locator('.hme-map__job-marker[title*="KDA"]').click()

@@ -9,7 +9,16 @@ on:
     workflows: ['운영 배포 확인·실제 화면 검사']
     types: [completed]
     branches: [master]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Read-only deployment URL (share link for protected preview)'
+        required: false
+        default: 'https://www.viecganban.vn'
+      cleanup:
+        description: 'Check cleanup and radius controls'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -20,7 +29,7 @@ jobs:
       (github.event_name == 'pull_request' && (github.head_ref == 'fix/fit-after-pins' || github.head_ref == 'preview/map-cleanup-20261021')) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '(#188)'))
     env:
-      MAP_CLEANUP_CHECK: ${{ github.head_ref == 'preview/map-cleanup-20261021' && '1' || '0' }}
+      MAP_CLEANUP_CHECK: ${{ (github.head_ref == 'preview/map-cleanup-20261021' || inputs.cleanup) && '1' || '0' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -33,13 +42,15 @@ jobs:
         if: github.event_name == 'pull_request'
         run: npm run build
       - name: 위치 먼저·핀 나중 실제 화면 검사
+        env:
+          CHECK_URL: ${{ inputs.base_url || 'https://www.viecganban.vn' }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             npx vite preview --port 4173 --strictPort > /tmp/pin-preview.log 2>&1 &
             for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
             export BASE_URL=http://localhost:4173
           else
-            export BASE_URL=https://www.viecganban.vn
+            export BASE_URL="$CHECK_URL"
           fi
           node scripts/ops/map-pin-fit-check.mjs
       - uses: actions/upload-artifact@v4

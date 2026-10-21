@@ -420,7 +420,7 @@ export default function HomeMapExplorer() {
             <h2 className="hme-intro__title">Tìm việc quanh bạn</h2>
             <p className="hme-intro__summary">{radiusActive ? `${originLabel} · ${formatSearchRadius(filters.radiusKm)}` : 'Hà Nội · Bắc Ninh / Khu vực trên bản đồ · Không giới hạn khoảng cách'}</p>
             <div className="hme-intro__count"><strong>{result.visibleCount}</strong> việc làm trong khung bản đồ hiện tại</div>
-            {radiusActive && <p>{result.radiusJobs.length} việc làm có vị trí chính xác trong bán kính</p>}
+            {radiusActive && <p>{result.radiusJobs.length} việc làm trong bán kính (gồm vị trí đại diện)</p>}
             <p>{result.unresolvedCount} tin chưa xác định được vị trí · Ghim nét đứt: vị trí đại diện</p>
             <div className="hme-map-r1-results">
               {listEntries.map(e => <button type="button" key={e.job.id} onClick={() => selectJob(e.job.id)}>{e.job.title}<small>{e.point ? LOCATION_LABELS[e.point.kind] : 'Đang xác minh vị trí'}</small></button>)}
