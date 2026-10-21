@@ -63,13 +63,14 @@ try {
       if (new URL(base).hostname !== 'localhost') {
         assert.equal(await page.locator('.hme-map__notice:visible').count(), 0, 'production map must not show tile/style failure')
       }
+      if (new URL(base).hostname !== 'localhost') await page.waitForTimeout(15000)
       if (process.env.MAP_CLEANUP_CHECK === '1') {
         // Real radius controls must filter representative pins and list together.
         const preset = (text) => page.locator('.hme').getByRole('button', {name:text, exact:true})
         if (width === 390) await page.getByRole('button', {name:'Mở bộ lọc bản đồ'}).click()
         await preset('100 m').click()
         if (width === 390) await page.getByRole('button', {name:'Đóng bộ lọc',exact:true}).click()
-        await page.waitForFunction(() => document.querySelectorAll('.hme-map__job-marker').length === 0)
+        await page.waitForFunction(() => document.querySelector('[data-in-radius]')?.dataset.inRadius === '0')
         if (width === 1366) assert.equal(await page.locator('.hme-map-r1-results > button').count(), 0)
         await page.screenshot({path:`${out}/radius-small-${width}.png`})
         if (width === 390) await page.getByRole('button', {name:'Mở bộ lọc bản đồ'}).click()

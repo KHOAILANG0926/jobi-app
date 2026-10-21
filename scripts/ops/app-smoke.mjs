@@ -6,7 +6,7 @@
 // 결과는 app-smoke-result.json 과 GitHub Summary에 남기고, 하나라도 실패하면 exit 1.
 // 키는 쓰지 않는다: Supabase URL·anon 키는 사이트 번들에 이미 공개된 값(src/lib/supabase.ts)을 읽는다.
 import { chromium } from 'playwright'
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 
 const BASE_URL = (process.env.BASE_URL || '').replace(/\/$/, '')
 if (!BASE_URL) { console.error('BASE_URL 필요'); process.exit(2) }
@@ -28,7 +28,7 @@ const VIEWPORTS = [
   { name: '모바일', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ]
 
-async function checkPage(context, path, assertions) {
+async function checkPage(context, path, assertions, device) {
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e.message || e)))
@@ -38,6 +38,8 @@ async function checkPage(context, path, assertions) {
   if (status >= 400 || status === 0) notes.push(`HTTP ${status}`)
   try { await assertions(page, notes) } catch (e) { notes.push(String(e.message || e).split('\n')[0]) }
   if (errors.length) notes.push(`페이지 오류: ${errors.slice(0, 3).join(' | ').slice(0, 300)}`)
+  mkdirSync('app-smoke-screens', {recursive:true})
+  await page.screenshot({path:`app-smoke-screens/${device === 'PC' ? 'pc' : 'mobile'}-${path === '/' ? 'home' : 'detail'}.png`})
   await page.close()
   return { path, status, ok: notes.length === 0, notes }
 }
@@ -54,13 +56,13 @@ for (const v of VIEWPORTS) {
     // 지도 캔버스(VietMap·대체 지도) 또는 지도 그리기 영역이 생겨야 한다. 계속 "Đang tải bản đồ…"만이면 실패.
     await page.locator('.hme__map canvas, .hme__map .hme-map__canvas, .hme__map [data-map-provider]').first()
       .waitFor({ state: 'attached', timeout: 45_000 })
-  })) })
+  }, v.name)) })
   if (job) {
     results.push({ device: v.name, ...(await checkPage(context, `/viec-lam/sb-${job.id}`, async (page) => {
       await page.getByRole('heading', { level: 1 }).first().waitFor({ state: 'visible', timeout: 30_000 })
       const h1 = (await page.getByRole('heading', { level: 1 }).first().innerText()).trim()
       if (!h1) throw new Error('상세 제목이 비어 있음')
-    })) })
+    }, v.name)) })
   }
   await context.close()
 }
