@@ -1,0 +1,13 @@
+{
+  "0":"khac", "1":"khac", "2":"khac", "3":"khac", "9":"khac",
+  "21":"cntt_ky_thuat", "211":"y_te_dieu_duong", "212":"y_te_dieu_duong", "213":"y_te_dieu_duong", "216":"thiet_ke",
+  "22":"y_te_dieu_duong", "23":"giao_duc_giang_day", "24":"van_phong", "243":"cskh_kinh_doanh", "2431":"truyen_thong", "2432":"truyen_thong",
+  "25":"cntt_ky_thuat", "26":"van_phong", "2641":"truyen_thong", "2642":"truyen_thong", "265":"truyen_thong", "2651":"thiet_ke",
+  "31":"cntt_ky_thuat", "312":"san_xuat_xay_dung", "314":"y_te_dieu_duong", "32":"y_te_dieu_duong",
+  "33":"van_phong", "332":"cskh_kinh_doanh", "333":"cskh_kinh_doanh", "34":"dich_vu", "3431":"truyen_thong", "3432":"thiet_ke", "3433":"van_phong", "3434":"am_thuc_do_uong",
+  "35":"cntt_ky_thuat", "3521":"truyen_thong", "36":"giao_duc_giang_day",
+  "4":"van_phong", "42":"cskh_kinh_doanh", "421":"van_phong", "4221":"dich_vu", "4224":"dich_vu", "4227":"van_phong",
+  "5":"dich_vu", "512":"am_thuc_do_uong", "513":"am_thuc_do_uong", "52":"quan_ly_ban_hang", "53":"y_te_dieu_duong", "5311":"dich_vu", "5312":"giao_duc_giang_day",
+  "6":"san_xuat_xay_dung", "7":"san_xuat_xay_dung", "8":"san_xuat_xay_dung", "831":"lai_xe_giao_hang", "832":"lai_xe_giao_hang", "833":"lai_xe_giao_hang", "835":"lai_xe_giao_hang",
+  "91":"dich_vu", "92":"san_xuat_xay_dung", "93":"san_xuat_xay_dung", "9331":"lai_xe_giao_hang", "9332":"lai_xe_giao_hang", "9334":"quan_ly_ban_hang", "94":"am_thuc_do_uong", "95":"quan_ly_ban_hang", "951":"dich_vu", "96":"dich_vu", "9621":"lai_xe_giao_hang"
+}
