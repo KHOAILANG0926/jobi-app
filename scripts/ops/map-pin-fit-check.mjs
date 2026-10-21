@@ -15,6 +15,14 @@ try {
       isMobile: width === 390, hasTouch: width === 390 })
     // LocationPrompt intentionally skips automation; enable its real granted-permission path for this test.
     await context.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }))
+    // The CI preview has no Vercel map keys. Supply only its empty basemap style;
+    // real job rows/coordinates/GPS and camera/marker code remain unchanged.
+    // Production always uses its actual map style and tiles.
+    if (new URL(base).hostname === 'localhost') {
+      await context.route('https://maps.geoapify.com/v1/styles/**', route => route.fulfill({ json: {
+        version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#eef2f6' } }],
+      } }))
+    }
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
