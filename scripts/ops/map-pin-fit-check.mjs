@@ -41,6 +41,10 @@ try {
     try {
       await page.goto(base, { waitUntil: 'domcontentloaded' })
       await page.locator('.hme__map').scrollIntoViewIfNeeded()
+      if (process.env.MAP_CLEANUP_CHECK === '1') {
+        await page.waitForFunction(() => document.querySelector('.hme')?.textContent.includes('Vị trí hiện tại của bạn'))
+        await page.locator('.hme').getByRole('button', {name:'20 km',exact:true}).click()
+      }
       await page.waitForFunction(() => {
         const box = document.querySelector('.hme-map__canvas')?.getBoundingClientRect()
         const pins = [...document.querySelectorAll('.hme-map__job-marker')]
