@@ -1,0 +1,20 @@
+name: 시험 - 위치 핀 맞춤 확인 (병합 금지)
+on:
+  push:
+    branches: ['probe/loc-fit']
+permissions:
+  contents: write
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npx playwright install --with-deps chromium
+      - run: |
+          node scripts/probe/loc-fit.mjs | while read l; do echo "::notice::$l"; done
+      - run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          mkdir -p /tmp/s && cp lf-*.png /tmp/s/
+          git checkout --orphan shots-tmp && git rm -rfq . && git clean -fdxq && cp /tmp/s/* . && echo '{"git":{"deploymentEnabled":false}}' > vercel.json && git add -A && git commit -qm shots && git push -f origin HEAD:probe/loc-fit-out
