@@ -32,4 +32,9 @@ const real = [
 ]
 assert(pickParkHit(p, real).hit?.ref_id === 'yp', 'real VietMap result → park POI in Xã Yên Phong')
 assert(pickParkHit(p, [real[0], { ...real[1], categories: [] }]).multiple, 'two plain results, no POI → do not guess')
+// 공단 표에 있는 공단(입구 미확인) → 공단 중심 대략 핀(상세 화면 지도와 같은 점)
+const listed = await resolveAutoLocation({ id: 1, company: 'X', location: 'KCN Quế Võ, Bắc Ninh', targets: [{ address: 'KCN Quế Võ, Bắc Ninh', workLocationId: 1 }] }, {
+  async cached() { return null }, async cache() {}, async reserve() { return true }, async request() { throw new Error('no call expected') },
+})
+assert(listed.kind === 'area' && (listed as { lat: number }).lat === 21.1542444 && (listed as { source: string }).source === 'OpenStreetMap way/597872887', `listed park → park center: ${JSON.stringify(listed)}`)
 console.log('parkLocate tests: all assertions passed')

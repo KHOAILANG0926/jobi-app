@@ -33,6 +33,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
 import { useWardCenter } from '../lib/wardAreaClient'
 import { findIndustrialPark } from '../lib/industrialPark'
+import { useRepresentativePoint } from '../lib/representativePoint'
 import type { JobSection } from '../data/jobSchema'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
@@ -177,6 +178,8 @@ export function JobDetail() {
     return wardUnitForAddresses(job.workLocations?.length ? job.workLocations.map((l) => l.rawAddress) : [job.rawLocation])
   }, [job])
   const wardCenter = useWardCenter(wardUnit)
+  // 메인 지도와 같은 대략 위치(공단 입구·공단·동 중심). 상세 지도 핀은 이 점과 같아야 한다(2026-10-20 Lee).
+  const repPoint = useRepresentativePoint(job?.id)
 
   const jobId = job?.id
   useEffect(() => {
@@ -418,7 +421,8 @@ export function JobDetail() {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
     : null
   const genericPark = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
-  const unverifiedMapViewport = genericPark
+  // 메인 지도와 같은 대략 위치가 있으면 그 점을 가운데에 두고 핀을 찍는다(2026-10-21 Lee: 메인·상세 핀 불일치).
+  const unverifiedMapViewport = repPoint ? { lat: repPoint.lat, lng: repPoint.lng, zoom: 14 } : genericPark
     ? { lat: genericPark.destination?.kind === 'gate' ? genericPark.destination.lat : genericPark.lat,
         lng: genericPark.destination?.kind === 'gate' ? genericPark.destination.lng : genericPark.lng, zoom: 14 }
     : wardCenter
@@ -717,6 +721,7 @@ export function JobDetail() {
                     lng={unverifiedMapViewport.lng}
                     title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
                     zoom={unverifiedMapViewport.zoom}
+                    markers={repPoint ? [{ lat: repPoint.lat, lng: repPoint.lng, label: job.company || job.title }] : undefined}
                   />
                   <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
                   <div className="jd2-map-links">
@@ -870,20 +875,28 @@ export function JobDetail() {
                   )}
                   {park && (
                     <>
-                      <ClientOnlyMap tapHref={googleMapHref} lat={park.destination?.kind === 'gate' ? park.destination.lat : park.lat} lng={park.destination?.kind === 'gate' ? park.destination.lng : park.lng} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} directions={parkDirection ? [parkDirection] : undefined} />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={repPoint?.lat ?? (park.destination?.kind === 'gate' ? park.destination.lat : park.lat)} lng={repPoint?.lng ?? (park.destination?.kind === 'gate' ? park.destination.lng : park.lng)} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} markers={repPoint ? [{ lat: repPoint.lat, lng: repPoint.lng, label: park.name }] : undefined} directions={parkDirection ? [parkDirection] : undefined} />
                       <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
                     </>
                   )}
                   {!hasMapPoints && !park && wardUnit && wardCenter && (
                     <>
-                      <ClientOnlyMap tapHref={googleMapHref} lat={wardCenter.lat} lng={wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM} pinless />
+                      <ClientOnlyMap tapHref={googleMapHref} lat={repPoint?.lat ?? wardCenter.lat} lng={repPoint?.lng ?? wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM}
+                        {...(repPoint ? { markers: [{ lat: repPoint.lat, lng: repPoint.lng, label: `Khu vực ${wardUnit.label}` }] } : { pinless: true })} />
                       <p className="jd2-map-pending-note jd2-map-area-note">
                         {/* 2026-10-19 Lee: 구구절절 쓰지 않는다 — 대략 어디인지 + 정확도 한마디만. 정확한 길은 아래 Google 버튼. */}
                         <strong>Khu vực {wardUnit.label}</strong> (vị trí gần đúng)
                       </p>
                     </>
                   )}
-                  {!hasMapPoints && !park && !(wardUnit && wardCenter) && mapLocations.source !== 'pending' && (
+                  {/* 공단 표·동 정보는 없지만 위치 찾기 결과(예: 공단 이름 검색)가 있는 공고 — 메인 지도와 같은 점 */}
+                  {!hasMapPoints && !park && !(wardUnit && wardCenter) && repPoint && (
+                    <>
+                      <ClientOnlyMap tapHref={googleMapHref} lat={repPoint.lat} lng={repPoint.lng} title={job.title} zoom={14} markers={[{ lat: repPoint.lat, lng: repPoint.lng, label: job.company || job.title }]} />
+                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện (vị trí gần đúng)</p>
+                    </>
+                  )}
+                  {!hasMapPoints && !park && !(wardUnit && wardCenter) && !repPoint && mapLocations.source !== 'pending' && (
                     <p className="jd2-map-pending-note">
                       Vị trí nơi làm việc chưa được xác minh — chưa hiển thị bản đồ, chỉ đường và khoảng cách.
                     </p>
