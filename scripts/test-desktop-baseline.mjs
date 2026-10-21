@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-21: index.css — 위치 창 안내 한 줄(Lee 지시).
 // 2026-10-21: DesktopHomeMapExplorer.tsx — 내 위치를 켜면 가까운 공고 핀까지 보이게(Lee '메인 화면에 핀이 없어').
 // 2026-10-20 밤: LayoutDesktop.tsx 메뉴 업종 링크를 실제 업종 값으로 고침(Lee: 'Sản xuất 눌렀는데 안 나와').
 // 2026-10-20: JobDetail.tsx·index.css·DesktopHomeMapExplorer.tsx 기준값을 Lee 지시 변경(#148 근무조건 줄, #161 길찾기, #163·#165 상세요강, 첫 방문 위치 허용 창) 반영값으로 갱신. master에서 이미 #148 이후 기준값과 달랐음(이 검사가 홈 파일 PR에서만 돌아 못 잡음).
@@ -56,7 +57,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "dc4151fb39a4c66d72e7b1cd6e0bdfe5285f3a3b0ea514ca069f028c36bbc916",
+    "sha256": "b86851f1928691670230b20b417e26e03c8fe94beed29b97b6d6f41563c0c440",
     "restore": []
   },
   {
