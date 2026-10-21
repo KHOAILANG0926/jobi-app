@@ -1,0 +1,140 @@
+[
+  {
+    "name": "mobile",
+    "labels": [
+      "Tuyển công nhân sản xuất dây truyền dữ liệu, dây mạng ·  · Vị trí đại diện (khu vực)",
+      "CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong · CTY KDA · Vị trí đại diện (khu vực)"
+    ],
+    "mapResponses": [
+      {
+        "path": "/maps/styles/tm/style.json",
+        "status": 200
+      },
+      {
+        "path": "/maps/styles/tm/sprite.json",
+        "status": 200
+      },
+      {
+        "path": "/maps/styles/tm/sprite.png",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/406/225.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/407/225.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/406/224.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/407/224.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Roboto%20Regular/256-511.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Roboto%20Regular/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Regular/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Regular/256-511.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Regular/7680-7935.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Roboto%20Medium/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Bold/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Bold/7680-7935.pbf",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "name": "pc",
+    "labels": [
+      "Tuyển công nhân sản xuất dây truyền dữ liệu, dây mạng ·  · Vị trí đại diện (khu vực)",
+      "CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong · CTY KDA · Vị trí đại diện (khu vực)"
+    ],
+    "mapResponses": [
+      {
+        "path": "/maps/styles/tm/style.json",
+        "status": 200
+      },
+      {
+        "path": "/maps/styles/tm/sprite.json",
+        "status": 200
+      },
+      {
+        "path": "/maps/styles/tm/sprite.png",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/406/225.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/407/224.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/406/224.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/tiles/vlc-20261015/9/407/225.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Roboto%20Regular/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Roboto%20Regular/256-511.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Regular/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Regular/256-511.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Regular/7680-7935.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Roboto%20Medium/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Bold/0-255.pbf",
+        "status": 200
+      },
+      {
+        "path": "/maps/fonts/Noto%20Sans%20Bold/7680-7935.pbf",
+        "status": 200
+      }
+    ]
+  }
+]
