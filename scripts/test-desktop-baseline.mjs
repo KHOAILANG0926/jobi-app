@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-21: JobDetail.tsx — 상세 지도 핀을 메인 지도와 같은 점으로(Lee: '핀 위치가 안 맞는다, 큰 문제').
 // 2026-10-21: index.css — 위치 창 안내 한 줄(Lee 지시).
 // 2026-10-21: DesktopHomeMapExplorer.tsx — 내 위치를 켜면 가까운 공고 핀까지 보이게(Lee '메인 화면에 핀이 없어').
 // 2026-10-20 밤: LayoutDesktop.tsx 메뉴 업종 링크를 실제 업종 값으로 고침(Lee: 'Sản xuất 눌렀는데 안 나와').
@@ -52,7 +53,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "5533e5d197e648173e7b50f53d20d8c7cb220b50d020635fde0c15a4c17c6a74",
+    "sha256": "0ab7e52a21200e6472ca108187ea6d717edcdeae921f4d5c7f1e2ac5921a8bce",
     "restore": []
   },
   {
