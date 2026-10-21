@@ -53,16 +53,21 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
   outlineRef.current = outline
   const nameRef = useRef(parkName ?? title)
   nameRef.current = parkName ?? title
+  // 지도는 비동기로 한 번 만들어진다. 그 사이 바뀐 중심·핀(예: 메인 지도와 같은 대략 위치가 늦게 도착)을 놓치지 않게 항상 최신 값을 읽는다
+  // (2026-10-21: 상세 #4824가 늦게 온 점 대신 처음 값(박닌 시 중심)에 핀을 찍던 문제).
+  const latest = useRef({ lat, lng, zoom, markers, pinless, title })
+  latest.current = { lat, lng, zoom, markers, pinless, title }
 
   const syncMarkers = () => {
     const map = mapRef.current
     if (!map) return
     markerRefs.current.forEach((m) => m.remove())
     markerRefs.current = []
-    if (pinless) return
-    const list = markers && markers.length > 0 ? markers : [{ lat, lng }]
+    const cur = latest.current
+    if (cur.pinless) return
+    const list: JobVietMapMarker[] = cur.markers && cur.markers.length > 0 ? cur.markers : [{ lat: cur.lat, lng: cur.lng }]
     markerRefs.current = list.map((m) =>
-      new vietmapgl.Marker({ color: '#e53935' }).setLngLat([m.lng, m.lat]).setPopup(new vietmapgl.Popup({ offset: 24 }).setText(m.label || title)).addTo(map))
+      new vietmapgl.Marker({ color: '#e53935' }).setLngLat([m.lng, m.lat]).setPopup(new vietmapgl.Popup({ offset: 24 }).setText(m.label || cur.title)).addTo(map))
     if (list.length > 1) {
       const b = new vietmapgl.LngLatBounds()
       list.forEach((m) => b.extend([m.lng, m.lat]))
@@ -107,7 +112,7 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
           // 공단 영역이 있으면 윤곽 전체가 보이게(축소 배율), 없으면 지정한 중심·배율
           ...(outlineRef.current
             ? { bounds: outlineRef.current.bounds, fitBoundsOptions: { padding: 28, maxZoom: 16 } }
-            : { center: [lng, lat] as [number, number], zoom }),
+            : { center: [latest.current.lng, latest.current.lat] as [number, number], zoom: latest.current.zoom }),
           attributionControl: false,
           ...HOME_MAP_GESTURE_OPTIONS,
           dragRotate: false,
