@@ -3,7 +3,7 @@
 - 직접 조회: #190·#191 이미 병합. www.viecganban.vn은 Vercel READY 02b1baa(dpl_DUKMyYDLrtSCPPzLnn73LR7L9fyH). 기존 HANDOFF의 승인 대기 상태는 낡았음. STATUS 2026-10-21 22:56 VN에는 이전 배포 bb2e7c3로 남아 있어 최신 Vercel 도메인 조회와 구분함.
 - 변경: AGENTS/CLAUDE에 채팅 승인→검사→병합→운영 일치→PC/모바일 확인 절차 명시, 재승인·새 라벨 요구 금지. 기존 deploy-verify에 운영 스크린샷+JSON 근거 자동 보존 추가. #191 현재 정책에 맞춰 반경 회귀 검사 수정(대표 핀 유지, 목록/건수만 반경), 실제 배포 촬영 전 타일 대기.
 - 감사: 이슈97·열린 PR19건 조회. 오래된 demo 브랜치가 있다는 이유만으로 미반영이라 단정할 수 없음. pin-panel-b 등은 #190에 포함됨. commute-time 등 나머지 데모의 개별 승인 여부는 미확인, 일괄 병합하지 않음.
-- 검증: node --check 2개, 승인 범위 검사 통과, tsc/build 통과. PR 필수 검사·운영 검증 이어서 진행. DB/secret/사용자 화면 소스 변경 없음.
+- 검증: node --check 2개, 승인 범위 검사 통과, tsc/build 통과. PR192 병합36c9a60, Production READY·도메인 일치, 운영 검증39683510513 성공. 운영 GPS21.10,106.07 PC1366/모바일390 핀2개·타일·반경 목록·B안39683421062 성공, 캡처 직접 확인. DB/secret/사용자 화면 소스 변경 없음.
 <details><summary>교체 전 HANDOFF</summary>
 # CHATGPT_HANDOFF — 메인 지도 반경 데모 (2026-10-21)
 
