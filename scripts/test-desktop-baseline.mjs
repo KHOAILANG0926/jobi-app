@@ -1,4 +1,5 @@
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
+// 2026-10-21: 지도 선택 공고 창 B안(버튼 2개) — index.css·DesktopHomeMapExplorer.tsx(Lee 지시).
 // 2026-10-21: JobDetail.tsx — 상세 지도 핀을 메인 지도와 같은 점으로(Lee: '핀 위치가 안 맞는다, 큰 문제').
 // 2026-10-21: index.css — 위치 창 안내 한 줄(Lee 지시).
 // 2026-10-21: DesktopHomeMapExplorer.tsx — 내 위치를 켜면 가까운 공고 핀까지 보이게(Lee '메인 화면에 핀이 없어').
@@ -26,7 +27,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "f06098ab2338c94160f97856a875e07047a61c63c86e0e253fedd5aa3a2c344a",
+    "sha256": "a113e6dddc0537063db6ad88de590b1758cb571c19e9f71daf9123e883d6c3db",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -58,7 +59,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "b86851f1928691670230b20b417e26e03c8fe94beed29b97b6d6f41563c0c440",
+    "sha256": "0cb8b1b8bb6e61a441268302c7bc4c7200f21901fb24e43e23f2c354b752620c",
     "restore": []
   },
   {

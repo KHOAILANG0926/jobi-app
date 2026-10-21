@@ -136,6 +136,10 @@ export default function HomeMapExplorer() {
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = radiusActive ? result.radiusJobs : result.entries
   const directions = selected ? planJobDirections(selected.job) : null
+  // Google 길찾기 주소 하나만(확인 좌표 → 공단 입구 → 주소·회사+지역 글자 순, planJobDirections가 정함). 위치 정보가 전혀 없으면 버튼 없음.
+  const directionsHref = !directions ? null
+    : directions.tier === 'approved' || directions.tier === 'address' ? directions.links[0]?.href ?? null
+      : directions.tier === 'gate' ? directions.link.href : null
 
   // 필터·위치 변경으로 선택 공고가 결과에서 빠지면 선택을 해제한다.
   useEffect(() => {
@@ -256,19 +260,10 @@ export default function HomeMapExplorer() {
         {selected.job.workPeriod && <div><dt><Briefcase size={14} aria-hidden /> Hình thức</dt><dd>{selected.job.workPeriod}</dd></div>}
       </dl>
       {radiusActive && <p className="hme-job__note">Khoảng cách tính theo đường chim bay {distanceFrom}.</p>}
-      {selected.point && selected.point.kind !== 'exact' && <p className="hme-job__note">Đây là vị trí đại diện, không phải vị trí chính xác của nơi làm việc.</p>}
-      <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
-      <div className="jd2-map-links">
-        {directions?.tier === 'approved' && directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
-          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
-        </span>)}
-        {directions?.tier === 'gate' && <><a className="jd2-map-dir" href={directions.link.href} target="_blank" rel="noopener noreferrer">{directions.link.label}</a><p className="jd2-map-dir-note">{directions.note}</p></>}
-        {directions?.tier === 'address' && <>{directions.links.map((link) => <span key={link.href}>
-          <a className="jd2-map-dir" href={link.viewHref} target="_blank" rel="noopener noreferrer">Xem trên Google Maps</a>{' '}
-          <a className="jd2-map-dir" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
-        </span>)}{directions.call && <a className="jd2-map-dir" href={directions.call.href}>Gọi hỏi đường</a>}<p className="jd2-map-dir-note">{directions.note}</p></>}
-        {directions?.tier === 'call' && <a className="jd2-map-dir" href={directions.href}>{directions.label}</a>}
+      {/* 2026-10-21 Lee B안: 버튼 2개(상세 보기 / Google 길찾기). 파란 버튼 3개·긴 안내 문장은 뺐다(전화는 상세 화면에 있음). */}
+      <div className="hme-job__actions">
+        <NavLink to={`/viec-lam/${selected.job.id}${selected.job.id.startsWith('acceptance-') ? '?mapAcceptance=1' : ''}`} className="hme-job__detail">Xem chi tiết</NavLink>
+        {directionsHref && <a className="hme-job__dir" href={directionsHref} target="_blank" rel="noopener noreferrer">Chỉ đường</a>}
       </div>
       {selected.point?.kind === 'exact' && <NearbyLifePanel state={nearbyState} jobId={selected.job.id} />}
     </div>
