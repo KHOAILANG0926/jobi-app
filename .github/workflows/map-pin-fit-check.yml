@@ -1,0 +1,44 @@
+name: 지도 핀 화면 안 표시 회귀
+on:
+  pull_request:
+    paths:
+      - 'src/components/home/**'
+      - 'scripts/ops/map-pin-fit-check.mjs'
+      - '.github/workflows/map-pin-fit-check.yml'
+  workflow_run:
+    workflows: ['운영 배포 확인·실제 화면 검사']
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  pin-fit:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: PR 빌드
+        if: github.event_name == 'pull_request'
+        run: npm run build
+      - name: 위치 먼저·핀 나중 실제 화면 검사
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npx vite preview --port 4173 --strictPort > /tmp/pin-preview.log 2>&1 &
+            for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+            export BASE_URL=http://localhost:4173
+          else
+            export BASE_URL=https://www.viecganban.vn
+          fi
+          node scripts/ops/map-pin-fit-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: map-pin-fit-screenshots
+          path: /tmp/map-pin-fit
+          retention-days: 14

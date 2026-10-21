@@ -160,9 +160,11 @@ export default function HomeMapExplorer() {
   useEffect(() => {
     if (!userPointKey || origin.kind !== 'user') return
     if (fittedWithPins.current === userPointKey) return
-    if (hasPins) fittedWithPins.current = userPointKey
     // 지도가 위치로 먼저 이동한 뒤에 맞추도록 다음 틱에 요청한다
-    const t = setTimeout(() => setCameraRequest(fitWithNearest(origin.point, markersRef.current)), 0)
+    const t = setTimeout(() => {
+      setCameraRequest(fitWithNearest(origin.point, markersRef.current))
+      if (hasPins) fittedWithPins.current = userPointKey
+    }, 0)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userPointKey, hasPins])
