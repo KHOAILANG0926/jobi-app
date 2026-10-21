@@ -1,5 +1,6 @@
 import { planJobDirections } from '../../lib/directionsPlan'
 import { getUserLocation, onUserLocation } from '../../lib/userLocation'
+import { fitWithNearest } from '../../lib/fitPins'
 // 메인 중간 영역 — "내 주변 일자리 지도 + 선택한 공고 패널" (2026-10-01).
 // 왼쪽: 탐색 조건(위치·반경 / 급여 / 업종 / Thêm điều kiện) + 지도, 오른쪽: 선택 공고 1차 판단 패널.
 // 지도·거리에는 확인된 근무지만 쓴다(homeMapFilters.verifiedJobPoints). 데이터 필드가 아직 없는
@@ -148,6 +149,15 @@ export default function HomeMapExplorer() {
   const selectJob = (id: string, point?: MapJobPoint) => { setPickedPlace(null); setSelectedId(id); setSelectedPoint(point ?? null) }
 
   const markers = result.markers
+  // 내 위치를 켜면 내 위치와 가까운 공고 핀이 함께 보이게 지도를 맞춘다(2026-10-21 Lee "메인 화면에 핀이 없어").
+  const markersRef = useRef(markers)
+  markersRef.current = markers
+  const userPointKey = origin.kind === 'user' ? `${origin.point.lat},${origin.point.lng}` : null
+  useEffect(() => {
+    if (!userPointKey || origin.kind !== 'user') return
+    setCameraRequest(fitWithNearest(origin.point, markersRef.current))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userPointKey])
 
   // 첫 방문 위치 허용(LocationPrompt)으로 받은 위치를 바로 지도 출발점으로 쓴다(2026-10-20 Lee).
   useEffect(() => {
@@ -155,7 +165,7 @@ export default function HomeMapExplorer() {
       if (!validPoint({ lat: p.lat, lng: p.lng })) return
       setRadiusActive(true)
       setOrigin({ kind: 'user', point: { lat: p.lat, lng: p.lng }, accuracyMeters: p.accuracy })
-      setRecenterRequest((v) => v + 1)
+      // 지도 이동은 아래 '내 위치 + 가까운 핀' 맞춤이 한다(2026-10-21)
     }
     const now = getUserLocation()
     if (now) apply(now)
@@ -174,7 +184,7 @@ export default function HomeMapExplorer() {
         if (!validPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude })) { setGeoState('denied'); return }
         setRadiusActive(true)
         setOrigin({ kind: 'user', point: { lat: pos.coords.latitude, lng: pos.coords.longitude }, accuracyMeters: pos.coords.accuracy })
-        setRecenterRequest((v) => v + 1)
+        // 지도 이동은 아래 '내 위치 + 가까운 핀' 맞춤이 한다(2026-10-21)
         setGeoState('idle')
       },
       () => { if (request === locationRequest.current) { setGeoState('denied'); setLocMenuOpen(true) } },
