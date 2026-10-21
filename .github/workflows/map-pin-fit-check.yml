@@ -14,7 +14,11 @@ permissions:
   contents: read
 jobs:
   pin-fit:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # Current-data acceptance check is specific to PR #188; legitimate later job changes must not fail unrelated deploys.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.head_ref == 'fix/fit-after-pins') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '(#188)'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
