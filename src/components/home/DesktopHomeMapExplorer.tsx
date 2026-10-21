@@ -153,11 +153,21 @@ export default function HomeMapExplorer() {
   const markersRef = useRef(markers)
   markersRef.current = markers
   const userPointKey = origin.kind === 'user' ? `${origin.point.lat},${origin.point.lng}` : null
+  // 핀이 위치보다 늦게 도착할 수 있다(이미 허용한 기기는 접속하자마자 위치를 받음, 2026-10-21 Lee "핀이 아예 없어").
+  // 그래서 위치가 바뀔 때와, 그 위치에서 핀이 처음 생길 때 한 번 더 맞춘다(같은 위치에서 핀까지 맞춘 뒤에는 다시 움직이지 않음).
+  const fittedWithPins = useRef<string | null>(null)
+  const hasPins = markers.length > 0
   useEffect(() => {
     if (!userPointKey || origin.kind !== 'user') return
-    setCameraRequest(fitWithNearest(origin.point, markersRef.current))
+    if (fittedWithPins.current === userPointKey) return
+    // 지도가 위치로 먼저 이동한 뒤에 맞추도록 다음 틱에 요청한다
+    const t = setTimeout(() => {
+      setCameraRequest(fitWithNearest(origin.point, markersRef.current))
+      if (hasPins) fittedWithPins.current = userPointKey
+    }, 0)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userPointKey])
+  }, [userPointKey, hasPins])
 
   // 첫 방문 위치 허용(LocationPrompt)으로 받은 위치를 바로 지도 출발점으로 쓴다(2026-10-20 Lee).
   useEffect(() => {

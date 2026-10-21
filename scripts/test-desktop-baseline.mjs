@@ -1,3 +1,4 @@
+// 2026-10-21: fix/fit-after-pins — 위치 다음에 도착한 핀 재조정만 변경, PC JSX/CSS 변경 없음.
 // Compare restored PC sources to immutable pre-mobile source hashes, allowing import redirects only.
 // 2026-10-21: JobDetail.tsx — 상세 지도 핀을 메인 지도와 같은 점으로(Lee: '핀 위치가 안 맞는다, 큰 문제').
 // 2026-10-21: index.css — 위치 창 안내 한 줄(Lee 지시).
@@ -26,7 +27,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "f06098ab2338c94160f97856a875e07047a61c63c86e0e253fedd5aa3a2c344a",
+    "sha256": "59c897ce1a3d30fcc0083e3df98d5c0014a719ac21ca348af2cdc0aead0bb7bb",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
