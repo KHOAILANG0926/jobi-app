@@ -1,36 +1,27 @@
-name: 운영 지도 증거 재촬영
+name: 운영 지도 캡처 표시 준비
 on:
   push:
     branches: ['audit/pin-visual-proof-20261021']
 permissions:
   contents: write
 jobs:
-  capture:
+  prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm }
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: node scripts/ops/pin-visual-proof.mjs
-      - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: production-pin-visual-proof
-          path: out
-      - name: 원본 캡처 서버 보존
-        if: always()
+          ref: screens-pin-proof-20261021
+      - name: 원본 PNG를 표시용 텍스트로 변환
         run: |
-          cp -r out /tmp/pin-proof-out
+          mkdir -p /tmp/pin-proof-base64
+          for f in *.png; do base64 -w0 "$f" > "/tmp/pin-proof-base64/$f.b64.txt"; done
+          cp result.json /tmp/pin-proof-base64/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan pin-proof-output
+          git checkout --orphan pin-proof-encoded
           git rm -rfq .
-          git clean -fdxq
-          cp /tmp/pin-proof-out/* .
+          cp /tmp/pin-proof-base64/* .
           echo '{"git":{"deploymentEnabled":false}}' > vercel.json
           git add -A
-          git commit -m "production pin screenshots"
-          git push origin HEAD:screens-pin-proof-20261021
+          git commit -m "unaltered screenshot bytes for visual inspection"
+          git push origin HEAD:screens-pin-proof-encoded-20261021
