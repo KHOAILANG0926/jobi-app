@@ -61,6 +61,15 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: 운영 주소 실제 화면 검사 (PC·모바일)
         run: BASE_URL="$PROD_URL" node scripts/ops/app-smoke.mjs
+      - name: 운영 화면 확인 근거 보존
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-screen-proof-${{ github.sha }}
+          path: |
+            app-smoke-result.json
+            app-smoke-screens/
+          retention-days: 14
       - name: 실패 기록 (이슈)
         if: failure()
         run: |
