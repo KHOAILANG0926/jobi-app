@@ -54,4 +54,4 @@ try{
  await page.screenshot({path:out+'/mobile-unchanged.png'})
  await writeFile(out+'/result.json',JSON.stringify({base,local,ok:true,checks:['real jobs 2','industry count 2','industry filter/reset','radius 0','representative pins preserved','pin B actions','pan 0','mobile summary absent']},null,2))
  console.log('map summary browser checks passed')
-}finally{await browser.close()}
+}finally{await context.unrouteAll({behavior:'wait'});await browser.close()}
