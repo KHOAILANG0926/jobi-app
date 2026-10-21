@@ -70,7 +70,7 @@ try {
         assert.equal(colors[1].background, 'rgb(255, 255, 255)', 'directions white background')
         assert.equal(colors[1].border, colors[0].background, 'directions outline matches red detail button')
         await page.screenshot({ path: `${out}/cleanup-selected-${width}.png` })
-        await page.locator('.hme-job__close').click()
+        await page.locator(width < 760 ? '.hme-sheet__close' : '.hme-job__close').click()
         if (width === 1366) {
           const box = await page.locator('.hme-map__canvas').boundingBox()
           assert.ok(box)
