@@ -30,8 +30,12 @@ try {
       const url = new URL(route.request().url())
       const response = await context.request.get(`https://www.viecganban.vn${url.pathname}${url.search}`)
       assert.equal(response.status(), 200, 'real public map-locations response')
-      // Deliberately release pins after granted GPS. Never substitute fabricated job coordinates.
-      await new Promise(resolve => setTimeout(resolve, 2500))
+      // Prove the race order, rather than relying only on a fixed network delay.
+      await page.waitForFunction(() => document.querySelector('.hme')?.textContent.includes('Vị trí hiện tại của bạn'))
+      assert.equal(await page.locator('.hme-map__job-marker').count(), 0, 'GPS applied before first job pins')
+      const data = await response.json()
+      assert.ok(data.points['sb-4824'] && data.points['sb-4828'], 'real current public pin IDs')
+      console.log(`GPS-before-pins proven (${width}px), real public IDs sb-4824 and sb-4828`)
       await route.fulfill({ response })
     })
     try {
@@ -49,9 +53,12 @@ try {
       const provider = await page.locator('[data-map-provider]').getAttribute('data-map-provider')
       const pins = await page.locator('.hme-map__job-marker').evaluateAll(els => els.map(el => ({ title: el.title, rect: el.getBoundingClientRect().toJSON() })))
       assert.ok(pins.some(p => /KDA/i.test(p.title)), 'KDA pin present')
-      assert.ok(pins.some(p => /Mao Yên/i.test(p.title)), 'Mao Yên pin present')
+      assert.ok(pins.some(p => /dây mạng/i.test(p.title)), '#4828 real public title present (company is blank)')
+      if (new URL(base).hostname !== 'localhost') {
+        assert.equal(await page.locator('.hme-map__notice:visible').count(), 0, 'production map must not show tile/style failure')
+      }
       assert.deepEqual(errors, [], 'no page errors')
-      results.push({ width, provider, ok: true, pins })
+      results.push({ width, provider, gpsBeforePins: true, ok: true, pins })
     } finally {
       await page.screenshot({ path: `${out}/map-pins-${width}.png` })
       await context.close()
