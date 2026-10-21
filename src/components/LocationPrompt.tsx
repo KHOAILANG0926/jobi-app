@@ -7,12 +7,22 @@ export function LocationPrompt() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const { pathname } = useLocation()
+  // 2026-10-21 Lee: 이 기기에서 이미 허용했으면 접속할 때마다 묻지 않고 바로 위치를 쓴다(자동 승인).
   useEffect(() => {
-    if (pathname.startsWith('/admin')) return
-    if (isAutomation() || promptAlreadyAsked()) return
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return
-    setOpen(true)
-  }, [pathname])
+    if (typeof navigator === 'undefined' || !navigator.geolocation || isAutomation()) return
+    let alive = true
+    void (async () => {
+      let state: PermissionState | null = null
+      try { state = (await navigator.permissions?.query({ name: 'geolocation' as PermissionName }))?.state ?? null } catch { state = null }
+      if (!alive) return
+      if (state === 'granted') { void requestUserLocation(); return }
+      if (pathname.startsWith('/admin') || promptAlreadyAsked() || state === 'denied') return
+      setOpen(true)
+    })()
+    return () => { alive = false }
+    // 첫 화면에서 한 번만 판단한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   if (!open) return null
   const allow = async () => {
     setBusy(true)
@@ -30,6 +40,7 @@ export function LocationPrompt() {
           <button type="button" className="loc-prompt-later" onClick={later} disabled={busy}>Để sau</button>
           <button type="button" className="loc-prompt-allow" onClick={allow} disabled={busy}>{busy ? 'Đang xác định…' : 'Cho phép'}</button>
         </div>
+        <p className="loc-prompt-note">Một lần cho phép, lần sau vào trang sẽ tự dùng vị trí — không hỏi lại.</p>
       </div>
     </div>
   )
