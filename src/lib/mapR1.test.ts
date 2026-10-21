@@ -41,9 +41,10 @@ assert.deepEqual(model.mapSearch([exact, far, rep], DEFAULT_FILTERS, null, null,
 const broad = {west:105,east:107,south:20,north:22}
 const area = {...reps.three, kind:'area' as const,lat:21.2,lng:106}
 const small = model.mapSearch([rep], DEFAULT_FILTERS, {lat:21.03,lng:105.85}, 1, broad, {three:area})
-assert.equal(small.markers.length, 0, 'representative outside radius must disappear')
+assert.equal(small.markers.length, 1, 'representative pin stays on the map outside radius (Lee 10-13: pins always on main map)')
 assert.equal(small.visibleEntries.length, 0, 'list must exclude representative outside radius')
 const large = model.mapSearch([rep], DEFAULT_FILTERS, {lat:21.03,lng:105.85}, 30, broad, {three:area})
-assert.equal(large.markers.length, 1, 'expanding radius restores representative pin')
+assert.equal(large.markers.length, 1, 'representative pin still on map with large radius')
+assert.equal(large.visibleEntries.length, 1, 'expanding radius brings representative back into the list')
 assert.equal(large.radiusJobs.length, 1, 'radius results include representative without upgrading precision')
 assert.equal(large.radiusJobs[0].point?.kind, 'area')
