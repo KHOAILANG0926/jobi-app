@@ -1,0 +1,17 @@
+import { chromium } from 'playwright'
+const b = await chromium.launch()
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36' })
+const p = await ctx.newPage()
+const logs = []
+p.on('console', (m) => { if (['error', 'warning'].includes(m.type())) logs.push(m.text().slice(0, 160)) })
+p.on('response', (r) => { if (r.url().includes('/api/map-locations') || r.url().includes('vietmap')) logs.push(`${r.status()} ${r.url().slice(0, 90)}`) })
+await p.goto('https://viecganban.vn/', { waitUntil: 'networkidle', timeout: 60000 })
+await p.waitForTimeout(2000)
+const map = p.locator('text=Việc làm quanh bạn').first()
+if (await map.count()) await map.scrollIntoViewIfNeeded()
+await p.waitForTimeout(8000)
+const info = await p.evaluate(() => ({ loading: document.body.innerText.includes('Đang tải bản đồ'), canvas: document.querySelectorAll('canvas').length, markers: document.querySelectorAll('[class*=marker]').length, mapErr: document.body.innerText.match(/Không (thể )?tải[^\n]{0,60}/)?.[0] ?? null }))
+console.log('info', JSON.stringify(info))
+for (const l of logs.slice(0, 15)) console.log('log', l)
+await p.screenshot({ path: 'mm-1.png' })
+await b.close()
