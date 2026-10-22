@@ -53,3 +53,14 @@ jobs:
           else
             echo "도면 등록 전(결정 0005 승인 대기) — 대조 생략"
           fi
+
+      - name: 지도 요약 데모 실제 공고 검사
+        if: startsWith(github.head_ref, 'demo/map-summary')
+        run: BASE_URL=http://localhost:4173 node scripts/ops/map-summary-check.mjs
+      - name: 지도 요약 데모 화면 보존
+        if: always() && startsWith(github.head_ref, 'demo/map-summary')
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-summary-demo-proof
+          path: map-summary-proof/
+          retention-days: 14

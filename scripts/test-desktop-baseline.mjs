@@ -1,3 +1,7 @@
+// 2026-10-22: Lee 요청 — 요약 클릭 검색 결과를 지도 바로 아래·추천 영역 위로 이동. 반경 직접 입력 단위는 m로 변경.
+// 2026-10-22: Lee 요청 — PC 지도 반경을 km 숫자로 입력하고 Enter/입력칸 이탈 시 적용(기존 슬라이더·빠른 버튼 유지).
+// 2026-10-22: Lee 요청 — 지도 요약 업종 클릭을 유료 추천과 독립된 하단 결과·선택 해제·20개 페이지·스크롤에 연결(데모, 데이터 축적 후 테스트).
+// 2026-10-22: Lee 요청 데모 — PC 지도 오른쪽 공고 목록을 현재 화면·반경의 업종 요약으로 변경. 모바일·카드 틀 유지.
 // 2026-10-21: Lee 반경 검색 수정 — 대표 위치 포함 결과 문구를 실제 필터와 일치.
 // 2026-10-21: Lee 2~5번 — 지도 정확도·점 선택·직선거리 제거, PC 화면 안 공고 목록, 핀 창 B안(데모만).
 // 2026-10-21: fix/fit-after-pins — 위치 다음에 도착한 핀 재조정만 변경, PC JSX/CSS 변경 없음.
@@ -14,7 +18,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "59dbf57675ad272b13278a0fe6bdd2742803ef9b9bfc043b7ca1adae81b2ec9a",
+    "sha256": "10bc053be18254be4d172cbb18d97d40a2a49d2c10b366559a28b78914c07de2",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
@@ -29,7 +33,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "26a831be8dba8bf6e0b72092e6b265fee636ed71f4922e59fb9f4627a3b35ae1",
+    "sha256": "b6c629a4eeddde84c151de34310d11e9563ffd5184ff0625e73e1e9afec0bb72",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",

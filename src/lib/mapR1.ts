@@ -67,3 +67,16 @@ export function selectedMapEntry(entry: MapEntry | null, clicked: MapJobPoint | 
   const point = entry.points.find(p => p.lat === clicked.lat && p.lng === clicked.lng)
   return point ? {...entry, point, distanceKm: origin ? calcDistanceKm(origin.lat, origin.lng, point.lat, point.lng) : null} : entry
 }
+
+/** Summary shares the map's viewport/radius result, counting each posting once. */
+export function summarizeMapEntries(entries: MapEntry[]) {
+  const jobs = [...new Map(entries.map(e => [e.job.id, e.job])).values()]
+  const counts = new Map<Job['category'], number>()
+  for (const job of jobs) counts.set(job.category, (counts.get(job.category) ?? 0) + 1)
+  return {
+    total: jobs.length,
+    urgent: jobs.filter(job => job.urgent === true).length,
+    categories: [...counts].map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count || a.category.localeCompare(b.category)),
+  }
+}
