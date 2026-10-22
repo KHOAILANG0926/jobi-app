@@ -65,11 +65,11 @@ jobs:
           path: map-summary-proof/
           retention-days: 14
 
-      - name: 기간·계약 메뉴 전체 공고 검색 회귀
-        if: startsWith(github.head_ref, 'fix/menu-full-search')
+      - name: 기간·계약 메뉴 메인 목록 상단 구성 검사
+        if: (startsWith(github.head_ref, 'fix/menu-full-search') || github.head_ref == 'demo/home-job-filters')
         run: BASE_URL=http://localhost:4173 node scripts/ops/menu-search-check.mjs
       - name: 기간·계약 검색 확인 화면 보존
-        if: always() && startsWith(github.head_ref, 'fix/menu-full-search')
+        if: always() && (startsWith(github.head_ref, 'fix/menu-full-search') || github.head_ref == 'demo/home-job-filters')
         uses: actions/upload-artifact@v4
         with:
           name: menu-search-proof

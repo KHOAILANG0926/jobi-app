@@ -1,3 +1,4 @@
+// 2026-10-22: Lee 요청 — 기간·계약/보험 조건을 메인 공고 목록 상단으로 이동. 카드·지도 틀 유지.
 // 2026-10-22: Lee 승인 — 기간별/계약·사회보험 메뉴를 급구가 아닌 전체 공고 검색으로 연결. 메뉴 모양·다른 링크 유지.
 // 2026-10-22: Lee 요청 — 요약 클릭 검색 결과를 지도 바로 아래·추천 영역 위로 이동. 반경 직접 입력 단위는 m로 변경.
 // 2026-10-22: Lee 요청 — PC 지도 반경을 km 숫자로 입력하고 Enter/입력칸 이탈 시 적용(기존 슬라이더·빠른 버튼 유지).
@@ -19,7 +20,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "10bc053be18254be4d172cbb18d97d40a2a49d2c10b366559a28b78914c07de2",
+    "sha256": "d8c4f9958663347a189aa3ddb561d718bb49fb119130d4243d3b9d3b53fe8ba9",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
@@ -29,7 +30,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "bc7cc1cc1be0825120bc0cc7ab65a9f4a113bd9820858a016bf72c26c0ce7a27",
+    "sha256": "3010aadc6490f35efd7535a5d06747d8b946fe74a39480ac821bf9cc1a37d50d",
     "restore": []
   },
   {

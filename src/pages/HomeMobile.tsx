@@ -6,13 +6,14 @@ import { HomeDiscovery, HomeDiscoverySections } from '../components/home/HomeDis
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
+import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
 import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
-import { computePreferredCategories, filterAndSortJobs } from '../lib/jobSearch'
+import { computePreferredCategories, DEFAULT_JOB_SEARCH_PARAMS, filterAndSortJobs } from '../lib/jobSearch'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -164,7 +165,8 @@ function AdSlot({ slotId }: AdSlotProps) {
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
-  const { jobs, jobsError } = useJobs()
+  const { jobs, jobsError, loading } = useJobs()
+  const conditions = useHomeJobConditions()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -251,7 +253,7 @@ export function Home() {
     [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
 
-  const filtered = useMemo(() => mainCardJobs(searchResults), [searchResults])
+  const filtered = useMemo(() => filterAndSortJobs(mainCardJobs(searchResults), { ...DEFAULT_JOB_SEARCH_PARAMS, ...conditions }, preferredCategories), [searchResults, conditions, preferredCategories])
 
   const { featured, remaining } = useMemo(
     () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
@@ -341,6 +343,8 @@ export function Home() {
         renderAfterMap={(state) => <HomeDiscoverySections jobs={state.jobs} />} />
 
       </div>{/* /.home-top-bg */}
+
+      <HomeJobFilters count={filtered.length} loading={loading} />
 
       <FeaturedJobsSection
         jobs={featured}

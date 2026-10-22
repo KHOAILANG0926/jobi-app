@@ -6,6 +6,7 @@ import MapSummaryResults from '../components/home/MapSummaryResults'
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
+import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
 import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
@@ -164,7 +165,8 @@ function AdSlot({ slotId }: AdSlotProps) {
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
-  const { jobs, jobsError } = useJobs()
+  const { jobs, jobsError, loading } = useJobs()
+  const conditions = useHomeJobConditions()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -181,7 +183,7 @@ export function Home() {
   const [activeRec] = useState<string | null>(null)
   const [mapResult, setMapResult] = useState<MapSummaryResult>({ jobs: [], categories: [], selectionVersion: 0 })
   const [clearMapCategoryRequest, setClearMapCategoryRequest] = useState(0)
-  const mapCategorySelected = mapResult.categories.length > 0
+  const mapCategorySelected = mapResult.categories.length > 0 && !conditions.jobDurations?.length && !conditions.pledgeOnly
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -250,8 +252,8 @@ export function Home() {
   )
 
   const filtered = useMemo(
-    () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
-    [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
+    () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode, ...conditions }, preferredCategories),
+    [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories, conditions],
   )
 
 
@@ -347,6 +349,8 @@ export function Home() {
         onClear={() => setClearMapCategoryRequest(v => v + 1)}
         isApplied={isApplied} onApply={handleApply}
         isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />}
+
+      <HomeJobFilters count={filtered.length} loading={loading} />
 
       <FeaturedJobsSection
         jobs={featured}

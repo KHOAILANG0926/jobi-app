@@ -184,14 +184,14 @@ const MENU_ITEMS: MenuItem[] = [
       // 필터(JobSearchPage의 pledgeOnly)로 실제 연결된다 — 둘 다 가짜
       // 링크가 아니라 실제 필터 상태를 URL로 프리셋하는 진짜 기능.
       { heading: 'Theo thời gian', links: [
-        { label: 'Một ngày', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('Một ngày') },
-        { label: 'Dưới 1 tuần', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('Dưới 1 tuần') },
-        { label: '1 - 3 tháng', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('1 - 3 tháng') },
-        { label: 'Trên 1 năm', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('Trên 1 năm') },
+        { label: 'Một ngày', to: '/?duration=' + encodeURIComponent('Một ngày') + '#home-job-filters' },
+        { label: 'Dưới 1 tuần', to: '/?duration=' + encodeURIComponent('Dưới 1 tuần') + '#home-job-filters' },
+        { label: '1 - 3 tháng', to: '/?duration=' + encodeURIComponent('1 - 3 tháng') + '#home-job-filters' },
+        { label: 'Trên 1 năm', to: '/?duration=' + encodeURIComponent('Trên 1 năm') + '#home-job-filters' },
       ]},
       { heading: 'Theo điều kiện', links: [
         { label: '💰 Lương cao', to: '/?sort=salary' },
-        { label: '🤝 Có cam kết hợp đồng / BHXH', to: '/viec-lam/tim-kiem?pledge=1' },
+        { label: '🤝 Có cam kết hợp đồng / BHXH', to: '/?pledge=1#home-job-filters' },
       ]},
     ],
   },
