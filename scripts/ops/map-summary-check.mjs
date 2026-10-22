@@ -11,12 +11,12 @@ await context.addInitScript(()=>Object.defineProperty(navigator,'webdriver',{get
 const local=new URL(base).hostname==='localhost'
 if(local){
  await context.route('https://maps.geoapify.com/v1/styles/**',route=>route.fulfill({json:{version:8,sources:{},layers:[{id:'background',type:'background',paint:{'background-color':'#eef2f6'}}]}}))
- await context.route('**/api/map-locations?**',async route=>{
-  const u=new URL(route.request().url())
-  const response=await context.request.get('https://www.viecganban.vn'+u.pathname+u.search)
-  assert.equal(response.status(),200)
-  await route.fulfill({response})
- })
+ // Fetch actual public coordinates once before installing the local API bridge.
+ const response=await context.request.get('https://www.viecganban.vn/api/map-locations?ids=4824,4828')
+ assert.equal(response.status(),200)
+ const points=await response.json()
+ assert.ok(points.points['sb-4824'] && points.points['sb-4828'])
+ await context.route('**/api/map-locations?**',route=>route.fulfill({json:points}))
 }
 const page=await context.newPage()
 const errors=[]
@@ -28,10 +28,25 @@ try{
  await page.waitForFunction(()=>document.querySelector('[data-testid="map-summary-total"]')?.textContent==='2',undefined,{timeout:60000})
  assert.equal(await page.locator('[data-category="san_xuat_xay_dung"] strong').innerText(),'2')
  assert.equal(await page.locator('.hme-map-r1-results').count(),0,'PC long list replaced by summary')
+ if(!local){
+  assert.equal(await page.locator('.hme-map__notice:visible').count(),0,'live map style/tiles available')
+  await page.waitForTimeout(12000)
+ }
  await page.locator('.hme').screenshot({path:out+'/summary-two-jobs.png'})
  await page.locator('[data-category="san_xuat_xay_dung"]').click()
  assert.equal(await page.locator('[data-category="san_xuat_xay_dung"]').getAttribute('aria-pressed'),'true')
- await page.getByRole('button',{name:'Bỏ lọc ngành',exact:true}).click()
+ const result=page.getByTestId('map-summary-results')
+ await result.waitFor({state:'visible'})
+ assert.deepEqual((await result.locator('.jc').evaluateAll(els=>els.map(e=>e.dataset.jobId))).sort(),['sb-4824','sb-4828'])
+ assert.ok(await result.evaluate(el=>{ const featured=document.querySelector('.home-featured'); return !featured || !!(el.compareDocumentPosition(featured)&Node.DOCUMENT_POSITION_FOLLOWING) }),'search lane precedes featured lane')
+ await page.screenshot({path:out+'/selected-results-above.png'})
+ await result.getByRole('button',{name:'Bỏ lọc ngành',exact:true}).click()
+ await result.waitFor({state:'detached'})
+ const radius=page.getByRole('spinbutton',{name:'Nhập bán kính (m)',exact:true})
+ await radius.fill('400')
+ await radius.press('Enter')
+ assert.equal(await radius.inputValue(),'400','typed meters preserved')
+ await page.waitForFunction(()=>document.querySelector('[data-in-radius]')?.dataset.inRadius==='0')
  await page.locator('.hme').getByRole('button',{name:'100 m',exact:true}).click()
  await page.waitForFunction(()=>document.querySelector('[data-testid="map-summary-total"]')?.textContent==='0')
  assert.equal(await page.locator('.hme-map__job-marker').count(),2,'representative pins stay outside radius')
@@ -54,4 +69,4 @@ try{
  await page.screenshot({path:out+'/mobile-unchanged.png'})
  await writeFile(out+'/result.json',JSON.stringify({base,local,ok:true,checks:['real jobs 2','industry count 2','industry filter/reset','radius 0','representative pins preserved','pin B actions','pan 0','mobile summary absent']},null,2))
  console.log('map summary browser checks passed')
-}finally{await context.unrouteAll({behavior:'wait'});await browser.close()}
+}finally{await context.unrouteAll({behavior:'ignoreErrors'});await browser.close()}

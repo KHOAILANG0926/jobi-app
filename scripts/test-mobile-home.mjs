@@ -64,7 +64,7 @@ try {
       assert.equal(await page.locator('.hme__controls').isVisible(), true)
       assert.equal(await page.locator('.home-location-notice').isVisible(), false, 'desktop added notice removed')
       assert.equal((await page.locator('.home-brand-hero__lead').innerText()).trim(), 'Hàng nghìn cơ hội việc làm tốt đang chờ bạn')
-      assert.match(await page.locator('.hme-intro__summary').innerText(), /Hà Nội · Bắc Ninh \/ Khu vực trên bản đồ/)
+      assert.equal(await page.locator('[data-testid="map-area-summary"] h2').innerText(), 'Trong khung bản đồ')
       await page.locator('.hme-loc__current').click()
       assert.equal(await page.locator('#hme-region').inputValue(), 'Hà Nội')
     }

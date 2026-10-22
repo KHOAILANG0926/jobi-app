@@ -63,6 +63,8 @@ jobs:
         run: BASE_URL="$PROD_URL" node scripts/ops/app-smoke.mjs
       - name: 직업코드 업종 메뉴 운영 직접 확인
         run: BASE_URL="$PROD_URL" node scripts/ops/occupation-category-proof.mjs
+      - name: 지도 요약·m 입력·위쪽 검색 결과 운영 확인
+        run: BASE_URL="$PROD_URL" SCREENSHOT_DIR=app-smoke-screens/map-summary node scripts/ops/map-summary-check.mjs
       - name: 운영 화면 확인 근거 보존
         if: always()
         uses: actions/upload-artifact@v4
