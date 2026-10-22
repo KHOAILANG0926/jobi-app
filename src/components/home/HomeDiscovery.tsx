@@ -25,7 +25,7 @@ function ThreeJobCarousel({ jobs }: { jobs: Job[] }) {
   const go = (index: number) => track.current?.scrollTo({ left: index * track.current.clientWidth, behavior: 'smooth' })
   if (!pages.length) return null
   return <section className="discovery-featured" aria-label="Việc làm nổi bật">
-    <div className="discovery-section-head"><h2>Việc làm nổi bật</h2><span>{jobs.length} tin phù hợp</span></div>
+    <div className="discovery-section-head"><h2>Việc làm nổi bật</h2><span>{jobs.length} tin đang có</span></div>
     <div className="discovery-carousel" ref={track} onScroll={() => {
       const el = track.current
       if (el?.clientWidth) setActive(Math.round(el.scrollLeft / el.clientWidth))
@@ -111,7 +111,7 @@ export function HomeDiscoverySections({ jobs }: { jobs: Job[] }) {
   const sections = [
     { id: 'urgent', title: 'Đang tuyển gấp', jobs: cards.filter(job => job.urgent), layout: 'horizontal' },
     { id: 'direct', title: 'Doanh nghiệp đăng trực tiếp', jobs: cards.filter(job => !!job.employerId), layout: 'grid' },
-    { id: 'all', title: 'Việc làm phù hợp', jobs: cards, layout: 'list' },
+    { id: 'all', title: 'Việc làm hiện có', jobs: cards, layout: 'list' },
   ].filter(section => section.jobs.length)
   return <div className="home-mobile-sections">{sections.map(section => <section key={section.id} className="home-discovery-section" data-section={section.id}>
     <div className="discovery-section-head"><h2>{section.title}</h2><span>{section.jobs.length} tin</span></div>

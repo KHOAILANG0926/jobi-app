@@ -21,7 +21,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "132501046529bc88a0d2c99e5a288ada17a0416235424825914a8ed824186249",
+    "sha256": "3687ed2a140dc2329bef653f676eda929f8a9681cfeaf55df18003617bd5bbc1",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",

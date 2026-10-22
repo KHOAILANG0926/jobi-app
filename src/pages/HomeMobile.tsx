@@ -425,7 +425,7 @@ export function Home() {
               <NavLink to="/">← Xem tất cả việc làm</NavLink>
             </div>
           ) : remaining.length === 0 ? (
-            <p className="home-list-note">Các việc làm phù hợp được hiển thị trong mục Việc làm nổi bật phía trên.</p>
+            <p className="home-list-note">Các việc làm hiện có được hiển thị trong mục Việc làm nổi bật phía trên.</p>
           ) : (
             <div className="home-jobs-grid">
               {remaining.map((job) => (
