@@ -1,0 +1,17 @@
+.salary-ticket { --salary-label-size: 14px; min-width: 0; }
+.salary-ticket .hme-block__head { font-size: var(--salary-label-size); }
+.salary-ticket__paper { margin-top: 16px; border: 1px solid #e3e8ed; border-radius: 10px; overflow: hidden; background: #fff; }
+.salary-ticket__amounts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 12px 8px; }
+.salary-ticket__amounts button { min-width: 0; min-height: 64px; padding: 10px 2px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #24374a; font: inherit; cursor: pointer; }
+.salary-ticket__amounts button strong { display: block; font-size: var(--salary-label-size); line-height: 1.25; font-weight: 500; letter-spacing: 0; white-space: nowrap; }
+.salary-ticket__amounts button span { display: block; margin-top: 5px; font-size: 12px; color: #667588; }
+.salary-ticket__amounts button[aria-pressed="true"] { background: #fff0e9; border-color: #e94d35; color: #cc3b25; }
+.salary-ticket__footer { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px; border-top: 1px solid #e3e8ed; background: #fff; }
+.salary-ticket__footer button { display: flex; justify-content: space-between; align-items: center; gap: 3px; min-width: 0; min-height: 44px; padding: 8px 4px; border: 0; border-radius: 4px; background: transparent; color: #24374a; font: inherit; font-size: var(--salary-label-size); white-space: nowrap; text-align: left; cursor: pointer; }
+.salary-ticket__footer button svg { flex-shrink: 0; }
+.salary-ticket__footer button[aria-pressed="true"] { background: #fff0e9; color: #cc3b25; }
+.salary-ticket__return { margin-top: 10px; min-height: 44px; border: 0; background: transparent; color: #cc3b25; font: inherit; font-size: var(--salary-label-size); cursor: pointer; }
+.salary-ticket__hint { margin: 12px 0 0; color: #667588; font-size: 11px; line-height: 1.6; }
+.salary-ticket button:focus-visible { outline: 2px solid #e94d35; outline-offset: -3px; }
+.salary-ticket button:hover { filter: brightness(.97); }
+.salary-ticket__amounts button strong.salary-ticket__all { font-size: var(--salary-label-size); }

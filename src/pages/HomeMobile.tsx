@@ -6,13 +6,14 @@ import { HomeDiscovery, HomeDiscoverySections } from '../components/home/HomeDis
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
+import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
 import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
-import { computePreferredCategories, filterAndSortJobs } from '../lib/jobSearch'
+import { computePreferredCategories, DEFAULT_JOB_SEARCH_PARAMS, filterAndSortJobs } from '../lib/jobSearch'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -164,7 +165,8 @@ function AdSlot({ slotId }: AdSlotProps) {
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
-  const { jobs, jobsError } = useJobs()
+  const { jobs, jobsError, loading } = useJobs()
+  const conditions = useHomeJobConditions()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -251,7 +253,12 @@ export function Home() {
     [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
 
-  const filtered = useMemo(() => mainCardJobs(searchResults), [searchResults])
+  const filterHomeJobs = useCallback((items: Job[]) => filterAndSortJobs(mainCardJobs(items), { ...DEFAULT_JOB_SEARCH_PARAMS, ...conditions }, preferredCategories), [conditions, preferredCategories])
+  const displayHomeJobs = useCallback((items: Job[]) => {
+    const matches = filterHomeJobs(items)
+    return matches.length ? matches : mainCardJobs(items)
+  }, [filterHomeJobs])
+  const filtered = useMemo(() => displayHomeJobs(searchResults), [searchResults, displayHomeJobs])
 
   const { featured, remaining } = useMemo(
     () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
@@ -337,8 +344,9 @@ export function Home() {
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
       <HomeMapExplorer jobsOverride={searchResults}
-        renderBeforeMap={(state) => <HomeDiscovery state={state} />}
-        renderAfterMap={(state) => <HomeDiscoverySections jobs={state.jobs} />} />
+        renderBeforeMap={(state) => <HomeDiscovery state={{ ...state, jobs: displayHomeJobs(state.jobs) }}
+          beforeJobs={<HomeJobFilters count={filterHomeJobs(state.jobs).length} loading={loading} />} />}
+        renderAfterMap={(state) => <HomeDiscoverySections jobs={displayHomeJobs(state.jobs)} />} />
 
       </div>{/* /.home-top-bg */}
 
@@ -417,7 +425,7 @@ export function Home() {
               <NavLink to="/">← Xem tất cả việc làm</NavLink>
             </div>
           ) : remaining.length === 0 ? (
-            <p className="home-list-note">Các việc làm phù hợp được hiển thị trong mục Việc làm nổi bật phía trên.</p>
+            <p className="home-list-note">Các việc làm hiện có được hiển thị trong mục Việc làm nổi bật phía trên.</p>
           ) : (
             <div className="home-jobs-grid">
               {remaining.map((job) => (

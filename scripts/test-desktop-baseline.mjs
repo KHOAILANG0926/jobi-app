@@ -1,3 +1,8 @@
+// 2026-10-22: Lee 최종 선택 2번 — 급여 티켓(선택 금액·사각 금액표·일급/시급·협의), 검색 기준 유지.
+// 2026-10-22: Lee 승인 — 급여로 찾기에 일급·시급/협의 추가, 월 금액은 공고 월급 기준.
+// 2026-10-22: Lee 확정 — 월 기본급만 검색, 6/8/10/12/15M 구간. 최대 총급여 기준 폐기.
+// 2026-10-22: Lee 데모 수정 — 빈 조건에서도 기존 공고 유지, 급여 버튼 재클릭 유지·명시된 최대/기본 월급만 비교.
+// 2026-10-22: Lee 요청 — 기간·계약/보험 조건을 메인 공고 목록 상단으로 이동. 카드·지도 틀 유지.
 // 2026-10-22: Lee 승인 — 기간별/계약·사회보험 메뉴를 급구가 아닌 전체 공고 검색으로 연결. 메뉴 모양·다른 링크 유지.
 // 2026-10-22: Lee 요청 — 요약 클릭 검색 결과를 지도 바로 아래·추천 영역 위로 이동. 반경 직접 입력 단위는 m로 변경.
 // 2026-10-22: Lee 요청 — PC 지도 반경을 km 숫자로 입력하고 Enter/입력칸 이탈 시 적용(기존 슬라이더·빠른 버튼 유지).
@@ -19,7 +24,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "10bc053be18254be4d172cbb18d97d40a2a49d2c10b366559a28b78914c07de2",
+    "sha256": "3687ed2a140dc2329bef653f676eda929f8a9681cfeaf55df18003617bd5bbc1",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
@@ -29,12 +34,12 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "bc7cc1cc1be0825120bc0cc7ab65a9f4a113bd9820858a016bf72c26c0ce7a27",
+    "sha256": "3010aadc6490f35efd7535a5d06747d8b946fe74a39480ac821bf9cc1a37d50d",
     "restore": []
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "b6c629a4eeddde84c151de34310d11e9563ffd5184ff0625e73e1e9afec0bb72",
+    "sha256": "7b19b34255b054f5ddf48e3fac02745b2bb6409ee7dc1726273560dc04f528f8",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",

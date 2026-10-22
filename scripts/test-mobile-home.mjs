@@ -22,7 +22,7 @@ async function noOverflow(page) {
 }
 const fixtures = Array.from({ length: 7 }, (_, i) => ({
   id: 900000 + i, title: `TEST ONLY — Công việc kiểm tra ${i + 1}`, company: 'TEST ONLY',
-  category: 'san_xuat_xay_dung', occupation_code: '8211', salary: i % 2 ? '11 triệu/tháng' : '15 triệu/tháng', salary_period: 'month',
+  category: 'san_xuat_xay_dung', occupation_code: '8211', salary: i % 2 ? '11 triệu/tháng' : '15 triệu/tháng', salary_period: 'month', salary_basis: 'base',
   location: i < 2 ? 'Bắc Ninh' : 'Hà Nội', active: true, admin_hidden: false,
   source: 'manual', description: 'TEST ONLY', employer_phone: '', posted_at: '2026-10-16',
   shift_type: i < 3 ? 'day' : null, urgent: i === 0, recruitment_type: 'direct',

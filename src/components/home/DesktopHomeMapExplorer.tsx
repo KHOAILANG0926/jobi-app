@@ -1,3 +1,4 @@
+import SalaryTicket from './SalaryTicket'
 import type { Job, JobCategory } from '../../types/job'
 import { planJobDirections } from '../../lib/directionsPlan'
 import { getUserLocation, onUserLocation } from '../../lib/userLocation'
@@ -8,15 +9,15 @@ import { fitWithNearest } from '../../lib/fitPins'
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, Wallet, X } from 'lucide-react'
+import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_SHORT } from '../../data/categories'
 import { REGION_MACRO_TABS } from '../../data/jobRegions'
 import { findRegionCenter } from '../../lib/jobCoords'
 import { conditionBadges } from '../../lib/jobConditions'
 import {
-  DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, RADIUS_MAX_KM, RADIUS_MIN_KM, SALARY_OPTIONS,
-  formatSalaryOption, isConditionAvailable, verifiedJobPoints,
+  DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, RADIUS_MAX_KM, RADIUS_MIN_KM,
+  isConditionAvailable, verifiedJobPoints,
   type ExtraConditionKey, type HomeMapFilterState, type MapJobPoint,
 } from '../../lib/homeMapFilters'
 import { formatSearchRadius, normalizeSearchRadius } from '../../lib/homeMapSearch'
@@ -343,22 +344,7 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
           </>}
         </div>
 
-        {/* 급여 — 최소 희망 월급 */}
-        <div className="hme-block">
-          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Lương tháng tối thiểu</span></div>
-          <div className="hme-chips">
-            {SALARY_OPTIONS.map((v) => (
-              <button key={v} type="button" className={`hme-chip${filters.minSalary === v ? ' is-active' : ''}`}
-                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: filters.minSalary === v ? null : v })}>
-                {formatSalaryOption(v)}
-              </button>
-            ))}
-          </div>
-          <label className="hme-check">
-            <input type="checkbox" checked={filters.includeNegotiable} onChange={(e) => update({ includeNegotiable: e.target.checked })} />
-            Gồm cả tin lương thỏa thuận
-          </label>
-        </div>
+        <SalaryTicket filters={filters} onChange={update} />
 
         {/* 업종 */}
         <div className="hme-block">

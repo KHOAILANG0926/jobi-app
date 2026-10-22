@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs } from '../../lib/mainJobCards'
@@ -25,7 +25,7 @@ function ThreeJobCarousel({ jobs }: { jobs: Job[] }) {
   const go = (index: number) => track.current?.scrollTo({ left: index * track.current.clientWidth, behavior: 'smooth' })
   if (!pages.length) return null
   return <section className="discovery-featured" aria-label="Việc làm nổi bật">
-    <div className="discovery-section-head"><h2>Việc làm nổi bật</h2><span>{jobs.length} tin phù hợp</span></div>
+    <div className="discovery-section-head"><h2>Việc làm nổi bật</h2><span>{jobs.length} tin đang có</span></div>
     <div className="discovery-carousel" ref={track} onScroll={() => {
       const el = track.current
       if (el?.clientWidth) setActive(Math.round(el.scrollLeft / el.clientWidth))
@@ -58,7 +58,7 @@ function HomeMenu({ onClose }: { onClose: () => void }) {
   </dialog>
 }
 
-export function HomeDiscovery({ state }: { state: HomeDiscoveryState }) {
+export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState; beforeJobs?: ReactNode }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState(false)
@@ -80,11 +80,12 @@ export function HomeDiscovery({ state }: { state: HomeDiscoveryState }) {
     </aside>}
     <div className="home-mobile-discovery">
       <h1 className="home-discovery-sr">Việc làm gần bạn</h1>
+      {beforeJobs}
       <ThreeJobCarousel jobs={state.jobs} />
       <nav className="home-shortcuts" aria-label="Khám phá việc làm">
         <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
         <button type="button" onClick={() => state.openFilters(2)}><Briefcase /><span>Ngành nghề</span></button>
-        <NavLink to={'/viec-lam/tuyen-gap?duration=' + encodeURIComponent('Một ngày')}><Timer /><span>Ngắn hạn</span></NavLink>
+        <NavLink to={'/?duration=' + encodeURIComponent('Một ngày') + '#home-job-filters'}><Timer /><span>Ngắn hạn</span></NavLink>
         <NavLink to="/viec-lam/tuyen-gap"><Flame /><span>Tuyển gấp</span></NavLink>
         <NavLink to="/viec-han-quoc"><span className="home-shortcuts__flag" aria-hidden>🇰🇷</span><span>Hàn Quốc</span></NavLink>
       </nav>
@@ -110,7 +111,7 @@ export function HomeDiscoverySections({ jobs }: { jobs: Job[] }) {
   const sections = [
     { id: 'urgent', title: 'Đang tuyển gấp', jobs: cards.filter(job => job.urgent), layout: 'horizontal' },
     { id: 'direct', title: 'Doanh nghiệp đăng trực tiếp', jobs: cards.filter(job => !!job.employerId), layout: 'grid' },
-    { id: 'all', title: 'Việc làm phù hợp', jobs: cards, layout: 'list' },
+    { id: 'all', title: 'Việc làm hiện có', jobs: cards, layout: 'list' },
   ].filter(section => section.jobs.length)
   return <div className="home-mobile-sections">{sections.map(section => <section key={section.id} className="home-discovery-section" data-section={section.id}>
     <div className="discovery-section-head"><h2>{section.title}</h2><span>{section.jobs.length} tin</span></div>

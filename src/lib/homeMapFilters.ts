@@ -11,7 +11,7 @@ export const RADIUS_MAX_KM = 20
 export const RADIUS_DEFAULT_KM = 8
 
 /** 최소 희망 월급(VND). 월급·주기 미표기만 비교하고 시급/일급/교대당은 환산하지 않는다. */
-export const SALARY_OPTIONS = [10_000_000, 12_000_000, 15_000_000, 20_000_000, 30_000_000] as const
+export const SALARY_OPTIONS = [6_000_000, 8_000_000, 10_000_000, 12_000_000, 15_000_000] as const
 
 /** 처음부터 보이는 업종 — 실제 JobCategory만 쓴다(임의 카테고리 금지). 나머지는 "Xem thêm". */
 export const PRIMARY_CATEGORIES: JobCategory[] = [
@@ -76,6 +76,7 @@ export function isConditionAvailable(key: ExtraConditionKey): boolean {
 
 export interface HomeMapFilterState {
   radiusKm: number
+  salaryMode?: 'daily_hourly' | 'negotiable'
   minSalary: number | null
   includeNegotiable: boolean
   categories: JobCategory[]
@@ -102,17 +103,48 @@ export function verifiedJobPoints(job: Job): MapJobPoint[] {
     .filter((p): p is MapJobPoint => p !== null)
 }
 
-export function matchesSalary(job: Job, minSalary: number | null, includeNegotiable: boolean): boolean {
+/** Compare stated monthly amounts; never convert daily/hourly pay. Ranges use the lower endpoint. */
+function monthlySalaryAmount(job: Job): number | null {
+  const basics: number[] = []
+  const number = String.raw`(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)`
+  const money = new RegExp(`(${number})(?:\\s*(?:-|–|—|den|toi)\\s*(${number}))?\\s*(trieu|tr\\b|k\\b|dong|vnd|đ)`)
+  const salaryLines = (job.description ?? '').split(/\n|<br\s*\/?>|<\/p>/i).filter(line => /lương|luong/i.test(line))
+  for (const source of [job.rawSalary, job.salary, job.salaryNote, ...salaryLines]) {
+    const text = (source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    for (const rawClause of text.split(/[;\n|+]|,(?!\d)/)) {
+      const clause = rawClause.replace(/<[^>]*>/g, ' ').replace(/^[\s•*–—:-]+/, '')
+      if (/\busd\b|\$/.test(clause)) continue
+      const label = clause.match(/\bluong(?: thang)? (?:co ban|can ban|cung|chinh|co dinh)\b/)
+      const structuredBase = job.salaryBasis === 'base' && (source === job.salary || source === job.rawSalary)
+      const primary = source === job.salary || source === job.rawSalary
+      if (!label && !structuredBase && !primary) continue
+      if (!label && /^(?:phu cap|thuong|tang ca)\b/.test(clause)) continue
+      const candidate = (label ? clause.slice((label.index ?? 0) + label[0].length) : clause)
+        .replace(/^(?:thu nhap|tong luong)\s*/, '').split(/\b(?:thu nhap|tong luong|phu cap|thuong|tang ca)\b/)[0]
+      const explicitUnit = candidate.match(/(?:\/|moi\s+)\s*(gio|h|ngay|ca|tuan|thang)\b/)?.[1]
+      const monthly = explicitUnit ? explicitUnit === 'thang' : job.salaryPeriod === 'month'
+      if (!monthly) continue
+      const amount = candidate.match(money)
+      if (!amount) continue
+      const info = parseSalaryInfo(amount[0].replace(/trieu|\btr\b/g, 'triệu'))
+      if (info.range && info.currency === 'VND') basics.push(info.range.min)
+    }
+  }
+  return basics.length ? Math.min(...basics) : null
+}
+
+export function matchesSalary(job: Job, minSalary: number | null, _includeNegotiable: boolean, mode?: HomeMapFilterState['salaryMode']): boolean {
+  const info = parseSalaryInfo(job.rawSalary || job.salary || '')
+  const period = job.salaryPeriod && job.salaryPeriod !== 'other' ? job.salaryPeriod : info.period
+  if (mode === 'daily_hourly') return !!info.range && ['day', 'hour', 'shift'].includes(period)
+  if (mode === 'negotiable') return info.isNegotiable && monthlySalaryAmount(job) === null
   if (minSalary === null) return true
-  const info = parseSalaryInfo(job.salary)
-  if (!info.range) return includeNegotiable && info.isNegotiable
-  if (info.currency !== 'VND') return false
-  if (info.period !== 'month' && info.period !== 'unknown') return false
-  return info.range.max >= minSalary
+  const amount = monthlySalaryAmount(job)
+  return amount !== null && amount >= minSalary
 }
 
 export function matchesFilters(job: Job, f: HomeMapFilterState): boolean {
-  if (!matchesSalary(job, f.minSalary, f.includeNegotiable)) return false
+  if (!matchesSalary(job, f.minSalary, f.includeNegotiable, f.salaryMode)) return false
   if (f.categories.length > 0 && !f.categories.includes(job.category)) return false
   if (!matchesOccupationGroups(job, f.occupationGroups ?? [])) return false
   for (const key of f.extras) {

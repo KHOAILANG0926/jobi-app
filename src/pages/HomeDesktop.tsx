@@ -6,13 +6,14 @@ import MapSummaryResults from '../components/home/MapSummaryResults'
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
+import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
 import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
-import { computePreferredCategories, filterAndSortJobs } from '../lib/jobSearch'
+import { computePreferredCategories, DEFAULT_JOB_SEARCH_PARAMS, filterAndSortJobs } from '../lib/jobSearch'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -164,7 +165,8 @@ function AdSlot({ slotId }: AdSlotProps) {
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
-  const { jobs, jobsError } = useJobs()
+  const { jobs, jobsError, loading } = useJobs()
+  const conditions = useHomeJobConditions()
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -181,7 +183,7 @@ export function Home() {
   const [activeRec] = useState<string | null>(null)
   const [mapResult, setMapResult] = useState<MapSummaryResult>({ jobs: [], categories: [], selectionVersion: 0 })
   const [clearMapCategoryRequest, setClearMapCategoryRequest] = useState(0)
-  const mapCategorySelected = mapResult.categories.length > 0
+  const mapCategorySelected = mapResult.categories.length > 0 && !conditions.jobDurations?.length && !conditions.pledgeOnly
 
   useEffect(() => {
     const p = new URLSearchParams(location.search)
@@ -249,10 +251,14 @@ export function Home() {
     [jobs, savedIds, appliedIds],
   )
 
-  const filtered = useMemo(
+  const available = useMemo(
     () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
     [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
+  const conditionMatches = useMemo(() => filterAndSortJobs(available, { ...DEFAULT_JOB_SEARCH_PARAMS, ...conditions }, preferredCategories), [available, conditions, preferredCategories])
+  // Keep the existing postings in place when this newly selected condition has no matches.
+  // The condition panel explicitly identifies them as available jobs, not matching results.
+  const filtered = conditionMatches.length ? conditionMatches : available
 
 
   const { featured, remaining } = useMemo(
@@ -348,6 +354,8 @@ export function Home() {
         isApplied={isApplied} onApply={handleApply}
         isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />}
 
+      <HomeJobFilters count={conditionMatches.length} loading={loading} />
+
       <FeaturedJobsSection
         jobs={featured}
         isApplied={isApplied}
@@ -423,7 +431,7 @@ export function Home() {
               <NavLink to="/">← Xem tất cả việc làm</NavLink>
             </div>
           ) : remaining.length === 0 ? (
-            <p className="home-list-note">Các việc làm phù hợp được hiển thị trong mục Việc làm nổi bật phía trên.</p>
+            <p className="home-list-note">Các việc làm hiện có được hiển thị trong mục Việc làm nổi bật phía trên.</p>
           ) : (
             <div className="home-jobs-grid">
               {remaining.map((job) => (
