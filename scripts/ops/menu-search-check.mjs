@@ -66,6 +66,11 @@ try {
   {
    if(width===390) await page.getByRole('button',{name:'Mức lương',exact:true}).click()
    const ticket=page.locator('.salary-ticket')
+   const fontSizes=await ticket.evaluate(el=>({
+    title:getComputedStyle(el.querySelector('.hme-block__head')).fontSize,
+    labels:[...el.querySelectorAll('.salary-ticket__amounts strong, .salary-ticket__footer button')].map(node=>getComputedStyle(node).fontSize)
+   }))
+   assert.ok(fontSizes.labels.every(size=>size===fontSizes.title),'all salary labels use the title font size')
    const salary=ticket.getByRole('button',{name:'15M+',exact:true})
    await salary.click();await salary.click()
    assert.equal(await salary.getAttribute('aria-pressed'),'true')
