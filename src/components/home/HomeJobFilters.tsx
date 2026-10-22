@@ -22,7 +22,7 @@ export default function HomeJobFilters({ count, loading }: { count: number; load
   const active = Boolean(jobDurations?.length || pledgeOnly)
 
   useEffect(() => {
-    if (location.hash !== '#home-job-filters') return
+    if (loading || location.hash !== '#home-job-filters') return
     const frame = requestAnimationFrame(() => {
       const section = ref.current
       if (!section) return
@@ -31,7 +31,7 @@ export default function HomeJobFilters({ count, loading }: { count: number; load
       window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - headerHeight - 12, behavior: 'instant' })
     })
     return () => cancelAnimationFrame(frame)
-  }, [location.key, location.hash])
+  }, [location.key, location.hash, loading])
 
   const update = (key: 'duration' | 'pledge', value: string) => {
     const next = new URLSearchParams(params)

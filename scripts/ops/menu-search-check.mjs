@@ -51,7 +51,8 @@ try {
    await menu('Dưới 1 tuần');await verify('Dưới 1 tuần')
    await menu('🤝 Có cam kết hợp đồng / BHXH');await verify('',true)
   }else {
-   await duration.selectOption('');await pledge.check();await verify('',true)
+   await duration.selectOption('');await verify()
+   await pledge.click();await verify('',true)
   }
   await panel.screenshot({path:out+`/pledge-${width}.png`})
   // Combining and clearing filters stays on Home and changes the visible summary.
