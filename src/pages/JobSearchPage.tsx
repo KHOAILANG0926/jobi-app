@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import JobCard from '../components/JobCard'
@@ -6,10 +6,11 @@ import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
+import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
 import { REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
-import { computePreferredCategories, filterAndSortJobs, type JobSearchParams } from '../lib/jobSearch'
+import { computePreferredCategories, filterAndSortJobs, parseJobSearchParamsFromQueryString, type JobSearchParams } from '../lib/jobSearch'
 import { buildRepresentativePageCopy, isRepresentativeCandidate, normalizeSearchQuery } from '../lib/representativeSearchPages'
 import { loadApplications } from '../lib/applicationsStorage'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
@@ -36,6 +37,12 @@ export function JobSearchPage() {
   const navigate = useNavigate()
   const { status, job: applyJob, profile, openApply, confirm, close, retry } = useApply()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  const queryString = searchParams.toString()
+  const lastWrittenQuery = useRef(queryString)
+  const skipUrlWrite = useRef(false)
+  const [jobDurations, setJobDurations] = useState<string[]>(() => parseJobSearchParamsFromQueryString(queryString).jobDurations ?? [])
+  const [pledgeOnly, setPledgeOnly] = useState(() => searchParams.get('pledge') === '1')
 
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [category, setCategory] = useState<JobCategory | 'all'>(
@@ -91,16 +98,36 @@ export function JobSearchPage() {
     if (brandFilter) params.set('brand', brandFilter)
     if (urgentOnly) params.set('urgent', '1')
     if (todayOnly) params.set('today', '1')
+    if (jobDurations.length) params.set('duration', jobDurations.join(','))
+    if (pledgeOnly) params.set('pledge', '1')
     if (sortMode !== 'none') params.set('sort', sortMode)
     if (pageSize !== 20) params.set('pageSize', String(pageSize))
     if (page !== 1) params.set('page', String(page))
     return params.toString()
-  }, [search, category, subcategory, selectedCity, brandFilter, urgentOnly, todayOnly, sortMode, pageSize, page])
+  }, [search, category, subcategory, selectedCity, brandFilter, urgentOnly, todayOnly, jobDurations, pledgeOnly, sortMode, pageSize, page])
 
+  // Header navigation/back may change the query while this page stays mounted.
+  // Apply external URLs first; never overwrite them with the previous filter state.
   useEffect(() => {
+    if (queryString === lastWrittenQuery.current) return
+    lastWrittenQuery.current = queryString
+    skipUrlWrite.current = true
+    const next = parseJobSearchParamsFromQueryString(queryString)
+    setSearch(next.search); setCategory(next.category); setSubcategory(next.subcategory)
+    setSelectedCity(next.selectedCity); setBrandFilter(next.brandFilter)
+    setUrgentOnly(next.urgentOnly); setTodayOnly(next.todayOnly); setSortMode(next.sortMode)
+    setJobDurations(next.jobDurations ?? []); setPledgeOnly(next.pledgeOnly ?? false)
+    const n = Number(searchParams.get('pageSize'))
+    setPageSize(PAGE_SIZE_OPTIONS.includes(n as 20 | 50 | 100) ? n : 20)
+    const p = Number(searchParams.get('page'))
+    setPage(Number.isInteger(p) && p > 0 ? p : 1)
+  }, [queryString, searchParams])
+  useEffect(() => {
+    if (skipUrlWrite.current) { skipUrlWrite.current = false; return }
+    if (currentSearchString === queryString) return
+    lastWrittenQuery.current = currentSearchString
     setSearchParams(new URLSearchParams(currentSearchString), { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSearchString])
+  }, [currentSearchString, queryString, setSearchParams])
 
   const handleToggleSave = useCallback((job: Job) => {
     toggleSavedJobId(job.id, user?.id)
@@ -114,11 +141,11 @@ export function JobSearchPage() {
 
   const preferredCategories = useMemo(() => computePreferredCategories(jobs, savedIds, appliedIds), [jobs, savedIds, appliedIds])
 
-  const searchParamsObj: JobSearchParams = { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }
+  const searchParamsObj: JobSearchParams = { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode, jobDurations, pledgeOnly }
   const filtered = useMemo(
     () => filterAndSortJobs(jobs, searchParamsObj, preferredCategories),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jobs, search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode, preferredCategories],
+    [jobs, search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode, jobDurations, pledgeOnly, preferredCategories],
   )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -130,10 +157,10 @@ export function JobSearchPage() {
 
   const clearFilters = () => {
     setSearch(''); setCategory('all'); setSubcategory(''); setSelectedCity(null)
-    setBrandFilter(null); setUrgentOnly(false); setTodayOnly(false); setSortMode('none'); setPage(1)
+    setJobDurations([]); setPledgeOnly(false); setBrandFilter(null); setUrgentOnly(false); setTodayOnly(false); setSortMode('none'); setPage(1)
   }
   const activeFilterCount = (search ? 1 : 0) + (category !== 'all' ? 1 : 0) + (subcategory ? 1 : 0)
-    + (selectedCity ? 1 : 0) + (brandFilter ? 1 : 0) + (urgentOnly ? 1 : 0) + (todayOnly ? 1 : 0) + (sortMode !== 'none' ? 1 : 0)
+    + (selectedCity ? 1 : 0) + (brandFilter ? 1 : 0) + (urgentOnly ? 1 : 0) + (todayOnly ? 1 : 0) + (sortMode !== 'none' ? 1 : 0) + (jobDurations.length ? 1 : 0) + (pledgeOnly ? 1 : 0)
 
   // 2026-09-22 지시 — 대표 업직종/지역 페이지는 H1을 실제 필터명+실제
   // 결과 수로 개별화한다. api/ssr.js가 <title>/<meta description>에
@@ -206,6 +233,15 @@ export function JobSearchPage() {
           <option value="salary">Lương cao</option>
           <option value="recommended">Gợi ý cho bạn</option>
         </select>
+        <select className="home-category-panel__select" aria-label="Thời gian làm việc"
+          value={jobDurations[0] ?? ''} onChange={e => updateFilter(setJobDurations)(e.target.value ? [e.target.value] : [])}>
+          <option value="">Tất cả thời gian làm việc</option>
+          {JOB_DURATION_OPTIONS.map(duration => <option key={duration} value={duration}>{duration}</option>)}
+        </select>
+        <label className="jm-workhour-exclude">
+          <input type="checkbox" checked={pledgeOnly} onChange={e => updateFilter(setPledgeOnly)(e.target.checked)} />
+          Có cam kết hợp đồng / BHXH
+        </label>
         <label className="jm-workhour-exclude">
           <input type="checkbox" checked={urgentOnly} onChange={(e) => updateFilter(setUrgentOnly)(e.target.checked)} />
           Chỉ tuyển gấp

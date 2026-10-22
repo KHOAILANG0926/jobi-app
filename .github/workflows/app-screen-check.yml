@@ -64,3 +64,14 @@ jobs:
           name: map-summary-demo-proof
           path: map-summary-proof/
           retention-days: 14
+
+      - name: 기간·계약 메뉴 전체 공고 검색 회귀
+        if: github.head_ref == 'fix/menu-full-search'
+        run: BASE_URL=http://localhost:4173 node scripts/ops/menu-search-check.mjs
+      - name: 기간·계약 검색 확인 화면 보존
+        if: always() && github.head_ref == 'fix/menu-full-search'
+        uses: actions/upload-artifact@v4
+        with:
+          name: menu-search-proof
+          path: menu-search-proof/
+          retention-days: 14
