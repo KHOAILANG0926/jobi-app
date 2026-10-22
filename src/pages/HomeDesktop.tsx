@@ -341,6 +341,13 @@ export function Home() {
 
       </div>{/* /.home-top-bg */}
 
+      {/* Search results are independent from the featured/promotion placement below.
+          A future paid ranker must receive only these already eligible jobs. */}
+      {mapCategorySelected && <MapSummaryResults result={mapResult}
+        onClear={() => setClearMapCategoryRequest(v => v + 1)}
+        isApplied={isApplied} onApply={handleApply}
+        isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />}
+
       <FeaturedJobsSection
         jobs={featured}
         isApplied={isApplied}
@@ -348,13 +355,6 @@ export function Home() {
         isSaved={(id) => savedIds.has(id)}
         onToggleSave={handleToggleSave}
       />
-
-      {/* Search results are independent from the featured/promotion placement above.
-          A future paid ranker must receive only these already eligible jobs. */}
-      {mapCategorySelected && <MapSummaryResults result={mapResult}
-        onClear={() => setClearMapCategoryRequest(v => v + 1)}
-        isApplied={isApplied} onApply={handleApply}
-        isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />}
 
       {/* ── City filtered results ──────────────────────────────── */}
       {!mapCategorySelected && selectedCity && (() => {

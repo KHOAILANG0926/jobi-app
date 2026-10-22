@@ -1,3 +1,4 @@
+// 2026-10-22: Lee 요청 — 요약 클릭 검색 결과를 지도 바로 아래·추천 영역 위로 이동. 반경 직접 입력 단위는 m로 변경.
 // 2026-10-22: Lee 요청 — PC 지도 반경을 km 숫자로 입력하고 Enter/입력칸 이탈 시 적용(기존 슬라이더·빠른 버튼 유지).
 // 2026-10-22: Lee 요청 — 지도 요약 업종 클릭을 유료 추천과 독립된 하단 결과·선택 해제·20개 페이지·스크롤에 연결(데모, 데이터 축적 후 테스트).
 // 2026-10-22: Lee 요청 데모 — PC 지도 오른쪽 공고 목록을 현재 화면·반경의 업종 요약으로 변경. 모바일·카드 틀 유지.
@@ -17,7 +18,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "175c5b62338d9d3668824bcf6436a29443ea49793dd14824957813b417169d92",
+    "sha256": "10bc053be18254be4d172cbb18d97d40a2a49d2c10b366559a28b78914c07de2",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
