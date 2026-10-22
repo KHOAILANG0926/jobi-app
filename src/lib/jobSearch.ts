@@ -1,3 +1,4 @@
+import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
 import { jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
 import { normalizeViText } from './jobCoords'
 import { groupJobsForSalarySort } from './recommendStorage'
@@ -20,6 +21,8 @@ export interface JobSearchParams {
   selectedCity: JobRegionId | null
   brandFilter: string | null
   sortMode: 'none' | 'salary' | 'recommended'
+  jobDurations?: string[]
+  pledgeOnly?: boolean
 }
 
 export const DEFAULT_JOB_SEARCH_PARAMS: JobSearchParams = {
@@ -67,6 +70,8 @@ export function parseJobSearchParamsFromQueryString(search: string): JobSearchPa
     category: (p.get('cat') as JobCategory | null) ?? 'all',
     subcategory: p.get('sub') ?? '',
     urgentOnly: p.get('urgent') === '1',
+    jobDurations: [...new Set((p.get('duration') ?? '').split(',').filter(v => JOB_DURATION_OPTIONS.some(option => option === v)))],
+    pledgeOnly: p.get('pledge') === '1',
     todayOnly: p.get('today') === '1',
     selectedCity: (p.get('region') as JobRegionId | null) ?? null,
     brandFilter: p.get('brand') ?? null,
@@ -82,6 +87,8 @@ export function filterAndSortJobs(jobs: Job[], params: JobSearchParams, preferre
       if (params.subcategory && j.subcategory !== params.subcategory) return false
     }
     if (params.urgentOnly && !j.urgent) return false
+    if (params.jobDurations?.length && (!j.jobDuration || !params.jobDurations.includes(j.jobDuration))) return false
+    if (params.pledgeOnly && j.laborContractPledge !== true && j.socialInsurancePledge !== true) return false
     if (params.todayOnly && !isTodayJob(j)) return false
     if (params.selectedCity && !jobMatchesRegion(j.location, params.selectedCity, j.workLocations)) return false
     if (params.brandFilter) {

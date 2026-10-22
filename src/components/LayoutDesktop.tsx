@@ -181,17 +181,17 @@ const MENU_ITEMS: MenuItem[] = [
       // 전용 진입점을 헤더에 둔다. job_duration은 PostJob.tsx 직접등록
       // 전용이라 값이 아직 적을 수 있음(job_duration.ts와 동일한 7구간
       // 라벨 그대로 사용), pledge는 이번 세션에 새로 추가한 자가서약
-      // 필터(UrgentJobsPage의 pledgeOnly)로 실제 연결된다 — 둘 다 가짜
+      // 필터(JobSearchPage의 pledgeOnly)로 실제 연결된다 — 둘 다 가짜
       // 링크가 아니라 실제 필터 상태를 URL로 프리셋하는 진짜 기능.
       { heading: 'Theo thời gian', links: [
-        { label: 'Một ngày', to: '/viec-lam/tuyen-gap?duration=' + encodeURIComponent('Một ngày') },
-        { label: 'Dưới 1 tuần', to: '/viec-lam/tuyen-gap?duration=' + encodeURIComponent('Dưới 1 tuần') },
-        { label: '1 - 3 tháng', to: '/viec-lam/tuyen-gap?duration=' + encodeURIComponent('1 - 3 tháng') },
-        { label: 'Trên 1 năm', to: '/viec-lam/tuyen-gap?duration=' + encodeURIComponent('Trên 1 năm') },
+        { label: 'Một ngày', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('Một ngày') },
+        { label: 'Dưới 1 tuần', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('Dưới 1 tuần') },
+        { label: '1 - 3 tháng', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('1 - 3 tháng') },
+        { label: 'Trên 1 năm', to: '/viec-lam/tim-kiem?duration=' + encodeURIComponent('Trên 1 năm') },
       ]},
       { heading: 'Theo điều kiện', links: [
         { label: '💰 Lương cao', to: '/?sort=salary' },
-        { label: '🤝 Có cam kết hợp đồng / BHXH', to: '/viec-lam/tuyen-gap?pledge=1' },
+        { label: '🤝 Có cam kết hợp đồng / BHXH', to: '/viec-lam/tim-kiem?pledge=1' },
       ]},
     ],
   },
