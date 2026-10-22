@@ -70,7 +70,7 @@ try {
    await salary.click();await salary.click()
    assert.equal(await salary.getAttribute('aria-pressed'),'true')
    assert.match(await ticket.getByRole('status').innerText(),/15M\+/)
-   for(const name of ['Lương ngày / giờ','Thỏa thuận','Tất cả']) {
+   for(const name of ['Lương ngày / giờ','Thỏa thuận','Tất cả mức lương']) {
     const button=ticket.getByRole('button',{name,exact:true})
     await button.click();await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true')
     assert.equal(await salary.getAttribute('aria-pressed'),'false')
