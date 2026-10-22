@@ -1,6 +1,8 @@
 # CHATGPT_HANDOFF — 지도 요약 하단 결과 연결 데모 (2026-10-22)
 
 ## 1. 현재 상태
+- 추가 요청: PC Bán kính tìm kiếm 숫자 입력(km) 구현. 0.1~20km, Enter/입력칸 이탈 시 적용, 기존 슬라이더·빠른 버튼과 값 공유. 0.4km=400m. 모바일 별도 파일 변경 없음.
+- Lee 첨부 직접 확인: 위 Việc làm nổi bật는 기존 추천 영역, 아래 Việc làm Sản xuất trong khung bản đồ가 요약 클릭 검색 결과. 현재 실제 공고2건이라 두 영역에 같은 공고가 보이는 구조. 이번 요청2는 설명만, 추천 영역 임의 삭제/중복 정책 변경하지 않음.
 - 운영 master556f2c0: 업종 자동 분류까지 반영. 오른쪽 요약은 demo/map-summary / Draft PR197에만 있음. 승인 전 운영 병합 금지.
 - 이번 Lee 지시: “일단 구현만, 테스트는 공고가 쌓이면”. 요약 업종 클릭→선택 표시→추천/향후 유료 노출과 분리된 하단 검색 결과→부드러운 스크롤. 지도 범위·반경·필터를 통과한 실제 공고만, 20개 페이지·선택 해제 구현. 기존 공고 카드 틀 재사용.
 - DesktopHomeMapExplorer→HomeDesktop 결과 전달, MapSummaryResults 추가. 모바일 파일·DB·위치 판정·공개조건 변경 없음. DesktopHomeMapExplorer/HomeDesktop 기준 해시·날짜·이유 갱신.

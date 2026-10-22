@@ -23,6 +23,7 @@ import { formatSearchRadius, normalizeSearchRadius } from '../../lib/homeMapSear
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
 import NearbyLifePanel from './NearbyLifePanel'
 import MapAreaSummary from './MapAreaSummary'
+import SearchRadiusInput from './SearchRadiusInput'
 import PlaceDetailPanel from './PlaceDetailPanel'
 import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
@@ -328,7 +329,7 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
           <div className="hme-radius">
             <div className="hme-radius__row">
               <span>Bán kính tìm kiếm</span>
-              <strong>{formatSearchRadius(filters.radiusKm)}</strong>
+              <SearchRadiusInput value={filters.radiusKm} onChange={(radiusKm) => update({ radiusKm })} />
             </div>
             <input type="range" min={RADIUS_MIN_KM} max={RADIUS_MAX_KM} step={0.1} value={filters.radiusKm}
               aria-label="Bán kính tìm kiếm (km)" aria-valuetext={formatSearchRadius(filters.radiusKm)} onChange={(e) => update({ radiusKm: normalizeSearchRadius(Number(e.target.value)) })} />
