@@ -26,7 +26,7 @@ try {
    await panel.getByRole('status').filter({hasText:/\d+ việc làm/}).waitFor({timeout:45000})
    assert.equal(await panel.getByRole('checkbox',{name:'Chỉ tuyển gấp',exact:true}).count(),0)
    assert.equal(await panel.evaluate(el=>{
-    const card=document.querySelector('.home-featured, .home-section')
+    const card=document.querySelector('.discovery-featured, .home-discovery-section, .home-featured, .home-section')
     return Boolean(card && el.compareDocumentPosition(card)&Node.DOCUMENT_POSITION_FOLLOWING)
    }),true,'conditions precede existing home job listings')
   }
@@ -42,11 +42,11 @@ try {
   // Menu entry brings the condition panel into view below the sticky header.
   await page.waitForFunction(()=>{
    const r=document.querySelector('#home-job-filters')?.getBoundingClientRect()
-   const h=document.querySelector('.layout__header')?.getBoundingClientRect()
-   return r && r.top>=Math.max(0,h?.bottom||0)-2 && r.top<innerHeight-100
+   const bottom=Math.max(0,...[...document.querySelectorAll('.layout__header, .home-mobile-header')].map(e=>e.getBoundingClientRect().bottom))
+   return r && r.top>=bottom-2 && r.top<innerHeight-100
   },null,{timeout:15000})
-  await panel.screenshot({path:out+`/duration-${width}.png`})
   await page.screenshot({path:out+`/viewport-${width}.png`})
+  await panel.screenshot({path:out+`/duration-${width}.png`})
   if(width===1366){
    await menu('Dưới 1 tuần');await verify('Dưới 1 tuần')
    await menu('🤝 Có cam kết hợp đồng / BHXH');await verify('',true)

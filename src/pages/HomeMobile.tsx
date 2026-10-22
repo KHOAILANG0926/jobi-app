@@ -253,7 +253,8 @@ export function Home() {
     [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
 
-  const filtered = useMemo(() => filterAndSortJobs(mainCardJobs(searchResults), { ...DEFAULT_JOB_SEARCH_PARAMS, ...conditions }, preferredCategories), [searchResults, conditions, preferredCategories])
+  const filterHomeJobs = useCallback((items: Job[]) => filterAndSortJobs(mainCardJobs(items), { ...DEFAULT_JOB_SEARCH_PARAMS, ...conditions }, preferredCategories), [conditions, preferredCategories])
+  const filtered = useMemo(() => filterHomeJobs(searchResults), [searchResults, filterHomeJobs])
 
   const { featured, remaining } = useMemo(
     () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
@@ -339,12 +340,11 @@ export function Home() {
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
       <HomeMapExplorer jobsOverride={searchResults}
-        renderBeforeMap={(state) => <HomeDiscovery state={state} />}
-        renderAfterMap={(state) => <HomeDiscoverySections jobs={state.jobs} />} />
+        renderBeforeMap={(state) => <HomeDiscovery state={{ ...state, jobs: filterHomeJobs(state.jobs) }}
+          beforeJobs={<HomeJobFilters count={filterHomeJobs(state.jobs).length} loading={loading} />} />}
+        renderAfterMap={(state) => <HomeDiscoverySections jobs={filterHomeJobs(state.jobs)} />} />
 
       </div>{/* /.home-top-bg */}
-
-      <HomeJobFilters count={filtered.length} loading={loading} />
 
       <FeaturedJobsSection
         jobs={featured}

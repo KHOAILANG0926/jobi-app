@@ -26,8 +26,7 @@ export default function HomeJobFilters({ count, loading }: { count: number; load
     const frame = requestAnimationFrame(() => {
       const section = ref.current
       if (!section) return
-      const header = document.querySelector('.layout__header')
-      const headerHeight = header instanceof HTMLElement ? header.getBoundingClientRect().height : 0
+      const headerHeight = Math.max(0, ...Array.from(document.querySelectorAll('.layout__header, .home-mobile-header')).map(el => el.getBoundingClientRect().height))
       window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - headerHeight - 12, behavior: 'instant' })
     })
     return () => cancelAnimationFrame(frame)
