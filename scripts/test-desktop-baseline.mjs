@@ -1,3 +1,4 @@
+// 2026-10-22: Lee 최종 선택 2번 — 급여 티켓(선택 금액·사각 금액표·일급/시급·협의), 검색 기준 유지.
 // 2026-10-22: Lee 승인 — 급여로 찾기에 일급·시급/협의 추가, 월 금액은 공고 월급 기준.
 // 2026-10-22: Lee 확정 — 월 기본급만 검색, 6/8/10/12/15M 구간. 최대 총급여 기준 폐기.
 // 2026-10-22: Lee 데모 수정 — 빈 조건에서도 기존 공고 유지, 급여 버튼 재클릭 유지·명시된 최대/기본 월급만 비교.
@@ -38,7 +39,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "8a6fe547035a66d2cac117cc2887cd1b0ade6511fdc28bb2ea6e83cb6c4194d8",
+    "sha256": "7b19b34255b054f5ddf48e3fac02745b2bb6409ee7dc1726273560dc04f528f8",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
