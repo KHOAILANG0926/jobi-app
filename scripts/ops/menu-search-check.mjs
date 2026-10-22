@@ -64,12 +64,13 @@ try {
   await panel.getByRole('button',{name:'Xóa điều kiện',exact:true}).click();await verify()
   assert.equal(await panel.getByRole('button',{name:'Xóa điều kiện',exact:true}).count(),0)
   if(width===1366){
-   const salary=page.locator('.hme__controls').getByRole('button',{name:'30M+',exact:true})
+   const salary=page.locator('.hme__controls').getByRole('button',{name:'15M+',exact:true})
+   assert.deepEqual(await page.locator('.hme__controls .hme-block').filter({hasText:'Lương cơ bản/tháng'}).locator('.hme-chip').allTextContents(),['Tất cả','6M+','8M+','10M+','12M+','15M+'])
    await salary.click()
-   await page.waitForFunction(()=>[...document.querySelectorAll('.hme-chip')].some(e=>e.textContent.trim()==='30M+'&&e.getAttribute('aria-pressed')==='true'))
+   await page.waitForFunction(()=>[...document.querySelectorAll('.hme-chip')].some(e=>e.textContent.trim()==='15M+'&&e.getAttribute('aria-pressed')==='true'))
    await salary.click()
    assert.equal(await salary.getAttribute('aria-pressed'),'true','re-click keeps the selected salary threshold')
-   await page.locator('.hme').screenshot({path:out+'/salary-30M.png'})
+   await page.locator('.hme').screenshot({path:out+'/salary-basic.png'})
    await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')
   }
   assert.deepEqual(errors,[])

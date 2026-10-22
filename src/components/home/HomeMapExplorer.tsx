@@ -412,7 +412,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
 
         {/* 급여 — 최소 희망 월급 */}
         <div className="hme-block">
-          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Lương tháng tối thiểu</span></div>
+          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Lương cơ bản/tháng</span></div>
           <div className="hme-chips">
             <button type="button" className={`hme-chip${filters.minSalary === null ? ' is-active' : ''}`}
               aria-pressed={filters.minSalary === null} onClick={() => update({ minSalary: null })}>Tất cả</button>
@@ -423,7 +423,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
               </button>
             ))}
           </div>
-          <p className="hme-loc__hint">Theo mức cao nhất được ghi trong tin; nếu không có, dùng mức lương cơ bản. Không quy đổi lương giờ/ngày.</p>
+          <p className="hme-loc__hint">Theo lương cơ bản ghi trong tin, chưa gồm tăng ca, phụ cấp và thưởng. Không quy đổi lương giờ/ngày.</p>
         </div>
 
         {/* 업종 */}
