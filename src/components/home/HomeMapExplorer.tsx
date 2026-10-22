@@ -301,7 +301,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
   const discoveryState: HomeDiscoveryState = {
     jobs: listEntries.map(entry => entry.job).filter(job => !job.id.startsWith('acceptance-')),
     originLabel: radiusActive ? originLabel : chosenRegion ?? 'Chọn khu vực', geoState, loading, jobsError,
-    filterCount: selectedGroups.length + filters.extras.length + (filters.minSalary !== null ? 1 : 0) + (radiusActive || chosenRegion ? 1 : 0),
+    filterCount: selectedGroups.length + filters.extras.length + (filters.minSalary !== null || filters.salaryMode ? 1 : 0) + (radiusActive || chosenRegion ? 1 : 0),
     locate: useCurrentLocation,
     openLocation: () => { setLocMenuOpen(true); openFilters(0) },
     openFilters,
@@ -412,18 +412,22 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
 
         {/* 급여 — 최소 희망 월급 */}
         <div className="hme-block">
-          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Lương cơ bản/tháng</span></div>
+          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Tìm theo mức lương</span></div>
           <div className="hme-chips">
-            <button type="button" className={`hme-chip${filters.minSalary === null ? ' is-active' : ''}`}
-              aria-pressed={filters.minSalary === null} onClick={() => update({ minSalary: null })}>Tất cả</button>
+            <button type="button" className={`hme-chip${(filters.minSalary === null && !filters.salaryMode) ? ' is-active' : ''}`}
+              aria-pressed={(filters.minSalary === null && !filters.salaryMode)} onClick={() => update({ minSalary: null, salaryMode: undefined })}>Tất cả</button>
             {SALARY_OPTIONS.map((v) => (
               <button key={v} type="button" className={`hme-chip${filters.minSalary === v ? ' is-active' : ''}`}
-                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: v })}>
+                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: v, salaryMode: undefined })}>
                 {formatSalaryOption(v)}
               </button>
             ))}
+            <button type="button" className={`hme-chip${filters.salaryMode === 'daily_hourly' ? ' is-active' : ''}`}
+              aria-pressed={filters.salaryMode === 'daily_hourly'} onClick={() => update({ minSalary: null, salaryMode: 'daily_hourly' })}>Lương ngày/giờ</button>
+            <button type="button" className={`hme-chip${filters.salaryMode === 'negotiable' ? ' is-active' : ''}`}
+              aria-pressed={filters.salaryMode === 'negotiable'} onClick={() => update({ minSalary: null, salaryMode: 'negotiable' })}>Thỏa thuận</button>
           </div>
-          <p className="hme-loc__hint">Theo lương cơ bản ghi trong tin, chưa gồm tăng ca, phụ cấp và thưởng. Không quy đổi lương giờ/ngày.</p>
+          <p className="hme-loc__hint">Mức M+ theo lương tháng ghi trong tin. Không quy đổi lương ngày/giờ.</p>
         </div>
 
         {/* 업종 */}

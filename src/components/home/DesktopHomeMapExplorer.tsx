@@ -345,18 +345,22 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
 
         {/* 급여 — 최소 희망 월급 */}
         <div className="hme-block">
-          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Lương cơ bản/tháng</span></div>
+          <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Tìm theo mức lương</span></div>
           <div className="hme-chips">
-            <button type="button" className={`hme-chip${filters.minSalary === null ? ' is-active' : ''}`}
-              aria-pressed={filters.minSalary === null} onClick={() => update({ minSalary: null })}>Tất cả</button>
+            <button type="button" className={`hme-chip${(filters.minSalary === null && !filters.salaryMode) ? ' is-active' : ''}`}
+              aria-pressed={(filters.minSalary === null && !filters.salaryMode)} onClick={() => update({ minSalary: null, salaryMode: undefined })}>Tất cả</button>
             {SALARY_OPTIONS.map((v) => (
               <button key={v} type="button" className={`hme-chip${filters.minSalary === v ? ' is-active' : ''}`}
-                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: v })}>
+                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: v, salaryMode: undefined })}>
                 {formatSalaryOption(v)}
               </button>
             ))}
+            <button type="button" className={`hme-chip${filters.salaryMode === 'daily_hourly' ? ' is-active' : ''}`}
+              aria-pressed={filters.salaryMode === 'daily_hourly'} onClick={() => update({ minSalary: null, salaryMode: 'daily_hourly' })}>Lương ngày/giờ</button>
+            <button type="button" className={`hme-chip${filters.salaryMode === 'negotiable' ? ' is-active' : ''}`}
+              aria-pressed={filters.salaryMode === 'negotiable'} onClick={() => update({ minSalary: null, salaryMode: 'negotiable' })}>Thỏa thuận</button>
           </div>
-          <p className="hme-loc__hint">Theo lương cơ bản ghi trong tin, chưa gồm tăng ca, phụ cấp và thưởng. Không quy đổi lương giờ/ngày.</p>
+          <p className="hme-loc__hint">Mức M+ theo lương tháng ghi trong tin. Không quy đổi lương ngày/giờ.</p>
         </div>
 
         {/* 업종 */}

@@ -76,6 +76,7 @@ export function isConditionAvailable(key: ExtraConditionKey): boolean {
 
 export interface HomeMapFilterState {
   radiusKm: number
+  salaryMode?: 'daily_hourly' | 'negotiable'
   minSalary: number | null
   includeNegotiable: boolean
   categories: JobCategory[]
@@ -102,8 +103,7 @@ export function verifiedJobPoints(job: Job): MapJobPoint[] {
     .filter((p): p is MapJobPoint => p !== null)
 }
 
-/** Compare source-backed monthly BASIC pay only. Never substitute total/overtime income.
- * For a basic-pay range, use the guaranteed lower endpoint. */
+/** Compare stated monthly amounts; never convert daily/hourly pay. Ranges use the lower endpoint. */
 function monthlySalaryAmount(job: Job): number | null {
   const basics: number[] = []
   const number = String.raw`(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)`
@@ -116,9 +116,11 @@ function monthlySalaryAmount(job: Job): number | null {
       if (/\busd\b|\$/.test(clause)) continue
       const label = clause.match(/\bluong(?: thang)? (?:co ban|can ban|cung|chinh|co dinh)\b/)
       const structuredBase = job.salaryBasis === 'base' && (source === job.salary || source === job.rawSalary)
-      if (!label && (!structuredBase || /thu nhap|tong luong|toi da|cao nhat|tang ca|phu cap|thuong/.test(clause))) continue
+      const primary = source === job.salary || source === job.rawSalary
+      if (!label && !structuredBase && !primary) continue
+      if (!label && /^(?:phu cap|thuong|tang ca)\b/.test(clause)) continue
       const candidate = (label ? clause.slice((label.index ?? 0) + label[0].length) : clause)
-        .split(/\b(?:thu nhap|tong luong|phu cap|thuong|tang ca)\b/)[0]
+        .replace(/^(?:thu nhap|tong luong)\s*/, '').split(/\b(?:thu nhap|tong luong|phu cap|thuong|tang ca)\b/)[0]
       const explicitUnit = candidate.match(/(?:\/|moi\s+)\s*(gio|h|ngay|ca|tuan|thang)\b/)?.[1]
       const monthly = explicitUnit ? explicitUnit === 'thang' : job.salaryPeriod === 'month'
       if (!monthly) continue
@@ -131,14 +133,18 @@ function monthlySalaryAmount(job: Job): number | null {
   return basics.length ? Math.min(...basics) : null
 }
 
-export function matchesSalary(job: Job, minSalary: number | null, _includeNegotiable: boolean): boolean {
+export function matchesSalary(job: Job, minSalary: number | null, _includeNegotiable: boolean, mode?: HomeMapFilterState['salaryMode']): boolean {
+  const info = parseSalaryInfo(job.rawSalary || job.salary || '')
+  const period = job.salaryPeriod && job.salaryPeriod !== 'other' ? job.salaryPeriod : info.period
+  if (mode === 'daily_hourly') return !!info.range && ['day', 'hour', 'shift'].includes(period)
+  if (mode === 'negotiable') return info.isNegotiable && monthlySalaryAmount(job) === null
   if (minSalary === null) return true
   const amount = monthlySalaryAmount(job)
   return amount !== null && amount >= minSalary
 }
 
 export function matchesFilters(job: Job, f: HomeMapFilterState): boolean {
-  if (!matchesSalary(job, f.minSalary, f.includeNegotiable)) return false
+  if (!matchesSalary(job, f.minSalary, f.includeNegotiable, f.salaryMode)) return false
   if (f.categories.length > 0 && !f.categories.includes(job.category)) return false
   if (!matchesOccupationGroups(job, f.occupationGroups ?? [])) return false
   for (const key of f.extras) {

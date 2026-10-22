@@ -63,15 +63,22 @@ try {
   await duration.selectOption('Một ngày');await verify('Một ngày',true)
   await panel.getByRole('button',{name:'Xóa điều kiện',exact:true}).click();await verify()
   assert.equal(await panel.getByRole('button',{name:'Xóa điều kiện',exact:true}).count(),0)
-  if(width===1366){
+  {
+   if(width===390) await page.getByRole('button',{name:'Mức lương',exact:true}).click()
    const salary=page.locator('.hme__controls').getByRole('button',{name:'15M+',exact:true})
-   assert.deepEqual(await page.locator('.hme__controls .hme-block').filter({hasText:'Lương cơ bản/tháng'}).locator('.hme-chip').allTextContents(),['Tất cả','6M+','8M+','10M+','12M+','15M+'])
+   assert.deepEqual(await page.locator('.hme__controls .hme-block').filter({hasText:'Tìm theo mức lương'}).locator('.hme-chip').allTextContents(),['Tất cả','6M+','8M+','10M+','12M+','15M+','Lương ngày/giờ','Thỏa thuận'])
    await salary.click()
    await page.waitForFunction(()=>[...document.querySelectorAll('.hme-chip')].some(e=>e.textContent.trim()==='15M+'&&e.getAttribute('aria-pressed')==='true'))
    await salary.click()
    assert.equal(await salary.getAttribute('aria-pressed'),'true','re-click keeps the selected salary threshold')
-   await page.locator('.hme').screenshot({path:out+'/salary-basic.png'})
-   await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')
+   for(const name of ['Lương ngày/giờ','Thỏa thuận','Tất cả']) {
+    const button=page.locator('.hme__controls').getByRole('button',{name,exact:true})
+    await button.click();await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true')
+    assert.equal(await salary.getAttribute('aria-pressed'),'false')
+   }
+   await page.locator('.hme__controls').screenshot({path:out+`/salary-${width}.png`})
+   if(width===390) await page.getByRole('button',{name:'Đóng bộ lọc',exact:true}).click()
+   else {await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')}
   }
   assert.deepEqual(errors,[])
   checks.push({width,ok:true,scope:'home condition controls, placement, menu route, combine and clear; real matching-data acceptance deferred'})
