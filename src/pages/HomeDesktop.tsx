@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { REGION_MACRO_TABS, type JobRegionId } from '../data/jobRegions'
 import { loadApplications } from '../lib/applicationsStorage'
-import { computePreferredCategories, filterAndSortJobs } from '../lib/jobSearch'
+import { computePreferredCategories, DEFAULT_JOB_SEARCH_PARAMS, filterAndSortJobs } from '../lib/jobSearch'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job, JobCategory } from '../types/job'
 
@@ -251,10 +251,14 @@ export function Home() {
     [jobs, savedIds, appliedIds],
   )
 
-  const filtered = useMemo(
-    () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode, ...conditions }, preferredCategories),
-    [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories, conditions],
+  const available = useMemo(
+    () => filterAndSortJobs(mainCardJobs(jobs), { search, category, subcategory, urgentOnly, todayOnly, selectedCity, brandFilter, sortMode }, preferredCategories),
+    [jobs, search, brandFilter, category, subcategory, urgentOnly, todayOnly, selectedCity, sortMode, preferredCategories],
   )
+  const conditionMatches = useMemo(() => filterAndSortJobs(available, { ...DEFAULT_JOB_SEARCH_PARAMS, ...conditions }, preferredCategories), [available, conditions, preferredCategories])
+  // Keep the existing postings in place when this newly selected condition has no matches.
+  // The condition panel explicitly identifies them as available jobs, not matching results.
+  const filtered = conditionMatches.length ? conditionMatches : available
 
 
   const { featured, remaining } = useMemo(
@@ -350,7 +354,7 @@ export function Home() {
         isApplied={isApplied} onApply={handleApply}
         isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />}
 
-      <HomeJobFilters count={filtered.length} loading={loading} />
+      <HomeJobFilters count={conditionMatches.length} loading={loading} />
 
       <FeaturedJobsSection
         jobs={featured}

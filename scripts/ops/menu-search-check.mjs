@@ -54,12 +54,24 @@ try {
    await duration.selectOption('');await verify()
    await pledge.click();await verify('',true)
   }
+  if(await panel.locator('.home-job-filters__notice').count()) {
+   const cards=page.locator(width===1366 ? '.jc[data-job-id]' : '.discovery-job')
+   assert.ok(await cards.count()>0,'zero condition matches retain the existing actual postings')
+  }
   await panel.screenshot({path:out+`/pledge-${width}.png`})
   // Combining and clearing filters stays on Home and changes the visible summary.
   await duration.selectOption('Một ngày');await verify('Một ngày',true)
   await panel.getByRole('button',{name:'Xóa điều kiện',exact:true}).click();await verify()
   assert.equal(await panel.getByRole('button',{name:'Xóa điều kiện',exact:true}).count(),0)
-  if(width===1366){await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')}
+  if(width===1366){
+   const salary=page.locator('.hme__controls').getByRole('button',{name:'30M+',exact:true})
+   await salary.click()
+   await page.waitForFunction(()=>[...document.querySelectorAll('.hme-chip')].some(e=>e.textContent.trim()==='30M+'&&e.getAttribute('aria-pressed')==='true'))
+   await salary.click()
+   assert.equal(await salary.getAttribute('aria-pressed'),'true','re-click keeps the selected salary threshold')
+   await page.locator('.hme').screenshot({path:out+'/salary-30M.png'})
+   await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')
+  }
   assert.deepEqual(errors,[])
   checks.push({width,ok:true,scope:'home condition controls, placement, menu route, combine and clear; real matching-data acceptance deferred'})
   await context.close()

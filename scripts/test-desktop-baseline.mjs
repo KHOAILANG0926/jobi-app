@@ -1,3 +1,4 @@
+// 2026-10-22: Lee 데모 수정 — 빈 조건에서도 기존 공고 유지, 급여 버튼 재클릭 유지·명시된 최대/기본 월급만 비교.
 // 2026-10-22: Lee 요청 — 기간·계약/보험 조건을 메인 공고 목록 상단으로 이동. 카드·지도 틀 유지.
 // 2026-10-22: Lee 승인 — 기간별/계약·사회보험 메뉴를 급구가 아닌 전체 공고 검색으로 연결. 메뉴 모양·다른 링크 유지.
 // 2026-10-22: Lee 요청 — 요약 클릭 검색 결과를 지도 바로 아래·추천 영역 위로 이동. 반경 직접 입력 단위는 m로 변경.
@@ -20,7 +21,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "d8c4f9958663347a189aa3ddb561d718bb49fb119130d4243d3b9d3b53fe8ba9",
+    "sha256": "132501046529bc88a0d2c99e5a288ada17a0416235424825914a8ed824186249",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
@@ -35,7 +36,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "b6c629a4eeddde84c151de34310d11e9563ffd5184ff0625e73e1e9afec0bb72",
+    "sha256": "8453aae7bfab8965152f0fd5c90cc3805f4520eff4dc63fe90773d13f0a614aa",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",

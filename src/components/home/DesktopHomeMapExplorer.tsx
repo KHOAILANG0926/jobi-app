@@ -347,17 +347,16 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
         <div className="hme-block">
           <div className="hme-block__head"><Wallet size={16} aria-hidden /> <span>Lương tháng tối thiểu</span></div>
           <div className="hme-chips">
+            <button type="button" className={`hme-chip${filters.minSalary === null ? ' is-active' : ''}`}
+              aria-pressed={filters.minSalary === null} onClick={() => update({ minSalary: null })}>Tất cả</button>
             {SALARY_OPTIONS.map((v) => (
               <button key={v} type="button" className={`hme-chip${filters.minSalary === v ? ' is-active' : ''}`}
-                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: filters.minSalary === v ? null : v })}>
+                aria-pressed={filters.minSalary === v} onClick={() => update({ minSalary: v })}>
                 {formatSalaryOption(v)}
               </button>
             ))}
           </div>
-          <label className="hme-check">
-            <input type="checkbox" checked={filters.includeNegotiable} onChange={(e) => update({ includeNegotiable: e.target.checked })} />
-            Gồm cả tin lương thỏa thuận
-          </label>
+          <p className="hme-loc__hint">Theo mức cao nhất được ghi trong tin; nếu không có, dùng mức lương cơ bản. Không quy đổi lương giờ/ngày.</p>
         </div>
 
         {/* 업종 */}

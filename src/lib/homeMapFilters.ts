@@ -102,13 +102,40 @@ export function verifiedJobPoints(job: Job): MapJobPoint[] {
     .filter((p): p is MapJobPoint => p !== null)
 }
 
-export function matchesSalary(job: Job, minSalary: number | null, includeNegotiable: boolean): boolean {
+/** Source amounts only: posted monthly maximum first; a single basic amount is its own maximum.
+ * Do not turn negotiable wording, shift hours, workday counts or allowances into monthly pay. */
+function monthlySalaryAmount(job: Job): number | null {
+  const maximums: number[] = []
+  const basics: number[] = []
+  const number = String.raw`(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)`
+  const money = new RegExp(`(${number})(?:\\s*(?:-|–|—|den|toi)\\s*(${number}))?\\s*(trieu|tr\\b|k\\b|dong|vnd|đ)`, 'g')
+  const salaryLines = (job.description ?? '').split(/\n|<br\s*\/?>|<\/p>/i).filter(line => /lương|thu nhập|luong|thu nhap/i.test(line))
+  for (const source of [job.rawSalary, job.salary, job.salaryNote, ...salaryLines]) {
+    const text = (source ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    for (const rawClause of text.split(/[;\n|+]|,(?!\d)/)) {
+      const clause = rawClause.replace(/<[^>]*>/g, ' ').replace(/^[\s•*–—:-]+/, '')
+      if (/^\s*(?:phu cap|thuong|chuyen can|tro cap)\b/.test(clause) || /\busd\b|\$/.test(clause)) continue
+      const explicitUnit = clause.match(/(?:\/|moi\s+)\s*(gio|h|ngay|ca|tuan|thang)\b/)?.[1]
+      const monthly = explicitUnit ? explicitUnit === 'thang' : /\bluong thang\b/.test(clause) || job.salaryPeriod === 'month'
+      if (!monthly) continue
+      for (const match of clause.matchAll(money)) {
+        const info = parseSalaryInfo(match[0].replace(/trieu|\btr\b/g, 'triệu'))
+        if (!info.range || info.currency !== 'VND') continue
+        const isMaximum = Boolean(match[2]) || /toi da|cao nhat|tong thu nhap/.test(clause)
+          || ((source === job.salary || source === job.rawSalary) && job.salaryBasis === 'total_with_overtime')
+        const target = isMaximum ? maximums : basics
+        target.push(info.range.max)
+      }
+    }
+  }
+  const candidates = maximums.length ? maximums : basics
+  return candidates.length ? Math.max(...candidates) : null
+}
+
+export function matchesSalary(job: Job, minSalary: number | null, _includeNegotiable: boolean): boolean {
   if (minSalary === null) return true
-  const info = parseSalaryInfo(job.salary)
-  if (!info.range) return includeNegotiable && info.isNegotiable
-  if (info.currency !== 'VND') return false
-  if (info.period !== 'month' && info.period !== 'unknown') return false
-  return info.range.max >= minSalary
+  const amount = monthlySalaryAmount(job)
+  return amount !== null && amount >= minSalary
 }
 
 export function matchesFilters(job: Job, f: HomeMapFilterState): boolean {

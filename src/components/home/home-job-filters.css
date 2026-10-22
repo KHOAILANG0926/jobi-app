@@ -21,6 +21,7 @@
   background: #fff; color: #c92323; font: inherit; cursor: pointer;
 }
 .home-job-filters__summary { margin: 14px 0 0; font-size: 14px; color: #64748b; overflow-wrap: anywhere; }
+.home-job-filters__notice { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: #374151; }
 @media (max-width: 767px) {
   .home-job-filters { width: calc(100% - 20px); padding: 16px; margin-top: 16px; }
   .home-job-filters__duration { width: 100%; }

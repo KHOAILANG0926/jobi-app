@@ -67,6 +67,9 @@ export default function HomeJobFilters({ count, loading }: { count: number; load
         {loading ? 'Đang tải việc làm…' : `${count} việc làm${active ? ' phù hợp' : ''}`}
         {active && <> · {jobDurations?.join(', ')}{jobDurations?.length && pledgeOnly ? ' · ' : ''}{pledgeOnly ? 'Có cam kết hợp đồng / BHXH' : ''}</>}
       </p>
+      {active && !loading && count === 0 && <p className="home-job-filters__notice">
+        Chưa có việc làm phù hợp với điều kiện này. Các việc làm hiện có vẫn được hiển thị bên dưới.
+      </p>}
     </section>
   )
 }
