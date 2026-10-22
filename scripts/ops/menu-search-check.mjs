@@ -69,17 +69,19 @@ try {
    const salary=ticket.getByRole('button',{name:'15M+',exact:true})
    await salary.click();await salary.click()
    assert.equal(await salary.getAttribute('aria-pressed'),'true')
-   assert.match(await ticket.getByRole('status').innerText(),/15M\+/)
+   assert.equal(await ticket.locator('.salary-ticket__header').count(),0,'no duplicate dark salary heading')
+   assert.equal(await ticket.getByText('MỨC LƯƠNG MONG MUỐN',{exact:true}).count(),0)
    for(const name of ['Lương ngày / giờ','Thỏa thuận','Tất cả mức lương']) {
     const button=ticket.getByRole('button',{name,exact:true})
     await button.click();await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true')
     assert.equal(await salary.getAttribute('aria-pressed'),'false')
    }
+   await ticket.screenshot({path:out+`/salary-all-${width}.png`})
    await ticket.getByRole('button',{name:'Lương ngày / giờ',exact:true}).click()
    await ticket.getByRole('button',{name:'← Lương tháng',exact:true}).click()
    assert.equal(await salary.getAttribute('aria-pressed'),'true','return to last selected monthly amount')
    await ticket.getByRole('button',{name:'8M+',exact:true}).click()
-   await page.locator('.hme__controls').screenshot({path:out+`/salary-${width}.png`})
+   await ticket.screenshot({path:out+`/salary-${width}.png`})
    if(width===390) await page.getByRole('button',{name:'Đóng bộ lọc',exact:true}).click()
    else {await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')}
   }

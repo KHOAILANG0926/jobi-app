@@ -18,23 +18,18 @@ export default function SalaryTicket({ filters, onChange }: {
   return <div className="hme-block salary-ticket" aria-label="Tìm theo mức lương">
     <div className="hme-block__head"><Wallet size={16} aria-hidden /><span>Tìm theo mức lương</span></div>
     <div className="salary-ticket__paper">
-      <div className="salary-ticket__header" role="status" aria-live="polite">
-        <span>MỨC LƯƠNG MONG MUỐN</span>
-        <div><strong>{mode === 'month' ? `${filters.minSalary! / 1_000_000}M+` : mode === 'all' ? 'Tất cả' : mode === 'daily_hourly' ? 'Ngày / giờ' : 'Thỏa thuận'}</strong>
-          <span>{mode === 'month' ? 'VND / THÁNG' : mode === 'all' ? 'MỨC LƯƠNG' : 'THEO TIN'}</span></div>
-      </div>
       <div className="salary-ticket__amounts" role="group" aria-label="Mức lương tháng">
         {SALARY_OPTIONS.map(value => <button type="button" key={value} aria-pressed={filters.minSalary === value && !filters.salaryMode}
           aria-label={formatSalaryOption(value)} onClick={() => selectAmount(value)}>
           <strong>{value / 1_000_000}M</strong><span>trở lên</span>
         </button>)}
-        <button type="button" aria-pressed={mode === 'all'} onClick={() => onChange({ minSalary: null, salaryMode: undefined })}>
-          <strong>Tất cả</strong><span>mức lương</span>
+        <button type="button" aria-label="Tất cả mức lương" aria-pressed={mode === 'all'} onClick={() => onChange({ minSalary: null, salaryMode: undefined })}>
+          <strong className="salary-ticket__all">Tất cả</strong>
         </button>
       </div>
       <div className="salary-ticket__footer" role="group" aria-label="Loại lương khác">
-        <button type="button" aria-pressed={mode === 'daily_hourly'} onClick={() => onChange({ minSalary: null, salaryMode: 'daily_hourly' })}>
-          <span>Lương ngày / giờ</span><ArrowUpRight size={14} aria-hidden />
+        <button type="button" aria-label="Lương ngày / giờ" aria-pressed={mode === 'daily_hourly'} onClick={() => onChange({ minSalary: null, salaryMode: 'daily_hourly' })}>
+          <span>Ngày / giờ</span><ArrowUpRight size={14} aria-hidden />
         </button>
         <button type="button" aria-pressed={mode === 'negotiable'} onClick={() => onChange({ minSalary: null, salaryMode: 'negotiable' })}>
           <span>Thỏa thuận</span><ArrowUpRight size={14} aria-hidden />
