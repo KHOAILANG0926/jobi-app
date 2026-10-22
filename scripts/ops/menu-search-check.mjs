@@ -34,6 +34,14 @@ try{
    await page.getByText(new RegExp('Tổng '+expected.length+' việc làm')).waitFor()
    assert.equal(await page.getByRole('checkbox',{name:'Chỉ tuyển gấp',exact:true}).isChecked(),false)
   }
+  // Empty result sets can be identical for consecutive filters. Wait for the
+  // selected condition and URL to settle before comparing result IDs.
+  const waitCondition=async (duration='',pledge=false)=>page.waitForFunction(({duration,pledge})=>{
+   const url=new URL(location.href)
+   const select=document.querySelector('select[aria-label="Thời gian làm việc"]')
+   const checkbox=[...document.querySelectorAll('input[type=checkbox]')].find(e=>e.closest('label')?.textContent.includes('Có cam kết hợp đồng / BHXH'))
+   return select?.value===duration && checkbox?.checked===pledge && (url.searchParams.get('duration')||'')===duration && (url.searchParams.get('pledge')==='1')===pledge
+  },{duration,pledge},{timeout:45000})
   const menu=async name=>{
    await page.getByRole('button',{name:'Mở danh mục Việc làm',exact:true}).hover()
    await page.getByRole('button',{name,exact:true}).click()
@@ -42,6 +50,7 @@ try{
   await verify(expectedIds(()=>true))
   if(width===1366)await menu('Một ngày')
   else await page.getByRole('combobox',{name:'Thời gian làm việc',exact:true}).selectOption('Một ngày')
+  await waitCondition('Một ngày')
   await verify(expectedIds(j=>j.job_duration==='Một ngày'))
   assert.equal(new URL(page.url()).searchParams.get('duration'),'Một ngày')
   assert.equal(await page.getByRole('combobox',{name:'Thời gian làm việc',exact:true}).inputValue(),'Một ngày')
@@ -49,6 +58,7 @@ try{
   if(width===1366){
    // Same mounted search page: header navigation must replace previous conditions.
    await menu('Dưới 1 tuần')
+   await waitCondition('Dưới 1 tuần')
    await verify(expectedIds(j=>j.job_duration==='Dưới 1 tuần'))
    assert.equal(await page.getByRole('combobox',{name:'Thời gian làm việc',exact:true}).inputValue(),'Dưới 1 tuần')
    await menu('🤝 Có cam kết hợp đồng / BHXH')
@@ -56,12 +66,14 @@ try{
    await page.getByRole('combobox',{name:'Thời gian làm việc',exact:true}).selectOption('')
    await page.getByRole('checkbox',{name:'Có cam kết hợp đồng / BHXH',exact:true}).check()
   }
+  await waitCondition('',true)
   await verify(expectedIds(j=>j.labor_contract_pledge===true||j.social_insurance_pledge===true))
   assert.equal(new URL(page.url()).searchParams.get('pledge'),'1')
   assert.equal(new URL(page.url()).searchParams.has('duration'),false)
   assert.equal(await page.getByRole('checkbox',{name:'Có cam kết hợp đồng / BHXH',exact:true}).isChecked(),true)
   await page.screenshot({path:out+`/pledge-${width}.png`,fullPage:true})
   await page.getByRole('button',{name:'Xóa hết bộ lọc',exact:true}).click()
+  await waitCondition()
   await verify(expectedIds(()=>true))
   assert.equal(new URL(page.url()).searchParams.has('pledge'),false)
   if(width===1366){
