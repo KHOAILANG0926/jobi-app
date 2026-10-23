@@ -339,3 +339,29 @@
 - STATUS 직접 수정 금지. 기존 공고 틀·공개조건·RLS·secret 보호, PC 저장 안내 금지.
 
 </details>
+
+
+## Archived handoff before console-browser work (2026-10-23)
+
+# CHATGPT_HANDOFF — 급여 선택표 글자 크기 통일 데모 (2026-10-22)
+
+## 1. 현재 상태
+- demo/home-job-filters / PR201. 시작 조회1101922 open/draft, 운영 미반영.
+- Lee 승인: 2번 티켓에서 상단 남색 배경과 모든 중복 문구(MỨC LƯƠNG MONG MUỐN/상단 Tất cả/MỨC LƯƠNG)를 삭제. 제목→금액 선택표→일급·시급/협의만 유지.
+- 흰색 배경, 선택 항목만 연한 빨강 배경/빨간 글씨. Lee 추가 승인: 숫자·전체·일급/시급·협의·월급 복귀는 제목과 같은14px로 통일(공통 변수). 설명12px 유지. 6/8/10/12/15M+·전체, 일급/시급·협의. 선택 재클릭 유지/상호 배타/월급 복귀 기억 유지.
+- 검색 기준·DB·공고 카드/상세·지도 좌표/반경은 변경 없음. 월급은 공고 명시 금액, 기본급 라벨 불필요, 범위 하한, 일급/시급 월환산 없음.
+- PC·모바일 모두 같은 SalaryTicket/CSS. 보호된 PC 파일 변경 없음. 최종 tsc/build·CI·캡처·Preview READY는 PR201 최신 기록 조회.
+
+## 2. 다음 할 일 3개
+1. 새 글자 크기 통일 선택표 PC/모바일 캡처·필수 CI·Preview READY 확인 후 로그인 없는 데모 링크 전달.
+2. Lee 운영 적용/승인 후 같은 소스 병합→Production READY/SHA→실제 운영 PC/모바일 확인. 중복 승인 금지.
+3. 실제 기간·계약 혼합 공고 결과는 데이터 축적 후 검증(Lee 유보). 한국 준비 기능·SNS 유지.
+
+## 3. 필수 규칙
+- AGENTS/CLAUDE 준수. 남색 영역/상단 선택값 중복 표시 복원 금지. 데모 화면 승인 전 운영 임의 반영 금지.
+- 원문/분류/공개 게이트·위치·공고 틀·DB/Auth/RLS/secret·STATUS 보호. 가짜 공고 공개 금지.
+- 회사 PC 저장 안내·현장 방문 제안·미확인 완료 보고 금지. 실제 데이터와 구성 검사를 구분.
+
+## Console browser implementation (2026-10-23)
+Goal/plan: one explicit --install command provisions a non-root browser in existing AZDIGI physical console; default --check is read-only. Reuse existing protected console instead of another public remote-browser endpoint. Official Chrome plus minimal Xorg/openbox, authenticated local X display, private persistent VPS profile. No SSH/password/firewall/cron/app/DB changes. Completion requires actual VPS GUI/login verification, not static checks.
+Verification: bash -n installer and three embedded scripts PASS; invalid-argument exit 2, unsupported-runtime install exit 1, read-only --check PASS. Cleanup behavior tested for failures after/before launch: exit code preserved, only launched service stopped and tty1 restored. npx tsc --noEmit and npm run build PASS. Fresh reviewer identified incomplete retry/cleanup; fixed with a root-owned installation marker, ownership validation and EXIT cleanup; VPS runtime not tested.

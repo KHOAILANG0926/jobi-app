@@ -1,18 +1,17 @@
-# CHATGPT_HANDOFF — 급여 선택표 글자 크기 통일 데모 (2026-10-22)
+# CHATGPT_HANDOFF — server browser console (2026-10-23)
 
-## 1. 현재 상태
-- demo/home-job-filters / PR201. 시작 조회1101922 open/draft, 운영 미반영.
-- Lee 승인: 2번 티켓에서 상단 남색 배경과 모든 중복 문구(MỨC LƯƠNG MONG MUỐN/상단 Tất cả/MỨC LƯƠNG)를 삭제. 제목→금액 선택표→일급·시급/협의만 유지.
-- 흰색 배경, 선택 항목만 연한 빨강 배경/빨간 글씨. Lee 추가 승인: 숫자·전체·일급/시급·협의·월급 복귀는 제목과 같은14px로 통일(공통 변수). 설명12px 유지. 6/8/10/12/15M+·전체, 일급/시급·협의. 선택 재클릭 유지/상호 배타/월급 복귀 기억 유지.
-- 검색 기준·DB·공고 카드/상세·지도 좌표/반경은 변경 없음. 월급은 공고 명시 금액, 기본급 라벨 불필요, 범위 하한, 일급/시급 월환산 없음.
-- PC·모바일 모두 같은 SalaryTicket/CSS. 보호된 PC 파일 변경 없음. 최종 tsc/build·CI·캡처·Preview READY는 PR201 최신 기록 조회.
+## 1. Current state
+- Production/master remains 6269d56; this task changes no website UI, DB, existing crawler/cron, SSH, passwords or public ports.
+- Branch ops/browser-console adds ops/browser-console.sh. Default --check is read-only. Explicit --install provisions official Chrome + Xorg/openbox, a dedicated locked non-root jobi-browser user and private /var/lib/jobi-browser/profile, and jobi-console-browser.service on physical tty7 with Xauthority and -nolisten tcp.
+- User screenshots directly show Ubuntu server root console, 957MB RAM / 624MB available / 1GB swap, Playwright 1.44.0, Chromium cache 1117, Xvfb, /dev/dri and /dev/fb0. Xorg/xinit/startx absent. noVNC clipboard Paste actually types text; multiple lines concatenate, so send one shell line only.
+- Syntax, read-only/error-argument guards, failure cleanup tests, tsc and build passed. Reviewer recovery issue fixed. Installer NOT executed on VPS; physical graphics/input/Chrome/sandbox/login not verified. This bootstrap does NOT itself connect Codex to the VPS, implement automatic phone extraction, or prove PC-off collection.
 
-## 2. 다음 할 일 3개
-1. 새 글자 크기 통일 선택표 PC/모바일 캡처·필수 CI·Preview READY 확인 후 로그인 없는 데모 링크 전달.
-2. Lee 운영 적용/승인 후 같은 소스 병합→Production READY/SHA→실제 운영 PC/모바일 확인. 중복 승인 금지.
-3. 실제 기간·계약 혼합 공고 결과는 데이터 축적 후 검증(Lee 유보). 한국 준비 기능·SNS 유지.
+## 2. Next three tasks
+1. Give one pinned GitHub download + bash --install line for existing VNC Clipboard. User clears white Clipboard text only, Paste once, console click + Enter. Verify real GUI and Muaban sign-in; if failure, use preserved tty1/logs, not repeated unrelated login requests.
+2. Establish scoped server-side execution/control and a two-job collector using server profile after real login. Do not claim merely opening Chrome solves agent access or phone retrieval. No public unauthenticated browser ports or unrestricted self-hosted runner on public repo.
+3. Continue Bac Ninh two-job validation; TEFAL phone shown in user screenshot, BOSCH excluded for imprecise workplace. No bulk crawl or automatic publication.
 
-## 3. 필수 규칙
-- AGENTS/CLAUDE 준수. 남색 영역/상단 선택값 중복 표시 복원 금지. 데모 화면 승인 전 운영 임의 반영 금지.
-- 원문/분류/공개 게이트·위치·공고 틀·DB/Auth/RLS/secret·STATUS 보호. 가짜 공고 공개 금지.
-- 회사 PC 저장 안내·현장 방문 제안·미확인 완료 보고 금지. 실제 데이터와 구성 검사를 구분.
+## 3. Required rules
+- Follow AGENTS.md/CLAUDE.md; no keys/data/work files on company PC; no field visits. Preserve approved UI and production data.
+- User wants short factual reports with [직접 확인]/[기존 기록]/[추정]. No completed claim before real server/browser verification. Do not repeat failed Google auth/cloud takeover/local-Chrome settings paths.
+- On installer failure stop only new browser service, return tty1; preserve profile and allow only recognized root-owned installer recovery. No --no-sandbox, xhost +, firewall opening, root credential changes or mass-crawl enablement.
