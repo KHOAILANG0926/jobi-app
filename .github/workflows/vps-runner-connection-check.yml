@@ -11,13 +11,6 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 8
     steps:
-      - name: Install official Playwright and Chromium for runner user
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(id -u)" -ne 0
-          python3 -m pip install --user --upgrade --index-url https://pypi.org/simple playwright
-          python3 -m playwright install chromium
       - name: Check browser executable and sandbox launch
         shell: bash
         run: |
@@ -58,6 +51,21 @@ jobs:
                               page.wait_for_function("() => /Đăng nhập|Nhập số điện thoại|0[0-9]{2}[ .-]?[0-9]{3}[ .-]?[0-9]{4}/i.test(document.body.innerText)", timeout=10000)
                           except Exception:
                               pass
+                          try:
+                              page.locator('input').filter(visible=True).first.wait_for(state='visible', timeout=10000)
+                          except Exception:
+                              pass
+                          fields=[]
+                          for item in page.locator('input').all():
+                              if item.is_visible():
+                                  fields.append({k:item.get_attribute(k) for k in ('type','placeholder','name','autocomplete')})
+                          print('login_fields=' + str(fields))
+                          buttons=[]
+                          for item in page.get_by_role('button').all():
+                              if item.is_visible():
+                                  label=item.inner_text().strip()
+                                  if label: buttons.append(label[:70])
+                          print('visible_buttons=' + str(buttons[:25]))
                           text = page.locator('body').inner_text(timeout=15000)
                           print('visible_login_text=' + str(bool(re.search(r'Đăng nhập|Nhập số điện thoại', text, re.I))))
                           phones = set(re.findall(r'(?<![0-9])0[35789][0-9][ .-]?[0-9]{3}[ .-]?[0-9]{4}(?![0-9])', text))
