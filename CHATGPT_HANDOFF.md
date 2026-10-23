@@ -1,18 +1,17 @@
-# CHATGPT_HANDOFF — 급여 선택표 글자 크기 통일 데모 (2026-10-22)
+# CHATGPT_HANDOFF — VPS runner bootstrap (2026-10-23)
 
-## 1. 현재 상태
-- demo/home-job-filters / PR201. 시작 조회1101922 open/draft, 운영 미반영.
-- Lee 승인: 2번 티켓에서 상단 남색 배경과 모든 중복 문구(MỨC LƯƠNG MONG MUỐN/상단 Tất cả/MỨC LƯƠNG)를 삭제. 제목→금액 선택표→일급·시급/협의만 유지.
-- 흰색 배경, 선택 항목만 연한 빨강 배경/빨간 글씨. Lee 추가 승인: 숫자·전체·일급/시급·협의·월급 복귀는 제목과 같은14px로 통일(공통 변수). 설명12px 유지. 6/8/10/12/15M+·전체, 일급/시급·협의. 선택 재클릭 유지/상호 배타/월급 복귀 기억 유지.
-- 검색 기준·DB·공고 카드/상세·지도 좌표/반경은 변경 없음. 월급은 공고 명시 금액, 기본급 라벨 불필요, 범위 하한, 일급/시급 월환산 없음.
-- PC·모바일 모두 같은 SalaryTicket/CSS. 보호된 PC 파일 변경 없음. 최종 tsc/build·CI·캡처·Preview READY는 PR201 최신 기록 조회.
+## 1. Current state
+- Production UI release: master 6269d56 / PR201 (GitHub ref checked this session). No UI/DB changes in this task.
+- Branch ops/runner-bootstrap adds ops/r.sh: download official Linux x64 runner 2.338.0, verify official release asset SHA256, extract under unprivileged crawler-runner account. Existing runner directory is never overwritten.
+- Script does not register/start a runner, read secrets, install cron, change root password or existing app/relay. VPS execution NOT verified. Browser VNC is already root; clipboard fails. PC SSH reaches password prompt, user does not know password. Do not ask for password again.
+- Goal remains reusable server login and two-job extraction in Bac Ninh. No collected jobs published. Chotot account locked; Muaban full phones require login. User takeover of cloud browser unavailable.
 
-## 2. 다음 할 일 3개
-1. 새 글자 크기 통일 선택표 PC/모바일 캡처·필수 CI·Preview READY 확인 후 로그인 없는 데모 링크 전달.
-2. Lee 운영 적용/승인 후 같은 소스 병합→Production READY/SHA→실제 운영 PC/모바일 확인. 중복 승인 금지.
-3. 실제 기간·계약 혼합 공고 결과는 데이터 축적 후 검증(Lee 유보). 한국 준비 기능·SNS 유지.
+## 2. Next three tasks
+1. Preserve tested script on GitHub, give short VNC commands fetching this branch and running script. No master merge required for console bootstrap.
+2. Before runner registration, resolve public-repo self-hosted runner isolation; prefer private ops repository. Never register an unrestricted runner with server login sessions to public jobi-app. Do not claim script alone connects Codex to VPS.
+3. Finish reusable server browser login and verify two real jobs with full phones, salary conditions and official occupation evidence. No bulk collection or publication without applicable approval.
 
-## 3. 필수 규칙
-- AGENTS/CLAUDE 준수. 남색 영역/상단 선택값 중복 표시 복원 금지. 데모 화면 승인 전 운영 임의 반영 금지.
-- 원문/분류/공개 게이트·위치·공고 틀·DB/Auth/RLS/secret·STATUS 보호. 가짜 공고 공개 금지.
-- 회사 PC 저장 안내·현장 방문 제안·미확인 완료 보고 금지. 실제 데이터와 구성 검사를 구분.
+## 3. Required rules
+- Follow AGENTS.md/CLAUDE.md. No PC key/data/work-file storage, no secrets in chat/logs, no field visits.
+- Existing workflows/cron/relay/app/DB unchanged. Existing account/runner directory inspected before modification. Stop on failed checksum or unexpected home/architecture.
+- Report direct evidence separately from records/inference. No success claim for VPS installation/login/crawling before actual verification.
