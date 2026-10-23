@@ -1,4 +1,4 @@
-# 2026-10-24: one-time read-only check of the registered AZDIGI runner.
+# 2026-10-24: read-only browser runtime check after verified runner connection.
 name: VPS runner connection check
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 3
     steps:
-      - name: Check isolated runner and Python browser availability
+      - name: Check browser executable and sandbox launch
         shell: bash
         run: |
           set -euo pipefail
@@ -19,7 +19,25 @@ jobs:
           printf 'JOBI_RUNNER_CONNECTION_OK\n'
           printf 'runner=%s\n' "$RUNNER_NAME"
           python3 - <<'PYTHON'
-          import importlib.util, sys
-          print('python=' + sys.version.split()[0])
-          print('playwright_module=' + str(importlib.util.find_spec('playwright') is not None))
+          import os, shutil
+          from playwright.sync_api import sync_playwright
+          print('display_configured=' + str(bool(os.environ.get('DISPLAY'))))
+          for name in ('Xvfb', 'Xorg', 'google-chrome', 'chromium', 'x11vnc', 'websockify'):
+              print(name + '_in_path=' + str(shutil.which(name) is not None))
+          with sync_playwright() as p:
+              available = os.path.isfile(p.chromium.executable_path)
+              print('runner_chromium_executable_exists=' + str(available))
+              if available:
+                  try:
+                      browser = p.chromium.launch(headless=True, chromium_sandbox=True, timeout=20000)
+                      page = browser.new_page()
+                      page.set_content('<title>JOBI runtime check</title>')
+                      assert page.title() == 'JOBI runtime check'
+                      browser.close()
+                      print('sandboxed_browser_launch=PASS')
+                  except Exception as exc:
+                      print('sandboxed_browser_launch=FAIL')
+                      print('launch_error_type=' + type(exc).__name__)
+              else:
+                  print('sandboxed_browser_launch=NOT_TESTED_MISSING_EXECUTABLE')
           PYTHON
