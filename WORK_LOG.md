@@ -362,3 +362,5 @@
 - 회사 PC 저장 안내·현장 방문 제안·미확인 완료 보고 금지. 실제 데이터와 구성 검사를 구분.
 
 User VPS screenshots: pinned runner bootstrap installed; config.sh registration succeeded; Settings Saved; service enabled and active under crawler-runner. New branch adds a one-time read-only push workflow, no checkout/secrets/schedule/DB/site changes. Completion requires actual job success on crawler; service status alone is insufficient.
+
+Verified remote execution: run https://github.com/KHOAILANG0926/jobi-app/actions/runs/40036312942 job 120696547960 completed success on crawler. Logs directly retrieved: JOBI_RUNNER_CONNECTION_OK, runner=crawler, python=3.10.12, playwright_module=True. Non-root check passed. tsc/build and YAML/bash scope checks passed. Master/Production unchanged. Browser login and full phone extraction are NOT verified.
