@@ -1,4 +1,4 @@
-# 2026-10-24: install a browser only for the non-root runner and probe one public ad.
+# 2026-10-24: verify saved server login without logging credentials or full job records.
 name: VPS runner connection check
 on:
   push:
@@ -11,28 +11,51 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 8
     steps:
-      - name: Deploy pinned interactive login helper without credentials
+      - name: Verify saved login in a fresh browser
         shell: bash
         run: |
           set -euo pipefail
           test "$(id -u)" -ne 0
           python3 - <<'PYTHON'
-          import hashlib, os, pathlib, subprocess, sys, urllib.request
-          url = 'https://raw.githubusercontent.com/KHOAILANG0926/jobi-app/9bb716778fbfbc8fce6417ecd32d7e3cffa05808/ops/muaban-login.py'
-          with urllib.request.urlopen(url, timeout=30) as response:
-              data = response.read(100000)
-          expected = 'e2c2790092d740a1cf9b22cc579e92a3dcca73b259d0a9e47825cdd652229f47'
-          assert hashlib.sha256(data).hexdigest() == expected, 'SOURCE_CHECKSUM_MISMATCH'
-          target = pathlib.Path.home() / 'jobi-muaban-login.py'
-          assert not target.is_symlink(), 'TARGET_SYMLINK_REFUSED'
-          if target.exists():
-              assert target.stat().st_uid == os.getuid(), 'TARGET_OWNER_MISMATCH'
-              assert hashlib.sha256(target.read_bytes()).hexdigest() == expected, 'UNKNOWN_EXISTING_HELPER'
-          else:
-              fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o700)
-              with os.fdopen(fd, 'wb') as output:
-                  output.write(data)
-          os.chmod(target, 0o700)
-          subprocess.run([sys.executable, str(target), '--check'], check=True)
-          print('LOGIN_HELPER_DEPLOYED_AND_CHECKED')
+          import fcntl, importlib.util, os
+          from pathlib import Path
+          from urllib.parse import urlsplit
+          from playwright.sync_api import sync_playwright
+          spec = importlib.util.spec_from_file_location('jobi_login', Path.home() / 'jobi-muaban-login.py')
+          helper = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(helper)
+          base = Path.home() / '.jobi-muaban'
+          assert base.is_dir() and (base / 'profile').is_dir(), 'NO_SAVED_SERVER_PROFILE'
+          with (base / 'login.lock').open('a') as lock:
+              fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+              with sync_playwright() as p:
+                  context = p.chromium.launch_persistent_context(str(base / 'profile'), headless=True, chromium_sandbox=True, locale='vi-VN')
+                  try:
+                      page = context.pages[0] if context.pages else context.new_page()
+                      response = page.goto(helper.TARGET, wait_until='domcontentloaded', timeout=45000)
+                      assert response and response.status == 200, 'AD_HTTP_FAILED'
+                      if not helper.ad_phone_visible(page):
+                          items = helper.visible(page.get_by_text(helper.re.compile(r'Bấm để hiện số|^Hiện số$', helper.re.I)))
+                          assert items, 'PHONE_BUTTON_MISSING'
+                          items[0].click(timeout=10000)
+                          page.wait_for_function("() => /0337[ .-]?152[ .-]?446/.test(document.body.innerText)", timeout=15000)
+                      assert helper.ad_phone_visible(page), 'SAVED_LOGIN_DID_NOT_REVEAL_AD_PHONE'
+                      print('SAVED_SERVER_LOGIN_REUSED=PASS')
+                      print('TEFAL_AD_PHONE_MATCHES_USER_SCREENSHOT=PASS')
+                      # Public navigation links only; no cookies, input values, account data or screenshots.
+                      seen = set()
+                      links = []
+                      for item in page.locator('a[href]').all():
+                          href = item.get_attribute('href') or ''
+                          if 'bac-ninh' in href and not helper.re.search(r'id[0-9]{6,}', href):
+                              parts = urlsplit(href)
+                              if parts.netloc and parts.netloc != 'muaban.net':
+                                  continue
+                              path = parts.path
+                              if path not in seen:
+                                  seen.add(path)
+                                  links.append(path)
+                      print('PUBLIC_BAC_NINH_NAVIGATION=' + str(links[:15]))
+                  finally:
+                      context.close()
           PYTHON
