@@ -1,0 +1,25 @@
+# 2026-10-24: one-time read-only check of the registered AZDIGI runner.
+name: VPS runner connection check
+on:
+  push:
+    branches: [ops/runner-connection-check-20261024]
+    paths: [.github/workflows/vps-runner-connection-check.yml]
+permissions: {}
+jobs:
+  connection-check:
+    if: github.event_name == 'push' && github.repository == 'KHOAILANG0926/jobi-app' && github.ref == 'refs/heads/ops/runner-connection-check-20261024'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 3
+    steps:
+      - name: Check isolated runner and Python browser availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -ne 0
+          printf 'JOBI_RUNNER_CONNECTION_OK\n'
+          printf 'runner=%s\n' "$RUNNER_NAME"
+          python3 - <<'PYTHON'
+          import importlib.util, sys
+          print('python=' + sys.version.split()[0])
+          print('playwright_module=' + str(importlib.util.find_spec('playwright') is not None))
+          PYTHON
