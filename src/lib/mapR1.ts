@@ -33,6 +33,12 @@ export function locationPoints(job: Job, representatives: RepresentativePoints):
   if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) {
     return [{ lat: gate.lat, lng: gate.lng, kind: 'gate', source: `${gate.source.provider} ${gate.source.ref}`, checkedAt: gate.satelliteChecked }]
   }
+  // A geocoded address is usable as an approximate map pin even without workplace approval.
+  // Never promote it to an exact workplace, gate, or verified navigation destination.
+  const approximate = (job.workLocations ?? []).filter(l => typeof l.lat === 'number' && typeof l.lng === 'number' &&
+    l.geocodeStatus === 'success' && validPoint({ lat: l.lat!, lng: l.lng! }))
+    .map(l => ({ lat: l.lat!, lng: l.lng!, kind: 'area' as const, source: 'geocoded address (unverified)', checkedAt: 'address lookup' }))
+  if (approximate.length) return approximate
   const r = representatives[job.id]
   return r && ['gate', 'area'].includes(r.kind) && r.source && r.checkedAt && validPoint(r) ? [r] : []
 }
