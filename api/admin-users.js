@@ -75,7 +75,7 @@ export function createAdminUsersHandler(injectedDependencies) {
         res.setHeader('Cache-Control', 'private, no-store')
         return res.status(200).json({ users: accounts.map(u => {
           const profile = profiles.get(u.id)
-          return { user_id: u.id, full_name: profile?.full_name || null,
+          return { user_id: u.id, full_name: profile?.full_name?.trim() || u.user_metadata?.name?.trim() || u.user_metadata?.full_name?.trim() || null,
             email: profile?.email || u.email || null,
             phone: profile?.phone || u.phone || null,
             city: profile?.city || null,
