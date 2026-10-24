@@ -1,9 +1,9 @@
 -- Disposable PostgreSQL fixture; never executed on production.
-do $ begin
+do $role_setup$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
   if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role; end if;
-end $;
+end $role_setup$;
 create table public.local_jobs (
  id bigint generated always as identity primary key,
  title text, company text, description text, salary text, location text,
