@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { createAdminUsersHandler, toAdminMemberDetails } from '../api/admin-users.js'
 
 function response() {
@@ -76,3 +77,10 @@ console.log('Admin users API authorization contract passed')
   assert.equal(toAdminMemberDetails({...auth,user_metadata:{}},null).full_name,null)
 }
 console.log('Admin member signup-name fallback contract passed')
+
+const memberSql = await readFile(new URL('../supabase/migrations/20261024_admin_user_details.sql', import.meta.url), 'utf8')
+assert.match(memberSql, /perform public\.require_admin\(\)/i)
+assert.match(memberSql, /raw_user_meta_data->>'name'/i)
+assert.match(memberSql, /revoke all on function public\.admin_user_details\(\)/i)
+assert.match(memberSql, /grant execute on function public\.admin_user_details\(\) to authenticated/i)
+console.log('Admin-only member metadata access contract passed')
