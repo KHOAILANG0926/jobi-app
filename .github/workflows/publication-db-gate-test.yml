@@ -40,3 +40,7 @@ jobs:
       - name: Fresh isolated PostgreSQL trigger proof
         run: |
           psql -X -v ON_ERROR_STOP=1 -f supabase/tests/publication_gate_disposable_e2e.sql
+      - name: Admin review security and conflict proof (separate database)
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE admin_gate_test'
+          PGDATABASE=admin_gate_test psql -X -v ON_ERROR_STOP=1 -f supabase/tests/admin_review_disposable_e2e.sql
