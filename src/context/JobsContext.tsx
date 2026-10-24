@@ -10,7 +10,7 @@ import {
 import { assertJobPublishable } from '../lib/jobPostingPolicy.mjs'
 import { checkedLocalJobUpdate, checkedPublicJobInsert } from '../lib/jobPolicyWrite'
 import { ensureJobFields } from '../lib/jobUtils'
-import { rowToJob } from '../lib/jobRows'
+import { rowToJob, rowToWorkLocation } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
 import { fetchJobsData } from '../lib/fetchJobsData'
 import type { Job } from '../types/job'
@@ -78,9 +78,11 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
   useEffect(() => {
     if (import.meta.env.VITE_JOB_REVIEW_ACCEPTANCE !== 'true') return
     if (new URLSearchParams(window.location.search).get('reviewFixture') !== '1') return
-    const fixture = (window as Window & { __JOB_REVIEW_FIXTURE__?: Record<string, unknown> }).__JOB_REVIEW_FIXTURE__
-    if (!fixture || typeof fixture.id !== 'number') return
-    setJobs((prev) => [rowToJob({ ...fixture, active: true, admin_hidden: false }), ...prev.filter((j) => j.id !== `sb-${fixture.id}`)])
+    const fixture = (window as Window & { __JOB_REVIEW_FIXTURE__?: { job?: Record<string, unknown>; locations?: Record<string, unknown>[] } }).__JOB_REVIEW_FIXTURE__
+    const reviewJob = fixture?.job
+    if (!reviewJob || typeof reviewJob.id !== 'number') return
+    const locations = (fixture?.locations ?? []).map(rowToWorkLocation)
+    setJobs((prev) => [rowToJob({ ...reviewJob, active: true, admin_hidden: false }, locations), ...prev.filter((j) => j.id !== `sb-${reviewJob.id}`)])
     setLoading(false)
   }, [])
 
