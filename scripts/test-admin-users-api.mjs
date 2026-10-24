@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createAdminUsersHandler } from '../api/admin-users.js'
+import { createAdminUsersHandler, toAdminMemberDetails } from '../api/admin-users.js'
 
 function response() {
   return {
@@ -64,3 +64,15 @@ const handler = createAdminUsersHandler(deps)
 }
 
 console.log('Admin users API authorization contract passed')
+
+{
+  const auth = { id:'a1', email:'signup@example.com', user_metadata: { name:'회원가입 실명' }, last_sign_in_at:'2026-10-24T00:00:00Z' }
+  const fromSignup = toAdminMemberDetails(auth, { full_name:'', email:'', phone:null })
+  assert.equal(fromSignup.full_name, '회원가입 실명')
+  assert.equal(fromSignup.email, 'signup@example.com')
+  assert.equal(fromSignup.last_sign_in_at, auth.last_sign_in_at)
+  assert.equal(toAdminMemberDetails(auth, {full_name:' 프로필 이름 '}).full_name, '프로필 이름')
+  assert.equal(toAdminMemberDetails({...auth,user_metadata:{full_name:'OAuth 이름'}},null).full_name,'OAuth 이름')
+  assert.equal(toAdminMemberDetails({...auth,user_metadata:{}},null).full_name,null)
+}
+console.log('Admin member signup-name fallback contract passed')
