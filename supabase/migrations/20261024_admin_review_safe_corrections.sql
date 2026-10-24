@@ -39,7 +39,7 @@ begin
    contact_zalo=case when fields ? 'contact_zalo' then fields->>'contact_zalo' else contact_zalo end,
    admin_hidden=true
  where id=target_job_id;
- select job_publication_private.content_fingerprint(j) into new_hash from public.local_jobs j where j.id=target_job_id;
+ select job_publication_private.content_fingerprint(saved_row) into new_hash from public.local_jobs saved_row where saved_row.id=target_job_id;
  insert into public.admin_audit_logs(admin_user_id,action,target_type,target_id,metadata)
  values(auth.uid(),'review_job_corrected','local_job',target_job_id::text,
    jsonb_build_object('reason',correction_reason,'changed_keys',
