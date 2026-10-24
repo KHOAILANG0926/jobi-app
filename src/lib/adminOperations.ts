@@ -84,17 +84,36 @@ export async function setJobHidden(jobId: number, hidden: boolean, reason = ''):
 export async function listAdminUsers(): Promise<AdminUser[]> {
   const { data, error } = await supabase.rpc('admin_list_users')
   const rows = unwrap((data ?? []) as AdminUser[], error)
-  const { data: sessionData } = await supabase.auth.getSession()
-  const token = sessionData.session?.access_token
-  if (!token) return rows.map(u => ({ ...u, details_unavailable: true }))
+
+  // Primary: administrator-only SECURITY DEFINER RPC. Works in Preview
+  // without giving the preview deployment a production service-role key.
+  const detail = await supabase.rpc('admin_user_details')
+  if (!detail.error) {
+    const map = new Map(((detail.data ?? []) as AdminUser[]).map(u => [u.user_id, u]))
+    return rows.map(u => {
+      const record = map.get(u.user_id)
+      return { ...u, ...(record ?? {}), details_unavailable: !record }
+    })
+  }
+
+  // Compatibility with deployments where the new DB migration is not yet applied.
+  // The existing server endpoint enforces the current session's admin app role.
   try {
-    const response = await fetch('/api/admin-users', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-    if (!response.ok) return rows.map(u => ({ ...u, details_unavailable: true }))
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (!token) throw new Error('Session missing')
+    const response = await fetch('/api/admin-users', {
+      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
+    })
+    if (!response.ok) throw new Error('Private account details unavailable')
     const { users } = await response.json() as { users: AdminUser[] }
-    const info = new Map(users.map(u => [u.user_id, u]))
-    return rows.map(u => ({ ...u, ...(info.get(u.user_id) ?? {}) }))
+    const map = new Map(users.map(u => [u.user_id, u]))
+    return rows.map(u => {
+      const record = map.get(u.user_id)
+      return { ...u, ...(record ?? {}), details_unavailable: !record }
+    })
   } catch {
-    // The accurate legacy RPC data stays available even if optional identity enrichment fails.
+    // Never confuse a failed lookup with a member who did not register their name.
     return rows.map(u => ({ ...u, details_unavailable: true }))
   }
 }
