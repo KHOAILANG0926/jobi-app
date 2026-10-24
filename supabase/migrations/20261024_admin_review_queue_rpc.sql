@@ -16,7 +16,9 @@ begin
         when nullif(trim(coalesce(j.description,'')),'') is null then '업무 내용 확인'
         when nullif(trim(coalesce(j.employer_phone,'')),'') is null
           and nullif(trim(coalesce(j.contact_zalo,'')),'') is null then '연락처 확인'
-        else '자동 화면 검증 또는 관리자 검토 대기'
+        else coalesce((select a.reason from job_publication_private.review_attempts a
+                       where a.job_id=j.id and a.content_hash=q.content_hash
+                       order by a.tested_at desc,a.id desc limit 1), '검증 대기')
       end as reason,
       job_publication_private.content_fingerprint(j) as content_hash,
       q.queued_at, j.source_text, j.description, j.location, j.active, j.admin_hidden
