@@ -1,0 +1,23 @@
+name: Verify TEFAL live home detail map (read-only)
+on:
+  push:
+    branches: [ops/runner-connection-check-20261024]
+    paths: ['.github/workflows/verify-tefal-live.yml','scripts/ops/verify-tefal-live.mjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - name: Real public browser proof
+        env:
+          BASE_URL: https://www.viecganban.vn
+        run: node scripts/ops/verify-tefal-live.mjs
