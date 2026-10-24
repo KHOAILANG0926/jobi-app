@@ -43,6 +43,20 @@ function runtimeDependencies(token) {
   }
 }
 
+export function toAdminMemberDetails(u, profile) {
+  // Signup stores the required name in auth.users.raw_user_meta_data.name.
+  // Older and OAuth accounts may instead have a public profile or full_name metadata.
+  const name = profile?.full_name?.trim() || u.user_metadata?.name?.trim() || u.user_metadata?.full_name?.trim() || null
+  return {
+    user_id: u.id,
+    full_name: name,
+    email: profile?.email?.trim() || u.email || null,
+    phone: profile?.phone?.trim() || u.phone || null,
+    city: profile?.city || null,
+    last_sign_in_at: u.last_sign_in_at || null,
+  }
+}
+
 export function createAdminUsersHandler(injectedDependencies) {
   return async function adminUsersHandler(req, res) {
     if (req.method === 'GET') {
@@ -73,14 +87,7 @@ export function createAdminUsersHandler(injectedDependencies) {
           for (const profile of data ?? []) profiles.set(profile.user_id, profile)
         }
         res.setHeader('Cache-Control', 'private, no-store')
-        return res.status(200).json({ users: accounts.map(u => {
-          const profile = profiles.get(u.id)
-          return { user_id: u.id, full_name: profile?.full_name?.trim() || u.user_metadata?.name?.trim() || u.user_metadata?.full_name?.trim() || null,
-            email: profile?.email || u.email || null,
-            phone: profile?.phone || u.phone || null,
-            city: profile?.city || null,
-            last_sign_in_at: u.last_sign_in_at || null }
-        }) })
+        return res.status(200).json({ users: accounts.map(u => toAdminMemberDetails(u, profiles.get(u.id))) })
       } catch {
         return res.status(500).json({ error: 'Failed to retrieve administrator account details' })
       }
