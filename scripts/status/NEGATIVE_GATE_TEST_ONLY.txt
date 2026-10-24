@@ -1,0 +1,1 @@
+NEGATIVE TEST ONLY. This intentionally modifies a protected STATUS path and must be blocked by CI. Never merge.
