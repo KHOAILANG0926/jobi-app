@@ -162,3 +162,17 @@ drop trigger if exists trg_verified_publication_work_location on public.job_work
 create trigger trg_verified_publication_work_location
 after insert or update or delete on public.job_work_locations
 for each row execute function job_publication_private.on_work_location_change();
+
+-- Immutable evidence of why a particular source version failed automated acceptance.
+create table if not exists job_publication_private.review_attempts(
+ id bigint generated always as identity primary key,
+ job_id bigint not null references public.local_jobs(id) on delete cascade,
+ content_hash text not null,
+ tested_at timestamptz not null default now(),
+ verdict text not null check(verdict in ('failed','passed')),
+ reason text not null,
+ verifier_commit text not null
+);
+create index if not exists review_attempts_latest
+on job_publication_private.review_attempts(job_id, tested_at desc, id desc);
+revoke all on job_publication_private.review_attempts from public,anon,authenticated,service_role;
