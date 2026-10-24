@@ -328,9 +328,9 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   { label: t('구직자','Người tìm việc'), value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad', destination: 'users' as Tab },
                   { label: t('기업회원','Nhà tuyển dụng'), value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60', destination: 'users' as Tab },
                   { label: t('베트남 공개 공고','Tin VN đang tuyển'), value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22', destination: 'jobs' as Tab },
-                  { label: t('한국 공고','Tin Hàn Quốc'), value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', destination: 'jobs' as Tab },
+                  { label: t('한국 공고','Tin Hàn Quốc'), value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', destination: 'jobs' as Tab, route: '/viec-han-quoc' },
                 ].map(s => (
-                  <button type="button" key={s.label} onClick={() => { setSelectedMemberId(null); setTab(s.destination) }} aria-label={`${s.label} ${t('관리 화면 열기','Mở quản lý')}`} style={{
+                  <button type="button" key={s.label} onClick={() => { if ('route' in s && s.route) { navigate(s.route); return } setSelectedMemberId(null); setTab(s.destination) }} aria-label={`${s.label} ${t('관리 화면 열기','Mở quản lý')}`} style={{
                     textAlign: 'left', cursor: 'pointer', width: '100%', fontFamily: 'inherit', borderLeft: 0, borderRight: 0, borderBottom: 0,
                     background: '#fff', borderRadius: '16px', padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
