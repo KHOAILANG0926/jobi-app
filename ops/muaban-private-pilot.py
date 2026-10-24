@@ -58,7 +58,14 @@ def extract(context, job_id, source_id, url):
         if len(numbers) != 1:
             raise RuntimeError("PHONE_NOT_UNAMBIGUOUS")
         # Only verified source phone and title written. Existing duties/address remain pending until independently checked.
-        return {"phone": numbers[0], "title": title, "source_id": source_id}
+        # Capture actual page text privately for strict publication-rule checks.
+        root = page.locator("main")
+        source_text = (root.first.inner_text(timeout=10000) if root.count() else body).strip()
+        if title not in source_text:
+            source_text = body.strip()
+        if len(source_text) < 100:
+            raise RuntimeError("SOURCE_TEXT_TOO_SHORT")
+        return {"phone": numbers[0], "title": title, "source_id": source_id, "source_text": source_text[:16000]}
     finally:
         page.close()
 
@@ -80,7 +87,10 @@ def patch_artifact(artifact_id, details):
         raise RuntimeError("ARTIFACT_ID_SOURCE_MISMATCH")
     existing = records[0]["payload"]
     existing["contact"] = {**(existing.get("contact") or {}), **payload["contact"]}
+    # No local disk and no job text in Action logs; private review only.
+    existing["source_text"] = details["source_text"]
     existing["verification"] = {**(existing.get("verification") or {}), **payload["verification"]}
+    existing["verification"]["source_text_captured"] = True
     existing["verification"]["unresolved"] = [x for x in existing["verification"].get("unresolved", []) if x not in ("전체 전화번호", "전화번호 인증 추출")]
     newmeta = {**(records[0].get("meta") or {}), "not_public_job": True, "server_phone_extraction": True}
     data = json.dumps({"payload": existing, "meta": newmeta}).encode()
