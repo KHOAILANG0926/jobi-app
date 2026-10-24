@@ -1,4 +1,7 @@
 -- Disposable PostgreSQL fixture; never executed on production.
+create role anon;
+create role authenticated;
+create role service_role;
 create table public.local_jobs (
  id bigint generated always as identity primary key,
  title text, company text, description text, salary text, location text,
