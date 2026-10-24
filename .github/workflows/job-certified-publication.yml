@@ -1,0 +1,80 @@
+name: 공고별 자동 원문·화면 검증 후 공개
+
+# Installed only after owner's migration approval. Existing public jobs never touched.
+on:
+  workflow_dispatch:
+    inputs:
+      max_jobs:
+        description: '이번 실행 최대 검증 공고 수 (1~100)'
+        required: false
+        default: '20'
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verified-job-admission
+  cancel-in-progress: false
+
+jobs:
+  certify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MAX_JOBS: ${{ inputs.max_jobs || '20' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Input and DB secret check
+        run: |
+          [[ "$MAX_JOBS" =~ ^[0-9]+$ ]] && [ "$MAX_JOBS" -ge 1 ] && [ "$MAX_JOBS" -le 100 ]
+          test -n "$SUPABASE_DB_URL"
+      - run: npm ci
+      - run: VITE_JOB_REVIEW_ACCEPTANCE=true npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Start isolated frontend
+        run: |
+          npx vite preview --port 4173 --strictPort > /tmp/review-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/review-preview.log; exit 1
+      - name: Review each exact hidden-job version; only passed jobs publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+            select q.job_id from job_publication_private.review_queue q
+            join public.local_jobs j on j.id=q.job_id
+            where q.auto_release and q.content_hash=job_publication_private.content_fingerprint(j)
+              and j.active and j.admin_hidden
+            order by q.queued_at, q.job_id limit $MAX_JOBS
+          " > /tmp/review-ids
+          reviewed=0
+          rejected=0
+          while IFS= read -r id; do
+            [ -z "$id" ] && continue
+            [[ "$id" =~ ^[0-9]+$ ]] || exit 1
+            psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+              select json_build_object('job', row_to_json(j),
+                'fingerprint',job_publication_private.content_fingerprint(j))
+              from public.local_jobs j where j.id=$id
+            " > /tmp/job-review-fixture.json
+            if BASE_URL=http://127.0.0.1:4173 node scripts/ops/review-hidden-job.mjs /tmp/job-review-fixture.json; then
+              hash=$(node -p "require('/tmp/job-review-fixture.json.passed').fingerprint")
+              [[ "$hash" =~ ^[a-f0-9]{32}$ ]] || exit 1
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -v job_id="$id" -v expected="$hash" -v git_sha="$GITHUB_SHA" -f scripts/ops/publish-reviewed-job.sql
+              reviewed=$((reviewed+1))
+            else
+              echo "::warning::Job $id failed verification; remains hidden"
+              rejected=$((rejected+1))
+            fi
+            rm -f /tmp/job-review-fixture.json /tmp/job-review-fixture.json.passed
+          done < /tmp/review-ids
+          echo "RESULT reviewed=$reviewed rejected=$rejected; failed cases remain unpublished"
