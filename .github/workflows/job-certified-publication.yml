@@ -67,13 +67,18 @@ jobs:
                 'locations',coalesce((select json_agg(row_to_json(l)) from public.job_work_locations l where l.job_id=j.id),'[]'::json))
               from public.local_jobs j where j.id=$id
             " > /tmp/job-review-fixture.json
-            if BASE_URL=http://127.0.0.1:4173 node scripts/ops/review-hidden-job.mjs /tmp/job-review-fixture.json; then
+            if BASE_URL=http://127.0.0.1:4173 node scripts/ops/review-hidden-job.mjs /tmp/job-review-fixture.json > /tmp/review-log.txt 2>&1; then
+              cat /tmp/review-log.txt
               hash=$(node -p "require('/tmp/job-review-fixture.json.passed').fingerprint")
               [[ "$hash" =~ ^[a-f0-9]{32}$ ]] || exit 1
               psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -v job_id="$id" -v expected="$hash" -v git_sha="$GITHUB_SHA" -f scripts/ops/publish-reviewed-job.sql
               reviewed=$((reviewed+1))
             else
               echo "::warning::Job $id failed verification; remains hidden"
+              cat /tmp/review-log.txt
+              reason=$(tail -n 2 /tmp/review-log.txt | head -c 1000)
+              failed_hash=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/job-review-fixture.json','utf8')).fingerprint")
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -v job_id="$id" -v expected="$failed_hash" -v reason="$reason" -v git_sha="$GITHUB_SHA" -f scripts/ops/record-review-failure.sql
               rejected=$((rejected+1))
             fi
             rm -f /tmp/job-review-fixture.json /tmp/job-review-fixture.json.passed
