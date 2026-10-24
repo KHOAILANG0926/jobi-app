@@ -8,7 +8,7 @@ const jobs = ['4824', '4828', '4878']
 const views = ['pc', 'mobile']
 const keys = [
   'header.logo.w', 'header.logo.h', 'header.logo.top', 'header.chips.top',
-  'header.title.font', 'header.company.font', 'header.salary.value.font',
+  'header.company.font', 'header.salary.value.font',
   'tabs.h', 'mobile-cta.h', 'mobile-cta.w',
 ]
 const browser = await chromium.launch()
@@ -23,6 +23,8 @@ try {
     if (!data['sections.order']) findings.push(key + ': missing detail content sections')
     if (data['content.conditions.broken-items'] > 0) findings.push(key + ': broken work-condition items')
   }
+  // JobDetail uses explicit short/medium/long title typography classes based on title length;
+  // comparing title font across different-length job titles would be a false regression.
   for (const view of views) for (const noimg of [false, true]) {
     const ending = '-' + view + (noimg ? '-noimg' : '')
     const base = measured['4824' + ending]
