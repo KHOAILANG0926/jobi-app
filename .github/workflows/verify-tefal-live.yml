@@ -19,5 +19,5 @@ jobs:
       - run: npx playwright install chromium
       - name: Real public browser proof
         env:
-          BASE_URL: https://www.viecganban.vn
+          BASE_URL: https://jobi-git-ops-runner-connection-c-73098c-mshw1895-6089s-projects.vercel.app
         run: node scripts/ops/verify-tefal-live.mjs
