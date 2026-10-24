@@ -92,6 +92,7 @@ export function AdminLocations({ language = 'ko' }: { language?: AdminLanguage }
   async function review(c: LocationCandidate, action: 'approve' | 'reject' | 'revoke') {
     const typed = (notes[c.id] ?? '').trim()
     const note = typed || (action === 'approve' ? DEFAULT_APPROVE_NOTE : '')
+    if (!window.confirm(t('이 위치의 승인 상태를 변경하시겠습니까?','Xác nhận thay đổi trạng thái vị trí?'))) return
     setBusyId(c.id)
     const { error: e } = await supabase.rpc('admin_review_location_candidate', { p_candidate_id: c.id, p_action: action, p_note: note })
     setBusyId(null)
@@ -106,7 +107,7 @@ export function AdminLocations({ language = 'ko' }: { language?: AdminLanguage }
         <option value="pending">{t("승인 대기","Chờ duyệt")}</option>
         <option value="all">{t("전체","Tất cả")}</option>
       </select>
-      <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? 'Đóng' : '＋ Tự chọn vị trí trên bản đồ'}</button>
+      <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? t('닫기','Đóng') : t('＋ 지도에서 위치 선택','＋ Tự chọn vị trí trên bản đồ')}</button>
       <small>{t('승인된 위치만 지도 핀·길찾기·내 주변 검색에 사용됩니다.','Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.')}</small>
     </div>
     <AdminWardLocate />
