@@ -404,7 +404,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         )}
 
         {/* ── POST JOB TAB ── */}
-        {tab === 'review' && <AdminJobReview />}
+        {tab === 'review' && <AdminJobReview language={language} />}
 
         {tab === 'jobs' && (
           <div>
