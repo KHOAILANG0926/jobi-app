@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,6 +30,9 @@ jobs:
       - name: PR 완료 근거 검사 (Draft는 제외, 필수 CI는 유지)
         if: github.event_name == 'pull_request'
         run: node scripts/check-pr-ready.mjs
+      - name: 기존 규정 위반 변경 차단
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-repository-policy.mjs
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
       - name: 타입 검사
