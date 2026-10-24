@@ -240,7 +240,7 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
 
       {form && (
         <div className="admin-panel" style={{ border: '1px solid #e5e7eb', marginTop: '1rem', padding: '1rem' }}>
-          <h3<>{form.id ? t('브랜드 수정','Sửa brand') : t('신규 브랜드','Brand mới')}</></h3>
+          <h3>{form.id ? t('브랜드 수정','Sửa brand') : t('신규 브랜드','Brand mới')}</h3>
           <p><label>{t("이름: ","Tên: ")}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label></p>
           <p><label>{t("슬러그: ","Slug: ")}<input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></label></p>
           <p><label>Ngành:{' '}
