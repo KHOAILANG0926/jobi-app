@@ -27,6 +27,11 @@ export interface AdminUser {
   display_name: string
   job_count: number
   application_count: number
+  email?: string | null
+  phone?: string | null
+  full_name?: string | null
+  city?: string | null
+  last_sign_in_at?: string | null
 }
 
 export interface UserReport {
@@ -77,7 +82,11 @@ export async function setJobHidden(jobId: number, hidden: boolean, reason = ''):
 
 export async function listAdminUsers(): Promise<AdminUser[]> {
   const { data, error } = await supabase.rpc('admin_list_users')
-  return unwrap((data ?? []) as AdminUser[], error)
+  const rows = unwrap((data ?? []) as AdminUser[], error)
+  const detail = await supabase.rpc('admin_user_details')
+  if (detail.error) throw new Error(detail.error.message)
+  const info = new Map(((detail.data ?? []) as AdminUser[]).map(u => [u.user_id, u]))
+  return rows.map(u => ({ ...u, ...(info.get(u.user_id) ?? {}) }))
 }
 
 export async function setAccountStatus(userId: string, status: AccountStatus, reason = ''): Promise<void> {
