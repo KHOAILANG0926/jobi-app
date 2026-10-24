@@ -137,13 +137,11 @@ for each row execute function job_publication_private.queue_content_review();
 create or replace function job_publication_private.on_work_location_change()
 returns trigger language plpgsql security definer
 set search_path = pg_catalog, public, job_publication_private as $$
-declare affected_id bigint; row_job public.local_jobs%rowtype; h text; public_before boolean;
+declare affected_id bigint; new_id bigint; old_id bigint; row_job public.local_jobs%rowtype; h text; public_before boolean;
 begin
-  for affected_id in select distinct value from (
-    select case when tg_op <> 'DELETE' then new.job_id else null end as value
-    union all
-    select case when tg_op <> 'INSERT' then old.job_id else null end
-  ) a where value is not null loop
+  if tg_op <> 'DELETE' then new_id := new.job_id; end if;
+  if tg_op <> 'INSERT' then old_id := old.job_id; end if;
+  for affected_id in select distinct value from unnest(array[new_id,old_id]) as t(value) where value is not null loop
     select * into row_job from public.local_jobs where id=affected_id for update;
     if not found then continue; end if;
     public_before := coalesce(row_job.active,false) and not coalesce(row_job.admin_hidden,false);
