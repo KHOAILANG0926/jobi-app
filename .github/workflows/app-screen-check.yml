@@ -41,10 +41,14 @@ jobs:
       - name: 현재 위치 표시 정책 회귀 검사
         run: node scripts/test-job-location-detail.mjs --self-test
       - name: 실제 공고 상세 위치 검사
+        id: location_detail
+        continue-on-error: true
         run: node scripts/test-job-location-detail.mjs http://localhost:4173
       - name: 좌표 검사 실행 명령 검증
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts
       - name: PC·모바일 화면 검사
+        id: smoke
+        continue-on-error: true
         run: BASE_URL=http://localhost:4173 node scripts/ops/app-smoke.mjs
       - name: 공고 화면 도면 대조 (결정 0005, 치수 측정)
         run: |
@@ -75,3 +79,23 @@ jobs:
           name: menu-search-proof
           path: menu-search-proof/
           retention-days: 14
+
+      # A genuine app bug must still fail CI, but should not prevent remaining
+      # browser checks or screenshots from running on the same built preview.
+      - name: PC·모바일 검사 근거 보존 (실패 시에도)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screen-evidence-${{ github.run_id }}
+          path: |
+            app-smoke-result.json
+            app-smoke-screens/
+            preview.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: 위치·화면 검사 실패 최종 판정
+        if: always() && (steps.location_detail.outcome == 'failure' || steps.smoke.outcome == 'failure')
+        run: |
+          echo "::error::Location detail=${{ steps.location_detail.outcome }}, PC/mobile smoke=${{ steps.smoke.outcome }}. Evidence artifact attached."
+          exit 1
