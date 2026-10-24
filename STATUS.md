@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-24 20:28 (VN)**
-- 기준 커밋: `ab55262` (Merge pull request #213 from KHOAILANG0926/test/cty-kda-pc-mobile-regression-20261024)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40097522942
+- 생성 시각: **2026-10-24 20:41 (VN)**
+- 기준 커밋: `bd9674b` (Merge pull request #214 from KHOAILANG0926/fix/tefal-consolidated-203-204-20261024)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40098464034
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,14 +28,15 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `6269d56` · 상태 **success** · 2026-10-23 00:22 (VN)
-- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
+- 마지막 Production 배포: `bd9674b` · 상태 **success** · 2026-10-24 20:41 (VN)
+- master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #214 | 2026-10-24 20:30 (VN) | `bd9674b` | fix: consolidate TEFAL screen PR #203 and #204 without overwriting newer master checks |
 | #213 | 2026-10-24 20:17 (VN) | `ab55262` | test: CTY KDA 기준 PC·모바일 신규 공고 화면 회귀 검증 |
 | #211 | 2026-10-24 20:05 (VN) | `875bea4` | CI: 기존 강제 규정 보완 및 회귀 사례 확대 |
 | #208 | 2026-10-24 19:42 (VN) | `4cfb2b7` | PR 완료 근거·검증 누락 CI 차단 (기존 양식 재사용) |
@@ -45,7 +46,6 @@
 | #197 | 2026-10-22 07:21 (VN) | `9a4c980` | 지도 업종 요약·m 반경 입력·지도 아래 우선 검색 결과 |
 | #196 | 2026-10-22 06:11 (VN) | `556f2c0` | 운영 업종 검사: 실제 메뉴 버튼과 열기 방식 사용 |
 | #194 | 2026-10-22 06:05 (VN) | `322e1a3` | 공식 직업코드로 업종 자동 지정·메뉴 연결 |
-| #193 | 2026-10-22 05:06 (VN) | `7a3627e` | HANDOFF: 지도·승인 후 운영 절차 실제 반영 확인 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
