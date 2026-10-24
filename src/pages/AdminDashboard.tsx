@@ -20,6 +20,7 @@ type Tab = 'dashboard' | 'review' | 'jobs' | 'users' | 'brands' | 'reports' | 'l
 
 interface Stats {
   koreaJobs: number
+  totalUsers: number
   localUsers: number
   localEmployers: number
   localJobs: number
@@ -90,7 +91,7 @@ export default function AdminDashboard() {
   }, [])
 
   // Dashboard state
-  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
+  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, totalUsers: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
   const [loading, setLoading] = useState(false)
   // 2026-09-15 사용자 지시로 수정(Astra 조사): korea_jobs count 조회가
   // error를 확인하지 않아 실패해도 "0건"으로 보였다 — "0건"과 "조회 실패"를
@@ -144,6 +145,7 @@ export default function AdminDashboard() {
       setLocalJobsError(jobs === null)
       setStats({
         koreaJobs: koreaRes.count ?? 0,
+        totalUsers: users ? users.length : 0,
         localUsers: users ? users.filter((u) => u.role === 'seeker').length : 0,
         localEmployers: users ? users.filter((u) => u.role === 'employer').length : 0,
         localJobs: jobs ? jobs.filter((j) => j.active && !j.admin_hidden).length : 0,
@@ -315,7 +317,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Tổng tài khoản', value: usersError ? '—' : stats.localUsers + stats.localEmployers, icon: '👥', color: '#2980b9' },
+                  { label: 'Tổng tài khoản', value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9' },
                   { label: 'Người tìm việc', value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad' },
                   { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
                   { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
