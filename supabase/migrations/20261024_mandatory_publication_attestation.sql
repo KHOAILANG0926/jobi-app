@@ -56,11 +56,12 @@ begin
                      is distinct from job_publication_private.content_fingerprint(old);
 
   if content_changed then
-    -- Never keep a previously reviewed posting visible after its substantive content changes.
+    -- A content edit is saved, but always remains hidden until separately re-reviewed.
     new.admin_hidden := true;
+    return new;
   end if;
 
-  if is_public and (content_changed or not was_public) then
+  if is_public and not was_public then
     -- Never treat a marker or caller-provided flag as proof.
     select exists (
       select 1 from job_publication_private.approvals a
@@ -73,7 +74,7 @@ begin
         using errcode = 'check_violation';
     end if;
     -- A valid attestation permits explicit publication after R1-R8 processing.
-    if not content_changed then new.admin_hidden := false; end if;
+    new.admin_hidden := false;
   end if;
   return new;
 end $$;
