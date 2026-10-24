@@ -81,3 +81,33 @@ console.log('jobDetailSections.test.ts: 정답표 #4824·#4828 + 지우면 안 �
 
 assert(sourceRecruitmentEligibility(kda) === '- Tuyển nam, nữ (14-50 tuổi).', 'KDA recruitment line appears unchanged in top recruitment card')
 assert(sourceRecruitmentEligibility('Chăm chỉ') === undefined, 'No fabricated recruitment condition')
+
+
+const tefalMetadata = `TUYỂN NHÂN VIÊN BÁN HÀNG SẢN PHẨM TEFAL
+Thu nhập đến 18.000.000đ/tháng + hỗ trợ 1.000.000đ cho ứng viên đi làm trong tháng đầu.
+Thời gian: Ca xoay 8 tiếng, nghỉ 1 ngày/tuần (không cố định cuối tuần).
+Hiện số
+Thông tin cơ bản
+Cá nhân đăng tuyển
+Ngành nghề:
+Bán hàng tại quầy
+Loại hình công việc:
+Toàn thời gian
+Hình thức trả lương:
+8 triệu
+18 triệu
+< 1 năm
+Giới tính:
+Không yêu cầu
+Tên công ty:
+Độ tuổi:
+22 - 35 tuổi
+Học vấn tối thiểu:
+Trung học`
+const tefalResult = detailSections(tefalMetadata)
+const tefalBuckets = byKey(tefalResult)
+assert(tefalResult.preserved && !tefalResult.usedFallback, 'TEFAL source preserved')
+assert(!(tefalBuckets['07'] ?? []).some(line => /^(?:8 triệu|18 triệu|22 - 35 tuổi|Trung học|Bán hàng tại quầy|Toàn thời gian)$/.test(line)), 'TEFAL classified facts must not remain in additional information')
+assert((tefalBuckets['04'] ?? []).includes('18 triệu'), 'TEFAL salary maximum bucket')
+assert((tefalBuckets['02'] ?? []).includes('22 - 35 tuổi'), 'TEFAL age bucket')
+assert((tefalBuckets['01'] ?? []).includes('Bán hàng tại quầy'), 'TEFAL occupation bucket')
