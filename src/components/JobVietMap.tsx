@@ -192,7 +192,7 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
 
   return (
     <>
-      <div className="jd2-vmap" style={{ height }}>
+      <div className="jd2-vmap" data-expected-marker-count={pinless ? 0 : (markers?.length ?? 1)} data-map-unavailable={!TILEMAP_KEY ? "missing-key" : undefined} style={{ height }}>
         <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} />
         <button type="button" className="jd2-vmap__zoom" onClick={() => setOpen(true)}>Phóng to</button>
       </div>

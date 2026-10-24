@@ -61,7 +61,13 @@ async function readJobDetail(page, href) {
     const addrItems = [...document.querySelectorAll('.jd2-map-addr-item .jd2-map-addr')].map((el) => el.textContent?.trim() || '')
     const singleAddr = document.querySelector('.jd2-card__body > .jd2-map-addr')?.textContent?.trim() || null
     const note = document.querySelector('.jd2-map-note')?.textContent?.trim() || ''
+    // A visible marker must not be described as an independently verified factory pin unless that is established.
+    // The source location may only be an approximate address/geocode.
     const markerCount = document.querySelectorAll('.leaflet-marker-icon, .jd2-vmap .vietmapgl-marker, .jd2-vmap .maplibregl-marker').length
+    const map = document.querySelector('.jd2-vmap')
+    const expectedMarkerAttribute = map?.getAttribute('data-expected-marker-count')
+    const plannedMarkerCount = expectedMarkerAttribute == null ? null : Number(expectedMarkerAttribute)
+    const mapUnavailable = map?.getAttribute('data-map-unavailable') === 'missing-key' && !!document.querySelector('.job-location-map__error')
     const visibleAddresses = [...document.querySelectorAll('.jd2-location-above-map__row span')].map(el => el.textContent?.trim() || '').filter(Boolean)
     const areaNotes = [...document.querySelectorAll('.jd2-map-area-note, .jd2-location-pending-compact .jd2-map-dir-note')].map(el => el.textContent?.trim() || '').join(' ')
     const areaState = !!document.querySelector('.jd2-location-pending-compact, .jd2-map-area-note')
@@ -76,7 +82,7 @@ async function readJobDetail(page, href) {
     const directionsHrefs = [...document.querySelectorAll('.jd2-map-gmaps-links a, .jd2-map-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường')).map((a) => a.getAttribute('href') || '')
     // 2026-10-13 사용자 규칙 "길찾기는 숨기지 않는다": 위치 미확인이면 회사명/지역 글자 검색 길찾기 + 미확인 안내(directionsPlan.ts COMPANY_AREA_NOTE·AREA_ONLY_NOTE)
     const unverifiedDirNote = /chưa xác minh|không phải địa chỉ nơi làm việc/iu.test(document.body.innerText || '')
-    return { addrItems, singleAddr, note, markerCount, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState }
+    return { addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState }
   })
 }
 
@@ -116,13 +122,13 @@ function checkInvariants(href, d, truth) {
     // 정책(예: sb-4369는 주소 1건, 마커 0건이 정상). 항목 수와 마커 수를 1:1로
     // 강제하던 예전 불변조건은 이 정책 도입 전 가정이라 폐기한다.
     const expectedMarkers = truth ? truth.mappableWorkLocationCount : null
-    if (expectedMarkers !== null && d.markerCount !== expectedMarkers) {
+    if (expectedMarkers !== null && (d.mapUnavailable ? d.plannedMarkerCount : d.markerCount) !== expectedMarkers) {
       failures.push(`${href}: DB상 좌표 있는(mappable) 근무지 ${expectedMarkers}건인데 지도 마커는 ${d.markerCount}개 — 일치해야 한다`)
     }
     if (d.addrItems.some((a) => !a || a.length < 5)) {
       failures.push(`${href}: address list contains an empty/too-short entry: ${JSON.stringify(d.addrItems)}`)
     }
-    if (expectedMarkers >= 1 && !d.note.includes(String(expectedMarkers))) {
+    if (expectedMarkers >= 1 && !d.mapUnavailable && !d.note.includes(String(expectedMarkers))) {
       failures.push(`${href}: caption must mention the mappable work-location count (${expectedMarkers}), got "${d.note}"`)
     }
     if (truth && truth.workLocationCount === 0) {

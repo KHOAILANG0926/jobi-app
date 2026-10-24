@@ -438,7 +438,7 @@ export function JobDetail() {
   // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
   // 2026-09-30 사용자 지시: 지역·공단 중심 좌표로 대신 표시하지 않는다. 확인된 근무지(precise)만 지도에
   // 그리고, 없으면 '위치 미확인'으로 표시한다(길찾기·거리 계산에서도 이미 제외됨).
-  const verifiedMapPoints = mapLocations.points.filter((p) => p.precise)
+  const verifiedMapPoints = mapLocations.source === 'default' ? [] : mapLocations.points
   const hasMapPoints = verifiedMapPoints.length > 0
   const mapCenter = verifiedMapPoints[0]
   // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 "해당 KCN 중심 좌표"로 핀 없이 지도 + "Vị trí chính xác chưa xác minh".
