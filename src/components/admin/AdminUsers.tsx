@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { listAdminUsers, setAccountStatus, type AccountStatus, type AdminUser } from '../../lib/adminOperations'
 import type { AdminLanguage } from '../../lib/adminLanguage'
 
-export function AdminUsers({ language = 'ko' }: { language?: AdminLanguage }) {
+export function AdminUsers({ language = 'ko', selectedMemberId = null }: { language?: AdminLanguage; selectedMemberId?: string | null }) {
   const ko = language === 'ko'
   const t = (k: string, v: string) => ko ? k : v
   const empty = t('정보 미제공','Chưa cung cấp')
@@ -16,6 +16,7 @@ export function AdminUsers({ language = 'ko' }: { language?: AdminLanguage }) {
   const [busy, setBusy] = useState(false)
   const reload = async () => { try { setUsers(await listAdminUsers()); setError('') } catch (e) { setError(e instanceof Error ? e.message : String(e)) } }
   useEffect(() => { void reload() }, [])
+  useEffect(() => { if (selectedMemberId && users.length) { const match = users.find(u => u.user_id === selectedMemberId); if (match) setSelected(match) } }, [selectedMemberId, users])
   const filtered = useMemo(() => users.filter(user =>
     (!search.trim() || [user.full_name,user.display_name,user.email,user.phone,user.user_id].some(v=>String(v??'').toLowerCase().includes(search.toLowerCase())))
     && (role === 'all' || user.role === role)
