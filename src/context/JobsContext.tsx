@@ -73,6 +73,18 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
     return () => { active = false }
   }, [])
 
+  useEffect(() => {
+    // Isolated review-only fixture on Vercel preview host; never available on
+    // viecganban.vn Production, and never written to local_jobs.
+    if (!window.location.hostname.endsWith('.vercel.app')) return
+    if (new URLSearchParams(window.location.search).get('pilotReview') !== '1') return
+    let active = true
+    void import('../data/previewMuabanPilotJobs').then(({ pilotReviewJobs }) => {
+      if (active) setAcceptanceJobs(pilotReviewJobs)
+    })
+    return () => { active = false }
+  }, [])
+
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])
 
   const addPostedJob = useCallback(async (draft: Omit<Job, 'id' | 'postedAt'> & { guestManageToken?: string }) => {
