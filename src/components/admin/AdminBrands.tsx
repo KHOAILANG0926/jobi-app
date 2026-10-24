@@ -112,6 +112,7 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
   }
 
   async function handleDismiss(candidate: BrandCandidate) {
+    if (!window.confirm(t('이 후보를 제외하시겠습니까?','Bỏ qua ứng viên này?'))) return
     try {
       await dismissBrandCandidate(candidate.companyKey)
       setDismissedKeys((prev) => new Set(prev).add(candidate.companyKey))
@@ -154,6 +155,7 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
   }
 
   async function toggleActive(b: AdminBrand) {
+    if (!window.confirm(t('브랜드 공개 상태를 변경하시겠습니까?','Xác nhận thay đổi trạng thái thương hiệu?'))) return
     try {
       await upsertBrand({
         id: b.id, name: b.name, slug: b.slug, category: b.category, domain: b.domain ?? undefined,
@@ -168,6 +170,7 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
   }
 
   async function toggleFeatured(b: AdminBrand) {
+    if (!window.confirm(t('브랜드 추천 상태를 변경하시겠습니까?','Xác nhận thay đổi đề xuất thương hiệu?'))) return
     try {
       await upsertBrand({
         id: b.id, name: b.name, slug: b.slug, category: b.category, domain: b.domain ?? undefined,
@@ -188,7 +191,7 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
       {error && <p className="admin-error">{error}</p>}
 
       <div className="admin-toolbar">
-        <strong>Brands đã đăng ký ({brands.length})</strong>
+        <strong>{t('등록된 브랜드','Brands đã đăng ký')} ({brands.length})</strong>
         <button onClick={openCreateForm}>{t("+ 기업·브랜드 직접 등록","+ Thêm brand thủ công")}</button>
       </div>
       <div className="admin-table-wrap">
@@ -204,8 +207,8 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
                 <td>{b.featured ? '⭐' : '—'}</td>
                 <td className="admin-actions">
                   <button onClick={() => openEditForm(b)}>{t("수정","Sửa")}</button>
-                  <button onClick={() => toggleActive(b)}>{b.active ? 'Ẩn' : 'Bật lại'}</button>
-                  <button onClick={() => toggleFeatured(b)}>{b.featured ? 'Bỏ nổi bật' : 'Đặt nổi bật'}</button>
+                  <button onClick={() => toggleActive(b)}>{b.active ? t('비활성화','Ẩn') : t('활성화','Bật lại')}</button>
+                  <button onClick={() => toggleFeatured(b)}>{b.featured ? t('추천 해제','Bỏ nổi bật') : t('추천 등록','Đặt nổi bật')}</button>
                 </td>
               </tr>
             ))}
@@ -214,19 +217,19 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
       </div>
 
       <div className="admin-toolbar">
-        <strong>Brand ứng viên mới ({candidates.length})</strong>
+        <strong>{t('신규 브랜드 후보','Brand ứng viên mới')} ({candidates.length})</strong>
       </div>
       <div className="admin-table-wrap">
         <table className="admin-table">
           <thead><tr><th>{t("회사","Công ty")}</th><th>{t("공고 수","Số tin")}</th><th>{t("근무지","Nơi làm việc")}</th><th>{t("체인 판단 근거","Tín hiệu chuỗi")}</th><th>{t("대표 공고","Tin mẫu")}</th><th>{t("관리","Xử lý")}</th></tr></thead>
           <tbody>
-            {candidates.length === 0 && <tr><td colSpan={6}><em>Không có ứng viên mới.</em></td></tr>}
+            {candidates.length === 0 && <tr><td colSpan={6}><em>{t('신규 후보가 없습니다.','Không có ứng viên mới.')}</em></td></tr>}
             {candidates.map((c) => (
               <tr key={c.companyKey}>
                 <td><strong>{c.companyName}</strong></td>
                 <td>{c.jobCount}</td>
                 <td><small>{c.locations.join(', ') || '—'}</small></td>
-                <td>{c.chainSignal ? '🔗 có' : '—'}</td>
+                <td>{c.chainSignal ? t('🔗 확인','🔗 có') : '—'}</td>
                 <td><small>{c.sampleJob.title}</small></td>
                 <td className="admin-actions">
                   <button onClick={() => openApproveForm(c)}>{t("승인","Duyệt")}</button>
@@ -243,12 +246,12 @@ export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
           <h3>{form.id ? t('브랜드 수정','Sửa brand') : t('신규 브랜드','Brand mới')}</h3>
           <p><label>{t("이름: ","Tên: ")}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label></p>
           <p><label>{t("슬러그: ","Slug: ")}<input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></label></p>
-          <p><label>Ngành:{' '}
+          <p><label>{t('업종:','Ngành:')}{' '}
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as BrandCategoryId })}>
               {CATEGORY_OPTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </label></p>
-          <p><label>Domain (favicon, optional): <input value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} /></label></p>
+          <p><label>{t('도메인(선택):','Domain (favicon, optional):')} <input value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} /></label></p>
           <p><label>{t("대표 글자: ","Chữ cái đại diện: ")}<input value={form.initial} maxLength={2} onChange={(e) => setForm({ ...form, initial: e.target.value })} /></label></p>
           <p><label>{t("색상: ","Màu: ")}<input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></label></p>
           <p><label>Aliases (phân cách bằng dấu phẩy, alias đầu tiên là alias chính):{' '}
