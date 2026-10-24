@@ -28,7 +28,7 @@ const browser = await chromium.launch({ headless: true })
 try {
   for (const width of [390,1280]) {
     const page = await browser.newPage({ viewport: { width, height: 900 } })
-    await page.addInitScript(payload => { window.__JOB_REVIEW_FIXTURE__ = payload }, job)
+    await page.addInitScript(payload => { window.__JOB_REVIEW_FIXTURE__ = payload }, { job, locations:fixture.locations ?? [] })
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
     await page.goto(`${base}/viec-lam/sb-${job.id}?reviewFixture=1`, { waitUntil:'domcontentloaded', timeout:60000 })
@@ -48,6 +48,8 @@ try {
         tel: [...document.querySelectorAll('a[href^="tel:"]')].some(visible),
         overflow: document.documentElement.scrollWidth - window.innerWidth,
         directions: [...document.querySelectorAll('a[href*="google.com/maps"]')].map(a=>a.href),
+        mapContainer: !!document.querySelector('.jd2-map-container, .jd2-location-pending-compact, .jd2-map-wrap, .jd2-map-addr-list'),
+        location: document.querySelector('#jd2-section-location')?.textContent || document.querySelector('.jd2-location-above-map')?.textContent || '',
       }
     })
     if (!key(observed.title).includes(key(job.title))) reason(width + ': wrong job rendered')
@@ -63,6 +65,8 @@ try {
       if (s(job[field]) && !key(observed[target]).includes(key(job[field])))
         reason(width + ': populated field not visible in proper template section: ' + field)
     }
+    if (s(job.location) && !key(observed.all).includes(key(job.location))) reason(width + ': location not rendered')
+    if (Array.isArray(fixture.locations) && fixture.locations.length > 0 && !observed.mapContainer) reason(width + ': workplace map/location missing')
     if (!observed.tel && s(job.employer_phone)) reason(width + ': no callable phone action')
     if (observed.overflow > 4) reason(width + ': horizontal overflow ' + observed.overflow)
     if (errors.length) reason(width + ': browser runtime error: ' + errors.join('; ').slice(0,300))
