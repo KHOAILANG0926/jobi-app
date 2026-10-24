@@ -12401,3 +12401,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 
 /* Match the section rhythm requested for conditions → recruitment on desktop and mobile. */
 .jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin-top: 1rem; }
+
+/* Conditions and recruitment live in separate .jd2-main wrappers, so sibling selectors do not apply. */
+.jd2-grid--detail-redesign .jd2-main--full > .jd2-sec--recruit-grid:first-child { margin-top: 1.5rem; }
