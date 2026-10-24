@@ -42,6 +42,8 @@ jobs:
         run: node scripts/test-job-location-detail.mjs --self-test
       - name: 실제 공고 상세 위치 검사
         run: node scripts/test-job-location-detail.mjs http://localhost:4173
+      - name: TEFAL 실제 공고 내용·간격·지도 검증
+        run: BASE_URL=http://localhost:4173 node scripts/ops/tefal-content-acceptance.mjs
       - name: 좌표 검사 실행 명령 검증
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobCoords.test.ts
       - name: PC·모바일 화면 검사
