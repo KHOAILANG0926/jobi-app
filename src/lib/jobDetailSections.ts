@@ -41,7 +41,8 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap)$/, '04'],
   [/^(?:quyen loi|phuc loi|quyen loi & moi truong lam viec|quyen loi va moi truong lam viec|moi truong lam viec)$/, '05'],
   [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen)$/, '06'],
-  [/^(?:thong tin khac|ghi chu|thong tin cong ty)$/, '07'],
+  [/^(?:thong tin khac|ghi chu|thong tin cong ty|thong tin co ban|hien so)$/, '07'],
+  [/^(?:nganh nghe|loai hinh cong viec|hinh thuc tra luong|gioi tinh|do tuoi|hoc van toi thieu|ten cong ty|ca nhan dang tuyen)$/, '07'],
   [/^(?:dia diem lam viec|dia chi)$/, 'address'],
   [/^(?:lien he)$/, 'contact'],
 ]
@@ -52,11 +53,13 @@ export function headingOf(line: string) {
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
 export function lineBucket(line: string, current: DetailTextKey): DetailTextKey {
   const s = bare(line)
-  if (/^(?:ca ngay|ca dem|luong|thuong|chuyen can|phu cap|tro cap|muc luong|tham nien)\b/.test(s)) return '04'
+  if (/^(?:ca ngay|ca dem|luong|thuong|chuyen can|phu cap|tro cap|muc luong|tham nien|thu nhap|hinh thuc tra luong)\b/.test(s) || /^\d[\d.,]*\s*(?:trieu|dong|vnd|k)(?:\b|\/)/.test(s)) return '04'
   if (/^(?:co xe dua don|xe dua don|duoc mang dien thoai|co ky tuc xa|ky tuc xa|co bua an|bua an|ho tro an|bao hiem|phuc loi)\b/.test(s)) return '05'
   // 급여·복리후생이 섞인 칸(04) 안의 근무환경 설명은 05로(예: "Làm ngồi, thoải mái. Không bắt buộc tăng ca.").
   if (current === '04' && /(?:lam ngoi|thoai mai|khong bat buoc tang ca|moi truong)/.test(s)) return '05'
-  if (/^(?:gio lam viec|thoi gian lam viec|ngay lam|tang ca|lam them)\b/.test(s)) return '03'
+  if (/^(?:gio lam viec|thoi gian(?: lam viec)?|ngay lam|tang ca|lam them|loai hinh cong viec|toan thoi gian|ban thoi gian)\b/.test(s)) return '03'
+  if (/^(?:do tuoi|gioi tinh|hoc van toi thieu|trung hoc|khong yeu cau|\d+\s*[-–]\s*\d+\s*tuoi|<\s*\d+\s*nam)\b/.test(s)) return '02'
+  if (/^(?:nganh nghe|ban hang tai quay|tuyen nhan vien)\b/.test(s)) return '01'
   if (/^(?:phong van|nop ho so|quy trinh tuyen dung)\b/.test(s)) return '06'
   return current
 }
