@@ -57,9 +57,9 @@ export function lineBucket(line: string, current: DetailTextKey): DetailTextKey 
   if (/^(?:co xe dua don|xe dua don|duoc mang dien thoai|co ky tuc xa|ky tuc xa|co bua an|bua an|ho tro an|bao hiem|phuc loi)\b/.test(s)) return '05'
   // 급여·복리후생이 섞인 칸(04) 안의 근무환경 설명은 05로(예: "Làm ngồi, thoải mái. Không bắt buộc tăng ca.").
   if (current === '04' && /(?:lam ngoi|thoai mai|khong bat buoc tang ca|moi truong)/.test(s)) return '05'
-  if (/^(?:gio lam viec|thoi gian lam viec|ngay lam|tang ca|lam them|loai hinh cong viec|toan thoi gian|ban thoi gian)\b/.test(s)) return '03'
+  if (/^(?:gio lam viec|thoi gian(?: lam viec)?|ngay lam|tang ca|lam them|loai hinh cong viec|toan thoi gian|ban thoi gian)\b/.test(s)) return '03'
   if (/^(?:do tuoi|gioi tinh|hoc van toi thieu|trung hoc|khong yeu cau|\d+\s*[-–]\s*\d+\s*tuoi|<\s*\d+\s*nam)\b/.test(s)) return '02'
-  if (/^(?:nganh nghe|ban hang tai quay)\b/.test(s)) return '01'
+  if (/^(?:nganh nghe|ban hang tai quay|tuyen nhan vien)\b/.test(s)) return '01'
   if (/^(?:phong van|nop ho so|quy trinh tuyen dung)\b/.test(s)) return '06'
   return current
 }
