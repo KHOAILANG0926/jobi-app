@@ -10,6 +10,11 @@ on:
       - 'src/lib/parkLocate.ts'
       - 'src/lib/parkLocate.test.ts'
       - '.github/workflows/map-r1-new-park-regression.yml'
+      - 'src/lib/mapR1.ts'
+      - 'src/pages/JobDetail.tsx'
+      - 'src/components/JobCard.tsx'
+      - 'src/components/JobCard.css'
+      - 'src/index.css'
   workflow_dispatch:
 permissions:
   contents: read
