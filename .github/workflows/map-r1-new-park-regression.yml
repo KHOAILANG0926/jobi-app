@@ -11,6 +11,7 @@ on:
       - 'src/lib/parkLocate.test.ts'
       - '.github/workflows/map-r1-new-park-regression.yml'
       - 'src/lib/mapR1.ts'
+      - 'src/lib/mapR1.test.ts'
       - 'src/pages/JobDetail.tsx'
       - 'src/components/JobCard.tsx'
       - 'src/components/JobCard.css'
@@ -32,6 +33,7 @@ jobs:
         run: |
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/autoLocationResolver.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/industrialPark.test.ts
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/mapR1.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/parkLocate.test.ts
       - name: Type check
         run: npx tsc --noEmit
