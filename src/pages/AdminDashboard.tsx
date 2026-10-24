@@ -410,14 +410,14 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
         {tab === 'jobs' && (
           <div>
-            <AdminJobs key={jobsRevision} />
+            <AdminJobs key={jobsRevision} language={language} />
             {/* Step 1: Paste */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
-                📋 Bước 1 — Nhập bản nháp hoặc bài đăng
+                {t('📋 1단계 — 초안·공고 입력','📋 Bước 1 — Nhập bản nháp hoặc bài đăng')}
               </h2>
               <p style={{ fontSize: '13px', color: '#888', margin: '0 0 16px' }}>
-                Dán bản nháp JSON đã chuẩn bị rồi chọn Nhập bản nháp. Bạn cũng có thể điền trực tiếp ở bước 2.
+                {t('준비한 JSON 초안을 붙여넣거나 2단계에서 직접 입력할 수 있습니다.','Dán bản nháp JSON đã chuẩn bị rồi chọn Nhập bản nháp. Bạn cũng có thể điền trực tiếp ở bước 2.')}
               </p>
               <textarea
                 value={rawText}
@@ -440,17 +440,17 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   fontSize: '14px', fontWeight: 700, cursor: parsing || !rawText.trim() ? 'not-allowed' : 'pointer'
                 }}
               >
-                {parsing ? '⏳ Đang phân tích...' : '✨ Phân tích tự động'}
+                {parsing ? t('⏳ 분석 중...','⏳ Đang phân tích...') : t('✨ 자동 분석','✨ Phân tích tự động')}
               </button>
             </div>
 
             {/* Step 2: Form */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
-                ✏️ Bước 2 — Kiểm tra & lưu tin
+                {t('✏️ 2단계 — 공고 검토·저장','✏️ Bước 2 — Kiểm tra & lưu tin')}
               </h2>
               <p style={{ fontSize: '13px', color: '#888', margin: '0 0 20px' }}>
-                Kiểm tra thông tin, xem trước rồi chọn Đăng công khai. Chỉ tài khoản quản trị của bạn thực hiện việc đăng.
+                {t('정보 확인과 미리보기를 거친 뒤 공개 여부를 결정하세요.','Kiểm tra thông tin, xem trước rồi chọn Đăng công khai. Chỉ tài khoản quản trị của bạn thực hiện việc đăng.')}
               </p>
 
               {parseError && (
@@ -461,7 +461,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
               {savedJob && (
                 <div style={{ background: '#eafaf1', border: '1px solid #27ae60', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '13px', color: '#1e8449' }}>
-                  {savedJob.isPublic ? 'Đã lưu và bật công khai' : 'Đã lưu nhưng chưa công khai'} — #{savedJob.id}.
+                  {savedJob.isPublic ? t('저장 및 공개 완료','Đã lưu và bật công khai') : t('비공개 저장 완료','Đã lưu nhưng chưa công khai')} — #{savedJob.id}.
                   {savedJob.isPublic
                     ? <a href={savedJob.href} target="_blank" rel="noreferrer"> Xem tin trên ứng dụng</a>
                     : <span> Kiểm tra trạng thái trong danh sách quản lý ở phía trên.</span>}
