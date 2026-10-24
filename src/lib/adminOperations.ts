@@ -83,9 +83,13 @@ export async function setJobHidden(jobId: number, hidden: boolean, reason = ''):
 export async function listAdminUsers(): Promise<AdminUser[]> {
   const { data, error } = await supabase.rpc('admin_list_users')
   const rows = unwrap((data ?? []) as AdminUser[], error)
-  const detail = await supabase.rpc('admin_user_details')
-  if (detail.error) throw new Error(detail.error.message)
-  const info = new Map(((detail.data ?? []) as AdminUser[]).map(u => [u.user_id, u]))
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Administrator session expired')
+  const response = await fetch('/api/admin-user-details', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+  if (!response.ok) throw new Error('Unable to read verified account details')
+  const { users } = await response.json() as { users: AdminUser[] }
+  const info = new Map(users.map(u => [u.user_id, u]))
   return rows.map(u => ({ ...u, ...(info.get(u.user_id) ?? {}) }))
 }
 
