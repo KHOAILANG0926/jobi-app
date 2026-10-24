@@ -50,8 +50,8 @@ export function toAdminMemberDetails(u, profile) {
   return {
     user_id: u.id,
     full_name: name,
-    email: profile?.email?.trim() || u.email || null,
-    phone: profile?.phone?.trim() || u.phone || null,
+    email: u.email || profile?.email?.trim() || null,
+    phone: u.phone || profile?.phone?.trim() || null,
     city: profile?.city || null,
     last_sign_in_at: u.last_sign_in_at || null,
   }
