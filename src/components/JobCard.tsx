@@ -8,7 +8,7 @@ import { conditionBadges } from '../lib/jobConditions'
 
 export function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string; category?: string }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
-  if (!imageUrl || failedUrl === imageUrl) return null
+  if (!imageUrl || failedUrl === imageUrl) return <span className="jc__logo-text" aria-label={company}>{company?.trim() || "Việc làm"}</span>
   return <img src={imageUrl} alt={company} className="jc__logo" loading="lazy" onError={() => setFailedUrl(imageUrl)} />
 }
 
