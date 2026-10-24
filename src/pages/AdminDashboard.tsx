@@ -1,12 +1,14 @@
 import { parseAdminJobDraft, adminSavedJob } from '../lib/adminJobDraft'
 import { checkedAdminCreateJob } from '../lib/jobPolicyWrite'
 import { useState, useEffect } from 'react'
+import { getAdminLanguage, saveAdminLanguage, type AdminLanguage } from '../lib/adminLanguage'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { JobCategory } from '../types/job'
 import type { Job } from '../types/job'
 import { AdminJobs } from '../components/admin/AdminJobs'
+import { AdminJobReview } from '../components/admin/AdminJobReview'
 import { AdminUsers } from '../components/admin/AdminUsers'
 import { AdminBrands } from '../components/admin/AdminBrands'
 import { AdminReports } from '../components/admin/AdminReports'
@@ -15,10 +17,11 @@ import { AdminLocations } from '../components/admin/AdminLocations'
 import { listAdminJobs, listAdminUsers } from '../lib/adminOperations'
 import { CATEGORY_ICONS, CATEGORY_LABELS as CATEGORY_NAME_LABELS } from '../data/categories'
 
-type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'locations' | 'audit'
+type Tab = 'dashboard' | 'review' | 'jobs' | 'users' | 'brands' | 'reports' | 'locations' | 'audit'
 
 interface Stats {
   koreaJobs: number
+  totalUsers: number
   localUsers: number
   localEmployers: number
   localJobs: number
@@ -69,12 +72,33 @@ const CATEGORY_LABELS: Record<JobCategory, string> = Object.fromEntries(
 ) as Record<JobCategory, string>
 
 export default function AdminDashboard() {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+  const [language, setLanguage] = useState<AdminLanguage>(() => getAdminLanguage())
+  const ko = language === 'ko'
+  const t = (k: string, v: string) => ko ? k : v
+  useEffect(() => { if (user?.id) setLanguage(getAdminLanguage(user.id)) }, [user?.id])
+  const changeLanguage = (value: AdminLanguage) => { setLanguage(value); saveAdminLanguage(value, user?.id) }
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+
+  // Server records the actor and network context; client never supplies identity or IP.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token || cancelled) return
+      await fetch('/api/admin-access', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined)
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // Dashboard state
-  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
+  const [stats, setStats] = useState<Stats>({ koreaJobs: 0, totalUsers: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
   const [loading, setLoading] = useState(false)
   // 2026-09-15 사용자 지시로 수정(Astra 조사): korea_jobs count 조회가
   // error를 확인하지 않아 실패해도 "0건"으로 보였다 — "0건"과 "조회 실패"를
@@ -128,6 +152,7 @@ export default function AdminDashboard() {
       setLocalJobsError(jobs === null)
       setStats({
         koreaJobs: koreaRes.count ?? 0,
+        totalUsers: users ? users.length : 0,
         localUsers: users ? users.filter((u) => u.role === 'seeker').length : 0,
         localEmployers: users ? users.filter((u) => u.role === 'employer').length : 0,
         localJobs: jobs ? jobs.filter((j) => j.active && !j.admin_hidden).length : 0,
@@ -136,8 +161,8 @@ export default function AdminDashboard() {
         users
           ? users.slice(0, 10).map((u) => ({
               id: u.user_id,
-              name: u.display_name || '(Chưa đặt tên)',
-              role: u.role ?? 'seeker',
+              name: u.full_name || u.display_name || (u.details_unavailable ? '(조회 오류)' : '(미등록)'),
+              role: u.role ?? '',
               status: u.status,
               createdAt: u.joined_at,
             }))
@@ -268,18 +293,18 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Dashboard Quản trị</h1>
+          <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>{t('관리자 대시보드', 'Dashboard Quản trị')}</h1>
           <p style={{ fontSize: '13px', opacity: 0.7, margin: '4px 0 0' }}>Việc gần Bạn</p>
         </div>
-        <button onClick={handleLogout} style={{
+        <div style={{display:'flex',gap:12,alignItems:'center'}}><label htmlFor="admin-language">{t('화면 언어', 'Ngôn ngữ')}</label><select id="admin-language" aria-label={t('관리자 언어','Ngôn ngữ quản trị')} value={language} onChange={e=>changeLanguage(e.target.value as AdminLanguage)} style={{padding:'8px',borderRadius:8}}><option value="ko">한국어</option><option value="vi">Tiếng Việt</option></select><button onClick={handleLogout} style={{
           background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none',
           borderRadius: '8px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer'
-        }}>Đăng xuất</button>
+        }}>{t('로그아웃', 'Đăng xuất')}</button></div>
       </div>
 
       {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
-        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['locations', '📍 Vị trí'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
+        {([['dashboard', t('📊 전체 현황','📊 Tổng quan')], ['review', t('🛡️ 공고 검토','🛡️ Duyệt tin')], ['jobs', t('📋 공고 관리','📋 Quản lý tin')], ['users', t('👥 회원 관리','👥 Người dùng')], ['brands', t('🏷️ 기업 관리','🏷️ Thương hiệu')], ['reports', t('🚩 신고 관리','🚩 Báo cáo')], ['locations', t('📍 위치 관리','📍 Vị trí')], ['audit', t('🧾 작업 기록','🧾 Nhật ký')]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '14px 24px', fontSize: '14px', fontWeight: tab === t ? 700 : 400,
             color: tab === t ? '#e74c3c' : '#666', background: 'none', border: 'none',
@@ -294,23 +319,26 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         {/* ── DASHBOARD TAB ── */}
         {tab === 'dashboard' && (
           loading ? (
-            <div style={{ textAlign: 'center', padding: '48px', color: '#888' }}>Đang tải...</div>
+            <div style={{ textAlign: 'center', padding: '48px', color: '#888' }}>{t("불러오는 중...","Đang tải...")}</div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
-                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
-                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
+                  { label: t('전체 가입자','Tổng tài khoản'), value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9', destination: 'users' as Tab },
+                  { label: t('구직자','Người tìm việc'), value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad', destination: 'users' as Tab },
+                  { label: t('기업회원','Nhà tuyển dụng'), value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60', destination: 'users' as Tab },
+                  { label: t('베트남 공개 공고','Tin VN đang tuyển'), value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22', destination: 'jobs' as Tab },
+                  { label: t('한국 공고','Tin Hàn Quốc'), value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', destination: 'jobs' as Tab, route: '/viec-han-quoc' },
                 ].map(s => (
-                  <div key={s.label} style={{
+                  <button type="button" key={s.label} onClick={() => { if ('route' in s && s.route) { navigate(s.route); return } setSelectedMemberId(null); setTab(s.destination) }} aria-label={`${s.label} ${t('관리 화면 열기','Mở quản lý')}`} style={{
+                    textAlign: 'left', cursor: 'pointer', width: '100%', fontFamily: 'inherit', borderLeft: 0, borderRight: 0, borderBottom: 0,
                     background: '#fff', borderRadius: '16px', padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
                   }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{s.icon}</div>
                     <div style={{ fontSize: '32px', fontWeight: 800, color: s.color }}>{s.value}</div>
                     <div style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>{s.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
 
@@ -320,7 +348,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
               }}>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng tin tuyển dụng</p>
+                  <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>{t('전체 공개 공고', 'Tổng tin tuyển dụng')}</p>
                   {/* 2026-09-15/16 사용자 지시로 수정: 두 항목(local_jobs 기준
                       localJobs, korea_jobs 기준 koreaJobs) 중 하나라도 조회가
                       실패하면 그 값을 0으로 두고 그대로 합산해 "불완전한 합계"를
@@ -333,15 +361,15 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               </div>
 
               <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#1a1a1a' }}>Người dùng mới nhất</h2>
+                <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#1a1a1a' }}>{t('최근 가입자','Người dùng mới nhất')}</h2>
                 {usersError ? (
-                  <p style={{ color: '#c0392b', fontSize: '14px' }} role="alert">Không thể tải danh sách người dùng.</p>
+                  <p style={{ color: '#c0392b', fontSize: '14px' }} role="alert">{t('회원 목록을 불러올 수 없습니다.','Không thể tải danh sách người dùng.')}</p>
                 ) : recentAccounts.length === 0 ? (
-                  <p style={{ color: '#aaa', fontSize: '14px' }}>Chưa có người dùng nào.</p>
+                  <p style={{ color: '#aaa', fontSize: '14px' }}>{t('가입자가 없습니다.','Chưa có người dùng nào.')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {recentAccounts.map(acc => (
-                      <div key={acc.id} style={{
+                      <button type="button" key={acc.id} onClick={() => { setSelectedMemberId(acc.id); setTab('users') }} aria-label={`${acc.name} ${t('회원 관리 열기','Mở quản lý tài khoản')}`} style={{ textAlign: 'left', width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '12px 16px', background: '#f9f9f9', borderRadius: '10px'
                       }}>
@@ -354,7 +382,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                           <div>
                             <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{acc.name}</p>
                             <p style={{ margin: 0, fontSize: '12px', color: acc.status === 'suspended' ? '#c0392b' : '#888' }}>
-                              {acc.status === 'suspended' ? 'Đã tạm khóa' : 'Đang hoạt động'}
+                              {acc.status === 'suspended' ? t('정지','Đã tạm khóa') : t('활성','Đang hoạt động')}
                             </p>
                           </div>
                         </div>
@@ -363,12 +391,12 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                             fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px',
                             background: acc.role === 'employer' ? '#e8f5e9' : '#e3f2fd',
                             color: acc.role === 'employer' ? '#27ae60' : '#2980b9'
-                          }}>{acc.role === 'employer' ? 'NTD' : 'Tìm việc'}</span>
+                          }}>{acc.role === 'employer' ? t('기업회원','Nhà tuyển dụng') : t('구직자','Người tìm việc')}</span>
                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>
-                            {new Date(acc.createdAt).toLocaleDateString('vi-VN')}
+                            {new Date(acc.createdAt).toLocaleDateString(ko ? 'ko-KR' : 'vi-VN')}
                           </p>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -378,16 +406,18 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         )}
 
         {/* ── POST JOB TAB ── */}
+        {tab === 'review' && <AdminJobReview language={language} />}
+
         {tab === 'jobs' && (
           <div>
-            <AdminJobs key={jobsRevision} />
+            <AdminJobs key={jobsRevision} language={language} />
             {/* Step 1: Paste */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
-                📋 Bước 1 — Nhập bản nháp hoặc bài đăng
+                {t('📋 1단계 — 초안·공고 입력','📋 Bước 1 — Nhập bản nháp hoặc bài đăng')}
               </h2>
               <p style={{ fontSize: '13px', color: '#888', margin: '0 0 16px' }}>
-                Dán bản nháp JSON đã chuẩn bị rồi chọn Nhập bản nháp. Bạn cũng có thể điền trực tiếp ở bước 2.
+                {t('준비한 JSON 초안을 붙여넣거나 2단계에서 직접 입력할 수 있습니다.','Dán bản nháp JSON đã chuẩn bị rồi chọn Nhập bản nháp. Bạn cũng có thể điền trực tiếp ở bước 2.')}
               </p>
               <textarea
                 value={rawText}
@@ -399,7 +429,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit'
                 }}
               />
-              <button type="button" onClick={importDraft} disabled={saving || !rawText.trim()} style={{ marginTop: '12px', marginRight: '12px', padding: '12px 20px' }}>Nhập bản nháp JSON</button>
+              <button type="button" onClick={importDraft} disabled={saving || !rawText.trim()} style={{ marginTop: '12px', marginRight: '12px', padding: '12px 20px' }}>{t("JSON 초안 불러오기","Nhập bản nháp JSON")}</button>
               <button
                 onClick={handleParse}
                 disabled={parsing || !rawText.trim()}
@@ -410,17 +440,17 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   fontSize: '14px', fontWeight: 700, cursor: parsing || !rawText.trim() ? 'not-allowed' : 'pointer'
                 }}
               >
-                {parsing ? '⏳ Đang phân tích...' : '✨ Phân tích tự động'}
+                {parsing ? t('⏳ 분석 중...','⏳ Đang phân tích...') : t('✨ 자동 분석','✨ Phân tích tự động')}
               </button>
             </div>
 
             {/* Step 2: Form */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
-                ✏️ Bước 2 — Kiểm tra & lưu tin
+                {t('✏️ 2단계 — 공고 검토·저장','✏️ Bước 2 — Kiểm tra & lưu tin')}
               </h2>
               <p style={{ fontSize: '13px', color: '#888', margin: '0 0 20px' }}>
-                Kiểm tra thông tin, xem trước rồi chọn Đăng công khai. Chỉ tài khoản quản trị của bạn thực hiện việc đăng.
+                {t('정보 확인과 미리보기를 거친 뒤 공개 여부를 결정하세요.','Kiểm tra thông tin, xem trước rồi chọn Đăng công khai. Chỉ tài khoản quản trị của bạn thực hiện việc đăng.')}
               </p>
 
               {parseError && (
@@ -431,7 +461,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
               {savedJob && (
                 <div style={{ background: '#eafaf1', border: '1px solid #27ae60', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '13px', color: '#1e8449' }}>
-                  {savedJob.isPublic ? 'Đã lưu và bật công khai' : 'Đã lưu nhưng chưa công khai'} — #{savedJob.id}.
+                  {savedJob.isPublic ? t('저장 및 공개 완료','Đã lưu và bật công khai') : t('비공개 저장 완료','Đã lưu nhưng chưa công khai')} — #{savedJob.id}.
                   {savedJob.isPublic
                     ? <a href={savedJob.href} target="_blank" rel="noreferrer"> Xem tin trên ứng dụng</a>
                     : <span> Kiểm tra trạng thái trong danh sách quản lý ở phía trên.</span>}
@@ -441,92 +471,92 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 {/* Title */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Tiêu đề *</label>
+                  <label style={labelStyle}>{t("공고 제목 *","Tiêu đề *")}</label>
                   <input value={jobForm.title} onChange={e => setJobForm(f => ({ ...f, title: e.target.value }))} style={inputStyle} placeholder="VD: Tuyển nhân viên pha chế" />
                 </div>
                 {/* Company */}
                 <div>
-                  <label style={labelStyle}>Công ty / Cơ sở *</label>
+                  <label style={labelStyle}>{t("회사·사업장 *","Công ty / Cơ sở *")}</label>
                   <input value={jobForm.company} onChange={e => setJobForm(f => ({ ...f, company: e.target.value }))} style={inputStyle} placeholder="Tên công ty" />
                 </div>
                 {/* Category */}
                 <div>
-                  <label style={labelStyle}>Ngành nghề</label>
+                  <label style={labelStyle}>{t("업종","Ngành nghề")}</label>
                   <select value={jobForm.category} onChange={e => setJobForm(f => ({ ...f, category: e.target.value as JobCategory }))} style={inputStyle}>
                     {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
                 {/* Salary */}
                 <div>
-                  <label style={labelStyle}>Mức lương</label>
+                  <label style={labelStyle}>{t("급여","Mức lương")}</label>
                   <input value={jobForm.salary} onChange={e => setJobForm(f => ({ ...f, salary: e.target.value }))} style={inputStyle} placeholder="VD: 5-7 triệu/tháng" />
                 </div>
                 {/* Phone */}
                 <div>
-                  <label style={labelStyle}>Số điện thoại</label>
+                  <label style={labelStyle}>{t("전화번호","Số điện thoại")}</label>
                   <input value={jobForm.employerPhone} onChange={e => setJobForm(f => ({ ...f, employerPhone: e.target.value }))} style={inputStyle} placeholder="0912 345 678" />
                 </div>
                 {/* Location */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Địa điểm</label>
+                  <label style={labelStyle}>{t("근무 지역","Địa điểm")}</label>
                   <input value={jobForm.location} onChange={e => setJobForm(f => ({ ...f, location: e.target.value }))} style={inputStyle} placeholder="VD: Hà Nội — Cầu Giấy" />
                 </div>
                 {/* Hours */}
                 <div>
-                  <label style={labelStyle}>Giờ làm việc</label>
+                  <label style={labelStyle}>{t("근무 시간","Giờ làm việc")}</label>
                   <input value={jobForm.hours || ''} onChange={e => setJobForm(f => ({ ...f, hours: e.target.value }))} style={inputStyle} placeholder="VD: Ca sáng 8:00–12:00" />
                 </div>
                 {/* Deadline */}
                 <div>
-                  <label style={labelStyle}>Hạn nộp hồ sơ</label>
+                  <label style={labelStyle}>{t("지원 마감일","Hạn nộp hồ sơ")}</label>
                   <input type="date" value={jobForm.applicationDeadline} onChange={e => setJobForm(f => ({ ...f, applicationDeadline: e.target.value }))} style={inputStyle} />
                 </div>
                 {/* Work period */}
                 <div>
-                  <label style={labelStyle}>Thời hạn hợp đồng</label>
+                  <label style={labelStyle}>{t("계약 기간","Thời hạn hợp đồng")}</label>
                   <input value={jobForm.workPeriod || ''} onChange={e => setJobForm(f => ({ ...f, workPeriod: e.target.value }))} style={inputStyle} placeholder="VD: 6 tháng - 1 năm" />
                 </div>
                 {/* Work days */}
                 <div>
-                  <label style={labelStyle}>Ngày làm việc</label>
+                  <label style={labelStyle}>{t("근무 요일","Ngày làm việc")}</label>
                   <input value={jobForm.workDays || ''} onChange={e => setJobForm(f => ({ ...f, workDays: e.target.value }))} style={inputStyle} placeholder="VD: Thứ 2 - Thứ 6" />
                 </div>
                 {/* Num hires */}
                 <div>
-                  <label style={labelStyle}>Số lượng tuyển</label>
+                  <label style={labelStyle}>{t("채용 인원","Số lượng tuyển")}</label>
                   <input value={jobForm.numHires || ''} onChange={e => setJobForm(f => ({ ...f, numHires: e.target.value }))} style={inputStyle} placeholder="VD: 5 người" />
                 </div>
                 {/* Education */}
                 <div>
-                  <label style={labelStyle}>Trình độ học vấn</label>
+                  <label style={labelStyle}>{t("학력","Trình độ học vấn")}</label>
                   <input value={jobForm.education || ''} onChange={e => setJobForm(f => ({ ...f, education: e.target.value }))} style={inputStyle} placeholder="VD: Không yêu cầu" />
                 </div>
                 {/* Preference */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Ưu tiên</label>
+                  <label style={labelStyle}>{t("우대 사항","Ưu tiên")}</label>
                   <input value={jobForm.preference || ''} onChange={e => setJobForm(f => ({ ...f, preference: e.target.value }))} style={inputStyle} placeholder="VD: Ưu tiên ở gần, sinh viên" />
                 </div>
                 {/* Trust info */}
                 <div>
-                  <label style={labelStyle}>Năm thành lập công ty</label>
+                  <label style={labelStyle}>{t("설립 연도","Năm thành lập công ty")}</label>
                   <input type="number" value={jobForm.companyFoundedYear ?? ''} onChange={e => setJobForm(f => ({ ...f, companyFoundedYear: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle} placeholder="VD: 2015" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Số lần đã tuyển</label>
+                  <label style={labelStyle}>{t("과거 채용 횟수","Số lần đã tuyển")}</label>
                   <input type="number" value={jobForm.hireCount ?? ''} onChange={e => setJobForm(f => ({ ...f, hireCount: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle} placeholder="VD: 12" />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
                   <input type="checkbox" id="companyVerified" checked={!!jobForm.companyVerified} onChange={e => setJobForm(f => ({ ...f, companyVerified: e.target.checked }))} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                  <label htmlFor="companyVerified" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>✔ Đã xác minh công ty</label>
+                  <label htmlFor="companyVerified" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>{t("✔ 기업 확인 완료","✔ Đã xác minh công ty")}</label>
                 </div>
                 {/* Description */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Mô tả công việc</label>
+                  <label style={labelStyle}>{t("업무 설명","Mô tả công việc")}</label>
                   <textarea value={jobForm.description} onChange={e => setJobForm(f => ({ ...f, description: e.target.value }))} style={{ ...inputStyle, height: '120px', resize: 'vertical' }} placeholder="Mô tả chi tiết công việc..." />
                 </div>
                 {/* Image Upload */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Ảnh công việc</label>
+                  <label style={labelStyle}>{t("공고 이미지","Ảnh công việc")}</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1976d2', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                       📁 파일 선택
@@ -556,32 +586,32 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 </div>
                 {/* Source */}
                 <div>
-                  <label style={labelStyle}>Nguồn tin</label>
+                  <label style={labelStyle}>{t("공고 출처","Nguồn tin")}</label>
                   <input value={source} onChange={e => setSource(e.target.value)} style={inputStyle} placeholder="VD: Facebook, Zalo..." />
                 </div>
                 {/* Urgent */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
                   <input type="checkbox" id="urgent" checked={!!jobForm.urgent} onChange={e => setJobForm(f => ({ ...f, urgent: e.target.checked }))} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                  <label htmlFor="urgent" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>🔴 Tuyển gấp</label>
+                  <label htmlFor="urgent" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>{t("🔴 긴급 채용","🔴 Tuyển gấp")}</label>
                 </div>
               </div>
 
               <button type="button" disabled={saving} onClick={() => {
                 if (!jobForm.title.trim() || !jobForm.company.trim()) { setParseError('Vui lòng điền tiêu đề và công ty.'); return }
                 setParseError(''); setPreviewReady(true)
-              }} style={{ marginTop: '20px', padding: '12px 20px' }}>Xem trước tin</button>
-              {previewReady && <section aria-label="Xem trước tin tuyển dụng" style={{ marginTop: '16px', padding: '16px', border: '1px solid #ddd', borderRadius: '10px' }}>
+              }} style={{ marginTop: '20px', padding: '12px 20px' }}>{t("공고 미리보기","Xem trước tin")}</button>
+              {previewReady && <section aria-label={t('채용공고 미리보기','Xem trước tin tuyển dụng')} style={{ marginTop: '16px', padding: '16px', border: '1px solid #ddd', borderRadius: '10px' }}>
                 <h3>{jobForm.title}</h3><p>{jobForm.company}</p>
                 <dl>
-                  <dt>Ngành nghề</dt><dd>{CATEGORY_NAME_LABELS[jobForm.category]}</dd>
-                  <dt>Tiền công</dt><dd>{jobForm.salary || 'Chưa cung cấp'}</dd>
-                  <dt>Địa điểm</dt><dd>{jobForm.location || 'Chưa cung cấp'}</dd>
-                  <dt>Giờ làm</dt><dd>{jobForm.hours || 'Chưa cung cấp'}</dd>
-                  <dt>Liên hệ</dt><dd>{jobForm.employerPhone || 'Chưa cung cấp'}</dd>
+                  <dt>{t("업종","Ngành nghề")}</dt><dd>{CATEGORY_NAME_LABELS[jobForm.category]}</dd>
+                  <dt>{t("급여","Tiền công")}</dt><dd>{jobForm.salary || 'Chưa cung cấp'}</dd>
+                  <dt>{t("근무 지역","Địa điểm")}</dt><dd>{jobForm.location || 'Chưa cung cấp'}</dd>
+                  <dt>{t("근무 시간","Giờ làm")}</dt><dd>{jobForm.hours || 'Chưa cung cấp'}</dd>
+                  <dt>{t("연락처","Liên hệ")}</dt><dd>{jobForm.employerPhone || 'Chưa cung cấp'}</dd>
                 </dl>
                 <p style={{ whiteSpace: 'pre-wrap' }}>{jobForm.description}</p>
-                {jobForm.imageUrl && <img src={jobForm.imageUrl} alt="Ảnh công việc" style={{ maxWidth: '100%', maxHeight: '200px' }} />}
-                <p>Đăng công khai sẽ đưa tin vào danh sách việc làm. Vị trí chưa xác minh có thể chưa xuất hiện trên bản đồ.</p>
+                {jobForm.imageUrl && <img src={jobForm.imageUrl} alt={t('공고 이미지','Ảnh công việc')} style={{ maxWidth: '100%', maxHeight: '200px' }} />}
+                <p>{t("공개 등록 시 채용 목록에 표시됩니다. 위치가 검증되지 않은 공고는 지도에 표시되지 않을 수 있습니다.","Đăng công khai sẽ đưa tin vào danh sách việc làm. Vị trí chưa xác minh có thể chưa xuất hiện trên bản đồ.")}</p>
               </section>}
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
@@ -596,17 +626,17 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 <button onClick={() => { setJobForm(EMPTY_JOB); setRawText(''); setParseError(''); setSource('Facebook') }} style={{
                   padding: '14px 20px', background: '#f0f0f0', color: '#666',
                   border: 'none', borderRadius: '12px', fontSize: '14px', cursor: 'pointer'
-                }}>🗑️ Xóa</button>
+                }}>{t("🗑️ 삭제","🗑️ Xóa")}</button>
               </div>
             </div>
           </div>
         )}
 
-        {tab === 'users' && <AdminUsers />}
-        {tab === 'brands' && <AdminBrands />}
-        {tab === 'reports' && <AdminReports />}
-        {tab === 'locations' && <AdminLocations />}
-        {tab === 'audit' && <AdminAuditLogs />}
+        {tab === 'users' && <AdminUsers language={language} selectedMemberId={selectedMemberId} />}
+        {tab === 'brands' && <AdminBrands language={language} />}
+        {tab === 'reports' && <AdminReports language={language} />}
+        {tab === 'locations' && <AdminLocations language={language} />}
+        {tab === 'audit' && <AdminAuditLogs language={language} />}
       </div>
     </div>
   )

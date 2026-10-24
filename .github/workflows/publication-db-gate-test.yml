@@ -1,0 +1,46 @@
+name: 공고 공개 권한 DB 회귀 검사
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/publication-db-gate-test.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+permissions:
+  contents: read
+jobs:
+  publication-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: testing-only
+          POSTGRES_DB: gate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gate_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: testing-only
+      PGDATABASE: gate_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fresh isolated PostgreSQL trigger proof
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f supabase/tests/publication_gate_disposable_e2e.sql
+      - name: Admin review security and conflict proof (separate database)
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE admin_gate_test'
+          PGDATABASE=admin_gate_test psql -X -v ON_ERROR_STOP=1 -f supabase/tests/admin_review_disposable_e2e.sql

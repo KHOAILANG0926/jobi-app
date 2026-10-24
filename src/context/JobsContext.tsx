@@ -10,7 +10,7 @@ import {
 import { assertJobPublishable } from '../lib/jobPostingPolicy.mjs'
 import { checkedLocalJobUpdate, checkedPublicJobInsert } from '../lib/jobPolicyWrite'
 import { ensureJobFields } from '../lib/jobUtils'
-import { rowToJob } from '../lib/jobRows'
+import { rowToJob, rowToWorkLocation } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
 import { fetchJobsData } from '../lib/fetchJobsData'
 import type { Job } from '../types/job'
@@ -57,6 +57,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
 
   useEffect(() => {
     if (hasInitialJobs) return
+    if (import.meta.env.VITE_JOB_REVIEW_ACCEPTANCE === 'true' && new URLSearchParams(window.location.search).get('reviewFixture') === '1') return
     fetchJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchJobs])
@@ -71,6 +72,19 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       if (active) setAcceptanceJobs(previewMapAcceptanceJobs)
     })
     return () => { active = false }
+  }, [])
+
+  // CI-only isolated review of a HIDDEN job. Never enabled in production builds.
+  // The CI browser injects the current DB fixture through addInitScript before React mounts.
+  useEffect(() => {
+    if (import.meta.env.VITE_JOB_REVIEW_ACCEPTANCE !== 'true') return
+    if (new URLSearchParams(window.location.search).get('reviewFixture') !== '1') return
+    const fixture = (window as Window & { __JOB_REVIEW_FIXTURE__?: { job?: Record<string, unknown>; locations?: Record<string, unknown>[] } }).__JOB_REVIEW_FIXTURE__
+    const reviewJob = fixture?.job
+    if (!reviewJob || typeof reviewJob.id !== 'number') return
+    const locations = (fixture?.locations ?? []).map(rowToWorkLocation)
+    setJobs((prev) => [rowToJob({ ...reviewJob, active: true, admin_hidden: false }, locations), ...prev.filter((j) => j.id !== `sb-${reviewJob.id}`)])
+    setLoading(false)
   }, [])
 
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])

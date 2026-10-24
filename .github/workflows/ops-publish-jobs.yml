@@ -24,6 +24,10 @@ jobs:
           echo "$IDS" | grep -Eq '^[0-9]+(,[0-9]+)*$' || { echo "::error::ids 형식 오류"; exit 1; }
       - name: PostgreSQL 클라이언트 설치
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 공고별 최신 콘텐츠 검증증명 필수 확인
+        run: |
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -Atc "select id from public.local_jobs j where j.id = any(string_to_array('$IDS', ',')::bigint[]) and not exists (select 1 from job_publication_private.approvals a where a.job_id = j.id and a.content_hash = job_publication_private.content_fingerprint(j) and a.evidence->>'result' = 'pass')" | tee missing-approval.txt
+          test ! -s missing-approval.txt || { echo '::error::공고별 원문·실제 화면 검증 승인 누락 — 공개 금지'; exit 1; }
       - name: 숨김 해제 (한 트랜잭션)
         run: |
           psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -c "update public.local_jobs set admin_hidden = false where id = any(string_to_array('$IDS', ',')::bigint[]) returning id, active, admin_hidden"

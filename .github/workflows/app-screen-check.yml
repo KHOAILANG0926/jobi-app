@@ -54,6 +54,12 @@ jobs:
             echo "도면 등록 전(결정 0005 승인 대기) — 대조 생략"
           fi
 
+      - name: 비공개 공고 전용 브라우저 수락 시험 (공개 DB에 등록하지 않음)
+        run: |
+          VITE_JOB_REVIEW_ACCEPTANCE=true npm run build
+          BASE_URL=http://localhost:4173 node scripts/ops/review-hidden-job.mjs scripts/ops/fixtures/job-review-acceptance.json
+          rm -f scripts/ops/fixtures/job-review-acceptance.json.passed
+
       - name: 지도 요약 데모 실제 공고 검사
         if: startsWith(github.head_ref, 'demo/map-summary')
         run: BASE_URL=http://localhost:4173 node scripts/ops/map-summary-check.mjs
