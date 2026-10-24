@@ -32,7 +32,7 @@ try {
         if (base[metric] === undefined || comparison[metric] === undefined) continue
         if (typeof base[metric] === 'number' && typeof comparison[metric] === 'number') {
           if (Math.abs(base[metric] - comparison[metric]) > 2) findings.push(id + ending + ': ' + metric + ' diverges from CTY KDA (' + comparison[metric] + ' vs ' + base[metric] + ')')
-        } else if (base[metric] !== comparison[metric]) findings.push(id + ending + ': ' + metric + ' differs from CTY KDA')
+        } else if (base[metric] !== comparison[metric]) findings.push(id + ending + ': ' + metric + ' differs from CTY KDA (' + comparison[metric] + ' vs ' + base[metric] + ')')
       }
     }
   }
