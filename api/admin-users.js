@@ -43,8 +43,55 @@ function runtimeDependencies(token) {
   }
 }
 
+export function toAdminMemberDetails(u, profile) {
+  // Signup stores the required name in auth.users.raw_user_meta_data.name.
+  // Older and OAuth accounts may instead have a public profile or full_name metadata.
+  const name = profile?.full_name?.trim() || u.user_metadata?.name?.trim() || u.user_metadata?.full_name?.trim() || null
+  return {
+    user_id: u.id,
+    full_name: name,
+    email: u.email || profile?.email?.trim() || null,
+    phone: u.phone || profile?.phone?.trim() || null,
+    city: profile?.city || null,
+    last_sign_in_at: u.last_sign_in_at || null,
+  }
+}
+
 export function createAdminUsersHandler(injectedDependencies) {
   return async function adminUsersHandler(req, res) {
+    if (req.method === 'GET') {
+      const token = bearerToken(req)
+      if (!token) return res.status(401).json({ error: 'Authentication required' })
+      if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(503).json({ error: 'Admin service unavailable' })
+      const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+      const { data: { user }, error: authError } = await client.auth.getUser(token)
+      if (authError || !user) return res.status(401).json({ error: 'Invalid session' })
+      if (user.app_metadata?.role !== 'admin') return res.status(403).json({ error: 'Admin access required' })
+      try {
+        const users = []
+        for (let page = 1; page <= 100; page++) {
+          const { data, error } = await client.auth.admin.listUsers({ page, perPage: 100 })
+          if (error) throw error
+          users.push(...data.users)
+          if (data.users.length < 100) break
+        }
+        const accounts = users.filter(u => u.app_metadata?.role !== 'admin')
+        const profiles = new Map()
+        for (let i = 0; i < accounts.length; i += 100) {
+          const { data, error } = await client.from('user_profiles')
+            .select('user_id,full_name,email,phone,city')
+            .in('user_id', accounts.slice(i, i+100).map(u => u.id))
+          if (error) throw error
+          for (const profile of data ?? []) profiles.set(profile.user_id, profile)
+        }
+        res.setHeader('Cache-Control', 'private, no-store')
+        return res.status(200).json({ users: accounts.map(u => toAdminMemberDetails(u, profiles.get(u.id))) })
+      } catch {
+        return res.status(500).json({ error: 'Failed to retrieve administrator account details' })
+      }
+    }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
     const token = bearerToken(req)
