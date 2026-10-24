@@ -73,6 +73,17 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
     return () => { active = false }
   }, [])
 
+  // CI-only isolated review of a HIDDEN job. Never enabled in production builds.
+  // The CI browser injects the current DB fixture through addInitScript before React mounts.
+  useEffect(() => {
+    if (import.meta.env.VITE_JOB_REVIEW_ACCEPTANCE !== 'true') return
+    if (new URLSearchParams(window.location.search).get('reviewFixture') !== '1') return
+    const fixture = (window as Window & { __JOB_REVIEW_FIXTURE__?: Record<string, unknown> }).__JOB_REVIEW_FIXTURE__
+    if (!fixture || typeof fixture.id !== 'number') return
+    setJobs((prev) => [rowToJob({ ...fixture, active: true, admin_hidden: false }), ...prev.filter((j) => j.id !== `sb-${fixture.id}`)])
+    setLoading(false)
+  }, [])
+
   const refreshJobs = useCallback(async () => { await fetchJobs() }, [fetchJobs])
 
   const addPostedJob = useCallback(async (draft: Omit<Job, 'id' | 'postedAt'> & { guestManageToken?: string }) => {
