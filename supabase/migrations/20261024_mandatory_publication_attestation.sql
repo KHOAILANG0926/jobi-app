@@ -19,7 +19,7 @@ create table if not exists job_publication_private.approvals (
 revoke all on job_publication_private.approvals from public, anon, authenticated, service_role;
 
 create or replace function job_publication_private.content_fingerprint(j public.local_jobs)
-returns text language sql stable as $
+returns text language sql stable as $job_fp$
   select md5(jsonb_build_object(
     'title', j.title, 'company', j.company, 'description', j.description,
     'salary', j.salary, 'location', j.location, 'hours', j.hours,
@@ -42,7 +42,7 @@ returns text language sql stable as $
       'industrial_park',w.industrial_park,'shuttle_route',w.shuttle_route) order by w.sort_order,w.id)
       from public.job_work_locations w where w.job_id=j.id),'[]'::jsonb)
   )::text);
-$$;
+$job_fp$;
 revoke all on function job_publication_private.content_fingerprint(public.local_jobs) from public, anon, authenticated;
 
 create or replace function job_publication_private.guard_publication()
