@@ -870,10 +870,10 @@ export function JobDetail() {
                         markers={displayMapPoints.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label }))}
                         directions={mapDirections}
                       />
-                      <p className="jd2-map-note">
+                      <p className={verifiedMapPoints.length ? "jd2-map-note" : "jd2-map-area-note"}>
                         {verifiedMapPoints.length > 1
                           ? `Công việc này có ${verifiedMapPoints.length} địa điểm làm việc đã xác minh.`
-                          : 'Vị trí tham khảo trên bản đồ; chỉ vị trí đã xác minh mới là địa điểm làm việc chính xác.'}
+                          : verifiedMapPoints.length === 1 ? 'Vị trí nơi làm việc đã được xác minh trên bản đồ.' : 'Vị trí tham khảo — chưa xác minh địa điểm làm việc chính xác.'}
                       </p>
                     </>
                   )}
