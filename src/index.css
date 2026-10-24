@@ -12233,6 +12233,11 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-location-pending-compact .jd2-map-links { margin: 0; }
 .jd2-location-pending-compact .jd2-map-dir-note { margin: 0; color: #64748b; font-size: .8rem; }
 
+/* Desktop detail: space below the tabs must match the larger gap before the next section. */
+@media (min-width: 761px) {
+  .jd2-tabs--sticky + .jd2-grid--detail-redesign { margin-top: 2.75rem; }
+}
+
 /* Shared vertical rhythm between major detail sections, including the grid break
    after working conditions. Keeps all major sections at the same 2.25rem interval. */
 .jd2-grid--detail-redesign { row-gap: 2.25rem; }
