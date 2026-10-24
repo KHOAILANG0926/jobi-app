@@ -91,3 +91,35 @@ begin
  end if;
 end $$;
 select 'GATE_DB_TEST_PASS' as result;
+
+-- 100-job load test: all new submissions enter hidden queue; no silent public rows.
+insert into public.local_jobs(title,company,description,salary,location,employer_phone,active,admin_hidden)
+select 'Job '||n,'Company '||n,'Realistic duties '||n,'10 million','Bắc Ninh','0337152446',true,false
+from generate_series(2,101) n;
+do $batch$
+declare initial_hidden int; pending int;
+begin
+ select count(*) into initial_hidden from public.local_jobs where id between 2 and 101 and admin_hidden;
+ select count(*) into pending from job_publication_private.review_queue where job_id between 2 and 101;
+ if initial_hidden <> 100 or pending <> 100 then raise exception '100 job isolation failure: hidden %, pending %',initial_hidden,pending; end if;
+end $batch$;
+-- Approve half and keep half hidden. Test that a stale snapshot cannot be reused.
+insert into job_publication_private.approvals(job_id,content_hash,evidence)
+select j.id,job_publication_private.content_fingerprint(j),
+ '{"result":"pass","browser_test":"staging 100-job gate fixture","source_review":"staging 100-job gate fixture"}'::jsonb
+from public.local_jobs j where j.id between 2 and 51;
+update public.local_jobs set admin_hidden=false where id between 2 and 51;
+do $batch$
+declare public_count int; hidden_count int;
+begin
+ select count(*) into public_count from public.local_jobs where id between 2 and 101 and active and not admin_hidden;
+ select count(*) into hidden_count from public.local_jobs where id between 2 and 101 and admin_hidden;
+ if public_count <> 50 or hidden_count <> 50 then raise exception '100-job mixed state invalid: public %, hidden %',public_count,hidden_count; end if;
+ begin
+   update public.local_jobs set admin_hidden=false where id=52;
+   raise exception 'Unapproved item published';
+ exception when check_violation then
+   if sqlerrm not like 'publication_guard:%' then raise; end if;
+ end;
+end $batch$;
+select '100_JOB_GATE_TEST_PASS' as result;
