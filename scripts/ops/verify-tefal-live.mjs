@@ -15,8 +15,12 @@ try{
  const res=await page.goto(base+'/viec-lam/sb-4878',{waitUntil:'domcontentloaded',timeout:45000})
  await page.waitForTimeout(4000)
  const body=await page.locator('body').innerText()
- const googleHref = await page.locator('a[href*="google.com/maps/dir"]').evaluateAll(links=>links.map(a=>a.getAttribute('href')).find(v=>v?.includes('33%20L%C3%BD%20Th%C3%A1i%20T%E1%BB%95')) || null)
+ const vietMapContainers=await page.locator('.jd2-vmap').count()
+ const vietMapCanvases=await page.locator('.jd2-vmap__canvas').count()
+ const renderedMarkers=await page.locator('.maplibregl-marker').count()
+ console.log('DETAIL_VIETMAP_CONTAINERS='+vietMapContainers+' CANVAS_CONTAINERS='+vietMapCanvases+' RENDERED_MARKERS='+renderedMarkers)
+  const googleHref = await page.locator('a[href*="google.com/maps/dir"]').evaluateAll(links=>links.map(a=>a.getAttribute('href')).find(v=>v?.includes('33%20L%C3%BD%20Th%C3%A1i%20T%E1%BB%95')) || null)
  console.log('GOOGLE_ADDRESS_LINK='+Boolean(googleHref))
  console.log('DETAIL_HTTP='+res.status()+' LOCATION='+page.url()+' BODY='+body.slice(0,250)+' TITLE='+body.includes('TEFAL')+' PHONE='+body.includes('0337152446')+' MAP='+((await page.locator('.jd2-map-tap, canvas, [class*=map]').count())>0))
- if(res.status()!==200||!body.includes('TEFAL')||!googleHref)process.exitCode=1
+ if(res.status()!==200||!body.includes('TEFAL')||!googleHref||!vietMapContainers||!vietMapCanvases)process.exitCode=1
 }finally{await browser.close()}
