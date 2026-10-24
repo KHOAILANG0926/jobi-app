@@ -57,6 +57,7 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
 
   useEffect(() => {
     if (hasInitialJobs) return
+    if (import.meta.env.VITE_JOB_REVIEW_ACCEPTANCE === 'true' && new URLSearchParams(window.location.search).get('reviewFixture') === '1') return
     fetchJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchJobs])
