@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { checkCompletion } from './check-pr-ready.mjs'
+import { evaluateFiles } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
 - 요청: 중복 작업 방지
@@ -32,3 +33,10 @@ assert.ok(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-a
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
 assert.ok(checkCompletion(valid.replace('1234567890123456789012345678901234567890', 'pending')).length > 0)
 console.log('PR completion guard: 7/7 passed')
+
+assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STATUS edits denied')
+assert.ok(evaluateFiles(['supabase/migrations/20261024.sql']).length > 0, 'DB mutation denied')
+assert.ok(evaluateFiles(['src/lib/jobDetailSections.ts']).length > 0, 'unverified detail categorization denied')
+assert.deepEqual(evaluateFiles(['src/lib/jobDetailSections.ts', 'src/lib/jobDetailSections.test.ts']), [], 'covered detail classification allowed')
+assert.ok(evaluateFiles(['src/pages/JobDetail.tsx']).length > 0, 'detail UI requires regression proof')
+console.log('Repository policy negative tests: 5/5 passed')
