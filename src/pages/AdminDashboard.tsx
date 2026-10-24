@@ -321,7 +321,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <div style={{ textAlign: 'center', padding: '48px', color: '#888' }}>Đang tải...</div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
                   { label: t('전체 가입자','Tổng tài khoản'), value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9' },
                   { label: t('구직자','Người tìm việc'), value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad' },
@@ -346,7 +346,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
               }}>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng tin tuyển dụng</p>
+                  <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>{t('전체 공개 공고', 'Tổng tin tuyển dụng')}</p>
                   {/* 2026-09-15/16 사용자 지시로 수정: 두 항목(local_jobs 기준
                       localJobs, korea_jobs 기준 koreaJobs) 중 하나라도 조회가
                       실패하면 그 값을 0으로 두고 그대로 합산해 "불완전한 합계"를
@@ -359,11 +359,11 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               </div>
 
               <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#1a1a1a' }}>Người dùng mới nhất</h2>
+                <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#1a1a1a' }}>{t('최근 가입자','Người dùng mới nhất')}</h2>
                 {usersError ? (
-                  <p style={{ color: '#c0392b', fontSize: '14px' }} role="alert">Không thể tải danh sách người dùng.</p>
+                  <p style={{ color: '#c0392b', fontSize: '14px' }} role="alert">{t('회원 목록을 불러올 수 없습니다.','Không thể tải danh sách người dùng.')}</p>
                 ) : recentAccounts.length === 0 ? (
-                  <p style={{ color: '#aaa', fontSize: '14px' }}>Chưa có người dùng nào.</p>
+                  <p style={{ color: '#aaa', fontSize: '14px' }}>{t('가입자가 없습니다.','Chưa có người dùng nào.')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {recentAccounts.map(acc => (
@@ -380,7 +380,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                           <div>
                             <p style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>{acc.name}</p>
                             <p style={{ margin: 0, fontSize: '12px', color: acc.status === 'suspended' ? '#c0392b' : '#888' }}>
-                              {acc.status === 'suspended' ? 'Đã tạm khóa' : 'Đang hoạt động'}
+                              {acc.status === 'suspended' ? t('정지','Đã tạm khóa') : t('활성','Đang hoạt động')}
                             </p>
                           </div>
                         </div>
@@ -389,7 +389,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                             fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px',
                             background: acc.role === 'employer' ? '#e8f5e9' : '#e3f2fd',
                             color: acc.role === 'employer' ? '#27ae60' : '#2980b9'
-                          }}>{acc.role === 'employer' ? 'NTD' : 'Tìm việc'}</span>
+                          }}>{acc.role === 'employer' ? t('기업회원','Nhà tuyển dụng') : t('구직자','Người tìm việc')}</span>
                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>
                             {new Date(acc.createdAt).toLocaleDateString('vi-VN')}
                           </p>
