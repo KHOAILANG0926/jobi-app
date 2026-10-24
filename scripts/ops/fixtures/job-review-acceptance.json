@@ -1,0 +1,28 @@
+{
+  "fingerprint": "0123456789abcdef0123456789abcdef",
+  "job": {
+    "id": 987654321,
+    "title": "TEFAL TUYỂN PG BÁN HÀNG GIA DỤNG",
+    "company": "Groupe SEB",
+    "category": "quan_ly_ban_hang",
+    "salary": "8 - 18 triệu/tháng",
+    "location": "33 Lý Thái Tổ, TP. Bắc Ninh",
+    "hours": "Ca xoay 8 tiếng",
+    "work_days": "Nghỉ 1 ngày/tuần",
+    "work_period": "Toàn thời gian",
+    "employer_phone": "0337152446",
+    "active": false,
+    "admin_hidden": true,
+    "source": "muaban",
+    "origin": "crawler",
+    "occupation_code": "52230",
+    "occupation_evidence": "Tư vấn, giới thiệu và bán các sản phẩm gia dụng",
+    "education": "Tốt nghiệp THCS trở lên (9/12)",
+    "preference": "Ưu tiên kinh nghiệm bán hàng trên 6 tháng",
+    "age_requirement": "22 - 35 tuổi",
+    "gender_requirement": "Không yêu cầu",
+    "description": "Mô tả công việc:\n- Tư vấn, giới thiệu và bán các sản phẩm gia dụng TEFAL cho khách hàng.\n- Trưng bày, chăm sóc quầy kệ và báo cáo doanh số.",
+    "source_text": "Groupe SEB tuyển PG TEFAL 22 - 35 tuổi. Tốt nghiệp THCS trở lên. Ca xoay 8 tiếng. Tư vấn, giới thiệu và bán sản phẩm gia dụng. Điện thoại 0337152446",
+    "source_url": "https://muaban.net/viec-lam/"
+  }
+}
