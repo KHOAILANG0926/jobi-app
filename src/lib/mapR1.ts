@@ -37,7 +37,7 @@ export function locationPoints(job: Job, representatives: RepresentativePoints):
   // Never promote it to an exact workplace, gate, or verified navigation destination.
   const approximate = (job.workLocations ?? []).filter(l => typeof l.lat === 'number' && typeof l.lng === 'number' &&
     l.geocodeStatus === 'success' && validPoint({ lat: l.lat!, lng: l.lng! }))
-    .map(l => ({ lat: l.lat!, lng: l.lng!, kind: 'area' as const, source: l.geocodeSource || 'geocoded address (unverified)', checkedAt: 'address lookup' }))
+    .map(l => ({ lat: l.lat!, lng: l.lng!, kind: 'area' as const, source: 'geocoded address (unverified)', checkedAt: 'address lookup' }))
   if (approximate.length) return approximate
   const r = representatives[job.id]
   return r && ['gate', 'area'].includes(r.kind) && r.source && r.checkedAt && validPoint(r) ? [r] : []
