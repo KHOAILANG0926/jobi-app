@@ -27,7 +27,7 @@ export function AdminUsers({ language = 'ko', selectedMemberId = null }: { langu
   const states = (r: AccountStatus) => r === 'active' ? t('활성','Đang hoạt động') : t('정지','Đã tạm khóa')
   const formatDate = (x?:string|null) => x ? new Date(x).toLocaleString(ko ? 'ko-KR' : 'vi-VN') : empty
   async function changeAccount() {
-    if (!selected || !reason.trim() || busy) return
+    if (!selected || selected.details_unavailable || !reason.trim() || busy) return
     const next = selected.status === 'active' ? 'suspended' : 'active'
     setBusy(true)
     try {
@@ -75,7 +75,8 @@ export function AdminUsers({ language = 'ko', selectedMemberId = null }: { langu
       <label htmlFor="account-change-reason">{t('변경 사유 (필수)','Lý do thay đổi (bắt buộc)')}</label>
       <textarea id="account-change-reason" value={reason} onChange={e=>setReason(e.target.value)} rows={2} style={{display:'block',width:'100%',maxWidth:550}} />
       <p>{t('위 회원 ID·연락처를 확인한 후 변경하십시오. 변경 내역이 기록됩니다.','Kiểm tra mã tài khoản và thông tin liên hệ trước khi thay đổi. Thao tác sẽ được ghi lại.')}</p>
-      <button disabled={!reason.trim() || busy} onClick={()=>void changeAccount()}>{selected.status==='active'?t('계정 정지 확정','Xác nhận tạm khóa'):t('계정 활성화 확정','Xác nhận mở khóa')}</button>
+      {selected.details_unavailable && <p className="admin-error">{t('회원 상세정보를 불러오지 못해 계정 변경이 차단되었습니다.','Không thể thay đổi tài khoản khi chưa xác minh chi tiết người dùng.')}</p>}
+      <button disabled={!reason.trim() || busy || !!selected.details_unavailable} onClick={()=>void changeAccount()}>{selected.status==='active'?t('계정 정지 확정','Xác nhận tạm khóa'):t('계정 활성화 확정','Xác nhận mở khóa')}</button>
       <button type="button" onClick={()=>setSelected(null)} style={{marginLeft:10}}>{t('취소','Hủy')}</button>
     </div>}
   </section>
