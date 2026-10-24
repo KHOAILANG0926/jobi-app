@@ -1,7 +1,7 @@
 -- Read-only administrator review queue; all writes stay in existing admission workflow.
 create or replace function public.admin_job_review_queue()
 returns table(job_id bigint, title text, company text, source_name text,
-  reason text, queued_at timestamptz, original_text text, description_text text,
+  reason text, content_hash text, queued_at timestamptz, original_text text, description_text text,
   location_text text, active boolean, admin_hidden boolean)
 language plpgsql security definer set search_path = pg_catalog, public, job_publication_private
 as $$
@@ -18,6 +18,7 @@ begin
           and nullif(trim(coalesce(j.contact_zalo,'')),'') is null then '연락처 확인'
         else '자동 화면 검증 또는 관리자 검토 대기'
       end as reason,
+      job_publication_private.content_fingerprint(j) as content_hash,
       q.queued_at, j.source_text, j.description, j.location, j.active, j.admin_hidden
     from job_publication_private.review_queue q
     join public.local_jobs j on j.id=q.job_id
