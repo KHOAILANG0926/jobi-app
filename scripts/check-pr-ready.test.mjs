@@ -12,7 +12,7 @@ const valid = `## 사용자 요청 및 확정된 완료 조건
 ## 필수 테스트 결과 및 검증 SHA
 | 테스트/CI | 결과 | 검증 SHA |
 |---|---|---|
-| checks | success | 1234567890123456789012345678901234567890 |
+| checks | success | 1234567890123456789012345678901234567890 |\n| app-screen | success | 1234567890123456789012345678901234567890 |
 https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345
 
 ## 미충족 조건 또는 실제 병합 차단 사유
@@ -23,9 +23,11 @@ https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345
 - [x] READY FOR APPROVAL
 - [ ] MERGED`
 
-assert.deepEqual(checkCompletion(valid), [])
+assert.deepEqual(checkCompletion(valid, '1234567890123456789012345678901234567890'), [])
+assert.ok(checkCompletion(valid, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa').length > 0, 'old HEAD evidence rejected')
+assert.ok(checkCompletion(valid.replace('| app-screen | success |', '| app-screen | failure |'), '1234567890123456789012345678901234567890').length > 0, 'failed screen check rejected')
 assert.ok(checkCompletion('').length > 0)
 assert.ok(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', '')).length > 0)
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
 assert.ok(checkCompletion(valid.replace('1234567890123456789012345678901234567890', 'pending')).length > 0)
-console.log('PR completion guard: 5/5 passed')
+console.log('PR completion guard: 7/7 passed')
