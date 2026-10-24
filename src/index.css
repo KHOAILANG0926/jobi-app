@@ -12220,6 +12220,21 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-conditions-with-contact .jd2-aside-contact__zalo svg { width: 15px; height: 15px; }
 }
 
+/* 2026-10-24: desktop TEFAL detail tab height and contact buttons (1.3x).
+   Keep mobile and all content positions unchanged. */
+@media (min-width: 761px) {
+  .jd2-tabs--sticky .jd2-tab { padding-top: 1.17rem; padding-bottom: 1.17rem; }
+  .jd2-conditions-with-contact .jd2-aside-contact__call,
+  .jd2-conditions-with-contact .jd2-aside-contact__zalo {
+    height: 42px; min-height: 42px; padding: 0 0.975rem;
+    gap: 6.5px; font-size: 1.04rem;
+  }
+  .jd2-conditions-with-contact .jd2-aside-contact__call svg,
+  .jd2-conditions-with-contact .jd2-aside-contact__zalo svg {
+    width: 20px; height: 20px;
+  }
+}
+
 /* Job location title and real source address are outside the map card. */
 .jd2-location-above-map { display: flex; flex-direction: column; gap: .45rem; margin: 0 0 .85rem; }
 .jd2-location-above-map__row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; font-size: .95rem; color: #1f2937; }
