@@ -17,7 +17,12 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npx playwright install chromium
-      - name: Real public browser proof
+      - name: Run current branch using real production public job data
+        run: |
+          nohup npm run dev -- --host 127.0.0.1 > /tmp/jobi-tefal-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5173/ >/dev/null && exit 0; sleep 1; done
+          exit 1
+      - name: Real browser proof (current branch + real public DB)
         env:
-          BASE_URL: https://jobi-git-ops-runner-connection-c-73098c-mshw1895-6089s-projects.vercel.app
+          BASE_URL: http://127.0.0.1:5173
         run: node scripts/ops/verify-tefal-live.mjs
