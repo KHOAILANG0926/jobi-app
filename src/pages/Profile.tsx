@@ -67,7 +67,12 @@ export function Profile() {
     let cancelled = false
     setLocalImportOffer(false)
     setProfileServerError('')
-    setProfile(loadProfile(user.id))
+    // 가입 때 받은 이름·이메일은 Auth에 있지만 user_profiles가 아직 없을 수 있다.
+    // 계정별로 저장한 프로필이 없을 때만 가입 정보로 초기 표시한다.
+    const signupProfile = hasStoredProfile(user.id)
+      ? loadProfile(user.id)
+      : { ...loadProfile(user.id), fullName: user.name, email: user.email }
+    setProfile(signupProfile)
     Promise.all([loadAccountProfile(user.id), loadAccountCv(user.id)])
       .then(([remoteProfile, remoteCv]) => {
         if (cancelled) return
