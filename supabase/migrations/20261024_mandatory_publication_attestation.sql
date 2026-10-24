@@ -87,3 +87,38 @@ for each row execute function job_publication_private.guard_publication();
 
 comment on table job_publication_private.approvals is
   'Owner-controlled evidence of source review and rendered-detail browser acceptance; no app or crawler grants.';
+
+-- Queue only new submissions and changes to previously public submissions.
+-- A manually moderated/hidden legacy record is never republished from this queue.
+create table if not exists job_publication_private.review_queue (
+  job_id bigint primary key references public.local_jobs(id) on delete cascade,
+  content_hash text not null,
+  auto_release boolean not null default false,
+  queued_at timestamptz not null default now()
+);
+revoke all on job_publication_private.review_queue from public, anon, authenticated, service_role;
+
+create or replace function job_publication_private.queue_content_review()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, public, job_publication_private as $$
+declare h text;
+begin
+  h := job_publication_private.content_fingerprint(new);
+  if tg_op = 'INSERT' then
+    insert into job_publication_private.review_queue (job_id, content_hash, auto_release)
+    values (new.id, h, true)
+    on conflict (job_id) do update
+      set content_hash = excluded.content_hash, queued_at = now();
+  elsif h is distinct from job_publication_private.content_fingerprint(old) then
+    insert into job_publication_private.review_queue (job_id, content_hash, auto_release)
+    values (new.id, h, (coalesce(old.active,false) and not coalesce(old.admin_hidden,false)))
+    on conflict (job_id) do update
+      set content_hash = excluded.content_hash, queued_at = now();
+  end if;
+  return null;
+end $$;
+revoke all on function job_publication_private.queue_content_review() from public, anon, authenticated, service_role;
+drop trigger if exists trg_zzzzz_queue_content_review on public.local_jobs;
+create trigger trg_zzzzz_queue_content_review
+after insert or update on public.local_jobs
+for each row execute function job_publication_private.queue_content_review();
