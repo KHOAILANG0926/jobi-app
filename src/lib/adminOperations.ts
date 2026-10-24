@@ -32,6 +32,7 @@ export interface AdminUser {
   full_name?: string | null
   city?: string | null
   last_sign_in_at?: string | null
+  details_unavailable?: boolean
 }
 
 export interface UserReport {
@@ -85,16 +86,16 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   const rows = unwrap((data ?? []) as AdminUser[], error)
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
-  if (!token) return rows
+  if (!token) return rows.map(u => ({ ...u, details_unavailable: true }))
   try {
     const response = await fetch('/api/admin-users', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-    if (!response.ok) return rows
+    if (!response.ok) return rows.map(u => ({ ...u, details_unavailable: true }))
     const { users } = await response.json() as { users: AdminUser[] }
     const info = new Map(users.map(u => [u.user_id, u]))
     return rows.map(u => ({ ...u, ...(info.get(u.user_id) ?? {}) }))
   } catch {
     // The accurate legacy RPC data stays available even if optional identity enrichment fails.
-    return rows
+    return rows.map(u => ({ ...u, details_unavailable: true }))
   }
 }
 
