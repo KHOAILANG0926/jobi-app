@@ -1,0 +1,32 @@
+name: Map R1 new industrial park regression (no credentials)
+on:
+  push:
+    branches: [ops/runner-connection-check-20261024]
+    paths:
+      - 'src/lib/autoLocationResolver.ts'
+      - 'src/lib/autoLocationResolver.test.ts'
+      - 'src/lib/industrialPark.ts'
+      - 'src/lib/industrialPark.test.ts'
+      - 'src/lib/parkLocate.ts'
+      - 'src/lib/parkLocate.test.ts'
+      - '.github/workflows/map-r1-new-park-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Map R1 automated regression including unknown parks
+        run: |
+          node --experimental-strip-types src/lib/autoLocationResolver.test.ts
+          node --experimental-strip-types src/lib/industrialPark.test.ts
+          node --experimental-strip-types src/lib/parkLocate.test.ts
+      - name: Type check
+        run: npx tsc --noEmit
