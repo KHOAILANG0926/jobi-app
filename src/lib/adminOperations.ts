@@ -85,12 +85,17 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   const rows = unwrap((data ?? []) as AdminUser[], error)
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
-  if (!token) throw new Error('Administrator session expired')
-  const response = await fetch('/api/admin-users', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-  if (!response.ok) throw new Error('Unable to read verified account details')
-  const { users } = await response.json() as { users: AdminUser[] }
-  const info = new Map(users.map(u => [u.user_id, u]))
-  return rows.map(u => ({ ...u, ...(info.get(u.user_id) ?? {}) }))
+  if (!token) return rows
+  try {
+    const response = await fetch('/api/admin-users', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+    if (!response.ok) return rows
+    const { users } = await response.json() as { users: AdminUser[] }
+    const info = new Map(users.map(u => [u.user_id, u]))
+    return rows.map(u => ({ ...u, ...(info.get(u.user_id) ?? {}) }))
+  } catch {
+    // The accurate legacy RPC data stays available even if optional identity enrichment fails.
+    return rows
+  }
 }
 
 export async function setAccountStatus(userId: string, status: AccountStatus, reason = ''): Promise<void> {
