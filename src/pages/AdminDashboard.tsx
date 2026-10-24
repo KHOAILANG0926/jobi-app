@@ -634,7 +634,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
         {tab === 'users' && <AdminUsers language={language} selectedMemberId={selectedMemberId} />}
         {tab === 'brands' && <AdminBrands />}
-        {tab === 'reports' && <AdminReports />}
+        {tab === 'reports' && <AdminReports language={language} />}
         {tab === 'locations' && <AdminLocations />}
         {tab === 'audit' && <AdminAuditLogs language={language} />}
       </div>
