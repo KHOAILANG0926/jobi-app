@@ -48,3 +48,16 @@ assert.equal(large.markers.length, 1, 'representative pin still on map with larg
 assert.equal(large.visibleEntries.length, 1, 'expanding radius brings representative back into the list')
 assert.equal(large.radiusJobs.length, 1, 'radius results include representative without upgrading precision')
 assert.equal(large.radiusJobs[0].point?.kind, 'area')
+
+const tefalUnverified = job('sb-4878', [{
+  rawAddress: '33 Lý Thái Tổ, P. Ninh Xá, TP. Bắc Ninh',
+  lat: 21.1737775, lng: 106.0650338, geocodeStatus: 'success', locationVerified: false,
+}])
+const t = model.locationPoints(tefalUnverified, {})
+assert.equal(t.length, 1, 'sourced address with unapproved workplace still appears on map')
+assert.equal(t[0].kind, 'area', 'approximate address can never be an approved factory pin')
+assert.equal(t[0].lat, 21.1737775, 'address map does not silently relocate to a ward center')
+const nearTefal = model.mapSearch([tefalUnverified], DEFAULT_FILTERS, null, null,
+  { west: 106, east: 106.1, south: 21.1, north: 21.2 }, {})
+assert.equal(nearTefal.markers.length, 1, 'approximate address shows on main map')
+assert.equal(nearTefal.visibleCount, 1, 'approximate address contributes to map viewport list')
