@@ -1,3 +1,4 @@
+import type { AdminLanguage } from '../../lib/adminLanguage'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
@@ -72,7 +73,8 @@ function VisibleOnly({ children, height = 260 }: { children: React.ReactNode; he
   return <div ref={boxRef} style={{ minHeight: height }}>{visible ? children : null}</div>
 }
 
-export function AdminLocations() {
+export function AdminLocations({ language = 'ko' }: { language?: AdminLanguage }) {
+  const t = (ko: string, vi: string) => language === 'ko' ? ko : vi
   const [items, setItems] = useState<LocationCandidate[]>([])
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [error, setError] = useState('')
@@ -101,17 +103,17 @@ export function AdminLocations() {
   return <section className="admin-panel">
     <div className="admin-toolbar">
       <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
-        <option value="pending">Chờ duyệt</option>
-        <option value="all">Tất cả</option>
+        <option value="pending">{t("승인 대기","Chờ duyệt")}</option>
+        <option value="all">{t("전체","Tất cả")}</option>
       </select>
       <button type="button" onClick={() => setManualOpen((v) => !v)}>{manualOpen ? 'Đóng' : '＋ Tự chọn vị trí trên bản đồ'}</button>
-      <small>Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.</small>
+      <small>{t('승인된 위치만 지도 핀·길찾기·내 주변 검색에 사용됩니다.','Chỉ vị trí đã duyệt mới được dùng cho ghim bản đồ, chỉ đường và tìm việc gần tôi.')}</small>
     </div>
     <AdminWardLocate />
     <AdminAutoLocate onChanged={reload} />
     {error && <p className="admin-error">{error}</p>}
     {manualOpen && <ManualLocationPanel candidates={items} onDone={async () => { setError(''); await reload() }} onError={setError} />}
-    {shown.length === 0 && <p>Không có ứng viên vị trí.</p>}
+    {shown.length === 0 && <p>{t("위치 후보가 없습니다.","Không có ứng viên vị trí.")}</p>}
     {shown.map((c) => {
       const companyChanged = c.company_snapshot.trim().toLowerCase() !== (c.current_company ?? '').trim().toLowerCase()
       const needsReview = companyChanged || !c.address_still_present
@@ -127,21 +129,21 @@ export function AdminLocations() {
         </header>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginTop: 12 }}>
           <div>
-            <p><b>Địa chỉ trong tin:</b> {c.address_snapshot}
+            <p><b>{t("공고 주소:","Địa chỉ trong tin:")}</b> {c.address_snapshot}
               {!c.address_still_present && <b style={{ color: '#dc2626' }}> — không còn trong tin hiện tại, cần xem lại</b>}</p>
-            <p><b>Mức vị trí:</b> {PRECISION_LABEL[c.place_precision]} · <b>Nguồn tọa độ:</b> {SOURCE_LABEL[c.source] ?? c.source}</p>
-            <p><b>Tọa độ:</b> {c.lat.toFixed(6)}, {c.lng.toFixed(6)}</p>
+            <p><b>{t("위치 정확도:","Mức vị trí:")}</b> {PRECISION_LABEL[c.place_precision]} · <b>{t("좌표 출처:","Nguồn tọa độ:")}</b> {SOURCE_LABEL[c.source] ?? c.source}</p>
+            <p><b>{t("좌표:","Tọa độ:")}</b> {c.lat.toFixed(6)}, {c.lng.toFixed(6)}</p>
             <p style={{ whiteSpace: 'pre-wrap' }}><b>Bằng chứng:</b> {c.evidence}</p>
             {c.evidence_urls.length > 0 && <ul>{c.evidence_urls.map((u) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer">{u}</a></li>)}</ul>}
-            {c.review_note && <p><b>Ghi chú duyệt:</b> {c.review_note}</p>}
+            {c.review_note && <p><b>{t("검토 메모:","Ghi chú duyệt:")}</b> {c.review_note}</p>}
             {(canApprove || c.status === 'pending' || c.status === 'approved') && (
-              <input type="text" placeholder="Ghi chú (không bắt buộc)" value={notes[c.id] ?? ''} disabled={busy}
+              <input type="text" placeholder={t("메모(선택)","Ghi chú (không bắt buộc)")} value={notes[c.id] ?? ''} disabled={busy}
                 onChange={(e) => setNotes((n) => ({ ...n, [c.id]: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
             )}
             <div className="admin-actions">
-              {canApprove && <button disabled={busy} onClick={() => review(c, 'approve')}>Duyệt vị trí</button>}
-              {c.status === 'pending' && <button disabled={busy} onClick={() => review(c, 'reject')}>Từ chối</button>}
-              {c.status === 'approved' && <button disabled={busy} onClick={() => review(c, 'revoke')}>Thu hồi</button>}
+              {canApprove && <button disabled={busy} onClick={() => review(c, 'approve')}>{t("위치 승인","Duyệt vị trí")}</button>}
+              {c.status === 'pending' && <button disabled={busy} onClick={() => review(c, 'reject')}>{t("반려","Từ chối")}</button>}
+              {c.status === 'approved' && <button disabled={busy} onClick={() => review(c, 'revoke')}>{t("승인 취소","Thu hồi")}</button>}
             </div>
           </div>
           <VisibleOnly>
