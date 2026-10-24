@@ -161,7 +161,7 @@ export default function AdminDashboard() {
         users
           ? users.slice(0, 10).map((u) => ({
               id: u.user_id,
-              name: u.full_name || u.display_name || (ko ? '(정보 미제공)' : '(Chưa cung cấp)'),
+              name: u.full_name || u.display_name || (u.details_unavailable ? '(조회 오류)' : '(미등록)'),
               role: u.role ?? '',
               status: u.status,
               createdAt: u.joined_at,
@@ -319,7 +319,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         {/* ── DASHBOARD TAB ── */}
         {tab === 'dashboard' && (
           loading ? (
-            <div style={{ textAlign: 'center', padding: '48px', color: '#888' }}>Đang tải...</div>
+            <div style={{ textAlign: 'center', padding: '48px', color: '#888' }}>{t("불러오는 중...","Đang tải...")}</div>
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', marginBottom: '28px' }}>
@@ -393,7 +393,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                             color: acc.role === 'employer' ? '#27ae60' : '#2980b9'
                           }}>{acc.role === 'employer' ? t('기업회원','Nhà tuyển dụng') : t('구직자','Người tìm việc')}</span>
                           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>
-                            {new Date(acc.createdAt).toLocaleDateString('vi-VN')}
+                            {new Date(acc.createdAt).toLocaleDateString(ko ? 'ko-KR' : 'vi-VN')}
                           </p>
                         </div>
                       </button>
@@ -429,7 +429,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit'
                 }}
               />
-              <button type="button" onClick={importDraft} disabled={saving || !rawText.trim()} style={{ marginTop: '12px', marginRight: '12px', padding: '12px 20px' }}>Nhập bản nháp JSON</button>
+              <button type="button" onClick={importDraft} disabled={saving || !rawText.trim()} style={{ marginTop: '12px', marginRight: '12px', padding: '12px 20px' }}>{t("JSON 초안 불러오기","Nhập bản nháp JSON")}</button>
               <button
                 onClick={handleParse}
                 disabled={parsing || !rawText.trim()}
@@ -471,92 +471,92 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 {/* Title */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Tiêu đề *</label>
+                  <label style={labelStyle}>{t("공고 제목 *","Tiêu đề *")}</label>
                   <input value={jobForm.title} onChange={e => setJobForm(f => ({ ...f, title: e.target.value }))} style={inputStyle} placeholder="VD: Tuyển nhân viên pha chế" />
                 </div>
                 {/* Company */}
                 <div>
-                  <label style={labelStyle}>Công ty / Cơ sở *</label>
+                  <label style={labelStyle}>{t("회사·사업장 *","Công ty / Cơ sở *")}</label>
                   <input value={jobForm.company} onChange={e => setJobForm(f => ({ ...f, company: e.target.value }))} style={inputStyle} placeholder="Tên công ty" />
                 </div>
                 {/* Category */}
                 <div>
-                  <label style={labelStyle}>Ngành nghề</label>
+                  <label style={labelStyle}>{t("업종","Ngành nghề")}</label>
                   <select value={jobForm.category} onChange={e => setJobForm(f => ({ ...f, category: e.target.value as JobCategory }))} style={inputStyle}>
                     {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
                 {/* Salary */}
                 <div>
-                  <label style={labelStyle}>Mức lương</label>
+                  <label style={labelStyle}>{t("급여","Mức lương")}</label>
                   <input value={jobForm.salary} onChange={e => setJobForm(f => ({ ...f, salary: e.target.value }))} style={inputStyle} placeholder="VD: 5-7 triệu/tháng" />
                 </div>
                 {/* Phone */}
                 <div>
-                  <label style={labelStyle}>Số điện thoại</label>
+                  <label style={labelStyle}>{t("전화번호","Số điện thoại")}</label>
                   <input value={jobForm.employerPhone} onChange={e => setJobForm(f => ({ ...f, employerPhone: e.target.value }))} style={inputStyle} placeholder="0912 345 678" />
                 </div>
                 {/* Location */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Địa điểm</label>
+                  <label style={labelStyle}>{t("근무 지역","Địa điểm")}</label>
                   <input value={jobForm.location} onChange={e => setJobForm(f => ({ ...f, location: e.target.value }))} style={inputStyle} placeholder="VD: Hà Nội — Cầu Giấy" />
                 </div>
                 {/* Hours */}
                 <div>
-                  <label style={labelStyle}>Giờ làm việc</label>
+                  <label style={labelStyle}>{t("근무 시간","Giờ làm việc")}</label>
                   <input value={jobForm.hours || ''} onChange={e => setJobForm(f => ({ ...f, hours: e.target.value }))} style={inputStyle} placeholder="VD: Ca sáng 8:00–12:00" />
                 </div>
                 {/* Deadline */}
                 <div>
-                  <label style={labelStyle}>Hạn nộp hồ sơ</label>
+                  <label style={labelStyle}>{t("지원 마감일","Hạn nộp hồ sơ")}</label>
                   <input type="date" value={jobForm.applicationDeadline} onChange={e => setJobForm(f => ({ ...f, applicationDeadline: e.target.value }))} style={inputStyle} />
                 </div>
                 {/* Work period */}
                 <div>
-                  <label style={labelStyle}>Thời hạn hợp đồng</label>
+                  <label style={labelStyle}>{t("계약 기간","Thời hạn hợp đồng")}</label>
                   <input value={jobForm.workPeriod || ''} onChange={e => setJobForm(f => ({ ...f, workPeriod: e.target.value }))} style={inputStyle} placeholder="VD: 6 tháng - 1 năm" />
                 </div>
                 {/* Work days */}
                 <div>
-                  <label style={labelStyle}>Ngày làm việc</label>
+                  <label style={labelStyle}>{t("근무 요일","Ngày làm việc")}</label>
                   <input value={jobForm.workDays || ''} onChange={e => setJobForm(f => ({ ...f, workDays: e.target.value }))} style={inputStyle} placeholder="VD: Thứ 2 - Thứ 6" />
                 </div>
                 {/* Num hires */}
                 <div>
-                  <label style={labelStyle}>Số lượng tuyển</label>
+                  <label style={labelStyle}>{t("채용 인원","Số lượng tuyển")}</label>
                   <input value={jobForm.numHires || ''} onChange={e => setJobForm(f => ({ ...f, numHires: e.target.value }))} style={inputStyle} placeholder="VD: 5 người" />
                 </div>
                 {/* Education */}
                 <div>
-                  <label style={labelStyle}>Trình độ học vấn</label>
+                  <label style={labelStyle}>{t("학력","Trình độ học vấn")}</label>
                   <input value={jobForm.education || ''} onChange={e => setJobForm(f => ({ ...f, education: e.target.value }))} style={inputStyle} placeholder="VD: Không yêu cầu" />
                 </div>
                 {/* Preference */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Ưu tiên</label>
+                  <label style={labelStyle}>{t("우대 사항","Ưu tiên")}</label>
                   <input value={jobForm.preference || ''} onChange={e => setJobForm(f => ({ ...f, preference: e.target.value }))} style={inputStyle} placeholder="VD: Ưu tiên ở gần, sinh viên" />
                 </div>
                 {/* Trust info */}
                 <div>
-                  <label style={labelStyle}>Năm thành lập công ty</label>
+                  <label style={labelStyle}>{t("설립 연도","Năm thành lập công ty")}</label>
                   <input type="number" value={jobForm.companyFoundedYear ?? ''} onChange={e => setJobForm(f => ({ ...f, companyFoundedYear: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle} placeholder="VD: 2015" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Số lần đã tuyển</label>
+                  <label style={labelStyle}>{t("과거 채용 횟수","Số lần đã tuyển")}</label>
                   <input type="number" value={jobForm.hireCount ?? ''} onChange={e => setJobForm(f => ({ ...f, hireCount: e.target.value ? Number(e.target.value) : undefined }))} style={inputStyle} placeholder="VD: 12" />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
                   <input type="checkbox" id="companyVerified" checked={!!jobForm.companyVerified} onChange={e => setJobForm(f => ({ ...f, companyVerified: e.target.checked }))} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                  <label htmlFor="companyVerified" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>✔ Đã xác minh công ty</label>
+                  <label htmlFor="companyVerified" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>{t("✔ 기업 확인 완료","✔ Đã xác minh công ty")}</label>
                 </div>
                 {/* Description */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Mô tả công việc</label>
+                  <label style={labelStyle}>{t("업무 설명","Mô tả công việc")}</label>
                   <textarea value={jobForm.description} onChange={e => setJobForm(f => ({ ...f, description: e.target.value }))} style={{ ...inputStyle, height: '120px', resize: 'vertical' }} placeholder="Mô tả chi tiết công việc..." />
                 </div>
                 {/* Image Upload */}
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Ảnh công việc</label>
+                  <label style={labelStyle}>{t("공고 이미지","Ảnh công việc")}</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#1976d2', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                       📁 파일 선택
@@ -586,32 +586,32 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 </div>
                 {/* Source */}
                 <div>
-                  <label style={labelStyle}>Nguồn tin</label>
+                  <label style={labelStyle}>{t("공고 출처","Nguồn tin")}</label>
                   <input value={source} onChange={e => setSource(e.target.value)} style={inputStyle} placeholder="VD: Facebook, Zalo..." />
                 </div>
                 {/* Urgent */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
                   <input type="checkbox" id="urgent" checked={!!jobForm.urgent} onChange={e => setJobForm(f => ({ ...f, urgent: e.target.checked }))} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                  <label htmlFor="urgent" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>🔴 Tuyển gấp</label>
+                  <label htmlFor="urgent" style={{ fontSize: '14px', color: '#333', cursor: 'pointer', fontWeight: 600 }}>{t("🔴 긴급 채용","🔴 Tuyển gấp")}</label>
                 </div>
               </div>
 
               <button type="button" disabled={saving} onClick={() => {
                 if (!jobForm.title.trim() || !jobForm.company.trim()) { setParseError('Vui lòng điền tiêu đề và công ty.'); return }
                 setParseError(''); setPreviewReady(true)
-              }} style={{ marginTop: '20px', padding: '12px 20px' }}>Xem trước tin</button>
-              {previewReady && <section aria-label="Xem trước tin tuyển dụng" style={{ marginTop: '16px', padding: '16px', border: '1px solid #ddd', borderRadius: '10px' }}>
+              }} style={{ marginTop: '20px', padding: '12px 20px' }}>{t("공고 미리보기","Xem trước tin")}</button>
+              {previewReady && <section aria-label={t('채용공고 미리보기','Xem trước tin tuyển dụng')} style={{ marginTop: '16px', padding: '16px', border: '1px solid #ddd', borderRadius: '10px' }}>
                 <h3>{jobForm.title}</h3><p>{jobForm.company}</p>
                 <dl>
-                  <dt>Ngành nghề</dt><dd>{CATEGORY_NAME_LABELS[jobForm.category]}</dd>
-                  <dt>Tiền công</dt><dd>{jobForm.salary || 'Chưa cung cấp'}</dd>
-                  <dt>Địa điểm</dt><dd>{jobForm.location || 'Chưa cung cấp'}</dd>
-                  <dt>Giờ làm</dt><dd>{jobForm.hours || 'Chưa cung cấp'}</dd>
-                  <dt>Liên hệ</dt><dd>{jobForm.employerPhone || 'Chưa cung cấp'}</dd>
+                  <dt>{t("업종","Ngành nghề")}</dt><dd>{CATEGORY_NAME_LABELS[jobForm.category]}</dd>
+                  <dt>{t("급여","Tiền công")}</dt><dd>{jobForm.salary || 'Chưa cung cấp'}</dd>
+                  <dt>{t("근무 지역","Địa điểm")}</dt><dd>{jobForm.location || 'Chưa cung cấp'}</dd>
+                  <dt>{t("근무 시간","Giờ làm")}</dt><dd>{jobForm.hours || 'Chưa cung cấp'}</dd>
+                  <dt>{t("연락처","Liên hệ")}</dt><dd>{jobForm.employerPhone || 'Chưa cung cấp'}</dd>
                 </dl>
                 <p style={{ whiteSpace: 'pre-wrap' }}>{jobForm.description}</p>
-                {jobForm.imageUrl && <img src={jobForm.imageUrl} alt="Ảnh công việc" style={{ maxWidth: '100%', maxHeight: '200px' }} />}
-                <p>Đăng công khai sẽ đưa tin vào danh sách việc làm. Vị trí chưa xác minh có thể chưa xuất hiện trên bản đồ.</p>
+                {jobForm.imageUrl && <img src={jobForm.imageUrl} alt={t('공고 이미지','Ảnh công việc')} style={{ maxWidth: '100%', maxHeight: '200px' }} />}
+                <p>{t("공개 등록 시 채용 목록에 표시됩니다. 위치가 검증되지 않은 공고는 지도에 표시되지 않을 수 있습니다.","Đăng công khai sẽ đưa tin vào danh sách việc làm. Vị trí chưa xác minh có thể chưa xuất hiện trên bản đồ.")}</p>
               </section>}
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
@@ -626,7 +626,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 <button onClick={() => { setJobForm(EMPTY_JOB); setRawText(''); setParseError(''); setSource('Facebook') }} style={{
                   padding: '14px 20px', background: '#f0f0f0', color: '#666',
                   border: 'none', borderRadius: '12px', fontSize: '14px', cursor: 'pointer'
-                }}>🗑️ Xóa</button>
+                }}>{t("🗑️ 삭제","🗑️ Xóa")}</button>
               </div>
             </div>
           </div>
