@@ -1,6 +1,7 @@
 import { parseAdminJobDraft, adminSavedJob } from '../lib/adminJobDraft'
 import { checkedAdminCreateJob } from '../lib/jobPolicyWrite'
 import { useState, useEffect } from 'react'
+import { getAdminLanguage, saveAdminLanguage, type AdminLanguage } from '../lib/adminLanguage'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -71,7 +72,12 @@ const CATEGORY_LABELS: Record<JobCategory, string> = Object.fromEntries(
 ) as Record<JobCategory, string>
 
 export default function AdminDashboard() {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+  const [language, setLanguage] = useState<AdminLanguage>(() => getAdminLanguage())
+  const ko = language === 'ko'
+  const t = (k: string, v: string) => ko ? k : v
+  useEffect(() => { if (user?.id) setLanguage(getAdminLanguage(user.id)) }, [user?.id])
+  const changeLanguage = (value: AdminLanguage) => { setLanguage(value); saveAdminLanguage(value, user?.id) }
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
 
@@ -154,8 +160,8 @@ export default function AdminDashboard() {
         users
           ? users.slice(0, 10).map((u) => ({
               id: u.user_id,
-              name: u.display_name || '(Chưa đặt tên)',
-              role: u.role ?? 'seeker',
+              name: u.full_name || u.display_name || (ko ? '(정보 미제공)' : '(Chưa cung cấp)'),
+              role: u.role ?? '',
               status: u.status,
               createdAt: u.joined_at,
             }))
@@ -286,18 +292,18 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Dashboard Quản trị</h1>
+          <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>{t('관리자 대시보드', 'Dashboard Quản trị')}</h1>
           <p style={{ fontSize: '13px', opacity: 0.7, margin: '4px 0 0' }}>Việc gần Bạn</p>
         </div>
-        <button onClick={handleLogout} style={{
+        <div style={{display:'flex',gap:12,alignItems:'center'}}><label htmlFor="admin-language">{t('화면 언어', 'Ngôn ngữ')}</label><select id="admin-language" aria-label={t('관리자 언어','Ngôn ngữ quản trị')} value={language} onChange={e=>changeLanguage(e.target.value as AdminLanguage)} style={{padding:'8px',borderRadius:8}}><option value="ko">한국어</option><option value="vi">Tiếng Việt</option></select><button onClick={handleLogout} style={{
           background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none',
           borderRadius: '8px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer'
-        }}>Đăng xuất</button>
+        }}>{t('로그아웃', 'Đăng xuất')}</button></div>
       </div>
 
       {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
-        {([['dashboard', '📊 Tổng quan'], ['review', '🛡️ Duyệt tin'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['locations', '📍 Vị trí'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
+        {([['dashboard', t('📊 전체 현황','📊 Tổng quan')], ['review', t('🛡️ 공고 검토','🛡️ Duyệt tin')], ['jobs', t('📋 공고 관리','📋 Quản lý tin')], ['users', t('👥 회원 관리','👥 Người dùng')], ['brands', t('🏷️ 기업 관리','🏷️ Thương hiệu')], ['reports', t('🚩 신고 관리','🚩 Báo cáo')], ['locations', t('📍 위치 관리','📍 Vị trí')], ['audit', t('🧾 작업 기록','🧾 Nhật ký')]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '14px 24px', fontSize: '14px', fontWeight: tab === t ? 700 : 400,
             color: tab === t ? '#e74c3c' : '#666', background: 'none', border: 'none',
@@ -317,11 +323,11 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Tổng tài khoản', value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9' },
-                  { label: 'Người tìm việc', value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad' },
-                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
-                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
-                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
+                  { label: t('전체 가입자','Tổng tài khoản'), value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9' },
+                  { label: t('구직자','Người tìm việc'), value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad' },
+                  { label: t('기업회원','Nhà tuyển dụng'), value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
+                  { label: t('베트남 공개 공고','Tin VN đang tuyển'), value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
+                  { label: t('한국 공고','Tin Hàn Quốc'), value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
                 ].map(s => (
                   <div key={s.label} style={{
                     background: '#fff', borderRadius: '16px', padding: '20px',
@@ -624,7 +630,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
           </div>
         )}
 
-        {tab === 'users' && <AdminUsers />}
+        {tab === 'users' && <AdminUsers language={language} />}
         {tab === 'brands' && <AdminBrands />}
         {tab === 'reports' && <AdminReports />}
         {tab === 'locations' && <AdminLocations />}
