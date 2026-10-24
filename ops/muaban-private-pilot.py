@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright
 
 JOBS = [
     (126, "71286061", "https://muaban.net/viec-lam/ban-hang-tp-bac-ninh/tefal-tuyen-pg-ban-hang-gia-dung-id71286061"),
-    (127, "71118227", "https://muaban.net/viec-lam/cong-nhan-thi-xa-tu-son-bac-ninh/spx-express-tuyen-dung-nhan-vien-kho-phan-loai-id71118227"),
+    (127, "71304112", "https://muaban.net/viec-lam/cong-nhan-huyen-que-vo-bac-ninh/viec-lam-chinh-thuc-di-lam-ngay-id71304112"),
 ]
 BASE = Path.home() / ".jobi-muaban"
 PHONE = re.compile(r"(?<!\d)0[35789](?:[ .-]?\d){8}(?!\d)")
@@ -35,8 +35,12 @@ def extract(context, job_id, source_id, url):
     page = context.new_page()
     try:
         response = page.goto(url, wait_until="domcontentloaded", timeout=45000)
-        if not response or response.status != 200 or source_id not in page.url:
-            raise RuntimeError("SOURCE_PAGE_NOT_VALID")
+        if not response:
+            raise RuntimeError("SOURCE_NO_HTTP_RESPONSE")
+        if response.status != 200:
+            raise RuntimeError("SOURCE_HTTP_" + str(response.status))
+        if source_id not in page.url:
+            raise RuntimeError("SOURCE_REDIRECT_OR_ID_MISMATCH")
         title = (page.locator("h1").first.inner_text(timeout=10000) or "").strip()
         if not title or len(title) < 10:
             raise RuntimeError("NO_JOB_TITLE")
@@ -48,7 +52,7 @@ def extract(context, job_id, source_id, url):
                 button.click(timeout=10000)
                 break
         page.wait_for_timeout(1000)
-        if page.locator('input[name="phone"]').is_visible():
+        if page.locator('input[name="phone"]').count() and page.locator('input[name="phone"]').is_visible():
             raise RuntimeError("LOGIN_SESSION_EXPIRED")
         numbers = phones_on_page(page)
         if len(numbers) != 1:
