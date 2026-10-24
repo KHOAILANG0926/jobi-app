@@ -22,6 +22,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: PR 완료 근거 검사 (Draft는 제외, 필수 CI는 유지)
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-pr-ready.mjs
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
       - name: 타입 검사
