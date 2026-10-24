@@ -12398,3 +12398,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .loc-prompt-allow { background: var(--color-primary); color: #fff; border: 1px solid var(--color-primary); }
 .loc-prompt-actions button:disabled { opacity: 0.7; cursor: default; }
 .loc-prompt-note { margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: #64748b; }
+
+/* Match the section rhythm requested for conditions → recruitment on desktop and mobile. */
+.jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin-top: 1rem; }
