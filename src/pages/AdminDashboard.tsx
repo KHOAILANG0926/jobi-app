@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import type { JobCategory } from '../types/job'
 import type { Job } from '../types/job'
 import { AdminJobs } from '../components/admin/AdminJobs'
+import { AdminJobReview } from '../components/admin/AdminJobReview'
 import { AdminUsers } from '../components/admin/AdminUsers'
 import { AdminBrands } from '../components/admin/AdminBrands'
 import { AdminReports } from '../components/admin/AdminReports'
@@ -15,7 +16,7 @@ import { AdminLocations } from '../components/admin/AdminLocations'
 import { listAdminJobs, listAdminUsers } from '../lib/adminOperations'
 import { CATEGORY_ICONS, CATEGORY_LABELS as CATEGORY_NAME_LABELS } from '../data/categories'
 
-type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'locations' | 'audit'
+type Tab = 'dashboard' | 'review' | 'jobs' | 'users' | 'brands' | 'reports' | 'locations' | 'audit'
 
 interface Stats {
   koreaJobs: number
@@ -279,7 +280,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
       {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
-        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['locations', '📍 Vị trí'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
+        {([['dashboard', '📊 Tổng quan'], ['review', '🛡️ Duyệt tin'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['locations', '📍 Vị trí'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '14px 24px', fontSize: '14px', fontWeight: tab === t ? 700 : 400,
             color: tab === t ? '#e74c3c' : '#666', background: 'none', border: 'none',
@@ -299,6 +300,8 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
+                  { label: 'Tổng tài khoản', value: usersError ? '—' : stats.localUsers + stats.localEmployers, icon: '👥', color: '#2980b9' },
+                  { label: 'Người tìm việc', value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad' },
                   { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
                   { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
                   { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
@@ -378,6 +381,8 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         )}
 
         {/* ── POST JOB TAB ── */}
+        {tab === 'review' && <AdminJobReview />}
+
         {tab === 'jobs' && (
           <div>
             <AdminJobs key={jobsRevision} />
