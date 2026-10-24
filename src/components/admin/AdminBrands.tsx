@@ -1,3 +1,4 @@
+import type { AdminLanguage } from '../../lib/adminLanguage'
 import { useEffect, useMemo, useState } from 'react'
 import { useJobs } from '../../context/JobsContext'
 import { useBrands } from '../../context/BrandsContext'
@@ -42,7 +43,8 @@ const EMPTY_FORM: FormState = {
   active: true, featured: false, aliasesText: '',
 }
 
-export function AdminBrands() {
+export function AdminBrands({ language = 'ko' }: { language?: AdminLanguage }) {
+  const t = (ko: string, vi: string) => language === 'ko' ? ko : vi
   const { jobs } = useJobs()
   const { refreshBrands } = useBrands()
   const [brands, setBrands] = useState<AdminBrand[]>([])
@@ -179,7 +181,7 @@ export function AdminBrands() {
     }
   }
 
-  if (loading) return <section className="admin-panel"><p>Đang tải...</p></section>
+  if (loading) return <section className="admin-panel"><p>{t("불러오는 중...","Đang tải...")}</p></section>
 
   return (
     <section className="admin-panel">
@@ -187,11 +189,11 @@ export function AdminBrands() {
 
       <div className="admin-toolbar">
         <strong>Brands đã đăng ký ({brands.length})</strong>
-        <button onClick={openCreateForm}>+ Thêm brand thủ công</button>
+        <button onClick={openCreateForm}>{t("+ 기업·브랜드 직접 등록","+ Thêm brand thủ công")}</button>
       </div>
       <div className="admin-table-wrap">
         <table className="admin-table">
-          <thead><tr><th>Tên</th><th>Ngành</th><th>Aliases</th><th>Active</th><th>Featured</th><th>Sửa</th></tr></thead>
+          <thead><tr><th>{t("이름","Tên")}</th><th>{t("업종","Ngành")}</th><th>{t("별칭","Aliases")}</th><th>{t("활성","Active")}</th><th>{t("추천","Featured")}</th><th>{t("수정","Sửa")}</th></tr></thead>
           <tbody>
             {brands.map((b) => (
               <tr key={b.id}>
@@ -201,7 +203,7 @@ export function AdminBrands() {
                 <td>{b.active ? '✅' : '⛔'}</td>
                 <td>{b.featured ? '⭐' : '—'}</td>
                 <td className="admin-actions">
-                  <button onClick={() => openEditForm(b)}>Sửa</button>
+                  <button onClick={() => openEditForm(b)}>{t("수정","Sửa")}</button>
                   <button onClick={() => toggleActive(b)}>{b.active ? 'Ẩn' : 'Bật lại'}</button>
                   <button onClick={() => toggleFeatured(b)}>{b.featured ? 'Bỏ nổi bật' : 'Đặt nổi bật'}</button>
                 </td>
@@ -216,7 +218,7 @@ export function AdminBrands() {
       </div>
       <div className="admin-table-wrap">
         <table className="admin-table">
-          <thead><tr><th>Công ty</th><th>Số tin</th><th>Nơi làm việc</th><th>Tín hiệu chuỗi</th><th>Tin mẫu</th><th>Xử lý</th></tr></thead>
+          <thead><tr><th>{t("회사","Công ty")}</th><th>{t("공고 수","Số tin")}</th><th>{t("근무지","Nơi làm việc")}</th><th>{t("체인 판단 근거","Tín hiệu chuỗi")}</th><th>{t("대표 공고","Tin mẫu")}</th><th>{t("관리","Xử lý")}</th></tr></thead>
           <tbody>
             {candidates.length === 0 && <tr><td colSpan={6}><em>Không có ứng viên mới.</em></td></tr>}
             {candidates.map((c) => (
@@ -227,8 +229,8 @@ export function AdminBrands() {
                 <td>{c.chainSignal ? '🔗 có' : '—'}</td>
                 <td><small>{c.sampleJob.title}</small></td>
                 <td className="admin-actions">
-                  <button onClick={() => openApproveForm(c)}>Duyệt</button>
-                  <button onClick={() => handleDismiss(c)}>Bỏ qua</button>
+                  <button onClick={() => openApproveForm(c)}>{t("승인","Duyệt")}</button>
+                  <button onClick={() => handleDismiss(c)}>{t("제외","Bỏ qua")}</button>
                 </td>
               </tr>
             ))}
@@ -238,17 +240,17 @@ export function AdminBrands() {
 
       {form && (
         <div className="admin-panel" style={{ border: '1px solid #e5e7eb', marginTop: '1rem', padding: '1rem' }}>
-          <h3>{form.id ? 'Sửa brand' : 'Brand mới'}</h3>
-          <p><label>Tên: <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label></p>
-          <p><label>Slug: <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></label></p>
+          <h3<>{form.id ? t('브랜드 수정','Sửa brand') : t('신규 브랜드','Brand mới')}</></h3>
+          <p><label>{t("이름: ","Tên: ")}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label></p>
+          <p><label>{t("슬러그: ","Slug: ")}<input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></label></p>
           <p><label>Ngành:{' '}
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as BrandCategoryId })}>
               {CATEGORY_OPTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </label></p>
           <p><label>Domain (favicon, optional): <input value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} /></label></p>
-          <p><label>Chữ cái đại diện: <input value={form.initial} maxLength={2} onChange={(e) => setForm({ ...form, initial: e.target.value })} /></label></p>
-          <p><label>Màu: <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></label></p>
+          <p><label>{t("대표 글자: ","Chữ cái đại diện: ")}<input value={form.initial} maxLength={2} onChange={(e) => setForm({ ...form, initial: e.target.value })} /></label></p>
+          <p><label>{t("색상: ","Màu: ")}<input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></label></p>
           <p><label>Aliases (phân cách bằng dấu phẩy, alias đầu tiên là alias chính):{' '}
             <input style={{ width: '100%' }} value={form.aliasesText} onChange={(e) => setForm({ ...form, aliasesText: e.target.value })} />
           </label></p>
@@ -259,7 +261,7 @@ export function AdminBrands() {
           </p>
           <div className="admin-actions">
             <button disabled={saving} onClick={handleSubmit}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
-            <button disabled={saving} onClick={() => setForm(null)}>Hủy</button>
+            <button disabled={saving} onClick={() => setForm(null)}>{t("취소","Hủy")}</button>
           </div>
         </div>
       )}
