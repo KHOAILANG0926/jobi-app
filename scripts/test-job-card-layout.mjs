@@ -35,6 +35,7 @@ try {
     assert.deepEqual(bounds[1], bounds[0], `missing image layout at ${width}px`)
     assert.deepEqual(bounds[2], bounds[0], `rejected image layout at ${width}px`)
     assert.equal(await page.locator('.jc__logo').count(), 1, 'no fabricated images')
+    assert.equal(await page.locator('.jc__logo-text').count(), 2, 'missing or rejected image must show factual company text')
     console.log(`JobCard ${width}px: image/missing/blocked-image geometry identical`)
   }
 } finally {

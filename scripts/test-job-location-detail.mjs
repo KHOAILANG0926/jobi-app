@@ -196,6 +196,7 @@ if (baseUrl === '--self-test') {
     ['empty location section', base, false],
     ['unknown without map', { ...base, unknownMsg: 'unknown' }, true],
     ['unknown with map', { ...base, unknownMsg: 'unknown', mapContainerCount: 1 }, false],
+    ['unknown with mapped address', { ...base, unknownMsg: 'unknown', mapContainerCount: 1, plannedMarkerCount: 1, mapUnavailable: true }, false],
     ['fabricated precise marker', { ...base, singleAddr: 'Bắc Ninh', markerCount: 1, directionsCount: 1 }, false],
   ]
   for (const [name, value, pass] of cases) {

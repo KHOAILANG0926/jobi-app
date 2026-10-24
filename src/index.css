@@ -12220,6 +12220,21 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-conditions-with-contact .jd2-aside-contact__zalo svg { width: 15px; height: 15px; }
 }
 
+/* 2026-10-24: desktop TEFAL detail tab height and contact buttons (1.3x).
+   Keep mobile and all content positions unchanged. */
+@media (min-width: 761px) {
+  .jd2-tabs--sticky .jd2-tab { padding-top: 1.17rem; padding-bottom: 1.17rem; }
+  .jd2-conditions-with-contact .jd2-aside-contact__call,
+  .jd2-conditions-with-contact .jd2-aside-contact__zalo {
+    height: 42px; min-height: 42px; padding: 0 0.975rem;
+    gap: 6.5px; font-size: 1.04rem;
+  }
+  .jd2-conditions-with-contact .jd2-aside-contact__call svg,
+  .jd2-conditions-with-contact .jd2-aside-contact__zalo svg {
+    width: 20px; height: 20px;
+  }
+}
+
 /* Job location title and real source address are outside the map card. */
 .jd2-location-above-map { display: flex; flex-direction: column; gap: .45rem; margin: 0 0 .85rem; }
 .jd2-location-above-map__row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; font-size: .95rem; color: #1f2937; }
@@ -12232,6 +12247,11 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-location-pending-placeholder { min-height: 180px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: .55rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; color: #64748b; text-align: center; font-size: .9rem; }
 .jd2-location-pending-compact .jd2-map-links { margin: 0; }
 .jd2-location-pending-compact .jd2-map-dir-note { margin: 0; color: #64748b; font-size: .8rem; }
+
+/* Desktop detail: space below the tabs must match the larger gap before the next section. */
+@media (min-width: 761px) {
+  .jd2-tabs--sticky + .jd2-grid--detail-redesign { margin-top: 2.75rem; }
+}
 
 /* Shared vertical rhythm between major detail sections, including the grid break
    after working conditions. Keeps all major sections at the same 2.25rem interval. */
@@ -12398,3 +12418,9 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .loc-prompt-allow { background: var(--color-primary); color: #fff; border: 1px solid var(--color-primary); }
 .loc-prompt-actions button:disabled { opacity: 0.7; cursor: default; }
 .loc-prompt-note { margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: #64748b; }
+
+/* Match the section rhythm requested for conditions → recruitment on desktop and mobile. */
+.jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin-top: 1rem; }
+
+/* Conditions and recruitment live in separate .jd2-main wrappers, so sibling selectors do not apply. */
+.jd2-grid--detail-redesign .jd2-main--full > .jd2-sec--recruit-grid:first-child { margin-top: 1.5rem; }
