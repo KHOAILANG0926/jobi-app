@@ -80,6 +80,7 @@ export default function AdminDashboard() {
   const changeLanguage = (value: AdminLanguage) => { setLanguage(value); saveAdminLanguage(value, user?.id) }
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
 
   // Server records the actor and network context; client never supplies identity or IP.
   useEffect(() => {
@@ -323,20 +324,21 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: t('전체 가입자','Tổng tài khoản'), value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9' },
-                  { label: t('구직자','Người tìm việc'), value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad' },
-                  { label: t('기업회원','Nhà tuyển dụng'), value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
-                  { label: t('베트남 공개 공고','Tin VN đang tuyển'), value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
-                  { label: t('한국 공고','Tin Hàn Quốc'), value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
+                  { label: t('전체 가입자','Tổng tài khoản'), value: usersError ? '—' : stats.totalUsers, icon: '👥', color: '#2980b9', destination: 'users' as Tab },
+                  { label: t('구직자','Người tìm việc'), value: usersError ? '—' : stats.localUsers, icon: '🙋', color: '#8e44ad', destination: 'users' as Tab },
+                  { label: t('기업회원','Nhà tuyển dụng'), value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60', destination: 'users' as Tab },
+                  { label: t('베트남 공개 공고','Tin VN đang tuyển'), value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22', destination: 'jobs' as Tab },
+                  { label: t('한국 공고','Tin Hàn Quốc'), value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', destination: 'jobs' as Tab },
                 ].map(s => (
-                  <div key={s.label} style={{
+                  <button type="button" key={s.label} onClick={() => { setSelectedMemberId(null); setTab(s.destination) }} aria-label={`${s.label} ${t('관리 화면 열기','Mở quản lý')}`} style={{
+                    textAlign: 'left', cursor: 'pointer', width: '100%', fontFamily: 'inherit', borderLeft: 0, borderRight: 0, borderBottom: 0,
                     background: '#fff', borderRadius: '16px', padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
                   }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{s.icon}</div>
                     <div style={{ fontSize: '32px', fontWeight: 800, color: s.color }}>{s.value}</div>
                     <div style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>{s.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
 
@@ -367,7 +369,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {recentAccounts.map(acc => (
-                      <div key={acc.id} style={{
+                      <button type="button" key={acc.id} onClick={() => { setSelectedMemberId(acc.id); setTab('users') }} aria-label={`${acc.name} ${t('회원 관리 열기','Mở quản lý tài khoản')}`} style={{ textAlign: 'left', width: '100%', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '12px 16px', background: '#f9f9f9', borderRadius: '10px'
                       }}>
@@ -394,7 +396,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                             {new Date(acc.createdAt).toLocaleDateString('vi-VN')}
                           </p>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -630,7 +632,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
           </div>
         )}
 
-        {tab === 'users' && <AdminUsers language={language} />}
+        {tab === 'users' && <AdminUsers language={language} selectedMemberId={selectedMemberId} />}
         {tab === 'brands' && <AdminBrands />}
         {tab === 'reports' && <AdminReports />}
         {tab === 'locations' && <AdminLocations />}
