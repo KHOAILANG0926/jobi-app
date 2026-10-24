@@ -251,6 +251,6 @@ export default async function handler(req, res) {
   // 전체를 다시 훑지 않게 한다 — 크롤링 갱신은 "몇 분 내 반영"이면 충분
   // (초 단위 실시간 반영이 요구사항이 아니었음). stale-while-revalidate로
   // 캐시 만료 직후에도 옛 응답을 즉시 내려주고 백그라운드에서 새로 받는다.
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=600')
+  res.setHeader('Cache-Control', 'no-store')
   res.end(finalHtml)
 }
