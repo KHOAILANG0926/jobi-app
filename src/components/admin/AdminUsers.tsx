@@ -5,7 +5,8 @@ import type { AdminLanguage } from '../../lib/adminLanguage'
 export function AdminUsers({ language = 'ko', selectedMemberId = null }: { language?: AdminLanguage; selectedMemberId?: string | null }) {
   const ko = language === 'ko'
   const t = (k: string, v: string) => ko ? k : v
-  const empty = t('정보 미제공','Chưa cung cấp')
+  const empty = t('미등록','Chưa đăng ký')
+  const displayName = (u: AdminUser) => u.full_name || u.display_name || (u.details_unavailable ? t('이름 조회 실패','Không tải được tên') : empty)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [search, setSearch] = useState('')
   const [role, setRole] = useState<'all'|'seeker'|'employer'>('all')
@@ -46,6 +47,7 @@ export function AdminUsers({ language = 'ko', selectedMemberId = null }: { langu
       </select>
     </div>
     {error && <p className="admin-error" role="alert">{error}</p>}
+    {users.some(u => u.details_unavailable) && <p className="admin-error" role="alert">{t('회원 실명·연락처 상세 조회가 실패했습니다. 계정 정보가 미등록된 것이 아닙니다.','Không thể tải chi tiết tên và liên hệ. Không có nghĩa là dữ liệu chưa đăng ký.')}</p>}
     <p>{t('조회 회원','Thành viên')}: {filtered.length}</p>
     <div className="admin-table-wrap"><table className="admin-table">
       <thead><tr>
@@ -54,8 +56,8 @@ export function AdminUsers({ language = 'ko', selectedMemberId = null }: { langu
         <th>{t('가입·최근 로그인','Ngày đăng ký / Đăng nhập gần nhất')}</th>
         <th>{t('활동','Hoạt động')}</th><th>{t('상태 / 관리','Trạng thái / Quản lý')}</th>
       </tr></thead><tbody>{filtered.map(user=><tr key={user.user_id}>
-        <td><strong>{user.full_name || user.display_name || empty}</strong><div><small>{user.user_id}</small></div></td>
-        <td>{user.email || empty}<div><small>{user.phone || empty}</small></div></td>
+        <td><strong>{displayName(user)}</strong><div><small>{user.user_id}</small></div></td>
+        <td>{user.email || (user.details_unavailable ? t('조회 실패','Không tải được') : empty)}<div><small>{user.phone || (user.details_unavailable ? t('조회 실패','Không tải được') : empty)}</small></div></td>
         <td>{roles(user.role)}</td>
         <td>{formatDate(user.joined_at)}<div><small>{formatDate(user.last_sign_in_at)}</small></div></td>
         <td>{user.job_count} {t('공고','tin')} · {user.application_count} {t('지원','hồ sơ')}</td>
@@ -65,7 +67,7 @@ export function AdminUsers({ language = 'ko', selectedMemberId = null }: { langu
       </tr>)}</tbody></table></div>
     {selected && <div role="dialog" aria-modal="true" aria-label={t('회원 상세 확인','Xác nhận tài khoản')} style={{padding:20,border:'2px solid #456',borderRadius:12,marginTop:16,background:'#fff'}}>
       <h3>{t('회원 상세 확인','Chi tiết tài khoản')}</h3>
-      <p><strong>{selected.full_name || selected.display_name || empty}</strong> · {roles(selected.role)}</p>
+      <p><strong>{displayName(selected)}</strong> · {roles(selected.role)}</p>
       <p>{t('회원 ID','Mã tài khoản')}: <code>{selected.user_id}</code></p>
       <p>{t('이메일','Email')}: {selected.email || empty} · {t('전화','Điện thoại')}: {selected.phone || empty}</p>
       <p>{t('지역','Khu vực')}: {selected.city || empty} · {t('최근 로그인','Đăng nhập gần nhất')}: {formatDate(selected.last_sign_in_at)}</p>
