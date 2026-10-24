@@ -53,7 +53,7 @@ export function AdminJobReview({ language = 'ko' }: { language?: AdminLanguage }
       </tr>)}</tbody></table></div>
     {current && <section style={{padding:16, marginTop:16, border:'1px solid #ddd', borderRadius:8}}>
       <h3>{t('공고 검토','Kiểm tra tin')} #{current.job_id} · {current.title}</h3>
-      <p><strong>{t("근무 위치:","Vị trí làm việc:")}</strong> {current.location_text || 'Chưa có thông tin'}</p>
+      <p><strong>{t("근무 위치:","Vị trí làm việc:")}</strong> {current.location_text || t('정보 없음','Chưa có thông tin')}</p>
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:16}}>
         <div><h4>{t("원문","Nội dung gốc")}</h4><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{current.original_text || 'Chưa có nội dung gốc'}</pre></div>
         <div><h4>{t("표시 내용","Nội dung hiển thị")}</h4><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{current.description_text || 'Chưa có nội dung hiển thị'}</pre></div>
@@ -63,7 +63,7 @@ export function AdminJobReview({ language = 'ko' }: { language?: AdminLanguage }
       <label htmlFor="review-reason"><strong>{t("수정 사유(필수)","Lý do chỉnh sửa (bắt buộc)")}</strong></label>
       <input id="review-reason" value={reason} onChange={e=>setReason(e.target.value)} style={{width:'100%', boxSizing:'border-box'}} />
       <p>{t("저장 후에도 비공개로 유지되며 자동 검증을 통과해야 공개됩니다.","Việc lưu sẽ giữ tin ở trạng thái ẩn. Nội dung mới phải qua kiểm tra tự động trước khi công khai.")}</p>
-      <button type="button" disabled={saving || !reason.trim() || !draft.trim() || draft === (current.description_text ?? '')} onClick={() => void saveCorrection()}>{saving ? 'Đang lưu...' : 'Lưu và kiểm tra lại'}</button>
+      <button type="button" disabled={saving || !reason.trim() || !draft.trim() || draft === (current.description_text ?? '')} onClick={() => void saveCorrection()}>{saving ? t('저장 중...','Đang lưu...') : t('수정 저장 후 재검토','Lưu và kiểm tra lại')}</button>
       <button type="button" onClick={() => setSelected(null)}>{t("닫기","Đóng")}</button>
     </section>}
   </section>
