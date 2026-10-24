@@ -25,7 +25,7 @@ export function evaluateFiles(paths, body = '') {
       !paths.some(p => /directionsPlan\.test\./.test(p)))
     errors.push('길찾기 로직 변경 시 기존 위치 정책 회귀 테스트 필수')
   if (paths.some(p => /^src\/pages\/JobDetail\.tsx$/.test(p)) &&
-      !paths.some(p => /(?:jobDetailSections|jobCoords)\.test\.|scripts\/layout\//.test(p)))
+      !paths.some(p => /(?:jobDetailSections|jobCoords)\.test\.|scripts\/layout\/|scripts\/test-job-location-detail\.mjs/.test(p)))
     errors.push('상세 페이지 수정 시 기존 기준 공고/위치 회귀 증거 필요')
   // Source links may never be exposed in the browser, regardless of PR description.
   if (body.includes('[정책 위반 허용]')) errors.push('PR 설명만으로 규정 우회 불가')
