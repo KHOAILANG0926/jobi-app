@@ -5,6 +5,7 @@ name: PR 검사 (병합 전 필수)
 # DB·VietMap·Secret을 쓰지 않는다.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited, converted_to_draft]
   push:
     branches: [master]
 
@@ -22,6 +23,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: 완료 근거 검사 자체 시험
+        run: node scripts/check-pr-ready.test.mjs
       - name: PR 완료 근거 검사 (Draft는 제외, 필수 CI는 유지)
         if: github.event_name == 'pull_request'
         run: node scripts/check-pr-ready.mjs
