@@ -438,16 +438,20 @@ export function JobDetail() {
   // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
   // 2026-09-30 사용자 지시: 지역·공단 중심 좌표로 대신 표시하지 않는다. 확인된 근무지(precise)만 지도에
   // 그리고, 없으면 '위치 미확인'으로 표시한다(길찾기·거리 계산에서도 이미 제외됨).
-  const verifiedMapPoints = mapLocations.source === 'default' ? [] : mapLocations.points
-  const hasMapPoints = verifiedMapPoints.length > 0
-  const mapCenter = verifiedMapPoints[0]
+  const verifiedMapPoints = mapLocations.points.filter((p) => p.precise)
+  const displayMapPoints = mapLocations.source === 'default' ? [] : mapLocations.points
+  const hasMapPoints = displayMapPoints.length > 0
+  const mapCenter = displayMapPoints[0]
   // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 "해당 KCN 중심 좌표"로 핀 없이 지도 + "Vị trí chính xác chưa xác minh".
   // 중심 좌표는 출처(OpenStreetMap way)가 있는 공단 표(data/industrialParks.ts)에서만 가져온다 — 표에 없으면
   // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
   // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
   const directionsPlan = planJobDirections(job)
   // 지도 누르면 열 Google 길찾기(아래 Google 버튼과 같은 주소). 없으면 지도 누르기는 아무 일도 안 함.
-  const googleMapHref = googleCompanyParkLink
+  const addressForDirections = (job.workLocations ?? []).find(l => /\b\d+\s+[^,]+,/.test(l.rawAddress))?.rawAddress
+  const streetDirectionsHref = addressForDirections
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressForDirections)}` : undefined
+  const googleMapHref = streetDirectionsHref ?? googleCompanyParkLink
     ?? (directionsPlan.tier === 'address' || directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : undefined)
   const mapDirections = directionsPlan.tier === 'approved' ? directionsPlan.links : []
   const park = !hasMapPoints
@@ -863,13 +867,13 @@ export function JobDetail() {
                         lng={mapCenter.lng}
                         title={job.title}
                         zoom={mapLocations.zoom}
-                        markers={verifiedMapPoints.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label }))}
+                        markers={displayMapPoints.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label }))}
                         directions={mapDirections}
                       />
-                      <p className="jd2-map-note">
+                      <p className={verifiedMapPoints.length ? "jd2-map-note" : "jd2-map-area-note"}>
                         {verifiedMapPoints.length > 1
                           ? `Công việc này có ${verifiedMapPoints.length} địa điểm làm việc đã xác minh.`
-                          : 'Vị trí nơi làm việc đã được xác minh trên bản đồ.'}
+                          : verifiedMapPoints.length === 1 ? 'Vị trí nơi làm việc đã được xác minh trên bản đồ.' : 'Vị trí tham khảo — chưa xác minh địa điểm làm việc chính xác.'}
                       </p>
                     </>
                   )}
@@ -918,15 +922,15 @@ export function JobDetail() {
                       <p className="jd2-map-dir-note">{parkDirection.note}</p>
                     </div>
                   )}
-                  {!googleCompanyParkLink && directionsPlan.tier === 'address' && (
+                  {(streetDirectionsHref || (!googleCompanyParkLink && directionsPlan.tier === 'address')) && (
                     <div className="jd2-map-links">
-                      {directionsPlan.links.map((link) => (
+                      {(streetDirectionsHref ? [{ href: streetDirectionsHref }] : directionsPlan.tier === 'address' ? directionsPlan.links : []).map((link) => (
                         <span key={link.href}>
                           <GoogleDirectionsLink key={link.href} href={link.href} />
                         </span>
                       ))}
-                      {directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
-                      {!(!hasMapPoints && !park && wardUnit && wardCenter) && <p className="jd2-map-dir-note">{directionsPlan.note}</p>}
+                      {directionsPlan.tier === 'address' && directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
+                      {!(!hasMapPoints && !park && wardUnit && wardCenter) && <p className="jd2-map-dir-note">{directionsPlan.tier === 'address' ? directionsPlan.note : 'Địa chỉ từ tin tuyển dụng; chưa xác minh điểm làm việc chính xác.'}</p>}
                     </div>
                   )}
                   {directionsPlan.tier === 'call' && (
