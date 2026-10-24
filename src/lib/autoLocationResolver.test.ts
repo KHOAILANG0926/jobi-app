@@ -58,3 +58,46 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   assert(r.kind === 'area' && calls === 0 && (r as { lat: number }).lat === 21.1568, '2-level address uses stored ward center without VietMap calls')
   console.log('autoLocationResolver: 2-level ward cache assertions passed')
 }
+
+
+{
+  // Regression: a newly encountered, non-catalogued industrial park must go
+  // through the bounded VietMap search path, never fake a known park gate.
+  const text = 'KCN Minh Chau, Bắc Ninh'
+  let network = 0
+  let cached = 0
+  const input = {id:900001,company:'',location:text,targets:[{address:text,workLocationId:null}]}
+  const unknown = await resolver.resolveAutoLocation(input,{
+    ...deps,
+    async reserve(){ return true },
+    async cached(){ return null },
+    async cache(){ cached++ },
+    async request(){ network++; return [] },
+  })
+  assert(unknown.kind === 'unresolved', 'unknown park with no source never generates a fabricated marker')
+  assert(network === 1 && cached === 1, 'unknown park triggers bounded search and caches empty result')
+  let repeatNetwork = 0
+  const repeat = await resolver.resolveAutoLocation(input,{
+    ...deps,
+    async reserve(){ return true },
+    async cached(){ return [] },
+    async request(){ repeatNetwork++; return [] },
+  })
+  assert(repeat.kind === 'unresolved' && repeatNetwork === 0, 'unknown park empty lookup result reused without API')
+  const budget = await resolver.resolveAutoLocation(input,{
+    ...deps, remainingCalls:0,async reserve(){throw Error('should not reserve')},async request(){throw Error('should not query')},
+  })
+  assert(budget.kind === 'unresolved', 'no quota does not invent a pin')
+}
+{
+  // A park polygon center must remain an approximate marker, NOT gate directions.
+  const addr = 'Nhà máy ADTEK, KCN Quế Võ III, Bắc Ninh'
+  let n=0
+  const r = await resolver.resolveAutoLocation({id:4879,company:'ADTEK',location:addr,targets:[{address:addr,workLocationId:null}]},{
+    ...deps,async reserve(){return true},async request(){n++;return []},
+  })
+  assert(r.kind === 'area', 'known park without confirmed gate yields approximate area, not an unresolved job')
+  assert(n<=2, 'known park respects global two-call budget')
+  assert(!('destination' in r), 'approximate park center cannot be used as gate destination')
+}
+console.log('autoLocationResolver: unknown-park discovery, cached miss, fallback and no-fake-gate assertions passed')
