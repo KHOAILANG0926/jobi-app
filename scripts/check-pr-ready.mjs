@@ -4,26 +4,28 @@
 import { readFileSync } from 'node:fs'
 
 export function checkCompletion(body) {
-  const fields = [
-    ['작업 범위', /(?:^|\n)##\s*작업 범위\s*\n([^]*?)(?=\n##\s|$)/i],
-    ['완료 조건', /(?:^|\n)##\s*완료 조건\s*\n([^]*?)(?=\n##\s|$)/i],
-    ['검증 근거', /(?:^|\n)##\s*검증 근거\s*\n([^]*?)(?=\n##\s|$)/i],
-    ['남은 문제', /(?:^|\n)##\s*남은 문제\s*\n([^]*?)(?=\n##\s|$)/i],
+  // The existing PR template is the source of truth; do not invent a second form.
+  const headings = [
+    '사용자 요청 및 확정된 완료 조건',
+    '작업 범위와 변경 파일',
+    '필수 테스트 결과 및 검증 SHA',
+    '미충족 조건 또는 실제 병합 차단 사유',
   ]
   const errors = []
-  for (const [label, pattern] of fields) {
-    const value = body.match(pattern)?.[1]?.trim()
-    if (!value || /^(?:없음|n\/a|todo|tbd|추후|미작성|-)$/i.test(value) && label !== '남은 문제') {
-      errors.push(label + ': 구체적 내용 필요')
-    }
-    if (label === '검증 근거' && value &&
-        !/https:\/\/github\.com\/[^\s)]+\/actions\/runs\/\d+/.test(value)) {
-      errors.push('검증 근거: GitHub Actions 실행 링크 필요')
-    }
+  for (const name of headings) {
+    const section = body.split('## ' + name + '\n')[1]?.split('\n## ')[0]?.trim()
+    if (!section) errors.push(name + ': 내용 없음')
   }
-  if (/##\s*남은 문제\s*\n\s*(?:검증 대기|테스트 실패|미완료|원인 조사 중)/i.test(body)) {
-    errors.push('미완료 또는 검증 대기 PR은 Draft로 유지')
-  }
+  if (!/^- 요청:\s*\S/m.test(body) || !/^- 완료 조건:\s*\S/m.test(body))
+    errors.push('사용자 요청과 완료 조건을 기입')
+  if (!/^- 변경 파일:\s*\S/m.test(body)) errors.push('변경 파일을 기입')
+  if (!/\b[0-9a-f]{40}\b/i.test(body)) errors.push('검증 SHA(40자리) 필요')
+  if (!/https:\/\/github\.com\/[^\s)]+\/actions\/runs\/\d+/.test(body))
+    errors.push('GitHub Actions 실제 실행 링크 필요')
+  if (!/^- \[x\] READY FOR APPROVAL\s*$/mi.test(body) ||
+      /^- \[x\] (?:BLOCKED|MERGED)\s*$/mi.test(body))
+    errors.push('READY FOR APPROVAL 상태만 체크해야 함')
+
   return errors
 }
 
