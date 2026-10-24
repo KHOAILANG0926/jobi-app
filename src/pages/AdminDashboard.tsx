@@ -74,6 +74,21 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
 
+  // Server records the actor and network context; client never supplies identity or IP.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token || cancelled) return
+      await fetch('/api/admin-access', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   // Dashboard state
   const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
   const [loading, setLoading] = useState(false)
