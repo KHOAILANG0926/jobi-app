@@ -1,0 +1,70 @@
+name: 검사 통과 PR 봇 병합
+# bootstrap은 master 직접 생성. 이후 PR 검증이 완료된 것만 github-actions[bot]으로 병합.
+on:
+  workflow_run:
+    workflows: ['PR 검사 (병합 전 필수)', '실제 화면 검사 (PR, 병합 전 필수)']
+    types: [completed]
+  push:
+    branches: [master]
+    paths: ['.github/workflows/bot-pr-automerge.yml']
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  checks: read
+
+concurrency:
+  group: bot-pr-automerge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GitHub Actions bot 인증으로 안전 병합
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName] | @tsv' |
+          while IFS=$'\t' read -r num sha branch; do
+            [ -n "$num" ] || continue
+            echo "검사: PR #$num ($sha)"
+            # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
+            gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate > files.json
+            if jq -e '.[] | select((.filename|startswith("supabase/migrations/")) and ((.patch // "") | test("(?im)^\\+(?!\\s*--)\\s*.*\\b(drop[[:space:]]+(table|column|schema|policy)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\\b")))' files.json >/dev/null; then
+              echo "::notice::PR #$num 파괴적인 migration: Lee 결정 필요, 자동병합 금지"; continue
+            fi
+            # 변경 패치가 잘린 migration도 무조건 자동병합 보류
+            if jq -e '.[] | select((.filename|startswith("supabase/migrations/")) and (.patch==null))' files.json >/dev/null; then
+              echo "::notice::PR #$num migration patch 없음: 병합 금지"; continue
+            fi
+            checks=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '.check_runs | sort_by(.started_at) | group_by(.name) | map(last) | map({name,conclusion,status})')
+            echo "$checks" | jq -c '.'
+            # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
+            if ! echo "$checks" | jq -e '
+              (all(.[]; .status=="completed" and (.conclusion=="success" or .conclusion=="skipped"))) and
+              (any(.[]; .name=="checks" and .conclusion=="success")) and
+              (any(.[]; .name=="app-screen" and .conclusion=="success")) and
+              (any(.[]; .name=="guard" and .conclusion=="success")) and
+              (any(.[]; .name=="publication-gate" and .conclusion=="success"))
+            ' >/dev/null; then
+              echo "PR #$num 검사 대기/실패: 병합 생략"; continue
+            fi
+            # PR 준비 표시와 현재 head SHA 최종 재검증
+            gh pr view "$num" --repo "$REPO" --json headRefOid,isDraft,mergeStateStatus --jq '[.headRefOid,.isDraft,.mergeStateStatus] | @tsv' > state.txt
+            read -r current draft merge_state < state.txt
+            [ "$current" = "$sha" ] && [ "$draft" = false ] && [ "$merge_state" = CLEAN ] || {
+              echo "PR #$num 최신 상태/보호 규칙 차단: $merge_state"; continue;
+            }
+            if gh pr merge "$num" --repo "$REPO" --squash --match-head-commit "$sha"; then
+              echo "::notice::PR #$num github-actions[bot] 병합 성공"
+              gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
+            else
+              echo "::warning::PR #$num 병합 거절(권한/branch protection), 재시도 생략"
+            fi
+          done
