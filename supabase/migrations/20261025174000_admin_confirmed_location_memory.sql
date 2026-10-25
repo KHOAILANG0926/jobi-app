@@ -110,3 +110,24 @@ revoke all on function public.admin_apply_remembered_to_work_location() from pub
 drop trigger if exists trg_admin_remembered_work_locations on public.job_work_locations;
 create trigger trg_admin_remembered_work_locations after insert or update of raw_address,industrial_park on public.job_work_locations
 for each row execute function public.admin_apply_remembered_to_work_location();
+
+-- A revoked or deleted source approval must not silently validate later jobs.
+create or replace function public.admin_forget_confirmed_location() returns trigger
+language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+  delete from public.admin_confirmed_location_memory where source_candidate_id=old.id;
+  update public.job_location_candidates set status='revoked', reviewed_at=now(),
+    review_note='자동 재사용 원본 승인 철회: #'||old.id
+  where status='approved'
+    and evidence='AUTO REUSE: source confirmed candidate #'||old.id;
+  return coalesce(new,old);
+end $$;
+revoke all on function public.admin_forget_confirmed_location() from public,anon,authenticated;
+drop trigger if exists trg_admin_forget_confirmed_location_update on public.job_location_candidates;
+create trigger trg_admin_forget_confirmed_location_update after update of status on public.job_location_candidates
+for each row when (old.status='approved' and new.status<>'approved')
+execute function public.admin_forget_confirmed_location();
+drop trigger if exists trg_admin_forget_confirmed_location_delete on public.job_location_candidates;
+create trigger trg_admin_forget_confirmed_location_delete after delete on public.job_location_candidates
+for each row when (old.status='approved')
+execute function public.admin_forget_confirmed_location();
