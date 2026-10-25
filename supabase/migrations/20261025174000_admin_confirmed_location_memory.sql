@@ -36,14 +36,22 @@ begin
   then return 0; end if;
   select mem.* into m
   from public.admin_confirmed_location_memory mem
-  where mem.active and ((mem.address_key<>'' and
-    (mem.address_key=public.admin_location_key(j.location)
-      or exists(select 1 from public.job_work_locations w where w.job_id=p_job_id
-        and mem.address_key=public.admin_location_key(w.raw_address))))
-    or (mem.company_key<>'' and mem.park_key is not null and mem.park_key<>''
-      and mem.company_key=public.admin_location_key(j.company)
-      and exists(select 1 from public.job_work_locations w where w.job_id=p_job_id
-        and mem.park_key=public.admin_location_key(w.industrial_park))))
+  where mem.active and (
+    (mem.address_key <> '' and (
+      mem.address_key = public.admin_location_key(j.location)
+      or exists (
+        select 1 from public.job_work_locations w
+        where w.job_id = p_job_id and mem.address_key = public.admin_location_key(w.raw_address)
+      )
+    ))
+    or (mem.company_key <> '' and mem.park_key is not null and mem.park_key <> ''
+      and mem.company_key = public.admin_location_key(j.company)
+      and exists (
+        select 1 from public.job_work_locations w
+        where w.job_id = p_job_id and mem.park_key = public.admin_location_key(w.industrial_park)
+      )
+    )
+  )
   order by mem.approved_at desc limit 1;
   if m.source_candidate_id is null then return 0; end if;
   select w.id, w.raw_address into workid,addr
