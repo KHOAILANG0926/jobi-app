@@ -1290,12 +1290,51 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     return job
 
 
+def _cty_kda_parse(raw_text: str) -> dict:
+    """Call the authenticated server parser. Never log the token or raw text."""
+    import urllib.request
+    endpoint = os.getenv("CTY_KDA_PARSER_URL", "")
+    token = os.getenv("CTY_KDA_PARSER_TOKEN", "")
+    if not endpoint.startswith("https://") or not token:
+        raise RuntimeError("CTY_KDA parser endpoint/token not configured")
+    payload = json.dumps({"raw_text": raw_text}, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        endpoint, data=payload, method="POST",
+        headers={"Content-Type": "application/json", "Authorization": "Bearer " + token},
+    )
+    with urllib.request.urlopen(request, timeout=55) as response:
+        output = json.load(response)
+    if not isinstance(output, dict) or not isinstance(output.get("violations"), list):
+        raise RuntimeError("CTY_KDA parser response invalid")
+    return output
+
+
 async def process_job_url(page, url: str, listing_hint: dict | None = None) -> dict:
     """디스커버리 방식과 무관한 단일 진입점 — 카테고리 크롤이 새로 찾은 URL,
     재크롤에서 다시 만난 이미 아는 URL, --process-url/--reprocess-ids로 수동
     지정된 URL 모두 이 함수 하나로 상세 수집 + build_job_record를 거친다."""
     detail = await fetch_job_detail(page, url)
-    return build_job_record(url, detail, listing_hint)
+    job = build_job_record(url, detail, listing_hint)
+    # Opt-in only until the parser output has a reviewed persistence mapping.
+    # The parsed object is ephemeral/private and excluded from DB payloads by underscore prefix.
+    if os.getenv("CTY_KDA_PARSER_ENABLED") == "true" and not job.get("_pipeline_failed") and not job.get("_skip"):
+        raw = job.get("source_text") or job.get("description") or ""
+        if not raw.strip():
+            job["_pipeline_failed"] = True
+            job["_failure_stage"] = "cty_kda_parse"
+            job["_failure_reason"] = "source text missing"
+        else:
+            try:
+                job["_cty_kda_parsed"] = await asyncio.to_thread(_cty_kda_parse, raw)
+                if job["_cty_kda_parsed"]["violations"]:
+                    job["_pipeline_failed"] = True
+                    job["_failure_stage"] = "cty_kda_guard"
+                    job["_failure_reason"] = "parser violations require review"
+            except Exception:
+                job["_pipeline_failed"] = True
+                job["_failure_stage"] = "cty_kda_parse"
+                job["_failure_reason"] = "parser unavailable or invalid"
+    return job
 
 
 def _select_sample_window(unique_raw: list[dict], offset: int, limit: int) -> list[dict]:
