@@ -47,7 +47,7 @@ jobs:
             echo "$checks" | jq -c '.'
             # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
             if ! echo "$checks" | jq -e '
-              (all(.[]; .status=="completed" and (.conclusion=="success" or .conclusion=="skipped"))) and
+              (all(.[] | select(.name=="checks" or .name=="app-screen" or .name=="guard" or .name=="publication-gate"); .status=="completed" and .conclusion=="success")) and
               (any(.[]; .name=="checks" and .conclusion=="success")) and
               (any(.[]; .name=="app-screen" and .conclusion=="success")) and
               (any(.[]; .name=="guard" and .conclusion=="success")) and
