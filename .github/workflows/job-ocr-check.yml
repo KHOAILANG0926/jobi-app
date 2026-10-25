@@ -14,10 +14,13 @@ on:
       - src/lib/jobDetailFill.ts
       - src/lib/jobDetailSections.ts
       - src/lib/jobDescriptionBuild.ts
+      - src/lib/jobInspect.ts
+      - scripts/ops/job-inspect.mjs
       - .github/workflows/job-ocr-check.yml
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: job-ocr-check
@@ -60,3 +63,12 @@ jobs:
         run: |
           npm i --no-save pg@8
           node --experimental-strip-types scripts/ocr/detail-fill.mjs
+      - name: 공고 검사표 (2026-10-25 Lee 결정 — 올린 공고마다 문제를 찾아 알림, 연속 10개 통과가 크롤링 시작 조건)
+        if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          npm i --no-save pg@8
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobInspect.test.ts
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-inspect.mjs
