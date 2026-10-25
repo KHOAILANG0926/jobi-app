@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 16:25 (VN)**
-- 기준 커밋: `faeba8e` (ci: do not auto-merge older PRs; delegate mergeability to server protection)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40180531472
+- 생성 시각: **2026-10-25 16:26 (VN)**
+- 기준 커밋: `c1854bf` (fix: Vercel demo alias에 team scope 명시 (#251))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40180573040
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -23,13 +23,14 @@
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
 - 마지막 Production 배포: `faeba8e` · 상태 **success** · 2026-10-25 16:25 (VN)
-- master 최신 커밋과 ✅ 같음
+- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #251 | 2026-10-25 16:26 (VN) | `c1854bf` | fix: Vercel demo alias에 team scope 명시 |
 | #250 | 2026-10-25 15:48 (VN) | `887dbf3` | 최신 위치 핀 규칙 및 데모 alias 실패 감지 |
 | #249 | 2026-10-25 15:24 (VN) | `3365254` | HANDOFF: GPT 인계 |
 | #248 | 2026-10-25 15:17 (VN) | `790bfda` | 공고 저장 순간 검사 신호 |
@@ -39,7 +40,6 @@
 | #240 | 2026-10-25 12:16 (VN) | `b071038` | AI 판정 설정 수정 |
 | #239 | 2026-10-25 12:12 (VN) | `1521389` | AI 판정 실패 이유 표시 |
 | #238 | 2026-10-25 12:06 (VN) | `59d5065` | AI 칸·복리후생 판정 + 번호표 저장 |
-| #236 | 2026-10-25 11:55 (VN) | `56f7b19` | 공고 1개 자동 검사표 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
