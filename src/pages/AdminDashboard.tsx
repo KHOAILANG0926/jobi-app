@@ -308,7 +308,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', click:()=>openJobs('korea') },
                 ].map(s => (
                   <button type="button" key={s.label} onClick={s.click} style={{textAlign:"left",cursor:"pointer",borderRadius:0,border:"1px solid #ddd",
-                    background: '#fff', borderRadius: '16px', padding: '20px',
+                    background: '#fff', padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
                   }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{s.icon}</div>
