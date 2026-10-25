@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 // Admin-only location queue/Google link resolution/confirmation. Never fetch non-Google hosts.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co'
 const ALLOWED_HOSTS = new Set(['maps.app.goo.gl','www.google.com','google.com','maps.google.com'])
-const addressKey = value => String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()
+const addressKey = value => String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()
 const coordPair = /(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/
 function vietnamPoint(lat, lng) {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110
@@ -74,7 +74,6 @@ export function createAdminLocationReviewHandler(deps) {
           if((approvalsByJob.get(job.id)||[]).some(c=>addressKey(c.company_snapshot)===addressKey(job.company)
             && addressKeys.includes(addressKey(c.address_snapshot))))return false
           if((groups.get(job.id)||[]).some(w=>w.location_verified===true && validPoint(w.lat,w.lng)))return false
-          return Boolean(job.location || (groups.get(job.id)||[]).some(w=>w.raw_address))
         }).map(job=>{
           const locs=groups.get(job.id)||[]
           const w=locs.find(w=>w.raw_address)||locs[0]
