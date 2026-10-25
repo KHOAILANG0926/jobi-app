@@ -5,6 +5,19 @@ const CONDITIONS = ['salary', 'work_hours', 'working_days', 'days_off', 'shift',
 const QUALIFICATIONS = ['recruitment_qty', 'gender', 'age', 'education', 'experience', 'requirements', 'required_documents']
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const normalized = (text) => String(text).normalize('NFKC').toLocaleLowerCase('vi').replace(/\s+/g, ' ').replace(/[.。;,，:：!?！?]+$/g, '').trim()
+// Conservative semantic fingerprints for condition-only sentences. Never remove a mixed task/condition line.
+const foldVietnamese = (value) => normalized(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
+const conditionClass = (value) => {
+  const s = foldVietnamese(value)
+  if (/\b(luong|thu nhap|salary)\b/.test(s)) return 'salary'
+  if (/\b(gio lam|thoi gian lam|ca lam|lam viec tu)\b/.test(s)) return 'work_hours'
+  if (/\b(tuoi|do tuoi)\b/.test(s)) return 'age'
+  if (/\b(kinh nghiem)\b/.test(s)) return 'experience'
+  if (/\b(gioi tinh|nam nu)\b/.test(s)) return 'gender'
+  if (/\b(dia chi|dia diem lam viec)\b/.test(s)) return 'address'
+  return ''
+}
+const numberTokens = (value) => [...foldVietnamese(value).matchAll(/\d+(?:[.,:]\d+)*/g)].map((m) => m[0]).join('|')
 const asText = (value, where, violations) => {
   if (value == null) return ''
   if (typeof value === 'string') return value
@@ -53,6 +66,15 @@ export function guardCtyKdaParserOutput(value) {
     const key = normalized(item)
     if (structuredValues.includes(key) || seen.has(key)) {
       violations.push('[중복 제거] mo_ta_list에서 정확히 중복된 문장 제거: ' + item)
+      continue
+    }
+    // Pure condition sentences may have different wording from the structured card.
+    // Preserve cases with additional numeric details rather than risking data loss.
+    const cls = conditionClass(item)
+    const target = cls === 'address' ? khu_vuc.address : (dieu_kien[cls] || thong_tin[cls] || '')
+    if (cls && target && numberTokens(item) === numberTokens(target) &&
+        !/\b(lap rap|van hanh|kiem tra|dong goi|san xuat|assemble|operate)\b/.test(foldVietnamese(item))) {
+      violations.push('[의미 중복 제거] 조건 전용 문장을 mo_ta_list에서 제거: ' + item)
       continue
     }
     if (structuredValues.some((field) => field && (key.includes(field) || field.includes(key)))) {
