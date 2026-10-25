@@ -3,7 +3,8 @@
  * framework (none is set up in this project). Run directly with Node's native
  * TypeScript support: `node src/lib/jobRows.test.ts`.
  */
-import { fetchEmployerJobs, rowToJob, type JobsQueryBuilder, type JobsQueryClient } from './jobRows.ts'
+import { applyLocationApprovals, fetchEmployerJobs, rowToJob, type JobsQueryBuilder, type JobsQueryClient } from './jobRows.ts'
+import { verifiedWorkLocationPoint, resolveMapLocations } from './jobCoords.ts'
 
 function assertEqual<T>(actual: T, expected: T, label: string): void {
   if (actual !== expected) {
@@ -163,12 +164,27 @@ async function testFetchEmployerJobsThrowsOnQueryError(): Promise<void> {
   assertTrue(threw, 'fetchEmployerJobs must throw (not silently return []) when the local_jobs query itself fails')
 }
 
+async function testApprovedFallbackLocationUsedByMapAndDistance(): Promise<void> {
+  const job = rowToJob({id:901,title:'Private test',company:'Example',location:'123 Fake St',description:''})
+  const approvals=[{job_id:901,company_snapshot:'Example',address_snapshot:'123 Fake St',lat:21.1861,lng:106.0763,place_precision:'building'}]
+  const updated = applyLocationApprovals([job],approvals)[0]
+  const location=updated.workLocations?.[0]
+  assertTrue(location,'approved location should attach even without job_work_locations row')
+  const precise=verifiedWorkLocationPoint(location!)
+  assertEqual(precise?.lat,21.1861,'distance search uses approved latitude')
+  assertEqual(precise?.lng,106.0763,'distance search uses approved longitude')
+  const map=resolveMapLocations({workLocations:updated.workLocations})
+  assertTrue(JSON.stringify(map).includes('21.1861')&&JSON.stringify(map).includes('106.0763'),
+    'detail map uses the exact same approved coordinates')
+}
+
 async function main(): Promise<void> {
   const tests = [
     testFetchEmployerJobsNeverFiltersOnActive,
     testFetchEmployerJobsReturnsInactiveAndAdminHiddenJobs,
     testFetchEmployerJobsEmptyForNoEmployerId,
     testFetchEmployerJobsAttachesWorkLocations,
+    testApprovedFallbackLocationUsedByMapAndDistance,
     testRowToJobMapsActiveAndAdminHidden,
     testFetchEmployerJobsThrowsOnQueryError,
   ]
