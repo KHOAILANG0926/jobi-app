@@ -1,10 +1,6 @@
 {
   "git": {
-    "deploymentEnabled": {
-      "status": false,
-      "layout-out": false,
-      "screens": false
-    }
+    "deploymentEnabled": false
   },
   "rewrites": [
     {

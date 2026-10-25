@@ -69,6 +69,13 @@ jobs:
           url=$(tail -1 url.txt)
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "- 배포 주소: $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: 데모 고정 링크 붙이기 (demo/** 만)
+        if: startsWith(github.ref, 'refs/heads/demo/')
+        run: |
+          # 예전 Vercel 자동 배포와 같은 고정 링크 모양 유지: jobi-git-<브랜치(/→-)>-mshw1895-6089s-projects.vercel.app
+          alias="jobi-git-$(echo "${GITHUB_REF_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]')-mshw1895-6089s-projects.vercel.app"
+          npx --yes vercel@latest alias set "${{ steps.up.outputs.url }}" "$alias" --token "$VERCEL_TOKEN" 2>err.txt || { tail -5 err.txt | sed 's/^/::warning::/'; }
+          echo "- 데모 고정 링크: https://$alias" >> "$GITHUB_STEP_SUMMARY"
       - name: GitHub 배포 기록 남기기 (deploy-verify가 이 기록을 본다)
         run: |
           id=$(gh api "repos/${{ github.repository }}/deployments" -X POST \
