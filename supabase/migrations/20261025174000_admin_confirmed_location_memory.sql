@@ -18,9 +18,9 @@ revoke all on public.admin_confirmed_location_memory from public, anon, authenti
 grant select, insert, update on public.admin_confirmed_location_memory to service_role;
 
 create or replace function public.admin_location_key(p_text text) returns text
-language sql stable set search_path = pg_catalog, public as $
+language sql stable set search_path = pg_catalog, public as $$
   select lower(btrim(regexp_replace(public.unaccent(coalesce(p_text,'')), '[[:space:][:punct:]]+', ' ', 'g')))
-$;
+$$;
 revoke all on function public.admin_location_key(text) from public, anon, authenticated;
 
 create or replace function public.admin_reuse_confirmed_location(p_job_id bigint) returns integer
