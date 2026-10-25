@@ -1,0 +1,51 @@
+name: 관리자 고르기 실제 클릭 E2E
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    paths:
+      - 'scripts/ops/admin-line-pick-e2e.mjs'
+      - '.github/workflows/admin-line-pick-e2e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+      ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ADMIN_E2E_BASE_URL: https://www.viecganban.vn
+    steps:
+      - uses: actions/checkout@v4
+      - name: 시험 비밀값 유무 확인
+        id: creds
+        shell: bash
+        run: |
+          if [ -z "$ADMIN_E2E_EMAIL" ] || [ -z "$ADMIN_E2E_PASSWORD" ] || [ -z "$SUPABASE_DB_URL" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "비밀값 없음: 관리자 자동 클릭 E2E 건너뜀 (ADMIN_E2E_EMAIL / ADMIN_E2E_PASSWORD / SUPABASE_DB_URL)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.creds.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.creds.outputs.present == 'true'
+      - run: npx playwright install --with-deps chromium
+        if: steps.creds.outputs.present == 'true'
+      - name: 실제 관리자 로그인·시험 줄 선택·DB/상세 확인·완전 삭제
+        if: steps.creds.outputs.present == 'true'
+        run: node scripts/ops/admin-line-pick-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.creds.outputs.present == 'true'
+        with:
+          name: admin-line-pick-e2e-proof
+          path: admin-line-pick-e2e.png
+          if-no-files-found: ignore
