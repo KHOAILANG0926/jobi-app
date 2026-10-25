@@ -134,3 +134,22 @@ assert((tefalBuckets['01'] ?? []).includes('Bán hàng tại quầy'), 'TEFAL oc
   assert(JSON.stringify(lines04) === JSON.stringify(['- Phụ cấp xăng xe 500k']), 'only breakdown remains: ' + JSON.stringify(lines04))
 }
 console.log('jobDetailSections salary-repeat assertions passed')
+
+// ── 2026-10-25 Lee: 위쪽 칸에 보이는 값과 같은 줄은 아래에서 반복하지 않는다 + 새 소제목·줄 규칙 ──
+{
+  const { coveredByAbove, headingOf, lineBucket } = await import('./jobDetailSections.ts')
+  const above = { values: ['22 - 35 tuổi', 'Không yêu cầu; nam cao trên 1m65, nữ cao trên 1m55'], valueGroups: [['Ca xoay 8 tiếng', 'Nghỉ 1 ngày/tuần (không cố định cuối tuần)']] }
+  assert(coveredByAbove('Độ tuổi: 22 - 35 tuổi', above), 'age repeat')
+  assert(coveredByAbove('- Nam cao >1m65, Nữ cao >1m55.', above), 'height repeat')
+  assert(coveredByAbove('Thời gian: Ca xoay 8 tiếng, nghỉ 1 ngày/tuần (không cố định cuối tuần).', above), 'hours+days group repeat')
+  assert(!coveredByAbove('- Tốt nghiệp THCS trở lên (9/12), tuổi từ 22 trở lên.', above), 'partly different kept')
+  assert(!coveredByAbove('Ca', above), 'too short to judge')
+  assert(headingOf('Quyền lợi chính') === '05' && headingOf('Yêu cầu cơ bản') === '02', 'new headings')
+  assert(lineBucket('Kinh nghiệm: < 1 năm', '07') === '02', 'experience → 02')
+  assert(lineBucket('Ứng tuyển: Liên hệ qua Zalo', '05') === '06', 'apply → 06')
+  assert(lineBucket('Chương trình cộng tác viên: 500.000đ', '05') === '07', 'referral program → 07')
+  // 기존 정답표 공고(#4824·#4828)는 위쪽 값이 없으면 그대로
+  const kda = detailSections('Lương và phúc lợi\n- Ca ngày: 310k/11h.', { values: [], valueGroups: [] })
+  assert(kda.sections[0]?.lines.length === 1, 'no above values → unchanged')
+}
+console.log('jobDetailSections shown-above assertions passed')

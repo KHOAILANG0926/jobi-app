@@ -340,6 +340,9 @@ export function JobDetail() {
   const detail = detailSections(job.description, {
     title: job.title,
     salary: job.salary,
+    // 2026-10-25 Lee: 위쪽 칸에 보이는 값과 같은 줄은 아래 상세요강에서 반복하지 않는다
+    values: [job.ageRequirement, job.genderRequirement, educationText, preferenceText, numHiresText, job.languageRequirement, job.requiredDocuments],
+    valueGroups: [[hoursText, workDaysText]],
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })

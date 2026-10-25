@@ -1,3 +1,9 @@
+## 2026-10-25 — 상세요강을 원문에서 기계가 다시 만듦(AI 글 고쳐 쓰기 제거) 1단계
+- Lee 결정(채팅 10-25): AI가 원문 고쳐 쓰기 금지, 하나의 흐름으로. 원인[직접 확인]: #4878 AI가 "đảm bảo sản phẩm đẹp"→"bảo đảm sản phẩm"로 바꿈 → 빠진 줄 보충이 원문을 다시 붙여 같은 내용 2번.
+- 변경: src/lib/jobDescriptionBuild.ts(사이트 화면 글자·가려진 번호 제거, 이름표/값 두 줄 합침, 칸 나누기, 위쪽 정보 반복·급여 총액·중복 제거, 글자 그대로). scripts/ocr/detail-fill.mjs: 원문 있는 공고는 description을 원문에서 다시 만듦(처음 한 번 local_jobs_description_backup에 원래 글 보관, reason=rebuild-from-source-20261025), 원문 없는 공고는 기존 보충. 규칙 파일이 바뀌면 전부 다시 만듦. AI가 다시 글을 고치면 다음 실행에서 다시 원문 기준으로 덮음.
+- 화면: 위쪽 칸(나이·성별·학력·경력·근무시간+근무일 등)과 같은 줄은 상세요강에서 뺌(jobDetailSections coveredByAbove). 소제목 추가(Quyền lợi chính, Yêu cầu cơ bản), 줄 규칙(Kinh nghiệm→02, Ứng tuyển→06, Cộng tác viên→07).
+- 시험: src/lib/jobDescriptionBuild.test.ts(실제 원문 #4878·#4879). tsc·npm test 75/75·build 통과.
+
 ## 2026-10-25 — 배포 방식 변경 2단계: Vercel 자동 배포 끔
 - [직접 확인] ce59746: Actions 배포 성공(github-actions[bot] Production 기록) + deploy-verify 통과. 같은 커밋을 vercel[bot]도 배포해 이중 배포 → 이번에 끔.
 - 변경: vercel.json git.deploymentEnabled=false(모든 브랜치). demo/** 는 Actions가 미리보기 배포 + 예전과 같은 고정 링크(jobi-git-<브랜치>-mshw1895-6089s-projects.vercel.app) alias.

@@ -5,12 +5,17 @@
 // 필요 환경변수: SUPABASE_DB_URL
 import pg from 'pg'
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
+import { buildDescriptionFromSources } from '../../src/lib/jobDescriptionBuild.ts'
 
 const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
 // 규정(KIND_RULES)이 바뀌면 이 값이 저절로 바뀐다 → 모든 공고를 한 번 다시 보고 07에 있던 줄을 정한 칸으로 옮긴다.
-export const FILL_VERSION = 'fill-v1:' + createHash('md5').update(JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key]))).digest('hex').slice(0, 8)
+// 2026-10-25: 원문이 있는 공고는 상세요강을 원문에서 기계가 다시 만든다(jobDescriptionBuild.ts) — 규칙 파일이 바뀌면 값이 바뀌어 전부 다시 만든다.
+const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
+export const FILL_VERSION = 'fill-v2:' + createHash('md5').update(JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key])) + RULE_FILES.join('\n')).digest('hex').slice(0, 8)
+const BACKUP_REASON = 'rebuild-from-source-20261025'
 
 const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|${FILL_VERSION}')`
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
@@ -18,7 +23,7 @@ await client.connect()
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select j.id, j.title, j.company, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
+    select j.id, j.title, j.company, j.salary, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
@@ -29,26 +34,46 @@ try {
   console.log(`보충 검사 대상 ${rows.length}건`)
   for (const job of rows) {
     try {
-      // 예전에 붙인 부분은 떼고 다시 계산한다 → Lee가 새 규정을 정하면(FILL_VERSION 올림) 07에 있던 줄이 정한 칸으로 옮겨진다.
       const current = String(job.description ?? '')
-      const base = job.prev_block && current.endsWith(job.prev_block) ? current.slice(0, -job.prev_block.length) : current
-      const r = fillMissingLines(base,
-        [{ name: 'source_text', text: job.source_text }, { name: 'ocr_text', text: job.ocr_text }],
-        { title: job.title, company: job.company, phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses] })
-      const record = { version: FILL_VERSION, checked_at: new Date().toISOString(),
-        added: r.added.map(({ line, key, how, rule }) => ({ line, key, how, rule })),
-        unclassified: r.unclassified.map((u) => u.line), still_missing: r.stillMissing,
-        block: r.description.slice(base.replace(/\s+$/, '').length) }
-      const descChanged = r.description !== current
-      // hash는 바뀐 description 기준으로 DB에서 계산(다음 실행에서 같은 공고를 다시 붙이지 않도록).
+      const ctx = { title: job.title, company: job.company, salary: job.salary,
+        values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
+        valueGroups: [[job.hours, job.work_days]], phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses] }
+      const sources = [{ name: 'source_text', text: job.source_text }, { name: 'ocr_text', text: job.ocr_text }]
+      let next = current, record
+      if (String(job.source_text ?? '').trim()) {
+        // 원문이 있으면: AI가 쓴 글을 쓰지 않고 원문에서 다시 만든다(글자 그대로, 화면 글자·중복·위쪽 정보 반복 제거).
+        const b = buildDescriptionFromSources(sources, ctx)
+        if (b.description.trim()) next = b.description
+        record = { mode: 'rebuild', version: FILL_VERSION, checked_at: new Date().toISOString(),
+          unclassified: b.unclassified.map((u) => u.line), still_missing: [],
+          dropped: b.dropped.map(({ line, reason }) => ({ line, reason })) }
+        if (next !== current) {
+          // 처음 한 번만 원래 글을 보관(되돌릴 수 있게). 공개 접근 없는 백업 표.
+          await client.query(
+            `insert into public.local_jobs_description_backup(job_id, description, reason)
+             select $1, $2, $3 where not exists (select 1 from public.local_jobs_description_backup where job_id = $1 and reason = $3)`,
+            [job.id, current, BACKUP_REASON])
+        }
+      } else {
+        // 원문이 없으면(직접 등록 공고): 예전처럼 빠진 줄만 보충. 예전에 붙인 부분은 떼고 다시 계산한다.
+        const base = job.prev_block && current.endsWith(job.prev_block) ? current.slice(0, -job.prev_block.length) : current
+        const r = fillMissingLines(base, sources, ctx)
+        next = r.description
+        record = { mode: 'fill', version: FILL_VERSION, checked_at: new Date().toISOString(),
+          added: r.added.map(({ line, key, how, rule }) => ({ line, key, how, rule })),
+          unclassified: r.unclassified.map((u) => u.line), still_missing: r.stillMissing,
+          block: r.description.slice(base.replace(/\s+$/, '').length) }
+        if (r.stillMissing.length) console.log(`::warning::#${job.id} 붙인 뒤에도 빠진 줄 ${r.stillMissing.length} — 코드 수정 필요`)
+      }
+      const descChanged = next !== current
+      // hash는 바뀐 description 기준으로 DB에서 계산(다음 실행에서 같은 공고를 다시 처리하지 않도록). AI가 글을 다시 고치면 hash가 달라져 다시 만든다.
       await client.query(
         `update public.local_jobs set description = $2,
            ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('detail_fill', $3::jsonb || jsonb_build_object('hash',
              md5(coalesce($2,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|${FILL_VERSION}')))
          where id = $1`,
-        [job.id, descChanged ? r.description : job.description, JSON.stringify(record)])
-      if (descChanged) { changed++; console.log(`#${job.id} 보충 ${r.added.length}줄 (새 종류 ${r.unclassified.length})`) } else same++
-      if (r.stillMissing.length) console.log(`::warning::#${job.id} 붙인 뒤에도 빠진 줄 ${r.stillMissing.length} — 코드 수정 필요`)
+        [job.id, next, JSON.stringify(record)])
+      if (descChanged) { changed++; console.log(`#${job.id} ${record.mode === 'rebuild' ? '원문에서 다시 만듦' : '빠진 줄 보충'} (새 종류 ${record.unclassified.length})`) } else same++
     } catch (e) {
       failed++
       console.error(`#${job.id} 실패: ${e.message}`)
