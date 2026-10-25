@@ -1,3 +1,9 @@
+## 2026-10-25 — AI 칸·복리후생 판정(정해진 번호표 중에서만)
+- Lee 결정("단어 규칙으로는 끝이 없다", 검사표 결과 "ok"): 단어 규칙이 칸을 못 정한 줄 → AI가 01~07 중 고름 → detail_line_kinds 저장(다음부터 AI 없이), Lee가 정한 칸은 AI가 못 바꿈. 복리후생도 AI가 원문 근거로 번호표(xe đưa đón·ký túc xá·ăn ca·xăng xe·nhà ở·chuyên cần·năng suất) 고름 → "있음"만 기록.
+- 안전장치 src/lib/aiClassifyGuard.ts: 목록 밖·준 적 없는 줄·원문에 없는 근거·부정 문장 버림. 글자 변경 없음.
+- 변경: migration 20261025140000_detail_line_kinds.sql, scripts/ocr/ai-classify.mjs(job-ocr-check에서 상세요강 만들기 앞), jobDescriptionBuild(lineKinds), detail-fill(번호표 반영·버전), JobDetail(AI 번호표로 아이콘 켬).
+- 시험: aiClassifyGuard.test.ts, detail_line_kinds.pglite.test.mjs.
+
 ## 2026-10-25 — 공고 1개 자동 검사표
 - Lee 결정: 지금은 공고를 하나씩 올리며 문제를 찾는 단계, 크롤링 땐 문제가 나오면 안 됨 → 올린 공고마다 기계가 검사해 알림, 새 공고 연속 10개 통과가 크롤링 시작 조건.
 - 변경: src/lib/jobInspect.ts(핀·칸 나누기·중복·사이트 글자·위쪽 반복·급여 칸·복리후생 표시·직업분류·포스터·새 종류 줄·공개 11항목), scripts/ops/job-inspect.mjs(바뀐 공고만 검사, ocr_check.inspect 저장, 이슈 "공고 검사표"에 쉬운 말 + 연속 통과 N/10), job-ocr-check.yml 마지막 단계로 연결(30분마다).

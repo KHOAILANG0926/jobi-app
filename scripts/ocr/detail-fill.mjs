@@ -14,12 +14,16 @@ if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1)
 // 규정(KIND_RULES)이 바뀌면 이 값이 저절로 바뀐다 → 모든 공고를 한 번 다시 보고 07에 있던 줄을 정한 칸으로 옮긴다.
 // 2026-10-25: 원문이 있는 공고는 상세요강을 원문에서 기계가 다시 만든다(jobDescriptionBuild.ts) — 규칙 파일이 바뀌면 값이 바뀌어 전부 다시 만든다.
 const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
-export const FILL_VERSION = 'fill-v2:' + createHash('md5').update(JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key])) + RULE_FILES.join('\n')).digest('hex').slice(0, 8)
+const RULE_HASH = JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key])) + RULE_FILES.join('\n')
 const BACKUP_REASON = 'rebuild-from-source-20261025'
 
-const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|${FILL_VERSION}')`
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
+// 저장된 줄 번호표(AI·Lee가 정한 칸). 바뀌면 FILL_VERSION이 바뀌어 전부 다시 만든다.
+const kindRows = await client.query('select line_key, section, decided_by from public.detail_line_kinds order by line_key').then((r) => r.rows, () => [])
+const LINE_KINDS = Object.fromEntries(kindRows.map((r) => [r.line_key, { section: r.section, by: r.decided_by }]))
+export const FILL_VERSION = 'fill-v3:' + createHash('md5').update(RULE_HASH + JSON.stringify(kindRows)).digest('hex').slice(0, 8)
+const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|${FILL_VERSION}')`
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
@@ -37,7 +41,7 @@ try {
       const current = String(job.description ?? '')
       const ctx = { title: job.title, company: job.company, salary: job.salary,
         values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
-        valueGroups: [[job.hours, job.work_days]], phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses] }
+        valueGroups: [[job.hours, job.work_days]], lineKinds: LINE_KINDS, phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses] }
       const sources = [{ name: 'source_text', text: job.source_text }, { name: 'ocr_text', text: job.ocr_text }]
       let next = current, record
       if (String(job.source_text ?? '').trim()) {
