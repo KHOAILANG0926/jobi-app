@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 // 빌드 때 묶은 파일을 쓴다(api/location-hook.js 주석 참고).
-const loadRuntime = () => import('../dist/api-lib/auto-location-runtime.js')
+const loadRuntime = () => import('../../dist/api-lib/auto-location-runtime.js')
 export const config = { maxDuration: 300 }
 function runtime() {
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY, vietmap=process.env.VIETMAP_SERVICE_KEY

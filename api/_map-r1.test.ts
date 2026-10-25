@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createMapLocationsHandler } from './map-locations.js'
-import { createAutoLocationHandler } from './admin-auto-location.js'
+import { createAutoLocationHandler } from './_lib/admin-auto-location.js'
 const response = () => ({code:0,body:null as unknown,setHeader(){},status(c:number){this.code=c;return this},json(b:unknown){this.body=b;return this}})
 let reads=0, runs=0
 const publicHandler = createMapLocationsHandler({async read(ids:number[]){reads++;return ids.map(id=>({job_id:id,result:{kind:'gate',lat:21,lng:106,source:'OSM node/test',checkedAt:'2026-10-15',evidence:'PRIVATE'}}))}})

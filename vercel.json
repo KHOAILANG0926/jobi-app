@@ -34,7 +34,7 @@
     "api/location-hook.js": {
       "includeFiles": "dist/api-lib/**"
     },
-    "api/admin-auto-location.js": {
+    "api/admin.js": {
       "includeFiles": "dist/api-lib/**"
     }
   }

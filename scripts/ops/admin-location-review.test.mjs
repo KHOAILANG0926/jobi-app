@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { coordinatesFromGoogleUrl, resolveGoogleShareLink } from './admin-location-review.js'
+import { coordinatesFromGoogleUrl, resolveGoogleShareLink } from '../../api/_lib/admin-location-review.js'
 
 test('accept explicit Google Maps Vietnam destination coordinates',()=>{
   assert.deepEqual(coordinatesFromGoogleUrl('https://www.google.com/maps?q=21.186100,106.076300'),{lat:21.1861,lng:106.0763})
