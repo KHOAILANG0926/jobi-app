@@ -67,15 +67,22 @@ try {
   console.error('LOCATION E2E FAILED:',error instanceof Error?error.stack:String(error))
 } finally {
   if(browser) await browser.close().catch(()=>{})
-  const candidates=await db.from('job_location_candidates').select('id').in('job_id',ids)
+  const candidates=await db.from('job_location_candidates').select('id,evidence').in('job_id',ids)
   if(candidates.error) {console.error('CLEANUP candidate read failed:',candidates.error.message);process.exitCode=1}
   else {
     const keys=(candidates.data||[]).map(x=>x.id)
     if(keys.length) {
       const erase=await db.from('admin_confirmed_location_memory').delete().in('source_candidate_id',keys)
       if(erase.error) {console.error('CLEANUP memory failed:',erase.error.message);process.exitCode=1}
-      const e=await db.from('job_location_candidates').delete().in('id',keys)
-      if(e.error) {console.error('CLEANUP candidates failed:',e.error.message);process.exitCode=1}
+      // First remove auto-copies; removing their source first would trigger revocation updates
+      // against rows participating in the same DELETE statement.
+      const autos=(candidates.data||[]).filter(x=>String(x.evidence||'').startsWith('AUTO REUSE:')).map(x=>x.id)
+      const originals=(candidates.data||[]).filter(x=>!String(x.evidence||'').startsWith('AUTO REUSE:')).map(x=>x.id)
+      for(const batch of [autos,originals]) {
+        if(!batch.length)continue
+        const e=await db.from('job_location_candidates').delete().in('id',batch)
+        if(e.error) {console.error('CLEANUP candidates failed:',e.error.message);process.exitCode=1}
+      }
     }
   }
   const del=await db.from('local_jobs').delete().in('id',ids)
