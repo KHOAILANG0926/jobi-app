@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 12:34 (VN)**
+- 생성 시각: **2026-10-25 12:35 (VN)**
 - 기준 커밋: `a543503` (검사표 문제 수정: 원문 급여로 급여 칸 채우기, 공장=공단 이름 인식, 배포 후 위치 재시도 (#243))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40165357644
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40165850903
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -17,7 +17,7 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 77/77 파일 통과 |
+| 테스트 `npm test` | ✅ 78/78 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
