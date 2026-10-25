@@ -24,4 +24,10 @@ const broken = guardCtyKdaParserOutput({ ...base, dieu_kien: { ...base.dieu_kien
 assert.equal(broken.dieu_kien.benefits_active.an_ca, false)
 assert.ok(broken.violations.some((x) => x.includes('구조 충돌')))
 assert.ok(broken.violations.some((x) => x.includes('Boolean 판정 불가')))
+const semantic = guardCtyKdaParserOutput({
+  ...base,
+  mo_ta_list: ['Thu nhập 12.000.000đ/tháng', 'Lắp ráp linh kiện từ 08:00-17:00', 'Nghỉ giải lao 15 phút'],
+})
+assert.deepEqual(semantic.mo_ta_list, ['Lắp ráp linh kiện từ 08:00-17:00', 'Nghỉ giải lao 15 phút'])
+assert.ok(semantic.violations.some((x) => x.includes('의미 중복 제거')))
 console.log('cty-kda-guard assertions passed')
