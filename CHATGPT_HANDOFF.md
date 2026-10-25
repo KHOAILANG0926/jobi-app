@@ -1,18 +1,17 @@
-# CHATGPT_HANDOFF — 급여 선택표 글자 크기 통일 데모 (2026-10-22)
+# CHATGPT_HANDOFF — CTY KDA 파서 연결 (2026-10-25)
 
 ## 1. 현재 상태
-- demo/home-job-filters / PR201. 시작 조회1101922 open/draft, 운영 미반영.
-- Lee 승인: 2번 티켓에서 상단 남색 배경과 모든 중복 문구(MỨC LƯƠNG MONG MUỐN/상단 Tất cả/MỨC LƯƠNG)를 삭제. 제목→금액 선택표→일급·시급/협의만 유지.
-- 흰색 배경, 선택 항목만 연한 빨강 배경/빨간 글씨. Lee 추가 승인: 숫자·전체·일급/시급·협의·월급 복귀는 제목과 같은14px로 통일(공통 변수). 설명12px 유지. 6/8/10/12/15M+·전체, 일급/시급·협의. 선택 재클릭 유지/상호 배타/월급 복귀 기억 유지.
-- 검색 기준·DB·공고 카드/상세·지도 좌표/반경은 변경 없음. 월급은 공고 명시 금액, 기본급 라벨 불필요, 범위 하한, 일급/시급 월환산 없음.
-- PC·모바일 모두 같은 SalaryTicket/CSS. 보호된 PC 파일 변경 없음. 최종 tsc/build·CI·캡처·Preview READY는 PR201 최신 기록 조회.
+- 기준 master bd9674b; CTY KDA 변경 PR #218 및 #219(Draft) 상태. PR #219 브랜치 feat/cty-kda-integration-20261025.
+- API: api/parse/cty-kda.js 인증 Bearer CTY_KDA_PARSER_TOKEN, OPENAI_API_KEY와 CTY_KDA_MODEL 필요. AI system prompt → guard → JSON 응답. DB 기록 없음.
+- Python: crawler/crawl_topcv.py process_job_url 경로에 CTY_KDA_PARSER_ENABLED=true일 때만 API 호출. HTTPS CTY_KDA_PARSER_URL 및 CTY_KDA_PARSER_TOKEN 필요. Guard violations/호출 실패 시 _pipeline_failed → 기존 공고 덮어쓰기 차단. 기본 비활성.
+- API mock contract 테스트 추가. 실제 TEFAL Raw Text → 실제 모델 응답 E2E 미실행. 별도 저장 스키마/공개 정책 매핑 미구현. 최종 CI 미확인. master/Production 미반영.
 
 ## 2. 다음 할 일 3개
-1. 새 글자 크기 통일 선택표 PC/모바일 캡처·필수 CI·Preview READY 확인 후 로그인 없는 데모 링크 전달.
-2. Lee 운영 적용/승인 후 같은 소스 병합→Production READY/SHA→실제 운영 PC/모바일 확인. 중복 승인 금지.
-3. 실제 기간·계약 혼합 공고 결과는 데이터 축적 후 검증(Lee 유보). 한국 준비 기능·SNS 유지.
+1. 실제 TEFAL 원문의 비공개 서버 측 접근 경로와 AI provider 인증설정 확인 후 API 실호출 E2E 수행, JSON/Boolean/중복/violations 검증.
+2. CTY KDA 정형 결과의 DB 비공개 저장 위치와 무손실 대응을 확정하고 회귀 테스트 추가 (DDL은 승인 전 금지).
+3. PR #219 최종 SHA CI/빌드 확인 및 E2E 통과 후에만 사용자 지시 범위 내 병합/배포 검증.
 
 ## 3. 필수 규칙
-- AGENTS/CLAUDE 준수. 남색 영역/상단 선택값 중복 표시 복원 금지. 데모 화면 승인 전 운영 임의 반영 금지.
-- 원문/분류/공개 게이트·위치·공고 틀·DB/Auth/RLS/secret·STATUS 보호. 가짜 공고 공개 금지.
-- 회사 PC 저장 안내·현장 방문 제안·미확인 완료 보고 금지. 실제 데이터와 구성 검사를 구분.
+- AGENTS.md, CLAUDE.md, CTY KDA 6대 불변 규칙 준수. thong_tin_khac는 UI ④ 마지막 소영역, 다섯 번째 영역 없음.
+- 운영 DB·Auth·RLS·Secrets·공고 원문·위치 승인·STATUS 보호. 공개 자동 변경 및 가짜 공고 금지.
+- 회사 PC 로컬 저장 안내/현장 방문 제안 금지. 미실행 E2E/CI/배포 성공을 완료로 보고 금지.
