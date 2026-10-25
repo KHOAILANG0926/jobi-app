@@ -103,9 +103,15 @@ export function createAdminLocationReviewHandler(deps) {
         const {data:already,error:ae}=await service.from('job_location_candidates').select('id').eq('job_id',jobId).eq('status','approved').limit(1)
         if(ae)throw Error('Cannot inspect existing approval')
         if(already?.length)return res.status(409).json({error:'Job already has a confirmed location'})
-        const evidence=(typeof sourceUrl==='string'&&sourceUrl.startsWith('https://') ? 'Lee confirmed Google Maps location' : 'Lee picked the point on VietMap')
+        const hasShareLink=typeof sourceUrl==='string' && sourceUrl.length>0
+        if(hasShareLink) {
+          const shared=coordinatesFromGoogleUrl(sourceUrl)
+          if(!shared || Math.abs(shared.lat-lat)>0.000001 || Math.abs(shared.lng-lng)>0.000001)
+            return res.status(409).json({error:'Google link coordinates do not match selected pin'})
+        }
+        const evidence=hasShareLink ? 'Lee confirmed Google Maps location' : 'Lee picked the point on VietMap'
         // Server calls existing admin-only RPC using caller JWT, preserving reviewed_by and audit trail.
-        const caller=createClient(SUPABASE_URL,process.env.SUPABASE_ANON_KEY||'',{global:{headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false}})
+        const caller=createClient(SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{global:{headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false}})
         // RPC must run with the *user's* JWT. Service key is not used for approval writes.
         const {data:candidate,error:ce}=await caller.rpc('admin_add_location_candidate',{
           p_job_id:jobId,p_address:address,p_lat:lat,p_lng:lng,p_precision:'building',
