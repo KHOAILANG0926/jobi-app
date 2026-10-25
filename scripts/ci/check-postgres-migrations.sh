@@ -14,7 +14,7 @@ for file in "${changed[@]}"; do
 done
 # Recreate the exact dollar-delimiter failure seen in production in a clean DB.
 # The original migration must be rejected by PostgreSQL, not just static lint.
-if printf '%s\n' "${changed[@]}" | grep -q '20261025174000_admin_confirmed_location_memory.sql'; then
+if true; then
   bad=$(mktemp --suffix=.sql)
   node --input-type=module -e '
     import { readFileSync,writeFileSync } from "node:fs";
