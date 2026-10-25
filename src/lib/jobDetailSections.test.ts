@@ -111,3 +111,26 @@ assert(!(tefalBuckets['07'] ?? []).some(line => /^(?:8 triệu|18 triệu|22 - 3
 assert((tefalBuckets['04'] ?? []).includes('18 triệu'), 'TEFAL salary maximum bucket')
 assert((tefalBuckets['02'] ?? []).includes('22 - 35 tuổi'), 'TEFAL age bucket')
 assert((tefalBuckets['01'] ?? []).includes('Bán hàng tại quầy'), 'TEFAL occupation bucket')
+
+// ── 2026-10-25 Lee: 상단 급여 총액 반복은 빼고, 급여 구성(내역) 줄은 남긴다 ──
+{
+  const { isSalaryTotalRepeat, salaryAmounts } = await import('./jobDetailSections.ts')
+  assert(JSON.stringify(salaryAmounts('8 - 18 triệu/tháng')) === JSON.stringify([8_000_000, 18_000_000]), 'range amounts')
+  assert(JSON.stringify(salaryAmounts('18.000.000đ/tháng')) === JSON.stringify([18_000_000]), 'dotted amount')
+  const top = '8 - 18 triệu/tháng'
+  assert(isSalaryTotalRepeat('18 triệu', top), 'bare total repeat dropped')
+  assert(isSalaryTotalRepeat('Lương tối đa: 18 triệu', top), 'labelled total repeat dropped')
+  assert(isSalaryTotalRepeat('Lương tối thiểu:', top), 'empty salary label dropped')
+  assert(isSalaryTotalRepeat('- Thu nhập đến 18.000.000đ/tháng.', top), 'same total in other notation dropped')
+  assert(!isSalaryTotalRepeat('- Thu nhập đến 18.000.000đ/tháng + hỗ trợ 1.000.000đ tháng đầu.', top), 'line with breakdown kept')
+  assert(!isSalaryTotalRepeat('- Lương cơ bản: 8 triệu', top), 'base salary breakdown kept')
+  assert(!isSalaryTotalRepeat('- Phụ cấp: 1.200.000đ/tháng.', top), 'allowance kept')
+  assert(!isSalaryTotalRepeat('- Thưởng 20 triệu cuối năm', top), 'bonus kept')
+  assert(!isSalaryTotalRepeat('18 triệu', ''), 'no top salary → keep')
+  assert(!isSalaryTotalRepeat('Ca đêm: 360k/11h', '310k - 360k/ngày'), 'shift rate is breakdown')
+  const r = detailSections('Thu nhập\nLương tối thiểu:\n8 triệu\nLương tối đa:\n18 triệu\n- Phụ cấp xăng xe 500k', { salary: top })
+  assert(r.preserved && !r.usedFallback, 'salary drop keeps preservation check')
+  const lines04 = r.sections.find((s) => s.key === '04')?.lines ?? []
+  assert(JSON.stringify(lines04) === JSON.stringify(['- Phụ cấp xăng xe 500k']), 'only breakdown remains: ' + JSON.stringify(lines04))
+}
+console.log('jobDetailSections salary-repeat assertions passed')
