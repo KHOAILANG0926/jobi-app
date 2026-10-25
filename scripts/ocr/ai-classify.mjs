@@ -70,10 +70,10 @@ try {
       console.log(`#${job.id} 칸 ${g.kinds.length}줄 · 복리후생 ${needBenefits ? g.benefits.map((b) => b.code).join(',') || '없음' : '(그대로)'}`)
     } catch (e) {
       failed++
-      console.error(`#${job.id} AI 판정 실패: ${e.message}`)
+      console.log(`::warning::#${job.id} AI 판정 실패: ${String(e.message).slice(0, 300)}`)
     }
   }
 } finally {
   await client.end()
 }
-console.log(`AI 판정 완료: 줄 칸 ${kinds} · 복리후생 ${benefits} · 실패 ${failed}`)
+console.log(`::notice::AI 판정 완료: 줄 칸 ${kinds} · 복리후생 ${benefits} · 실패 ${failed}`)
