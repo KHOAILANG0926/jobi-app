@@ -47,6 +47,13 @@ jobs:
             fi
             checks=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '.check_runs | sort_by(.started_at) | group_by(.name) | map(last) | map({name,conclusion,status})')
             echo "$checks" | jq -c '.'
+            # DB 변경 PR은 disposable PostgreSQL 실제 적용 성공 없이는 절대 병합하지 않는다.
+            if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
+              if ! echo "$checks" | jq -e 'any(.[]; .name=="migration-postgres" and .status=="completed" and .conclusion=="success")' >/dev/null; then
+                echo "::warning::PR #$num migration-postgres 검증 없음/실패: 자동 병합 금지"
+                continue
+              fi
+            fi
             # 이 커밋의 4종 필수 체크 성공, 실패/실행 중인 체크 없어야 함
             if ! echo "$checks" | jq -e '
               (all(.[] | select(.name=="checks" or .name=="app-screen" or .name=="guard" or .name=="publication-gate"); .status=="completed" and .conclusion=="success")) and
