@@ -1,3 +1,7 @@
+## 2026-10-25 — 운영 화면 검사가 공고 수에 묶여 실패하던 것 수정
+- 원인[직접 확인]: deploy-verify '지도 요약' 단계가 핀 2개·합계 2를 고정값으로 검사. 10-24 #4878(TEFAL) 공개 후 bd9674b부터 매번 실패(마지막 통과 10-22 6269d56). 화면 고장이 아니라 검사 고정값 문제 [추정: 운영 화면 직접 접속 불가로 실패 화면은 미확인].
+- 변경: scripts/ops/map-summary-check.mjs 핀 수·합계를 "2개 이상"으로.
+
 ## 2026-10-25 — 운영 배포 실패 복구(서버 함수 개수 초과)
 - 원인[직접 확인]: 9e0c05d(PR #219)부터 Vercel 운영 배포 failure. api/ 아래 시험 파일 2개(cty-kda-*.test.ts)가 밑줄(_) 없이 있어 서버 함수로 잡혀 함수가 14개 [추정: 요금제 한도 12개 초과]. 운영은 bd9674b(10-24) 상태로 멈춤.
 - 변경: api/cty-kda-endpoint.test.ts → api/_cty-kda-endpoint.test.ts, api/cty-kda-guard.test.ts → api/_cty-kda-guard.test.ts (기존 _*.test.ts 관례). 내용 변경 없음.
