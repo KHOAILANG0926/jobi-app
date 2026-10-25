@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useJobs } from '../../context/JobsContext'
 import type { AdminMapPick } from './AdminVietMap'
 
 const AdminVietMap = lazy(() => import('./AdminVietMap'))
@@ -75,6 +76,7 @@ function LocationReviewItem({job,onComplete}:{job:PendingJob;onComplete:()=>void
 }
 
 export function AdminLocationReviewQueue(){
+  const { refreshJobs } = useJobs()
   const [jobs,setJobs]=useState<PendingJob[]>([])
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(true)
@@ -91,6 +93,6 @@ export function AdminLocationReviewQueue(){
     <button type="button" disabled={busy} onClick={()=>void load()}>Làm mới</button>
     {error&&<p className="admin-error" role="alert">{error}</p>}
     {!busy&&jobs.length===0&&<p>Không có tin chờ xác nhận.</p>}
-    {jobs.map(job=><LocationReviewItem key={job.jobId} job={job} onComplete={()=>void load()}/>)}
+    {jobs.map(job=><LocationReviewItem key={job.jobId} job={job} onComplete={()=>{void refreshJobs();void load()}}/>)}
   </section>
 }
