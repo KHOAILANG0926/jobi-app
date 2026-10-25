@@ -1,3 +1,7 @@
+## 2026-10-25 — Vercel 하루 배포 100번 한도 대응
+- [직접 확인] a543503 운영 배포 실패: "api-deployments-free-per-day"(무료 하루 100번). 운영은 직전 버전 유지.
+- 변경: vercel-deploy.yml — 앱 파일(src·api·public·설정)이 바뀐 커밋만 배포, 2시간마다 운영이 master보다 뒤처졌으면 따라잡기 배포(한도 풀리면 자동). detail-fill.mjs — 급여 규칙·실행기 자신이 바뀌어도 전부 다시 처리(#4879 급여 칸이 안 채워진 원인).
+
 ## 2026-10-25 — 검사표가 찾은 #4879 ADTEK 문제 수정(급여 칸·공단 근무지)
 - 급여: 위쪽 급여 칸이 비어 있으면 원문 급여를 글자 그대로 채움(src/lib/sourceSalary.ts, detail-fill). "Lương tối thiểu/tối đa" → "9 - 17 triệu/tháng". 금액 없으면 비움.
 - 위치: "Nhà máy Quế Võ III"처럼 공장 이름이 공단 표 이름과 같으면 그 공단(industrialPark.ts KCN_TOKEN에 nha may). 회사 이름 공장은 해당 없음(시험).
