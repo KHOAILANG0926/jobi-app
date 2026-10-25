@@ -5,7 +5,7 @@ set -euo pipefail
 psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/postgres-location-fixture.sql
 mapfile -t changed < <(git diff --name-only "$PR_BASE_SHA" HEAD -- 'supabase/migrations/*.sql')
 echo "Regression: always apply the current location-memory migration on fresh PostgreSQL" 
-psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261025174000_admin_confirmed_location_memory.sql
+psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f scripts/ci/reference-location-fixed.sql
 for file in "${changed[@]}"; do
   test -f "$file" || { echo "::error::Migration file deleted: $file"; exit 1; }
   if [[ "$file" == *20261025174000_admin_confirmed_location_memory.sql ]]; then continue; fi
@@ -22,7 +22,7 @@ if printf '%s\n' "${changed[@]}" | grep -q '20261025174000_admin_confirmed_locat
     const bad=source.replace("public as $$","public as $").replace("\n$$;\nrevoke all on function public.admin_location_key","\n$;\nrevoke all on function public.admin_location_key");
     if(bad===source)process.exit(2);
     writeFileSync(process.argv[2],bad);
-  ' supabase/migrations/20261025174000_admin_confirmed_location_memory.sql "$bad"
+  ' scripts/ci/reference-location-fixed.sql "$bad"
   if psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$bad" > /tmp/bad-migration.log 2>&1; then
     cat /tmp/bad-migration.log
     echo "::error::Original malformed dollar-quote migration unexpectedly passed"
