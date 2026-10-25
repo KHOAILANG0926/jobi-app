@@ -26,7 +26,13 @@ jobs:
           n=$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
             select count(*) from public.local_jobs j
             where not exists(select 1 from public.job_location_candidates c
-                where c.job_id=j.id and c.status='approved')
+                where c.job_id=j.id and c.status='approved'
+                  and public.admin_location_key(c.company_snapshot)=public.admin_location_key(j.company)
+                  and (
+                    public.admin_location_key(c.address_snapshot)=public.admin_location_key(j.location)
+                    or exists(select 1 from public.job_work_locations x where x.job_id=j.id
+                      and public.admin_location_key(c.address_snapshot)=public.admin_location_key(x.raw_address))
+                  ))
               and not exists(select 1 from public.job_work_locations w
                 where w.job_id=j.id and w.location_verified=true
                   and w.lat between 8 and 24 and w.lng between 102 and 110);
