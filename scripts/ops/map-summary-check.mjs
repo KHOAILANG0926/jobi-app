@@ -25,8 +25,9 @@ try{
  await page.goto(base,{waitUntil:'domcontentloaded'})
  await page.locator('.hme__map').scrollIntoViewIfNeeded()
  await page.locator('.hme').getByRole('button',{name:'20 km',exact:true}).click()
- await page.waitForFunction(()=>document.querySelector('[data-testid="map-summary-total"]')?.textContent==='2',undefined,{timeout:60000})
- assert.equal(await page.locator('[data-category="san_xuat_xay_dung"] strong').innerText(),'2')
+ // 2026-10-25: 공고가 늘어도 깨지지 않게 — 기준 공고(4824·4828) 2개 이상(10-24 #4878 공개 후 '정확히 2'로 실패)
+ await page.waitForFunction(()=>Number(document.querySelector('[data-testid="map-summary-total"]')?.textContent)>=2,undefined,{timeout:60000})
+ assert.ok(Number(await page.locator('[data-category="san_xuat_xay_dung"] strong').innerText())>=2)
  assert.equal(await page.locator('.hme-map-r1-results').count(),0,'PC long list replaced by summary')
  if(!local){
   assert.equal(await page.locator('.hme-map__notice:visible').count(),0,'live map style/tiles available')
@@ -37,7 +38,7 @@ try{
  assert.equal(await page.locator('[data-category="san_xuat_xay_dung"]').getAttribute('aria-pressed'),'true')
  const result=page.getByTestId('map-summary-results')
  await result.waitFor({state:'visible'})
- assert.deepEqual((await result.locator('.jc').evaluateAll(els=>els.map(e=>e.dataset.jobId))).sort(),['sb-4824','sb-4828'])
+ { const ids=await result.locator('.jc').evaluateAll(els=>els.map(e=>e.dataset.jobId)); assert.ok(ids.includes('sb-4824')&&ids.includes('sb-4828'),'기준 공고 포함: '+ids) }
  assert.ok(await result.evaluate(el=>{ const featured=document.querySelector('.home-featured'); return !featured || !!(el.compareDocumentPosition(featured)&Node.DOCUMENT_POSITION_FOLLOWING) }),'search lane precedes featured lane')
  await page.screenshot({path:out+'/selected-results-above.png'})
  await result.getByRole('button',{name:'Bỏ lọc ngành',exact:true}).click()
