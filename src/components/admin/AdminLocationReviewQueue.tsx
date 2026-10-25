@@ -42,7 +42,7 @@ function LocationReviewItem({job,onComplete}:{job:PendingJob;onComplete:()=>void
     setBusy(true);setError('')
     try {
       await request('confirm',{jobId:job.jobId,address:job.address,
-        workLocationId:job.workLocationId,lat:point.lat,lng:point.lng,sourceUrl:resolvedUrl})
+        workLocationId:job.workLocationId,lat:point.lat,lng:point.lng,googleLink:resolvedUrl})
       onComplete()
     }catch(e){setError(e instanceof Error?e.message:String(e))}
     finally{setBusy(false)}
