@@ -120,7 +120,7 @@ begin
     review_note='자동 재사용 원본 승인 철회: #'||old.id
   where status='approved'
     and evidence='AUTO REUSE: source confirmed candidate #'||old.id;
-  return coalesce(new,old);
+  return old;
 end $$;
 revoke all on function public.admin_forget_confirmed_location() from public,anon,authenticated;
 drop trigger if exists trg_admin_forget_confirmed_location_update on public.job_location_candidates;
