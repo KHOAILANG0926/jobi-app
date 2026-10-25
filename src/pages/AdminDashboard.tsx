@@ -72,6 +72,8 @@ export default function AdminDashboard() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [jobScope,setJobScope]=useState<'all'|'active'|'korea'>('all')
+  const [userScope,setUserScope]=useState<'all'|'employer'>('all')
 
   // Dashboard state
   const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
@@ -299,23 +301,23 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
-                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
-                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
+                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60', target:'users' as Tab, scope:'employer' },
+                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22', target:'jobs' as Tab, scope:'active' },
+                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', target:'jobs' as Tab, scope:'korea' },
                 ].map(s => (
-                  <div key={s.label} style={{
-                    background: '#fff', borderRadius: '16px', padding: '20px',
+                  <button type="button" key={s.label} onClick={()=>{if(s.target==='users')setUserScope('employer');else setJobScope(s.scope as 'active'|'korea');setTab(s.target)}} style={{
+                    textAlign:'left',cursor:'pointer',background: '#fff', borderRadius: 0, padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
                   }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{s.icon}</div>
                     <div style={{ fontSize: '32px', fontWeight: 800, color: s.color }}>{s.value}</div>
                     <div style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>{s.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
 
-              <div style={{
-                background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', borderRadius: '16px',
+              <button type="button" onClick={()=>{setJobScope('all');setTab('jobs')}} style={{
+                width:'100%',cursor:'pointer',background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', borderRadius: 0,
                 padding: '20px 24px', color: '#fff', marginBottom: '28px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
               }}>
@@ -330,7 +332,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                     {(localJobsError || koreaJobsError) ? '—' : stats.localJobs + stats.koreaJobs}
                   </p>
                 </div>
-              </div>
+              </button>
 
               <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#1a1a1a' }}>Người dùng mới nhất</h2>
@@ -380,7 +382,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         {/* ── POST JOB TAB ── */}
         {tab === 'jobs' && (
           <div>
-            <AdminJobs key={jobsRevision} />
+            <AdminJobs key={jobsRevision} scope={jobScope} />
             {/* Step 1: Paste */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
@@ -602,7 +604,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
           </div>
         )}
 
-        {tab === 'users' && <AdminUsers />}
+        {tab === 'users' && <AdminUsers initialRole={userScope} />}
         {tab === 'brands' && <AdminBrands />}
         {tab === 'reports' && <AdminReports />}
         {tab === 'locations' && <AdminLocations />}

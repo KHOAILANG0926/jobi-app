@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { needsAdminLocationReview } from './location-review-queue.mjs'
 
 // Admin-only location queue/Google link resolution/confirmation. Never fetch non-Google hosts.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co'
@@ -62,19 +63,14 @@ export function createAdminLocationReviewHandler(deps) {
         const [{data:jobs,error:je},{data:works,error:we},{data:approved,error:ae}]=await Promise.all([
           service.from('local_jobs').select('id,title,company,location,created_at,active,admin_hidden').order('created_at',{ascending:true}).limit(2000),
           service.from('job_work_locations').select('id,job_id,raw_address,lat,lng,location_verified,address_accuracy,coordinate_accuracy').limit(4000),
-          service.from('job_location_candidates').select('job_id,status,address_snapshot,company_snapshot').eq('status','approved').limit(4000),
+          service.from('job_location_candidates').select('job_id,status,address_snapshot,company_snapshot,lat,lng').eq('status','approved').limit(4000),
         ])
         if(je||we||ae)throw Error('Cannot read location review queue')
         const groups=new Map()
         for(const w of works||[]) {const list=groups.get(w.job_id)||[];list.push(w);groups.set(w.job_id,list)}
         const approvalsByJob=new Map()
         for(const c of approved||[]) { const l=approvalsByJob.get(c.job_id)||[];l.push(c);approvalsByJob.set(c.job_id,l) }
-        const pending=(jobs||[]).filter(job=>{
-          const addressKeys=[job.location,...(groups.get(job.id)||[]).map(w=>w.raw_address)].map(addressKey).filter(Boolean)
-          if((approvalsByJob.get(job.id)||[]).some(c=>addressKey(c.company_snapshot)===addressKey(job.company)
-            && addressKeys.includes(addressKey(c.address_snapshot))))return false
-          if((groups.get(job.id)||[]).some(w=>w.location_verified===true && validPoint(w.lat,w.lng)))return false
-        }).map(job=>{
+        const pending=(jobs||[]).filter(job=>needsAdminLocationReview(job,groups.get(job.id)||[],approvalsByJob.get(job.id)||[])).map(job=>{
           const locs=groups.get(job.id)||[]
           const w=locs.find(w=>w.raw_address)||locs[0]
           const approximate=locs.find(w=>validPoint(w.lat,w.lng))
