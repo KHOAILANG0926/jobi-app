@@ -3,15 +3,16 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-24 20:41 (VN)**
-- 기준 커밋: `bd9674b` (Merge pull request #214 from KHOAILANG0926/fix/tefal-consolidated-203-204-20261024)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40098464034
+- 생성 시각: **2026-10-25 07:27 (VN)**
+- 기준 커밋: `9e0c05d` (Merge pull request #219 from KHOAILANG0926/feat/cty-kda-integration-20261025)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40146683891
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 5건**
+**확인 필요 6건**
 
+- Production 배포 상태 failure
 - 규칙 시험 실패: R1_phone_digits_only
 - 규칙 시험 실패: R2_decision_columns_code_only
 - 규칙 시험 실패: R5_verbatim_names
@@ -23,12 +24,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 72/72 파일 통과 |
+| 테스트 `npm test` | ✅ 74/74 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `bd9674b` · 상태 **success** · 2026-10-24 20:41 (VN)
+- 마지막 Production 배포: `9e0c05d` · 상태 **failure** · 2026-10-25 07:26 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +37,8 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #218 | 2026-10-25 07:26 (VN) | `d25c7c6` | CTY KDA parser: immutable system prompt and deduplication guard |
+| #219 | 2026-10-25 07:26 (VN) | `9e0c05d` | WIP: CTY KDA semantic dedup guard before crawler integration |
 | #214 | 2026-10-24 20:30 (VN) | `bd9674b` | fix: consolidate TEFAL screen PR #203 and #204 without overwriting newer master checks |
 | #213 | 2026-10-24 20:17 (VN) | `ab55262` | test: CTY KDA 기준 PC·모바일 신규 공고 화면 회귀 검증 |
 | #211 | 2026-10-24 20:05 (VN) | `875bea4` | CI: 기존 강제 규정 보완 및 회귀 사례 확대 |
@@ -44,13 +47,11 @@
 | #200 | 2026-10-22 11:13 (VN) | `b720bcc` | 운영 검색 0건 조건 전환 검사 대기 보완 |
 | #198 | 2026-10-22 11:08 (VN) | `40b80e4` | 기간·계약/사회보험 메뉴에서 일반 공고도 검색 |
 | #197 | 2026-10-22 07:21 (VN) | `9a4c980` | 지도 업종 요약·m 반경 입력·지도 아래 우선 검색 결과 |
-| #196 | 2026-10-22 06:11 (VN) | `556f2c0` | 운영 업종 검사: 실제 메뉴 버튼과 열기 방식 사용 |
-| #194 | 2026-10-22 06:05 (VN) | `322e1a3` | 공식 직업코드로 업종 자동 지정·메뉴 연결 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **4건** (전체 7건, 숨김·비활성 3건)
-- 출처별: muaban 2 · manual 2
+- 공개 중: **3건** (전체 7건, 숨김·비활성 4건)
+- 출처별: manual 2 · muaban 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
