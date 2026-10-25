@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 08:42 (VN)**
-- 기준 커밋: `9e0c05d` (Merge pull request #219 from KHOAILANG0926/feat/cty-kda-integration-20261025)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40151656839
+- 생성 시각: **2026-10-25 09:34 (VN)**
+- 기준 커밋: `36af30e` (상세요강: 상단 급여 총액 반복 제거, 급여 구성 줄은 유지 (Lee 2026-10-25) (#221))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40154903684
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -29,7 +29,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `9e0c05d` · 상태 **failure** · 2026-10-25 07:26 (VN)
+- 마지막 Production 배포: `36af30e` · 상태 **failure** · 2026-10-25 09:34 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -37,6 +37,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #221 | 2026-10-25 09:33 (VN) | `36af30e` | 상세요강: 상단 급여 총액 반복 제거 (Lee 2026-10-25) |
 | #218 | 2026-10-25 07:26 (VN) | `d25c7c6` | CTY KDA parser: immutable system prompt and deduplication guard |
 | #219 | 2026-10-25 07:26 (VN) | `9e0c05d` | WIP: CTY KDA semantic dedup guard before crawler integration |
 | #214 | 2026-10-24 20:30 (VN) | `bd9674b` | fix: consolidate TEFAL screen PR #203 and #204 without overwriting newer master checks |
@@ -46,7 +47,6 @@
 | #201 | 2026-10-23 00:22 (VN) | `6269d56` | 메인 조건·급여 선택표 운영 반영 |
 | #200 | 2026-10-22 11:13 (VN) | `b720bcc` | 운영 검색 0건 조건 전환 검사 대기 보완 |
 | #198 | 2026-10-22 11:08 (VN) | `40b80e4` | 기간·계약/사회보험 메뉴에서 일반 공고도 검색 |
-| #197 | 2026-10-22 07:21 (VN) | `9a4c980` | 지도 업종 요약·m 반경 입력·지도 아래 우선 검색 결과 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
