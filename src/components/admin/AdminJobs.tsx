@@ -1,5 +1,6 @@
 import { AdminLinePicks } from './AdminLinePicks'
 import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '../../lib/supabase'
 import { listAdminJobs, setJobHidden, type AdminJob, type JobOrigin } from '../../lib/adminOperations'
 
 // 2026-09-20 사용자 지시("미가입 등록은 어디서 확인하지" → "내가 봐야
@@ -14,6 +15,7 @@ function isGuestPost(job: AdminJob): boolean {
 
 export function AdminJobs({view='all'}:{view?:'all'|'local-active'|'korea'}) {
   const [jobs, setJobs] = useState<AdminJob[]>([])
+  const [confirmed,setConfirmed]=useState<Set<number>>(new Set())
   const [koreaJobs,setKoreaJobs]=useState<{id:number;title:string;region?:string|null}[]>([])
   useEffect(()=>{if(view==='korea'){void import('../../lib/supabase').then(({supabase})=>supabase.from('korea_jobs_public').select('id,title,region').then(({data,error})=>{if(error)setError(error.message);else setKoreaJobs((data||[]) as typeof koreaJobs)}))}},[view])
   const [search, setSearch] = useState('')
@@ -24,6 +26,7 @@ export function AdminJobs({view='all'}:{view?:'all'|'local-active'|'korea'}) {
 
   const reload = () => listAdminJobs().then(setJobs).catch((e: Error) => setError(e.message))
   useEffect(() => { void reload() }, [])
+  useEffect(()=>{void Promise.all([supabase.from('job_work_locations').select('job_id,lat,lng,location_verified').eq('location_verified',true),supabase.from('job_location_candidates').select('job_id,lat,lng').eq('status','approved')]).then(([a,b])=>{if(a.error||b.error){setError(a.error?.message||b.error?.message||'Location status unavailable');return}const ids=new Set<number>();for(const w of a.data||[])if(Number.isFinite(w.lat)&&Number.isFinite(w.lng))ids.add(w.job_id);for(const c of b.data||[])if(Number.isFinite(c.lat)&&Number.isFinite(c.lng))ids.add(c.job_id);setConfirmed(ids)})},[])
   const filtered = useMemo(() => jobs.filter(job => {
     const q = search.trim().toLowerCase()
     return (view!=='local-active' || (job.active&&!job.admin_hidden)) && (!q || `${job.title} ${job.company}`.toLowerCase().includes(q))
@@ -62,7 +65,7 @@ export function AdminJobs({view='all'}:{view?:'all'|'local-active'|'korea'}) {
       <th>Tin tuyển dụng</th><th>Vị trí</th><th>Nguồn</th><th>SĐT liên hệ</th><th>Trạng thái</th><th>Vận hành</th>
     </tr></thead><tbody>{filtered.map(job => <tr key={job.id}>
       <td><a href={`/viec-lam/sb-${job.id}`} target="_blank" rel="noreferrer"><strong>{job.title}</strong></a><small>{job.company} · #{job.id}</small></td>
-      <td>{'Xem tại Vị trí'}</td>
+      <td>{confirmed.has(job.id)?'Đã xác nhận':'Chưa xác nhận'}</td>
       <td>
         {job.origin}
         {isGuestPost(job) && <><br /><span className="admin-badge admin-badge--guest">⚡ Không đăng ký</span></>}
