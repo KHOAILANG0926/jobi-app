@@ -335,9 +335,11 @@ export function JobDetail() {
 
   const badge = deadlineBadge(job.applicationDeadline)
   const tags = jobTags(job)
-  // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다(급여 줄은 남김).
+  // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
+  // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
   const detail = detailSections(job.description, {
     title: job.title,
+    salary: job.salary,
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })

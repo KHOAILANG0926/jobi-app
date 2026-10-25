@@ -2,7 +2,9 @@
  * 상세요강(Mô tả công việc) 칸 나누기 — 2026-10-14 Lee 결정, 2026-10-19 코드 반영.
  * - 원문 줄은 글자를 바꾸지 않고 칸(01~07)에 옮기기만 한다.
  * - 지워도 되는 예외는 3가지뿐: ① 원문 소제목 줄 ② 제목 반복 ③ 화면 위에 이미 있는 정보(근무지 주소·전화번호).
- *   급여 줄은 위에 있어도 남긴다(2026-10-19 Lee).
+ *   급여: 2026-10-25 Lee 결정으로 변경(이전 2026-10-19 "급여 줄은 위에 있어도 남긴다"를 대체) —
+ *   상단 급여(총액)와 같은 금액만 다시 쓴 줄(예: "18 triệu", "Lương tối đa: 18 triệu", "Thu nhập: 8 - 18 triệu")과
+ *   값 없는 급여 이름표 줄("Lương tối thiểu:")은 ③으로 뺀다. 급여 구성(기본급·수당·상여·잔업 등 내역) 줄은 남긴다.
  * - 예외 3가지 외에 한 줄이라도 빠지면 칸 나누기를 포기하고 원문 전체를 07에 그대로 보여 준다(기계 검사).
  * - 칸에 맞게 들어갔는지는 실제 공고 정답표(jobDetailSections.test.ts)로 검사한다.
  */
@@ -24,7 +26,34 @@ export interface DroppedLine { line: string; reason: DropReason }
 const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
 
 /** 화면 위쪽에 이미 보이는 정보(빼도 되는 줄 판단용). */
-export interface ShownAbove { title?: string | null; phones?: Array<string | null | undefined>; addresses?: Array<string | null | undefined> }
+export interface ShownAbove { title?: string | null; phones?: Array<string | null | undefined>; addresses?: Array<string | null | undefined>; salary?: string | null }
+
+/** 글 속 금액(동 단위 정수). "18.000.000đ", "18 triệu", "5,5 triệu", "310k", "8 - 18 triệu"(앞 숫자도 triệu). */
+export function salaryAmounts(text: string | null | undefined): number[] {
+  const s = fold(String(text ?? '')).replace(/(\d)\s*[-–~]\s*(\d[\d.,]*)\s*(trieu|tr)\b/g, '$1 $3 - $2 $3')
+  const out: number[] = []
+  for (const m of s.matchAll(/(\d+(?:[.,]\d+)*)\s*(trieu|tr\b|k\b|nghin|ngan|d\b|dong|vnd)?/g)) {
+    const raw = m[1], unit = m[2] ?? ''
+    if (unit === 'trieu' || unit === 'tr') { out.push(Math.round(Number(raw.replace(',', '.')) * 1_000_000)); continue }
+    if (unit === 'k' || unit === 'nghin' || unit === 'ngan') { out.push(Math.round(Number(raw.replace(',', '.')) * 1_000)); continue }
+    const n = Number(raw.replace(/[.,]/g, ''))
+    if (raw.length >= 6 && n >= 100_000) out.push(n)     // 단위 없는 큰 숫자(18.000.000)
+  }
+  return out.filter((n) => Number.isFinite(n) && n > 0)
+}
+// 급여 "구성(내역)"을 나타내는 말 — 이런 말이 있으면 총액과 숫자가 같아도 남긴다.
+const SALARY_BREAKDOWN = /\b(?:co ban|phu cap|tro cap|ho tro|thuong|tang ca|lam them|chuyen can|tham nien|nang suat|an ca|com|xang|nha o|ca ngay|ca dem|theo ngay|theo gio|\/h|\/gio|\/ngay|\/tuan|bao hiem|bhxh|thu viec|kpi|doanh so|hoa hong)\b/
+const SALARY_LABEL_ONLY = /^(?:luong toi thieu|luong toi da|muc luong|luong|thu nhap|hinh thuc tra luong)\s*:?$/
+/** 상단 급여와 같은 금액만 다시 쓴 줄 또는 값 없는 급여 이름표 줄인가(2026-10-25 Lee). */
+export function isSalaryTotalRepeat(line: string, topSalary: string | null | undefined): boolean {
+  const top = salaryAmounts(topSalary)
+  if (!top.length) return false
+  const s = bare(line)
+  if (SALARY_LABEL_ONLY.test(s)) return true
+  if (SALARY_BREAKDOWN.test(s)) return false
+  const amounts = salaryAmounts(line)
+  return amounts.length > 0 && amounts.every((a) => top.includes(a))
+}
 
 // Normalize ONLY for classification. Never emit normalized strings.
 export function fold(value: string) {
@@ -101,6 +130,8 @@ export function detailSections(description: string | null | undefined, above: Sh
     const d = digits(line)
     if (context === 'contact' && phoneDigits.some((p) => d.includes(p))) { dropped.push({ line, reason: 'shown_above' }); continue }
     if (context === 'address' && addressBare.some((a) => a === s || a.startsWith(s) || s.startsWith(a))) { dropped.push({ line, reason: 'shown_above' }); continue }
+    // 2026-10-25 Lee: 상단 급여 총액과 같은 금액 반복·값 없는 급여 이름표는 뺀다(급여 구성 줄은 남김)
+    if (isSalaryTotalRepeat(line, above.salary)) { dropped.push({ line, reason: 'shown_above' }); continue }
     buckets[context === 'address' || context === 'contact' ? '07' : lineBucket(line, current)].push(line)
   }
   const sections = ORDER.filter(key => buckets[key].length).map(key => ({ key, label: DETAIL_LABELS[key], lines: buckets[key] }))
