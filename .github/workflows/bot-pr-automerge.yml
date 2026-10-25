@@ -69,7 +69,7 @@ jobs:
             }
             # mergeable_state=unknown은 GitHub 비동기 계산일 수 있다. 브랜치 정책의
             # 최종 적용은 gh pr merge가 GitHub 서버에서 집행; 실패 시 병합 금지.
-            if gh pr merge "$num" --repo "$REPO" --squash --match-head-commit "$sha"; then
+            if gh pr merge "$num" --repo "$REPO" --squash --auto --match-head-commit "$sha"; then
               echo "::notice::PR #$num github-actions[bot] 병합 성공"
               if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
                 # GITHUB_TOKEN 병합으로는 master push 기반 migration 워크플로가 시작되지 않는다.
