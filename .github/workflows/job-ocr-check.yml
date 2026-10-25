@@ -16,6 +16,7 @@ on:
       - src/lib/jobDescriptionBuild.ts
       - src/lib/jobInspect.ts
       - src/lib/aiClassifyGuard.ts
+      - src/lib/sourceSalary.ts
       - scripts/ops/job-inspect.mjs
       - .github/workflows/job-ocr-check.yml
 

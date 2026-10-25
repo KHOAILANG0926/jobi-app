@@ -82,4 +82,8 @@ assert(id('KCN Thuận Thành 3, Phường Trí Quả') === 'thuan-thanh-3' && i
 assert(id('KCN ĐẠI ĐỒNG', 'Phường Từ Sơn, Thị xã Từ Sơn, Bắc Ninh') === 'dai-dong-hoan-son' && id('KCN Đại Đồng, Hải Dương') === undefined, 'Đại Đồng needs a Bắc Ninh address')
 assert(id('KCN YÊN PHONG', 'Xã Tam Đa, Huyện Yên Phong') === undefined && id('Khu công nghiệp Yên Phong (Khu mở rộng), Xã Yên Trung') === 'yen-phong-mo-rong', 'plain Yên Phong (several phases) none; "(Khu mở rộng)" = mở rộng')
 
+// 2026-10-25 #4879 ADTEK: 공장 이름이 공단 이름("Nhà máy Quế Võ III/3")이면 그 공단. 회사 이름 공장은 공단 아님.
+assert(id('Nhà máy Quế Võ III, Bắc Ninh') === 'que-vo-3' && id('ADTEK – Nhà máy Quế Võ 3 (Bắc Ninh)') === 'que-vo-3', 'Nhà máy Quế Võ III = KCN Quế Võ III')
+assert(id('Nhà máy Samsung, Yên Phong') === undefined && id('Nhà máy sản xuất linh kiện, Bắc Ninh') === undefined, 'factory named after a company is not a park')
+
 console.log('industrialPark.test.ts: all assertions passed')

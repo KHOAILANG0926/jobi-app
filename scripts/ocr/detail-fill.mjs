@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
 import { buildDescriptionFromSources } from '../../src/lib/jobDescriptionBuild.ts'
+import { salaryFromSource } from '../../src/lib/sourceSalary.ts'
 
 const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -27,7 +28,7 @@ const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') ||
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select j.id, j.title, j.company, j.salary, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
+    select j.id, j.title, j.company, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
@@ -38,6 +39,15 @@ try {
   console.log(`보충 검사 대상 ${rows.length}건`)
   for (const job of rows) {
     try {
+      // 2026-10-25: 위쪽 급여 칸이 비어 있으면 원문 급여를 글자 그대로 채운다(#4879). 계산·추정 없음.
+      if (!String(job.salary ?? '').trim()) {
+        const sal = salaryFromSource(job.source_text)
+        if (sal) {
+          await client.query(`update public.local_jobs set salary = $2, salary_period = coalesce(salary_period, $3) where id = $1`, [job.id, sal.salary, sal.period])
+          job.salary = sal.salary
+          console.log(`#${job.id} 급여 칸 채움(원문): ${sal.salary}`)
+        }
+      }
       const current = String(job.description ?? '')
       const ctx = { title: job.title, company: job.company, salary: job.salary,
         values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],

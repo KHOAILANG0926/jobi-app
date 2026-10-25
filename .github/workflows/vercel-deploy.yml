@@ -84,6 +84,16 @@ jobs:
           gh api "repos/${{ github.repository }}/deployments/$id/statuses" -X POST \
             -f state=success -f environment_url="${{ steps.up.outputs.url }}" -f description="Deployed via GitHub Actions" >/dev/null
           echo "- GitHub 배포 기록: ${{ steps.kind.outputs.gh_env }} #$id" >> "$GITHUB_STEP_SUMMARY"
+      - name: 위치 못 찾은 공고 다시 찾기 (운영 반영 후 — 고친 위치 코드로)
+        if: github.ref == 'refs/heads/master'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # 2026-10-25: 위치 코드를 고쳐도 다음 날 03:00까지 기다리지 않게. 같은 주소 재호출·하루 한도는 DB가 지킨다.
+          [ -n "$SUPABASE_DB_URL" ] || { echo "::warning::SUPABASE_DB_URL 없음 — 건너뜀"; exit 0; }
+          sudo apt-get install -y -qq postgresql-client >/dev/null 2>&1 || true
+          n=$(psql "$SUPABASE_DB_URL" -X -At -c "select public.map_r1_retry_unlocated()")
+          echo "- 위치 못 찾은 공고 다시 찾기 요청: ${n}건" >> "$GITHUB_STEP_SUMMARY"
       - name: 실패 기록 (이슈)
         if: failure() && github.ref == 'refs/heads/master'
         run: |
