@@ -70,10 +70,12 @@ export function createAdminLocationReviewHandler(deps) {
         const approvalsByJob=new Map()
         for(const c of approved||[]) { const l=approvalsByJob.get(c.job_id)||[];l.push(c);approvalsByJob.set(c.job_id,l) }
         const pending=(jobs||[]).filter(job=>{
+          if(job.active!==true || job.admin_hidden===true)return false
           const addressKeys=[job.location,...(groups.get(job.id)||[]).map(w=>w.raw_address)].map(addressKey).filter(Boolean)
           if((approvalsByJob.get(job.id)||[]).some(c=>addressKey(c.company_snapshot)===addressKey(job.company)
             && addressKeys.includes(addressKey(c.address_snapshot))))return false
           if((groups.get(job.id)||[]).some(w=>w.location_verified===true && validPoint(w.lat,w.lng)))return false
+          return true
         }).map(job=>{
           const locs=groups.get(job.id)||[]
           const w=locs.find(w=>w.raw_address)||locs[0]
