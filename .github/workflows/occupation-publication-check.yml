@@ -20,6 +20,7 @@ jobs:
           node supabase/tests/occupation_publication.pglite.test.mjs
           node supabase/tests/crawl_source_guard.pglite.test.mjs
           node supabase/tests/detail_line_kinds.pglite.test.mjs
+          node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
       - name: OCR republish follows the same occupation rule
