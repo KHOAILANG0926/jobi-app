@@ -72,6 +72,10 @@ export default function AdminDashboard() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [jobsView,setJobsView] = useState<'all'|'public'|'korea'>('all')
+  const [usersView,setUsersView] = useState<'all'|'employer'>('all')
+  const openJobs=(view:'all'|'public'|'korea')=>{setJobsView(view);setTab('jobs')}
+  const openEmployers=()=>{setUsersView('employer');setTab('users')}
 
   // Dashboard state
   const [stats, setStats] = useState<Stats>({ koreaJobs: 0, localUsers: 0, localEmployers: 0, localJobs: 0 })
@@ -299,18 +303,18 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                 {[
-                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60' },
-                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
-                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
+                  { label: 'Nhà tuyển dụng', value: usersError ? '—' : stats.localEmployers, icon: '🏢', color: '#27ae60', click:openEmployers },
+                  { label: 'Tin VN đang tuyển', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22', click:()=>openJobs('public') },
+                  { label: 'Tin Hàn Quốc', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b', click:()=>openJobs('korea') },
                 ].map(s => (
-                  <div key={s.label} style={{
+                  <button type="button" key={s.label} onClick={s.click} style={{textAlign:"left",cursor:"pointer",borderRadius:0,border:"1px solid #ddd",
                     background: '#fff', borderRadius: '16px', padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
                   }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{s.icon}</div>
                     <div style={{ fontSize: '32px', fontWeight: 800, color: s.color }}>{s.value}</div>
                     <div style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>{s.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
 
@@ -319,7 +323,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                 padding: '20px 24px', color: '#fff', marginBottom: '28px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
               }}>
-                <div style={{ textAlign: 'right' }}>
+                <button type="button" onClick={()=>openJobs("all")} style={{textAlign:"right",background:"transparent",border:0,color:"inherit",cursor:"pointer"}}>
                   <p style={{ fontSize: '13px', opacity: 0.7, margin: '0 0 4px' }}>Tổng tin tuyển dụng</p>
                   {/* 2026-09-15/16 사용자 지시로 수정: 두 항목(local_jobs 기준
                       localJobs, korea_jobs 기준 koreaJobs) 중 하나라도 조회가
@@ -329,7 +333,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   <p style={{ fontSize: '36px', fontWeight: 800, margin: 0 }}>
                     {(localJobsError || koreaJobsError) ? '—' : stats.localJobs + stats.koreaJobs}
                   </p>
-                </div>
+                </button>
               </div>
 
               <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -380,7 +384,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         {/* ── POST JOB TAB ── */}
         {tab === 'jobs' && (
           <div>
-            <AdminJobs key={jobsRevision} />
+            <AdminJobs key={`${jobsRevision}:${jobsView}`} view={jobsView} />
             {/* Step 1: Paste */}
             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>
@@ -602,7 +606,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
           </div>
         )}
 
-        {tab === 'users' && <AdminUsers />}
+        {tab === 'users' && <AdminUsers initialRole={usersView} />}
         {tab === 'brands' && <AdminBrands />}
         {tab === 'reports' && <AdminReports />}
         {tab === 'locations' && <AdminLocations />}
