@@ -1,3 +1,4 @@
+import { AdminLinePicks } from './AdminLinePicks'
 import { useEffect, useMemo, useState } from 'react'
 import { listAdminJobs, setJobHidden, type AdminJob, type JobOrigin } from '../../lib/adminOperations'
 
@@ -37,7 +38,7 @@ export function AdminJobs() {
     catch (e) { setError(e instanceof Error ? e.message : 'Không thể cập nhật tin.') }
   }
 
-  return <section className="admin-panel">
+  return <><AdminLinePicks /><section className="admin-panel">
     <div className="admin-toolbar">
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tiêu đề hoặc công ty" />
       <select value={origin} onChange={e => setOrigin(e.target.value as JobOrigin | 'all')}>
@@ -66,5 +67,5 @@ export function AdminJobs() {
       <td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
     </tr>)}</tbody></table></div>
-  </section>
+  </section></>
 }

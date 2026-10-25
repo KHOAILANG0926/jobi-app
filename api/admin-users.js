@@ -43,15 +43,85 @@ function runtimeDependencies(token) {
   }
 }
 
+
+const SECTION_CODES = ['01','02','03','04','05','06','07']
+const BENEFIT_CODES = ['shuttle_bus','dormitory','meal_provided','fuel','housing','attendance','productivity']
+const BENEFIT_LABELS = {fuel:'Xăng xe',housing:'Nhà ở',attendance:'Chuyên cần',productivity:'Năng suất'}
+const lineKey = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()
+
+async function handleLinePicks(req,res,adminClient) {
+  if (req.method === 'GET') {
+    const {data:jobs,error} = await adminClient.from('local_jobs')
+      .select('id,title,ocr_check').in('origin',['crawler','admin']).order('id',{ascending:false}).limit(200)
+    if(error) throw error
+    const {data:kinds,error:kindError}=await adminClient.from('detail_line_kinds').select('line_key')
+    if(kindError) throw kindError
+    const known = new Set((kinds||[]).map(k=>k.line_key))
+    const pending=[]
+    for(const job of jobs||[]) for(const line of job.ocr_check?.detail_fill?.unclassified||[]) {
+      if(typeof line !== 'string' || !line.trim() || known.has(lineKey(line))) continue
+      pending.push({jobId:job.id,title:job.title,line})
+    }
+    return res.status(200).json({pending})
+  }
+  if(req.method !== 'POST' || req.body?.action !== 'line-pick')
+    return res.status(400).json({error:'Invalid action'})
+  const {jobId,line,code}=req.body||{}
+  if(!Number.isSafeInteger(jobId)||typeof line!=='string'||line.length>2000||
+    typeof code!=='string'||(!SECTION_CODES.includes(code)&&!BENEFIT_CODES.includes(code)))
+    return res.status(400).json({error:'Invalid selection'})
+  const {data:job,error}=await adminClient.from('local_jobs')
+    .select('id,ocr_check,source_text,ocr_text,benefit_tags').eq('id',jobId).maybeSingle()
+  if(error) throw error
+  if(!job) return res.status(404).json({error:'Job not found'})
+  const unclassified=job.ocr_check?.detail_fill?.unclassified||[]
+  if(!unclassified.includes(line))return res.status(409).json({error:'Line is no longer pending'})
+  const key=lineKey(line)
+  const {data:existing,error:existingError}=await adminClient.from('detail_line_kinds')
+    .select('line_key,decided_by').eq('line_key',key).maybeSingle()
+  if(existingError) throw existingError
+  if(existing?.decided_by==='lee')return res.status(409).json({error:'Already selected by Lee'})
+  if(SECTION_CODES.includes(code)) {
+    const {error:writeError}=await adminClient.from('detail_line_kinds').upsert({
+      line_key:key,section:code,example:line,decided_by:'lee'
+    },{onConflict:'line_key'})
+    if(writeError)throw writeError
+    // 원문 재생성 작업을 공고 저장 신호에 연결한다. 상세요강 글자를 직접 쓰지 않는다.
+    const {error:signalError}=await adminClient.from('local_jobs').update({
+      ocr_check:{...job.ocr_check,lee_line_review:{line_key:key,decided_by:'lee',requested_at:new Date().toISOString()}}
+    }).eq('id',jobId)
+    if(signalError)throw signalError
+  } else {
+    const source=[job.source_text,job.ocr_text].filter(Boolean).join('\\n')
+    if(!source.includes(line))return res.status(409).json({error:'Evidence not in original source'})
+    const changes={...job.ocr_check,lee_benefits:[
+      ...(job.ocr_check?.lee_benefits||[]).filter(x=>x.line!==line),
+      {line,code,decided_by:'lee'}]}
+    if(['shuttle_bus','dormitory','meal_provided'].includes(code))changes[code]=true
+    else changes.benefit_tags=[...new Set([...(job.benefit_tags||[]),BENEFIT_LABELS[code]])]
+    const update={ocr_check:changes}
+    if(code in BENEFIT_LABELS) update.benefit_tags=changes.benefit_tags
+    else update[code]=true
+    const {error:writeError}=await adminClient.from('local_jobs').update(update).eq('id',jobId)
+    if(writeError)throw writeError
+  }
+  // ocr_check/번호표 수정만으로는 local_jobs 입력 트리거가 작동하지 않으므로 검사 신호를 명시적으로 예약한다.
+  const {error:queueError}=await adminClient.from('job_signal_queue')
+    .upsert({workflow:'job-ocr-check.yml',requested_at:new Date().toISOString()},{onConflict:'workflow'})
+  if(queueError)throw queueError
+  return res.status(200).json({ok:true,jobId,code,decided_by:'lee',rebuild_required:SECTION_CODES.includes(code)})
+}
+
 export function createAdminUsersHandler(injectedDependencies) {
   return async function adminUsersHandler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+    const isLinePick = req.url?.includes('action=line-picks') || req.body?.action === 'line-pick'
+    if (!isLinePick && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
     const token = bearerToken(req)
     if (!token) return res.status(401).json({ error: 'Authentication required' })
 
     const { userId, status, reason = '' } = req.body || {}
-    if (typeof userId !== 'string' || !userId || !['active', 'suspended'].includes(status) || typeof reason !== 'string') {
+    if (!isLinePick && (typeof userId !== 'string' || !userId || !['active', 'suspended'].includes(status) || typeof reason !== 'string')) {
       return res.status(400).json({ error: 'Invalid request' })
     }
 
@@ -63,6 +133,10 @@ export function createAdminUsersHandler(injectedDependencies) {
         return res.status(403).json({ error: 'Admin access required' })
       }
 
+      if (isLinePick) {
+        const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {auth:{persistSession:false,autoRefreshToken:false}})
+        return await handleLinePicks(req,res,admin)
+      }
       const suspended = status === 'suspended'
       await deps.banUser(userId, suspended)
       try {

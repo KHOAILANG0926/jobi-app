@@ -111,7 +111,7 @@ jobs:
         run: |
           # 예전 Vercel 자동 배포와 같은 고정 링크 모양 유지: jobi-git-<브랜치(/→-)>-mshw1895-6089s-projects.vercel.app
           alias="jobi-git-$(echo "${GITHUB_REF_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]')-mshw1895-6089s-projects.vercel.app"
-          npx --yes vercel@latest alias set "${{ steps.up.outputs.url }}" "$alias" --token "$VERCEL_TOKEN" 2>err.txt || { tail -5 err.txt | sed 's/^/::warning::/'; }
+          npx --yes vercel@latest alias set "${{ steps.up.outputs.url }}" "$alias" --token "$VERCEL_TOKEN" 2>err.txt || { cat err.txt >&2; exit 1; }
           echo "- 데모 고정 링크: https://$alias" >> "$GITHUB_STEP_SUMMARY"
       - name: GitHub 배포 기록 남기기 (deploy-verify가 이 기록을 본다)
         if: steps.need.outputs.go == '1'
