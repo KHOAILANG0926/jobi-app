@@ -64,6 +64,7 @@ jobs:
             if gh pr merge "$num" --repo "$REPO" --squash --match-head-commit "$sha"; then
               echo "::notice::PR #$num github-actions[bot] 병합 성공"
               gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
+              gh workflow run admin-line-pick-e2e.yml --repo "$REPO" --ref master || echo "::warning::관리자 E2E 워크플로 미등록/권한 확인 필요"
             else
               echo "::warning::PR #$num 병합 거절(권한/branch protection), 재시도 생략"
             fi
