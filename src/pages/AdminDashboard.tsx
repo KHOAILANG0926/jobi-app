@@ -305,19 +305,19 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
                   { label: 'Tin VN đang tuyển', target: 'jobs', view: 'local-active', value: localJobsError ? '—' : stats.localJobs, icon: '📋', color: '#e67e22' },
                   { label: 'Tin Hàn Quốc', target: 'jobs', view: 'korea', value: koreaJobsError ? '—' : stats.koreaJobs, icon: '🇰🇷', color: '#c0392b' },
                 ].map(s => (
-                  <div key={s.label} style={{
-                    background: '#fff', borderRadius: '16px', padding: '20px',
+                  <button type="button" key={s.label} onClick={() => {if(s.target==='users'){setUserRoleFilter('employer');setTab('users')}else{setJobView(s.view as 'local-active'|'korea');setTab('jobs')}}} style={{
+                    cursor:'pointer',textAlign:'left',background: '#fff', borderRadius: 0, padding: '20px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: `4px solid ${s.color}`
                   }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>{s.icon}</div>
                     <div style={{ fontSize: '32px', fontWeight: 800, color: s.color }}>{s.value}</div>
                     <div style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>{s.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
 
-              <div style={{
-                background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', borderRadius: '16px',
+              <div role="button" tabIndex={0} onClick={()=>{setJobView('all');setTab('jobs')}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setJobView('all');setTab('jobs')}}} style={{
+                cursor:'pointer',background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', borderRadius: 0,
                 padding: '20px 24px', color: '#fff', marginBottom: '28px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
               }}>
