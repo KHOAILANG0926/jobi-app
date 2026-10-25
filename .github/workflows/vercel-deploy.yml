@@ -23,8 +23,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VERCEL_SCOPE: mshw1895-6089s-projects
-  VERCEL_PROJECT: jobi
+  # 비밀값이 아닌 식별번호(Vercel 화면에 그대로 보이는 값). jobi 프로젝트 전용 토큰은 '연결(link)' 단계를 못 하므로 번호로 바로 지정한다.
+  VERCEL_ORG_ID: team_48tvt6TTdvSNgfLZLMM3bcRi
+  VERCEL_PROJECT_ID: prj_l6tTPI7w8Kfz3cu2DiWzPpgKtGLU
 
 jobs:
   deploy:
@@ -53,16 +54,19 @@ jobs:
           else
             echo "env=preview" >> "$GITHUB_OUTPUT"; echo "prod=" >> "$GITHUB_OUTPUT"; echo "gh_env=Preview" >> "$GITHUB_OUTPUT"
           fi
-      - name: Vercel 프로젝트 연결·환경변수 받기
+      - name: Vercel 환경변수 받기
         run: |
-          npx --yes vercel@latest link --yes --project "$VERCEL_PROJECT" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
-          npx --yes vercel@latest pull --yes --environment=${{ steps.kind.outputs.env }} --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          run() { "$@" 2>err.txt || { tail -5 err.txt | sed 's/^/::error::/'; exit 1; }; }
+          run npx --yes vercel@latest pull --yes --environment=${{ steps.kind.outputs.env }} --token "$VERCEL_TOKEN"
       - name: 빌드 (Actions에서)
-        run: npx --yes vercel@latest build ${{ steps.kind.outputs.prod }} --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+        run: |
+          npx --yes vercel@latest build ${{ steps.kind.outputs.prod }} --token "$VERCEL_TOKEN" 2>&1 | tee build.txt; s=${PIPESTATUS[0]}
+          [ "$s" = 0 ] || { tail -8 build.txt | sed 's/^/::error::/'; exit 1; }
       - name: Vercel에 올리기
         id: up
         run: |
-          url=$(npx --yes vercel@latest deploy --prebuilt ${{ steps.kind.outputs.prod }} --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" | tail -1)
+          npx --yes vercel@latest deploy --prebuilt ${{ steps.kind.outputs.prod }} --token "$VERCEL_TOKEN" >url.txt 2>err.txt || { tail -5 err.txt | sed 's/^/::error::/'; exit 1; }
+          url=$(tail -1 url.txt)
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "- 배포 주소: $url" >> "$GITHUB_STEP_SUMMARY"
       - name: GitHub 배포 기록 남기기 (deploy-verify가 이 기록을 본다)
