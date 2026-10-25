@@ -1,3 +1,6 @@
+## 2026-10-25 — 작업자 전환 기록
+- Lee: 이후 진행은 GPT, Claude는 검증 담당. CHATGPT_HANDOFF.md를 오늘 상태로 덮어씀(이전 본문은 git 이력).
+
 ## 2026-10-25 — 공고 저장 순간 검사 신호(DB → GitHub)
 - [직접 확인] GitHub 예약 실행이 30분마다가 아니라 몇 시간에 한 번(06:39→11:21)만 돌았고 crawl-guard는 한 번도 자동 실행 안 됨. Lee: "처음부터 정 방향으로".
 - 변경(migration 20261025160000_job_signal_dispatch.sql): 공고 입력(제목·원문·이미지·근무지·회사·공개·분류)·위치 결과·수집 멈춤 상태가 바뀌면 신호 대기표 기록 → pg_cron 1분마다, 30초 조용하면 GitHub 작업(job-ocr-check·crawl-guard) 바로 시작. 결과 칸(상세요강·급여·ocr_check·복리후생) 변경은 신호 없음(자기 반복 방지). 하루 1번(05:10) 안전망. local_jobs.updated_at 추가.
