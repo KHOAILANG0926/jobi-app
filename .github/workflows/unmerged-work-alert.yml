@@ -55,3 +55,38 @@ jobs:
           num=$(gh issue list -R "$REPO" --state open --search 'in:title "미병합 작업 목록"' --json number --jq '.[0].number // empty')
           if [ -n "$num" ]; then gh issue edit "$num" -R "$REPO" --body-file list.md
           else gh issue create -R "$REPO" --title "미병합 작업 목록" --body-file list.md; fi
+
+  direct-master-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: master 커밋에 병합된 PR 근거 확인, 없으면 알림
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # squash/rebase 병합도 GitHub의 commit->PR 연관 API로 확인.
+          prs=$(gh api "repos/$REPO/commits/$SHA/pulls" -H "Accept: application/vnd.github+json")
+          if echo "$prs" | jq -e 'any(.[]; .merged_at != null and .base.ref == "master" and .merge_commit_sha == env.SHA)' >/dev/null; then
+            echo "master 변경 확인: 병합 PR 연결됨 ($SHA)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          title="PR 없이 master 직접 푸시: ${SHA:0:7}"
+          body="**master 직접 푸시 경고** — PR 병합 근거를 찾지 못했습니다.
+
+          - 커밋: \`$SHA\`
+          - 실행: https://github.com/$REPO/actions/runs/${{ github.run_id }}
+          - 판단: GitHub commit-to-PR API에서 master로 병합된 PR의 merge SHA가 일치하지 않음
+          - 조치: 커밋의 원인/작성자 확인, 이후 모든 수정은 PR → 필수 검사 → github-actions[bot] 병합
+
+          변경 사항은 자동으로 되돌리지 않았습니다."
+          existing=$(gh issue list -R "$REPO" --state open --search "${SHA:0:7} in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" -R "$REPO" --body "$body"
+          else
+            gh issue create -R "$REPO" --title "$title" --body "$body"
+          fi
+          echo "::warning::PR 없는 master 변경 감지: $SHA"
