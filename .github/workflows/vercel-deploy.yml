@@ -111,7 +111,25 @@ jobs:
         run: |
           # 예전 Vercel 자동 배포와 같은 고정 링크 모양 유지: jobi-git-<브랜치(/→-)>-mshw1895-6089s-projects.vercel.app
           alias="jobi-git-$(echo "${GITHUB_REF_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]')-mshw1895-6089s-projects.vercel.app"
-          npx --yes vercel@latest alias set "${{ steps.up.outputs.url }}" "$alias" --token "$VERCEL_TOKEN" 2>err.txt || { cat err.txt >&2; exit 1; }
+          host="${{ steps.up.outputs.url }}"
+          host="${host#https://}"
+          # Vercel CLI alias 명령은 토큰의 user 조회에서 실패하므로 REST API로 직접 처리.
+          meta=$(mktemp)
+          status=$(curl -sS -o "$meta" -w '%{http_code}' \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v13/deployments/$host?teamId=$VERCEL_ORG_ID")
+          if [ "$status" != 200 ]; then echo "Vercel deployment lookup HTTP $status"; cat "$meta"; exit 1; fi
+          deployment_id=$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).id" "$meta")
+          [ -n "$deployment_id" ] && [ "$deployment_id" != undefined ] || { cat "$meta"; exit 1; }
+          reply=$(mktemp)
+          status=$(curl -sS -o "$reply" -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data "$(node -e 'process.stdout.write(JSON.stringify({alias:process.argv[1]}))' "$alias")" \
+            "https://api.vercel.com/v2/deployments/$deployment_id/aliases?teamId=$VERCEL_ORG_ID")
+          echo "Vercel alias HTTP $status"
+          cat "$reply"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then exit 1; fi
           echo "- 데모 고정 링크: https://$alias" >> "$GITHUB_STEP_SUMMARY"
       - name: GitHub 배포 기록 남기기 (deploy-verify가 이 기록을 본다)
         if: steps.need.outputs.go == '1'
