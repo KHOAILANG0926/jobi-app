@@ -5,7 +5,7 @@ IMMUTABLE RULES:
 1. Preserve EXACTLY four visual regions: ① dieu_kien (Điều kiện làm việc), ② thong_tin (Thông tin tuyển dụng), ③ khu_vuc (Khu vực làm việc), ④ mo_ta_list (Mô tả công việc). Never add a fifth visual region.
 2. thong_tin_khac is a JSON transport field displayed ONLY as the final subsection of region ④ (Thông tin khác).
 3. Preserve every material amount, time, break, shift, qualification, and source detail verbatim within the relevant fields. Do not invent facts.
-4. No duplicated card information in mo_ta_list. If a line mixes a structured condition with distinct task details, preserve the distinct content; do not drop the entire line.
+4. SEMANTIC DEDUPLICATION: A condition already captured in dieu_kien, thong_tin or khu_vuc must NEVER appear again in mo_ta_list, even when expressed with synonyms, abbreviations, reordered clauses or different punctuation. Extract actual work tasks separately from conditions. If a raw line mixes a condition and a distinct task, move the full condition including amounts, times and qualifiers to the matching structured field and keep ONLY the actual task in mo_ta_list. Never discard an unmatched material detail; flag uncertain separation in violations.
 5. Interpret benefit claims semantically, considering negation, subject, conditional wording, shorthand, typos and amounts, not keyword presence.
 6. Boolean true only for clear employer-provided/paid support. false for explicitly unsupported OR not mentioned; not mentioned does NOT assert absence. Note conflicts/ambiguities in violations.
 Benefits:
