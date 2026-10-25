@@ -44,6 +44,15 @@ export async function resolveGoogleShareLink(input, fetcher = fetch) {
   throw new Error('Too many Google redirects')
 }
 function validPoint(lat,lng) {return typeof lat==='number' && typeof lng==='number' && vietnamPoint(lat,lng)}
+// Public jobs without either a matching approved candidate or a genuinely verified point.
+export function needsAdminLocationReview(job,works=[],approvals=[]) {
+  if(job.active!==true || job.admin_hidden===true)return false
+  const keys=[job.location,...works.map(w=>w.raw_address)].map(addressKey).filter(Boolean)
+  if(approvals.some(c=>addressKey(c.company_snapshot)===addressKey(job.company)
+    && keys.includes(addressKey(c.address_snapshot))))return false
+  if(works.some(w=>w.location_verified===true&&validPoint(w.lat,w.lng)))return false
+  return true
+}
 export function createAdminLocationReviewHandler(deps) {
   return async function handler(req,res) {
     res.setHeader('Cache-Control','no-store')
@@ -69,12 +78,7 @@ export function createAdminLocationReviewHandler(deps) {
         for(const w of works||[]) {const list=groups.get(w.job_id)||[];list.push(w);groups.set(w.job_id,list)}
         const approvalsByJob=new Map()
         for(const c of approved||[]) { const l=approvalsByJob.get(c.job_id)||[];l.push(c);approvalsByJob.set(c.job_id,l) }
-        const pending=(jobs||[]).filter(job=>{
-          const addressKeys=[job.location,...(groups.get(job.id)||[]).map(w=>w.raw_address)].map(addressKey).filter(Boolean)
-          if((approvalsByJob.get(job.id)||[]).some(c=>addressKey(c.company_snapshot)===addressKey(job.company)
-            && addressKeys.includes(addressKey(c.address_snapshot))))return false
-          if((groups.get(job.id)||[]).some(w=>w.location_verified===true && validPoint(w.lat,w.lng)))return false
-        }).map(job=>{
+        const pending=(jobs||[]).filter(job=>needsAdminLocationReview(job,groups.get(job.id)||[],approvalsByJob.get(job.id)||[])).map(job=>{
           const locs=groups.get(job.id)||[]
           const w=locs.find(w=>w.raw_address)||locs[0]
           const approximate=locs.find(w=>validPoint(w.lat,w.lng))

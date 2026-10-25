@@ -43,6 +43,8 @@ jobs:
         run: node --test scripts/ops/admin-location-review.test.mjs
       - name: Vercel Hobby 함수 수 상한 12개 검사
         run: node scripts/ci/check-vercel-functions.mjs
+      - name: 관리자 위치 누락 목록 4종 회귀 검사
+        run: node --test scripts/ops/admin-location-queue.test.mjs
       - name: 빌드
         run: npm run build
       - name: STATUS 생성기 점검 (가짜 응답으로 끝까지 실행)
