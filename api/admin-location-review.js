@@ -78,7 +78,7 @@ export function createAdminLocationReviewHandler(deps) {
           const locs=groups.get(job.id)||[]
           const w=locs.find(w=>w.raw_address)||locs[0]
           const approximate=locs.find(w=>validPoint(w.lat,w.lng))
-          return {jobId:job.id,title:job.title,company:job.company,address:w?.raw_address||job.location,
+          return {jobId:job.id,title:job.title,company:job.company,address:w?.raw_address||job.location||'',
             workLocationId:w?.id||null,createdAt:job.created_at,
             approximate:approximate ? {lat:approximate.lat,lng:approximate.lng,accuracy:approximate.coordinate_accuracy||approximate.address_accuracy||'approximate'} : null}
         })
