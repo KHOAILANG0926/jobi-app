@@ -26,8 +26,8 @@ jobs:
         shell: bash
         run: |
           if [ -z "$ADMIN_E2E_EMAIL" ] || [ -z "$ADMIN_E2E_PASSWORD" ] || [ -z "$SUPABASE_DB_URL" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "비밀값 없음: 관리자 자동 클릭 E2E 건너뜀 (ADMIN_E2E_EMAIL / ADMIN_E2E_PASSWORD / SUPABASE_DB_URL)" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::관리자 E2E 필수 비밀값 없음"
+            exit 1
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi

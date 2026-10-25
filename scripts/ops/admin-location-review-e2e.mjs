@@ -1,14 +1,15 @@
 // Private-only admin location review test. NEVER publish test jobs.
-// Requires admin test account + service role; workflow skips if missing.
+// Requires separate admin credentials, service role and DB URL; missing secrets fail.
 import { createClient } from '@supabase/supabase-js'
 import { chromium } from 'playwright'
 import { randomUUID } from 'node:crypto'
 import assert from 'node:assert/strict'
+import pg from 'pg'
 
-const {ADMIN_E2E_EMAIL,ADMIN_E2E_PASSWORD,SUPABASE_SERVICE_ROLE_KEY}=process.env
-if(!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.log('SKIPPED: 비밀값 없음 (ADMIN_E2E_EMAIL / ADMIN_E2E_PASSWORD / SUPABASE_SERVICE_ROLE_KEY)')
-  process.exit(0)
+const {ADMIN_E2E_EMAIL,ADMIN_E2E_PASSWORD,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_DB_URL}=process.env
+if(!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_DB_URL) {
+  console.log('FAILED: 비밀값 없음 (ADMIN_E2E_EMAIL / ADMIN_E2E_PASSWORD / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_DB_URL)')
+  process.exit(1)
 }
 const base=process.env.ADMIN_E2E_BASE_URL || 'https://www.viecganban.vn'
 const db=createClient('https://edhuesdnuxlbcfephutq.supabase.co',SUPABASE_SERVICE_ROLE_KEY,{
@@ -16,7 +17,7 @@ const db=createClient('https://edhuesdnuxlbcfephutq.supabase.co',SUPABASE_SERVIC
 })
 const ref='Location E2E '+randomUUID().slice(0,8)
 const address='E2E EXPLICIT ADDRESS '+randomUUID().slice(0,8)+' Bắc Ninh'
-const ids=[Number(Date.now()),Number(Date.now())+1]
+const ids=[]
 const expected={lat:21.1861,lng:106.0763}
 let browser
 async function checked(promise) {
@@ -25,26 +26,53 @@ async function checked(promise) {
   return data
 }
 try {
-  await checked(db.from('local_jobs').insert(ids.map((id,i)=>({
-    id,title:ref+' '+i,company:'E2E PRIVATE TEST',
+  const inserted=await checked(db.from('local_jobs').insert([0,1].map(i=>({
+    title:ref+' '+i,company:'E2E PRIVATE TEST',
     location:address,origin:'admin',active:false,admin_hidden:true,
     description:'Automatic E2E only; never public'
-  }))))
+  }))).select('id'))
+  ids.push(...inserted.map(row=>row.id))
+  assert.equal(ids.length,2)
   browser=await chromium.launch({headless:true})
   const page=await browser.newPage({viewport:{width:390,height:844}})
   await page.goto(base+'/dang-nhap?redirect=/admin')
   await page.locator('input[type="email"]').fill(ADMIN_E2E_EMAIL)
   await page.locator('input[type="password"]').fill(ADMIN_E2E_PASSWORD)
+  const login=page.waitForResponse(r=>r.url().includes('/auth/v1/token') && r.request().method()==='POST')
   await page.locator('button[type="submit"]').click()
   await page.waitForURL(/\/admin(?:[?#]|$)/,{timeout:30000})
   await page.getByRole('button',{name:/Vị trí/}).click()
-  const card=page.locator('article.admin-location-card').filter({hasText:'#'+ids[0]+' —'}).first()
+  const queue=page.locator('section').filter({has:page.getByRole('heading',{name:/Vị trí cần xác nhận/})})
+  await queue.getByRole('button',{name:'Làm mới'}).waitFor({state:'visible'})
+  for(const id of [4824,4828,4879,4878]) {
+    await queue.locator('article.admin-location-card').filter({hasText:'#'+id+' —'}).waitFor({state:'visible',timeout:30000})
+    console.log('PASS: Vị trí pending DOM visible #'+id)
+  }
+  // The public-only queue must never include private synthetic jobs.
+  for(const id of ids) assert.equal(await queue.locator('article').filter({hasText:'#'+id+' —'}).count(),0)
+  console.log('PASS: real administrator login and public queue; private test jobs excluded')
+  // Seed only a pending candidate using the logged-in admin JWT, then approve by real UI click.
+  // No route interception, fabricated queue response, or publication of synthetic jobs.
+  const session=await (await login).json()
+  assert.ok(session.access_token,'administrator login token missing')
+  const admin=createClient('https://edhuesdnuxlbcfephutq.supabase.co',SUPABASE_SERVICE_ROLE_KEY,{
+    global:{headers:{Authorization:'Bearer '+session.access_token}},
+    auth:{persistSession:false,autoRefreshToken:false}
+  })
+  const candidate=await checked(admin.rpc('admin_add_location_candidate',{
+    p_job_id:ids[0],p_address:address,p_lat:expected.lat,p_lng:expected.lng,
+    p_precision:'building',p_source:'other',p_evidence:'Private automated E2E candidate',
+    p_evidence_urls:[],p_work_location_id:null
+  }))
+  assert.ok(candidate.id,'pending candidate not created')
+  await page.reload()
+  await page.getByRole('button',{name:/Vị trí/}).click()
+  const card=page.locator('article.admin-location-card').filter({hasText:'#'+ids[0]+' ·'}).first()
   await card.waitFor({state:'visible',timeout:30000})
-  console.log('PASS: private job in oldest-first location review queue')
-  await card.locator('input[type="url"]').fill('https://www.google.com/maps?q=21.186100,106.076300')
-  await card.getByRole('button',{name:'Xem tọa độ từ liên kết'}).click()
-  await card.getByText('Ghim sẽ xác nhận:').waitFor({state:'visible',timeout:20000})
-  await card.getByRole('button',{name:'Xác nhận tọa độ'}).click()
+  const approvedResponse=page.waitForResponse(r=>r.url().includes('/rpc/admin_review_location_candidate') && r.request().method()==='POST')
+  await card.getByRole('button',{name:'Duyệt vị trí',exact:true}).click()
+  assert.equal((await approvedResponse).ok(),true,'real approval RPC failed')
+  console.log('PASS: private candidate approved by actual administrator click')
   const testApproved=await checked(db.from('job_location_candidates')
     .select('id,job_id,lat,lng,status,reviewed_by,reviewed_at')
     .in('job_id',ids).eq('status','approved'))
@@ -60,20 +88,29 @@ try {
   await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
   assert.equal(await page.locator('article.admin-location-card').filter({hasText:'#'+ids[0]+' —'}).count(),0)
   assert.equal(await page.locator('article.admin-location-card').filter({hasText:'#'+ids[1]+' —'}).count(),0)
-  console.log('PASS: confirmed/auto-applied rows no longer in pending queue')
+  console.log('PASS: private confirmed/auto-applied rows remain outside public queue')
   await page.screenshot({path:'location-review-e2e.png',fullPage:true})
 } catch(error) {
   process.exitCode=1
   console.error('LOCATION E2E FAILED:',error instanceof Error?error.stack:String(error))
 } finally {
   if(browser) await browser.close().catch(()=>{})
+  if(ids.length) {
   const candidates=await db.from('job_location_candidates').select('id,evidence').in('job_id',ids)
   if(candidates.error) {console.error('CLEANUP candidate read failed:',candidates.error.message);process.exitCode=1}
   else {
     const keys=(candidates.data||[]).map(x=>x.id)
     if(keys.length) {
-      const erase=await db.from('admin_confirmed_location_memory').delete().in('source_candidate_id',keys)
-      if(erase.error) {console.error('CLEANUP memory failed:',erase.error.message);process.exitCode=1}
+      // service_role deliberately has no DELETE grant on memory; use the existing DB secret.
+      const cleanupDb=new pg.Client({connectionString:SUPABASE_DB_URL,connectionTimeoutMillis:15000})
+      try {
+        await cleanupDb.connect()
+        await cleanupDb.query('delete from public.admin_confirmed_location_memory where source_candidate_id=any($1::bigint[])',[keys])
+        const left=await cleanupDb.query('select count(*)::int as n from public.admin_confirmed_location_memory where source_candidate_id=any($1::bigint[])',[keys])
+        assert.equal(left.rows[0].n,0)
+        console.log('PASS: test coordinate memory deleted')
+      } catch(e) {console.error('CLEANUP memory failed:',e.message);process.exitCode=1}
+      finally {await cleanupDb.end().catch(()=>{})}
       // First remove auto-copies; removing their source first would trigger revocation updates
       // against rows participating in the same DELETE statement.
       const autos=(candidates.data||[]).filter(x=>String(x.evidence||'').startsWith('AUTO REUSE:')).map(x=>x.id)
@@ -90,4 +127,9 @@ try {
   const left=await db.from('local_jobs').select('id').in('id',ids)
   if(left.error || (left.data||[]).length) {console.error('CRITICAL: test jobs remain',ids);process.exitCode=1}
   else console.log('PASS: both private test jobs deleted')
+  const candidateLeft=await db.from('job_location_candidates').select('id').in('job_id',ids)
+  if(candidateLeft.error || candidateLeft.data?.length) {console.error('CLEANUP candidates remain or unverified');process.exitCode=1}
+  else console.log('PASS: test candidates deleted')
+  }
+  if(!process.exitCode) console.log('LOCATION E2E PASS: actual login, visible queue, approval, reuse and cleanup')
 }

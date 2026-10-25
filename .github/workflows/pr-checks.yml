@@ -35,6 +35,8 @@ jobs:
         run: node scripts/check-repository-policy.mjs
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
+      - name: 시험 의존성 배포 제외 회귀 검사
+        run: node --test scripts/ci/deployment-package-change.test.mjs
       - name: 타입 검사
         run: npx tsc --noEmit
       - name: 테스트

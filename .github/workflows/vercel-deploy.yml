@@ -63,7 +63,14 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           if [ "$prod" = "$(git rev-parse HEAD)" ]; then echo "go=0" >> "$GITHUB_OUTPUT"; echo "same=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           git cat-file -e "$prod^{commit}" 2>/dev/null || { echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; }
-          changed=$(git diff --name-only "$prod" HEAD -- src api public index.html package.json package-lock.json vite.config.ts vite.api.config.mjs vercel.json 'tsconfig*.json' | wc -l)
+          changed=$(git diff --name-only "$prod" HEAD -- src api public index.html vite.config.ts vite.api.config.mjs vercel.json 'tsconfig*.json' | wc -l)
+          if ! git diff --quiet "$prod" HEAD -- package.json package-lock.json; then
+            if node scripts/ci/deployment-package-change.mjs "$prod"; then
+              echo "- pg 시험용 개발 의존성만 추가: Vercel 배포 제외" >> "$GITHUB_STEP_SUMMARY"
+            else
+              changed=$((changed + 1))
+            fi
+          fi
           echo "- 운영 ${prod:0:7} → master ${GITHUB_SHA:0:7}, 앱 파일 차이 ${changed}개" >> "$GITHUB_STEP_SUMMARY"
           [ "$changed" -gt 0 ] && echo "go=1" >> "$GITHUB_OUTPUT" || echo "go=0" >> "$GITHUB_OUTPUT"
       - name: 앱 파일 변경 없음 → 배포 생략, 운영 그대로 기록

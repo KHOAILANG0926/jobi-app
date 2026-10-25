@@ -1,21 +1,18 @@
-# CHATGPT_HANDOFF — 상세요강 하나의 흐름·검사표·저장 순간 신호 (2026-10-25)
+# CHATGPT_HANDOFF — 관리자 E2E 복구 (2026-10-26)
 
-## 1. 현재 상태 (master 790bfda 이후, 운영 반영·DB 적용 확인)
-- 상세요강: 원문이 있는 공고는 **기계가 원문에서 다시 만든다**(src/lib/jobDescriptionBuild.ts, scripts/ocr/detail-fill.mjs). AI가 상세요강 글을 쓰거나 고치지 않는다 — 고쳐도 다음 실행에서 원문 기준으로 덮인다. 원래 글은 local_jobs_description_backup(reason=rebuild-from-source-20261025).
-- 칸 못 정한 줄·복리후생: AI(scripts/ocr/ai-classify.mjs)가 정해진 칸 01~07·복리후생 번호표 중에서만 고르고, 안전장치(src/lib/aiClassifyGuard.ts)가 목록 밖·원문 밖·부정 문장을 버림. 정한 줄은 detail_line_kinds에 저장(Lee가 정한 칸은 AI가 못 바꿈).
-- 위쪽 칸(급여 총액·나이·성별·근무시간 등)과 같은 내용은 상세요강에서 반복하지 않음. 급여 칸이 비면 원문 급여를 글자 그대로 채움(src/lib/sourceSalary.ts). "Nhà máy Quế Võ III"처럼 공단 표 이름과 같은 공장 이름은 그 공단.
-- 공고 검사표(src/lib/jobInspect.ts, scripts/ops/job-inspect.mjs): 11항목, 이슈 "공고 검사표"에 결과 + **연속 통과 N/10**(현재 4/10). 10/10이 크롤링 시작 조건(Lee 결정).
-- 실행 시점: **공고 저장 순간 DB가 GitHub 작업을 시작**(migration 20261025160000, Vault github_dispatch_token, pg_cron 1분). GitHub 예약 실행은 실제로 몇 시간에 한 번만 돌아 믿지 않는다. 하루 1번(05:10) 안전망.
-- 수집 자동 멈춤(20261025120000): 같은 소스·같은 원인 3건 연속 실패 → 그 소스만 DB가 저장 거부 → crawl-guard.yml 알림·자동 수리(최대 2번)·자동 재개. 크롤링은 아직 꺼져 있음(실제 끝까지 동작은 크롤링 재개 때 확인).
-- 배포: GitHub Actions에서 빌드 → Vercel에 결과만 올림(vercel-deploy.yml, Secrets VERCEL_TOKEN). Vercel 자동 배포 꺼짐. **무료 한도 하루 100번** — 앱 파일(src·api·public·설정)이 바뀐 커밋만 배포, 한도 실패분은 2시간마다 따라잡기.
-- 검사 규칙: migration은 결정 0002대로 삭제·되돌리기 어려운 것만 막음(scripts/check-repository-policy.mjs).
+## 1. 현재 상태 (코드·배포·DB)
+- 기준: master 8f355da, 작업 fix/admin-e2e-generated-ids-20261026. pg 개발 의존성과 잠금 갱신, 두 시험의 수동 공고 ID 제거. SQL RETURNING / REST select로 생성 ID를 받아 삭제까지 사용.
+- 공개 전용 위치 대기 목록에는 비공개 시험 공고를 넣지 않음. 4824·4828·4879·4878 실제 DOM 확인 후 비공개 후보를 로그인한 관리자 JWT로 준비하고 화면에서 승인 클릭·자동 재사용·정리 검증.
+- 좌표 기억 삭제는 기존 DB secret 사용(서비스 역할 DELETE 권한 없음). 필수 비밀값 누락은 실패. pg만 추가된 경우 Vercel 배포 제외, 기존 빌드/운영 의존성 변경은 배포 판정 유지.
+- [직접 확인] 로컬 tsc·build 성공, npm test 78/78 파일, 배포 판정 회귀 2개 성공. GitHub push 가능; CLI API 인증은 실패하여 연결된 GitHub 도구 사용.
+- PR 검사·봇 병합·실제 관리자 E2E 결과는 아직 미확인. 이번 작업은 Vercel 배포 금지, 운영 DB 스키마/권한 변경 없음.
 
 ## 2. 다음 할 일 3개
-1. Lee가 새 공고를 하나씩 올림 → 검사표 ❌ 항목이 나오면 원인 고치고 **그 공고를 실제 사례 시험으로 추가**(jobDescriptionBuild.fixtures.ts / jobInspect.test.ts 등). 연속 10개 통과까지.
-2. 관리자 페이지 "고르기" 대기 목록: detail_line_kinds·검사표 ❌를 Lee가 클릭으로 정함(decided_by='lee'). 직접 입력 방식 금지.
-3. 정리 완료(2026-10-25): 해결된 운영 배포 실패 이슈 17건 닫음, AGENTS.md·CLAUDE.md·.cursor/rules의 위치/길찾기 옛 규칙을 최신 2026-10-13 핀 무조건·2026-10-14 위치 순서표에 맞춤. 데모는 REST 별칭 API로 연결했고 모든 demo/**에 공통 주소 `jobi-demo-mshw1895-6089s-projects.vercel.app`를 사용하도록 #252 반영(공통 주소 실배포 갱신 검증은 무료 한도 해제 후 실제 데모 배포 때). 관리자 시험 계정 비밀값은 Lee 등록 대기.
+1. Draft PR의 최종 SHA 필수 검사 성공을 확인한 뒤 근거를 기록하고 Ready 전환, 봇 병합 확인.
+2. 병합 후 두 실제 E2E의 로그인·클릭·승인·재사용·정리 로그와 실패/건너뜀 단계를 전부 확인.
+3. Vị trí 목록 네 ID 노출을 실제 로그로 확인하여 직접 확인/추정을 구분해 보고. 크롤링 재개는 기존 Lee 결정 유지.
 
 ## 3. 필수 규칙
-- AI가 상세요강·원문 글자를 고쳐 쓰지 않는다. 새 문제는 규칙·번호표·시험으로 고친다(공고 하나만 손으로 고치지 않는다).
-- 완료 보고 = 운영 반영 + 실제 조회 근거([직접 확인]/[기존 기록]/[추정]). 실행 안 한 것을 했다고 쓰지 않는다. Claude가 원본(DB·GitHub 실행 결과)으로 검증한다.
-- 배포 한도 아끼기: 작은 변경은 모아서 한 번에. 운영 DB·Auth·RLS·Secrets·STATUS 보호, 가짜 공고 금지, 회사 PC 저장 안내·현장 방문 제안 금지.
+- 시험 공고는 active=false, admin_hidden=true 유지. 공개 공고 좌표를 시험으로 승인하지 않음. Secret 출력·저장 금지.
+- 사용자 지시대로 코드 실수는 직접 수정하며 권한·외부 서비스·Lee 결정 필요 시만 중단. 이번 작업 Vercel 배포 금지.
+- PR → 필수 검사 → 봇 병합. 실제 통과와 workflow 성공을 구분하고 미실행·건너뜀을 통과로 보고하지 않음. STATUS 보호, 승인 공고 틀 보존.

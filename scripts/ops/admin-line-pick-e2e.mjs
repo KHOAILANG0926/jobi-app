@@ -5,25 +5,23 @@ import { randomUUID } from 'node:crypto'
 
 const { ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, SUPABASE_DB_URL } = process.env
 if (!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD || !SUPABASE_DB_URL) {
-  console.log('SKIPPED: 비밀값 없음 (ADMIN_E2E_EMAIL / ADMIN_E2E_PASSWORD / SUPABASE_DB_URL)')
-  process.exit(0)
+  console.log('FAILED: 비밀값 없음 (ADMIN_E2E_EMAIL / ADMIN_E2E_PASSWORD / SUPABASE_DB_URL)')
+  process.exit(1)
 }
 const base = process.env.ADMIN_E2E_BASE_URL || 'https://www.viecganban.vn'
 const db = new pg.Client({ connectionString: SUPABASE_DB_URL, connectionTimeoutMillis: 15000 })
 let browser, jobId, line
-let wroteKind = false
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 try {
   await db.connect()
-  const next = await db.query("select coalesce(max(id),0)::bigint + 1000000 as id from public.local_jobs")
-  jobId = Number(next.rows[0].id)
   const marker = randomUUID().replace(/-/g, '').slice(0, 12)
   line = 'E2E kiem tra muc tuyen dung ' + marker
   const check = { detail_fill: { unclassified: [line] } }
-  await db.query(`insert into public.local_jobs
-    (id,title,company,origin,active,admin_hidden,description,source_text,ocr_check)
-    values ($1,$2,'E2E private validation','admin',false,true,'',$3,$4::jsonb)`,
-  [jobId, 'E2E PRIVATE ' + marker, line, JSON.stringify(check)])
+  const inserted = await db.query(`insert into public.local_jobs
+    (title,company,origin,active,admin_hidden,description,source_text,ocr_check)
+    values ($1,'E2E private validation','admin',false,true,'',$2,$3::jsonb) returning id`,
+  ['E2E PRIVATE ' + marker, line, JSON.stringify(check)])
+  jobId = inserted.rows[0].id
   browser = await chromium.launch({ headless:true })
   const page = await browser.newPage()
   await page.goto(base + '/dang-nhap?redirect=/admin', { waitUntil:'domcontentloaded' })
@@ -42,7 +40,6 @@ try {
   const kindKey = line.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()
   const kind = await db.query('select section, decided_by from public.detail_line_kinds where line_key=$1',[kindKey])
   if(kind.rows[0]?.section!=='02' || kind.rows[0]?.decided_by!=='lee') throw Error('DB decided_by=lee 검사 실패')
-  wroteKind = true
   console.log('PASS: 클릭 선택이 DB section=02 / decided_by=lee에 저장됨')
   // Existing job-ocr-check workflow regenerates description from original, not manual edits.
   let desc = ''
@@ -63,10 +60,11 @@ try {
 } finally {
   if(browser) await browser.close().catch(()=>{})
   if(jobId!==undefined) {
-    await db.query('delete from public.local_jobs where id=$1',[jobId]).catch(e=>console.error('CLEANUP job error:',e.message))
-    await db.query('delete from public.detail_line_kinds where example=$1 and decided_by=\'lee\'',[line]).catch(e=>console.error('CLEANUP kind error:',e.message))
+    await db.query('delete from public.local_jobs where id=$1',[jobId]).catch(e=>{console.error('CLEANUP job error:',e.message);process.exitCode=1})
+    await db.query('delete from public.detail_line_kinds where example=$1 and decided_by=\'lee\'',[line]).catch(e=>{console.error('CLEANUP kind error:',e.message);process.exitCode=1})
     const remaining=await db.query('select count(*)::int as n from public.local_jobs where id=$1',[jobId]).catch(()=>null)
-    if(remaining?.rows[0]?.n!==0) {console.error('CRITICAL: test row cleanup not confirmed #' + jobId);process.exitCode=1}
+    const kindsLeft=await db.query('select count(*)::int as n from public.detail_line_kinds where example=$1',[line]).catch(()=>null)
+    if(remaining?.rows[0]?.n!==0 || kindsLeft?.rows[0]?.n!==0) {console.error('CRITICAL: test row cleanup not confirmed #' + jobId);process.exitCode=1}
     else console.log('PASS: 비공개 시험 공고 및 분류 행 삭제 검증')
   }
   await db.end().catch(()=>{})
