@@ -78,5 +78,5 @@ jobs:
         run: |
           title="운영 배포 실패(Actions)"
           body="커밋 ${{ github.sha }} 운영 배포 실패. 운영 주소는 이전 정상 버전 유지. 실행: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          num=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
-          if [ -n "$num" ]; then gh issue comment "$num" --body "$body"; else gh issue create --title "$title" --body "$body"; fi
+          num=$(gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then gh issue comment --repo "${{ github.repository }}" "$num" --body "$body"; else gh issue create --repo "${{ github.repository }}" --title "$title" --body "$body"; fi
