@@ -86,11 +86,9 @@ async function handleLinePicks(req,res,adminClient) {
       line_key:key,section:code,example:line,decided_by:'lee'
     },{onConflict:'line_key'})
     if(writeError)throw writeError
-    // 원문 재생성 작업을 공고 저장 신호에 연결한다. 상세요강 글자를 직접 쓰지 않는다.
-    const {error:signalError}=await adminClient.from('local_jobs').update({
-      ocr_check:{...job.ocr_check,lee_line_review:{line_key:key,decided_by:'lee',requested_at:new Date().toISOString()}}
-    }).eq('id',jobId)
-    if(signalError)throw signalError
+    // R7 reserves ocr_check for the machine DB role. The choice table above
+    // is the regeneration input; enqueue the existing workflow below without
+    // modifying OCR evidence through service_role.
   } else {
     const source=[job.source_text,job.ocr_text].filter(Boolean).join('\\n')
     if(!source.includes(line))return res.status(409).json({error:'Evidence not in original source'})
