@@ -14,8 +14,8 @@ function isGuestPost(job: AdminJob): boolean {
 
 export function AdminJobs({view='all'}:{view?:'all'|'local-active'|'korea'}) {
   const [jobs, setJobs] = useState<AdminJob[]>([])
-  const [koreaJobs,setKoreaJobs]=useState<{id:number;title:string;location?:string|null}[]>([])
-  useEffect(()=>{if(view==='korea'){void import('../../lib/supabase').then(({supabase})=>supabase.from('korea_jobs_public').select('id,title,location').then(({data,error})=>{if(error)setError(error.message);else setKoreaJobs((data||[]) as typeof koreaJobs)}))}},[view])
+  const [koreaJobs,setKoreaJobs]=useState<{id:number;title:string;region?:string|null}[]>([])
+  useEffect(()=>{if(view==='korea'){void import('../../lib/supabase').then(({supabase})=>supabase.from('korea_jobs_public').select('id,title,region').then(({data,error})=>{if(error)setError(error.message);else setKoreaJobs((data||[]) as typeof koreaJobs)}))}},[view])
   const [search, setSearch] = useState('')
   const [origin, setOrigin] = useState<JobOrigin | 'all'>('all')
   const [visibility, setVisibility] = useState<'all' | 'active' | 'inactive' | 'hidden'>('all')
@@ -41,7 +41,7 @@ export function AdminJobs({view='all'}:{view?:'all'|'local-active'|'korea'}) {
   }
 
   return <><AdminLinePicks /><section className="admin-panel">
-    {view==='korea' ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>ID</th><th>Tiêu đề</th><th>Địa điểm</th><th>Trạng thái</th></tr></thead><tbody>{koreaJobs.map(j=><tr key={j.id}><td>{j.id}</td><td><a href={`/viec-han-quoc`} target="_blank" rel="noreferrer">{j.title}</a></td><td>{j.location||'—'}</td><td>Công khai</td></tr>)}</tbody></table></div> : <>
+    {view==='korea' ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>ID</th><th>Tiêu đề</th><th>Địa điểm</th><th>Trạng thái</th></tr></thead><tbody>{koreaJobs.map(j=><tr key={j.id}><td>{j.id}</td><td><a href={`/viec-han-quoc`} target="_blank" rel="noreferrer">{j.title}</a></td><td>{j.region||'—'}</td><td>Công khai</td></tr>)}</tbody></table></div> : <>
     <div className="admin-toolbar">
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tiêu đề hoặc công ty" />
       <select value={origin} onChange={e => setOrigin(e.target.value as JobOrigin | 'all')}>
