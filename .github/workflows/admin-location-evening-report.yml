@@ -25,10 +25,7 @@ jobs:
           set -euo pipefail
           n=$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
             select count(*) from public.local_jobs j
-            where (nullif(btrim(coalesce(j.location,'')),'') is not null
-              or exists(select 1 from public.job_work_locations w
-                where w.job_id=j.id and nullif(btrim(coalesce(w.raw_address,'')),'') is not null))
-              and not exists(select 1 from public.job_location_candidates c
+            where not exists(select 1 from public.job_location_candidates c
                 where c.job_id=j.id and c.status='approved')
               and not exists(select 1 from public.job_work_locations w
                 where w.job_id=j.id and w.location_verified=true
