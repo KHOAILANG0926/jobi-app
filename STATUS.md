@@ -3,16 +3,15 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 09:34 (VN)**
-- 기준 커밋: `36af30e` (상세요강: 상단 급여 총액 반복 제거, 급여 구성 줄은 유지 (Lee 2026-10-25) (#221))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40154903684
+- 생성 시각: **2026-10-25 09:42 (VN)**
+- 기준 커밋: `6a8c1d5` (운영 배포 복구: api 시험 파일을 서버 함수에서 제외(_ 접두) (#223))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40155387021
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 6건**
+**확인 필요 5건**
 
-- Production 배포 상태 failure
 - 규칙 시험 실패: R1_phone_digits_only
 - 규칙 시험 실패: R2_decision_columns_code_only
 - 규칙 시험 실패: R5_verbatim_names
@@ -29,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `36af30e` · 상태 **failure** · 2026-10-25 09:34 (VN)
+- 마지막 Production 배포: `6a8c1d5` · 상태 **success** · 2026-10-25 09:41 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -37,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #223 | 2026-10-25 09:41 (VN) | `6a8c1d5` | 운영 배포 복구: api 시험 파일을 서버 함수에서 제외 |
 | #221 | 2026-10-25 09:33 (VN) | `36af30e` | 상세요강: 상단 급여 총액 반복 제거 (Lee 2026-10-25) |
 | #218 | 2026-10-25 07:26 (VN) | `d25c7c6` | CTY KDA parser: immutable system prompt and deduplication guard |
 | #219 | 2026-10-25 07:26 (VN) | `9e0c05d` | WIP: CTY KDA semantic dedup guard before crawler integration |
@@ -46,7 +46,6 @@
 | #208 | 2026-10-24 19:42 (VN) | `4cfb2b7` | PR 완료 근거·검증 누락 CI 차단 (기존 양식 재사용) |
 | #201 | 2026-10-23 00:22 (VN) | `6269d56` | 메인 조건·급여 선택표 운영 반영 |
 | #200 | 2026-10-22 11:13 (VN) | `b720bcc` | 운영 검색 0건 조건 전환 검사 대기 보완 |
-| #198 | 2026-10-22 11:08 (VN) | `40b80e4` | 기간·계약/사회보험 메뉴에서 일반 공고도 검색 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
