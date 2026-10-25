@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 // Admin-only location queue/Google link resolution/confirmation. Never fetch non-Google hosts.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co'
 const ALLOWED_HOSTS = new Set(['maps.app.goo.gl','www.google.com','google.com','maps.google.com'])
+const addressKey = value => String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()
 const coordPair = /(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/
 function vietnamPoint(lat, lng) {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110
@@ -61,14 +62,17 @@ export function createAdminLocationReviewHandler(deps) {
         const [{data:jobs,error:je},{data:works,error:we},{data:approved,error:ae}]=await Promise.all([
           service.from('local_jobs').select('id,title,company,location,created_at,active,admin_hidden').order('created_at',{ascending:true}).limit(2000),
           service.from('job_work_locations').select('id,job_id,raw_address,lat,lng,location_verified,address_accuracy,coordinate_accuracy').limit(4000),
-          service.from('job_location_candidates').select('job_id,status,address_snapshot').eq('status','approved').limit(4000),
+          service.from('job_location_candidates').select('job_id,status,address_snapshot,company_snapshot').eq('status','approved').limit(4000),
         ])
         if(je||we||ae)throw Error('Cannot read location review queue')
         const groups=new Map()
         for(const w of works||[]) {const list=groups.get(w.job_id)||[];list.push(w);groups.set(w.job_id,list)}
-        const approvedIds=new Set((approved||[]).map(c=>c.job_id))
+        const approvalsByJob=new Map()
+        for(const c of approved||[]) { const l=approvalsByJob.get(c.job_id)||[];l.push(c);approvalsByJob.set(c.job_id,l) }
         const pending=(jobs||[]).filter(job=>{
-          if(approvedIds.has(job.id))return false
+          const addressKeys=[job.location,...(groups.get(job.id)||[]).map(w=>w.raw_address)].map(addressKey).filter(Boolean)
+          if((approvalsByJob.get(job.id)||[]).some(c=>addressKey(c.company_snapshot)===addressKey(job.company)
+            && addressKeys.includes(addressKey(c.address_snapshot))))return false
           if((groups.get(job.id)||[]).some(w=>w.location_verified===true && validPoint(w.lat,w.lng)))return false
           return Boolean(job.location || (groups.get(job.id)||[]).some(w=>w.raw_address))
         }).map(job=>{
