@@ -1,3 +1,8 @@
+## 2026-10-25 — 운영 배포 실패 복구(서버 함수 개수 초과)
+- 원인[직접 확인]: 9e0c05d(PR #219)부터 Vercel 운영 배포 failure. api/ 아래 시험 파일 2개(cty-kda-*.test.ts)가 밑줄(_) 없이 있어 서버 함수로 잡혀 함수가 14개 [추정: 요금제 한도 12개 초과]. 운영은 bd9674b(10-24) 상태로 멈춤.
+- 변경: api/cty-kda-endpoint.test.ts → api/_cty-kda-endpoint.test.ts, api/cty-kda-guard.test.ts → api/_cty-kda-guard.test.ts (기존 _*.test.ts 관례). 내용 변경 없음.
+- 검증: npm test 74/74, build 통과.
+
 ## 2026-10-25 — 상세요강 급여 총액 반복 제거 (Lee 결정)
 - Lee 결정(채팅 2026-10-25): 상세요강 아래에는 급여 구성(기본급·수당 내역)만 두고 상단 급여 총액은 반복하지 않는다. 이전 2026-10-19 "급여 줄은 위에 있어도 남긴다"를 대체.
 - 변경: src/lib/jobDetailSections.ts(salaryAmounts·isSalaryTotalRepeat, 예외 ③에 급여 총액 반복·값 없는 급여 이름표 추가), src/pages/JobDetail.tsx(상단 급여 전달), 시험 추가(jobDetailSections.test.ts).
