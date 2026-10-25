@@ -85,11 +85,11 @@ const digits = (s: string) => s.replace(/\D/g, '')
 // 원문 소제목 → 칸. "Lương và phúc lợi"처럼 급여·복리후생이 섞인 제목은 04로 두고, 줄 단위로 05를 골라낸다.
 const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:cong viec|mo ta cong viec|noi dung cong viec)$/, '01'],
-  [/^(?:yeu cau|yeu cau tuyen dung|yeu cau ung vien|yeu cau co ban)$/, '02'],
+  [/^(?:yeu cau|yeu cau tuyen dung|yeu cau ung vien|yeu cau co ban|yeu cau cong viec)$/, '02'],
   [/^(?:thoi gian lam viec|hinh thuc lam viec|lich lam viec)$/, '03'],
   [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap)$/, '04'],
   [/^(?:quyen loi|quyen loi chinh|phuc loi|quyen loi & moi truong lam viec|quyen loi va moi truong lam viec|moi truong lam viec)$/, '05'],
-  [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen)$/, '06'],
+  [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|hinh thuc nop ho so)$/, '06'],
   [/^(?:thong tin khac|ghi chu|thong tin cong ty|thong tin co ban|hien so)$/, '07'],
   [/^(?:nganh nghe|loai hinh cong viec|hinh thuc tra luong|gioi tinh|do tuoi|hoc van toi thieu|ten cong ty|ca nhan dang tuyen)$/, '07'],
   [/^(?:dia diem lam viec|dia chi)$/, 'address'],
