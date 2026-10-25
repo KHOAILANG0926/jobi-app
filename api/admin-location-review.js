@@ -89,7 +89,7 @@ export function createAdminLocationReviewHandler(deps) {
         return res.status(200).json({point:result})
       }
       if(action==='confirm') {
-        const {jobId,address,lat,lng,workLocationId,sourceUrl}=req.body||{}
+        const {jobId,address,lat,lng,workLocationId,googleLink}=req.body||{}
         if(!Number.isSafeInteger(jobId)||typeof address!=='string'||!address.trim()||
            !validPoint(lat,lng)|| (workLocationId!==null && workLocationId!==undefined && !Number.isSafeInteger(workLocationId)))
           return res.status(400).json({error:'Invalid candidate'})
@@ -103,9 +103,9 @@ export function createAdminLocationReviewHandler(deps) {
         const {data:already,error:ae}=await service.from('job_location_candidates').select('id').eq('job_id',jobId).eq('status','approved').limit(1)
         if(ae)throw Error('Cannot inspect existing approval')
         if(already?.length)return res.status(409).json({error:'Job already has a confirmed location'})
-        const hasShareLink=typeof sourceUrl==='string' && sourceUrl.length>0
+        const hasShareLink=typeof googleLink==='string' && googleLink.length>0
         if(hasShareLink) {
-          const shared=coordinatesFromGoogleUrl(sourceUrl)
+          const shared=coordinatesFromGoogleUrl(googleLink)
           if(!shared || Math.abs(shared.lat-lat)>0.000001 || Math.abs(shared.lng-lng)>0.000001)
             return res.status(409).json({error:'Google link coordinates do not match selected pin'})
         }
@@ -115,7 +115,7 @@ export function createAdminLocationReviewHandler(deps) {
         // RPC must run with the *user's* JWT. Service key is not used for approval writes.
         const {data:candidate,error:ce}=await caller.rpc('admin_add_location_candidate',{
           p_job_id:jobId,p_address:address,p_lat:lat,p_lng:lng,p_precision:'building',
-          p_source:'other',p_evidence:evidence,p_evidence_urls:sourceUrl?[sourceUrl]:[],
+          p_source:'other',p_evidence:evidence,p_evidence_urls:googleLink?[googleLink]:[],
           p_work_location_id:source?.id||null
         })
         if(ce||!candidate?.id)throw Error(ce?.message||'Candidate creation failed')
