@@ -114,7 +114,7 @@ async function handleLinePicks(req,res,adminClient) {
 
 export function createAdminUsersHandler(injectedDependencies) {
   return async function adminUsersHandler(req, res) {
-    const isLinePick = req.url?.includes('action=line-picks') || req.body?.action === 'line-pick'
+    const isLinePick = req.url?.includes('operation=line-picks') || req.body?.action === 'line-pick'
     if (!isLinePick && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
     const token = bearerToken(req)

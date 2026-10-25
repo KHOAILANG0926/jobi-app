@@ -1,4 +1,4 @@
-import { createAdminVietmapHandler, DAILY_LIMIT, vietnamDay } from './admin-vietmap.js'
+import { createAdminVietmapHandler, DAILY_LIMIT, vietnamDay } from './_lib/admin-vietmap.js'
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`FAIL: ${msg}`)

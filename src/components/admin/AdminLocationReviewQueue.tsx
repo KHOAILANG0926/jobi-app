@@ -15,7 +15,7 @@ async function request(action:'list'|'resolve'|'confirm', data?:object) {
   const {data:auth}=await supabase.auth.getSession()
   const token=auth.session?.access_token
   if(!token)throw new Error('Đăng nhập quản trị trước khi xác nhận')
-  const response=await fetch('/api/admin-location-review',{
+  const response=await fetch('/api/admin?action=location-review',{
     method:action==='list'?'GET':'POST',
     headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
     ...(data?{body:JSON.stringify({action,...data})}:{})

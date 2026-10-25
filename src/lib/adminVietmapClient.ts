@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-// 관리자 화면에서 /api/admin-vietmap(관리자 전용 서버 프록시)을 부르는 얇은 클라이언트.
+// 관리자 화면에서 /api/admin?action=vietmap(관리자 전용 서버 프록시)을 부르는 얇은 클라이언트.
 // VietMap 키는 브라우저에 없다 — 서버가 Vercel 환경변수로 호출하고 하루 250회를 센다.
 
 export class VietmapRequestError extends Error {
@@ -48,7 +48,7 @@ export async function callAdminVietmap(body: VietmapRequest): Promise<VietmapRep
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
   if (!token) throw new Error('Phiên đăng nhập quản trị đã hết hạn.')
-  const res = await fetch('/api/admin-vietmap', {
+  const res = await fetch('/api/admin?action=vietmap', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),

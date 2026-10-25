@@ -13,7 +13,7 @@ async function api(method: 'GET' | 'POST', body?: object) {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('Phiên đăng nhập đã hết hạn')
-  const res = await fetch('/api/admin-users?action=line-picks', {
+  const res = await fetch('/api/admin?action=users&operation=line-picks', {
     method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     ...(body ? { body: JSON.stringify(body) } : {}),
   })

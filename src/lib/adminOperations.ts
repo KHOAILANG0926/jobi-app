@@ -84,7 +84,7 @@ export async function setAccountStatus(userId: string, status: AccountStatus, re
   const { data: sessionData } = await supabase.auth.getSession()
   const token = sessionData.session?.access_token
   if (!token) throw new Error('Phiên đăng nhập quản trị đã hết hạn.')
-  const response = await fetch('/api/admin-users', {
+  const response = await fetch('/api/admin?action=users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ userId, status, reason }),

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createAdminUsersHandler } from '../api/admin-users.js'
+import { createAdminUsersHandler } from '../api/_lib/admin-users.js'
 
 function response() {
   return {

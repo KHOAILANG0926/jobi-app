@@ -40,7 +40,9 @@ jobs:
       - name: 테스트
         run: npm test
       - name: 관리자 지도 공유 링크 보안 단위 시험
-        run: node --test api/admin-location-review.test.mjs
+        run: node --test scripts/ops/admin-location-review.test.mjs
+      - name: Vercel Hobby 함수 수 상한 12개 검사
+        run: node scripts/ci/check-vercel-functions.mjs
       - name: 빌드
         run: npm run build
       - name: STATUS 생성기 점검 (가짜 응답으로 끝까지 실행)

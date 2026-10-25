@@ -10,7 +10,7 @@ export function AdminMapR1Locate({ onChanged, label = 'MAP-R1: Tự động xác
       const {data}=await supabase.auth.getSession()
       const token=data.session?.access_token
       if(!token)throw new Error('Phiên đăng nhập đã hết hạn.')
-      const response=await fetch('/api/admin-auto-location',{method:'POST',headers:{Authorization:`Bearer ${token}`}})
+      const response=await fetch('/api/admin?action=auto-location',{method:'POST',headers:{Authorization:`Bearer ${token}`}})
       const body=await response.json()
       if(!response.ok)throw new Error(body.error==='map_r1_not_enabled'?'MAP-R1 chưa được kích hoạt sau khi duyệt cấu trúc dữ liệu.':'Chưa xử lý được vị trí. Không thay đổi trạng thái hiển thị tin.')
       await onChanged?.()

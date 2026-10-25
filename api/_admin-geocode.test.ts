@@ -1,4 +1,4 @@
-import { createAdminGeocodeHandler, normalize, upstreamUrl, validate } from './admin-geocode.js'
+import { createAdminGeocodeHandler, normalize, upstreamUrl, validate } from './_lib/admin-geocode.js'
 
 function assert(cond: boolean, msg: string) { if (!cond) throw new Error(`FAIL: ${msg}`) }
 
