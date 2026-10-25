@@ -484,15 +484,17 @@ export function JobDetail() {
   // 출처 사이트·Facebook CDN 이미지는 회사 로고로 쓰지 않는다(companyLogo.ts, 2026-10-06) — 없으면 이니셜.
   // Header benefits: verified positives only. Unknown values stay neutral (never mean 'not provided').
   const evidence = [job.description ?? '', ...(job.benefitTags ?? [])].join(' ').normalize('NFC')
-  const explicitBenefit = (pattern: RegExp) => pattern.test(evidence)
+  // 2026-10-25 Lee: AI가 원문 근거로 고른 복리후생 번호표(benefit_tags 표시 이름)도 켠다 — 단어 목록에 없는 표현(예: "oto bai xăng")도 잡힘
+  const aiTags = new Set(job.benefitTags ?? [])
+  const explicitBenefit = (pattern: RegExp, label?: string) => (!!label && aiTags.has(label)) || pattern.test(evidence)
   const benefitIcons = [
     { key: 'bus', label: 'Xe đưa đón', active: job.shuttleBus === true, icon: Bus, color: '#2563eb', bg: '#dbeafe' },
     { key: 'dorm', label: 'Ký túc xá', active: job.dormitory === true, icon: BedDouble, color: '#7c3aed', bg: '#ede9fe' },
     { key: 'meal', label: 'Ăn ca', active: job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
-    { key: 'attendance', label: 'Chuyên cần', active: explicitBenefit(/(?:chuyên cần|chuyen can)(?:\\s*[:：-]?\\s*[\\d.,]+\\s*(?:k|đ|vnd|đồng))?/i), icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
-    { key: 'housing', label: 'Nhà ở', active: explicitBenefit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i), icon: House, color: '#db2777', bg: '#fce7f3' },
-    { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i), icon: Fuel, color: '#0891b2', bg: '#cffafe' },
-    { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
+    { key: 'attendance', label: 'Chuyên cần', active: explicitBenefit(/(?:chuyên cần|chuyen can)(?:\\s*[:：-]?\\s*[\\d.,]+\\s*(?:k|đ|vnd|đồng))?/i, 'Chuyên cần'), icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
+    { key: 'housing', label: 'Nhà ở', active: explicitBenefit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i, 'Nhà ở'), icon: House, color: '#db2777', bg: '#fce7f3' },
+    { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i, 'Xăng xe'), icon: Fuel, color: '#0891b2', bg: '#cffafe' },
+    { key: 'performance', label: 'Năng suất', active: explicitBenefit(/(?:thưởng năng suất|thuong nang suat|thưởng sản lượng)/i, 'Năng suất'), icon: ChartNoAxesColumnIncreasing, color: '#ca8a04', bg: '#fef9c3' },
   ] as const
   // 확인된 복리후생만(상단 아이콘과 같은 근거). 없으면 행 없음.
   const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')

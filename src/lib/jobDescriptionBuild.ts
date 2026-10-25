@@ -12,6 +12,7 @@
  * 글자는 바꾸지 않는다(빼거나 옮기거나 두 줄을 이어 붙이기만).
  */
 import { bare, coveredByAbove, isSalaryTotalRepeat, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
+import { lineKey } from './aiClassifyGuard.ts'
 import { classifySource, isCovered, FILL_HEADINGS, type FillContext, type FillLine, type FillSource } from './jobDetailFill.ts'
 
 const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
@@ -65,7 +66,12 @@ export function cleanSourceText(text: string | null | undefined): CleanResult {
   return { text: out.join('\n'), dropped }
 }
 
-export interface BuildContext extends FillContext, Pick<ShownAbove, 'values' | 'valueGroups'> { salary?: string | null }
+export interface BuildContext extends FillContext, Pick<ShownAbove, 'values' | 'valueGroups'> {
+  salary?: string | null
+  /** 저장된 줄 번호표(detail_line_kinds): lineKey → 칸. Lee가 정한 것 + AI가 정한 것. 단어 규칙이 못 정한 줄에 쓴다(Lee가 정한 줄은 항상). */
+  lineKinds?: Record<string, { section: DetailTextKey; by: 'ai' | 'lee' }>
+}
+
 export interface BuildResult {
   description: string
   lines: FillLine[]
@@ -90,6 +96,8 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
       if (isSalaryTotalRepeat(item.line, ctx.salary)) { dropped.push({ line: item.line, reason: 'salary_total_repeat' }); continue }
       if (coveredByAbove(item.line, ctx)) { dropped.push({ line: item.line, reason: 'shown_above' }); continue }
       if (lines.some((l) => sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
+      const kind = ctx.lineKinds?.[lineKey(item.line)]
+      if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
       lines.push(item)
     }
   }

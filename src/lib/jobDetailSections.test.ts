@@ -153,3 +153,11 @@ console.log('jobDetailSections salary-repeat assertions passed')
   assert(kda.sections[0]?.lines.length === 1, 'no above values → unchanged')
 }
 console.log('jobDetailSections shown-above assertions passed')
+
+// ── 2026-10-25: AI 번호표 도입 후에도 기준 공고(#4824) 줄이 같은 칸에 남는지(번호표는 단어 규칙이 못 정한 줄에만 쓰임) ──
+{
+  const kda = detailSections(`Lương và phúc lợi\n- Ca ngày: 310k/11h.\n- Có xe đưa đón.`)
+  assert(kda.sections.find((s) => s.key === '04')?.lines.includes('- Ca ngày: 310k/11h.') === true, 'KDA 급여 줄 04 유지')
+  assert(kda.sections.find((s) => s.key === '05')?.lines.includes('- Có xe đưa đón.') === true, 'KDA 셔틀 줄 05 유지')
+}
+console.log('jobDetailSections AI-kind regression assertions passed')
