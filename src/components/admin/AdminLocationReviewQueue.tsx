@@ -51,11 +51,11 @@ function LocationReviewItem({job,onComplete}:{job:PendingJob;onComplete:()=>void
   return <article className="admin-location-card" style={{border:'1px solid #ddd',borderRadius:0,marginBottom:12,padding:12}}>
     <strong>#{job.jobId} — {job.title}</strong>
     <p>{job.company}</p>
-    <p><b>Địa chỉ gốc:</b> {job.address}</p>
+    <p><b>Địa chỉ gốc:</b> {job.address || 'Không có địa chỉ trong tin — cần bổ sung nguồn trước khi xác nhận'}</p>
     <p><b>Ghim hiện tại:</b> {job.approximate
       ? `${job.approximate.lat.toFixed(6)}, ${job.approximate.lng.toFixed(6)} — ${job.approximate.accuracy}`
       : 'Chưa có tọa độ, chỉ hiển thị khu vực'}</p>
-    <p><a href={searchUrl} target="_blank" rel="noopener noreferrer">Xem địa chỉ gốc trên Google Maps</a></p>
+    {job.address && <p><a href={searchUrl} target="_blank" rel="noopener noreferrer">Xem địa chỉ gốc trên Google Maps</a></p>}
     <label>Liên kết chia sẻ Google Maps (bao gồm maps.app.goo.gl)
       <input style={{display:'block',width:'100%'}} type="url" value={link} onChange={e=>setLink(e.target.value)}
         placeholder="https://maps.app.goo.gl/..." />
@@ -70,7 +70,7 @@ function LocationReviewItem({job,onComplete}:{job:PendingJob;onComplete:()=>void
     </Suspense>
     {point&&<p><b>Ghim sẽ xác nhận:</b> {point.lat.toFixed(6)}, {point.lng.toFixed(6)}</p>}
     {error&&<p role="alert" className="admin-error">{error}</p>}
-    <button type="button" disabled={!point||busy} onClick={()=>void confirm()}>Xác nhận tọa độ</button>
+    <button type="button" disabled={!point||busy||!job.address} onClick={()=>void confirm()}>Xác nhận tọa độ</button>
   </article>
 }
 
