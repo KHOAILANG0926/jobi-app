@@ -73,6 +73,6 @@ export function AdminJobs({scope='all'}:{scope?:'all'|'active'|'korea'}) {
       <td>{job.employer_phone || '—'}</td>
       <td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
-    </tr>)}</tbody></table></div>}
+    </tr>)}</tbody></table></div></>}
   </section></>
 }
