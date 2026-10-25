@@ -105,6 +105,10 @@ async function handleLinePicks(req,res,adminClient) {
     const {error:writeError}=await adminClient.from('local_jobs').update(update).eq('id',jobId)
     if(writeError)throw writeError
   }
+  // ocr_check/번호표 수정만으로는 local_jobs 입력 트리거가 작동하지 않으므로 검사 신호를 명시적으로 예약한다.
+  const {error:queueError}=await adminClient.from('job_signal_queue')
+    .upsert({workflow:'job-ocr-check.yml',requested_at:new Date().toISOString()},{onConflict:'workflow'})
+  if(queueError)throw queueError
   return res.status(200).json({ok:true,jobId,code,decided_by:'lee',rebuild_required:SECTION_CODES.includes(code)})
 }
 
