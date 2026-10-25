@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useJobs } from '../../context/JobsContext'
+import { findRegionCenter } from '../../lib/jobCoords'
 import type { AdminMapPick } from './AdminVietMap'
 
 const AdminVietMap = lazy(() => import('./AdminVietMap'))
@@ -48,13 +49,15 @@ function LocationReviewItem({job,onComplete}:{job:PendingJob;onComplete:()=>void
     }catch(e){setError(e instanceof Error?e.message:String(e))}
     finally{setBusy(false)}
   }
+  const areaFallback = !job.approximate ? findRegionCenter(job.address) : null
+  const rough = job.approximate || (areaFallback ? {...areaFallback,accuracy:'region/ward — approximate'} : null)
   const searchUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.address)
   return <article className="admin-location-card" style={{border:'1px solid #ddd',borderRadius:0,marginBottom:12,padding:12}}>
     <strong>#{job.jobId} — {job.title}</strong>
     <p>{job.company}</p>
     <p><b>Địa chỉ gốc:</b> {job.address || 'Không có địa chỉ trong tin — cần bổ sung nguồn trước khi xác nhận'}</p>
-    <p><b>Ghim hiện tại:</b> {job.approximate
-      ? `${job.approximate.lat.toFixed(6)}, ${job.approximate.lng.toFixed(6)} — ${job.approximate.accuracy}`
+    <p><b>Ghim hiện tại:</b> {rough
+      ? `${rough.lat.toFixed(6)}, ${rough.lng.toFixed(6)} — ${rough.accuracy}`
       : 'Chưa có tọa độ, chỉ hiển thị khu vực'}</p>
     {job.address && <p><a href={searchUrl} target="_blank" rel="noopener noreferrer">Xem địa chỉ gốc trên Google Maps</a></p>}
     <label>Liên kết chia sẻ Google Maps (bao gồm maps.app.goo.gl)
@@ -64,9 +67,9 @@ function LocationReviewItem({job,onComplete}:{job:PendingJob;onComplete:()=>void
     <button type="button" disabled={busy||!link.trim()} onClick={()=>void resolve()}>Xem tọa độ từ liên kết</button>
     <p>Hoặc chạm vào bản đồ/vệ tinh để đặt ghim xác nhận.</p>
     <Suspense fallback={<p>Đang tải bản đồ…</p>}>
-      <AdminVietMap center={point||job.approximate||CENTER}
+      <AdminVietMap center={point||rough||CENTER}
         markers={point?[{id:'selected',...point,label:'Vị trí sẽ xác nhận',status:'picked'}]:
-          job.approximate?[{id:'approx',...job.approximate,label:'Vị trí tạm',status:'pending'}]:[]}
+          rough?[{id:'approx',...rough,label:'Vị trí tạm',status:'pending'}]:[]}
         onPick={(p:AdminMapPick)=>{setPoint({lat:p.lat,lng:p.lng});setResolvedUrl('');setError('')}} height={260} />
     </Suspense>
     {point&&<p><b>Ghim sẽ xác nhận:</b> {point.lat.toFixed(6)}, {point.lng.toFixed(6)}</p>}
