@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { needsAdminLocationReview } from '../api/_lib/admin-location-review.js'
+import { needsAdminLocationReview } from '../../api/_lib/admin-location-review.js'
 const job={id:4824,active:true,admin_hidden:false,company:'CTY',location:'Bac Ninh'}
 test('public job, row exists with missing coordinate, queued',()=>{
  assert.equal(needsAdminLocationReview(job,[{raw_address:'Bac Ninh',lat:null,lng:null,location_verified:false}]),true)
