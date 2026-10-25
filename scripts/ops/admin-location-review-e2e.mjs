@@ -29,7 +29,9 @@ try {
   const inserted=await checked(db.from('local_jobs').insert([0,1].map(i=>({
     title:ref+' '+i,company:'E2E PRIVATE TEST',
     location:address,origin:'admin',active:false,admin_hidden:true,
-    description:'Automatic E2E only; never public'
+    description:'Automatic E2E only; never public',
+    source_text:'E2E PRIVATE TEST\n'+ref+' '+i+'\n'+address,
+    source_url:'https://github.com/KHOAILANG0926/jobi-app/blob/master/scripts/ops/admin-location-review-e2e.mjs#'+ref.replaceAll(' ','-')+'-'+i
   }))).select('id'))
   ids.push(...inserted.map(row=>row.id))
   assert.equal(ids.length,2)
@@ -101,7 +103,7 @@ try {
   else {
     const keys=(candidates.data||[]).map(x=>x.id)
     if(keys.length) {
-      // service_role deliberately has no DELETE grant on memory; use the existing DB secret.
+      // Verify memory deletion using the existing DB connection before removing its sources.
       const cleanupDb=new pg.Client({connectionString:SUPABASE_DB_URL,connectionTimeoutMillis:15000})
       try {
         await cleanupDb.connect()

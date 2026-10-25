@@ -18,9 +18,10 @@ try {
   line = 'E2E kiem tra muc tuyen dung ' + marker
   const check = { detail_fill: { unclassified: [line] } }
   const inserted = await db.query(`insert into public.local_jobs
-    (title,company,origin,active,admin_hidden,description,source_text,ocr_check)
-    values ($1,'E2E private validation','admin',false,true,'',$2,$3::jsonb) returning id`,
-  ['E2E PRIVATE ' + marker, line, JSON.stringify(check)])
+    (title,company,origin,active,admin_hidden,description,source_text,ocr_check,source_url)
+    values ($1,'E2E private validation','admin',false,true,'',$2,$3::jsonb,$4) returning id`,
+  ['E2E PRIVATE ' + marker, 'E2E private validation\n'+line, JSON.stringify(check),
+    'https://github.com/KHOAILANG0926/jobi-app/blob/master/scripts/ops/admin-line-pick-e2e.mjs#'+marker])
   jobId = inserted.rows[0].id
   browser = await chromium.launch({ headless:true })
   const page = await browser.newPage()
