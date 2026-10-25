@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase'
 import { AdminLinePicks } from './AdminLinePicks'
 import { useEffect, useMemo, useState } from 'react'
 import { listAdminJobs, setJobHidden, type AdminJob, type JobOrigin } from '../../lib/adminOperations'
@@ -12,8 +13,10 @@ function isGuestPost(job: AdminJob): boolean {
   return job.origin === 'employer' && job.employer_id === null
 }
 
-export function AdminJobs() {
+export function AdminJobs({scope='all'}:{scope?:'all'|'active'|'korea'}) {
   const [jobs, setJobs] = useState<AdminJob[]>([])
+  const [korea,setKorea]=useState<{id:number|string;title:string;company?:string}[]>([])
+  const [confirmed,setConfirmed]=useState<Set<number>>(new Set())
   const [search, setSearch] = useState('')
   const [origin, setOrigin] = useState<JobOrigin | 'all'>('all')
   const [visibility, setVisibility] = useState<'all' | 'active' | 'inactive' | 'hidden'>('all')
@@ -21,7 +24,7 @@ export function AdminJobs() {
   const [error, setError] = useState('')
 
   const reload = () => listAdminJobs().then(setJobs).catch((e: Error) => setError(e.message))
-  useEffect(() => { void reload() }, [])
+  useEffect(() => { void reload();void Promise.all([supabase.from('job_work_locations').select('job_id,location_verified,lat,lng').eq('location_verified',true),supabase.from('job_location_candidates').select('job_id').eq('status','approved'),supabase.from('korea_jobs_public').select('id,title,company')]).then(([works,approvals,korean])=>{if(works.error||approvals.error) {setError('Không thể kiểm tra tọa độ');return}setConfirmed(new Set([...(works.data||[]).filter(w=>w.lat!=null&&w.lng!=null).map(w=>w.job_id),...(approvals.data||[]).map(c=>c.job_id)]));if(!korean.error)setKorea(korean.data||[])}).catch(e=>setError(String(e))) }, [])
   const filtered = useMemo(() => jobs.filter(job => {
     const q = search.trim().toLowerCase()
     return (!q || `${job.title} ${job.company}`.toLowerCase().includes(q))
@@ -31,6 +34,7 @@ export function AdminJobs() {
         || (visibility === 'inactive' && !job.active)
         || (visibility === 'hidden' && job.admin_hidden))
       && (!guestOnly || isGuestPost(job))
+      && (scope!=='active' || (job.active && !job.admin_hidden))
   }), [jobs, search, origin, visibility, guestOnly])
 
   async function toggle(job: AdminJob) {
@@ -39,6 +43,8 @@ export function AdminJobs() {
   }
 
   return <><AdminLinePicks /><section className="admin-panel">
+    <h2>{scope==='korea'?'Tin Hàn Quốc':scope==='active'?'Tin VN đang tuyển':'Tổng tin tuyển dụng'}</h2>
+    {scope==='korea' ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>ID</th><th>Tiêu đề</th><th>Công ty</th><th>Trạng thái</th></tr></thead><tbody>{korea.map(k=><tr key={k.id}><td>{k.id}</td><td>{k.title}</td><td>{k.company||'—'}</td><td>Đang tuyển</td></tr>)}</tbody></table></div> : <>
     <div className="admin-toolbar">
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tiêu đề hoặc công ty" />
       <select value={origin} onChange={e => setOrigin(e.target.value as JobOrigin | 'all')}>
@@ -56,9 +62,10 @@ export function AdminJobs() {
     </div>
     {error && <p className="admin-error">{error}</p>}
     <div className="admin-table-wrap"><table className="admin-table"><thead><tr>
-      <th>Tin tuyển dụng</th><th>Nguồn</th><th>SĐT liên hệ</th><th>Trạng thái</th><th>Vận hành</th>
-    </tr></thead><tbody>{filtered.map(job => <tr key={job.id}>
+      <th>ID</th><th>Tin tuyển dụng</th><th>Vị trí</th><th>Nguồn</th><th>SĐT liên hệ</th><th>Trạng thái</th><th>Vận hành</th>
+    </tr></thead><tbody>{filtered.map(job => <tr key={job.id}><td>#{job.id}</td>
       <td><a href={`/viec-lam/sb-${job.id}`} target="_blank" rel="noreferrer"><strong>{job.title}</strong></a><small>{job.company} · #{job.id}</small></td>
+      <td>{confirmed.has(job.id)?'Đã xác nhận':'Chưa xác nhận'}</td>
       <td>
         {job.origin}
         {isGuestPost(job) && <><br /><span className="admin-badge admin-badge--guest">⚡ Không đăng ký</span></>}
@@ -66,6 +73,6 @@ export function AdminJobs() {
       <td>{job.employer_phone || '—'}</td>
       <td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
-    </tr>)}</tbody></table></div>
+    </tr>)}</tbody></table></div>{scope==='all'&&<div className="admin-table-wrap"><h3>Tin Hàn Quốc</h3><table className="admin-table"><thead><tr><th>ID</th><th>Tiêu đề</th><th>Công ty</th></tr></thead><tbody>{korea.map(k=><tr key={k.id}><td>{k.id}</td><td>{k.title}</td><td>{k.company||'—'}</td></tr>)}</tbody></table></div>}</>}
   </section></>
 }
