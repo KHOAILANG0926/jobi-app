@@ -1,3 +1,8 @@
+## 2026-10-25 — 검사표가 찾은 #4879 ADTEK 문제 수정(급여 칸·공단 근무지)
+- 급여: 위쪽 급여 칸이 비어 있으면 원문 급여를 글자 그대로 채움(src/lib/sourceSalary.ts, detail-fill). "Lương tối thiểu/tối đa" → "9 - 17 triệu/tháng". 금액 없으면 비움.
+- 위치: "Nhà máy Quế Võ III"처럼 공장 이름이 공단 표 이름과 같으면 그 공단(industrialPark.ts KCN_TOKEN에 nha may). 회사 이름 공장은 해당 없음(시험).
+- 운영 배포 뒤 위치 못 찾은 공고 바로 다시 찾기(vercel-deploy.yml, map_r1_retry_unlocated) — 03:00까지 기다리지 않음.
+
 ## 2026-10-25 — AI 칸·복리후생 판정(정해진 번호표 중에서만)
 - Lee 결정("단어 규칙으로는 끝이 없다", 검사표 결과 "ok"): 단어 규칙이 칸을 못 정한 줄 → AI가 01~07 중 고름 → detail_line_kinds 저장(다음부터 AI 없이), Lee가 정한 칸은 AI가 못 바꿈. 복리후생도 AI가 원문 근거로 번호표(xe đưa đón·ký túc xá·ăn ca·xăng xe·nhà ở·chuyên cần·năng suất) 고름 → "있음"만 기록.
 - 안전장치 src/lib/aiClassifyGuard.ts: 목록 밖·준 적 없는 줄·원문에 없는 근거·부정 문장 버림. 글자 변경 없음.

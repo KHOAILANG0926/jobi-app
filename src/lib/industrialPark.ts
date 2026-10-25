@@ -7,7 +7,9 @@ export function foldText(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-const KCN_TOKEN = /(?:^| )(?:kcn|kcx|ccn|khu cong nghiep|khu che xuat|cum cong nghiep)(?: cn)?(?= |$)/g
+// 2026-10-25: "Nhà máy Quế Võ III"처럼 공장 이름이 공단 이름인 경우(#4879 ADTEK)도 공단 표 이름과 정확히 맞으면 그 공단.
+// 표에 있는 이름(aliases)과만 맞추므로 "Nhà máy Samsung" 같은 회사 이름은 공단이 되지 않는다.
+const KCN_TOKEN = /(?:^| )(?:kcn|kcx|ccn|khu cong nghiep|khu che xuat|cum cong nghiep|nha may)(?: cn)?(?= |$)/g
 const NUMBERING = /^(?:\d+|i|ii|iii|iv|v|vi)$/
 
 export function findIndustrialPark(...texts: (string | null | undefined)[]): IndustrialPark | undefined {
