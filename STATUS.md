@@ -3,32 +3,26 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 10:30 (VN)**
-- 기준 커밋: `23b6d64` (배포: Vercel 자동 배포 끄기(Actions 배포로 일원화), 데모 고정 링크 유지 (#233))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40158362281
+- 생성 시각: **2026-10-25 10:51 (VN)**
+- 기준 커밋: `e93db76` (상세요강: 원문에서 기계가 다시 만듦 + 위쪽 정보 반복 제거 (#234))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40159689075
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 5건**
-
-- 규칙 시험 실패: R1_phone_digits_only
-- 규칙 시험 실패: R2_decision_columns_code_only
-- 규칙 시험 실패: R5_verbatim_names
-- 규칙 시험 실패: R7_ocr_crosscheck
-- 규칙 시험 실패: U2_age_min_under_15
+✅ 확인 필요 항목 없음
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 74/74 파일 통과 |
+| 테스트 `npm test` | ✅ 75/75 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `23b6d64` · 상태 **success** · 2026-10-25 10:29 (VN)
+- 마지막 Production 배포: `e93db76` · 상태 **success** · 2026-10-25 10:51 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +30,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #234 | 2026-10-25 10:50 (VN) | `e93db76` | 상세요강: 원문에서 기계가 다시 만듦 + 위쪽 정보 반복 제거 |
 | #233 | 2026-10-25 10:28 (VN) | `23b6d64` | 배포: Vercel 자동 배포 끄기 (2단계) |
 | #232 | 2026-10-25 10:21 (VN) | `ce59746` | 배포: 프로젝트 번호 직접 지정 |
 | #229 | 2026-10-25 10:10 (VN) | `21339c8` | 배포 실패 알림 이슈 수정 |
@@ -45,7 +40,6 @@
 | #223 | 2026-10-25 09:41 (VN) | `6a8c1d5` | 운영 배포 복구: api 시험 파일을 서버 함수에서 제외 |
 | #221 | 2026-10-25 09:33 (VN) | `36af30e` | 상세요강: 상단 급여 총액 반복 제거 (Lee 2026-10-25) |
 | #218 | 2026-10-25 07:26 (VN) | `d25c7c6` | CTY KDA parser: immutable system prompt and deduplication guard |
-| #219 | 2026-10-25 07:26 (VN) | `9e0c05d` | WIP: CTY KDA semantic dedup guard before crawler integration |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -97,16 +91,16 @@
 
 | 규칙 | 차단방식 | 마지막시험 | 결과 |
 |---|---|---|---|
-| `R1_phone_digits_only` | 없음 | 2026-10-20 06:08 (VN) | ❌ 실패 |
-| `R2_decision_columns_code_only` | 없음 | 2026-10-20 06:08 (VN) | ❌ 실패 |
+| `R1_phone_digits_only` | 없음 | 2026-10-25 10:51 (VN) | ✅ 통과 |
+| `R2_decision_columns_code_only` | 없음 | 2026-10-25 10:51 (VN) | ✅ 통과 |
 | `R2b_publish_gate_reason_code_only` | 없음 | — | — 시험 없음 |
-| `R3_source_evidence_required` | 저장거부 | 2026-10-20 06:08 (VN) | ✅ 통과 |
-| `R5_verbatim_names` | 저장거부 | 2026-10-20 06:08 (VN) | ❌ 실패 |
-| `R6_age_preserved` | 저장거부 | 2026-10-20 06:08 (VN) | ✅ 통과 |
+| `R3_source_evidence_required` | 저장거부 | 2026-10-25 10:51 (VN) | ✅ 통과 |
+| `R5_verbatim_names` | 저장거부 | 2026-10-25 10:51 (VN) | ✅ 통과 |
+| `R6_age_preserved` | 저장거부 | 2026-10-25 10:51 (VN) | ✅ 통과 |
 | `R4_policy_exclusion_trigger` | 저장거부 | — | — 시험 없음 |
-| `R7_ocr_crosscheck` | 보류 | 2026-10-20 06:08 (VN) | ❌ 실패 |
+| `R7_ocr_crosscheck` | 보류 | 2026-10-25 10:51 (VN) | ✅ 통과 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
-| `U2_age_min_under_15` | 없음 | 2026-10-20 06:08 (VN) | ❌ 실패 |
+| `U2_age_min_under_15` | 없음 | 2026-10-25 10:51 (VN) | ✅ 통과 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 
 - OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
