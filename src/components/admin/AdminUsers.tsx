@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listAdminUsers, setAccountStatus, type AccountStatus, type AdminUser } from '../../lib/adminOperations'
 
-export function AdminUsers() {
+export function AdminUsers({initialRole='all'}:{initialRole?:'all'|'employer'}) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [search, setSearch] = useState('')
-  const [role, setRole] = useState<'all' | 'seeker' | 'employer'>('all')
+  const [role, setRole] = useState<'all' | 'seeker' | 'employer'>(initialRole)
   const [status, setStatus] = useState<'all' | AccountStatus>('all')
   const [error, setError] = useState('')
   const reload = () => listAdminUsers().then(setUsers).catch((e: Error) => setError(e.message))
