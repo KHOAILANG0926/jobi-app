@@ -12,7 +12,7 @@ function isGuestPost(job: AdminJob): boolean {
   return job.origin === 'employer' && job.employer_id === null
 }
 
-export function AdminJobs() {
+export function AdminJobs({view='all'}:{view?:'all'|'public'|'korea'}) {
   const [jobs, setJobs] = useState<AdminJob[]>([])
   const [search, setSearch] = useState('')
   const [origin, setOrigin] = useState<JobOrigin | 'all'>('all')
@@ -30,15 +30,16 @@ export function AdminJobs() {
         || (visibility === 'active' && job.active && !job.admin_hidden)
         || (visibility === 'inactive' && !job.active)
         || (visibility === 'hidden' && job.admin_hidden))
+      && (view !== 'public' || (job.active && !job.admin_hidden))
       && (!guestOnly || isGuestPost(job))
-  }), [jobs, search, origin, visibility, guestOnly])
+  }), [jobs, search, origin, visibility, guestOnly, view])
 
   async function toggle(job: AdminJob) {
     try { await setJobHidden(job.id, !job.admin_hidden); await reload() }
     catch (e) { setError(e instanceof Error ? e.message : 'Không thể cập nhật tin.') }
   }
 
-  return <><AdminLinePicks /><section className="admin-panel">
+  return <>{view === 'korea' ? <section className="admin-panel"><h2>Tin Hàn Quốc</h2><p>Danh sách tin Hàn Quốc:</p><a href="/viec-han-quoc" target="_blank" rel="noreferrer">Xem danh sách tin Hàn Quốc</a></section> : <><AdminLinePicks /><section className="admin-panel">
     <div className="admin-toolbar">
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tiêu đề hoặc công ty" />
       <select value={origin} onChange={e => setOrigin(e.target.value as JobOrigin | 'all')}>
@@ -67,5 +68,5 @@ export function AdminJobs() {
       <td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
     </tr>)}</tbody></table></div>
-  </section></>
+  </section></>}</>
 }
