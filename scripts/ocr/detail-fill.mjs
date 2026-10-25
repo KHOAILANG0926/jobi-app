@@ -14,7 +14,9 @@ const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
 // 규정(KIND_RULES)이 바뀌면 이 값이 저절로 바뀐다 → 모든 공고를 한 번 다시 보고 07에 있던 줄을 정한 칸으로 옮긴다.
 // 2026-10-25: 원문이 있는 공고는 상세요강을 원문에서 기계가 다시 만든다(jobDescriptionBuild.ts) — 규칙 파일이 바뀌면 값이 바뀌어 전부 다시 만든다.
-const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
+// 이 실행기 자신과 급여 채우기 규칙도 넣는다 — 바뀌면 모든 공고를 다시 처리(2026-10-25 #4879 급여 칸이 안 채워진 원인).
+const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts', 'sourceSalary.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
+  .concat(readFileSync(new URL(import.meta.url), 'utf8'))
 const RULE_HASH = JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key])) + RULE_FILES.join('\n')
 const BACKUP_REASON = 'rebuild-from-source-20261025'
 

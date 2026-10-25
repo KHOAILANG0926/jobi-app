@@ -8,15 +8,22 @@ name: Vercel 배포 (GitHub Actions에서 직접)
 # - 키는 GitHub Secrets의 VERCEL_TOKEN 한 곳에만 둔다. 앱 환경변수(VietMap 등)는 Vercel에 그대로 두고 vercel pull로 받아 빌드에만 쓴다.
 # - 배포가 끝나면 GitHub 배포 기록(Production/Preview)을 남긴다 → deploy-verify.yml이 그대로 이 기록을 보고 운영 검사를 한다.
 # - 실패하면 빨간색 + 이슈 "운영 배포 실패(Actions)". 운영 주소는 이전 정상 버전 유지.
+# - 2026-10-25 실측: Vercel 무료 한도 "하루 배포 100번"에 걸림(api-deployments-free-per-day) → 배포 횟수를 줄인다:
+#   앱 화면·서버에 영향 있는 파일이 운영 버전 이후 바뀐 커밋만 배포(검사·문서·자동 작업 파일만 바뀌면 배포 안 함 —
+#   이때는 "앱 파일 변경 없음, 운영 그대로" 배포 기록만 남겨 deploy-verify가 지금 운영 화면을 그대로 검사),
+#   한도로 실패했으면 2시간마다 "운영이 master보다 뒤처졌는지" 보고 따라잡기 배포(한도가 풀리면 자동 반영).
 on:
   push:
     branches: [master, 'demo/**']
+  schedule:
+    - cron: '23 */2 * * *'
   workflow_dispatch: {}
 
 permissions:
   contents: read
   deployments: write
   issues: write
+  actions: write
 
 concurrency:
   group: vercel-deploy-${{ github.ref }}
@@ -42,11 +49,38 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 배포가 필요한지 (운영 버전 이후 앱 파일이 바뀌었나)
+        id: need
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/master" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          prod_id=""; for d in $(gh api "repos/${{ github.repository }}/deployments?environment=Production&per_page=30" --jq '.[].id'); do
+            st=$(gh api "repos/${{ github.repository }}/deployments/$d/statuses?per_page=1" --jq '.[0].state // ""'); [ "$st" = success ] && { prod_id=$d; break; }; done
+          [ -n "$prod_id" ] || { echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          prod=$(gh api "repos/${{ github.repository }}/deployments/$prod_id" --jq .sha)
+          url=$(gh api "repos/${{ github.repository }}/deployments/$prod_id/statuses?per_page=1" --jq '.[0].environment_url // ""')
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          if [ "$prod" = "$(git rev-parse HEAD)" ]; then echo "go=0" >> "$GITHUB_OUTPUT"; echo "same=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git cat-file -e "$prod^{commit}" 2>/dev/null || { echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          changed=$(git diff --name-only "$prod" HEAD -- src api public index.html package.json package-lock.json vite.config.ts vite.api.config.mjs vercel.json 'tsconfig*.json' | wc -l)
+          echo "- 운영 ${prod:0:7} → master ${GITHUB_SHA:0:7}, 앱 파일 차이 ${changed}개" >> "$GITHUB_STEP_SUMMARY"
+          [ "$changed" -gt 0 ] && echo "go=1" >> "$GITHUB_OUTPUT" || echo "go=0" >> "$GITHUB_OUTPUT"
+      - name: 앱 파일 변경 없음 → 배포 생략, 운영 그대로 기록
+        if: steps.need.outputs.go == '0' && steps.need.outputs.same != '1' && github.event_name == 'push'
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/deployments" -X POST -f ref="${{ github.sha }}" -f environment=Production \
+            -F auto_merge=false -f 'required_contexts[]' -f description="앱 파일 변경 없음 — 운영 그대로(배포 생략, 한도 절약)" --jq .id)
+          gh api "repos/${{ github.repository }}/deployments/$id/statuses" -X POST -f state=success \
+            -f environment_url="${{ steps.need.outputs.url }}" -f description="No app changes; production unchanged" >/dev/null
+          echo "- 배포 생략(앱 파일 변경 없음). 운영 그대로 기록" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v4
+        if: steps.need.outputs.go == '1'
         with:
           node-version: 22
           cache: npm
       - name: 배포 종류 정하기
+        if: steps.need.outputs.go == '1'
         id: kind
         run: |
           if [ "${GITHUB_REF}" = "refs/heads/master" ]; then
@@ -55,14 +89,17 @@ jobs:
             echo "env=preview" >> "$GITHUB_OUTPUT"; echo "prod=" >> "$GITHUB_OUTPUT"; echo "gh_env=Preview" >> "$GITHUB_OUTPUT"
           fi
       - name: Vercel 환경변수 받기
+        if: steps.need.outputs.go == '1'
         run: |
           run() { "$@" 2>err.txt || { tail -5 err.txt | sed 's/^/::error::/'; exit 1; }; }
           run npx --yes vercel@latest pull --yes --environment=${{ steps.kind.outputs.env }} --token "$VERCEL_TOKEN"
       - name: 빌드 (Actions에서)
+        if: steps.need.outputs.go == '1'
         run: |
           npx --yes vercel@latest build ${{ steps.kind.outputs.prod }} --token "$VERCEL_TOKEN" 2>&1 | tee build.txt; s=${PIPESTATUS[0]}
           [ "$s" = 0 ] || { tail -8 build.txt | sed 's/^/::error::/'; exit 1; }
       - name: Vercel에 올리기
+        if: steps.need.outputs.go == '1'
         id: up
         run: |
           npx --yes vercel@latest deploy --prebuilt ${{ steps.kind.outputs.prod }} --token "$VERCEL_TOKEN" >url.txt 2>err.txt || { tail -5 err.txt | sed 's/^/::error::/'; exit 1; }
@@ -70,13 +107,14 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "- 배포 주소: $url" >> "$GITHUB_STEP_SUMMARY"
       - name: 데모 고정 링크 붙이기 (demo/** 만)
-        if: startsWith(github.ref, 'refs/heads/demo/')
+        if: steps.need.outputs.go == '1' && startsWith(github.ref, 'refs/heads/demo/')
         run: |
           # 예전 Vercel 자동 배포와 같은 고정 링크 모양 유지: jobi-git-<브랜치(/→-)>-mshw1895-6089s-projects.vercel.app
           alias="jobi-git-$(echo "${GITHUB_REF_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]')-mshw1895-6089s-projects.vercel.app"
           npx --yes vercel@latest alias set "${{ steps.up.outputs.url }}" "$alias" --token "$VERCEL_TOKEN" 2>err.txt || { tail -5 err.txt | sed 's/^/::warning::/'; }
           echo "- 데모 고정 링크: https://$alias" >> "$GITHUB_STEP_SUMMARY"
       - name: GitHub 배포 기록 남기기 (deploy-verify가 이 기록을 본다)
+        if: steps.need.outputs.go == '1'
         run: |
           id=$(gh api "repos/${{ github.repository }}/deployments" -X POST \
             -f ref="${{ github.sha }}" -f environment="${{ steps.kind.outputs.gh_env }}" \
@@ -84,8 +122,11 @@ jobs:
           gh api "repos/${{ github.repository }}/deployments/$id/statuses" -X POST \
             -f state=success -f environment_url="${{ steps.up.outputs.url }}" -f description="Deployed via GitHub Actions" >/dev/null
           echo "- GitHub 배포 기록: ${{ steps.kind.outputs.gh_env }} #$id" >> "$GITHUB_STEP_SUMMARY"
+      - name: 따라잡기 배포 뒤 운영 화면 검사 시작(예약 실행일 때)
+        if: steps.need.outputs.go == '1' && github.event_name != 'push' && github.ref == 'refs/heads/master'
+        run: gh workflow run deploy-verify.yml --repo "${{ github.repository }}" --ref master
       - name: 위치 못 찾은 공고 다시 찾기 (운영 반영 후 — 고친 위치 코드로)
-        if: github.ref == 'refs/heads/master'
+        if: steps.need.outputs.go == '1' && github.ref == 'refs/heads/master'
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
