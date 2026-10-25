@@ -47,3 +47,33 @@ jobs:
         run: |
           node scripts/status/status-lib.test.mjs
           node scripts/status/generate-status.smoke.mjs
+
+  migration-postgres:
+    name: migration-postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PG_TEST_URL: postgresql://postgres:postgres@localhost:5432/migration_test
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 변경된 migration을 깨끗한 PostgreSQL에 실제 적용
+        if: github.event_name == 'pull_request'
+        run: bash scripts/ci/check-postgres-migrations.sh
