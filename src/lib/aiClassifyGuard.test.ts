@@ -24,7 +24,9 @@ assert(JSON.stringify(g.kinds) === JSON.stringify([{ line: 'NAM , NỮ (14-50t)'
 assert(JSON.stringify(g.benefits.map((b) => b.code)) === JSON.stringify(['shuttle_bus', 'fuel']), 'benefits: ' + JSON.stringify(g.benefits))
 assert(g.rejected.length === 5, 'rejected 5: ' + JSON.stringify(g.rejected))
 assert(guardAiResult('not json', { lines, source }).kinds.length === 0, '엉뚱한 답은 아무것도 안 씀')
-assert(buildPrompt(lines, source).includes('- NAM , NỮ (14-50t)'), 'prompt lists lines')
+assert(buildPrompt(lines, source).includes('"NAM , NỮ (14-50t)"'), 'prompt lists lines as JSON')
+// AI가 "- "를 붙여 돌려줘도 같은 줄(#4824 실측)
+assert(guardAiResult({ kinds: [{ line: '- NAM , NỮ (14-50t)', section: '02' }] }, { lines, source }).kinds.length === 1, 'dash prefix tolerated')
 
 // 저장된 번호표는 단어 규칙이 못 정한 줄에 쓰이고, Lee가 정한 것은 항상 이긴다
 const kinds = { [lineKey('NAM , NỮ (14-50t)')]: { section: '02' as const, by: 'ai' as const }, [lineKey('Có xe đưa đón')]: { section: '07' as const, by: 'lee' as const } }

@@ -30,6 +30,8 @@ export type BenefitCode = keyof typeof BENEFIT_CODES
 
 const NEG_BEFORE = /\b(?:khong|ko|k|chua|tu tuc)\b(?:\s+\S+){0,2}\s*$/
 const norm = (s: string) => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim()
+/** AI가 목록 표시("- ")를 붙여 돌려줘도 같은 줄로 본다(2026-10-25 실측 #4824). */
+const normLine = (s: string) => norm(s).replace(/^-\s+(?=\S)/, '')
 
 export interface GuardInput { lines: string[]; source: string }
 export interface GuardOutput {
@@ -42,9 +44,10 @@ export interface GuardOutput {
 export function guardAiResult(raw: unknown, input: GuardInput): GuardOutput {
   const out: GuardOutput = { kinds: [], benefits: [], rejected: [] }
   const obj = (raw && typeof raw === 'object' ? raw : {}) as { kinds?: unknown; benefits?: unknown }
-  const given = new Map(input.lines.map((l) => [norm(l), l]))
+  const given = new Map(input.lines.flatMap((l) => [[normLine(l), l], [norm(l), l]] as Array<[string, string]>))
   for (const k of Array.isArray(obj.kinds) ? obj.kinds : []) {
-    const line = given.get(norm((k as { line?: string })?.line ?? ''))
+    const asked = String((k as { line?: string })?.line ?? '')
+    const line = given.get(norm(asked)) ?? given.get(normLine(asked))
     const section = String((k as { section?: string })?.section ?? '') as SectionKey
     if (!line) { out.rejected.push('준 적 없는 줄: ' + String((k as { line?: string })?.line).slice(0, 80)); continue }
     if (!SECTION_KEYS.includes(section)) { out.rejected.push(`목록 밖 칸 ${section}: ${line}`); continue }
@@ -77,8 +80,8 @@ ${Object.entries(BENEFIT_CODES).map(([k, v]) => `${k} = ${v.meaning}`).join('\n'
 For each benefit give "evidence": an exact substring copied from the FULL AD. Skip benefits that are negated (không có…) or only possible/conditional on the worker paying.
 Return ONLY JSON: {"kinds":[{"line":"<exact line>","section":"01"}],"benefits":[{"code":"dormitory","evidence":"<exact substring>"}]}
 
-LINES:
-${lines.map((l) => '- ' + l).join('\n') || '(none)'}
+LINES (JSON array; copy each string exactly into "line"):
+${JSON.stringify(lines)}
 
 FULL AD:
 ${source}`
