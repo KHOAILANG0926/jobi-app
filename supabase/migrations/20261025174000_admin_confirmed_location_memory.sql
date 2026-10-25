@@ -7,6 +7,7 @@ create table if not exists public.admin_confirmed_location_memory (
   park_key text,
   lat double precision not null,
   lng double precision not null,
+  place_precision text not null,
   approved_by uuid not null,
   approved_at timestamptz not null,
   source_address text not null
@@ -53,7 +54,7 @@ begin
   if addr is null then return 0; end if;
   insert into public.job_location_candidates(job_id,work_location_id,company_snapshot,address_snapshot,
     lat,lng,place_precision,source,evidence,evidence_urls,status,review_note,reviewed_by,reviewed_at,created_by)
-  values(p_job_id,workid,j.company,addr,m.lat,m.lng,'building','other',
+  values(p_job_id,workid,j.company,addr,m.lat,m.lng,m.place_precision,'other',
     'AUTO REUSE: source confirmed candidate #'||m.source_candidate_id,'{}',
     'approved','자동 적용: 동일 주소 또는 동일 회사+공단',m.approved_by,now(),m.approved_by);
   insert into public.admin_audit_logs(admin_user_id,action,target_type,target_id,metadata)
@@ -74,9 +75,9 @@ begin
       (id=new.work_location_id or public.admin_location_key(raw_address)=public.admin_location_key(new.address_snapshot))
     order by (id=new.work_location_id) desc limit 1;
   insert into public.admin_confirmed_location_memory
-    (source_candidate_id,address_key,company_key,park_key,lat,lng,approved_by,approved_at,source_address)
+    (source_candidate_id,address_key,company_key,park_key,lat,lng,place_precision,approved_by,approved_at,source_address)
   values(new.id,public.admin_location_key(new.address_snapshot),public.admin_location_key(j.company),
-    nullif(public.admin_location_key(p),''),new.lat,new.lng,new.reviewed_by,new.reviewed_at,new.address_snapshot)
+    nullif(public.admin_location_key(p),''),new.lat,new.lng,new.place_precision,new.reviewed_by,new.reviewed_at,new.address_snapshot)
   on conflict (source_candidate_id) do nothing;
   for other_job in select id from public.local_jobs where id<>new.job_id loop
     perform public.admin_reuse_confirmed_location(other_job.id);
