@@ -1,0 +1,49 @@
+name: 저녁 8시 위치 확정 대기 보고
+on:
+  schedule:
+    - cron: '0 13 * * *' # Vietnam 20:00, GitHub 일정 실행은 지연 가능
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  issues: write
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: 비밀값 확인
+        run: |
+          [ -n "$SUPABASE_DB_URL" ] || { echo "::error::SUPABASE_DB_URL 비밀값 없음"; exit 1; }
+      - name: PostgreSQL client 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 관리자 위치 확정 대기수 추가
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+            select count(*) from public.local_jobs j
+            where not exists(select 1 from public.job_location_candidates c
+                where c.job_id=j.id and c.status='approved'
+                  and public.admin_location_key(c.company_snapshot)=public.admin_location_key(j.company)
+                  and (
+                    public.admin_location_key(c.address_snapshot)=public.admin_location_key(j.location)
+                    or exists(select 1 from public.job_work_locations x where x.job_id=j.id
+                      and public.admin_location_key(c.address_snapshot)=public.admin_location_key(x.raw_address))
+                  ))
+              and not exists(select 1 from public.job_work_locations w
+                where w.job_id=j.id and w.location_verified=true
+                  and w.lat between 8 and 24 and w.lng between 102 and 110);
+          ")
+          note="관리자 페이지 위치 확정 대기 ${n}건"
+          echo "$note" | tee -a "$GITHUB_STEP_SUMMARY"
+          title="저녁 8시 운영 보고 — 위치 확정"
+          issue=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$issue" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "관리자 위치 확정 대기 건수. 매일 베트남 20시 갱신. 위치 정확도 미확인 공고는 거리 검색에서 제외되며 근사 핀은 유지."
+          fi
+          issue=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          [ -n "$issue" ] || { echo "::error::저녁 보고 이슈 조회 실패"; exit 1; }
+          gh issue comment "$issue" -R "$GITHUB_REPOSITORY" --body "$(date -u +'%Y-%m-%d %H:%M UTC') — $note"

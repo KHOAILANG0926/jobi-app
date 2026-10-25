@@ -1,3 +1,4 @@
+import { AdminLocationReviewQueue } from './AdminLocationReviewQueue'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
@@ -98,7 +99,7 @@ export function AdminLocations() {
   }
 
   const shown = items.filter((c) => filter === 'all' || c.status === 'pending')
-  return <section className="admin-panel">
+  return <><AdminLocationReviewQueue /><section className="admin-panel">
     <div className="admin-toolbar">
       <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
         <option value="pending">Chờ duyệt</option>
@@ -152,7 +153,7 @@ export function AdminLocations() {
         </div>
       </article>
     })}
-  </section>
+  </section></>
 }
 
 interface WorkLocationRow { id: number; raw_address: string | null; lat: number | null; lng: number | null }

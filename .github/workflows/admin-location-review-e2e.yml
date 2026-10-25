@@ -1,0 +1,42 @@
+name: 관리자 위치 확정 실제 클릭 E2E
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  admin-location-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+      ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ADMIN_E2E_BASE_URL: https://www.viecganban.vn
+    steps:
+      - uses: actions/checkout@v4
+      - name: 비밀값 검사
+        id: keys
+        shell: bash
+        run: |
+          if [ -z "$ADMIN_E2E_EMAIL" ] || [ -z "$ADMIN_E2E_PASSWORD" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "skip=yes" >> "$GITHUB_OUTPUT"
+            echo "비밀값 없음: 관리자 실제 클릭 단계 건너뜀" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=no" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.keys.outputs.skip == 'no'
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+        if: steps.keys.outputs.skip == 'no'
+      - run: npx playwright install --with-deps chromium
+        if: steps.keys.outputs.skip == 'no'
+      - name: 비공개 공고 둘로 E2E, 자동 재사용, 데이터 삭제
+        if: steps.keys.outputs.skip == 'no'
+        run: node scripts/ops/admin-location-review-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.keys.outputs.skip == 'no'
+        with:
+          name: admin-location-review-e2e
+          path: location-review-e2e.png
+          if-no-files-found: ignore
