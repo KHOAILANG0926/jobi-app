@@ -62,7 +62,7 @@ export function AdminJobs({view='all'}:{view?:'all'|'local-active'|'korea'}) {
       <th>Tin tuyển dụng</th><th>Vị trí</th><th>Nguồn</th><th>SĐT liên hệ</th><th>Trạng thái</th><th>Vận hành</th>
     </tr></thead><tbody>{filtered.map(job => <tr key={job.id}>
       <td><a href={`/viec-lam/sb-${job.id}`} target="_blank" rel="noreferrer"><strong>{job.title}</strong></a><small>{job.company} · #{job.id}</small></td>
-      <td>{job.location_verified===true?'Đã xác nhận':'Chưa xác nhận'}</td>
+      <td>{'Xem tại Vị trí'}</td>
       <td>
         {job.origin}
         {isGuestPost(job) && <><br /><span className="admin-badge admin-badge--guest">⚡ Không đăng ký</span></>}
