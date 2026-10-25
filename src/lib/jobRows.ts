@@ -253,12 +253,18 @@ export function applyLocationApprovals(jobs: Job[], approvals: Record<string, un
   }
   return jobs.map((job) => {
     const mine = byJobId.get(job.id)
-    if (!mine || !job.workLocations?.length) return job
+    if (!mine) return job
     const valid = mine.filter((a) => normalizeForApproval(a.company_snapshot) === normalizeForApproval(job.company))
     if (valid.length === 0) return job
+    // 공고에 job_work_locations 행이 없어도 승인된 원문 주소를 하나의
+    // 작업장으로 보여준다. 그렇지 않으면 후보 승인 성공 후에도 메인/상세
+    // 핀·거리 검색에 승인 위치가 전달되지 않는다.
+    const locations = job.workLocations?.length ? job.workLocations
+      : job.location ? [{ id: 0, rawAddress: job.location, sortOrder: 0 }] : []
+    if (locations.length === 0) return job
     return {
       ...job,
-      workLocations: job.workLocations.map((loc) => {
+      workLocations: locations.map((loc) => {
         const a = valid.find((x) => normalizeForApproval(x.address_snapshot) === normalizeForApproval(loc.rawAddress))
         const lat = Number(a?.lat), lng = Number(a?.lng)
         const placePrecision = a?.place_precision
