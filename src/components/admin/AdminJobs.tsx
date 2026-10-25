@@ -73,6 +73,6 @@ export function AdminJobs({scope='all'}:{scope?:'all'|'active'|'korea'}) {
       <td>{job.employer_phone || '—'}</td>
       <td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
-    </tr>)}</tbody></table></div></>}
+    </tr>)}</tbody></table></div>{scope==='all'&&<div className="admin-table-wrap"><h3>Tin Hàn Quốc</h3><table className="admin-table"><thead><tr><th>ID</th><th>Tiêu đề</th><th>Công ty</th></tr></thead><tbody>{korea.map(k=><tr key={k.id}><td>{k.id}</td><td>{k.title}</td><td>{k.company||'—'}</td></tr>)}</tbody></table></div>}</>}
   </section></>
 }
