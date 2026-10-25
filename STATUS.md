@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 10:22 (VN)**
-- 기준 커밋: `ce59746` (배포: 프로젝트 번호 직접 지정(전용 토큰은 link 불가), 실패 이유를 화면에 표시 (#232))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40157884188
+- 생성 시각: **2026-10-25 10:30 (VN)**
+- 기준 커밋: `23b6d64` (배포: Vercel 자동 배포 끄기(Actions 배포로 일원화), 데모 고정 링크 유지 (#233))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40158362281
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -28,7 +28,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `ce59746` · 상태 **success** · 2026-10-25 10:22 (VN)
+- 마지막 Production 배포: `23b6d64` · 상태 **success** · 2026-10-25 10:29 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -36,6 +36,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #233 | 2026-10-25 10:28 (VN) | `23b6d64` | 배포: Vercel 자동 배포 끄기 (2단계) |
 | #232 | 2026-10-25 10:21 (VN) | `ce59746` | 배포: 프로젝트 번호 직접 지정 |
 | #229 | 2026-10-25 10:10 (VN) | `21339c8` | 배포 실패 알림 이슈 수정 |
 | #228 | 2026-10-25 10:04 (VN) | `19c341f` | 배포: GitHub Actions 빌드 → Vercel 직접 배포 (1단계) |
@@ -45,7 +46,6 @@
 | #221 | 2026-10-25 09:33 (VN) | `36af30e` | 상세요강: 상단 급여 총액 반복 제거 (Lee 2026-10-25) |
 | #218 | 2026-10-25 07:26 (VN) | `d25c7c6` | CTY KDA parser: immutable system prompt and deduplication guard |
 | #219 | 2026-10-25 07:26 (VN) | `9e0c05d` | WIP: CTY KDA semantic dedup guard before crawler integration |
-| #214 | 2026-10-24 20:30 (VN) | `bd9674b` | fix: consolidate TEFAL screen PR #203 and #204 without overwriting newer master checks |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
