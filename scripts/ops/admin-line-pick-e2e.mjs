@@ -18,7 +18,7 @@ try {
   const next = await db.query("select coalesce(max(id),0)::bigint + 1000000 as id from public.local_jobs")
   jobId = Number(next.rows[0].id)
   const marker = randomUUID().replace(/-/g, '').slice(0, 12)
-  line = 'E2E kiểm tra mục tuyển dụng ' + marker
+  line = 'E2E kiem tra muc tuyen dung ' + marker
   const check = { detail_fill: { unclassified: [line] } }
   await db.query(`insert into public.local_jobs
     (id,title,company,origin,active,admin_hidden,description,source_text,ocr_check)
