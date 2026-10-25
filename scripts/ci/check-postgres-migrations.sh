@@ -4,9 +4,11 @@ set -euo pipefail
 : "${PR_BASE_SHA:?PR_BASE_SHA is required}"
 psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/postgres-location-fixture.sql
 mapfile -t changed < <(git diff --name-only "$PR_BASE_SHA" HEAD -- 'supabase/migrations/*.sql')
-if [ "${#changed[@]}" -eq 0 ]; then echo "No modified migrations; fresh PostgreSQL application SKIPPED"; exit 0; fi
+echo "Regression: always apply the current location-memory migration on fresh PostgreSQL" 
+psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261025174000_admin_confirmed_location_memory.sql
 for file in "${changed[@]}"; do
   test -f "$file" || { echo "::error::Migration file deleted: $file"; exit 1; }
+  if [[ "$file" == *20261025174000_admin_confirmed_location_memory.sql ]]; then continue; fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
