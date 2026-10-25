@@ -10,7 +10,8 @@ create table if not exists public.admin_confirmed_location_memory (
   place_precision text not null,
   approved_by uuid not null,
   approved_at timestamptz not null,
-  source_address text not null
+  source_address text not null,
+  active boolean not null default true
 );
 alter table public.admin_confirmed_location_memory enable row level security;
 revoke all on public.admin_confirmed_location_memory from public, anon, authenticated;
@@ -35,14 +36,14 @@ begin
   then return 0; end if;
   select mem.* into m
   from public.admin_confirmed_location_memory mem
-  where (mem.address_key<>'' and
+  where mem.active and ((mem.address_key<>'' and
     (mem.address_key=public.admin_location_key(j.location)
       or exists(select 1 from public.job_work_locations w where w.job_id=p_job_id
         and mem.address_key=public.admin_location_key(w.raw_address))))
     or (mem.company_key<>'' and mem.park_key is not null and mem.park_key<>''
       and mem.company_key=public.admin_location_key(j.company)
       and exists(select 1 from public.job_work_locations w where w.job_id=p_job_id
-        and mem.park_key=public.admin_location_key(w.industrial_park)))
+        and mem.park_key=public.admin_location_key(w.industrial_park))))
   order by mem.approved_at desc limit 1;
   if m.source_candidate_id is null then return 0; end if;
   select w.id, w.raw_address into workid,addr
@@ -115,7 +116,7 @@ for each row execute function public.admin_apply_remembered_to_work_location();
 create or replace function public.admin_forget_confirmed_location() returns trigger
 language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
-  delete from public.admin_confirmed_location_memory where source_candidate_id=old.id;
+  update public.admin_confirmed_location_memory set active=false where source_candidate_id=old.id;
   update public.job_location_candidates set status='revoked', reviewed_at=now(),
     review_note='자동 재사용 원본 승인 철회: #'||old.id
   where status='approved'
