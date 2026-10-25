@@ -1,3 +1,8 @@
+## 2026-10-25 — 배포 방식 변경 1단계: GitHub Actions에서 빌드 → Vercel에 결과만 올림
+- Lee 지시: "Vercel 무료 한도가 다해서 GitHub Actions + Vercel API 직접 배포로 변경".
+- 변경: .github/workflows/vercel-deploy.yml 추가(master→운영, demo/**→미리보기, 끝나면 GitHub 배포 기록 생성 → deploy-verify 그대로 사용). 필요한 비밀값: GitHub Secrets VERCEL_TOKEN 하나(없으면 빨간색+안내).
+- 2단계(이 PR 아님): Actions 배포가 운영에서 한 번 성공한 걸 확인한 뒤 vercel.json에서 Vercel 자동 배포(git 연결) 끄기 — 먼저 끄면 운영 배포가 멈출 수 있어 순서를 나눔.
+
 ## 2026-10-25 — 운영 화면 검사가 공고 수에 묶여 실패하던 것 수정
 - 원인[직접 확인]: deploy-verify '지도 요약' 단계가 핀 2개·합계 2를 고정값으로 검사. 10-24 #4878(TEFAL) 공개 후 bd9674b부터 매번 실패(마지막 통과 10-22 6269d56). 화면 고장이 아니라 검사 고정값 문제 [추정: 운영 화면 직접 접속 불가로 실패 화면은 미확인].
 - 변경: scripts/ops/map-summary-check.mjs 핀 수·합계를 "2개 이상"으로.
