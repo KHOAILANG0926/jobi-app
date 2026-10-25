@@ -87,7 +87,11 @@ begin
     (source_candidate_id,address_key,company_key,park_key,lat,lng,place_precision,approved_by,approved_at,source_address)
   values(new.id,public.admin_location_key(new.address_snapshot),public.admin_location_key(j.company),
     nullif(public.admin_location_key(p),''),new.lat,new.lng,new.place_precision,new.reviewed_by,new.reviewed_at,new.address_snapshot)
-  on conflict (source_candidate_id) do nothing;
+  on conflict (source_candidate_id) do update set
+    address_key=excluded.address_key,company_key=excluded.company_key,park_key=excluded.park_key,
+    lat=excluded.lat,lng=excluded.lng,place_precision=excluded.place_precision,
+    approved_by=excluded.approved_by,approved_at=excluded.approved_at,
+    source_address=excluded.source_address,active=true;
   for other_job in select id from public.local_jobs where id<>new.job_id loop
     perform public.admin_reuse_confirmed_location(other_job.id);
   end loop;
