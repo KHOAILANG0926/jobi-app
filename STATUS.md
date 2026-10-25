@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 12:08 (VN)**
+- 생성 시각: **2026-10-25 12:09 (VN)**
 - 기준 커밋: `59d5065` (AI 칸·복리후생 판정(정해진 번호표 중에서만, 원문 근거 검사) + 번호표 저장 (Lee 2026-10-25) (#238))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40164351111
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40164403894
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
