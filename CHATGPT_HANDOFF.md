@@ -1,17 +1,18 @@
-# CHATGPT_HANDOFF — CTY KDA 파서 연결 (2026-10-25)
+# CHATGPT_HANDOFF — 배포 방식 변경·상세요강 구조 진단 (2026-10-25)
 
 ## 1. 현재 상태
-- 기준 master bd9674b; CTY KDA 변경 PR #218 및 #219(Draft) 상태. PR #219 브랜치 feat/cty-kda-integration-20261025.
-- API: api/parse/cty-kda.js 인증 Bearer CTY_KDA_PARSER_TOKEN, OPENAI_API_KEY와 CTY_KDA_MODEL 필요. AI system prompt → guard → JSON 응답. DB 기록 없음.
-- Python: crawler/crawl_topcv.py process_job_url 경로에 CTY_KDA_PARSER_ENABLED=true일 때만 API 호출. HTTPS CTY_KDA_PARSER_URL 및 CTY_KDA_PARSER_TOKEN 필요. Guard violations/호출 실패 시 _pipeline_failed → 기존 공고 덮어쓰기 차단. 기본 비활성.
-- API mock contract 테스트 추가. 실제 TEFAL Raw Text → 실제 모델 응답 E2E 미실행. 별도 저장 스키마/공개 정책 매핑 미구현. 최종 CI 미확인. master/Production 미반영.
+- 운영 배포 = GitHub Actions(.github/workflows/vercel-deploy.yml)에서 빌드 → Vercel에 결과만 올림(Lee 지시 "Vercel 무료 한도"). Vercel 자동 배포(git 연결)는 vercel.json에서 끔. 비밀값은 GitHub Secrets VERCEL_TOKEN(jobi 프로젝트 전용).
+- master→운영, demo/**→미리보기+고정 링크. 배포 확인은 기존 deploy-verify.yml(GitHub 배포 기록 기준) 그대로.
+- 10-24 9e0c05d부터 운영 배포가 멈췄던 원인: api/ 아래 밑줄 없는 시험 파일 2개가 서버 함수로 잡힘 → _ 접두로 수정. 운영 지도 검사 고정값(공고 2개) → "2개 이상"으로 수정. deploy-verify 다시 통과.
+- 상세요강: 상단 급여 총액 반복 제거(Lee 10-25, 10-19 '급여 줄 남김' 대체). 급여 구성 줄은 유지.
+- CTY KDA 파서(api/parse/cty-kda.js, PR #219)는 병합됐지만 기본 비활성·실호출 시험 안 함.
 
 ## 2. 다음 할 일 3개
-1. 실제 TEFAL 원문의 비공개 서버 측 접근 경로와 AI provider 인증설정 확인 후 API 실호출 E2E 수행, JSON/Boolean/중복/violations 검증.
-2. CTY KDA 정형 결과의 DB 비공개 저장 위치와 무손실 대응을 확정하고 회귀 테스트 추가 (DDL은 승인 전 금지).
-3. PR #219 최종 SHA CI/빌드 확인 및 E2E 통과 후에만 사용자 지시 범위 내 병합/배포 검증.
+1. 상세요강 하나의 흐름으로 통일(Lee 10-25 확정 방향): AI가 원문 고쳐 쓰기 금지 → 원문 줄마다 번호표+칸만 붙임 → 프로그램 검사(모든 줄 한 곳·상단 정보 반복 금지·글자 변경 금지) → 화면은 번호표만 봄(복리후생 단어 목록 제거). 빠진 줄 재부착(jobDetailFill)과 충돌 정리.
+2. 원문 청소(사이트 화면 글자 Hiện số·Thông tin cơ bản·가려진 번호 제거), 공단·공장 이름으로 근무지 자동 생성(#4879 ADTEK Quế Võ 3).
+3. 실패 알림을 AI 없이 기계가 보냄(10-24 저녁 위치 보고가 사용량 한도로 실패) + 같은 원인 3건 연속 실패 시 크롤링 자동 멈춤.
 
 ## 3. 필수 규칙
-- AGENTS.md, CLAUDE.md, CTY KDA 6대 불변 규칙 준수. thong_tin_khac는 UI ④ 마지막 소영역, 다섯 번째 영역 없음.
-- 운영 DB·Auth·RLS·Secrets·공고 원문·위치 승인·STATUS 보호. 공개 자동 변경 및 가짜 공고 금지.
-- 회사 PC 로컬 저장 안내/현장 방문 제안 금지. 미실행 E2E/CI/배포 성공을 완료로 보고 금지.
+- AGENTS.md/CLAUDE.md 준수. 운영 DB·Auth·RLS·Secrets·STATUS 보호. 가짜 공고 금지. 회사 PC 저장 안내·현장 방문 제안 금지.
+- api/ 아래 새 파일 주의: 밑줄(_) 없는 파일은 서버 함수로 잡힘(현재 12개, 한도 근접).
+- 미실행 시험·배포를 완료로 보고 금지. [직접 확인]/[기존 기록]/[추정] 구분.
