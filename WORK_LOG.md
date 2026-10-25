@@ -1,3 +1,10 @@
+## 2026-10-25 — 수집 소스 자동 멈춤·자동 수리·자동 재개
+- Lee 결정(채팅 "ok"): 같은 소스에서 같은 원인 3건 연속 실패 → 그 소스만 멈춤 → 알림 → 자동 수리 → 자동 재개, 2번 실패 시 원인별 Lee 할 일, 풀릴 때까지 매일 표시.
+- DB(20261025120000_crawl_source_guard.sql, 추가만): crawl_source_state·crawl_job_outcomes, 결과는 트리거로 기록(위치 못 찾음·포스터 불일치=실패 / 공개·위치 재발견=성공). 멈춘 소스의 새 수집 공고는 DB가 저장 거부(수집기 코드와 무관). 원인 공고가 모두 성공하면 자동 재개.
+- 알림·수리(AI 없이): .github/workflows/crawl-guard.yml 30분마다 — 이슈 알림, claude-auto.yml 수리 시작(최대 2번), [자동수리] PR 직접 검사 후 병합·배포·재처리, 재개 알림.
+- 검사 규칙 정리: check-repository-policy.mjs가 모든 migration을 막던 것을 결정 0002대로 "삭제·되돌리기 어려운 변경만" 막게 수정.
+- 시험: supabase/tests/crawl_source_guard.pglite.test.mjs.
+
 ## 2026-10-25 — 상세요강을 원문에서 기계가 다시 만듦(AI 글 고쳐 쓰기 제거) 1단계
 - Lee 결정(채팅 10-25): AI가 원문 고쳐 쓰기 금지, 하나의 흐름으로. 원인[직접 확인]: #4878 AI가 "đảm bảo sản phẩm đẹp"→"bảo đảm sản phẩm"로 바꿈 → 빠진 줄 보충이 원문을 다시 붙여 같은 내용 2번.
 - 변경: src/lib/jobDescriptionBuild.ts(사이트 화면 글자·가려진 번호 제거, 이름표/값 두 줄 합침, 칸 나누기, 위쪽 정보 반복·급여 총액·중복 제거, 글자 그대로). scripts/ocr/detail-fill.mjs: 원문 있는 공고는 description을 원문에서 다시 만듦(처음 한 번 local_jobs_description_backup에 원래 글 보관, reason=rebuild-from-source-20261025), 원문 없는 공고는 기존 보충. 규칙 파일이 바뀌면 전부 다시 만듦. AI가 다시 글을 고치면 다음 실행에서 다시 원문 기준으로 덮음.

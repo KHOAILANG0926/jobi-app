@@ -4,8 +4,11 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const PROTECTED = [/^STATUS\.md$/, /^scripts\/status\//, /^\.github\/workflows\/status-.*\.ya?ml$/]
+// 결정 0002(Lee 2026-10-18): 검사 통과한 migration은 자동 적용. 단 데이터 삭제·되돌리기 어려운 변경은 Lee 판단 →
+// migration은 아래 DESTRUCTIVE_SQL이 들어 있을 때만 막는다(새 표·함수·트리거 추가는 통과).
+const DESTRUCTIVE_SQL = /^\+(?!\s*--).*\b(?:drop\s+(?:table|column|schema|policy)|truncate\b|delete\s+from\b|alter\s+table\b[^;]*\bdrop\b)/im
 const STRICT = [
-  /^supabase\/migrations\//, /^supabase\/functions\//,
+  /^supabase\/functions\//,
   /^src\/.*(?:auth|Auth|rls|RLS)/, /^\.github\/workflows\/deploy/,
   /^src\/lib\/(?:account|storage|payment)/i,
 ]
@@ -25,6 +28,8 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
       errors.push(path + ': STATUS 보호 규정 위반')
     if (STRICT.some(re => re.test(path)))
       errors.push(path + ': 운영·보안·DB 변경은 별도 승인과 STRICT 검증 필요')
+    if (/^supabase\/migrations\//.test(path) && DESTRUCTIVE_SQL.test(patches[path] ?? ''))
+      errors.push(path + ': 데이터 삭제·되돌리기 어려운 DB 변경은 Lee 판단 필요(결정 0002 예외)')
     if (SECRETS.some(re => re.test(path)))
       errors.push(path + ': 로컬 환경파일·비밀키 저장 금지')
     if (path.startsWith('src/pages/KoreaJob') && path.includes('JobDetail') &&

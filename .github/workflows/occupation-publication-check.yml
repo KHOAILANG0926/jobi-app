@@ -18,6 +18,7 @@ jobs:
         run: |
           npm i --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8
           node supabase/tests/occupation_publication.pglite.test.mjs
+          node supabase/tests/crawl_source_guard.pglite.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
       - name: OCR republish follows the same occupation rule

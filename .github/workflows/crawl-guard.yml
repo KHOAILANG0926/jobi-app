@@ -1,0 +1,126 @@
+name: 수집 멈춤 알림·자동 수리·재개 알림
+
+# Lee 결정 2026-10-25("ok"): 같은 소스에서 같은 원인 3건 연속 실패 → 그 소스만 멈춤(DB가 저장 거부, 20261025120000_crawl_source_guard.sql).
+# 이 작업은 AI 없이 30분마다 돈다(사용량 한도로 알림이 빠지지 않게):
+#   ① 새로 멈춘 소스 → 이슈 "수집 멈춤: <소스>"로 Lee에게 알림(GitHub 메일·앱 알림)
+#   ② 자동 수리: Claude 수리 작업(claude-auto.yml)을 시작. 멈춤 1번당 최대 2번, 6시간 간격.
+#   ③ 2번 고쳐도 6시간 넘게 그대로면 → 원인별로 Lee가 할 일 한 줄 알림
+#   ④ 자동 재개(멈춤 원인 공고가 모두 다시 성공) → 같은 이슈에 "재개됨" 남기고 닫음
+#   ⑤ [자동수리] PR: 이 작업이 직접 tsc·시험·빌드를 돌려 통과하면 병합 → 운영 배포·상세요강 재처리 작업을 시작(결정 0003)
+#   ⑥ 병합 15분 뒤 멈춤 원인 공고의 위치를 고친 코드로 다시 찾음 → 성공하면 ④로 자동 재개
+# 비밀값: GitHub Secrets SUPABASE_DB_URL. 매일 저녁 8시 보고에도 멈춘 소스가 같이 나간다(예약 작업).
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: crawl-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: 키 확인
+        run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
+      - name: PostgreSQL 클라이언트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: 멈춤·수리·재개 처리
+        shell: bash
+        run: |
+          set -euo pipefail
+          q() { psql "$SUPABASE_DB_URL" -X -A -t -F $'\t' -v ON_ERROR_STOP=1 -c "$1"; }
+          # 원인 → 쉬운 말 / 2번 수리 실패 시 Lee가 할 일
+          say() { case "$1" in
+            location_not_found) echo "근무지 위치를 못 찾음";;
+            ocr_mismatch) echo "포스터 글자와 공고 내용이 안 맞음";;
+            *) echo "$1";; esac; }
+          todo() { case "$1" in
+            location_not_found) echo "주소 형식이 새로운 경우가 많습니다. 저녁 8시 위치 보고의 예시 공고를 보고 '이 주소는 이 위치' 한 번만 알려 주세요. (VietMap 고장이면 1시간마다 자동 재시도 중)";;
+            ocr_mismatch) echo "포스터 판독이 계속 틀립니다. 예시 공고 포스터가 흐리거나 새 모양일 수 있어요 — 어떻게 할지 정해 주세요.";;
+            *) echo "자동으로 못 고친 원인입니다. 원인과 선택지를 채팅으로 물어봐 주세요.";; esac; }
+          issue_for() { gh issue list --repo "$REPO" --state open --search "\"수집 멈춤: $1\" in:title" --json number --jq '.[0].number // empty'; }
+
+          # ① 새로 멈춘 소스 알림
+          q "select source, reason, array_to_string(sample_job_ids, ', ') from public.crawl_source_state where paused and notified_at is null" | while IFS=$'\t' read -r src reason ids; do {
+            [ -z "$src" ] && continue
+            body="**$src 수집을 멈췄어요.** 같은 원인으로 3건 연속 실패: $(say "$reason") (공고 #${ids//, / #}).
+          - 다른 소스는 계속 수집합니다. 실패한 공고는 지우지 않고 비공개로 보관.
+          - 지금 자동으로 고치는 중이고, 고쳐지면 자동으로 다시 시작합니다(알림 드림)."
+            num=$(issue_for "$src")
+            if [ -n "$num" ]; then gh issue comment "$num" --repo "$REPO" --body "$body"; else gh issue create --repo "$REPO" --title "수집 멈춤: $src" --body "$body"; fi
+            q "update public.crawl_source_state set notified_at = now() where source = '$src'"
+          } </dev/null; done
+
+          # ② 자동 수리 시작(최대 2번, 6시간 간격)
+          q "select source, reason, array_to_string(sample_job_ids, ','), fix_attempts from public.crawl_source_state where paused and fix_attempts < 2 and (last_fix_at is null or last_fix_at < now() - interval '6 hours')" | while IFS=$'\t' read -r src reason ids n; do {
+            [ -z "$src" ] && continue
+            task="[자동수리] 수집 소스 '$src'가 같은 원인($reason)으로 3건 연속 실패해 멈췄다(DB crawl_source_state). 예시 공고 id: $ids. 할 일: 1) 이 공고들의 원문(local_jobs.source_text·location·job_work_locations)을 보고 실패 원인을 코드에서 찾는다 2) 고친다 3) 이 공고들을 실제 사례 시험으로 추가한다 4) tsc·npm test·build 통과 5) PR 제목을 '[자동수리] $src $reason'으로, PR 설명은 .github/pull_request_template.md 양식대로 쓴다. 운영 DB를 직접 고치지 않는다(재처리는 기존 예약 작업이 한다). 고칠 수 없으면 PR 대신 이유를 이슈 '수집 멈춤: $src'에 쉬운 한국어로 남긴다."
+            gh workflow run claude-auto.yml --repo "$REPO" -f task="$task"
+            q "update public.crawl_source_state set fix_attempts = fix_attempts + 1, last_fix_at = now() where source = '$src'"
+            num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 $((n + 1))번째 시작."
+          } </dev/null; done
+
+          # ③ 2번 고쳐도 안 되면 Lee가 할 일 알림(한 번)
+          q "select source, reason, extract(day from now() - paused_at)::int from public.crawl_source_state where paused and fix_attempts >= 2 and last_fix_at < now() - interval '6 hours' and escalated_at is null" | while IFS=$'\t' read -r src reason days; do {
+            [ -z "$src" ] && continue
+            num=$(issue_for "$src")
+            body="**$src 수집이 자동으로 안 고쳐졌어요 (${days}일째 멈춤).** 원인: $(say "$reason").
+          Lee가 할 일: $(todo "$reason")"
+            if [ -n "$num" ]; then gh issue comment "$num" --repo "$REPO" --body "$body"; else gh issue create --repo "$REPO" --title "수집 멈춤: $src" --body "$body"; fi
+            q "update public.crawl_source_state set escalated_at = now() where source = '$src'"
+          } </dev/null; done
+
+          # ④ 자동 재개 알림
+          q "select source from public.crawl_source_state where not paused and resumed_at is not null and notified_at is null" | while IFS=$'\t' read -r src; do {
+            [ -z "$src" ] && continue
+            num=$(issue_for "$src")
+            [ -n "$num" ] && { gh issue comment "$num" --repo "$REPO" --body "**$src 수집 재개됨.** 멈춤 원인 공고가 모두 다시 처리돼 공개 조건을 통과했어요."; gh issue close "$num" --repo "$REPO"; }
+            q "update public.crawl_source_state set notified_at = now() where source = '$src'"
+          } </dev/null; done
+
+          # ⑤ [자동수리] PR 검사 → 통과하면 병합(Claude 수리 작업이 만든 PR은 자동 검사가 안 돌아서 여기서 직접 돌린다)
+          gh pr list --repo "$REPO" --state open --search '"[자동수리]" in:title' --json number,headRefName,title --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"' | while IFS=$'\t' read -r pr ref title; do {
+            [ -z "$pr" ] && continue
+            src=$(echo "$title" | awk '{print $2}')
+            git fetch -q origin "$ref" && git checkout -q -B "check-$pr" "origin/$ref"
+            if npm ci --no-audit --no-fund >/dev/null 2>&1 && npx tsc --noEmit && npm test >/dev/null 2>&1 && npm run build >/dev/null 2>&1; then
+              gh pr merge "$pr" --repo "$REPO" --squash --delete-branch
+              q "update public.crawl_source_state set fix_merged_at = now() where source = '$src' and paused"
+              gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
+              gh workflow run job-ocr-check.yml --repo "$REPO" --ref master
+              num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 검사 통과 → 사이트 반영 중. 약 15분 뒤 멈춘 공고를 다시 처리합니다."
+            else
+              gh pr comment "$pr" --repo "$REPO" --body "자동 검사 실패(tsc·시험·빌드 중 하나) — 병합하지 않음. 다음 수리 시도에서 다시 봅니다."
+              gh pr close "$pr" --repo "$REPO"
+            fi
+            git checkout -q -
+          } </dev/null; done
+
+          # ⑥ 병합 15분 뒤 멈춤 원인 공고 위치 다시 찾기(고친 코드로). 성공하면 DB가 자동 재개.
+          q "select source, array_to_string(sample_job_ids, ' ') from public.crawl_source_state where paused and fix_merged_at < now() - interval '15 minutes' and (retried_at is null or retried_at < fix_merged_at)" | while IFS=$'\t' read -r src ids; do {
+            [ -z "$src" ] && continue
+            for id in $ids; do q "select public.map_r1_request_location($id)"; done
+            q "update public.crawl_source_state set retried_at = now() where source = '$src'"
+          } </dev/null; done
+
+          echo "- 멈춘 소스: $(q "select coalesce(string_agg(source || '(' || reason || ')', ', '), '없음') from public.crawl_source_state where paused")" >> "$GITHUB_STEP_SUMMARY"
