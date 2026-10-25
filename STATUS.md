@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 16:22 (VN)**
-- 기준 커밋: `b087317` (ci: 봇 병합 후 자동 관리자 시험도 명시 실행)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40180329115
+- 생성 시각: **2026-10-25 16:24 (VN)**
+- 기준 커밋: `ce5a052` (ci: poll GitHub asynchronous PR mergeability before bot merge)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40180476188
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -22,8 +22,8 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `b087317` · 상태 **success** · 2026-10-25 16:21 (VN)
-- master 최신 커밋과 ✅ 같음
+- 마지막 Production 배포: `2153926` · 상태 **success** · 2026-10-25 16:24 (VN)
+- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
