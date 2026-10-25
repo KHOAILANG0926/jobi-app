@@ -56,8 +56,12 @@ jobs:
               echo "PR #$num 검사 대기/실패: 병합 생략"; continue
             fi
             # PR 준비 표시와 현재 head SHA 최종 재검증
-            gh api "repos/$REPO/pulls/$num" --jq '[.head.sha,.draft,.mergeable_state] | @tsv' > state.txt
-            read -r current draft merge_state < state.txt
+            for try in 1 2 3 4 5; do
+              gh api "repos/$REPO/pulls/$num" --jq '[.head.sha,.draft,.mergeable_state] | @tsv' > state.txt
+              read -r current draft merge_state < state.txt
+              [ "$merge_state" != unknown ] && [ "$merge_state" != UNKNOWN ] && break
+              sleep 3
+            done
             [ "$current" = "$sha" ] && [ "$draft" = false ] && [ "$merge_state" = CLEAN ] || {
               echo "PR #$num 최신 상태/보호 규칙 차단: $merge_state"; continue;
             }
