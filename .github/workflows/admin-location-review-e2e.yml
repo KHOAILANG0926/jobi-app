@@ -10,6 +10,7 @@ jobs:
     env:
       ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
       ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       ADMIN_E2E_BASE_URL: https://www.viecganban.vn
     steps:
@@ -18,9 +19,9 @@ jobs:
         id: keys
         shell: bash
         run: |
-          if [ -z "$ADMIN_E2E_EMAIL" ] || [ -z "$ADMIN_E2E_PASSWORD" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "skip=yes" >> "$GITHUB_OUTPUT"
-            echo "비밀값 없음: 관리자 실제 클릭 단계 건너뜀" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$ADMIN_E2E_EMAIL" ] || [ -z "$ADMIN_E2E_PASSWORD" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::관리자 위치 E2E 필수 비밀값 없음"
+            exit 1
           else
             echo "skip=no" >> "$GITHUB_OUTPUT"
           fi
