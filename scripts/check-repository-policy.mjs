@@ -2,6 +2,7 @@
 // Semantic UI review, approval intent and live DB correctness require separate gates.
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { isApprovedMigration, MANIFEST_PATH } from './approved-migrations.mjs'
 
 const PROTECTED = [/^STATUS\.md$/, /^scripts\/status\//, /^\.github\/workflows\/status-.*\.ya?ml$/]
 // 결정 0002(Lee 2026-10-18): 검사 통과한 migration은 자동 적용. 단 데이터 삭제·되돌리기 어려운 변경은 Lee 판단 →
@@ -28,7 +29,7 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
       errors.push(path + ': STATUS 보호 규정 위반')
     if (STRICT.some(re => re.test(path)))
       errors.push(path + ': 운영·보안·DB 변경은 별도 승인과 STRICT 검증 필요')
-    if (/^supabase\/migrations\//.test(path) && DESTRUCTIVE_SQL.test(patches[path] ?? ''))
+    if (/^supabase\/migrations\//.test(path) && DESTRUCTIVE_SQL.test(patches[path] ?? '') && !options.approvedMigrations?.has(path))
       errors.push(path + ': 데이터 삭제·되돌리기 어려운 DB 변경은 Lee 판단 필요(결정 0002 예외)')
     if (SECRETS.some(re => re.test(path)))
       errors.push(path + ': 로컬 환경파일·비밀키 저장 금지')
@@ -87,7 +88,20 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   if (!base) process.exit(0)
   const diff = execFileSync('git', ['diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--'], { encoding:'utf8', maxBuffer: 10 * 1024 * 1024 })
   const { files, patches } = parseGitDiff(diff)
-  const errors = evaluateFiles(files, event.pull_request?.body || '', patches)
+  // Approvals must already exist on the PR base: a candidate cannot approve itself.
+  let manifest = { approvals: [] }
+  try { manifest = JSON.parse(execFileSync('git', ['show', `${base}:${MANIFEST_PATH}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })) } catch { /* missing approval fails closed */ }
+  const approvedMigrations = new Set()
+  for (const path of files) {
+    if (!manifest.approvals?.some(item => item.path === path)) continue
+    // Only newly added migrations may use this narrowly scoped approval.
+    try { execFileSync('git', ['cat-file', '-e', `${base}:${path}`], { stdio: 'ignore' }); continue } catch { /* absent on base */ }
+    try {
+      const source = execFileSync('git', ['show', `HEAD:${path}`], { maxBuffer: 10 * 1024 * 1024 })
+      if (isApprovedMigration(path, source, manifest)) approvedMigrations.add(path)
+    } catch { /* deleted or unreadable source fails closed */ }
+  }
+  const errors = evaluateFiles(files, event.pull_request?.body || '', patches, { approvedMigrations })
   errors.forEach(error => console.error('::error::' + error))
   if (errors.length) process.exit(1)
   console.log('Repository policy gate: ' + files.length + ' modified files checked')
