@@ -1,0 +1,44 @@
+name: PC 헤더 운영 화면 캡처
+
+on:
+  workflow_run:
+    workflows: ['Vercel 배포 (GitHub Actions에서 직접)']
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-header-production-proof
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+      - name: 운영 직접 확인·캡처 (비로그인·모바일, 계정 주입 없음)
+        run: BASE_URL=https://www.viecganban.vn SCREENSHOT_DIR=header-screens/live node scripts/ops/desktop-header-production-check.mjs
+      - name: 로그인 상태 격리 브라우저 확인·캡처 (실제 계정 인증 아님)
+        run: BASE_URL=https://www.viecganban.vn SCREENSHOT_DIR=header-screens/fixtures node scripts/ops/desktop-header-check.mjs
+      - name: 운영 화면 캡처 보존
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-header-production-${{ github.event.workflow_run.head_sha || github.sha }}
+          path: header-screens/
+          retention-days: 14

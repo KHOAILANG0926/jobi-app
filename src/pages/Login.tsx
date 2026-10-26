@@ -5,6 +5,7 @@ import { ZaloIcon } from '../components/ZaloIcon'
 import { PasswordField } from '../components/PasswordField'
 import { checkIsEmployer } from '../lib/accountRoles'
 import { supabase } from '../lib/supabase'
+import { useMobileLayout } from '../lib/useMobileLayout'
 
 /**
  * 2026-09-20 사용자 지시("Đăng nhập이랑 Đăng ký가 똑같아 보인다") — 로그인
@@ -18,6 +19,7 @@ import { supabase } from '../lib/supabase'
  *   이언트가 스스로 바꿀 수 있어 신뢰하지 않음)으로 이동 위치를 정한다.
  */
 export function Login() {
+  const isMobile = useMobileLayout()
   const navigate = useNavigate()
   const location = useLocation()
   const { login, loginWithZalo } = useAuth()
@@ -67,6 +69,15 @@ export function Login() {
         <p className="page-header__lead">Chào mừng bạn trở lại</p>
       </header>
       <form className="form-card" onSubmit={onSubmit} noValidate>
+        {!isMobile && import.meta.env.VITE_ZALO_APP_ID && (
+          <>
+            <button type="button" className="btn-zalo-login" onClick={() => loginWithZalo(explicitRedirect ?? undefined)}>
+              <ZaloIcon size={22} />
+              Tiếp tục với Zalo
+            </button>
+            <div className="auth-divider"><span>hoặc</span></div>
+          </>
+        )}
         {error && <p className="form-error" role="alert">{error}</p>}
 
         <label className="field">
@@ -96,7 +107,7 @@ export function Login() {
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
 
-        {import.meta.env.VITE_ZALO_APP_ID && (
+        {isMobile && import.meta.env.VITE_ZALO_APP_ID && (
           <>
             <div className="auth-divider"><span>hoặc</span></div>
             <button type="button" className="btn-zalo-login" onClick={() => loginWithZalo(explicitRedirect ?? undefined)}>

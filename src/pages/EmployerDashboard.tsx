@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { fetchEmployerJobs } from '../lib/jobRows'
@@ -39,7 +39,17 @@ function formatDate(iso: string) {
 export function EmployerDashboard() {
   const { user } = useAuth()
   const { deleteJob, updateJob } = useJobs()
-  const [tab, setTab] = useState<Tab>('jobs')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const tab: Tab = requestedTab === 'applicants' || requestedTab === 'messages' ? requestedTab : 'jobs'
+  const setTab = (nextTab: Tab) => {
+    if (nextTab === tab) return
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('tab', nextTab)
+      return next
+    })
+  }
   const [applications, setApplications] = useState<JobApplication[]>([])
   const [filterJobId, setFilterJobId] = useState<string>('all')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
