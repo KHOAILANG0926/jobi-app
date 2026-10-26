@@ -11,7 +11,7 @@ import {
   searchAddress,
   type AddressSuggestion,
 } from '../lib/geoapify'
-import { calcDistanceKm, resolveDistanceSearchPoint, VIETNAM_CENTER } from '../lib/jobCoords'
+import { calcDistanceKm, resolveDistanceSearchPoint, resolveDistanceSearchPoints, VIETNAM_CENTER } from '../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../lib/storage'
 import type { Job } from '../types/job'
 
@@ -108,7 +108,7 @@ export default function MapView() {
     if (!userCoords) return {}
     const r: Record<string, { km: number; precise: boolean }> = {}
     for (const job of jobs) {
-      const point = resolveDistanceSearchPoint(job)
+      const point = resolveDistanceSearchPoints(job).sort((a,b) => calcDistanceKm(userCoords.lat,userCoords.lng,a.lat,a.lng) - calcDistanceKm(userCoords.lat,userCoords.lng,b.lat,b.lng))[0]
       if (!point) continue
       r[job.id] = { km: calcDistanceKm(userCoords.lat, userCoords.lng, point.lat, point.lng), precise: point.precise }
     }
@@ -289,15 +289,13 @@ export default function MapView() {
               extraMarkers={!userCoords ? [] : [
                 { lat: userCoords.lat, lng: userCoords.lng, label: nearAddressLabel || 'Vị trí của bạn', precise: false },
                 ...filtered.flatMap((j) => {
-                  const point = resolveDistanceSearchPoint(j)
-                  if (!point) return []
-                  return [{
+                  return resolveDistanceSearchPoints(j).map(point => ({
                     lat: point.lat,
                     lng: point.lng,
                     label: `${j.title} · ${j.company}`,
                     precise: point.precise,
                     href: `/viec-lam/${j.id}`,
-                  }]
+                  }))
                 }),
               ]}
             />

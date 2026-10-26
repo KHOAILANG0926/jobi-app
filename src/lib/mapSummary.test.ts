@@ -4,7 +4,7 @@ import { DEFAULT_FILTERS } from './homeMapFilters.ts'
 import type { Job } from '../types/job'
 assert.equal(typeof model.summarizeMapEntries, 'function', 'map results need a unique-job industry summary')
 const job = (id: string, category = 'san_xuat_xay_dung', urgent = false) => ({id, category, urgent, title:id, company:'', salary:'Thỏa thuận', location:''} as Job)
-const jobs = [job('a', 'am_thuc_do_uong', true), job('b'), job('no-point')]
+const jobs = [{...job('a', 'am_thuc_do_uong', true),workLocations:[{id:1,sortOrder:0,rawAddress:'Area A',lat:21.1,lng:106.07,pointKind:'area' as const}]}, {...job('b'),workLocations:[{id:2,sortOrder:0,rawAddress:'Area B',lat:21.2,lng:106.1,pointKind:'area' as const}]}, job('no-point')]
 const reps = {a:{lat:21.1,lng:106.07,kind:'area' as const,source:'verified area',checkedAt:'2026-10-22'},b:{lat:21.2,lng:106.1,kind:'area' as const,source:'verified area',checkedAt:'2026-10-22'}}
 const bounds={west:106,east:106.2,south:21,north:21.3}
 const search=(b=bounds,r:number|null=null)=>model.mapSearch(jobs,DEFAULT_FILTERS,r===null?null:{lat:21.1,lng:106.07},r,b,reps)

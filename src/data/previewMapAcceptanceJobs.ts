@@ -38,7 +38,8 @@ function acceptanceJob(input: {
       addressAccuracy: 'exact_text',
       coordinateAccuracy: 'exact',
       geocodeStatus: 'manual',
-      approvedPoint: { lat: input.lat, lng: input.lng, placePrecision: 'site' },
+      lat: input.lat, lng: input.lng, pointKind: 'exact', pointPrecision: 'site', locationVerified: true, pointRevision: 1,
+      pointEvidence: {source: 'Preview acceptance fixture', checkedAt: '2026-10-26'},
     }],
   }
 }

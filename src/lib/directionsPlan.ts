@@ -1,5 +1,4 @@
 import { isVerifiedWorkLocation, workLocationExternalLinks } from './jobCoords'
-import { findIndustrialPark, industrialParkDirectionsUrl, industrialParkDirectionsNote } from './industrialPark'
 import { contactOf, isGenericCompanyName } from './jobDetailView'
 import type { Job } from '../types/job'
 
@@ -75,12 +74,12 @@ export function planJobDirections(job: Job): DirectionsPlan {
     return links?.viewKind === 'exact' && links.directions
       ? [{ label: (job.workLocations?.length ?? 0) > 1 ? `Chỉ đường — ${loc.rawAddress}` : DIRECTIONS_LABEL.approved, href: links.directions }] : []
   })
-  const park = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
+  const gate = job.workLocations?.find(loc => loc.pointKind === 'gate' && workLocationExternalLinks(loc))
   const addressQuery = (job.workLocations ?? []).length === 1
     ? preciseStreetAddressQuery(job.workLocations![0].rawAddress, job.workLocations![0].industrialPark) : null
   const searchQuery = addressQuery ? null : companyAreaQuery(job)
-  return planDirections({ approvedLinks, gateHref: park ? industrialParkDirectionsUrl(park) : null,
-    gateNote: park?.destination ? industrialParkDirectionsNote(park.destination) : undefined,
+  return planDirections({ approvedLinks, gateHref: gate ? `https://www.google.com/maps/dir/?api=1&destination=${gate.lat},${gate.lng}` : null,
+    gateNote: gate ? 'Cổng KCN — chưa xác minh vị trí nhà xưởng.' : undefined,
     addressQuery: addressQuery ?? searchQuery?.query, addressNote: addressQuery ? undefined : searchQuery?.note, phone: contactOf(job).phone })
 }
 

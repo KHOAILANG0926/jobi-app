@@ -6,7 +6,7 @@ function assert(value: boolean, label: string) { if (!value) throw new Error(lab
 const origin = { lat: 21.1861, lng: 106.0763 }
 function fixture(id: string, meters: number, verified = true, salary = '15 triệu'): Job {
   return { id, title: id, salary, salaryPeriod: 'month', salaryBasis: 'base', category: 'san_xuat_xay_dung', workLocations: [{
-    id: 1, rawAddress: 'test', sortOrder: 0, locationVerified: verified,
+    id: 1, rawAddress: 'test', sortOrder: 0, pointKind: 'exact', locationVerified: verified,
     lat: origin.lat + meters / 111195.08023352181, lng: origin.lng,
   }] } as Job
 }

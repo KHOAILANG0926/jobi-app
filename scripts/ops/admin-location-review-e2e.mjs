@@ -5,6 +5,7 @@ import { chromium } from 'playwright'
 import { randomUUID } from 'node:crypto'
 import assert from 'node:assert/strict'
 import pg from 'pg'
+import {sourcePoints,assertPoints} from './location-point-oracle.mjs'
 
 const {ADMIN_E2E_EMAIL,ADMIN_E2E_PASSWORD,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_DB_URL}=process.env
 if(!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_DB_URL) {
@@ -55,15 +56,8 @@ try {
   assert.ok(Array.isArray(pendingReply.pending),'queue reply missing pending jobs')
   const queue=page.locator('section').filter({has:page.getByRole('heading',{name:/Vị trí cần xác nhận/})})
   await queue.getByRole('heading',{name:`Vị trí cần xác nhận (${pendingReply.pending.length})`,exact:true}).waitFor({state:'visible'})
-  for(const id of [4824,4828,4879,4878]) {
-    const row=queue.locator('article.admin-location-card').filter({hasText:'#'+id+' —'})
-    if(pendingReply.pending.some(job=>job.jobId===id)) {
-      await row.waitFor({state:'visible',timeout:30000})
-      console.log('PASS: Vị trí pending DOM visible #'+id)
-    } else {
-      assert.equal(await row.count(),0,'resolved/non-public job must stay out of pending DOM')
-      console.log('PASS: not pending in live queue or DOM #'+id)
-    }
+  for(const job of pendingReply.pending) {
+    await queue.locator('article.admin-location-card').filter({hasText:'#'+job.jobId+' —'}).waitFor({state:'visible',timeout:30000})
   }
   // The public-only queue must never include private synthetic jobs.
   for(const id of ids) assert.equal(await queue.locator('article').filter({hasText:'#'+id+' —'}).count(),0)
@@ -124,12 +118,32 @@ try {
   const testApproved=await checked(db.from('job_location_candidates')
     .select('id,job_id,lat,lng,status,reviewed_by,reviewed_at')
     .in('job_id',ids).eq('status','approved'))
-  assert.equal(testApproved.length,2,'second same-address job should receive auto reused point')
+  assert.equal(testApproved.length,1,'only the original human decision is an approved candidate')
+  assert.equal(String(testApproved[0].id),String(candidate.id),'human decision identity changed')
   for(const row of testApproved) {
     assert.equal(row.lat,expected.lat)
     assert.equal(row.lng,expected.lng)
     assert.ok(row.reviewed_by && row.reviewed_at,'missing reviewer/time')
   }
+  // Independent raw SQL source oracle: UI approval/reuse must update every source/cache point.
+  const verifyDb=new pg.Client({connectionString:SUPABASE_DB_URL,connectionTimeoutMillis:15000})
+  try {
+    await verifyDb.connect()
+    const {rows:source}=await verifyDb.query('select id,job_id,lat,lng,point_kind,point_precision,point_evidence,point_revision,point_candidate_id,point_memory_id,point_authority from public.job_work_locations where job_id=any($1::bigint[]) order by job_id,sort_order,id',[ids])
+    const {rows:cache}=await verifyDb.query('select job_id,source_points from public.map_r1_location_jobs where job_id=any($1::bigint[])',[ids])
+    for(const id of ids) {
+      const points=sourcePoints(source.filter(w=>String(w.job_id)===String(id)))
+      assert.ok(points.length,'approved/reused source missing for generated job '+id)
+      assert.ok(points.some(p=>Number(p.lat)===expected.lat && Number(p.lng)===expected.lng && p.kind==='exact' && p.precision==='building'),'approved exact source point missing')
+      const reused=source.filter(w=>String(w.job_id)===String(id) && w.point_kind==='exact')
+      assert.ok(reused.every(w=>String(w.point_candidate_id)===String(candidate.id) &&
+        String(w.point_memory_id)===String(candidate.id) && w.point_authority==='auto_reuse'),'canonical reuse lost original approval evidence')
+      for(const row of source.filter(w=>String(w.job_id)===String(id) && w.point_kind!=='unresolved')) assert.ok(row.point_evidence && Object.keys(row.point_evidence).length,'source evidence missing')
+      const entry=cache.find(c=>String(c.job_id)===String(id))
+      assert.ok(entry,'derived cache missing')
+      assertPoints(points,entry.source_points,'complete derived cache for generated job '+id)
+    }
+  } finally {await verifyDb.end()}
   console.log('PASS: approved point and auto-reuse match for two private jobs')
   await page.reload()
   await page.getByRole('button',{name:/Vị trí/}).click()
@@ -178,6 +192,17 @@ try {
   const candidateLeft=await db.from('job_location_candidates').select('id').in('job_id',ids)
   if(candidateLeft.error || candidateLeft.data?.length) {console.error('CLEANUP candidates remain or unverified');process.exitCode=1}
   else console.log('PASS: test candidates deleted')
+  }
+  if(ids.length) {
+    const cleanupDb=new pg.Client({connectionString:SUPABASE_DB_URL,connectionTimeoutMillis:15000})
+    try {
+      await cleanupDb.connect()
+      for(const table of ['job_work_locations','map_r1_location_jobs']) {
+        const remaining=await cleanupDb.query('select count(*)::int as n from public.'+table+' where job_id=any($1::bigint[])',[ids])
+        assert.equal(remaining.rows[0].n,0,'cleanup left generated rows in '+table)
+      }
+    } catch(e) {console.error('CLEANUP source/cache failed:',e.message);process.exitCode=1}
+    finally {await cleanupDb.end().catch(()=>{})}
   }
   if(!process.exitCode) console.log('LOCATION E2E PASS: actual login, visible queue, approval, reuse and cleanup')
 }

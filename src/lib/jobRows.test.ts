@@ -4,7 +4,7 @@
  * TypeScript support: `node src/lib/jobRows.test.ts`.
  */
 import { applyLocationApprovals, fetchEmployerJobs, rowToJob, type JobsQueryBuilder, type JobsQueryClient } from './jobRows.ts'
-import { verifiedWorkLocationPoint, resolveMapLocations } from './jobCoords.ts'
+import { resolveMapLocations } from './jobCoords.ts'
 
 function assertEqual<T>(actual: T, expected: T, label: string): void {
   if (actual !== expected) {
@@ -33,6 +33,7 @@ function makeFakeClient(tables: Record<string, Record<string, unknown>[]>): {
   const calls: FakeCall[] = []
   function builder(table: string, rows: Record<string, unknown>[]): JobsQueryBuilder {
     return {
+      range(from: number, to: number) { return builder(table, rows.slice(from, to + 1)) },
       select(columns: string) {
         calls.push({ table, method: 'select', args: [columns] })
         return builder(table, rows)
@@ -146,6 +147,7 @@ async function testFetchEmployerJobsThrowsOnQueryError(): Promise<void> {
   const failingClient: JobsQueryClient = {
     from(_table: string): JobsQueryBuilder {
       const builder: JobsQueryBuilder = {
+        range: () => builder,
         select: () => builder,
         eq: () => builder,
         in: () => builder,
@@ -168,14 +170,9 @@ async function testApprovedFallbackLocationUsedByMapAndDistance(): Promise<void>
   const job = rowToJob({id:901,title:'Private test',company:'Example',location:'123 Fake St',description:''})
   const approvals=[{job_id:901,company_snapshot:'Example',address_snapshot:'123 Fake St',lat:21.1861,lng:106.0763,place_precision:'building'}]
   const updated = applyLocationApprovals([job],approvals)[0]
-  const location=updated.workLocations?.[0]
-  assertTrue(location,'approved location should attach even without job_work_locations row')
-  const precise=verifiedWorkLocationPoint(location!)
-  assertEqual(precise?.lat,21.1861,'distance search uses approved latitude')
-  assertEqual(precise?.lng,106.0763,'distance search uses approved longitude')
-  const map=resolveMapLocations({workLocations:updated.workLocations})
-  assertTrue(JSON.stringify(map).includes('21.1861')&&JSON.stringify(map).includes('106.0763'),
-    'detail map uses the exact same approved coordinates')
+  assertEqual(updated, job, 'candidate evidence cannot synthesize source locations')
+  assertEqual(resolveMapLocations(updated).points.length, 0, 'no source points means no map pins')
+
 }
 
 async function main(): Promise<void> {

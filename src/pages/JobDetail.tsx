@@ -18,7 +18,8 @@ import { ApplyUnavailableNotice } from '../components/ApplyUnavailableNotice'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, JOB_CONTACT_HASH, resolveApplyAction, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
 import { fetchEmployerJobCount } from '../lib/jobRows'
-import { externalMapLinks, findRegionCenter, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
+import { LOCATION_LABELS, mapPointAccuracyNote } from '../lib/mapR1'
+import { externalMapLinks, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl, jobImagePublicUrl } from '../lib/companyLogo'
@@ -30,10 +31,6 @@ import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type Detai
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
-import { WARD_MAP_ZOOM, wardUnitForAddresses } from '../lib/wardArea'
-import { useWardCenter } from '../lib/wardAreaClient'
-import { findIndustrialPark } from '../lib/industrialPark'
-import { useRepresentativePoint } from '../lib/representativePoint'
 import type { JobSection } from '../data/jobSchema'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
@@ -168,18 +165,6 @@ export function JobDetail() {
     window.addEventListener('resize', update)
     return () => { ro?.disconnect(); window.removeEventListener('resize', update) }
   }, [])
-
-  // 2026-10-08: 핀·KCN 영역이 없고 행정구역(xã/phường)만 아는 공고 — 그 동네 중심(서버가 한 번 찾아 캐시한 좌표)을 조회한다.
-  // 핀·KCN이 있으면 조회하지 않는다. 훅은 early return 앞에 둬야 하므로 여기서 같은 규칙으로 미리 판단한다.
-  const wardUnit = useMemo(() => {
-    if (!job) return null
-    if (resolveMapLocations(job).points.some((p) => p.precise)) return null
-    if (findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))) return null
-    return wardUnitForAddresses(job.workLocations?.length ? job.workLocations.map((l) => l.rawAddress) : [job.rawLocation])
-  }, [job])
-  const wardCenter = useWardCenter(wardUnit)
-  // 메인 지도와 같은 대략 위치(공단 입구·공단·동 중심). 상세 지도 핀은 이 점과 같아야 한다(2026-10-20 Lee).
-  const repPoint = useRepresentativePoint(job?.id)
 
   const jobId = job?.id
   useEffect(() => {
@@ -413,8 +398,6 @@ export function JobDetail() {
   const mapLocations = resolveMapLocations(job)
   // Browse-only VietMap viewport: reuse verified region / ward context, never a workplace pin.
   // Do not infer a specific industrial park from similarly named areas.
-  const mappedRegion = [locationText, job.rawLocation, ...(job.workLocations ?? []).map((loc) => loc.rawAddress),
-    ...(job.recruitmentRegions ?? [])].map((value) => findRegionCenter(value ?? '')).find((value) => value !== null)
   // Display-only Google Maps search: send text, never import Google's coordinates
   // into VietMap. Applies automatically to employer + KCN job listings.
   const companyParkText = [job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress])].filter(Boolean).join(' ')
@@ -425,25 +408,13 @@ export function JobDetail() {
   const googleCompanyParkLink = googleCompanyParkText
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
     : null
-  const genericPark = findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((loc) => [loc.industrialPark, loc.rawAddress]))
-  // 메인 지도와 같은 대략 위치가 있으면 그 점을 가운데에 두고 핀을 찍는다(2026-10-21 Lee: 메인·상세 핀 불일치).
-  const unverifiedMapViewport = repPoint ? { lat: repPoint.lat, lng: repPoint.lng, zoom: 14 } : genericPark
-    ? { lat: genericPark.destination?.kind === 'gate' ? genericPark.destination.lat : genericPark.lat,
-        lng: genericPark.destination?.kind === 'gate' ? genericPark.destination.lng : genericPark.lng, zoom: 14 }
-    : wardCenter
-      ? { ...wardCenter, zoom: WARD_MAP_ZOOM }
-      : mappedRegion
-        ? { ...mappedRegion, zoom: 11 }
-        : mapLocations.points.length > 0
-          ? { lat: mapLocations.points[0].lat, lng: mapLocations.points[0].lng, zoom: mapLocations.source === 'default' ? 5 : 10 }
-          : { lat: 14.0583, lng: 108.2772, zoom: 5 }
-
+  const unverifiedMapViewport = { lat: 14.0583, lng: 108.2772, zoom: 5 }
   // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
   // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
   // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
   // 2026-09-30 사용자 지시: 지역·공단 중심 좌표로 대신 표시하지 않는다. 확인된 근무지(precise)만 지도에
   // 그리고, 없으면 '위치 미확인'으로 표시한다(길찾기·거리 계산에서도 이미 제외됨).
-  const verifiedMapPoints = mapLocations.points.filter((p) => p.precise)
+  const verifiedMapPoints = mapLocations.points.filter((p) => p.kind === 'exact' && p.precise)
   const displayMapPoints = mapLocations.source === 'default' ? [] : mapLocations.points
   const hasMapPoints = displayMapPoints.length > 0
   const mapCenter = displayMapPoints[0]
@@ -453,15 +424,8 @@ export function JobDetail() {
   // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
   const directionsPlan = planJobDirections(job)
   // 지도 누르면 열 Google 길찾기(아래 Google 버튼과 같은 주소). 없으면 지도 누르기는 아무 일도 안 함.
-  const addressForDirections = (job.workLocations ?? []).find(l => /\b\d+\s+[^,]+,/.test(l.rawAddress))?.rawAddress
-  const streetDirectionsHref = addressForDirections
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressForDirections)}` : undefined
-  const googleMapHref = streetDirectionsHref ?? googleCompanyParkLink
-    ?? (directionsPlan.tier === 'address' || directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : undefined)
+  const googleMapHref = directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : directionsPlan.tier === 'gate' ? directionsPlan.link.href : directionsPlan.tier === 'address' ? directionsPlan.links[0]?.href : undefined
   const mapDirections = directionsPlan.tier === 'approved' ? directionsPlan.links : []
-  const park = !hasMapPoints
-    ? findIndustrialPark(job.rawLocation, ...(job.workLocations ?? []).flatMap((l) => [l.industrialPark, l.rawAddress]))
-    : undefined
   // 공단 수준 길찾기 — 출처 있는 정문·관리사무소 좌표(destination)로만. 없으면(영역 중심은 쓰지 않음) 버튼 숨김
   // 길찾기 3단계(2026-10-08): ① 승인 좌표 Chỉ đường → ② KCN 정문 좌표 Đến cổng KCN → ③ 둘 다 없으면 Gọi hỏi đường(전화).
   const parkDirection = directionsPlan.tier === 'gate'
@@ -722,7 +686,7 @@ export function JobDetail() {
           <div className="jd2-box">
             <div className="jd2-card__body jd2-bike-host">
               <BikeRide />
-              {mapLocations.source === 'pending' && !hasMapPoints && !park && !(wardUnit && wardCenter) ? (
+              {mapLocations.source === 'pending' && !hasMapPoints ? (
                 <div className="jd2-location-pending-compact">
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
@@ -730,11 +694,11 @@ export function JobDetail() {
                   <ClientOnlyMap tapHref={googleMapHref}
                     lat={unverifiedMapViewport.lat}
                     lng={unverifiedMapViewport.lng}
-                    title={genericPark ? (genericPark.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng`) : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}
+                    title="Vị trí chưa xác minh"
                     zoom={unverifiedMapViewport.zoom}
-                    markers={repPoint ? [{ lat: repPoint.lat, lng: repPoint.lng, label: job.company || job.title }] : undefined}
+                    pinless
                   />
-                  <p className="jd2-map-dir-note">{genericPark?.destination?.kind === 'gate' ? 'Cổng KCN' : genericPark ? `Khu vực ${genericPark.name} — chưa xác minh vị trí nhà xưởng` : 'Vị trí ước tính — chưa xác minh vị trí nhà xưởng'}</p>
+                  <p className="jd2-map-dir-note">Vị trí chưa xác minh</p>
                   <div className="jd2-map-links">
                     {googleCompanyParkLink ? (
                       <GoogleDirectionsLink href={googleCompanyParkLink} />
@@ -766,7 +730,7 @@ export function JobDetail() {
                         const gmaps = workLocationExternalLinks(loc)
                         const tier = loc.coordinateAccuracy ?? 'unresolved'
                         const isPreciseLoc = isVerifiedWorkLocation(loc)
-                        const approved = loc.approvedPoint
+                        const approved = isPreciseLoc && loc.pointKind === 'exact' ? { placePrecision: loc.pointPrecision } : undefined
                         const verifiedWard = isPreciseLoc && !approved && tier === 'ward'
                         const isRegionOnlyText = loc.addressAccuracy === 'region_only'
                         return (
@@ -816,8 +780,9 @@ export function JobDetail() {
                                 Khu vực làm việc đã xác nhận — có thể chưa phải vị trí chính xác của tòa nhà.
                               </p>
                             ) : !isPreciseLoc ? (
-                              // 미확인 — 좌표가 있어도(공단 중심·동 단위 추정 등) 근무지 위치로 주장하지 않는다.
-                              null
+                              <p className="jd2-map-area-note">
+                                {loc.pointKind === 'gate' ? LOCATION_LABELS.gate : LOCATION_LABELS.area} — chưa xác minh địa điểm làm việc chính xác.
+                              </p>
                             ) : null}
                             <MapLinks links={gmaps} />
                             {isPreciseLoc && !verifiedWard && !approved && (
@@ -837,7 +802,7 @@ export function JobDetail() {
                       </p>
                       <ul className="jd2-map-addr-list">
                         {job.recruitmentRegions?.map((region) => {
-                          const gmaps = externalMapLinks(findRegionCenter(region), false, 11)
+                          const gmaps = null
                           return (
                             <li key={region} className="jd2-map-addr-item">
                               <p className="jd2-map-addr jd2-map-addr--duplicate-outside">
@@ -874,51 +839,22 @@ export function JobDetail() {
                         lng={mapCenter.lng}
                         title={job.title}
                         zoom={mapLocations.zoom}
-                        markers={displayMapPoints.map((p) => ({ lat: p.lat, lng: p.lng, label: p.label }))}
+                        markers={displayMapPoints.map((p) => ({ ...p, jobId: job.id, label: `${p.label || job.title} · ${LOCATION_LABELS[p.kind === 'exact' && !p.precise ? 'area' : p.kind ?? 'area']}` }))}
                         directions={mapDirections}
                       />
                       <p className={verifiedMapPoints.length ? "jd2-map-note" : "jd2-map-area-note"}>
-                        {verifiedMapPoints.length > 1
-                          ? `Công việc này có ${verifiedMapPoints.length} địa điểm làm việc đã xác minh.`
-                          : verifiedMapPoints.length === 1 ? 'Vị trí nơi làm việc đã được xác minh trên bản đồ.' : 'Vị trí tham khảo — chưa xác minh địa điểm làm việc chính xác.'}
+                        {mapPointAccuracyNote(displayMapPoints)}
                       </p>
                     </>
                   )}
-                  {park && (
-                    <>
-                      <ClientOnlyMap tapHref={googleMapHref} lat={repPoint?.lat ?? (park.destination?.kind === 'gate' ? park.destination.lat : park.lat)} lng={repPoint?.lng ?? (park.destination?.kind === 'gate' ? park.destination.lng : park.lng)} title={park.destination?.kind === 'gate' ? 'Cổng KCN' : `Khu vực ${park.name} — chưa xác minh vị trí nhà xưởng`} zoom={14} parkRef={park.source.ref} parkName={park.name} markers={repPoint ? [{ lat: repPoint.lat, lng: repPoint.lng, label: park.name }] : undefined} directions={parkDirection ? [parkDirection] : undefined} />
-                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện: Khu vực {park.name} — chưa xác minh vị trí nhà xưởng.</p>
-                    </>
-                  )}
-                  {!hasMapPoints && !park && wardUnit && wardCenter && (
-                    <>
-                      <ClientOnlyMap tapHref={googleMapHref} lat={repPoint?.lat ?? wardCenter.lat} lng={repPoint?.lng ?? wardCenter.lng} title={`Khu vực ${wardUnit.label}`} zoom={WARD_MAP_ZOOM}
-                        {...(repPoint ? { markers: [{ lat: repPoint.lat, lng: repPoint.lng, label: `Khu vực ${wardUnit.label}` }] } : { pinless: true })} />
-                      <p className="jd2-map-pending-note jd2-map-area-note">
-                        {/* 2026-10-19 Lee: 구구절절 쓰지 않는다 — 대략 어디인지 + 정확도 한마디만. 정확한 길은 아래 Google 버튼. */}
-                        <strong>Khu vực {wardUnit.label}</strong> (vị trí gần đúng)
-                      </p>
-                    </>
-                  )}
-                  {/* 공단 표·동 정보는 없지만 위치 찾기 결과(예: 공단 이름 검색)가 있는 공고 — 메인 지도와 같은 점 */}
-                  {!hasMapPoints && !park && !(wardUnit && wardCenter) && repPoint && (
-                    <>
-                      <ClientOnlyMap tapHref={googleMapHref} lat={repPoint.lat} lng={repPoint.lng} title={job.title} zoom={14} markers={[{ lat: repPoint.lat, lng: repPoint.lng, label: job.company || job.title }]} />
-                      <p className="jd2-map-pending-note jd2-map-area-note">Vị trí đại diện (vị trí gần đúng)</p>
-                    </>
-                  )}
-                  {!hasMapPoints && !park && !(wardUnit && wardCenter) && !repPoint && mapLocations.source !== 'pending' && (
-                    <p className="jd2-map-pending-note">
-                      Vị trí nơi làm việc chưa được xác minh — chưa hiển thị bản đồ, chỉ đường và khoảng cách.
-                    </p>
-                  )}
+                  {!hasMapPoints && mapLocations.source !== 'pending' && <p className="jd2-map-pending-note">Vị trí nơi làm việc chưa được xác minh.</p>}
                   {/* mapLocations.source === 'pending'일 때는 hasMapPoints가 항상
                       false(points: [])라 위 지도 블록이 아예 렌더되지 않는다 —
                       좌표가 전혀 없다는 이유로 이 카드 전체가 비어 보이지 않도록,
                       "아직 확인 중"임을 알리는 별도 안내를 지도 대신 보여준다
                       (2026-09-07 사용자 지시: 베트남 기본 중심 표시도, 완전히
                       숨기는 것도 금지 — 명확한 pending 문구로 구분). */}
-                  {park && googleCompanyParkLink && (
+                  {!hasMapPoints && googleCompanyParkLink && (
                     <div className="jd2-map-links">
                       <GoogleDirectionsLink href={googleCompanyParkLink} />
                     </div>
@@ -929,15 +865,15 @@ export function JobDetail() {
                       <p className="jd2-map-dir-note">{parkDirection.note}</p>
                     </div>
                   )}
-                  {(streetDirectionsHref || (!googleCompanyParkLink && directionsPlan.tier === 'address')) && (
+                  {directionsPlan.tier === 'address' && (
                     <div className="jd2-map-links">
-                      {(streetDirectionsHref ? [{ href: streetDirectionsHref }] : directionsPlan.tier === 'address' ? directionsPlan.links : []).map((link) => (
+                      {(directionsPlan.tier === 'address' ? directionsPlan.links : []).map((link) => (
                         <span key={link.href}>
                           <GoogleDirectionsLink key={link.href} href={link.href} />
                         </span>
                       ))}
                       {directionsPlan.tier === 'address' && directionsPlan.call && !hasContact && <a className="jd2-map-dir" href={directionsPlan.call.href}>{DIRECTIONS_LABEL.call}</a>}
-                      {!(!hasMapPoints && !park && wardUnit && wardCenter) && <p className="jd2-map-dir-note">{directionsPlan.tier === 'address' ? directionsPlan.note : 'Địa chỉ từ tin tuyển dụng; chưa xác minh điểm làm việc chính xác.'}</p>}
+                      {!hasMapPoints && <p className="jd2-map-dir-note">{directionsPlan.tier === 'address' ? directionsPlan.note : 'Địa chỉ từ tin tuyển dụng; chưa xác minh điểm làm việc chính xác.'}</p>}
                     </div>
                   )}
                   {directionsPlan.tier === 'call' && (

@@ -92,6 +92,11 @@ export interface JobWorkLocation {
   /** 사람이 승인한 근무지 좌표(job_location_candidates.status='approved', 2026-09-29).
    *  location_verified(원본 사이트 좌표 검증)와 별개인 두 번째 확인 경로 — 승인 당시 회사명·
    *  근무지 텍스트가 현재 공고와 같을 때만 붙는다(다르면 재검토 필요로 보고 붙이지 않음). */
+  pointKind?: 'exact' | 'gate' | 'area' | 'unresolved'
+  pointPrecision?: string
+  pointEvidence?: { source?: string; checkedAt?: string; [key: string]: unknown }
+  pointRevision?: number
+  /** Legacy serialized data only; never a live coordinate authority. */
   approvedPoint?: { lat: number; lng: number; placePrecision: 'entrance' | 'building' | 'site' }
 }
 

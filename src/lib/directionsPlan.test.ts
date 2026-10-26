@@ -41,7 +41,7 @@ assert(planDirections({ approvedLinks: [], gateHref: 'https://www.google.com/map
 
 const job = { title: 'Synthetic job', rawLocation: '', employerPhone: '0344849982', workLocations: [{ rawAddress: 'Synthetic', locationVerified: true, verificationStatus: 'verified', geocodeStatus: 'precise', addressAccuracy: 'exact_text', lat: 10.7, lng: 106.7 }] } as unknown as Job
 assert(planJobDirections(job).tier !== 'approved', 'verified coordinate without approval cannot be used')
-const approvedJob = { ...job, workLocations: [{ ...job.workLocations![0], approvedPoint: { lat: 10.71, lng: 106.71, placePrecision: 'site' as const } }] }
+const approvedJob = { ...job, workLocations: [{ ...job.workLocations![0], pointKind: 'exact' as const, pointPrecision: 'site', lat: 10.71, lng: 106.71 }] }
 const approvedPlan = planJobDirections(approvedJob)
 assert(approvedPlan.tier === 'approved' && approvedPlan.links[0].href.endsWith('destination=10.71,106.71') && approvedPlan.links[0].viewHref?.endsWith('query=10.71,106.71') === true, 'home/detail destination is the approved point, never the marker center')
 assert(planJobDirections({ ...job, workLocations: [] }).tier !== 'approved', 'no work location cannot expose Google links')

@@ -11,6 +11,7 @@ class FakeElement {
   style: Record<string, string> = {}
   children: FakeElement[] = []
   parent: FakeElement | null = null
+  dataset: Record<string, string> = {}
   attributes = new Map<string, string>()
   listeners = new Map<string, Array<(event: { key?: string; preventDefault: () => void }) => void>>()
 
@@ -80,6 +81,10 @@ const createdAfterFirstRender = createdElements
 layer.setMarkers([markers[1]], null, (id) => selected.push(id))
 assert(pane.children.length === 1 && pane.children[0] === jobB, 'stale ids are removed and unchanged ids keep DOM identity')
 assert(createdElements === createdAfterFirstRender, 'unchanged ids are not recreated')
+
+layer.setMarkers([{...markers[0],workLocationId:1},{...markers[0],lat:21.2,workLocationId:2}],null,()=>{})
+assert(pane.children.length === 2, 'one job with two canonical workplaces retains two actual markers')
+assert(pane.children.every(element => JSON.parse(element.dataset.locationPoints).length === 1), 'each marker exposes its actual source point')
 
 layer.destroy()
 assert(pane.children.length === 0, 'destroy removes all marker DOM')

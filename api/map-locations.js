@@ -5,7 +5,7 @@ function runtime() {
     const response = await fetch(`https://www.viecganban.vn/api/map-locations?ids=${ids.join(',')}`, {signal: AbortSignal.timeout(10000)})
     if (!response.ok) throw new Error('unavailable')
     const data = await response.json()
-    return ids.map(id => ({job_id:id, result:data.points?.[`sb-${id}`]}))
+    return ids.map(id => ({job_id:id, source_points:data.points?.[`sb-${id}`]}))
   }}
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!key) throw new Error('not_configured')
@@ -24,9 +24,13 @@ export function createMapLocationsHandler(injected) {
       const rows=await (injected||runtime()).read(ids)
       const points={}
       for(const row of rows??[]) {
-        const r=row.result
-        if(!ids.includes(Number(row.job_id))||!r||!['gate','area'].includes(r.kind)||typeof r.lat!=='number'||typeof r.lng!=='number'||!(r.lat>=8&&r.lat<=24&&r.lng>=102&&r.lng<=110)||!r.source||!r.checkedAt)continue
-        points[`sb-${row.job_id}`]={kind:r.kind,lat:r.lat,lng:r.lng,source:r.source,checkedAt:r.checkedAt}
+        if (!ids.includes(Number(row.job_id))) continue
+        const sourcePoints = Array.isArray(row.source_points) ? row.source_points : []
+        points[`sb-${row.job_id}`] = sourcePoints.filter(r => r && ['exact','gate','area'].includes(r.kind) &&
+          typeof r.lat === 'number' && typeof r.lng === 'number' && r.lat >= 8 && r.lat <= 24 && r.lng >= 102 && r.lng <= 110 &&
+          Number.isSafeInteger(r.workLocationId) && Number.isSafeInteger(r.revision) && typeof r.precision === 'string')
+          .map(r => ({workLocationId:r.workLocationId,kind:r.kind,lat:r.lat,lng:r.lng,precision:r.precision,
+            revision:r.revision,source:r.source,checkedAt:r.checkedAt}))
       }
       return res.status(200).json({points})
     }catch{return res.status(503).json({error:'location_data_unavailable'})}

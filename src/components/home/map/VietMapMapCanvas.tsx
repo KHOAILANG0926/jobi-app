@@ -77,6 +77,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     const element = document.createElement('div')
     if (item.kind === 'cluster') {
       element.className = 'hme-map__cluster'
+      element.dataset.locationPoints = JSON.stringify(item.markers.map(m => ({ ...m, jobId: m.id })))
       element.textContent = String(item.count)
       element.title = `${item.count} việc làm trong khu vực này — nhấn để phóng to`
       element.setAttribute('role', 'button')
@@ -91,6 +92,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     const job = group[0]
     const selected = group.some((m) => m.id === propsRef.current.selectedId)
     element.className = 'hme-map__job-marker'
+    element.dataset.locationPoints = JSON.stringify(group.map(m => ({ ...m, jobId: m.id })))
     element.dataset.jobCount = String(group.length)
     element.style.width = selected ? '30px' : '24px'
     element.style.height = selected ? '30px' : '24px'
@@ -149,7 +151,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     for (const item of plan) {
       const ids = item.markers.map((m) => m.id).join(',')
       const selected = item.kind === 'group' && item.markers.some((m) => m.id === selectedId)
-      const signature = `${item.kind}|${ids}|${selected ? 1 : 0}|${item.markers.map((m) => `${m.kind}:${m.label}`).join('\u0001')}`
+      const signature = `${item.kind}|${ids}|${selected ? 1 : 0}|${item.markers.map((m) => JSON.stringify(m)).join('\u0001')}`
       const existing = markerElementsRef.current.get(item.key)
       if (existing && existing.signature === signature) { next.set(item.key, existing); continue }
       existing?.marker.remove()

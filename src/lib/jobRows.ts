@@ -53,6 +53,10 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
     addressAccuracy: correctedAddressAccuracy((r.address_accuracy as AddressAccuracy | null | undefined) ?? undefined, (r.raw_address as string) ?? ''),
     coordinateAccuracy: coordinateAccuracy ?? undefined,
     locationVerified,
+    pointKind: r.point_kind as NonNullable<Job['workLocations']>[number]['pointKind'],
+    pointPrecision: (r.point_precision as string | null) ?? undefined,
+    pointEvidence: (r.point_evidence as NonNullable<Job['workLocations']>[number]['pointEvidence']) ?? undefined,
+    pointRevision: (r.point_revision as number | null) ?? undefined,
     matchedRecruitmentRegions: (r.matched_recruitment_regions as string[] | null | undefined) ?? undefined,
     geocodeStatus: (r.geocode_status as GeocodeStatus | null | undefined) ?? undefined,
     resolvedProvince: (r.resolved_province as string | null | undefined) ?? undefined,
@@ -143,6 +147,7 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
  * 싸우지 않고, 이 파일이 실제로 쓰는 메서드 체인만 구조적으로 흉내낸다.
  */
 export interface JobsQueryBuilder {
+  range: (from: number, to: number) => JobsQueryBuilder
   select: (columns: string) => JobsQueryBuilder
   eq: (column: string, value: unknown) => JobsQueryBuilder
   in: (column: string, values: unknown[]) => JobsQueryBuilder
@@ -158,7 +163,7 @@ export interface JobsQueryClient {
 const EMPLOYER_JOBS_SELECT_COLUMNS =
   'id,title,company,category,subcategory,occupation_code,occupation_evidence,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
 const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
-  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route'
+  'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,point_kind,point_precision,point_evidence,point_revision,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route'
 
 /**
  * 공개 상세페이지(JobDetail)의 "신뢰 정보" 카드에 쓰는 기업 등록 공고 수 —
@@ -204,8 +209,7 @@ export async function fetchEmployerJobs(
   // 2026-09-15 사용자 지시로 수정: 이 쿼리의 error를 확인하지 않아 조회
   // 실패가 "공고 0건"과 똑같이 보였다(EmployerDashboard가 빈 목록으로
   // 렌더링) — 실패 시 예외를 던져 호출자가 "공고 없음"과 "불러오기 실패"를
-  // 구분하게 한다. job_work_locations 조회는 기존 설계대로 best-effort로
-  // 남겨둔다(부가 정보일 뿐, 실패해도 공고 목록 자체를 막지 않음).
+  // 구분하게 한다. Canonical source read failures also propagate; partial pins are not a successful load.
   const { data, error } = await client
     .from('local_jobs')
     .select(EMPLOYER_JOBS_SELECT_COLUMNS)
@@ -217,63 +221,35 @@ export async function fetchEmployerJobs(
   if (rows.length === 0) return []
 
   const jobIds = rows.map((r) => r.id as number)
-  const { data: locRows } = await client
-    .from('job_work_locations')
-    .select(JOB_WORK_LOCATIONS_SELECT_COLUMNS)
-    .in('job_id', jobIds)
-    .order('sort_order', { ascending: true })
-  const locationsByJobId = new Map<number, NonNullable<Job['workLocations']>>()
-  for (const r of (locRows ?? []) as Record<string, unknown>[]) {
-    const jobId = r.job_id as number
-    const list = locationsByJobId.get(jobId) ?? []
-    list.push(rowToWorkLocation(r))
-    locationsByJobId.set(jobId, list)
-  }
+  const locationsByJobId = await fetchCanonicalLocations(jobIds, client)
   return rows.map((r) => rowToJob(r, locationsByJobId.get(r.id as number)))
 }
 
 
-/** 공고 회사명·근무지 텍스트 비교용 정규화(대소문자·공백·유니코드 조합 차이 무시). */
-function normalizeForApproval(v: unknown): string {
-  return String(v ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
+/** Fetch every canonical source row with stable ordering and bounded URL length. */
+export async function fetchCanonicalLocations(jobIds: number[], client: JobsQueryClient): Promise<Map<number, NonNullable<Job['workLocations']>>> {
+  const byJob = new Map<number, NonNullable<Job['workLocations']>>()
+  const pageSize = 1000
+  for (let offset = 0; offset < jobIds.length; offset += 100) {
+    for (let page = 0; ; page++) {
+      const { data, error } = await client.from('job_work_locations')
+        .select(JOB_WORK_LOCATIONS_SELECT_COLUMNS).in('job_id', jobIds.slice(offset, offset + 100))
+        .order('job_id', {ascending:true}).order('sort_order', {ascending:true}).order('id', {ascending:true})
+        .range(page * pageSize, (page + 1) * pageSize - 1)
+      if (error) throw error
+      for (const row of data ?? []) {
+        const id = row.job_id as number
+        const locations = byJob.get(id) ?? []
+        locations.push(rowToWorkLocation(row))
+        byJob.set(id, locations)
+      }
+      if ((data ?? []).length < pageSize) break
+    }
+  }
+  return byJob
 }
 
-/**
- * 사람이 승인한 근무지(job_location_candidates, status='approved')를 공고 근무지에 붙인다(2026-09-29).
- * 승인 당시 스냅샷(회사명·근무지 텍스트)이 현재 공고와 다르면 붙이지 않는다 — 회사나 주소가
- * 바뀐 공고는 관리자 재검토 전까지 승인 위치를 쓰지 않는다. 좌표 값 자체는 크롤러 재수집과
- * 무관한 별도 테이블에 있어 재수집으로 사라지지 않는다.
- */
-export function applyLocationApprovals(jobs: Job[], approvals: Record<string, unknown>[]): Job[] {
-  if (approvals.length === 0) return jobs
-  const byJobId = new Map<string, Record<string, unknown>[]>()
-  for (const a of approvals) {
-    const key = `sb-${a.job_id}`
-    byJobId.set(key, [...(byJobId.get(key) ?? []), a])
-  }
-  return jobs.map((job) => {
-    const mine = byJobId.get(job.id)
-    if (!mine) return job
-    const valid = mine.filter((a) => normalizeForApproval(a.company_snapshot) === normalizeForApproval(job.company))
-    if (valid.length === 0) return job
-    // 공고에 job_work_locations 행이 없어도 승인된 원문 주소를 하나의
-    // 작업장으로 보여준다. 그렇지 않으면 후보 승인 성공 후에도 메인/상세
-    // 핀·거리 검색에 승인 위치가 전달되지 않는다.
-    const locations = job.workLocations?.length ? job.workLocations
-      : job.location ? [{ id: 0, rawAddress: job.location, sortOrder: 0 }] : []
-    if (locations.length === 0) return job
-    return {
-      ...job,
-      workLocations: locations.map((loc) => {
-        const a = valid.find((x) => normalizeForApproval(x.address_snapshot) === normalizeForApproval(loc.rawAddress))
-        const lat = Number(a?.lat), lng = Number(a?.lng)
-        const placePrecision = a?.place_precision
-        if (!a || !Number.isFinite(lat) || !Number.isFinite(lng) ||
-            (placePrecision !== 'entrance' && placePrecision !== 'building' && placePrecision !== 'site')) {
-          return loc
-        }
-        return { ...loc, approvedPoint: { lat, lng, placePrecision } }
-      }),
-    }
-  })
+/** Candidate records are review evidence only. Canonical rows already contain approvals. */
+export function applyLocationApprovals(jobs: Job[], _approvals: Record<string, unknown>[]): Job[] {
+  return jobs
 }
