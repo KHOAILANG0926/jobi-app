@@ -45,12 +45,22 @@ try {
   await page.waitForURL(/\/admin(?:[?#]|$)/,{timeout:30000})
   await page.getByRole('button',{name:/Vị trí/}).click()
   assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  const queueReply=page.waitForResponse(r=>r.url().includes('action=location-review') && r.request().method()==='GET')
   await page.reload()
+  const pendingReply=await (await queueReply).json()
+  assert.ok(Array.isArray(pendingReply.pending),'queue reply missing pending jobs')
   const queue=page.locator('section').filter({has:page.getByRole('heading',{name:/Vị trí cần xác nhận/})})
-  await queue.getByRole('button',{name:'Làm mới'}).waitFor({state:'visible'})
+  await queue.getByRole('heading',{name:`Vị trí cần xác nhận (${pendingReply.pending.length})`,exact:true}).waitFor({state:'visible'})
   for(const id of [4824,4828,4879,4878]) {
-    await queue.locator('article.admin-location-card').filter({hasText:'#'+id+' —'}).waitFor({state:'visible',timeout:30000})
-    console.log('PASS: Vị trí pending DOM visible #'+id)
+    const row=queue.locator('article.admin-location-card').filter({hasText:'#'+id+' —'})
+    if(pendingReply.pending.some(job=>job.jobId===id)) {
+      await row.waitFor({state:'visible',timeout:30000})
+      console.log('PASS: Vị trí pending DOM visible #'+id)
+    } else {
+      assert.equal(await row.count(),0,'resolved/non-public job must stay out of pending DOM')
+      console.log('PASS: not pending in live queue or DOM #'+id)
+    }
   }
   // The public-only queue must never include private synthetic jobs.
   for(const id of ids) assert.equal(await queue.locator('article').filter({hasText:'#'+id+' —'}).count(),0)
