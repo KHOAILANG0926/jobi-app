@@ -40,7 +40,7 @@ psql_apply() { psql_local "$1" -c "grant create on database \"$1\" to location_m
 docker exec "$location_container" createdb -U postgres -T canonical_baseline missing_evidence
 psql_local missing_evidence -c "update public.job_work_locations set geocode_source=null where lat is not null" >/dev/null
 if psql_apply missing_evidence < "$location_migration" > "$location_logs/missing.log" 2>&1;then echo 'FAIL missing-evidence rollback';exit 1;fi
-rg -q 'Missing legacy source evidence' "$location_logs/missing.log"
+grep -E -q 'Missing legacy source evidence' "$location_logs/missing.log"
 [ "$(psql_local missing_evidence -Atc "select count(*) from pg_namespace where nspname='location_private'")" = 0 ]
 # Rollback conflicting human evidence, including no partial role/schema creation.
 docker exec "$location_container" createdb -U postgres -T canonical_baseline conflicting_evidence
@@ -50,13 +50,13 @@ insert into public.job_location_candidates(job_id,company_snapshot,address_snaps
  select :duplicate_job,company_snapshot,address_snapshot,lat+0.1,lng,place_precision,source,'Conflicting timestamp evidence',status,reviewed_by,reviewed_at from public.job_location_candidates where evidence='Original human evidence';
 SQL
 if psql_apply conflicting_evidence < "$location_migration" > "$location_logs/conflict.log" 2>&1;then echo 'FAIL conflict rollback';exit 1;fi
-rg -q 'Conflicting simultaneous human evidence' "$location_logs/conflict.log"
+grep -E -q 'Conflicting simultaneous human evidence' "$location_logs/conflict.log"
 [ "$(psql_local conflicting_evidence -Atc "select count(*) from pg_roles where rolname='location_writer'")" = 0 ]
 # Failure after schema creation proves transaction DDL/data rollback too.
 docker exec "$location_container" createdb -U postgres -T canonical_baseline late_evidence_failure
 psql_local late_evidence_failure -c "update public.map_r1_location_jobs set result=result-'checkedAt' where state='done'" >/dev/null
 if psql_apply late_evidence_failure < "$location_migration" > "$location_logs/late.log" 2>&1;then echo 'FAIL late rollback';exit 1;fi
-rg -q 'cache import lacks evidence' "$location_logs/late.log"
+grep -E -q 'cache import lacks evidence' "$location_logs/late.log"
 [ "$(psql_local late_evidence_failure -Atc "select count(*) from pg_namespace where nspname='location_private'")" = 0 ]
 [ "$(psql_local late_evidence_failure -Atc "select count(*) from pg_roles where rolname='location_writer'")" = 0 ]
 echo 'PASS: missing/conflicting/late evidence failures roll back all DDL and source/cache writes'
@@ -65,7 +65,7 @@ psql_local canonical_integration < "$location_dir/00-preview.sql" > "$location_l
 if ! psql_apply canonical_integration < "$location_migration" > "$location_logs/apply.log" 2>&1;then cat "$location_logs/apply.log";exit 1;fi
 for script in 21-import-assertions.sql 20-integration-tests.sql;do
  if ! psql_local canonical_integration < "$location_dir/$script" > "$location_logs/$script.log" 2>&1;then cat "$location_logs/$script.log";exit 1;fi
- rg 'PASS:' "$location_logs/$script.log"
+ grep -E 'PASS:' "$location_logs/$script.log"
 done
 # Concurrent cases supplied by the same generated fixtures, never production IDs.
 source "$location_dir/30-concurrency.sh"

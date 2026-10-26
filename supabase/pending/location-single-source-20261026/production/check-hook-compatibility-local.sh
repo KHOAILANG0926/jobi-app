@@ -28,7 +28,7 @@ run_check() { psql_local < "$location_repo/supabase/tests/map_r1_hook_production
 expect_failure() {
  local expected=$1
  if run_check > "$location_temp/failure.log" 2>&1;then echo "FAIL: expected $expected";exit 1;fi
- rg -q "$expected" "$location_temp/failure.log" || { cat "$location_temp/failure.log";exit 1; }
+ grep -E -q "$expected" "$location_temp/failure.log" || { cat "$location_temp/failure.log";exit 1; }
 }
 run_check >/dev/null
 psql_local -c 'drop trigger trg_map_r1_work_location_saved on public.job_work_locations' >/dev/null

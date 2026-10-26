@@ -19,7 +19,7 @@ select pg_sleep(0.7);
 commit;
 SQL
  local first_pid=$!
- for attempt in $(seq 1 100);do if rg -q FIRST_MUTATION_HELD "$location_logs/$pair_name-a.log";then break;fi;sleep 0.02;done
+ for attempt in $(seq 1 100);do if grep -E -q FIRST_MUTATION_HELD "$location_logs/$pair_name-a.log";then break;fi;sleep 0.02;done
  psql_local canonical_integration > "$location_logs/$pair_name-b.log" 2>&1 <<SQL &
 begin;
 set local statement_timeout='8s';
@@ -31,7 +31,7 @@ SQL
  local second_pid=$!
  if ! wait "$first_pid";then cat "$location_logs/$pair_name-a.log";return 1;fi
  if ! wait "$second_pid";then cat "$location_logs/$pair_name-b.log";return 1;fi
- if rg -qi 'deadlock|ERROR' "$location_logs/$pair_name-a.log" "$location_logs/$pair_name-b.log";then cat "$location_logs/$pair_name-a.log" "$location_logs/$pair_name-b.log";return 1;fi
+ if grep -E -qi 'deadlock|ERROR' "$location_logs/$pair_name-a.log" "$location_logs/$pair_name-b.log";then cat "$location_logs/$pair_name-a.log" "$location_logs/$pair_name-b.log";return 1;fi
  echo "PASS: concurrent $pair_name"
 }
 location_lease=$(psql_local canonical_integration -qAtc "update public.map_r1_location_jobs set state='processing',snapshot=public.map_r1_snapshot(job_id),lease=gen_random_uuid() where job_id=$location_low returning lease")

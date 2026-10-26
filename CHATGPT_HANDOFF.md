@@ -7,10 +7,10 @@
 - supabase/tests/location_single_source_production_check.sql: 기억/원본/캐시 불일치0·권한·트리거·RLS 검증, 전체 공개 좌표 읽기 증거. migrations-apply에서 이 점검만 집계/공개좌표 stdout 보존.
 - 실제 migration파일을 NOSUPERUSER PostGIS에서 적용해3가지 rollback·권한/취소/주소/재사용·5동시실행 통과, 최종사후검사5항목0. tsc/build, npm81/81 통과. HEAD 격리 PC/모바일0·1·여러위치6경우브라우저 통과.
 - 전환전PR화면은 BASE의 기존 실공개화면검사와 HEAD의 신규 격리화면검사를 명시적으로구분. 새 HEAD운영전수확인은 DB적용/배포후deploy-verify 실제소스검사만으로 판단. 기존 production검사완화/생략아님.
-- 준비PR #276 봇 병합 완료(2ab3f8f): 기존파괴문구차단의 정확한승인파일경로+SHA1개만 trusted-base로확인. SQL·앱없음. 검사후봇병합. 기존배포비교로실제업로드제외확인필요. 앱+DB이관은 같은다음PR로제출. 미승인헤더A데모제외.
+- 준비PR #276 봇 병합 완료(2ab3f8f): 기존파괴문구차단의 정확한승인파일경로+SHA1개만 trusted-base로확인. SQL·앱없음. 검사후봇병합. 기존배포비교로실제업로드제외확인필요. 앱+DB이관은 같은PR #277로 제출하여 검사 중. 미승인헤더A데모제외.
 
 ## 2. 다음 할 일 3개
-1. #276 필수검사확인→Ready→봇병합; master새guard를현재branch에반영하고 앱+DB SQL·사후점검 같은PR 생성.
+1. #276 봇병합/master 반영 완료. #277 필수 검사 확인→Ready→봇 병합. 기존PC 해시 기준과 CI ripgrep 미설치 보완; SQL 원문 해시는 변경 없음.
 2. 그PR필수검사→봇병합→migrations-apply 실제실행확인. 실패하면원문그대로보고하고멈춤. 직접SQL/자동재시도금지.
 3. 성공후실제운영배포1회→deploy-verify/관리자E2E확인. 정상워크플로의읽기증거로4824원본·캐시좌표, 메인/상세확인. 실패/필수단계건너뜀과조건부정상생략구분. 아직운영완료아님.
 

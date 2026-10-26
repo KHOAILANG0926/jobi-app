@@ -1,3 +1,8 @@
+// 2026-10-27: LayoutDesktop freeze refreshed to already-approved master PR #273 (same source; no layout edit here).
+// 2026-10-27: PR #277 / docs/plans/2026-10-26-location-single-source.md final review approved
+// DesktopHomeMapExplorer canonical-only reads, DesktopGeoapify marker provenance and JobDetail canonical pins.
+// index.css hash also follows approved PR #273 / 6affdc2 (HEAD equals trusted master; no CSS edit).
+// HomeDesktop/canvas/apply.css freezes remain intact; all exact hash checks stay enabled.
 // 2026-10-22: Lee 최종 선택 2번 — 급여 티켓(선택 금액·사각 금액표·일급/시급·협의), 검색 기준 유지.
 // 2026-10-22: Lee 승인 — 급여로 찾기에 일급·시급/협의 추가, 월 금액은 공고 월급 기준.
 // 2026-10-22: Lee 확정 — 월 기본급만 검색, 6/8/10/12/15M 구간. 최대 총급여 기준 폐기.
@@ -34,12 +39,12 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "3010aadc6490f35efd7535a5d06747d8b946fe74a39480ac821bf9cc1a37d50d",
+    "sha256": "87b75498e1bab9e7f50411e31ad028f334627ffc7ff768f13144c68ef2f8f1d6",
     "restore": []
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "7b19b34255b054f5ddf48e3fac02745b2bb6409ee7dc1726273560dc04f528f8",
+    "sha256": "4ab250005407b0b03ac745a35df52738abbc39617c9ec2d185db33757be0a5ae",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -59,19 +64,19 @@ const baseline = [
   },
   {
     "path": "src/components/home/map/DesktopGeoapifyMapCanvas.tsx",
-    "sha256": "7b1defc9f6d1f97d5e2cfe1d47475eec4988d49c52dd618cfe42852559bf7c78",
+    "sha256": "892c98a2d52e763867a91119ee80e2a58a84120ed447285123e58035607328a4",
     "restore": []
   }
 ]
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "0ab7e52a21200e6472ca108187ea6d717edcdeae921f4d5c7f1e2ac5921a8bce",
+    "sha256": "adae15c5424c6d63369f6dacc9ad63129088b13a3dbe5857a9a1a1ca9ef98f84",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "0cb8b1b8bb6e61a441268302c7bc4c7200f21901fb24e43e23f2c354b752620c",
+    "sha256": "aa6015de2bd36f01be603cb690177c52674edfb2d3f76179e54c5be138b92282",
     "restore": []
   },
   {
