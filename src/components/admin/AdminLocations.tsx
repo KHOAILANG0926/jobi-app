@@ -1,5 +1,5 @@
 import { AdminLocationReviewQueue } from './AdminLocationReviewQueue'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { listAdminJobs, type AdminJob } from '../../lib/adminOperations'
 import type { AdminMapMarker, AdminMapPick } from './AdminVietMap'
@@ -80,10 +80,19 @@ export function AdminLocations() {
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [busyId, setBusyId] = useState<number | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
+  const restoreScroll = useRef<{left:number;top:number}|null>(null)
+  useLayoutEffect(() => {
+    if (!restoreScroll.current) return
+    window.scrollTo({...restoreScroll.current, behavior:'instant'})
+    restoreScroll.current = null
+  }, [items])
   const reload = async () => {
     const { data, error: e } = await supabase.rpc('admin_list_location_candidates')
     if (e) setError(e.message)
-    else setItems((data ?? []) as LocationCandidate[])
+    else {
+      restoreScroll.current = {left:window.scrollX, top:window.scrollY}
+      setItems((data ?? []) as LocationCandidate[])
+    }
   }
   useEffect(() => { void reload() }, [])
 

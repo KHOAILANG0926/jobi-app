@@ -1,7 +1,7 @@
 import { parseAdminJobDraft, adminSavedJob } from '../lib/adminJobDraft'
 import { checkedAdminCreateJob } from '../lib/jobPolicyWrite'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { JobCategory } from '../types/job'
@@ -16,6 +16,7 @@ import { listAdminJobs, listAdminUsers } from '../lib/adminOperations'
 import { CATEGORY_ICONS, CATEGORY_LABELS as CATEGORY_NAME_LABELS } from '../data/categories'
 
 type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'locations' | 'audit'
+const ADMIN_TABS: readonly Tab[] = ['dashboard', 'jobs', 'users', 'brands', 'reports', 'locations', 'audit']
 
 interface Stats {
   koreaJobs: number
@@ -71,7 +72,17 @@ const CATEGORY_LABELS: Record<JobCategory, string> = Object.fromEntries(
 export default function AdminDashboard() {
   const { logout } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const tab: Tab = ADMIN_TABS.includes(requestedTab as Tab) ? requestedTab as Tab : 'dashboard'
+  const setTab = (next: Tab) => {
+    if (next === tab) return
+    setSearchParams(previous => {
+      const params = new URLSearchParams(previous)
+      params.set('tab', next)
+      return params
+    })
+  }
   const [jobsView,setJobsView] = useState<'all'|'public'|'korea'>('all')
   const [usersView,setUsersView] = useState<'all'|'employer'>('all')
   const openJobs=(view:'all'|'public'|'korea')=>{setJobsView(view);setTab('jobs')}
