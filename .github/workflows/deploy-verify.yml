@@ -59,10 +59,6 @@ jobs:
       - run: npm ci
       - name: 브라우저 설치
         run: npx playwright install --with-deps chromium
-      - name: PC 헤더 운영 직접 확인·캡처 (비로그인·모바일)
-        run: BASE_URL=https://www.viecganban.vn SCREENSHOT_DIR=app-smoke-screens/desktop-header node scripts/ops/desktop-header-production-check.mjs
-      - name: PC 헤더 로그인 상태 격리 브라우저 확인·캡처 (실제 계정 인증 아님)
-        run: BASE_URL=https://www.viecganban.vn SCREENSHOT_DIR=app-smoke-screens/desktop-header-fixtures node scripts/ops/desktop-header-check.mjs
       - name: 운영 주소 실제 화면 검사 (PC·모바일)
         run: BASE_URL="$PROD_URL" node scripts/ops/app-smoke.mjs
       - name: 직업코드 업종 메뉴 운영 직접 확인
