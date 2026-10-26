@@ -48,17 +48,19 @@ for(const role of ['guest','seeker','employer']) {
  await menu.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)))
  for(const [name,href] of links) assert.equal(await menu.getByRole('link',{name,exact:true}).getAttribute('href'),href)
  const bounds=await menu.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=1440,'menu clipped at screen edge')
- if(out) await page.screenshot({path:`${out}/desktop-${role}.png`})
+ if(out) await page.screenshot({animations:'disabled',path:`${out}/desktop-${role}.png`})
  await page.keyboard.press('Escape');await menu.waitFor({state:'hidden'})
  await arrow.click();await page.locator('.header-top__brand').click();await menu.waitFor({state:'hidden'})
  await arrow.click();await menu.getByRole('link',{name:'Tin nhắn',exact:true}).click()
  if(role==='guest') {
   await page.waitForURL(/dang-nhap/)
   assert.equal(new URL(page.url()).searchParams.get('redirect'),'/bang-dieu-khien?tab=messages')
-  const zalo=page.getByRole('button',{name:'Tiếp tục với Zalo',exact:true})
+  await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor()
+  if(process.env.CHECK_ZALO!==undefined) assert.equal(await page.locator('.btn-zalo-login').count(),Number(process.env.CHECK_ZALO))
+  const zalo=page.getByRole('button',{name:/Tiếp tục với Zalo/})
   if(await page.locator('.btn-zalo-login').count()) {
    await zalo.waitFor();assert.ok(await zalo.evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('input[type=email]'))&Node.DOCUMENT_POSITION_FOLLOWING)))
-   if(out) await page.screenshot({path:`${out}/desktop-login.png`})
+   if(out) await page.screenshot({animations:'disabled',path:`${out}/desktop-login.png`})
   }
   await page.locator('input[type=email]').fill(session.user.email)
   await page.locator('input[type=password]').fill('browser-fixture-only')
@@ -87,8 +89,8 @@ await page.locator('.header-tabs__actions').getByRole('link',{name:'Đăng nhậ
 assert.equal(await page.locator('.header-tabs__signup').innerText(),'Đăng ký')
 assert.equal(await page.locator('.header-tabs__post').innerText(),'Tuyển dụng')
 assert.equal(await page.locator('#employer-header-menu').count(),0)
-if(await page.locator('.btn-zalo-login').count()) await page.getByRole('button',{name:'Đăng nhập bằng Zalo',exact:true}).waitFor()
-if(out) await page.screenshot({path:`${out}/mobile-unchanged.png`})
+if(await page.locator('.btn-zalo-login').count()) await page.getByRole('button',{name:/Đăng nhập bằng Zalo/}).waitFor()
+if(out) await page.screenshot({animations:'disabled',path:`${out}/mobile-unchanged.png`})
 console.log('PASS mobile header/login unchanged')
 await context.close()
 } finally {await browser.close()}
