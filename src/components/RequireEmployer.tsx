@@ -51,7 +51,7 @@ export function RequireEmployer({ children }: { children: ReactNode }) {
   if (!user) {
     return (
       <Navigate
-        to={`/dang-nhap?role=employer&redirect=${encodeURIComponent(location.pathname)}`}
+        to={`/dang-nhap?role=employer&redirect=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
         replace
       />
     )

@@ -337,6 +337,12 @@ a:hover {
   opacity: 0.8;
 }
 
+/* Desktop employer dropdown: reuse the existing mega menu surface and links. */
+.header-tabs__employer { position: relative; }
+.header-tabs__employer .mega-menu--employer { left: auto; right: 0; min-width: 240px; }
+.mega-menu--employer .mega-menu__inner { width: auto; }
+.mega-menu--employer .mega-menu__list { flex: 1; }
+
 /* ── Mega menu dropdown ── */
 .header-tab-wrap {
   position: relative;

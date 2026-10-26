@@ -6,7 +6,6 @@ import { useJobs } from '../context/JobsContext'
 import { useBrands } from '../context/BrandsContext'
 import { computeBrandCounts, groupBrandsByCategory, type BrandDefinition, type BrandWithCount } from '../data/brandDirectory'
 import { NotificationBell } from './NotificationBell'
-import { ZaloIcon } from './ZaloIcon'
 
 function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string; initial: string }) {
   const [failed, setFailed] = useState(false)
@@ -246,12 +245,15 @@ const MENU_ITEMS: MenuItem[] = [
 ]
 
 export function Layout() {
-  const { user, logout, loginWithZalo } = useAuth()
+  const { user, logout } = useAuth()
   const { jobs } = useJobs()
   const { brands } = useBrands()
   const navigate = useNavigate()
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState<number | null>(null)
+  const [employerMenuOpen, setEmployerMenuOpen] = useState(false)
+  const employerMenuRef = useRef<HTMLDivElement>(null)
+  const employerArrowRef = useRef<HTMLButtonElement>(null)
   const navRef = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -280,7 +282,7 @@ export function Layout() {
     closeTimer.current = setTimeout(() => setOpenMenu(null), 120)
   }, [])
 
-  useEffect(() => { setOpenMenu(null) }, [location])
+  useEffect(() => { setOpenMenu(null); setEmployerMenuOpen(false) }, [location])
 
   useEffect(() => {
     if (openMenu === null || !isMobileNav()) {
@@ -302,6 +304,25 @@ export function Layout() {
     return () => document.removeEventListener('click', handleClick)
   }, [])
 
+  useEffect(() => {
+    if (!employerMenuOpen) return
+    const closeOutside = (event: MouseEvent) => {
+      if (!employerMenuRef.current?.contains(event.target as Node)) setEmployerMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEmployerMenuOpen(false)
+        employerArrowRef.current?.focus()
+      }
+    }
+    document.addEventListener('click', closeOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('click', closeOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [employerMenuOpen])
+
   const tabClass = (isActive: boolean) =>
     `header-tab${isActive ? ' header-tab--active' : ''}`
 
@@ -315,27 +336,41 @@ export function Layout() {
         </>
       ) : (
         <>
-          {import.meta.env.VITE_ZALO_APP_ID && (
-            <button type="button" className="btn-zalo-header" onClick={() => loginWithZalo(location.pathname)}>
-              <ZaloIcon />
-              <span>Zalo</span>
-            </button>
-          )}
-          <NavLink to="/dang-nhap" className="header-tabs__login">Đăng nhập</NavLink>
-          <NavLink to="/dang-ky" className="header-tabs__signup">Đăng ký</NavLink>
+          <NavLink to="/dang-nhap" className="header-tabs__login">Đăng nhập / Đăng ký</NavLink>
         </>
       )}
       <NavLink to="/ho-so?tab=cv" className="header-tabs__cv">Đăng CV</NavLink>
-      <div className="header-tabs__post-wrap">
-        <NavLink to="/dang-tin" className="header-tabs__post">Tuyển dụng</NavLink>
-        <button
-          type="button"
-          className="header-tabs__post-arrow"
-          onClick={() => navigate('/dang-tin')}
-          aria-label="Mở menu đăng tuyển"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
-        </button>
+      <div className="header-tabs__employer" ref={employerMenuRef}>
+        <div className="header-tabs__post-wrap">
+          <NavLink to="/dang-tin" className="header-tabs__post">Nhà tuyển dụng</NavLink>
+          <button
+            type="button"
+            className="header-tabs__post-arrow"
+            ref={employerArrowRef}
+            onClick={() => { setEmployerMenuOpen((open) => !open); setOpenMenu(null) }}
+            aria-label="Mở menu nhà tuyển dụng"
+            aria-expanded={employerMenuOpen}
+            aria-controls="employer-header-menu"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5"/></svg>
+          </button>
+        </div>
+        {employerMenuOpen && (
+          <div id="employer-header-menu" className="mega-menu mega-menu--employer">
+            <div className="mega-menu__inner">
+              <ul className="mega-menu__list">
+                {[
+                  ['+ Đăng tin mới', '/dang-tin'],
+                  ['Tin đã đăng', '/bang-dieu-khien?tab=jobs'],
+                  ['Quản lý ứng viên', '/bang-dieu-khien?tab=applicants'],
+                  ['Tin nhắn', '/bang-dieu-khien?tab=messages'],
+                ].map(([label, to]) => (
+                  <li key={to}><NavLink className="mega-menu__link" to={to} onClick={() => setEmployerMenuOpen(false)}>{label}</NavLink></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
