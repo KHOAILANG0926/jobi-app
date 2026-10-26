@@ -581,6 +581,80 @@
 - PR→검사→봇 병합. 시험만 고치면 추가 운영 업로드 하지 않음. 워크플로 성공과 실제 사용자 동작 통과를 구분.
 
 
+## 2026-10-26 위치 원본 단일화 검토 전 스냅샷
+
+# CHATGPT_HANDOFF — PC 헤더·기업 메뉴 (2026-10-26)
+
+## 1. 현재 상태 (코드·배포·DB)
+- 작업 branch fix/desktop-header-employer-menu-20261026, base9ecfbc5. Lee가 PC 헤더 정리와 운영 배포 1회 승인. 모바일 헤더 소스·기존 버튼 색/크기/모서리 불변.
+- 비로그인 로그인/가입 통합, 별도 Zalo/가입 제거. 기업 화살표는 기존 메가메뉴 스타일4링크, 바깥클릭/Esc 닫힘. 기업 대시보드 URL 탭과 로그인 복귀 query 보존. PC Login Zalo를 맨 위로 이동, 모바일 기존 위치/문구 유지, env 조건 동일.
+- 실제 Chromium PC1440 세 상태(비로그인/구직자/기업)의 격리 auth/API fixture로 메뉴·탭·로그인 복귀 통과, 모바일390 헤더/로그인 유지 통과. 실제 계정 비밀번호 인증과 구분. Zalo 설정 유무는 dev/build로 검사.
+- npm test79/79, tsc/build 성공. 공개 데이터·DB·권한·인증 체계 변경 없음. 코드 리뷰 중요 문제 없음.
+- 로컬 환경 outbound 정책이 운영 도메인을 403 차단. 우회하지 않고 기존 GitHub 운영검사 runner에서 실제 운영 비로그인·모바일 및 격리 로그인 상태 캡처를 수행하도록 연결. 캡처는 desktop-header-production artifact에 보존, 추가 배포 아님. 보호된 deploy-verify 수정은 CI가 차단하여 원복했고, 별도 읽기전용 desktop-header-proof가 기존 Vercel 성공 후 실행되도록 분리. 배포 workflow·가드 변경 없음.
+- 운영은 아직 이전 e60c5a7(dpl_BAto9DTNaUgkCPwBynwr7oEB7zuk) READY. 이전 관리자 실제 E2E40250098819 성공·데이터0; 이전 공통 운영검사40249275779 KDA 마커 선택 실패는 별개 미해결.
+
+## 2. 다음 할 일 3개
+1. 최종 빌드 브라우저검사→PR 필수검사→Ready→봇 병합.
+2. 이번 실제 운영 배포 정확히1회와 Production READY·도메인SHA 일치 확인.
+3. 운영 비로그인 실제 화면 및 격리 로그인 상태 캡처·메뉴동작 확인. 공통 운영검사 실패/건너뜀 있으면 구분 보고.
+
+## 3. 필수 규칙
+- PC만 화면 변경. 새장식/아이콘/둥근테두리 금지. 로그인 알림·이름·로그아웃 불변.
+- DB/Auth/RLS/Secrets/STATUS·승인 공고틀 보호. Secret 출력·저장 금지.
+- PR→검사→봇 병합→운영 배포1회. 직접확인/추정, 워크플로/실제시험 구분. 최종 보고는 운영링크와 캡처결과만.
+
+
+## 2026-10-27 위치 단일 원본 실행 전 이전 인계
+
+# CHATGPT_HANDOFF — 위치 원본 단일화 STRICT dry-run (2026-10-26)
+
+## 1. 현재 상태 (코드·배포·DB)
+- Lee 요청6번에 따라 지금은 dry-run SQL/핵심 구조 검토 단계. branch design/location-single-source-20261026, base master6affdc2. 운영 DDL/DML·PR·병합·배포는 하지 않음.
+- 읽기 전용 운영 조회: 승인/기억 candidate45는 4824 확정21.1959873,106.0087454(10-25 23:52 UTC), 근무지1116 좌표NULL, map_r1 옛area21.1965731,105.9932563. 공고번호조건없는 회사/주소 전수preflight에서도4824가 이관대상으로선택됨. 다른공개공고에도캐시만좌표/근무지행없음이있음.
+- 원인확인: 승인/기억만쓰는관리자경로, 후보/캐시만쓰는자동완료경로, 별도수집/작성자핀직접쓰기. 프런트도후보덧씌우기/코드공단좌표/캐시별도선택을함.
+- 검토안 docs/plans/2026-10-26-location-single-source.md. SQL초안+읽기전용preflight+생성ID시험은 supabase/pending/location-single-source-20261026/.
+- 핵심SQL은 private NOLOGIN역할의 단일writer, 직접쓰기트리거, 기억팬아웃, 원본→전체캐시점집합, 정방향/역방향불일치감시. 격리PostgreSQL17에서 검증성공. 운영DB이름가드로실행금지. 운영전체스키마/RPC/RLS/PostGIS/큐를복제한최종이관본은아님.
+- 시험: 확인/동일회사주소재사용/다른회사와성조차이거부/원본행생성/원본누락감시/관리자확정우선/직접쓰기고유오류/가짜GUC거부/오래된자동응답·작성자핀차단/취소연쇄/다중근무지/동일확정revision유지/무효확정역방향감시 통과. SQL초안의다른DB실행거부도통과. 리뷰중요지적보완완료.
+- AGENTS/CLAUDE에Lee규칙기록, DB규칙표4행은미적용SQL로준비. 문서추가만으로DB강제가적용됐다고주장하지않음.
+- 별개PC헤더A안데모bb97b9e는demo브랜치에만보존. 이작업에합치지않음.
+
+## 2. 다음 할 일 3개
+1. Lee에게SQL/구조안과격리검증결과보고→요청한STRICT확인대기. 운영4824아직미변경을명시.
+2. 확인후호환RPC·기존RLS최소권한·읽기원본전환·기존20시감시·번호비의존전수/E2E·일반이관SQL을완성. 운영실행본으로승격전에전체통합/동시성/권한/소급이관검증.
+3. 승인범위운영DB적용후PR→검사→봇병합→운영배포1회→deploy-verify실제통과/실패·건너뜀확인. 공통틀만으로4824가확정좌표가됐는지사후조회.
+
+## 3. 필수 규칙
+- 원본job_work_locations1곳·쓰기함수1개·캐시자동파생. 4824개별UPDATE금지. 회사/주소/승인유효성·정밀도/다중근무지보존.
+- 운영위치시험은공고번호·회사명·고정건수의존금지. 메인/상세/원본점집합·정밀도독립대조.
+- DBSTRICT: dry-run먼저Lee확인후적용. 기존R7/R8·공개범위·Secrets·STATUS보호. 직접확인/추정, 핵심시험/전체운영통과구분.
+
+
+## 2026-10-27 정상 이관 경로 전환 전 인계
+
+# CHATGPT_HANDOFF — 위치 단일 원본 구현·운영 도구 취소 (2026-10-27)
+
+## 1. 현재 상태 (코드·배포·DB)
+- Lee 설계와 2~5단계 실행 승인 완료. branch design/location-single-source-20261026, 운영 master6affdc2. 미승인 PC 헤더 A 데모는 포함하지 않음.
+- 운영 SQL 완성: supabase/pending/location-single-source-20261026/production/10-apply.sql. SHA256 c1c06a08032c667d8a5751bb242db1e46bc811bd970380c6953c3543b548a67b. 단일 writer/최소권한/자동 캐시/재사용/취소·변경/호환 RPC/감시/규칙4행/이력 보존, 한 트랜잭션.
+- 로컬 PostGIS 전체 관련 구조·RLS/실제 역할·이관·3가지 실패 원복·동시 실행5가지 통과. 최종 npm test81/81, tsc/build 통과. 격리 실제 브라우저 0개·1개·여러 근무지/묶음핀 통과. 최종 리뷰 중요 지적 모두 해결.
+- 화면은 원본 전체 점 집합만 읽음. 운영 시험의 번호 의존 제거, 독립 원본과 메인/상세/캐시 비교, 관리자 E2E 원본/캐시/삭제 검사, 기존20시 보고 불일치 추가. 운영에서 실제 실행된 것은 아님.
+- 운영 전체 예상 목록(blockers0)을 Lee에게 먼저 보고함: 4824확정 반영,4828캐시→원본 근사,4878근사보존/캐시정렬,4879원본근사생성,4825의4곳·4826미확인유지,4827미확인원본생성. 공개 여부/검색한도 유지.
+- 실제 apply_migration 요청(name location_single_source_approved_20261027)이 Supabase에서 Migration was cancelled / status cancelled 반환. 이유 미제공. 뒤이어 읽기 전용 조회: location_private 없음, 이관기록 없음,4824원본lat/lng NULL. 운영 변경·병합·배포0회. 다른 쓰기 도구로 우회하지 않음.
+
+## 2. 다음 할 일 3개
+1. GitHub Draft PR에 코드·SQL·검증 보존. 운영 도구 취소 해소 전 Ready/봇 병합/배포 금지. DB 미적용으로 실데이터 화면 CI 실패 시 원인 구분.
+2. 취소된 Supabase 운영 변경 승인을 해소한 뒤 같은 검토 SQL 적용, 원본/캐시/불일치/권한 사후 조회. 승인된 예상 목록 변경이나 근거 충돌은 rollback.
+3. PR 필수 검사→봇 병합→운영 배포1회→deploy-verify 및 관리자 E2E 실제 통과 확인.4824원본·캐시·메인·상세좌표 및 정시알림 반영 여부 직접 확인. 아직 완료 보고 금지.
+
+## 3. 필수 규칙
+- 번호별 보정 금지. source job_work_locations, writer1개, 캐시 파생, 후보/기억은 근거만. 정밀도/근거/다중 근무지 보존.
+- Lee 진행 승인 유효. 불필요한 재승인 요청 금지. 이번 중단 근거는 스킬 해석이 아니라 외부 도구의 실제 cancelled 응답.
+- 직접 확인/추정, 로컬합성/실운영, 워크플로 성공/시험 실제 통과를 구분. Secrets·STATUS·R7/R8·공개범위·화면틀 보존.
+
+
+## 정상 이관 경로 준비 PR #276 병합 기록
+
+
 ## 2026-10-27 exact migration approval bridge: previous handoff archive
 
 # CHATGPT_HANDOFF — PC 헤더·기업 메뉴 (2026-10-26)
@@ -602,3 +676,27 @@
 - PC만 화면 변경. 새장식/아이콘/둥근테두리 금지. 로그인 알림·이름·로그아웃 불변.
 - DB/Auth/RLS/Secrets/STATUS·승인 공고틀 보호. Secret 출력·저장 금지.
 - PR→검사→봇 병합→운영 배포1회. 직접확인/추정, 워크플로/실제시험 구분. 최종 보고는 운영링크와 캡처결과만.
+
+
+## 2026-10-27 PR277 CI 보완 전 인계
+
+# CHATGPT_HANDOFF — 위치 단일 원본 정상 이관 경로 (2026-10-27)
+
+## 1. 현재 상태 (코드·배포·DB)
+- Lee 설계·실행 승인 유효. 추가 지시: Codex/Supabase 도구의 운영 직접 접근은 읽기 포함 영구 금지. 정상 PR→검사→봇→migrations-apply→실제 배포1회만. migrations-apply 실패 시 원문 오류 보고 후 중단.
+- 운영 DB 변경 없음. 이전 직접 apply_migration 요청은 cancelled, 이관·새 스키마 미생성을 당시 조회로 확인. 이후 운영 직접 접근하지 않음. 직접 접근 재시도 금지.
+- 실제 CLI 생성 이관: supabase/migrations/20261026231445_location_single_source.sql. psql-1로 파일전체1트랜잭션. 원문 SHA256 2e8928cbcf97919ec1ac37a1df0300379e6267fce8cf98597de6de9dda108aaa. 검토본과 본문 동일, wrapper외 TRUNCATE권한도 회수. 공고번호조건 없음. 원본/캐시/제거행은 비공개 이력 보존.
+- supabase/tests/location_single_source_production_check.sql: 기억/원본/캐시 불일치0·권한·트리거·RLS 검증, 전체 공개 좌표 읽기 증거. migrations-apply에서 이 점검만 집계/공개좌표 stdout 보존.
+- 실제 migration파일을 NOSUPERUSER PostGIS에서 적용해3가지 rollback·권한/취소/주소/재사용·5동시실행 통과, 최종사후검사5항목0. tsc/build, npm81/81 통과. HEAD 격리 PC/모바일0·1·여러위치6경우브라우저 통과.
+- 전환전PR화면은 BASE의 기존 실공개화면검사와 HEAD의 신규 격리화면검사를 명시적으로구분. 새 HEAD운영전수확인은 DB적용/배포후deploy-verify 실제소스검사만으로 판단. 기존 production검사완화/생략아님.
+- 준비PR #276 봇 병합 완료(2ab3f8f): 기존파괴문구차단의 정확한승인파일경로+SHA1개만 trusted-base로확인. SQL·앱없음. 검사후봇병합. 기존배포비교로실제업로드제외확인필요. 앱+DB이관은 같은다음PR로제출. 미승인헤더A데모제외.
+
+## 2. 다음 할 일 3개
+1. #276 필수검사확인→Ready→봇병합; master새guard를현재branch에반영하고 앱+DB SQL·사후점검 같은PR 생성.
+2. 그PR필수검사→봇병합→migrations-apply 실제실행확인. 실패하면원문그대로보고하고멈춤. 직접SQL/자동재시도금지.
+3. 성공후실제운영배포1회→deploy-verify/관리자E2E확인. 정상워크플로의읽기증거로4824원본·캐시좌표, 메인/상세확인. 실패/필수단계건너뜀과조건부정상생략구분. 아직운영완료아님.
+
+## 3. 필수 규칙
+- 직접운영DB접근금지. 명시한정상경로만. 사용자에게설계재승인요청금지.
+- 번호별보정금지·job_work_locations원본1곳·writer1개·캐시파생. 정밀도·근거·다중근무지 보존.
+- 직접확인/추정, 로컬합성/실제운영, 워크플로성공/시험실제통과구분. Secrets·STATUS·R7/R8·공개범위·화면틀보존.

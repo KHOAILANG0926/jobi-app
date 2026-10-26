@@ -71,27 +71,12 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   const [cameraRequest, setCameraRequest] = useState<HomeMapViewport | undefined>()
   const [radiusActive, setRadiusActive] = useState(false)
   const [pickingOrigin, setPickingOrigin] = useState(false)
-  const [representatives, setRepresentatives] = useState<RepresentativePoints>({})
+  const representatives = useMemo<RepresentativePoints>(() => ({}), [])
   useEffect(() => {
     try { setInitialViewport(readViewport(localStorage.getItem(VIEWPORT_KEY)) ?? DEFAULT_VIEWPORT) } catch { /* storage disabled */ }
     setViewportReady(true)
   }, [])
   // Public job coordinates only. Never send camera/GPS/selected origin to our server.
-  useEffect(() => {
-    const controller = new AbortController()
-    const ids = [...new Set(mapJobs.map(j => j.id).filter(id => /^sb-\d+$/.test(id)).map(id => id.slice(3)))]
-    void (async () => {
-      const found: RepresentativePoints = {}
-      for (let i = 0; i < ids.length; i += 100) {
-        try {
-          const response = await fetch(`/api/map-locations?ids=${ids.slice(i, i + 100).join(',')}`, { signal: controller.signal })
-          if (response.ok) Object.assign(found, (await response.json()).points ?? {})
-        } catch { if (controller.signal.aborted) return }
-      }
-      if (!controller.signal.aborted) setRepresentatives(found)
-    })()
-    return () => controller.abort()
-  }, [mapJobs])
   const onViewportChange = (v: HomeMapViewport) => {
     setBounds(v.bounds ?? null)
     try { if (validPoint(v.center)) localStorage.setItem(VIEWPORT_KEY, JSON.stringify({ center: v.center, zoom: v.zoom })) } catch { /* optional persistence */ }

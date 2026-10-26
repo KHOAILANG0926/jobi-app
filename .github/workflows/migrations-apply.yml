@@ -60,5 +60,10 @@ jobs:
           for f in supabase/tests/*_production_check.sql; do
             [ -f "$f" ] || continue
             echo "점검: $f"
-            psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+            if [ "$f" = supabase/tests/location_single_source_production_check.sql ]; then
+              # Aggregate invariants and public coordinates are verification evidence.
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f"
+            else
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+            fi
           done

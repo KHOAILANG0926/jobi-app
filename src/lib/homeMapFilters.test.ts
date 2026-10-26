@@ -12,7 +12,7 @@ function job(id: string, extra: Partial<Job> = {}, verified = true): Job {
   return {
     id, title: id, company: 'Cty', category: 'san_xuat_xay_dung', salary: '12 - 15 triệu', location: 'Bắc Ninh',
     description: '', postedAt: '2026-10-01', employerPhone: '0900000000', applicationDeadline: '',
-    workLocations: [{ id: 1, rawAddress: 'KCN', lat: ORIGIN.lat + 0.01, lng: ORIGIN.lng, sortOrder: 0, locationVerified: verified }],
+    workLocations: [{ id: 1, rawAddress: 'KCN', lat: ORIGIN.lat + 0.01, lng: ORIGIN.lng, sortOrder: 0, pointKind: 'exact', locationVerified: verified }],
     ...extra,
   } as Job
 }
@@ -31,7 +31,7 @@ function testRadiusUsesKilometersWithoutVisualScaling(): void {
         lat: ORIGIN.lat + radiusKm / 111.19508023352181,
         lng: ORIGIN.lng,
         sortOrder: 0,
-        locationVerified: true,
+        pointKind: 'exact', locationVerified: true,
       }],
     })
     const results = findNearbyJobs([pointAtRadius], ORIGIN, { ...DEFAULT_FILTERS, radiusKm })

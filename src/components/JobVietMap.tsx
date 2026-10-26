@@ -11,7 +11,7 @@ import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from 
 import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './home/map/homeMapGestures'
 import { INDUSTRIAL_PARK_OUTLINES } from '../data/industrialParkOutlines'
 
-export interface JobVietMapMarker { lat: number; lng: number; label?: string }
+export interface JobVietMapMarker { lat: number; lng: number; label?: string; jobId?: string; workLocationId?: number; kind?: string; precision?: string; revision?: number; source?: string; checkedAt?: string }
 /** 길찾기 링크 — 승인된 근무지 좌표 또는 공단 중심 좌표(좌표로만, 이름 검색 금지). note는 버튼 아래 한 줄 안내 */
 export interface JobVietMapDirection { label: string; href: string; note?: string }
 
@@ -67,7 +67,7 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
     if (cur.pinless) return
     const list: JobVietMapMarker[] = cur.markers && cur.markers.length > 0 ? cur.markers : [{ lat: cur.lat, lng: cur.lng }]
     markerRefs.current = list.map((m) =>
-      new vietmapgl.Marker({ color: '#e53935' }).setLngLat([m.lng, m.lat]).setPopup(new vietmapgl.Popup({ offset: 24 }).setText(m.label || cur.title)).addTo(map))
+      (() => { const marker = new vietmapgl.Marker({ color: '#e53935' }).setLngLat([m.lng, m.lat]).setPopup(new vietmapgl.Popup({ offset: 24 }).setText(m.label || cur.title)).addTo(map); marker.getElement().dataset.locationPoints = JSON.stringify([m]); return marker })())
     if (list.length > 1) {
       const b = new vietmapgl.LngLatBounds()
       list.forEach((m) => b.extend([m.lng, m.lat]))
@@ -192,7 +192,7 @@ export default function JobVietMap({ lat, lng, title, zoom = 15, markers, pinles
 
   return (
     <>
-      <div className="jd2-vmap" data-expected-marker-count={pinless ? 0 : (markers?.length ?? 1)} data-map-unavailable={!TILEMAP_KEY ? "missing-key" : undefined} style={{ height }}>
+      <div className="jd2-vmap" data-planned-location-points={JSON.stringify(pinless ? [] : (markers ?? []))} data-expected-marker-count={pinless ? 0 : (markers?.length ?? 1)} data-map-unavailable={!TILEMAP_KEY ? "missing-key" : undefined} style={{ height }}>
         <MapCanvas lat={lat} lng={lng} title={title} zoom={zoom} markers={markers} pinless={pinless} parkRef={parkRef} parkName={parkName} />
         <button type="button" className="jd2-vmap__zoom" onClick={() => setOpen(true)}>Phóng to</button>
       </div>

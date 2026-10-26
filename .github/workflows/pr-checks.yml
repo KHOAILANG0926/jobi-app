@@ -39,6 +39,13 @@ jobs:
         run: node scripts/check-approval-scope.mjs
       - name: 시험 의존성 배포 제외 회귀 검사
         run: node --test scripts/ci/deployment-package-change.test.mjs
+      - name: 위치 불일치 저녁 보고 회귀 검사
+        run: node --test scripts/ci/location-integrity-report.test.mjs
+      - name: 운영 위치 시험의 고정 공고 의존 차단
+        run: |
+          node --test scripts/ci/location-test-policy.test.mjs
+          node scripts/ci/location-test-policy.mjs
+          node scripts/ops/location-point-oracle.test.mjs
       - name: 타입 검사
         run: npx tsc --noEmit
       - name: 테스트

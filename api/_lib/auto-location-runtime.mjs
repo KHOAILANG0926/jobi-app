@@ -18,14 +18,14 @@ export async function applyLocationVerdict(db, jobId) {
   const [{data:job,error:e1},{data:wl,error:e2},{data:st,error:e3},{data:exact,error:e4}] = await Promise.all([
     db.from('local_jobs').select('location,source_text').eq('id',jobId).maybeSingle(),
     db.from('job_work_locations').select('raw_address,industrial_park').eq('job_id',jobId),
-    db.from('map_r1_location_jobs').select('state,failures,calls,result').eq('job_id',jobId).maybeSingle(),
+    db.from('map_r1_location_jobs').select('state,failures,calls,source_points,provider_result').eq('job_id',jobId).maybeSingle(),
     db.rpc('map_r1_has_exact',{p_id:jobId}),
   ])
   if (e1||e2||e3||e4) throw new Error('location_storage_unavailable')
   if (!job) return 'missing'
   const verdict = locationVerdict({
     hasExact: exact === true,
-    state: st ? {state:st.state, failures:st.failures, calls:st.calls, kind:st.result?.kind ?? null} : null,
+    state: st ? {state:st.state, failures:st.failures, calls:st.calls, kind:canonicalVerdictKind(st)} : null,
     texts: [job.location, ...(wl ?? []).flatMap((w) => [w.raw_address, w.industrial_park])],
     sourceText: job.source_text,
   })
@@ -33,6 +33,16 @@ export async function applyLocationVerdict(db, jobId) {
   if (verdict === 'our_miss') { const {error} = await db.rpc('map_r1_mark_unlocated',{p_id:jobId,p_reason:'our_miss'}); if (error) throw new Error('mark_failed') }
   if (verdict === 'no_info') { const {error} = await db.rpc('map_r1_delete_no_info',{p_id:jobId}); if (error) throw new Error('delete_failed') }
   return verdict
+}
+
+// Display/located evidence comes only from the source-derived projection.
+// The retained provider response explains an unsuccessful lookup, never a
+// second coordinate authority that can restore a revoked or stale point.
+export function canonicalVerdictKind(state) {
+  const point = (state.source_points ?? []).find(p =>
+    ['exact','gate','area'].includes(p.kind) && Number.isFinite(p.lat) && Number.isFinite(p.lng) &&
+    p.lat >= 8 && p.lat <= 24 && p.lng >= 102 && p.lng <= 110)
+  return point?.kind ?? (state.provider_result?.kind === 'unresolved' ? 'unresolved' : null)
 }
 
 async function runClaimed(db, request, claim) {

@@ -29,7 +29,7 @@ assert(!matchesFilters(job('c', '7212'), { ...DEFAULT_FILTERS, occupationGroups:
 // 칩 숫자 = 반경 안 + 확인된 근무지가 있는 공고만 (2026-10-15 사용자 지적: #4824처럼 위치 미확인 공고가 100m·8km 모두 1로 나옴)
 const ORIGIN = { lat: 21.1861, lng: 106.0763 }
 const located = (id: string, code: string, dLat: number, verified = true): Job => ({
-  ...job(id, code), workLocations: [{ id: 1, rawAddress: 'x', lat: ORIGIN.lat + dLat, lng: ORIGIN.lng, sortOrder: 0, locationVerified: verified }],
+  ...job(id, code), workLocations: [{ id: 1, rawAddress: 'x', lat: ORIGIN.lat + dLat, lng: ORIGIN.lng, sortOrder: 0, pointKind: 'exact', locationVerified: verified }],
 } as Job)
 const pool = [job('unverified-no-location', '82022'), located('unverified', '82022', 0.001, false), located('near', '7212', 0.0005), located('far', '8202', 0.05)]
 const groupsAt = (radiusKm: number) => occupationGroupsInJobs(findNearbyJobs(pool, ORIGIN, { ...DEFAULT_FILTERS, radiusKm }).map((n) => n.job))

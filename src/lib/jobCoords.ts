@@ -221,6 +221,13 @@ export interface ResolvedMapPoint {
    *  eligibility (2026-09-05 정책: 지도 표시 자격과 거리검색 자격은 별개 —
    *  거리검색은 resolveDistanceSearchPoint()만 쓴다). */
   precise: boolean
+  workLocationId?: number
+  precision?: string
+  revision?: number
+  jobId?: string
+  kind?: 'exact' | 'gate' | 'area'
+  source?: string
+  checkedAt?: string
 }
 
 export interface ResolvedMapLocations {
@@ -235,6 +242,11 @@ export interface ResolvedMapLocations {
 type GeocodeStatusLike = 'pending' | 'success' | 'failed' | 'manual'
 
 interface WorkLocationLike {
+  id?: number
+  pointKind?: 'exact' | 'gate' | 'area' | 'unresolved'
+  pointPrecision?: string
+  pointEvidence?: { source?: string; checkedAt?: string }
+  pointRevision?: number
   rawAddress: string
   lat?: number
   lng?: number
@@ -282,39 +294,19 @@ type AddressAccuracyLike = 'exact_text' | 'region_only'
  * job_work_locations에서 원문 좌표 대조로 실제 확인됐을 때만 true가
  * 되는 값이므로(crawl_topcv.py의 source_verified 참고), 이것만이 유일한
  * 신뢰 근거다. */
-function isPreciseWorkLocation(l: { locationVerified?: boolean }): boolean {
-  return l.locationVerified === true
+export function canonicalWorkLocationPoint(l: WorkLocationLike): ResolvedMapPoint | null {
+  if (!l.pointKind || l.pointKind === 'unresolved' || typeof l.lat !== 'number' || typeof l.lng !== 'number' ||
+      !Number.isFinite(l.lat) || !Number.isFinite(l.lng) || l.lat < 8 || l.lat > 24 || l.lng < 102 || l.lng > 110) return null
+  return { lat: l.lat, lng: l.lng, label: l.rawAddress, kind: l.pointKind, workLocationId: l.id, precision: l.pointPrecision, revision: l.pointRevision,
+    precise: l.pointKind === 'exact' && l.locationVerified === true,
+    source: l.pointEvidence?.source, checkedAt: l.pointEvidence?.checkedAt }
 }
-
-/** 핀·길찾기·거리 계산에 쓸 "확인된 근무지 좌표" — 두 경로 중 하나로 확인된 경우만:
- *  ① 사람이 승인한 근무지(approvedPoint, job_location_candidates) — 우선
- *  ② location_verified(원본 사이트 좌표와 대조 검증)이고 좌표가 있음
- *  (2026-09-29: 사이트 지도, 외부 지도 링크, 내 주변/거리 계산이 모두 이 하나의 기준을 쓴다.) */
-export function verifiedWorkLocationPoint(l: {
-  locationVerified?: boolean; lat?: number; lng?: number
-  approvedPoint?: { lat: number; lng: number }
-}): { lat: number; lng: number } | null {
-  const a = l.approvedPoint
-  if (a && Number.isFinite(a.lat) && Number.isFinite(a.lng)) return { lat: a.lat, lng: a.lng }
-  if (isPreciseWorkLocation(l) && typeof l.lat === 'number' && typeof l.lng === 'number' &&
-      Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
-    return { lat: l.lat, lng: l.lng }
-  }
-  return null
+export function verifiedWorkLocationPoint(l: Partial<WorkLocationLike>): { lat: number; lng: number } | null {
+  const p = canonicalWorkLocationPoint({ rawAddress: '', ...l })
+  return p?.precise ? { lat: p.lat, lng: p.lng } : null
 }
-
-export function isVerifiedWorkLocation(l: Parameters<typeof verifiedWorkLocationPoint>[0]): boolean {
-  return verifiedWorkLocationPoint(l) !== null
-}
-
-/** 길찾기 목적지로 줘도 되는지 — 사람이 승인한 근무지(approvedPoint: 출입구·건물·부지 어느 정밀도든)만.
- *  목적지는 반드시 승인된 좌표(destination=lat,lng)이고 이름·주소 글자 검색은 쓰지 않는다
- *  (2026-09-29 VSIP 오안내 재발 방지). 승인 없이 location_verified(원본 사이트 좌표 검증)·지역·공단 좌표만
- *  있는 근무지는 핀·거리 계산 대상일 뿐 이 함수로는 길찾기를 열지 않는다. 2026-10-07 사용자 지시로
- *  "출입구 승인만"에서 "승인 근무지"로 넓혔다(공단 수준 길찾기는 industrialPark.ts가 따로 담당). */
-export function hasApprovedPoint(l: { approvedPoint?: { lat: number; lng: number } }): boolean {
-  return !!l.approvedPoint && Number.isFinite(l.approvedPoint.lat) && Number.isFinite(l.approvedPoint.lng)
-}
+export function isVerifiedWorkLocation(l: Partial<WorkLocationLike>): boolean { return verifiedWorkLocationPoint(l) !== null }
+export function hasApprovedPoint(l: Partial<WorkLocationLike>): boolean { return isVerifiedWorkLocation(l) }
 
 /**
  * 근무지 1곳을 지도 포인트로 변환한다 — 등급(A~D)과 무관하게 항상 무언가를
@@ -329,104 +321,14 @@ export function hasApprovedPoint(l: { approvedPoint?: { lat: number; lng: number
  *    길찾기는 호출부가 이 함수와 무관하게 항상 그대로 보여준다), 다른
  *    근무지가 있으면 그쪽은 계속 표시된다.
  */
-function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | null {
-  const verified = verifiedWorkLocationPoint(l)
-  if (verified) return { ...verified, label: l.rawAddress, precise: true }
-  if (typeof l.lat === 'number' && typeof l.lng === 'number' && Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
-    return { lat: l.lat, lng: l.lng, label: l.rawAddress, precise: false }
-  }
-  // 2026-09-07 사용자 지시(충돌 수정): addressAccuracy==='exact_text'인데
-  // geocodeStatus==='pending'(아직 지오코딩을 시도조차 안 함)이면, 원문
-  // 텍스트에 우연히 알려진 지명이 들어있어도(예: "Aeon Mall Hà Đông"의
-  // "Hà Đông") 그걸로 임의 좌표를 만들면 안 된다 — "아직 확인 중"인 구체
-  // 주소를 마치 확인된 근사 위치처럼 보여주게 된다. addressAccuracy가
-  // 'region_only'인 pending은 원래부터 이 함수 아래의 findRegionCenter
-  // fallback을 그대로 타야 한다(기존 동작 유지 — region_only 텍스트는
-  // pending 여부와 무관하게 항상 지역 대표 위치를 보여줘 왔음).
-  if (l.geocodeStatus === 'pending' && l.addressAccuracy !== 'region_only') {
-    return null
-  }
-  const fromOwnText = findRegionCenter(l.rawAddress)
-  if (fromOwnText) return { ...fromOwnText, label: l.rawAddress, precise: false }
-  for (const region of l.matchedRecruitmentRegions ?? []) {
-    const fromRegion = findRegionCenter(region)
-    if (fromRegion) return { ...fromRegion, label: l.rawAddress, precise: false }
-  }
-  return null
-}
+function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | null { return canonicalWorkLocationPoint(l) }
 
-/**
- * Multi-marker resolution for JobDetail's map, covering every location tier
- * the 2026-09-05 최종 제품 정책 requires a map for:
- * - 근무지 행이 있으면(좌표 검증 여부와 무관하게) 위치별로 점을 만든다.
- * - 근무지 행이 0건이고 모집지역만 있으면(정책 Tier E) 모집지역별 중심점을
- *   만든다 — 한 좌표를 여러 지역에 복제하지 않고, 지역마다 자기 중심을 쓴다.
- * - 그것도 없으면 기존 resolveMapLocation()의 단일점(지역명 텍스트 매칭 또는
- *   베트남 전체 중심)으로 collapse — 이전 동작과 100% 동일.
- */
 export function resolveMapLocations(job: {
-  rawLat?: number
-  rawLng?: number
-  rawLocation?: string
-  workLocations?: WorkLocationLike[]
-  recruitmentRegions?: string[]
+  rawLat?: number; rawLng?: number; rawLocation?: string; workLocations?: WorkLocationLike[]; recruitmentRegions?: string[]
 }): ResolvedMapLocations {
-  const workLocations = job.workLocations ?? []
-
-  const workLocationPoints = workLocations
-    .map(resolveWorkLocationMapPoint)
-    .filter((p): p is ResolvedMapPoint => p !== null)
-
-  // 2026-09-07 사용자 지시(충돌 수정) — geocode_status='pending'인 근무지가
-  // 있는데 위에서 점을 하나도 못 만들었다면("실패"가 아니라 "아직 확인
-  // 안 됨"), 좌표가 없다는 이유로 숨기거나 베트남 기본 중심(source:
-  // 'default')으로 표시하지 않고 명확한 'pending' 소스로 구분한다.
-  // addressAccuracy==='region_only'인 pending 근무지는 이미 위
-  // resolveWorkLocationMapPoint()의 findRegionCenter fallback으로 정상
-  // 해결됐을 수 있으므로(기존 동작 유지) 그 경우는 workLocationPoints가
-  // 비어있지 않아 이 분기에 걸리지 않는다 — 오직 "지도에 보여줄 점이 하나도
-  // 없는" 경우에만 'pending'으로 구분한다.
-  if (workLocationPoints.length === 0 && workLocations.some((l) => l.geocodeStatus === 'pending')) {
-    return { points: [], source: 'pending', zoom: 5 }
-  }
-
-  if (workLocationPoints.length > 0) {
-    const anyPrecise = workLocationPoints.some((p) => p.precise)
-    return {
-      points: workLocationPoints,
-      // 'address' — 이 union 멤버는 예전에 "구조화된 주소는 있지만 geocoding
-      // API가 없어 도달 불가"로 예약만 돼 있었다(resolveMapLocation() 참고).
-      // 이제 실제로 쓰인다: 근무지 좌표가 있지만 전부 미검증(precise=false)
-      // 일 때의 지도 소스 값 — "정확한(exact)"도 "지역 텍스트 추측(region)"
-      // 도 아닌, "구체적 주소 텍스트에서 나온 근사 좌표"라는 중간 등급.
-      source: anyPrecise ? 'exact' : 'address',
-      // A single geocoded point can zoom in tighter (street-level) since there's
-      // no second point that needs to stay in frame; 2+ points let fitBounds
-      // decide the actual view, this is just the initial center's zoom.
-      zoom: workLocationPoints.length > 1 ? 12 : anyPrecise ? 16 : 13,
-    }
-  }
-
-  // 근무지 행 자체가 0건(원문에 "Địa điểm làm việc" 후보가 아예 없음) —
-  // 모집지역만 있으면(정책 Tier E) 지역별로 각자의 중심점을 만든다.
-  if (workLocations.length === 0 && job.recruitmentRegions && job.recruitmentRegions.length > 0) {
-    const regionPoints = job.recruitmentRegions
-      .map((region): ResolvedMapPoint | null => {
-        const center = findRegionCenter(region)
-        return center ? { ...center, label: region, precise: false } : null
-      })
-      .filter((p): p is ResolvedMapPoint => p !== null)
-    if (regionPoints.length > 0) {
-      return { points: regionPoints, source: 'region', zoom: regionPoints.length > 1 ? 8 : 11 }
-    }
-  }
-
-  const single = resolveMapLocation(job)
-  return {
-    points: [{ lat: single.lat, lng: single.lng, precise: single.source === 'exact' }],
-    source: single.source,
-    zoom: single.zoom,
-  }
+  const points = (job.workLocations ?? []).map(canonicalWorkLocationPoint).filter((p): p is ResolvedMapPoint => p !== null)
+  return { points, source: points.length ? (points.some(p => p.precise) ? 'exact' : 'address') : 'pending',
+    zoom: points.length > 1 ? 12 : points[0]?.precise ? 16 : 13 }
 }
 
 export interface DistanceSearchPoint {
@@ -456,12 +358,7 @@ export interface DistanceSearchPoint {
 export function resolveDistanceSearchPoints(job: {
   workLocations?: WorkLocationLike[]
 }): DistanceSearchPoint[] {
-  // 2026-09-29: 미검증 exact/ward 좌표의 '근사 거리검색'(09-05 2단계 정책)을 중단한다 —
-  // 확인되지 않은 후보 좌표는 내 주변·거리 계산에 쓰지 않는다(사용자 지시, 4682 사고 후속).
-  return (job.workLocations ?? [])
-    .map((l) => verifiedWorkLocationPoint(l))
-    .filter((p): p is { lat: number; lng: number } => p !== null)
-    .map((p) => ({ ...p, precise: true }))
+  return resolveMapLocations(job).points.map(p => ({ lat: p.lat, lng: p.lng, precise: p.precise }))
 }
 
 export interface ExternalMapLinks {
@@ -503,8 +400,8 @@ export function externalMapLinks(
 /** 근무지 1곳의 외부 지도 링크 — 사이트 지도 점(resolveWorkLocationMapPoint)과 같은 점 사용 */
 export function workLocationExternalLinks(l: WorkLocationLike): ExternalMapLinks | null {
   const point = resolveWorkLocationMapPoint(l)
-  return externalMapLinks(point, isVerifiedWorkLocation(l), l.addressAccuracy === 'region_only' ? 11 : 14,
-    hasApprovedPoint(l))
+  return externalMapLinks(point, isVerifiedWorkLocation(l) || l.pointKind === 'gate', l.addressAccuracy === 'region_only' ? 11 : 14,
+    l.pointKind === 'exact' || l.pointKind === 'gate')
 }
 
 /**

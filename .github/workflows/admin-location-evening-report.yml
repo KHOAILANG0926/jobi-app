@@ -14,6 +14,10 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: 비밀값 확인
         run: |
           [ -n "$SUPABASE_DB_URL" ] || { echo "::error::SUPABASE_DB_URL 비밀값 없음"; exit 1; }
@@ -38,6 +42,12 @@ jobs:
                   and w.lat between 8 and 24 and w.lng between 102 and 110);
           ")
           note="관리자 페이지 위치 확정 대기 ${n}건"
+          # ON_ERROR_STOP + pipefail: 조회 실패를 불일치 0건으로 보고하지 않는다.
+          integrity=$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+            select coalesce(jsonb_agg(to_jsonb(i) order by issue,job_id,work_location_id),'[]'::jsonb)
+            from public.location_integrity_issues() i;
+          " | node scripts/ci/location-integrity-report.mjs)
+          note=$(printf '%s\n\n%s' "$note" "$integrity")
           echo "$note" | tee -a "$GITHUB_STEP_SUMMARY"
           title="저녁 8시 운영 보고 — 위치 확정"
           issue=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')

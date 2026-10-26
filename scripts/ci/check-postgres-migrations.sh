@@ -9,6 +9,12 @@ psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f scripts/ci/reference-location-fi
 for file in "${changed[@]}"; do
   test -f "$file" || { echo "::error::Migration file deleted: $file"; exit 1; }
   if [[ "$file" == *20261025174000_admin_confirmed_location_memory.sql ]]; then continue; fi
+  if [[ "$file" == 'supabase/migrations/20261026231445_location_single_source.sql' ]]; then
+    echo "PostgreSQL scoped canonical integration applies actual migration: $file"
+    bash supabase/pending/location-single-source-20261026/production/run-local.sh "$file"
+    bash supabase/pending/location-single-source-20261026/production/check-hook-compatibility-local.sh
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done

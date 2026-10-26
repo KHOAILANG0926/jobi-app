@@ -15,9 +15,26 @@ permissions:
 jobs:
   mobile-home:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 이관 전 HEAD·운영 스키마 BASE 검사 구분
+        id: schema-mode
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          migration=supabase/migrations/20261026231445_location_single_source.sql
+          if git cat-file -e "$HEAD_SHA:$migration" 2>/dev/null && ! git cat-file -e "$BASE_SHA:$migration" 2>/dev/null; then
+            echo "canonical=true" >> "$GITHUB_OUTPUT"
+            printf '### 이관 전 모바일 검사\n- HEAD `%s`: 승인 소스 freeze·타입·단위·빌드 + 격리 canonical PC·모바일 핀 검사\n- BASE `%s`: 현 운영 스키마 공개 데이터로 기존 모바일 4폭 UI 검사\n- HEAD 운영 데이터 검증은 이관·배포 후 deploy-verify에서 수행. 이 결과는 운영 반영 검증이 아님.\n' "$HEAD_SHA" "$BASE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "canonical=false" >> "$GITHUB_OUTPUT"
+            printf '### 모바일 검사\n- HEAD `%s` + 실제 공개 데이터\n' "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -28,7 +45,17 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: Run preview and verify mobile home
+      - name: 이관 PR BASE 앱·기존 모바일 검사 소스 선택
+        if: steps.schema-mode.outputs.canonical == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: BASE 운영 스키마 호환 빌드 (HEAD freeze 검사는 위에서 완료)
+        if: steps.schema-mode.outputs.canonical == 'true'
+        run: |
+          npm ci
+          npm run build
+      - name: 실제 공개 데이터 모바일 4폭 검사 (이관 PR은 BASE, 일반 PR은 HEAD)
         run: |
           npx vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/mobile-home-preview.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
@@ -36,6 +63,34 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mobile-home-screenshots
+          name: mobile-home-live-schema-screenshots-${{ steps.schema-mode.outputs.canonical == 'true' && github.event.pull_request.base.sha || github.sha }}
           path: /tmp/jobi-mobile-home
+          retention-days: 14
+
+      - name: 이관 PR HEAD 소스 복원
+        if: steps.schema-mode.outputs.canonical == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: HEAD 격리 canonical 화면 빌드
+        if: steps.schema-mode.outputs.canonical == 'true'
+        env:
+          VITE_VIETMAP_TILEMAP_KEY: fixture-browser
+        run: |
+          npm ci
+          npm run build
+      - name: HEAD 원본 0·1·여러 곳 PC·모바일 실제 핀 검사 (격리 fixture)
+        if: steps.schema-mode.outputs.canonical == 'true'
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4174 --strictPort > /tmp/mobile-canonical-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4174/ >/dev/null && break; sleep 1; done
+          BASE_URL=http://127.0.0.1:4174 SCREENSHOT_DIR=/tmp/mobile-canonical-head node scripts/ops/location-canonical-browser-fixtures.mjs
+      - name: HEAD 격리 canonical 근거 보존 (운영 검증 아님)
+        if: always() && steps.schema-mode.outputs.canonical == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-home-prerelease-head-canonical-${{ github.sha }}
+          path: |
+            /tmp/mobile-canonical-head
+            /tmp/mobile-canonical-preview.log
           retention-days: 14

@@ -68,6 +68,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       const selected = group.some(m => m.id === propsRef.current.selectedId)
       const element = document.createElement('div')
       element.className = 'hme-map__job-marker'
+    element.dataset.locationPoints = JSON.stringify(group.map(m => ({ ...m, jobId: m.id })))
       element.style.width = selected ? '30px' : '24px'
       element.style.height = selected ? '30px' : '24px'
       element.style.zIndex = selected ? '2' : '1'

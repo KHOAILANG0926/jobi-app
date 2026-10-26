@@ -1,14 +1,13 @@
 import type { Job } from '../types/job'
-import { matchesFilters, verifiedJobPoints, type HomeMapFilterState, type MapJobPoint } from './homeMapFilters'
-import { calcDistanceKm } from './jobCoords'
-import { findIndustrialPark } from './industrialPark'
+import { matchesFilters, type HomeMapFilterState, type MapJobPoint } from './homeMapFilters'
+import { calcDistanceKm, resolveMapLocations } from './jobCoords'
 import type { HomeMapViewport } from '../components/home/map/HomeMapTypes'
 
 export const VIEWPORT_KEY = 'vgb:map-r1:viewport'
 // Camera only: Hanoi city centre, never a workplace or a distance origin.
 export const DEFAULT_VIEWPORT: HomeMapViewport = { center: { lat: 21.0285, lng: 105.8542 }, zoom: 8 }
 export type LocationKind = 'exact' | 'gate' | 'area'
-export interface LocatedPoint extends MapJobPoint { kind: LocationKind; source?: string; checkedAt?: string }
+export interface LocatedPoint extends MapJobPoint { jobId?: string; workLocationId?: number; precision?: string; revision?: number; kind: LocationKind; source?: string; checkedAt?: string }
 export type RepresentativePoints = Record<string, LocatedPoint>
 export interface MapBounds { west: number; east: number; south: number; north: number }
 export const LOCATION_LABELS: Record<LocationKind, string> = {
@@ -24,23 +23,19 @@ export function readViewport(raw: string | null): HomeMapViewport | null {
       ? { center: { lat: v.center.lat, lng: v.center.lng }, zoom: v.zoom } : null
   } catch { return null }
 }
-export function locationPoints(job: Job, representatives: RepresentativePoints): LocatedPoint[] {
-  const exact = verifiedJobPoints(job).filter(validPoint)
-  if (exact.length) return exact.map(p => ({ ...p, kind: 'exact' }))
-  const addresses = (job.workLocations ?? []).map(l => l.rawAddress)
-  const park = findIndustrialPark(...addresses, job.location)
-  const gate = park?.destination
-  if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) {
-    return [{ lat: gate.lat, lng: gate.lng, kind: 'gate', source: `${gate.source.provider} ${gate.source.ref}`, checkedAt: gate.satelliteChecked }]
-  }
-  // A geocoded address is usable as an approximate map pin even without workplace approval.
-  // Never promote it to an exact workplace, gate, or verified navigation destination.
-  const approximate = (job.workLocations ?? []).filter(l => typeof l.lat === 'number' && typeof l.lng === 'number' &&
-    l.geocodeStatus === 'success' && validPoint({ lat: l.lat!, lng: l.lng! }))
-    .map(l => ({ lat: l.lat!, lng: l.lng!, kind: 'area' as const, source: 'geocoded address (unverified)', checkedAt: 'address lookup' }))
-  if (approximate.length) return approximate
-  const r = representatives[job.id]
-  return r && ['gate', 'area'].includes(r.kind) && r.source && r.checkedAt && validPoint(r) ? [r] : []
+export function locationPoints(job: Job, _representatives: RepresentativePoints = {}): LocatedPoint[] {
+  return resolveMapLocations(job).points.map(p => ({ ...p, jobId: job.id,
+    kind: p.kind === 'exact' && !p.precise ? 'area' : p.kind ?? 'area', source: p.source, checkedAt: p.checkedAt }))
+}
+/** Describe mixed source sets without applying one workplace's accuracy to another. */
+export function mapPointAccuracyNote(points: { lat: number; lng: number; kind?: LocationKind; precise: boolean }[]): string {
+  const valid = points.filter(validPoint)
+  const verified = valid.filter(p => p.kind === 'exact' && p.precise).length
+  const reference = valid.length - verified
+  if (verified && reference) return `Bản đồ có ${verified} địa điểm làm việc đã xác minh và ${reference} vị trí tham khảo — chưa xác minh địa điểm làm việc chính xác tại các điểm tham khảo.`
+  if (verified > 1) return `Công việc này có ${verified} địa điểm làm việc đã xác minh.`
+  if (verified === 1) return 'Vị trí nơi làm việc đã được xác minh trên bản đồ.'
+  return 'Vị trí tham khảo — chưa xác minh địa điểm làm việc chính xác.'
 }
 export function withinBounds(p: MapJobPoint, b: MapBounds): boolean {
   return p.lat >= b.south && p.lat <= b.north && (b.west <= b.east ? p.lng >= b.west && p.lng <= b.east : p.lng >= b.west || p.lng <= b.east)

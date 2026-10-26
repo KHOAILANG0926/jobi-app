@@ -48,7 +48,8 @@ export function createGoogleJobMarkerLayer(
     }
 
     update(markers: HomeMapMarker[], selectedId: string | null, onSelect: (id: string) => void): void {
-      const nextIds = new Set(markers.map((marker) => marker.id))
+      const markerKey = (marker: HomeMapMarker) => `${marker.id}:${marker.workLocationId ?? ''}:${marker.lat},${marker.lng}`
+      const nextIds = new Set(markers.map(markerKey))
       for (const [id, record] of this.records) {
         if (!nextIds.has(id)) {
           record.element.remove()
@@ -57,7 +58,8 @@ export function createGoogleJobMarkerLayer(
       }
 
       for (const marker of markers) {
-        let record = this.records.get(marker.id)
+        const key = markerKey(marker)
+        let record = this.records.get(key)
         if (!record) {
           const element = ownerDocument.createElement('div')
           element.className = 'hme-map__job-marker hme-map__job-marker--google'
@@ -75,10 +77,11 @@ export function createGoogleJobMarkerLayer(
               record?.onSelect(record.marker.id)
             }
           })
-          this.records.set(marker.id, record)
+          this.records.set(key, record)
           this.pane?.appendChild(element)
         }
 
+        record.element.dataset.locationPoints = JSON.stringify([{ ...marker, jobId: marker.id }])
         record.marker = marker
         record.onSelect = onSelect
         record.element.title = marker.label

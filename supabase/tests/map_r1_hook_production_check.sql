@@ -1,7 +1,33 @@
 -- 공고 저장 즉시 위치 찾기 장치가 운영에 있는지 점검(없으면 실패)
 do $$ begin
   if not exists (select 1 from pg_trigger where tgname = 'trg_map_r1_job_saved') then raise exception 'trg_map_r1_job_saved missing'; end if;
-  if not exists (select 1 from pg_trigger where tgname = 'trg_map_r1_work_location_saved') then raise exception 'trg_map_r1_work_location_saved missing'; end if;
+  if to_regprocedure('location_private.write_location(bigint,text,jsonb)') is null then
+    -- Before the canonical migration, source changes still use the legacy hook.
+    if not exists (select 1 from pg_trigger where tgname = 'trg_map_r1_work_location_saved'
+      and tgrelid='public.job_work_locations'::regclass and tgenabled<>'D') then
+      raise exception 'trg_map_r1_work_location_saved missing'; end if;
+  else
+    -- Canonical writes may insert an unresolved skeleton before finalizing it.
+    -- Only the authorized batch adapter may request after the completed batch;
+    -- a source-row hook would schedule unnecessary searches during approvals.
+    if exists (select 1 from pg_trigger where tgrelid='public.job_work_locations'::regclass
+      and not tgisinternal and tgenabled<>'D' and (tgname='trg_map_r1_work_location_saved'
+      or tgfoid=to_regprocedure('public.map_r1_on_job_saved()')
+      or tgfoid=to_regprocedure('location_private.work_address_saved()'))) then
+      raise exception 'canonical source has unresolved-skeleton request hook'; end if;
+    if not exists (select 1 from pg_trigger where tgname='trg_map_r1_job_saved'
+      and tgrelid='public.local_jobs'::regclass and tgenabled<>'D'
+      and tgfoid=to_regprocedure('public.map_r1_on_job_saved()')) then
+      raise exception 'canonical parent save request hook missing'; end if;
+    if not exists (select 1 from pg_proc where oid=to_regprocedure('public.replace_job_work_locations(bigint,jsonb)')
+      and prosecdef and position('public.map_r1_request_location(p_job_id)' in prosrc)>0
+      and position('before_addresses is distinct from after_addresses' in prosrc)>0
+      and position('point_kind=''unresolved''' in prosrc)>0)
+      or not has_function_privilege('service_role','public.replace_job_work_locations(bigint,jsonb)','execute')
+      or has_function_privilege('anon','public.replace_job_work_locations(bigint,jsonb)','execute')
+      or has_function_privilege('authenticated','public.replace_job_work_locations(bigint,jsonb)','execute') then
+      raise exception 'canonical authorized batch requester missing/unsafe'; end if;
+  end if;
   if not exists (select 1 from cron.job where jobname = 'map-r1-retry-pending' and active) then raise exception 'map-r1-retry-pending cron missing'; end if;
   if not exists (select 1 from vault.secrets where name = 'map_r1_hook_token') then raise exception 'hook token missing'; end if;
   if has_function_privilege('anon', 'public.map_r1_hook_token_ok(text)', 'execute') then raise exception 'anon can check hook token'; end if;

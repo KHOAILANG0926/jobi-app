@@ -17,6 +17,12 @@ export type NearbyState =
 
 export interface HomeMapMarker extends MapPoint {
   id: string
+  jobId?: string
+  workLocationId?: number
+  precision?: string
+  revision?: number
+  source?: string
+  checkedAt?: string
   label: string
   kind?: 'exact' | 'gate' | 'area'
 }
