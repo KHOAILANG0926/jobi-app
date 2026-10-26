@@ -1,19 +1,20 @@
-# CHATGPT_HANDOFF — PC 헤더·기업 메뉴 (2026-10-26)
+# CHATGPT_HANDOFF — PC 헤더 A안 데모 (2026-10-26)
 
 ## 1. 현재 상태 (코드·배포·DB)
-- 작업 branch fix/desktop-header-employer-menu-20261026, base9ecfbc5. Lee가 PC 헤더 정리와 운영 배포 1회 승인. 모바일 헤더 소스·기존 버튼 색/크기/모서리 불변.
-- 비로그인 로그인/가입 통합, 별도 Zalo/가입 제거. 기업 화살표는 기존 메가메뉴 스타일4링크, 바깥클릭/Esc 닫힘. 기업 대시보드 URL 탭과 로그인 복귀 query 보존. PC Login Zalo를 맨 위로 이동, 모바일 기존 위치/문구 유지, env 조건 동일.
-- 실제 Chromium PC1440 세 상태(비로그인/구직자/기업)의 격리 auth/API fixture로 메뉴·탭·로그인 복귀 통과, 모바일390 헤더/로그인 유지 통과. 실제 계정 비밀번호 인증과 구분. Zalo 설정 유무는 dev/build로 검사.
-- npm test79/79, tsc/build 성공. 공개 데이터·DB·권한·인증 체계 변경 없음. 코드 리뷰 중요 문제 없음.
-- 로컬 환경 outbound 정책이 운영 도메인을 403 차단. 우회하지 않고 기존 GitHub 운영검사 runner에서 실제 운영 비로그인·모바일 및 격리 로그인 상태 캡처를 수행하도록 연결. 캡처는 desktop-header-production artifact에 보존, 추가 배포 아님. 보호된 deploy-verify 수정은 CI가 차단하여 원복했고, 별도 읽기전용 desktop-header-proof가 기존 Vercel 성공 후 실행되도록 분리. 배포 workflow·가드 변경 없음.
-- 운영은 아직 이전 e60c5a7(dpl_BAto9DTNaUgkCPwBynwr7oEB7zuk) READY. 이전 관리자 실제 E2E40250098819 성공·데이터0; 이전 공통 운영검사40249275779 KDA 마커 선택 실패는 별개 미해결.
+- Lee 결정: PC LayoutDesktop/CSS만 A안, demo/** Preview 확인 후 “적용” 전에는 PR·병합·운영 배포 금지.
+- branch demo/desktop-header-a-20261026, base 운영6affdc2(#273). 운영은 dpl_7jEQveAGfhLxy6tHKBc8W6qv4wiJ READY, 이전 헤더정리 실제배포1회. 이번 A안 운영 배포0회.
+- 로고/오른쪽 버튼 사이 네모 검색창, 기존 /viec-lam/tim-kiem?q= 키워드검색 재사용. Home와 같은 filterAndSortJobs 사용, 새 검색엔진 없음. 현재 PC Home에 별도 키워드입력창 없음.
+- layout--desktop scopedCSS: 기업 버튼 var(--color-primary), 메뉴행 하단2px·선택 글자/밑줄 빨강. 기존 버튼 크기/오른쪽위치/모서리 유지. 새 아이콘·그라데이션·장식 없음. LayoutMobile·모바일 CSS 변경 없음.
+- Chromium PC1440 비로그인/기업,1024/1366 넘침없음/Enter 기존검색, 모바일390 기존헤더 초록 확인. 로그인 기업은 브라우저 전용 격리 auth/API fixture이며 실제 인증과 구분. 로컬 PC2캡처 직접 열람.
+- tsc/build·npm test79/79 성공. 검색결과 PC 현재메뉴 유지 및 최종 빌드 브라우저 검사 성공. 최종 로컬 PC2캡처 직접 열람, 리뷰 중요 문제 없음. DB·Auth·RLS·Secrets·STATUS·공고틀 변경 없음.
+- 로컬환경은 운영/Preview도메인 접속 정책403. Preview READY·도메인SHA는 Vercel 도구로 확인, 캡처는 동일소스 로컬브라우저로 제공. 이미지를 로그로 유출하는 우회 금지.
 
 ## 2. 다음 할 일 3개
-1. 최종 빌드 브라우저검사→PR 필수검사→Ready→봇 병합.
-2. 이번 실제 운영 배포 정확히1회와 Production READY·도메인SHA 일치 확인.
-3. 운영 비로그인 실제 화면 및 격리 로그인 상태 캡처·메뉴동작 확인. 공통 운영검사 실패/건너뜀 있으면 구분 보고.
+1. 최종 빌드 브라우저검사 및 리뷰 후 demo branch commit/push, 기존 Vercel Preview workflow/고정alias 확인.
+2. demo 고정링크와 PC 비로그인/기업 로컬동일소스 캡처 보고. 현재 고정alias는 jobi-demo-mshw1895-6089s-projects.vercel.app.
+3. Lee “적용” 이후에만 PR→필수검사→봇 병합→운영 배포1회. Preview만으로 운영반영 주장 금지.
 
 ## 3. 필수 규칙
-- PC만 화면 변경. 새장식/아이콘/둥근테두리 금지. 로그인 알림·이름·로그아웃 불변.
-- DB/Auth/RLS/Secrets/STATUS·승인 공고틀 보호. Secret 출력·저장 금지.
-- PR→검사→봇 병합→운영 배포1회. 직접확인/추정, 워크플로/실제시험 구분. 최종 보고는 운영링크와 캡처결과만.
+- PC만. 버튼크기/위치 유지. 새 아이콘/둥근테두리/그라데이션/장식 금지. 검색필터 로직 복제 금지.
+- DB/Auth/RLS/Secrets/STATUS·승인 공고틀 보호. Secret 출력·저장 금지. 직접확인/추정 구분.
+- 이번 완료조건은 데모링크/PC캡처. 운영승인은 아직 없음. 이전 공통지도검사 실패는 별도 후속이며 이번 A안에 붙여 범위확대하지 않음.

@@ -323,6 +323,10 @@ export function Layout() {
     }
   }, [employerMenuOpen])
 
+  const isMenuActive = (to: string) => to === '/'
+    ? location.pathname === '/' || location.pathname.startsWith('/viec-lam/')
+    : location.pathname === to || location.pathname.startsWith(to + '/')
+
   const tabClass = (isActive: boolean) =>
     `header-tab${isActive ? ' header-tab--active' : ''}`
 
@@ -376,7 +380,7 @@ export function Layout() {
   )
 
   return (
-    <div className="layout">
+    <div className="layout layout--desktop">
       <header className="layout__header">
         {/* Row 1: Brand */}
         <div className="header-top">
@@ -388,6 +392,26 @@ export function Layout() {
                 <span className="header-top__tagline">Kết nối cơ hội, vươn xa tương lai</span>
               </span>
             </NavLink>
+            <form
+              className="desktop-header-search"
+              role="search"
+              action="/viec-lam/tim-kiem"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const keyword = new FormData(event.currentTarget).get('q')?.toString().trim() ?? ''
+                navigate('/viec-lam/tim-kiem?' + new URLSearchParams({ q: keyword }).toString())
+              }}
+            >
+              <input
+                key={location.search}
+                name="q"
+                type="text"
+                aria-label="Tìm việc gần bạn"
+                placeholder="Tìm việc gần bạn: ngành, công ty, KCN..."
+                defaultValue={new URLSearchParams(location.search).get('q') ?? ''}
+                enterKeyHint="search"
+              />
+            </form>
             {headerActions}
           </div>
         </div>
@@ -407,7 +431,7 @@ export function Layout() {
                     // 홈(전체 공고 탐색 진입점)으로 가는 링크 하나만 추가.
                     { label: 'Việc làm', to: '/' },
                   ].map((item, i) => (
-                    <NavLink key={i} to={item.to} className={({ isActive }) => tabClass(isActive)}>
+                    <NavLink key={i} to={item.to} className={({ isActive }) => tabClass(item.to === '/' ? isMenuActive(item.to) : isActive)}>
                       {item.label}
                     </NavLink>
                   ))
@@ -491,7 +515,7 @@ export function Layout() {
                           // 안 줄어들지만, 모바일은 hover가 없어(isMobileNav) 화살표
                           // 버튼을 라벨과 분리해 토글 전용으로 남겨야 드롭다운
                           // 항목에 계속 접근할 수 있다.
-                          <div className={`${tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))} header-tab--split`}>
+                          <div className={`${tabClass(isMenuActive(item.to))} header-tab--split`}>
                             <button type="button" className="header-tab__label" onClick={() => navigate(item.to)}>
                               {item.label}
                             </button>
@@ -508,7 +532,7 @@ export function Layout() {
                         ) : (
                           <button
                             type="button"
-                            className={tabClass(location.pathname === item.to || (!!item.end && location.pathname === '/'))}
+                            className={tabClass(isMenuActive(item.to))}
                             onClick={() => navigate(item.to)}
                           >
                             {item.label}
