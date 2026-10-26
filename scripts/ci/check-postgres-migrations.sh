@@ -12,6 +12,7 @@ for file in "${changed[@]}"; do
   if [[ "$file" == 'supabase/migrations/20261026231445_location_single_source.sql' ]]; then
     echo "PostgreSQL scoped canonical integration applies actual migration: $file"
     bash supabase/pending/location-single-source-20261026/production/run-local.sh "$file"
+    bash supabase/pending/location-single-source-20261026/production/check-hook-compatibility-local.sh
     continue
   fi
   echo "PostgreSQL clean application: $file"
