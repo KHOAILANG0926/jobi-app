@@ -43,6 +43,9 @@ try {
   const login=page.waitForResponse(r=>r.url().includes('/auth/v1/token') && r.request().method()==='POST')
   await page.locator('button[type="submit"]').click()
   await page.waitForURL(/\/admin(?:[?#]|$)/,{timeout:30000})
+  // Consume the login body before any reload discards its browser network resource.
+  const session=await (await login).json()
+  assert.ok(session.access_token,'administrator login token missing')
   await page.getByRole('button',{name:/Vị trí/}).click()
   assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
   await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
@@ -67,8 +70,6 @@ try {
   console.log('PASS: real administrator login and public queue; private test jobs excluded')
   // Seed only a pending candidate using the logged-in admin JWT, then approve by real UI click.
   // No route interception, fabricated queue response, or publication of synthetic jobs.
-  const session=await (await login).json()
-  assert.ok(session.access_token,'administrator login token missing')
   const admin=createClient('https://edhuesdnuxlbcfephutq.supabase.co',SUPABASE_SERVICE_ROLE_KEY,{
     global:{headers:{Authorization:'Bearer '+session.access_token}},
     auth:{persistSession:false,autoRefreshToken:false}
