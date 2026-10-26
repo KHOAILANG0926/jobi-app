@@ -30,6 +30,8 @@ jobs:
       - name: PR 완료 근거 검사 (Draft는 제외, 필수 CI는 유지)
         if: github.event_name == 'pull_request'
         run: node scripts/check-pr-ready.mjs
+      - name: 정확한 migration 승인 회귀 검사
+        run: node scripts/approved-migrations.test.mjs
       - name: 기존 규정 위반 변경 차단
         if: github.event_name == 'pull_request'
         run: node scripts/check-repository-policy.mjs
