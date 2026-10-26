@@ -150,7 +150,7 @@ function checkInvariants(href, d, truth) {
     if (d.addrItems.some((a) => !a || a.length < 5)) {
       failures.push(`${href}: address list contains an empty/too-short entry: ${JSON.stringify(d.addrItems)}`)
     }
-    if (expectedMarkers >= 1 && !d.mapUnavailable && !d.note.includes(String(expectedMarkers))) {
+    if (expectedMarkers > 1 && !d.mapUnavailable && !d.note.includes(String(expectedMarkers))) {
       failures.push(`${href}: caption must mention the mappable work-location count (${expectedMarkers}), got "${d.note}"`)
     }
     if (truth && truth.workLocationCount === 0) {
@@ -220,6 +220,8 @@ if (baseUrl === '--self-test') {
   const base = { addrItems: [], singleAddr: null, note: '', markerCount: 0, unknownMsg: null, mapContainerCount: 0, gmapsLinkCount: 0, viewOnMapCount: 0, directionsCount: 0 }
   const area = { ...base, areaState: true, areaNotes: 'Khu vực — chưa xác minh vị trí nhà xưởng', visibleAddresses: ['KCN Yên Phong, Bắc Ninh'], markerCount: 1, mapContainerCount: 1 }
   const cases = [
+    ['single approved marker uses existing singular caption', {...base,addrItems:['KCN TEST'],note:'Vị trí nơi làm việc đã được xác minh trên bản đồ.',markerCount:1},true,approvedTruth],
+    ['multiple verified markers require numerical caption', {...base,addrItems:['KCN TEST','Other address'],note:'Verified',markerCount:2},false,{...approvedTruth,workLocationCount:2,mappableWorkLocationCount:2}],
     ['approved point with null legacy coordinates', {...base,addrItems:['KCN TEST'],note:'Vị trí đã xác minh',mapUnavailable:true,plannedMarkerCount:1},true,approvedTruth],
     ['explicit unverified area', area, true],
     ['area without warning', { ...area, areaNotes: '' }, false],
