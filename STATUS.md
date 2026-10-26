@@ -3,26 +3,29 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-25 16:26 (VN)**
-- 기준 커밋: `c1854bf` (fix: Vercel demo alias에 team scope 명시 (#251))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40180573040
+- 생성 시각: **2026-10-26 08:47 (VN)**
+- 기준 커밋: `9ecfbc5` (test: read admin login response before page reload (#272))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40255890142
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-✅ 확인 필요 항목 없음
+**확인 필요 2건**
+
+- 핀 #4824: ❌ 공고 주소에 번지 없음
+- 핀 #4824: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 78/78 파일 통과 |
+| 테스트 `npm test` | ✅ 79/79 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `faeba8e` · 상태 **success** · 2026-10-25 16:25 (VN)
+- 마지막 Production 배포: `e60c5a7` · 상태 **success** · 2026-10-26 07:25 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -30,27 +33,29 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #251 | 2026-10-25 16:26 (VN) | `c1854bf` | fix: Vercel demo alias에 team scope 명시 |
-| #250 | 2026-10-25 15:48 (VN) | `887dbf3` | 최신 위치 핀 규칙 및 데모 alias 실패 감지 |
-| #249 | 2026-10-25 15:24 (VN) | `3365254` | HANDOFF: GPT 인계 |
-| #248 | 2026-10-25 15:17 (VN) | `790bfda` | 공고 저장 순간 검사 신호 |
-| #247 | 2026-10-25 12:57 (VN) | `1e85c59` | 배포 한도 대응 + 급여 재처리 |
-| #243 | 2026-10-25 12:31 (VN) | `a543503` | ADTEK: 급여 칸·공단 근무지 |
-| #241 | 2026-10-25 12:23 (VN) | `b850a4a` | AI 판정 줄 맞춤·소제목 추가 |
-| #240 | 2026-10-25 12:16 (VN) | `b071038` | AI 판정 설정 수정 |
-| #239 | 2026-10-25 12:12 (VN) | `1521389` | AI 판정 실패 이유 표시 |
-| #238 | 2026-10-25 12:06 (VN) | `59d5065` | AI 칸·복리후생 판정 + 번호표 저장 |
+| #272 | 2026-10-26 07:35 (VN) | `9ecfbc5` | test: 관리자 새로고침 전 로그인 응답 읽기 (추가 배포 없음) |
+| #270 | 2026-10-26 07:24 (VN) | `e60c5a7` | fix: 관리자 URL 탭 기억과 위치 확정 후 스크롤 유지 |
+| #269 | 2026-10-26 06:41 (VN) | `6840b46` | fix: 관리자 줄 선택의 R7 위반 OCR 수정 제거 (배포 예외 결정 대기) |
+| #268 | 2026-10-26 06:27 (VN) | `436957e` | fix: 관리자 E2E 비공개 시험 데이터의 원문·출처 근거 보완 |
+| #267 | 2026-10-26 06:20 (VN) | `122a12b` | fix: 관리자 실제 E2E 의존성·DB 생성 ID·비공개 승인 시험 복구 |
+| #265 | 2026-10-25 23:29 (VN) | `8f355da` | fix: 관리자 위치 미확정 목록과 대시보드 카드 이동 |
+| #262 | 2026-10-25 19:53 (VN) | `fac1e2f` | fix: 관리자 API 통합으로 Vercel 12개 함수 상한 준수 |
+| #256 | 2026-10-25 18:37 (VN) | `59e6e62` | fix: 위치 메모리 migration 함수 달러 인용 복구 |
+| #258 | 2026-10-25 18:12 (VN) | `f80541e` | ci: 실제 PostgreSQL에서 신규 migration 적용 및 옛 $ 오류 회귀 시험 |
+| #254 | 2026-10-25 17:31 (VN) | `8ccb201` | feat: 관리자 위치 확정 목록·Google 공유 링크·좌표 재사용 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
 - 공개 중: **4건** (전체 7건, 숨김·비활성 3건)
-- 출처별: muaban 2 · manual 2
+- 출처별: manual 2 · muaban 2
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
 판정은 공고 주소와 승인 근거의 번지·도로명·회사명을 문자열로 대조한 결과다.
 
-- 승인된 핀 없음
+| 공고 | 승인 시각 | 판정 | VietMap 재확인 | 공고 주소 번지 | 근거 번지 | 근거 POI |
+|---|---|---|---|---|---|---|
+| #4824 | 2026-10-26 06:52 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
@@ -59,22 +64,22 @@
 | 2026-10-25 | 1 | 2026-10-25 12:58 (VN) |
 | 2026-10-24 | 2 | 2026-10-24 08:47 (VN) |
 | 2026-10-20 | 2 | 2026-10-20 21:50 (VN) |
-| 2026-10-18 | 2 | 2026-10-18 22:12 (VN) |
+- 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-11 10:44 (VN) | job.hide | job 4750 |
-| 2026-10-11 10:44 (VN) | location_candidate.revoke | job 4750 |
-| 2026-10-11 10:37 (VN) | location_candidate.revoke | job 4720 |
-| 2026-10-11 10:37 (VN) | location_candidate.revoke | job 4702 |
-| 2026-10-08 14:27 (VN) | location_candidate.approve | job 4721 |
-| 2026-10-08 14:27 (VN) | location_candidate.add | job 4721 |
-| 2026-10-08 12:23 (VN) | location_candidate.approve | job 4750 |
-| 2026-10-08 12:23 (VN) | location_candidate.add | job 4750 |
-| 2026-10-08 12:23 (VN) | location_candidate.approve | job 4713 |
-| 2026-10-08 12:23 (VN) | location_candidate.add | job 4713 |
+| 2026-10-26 07:40 (VN) | location_candidate.auto_reuse | job 4965 |
+| 2026-10-26 07:40 (VN) | location_candidate.approve | job 4964 |
+| 2026-10-26 07:40 (VN) | location_candidate.add | job 4964 |
+| 2026-10-26 06:52 (VN) | location_candidate.approve | job 4824 |
+| 2026-10-26 06:52 (VN) | location_candidate.add | job 4824 |
+| 2026-10-26 06:42 (VN) | location_candidate.auto_reuse | job 4956 |
+| 2026-10-26 06:42 (VN) | location_candidate.approve | job 4955 |
+| 2026-10-26 06:42 (VN) | location_candidate.add | job 4955 |
+| 2026-10-26 06:28 (VN) | location_candidate.auto_reuse | job 4952 |
+| 2026-10-26 06:28 (VN) | location_candidate.approve | job 4951 |
 
 ## 8. 검증 장치 변경 이력
 
