@@ -1,20 +1,19 @@
-# CHATGPT_HANDOFF — 위치 단일 원본 정상 이관 경로 (2026-10-27)
+# CHATGPT_HANDOFF — 정상 이관 시작 요청 GitHub500 중단 (2026-10-27)
 
 ## 1. 현재 상태 (코드·배포·DB)
-- Lee 설계·실행 승인 유효. 추가 지시: Codex/Supabase 도구의 운영 직접 접근은 읽기 포함 영구 금지. 정상 PR→검사→봇→migrations-apply→실제 배포1회만. migrations-apply 실패 시 원문 오류 보고 후 중단.
-- 운영 DB 변경 없음. 이전 직접 apply_migration 요청은 cancelled, 이관·새 스키마 미생성을 당시 조회로 확인. 이후 운영 직접 접근하지 않음. 직접 접근 재시도 금지.
-- 실제 CLI 생성 이관: supabase/migrations/20261026231445_location_single_source.sql. psql-1로 파일전체1트랜잭션. 원문 SHA256 2e8928cbcf97919ec1ac37a1df0300379e6267fce8cf98597de6de9dda108aaa. 검토본과 본문 동일, wrapper외 TRUNCATE권한도 회수. 공고번호조건 없음. 원본/캐시/제거행은 비공개 이력 보존.
-- supabase/tests/location_single_source_production_check.sql: 기억/원본/캐시 불일치0·권한·트리거·RLS 검증, 전체 공개 좌표 읽기 증거. migrations-apply에서 이 점검만 집계/공개좌표 stdout 보존.
-- 실제 migration파일을 NOSUPERUSER PostGIS에서 적용해3가지 rollback·권한/취소/주소/재사용·5동시실행 통과, 최종사후검사5항목0. tsc/build, npm81/81 통과. HEAD 격리 PC/모바일0·1·여러위치6경우브라우저 통과.
-- 전환전PR화면은 BASE의 기존 실공개화면검사와 HEAD의 신규 격리화면검사를 명시적으로구분. 새 HEAD운영전수확인은 DB적용/배포후deploy-verify 실제소스검사만으로 판단. 기존 production검사완화/생략아님.
-- 준비PR #276 봇 병합 완료(2ab3f8f): 기존파괴문구차단의 정확한승인파일경로+SHA1개만 trusted-base로확인. SQL·앱없음. 검사후봇병합. 기존배포비교로실제업로드제외확인필요. 앱+DB이관은 같은PR #277로 제출하여 검사 중. 미승인헤더A데모제외.
+- 준비PR#276 봇병합2ab3f8f, Vercel40419438063실제업로드skipped. 앱+이관+사후점검 같은PR#277봇병합70fe1c60dd8092b595938c0160bd714fded2b227 완료.
+- 최종source868f9d216a211ccf00386ddd315cf09e333e54ec 필수검사모두성공: PRchecks/migration-postgres40420082126, appscreen40420082134, mobile40420082148, publication40420082130, guard40420082310. 실제migration파일PostGIS검사·권한·원복·동시성통과. 사전화면BASE실공개/HEAD격리구분, 운영HEAD검증아님.
+- 운영migration파일20261026231445_location_single_source.sql SHA2562e8928cbcf97919ec1ac37a1df0300379e6267fce8cf98597de6de9dda108aaa. 파일전체psql-1, 번호조건없음, 실패RAISE. 사후검사 location_single_source_production_check.sql에0건불변식+전체공개원본/캐시읽기로그. 기존20시불일치보고포함.
+- PR277병합봇 run40420801113/job121914436624에서이관시작요청실패: could not create workflow dispatch event: HTTP 500: Failed to run workflow dispatch (https://api.github.com/repos/KHOAILANG0926/jobi-app/actions/workflows/388182152/dispatches)
+- source70fe1c6 actions/runs 조회결과[]: migrations-apply실행생성없음, 운영배포/실제deploy-verify미실행. 이후재시도/우회안함. 실제운영배포0회.4824원본/캐시이번정상경로읽기증거없어미확인.
+- 운영Supabase직접접근(읽기포함)영구금지. 이전직접apply시도cancelled는절차실수로기록; 이후금지지시부터사용안함. 현재운영DB상태를직접조회하지않음.
 
 ## 2. 다음 할 일 3개
-1. #276 봇병합/master 반영 완료. #277 필수 검사 확인→Ready→봇 병합. 기존PC 해시 기준과 CI ripgrep 미설치 보완; SQL 원문 해시는 변경 없음.
-2. 그PR필수검사→봇병합→migrations-apply 실제실행확인. 실패하면원문그대로보고하고멈춤. 직접SQL/자동재시도금지.
-3. 성공후실제운영배포1회→deploy-verify/관리자E2E확인. 정상워크플로의읽기증거로4824원본·캐시좌표, 메인/상세확인. 실패/필수단계건너뜀과조건부정상생략구분. 아직운영완료아님.
+1. Lee에게정확한GitHubHTTP500와시작미생성을보고하고중단. SQL오류라고추정하거나workflow성공/운영시험통과라보고금지.
+2. 외부GitHub실행문제가해소되어정상migrations-apply가실행되면기록확인. 실패시원문보고후중단; 직접SQL/별도경로/자동재시도금지.
+3. 정상적용성공후에만운영배포1회→deploy-verify/관리자E2E. 정상워크플로읽기로그로4824원본·캐시와메인·상세확인. 현재미완료.
 
 ## 3. 필수 규칙
-- 직접운영DB접근금지. 명시한정상경로만. 사용자에게설계재승인요청금지.
-- 번호별보정금지·job_work_locations원본1곳·writer1개·캐시파생. 정밀도·근거·다중근무지 보존.
-- 직접확인/추정, 로컬합성/실제운영, 워크플로성공/시험실제통과구분. Secrets·STATUS·R7/R8·공개범위·화면틀보존.
+- 운영직접DB접근금지. 승인된정상PR/봇/migrations-apply경로만. Lee진행승인은유효하나이번외부실패중단지시우선.
+- source1곳/write1개/캐시파생/번호별보정금지/정밀도·근거·다중근무지보존. Secrets·STATUS·R7/R8·공개범위·화면틀보존.
+- 직접확인/추정, 로컬합성/운영실제, 워크플로성공/실제시험통과구분. 추가원인추정·불필요조사금지.

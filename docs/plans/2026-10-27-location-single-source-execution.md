@@ -44,3 +44,18 @@ Lee가 설계 및 2~5단계 실행을 확인했다. 이 기록은 운영 반영 
 기존 봇의 문구 차단을 없애지 않고, 이미 검토한 정확한 파일 경로와 원문 해시 1개만 trusted master에서 확인하는 준비 PR #276을 만든다. 준비 PR에는 앱이나 운영 SQL이 없다. 그 뒤 앱과 새 SQL·사후 점검을 같은 PR로 제출한다. 운영 `migrations-apply` 실패 시 원문 오류 그대로 보고하고 멈춘다. 정상 배포 뒤 실제 전수 원본/캐시/메인/상세 검증 전에는 완료라고 보고하지 않는다.
 
 DB 전환 PR의 사전 화면 CI는 BASE의 기존 공개 데이터 화면과 HEAD의 격리 PC/모바일 canonical 화면을 구분한다. 운영 HEAD를 검증했다는 뜻이 아니다. 실제 운영 전수 검사는 변경하지 않은 deploy-verify에서 진행한다.
+
+
+## 정상 경로 실행 결과: GitHub 시작 요청 실패로 중단
+
+[직접 확인] 준비 PR #276과 앱+이관 PR #277은 필수 검사 성공 후 봇으로 병합됐다. #277 운영 소스는 `70fe1c60dd8092b595938c0160bd714fded2b227`. 준비 PR의 Vercel 업로드는 생략됐다.
+
+이관 시작 요청은 봇 실행 [40420801113](https://github.com/KHOAILANG0926/jobi-app/actions/runs/40420801113)의 job121914436624에서 다음 원문 오류로 실패했다.
+
+```text
+could not create workflow dispatch event: HTTP 500: Failed to run workflow dispatch (https://api.github.com/repos/KHOAILANG0926/jobi-app/actions/workflows/388182152/dispatches)
+```
+
+[직접 확인] 해당 운영 SHA의 Actions 실행 목록 조회는 빈 배열이었다. `migrations-apply` 실행 자체가 생성되지 않았다. 운영 배포와 deploy-verify는 미실행이며 4824 원본/캐시의 정상 경로 사후 읽기 증거는 아직 없다. 직접 DB 접근·자동 재시도·다른 적용 경로 없이 중단했다.
+
+[추정] HTTP500의 내부 원인은 확인되지 않았다. 운영 SQL 실패나 실제 운영 이관 성공으로 단정하지 않는다.
