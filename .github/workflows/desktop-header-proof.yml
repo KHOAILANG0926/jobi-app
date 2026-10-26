@@ -1,6 +1,8 @@
 name: PC 헤더 운영 화면 캡처
 
 on:
+  push:
+    branches: [test/desktop-header-production-proof-20261026]
   workflow_run:
     workflows: ['Vercel 배포 (GitHub Actions에서 직접)']
     types: [completed]
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   capture:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
