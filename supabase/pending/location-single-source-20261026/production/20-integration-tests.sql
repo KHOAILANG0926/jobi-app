@@ -48,6 +48,7 @@ select pg_temp.expect_error(format('select public.set_job_pinned_location(%s,%L,
 -- Test actual SQL roles: direct table access, private calls, GUC spoofing.
 set role service_role;
 set app.location_writer='on';
+select pg_temp.expect_error('truncate public.job_work_locations cascade','42501');
 select pg_temp.expect_error(format('update public.job_work_locations set lat=22 where id=%s',:first_work),'42501');
 select pg_temp.expect_error(format('delete from public.job_work_locations where id=%s',:first_work),'42501');
 select pg_temp.expect_error(format('insert into public.job_work_locations(job_id,raw_address) values(%s,%L)',:first_job,'Spoof'),'42501');

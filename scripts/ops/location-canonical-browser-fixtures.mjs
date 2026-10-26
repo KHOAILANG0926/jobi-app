@@ -17,8 +17,10 @@ const scenarios=[
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined})
 const results=[]
 try {
+ for(const viewport of [{width:1440,height:1000},{width:390,height:844}]) {
  for(const fixture of scenarios) {
-  const context=await browser.newContext({viewport:{width:1440,height:1000}})
+  const proofName=`${fixture.name}-${viewport.width}`
+  const context=await browser.newContext({viewport,isMobile:viewport.width<760,hasTouch:viewport.width<760})
   const errors=[]
   await context.addInitScript(()=>localStorage.setItem('vgb:map-r1:viewport',JSON.stringify({center:{lat:21.1865,lng:106.077},zoom:16})))
   await context.route('**/rest/v1/**',async route=>{
@@ -58,7 +60,7 @@ try {
     await page.locator('.hme-map__job-picker button').first().click()
     await page.locator('.hme-job__actions').waitFor()
    }
-   await page.screenshot({path:`${out}/${fixture.name}-main.png`})
+   await page.screenshot({path:`${out}/${proofName}-main.png`})
    for(const j of fixture.jobs) {
     await page.goto(`${base}/viec-lam/sb-${j.id}`,{waitUntil:'domcontentloaded'})
     await page.locator('.jd2-page h1').waitFor()
@@ -66,11 +68,12 @@ try {
     await page.waitForFunction(n=>[...document.querySelectorAll('.jd2-vmap [data-location-points]')].flatMap(el=>JSON.parse(el.dataset.locationPoints)).length===n,points.length,{timeout:30000})
     const rendered=await page.locator('.jd2-vmap [data-location-points]').evaluateAll(els=>els.flatMap(el=>JSON.parse(el.dataset.locationPoints)))
     assertPoints(points,rendered,fixture.name+' detail complete source set '+j.id)
-    await page.screenshot({path:`${out}/${fixture.name}-detail-${j.id}.png`})
+    await page.screenshot({path:`${out}/${proofName}-detail-${j.id}.png`})
    }
    assert.deepEqual(errors,[],fixture.name+' page errors')
-   results.push({scenario:fixture.name,pass:true,jobs:fixture.jobs.length,points:expected.length})
+   results.push({scenario:fixture.name,viewport,pass:true,jobs:fixture.jobs.length,points:expected.length})
   }finally{await context.close()}
+ }
  }
 }finally{await browser.close();await writeFile(`${out}/result.json`,JSON.stringify({kind:'synthetic-browser-only',base,results},null,2))}
 console.log(JSON.stringify({kind:'synthetic-browser-only',results}))

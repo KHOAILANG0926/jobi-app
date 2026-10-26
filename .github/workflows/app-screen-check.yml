@@ -2,7 +2,9 @@ name: 실제 화면 검사 (PR, 병합 전 필수)
 
 # 배포 강제 규칙 DR3 (2026-10-15 사용자 지시): 화면 자동 검사를 통과하기 전에는 완료로 보지 않는다.
 # PR 코드를 빌드해 이 실행 안에서 띄우고(vite preview), 실제 브라우저(PC·모바일)로 메인·공고 상세를 연다.
-# 데이터는 운영 DB의 공개 조회(anon, 읽기만)를 쓴다. 키·Secret 불필요.
+# 일반 PR은 HEAD + 운영 공개 조회를 검사한다. 미적용 canonical migration PR은
+# BASE + 운영 스키마의 기존 실제 화면 검사와 HEAD + 격리 canonical 화면 검사를 구분한다.
+# 운영 HEAD 전수 검증은 migration 적용·배포 후 deploy-verify에서 수행한다.
 on:
   pull_request:
 
@@ -19,6 +21,29 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 이관 전 화면 검사 소스 구분
+        id: schema-mode
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          migration=supabase/migrations/20261026231445_location_single_source.sql
+          if git cat-file -e "$HEAD_SHA:$migration" 2>/dev/null && ! git cat-file -e "$BASE_SHA:$migration" 2>/dev/null; then
+            echo "canonical=true" >> "$GITHUB_OUTPUT"
+            echo "screen_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+            printf '### 이관 전 검사 범위\n- 운영 스키마 실제 화면: BASE `%s` (읽기 전용 공개 데이터)\n- 신규 canonical 화면: HEAD `%s` (격리 fixture, PC·모바일)\n- HEAD 운영 전수 검증: 이관·배포 후 deploy-verify. 이 PR 결과를 운영 반영 검증으로 간주하지 않음.\n' "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "canonical=false" >> "$GITHUB_OUTPUT"
+            echo "screen_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+            printf '### 실제 화면 검사 소스\n- HEAD `%s` + 운영 공개 데이터 (읽기 전용)\n' "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: 운영 스키마 호환 화면 소스 선택 (이관 PR만 BASE)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.schema-mode.outputs.screen_sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -82,4 +107,54 @@ jobs:
         with:
           name: menu-search-proof
           path: menu-search-proof/
+          retention-days: 14
+
+      - name: BASE 운영 스키마 실제 화면 근거 보존 (신규 HEAD 검증 아님)
+        if: always() && steps.schema-mode.outputs.canonical == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prerelease-base-live-layout-${{ github.event.pull_request.base.sha }}
+          path: |
+            app-smoke-result.json
+            app-smoke-screens/
+            layout-out/
+            preview.log
+          retention-days: 14
+
+      # The preceding live-data checks execute BASE code and BASE check scripts
+      # only for this schema-transition PR. Always restore HEAD before its checks.
+      - name: 이관 PR 신규 HEAD 소스 복원
+        if: steps.schema-mode.outputs.canonical == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: HEAD 격리 화면 의존성·빌드
+        if: steps.schema-mode.outputs.canonical == 'true'
+        env:
+          VITE_VIETMAP_TILEMAP_KEY: fixture-browser
+        run: |
+          npm ci
+          npm run build
+      - name: HEAD 격리 서버 시작 (BASE 서버와 별도 포트)
+        if: steps.schema-mode.outputs.canonical == 'true'
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4174 --strictPort > canonical-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4174/ >/dev/null && exit 0; sleep 1; done
+          cat canonical-preview.log; exit 1
+      - name: HEAD canonical 원본 0·1·여러 곳 실제 핀 (격리 PC·모바일)
+        if: steps.schema-mode.outputs.canonical == 'true'
+        run: BASE_URL=http://localhost:4174 SCREENSHOT_DIR=canonical-pr-proof node scripts/ops/location-canonical-browser-fixtures.mjs
+      - name: HEAD 헤더·관리자 이동 (격리 데이터)
+        if: steps.schema-mode.outputs.canonical == 'true'
+        run: |
+          BASE_URL=http://localhost:4174 node scripts/ops/desktop-header-check.mjs
+          BASE_URL=http://localhost:4174 node scripts/ops/admin-navigation-check.mjs
+      - name: HEAD 격리 canonical 검사 근거 보존 (운영 검증 아님)
+        if: always() && steps.schema-mode.outputs.canonical == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prerelease-head-canonical-proof-${{ github.sha }}
+          path: |
+            canonical-pr-proof/
+            canonical-preview.log
           retention-days: 14

@@ -1,16 +1,19 @@
 # Canonical location cutover
 
-`00-preview.sql` is read-only and must be reviewed before `10-apply.sql`. Only the
-root operator applies the exact reviewed SQL in one migration transaction. No
+`00-preview.sql` is read-only and must be reviewed before `10-apply.sql`. The normal PR/CI/bot migrations workflow applies the CLI-created
+`supabase/migrations/20261026231445_location_single_source.sql` using `psql -1`.
+No Supabase tool/direct SQL access is permitted, including reads. No
 production DDL/DML was executed while authoring these files. Never run the local
 fixtures against a remote database.
 
 Run isolated integration with:
 
 ```sh
-bash supabase/pending/location-single-source-20261026/production/run-local.sh
+bash supabase/pending/location-single-source-20261026/production/run-local.sh supabase/migrations/20261026231445_location_single_source.sql
 ```
 
+The runner defaults to the actual CLI migration file and applies it with `psql -1`,
+then runs `supabase/tests/location_single_source_production_check.sql`.
 The runner uses only the local Docker socket and creates/removes its own
 PostgreSQL 17/PostGIS container. It accepts no connection URL. The captured
 schema fixture contains every production column, generated PostGIS expression,

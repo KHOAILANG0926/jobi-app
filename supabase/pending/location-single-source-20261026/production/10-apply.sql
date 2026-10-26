@@ -117,7 +117,7 @@ create function location_private.guard_source_write() returns trigger language p
 end$$;
 create trigger trg_00_location_single_writer before insert or update or delete on public.job_work_locations
  for each row execute function location_private.guard_source_write();
-revoke insert,update,delete on public.job_work_locations from public,anon,authenticated,service_role;
+revoke insert,update,delete,truncate on public.job_work_locations from public,anon,authenticated,service_role;
 -- Table grants and column grants are distinct in PostgreSQL.
 do $$declare r record;begin
  for r in select grantee,column_name,privilege_type from information_schema.column_privileges

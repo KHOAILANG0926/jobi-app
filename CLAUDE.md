@@ -1,5 +1,11 @@
 # Viecganban 자동 작업 규칙
 
+## 운영 DB 직접 접근 금지 — Lee 2026-10-27 재확인 (10-13 결정)
+- Codex는 Supabase 도구 등으로 운영 DB에 직접 연결해 SQL을 실행하거나 조회하지 않는다. 앞으로도 같은 경로를 사용하지 않는다.
+- 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.
+- 파일 하나는 한 트랜잭션이며 충돌·근거 누락은 RAISE로 전체 취소한다. 운영 `migrations-apply` 실패 시 원문 오류 그대로 보고하고 멈춘다. 직접 SQL·별도 경로·자동 재시도로 우회하지 않는다.
+- 실제 좌표 확인은 정상 운영 검사/읽기 전용 공개 화면·API의 실행 증거로 한다. 로컬 폐기용 DB 시험은 운영 접근과 구분한다.
+
 이 파일은 GitHub Actions 등 자동화 환경에서 실행되는 Claude Code를 포함해,
 이 저장소에서 작업하는 모든 Claude Code 세션이 지켜야 할 최소 규칙이다.
 
