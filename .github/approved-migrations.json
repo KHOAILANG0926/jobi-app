@@ -1,0 +1,14 @@
+{
+  "approvals": [
+    {
+      "path": "supabase/migrations/20261026231445_location_single_source.sql",
+      "sha256": "2e8928cbcf97919ec1ac37a1df0300379e6267fce8cf98597de6de9dda108aaa",
+      "approvedBy": "Lee",
+      "approvedAt": "2026-10-27",
+      "approval": "Explicit approval of location single-source design and normal PR → CI → bot → migrations-apply route. Exact source includes TRUNCATE privilege revocation.",
+      "designSource": "https://github.com/KHOAILANG0926/jobi-app/blob/5f566121e3e6baf01f1fb8e6b4f18b4d05f79de9/docs/plans/2026-10-26-location-single-source.md",
+      "reviewedSqlSource": "https://github.com/KHOAILANG0926/jobi-app/blob/design/location-single-source-20261026/supabase/pending/location-single-source-20261026/production/10-apply.sql",
+      "scope": "Only this exact newly added migration. DROP POLICY replaces the location read policy; DELETE FROM is inside the archive runtime function, not a migration-time bulk deletion. No blanket destructive SQL approval."
+    }
+  ]
+}

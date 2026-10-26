@@ -23,6 +23,14 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     steps:
+      # Never check out the candidate PR: only trusted master supplies executable code.
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: GitHub Actions bot 인증으로 안전 병합
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,8 +45,9 @@ jobs:
             [ "$num" -ge 251 ] || continue
             echo "검사: PR #$num ($sha)"
             # github-actions[bot]이 임의 외부 fork 소스를 실행하지 않는다: API 데이터만 검사.
-            gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate > files.json
-            if jq -e '.[] | select((.filename|startswith("supabase/migrations/")) and ((.patch // "") | test("(?im)^\\+(?!\\s*--)\\s*.*\\b(drop[[:space:]]+(table|column|schema|policy)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\\b")))' files.json >/dev/null; then
+            gh api "repos/$REPO/pulls/$num/files?per_page=100" --paginate --slurp | jq 'add' > files.json
+            node scripts/approved-migrations.mjs files.json > approved-migrations.json
+            if jq --slurpfile approved approved-migrations.json -e '.[] | select((.filename as $path | $approved[0] | index($path) | not) and (.filename|startswith("supabase/migrations/")) and ((.patch // "") | test("(?im)^\\+(?!\\s*--)\\s*.*\\b(drop[[:space:]]+(table|column|schema|policy)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\\b")))' files.json >/dev/null; then
               echo "::notice::PR #$num 파괴적인 migration: Lee 결정 필요, 자동병합 금지"; continue
             fi
             # 변경 패치가 잘린 migration도 무조건 자동병합 보류
