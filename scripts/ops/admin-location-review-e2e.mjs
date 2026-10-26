@@ -65,25 +65,6 @@ try {
   // The public-only queue must never include private synthetic jobs.
   for(const id of ids) assert.equal(await queue.locator('article').filter({hasText:'#'+id+' —'}).count(),0)
   console.log('PASS: real administrator login and public queue; private test jobs excluded')
-  await page.getByRole('button',{name:/Jobs/}).click()
-  assert.equal(new URL(page.url()).searchParams.get('tab'),'jobs')
-  await page.goBack()
-  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
-  assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
-  await page.goForward()
-  assert.equal(new URL(page.url()).searchParams.get('tab'),'jobs')
-  await page.goBack()
-  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
-  const mapsLink=page.getByRole('link',{name:'Xem địa chỉ gốc trên Google Maps'}).first()
-  assert.equal(await mapsLink.getAttribute('target'),'_blank')
-  const adminUrl=page.url()
-  const opened=page.waitForEvent('popup')
-  await mapsLink.click()
-  const maps=await opened
-  await maps.close()
-  await page.bringToFront()
-  assert.equal(page.url(),adminUrl)
-  console.log('PASS: real admin URL tab survives reload, back/forward and Google popup return')
   // Seed only a pending candidate using the logged-in admin JWT, then approve by real UI click.
   // No route interception, fabricated queue response, or publication of synthetic jobs.
   const session=await (await login).json()
@@ -95,9 +76,31 @@ try {
   const candidate=await checked(admin.rpc('admin_add_location_candidate',{
     p_job_id:ids[0],p_address:address,p_lat:expected.lat,p_lng:expected.lng,
     p_precision:'building',p_source:'other',p_evidence:'Private automated E2E candidate',
-    p_evidence_urls:[],p_work_location_id:null
+    p_evidence_urls:['https://www.google.com/maps?q=21.1861,106.0763'],p_work_location_id:null
   }))
   assert.ok(candidate.id,'pending candidate not created')
+  await page.reload()
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  await page.getByRole('button',{name:/Jobs/}).click()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'jobs')
+  await page.goBack()
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
+  await page.goForward()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'jobs')
+  await page.goBack()
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  // Use this private candidate's evidence link even if Lee has resolved the entire public queue.
+  const mapsLink=page.locator('a[href="https://www.google.com/maps?q=21.1861,106.0763"]').first()
+  assert.equal(await mapsLink.getAttribute('target'),'_blank')
+  const adminUrl=page.url()
+  const opened=page.waitForEvent('popup')
+  await mapsLink.click()
+  const maps=await opened
+  await maps.close()
+  await page.bringToFront()
+  assert.equal(page.url(),adminUrl)
+  console.log('PASS: real admin URL tab survives reload, back/forward and Google popup return')
   await page.reload()
   await page.getByRole('button',{name:/Vị trí/}).click()
   const card=page.locator('article.admin-location-card').filter({hasText:'#'+ids[0]+' ·'}).first()
