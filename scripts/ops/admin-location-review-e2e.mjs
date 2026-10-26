@@ -44,11 +44,23 @@ try {
   await page.locator('button[type="submit"]').click()
   await page.waitForURL(/\/admin(?:[?#]|$)/,{timeout:30000})
   await page.getByRole('button',{name:/Vị trí/}).click()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  const queueReply=page.waitForResponse(r=>r.url().includes('action=location-review') && r.request().method()==='GET')
+  await page.reload()
+  const pendingReply=await (await queueReply).json()
+  assert.ok(Array.isArray(pendingReply.pending),'queue reply missing pending jobs')
   const queue=page.locator('section').filter({has:page.getByRole('heading',{name:/Vị trí cần xác nhận/})})
-  await queue.getByRole('button',{name:'Làm mới'}).waitFor({state:'visible'})
+  await queue.getByRole('heading',{name:`Vị trí cần xác nhận (${pendingReply.pending.length})`,exact:true}).waitFor({state:'visible'})
   for(const id of [4824,4828,4879,4878]) {
-    await queue.locator('article.admin-location-card').filter({hasText:'#'+id+' —'}).waitFor({state:'visible',timeout:30000})
-    console.log('PASS: Vị trí pending DOM visible #'+id)
+    const row=queue.locator('article.admin-location-card').filter({hasText:'#'+id+' —'})
+    if(pendingReply.pending.some(job=>job.jobId===id)) {
+      await row.waitFor({state:'visible',timeout:30000})
+      console.log('PASS: Vị trí pending DOM visible #'+id)
+    } else {
+      assert.equal(await row.count(),0,'resolved/non-public job must stay out of pending DOM')
+      console.log('PASS: not pending in live queue or DOM #'+id)
+    }
   }
   // The public-only queue must never include private synthetic jobs.
   for(const id of ids) assert.equal(await queue.locator('article').filter({hasText:'#'+id+' —'}).count(),0)
@@ -64,16 +76,49 @@ try {
   const candidate=await checked(admin.rpc('admin_add_location_candidate',{
     p_job_id:ids[0],p_address:address,p_lat:expected.lat,p_lng:expected.lng,
     p_precision:'building',p_source:'other',p_evidence:'Private automated E2E candidate',
-    p_evidence_urls:[],p_work_location_id:null
+    p_evidence_urls:['https://www.google.com/maps?q=21.1861,106.0763'],p_work_location_id:null
   }))
   assert.ok(candidate.id,'pending candidate not created')
+  await page.reload()
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  await page.getByRole('button',{name:/Jobs/}).click()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'jobs')
+  await page.goBack()
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
+  await page.goForward()
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'jobs')
+  await page.goBack()
+  await page.getByRole('heading',{name:/Vị trí cần xác nhận/}).waitFor()
+  // Use this private candidate's evidence link even if Lee has resolved the entire public queue.
+  const mapsLink=page.locator('a[href="https://www.google.com/maps?q=21.1861,106.0763"]').first()
+  assert.equal(await mapsLink.getAttribute('target'),'_blank')
+  const adminUrl=page.url()
+  const opened=page.waitForEvent('popup')
+  await mapsLink.click()
+  const maps=await opened
+  await maps.close()
+  await page.bringToFront()
+  assert.equal(page.url(),adminUrl)
+  console.log('PASS: real admin URL tab survives reload, back/forward and Google popup return')
   await page.reload()
   await page.getByRole('button',{name:/Vị trí/}).click()
   const card=page.locator('article.admin-location-card').filter({hasText:'#'+ids[0]+' ·'}).first()
   await card.waitFor({state:'visible',timeout:30000})
+  assert.equal(await card.locator('a[href="/viec-lam/sb-'+ids[0]+'"]').getAttribute('target'),'_blank')
+  const approve=card.getByRole('button',{name:'Duyệt vị trí',exact:true})
+  await approve.scrollIntoViewIfNeeded()
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))
+  const scrollBefore=await page.evaluate(()=>scrollY)
   const approvedResponse=page.waitForResponse(r=>r.url().includes('/rpc/admin_review_location_candidate') && r.request().method()==='POST')
-  await card.getByRole('button',{name:'Duyệt vị trí',exact:true}).click()
+  await approve.click()
   assert.equal((await approvedResponse).ok(),true,'real approval RPC failed')
+  await card.waitFor({state:'detached'})
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))
+  const scroll=await page.evaluate(()=>({top:scrollY,max:document.documentElement.scrollHeight-innerHeight}))
+  assert.ok(Math.abs(scroll.top-Math.min(scrollBefore,scroll.max))<=2,`approval moved scroll ${scrollBefore} -> ${scroll.top}`)
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'locations')
+  console.log('PASS: real approval preserved locations tab and scroll position')
   console.log('PASS: private candidate approved by actual administrator click')
   const testApproved=await checked(db.from('job_location_candidates')
     .select('id,job_id,lat,lng,status,reviewed_by,reviewed_at')

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useJobs } from '../../context/JobsContext'
 import { findRegionCenter } from '../../lib/jobCoords'
@@ -83,13 +83,23 @@ export function AdminLocationReviewQueue(){
   const [jobs,setJobs]=useState<PendingJob[]>([])
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(true)
-  const load=async()=>{
+  const restoreScroll=useRef<{left:number;top:number}|null>(null)
+  useLayoutEffect(()=>{
+    if(!restoreScroll.current)return
+    window.scrollTo({...restoreScroll.current,behavior:'instant'})
+    restoreScroll.current=null
+  },[jobs])
+  const load=async(preserveScroll=true)=>{
     setBusy(true)
-    try {const data=await request('list') as ReviewReply;setJobs(data.pending);setError('')}
+    try {
+      const data=await request('list') as ReviewReply
+      if(preserveScroll)restoreScroll.current={left:window.scrollX,top:window.scrollY}
+      setJobs(data.pending);setError('')
+    }
     catch(e){setError(e instanceof Error?e.message:String(e))}
     finally{setBusy(false)}
   }
-  useEffect(()=>{void load()},[])
+  useEffect(()=>{void load(false)},[])
   return <section className="admin-panel">
     <h2>Vị trí cần xác nhận ({jobs.length})</h2>
     <p>Chỉ những tin chưa có tọa độ chính xác. Sắp xếp từ cũ nhất.</p>

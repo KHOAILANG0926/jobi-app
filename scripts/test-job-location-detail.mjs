@@ -36,21 +36,42 @@ const SUPABASE_URL = 'https://edhuesdnuxlbcfephutq.supabase.co'
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkaHVlc2RudXhsYmNmZXBodXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDg5MTcsImV4cCI6MjA5NDU4NDkxN30.mnbMkGLy8UwFaOg6qdkDaV6DGZ2LyCSfOhJVB_48_HE'
 
-async function fetchGroundTruth(numericId) {
-  const headers = { apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-  const [jobRows, locRows] = await Promise.all([
-    fetch(`${SUPABASE_URL}/rest/v1/local_jobs?id=eq.${numericId}&select=lat,lng`, { headers }).then((r) => r.json()),
-    fetch(`${SUPABASE_URL}/rest/v1/job_work_locations?job_id=eq.${numericId}&select=lat,lng`, { headers }).then((r) => r.json()),
-  ])
-  const job = Array.isArray(jobRows) ? jobRows[0] : null
-  const workLocations = Array.isArray(locRows) ? locRows : []
+function locationGroundTruth(job, workLocations, approvals) {
+  const normalize=value=>String(value??'').normalize('NFC').toLowerCase().replace(/\s+/g,' ').trim()
+  // Approved coordinates live independently of legacy work-location lat/lng.
+  // Count each current work location once, rejecting revoked/stale/imprecise evidence.
+  const locations=workLocations.length?workLocations:job?.location?[{raw_address:job.location}]:[]
+  const approved=location=>approvals.some(a=>a.status==='approved' &&
+    normalize(a.company_snapshot)===normalize(job?.company) &&
+    normalize(a.address_snapshot)===normalize(location.raw_address) &&
+    ['entrance','building','site'].includes(a.place_precision) &&
+    Number.isFinite(a.lat) && Number.isFinite(a.lng))
+  const approvedLocationCount=locations.filter(approved).length
   return {
     hasDirectCoords: !!job && job.lat != null && job.lng != null,
-    workLocationCount: workLocations.length,
-    mappableWorkLocationCount: workLocations.filter((r) => r.lat != null && r.lng != null).length,
+    workLocationCount: workLocations.length || approvedLocationCount,
+    approvedLocationCount,
+    mappableWorkLocationCount: locations.filter(r=>(r.lat!=null && r.lng!=null) || approved(r)).length,
   }
 }
 
+async function fetchGroundTruth(numericId) {
+  const headers = { apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+  const readRows=async path=>{
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers})
+    if(!response.ok)throw new Error(`Ground truth HTTP ${response.status}`)
+    const rows=await response.json()
+    if(!Array.isArray(rows))throw new Error('Ground truth is not a row list')
+    return rows
+  }
+  const [jobRows,workLocations,approvals]=await Promise.all([
+    readRows(`local_jobs?id=eq.${numericId}&select=lat,lng,company,location`),
+    readRows(`job_work_locations?job_id=eq.${numericId}&select=raw_address,lat,lng`),
+    readRows(`job_location_candidates?job_id=eq.${numericId}&status=eq.approved&select=company_snapshot,address_snapshot,lat,lng,place_precision,status`),
+  ])
+  if(!jobRows[0])throw new Error('Public job missing from ground truth')
+  return locationGroundTruth(jobRows[0],workLocations,approvals)
+}
 
 
 async function readJobDetail(page, href) {
@@ -122,13 +143,14 @@ function checkInvariants(href, d, truth) {
     // 정책(예: sb-4369는 주소 1건, 마커 0건이 정상). 항목 수와 마커 수를 1:1로
     // 강제하던 예전 불변조건은 이 정책 도입 전 가정이라 폐기한다.
     const expectedMarkers = truth ? truth.mappableWorkLocationCount : null
-    if (expectedMarkers !== null && (d.mapUnavailable ? d.plannedMarkerCount : d.markerCount) !== expectedMarkers) {
-      failures.push(`${href}: DB상 좌표 있는(mappable) 근무지 ${expectedMarkers}건인데 지도 마커는 ${d.markerCount}개 — 일치해야 한다`)
+    const observedMarkers=d.mapUnavailable?d.plannedMarkerCount:d.markerCount
+    if (expectedMarkers !== null && observedMarkers !== expectedMarkers) {
+      failures.push(`${href}: DB상 사용 가능한 좌표(승인 포함) ${expectedMarkers}건, ${d.mapUnavailable?'키 누락 시 계획':'표시'} 마커 ${observedMarkers}개 — 일치해야 한다`)
     }
     if (d.addrItems.some((a) => !a || a.length < 5)) {
       failures.push(`${href}: address list contains an empty/too-short entry: ${JSON.stringify(d.addrItems)}`)
     }
-    if (expectedMarkers >= 1 && !d.mapUnavailable && !d.note.includes(String(expectedMarkers))) {
+    if (expectedMarkers > 1 && !d.mapUnavailable && !d.note.includes(String(expectedMarkers))) {
       failures.push(`${href}: caption must mention the mappable work-location count (${expectedMarkers}), got "${d.note}"`)
     }
     if (truth && truth.workLocationCount === 0) {
@@ -185,9 +207,22 @@ function checkInvariants(href, d, truth) {
 }
 
 if (baseUrl === '--self-test') {
+  const sourceJob={company:'CTY TEST',location:'KCN TEST',lat:null,lng:null}
+  const sourceWork=[{raw_address:'KCN TEST',lat:null,lng:null}]
+  const approval={status:'approved',company_snapshot:'CTY TEST',address_snapshot:'KCN TEST',lat:21.1,lng:106.1,place_precision:'building'}
+  const approvedTruth=locationGroundTruth(sourceJob,sourceWork,[approval])
+  if(approvedTruth.mappableWorkLocationCount!==1)throw new Error('Approved point must count even when legacy work coordinates are null')
+  if(locationGroundTruth(sourceJob,[{...sourceWork[0],lat:21.1,lng:106.1}],[approval]).mappableWorkLocationCount!==1)throw new Error('Legacy and approved coordinates for one work row must not double count')
+  for(const invalid of [{...approval,status:'revoked'},{...approval,company_snapshot:'OTHER'},{...approval,address_snapshot:'OTHER'},{...approval,place_precision:'area'},{...approval,lat:null}]) {
+    if(locationGroundTruth(sourceJob,sourceWork,[invalid]).mappableWorkLocationCount!==0)throw new Error('Invalid/stale approval must not count')
+  }
+  if(locationGroundTruth(sourceJob,[],[approval]).workLocationCount!==1)throw new Error('Approved source address without a work row must count')
   const base = { addrItems: [], singleAddr: null, note: '', markerCount: 0, unknownMsg: null, mapContainerCount: 0, gmapsLinkCount: 0, viewOnMapCount: 0, directionsCount: 0 }
   const area = { ...base, areaState: true, areaNotes: 'Khu vực — chưa xác minh vị trí nhà xưởng', visibleAddresses: ['KCN Yên Phong, Bắc Ninh'], markerCount: 1, mapContainerCount: 1 }
   const cases = [
+    ['single approved marker uses existing singular caption', {...base,addrItems:['KCN TEST'],note:'Vị trí nơi làm việc đã được xác minh trên bản đồ.',markerCount:1},true,approvedTruth],
+    ['multiple verified markers require numerical caption', {...base,addrItems:['KCN TEST','Other address'],note:'Verified',markerCount:2},false,{...approvedTruth,workLocationCount:2,mappableWorkLocationCount:2}],
+    ['approved point with null legacy coordinates', {...base,addrItems:['KCN TEST'],note:'Vị trí đã xác minh',mapUnavailable:true,plannedMarkerCount:1},true,approvedTruth],
     ['explicit unverified area', area, true],
     ['area without warning', { ...area, areaNotes: '' }, false],
     ['area without address', { ...area, visibleAddresses: [] }, false],
@@ -199,8 +234,8 @@ if (baseUrl === '--self-test') {
     ['unknown with mapped address', { ...base, unknownMsg: 'unknown', mapContainerCount: 1, plannedMarkerCount: 1, mapUnavailable: true }, false],
     ['fabricated precise marker', { ...base, singleAddr: 'Bắc Ninh', markerCount: 1, directionsCount: 1 }, false],
   ]
-  for (const [name, value, pass] of cases) {
-    const errors = checkInvariants('/fixture', value, { workLocationCount: 0, mappableWorkLocationCount: 0, hasDirectCoords: false })
+  for (const [name, value, pass, truth] of cases) {
+    const errors = checkInvariants('/fixture', value, truth || { workLocationCount: 0, mappableWorkLocationCount: 0, hasDirectCoords: false })
     if ((errors.length === 0) !== pass) throw new Error('Location fixture failed: ' + name + ': ' + errors.join('; '))
     console.log('Location fixture PASS: ' + name)
   }
@@ -232,7 +267,7 @@ try {
       try {
         truth = await fetchGroundTruth(idMatch[1])
       } catch (err) {
-        console.error(`${href}: could not fetch DB ground truth (${err.message}) — skipping DB cross-check for this job`)
+        failures.push(`${href}: could not fetch DB ground truth (${err.message})`)
       }
     }
     results.push({ href, ...d, truth })
