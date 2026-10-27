@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { RADIUS_MAX_KM, RADIUS_MIN_KM } from '../../lib/homeMapFilters'
 import { normalizeSearchRadius } from '../../lib/homeMapSearch'
 
 export default function SearchRadiusInput({ value, onChange }: { value: number; onChange: (km: number) => void }) {
-  const [draft, setDraft] = useState(String(Math.round(value * 1000)))
-  useEffect(() => { setDraft(String(Math.round(value * 1000))) }, [value])
+  const meters = String(Math.round(value * 1000))
+  const [edit, setEdit] = useState({ value, text: meters })
+  // Reset during rendering so a preset and its meter input commit together.
+  // A passive effect briefly committed the previous draft (20 km / 400 m).
+  if (edit.value !== value) setEdit({ value, text: meters })
+  const draft = edit.value === value ? edit.text : meters
+  const setDraft = (text: string) => setEdit({ value, text })
   const apply = () => {
     const parsed = Number(draft.trim().replace(',', '.'))
     if (!draft.trim() || !Number.isFinite(parsed)) { setDraft(String(Math.round(value * 1000))); return }

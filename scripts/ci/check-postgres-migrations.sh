@@ -15,6 +15,10 @@ for file in "${changed[@]}"; do
     bash supabase/pending/location-single-source-20261026/production/check-hook-compatibility-local.sh
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261027042533_location_company_index_execute.sql' ]]; then
+    bash supabase/pending/location-single-source-20261026/production/run-local.sh supabase/migrations/20261026231445_location_single_source.sql "$file"
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
