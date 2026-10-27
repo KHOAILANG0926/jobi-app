@@ -162,3 +162,20 @@ console.log('jobDetailSections shown-above assertions passed')
   assert(kda.sections.find((s) => s.key === '05')?.lines.includes('- Có xe đưa đón.') === true, 'KDA 셔틀 줄 05 유지')
 }
 console.log('jobDetailSections AI-kind regression assertions passed')
+
+// Lee 2026-10-27: company/contractor bonuses and abbreviated base pay are pay details.
+{
+  const { lineBucket, isSalaryTotalRepeat } = await import('./jobDetailSections.ts')
+  for (const line of ['CTY - ABC THƯỞNG 5.000.000Đ', 'Công ty thưởng 2 triệu', 'Nhà thầu thưởng 500k', 'LCB + PC: 6.000.000đ']) {
+    assert(lineBucket(line, '07') === '04', 'bonus/base pay → 04: ' + line)
+    assert(!isSalaryTotalRepeat(line, '5 - 6 triệu'), 'pay breakdown survives same-amount total: ' + line)
+  }
+  assert(lineBucket('Tuyển: Chính Thức và Thời Vụ', '07') === '03', 'employment type → 03')
+  assert(lineBucket('Hỗ trợ hồ sơ', '07') === '06', 'documents support → 06')
+  assert(lineBucket('Công việc: Làm ngồi, phòng thường', '07') === '05', 'work environment is not a specific duty')
+  assert(lineBucket('Địa chỉ: KCN ABC (Có KTX và hỗ trợ tìm trọ)', '07') === '05', 'mixed address retains housing benefits')
+  assert(lineBucket('Công việc cụ thể: chưa ghi trong tin gốc', '07') === '01', 'approved missing-duty notice → 01')
+  assert(lineBucket('Tuyển qua nhà thầu', '07') === '06', 'contractor disclosure → 06')
+  assert(lineBucket('Công việc: Lắp ráp tai nghe', '01') === '01', 'specific work not moved to benefits')
+  assert(lineBucket('Cty ABC, phòng thường', '07') === '07', 'ordinary room is not a monetary bonus')
+}

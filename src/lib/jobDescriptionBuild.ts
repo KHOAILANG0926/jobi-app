@@ -68,6 +68,8 @@ export function cleanSourceText(text: string | null | undefined): CleanResult {
 
 export interface BuildContext extends FillContext, Pick<ShownAbove, 'values' | 'valueGroups'> {
   salary?: string | null
+  /** Explicit reviewer decision, never inferred from an industrial-park address alone. */
+  dutiesUnspecified?: boolean
   /** 저장된 줄 번호표(detail_line_kinds): lineKey → 칸. Lee가 정한 것 + AI가 정한 것. 단어 규칙이 못 정한 줄에 쓴다(Lee가 정한 줄은 항상). */
   lineKinds?: Record<string, { section: DetailTextKey; by: 'ai' | 'lee' }>
 }
@@ -77,7 +79,12 @@ export interface BuildResult {
   lines: FillLine[]
   unclassified: FillLine[]
   dropped: Array<{ line: string; reason: CleanDrop | 'salary_total_repeat' | 'shown_above' | 'duplicate' }>
+  /** Lee-approved disclosures, kept distinct from verbatim source lines. */
+  annotations: Array<{ key: DetailTextKey; line: string }>
 }
+
+export const UNSPECIFIED_DUTIES_NOTICE = 'Công việc cụ thể: chưa ghi trong tin gốc'
+export const CONTRACTOR_NOTICE = 'Tuyển qua nhà thầu'
 
 /** 같은 줄인가: 서로가 서로를 거의 다 덮을 때만(긴 소개 문단이 짧은 다른 줄을 '덮는다'고 지우지 않게 — #4879 '- Nam/nữ, tuổi từ 18 đến 45'). */
 export function sameLine(a: string, b: string): boolean {
@@ -101,8 +108,23 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
       lines.push(item)
     }
   }
-  const description = ORDER.filter((key) => lines.some((l) => l.key === key))
-    .map((key) => [FILL_HEADINGS[key], ...lines.filter((l) => l.key === key).map((l) => l.line)].join('\n'))
+  const annotations: BuildResult['annotations'] = []
+  if (ctx.dutiesUnspecified && !lines.some(l => l.line === UNSPECIFIED_DUTIES_NOTICE)) {
+    annotations.push({ key: '01', line: UNSPECIFIED_DUTIES_NOTICE })
+  }
+  // A contractor paying a joining bonus is a recruitment intermediary, not a candidate fee.
+  // Do not interpret negated mentions ("không qua môi giới") as intermediary recruitment.
+  const throughContractor = sources.some(src => String(src.text ?? '').split(/\r?\n/).some(line => {
+    const text = bare(line)
+    return [...text.matchAll(/\b(?:nha thau (?:thuong|tuyen)|tuyen qua (?:nha thau|moi gioi))\b/g)]
+      .some(match => !/\b(?:khong|ko|chua)(?:\s+qua)?\s*$/.test(text.slice(0, match.index)))
+  }))
+  if (throughContractor && !lines.some(l => l.line === CONTRACTOR_NOTICE)) {
+    annotations.push({ key: '06', line: CONTRACTOR_NOTICE })
+  }
+  const display = [...lines, ...annotations]
+  const description = ORDER.filter((key) => display.some((l) => l.key === key))
+    .map((key) => [FILL_HEADINGS[key], ...display.filter((l) => l.key === key).map((l) => l.line)].join('\n'))
     .join('\n')
-  return { description, lines, unclassified: lines.filter((l) => l.how === 'unclassified'), dropped }
+  return { description, lines, unclassified: lines.filter((l) => l.how === 'unclassified'), dropped, annotations }
 }
