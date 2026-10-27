@@ -7,7 +7,7 @@ import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
-import { buildDescriptionFromSources } from '../../src/lib/jobDescriptionBuild.ts'
+import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../src/lib/jobDescriptionBuild.ts'
 import { salaryFromSource } from '../../src/lib/sourceSalary.ts'
 
 const { SUPABASE_DB_URL } = process.env
@@ -52,6 +52,8 @@ try {
       }
       const current = String(job.description ?? '')
       const ctx = { title: job.title, company: job.company, salary: job.salary,
+        // Preserve the explicit reviewed notice on rebuild. Never infer factory status from VSIP/KCN.
+        dutiesUnspecified: current.split(/\r?\n/).some(line => line.trim() === UNSPECIFIED_DUTIES_NOTICE),
         values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
         valueGroups: [[job.hours, job.work_days]], lineKinds: LINE_KINDS, phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses] }
       const sources = [{ name: 'source_text', text: job.source_text }, { name: 'ocr_text', text: job.ocr_text }]
@@ -62,7 +64,7 @@ try {
         if (b.description.trim()) next = b.description
         record = { mode: 'rebuild', version: FILL_VERSION, checked_at: new Date().toISOString(),
           unclassified: b.unclassified.map((u) => u.line), still_missing: [],
-          dropped: b.dropped.map(({ line, reason }) => ({ line, reason })) }
+          dropped: b.dropped.map(({ line, reason }) => ({ line, reason })), annotations: b.annotations }
         if (next !== current) {
           // 처음 한 번만 원래 글을 보관(되돌릴 수 있게). 공개 접근 없는 백업 표.
           await client.query(

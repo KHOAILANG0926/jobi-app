@@ -41,7 +41,7 @@ try {
     order by id`)
   for (const job of rows) {
     const source = [job.source_text, job.ocr_text].filter(Boolean).join('\n')
-    const hash = createHash('md5').update(MODEL + '|' + source).digest('hex')
+    const hash = createHash('md5').update(MODEL + '|' + JSON.stringify(BENEFIT_CODES) + '|' + source).digest('hex')
     const lines = job.unclassified.filter((l) => l && !known.has(lineKey(l)))
     const needBenefits = job.benefits_hash !== hash
     if (!lines.length && !needBenefits) continue

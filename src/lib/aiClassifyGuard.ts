@@ -23,6 +23,7 @@ export const BENEFIT_CODES = {
   meal_provided: { label: 'Ăn ca', meaning: 'employer provides meals or meal allowance during shift' },
   fuel: { label: 'Xăng xe', meaning: 'fuel / petrol / commuting transport money support' },
   housing: { label: 'Nhà ở', meaning: 'cash housing / rent allowance (not a dormitory)' },
+  housing_search: { label: 'Hỗ trợ tìm trọ', meaning: 'help finding a room or accommodation; not cash rent allowance and not necessarily a dormitory' },
   attendance: { label: 'Chuyên cần', meaning: 'attendance / diligence bonus' },
   productivity: { label: 'Năng suất', meaning: 'productivity / output / KPI bonus' },
 } as const

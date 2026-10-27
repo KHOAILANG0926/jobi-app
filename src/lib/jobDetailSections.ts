@@ -62,7 +62,7 @@ export function salaryAmounts(text: string | null | undefined): number[] {
   return out.filter((n) => Number.isFinite(n) && n > 0)
 }
 // 급여 "구성(내역)"을 나타내는 말 — 이런 말이 있으면 총액과 숫자가 같아도 남긴다.
-const SALARY_BREAKDOWN = /\b(?:co ban|phu cap|tro cap|ho tro|thuong|tang ca|lam them|chuyen can|tham nien|nang suat|an ca|com|xang|nha o|ca ngay|ca dem|theo ngay|theo gio|\/h|\/gio|\/ngay|\/tuan|bao hiem|bhxh|thu viec|kpi|doanh so|hoa hong)\b/
+const SALARY_BREAKDOWN = /\b(?:lcb|co ban|phu cap|tro cap|ho tro|thuong|tang ca|lam them|chuyen can|tham nien|nang suat|an ca|com|xang|nha o|ca ngay|ca dem|theo ngay|theo gio|\/h|\/gio|\/ngay|\/tuan|bao hiem|bhxh|thu viec|kpi|doanh so|hoa hong)\b/
 const SALARY_LABEL_ONLY = /^(?:luong toi thieu|luong toi da|muc luong|luong|thu nhap|hinh thuc tra luong)\s*:?$/
 /** 상단 급여와 같은 금액만 다시 쓴 줄 또는 값 없는 급여 이름표 줄인가(2026-10-25 Lee). */
 export function isSalaryTotalRepeat(line: string, topSalary: string | null | undefined): boolean {
@@ -102,6 +102,13 @@ export function headingOf(line: string) {
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
 export function lineBucket(line: string, current: DetailTextKey): DetailTextKey {
   const s = bare(line)
+  // Lee 2026-10-27: source-based rules, no company/job-ID exceptions or invented duties.
+  if (/^(?:cty|cong ty|nha thau)\b.*\bthuong\s+\d/.test(s) || /^lcb\b/.test(s)) return '04'
+  if (/^tuyen\s*:\s*(?:chinh thuc|thoi vu)\b/.test(s)) return '03'
+  if (/^(?:ho tro ho so|tuyen qua nha thau)\b/.test(s)) return '06'
+  if (/^cong viec cu the: chua ghi trong tin goc$/.test(s)) return '01'
+  if (/^(?:cong viec:\s*)?lam ngoi,\s*phong thuong$/.test(s)) return '05'
+  if (/^(?:dia chi|dia diem lam viec)\s*:/.test(s) && /\b(?:ktx|ky tuc xa|ho tro tim tro)\b/.test(s)) return '05'
   if (/^(?:ca ngay|ca dem|luong|thuong|chuyen can|phu cap|tro cap|muc luong|tham nien|thu nhap|hinh thuc tra luong)\b/.test(s) || /^\d[\d.,]*\s*(?:trieu|dong|vnd|k)(?:\b|\/)/.test(s)) return '04'
   if (/^(?:co xe dua don|xe dua don|duoc mang dien thoai|co ky tuc xa|ky tuc xa|co bua an|bua an|ho tro an|bao hiem|phuc loi)\b/.test(s)) return '05'
   // 급여·복리후생이 섞인 칸(04) 안의 근무환경 설명은 05로(예: "Làm ngồi, thoải mái. Không bắt buộc tăng ca.").

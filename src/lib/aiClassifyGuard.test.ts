@@ -36,3 +36,10 @@ assert(at('NAM , NỮ (14-50t)') === '02', 'AI 번호표 → 02')
 assert(at('Có xe đưa đón') === '07', 'Lee 번호표가 단어 규칙(05)을 이김')
 assert(b.unclassified.length === 0, '번호표가 있으면 칸 못 정한 줄 없음')
 console.log('aiClassifyGuard.test.ts: 목록·원문 밖 답 버림, 부정 문장, 저장된 번호표·Lee 우선 검사 통과')
+
+const housingSource = 'Có KTX và hỗ trợ tìm trọ'
+const housingResult = guardAiResult({ benefits: [
+  { code: 'dormitory', evidence: 'Có KTX' },
+  { code: 'housing_search', evidence: 'hỗ trợ tìm trọ' },
+] }, { lines: [], source: housingSource })
+assert(housingResult.benefits.map(b => b.code).join(',') === 'dormitory,housing_search', 'room search is distinct from cash rent support')
