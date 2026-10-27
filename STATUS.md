@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-26 08:47 (VN)**
-- 기준 커밋: `9ecfbc5` (test: read admin login response before page reload (#272))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40255890142
+- 생성 시각: **2026-10-27 09:27 (VN)**
+- 기준 커밋: `70fe1c6` (fix: 위치 원본 단일화와 자동 이관·지도 검증 (#277))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40438442655
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -20,19 +20,22 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 79/79 파일 통과 |
+| 테스트 `npm test` | ✅ 81/81 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `e60c5a7` · 상태 **success** · 2026-10-26 07:25 (VN)
-- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
+- 마지막 Production 배포: `70fe1c6` · 상태 **success** · 2026-10-27 06:42 (VN)
+- master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #277 | 2026-10-27 06:35 (VN) | `70fe1c6` | fix: 위치 원본 단일화와 자동 이관·지도 검증 |
+| #276 | 2026-10-27 06:23 (VN) | `2ab3f8f` | ci: 승인된 위치 이관 SQL 한 파일의 해시 검증 경로 |
+| #273 | 2026-10-26 13:12 (VN) | `6affdc2` | fix: PC 헤더 버튼 정리와 기업 메뉴 탭 연결 |
 | #272 | 2026-10-26 07:35 (VN) | `9ecfbc5` | test: 관리자 새로고침 전 로그인 응답 읽기 (추가 배포 없음) |
 | #270 | 2026-10-26 07:24 (VN) | `e60c5a7` | fix: 관리자 URL 탭 기억과 위치 확정 후 스크롤 유지 |
 | #269 | 2026-10-26 06:41 (VN) | `6840b46` | fix: 관리자 줄 선택의 R7 위반 OCR 수정 제거 (배포 예외 결정 대기) |
@@ -40,9 +43,6 @@
 | #267 | 2026-10-26 06:20 (VN) | `122a12b` | fix: 관리자 실제 E2E 의존성·DB 생성 ID·비공개 승인 시험 복구 |
 | #265 | 2026-10-25 23:29 (VN) | `8f355da` | fix: 관리자 위치 미확정 목록과 대시보드 카드 이동 |
 | #262 | 2026-10-25 19:53 (VN) | `fac1e2f` | fix: 관리자 API 통합으로 Vercel 12개 함수 상한 준수 |
-| #256 | 2026-10-25 18:37 (VN) | `59e6e62` | fix: 위치 메모리 migration 함수 달러 인용 복구 |
-| #258 | 2026-10-25 18:12 (VN) | `f80541e` | ci: 실제 PostgreSQL에서 신규 migration 적용 및 옛 $ 오류 회귀 시험 |
-| #254 | 2026-10-25 17:31 (VN) | `8ccb201` | feat: 관리자 위치 확정 목록·Google 공유 링크·좌표 재사용 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -70,16 +70,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-26 07:40 (VN) | location_candidate.auto_reuse | job 4965 |
+| 2026-10-27 06:33 (VN) | location_candidate.approve | job 4970 |
+| 2026-10-27 06:33 (VN) | location_candidate.auto_reuse | job 4971 |
+| 2026-10-27 06:33 (VN) | location_candidate.add | job 4970 |
+| 2026-10-26 13:24 (VN) | location_candidate.auto_reuse | job 4968 |
+| 2026-10-26 13:24 (VN) | location_candidate.approve | job 4967 |
+| 2026-10-26 13:24 (VN) | location_candidate.add | job 4967 |
 | 2026-10-26 07:40 (VN) | location_candidate.approve | job 4964 |
+| 2026-10-26 07:40 (VN) | location_candidate.auto_reuse | job 4965 |
 | 2026-10-26 07:40 (VN) | location_candidate.add | job 4964 |
 | 2026-10-26 06:52 (VN) | location_candidate.approve | job 4824 |
-| 2026-10-26 06:52 (VN) | location_candidate.add | job 4824 |
-| 2026-10-26 06:42 (VN) | location_candidate.auto_reuse | job 4956 |
-| 2026-10-26 06:42 (VN) | location_candidate.approve | job 4955 |
-| 2026-10-26 06:42 (VN) | location_candidate.add | job 4955 |
-| 2026-10-26 06:28 (VN) | location_candidate.auto_reuse | job 4952 |
-| 2026-10-26 06:28 (VN) | location_candidate.approve | job 4951 |
 
 ## 8. 검증 장치 변경 이력
 
@@ -108,5 +108,9 @@
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
 | `U2_age_min_under_15` | 없음 | 2026-10-25 12:57 (VN) | ✅ 통과 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
+| `L1_single_location_source` | 저장거부 | — | — 시험 없음 |
+| `L2_single_location_writer` | 저장거부 | — | — 시험 없음 |
+| `L3_derived_location_cache` | 저장거부 | — | — 시험 없음 |
+| `L4_data_independent_location_tests` | 없음 | — | — 시험 없음 |
 
 - OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
