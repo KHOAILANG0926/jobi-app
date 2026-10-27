@@ -7,6 +7,11 @@ location_repo=$(cd "$location_dir/../../../.." && pwd)
 location_migration=${1:-supabase/migrations/20261026231445_location_single_source.sql}
 [[ "$location_migration" = /* ]] || location_migration="$location_repo/$location_migration"
 [[ "$location_migration" == "$location_repo"/supabase/migrations/*.sql && -f "$location_migration" ]] || { echo 'Expected an existing repository migration SQL file' >&2;exit 1; }
+location_followup=${2:-}
+if [[ -n "$location_followup" ]];then
+ [[ "$location_followup" = /* ]] || location_followup="$location_repo/$location_followup"
+ [[ "$location_followup" == "$location_repo"/supabase/migrations/*.sql && -f "$location_followup" ]] || exit 1
+fi
 location_container="canonical-location-${RANDOM}-${RANDOM}"
 location_logs=$(mktemp -d)
 trap 'docker rm -f "$location_container" >/dev/null 2>&1 || true; rm -rf "$location_logs"' EXIT
@@ -63,6 +68,12 @@ echo 'PASS: missing/conflicting/late evidence failures roll back all DDL and sou
 docker exec "$location_container" createdb -U postgres -T canonical_baseline canonical_integration
 psql_local canonical_integration < "$location_dir/00-preview.sql" > "$location_logs/preview.log"
 if ! psql_apply canonical_integration < "$location_migration" > "$location_logs/apply.log" 2>&1;then cat "$location_logs/apply.log";exit 1;fi
+if [[ -n "$location_followup" ]];then
+ if ! psql_apply canonical_integration < "$location_followup" > "$location_logs/followup.log" 2>&1;then cat "$location_logs/followup.log";exit 1;fi
+ if ! psql_local canonical_integration < "$location_dir/22-index-role-tests.sql" > "$location_logs/index-role.log" 2>&1;then cat "$location_logs/index-role.log";exit 1;fi
+ grep -E 'PASS:' "$location_logs/index-role.log"
+ psql_local canonical_integration < "$location_repo/supabase/tests/location_company_index_production_check.sql"
+fi
 for script in 21-import-assertions.sql 20-integration-tests.sql;do
  if ! psql_local canonical_integration < "$location_dir/$script" > "$location_logs/$script.log" 2>&1;then cat "$location_logs/$script.log";exit 1;fi
  grep -E 'PASS:' "$location_logs/$script.log"

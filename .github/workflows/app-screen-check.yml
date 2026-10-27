@@ -52,6 +52,8 @@ jobs:
       - run: npm run build
       - name: 브라우저 설치
         run: npx playwright install --with-deps chromium
+      - name: 반경 프리셋·미터 입력 동일 DOM 반영 회귀 (격리 컴포넌트)
+        run: node scripts/ops/search-radius-commit-check.mjs
       - name: 공고 이미지 유무별 틀 동일성 검사
         run: node scripts/test-job-card-layout.mjs
       - name: 앱 띄우기
