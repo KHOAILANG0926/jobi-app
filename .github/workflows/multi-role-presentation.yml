@@ -35,7 +35,14 @@ jobs:
           cat /tmp/role-current.log /tmp/role-base.log
           exit 1
       - name: PC and mobile KDA frame, multiple roles, meals, slogans and fragments
-        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/multi-role-presentation-browser.mjs
+        run: |
+          set -o pipefail
+          # 실패하면 오류 끝부분을 검사 화면 표시(annotation)로도 남긴다(로그 파일을 못 받는 환경에서도 원인 확인).
+          if ! node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/multi-role-presentation-browser.mjs 2>&1 | tee /tmp/role-test.log; then
+            echo "::error title=KDA frame browser::$(tail -c 2500 /tmp/role-test.log | tr '\n' ' ' | tr -d '\r')"
+            echo "::error title=KDA frame vite logs::$(tail -c 800 /tmp/role-current.log | tr '\n' ' ') || BASE: $(tail -c 800 /tmp/role-base.log | tr '\n' ' ')"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
