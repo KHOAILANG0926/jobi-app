@@ -114,6 +114,17 @@ do $$ begin  -- 운영에는 있음(0009). 없는 환경(시험 fixture)에서�
  end if;
 end $$;
 
+-- 게스트(비로그인) 등록도 같은 입구: 공고 저장 때 도는 순수 글자 정리 함수(데이터 안 읽음, immutable)를 anon도 실행.
+-- 20261027042533(#279)이 authenticated·service_role에만 준 것과 같은 이유. 비공개 스키마·writer·원본 표 접근은 그대로 막힘.
+do $$ begin
+ if to_regprocedure('location_private.company_identity(text)') is not null then
+  if not exists (select 1 from pg_proc p where p.oid = 'location_private.company_identity(text)'::regprocedure and p.provolatile = 'i' and not p.prosecdef) then
+   raise exception 'ingest one-door: company_identity가 순수(immutable·invoker) 함수가 아님';
+  end if;
+  grant execute on function location_private.company_identity(text) to anon;
+ end if;
+end $$;
+
 create or replace function public.ingest_job(p jsonb) returns bigint
 language plpgsql security invoker set search_path = pg_catalog, public as $$
 declare
