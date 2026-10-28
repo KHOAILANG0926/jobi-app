@@ -252,7 +252,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
       company_verified: jobForm.companyVerified ?? false,
       company_founded_year: jobForm.companyFoundedYear ?? null,
       hire_count: jobForm.hireCount ?? null,
-    })
+    }, rawText)
       error = result.error
       if (!error) saved = adminSavedJob(result.data)
     } catch (cause) {

@@ -13,8 +13,7 @@ begin
  if to_regprocedure('public.ingest_job(jsonb)') is null then diff := diff || 'ingest_job 없음; ';
  else
   if (select prosecdef from pg_proc where oid = 'public.ingest_job(jsonb)'::regprocedure) then diff := diff || 'ingest_job이 SECURITY DEFINER(기존 R3·R7 보호 우회 위험); '; end if;
-  if has_function_privilege('anon', 'public.ingest_job(jsonb)', 'execute') or has_function_privilege('authenticated', 'public.ingest_job(jsonb)', 'execute') then
-   diff := diff || 'ingest_job 실행 권한이 anon/authenticated에 있음; '; end if;
+  -- 1단계의 "anon/authenticated 실행 불가"는 2단계(20261029010000, 모든 등록 경로가 입구 하나)에서 의도적으로 바뀜 → ingest_one_door_production_check.sql이 점검.
   if not has_function_privilege('service_role', 'public.ingest_job(jsonb)', 'execute') then diff := diff || 'service_role이 ingest_job 실행 불가; '; end if;
  end if;
  -- 위치 결과는 공개 여부를 바꾸지 않는다(Lee 2026-10-28 ①).

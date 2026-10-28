@@ -17,12 +17,13 @@ try {
   const marker = randomUUID().replace(/-/g, '').slice(0, 12)
   line = 'E2E kiem tra muc tuyen dung ' + marker
   const check = { detail_fill: { unclassified: [line] } }
-  const inserted = await db.query(`insert into public.local_jobs
-    (title,company,origin,active,admin_hidden,description,source_text,ocr_check,source_url)
-    values ($1,'E2E private validation','admin',false,true,'',$2,$3::jsonb,$4) returning id`,
-  ['E2E PRIVATE ' + marker, 'E2E private validation\n'+line, JSON.stringify(check),
-    'https://github.com/KHOAILANG0926/jobi-app/blob/master/scripts/ops/admin-line-pick-e2e.mjs#'+marker])
+  // 등록은 입구(ingest_job) 하나만(Lee 2026-10-29). 비공개로 넣은 뒤 숨김·점검 칸은 DB 소유자 갱신으로(R7: 기계만).
+  const inserted = await db.query('select public.ingest_job($1::jsonb) as id', [JSON.stringify({
+    channel: 'sql_file', title: 'E2E PRIVATE ' + marker, company: 'E2E private validation', active: false, description: '',
+    source_text: 'E2E private validation\n' + line,
+    source_url: 'https://github.com/KHOAILANG0926/jobi-app/blob/master/scripts/ops/admin-line-pick-e2e.mjs#' + marker })])
   jobId = inserted.rows[0].id
+  await db.query('update public.local_jobs set admin_hidden = true, ocr_check = $2::jsonb where id = $1', [jobId, JSON.stringify(check)])
   browser = await chromium.launch({ headless:true })
   const page = await browser.newPage()
   await page.goto(base + '/dang-nhap?redirect=/admin', { waitUntil:'domcontentloaded' })

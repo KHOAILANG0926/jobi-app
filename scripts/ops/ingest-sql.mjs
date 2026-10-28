@@ -7,13 +7,15 @@ import { join } from 'node:path'
 
 const fail = (msg) => { console.error(`::error::${msg}`); process.exit(1) }
 
-// 입구가 받는 칸 목록은 운영에 적용된 최신 ingest_job 정의에서 읽는다(목록을 따로 베끼지 않음).
+// SQL 파일이 쓸 수 있는 칸 목록은 1단계 ingest_job 정의(migration 20261028160000)의 허용 칸 목록에서 읽는다(목록을 따로 베끼지 않음).
+// 2단계(20261029010000)부터 입구 자체는 "판정 칸을 뺀 모든 칸"을 받지만, 사람이 손으로 쓰는 공고 내용 파일은
+// 이 좁은 목록을 유지한다(복리후생 등 원문 규칙이 채우는 칸을 손으로 넣지 않음). 넓히려면 Lee 결정 후 이 목록을 새 migration에 둔다.
 export function gatewayFields(dir = 'supabase/migrations') {
   const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
   let body = null
   for (const f of files) {
     const sql = readFileSync(join(dir, f), 'utf8')
-    if (/create\s+(or\s+replace\s+)?function\s+public\.ingest_job\s*\(/i.test(sql)) body = sql
+    if (/create\s+(or\s+replace\s+)?function\s+public\.ingest_job\s*\(/i.test(sql) && /where\s+key\s+in\s*\(/i.test(sql)) body = sql
   }
   if (!body) throw new Error('ingest_job 정의 migration 없음')
   const m = body.match(/where\s+key\s+in\s*\(([^)]*)\)/i)

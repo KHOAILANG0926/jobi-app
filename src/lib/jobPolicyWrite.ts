@@ -18,9 +18,33 @@ export async function checkedLocalJobUpdate(
   assertPublicJobWrite(previous, patch)
   return client.from('local_jobs').update(patch).eq('id', id)
 }
-export async function checkedAdminCreateJob(client: SupabaseClient, payload: Record<string, unknown>) {
+// 공고 등록은 DB 입구 public.ingest_job 하나만 (Lee 2026-10-29). local_jobs에 직접 INSERT하면 DB가 거부한다.
+// 원문(source_text): 붙여 넣은 글이 있으면 그 글, 없으면 입력한 칸을 그대로 묶은 글(Lee 2026-10-29 확인).
+const NOT_SOURCE = new Set(['guest_manage_token', 'employer_id', 'lat', 'lng', 'images', 'image_url', 'active', 'admin_hidden', 'origin', 'posted_at'])
+export function ingestSourceText(fields: Record<string, unknown>, pastedText?: string): string {
+  const pasted = pastedText?.trim()
+  if (pasted) return pasted
+  return Object.entries(fields)
+    .filter(([key, value]) => !NOT_SOURCE.has(key) && value != null && String(value).trim() !== '')
+    .map(([key, value]) => `${key}: ${String(value).trim()}`)
+    .join('\n')
+}
+type IngestChannel = 'admin' | 'employer'
+// 돌려받는 열 목록이 변수라 supabase 타입 추론이 안 되므로 결과 모양을 직접 적는다.
+type IngestResult = { data: Record<string, any> | null, error: { message: string } | null }
+async function ingestJob(client: SupabaseClient, channel: IngestChannel, payload: Record<string, unknown>,
+  options: { select: string, pastedText?: string }): Promise<IngestResult> {
   assertJobPublishable(payload)
-  return client.rpc('admin_create_job', { payload })
+  const p = { ...payload, channel, source_text: ingestSourceText(payload, options.pastedText) }
+  const { data: id, error } = await client.rpc('ingest_job', { p })
+  if (error) return { data: null, error }
+  if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0)
+    return { data: null, error: { message: 'Máy chủ chưa trả về mã tin đã lưu.' } }
+  const { data, error: readError } = await client.from('local_jobs').select(options.select).eq('id', id).single()
+  return { data: (data ?? null) as Record<string, any> | null, error: readError }
+}
+export async function checkedAdminCreateJob(client: SupabaseClient, payload: Record<string, unknown>, pastedText?: string) {
+  return ingestJob(client, 'admin', payload, { select: 'id,active,admin_hidden', pastedText })
 }
 export async function checkedAdminUnhide(client: SupabaseClient, id: number, reason: string) {
   const previous = await readJobForPolicy(client, id)
@@ -60,7 +84,6 @@ export async function checkedGuestJobUpdate(client: SupabaseClient, params: Reco
   return client.rpc('update_guest_job', params)
 }
 
-export function checkedPublicJobInsert(client: SupabaseClient, payload: Record<string, unknown>) {
-  assertJobPublishable(payload)
-  return client.from('local_jobs').insert(payload)
+export function checkedPublicJobInsert(client: SupabaseClient, payload: Record<string, unknown>, select = 'id,active,admin_hidden') {
+  return ingestJob(client, 'employer', payload, { select })
 }

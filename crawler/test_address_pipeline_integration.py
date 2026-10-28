@@ -973,12 +973,28 @@ class _FakeSupabase:
 
     def __init__(self, select_result=None):
         self.calls: list[dict] = []
+        self.ingest_calls: list[dict] = []
         self.select_result = select_result
 
     def table(self, name):
         return _FakeQuery(self.calls, "table", name, select_result=self.select_result)
 
     def rpc(self, name, params=None):
+        if name == "ingest_job":
+            # 등록 입구(Lee 2026-10-29). 기존 시험이 보는 뜻(새 공고 insert / 다시 수집 update)으로 기록하고,
+            # 입구 호출 자체는 ingest_calls에 따로 남긴다.
+            p = dict((params or {}).get("p") or {})
+            self.ingest_calls.append(p)
+            job_id = p.get("job_id")
+            if job_id is not None:
+                fields = p.get("update_fields")
+                payload = {k: v for k, v in p.items() if fields is None or k in fields}
+                self.calls.append({"kind": "table", "table_or_rpc": "local_jobs", "op": "update", "payload": payload, "filters": {"id": job_id}})
+            else:
+                payload = {k: v for k, v in p.items() if k != "channel"}
+                self.calls.append({"kind": "table", "table_or_rpc": "local_jobs", "op": "insert", "payload": payload, "filters": {}})
+                job_id = 12345
+            return type("Q", (), {"execute": lambda _self: type("Result", (), {"data": job_id})()})()
         return _FakeQuery(self.calls, "rpc", name, payload=params)
 
 

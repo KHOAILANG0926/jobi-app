@@ -38,6 +38,7 @@ function fake(row: Record<string, unknown>, readError = false) {
     rpc: async (name: string, _params: Record<string, unknown>) => {
       if (name === 'get_guest_job') return { data: readError ? null : [stored], error: readError ? { message: 'read failed' } : null }
       writes.push(name)
+      if (name === 'ingest_job') { stored = { id: 1, ...(_params.p as Record<string, unknown>) }; return { data: 1, error: null } }
       return { data: [stored], error: null }
     },
   } as unknown as SupabaseClient

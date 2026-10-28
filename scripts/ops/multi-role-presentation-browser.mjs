@@ -31,7 +31,8 @@ async function open(base,job,width,imageState='none') {
  await context.route('**/api/map-locations?**',r=>r.fulfill({json:{points:{[`sb-${job.id}`]:locations(job).map(w=>({workLocationId:w.id,lat:w.lat,lng:w.lng,kind:w.point_kind,precision:w.point_precision,revision:w.point_revision}))}}}))
  const page=await context.newPage()
  await page.goto(`${base}/viec-lam/sb-${job.id}`,{waitUntil:'domcontentloaded'})
- await page.locator('h1.jd2-header__title').waitFor({timeout:20000})
+ // 첫 화면은 개발 서버가 처음 파일을 묶는 동안(두 서버 동시) 20초를 넘길 수 있다 → 기다리는 시간만 늘림. 비교 내용은 같음.
+ await page.locator('h1.jd2-header__title').waitFor({timeout:90000})
  await page.evaluate(()=>document.fonts.ready)
  return {page,context}
 }

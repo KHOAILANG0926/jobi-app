@@ -30,6 +30,7 @@ from job_posting_policy import evaluate_job_posting_policy, crawler_policy_error
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
 from source_fields import REJECTIONS, rule_code, source_fields
+from ingest_gateway import ingest_job
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -1241,25 +1242,19 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
         return {k: v for k, v in job.items() if k in db_columns}
 
     saved: list[dict] = []
-    for i in range(0, len(new_jobs), 50):
-        batch = [to_db_payload(j) for j in new_jobs[i:i+50]]
+    # 등록은 DB 입구 하나만(Lee 2026-10-29): 한 건씩 입구로 보내고, 규칙에 걸린 공고만 건너뛴다.
+    for job in new_jobs:
+        payload = to_db_payload(job)
         try:
-            res = supabase.table("local_jobs").insert(batch).execute()
-            rows = res.data or []
-        except Exception as exc:  # noqa: BLE001 — 규칙 거부가 섞여 있으면 한 건씩 넣어 걸린 공고만 건너뛴다
-            if not rule_code(exc):
+            job_id = ingest_job(supabase, payload)
+        except Exception as one:  # noqa: BLE001
+            code = rule_code(one)
+            if not code:
                 raise
-            rows = []
-            for payload in batch:
-                try:
-                    rows.extend(supabase.table("local_jobs").insert(payload).execute().data or [])
-                except Exception as one:  # noqa: BLE001
-                    code = rule_code(one)
-                    if not code:
-                        raise
-                    REJECTIONS.add(code, payload.get("title", ""))
-        saved.extend({"id": r.get("id"), "title": r.get("title")} for r in rows)
-        print(f"  ✅ 저장: {len(saved)}/{len(new_jobs)}개")
+            REJECTIONS.add(code, payload.get("title", ""))
+            continue
+        saved.append({"id": job_id, "title": payload.get("title")})
+    print(f"  ✅ 저장: {len(saved)}/{len(new_jobs)}개")
     REJECTIONS.report()
 
     if not new_jobs:
