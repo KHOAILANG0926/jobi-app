@@ -107,3 +107,8 @@ if psql_local < supabase/tests/area_pin_hold_meal_production_check.sql > "$bomun
 fi
 grep -qE 'multi-role meal check: automatic global meal flag — #[0-9]+: meal_provided 운영=true 기대=null \(AI 자동, 직무 2개\)' "$bomunttl_log" || { cat "$bomunttl_log"; exit 1; }
 echo 'PASS: canonical area pin releases/prevents unlocated hold (admin_hidden kept) and multi-role automatic meal flag is reported'
+# Decision 0006: the common clear migration empties only the automatic global meal flag on multi-role jobs.
+psql_local -1 < supabase/migrations/20261028093000_clear_multi_role_auto_meal.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+psql_local < supabase/tests/area_pin_hold_meal_production_check.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+psql_local < supabase/tests/bomunttl_production_check.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+echo 'PASS: multi-role automatic global meal flag cleared by common rule; production checks pass'
