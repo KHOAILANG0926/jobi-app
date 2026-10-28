@@ -1,6 +1,7 @@
 // Shared by the administrator MAP-R1 action and scheduled worker. No database or browser globals.
 import { ADDRESS_STRATEGY, parseStreetAddress, hasConflictingProvinces } from './addressLocate'
 import { COMPANY_STRATEGY, type LocateStrategy } from './chototAutoLocate'
+import { COMPANY_AREA_STRATEGY } from './companyAreaLocate'
 import { findIndustrialPark } from './industrialPark'
 import { wardUnitForAddresses, type WardUnit } from './wardArea'
 import { pickWardHit, checkWardPlace } from './wardLocate'
@@ -64,9 +65,10 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       const address = target.address.trim()
       if (!address || hasConflictingProvinces(address)) continue
       const park = findIndustrialPark(address, job.location)
-      const strategy: LocateStrategy | null = parseStreetAddress(address).searchable ? ADDRESS_STRATEGY : job.company.trim() && park ? COMPANY_STRATEGY : null
+      // 10-14 ② 회사+원문 지역(Lee 2026-10-28): 공단이면 공단 윤곽 안, 공단 밖이면 원문 성·거리/동 안의 같은 상호 1곳.
+      const strategy: LocateStrategy | null = parseStreetAddress(address).searchable ? ADDRESS_STRATEGY : !job.company.trim() ? null : park ? COMPANY_STRATEGY : COMPANY_AREA_STRATEGY
       if (!strategy || strategy.precheck?.(address)) continue
-      const hits = await query('search', { text: strategy.searchText(job.company, address), ...(strategy === COMPANY_STRATEGY ? {layers:'POI'} : {}) })
+      const hits = await query('search', { text: strategy.searchText(job.company, address), ...(strategy === COMPANY_STRATEGY || strategy === COMPANY_AREA_STRATEGY ? {layers:'POI'} : {}) })
       const pick = strategy.pick(job.company, address, hits)
       if (!pick.hit || pick.multiple || !pick.hit.ref_id || failed) continue
       const place = await query('place', { refid: pick.hit.ref_id }) as Record<string, unknown> | null
