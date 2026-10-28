@@ -47,6 +47,12 @@ DB 공개 장치(모든 경로 공통, [직접 확인] migration 트리거): `tr
 3. **OCR 불일치는 그 항목만 표시**하고 공개 판정은 ⑤의 규칙으로만(현행 R7 유지 여부는 Lee 결정 없이 유지).
 4. **뒤늦은 자동 작업은 ⑤를 다시 부를 뿐** 직접 `active`를 쓰지 않는다.
 
+## 3-1. Lee 결정 (2026-10-28 채팅)
+- ① 예: 원문에 주소가 있는데 위치를 못 찾은 공고도 **공개 유지**. 위치 결과는 핀·정확도(`chưa xác minh`) 표시만 바꾸고 공개 여부는 바꾸지 않는다. 관리자 확인은 **선택 사항**이며 공개·핀은 자동으로 정해진다(Lee 수작업을 전제로 한 대기 금지). 10-20 "못 찾으면 비공개" 결정을 대체한다.
+- **위치 찾기의 공고 삭제 폐지**: 지금은 원문에 성 이름뿐이면 `map_r1_delete_no_info`가 공고를 지운다(`api/_lib/auto-location-runtime.mjs` applyLocationVerdict의 `no_info` → `map_r1_delete_no_info`, [직접 확인] 코드). 새 설계에서는 삭제하지 않고 **원문 성/시 중심 핀 + `chưa xác minh`**로 둔다. 원문에 성/시조차 없으면 핀 없이 공개 판정은 ⑤ 규칙대로(위치 때문에 숨기지 않음).
+- ② 예: 입구 하나·AI는 제안만으로 구현 시작. 크롤러가 입구로 옮겨진 뒤에만 크롤링 재개.
+- DB 구조 적용은 dry-run 결과를 쉬운 말로 보고하고 Lee "적용" 후에만.
+
 ## 4. DB 구조 변경(dry-run만, 미적용)
 `supabase/pending/ingest-gateway-20261028/01-schema-dryrun.sql` — 표 3개(`job_ingest_raw`, `job_ingest_log`, `job_ai_suggestions`)와 입구 함수 뼈대. **Lee 승인 전 적용 금지.** 적용은 이후 정상 migration + production_check 경로로만.
 
