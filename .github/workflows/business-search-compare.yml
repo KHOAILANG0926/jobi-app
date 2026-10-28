@@ -1,7 +1,7 @@
 name: Business search comparison (VietMap vs Goong, manual, read-only)
 # Lee 2026-10-28 (C): compare business-name search providers on public announcements.
 # Read-only: anonymous public reads + provider lookups. No DB writes, no pins, no deployment.
-# Keys only from GitHub Secrets; never printed. Reference point is a run input, never stored.
+# Provider keys stay in Vercel (admin read API); GitHub holds only the existing E2E admin login. Reference point is a run input, never stored.
 on:
   workflow_dispatch:
     inputs:
@@ -25,8 +25,8 @@ jobs:
       - run: npm ci
       - name: Compare providers
         env:
-          VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
-          GOONG_API_KEY: ${{ secrets.GOONG_API_KEY }}
+          ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+          ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
           REF_COMPANY: ${{ inputs.ref_company }}
           REF_LAT: ${{ inputs.ref_lat }}
           REF_LNG: ${{ inputs.ref_lng }}

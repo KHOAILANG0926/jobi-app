@@ -4,6 +4,7 @@ import { createAdminGeocodeHandler } from './_lib/admin-geocode.js'
 import { createAdminVietmapHandler } from './_lib/admin-vietmap.js'
 import { createAutoLocationHandler } from './_lib/admin-auto-location.js'
 import { createAdminLocationReviewHandler } from './_lib/admin-location-review.js'
+import { createAdminBusinessSearchHandler } from './_lib/admin-business-search.js'
 export const config = { maxDuration: 300 }
 const handlers = {
   users: createAdminUsersHandler(),
@@ -11,6 +12,7 @@ const handlers = {
   vietmap: createAdminVietmapHandler(),
   'auto-location': createAutoLocationHandler(),
   'location-review': createAdminLocationReviewHandler(),
+  'business-search': createAdminBusinessSearchHandler(),
 }
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','no-store')
