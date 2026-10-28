@@ -1,0 +1,35 @@
+name: Business search comparison (VietMap vs Goong, manual, read-only)
+# Lee 2026-10-28 (C): compare business-name search providers on public announcements.
+# Read-only: anonymous public reads + provider lookups. No DB writes, no pins, no deployment.
+# Keys only from GitHub Secrets; never printed. Reference point is a run input, never stored.
+on:
+  workflow_dispatch:
+    inputs:
+      ref_company: {description: 'Reference company (exact name)', required: false, default: ''}
+      ref_lat: {description: 'Reference latitude (reference only, not stored)', required: false, default: ''}
+      ref_lng: {description: 'Reference longitude (reference only, not stored)', required: false, default: ''}
+      extra_company: {description: 'Extra case company (if not public)', required: false, default: ''}
+      extra_address: {description: 'Extra case original address', required: false, default: ''}
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compare providers
+        env:
+          VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
+          GOONG_API_KEY: ${{ secrets.GOONG_API_KEY }}
+          REF_COMPANY: ${{ inputs.ref_company }}
+          REF_LAT: ${{ inputs.ref_lat }}
+          REF_LNG: ${{ inputs.ref_lng }}
+          EXTRA_COMPANY: ${{ inputs.extra_company }}
+          EXTRA_ADDRESS: ${{ inputs.extra_address }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/business-search-compare.mjs
