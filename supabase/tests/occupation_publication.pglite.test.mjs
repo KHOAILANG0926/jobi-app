@@ -75,6 +75,13 @@ assert.equal(await active(20), false, '공단 원문 근거가 사라지면 공�
 await assert.rejects(insert(23, 'FUSHAN', fushanSource, '9', 'lắp ráp điện tử'), /job_rule_R8/,
   '회사명만으로 전자 조립 근거를 만들지 않음')
 
+// Bomunttl: one announcement, two explicit roles. Single stored code is the
+// first role only. Each role was separately compared with the official definitions.
+await insert(30, 'Bomunttl', 'Bomunttl\nCÔ RỬA BÁT FULL TIME\nNHÂN VIÊN NAM/NỮ CHẠY BÀN PART TIME', '9402', 'CÔ RỬA BÁT')
+assert.equal(await active(30), true, 'Bomunttl dishwasher supported by official kitchen-helper code')
+await insert(31, 'Bomunttl occupation-only fixture', 'NHÂN VIÊN NAM/NỮ CHẠY BÀN PART TIME', '5131', 'CHẠY BÀN')
+assert.equal(await active(31), true, 'separate local fixture checks waiter classification, not a second production announcement')
+
 // ── 유지돼야 하는 차단 ──
 await assert.rejects(insert(10, 'x', 'Sản xuất dây mạng', '99999', 'dây mạng'), /foreign key/, '없는 코드')
 await assert.rejects(insert(11, 'x', 'Sản xuất dây mạng', '8', 'thợ hàn'), /job_rule_R8/, '원문에 없는 근거')

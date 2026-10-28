@@ -25,3 +25,8 @@ assert(bad(old).includes('junk'), '사이트 글자 찾음')
 assert(inspectJob({ id: 2, description: 'Quyền lợi\n- Không có ký túc xá', pin: 'area', category: 'x', occupation_code: '1', active: true }).items.find((i) => i.key === 'benefits')!.ok, '부정은 무시')
 assert(inspectReport({ id: 4879, title: 'x' }, a).startsWith('❌ 공고 #4879 문제 4개'), '보고 첫 줄')
 console.log('jobInspect.test.ts: #4878 통과·#4879 문제 4개·옛 글 사이트 글자·부정 문장 검사 통과')
+
+// Bomunttl: preserve impossible original hours and fail administrator review, never fix silently.
+const hoursReview = inspectJob({ id: 10, source_text: 'CÔ RỬA BÁT FULL TIME\n(tg: 10h - 10h)', description: 'Thời gian làm việc\nCÔ RỬA BÁT FULL TIME — (tg: 10h - 10h)', pin: 'area', category: 'am_thuc_do_uong', occupation_code: '5131', active: true })
+assert(hoursReview.items.some(i => i.key === 'hours_review' && !i.ok), 'equal start/end hours require administrator review')
+assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i.key === 'hours_review' && !i.ok), 'ordinary evening shift needs no invalid-time flag')

@@ -1,20 +1,19 @@
-# CHATGPT_HANDOFF — FUSHAN 브랜치 전달 (2026-10-27)
+# CHATGPT_HANDOFF — Bomunttl 브랜치 전달 (2026-10-28)
 
 ## 1. 현재 상태 (코드·배포·DB)
-- 사용자 최종 지시: 시험·빌드 후 새 브랜치 push만. PR은 Claude가 생성. 이번 작업에서 PR·운영 쓰기·병합·배포 금지.
-- 브랜치 fix/fushan-source-rules-20261027, 시작 HEAD 1a05b64. FUSHAN 8줄을 공통 규칙으로 급여/고용형태/서류/환경·숙소에 분류; 원문 그대로 보존.
-- 보너스는 급여에 합치지 않음. 중개 근거로 Tuyển qua nhà thầu 표시; 수수료 없음 문구는 중개 여부를 부정하지 않음. 공단명만으로 업무를 추정하지 않으며, 명시적 검토 안내는 재처리 시 보존.
-- housing_search 번호표 추가, AI 재처리 hash에 번호표 정의 포함. 기존 화면틀/CSS 변경 없음.
-- 공식 seed의 최상위 9와 FUSHAN 원문 증거 공개 게이트 시험 추가. DB 규칙 표 수정·production check SQL은 supabase/pending/fushan-20261027에 있음(운영 미적용).
-- 최종 로컬 검증: npm test 82/82·tsc·build·PGlite 실제 사례+pending SQL/production check·approval scope 통과. 독립 검토 지적 수정, 남은 차단 없음.
-- Git/npm 경로 정상. api.github.com은 환경 허용 목록에 없어 프록시가 차단. 토큰 만료는 확인되지 않았음.
+- 전달 브랜치: feat/bomunttl-lee-source-20261028. api.github.com CONNECT 403; PR은 Claude가 생성한다. 운영 DB 직접 조회/쓰기·PR·병합·운영 등록·배포 없음.
+- Lee 확인 출처 허용·위조 방지 R3와 지원 결정 우선 규칙을 CLAUDE.md/AGENTS.md·결정 0006·새 migration에 반영 준비. 게시 시각 계산·저장·추정 표시 취소; posted_at NULL. 이미지 저장 선택.
+- CLI 생성 migration: 20261028034009_lee_verified_sources.sql → 20261028034036_register_bomunttl.sql. 같은 PR의 bomunttl_production_check.sql로 확인한다. 새 브랜치 병합 시 정상 migrations-apply가 등록하므로 별도 직접 SQL·ops-run-sql 실행 불필요.
+- Bomunttl 1건, 역할별 원문 조건 보존·상단 Theo vị trí — xem chi tiết·numeric salary NULL. 첫 직무 공식 9402, 둘째 5131 별도 검토. canonical writer로 unresolved 주소와 관리자 대기만 생성한다. 원문 10h - 10h를 그대로 두고 hours_review 실패.
+- 로컬 검증: npm test 83/83·tsc·build, PGlite R3+위조/충돌+실제 등록 SQL, 공식 직업 사례, 실제 PostgreSQL/PostGIS canonical writer+중복 방지+production_check, 관리자 queue 6/6·replay guard 1/1 통과. 독립 검토 후 차단 없음. 운영 검사표/핀/화면/연속기록은 아직 미확인.
+- 로컬 검사표 9/11, pin·hours_review 확인 대기; OCR은 이미지 없는 등록이므로 비대상. 전 항목 docs/ops/2026-10-28-bomunttl.md. 예전 migration을 재적용해 R3를 덮던 workflow는 이력 확인+시험만 수행하도록 수정했다.
 
 ## 2. 다음 할 일 3개
-1. Claude가 전달 브랜치로 PR 생성하고 최종 HEAD 필수 CI 확인. 이번 브랜치의 로컬 검증 결과는 WORK_LOG 참고.
-2. 후속 운영 작업: pending 규칙 SQL을 정상 migration으로 승격, 기존 등록 경로에서 실제 FUSHAN 등록·공식 코드 검증·회사+공단 기억 또는 공단 입구 위치 검증. 구직자 비용 요구 비공개 정책의 공통 집행은 별도 미구현 항목이며 등록 전 확인할 것.
-3. 봇 병합→정상 migrations-apply→필요 시 배포 1회→deploy-verify·실제 검사표 전 항목 확인 후 연속기록 갱신. 로컬 fixture 성공을 운영 성공으로 보고하지 않음.
+1. Claude가 전달 브랜치로 PR을 만들고 필수 CI·actual PostgreSQL migration 검사를 확인한다. 소스 근거는 Lee 확인이며 캡처를 다시 요청하지 않는다.
+2. 봇 병합→migrations-apply 정상 적용·production_check 확인. 실패하면 원문 오류 그대로 보고하고 중단하며 직접 접근·우회·자동 재시도하지 않는다.
+3. 정상 job-ocr-check(재생성·검사표 포함)와 deploy-verify의 운영 결과로 링크·전체 검사·연속 수를 보고한다. 위치 목록에서 상호명+도로 확인·근무시간 관리자 확인을 해결하되 원문은 임의 수정하지 않는다.
 
 ## 3. 필수 규칙
-- 운영 DB 직접 조회/쓰기 금지. migration+production_check 정상 경로, 실패하면 원문 보고 후 중단.
-- 공단 밖/공장 불명 기존 보류. 최상위 코드와 원문 부분문자열 존재는 공장 의미 검증의 자동 증명이 아님.
-- 이번 작업은 브랜치 전달만. 공고 링크/좌표/연속기록은 아직 없음. 발견한 실패 때문에 0/10부터 다시 시작할 대상이나 운영 기록은 미갱신.
+- 운영 DB는 정상 migration+production_check 경로만. 공개·핀·시각을 추정해 승인/보고하지 않는다. 운영 위치 원본은 job_work_locations의 canonical writer.
+- 기존 카드·상세 PC/모바일 틀/CSS 유지. 단일 대표 직업코드를 두 직무의 공통 코드라고 주장하지 않는다. 설거지 식사를 홀서빙에도 약속하지 않는다.
+- STATUS.md/status 브랜치/생성기 변경 금지. 원격 STATUS를 직접 읽었으나 연속 통과 수는 없어 미확인. 로컬 9/11은 운영 검사표가 아니다. 상세 이전 이관은 WORK_LOG.md에 보존했다.

@@ -6,6 +6,7 @@ psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/postgres-location-fixtur
 mapfile -t changed < <(git diff --name-only "$PR_BASE_SHA" HEAD -- 'supabase/migrations/*.sql')
 echo "Regression: always apply the current location-memory migration on fresh PostgreSQL" 
 psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f scripts/ci/reference-location-fixed.sql
+bomunttl_checked=0
 for file in "${changed[@]}"; do
   test -f "$file" || { echo "::error::Migration file deleted: $file"; exit 1; }
   if [[ "$file" == *20261025174000_admin_confirmed_location_memory.sql ]]; then continue; fi
@@ -17,6 +18,10 @@ for file in "${changed[@]}"; do
   fi
   if [[ "$file" == 'supabase/migrations/20261027042533_location_company_index_execute.sql' ]]; then
     bash supabase/pending/location-single-source-20261026/production/run-local.sh supabase/migrations/20261026231445_location_single_source.sql "$file"
+    continue
+  fi
+  if [[ "$file" == 'supabase/migrations/20261028034009_lee_verified_sources.sql' || "$file" == 'supabase/migrations/20261028034036_register_bomunttl.sql' ]]; then
+    if [[ "$bomunttl_checked" == 0 ]]; then bash scripts/ci/bomunttl-postgres.sh; bomunttl_checked=1; fi
     continue
   fi
   echo "PostgreSQL clean application: $file"

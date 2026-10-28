@@ -67,6 +67,10 @@ export function inspectJob(j: InspectInput): InspectResult {
   const missed = BENEFIT_HINTS.filter((b) => {
     const m = text.match(b.re)
     if (!m || j[b.key] === true) return false
+    // A benefit shown with its explicit role is not a promise to every role.
+    const scopedBenefit = view.sections.find(s => s.key === '05')?.lines.some(line =>
+      /(?:full|part)[ -]?time\s*—/i.test(line) && b.re.test(bare(line)))
+    if (j[b.key] == null && scopedBenefit) return false
     const before = text.slice(Math.max(0, (m.index ?? 0) - 12), m.index ?? 0)
     return !NEGATED.test(before)
   })
@@ -81,6 +85,10 @@ export function inspectJob(j: InspectInput): InspectResult {
   add('new_kind', '칸 못 정한 줄 없음', !unc.length, unc.length ? unc.slice(0, 3).join(' / ') : undefined)
   // 11. 공개 상태
   add('public', '공개됨', !!j.active && !j.admin_hidden, j.admin_hidden ? '관리자가 숨김' : !j.active ? '비공개' : undefined)
+
+  // Same start/end is ambiguous, not evidence of a 12-hour or overnight shift.
+  const equalHours = [...String(j.source_text ?? '').matchAll(/\b(\d{1,2})\s*h\s*[-–]\s*\1\s*h\b/gi)].map(m => m[0])
+  if (equalHours.length) add('hours_review', '근무시간 관리자 확인', false, '원문 그대로 보존: ' + equalHours.join(' / '))
 
   return { ok: items.every((i) => i.ok), items }
 }

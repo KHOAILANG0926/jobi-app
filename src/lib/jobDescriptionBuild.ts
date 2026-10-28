@@ -76,7 +76,7 @@ export interface BuildContext extends FillContext, Pick<ShownAbove, 'values' | '
 
 export interface BuildResult {
   description: string
-  lines: FillLine[]
+  lines: Array<FillLine & { role?: string }>
   unclassified: FillLine[]
   dropped: Array<{ line: string; reason: CleanDrop | 'salary_total_repeat' | 'shown_above' | 'duplicate' }>
   /** Lee-approved disclosures, kept distinct from verbatim source lines. */
@@ -92,20 +92,44 @@ export function sameLine(a: string, b: string): boolean {
   return isCovered(a, [b]) && isCovered(b, [a])
 }
 
+/** Explicit role+employment headings only; never infer roles from company or job ID.
+ * Labels annotate presentation; the original item.line and source_text stay unchanged. */
+function roleBlocks(text: string): Array<{ role?: string; text: string }> {
+  const rows = text.split('\n')
+  const isRole = (line: string) => /^.+\s+(?:full|part)[ -]?time$/i.test(line)
+  if (rows.filter(isRole).length < 2) return [{ text }]
+  const blocks: Array<{ role?: string; text: string }> = []
+  let role: string | undefined
+  for (const line of rows) {
+    if (isRole(line)) role = line
+    else if (/^(?:quyen loi|phuc loi|lien he|dia chi)\s*:?$/i.test(bare(line))) role = undefined
+    const last = blocks[blocks.length - 1]
+    if (last && last.role === role) last.text += '\n' + line
+    else blocks.push({ role, text: line })
+  }
+  return blocks
+}
+
 /** 원문들로 상세요강 글 전체를 만든다. 원문이 비어 있으면 description은 ''. */
 export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildContext = {}): BuildResult {
-  const lines: FillLine[] = []
+  const lines: BuildResult['lines'] = []
   const dropped: BuildResult['dropped'] = []
   for (const src of sources) {
     const clean = cleanSourceText(src.text)
     dropped.push(...clean.dropped)
-    for (const item of classifySource(clean.text, src.name, ctx)) {
-      if (isSalaryTotalRepeat(item.line, ctx.salary)) { dropped.push({ line: item.line, reason: 'salary_total_repeat' }); continue }
-      if (coveredByAbove(item.line, ctx)) { dropped.push({ line: item.line, reason: 'shown_above' }); continue }
-      if (lines.some((l) => sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
-      const kind = ctx.lineKinds?.[lineKey(item.line)]
-      if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
-      lines.push(item)
+    for (const block of roleBlocks(clean.text)) {
+      for (const original of classifySource(block.text, src.name, ctx)) {
+        const item: FillLine & { role?: string } = { ...original, role: block.role }
+        if (item.role === item.line) { item.key = '01'; item.how = 'line'; item.rule = 'explicit_role_heading' }
+        if (item.role && /^\(tg:/.test(bare(item.line))) { item.key = '03'; item.how = 'line'; item.rule = 'role_hours' }
+
+        if (isSalaryTotalRepeat(item.line, ctx.salary)) { dropped.push({ line: item.line, reason: 'salary_total_repeat' }); continue }
+        if (coveredByAbove(item.line, ctx)) { dropped.push({ line: item.line, reason: 'shown_above' }); continue }
+        if (lines.some((l) => l.role === item.role && sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
+        const kind = ctx.lineKinds?.[lineKey(item.line)]
+        if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
+        lines.push(item)
+      }
     }
   }
   const annotations: BuildResult['annotations'] = []
@@ -124,7 +148,7 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
   }
   const display = [...lines, ...annotations]
   const description = ORDER.filter((key) => display.some((l) => l.key === key))
-    .map((key) => [FILL_HEADINGS[key], ...display.filter((l) => l.key === key).map((l) => l.line)].join('\n'))
+    .map((key) => [FILL_HEADINGS[key], ...display.filter((l) => l.key === key).map((l) => 'role' in l && l.role && l.line !== l.role ? `${l.role} — ${l.line}` : l.line)].join('\n'))
     .join('\n')
   return { description, lines, unclassified: lines.filter((l) => l.how === 'unclassified'), dropped, annotations }
 }
