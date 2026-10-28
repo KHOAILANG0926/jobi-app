@@ -4,6 +4,7 @@
  * 이 파일은 AI 답을 프로그램이 검사한다: 목록 밖 칸·번호표, 우리가 준 적 없는 줄, 원문에 없는 근거, "không/không có" 부정 문장은 버린다.
  */
 import { bare } from './jobDetailSections.ts'
+import { splitRoleLine } from './jobRolePresentation.ts'
 
 export const SECTION_KEYS = ['01', '02', '03', '04', '05', '06', '07'] as const
 export type SectionKey = typeof SECTION_KEYS[number]
@@ -86,4 +87,12 @@ ${JSON.stringify(lines)}
 
 FULL AD:
 ${source}`
+}
+
+/** 공고 칸(shuttle_bus·dormitory·meal_provided)에 "있음"으로 쓸 번호표.
+ * 결정 0006(Lee 2026-10-28): 여러 직무 공고는 식사를 공고 전체 칸으로 켜지 않는다(직무별 식사는 상세요강에서 표시). */
+export const JOB_FLAG_CODES = ['shuttle_bus', 'dormitory', 'meal_provided'] as const
+export function jobFlagCodes(benefits: GuardOutput['benefits'], description: string | null | undefined): Array<typeof JOB_FLAG_CODES[number]> {
+  const roles = new Set(String(description ?? '').split(/\r?\n/).map((line) => splitRoleLine(line).role?.toLowerCase()).filter(Boolean))
+  return JOB_FLAG_CODES.filter((code) => benefits.some((b) => b.code === code) && !(code === 'meal_provided' && roles.size >= 2))
 }

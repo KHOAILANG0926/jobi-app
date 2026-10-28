@@ -1,3 +1,10 @@
+## 2026-10-28 16:20
+- 요청: Lee — migrations-apply 점검 실패(sb-4982 active·meal_provided) 원인 확정과 공통 규칙 반영.
+- 변경: canonical area 이상 핀이면 위치 보류 금지·해제(migration 20261028080000), 복수직무 공고 AI 전체 식사 칸 금지(aiClassifyGuard.jobFlagCodes), 규칙 점검 SQL 추가. 이전 HANDOFF(#282 전달 내용)는 docs/ops/2026-10-28-bomunttl-followup.md에 상세 보존.
+- 수정 파일: supabase/migrations/20261028080000_area_pin_releases_unlocated_hold.sql, supabase/tests/area_pin_hold_meal_production_check.sql, scripts/ci/{bomunttl-postgres,check-postgres-migrations}.sh, scripts/ocr/ai-classify.mjs, src/lib/aiClassifyGuard{,.test}.ts, CHATGPT_HANDOFF.md
+- 검증: 로컬 실제 PostgreSQL(postgis 17) bomunttl-postgres.sh 전체 PASS(보류 해제·재보류 없음·admin_hidden 유지·식사 위반 보고), aiClassifyGuard 시험, tsc, npm test 85/85.
+- commit/push/deploy: PR 진행 중. 남은 문제: 기존 식사 칸 되돌리기는 Lee 승인 대기.
+
 ## 2026-10-27 — FUSHAN 원문 분류 규칙, 브랜치 전달
 - 요청: FUSHAN 8줄 미분류 수정·시험·빌드 후 새 브랜치 push만. PR은 Claude 담당, 운영 변경/배포 없음.
 - 변경: 공통 상세 분류 규칙, 원문/화면 칸별 시험, 중개 표시 및 업무 미기재 안내 재처리 보존, 숙소 찾기 별도 benefit code. AGENTS/CLAUDE·결정0005 한/영·DB 규칙 SQL 초안·공개 게이트 실제 사례.

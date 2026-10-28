@@ -6,7 +6,7 @@
 // AI 답은 aiClassifyGuard.ts가 검사(목록 밖·준 적 없는 줄·원문에 없는 근거·부정 문장 버림). 필요: SUPABASE_DB_URL, ANTHROPIC_API_KEY
 import pg from 'pg'
 import { createHash } from 'node:crypto'
-import { buildPrompt, guardAiResult, lineKey, BENEFIT_CODES } from '../../src/lib/aiClassifyGuard.ts'
+import { buildPrompt, guardAiResult, lineKey, BENEFIT_CODES, jobFlagCodes } from '../../src/lib/aiClassifyGuard.ts'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 const MODEL = process.env.CLASSIFY_AI_MODEL || 'claude-sonnet-5-5'
@@ -33,7 +33,7 @@ let kinds = 0, benefits = 0, failed = 0
 try {
   const known = new Set((await client.query('select line_key from public.detail_line_kinds')).rows.map((r) => r.line_key))
   const { rows } = await client.query(`
-    select id, source_text, ocr_text, shuttle_bus, dormitory, meal_provided, benefit_tags,
+    select id, source_text, ocr_text, description, shuttle_bus, dormitory, meal_provided, benefit_tags,
            coalesce(ocr_check->'detail_fill'->'unclassified', '[]'::jsonb) as unclassified,
            ocr_check->'benefits_ai'->>'hash' as benefits_hash
     from public.local_jobs
@@ -56,7 +56,7 @@ try {
         known.add(lineKey(k.line)); kinds++
       }
       if (needBenefits) {
-        const flags = Object.keys(FLAG).filter((c) => g.benefits.some((b) => b.code === c))
+        const flags = jobFlagCodes(g.benefits, job.description)   // 여러 직무 공고는 전체 식사 칸 자동 켜기 금지(결정 0006)
         const tags = g.benefits.filter((b) => !(b.code in FLAG)).map((b) => BENEFIT_CODES[b.code].label)
         const sets = flags.map((c) => `${FLAG[c]} = true`)
         await client.query(
