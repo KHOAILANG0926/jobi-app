@@ -1,17 +1,19 @@
 name: 운영 - 포스터 공고 등록 (수동 실행)
 
 # 사용자 승인 후에만 수동 실행한다(workflow_dispatch).
-# scripts/ops/jobs/<name>.png 를 job-images 버킷에 올리고, scripts/ops/jobs/<name>.sql 을 실행한다.
-# 규칙 트리거를 그대로 거친다(우회 없음). 이미지가 있으므로 R7 OCR 대조 통과 전까지 비공개.
+# 입구 전환 1단계(Lee 2026-10-28 순서): scripts/ops/jobs/<name>.json(공고 내용)을 입구 함수 ingest_job으로만 등록한다.
+# 직접 local_jobs·job_work_locations에 쓰는 SQL은 받지 않는다. 원문 보존→중복→직업분류→위치→공개 순서와 규칙 트리거를 그대로 거친다.
+# 포스터가 있으면 <name>.png 를 job-images 버킷에 먼저 올린다(R7 OCR 대조 통과 전까지 비공개).
 on:
   workflow_dispatch:
     inputs:
       name:
-        description: 'scripts/ops/jobs 안의 파일 이름(확장자 없이), 예: kda-20261013'
+        description: 'scripts/ops/jobs 안의 공고 내용 파일 이름(.json, 확장자 없이)'
         required: true
       storage_path:
-        description: 'job-images 버킷 안 저장 경로, 예: kda/kda-20261013.png'
-        required: true
+        description: '포스터가 있을 때만: job-images 버킷 안 저장 경로(공고 내용 images와 같아야 함), 예: kda/kda-20261013.png'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -31,9 +33,14 @@ jobs:
       - name: 입력 확인
         run: |
           echo "$NAME" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::name 형식 오류"; exit 1; }
-          echo "$STORAGE_PATH" | grep -Eq '^[a-z0-9/_.-]+\.png$' || { echo "::error::storage_path 형식 오류"; exit 1; }
-          test -f "scripts/ops/jobs/$NAME.png" && test -f "scripts/ops/jobs/$NAME.sql"
+          test -f "scripts/ops/jobs/$NAME.json" || { echo "::error::scripts/ops/jobs/$NAME.json 없음(SQL 파일 등록은 입구로 바뀜)"; exit 1; }
+          if [ -n "$STORAGE_PATH" ]; then
+            echo "$STORAGE_PATH" | grep -Eq '^[a-z0-9/_.-]+\.png$' || { echo "::error::storage_path 형식 오류"; exit 1; }
+            test -f "scripts/ops/jobs/$NAME.png"
+          fi
+          node scripts/ops/ingest-sql.mjs "scripts/ops/jobs/$NAME.json" "$STORAGE_PATH" > /tmp/ingest.sql
       - name: 포스터 이미지 업로드 (job-images)
+        if: inputs.storage_path != ''
         run: |
           code=$(curl -sS -o /tmp/up.txt -w '%{http_code}' -X POST \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
@@ -43,8 +50,8 @@ jobs:
           echo "upload HTTP $code"; [ "$code" = "200" ] || { cat /tmp/up.txt; exit 1; }
       - name: PostgreSQL 클라이언트 설치
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-      - name: 공고 등록 (한 트랜잭션, 규칙 트리거 적용)
-        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "scripts/ops/jobs/$NAME.sql"
+      - name: 입구로 공고 등록 (ingest_job 한 번, 단계별 결과 출력)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f /tmp/ingest.sql
       - name: OCR 대조 실행 요청
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

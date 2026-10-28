@@ -1,0 +1,14 @@
+{
+  "title": "Tuyển phụ bếp ca tối",
+  "company": "Fixture SQL File",
+  "source": "manual:poster",
+  "employer_phone": "0912 000 333",
+  "location": "Phường Võ Cường, TP. Bắc Ninh",
+  "category": "am_thuc_do_uong",
+  "occupation_code": "9402",
+  "occupation_evidence": "Tuyển phụ bếp",
+  "source_text": "Tuyển phụ bếp ca tối. Công ty Fixture SQL File. Gọi 0912 000 333. Địa chỉ: Phường Võ Cường, TP. Bắc Ninh. Ký tự lạ $ingest$ ' \\ để thử.",
+  "images": [
+    "fixture/ingest-sql-file.png"
+  ]
+}

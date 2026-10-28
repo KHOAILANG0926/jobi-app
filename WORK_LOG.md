@@ -1,3 +1,10 @@
+## 2026-10-29 00:40
+- 요청: Lee — 입구 전환 순서 ① SQL 파일 등록을 ingest_job으로.
+- 변경: ops-insert-job이 공고 내용 JSON → scripts/ops/ingest-sql.mjs → ingest_job 한 번(허용 칸은 migration의 입구 목록에서 읽음, channel·판정·위치 칸 거부, images=올린 포스터 경로 확인, 단계별 결과 출력). ops-run-sql은 local_jobs·job_work_locations·job_ingest_raw/log insert 거부. 기존 kda/mao-yen .sql은 기록용(새 작업으로 실행 불가).
+- 수정 파일: .github/workflows/ops-insert-job.yml, .github/workflows/ops-run-sql.yml, scripts/ops/ingest-sql.mjs, scripts/ci/bomunttl-postgres.sh, scripts/ci/check-postgres-migrations.sh, test-fixtures/ops/ingest-sql-file.json, docs/plans/2026-10-28-ingest-gateway.md
+- 검증: 로컬 폐기용 PostgreSQL 16+PostGIS에서 bomunttl-postgres.sh 전체 PASS(같은 파일 2번 → 공고 1개·중복 기록, 원문 특수문자 그대로, 금지 칸 5종 거부), tsc·build 통과. 운영 실행 없음.
+- 남은 문제: 운영 DB 접속 계정이 ingest_job 실행 권한을 가졌는지는 첫 실제 실행에서 확인(추정: 소유자 계정). 관리자 앱·크롤러 전환 남음.
+
 ## 2026-10-28 23:59
 - 요청: Lee — #304·#305를 HANDOFF·WORK_LOG에 반영.
 - 변경(이번): 문서만. 기록 대상 #304(9dc56b3): migration 20261028160000 — job_ingest_raw/log·job_ai_suggestions(RLS, service_role만), ingest_job()(원문 보존→중복→직업분류→위치→공개), 위치 결과가 공개를 바꾸지 않음(위치 보류 트리거 제거). #305(840834d): ai-classify가 AI 복리후생 판정을 job_ai_suggestions에 저장, 원문 단어 규칙과 같은 뜻일 때만 셔틀·기숙사·식사 칸 반영, 복수직무 식사 제외.
@@ -68,8 +75,3 @@
 - 안전장치 src/lib/aiClassifyGuard.ts: 목록 밖·준 적 없는 줄·원문에 없는 근거·부정 문장 버림. 글자 변경 없음.
 - 변경: migration 20261025140000_detail_line_kinds.sql, scripts/ocr/ai-classify.mjs(job-ocr-check에서 상세요강 만들기 앞), jobDescriptionBuild(lineKinds), detail-fill(번호표 반영·버전), JobDetail(AI 번호표로 아이콘 켬).
 - 시험: aiClassifyGuard.test.ts, detail_line_kinds.pglite.test.mjs.
-
-## 2026-10-25 — 공고 1개 자동 검사표
-- Lee 결정: 지금은 공고를 하나씩 올리며 문제를 찾는 단계, 크롤링 땐 문제가 나오면 안 됨 → 올린 공고마다 기계가 검사해 알림, 새 공고 연속 10개 통과가 크롤링 시작 조건.
-- 변경: src/lib/jobInspect.ts(핀·칸 나누기·중복·사이트 글자·위쪽 반복·급여 칸·복리후생 표시·직업분류·포스터·새 종류 줄·공개 11항목), scripts/ops/job-inspect.mjs(바뀐 공고만 검사, ocr_check.inspect 저장, 이슈 "공고 검사표"에 쉬운 말 + 연속 통과 N/10), job-ocr-check.yml 마지막 단계로 연결(30분마다).
-- 시험: src/lib/jobInspect.test.ts(#4878 통과, #4879 문제 4개: 핀·급여 칸·기숙사/식사 표시·비공개).

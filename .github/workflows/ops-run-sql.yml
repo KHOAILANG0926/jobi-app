@@ -23,6 +23,10 @@ jobs:
         run: |
           echo "$NAME" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::name 형식 오류"; exit 1; }
           test -f "scripts/ops/jobs/$NAME.sql"
+          # 새 공고는 입구(ops-insert-job → ingest_job)로만 들어온다. 이 작업으로 공고·근무지·원문 보존 표에 새로 넣지 않는다.
+          if grep -Eiq 'insert[[:space:]]+into[[:space:]]+(public\.)?(local_jobs|job_work_locations|job_ingest_raw|job_ingest_log)\b' "scripts/ops/jobs/$NAME.sql"; then
+            echo "::error::새 공고 등록은 ops-insert-job(입구)으로만 합니다"; exit 1
+          fi
       - name: PostgreSQL 클라이언트 설치
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
       - name: SQL 실행 (한 트랜잭션)
