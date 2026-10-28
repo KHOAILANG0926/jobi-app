@@ -1,5 +1,6 @@
 import type { Job } from '../types/job'
 import { withJobCoordinates } from './jobCoords.ts'
+import { roleScopedMeals } from './jobRolePresentation.ts'
 
 export type ApplyRoute =
   | { mode: 'internal' }
@@ -39,6 +40,7 @@ export function ensureJobFields(j: Job): Job {
   const inferredUrgent = text.includes('tuyển gấp') || text.includes('gấp')
   return withJobCoordinates({
     ...j,
+    mealProvided: roleScopedMeals(j.description).length ? null : j.mealProvided,
     salary:    j.salary?.trim()  || 'Thỏa thuận',
     location:  j.location?.trim() || 'Việt Nam',
     education: j.education?.trim() || 'Không yêu cầu',

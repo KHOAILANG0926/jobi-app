@@ -1,0 +1,43 @@
+name: Multiple-role KDA frame regression
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start current and approved-base source with synthetic public API responses
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          mkdir -p "$RUNNER_TEMP/kda-baseline"
+          git archive "$BASE_SHA" | tar -x -C "$RUNNER_TEMP/kda-baseline"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/kda-baseline/node_modules"
+          node_modules/.bin/vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/role-current.log 2>&1 &
+          (cd "$RUNNER_TEMP/kda-baseline" && "$GITHUB_WORKSPACE/node_modules/.bin/vite" --host 127.0.0.1 --port 4174 --strictPort > /tmp/role-base.log 2>&1) &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ > /dev/null && curl -fsS http://127.0.0.1:4174/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/role-current.log /tmp/role-base.log
+          exit 1
+      - name: PC and mobile KDA frame, multiple roles, meals, slogans and fragments
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/multi-role-presentation-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: multiple-role-browser
+          path: /tmp/multi-role-browser

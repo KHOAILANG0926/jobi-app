@@ -58,3 +58,29 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   assert(r.kind === 'area' && calls === 0 && (r as { lat: number }).lat === 21.1568, '2-level address uses stored ward center without VietMap calls')
   console.log('autoLocationResolver: 2-level ward cache assertions passed')
 }
+{
+ const approximate=await resolver.resolveAutoLocation({id:123,company:'Any employer',location:'Bắc Ninh',targets:[]},{
+  ...deps,async administrativeCenter(){return {lat:21.1861,lng:106.0763,source:'Natural Earth original province bac ninh',checkedAt:'2026-10-28T00:00:00Z'}}
+ })
+ assert(approximate.kind==='area','null-coordinate jobs retain an administrative approximate pin after higher priority misses')
+}
+{
+ const outside=await resolver.resolveAutoLocation({id:124,company:'Any employer',location:'KCN Quế Võ, Bắc Ninh',targets:[]},{
+  ...deps,async withinAdministrativeArea(){return false},async administrativeCenter(){return null}
+ })
+ assert(outside.kind==='unresolved','known park coordinates outside original administrative boundary cannot become an automatic pin')
+}
+{
+ const first={address:'12 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội',workLocationId:100}
+ const second={address:'10 Nguyễn Huệ, Hồ Chí Minh',workLocationId:200}
+ const result=await resolver.resolveAutoLocation({...job,targets:[first,second]}, {
+  ...deps,async reserve(){return true},async request(action){return action==='search'?[hit]:place},
+  async withinAdministrativeArea(addresses){return addresses.includes(first.address)&&!addresses.includes(second.address)},
+  async administrativeCenter(){return null},
+ })
+ assert(result.kind==='exact'&&result.workLocationId===100,'concrete exact workplace survives unrelated province target')
+ const area=await resolver.resolveAutoLocation({id:125,company:'Any employer',location:'Bắc Ninh',targets:[{address:'Khu A, Bắc Ninh',workLocationId:301},{address:'Khu B, Bắc Ninh',workLocationId:302}]},{
+  ...deps,async administrativeCenter(){return {lat:21.098,lng:106.117,source:'Original province reference',checkedAt:'2026-10-28T05:00:00Z'}}
+ })
+ assert(area.kind==='area'&&area.address==='Khu A, Bắc Ninh'&&area.workLocationId===301,'multi-workplace area fallback binds explicit canonical target')
+}

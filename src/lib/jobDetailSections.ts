@@ -102,6 +102,8 @@ export function headingOf(line: string) {
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
 export function lineBucket(line: string, current: DetailTextKey): DetailTextKey {
   const s = bare(line)
+  const content = bare(line.includes(' — ') ? line.slice(line.indexOf(' — ') + 3) : line)
+  if (/^(?:gia nhap doi ngu|ung tuyen som)\b/.test(content)) return '07'
   // Lee 2026-10-27: source-based rules, no company/job-ID exceptions or invented duties.
   if (/^(?:cty|cong ty|nha thau)\b.*\bthuong\s+\d/.test(s) || /^lcb\b/.test(s)) return '04'
   if (/^tuyen\s*:\s*(?:chinh thuc|thoi vu)\b/.test(s)) return '03'

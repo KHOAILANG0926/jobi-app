@@ -1,0 +1,28 @@
+name: Public administrative pin verification
+on:
+  workflow_run:
+    workflows: [운영 배포 확인·실제 화면 검사]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  public-pins:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: All public main/detail pins agree with canonical source and original area
+        env:
+          BASE_URL: https://www.viecganban.vn
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-administrative-public-check.mjs

@@ -11,6 +11,8 @@ import type { PoiCandidate } from './locationCandidateMatch'
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
 export interface ResolverDeps {
+  withinAdministrativeArea?(addresses:string[],point:{lat:number;lng:number}): Promise<boolean>
+  administrativeCenter?(addresses: string[]): Promise<{lat:number;lng:number;source:string;checkedAt:string} | null>
   remainingCalls?: number
   cached(key: string): Promise<unknown | null>
   cache(key: string, data: unknown): Promise<void>
@@ -21,6 +23,21 @@ export interface ResolverDeps {
   wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
 export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
+  const result=await resolveEvidence(job,deps)
+  if(result.kind==='unresolved')return result
+  const targets=job.targets.length?job.targets:[{address:job.location,workLocationId:null}]
+  const candidates=result.address?targets.filter(t=>t.address===result.address):result.workLocationId!=null?targets.filter(t=>t.workLocationId===result.workLocationId):targets
+  for(const target of candidates) {
+    if(!deps.withinAdministrativeArea||await deps.withinAdministrativeArea([target.address,job.location],result))return {...result,address:target.address,workLocationId:target.workLocationId}
+  }
+  for(const target of candidates) {
+    const area=await deps.administrativeCenter?.([target.address,job.location])
+    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed:result.failed,deferred:result.deferred}
+  }
+  return {kind:'unresolved',failed:result.failed,deferred:result.deferred}
+}
+
+async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
   let calls = 0
   let failed = false
   let deferred = false
@@ -92,5 +109,11 @@ export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps):
       }
     }
   } catch { failed = true } // Cache/reservation unavailable: fail closed; no more requests.
+  // Administrative fallback survives provider failure/budget exhaustion. It is
+  // unverified evidence persisted by the same canonical writer as every tier.
+  for(const target of targets) {
+    const area=await deps.administrativeCenter?.([target.address,job.location])
+    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed,deferred}
+  }
   return {kind:'unresolved',failed,deferred}
 }
