@@ -22,7 +22,7 @@ do $$ begin
     if not exists (select 1 from pg_proc where oid=to_regprocedure('public.replace_job_work_locations(bigint,jsonb)')
       and prosecdef and position('public.map_r1_request_location(p_job_id)' in prosrc)>0
       and position('before_addresses is distinct from after_addresses' in prosrc)>0
-      and position('point_kind=''unresolved''' in prosrc)>0)
+      and position('not location_verified' in prosrc)>0)
       or not has_function_privilege('service_role','public.replace_job_work_locations(bigint,jsonb)','execute')
       or has_function_privilege('anon','public.replace_job_work_locations(bigint,jsonb)','execute')
       or has_function_privilege('authenticated','public.replace_job_work_locations(bigint,jsonb)','execute') then
