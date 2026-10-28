@@ -1,0 +1,42 @@
+name: Android upload key setup (one time, manual)
+# Creates the Play upload key inside the runner and stores it ONLY in GitHub Secrets
+# (TWA_UPLOAD_KEYSTORE_B64, TWA_UPLOAD_KEY_PASSWORD). Nothing is printed except the
+# public SHA-256 fingerprint. Needs secret GH_SECRETS_TOKEN (fine-grained token with
+# "Secrets: read and write" on this repository). Refuses to overwrite an existing key
+# unless "replace" is typed.
+on:
+  workflow_dispatch:
+    inputs:
+      replace:
+        description: 'Type "replace" only to overwrite an existing upload key'
+        required: false
+        default: ''
+permissions:
+  contents: read
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create upload key and store it in Secrets
+        env:
+          GH_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
+          EXISTING: ${{ secrets.TWA_UPLOAD_KEYSTORE_B64 != '' }}
+          REPLACE: ${{ inputs.replace }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then echo "::error::GH_SECRETS_TOKEN 없음 — Lee가 한 번 등록해야 함"; exit 1; fi
+          if [ "$EXISTING" = "true" ] && [ "$REPLACE" != "replace" ]; then echo "::notice::업로드 키가 이미 있음 — 바꾸지 않음"; exit 0; fi
+          umask 077
+          dir=$(mktemp -d)
+          pass=$(openssl rand -base64 32 | tr -d '\n/+=' | cut -c1-32)
+          echo "::add-mask::$pass"
+          keytool -genkeypair -v -keystore "$dir/upload.keystore" -alias upload -keyalg RSA -keysize 4096 -validity 10000 \
+            -storepass "$pass" -keypass "$pass" -dname "CN=Viec gan Ban, O=Viecganban, C=VN" > /dev/null 2>&1
+          base64 -w0 "$dir/upload.keystore" | gh secret set TWA_UPLOAD_KEYSTORE_B64 --repo "$REPO"
+          printf '%s' "$pass" | gh secret set TWA_UPLOAD_KEY_PASSWORD --repo "$REPO"
+          fp=$(keytool -list -v -keystore "$dir/upload.keystore" -alias upload -storepass "$pass" | grep 'SHA256:' | head -1 | sed 's/.*SHA256: //')
+          rm -rf "$dir"
+          echo "::notice::업로드 키 저장 완료(Secrets). 업로드 키 SHA-256(공개 정보): $fp"

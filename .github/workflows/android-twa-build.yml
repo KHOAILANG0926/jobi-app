@@ -1,0 +1,61 @@
+name: Android TWA build (manual)
+# Builds the Play upload bundle (.aab) for vn.viecganban.app from android/twa-manifest.json.
+# Upload key comes only from GitHub Secrets; it is written to a temp file and deleted.
+# Output: workflow artifact "viecganban-aab". No deployment, no DB access.
+on:
+  workflow_dispatch:
+    inputs:
+      version_code: {description: 'Android versionCode (increase every upload)', required: true, default: '1'}
+      version_name: {description: 'Version name shown to users', required: true, default: '1.0.0'}
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Check upload key
+        env:
+          KEY: ${{ secrets.TWA_UPLOAD_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEY" ]; then echo "::error::업로드 키 없음 — 'Android upload key setup'을 먼저 실행"; exit 1; fi
+      - name: Generate TWA project
+        env:
+          APP_VERSION_CODE: ${{ inputs.version_code }}
+          APP_VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          npm i --no-save --no-audit --no-fund @bubblewrap/core@1.27.0
+          node scripts/twa/generate.mjs android/project
+      - name: Build release bundle
+        working-directory: android/project
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon bundleRelease
+      - name: Sign bundle with upload key
+        env:
+          KEY: ${{ secrets.TWA_UPLOAD_KEYSTORE_B64 }}
+          PASS: ${{ secrets.TWA_UPLOAD_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ks=$(mktemp)
+          echo "$KEY" | base64 -d > "$ks"
+          mkdir -p out
+          jarsigner -keystore "$ks" -storepass "$PASS" -keypass "$PASS" -sigalg SHA256withRSA -digestalg SHA-256 \
+            -signedjar out/viecganban-${{ inputs.version_code }}.aab android/project/app/build/outputs/bundle/release/app-release.aab upload > /dev/null
+          jarsigner -verify out/viecganban-${{ inputs.version_code }}.aab > /dev/null && echo "::notice::서명 확인 완료(versionCode ${{ inputs.version_code }})"
+          rm -f "$ks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: viecganban-aab
+          path: out/*.aab
+          retention-days: 14
