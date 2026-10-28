@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-27 09:27 (VN)**
-- 기준 커밋: `70fe1c6` (fix: 위치 원본 단일화와 자동 이관·지도 검증 (#277))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40438442655
+- 생성 시각: **2026-10-28 09:37 (VN)**
+- 기준 커밋: `3ac783a` (fix: classify FUSHAN source lines and preserve recruitment disclosures (#280))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40621891314
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -20,12 +20,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 81/81 파일 통과 |
+| 테스트 `npm test` | ✅ 82/82 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `70fe1c6` · 상태 **success** · 2026-10-27 06:42 (VN)
+- 마지막 Production 배포: `3ac783a` · 상태 **success** · 2026-10-27 17:42 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -33,6 +33,8 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #280 | 2026-10-27 17:41 (VN) | `3ac783a` | fix: FUSHAN 공고 원문 분류와 중개·업무 미기재 규칙 (Lee 결정 2026-10-27) |
+| #279 | 2026-10-27 11:39 (VN) | `1a05b64` | fix: 위치 E2E 공고 등록 권한과 반경 입력 동기화 |
 | #277 | 2026-10-27 06:35 (VN) | `70fe1c6` | fix: 위치 원본 단일화와 자동 이관·지도 검증 |
 | #276 | 2026-10-27 06:23 (VN) | `2ab3f8f` | ci: 승인된 위치 이관 SQL 한 파일의 해시 검증 경로 |
 | #273 | 2026-10-26 13:12 (VN) | `6affdc2` | fix: PC 헤더 버튼 정리와 기업 메뉴 탭 연결 |
@@ -41,13 +43,11 @@
 | #269 | 2026-10-26 06:41 (VN) | `6840b46` | fix: 관리자 줄 선택의 R7 위반 OCR 수정 제거 (배포 예외 결정 대기) |
 | #268 | 2026-10-26 06:27 (VN) | `436957e` | fix: 관리자 E2E 비공개 시험 데이터의 원문·출처 근거 보완 |
 | #267 | 2026-10-26 06:20 (VN) | `122a12b` | fix: 관리자 실제 E2E 의존성·DB 생성 ID·비공개 승인 시험 복구 |
-| #265 | 2026-10-25 23:29 (VN) | `8f355da` | fix: 관리자 위치 미확정 목록과 대시보드 카드 이동 |
-| #262 | 2026-10-25 19:53 (VN) | `fac1e2f` | fix: 관리자 API 통합으로 Vercel 12개 함수 상한 준수 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
 - 공개 중: **4건** (전체 7건, 숨김·비활성 3건)
-- 출처별: manual 2 · muaban 2
+- 출처별: muaban 2 · manual 2
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -63,23 +63,22 @@
 |---|---|---|
 | 2026-10-25 | 1 | 2026-10-25 12:58 (VN) |
 | 2026-10-24 | 2 | 2026-10-24 08:47 (VN) |
-| 2026-10-20 | 2 | 2026-10-20 21:50 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-10-27 17:42 (VN) | location_candidate.approve | job 4979 |
+| 2026-10-27 17:42 (VN) | location_candidate.add | job 4979 |
+| 2026-10-27 11:42 (VN) | location_candidate.approve | job 4977 |
+| 2026-10-27 11:42 (VN) | location_candidate.add | job 4977 |
+| 2026-10-27 11:41 (VN) | location_candidate.approve | job 4975 |
+| 2026-10-27 11:41 (VN) | location_candidate.add | job 4975 |
 | 2026-10-27 06:33 (VN) | location_candidate.approve | job 4970 |
 | 2026-10-27 06:33 (VN) | location_candidate.auto_reuse | job 4971 |
 | 2026-10-27 06:33 (VN) | location_candidate.add | job 4970 |
 | 2026-10-26 13:24 (VN) | location_candidate.auto_reuse | job 4968 |
-| 2026-10-26 13:24 (VN) | location_candidate.approve | job 4967 |
-| 2026-10-26 13:24 (VN) | location_candidate.add | job 4967 |
-| 2026-10-26 07:40 (VN) | location_candidate.approve | job 4964 |
-| 2026-10-26 07:40 (VN) | location_candidate.auto_reuse | job 4965 |
-| 2026-10-26 07:40 (VN) | location_candidate.add | job 4964 |
-| 2026-10-26 06:52 (VN) | location_candidate.approve | job 4824 |
 
 ## 8. 검증 장치 변경 이력
 
