@@ -17,6 +17,7 @@ const deps = (key = 'SECRET-KEY', json: unknown = [{ ref_id: 'r1', name: 'Bomunt
 const req = (body: unknown) => ({ method: 'POST', headers: {}, body })
 assert(validate({ provider: 'vietmap', company: 'Bomunttl', area: 'Ngô Tất Tố - TP. Bắc Ninh' })?.text === 'Bomunttl Ngô Tất Tố - TP. Bắc Ninh', 'company + original area query')
 assert(validate({ provider: 'goong', id: 'g1' })?.id === 'g1', 'detail by id')
+assert(validate({ provider: 'vietmap', id: 'x'.repeat(600) })?.id.length === 600, 'long VietMap ref_id accepted')
 assert(validate({ provider: 'tomtom', company: 'x' }) === null && validate({ provider: 'goong', company: '' }) === null, 'invalid input rejected')
 
 let res = makeRes()
