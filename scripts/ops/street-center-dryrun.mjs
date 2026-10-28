@@ -11,7 +11,7 @@ import {administrativeAreaForTarget, areaContains} from '../../src/lib/administr
 const BASE = process.env.BASE_URL || 'https://www.viecganban.vn'
 const REF = {company: process.env.REF_COMPANY || '', lat: Number(process.env.REF_LAT), lng: Number(process.env.REF_LNG)}
 const note = (m) => console.log(`::notice::${m.replace(/\r?\n/g, ' ')}`)
-const NOT_STREET = /^(?:kcn|ccn|khu cong nghiep|cum cong nghiep|nha may|phuong|p|xa|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\b/
+const NOT_STREET = /^(?:kcn|ccn|khu cong nghiep|cum cong nghiep|nha may|khu pho|thon|xom|ap|to dan pho|phuong|p|xa|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\b/
 function originalStreet(address) {
   const first = normalizePlaceText(String(address ?? '').split(/,|\s[-–]\s/)[0] ?? '')
   const street = first.replace(/^(?:so\s+)?\d+[a-z]?(?:\/\d+)*\s+/, '').replace(/^(?:duong|pho)\s+/, '').trim()

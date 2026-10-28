@@ -14,7 +14,7 @@ export function validate(body) {
   const company = typeof body?.company === 'string' ? body.company.trim() : ''
   const area = typeof body?.area === 'string' ? body.area.trim() : ''
   const id = typeof body?.id === 'string' ? body.id.trim() : ''
-  if (!PROVIDERS.includes(provider) || id.length > 200) return null
+  if (!PROVIDERS.includes(provider) || id.length > 2000) return null   // VietMap ref_id는 200자를 넘을 수 있다(2026-10-28 #4982 실측 400)
   // kind 'street'(Lee 2026-10-28 거리 가운데 시험): 업체(POI)로 좁히지 않고 거리 이름 그대로 찾는다. VietMap만.
   const kind = body?.kind === 'street' ? 'street' : 'business'
   if (kind === 'street' && provider !== 'vietmap') return null
