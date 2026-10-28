@@ -14,8 +14,7 @@ begin;
 do $$ begin
  if to_regprocedure('public.ingest_job(jsonb)') is null or to_regclass('public.job_ingest_raw') is null
     or to_regclass('public.job_ingest_log') is null or to_regprocedure('public.is_admin()') is null
-    or to_regprocedure('public.job_phone_digits(text)') is null or to_regclass('public.admin_audit_logs') is null
-    or to_regprocedure('public.admin_create_job(jsonb)') is null then
+    or to_regprocedure('public.job_phone_digits(text)') is null or to_regclass('public.admin_audit_logs') is null then
   raise exception 'ingest one-door preflight: required objects missing';
  end if;
  if to_regnamespace('ingest_private') is not null then raise exception 'ingest one-door preflight: already applied'; end if;
@@ -109,7 +108,11 @@ create trigger trg_00_ingest_gateway_only before insert on public.local_jobs
 -- 관리자도 입구로 등록(부른 사람 권한). 옛 소유자 권한 함수 대신.
 create policy local_jobs_admin_insert on public.local_jobs for insert to authenticated
   with check (public.is_admin() and origin = 'admin');
-revoke execute on function public.admin_create_job(jsonb) from authenticated, anon, public;
+do $$ begin  -- 운영에는 있음(0009). 없는 환경(시험 fixture)에서는 닫을 것이 없다.
+ if to_regprocedure('public.admin_create_job(jsonb)') is not null then
+  revoke execute on function public.admin_create_job(jsonb) from authenticated, anon, public;
+ end if;
+end $$;
 
 create or replace function public.ingest_job(p jsonb) returns bigint
 language plpgsql security invoker set search_path = pg_catalog, public as $$

@@ -168,7 +168,7 @@ select public.ingest_job(jsonb_build_object('channel','employer','title','Thợ 
 -- 다른 사람 이름으로는 등록 불가(RLS)
 select public.t_expect_error($q$select public.ingest_job('{"channel":"employer","title":"t","company":"c","source_text":"c","employer_id":"00000000-0000-0000-0000-0000000000b1"}')$q$, 'row-level security');
 -- 옛 관리자 등록 함수는 닫힘
-select public.t_expect_error($q$select public.admin_create_job('{"title":"t","company":"c"}')$q$, 'permission denied');
+select public.t_expect_error($q$select public.admin_create_job('{"title":"t","company":"c"}')$q$, 'permission denied|does not exist');
 -- 일반 로그인 사용자는 관리자 경로 불가
 select public.t_expect_error($q$select public.ingest_job('{"channel":"admin","title":"t","company":"c","source_text":"c"}')$q$, '관리자 경로는 관리자만');
 

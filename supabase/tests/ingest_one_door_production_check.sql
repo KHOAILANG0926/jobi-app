@@ -19,8 +19,8 @@ begin
  select diff || coalesce(string_agg(r || ' ingest_job 실행 불가; ', ''), '') into diff
    from unnest(array['anon', 'authenticated', 'service_role']) r where not has_function_privilege(r, 'public.ingest_job(jsonb)', 'execute');
  -- ③ 옛 관리자 등록 함수(소유자 권한) 닫힘
- if has_function_privilege('authenticated', 'public.admin_create_job(jsonb)', 'execute')
-    or has_function_privilege('anon', 'public.admin_create_job(jsonb)', 'execute') then
+ if to_regprocedure('public.admin_create_job(jsonb)') is not null and (has_function_privilege('authenticated', 'public.admin_create_job(jsonb)', 'execute')
+    or has_function_privilege('anon', 'public.admin_create_job(jsonb)', 'execute')) then
   diff := diff || 'admin_create_job 실행 권한 남아 있음; ';
  end if;
  -- ④ 원문·기록 표는 여전히 앱에서 직접 읽기·쓰기 불가
