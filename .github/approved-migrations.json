@@ -9,6 +9,14 @@
       "designSource": "https://github.com/KHOAILANG0926/jobi-app/blob/5f566121e3e6baf01f1fb8e6b4f18b4d05f79de9/docs/plans/2026-10-26-location-single-source.md",
       "reviewedSqlSource": "https://github.com/KHOAILANG0926/jobi-app/blob/design/location-single-source-20261026/supabase/pending/location-single-source-20261026/production/10-apply.sql",
       "scope": "Only this exact newly added migration. DROP POLICY replaces the location read policy; DELETE FROM is inside the archive runtime function, not a migration-time bulk deletion. No blanket destructive SQL approval."
+    },
+    {
+      "path": "supabase/migrations/20261028080000_area_pin_releases_unlocated_hold.sql",
+      "sha256": "855d4988093d1df8f08ffca575f11bb4f0212d79257ed165de83fd61a849df65",
+      "approvedBy": "Lee",
+      "approvedAt": "2026-10-28",
+      "approval": "Lee 2026-10-28 15:16 chat: '예, 이 파일만 승인'. Canonical area/gate/exact pin releases and prevents the unlocated hold.",
+      "scope": "Only this exact newly added migration. DELETE FROM removes rows from the map_r1_unlocated hold list only (no announcement data deleted). No blanket destructive SQL approval."
     }
   ]
 }
