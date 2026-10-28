@@ -1,5 +1,5 @@
 // AI 칸·복리후생 판정 안전장치 시험 — AI가 무엇을 답해도 목록·원문 밖은 버린다.
-import { guardAiResult, lineKey, buildPrompt, jobFlagCodes } from './aiClassifyGuard.ts'
+import { guardAiResult, lineKey, buildPrompt, jobFlagCodes, ruleConfirmedFlags } from './aiClassifyGuard.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
@@ -50,3 +50,8 @@ const multiRole = 'Quyền lợi\nCÔ RỬA BÁT FULL TIME — Bao ăn 2 bữa\n
 assert(jobFlagCodes(found, multiRole).join(',') === 'shuttle_bus', 'multi-role job: no global meal flag')
 assert(jobFlagCodes(found, 'Quyền lợi\nBao ăn 2 bữa').join(',') === 'shuttle_bus,meal_provided', 'single-role job keeps meal flag')
 assert(jobFlagCodes(found, 'CÔ RỬA BÁT FULL TIME — Bao ăn 2 bữa\nCÔ RỬA BÁT FULL TIME — Tháng nghỉ 4 ngày').join(',') === 'shuttle_bus,meal_provided', 'one role repeated is not multi-role')
+
+// Lee 2026-10-28 ②: AI는 제안만 — 원문 단어 규칙도 같은 뜻일 때만 공고 칸을 켠다.
+const aiOnly = [{ code: 'shuttle_bus' as const, evidence: 'Công ty lo phương tiện đi lại hằng ngày' }, { code: 'meal_provided' as const, evidence: 'Bao ăn 2 bữa' }]
+assert(ruleConfirmedFlags(aiOnly, 'Quyền lợi\nBao ăn 2 bữa').join(',') === 'meal_provided', 'AI-only shuttle wording stays a suggestion; rule-confirmed meal is applied')
+assert(ruleConfirmedFlags(aiOnly, multiRole).length === 0, 'multi-role meal never becomes a global flag even when the rule agrees')
