@@ -15,14 +15,17 @@ export function validate(body) {
   const area = typeof body?.area === 'string' ? body.area.trim() : ''
   const id = typeof body?.id === 'string' ? body.id.trim() : ''
   if (!PROVIDERS.includes(provider) || id.length > 200) return null
+  // kind 'street'(Lee 2026-10-28 거리 가운데 시험): 업체(POI)로 좁히지 않고 거리 이름 그대로 찾는다. VietMap만.
+  const kind = body?.kind === 'street' ? 'street' : 'business'
+  if (kind === 'street' && provider !== 'vietmap') return null
   if (id) return { provider, id }
   if (!company || company.length > 120 || area.length > 200) return null
-  return { provider, text: `${company} ${area}`.trim() }
+  return { provider, kind, text: `${company} ${area}`.trim() }
 }
 
 export function upstreamUrls(provider, key) {
   if (provider === 'vietmap') return {
-    search: (text) => `https://maps.vietmap.vn/api/search/v4?${new URLSearchParams({ text, layers: 'POI', display_type: '1', apikey: key })}`,
+    search: (text, kind = 'business') => `https://maps.vietmap.vn/api/search/v4?${new URLSearchParams({ text, ...(kind === 'street' ? {} : { layers: 'POI' }), display_type: '1', apikey: key })}`,
     detail: (id) => `https://maps.vietmap.vn/api/place/v4?${new URLSearchParams({ refid: id, apikey: key })}`,
   }
   return {
@@ -33,7 +36,8 @@ export function upstreamUrls(provider, key) {
 
 /** 검색 결과를 같은 모양(이름·id)으로 정리. */
 export function normalizeHits(provider, json) {
-  if (provider === 'vietmap') return (Array.isArray(json) ? json : []).map((h) => ({ id: h.ref_id, name: h.name ?? '' }))
+  if (provider === 'vietmap') return (Array.isArray(json) ? json : []).map((h) => ({ id: h.ref_id, name: h.name ?? '', address: String(h.address || h.display || '').slice(0, 200),
+    categories: (Array.isArray(h.categories) ? h.categories : []).map(String).slice(0, 5) }))
   return (json?.predictions ?? []).map((p) => ({ id: p.place_id, name: p.structured_formatting?.main_text ?? '' }))
 }
 export function normalizeDetail(provider, json) {
@@ -68,7 +72,7 @@ export function createAdminBusinessSearchHandler(injected) {
       const key = deps.key(request.provider)
       if (!key) return res.status(503).json({ error: 'not_configured', provider: request.provider })
       const urls = upstreamUrls(request.provider, key)
-      const up = await deps.fetchJson(request.id ? urls.detail(request.id) : urls.search(request.text))
+      const up = await deps.fetchJson(request.id ? urls.detail(request.id) : urls.search(request.text, request.kind))
       if (!up.ok) return res.status(502).json({ error: 'upstream_error', provider: request.provider, upstreamStatus: up.status })
       if (!request.id) return res.status(200).json({ ok: true, provider: request.provider, hits: normalizeHits(request.provider, up.json).filter((h) => h.id).slice(0, 10) })
       const place = normalizeDetail(request.provider, up.json)

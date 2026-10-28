@@ -39,4 +39,8 @@ res = makeRes()
 await createAdminBusinessSearchHandler({ key: () => 'K', async fetchJson() { return { ok: false, status: 401 } } })(req({ provider: 'vietmap', company: 'X' }), res)
 assert(res.code === 502 && res.body.upstreamStatus === 401, 'upstream status only, no body')
 assert(normalizeHits('goong', null).length === 0 && normalizeDetail('vietmap', null).lat === undefined, 'empty responses are safe')
+res = makeRes(); urls.length = 0
+await createAdminBusinessSearchHandler(deps('K', [{ ref_id: 's1', name: 'Ngô Tất Tố', address: 'Võ Cường, Bắc Ninh', categories: ['street'] }]))(req({ provider: 'vietmap', kind: 'street', company: 'Ngô Tất Tố', area: 'TP. Bắc Ninh' }), res)
+assert(res.code === 200 && !urls[0].includes('layers=POI') && res.body.hits[0].address === 'Võ Cường, Bắc Ninh', 'street search is not limited to businesses and returns the hit address')
+assert(validate({ provider: 'goong', kind: 'street', company: 'x' }) === null, 'street search is VietMap only')
 console.log('admin business-search: no TS import, search/detail split, Goong normalize, missing key, upstream error, no key leak passed')

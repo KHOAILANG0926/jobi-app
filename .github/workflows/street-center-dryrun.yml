@@ -1,0 +1,31 @@
+name: Street center tier dry-run (manual, read-only)
+# Lee 2026-10-28: list public announcements the "street center" tier would re-judge and how far
+# the pin would move. Anonymous public reads + admin read API (VietMap key stays in Vercel).
+# No DB writes, no pins, no deployment. Reference point is a run input, never stored.
+on:
+  workflow_dispatch:
+    inputs:
+      ref_company: {description: 'Reference company (exact name)', required: false, default: ''}
+      ref_lat: {description: 'Reference latitude (reference only, not stored)', required: false, default: ''}
+      ref_lng: {description: 'Reference longitude (reference only, not stored)', required: false, default: ''}
+permissions:
+  contents: read
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Street center dry-run
+        env:
+          ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+          ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+          REF_COMPANY: ${{ inputs.ref_company }}
+          REF_LAT: ${{ inputs.ref_lat }}
+          REF_LNG: ${{ inputs.ref_lng }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/street-center-dryrun.mjs
