@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
+import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 
@@ -59,6 +60,14 @@ async function runClaimed(db, request, claim) {
     try {
       const result = await resolveAutoLocation(row.snapshot, {
         remainingCalls: Math.max(0,2-row.calls),
+        async withinAdministrativeArea(addresses, point) {
+          const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
+          return !!area && areaContains(area,point)
+        },
+        async administrativeCenter(addresses) {
+          const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
+          return area ? {lat:area.lat,lng:area.lng,source:`Original administrative area ${area.key}`,checkedAt:new Date().toISOString()} : null
+        },
         async cached(key) {
           const name = createHash('sha256').update(key).digest('hex')
           const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','map-r1-query').eq('name',name).maybeSingle()

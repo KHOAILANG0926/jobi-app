@@ -45,3 +45,16 @@ do $$ begin
 end $$;
 SQL
 echo 'PASS: actual PostgreSQL rules + single registration + repeat safety + canonical unresolved writer + production check'
+# Preserve the original registration/unresolved checks above, then verify the
+# newly approved approximation policy on the same actual PostgreSQL fixture.
+for f in 20261027042533_location_company_index_execute.sql 20261028050507_administrative_area_fallback.sql;do
+ psql_local -1 < "supabase/migrations/$f" > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+done
+for f in administrative_area_fallback_production_check.sql location_single_source_production_check.sql;do
+ psql_local < "supabase/tests/$f" > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+done
+echo 'PASS: same PostgreSQL public fixtures gain canonical administrative pins, retain review flags and source/cache integrity'
+
+psql_local -1 < supabase/migrations/20261028051147_multi_role_presentation_rules.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+psql_local < supabase/tests/multi_role_presentation_production_check.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+echo 'PASS: public fixture retains multi-role/no-post-time rules and approved approximate pin policy'

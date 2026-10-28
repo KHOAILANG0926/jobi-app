@@ -46,6 +46,11 @@ export function cleanSourceText(text: string | null | undefined): CleanResult {
   const dropped: CleanResult['dropped'] = []
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    // A leading + is a continuation, not a new salary/benefit condition.
+    if (/^\+\s*(?:thưởng|thuong|tip)\b/iu.test(line) && out.length && /(?:lương|luong|thu nhập|thu nhap|\d[\d.,]*\s*(?:k|đ|vnd|triệu|trieu)\b)/iu.test(out[out.length - 1])) {
+      out[out.length - 1] += ' ' + line
+      continue
+    }
     if (MASKED_PHONE.test(line)) { dropped.push({ line, reason: 'masked_phone' }); continue }
     const label = labelOf(line)
     if (label) {

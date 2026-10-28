@@ -30,8 +30,9 @@ export const KIND_RULES: Array<{ id: string; re: RegExp; key: DetailTextKey; dec
   { id: 'meals_provided', key: '05', decided: '2026-10-28 Lee', re: /^bao an\b/ },
   { id: 'holiday_bonus', key: '04', decided: '2026-10-28 Lee', re: /^(?:duoc thuong vao cac ngay le|\+\s*thuong\s*\+\s*tip)$/ },
   { id: 'explicit_candidate_requirements', key: '02', decided: '2026-10-28 Lee', re: /^(?:yeu cau\s*:|uu tien ung vien\b)/ },
-  { id: 'join_team_call', key: '06', decided: '2026-10-28 Lee', re: /^gia nhap doi ngu\b/ },
+  { id: 'join_team_call', key: '07', decided: '2026-10-28 Lee', re: /^gia nhap doi ngu\b/ },
 
+  { id: 'early_apply_call', key: '07', decided: '2026-10-28 Lee', re: /^ung tuyen som\b/ },
   // 2026-10-20 Lee: "두루뭉술하게 쓴 거잖아… 저런 거는 그냥 기타란으로 넣어야지 넣을 데가 없잖아" → 07, 묻지 않음
   { id: 'vague_slogan', key: '07', decided: '2026-10-20 Lee',
     re: /^(?:gan bo lau dai|cong viec lau dai|viec lam lau dai|viec lam on dinh|cong viec on dinh|thu nhap (?:tot|on dinh|cao)|moi truong(?: lam viec)? (?:thoai mai|sach se|than thien|chuyen nghiep)|quy trinh ro rang)$/ },

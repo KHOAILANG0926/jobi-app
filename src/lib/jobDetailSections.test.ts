@@ -179,3 +179,9 @@ console.log('jobDetailSections AI-kind regression assertions passed')
   assert(lineBucket('Công việc: Lắp ráp tai nghe', '01') === '01', 'specific work not moved to benefits')
   assert(lineBucket('Cty ABC, phòng thường', '07') === '07', 'ordinary room is not a monetary bonus')
 }
+
+// Calls to apply are slogans, even when persisted under an old recruitment heading.
+const calls = detailSections('Quy trình tuyển dụng\nGia nhập đội ngũ ngay thôi!\nỨng tuyển sớm để giữ chỗ!')
+assert(calls.preserved && !calls.usedFallback, 'call lines preserved')
+assert(calls.sections.find(s => s.key === '07')?.lines.length === 2, 'calls are supplementary, not recruitment steps')
+assert(!calls.sections.some(s => s.key === '06'), 'no invented recruitment process')

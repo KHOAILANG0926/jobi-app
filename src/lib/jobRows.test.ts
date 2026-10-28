@@ -193,3 +193,7 @@ async function main(): Promise<void> {
 }
 
 main()
+
+// Role-specific meals must not become a global badge, even if an old ingestion path set the flag.
+const scopedMeals = rowToJob({id:10,title:'Hai vị trí',company:'Nhà hàng',meal_provided:true,description:'CÔ RỬA BÁT FULL TIME\nNHÂN VIÊN CHẠY BÀN PART TIME\nCÔ RỬA BÁT FULL TIME — Bao ăn 2 bữa'})
+assertEqual(scopedMeals.mealProvided, null, 'exclusive role meals suppress global badge in shared job model')

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   MapPin, Timer, Award, GraduationCap, Users, Clock, Calendar, Briefcase, Building2,
@@ -28,6 +28,7 @@ import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
+import { descriptionRoleGroups, roleConditionSummary } from '../lib/jobRolePresentation'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -308,13 +309,14 @@ export function JobDetail() {
   const catLabel = CATEGORY_LABELS[job.category] ?? job.category
 
   // ── 빈 데이터 처리: 원본이 명시적으로 채운 값만 표시, 나머지는 필드 자체를 숨긴다 ──
-  const salaryText = nonEmpty(job.rawSalary)
+  const roleSummary = roleConditionSummary(job.description)
+  const salaryText = roleSummary?.salary ?? nonEmpty(job.rawSalary)
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
   const educationText = nonEmpty(job.rawEducation)
-  const numHiresText = nonEmpty(job.numHires)
-  const hoursText = nonEmpty(job.hours)
-  const workDaysText = nonEmpty(job.workDays)
+  const numHiresText = nonEmpty(job.numHires) ?? roleSummary?.numHires
+  const hoursText = roleSummary?.hours ?? nonEmpty(job.hours)
+  const workDaysText = roleSummary?.workDays ?? nonEmpty(job.workDays)
   const workPeriodText = nonEmpty(job.workPeriod)
   const deadlineText = formatDeadlineVi(job.applicationDeadline)
 
@@ -335,7 +337,7 @@ export function JobDetail() {
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
-  const employmentText = job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText
+  const employmentText = roleSummary?.workPeriod ?? (job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText)
   const otherJobsOfCompany = isGenericCompanyName(job.company) ? [] : jobs
     .filter((j) => j.id !== job.id && companyKeyFromName(j.company) === companyKeyFromName(job.company))
     .slice(0, 5)
@@ -346,7 +348,7 @@ export function JobDetail() {
     value ? ({ key, icon, label, value, cls } as InfoField) : null
   // 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄, 최대 3줄, 넘치면 'Xem thêm' → 상세요강 해당 소제목.
   const textRow = (key: string, icon: ReactNode, label: string, value: string | undefined) =>
-    value ? row(key, icon, label, <ConditionLines text={value} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
+    value ? row(key, icon, label, <ConditionLines text={value} compactText={roleSummary ? (key === 'hours' ? `${roleSummary.roleCount} vị trí, giờ khác` : key === 'workDays' ? 'Theo từng vị trí' : key === 'benefits' ? 'Theo từng vị trí' : undefined) : undefined} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
@@ -408,20 +410,13 @@ export function JobDetail() {
   const googleCompanyParkLink = googleCompanyParkText
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleCompanyParkText)}`
     : null
-  const unverifiedMapViewport = { lat: 14.0583, lng: 108.2772, zoom: 5 }
-  // 'default'(위치 정보가 전혀 없어 베트남 전체 중심으로 떨어진 경우)만
-  // 지도를 숨긴다 — 그 외(exact/address/region)는 전부 무언가 실제 위치
-  // 정보에 기반한 점이므로 근사치임을 문구로 밝히고 항상 지도를 그린다.
-  // 2026-09-30 사용자 지시: 지역·공단 중심 좌표로 대신 표시하지 않는다. 확인된 근무지(precise)만 지도에
-  // 그리고, 없으면 '위치 미확인'으로 표시한다(길찾기·거리 계산에서도 이미 제외됨).
+  // Lee Oct13/Oct14: render every canonical exact/gate/area pin. Approximate
+  // points stay visibly unverified; never manufacture a parallel UI coordinate.
   const verifiedMapPoints = mapLocations.points.filter((p) => p.kind === 'exact' && p.precise)
   const displayMapPoints = mapLocations.source === 'default' ? [] : mapLocations.points
   const hasMapPoints = displayMapPoints.length > 0
   const mapCenter = displayMapPoints[0]
-  // 2026-10-07 사용자 지시: 공단(KCN) 수준까지만 아는 근무지는 "해당 KCN 중심 좌표"로 핀 없이 지도 + "Vị trí chính xác chưa xác minh".
-  // 중심 좌표는 출처(OpenStreetMap way)가 있는 공단 표(data/industrialParks.ts)에서만 가져온다 — 표에 없으면
-  // 지역 중심으로 대신하지 않고 지도 없이 글자 안내만 보여준다. 핀·길찾기·거리 계산에는 쓰지 않는다.
-  // 길찾기는 승인된 출입구 좌표가 있는 근무지만(MapLinks와 같은 규칙: viewKind==='exact'일 때만 directions 존재) — 전체화면 지도에도 같은 규칙.
+  // Accuracy affects the note and directions, not whether an area pin is shown.
   const directionsPlan = planJobDirections(job)
   // 지도 누르면 열 Google 길찾기(아래 Google 버튼과 같은 주소). 없으면 지도 누르기는 아무 일도 안 함.
   const googleMapHref = directionsPlan.tier === 'approved' ? directionsPlan.links[0]?.href : directionsPlan.tier === 'gate' ? directionsPlan.link.href : directionsPlan.tier === 'address' ? directionsPlan.links[0]?.href : undefined
@@ -454,7 +449,7 @@ export function JobDetail() {
   const benefitIcons = [
     { key: 'bus', label: 'Xe đưa đón', active: job.shuttleBus === true, icon: Bus, color: '#2563eb', bg: '#dbeafe' },
     { key: 'dorm', label: 'Ký túc xá', active: job.dormitory === true, icon: BedDouble, color: '#7c3aed', bg: '#ede9fe' },
-    { key: 'meal', label: 'Ăn ca', active: job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
+    { key: 'meal', label: roleSummary?.mealBenefit ?? 'Ăn ca', active: !!roleSummary?.mealBenefit || job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
     { key: 'attendance', label: 'Chuyên cần', active: explicitBenefit(/(?:chuyên cần|chuyen can)(?:\\s*[:：-]?\\s*[\\d.,]+\\s*(?:k|đ|vnd|đồng))?/i, 'Chuyên cần'), icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
     { key: 'housing', label: 'Nhà ở', active: explicitBenefit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i, 'Nhà ở'), icon: House, color: '#db2777', bg: '#fce7f3' },
     { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i, 'Xăng xe'), icon: Fuel, color: '#0891b2', bg: '#cffafe' },
@@ -491,6 +486,7 @@ export function JobDetail() {
     if (!descriptionSections.some((sec) => sec.key === key)) descriptionSections.push({ key, label: DETAIL_LABELS[key], lines: [] })
   }
   descriptionSections.sort((a, b) => a.key.localeCompare(b.key))
+  const roleSections = descriptionRoleGroups(descriptionSections)
   const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
@@ -530,7 +526,7 @@ export function JobDetail() {
             )}
             <div className="jd2-benefits" aria-label="Phúc lợi: màu thể hiện quyền lợi được xác nhận; màu xám là chưa có thông tin">
               {benefitIcons.map(({ key, label, active, icon: Icon, color, bg }) => (
-                <span key={key} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
+                <span key={key} data-benefit-scope={key === 'meal' && roleSummary?.mealBenefit ? 'role' : undefined} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
                   <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
                     <Icon size={19} strokeWidth={1.9} aria-hidden="true" />
                   </span>
@@ -691,13 +687,9 @@ export function JobDetail() {
                   {job.workLocations?.flatMap((loc) => loc.shuttleRoute ? [loc.shuttleRoute] : []).map((route, i) =>
                     <p className="jd2-map-extra" key={i}>Tuyến xe đưa đón: <strong>{route}</strong></p>
                   )}
-                  <ClientOnlyMap tapHref={googleMapHref}
-                    lat={unverifiedMapViewport.lat}
-                    lng={unverifiedMapViewport.lng}
-                    title="Vị trí chưa xác minh"
-                    zoom={unverifiedMapViewport.zoom}
-                    pinless
-                  />
+                  <div className="jd2-vmap" style={{ height: 280 }} role="status" data-map-unavailable="awaiting-canonical-pin">
+                    <p className="jd2-map-dir-note">Đang xác minh khu vực theo địa chỉ trong tin gốc.</p>
+                  </div>
                   <p className="jd2-map-dir-note">Vị trí chưa xác minh</p>
                   <div className="jd2-map-links">
                     {googleCompanyParkLink ? (
@@ -901,7 +893,12 @@ export function JobDetail() {
                       {conditionExtras[section.key]?.map((extra) => (
                         <p key={extra.label} className="jd2-detail-section__line jd2-detail-section__line--condition">{extra.label}: {extra.text}</p>
                       ))}
-                      {section.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line.replace(/^\s*[-•*]\s+/, '')}</p>)}
+                      {roleSections.find(s => s.key === section.key)?.groups.map((group, groupIndex) => (
+                        <Fragment key={group.role ?? groupIndex}>
+                          {group.role && <p className="jd2-detail-section__line" data-role-heading={group.role}><strong>{group.role}</strong></p>}
+                          {group.lines.map((line, index) => <p key={index} className="jd2-detail-section__line">{line.replace(/^\s*[-•*]\s+/, '')}</p>)}
+                        </Fragment>
+                      ))}
                     </div>
                   </section>
                 ))}

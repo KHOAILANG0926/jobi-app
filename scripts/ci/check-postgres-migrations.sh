@@ -20,6 +20,14 @@ for file in "${changed[@]}"; do
     bash supabase/pending/location-single-source-20261026/production/run-local.sh supabase/migrations/20261026231445_location_single_source.sql "$file"
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261028051147_multi_role_presentation_rules.sql' ]]; then
+    if [[ "$bomunttl_checked" == 0 ]]; then bash scripts/ci/bomunttl-postgres.sh; bomunttl_checked=1; fi
+    continue
+  fi
+  if [[ "$file" == 'supabase/migrations/20261028050507_administrative_area_fallback.sql' ]]; then
+    bash supabase/pending/location-single-source-20261026/production/run-local.sh supabase/migrations/20261026231445_location_single_source.sql supabase/migrations/20261027042533_location_company_index_execute.sql "$file"
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261028034009_lee_verified_sources.sql' || "$file" == 'supabase/migrations/20261028034036_register_bomunttl.sql' ]]; then
     if [[ "$bomunttl_checked" == 0 ]]; then bash scripts/ci/bomunttl-postgres.sh; bomunttl_checked=1; fi
     continue
