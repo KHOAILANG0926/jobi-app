@@ -4,13 +4,14 @@ declare diff text := '';
 begin
  if to_regnamespace('ingest_private') is null then diff := diff || 'ingest_private 스키마 없음; '; end if;
  -- ① 입구 밖 등록 거부 장치가 모든 INSERT 앞에 있어야 한다(이름 순서상 맨 앞, 켜져 있음)
- if not exists (select 1 from pg_trigger where tgrelid = 'public.local_jobs'::regclass and tgname = 'trg_00_ingest_gateway_only'
+ if not exists (select 1 from pg_trigger where tgrelid = 'public.local_jobs'::regclass and tgname = 'trg_000_ingest_gateway_only'
                 and not tgisinternal and tgenabled in ('O', 'A')) then
-  diff := diff || 'trg_00_ingest_gateway_only 없음/꺼짐; ';
+  diff := diff || 'trg_000_ingest_gateway_only 없음/꺼짐; ';
  end if;
- if (select min(tgname) from pg_trigger where tgrelid = 'public.local_jobs'::regclass and not tgisinternal
-      and (tgtype & 2) = 2 and (tgtype & 4) = 4) is distinct from 'trg_00_ingest_gateway_only' then
-  diff := diff || '입구 거부 장치가 BEFORE INSERT 첫 번째가 아님; ';
+ -- 순서는 안전 조건이 아님(어느 트리거가 먼저 돌든 거부 오류가 그 INSERT 전체를 취소). 이름은 맨 앞에 오도록 trg_000_.
+ if not exists (select 1 from pg_trigger where tgrelid = 'public.local_jobs'::regclass and tgname = 'trg_000_ingest_gateway_only'
+                and not tgisinternal and (tgtype & 2) = 2 and (tgtype & 4) = 4) then
+  diff := diff || '입구 거부 장치가 BEFORE INSERT가 아님; ';
  end if;
  -- ② 입구는 부른 사람 권한(INVOKER) — definer면 R3·R7 "DB 소유자=기계" 예외를 잘못 얻는다
  if (select prosecdef from pg_proc where oid = 'public.ingest_job(jsonb)'::regprocedure) then

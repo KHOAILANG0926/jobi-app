@@ -75,7 +75,7 @@ DB 공개 장치(모든 경로 공통, [직접 확인] migration 트리거): `tr
 진행(2026-10-28 밤): 1단계 운영 적용(#304). AI 복리후생 제안만(#305). SQL 파일 등록 전환: `ops-insert-job`은 `scripts/ops/jobs/<name>.json`(공고 내용)을 `scripts/ops/ingest-sql.mjs`로 `ingest_job` 한 번 호출로 바꿔 실행(판정·위치 칸·입구 목록 밖 칸은 거부), `ops-run-sql`은 공고·근무지·원문 보존 표 insert 거부. 다음: 관리자 앱(앱 계정 `ingest_job` 권한 — DB 변경, dry-run 후 Lee "적용").
 
 진행(2026-10-29, Lee "ok": 길마다 따로 하지 않고 PR 하나로, 구조로 막기): migration `20261029010000_ingest_one_door`.
-- 입구 밖 INSERT 거부: `trg_00_ingest_gateway_only`가 "입구가 이번 트랜잭션에 연 원문 기록"이 없는 등록을 모든 계정(anon·authenticated·service_role·DB 소유자·migration)에서 거부.
+- 입구 밖 INSERT 거부: `trg_000_ingest_gateway_only`가 "입구가 이번 트랜잭션에 연 원문 기록"이 없는 등록을 모든 계정(anon·authenticated·service_role·DB 소유자·migration)에서 거부.
 - 입구는 계속 INVOKER(R3·R7·RLS 그대로). 원문·기록 표 쓰기는 비공개 스키마 `ingest_private`의 도우미만(REST 노출 없음).
 - 받는 칸 = local_jobs 모든 칸 − 판정 칸(origin·admin_hidden·policy_decision·ocr_*·id·시각). 새 칸이 생겨도 빠지지 않음. SQL 파일 변환기는 1단계 좁은 목록 유지.
 - 중복은 입구 기록 + 기존 공고(source_url, 연락처 숫자+회사+원문)까지. 다시 수집(job_id/refresh, update_fields)은 바뀐 칸만, 공개 칸은 같은 출처·숨김 아님일 때만.

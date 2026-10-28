@@ -102,7 +102,7 @@ begin
   raise exception 'ingest_gateway: 공고 등록은 public.ingest_job(원문 묶음)으로만 가능' using errcode = 'insufficient_privilege';
 end $$;
 revoke all on function ingest_private.enforce_gateway_insert() from public;
-create trigger trg_00_ingest_gateway_only before insert on public.local_jobs
+create trigger trg_000_ingest_gateway_only before insert on public.local_jobs
   for each row execute function ingest_private.enforce_gateway_insert();
 
 -- 관리자도 입구로 등록(부른 사람 권한). 옛 소유자 권한 함수 대신.

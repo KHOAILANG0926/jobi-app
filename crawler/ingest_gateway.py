@@ -1,7 +1,7 @@
 """공고 등록 입구(public.ingest_job) 호출 — 크롤러 전용 얇은 포장.
 
 Lee 2026-10-29: 모든 등록 경로(관리자·고용주·크롤러·SQL)는 DB 입구 하나만 거친다.
-local_jobs에 직접 insert하면 DB 트리거(trg_00_ingest_gateway_only)가 거부한다.
+local_jobs에 직접 insert하면 DB 트리거(trg_000_ingest_gateway_only)가 거부한다.
 처리 순서·기준(원문 보존 → 중복 → 직업분류 → 위치 → 공개)은 DB 입구가 정하며 경로별 분기는 없다.
 """
 from __future__ import annotations
