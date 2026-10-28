@@ -30,15 +30,18 @@ export function ingestSourceText(fields: Record<string, unknown>, pastedText?: s
     .join('\n')
 }
 type IngestChannel = 'admin' | 'employer'
+// 돌려받는 열 목록이 변수라 supabase 타입 추론이 안 되므로 결과 모양을 직접 적는다.
+type IngestResult = { data: Record<string, any> | null, error: { message: string } | null }
 async function ingestJob(client: SupabaseClient, channel: IngestChannel, payload: Record<string, unknown>,
-  options: { select: string, pastedText?: string }) {
+  options: { select: string, pastedText?: string }): Promise<IngestResult> {
   assertJobPublishable(payload)
   const p = { ...payload, channel, source_text: ingestSourceText(payload, options.pastedText) }
   const { data: id, error } = await client.rpc('ingest_job', { p })
   if (error) return { data: null, error }
   if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0)
     return { data: null, error: { message: 'Máy chủ chưa trả về mã tin đã lưu.' } }
-  return client.from('local_jobs').select(options.select).eq('id', id).single()
+  const { data, error: readError } = await client.from('local_jobs').select(options.select).eq('id', id).single()
+  return { data: (data ?? null) as Record<string, any> | null, error: readError }
 }
 export async function checkedAdminCreateJob(client: SupabaseClient, payload: Record<string, unknown>, pastedText?: string) {
   return ingestJob(client, 'admin', payload, { select: 'id,active,admin_hidden', pastedText })
