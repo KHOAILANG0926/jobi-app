@@ -5,6 +5,7 @@
  */
 import { bare } from './jobDetailSections.ts'
 import { splitRoleLine } from './jobRolePresentation.ts'
+import { BENEFIT_HINTS } from './jobInspect.ts'
 
 export const SECTION_KEYS = ['01', '02', '03', '04', '05', '06', '07'] as const
 export type SectionKey = typeof SECTION_KEYS[number]
@@ -95,4 +96,15 @@ export const JOB_FLAG_CODES = ['shuttle_bus', 'dormitory', 'meal_provided'] as c
 export function jobFlagCodes(benefits: GuardOutput['benefits'], description: string | null | undefined): Array<typeof JOB_FLAG_CODES[number]> {
   const roles = new Set(String(description ?? '').split(/\r?\n/).map((line) => splitRoleLine(line).role?.toLowerCase()).filter(Boolean))
   return JOB_FLAG_CODES.filter((code) => benefits.some((b) => b.code === code) && !(code === 'meal_provided' && roles.size >= 2))
+}
+
+/** 수집 입구 결정(Lee 2026-10-28 ②): AI는 제안만 한다. 공고 칸(shuttle_bus·dormitory·meal_provided)은
+ * AI가 고른 근거 글자를 원문 단어 규칙(jobInspect BENEFIT_HINTS)도 같은 뜻으로 읽을 때만 켠다.
+ * 나머지(번호표만 있는 복리후생, 규칙이 못 읽는 표현)는 job_ai_suggestions에 제안으로만 남는다. */
+export function ruleConfirmedFlags(benefits: GuardOutput['benefits'], description: string | null | undefined): Array<typeof JOB_FLAG_CODES[number]> {
+  const allowed = jobFlagCodes(benefits, description)
+  return allowed.filter((code) => {
+    const rule = BENEFIT_HINTS.find((h) => h.key === code)
+    return !!rule && benefits.some((b) => b.code === code && rule.re.test(bare(b.evidence)))
+  })
 }
