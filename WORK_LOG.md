@@ -4,7 +4,7 @@
 - 발견: 관리자 화면 등록(admin_create_job)은 source_text를 안 넣어 R3에 걸리는 상태였음(코드 확인, 운영 실행 기록은 미확인). E2E p0-foundation·admin-operations는 8월 이후 실행 없음.
 - 검증: 로컬 PostgreSQL 16(PostGIS 없이 운영 구조 fixture) — ingest_one_door.local.sql PASS, #308 SQL 파일 시험 PASS, 운영 점검 적용 전 실패·적용 후 통과, 일부러 고장 낸 2가지(거부 트리거 제거·판정 칸 허용)를 시험이 잡음. jobPolicyWrite.test 통과, 직접 등록 차단 시험 통과(옛 코드 5곳 잡음).
 - 못 한 것: npm·PyPI 접속 막힘으로 로컬 tsc·build·전체 npm test·크롤러 시험 미실행 → PR 검사로 확인.
-- commit/push/deploy: draft PR(봇 병합 안 됨). 운영 DB 적용은 Lee "적용" 후. 다른 세션이 같은 일(#308) 진행 중 — Lee에게 알림.
+- commit/push/deploy: PR #309, Lee 적용(06:04) → 병합 0170c1a → migrations-apply 성공(run 40786334886) → Production 0170c1a → deploy-verify 통과(run 40786585971), 관리자 E2E 2개 통과. 검사 중 고친 것: 타입 1곳, 옛 함수 없는 환경, 트리거 순서 점검 과잉, 게스트 company_identity 권한(기존 문제), KDA 틀 시험 첫 화면 대기 20→90초(불안정 원인: 개발 서버 첫 준비).
 
 ## 2026-10-29 00:40
 - 요청: Lee — 입구 전환 순서 ① SQL 파일 등록을 ingest_job으로.
