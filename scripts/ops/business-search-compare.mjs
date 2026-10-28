@@ -8,6 +8,7 @@ import {supabaseServer as publicClient} from '../../src/lib/supabaseServer.ts'
 import {isExactCompanyName, normalizePlaceText} from '../../src/lib/locationCandidateMatch.ts'
 import {administrativeAreaForTarget, areaContains} from '../../src/lib/administrativeArea.ts'
 import {findIndustrialPark} from '../../src/lib/industrialPark.ts'
+import {parkNameFromAddresses} from '../../src/lib/parkLocate.ts'
 
 const REF = {company: process.env.REF_COMPANY || '', lat: Number(process.env.REF_LAT), lng: Number(process.env.REF_LNG)}
 const EXTRA = {company: process.env.EXTRA_COMPANY || '', address: process.env.EXTRA_ADDRESS || ''}
@@ -53,7 +54,10 @@ async function search(provider, job) {
   const found = await call(provider, {company: job.company, area: areaText(job.address)})
   if (!found) return {skip: true}
   const exact = (found.hits ?? []).filter((h) => h.name && isExactCompanyName(job.company, h.name))
-  if (exact.length !== 1) return {calls: 1, ...judge(job, null), why: exact.length > 1 ? 'multiple_same_name' : 'no_exact_name'}
+  // 후보 이름을 그대로 보여 줘 표기 차이(대소문자·띄어쓰기·CTY/Công ty·성조)인지, 업체가 없는 것인지 가린다.
+  const names = (found.hits ?? []).map((h) => h.name).filter(Boolean).slice(0, 5)
+  const loose = names.filter((n) => normalizePlaceText(n).replace(/\b(?:cong ty|cty|tnhh|co phan)\b/g, '').replace(/\s+/g, '').includes(normalizePlaceText(job.company).replace(/\b(?:cong ty|cty|tnhh|co phan)\b/g, '').replace(/\s+/g, '')))
+  if (exact.length !== 1) return {calls: 1, ...judge(job, null), why: exact.length > 1 ? 'multiple_same_name' : `no_exact_name; 후보 ${names.length ? names.map((n) => `"${n}"`).join(', ') : '없음'}; 표기만 다른 후보 ${loose.length}`}
   const place = await call(provider, {id: exact[0].id})
   if (!place?.found) return {calls: 2, ...judge(job, null), why: 'no_detail_point'}
   return {calls: 2, ...judge(job, {lat: place.lat, lng: place.lng, address: place.address || ''})}
@@ -69,7 +73,8 @@ note(`표본 ${cases.length}건(공개 공고 ${jobs.length}건 중 회사명 �
 const total = {vietmap: {found: 0, ok: 0, calls: 0, errors: 0}, goong: {found: 0, ok: 0, calls: 0, errors: 0}}
 const errors = {vietmap: [], goong: []}
 for (const job of cases) {
-  const park = findIndustrialPark(job.address, job.location) ? '공단' : '공단 밖'
+  // 공단 표에 있는 공단 또는 표에 없는 공단 이름(예: KCN Yên Phong)
+  const park = findIndustrialPark(job.address, job.location) ? '공단(표 있음)' : parkNameFromAddresses([job.address, job.location]) ? '공단(표 없음)' : '공단 밖'
   const parts = []
   for (const name of ['vietmap', 'goong']) {
     if (missing.has(name)) { parts.push(`${name}=Vercel 키 없음`); continue }
