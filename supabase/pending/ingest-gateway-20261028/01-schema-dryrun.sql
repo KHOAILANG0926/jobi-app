@@ -95,7 +95,10 @@ begin
   return job.id;
 end $$;
 revoke all on function public.ingest_job(jsonb) from public, anon;
-grant execute on function public.ingest_job(jsonb) to service_role, authenticated;
-grant insert, select, update on public.job_ingest_raw to service_role, authenticated;
-grant insert, select on public.job_ingest_log to service_role, authenticated;
-grant usage on sequence public.job_ingest_raw_id_seq to service_role, authenticated;
+revoke all on function public.ingest_job(jsonb) from authenticated;
+-- 1단계: 서버 쪽 경로(service_role)만. 관리자·고용주 앱 경로는 전환 단계에서 RLS 정책과 함께 연다.
+grant execute on function public.ingest_job(jsonb) to service_role;
+grant insert, select, update on public.job_ingest_raw to service_role;
+grant insert, select on public.job_ingest_log to service_role;
+grant select, insert, update on public.job_ai_suggestions to service_role;
+grant usage on sequence public.job_ingest_raw_id_seq to service_role;

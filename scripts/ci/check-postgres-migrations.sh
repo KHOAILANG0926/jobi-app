@@ -28,7 +28,7 @@ for file in "${changed[@]}"; do
     bash supabase/pending/location-single-source-20261026/production/run-local.sh supabase/migrations/20261026231445_location_single_source.sql supabase/migrations/20261027042533_location_company_index_execute.sql "$file"
     continue
   fi
-  if [[ "$file" == 'supabase/migrations/20261028080000_area_pin_releases_unlocated_hold.sql' || "$file" == 'supabase/migrations/20261028093000_clear_multi_role_auto_meal.sql' ]]; then
+  if [[ "$file" == 'supabase/migrations/20261028080000_area_pin_releases_unlocated_hold.sql' || "$file" == 'supabase/migrations/20261028093000_clear_multi_role_auto_meal.sql' || "$file" == 'supabase/migrations/20261028160000_ingest_gateway.sql' ]]; then
     if [[ "$bomunttl_checked" == 0 ]]; then bash scripts/ci/bomunttl-postgres.sh; bomunttl_checked=1; fi
     continue
   fi
