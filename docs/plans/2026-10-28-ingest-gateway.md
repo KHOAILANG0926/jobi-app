@@ -72,4 +72,6 @@ DB 공개 장치(모든 경로 공통, [직접 확인] migration 트리거): `tr
 4. 크롤러를 입구로 전환한 뒤에만 크롤링 재개.
 5. `local_jobs` 직접 insert 권한 회수.
 
+진행(2026-10-28 밤): 1단계 운영 적용(#304). AI 복리후생 제안만(#305). SQL 파일 등록 전환: `ops-insert-job`은 `scripts/ops/jobs/<name>.json`(공고 내용)을 `scripts/ops/ingest-sql.mjs`로 `ingest_job` 한 번 호출로 바꿔 실행(판정·위치 칸·입구 목록 밖 칸은 거부), `ops-run-sql`은 공고·근무지·원문 보존 표 insert 거부. 다음: 관리자 앱(앱 계정 `ingest_job` 권한 — DB 변경, dry-run 후 Lee "적용").
+
 관리자 화면: 1~3단계에서는 바꾸지 않는다. "왜 비공개인지 한 줄" 표시를 넣게 되면 글 모형을 먼저 보여 드린다.

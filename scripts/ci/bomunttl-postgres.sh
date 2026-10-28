@@ -120,3 +120,26 @@ for f in area_pin_hold_meal_production_check.sql bomunttl_production_check.sql; 
  psql_local < "supabase/tests/$f" > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
 done
 echo 'PASS: ingest gateway migration, production check, gateway order/dedupe/no-special-case and location-never-hides checks'
+# 입구 전환 1단계: SQL 파일 등록(ops-insert-job)은 공고 내용 파일 → ingest_job 한 번만(직접 local_jobs 쓰기 없음).
+ingest_fixture=test-fixtures/ops/ingest-sql-file.json
+for bad in '{"source_text":"x 0912000333","shuttle_bus":true}' '{"source_text":"x 0912000333","channel":"admin"}' '{"source_text":"x","work_locations":[]}' '{"title":"no source"}' '{"source_text":"x","images":["a/b.png"]}'; do
+ echo "$bad" > "$bomunttl_log.json"
+ if node scripts/ops/ingest-sql.mjs "$bomunttl_log.json" > /dev/null 2>&1; then echo "::error::ingest-sql accepted $bad"; exit 1; fi
+done
+rm -f "$bomunttl_log.json"
+{
+ echo 'begin;'
+ node scripts/ops/ingest-sql.mjs "$ingest_fixture" fixture/ingest-sql-file.png
+ node scripts/ops/ingest-sql.mjs "$ingest_fixture" fixture/ingest-sql-file.png
+ cat <<'SQL'
+do $$ begin
+ if (select count(*) from public.local_jobs where company = 'Fixture SQL File') <> 1 then raise exception 'sql_file: same file twice must make one job'; end if;
+ if (select count(*) from public.job_ingest_raw where channel = 'sql_file') <> 2 then raise exception 'sql_file: both runs must be preserved as sql_file'; end if;
+ if (select source_text from public.local_jobs where company = 'Fixture SQL File') not like '%$ingest$ '' \\%' then raise exception 'sql_file: source text must be kept exactly'; end if;
+ if (select count(*) from public.job_ingest_log l join public.job_ingest_raw r on r.id = l.raw_id where r.channel = 'sql_file') <> 7 then raise exception 'sql_file: expected 5 steps + preserve/dedup'; end if;
+end $$;
+SQL
+ echo 'rollback;'
+} | psql_local > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log"; exit 1; }
+grep -q 'duplicate_of:' "$bomunttl_log" || { cat "$bomunttl_log"; echo '::error::second sql_file run did not report duplicate'; exit 1; }
+echo 'PASS: ops-insert-job content file goes only through ingest_job (dedupe, exact source text, no judgment/location fields)'

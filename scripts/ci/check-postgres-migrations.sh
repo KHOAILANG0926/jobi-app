@@ -39,6 +39,10 @@ for file in "${changed[@]}"; do
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
+# 입구 전환: 공고 내용 파일 변환기·파일이 바뀌면 실제 PostgreSQL에서 ingest_job 경로를 시험한다.
+if [[ "$bomunttl_checked" == 0 ]] && git diff --name-only "$PR_BASE_SHA" HEAD -- scripts/ops/ingest-sql.mjs 'scripts/ops/jobs/*.json' test-fixtures/ops .github/workflows/ops-insert-job.yml | grep -q .; then
+  bash scripts/ci/bomunttl-postgres.sh; bomunttl_checked=1
+fi
 # Recreate the exact dollar-delimiter failure seen in production in a clean DB.
 # The original migration must be rejected by PostgreSQL, not just static lint.
 if true; then
