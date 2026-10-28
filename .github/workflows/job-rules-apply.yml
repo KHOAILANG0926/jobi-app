@@ -1,6 +1,7 @@
-name: 공고 규칙 DB 적용·시험
+name: 공고 규칙 DB 시험
 
-# PR 병합(master) 시 규칙 마이그레이션을 운영 DB에 적용하고, 같은 실행에서 실제 DB 시험(R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml))을 돌린다.
+# 규칙 적용은 migrations-apply.yml만 담당한다. 과거 SQL 재적용으로 새 R3를 되돌리지 않는다.
+# 이 워크플로는 기존 규칙 적용 이력을 확인하고 실제 DB 시험을 실행한다.
 # 키는 GitHub Secrets에만 있다(PC에 저장 금지). 시험 결과는 job_posting_rules.last_test_*에 기록되고,
 # 이어서 STATUS 생성기를 다시 돌려 status 브랜치 STATUS.md에 반영된다.
 # 필요한 Secrets: SUPABASE_DB_URL (운영 DB 직접 연결 문자열, 이미 등록됨)
@@ -44,14 +45,10 @@ jobs:
       - name: OCR 대조 로직 시험 (KDA 급여 310.000đ = 310k 포함)
         run: node scripts/ocr/ocr-compare.test.mjs
 
-      - name: 마이그레이션 적용 (한 트랜잭션, 멱등)
+      - name: 정상 migration 적용 이력 확인 (과거 SQL 재적용 금지)
         run: |
           set -euo pipefail
-          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261013100000_job_posting_rules.sql
-
-      - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
-        run: |
-          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261013100000','job_posting_rules') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
+          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin if not exists(select 1 from supabase_migrations.schema_migrations where version='20261013100000') then raise exception 'Baseline rules must be applied through migrations-apply'; end if; end \$\$;"
 
       - name: 실제 DB 시험 R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml) (시험 공고는 시험 후 삭제)
         run: |

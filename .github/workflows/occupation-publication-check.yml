@@ -18,6 +18,8 @@ jobs:
         run: |
           npm i --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8
           node supabase/tests/occupation_publication.pglite.test.mjs
+          node supabase/tests/lee_source.pglite.test.mjs
+          node --test scripts/ci/job-rule-replay.test.mjs
           node supabase/tests/crawl_source_guard.pglite.test.mjs
           node supabase/tests/detail_line_kinds.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
