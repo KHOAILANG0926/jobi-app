@@ -41,15 +41,22 @@ const login = await publicClient.auth.signInWithPassword({email: process.env.ADM
 const token = login.data?.session?.access_token
 if (!token) { console.log('::error::admin_login_failed'); process.exit(1) }
 const missing = new Set()
-async function search(provider, job) {
+async function call(provider, body) {
   const res = await fetch(`${BASE}/api/admin?action=business-search`, {method: 'POST', signal: AbortSignal.timeout(40000),
-    headers: {'content-type': 'application/json', authorization: `Bearer ${token}`},
-    body: JSON.stringify({provider, company: job.company, area: areaText(job.address)})})
-  const body = await res.json().catch(() => ({}))
-  if (res.status === 503 && body.error === 'not_configured') { missing.add(provider); return {skip: true} }
-  if (!res.ok) throw new Error(`HTTP ${res.status}${body.upstreamStatus ? ` upstream ${body.upstreamStatus}` : ''}`)
-  if (!body.found) return {calls: body.calls ?? 0, ...judge(job, null), why: body.exactCount > 1 ? 'multiple_same_name' : 'no_exact_name'}
-  return {calls: body.calls ?? 0, ...judge(job, {lat: body.lat, lng: body.lng, address: body.address || ''})}
+    headers: {'content-type': 'application/json', authorization: `Bearer ${token}`}, body: JSON.stringify({provider, ...body})})
+  const out = await res.json().catch(() => ({}))
+  if (res.status === 503 && out.error === 'not_configured') { missing.add(provider); return null }
+  if (!res.ok) throw new Error(`HTTP ${res.status}${out.upstreamStatus ? ` upstream ${out.upstreamStatus}` : ''}`)
+  return out
+}
+async function search(provider, job) {
+  const found = await call(provider, {company: job.company, area: areaText(job.address)})
+  if (!found) return {skip: true}
+  const exact = (found.hits ?? []).filter((h) => h.name && isExactCompanyName(job.company, h.name))
+  if (exact.length !== 1) return {calls: 1, ...judge(job, null), why: exact.length > 1 ? 'multiple_same_name' : 'no_exact_name'}
+  const place = await call(provider, {id: exact[0].id})
+  if (!place?.found) return {calls: 2, ...judge(job, null), why: 'no_detail_point'}
+  return {calls: 2, ...judge(job, {lat: place.lat, lng: place.lng, address: place.address || ''})}
 }
 
 const {data: jobs, error} = await publicClient.from('local_jobs').select('id,company,location').eq('active', true).eq('admin_hidden', false).order('id').abortSignal(AbortSignal.timeout(15000))
