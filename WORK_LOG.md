@@ -1,3 +1,9 @@
+## 2026-10-28 22:50
+- 요청: Lee — 수집 입구 설계(구현 전), 위치가 공개를 바꾸지 않게, AI는 제안만.
+- 변경: 경로 9곳 표·하나의 입구 설계(docs/plans/2026-10-28-ingest-gateway.md), dry-run SQL 01~03 + run-local.sh(로컬 PASS). 다른 세션 #300(f6af4d9)이 위치 판정의 공고 삭제 호출을 제거·배포(삭제 기록 0건, run 40719658451). 그 전 #283~#299: 점검 칸별 오류, 대략 핀 보류 해제, 복수직무 식사, 관리자 업체 검색 비교, 거리 가운데 미리보기, 순서표 결정, Android TWA, 아이콘 ✦ 제거, 결정 문서 승인 장치.
+- 검증: 로컬 폐기용 PostgreSQL run-local.sh PASS. 운영 DB 적용 없음.
+- 남은 문제: DB 적용은 Lee "적용" 대기. #288 보류. browser(KDA 틀) 시험 불안정 반복.
+
 ## 2026-10-28 16:20
 - 요청: Lee — migrations-apply 점검 실패(sb-4982 active·meal_provided) 원인 확정과 공통 규칙 반영.
 - 변경: canonical area 이상 핀이면 위치 보류 금지·해제(migration 20261028080000), 복수직무 공고 AI 전체 식사 칸 금지(aiClassifyGuard.jobFlagCodes), 규칙 점검 SQL 추가. 이전 HANDOFF(#282 전달 내용)는 docs/ops/2026-10-28-bomunttl-followup.md에 상세 보존.
