@@ -27,14 +27,16 @@ async function checked(promise) {
   return data
 }
 try {
-  const inserted=await checked(db.from('local_jobs').insert([0,1].map(i=>({
-    title:ref+' '+i,company:'E2E PRIVATE TEST',
-    location:address,origin:'admin',active:false,admin_hidden:true,
-    description:'Automatic E2E only; never public',
-    source_text:'E2E PRIVATE TEST\n'+ref+' '+i+'\n'+address,
-    source_url:'https://github.com/KHOAILANG0926/jobi-app/blob/master/scripts/ops/admin-location-review-e2e.mjs#'+ref.replaceAll(' ','-')+'-'+i
-  }))).select('id'))
-  ids.push(...inserted.map(row=>row.id))
+  // 등록은 입구(ingest_job) 하나만(Lee 2026-10-29). 입구는 판정 칸을 받지 않으므로 비공개(active=false)로 넣고 바로 숨김.
+  for(const i of [0,1]){
+    const id=await checked(db.rpc('ingest_job',{p:{channel:'admin',
+      title:ref+' '+i,company:'E2E PRIVATE TEST',location:address,active:false,
+      description:'Automatic E2E only; never public',
+      source_text:'E2E PRIVATE TEST\n'+ref+' '+i+'\n'+address,
+      source_url:'https://github.com/KHOAILANG0926/jobi-app/blob/master/scripts/ops/admin-location-review-e2e.mjs#'+ref.replaceAll(' ','-')+'-'+i}}))
+    ids.push(id)
+    await checked(db.from('local_jobs').update({admin_hidden:true}).eq('id',id).select('id'))
+  }
   assert.equal(ids.length,2)
   browser=await chromium.launch({headless:true})
   const page=await browser.newPage({viewport:{width:390,height:844}})

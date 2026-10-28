@@ -47,6 +47,7 @@ from job_quality import (
 )
 from job_posting_policy import crawler_policy_errors
 from source_fields import REJECTIONS, rule_code, source_fields
+from ingest_gateway import ingest_job
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -2161,7 +2162,8 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             insert_payload["admin_hidden"] = True
             insert_payload["origin"] = "crawler"
         try:
-            result = supabase.table("local_jobs").insert(insert_payload).execute()
+            # 등록은 DB 입구 하나만(Lee 2026-10-29). 입구는 판정 칸(origin·admin_hidden 등)을 받지 않는다.
+            job_id = ingest_job(supabase, insert_payload)
         except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
             code = rule_code(exc)
             if not code:
@@ -2169,8 +2171,9 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             REJECTIONS.add(code, job.get("title", ""))
             print(f"    🚧 규칙 거부({code}): {job.get('title', '')[:60]!r} — 이 공고는 건너뜀")
             return {"action": "rule_rejected", "id": None, "rule": code}
-        row = (result.data or [{}])[0]
-        job_id = row.get("id")
+        if verify_write:
+            # 검증 저장 격리: 입구는 admin_hidden을 받지 않으므로 저장 직후 서버 키로 숨김(입구에서 이미 active=False).
+            supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
@@ -2210,7 +2213,10 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             print(f"    ⚠️  id={existing['id']}: geocode 일시 오류 — 공개 상태/게이트 사유 갱신 보류(기존 값 유지)")
         if field_updates:
             try:
-                supabase.table("local_jobs").update(field_updates).eq("id", existing["id"]).execute()
+                # 다시 수집도 입구로: 크롤러가 계산한 바뀐 칸만 고친다(원문은 입구의 원문 기록에 보존).
+                ingest_job(supabase, {**field_updates, "source": job.get("source"), "source_url": job.get("source_url"),
+                                      "source_text": job.get("source_text") or job.get("description") or ""},
+                           job_id=existing["id"], update_fields=sorted(field_updates))
             except Exception as exc:  # noqa: BLE001
                 code = rule_code(exc)
                 if not code:

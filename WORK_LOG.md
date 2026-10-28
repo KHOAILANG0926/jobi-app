@@ -1,3 +1,11 @@
+## 2026-10-29 06:10
+- 요청: Lee — 남은 일 1(관리자·고용주·크롤러 등록을 입구로). "길마다 PR 따로" 대신 PR 하나로, 다른 길이 아예 없는 구조로(ok 05:15).
+- 변경: migration 20261029010000_ingest_one_door(입구 밖 INSERT 거부 트리거, ingest_private 도우미, 판정 칸만 뺀 모든 칸, 기존 공고 중복, 다시 수집, 경로 사칭 금지, 관리자 등록 정책, admin_create_job 회수). 관리자 화면·JobsContext·크롤러(TopCV·Facebook)·E2E 4개를 ingest_job으로. 직접 등록 코드 차단 시험(api/_ingest-one-door-guard.test.ts). #308 SQL 파일 변환기는 1단계 칸 목록 유지.
+- 발견: 관리자 화면 등록(admin_create_job)은 source_text를 안 넣어 R3에 걸리는 상태였음(코드 확인, 운영 실행 기록은 미확인). E2E p0-foundation·admin-operations는 8월 이후 실행 없음.
+- 검증: 로컬 PostgreSQL 16(PostGIS 없이 운영 구조 fixture) — ingest_one_door.local.sql PASS, #308 SQL 파일 시험 PASS, 운영 점검 적용 전 실패·적용 후 통과, 일부러 고장 낸 2가지(거부 트리거 제거·판정 칸 허용)를 시험이 잡음. jobPolicyWrite.test 통과, 직접 등록 차단 시험 통과(옛 코드 5곳 잡음).
+- 못 한 것: npm·PyPI 접속 막힘으로 로컬 tsc·build·전체 npm test·크롤러 시험 미실행 → PR 검사로 확인.
+- commit/push/deploy: draft PR(봇 병합 안 됨). 운영 DB 적용은 Lee "적용" 후. 다른 세션이 같은 일(#308) 진행 중 — Lee에게 알림.
+
 ## 2026-10-29 00:40
 - 요청: Lee — 입구 전환 순서 ① SQL 파일 등록을 ingest_job으로.
 - 변경: ops-insert-job이 공고 내용 JSON → scripts/ops/ingest-sql.mjs → ingest_job 한 번(허용 칸은 migration의 입구 목록에서 읽음, channel·판정·위치 칸 거부, images=올린 포스터 경로 확인, 단계별 결과 출력). ops-run-sql은 local_jobs·job_work_locations·job_ingest_raw/log insert 거부. 기존 kda/mao-yen .sql은 기록용(새 작업으로 실행 불가).
@@ -69,9 +77,3 @@
 - 급여: 위쪽 급여 칸이 비어 있으면 원문 급여를 글자 그대로 채움(src/lib/sourceSalary.ts, detail-fill). "Lương tối thiểu/tối đa" → "9 - 17 triệu/tháng". 금액 없으면 비움.
 - 위치: "Nhà máy Quế Võ III"처럼 공장 이름이 공단 표 이름과 같으면 그 공단(industrialPark.ts KCN_TOKEN에 nha may). 회사 이름 공장은 해당 없음(시험).
 - 운영 배포 뒤 위치 못 찾은 공고 바로 다시 찾기(vercel-deploy.yml, map_r1_retry_unlocated) — 03:00까지 기다리지 않음.
-
-## 2026-10-25 — AI 칸·복리후생 판정(정해진 번호표 중에서만)
-- Lee 결정("단어 규칙으로는 끝이 없다", 검사표 결과 "ok"): 단어 규칙이 칸을 못 정한 줄 → AI가 01~07 중 고름 → detail_line_kinds 저장(다음부터 AI 없이), Lee가 정한 칸은 AI가 못 바꿈. 복리후생도 AI가 원문 근거로 번호표(xe đưa đón·ký túc xá·ăn ca·xăng xe·nhà ở·chuyên cần·năng suất) 고름 → "있음"만 기록.
-- 안전장치 src/lib/aiClassifyGuard.ts: 목록 밖·준 적 없는 줄·원문에 없는 근거·부정 문장 버림. 글자 변경 없음.
-- 변경: migration 20261025140000_detail_line_kinds.sql, scripts/ocr/ai-classify.mjs(job-ocr-check에서 상세요강 만들기 앞), jobDescriptionBuild(lineKinds), detail-fill(번호표 반영·버전), JobDetail(AI 번호표로 아이콘 켬).
-- 시험: aiClassifyGuard.test.ts, detail_line_kinds.pglite.test.mjs.

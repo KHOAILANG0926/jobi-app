@@ -76,27 +76,33 @@ try {
   const listedUsers = await systemAdmin.client.rpc('admin_list_users')
   if (listedUsers.error) throw listedUsers.error
   assert.ok(listedUsers.data.some(user => user.user_id === employerA.id), 'admin user list omitted employer')
-  const adminCreated = await systemAdmin.client.rpc('admin_create_job', { payload: {
-    title: `${marker} admin`, company: marker, category: 'office', description: marker,
+  // 등록은 입구(ingest_job) 하나만(Lee 2026-10-29). 옛 admin_create_job은 닫힘.
+  const adminCreatedId = await systemAdmin.client.rpc('ingest_job', { p: {
+    channel: 'admin', title: `${marker} admin`, company: marker, category: 'office', description: marker,
+    source_text: `${marker} admin`, source_url: `https://github.com/KHOAILANG0926/jobi-app#${marker}-admin`, active: false,
   } })
+  if (adminCreatedId.error) throw adminCreatedId.error
+  jobs.push(adminCreatedId.data)
+  const adminCreated = await adminApi.from('local_jobs').select('id,origin').eq('id', adminCreatedId.data).single()
   if (adminCreated.error) throw adminCreated.error
   assert.equal(adminCreated.data.origin, 'admin')
-  jobs.push(adminCreated.data.id)
+  await denied(systemAdmin.client.rpc('admin_create_job', { payload: { title: marker, company: marker } }), 'closed legacy admin_create_job')
 
-  const inserted = await employerA.client.from('local_jobs').insert({
-    title: marker, company: marker, category: 'office', salary: '', location: '', description: marker,
-    employer_id: employerA.id, origin: 'employer', admin_hidden: false, active: true,
-  }).select().single()
-  if (inserted.error) throw inserted.error
-  const jobId = inserted.data.id; jobs.push(jobId)
+  const insertedId = await employerA.client.rpc('ingest_job', { p: {
+    channel: 'employer', title: marker, company: marker, category: 'office', salary: '', location: '', description: marker,
+    source_text: `title: ${marker}`, employer_id: employerA.id, active: true,
+  } })
+  if (insertedId.error) throw insertedId.error
+  const jobId = insertedId.data; jobs.push(jobId)
+  await denied(employerA.client.from('local_jobs').insert({ title: marker, company: marker, employer_id: employerA.id, origin: 'employer' }).select(), 'direct insert outside ingest_job') // ingest-guard: expect-denied
   const activeOwnUpdate = await employerA.client.from('local_jobs').update({ salary: marker }).eq('id', jobId).select('id').single()
   if (activeOwnUpdate.error) throw activeOwnUpdate.error
-  const second = await employerA.client.from('local_jobs').insert({
-    title: `${marker} second`, company: marker, category: 'office', salary: '', location: '', description: marker,
-    employer_id: employerA.id, origin: 'employer', admin_hidden: false, active: true,
-  }).select().single()
+  const second = await employerA.client.rpc('ingest_job', { p: {
+    channel: 'employer', title: `${marker} second`, company: marker, category: 'office', salary: '', location: '', description: marker,
+    source_text: `title: ${marker} second`, employer_id: employerA.id, active: true,
+  } })
   if (second.error) throw second.error
-  jobs.push(second.data.id)
+  jobs.push(second.data)
 
   await denied(employerB.client.from('local_jobs').update({ title: `${marker} other` }).eq('id', jobId).select(), 'other employer update')
   await denied(employerA.client.from('local_jobs').update({ admin_hidden: true }).eq('id', jobId).select(), 'employer admin_hidden update')
@@ -136,7 +142,7 @@ try {
   // The clients retain their pre-suspension access tokens. Database RLS must deny those same tokens immediately.
   await setStatusThroughEndpoint(systemAdmin.token, employerA.id, 'suspended')
   await denied(employerA.client.from('local_jobs').update({ title: marker }).eq('id', jobId).select(), 'suspended employer job update')
-  await denied(employerA.client.from('local_jobs').insert({ title: marker, company: marker, employer_id: employerA.id, origin: 'employer' }).select(), 'suspended employer job insert')
+  await denied(employerA.client.rpc('ingest_job', { p: { channel: 'employer', title: `${marker} suspended`, company: marker, source_text: `title: ${marker} suspended`, employer_id: employerA.id } }), 'suspended employer job insert')
   await denied(employerA.client.from('applications').update({ status: 'reviewing' }).eq('id', app.data.id).select(), 'suspended employer application update')
   await denied(employerA.client.from('messages').insert({ thread_id: thread.data.id, from_role: 'employer', body: marker }).select(), 'suspended employer message')
   await denied(employerA.client.from('interviews').update({ status: 'confirmed' }).eq('id', interview.data.id).select(), 'suspended employer interview update')
@@ -146,7 +152,7 @@ try {
   assert.equal((await seeker.client.from('message_threads').select('id').eq('id', thread.data.id)).data?.length, 0)
   assert.equal((await seeker.client.from('interviews').select('id').eq('id', interview.data.id)).data?.length, 0)
   await denied(seeker.client.from('applications').delete().eq('id', app.data.id).select(), 'suspended seeker application delete')
-  await denied(seeker.client.from('applications').insert({ job_id: second.data.id, seeker_id: seeker.id, employer_id: employerA.id, status: 'submitted' }).select(), 'suspended seeker application insert')
+  await denied(seeker.client.from('applications').insert({ job_id: second.data, seeker_id: seeker.id, employer_id: employerA.id, status: 'submitted' }).select(), 'suspended seeker application insert')
   await denied(seeker.client.from('messages').insert({ thread_id: thread.data.id, from_role: 'seeker', body: marker }).select(), 'suspended seeker message')
   await denied(seeker.client.from('user_profiles').upsert({ user_id: seeker.id, full_name: marker }).select(), 'suspended profile')
   await denied(seeker.client.from('user_cvs').upsert({ user_id: seeker.id, cv_data: { marker } }).select(), 'suspended CV')

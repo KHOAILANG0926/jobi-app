@@ -1,19 +1,17 @@
-# CHATGPT_HANDOFF — 수집 입구 운영 적용·AI 제안만 (2026-10-28 밤)
+# CHATGPT_HANDOFF — 공고 등록 입구 하나로(2단계) (2026-10-29 새벽)
 
 ## 1. 현재 상태 (코드·배포·DB)
-- master 840834d(#305). 운영 viecganban.vn, deploy-verify 통과(run 40728704605, 840834d). 직전 9dc56b3(#304) deploy-verify는 "Vercel Production READY 확인" 단계 실패(run 40725500882) — DB·시험 파일만 바뀐 커밋이라 앱 배포가 없었던 것으로 추정, 다음 커밋에서 통과.
-- 수집 입구 운영 적용(#304, migration 20261028160000, migrations-apply run 40723054027 성공): `ingest_job()`(원문 보존→중복→직업분류→위치→공개, SECURITY INVOKER, 받는 칸 정해짐), `job_ingest_raw`·`job_ingest_log`·`job_ai_suggestions`(service_role만). 위치 결과는 공개를 바꾸지 않음(Lee ①, 위치 보류 트리거 제거, 다시 공개될 대상 0건 run 40721734466). 위치 판정의 공고 삭제 없음(#300).
-- AI 복리후생은 제안만(#305): 모든 AI 판정은 `job_ai_suggestions`에 저장. 셔틀·기숙사·식사 칸은 원문 단어 규칙(jobInspect BENEFIT_HINTS)이 같은 뜻일 때만 반영, 복수직무 식사는 반영 안 함.
-- 입구 전환 ① SQL 파일 등록: `ops-insert-job`은 `scripts/ops/jobs/<name>.json`(공고 내용)을 `scripts/ops/ingest-sql.mjs`로 `ingest_job` 한 번 호출(판정·위치·목록 밖 칸 거부, 포스터 선택). `ops-run-sql`은 공고·근무지·입구 표 insert 거부. 관리자 앱·크롤러는 아직 기존 경로. 크롤러 정지 유지(`crawl.yml` if:false).
-- 지도: 순서표 번지→회사+공단→공단 입구→거리 가운데→동→시(결정 0006). 핀 변경은 지도 재개 지시 전까지 금지. #288 Draft 보류(Goong 키 Vercel 미등록, Lee 문의 중).
-- 결정 문서·CODEOWNERS 변경 PR은 현재 커밋에 Lee 승인 있어야 봇 병합(#298).
-- Android TWA(#296·#297) 준비됨. 남은 것: GH_SECRETS_TOKEN 등록→업로드 키→.aab→Play 비공개 테스트→assetlinks.json. Lee 몫: Play 계정(25달러·본인 인증), 테스터 12명+·14일. docs/plans/2026-10-28-android-twa.md.
+- master 97f20a7(#308 SQL 파일 등록 → ingest_job, 다른 세션). 운영 마지막 deploy-verify 통과는 840834d(run 40728704605). 운영 DB 입구 1단계(#304, migration 20261028160000) 적용됨, AI 복리후생은 제안만(#305).
+- 진행 중(draft PR, 운영 미적용): migration 20261029010000_ingest_one_door — 입구 밖 local_jobs INSERT를 모든 계정에서 DB가 거부, 입구가 판정 칸만 빼고 모든 칸 받음, 기존 공고까지 중복 판정, 다시 수집(바뀐 칸만), 경로 사칭 금지, 관리자 등록 정책, admin_create_job 닫음. 관리자 화면·고용주/게스트·크롤러(TopCV·Facebook)·E2E 4개를 ingest_job으로. 직접 등록 코드는 npm test(api/_ingest-one-door-guard.test.ts)가 막음. 설계·진행: docs/plans/2026-10-28-ingest-gateway.md.
+- 기존 방향에서 바뀐 것(Lee 10-29): 길마다 PR을 나누지 않고 한 번에, "권한 회수"가 아니라 DB가 입구 밖 등록을 거부하는 구조. 입구 받는 칸은 허용 목록 → 판정 칸 제외 방식(SQL 파일 변환기는 1단계 목록 유지).
+- 발견: 옛 관리자 화면 등록은 원문 없이 저장해 R3에 걸리는 상태였음(코드 확인). 크롤러 정지 유지(crawl.yml if:false).
+- 지도: 순서표 번지→회사+공단→공단 입구→거리 가운데→동→시(결정 0006). 핀 변경은 지도 재개 지시 전까지 금지. #288 보류(Goong 키 없음, Lee 문의 중). Android TWA(#296·#297) 준비됨, Play 본인 인증·테스터 모집은 Lee 몫.
 
 ## 2. 다음 할 일 3개
-1. 입구 전환 ②: 관리자 앱 등록 → 앱 계정에 `ingest_job` 권한을 여는 DB 변경(dry-run 보고 → Lee "적용" 후).
-2. 입구 전환 ③: 크롤러. 크롤링은 크롤러가 입구로 옮겨진 뒤에만 재개.
-3. 후속: browser(KDA 틀) 시험 불안정 반복 원인, 시험 브랜치 `test/decision-gate-unapproved-20261028` 삭제(세션에서 원격 삭제 막힘).
+1. draft PR 검사(PostGIS CI의 모든 길 시험, tsc·build·npm test) 통과 확인 → Lee에게 dry-run 결과 보고 → "적용" 후 Ready → 봇 병합 → migrations-apply·운영 점검·deploy-verify 확인.
+2. 적용 뒤 크롤링 재개 여부 Lee 결정(크롤러는 입구로 옮겨짐).
+3. 남은 결정: 기존 공고 수정(UPDATE)도 입구로 모을지, 크롤러 위치 동기화(보호 행 병합)를 입구 위치 단계로 옮길지.
 
 ## 3. 필수 규칙
-- 운영 DB 직접 조회·SQL 금지(읽기 집계도 Lee 승인 또는 다른 세션). migration+production_check 정상 경로만. 위치는 공개를 안 바꿈, AI는 제안만.
-- 공고는 하나씩 고치지 말고 규칙·시험으로. 화면 모양 변경은 글 모형 먼저. 보고 5줄, 직접 확인/기존 기록/추정 구분. 상세: WORK_LOG.md, docs/plans/2026-10-28-ingest-gateway.md.
+- 운영 DB 직접 조회·SQL 금지. migration+production_check 정상 경로만. 위치는 공개를 안 바꿈, AI는 제안만. 공고 등록은 ingest_job만(직접 INSERT는 DB가 거부).
+- 같은 작업을 두 세션이 동시에 하지 않기(10-29 #308과 겹침). 공고는 규칙·시험으로 고침. 보고 짧게, 직접 확인/기존 기록/추정 구분. 상세: WORK_LOG.md.

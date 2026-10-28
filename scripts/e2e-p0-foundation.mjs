@@ -60,40 +60,30 @@ try {
   const seeker = await createTestUser('seeker', 'seeker')
   const outsider = await createTestUser('outsider', 'seeker')
 
-  const { data: job, error: jobError } = await employerA.client
-    .from('local_jobs')
-    .insert({
-      title: marker,
-      company: marker,
-      category: 'office',
-      location: 'E2E',
-      employer_id: employerA.id,
-      origin: 'employer',
-      admin_hidden: false,
-      active: true,
-    })
-    .select('id')
-    .single()
+  // 등록은 입구(ingest_job) 하나만(Lee 2026-10-29)
+  const { data: jobId, error: jobError } = await employerA.client.rpc('ingest_job', { p: {
+    channel: 'employer', title: marker, company: marker, category: 'office', location: 'E2E',
+    source_text: `title: ${marker}`, employer_id: employerA.id, active: true,
+  } })
   if (jobError) throw jobError
-  const jobId = job.id
   jobIds.push(jobId)
 
-  const { data: crawlerJob, error: crawlerJobError } = await admin
-    .from('local_jobs')
-    .insert({ title: `${marker} crawler`, company: marker, employer_id: null, origin: 'crawler', admin_hidden: false, active: true })
-    .select('id')
-    .single()
+  const { data: crawlerJobId, error: crawlerJobError } = await admin.rpc('ingest_job', { p: {
+    channel: 'crawler_other', title: `${marker} crawler`, company: marker, active: true,
+    source_text: `${marker} crawler`, source_url: `https://github.com/KHOAILANG0926/jobi-app#${marker}-crawler`,
+  } })
   if (crawlerJobError) throw crawlerJobError
-  jobIds.push(crawlerJob.id)
+  jobIds.push(crawlerJobId)
+  const crawlerJob = { id: crawlerJobId }
 
   await expectDenied(
-    () => seeker.client.from('local_jobs').insert({ title: marker, employer_id: seeker.id }).select(),
+    () => seeker.client.from('local_jobs').insert({ title: marker, employer_id: seeker.id }).select(), // ingest-guard: expect-denied
     'seeker local_jobs insert',
   )
   const { error: spoofRoleError } = await seeker.client.auth.updateUser({ data: { role: 'employer' } })
   if (spoofRoleError) throw spoofRoleError
   await expectDenied(
-    () => seeker.client.from('local_jobs').insert({ title: marker, company: marker, employer_id: seeker.id }).select(),
+    () => seeker.client.from('local_jobs').insert({ title: marker, company: marker, employer_id: seeker.id }).select(), // ingest-guard: expect-denied
     'user_metadata role spoof',
   )
   await expectDenied(

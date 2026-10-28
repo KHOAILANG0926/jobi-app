@@ -143,3 +143,25 @@ SQL
 } | psql_local > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log"; exit 1; }
 grep -q 'duplicate_of:' "$bomunttl_log" || { cat "$bomunttl_log"; echo '::error::second sql_file run did not report duplicate'; exit 1; }
 echo 'PASS: ops-insert-job content file goes only through ingest_job (dedupe, exact source text, no judgment/location fields)'
+# 입구 2단계(Lee 2026-10-29): 공고 등록은 ingest_job 하나만. 같은 시험을 모든 길(게스트·고용주·관리자·크롤러·SQL 파일·DB 소유자)로.
+psql_local -1 < supabase/migrations/20261029010000_ingest_one_door.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log"; exit 1; }
+for f in ingest_one_door_production_check.sql ingest_gateway_production_check.sql area_pin_hold_meal_production_check.sql bomunttl_production_check.sql location_single_source_production_check.sql; do
+ psql_local < "supabase/tests/$f" > "$bomunttl_log" 2>&1 || { echo "check failed: $f"; cat "$bomunttl_log"; exit 1; }
+done
+# #308 SQL 파일 등록이 2단계 입구에서도 같은 결과(공고 1건, 원문 2번 보존, 두 번째는 중복)
+{
+ echo 'begin;'
+ node scripts/ops/ingest-sql.mjs "$ingest_fixture" fixture/ingest-sql-file.png
+ node scripts/ops/ingest-sql.mjs "$ingest_fixture" fixture/ingest-sql-file.png
+ cat <<'SQL'
+do $$ begin
+ if (select count(*) from public.local_jobs where company = 'Fixture SQL File') <> 1 then raise exception 'one-door sql_file: same file twice must make one job'; end if;
+ if (select count(*) from public.job_ingest_log l join public.job_ingest_raw r on r.id = l.raw_id where r.channel = 'sql_file') <> 7 then raise exception 'one-door sql_file: expected 5 steps + preserve/dedup'; end if;
+end $$;
+SQL
+ echo 'rollback;'
+} | psql_local > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log"; exit 1; }
+grep -q 'duplicate_of:' "$bomunttl_log" || { cat "$bomunttl_log"; echo '::error::one-door: second sql_file run did not report duplicate'; exit 1; }
+psql_local < supabase/tests/ingest_one_door.local.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log"; exit 1; }
+grep -q 'PASS: ingest one-door' "$bomunttl_log" || { cat "$bomunttl_log"; exit 1; }
+echo 'PASS: ingest one-door — 입구 밖 등록은 모든 계정에서 거부, 모든 길 같은 규칙(RLS·R3·R5·R7·중복·다시 수집), SQL 파일 등록 유지'
