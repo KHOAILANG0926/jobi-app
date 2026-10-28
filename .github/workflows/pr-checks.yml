@@ -35,6 +35,8 @@ jobs:
       - name: 기존 규정 위반 변경 차단
         if: github.event_name == 'pull_request'
         run: node scripts/check-repository-policy.mjs
+      - name: 결정 문서 Lee 승인 장치 자체 시험
+        run: node scripts/decision-approval-gate.test.mjs
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
       - name: 시험 의존성 배포 제외 회귀 검사
