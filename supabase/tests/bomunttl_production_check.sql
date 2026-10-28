@@ -1,6 +1,6 @@
 -- Read-only. Ship in supabase/tests with BOTH migrations, never execute through a direct DB session.
 do $check$
-declare j public.local_jobs; n integer;
+declare j public.local_jobs; n integer; diff text;
 begin
  select count(*) into n from public.job_posting_rules where rule_key in
  ('R3_source_evidence_required','R9_application_relevant_only','R10_multi_role_conditions','R11_original_hours_review','R12_location_precision_review');
@@ -8,13 +8,21 @@ begin
  select count(*) into n from public.local_jobs where company='Bomunttl' and public.job_phone_digits(employer_phone)='0365447485';
  if n<>1 then raise exception 'Bomunttl check: expected one announcement, got %',n; end if;
  select * into strict j from public.local_jobs where company='Bomunttl' and public.job_phone_digits(employer_phone)='0365447485';
- if j.source is distinct from 'Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김'
- or j.source_url is not null or j.images is distinct from '[]'::jsonb
- or j.salary is distinct from 'Theo vị trí — xem chi tiết' or j.salary_min is not null or j.salary_max is not null
- or j.posted_at is not null or j.salary_period is not null or j.hours is not null or j.meal_provided is not null
- or j.category is distinct from 'am_thuc_do_uong' or j.occupation_code is distinct from '9402' or j.occupation_evidence is distinct from 'CÔ RỬA BÁT'
- or j.active is distinct from true or j.admin_hidden is distinct from false then
-  raise exception 'Bomunttl check: source/role fields/publication differ';
+ -- Same criteria as before; on failure every differing column is listed with
+ -- operational (actual) and expected values so the cause is visible in the log.
+ -- Template for other *_production_check.sql: compare to_jsonb(row)->key with an expected jsonb.
+ select string_agg(format('%s: 운영값=%s 기대값=%s',e.key,coalesce(to_jsonb(j)->e.key,'null'::jsonb),e.value),'; ' order by e.key)
+ into diff
+ from jsonb_each(jsonb_build_object(
+  'source','Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김',
+  'source_url',null,'images','[]'::jsonb,
+  'salary','Theo vị trí — xem chi tiết','salary_min',null,'salary_max',null,
+  'posted_at',null,'salary_period',null,'hours',null,'meal_provided',null,
+  'category','am_thuc_do_uong','occupation_code','9402','occupation_evidence','CÔ RỬA BÁT',
+  'active',true,'admin_hidden',false)) e
+ where (to_jsonb(j)->e.key) is distinct from e.value;
+ if diff is not null then
+  raise exception 'Bomunttl check: source/role fields/publication differ — %',diff;
  end if;
  if position('CÔ RỬA BÁT FULL TIME — (tg: 10h - 10h)' in coalesce(j.description,''))=0
  or position('NHÂN VIÊN NAM/NỮ CHẠY BÀN PART TIME — Mức lương: 30k-35k/ 1h' in coalesce(j.description,''))=0
