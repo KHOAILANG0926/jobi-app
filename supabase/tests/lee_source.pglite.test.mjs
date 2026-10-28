@@ -76,6 +76,8 @@ assert.equal(registered.active,true)
 assert(registered.source_text.includes('(tg: 10h - 10h)'))
 assert.equal(registered.salary_min,null)
 await db.query("update local_jobs set salary='conflict' where id=$1",[registered.id])
+// The production check must name every differing column with operational and expected values.
+await assert.rejects(db.exec(read('./bomunttl_production_check.sql')),/differ — salary: 운영값="conflict" 기대값="Theo vị trí — xem chi tiết"$/)
 await assert.rejects(db.exec(registration),/Bomunttl conflict/)
 await db.exec('rollback')
 console.log('PASS: Lee source accepted; absent text, incomplete/crawler/forged attestations and evidence removal rejected; original rules retained')
