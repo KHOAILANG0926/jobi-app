@@ -32,7 +32,9 @@ export async function applyLocationVerdict(db, jobId) {
   })
   if (verdict === 'located') { const {error} = await db.rpc('map_r1_mark_located',{p_id:jobId}); if (error) throw new Error('mark_failed') }
   if (verdict === 'our_miss') { const {error} = await db.rpc('map_r1_mark_unlocated',{p_id:jobId,p_reason:'our_miss'}); if (error) throw new Error('mark_failed') }
-  if (verdict === 'no_info') { const {error} = await db.rpc('map_r1_delete_no_info',{p_id:jobId}); if (error) throw new Error('delete_failed') }
+  // Lee 2026-10-28 (수집 입구 결정 ①): 위치 판정은 공고를 지우지 않는다. 원문에 성/시 이름뿐이어도
+  // 공고는 그대로 두고, 핀은 canonical writer의 성/시 대략 위치 + chưa xác minh로 남는다.
+  // (map_r1_delete_no_info는 더 이상 부르지 않는다.)
   return verdict
 }
 
