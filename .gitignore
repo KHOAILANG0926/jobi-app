@@ -16,3 +16,4 @@ scripts/research/contact_sources/*.tsv
 
 # 박닌 수집 검토용 산출물(경쟁 사이트 공고 데이터) — 커밋 금지
 scripts/research/out/
+android/project/
