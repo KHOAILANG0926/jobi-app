@@ -34,7 +34,8 @@ do $$ begin
 end $$;
 do $$ begin
   if to_regclass('public.map_r1_unlocated') is null then return; end if; -- 결정 0006 적용 전
-  if not exists (select 1 from pg_trigger where tgname = 'trg_map_r1_block_unlocated') then raise exception 'unlocated publish block missing'; end if;
+  -- Lee 2026-10-28 ①(수집 입구 20261028160000): 위치 결과는 공개 여부를 바꾸지 않는다 → 공개 막는 트리거는 없어야 한다.
+  if exists (select 1 from pg_trigger where tgname = 'trg_map_r1_block_unlocated') then raise exception 'unlocated publish block must not exist (Lee 2026-10-28)'; end if;
   if not exists (select 1 from cron.job where jobname = 'map-r1-unlocated-retry' and active) then raise exception 'unlocated retry cron missing'; end if;
   if exists (select 1 from cron.job where jobname = 'map-r1-unlocated-delete') then raise exception 'auto-delete cron must not exist (Lee 2026-10-20)'; end if;
   if has_table_privilege('anon', 'public.map_r1_unlocated_report', 'select') then raise exception 'anon can read unlocated report'; end if;

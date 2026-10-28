@@ -112,3 +112,11 @@ psql_local -1 < supabase/migrations/20261028093000_clear_multi_role_auto_meal.sq
 psql_local < supabase/tests/area_pin_hold_meal_production_check.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
 psql_local < supabase/tests/bomunttl_production_check.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
 echo 'PASS: multi-role automatic global meal flag cleared by common rule; production checks pass'
+# Lee 2026-10-28 "적용": ingest gateway + location never changes publication.
+psql_local -1 < supabase/migrations/20261028160000_ingest_gateway.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+psql_local < supabase/tests/ingest_gateway_production_check.sql > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+{ echo 'begin;'; cat supabase/pending/ingest-gateway-20261028/03-checks.sql; echo 'rollback;'; } | psql_local > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+for f in area_pin_hold_meal_production_check.sql bomunttl_production_check.sql; do
+ psql_local < "supabase/tests/$f" > "$bomunttl_log" 2>&1 || { cat "$bomunttl_log";exit 1; }
+done
+echo 'PASS: ingest gateway migration, production check, gateway order/dedupe/no-special-case and location-never-hides checks'
