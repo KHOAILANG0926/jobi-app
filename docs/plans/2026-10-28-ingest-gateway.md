@@ -56,6 +56,15 @@ DB 공개 장치(모든 경로 공통, [직접 확인] migration 트리거): `tr
 ## 4. DB 구조 변경(dry-run만, 미적용)
 `supabase/pending/ingest-gateway-20261028/01-schema-dryrun.sql` — 표 3개(`job_ingest_raw`, `job_ingest_log`, `job_ai_suggestions`)와 입구 함수 뼈대. **Lee 승인 전 적용 금지.** 적용은 이후 정상 migration + production_check 경로로만.
 
+## 4-1. dry-run 결과 (로컬 폐기용 PostgreSQL, 운영 접근 없음) [직접 확인]
+실행: `bash supabase/pending/ingest-gateway-20261028/run-local.sh` — Bomunttl·위치 fixture 위에서 01·02를 BEGIN…ROLLBACK 안에 적용하고 03 시험 실행 → PASS.
+- 입구 5단계(원문 보존·중복·직업분류·위치·공개)가 순서대로 기록됨. 기존 트리거(R1 전화 숫자 등)가 그대로 동작.
+- 같은 원문이 다른 경로(크롤러→관리자)로 다시 들어와도, 같은 source_url이면 글자가 달라도 같은 공고로 판정(새 공고 안 만듦).
+- 판정 칸(admin_hidden·policy_decision)은 입구가 받지 않음. 원문 없으면 거부.
+- 입구 함수는 SECURITY INVOKER: 부른 사람 권한 그대로 R3(Lee 확인 기록)·R7(OCR 칸) 보호를 받는다.
+- 02 적용 시 "위치 못 찾음"은 목록에만 남고 공개를 바꾸지 않음. fixture에서 위치 때문에만 숨겨진 공고 0건(운영 건수는 적용 시 기록으로 확인).
+- 남은 일(구현 단계): 관리자·고용주 경로의 위치는 기존 저장 훅 사용(크롤러만 canonical writer 직접 호출) → 2단계에서 통일.
+
 ## 5. 단계(구현 순서 제안)
 1. 표 3개 + `ingest_job` 함수(기존 트리거는 그대로 두고 그 위에 얹음) → 로컬 실제 PostgreSQL 시험.
 2. 관리자 등록·SQL 등록을 입구로 전환(화면 모양 변경 없음).
