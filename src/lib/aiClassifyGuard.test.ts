@@ -1,5 +1,5 @@
 // AI 칸·복리후생 판정 안전장치 시험 — AI가 무엇을 답해도 목록·원문 밖은 버린다.
-import { guardAiResult, lineKey, buildPrompt } from './aiClassifyGuard.ts'
+import { guardAiResult, lineKey, buildPrompt, jobFlagCodes } from './aiClassifyGuard.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
@@ -43,3 +43,10 @@ const housingResult = guardAiResult({ benefits: [
   { code: 'housing_search', evidence: 'hỗ trợ tìm trọ' },
 ] }, { lines: [], source: housingSource })
 assert(housingResult.benefits.map(b => b.code).join(',') === 'dormitory,housing_search', 'room search is distinct from cash rent support')
+
+// 결정 0006: 여러 직무 공고는 AI가 식사를 찾아도 공고 전체 식사 칸을 켜지 않는다(다른 칸은 그대로).
+const found = [{ code: 'meal_provided' as const, evidence: 'Bao ăn 2 bữa' }, { code: 'shuttle_bus' as const, evidence: 'Có xe đưa đón' }]
+const multiRole = 'Quyền lợi\nCÔ RỬA BÁT FULL TIME — Bao ăn 2 bữa\nNHÂN VIÊN NAM/NỮ CHẠY BÀN PART TIME — Mức lương: 30k-35k/ 1h'
+assert(jobFlagCodes(found, multiRole).join(',') === 'shuttle_bus', 'multi-role job: no global meal flag')
+assert(jobFlagCodes(found, 'Quyền lợi\nBao ăn 2 bữa').join(',') === 'shuttle_bus,meal_provided', 'single-role job keeps meal flag')
+assert(jobFlagCodes(found, 'CÔ RỬA BÁT FULL TIME — Bao ăn 2 bữa\nCÔ RỬA BÁT FULL TIME — Tháng nghỉ 4 ngày').join(',') === 'shuttle_bus,meal_provided', 'one role repeated is not multi-role')
