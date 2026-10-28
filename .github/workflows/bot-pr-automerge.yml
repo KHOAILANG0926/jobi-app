@@ -12,6 +12,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
   actions: write
   checks: read
 
@@ -72,6 +73,17 @@ jobs:
               (any(.[]; .name=="publication-gate" and .conclusion=="success"))
             ' >/dev/null; then
               echo "PR #$num 검사 대기/실패: 병합 생략"; continue
+            fi
+            # 결정 문서·CODEOWNERS 변경은 현재 head 커밋에 Lee 승인이 있어야 병합(Lee 2026-10-28, 방법 A).
+            # 승인이 없으면 병합하지 않고 PR에 쉬운 말 승인 요청을 한 번 남긴다. 다른 PR은 영향 없음.
+            gh api "repos/$REPO/pulls/$num/reviews?per_page=100" --paginate --slurp | jq 'add // []' > reviews.json
+            gh api "repos/$REPO/issues/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > comments.json
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" > approval-request.txt; then
+              echo "::notice::PR #$num 결정 문서 변경: Lee 승인 대기 — 병합 안 함"
+              if ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- decision-approval-request -->") and contains($sha[0:7]))' comments.json >/dev/null; then
+                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
+              fi
+              continue
             fi
             # PR 준비 표시와 현재 head SHA 최종 재검증
             for try in 1 2 3 4 5; do
