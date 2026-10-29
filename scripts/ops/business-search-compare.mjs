@@ -69,6 +69,14 @@ const {data: places} = await publicClient.from('job_work_locations').select('job
 const cases = jobs.filter((j) => j.company?.trim()).map((j) => ({id: j.id, company: j.company, location: j.location || '', address: places?.find((p) => p.job_id === j.id)?.raw_address || j.location || ''}))
 if (EXTRA.company && EXTRA.address && !cases.some((c) => isExactCompanyName(EXTRA.company, c.company))) cases.push({id: 'extra', company: EXTRA.company, location: EXTRA.address, address: EXTRA.address})
 note(`표본 ${cases.length}건(공개 공고 ${jobs.length}건 중 회사명 있음${EXTRA.company ? ' + 입력 사례' : ''}). 관리자 API(Vercel 키) 경유`)
+// 위치 점검(읽기 전용, 2026-10-29 Lee "진행"): 공개 공고마다 원문 주소와 지금 핀(공개 지도 API)을 한 줄로.
+const pinRes = await fetch(`${BASE}/api/map-locations?ids=${jobs.map((j) => j.id).join(',')}`, {signal: AbortSignal.timeout(15000)}).then((r) => r.json()).catch(() => ({}))
+const pinsOf = (id) => pinRes?.points?.[`sb-${id}`] ?? []
+for (const j of jobs) {
+  const raws = (places ?? []).filter((p) => p.job_id === j.id).map((p) => p.raw_address)
+  const pins = pinsOf(j.id).map((p) => `${p.kind}/${p.precision} ${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)} 출처=${p.source}`)
+  note(`[점검] #${j.id} 회사="${j.company || ''}" 위치칸="${j.location || ''}" 근무지원문=${JSON.stringify(raws)} 지금핀=${pins.length ? pins.join(' ; ') : '없음'}`)
+}
 
 const total = {vietmap: {found: 0, ok: 0, calls: 0, errors: 0}, goong: {found: 0, ok: 0, calls: 0, errors: 0}}
 const errors = {vietmap: [], goong: []}
@@ -89,7 +97,9 @@ for (const job of cases) {
       if (r.found && REF.company && Number.isFinite(REF.lat) && isExactCompanyName(REF.company, job.company)) {
         const m = meters(r, REF); diff = ` 참고점 차이 ${m}m`; errors[name].push(m)
       }
-      parts.push(`${name}=${r.found ? '찾음' : `못찾음(${r.why})`}${r.found ? ` 성 안=${r.inside ? '예' : '아니오'} 거리=${r.streetOk === null ? '원문 거리 없음' : r.streetOk ? '일치' : '불일치'} 채택조건=${accepted ? '충족' : '미충족'}${diff}` : ''} 호출 ${r.calls}`)
+      const cur = pinsOf(job.id)[0]
+      const toPin = r.found && cur ? ` 지금핀과 ${meters(r, {lat: Number(cur.lat), lng: Number(cur.lng)})}m` : ''
+      parts.push(`${name}=${r.found ? '찾음' : `못찾음(${r.why})`}${r.found ? ` ${Number(r.lat).toFixed(5)},${Number(r.lng).toFixed(5)} 성 안=${r.inside ? '예' : '아니오'} 거리=${r.streetOk === null ? '원문 거리 없음' : r.streetOk ? '일치' : '불일치'} 채택조건=${accepted ? '충족' : '미충족'}${toPin}${diff}` : ''} 호출 ${r.calls}`)
     } catch (e) { total[name].errors++; parts.push(`${name}=오류(${String(e.message).slice(0, 40)})`) }
   }
   note(`#${job.id} ${job.company} [${park}] 원문 "${job.address}" → ${parts.join(' | ')}`)
