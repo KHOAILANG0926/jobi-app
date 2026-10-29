@@ -176,3 +176,10 @@ done
 psql_local < supabase/tests/area_pin_source_text.local.sql > "$bomunttl_log" 2>&1 || { area_fail local; }
 grep -q 'PASS: area pin needs source text' "$bomunttl_log" || { area_fail local; }
 echo 'PASS: area pin needs source text — 원문에 성/시 이름 없으면 대략 핀 없음, 시→성 순서, 확인 위치로 승격 없음'
+# 대략/입구 핀 다시 찾기(요청만, CI에는 vault 토큰이 없어 실제 요청은 나가지 않음) — 적용·운영 점검만 확인.
+psql_local -c "do \$\$begin if to_regprocedure('public.map_r1_request_location(bigint,boolean)') is null then
+ create function public.map_r1_request_location(p_id bigint, p_force boolean) returns void language plpgsql as 'begin return; end';
+ revoke all on function public.map_r1_request_location(bigint,boolean) from public, anon, authenticated; end if; end\$\$" > "$bomunttl_log" 2>&1 || { area_fail recheck_stub; }
+psql_local -1 < supabase/migrations/20261029140000_recheck_area_pins_with_goong.sql > "$bomunttl_log" 2>&1 || { area_fail recheck; }
+psql_local < supabase/tests/recheck_area_pins_production_check.sql > "$bomunttl_log" 2>&1 || { area_fail recheck_check; }
+echo 'PASS: area pin recheck request applies cleanly'
