@@ -1,0 +1,25 @@
+name: diag detail text (read-only, temporary)
+on:
+  pull_request:
+    paths: ['.github/workflows/diag-detail-text.yml']
+permissions: {contents: read}
+jobs:
+  look:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - run: npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
+      - run: |
+          cat > a.mjs <<'JS'
+          import {chromium} from 'playwright'
+          const b=await chromium.launch()
+          for (const id of [4879,4878,4828,4982]) {
+            const p=await b.newPage({viewport:{width:1366,height:900}})
+            await p.goto('https://www.viecganban.vn/viec-lam/sb-'+id,{waitUntil:'networkidle',timeout:60000})
+            await p.waitForTimeout(3000)
+            const secs=await p.evaluate(()=>[...document.querySelectorAll('section.jd2-sec')].map(s=>(s.className.split(' ').pop())+' :: '+s.innerText.replace(/\s*\n\s*/g,' | ').slice(0,1800)))
+            for (const [i,s] of secs.entries()) console.log(`::notice title=${id} sec ${i}::${s}`)
+          }
+          await b.close()
+          JS
+          node a.mjs
