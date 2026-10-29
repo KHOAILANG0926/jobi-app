@@ -1,3 +1,4 @@
+// 2026-10-29: HomeDesktop.tsx — Lee 지시("PC는 4열로 밑으로"): PC 추천 공고 4개만, 나머지는 전체 결과 4칸 목록으로. 모바일·카드 틀 변경 없음.
 // 2026-10-27: LayoutDesktop freeze refreshed to already-approved master PR #273 (same source; no layout edit here).
 // 2026-10-27: PR #277 / docs/plans/2026-10-26-location-single-source.md final review approved
 // DesktopHomeMapExplorer canonical-only reads, DesktopGeoapify marker provenance and JobDetail canonical pins.
@@ -29,7 +30,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "3687ed2a140dc2329bef653f676eda929f8a9681cfeaf55df18003617bd5bbc1",
+    "sha256": "2e7e8b6b0427498001bf0e95a5ebb57c1b414c17ef863882ce7de463dc6bf25f",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
