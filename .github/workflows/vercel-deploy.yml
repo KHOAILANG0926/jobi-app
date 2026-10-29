@@ -17,7 +17,13 @@ on:
     branches: [master, 'demo/**']
   schedule:
     - cron: '23 */2 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '앱 파일 변경이 없어도 배포(서버 환경변수만 바꿨을 때, 예: GOONG_API_KEY 추가)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -55,6 +61,9 @@ jobs:
         id: need
         run: |
           if [ "${GITHUB_REF}" != "refs/heads/master" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # 수동 강제 배포: Vercel 환경변수만 바뀐 경우(같은 커밋을 새 설정으로 다시 배포).
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ inputs.force }}" = true ]; then
+            echo "- 수동 강제 배포(환경변수 반영)" >> "$GITHUB_STEP_SUMMARY"; echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           prod_id=""; for d in $(gh api "repos/${{ github.repository }}/deployments?environment=Production&per_page=30" --jq '.[].id'); do
             st=$(gh api "repos/${{ github.repository }}/deployments/$d/statuses?per_page=1" --jq '.[0].state // ""'); [ "$st" = success ] && { prod_id=$d; break; }; done
           [ -n "$prod_id" ] || { echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; }
