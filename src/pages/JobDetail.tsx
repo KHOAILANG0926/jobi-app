@@ -35,6 +35,8 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
+import { BASELINE_FRAME_JOB_IDS, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
+
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
 }
@@ -354,10 +356,15 @@ export function JobDetail() {
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
   // Fixed future-proof slots: missing values do not remove the field definition.
   // Only populated slots render; don't fabricate values or infer benefits from source text.
-  const conditionColumns = [
+  // Lee 2026-10-29 새 구성: 기준 공고(KDA)만 기존 틀, 나머지는 ② Quyền lợi + ③ 일하는 방식만(급여·수당·업종·복리후생 줄 없음).
+  const newLayout = !BASELINE_FRAME_JOB_IDS.has(job.id)
+  const conditionColumns: readonly (readonly string[])[] = newLayout ? [
+    ['jobDuration', 'workDays', 'hours'],
+    ['workPeriod', 'shift', 'weekend'],
+  ] : [
     ['salary', 'allowance', 'jobDuration', 'workDays', 'hours'],
     ['category', 'workPeriod', 'shift', 'weekend', 'benefits'],
-  ] as const
+  ]
   // 2026-10-18 Lee: PC 근무조건 오른쪽 칸에 업종·복리후생(알바몬 2열 구성). 모바일은 기존 그대로라 PC 전용 행.
   const CONDITION_PC_ONLY = new Set(['category', 'benefits'])
   const conditionFields = [
@@ -486,6 +493,18 @@ export function JobDetail() {
     if (!descriptionSections.some((sec) => sec.key === key)) descriptionSections.push({ key, label: DETAIL_LABELS[key], lines: [] })
   }
   descriptionSections.sort((a, b) => a.key.localeCompare(b.key))
+  // ② Quyền lợi / ④ Yêu cầu khác: 원문 줄을 옮기고 상세요강에서는 뺀다(같은 정보 한 곳만). 복수직무는 직무 묶음을 깨지 않게 줄을 옮기지 않는다.
+  const quyenLoi = newLayout && !roleSummary
+    ? splitQuyenLoi(descriptionSections, { periodLabel, allowanceNote: isAllowanceNote ? salaryNote : undefined })
+    : { rows: newLayout && periodLabel ? [{ key: 'pay' as const, label: 'Trả lương', lines: [periodLabel] }] : [], sections: descriptionSections }
+  const requirement = newLayout && !roleSummary ? takeRequirementLines(quyenLoi.sections) : { lines: [] as string[], sections: quyenLoi.sections }
+  descriptionSections.splice(0, descriptionSections.length, ...requirement.sections)
+  const otherRequirementRow = requirement.lines.length
+    ? ({ key: 'otherReq', icon: <Award size={14} strokeWidth={1.8} />, label: 'Yêu cầu khác', value: <>{requirement.lines.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</> } as InfoField)
+    : null
+  const recruitShown = otherRequirementRow ? [...recruitFields, otherRequirementRow] : recruitFields
+  const conditionShown = newLayout ? conditionFields.filter((f) => !['salary', 'allowance'].includes(f.key)) : conditionFields
+  const conditionPcShown = newLayout ? [] : conditionPcFields
   const roleSections = descriptionRoleGroups(descriptionSections)
   const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
@@ -583,13 +602,26 @@ export function JobDetail() {
         <div className="jd2-main jd2-main--first">
 
           {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
-          {conditionFields.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
+          {newLayout && quyenLoi.rows.length > 0 && <section id="jd-sec-quyenloi" className="jd2-sec jd2-sec--quyenloi">
+            <h2 className="jd2-sec__title">Quyền lợi</h2>
+            <div className="jd2-box jd2-two-col-card">
+              <div className="jd2-two-col-card__grid">
+                {[quyenLoi.rows.filter((_, i) => i % 2 === 0), quyenLoi.rows.filter((_, i) => i % 2 === 1)].map((group, i) => (
+                  <dl className="jd2-two-col-card__column" key={i}>
+                    {group.map((r) => <div className="jd2-two-col-card__row" key={r.key}><dt>{r.label}</dt><dd>{r.lines.map((l, j) => <span key={j} className="jd2-salary-line">{l}</span>)}</dd></div>)}
+                  </dl>
+                ))}
+              </div>
+            </div>
+          </section>}
+
+          {(conditionShown.length > 0 || (newLayout && (hasContact || showApply || showMessageCta))) && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
               <div className="jd2-two-col-card__grid">
                 {conditionColumns.map((keys, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
-                    {keys.map((key) => [...conditionFields, ...conditionPcFields].find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
+                    {keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
                       <div className={`jd2-two-col-card__row${CONDITION_PC_ONLY.has(f.key) ? ' jd2-pc-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
                     ))}
                   </dl>
@@ -651,11 +683,11 @@ export function JobDetail() {
 
         <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
-          {recruitFields.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitFields.every((f) => f.key === 'category') ? ' jd2-mobile-only' : ''}`}>
+          {recruitShown.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitShown.every((f) => f.key === 'category') ? ' jd2-mobile-only' : ''}`}>
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
-                {[recruitFields.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitFields.filter((f) => !["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key))].map((group, i) => (
+                {[recruitShown.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitShown.filter((f) => !["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key))].map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
                     {group.map((f) => <div className={`jd2-two-col-card__row${f.key === 'category' ? ' jd2-mobile-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>
