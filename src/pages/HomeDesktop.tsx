@@ -262,7 +262,8 @@ export function Home() {
 
 
   const { featured, remaining } = useMemo(
-    () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
+    // 2026-10-29 Lee: PC는 추천 4칸 한 줄(화살표 없음), 나머지는 아래 전체 결과에 4칸씩. 모바일은 그대로.
+    () => partitionMainCards(filtered, selectFeaturedJobs(filtered).slice(0, 4)), [filtered],
   )
   const urgentJobs = useMemo(() => remaining.filter(j => j.urgent), [remaining])
   const regularJobs = useMemo(() => remaining.filter(j => !j.urgent), [remaining])
