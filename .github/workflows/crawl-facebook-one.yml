@@ -64,7 +64,7 @@ jobs:
           fi
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'  # vietnam-provinces 2026.3.0은 Python 3.12 이상
       - name: 의존성 설치
         run: |
           set -o pipefail
