@@ -185,3 +185,26 @@ const calls = detailSections('Quy trình tuyển dụng\nGia nhập đội ngũ 
 assert(calls.preserved && !calls.usedFallback, 'call lines preserved')
 assert(calls.sections.find(s => s.key === '07')?.lines.length === 2, 'calls are supplementary, not recruitment steps')
 assert(!calls.sections.some(s => s.key === '06'), 'no invented recruitment process')
+
+// ── Lee 2026-10-29 새 구성: 상세요강 결과 → ② Quyền lợi / ④ Yêu cầu khác로 옮긴 뒤 같은 줄이 아래에 남지 않음 ──
+{
+  const { splitQuyenLoi, takeRequirementLines } = await import('./jobQuyenLoi.ts')
+  const adtek = detailSections(`Yêu cầu ứng viên
+- Nam/nữ, tuổi từ 18 đến 45
+- Sức khỏe tốt, chịu được ca và tăng ca
+Thời gian và hình thức làm việc
+- Tăng ca thường xuyên, làm thêm cả Chủ nhật
+Thu nhập và phụ cấp
+- Hình thức trả lương: Theo tháng
+Phúc lợi và môi trường làm việc
+- Có ký túc xá cho công nhân
+- Khích lệ: 6.000.000 VNĐ/6 tháng`)
+  const q = splitQuyenLoi(adtek.sections, {})
+  const r = takeRequirementLines(q.sections)
+  const below = r.sections.flatMap((s) => s.lines).join('\n')
+  assert(q.rows.some((x) => x.key === 'bonus' && x.lines.some((l) => l.includes('6.000.000'))), 'incentive shown in Quyền lợi')
+  assert(!below.includes('6.000.000') && !below.includes('trả lương'), 'moved benefit lines not repeated in description')
+  assert(r.lines.some((l) => l.includes('Sức khỏe tốt')) && !r.sections.some((s) => s.key === '02'), 'requirements moved to recruitment')
+  assert(below.includes('Tăng ca thường xuyên') && below.includes('ký túc xá'), 'working-time and icon-backed lines stay')
+}
+console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu khác) regression passed')
