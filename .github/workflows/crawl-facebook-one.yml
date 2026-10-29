@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장'
+        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장 / inspect = 미리 본 글 1건의 원문·추출 칸과 공개 지도 핀 확인(쓰기 없음)'
         type: choice
-        options: [dryrun, save]
+        options: [dryrun, save, inspect]
         default: dryrun
       group:
         description: '그룹 1개(주소 일부), 예: timvieclamthembacninh'
@@ -53,7 +53,7 @@ jobs:
       - name: 입력·키 확인
         run: |
           echo "$GROUP" | grep -Eq '^[A-Za-z0-9._-]+$' || { echo "::error::group 형식 오류(그룹 1개만)"; exit 1; }
-          if [ "$MODE" = save ]; then
+          if [ "$MODE" = save ] || [ "$MODE" = inspect ]; then
             echo "$POST_KEY" | grep -Eq '^[a-z]+:[A-Za-z0-9_-]+$' || { echo "::error::post_key 형식 오류(예: id:123)"; exit 1; }
             echo "$DRYRUN_RUN_ID" | grep -Eq '^[0-9]+$' || { echo "::error::dryrun_run_id 필요"; exit 1; }
           fi
@@ -102,7 +102,7 @@ jobs:
           path: /tmp/facebook_dryrun.json
           retention-days: 1
       - name: 미리 보기 결과 가져오기
-        if: inputs.mode == 'save'
+        if: inputs.mode == 'save' || inputs.mode == 'inspect'
         uses: actions/download-artifact@v4
         with:
           name: facebook-dryrun
@@ -117,3 +117,20 @@ jobs:
           python -u crawl_facebook.py --save-from /tmp/fbdry/facebook_dryrun.json --post-keys "$POST_KEY" --max-save 1 2>&1 | tee /tmp/fb.log || {
             echo "::error title=저장 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
           grep -E '저장 ID|결과:|⛔|🚧|저장 전 점검' /tmp/fb.log | while read -r line; do echo "::notice title=저장 결과::$line"; done
+      - name: 확인(쓰기 없음) — 원문·추출 칸·공개 지도 핀
+        if: inputs.mode == 'inspect'
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          d = json.load(open('/tmp/fbdry/facebook_dryrun.json', encoding='utf-8'))
+          key = os.environ['POST_KEY']
+          j = next((x for x in d.get('jobs', []) if x.get('fb_post_key') == key), None)
+          if not j: print(f"::error::{key} 없음"); raise SystemExit(1)
+          text = (j.get('description') or '').replace('[source:facebook]', '', 1).strip()
+          show = {k: j.get(k) for k in ('title','company','location','salary','hours','category','occupation_code','num_hires','work_period','images')}
+          print('::notice title=추출 칸::' + json.dumps(show, ensure_ascii=False)[:1800])
+          print(f"::notice title=원문 길이::{len(text)}자")
+          for i in range(0, min(len(text), 3600), 1200):
+              print(f"::notice title=원문 {i//1200+1}::" + text[i:i+1200].replace('\n', ' / '))
+          PY
+          curl -sS "https://www.viecganban.vn/api/map-locations?ids=5063" | head -c 1500 | sed 's/^/::notice title=공개 지도 핀(5063)::/'
