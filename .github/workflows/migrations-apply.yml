@@ -62,8 +62,11 @@ jobs:
             echo "점검: $f"
             if [ "$f" = supabase/tests/location_single_source_production_check.sql ]; then
               # Aggregate invariants and public coordinates are verification evidence.
-              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f"
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f" 2> /tmp/check.err || {
+                echo "::error title=운영 점검 실패 $f::$(grep -E 'ERROR|CONTEXT' /tmp/check.err | head -3 | tr '\n' ' ' | cut -c1-1500)"; cat /tmp/check.err >&2; exit 3; }
             else
-              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f" > /dev/null
+              # 실패하면 오류 원문을 검사 화면 표시(annotation)로도 남긴다(로그를 못 받는 환경에서도 원인 확인).
+              psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$f" > /dev/null 2> /tmp/check.err || {
+                echo "::error title=운영 점검 실패 $f::$(grep -E 'ERROR|CONTEXT' /tmp/check.err | head -3 | tr '\n' ' ' | cut -c1-1500)"; cat /tmp/check.err >&2; exit 3; }
             fi
           done
