@@ -23,6 +23,6 @@ begin
  if k is distinct from 'province:bac ninh' then raise exception 'FAIL 원문에 성 이름만 있으면 성 대략 핀이어야 함: %', k; end if;
  if exists(select 1 from public.job_work_locations where job_id in (a,b,c) and location_verified) then
   raise exception 'FAIL 대략 핀이 확인된 위치로 올라감'; end if;
- raise notice 'PASS: area pin needs source text';
 end $$;
 rollback;
+\echo 'PASS: area pin needs source text'
