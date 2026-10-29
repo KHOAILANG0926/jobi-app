@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-28 09:37 (VN)**
-- 기준 커밋: `3ac783a` (fix: classify FUSHAN source lines and preserve recruitment disclosures (#280))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40621891314
+- 생성 시각: **2026-10-29 09:56 (VN)**
+- 기준 커밋: `c6c414d` (fix: Facebook 1건 수집 실행 환경(Python 3.12·Ubuntu 22.04)과 원문 출처 저장(R3) (#312))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40809176206
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -20,34 +20,34 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 82/82 파일 통과 |
+| 테스트 `npm test` | ✅ 87/87 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `3ac783a` · 상태 **success** · 2026-10-27 17:42 (VN)
-- master 최신 커밋과 ✅ 같음
+- 마지막 Production 배포: `0170c1a` · 상태 **success** · 2026-10-29 06:19 (VN)
+- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #280 | 2026-10-27 17:41 (VN) | `3ac783a` | fix: FUSHAN 공고 원문 분류와 중개·업무 미기재 규칙 (Lee 결정 2026-10-27) |
-| #279 | 2026-10-27 11:39 (VN) | `1a05b64` | fix: 위치 E2E 공고 등록 권한과 반경 입력 동기화 |
-| #277 | 2026-10-27 06:35 (VN) | `70fe1c6` | fix: 위치 원본 단일화와 자동 이관·지도 검증 |
-| #276 | 2026-10-27 06:23 (VN) | `2ab3f8f` | ci: 승인된 위치 이관 SQL 한 파일의 해시 검증 경로 |
-| #273 | 2026-10-26 13:12 (VN) | `6affdc2` | fix: PC 헤더 버튼 정리와 기업 메뉴 탭 연결 |
-| #272 | 2026-10-26 07:35 (VN) | `9ecfbc5` | test: 관리자 새로고침 전 로그인 응답 읽기 (추가 배포 없음) |
-| #270 | 2026-10-26 07:24 (VN) | `e60c5a7` | fix: 관리자 URL 탭 기억과 위치 확정 후 스크롤 유지 |
-| #269 | 2026-10-26 06:41 (VN) | `6840b46` | fix: 관리자 줄 선택의 R7 위반 OCR 수정 제거 (배포 예외 결정 대기) |
-| #268 | 2026-10-26 06:27 (VN) | `436957e` | fix: 관리자 E2E 비공개 시험 데이터의 원문·출처 근거 보완 |
-| #267 | 2026-10-26 06:20 (VN) | `122a12b` | fix: 관리자 실제 E2E 의존성·DB 생성 ID·비공개 승인 시험 복구 |
+| #312 | 2026-10-29 07:10 (VN) | `c6c414d` | fix: Facebook 1건 수집 실행 환경(Python 3.12·Ubuntu 22.04)과 원문 출처 저장(R3) |
+| #311 | 2026-10-29 06:45 (VN) | `a59bea6` | ci: Facebook 공고 1건 수집 워크플로(수동: 미리 보기 → 1건 저장) |
+| #310 | 2026-10-29 06:26 (VN) | `a1bcec6` | docs: HANDOFF·WORK_LOG에 입구 2단계(#309) 운영 반영 결과 |
+| #309 | 2026-10-29 06:17 (VN) | `0170c1a` | feat: 공고 등록은 입구(ingest_job) 하나만 — 입구 밖 등록은 DB가 거부 (입구 2단계) |
+| #308 | 2026-10-29 05:16 (VN) | `97f20a7` | feat: SQL 파일 등록을 입구(ingest_job)로 전환 (입구 전환 1단계) |
+| #307 | 2026-10-29 05:10 (VN) | `d2b66da` | docs: HANDOFF·WORK_LOG에 #304·#305 반영 |
+| #305 | 2026-10-28 23:41 (VN) | `840834d` | feat: AI 복리후생 판정은 제안만 — 원문 규칙도 같은 뜻일 때만 공고 칸 반영 (입구 3단계) |
+| #304 | 2026-10-28 23:08 (VN) | `9dc56b3` | feat: 수집 입구 운영 적용 — ingest_job·AI 제안 표·위치가 공개를 안 바꿈 (Lee 적용) |
+| #303 | 2026-10-28 23:00 (VN) | `04b6808` | chore: 위치 때문에만 숨겨진 공고 목록 읽기 전용 SQL (입구 적용 전 확인용) |
+| #302 | 2026-10-28 22:58 (VN) | `ce0a78e` | docs: 수집 입구 설계 + dry-run SQL(미적용) + HANDOFF 갱신 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **4건** (전체 7건, 숨김·비활성 3건)
-- 출처별: muaban 2 · manual 2
+- 공개 중: **6건** (전체 9건, 숨김·비활성 3건)
+- 출처별: manual 2 · 출처 없음 1 · muaban 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -69,16 +69,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-27 17:42 (VN) | location_candidate.approve | job 4979 |
-| 2026-10-27 17:42 (VN) | location_candidate.add | job 4979 |
-| 2026-10-27 11:42 (VN) | location_candidate.approve | job 4977 |
-| 2026-10-27 11:42 (VN) | location_candidate.add | job 4977 |
-| 2026-10-27 11:41 (VN) | location_candidate.approve | job 4975 |
-| 2026-10-27 11:41 (VN) | location_candidate.add | job 4975 |
-| 2026-10-27 06:33 (VN) | location_candidate.approve | job 4970 |
-| 2026-10-27 06:33 (VN) | location_candidate.auto_reuse | job 4971 |
-| 2026-10-27 06:33 (VN) | location_candidate.add | job 4970 |
-| 2026-10-26 13:24 (VN) | location_candidate.auto_reuse | job 4968 |
+| 2026-10-29 07:12 (VN) | location_candidate.approve | job 5065 |
+| 2026-10-29 07:11 (VN) | location_candidate.add | job 5065 |
+| 2026-10-29 06:46 (VN) | location_candidate.approve | job 5060 |
+| 2026-10-29 06:46 (VN) | location_candidate.add | job 5060 |
+| 2026-10-29 06:27 (VN) | location_candidate.approve | job 5056 |
+| 2026-10-29 06:27 (VN) | location_candidate.add | job 5056 |
+| 2026-10-29 06:19 (VN) | location_candidate.approve | job 5053 |
+| 2026-10-29 06:19 (VN) | location_candidate.add | job 5053 |
+| 2026-10-29 05:17 (VN) | location_candidate.approve | job 5050 |
+| 2026-10-29 05:17 (VN) | location_candidate.add | job 5050 |
 
 ## 8. 검증 장치 변경 이력
 
@@ -111,5 +111,10 @@
 | `L2_single_location_writer` | 저장거부 | — | — 시험 없음 |
 | `L3_derived_location_cache` | 저장거부 | — | — 시험 없음 |
 | `L4_data_independent_location_tests` | 없음 | — | — 시험 없음 |
+| `R9_application_relevant_only` | 없음 | — | — 시험 없음 |
+| `R10_multi_role_conditions` | 없음 | — | — 시험 없음 |
+| `R11_original_hours_review` | 보류 | — | — 시험 없음 |
+| `R12_location_precision_review` | 없음 | — | — 시험 없음 |
+| `R13_role_readability_and_continuations` | 없음 | — | — 시험 없음 |
 
 - OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
