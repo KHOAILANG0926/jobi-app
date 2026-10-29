@@ -9,6 +9,7 @@ begin
    and has_function_privilege(r.rolname,'location_private.area_in_text(jsonb,text)','EXECUTE')) then diff := diff || 'area_in_text 공개 실행 권한; '; end if;
  select string_agg(w.job_id::text, ',') into bad from public.job_work_locations w join public.local_jobs j on j.id = w.job_id
   where w.point_authority = 'auto_area' and not w.location_verified and nullif(btrim(j.source_text),'') is not null
+    and w.point_evidence ? 'administrativeAreaKey'  -- 성/시 대략 핀만(동 중심 등 위치 찾기 결과는 이 규칙 대상 아님)
     and not location_private.area_in_text(location_private.administrative_area(
       case when w.point_evidence->>'administrativeAreaKey' like 'city:%' then 'tp ' else '' end || split_part(w.point_evidence->>'administrativeAreaKey', ':', 2)), j.source_text);
  if bad is not null then diff := diff || '원문에 없는 성/시 대략 핀: ' || bad || '; '; end if;
