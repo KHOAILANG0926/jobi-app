@@ -7,11 +7,11 @@ do $$
 declare a bigint; b bigint; c bigint; k text;
 begin
  a := public.ingest_job(jsonb_build_object('channel','sql_file','title','Tuyển nhân viên','company','Fixture Area A','source_url','https://src.example/area/A',
-      'source_text','Tuyển gấp nhân viên bán hàng, lương cao. LH 0912 000 111','employer_phone','0912000111','location','Bắc Ninh'));
+      'source_text','Fixture Area A: Tuyển gấp nhân viên bán hàng, lương cao. LH 0912 000 111','employer_phone','0912000111','location','Bắc Ninh'));
  b := public.ingest_job(jsonb_build_object('channel','sql_file','title','Tuyển nhân viên','company','Fixture Area B','source_url','https://src.example/area/B',
-      'source_text','Cửa hàng ở Ngô Tất Tố - TP. Bắc Ninh tuyển nhân viên. LH 0912 000 222','employer_phone','0912000222','location','TP. Bắc Ninh'));
+      'source_text','Fixture Area B: Cửa hàng ở Ngô Tất Tố - TP. Bắc Ninh tuyển nhân viên. LH 0912 000 222','employer_phone','0912000222','location','TP. Bắc Ninh'));
  c := public.ingest_job(jsonb_build_object('channel','sql_file','title','Tuyển nhân viên','company','Fixture Area C','source_url','https://src.example/area/C',
-      'source_text','Làm việc tại Bắc Ninh. LH 0912 000 333','employer_phone','0912000333','location','TP. Bắc Ninh'));
+      'source_text','Fixture Area C: Làm việc tại Bắc Ninh. LH 0912 000 333','employer_phone','0912000333','location','TP. Bắc Ninh'));
  perform location_private.write_location(a,'upsert',jsonb_build_object('address','Bắc Ninh','authority','unresolved'));
  perform location_private.write_location(b,'upsert',jsonb_build_object('address','TP. Bắc Ninh','authority','unresolved'));
  perform location_private.write_location(c,'upsert',jsonb_build_object('address','TP. Bắc Ninh','authority','unresolved'));
