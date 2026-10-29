@@ -1,3 +1,4 @@
+// 2026-10-29: JobDetail.tsx 기준값을 이미 병합된 #282(Lee 승인 복수직무 표시, db2d4b8) 값으로 맞춤 — master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돌아 못 잡음). 이번 PR은 JobDetail.tsx를 바꾸지 않음.
 // 2026-10-29: HomeDesktop.tsx — Lee 지시("PC는 4열로 밑으로"): PC 추천 공고 4개만, 나머지는 전체 결과 4칸 목록으로. 모바일·카드 틀 변경 없음.
 // 2026-10-27: LayoutDesktop freeze refreshed to already-approved master PR #273 (same source; no layout edit here).
 // 2026-10-27: PR #277 / docs/plans/2026-10-26-location-single-source.md final review approved
@@ -72,7 +73,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "adae15c5424c6d63369f6dacc9ad63129088b13a3dbe5857a9a1a1ca9ef98f84",
+    "sha256": "b8fae37d63115af0476f64d0cc0b2675dde76da7c1ad0ffcad5c7856d3b46e19",
     "restore": []
   },
   {
