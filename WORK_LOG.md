@@ -1,3 +1,10 @@
+## 2026-10-29 (지도 규칙: Goong 보조 + 대략 핀 원문 확인)
+- 요청: Lee "바꾸고 앱에 올려" — 지도 정확도 규칙 수정(공고 손수정 금지, 규칙·시험으로).
+- 변경: ① 위치 찾기에 Goong(두 번째 자료, Vercel GOONG_API_KEY) 추가 — VietMap이 못 찾을 때만, 같은 판정(번지·도로·동 일치 / 회사명 정확히 1곳 + 공단 경계 안), 판정당 최대 3번·결과 저장 재사용. ② migration 20261029120000: 성/시 대략 핀은 원문(source_text)에 그 이름이 있을 때만(시 없으면 성), 기존 자동 대략 핀 같은 writer로 재판정. ③ Facebook 수집기: 그룹 지역은 글에 있을 때만, "지역 없음" 거르기 제거.
+- 원인(#5063): 수집기가 그룹 지역을 location에 채움(2026-08-16 66060c1) + 대략 핀(20261028050507)이 그 칸을 근거로 씀.
+- 제외: 거리 가운데(#4982, 두 구간) — 이번 범위 아님.
+- 검증: 로컬 resolver 시험(Goong 승인/번지 불일치/공단 밖/동명 2곳/키 없음/캐시) 통과, 크롤러 시험 28/28, 위치 hook 시험 통과. DB 규칙은 CI(PostGIS) 시험.
+
 ## 2026-10-29 06:10
 - 요청: Lee — 남은 일 1(관리자·고용주·크롤러 등록을 입구로). "길마다 PR 따로" 대신 PR 하나로, 다른 길이 아예 없는 구조로(ok 05:15).
 - 변경: migration 20261029010000_ingest_one_door(입구 밖 INSERT 거부 트리거, ingest_private 도우미, 판정 칸만 뺀 모든 칸, 기존 공고 중복, 다시 수집, 경로 사칭 금지, 관리자 등록 정책, admin_create_job 회수). 관리자 화면·JobsContext·크롤러(TopCV·Facebook)·E2E 4개를 ingest_job으로. 직접 등록 코드 차단 시험(api/_ingest-one-door-guard.test.ts). #308 SQL 파일 변환기는 1단계 칸 목록 유지.
@@ -73,7 +80,3 @@
 - [직접 확인] a543503 운영 배포 실패: "api-deployments-free-per-day"(무료 하루 100번). 운영은 직전 버전 유지.
 - 변경: vercel-deploy.yml — 앱 파일(src·api·public·설정)이 바뀐 커밋만 배포, 2시간마다 운영이 master보다 뒤처졌으면 따라잡기 배포(한도 풀리면 자동). detail-fill.mjs — 급여 규칙·실행기 자신이 바뀌어도 전부 다시 처리(#4879 급여 칸이 안 채워진 원인).
 
-## 2026-10-25 — 검사표가 찾은 #4879 ADTEK 문제 수정(급여 칸·공단 근무지)
-- 급여: 위쪽 급여 칸이 비어 있으면 원문 급여를 글자 그대로 채움(src/lib/sourceSalary.ts, detail-fill). "Lương tối thiểu/tối đa" → "9 - 17 triệu/tháng". 금액 없으면 비움.
-- 위치: "Nhà máy Quế Võ III"처럼 공장 이름이 공단 표 이름과 같으면 그 공단(industrialPark.ts KCN_TOKEN에 nha may). 회사 이름 공장은 해당 없음(시험).
-- 운영 배포 뒤 위치 못 찾은 공고 바로 다시 찾기(vercel-deploy.yml, map_r1_retry_unlocated) — 03:00까지 기다리지 않음.

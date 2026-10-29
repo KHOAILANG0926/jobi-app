@@ -167,3 +167,12 @@ grep -q 'duplicate_of:' "$bomunttl_log" || { one_door_fail 'sql_file duplicate';
 psql_local < supabase/tests/ingest_one_door.local.sql > "$bomunttl_log" 2>&1 || { one_door_fail step; }
 grep -q 'PASS: ingest one-door' "$bomunttl_log" || { one_door_fail step; }
 echo 'PASS: ingest one-door — 입구 밖 등록은 모든 계정에서 거부, 모든 길 같은 규칙(RLS·R3·R5·R7·중복·다시 수집), SQL 파일 등록 유지'
+# 성/시 대략 핀은 원문에 그 이름이 있을 때만(Lee 2026-10-29). 실패하면 검사 화면 표시로도 남긴다.
+area_fail() { cat "$bomunttl_log"; echo "::error title=area pin source text ($1)::$(tail -c 1800 "$bomunttl_log" | tr '\n' ' ' | tr -d '\r')"; exit 1; }
+psql_local -1 < supabase/migrations/20261029120000_area_pin_needs_source_text.sql > "$bomunttl_log" 2>&1 || { area_fail migration; }
+for f in area_pin_source_text_production_check.sql administrative_area_fallback_production_check.sql location_single_source_production_check.sql ingest_one_door_production_check.sql; do
+ psql_local < "supabase/tests/$f" > "$bomunttl_log" 2>&1 || { area_fail "$f"; }
+done
+psql_local < supabase/tests/area_pin_source_text.local.sql > "$bomunttl_log" 2>&1 || { area_fail local; }
+grep -q 'PASS: area pin needs source text' "$bomunttl_log" || { area_fail local; }
+echo 'PASS: area pin needs source text — 원문에 성/시 이름 없으면 대략 핀 없음, 시→성 순서, 확인 위치로 승격 없음'

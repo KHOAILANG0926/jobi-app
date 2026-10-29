@@ -240,6 +240,14 @@ def test_dedup_title_edit_and_cross_group_repost() -> None:
                  "short bodies are not over-deduplicated")
 
 
+def test_group_region_only_when_post_names_it() -> None:
+    # Lee 2026-10-29(#5063): 그룹 지역을 글에 없는데 채우면 지도가 성 중심에 핀을 찍는다.
+    none = parse_post({"text": "Cần tuyển phục vụ quán ăn\nZalo 0911111111", "location": "Bắc Ninh"})
+    assert_equal(none["location"], "", "group region not in text stays empty")
+    named = parse_post({"text": "Cần tuyển phục vụ ở BẮC NINH\nZalo 0911111111", "location": "Bắc Ninh"})
+    assert_equal(named["location"], "Bắc Ninh", "group region named in text (accent/case-insensitive) is kept")
+
+
 def test_seen_state_backup_used_when_main_file_corrupt() -> None:
     import tempfile
     from pathlib import Path
@@ -327,6 +335,7 @@ def test_merge_seen_keys_newest_first_and_capped() -> None:
 
 def main() -> int:
     tests = [
+        test_group_region_only_when_post_names_it,
         test_non_job_money_post,
         test_ambiguous_generic_post_skipped,
         test_restaurant_and_salary_with_combining_marks,

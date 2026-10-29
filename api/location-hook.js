@@ -16,8 +16,9 @@ function runtime() {
   return {
     async tokenOk(token) { const { data, error } = await db.rpc('map_r1_hook_token_ok', { p_token: token }); if (error) throw new Error('unavailable'); return data === true },
     run: async (jobId, force) => {
-      const { applyLocationVerdict, runLocationJob, vietmapRequest } = await loadRuntime()
-      const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force)
+      const { applyLocationVerdict, runLocationJob, vietmapRequest, goongRequest } = await loadRuntime()
+      const goongKey = process.env.GOONG_API_KEY
+      const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force, goongKey ? goongRequest(goongKey) : null)
       // 결정 0006: 결과에 따라 비공개·다시 공개(성 중심뿐이면 비공개)
       const verdict = await applyLocationVerdict(db, jobId)
       return { ...summary, verdict }

@@ -4,13 +4,13 @@ import { administrativeAreaForTarget, areaContains } from '../../src/lib/adminis
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 
-export async function runLocationBatch(db, request, limit = 10) {
-  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease}))
+export async function runLocationBatch(db, request, limit = 10, goong = null) {
+  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease}), goong)
 }
 
 /** 공고 한 건만(저장 즉시 위치 찾기, api/location-hook). 규칙·한도는 일괄 처리와 같다. */
-export async function runLocationJob(db, request, jobId, force = false) {
-  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_job_v2', {p_id:jobId,p_lease:lease,p_force:force}))
+export async function runLocationJob(db, request, jobId, force = false, goong = null) {
+  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_job_v2', {p_id:jobId,p_lease:lease,p_force:force}), goong)
 }
 
 /** 결정 0006(2026-10-20 Lee 수정): 찾음 → 숨김 해제(원래 공개였으면 다시 공개) / 원문에 위치 정보 없음 → 바로 삭제
@@ -48,7 +48,7 @@ export function canonicalVerdictKind(state) {
   return point?.kind ?? (state.provider_result?.kind === 'unresolved' ? 'unresolved' : null)
 }
 
-async function runClaimed(db, request, claim) {
+async function runClaimed(db, request, claim, goong = null) {
   const lease = randomUUID()
   const rpc = async (name, args) => {
     const { data, error } = await db.rpc(name, args)
@@ -89,6 +89,7 @@ async function runClaimed(db, request, claim) {
           return e && typeof e.lat==='number' && typeof e.lng==='number' ? {lat:e.lat,lng:e.lng,at:e.at||''} : null
         },
         async request(action,params) { calls++; return request(action,params) },
+        ...(goong ? { goong } : {}),
       })
       const saved = await rpc('map_r1_complete',{p_id:row.job_id,p_lease:lease,p_result:result})
       if (!saved) { summary.failed++; continue }
@@ -108,6 +109,19 @@ export function vietmapRequest(key) {
     const query = new URLSearchParams({...params,apikey:key, ...(action==='search'?{display_type:'1'}:{})})
     const res = await fetch(`https://maps.vietmap.vn/api/${action}/v4?${query}`,{signal:AbortSignal.timeout(15000)})
     if (!res.ok) throw new Error('upstream_failed') // Never include URLs, keys, addresses or response bodies in logs.
+    return res.json()
+  }
+}
+
+/** 두 번째 지도 자료 Goong(Lee 2026-10-29). 키는 Vercel 환경변수 GOONG_API_KEY에만. 로그에 주소·키·응답을 쓰지 않는다. */
+export function goongRequest(key) {
+  const paths = { geocode: 'geocode', autocomplete: 'Place/AutoComplete', detail: 'Place/Detail' }
+  return async (action, params) => {
+    const path = paths[action]
+    if (!path) throw new Error('upstream_failed')
+    const query = new URLSearchParams({ ...params, ...(action === 'autocomplete' ? { limit: '10' } : {}), api_key: key })
+    const res = await fetch(`https://rsapi.goong.io/${path}?${query}`, { signal: AbortSignal.timeout(15000) })
+    if (!res.ok) throw new Error('upstream_failed')
     return res.json()
   }
 }
