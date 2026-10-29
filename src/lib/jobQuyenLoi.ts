@@ -59,3 +59,25 @@ export function takeRequirementLines(sections: DetailSection[]): { lines: string
   const sec = sections.find((s) => s.key === key)
   return { lines: (sec?.lines ?? []).map((l) => l.replace(/^\s*[-•*]\s+/, '').trim()).filter(Boolean), sections: sections.filter((s) => s.key !== key) }
 }
+
+export type RecruitFieldKey = 'age' | 'gender' | 'education' | 'preference'
+const FIELD_LINE: [RecruitFieldKey, RegExp][] = [
+  ['age', /^(?:độ tuổi|tuổi)\s*[:：]\s*(.+)$/iu],
+  ['gender', /^giới tính\s*[:：]\s*(.+)$/iu],
+  ['education', /^(?:học vấn(?: tối thiểu)?|trình độ(?: học vấn)?)\s*[:：]\s*(.+)$/iu],
+  ['preference', /^kinh nghiệm\s*[:：]\s*(.+)$/iu],
+]
+/** Lee 2026-10-30 "나이는 모집조건에": "Độ tuổi: …"처럼 칸 이름으로 시작하는 원문 줄은 그 칸으로 올린다.
+ *  칸이 이미 채워져 있으면 같은 정보 반복이므로 뺀다. 섞인 문장(예: "Nam/nữ, tuổi từ 18 đến 45")은 그대로 둔다. */
+export function promoteRequirementFields(lines: string[], filled: ReadonlySet<RecruitFieldKey>) {
+  const fields: Partial<Record<RecruitFieldKey, string>> = {}
+  const rest: string[] = []
+  for (const line of lines) {
+    const hit = FIELD_LINE.find(([, re]) => re.test(line.trim()))
+    if (!hit) { rest.push(line); continue }
+    const [key, re] = hit
+    if (filled.has(key) || fields[key]) continue
+    fields[key] = line.trim().match(re)![1].trim()
+  }
+  return { fields, lines: rest }
+}
