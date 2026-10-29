@@ -35,7 +35,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
-import { BASELINE_FRAME_JOB_IDS, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
+import { BASELINE_FRAME_JOB_IDS, promoteRequirementFields, splitQuyenLoi, takeRequirementLines, type RecruitFieldKey } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
@@ -499,10 +499,16 @@ export function JobDetail() {
     : { rows: newLayout && periodLabel ? [{ key: 'pay' as const, label: 'Trả lương', lines: [periodLabel] }] : [], sections: descriptionSections }
   const requirement = newLayout && !roleSummary ? takeRequirementLines(quyenLoi.sections) : { lines: [] as string[], sections: quyenLoi.sections }
   descriptionSections.splice(0, descriptionSections.length, ...requirement.sections)
-  const otherRequirementRow = requirement.lines.length
-    ? ({ key: 'otherReq', icon: <Award size={14} strokeWidth={1.8} />, label: 'Yêu cầu khác', value: <>{requirement.lines.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</> } as InfoField)
+  // Lee 2026-10-30: "Độ tuổi: …" 같은 칸 이름 줄은 그 칸(모집조건)으로, 이미 있는 칸이면 반복하지 않는다.
+  const filledRecruit = new Set(recruitFields.map((f) => f.key).filter((k): k is RecruitFieldKey => ['age', 'gender', 'education', 'preference'].includes(k)))
+  const promoted = promoteRequirementFields(requirement.lines, filledRecruit)
+  const PROMOTED_LABELS: Record<RecruitFieldKey, string> = { age: 'Độ tuổi', gender: 'Giới tính', education: 'Học vấn', preference: 'Kinh nghiệm' }
+  const promotedRows = (Object.entries(promoted.fields) as [RecruitFieldKey, string][])
+    .map(([key, value]) => ({ key, icon: <Users size={14} strokeWidth={1.8} />, label: PROMOTED_LABELS[key], value } as InfoField))
+  const otherRequirementRow = promoted.lines.length
+    ? ({ key: 'otherReq', icon: <Award size={14} strokeWidth={1.8} />, label: 'Yêu cầu khác', value: <>{promoted.lines.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</> } as InfoField)
     : null
-  const recruitShown = otherRequirementRow ? [...recruitFields, otherRequirementRow] : recruitFields
+  const recruitShown = [...recruitFields, ...promotedRows, ...(otherRequirementRow ? [otherRequirementRow] : [])]
   const conditionShown = newLayout ? conditionFields.filter((f) => !['salary', 'allowance'].includes(f.key)) : conditionFields
   const conditionPcShown = newLayout ? [] : conditionPcFields
   const roleSections = descriptionRoleGroups(descriptionSections)

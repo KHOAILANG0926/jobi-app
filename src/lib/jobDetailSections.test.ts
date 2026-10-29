@@ -208,3 +208,11 @@ Phúc lợi và môi trường làm việc
   assert(below.includes('Tăng ca thường xuyên') && below.includes('ký túc xá'), 'working-time and icon-backed lines stay')
 }
 console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu khác) regression passed')
+{
+  // Lee 2026-10-30: 운영 ADTEK 모양 — "Độ tuổi: …" 줄은 모집조건 Độ tuổi 칸으로, Yêu cầu khác에 반복 안 함
+  const { takeRequirementLines, promoteRequirementFields } = await import('./jobQuyenLoi.ts')
+  const r = takeRequirementLines(detailSections('Yêu cầu ứng viên\n- Nam/nữ, tuổi từ 18 đến 45\n- Độ tuổi: 18 - 50 tuổi').sections)
+  const p = promoteRequirementFields(r.lines, new Set())
+  assert(p.fields.age === '18 - 50 tuổi' && !p.lines.some((l) => l.startsWith('Độ tuổi')), 'age label line promoted to recruitment age row once')
+}
+console.log('jobDetailSections: age promoted to recruitment regression passed')

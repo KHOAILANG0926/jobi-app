@@ -26,3 +26,11 @@ const none = splitQuyenLoi([{ key: '05' as const, label: 'x', lines: ['Môi trư
 assert(none.rows.length === 1 && none.rows[0].lines[0] === 'Lương tháng', 'no source line → structured pay period only, nothing invented')
 assert(BASELINE_FRAME_JOB_IDS.has('sb-4824'), 'KDA baseline keeps the approved frame')
 console.log('jobQuyenLoi: verbatim moves, no duplicates, baseline exempt')
+{
+  const { promoteRequirementFields } = await import('./jobQuyenLoi.ts')
+  const a = promoteRequirementFields(['Nam/nữ, tuổi từ 18 đến 45', 'Sức khỏe tốt', 'Độ tuổi: 18 - 50 tuổi'], new Set(['gender']))
+  if (a.fields.age !== '18 - 50 tuổi' || a.lines.includes('Độ tuổi: 18 - 50 tuổi') || !a.lines.includes('Nam/nữ, tuổi từ 18 đến 45')) throw new Error('age label line goes to the age row, mixed sentence stays')
+  const b = promoteRequirementFields(['Kinh nghiệm: < 1 năm', 'Học vấn tối thiểu: Trung học', 'Có kinh nghiệm là lợi thế'], new Set(['preference', 'education']))
+  if (b.lines.length !== 1 || Object.keys(b.fields).length) throw new Error('already-shown field lines are dropped, not repeated')
+  console.log('jobQuyenLoi: requirement field lines promoted once')
+}
