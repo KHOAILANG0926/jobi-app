@@ -84,3 +84,41 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
  })
  assert(area.kind==='area'&&area.address==='Khu A, Bắc Ninh'&&area.workLocationId===301,'multi-workplace area fallback binds explicit canonical target')
 }
+
+// ── Goong 두 번째 자료(Lee 2026-10-29): 같은 판정 규칙, 조건 못 채우면 핀 없음 ──
+{
+  const { findIndustrialPark } = await import('./industrialPark.ts')
+  const { insideParkOutline } = await import('./goongLocate.ts')
+  const vietmapMiss = { ...deps, async reserve() { return true }, async request() { return [] } }
+  const addr = '33 Lý Thái Tổ, P. Ninh Xá, TP. Bắc Ninh'
+  const geocode = (n: string) => ({ results: [{ place_id: 'g-1', formatted_address: `${n} Lý Thái Tổ, Ninh Xá, Bắc Ninh`,
+    geometry: { location: { lat: 21.1781, lng: 106.0655 } }, compound: { commune: 'Ninh Xá', district: 'Bắc Ninh', province: 'Bắc Ninh' } }] })
+  let goongCalls: string[] = []
+  const withGoong = (answer: (a: string) => unknown) => ({ ...vietmapMiss, async goong(a: 'geocode' | 'autocomplete' | 'detail') { goongCalls.push(a); return answer(a) } })
+  const ok = await resolver.resolveAutoLocation({ id: 20, company: 'Groupe SEB', location: addr, targets: [{ address: addr, workLocationId: 7 }] }, withGoong(() => geocode('33')))
+  assert(ok.kind === 'exact' && (ok as { source?: string }).source === 'Goong g-1' && ok.workLocationId === 7, 'Goong address with same house number + street + ward approved')
+  goongCalls = []
+  const wrongNo = await resolver.resolveAutoLocation({ id: 21, company: 'Groupe SEB', location: addr, targets: [{ address: addr, workLocationId: 7 }] }, withGoong(() => geocode('35')))
+  assert(wrongNo.kind !== 'exact', 'Goong address with a different house number is never an exact pin')
+  const park = findIndustrialPark('Nhà máy Quế Võ III, Bắc Ninh')!
+  assert(park && insideParkOutline(park, { lat: park.lat, lng: park.lng }), 'fixture: park reference point is inside its outline')
+  const company = (lat: number, lng: number) => (a: string) => a === 'autocomplete'
+    ? { predictions: [{ place_id: 'g-adtek', structured_formatting: { main_text: 'ADTEK' } }] }
+    : { result: { name: 'ADTEK', formatted_address: 'KCN Quế Võ III', geometry: { location: { lat, lng } } } }
+  const parkAddr = 'Nhà máy Quế Võ III, Bắc Ninh'
+  const inside = await resolver.resolveAutoLocation({ id: 22, company: 'ADTEK', location: parkAddr, targets: [{ address: parkAddr, workLocationId: 8 }] }, withGoong(company(park.lat, park.lng)))
+  assert(inside.kind === 'exact' && (inside as { source?: string }).source === 'Goong g-adtek', 'Goong company inside the park outline approved')
+  const outside = await resolver.resolveAutoLocation({ id: 23, company: 'ADTEK', location: parkAddr, targets: [{ address: parkAddr, workLocationId: 8 }] }, withGoong(company(park.lat + 0.08, park.lng + 0.08)))
+  assert(outside.kind !== 'exact', 'Goong company outside the park outline is never an exact pin')
+  const twoNames = await resolver.resolveAutoLocation({ id: 24, company: 'ADTEK', location: parkAddr, targets: [{ address: parkAddr, workLocationId: 8 }] },
+    withGoong((a) => a === 'autocomplete' ? { predictions: [{ place_id: 'a', structured_formatting: { main_text: 'ADTEK' } }, { place_id: 'b', structured_formatting: { main_text: 'ADTEK' } }] } : null))
+  assert(twoNames.kind !== 'exact', 'two same-name Goong places are never chosen')
+  goongCalls = []
+  const noKey = await resolver.resolveAutoLocation({ id: 25, company: 'Groupe SEB', location: addr, targets: [{ address: addr, workLocationId: 7 }] }, vietmapMiss)
+  assert(noKey.kind !== 'exact' && goongCalls.length === 0, 'without a Goong key the resolver behaves as before')
+  let cachedHits = 0
+  await resolver.resolveAutoLocation({ id: 26, company: 'Groupe SEB', location: addr, targets: [{ address: addr, workLocationId: 7 }] },
+    { ...withGoong(() => { throw new Error('upstream private message') }), async cached(k: string) { if (k.includes('goong-v1')) cachedHits++; return null } })
+  assert(cachedHits >= 1, 'Goong questions are cached like VietMap ones')
+  console.log('autoLocationResolver: Goong address/company-in-park assertions passed')
+}

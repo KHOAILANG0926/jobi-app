@@ -1043,6 +1043,14 @@ async def crawl_group(page, target: dict, prev_seen: set[str], max_age_days: flo
     return jobs, stats
 
 
+def _place_key(value: str) -> str:
+    """악센트·đ·문장부호를 뺀 소문자(지역 이름이 글에 있는지 비교용)."""
+    import unicodedata
+    plain = unicodedata.normalize("NFD", (value or "").replace("đ", "d").replace("Đ", "D"))
+    plain = "".join(ch for ch in plain if unicodedata.category(ch) != "Mn").lower()
+    return " " + " ".join(re.sub(r"[^0-9a-z]+", " ", plain).split()) + " "
+
+
 def parse_post(post: dict) -> dict:
     text = post["text"]
     images = post.get("images", [])
@@ -1051,8 +1059,10 @@ def parse_post(post: dict) -> dict:
     phone = extract_phone(text)
     zalo = extract_zalo(text) or phone  # Zalo 미표기 시 전화번호 공유
     district = extract_district(text)
-    # 구/군/동 있으면 위치 정보를 더 구체적으로
-    full_location = f"{district}, {location}" if district else location
+    # Lee 2026-10-29(#5063 원인): 그룹 지역은 글에 그 이름이 있을 때만 쓴다. 그룹 이름만으로
+    # 지역을 채우면 지도가 원문에 없는 성 중심에 핀을 찍는다. 글에 위치가 없으면 빈칸(관리자 위치 확정).
+    region = location if location and _place_key(location) in _place_key(text) else ""
+    full_location = ", ".join(p for p in (district, region) if p)
 
     title = extract_title(text)
     company = extract_company(text)
@@ -1171,8 +1181,7 @@ def missing_required(job: dict) -> list[str]:
         problems.append("제목 없음")
     if not (job.get("employer_phone") or job.get("zalo")):
         problems.append("연락처 없음")
-    if not (job.get("location") or "").strip():
-        problems.append("지역 없음")
+    # 지역 없음은 거르지 않는다(Lee 2026-10-29): 글에 위치가 없으면 핀 없이 관리자 위치 확정으로 넘긴다.
     if is_self_promotion(body):
         problems.append("구직자 홍보글")
     return problems
