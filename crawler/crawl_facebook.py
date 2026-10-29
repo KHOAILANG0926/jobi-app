@@ -1094,6 +1094,12 @@ def parse_post(post: dict) -> dict:
 FACEBOOK_DESCRIPTION_PREFIX = "[source:facebook] "
 
 
+def facebook_source_url(post_key: object) -> str | None:
+    """게시물 키 id:<숫자>에서 원문 주소를 만든다(내부 출처·중복 판정 전용, 사용자 화면에 노출 금지)."""
+    m = re.fullmatch(r"id:(\d+)", str(post_key or ""))
+    return f"https://www.facebook.com/{m.group(1)}" if m else None
+
+
 def title_company_key(job: dict) -> tuple[str, str]:
     return ((job.get("title") or "").strip().lower()[:60], (job.get("company") or "").strip().lower()[:40])
 
@@ -1239,7 +1245,13 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
     }
 
     def to_db_payload(job: dict) -> dict:
-        return {k: v for k, v in job.items() if k in db_columns}
+        payload = {k: v for k, v in job.items() if k in db_columns}
+        # 원문 출처(R3): 게시물 번호가 있으면 원문 주소를 DB에만 저장한다(브라우저는 source_url 열을 읽지 못함 —
+        # 20261014100000 열 권한). 중복 판정에도 쓰인다. 번호가 없는 글은 출처가 없으므로 R3가 막는다.
+        url = facebook_source_url(job.get("fb_post_key"))
+        if url:
+            payload["source_url"] = url
+        return payload
 
     saved: list[dict] = []
     # 등록은 DB 입구 하나만(Lee 2026-10-29): 한 건씩 입구로 보내고, 규칙에 걸린 공고만 건너뛴다.
