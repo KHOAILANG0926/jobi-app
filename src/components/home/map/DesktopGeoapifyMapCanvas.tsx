@@ -117,7 +117,9 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     const initial = propsRef.current
     const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
     const initialViewport = initial.initialViewport
-    const map = new maplibregl.Map({
+    let map: MapLibreMap
+    try {
+      map = new maplibregl.Map({
       container: box,
       style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${encodeURIComponent(apiKey ?? '')}`,
       center: initialViewport ? [initialViewport.center.lng, initialViewport.center.lat] : [initial.origin.lng, initial.origin.lat],
@@ -125,6 +127,13 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
       attributionControl: false,
       ...HOME_MAP_GESTURE_OPTIONS,
     })
+    } catch {
+      // 2026-10-29 Lee PC: WebGL2가 없는 브라우저에서 지도 생성이 예외를 던져 사이트 전체가 흰 화면이 됨.
+      // 모바일 지도(GeoapifyMapCanvas)와 같게 지도 칸에만 안내를 띄우고 나머지 화면은 그대로 둔다.
+      setTileError(true)
+      propsRef.current.onFailure('render-error')
+      return
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }))
     mapRef.current = map
