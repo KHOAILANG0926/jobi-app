@@ -34,7 +34,8 @@ concurrency:
 
 jobs:
   one:
-    runs-on: ubuntu-latest
+    # Playwright 1.44(crawler/requirements.txt)가 브라우저 의존성을 설치할 수 있는 Ubuntu로 고정(ubuntu-latest는 Ubuntu 26으로 이전 중).
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
@@ -63,11 +64,12 @@ jobs:
           fi
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'  # vietnam-provinces 2026.3.0은 Python 3.12 이상
       - name: 의존성 설치
         run: |
-          python -m pip install -r crawler/requirements.txt
-          if [ "$MODE" = dryrun ]; then python -m playwright install --with-deps chromium; fi
+          set -o pipefail
+          { python -m pip install -r crawler/requirements.txt && { [ "$MODE" != dryrun ] || python -m playwright install --with-deps chromium; }; } 2>&1 | tee /tmp/deps.log || {
+            echo "::error title=의존성 설치 실패::$(tail -c 1500 /tmp/deps.log | tr '\n' ' ')"; exit 1; }
       - name: 미리 보기(저장 없음) — 그룹 1개
         if: inputs.mode == 'dryrun'
         working-directory: crawler
