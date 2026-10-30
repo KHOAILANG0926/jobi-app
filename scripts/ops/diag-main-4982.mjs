@@ -1,10 +1,12 @@
 import { chromium } from 'playwright'
 const b = await chromium.launch()
-for (const id of ['4879', '4878', '4824', '4828', '4982']) for (const w of [1280, 390]) {
+for (const w of [1280, 390]) {
   const p = await b.newPage({ viewport: { width: w, height: 900 } })
-  await p.goto('https://www.viecganban.vn/viec-lam/sb-' + id, { waitUntil: 'networkidle', timeout: 60000 })
-  const r = await p.evaluate(() => { const m = document.querySelector('.jd2-vmap'); const a = [...document.querySelectorAll('a.jd2-map-dir--google')]
-    return { btn: a.length, belowMap: m ? a.map(x => !!(m.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING)) : 'no map', old: document.querySelectorAll('.jd2-map-gmaps-links').length } })
-  console.log(`::error title=${id} ${w}::${JSON.stringify(r)}`)
+  const errs = []; p.on('pageerror', e => errs.push(e.message))
+  await p.goto('https://jobi-demo-mshw1895-6089s-projects.vercel.app/dang-tin', { waitUntil: 'networkidle', timeout: 60000 })
+  await p.waitForTimeout(3000)
+  const r = await p.evaluate(() => ({ title: document.title, legends: [...document.querySelectorAll('legend')].map(l => l.textContent), labels: document.querySelectorAll('.field__label').length,
+    map: !!document.querySelector('.vietmap-canvas, canvas'), leaflet: !!document.querySelector('.leaflet-container') }))
+  console.log(`::error title=demo ${w}::${JSON.stringify(r)} errs=${errs.join(' | ').slice(0, 300)}`)
 }
 await b.close()
