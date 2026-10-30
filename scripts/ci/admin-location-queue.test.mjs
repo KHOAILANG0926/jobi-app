@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { missingVerifiedCoordinate as pending } from '../../api/_lib/admin-location-review.js'
+import { missingVerifiedCoordinate } from '../../api/_lib/admin-location-review.js'
+import { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
+const pending=(job,w,c)=>missingVerifiedCoordinate(job,w,c,hasLocationClue)
 const job={id:4824,active:true,admin_hidden:false,company:'CTY KDA',location:'Bac Ninh'}
 test('4824 and 4828: work row exists but coordinates are null',()=>{
  assert.equal(pending(job,[{raw_address:'Bac Ninh',lat:null,lng:null,location_verified:false}]),true)
@@ -13,3 +15,11 @@ test('exclude private and hidden jobs',()=>{assert.equal(pending({...job,active:
 test('Lee 2026-10-30: no company and no house number (4828) is not listed',()=>assert.equal(pending({...job,id:4828,company:'',location:'Bắc Ninh'},[{raw_address:'Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh',lat:21.15,lng:106.12,location_verified:false}]),false))
 test('Lee 2026-10-30: company name present (4982) stays listed',()=>assert.equal(pending({...job,id:4982,company:'Bomunttl',location:'Bắc Ninh'},[{raw_address:'Ngô Tất Tố - TP. Bắc Ninh',lat:21.18,lng:106.07,location_verified:false}]),true))
 test('Lee 2026-10-30: house number without company stays listed',()=>assert.equal(pending({...job,company:''},[{raw_address:'33 Lý Thái Tổ, Kinh Bắc, Bắc Ninh',lat:null,lng:null,location_verified:false}]),true))
+// 2026-10-30 사고 재발 방지: 서버 함수(api/*.js, api/_lib/*.js)가 src의 .ts를 정적으로 불러오면 운영에서 함수가 시작부터 죽는다.
+import { readdirSync, readFileSync } from 'node:fs'
+test('api js files never statically import src .ts',()=>{
+  for (const dir of ['api','api/_lib']) for (const f of readdirSync(dir).filter(f=>/\.js$/.test(f)&&!/\.test\./.test(f))) {
+    const src=readFileSync(`${dir}/${f}`,'utf8')
+    assert.doesNotMatch(src,/^\s*(?:import|export)\s[^\n]*from\s+['"][^'"]*src\/[^'"]*\.ts['"]/m,`${dir}/${f}`)
+  }
+})

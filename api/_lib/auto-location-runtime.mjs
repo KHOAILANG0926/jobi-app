@@ -3,6 +3,7 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
+export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
 export async function runLocationBatch(db, request, limit = 10, goong = null) {
   return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease}), goong)
