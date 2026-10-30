@@ -1,5 +1,5 @@
-import assert from 'node:assert/strict'
-import { hasLocationClue } from './locationReviewClue'
+import { hasLocationClue } from './locationReviewClue.ts'
+const assert = { equal(a: unknown, b: unknown) { if (a !== b) throw new Error(`expected ${String(b)} got ${String(a)}`) } }
 
 // 회사명도 번지도 없음(동 이름만) → 단서 없음
 assert.equal(hasLocationClue('', ['Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh']), false)
