@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
 // Admin-only location queue/Google link resolution/confirmation. Never fetch non-Google hosts.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co'
@@ -50,7 +51,9 @@ export function missingVerifiedCoordinate(job, workLocations=[], candidates=[]) 
   if (candidates.some(c=>c.status==='approved' &&
     addressKey(c.company_snapshot)===addressKey(job.company) &&
     keys.includes(addressKey(c.address_snapshot)))) return false
-  return !workLocations.some(w=>w.location_verified===true && validPoint(w.lat,w.lng))
+  if (workLocations.some(w=>w.location_verified===true && validPoint(w.lat,w.lng))) return false
+  // Lee 2026-10-30: 회사명·번지 단서가 없으면 관리자도 고칠 근거가 없다 → 목록에 올리지 않는다.
+  return hasLocationClue(job.company, [job.location,...workLocations.map(w=>w.raw_address)])
 }
 export function createAdminLocationReviewHandler(deps) {
   return async function handler(req,res) {
