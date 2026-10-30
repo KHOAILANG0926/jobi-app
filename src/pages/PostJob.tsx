@@ -12,6 +12,7 @@ import { checkIsEmployer } from '../lib/accountRoles'
 import { supabase } from '../lib/supabase'
 import VietMapPinPicker from '../components/job-form/VietMapPinPicker'
 import { findRegionCenter } from '../lib/jobCoords'
+import { shrinkImage } from '../lib/imageResize'
 import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
 import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type GenderChoice, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
@@ -94,6 +95,8 @@ const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v
   <label className="pj-check"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />{children}</label>
 )
 
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
+
 export function PostJob() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -112,7 +115,7 @@ export function PostJob() {
   const titleRef = useRef<HTMLInputElement>(null)
   const companyRef = useRef<HTMLInputElement>(null)
   const salaryRef = useRef<HTMLInputElement>(null)
-  const timeRef = useRef<HTMLInputElement>(null)
+  const timeRef = useRef<HTMLSelectElement>(null)
   const employmentRef = useRef<HTMLButtonElement>(null)
   const deadlineRef = useRef<HTMLInputElement>(null)
   const hiresRef = useRef<HTMLInputElement>(null)
@@ -166,11 +169,16 @@ export function PostJob() {
     return () => { cancelled = true }
   }, [user])
 
-  const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    try {
+      const small = await shrinkImage(file)
+      setImageFile(small)
+      setImagePreview(URL.createObjectURL(small))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không đọc được ảnh.')
+    }
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -511,7 +519,7 @@ export function PostJob() {
         <section className="pj-sec">
           <h2 className="pj-sec__h">Điều kiện làm việc</h2>
           <Row label="Thời hạn làm việc">
-            <div className="pj-seg" role="group" aria-label="Thời hạn làm việc">
+            <div className="pj-seg pj-seg--fill" role="group" aria-label="Thời hạn làm việc">
               {JOB_DURATION_OPTIONS.map((d) => (
                 <button key={d} type="button" aria-pressed={form.jobDuration === d} onClick={() => set('jobDuration', form.jobDuration === d ? '' : d)}>{d}</button>
               ))}
@@ -530,10 +538,17 @@ export function PostJob() {
           </Row>
           <Row label="Giờ làm việc" req>
             <div className="pj-line">
-              <input ref={timeRef} type="time" className="pj-input pj-input--round" style={{ width: 180 }} value={form.timeStart} disabled={form.hoursNegotiable}
-                onChange={(e) => set('timeStart', e.target.value)} aria-label="Giờ bắt đầu" />
-              <input type="time" className="pj-input pj-input--round" style={{ width: 180 }} value={form.timeEnd} disabled={form.hoursNegotiable}
-                onChange={(e) => set('timeEnd', e.target.value)} aria-label="Giờ kết thúc" />
+              {/* 2026-10-30 Lee: 브라우저 시계 입력은 언어(예: 한국어 "오전")가 붙는다 → 알바몬처럼 고르기 칸, 30분 단위 24시간. */}
+              <select ref={timeRef} className="pj-select pj-select--round" style={{ width: 180 }} value={form.timeStart} disabled={form.hoursNegotiable}
+                onChange={(e) => set('timeStart', e.target.value)} aria-label="Giờ bắt đầu">
+                <option value="">Giờ bắt đầu</option>
+                {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select className="pj-select pj-select--round" style={{ width: 180 }} value={form.timeEnd} disabled={form.hoursNegotiable}
+                onChange={(e) => set('timeEnd', e.target.value)} aria-label="Giờ kết thúc">
+                <option value="">Giờ kết thúc</option>
+                {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
               <span className="pj-suffix">Nghỉ</span>
               <input inputMode="numeric" className="pj-input pj-input--round" style={{ width: 90 }} value={form.breakMinutes} disabled={form.hoursNegotiable}
                 onChange={(e) => set('breakMinutes', e.target.value.replace(/\D/g, ''))} placeholder="60" aria-label="Phút nghỉ" />
@@ -633,7 +648,8 @@ export function PostJob() {
               </div>
               {imagePreview && <button type="button" className="pj-link" onClick={() => { setImageFile(null); setImagePreview(null) }}>Xoá ảnh</button>}
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onImageChange} />
+            <p className="pj-hint">Ảnh ngang, tối đa 10MB — hệ thống tự thu nhỏ.</p>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void onImageChange(e)} />
           </Row>
         </section>
 
