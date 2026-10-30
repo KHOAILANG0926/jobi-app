@@ -31,6 +31,8 @@ async function open(base,job,width,imageState='none') {
  await context.route('https://maps.vietmap.vn/**',r=>r.fulfill({json:style}))
  await context.route('**/api/map-locations?**',r=>r.fulfill({json:{points:{[`sb-${job.id}`]:locations(job).map(w=>({workLocationId:w.id,lat:w.lat,lng:w.lng,kind:w.point_kind,precision:w.point_precision,revision:w.point_revision}))}}}))
  const page=await context.newPage()
+ page.on('pageerror',e=>console.log(`::error title=page error ${new URL(base).port}::${String(e.stack||e).replace(/\n/g,' | ').slice(0,900)}`))
+ page.on('console',m=>{ if(m.type()==='error') console.log(`::warning title=console ${new URL(base).port}::${m.text().slice(0,400)}`) })
  await page.goto(`${base}/viec-lam/sb-${job.id}`,{waitUntil:'domcontentloaded'})
  // 첫 화면은 개발 서버가 처음 파일을 묶는 동안(두 서버 동시) 20초를 넘길 수 있다 → 기다리는 시간만 늘림. 비교 내용은 같음.
  // 2026-10-30: 첫 화면(개발 서버 첫 준비)에서 90초를 넘기는 경우가 반복돼(#314·#315·#322·#328, 모두 첫 open) 한 번만 새로고침 후 다시 기다린다. 비교 내용은 같음.
