@@ -208,3 +208,13 @@ Phúc lợi và môi trường làm việc
   assert(below.includes('Tăng ca thường xuyên') && below.includes('ký túc xá'), 'working-time and icon-backed lines stay')
 }
 console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu khác) regression passed')
+{
+  // Lee 2026-10-30 "알바몬처럼"(먼저 sb-4828): 원문은 상세요강에 그대로, 급여 아래·복리후생에는 같은 원문 줄을 복사
+  const { albamonConditionLines, sourceAgeValue, ALBAMON_LAYOUT_JOB_IDS } = await import('./jobQuyenLoi.ts')
+  const d = detailSections('Thu nhập và phụ cấp\n- Hình thức trả lương: Theo tháng\n- Thưởng chuyên cần 300k\nPhúc lợi\n- Đóng BHXH đầy đủ\n- Có nhà ăn\nYêu cầu\n- Độ tuổi: 18 - 40 tuổi')
+  const a = albamonConditionLines(d.sections)
+  assert(a.salary.length === 2 && a.insurance[0] === 'Đóng BHXH đầy đủ', 'pay/bonus under salary, insurance in benefits')
+  assert(d.sections.flatMap((s) => s.lines).some((l) => l.includes('Thưởng chuyên cần')), 'description keeps the original line (not removed)')
+  assert(sourceAgeValue(d.sections) === '18 - 40 tuổi' && ALBAMON_LAYOUT_JOB_IDS.has('sb-4828'), 'age value from source, pilot job only')
+}
+console.log('jobDetailSections: albamon layout regression passed')

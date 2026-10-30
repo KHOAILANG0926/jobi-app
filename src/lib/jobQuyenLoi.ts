@@ -7,6 +7,34 @@ import type { DetailSection, DetailTextKey } from './jobDetailSections'
 /** 기준 공고(승인된 기존 틀 유지, Lee 2026-10-29 "기준 공고는 절대 건드리지 마"). */
 export const BASELINE_FRAME_JOB_IDS: ReadonlySet<string> = new Set(['sb-4824'])
 
+/** Lee 2026-10-30 "알바몬처럼": 상단 카드 + 근무조건·모집조건·근무지역·상세요강 4개. Quyền lợi 칸 없음,
+ *  받는 것은 근무조건 급여 아래·복리후생에 원문 줄 그대로 복사(상세요강은 원문 전체, 지우지 않음). 먼저 이 공고만(Lee "이거만 먼저"). */
+export const ALBAMON_LAYOUT_JOB_IDS: ReadonlySet<string> = new Set(['sb-4828'])
+
+/** 원문 줄을 지우지 않고 근무조건에 보일 줄만 고른다(급여 아래: 지급 방식·보너스·수당·연장 수당 / 복리후생: 보험). 01은 제외. */
+export function albamonConditionLines(sections: DetailSection[]): { salary: string[]; insurance: string[] } {
+  const salary: string[] = [], insurance: string[] = []
+  for (const sec of sections) {
+    if (sec.key === '01') continue
+    for (const raw of sec.lines) {
+      const line = raw.replace(/^\s*[-•*]\s+/, '').trim()
+      const key = quyenLoiKeyOf(line)
+      if (key === 'insurance') insurance.push(line)
+      else if (key) salary.push(line)
+    }
+  }
+  return { salary: [...new Set(salary)], insurance: [...new Set(insurance)] }
+}
+
+/** "Độ tuổi: 18 - 50 tuổi" 같은 원문 줄에서 나이 값(모집조건 칸이 비어 있을 때만 씀). */
+export function sourceAgeValue(sections: DetailSection[]): string | undefined {
+  for (const sec of sections) for (const raw of sec.lines) {
+    const m = raw.replace(/^\s*[-•*]\s+/, '').trim().match(/^(?:độ tuổi|tuổi)\s*[:：]\s*(.+)$/iu)
+    if (m) return m[1].trim()
+  }
+  return undefined
+}
+
 export type QuyenLoiKey = 'pay' | 'bonus' | 'overtime' | 'insurance'
 export const QUYEN_LOI_LABELS: Record<QuyenLoiKey, string> = {
   pay: 'Trả lương', bonus: 'Thưởng · Phụ cấp', overtime: 'Tăng ca', insurance: 'Bảo hiểm',
@@ -22,8 +50,11 @@ const MONEY = /\d[\d.,]*\s*(k|đ|đồng|vnđ|vnd|%|lần|triệu|tr)(?![\p{L}])
 const BONUS = /(thưởng|phụ cấp|khích lệ|chuyên cần|trợ cấp|hỗ trợ (xăng|nhà|đi lại|tiền)|phu cap|khich le|chuyen can|tro cap)/u
 
 /** 원문 한 줄이 어느 칸인지. 해당 없음 = null (상세요강에 그대로). */
+// 원문 소제목 줄("Thu nhập và phụ cấp", "Quyền lợi:" 등)은 내용이 아니므로 옮기지 않는다.
+const HEADING = /^(?:thu nhập(?: và phụ cấp)?|phúc lợi(?: và môi trường làm việc)?|quyền lợi|chế độ(?: đãi ngộ)?|lương thưởng|đãi ngộ)\s*[:：]?$/u
 export function quyenLoiKeyOf(line: string): QuyenLoiKey | null {
-  const t = lower(line)
+  const t = lower(line).replace(/^\s*[-•*]\s+/, '').trim()
+  if (HEADING.test(t)) return null
   if (INSURANCE.test(t)) return 'insurance'
   if (OVERTIME.test(t) && MONEY.test(t)) return 'overtime'
   if (BONUS.test(t)) return 'bonus'

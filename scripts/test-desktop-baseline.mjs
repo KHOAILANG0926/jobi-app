@@ -1,3 +1,4 @@
+// 2026-10-30: JobDetail.tsx — Lee "알바몬처럼"(먼저 sb-4828만): Quyền lợi 없이 근무조건에 받는 것 복사, 상세요강 원문 전체.
 // 2026-10-29: JobDetail.tsx — Lee 결정 상세페이지 새 구성(CLAUDE.md "공고 상세페이지 구성 확정"): ② Quyền lợi 추가, 근무조건은 일하는 방식만, 02 지원 자격→모집조건. 기준 공고 sb-4824(KDA)는 기존 틀 유지.
 // 2026-10-29: JobDetail.tsx 기준값을 이미 병합된 #282(Lee 승인 복수직무 표시, db2d4b8) 값으로 맞춤 — master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돌아 못 잡음). 이번 PR은 JobDetail.tsx를 바꾸지 않음.
 // 2026-10-29: HomeDesktop.tsx — Lee 지시("PC는 4열로 밑으로"): PC 추천 공고 4개만, 나머지는 전체 결과 4칸 목록으로. 모바일·카드 틀 변경 없음.
@@ -74,7 +75,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "cca444a29b2d5ac385b8b0ef985ff9780dc48eb64c3f94c2cc54adb321ce53b1",
+    "sha256": "b97d9fb3c6a94ec12c27edc825fe5abba68dcac9ba47c672aac1d26daccaf642",
     "restore": []
   },
   {
