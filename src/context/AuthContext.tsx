@@ -61,14 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user
       if (u) {
-        const next: AuthUser = {
+        setUser({
           id: u.id,
           email: u.email ?? '',
           name: u.user_metadata?.name ?? '',
           role: u.user_metadata?.role ?? 'seeker',
-        }
-        // 2026-10-30 Lee: 탭 복귀 때 같은 내용의 로그인 알림이 다시 와도 화면을 새로 그리지 않는다.
-        setUser((prev) => (prev && prev.id === next.id && prev.email === next.email && prev.name === next.name && prev.role === next.role ? prev : next))
+        })
       } else {
         setUser(null)
       }
