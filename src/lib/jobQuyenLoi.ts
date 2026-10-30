@@ -11,6 +11,13 @@ export const BASELINE_FRAME_JOB_IDS: ReadonlySet<string> = new Set(['sb-4824'])
  *  받는 것은 근무조건 급여 아래·복리후생에 원문 줄 그대로 복사(상세요강은 원문 전체, 지우지 않음). 먼저 이 공고만(Lee "이거만 먼저"). */
 export const ALBAMON_LAYOUT_JOB_IDS: ReadonlySet<string> = new Set(['sb-4828'])
 
+/** Lee 2026-10-30 "신규부터": 지금 공개된 공고는 그대로 두고(아래 목록 = 10-29 Quyền lợi 틀 유지), 새로 들어오는 공고는 모두 #4828 알바몬 4칸 틀.
+ *  기준 공고(KDA)는 기존 틀. 목록은 늘리지 않는다(새 공고를 여기에 넣지 말 것). */
+export const LEGACY_QUYEN_LOI_JOB_IDS: ReadonlySet<string> = new Set(['sb-4878', 'sb-4879', 'sb-4982'])
+export function usesAlbamonLayout(id: string): boolean {
+  return ALBAMON_LAYOUT_JOB_IDS.has(id) || (!BASELINE_FRAME_JOB_IDS.has(id) && !LEGACY_QUYEN_LOI_JOB_IDS.has(id))
+}
+
 /** 원문 줄을 지우지 않고 근무조건에 보일 줄만 고른다(급여 아래: 지급 방식·보너스·수당·연장 수당 / 복리후생: 보험). 01은 제외. */
 export function albamonConditionLines(sections: DetailSection[]): { salary: string[]; insurance: string[] } {
   const salary: string[] = [], insurance: string[] = []

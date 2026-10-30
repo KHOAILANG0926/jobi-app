@@ -35,7 +35,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
-import { ALBAMON_LAYOUT_JOB_IDS, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
+import { usesAlbamonLayout, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
@@ -327,7 +327,7 @@ export function JobDetail() {
   // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
   // Lee 2026-10-30 "알바몬처럼": 상세요강은 원문 전체(위쪽 칸과 겹쳐도 지우지 않음). 전화·주소 줄 규칙(10-14)은 그대로.
-  const albamonLayout = ALBAMON_LAYOUT_JOB_IDS.has(job.id)
+  const albamonLayout = usesAlbamonLayout(job.id) // Lee 2026-10-30: 새 공고는 모두 #4828 4칸 틀
   const detail = detailSections(job.description, albamonLayout ? {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],

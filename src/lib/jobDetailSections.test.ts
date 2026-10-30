@@ -217,4 +217,10 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   assert(d.sections.flatMap((s) => s.lines).some((l) => l.includes('Thưởng chuyên cần')), 'description keeps the original line (not removed)')
   assert(sourceAgeValue(d.sections) === '18 - 40 tuổi' && ALBAMON_LAYOUT_JOB_IDS.has('sb-4828'), 'age value from source, pilot job only')
 }
+{
+  // Lee 2026-10-30 신규부터: 새 공고 = 4칸 틀, 기존 공개 공고·KDA는 그대로.
+  const { usesAlbamonLayout } = await import('./jobQuyenLoi.ts')
+  assert(usesAlbamonLayout('sb-4828') && usesAlbamonLayout('sb-5100') && usesAlbamonLayout('sb-9999'), 'new jobs use 4-section layout')
+  assert(!usesAlbamonLayout('sb-4824') && !usesAlbamonLayout('sb-4878') && !usesAlbamonLayout('sb-4879') && !usesAlbamonLayout('sb-4982'), 'baseline and existing jobs unchanged')
+}
 console.log('jobDetailSections: albamon layout regression passed')
