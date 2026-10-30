@@ -2,6 +2,7 @@
 // real credentials, or external map requests. Runs against preview or production.
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+for (const ev of ['uncaughtException','unhandledRejection']) process.on(ev,e=>{console.log(`::error title=admin navigation::${String(e?.stack||e).replace(/\n/g,' | ').slice(0,1800)}`);process.exit(1)})
 
 const base=(process.env.BASE_URL||'http://localhost:4173').replace(/\/$/,'')
 const user={id:'00000000-0000-4000-8000-000000000001',email:'browser-fixture@example.invalid',
@@ -88,6 +89,8 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
   await locations().click()
   await page.reload()
   await locationHeading().waitFor()
+  // 2026-10-30 목록식: 줄을 펼쳐야 문제 부분(지도 링크 포함)이 보인다.
+  await page.locator('article.admin-location-card button[aria-expanded="false"]').first().click()
   const google=page.getByRole('link',{name:'Xem địa chỉ gốc trên Google Maps'}).first()
   const original=page.url()
   const popupReady=page.waitForEvent('popup')
@@ -105,9 +108,12 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
     assert.match(link.rel,/noopener|noreferrer/,link.href)
   }
   const card=page.locator('article.admin-location-card').filter({hasText:'#9005 —'})
+  // 2026-10-30 Lee: 목록식 — 줄을 눌러 펼친 뒤 문제(위치)를 고치고 "수정 완료"로 저장.
+  const row=card.getByRole('button',{name:/#9005 —/})
+  if (await row.getAttribute('aria-expanded')!=='true') await row.click()
   await card.locator('input[type="url"]').fill('https://www.google.com/maps?q=21.1861,106.0763')
   await card.getByRole('button',{name:'Xem tọa độ từ liên kết'}).click()
-  const confirm=card.getByRole('button',{name:'Xác nhận tọa độ',exact:true})
+  const confirm=card.getByRole('button',{name:/Hoàn tất sửa/})
   await confirm.scrollIntoViewIfNeeded()
   await settled(page)
   const before=await page.evaluate(()=>scrollY)
