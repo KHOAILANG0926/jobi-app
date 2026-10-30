@@ -223,4 +223,10 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   assert(usesAlbamonLayout('sb-4828') && usesAlbamonLayout('sb-5100') && usesAlbamonLayout('sb-9999'), 'new jobs use 4-section layout')
   assert(!usesAlbamonLayout('sb-4824') && !usesAlbamonLayout('sb-4878') && !usesAlbamonLayout('sb-4879') && !usesAlbamonLayout('sb-4982'), 'baseline and existing jobs unchanged')
 }
+{
+  // 2026-10-30 관리자 미리 보기: 비공개 공고 행도 같은 변환(rowToJob)으로 상세 화면을 그린다.
+  const { rowToJob } = await import('./jobRows.ts')
+  const j = rowToJob({ id: 5157, title: 'T', company: 'C', active: false, admin_hidden: false, occupation_code: null })
+  assert(j.id === 'sb-5157' && j.active === false && !j.occupationCode, 'admin preview row maps to job')
+}
 console.log('jobDetailSections: albamon layout regression passed')

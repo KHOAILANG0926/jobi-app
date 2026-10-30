@@ -1,3 +1,4 @@
+// 2026-10-30: JobDetail.tsx — Lee 지시: 비공개 공고를 관리자만 같은 상세 화면으로 미리 보기(맨 위 비공개 안내). 공개 화면 틀 변경 없음.
 // 2026-10-30: JobDetail.tsx — Lee 지시(신규부터): 새 공고는 #4828 4칸 틀, 기존 공개 공고·KDA 그대로.
 // 2026-10-30: JobDetail.tsx — Lee 지시: 근무지 1곳 위치 확정 공고 길찾기 버튼을 기준(KDA)처럼 지도 아래로.
 // 2026-10-30: JobDetail.tsx — Lee 지시: 위치 확정 공고 길찾기도 기준(KDA) Google 버튼 하나로(예전 작은 버튼 두 개 제거). 다른 틀 변경 없음.
@@ -81,7 +82,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "b13d8b455eae0662c94ad4d52094f340bdf6e10bff023d05351d44c8c8fb43ec",
+    "sha256": "755460c2aa0f9ddc762a405b17a6c410f23b9c41b961404bae9285eb720bbed8",
     "restore": []
   },
   {
