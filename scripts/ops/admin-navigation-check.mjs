@@ -105,9 +105,11 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
     assert.match(link.rel,/noopener|noreferrer/,link.href)
   }
   const card=page.locator('article.admin-location-card').filter({hasText:'#9005 —'})
+  // 2026-10-30 Lee: 목록식 — 줄을 눌러 펼친 뒤 문제(위치)를 고치고 "수정 완료"로 저장.
+  await card.getByRole('button',{name:/#9005 —/}).click()
   await card.locator('input[type="url"]').fill('https://www.google.com/maps?q=21.1861,106.0763')
   await card.getByRole('button',{name:'Xem tọa độ từ liên kết'}).click()
-  const confirm=card.getByRole('button',{name:'Xác nhận tọa độ',exact:true})
+  const confirm=card.getByRole('button',{name:/Hoàn tất sửa/})
   await confirm.scrollIntoViewIfNeeded()
   await settled(page)
   const before=await page.evaluate(()=>scrollY)
