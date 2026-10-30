@@ -19,6 +19,7 @@ import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, JOB_CONTACT_HASH, resolveApplyAction, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
 import { fetchEmployerJobCount, rowToJob, rowToWorkLocation, EMPLOYER_JOBS_SELECT_COLUMNS, JOB_WORK_LOCATIONS_SELECT_COLUMNS } from '../lib/jobRows'
 import { checkIsAdmin } from '../lib/accountRoles'
+import { AnimatedBenefitIcon, hasAnimatedBenefitIcon } from '../components/AnimatedBenefitIcon'
 import { supabase as adminPreviewClient } from '../lib/supabase'
 import { LOCATION_LABELS, mapPointAccuracyNote } from '../lib/mapR1'
 import { externalMapLinks, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
@@ -576,9 +577,10 @@ export function JobDetail() {
             <div className="jd2-benefits" aria-label="Phúc lợi: màu thể hiện quyền lợi được xác nhận; màu xám là chưa có thông tin">
               {benefitIcons.map(({ key, label, active, icon: Icon, color, bg }) => (
                 <span key={key} data-benefit-scope={key === 'meal' && roleSummary?.mealBenefit ? 'role' : undefined} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
-                  <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
+                  {/* 2026-10-30 Lee 확정: 있는 복리후생은 움직이는 아이콘(7종, 색 겹치지 않게), 없는 것은 회색 그대로 */}
+                  {active && hasAnimatedBenefitIcon(key) ? <AnimatedBenefitIcon iconKey={key} /> : <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
                     <Icon size={19} strokeWidth={1.9} aria-hidden="true" />
-                  </span>
+                  </span>}
                   <span className="jd2-benefit__label">{label}</span>
                 </span>
               ))}

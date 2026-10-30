@@ -229,4 +229,12 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   const j = rowToJob({ id: 5157, title: 'T', company: 'C', active: false, admin_hidden: false, occupation_code: null })
   assert(j.id === 'sb-5157' && j.active === false && !j.occupationCode, 'admin preview row maps to job')
 }
+{
+  // 2026-10-30 움직이는 복리후생 아이콘 7종: 상단 아이콘 키와 1:1, 색이 서로 겹치지 않음.
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../components/AnimatedBenefitIcon.tsx', import.meta.url), 'utf8')
+  for (const k of ['meal', 'bus', 'dorm', 'housing', 'fuel', 'attendance', 'performance']) assert(src.includes(`"${k}": "<svg`), 'animated icon for ' + k)
+  const bgs = [...src.matchAll(/bg: '(#[0-9a-f]{6})'/g)].map((m) => m[1])
+  assert(bgs.length === 7 && new Set(bgs).size === 7, 'seven distinct benefit colors')
+}
 console.log('jobDetailSections: albamon layout regression passed')

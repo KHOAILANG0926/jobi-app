@@ -1,0 +1,79 @@
+/* 2026-10-30 Lee 확정: 상단 복리후생 아이콘 7개 움직임(식사·통근버스·기숙사·주거비·주유·개근·성과).
+   그 공고에 있는 복리후생만 색·움직임. 처음 화면에 보일 때 한 번 + 누르거나 마우스를 올릴 때 움직인다. 칸 PC 52px·휴대폰 44px. index.css(동결)는 건드리지 않는다. */
+.jd2-benefits .jd2-benefit__icon.bai-tile { width: 52px; height: 52px; border-radius: 14px; overflow: visible; }
+.jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 49px; height: 49px; overflow: visible; animation: none !important; }
+.bai-tile:not(.is-playing) * { animation-play-state: paused !important; }
+@media (max-width: 600px) {
+  .jd2-benefits .jd2-benefit__icon.bai-tile { width: 44px; height: 44px; border-radius: 12px; }
+  .jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 42px; height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) { .bai-tile * { animation: none !important; } }
+.bai-knife{animation:bai-k-saw .5s ease-in-out infinite alternate;transform-origin:30px 14px}
+@keyframes bai-k-saw{from{transform:translate(-2px,0) rotate(-4deg)}to{transform:translate(3px,2px) rotate(4deg)}}
+.bai-slice{animation:bai-k-slice 2.4s ease-in-out infinite}
+@keyframes bai-k-slice{0%,40%{transform:translate(0,0);opacity:1}55%{transform:translate(3px,2px) rotate(12deg);opacity:1}70%{transform:translate(3px,2px) rotate(12deg);opacity:1}88%{transform:translate(-6px,-16px) rotate(-10deg);opacity:0}89%,100%{transform:translate(0,0);opacity:0}}
+.bai-fork{animation:bai-k-fork 2.4s ease-in-out infinite}
+@keyframes bai-k-fork{0%,55%{transform:translate(0,0)}70%{transform:translate(16px,2px)}88%{transform:translate(8px,-14px);opacity:.2}89%{transform:translate(0,0);opacity:0}100%{transform:translate(0,0);opacity:1}}
+.bai-steam{animation:bai-k-steam 2.4s ease-in-out infinite;opacity:0}
+@keyframes bai-k-steam{0%{opacity:0;transform:translateY(2px)}40%{opacity:.8}100%{opacity:0;transform:translateY(-4px)}}
+.bai-water{animation:bai-k-wave 1.4s ease-in-out infinite alternate}
+@keyframes bai-k-wave{from{transform:translateX(0)}to{transform:translateX(-5px)}}
+.bai-bub{animation:bai-k-bub 1.6s linear infinite;opacity:0}.bai-b2{animation-delay:.8s}
+@keyframes bai-k-bub{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
+.bai-bus{animation:bai-k-drive 3s cubic-bezier(.5,0,.5,1) infinite}
+@keyframes bai-k-drive{0%,25%{transform:translateX(0)}50%{transform:translateX(34px);opacity:1}50.1%{transform:translateX(-34px);opacity:1}75%,100%{transform:translateX(0)}}
+.bai-bounce{animation:bai-k-bounce .3s ease-in-out infinite alternate}
+@keyframes bai-k-bounce{from{transform:translateY(0)}to{transform:translateY(-.8px)}}
+.bai-wheel{animation:bai-k-spin .4s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes bai-k-spin{to{transform:rotate(360deg)}}
+.bai-road{animation:bai-k-road .5s linear infinite}
+@keyframes bai-k-road{from{transform:translateX(0)}to{transform:translateX(-8px)}}
+.bai-puff{animation:bai-k-puff 1s ease-out infinite;opacity:0;transform-box:fill-box;transform-origin:center}
+.bai-p2{animation-delay:.5s}
+@keyframes bai-k-puff{0%{opacity:.7;transform:translate(0,0) scale(.6)}100%{opacity:0;transform:translate(-6px,-3px) scale(1.4)}}
+.bai-mat{animation:bai-k-mat 3s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+@keyframes bai-k-mat{0%,20%{transform:scaleY(1)}25%{transform:scaleY(.6)}30%{transform:scaleY(.8)}34%,92%{transform:scaleY(.72)}100%{transform:scaleY(1)}}
+.bai-bedf{animation:bai-k-shake 3s linear infinite}
+@keyframes bai-k-shake{0%,24%{transform:translate(0,0)}25%{transform:translate(0,1.2px)}27%{transform:translate(-.8px,0)}29%{transform:translate(.8px,.4px)}31%,100%{transform:translate(0,0)}}
+.bai-thud{animation:bai-k-thud 3s ease-out infinite;opacity:0}
+@keyframes bai-k-thud{0%,24%{opacity:0;transform:scale(.6)}26%{opacity:1;transform:scale(1)}34%,100%{opacity:0;transform:scale(1.3)}}
+.bai-blanket{animation:bai-k-blanket 3s ease-in-out infinite;transform-box:fill-box;transform-origin:right center}
+@keyframes bai-k-blanket{0%,34%{transform:scaleX(0)}55%,90%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+.bai-z{animation:bai-k-z 3s ease-out infinite;opacity:0}.bai-z2{animation-delay:.25s}.bai-z3{animation-delay:.5s}
+@keyframes bai-k-z{0%,58%{opacity:0;transform:translate(0,0)}68%{opacity:1}88%,100%{opacity:0;transform:translate(3px,-6px)}}
+.bai-man{animation:bai-k-walk 3.2s linear infinite}
+@keyframes bai-k-walk{0%{transform:translateX(-14px);opacity:1}32%{transform:translateX(0);opacity:1}36%,100%{transform:translateX(1px);opacity:0}}
+.bai-step{animation:bai-k-step .25s ease-in-out infinite alternate}@keyframes bai-k-step{from{transform:translateY(0)}to{transform:translateY(-.8px)}}
+.bai-door{animation:bai-k-door 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
+@keyframes bai-k-door{0%,20%{transform:scaleX(.2)}40%,92%{transform:scaleX(1)}100%{transform:scaleX(.2)}}
+.bai-win{animation:bai-k-win 3.2s steps(1) infinite}@keyframes bai-k-win{0%,44%{fill:#d1fae5}45%,94%{fill:#fde047}95%,100%{fill:#d1fae5}}
+.bai-glow{animation:bai-k-glow 3.2s ease-out infinite;opacity:0}@keyframes bai-k-glow{0%,44%{opacity:0}48%{opacity:.8}70%,100%{opacity:0}}
+.bai-coin{animation:bai-k-coin 3.2s cubic-bezier(.4,0,.7,1) infinite;opacity:0}
+@keyframes bai-k-coin{0%,52%{transform:translateY(-14px);opacity:0}54%{opacity:1}68%{transform:translateY(0);opacity:1}72%{transform:translateY(-2px)}76%{transform:translateY(0);opacity:1}90%,100%{opacity:0}}
+.bai-spark{animation:bai-k-spark 3.2s ease-out infinite;opacity:0}@keyframes bai-k-spark{0%,67%{opacity:0;transform:scale(.5)}71%{opacity:1;transform:scale(1)}82%,100%{opacity:0;transform:scale(1.3)}}
+.bai-pump{animation:bai-k-rock 1.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center bottom}
+@keyframes bai-k-rock{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}
+.bai-flow{stroke-dasharray:3 22;animation:bai-k-flow 1.2s ease-in-out infinite alternate}
+@keyframes bai-k-flow{from{stroke-dashoffset:0}to{stroke-dashoffset:-22}}
+.bai-nozzle{animation:bai-k-noz 1.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:left top}
+@keyframes bai-k-noz{from{transform:rotate(-6deg)}to{transform:rotate(8deg)}}
+.bai-drop{animation:bai-k-drop 1.2s ease-in infinite;opacity:0}
+@keyframes bai-k-drop{0%{opacity:0;transform:translateY(0)}20%{opacity:1}80%{opacity:1;transform:translateY(5px)}100%{opacity:0;transform:translateY(6px)}}
+.bai-scr{animation:bai-k-scr .6s steps(1) infinite}@keyframes bai-k-scr{0%{fill:#fecaca}50%{fill:#fde047}}
+.bai-num::after{content:""}
+.bai-ck{opacity:0;animation:bai-k-ck 2.8s steps(1) infinite}.bai-c2{animation-delay:.25s}.bai-c3{animation-delay:.5s}.bai-c4{animation-delay:.75s}.bai-c5{animation-delay:1s}
+@keyframes bai-k-ck{0%,8%{opacity:0}9%,92%{opacity:1}93%,100%{opacity:0}}
+.bai-stamp{animation:bai-k-stamp 2.8s cubic-bezier(.5,0,.6,1.4) infinite;opacity:0;transform-box:fill-box;transform-origin:center}
+@keyframes bai-k-stamp{0%,46%{opacity:0;transform:translateY(-12px) scale(1.5) rotate(-15deg)}55%{opacity:1;transform:translateY(0) scale(1) rotate(-12deg)}58%{transform:scale(.92) rotate(-12deg)}62%,92%{opacity:1;transform:scale(1) rotate(-12deg)}100%{opacity:0}}
+.bai-cal{animation:bai-k-jolt 2.8s linear infinite}
+@keyframes bai-k-jolt{0%,54%{transform:translate(0,0)}56%{transform:translate(0,1px)}58%{transform:translate(-.6px,0)}60%,100%{transform:translate(0,0)}}
+.bai-ring{animation:bai-k-ring 2.8s ease-out infinite;opacity:0;transform-box:fill-box;transform-origin:center}
+@keyframes bai-k-ring{0%,54%{opacity:0;transform:scale(.6)}57%{opacity:.9}72%,100%{opacity:0;transform:scale(1.6)}}
+/* 2.6초: 막대 3개가 차례로 솟고(0~45%), 화살표가 위로 쭉 그어지고(45~60%), 끝에 별이 반짝 */
+.bai-bar{animation:bai-k-grow 2.6s cubic-bezier(.3,1.4,.6,1) infinite;transform-box:fill-box;transform-origin:center bottom;transform:scaleY(.15)}.bai-br2{animation-delay:.15s}.bai-br3{animation-delay:.3s}
+@keyframes bai-k-grow{0%,5%{transform:scaleY(.15)}35%,90%{transform:scaleY(1)}100%{transform:scaleY(.15)}}
+.bai-arrow{stroke-dasharray:40;stroke-dashoffset:40;animation:bai-k-draw 2.6s ease-out infinite}
+@keyframes bai-k-draw{0%,40%{stroke-dashoffset:40}60%,90%{stroke-dashoffset:0}100%{stroke-dashoffset:40}}
+.bai-ahead{animation:bai-k-ahead 2.6s ease-out infinite;opacity:0}@keyframes bai-k-ahead{0%,57%{opacity:0}60%,90%{opacity:1}100%{opacity:0}}
+.bai-pstar{animation:bai-k-pstar 2.6s ease-out infinite;opacity:0;transform-box:fill-box;transform-origin:center}
+@keyframes bai-k-pstar{0%,60%{opacity:0;transform:scale(.3) rotate(0)}70%{opacity:1;transform:scale(1.2) rotate(40deg)}80%,90%{opacity:1;transform:scale(1) rotate(72deg)}100%{opacity:0}}
