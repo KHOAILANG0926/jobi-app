@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-29 13:52 (VN)**
-- 기준 커밋: `cd3e8b1` (fix: 대략 핀 운영 점검은 성/시 대략 핀만 + 운영 점검 실패 오류를 검사 화면에 표시 (#316))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40831734050
+- 생성 시각: **2026-10-30 09:59 (VN)**
+- 기준 커밋: `a7bd12e` (fix: 지도 핀 한 모양으로 통일 — 대략 위치 색 구분 없앰, 정확도는 글로 (Lee 2026-10-30) (#330))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40994781073
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -20,34 +20,34 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 87/87 파일 통과 |
+| 테스트 `npm test` | ✅ 89/89 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `91ea262` · 상태 **success** · 2026-10-29 13:07 (VN)
-- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
+- 마지막 Production 배포: `a7bd12e` · 상태 **success** · 2026-10-30 09:03 (VN)
+- master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #330 | 2026-10-30 09:02 (VN) | `a7bd12e` | fix: 지도 핀 한 모양으로 통일 |
+| #329 | 2026-10-30 08:46 (VN) | `a1fa14c` | feat: 지도 핀 빨간 물방울 + 흰 점 (Lee 데모 1번) |
+| #328 | 2026-10-30 08:31 (VN) | `fd6681d` | feat: 지도 핀 📍 압정 모양 (메인·상세) |
+| #327 | 2026-10-30 08:02 (VN) | `cdec967` | docs: 상세페이지 구성·공고 체크리스트 최종 확정 (Lee 2026-10-30) |
+| #326 | 2026-10-30 07:45 (VN) | `fc78d45` | feat: 알바몬식 상세 구성 (먼저 Mao Yên) |
+| #323 | 2026-10-30 06:39 (VN) | `7f8f90d` | feat: 상세페이지 새 구성 (Quyền lợi · 일하는 방식 · Yêu cầu khác, KDA 제외) |
+| #322 | 2026-10-29 22:06 (VN) | `01d2308` | ops: #5063 삭제 (정보 없는 Facebook 공고) |
+| #321 | 2026-10-29 21:58 (VN) | `fff7808` | docs: 상세페이지 구성 확정 + 대화 중 파일 생성 금지 (Lee 2026-10-29) |
+| #320 | 2026-10-29 20:53 (VN) | `13a733e` | fix: PC 추천 공고 4개 + 나머지 아래 4칸 목록 |
 | #316 | 2026-10-29 13:27 (VN) | `cd3e8b1` | fix: 대략 핀 운영 점검 범위 + 점검 오류 표시 |
-| #315 | 2026-10-29 13:16 (VN) | `42b7243` | feat: 대략 핀 공고 Goong으로 다시 찾기 |
-| #314 | 2026-10-29 13:06 (VN) | `91ea262` | feat: 지도 위치 Goong 보조 + 대략 핀 원문 확인 |
-| #313 | 2026-10-29 11:32 (VN) | `a92c2b1` | ci: Vercel 배포 수동 강제 옵션(환경변수 반영용) |
-| #312 | 2026-10-29 07:10 (VN) | `c6c414d` | fix: Facebook 1건 수집 실행 환경(Python 3.12·Ubuntu 22.04)과 원문 출처 저장(R3) |
-| #311 | 2026-10-29 06:45 (VN) | `a59bea6` | ci: Facebook 공고 1건 수집 워크플로(수동: 미리 보기 → 1건 저장) |
-| #310 | 2026-10-29 06:26 (VN) | `a1bcec6` | docs: HANDOFF·WORK_LOG에 입구 2단계(#309) 운영 반영 결과 |
-| #309 | 2026-10-29 06:17 (VN) | `0170c1a` | feat: 공고 등록은 입구(ingest_job) 하나만 — 입구 밖 등록은 DB가 거부 (입구 2단계) |
-| #308 | 2026-10-29 05:16 (VN) | `97f20a7` | feat: SQL 파일 등록을 입구(ingest_job)로 전환 (입구 전환 1단계) |
-| #307 | 2026-10-29 05:10 (VN) | `d2b66da` | docs: HANDOFF·WORK_LOG에 #304·#305 반영 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **6건** (전체 9건, 숨김·비활성 3건)
-- 출처별: 출처 없음 1 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1 · muaban 2
+- 공개 중: **5건** (전체 8건, 숨김·비활성 3건)
+- 출처별: muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -69,16 +69,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-29 13:28 (VN) | location_candidate.approve | job 5074 |
-| 2026-10-29 13:28 (VN) | location_candidate.add | job 5074 |
-| 2026-10-29 13:07 (VN) | location_candidate.approve | job 5072 |
-| 2026-10-29 13:07 (VN) | location_candidate.add | job 5072 |
-| 2026-10-29 11:34 (VN) | location_candidate.approve | job 5067 |
-| 2026-10-29 11:33 (VN) | location_candidate.add | job 5067 |
-| 2026-10-29 07:12 (VN) | location_candidate.approve | job 5065 |
-| 2026-10-29 07:11 (VN) | location_candidate.add | job 5065 |
-| 2026-10-29 06:46 (VN) | location_candidate.approve | job 5060 |
-| 2026-10-29 06:46 (VN) | location_candidate.add | job 5060 |
+| 2026-10-30 09:02 (VN) | location_candidate.approve | job 5103 |
+| 2026-10-30 09:02 (VN) | location_candidate.add | job 5103 |
+| 2026-10-30 08:47 (VN) | location_candidate.approve | job 5100 |
+| 2026-10-30 08:47 (VN) | location_candidate.add | job 5100 |
+| 2026-10-30 08:32 (VN) | location_candidate.approve | job 5098 |
+| 2026-10-30 08:32 (VN) | location_candidate.add | job 5098 |
+| 2026-10-30 08:03 (VN) | location_candidate.approve | job 5095 |
+| 2026-10-30 08:03 (VN) | location_candidate.add | job 5095 |
+| 2026-10-30 07:46 (VN) | location_candidate.approve | job 5091 |
+| 2026-10-30 07:46 (VN) | location_candidate.add | job 5091 |
 
 ## 8. 검증 장치 변경 이력
 
