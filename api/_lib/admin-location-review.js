@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
+// 서버 함수는 src의 .ts를 직접 못 읽는다(2026-10-20 FUNCTION_INVOCATION_FAILED 사고) → 묶음 빌드(dist/api-lib)에서 불러온다.
+const loadRuntime = () => import('../../dist/api-lib/auto-location-runtime.js')
 
 // Admin-only location queue/Google link resolution/confirmation. Never fetch non-Google hosts.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co'
@@ -45,7 +46,7 @@ export async function resolveGoogleShareLink(input, fetcher = fetch) {
   throw new Error('Too many Google redirects')
 }
 function validPoint(lat,lng) {return typeof lat==='number' && typeof lng==='number' && vietnamPoint(lat,lng)}
-export function missingVerifiedCoordinate(job, workLocations=[], candidates=[]) {
+export function missingVerifiedCoordinate(job, workLocations=[], candidates=[], hasLocationClue=()=>true) {
   if (job.active !== true || job.admin_hidden === true) return false
   const keys=[job.location,...workLocations.map(w=>w.raw_address)].map(addressKey).filter(Boolean)
   if (candidates.some(c=>c.status==='approved' &&
@@ -80,7 +81,8 @@ export function createAdminLocationReviewHandler(deps) {
         for(const w of works||[]) {const list=groups.get(w.job_id)||[];list.push(w);groups.set(w.job_id,list)}
         const approvalsByJob=new Map()
         for(const c of approved||[]) { const l=approvalsByJob.get(c.job_id)||[];l.push(c);approvalsByJob.set(c.job_id,l) }
-        const pending=(jobs||[]).filter(job=>missingVerifiedCoordinate(job, groups.get(job.id)||[], approvalsByJob.get(job.id)||[])).map(job=>{
+        const {hasLocationClue}=deps?.hasLocationClue?deps:await loadRuntime()
+        const pending=(jobs||[]).filter(job=>missingVerifiedCoordinate(job, groups.get(job.id)||[], approvalsByJob.get(job.id)||[], hasLocationClue)).map(job=>{
           const locs=groups.get(job.id)||[]
           const w=locs.find(w=>w.raw_address)||locs[0]
           const approximate=locs.find(w=>validPoint(w.lat,w.lng))
