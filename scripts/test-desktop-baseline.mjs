@@ -1,3 +1,4 @@
+// 2026-10-30: JobDetail.tsx — Lee 지시: 위치 확정 공고 길찾기도 기준(KDA) Google 버튼 하나로(예전 작은 버튼 두 개 제거). 다른 틀 변경 없음.
 // 2026-10-30: index.css — Lee: 모든 지도 핀 한 모양(대략 위치 색 구분 없앰, 정확도는 글로).
 // 2026-10-30: index.css — Lee 데모 1번 확정: 지도 핀을 빨간 물방울 + 흰 점으로(압정 모양 대체). 지도 외 변경 없음.
 // 2026-10-30: index.css — Lee 지시 지도 핀 📍 압정 모양(메인·상세, PC·휴대폰 공통). 지도 외 화면 CSS 변경 없음.
@@ -78,7 +79,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "b97d9fb3c6a94ec12c27edc825fe5abba68dcac9ba47c672aac1d26daccaf642",
+    "sha256": "606dcc2dbf9d2a2b61fa272727454f91f06445ab1200bf8bff285baba387f269",
     "restore": []
   },
   {
