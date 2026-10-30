@@ -27,6 +27,7 @@ from crawl_facebook import (
     is_job_post,
     is_ambiguous_job,
     parse_post,
+    extract_title,
 )
 
 
@@ -333,8 +334,31 @@ def test_merge_seen_keys_newest_first_and_capped() -> None:
     assert_equal(merged, ["id:9", "id:2", "id:1"], "new first, dedup, cap")
 
 
+
+HIGHLANDS_5157 = """🎉 HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI 🎉
+📍 Khu vực làm việc: Highlands Coffee Mường Thanh Bắc Ninh
+🏠 Địa điểm:  Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh
+🔎 Vị trí tuyển dụng:
+• Nhân viên Bán hàng (Sales)  Fulltime- partime
+• Nhân viên Pha chế (Barista) Fulltime- partime
+💎 Quyền lợi:
+• Thu nhập cạnh tranh, có hỗ trợ ăn ca khi làm ca 8 tiếng, ca gãy
+📩 Cách nộp hồ sơ:
+👉 Ibox hoặc liên hệ Mr Tuấn Minh: 0365102703
+👉 Nộp trực tiếp CV tại cửa hàng: Highlands Coffee Mường Thanh Bắc Ninh- Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh"""
+
+
+def test_highlands_5157_fields() -> None:
+    """Lee 2026-10-30: 실제 원글(#5157). 제목=첫 줄, 회사명에 주소 없음, 급여 'cạnh tranh' 아님, 위치=번지 포함 주소 줄."""
+    assert_equal(extract_company(HIGHLANDS_5157), "Highlands Coffee Mường Thanh Bắc Ninh", "company without address")
+    assert_equal(extract_title(HIGHLANDS_5157, extract_company(HIGHLANDS_5157)), "HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI", "title is first line")
+    assert_equal(extract_title("🔎 Vị trí tuyển dụng:\nMr Tuấn Minh", "Highlands"), "Highlands tuyển dụng", "heading-only fallback")
+    assert_equal(extract_salary(HIGHLANDS_5157), "Thỏa thuận", "no amount → negotiable, not 'cạnh tranh'")
+    assert_equal(extract_district(HIGHLANDS_5157), "Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh", "address line with house number")
+
 def main() -> int:
     tests = [
+        test_highlands_5157_fields,
         test_group_region_only_when_post_names_it,
         test_non_job_money_post,
         test_ambiguous_generic_post_skipped,
