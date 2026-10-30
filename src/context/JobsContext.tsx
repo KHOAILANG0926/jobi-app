@@ -98,7 +98,8 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
           ? `${draft.description}\n[source:${draft.source}]`
           : draft.description,
         employer_phone: draft.employerPhone,
-        application_deadline: draft.applicationDeadline,
+        // 2026-10-30: '' = Tuyển liên tục(상시) → NULL(화면은 'Tuyển liên tục (Đến khi đủ)').
+        application_deadline: draft.applicationDeadline || null,
         urgent: draft.urgent ?? false,
         lat: draft.lat ?? null,
         lng: draft.lng ?? null,
@@ -133,6 +134,13 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
         recruitment_type: draft.recruitmentType ?? null,
         work_schedule: draft.workSchedule ?? null,
         weekend_work: draft.weekendWork ?? null,
+        // 2026-10-30 Lee 공고 작성 체크리스트: 이미 있는 칸에 등록 화면 값을 그대로 저장(없으면 NULL).
+        employment_type: draft.employmentType ?? null,
+        salary_period: draft.salaryPeriod ?? null,
+        salary_basis: draft.salaryBasis ?? null,
+        salary_note: draft.salaryNote ?? null,
+        contact_zalo: draft.zalo ?? null,
+        benefit_tags: draft.benefitTags?.length ? draft.benefitTags : null,
       }, JOB_INSERT_RETURN_COLUMNS)
       // guest_manage_token 컬럼은 anon/authenticated 양쪽 다 컬럼 단위로 SELECT가
       // REVOKE돼 있다(마이그레이션 참고) — bare .select()(=select=*)로 반환받으면

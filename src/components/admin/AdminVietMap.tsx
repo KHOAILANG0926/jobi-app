@@ -24,6 +24,8 @@ interface Props {
   markers: AdminMapMarker[]
   onPick?: (pick: AdminMapPick) => void
   height?: number
+  /** 있으면 점 대신 이 class의 핀(예: 공고 등록 화면의 빨간 물방울 핀)으로 그린다. 관리자 화면은 그대로 점. */
+  markerClassName?: string
 }
 
 const MARKER_COLOR: Record<AdminMapMarker['status'], string> = {
@@ -32,7 +34,7 @@ const MARKER_COLOR: Record<AdminMapMarker['status'], string> = {
 
 const TILEMAP_KEY = (import.meta.env.VITE_VIETMAP_TILEMAP_KEY as string | undefined)?.trim() ?? ''
 
-export default function AdminVietMap({ center, zoom = 17, markers, onPick, height = 260 }: Props) {
+export default function AdminVietMap({ center, zoom = 17, markers, onPick, height = 260, markerClassName }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<VietMap | null>(null)
   const markerRefs = useRef<Marker[]>([])
@@ -116,10 +118,11 @@ export default function AdminVietMap({ center, zoom = 17, markers, onPick, heigh
     markerRefs.current = markers.map((m) => {
       const el = document.createElement('div')
       el.title = m.label
+      if (markerClassName) { el.style.cssText = 'position:relative;width:28px;height:28px'; const pin = document.createElement('span'); pin.className = markerClassName; el.appendChild(pin); return new vietmapgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([m.lng, m.lat]).addTo(map) }
       el.style.cssText = `width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);background:${MARKER_COLOR[m.status]}`
       return new vietmapgl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map)
     })
-  }, [markers, ready])
+  }, [markers, ready, markerClassName])
 
   if (!TILEMAP_KEY) {
     return <p style={{ padding: 12, background: '#fff7ed', borderRadius: 8 }}>Thiếu khóa bản đồ VietMap (VITE_VIETMAP_TILEMAP_KEY) — không hiển thị được bản đồ.</p>
