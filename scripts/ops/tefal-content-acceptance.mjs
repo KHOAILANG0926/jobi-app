@@ -1,5 +1,6 @@
 import { chromium } from 'playwright'
 
+for (const ev of ['uncaughtException','unhandledRejection']) process.on(ev,e=>{console.log(`::error title=tefal::${String(e?.message||e).slice(0,1500)}`);process.exit(1)})
 const base = process.env.BASE_URL || 'http://localhost:4173'
 const browser = await chromium.launch({ headless: true })
 try {
@@ -22,7 +23,8 @@ try {
     const expected = ['22 - 35', 'THCS', '6 tháng', 'Không yêu cầu']
     for (const word of expected) if (!result.text.includes(word)) throw new Error(width + ' recruitment missing: ' + word)
     if (result.gap === null || result.gap < 30) throw new Error(width + ' section gap too small: ' + result.gap)
-    if (!result.directions.some(href => decodeURIComponent(href).includes('33 Lý Thái Tổ'))) throw new Error(width + ' no street address in directions')
+    // 길찾기 순서(CLAUDE.md): 승인 좌표가 있으면 좌표, 없으면 주소 글자. Lee 2026-10-30 #4878 좌표 확정 후 좌표가 정상.
+    if (!result.directions.some(href => /destination=-?\d+\.\d+,-?\d+\.\d+/.test(href) || decodeURIComponent(href).includes('33 Lý Thái Tổ'))) throw new Error(width + ' no coordinate or street address in directions: ' + JSON.stringify(result.directions))
     if (!result.map) throw new Error(width + ' no VietMap detail container')
     if (['Hiện số', 'Thông tin cơ bản', 'Cá nhân đăng tuyển'].some(t => result.desc.includes(t))) throw new Error(width + ' source portal UI junk displayed')
     console.log('TEFAL_ACCEPTANCE', width, 'gap', result.gap, 'fields', expected.length, 'map', result.map, 'directions', result.directions.length)
