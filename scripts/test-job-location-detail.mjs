@@ -64,8 +64,11 @@ async function readJobDetail(page, href) {
     // 2026-10-30 Lee: 모든 길찾기는 기준(KDA) 버튼 하나 모양 — 예전 작은 버튼(.jd2-map-gmaps-links) 금지.
     const oldStyleButtons = document.querySelectorAll('.jd2-map-gmaps-links').length
     const nonStandardDirections = [...document.querySelectorAll('.jd2-map-links a')].filter((a) => (a.textContent || '').includes('Chỉ đường') && !a.classList.contains('jd2-map-dir--google') && !/^tel:/.test(a.getAttribute('href') || '')).length
+    // 2026-10-30 Lee: 근무지 1곳이면 길찾기 버튼은 기준(KDA)처럼 지도 아래.
+    const mapEl = document.querySelector('.jd2-vmap')
+    const dirAboveMap = mapEl ? [...document.querySelectorAll('a.jd2-map-dir--google')].filter((a) => a.compareDocumentPosition(mapEl) & Node.DOCUMENT_POSITION_FOLLOWING).length : 0
     const unverifiedDirNote = /chưa xác minh|không phải địa chỉ nơi làm việc/iu.test(document.body.innerText || '')
-    return { plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections }
+    return { plannedPoints, actualPoints, addrItems, singleAddr, note, markerCount, plannedMarkerCount, mapUnavailable, unknownMsg, mapContainerCount, gmapsLinkCount, viewOnMapCount, directionsCount, directionsHrefs, unverifiedDirNote, visibleAddresses, areaNotes, areaState, oldStyleButtons, nonStandardDirections, dirAboveMap }
   })
 }
 
@@ -87,6 +90,7 @@ function checkInvariants(href, d, truth) {
   // Current UI distinguishes an explicitly unverified area map from a verified workplace.
   // Area maps are permitted by the current rules; they must not claim an exact workplace.
   if (d.oldStyleButtons) failures.push(`${href}: old small Google buttons shown (standard KDA directions button required)`)
+  if (d.dirAboveMap && (d.addrItems?.length ?? 0) <= 1) failures.push(`${href}: directions button above the map (standard: below the map)`)
   if (d.nonStandardDirections) failures.push(`${href}: directions button is not the standard KDA Google button`)
   if (d.areaState) {
     if (!d.visibleAddresses?.length) failures.push(`${href}: area map has no visible source address`)
