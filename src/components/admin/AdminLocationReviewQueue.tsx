@@ -84,11 +84,15 @@ function LocationReviewItem({job,open,onToggle,onComplete}:{job:PendingJob;open:
           ? `${rough.lat.toFixed(6)}, ${rough.lng.toFixed(6)} — ${rough.accuracy}`
           : 'Chưa có tọa độ, chỉ hiển thị khu vực'}</p>
         {job.address && <p style={{margin:'4px 0'}}><a href={searchUrl} target="_blank" rel="noopener noreferrer">Xem địa chỉ gốc trên Google Maps</a></p>}
-        <label>Liên kết chia sẻ Google Maps (bao gồm maps.app.goo.gl)
-          <input style={{display:'block',width:'100%'}} type="url" value={link} onChange={e=>setLink(e.target.value)}
+        {/* 2026-10-30 Lee: 링크 칸 오른쪽에 크게(좁은 화면은 아래로 내려 가로 전체). */}
+        <label htmlFor={`gm-link-${job.id}`} style={{display:'block',fontWeight:600}}>Liên kết chia sẻ Google Maps (bao gồm maps.app.goo.gl)</label>
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,margin:'4px 0 10px'}}>
+          <input id={`gm-link-${job.id}`} style={{flex:'1 1 240px',minWidth:0,padding:'12px 10px',fontSize:15}} type="url" value={link} onChange={e=>setLink(e.target.value)}
             placeholder="https://maps.app.goo.gl/..." />
-        </label>
-        <button type="button" disabled={busy||!link.trim()} onClick={()=>void resolve()}>Xem tọa độ từ liên kết</button>
+          <button type="button" disabled={busy||!link.trim()} onClick={()=>void resolve()}
+            style={{flex:'1 0 180px',padding:'12px 16px',border:0,borderRadius:8,background:'#2563eb',color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',opacity:(busy||!link.trim())?0.55:1}}>
+            📍 Lấy vị trí</button>
+        </div>
         <Suspense fallback={<p>Đang tải bản đồ…</p>}>
           <AdminVietMap center={point||rough||CENTER}
             markers={point?[{id:'selected',...point,label:'Vị trí sẽ xác nhận',status:'picked'}]:

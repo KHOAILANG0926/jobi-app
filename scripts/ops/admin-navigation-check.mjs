@@ -112,7 +112,7 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
   const row=card.getByRole('button',{name:/#9005 —/})
   if (await row.getAttribute('aria-expanded')!=='true') await row.click()
   await card.locator('input[type="url"]').fill('https://www.google.com/maps?q=21.1861,106.0763')
-  await card.getByRole('button',{name:'Xem tọa độ từ liên kết'}).click()
+  await card.getByRole('button',{name:'📍 Lấy vị trí'}).click()
   const confirm=card.getByRole('button',{name:/Hoàn tất sửa/})
   await confirm.scrollIntoViewIfNeeded()
   await settled(page)
