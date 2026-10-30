@@ -4,6 +4,19 @@
 // 브라우저 전용 — JobDetail이 마운트 뒤 동적 import 한다(SSR 안전).
 import * as vietmapgl from '@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
 import type { Map as VietMap, Marker, StyleSpecification } from '@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
+import { pushPinClass } from '../lib/mapPushPin'
+
+// Lee 2026-10-30: 상세 지도도 메인 지도와 같은 📍 압정 핀(대략 위치는 연한 머리+점선).
+function pushPinElement(kind?: string): HTMLElement {
+  const element = document.createElement('div')
+  element.className = 'hme-map__job-marker'
+  element.style.width = '28px'
+  element.style.height = '28px'
+  const pin = document.createElement('span')
+  pin.className = pushPinClass([kind])
+  element.appendChild(pin)
+  return element
+}
 import '@vietmap/vietmap-gl-js/dist/vietmap-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { applyLifeMapStyle, type StyleLike } from './home/map/lifeMapStyle'
@@ -67,7 +80,7 @@ function MapCanvas({ lat, lng, title, zoom = 15, markers, pinless = false, parkR
     if (cur.pinless) return
     const list: JobVietMapMarker[] = cur.markers && cur.markers.length > 0 ? cur.markers : [{ lat: cur.lat, lng: cur.lng }]
     markerRefs.current = list.map((m) =>
-      (() => { const marker = new vietmapgl.Marker({ color: '#e53935' }).setLngLat([m.lng, m.lat]).setPopup(new vietmapgl.Popup({ offset: 24 }).setText(m.label || cur.title)).addTo(map); marker.getElement().dataset.locationPoints = JSON.stringify([m]); return marker })())
+      (() => { const marker = new vietmapgl.Marker({ element: pushPinElement(m.kind), anchor: 'bottom' }).setLngLat([m.lng, m.lat]).setPopup(new vietmapgl.Popup({ offset: 24 }).setText(m.label || cur.title)).addTo(map); marker.getElement().dataset.locationPoints = JSON.stringify([m]); return marker })())
     if (list.length > 1) {
       const b = new vietmapgl.LngLatBounds()
       list.forEach((m) => b.extend([m.lng, m.lat]))
