@@ -1,0 +1,28 @@
+name: diag-post-shots
+on: pull_request
+permissions:
+  contents: write
+jobs:
+  diag:
+    if: github.head_ref == 'diag/post-job-shots-20261030'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.head_ref }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm run build
+        env:
+          VITE_VIETMAP_TILEMAP_KEY: ${{ secrets.VITE_VIETMAP_TILEMAP_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          node scripts/ops/diag-post-shots.mjs
+      - run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp shot-*.png /tmp/ ; git checkout --orphan diag-shots-tmp && git rm -rfq . && git clean -fdxq
+          cp /tmp/shot-*.png . ; echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git add -A && git commit -qm "post job shots" && git push -f origin HEAD:diag-shots
