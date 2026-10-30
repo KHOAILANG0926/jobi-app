@@ -48,8 +48,8 @@ export function roleScopedMeals(description: string | null | undefined): string[
 export interface RoleConditionSummary {
   roleCount:number; salary:string; hours:string; workPeriod:string; workDays:string; numHires:string; mealBenefit?:string
 }
-const shortRole=(role:string)=>role.replace(/\s+(?:full|part)[ -]?time$/i,'').replace(/^(?:cô\s+|nhân viên\s+(?:nam\s*\/\s*nữ\s+)?)/iu,'').toLocaleLowerCase('vi')
-const capitalize=(text:string)=>text.charAt(0).toLocaleUpperCase('vi')+text.slice(1)
+export const shortRole=(role:string)=>role.replace(/\s+(?:full|part)[ -]?time$/i,'').replace(/^(?:cô\s+|nhân viên\s+(?:nam\s*\/\s*nữ\s+)?)/iu,'').toLocaleLowerCase('vi')
+export const capitalize=(text:string)=>text.charAt(0).toLocaleUpperCase('vi')+text.slice(1)
 /** Values approved by Lee, derived from role-labelled text rather than a job ID. */
 export function roleConditionSummary(description:string|null|undefined):RoleConditionSummary|null {
   const records=String(description??'').split(/\r?\n/).map(splitRoleLine)
@@ -70,4 +70,15 @@ export function roleConditionSummary(description:string|null|undefined):RoleCond
     numHires:`${roles.length} vị trí; số người chưa nêu`,
     mealBenefit:mealOwners.length?`Ăn ca: chỉ ${mealOwners.map(shortRole).join(', ')}${meals?`, ${meals} bữa`:''}`:undefined,
   }
+}
+
+/** Lee 2026-10-30: 여러 직무 공고의 메인 카드 급여 — 직무별 급여 줄을 원문 글자 그대로(숫자 합치지 않음). 직무 2개 미만이면 빈 배열. */
+export function roleSalaryLines(description:string|null|undefined):string[] {
+  const records=String(description??'').split(/\r?\n/).map(splitRoleLine)
+  const roles=[...new Set(records.map(r=>r.role).filter((r):r is string=>!!r))]
+  if (roles.length<2) return []
+  return roles.flatMap(role=> {
+    const line=records.find(r=>r.role===role&&/\b(?:lương|luong)\b|\d+\s*k\s*\/|triệu/iu.test(r.line))?.line
+    return line ? [`${capitalize(shortRole(role))}: ${line.replace(/^\s*(?:mức\s+)?lương\s*[:：]\s*/iu,'').trim()}`] : []
+  })
 }

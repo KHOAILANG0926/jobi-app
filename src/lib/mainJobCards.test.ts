@@ -34,3 +34,9 @@ const { featured, remaining } = partitionMainCards(mainCardJobs(input), [kda, kd
 assert.deepEqual([...featured, ...remaining].map(j => j.id), ['sb-4824', 'other'])
 assert.equal(input.length, 4, 'presentation filtering must not mutate shared search/map data')
 console.log('mainJobCards: all assertions passed')
+
+// Lee 2026-10-30: 여러 직무 공고(Bomunttl 원문 저장 모양)는 메인에서 빠지지 않고 직무별 급여 줄을 보여 준다.
+const multi = job('sb-4982', 'Theo vị trí — xem chi tiết', { description: 'CÔ RỬA BÁT FULL TIME — Nghỉ trưa hơn 2 tiếng\nCÔ RỬA BÁT FULL TIME — Lương thỏa thuận + thưởng\nNHÂN VIÊN NAM/NỮ CHẠY BÀN PART TIME — Mức lương: 30k-35k/ 1h' })
+assert.deepEqual(cardSalary(multi)?.lines, ['Rửa bát: Lương thỏa thuận + thưởng', 'Chạy bàn: 30k-35k/ 1h'], 'multi-role card salary lines')
+assert.equal(mainCardJobs([multi]).length, 1, 'multi-role job stays on main')
+assert.equal(mainCardJobs([job('x', 'Theo vị trí — xem chi tiết')]).length, 0, 'no salary anywhere stays off main')
