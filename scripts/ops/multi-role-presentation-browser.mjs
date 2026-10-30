@@ -68,4 +68,8 @@ try {
   await context.close()
   console.log(`PASS ${width}: KDA frame 3 image states + populated multi-role slots + scoped meals + grouped detail`)
  }
+}catch(error){
+ // 실패 원인을 검사 화면 표시(annotation)로 남긴다(로그 파일을 못 받는 환경에서도 원인 확인, 2026-10-30).
+ console.log(`::error title=multi-role browser::${String(error?.stack||error).replace(/\n/g,' | ').slice(0,1800)}`)
+ throw error
 }finally{await browser.close()}
