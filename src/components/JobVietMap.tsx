@@ -6,7 +6,7 @@ import * as vietmapgl from '@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
 import type { Map as VietMap, Marker, StyleSpecification } from '@vietmap/vietmap-gl-js/dist/vietmap-gl.js'
 import { pushPinClass } from '../lib/mapPushPin'
 
-// Lee 2026-10-30: 상세 지도도 메인 지도와 같은 물방울 핀(대략 위치는 연한 색+점선).
+// Lee 2026-10-30: 상세 지도도 메인 지도와 같은 📍 압정 핀(대략 위치는 연한 머리+점선).
 function pushPinElement(kind?: string): HTMLElement {
   const element = document.createElement('div')
   element.className = 'hme-map__job-marker'
