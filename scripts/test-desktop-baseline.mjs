@@ -1,3 +1,4 @@
+// 2026-10-30: JobDetail.tsx — Lee 지시(신규부터): 새 공고는 #4828 4칸 틀, 기존 공개 공고·KDA 그대로.
 // 2026-10-30: JobDetail.tsx — Lee 지시: 근무지 1곳 위치 확정 공고 길찾기 버튼을 기준(KDA)처럼 지도 아래로.
 // 2026-10-30: JobDetail.tsx — Lee 지시: 위치 확정 공고 길찾기도 기준(KDA) Google 버튼 하나로(예전 작은 버튼 두 개 제거). 다른 틀 변경 없음.
 // 2026-10-30: index.css — Lee: 모든 지도 핀 한 모양(대략 위치 색 구분 없앰, 정확도는 글로).
@@ -80,7 +81,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "ef6bc60c3b9639c07ef0b38a5f13d4e95257bda7b1996afd2e3f311c685e9359",
+    "sha256": "b13d8b455eae0662c94ad4d52094f340bdf6e10bff023d05351d44c8c8fb43ec",
     "restore": []
   },
   {
