@@ -816,7 +816,8 @@ export function JobDetail() {
                                 {loc.pointKind === 'gate' ? LOCATION_LABELS.gate : LOCATION_LABELS.area} — chưa xác minh địa điểm làm việc chính xác.
                               </p>
                             ) : null}
-                            <MapLinks links={gmaps} />
+                            {/* 2026-10-30 Lee: 근무지 1곳이면 길찾기는 기준(KDA)처럼 지도 아래에 — 여러 곳일 때만 각 주소 옆. */}
+                            {(job.workLocations?.length ?? 0) > 1 && <MapLinks links={gmaps} />}
                             {isPreciseLoc && !verifiedWard && !approved && (
                               <p className="jd2-map-exact-note">Vị trí chính xác.</p>
                             )}
@@ -878,6 +879,11 @@ export function JobDetail() {
                         {mapPointAccuracyNote(displayMapPoints)}
                       </p>
                     </>
+                  )}
+                  {(job.workLocations?.length ?? 0) === 1 && directionsPlan.tier === 'approved' && (
+                    <div className="jd2-map-links">
+                      {directionsPlan.links.map((link) => <GoogleDirectionsLink key={link.href} href={link.href} />)}
+                    </div>
                   )}
                   {!hasMapPoints && mapLocations.source !== 'pending' && <p className="jd2-map-pending-note">Vị trí nơi làm việc chưa được xác minh.</p>}
                   {/* mapLocations.source === 'pending'일 때는 hasMapPoints가 항상
