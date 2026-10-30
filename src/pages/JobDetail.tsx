@@ -35,7 +35,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
-import { BASELINE_FRAME_JOB_IDS, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
+import { ALBAMON_LAYOUT_JOB_IDS, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
@@ -326,7 +326,12 @@ export function JobDetail() {
   const tags = jobTags(job)
   // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
-  const detail = detailSections(job.description, {
+  // Lee 2026-10-30 "알바몬처럼": 상세요강은 원문 전체(위쪽 칸과 겹쳐도 지우지 않음). 전화·주소 줄 규칙(10-14)은 그대로.
+  const albamonLayout = ALBAMON_LAYOUT_JOB_IDS.has(job.id)
+  const detail = detailSections(job.description, albamonLayout ? {
+    phones: [job.employerPhone, job.zalo],
+    addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
+  } : {
     title: job.title,
     salary: job.salary,
     // 2026-10-25 Lee: 위쪽 칸에 보이는 값과 같은 줄은 아래 상세요강에서 반복하지 않는다
@@ -335,6 +340,7 @@ export function JobDetail() {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })
+  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
@@ -357,7 +363,7 @@ export function JobDetail() {
   // Fixed future-proof slots: missing values do not remove the field definition.
   // Only populated slots render; don't fabricate values or infer benefits from source text.
   // Lee 2026-10-29 새 구성: 기준 공고(KDA)만 기존 틀, 나머지는 ② Quyền lợi + ③ 일하는 방식만(급여·수당·업종·복리후생 줄 없음).
-  const newLayout = !BASELINE_FRAME_JOB_IDS.has(job.id)
+  const newLayout = !BASELINE_FRAME_JOB_IDS.has(job.id) && !albamonLayout
   const conditionColumns: readonly (readonly string[])[] = newLayout ? [
     ['jobDuration', 'workDays', 'hours'],
     ['workPeriod', 'shift', 'weekend'],
@@ -369,11 +375,13 @@ export function JobDetail() {
   const CONDITION_PC_ONLY = new Set(['category', 'benefits'])
   const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
-      salaryText || (salaryNote && !isAllowanceNote) ? (
+      salaryText || (salaryNote && !isAllowanceNote) || albamonLines.salary.length ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
           {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
+          {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음) */}
+          {albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
       ) : undefined, 'jd2-info-val--salary'),
     textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
@@ -389,7 +397,7 @@ export function JobDetail() {
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
     row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
-    row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement)),
+    row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement) ?? (albamonLayout ? sourceAgeValue(detail.sections) : undefined)),
     row('sourceEligibility', <Users size={14} strokeWidth={1.8} />, 'Đối tượng tuyển', !nonEmpty(job.ageRequirement) || !nonEmpty(job.genderRequirement) ? sourceEligibility : undefined),
     row('gender', <Users size={14} strokeWidth={1.8} />, 'Giới tính', nonEmpty(job.genderRequirement)),
     row('docs', <Briefcase size={14} strokeWidth={1.8} />, 'Hồ sơ cần chuẩn bị', job.requiredDocuments),
@@ -466,7 +474,7 @@ export function JobDetail() {
   const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
   const conditionPcFields = [
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
-    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', activeBenefitText || undefined),
+    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', [activeBenefitText, ...albamonLines.insurance].filter(Boolean).join(' · ') || undefined),
   ].filter(Boolean) as InfoField[]
   const logoUrl = companyLogoUrl(job.imageUrl)
   // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
