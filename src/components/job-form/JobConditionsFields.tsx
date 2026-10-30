@@ -16,7 +16,7 @@ interface ChoiceProps<T extends string> {
   onChange: (v: T | null) => void
 }
 
-function Choice<T extends string>({ label, value, options, onChange }: ChoiceProps<T>) {
+export function Choice<T extends string>({ label, value, options, onChange }: ChoiceProps<T>) {
   return (
     <div className="jcf-row" role="radiogroup" aria-label={label}>
       <span className="jcf-row__label">{label}</span>
@@ -32,7 +32,7 @@ function Choice<T extends string>({ label, value, options, onChange }: ChoicePro
   )
 }
 
-function Tri({ label, value, onChange }: { label: string; value: TriState; onChange: (v: TriState) => void }) {
+export function Tri({ label, value, onChange }: { label: string; value: TriState; onChange: (v: TriState) => void }) {
   const opts: [string, TriState, string][] = [['yes', true, 'Có'], ['no', false, 'Không'], ['unknown', null, 'Chưa rõ']]
   return (
     <div className="jcf-row" role="radiogroup" aria-label={label}>
