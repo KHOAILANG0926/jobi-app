@@ -82,8 +82,3 @@
 - 변경(migration 20261025160000_job_signal_dispatch.sql): 공고 입력(제목·원문·이미지·근무지·회사·공개·분류)·위치 결과·수집 멈춤 상태가 바뀌면 신호 대기표 기록 → pg_cron 1분마다, 30초 조용하면 GitHub 작업(job-ocr-check·crawl-guard) 바로 시작. 결과 칸(상세요강·급여·ocr_check·복리후생) 변경은 신호 없음(자기 반복 방지). 하루 1번(05:10) 안전망. local_jobs.updated_at 추가.
 - 열쇠: Supabase Vault github_dispatch_token(Lee 생성, jobi-app Actions 시작 권한만). 기존 열쇠(GitHub 자동 열쇠는 작업 중에만 존재, AI 계정은 코드 권한이 넓어 위험)는 이 용도로 못 씀.
 - 시험: supabase/tests/job_signal_dispatch.pglite.test.mjs.
-
-## 2026-10-25 — Vercel 하루 배포 100번 한도 대응
-- [직접 확인] a543503 운영 배포 실패: "api-deployments-free-per-day"(무료 하루 100번). 운영은 직전 버전 유지.
-- 변경: vercel-deploy.yml — 앱 파일(src·api·public·설정)이 바뀐 커밋만 배포, 2시간마다 운영이 master보다 뒤처졌으면 따라잡기 배포(한도 풀리면 자동). detail-fill.mjs — 급여 규칙·실행기 자신이 바뀌어도 전부 다시 처리(#4879 급여 칸이 안 채워진 원인).
-
