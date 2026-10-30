@@ -25,7 +25,10 @@ jobs:
           [[ "$BASE_SHA" =~ ^[a-f0-9]{40}$ ]]
           mkdir -p "$RUNNER_TEMP/kda-baseline"
           git archive "$BASE_SHA" | tar -x -C "$RUNNER_TEMP/kda-baseline"
-          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/kda-baseline/node_modules"
+          # 2026-10-30: 두 개발 서버가 같은 node_modules/.vite 캐시를 쓰면 "504 Outdated Optimize Dep"로 첫 화면이 안 뜸(#314~#331 반복 실패 원인).
+          # 하드링크 복사로 node_modules는 공유하되 .vite 캐시 폴더는 서버마다 따로 생기게 한다.
+          cp -al "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/kda-baseline/node_modules" 2>/dev/null || cp -a "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/kda-baseline/node_modules"
+          rm -rf "$RUNNER_TEMP/kda-baseline/node_modules/.vite"
           node_modules/.bin/vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/role-current.log 2>&1 &
           (cd "$RUNNER_TEMP/kda-baseline" && "$GITHUB_WORKSPACE/node_modules/.bin/vite" --host 127.0.0.1 --port 4174 --strictPort > /tmp/role-base.log 2>&1) &
           for attempt in $(seq 1 30); do
