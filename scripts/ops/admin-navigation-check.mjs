@@ -2,6 +2,7 @@
 // real credentials, or external map requests. Runs against preview or production.
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+for (const ev of ['uncaughtException','unhandledRejection']) process.on(ev,e=>{console.log(`::error title=admin navigation::${String(e?.stack||e).replace(/\n/g,' | ').slice(0,1800)}`);process.exit(1)})
 
 const base=(process.env.BASE_URL||'http://localhost:4173').replace(/\/$/,'')
 const user={id:'00000000-0000-4000-8000-000000000001',email:'browser-fixture@example.invalid',
