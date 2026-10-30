@@ -61,7 +61,7 @@ try {
       await client.query(
         `update public.local_jobs set ocr_text = $2, ocr_check = jsonb_set($3::jsonb, '{images_hash}', to_jsonb(md5(images::text))) ${hold ? ', active = false' : ''} where id = $1`,
         [job.id, text, JSON.stringify(check)])
-      if (hold) { held++; console.log(`보류 #${job.id}: ${res.mismatches.map((m) => m.field).join(', ')}`) } else ok++
+      if (hold) { held++; console.log(`보류 #${job.id}: ${res.mismatches.map((m) => m.field).join(', ')}`); console.log(`::warning title=R7 보류 #${job.id}::불일치 항목 ${res.mismatches.map((m) => m.field).join(', ')}`) } else ok++
       // OCR 'ok' → OCR 단계에서 공개로 되돌린다(기존 공개 조건 통과분만). 정책 판정(R4)은 DB 트리거가 강제:
       // 제외 대상이면 저장이 거부되고, 검토 대상이면 active=false로 남는다 → 어느 쪽이든 비공개 유지.
       if (res.status === 'ok' && !job.active && canRepublish(job)) {

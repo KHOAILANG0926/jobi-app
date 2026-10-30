@@ -19,6 +19,8 @@ function hiddenReasons(j: JobPeek): string[] {
   if (!j.occupation_code) r.push('Thiếu mã nghề occupation_code (직업코드 없음 → 공개 게이트가 비공개)')
   else if (!j.occupation_evidence) r.push('Thiếu bằng chứng nghề occupation_evidence (원문 근거 없음)')
   if (!j.employer_phone) r.push('Không có số liên hệ (연락처 없음)')
+  const oc = j.ocr_check as { status?: string; mismatches?: { field: string; value: unknown }[] } | null | undefined
+  if (oc && typeof oc === 'object' && oc.status === 'mismatch') r.push('Ảnh không khớp R7 (사진 대조 불일치): ' + (oc.mismatches ?? []).map((m) => `${m.field}=${String(m.value)}`).join(', '))
   return r
 }
 function JobPeekPanel({ id }: { id: number }) {
@@ -26,7 +28,12 @@ function JobPeekPanel({ id }: { id: number }) {
   const [err, setErr] = useState('')
   useEffect(() => {
     void supabase.from('local_jobs').select('title,company,salary,location,hours,employer_phone,occupation_code,occupation_evidence,description,active,admin_hidden').eq('id', id).single()
-      .then(({ data, error }) => { if (error) setErr(error.message); else setData(data as JobPeek) })
+      .then(async ({ data, error }) => {
+        if (error) { setErr(error.message); return }
+        // 2026-10-30 Lee "진짜 원인": 사진 대조(R7) 기록을 그대로 보여 준다. 읽기 권한이 없으면 그 칸만 비운다(목록은 그대로).
+        const extra = await supabase.from('local_jobs').select('images,ocr_check,ocr_text').eq('id', id).single()
+        setData({ ...(data as JobPeek), ...(extra.error ? { ocr_check: `읽기 불가: ${extra.error.message}` } : extra.data as JobPeek) })
+      })
   }, [id])
   if (err) return <p className="admin-error">{err}</p>
   if (!data) return <p>Đang tải…</p>
@@ -36,6 +43,10 @@ function JobPeekPanel({ id }: { id: number }) {
       {data.active && !data.admin_hidden ? '🟢 Đang công khai' : `🔴 Chưa công khai — ${reasons.join(' · ') || 'lý do khác (xem nhật ký)'}`}</p>
     {(['title', 'company', 'salary', 'location', 'hours', 'employer_phone', 'occupation_code', 'occupation_evidence'] as const).map((k) =>
       <p key={k} style={{ margin: 0 }}><b>{k}:</b> {String(data[k] ?? '—')}</p>)}
+    <p style={{ margin: 0 }}><b>ocr_check (사진 대조 기록):</b></p>
+    <pre style={{ whiteSpace: 'pre-wrap', margin: 0, background: '#fff7ed', padding: 8, borderRadius: 6 }}>{JSON.stringify(data.ocr_check ?? null, null, 1)}</pre>
+    <p style={{ margin: 0 }}><b>images:</b> {JSON.stringify(data.images ?? null)}</p>
+    <details><summary>ocr_text (사진에서 읽은 글자)</summary><pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{String(data.ocr_text ?? '')}</pre></details>
     <pre style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 320, overflow: 'auto', background: '#fff', padding: 8, borderRadius: 6 }}>{String(data.description ?? '')}</pre>
   </div>
 }
