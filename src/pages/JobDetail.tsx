@@ -17,7 +17,9 @@ import { buildProfile } from '../components/useApply'
 import { ApplyUnavailableNotice } from '../components/ApplyUnavailableNotice'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, JOB_CONTACT_HASH, resolveApplyAction, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
-import { fetchEmployerJobCount } from '../lib/jobRows'
+import { fetchEmployerJobCount, rowToJob, rowToWorkLocation, EMPLOYER_JOBS_SELECT_COLUMNS, JOB_WORK_LOCATIONS_SELECT_COLUMNS } from '../lib/jobRows'
+import { checkIsAdmin } from '../lib/accountRoles'
+import { supabase as adminPreviewClient } from '../lib/supabase'
 import { LOCATION_LABELS, mapPointAccuracyNote } from '../lib/mapR1'
 import { externalMapLinks, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
@@ -33,6 +35,7 @@ import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
+import type { Job } from '../types/job'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
 import { usesAlbamonLayout, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
@@ -123,7 +126,24 @@ export function JobDetail() {
   const [activeTab, setActiveTab] = useState<JobTabKey>('conditions')
   const [tabsTop, setTabsTop] = useState(0)
 
-  const job = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
+  const publicJob = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
+  // 2026-10-30 Lee "눈으로 봐야될거아니야": 공개 안 된 공고도 관리자는 같은 상세 화면으로 본다(읽기만, 위에 비공개 안내).
+  const [adminPreview, setAdminPreview] = useState<Job | null>(null)
+  useEffect(() => {
+    if (publicJob || jobsLoading || !id || !/^sb-\d+$/.test(id) || !user) return
+    let cancelled = false
+    void checkIsAdmin().then(async (isAdmin) => {
+      if (!isAdmin || cancelled) return
+      const num = Number(id.slice(3))
+      const [{ data: row }, { data: locs }] = await Promise.all([
+        adminPreviewClient.from('local_jobs').select(EMPLOYER_JOBS_SELECT_COLUMNS).eq('id', num).maybeSingle(),
+        adminPreviewClient.from('job_work_locations').select(JOB_WORK_LOCATIONS_SELECT_COLUMNS).eq('job_id', num),
+      ])
+      if (!cancelled && row) setAdminPreview(rowToJob(row as Record<string, unknown>, (locs ?? []).map((l) => rowToWorkLocation(l as Record<string, unknown>))))
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [publicJob, jobsLoading, id, user])
+  const job = publicJob ?? adminPreview ?? undefined
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
   const location = useLocation()
   useEffect(() => {
@@ -519,6 +539,8 @@ export function JobDetail() {
 
   return (
     <div className="jd2-page" style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
+      {!publicJob && adminPreview && <p role="status" style={{ margin: '8px 0', padding: '10px 14px', borderRadius: 8, background: '#fff4f2', color: '#d92d20', fontWeight: 700 }}>
+        🔒 Chưa công khai — chỉ quản trị viên xem được (비공개 공고, 관리자만 보임). Lý do: {!adminPreview.occupationCode ? 'thiếu mã nghề' : adminPreview.adminHidden ? 'quản trị viên đã ẩn' : 'xem trang quản trị'}</p>}
 
       {/* ── Back ── */}
       <button type="button" className="jd2-back" onClick={() => navigate(-1)}>
