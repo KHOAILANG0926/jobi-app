@@ -38,6 +38,24 @@ try {
     assert.equal(await page.locator('.jc__logo-text').count(), 2, 'missing or rejected image must show factual company text')
     console.log(`JobCard ${width}px: image/missing/blocked-image geometry identical`)
   }
+  // Lee 2026-10-30: 여러 직무 공고는 급여 칸 안에서만 직무별 2줄 — 이미지·회사·제목 자리는 기준 카드와 같아야 한다.
+  const multi = renderToStaticMarkup(createElement(JobCard, { job: { ...data, id: 'test-multi-role', salary: 'Theo vị trí — xem chi tiết',
+    description: 'CÔ RỬA BÁT FULL TIME — Lương thỏa thuận + thưởng\nNHÂN VIÊN NAM/NỮ CHẠY BÀN PART TIME — Mức lương: 30k-35k/ 1h' }, isApplied: false }))
+  for (const width of [390, 1366]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.setContent(`<style>${styles}\n#test-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;width:${width < 600 ? width - 32 : 1270}px} @media(max-width:600px){#test-cards{grid-template-columns:1fr}}</style><div id="test-cards">${cards[1]}${multi}</div>`)
+    const bounds = await page.locator('.jc').evaluateAll(cards => cards.map(card => {
+      const origin = card.getBoundingClientRect()
+      return Object.fromEntries(['.jc__logo-wrap','.jc__identity','.jc__title'].map(selector => {
+        const b = card.querySelector(selector).getBoundingClientRect()
+        return [selector, [b.x-origin.x, b.y-origin.y, b.width, b.height].map(n => Math.round(n*100)/100)]
+      }))
+    }))
+    assert.deepEqual(bounds[1], bounds[0], `multi-role card frame at ${width}px`)
+    const lines = await page.locator('.jc').nth(1).locator('.jc__salary > span').allInnerTexts()
+    assert.deepEqual(lines, ['Rửa bát: Lương thỏa thuận + thưởng', 'Chạy bàn: 30k-35k/ 1h'], 'multi-role salary lines')
+    console.log(`JobCard ${width}px: multi-role salary lines inside the same frame`)
+  }
 } finally {
   if (browser) await browser.close()
   await server.close()
