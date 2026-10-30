@@ -60,7 +60,8 @@ export default function JobCard({
       <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
       <div className="jc__footer">
         <span className="jc__salary">
-          {salary ? salary.text : 'Chưa xác nhận tiền công'}
+          {salary?.lines ? salary.lines.map(line => <span key={line} style={{ display: 'block' }}>{line}</span>)
+            : salary ? salary.text : 'Chưa xác nhận tiền công'}
         </span>
       </div>
       {conditions.length > 0 && <>

@@ -1,6 +1,7 @@
 import type { Job } from '../types/job'
+import { roleSalaryLines } from './jobRolePresentation.ts'
 
-export interface CardSalary { label: string; text: string }
+export interface CardSalary { label: string; text: string; lines?: string[] }
 const labels = { hour: 'Lương giờ', day: 'Lương ngày', month: 'Lương tháng' }
 const units = {
   hour: /(?:\/\s*|mỗi\s+|moi\s+)(?:giờ|gio|h)(?![\p{L}\d])/iu,
@@ -9,7 +10,14 @@ const units = {
 }
 
 /** Display only source amounts. Never derive an hourly rate from a shift/day/month. */
-export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'>): CardSalary | null {
+export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'> & Partial<Pick<Job, 'description'>>): CardSalary | null {
+  // Lee 2026-10-30: 여러 직무 공고(10-28 공고 1개 유지)는 직무별 급여 한 줄씩, 최대 2줄 + "+N". 직무별 급여가 하나도 없으면 아래 기존 규칙.
+  const roleLines = roleSalaryLines(job.description)
+  if (roleLines.length) {
+    const lines = roleLines.slice(0, 2)
+    if (roleLines.length > 2) lines[1] += ` +${roleLines.length - 2}`
+    return { label: 'Lương', text: roleLines.join(' · '), lines }
+  }
   const text = (job.salary || '').trim()
   const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vnd\b|đ|usd\b)|\$\s*\d)/iu
   if (!amount.test(text)) return null
