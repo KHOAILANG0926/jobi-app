@@ -1,0 +1,72 @@
+/* 2026-10-30 Lee: 공고 등록 화면 디자인 = 알바몬 일반공고와 동일(상자·칸 높이·밑줄·왼쪽 이름/오른쪽 입력·붙은 버튼·요일 원·검은 선택 버튼·아래 고정 버튼).
+   내용은 우리 필수 9개. index.css(동결)는 건드리지 않고 이 파일에만 둔다. 모든 선택자는 .pj 아래. */
+.pj { max-width: 1040px; margin: 0 auto; padding: 24px 16px 120px; color: #111; font-size: 15px; }
+.pj__title { font-size: 28px; font-weight: 800; margin: 8px 0 6px; letter-spacing: -0.5px; }
+.pj__lead { color: #666; margin: 0 0 28px; }
+.pj-sec { margin: 0 0 56px; }
+.pj-sec__h { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin: 0; padding: 0 0 18px; border-bottom: 2px solid #111; }
+.pj-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; align-items: start; padding: 24px 0; border-bottom: 1px solid #eee; }
+.pj-row__label { font-size: 16px; font-weight: 700; padding-top: 13px; line-height: 1.35; }
+.pj-req { color: #ff3b30; margin-left: 2px; }
+.pj-count { font-size: 12px; color: #ff501b; margin-left: 4px; font-weight: 400; }
+.pj-row__body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pj-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pj-input, .pj-select, .pj-textarea { box-sizing: border-box; height: 48px; padding: 0 16px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 15px; color: #111; outline: none; min-width: 0; font-family: inherit; }
+.pj-input::placeholder, .pj-textarea::placeholder { color: #aaa; }
+.pj-input:focus, .pj-select:focus, .pj-textarea:focus { border-color: #111; }
+.pj-input--round, .pj-select--round { border-radius: 24px; }
+.pj-input--grow { flex: 1 1 260px; }
+.pj-input--num { width: 160px; text-align: right; }
+.pj-input--bad { border-color: #ff3b30; }
+.pj-textarea { height: auto; min-height: 140px; padding: 14px 16px; resize: vertical; line-height: 1.6; }
+.pj-select { appearance: none; -webkit-appearance: none; padding-right: 40px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23333' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 16px center; }
+.pj-suffix { color: #333; }
+.pj-hint { font-size: 13px; color: #888; margin: 0; }
+.pj-error { font-size: 13px; color: #ff3b30; margin: 0; }
+/* 붙은 칸 버튼(근무기간·상시모집) */
+.pj-seg { display: inline-flex; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+.pj-seg button { height: 48px; min-width: 100px; padding: 0 16px; border: 0; border-right: 1px solid #ccc; background: #fff; color: #999; font-size: 15px; cursor: pointer; font-family: inherit; }
+.pj-seg button:last-child { border-right: 0; }
+.pj-seg button[aria-pressed="true"] { color: #111; font-weight: 700; box-shadow: inset 0 0 0 1.5px #111; position: relative; z-index: 1; }
+/* 떨어진 칩 버튼(고용형태) */
+.pj-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.pj-chips button { height: 48px; padding: 0 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #999; font-size: 15px; cursor: pointer; font-family: inherit; }
+.pj-chips button[aria-pressed="true"] { border: 1.5px solid #111; color: #111; font-weight: 700; }
+/* 요일 원 */
+.pj-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.pj-days button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #ddd; background: #fff; color: #333; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.pj-days button[aria-pressed="true"] { background: #111; border-color: #111; color: #fff; }
+/* 체크박스 */
+.pj-checks { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.pj-check { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: #333; cursor: pointer; }
+.pj-check input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 0; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; flex: none; }
+.pj-check input:checked { background: #ff501b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M1 5l3.5 3.5L11 1.5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E") no-repeat center; border-color: #ff501b; }
+/* 검은 버튼·글자 버튼·회색 안내 상자 */
+.pj-btn-dark { height: 48px; padding: 0 28px; border: 0; border-radius: 6px; background: #111; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.pj-link { border: 0; background: none; color: #111; text-decoration: underline; font-size: 15px; cursor: pointer; padding: 0; font-family: inherit; }
+.pj-note { background: #f7f7f7; border-radius: 4px; padding: 14px 18px; font-size: 13px; color: #555; }
+.pj-panel { border: 1px solid #eee; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.pj-map { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+.pj-map__bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #eee; font-size: 14px; color: #666; gap: 8px; flex-wrap: wrap; }
+.pj-map__bar button { height: 34px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 13px; cursor: pointer; font-family: inherit; }
+.pj-photo { width: 220px; height: 105px; border: 1px solid #ddd; border-radius: 6px; background: #fff; display: flex; align-items: center; justify-content: center; color: #999; font-size: 15px; cursor: pointer; overflow: hidden; }
+.pj-photo img { max-width: 100%; max-height: 100%; }
+/* 등록 방식(로그인 없이/이메일) — 붙은 칸 모양 */
+.pj-mode { margin: 0 0 40px; }
+/* 아래 고정 버튼 줄 */
+.pj-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #fff; border-top: 1px solid #eee; padding: 12px 16px; display: flex; justify-content: center; gap: 8px; }
+.pj-bar button { height: 52px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.pj-bar__ghost { width: 120px; border: 1px solid #ccc; background: #fff; color: #111; }
+.pj-bar__main { width: 340px; max-width: calc(100% - 136px); border: 0; background: #ff501b; color: #fff; }
+.pj-bar__main:disabled { opacity: .6; }
+.pj-form-error { background: #fff4f2; color: #ff3b30; border-radius: 8px; padding: 12px 16px; margin: 0 0 24px; font-weight: 600; }
+@media (max-width: 720px) {
+  .pj { padding: 16px 16px 110px; }
+  .pj__title { font-size: 22px; }
+  .pj-sec__h { font-size: 20px; padding-bottom: 14px; }
+  .pj-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 20px 0; }
+  .pj-row__label { padding-top: 0; }
+  .pj-seg button { min-width: 0; flex: 1 1 33%; padding: 0 8px; font-size: 14px; border-bottom: 1px solid #ccc; }
+  .pj-input--num { width: 120px; }
+  .pj-photo { width: 100%; }
+}

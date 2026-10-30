@@ -1,5 +1,6 @@
-import { FormEvent, RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, RefObject, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import './PostJob.css'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
 import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
 import { VN_PROVINCES } from '../data/vnProvinces'
@@ -9,14 +10,13 @@ import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { checkIsEmployer } from '../lib/accountRoles'
 import { supabase } from '../lib/supabase'
-import { Choice, Tri } from '../components/job-form/JobConditionsFields'
 import VietMapPinPicker from '../components/job-form/VietMapPinPicker'
 import { findRegionCenter } from '../lib/jobCoords'
-import { RECRUITMENT_LABELS, SCHEDULE_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
+import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
 import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type GenderChoice, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
-import type { JobCategory, RecruitmentType, ShiftType, WorkSchedule } from '../types/job'
+import type { JobCategory, ShiftType } from '../types/job'
 
 // 2026-10-30 Lee: 공고 작성 체크리스트 순서(① 근무조건 ② 모집조건 ③ 근무지역 ④ 상세요강). 필수 9개 = 급여·근무시간·고용형태·업직종·모집마감·모집인원·주소·업무 내용·연락처.
 const emptyForm = {
@@ -63,6 +63,9 @@ const emptyForm = {
   zaloSameAsPhone: true,
   urgent: false,
   laborContractPledge: false,
+  workDays: [] as string[],
+  daysNegotiable: false,
+  hoursNegotiable: false,
 }
 
 type EmployerCheck = 'checking' | 'employer' | 'guest'
@@ -79,6 +82,17 @@ function randomPassword(): string {
   crypto.getRandomValues(bytes)
   return btoa(String.fromCharCode(...bytes))
 }
+
+// 화면 부품은 컴포넌트 밖에 둔다(안에 두면 입력할 때마다 칸이 새로 만들어져 커서가 빠진다).
+const Row = ({ label, req, count, children }: { label: string; req?: boolean; count?: string; children: ReactNode }) => (
+  <div className="pj-row">
+    <div className="pj-row__label">{label}{req && <span className="pj-req">*</span>}{count && <span className="pj-count">{count}</span>}</div>
+    <div className="pj-row__body">{children}</div>
+  </div>
+)
+const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode }) => (
+  <label className="pj-check"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />{children}</label>
+)
 
 export function PostJob() {
   const navigate = useNavigate()
@@ -137,6 +151,8 @@ export function PostJob() {
   const [employerCheck, setEmployerCheck] = useState<EmployerCheck>('checking')
   const [postMode, setPostMode] = useState<PostMode>('quick')
   const quickGuestMode = employerCheck === 'guest' && postMode === 'quick'
+  const [showDemog, setShowDemog] = useState(false)
+  const [showBenefits, setShowBenefits] = useState(false)
   const [guestEmail, setGuestEmail] = useState('')
   const [guestSuccess, setGuestSuccess] = useState<{ jobId: string; manageUrl: string } | null>(null)
   const [emailSuccess, setEmailSuccess] = useState<{ jobId: string; email: string } | null>(null)
@@ -162,7 +178,7 @@ export function PostJob() {
     setError(null)
 
     const salary = composeSalary(form.salaryAmount, form.salaryUnit, form.salaryNegotiable)
-    const hours = composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
+    const hours = form.hoursNegotiable ? 'Thỏa thuận' : composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
     const hires = composeHires(form.hires, form.hiresUndecided, form.gender, form.genderMale, form.genderFemale)
     const age = composeAge(form.ageMin, form.ageMax)
     const location = composeLocation(form.street, form.ward, form.province, form.park)
@@ -226,6 +242,7 @@ export function PostJob() {
         hours: hours!,
         jobDuration: form.jobDuration || undefined,
         employmentType: form.employmentType || undefined,
+        workDays: form.daysNegotiable ? 'Thỏa thuận' : (form.workDays.length ? form.workDays.join(', ') : undefined),
         benefitTags: form.benefitTags.length ? form.benefitTags : undefined,
         numHires: hires!,
         genderRequirement: form.gender || undefined,
@@ -239,6 +256,7 @@ export function PostJob() {
         urgent: form.urgent,
         imageUrl,
         ...conditions,
+        workSchedule: form.workDays.length === 5 ? '5_days' as const : form.workDays.length === 6 ? '6_days' as const : form.workDays.length ? 'other' as const : conditions.workSchedule,
       }
       const deadlineOr = (days: number) => form.ongoing ? '' : (form.applicationDeadline.trim() || addDays(days))
 
@@ -378,358 +396,302 @@ export function PostJob() {
     )
   }
 
-  return (
-    <div className="page page--narrow post-job">
-      <header className="page-header">
-        <h1 className="page-header__title">Đăng tin tuyển dụng</h1>
-        <p className="page-header__lead">
-          Nhà tuyển dụng đăng việc miễn phí — tiếp cận ứng viên ngay hôm nay.
-        </p>
-      </header>
+  // 2026-10-30 Lee: 알바몬 일반공고와 같은 디자인(PostJob.css). 순서: 모집내용 → 근무조건 → 근무지 정보 → 접수기간·방법 → 담당자정보 → 상세모집요강.
+  const set = <K extends keyof typeof emptyForm>(k: K, v: (typeof emptyForm)[K]) => setForm((f) => ({ ...f, [k]: v }))
+  const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+  const phoneBad = !!form.employerPhone.trim() && !normalizeVnPhone(form.employerPhone)
+  const demogText = [form.gender ? (form.gender === 'Nam/nữ' ? 'Nam và nữ' : form.gender) : 'Không yêu cầu giới tính',
+    composeAge(form.ageMin, form.ageMax) || 'Không yêu cầu tuổi', form.education || 'Không yêu cầu học vấn'].join(', ')
+  const benefitText = [conditions.shuttleBus && 'Xe đưa đón', conditions.dormitory && 'Ký túc xá', conditions.mealProvided && 'Ăn ca',
+    ...form.benefitTags, form.insurance && 'Bảo hiểm'].filter(Boolean).join(', ')
 
-      <form className="form-card" onSubmit={onSubmit} noValidate>
-        {error && <p className="form-error" role="alert" ref={errorRef}>{error}</p>}
+  return (
+    <div className="pj">
+      <h1 className="pj__title">Đăng tin tuyển dụng</h1>
+      <p className="pj__lead">Nhà tuyển dụng đăng việc miễn phí — tiếp cận ứng viên ngay hôm nay.</p>
+
+      <form onSubmit={onSubmit} noValidate>
+        {error && <p className="pj-form-error" role="alert" ref={errorRef}>{error}</p>}
 
         {employerCheck === 'guest' && (
-          <fieldset className="role-picker">
-            <legend className="role-picker__legend">Cách đăng tin</legend>
-            <div className="role-picker__options" role="group">
-              <button
-                type="button"
-                className={`role-picker__btn${postMode === 'quick' ? ' role-picker__btn--active' : ''}`}
-                onClick={() => setPostMode('quick')}
-              >
-                ⚡ Đăng nhanh, không cần đăng ký
-              </button>
-              <button
-                type="button"
-                className={`role-picker__btn${postMode === 'email' ? ' role-picker__btn--active' : ''}`}
-                onClick={() => setPostMode('email')}
-              >
-                📧 Đăng ký bằng email
-              </button>
+          <div className="pj-mode">
+            <div className="pj-seg" role="group" aria-label="Cách đăng tin">
+              <button type="button" aria-pressed={postMode === 'quick'} onClick={() => setPostMode('quick')}>Đăng nhanh, không cần đăng ký</button>
+              <button type="button" aria-pressed={postMode === 'email'} onClick={() => setPostMode('email')}>Đăng ký bằng email</button>
             </div>
             {postMode === 'quick' ? (
-              <p className="hint">
-                Tin hiển thị ngay lập tức và <strong>tự động hết hạn sau 7 ngày</strong> nếu bạn không chọn hạn nộp
-                khác bên dưới. Sau khi đăng, bạn sẽ nhận được một link riêng để chỉnh sửa/ngừng đăng/gia hạn — hãy
-                lưu lại link đó vì đây là cách duy nhất để quản lý tin (không có tài khoản).
-              </p>
+              <p className="pj-hint" style={{ marginTop: 10 }}>Tin hiển thị ngay và <strong>tự động hết hạn sau 7 ngày</strong> nếu không chọn hạn nộp. Sau khi đăng bạn nhận một link riêng để sửa/ngừng đăng — hãy lưu lại link đó.</p>
             ) : (
-              <label className="field">
-                <span className="field__label">Email *</span>
-                <input ref={guestEmailRef} className="field__input" type="email" value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  placeholder="example@email.com" autoComplete="email" />
-                <span className="hint">Chúng tôi sẽ gửi link đặt mật khẩu để bạn đăng nhập quản lý tin sau này.</span>
-              </label>
+              <div className="pj-line" style={{ marginTop: 10 }}>
+                <input ref={guestEmailRef} className="pj-input pj-input--grow" type="email" value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)} placeholder="Email (gửi link đặt mật khẩu)" autoComplete="email" />
+              </div>
             )}
-          </fieldset>
+          </div>
         )}
 
-        {/* 0. Cơ bản */}
-        <label className="field">
-          <span className="field__label">Tiêu đề công việc *</span>
-          <input ref={titleRef} className="field__input" value={form.title}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            placeholder="Ví dụ: Nhân viên phục vụ ca tối" />
-        </label>
-
-        <label className="field">
-          <span className="field__label">Tên công ty / đơn vị *</span>
-          <input ref={companyRef} className="field__input" value={form.company}
-            onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
-            placeholder="Công ty TNHH ..." />
-        </label>
-
-        {/* ① Điều kiện làm việc */}
-        <fieldset className="jcf-section">
-          <legend>① Điều kiện làm việc</legend>
-          <div className="field">
-            <span className="field__label">Lương *</span>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input ref={salaryRef} className="field__input" style={{ flex: '1 1 160px', minWidth: 0 }} value={form.salaryAmount} disabled={form.salaryNegotiable}
-                onChange={(e) => setForm((f) => ({ ...f, salaryAmount: e.target.value }))} placeholder="Ví dụ: 9.000.000 đ" />
-              <select className="field__input" style={{ flex: '0 0 120px' }} value={form.salaryUnit} disabled={form.salaryNegotiable}
-                onChange={(e) => setForm((f) => ({ ...f, salaryUnit: e.target.value as PayUnit }))}>
-                <option value="hour">/ giờ</option><option value="day">/ ngày</option><option value="month">/ tháng</option>
+        <section className="pj-sec">
+          <h2 className="pj-sec__h">Nội dung tuyển dụng</h2>
+          <Row label="Tiêu đề" req>
+            <div className="pj-line">
+              <input ref={titleRef} className="pj-input pj-input--grow" maxLength={40} value={form.title} onChange={(e) => set('title', e.target.value)}
+                placeholder="Nhập tiêu đề (tối đa 40 ký tự / ví dụ: Tuyển công nhân lắp ráp linh kiện)" />
+              <span className="pj-count">{form.title.length}/40</span>
+            </div>
+          </Row>
+          <Row label="Ngành nghề" req>
+            <div className="pj-line">
+              <select className="pj-select" style={{ flex: '1 1 220px' }} value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as JobCategory, subcategory: '' }))}>
+                {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
               </select>
+              {subcategoryOptions && (
+                <select className="pj-select" style={{ flex: '1 1 220px' }} value={form.subcategory} onChange={(e) => set('subcategory', e.target.value)}>
+                  <option value="">Phân loại chi tiết</option>
+                  {Object.entries(subcategoryOptions).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </select>
+              )}
             </div>
-            <label className="field field--row"><input type="checkbox" checked={form.salaryNegotiable}
-              onChange={(e) => setForm((f) => ({ ...f, salaryNegotiable: e.target.checked }))} /><span className="field__label">Thỏa thuận</span></label>
-            <label className="field field--row"><input type="checkbox" checked={form.salaryIncludesOvertime} disabled={form.salaryNegotiable}
-              onChange={(e) => setForm((f) => ({ ...f, salaryIncludesOvertime: e.target.checked }))} /><span className="field__label">Đã gồm tăng ca</span></label>
-          </div>
-          <label className="field">
-            <span className="field__label">Phụ cấp · Thưởng</span>
-            <input className="field__input" value={form.allowance} onChange={(e) => setForm((f) => ({ ...f, allowance: e.target.value }))}
-              placeholder="Ví dụ: Chuyên cần 500.000đ/tháng" />
-          </label>
-          <label className="field">
-            <span className="field__label">Trả lương</span>
-            <select className="field__input" value={form.payMethod} onChange={(e) => setForm((f) => ({ ...f, payMethod: e.target.value }))}>
-              <option value="">— Không chọn —</option><option>Theo tháng</option><option>Theo tuần</option><option>Theo ngày</option>
-            </select>
-          </label>
-          <div className="field">
-            <span className="field__label">Thời gian làm việc *</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input ref={timeRef} type="time" className="field__input" style={{ flex: '0 1 130px' }} value={form.timeStart}
-                onChange={(e) => setForm((f) => ({ ...f, timeStart: e.target.value }))} aria-label="Giờ bắt đầu" />
-              <span>~</span>
-              <input type="time" className="field__input" style={{ flex: '0 1 130px' }} value={form.timeEnd}
-                onChange={(e) => setForm((f) => ({ ...f, timeEnd: e.target.value }))} aria-label="Giờ kết thúc" />
-              <span>Nghỉ</span>
-              <input inputMode="numeric" className="field__input" style={{ flex: '0 1 80px' }} value={form.breakMinutes}
-                onChange={(e) => setForm((f) => ({ ...f, breakMinutes: e.target.value.replace(/\D/g, '') }))} placeholder="60" aria-label="Phút nghỉ" />
-              <span>phút</span>
-            </div>
-          </div>
-          <Choice<ShiftType> label="Ca làm việc" value={conditions.shiftType}
-            options={(['day', 'night', 'rotating', 'other'] as ShiftType[]).map((v) => [v, SHIFT_LABELS[v]])}
-            onChange={(v) => setConditions((c) => ({ ...c, shiftType: v }))} />
-          <Choice<WorkSchedule> label="Ngày làm việc" value={conditions.workSchedule}
-            options={(['5_days', '6_days', 'other'] as WorkSchedule[]).map((v) => [v, SCHEDULE_LABELS[v]])}
-            onChange={(v) => setConditions((c) => ({ ...c, workSchedule: v }))} />
-          <Tri label="Làm cuối tuần" value={conditions.weekendWork} onChange={(v) => setConditions((c) => ({ ...c, weekendWork: v }))} />
-          <label className="field">
-            <span className="field__label">Thời hạn làm việc</span>
-            <select className="field__input" value={form.jobDuration} onChange={(e) => setForm((f) => ({ ...f, jobDuration: e.target.value }))}>
-              <option value="">— Không chọn —</option>
-              {JOB_DURATION_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </label>
-          <div className="jcf-row" role="radiogroup" aria-label="Hình thức làm việc">
-            <span className="jcf-row__label">Hình thức làm việc *</span>
-            <div className="jcf-seg">
+          </Row>
+          <Row label="Hình thức" req>
+            <div className="pj-chips" role="group" aria-label="Hình thức làm việc">
               {([['full_time', 'Chính thức'], ['seasonal', 'Thời vụ'], ['part_time', 'Part-time']] as const).map(([v, t], i) => (
-                <button key={v} ref={i === 0 ? employmentRef : undefined} type="button" role="radio" aria-checked={form.employmentType === v}
-                  className={form.employmentType === v ? 'is-on' : ''} onClick={() => setForm((f) => ({ ...f, employmentType: v }))}>{t}</button>
+                <button key={v} ref={i === 0 ? employmentRef : undefined} type="button" aria-pressed={form.employmentType === v} onClick={() => set('employmentType', v)}>{t}</button>
               ))}
+              <button type="button" aria-pressed={conditions.recruitmentType === 'agency'}
+                onClick={() => setConditions((c) => ({ ...c, recruitmentType: c.recruitmentType === 'agency' ? null : 'agency' }))}>{RECRUITMENT_LABELS.agency}</button>
             </div>
-          </div>
-          <Choice<Exclude<RecruitmentType, 'unknown'>> label="Hình thức tuyển"
-            value={conditions.recruitmentType === 'unknown' ? null : conditions.recruitmentType}
-            options={[['direct', RECRUITMENT_LABELS.direct], ['agency', RECRUITMENT_LABELS.agency]]}
-            onChange={(v) => setConditions((c) => ({ ...c, recruitmentType: v }))} />
-          <label className="field">
-            <span className="field__label">Ngành nghề *</span>
-            <select className="field__input" value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as JobCategory, subcategory: '' }))}>
-              {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-            </select>
-          </label>
-          {subcategoryOptions && (
-            <label className="field">
-              <span className="field__label">Phân loại chi tiết</span>
-              <select className="field__input" value={form.subcategory} onChange={(e) => setForm((f) => ({ ...f, subcategory: e.target.value }))}>
-                <option value="">— Không chọn —</option>
-                {Object.entries(subcategoryOptions).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-              </select>
-            </label>
-          )}
-          <span className="field__label">Phúc lợi</span>
-          <Tri label="Xe đưa đón" value={conditions.shuttleBus} onChange={(v) => setConditions((c) => ({ ...c, shuttleBus: v }))} />
-          <Tri label="Ký túc xá" value={conditions.dormitory} onChange={(v) => setConditions((c) => ({ ...c, dormitory: v }))} />
-          <Tri label="Ăn ca" value={conditions.mealProvided} onChange={(v) => setConditions((c) => ({ ...c, mealProvided: v }))} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', margin: '6px 0' }}>
-            {BENEFIT_TAG_OPTIONS.map((t) => (
-              <label key={t} className="field field--row" style={{ margin: 0 }}>
-                <input type="checkbox" checked={form.benefitTags.includes(t)}
-                  onChange={(e) => setForm((f) => ({ ...f, benefitTags: e.target.checked ? [...f.benefitTags, t] : f.benefitTags.filter((x) => x !== t) }))} />
-                <span className="field__label">{t}</span>
-              </label>
-            ))}
-            <label className="field field--row" style={{ margin: 0 }}>
-              <input type="checkbox" checked={form.insurance} onChange={(e) => setForm((f) => ({ ...f, insurance: e.target.checked }))} />
-              <span className="field__label">Bảo hiểm (BHXH/BHYT)</span>
-            </label>
-          </div>
-          <input className="field__input" value={form.benefitOther} onChange={(e) => setForm((f) => ({ ...f, benefitOther: e.target.value }))}
-            placeholder="Phúc lợi khác (tuỳ chọn)" aria-label="Phúc lợi khác" />
-        </fieldset>
-
-        {/* ② Thông tin tuyển dụng */}
-        <fieldset className="jcf-section">
-          <legend>② Thông tin tuyển dụng</legend>
-          <div className="field">
-            <span className="field__label">{quickGuestMode ? 'Hạn nộp hồ sơ * (để trống = 7 ngày)' : 'Hạn nộp hồ sơ *'}</span>
-            <input ref={deadlineRef} className="field__input" type="date" value={form.applicationDeadline} disabled={form.ongoing}
-              onChange={(e) => setForm((f) => ({ ...f, applicationDeadline: e.target.value }))} />
-            {!quickGuestMode && (
-              <label className="field field--row"><input type="checkbox" checked={form.ongoing}
-                onChange={(e) => setForm((f) => ({ ...f, ongoing: e.target.checked, applicationDeadline: e.target.checked ? '' : f.applicationDeadline }))} />
-                <span className="field__label">Tuyển liên tục (đến khi đủ)</span></label>
+          </Row>
+          <Row label="Số lượng tuyển" req>
+            <div className="pj-line">
+              <input ref={hiresRef} inputMode="numeric" className="pj-input pj-input--num" value={form.hires} disabled={form.hiresUndecided}
+                onChange={(e) => set('hires', e.target.value.replace(/\D/g, ''))} />
+              <span className="pj-suffix">người</span>
+              <Check checked={form.hiresUndecided} onChange={(v) => set('hiresUndecided', v)}>Chưa xác định</Check>
+            </div>
+          </Row>
+          <Row label="Giới tính·Tuổi·Học vấn" req>
+            <div className="pj-line">
+              <span>{demogText}</span>
+              <button type="button" className="pj-link" onClick={() => setShowDemog((v) => !v)}>Thay đổi {showDemog ? '▴' : '▾'}</button>
+            </div>
+            {showDemog && (
+              <div className="pj-panel">
+                <div className="pj-chips" role="group" aria-label="Giới tính">
+                  {([['', 'Không yêu cầu'], ['Nam', 'Nam'], ['Nữ', 'Nữ'], ['Nam/nữ', 'Nam và nữ']] as const).map(([v, t]) => (
+                    <button key={t} type="button" aria-pressed={form.gender === v} onClick={() => set('gender', v)}>{t}</button>
+                  ))}
+                </div>
+                {form.gender === 'Nam/nữ' && (
+                  <div className="pj-line">
+                    <span>Nam</span><input inputMode="numeric" className="pj-input" style={{ width: 90 }} value={form.genderMale} onChange={(e) => set('genderMale', e.target.value.replace(/\D/g, ''))} aria-label="Số nam" />
+                    <span>Nữ</span><input inputMode="numeric" className="pj-input" style={{ width: 90 }} value={form.genderFemale} onChange={(e) => set('genderFemale', e.target.value.replace(/\D/g, ''))} aria-label="Số nữ" />
+                    <span className="pj-hint">(tuỳ chọn)</span>
+                  </div>
+                )}
+                <div className="pj-line">
+                  <input ref={ageRef} inputMode="numeric" className="pj-input" style={{ width: 90 }} value={form.ageMin} onChange={(e) => set('ageMin', e.target.value.replace(/\D/g, ''))} placeholder="18" aria-label="Tuổi từ" />
+                  <span>~</span>
+                  <input inputMode="numeric" className="pj-input" style={{ width: 90 }} value={form.ageMax} onChange={(e) => set('ageMax', e.target.value.replace(/\D/g, ''))} placeholder="45" aria-label="Tuổi đến" />
+                  <span>tuổi</span>
+                  <select className="pj-select" style={{ width: 200 }} value={form.education} onChange={(e) => set('education', e.target.value)} aria-label="Học vấn">
+                    <option value="">Không yêu cầu học vấn</option><option>THCS</option><option>THPT</option><option>Trung cấp</option><option>Cao đẳng</option><option>Đại học</option>
+                  </select>
+                </div>
+              </div>
             )}
-          </div>
-          <div className="field">
-            <span className="field__label">Số lượng tuyển *</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input ref={hiresRef} inputMode="numeric" className="field__input" style={{ flex: '0 1 120px' }} value={form.hires} disabled={form.hiresUndecided}
-                onChange={(e) => setForm((f) => ({ ...f, hires: e.target.value.replace(/\D/g, '') }))} placeholder="10" />
-              <span>người</span>
-            </div>
-            <label className="field field--row"><input type="checkbox" checked={form.hiresUndecided}
-              onChange={(e) => setForm((f) => ({ ...f, hiresUndecided: e.target.checked }))} /><span className="field__label">Chưa xác định</span></label>
-          </div>
-          <div className="field">
-            <span className="field__label">Độ tuổi</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input ref={ageRef} inputMode="numeric" className="field__input" style={{ flex: '0 1 90px' }} value={form.ageMin}
-                onChange={(e) => setForm((f) => ({ ...f, ageMin: e.target.value.replace(/\D/g, '') }))} placeholder="18" aria-label="Tuổi từ" />
-              <span>~</span>
-              <input inputMode="numeric" className="field__input" style={{ flex: '0 1 90px' }} value={form.ageMax}
-                onChange={(e) => setForm((f) => ({ ...f, ageMax: e.target.value.replace(/\D/g, '') }))} placeholder="45" aria-label="Tuổi đến" />
-              <span>tuổi</span>
-            </div>
-          </div>
-          <div className="jcf-row" role="radiogroup" aria-label="Giới tính">
-            <span className="jcf-row__label">Giới tính</span>
-            <div className="jcf-seg">
-              {([['', 'Không yêu cầu'], ['Nam', 'Nam'], ['Nữ', 'Nữ'], ['Nam/nữ', 'Nam và nữ']] as const).map(([v, t]) => (
-                <button key={t} type="button" role="radio" aria-checked={form.gender === v} className={form.gender === v ? 'is-on' : ''}
-                  onClick={() => setForm((f) => ({ ...f, gender: v }))}>{t}</button>
+          </Row>
+          <Row label="Ưu tiên">
+            <input className="pj-input" value={form.preference} onChange={(e) => set('preference', e.target.value)}
+              placeholder="Kinh nghiệm, ở gần, ... (tuỳ chọn)" />
+            <Check checked={conditions.immediateStart === true} onChange={(v) => setConditions((c) => ({ ...c, immediateStart: v ? true : null }))}>Đi làm ngay</Check>
+          </Row>
+        </section>
+
+        <section className="pj-sec">
+          <h2 className="pj-sec__h">Điều kiện làm việc</h2>
+          <Row label="Thời hạn làm việc">
+            <div className="pj-seg" role="group" aria-label="Thời hạn làm việc">
+              {JOB_DURATION_OPTIONS.map((d) => (
+                <button key={d} type="button" aria-pressed={form.jobDuration === d} onClick={() => set('jobDuration', form.jobDuration === d ? '' : d)}>{d}</button>
               ))}
             </div>
-          </div>
-          {form.gender === 'Nam/nữ' && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '6px 0 10px' }}>
-              <span>Nam</span><input inputMode="numeric" className="field__input" style={{ flex: '0 1 80px' }} value={form.genderMale}
-                onChange={(e) => setForm((f) => ({ ...f, genderMale: e.target.value.replace(/\D/g, '') }))} aria-label="Số nam" />
-              <span>Nữ</span><input inputMode="numeric" className="field__input" style={{ flex: '0 1 80px' }} value={form.genderFemale}
-                onChange={(e) => setForm((f) => ({ ...f, genderFemale: e.target.value.replace(/\D/g, '') }))} aria-label="Số nữ" />
-              <span className="hint">(tuỳ chọn)</span>
+          </Row>
+          <Row label="Ngày làm việc">
+            <div className="pj-days" role="group" aria-label="Ngày làm việc">
+              {DAYS.map((d) => (
+                <button key={d} type="button" aria-pressed={form.workDays.includes(d)}
+                  onClick={() => set('workDays', form.workDays.includes(d) ? form.workDays.filter((x) => x !== d) : DAYS.filter((x) => x === d || form.workDays.includes(x)))}>{d}</button>
+              ))}
             </div>
-          )}
-          <label className="field">
-            <span className="field__label">Học vấn</span>
-            <select className="field__input" value={form.education} onChange={(e) => setForm((f) => ({ ...f, education: e.target.value }))}>
-              <option value="">— Không yêu cầu —</option><option>THCS</option><option>THPT</option><option>Trung cấp</option><option>Cao đẳng</option><option>Đại học</option>
-            </select>
-          </label>
-          <label className="field">
-            <span className="field__label">Kinh nghiệm · Ưu tiên · Yêu cầu khác</span>
-            <input className="field__input" value={form.preference} onChange={(e) => setForm((f) => ({ ...f, preference: e.target.value }))}
-              placeholder="Ví dụ: Không cần kinh nghiệm, ưu tiên ở gần" />
-          </label>
-          <Tri label="Đi làm ngay" value={conditions.immediateStart} onChange={(v) => setConditions((c) => ({ ...c, immediateStart: v }))} />
-        </fieldset>
+            <div className="pj-checks">
+              <Check checked={form.daysNegotiable} onChange={(v) => set('daysNegotiable', v)}>Thỏa thuận</Check>
+            </div>
+          </Row>
+          <Row label="Giờ làm việc" req>
+            <div className="pj-line">
+              <input ref={timeRef} type="time" className="pj-input pj-input--round" style={{ width: 180 }} value={form.timeStart} disabled={form.hoursNegotiable}
+                onChange={(e) => set('timeStart', e.target.value)} aria-label="Giờ bắt đầu" />
+              <input type="time" className="pj-input pj-input--round" style={{ width: 180 }} value={form.timeEnd} disabled={form.hoursNegotiable}
+                onChange={(e) => set('timeEnd', e.target.value)} aria-label="Giờ kết thúc" />
+              <span className="pj-suffix">Nghỉ</span>
+              <input inputMode="numeric" className="pj-input pj-input--round" style={{ width: 90 }} value={form.breakMinutes} disabled={form.hoursNegotiable}
+                onChange={(e) => set('breakMinutes', e.target.value.replace(/\D/g, ''))} placeholder="60" aria-label="Phút nghỉ" />
+              <span className="pj-suffix">phút</span>
+            </div>
+            <div className="pj-chips" role="group" aria-label="Ca làm việc">
+              {(['day', 'night', 'rotating'] as ShiftType[]).map((v) => (
+                <button key={v} type="button" aria-pressed={conditions.shiftType === v}
+                  onClick={() => setConditions((c) => ({ ...c, shiftType: c.shiftType === v ? null : v }))}>{SHIFT_LABELS[v]}</button>
+              ))}
+            </div>
+            <div className="pj-checks">
+              <Check checked={form.hoursNegotiable} onChange={(v) => set('hoursNegotiable', v)}>Thỏa thuận</Check>
+              <Check checked={conditions.weekendWork === true} onChange={(v) => setConditions((c) => ({ ...c, weekendWork: v ? true : null }))}>Làm cuối tuần</Check>
+            </div>
+          </Row>
+          <Row label="Lương" req>
+            <div className="pj-line">
+              <select className="pj-select pj-select--round" style={{ width: 140 }} value={form.salaryUnit} disabled={form.salaryNegotiable}
+                onChange={(e) => set('salaryUnit', e.target.value as PayUnit)}>
+                <option value="hour">Theo giờ</option><option value="day">Theo ngày</option><option value="month">Theo tháng</option>
+              </select>
+              <input ref={salaryRef} className="pj-input pj-input--round" style={{ flex: '1 1 220px' }} value={form.salaryAmount} disabled={form.salaryNegotiable}
+                onChange={(e) => set('salaryAmount', e.target.value)} placeholder="Nhập số tiền (ví dụ 9.000.000 đ)" />
+            </div>
+            <div className="pj-checks">
+              <Check checked={form.salaryNegotiable} onChange={(v) => set('salaryNegotiable', v)}>Thỏa thuận</Check>
+              <Check checked={form.salaryIncludesOvertime} onChange={(v) => set('salaryIncludesOvertime', v)}>Đã gồm tăng ca</Check>
+              <Check checked={form.payMethod === 'Theo tuần'} onChange={(v) => set('payMethod', v ? 'Theo tuần' : '')}>Trả theo tuần</Check>
+              <Check checked={form.payMethod === 'Theo ngày'} onChange={(v) => set('payMethod', v ? 'Theo ngày' : '')}>Trả theo ngày</Check>
+            </div>
+            <input className="pj-input pj-input--round" value={form.allowance} onChange={(e) => set('allowance', e.target.value)}
+              placeholder="Phụ cấp · Thưởng (tuỳ chọn, ví dụ: Chuyên cần 500.000đ/tháng)" />
+          </Row>
+          <Row label="Phúc lợi">
+            <div className="pj-line">
+              <input className="pj-input pj-input--round pj-input--grow" readOnly value={benefitText}
+                placeholder="Xe đưa đón, Ký túc xá, Ăn ca, Bảo hiểm... chọn phúc lợi" onClick={() => setShowBenefits(true)} />
+              <button type="button" className="pj-btn-dark" onClick={() => setShowBenefits((v) => !v)}>Chọn</button>
+            </div>
+            {showBenefits && (
+              <div className="pj-panel">
+                <div className="pj-checks">
+                  <Check checked={conditions.shuttleBus === true} onChange={(v) => setConditions((c) => ({ ...c, shuttleBus: v ? true : null }))}>Xe đưa đón</Check>
+                  <Check checked={conditions.dormitory === true} onChange={(v) => setConditions((c) => ({ ...c, dormitory: v ? true : null }))}>Ký túc xá</Check>
+                  <Check checked={conditions.mealProvided === true} onChange={(v) => setConditions((c) => ({ ...c, mealProvided: v ? true : null }))}>Ăn ca</Check>
+                  {BENEFIT_TAG_OPTIONS.map((t) => (
+                    <Check key={t} checked={form.benefitTags.includes(t)}
+                      onChange={(v) => set('benefitTags', v ? [...form.benefitTags, t] : form.benefitTags.filter((x) => x !== t))}>{t}</Check>
+                  ))}
+                  <Check checked={form.insurance} onChange={(v) => set('insurance', v)}>Bảo hiểm (BHXH/BHYT)</Check>
+                </div>
+                <input className="pj-input" value={form.benefitOther} onChange={(e) => set('benefitOther', e.target.value)} placeholder="Phúc lợi khác (tuỳ chọn)" />
+              </div>
+            )}
+          </Row>
+        </section>
 
-        {/* ③ Khu vực làm việc */}
-        <fieldset className="jcf-section">
-          <legend>③ Khu vực làm việc</legend>
-          <p className="jcf-help">Bấm vào bản đồ để đặt ghim đúng nơi làm việc (cổng công ty/nhà máy).</p>
-          <VietMapPinPicker value={pin} center={mapCenter} onChange={setPin} />
-          <div className="jcf-pin-bar">
-            <span>{pin ? `Đã chọn: ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}` : 'Chưa chọn vị trí trên bản đồ'}</span>
-            <span className="jcf-pin-bar__actions">
-              <button type="button" onClick={useMyLocation}>Dùng vị trí hiện tại</button>
-              {pin && <button type="button" onClick={() => setPin(null)}>Xóa ghim</button>}
-            </span>
-          </div>
-          <label className="field">
-            <span className="field__label">Số nhà · Đường *</span>
-            <input ref={streetRef} className="field__input" value={form.street} onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))}
-              placeholder="Ví dụ: 33 Lý Thái Tổ" />
-          </label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <label className="field" style={{ flex: '1 1 200px', minWidth: 0 }}>
-              <span className="field__label">Tỉnh / Thành phố *</span>
-              <select className="field__input" value={form.province} onChange={(e) => setForm((f) => ({ ...f, province: e.target.value, ward: '' }))}>
-                <option value="">— Chọn —</option>
+        <section className="pj-sec">
+          <h2 className="pj-sec__h">Nơi làm việc</h2>
+          <Row label="Địa chỉ" req>
+            <input ref={streetRef} className="pj-input" value={form.street} onChange={(e) => set('street', e.target.value)} placeholder="Số nhà, đường (ví dụ: 33 Lý Thái Tổ)" />
+            <div className="pj-map">
+              <div className="pj-map__bar">
+                <span>{pin ? `Đã chọn: ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}` : 'Bấm vào bản đồ để chọn đúng nơi làm việc'}</span>
+                <span className="pj-line">
+                  <button type="button" onClick={useMyLocation}>◎ Vị trí hiện tại</button>
+                  {pin && <button type="button" onClick={() => setPin(null)}>↻ Đặt lại</button>}
+                </span>
+              </div>
+              <VietMapPinPicker value={pin} center={mapCenter} onChange={setPin} />
+            </div>
+          </Row>
+          <Row label="Khu vực" req count={`${[form.province, form.ward].filter(Boolean).length}/2`}>
+            <div className="pj-line">
+              <select className="pj-select" style={{ flex: '1 1 200px' }} value={form.province} onChange={(e) => setForm((f) => ({ ...f, province: e.target.value, ward: '' }))}>
+                <option value="">Tỉnh / Thành phố</option>
                 {VN_PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
-            </label>
-            <label className="field" style={{ flex: '1 1 200px', minWidth: 0 }}>
-              <span className="field__label">Phường / Xã *</span>
-              <select className="field__input" value={form.ward} disabled={!form.province} onChange={(e) => setForm((f) => ({ ...f, ward: e.target.value }))}>
-                <option value="">— Chọn —</option>
+              <select className="pj-select" style={{ flex: '1 1 200px' }} value={form.ward} disabled={!form.province} onChange={(e) => set('ward', e.target.value)}>
+                <option value="">Phường / Xã</option>
                 {(VN_WARDS_BY_PROVINCE[form.province] ?? []).map((w) => <option key={w} value={w}>{w}</option>)}
               </select>
-            </label>
-          </div>
-          <label className="field">
-            <span className="field__label">KCN / Nhà máy</span>
-            <input className="field__input" value={form.park} onChange={(e) => setForm((f) => ({ ...f, park: e.target.value }))}
-              placeholder="Ví dụ: KCN Quế Võ III" />
-          </label>
-        </fieldset>
-
-        {/* ④ Mô tả công việc */}
-        <fieldset className="jcf-section">
-          <legend>④ Mô tả công việc</legend>
-          <label className="field">
-            <span className="field__label">Nội dung công việc *</span>
-            <textarea ref={descriptionRef} className="field__input field__textarea" rows={4} value={form.work}
-              onChange={(e) => setForm((f) => ({ ...f, work: e.target.value }))} placeholder="Làm gì, ở đâu, dùng máy gì..." />
-          </label>
-          <label className="field">
-            <span className="field__label">Tăng ca (tiền tăng ca, hệ số)</span>
-            <input className="field__input" value={form.overtime} onChange={(e) => setForm((f) => ({ ...f, overtime: e.target.value }))}
-              placeholder="Ví dụ: 45.000đ/giờ, x1.5 ngày thường" />
-          </label>
-          <label className="field">
-            <span className="field__label">Môi trường làm việc</span>
-            <input className="field__input" value={form.environment} onChange={(e) => setForm((f) => ({ ...f, environment: e.target.value }))} />
-          </label>
-          <label className="field">
-            <span className="field__label">Quy trình tuyển dụng</span>
-            <input className="field__input" value={form.process} onChange={(e) => setForm((f) => ({ ...f, process: e.target.value }))}
-              placeholder="Ví dụ: Phỏng vấn trực tiếp, mang CCCD" />
-          </label>
-          <div className="field">
-            <span className="field__label">Ảnh · Poster</span>
-            <div
-              style={{ border: '2px dashed #ddd', borderRadius: 8, padding: 16, textAlign: 'center', cursor: 'pointer', marginTop: 6 }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {imagePreview
-                ? <img src={imagePreview} alt="preview" style={{ maxHeight: 160, borderRadius: 6, maxWidth: '100%' }} />
-                : <p style={{ color: '#aaa', margin: 0 }}>Nhấn để chọn ảnh (JPG, PNG)</p>
-              }
+            </div>
+          </Row>
+          <Row label="KCN / Nhà máy">
+            <input className="pj-input" value={form.park} onChange={(e) => set('park', e.target.value)} placeholder="Ví dụ: KCN Quế Võ III (tuỳ chọn)" />
+          </Row>
+          <Row label="Tên công ty" req count={`${form.company.length}/30`}>
+            <input ref={companyRef} className="pj-input" maxLength={30} value={form.company} onChange={(e) => set('company', e.target.value)} placeholder="Công ty TNHH ..." />
+            <div className="pj-note">Gợi ý: Tên công ty + (chi nhánh). Không ghi quảng cáo quá mức.</div>
+          </Row>
+          <Row label="Ảnh">
+            <div className="pj-line">
+              <div className="pj-photo" onClick={() => fileInputRef.current?.click()}>
+                {imagePreview ? <img src={imagePreview} alt="preview" /> : '⊕ Thêm ảnh'}
+              </div>
+              {imagePreview && <button type="button" className="pj-link" onClick={() => { setImageFile(null); setImagePreview(null) }}>Xoá ảnh</button>}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onImageChange} />
-            {imagePreview && (
-              <button type="button" style={{ marginTop: 6, fontSize: 12, color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer' }}
-                onClick={() => { setImageFile(null); setImagePreview(null) }}>
-                Xoá ảnh
-              </button>
-            )}
-          </div>
-          <label className="field">
-            <span className="field__label">Số điện thoại liên hệ *</span>
-            <input ref={employerPhoneRef} className="field__input" value={form.employerPhone}
-              onChange={(e) => setForm((f) => ({ ...f, employerPhone: e.target.value }))}
-              style={form.employerPhone.trim() && !normalizeVnPhone(form.employerPhone) ? { borderColor: '#d92d20' } : undefined}
-              inputMode="tel" autoComplete="tel" placeholder="0900 000 000" />
-            {form.employerPhone.trim() && !normalizeVnPhone(form.employerPhone) && <span className="hint" style={{ color: '#d92d20' }}>Số điện thoại không hợp lệ</span>}
-          </label>
-          <label className="field field--row"><input type="checkbox" checked={form.zaloSameAsPhone}
-            onChange={(e) => setForm((f) => ({ ...f, zaloSameAsPhone: e.target.checked }))} /><span className="field__label">Zalo cùng số điện thoại</span></label>
-          {!form.zaloSameAsPhone && (
-            <label className="field">
-              <span className="field__label">Zalo</span>
-              <input ref={zaloRef} className="field__input" value={form.zalo} onChange={(e) => setForm((f) => ({ ...f, zalo: e.target.value }))}
-                inputMode="tel" placeholder="0900 000 000" />
-            </label>
-          )}
-          <label className="field field--row">
-            <input type="checkbox" checked={form.urgent} onChange={(e) => setForm((f) => ({ ...f, urgent: e.target.checked }))} />
-            <span className="field__label">🔥 Tuyển gấp</span>
-          </label>
-          <label className="field field--row">
-            <input type="checkbox" checked={form.laborContractPledge} onChange={(e) => setForm((f) => ({ ...f, laborContractPledge: e.target.checked }))} />
-            <span className="field__label">Cam kết ký hợp đồng lao động rõ ràng</span>
-          </label>
-        </fieldset>
+          </Row>
+        </section>
 
-        <div className="form-actions">
-          <button type="submit" className="btn btn--primary" disabled={submitting || employerCheck === 'checking'}>
-            {submitting ? 'Đang đăng...' : 'Đăng tin'}
-          </button>
-          <button type="button" className="btn btn--ghost" onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }} disabled={submitting}>
-            Xoá form
-          </button>
+        <section className="pj-sec">
+          <h2 className="pj-sec__h">Hạn nộp · Cách ứng tuyển</h2>
+          <Row label="Hạn nộp hồ sơ" req>
+            <div className="pj-line">
+              <div className="pj-seg" role="group" aria-label="Hạn nộp">
+                <button type="button" aria-pressed={!form.ongoing} onClick={() => set('ongoing', false)}>Chọn ngày</button>
+                {!quickGuestMode && <button type="button" aria-pressed={form.ongoing} onClick={() => setForm((f) => ({ ...f, ongoing: true, applicationDeadline: '' }))}>Tuyển liên tục</button>}
+              </div>
+              {!form.ongoing && <input ref={deadlineRef} type="date" className="pj-input" style={{ width: 200 }} value={form.applicationDeadline} onChange={(e) => set('applicationDeadline', e.target.value)} />}
+            </div>
+            {quickGuestMode && <p className="pj-hint">• Đăng nhanh: để trống = hết hạn sau 7 ngày.</p>}
+          </Row>
+          <Row label="Quy trình tuyển dụng">
+            <input className="pj-input" value={form.process} onChange={(e) => set('process', e.target.value)} placeholder="Ví dụ: Phỏng vấn trực tiếp, mang CCCD (tuỳ chọn)" />
+          </Row>
+        </section>
+
+        <section className="pj-sec">
+          <h2 className="pj-sec__h">Người liên hệ</h2>
+          <Row label="Điện thoại" req>
+            <div className="pj-line">
+              <input ref={employerPhoneRef} className={`pj-input${phoneBad ? ' pj-input--bad' : ''}`} style={{ width: 320 }} value={form.employerPhone}
+                onChange={(e) => set('employerPhone', e.target.value)} inputMode="tel" autoComplete="tel" placeholder="0912 345 678" />
+              <Check checked={form.zaloSameAsPhone} onChange={(v) => set('zaloSameAsPhone', v)}>Zalo cùng số</Check>
+            </div>
+            {phoneBad && <p className="pj-error">Số điện thoại không hợp lệ</p>}
+            {!form.zaloSameAsPhone && (
+              <input ref={zaloRef} className="pj-input" style={{ width: 320 }} value={form.zalo} onChange={(e) => set('zalo', e.target.value)} inputMode="tel" placeholder="Số Zalo" />
+            )}
+          </Row>
+          <Row label="Tuỳ chọn">
+            <div className="pj-checks">
+              <Check checked={form.urgent} onChange={(v) => set('urgent', v)}>🔥 Tuyển gấp</Check>
+              <Check checked={form.laborContractPledge} onChange={(v) => set('laborContractPledge', v)}>Cam kết ký hợp đồng lao động rõ ràng</Check>
+            </div>
+          </Row>
+        </section>
+
+        <section className="pj-sec">
+          <h2 className="pj-sec__h">Mô tả công việc</h2>
+          <Row label="Nội dung công việc" req>
+            <textarea ref={descriptionRef} className="pj-textarea" value={form.work} onChange={(e) => set('work', e.target.value)} placeholder="Nhập nội dung công việc" />
+          </Row>
+          <Row label="Tăng ca">
+            <input className="pj-input" value={form.overtime} onChange={(e) => set('overtime', e.target.value)} placeholder="Tiền tăng ca, hệ số (ví dụ: 45.000đ/giờ, x1.5)" />
+          </Row>
+          <Row label="Môi trường làm việc">
+            <input className="pj-input" value={form.environment} onChange={(e) => set('environment', e.target.value)} placeholder="(tuỳ chọn)" />
+          </Row>
+        </section>
+
+        <div className="pj-bar">
+          <button type="button" className="pj-bar__ghost" disabled={submitting}
+            onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }}>Xoá form</button>
+          <button type="submit" className="pj-bar__main" disabled={submitting || employerCheck === 'checking'}>{submitting ? 'Đang đăng...' : 'Đăng tin'}</button>
         </div>
       </form>
     </div>
