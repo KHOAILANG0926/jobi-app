@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useJobs } from '../../context/JobsContext'
-import { findRegionCenter } from '../../lib/jobCoords'
+import { externalMapLinks, findRegionCenter } from '../../lib/jobCoords'
 import type { AdminMapPick } from './AdminVietMap'
 
 const AdminVietMap = lazy(() => import('./AdminVietMap'))
@@ -56,7 +56,8 @@ function LocationReviewItem({job,open,onToggle,onComplete}:{job:PendingJob;open:
   }
   const areaFallback = !job.approximate ? findRegionCenter(job.address) : null
   const rough = job.approximate || (areaFallback ? {...areaFallback,accuracy:'region/ward — approximate'} : null)
-  const searchUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.address)
+  // 2026-10-30 Lee: 앱 메인·상세의 "Xem trên Google Maps"와 같은 방식(같은 함수)으로 연다 — 좌표가 있으면 좌표 중심, 없을 때만 주소 글자 검색.
+  const searchUrl=(rough && externalMapLinks(rough,false,14)?.view) || 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(job.address)
   const locationOk=!!point && !!job.address
   const allOk=locationOk
   const status=allOk
