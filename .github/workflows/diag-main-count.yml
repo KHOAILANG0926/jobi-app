@@ -1,0 +1,12 @@
+name: diag-main-count
+on: pull_request
+jobs:
+  diag:
+    if: github.head_ref == 'diag/main-count-20261030'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm i --no-save playwright@1.47.2 && npx playwright install chromium
+      - run: node scripts/ops/diag-main-count.mjs
