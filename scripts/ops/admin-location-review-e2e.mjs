@@ -157,12 +157,12 @@ try {
   await page.screenshot({path:'location-review-e2e.png',fullPage:true})
 } catch(error) {
   process.exitCode=1
-  console.error('LOCATION E2E FAILED:',error instanceof Error?error.stack:String(error))
+  console.log('::error title=loc::'+String(error?.stack||error).replace(/\n/g,' | ').slice(0,1800));console.error('LOCATION E2E FAILED:',error instanceof Error?error.stack:String(error))
 } finally {
   if(browser) await browser.close().catch(()=>{})
   if(ids.length) {
   const candidates=await db.from('job_location_candidates').select('id,evidence').in('job_id',ids)
-  if(candidates.error) {console.error('CLEANUP candidate read failed:',candidates.error.message);process.exitCode=1}
+  if(candidates.error) {console.log('::error title=cleanup::CLEANUP candidate read failed:');console.error('CLEANUP candidate read failed:',candidates.error.message);process.exitCode=1}
   else {
     const keys=(candidates.data||[]).map(x=>x.id)
     if(keys.length) {
@@ -174,7 +174,7 @@ try {
         const left=await cleanupDb.query('select count(*)::int as n from public.admin_confirmed_location_memory where source_candidate_id=any($1::bigint[])',[keys])
         assert.equal(left.rows[0].n,0)
         console.log('PASS: test coordinate memory deleted')
-      } catch(e) {console.error('CLEANUP memory failed:',e.message);process.exitCode=1}
+      } catch(e) {console.log('::error title=cleanup::CLEANUP memory failed:');console.error('CLEANUP memory failed:',e.message);process.exitCode=1}
       finally {await cleanupDb.end().catch(()=>{})}
       // First remove auto-copies; removing their source first would trigger revocation updates
       // against rows participating in the same DELETE statement.
@@ -183,12 +183,12 @@ try {
       for(const batch of [autos,originals]) {
         if(!batch.length)continue
         const e=await db.from('job_location_candidates').delete().in('id',batch)
-        if(e.error) {console.error('CLEANUP candidates failed:',e.error.message);process.exitCode=1}
+        if(e.error) {console.log('::error title=cleanup::CLEANUP candidates failed:');console.error('CLEANUP candidates failed:',e.error.message);process.exitCode=1}
       }
     }
   }
   const del=await db.from('local_jobs').delete().in('id',ids)
-  if(del.error) {console.error('CLEANUP private jobs failed:',del.error.message);process.exitCode=1}
+  if(del.error) {console.log('::error title=cleanup::CLEANUP private jobs failed:');console.error('CLEANUP private jobs failed:',del.error.message);process.exitCode=1}
   const left=await db.from('local_jobs').select('id').in('id',ids)
   if(left.error || (left.data||[]).length) {console.error('CRITICAL: test jobs remain',ids);process.exitCode=1}
   else console.log('PASS: both private test jobs deleted')
@@ -204,7 +204,7 @@ try {
         const remaining=await cleanupDb.query('select count(*)::int as n from public.'+table+' where job_id=any($1::bigint[])',[ids])
         assert.equal(remaining.rows[0].n,0,'cleanup left generated rows in '+table)
       }
-    } catch(e) {console.error('CLEANUP source/cache failed:',e.message);process.exitCode=1}
+    } catch(e) {console.log('::error title=cleanup::CLEANUP source/cache failed:');console.error('CLEANUP source/cache failed:',e.message);process.exitCode=1}
     finally {await cleanupDb.end().catch(()=>{})}
   }
   if(!process.exitCode) console.log('LOCATION E2E PASS: actual login, visible queue, approval, reuse and cleanup')

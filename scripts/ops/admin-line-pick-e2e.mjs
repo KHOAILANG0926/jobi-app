@@ -58,13 +58,13 @@ try {
   await page.screenshot({path:'admin-line-pick-e2e.png', fullPage:true})
   console.log('E2E PASS: 테스트 화면 확인 완료')
 } catch(e) {
-  console.error('E2E FAIL:', e instanceof Error?e.stack:String(e))
+  console.log('::error title=pick::'+String(e?.stack||e).replace(/\n/g,' | ').slice(0,1800));console.error('E2E FAIL:', e instanceof Error?e.stack:String(e))
   process.exitCode=1
 } finally {
   if(browser) await browser.close().catch(()=>{})
   if(jobId!==undefined) {
-    await db.query('delete from public.local_jobs where id=$1',[jobId]).catch(e=>{console.error('CLEANUP job error:',e.message);process.exitCode=1})
-    await db.query('delete from public.detail_line_kinds where example=$1 and decided_by=\'lee\'',[line]).catch(e=>{console.error('CLEANUP kind error:',e.message);process.exitCode=1})
+    await db.query('delete from public.local_jobs where id=$1',[jobId]).catch(e=>{console.log('::error title=cleanup::CLEANUP job error:');console.error('CLEANUP job error:',e.message);process.exitCode=1})
+    await db.query('delete from public.detail_line_kinds where example=$1 and decided_by=\'lee\'',[line]).catch(e=>{console.log('::error title=cleanup::CLEANUP kind error:');console.error('CLEANUP kind error:',e.message);process.exitCode=1})
     const remaining=await db.query('select count(*)::int as n from public.local_jobs where id=$1',[jobId]).catch(()=>null)
     const kindsLeft=await db.query('select count(*)::int as n from public.detail_line_kinds where example=$1',[line]).catch(()=>null)
     if(remaining?.rows[0]?.n!==0 || kindsLeft?.rows[0]?.n!==0) {console.error('CRITICAL: test row cleanup not confirmed #' + jobId);process.exitCode=1}
