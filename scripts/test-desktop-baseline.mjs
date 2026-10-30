@@ -1,3 +1,4 @@
+// 2026-10-30: index.css — Lee 지시 지도 핀 📍 압정 모양(메인·상세, PC·휴대폰 공통). 지도 외 화면 CSS 변경 없음.
 // 2026-10-30: JobDetail.tsx — Lee "알바몬처럼"(먼저 sb-4828만): Quyền lợi 없이 근무조건에 받는 것 복사, 상세요강 원문 전체.
 // 2026-10-29: JobDetail.tsx — Lee 결정 상세페이지 새 구성(CLAUDE.md "공고 상세페이지 구성 확정"): ② Quyền lợi 추가, 근무조건은 일하는 방식만, 02 지원 자격→모집조건. 기준 공고 sb-4824(KDA)는 기존 틀 유지.
 // 2026-10-29: JobDetail.tsx 기준값을 이미 병합된 #282(Lee 승인 복수직무 표시, db2d4b8) 값으로 맞춤 — master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돌아 못 잡음). 이번 PR은 JobDetail.tsx를 바꾸지 않음.
@@ -80,7 +81,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "aa6015de2bd36f01be603cb690177c52674edfb2d3f76179e54c5be138b92282",
+    "sha256": "bbc54b892190220ee379079b1e48025a7d798b89738bef7fbd1771fa68f7fb8c",
     "restore": []
   },
   {
