@@ -10,3 +10,6 @@ test('4878: approximate coords not verified are still pending',()=>assert.equal(
 test('exclude already verified precise coordinates',()=>assert.equal(pending(job,[{raw_address:'Bac Ninh',lat:21.1,lng:106.1,location_verified:true}]),false))
 test('exclude valid approved point for same company and address',()=>assert.equal(pending(job,[],[{status:'approved',company_snapshot:'CTY KDA',address_snapshot:'Bac Ninh'}]),false))
 test('exclude private and hidden jobs',()=>{assert.equal(pending({...job,active:false}),false);assert.equal(pending({...job,admin_hidden:true}),false)})
+test('Lee 2026-10-30: no company and no house number (4828) is not listed',()=>assert.equal(pending({...job,id:4828,company:'',location:'Bắc Ninh'},[{raw_address:'Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh',lat:21.15,lng:106.12,location_verified:false}]),false))
+test('Lee 2026-10-30: company name present (4982) stays listed',()=>assert.equal(pending({...job,id:4982,company:'Bomunttl',location:'Bắc Ninh'},[{raw_address:'Ngô Tất Tố - TP. Bắc Ninh',lat:21.18,lng:106.07,location_verified:false}]),true))
+test('Lee 2026-10-30: house number without company stays listed',()=>assert.equal(pending({...job,company:''},[{raw_address:'33 Lý Thái Tổ, Kinh Bắc, Bắc Ninh',lat:null,lng:null,location_verified:false}]),true))
