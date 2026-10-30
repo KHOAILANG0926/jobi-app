@@ -2,6 +2,7 @@
 import pg from 'pg'
 import { chromium } from 'playwright'
 import { randomUUID } from 'node:crypto'
+for (const ev of ['uncaughtException','unhandledRejection']) process.on(ev,e=>{console.log(`::error title=e2e::${String(e?.stack||e).replace(/\n/g,' | ').slice(0,1800)}`);process.exit(1)})
 
 const { ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, SUPABASE_DB_URL } = process.env
 if (!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD || !SUPABASE_DB_URL) {

@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import assert from 'node:assert/strict'
 import pg from 'pg'
 import {sourcePoints,assertPoints} from './location-point-oracle.mjs'
+for (const ev of ['uncaughtException','unhandledRejection']) process.on(ev,e=>{console.log(`::error title=e2e::${String(e?.stack||e).replace(/\n/g,' | ').slice(0,1800)}`);process.exit(1)})
 
 const {ADMIN_E2E_EMAIL,ADMIN_E2E_PASSWORD,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_DB_URL}=process.env
 if(!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_DB_URL) {
