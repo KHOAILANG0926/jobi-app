@@ -1064,14 +1064,10 @@ export function JobDetail() {
 function MapLinks({ links }: { links: ExternalMapLinks | null }) {
   // 2026-09-30: 지역 수준(area) 지도 화면 링크도 지역 중심 좌표 대체 표시라 내보내지 않는다
   if (!links || links.viewKind !== 'exact' || !links.directions) return null
+  // 2026-10-30 Lee: 위치 확정 공고도 기준(KDA) 길찾기 버튼 하나만 — 10-18 #136에서 이 경로만 빠져 예전 작은 버튼 두 개가 남아 있었음.
   return (
-    <div className="jd2-map-gmaps-links">
-      <a href={links.view} target="_blank" rel="noopener noreferrer">
-        Xem trên Google Maps
-      </a>
-      {links.directions && (
-        <a href={links.directions} target="_blank" rel="noopener noreferrer">Chỉ đường ↗</a>
-      )}
+    <div className="jd2-map-links">
+      <GoogleDirectionsLink href={links.directions} />
     </div>
   )
 }
