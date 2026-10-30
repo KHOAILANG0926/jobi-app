@@ -89,6 +89,8 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
   await locations().click()
   await page.reload()
   await locationHeading().waitFor()
+  // 2026-10-30 목록식: 줄을 펼쳐야 문제 부분(지도 링크 포함)이 보인다.
+  await page.locator('article.admin-location-card button[aria-expanded="false"]').first().click()
   const google=page.getByRole('link',{name:'Xem địa chỉ gốc trên Google Maps'}).first()
   const original=page.url()
   const popupReady=page.waitForEvent('popup')
@@ -107,7 +109,8 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
   }
   const card=page.locator('article.admin-location-card').filter({hasText:'#9005 —'})
   // 2026-10-30 Lee: 목록식 — 줄을 눌러 펼친 뒤 문제(위치)를 고치고 "수정 완료"로 저장.
-  await card.getByRole('button',{name:/#9005 —/}).click()
+  const row=card.getByRole('button',{name:/#9005 —/})
+  if (await row.getAttribute('aria-expanded')!=='true') await row.click()
   await card.locator('input[type="url"]').fill('https://www.google.com/maps?q=21.1861,106.0763')
   await card.getByRole('button',{name:'Xem tọa độ từ liên kết'}).click()
   const confirm=card.getByRole('button',{name:/Hoàn tất sửa/})
