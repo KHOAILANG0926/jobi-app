@@ -33,7 +33,9 @@ async function open(base,job,width,imageState='none') {
  const page=await context.newPage()
  await page.goto(`${base}/viec-lam/sb-${job.id}`,{waitUntil:'domcontentloaded'})
  // 첫 화면은 개발 서버가 처음 파일을 묶는 동안(두 서버 동시) 20초를 넘길 수 있다 → 기다리는 시간만 늘림. 비교 내용은 같음.
- await page.locator('h1.jd2-header__title').waitFor({timeout:90000})
+ // 2026-10-30: 첫 화면(개발 서버 첫 준비)에서 90초를 넘기는 경우가 반복돼(#314·#315·#322·#328, 모두 첫 open) 한 번만 새로고침 후 다시 기다린다. 비교 내용은 같음.
+ try { await page.locator('h1.jd2-header__title').waitFor({timeout:90000}) }
+ catch { await page.reload({waitUntil:'domcontentloaded'}); await page.locator('h1.jd2-header__title').waitFor({timeout:90000}) }
  await page.evaluate(()=>document.fonts.ready)
  return {page,context}
 }
