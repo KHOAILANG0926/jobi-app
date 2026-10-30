@@ -112,6 +112,14 @@ for(const viewport of [{width:1366,height:900},{width:390,height:844}]) {
   const row=card.getByRole('button',{name:/#9005 —/})
   if (await row.getAttribute('aria-expanded')!=='true') await row.click()
   await card.locator('input[type="url"]').fill('https://www.google.com/maps?q=21.1861,106.0763')
+  // 2026-10-30 Lee: Google 지도 탭에 갔다가 돌아와도 펼친 칸·붙여 넣은 링크가 그대로여야 한다(이전엔 화면 전체를 다시 만들어 닫히고 3초 빈 목록).
+  for (const state of ['hidden','visible']) {
+    await page.evaluate(v=>{Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>v});Object.defineProperty(document,'hidden',{configurable:true,get:()=>v==='hidden'});document.dispatchEvent(new Event('visibilitychange'));window.dispatchEvent(new Event(v==='visible'?'focus':'blur'))},state)
+    await page.waitForTimeout(1500)
+  }
+  await page.waitForTimeout(2000)
+  assert.equal(await row.getAttribute('aria-expanded'),'true','tab return collapsed the open row')
+  assert.equal(await card.locator('input[type="url"]').inputValue(),'https://www.google.com/maps?q=21.1861,106.0763','tab return lost the pasted link')
   await card.getByRole('button',{name:'📍 Lấy vị trí'}).click()
   const confirm=card.getByRole('button',{name:/Hoàn tất sửa/})
   await confirm.scrollIntoViewIfNeeded()

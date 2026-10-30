@@ -36,7 +36,9 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
         setState('error')
       })
     return () => { cancelled = true }
-  }, [user, loading, attempt])
+    // 2026-10-30 Lee: 다른 탭(Google 지도)에서 돌아올 때 같은 사람이면 다시 확인하지 않는다 — 화면이 새로 만들어져 펼친 칸이 닫히고 3초 빈 화면이 생겼음.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loading, attempt])
 
   if (loading) return null
 
