@@ -17,7 +17,10 @@ import { buildProfile } from '../components/useApply'
 import { ApplyUnavailableNotice } from '../components/ApplyUnavailableNotice'
 import { snapshotCvPhotoForApplication } from '../lib/accountCvStorage'
 import { formatDeadlineVi, JOB_CONTACT_HASH, resolveApplyAction, resolveApplyRoute, zaloMeUrl } from '../lib/jobUtils'
-import { fetchEmployerJobCount } from '../lib/jobRows'
+import { fetchEmployerJobCount, rowToJob, rowToWorkLocation, EMPLOYER_JOBS_SELECT_COLUMNS, JOB_WORK_LOCATIONS_SELECT_COLUMNS } from '../lib/jobRows'
+import { checkIsAdmin } from '../lib/accountRoles'
+import { AnimatedBenefitIcon, hasAnimatedBenefitIcon } from '../components/AnimatedBenefitIcon'
+import { supabase as adminPreviewClient } from '../lib/supabase'
 import { LOCATION_LABELS, mapPointAccuracyNote } from '../lib/mapR1'
 import { externalMapLinks, isVerifiedWorkLocation, resolveMapLocations, workLocationExternalLinks, type ExternalMapLinks } from '../lib/jobCoords'
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
@@ -33,9 +36,10 @@ import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
+import type { Job } from '../types/job'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
-import { ALBAMON_LAYOUT_JOB_IDS, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
+import { usesAlbamonLayout, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
@@ -123,7 +127,24 @@ export function JobDetail() {
   const [activeTab, setActiveTab] = useState<JobTabKey>('conditions')
   const [tabsTop, setTabsTop] = useState(0)
 
-  const job = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
+  const publicJob = useMemo(() => jobs.find((j) => j.id === id) ?? mapAcceptanceJobs.find((j) => j.id === id), [jobs, mapAcceptanceJobs, id])
+  // 2026-10-30 Lee "눈으로 봐야될거아니야": 공개 안 된 공고도 관리자는 같은 상세 화면으로 본다(읽기만, 위에 비공개 안내).
+  const [adminPreview, setAdminPreview] = useState<Job | null>(null)
+  useEffect(() => {
+    if (publicJob || jobsLoading || !id || !/^sb-\d+$/.test(id) || !user) return
+    let cancelled = false
+    void checkIsAdmin().then(async (isAdmin) => {
+      if (!isAdmin || cancelled) return
+      const num = Number(id.slice(3))
+      const [{ data: row }, { data: locs }] = await Promise.all([
+        adminPreviewClient.from('local_jobs').select(EMPLOYER_JOBS_SELECT_COLUMNS).eq('id', num).maybeSingle(),
+        adminPreviewClient.from('job_work_locations').select(JOB_WORK_LOCATIONS_SELECT_COLUMNS).eq('job_id', num),
+      ])
+      if (!cancelled && row) setAdminPreview(rowToJob(row as Record<string, unknown>, (locs ?? []).map((l) => rowToWorkLocation(l as Record<string, unknown>))))
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [publicJob, jobsLoading, id, user])
+  const job = publicJob ?? adminPreview ?? undefined
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
   const location = useLocation()
   useEffect(() => {
@@ -327,7 +348,7 @@ export function JobDetail() {
   // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
   // Lee 2026-10-30 "알바몬처럼": 상세요강은 원문 전체(위쪽 칸과 겹쳐도 지우지 않음). 전화·주소 줄 규칙(10-14)은 그대로.
-  const albamonLayout = ALBAMON_LAYOUT_JOB_IDS.has(job.id)
+  const albamonLayout = usesAlbamonLayout(job.id) // Lee 2026-10-30: 새 공고는 모두 #4828 4칸 틀
   const detail = detailSections(job.description, albamonLayout ? {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
@@ -519,6 +540,8 @@ export function JobDetail() {
 
   return (
     <div className="jd2-page" style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
+      {!publicJob && adminPreview && <p role="status" style={{ margin: '8px 0', padding: '10px 14px', borderRadius: 8, background: '#fff4f2', color: '#d92d20', fontWeight: 700 }}>
+        🔒 Chưa công khai — chỉ quản trị viên xem được (비공개 공고, 관리자만 보임). Lý do: {!adminPreview.occupationCode ? 'thiếu mã nghề' : adminPreview.adminHidden ? 'quản trị viên đã ẩn' : 'xem trang quản trị'}</p>}
 
       {/* ── Back ── */}
       <button type="button" className="jd2-back" onClick={() => navigate(-1)}>
@@ -554,9 +577,10 @@ export function JobDetail() {
             <div className="jd2-benefits" aria-label="Phúc lợi: màu thể hiện quyền lợi được xác nhận; màu xám là chưa có thông tin">
               {benefitIcons.map(({ key, label, active, icon: Icon, color, bg }) => (
                 <span key={key} data-benefit-scope={key === 'meal' && roleSummary?.mealBenefit ? 'role' : undefined} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
-                  <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
+                  {/* 2026-10-30 Lee 확정: 있는 복리후생은 움직이는 아이콘(7종, 색 겹치지 않게), 없는 것은 회색 그대로 */}
+                  {active && hasAnimatedBenefitIcon(key) ? <AnimatedBenefitIcon iconKey={key} /> : <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
                     <Icon size={19} strokeWidth={1.9} aria-hidden="true" />
-                  </span>
+                  </span>}
                   <span className="jd2-benefit__label">{label}</span>
                 </span>
               ))}

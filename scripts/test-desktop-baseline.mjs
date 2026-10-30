@@ -1,3 +1,6 @@
+// 2026-10-30: JobDetail.tsx — Lee 적용: 상단 복리후생 아이콘 7종 움직임(있는 것만, 칸 PC 52px·휴대폰 44px).
+// 2026-10-30: JobDetail.tsx — Lee 지시: 비공개 공고를 관리자만 같은 상세 화면으로 미리 보기(맨 위 비공개 안내). 공개 화면 틀 변경 없음.
+// 2026-10-30: JobDetail.tsx — Lee 지시(신규부터): 새 공고는 #4828 4칸 틀, 기존 공개 공고·KDA 그대로.
 // 2026-10-30: JobDetail.tsx — Lee 지시: 근무지 1곳 위치 확정 공고 길찾기 버튼을 기준(KDA)처럼 지도 아래로.
 // 2026-10-30: JobDetail.tsx — Lee 지시: 위치 확정 공고 길찾기도 기준(KDA) Google 버튼 하나로(예전 작은 버튼 두 개 제거). 다른 틀 변경 없음.
 // 2026-10-30: index.css — Lee: 모든 지도 핀 한 모양(대략 위치 색 구분 없앰, 정확도는 글로).
@@ -80,7 +83,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "ef6bc60c3b9639c07ef0b38a5f13d4e95257bda7b1996afd2e3f311c685e9359",
+    "sha256": "d642eabe6c6fa0d494e28bf884a2b4f80fc56010b72c2ca304ee2dc3aa217e62",
     "restore": []
   },
   {

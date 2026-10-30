@@ -1,5 +1,5 @@
 import { AdminLinePicks } from './AdminLinePicks'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { fetchKoreaJobs } from '../../lib/koreaJobsApi'
 import type { KoreaJob } from '../../types/koreaJob'
@@ -11,6 +11,46 @@ import { listAdminJobs, setJobHidden, type AdminJob, type JobOrigin } from '../.
 // 항상 null이다(guest_manage_token 기반, 20260920120000 migration 참고)
 // — 이 한 가지 차이만으로 구분 가능해 새 화면/쿼리 없이 여기서 필터+배지만
 // 추가한다.
+// 2026-10-30 Lee "내가 볼 수 있게 해줘야지": 공개 안 된 공고도 관리자가 내용과 비공개 이유를 바로 본다(읽기만).
+type JobPeek = Record<string, unknown>
+function hiddenReasons(j: JobPeek): string[] {
+  const r: string[] = []
+  if (j.admin_hidden) r.push('Quản trị viên đã ẩn (관리자가 숨김)')
+  if (!j.occupation_code) r.push('Thiếu mã nghề occupation_code (직업코드 없음 → 공개 게이트가 비공개)')
+  else if (!j.occupation_evidence) r.push('Thiếu bằng chứng nghề occupation_evidence (원문 근거 없음)')
+  if (!j.employer_phone) r.push('Không có số liên hệ (연락처 없음)')
+  const oc = j.ocr_check as { status?: string; mismatches?: { field: string; value: unknown }[] } | null | undefined
+  if (oc && typeof oc === 'object' && oc.status === 'mismatch') r.push('Ảnh không khớp R7 (사진 대조 불일치): ' + (oc.mismatches ?? []).map((m) => `${m.field}=${String(m.value)}`).join(', '))
+  return r
+}
+function JobPeekPanel({ id }: { id: number }) {
+  const [data, setData] = useState<JobPeek | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    void supabase.from('local_jobs').select('title,company,salary,location,hours,employer_phone,occupation_code,occupation_evidence,description,active,admin_hidden').eq('id', id).single()
+      .then(async ({ data, error }) => {
+        if (error) { setErr(error.message); return }
+        // 2026-10-30 Lee "진짜 원인": 사진 대조(R7) 기록을 그대로 보여 준다. 읽기 권한이 없으면 그 칸만 비운다(목록은 그대로).
+        const extra = await supabase.from('local_jobs').select('images,ocr_check,ocr_text').eq('id', id).single()
+        setData({ ...(data as JobPeek), ...(extra.error ? { ocr_check: `읽기 불가: ${extra.error.message}` } : extra.data as JobPeek) })
+      })
+  }, [id])
+  if (err) return <p className="admin-error">{err}</p>
+  if (!data) return <p>Đang tải…</p>
+  const reasons = data.active && !data.admin_hidden ? [] : hiddenReasons(data)
+  return <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8, display: 'grid', gap: 6 }}>
+    <p style={{ margin: 0, fontWeight: 700, color: reasons.length ? '#d92d20' : '#15803d' }}>
+      {data.active && !data.admin_hidden ? '🟢 Đang công khai' : `🔴 Chưa công khai — ${reasons.join(' · ') || 'lý do khác (xem nhật ký)'}`}</p>
+    {(['title', 'company', 'salary', 'location', 'hours', 'employer_phone', 'occupation_code', 'occupation_evidence'] as const).map((k) =>
+      <p key={k} style={{ margin: 0 }}><b>{k}:</b> {String(data[k] ?? '—')}</p>)}
+    <p style={{ margin: 0 }}><b>ocr_check (사진 대조 기록):</b></p>
+    <pre style={{ whiteSpace: 'pre-wrap', margin: 0, background: '#fff7ed', padding: 8, borderRadius: 6 }}>{JSON.stringify(data.ocr_check ?? null, null, 1)}</pre>
+    <p style={{ margin: 0 }}><b>images:</b> {JSON.stringify(data.images ?? null)}</p>
+    <details><summary>ocr_text (사진에서 읽은 글자)</summary><pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{String(data.ocr_text ?? '')}</pre></details>
+    <pre style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 320, overflow: 'auto', background: '#fff', padding: 8, borderRadius: 6 }}>{String(data.description ?? '')}</pre>
+  </div>
+}
+
 function isGuestPost(job: AdminJob): boolean {
   return job.origin === 'employer' && job.employer_id === null
 }
@@ -23,6 +63,7 @@ export function AdminJobs({view='all'}:{view?:'all'|'public'|'korea'}) {
   const [origin, setOrigin] = useState<JobOrigin | 'all'>('all')
   const [visibility, setVisibility] = useState<'all' | 'active' | 'inactive' | 'hidden'>('all')
   const [guestOnly, setGuestOnly] = useState(false)
+  const [peekId, setPeekId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   const reload = () => listAdminJobs().then(setJobs).catch((e: Error) => setError(e.message))
@@ -73,8 +114,9 @@ export function AdminJobs({view='all'}:{view?:'all'|'public'|'korea'}) {
     {error && <p className="admin-error">{error}</p>}
     <div className="admin-table-wrap"><table className="admin-table"><thead><tr>
       <th>Tin tuyển dụng</th><th>Nguồn</th><th>Vị trí</th><th>SĐT liên hệ</th><th>Trạng thái</th><th>Vận hành</th>
-    </tr></thead><tbody>{filtered.map(job => <tr key={job.id}>
-      <td><a href={`/viec-lam/sb-${job.id}`} target="_blank" rel="noreferrer"><strong>{job.title}</strong></a><small>{job.company} · #{job.id}</small></td>
+    </tr></thead><tbody>{filtered.map(job => <Fragment key={job.id}><tr>
+      <td><a href={`/viec-lam/sb-${job.id}`} target="_blank" rel="noreferrer"><strong>{job.title}</strong></a><small>{job.company} · #{job.id}</small>
+        <br /><button type="button" className="admin-action" aria-expanded={peekId === job.id} onClick={() => setPeekId(peekId === job.id ? null : job.id)}>{peekId === job.id ? 'Đóng' : 'Xem nội dung (내용 보기)'}</button></td>
       <td>
         {job.origin}
         {isGuestPost(job) && <><br /><span className="admin-badge admin-badge--guest">⚡ Không đăng ký</span></>}
@@ -83,6 +125,6 @@ export function AdminJobs({view='all'}:{view?:'all'|'public'|'korea'}) {
       <td>{job.employer_phone || '—'}</td>
       <td>{job.admin_hidden ? 'Đã ẩn' : job.active ? 'Hoạt động' : 'Ngừng tuyển'}</td>
       <td><button className="admin-action" onClick={() => toggle(job)}>{job.admin_hidden ? 'Hiện lại' : 'Ẩn tin'}</button></td>
-    </tr>)}</tbody></table></div>
+    </tr>{peekId === job.id && <tr><td colSpan={6}><JobPeekPanel id={job.id} /></td></tr>}</Fragment>)}</tbody></table></div>
   </section></>}</>
 }

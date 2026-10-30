@@ -160,9 +160,9 @@ export interface JobsQueryClient {
   from: (table: string) => JobsQueryBuilder
 }
 
-const EMPLOYER_JOBS_SELECT_COLUMNS =
+export const EMPLOYER_JOBS_SELECT_COLUMNS =
   'id,title,company,category,subcategory,occupation_code,occupation_evidence,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
-const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
+export const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,point_kind,point_precision,point_evidence,point_revision,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route'
 
 /**

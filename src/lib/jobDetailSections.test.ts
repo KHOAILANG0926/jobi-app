@@ -217,4 +217,23 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   assert(d.sections.flatMap((s) => s.lines).some((l) => l.includes('Thưởng chuyên cần')), 'description keeps the original line (not removed)')
   assert(sourceAgeValue(d.sections) === '18 - 40 tuổi' && ALBAMON_LAYOUT_JOB_IDS.has('sb-4828'), 'age value from source, pilot job only')
 }
+{
+  // Lee 2026-10-30 신규부터: 새 공고 = 4칸 틀, 기존 공개 공고·KDA는 그대로.
+  const { usesAlbamonLayout } = await import('./jobQuyenLoi.ts')
+  assert(usesAlbamonLayout('sb-4828') && usesAlbamonLayout('sb-5100') && usesAlbamonLayout('sb-9999'), 'new jobs use 4-section layout')
+  assert(!usesAlbamonLayout('sb-4824') && !usesAlbamonLayout('sb-4878') && !usesAlbamonLayout('sb-4879') && !usesAlbamonLayout('sb-4982'), 'baseline and existing jobs unchanged')
+}
+{
+  // 2026-10-30 관리자 미리 보기: 비공개 공고 행도 같은 변환(rowToJob)으로 상세 화면을 그린다.
+  const { rowToJob } = await import('./jobRows.ts')
+  const j = rowToJob({ id: 5157, title: 'T', company: 'C', active: false, admin_hidden: false, occupation_code: null })
+  assert(j.id === 'sb-5157' && j.active === false && !j.occupationCode, 'admin preview row maps to job')
+}
+{
+  // 2026-10-30 움직이는 복리후생 아이콘 7종: 상단 아이콘 키와 1:1, 색이 서로 겹치지 않음.
+  const { SVG, BENEFIT_ICON_COLORS } = await import('./benefitIconArt.ts')
+  for (const k of ['meal', 'bus', 'dorm', 'housing', 'fuel', 'attendance', 'performance']) assert(SVG[k]?.startsWith('<svg'), 'animated icon for ' + k)
+  const bgs = Object.values(BENEFIT_ICON_COLORS).map((c) => c.bg)
+  assert(bgs.length === 7 && new Set(bgs).size === 7, 'seven distinct benefit colors')
+}
 console.log('jobDetailSections: albamon layout regression passed')
