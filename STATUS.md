@@ -3,29 +3,31 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-30 09:59 (VN)**
-- 기준 커밋: `a7bd12e` (fix: 지도 핀 한 모양으로 통일 — 대략 위치 색 구분 없앰, 정확도는 글로 (Lee 2026-10-30) (#330))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/40994781073
+- 생성 시각: **2026-10-31 09:45 (VN)**
+- 기준 커밋: `86b81ad` (fix(admin): show privileged R7 mismatch evidence in job peek (#367))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41161351612
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 2건**
+**확인 필요 4건**
 
 - 핀 #4824: ❌ 공고 주소에 번지 없음
 - 핀 #4824: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
+- 핀 #4878: ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인)
+- 핀 #4878: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 89/89 파일 통과 |
+| 테스트 `npm test` | ✅ 92/92 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `a7bd12e` · 상태 **success** · 2026-10-30 09:03 (VN)
+- 마지막 Production 배포: `86b81ad` · 상태 **success** · 2026-10-31 08:10 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -33,21 +35,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #330 | 2026-10-30 09:02 (VN) | `a7bd12e` | fix: 지도 핀 한 모양으로 통일 |
-| #329 | 2026-10-30 08:46 (VN) | `a1fa14c` | feat: 지도 핀 빨간 물방울 + 흰 점 (Lee 데모 1번) |
-| #328 | 2026-10-30 08:31 (VN) | `fd6681d` | feat: 지도 핀 📍 압정 모양 (메인·상세) |
-| #327 | 2026-10-30 08:02 (VN) | `cdec967` | docs: 상세페이지 구성·공고 체크리스트 최종 확정 (Lee 2026-10-30) |
-| #326 | 2026-10-30 07:45 (VN) | `fc78d45` | feat: 알바몬식 상세 구성 (먼저 Mao Yên) |
-| #323 | 2026-10-30 06:39 (VN) | `7f8f90d` | feat: 상세페이지 새 구성 (Quyền lợi · 일하는 방식 · Yêu cầu khác, KDA 제외) |
-| #322 | 2026-10-29 22:06 (VN) | `01d2308` | ops: #5063 삭제 (정보 없는 Facebook 공고) |
-| #321 | 2026-10-29 21:58 (VN) | `fff7808` | docs: 상세페이지 구성 확정 + 대화 중 파일 생성 금지 (Lee 2026-10-29) |
-| #320 | 2026-10-29 20:53 (VN) | `13a733e` | fix: PC 추천 공고 4개 + 나머지 아래 4칸 목록 |
-| #316 | 2026-10-29 13:27 (VN) | `cd3e8b1` | fix: 대략 핀 운영 점검 범위 + 점검 오류 표시 |
+| #367 | 2026-10-31 08:08 (VN) | `86b81ad` | fix(admin): R7 기록을 Xem nội dung에 표시 |
+| #366 | 2026-10-31 07:54 (VN) | `6a58996` | feat(db): 관리자 전용 R7 증거 읽기 함수 및 운영 점검 |
+| #364 | 2026-10-30 21:17 (VN) | `4eba5b5` | feat(admin): R7 사진 대조 기록 보기 |
+| #362 | 2026-10-30 20:48 (VN) | `8538251` | feat(detail): 움직이는 복리후생 아이콘 7종 |
+| #361 | 2026-10-30 19:29 (VN) | `a963fc2` | feat(detail): 관리자 비공개 공고 상세 미리 보기 |
+| #360 | 2026-10-30 19:15 (VN) | `a25b00c` | feat(admin): 비공개 공고 내용·이유 보기 |
+| #358 | 2026-10-30 18:05 (VN) | `342a828` | feat(detail): 새 공고 기본 틀 = #4828 4칸 |
+| #356 | 2026-10-30 17:48 (VN) | `b9a0bbf` | fix(post-job): 시간 고르기·근무기간 한 줄·사진 자동 축소 |
+| #354 | 2026-10-30 15:14 (VN) | `4709355` | feat(post-job): 공고 등록 화면 알바몬 일반공고 디자인 |
+| #348 | 2026-10-30 14:26 (VN) | `ffbd834` | feat(post-job): 공고 등록 화면 체크리스트 순서 + VietMap (1단계) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **5건** (전체 8건, 숨김·비활성 3건)
-- 출처별: muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 공개 중: **5건** (전체 9건, 숨김·비활성 4건)
+- 출처별: muaban 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1 · manual 2
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -56,6 +58,7 @@
 | 공고 | 승인 시각 | 판정 | VietMap 재확인 | 공고 주소 번지 | 근거 번지 | 근거 POI |
 |---|---|---|---|---|---|---|
 | #4824 | 2026-10-26 06:52 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
+| #4878 | 2026-10-30 11:09 (VN) | ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인) | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | 33 ly thai to | — | — |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
@@ -69,16 +72,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-30 09:02 (VN) | location_candidate.approve | job 5103 |
-| 2026-10-30 09:02 (VN) | location_candidate.add | job 5103 |
-| 2026-10-30 08:47 (VN) | location_candidate.approve | job 5100 |
-| 2026-10-30 08:47 (VN) | location_candidate.add | job 5100 |
-| 2026-10-30 08:32 (VN) | location_candidate.approve | job 5098 |
-| 2026-10-30 08:32 (VN) | location_candidate.add | job 5098 |
-| 2026-10-30 08:03 (VN) | location_candidate.approve | job 5095 |
-| 2026-10-30 08:03 (VN) | location_candidate.add | job 5095 |
-| 2026-10-30 07:46 (VN) | location_candidate.approve | job 5091 |
-| 2026-10-30 07:46 (VN) | location_candidate.add | job 5091 |
+| 2026-10-31 08:09 (VN) | location_candidate.approve | job 5174 |
+| 2026-10-31 08:08 (VN) | location_candidate.add | job 5174 |
+| 2026-10-31 07:56 (VN) | location_candidate.approve | job 5172 |
+| 2026-10-31 07:56 (VN) | location_candidate.add | job 5172 |
+| 2026-10-30 21:18 (VN) | location_candidate.approve | job 5167 |
+| 2026-10-30 21:18 (VN) | location_candidate.add | job 5167 |
+| 2026-10-30 20:49 (VN) | location_candidate.approve | job 5165 |
+| 2026-10-30 20:49 (VN) | location_candidate.add | job 5165 |
+| 2026-10-30 19:30 (VN) | location_candidate.approve | job 5161 |
+| 2026-10-30 19:30 (VN) | location_candidate.add | job 5161 |
 
 ## 8. 검증 장치 변경 이력
 
@@ -117,4 +120,4 @@
 | `R12_location_precision_review` | 없음 | — | — 시험 없음 |
 | `R13_role_readability_and_continuations` | 없음 | — | — 시험 없음 |
 
-- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
+- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **1건**
