@@ -96,7 +96,7 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:lien he|hotline\s*\/\s*zalo|hotline|zalo)$/, 'contact'],
 ]
 export function headingOf(line: string) {
-  const s = bare(line)
+  const s = bare(line.replace(/^[^\p{L}\p{N}]+/u, ''))
   return HEADINGS.find(([re]) => re.test(s))?.[1]
 }
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
