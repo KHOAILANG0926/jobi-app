@@ -42,11 +42,14 @@ export function ConditionLines({ text, compactText, onOverflowChange, onMore }: 
       <span ref={measureRef} className="jd2-cond-measure" aria-hidden="true">
         {items.map((item, i) => <span key={i} className="jd2-cond-item">{item}</span>)}
       </span>
-      {overflow ? (
+      {overflow && items.length ? (
         compactText ? <span className="jd2-salary-lines jd2-cond-lines">
           <span className="jd2-cond-item" data-condition-summary="true" aria-label={text} title={text}>{compactText}</span>
           <button type="button" className="jd2-cond-more" onClick={onMore}>Xem thêm</button>
-        </span> : <button type="button" className="jd2-cond-more" onClick={onMore}>Xem thêm</button>
+        </span> : <span className="jd2-salary-lines jd2-cond-lines">
+          {items.slice(0, CONDITION_MAX_LINES).map((item, i) => <span key={i} className="jd2-salary-line jd2-cond-item">{item}</span>)}
+          <button type="button" className="jd2-cond-more" onClick={onMore}>Xem thêm</button>
+        </span>
       ) : (
         <span className="jd2-salary-lines jd2-cond-lines">
           {items.map((item, i) => <span key={i} className="jd2-salary-line jd2-cond-item">{item}</span>)}
