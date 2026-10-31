@@ -27,20 +27,27 @@ export function compareWithOcr(job, ocrText) {
   const ocrDigits = digits(ocr)
   const ocrFold = ` ${fold(ocr)} `
   const ocrTokens = new Set((ocr.match(/\d+/g) ?? []).map(String))
+  // A body-sourced fact does not have to be repeated on the poster. OCR checks
+  // poster-sourced facts; otherwise it falsely blocks valid Facebook text posts.
+  const sourceFold = ` ${fold(job.source_text)} `
+  const sourceDigits = digits(job.source_text)
+  const bodyProvesText = (value) => !!fold(value) && sourceFold.includes(` ${fold(value)} `)
   const mismatches = []
   for (const f of ['employer_phone', 'contact_zalo']) {
     const d = digits(job[f])
-    if (d && !ocrDigits.includes(d)) mismatches.push({ field: f, value: d })
+    if (d && !sourceDigits.includes(d) && !ocrDigits.includes(d)) mismatches.push({ field: f, value: d })
   }
   // 급여: 310k = 310000 = 310.000 = 310 nghìn 처럼 표기가 달라도 같은 숫자로 비교한다.
   const ocrMoney = moneyValues(ocr)
-  for (const n of moneyValues(job.salary)) if (!ocrMoney.has(n) && !ocrDigits.includes(String(n))) mismatches.push({ field: 'salary', value: n })
+  const sourceMoney = moneyValues(job.source_text)
+  for (const n of moneyValues(job.salary)) if (!sourceMoney.has(n) && !ocrMoney.has(n) && !ocrDigits.includes(String(n))) mismatches.push({ field: 'salary', value: n })
   for (const f of ['contact_name', 'company']) {
     const v = fold(job[f])
-    if (v && !ocrFold.includes(` ${v} `)) mismatches.push({ field: f, value: job[f] })
+    if (v && !bodyProvesText(job[f]) && !ocrFold.includes(` ${v} `)) mismatches.push({ field: f, value: job[f] })
   }
   for (const f of ['age_min', 'age_max']) {
-    if (job[f] != null && !ocrTokens.has(String(job[f]))) mismatches.push({ field: f, value: job[f] })
+    const sourceAges = new Set((String(job.source_text ?? '').match(/\d+/g) ?? []).map(String))
+    if (job[f] != null && !sourceAges.has(String(job[f])) && !ocrTokens.has(String(job[f]))) mismatches.push({ field: f, value: job[f] })
   }
   return { status: mismatches.length ? 'mismatch' : 'ok', mismatches }
 }
