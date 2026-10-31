@@ -19,13 +19,25 @@ jobs:
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       JOB_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.job_id || '5157' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r crawler/requirements.txt
+      - name: Install server crawler dependencies
+        run: pip install -r crawler/requirements.txt
       - name: Update existing job without duplicate (ingest_job)
         working-directory: crawler
         run: python refresh_facebook_existing.py --job-id "$JOB_ID"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: R7 source-aware comparison regression
+        run: node scripts/ocr/ocr-compare.test.mjs
+      - name: Recheck R7 after source-backed job update
+        run: |
+          npm i --no-save pg@8
+          node scripts/ocr/ocr-check.mjs
