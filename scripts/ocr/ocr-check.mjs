@@ -39,6 +39,8 @@ const { rows } = await client.query(`
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text)
          -- 판독자가 바뀌면(결정 0004: AI 독립 판독 ai-v1) 예전 판독자로 보류된 공고를 한 번 다시 읽는다
          or (ocr_check->>'status' in ('mismatch','unreadable') and ocr_check->>'reader' is distinct from 'ai-v1')
+         -- A new source-aware comparator rechecks only held jobs, not all existing public jobs.
+         or (active = false and ocr_check->>'compare_version' is distinct from 'source-aware-v2')
          or ((active = false or ocr_check ? 'compared_hash') and ocr_check->>'compared_hash' is distinct from md5(to_jsonb(array[
            employer_phone, contact_zalo, salary, contact_name, company,
            age_min::text, age_max::text
@@ -59,7 +61,7 @@ try {
       }
       const text = texts.join('\n')
       const res = compareWithOcr(job, text)
-      const check = { status: res.status, reader: READER_ID, checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
+      const check = { status: res.status, reader: READER_ID, compare_version: 'source-aware-v2', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.
       const hold = res.status === 'mismatch'
       await client.query(
