@@ -9,7 +9,7 @@ export function sourceRecruitmentRoles(description: string | null | undefined): 
   let insideRoles = false
   for (const raw of sourceLines(description)) {
     const line = raw.trim().replace(/^[•*\-]\s*/, '').trim()
-    const normalized = fold(line).replace(/[:：\s]+$/g, '')
+    const normalized = fold(line.replace(/^[^\p{L}\p{N}]+/u, '')).replace(/[:：\s]+$/g, '')
     if (/^(?:vi tri tuyen dung|vi tri can tuyen|cac vi tri tuyen dung)$/.test(normalized)) {
       insideRoles = true
       continue
