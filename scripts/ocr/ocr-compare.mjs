@@ -20,6 +20,19 @@ export function moneyValues(text) {
   return out
 }
 
+/** Strict source-backed wage expressions: no phone/address numbers or inferred work period.
+ * Multiple figures may apply to different roles; preserve each without associating it to a role. */
+export function posterSalaryEvidence(text) {
+  const ocr = String(text ?? '')
+  const patterns = [
+    /\b\d{1,3}\s*(?:k|nghìn|nghin)\s*\/\s*(?:giờ|gio|h)\b/giu,
+    /\b\d{1,2}\s*[-–~]\s*\d{1,2}\s*(?:triệu|trieu|tr)(?:\s*\/\s*(?:tháng|thang))?/giu,
+    /\b\d{1,2}\s*(?:triệu|trieu|tr)\s*\/\s*(?:tháng|thang)\b/giu,
+  ]
+  const found = patterns.flatMap(pattern => [...ocr.matchAll(pattern)].map(m => ({ start: m.index ?? 0, value: m[0].trim() })))
+  return [...new Map(found.sort((a, b) => a.start - b.start).map(p => [fold(p.value), p.value])).values()]
+}
+
 // job: { employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max }
 export function compareWithOcr(job, ocrText) {
   const ocr = String(ocrText ?? '')
@@ -40,6 +53,9 @@ export function compareWithOcr(job, ocrText) {
   // 급여: 310k = 310000 = 310.000 = 310 nghìn 처럼 표기가 달라도 같은 숫자로 비교한다.
   const ocrMoney = moneyValues(ocr)
   const sourceMoney = moneyValues(job.source_text)
+  const posterWages = posterSalaryEvidence(ocr)
+  const competitiveWithoutAmount = /(?:thu\s*nhập|thu\s*nhap|lương|luong)\s+cạnh\s*tranh/iu.test(String(job.source_text ?? '')) && moneyValues(job.salary).size === 0
+  if (competitiveWithoutAmount) mismatches.push({ field: 'salary', value: job.salary || '', poster_value: posterWages.join(' · '), reason: 'numeric_wage_required' })
   for (const n of moneyValues(job.salary)) if (!sourceMoney.has(n) && !ocrMoney.has(n) && !ocrDigits.includes(String(n))) mismatches.push({ field: 'salary', value: n })
   for (const f of ['contact_name', 'company']) {
     const v = fold(job[f])
