@@ -40,3 +40,16 @@ assert.equal(canRepublish({ ...ja, source_text: 'Làm trên ĐT + Máy tính' })
 // 2026-10-18: 세부 코드 미확정(1단계 코드)만으로 재공개를 막지 않는다 — 실제 #4828 사례
 assert.equal(canRepublish({ ...ja, occupation_code: '8', occupation_evidence: 'Sản xuất dây truyền dữ liệu, dây mạng', source_text: 'CÔNG VIỆC\nSản xuất dây truyền dữ liệu, dây mạng.' }, '2026-10-18'), true, 'level-1 code with source evidence may republish');
 console.log('ocr-compare: all assertions passed')
+
+// Highlands: the post body has employer/contact; the poster may only show wages.
+// Absence of a body-backed value on the poster is NOT an OCR contradiction.
+{
+  const body = 'HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI\nĐịa điểm: Số 395 Ngô Gia Tự\nCửa hàng: Highlands Coffee Mường Thanh Bắc Ninh\nLiên hệ Mr Tuấn Minh: 0365102703\nThu nhập cạnh tranh'
+  const poster = 'PHA CHẾ PARTTIME\n26K/giờ\nFULLTIME 7-9 triệu/tháng'
+  const job = { source_text: body, company: 'Highlands Coffee Mường Thanh Bắc Ninh',
+    employer_phone: '0365102703', contact_name: 'Tuấn Minh', salary: 'Thu nhập cạnh tranh' }
+  assert.deepEqual(compareWithOcr(job, poster), { status: 'ok', mismatches: [] },
+    'body-backed facts do not need to appear again on poster')
+  assert.deepEqual(compareWithOcr({ ...job, salary: '15 triệu' }, poster).mismatches.map(m => m.field),
+    ['salary'], 'unsupported salary still held when absent from both sources')
+}
