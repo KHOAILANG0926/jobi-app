@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareWithOcr, canRepublish } from './ocr-compare.mjs'
+import { compareWithOcr, canRepublish, posterSalaryEvidence } from './ocr-compare.mjs'
 import { readImageAI, READER_ID } from './ai-reader.mjs'
 
 const { SUPABASE_DB_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
@@ -60,7 +60,23 @@ try {
         texts.push(await readImageAI(f))   // 독립 AI 판독(결정 0004). 입력값은 보내지 않는다
       }
       const text = texts.join('\n')
-      const res = compareWithOcr(job, text)
+      // Use the same ingest_job entrypoint for source-backed pay, never direct job SQL.
+      // Preserve separate hourly/monthly poster amounts WITHOUT assigning to any role.
+      const wages = posterSalaryEvidence(text)
+      let checkedJob = job
+      const vaguePay = /^(?:thu\s*nhập\s*cạnh\s*tranh|cạnh\s*tranh)$/iu.test(String(job.salary ?? '').trim())
+      if (job.origin === 'crawler' && vaguePay && wages.length && String(job.source_text ?? '').trim()) {
+        const salary = 'Theo poster: ' + wages.join(' · ')
+        const payload = {
+          channel: 'crawler_other', job_id: job.id, refresh: true, update_fields: ['salary'],
+          source_text: job.source_text, images: job.images, salary,
+        }
+        const written = await client.query('select public.ingest_job($1::jsonb) as job_id', [JSON.stringify(payload)])
+        if (Number(written.rows[0]?.job_id) !== Number(job.id)) throw new Error('ingest_job salary refresh returned wrong id')
+        checkedJob = { ...job, salary }
+        console.log('포스터 근거 급여 갱신 #' + job.id + ': ' + salary)
+      }
+      const res = compareWithOcr(checkedJob, text)
       const check = { status: res.status, reader: READER_ID, compare_version: 'source-aware-v2', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.
       const hold = res.status === 'mismatch'
