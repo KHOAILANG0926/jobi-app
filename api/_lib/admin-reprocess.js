@@ -34,7 +34,21 @@ export function createAdminReprocessHandler() {
         unique.map(id=>({job_id:id,rule_version:ruleVersion,reason:'admin_requested'}))
       ).select('id,job_id,status')
       if(error)throw error
-      return res.status(202).json({accepted:true,queue:data,execution:'github_actions_scheduled'})
+      // Optional server-to-server immediate kick; absence of a GitHub token leaves
+      // the durable queue for the scheduled Actions worker (never lose requests).
+      let execution='github_actions_scheduled'
+      const ghToken=process.env.GITHUB_REPROCESS_TOKEN
+      if(ghToken) {
+        try {
+          const response=await fetch('https://api.github.com/repos/KHOAILANG0926/jobi-app/actions/workflows/refresh-facebook-existing.yml/dispatches',{
+            method:'POST',
+            headers:{Authorization:`Bearer ${ghToken}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+            body:JSON.stringify({ref:'master'})
+          })
+          if(response.status===204)execution='github_actions_dispatched'
+        } catch { /* durable queue is still processed on the next scheduled run */ }
+      }
+      return res.status(202).json({accepted:true,queue:data,execution})
     } catch {
       return res.status(503).json({error:'Queue unavailable'})
     }
