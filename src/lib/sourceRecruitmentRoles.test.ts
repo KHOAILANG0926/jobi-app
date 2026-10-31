@@ -25,5 +25,7 @@ assert(JSON.stringify(roles.workTypes) === JSON.stringify(['Fulltime', 'Parttime
 assert(sourceRecruitmentRoles('Pha chế thức uống\nChăm sóc khách hàng').roles.length === 0, 'no inferred roles without source')
 const sections = detailSections(highlands)
 assert(sections.preserved, 'original evidence preserved')
+assert(!sections.sections.find(s => s.key === '01')?.lines.some(s => s.includes('Nhân viên Pha chế')), 'roles are not classified as actual job duties')
+assert(!!sections.sections.find(s => s.key === '07')?.lines.some(s => s.includes('Nhân viên Pha chế')), 'role source line preserved in original supplemental text')
 assert(!sections.sections.flatMap(s => s.lines).some(s => /^(?:Hotline\/Zalo:|ĐỊA CHỈ LÀM VIỆC:|📩 Cách nộp hồ sơ:)$/.test(s)), 'no empty labels')
 console.log('sourceRecruitmentRoles: Highlands verified')
