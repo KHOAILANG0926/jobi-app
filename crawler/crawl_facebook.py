@@ -228,7 +228,7 @@ def extract_salary(text: str) -> str:
         r"(?:từ|from)\s*\d+[\.,]?\d*\s*(?:triệu|tr)",
         r"\d+[\.,]?\d*\s*(?:triệu|tr)(?:\s*/\s*\w+|/|\s*tháng|\s*month)?",
         r"\d+\s*[-–]\s*\d+\s*\$",
-        r"(?:thỏa thuận|thoả thuận)",  # Lee 2026-10-30(#5157): "cạnh tranh"(경쟁력 있는)은 급여 값이 아님 → 금액 없으면 Thỏa thuận
+        r"(?:thỏa thuận|thoả thuận)",  # Preserve explicit negotiation wording only
     ]
     for pat in patterns:
         m = re.search(pat, text, re.IGNORECASE)
@@ -240,7 +240,8 @@ def extract_salary(text: str) -> str:
                 if val > 200:
                     return "Thỏa thuận"
             return salary
-    return "Thỏa thuận"
+    m = re.search(r"thu nhập cạnh tranh", text, re.IGNORECASE)
+    return m.group(0) if m else ""
 
 
 # Lee 2026-10-30(#5157 Highlands): 첫 줄이 제목. 칸 이름만 있는 소제목("Vị trí tuyển dụng:")·사람 이름·전화번호 줄은 건너뛴다.
