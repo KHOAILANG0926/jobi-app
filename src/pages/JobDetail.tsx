@@ -416,7 +416,7 @@ export function JobDetail() {
     textRow('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
-    row('roles', <Briefcase size={14} strokeWidth={1.8} />, 'Vị trí tuyển dụng', sourceRoles.roles.length ? sourceRoles.roles.join(' · ') : undefined),
+    row('roles', <Briefcase size={14} strokeWidth={1.8} />, 'Vị trí tuyển dụng', !roleSummary && sourceRoles.roles.length ? sourceRoles.roles.join(' · ') : undefined),
     row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
