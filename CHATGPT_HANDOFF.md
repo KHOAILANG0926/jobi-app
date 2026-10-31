@@ -1,17 +1,16 @@
-# CHATGPT_HANDOFF — Highlands #5157 공통 추출·R7·상세 표시 (2026-10-31)
+# HANDOFF — unified reprocess queue and #5157 production verification (2026-10-31)
 
-## 1. 현재 상태 (코드·배포·DB)
-- 작업 브랜치 fix/highlands-full-pipeline-20261031, PR #368. 기존 master는 PR #365(#5157 Facebook 제목·회사·주소·급여 원문 추출 규칙)와 #367(관리자 R7 읽기)을 병합했고 Vercel 운영 반영까지 확인됨. 기존 #5157 운영 데이터 갱신과 공개는 아직 직접 확인되지 않았음.
-- 이번 PR: Facebook 원문에서 모집 직무·Fulltime/Parttime을 구분해 기존 4영역에 표시하고 원문 전체 유지; 잘못된 빈 소제목 표시 억제; 복리후생의 값 없는 단독 'Xem thêm' 방지. KDA 레이아웃 유지 시험 추가.
-- R7: 원문에 있는 연락처·회사명은 포스터에 반복되지 않아도 허용; 사진 OCR에 확인된 시급·월급 숫자는 역할을 임의 배정하지 않고 ingest_job으로 기존 급여에 근거 표기 후 대조. 숫자 없이 '경쟁력 있음'만 있으면 보류. 보류 공고 신규 비교 버전 재검사. Facebook 기존 ID를 ingest_job으로 재처리한 뒤 R7을 즉시 실행하는 GitHub Actions 추가.
-- 운영 DB 직접 SQL 조회·수정 수행하지 않음. #5157 실제 데이터·OCR 판단·공개 여부는 작업 실행과 운영 앱 재검증 후에만 완료 판정.
+## 1. 실제 상태
+- PR #370: `job_reprocess_queue`와 RLS, 기존 `ingest_job` 재처리 공통 runner, master push/schedule/dispatch 워크플로, 관리자 `POST /api/admin/reprocess-jobs` API.
+- 작업 중 master 반영·운영 migration 적용·#5157 DB 재처리 실행 및 공개 상태는 **검증 전**. 실제 기록 없이 완료로 보고 금지.
+- API는 `api/admin.js` 기존 단일 함수에 라우팅; 관리자 JWT 필수. Vercel 서버 전용 `GITHUB_REPROCESS_TOKEN`이 있다면 즉시 `workflow_dispatch`, 없으면 내구성 큐와 30분 간격 Actions가 처리한다.
+- 직접 Supabase 운영 DB 조회/SQL 사용 금지. CI migration + production check 및 Actions runner만 사용.
 
-## 2. 다음 할 일 3개
-1. PR #368 최종 HEAD에서 checks·app-screen·KDA·R7 시험 통과, PR 본문에 HEAD 검증 기록 후 viecganban-bot 병합.
-2. GitHub Actions에서 기존 #5157 재처리→R7 실제 실행 결과 확인. 불일치가 남으면 OCR/원문 증거로만 공통 규칙 추가 개선, 공개 기준 완화·개별 SQL 수정 금지.
-3. Vercel Production 최신 master READY, deploy-verify 및 PC/모바일 #5157 제목·회사·급여·주소·직무·형태·빈라벨·공개 여부 실제 앱 확인. 미확인 시 완료 보고 금지.
+## 2. 반드시 마칠 작업
+1. PR #370 HEAD checks/app-screen/KDA/migration 검증, 봇 병합 및 migrations-apply의 운영 적용 확인.
+2. `refresh-facebook-existing.yml` 실제 큐 처리·ingest·OCR/R7 최종화 로그 확인; #5157의 제목과 active 상태 검증, 실패하면 근본 이유를 수정하고 CI→봇→배포 반복.
+3. Vercel Production READY·도메인 최신 버전과 PC/모바일 #5157 실제 공개 확인. 고정 ID 전용 예외·공개 게이트 우회·직접 운영 DB 변경 금지.
 
-## 3. 필수 규칙
-- CLAUDE.md/AGENTS.md 최신 확정 4영역 및 KDA 기준 화면 보존. 기존 공개 공고/위치 승인 데이터 보호.
-- 수집 원문·이미지 OCR 근거 외 값 추정 금지. 기존 ID 유지·관리자 확정 칸 보호·ingest_job 하나의 입구.
-- 운영 DB 직접 접근 금지, 승인된 CI/Actions/마이그레이션만. 봇 병합, Vercel 무료 플랜 유지, 실제 운영 앱 링크·검증 결과만 완료 보고.
+## 3. 변경 범위
+- migration + production check; `crawler/reprocess_queue.py`, `crawler/finalize_reprocess_queue.py`, 기존 `refresh-facebook-existing.yml`, `api/_lib/admin-reprocess.js`, `api/admin.js`, `vercel.json`.
+- `active=true` 임의 조작 금지. title/R7/public gate 모두 통과해야 큐 `success`.
