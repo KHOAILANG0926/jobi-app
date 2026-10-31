@@ -32,6 +32,7 @@ import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary } from '../lib/jobRolePresentation'
+import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -362,11 +363,12 @@ export function JobDetail() {
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })
   const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
+  const sourceRoles = sourceRecruitmentRoles(job.description)
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
-  const employmentText = roleSummary?.workPeriod ?? (job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText)
+  const employmentText = roleSummary?.workPeriod ?? (sourceRoles.workTypes.length > 1 ? sourceRoles.workTypes.join(' / ') : (job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText ?? sourceRoles.workTypes[0]))
   const otherJobsOfCompany = isGenericCompanyName(job.company) ? [] : jobs
     .filter((j) => j.id !== job.id && companyKeyFromName(j.company) === companyKeyFromName(job.company))
     .slice(0, 5)
@@ -414,6 +416,7 @@ export function JobDetail() {
     textRow('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
+    row('roles', <Briefcase size={14} strokeWidth={1.8} />, 'Vị trí tuyển dụng', sourceRoles.roles.length ? sourceRoles.roles.join(' · ') : undefined),
     row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
