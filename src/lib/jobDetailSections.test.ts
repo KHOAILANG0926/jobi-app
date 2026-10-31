@@ -237,3 +237,20 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   assert(bgs.length === 7 && new Set(bgs).size === 7, 'seven distinct benefit colors')
 }
 console.log('jobDetailSections: albamon layout regression passed')
+
+
+// 2026-10-31 Highlands: labels are headings, not publishable content. Preserve all non-heading source lines.
+{
+  const raw = `🔎 Vị trí tuyển dụng:
+• Nhân viên Pha chế (Barista) Fulltime- partime
+📩 Cách nộp hồ sơ:
+Hotline/Zalo:
+ĐỊA CHỈ LÀM VIỆC:
+Pha chế thức uống
+Chăm sóc khách hàng`
+  const sections = detailSections(raw)
+  assert(sections.preserved && !sections.usedFallback, 'Highlands headings preserved as documented drops')
+  const lines = sections.sections.flatMap((s) => s.lines)
+  assert(!lines.some((s) => /^(Hotline\/Zalo:|ĐỊA CHỈ LÀM VIỆC:|📩 Cách nộp hồ sơ:)$/.test(s)), 'no empty labels in detail')
+  assert(lines.includes('Pha chế thức uống') && lines.includes('Chăm sóc khách hàng'), 'actual duties preserved without fabricated role details')
+}
