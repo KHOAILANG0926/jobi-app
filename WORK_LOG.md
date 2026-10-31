@@ -1,3 +1,9 @@
+## 2026-10-31 — 재처리 큐/트리거 통합 + Highlands #5157 검증
+- 요청: 배포·파서 변경 뒤 공고 재처리 자동 진행, 관리자 요청 API 제공, 실제 #5157의 DB/R7/공개/PC·모바일 전체 완료.
+- 구조: `job_reprocess_queue` RLS/중복방지, 소스 코드 SHA256 버전별 영향 Facebook 공고 큐, GitHub Actions `refresh-facebook-existing.yml` push·예약·직접 요청, 기존 `ingest_job`, OCR/R7 검증 뒤에만 완료.
+- 관리자 API: 기존 `api/admin.js`에 `/api/admin/reprocess-jobs` 추가, 인증·조회·등록, 서버 전용 GitHub 토큰 있으면 즉시 호출, 없으면 예약 워커가 처리. 새 Vercel 함수 없음.
+- 검증: CI/봇/운영 적용 및 실제 #5157 R7/공개/화면 확인 완료 전 최종 성공 주장 금지.
+
 ## 2026-10-31 — Highlands #5157 분류·표시·R7 공통 구조 및 운영 검증
 - Lee 지시: #5157 전체 15개 오류를 개별 SQL 손수정 없이 처리하고 운영 앱 PC·모바일에서만 완료 판정. 중간보고 금지.
 - PR #368: 원문 모집 직무·Fulltime/Parttime 구조화 표시, 실제 업무 ④ 아래 분류, 빈 원문 이름표 제거, 복리후생 'Xem thêm' 단독 표시 방지. 기존 KDA 회귀·원문 보존 시험.
@@ -76,10 +82,4 @@
 
 ## 2026-10-25 — 작업자 전환 기록
 - Lee: 이후 진행은 GPT, Claude는 검증 담당. CHATGPT_HANDOFF.md를 오늘 상태로 덮어씀(이전 본문은 git 이력).
-
-## 2026-10-25 — 공고 저장 순간 검사 신호(DB → GitHub)
-- [직접 확인] GitHub 예약 실행이 30분마다가 아니라 몇 시간에 한 번(06:39→11:21)만 돌았고 crawl-guard는 한 번도 자동 실행 안 됨. Lee: "처음부터 정 방향으로".
-- 변경(migration 20261025160000_job_signal_dispatch.sql): 공고 입력(제목·원문·이미지·근무지·회사·공개·분류)·위치 결과·수집 멈춤 상태가 바뀌면 신호 대기표 기록 → pg_cron 1분마다, 30초 조용하면 GitHub 작업(job-ocr-check·crawl-guard) 바로 시작. 결과 칸(상세요강·급여·ocr_check·복리후생) 변경은 신호 없음(자기 반복 방지). 하루 1번(05:10) 안전망. local_jobs.updated_at 추가.
-- 열쇠: Supabase Vault github_dispatch_token(Lee 생성, jobi-app Actions 시작 권한만). 기존 열쇠(GitHub 자동 열쇠는 작업 중에만 존재, AI 계정은 코드 권한이 넓어 위험)는 이 용도로 못 씀.
-- 시험: supabase/tests/job_signal_dispatch.pglite.test.mjs.
 
