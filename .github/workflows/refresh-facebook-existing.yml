@@ -1,43 +1,55 @@
-name: Re-extract approved Facebook job via ingest gateway
+name: Unified job reprocess queue (ingest and R7)
 on:
   push:
     branches: [master]
     paths:
+      - crawler/crawl_facebook.py
       - crawler/refresh_facebook_existing.py
+      - crawler/reprocess_queue.py
+      - src/lib/jobDetailSections.ts
+      - src/lib/sourceRecruitmentRoles.ts
+      - scripts/ocr/**
+  schedule:
+    - cron: '12,42 * * * *'
   workflow_dispatch:
     inputs:
       job_id:
-        description: "Existing Facebook job ID"
-        required: true
+        description: 'Existing job ID (optional, for explicit replay)'
+        required: false
         type: number
 permissions:
   contents: read
+concurrency:
+  group: unified-reprocess
+  cancel-in-progress: false
 jobs:
-  refresh:
+  reprocess:
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      JOB_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.job_id || '5157' }}
+      REPROCESS_VERSION: ${{ github.sha }}
+      REPROCESS_ENQUEUE_ALL: ${{ github.event_name == 'push' && '1' || '0' }}
+      REPROCESS_JOB_IDS: ${{ github.event_name == 'workflow_dispatch' && inputs.job_id || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install server crawler dependencies
+          python-version: '3.12'
+      - name: Install crawler dependencies
         run: pip install -r crawler/requirements.txt
-      - name: Update existing job without duplicate (ingest_job)
+      - name: Reprocess pending source-backed jobs through ingest_job
         working-directory: crawler
-        run: python refresh_facebook_existing.py --job-id "$JOB_ID"
+        run: python reprocess_queue.py
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - name: R7 source-aware comparison regression
+          node-version: '22'
+      - name: Verify R7 comparator
         run: node scripts/ocr/ocr-compare.test.mjs
-      - name: Recheck R7 after source-backed job update
+      - name: Recalculate OCR and publish gate
         run: |
           npm i --no-save pg@8
           node scripts/ocr/ocr-check.mjs
