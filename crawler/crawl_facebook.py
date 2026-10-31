@@ -132,7 +132,7 @@ OFFICE_JOB_PATTERNS = re.compile(
 DISTRICT_PATTERN = re.compile(
     r"(?:quận|q\.|huyện|thành phố|tp\.)\s*[\d\w\s]{1,20}|"
     r"(?:phường|p\.|xã|thị trấn)\s*[\w\s]{1,20}|"
-    r"(?:đường|ngõ|ngách|khu|kp)\s+[\w\s\d]{2,30}",
+    r"(?:đường|ngõ|ngách|khu(?!\s+vực)|kp)\s+[\w\s\d]{2,30}",  # "khu vực làm việc"(소제목)는 지역 아님(2026-10-30 #5157)
     re.IGNORECASE
 )
 
@@ -210,6 +210,10 @@ def extract_zalo(text: str) -> str:
 
 def extract_district(text: str) -> str:
     """구/군/동/도로명 등 상세 위치 추출"""
+    # Lee 2026-10-30(#5157): "Địa điểm: Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh"처럼 주소 줄이 있으면 그 줄 값을 그대로(번지 포함).
+    m = re.search(r"^[^\w\n]*(?:địa điểm|địa chỉ)(?: làm việc)?\s*[:：]\s*([^\n]{6,160})$", text, re.IGNORECASE | re.MULTILINE)
+    if m:
+        return m.group(1).strip(" .")
     matches = DISTRICT_PATTERN.findall(text)
     if matches:
         # 가장 짧고 구체적인 매치 우선
@@ -224,7 +228,7 @@ def extract_salary(text: str) -> str:
         r"(?:từ|from)\s*\d+[\.,]?\d*\s*(?:triệu|tr)",
         r"\d+[\.,]?\d*\s*(?:triệu|tr)(?:\s*/\s*\w+|/|\s*tháng|\s*month)?",
         r"\d+\s*[-–]\s*\d+\s*\$",
-        r"(?:thỏa thuận|thoả thuận|cạnh tranh)",
+        r"(?:thỏa thuận|thoả thuận)",  # Preserve explicit negotiation wording only
     ]
     for pat in patterns:
         m = re.search(pat, text, re.IGNORECASE)
@@ -236,19 +240,29 @@ def extract_salary(text: str) -> str:
                 if val > 200:
                     return "Thỏa thuận"
             return salary
-    return "Thỏa thuận"
+    m = re.search(r"thu nhập cạnh tranh", text, re.IGNORECASE)
+    return m.group(0) if m else ""
 
 
-def extract_title(text: str) -> str:
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-    for line in lines[:8]:
-        if any(kw in line.lower() for kw in ["tuyển", "cần tuyển", "nhân viên", "tìm người", "tuyển dụng"]):
-            if 5 < len(line) < 150:
-                return line
-    for line in lines[:5]:
-        if not is_person_name(line) and len(line) > 5:
-            return line[:120]
-    return lines[0][:120] if lines else "Tuyển dụng"
+# Lee 2026-10-30(#5157 Highlands): 첫 줄이 제목. 칸 이름만 있는 소제목("Vị trí tuyển dụng:")·사람 이름·전화번호 줄은 건너뛴다.
+# 예전 규칙("tuyển/nhân viên" 단어가 있는 첫 줄)은 소제목을 제목으로 잡고 "TÌM ĐỒNG ĐỘI" 같은 진짜 제목을 버렸다.
+_TITLE_EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+")
+_HEADING_ONLY = re.compile(r"^(?:vị trí(?: tuyển dụng)?|thông tin(?: tuyển dụng)?|yêu cầu|quyền lợi|mô tả(?: công việc)?|thời gian(?: làm việc)?|địa (?:điểm|chỉ)(?: làm việc)?|khu vực làm việc|cách nộp hồ sơ|liên hệ|mức lương|lương|phúc lợi)\s*[:：]?$", re.IGNORECASE)
+
+
+def _title_line(line: str) -> str:
+    return re.sub(r"\s{2,}", " ", _TITLE_EMOJI.sub(" ", line)).strip(" -•*:\t")
+
+
+def extract_title(text: str, company: str = "") -> str:
+    lines = [_title_line(l) for l in text.split("\n")]
+    for line in [l for l in lines if l][:6]:
+        if line.endswith(":") or _HEADING_ONLY.match(line) or is_person_name(line):
+            continue
+        if re.fullmatch(r"[\d\s.+()-]{8,}", line) or len(line) < 6:
+            continue
+        return line[:120]
+    return f"{company} tuyển dụng" if company else "Tuyển dụng"
 
 
 def extract_company(text: str) -> str:
@@ -265,6 +279,8 @@ def extract_company(text: str) -> str:
         candidate = m.group(1).strip()
         # "TRUNG TÂM TIẾNG ANH X TUYỂN DỤNG TRỢ GIẢNG…" → "TIẾNG ANH X"
         candidate = re.sub(r"\s*[-–]?\s*(?:cần tuyển|tuyển dụng|tuyển)\b.*$", "", candidate, flags=re.IGNORECASE).strip()
+        # Lee 2026-10-30(#5157): "Highlands Coffee Mường Thanh Bắc Ninh- Số 395 Ngô Gia Tự" → 주소(- Số …, - 123 …)는 회사명이 아니다.
+        candidate = re.sub(r"\s*[-–]\s*(?:số|so|sn)?\s*\d.*$", "", candidate, flags=re.IGNORECASE).strip()
         if candidate and not re.match(r"^(?:có|ho tro|hỗ trợ|can|cần|tuyen|tuyển)\b", candidate, re.IGNORECASE):
             return candidate
     for line in lines[:4]:
@@ -1064,8 +1080,8 @@ def parse_post(post: dict) -> dict:
     region = location if location and _place_key(location) in _place_key(text) else ""
     full_location = ", ".join(p for p in (district, region) if p)
 
-    title = extract_title(text)
     company = extract_company(text)
+    title = extract_title(text, company)
     category = classify(title, company, text)
     subcategory = classify_subcategory(category, title, company, text)
     category, subcategory = map_to_new_taxonomy(category, subcategory)
