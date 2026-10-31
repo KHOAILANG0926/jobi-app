@@ -3,7 +3,7 @@ import { sourceLines, fold } from './jobDetailSections'
 /** Source-backed multi-role extraction. Never invent a role or assign one salary to all roles.
  * The original description remains untouched in Mô tả công việc. */
 export function sourceRecruitmentRoles(description: string | null | undefined): { roles: string[]; workTypes: string[] } {
-  if (!description || !/\[source:facebook\]/i.test(description)) return { roles: [], workTypes: [] }
+  if (!description) return { roles: [], workTypes: [] }
   const roles: string[] = []
   const workTypes: string[] = []
   let insideRoles = false
