@@ -40,8 +40,8 @@ for file in "${changed[@]}"; do
     echo "PostgreSQL scoped R7 admin diagnostic fixture: $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
 create schema if not exists auth;
-create or replace function auth.uid() returns uuid language sql stable as $ select null::uuid $;
-create or replace function public.is_admin() returns boolean language sql stable as $ select false $;
+create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
+create or replace function public.is_admin() returns boolean language sql stable as 'select false';
 alter table public.local_jobs
   add column active boolean, add column admin_hidden boolean,
   add column publish_gate_reason text, add column policy_decision text,
