@@ -7,7 +7,7 @@ declare
   locked boolean;
 begin
   if fn is null then raise exception 'admin R7 read function missing'; end if;
-  select p.prosecdef and p.provolatile='s' and p.proconfig @> array['search_path=']
+  select p.prosecdef and p.provolatile='s' and (coalesce('search_path=' = any(p.proconfig), false) or coalesce('search_path=""' = any(p.proconfig), false))
     into definer from pg_proc p where p.oid=fn;
   if not coalesce(definer,false) then
     raise exception 'admin R7 read must be stable security-definer with locked search_path';
