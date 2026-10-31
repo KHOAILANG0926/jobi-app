@@ -14,7 +14,6 @@ begin
   end if;
   select has_function_privilege('anon',fn,'EXECUTE')
       or has_function_privilege('service_role',fn,'EXECUTE')
-      or has_function_privilege('PUBLIC',fn,'EXECUTE')
     into exposed;
   if exposed then raise exception 'admin R7 read EXECUTE exposed to unapproved roles'; end if;
   if not has_function_privilege('authenticated',fn,'EXECUTE') then
