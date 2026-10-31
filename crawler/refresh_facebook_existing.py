@@ -5,16 +5,29 @@ GitHub Actions with server-side Supabase credentials, never on a user's PC.
 """
 import argparse
 import json
+import re
 from crawl_facebook import parse_post, supabase
 from ingest_gateway import ingest_job
 
 FIELDS = ["title", "company", "salary", "location"]
 
+def title_from_evidence(source_text: str, ocr_text: str, company: str) -> str:
+    """Pick an evidenced recruitment headline, never a section heading or fabricated job name."""
+    heading = re.compile(r"^(?:vị trí(?: tuyển dụng)?|cách nộp hồ sơ|địa (?:chỉ|điểm)(?: làm việc)?|thời gian(?: làm việc)?|lương|quyền lợi)\\s*[:：]?$", re.I)
+    recruitment = re.compile(r"\\b(?:tìm đồng đội|tuyển dụng|cần tuyển|tuyển nhân viên|tuyển gấp)\\b", re.I)
+    for evidence in (source_text, ocr_text):
+        lines = [re.sub(r"^[^\\wÀ-ỹ]+|[^\\wÀ-ỹ]+$", "", line.strip()) for line in evidence.splitlines()]
+        for line in lines:
+            if 8 <= len(line) <= 120 and recruitment.search(line) and not heading.fullmatch(line):
+                return line
+    return ""
+
+
 def refresh_existing(job_id: int):
     if supabase is None:
         raise RuntimeError("Supabase server configuration unavailable")
     response = (supabase.table("local_jobs")
-                .select("id,origin,admin_hidden,source_text,source_url,description,images,location")
+                .select("id,origin,admin_hidden,source_text,ocr_text,source_url,description,images,location")
                 .eq("id", job_id).single().execute())
     old = response.data or {}
     if old.get("origin") != "crawler" or old.get("admin_hidden"):
@@ -24,6 +37,9 @@ def refresh_existing(job_id: int):
         raise RuntimeError("Not a preserved Facebook source post")
     group_location = ""
     parsed = parse_post({"text": text, "location": group_location, "images": old.get("images") or []})
+    backed_title = title_from_evidence(text, old.get("ocr_text") or "", parsed.get("company") or "")
+    if backed_title:
+        parsed["title"] = backed_title
     if not parsed["title"] or not parsed["company"] or parsed["title"].endswith(":"):
         raise RuntimeError("Parsed title or company is missing or is only a heading")
     if not parsed.get("location"):
