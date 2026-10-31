@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { compareWithOcr, moneyValues, canRepublish } from './ocr-compare.mjs'
+import { compareWithOcr, moneyValues, posterSalaryEvidence, canRepublish } from './ocr-compare.mjs'
 
 const ocr = 'CÔNG TY KDA TUYỂN GẤP\nLiên hệ: NGOC ANH DUONG\nSĐT: 0877 880 756\nLương 8.000.000 - 12.000.000\nTuổi 14-50t'
 const base = { employer_phone: '0877880756', contact_zalo: null, salary: '8.000.000 - 12.000.000', contact_name: 'NGOC ANH DUONG', company: 'KDA', age_min: 14, age_max: 50 }
@@ -48,8 +48,14 @@ console.log('ocr-compare: all assertions passed')
   const poster = 'PHA CHẾ PARTTIME\n26K/giờ\nFULLTIME 7-9 triệu/tháng'
   const job = { source_text: body, company: 'Highlands Coffee Mường Thanh Bắc Ninh',
     employer_phone: '0365102703', contact_name: 'Tuấn Minh', salary: 'Thu nhập cạnh tranh' }
-  assert.deepEqual(compareWithOcr(job, poster), { status: 'ok', mismatches: [] },
-    'body-backed facts do not need to appear again on poster')
+  assert.deepEqual(posterSalaryEvidence(poster), ['26K/giờ', '7-9 triệu/tháng'], 'wage figures must be verbatim poster evidence')
+  assert.deepEqual(compareWithOcr(job, poster).mismatches.map(m => m.field), ['salary'],
+    'competitive wording alone does not replace poster numeric wages')
+  const populated = { ...job, salary: 'Theo poster: 26K/giờ · 7-9 triệu/tháng' }
+  assert.deepEqual(compareWithOcr(populated, poster), { status: 'ok', mismatches: [] },
+    'body-backed contact and poster-backed wages match separate sources')
   assert.deepEqual(compareWithOcr({ ...job, salary: '15 triệu' }, poster).mismatches.map(m => m.field),
     ['salary'], 'unsupported salary still held when absent from both sources')
 }
+
+assert.deepEqual(posterSalaryEvidence('Số 395 Ngô Gia Tự, 0365102703'), [], 'never infer wage from address or phone')
