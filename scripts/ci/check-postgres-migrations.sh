@@ -36,6 +36,24 @@ for file in "${changed[@]}"; do
     if [[ "$bomunttl_checked" == 0 ]]; then bash scripts/ci/bomunttl-postgres.sh; bomunttl_checked=1; fi
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261031070500_admin_r7_read.sql' ]]; then
+    echo "PostgreSQL scoped R7 admin diagnostic fixture: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+create schema if not exists auth;
+create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
+create or replace function public.is_admin() returns boolean language sql stable as 'select false';
+alter table public.local_jobs
+  add column active boolean, add column admin_hidden boolean,
+  add column publish_gate_reason text, add column policy_decision text,
+  add column ocr_check jsonb, add column ocr_text text, add column images jsonb,
+  add column title text, add column salary text, add column contact_name text,
+  add column employer_phone text, add column contact_zalo text,
+  add column age_min integer, add column age_max integer;
+SQL
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/admin_r7_read_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
