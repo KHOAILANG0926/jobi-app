@@ -25,7 +25,7 @@ concurrency:
 jobs:
   reprocess:
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -53,3 +53,7 @@ jobs:
         run: |
           npm i --no-save pg@8
           node scripts/ocr/ocr-check.mjs
+      - name: Final publication verification and queue result
+        if: success()
+        working-directory: crawler
+        run: python finalize_reprocess_queue.py
