@@ -1,7 +1,7 @@
 ## 2026-10-31 — Highlands #5157 분류·표시·R7 공통 구조 및 운영 검증
 - Lee 지시: #5157 전체 15개 오류를 개별 SQL 손수정 없이 처리하고 운영 앱 PC·모바일에서만 완료 판정. 중간보고 금지.
 - PR #368: 원문 모집 직무·Fulltime/Parttime 구조화 표시, 실제 업무 ④ 아래 분류, 빈 원문 이름표 제거, 복리후생 'Xem thêm' 단독 표시 방지. 기존 KDA 회귀·원문 보존 시험.
-- R7 원문/포스터 출처별 대조(본문 필드가 포스터에 없다는 이유로 보류하지 않음); 보류 건 재검사 비교 버전. 기존 Facebook 공고를 ingest_job으로 갱신한 뒤 R7 검사 연결.
+- R7 원문/포스터 출처별 대조(본문 필드는 포스터에 없어도 됨); 실제 OCR 포스터 급여를 역할에 임의 배정하지 않고 ingest_job으로 기록; 금액 없는 경쟁 급여 공개 보류; R7 비교 버전 재검사. Facebook 기존 공고 ingest_job 갱신 뒤 R7 즉시 실행, 독립 R7 CI 추가.
 - 작업 중 검증: CI/운영 실행 결과는 PR/Actions 원본 확인. PR 병합·운영 데이터 갱신·R7 공개 상태·실제 화면 미확인 시 완료 처리하지 않음.
 - 관련 파일: src/pages/JobDetail.tsx, src/components/ConditionLines.tsx, src/lib/{sourceRecruitmentRoles,jobDetailSections}{,.test}.ts, scripts/ocr/ocr-{compare,check}.mjs, crawler/refresh_facebook_existing.py, .github/workflows/refresh-facebook-existing.yml, CHATGPT_HANDOFF.md, WORK_LOG.md.
 
