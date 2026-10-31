@@ -25,9 +25,9 @@ export function moneyValues(text) {
 export function posterSalaryEvidence(text) {
   const ocr = String(text ?? '')
   const patterns = [
-    /\b\d{1,3}\s*(?:k|nghìn|nghin)\s*\/\s*(?:giờ|gio|h)\b/giu,
-    /\b\d{1,2}\s*[-–~]\s*\d{1,2}\s*(?:triệu|trieu|tr)(?:\s*\/\s*(?:tháng|thang))?/giu,
-    /\b\d{1,2}\s*(?:triệu|trieu|tr)\s*\/\s*(?:tháng|thang)\b/giu,
+    /(?<!\d)\d{1,3}\s*(?:k|nghìn|nghin)\s*\/\s*(?:giờ|gio|h)(?![\p{L}\p{N}])/giu,
+    /(?<!\d)\d{1,2}\s*[-–~]\s*\d{1,2}\s*(?:triệu|trieu|tr)(?:\s*\/\s*(?:tháng|thang))?(?![\p{L}\p{N}])/giu,
+    /(?<!\d)\d{1,2}\s*(?:triệu|trieu|tr)\s*\/\s*(?:tháng|thang)(?![\p{L}\p{N}])/giu,
   ]
   const found = patterns.flatMap(pattern => [...ocr.matchAll(pattern)].map(m => ({ start: m.index ?? 0, value: m[0].trim() })))
   return [...new Map(found.sort((a, b) => a.start - b.start).map(p => [fold(p.value), p.value])).values()]
