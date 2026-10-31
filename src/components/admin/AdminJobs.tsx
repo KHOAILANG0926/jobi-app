@@ -23,30 +23,52 @@ function hiddenReasons(j: JobPeek): string[] {
   if (oc && typeof oc === 'object' && oc.status === 'mismatch') r.push('Ảnh không khớp R7 (사진 대조 불일치): ' + (oc.mismatches ?? []).map((m) => `${m.field}=${String(m.value)}`).join(', '))
   return r
 }
+type R7Mismatch = { field?: string; value?: unknown }
+type R7Evidence = { status?: string; mismatches?: R7Mismatch[] }
+const r7Fields = ['employer_phone', 'contact_zalo', 'salary', 'contact_name', 'company', 'age_min', 'age_max'] as const
 function JobPeekPanel({ id }: { id: number }) {
   const [data, setData] = useState<JobPeek | null>(null)
   const [err, setErr] = useState('')
+  const [r7Error, setR7Error] = useState('')
   useEffect(() => {
-    void supabase.from('local_jobs').select('title,company,salary,location,hours,employer_phone,occupation_code,occupation_evidence,description,active,admin_hidden').eq('id', id).single()
-      .then(async ({ data, error }) => {
-        if (error) { setErr(error.message); return }
-        // 2026-10-30 Lee "진짜 원인": 사진 대조(R7) 기록을 그대로 보여 준다. 읽기 권한이 없으면 그 칸만 비운다(목록은 그대로).
-        const extra = await supabase.from('local_jobs').select('images,ocr_check,ocr_text').eq('id', id).single()
-        setData({ ...(data as JobPeek), ...(extra.error ? { ocr_check: `읽기 불가: ${extra.error.message}` } : extra.data as JobPeek) })
-      })
+    let cancelled = false
+    setData(null)
+    setErr('')
+    setR7Error('')
+    void (async () => {
+      const [base, evidence] = await Promise.all([
+        supabase.from('local_jobs').select('title,company,salary,location,hours,employer_phone,occupation_code,occupation_evidence,description,active,admin_hidden').eq('id', id).single(),
+        supabase.rpc('admin_job_r7_read', { p_job_id: id }),
+      ])
+      if (cancelled) return
+      if (base.error) { setErr(base.error.message); return }
+      if (evidence.error) setR7Error(evidence.error.message)
+      setData({ ...(base.data as JobPeek), ...(evidence.error || !evidence.data ? {} : evidence.data as JobPeek) })
+    })()
+    return () => { cancelled = true }
   }, [id])
   if (err) return <p className="admin-error">{err}</p>
   if (!data) return <p>Đang tải…</p>
   const reasons = data.active && !data.admin_hidden ? [] : hiddenReasons(data)
+  const check = data.ocr_check && typeof data.ocr_check === 'object' ? data.ocr_check as R7Evidence : null
+  const mismatches = Array.isArray(check?.mismatches) ? check.mismatches : []
+  const compared = data.compared_values && typeof data.compared_values === 'object' ? data.compared_values as Record<string, unknown> : {}
+  const posterText = String(data.ocr_text ?? '')
   return <div style={{ padding: 12, background: '#f8fafc', borderRadius: 8, display: 'grid', gap: 6 }}>
     <p style={{ margin: 0, fontWeight: 700, color: reasons.length ? '#d92d20' : '#15803d' }}>
       {data.active && !data.admin_hidden ? '🟢 Đang công khai' : `🔴 Chưa công khai — ${reasons.join(' · ') || 'lý do khác (xem nhật ký)'}`}</p>
     {(['title', 'company', 'salary', 'location', 'hours', 'employer_phone', 'occupation_code', 'occupation_evidence'] as const).map((k) =>
       <p key={k} style={{ margin: 0 }}><b>{k}:</b> {String(data[k] ?? '—')}</p>)}
-    <p style={{ margin: 0 }}><b>ocr_check (사진 대조 기록):</b></p>
-    <pre style={{ whiteSpace: 'pre-wrap', margin: 0, background: '#fff7ed', padding: 8, borderRadius: 6 }}>{JSON.stringify(data.ocr_check ?? null, null, 1)}</pre>
+    <p style={{ margin: 0 }}><b>R7 — Đối chiếu ảnh:</b> {String(check?.status ?? 'chưa có kết quả')}</p>
+    {r7Error && <p className="admin-error" role="alert">Không đọc được R7: {r7Error}</p>}
+    {mismatches.length > 0 && <div style={{ overflowX: 'auto' }}><table className="admin-table"><thead><tr><th>Trường không khớp</th><th>Giá trị DB</th><th>Giá trị ảnh (OCR)</th></tr></thead><tbody>
+      {mismatches.map((m, i) => <tr key={i}><td>{String(m.field ?? '—')}</td><td>{String(m.value ?? compared[String(m.field)] ?? '—')}</td><td>Đối chiếu trong văn bản OCR bên dưới (không có giá trị cặp trong R7)</td></tr>)}
+    </tbody></table></div>}
+    {check?.status === 'mismatch' && mismatches.length === 0 && <p className="admin-error">R7 mismatch nhưng không có chi tiết trường.</p>}
+    {check?.status === 'ok' && <p>R7: Không có trường sai lệch.</p>}
+    <details><summary>Giá trị DB kiểm tra</summary>{r7Fields.map(k => <p key={k} style={{ margin: 0 }}><b>{k}:</b> {String(compared[k] ?? '—')}</p>)}</details>
     <p style={{ margin: 0 }}><b>images:</b> {JSON.stringify(data.images ?? null)}</p>
-    <details><summary>ocr_text (사진에서 읽은 글자)</summary><pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{String(data.ocr_text ?? '')}</pre></details>
+    <details><summary>Văn bản OCR (giá trị đối chiếu từ ảnh, chưa tách riêng theo trường)</summary><pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{posterText || '—'}</pre></details>
     <pre style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 320, overflow: 'auto', background: '#fff', padding: 8, borderRadius: 6 }}>{String(data.description ?? '')}</pre>
   </div>
 }
