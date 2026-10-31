@@ -409,7 +409,7 @@ export function JobDetail() {
       salaryText || (salaryNote && !isAllowanceNote) || albamonLines.salary.length ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
-          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/\s*\|\s*|(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
           {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음) */}
           {albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
