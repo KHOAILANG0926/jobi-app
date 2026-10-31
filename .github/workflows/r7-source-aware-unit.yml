@@ -1,0 +1,25 @@
+name: R7 source-aware comparison unit test
+on:
+  pull_request:
+    paths:
+      - scripts/ocr/ocr-compare.mjs
+      - scripts/ocr/ocr-compare.test.mjs
+      - scripts/ocr/ocr-check.mjs
+  push:
+    branches: [master]
+    paths:
+      - scripts/ocr/ocr-compare.mjs
+      - scripts/ocr/ocr-compare.test.mjs
+      - scripts/ocr/ocr-check.mjs
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node scripts/ocr/ocr-compare.test.mjs
