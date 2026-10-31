@@ -353,7 +353,7 @@ def test_highlands_5157_fields() -> None:
     assert_equal(extract_company(HIGHLANDS_5157), "Highlands Coffee Mường Thanh Bắc Ninh", "company without address")
     assert_equal(extract_title(HIGHLANDS_5157, extract_company(HIGHLANDS_5157)), "HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI", "title is first line")
     assert_equal(extract_title("🔎 Vị trí tuyển dụng:\nMr Tuấn Minh", "Highlands"), "Highlands tuyển dụng", "heading-only fallback")
-    assert_equal(extract_salary(HIGHLANDS_5157), "Thỏa thuận", "no amount → negotiable, not 'cạnh tranh'")
+    assert_equal(extract_salary(HIGHLANDS_5157), "Thu nhập cạnh tranh", "preserve literal salary wording without inventing negotiations")
     assert_equal(extract_district(HIGHLANDS_5157), "Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh", "address line with house number")
 
 def main() -> int:
