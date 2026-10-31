@@ -30,7 +30,11 @@ export function posterSalaryEvidence(text) {
     /(?<!\d)\d{1,2}\s*(?:triệu|trieu|tr)\s*\/\s*(?:tháng|thang)(?![\p{L}\p{N}])/giu,
   ]
   const found = patterns.flatMap(pattern => [...ocr.matchAll(pattern)].map(m => ({ start: m.index ?? 0, value: m[0].trim() })))
-  return [...new Map(found.sort((a, b) => a.start - b.start).map(p => [fold(p.value), p.value])).values()]
+  const selected = []
+  for (const p of found.sort((a, b) => a.start - b.start || b.value.length - a.value.length)) {
+    if (!selected.some(q => p.start < q.start + q.value.length && q.start < p.start + p.value.length)) selected.push(p)
+  }
+  return [...new Map(selected.map(p => [fold(p.value), p.value])).values()]
 }
 
 // job: { employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max }
