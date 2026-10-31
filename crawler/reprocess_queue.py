@@ -3,7 +3,7 @@ import os
 import json
 import hashlib
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from crawl_facebook import supabase
 from refresh_facebook_existing import refresh_existing
 
@@ -41,6 +41,13 @@ def enqueue_affected():
 
 def run():
     if supabase is None: raise RuntimeError("Supabase server credentials missing")
+    # A runner crash must not leave a job locked forever. Bounded automatic retries.
+    cutoff=(datetime.now(timezone.utc)-timedelta(hours=2)).isoformat()
+    stale=(supabase.table("job_reprocess_queue").select("id,attempts")
+           .eq("status","running").lt("started_at",cutoff).limit(50).execute().data or [])
+    for item in stale:
+        target="pending" if item["attempts"] < 3 else "failed"
+        supabase.table("job_reprocess_queue").update({"status":target,"error":"worker_timeout"}).eq("id",item["id"]).eq("status","running").execute()
     if os.environ.get("REPROCESS_ENQUEUE_ALL") == "1": enqueue_affected()
     ids = [int(x) for x in os.environ.get("REPROCESS_JOB_IDS","").split(",") if x.strip().isdigit()]
     for job_id in ids: enqueue(job_id,"explicit_validation")
