@@ -1,0 +1,32 @@
+name: Re-extract approved Facebook job via ingest gateway
+on:
+  push:
+    branches: [master]
+    paths:
+      - crawler/refresh_facebook_existing.py
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "Existing Facebook job ID"
+        required: true
+        type: number
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      JOB_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.job_id || '5157' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r crawler/requirements.txt
+      - name: Update existing job without duplicate (ingest_job)
+        working-directory: crawler
+        run: python refresh_facebook_existing.py --job-id "$JOB_ID"
