@@ -31,7 +31,6 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      REPROCESS_VERSION: ${{ github.sha }}
       REPROCESS_ENQUEUE_ALL: ${{ github.event_name != 'workflow_dispatch' && '1' || '0' }}
       REPROCESS_JOB_IDS: ${{ github.event_name == 'workflow_dispatch' && inputs.job_id || '' }}
     steps:
