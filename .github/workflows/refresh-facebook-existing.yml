@@ -14,11 +14,10 @@ permissions:
   contents: read
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
-    environment: production
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       JOB_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.job_id || '5157' }}
     steps:
