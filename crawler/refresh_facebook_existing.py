@@ -51,6 +51,7 @@ def refresh_existing(job_id: int):
     for key in FIELDS:
         if after.get(key) != parsed[key]:
             raise RuntimeError(f"Refresh not persisted for {key}: expected source-backed field")
+    print("ingest_job persisted all four source-backed fields for existing job", job_id)
     print(json.dumps({"job_id": job_id, "updated": {k: after[k] for k in FIELDS},
                       "active": after["active"]}, ensure_ascii=False))
 
