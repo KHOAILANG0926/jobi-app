@@ -3,9 +3,10 @@ import { CONDITION_MAX_LINES, conditionItems } from '../lib/conditionLines'
 
 // 근무조건 한 칸: 한 항목 = 한 줄(항목 중간 꺾임 금지), 최대 3줄. 넘치면 'Xem thêm'만 보이고 전체는 상세요강에.
 // 넘침 판단은 실제 칸 폭으로 잰다(숨긴 측정용 사본) — 화면 폭이 바뀌어도 다시 잰다.
-export function ConditionLines({ text, compactText, onOverflowChange, onMore }: {
+export function ConditionLines({ text, compactText, showPreview = false, onOverflowChange, onMore }: {
   text: string
   compactText?: string
+  showPreview?: boolean
   onOverflowChange?: (overflow: boolean) => void
   onMore: () => void
 }) {
@@ -42,9 +43,12 @@ export function ConditionLines({ text, compactText, onOverflowChange, onMore }: 
       <span ref={measureRef} className="jd2-cond-measure" aria-hidden="true">
         {items.map((item, i) => <span key={i} className="jd2-cond-item">{item}</span>)}
       </span>
-      {overflow ? (
+      {overflow && items.length ? (
         compactText ? <span className="jd2-salary-lines jd2-cond-lines">
           <span className="jd2-cond-item" data-condition-summary="true" aria-label={text} title={text}>{compactText}</span>
+          <button type="button" className="jd2-cond-more" onClick={onMore}>Xem thêm</button>
+        </span> : showPreview ? <span className="jd2-salary-lines jd2-cond-lines">
+          {items.slice(0, CONDITION_MAX_LINES).map((item, i) => <span key={i} className="jd2-salary-line jd2-cond-item">{item}</span>)}
           <button type="button" className="jd2-cond-more" onClick={onMore}>Xem thêm</button>
         </span> : <button type="button" className="jd2-cond-more" onClick={onMore}>Xem thêm</button>
       ) : (

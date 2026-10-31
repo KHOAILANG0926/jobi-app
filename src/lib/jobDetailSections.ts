@@ -85,18 +85,19 @@ const digits = (s: string) => s.replace(/\D/g, '')
 // 원문 소제목 → 칸. "Lương và phúc lợi"처럼 급여·복리후생이 섞인 제목은 04로 두고, 줄 단위로 05를 골라낸다.
 const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:cong viec|mo ta cong viec|noi dung cong viec)$/, '01'],
+  [/^(?:vi tri tuyen dung|vi tri can tuyen)$/, '07'],
   [/^(?:yeu cau|yeu cau tuyen dung|yeu cau ung vien|yeu cau co ban|yeu cau cong viec)$/, '02'],
   [/^(?:thoi gian lam viec|hinh thuc lam viec|lich lam viec)$/, '03'],
   [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap)$/, '04'],
   [/^(?:quyen loi|quyen loi chinh|phuc loi|quyen loi & moi truong lam viec|quyen loi va moi truong lam viec|moi truong lam viec)$/, '05'],
-  [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|hinh thuc nop ho so)$/, '06'],
+  [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|cach nop ho so|hinh thuc nop ho so)$/, '06'],
   [/^(?:thong tin khac|ghi chu|thong tin cong ty|thong tin co ban|hien so)$/, '07'],
   [/^(?:nganh nghe|loai hinh cong viec|hinh thuc tra luong|gioi tinh|do tuoi|hoc van toi thieu|ten cong ty|ca nhan dang tuyen)$/, '07'],
-  [/^(?:dia diem lam viec|dia chi)$/, 'address'],
-  [/^(?:lien he)$/, 'contact'],
+  [/^(?:dia diem lam viec|dia chi|dia chi lam viec|khu vuc lam viec)$/, 'address'],
+  [/^(?:lien he|hotline\s*\/\s*zalo|hotline|zalo)$/, 'contact'],
 ]
 export function headingOf(line: string) {
-  const s = bare(line)
+  const s = bare(line.replace(/^[^\p{L}\p{N}]+/u, ''))
   return HEADINGS.find(([re]) => re.test(s))?.[1]
 }
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).
@@ -117,7 +118,7 @@ export function lineBucket(line: string, current: DetailTextKey): DetailTextKey 
   if (current === '04' && /(?:lam ngoi|thoai mai|khong bat buoc tang ca|moi truong)/.test(s)) return '05'
   if (/^(?:gio lam viec|thoi gian(?: lam viec)?|ngay lam|tang ca|lam them|loai hinh cong viec|toan thoi gian|ban thoi gian)\b/.test(s)) return '03'
   if (/^(?:do tuoi|gioi tinh|hoc van toi thieu|kinh nghiem|trung hoc|khong yeu cau|\d+\s*[-–]\s*\d+\s*tuoi|<\s*\d+\s*nam)\b/.test(s)) return '02'
-  if (/^(?:nganh nghe|ban hang tai quay|tuyen nhan vien)\b/.test(s)) return '01'
+  if (/^(?:nganh nghe|ban hang tai quay|tuyen nhan vien|pha che\b|cham soc khach hang\b|phuc vu khach\b|dong goi\b|kiem tra chat luong\b)/.test(s)) return '01'
   if (/^(?:phong van|nop ho so|quy trinh tuyen dung|ung tuyen|cach ung tuyen|ho so ung tuyen)\b/.test(s)) return '06'
   if (/^(?:chuong trinh cong tac vien|cong tac vien)\b/.test(s)) return '07'
   return current
@@ -163,7 +164,9 @@ export function detailSections(description: string | null | undefined, above: Sh
     // 2026-10-25 Lee: 상단 급여 총액과 같은 금액 반복·값 없는 급여 이름표는 뺀다(급여 구성 줄은 남김)
     if (isSalaryTotalRepeat(line, above.salary)) { dropped.push({ line, reason: 'shown_above' }); continue }
     if (coveredByAbove(line, above)) { dropped.push({ line, reason: 'shown_above' }); continue }
-    buckets[context === 'address' || context === 'contact' ? '07' : lineBucket(line, current)].push(line)
+    // A preceding address/contact label must not swallow a later, independently recognizable duty.
+    const classified = lineBucket(line, current)
+    buckets[context === 'address' || context === 'contact' ? (classified === '01' ? '01' : '07') : classified].push(line)
   }
   const sections = ORDER.filter(key => buckets[key].length).map(key => ({ key, label: DETAIL_LABELS[key], lines: buckets[key] }))
   if (!verifyDescriptionPreserved(description, sections, dropped)) {

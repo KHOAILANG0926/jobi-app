@@ -20,6 +20,23 @@ export function moneyValues(text) {
   return out
 }
 
+/** Strict source-backed wage expressions: no phone/address numbers or inferred work period.
+ * Multiple figures may apply to different roles; preserve each without associating it to a role. */
+export function posterSalaryEvidence(text) {
+  const ocr = String(text ?? '')
+  const patterns = [
+    /(?<!\d)\d{1,3}\s*(?:k|nghìn|nghin)\s*\/\s*(?:giờ|gio|h)(?![\p{L}\p{N}])/giu,
+    /(?<!\d)\d{1,2}\s*[-–~]\s*\d{1,2}\s*(?:triệu|trieu|tr)(?:\s*\/\s*(?:tháng|thang))?(?![\p{L}\p{N}])/giu,
+    /(?<!\d)\d{1,2}\s*(?:triệu|trieu|tr)\s*\/\s*(?:tháng|thang)(?![\p{L}\p{N}])/giu,
+  ]
+  const found = patterns.flatMap(pattern => [...ocr.matchAll(pattern)].map(m => ({ start: m.index ?? 0, value: m[0].trim() })))
+  const selected = []
+  for (const p of found.sort((a, b) => a.start - b.start || b.value.length - a.value.length)) {
+    if (!selected.some(q => p.start < q.start + q.value.length && q.start < p.start + p.value.length)) selected.push(p)
+  }
+  return [...new Map(selected.map(p => [fold(p.value), p.value])).values()]
+}
+
 // job: { employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max }
 export function compareWithOcr(job, ocrText) {
   const ocr = String(ocrText ?? '')
@@ -27,20 +44,30 @@ export function compareWithOcr(job, ocrText) {
   const ocrDigits = digits(ocr)
   const ocrFold = ` ${fold(ocr)} `
   const ocrTokens = new Set((ocr.match(/\d+/g) ?? []).map(String))
+  // A body-sourced fact does not have to be repeated on the poster. OCR checks
+  // poster-sourced facts; otherwise it falsely blocks valid Facebook text posts.
+  const sourceFold = ` ${fold(job.source_text)} `
+  const sourceDigits = digits(job.source_text)
+  const bodyProvesText = (value) => !!fold(value) && sourceFold.includes(` ${fold(value)} `)
   const mismatches = []
   for (const f of ['employer_phone', 'contact_zalo']) {
     const d = digits(job[f])
-    if (d && !ocrDigits.includes(d)) mismatches.push({ field: f, value: d })
+    if (d && !sourceDigits.includes(d) && !ocrDigits.includes(d)) mismatches.push({ field: f, value: d })
   }
   // 급여: 310k = 310000 = 310.000 = 310 nghìn 처럼 표기가 달라도 같은 숫자로 비교한다.
   const ocrMoney = moneyValues(ocr)
-  for (const n of moneyValues(job.salary)) if (!ocrMoney.has(n) && !ocrDigits.includes(String(n))) mismatches.push({ field: 'salary', value: n })
+  const sourceMoney = moneyValues(job.source_text)
+  const posterWages = posterSalaryEvidence(ocr)
+  const competitiveWithoutAmount = /(?:thu\s*nhập|thu\s*nhap|lương|luong)\s+cạnh\s*tranh/iu.test(String(job.source_text ?? '')) && moneyValues(job.salary).size === 0
+  if (competitiveWithoutAmount) mismatches.push({ field: 'salary', value: job.salary || '', poster_value: posterWages.join(' · '), reason: 'numeric_wage_required' })
+  for (const n of moneyValues(job.salary)) if (!sourceMoney.has(n) && !ocrMoney.has(n) && !ocrDigits.includes(String(n))) mismatches.push({ field: 'salary', value: n })
   for (const f of ['contact_name', 'company']) {
     const v = fold(job[f])
-    if (v && !ocrFold.includes(` ${v} `)) mismatches.push({ field: f, value: job[f] })
+    if (v && !bodyProvesText(job[f]) && !ocrFold.includes(` ${v} `)) mismatches.push({ field: f, value: job[f] })
   }
   for (const f of ['age_min', 'age_max']) {
-    if (job[f] != null && !ocrTokens.has(String(job[f]))) mismatches.push({ field: f, value: job[f] })
+    const sourceAges = new Set((String(job.source_text ?? '').match(/\d+/g) ?? []).map(String))
+    if (job[f] != null && !sourceAges.has(String(job[f])) && !ocrTokens.has(String(job[f]))) mismatches.push({ field: f, value: job[f] })
   }
   return { status: mismatches.length ? 'mismatch' : 'ok', mismatches }
 }
