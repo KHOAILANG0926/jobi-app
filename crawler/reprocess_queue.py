@@ -1,11 +1,24 @@
 """Server-only idempotent reprocessor. All job modifications use ingest_job."""
 import os
 import json
+import hashlib
+from pathlib import Path
 from datetime import datetime, timezone
 from crawl_facebook import supabase
 from refresh_facebook_existing import refresh_existing
 
-VERSION = os.environ.get("REPROCESS_VERSION", "facebook-v1")
+def pipeline_version():
+    root=Path(__file__).resolve().parent.parent
+    files=["crawler/crawl_facebook.py","crawler/refresh_facebook_existing.py",
+           "crawler/reprocess_queue.py","src/lib/jobDetailSections.ts",
+           "src/lib/sourceRecruitmentRoles.ts","scripts/ocr/ocr-compare.mjs"]
+    digest=hashlib.sha256()
+    for path in files:
+        digest.update(path.encode())
+        digest.update((root/path).read_bytes())
+    return "reprocess-"+digest.hexdigest()[:20]
+
+VERSION = pipeline_version()
 BATCH = 20
 
 def enqueue(job_id, reason, version=VERSION):
