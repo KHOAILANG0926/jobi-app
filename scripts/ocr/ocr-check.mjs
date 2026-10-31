@@ -39,10 +39,10 @@ const { rows } = await client.query(`
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text)
          -- 판독자가 바뀌면(결정 0004: AI 독립 판독 ai-v1) 예전 판독자로 보류된 공고를 한 번 다시 읽는다
          or (ocr_check->>'status' in ('mismatch','unreadable') and ocr_check->>'reader' is distinct from 'ai-v1')
-         or ocr_check->>'compared_hash' is distinct from md5(to_jsonb(array[
+         or ((active = false or ocr_check ? 'compared_hash') and ocr_check->>'compared_hash' is distinct from md5(to_jsonb(array[
            employer_phone, contact_zalo, salary, contact_name, company,
            age_min::text, age_max::text
-         ])::text))
+         ])::text)))
   order by id limit 50`)
 console.log(`OCR 대상 ${rows.length}건`)
 
