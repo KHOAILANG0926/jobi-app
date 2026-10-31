@@ -379,7 +379,7 @@ export function JobDetail() {
     value ? ({ key, icon, label, value, cls } as InfoField) : null
   // 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄, 최대 3줄, 넘치면 'Xem thêm' → 상세요강 해당 소제목.
   const textRow = (key: string, icon: ReactNode, label: string, value: string | undefined) =>
-    value ? row(key, icon, label, <ConditionLines text={value} compactText={roleSummary ? (key === 'hours' ? `${roleSummary.roleCount} vị trí, giờ khác` : key === 'workDays' ? 'Theo từng vị trí' : key === 'benefits' ? 'Theo từng vị trí' : undefined) : undefined} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
+    value ? row(key, icon, label, <ConditionLines text={value} showPreview={albamonLayout} compactText={roleSummary ? (key === 'hours' ? `${roleSummary.roleCount} vị trí, giờ khác` : key === 'workDays' ? 'Theo từng vị trí' : key === 'benefits' ? 'Theo từng vị trí' : undefined) : undefined} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
   const salaryNote = nonEmpty(job.salaryNote)
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
