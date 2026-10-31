@@ -253,4 +253,5 @@ Chăm sóc khách hàng`
   const lines = sections.sections.flatMap((s) => s.lines)
   assert(!lines.some((s) => /^(Hotline\/Zalo:|ĐỊA CHỈ LÀM VIỆC:|📩 Cách nộp hồ sơ:)$/.test(s)), 'no empty labels in detail')
   assert(lines.includes('Pha chế thức uống') && lines.includes('Chăm sóc khách hàng'), 'actual duties preserved without fabricated role details')
+  assert(sections.sections.find(s => s.key === '01')?.lines.includes('Pha chế thức uống') && sections.sections.find(s => s.key === '01')?.lines.includes('Chăm sóc khách hàng'), 'actual duties in work description subsection')
 }
