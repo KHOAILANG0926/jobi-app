@@ -38,7 +38,11 @@ const { rows } = await client.query(`
     and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text)
          -- 판독자가 바뀌면(결정 0004: AI 독립 판독 ai-v1) 예전 판독자로 보류된 공고를 한 번 다시 읽는다
-         or (ocr_check->>'status' in ('mismatch','unreadable') and ocr_check->>'reader' is distinct from 'ai-v1'))
+         or (ocr_check->>'status' in ('mismatch','unreadable') and ocr_check->>'reader' is distinct from 'ai-v1')
+         or ocr_check->>'compared_hash' is distinct from md5(to_jsonb(array[
+           employer_phone, contact_zalo, salary, contact_name, company,
+           age_min::text, age_max::text
+         ])::text))
   order by id limit 50`)
 console.log(`OCR 대상 ${rows.length}건`)
 
@@ -59,7 +63,12 @@ try {
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.
       const hold = res.status === 'mismatch'
       await client.query(
-        `update public.local_jobs set ocr_text = $2, ocr_check = jsonb_set($3::jsonb, '{images_hash}', to_jsonb(md5(images::text))) ${hold ? ', active = false' : ''} where id = $1`,
+        `update public.local_jobs set ocr_text = $2, ocr_check = jsonb_set(
+          jsonb_set($3::jsonb, '{images_hash}', to_jsonb(md5(images::text))),
+          '{compared_hash}', to_jsonb(md5(to_jsonb(array[
+            employer_phone, contact_zalo, salary, contact_name, company,
+            age_min::text, age_max::text
+          ])::text))) ${hold ? ', active = false' : ''} where id = $1`,
         [job.id, text, JSON.stringify(check)])
       if (hold) { held++; console.log(`보류 #${job.id}: ${res.mismatches.map((m) => m.field).join(', ')}`); console.log(`::warning title=R7 보류 #${job.id}::불일치 항목 ${res.mismatches.map((m) => m.field).join(', ')}`) } else ok++
       // OCR 'ok' → OCR 단계에서 공개로 되돌린다(기존 공개 조건 통과분만). 정책 판정(R4)은 DB 트리거가 강제:
