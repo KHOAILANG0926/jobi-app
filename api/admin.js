@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createAdminReprocessHandler } from './_lib/admin-reprocess.js'
 import { createAdminUsersHandler } from './_lib/admin-users.js'
 import { createAdminGeocodeHandler } from './_lib/admin-geocode.js'
 import { createAdminVietmapHandler } from './_lib/admin-vietmap.js'
@@ -8,6 +9,7 @@ import { createAdminBusinessSearchHandler } from './_lib/admin-business-search.j
 export const config = { maxDuration: 300 }
 const handlers = {
   users: createAdminUsersHandler(),
+  'reprocess-jobs': createAdminReprocessHandler(),
   geocode: createAdminGeocodeHandler(),
   vietmap: createAdminVietmapHandler(),
   'auto-location': createAutoLocationHandler(),
