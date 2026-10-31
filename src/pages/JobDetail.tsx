@@ -334,7 +334,15 @@ export function JobDetail() {
 
   // ── 빈 데이터 처리: 원본이 명시적으로 채운 값만 표시, 나머지는 필드 자체를 숨긴다 ──
   const roleSummary = roleConditionSummary(job.description)
-  const salaryText = roleSummary?.salary ?? nonEmpty(job.rawSalary)
+  const rawSalaryText = roleSummary?.salary ?? nonEmpty(job.rawSalary)
+  // Explicit part-time/full-time salary pairs stay in the existing salary area.
+  // Preserve the original amount and unit; only standardize labels and separator.
+  const salaryText = rawSalaryText && /part[ -]?time/i.test(rawSalaryText) && /full[ -]?time/i.test(rawSalaryText)
+    ? rawSalaryText
+      .replace(/(\d[\d.,–\-\s]*(?:K|đ|đồng|triệu)(?:\s*\/\s*(?:giờ|tháng))?)\s*\(\s*part[ -]?time\s*\)/gi, 'Part-time: $1')
+      .replace(/(\d[\d.,–\-\s]*(?:K|đ|đồng|triệu)(?:\s*\/\s*(?:giờ|tháng))?)\s*\(\s*full[ -]?time\b([^)]*)\)/gi, 'Full-time: $1 ($2)')
+      .replace(/\s*;\s*/g, ' | ')
+    : rawSalaryText
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
   const educationText = nonEmpty(job.rawEducation)
@@ -401,7 +409,7 @@ export function JobDetail() {
       salaryText || (salaryNote && !isAllowanceNote) || albamonLines.salary.length ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
-          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/\s*\|\s*|(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
           {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음) */}
           {albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
