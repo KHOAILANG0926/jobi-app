@@ -52,7 +52,7 @@ def run():
                       "r7":(current.get("ocr_check") or {}).get("status")}
             # Ingest success alone does not assert publication success.
             supabase.table("job_reprocess_queue").update({
-                "status":"success","result":result,"finished_at":datetime.now(timezone.utc).isoformat()
+                "status":"running","result":result
             }).eq("id",key).execute()
             print(json.dumps({"job_id":item["job_id"],**result},ensure_ascii=False))
         except Exception as exc:
