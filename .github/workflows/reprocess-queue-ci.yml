@@ -1,0 +1,33 @@
+name: Unified reprocess queue regression
+on:
+  pull_request:
+    paths:
+      - crawler/reprocess_queue.py
+      - crawler/finalize_reprocess_queue.py
+      - crawler/refresh_facebook_existing.py
+      - api/_lib/admin-reprocess.js
+      - api/admin.js
+      - .github/workflows/refresh-facebook-existing.yml
+  push:
+    branches: [master]
+    paths:
+      - crawler/reprocess_queue.py
+      - crawler/finalize_reprocess_queue.py
+      - crawler/refresh_facebook_existing.py
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify every queue Python entrypoint compiles
+        run: python -m py_compile crawler/reprocess_queue.py crawler/finalize_reprocess_queue.py crawler/refresh_facebook_existing.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify admin API and queue route imports
+        run: node --check api/admin.js && node --check api/_lib/admin-reprocess.js
