@@ -3,6 +3,7 @@
     "deploymentEnabled": false
   },
   "rewrites": [
+    { "source": "/api/admin/reprocess-jobs", "destination": "/api/admin?action=reprocess-jobs" },
     {
       "source": "/viec-lam/tuyen-gap",
       "destination": "/api/ssr"
