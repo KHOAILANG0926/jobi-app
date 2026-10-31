@@ -163,7 +163,9 @@ export function detailSections(description: string | null | undefined, above: Sh
     // 2026-10-25 Lee: 상단 급여 총액과 같은 금액 반복·값 없는 급여 이름표는 뺀다(급여 구성 줄은 남김)
     if (isSalaryTotalRepeat(line, above.salary)) { dropped.push({ line, reason: 'shown_above' }); continue }
     if (coveredByAbove(line, above)) { dropped.push({ line, reason: 'shown_above' }); continue }
-    // A preceding address/contact label must not swallow a later, independently recognizable duty.\n    const classified = lineBucket(line, current)\n    buckets[context === 'address' || context === 'contact' ? (classified === '01' ? '01' : '07') : classified].push(line)
+    // A preceding address/contact label must not swallow a later, independently recognizable duty.
+    const classified = lineBucket(line, current)
+    buckets[context === 'address' || context === 'contact' ? (classified === '01' ? '01' : '07') : classified].push(line)
   }
   const sections = ORDER.filter(key => buckets[key].length).map(key => ({ key, label: DETAIL_LABELS[key], lines: buckets[key] }))
   if (!verifyDescriptionPreserved(description, sections, dropped)) {
