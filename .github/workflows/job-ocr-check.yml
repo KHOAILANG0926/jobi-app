@@ -73,12 +73,15 @@ jobs:
       - name: OCR 대조 실행
         if: steps.ready.outputs.ready == '1'
         run: node --experimental-strip-types scripts/ocr/ocr-check.mjs
+      - name: 상세요강 빠진 줄 자동 보충 (2026-10-20 Lee 결정 — 막지 않고 원문 글자 그대로 채움)
+        if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
+        run: node --experimental-strip-types scripts/ocr/detail-fill.mjs
       - name: AI 칸·복리후생 판정 (2026-10-25 Lee — 단어 규칙이 못 정한 줄·복리후생을 뜻으로, 정해진 번호표 중에서만)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: |
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/aiClassifyGuard.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/ai-classify.mjs
-      - name: 상세요강 빠진 줄 자동 보충 (2026-10-20 Lee 결정 — 막지 않고 원문 글자 그대로 채움)
+      - name: 상세요강 다시 채우기 (2026-11-01 — AI가 방금 정한 칸을 같은 실행에서 반영, 다음 실행까지 기다리지 않음)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: node --experimental-strip-types scripts/ocr/detail-fill.mjs
       - name: 공고 검사표 (2026-10-25 Lee 결정 — 올린 공고마다 문제를 찾아 알림, 연속 10개 통과가 크롤링 시작 조건)
