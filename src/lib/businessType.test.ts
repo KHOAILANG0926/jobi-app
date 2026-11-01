@@ -15,6 +15,8 @@ const r = guardWebAnswer(W, { type: 'fnb' }, good)
 eq([r?.code, r?.evidence, r?.duty, r?.method], [SERVICE_CODE, 'WALLACE BẮC NINH', 'Nhân viên cửa hàng', 'web'], '#5247 web confirmed')
 eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://x', cited_text: 'Wallace CS7: 303 Kim Mã, Hà Nội' }]), null, 'other branch address is not this store')
 eq(guardWebAnswer(W, { type: 'fnb' }, []), null, 'AI words without citation are not enough')
+eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://a', cited_text: 'Wallace mở 3 cửa hàng mới' }, { url: 'https://a', cited_text: 'CS9: 216 Nguyễn Trãi, Tp Bắc Ninh' }])?.url, 'https://a', 'same source split quotes join')
+eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://a', cited_text: 'Wallace mở 3 cửa hàng mới' }, { url: 'https://b', cited_text: '216 Nguyễn Trãi Bắc Ninh cho thuê' }]), null, 'name and address from different sources do not count')
 eq(guardWebAnswer(W, { type: 'other' }, good), null, 'non-service business not classified as service')
 eq(guardWebAnswer({ ...W, location: 'Bắc Ninh' }, { type: 'fnb' }, good), null, 'no street number → cannot match a store')
 // 이름 단계: 업체 이름 또는 업체 이름 앞 두 낱말이 든 원문 줄의 가게 낱말

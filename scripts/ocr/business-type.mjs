@@ -3,7 +3,7 @@
 // 기록: 직업 코드·근거는 ingest_job 한 입구로, 판단 출처(이름/검색 URL·인용문)는 ocr_check.business_type에.
 // 필요 환경변수: SUPABASE_DB_URL (검색에는 ANTHROPIC_API_KEY — 없으면 이름 단계만)
 import pg from 'pg'
-import { businessFromName, buildWebPrompt, guardWebAnswer, streetOf } from '../../src/lib/businessType.ts'
+import { businessFromName, buildWebPrompt, guardWebAnswer, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
 import { afterCutoff } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
@@ -22,7 +22,7 @@ async function webLookup(job) {
   const texts = body.content.filter((b) => b.type === 'text')
   const citations = texts.flatMap((b) => b.citations ?? []).map((c) => ({ url: c.url, cited_text: c.cited_text }))
   const joined = texts.map((b) => b.text).join('')
-  const m = joined.match(/\{[\s\S]*\}/)
+  const m = joined.match(/\{[^{}]*\}(?![\s\S]*\{)/)
   let answer = null
   try { answer = m ? JSON.parse(m[0]) : null } catch { answer = null }
   return { answer, citations }
@@ -33,12 +33,12 @@ await client.connect()
 let set = 0, none = 0
 try {
   const { rows } = await client.query(`
-    select id, title, company, location, source_text, images, md5(coalesce(source_text,'') || '|' || coalesce(company,'') || '|' || coalesce(location,'')) as src_hash,
+    select id, title, company, location, source_text, images, md5(coalesce(source_text,'') || '|' || coalesce(company,'') || '|' || coalesce(location,'') || '|' || $1::text) as src_hash,
            ocr_check->'business_type'->>'src_hash' as tried
     from public.local_jobs
     where origin = 'crawler' and not admin_hidden and occupation_code is null and coalesce(source_text,'') <> ''
       and ${afterCutoff()}
-    order by id`)
+    order by id`, [WEB_PROMPT_VERSION])
   console.log(`업종 확인 대상 ${rows.length}건`)
   for (const job of rows) {
     if (job.tried === job.src_hash) continue
@@ -48,7 +48,7 @@ try {
       try {
         const { answer, citations } = await webLookup(job)
         found = guardWebAnswer(job, answer, citations)
-        note = found ? 'web' : `web:none(${answer?.type ?? 'no-answer'}, 인용 ${citations.length})`
+        note = found ? 'web' : `web:none(${answer?.type ?? 'no-answer'}, 인용 ${citations.length}: ${citations.slice(0, 3).map((c) => String(c.cited_text ?? '').slice(0, 80)).join(' / ')})`
       } catch (e) { note = 'web:error ' + String(e.message).slice(0, 120) }
     } else if (!found) note += streetOf(job.location) ? ' web:no-key' : ' web:no-street'
     const record = { src_hash: job.src_hash, at: new Date().toISOString(), result: note, ...(found ?? {}) }

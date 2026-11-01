@@ -55,10 +55,14 @@ export function streetOf(location: string | null | undefined): string | null {
   return /^\d+[a-z]?\s+\S+/i.test(first) ? first : null
 }
 
+/** 검색 질문을 바꾸면 이 값도 바꾼다(같은 공고를 새 질문으로 한 번 다시 확인). */
+export const WEB_PROMPT_VERSION = 'web-v2'
+
 export function buildWebPrompt(job: BusinessJob): string {
   return [
     `Tìm trên web cửa hàng/doanh nghiệp tên "${job.company}" tại địa chỉ "${job.location}".`,
-    'Cho biết đây là loại hình kinh doanh gì. Chỉ trả lời JSON: {"type": "fnb" | "retail" | "service" | "other" | "unknown", "name": "...", "address": "..."}',
+    'Đầu tiên trích dẫn NGUYÊN VĂN (có trích nguồn) câu trong kết quả tìm kiếm có cả tên cửa hàng và địa chỉ (số nhà, tên đường).',
+    'Sau đó cho biết loại hình kinh doanh, dòng cuối chỉ là JSON: {"type": "fnb" | "retail" | "service" | "other" | "unknown", "name": "...", "address": "..."}',
     'fnb = ăn uống (nhà hàng, quán, cà phê, gà rán...), retail = bán lẻ, service = dịch vụ khác (spa, khách sạn...). Không chắc thì "unknown".',
   ].join('\n')
 }
@@ -75,7 +79,10 @@ export function guardWebAnswer(job: BusinessJob, answer: unknown, citations: Arr
   if (!evidence || !street) return null
   const brand = bare(evidence).split(' ')[0]
   const streetB = bare(street)
-  const match = citations.find((c) => { const t = bare(String(c.cited_text ?? '')); return brand.length >= 3 && t.includes(brand) && t.includes(streetB) })
-  if (!match?.url) return null
-  return { code: SERVICE_CODE, evidence, duty: dutyLine(job.source_text), method: 'web', url: match.url, quote: String(match.cited_text).slice(0, 300) }
+  // 인용문은 짧게 잘리므로 같은 출처(URL)의 인용문은 이어서 본다. 출처가 다르면 섞지 않는다.
+  const byUrl = new Map<string, string>()
+  for (const c of citations) if (c.url) byUrl.set(c.url, (byUrl.get(c.url) ?? '') + ' ' + String(c.cited_text ?? ''))
+  const match = [...byUrl].find(([, text]) => { const t = bare(text); return brand.length >= 3 && t.includes(brand) && t.includes(streetB) })
+  if (!match) return null
+  return { code: SERVICE_CODE, evidence, duty: dutyLine(job.source_text), method: 'web', url: match[0], quote: match[1].trim().slice(0, 300) }
 }
