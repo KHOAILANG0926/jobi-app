@@ -16,17 +16,22 @@ language sql stable set search_path = pg_catalog, public as $$
 $$;
 revoke all on function public.job_inspect_content_hash(public.local_jobs) from public, anon, authenticated;
 -- DB job-inspect runner uses the postgres role.
+create or replace function public.job_inspect_is_current(j public.local_jobs) returns boolean
+language sql stable set search_path = pg_catalog, public as $
+  select coalesce(
+    j.ocr_check->'inspect'->>'content_hash' = public.job_inspect_content_hash(j)
+    and (j.ocr_check->'inspect'->>'ok')::boolean = true,
+    false
+  )
+$;
+revoke all on function public.job_inspect_is_current(public.local_jobs) from public, anon, authenticated;
+
 create or replace function public.enforce_job_inspect_current() returns trigger
 language plpgsql set search_path = pg_catalog, public as $$
-declare current_hash text;
 begin
   if new.origin not in ('crawler','admin') then return new; end if;
-  current_hash := public.job_inspect_content_hash(new);
   -- Any stale or failed inspection must not support publication.
-  if coalesce(new.active,false) and (
-    new.ocr_check->'inspect'->>'content_hash' is distinct from current_hash
-    or coalesce((new.ocr_check->'inspect'->>'ok')::boolean,false) = false
-  ) then
+  if coalesce(new.active,false) and not public.job_inspect_is_current(new) then
     new.active := false;
   end if;
   return new;
