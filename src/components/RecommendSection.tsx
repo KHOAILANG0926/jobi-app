@@ -28,6 +28,7 @@ import { useApply } from './useApply'
 import ApplyModal from './ApplyModal'
 import JobsListToolbar from './JobsListToolbar'
 import JobsTable, { type JobsTableRow } from './JobsTable'
+import SalaryText from './SalaryText'
 
 const SALARY_OPTIONS = [
   { value: 0, label: 'Không giới hạn' },
@@ -145,7 +146,7 @@ function RecommendCard({
       <Link to={`/viec-lam/${job.id}`} className="rec-card__link">
         <p className="rec-card__title">{job.title}</p>
         <p className="rec-card__company">{job.company}</p>
-        <p className="rec-card__salary">{job.salary}</p>
+        <p className="rec-card__salary"><SalaryText job={job} /></p>
         <p className="rec-card__location">📍 {job.location}</p>
       </Link>
       <div className="rec-card__actions">

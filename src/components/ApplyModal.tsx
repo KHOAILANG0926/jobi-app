@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { ApplyStatus, UserProfile } from "./useApply";
 import type { Job } from "../types/job";
 import { ApplyUnavailableNotice } from "./ApplyUnavailableNotice";
+import SalaryText from './SalaryText'
 
 interface ApplyModalProps {
   status: ApplyStatus;
@@ -88,7 +89,7 @@ export default function ApplyModal({
               <p className="job-summary-meta">
                 {job.company} · {job.location}
               </p>
-              <p className="job-summary-salary">{job.salary}</p>
+              <p className="job-summary-salary"><SalaryText job={job} /></p>
             </div>
 
             <div className="section-divider">

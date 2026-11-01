@@ -2,6 +2,8 @@ import './JobCard.css'
 import { useId, useState } from 'react'
 import type { Job } from '../types/job'
 import { companyLogoUrl } from '../lib/companyLogo'
+import { brandLogoFor } from '../lib/brandLogo'
+import { useBrandsOptional } from '../context/BrandsContext'
 import { formatDistanceLabel } from '../lib/jobCoords'
 import { cardSalary, PAY_LABELS, type PayKind } from '../lib/mainJobCards'
 
@@ -53,7 +55,9 @@ export default function JobCard({
   const conditionsId = useId()
   const conditions = [job.hours, job.workDays, ...conditionBadges(job).map(badge => badge.label)]
     .filter((value): value is string => !!value)
-  const imageUrl = companyLogoUrl(job.imageUrl)
+  // 2026-11-01 Lee: 등록 브랜드(공식 사이트 확인)는 브랜드 로고 먼저 — 브랜드 메뉴와 같은 로고(수평 전개). 그다음 공고 포스터.
+  const brands = useBrandsOptional()
+  const imageUrl = brandLogoFor(job, brands) ?? companyLogoUrl(job.imageUrl)
 
   // 2026-11-01 Lee: 로고 자리(포스터 + 회사·위치)는 원래 틀 그대로. 나머지만 깔끔하게 — 위치는 동/성까지만(잘림 방지),
   // 제목 보통 굵기 2줄, 급여 한 줄(단위 색 + 회색 금액, 직무가 여럿이면 회색 안내 한 줄). 위 유료 그라데이션 띠는 그대로.

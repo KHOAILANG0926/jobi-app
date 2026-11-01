@@ -28,6 +28,7 @@ import {
   type TimeBucket,
 } from '../../lib/workScheduleParse'
 import type { Job, JobCategory } from '../../types/job'
+import SalaryText from '../../components/SalaryText'
 
 type SortMode = 'newest' | 'deadline'
 type PanelKey = 'region' | 'category' | 'workPeriod' | 'detail' | null
@@ -1294,7 +1295,7 @@ export default function UrgentJobsPage() {
                     </NavLink>
                     <p className="jm-urgent-table__company">{job.company}</p>
                   </td>
-                  <td className="jm-urgent-table__salary">{job.salary}</td>
+                  <td className="jm-urgent-table__salary"><SalaryText job={job} /></td>
                   <td>{job.hours || '—'}</td>
                   <td>
                     {formatShortDate(job.postedAt)}

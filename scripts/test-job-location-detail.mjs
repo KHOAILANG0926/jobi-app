@@ -249,6 +249,12 @@ try {
     break
   }
   if (!bikeChecked) console.log('bike follows pin: 지도 핀이 그려진 상세 화면이 없어 건너뜀(지도 키 없음 등)')
+  // 2026-11-01 Lee(브랜드 로고 수평 전개): 상세 화면 로고 그림이 있으면 실제로 열려야 한다(깨진 그림 금지).
+  for (const href of toCheck.slice(0, 4)) {
+    await readJobDetail(page, href)
+    const broken = await page.evaluate(() => [...document.querySelectorAll('.jd2-logo__img')].filter(img => img.complete && img.naturalWidth === 0).map(img => img.src))
+    if (broken.length) failures.push(`${href}: 상세 로고 그림이 열리지 않음 ${broken.join(', ')}`)
+  }
 
   await page.close()
 

@@ -49,7 +49,7 @@ export interface BrandWithCount extends BrandDefinition {
   count: number
 }
 
-function jobMatchesBrand(job: Job, brand: BrandDefinition): boolean {
+export function jobMatchesBrand(job: Job, brand: BrandDefinition): boolean {
   return brand.matchKeys.some((key) => {
     const nk = normalizeViText(key)
     return normalizeViText(job.company).includes(nk) || normalizeViText(job.title).includes(nk)

@@ -33,6 +33,7 @@ import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupation
 import { DEFAULT_VIEWPORT, VIEWPORT_KEY, readViewport, mapSearch, selectedMapEntry, LOCATION_LABELS, validPoint, type RepresentativePoints, type MapBounds } from '../../lib/mapR1'
 import type { HomeMapViewport } from './map/HomeMapTypes'
 import { observeInViewOnce } from '../../lib/inViewOnce'
+import SalaryText from '../SalaryText'
 
 const HomeMapCanvas = lazy(() => import('./DesktopHomeMapCanvas'))
 /** 'Ngành nghề'에 처음부터 보이는 그룹 수(공고 많은 순). 나머지는 'Xem thêm'. */
@@ -256,7 +257,7 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
       <h3 className="hme-job__title">{selected.job.title}</h3>
       <div className="hme-job__chips">
         <span className="hme-tag">{selected.point ? LOCATION_LABELS[selected.point.kind] : 'Đang xác minh vị trí'}</span>
-        {selected.job.salary && <span className="hme-tag hme-tag--salary">{selected.job.salary}</span>}
+        {selected.job.salary && <span className="hme-tag hme-tag--salary"><SalaryText job={selected.job} /></span>}
         {selected.job.urgent && <span className="hme-tag hme-tag--urgent">Tuyển gấp</span>}
         <span className="hme-tag">{CATEGORY_SHORT[selected.job.category]}</span>
         {conditionBadges(selected.job).map((b) => (
