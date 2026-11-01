@@ -1,3 +1,4 @@
+// 2026-11-01: 기준값 갱신 — master가 이미 달랐음(이 검사는 모바일 홈 파일 PR에서만 돌아 못 잡음): LayoutDesktop.tsx(#403 브랜드 로고 흰 바탕), JobDetail.tsx(#397 오토바이가 핀을 따라감), HomeDesktop·DesktopHomeMap*(이미 병합된 PR). index.css는 이번 PR(#407 Lee 적용: 공고 카드 급여 한 줄·단위 색, 모바일 목록 같은 규칙) 포함. PC 틀 변경은 카드 급여 줄 글자·색뿐.
 // 2026-10-30: JobDetail.tsx — Lee 적용: 상단 복리후생 아이콘 7종 움직임(있는 것만, 칸 PC 52px·휴대폰 44px).
 // 2026-10-30: JobDetail.tsx — Lee 지시: 비공개 공고를 관리자만 같은 상세 화면으로 미리 보기(맨 위 비공개 안내). 공개 화면 틀 변경 없음.
 // 2026-10-30: JobDetail.tsx — Lee 지시(신규부터): 새 공고는 #4828 4칸 틀, 기존 공개 공고·KDA 그대로.
@@ -41,7 +42,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "2e7e8b6b0427498001bf0e95a5ebb57c1b414c17ef863882ce7de463dc6bf25f",
+    "sha256": "524ab067897a6544c64dd67119d517d1756f159c8274633cb6555811c1f5a0f6",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
@@ -51,12 +52,12 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "87b75498e1bab9e7f50411e31ad028f334627ffc7ff768f13144c68ef2f8f1d6",
+    "sha256": "5381dfbe61819431a203e249dd178f54220b7e3b57ae71963183a743cdf715be",
     "restore": []
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "4ab250005407b0b03ac745a35df52738abbc39617c9ec2d185db33757be0a5ae",
+    "sha256": "0861342c2223ab20d655ade90daae4876d4824d9b928dc4b244df5f6b2909eb4",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -66,7 +67,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapCanvas.tsx",
-    "sha256": "3a5f55476b9df0ab17c71d281af42e4dfd159a9c017a1c02a15adeabca65d7ef",
+    "sha256": "19252de1cbec30c310fee38f856354bede6fc0f2767a8ee5090ddd432ad3563e",
     "restore": [
       [
         "'./map/DesktopGeoapifyMapCanvas'",
@@ -83,12 +84,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "d642eabe6c6fa0d494e28bf884a2b4f80fc56010b72c2ca304ee2dc3aa217e62",
+    "sha256": "b7fcca54bc5afb74fedfef41b4309793c4129be632de5c880ab7ffd8a9526710",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "cc2bb2203a26c1ded424c63bbf63b660f36c5467a99e2a185a21d5688d89d164",
+    "sha256": "cb1b64fa201f72c0ce83e91d3498e926ba2fa9cc3facbdfed28395edcd2618fe",
     "restore": []
   },
   {
