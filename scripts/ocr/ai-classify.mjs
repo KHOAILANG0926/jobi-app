@@ -7,6 +7,7 @@
 import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { buildPrompt, guardAiResult, lineKey, BENEFIT_CODES, ruleConfirmedFlags } from '../../src/lib/aiClassifyGuard.ts'
+import { afterCutoff } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 const MODEL = process.env.CLASSIFY_AI_MODEL || 'claude-sonnet-5-5'
@@ -38,6 +39,7 @@ try {
            ocr_check->'benefits_ai'->>'hash' as benefits_hash
     from public.local_jobs
     where origin in ('crawler','admin') and coalesce(source_text, '') <> ''
+      and ${afterCutoff()}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
     order by id`)
   for (const job of rows) {
     const source = [job.source_text, job.ocr_text].filter(Boolean).join('\n')

@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS } from '../../src/lib/jobInspect.ts'
+import { afterCutoff } from './auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, GH_TOKEN, REPO } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -40,7 +41,7 @@ try {
                 else (select s.result->>'kind' from public.map_r1_location_jobs s where s.job_id = j.id and s.result->>'kind' in ('gate','area')) end as pin,
            (select u.reason from public.map_r1_unlocated u where u.job_id = j.id) as unlocated_reason
     from public.local_jobs j
-    where j.origin in ('crawler','admin')
+    where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
     order by j.id`)
   for (const job of rows) {
     const input = {

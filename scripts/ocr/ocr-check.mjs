@@ -7,8 +7,10 @@ import { createHash } from 'node:crypto'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareWithOcr, canRepublish, posterSalaryEvidence } from './ocr-compare.mjs'
+import { compareWithOcr, canRepublish } from './ocr-compare.mjs'
+import { readSalary } from '../../src/lib/salaryReader.ts'
 import { readImageAI, READER_ID } from './ai-reader.mjs'
+import { afterCutoff } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
 if (!SUPABASE_DB_URL || !SUPABASE_URL) { console.error('SUPABASE_DB_URL / SUPABASE_URL 필요'); process.exit(1) }
@@ -36,6 +38,7 @@ const { rows } = await client.query(`
   from public.local_jobs
   where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
     and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
+    and ${afterCutoff()}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text)
          -- 판독자가 바뀌면(결정 0004: AI 독립 판독 ai-v1) 예전 판독자로 보류된 공고를 한 번 다시 읽는다
          or (ocr_check->>'status' in ('mismatch','unreadable') and ocr_check->>'reader' is distinct from 'ai-v1')
@@ -45,7 +48,7 @@ const { rows } = await client.query(`
            employer_phone, contact_zalo, salary, contact_name, company,
            age_min::text, age_max::text
          ])::text)))
-  order by id limit 50`)
+  order by id limit 500`)
 console.log(`OCR 대상 ${rows.length}건`)
 
 const dir = mkdtempSync(join(tmpdir(), 'ocr-'))
@@ -60,21 +63,22 @@ try {
         texts.push(await readImageAI(f))   // 독립 AI 판독(결정 0004). 입력값은 보내지 않는다
       }
       const text = texts.join('\n')
-      // Use the same ingest_job entrypoint for source-backed pay, never direct job SQL.
-      // Preserve separate hourly/monthly poster amounts WITHOUT assigning to any role.
-      const wages = posterSalaryEvidence(text)
+      // 급여 칸은 급여 읽는 곳 하나(readSalary)로만 채운다 — 2026-11-01 Lee "읽는 규칙을 하나로".
+      // 수집기는 급여를 읽지 않으므로 새 공고는 여기서(포스터 글자까지 본 뒤) 채운다. 이미 값이 있으면 바꾸지 않는다.
+      // 기록은 ingest_job 한 입구로만(직접 SQL 금지).
       let checkedJob = job
-      const vaguePay = /^(?:thu\s*nhập\s*cạnh\s*tranh|cạnh\s*tranh)$/iu.test(String(job.salary ?? '').trim())
-      if (job.origin === 'crawler' && vaguePay && wages.length && String(job.source_text ?? '').trim()) {
-        const salary = 'Theo poster: ' + wages.join(' · ')
-        const payload = {
-          channel: 'crawler_other', job_id: job.id, refresh: true, update_fields: ['salary'],
-          source_text: job.source_text, images: job.images, salary,
+      if (job.origin === 'crawler' && !String(job.salary ?? '').trim() && String(job.source_text ?? '').trim()) {
+        const sal = readSalary(job.source_text, text)
+        if (sal) {
+          const payload = {
+            channel: 'crawler_other', job_id: job.id, refresh: true, update_fields: ['salary', 'salary_period'],
+            source_text: job.source_text, images: job.images, salary: sal.salary, salary_period: sal.period,
+          }
+          const written = await client.query('select public.ingest_job($1::jsonb) as job_id', [JSON.stringify(payload)])
+          if (Number(written.rows[0]?.job_id) !== Number(job.id)) throw new Error('ingest_job salary refresh returned wrong id')
+          checkedJob = { ...job, salary: sal.salary }
+          console.log('급여 칸 채움 #' + job.id + ': ' + sal.salary)
         }
-        const written = await client.query('select public.ingest_job($1::jsonb) as job_id', [JSON.stringify(payload)])
-        if (Number(written.rows[0]?.job_id) !== Number(job.id)) throw new Error('ingest_job salary refresh returned wrong id')
-        checkedJob = { ...job, salary }
-        console.log('포스터 근거 급여 갱신 #' + job.id + ': ' + salary)
       }
       const res = compareWithOcr(checkedJob, text)
       const check = { status: res.status, reader: READER_ID, compare_version: 'source-aware-v2', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }

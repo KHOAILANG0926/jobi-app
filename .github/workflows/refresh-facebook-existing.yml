@@ -47,11 +47,11 @@ jobs:
         with:
           node-version: '22'
       - name: Verify R7 comparator
-        run: node scripts/ocr/ocr-compare.test.mjs
+        run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
       - name: Recalculate OCR and publish gate
         run: |
           npm i --no-save pg@8
-          node scripts/ocr/ocr-check.mjs
+          node --experimental-strip-types scripts/ocr/ocr-check.mjs
       - name: Final publication verification and queue result
         if: success()
         working-directory: crawler
