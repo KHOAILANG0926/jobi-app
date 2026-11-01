@@ -103,6 +103,20 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/rule_check_refs_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261101200000_business_kind_category.sql' ]]; then
+    echo "PostgreSQL business kind category: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.local_jobs add column if not exists category text default 'khac', add column if not exists title text default '', add column if not exists company text default '', add column if not exists description text, add column if not exists source_text text, add column if not exists active boolean default false, add column if not exists admin_hidden boolean default false, add column if not exists ocr_check jsonb"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "create table if not exists public.job_posting_rules(rule_key text unique,content text,decided_on date,incidents text,machine_checkable text,block_mode text,implementation text)"
+    for dep in 20261015100000_occupation_master.sql 20261015100100_occupation_master_seed.sql 20261015120000_local_jobs_occupation_r8.sql 20261017070517_occupation_publication_gate.sql 20261018090000_occupation_code_any_level.sql 20261021224712_occupation_category_auto.sql; do
+      psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f "supabase/migrations/$dep" >/dev/null
+    done
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/business_kind_category.local.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/business_kind_category_production_check.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/occupation_category_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done

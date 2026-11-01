@@ -12,11 +12,18 @@ import { bare } from './jobDetailSections.ts'
 export const SERVICE_CODE = '5'
 export const SERVICE_NAME = 'Nhân viên dịch vụ và bán hàng'
 
-// 가게 업종 낱말(악센트 뺀 소문자, 낱말 경계). 공장·사무 업종 낱말은 넣지 않는다.
-const SHOP_WORDS = /\b(?:coffee|cafe|ca phe|tra sua|milk tea|nha hang|quan an|quan nhau|quan nuong|quan lau|ga ran|buffet|bakery|tiem banh|banh mi|pizza|com tam|cua hang|sieu thi|minimart|spa|salon|nail|karaoke|khach san|hotel|homestay)\b/  // 'lau'(lâu dài)·'pho'(phố)·'kem'(kèm) 같은 겹치는 낱말은 넣지 않음
+// 가게 업종 낱말(악센트 뺀 소문자, 낱말 경계). 공장·사무 업종 낱말은 넣지 않는다. 'lau'(lâu dài)·'pho'(phố)·'kem'(kèm)처럼 겹치는 낱말은 넣지 않음.
+// 업종 종류(kind)는 메뉴 칸을 정하는 데 쓴다(2026-11-01: 음식점이 "Vệ sinh / Giúp việc" 칸에 나오던 문제) — DB category_for_job.
+const KIND_WORDS: Array<{ kind: BusinessKind; re: RegExp }> = [
+  { kind: 'fnb', re: /\b(?:coffee|cafe|ca phe|tra sua|milk tea|nha hang|quan an|quan nhau|quan nuong|quan lau|ga ran|buffet|bakery|tiem banh|banh mi|pizza|com tam)\b/ },
+  { kind: 'retail', re: /\b(?:cua hang|sieu thi|minimart)\b/ },
+  { kind: 'service', re: /\b(?:spa|salon|nail|karaoke|khach san|hotel|homestay)\b/ },
+]
+export type BusinessKind = 'fnb' | 'retail' | 'service'
+const kindOf = (texts: string[]): BusinessKind | null => KIND_WORDS.find((k) => texts.some((t) => k.re.test(bare(t))))?.kind ?? null
 
 export interface BusinessJob { company?: string | null; title?: string | null; source_text?: string | null; location?: string | null }
-export interface BusinessType { code: string; evidence: string; duty: string; method: 'name' | 'web'; url?: string; quote?: string }
+export interface BusinessType { code: string; kind: BusinessKind; evidence: string; duty: string; method: 'name' | 'web'; url?: string; quote?: string }
 
 const nfc = (s: string) => s.normalize('NFC')
 
@@ -45,8 +52,8 @@ export function businessFromName(job: BusinessJob): BusinessType | null {
   // 업체 이름 앞 두 낱말(예: "trung nguyen")이 든 원문 줄도 본다("Trung Nguyên Legend – Thương hiệu cà phê").
   const head = bare(evidence).split(' ').slice(0, 2).join(' ')
   const lines = nfc(String(job.source_text ?? '')).split('\n').filter((l) => head.length >= 5 && bare(l).includes(head))
-  const hit = [String(job.company ?? ''), ...lines].some((t) => SHOP_WORDS.test(bare(t)))
-  return hit ? { code: SERVICE_CODE, evidence, duty: dutyLine(job.source_text), method: 'name' } : null
+  const kind = kindOf([String(job.company ?? ''), ...lines])
+  return kind ? { code: SERVICE_CODE, kind, evidence, duty: dutyLine(job.source_text), method: 'name' } : null
 }
 
 /** 공고 주소의 "번지 + 도로" 부분(예: "216 Nguyễn Trãi"). 없으면 null — 검색 결과를 같은 매장으로 인정할 수 없다. */
@@ -56,7 +63,7 @@ export function streetOf(location: string | null | undefined): string | null {
 }
 
 /** 검색 질문을 바꾸면 이 값도 바꾼다(같은 공고를 새 질문으로 한 번 다시 확인). */
-export const WEB_PROMPT_VERSION = 'web-v3'  // 질문이나 확인 규칙(guardWebAnswer)을 바꾸면 올린다
+export const WEB_PROMPT_VERSION = 'web-v4'  // 질문이나 확인 규칙(guardWebAnswer)을 바꾸면 올린다
 
 export function buildWebPrompt(job: BusinessJob): string {
   return [
@@ -86,5 +93,5 @@ export function guardWebAnswer(job: BusinessJob, answer: unknown, citations: Arr
   for (const c of citations) if (c.url) byUrl.set(c.url, (byUrl.get(c.url) ?? '') + ' ' + String(c.cited_text ?? ''))
   const match = [...byUrl].find(([, text]) => { const t = ` ${addr(text)} `.replace(/[^a-z0-9]+/g, ' '); return brand.length >= 3 && t.includes(` ${brand} `) && t.includes(` ${streetB} `) })
   if (!match) return null
-  return { code: SERVICE_CODE, evidence, duty: dutyLine(job.source_text), method: 'web', url: match[0], quote: match[1].trim().slice(0, 300) }
+  return { code: SERVICE_CODE, kind: String(a.type) as BusinessKind, evidence, duty: dutyLine(job.source_text), method: 'web', url: match[0], quote: match[1].trim().slice(0, 300) }
 }

@@ -12,7 +12,7 @@ eq(dutyLine(W.source_text), 'Nhân viên cửa hàng', 'duty word from source')
 // 검색: 같은 이름 + 같은 번지·도로가 한 인용문에 함께 있어야 인정
 const good = [{ url: 'https://www.threads.com/@wallacevietnam/post/x', cited_text: 'Wallace mở cửa thêm 3 cửa hàng mới ... CS9: 216 Nguyễn Trãi, Tp Bắc Ninh' }]
 const r = guardWebAnswer(W, { type: 'fnb' }, good)
-eq([r?.code, r?.evidence, r?.duty, r?.method], [SERVICE_CODE, 'WALLACE BẮC NINH', 'Nhân viên cửa hàng', 'web'], '#5247 web confirmed')
+eq([r?.code, r?.kind, r?.evidence, r?.duty, r?.method], [SERVICE_CODE, 'fnb', 'WALLACE BẮC NINH', 'Nhân viên cửa hàng', 'web'], '#5247 web confirmed, food business')
 eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://x', cited_text: 'Wallace CS7: 303 Kim Mã, Hà Nội' }]), null, 'other branch address is not this store')
 eq(guardWebAnswer(W, { type: 'fnb' }, []), null, 'AI words without citation are not enough')
 eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://a', cited_text: 'Wallace mở 3 cửa hàng mới' }, { url: 'https://a', cited_text: 'CS9: 216 Nguyễn Trãi, Tp Bắc Ninh' }])?.url, 'https://a', 'same source split quotes join')
@@ -25,7 +25,8 @@ eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://map', cited_text: 'Wallac
 eq(guardWebAnswer({ ...W, location: 'Bắc Ninh' }, { type: 'fnb' }, good), null, 'no street number → cannot match a store')
 // 이름 단계: 업체 이름 또는 업체 이름 앞 두 낱말이 든 원문 줄의 가게 낱말
 eq(businessFromName({ company: 'Highlands Coffee Mường Thanh Bắc Ninh', source_text: '📍 Khu vực làm việc: Highlands Coffee Mường Thanh Bắc Ninh' })?.evidence, 'Highlands Coffee Mường Thanh Bắc Ninh', '#5157 coffee in name')
-eq(businessFromName({ company: 'TRUNG NGUYÊN LEGEND BẮC NINH', source_text: 'TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\nTrung Nguyên Legend – Thương hiệu cà phê hàng đầu Việt Nam' })?.code, SERVICE_CODE, '#5231 brand line says cà phê')
+eq(businessFromName({ company: 'TRUNG NGUYÊN LEGEND BẮC NINH', source_text: 'TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\nTrung Nguyên Legend – Thương hiệu cà phê hàng đầu Việt Nam' })?.kind, 'fnb', '#5231 brand line says cà phê → food')
+eq(businessFromName({ company: 'Siêu thị Mini ABC', source_text: 'Siêu thị Mini ABC tuyển thu ngân' })?.kind, 'retail', 'supermarket → retail')
 eq(businessFromName({ company: 'Công ty TNHH Điện tử ABC', source_text: 'Công ty TNHH Điện tử ABC tuyển công nhân, làm việc lâu dài' }), null, 'factory not service')
 eq(businessFromName({ company: 'Vị trí', source_text: 'Vị trí: phục vụ' }), null, 'label is not a company')
 // 업무 칸 한 줄은 원문에 업무 줄이 없을 때만 붙는다
