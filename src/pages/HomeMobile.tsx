@@ -3,7 +3,10 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
 import { HomeDiscovery, HomeDiscoverySections } from '../components/home/HomeDiscovery'
-import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
+import { selectFeaturedJobs } from '../components/FeaturedJobsSection'
+import { HomeSection } from '../components/home/SectionJobCards'
+import { homeSections, HOME_SECTION_TITLES } from '../lib/homeSections'
+import { useBrands } from '../context/BrandsContext'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
 import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
@@ -260,9 +263,11 @@ export function Home() {
   }, [filterHomeJobs])
   const filtered = useMemo(() => displayHomeJobs(searchResults), [searchResults, displayHomeJobs])
 
-  const { featured, remaining } = useMemo(
+  const { remaining } = useMemo(
     () => partitionMainCards(filtered, selectFeaturedJobs(filtered)), [filtered],
   )
+  const { brands } = useBrands()
+  const sections = useMemo(() => homeSections(filtered, brands), [filtered, brands])
   const urgentJobs = useMemo(() => remaining.filter(j => j.urgent), [remaining])
   const regularJobs = useMemo(() => remaining.filter(j => !j.urgent), [remaining])
 
@@ -350,13 +355,14 @@ export function Home() {
 
       </div>{/* /.home-top-bg */}
 
-      <FeaturedJobsSection
-        jobs={featured}
-        isApplied={isApplied}
-        onApply={handleApply}
-        isSaved={(id) => savedIds.has(id)}
-        onToggleSave={handleToggleSave}
-      />
+      {/* 2026-11-01 Lee: 사람인 방식 칸 나누기(PC와 같은 규칙 src/lib/homeSections.ts) — 모바일은 세로 3개씩 옆으로 밀기. */}
+      {!selectedCity && filtered.length > 0 && (
+        <section className="home-sections" ref={jobResultRef}>
+          <HomeSection id="special" title={HOME_SECTION_TITLES.special} jobs={sections.special} variant="photo" />
+          <HomeSection id="featured" title={HOME_SECTION_TITLES.featured} jobs={sections.featured} variant="text" />
+          <HomeSection id="brand" title={HOME_SECTION_TITLES.brand} jobs={sections.brand} variant="photo" />
+        </section>
+      )}
 
       {/* ── City filtered results ──────────────────────────────── */}
       {selectedCity && (() => {
@@ -409,36 +415,17 @@ export function Home() {
         )
       })()}
 
-      {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
-      {!selectedCity && (
-        <section className="home-section" ref={jobResultRef}>
+      {/* 결과 없음 안내만 — 공고가 있으면 위 칸들이 전부 보여 준다(같은 공고 두 번 금지). */}
+      {!selectedCity && (jobs.length === 0 || filtered.length === 0) && (
+        <section className="home-section">
           <h2 className="home-section__title">Tất cả kết quả</h2>
           {jobs.length === 0 ? (
             <NoPublicJobs />
-          ) : filtered.length === 0 ? (
-            // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
-            // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
-            // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).
+          ) : (
             <div className="city-result__empty">
               <span>🔍</span>
               <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>
               <NavLink to="/">← Xem tất cả việc làm</NavLink>
-            </div>
-          ) : remaining.length === 0 ? (
-            <p className="home-list-note">Các việc làm hiện có được hiển thị trong mục Việc làm nổi bật phía trên.</p>
-          ) : (
-            <div className="home-jobs-grid">
-              {remaining.map((job) => (
-                <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-                  <JobCard
-                    job={job}
-                    isApplied={isApplied(job.id)}
-                    onApply={handleApply}
-                    isSaved={savedIds.has(job.id)}
-                    onToggleSave={handleToggleSave}
-                  />
-                </NavLink>
-              ))}
             </div>
           )}
         </section>
