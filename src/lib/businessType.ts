@@ -78,11 +78,13 @@ export function guardWebAnswer(job: BusinessJob, answer: unknown, citations: Arr
   const street = streetOf(job.location)
   if (!evidence || !street) return null
   const brand = bare(evidence).split(' ')[0]
-  const streetB = bare(street)
+  // "Số 216 Đường Nguyễn Trãi"도 "216 Nguyễn Trãi"와 같은 주소로 본다(số·đường·phố 낱말만 뺌).
+  const addr = (t: string) => bare(t).replace(/\b(?:so|duong|pho)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
+  const streetB = addr(street)
   // 인용문은 짧게 잘리므로 같은 출처(URL)의 인용문은 이어서 본다. 출처가 다르면 섞지 않는다.
   const byUrl = new Map<string, string>()
   for (const c of citations) if (c.url) byUrl.set(c.url, (byUrl.get(c.url) ?? '') + ' ' + String(c.cited_text ?? ''))
-  const match = [...byUrl].find(([, text]) => { const t = bare(text); return brand.length >= 3 && t.includes(brand) && t.includes(streetB) })
+  const match = [...byUrl].find(([, text]) => { const t = ` ${addr(text)} `.replace(/[^a-z0-9]+/g, ' '); return brand.length >= 3 && t.includes(` ${brand} `) && t.includes(` ${streetB} `) })
   if (!match) return null
   return { code: SERVICE_CODE, evidence, duty: dutyLine(job.source_text), method: 'web', url: match[0], quote: match[1].trim().slice(0, 300) }
 }
