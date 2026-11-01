@@ -18,6 +18,10 @@ eq(guardWebAnswer(W, { type: 'fnb' }, []), null, 'AI words without citation are 
 eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://a', cited_text: 'Wallace mở 3 cửa hàng mới' }, { url: 'https://a', cited_text: 'CS9: 216 Nguyễn Trãi, Tp Bắc Ninh' }])?.url, 'https://a', 'same source split quotes join')
 eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://a', cited_text: 'Wallace mở 3 cửa hàng mới' }, { url: 'https://b', cited_text: '216 Nguyễn Trãi Bắc Ninh cho thuê' }]), null, 'name and address from different sources do not count')
 eq(guardWebAnswer(W, { type: 'other' }, good), null, 'non-service business not classified as service')
+// 실제 운영 검색 인용문(2026-11-01): "Số 216 Đường Nguyễn Trãi"
+eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://map', cited_text: 'Wallace Burger & Chicken - Nguyễn Trãi - Quán ăn tại Số 216 Đường Nguyễn Trãi, P' }])?.code, SERVICE_CODE, 'Số/Đường words ignored')
+eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://map', cited_text: 'Wallace - Quán ăn tại Số 2160 Đường Nguyễn Trãi' }]), null, 'different house number is not the same store')
+eq(guardWebAnswer(W, { type: 'fnb' }, [{ url: 'https://map', cited_text: 'Wallace tại 1216 Nguyễn Trãi' }]), null, 'number must match whole')
 eq(guardWebAnswer({ ...W, location: 'Bắc Ninh' }, { type: 'fnb' }, good), null, 'no street number → cannot match a store')
 // 이름 단계: 업체 이름 또는 업체 이름 앞 두 낱말이 든 원문 줄의 가게 낱말
 eq(businessFromName({ company: 'Highlands Coffee Mường Thanh Bắc Ninh', source_text: '📍 Khu vực làm việc: Highlands Coffee Mường Thanh Bắc Ninh' })?.evidence, 'Highlands Coffee Mường Thanh Bắc Ninh', '#5157 coffee in name')
