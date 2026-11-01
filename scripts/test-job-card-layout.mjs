@@ -53,9 +53,16 @@ try {
     }))
     assert.deepEqual(bounds[1], bounds[0], `multi-role card frame at ${width}px`)
     const lines = await page.locator('.jc').nth(1).locator('.jc__salary > span').allInnerTexts()
-    assert.deepEqual(lines, ['Rửa bát: Lương thỏa thuận + thưởng', 'Chạy bàn: 30k-35k/ 1h'], 'multi-role salary lines')
+    assert.deepEqual(lines, ['Rửa bát: Lương thỏa thuận + thưởng', 'Lương giờ Chạy bàn: 30k-35k/ 1h'], 'multi-role salary lines (pay unit label only when known)')
     console.log(`JobCard ${width}px: multi-role salary lines inside the same frame`)
   }
+  // 2026-11-01 Lee(알바몬): 지급 단위 이름표 색 — 월급 빨강, 시급·연봉 파랑, 일급 보라, 금액 회색
+  const payCards = [['month', '5.500.000đ/tháng', 'month'], ['hour', '23.000 – 25.000 VNĐ/giờ', 'hour'], ['day', '310k/11h ca ngày', 'day']]
+    .map(([id, salary, salaryPeriod]) => renderToStaticMarkup(createElement(JobCard, { job: { ...data, id: 'pay-' + id, salary, salaryPeriod }, isApplied: false })))
+  await page.setContent(`<style>${styles}</style><div>${payCards.join('')}</div>`)
+  const colors = await page.locator('.jc').evaluateAll(cards => cards.map(c => [getComputedStyle(c.querySelector('.jc__pay-label')).color, getComputedStyle(c.querySelector('.jc__pay-amount')).color]))
+  assert.deepEqual(colors, [['rgb(229, 57, 53)', 'rgb(75, 85, 99)'], ['rgb(26, 115, 232)', 'rgb(75, 85, 99)'], ['rgb(124, 58, 237)', 'rgb(75, 85, 99)']], 'pay unit label colors and gray amount')
+  console.log('JobCard: pay unit label colors (month red, hour blue, day purple, amount gray)')
 } finally {
   if (browser) await browser.close()
   await server.close()

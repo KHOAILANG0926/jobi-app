@@ -3,7 +3,15 @@ import { useId, useState } from 'react'
 import type { Job } from '../types/job'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { formatDistanceLabel } from '../lib/jobCoords'
-import { cardSalary } from '../lib/mainJobCards'
+import { cardSalary, PAY_LABELS, type PayKind } from '../lib/mainJobCards'
+
+function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: boolean }) {
+  return (
+    <span className="jc__pay" style={block ? { display: 'block' } : undefined}>
+      {kind !== 'other' && <><span className={`jc__pay-label jc__pay-label--${kind}`}>{PAY_LABELS[kind]}</span> </>}<span className="jc__pay-amount">{text}</span>
+    </span>
+  )
+}
 import { conditionBadges } from '../lib/jobConditions'
 
 export function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string; category?: string }) {
@@ -59,9 +67,10 @@ export default function JobCard({
       </div>
       <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
       <div className="jc__footer">
+        {/* 2026-11-01 Lee(알바몬): 지급 단위 이름표에 색(월급 빨강·시급/연봉 파랑·일급 보라), 금액은 회색 */}
         <span className="jc__salary">
-          {salary?.lines ? salary.lines.map(line => <span key={line} style={{ display: 'block' }}>{line}</span>)
-            : salary ? salary.text : 'Chưa xác nhận tiền công'}
+          {salary?.lines ? salary.lines.map((line, i) => <PayLine key={line} kind={salary.lineKinds?.[i] ?? 'other'} text={line} block />)
+            : salary ? <PayLine kind={salary.kind ?? 'other'} text={salary.text} /> : <span className="jc__pay-amount">Chưa xác nhận tiền công</span>}
         </span>
       </div>
       {conditions.length > 0 && <>

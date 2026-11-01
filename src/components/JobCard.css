@@ -31,3 +31,12 @@
 
 /* Photo unavailable: keep approved card geometry and use factual company text. */
 .jc__logo-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; overflow-wrap:anywhere; font-size:.8rem; line-height:1.35; font-weight:700; color:#334155; text-align:center; padding:3px; }
+
+/* 2026-11-01 Lee(알바몬): 지급 단위 이름표 색 — 월급 빨강, 시급·연봉 파랑, 일급 보라, 금액 회색 */
+.jc .jc__salary { color: #4b5563; }
+.jc .jc__pay-label { font-weight: 700; margin-right: 2px; }
+.jc .jc__pay-label--month { color: #e53935; }
+.jc .jc__pay-label--hour, .jc .jc__pay-label--year { color: #1a73e8; }
+.jc .jc__pay-label--day { color: #7c3aed; }
+.jc .jc__pay-label--other { color: #6b7280; }
+.jc .jc__pay-amount { color: #4b5563; font-weight: 700; }
