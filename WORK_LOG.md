@@ -1,3 +1,7 @@
+## 2026-11-01 밤 — 브랜드 로고(공식 사이트 아이콘) (Claude)
+- 요청: Lee "대기업들은 자체 로고가 있잖아 그거 넣어줘". 화면은 domain의 공식 사이트 아이콘을 로고로 씀.
+- 변경: migration 20261101230000 — Highlands(highlandscoffee.com.vn), Trung Nguyên Legend(trungnguyenlegend.com), Wallace(wallacevn.com), Xanh SM(greensm.com) domain. 공식 주소 확인 못 한 브랜드(SPX·Tamba·Orange·Americano 등)는 그대로.
+
 ## 2026-11-01 저녁 — 확인된 체인 브랜드 3개 등록 (Claude)
 - 요청: Lee "진행하자"(브랜드: 공식 출처 지점 3곳 이상 + 매장 일치).
 - [직접 확인] Highlands 1,000호점(tapchicongthuong 2026-06-12), Trung Nguyên Legend 22(중국)+5(미국)(VCCI), Wallace 공식 페이지 24개 지점(gà rán·hamburger). Wallace 공식 페이지는 CS9 "219 Nguyễn Trãi", 공고·foody는 216 — 1번지 차이 기록.
