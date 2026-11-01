@@ -12,7 +12,7 @@
 ## 2. 다음 할 일
 1. #376 병합 → migrations-apply 운영 적용 → job-ocr-check 실행 후 #5157 통과·공개, #4982 비공개(R11) 확인.
 2. Lee 확인: 10-30 "④ 원문 전체 보여줌"과 급여 총액 빼기·포스터 머리글(HIGHLANDS COFFEE/TUYỂN DỤNG 등) 기타란 처리 충돌.
-3. 규정 표(job_posting_rules) 연결 없는 규정 CI 실패 장치(3단계) — 미착수.
+3. 규정 표 check_ref 강제(20261101150000): 새 규정은 장치(trigger:/inspect:/ci:/decision_*/work_rule)와 함께만 저장.
 
 ## 3. 필수 규칙
 - 특정 공고 번호 전용 코드 금지, 틀(규칙·검사)로만 수정. 검사 통과 전 공개 우회 금지.

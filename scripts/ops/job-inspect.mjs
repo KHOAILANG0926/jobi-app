@@ -6,7 +6,7 @@ import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { inspectJob, inspectReport, publishDecision } from '../../src/lib/jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS } from '../../src/lib/jobInspect.ts'
 
 const { SUPABASE_DB_URL, GH_TOKEN, REPO } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -18,6 +18,11 @@ const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
 const reports = []
 try {
+  // 규정 = 검사(2026-11-01): 규정 표가 가리키는 검사표 항목이 실제로 있는지 매번 확인. 없으면 실패(빨간불).
+  const refs = await client.query(`select rule_key, ref from public.job_posting_rules, unnest(coalesce(check_ref, '{}')) as ref where ref like 'inspect:%'`).then((r) => r.rows, () => [])
+  const missing = refs.filter((r) => !INSPECT_KEYS.includes(r.ref.slice(8)))
+  if (missing.length) { console.error('::error::규정이 가리키는 검사표 항목 없음: ' + missing.map((m) => `${m.rule_key}→${m.ref}`).join(', ')); process.exitCode = 3 }
+
   const { rows } = await client.query(`
     select public.job_inspect_content_hash(j) as content_hash, coalesce((j.ocr_check->>'inspect_hold')::boolean, false) as hold,
            j.application_deadline, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
