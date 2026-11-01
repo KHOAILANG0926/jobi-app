@@ -90,6 +90,19 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/rule_check_refs_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261101190000_db_publish_gate.sql' ]]; then
+    echo "PostgreSQL DB publish gate: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/rule-check-refs-fixture.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.job_posting_rules add column if not exists block_mode text, add column if not exists machine_checkable text, add column if not exists implementation text"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261101150000_rule_check_refs.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.local_jobs add column if not exists origin text, add column if not exists title text, add column if not exists active boolean, add column if not exists publish_gate_reason text, add column if not exists employer_phone text, add column if not exists contact_zalo text, add column if not exists recruitment_regions text[]"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/db_publish_gate.local.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/db_publish_gate_production_check.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/rule_check_refs_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
