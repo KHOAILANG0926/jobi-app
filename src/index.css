@@ -12432,3 +12432,18 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 
 /* Conditions and recruitment live in separate .jd2-main wrappers, so sibling selectors do not apply. */
 .jd2-grid--detail-redesign .jd2-main--full > .jd2-sec--recruit-grid:first-child { margin-top: 1.5rem; }
+
+/* 2026-11-01 Lee: 알바몬 업직종별 브랜드 — 30개 업종 글자 목록(3단) */
+.brand-industry-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 24px; }
+.brand-industry-list__item { background: none; border: 0; padding: 4px 0; text-align: left; font: inherit; font-size: 14px; color: #374151; cursor: pointer; }
+.brand-industry-list__item:hover { color: #e53935; text-decoration: underline; }
+@media (max-width: 767px) { .brand-industry-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.franchise-layout { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: start; }
+.franchise-industries { display: flex; flex-direction: column; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 70vh; overflow-y: auto; }
+.franchise-industries__item { background: none; border: 0; border-bottom: 1px solid #f3f4f6; padding: 10px 14px; text-align: left; font: inherit; font-size: 14px; color: #374151; cursor: pointer; display: flex; justify-content: space-between; }
+.franchise-industries__item[aria-current="true"] { background: #fff5f5; color: #e53935; font-weight: 600; }
+.franchise-brands { display: flex; flex-direction: column; border: 1px solid #e5e7eb; border-radius: 8px; }
+.franchise-brands__item { background: none; border: 0; border-bottom: 1px solid #f3f4f6; padding: 10px 14px; text-align: left; font: inherit; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.franchise-brands__count { color: #e53935; font-weight: 600; }
+.franchise-brands__empty { padding: 16px; color: #6b7280; font-size: 14px; }
+@media (max-width: 767px) { .franchise-layout { grid-template-columns: 1fr; } .franchise-industries { max-height: 40vh; } }

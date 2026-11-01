@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { useBrands } from '../context/BrandsContext'
-import { computeBrandCounts, groupBrandsByCategory, type BrandDefinition, type BrandWithCount } from '../data/brandDirectory'
+import BrandIndustryMenu from './BrandIndustryMenu'
 import { NotificationBell } from './NotificationBell'
 import { ZaloIcon } from './ZaloIcon'
 import MobileBottomNavigation from './MobileBottomNavigation'
@@ -37,112 +37,6 @@ interface MenuItem {
   brandMenu?: true
 }
 
-const BRAND_COLUMN_COUNT = 3
-
-/** 업종 그룹을 N개 column에 균형 배치한다(그룹은 쪼개지 않고 통째로 한
- *  column에 배치) — 가장 무거운(브랜드 수 많은) 그룹부터 그때그때 가장 가벼운
- *  column에 채우는 greedy bin-packing. groups 자체는 이미 실제 useJobs()
- *  데이터로 매 렌더마다 다시 계산된 값이라, 이 배치도 데이터가 바뀌면 자동으로
- *  다시 계산된다 — column 구성을 하드코딩하지 않는다. */
-function distributeIntoColumns<T extends { brands: unknown[] }>(groups: T[], columnCount: number): T[][] {
-  const order = groups.map((g, i) => ({ g, i })).sort((a, b) => b.g.brands.length - a.g.brands.length)
-  const columns: { items: { g: T; i: number }[]; weight: number }[] = Array.from({ length: columnCount }, () => ({ items: [], weight: 0 }))
-  order.forEach(({ g, i }) => {
-    const target = columns.reduce((min, c) => (c.weight < min.weight ? c : min), columns[0])
-    target.items.push({ g, i })
-    target.weight += g.brands.length + 1
-  })
-  return columns.map((c) => c.items.sort((a, b) => a.i - b.i).map((e) => e.g))
-}
-
-/** 2026-09-10 재설계(사용자 지시, 알바몬 "브랜드 알바" 정보 구조 참고) —
- *  왼쪽 "Thương hiệu theo ngành"은 업종별 브랜드를 카드가 아닌 가벼운 텍스트
- *  링크로 한 화면에 전부 펼친다(세로 탭 없음, 클릭 없이도 다 보임, 공고 수
- *  배지 없음 — 숫자가 주인공이 되지 않게). 오른쪽 "Thương hiệu nổi bật"은
- *  실제 공고가 2건 이상인 "대표 브랜드"만 낮고 납작한 카드로 보여준다(1건뿐인
- *  브랜드도 왼쪽 텍스트 목록에는 그대로 남아있음 — 대표 카드에서만 빠짐).
- *  이 컷오프도 실제 useJobs() 데이터로 매 렌더마다 다시 계산되므로 하드코딩된
- *  브랜드명 목록이 아니다 — 공고가 늘거나 줄면 대표 브랜드 구성도 자동으로
- *  바뀐다.
- *  2026-09-10 2차 수정(사용자 지시, 알바몬 캡처 기준 재조정): 왼쪽 목록을
- *  한 줄로 쭉 흘리지 않고 3개 column으로 균형 배치하고, 메가메뉴 자체를
- *  탭 위치가 아니라 헤더 콘텐츠 영역(.header-tabs__inner)에 맞춰 정렬해
- *  화면 오른쪽 경계를 벗어나던 문제를 고친다(아래 .mega-menu--brand
- *  CSS 참고, position 기준 변경은 JSX의 header-tab-wrap--static 클래스로
- *  처리).
- *  2026-09-11 재수정(사용자 지시, 브랜드 DB 전환): 브랜드 목록은 더 이상
- *  하드코딩(brandDirectory.ts의 BRAND_DIRECTORY)이 아니라 useBrands()로 관리자
- *  승인 브랜드를 가져온다. "대표 브랜드" 선정도 예전엔 count>=2 자동 임계값
- *  이었지만, 이제는 관리자가 /admin에서 직접 지정한 featured 플래그를 그대로
- *  쓴다(공고 수 자동 계산 아님) — 마이그레이션 시 예전 임계값 결과와 동일하게
- *  8개 브랜드에 featured=true를 심어 화면은 그대로 유지된다. */
-function BrandMegaMenu({ jobs, brands, onNavigate }: { jobs: import('../types/job').Job[]; brands: BrandDefinition[]; onNavigate: (to: string) => void }) {
-  const groups = useMemo(() => groupBrandsByCategory(computeBrandCounts(jobs, brands)), [jobs, brands])
-  const columns = useMemo(() => distributeIntoColumns(groups, BRAND_COLUMN_COUNT), [groups])
-  const featured = useMemo(
-    () => groups.flatMap((g) => g.brands).filter((b) => b.featured).sort((a, b) => b.count - a.count),
-    [groups],
-  )
-
-  if (groups.length === 0) {
-    return <p className="mega-menu__brand-empty">Chưa có thương hiệu nào đang tuyển.</p>
-  }
-
-  return (
-    <>
-      <div className="mega-menu__brand-layout2">
-        <div className="mega-menu__brand-byindustry">
-          <h4 className="mega-menu__heading">Thương hiệu theo ngành</h4>
-          <div className="mega-menu__brand-columns">
-            {columns.map((col, ci) => (
-              <div key={ci} className="mega-menu__brand-column">
-                {col.map((g) => (
-                  <div key={g.id} className="mega-menu__brand-industry-group">
-                    <h5 className="mega-menu__brand-industry-label">{g.label}</h5>
-                    <div className="mega-menu__brand-industry-links">
-                      {g.brands.map((b) => (
-                        <button
-                          key={b.name}
-                          type="button"
-                          className="mega-menu__brand-link"
-                          onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
-                        >
-                          {b.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="mega-menu__brand-featured">
-          <h4 className="mega-menu__heading">Thương hiệu nổi bật</h4>
-          <div className="mega-menu__brand-featured-grid">
-            {featured.map((b: BrandWithCount) => (
-              <button
-                key={b.name}
-                type="button"
-                className="mega-menu__brand-mini-card"
-                onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
-              >
-                <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=64&domain=${b.domain}` : undefined} initial={b.initial} />
-                <span className="mega-menu__brand-mini-card-label">{b.name}</span>
-                <span className="mega-menu__brand-mini-card-count">{b.count}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="mega-menu__brand-footer">
-        <button type="button" className="mega-menu__brand-all" onClick={() => onNavigate('/franchise-jobs')}>
-          Tất cả thương hiệu →
-        </button>
-      </div>
-    </>
-  )
-}
 
 const MENU_ITEMS: MenuItem[] = [
   {
@@ -433,7 +327,7 @@ export function Layout() {
                         ref={isMobilePortal ? dropdownRef : undefined}
                         style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
-                        <BrandMegaMenu jobs={jobs} brands={brands} onNavigate={(to) => { setOpenMenu(null); navigate(to) }} />
+                        <BrandIndustryMenu jobs={jobs} brands={brands} onNavigate={(to) => { setOpenMenu(null); navigate(to) }} />
                       </div>
                     ) : null
 

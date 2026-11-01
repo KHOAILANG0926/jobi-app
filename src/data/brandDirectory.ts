@@ -12,19 +12,50 @@ import { normalizeViText } from '../lib/jobCoords'
  * 코드 수정 없이 메뉴에 나타난다.
  */
 
-export type BrandCategoryId =
-  | 'fastfood'
-  | 'cafe'
-  | 'bakery'
-  | 'convenience'
-  | 'delivery'
+// 2026-11-01 Lee: 알바몬 "업직종별 브랜드" 구성을 따라 30개 업종(공장 제외 — 브랜드는 손님을 상대하는 체인점 기준).
+// 옛 5개 값(fastfood·cafe·bakery·convenience·delivery)은 그대로 쓴다(기존 브랜드 불변). DB 검사: 20261101220000.
+export const BRAND_CATEGORY_GROUPS = [
+  { label: 'Ăn uống', ids: ['restaurant', 'family_buffet', 'fastfood', 'chicken_pizza', 'cafe', 'tea_dessert', 'bakery', 'beer_pub', 'lunch_meals'] },
+  { label: 'Bán lẻ', ids: ['mall', 'supermarket', 'convenience', 'fashion', 'beauty_pharmacy', 'phone_electronics', 'furniture', 'books_stationery', 'fuel_carwash'] },
+  { label: 'Dịch vụ', ids: ['hotel_spa', 'gym_sports', 'net_game', 'amusement', 'cinema_events', 'cleaning', 'repair', 'education'] },
+  { label: 'Văn phòng', ids: ['call_center', 'finance_insurance'] },
+  { label: 'Giao hàng', ids: ['delivery', 'warehouse'] },
+] as const
+
+export type BrandCategoryId = (typeof BRAND_CATEGORY_GROUPS)[number]['ids'][number]
+export const BRAND_CATEGORY_IDS: BrandCategoryId[] = BRAND_CATEGORY_GROUPS.flatMap((g) => [...g.ids])
 
 export const BRAND_CATEGORY_LABELS: Record<BrandCategoryId, string> = {
+  restaurant: 'Nhà hàng · Quán ăn',
+  family_buffet: 'Nhà hàng gia đình · Buffet',
   fastfood: 'Fast food',
-  cafe: 'Cafe / Trà sữa',
-  bakery: 'Bakery',
+  chicken_pizza: 'Gà rán · Pizza',
+  cafe: 'Cà phê',
+  tea_dessert: 'Trà sữa · Kem · Tráng miệng',
+  bakery: 'Bánh · Bakery',
+  beer_pub: 'Bia · Quán nhậu',
+  lunch_meals: 'Cơm văn phòng · Đồ ăn sẵn',
+  mall: 'Trung tâm thương mại',
+  supermarket: 'Siêu thị',
   convenience: 'Cửa hàng tiện lợi',
-  delivery: 'Giao hàng / Dịch vụ',
+  fashion: 'Thời trang · Phụ kiện · Trang sức',
+  beauty_pharmacy: 'Mỹ phẩm · Nhà thuốc',
+  phone_electronics: 'Điện thoại · Điện máy',
+  furniture: 'Nội thất',
+  books_stationery: 'Sách · Văn phòng phẩm',
+  fuel_carwash: 'Xăng dầu · Rửa xe',
+  hotel_spa: 'Khách sạn · Resort · Spa',
+  gym_sports: 'Gym · Thể thao',
+  net_game: 'Quán net · Game',
+  amusement: 'Khu vui chơi',
+  cinema_events: 'Rạp phim · Sự kiện',
+  cleaning: 'Vệ sinh',
+  repair: 'Sửa chữa · Bảo hành',
+  education: 'Trung tâm ngoại ngữ · Giáo dục',
+  call_center: 'Chăm sóc khách hàng · Tổng đài',
+  finance_insurance: 'Tài chính · Bảo hiểm',
+  delivery: 'Giao hàng · Shipper',
+  warehouse: 'Kho · Logistics',
 }
 
 export interface BrandDefinition {
@@ -70,7 +101,7 @@ export function computeBrandCounts(jobs: Job[], brands: BrandDefinition[]): Bran
 export function groupBrandsByCategory(
   brandsWithCount: BrandWithCount[],
 ): { id: BrandCategoryId; label: string; brands: BrandWithCount[] }[] {
-  const order: BrandCategoryId[] = ['fastfood', 'cafe', 'bakery', 'convenience', 'delivery']
+  const order: BrandCategoryId[] = BRAND_CATEGORY_IDS
   return order
     .map((id) => ({
       id,
@@ -78,4 +109,13 @@ export function groupBrandsByCategory(
       brands: brandsWithCount.filter((b) => b.category === id).sort((a, b) => b.count - a.count),
     }))
     .filter((g) => g.brands.length > 0)
+}
+
+/** 2026-11-01 Lee(알바몬 업직종별 브랜드): 30개 업종 전부와 업종별 브랜드 공고 수(0 포함). */
+export function brandIndustries(jobs: Job[], brands: BrandDefinition[]): Array<{ id: BrandCategoryId; label: string; count: number; brands: BrandWithCount[] }> {
+  const all = brands.map((brand) => ({ ...brand, count: jobs.filter((j) => jobMatchesBrand(j, brand)).length }))
+  return BRAND_CATEGORY_IDS.map((id) => {
+    const list = all.filter((b) => b.category === id).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    return { id, label: BRAND_CATEGORY_LABELS[id], count: list.reduce((n, b) => n + b.count, 0), brands: list }
+  })
 }
