@@ -47,7 +47,6 @@ export type FillHow = 'heading' | 'line' | 'kind_rule' | 'unclassified'
 export interface FillLine { line: string; key: DetailTextKey; how: FillHow; from: FillSource['name']; rule?: string }
 export interface FillResult { description: string; added: FillLine[]; unclassified: FillLine[]; stillMissing: string[] }
 
-const digits = (s: string) => s.replace(/\D/g, '')
 function tokens(s: string): string[] {
   return fold(s).split(/[^a-z0-9]+/).filter((t) => t.length >= 2 || /\d/.test(t))
 }
@@ -70,12 +69,23 @@ export function phoneOnly(line: string, contactName?: string | null): boolean {
   return rest.length < 2
 }
 
+/**
+ * 칸 정하는 순서 — 2026-11-01 Lee "판단은 한 곳". 줄 하나의 칸은 아래 순서로 처음 걸리는 것 하나로만 정한다.
+ * 화면(detailSections)은 이렇게 만든 글의 소제목을 그대로 따르고 줄을 다시 판단·삭제하지 않는다.
+ *   0) Lee가 정한 줄 종류(detail_line_kinds, by=lee) — 아래 모두보다 우선(buildDescriptionFromSources)
+ *   1) 원문 소제목 줄 → 칸 문맥만 바꾸고 줄 자체는 우리 소제목으로 대체
+ *   2) 연락 줄(공고 전화) → 06, 근무지 주소·회사명·제목과 같은 줄 → 07
+ *   3) KIND_RULES(Lee 결정 규칙)
+ *   4) 문맥 없는 줄: lineBucket 줄 규칙, 못 정하면 07 + unclassified
+ *   5) 소제목 아래 줄: lineBucket(줄 규칙이 분명하면 옮김) / 아니면 소제목 칸
+ *   6) AI가 정한 줄 종류(by=ai) — 4)에서 못 정한(unclassified) 줄에만
+ */
 /** 원문 한 개를 줄마다 칸으로 나눈다(상세요강과 같은 소제목·줄 규칙 + Lee의 새 종류 규정). */
 export function classifySource(text: string | null | undefined, from: FillSource['name'], ctx: FillContext = {}): FillLine[] {
   const out: FillLine[] = []
   const titleBare = ctx.title ? bare(ctx.title) : ''
   const companyBare = ctx.company ? bare(ctx.company) : ''
-  const phones = (ctx.phones ?? []).map((p) => digits(p ?? '')).filter((d) => d.length >= 8)
+  const phones = (ctx.phones ?? []).map((p) => String(p ?? '').replace(/\D/g, '')).filter((d) => d.length >= 8)
   const addresses = (ctx.addresses ?? []).map((a) => bare(a ?? '')).filter(Boolean)
   let context: DetailTextKey | 'address' | 'contact' | 'none' = 'none'
   for (const raw of String(text ?? '').split(/\r\n|\n|\r/)) {
@@ -85,12 +95,14 @@ export function classifySource(text: string | null | undefined, from: FillSource
     if (heading) { context = heading; continue }                      // ① 소제목
     const s = bare(line)
     if (!s) continue
-    if (titleBare && s === titleBare) continue                        // ② 제목 반복
-    const d = digits(line)
-    // ③ 위에 있는 전화: 번호·이름표만 있는 줄만 뺀다. "Ibox hoặc liên hệ Mr …: 09…"처럼 지원 방법이 있으면 남긴다(2026-11-01 #5157).
-    if (phones.some((p) => d.includes(p)) && phoneOnly(line, ctx.contactName)) continue
-    if (addresses.some((a) => a === s || a.startsWith(s) || s.startsWith(a))) continue // ③ 위에 있는 근무지 주소
-    if (companyBare && (s === companyBare || s === `cty ${companyBare}` || s === `cong ty ${companyBare}`)) continue // ③ 위에 있는 회사명
+    // 2026-11-01 Lee "빠짐 0": 제목·전화·주소·회사명과 같은 줄도 버리지 않는다(10-30 확정 ④ 원문 전체, Liên hệ 필수).
+    // 이런 줄은 칸이 정해져 있다(새 종류로 묻지 않음): 연락 줄 → 06 채용 절차, 주소·회사명·제목 줄 → 07.
+    const d = line.replace(/\D/g, '')
+    if (phones.some((p) => d.includes(p))) { out.push({ line, key: '06', how: 'kind_rule', from, rule: 'contact_line' }); continue }
+    if (addresses.some((a) => a === s || a.startsWith(s) || s.startsWith(a))) { out.push({ line, key: '07', how: 'kind_rule', from, rule: 'address_line' }); continue }
+    if ((companyBare && (s === companyBare || s === `cty ${companyBare}` || s === `cong ty ${companyBare}`)) || (titleBare && s === titleBare)) {
+      out.push({ line, key: '07', how: 'kind_rule', from, rule: 'company_title_line' }); continue
+    }
     const rule = KIND_RULES.find((r) => r.re.test(s))
     if (rule) { out.push({ line, key: rule.key, how: 'kind_rule', from, rule: rule.id }); continue }
     if (context === 'none' || context === 'address' || context === 'contact') {

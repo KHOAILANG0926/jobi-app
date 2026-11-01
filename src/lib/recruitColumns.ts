@@ -1,15 +1,15 @@
 /**
- * 상세 'Thông tin tuyển dụng' 두 칸 나누기.
- * 왼쪽: 마감·인원·나이·성별·대상·업종(업종은 모바일 전용), 오른쪽: 나머지.
- * 2026-11-01 Lee: 왼쪽에 PC에서 보이는 항목이 없으면 빈칸으로 두지 않고 오른쪽 항목을 왼쪽으로 옮긴다. 빈 칸은 그리지 않는다.
+ * 상세 'Thông tin tuyển dụng' 배치 — 2026-11-01 Lee: 칸을 미리 왼쪽·오른쪽으로 나누지 않고
+ * 항목에 순번을 매겨 1(왼쪽) 2(오른쪽) 3(다음 줄 왼쪽) … 순서로 채운다. 없는 항목은 건너뛰어 빈칸이 생기지 않는다.
+ * 순번: 직무 → 10-30 확정 ② 모집조건 순서(마감·인원·나이·성별·학력·경력·기타 요구) → 확정안 밖 항목.
  */
-const LEFT = ['deadline', 'numHires', 'age', 'gender', 'sourceEligibility', 'category']
-const MOBILE_ONLY = ['category']
+export const RECRUIT_ORDER = [
+  'roles',
+  'deadline', 'numHires', 'age', 'sourceEligibility', 'gender', 'education', 'preference', 'otherReq',
+  'docs', 'language', 'trip', 'category',
+]
 
-export function recruitColumnsOf<T extends { key: string }>(fields: T[]): T[][] {
-  const left = fields.filter((f) => LEFT.includes(f.key))
-  const right = fields.filter((f) => !LEFT.includes(f.key))
-  const leftShownOnPc = left.some((f) => !MOBILE_ONLY.includes(f.key))
-  const columns = leftShownOnPc ? [left, right] : [[...right, ...left]]
-  return columns.filter((c) => c.length > 0)
+export function recruitOrdered<T extends { key: string }>(fields: T[]): T[] {
+  const rank = (k: string) => { const i = RECRUIT_ORDER.indexOf(k); return i < 0 ? RECRUIT_ORDER.length : i }
+  return fields.map((f, i) => ({ f, i })).sort((a, b) => rank(a.f.key) - rank(b.f.key) || a.i - b.i).map(({ f }) => f)
 }

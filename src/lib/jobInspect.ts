@@ -4,10 +4,10 @@
  * 크롤링 시작 조건: 새 공고 연속 10개가 전부 통과.
  * 여기 항목은 "Lee가 화면에서 보고 문제라고 할 것"을 기계가 먼저 찾는 것이다. 새 문제를 찾으면 항목을 하나 더한다.
  */
-import { bare, coveredByAbove, detailSections, isSalaryTotalRepeat, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
+import { bare, detailSections, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
 import { cleanSourceText, sameLine, timeRanges } from './jobDescriptionBuild.ts'
 import { headingOf } from './jobDetailSections.ts'
-import { isCovered, phoneOnly } from './jobDetailFill.ts'
+import { isCovered } from './jobDetailFill.ts'
 import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
 
 export interface InspectInput extends ShownAbove {
@@ -63,9 +63,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 4. 사이트 화면 글자·가려진 번호·값 없는 이름표
   const junk = shown.filter((l) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || /[:：]\s*$/.test(l))
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
-  // 5. 위쪽 칸과 같은 내용 반복(급여 총액 포함)
-  const rep = shown.filter((l) => isSalaryTotalRepeat(l, j.salary) || coveredByAbove(l, above))
-  add('repeat_above', '위쪽 칸 내용 반복 없음', !rep.length, rep.length ? rep.slice(0, 3).join(' / ') : undefined)
+  // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
   // 6. 급여 칸: 원문에 급여가 있는데 위쪽 급여가 비어 있음
   const srcSalary = cleanSourceText(j.source_text).text.split(/\r?\n/).some((l) => /\b(?:luong|thu nhap|muc luong)\b/.test(bare(l)) && salaryAmounts(l).length > 0)
   add('salary', '급여 칸', !!String(j.salary ?? '').trim() || !srcSalary, !String(j.salary ?? '').trim() && srcSalary ? '원문엔 급여가 있는데 위쪽 급여 칸이 비어 있음' : undefined)
@@ -91,7 +89,6 @@ export function inspectJob(j: InspectInput): InspectResult {
   const unc = j.unclassified_lines ?? []
   add('new_kind', '칸 못 정한 줄 없음', !unc.length, unc.length ? unc.slice(0, 3).join(' / ') : undefined)
   // 12~14 (2026-11-01 Lee: 규정 R10·10-30 확정 구성이 실제로 지켜졌는지 원문과 대조)
-  const descLines = String(j.description ?? '').split(/\r?\n/).filter((l) => l.trim())
   const srcLines = cleanSourceText(j.source_text).text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   // 12. 원문 직무 목록(Vị trí tuyển dụng 아래 줄)이 전부 업무 칸(01)에 있는가 — R10
   const roles: string[] = []
@@ -118,18 +115,12 @@ export function inspectJob(j: InspectInput): InspectResult {
     }
   }
   add('hours_twice', '같은 근무시간 반복 없음', !twice.length, twice.length ? twice.slice(0, 3).join(' / ') : undefined)
-  // 14. 원문 줄이 공고에서 빠졌는가 — 허용: 소제목, 제목·회사명·근무지 주소·전화번호만 있는 줄, 위쪽 칸과 같은 내용
-  const titleB = j.title ? bare(j.title) : ''
-  const companyB = j.company ? bare(j.company) : ''
-  const addrB = (j.addresses ?? []).map((a) => bare(a ?? '')).filter(Boolean)
+  // 14. 원문 줄이 공고에서 빠졌는가 — 2026-11-01 Lee "빠짐 0": 예외는 원문 소제목뿐(사이트 글자·가려진 번호는 cleanSourceText가 이미 뺌)
   const lost = srcLines.filter((line) => {
-    if (headingOf(line) || /[:：]\s*$/.test(line)) return false
+    if (headingOf(line) || /[:：]\s*$/.test(line)) return false   // 소제목·값 없는 이름표(값 줄은 따로 검사)
     const b = bare(line)
-    if (!b || b === titleB || b === companyB || addrB.some((a) => a === b)) return false
-    if (descLines.some((d) => sameLine(d, line) || isCovered(line, [d]))) return false
-    if (isSalaryTotalRepeat(line, j.salary) || coveredByAbove(line, above)) return false
-    // 전화번호·담당자 이름·이름표만 있는 줄(위쪽 연락 버튼에 보임)은 허용. 지원 방법 등 낱말이 남으면 빠진 것.
-    return !phoneOnly(line, j.contact_name)
+    if (!b) return false
+    return !shown.some((d) => sameLine(d, line) || isCovered(line, [d]))
   })
   add('source_lost', '원문 줄 빠짐 없음', !lost.length, lost.length ? lost.slice(0, 3).join(' / ') : undefined)
   // 11. 공개 상태

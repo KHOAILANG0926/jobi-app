@@ -7,6 +7,8 @@
 
 - 결정 0007(회사명·지점명 줄) 화면 반영: src/lib/companyBranch.ts. 다수 지점(결정 3)은 아직 미구현.
 
+- 2026-11-01 "빠짐 0": 상세요강은 원문 줄을 소제목·사이트 글자·완전 중복 외엔 빼지 않음(10-30 ④). 칸 정하는 순서는 src/lib/jobDetailFill.ts 머리말 한 곳. 실제 공고 시험 src/lib/realJobs.test.ts(새 유형은 원문 추가).
+
 ## 2. 다음 할 일
 1. #376 병합 → migrations-apply 운영 적용 → job-ocr-check 실행 후 #5157 통과·공개, #4982 비공개(R11) 확인.
 2. Lee 확인: 10-30 "④ 원문 전체 보여줌"과 급여 총액 빼기·포스터 머리글(HIGHLANDS COFFEE/TUYỂN DỤNG 등) 기타란 처리 충돌.

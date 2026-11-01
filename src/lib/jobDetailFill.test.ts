@@ -33,6 +33,9 @@ const kDesc = `Công việc\n- Làm ngồi linh kiện tai nghe.\n\nYêu cầu\n
 const kSrc=`Liên hệ 08.778.807.56 ( NGOC ANH DUONG)\n\nKCN YÊN PHONG\nCTY KDA\nTUYỂN FULL\nNAM , NỮ (14-50t)\nLàm ngồi linh kiện tai nghe\nMỨC LƯƠNG\nCa ngày: 310k/11h\nCa đếm: 360k/11h\nChuyên cần 50k/tuần\nLương tính và thanh toán theo ngày\nCó xe đưa đón\nĐược mang điện thoại vào xưởng\nThu nhập ổn định\nCông việc lâu dài!\nMôi trường sạch sẽ\n- Quy trình rõ ràng\n- Công việc ổn định\nNhanh tay ứng tuyển để có công việc tốt nhé!\nLiên hệ: 0877 880 756`
 const kda = fillMissingLines(kDesc, [{ name: 'source_text', text: kSrc }], { title: 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', company: 'KDA', contactName: 'NGOC ANH DUONG', phones: ['0877880756'], addresses: ['KCN Yên Phong, Bắc Ninh', 'KCN YÊN PHONG'] })
 const kdaWant = [
+  // 2026-11-01 Lee "빠짐 0": 연락·회사명 줄도 넣는다(연락 → 06, 회사명 → 07, 새 종류로 묻지 않음).
+  '06 kind_rule | Liên hệ 08.778.807.56 ( NGOC ANH DUONG)',
+  '07 kind_rule | CTY KDA',
   '07 kind_rule | TUYỂN FULL',
   '07 kind_rule | Thu nhập ổn định',
   '07 kind_rule | Công việc lâu dài!',
@@ -40,6 +43,7 @@ const kdaWant = [
   '07 kind_rule | - Quy trình rõ ràng',
   '07 kind_rule | - Công việc ổn định',
   '07 kind_rule | Nhanh tay ứng tuyển để có công việc tốt nhé!',
+  '06 kind_rule | Liên hệ: 0877 880 756',
 ]
 assert(JSON.stringify(show(kda)) === JSON.stringify(kdaWant), `#4824 빠진 줄 정답표와 다름: ${JSON.stringify(show(kda))}`)
 
@@ -51,14 +55,18 @@ for (const [key, h] of Object.entries(FILL_HEADINGS)) assert(headingOf(h) === ke
 assert(isCovered('NAM , NỮ (14-50t)', ['- Tuyển nam, nữ (14-50 tuổi).']), '14-50t = 14-50 tuổi')
 assert(isCovered('Thâm niên sau 4 tháng: +300.000đ', ['- Thâm niên sau 2 tháng: +200.000đ; sau 4 tháng: +300.000đ.']), '합친 줄도 있음으로 봄')
 assert(!isCovered('Không cửa từ, môi trường làm việc thoải mái.', ['- Làm ngồi, thoải mái. Không bắt buộc tăng ca.']), '비슷한 낱말 몇 개로는 있음으로 보지 않음')
-// ── 판독 불가 표시·위에 있는 전화는 붙이지 않는다 ──
-assert(fillMissingLines('x', [{ name: 'ocr_text', text: 'Lương [?] tháng\nGọi 0342017663' }], { phones: ['0342017663'] }).added.length === 0, '[?] 줄·전화 줄 제외')
+// ── 판독 불가 표시는 붙이지 않는다. 전화 줄은 2026-11-01 Lee "빠짐 0"으로 06(연락)에 붙인다 ──
+{
+  const r = fillMissingLines('x', [{ name: 'ocr_text', text: 'Lương [?] tháng\nGọi 0342017663' }], { phones: ['0342017663'] })
+  assert(r.added.length === 1 && r.added[0].line === 'Gọi 0342017663' && r.added[0].key === '06', '[?] 줄 제외·전화 줄은 06')
+}
 assert(my.unclassified.length === 0 && kda.unclassified.length === 0, '두루뭉술한 문구는 묻지 않고 기타란(Lee 10-20)')
 // 구체적인 내용이 있는 줄은 두루뭉술한 문구 규정에 걸리지 않는다
 assert(!KIND_RULES.some((r) => r.re.test('khong cua tu, moi truong lam viec thoai mai')), 'Không cửa từ…는 규정 대상 아님')
-// 2026-11-01 #5157: 전화번호가 있어도 지원 방법 낱말이 있는 줄은 남긴다. 번호·담당자 이름만 있는 줄은 위쪽 연락 버튼에 보이므로 뺀다.
+// 2026-11-01 #5157: 전화번호가 있는 줄도 버리지 않는다.
 {
   const h = classifySource('Cách nộp hồ sơ:\nIbox hoặc liên hệ Mr Tuấn Minh: 0365102703\nHotline: 0365.102.703\nTuấn Minh 0365102703', 'source_text', { phones: ['0365102703'], contactName: 'Tuấn Minh' })
-  assert(JSON.stringify(h.map((x) => x.line)) === JSON.stringify(['Ibox hoặc liên hệ Mr Tuấn Minh: 0365102703']), '#5157 지원 방법 줄 유지: ' + JSON.stringify(h.map((x) => x.line)))
+  // 2026-11-01 Lee "빠짐 0": 연락 줄은 모두 06(연락)으로 남긴다.
+  assert(JSON.stringify(h.map((x) => x.key + ' ' + x.line)) === JSON.stringify(['06 Ibox hoặc liên hệ Mr Tuấn Minh: 0365102703', '06 Hotline: 0365.102.703', '06 Tuấn Minh 0365102703']), '#5157 연락 줄 전부 06: ' + JSON.stringify(h.map((x) => x.line)))
 }
 console.log('jobDetailFill.test.ts: 정답표 #4824·#4828 + 글자 그대로·중복 방지 검사 통과')

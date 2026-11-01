@@ -43,12 +43,11 @@ for (const id of Object.keys(jobs)) {
   const shown = all(view)
   assert(shown.filter((l) => /chăm sóc quầy kệ/.test(l)).length === 1, '#4878 진열 업무 한 번만(원문 글자 그대로)')
   assert(shown.includes('- Trưng bày, chăm sóc quầy kệ, đảm bảo sản phẩm đẹp, gọn gàng.'), '#4878 원문 그대로(đẹp 포함)')
-  assert(!shown.some((l) => /^Lương tối (?:đa|thiểu)/.test(l)), '#4878 상단 급여 총액 반복 없음')
-  assert(!shown.some((l) => /Groupe SEB/.test(l)), '#4878 회사명 반복 없음')
+  // 2026-11-01 Lee "빠짐 0"(10-30 ④ 원문 전체): 위쪽 칸과 겹치는 급여·회사명 줄도 보여 준다(이전 10-25 빼기 폐지).
+  assert(shown.some((l) => /^Lương tối (?:đa|thiểu)/.test(l)), '#4878 급여 줄도 원문대로 보임')
   assert(linesOf(view, '06').some((l) => l.startsWith('Ứng tuyển:')), '#4878 지원 방법 → 채용절차')
-  assert(!shown.includes('Độ tuổi: 22 - 35 tuổi'), '#4878 위쪽 나이 칸과 같은 줄 반복 없음')
-  assert(!shown.includes('Giới tính: Không yêu cầu'), '#4878 위쪽 성별 칸과 같은 줄 반복 없음')
-  assert(!shown.some((l) => l.startsWith('Thời gian: Ca xoay 8 tiếng')), '#4878 위쪽 근무시간+근무일과 같은 줄 반복 없음')
+  assert(shown.includes('Độ tuổi: 22 - 35 tuổi'), '#4878 나이 줄도 원문대로 보임')
+  assert(shown.some((l) => l.startsWith('Thời gian: Ca xoay 8 tiếng')), '#4878 근무시간 줄도 원문대로 보임(빠짐 0)')
   assert(linesOf(view, '02').includes('Kinh nghiệm: < 1 năm'), '#4878 위에 없는 값(경력 < 1 năm)은 남김')
 }
 // ── #4879 ADTEK: 사이트 화면 글자가 섞여 있던 공고 ──

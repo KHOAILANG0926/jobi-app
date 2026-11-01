@@ -11,7 +11,7 @@
  *   5) 게시글·포스터에 같은 줄이 둘 다 있으면 한 번만
  * 글자는 바꾸지 않는다(빼거나 옮기거나 두 줄을 이어 붙이기만).
  */
-import { bare, coveredByAbove, fold, isSalaryTotalRepeat, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
+import { bare, fold, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
 import { lineKey } from './aiClassifyGuard.ts'
 import { classifySource, isCovered, FILL_HEADINGS, type FillContext, type FillLine, type FillSource } from './jobDetailFill.ts'
 
@@ -141,8 +141,7 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         if (item.role === item.line) { item.key = '01'; item.how = 'line'; item.rule = 'explicit_role_heading' }
         if (item.role && /^\(tg:/.test(bare(item.line))) { item.key = '03'; item.how = 'line'; item.rule = 'role_hours' }
 
-        if (isSalaryTotalRepeat(item.line, ctx.salary)) { dropped.push({ line: item.line, reason: 'salary_total_repeat' }); continue }
-        if (coveredByAbove(item.line, ctx)) { dropped.push({ line: item.line, reason: 'shown_above' }); continue }
+        // 2026-11-01 Lee "빠짐 0": 급여 총액·위쪽 칸과 겹치는 줄도 뺀다 하지 않는다(10-30 확정 ④ 원문 전체).
         if (lines.some((l) => l.role === item.role && sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
         // 2026-11-01 #5157: 게시글 "Ca A: 06h30 – 14h30"과 포스터 "CA 1: 6h30 - 14h30"은 같은 교대다(이름표만 다름).
         if (shiftOnlyLine(item.line) && timeRanges(item.line).every((r) => lines.some((l) => l.role === item.role && timeRanges(l.line).includes(r)))) {
