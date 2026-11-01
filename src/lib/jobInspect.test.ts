@@ -78,3 +78,11 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(d.publishable && d.active, 'hours_review만 실패면 공개(관리자 확인 대상으로 남음)')
   console.log('jobInspect.test.ts: R11 확인 대상은 공개 유지 통과')
 }
+
+// 2026-11-01 #5231: 회사명 "Vị trí"(항목 이름표)·원문 시급 있는데 급여 칸 비어 있음 → 검사가 잡아야 한다
+{
+  const src = 'TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\n Mức lương: 23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)'
+  const r = inspectJob({ id: 5231, company: 'Vị trí', salary: '', source_text: src, description: 'Thu nhập\nMức lương: 23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)', pin: 'area', category: 'x', occupation_code: '5131', active: true })
+  assert(bad(r).includes('company') && bad(r).includes('salary'), '#5231 회사명·급여 칸 문제 찾음: ' + JSON.stringify(bad(r)))
+  console.log('jobInspect.test.ts: #5231 회사명 이름표·시급 급여 칸 검사 통과')
+}

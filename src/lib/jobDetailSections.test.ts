@@ -274,3 +274,11 @@ Chăm sóc khách hàng`
   assert(recruitOrdered([{ key: 'category' }, { key: 'roles' }])[0].key === 'roles', '#5157 roles first (left)')
   console.log('jobDetailSections: recruit column no-empty-left regression passed')
 }
+
+// 2026-11-01 #5231: 천 단위 점 표기 시급도 금액으로 읽는다(위쪽 급여 칸 자동 채움·검사의 기준)
+{
+  const { salaryAmounts } = await import('./jobDetailSections.ts')
+  const a = salaryAmounts('Mức lương: 23.000 – 25.000 VNĐ/giờ')
+  assert(JSON.stringify(a) === '[23000,25000]', 'hourly dot-thousands amounts: ' + JSON.stringify(a))
+  console.log('jobDetailSections: hourly salary amount regression passed')
+}

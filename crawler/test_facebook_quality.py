@@ -79,6 +79,13 @@ def test_company_from_recruitment_heading() -> None:
     assert_equal(extract_company(text), "TUẤN ĐỨC POOL ARENA - BẮC NINH", "company from heading")
 
 
+def test_company_from_title_dash_and_not_label() -> None:
+    # 2026-11-01 #5231: "Vị trí tuyển dụng:"의 "Vị trí"를 회사명으로 잡던 문제
+    text = "TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\nTrung Nguyên Legend – Thương hiệu cà phê\n Vị trí tuyển dụng: Nhân viên phục vụ"
+    assert_equal(extract_company(text), "TRUNG NGUYÊN LEGEND BẮC NINH", "company after title dash")
+    assert_equal(extract_company("Vị trí tuyển dụng: Thợ hàn"), "", "field label is not company")
+
+
 def test_district_pattern_does_not_match_plain_letter_p() -> None:
     text = "Làm ngồi, phòng thường\nđộ tuổi từ 18 đến 45\nđịa chỉ tại Vsip - Bắc Ninh"
     assert_equal(extract_district(text), "", "plain p in Vietnamese words must not become location")
@@ -365,6 +372,7 @@ def main() -> int:
         test_restaurant_and_salary_with_combining_marks,
         test_company_does_not_capture_benefit_sentence,
         test_company_from_recruitment_heading,
+        test_company_from_title_dash_and_not_label,
         test_district_pattern_does_not_match_plain_letter_p,
         test_salary_keeps_month_suffix,
         test_post_id_from_permalink,
