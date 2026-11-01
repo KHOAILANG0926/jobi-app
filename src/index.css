@@ -12436,3 +12436,13 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 /* 2026-11-01 Lee: 브랜드 로고는 흰 바탕·테두리 위에 크게(색 바탕 위 작은 아이콘은 묻혀 안 보였음) */
 .mega-menu__brand-card-logo--img { background: #fff; border: 1px solid #e5e7eb; overflow: hidden; }
 .mega-menu__brand-card-logo--img img { width: 80%; height: 80%; object-fit: contain; border-radius: 0; }
+
+/* 2026-11-01 Lee(알바몬): 모바일 메인 목록 급여 — 지급 단위 이름표 색, 금액 회색 */
+.discovery-job__salary .discovery-job__pay { display: block; }
+.discovery-job__salary .pay-label { font-weight: 700; }
+.discovery-job__salary .pay-label--month { color: #e53935; }
+.discovery-job__salary .pay-label--hour, .discovery-job__salary .pay-label--year { color: #1a73e8; }
+.discovery-job__salary .pay-label--day { color: #7c3aed; }
+.discovery-job__salary .pay-amount { color: #4b5563; }
+.discovery-job__salary .pay-none { color: #9ca3af; }
+.discovery-job__company { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

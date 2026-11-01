@@ -3,8 +3,18 @@ import { useId, useState } from 'react'
 import type { Job } from '../types/job'
 import { companyLogoUrl } from '../lib/companyLogo'
 import { formatDistanceLabel } from '../lib/jobCoords'
-import { cardSalary } from '../lib/mainJobCards'
+import { cardSalary, PAY_LABELS, type PayKind } from '../lib/mainJobCards'
+
+function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: boolean }) {
+  return (
+    <span className="jc__pay" style={block ? { display: 'block' } : undefined}>
+      {kind !== 'other' && <><span className={`jc__pay-label jc__pay-label--${kind}`}>{PAY_LABELS[kind]}</span> </>}<span className="jc__pay-amount">{text}</span>
+    </span>
+  )
+}
 import { conditionBadges } from '../lib/jobConditions'
+import { shortArea } from '../lib/shortArea'
+import { cardCompany, cardTitle } from '../lib/cardText'
 
 export function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string; category?: string }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
@@ -45,23 +55,25 @@ export default function JobCard({
     .filter((value): value is string => !!value)
   const imageUrl = companyLogoUrl(job.imageUrl)
 
+  // 2026-11-01 Lee: 로고 자리(포스터 + 회사·위치)는 원래 틀 그대로. 나머지만 깔끔하게 — 위치는 동/성까지만(잘림 방지),
+  // 제목 보통 굵기 2줄, 급여 한 줄(단위 색 + 회색 금액, 직무가 여럿이면 회색 안내 한 줄). 위 유료 그라데이션 띠는 그대로.
   return (
-    <article className={`jc${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
+    <article className={`jc jc--clean${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
       <div className="jc__header">
         <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} /></div>
         <div className="jc__identity">
-          <p className="jc__company">{job.company}</p>
+          <p className="jc__company">{cardCompany(job.company, shortArea(job.location))}</p>
           <p className="jc__meta">
-            {job.location}
+            {shortArea(job.location)}
             {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
           </p>
         </div>
       </div>
-      <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
+      <h3 className="jc__title">{cardTitle(job.title, job.company)}</h3>
       <div className="jc__footer">
         <span className="jc__salary">
-          {salary?.lines ? salary.lines.map(line => <span key={line} style={{ display: 'block' }}>{line}</span>)
-            : salary ? salary.text : 'Chưa xác nhận tiền công'}
+          {salary && !salary.lines ? <PayLine kind={salary.kind ?? 'other'} text={salary.text} />
+            : <span className="jc__pay-amount jc__pay-amount--none">₫ {salary?.lines ? 'Xem lương theo vị trí' : 'Xem trong tin tuyển dụng'}</span>}
         </span>
       </div>
       {conditions.length > 0 && <>

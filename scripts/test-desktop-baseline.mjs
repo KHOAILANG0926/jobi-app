@@ -1,3 +1,4 @@
+// 2026-11-01: 기준값 갱신 — master가 이미 달랐음(이 검사는 모바일 홈 파일 PR에서만 돌아 못 잡음): LayoutDesktop.tsx(#403 브랜드 로고 흰 바탕), JobDetail.tsx(#397 오토바이가 핀을 따라감), HomeDesktop·DesktopHomeMap*(이미 병합된 PR). index.css는 이번 PR(#407 Lee 적용: 공고 카드 급여 한 줄·단위 색, 모바일 목록 같은 규칙) 포함. PC 틀 변경은 카드 급여 줄 글자·색뿐.
 // 2026-10-30: JobDetail.tsx — Lee 적용: 상단 복리후생 아이콘 7종 움직임(있는 것만, 칸 PC 52px·휴대폰 44px).
 // 2026-10-30: JobDetail.tsx — Lee 지시: 비공개 공고를 관리자만 같은 상세 화면으로 미리 보기(맨 위 비공개 안내). 공개 화면 틀 변경 없음.
 // 2026-10-30: JobDetail.tsx — Lee 지시(신규부터): 새 공고는 #4828 4칸 틀, 기존 공개 공고·KDA 그대로.
@@ -51,7 +52,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "87b75498e1bab9e7f50411e31ad028f334627ffc7ff768f13144c68ef2f8f1d6",
+    "sha256": "5381dfbe61819431a203e249dd178f54220b7e3b57ae71963183a743cdf715be",
     "restore": []
   },
   {
@@ -83,12 +84,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "d642eabe6c6fa0d494e28bf884a2b4f80fc56010b72c2ca304ee2dc3aa217e62",
+    "sha256": "b7fcca54bc5afb74fedfef41b4309793c4129be632de5c880ab7ffd8a9526710",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "cc2bb2203a26c1ded424c63bbf63b660f36c5467a99e2a185a21d5688d89d164",
+    "sha256": "cb1b64fa201f72c0ce83e91d3498e926ba2fa9cc3facbdfed28395edcd2618fe",
     "restore": []
   },
   {

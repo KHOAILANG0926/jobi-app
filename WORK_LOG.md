@@ -1,3 +1,7 @@
+## 2026-11-01 밤 — 공고 카드 정리 운영 반영 (Claude)
+- 요청: Lee "적용" — 데모 demo/card-albamon.
+- 변경: 급여 한 줄(지급 단위 색: 월급 빨강·시급/연봉 파랑·일급 보라, 금액 회색, 직무 여럿이면 회색 "₫ Xem lương theo vị trí" — 10-30 직무별 2줄 규칙을 Lee가 바꿈), 위치는 동/성까지(shortArea), 제목 보통 굵기, 카드 글자만: 회사 끝 지역·제목 속 회사 이름 빼기·전부 대문자 제목 완화(cardText). 로고 칸·유료 그라데이션 띠 그대로. PC 카드(JobCard)·모바일 목록(HomeDiscovery).
+
 ## 2026-11-01 밤 — 브랜드 로고(공식 사이트 아이콘) (Claude)
 - 요청: Lee "대기업들은 자체 로고가 있잖아 그거 넣어줘". 화면은 domain의 공식 사이트 아이콘을 로고로 씀.
 - 변경: migration 20261101230000 — Highlands(highlandscoffee.com.vn), Trung Nguyên Legend(trungnguyenlegend.com), Wallace(wallacevn.com), Xanh SM(greensm.com) domain. 공식 주소 확인 못 한 브랜드(SPX·Tamba·Orange·Americano 등)는 그대로.
