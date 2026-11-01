@@ -83,6 +83,14 @@ await insert(31, 'Bomunttl occupation-only fixture', 'NHÂN VIÊN NAM/NỮ CHẠ
 assert.equal(await active(31), true, 'separate local fixture checks waiter classification, not a second production announcement')
 
 // ── 유지돼야 하는 차단 ──
+// 2026-11-01 Lee 예외(#5247 Wallace): 가게 공고 업무 미기재 → 업종 확인 시 최상위 코드 5, 근거는 원문 속 업체 이름.
+const wallaceSource = 'WALLACE BẮC NINH TUYỂN DỤNG NHÂN VIÊN ƯU TÚ \n 1. FULL-TIME CA TỐI: 02 NHÂN VIÊN\n Mức lương: 34K – 36K – 38K/giờ\n Địa chỉ làm việc: 216 Nguyễn Trãi, Võ Cường, Bắc Ninh.'
+const service = (await db.query("select level, name_vi from public.occupation_master where code = '5'")).rows[0]
+assert.equal(service?.name_vi, 'Nhân viên dịch vụ và bán hàng', '새 코드가 아닌 실제 공식 코드 5')
+await insert(40, 'WALLACE BẮC NINH TUYỂN DỤNG NHÂN VIÊN ƯU TÚ', wallaceSource, '5', 'WALLACE BẮC NINH')
+assert.equal(await active(40), true, '업종 확인된 가게: 업무 미기재만으로 비공개하지 않음')
+await assert.rejects(insert(41, 'WALLACE', wallaceSource, '5', 'gà rán'), /job_rule_R8/, '검색으로 안 업종 낱말은 원문 근거가 될 수 없음')
+
 await assert.rejects(insert(10, 'x', 'Sản xuất dây mạng', '99999', 'dây mạng'), /foreign key/, '없는 코드')
 await assert.rejects(insert(11, 'x', 'Sản xuất dây mạng', '8', 'thợ hàn'), /job_rule_R8/, '원문에 없는 근거')
 await assert.rejects(insert(12, 'x', 'Sản xuất dây mạng', '8', null), /job_rule_R8/, '근거 누락')

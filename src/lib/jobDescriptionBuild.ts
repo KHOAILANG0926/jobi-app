@@ -75,6 +75,8 @@ export interface BuildContext extends FillContext, Pick<ShownAbove, 'values' | '
   salary?: string | null
   /** Explicit reviewer decision, never inferred from an industrial-park address alone. */
   dutiesUnspecified?: boolean
+  /** Lee 2026-11-01: 업종으로 큰 분류를 정한 공고의 업무 칸 한 줄(예: "Nhân viên cửa hàng"). */
+  dutyLine?: string
   /** 저장된 줄 번호표(detail_line_kinds): lineKey → 칸. Lee가 정한 것 + AI가 정한 것. 단어 규칙이 못 정한 줄에 쓴다(Lee가 정한 줄은 항상). */
   lineKinds?: Record<string, { section: DetailTextKey; by: 'ai' | 'lee' }>
 }
@@ -156,6 +158,10 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
   const annotations: BuildResult['annotations'] = []
   if (ctx.dutiesUnspecified && !lines.some(l => l.line === UNSPECIFIED_DUTIES_NOTICE)) {
     annotations.push({ key: '01', line: UNSPECIFIED_DUTIES_NOTICE })
+  }
+  // Lee 2026-11-01 (#5247): 업무가 원문에 없고 업종으로 큰 분류를 정한 공고는 업무 칸에 가게 직원 한 줄(원문 가게 낱말)을 보여 준다.
+  if (ctx.dutyLine && !ctx.dutiesUnspecified && !lines.some(l => l.key === '01') && !lines.some(l => l.line === ctx.dutyLine)) {
+    annotations.push({ key: '01', line: ctx.dutyLine })
   }
   // A contractor paying a joining bonus is a recruitment intermediary, not a candidate fee.
   // Do not interpret negated mentions ("không qua môi giới") as intermediary recruitment.
