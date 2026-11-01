@@ -70,3 +70,11 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(r.items.find((i) => i.key === 'promo_in_07')?.ok === true, 'R13 권유 문구는 07로 옮겨져 통과')
   console.log('jobInspect.test.ts: 항목 키 등록·R13 검사 통과')
 }
+
+// 2026-11-01 R11: hours_review는 검사표 실패로 남지만 공개는 막지 않는다(운영 점검 bomunttl_production_check 기대값).
+{
+  const r = { ok: false, items: [{ key: 'pin', label: '', ok: true }, { key: 'hours_review', label: '', ok: false }, { key: 'public', label: '', ok: false }] }
+  const d = publishDecision(r, { active: false, hold: true }, '2026-11-01')
+  assert(d.publishable && d.active, 'hours_review만 실패면 공개(관리자 확인 대상으로 남음)')
+  console.log('jobInspect.test.ts: R11 확인 대상은 공개 유지 통과')
+}

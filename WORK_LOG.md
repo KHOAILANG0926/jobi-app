@@ -1,3 +1,9 @@
+## 2026-11-01 — R11 확인 대상은 공개 유지 (Claude 실수 수정)
+- 원인: publishDecision이 hours_review(R11, 공개 차단과 구분) 실패까지 공개 차단 → #4982 비공개, 운영 점검 bomunttl_production_check 실패(20261101150000 적용 후 점검 단계).
+- 변경: REVIEW_ONLY=['hours_review']는 공개 판정에서 제외, 검사 실패로 내린 공고는 통과 시 되살림(hold 판정).
+- 검증: 복사본에서 #4982 재공개, 시험 추가.
+
+
 ## 2026-11-01 — 규정 = 검사 DB 강제 (Claude)
 - 요청: Lee "지적사항 전부 반영" 중 "규정과 검사가 따로 놂".
 - 변경: migration 20261101150000 — job_posting_rules.check_ref(장치 목록: trigger:/inspect:/ci:/decision_pending/decision_allow/work_rule), 장치 없는 규정·없는 트리거 연결은 저장 거부, 기존 20개 규정 전부 연결(R9=work_rule, R10=inspect:roles 등), 하나라도 없으면 파일 전체 취소. 검사표 항목 promo_in_07(R13) 추가, INSPECT_KEYS 등록부, job-inspect가 매번 inspect: 키 존재 확인.
