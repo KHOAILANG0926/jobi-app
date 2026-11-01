@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-10-31 09:45 (VN)**
-- 기준 커밋: `86b81ad` (fix(admin): show privileged R7 mismatch evidence in job peek (#367))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41161351612
+- 생성 시각: **2026-11-01 09:39 (VN)**
+- 기준 커밋: `b41e554` (fix(benefits): prevent animated icons from stopping midway while visible (#372))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41266059044
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -22,12 +22,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 92/92 파일 통과 |
+| 테스트 `npm test` | ✅ 93/93 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `86b81ad` · 상태 **success** · 2026-10-31 08:10 (VN)
+- 마지막 Production 배포: `b41e554` · 상태 **success** · 2026-10-31 18:19 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -35,21 +35,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #372 | 2026-10-31 18:18 (VN) | `b41e554` | fix(benefits): prevent mid-cycle animation stops on visible job cards |
+| #371 | 2026-10-31 16:20 (VN) | `b21e307` | fix: source/OCR backed recruitment headline on existing-job ingest |
+| #370 | 2026-10-31 12:24 (VN) | `b3a7504` | feat: unified automatic reprocessing queue and admin trigger |
+| #369 | 2026-10-31 11:23 (VN) | `ff26cb3` | ops: trigger approved #5157 ingest and R7 via master workflow |
+| #368 | 2026-10-31 11:03 (VN) | `5f3c244` | fix(detail): real Facebook role classification and empty labels without changing approved 4-section layout |
+| #365 | 2026-10-31 10:17 (VN) | `556de74` | fix(crawler/facebook): Highlands #5157 제목·회사·급여·주소 추출 |
 | #367 | 2026-10-31 08:08 (VN) | `86b81ad` | fix(admin): R7 기록을 Xem nội dung에 표시 |
 | #366 | 2026-10-31 07:54 (VN) | `6a58996` | feat(db): 관리자 전용 R7 증거 읽기 함수 및 운영 점검 |
 | #364 | 2026-10-30 21:17 (VN) | `4eba5b5` | feat(admin): R7 사진 대조 기록 보기 |
 | #362 | 2026-10-30 20:48 (VN) | `8538251` | feat(detail): 움직이는 복리후생 아이콘 7종 |
-| #361 | 2026-10-30 19:29 (VN) | `a963fc2` | feat(detail): 관리자 비공개 공고 상세 미리 보기 |
-| #360 | 2026-10-30 19:15 (VN) | `a25b00c` | feat(admin): 비공개 공고 내용·이유 보기 |
-| #358 | 2026-10-30 18:05 (VN) | `342a828` | feat(detail): 새 공고 기본 틀 = #4828 4칸 |
-| #356 | 2026-10-30 17:48 (VN) | `b9a0bbf` | fix(post-job): 시간 고르기·근무기간 한 줄·사진 자동 축소 |
-| #354 | 2026-10-30 15:14 (VN) | `4709355` | feat(post-job): 공고 등록 화면 알바몬 일반공고 디자인 |
-| #348 | 2026-10-30 14:26 (VN) | `ffbd834` | feat(post-job): 공고 등록 화면 체크리스트 순서 + VietMap (1단계) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **5건** (전체 9건, 숨김·비활성 4건)
-- 출처별: muaban 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1 · manual 2
+- 공개 중: **6건** (전체 9건, 숨김·비활성 3건)
+- 출처별: 출처 없음 1 · muaban 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1 · manual 2
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -64,24 +64,24 @@
 
 | 날짜 | 호출 | 마지막 갱신 |
 |---|---|---|
+| 2026-10-31 | 2 | 2026-10-31 16:18 (VN) |
 | 2026-10-25 | 1 | 2026-10-25 12:58 (VN) |
-| 2026-10-24 | 2 | 2026-10-24 08:47 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-31 08:09 (VN) | location_candidate.approve | job 5174 |
-| 2026-10-31 08:08 (VN) | location_candidate.add | job 5174 |
-| 2026-10-31 07:56 (VN) | location_candidate.approve | job 5172 |
-| 2026-10-31 07:56 (VN) | location_candidate.add | job 5172 |
-| 2026-10-30 21:18 (VN) | location_candidate.approve | job 5167 |
-| 2026-10-30 21:18 (VN) | location_candidate.add | job 5167 |
-| 2026-10-30 20:49 (VN) | location_candidate.approve | job 5165 |
-| 2026-10-30 20:49 (VN) | location_candidate.add | job 5165 |
-| 2026-10-30 19:30 (VN) | location_candidate.approve | job 5161 |
-| 2026-10-30 19:30 (VN) | location_candidate.add | job 5161 |
+| 2026-10-31 18:19 (VN) | location_candidate.approve | job 5193 |
+| 2026-10-31 18:19 (VN) | location_candidate.add | job 5193 |
+| 2026-10-31 16:21 (VN) | location_candidate.approve | job 5191 |
+| 2026-10-31 16:21 (VN) | location_candidate.add | job 5191 |
+| 2026-10-31 12:26 (VN) | location_candidate.approve | job 5188 |
+| 2026-10-31 12:25 (VN) | location_candidate.add | job 5188 |
+| 2026-10-31 11:24 (VN) | location_candidate.approve | job 5184 |
+| 2026-10-31 11:24 (VN) | location_candidate.add | job 5184 |
+| 2026-10-31 11:04 (VN) | location_candidate.approve | job 5180 |
+| 2026-10-31 11:04 (VN) | location_candidate.add | job 5180 |
 
 ## 8. 검증 장치 변경 이력
 
@@ -120,4 +120,4 @@
 | `R12_location_precision_review` | 없음 | — | — 시험 없음 |
 | `R13_role_readability_and_continuations` | 없음 | — | — 시험 없음 |
 
-- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **1건**
+- OCR 읽기불가(unreadable, 비공개 유지·사람 확인 대상 아님): **0건** · OCR 불일치 보류: **0건**
