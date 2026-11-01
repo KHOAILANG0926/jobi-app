@@ -1,7 +1,7 @@
 // 공고 검사표 시험 — 실제 원문(jobDescriptionBuild.fixtures.ts). 새 문제를 찾으면 사례를 더한다.
 import { DESCRIPTION_BUILD_JOBS as jobs } from './jobDescriptionBuild.fixtures.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
-import { inspectJob, inspectReport } from './jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision } from './jobInspect.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const run = (id: string, extra: Record<string, unknown>) => {
   const j = jobs[id]
@@ -30,3 +30,18 @@ console.log('jobInspect.test.ts: #4878 통과·#4879 문제 4개·옛 글 사이
 const hoursReview = inspectJob({ id: 10, source_text: 'CÔ RỬA BÁT FULL TIME\n(tg: 10h - 10h)', description: 'Thời gian làm việc\nCÔ RỬA BÁT FULL TIME — (tg: 10h - 10h)', pin: 'area', category: 'am_thuc_do_uong', occupation_code: '5131', active: true })
 assert(hoursReview.items.some(i => i.key === 'hours_review' && !i.ok), 'equal start/end hours require administrator review')
 assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i.key === 'hours_review' && !i.ok), 'ordinary evening shift needs no invalid-time flag')
+
+// 2026-11-01: 검사 결과로 공개 여부 판정 — 'public' 항목은 판정에서 뺀다(공개돼야 통과하는 순환 방지).
+{
+  const pass = { ok: false, items: [{ key: 'pin', label: '', ok: true }, { key: 'public', label: '', ok: false }] }
+  const fail = { ok: false, items: [{ key: 'pin', label: '', ok: false }, { key: 'public', label: '', ok: true }] }
+  const d = (r: typeof pass, j: Parameters<typeof publishDecision>[1]) => publishDecision(r, j, '2026-11-01')
+  assert(d(fail, { active: true }).active === false && d(fail, { active: true }).publishable === false, '검사 실패 → 공개 중이어도 내림')
+  assert(d(pass, { active: true }).active === true, '통과 + 공개 중 → 유지')
+  assert(d(pass, { active: false, hold: true, admin_hidden: false }).active === true, '통과 + 검사 대기로 막힘 → 되살림')
+  assert(d(pass, { active: false, hold: false }).active === false, '통과여도 다른 이유로 비공개였던 공고는 되살리지 않음')
+  assert(d(pass, { active: false, hold: true, admin_hidden: true }).active === false, '관리자 숨김은 되살리지 않음')
+  assert(d(pass, { active: false, hold: true, application_deadline: '2026-10-31' }).active === false, '마감 지난 공고는 되살리지 않음')
+  assert(d(pass, { active: false, hold: true, application_deadline: '2026-11-01' }).active === true, '마감 당일은 되살림')
+  console.log('jobInspect.test.ts: publishDecision 7개 경우 통과')
+}

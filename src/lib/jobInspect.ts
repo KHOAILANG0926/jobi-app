@@ -93,6 +93,25 @@ export function inspectJob(j: InspectInput): InspectResult {
   return { ok: items.every((i) => i.ok), items }
 }
 
+/**
+ * 검사 결과로 공개 여부를 정한다(2026-11-01 Lee: 규정 위반 공고가 화면에 나가지 않게).
+ * - publishable: 'public'(공개 상태 자체)을 뺀 모든 항목 통과.
+ * - 통과 못 하면 비공개. 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
+ *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
+ */
+export function publishDecision(
+  r: InspectResult,
+  j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
+  today = new Date().toISOString().slice(0, 10),
+): { publishable: boolean; active: boolean } {
+  const publishable = r.items.every((i) => i.key === 'public' || i.ok)
+  if (!publishable) return { publishable, active: false }
+  if (j.active) return { publishable, active: true }
+  const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
+  const open = !deadline || String(deadline).slice(0, 10) >= today
+  return { publishable, active: !!j.hold && !j.admin_hidden && open }
+}
+
 /** Lee에게 보낼 쉬운 말 검사표. */
 export function inspectReport(j: { id: number; title?: string | null }, r: InspectResult): string {
   const bad = r.items.filter((i) => !i.ok)

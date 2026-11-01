@@ -1,33 +1,21 @@
--- Read-only production regression check for content hash, fresh inspection, stale inspection.
-do $test$
+-- 운영 점검(읽기 전용): 공개 강제 트리거가 있고, 내용 지문이 내용 변경에 반응하며 내용 외 칸에는 반응하지 않는다.
+do $check$
 declare
-  item public.local_jobs;
-  baseline text;
-  changed text;
+  a public.local_jobs;
+  b public.local_jobs;
 begin
   if not exists (
     select 1 from pg_trigger
-    where tgrelid = 'public.local_jobs'::regclass
-      and tgname = 'trg_zzz_inspect_current'
-      and not tgisinternal
-  ) then raise exception 'missing inspection publication trigger'; end if;
+    where tgrelid = 'public.local_jobs'::regclass and tgname = 'trg_zzz_inspect_current' and not tgisinternal and tgenabled <> 'D'
+  ) then raise exception 'trg_zzz_inspect_current 트리거 없음 또는 꺼짐'; end if;
 
-  item := jsonb_populate_record(null::public.local_jobs, '{"title":"role A","company":"Employer","salary":"26K/giờ","description":"Công việc A","source_text":"Source A","ocr_text":"OCR A","images":["poster-A.png"]}'::jsonb);
-  baseline := public.job_inspect_content_hash(item);
-  item.ocr_check := jsonb_build_object('inspect',jsonb_build_object('content_hash',baseline,'ok',true));
-  if not public.job_inspect_is_current(item) then raise exception 'fresh, passing inspection rejected'; end if;
-  item.description := 'Công việc B';
-  changed := public.job_inspect_content_hash(item);
-  if baseline = changed or public.job_inspect_is_current(item) then raise exception 'changed content was not invalidated'; end if;
-  item.ocr_check := jsonb_build_object('inspect',jsonb_build_object('content_hash',changed,'ok',true));
-  if not public.job_inspect_is_current(item) then raise exception 'new content inspection does not become current'; end if;
-  item.ocr_check := jsonb_build_object('inspect',jsonb_build_object('content_hash',changed,'ok',false));
-  if public.job_inspect_is_current(item) then raise exception 'failed inspection allowed'; end if;
-  item.ocr_check := jsonb_build_object('inspect',jsonb_build_object('content_hash',changed,'ok',true));
-  item.images := '["poster-B.png"]'::jsonb;
-  if public.job_inspect_is_current(item) then raise exception 'changed poster was not invalidated'; end if;
-  item.images := '["poster-A.png"]'::jsonb;
-  item.ocr_text := 'OCR B';
-  if public.job_inspect_is_current(item) then raise exception 'changed OCR was not invalidated'; end if;
+  a := jsonb_populate_record(null::public.local_jobs,
+    '{"title":"T","company":"C","salary":"26K/giờ","description":"Công việc A","source_text":"S","ocr_text":"O","images":["p.png"]}'::jsonb);
+  b := a; b.description := 'Công việc B';
+  if public.job_inspect_content_hash(a) = public.job_inspect_content_hash(b) then raise exception '상세요강 변경을 지문이 못 잡음'; end if;
+  b := a; b.images := '["q.png"]'::jsonb;
+  if public.job_inspect_content_hash(a) = public.job_inspect_content_hash(b) then raise exception '포스터 변경을 지문이 못 잡음'; end if;
+  b := a; b.ocr_check := '{"x":1}'::jsonb; b.active := true;
+  if public.job_inspect_content_hash(a) <> public.job_inspect_content_hash(b) then raise exception '내용 외 칸(ocr_check·active)에 지문이 반응함'; end if;
   raise notice 'job_inspect_content_hash production check passed';
-end $test$;
+end $check$;
