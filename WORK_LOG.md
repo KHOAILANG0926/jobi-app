@@ -1,3 +1,8 @@
+## 2026-11-01 — 새 공고 #5231(Trung Nguyên Legend)로 찾은 틀 허점 2개 (Claude)
+- 결과: Facebook 1건 수집(사람 손 0) → 자동 정리·검사 통과·공개. 그러나 회사명 "Vị trí"(항목 이름표 오인), 위쪽 급여 칸 비어 있음(23.000 VNĐ/giờ 금액 못 읽음)을 검사가 못 잡음.
+- 변경: 수집기 회사명 — 제목 "TUYỂN … – 회사" 대시 뒤, 항목 이름표 제외 / salaryAmounts 천 단위 점 시급 인식, salaryFromSource 시급 단위 / 검사 항목 company 추가.
+- 검증: 수집기 시험 30/30, npm test 96/96.
+
 ## 2026-11-01 — R2b: 공개 판정값을 DB가 직접 계산 (Claude)
 - 요청: Lee "진행해" — 수집 프로그램이 적어 보내는 publish_gate_reason을 DB가 믿지 않고 직접 계산.
 - 변경: migration 20261101190000 — job_publish_gate_reason()(근무지 정보·전화/Zalo), 트리거 trg_zz0_publish_gate(항상 덮어씀, 수집 공고는 ok 아니면 비공개, 관리자 공고는 기록만), 기존 공고 값 채움, R2b 규정 → trigger 연결.

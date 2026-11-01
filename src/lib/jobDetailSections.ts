@@ -57,7 +57,9 @@ export function salaryAmounts(text: string | null | undefined): number[] {
     if (unit === 'trieu' || unit === 'tr') { out.push(Math.round(Number(raw.replace(',', '.')) * 1_000_000)); continue }
     if (unit === 'k' || unit === 'nghin' || unit === 'ngan') { out.push(Math.round(Number(raw.replace(',', '.')) * 1_000)); continue }
     const n = Number(raw.replace(/[.,]/g, ''))
-    if (raw.length >= 6 && n >= 100_000) out.push(n)     // 단위 없는 큰 숫자(18.000.000)
+    if (raw.length >= 6 && n >= 100_000) { out.push(n); continue }     // 단위 없는 큰 숫자(18.000.000)
+    // 2026-11-01 #5231: 천 단위 점 표기 시급·일급("23.000 – 25.000 VNĐ/giờ")도 금액이다.
+    if (/^\d{1,3}(?:[.,]\d{3})+$/.test(raw) && n >= 1_000) out.push(n)
   }
   return out.filter((n) => Number.isFinite(n) && n > 0)
 }

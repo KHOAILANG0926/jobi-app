@@ -265,6 +265,9 @@ def extract_title(text: str, company: str = "") -> str:
     return f"{company} tuyển dụng" if company else "Tuyển dụng"
 
 
+_COMPANY_LABEL = re.compile(r"^(?:vị trí|vi tri|địa điểm|dia diem|mức lương|muc luong|thời gian|thoi gian|yêu cầu|yeu cau|liên hệ|lien he|quyền lợi|quyen loi|bảng tin|bang tin)\b", re.IGNORECASE)
+
+
 def extract_company(text: str) -> str:
     lines = [l.strip(" -*•\t") for l in text.split("\n") if l.strip()]
     for line in lines[:8]:
@@ -283,11 +286,17 @@ def extract_company(text: str) -> str:
         candidate = re.sub(r"\s*[-–]\s*(?:số|so|sn)?\s*\d.*$", "", candidate, flags=re.IGNORECASE).strip()
         if candidate and not re.match(r"^(?:có|ho tro|hỗ trợ|can|cần|tuyen|tuyển)\b", candidate, re.IGNORECASE):
             return candidate
+    # 2026-11-01 #5231: "TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH" → 대시 뒤가 회사(원문 글자 그대로).
+    for line in lines[:2]:
+        m = re.match(r"^(?:tuyển|tuyen|tuyển dụng|tuyển gấp)\b.*?\s[–-]\s+(.{3,80})$", line, re.IGNORECASE)
+        if m and not _COMPANY_LABEL.match(m.group(1)):
+            return m.group(1).strip()
     for line in lines[:4]:
         if "tuyển dụng" in line.lower() and len(line) < 120:
             candidate = re.sub(r"\s*[-–]?\s*tuyển dụng.*$", "", line, flags=re.IGNORECASE).strip()
             candidate = re.sub(r"\s*thông báo\s*$", "", candidate, flags=re.IGNORECASE).strip()
-            if candidate:
+            # "Vị trí tuyển dụng: …"의 "Vị trí"처럼 항목 이름표는 회사명이 아니다(#5231).
+            if candidate and not _COMPANY_LABEL.match(candidate):
                 return candidate
     return ""
 

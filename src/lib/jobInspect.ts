@@ -34,7 +34,7 @@ export interface InspectInput extends ShownAbove {
 }
 /** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
 export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
-  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'public', 'hours_review'] as const
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'public', 'hours_review'] as const
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
@@ -130,6 +130,9 @@ export function inspectJob(j: InspectInput): InspectResult {
   const promo = view.sections.filter((sec) => sec.key !== '07').flatMap((sec) => sec.lines)
     .filter((l) => /^(?:gia nhap doi ngu|ung tuyen som)\b/.test(bare(l.includes(' — ') ? l.slice(l.indexOf(' — ') + 3) : l)))
   add('promo_in_07', '권유 문구는 기타란', !promo.length, promo.length ? promo.slice(0, 3).join(' / ') : undefined)
+  // 16. 회사명이 항목 이름표("Vị trí", "Địa điểm" …)가 아닌가 — 2026-11-01 #5231 "Vị trí tuyển dụng:"의 "Vị trí"를 회사명으로 잡음
+  const companyLabel = /^(?:vi tri|dia diem|muc luong|thoi gian|yeu cau|lien he|quyen loi|bang tin)$/.test(bare(String(j.company ?? '')))
+  add('company', '회사명 정상', !companyLabel, companyLabel ? `회사명이 항목 이름표: ${j.company}` : undefined)
   // 11. 공개 상태
   add('public', '공개됨', !!j.active && !j.admin_hidden, j.admin_hidden ? '관리자가 숨김' : !j.active ? '비공개' : undefined)
 

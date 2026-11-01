@@ -26,6 +26,10 @@ export function salaryFromSource(sourceText: string | null | undefined): SourceS
     return { salary: text + unit, period, evidence: [min, max, ...(how ? [how] : [])] }
   }
   const one = lines.find((l) => /^(?:luong|muc luong|thu nhap)\s*:/.test(bare(l)) && salaryAmounts(valueOf(l)).length > 0)
-  if (one) return { salary: valueOf(one), period, evidence: [one] }
+  if (one) {
+    const v = bare(valueOf(one))
+    const own = period ?? (/\/\s*(?:gio|h)\b|\/\s*1h\b/.test(v) ? 'hour' : /\/\s*ngay\b/.test(v) ? 'day' : /\/\s*thang\b/.test(v) ? 'month' : null)
+    return { salary: valueOf(one), period: own, evidence: [one] }
+  }
   return null
 }
