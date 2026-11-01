@@ -16,16 +16,17 @@ export function checkCompletion(body, headSha) {
     errors.push('요청 및 확정된 완료 조건 누락')
   if (!/^- 변경 파일:\s*\S/m.test(body)) errors.push('변경 파일 누락')
 
+  // 2026-11-01 Lee "기초 정리": 이 검사(checks)가 끝나기 전에 checks·app-screen 성공을 설명란에 미리 적으라는 요구는
+  // 스스로를 증명하라는 순환이라 삭제. 실제 검사 결과는 봇 병합(bot-pr-automerge.yml)이 GitHub check-runs로 직접 확인한다.
+  // 대신 설명란이 거짓·옛 근거를 담지 못하게 한다: 표에 적은 SHA는 현재 HEAD여야 하고, 실패라고 적었으면 READY 불가.
   const proof = body.split('## 필수 테스트 결과 및 검증 SHA\n')[1]?.split('\n## ')[0] || ''
   if (!headSha || !/^[0-9a-f]{40}$/i.test(headSha)) errors.push('현재 PR HEAD SHA 확인 불가')
-  for (const name of ['checks', 'app-screen']) {
-    const row = proof.split('\n').find(line => line.startsWith('|') && line.split('|')[1]?.trim() === name)
-    const cells = row?.split('|').map(cell => cell.trim()) || []
-    if (!row || cells[2] !== 'success' || cells[3] !== headSha)
-      errors.push(name + ': 현재 HEAD SHA에서 success 검증 기록 필요')
+  for (const line of proof.split('\n').filter(l => l.startsWith('|'))) {
+    const cells = line.split('|').map(c => c.trim())
+    const sha = cells.find(c => /^[0-9a-f]{40}$/i.test(c))
+    if (sha && headSha && sha.toLowerCase() !== headSha.toLowerCase()) errors.push(cells[1] + ': 표의 SHA가 현재 HEAD가 아님(옛 근거)')
+    if (/^(?:failure|failed|실패)$/i.test(cells[2] ?? '')) errors.push(cells[1] + ': 실패로 적힌 검사가 있으면 READY 불가')
   }
-  if (!/https:\/\/github\.com\/[^\s)]+\/actions\/runs\/\d+/.test(proof))
-    errors.push('검증 결과 섹션에 GitHub Actions 실행 링크 필요')
   if (!/^- \[x\] READY FOR APPROVAL\s*$/mi.test(body) ||
       /^- \[x\] (?:BLOCKED|MERGED)\s*$/mi.test(body))
     errors.push('READY FOR APPROVAL만 선택해야 함')
