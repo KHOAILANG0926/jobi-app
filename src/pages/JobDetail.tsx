@@ -34,6 +34,7 @@ import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type Detai
 import { descriptionRoleGroups, roleConditionSummary } from '../lib/jobRolePresentation'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
 import { companyLine } from '../lib/companyBranch'
+import { recruitColumnsOf } from '../lib/recruitColumns'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -538,6 +539,8 @@ export function JobDetail() {
     ? ({ key: 'otherReq', icon: <Award size={14} strokeWidth={1.8} />, label: 'Yêu cầu khác', value: <>{requirement.lines.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</> } as InfoField)
     : null
   const recruitShown = otherRequirementRow ? [...recruitFields, otherRequirementRow] : recruitFields
+  // 2026-11-01 Lee: 왼쪽 칸에 PC에서 보이는 정보가 없으면 빈칸으로 두지 말고 오른쪽 내용을 왼쪽으로 당긴다.
+  const recruitColumns = recruitColumnsOf(recruitShown)
   const conditionShown = newLayout ? conditionFields.filter((f) => !['salary', 'allowance'].includes(f.key)) : conditionFields
   const conditionPcShown = newLayout ? [] : conditionPcFields
   const roleSections = descriptionRoleGroups(descriptionSections)
@@ -726,7 +729,7 @@ export function JobDetail() {
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
-                {[recruitShown.filter((f) => ["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key)), recruitShown.filter((f) => !["deadline","numHires","age","gender","sourceEligibility","category"].includes(f.key))].map((group, i) => (
+                {recruitColumns.map((group, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
                     {group.map((f) => <div className={`jd2-two-col-card__row${f.key === 'category' ? ' jd2-mobile-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
                   </dl>

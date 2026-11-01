@@ -263,3 +263,11 @@ Chăm sóc khách hàng`
   assert(companyLine('Highlands Coffee tuyển nhân viên bán hàng, pha chế và phục vụ', 'Highlands Coffee Mường Thanh Bắc Ninh') === 'Mường Thanh Bắc Ninh', '#5157 branch only')
   console.log('jobDetailSections: decision 0007 company line regression passed')
 }
+
+// 2026-11-01 Lee: 모집조건 왼쪽 칸이 PC에서 비면 오른쪽 항목을 왼쪽으로(#5157: 직무 행만 있음).
+{
+  const { recruitColumnsOf } = await import('./recruitColumns.ts')
+  const cols = recruitColumnsOf([{ key: 'roles' }, { key: 'category' }])
+  assert(cols.length === 1 && cols[0][0].key === 'roles', '#5157 roles moved to left column')
+  console.log('jobDetailSections: recruit column no-empty-left regression passed')
+}

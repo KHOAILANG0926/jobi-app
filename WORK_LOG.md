@@ -1,3 +1,8 @@
+## 2026-11-01 — 모집조건 왼쪽 빈칸 당기기 (Claude)
+- 요청: Lee — #5157 'Thông tin tuyển dụng' 왼쪽 칸이 비고 직무가 오른쪽에만 있음 → 오른쪽을 왼쪽으로.
+- 변경: src/lib/recruitColumns.ts(왼쪽에 PC 표시 항목이 없으면 한 칸으로 합침, 빈 칸 미표시) + JobDetail 사용. 시험 4개 + 기준 시험 1개.
+
+
 ## 2026-11-01 — 결정 0007 상단 회사명 줄 (Claude)
 - 요청: Lee "하이랜드 마무리" — 결정 0007(제목에 회사명이 보이면 지점명만, 없으면 줄 없음) 화면 반영.
 - 변경: src/lib/companyBranch.ts(표시 전용, DB company 그대로) + JobDetail 상단 회사명 줄. #5157 "Mường Thanh Bắc Ninh"만, KDA처럼 제목에 회사명이 다 있으면 줄 없음.
@@ -63,11 +68,3 @@
 - 변경: 경로 9곳 표·하나의 입구 설계(docs/plans/2026-10-28-ingest-gateway.md), dry-run SQL 01~03 + run-local.sh(로컬 PASS). 다른 세션 #300(f6af4d9)이 위치 판정의 공고 삭제 호출을 제거·배포(삭제 기록 0건, run 40719658451). 그 전 #283~#299: 점검 칸별 오류, 대략 핀 보류 해제, 복수직무 식사, 관리자 업체 검색 비교, 거리 가운데 미리보기, 순서표 결정, Android TWA, 아이콘 ✦ 제거, 결정 문서 승인 장치.
 - 검증: 로컬 폐기용 PostgreSQL run-local.sh PASS. 운영 DB 적용 없음.
 - 남은 문제: DB 적용은 Lee "적용" 대기. #288 보류. browser(KDA 틀) 시험 불안정 반복.
-
-
-## 2026-10-28 16:20
-- 요청: Lee — migrations-apply 점검 실패(sb-4982 active·meal_provided) 원인 확정과 공통 규칙 반영.
-- 변경: canonical area 이상 핀이면 위치 보류 금지·해제(migration 20261028080000), 복수직무 공고 AI 전체 식사 칸 금지(aiClassifyGuard.jobFlagCodes), 규칙 점검 SQL 추가. 이전 HANDOFF(#282 전달 내용)는 docs/ops/2026-10-28-bomunttl-followup.md에 상세 보존.
-- 수정 파일: supabase/migrations/20261028080000_area_pin_releases_unlocated_hold.sql, supabase/tests/area_pin_hold_meal_production_check.sql, scripts/ci/{bomunttl-postgres,check-postgres-migrations}.sh, scripts/ocr/ai-classify.mjs, src/lib/aiClassifyGuard{,.test}.ts, CHATGPT_HANDOFF.md
-- 검증: 로컬 실제 PostgreSQL(postgis 17) bomunttl-postgres.sh 전체 PASS(보류 해제·재보류 없음·admin_hidden 유지·식사 위반 보고), aiClassifyGuard 시험, tsc, npm test 85/85.
-- commit/push/deploy: PR 진행 중. 남은 문제: 기존 식사 칸 되돌리기는 Lee 승인 대기.
