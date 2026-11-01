@@ -29,13 +29,13 @@ QUERIES = {
     'giao_duc_giang_day': ['classroom teacher', 'school classroom desks'],
     'khac': ['warehouse workers boxes', 'workers team'],
 }
-PER_CATEGORY = 6
+PER_CATEGORY = 4
 OUT = Path('data/industry-photos/candidates')
 UA = {'User-Agent': 'viecganban-industry-photos/1.0 (github actions)'}
 W, H = 800, 500
 
 
-def get(url, timeout=40):
+def get(url, timeout=15):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
         return r.read()
 
@@ -43,7 +43,7 @@ def get(url, timeout=40):
 def search(q):
     params = urllib.parse.urlencode({
         'q': q, 'license_type': 'commercial', 'aspect_ratio': 'wide',
-        'page_size': 20, 'mature': 'false',
+        'page_size': 12, 'mature': 'false',
     })
     return json.loads(get(f'https://api.openverse.org/v1/images/?{params}'))['results']
 
@@ -71,7 +71,8 @@ def main():
             except Exception as e:  # noqa: BLE001
                 print(f'::warning::search failed {cat} "{q}": {e}', flush=True)
                 continue
-            time.sleep(1.5)
+            time.sleep(1)
+            print(f'{cat} "{q}": {len(results)} results', flush=True)
             for r in results:
                 if len(got) >= PER_CATEGORY or r['id'] in seen:
                     continue
@@ -93,6 +94,7 @@ def main():
             if len(got) >= PER_CATEGORY:
                 break
         manifest[cat] = got
+        (OUT / 'CANDIDATES.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         print(f'{cat}: {len(got)} candidates', flush=True)
         if len(got) < 2:
             short.append(cat)
