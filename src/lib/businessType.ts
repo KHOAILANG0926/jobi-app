@@ -56,7 +56,7 @@ export function streetOf(location: string | null | undefined): string | null {
 }
 
 /** 검색 질문을 바꾸면 이 값도 바꾼다(같은 공고를 새 질문으로 한 번 다시 확인). */
-export const WEB_PROMPT_VERSION = 'web-v2'
+export const WEB_PROMPT_VERSION = 'web-v3'  // 질문이나 확인 규칙(guardWebAnswer)을 바꾸면 올린다
 
 export function buildWebPrompt(job: BusinessJob): string {
   return [
