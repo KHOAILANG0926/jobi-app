@@ -43,9 +43,9 @@ export default function FranchiseJobs() {
                   className="mega-menu__brand-card"
                   onClick={() => navigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
                 >
-                  <span className="mega-menu__brand-card-logo" style={{ background: b.color }}>
+                  <span className={`mega-menu__brand-card-logo${b.domain ? ' mega-menu__brand-card-logo--img' : ''}`} style={b.domain ? undefined : { background: b.color }}>
                     {b.domain ? (
-                      <img src={`https://www.google.com/s2/favicons?sz=64&domain=${b.domain}`} alt="" aria-hidden />
+                      <img src={`https://www.google.com/s2/favicons?sz=128&domain=${b.domain}`} alt="" aria-hidden />
                     ) : (
                       <span className="mega-menu__brand-card-initial">{b.initial}</span>
                     )}

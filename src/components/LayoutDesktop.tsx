@@ -10,7 +10,8 @@ import { NotificationBell } from './NotificationBell'
 function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string; initial: string }) {
   const [failed, setFailed] = useState(false)
   return (
-    <span className="mega-menu__brand-card-logo" style={{ background: color }}>
+    // 2026-11-01 Lee: 로고는 흰 바탕에 크게(브랜드 색 바탕 위에서는 McDonald's·Shopee 로고가 묻혀 안 보였음).
+    <span className={`mega-menu__brand-card-logo${logo && !failed ? ' mega-menu__brand-card-logo--img' : ''}`} style={logo && !failed ? undefined : { background: color }}>
       {logo && !failed
         ? <img src={logo} alt="" aria-hidden onError={() => setFailed(true)} />
         : <span className="mega-menu__brand-card-initial">{initial}</span>
@@ -125,7 +126,7 @@ function BrandMegaMenu({ jobs, brands, onNavigate }: { jobs: import('../types/jo
                 className="mega-menu__brand-mini-card"
                 onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
               >
-                <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=64&domain=${b.domain}` : undefined} initial={b.initial} />
+                <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=128&domain=${b.domain}` : undefined} initial={b.initial} />
                 <span className="mega-menu__brand-mini-card-label">{b.name}</span>
                 <span className="mega-menu__brand-mini-card-count">{b.count}</span>
               </button>

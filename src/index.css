@@ -12432,3 +12432,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 
 /* Conditions and recruitment live in separate .jd2-main wrappers, so sibling selectors do not apply. */
 .jd2-grid--detail-redesign .jd2-main--full > .jd2-sec--recruit-grid:first-child { margin-top: 1.5rem; }
+
+/* 2026-11-01 Lee: 브랜드 로고는 흰 바탕·테두리 위에 크게(색 바탕 위 작은 아이콘은 묻혀 안 보였음) */
+.mega-menu__brand-card-logo--img { background: #fff; border: 1px solid #e5e7eb; overflow: hidden; }
+.mega-menu__brand-card-logo--img img { width: 80%; height: 80%; object-fit: contain; border-radius: 0; }
