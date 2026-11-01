@@ -8,6 +8,8 @@ on:
     branches: [master]
     paths: ['.github/workflows/bot-pr-automerge.yml']
   workflow_dispatch: {}
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -22,6 +24,11 @@ concurrency:
 
 jobs:
   merge:
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'KHOAILANG0926' &&
+       startsWith(github.event.comment.body, 'LEE-APPROVE '))
     runs-on: ubuntu-latest
     steps:
       # Never check out the candidate PR: only trusted master supplies executable code.
@@ -42,6 +49,8 @@ jobs:
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName] | @tsv' |
           while IFS=$'\t' read -r num sha branch; do
             [ -n "$num" ] || continue
+            # Comment-triggered runs must inspect only the PR Lee actually approved.
+            if [ "${{ github.event_name }}" = issue_comment ] && [ "$num" != "${{ github.event.issue.number || 0 }}" ]; then continue; fi
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
             [ "$num" -ge 251 ] || continue
             echo "검사: PR #$num ($sha)"
