@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from crawl_facebook import supabase
 from refresh_facebook_existing import refresh_existing
+from auto_cutoff import AUTO_CUTOFF
 
 def pipeline_version():
     root=Path(__file__).resolve().parent.parent
@@ -31,8 +32,9 @@ def enqueue_affected():
     # Only source-backed Facebook jobs; no arbitrary origin or human-entered data.
     offset = 0
     while True:
+        # Lee 2026-11-01: 규칙이 바뀌어도 기존 공고(기준 시각 전)는 다시 처리하지 않는다. 직접 지정한 번호만 예외.
         rows = (supabase.table("local_jobs").select("id,description")
-                .eq("origin","crawler").order("id").range(offset,offset+199).execute().data or [])
+                .eq("origin","crawler").gte("created_at",AUTO_CUTOFF).order("id").range(offset,offset+199).execute().data or [])
         for job in rows:
             if "[source:facebook]" in (job.get("description") or ""):
                 enqueue(job["id"],"facebook_rules_changed")

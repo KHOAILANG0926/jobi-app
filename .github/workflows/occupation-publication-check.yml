@@ -28,8 +28,8 @@ jobs:
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
       - name: OCR republish follows the same occupation rule
-        run: node scripts/ocr/ocr-compare.test.mjs
+        run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
       - name: Independent AI reader calibration (real posters #4824, #4828)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node scripts/ocr/ai-reader.test.mjs
+        run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs

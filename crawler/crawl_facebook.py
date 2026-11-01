@@ -222,44 +222,14 @@ def extract_district(text: str) -> str:
     return ""
 
 
-_SALARY_LABEL = re.compile(
-    r"^[^\w]*(?:mức lương|lương|thu nhập|salary)\s*[:：]\s*(.+)$", re.IGNORECASE | re.MULTILINE)
-_SALARY_AMOUNT = re.compile(r"\d|thỏa thuận|thoả thuận|cạnh tranh", re.IGNORECASE)
-
-
-def extract_salary(text: str) -> str:
-    # 2026-11-01: "Mức lương: 23.000 – 25.000 VNĐ/giờ" 같은 이름표 줄은 값을 원문 그대로 쓴다
-    # (아래 'triệu' 패턴만으로는 시급·VNĐ 금액을 놓쳐 다시 수집할 때 급여 칸이 비었다).
-    for m in _SALARY_LABEL.finditer(text):
-        value = m.group(1).strip(" .")
-        if _SALARY_AMOUNT.search(value) and len(value) <= 120:
-            return value
-    patterns = [
-        r"\d+[\.,]?\d*\s*[-–~]\s*\d+[\.,]?\d*\s*(?:triệu|tr)(?:/\s*\w+|\s*tháng|\s*month)?",
-        r"(?:từ|from)\s*\d+[\.,]?\d*\s*(?:triệu|tr)",
-        r"\d+[\.,]?\d*\s*(?:triệu|tr)(?:\s*/\s*\w+|/|\s*tháng|\s*month)?",
-        r"\d+\s*[-–]\s*\d+\s*\$",
-        r"(?:thỏa thuận|thoả thuận)",  # Preserve explicit negotiation wording only
-    ]
-    for pat in patterns:
-        m = re.search(pat, text, re.IGNORECASE)
-        if m:
-            salary = m.group(0).strip()
-            num = re.search(r"(\d+[\.,]?\d*)\s*(?:triệu|tr)", salary, re.IGNORECASE)
-            if num:
-                val = float(num.group(1).replace(",", "."))
-                if val > 200:
-                    return "Thỏa thuận"
-            return salary
-    m = re.search(r"thu nhập cạnh tranh", text, re.IGNORECASE)
-    return m.group(0) if m else ""
+# 급여는 수집기가 읽지 않는다 — 2026-11-01 Lee "읽는 규칙을 하나로". 급여 칸은 src/lib/salaryReader.ts 한 곳에서
+# 원문·포스터 글자를 본 뒤 채운다(OCR·상세 채우기 단계). 옛 extract_salary 규칙과 시험 사례는 그쪽으로 옮겼다.
 
 
 # Lee 2026-10-30(#5157 Highlands): 첫 줄이 제목. 칸 이름만 있는 소제목("Vị trí tuyển dụng:")·사람 이름·전화번호 줄은 건너뛴다.
 # 예전 규칙("tuyển/nhân viên" 단어가 있는 첫 줄)은 소제목을 제목으로 잡고 "TÌM ĐỒNG ĐỘI" 같은 진짜 제목을 버렸다.
 _TITLE_EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+")
 _HEADING_ONLY = re.compile(r"^(?:vị trí(?: tuyển dụng)?|thông tin(?: tuyển dụng)?|yêu cầu|quyền lợi|mô tả(?: công việc)?|thời gian(?: làm việc)?|địa (?:điểm|chỉ)(?: làm việc)?|khu vực làm việc|cách nộp hồ sơ|liên hệ|mức lương|lương|phúc lợi)\s*[:：]?$", re.IGNORECASE)
-
 
 def _title_line(line: str) -> str:
     return re.sub(r"\s{2,}", " ", _TITLE_EMOJI.sub(" ", line)).strip(" -•*:\t")
@@ -1110,7 +1080,6 @@ def parse_post(post: dict) -> dict:
         "title": title,
         "company": company or "Nhà tuyển dụng Facebook",
         "location": full_location,
-        "salary": extract_salary(text),
         "employer_phone": phone,
         "zalo": zalo,
         "description": f"[source:facebook] {text}",
@@ -1280,7 +1249,6 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
         "origin",
         "posted_at",
         "preference",
-        "salary",
         "source",
         "source_text",
         "title",

@@ -5,6 +5,7 @@
 import pg from 'pg'
 import { appendFileSync } from 'node:fs'
 import { REPAIRABLE, buildRepairPrompt, guardRepair } from '../../src/lib/jobRepair.ts'
+import { afterCutoff } from './auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY, GITHUB_STEP_SUMMARY } = process.env
 const MODE = process.env.REPAIR_MODE === 'apply' ? 'apply' : 'preview'
@@ -35,7 +36,7 @@ try {
             where not (i->>'ok')::boolean) as failed_keys,
            ocr_check->'repair'->>'source_hash' as prev_hash, md5(coalesce(source_text,'') || coalesce(ocr_text,'')) as source_hash
     from public.local_jobs
-    where origin in ('crawler','admin') and not admin_hidden and coalesce(source_text,'') <> ''
+    where origin in ('crawler','admin') and not admin_hidden and coalesce(source_text,'') <> '' and ${afterCutoff()}
     order by id`)
   for (const job of rows) {
     const fields = [...new Set((job.failed_keys ?? []).map((k) => REPAIRABLE[k]).filter(Boolean))]

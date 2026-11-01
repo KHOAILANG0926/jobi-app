@@ -8,14 +8,15 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
 import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../src/lib/jobDescriptionBuild.ts'
-import { salaryFromSource } from '../../src/lib/sourceSalary.ts'
+import { readSalary } from '../../src/lib/salaryReader.ts'
+import { afterCutoff } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
 // 규정(KIND_RULES)이 바뀌면 이 값이 저절로 바뀐다 → 모든 공고를 한 번 다시 보고 07에 있던 줄을 정한 칸으로 옮긴다.
 // 2026-10-25: 원문이 있는 공고는 상세요강을 원문에서 기계가 다시 만든다(jobDescriptionBuild.ts) — 규칙 파일이 바뀌면 값이 바뀌어 전부 다시 만든다.
 // 이 실행기 자신과 급여 채우기 규칙도 넣는다 — 바뀌면 모든 공고를 다시 처리(2026-10-25 #4879 급여 칸이 안 채워진 원인).
-const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts', 'sourceSalary.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
+const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts', 'sourceSalary.ts', 'salaryReader.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
   .concat(readFileSync(new URL(import.meta.url), 'utf8'))
 const RULE_HASH = JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key])) + RULE_FILES.join('\n')
 const BACKUP_REASON = 'rebuild-from-source-20261025'
@@ -34,16 +35,17 @@ try {
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
-    where j.origin in ('crawler','admin')
+    where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
       and (jsonb_typeof(j.images) is distinct from 'array' or jsonb_array_length(j.images) = 0 or j.ocr_check->>'status' is not null)
       and (j.ocr_check->'detail_fill'->>'hash') is distinct from ${HASH.replace(/\b(description|source_text|ocr_text)\b/g, 'j.$1')}
-    order by j.id limit 200`)
+    order by j.id limit 500`)
   console.log(`보충 검사 대상 ${rows.length}건`)
   for (const job of rows) {
     try {
       // 2026-10-25: 위쪽 급여 칸이 비어 있으면 원문 급여를 글자 그대로 채운다(#4879). 계산·추정 없음.
       if (!String(job.salary ?? '').trim()) {
-        const sal = salaryFromSource(job.source_text)
+        // 급여 읽는 곳 하나(readSalary) — 사진 없는 공고는 여기서 채운다(사진 있는 공고는 OCR 단계가 먼저 채움).
+        const sal = readSalary(job.source_text, job.ocr_text)
         if (sal) {
           await client.query(`update public.local_jobs set salary = $2, salary_period = coalesce(salary_period, $3) where id = $1`, [job.id, sal.salary, sal.period])
           job.salary = sal.salary

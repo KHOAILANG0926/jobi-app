@@ -22,20 +22,9 @@ export function moneyValues(text) {
 
 /** Strict source-backed wage expressions: no phone/address numbers or inferred work period.
  * Multiple figures may apply to different roles; preserve each without associating it to a role. */
-export function posterSalaryEvidence(text) {
-  const ocr = String(text ?? '')
-  const patterns = [
-    /(?<!\d)\d{1,3}\s*(?:k|nghìn|nghin)\s*\/\s*(?:giờ|gio|h)(?![\p{L}\p{N}])/giu,
-    /(?<!\d)\d{1,2}\s*[-–~]\s*\d{1,2}\s*(?:triệu|trieu|tr)(?:\s*\/\s*(?:tháng|thang))?(?![\p{L}\p{N}])/giu,
-    /(?<!\d)\d{1,2}\s*(?:triệu|trieu|tr)\s*\/\s*(?:tháng|thang)(?![\p{L}\p{N}])/giu,
-  ]
-  const found = patterns.flatMap(pattern => [...ocr.matchAll(pattern)].map(m => ({ start: m.index ?? 0, value: m[0].trim() })))
-  const selected = []
-  for (const p of found.sort((a, b) => a.start - b.start || b.value.length - a.value.length)) {
-    if (!selected.some(q => p.start < q.start + q.value.length && q.start < p.start + p.value.length)) selected.push(p)
-  }
-  return [...new Map(selected.map(p => [fold(p.value), p.value])).values()]
-}
+// 포스터 급여 금액 고르기는 급여 읽는 곳 하나(src/lib/salaryReader.ts)로 옮김 — 2026-11-01 Lee "읽는 규칙을 하나로".
+import { posterSalaryEvidence } from '../../src/lib/salaryReader.ts'
+export { posterSalaryEvidence }
 
 // job: { employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max }
 export function compareWithOcr(job, ocrText) {

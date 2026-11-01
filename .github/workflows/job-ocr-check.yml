@@ -7,6 +7,15 @@ on:
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch: {}
+  # 2026-11-01 Lee "공고 하나를 빨리": 공고를 저장하는 작업이 끝나면 30분을 기다리지 않고 바로 처리한다.
+  # (30분 예약 실행은 놓친 공고를 위한 예비로 남긴다.)
+  workflow_run:
+    workflows:
+      - 'Facebook 공고 1건 수집 (수동, 미리 보기 → 1건 저장)'
+      - '채용공고 자동 크롤링'
+      - '운영 - 포스터 공고 등록 (수동 실행)'
+      - 'Unified job reprocess queue (ingest and R7)'
+    types: [completed]
   push:
     branches: [master]
     paths:
@@ -17,6 +26,8 @@ on:
       - src/lib/jobInspect.ts
       - src/lib/aiClassifyGuard.ts
       - src/lib/sourceSalary.ts
+      - src/lib/salaryReader.ts
+      - config/auto-processing-cutoff.json
       - scripts/ops/job-inspect.mjs
       - .github/workflows/job-ocr-check.yml
 
@@ -42,8 +53,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: 준비(DB 도구 한 번만 설치)
+        run: npm i --no-save pg@8
       - name: 대조 로직 자체 시험
-        run: node scripts/ocr/ocr-compare.test.mjs
+        run: |
+          node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
+          node --experimental-strip-types src/lib/salaryReader.test.ts
       - name: 빠진 줄 보충 로직 자체 시험 (실패하면 보충하지 않음)
         run: node --experimental-strip-types src/lib/jobDetailFill.test.ts
       - name: 규칙 R7 준비 확인 (마이그레이션 적용 전이면 조용히 종료)
@@ -54,29 +69,34 @@ jobs:
           echo "ready=$n" >> "$GITHUB_OUTPUT"
       - name: 판독자 교정 시험 (실패하면 판정하지 않음, 결정 0004)
         if: steps.ready.outputs.ready == '1'
-        run: node scripts/ocr/ai-reader.test.mjs
+        run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs
       - name: OCR 대조 실행
         if: steps.ready.outputs.ready == '1'
-        run: |
-          npm i --no-save pg@8
-          node scripts/ocr/ocr-check.mjs
+        run: node --experimental-strip-types scripts/ocr/ocr-check.mjs
       - name: AI 칸·복리후생 판정 (2026-10-25 Lee — 단어 규칙이 못 정한 줄·복리후생을 뜻으로, 정해진 번호표 중에서만)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: |
-          npm i --no-save pg@8
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/aiClassifyGuard.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/ai-classify.mjs
       - name: 상세요강 빠진 줄 자동 보충 (2026-10-20 Lee 결정 — 막지 않고 원문 글자 그대로 채움)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
-        run: |
-          npm i --no-save pg@8
-          node --experimental-strip-types scripts/ocr/detail-fill.mjs
+        run: node --experimental-strip-types scripts/ocr/detail-fill.mjs
       - name: 공고 검사표 (2026-10-25 Lee 결정 — 올린 공고마다 문제를 찾아 알림, 연속 10개 통과가 크롤링 시작 조건)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          npm i --no-save pg@8
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobInspect.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-inspect.mjs
+      - name: 멈춤 알림 (2026-11-01 Lee — 처리 단계가 멈추면 바로 알림)
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='공고 처리 멈춤'
+          body="새 공고 처리(사진 글자·급여·상세 채우기·검사) 중 한 단계가 실패했습니다. 이미 공개된 공고는 그대로입니다. 실행 기록: $RUN_URL"
+          num=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then gh issue comment "$num" --repo "$REPO" --body "$body"; else gh issue create --repo "$REPO" --title "$title" --body "$body"; fi

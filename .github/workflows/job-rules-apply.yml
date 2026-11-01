@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 22
       - name: OCR 대조 로직 시험 (KDA 급여 310.000đ = 310k 포함)
-        run: node scripts/ocr/ocr-compare.test.mjs
+        run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
 
       - name: 정상 migration 적용 이력 확인 (과거 SQL 재적용 금지)
         run: |
