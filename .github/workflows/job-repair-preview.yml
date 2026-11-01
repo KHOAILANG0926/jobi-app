@@ -1,0 +1,29 @@
+name: 공고 자동 수리 미리 보기 (수동)
+
+# 2026-11-01 Lee "자동 진행하고 앱에 올리기 전에 내가 확인": 검사 실패 칸을 AI가 원문에서 찾은 값으로 고치는 제안을
+# 아무것도 바꾸지 않고 보여 준다(preview). 운영 적용은 job-ocr-check.yml에 넣을 때 Lee 확인 후.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      REPAIR_MODE: preview
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 답 검사 자체 시험
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobRepair.test.ts
+      - name: 자동 수리 미리 보기(쓰기 없음)
+        run: |
+          npm i --no-save pg@8
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-repair.mjs
