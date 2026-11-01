@@ -33,6 +33,7 @@ import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EM
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary } from '../lib/jobRolePresentation'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
+import { companyLine } from '../lib/companyBranch'
 import { planJobDirections, DIRECTIONS_LABEL } from '../lib/directionsPlan'
 import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
@@ -364,6 +365,8 @@ export function JobDetail() {
   })
   const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
   const sourceRoles = sourceRecruitmentRoles(job.description)
+  const shownTitle = job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title
+  const companyText = companyLine(shownTitle, job.company)
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
   const shift = shiftLabel(job)
@@ -567,8 +570,9 @@ export function JobDetail() {
               {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
               {badge && <span className={`jd2-chip jd2-dday jd2-dday--${badge.tone}`}>{badge.label}</span>}
             </div>
-            <h1 className={`jd2-header__title jd2-header__title--${(job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title).length > 85 ? 'long' : (job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title).length > 45 ? 'medium' : 'short'}`}>{job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h1>
-            <p className="jd2-header__company">{job.company}</p>
+            <h1 className={`jd2-header__title jd2-header__title--${shownTitle.length > 85 ? 'long' : shownTitle.length > 45 ? 'medium' : 'short'}`}>{shownTitle}</h1>
+            {/* 결정 0007(Lee 2026-11-01): 제목에 회사명이 보이면 지점명만, 지점명이 없으면 줄을 그리지 않음 */}
+            {companyText && <p className="jd2-header__company">{companyText}</p>}
             {(salaryText || job.salaryBasis) && (
               <p className="jd2-hl-salary">
                 {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}

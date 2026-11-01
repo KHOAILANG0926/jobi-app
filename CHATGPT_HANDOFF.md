@@ -5,6 +5,8 @@
 - 공개 규칙: crawler/admin 공고는 `ocr_check.inspect.content_hash`가 지금 내용과 같고 `publishable=true`일 때만 공개(트리거 trg_zzz_inspect_current). 내용이 바뀌면 비공개+inspect_hold → job-inspect가 통과 시 재공개.
 - 직접 Supabase 운영 DB SQL 금지(읽기 전용 조회만). migration + production_check 경로만.
 
+- 결정 0007(회사명·지점명 줄) 화면 반영: src/lib/companyBranch.ts. 다수 지점(결정 3)은 아직 미구현.
+
 ## 2. 다음 할 일
 1. #376 병합 → migrations-apply 운영 적용 → job-ocr-check 실행 후 #5157 통과·공개, #4982 비공개(R11) 확인.
 2. Lee 확인: 10-30 "④ 원문 전체 보여줌"과 급여 총액 빼기·포스터 머리글(HIGHLANDS COFFEE/TUYỂN DỤNG 등) 기타란 처리 충돌.

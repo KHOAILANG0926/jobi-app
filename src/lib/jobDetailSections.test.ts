@@ -255,3 +255,11 @@ Chăm sóc khách hàng`
   assert(lines.includes('Pha chế thức uống') && lines.includes('Chăm sóc khách hàng'), 'actual duties preserved without fabricated role details')
   assert(!!sections.sections.find(s => s.key === '01')?.lines.includes('Pha chế thức uống') && !!sections.sections.find(s => s.key === '01')?.lines.includes('Chăm sóc khách hàng'), 'actual duties in work description subsection')
 }
+
+// 2026-11-01 결정 0007: 상세 상단 회사명 줄 — 기준 공고 KDA(sb-4824)는 제목에 회사명이 다 있어 줄 없음, #5157은 지점명만.
+{
+  const { companyLine } = await import('./companyBranch.ts')
+  assert(companyLine('CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', 'KDA') === undefined, 'KDA company line hidden (title shows company)')
+  assert(companyLine('Highlands Coffee tuyển nhân viên bán hàng, pha chế và phục vụ', 'Highlands Coffee Mường Thanh Bắc Ninh') === 'Mường Thanh Bắc Ninh', '#5157 branch only')
+  console.log('jobDetailSections: decision 0007 company line regression passed')
+}
