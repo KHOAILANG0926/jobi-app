@@ -3,22 +3,22 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
+import { shortArea } from '../../lib/shortArea'
 import type { Job } from '../../types/job'
 import type { HomeDiscoveryState } from './HomeMapExplorer'
 
 function JobSummary({ job }: { job: Job }) {
   const salary = cardSalary(job)
+  // 2026-11-01 Lee(알바몬 카드 구성): 회사 · 동/성 회색 한 줄, 제목, 급여 한 줄(단위 색 + 회색 금액). 직무가 여럿이면 회색 안내.
+  const identity = [job.company?.trim(), shortArea(job.location)].filter(Boolean).join(' · ')
   return <NavLink to={`/viec-lam/${job.id}`} className="discovery-job">
-    <span className="discovery-job__company">{job.company}</span>
+    <span className="discovery-job__company">{identity}</span>
     <strong className="discovery-job__title">{job.title}</strong>
-    <span className="discovery-job__meta"><MapPin size={12} aria-hidden />{job.location}</span>
-    {/* 2026-11-01 Lee(알바몬): 지급 단위 이름표 색(월급 빨강·시급/연봉 파랑·일급 보라), 금액 회색 — 카드(JobCard)와 같은 규칙 */}
-    {salary && <span className="discovery-job__salary">
-      {(salary.lines ?? [salary.text]).map((line, i) => {
-        const kind = salary.lines ? salary.lineKinds?.[i] ?? 'other' : salary.kind ?? 'other'
-        return <span key={line} className="discovery-job__pay">{kind !== 'other' && <><span className={`pay-label pay-label--${kind}`}>{PAY_LABELS[kind]}</span> </>}<strong className="pay-amount">{line}</strong></span>
-      })}
-    </span>}
+    <span className="discovery-job__salary">
+      {salary && !salary.lines
+        ? <span className="discovery-job__pay">{(salary.kind ?? 'other') !== 'other' && <><span className={`pay-label pay-label--${salary.kind}`}>{PAY_LABELS[salary.kind ?? 'other']}</span> </>}<strong className="pay-amount">{salary.text}</strong></span>
+        : <span className="pay-none">₫ {salary?.lines ? 'Xem lương theo vị trí' : 'Xem trong tin tuyển dụng'}</span>}
+    </span>
   </NavLink>
 }
 

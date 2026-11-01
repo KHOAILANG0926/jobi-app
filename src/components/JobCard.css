@@ -40,3 +40,16 @@
 .jc .jc__pay-label--day { color: #7c3aed; }
 .jc .jc__pay-label--other { color: #6b7280; }
 .jc .jc__pay-amount { color: #4b5563; font-weight: 700; }
+
+/* 2026-11-01 Lee(알바몬 카드 구성) — 로고 그림만 / 회사·동성 회색 한 줄 / 제목 보통 굵기 2줄 / 급여 한 줄. 위 유료 그라데이션 띠는 감싸는 칸 담당이라 그대로. */
+.jc.jc--alba { padding: 18px 20px; display: flex; flex-direction: column; }
+.jc.jc--alba .jc__header { display: block; min-height: 0; margin: 0 0 12px; }
+.jc.jc--alba .jc__logo-wrap { width: auto; max-width: 160px; height: 44px; flex: none; justify-content: flex-start; }
+.jc.jc--alba .jc__logo-wrap .jc__logo { width: auto; max-width: 160px; height: 44px; max-height: 44px; object-fit: contain; object-position: left center; }
+.jc.jc--alba .jc__logo-initial { width: 44px; height: 44px; border-radius: 10px; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 600; }
+.jc.jc--alba .jc__identity { margin: 0 0 6px; font-size: .78rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jc.jc--alba .jc__title { font-size: .98rem; font-weight: 500; color: #111827; line-height: 1.45; margin: 0 0 14px; min-height: 2.9em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.jc.jc--alba .jc__salary { font-size: .88rem; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jc.jc--alba .jc__pay-label { font-weight: 600; }
+.jc.jc--alba .jc__pay-amount { font-weight: 500; color: #4b5563; }
+.jc.jc--alba .jc__pay-amount--none { color: #9ca3af; font-weight: 400; }

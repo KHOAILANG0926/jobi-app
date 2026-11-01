@@ -13,10 +13,12 @@ function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: b
   )
 }
 import { conditionBadges } from '../lib/jobConditions'
+import { shortArea } from '../lib/shortArea'
 
 export function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string; category?: string }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
-  if (!imageUrl || failedUrl === imageUrl) return <span className="jc__logo-text" aria-label={company}>{company?.trim() || "Việc làm"}</span>
+  // 2026-11-01 Lee(알바몬): 로고 칸에는 그림만 — 사진이 없으면 회사 이름 첫 글자 칸(이름 글자는 아래 한 줄에만).
+  if (!imageUrl || failedUrl === imageUrl) return <span className="jc__logo-initial" aria-label={company}>{(company?.trim() || 'V').charAt(0).toLocaleUpperCase('vi')}</span>
   return <img src={imageUrl} alt={company} className="jc__logo" loading="lazy" onError={() => setFailedUrl(imageUrl)} />
 }
 
@@ -53,24 +55,25 @@ export default function JobCard({
     .filter((value): value is string => !!value)
   const imageUrl = companyLogoUrl(job.imageUrl)
 
+  const area = shortArea(job.location)
+  const identity = [job.company?.trim(), area].filter(Boolean).join(' · ')
+
+  // 2026-11-01 Lee(알바몬 카드 구성): ① 로고 그림만 ② 회사 · 동/성 (작은 회색 한 줄) ③ 제목(보통 굵기, 2줄) ④ 급여 한 줄(단위 색 + 회색 금액).
+  // 직무가 여럿이거나 금액이 없으면 회색 안내 한 줄. 카드 위 유료 그라데이션 띠는 그대로(감싸는 칸이 그림).
   return (
-    <article className={`jc${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
+    <article className={`jc jc--alba${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
       <div className="jc__header">
         <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} /></div>
-        <div className="jc__identity">
-          <p className="jc__company">{job.company}</p>
-          <p className="jc__meta">
-            {job.location}
-            {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
-          </p>
-        </div>
       </div>
+      <p className="jc__identity">
+        {identity}
+        {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
+      </p>
       <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
       <div className="jc__footer">
-        {/* 2026-11-01 Lee(알바몬): 지급 단위 이름표에 색(월급 빨강·시급/연봉 파랑·일급 보라), 금액은 회색 */}
         <span className="jc__salary">
-          {salary?.lines ? salary.lines.map((line, i) => <PayLine key={line} kind={salary.lineKinds?.[i] ?? 'other'} text={line} block />)
-            : salary ? <PayLine kind={salary.kind ?? 'other'} text={salary.text} /> : <span className="jc__pay-amount">Chưa xác nhận tiền công</span>}
+          {salary && !salary.lines ? <PayLine kind={salary.kind ?? 'other'} text={salary.text} />
+            : <span className="jc__pay-amount jc__pay-amount--none">₫ {salary?.lines ? 'Xem lương theo vị trí' : 'Xem trong tin tuyển dụng'}</span>}
         </span>
       </div>
       {conditions.length > 0 && <>

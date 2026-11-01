@@ -12444,3 +12444,5 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .discovery-job__salary .pay-label--hour, .discovery-job__salary .pay-label--year { color: #1a73e8; }
 .discovery-job__salary .pay-label--day { color: #7c3aed; }
 .discovery-job__salary .pay-amount { color: #4b5563; }
+.discovery-job__salary .pay-none { color: #9ca3af; }
+.discovery-job__company { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
