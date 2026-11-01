@@ -14,6 +14,7 @@ function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: b
 }
 import { conditionBadges } from '../lib/jobConditions'
 import { shortArea } from '../lib/shortArea'
+import { cardCompany, cardTitle } from '../lib/cardText'
 
 export function CompanyLogo({ company, imageUrl }: { company: string; imageUrl?: string; category?: string }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
@@ -61,14 +62,14 @@ export default function JobCard({
       <div className="jc__header">
         <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} /></div>
         <div className="jc__identity">
-          <p className="jc__company">{job.company}</p>
+          <p className="jc__company">{cardCompany(job.company, shortArea(job.location))}</p>
           <p className="jc__meta">
             {shortArea(job.location)}
             {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
           </p>
         </div>
       </div>
-      <h3 className="jc__title">{job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title}</h3>
+      <h3 className="jc__title">{cardTitle(job.title, job.company)}</h3>
       <div className="jc__footer">
         <span className="jc__salary">
           {salary && !salary.lines ? <PayLine kind={salary.kind ?? 'other'} text={salary.text} />

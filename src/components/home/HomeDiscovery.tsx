@@ -4,6 +4,7 @@ import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu,
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
 import { shortArea } from '../../lib/shortArea'
+import { cardCompany, cardTitle } from '../../lib/cardText'
 import type { Job } from '../../types/job'
 import type { HomeDiscoveryState } from './HomeMapExplorer'
 
@@ -11,8 +12,8 @@ function JobSummary({ job }: { job: Job }) {
   const salary = cardSalary(job)
   // 2026-11-01 Lee: 원래 순서(회사 → 제목 → 위치 → 급여) 그대로, 위치는 동/성까지만, 급여 한 줄(단위 색 + 회색 금액).
   return <NavLink to={`/viec-lam/${job.id}`} className="discovery-job">
-    <span className="discovery-job__company">{job.company}</span>
-    <strong className="discovery-job__title">{job.title}</strong>
+    <span className="discovery-job__company">{cardCompany(job.company, shortArea(job.location))}</span>
+    <strong className="discovery-job__title">{cardTitle(job.title, job.company)}</strong>
     <span className="discovery-job__meta"><MapPin size={12} aria-hidden />{shortArea(job.location)}</span>
     <span className="discovery-job__salary">
       {salary && !salary.lines
