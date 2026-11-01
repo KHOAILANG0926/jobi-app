@@ -1,3 +1,7 @@
+## 2026-11-01 — 수집기 급여 이름표 줄 원문 그대로 (Claude)
+- 원인: 다시 수집(refresh)할 때 Python 수집기가 'triệu'만 알아 "Mức lương: 23.000 – 25.000 VNĐ/giờ"를 못 읽고 급여 칸을 빈 값으로 덮음(#5231 급여 검사 실패).
+- 변경: crawler/crawl_facebook.py extract_salary — 급여 이름표 줄(Mức lương/Lương/Thu nhập:)에 숫자·thỏa thuận이 있으면 원문 그대로. 시험 31/31.
+
 ## 2026-11-01 — 자동 수리(미리 보기만) (Claude)
 - 요청: Lee "자동 진행하고 앱에 올리기 전 내가 확인" — 검사 실패 칸(company·salary)을 AI가 원문에서 글자 그대로 찾아 제안, 기계가 원문 일치 확인.
 - 변경: src/lib/jobRepair.ts(+test 6), scripts/ops/job-repair.mjs(preview/apply), 수동 미리 보기 워크플로 job-repair-preview.yml. 운영 자동 적용(job-ocr-check 연결)은 Lee 확인 후.
