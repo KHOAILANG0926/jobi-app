@@ -15,6 +15,10 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
     imgs: [...s.querySelectorAll('.hsec__grid img')].map((i) => ({ src: i.getAttribute('src'), ok: i.complete && i.naturalWidth > 0 })),
   })))
   console.log(name, JSON.stringify(info))
+  const logos = await page.evaluate(() => [...document.querySelectorAll('.jc')].map((c) => ({ company: c.querySelector('.jc__company')?.textContent, img: c.querySelector('.jc__logo-wrap img')?.getAttribute('src') ?? null, ok: !!c.querySelector('.jc__logo-wrap img') && c.querySelector('.jc__logo-wrap img').complete && c.querySelector('.jc__logo-wrap img').naturalWidth > 0, text: c.querySelector('.jc__logo-text')?.textContent ?? null })))
+  console.log(name, 'LOGOS', JSON.stringify(logos))
+  const brandReq = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /job_brand/.test(e.name)).map((e) => e.name.slice(0, 120)))
+  console.log(name, 'BRAND_REQ', JSON.stringify(brandReq))
   const secs = page.locator('.home-sections')
   if (await secs.count()) {
     // 상단 고정 메뉴가 칸 제목을 가리지 않게 고정 요소를 잠시 숨기고 찍는다(화면 자체는 그대로).

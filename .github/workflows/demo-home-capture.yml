@@ -2,6 +2,11 @@ name: 데모 메인 칸 촬영 (demo/home-photo-cards)
 on:
   push:
     branches: ['demo/home-photo-cards']
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: '찍을 주소(비우면 이 브랜치 빌드)'
+        required: false
 permissions:
   contents: write
 jobs:
@@ -16,8 +21,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: 촬영
         run: |
-          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          if [ -n "${{ inputs.base_url }}" ]; then export BASE_URL="${{ inputs.base_url }}"; else
+            npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+            for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          fi
           node scripts/demo/capture-home-sections.mjs
       - name: 저장 (screens-home-photo 브랜치)
         run: |
