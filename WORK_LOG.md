@@ -1,3 +1,7 @@
+## 2026-11-01 — 자동 수리(미리 보기만) (Claude)
+- 요청: Lee "자동 진행하고 앱에 올리기 전 내가 확인" — 검사 실패 칸(company·salary)을 AI가 원문에서 글자 그대로 찾아 제안, 기계가 원문 일치 확인.
+- 변경: src/lib/jobRepair.ts(+test 6), scripts/ops/job-repair.mjs(preview/apply), 수동 미리 보기 워크플로 job-repair-preview.yml. 운영 자동 적용(job-ocr-check 연결)은 Lee 확인 후.
+
 ## 2026-11-01 — 기존 Facebook 공고 재처리 경로 복구 (Claude)
 - 원인: refresh_facebook_existing가 상세요강의 "[source:facebook]" 표시로만 Facebook 원문을 판단 → 상세요강을 원문에서 다시 만들면 표시가 사라져 재처리 불가(#5231 "Not a preserved Facebook source post").
 - 변경: source_url이 facebook.com이면 Facebook 원문으로 판단.
