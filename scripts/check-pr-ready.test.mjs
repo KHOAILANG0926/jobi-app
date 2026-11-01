@@ -29,9 +29,10 @@ assert.deepEqual(checkCompletion(valid, '123456789012345678901234567890123456789
 assert.ok(checkCompletion(valid, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa').length > 0, 'old HEAD evidence rejected')
 assert.ok(checkCompletion(valid.replace('| app-screen | success |', '| app-screen | failure |'), '1234567890123456789012345678901234567890').length > 0, 'failed screen check rejected')
 assert.ok(checkCompletion('').length > 0)
-assert.ok(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', '')).length > 0)
+// 2026-11-01: 링크·성공 미리 적기는 요구하지 않는다(실제 결과는 봇 병합이 check-runs로 확인)
+assert.deepEqual(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', 'pending'), '1234567890123456789012345678901234567890'), [], 'no link needed')
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
-assert.ok(checkCompletion(valid.replace('1234567890123456789012345678901234567890', 'pending')).length > 0)
+assert.deepEqual(checkCompletion(valid.replaceAll('| success | 1234567890123456789012345678901234567890 |', '| pending | (검사 후 자동 확인) |'), '1234567890123456789012345678901234567890'), [], 'pending before checks allowed')
 console.log('PR completion guard: 7/7 passed')
 
 assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STATUS edits denied')

@@ -82,6 +82,14 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_inspect_content_hash_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261101180000_u1_resolved_by_pin_order.sql' ]]; then
+    echo "PostgreSQL rule record update: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/rule-check-refs-fixture.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261101150000_rule_check_refs.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/rule_check_refs_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
