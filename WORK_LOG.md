@@ -1,3 +1,7 @@
+## 2026-11-01 — 기존 Facebook 공고 재처리 경로 복구 (Claude)
+- 원인: refresh_facebook_existing가 상세요강의 "[source:facebook]" 표시로만 Facebook 원문을 판단 → 상세요강을 원문에서 다시 만들면 표시가 사라져 재처리 불가(#5231 "Not a preserved Facebook source post").
+- 변경: source_url이 facebook.com이면 Facebook 원문으로 판단.
+
 ## 2026-11-01 — 새 공고 #5231(Trung Nguyên Legend)로 찾은 틀 허점 2개 (Claude)
 - 결과: Facebook 1건 수집(사람 손 0) → 자동 정리·검사 통과·공개. 그러나 회사명 "Vị trí"(항목 이름표 오인), 위쪽 급여 칸 비어 있음(23.000 VNĐ/giờ 금액 못 읽음)을 검사가 못 잡음.
 - 변경: 수집기 회사명 — 제목 "TUYỂN … – 회사" 대시 뒤, 항목 이름표 제외 / salaryAmounts 천 단위 점 시급 인식, salaryFromSource 시급 단위 / 검사 항목 company 추가.

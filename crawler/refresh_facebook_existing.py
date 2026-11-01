@@ -33,7 +33,9 @@ def refresh_existing(job_id: int):
     if old.get("origin") != "crawler" or old.get("admin_hidden"):
         raise RuntimeError("Cannot refresh a non-crawler or admin-hidden job")
     text = old.get("source_text") or ""
-    if not text or "[source:facebook]" not in (old.get("description") or ""):
+    # 2026-11-01: 상세요강은 원문에서 다시 만들어져 "[source:facebook]" 표시가 사라진다 → 원문 주소(source_url)로도 판단.
+    from_facebook = "[source:facebook]" in (old.get("description") or "") or "facebook.com/" in (old.get("source_url") or "")
+    if not text or not from_facebook:
         raise RuntimeError("Not a preserved Facebook source post")
     group_location = ""
     parsed = parse_post({"text": text, "location": group_location, "images": old.get("images") or []})
