@@ -35,7 +35,7 @@ try {
     assert.deepEqual(bounds[1], bounds[0], `missing image layout at ${width}px`)
     assert.deepEqual(bounds[2], bounds[0], `rejected image layout at ${width}px`)
     assert.equal(await page.locator('.jc__logo').count(), 1, 'no fabricated images')
-    assert.equal(await page.locator('.jc__logo-initial').count(), 2, 'missing or rejected image: company initial tile, no fabricated image (2026-11-01 Lee 알바몬 구성)')
+    assert.equal(await page.locator('.jc__logo-text').count(), 2, 'missing or rejected image must show factual company text')
     console.log(`JobCard ${width}px: image/missing/blocked-image geometry identical`)
   }
   // Lee 2026-10-30: 여러 직무 공고는 급여 칸 안에서만 직무별 2줄 — 이미지·회사·제목 자리는 기준 카드와 같아야 한다.
@@ -54,8 +54,8 @@ try {
     assert.deepEqual(bounds[1], bounds[0], `multi-role card frame at ${width}px`)
     const lines = await page.locator('.jc').nth(1).locator('.jc__salary > span').allInnerTexts()
     assert.deepEqual(lines, ['₫ Xem lương theo vị trí'], 'multi-role: one gray line (2026-11-01 Lee 알바몬 구성)')
-    const identity = await page.locator('.jc').nth(0).locator('.jc__identity').innerText()
-    assert.equal(identity, 'CTY KDA · KCN Yên Phong, Bắc Ninh', 'company · area once, gray line')
+    const meta = await page.locator('.jc').nth(0).locator('.jc__meta').innerText()
+    assert.equal(meta, 'KCN Yên Phong, Bắc Ninh', 'short area (no house number)')
     console.log(`JobCard ${width}px: multi-role one line inside the same frame`)
   }
   // 2026-11-01 Lee(알바몬): 지급 단위 이름표 색 — 월급 빨강, 시급·연봉 파랑, 일급 보라, 금액 회색

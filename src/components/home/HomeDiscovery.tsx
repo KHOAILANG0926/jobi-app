@@ -9,11 +9,11 @@ import type { HomeDiscoveryState } from './HomeMapExplorer'
 
 function JobSummary({ job }: { job: Job }) {
   const salary = cardSalary(job)
-  // 2026-11-01 Lee(알바몬 카드 구성): 회사 · 동/성 회색 한 줄, 제목, 급여 한 줄(단위 색 + 회색 금액). 직무가 여럿이면 회색 안내.
-  const identity = [job.company?.trim(), shortArea(job.location)].filter(Boolean).join(' · ')
+  // 2026-11-01 Lee: 원래 순서(회사 → 제목 → 위치 → 급여) 그대로, 위치는 동/성까지만, 급여 한 줄(단위 색 + 회색 금액).
   return <NavLink to={`/viec-lam/${job.id}`} className="discovery-job">
-    <span className="discovery-job__company">{identity}</span>
+    <span className="discovery-job__company">{job.company}</span>
     <strong className="discovery-job__title">{job.title}</strong>
+    <span className="discovery-job__meta"><MapPin size={12} aria-hidden />{shortArea(job.location)}</span>
     <span className="discovery-job__salary">
       {salary && !salary.lines
         ? <span className="discovery-job__pay">{(salary.kind ?? 'other') !== 'other' && <><span className={`pay-label pay-label--${salary.kind}`}>{PAY_LABELS[salary.kind ?? 'other']}</span> </>}<strong className="pay-amount">{salary.text}</strong></span>
