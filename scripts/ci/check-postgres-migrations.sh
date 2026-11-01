@@ -117,6 +117,27 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/occupation_category_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261101210000_brands_verified_chains.sql' ]]; then
+    echo "PostgreSQL verified brands: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
+    psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20260910120000_job_brands_master.sql >/dev/null
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brands_verified_chains_production_check.sql
+    continue
+  fi
+  if [[ "$file" == 'supabase/migrations/20261101230000_brand_logo_domains.sql' ]]; then
+    echo "PostgreSQL brand logo domains: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
+    if [[ "$(psql "$PG_TEST_URL" -X -At -c "select to_regclass('public.job_brands') is null")" == t ]]; then
+      psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20260910120000_job_brands_master.sql >/dev/null
+      psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261101210000_brands_verified_chains.sql >/dev/null
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brand_logo_domains_production_check.sql
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261101220000_brand_categories_30.sql' ]]; then
     echo "PostgreSQL brand categories: $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql

@@ -12447,3 +12447,6 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .franchise-brands__count { color: #e53935; font-weight: 600; }
 .franchise-brands__empty { padding: 16px; color: #6b7280; font-size: 14px; }
 @media (max-width: 767px) { .franchise-layout { grid-template-columns: 1fr; } .franchise-industries { max-height: 40vh; } }
+/* 2026-11-01 Lee: 브랜드 로고는 흰 바탕·테두리 위에 크게(색 바탕 위 작은 아이콘은 묻혀 안 보였음) */
+.mega-menu__brand-card-logo--img { background: #fff; border: 1px solid #e5e7eb; overflow: hidden; }
+.mega-menu__brand-card-logo--img img { width: 80%; height: 80%; object-fit: contain; border-radius: 0; }

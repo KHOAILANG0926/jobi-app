@@ -10,7 +10,7 @@ import { NotificationBell } from './NotificationBell'
 function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string; initial: string }) {
   const [failed, setFailed] = useState(false)
   return (
-    <span className="mega-menu__brand-card-logo" style={{ background: color }}>
+    <span className={`mega-menu__brand-card-logo${logo && !failed ? ' mega-menu__brand-card-logo--img' : ''}`} style={logo && !failed ? undefined : { background: color }}>
       {logo && !failed
         ? <img src={logo} alt="" aria-hidden onError={() => setFailed(true)} />
         : <span className="mega-menu__brand-card-initial">{initial}</span>

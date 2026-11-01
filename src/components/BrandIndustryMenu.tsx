@@ -1,16 +1,19 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { Job } from '../types/job'
 import { brandIndustries, type BrandDefinition } from '../data/brandDirectory'
 
 /**
  * "Thương hiệu" 메가메뉴 — 2026-11-01 Lee: 알바몬 "업직종별 브랜드 / 스페셜 브랜드" 구성.
  * 왼쪽: 30개 업종 전부(공고가 없어도 보임, 누르면 그 업종 브랜드 화면). 오른쪽: 대표 브랜드(featured) 칸.
- * 로고 그림은 domain이 등록된 옛 브랜드만(새 브랜드는 이름 글자·색만 — Lee 기준).
+ * 로고: 공식 사이트 domain이 확인된 브랜드는 그 사이트 아이콘(Lee 2026-11-01 "자체 로고 넣어줘"), 없으면 이름 첫 글자·색.
  */
 export function BrandLogo({ color, domain, initial }: { color: string; domain?: string; initial: string }) {
+  const [failed, setFailed] = useState(false)
+  const img = !!domain && !failed
+  // 2026-11-01 Lee: 로고는 흰 바탕에 크게(브랜드 색 바탕 위에서는 McDonald's·Shopee 로고가 묻혀 안 보였음).
   return (
-    <span className="mega-menu__brand-card-logo" style={{ background: color }}>
-      {domain ? <img src={`https://www.google.com/s2/favicons?sz=64&domain=${domain}`} alt="" aria-hidden />
+    <span className={`mega-menu__brand-card-logo${img ? ' mega-menu__brand-card-logo--img' : ''}`} style={img ? undefined : { background: color }}>
+      {img ? <img src={`https://www.google.com/s2/favicons?sz=128&domain=${domain}`} alt="" aria-hidden onError={() => setFailed(true)} />
         : <span className="mega-menu__brand-card-initial">{initial}</span>}
     </span>
   )

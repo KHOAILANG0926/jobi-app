@@ -12,7 +12,10 @@ const jobs=await res.json()
 for(const j of jobs){
  const mapped=await fetch(db+'/rest/v1/rpc/category_for_occupation',{method:'POST',headers:{apikey:anon,'Content-Type':'application/json'},body:JSON.stringify({p_code:j.occupation_code})})
  assert.equal(mapped.status,200,'live category function exposed for public code lookup')
- assert.equal(await mapped.json(),j.category,'live saved category agrees with official code')
+ const official=await mapped.json()
+ // 2026-11-01(20261101200000 category_for_job): 코드 5(업무 미기재 가게)는 확인된 업종 종류로 음식점·판매점 칸이 될 수 있다.
+ const allowed=j.occupation_code==='5'?[official,'am_thuc_do_uong','quan_ly_ban_hang']:[official]
+ assert.ok(allowed.includes(j.category),`live saved category agrees with official code (#${j.id} ${j.occupation_code} → ${j.category})`)
 }
 const expected=jobs.filter(j=>j.category==='san_xuat_xay_dung').map(j=>'sb-'+j.id)
 assert.ok(expected.length,'existing real production jobs available for menu verification')
