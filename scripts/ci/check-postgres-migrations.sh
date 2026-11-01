@@ -54,6 +54,15 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/admin_r7_read_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261101110000_job_inspect_content_hash.sql' ]]; then
+    echo "PostgreSQL inspect publication gate: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.local_jobs add column if not exists origin text, add column if not exists title text, add column if not exists description text, add column if not exists salary text, add column if not exists source_text text, add column if not exists ocr_text text, add column if not exists images jsonb, add column if not exists active boolean, add column if not exists admin_hidden boolean default false, add column if not exists ocr_check jsonb"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"   # 두 번 적용해도 같은 결과
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_inspect_content_hash.local.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_inspect_content_hash_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done

@@ -5,7 +5,10 @@
  * 여기 항목은 "Lee가 화면에서 보고 문제라고 할 것"을 기계가 먼저 찾는 것이다. 새 문제를 찾으면 항목을 하나 더한다.
  */
 import { bare, coveredByAbove, detailSections, isSalaryTotalRepeat, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
-import { cleanSourceText, sameLine } from './jobDescriptionBuild.ts'
+import { cleanSourceText, sameLine, timeRanges } from './jobDescriptionBuild.ts'
+import { headingOf } from './jobDetailSections.ts'
+import { isCovered, phoneOnly } from './jobDetailFill.ts'
+import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
 
 export interface InspectInput extends ShownAbove {
   id: number
@@ -24,6 +27,10 @@ export interface InspectInput extends ShownAbove {
   dormitory?: boolean | null
   meal_provided?: boolean | null
   unclassified_lines?: string[]
+  /** 회사명(원문 줄 빠짐 검사에서 회사명만 있는 줄은 위쪽에 보이므로 허용) */
+  company?: string | null
+  /** 담당자 이름(위쪽 연락 버튼에 보임) */
+  contact_name?: string | null
 }
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
@@ -83,6 +90,48 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 10. 칸을 못 정한 새 종류 줄
   const unc = j.unclassified_lines ?? []
   add('new_kind', '칸 못 정한 줄 없음', !unc.length, unc.length ? unc.slice(0, 3).join(' / ') : undefined)
+  // 12~14 (2026-11-01 Lee: 규정 R10·10-30 확정 구성이 실제로 지켜졌는지 원문과 대조)
+  const descLines = String(j.description ?? '').split(/\r?\n/).filter((l) => l.trim())
+  const srcLines = cleanSourceText(j.source_text).text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  // 12. 원문 직무 목록(Vị trí tuyển dụng 아래 줄)이 전부 업무 칸(01)에 있는가 — R10
+  const roles: string[] = []
+  let inRoles = false
+  for (const line of srcLines) {
+    const b = bare(line.replace(/^[^\p{L}\p{N}]+/u, ''))
+    if (/^vi tri (?:tuyen dung|can tuyen)$/.test(b)) { inRoles = true; continue }
+    if (headingOf(line) || /[:：]\s*$/.test(line)) { inRoles = false; continue }
+    if (inRoles && b) roles.push(line)
+  }
+  // 직무는 업무 칸(01) 또는 모집조건의 'Vị trí tuyển dụng' 행(sourceRecruitmentRoles)에 보이면 된다.
+  const duty = [...(view.sections.find((s) => s.key === '01')?.lines ?? []), ...sourceRecruitmentRoles(j.description).roles]
+  const lostRoles = roles.filter((r) => !duty.some((d) => sameLine(d, r) || isCovered(d, [r])))
+  add('roles', '원문 직무 전부 업무 칸에', !lostRoles.length, lostRoles.length ? '업무 칸에 없음: ' + lostRoles.slice(0, 3).join(' / ') : undefined)
+  // 13. 같은 근무시간이 두 번 이상 보이는가(원문 글·포스터에서 같은 교대를 각각 옮긴 경우)
+  const seen = new Map<string, string>()
+  const twice: string[] = []
+  for (const line of shown) {
+    const role = line.includes(' — ') ? line.slice(0, line.indexOf(' — ')) : ''
+    for (const range of timeRanges(line)) {
+      const key = role + '|' + range
+      if (seen.has(key) && seen.get(key) !== line) twice.push(line)
+      else seen.set(key, line)
+    }
+  }
+  add('hours_twice', '같은 근무시간 반복 없음', !twice.length, twice.length ? twice.slice(0, 3).join(' / ') : undefined)
+  // 14. 원문 줄이 공고에서 빠졌는가 — 허용: 소제목, 제목·회사명·근무지 주소·전화번호만 있는 줄, 위쪽 칸과 같은 내용
+  const titleB = j.title ? bare(j.title) : ''
+  const companyB = j.company ? bare(j.company) : ''
+  const addrB = (j.addresses ?? []).map((a) => bare(a ?? '')).filter(Boolean)
+  const lost = srcLines.filter((line) => {
+    if (headingOf(line) || /[:：]\s*$/.test(line)) return false
+    const b = bare(line)
+    if (!b || b === titleB || b === companyB || addrB.some((a) => a === b)) return false
+    if (descLines.some((d) => sameLine(d, line) || isCovered(line, [d]))) return false
+    if (isSalaryTotalRepeat(line, j.salary) || coveredByAbove(line, above)) return false
+    // 전화번호·담당자 이름·이름표만 있는 줄(위쪽 연락 버튼에 보임)은 허용. 지원 방법 등 낱말이 남으면 빠진 것.
+    return !phoneOnly(line, j.contact_name)
+  })
+  add('source_lost', '원문 줄 빠짐 없음', !lost.length, lost.length ? lost.slice(0, 3).join(' / ') : undefined)
   // 11. 공개 상태
   add('public', '공개됨', !!j.active && !j.admin_hidden, j.admin_hidden ? '관리자가 숨김' : !j.active ? '비공개' : undefined)
 
@@ -91,6 +140,25 @@ export function inspectJob(j: InspectInput): InspectResult {
   if (equalHours.length) add('hours_review', '근무시간 관리자 확인', false, '원문 그대로 보존: ' + equalHours.join(' / '))
 
   return { ok: items.every((i) => i.ok), items }
+}
+
+/**
+ * 검사 결과로 공개 여부를 정한다(2026-11-01 Lee: 규정 위반 공고가 화면에 나가지 않게).
+ * - publishable: 'public'(공개 상태 자체)을 뺀 모든 항목 통과.
+ * - 통과 못 하면 비공개. 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
+ *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
+ */
+export function publishDecision(
+  r: InspectResult,
+  j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
+  today = new Date().toISOString().slice(0, 10),
+): { publishable: boolean; active: boolean } {
+  const publishable = r.items.every((i) => i.key === 'public' || i.ok)
+  if (!publishable) return { publishable, active: false }
+  if (j.active) return { publishable, active: true }
+  const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
+  const open = !deadline || String(deadline).slice(0, 10) >= today
+  return { publishable, active: !!j.hold && !j.admin_hidden && open }
 }
 
 /** Lee에게 보낼 쉬운 말 검사표. */

@@ -6,7 +6,7 @@ import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { inspectJob, inspectReport } from '../../src/lib/jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision } from '../../src/lib/jobInspect.ts'
 
 const { SUPABASE_DB_URL, GH_TOKEN, REPO } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -19,7 +19,8 @@ await client.connect()
 const reports = []
 try {
   const { rows } = await client.query(`
-    select j.id, j.title, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
+    select public.job_inspect_content_hash(j) as content_hash, coalesce((j.ocr_check->>'inspect_hold')::boolean, false) as hold,
+           j.application_deadline, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
            j.category, j.occupation_code, j.active, j.admin_hidden, j.shuttle_bus, j.dormitory, j.meal_provided,
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,
            coalesce(jsonb_array_length(case when jsonb_typeof(j.images) = 'array' then j.images end), 0) as image_count,
@@ -35,7 +36,7 @@ try {
     order by j.id`)
   for (const job of rows) {
     const input = {
-      id: Number(job.id), title: job.title, salary: job.salary, description: job.description, source_text: job.source_text,
+      id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,
       phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses],
       values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
       valueGroups: [[job.hours, job.work_days]],
@@ -43,11 +44,34 @@ try {
       image_count: job.image_count, ocr_status: job.ocr_status, pin: job.pin, unlocated_reason: job.unlocated_reason,
       shuttle_bus: job.shuttle_bus, dormitory: job.dormitory, meal_provided: job.meal_provided, unclassified_lines: job.unclassified,
     }
-    const r = inspectJob(input)
+    const r0 = inspectJob(input)
+    // 공개 여부(public 항목)는 검사 결과가 아니라 이 판정의 결과다. 나머지 항목이 전부 통과해야 공개할 수 있다.
+    const d = publishDecision(r0, { active: job.active, admin_hidden: job.admin_hidden, hold: job.hold, application_deadline: job.application_deadline })
+    const items = r0.items.map((i) => i.key !== 'public' ? i
+      : { ...i, ok: d.active && !job.admin_hidden, detail: job.admin_hidden ? '관리자가 숨김' : d.active ? undefined : d.publishable ? '비공개' : '검사 실패로 비공개 보류' })
+    const r = { ok: items.every((i) => i.ok), items }
     const hash = createHash('md5').update(VERSION + JSON.stringify(r)).digest('hex')
-    if (job.prev?.hash === hash) continue
-    await client.query(`update public.local_jobs set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('inspect', $2::jsonb) where id = $1`,
-      [job.id, JSON.stringify({ version: VERSION, hash, ok: r.ok, checked_at: new Date().toISOString(), items: r.items })])
+    // 결과 지문이 같아도 공고 내용 지문이 바뀌었거나 공개 상태를 바꿔야 하면 반드시 다시 기록한다.
+    if (job.prev?.hash === hash && job.prev?.content_hash === job.content_hash && d.active === !!job.active && !job.hold) continue
+    const inspect = { version: VERSION, hash, content_hash: job.content_hash, publishable: d.publishable, ok: r.ok, checked_at: new Date().toISOString(), items: r.items }
+    const recorded = await client.query(`update public.local_jobs
+      set ocr_check = (coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold') || jsonb_build_object('inspect', $2::jsonb),
+          active = $3::boolean
+      where id = $1 and public.job_inspect_content_hash(local_jobs) = $4
+      returning active`,
+      [job.id, JSON.stringify(inspect), d.active, job.content_hash])
+    if (recorded.rowCount !== 1) {
+      console.warn(`#${job.id} 검사 중 공고 내용 변경: 다음 실행에서 재검사`)
+      continue
+    }
+    // 다른 공개 규정(R4·R7·R8 트리거)이 공개를 막았으면 기록도 실제 상태로 맞춘다.
+    if (recorded.rows[0].active !== d.active) {
+      const pub = items.find((i) => i.key === 'public')
+      pub.ok = false; pub.detail = '다른 공개 규정이 비공개 유지'
+      r.ok = false
+      await client.query(`update public.local_jobs set ocr_check = jsonb_set(ocr_check, '{inspect}', $2::jsonb) where id = $1`,
+        [job.id, JSON.stringify({ ...inspect, ok: false, items })])
+    }
     // 관리자가 숨긴 공고는 알림하지 않는다(Lee가 이미 뺀 공고)
     if (!job.admin_hidden) reports.push(inspectReport({ id: job.id, title: job.title }, r))
     console.log(`#${job.id} ${r.ok ? '통과' : '문제 ' + r.items.filter((i) => !i.ok).length + '개'}`)

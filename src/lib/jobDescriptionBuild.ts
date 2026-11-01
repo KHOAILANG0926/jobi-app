@@ -11,7 +11,7 @@
  *   5) 게시글·포스터에 같은 줄이 둘 다 있으면 한 번만
  * 글자는 바꾸지 않는다(빼거나 옮기거나 두 줄을 이어 붙이기만).
  */
-import { bare, coveredByAbove, isSalaryTotalRepeat, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
+import { bare, coveredByAbove, fold, isSalaryTotalRepeat, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
 import { lineKey } from './aiClassifyGuard.ts'
 import { classifySource, isCovered, FILL_HEADINGS, type FillContext, type FillLine, type FillSource } from './jobDetailFill.ts'
 
@@ -97,6 +97,19 @@ export function sameLine(a: string, b: string): boolean {
   return isCovered(a, [b]) && isCovered(b, [a])
 }
 
+/** 줄 속 근무시간 범위(정규화: "6:30-14:30"). "06h30 – 14h30", "14h - 22h", "7h00-11h00" 모두 같은 형식으로. */
+export function timeRanges(line: string): string[] {
+  const t = (h: string, m?: string) => `${Number(h)}:${m ?? '00'}`
+  return [...fold(line).matchAll(/(\d{1,2})\s*[h:g]\s*(\d{2})?\s*[-–~]\s*(\d{1,2})\s*[h:g]\s*(\d{2})?/g)].map((m) => t(m[1], m[2]) + '-' + t(m[3], m[4]))
+}
+/** "Ca A: 06h30 – 14h30", "✓ CA 1: 6h30 - 14h30"처럼 교대 이름표 + 시간만 있는 줄인가. */
+export function shiftOnlyLine(line: string): boolean {
+  if (!timeRanges(line).length) return false
+  const rest = fold(line).replace(/(\d{1,2})\s*[h:g]\s*(\d{2})?\s*[-–~]\s*(\d{1,2})\s*[h:g]\s*(\d{2})?/g, ' ')
+    .split(/[^a-z0-9]+/).filter((w) => w && !/^(?:ca|kip|shift|[a-z]|\d)$/.test(w))
+  return rest.length === 0
+}
+
 /** Explicit role+employment headings only; never infer roles from company or job ID.
  * Labels annotate presentation; the original item.line and source_text stay unchanged. */
 function roleBlocks(text: string): Array<{ role?: string; text: string }> {
@@ -131,6 +144,10 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         if (isSalaryTotalRepeat(item.line, ctx.salary)) { dropped.push({ line: item.line, reason: 'salary_total_repeat' }); continue }
         if (coveredByAbove(item.line, ctx)) { dropped.push({ line: item.line, reason: 'shown_above' }); continue }
         if (lines.some((l) => l.role === item.role && sameLine(l.line, item.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
+        // 2026-11-01 #5157: 게시글 "Ca A: 06h30 – 14h30"과 포스터 "CA 1: 6h30 - 14h30"은 같은 교대다(이름표만 다름).
+        if (shiftOnlyLine(item.line) && timeRanges(item.line).every((r) => lines.some((l) => l.role === item.role && timeRanges(l.line).includes(r)))) {
+          dropped.push({ line: item.line, reason: 'duplicate' }); continue
+        }
         const kind = ctx.lineKinds?.[lineKey(item.line)]
         if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
         lines.push(item)

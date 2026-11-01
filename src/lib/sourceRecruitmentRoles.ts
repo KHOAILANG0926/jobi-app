@@ -1,4 +1,4 @@
-import { sourceLines, fold } from './jobDetailSections'
+import { sourceLines, fold } from './jobDetailSections.ts'
 
 /** Source-backed multi-role extraction. Never invent a role or assign one salary to all roles.
  * The original description remains untouched in Mô tả công việc. */
@@ -17,7 +17,10 @@ export function sourceRecruitmentRoles(description: string | null | undefined): 
     if (insideRoles && /^(?:quyen loi|yeu cau|cach nop ho so|cach ung tuyen|lien he|dia diem|dia chi|khu vuc|thu nhap|luong|phuc loi)\b/.test(normalized)) {
       insideRoles = false
     }
-    if (!insideRoles) continue
+    // 2026-11-01: 상세요강을 원문에서 다시 만들면 원문 소제목(Vị trí tuyển dụng)이 빠진다(#5157 직무 행 사라짐).
+    // 소제목이 없어도 "Nhân viên … Fulltime/Partime"처럼 고용형태가 붙은 직무 문장은 원문 그대로 직무로 본다.
+    const explicitRole = /^(?:nhan vien|nv)\s+\S.*\b(?:full\s*[- ]?time|part\s*[- ]?time|partime)\b/.test(normalized)
+    if (!insideRoles && !explicitRole) continue
     // Employee roles are explicit statements, not free-form duties (e.g. "Pha chế thức uống").
     if (!/^(?:nhan vien|nv)\s+\S/.test(normalized) && !/^[A-ZÀ-ỸĐ\s]+\s*\((?:PARTTIME|FULLTIME)\)$/u.test(line)) continue
     const typeWords = line.match(/\b(?:full\s*[- ]?time|part\s*[- ]?time|partime|ban thoi gian|toan thoi gian)\b/giu) ?? []
