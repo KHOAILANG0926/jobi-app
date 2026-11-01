@@ -34,9 +34,10 @@
   .hsec { margin: 22px 0 6px; }
   .hsec__title { padding: 0 16px; font-size: 1.05rem; }
   .hsec__grid { display: none; }
-  .hsec__rail { display: grid; grid-auto-flow: column; grid-auto-columns: 84%; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0 16px 4px; scrollbar-width: none; }
+  .hsec__rail { display: grid; grid-auto-flow: column; grid-auto-columns: 84%; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 16px; padding: 0 16px 4px; box-sizing: border-box; width: 100%; scrollbar-width: none; }
   .hsec__rail::-webkit-scrollbar { display: none; }
-  .hsec__col { display: flex; flex-direction: column; gap: 10px; scroll-snap-align: start; }
+  .hsec__col { display: flex; flex-direction: column; gap: 10px; scroll-snap-align: start; min-width: 0; }
+  .hsec__col > .scard { width: 100%; box-sizing: border-box; }
   /* 모바일 사진 카드: 왼쪽 글, 오른쪽 사진(사람인 모바일) */
   .scard--photo { display: grid; grid-template-columns: 1fr 42%; grid-template-rows: auto auto 1fr; border-top-width: 1px; }
   .scard--photo .scard__brand { grid-column: 1; justify-content: flex-start; height: 26px; padding: 10px 10px 0; }

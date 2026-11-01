@@ -48,7 +48,7 @@ export function TextCard({ job }: { job: Job }) {
         <p className="scard__area">{area}</p>
         {deadline && <span className="scard__box-deadline">{deadline}</span>}
       </div>
-      <p className="scard__company">{cardCompany(job.company, area)}</p>
+      {cardCompany(job.company, area) && <p className="scard__company">{cardCompany(job.company, area)}</p>}
       <p className="scard__pay"><SalaryText job={job} empty="Xem trong tin" /></p>
     </NavLink>
   )
