@@ -43,6 +43,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          APPROVAL_BODY: ${{ github.event.comment.body }}
+          APPROVAL_ISSUE: ${{ github.event.issue.number }}
         shell: bash
         run: |
           set -euo pipefail
@@ -50,7 +52,9 @@ jobs:
           while IFS=$'\t' read -r num sha branch; do
             [ -n "$num" ] || continue
             # Comment-triggered runs must inspect only the PR Lee actually approved.
-            if [ "${{ github.event_name }}" = issue_comment ] && [ "$num" != "${{ github.event.issue.number || 0 }}" ]; then continue; fi
+            if [ "${{ github.event_name }}" = issue_comment ]; then
+              [ "$num" = "$APPROVAL_ISSUE" ] && [ "$APPROVAL_BODY" = "LEE-APPROVE $sha" ] || continue
+            fi
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
             [ "$num" -ge 251 ] || continue
             echo "검사: PR #$num ($sha)"
