@@ -18,6 +18,9 @@ from PIL import Image
 QUERIES = {
     'am_thuc_do_uong': ['barista coffee shop', 'restaurant kitchen cooking'],
     'nha_hang': ['restaurant dining room tables', 'restaurant kitchen chef', 'vietnamese restaurant'],
+    'nha_hang_chung': ['restaurant tables chairs interior', 'empty restaurant tables', 'dishwashing restaurant kitchen'],
+    'nha_hang_nuong': ['korean barbecue grill table', 'tabletop grill meat', 'samgyeopsal grill'],
+    'nha_hang_lau': ['hot pot table', 'hotpot restaurant'],
     'quan_ly_ban_hang': ['supermarket shelves products', 'store shelves retail display'],
     'dich_vu': ['vacuum cleaner floor', 'hotel room bed made', 'cleaning supplies bucket mop'],
     'van_phong': ['empty office desks', 'open plan office', 'laptop on desk'],
