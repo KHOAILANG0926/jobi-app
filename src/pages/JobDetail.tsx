@@ -26,6 +26,8 @@ import { externalMapLinks, isVerifiedWorkLocation, resolveMapLocations, workLoca
 import { isJobSaved, toggleSavedJobId } from '../lib/storage'
 import { recordJobView } from '../lib/viewHistoryStorage'
 import { companyLogoUrl, jobImagePublicUrl } from '../lib/companyLogo'
+import { brandLogoFor } from '../lib/brandLogo'
+import { useBrandsOptional } from '../context/BrandsContext'
 import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
@@ -102,6 +104,7 @@ function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: stri
 type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
 
 export function JobDetail() {
+  const brands = useBrandsOptional()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -504,7 +507,8 @@ export function JobDetail() {
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
     textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', [activeBenefitText, ...albamonLines.insurance].filter(Boolean).join(' · ') || undefined),
   ].filter(Boolean) as InfoField[]
-  const logoUrl = companyLogoUrl(job.imageUrl)
+  // 2026-11-01 Lee: 등록 브랜드는 브랜드 로고 먼저(공고 카드·브랜드 메뉴와 같은 로고, 수평 전개). 그다음 공고 포스터.
+  const logoUrl = brandLogoFor(job, brands) ?? companyLogoUrl(job.imageUrl)
   // 2026-10-18: images에는 저장소 경로('kda/kda-20261013.png')가 들어 있어 그대로 쓰면 깨져서 '채용 이미지' 칸이 비어 보였다.
   // 우리 저장소 공개 주소로 바꿔 포스터를 크게 보여준다(상단 작은 로고와 같은 포스터여도 표시). 허용 목록 밖 이미지는 계속 막는다.
   const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)

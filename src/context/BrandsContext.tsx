@@ -23,7 +23,7 @@ interface BrandsContextValue {
   refreshBrands: () => Promise<void>
 }
 
-const BrandsContext = createContext<BrandsContextValue | null>(null)
+export const BrandsContext = createContext<BrandsContextValue | null>(null)
 
 export function BrandsProvider({ children }: { children: ReactNode }) {
   const [brands, setBrands] = useState<BrandDefinition[]>([])
@@ -89,4 +89,9 @@ export function useBrands() {
   const ctx = useContext(BrandsContext)
   if (!ctx) throw new Error('useBrands must be used within BrandsProvider')
   return ctx
+}
+
+/** 브랜드 목록(제공자 밖에서는 빈 목록) — 공고 카드·상세처럼 시험에서 제공자 없이도 그려지는 곳용(2026-11-01 브랜드 로고 수평 전개). */
+export function useBrandsOptional(): BrandDefinition[] {
+  return useContext(BrandsContext)?.brands ?? []
 }

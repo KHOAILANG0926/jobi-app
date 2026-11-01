@@ -65,6 +65,17 @@ try {
   const colors = await page.locator('.jc').evaluateAll(cards => cards.map(c => [getComputedStyle(c.querySelector('.jc__pay-label')).color, getComputedStyle(c.querySelector('.jc__pay-amount')).color]))
   assert.deepEqual(colors, [['rgb(229, 57, 53)', 'rgb(75, 85, 99)'], ['rgb(26, 115, 232)', 'rgb(75, 85, 99)'], ['rgb(124, 58, 237)', 'rgb(75, 85, 99)']], 'pay unit label colors and gray amount')
   console.log('JobCard: pay unit label colors (month red, hour blue, day purple, amount gray)')
+  // 2026-11-01 Lee(브랜드 로고 수평 전개): 등록 브랜드 공고는 로고 칸에 브랜드 공식 사이트 아이콘, 칸 크기는 그대로.
+  const { BrandsContext } = await server.ssrLoadModule('/src/context/BrandsContext.tsx')
+  const brand = { id: 1, name: 'Highlands Coffee', matchKeys: ['Highlands Coffee'], category: 'cafe', linkTo: 'Highlands Coffee', domain: 'highlandscoffee.com.vn', initial: 'H', color: '#b22830', featured: true }
+  const branded = renderToStaticMarkup(createElement(BrandsContext.Provider, { value: { brands: [brand], loading: false, refreshBrands: async () => {} } },
+    createElement(JobCard, { job: { ...data, id: 'brand', company: 'Highlands Coffee Mường Thanh Bắc Ninh' }, isApplied: false })))
+  assert.match(branded, /favicons\?sz=128&amp;domain=highlandscoffee\.com\.vn/, 'brand job shows the brand logo')
+  await page.setViewportSize({ width: 1366, height: 844 })
+  await page.setContent(`<style>${styles}\n#test-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;width:1270px}</style><div id="test-cards">${cards[1]}${branded}</div>`)
+  const logoBoxes = await page.locator('.jc__logo-wrap').evaluateAll(els => els.map(e => { const b = e.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)] }))
+  assert.deepEqual(logoBoxes[1], logoBoxes[0], 'brand logo keeps the same logo slot size')
+  console.log('JobCard: brand logo in the same logo slot')
 } finally {
   if (browser) await browser.close()
   await server.close()

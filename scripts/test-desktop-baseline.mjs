@@ -1,3 +1,4 @@
+// 2026-11-01: JobDetail.tsx — Lee 지시(브랜드 로고 수평 전개): 등록 브랜드 공고는 로고 자리에 브랜드 공식 사이트 아이콘. 틀 변경 없음.
 // 2026-11-01: 기준값 갱신 — master가 이미 달랐음(이 검사는 모바일 홈 파일 PR에서만 돌아 못 잡음): LayoutDesktop.tsx(#403 브랜드 로고 흰 바탕), JobDetail.tsx(#397 오토바이가 핀을 따라감), HomeDesktop·DesktopHomeMap*(이미 병합된 PR). index.css는 이번 PR(#407 Lee 적용: 공고 카드 급여 한 줄·단위 색, 모바일 목록 같은 규칙) 포함. PC 틀 변경은 카드 급여 줄 글자·색뿐.
 // 2026-10-30: JobDetail.tsx — Lee 적용: 상단 복리후생 아이콘 7종 움직임(있는 것만, 칸 PC 52px·휴대폰 44px).
 // 2026-10-30: JobDetail.tsx — Lee 지시: 비공개 공고를 관리자만 같은 상세 화면으로 미리 보기(맨 위 비공개 안내). 공개 화면 틀 변경 없음.
@@ -84,7 +85,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "b7fcca54bc5afb74fedfef41b4309793c4129be632de5c880ab7ffd8a9526710",
+    "sha256": "b9276ee2f5de75e25342b6fadf9d67c717439adf70bbbf12190456755f060e68",
     "restore": []
   },
   {
