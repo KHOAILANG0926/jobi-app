@@ -1,0 +1,29 @@
+name: 데모 메인 칸 촬영 (demo/home-photo-cards)
+on:
+  push:
+    branches: ['demo/home-photo-cards']
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: 촬영
+        run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
+          node scripts/demo/capture-home-sections.mjs
+      - name: 저장 (screens-home-photo 브랜치)
+        run: |
+          cp -r out /tmp/out
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan shots && git rm -rfq . && git clean -fdxq
+          cp /tmp/out/*.png .
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git add -A && git commit -qm "home capture ${GITHUB_SHA::7}" && git push -f origin HEAD:screens-home-photo
