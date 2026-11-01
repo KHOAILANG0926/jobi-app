@@ -17,6 +17,8 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
   console.log(name, JSON.stringify(info))
   const secs = page.locator('.home-sections')
   if (await secs.count()) {
+    // 상단 고정 메뉴가 칸 제목을 가리지 않게 고정 요소를 잠시 숨기고 찍는다(화면 자체는 그대로).
+    await page.addStyleTag({ content: 'header, .site-header, [class*="sticky"], [style*="position: fixed"], [style*="position:sticky"] { position: static !important; }' }).catch(() => {})
     await secs.first().scrollIntoViewIfNeeded().catch(() => {})
     await page.waitForTimeout(1500)
     await secs.first().screenshot({ path: `out/home-${name}.png` }).catch((e) => console.log('shot fail', e.message))
