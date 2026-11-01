@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
-import { cardSalary, mainCardJobs } from '../../lib/mainJobCards'
+import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
 import type { Job } from '../../types/job'
 import type { HomeDiscoveryState } from './HomeMapExplorer'
@@ -12,7 +12,13 @@ function JobSummary({ job }: { job: Job }) {
     <span className="discovery-job__company">{job.company}</span>
     <strong className="discovery-job__title">{job.title}</strong>
     <span className="discovery-job__meta"><MapPin size={12} aria-hidden />{job.location}</span>
-    {salary && <span className="discovery-job__salary">{salary.label} <strong>{salary.text}</strong></span>}
+    {/* 2026-11-01 Lee(알바몬): 지급 단위 이름표 색(월급 빨강·시급/연봉 파랑·일급 보라), 금액 회색 — 카드(JobCard)와 같은 규칙 */}
+    {salary && <span className="discovery-job__salary">
+      {(salary.lines ?? [salary.text]).map((line, i) => {
+        const kind = salary.lines ? salary.lineKinds?.[i] ?? 'other' : salary.kind ?? 'other'
+        return <span key={line} className="discovery-job__pay">{kind !== 'other' && <><span className={`pay-label pay-label--${kind}`}>{PAY_LABELS[kind]}</span> </>}<strong className="pay-amount">{line}</strong></span>
+      })}
+    </span>}
   </NavLink>
 }
 
