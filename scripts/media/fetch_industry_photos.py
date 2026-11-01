@@ -17,21 +17,23 @@ from PIL import Image
 
 QUERIES = {
     'am_thuc_do_uong': ['barista coffee shop', 'restaurant kitchen cooking'],
-    'quan_ly_ban_hang': ['retail store shelves', 'supermarket aisle'],
-    'dich_vu': ['hotel room housekeeping', 'cleaning service'],
+    'quan_ly_ban_hang': ['supermarket shelves products', 'store shelves retail display'],
+    'dich_vu': ['vacuum cleaner floor', 'hotel room bed made', 'cleaning supplies bucket mop'],
     'van_phong': ['office desk computer', 'office workspace'],
-    'cskh_kinh_doanh': ['call center headset', 'customer service desk'],
+    'cskh_kinh_doanh': ['telephone headset desk', 'headset microphone office'],
     'san_xuat_xay_dung': ['factory assembly line', 'electronics factory workers'],
-    'cntt_ky_thuat': ['technician repair electrical', 'mechanic workshop'],
-    'thiet_ke': ['graphic designer tablet', 'design studio sketch'],
+    'cntt_ky_thuat': ['electrical panel wiring', 'tools on workbench', 'circuit board repair'],
+    'thiet_ke': ['graphics tablet stylus', 'color swatches design', 'architect drawing table'],
     'truyen_thong': ['video camera studio', 'photographer camera'],
     'lai_xe_giao_hang': ['delivery motorbike', 'delivery truck parcels'],
-    'y_te_dieu_duong': ['nurse hospital', 'pharmacy counter'],
-    'giao_duc_giang_day': ['classroom teacher', 'school classroom desks'],
-    'khac': ['warehouse workers boxes', 'workers team'],
+    'y_te_dieu_duong': ['stethoscope', 'hospital ward beds', 'medicine pills pharmacy shelf'],
+    'giao_duc_giang_day': ['empty classroom desks', 'chalkboard classroom', 'school books desk'],
+    'khac': ['warehouse shelves pallets', 'warehouse boxes forklift'],
 }
-PER_CATEGORY = 4
-OUT = Path('data/industry-photos/candidates')
+PER_CATEGORY = 6
+import os
+ROUND = os.environ.get('ROUND', '1')
+OUT = Path('data/industry-photos/candidates' + ('' if ROUND == '1' else f'-r{ROUND}'))
 UA = {'User-Agent': 'ViecganbanIndustryPhotos/1.0 (https://viecganban.vn; github actions)'}
 W, H = 800, 500
 
@@ -87,7 +89,10 @@ def crop(data):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     manifest, short = {}, []
+    only = [c for c in os.environ.get('ONLY', '').split(',') if c]
     for cat, queries in QUERIES.items():
+        if only and cat not in only:
+            continue
         got, seen = [], set()
         for q in queries:
             try:
