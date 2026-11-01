@@ -9,8 +9,6 @@
 import type { Job } from '../types/job'
 import { jobMatchesBrand, type BrandDefinition } from '../data/brandDirectory'
 
-export const HOME_SECTION_TITLES = { special: 'Việc làm đặc biệt', featured: 'Việc làm nổi bật', brand: 'Thương hiệu tuyển dụng' } as const
-
 export const HIGH_PAY_RATIO = 1.2
 const MIN_GROUP = 3
 

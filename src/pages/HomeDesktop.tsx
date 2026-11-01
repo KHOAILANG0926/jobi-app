@@ -4,10 +4,11 @@ import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer, { type MapSummaryResult } from '../components/home/DesktopHomeMapExplorer'
 import MapSummaryResults from '../components/home/MapSummaryResults'
 import { selectFeaturedJobs } from '../components/FeaturedJobsSection'
-import { HomeSection } from '../components/home/SectionJobCards'
-import { homeSections, HOME_SECTION_TITLES } from '../lib/homeSections'
+import HomeSectionGrid from '../components/home/HomeSectionGrid'
+import { homeSections } from '../lib/homeSections'
 import { useBrands } from '../context/BrandsContext'
 
+const HOME_SECTION_TITLES = { special: 'Việc làm đặc biệt', featured: 'Việc làm nổi bật', brand: 'Thương hiệu tuyển dụng' } as const
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
 import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
@@ -366,9 +367,10 @@ export function Home() {
       {/* 2026-11-01 Lee: 알바몬처럼 칸을 나눔 — ① 특별한 알바 ② 주목받는 알바 ③ 브랜드 알바 ④ 전체(아래). 규칙: src/lib/homeSections.ts */}
       {!mapCategorySelected && !selectedCity && (
         <section className="home-sections" ref={jobResultRef}>
-          <HomeSection id="special" title={HOME_SECTION_TITLES.special} jobs={sections.special} variant="photo" />
-          <HomeSection id="featured" title={HOME_SECTION_TITLES.featured} jobs={sections.featured} variant="text" />
-          <HomeSection id="brand" title={HOME_SECTION_TITLES.brand} jobs={sections.brand} variant="photo" />
+          {(['special', 'featured', 'brand'] as const).map((key) => (
+            <HomeSectionGrid key={key} id={key} title={HOME_SECTION_TITLES[key]} jobs={sections[key]}
+              isApplied={isApplied} onApply={handleApply} isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />
+          ))}
         </section>
       )}
 
