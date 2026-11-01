@@ -1,3 +1,9 @@
+## 2026-11-01 — 규정 = 검사 DB 강제 (Claude)
+- 요청: Lee "지적사항 전부 반영" 중 "규정과 검사가 따로 놂".
+- 변경: migration 20261101150000 — job_posting_rules.check_ref(장치 목록: trigger:/inspect:/ci:/decision_pending/decision_allow/work_rule), 장치 없는 규정·없는 트리거 연결은 저장 거부, 기존 20개 규정 전부 연결(R9=work_rule, R10=inspect:roles 등), 하나라도 없으면 파일 전체 취소. 검사표 항목 promo_in_07(R13) 추가, INSPECT_KEYS 등록부, job-inspect가 매번 inspect: 키 존재 확인.
+- 검증: 실제 PostgreSQL 거부 3·허용 1, 장치 없는 규정이 있으면 migration 취소 확인, 운영 점검 SQL 통과, npm test.
+
+
 ## 2026-11-01 — "빠짐 0" 틀 + 모집조건 순번 + 실제 공고 전체 시험 (Claude)
 - 요청: Lee "지적사항 전부 반영해서 다시 고쳐" — 기존 틀 허점 5개(규정·검사 분리, 줄 몰래 버림, 판단 세 군데, 결정 충돌, 시험이 공고 몇 개에만 맞춤).
 - 변경: ① 정리·화면에서 원문 줄을 버리는 예외를 원문 소제목·사이트 글자·완전 중복(기록)만으로 줄임 — 10-25 급여 총액 빼기·위쪽 칸 겹침 빼기 폐지(10-30 ④ 원문 전체 우선). 연락 줄 → 06, 주소·회사명·제목 줄 → 07(새 종류로 묻지 않음). ② 검사: repeat_above 폐지, source_lost는 예외 없이 원문 줄 전부 대조. ③ 칸 정하는 순서를 jobDetailFill.ts 머리말 한 곳에 명시 + 시험. ④ 운영 공고 6개 원문 전체 시험(realJobs). ⑤ 모집조건 순번 배치(직무→마감→인원→나이→성별→학력→경력→기타, 1 왼쪽·2 오른쪽 …).
@@ -61,10 +67,3 @@
 - 수정 파일: .github/workflows/ops-insert-job.yml, .github/workflows/ops-run-sql.yml, scripts/ops/ingest-sql.mjs, scripts/ci/bomunttl-postgres.sh, scripts/ci/check-postgres-migrations.sh, test-fixtures/ops/ingest-sql-file.json, docs/plans/2026-10-28-ingest-gateway.md
 - 검증: 로컬 폐기용 PostgreSQL 16+PostGIS에서 bomunttl-postgres.sh 전체 PASS(같은 파일 2번 → 공고 1개·중복 기록, 원문 특수문자 그대로, 금지 칸 5종 거부), tsc·build 통과. 운영 실행 없음.
 - 남은 문제: 운영 DB 접속 계정이 ingest_job 실행 권한을 가졌는지는 첫 실제 실행에서 확인(추정: 소유자 계정). 관리자 앱·크롤러 전환 남음.
-
-
-## 2026-10-28 23:59
-- 요청: Lee — #304·#305를 HANDOFF·WORK_LOG에 반영.
-- 변경(이번): 문서만. 기록 대상 #304(9dc56b3): migration 20261028160000 — job_ingest_raw/log·job_ai_suggestions(RLS, service_role만), ingest_job()(원문 보존→중복→직업분류→위치→공개), 위치 결과가 공개를 바꾸지 않음(위치 보류 트리거 제거). #305(840834d): ai-classify가 AI 복리후생 판정을 job_ai_suggestions에 저장, 원문 단어 규칙과 같은 뜻일 때만 셔틀·기숙사·식사 칸 반영, 복수직무 식사 제외.
-- 검증(기존 기록·이번 조회): migrations-apply 40723054027 성공(9dc56b3), 다시 공개될 대상 0건(run 40721734466), deploy-verify 40728704605 통과(840834d). 40725500882(9dc56b3)는 Vercel READY 단계 실패 — DB만 바뀐 커밋이라 배포 없음으로 추정.
-- 남은 문제: 등록 경로 전환(SQL 파일→관리자 앱→크롤러) 미착수. browser 시험 불안정. 시험 브랜치 삭제.

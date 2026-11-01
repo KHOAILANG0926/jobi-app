@@ -1,7 +1,7 @@
 // 공고 검사표 시험 — 실제 원문(jobDescriptionBuild.fixtures.ts). 새 문제를 찾으면 사례를 더한다.
 import { DESCRIPTION_BUILD_JOBS as jobs } from './jobDescriptionBuild.fixtures.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
-import { inspectJob, inspectReport, publishDecision } from './jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS } from './jobInspect.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const run = (id: string, extra: Record<string, unknown>) => {
   const j = jobs[id]
@@ -60,4 +60,13 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(bad(noRoles).includes('roles') && /Lái xe nâng/.test(noRoles.items.find((i) => i.key === 'roles')!.detail!) && !/Thợ hàn/.test(noRoles.items.find((i) => i.key === 'roles')!.detail!), '직무 누락 찾음')
   assert(/Ibox/.test(r.items.find((i) => i.key === 'source_lost')!.detail!), '#5157 지원 방법 줄 누락 찾음')
   console.log('jobInspect.test.ts: #5157 직무 누락·교대 반복·원문 줄 누락 검사 통과')
+}
+
+// 2026-11-01 규정 = 검사: 검사표가 만드는 항목 키는 모두 INSPECT_KEYS에 있다(규정 표 연결 확인의 기준)
+{
+  const r = inspectJob({ id: 9, source_text: 'CÔ RỬA BÁT FULL TIME\n(tg: 10h - 10h)', description: 'Công việc\nGia nhập đội ngũ năng động', image_count: 1, active: true })
+  assert(r.items.every((i) => (INSPECT_KEYS as readonly string[]).includes(i.key)), '모든 항목 키 등록: ' + r.items.map((i) => i.key).join(','))
+  // 화면 칸 나누기(lineBucket)가 권유 문구를 07로 옮기므로 통과해야 한다. 그 규칙이 깨지면 이 항목이 실패한다.
+  assert(r.items.find((i) => i.key === 'promo_in_07')?.ok === true, 'R13 권유 문구는 07로 옮겨져 통과')
+  console.log('jobInspect.test.ts: 항목 키 등록·R13 검사 통과')
 }

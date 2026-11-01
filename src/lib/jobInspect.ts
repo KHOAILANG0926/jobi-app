@@ -32,6 +32,9 @@ export interface InspectInput extends ShownAbove {
   /** 담당자 이름(위쪽 연락 버튼에 보임) */
   contact_name?: string | null
 }
+/** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
+export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'public', 'hours_review'] as const
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
@@ -123,6 +126,10 @@ export function inspectJob(j: InspectInput): InspectResult {
     return !shown.some((d) => sameLine(d, line) || isCovered(line, [d]))
   })
   add('source_lost', '원문 줄 빠짐 없음', !lost.length, lost.length ? lost.slice(0, 3).join(' / ') : undefined)
+  // 15. R13: 권유 문구(Gia nhập đội ngũ…, Ứng tuyển sớm…)는 기타란(07)에 둔다
+  const promo = view.sections.filter((sec) => sec.key !== '07').flatMap((sec) => sec.lines)
+    .filter((l) => /^(?:gia nhap doi ngu|ung tuyen som)\b/.test(bare(l.includes(' — ') ? l.slice(l.indexOf(' — ') + 3) : l)))
+  add('promo_in_07', '권유 문구는 기타란', !promo.length, promo.length ? promo.slice(0, 3).join(' / ') : undefined)
   // 11. 공개 상태
   add('public', '공개됨', !!j.active && !j.admin_hidden, j.admin_hidden ? '관리자가 숨김' : !j.active ? '비공개' : undefined)
 
