@@ -27,6 +27,7 @@ on:
       - src/lib/aiClassifyGuard.ts
       - src/lib/sourceSalary.ts
       - src/lib/salaryReader.ts
+      - src/lib/businessType.ts
       - config/auto-processing-cutoff.json
       - scripts/ops/job-inspect.mjs
       - .github/workflows/job-ocr-check.yml
@@ -81,6 +82,11 @@ jobs:
         run: |
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/aiClassifyGuard.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/ai-classify.mjs
+      - name: 업종으로 큰 분류 정하기 (2026-11-01 Lee — 업무가 원문에 없으면 업체 이름·매장 검색으로 서비스업 분류)
+        if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
+        run: |
+          node --experimental-strip-types src/lib/businessType.test.ts
+          node --experimental-strip-types scripts/ocr/business-type.mjs
       - name: 상세요강 다시 채우기 (2026-11-01 — AI가 방금 정한 칸을 같은 실행에서 반영, 다음 실행까지 기다리지 않음)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: node --experimental-strip-types scripts/ocr/detail-fill.mjs

@@ -27,11 +27,13 @@ await client.connect()
 const kindRows = await client.query('select line_key, section, decided_by from public.detail_line_kinds order by line_key').then((r) => r.rows, () => [])
 const LINE_KINDS = Object.fromEntries(kindRows.map((r) => [r.line_key, { section: r.section, by: r.decided_by }]))
 export const FILL_VERSION = 'fill-v3:' + createHash('md5').update(RULE_HASH + JSON.stringify(kindRows)).digest('hex').slice(0, 8)
-const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|${FILL_VERSION}')`
+// 업종 업무 한 줄(ocr_check.business_type.duty, 2026-11-01)이 생기거나 바뀌면 다시 만든다.
+const DUTY = `coalesce(ocr_check->'business_type'->>'duty','')`
+const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|' || ${DUTY} || '|${FILL_VERSION}')`
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select j.id, j.origin, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
+    select j.id, j.origin, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block, j.ocr_check->'business_type'->>'duty' as duty_line,
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
@@ -57,6 +59,7 @@ try {
       const ctx = { title: job.title, company: job.company, contactName: job.contact_name, salary: job.salary,
         // Preserve the explicit reviewed notice on rebuild. Never infer factory status from VSIP/KCN.
         dutiesUnspecified: current.split(/\r?\n/).some(line => line.trim() === UNSPECIFIED_DUTIES_NOTICE),
+        dutyLine: job.duty_line || undefined,
         values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
         valueGroups: [[job.hours, job.work_days]], lineKinds: LINE_KINDS, phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses] }
       const sources = [{ name: 'source_text', text: job.source_text }, { name: 'ocr_text', text: job.ocr_text }]
@@ -91,7 +94,7 @@ try {
       await client.query(
         `update public.local_jobs set description = $2,
            ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('detail_fill', $3::jsonb || jsonb_build_object('hash',
-             md5(coalesce($2,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|${FILL_VERSION}')))
+             md5(coalesce($2,'') || '|' || coalesce(source_text,'') || '|' || coalesce(ocr_text,'') || '|' || ${DUTY} || '|${FILL_VERSION}')))
          where id = $1`,
         [job.id, next, JSON.stringify(record)])
       if (descChanged) { changed++; console.log(`#${job.id} ${record.mode === 'rebuild' ? '원문에서 다시 만듦' : '빠진 줄 보충'} (새 종류 ${record.unclassified.length})`) } else same++
