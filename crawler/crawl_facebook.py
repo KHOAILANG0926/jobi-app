@@ -222,7 +222,18 @@ def extract_district(text: str) -> str:
     return ""
 
 
+_SALARY_LABEL = re.compile(
+    r"^[^\w]*(?:mức lương|lương|thu nhập|salary)\s*[:：]\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+_SALARY_AMOUNT = re.compile(r"\d|thỏa thuận|thoả thuận|cạnh tranh", re.IGNORECASE)
+
+
 def extract_salary(text: str) -> str:
+    # 2026-11-01: "Mức lương: 23.000 – 25.000 VNĐ/giờ" 같은 이름표 줄은 값을 원문 그대로 쓴다
+    # (아래 'triệu' 패턴만으로는 시급·VNĐ 금액을 놓쳐 다시 수집할 때 급여 칸이 비었다).
+    for m in _SALARY_LABEL.finditer(text):
+        value = m.group(1).strip(" .")
+        if _SALARY_AMOUNT.search(value) and len(value) <= 120:
+            return value
     patterns = [
         r"\d+[\.,]?\d*\s*[-–~]\s*\d+[\.,]?\d*\s*(?:triệu|tr)(?:/\s*\w+|\s*tháng|\s*month)?",
         r"(?:từ|from)\s*\d+[\.,]?\d*\s*(?:triệu|tr)",

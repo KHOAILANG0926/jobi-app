@@ -216,7 +216,7 @@ def test_evaluate_post_pipeline_order_and_reasons() -> None:
                  ("missing_required", ["연락처 없음"]), "missing contact")
     d, reasons, job = evaluate_post(pm, fresh, True, "Bắc Ninh", now=NOW_EVAL)
     assert_equal(d, "accepted", "complete fresh job accepted")
-    assert_equal(job["salary"], "30 TRIỆU/THÁNG", "job parsed")
+    assert_equal(job["salary"], "upto 30 TRIỆU/THÁNG", "job parsed (labeled salary verbatim)")
     assert_true(job["fb_full_text_confirmed"], "full text flag set")
 
 
@@ -331,9 +331,16 @@ def test_author_ellipsis_allowed_only_when_screen_confirmed() -> None:
 
 def test_salary_and_company_from_real_posts() -> None:
     pm = parse_post({"text": PM_JOB_TEXT, "location": "Bắc Ninh"})
-    assert_equal(pm["salary"], "30 TRIỆU/THÁNG", "uppercase month suffix kept")
+    assert_equal(pm["salary"], "upto 30 TRIỆU/THÁNG", "labeled salary kept verbatim incl. upto (2026-11-01)")
     assert_equal(pm["employer_phone"], "0344849982", "spaced phone")
     assert_equal(extract_company(TRUNCATED_TUTOR_TEXT), "TIẾNG ANH ARMY ENGLISH", "company stops before TUYỂN DỤNG")
+
+
+def test_salary_label_line_hourly_vnd() -> None:
+    """2026-11-01 #5231: 'Mức lương: 23.000 – 25.000 VNĐ/giờ' 이름표 줄은 원문 그대로 급여로 쓴다."""
+    text = "TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\n Mức lương: 23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)\nĐộ tuổi: từ đủ 18 tuổi"
+    assert_equal(extract_salary(text), "23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)", "labeled hourly VND salary")
+    assert_equal(extract_salary("Lương: theo năng lực\nLương 8 triệu/tháng"), "8 triệu/tháng", "label without amount falls back")
 
 
 def test_merge_seen_keys_newest_first_and_capped() -> None:
@@ -394,6 +401,7 @@ def main() -> int:
         test_truncated_post_detection,
         test_required_fields_block_truncated_and_accept_full,
         test_salary_and_company_from_real_posts,
+        test_salary_label_line_hourly_vnd,
         test_author_ellipsis_allowed_only_when_screen_confirmed,
     ]
     for test in tests:
