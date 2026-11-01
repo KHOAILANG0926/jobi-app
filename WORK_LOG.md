@@ -1,3 +1,7 @@
+## 2026-11-01 — 상세 지도 오토바이가 핀을 따라감 (Claude)
+- 요청: Lee "지도를 옮기면 원 위치로 안 간다, 이동해도 목적지 찾아가게".
+- 변경: JobDetail BikeRide 끝점 = 실제 핀 끝(.hme-map__job-marker), 지도 이동 시 다시 잼(MutationObserver+rAF), 핀이 지도 밖이면 숨김. 화면 틀 변경 없음. 브라우저 시험(test-job-location-detail.mjs)에 지도 끌기 전후 끝점=핀 확인 추가.
+
 ## 2026-11-01 — 메인 목록에서 빠진 공고(#5231·#5247) (Claude)
 - 원인 [직접 확인]: 메인 카드가 급여 금액을 못 읽으면 목록에서 뺌. #5231 "VNĐ" 단위 미인식, #5247 "1. FULL-TIME CA TỐI: 02 NHÂN VIÊN" 직무 제목 미인식(급여가 직무별로 안 묶임). 검사는 메인 카드 노출을 안 봄.
 - 변경: mainJobCards 금액 단위 VNĐ, jobRolePresentation.isRoleHeading(번호+full/part-time 제목, 한 곳) — 상세 묶음·카드 직무 급여 공용, 직무 묶음은 "Yêu cầu"에서 끝남. 검사 항목 card(메인 카드에 보임, 알림만).

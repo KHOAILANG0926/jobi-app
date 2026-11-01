@@ -1159,8 +1159,9 @@ function ImageGallery({ images, title }: { images: string[]; title: string }) {
   )
 }
 
-// 2026-10-19 Lee 결정: 오토바이가 Google 길찾기 화살표 끝에서 출발해 지도 가운데(근무지 쪽)까지 달려간다.
-// 같은 근무지 칸 안에서 화살표·지도 위치를 재서 곡선 길을 만든다(화면 크기가 바뀌면 다시 잼). 실제 도로를 따라가는 건 아님.
+// 2026-10-19 Lee 결정: 오토바이가 Google 길찾기 화살표 끝에서 출발해 근무지 핀까지 달려간다.
+// 2026-11-01 Lee: 지도를 옮겨도 목적지(핀)를 찾아가게 — 끝점은 지도 가운데가 아니라 실제 핀 끝(.hme-map__job-marker 아래 가운데).
+// 지도를 옮기면 핀 위치가 바뀌므로(핀 요소의 style이 바뀜) 다시 잰다. 핀이 지도 칸 밖으로 나가면 오토바이를 숨긴다. 실제 도로를 따라가는 건 아님.
 function BikeRide() {
   const ref = useRef<SVGSVGElement>(null)
   const [path, setPath] = useState<{ d: string; flip: boolean } | null>(null)
@@ -1174,19 +1175,32 @@ function BikeRide() {
       if (!arrow || !map) { setPath(null); return }
       const h = host.getBoundingClientRect(), a = arrow.getBoundingClientRect(), m = map.getBoundingClientRect()
       const sx = a.right - h.left + 6, sy = a.top + a.height / 2 - h.top
-      const ex = m.left + m.width / 2 - h.left, ey = m.top + m.height / 2 - h.top
+      const pin = map.querySelector('.hme-map__job-marker')?.getBoundingClientRect()
+      let ex = m.left + m.width / 2 - h.left, ey = m.top + m.height / 2 - h.top
+      if (pin) {
+        ex = pin.left + pin.width / 2 - h.left; ey = pin.bottom - h.top
+        if (ex < m.left - h.left || ex > m.right - h.left || ey < m.top - h.top || ey > m.bottom - h.top) { setPath(null); return }
+      }
       const r = (n: number) => Math.round(n)
       // 곡선이 근무지 칸 밖으로 나가지 않게 조절점을 칸 안쪽(좌우 24px 여백)으로 제한한다.
       const W = h.width, clampX = (x: number) => Math.min(W - 24, Math.max(24, x))
       const c1x = clampX(sx + 60), c1y = sy - 30
       const c2x = clampX(ex + (sx > ex ? 120 : -120)), c2y = ey + 80
-      setPath({ d: `M ${r(sx)} ${r(sy)} C ${r(c1x)} ${r(c1y)}, ${r(c2x)} ${r(c2y)}, ${r(ex)} ${r(ey)}`, flip: ex < sx })
+      const d = `M ${r(sx)} ${r(sy)} C ${r(c1x)} ${r(c1y)}, ${r(c2x)} ${r(c2y)}, ${r(ex)} ${r(ey)}`
+      setPath((prev) => (prev && prev.d === d ? prev : { d, flip: ex < sx }))
     }
+    let frame = 0
+    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
     const t = window.setTimeout(measure, 1500) // 지도가 늦게 그려지는 경우
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
     ro?.observe(host)
-    return () => { window.clearTimeout(t); ro?.disconnect() }
+    // 핀이 생기거나 지도를 옮길 때(핀 style 변경) 다시 잰다. 오토바이 자신의 style 변경은 무시(무한 반복 방지).
+    const mo = typeof MutationObserver !== 'undefined' ? new MutationObserver((records) => {
+      if (records.some((rec) => rec.target !== el && !el.contains(rec.target))) schedule()
+    }) : null
+    mo?.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] })
+    return () => { window.clearTimeout(t); ro?.disconnect(); mo?.disconnect(); if (frame) window.cancelAnimationFrame(frame) }
   }, [])
   return (
     <svg ref={ref} className="jd2-ride-bike" viewBox="0 0 34 24" aria-hidden="true"
