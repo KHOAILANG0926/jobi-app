@@ -1,5 +1,5 @@
 // 업종으로 큰 분류 정하기 실행기 — Lee 2026-11-01 (#5247 Wallace). 규칙: src/lib/businessType.ts
-// 대상: 기준 시각 이후 수집 공고 중 직업 코드가 없는 공고(관리자 숨김 제외). 같은 원문으로 이미 시도했으면 다시 하지 않는다.
+// 대상: 기준 시각 이후 수집 공고 중 직업 코드가 없는 공고, 또는 업종 종류(kind) 기록 없이 코드 5가 된 공고(관리자 숨김 제외). 같은 원문으로 이미 시도했으면 다시 하지 않는다.
 // 기록: 직업 코드·근거는 ingest_job 한 입구로, 판단 출처(이름/검색 URL·인용문)는 ocr_check.business_type에.
 // 필요 환경변수: SUPABASE_DB_URL (검색에는 ANTHROPIC_API_KEY — 없으면 이름 단계만)
 import pg from 'pg'
@@ -36,7 +36,7 @@ try {
     select id, title, company, location, source_text, images, md5(coalesce(source_text,'') || '|' || coalesce(company,'') || '|' || coalesce(location,'') || '|' || $1::text) as src_hash,
            ocr_check->'business_type'->>'src_hash' as tried
     from public.local_jobs
-    where origin = 'crawler' and not admin_hidden and occupation_code is null and coalesce(source_text,'') <> ''
+    where origin = 'crawler' and not admin_hidden and (occupation_code is null or (occupation_code = '5' and ocr_check->'business_type'->>'kind' is null)) and coalesce(source_text,'') <> ''
       and ${afterCutoff()}
     order by id`, [WEB_PROMPT_VERSION])
   console.log(`업종 확인 대상 ${rows.length}건`)

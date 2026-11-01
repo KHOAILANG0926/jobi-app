@@ -1,3 +1,7 @@
+## 2026-11-01 저녁 — 확인된 음식점이 "Vệ sinh / Giúp việc" 메뉴에 나오던 문제 (Claude)
+- 원인 [직접 확인]: 코드 5 → category dich_vu → 메뉴 "Vệ sinh / Giúp việc"(cat=dich_vu). #5247 Wallace(닭튀김).
+- 변경: businessType.ts 업종 종류 kind(fnb·retail·service, 이름 낱말 또는 검색 답) 기록, business-type.mjs가 kind 없는 코드 5 공고 재확인(web-v4). DB migration 20261101200000: category_for_job(code, ocr_check) — 코드 5만 fnb→am_thuc_do_uong, retail→quan_ly_ban_hang. 직업 코드·근거·공개 변경 없음. 로컬 PostgreSQL CI 스크립트·시험 통과. 운영 적용은 Lee 확인 후.
+
 ## 2026-11-01 저녁 — 메인 화면 구분 기준 확정 (Lee)
 - 순서: 특별한 알바(맨 위) → 주목받는 알바 → 브랜드 알바 → 전체. 브랜드=체인 3곳 이상+매장 일치, 특별=혜택 2개 이상 또는 높은 급여(숫자 기준은 구현 전 확정). 상세는 CHATGPT_HANDOFF.md.
 
