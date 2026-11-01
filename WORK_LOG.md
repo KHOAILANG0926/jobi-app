@@ -1,3 +1,8 @@
+## 2026-11-01 — R2b: 공개 판정값을 DB가 직접 계산 (Claude)
+- 요청: Lee "진행해" — 수집 프로그램이 적어 보내는 publish_gate_reason을 DB가 믿지 않고 직접 계산.
+- 변경: migration 20261101190000 — job_publish_gate_reason()(근무지 정보·전화/Zalo), 트리거 trg_zz0_publish_gate(항상 덮어씀, 수집 공고는 ok 아니면 비공개, 관리자 공고는 기록만), 기존 공고 값 채움, R2b 규정 → trigger 연결.
+- 검증: 실제 PostgreSQL 5개 경우, 운영 9개 공고 복사본에서 공개 상태 변화 없음(공개 6개 모두 ok), 운영 점검 SQL 통과.
+
 ## 2026-11-01 — PR 설명란 순환 요구 제거 + U1 정리 (Claude)
 - 원인: check-pr-ready가 자기 자신(checks)의 성공을 검사 전에 설명란에 적으라고 요구 → 매 PR마다 설명란 수정·재검사 반복(오늘 지연 원인).
 - 변경: 성공 미리 적기·링크 요구 삭제(실제 결과는 bot-pr-automerge가 check-runs로 확인). 설명란에 옛 SHA나 "실패"가 있으면 READY 불가는 유지. U1은 10-13·10-14·10-28 결정으로 decision_allow 기록(migration 20261101180000).
