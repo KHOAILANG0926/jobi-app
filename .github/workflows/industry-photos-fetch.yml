@@ -28,8 +28,8 @@ jobs:
         timeout-minutes: 25
         continue-on-error: true
         env:
-          ROUND: '3'
-          ONLY: cskh_kinh_doanh,van_phong,lai_xe_giao_hang
+          ROUND: '4'
+          ONLY: nha_hang
         run: python -u scripts/media/fetch_industry_photos.py
       - name: Commit candidates to the same branch
         run: |
