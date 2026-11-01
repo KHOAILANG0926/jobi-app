@@ -1,10 +1,11 @@
 """업종 대표 사진 후보 받기 — Lee 2026-11-01 결정(사람인 방식: 사진 없는 공고는 업종에 맞는 사진으로 대신).
 
-Openverse(열쇠 필요 없음)에서 상업적 사용 가능 사진만 업종마다 후보 6장을 받아
+Wikimedia Commons(열쇠 필요 없음, Openverse는 GitHub에서 응답 없음 2026-11-01)에서 상업적 사용 가능 사진만 업종마다 후보 6장을 받아
 data/industry-photos/candidates/<업종>-<n>.jpg 로 저장하고, 출처·저작자·라이선스를
 data/industry-photos/candidates/CANDIDATES.json 에 기록한다. 최종 선택은 사람이 보고 고른다.
 """
 import io
+import re
 import json
 import sys
 import time
@@ -31,7 +32,7 @@ QUERIES = {
 }
 PER_CATEGORY = 4
 OUT = Path('data/industry-photos/candidates')
-UA = {'User-Agent': 'viecganban-industry-photos/1.0 (github actions)'}
+UA = {'User-Agent': 'ViecganbanIndustryPhotos/1.0 (https://viecganban.vn; github actions)'}
 W, H = 800, 500
 
 
@@ -40,12 +41,35 @@ def get(url, timeout=15):
         return r.read()
 
 
+ALLOWED = ('cc0', 'public domain', 'pd', 'cc by 4.0', 'cc by 3.0', 'cc by 2.5', 'cc by 2.0')
+
+
 def search(q):
+    """Wikimedia Commons 검색(열쇠 불필요). 상업 사용 가능 + 변경 허용 라이선스(CC0·PD·CC BY)만, 가로 사진만."""
     params = urllib.parse.urlencode({
-        'q': q, 'license_type': 'commercial', 'aspect_ratio': 'wide',
-        'page_size': 12, 'mature': 'false',
+        'action': 'query', 'format': 'json', 'generator': 'search', 'gsrsearch': f'{q} filetype:bitmap',
+        'gsrnamespace': 6, 'gsrlimit': 25, 'prop': 'imageinfo',
+        'iiprop': 'url|size|extmetadata', 'iiurlwidth': 1200,
     })
-    return json.loads(get(f'https://api.openverse.org/v1/images/?{params}'))['results']
+    pages = json.loads(get(f'https://commons.wikimedia.org/w/api.php?{params}')).get('query', {}).get('pages', {})
+    out = []
+    for p in sorted(pages.values(), key=lambda x: x.get('index', 0)):
+        ii = (p.get('imageinfo') or [{}])[0]
+        meta = ii.get('extmetadata', {})
+        lic = (meta.get('LicenseShortName', {}).get('value') or '').strip()
+        if lic.lower() not in ALLOWED and not lic.lower().startswith('public domain'):
+            continue
+        if not ii.get('width') or ii['width'] < ii.get('height', 0) * 1.2:
+            continue
+        artist = re.sub(r'<[^>]+>', '', meta.get('Artist', {}).get('value') or '').strip()
+        out.append({
+            'id': p['title'], 'url': ii.get('thumburl') or ii['url'], 'title': p['title'],
+            'creator': artist, 'license': lic, 'license_version': None,
+            'license_url': meta.get('LicenseUrl', {}).get('value'), 'source': 'wikimedia_commons',
+            'foreign_landing_url': ii.get('descriptionurl'),
+            'attribution': f"{p['title']} — {artist or 'unknown'} — {lic} (Wikimedia Commons)",
+        })
+    return out
 
 
 def crop(data):

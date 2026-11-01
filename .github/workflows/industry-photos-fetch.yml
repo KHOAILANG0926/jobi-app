@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install --quiet pillow==11.0.0
-      - name: Download candidates (Openverse, commercial-use licenses only)
+      - name: Download candidates (Wikimedia Commons, CC0·PD·CC BY only)
         timeout-minutes: 25
         continue-on-error: true
         run: python -u scripts/media/fetch_industry_photos.py
