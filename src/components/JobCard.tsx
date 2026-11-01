@@ -69,7 +69,7 @@ export default function JobCard({
   return (
     <article className={`jc jc--clean${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
       <div className="jc__header">
-        <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} category={job.category} subcategory={job.subcategory} text={`${job.company} ${job.title}`} /></div>
+        <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} category={job.category} subcategory={job.subcategory} text={`${job.company} ${job.title} ${job.description ?? ""}`} /></div>
         <div className="jc__identity">
           <p className="jc__company">{cardCompany(job.company, shortArea(job.location))}</p>
           <p className="jc__meta">

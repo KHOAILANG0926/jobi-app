@@ -13,12 +13,19 @@ const INDUSTRY: Record<JobCategory, true> = {
 
 // 음식 업종은 카페와 식당 사진을 나눈다(Lee 2026-11-02 "보문뜰은 식당이야").
 const CAFE_SUB = new Set(['barista', 'quan_ca_phe', 'kem_trang_mieng', 'tiem_banh', 'tho_lam_banh'])
+const NUONG_WORDS = /nướng|bbq|barbecue|barbeque/iu
+const LAU_WORDS = /\blẩu\b|hot\s*pot|hotpot/iu
 const CAFE_WORDS = /cà\s*phê|ca\s*phe|coffee|caf[eé]|trà\s*sữa|barista|pha\s*chế/iu
 
 export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, text?: string | null): string {
   if (category === 'am_thuc_do_uong') {
     const cafe = (subcategory && CAFE_SUB.has(subcategory)) || CAFE_WORDS.test(text ?? '')
-    return `/images/industry/${cafe ? 'am_thuc_do_uong' : 'nha_hang'}.jpg`
+    if (cafe) return '/images/industry/am_thuc_do_uong.jpg'
+    // 식당은 공고에 적힌 식당 종류 낱말로 고른다(Lee 2026-11-02: 한국 고깃집에 중국 연회장 사진 금지). 없으면 나라 느낌 없는 일반 식당.
+    const t = text ?? ''
+    if (NUONG_WORDS.test(t)) return '/images/industry/nha_hang_nuong.jpg'
+    if (LAU_WORDS.test(t)) return '/images/industry/nha_hang_lau.jpg'
+    return '/images/industry/nha_hang_chung.jpg'
   }
   return `/images/industry/${category && category in INDUSTRY ? category : 'khac'}.jpg`
 }
