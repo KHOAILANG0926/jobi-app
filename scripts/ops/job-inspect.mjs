@@ -24,7 +24,10 @@ try {
   if (missing.length) { console.error('::error::규정이 가리키는 검사표 항목 없음: ' + missing.map((m) => `${m.rule_key}→${m.ref}`).join(', ')); process.exitCode = 3 }
 
   const { rows } = await client.query(`
-    select public.job_inspect_content_hash(j) as content_hash, coalesce((j.ocr_check->>'inspect_hold')::boolean, false) as hold,
+    select public.job_inspect_content_hash(j) as content_hash, (coalesce((j.ocr_check->>'inspect_hold')::boolean, false)
+             -- 검사 실패로 내린 공고도 다시 통과하면 되살린다(관리자가 직접 내린 공고는 해당 없음)
+             or exists (select 1 from jsonb_array_elements(coalesce(j.ocr_check->'inspect'->'items', '[]'::jsonb)) i
+                        where i->>'key' = 'public' and i->>'detail' = '검사 실패로 비공개 보류')) as hold,
            j.application_deadline, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
            j.category, j.occupation_code, j.active, j.admin_hidden, j.shuttle_bus, j.dormitory, j.meal_provided,
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,

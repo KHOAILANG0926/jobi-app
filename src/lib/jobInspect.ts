@@ -146,12 +146,15 @@ export function inspectJob(j: InspectInput): InspectResult {
  * - 통과 못 하면 비공개. 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
  *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
  */
+/** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
+export const REVIEW_ONLY = ['hours_review']
+
 export function publishDecision(
   r: InspectResult,
   j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
   today = new Date().toISOString().slice(0, 10),
 ): { publishable: boolean; active: boolean } {
-  const publishable = r.items.every((i) => i.key === 'public' || i.ok)
+  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || i.ok)
   if (!publishable) return { publishable, active: false }
   if (j.active) return { publishable, active: true }
   const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
