@@ -20,7 +20,7 @@ QUERIES = {
     'quan_ly_ban_hang': ['supermarket shelves products', 'store shelves retail display'],
     'dich_vu': ['vacuum cleaner floor', 'hotel room bed made', 'cleaning supplies bucket mop'],
     'van_phong': ['office desk computer', 'office workspace'],
-    'cskh_kinh_doanh': ['telephone headset desk', 'headset microphone office'],
+    'cskh_kinh_doanh': ['headset', 'telephone on desk', 'call centre'],
     'san_xuat_xay_dung': ['factory assembly line', 'electronics factory workers'],
     'cntt_ky_thuat': ['electrical panel wiring', 'tools on workbench', 'circuit board repair'],
     'thiet_ke': ['graphics tablet stylus', 'color swatches design', 'architect drawing table'],
