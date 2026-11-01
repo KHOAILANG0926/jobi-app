@@ -117,6 +117,15 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/occupation_category_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261101210000_brands_verified_chains.sql' ]]; then
+    echo "PostgreSQL verified brands: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
+    psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20260910120000_job_brands_master.sql >/dev/null
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brands_verified_chains_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
