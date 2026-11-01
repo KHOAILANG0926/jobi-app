@@ -1,3 +1,10 @@
+## 2026-11-02 06:00 — 사진 없는 공고 업종 사진 데모 (Claude)
+- 요청: Lee "사진 없는 공고는 사람인처럼 업종 사진으로 대신".
+- 변경(demo/home-photo-cards, 운영 미반영): 처음에 카드를 사람인 모양으로 새로 만들었다가 Lee 지적("기존꺼는 왜 바꾼거야, 로고·사진 없는 것 대체용")으로 원래 카드로 되돌리고 로고 자리만 채움. 음식 사진을 카페/식당(고기구이·훠궈·일반)으로 나눔(Lee "보문뜰은 식당", "중국 식당 느낌").
+- 수정 파일: src/lib/cardPhoto.ts(+test), src/components/JobCard.tsx/.css, src/lib/homeSections.ts, src/pages/HomeDesktop.tsx, public/images/industry/*, data/industry-photos/SOURCES.json, CLAUDE.md, 촬영·사진 받기 workflow.
+- 검증: tsc·build·cardPhoto/homeSections 시험 통과, 데모 PC 화면 촬영(9239697) 직접 확인.
+- 이전 HANDOFF(11-01 저녁): 메인 칸 구분·브랜드/특별 기준·업종 메뉴 오류·FB 로그인 — 위 HANDOFF 2번에 남은 항목만 옮김.
+
 ## 2026-11-01 밤 — 수평 전개: 브랜드 로고·급여 표시 모든 화면 (Claude)
 - 요청: Lee "수평 전개가 하나도 안 돼".
 - 브랜드 로고(lib/brandLogo.ts): 공고 카드 로고 칸, 상세 맨 위 로고, 상세 회사 정보 로고(브랜드 메뉴·브랜드 화면은 이미). 해당 없음: 모바일 목록·지도 창·추천 카드(로고 칸 없음), 관리자 입력 화면.
