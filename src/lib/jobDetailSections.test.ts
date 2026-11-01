@@ -32,9 +32,11 @@ const kdaWant = {
   '02': ['- Tuyển nam, nữ (14-50 tuổi).'],
   '04': ['- Ca ngày: 310k/11h.', '- Ca đêm: 360k/11h.', '- Chuyên cần: 50k/tuần.', '- Lương tính và thanh toán theo ngày.'],
   '05': ['- Có xe đưa đón.', '- Được mang điện thoại vào xưởng.'],
+  // 2026-11-01 Lee "빠짐 0"(10-30 ④ 원문 전체): 위쪽과 같은 주소·연락 줄도 보여 준다.
+  '07': ['- KCN Yên Phong, Bắc Ninh.', '- NGOC ANH DUONG: 0877 880 756'],
 }
 assert(JSON.stringify(byKey(kdaR)) === JSON.stringify(kdaWant), `#4824 정답표와 다름: ${JSON.stringify(byKey(kdaR))}`)
-assert(same(kdaR.dropped.map((d) => d.reason), ['heading', 'heading', 'heading', 'heading', 'shown_above', 'heading', 'shown_above']), '#4824: 뺀 줄은 소제목 5 + 위에 있는 주소·전화 2뿐')
+assert(same(kdaR.dropped.map((d) => d.reason), ['heading', 'heading', 'heading', 'heading', 'heading']), '#4824: 뺀 줄은 소제목 5개뿐(빠짐 0)')
 
 const maoYen = `Công việc
 - Sản xuất dây truyền dữ liệu, dây mạng.
@@ -60,6 +62,7 @@ const myWant = {
   '03': ['- Chuyên ca ngày.', '- Tuyển cả công nhân chính thức và thời vụ, ưu tiên người muốn làm lâu dài.'],
   '04': ['- Lương cơ bản: 5.500.000đ/tháng.', '- Phụ cấp: 1.200.000đ/tháng.', '- Thâm niên sau 2 tháng: +200.000đ; sau 4 tháng: +300.000đ.'],
   '05': ['- Làm ngồi, thoải mái. Không bắt buộc tăng ca.'],
+  '07': ['- Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh.', '- Điện thoại: 0342017663.'],
 }
 assert(myR.preserved && JSON.stringify(byKey(myR)) === JSON.stringify(myWant), `#4828 정답표와 다름: ${JSON.stringify(byKey(myR))}`)
 
@@ -131,7 +134,8 @@ assert((tefalBuckets['01'] ?? []).includes('Bán hàng tại quầy'), 'TEFAL oc
   const r = detailSections('Thu nhập\nLương tối thiểu:\n8 triệu\nLương tối đa:\n18 triệu\n- Phụ cấp xăng xe 500k', { salary: top })
   assert(r.preserved && !r.usedFallback, 'salary drop keeps preservation check')
   const lines04 = r.sections.find((s) => s.key === '04')?.lines ?? []
-  assert(JSON.stringify(lines04) === JSON.stringify(['- Phụ cấp xăng xe 500k']), 'only breakdown remains: ' + JSON.stringify(lines04))
+  // 2026-11-01 Lee "빠짐 0"(10-30 ④ 원문 전체): 급여 총액 줄도 지우지 않는다(isSalaryTotalRepeat는 판정용으로만 남음).
+  assert(JSON.stringify(lines04) === JSON.stringify(['Lương tối thiểu:', '8 triệu', 'Lương tối đa:', '18 triệu', '- Phụ cấp xăng xe 500k']), 'all salary lines shown: ' + JSON.stringify(lines04))
 }
 console.log('jobDetailSections salary-repeat assertions passed')
 
@@ -266,8 +270,7 @@ Chăm sóc khách hàng`
 
 // 2026-11-01 Lee: 모집조건 왼쪽 칸이 PC에서 비면 오른쪽 항목을 왼쪽으로(#5157: 직무 행만 있음).
 {
-  const { recruitColumnsOf } = await import('./recruitColumns.ts')
-  const cols = recruitColumnsOf([{ key: 'roles' }, { key: 'category' }])
-  assert(cols.length === 1 && cols[0][0].key === 'roles', '#5157 roles moved to left column')
+  const { recruitOrdered } = await import('./recruitColumns.ts')
+  assert(recruitOrdered([{ key: 'category' }, { key: 'roles' }])[0].key === 'roles', '#5157 roles first (left)')
   console.log('jobDetailSections: recruit column no-empty-left regression passed')
 }

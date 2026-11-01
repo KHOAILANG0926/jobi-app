@@ -1,7 +1,7 @@
 /**
  * 상세요강(Mô tả công việc) 칸 나누기 — 2026-10-14 Lee 결정, 2026-10-19 코드 반영.
  * - 원문 줄은 글자를 바꾸지 않고 칸(01~07)에 옮기기만 한다.
- * - 지워도 되는 예외는 3가지뿐: ① 원문 소제목 줄 ② 제목 반복 ③ 화면 위에 이미 있는 정보(근무지 주소·전화번호).
+ * - 2026-11-01 Lee "빠짐 0": 지워도 되는 예외는 원문 소제목 줄 하나뿐(10-30 확정 ④ 원문 전체). 아래 2026-10-25 급여 총액 빼기는 폐지.
  *   급여: 2026-10-25 Lee 결정으로 변경(이전 2026-10-19 "급여 줄은 위에 있어도 남긴다"를 대체) —
  *   상단 급여(총액)와 같은 금액만 다시 쓴 줄(예: "18 triệu", "Lương tối đa: 18 triệu", "Thu nhập: 8 - 18 triệu")과
  *   값 없는 급여 이름표 줄("Lương tối thiểu:")은 ③으로 뺀다. 급여 구성(기본급·수당·상여·잔업 등 내역) 줄은 남긴다.
@@ -21,7 +21,7 @@ export const DETAIL_LABELS = {
 export type DetailKey = keyof typeof DETAIL_LABELS
 export type DetailTextKey = Exclude<DetailKey, '08'>
 export interface DetailSection { key: DetailTextKey; label: string; lines: string[] }
-export type DropReason = 'heading' | 'title_repeat' | 'shown_above'
+export type DropReason = 'heading'
 export interface DroppedLine { line: string; reason: DropReason }
 const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
 
@@ -80,7 +80,6 @@ export function fold(value: string) {
   return value.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase()
 }
 export const bare = (line: string) => fold(line).replace(/^\s*[-•*]\s*/, '').replace(/[\s.:;,!]+$/g, '').replace(/\s+/g, ' ').trim()
-const digits = (s: string) => s.replace(/\D/g, '')
 
 // 원문 소제목 → 칸. "Lương và phúc lợi"처럼 급여·복리후생이 섞인 제목은 04로 두고, 줄 단위로 05를 골라낸다.
 const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
@@ -137,14 +136,11 @@ export function verifyDescriptionPreserved(original: string | null | undefined, 
 }
 export interface DetailResult { sections: DetailSection[]; dropped: DroppedLine[]; preserved: boolean; usedFallback: boolean }
 
-export function detailSections(description: string | null | undefined, above: ShownAbove = {}): DetailResult {
+export function detailSections(description: string | null | undefined, _above: ShownAbove = {}): DetailResult {
   const lines = sourceLines(description)
   if (!lines.length) return { sections: [], dropped: [], preserved: true, usedFallback: false }
   const buckets: Record<DetailTextKey, string[]> = { '01': [], '02': [], '03': [], '04': [], '05': [], '06': [], '07': [] }
   const dropped: DroppedLine[] = []
-  const titleBare = above.title ? bare(above.title) : ''
-  const phoneDigits = (above.phones ?? []).map((p) => digits(p ?? '')).filter((d) => d.length >= 8)
-  const addressBare = (above.addresses ?? []).map((a) => bare(a ?? '')).filter(Boolean)
   let current: DetailTextKey = '07'
   let context: DetailTextKey | 'address' | 'contact' = '07'
   for (const line of lines) {
@@ -155,15 +151,8 @@ export function detailSections(description: string | null | undefined, above: Sh
       dropped.push({ line, reason: 'heading' })
       continue
     }
-    const s = bare(line)
-    if (titleBare && s === titleBare) { dropped.push({ line, reason: 'title_repeat' }); continue } // ② 제목 반복
-    // ③ 위에 이미 있는 정보: 공고 전화번호가 들어 있는 연락 줄, 근무지 주소와 같은 줄
-    const d = digits(line)
-    if (context === 'contact' && phoneDigits.some((p) => d.includes(p))) { dropped.push({ line, reason: 'shown_above' }); continue }
-    if (context === 'address' && addressBare.some((a) => a === s || a.startsWith(s) || s.startsWith(a))) { dropped.push({ line, reason: 'shown_above' }); continue }
-    // 2026-10-25 Lee: 상단 급여 총액과 같은 금액 반복·값 없는 급여 이름표는 뺀다(급여 구성 줄은 남김)
-    if (isSalaryTotalRepeat(line, above.salary)) { dropped.push({ line, reason: 'shown_above' }); continue }
-    if (coveredByAbove(line, above)) { dropped.push({ line, reason: 'shown_above' }); continue }
+    // 2026-11-01 Lee "빠짐 0"(10-30 확정 ④ 원문 전체, 위쪽 칸과 겹쳐도 지우지 않음):
+    // 제목·전화·주소·급여 총액·위쪽 값과 겹치는 줄도 그대로 보여 준다. 빼는 것은 원문 소제목뿐.
     // A preceding address/contact label must not swallow a later, independently recognizable duty.
     const classified = lineBucket(line, current)
     buckets[context === 'address' || context === 'contact' ? (classified === '01' ? '01' : '07') : classified].push(line)
