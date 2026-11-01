@@ -19,7 +19,7 @@ await client.connect()
 const reports = []
 try {
   const { rows } = await client.query(`
-    select j.id, j.title, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
+    select public.job_inspect_content_hash(j) as content_hash, j.id, j.title, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
            j.category, j.occupation_code, j.active, j.admin_hidden, j.shuttle_bus, j.dormitory, j.meal_provided,
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,
            coalesce(jsonb_array_length(case when jsonb_typeof(j.images) = 'array' then j.images end), 0) as image_count,
@@ -45,9 +45,19 @@ try {
     }
     const r = inspectJob(input)
     const hash = createHash('md5').update(VERSION + JSON.stringify(r)).digest('hex')
-    if (job.prev?.hash === hash) continue
-    await client.query(`update public.local_jobs set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('inspect', $2::jsonb) where id = $1`,
-      [job.id, JSON.stringify({ version: VERSION, hash, ok: r.ok, checked_at: new Date().toISOString(), items: r.items })])
+    // The result hash is only an optimization. Always record an inspection when
+    // the actual input content changes, even when every check result is identical.
+    if (job.prev?.hash === hash && job.prev?.content_hash === job.content_hash) continue
+    const recorded = await client.query(`update public.local_jobs
+      set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('inspect', $2::jsonb),
+          active = case when $3::boolean then active else false end
+      where id = $1 and public.job_inspect_content_hash(local_jobs) = $4
+      returning id`,
+      [job.id, JSON.stringify({ version: VERSION, hash, content_hash: job.content_hash, ok: r.ok, checked_at: new Date().toISOString(), items: r.items }), r.ok, job.content_hash])
+    if (recorded.rowCount !== 1) {
+      console.warn(`#${job.id} 검사 중 공고 내용 변경: 다음 실행에서 재검사`)
+      continue
+    }
     // 관리자가 숨긴 공고는 알림하지 않는다(Lee가 이미 뺀 공고)
     if (!job.admin_hidden) reports.push(inspectReport({ id: job.id, title: job.title }, r))
     console.log(`#${job.id} ${r.ok ? '통과' : '문제 ' + r.items.filter((i) => !i.ok).length + '개'}`)
