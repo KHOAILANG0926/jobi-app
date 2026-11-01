@@ -42,7 +42,7 @@ import assert from 'node:assert/strict'
 const baseline = [
   {
     "path": "src/pages/HomeDesktop.tsx",
-    "sha256": "524ab067897a6544c64dd67119d517d1756f159c8274633cb6555811c1f5a0f6",
+    "sha256": "2e7e8b6b0427498001bf0e95a5ebb57c1b414c17ef863882ce7de463dc6bf25f",
     "restore": [
       [
         "../components/home/DesktopHomeMapExplorer",
@@ -57,7 +57,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "0861342c2223ab20d655ade90daae4876d4824d9b928dc4b244df5f6b2909eb4",
+    "sha256": "4ab250005407b0b03ac745a35df52738abbc39617c9ec2d185db33757be0a5ae",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -67,7 +67,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapCanvas.tsx",
-    "sha256": "19252de1cbec30c310fee38f856354bede6fc0f2767a8ee5090ddd432ad3563e",
+    "sha256": "3a5f55476b9df0ab17c71d281af42e4dfd159a9c017a1c02a15adeabca65d7ef",
     "restore": [
       [
         "'./map/DesktopGeoapifyMapCanvas'",
