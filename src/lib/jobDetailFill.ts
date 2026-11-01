@@ -42,7 +42,7 @@ export const KIND_RULES: Array<{ id: string; re: RegExp; key: DetailTextKey; dec
 ]
 
 export interface FillSource { name: 'source_text' | 'ocr_text'; text: string | null | undefined }
-export interface FillContext { title?: string | null; company?: string | null; phones?: Array<string | null | undefined>; addresses?: Array<string | null | undefined> }
+export interface FillContext { title?: string | null; company?: string | null; contactName?: string | null; phones?: Array<string | null | undefined>; addresses?: Array<string | null | undefined> }
 export type FillHow = 'heading' | 'line' | 'kind_rule' | 'unclassified'
 export interface FillLine { line: string; key: DetailTextKey; how: FillHow; from: FillSource['name']; rule?: string }
 export interface FillResult { description: string; added: FillLine[]; unclassified: FillLine[]; stillMissing: string[] }
@@ -62,6 +62,14 @@ export function isCovered(line: string, targetLines: string[]): boolean {
   })
 }
 
+/** 전화번호와 연락 이름표(Hotline·Zalo·SĐT·Liên hệ)만 있는 줄인가. */
+export function phoneOnly(line: string, contactName?: string | null): boolean {
+  const name = new Set(fold(String(contactName ?? '')).split(/[^a-z]+/).filter(Boolean))
+  const rest = fold(line.replace(/[\d.\s+()-]{8,}/g, ' ')).split(/[^a-z]+/)
+    .filter((t) => t.length >= 2 && !/^(?:sdt|so|dt|hotline|zalo|lien|he|tel|phone|goi|call)$/.test(t) && !name.has(t))
+  return rest.length < 2
+}
+
 /** 원문 한 개를 줄마다 칸으로 나눈다(상세요강과 같은 소제목·줄 규칙 + Lee의 새 종류 규정). */
 export function classifySource(text: string | null | undefined, from: FillSource['name'], ctx: FillContext = {}): FillLine[] {
   const out: FillLine[] = []
@@ -79,7 +87,8 @@ export function classifySource(text: string | null | undefined, from: FillSource
     if (!s) continue
     if (titleBare && s === titleBare) continue                        // ② 제목 반복
     const d = digits(line)
-    if (phones.some((p) => d.includes(p))) continue                   // ③ 위에 있는 전화
+    // ③ 위에 있는 전화: 번호·이름표만 있는 줄만 뺀다. "Ibox hoặc liên hệ Mr …: 09…"처럼 지원 방법이 있으면 남긴다(2026-11-01 #5157).
+    if (phones.some((p) => d.includes(p)) && phoneOnly(line, ctx.contactName)) continue
     if (addresses.some((a) => a === s || a.startsWith(s) || s.startsWith(a))) continue // ③ 위에 있는 근무지 주소
     if (companyBare && (s === companyBare || s === `cty ${companyBare}` || s === `cong ty ${companyBare}`)) continue // ③ 위에 있는 회사명
     const rule = KIND_RULES.find((r) => r.re.test(s))

@@ -1,4 +1,4 @@
-import { fillMissingLines, isCovered, FILL_HEADINGS, KIND_RULES } from './jobDetailFill.ts'
+import { classifySource, fillMissingLines, isCovered, FILL_HEADINGS, KIND_RULES } from './jobDetailFill.ts'
 import { detailSections, headingOf } from './jobDetailSections.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const show = (r: ReturnType<typeof fillMissingLines>) => r.added.map((a) => `${a.key} ${a.how} | ${a.line}`)
@@ -31,7 +31,7 @@ assert(again.added.length === 0 && again.description === my.description, '이미
 
 const kDesc = `Công việc\n- Làm ngồi linh kiện tai nghe.\n\nYêu cầu\n- Tuyển nam, nữ (14-50 tuổi).\n\nLương và phúc lợi\n- Ca ngày: 310k/11h.\n- Ca đêm: 360k/11h.\n- Chuyên cần: 50k/tuần.\n- Lương tính và thanh toán theo ngày.\n- Có xe đưa đón.\n- Được mang điện thoại vào xưởng.\n\nĐịa điểm làm việc\n- KCN Yên Phong, Bắc Ninh.\n\nLiên hệ\n- NGOC ANH DUONG: 0877 880 756`
 const kSrc=`Liên hệ 08.778.807.56 ( NGOC ANH DUONG)\n\nKCN YÊN PHONG\nCTY KDA\nTUYỂN FULL\nNAM , NỮ (14-50t)\nLàm ngồi linh kiện tai nghe\nMỨC LƯƠNG\nCa ngày: 310k/11h\nCa đếm: 360k/11h\nChuyên cần 50k/tuần\nLương tính và thanh toán theo ngày\nCó xe đưa đón\nĐược mang điện thoại vào xưởng\nThu nhập ổn định\nCông việc lâu dài!\nMôi trường sạch sẽ\n- Quy trình rõ ràng\n- Công việc ổn định\nNhanh tay ứng tuyển để có công việc tốt nhé!\nLiên hệ: 0877 880 756`
-const kda = fillMissingLines(kDesc, [{ name: 'source_text', text: kSrc }], { title: 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', company: 'KDA', phones: ['0877880756'], addresses: ['KCN Yên Phong, Bắc Ninh', 'KCN YÊN PHONG'] })
+const kda = fillMissingLines(kDesc, [{ name: 'source_text', text: kSrc }], { title: 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', company: 'KDA', contactName: 'NGOC ANH DUONG', phones: ['0877880756'], addresses: ['KCN Yên Phong, Bắc Ninh', 'KCN YÊN PHONG'] })
 const kdaWant = [
   '07 kind_rule | TUYỂN FULL',
   '07 kind_rule | Thu nhập ổn định',
@@ -56,4 +56,9 @@ assert(fillMissingLines('x', [{ name: 'ocr_text', text: 'Lương [?] tháng\nG�
 assert(my.unclassified.length === 0 && kda.unclassified.length === 0, '두루뭉술한 문구는 묻지 않고 기타란(Lee 10-20)')
 // 구체적인 내용이 있는 줄은 두루뭉술한 문구 규정에 걸리지 않는다
 assert(!KIND_RULES.some((r) => r.re.test('khong cua tu, moi truong lam viec thoai mai')), 'Không cửa từ…는 규정 대상 아님')
+// 2026-11-01 #5157: 전화번호가 있어도 지원 방법 낱말이 있는 줄은 남긴다. 번호·담당자 이름만 있는 줄은 위쪽 연락 버튼에 보이므로 뺀다.
+{
+  const h = classifySource('Cách nộp hồ sơ:\nIbox hoặc liên hệ Mr Tuấn Minh: 0365102703\nHotline: 0365.102.703\nTuấn Minh 0365102703', 'source_text', { phones: ['0365102703'], contactName: 'Tuấn Minh' })
+  assert(JSON.stringify(h.map((x) => x.line)) === JSON.stringify(['Ibox hoặc liên hệ Mr Tuấn Minh: 0365102703']), '#5157 지원 방법 줄 유지: ' + JSON.stringify(h.map((x) => x.line)))
+}
 console.log('jobDetailFill.test.ts: 정답표 #4824·#4828 + 글자 그대로·중복 방지 검사 통과')

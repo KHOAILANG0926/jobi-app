@@ -20,7 +20,7 @@ const reports = []
 try {
   const { rows } = await client.query(`
     select public.job_inspect_content_hash(j) as content_hash, coalesce((j.ocr_check->>'inspect_hold')::boolean, false) as hold,
-           j.application_deadline, j.id, j.title, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
+           j.application_deadline, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
            j.category, j.occupation_code, j.active, j.admin_hidden, j.shuttle_bus, j.dormitory, j.meal_provided,
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,
            coalesce(jsonb_array_length(case when jsonb_typeof(j.images) = 'array' then j.images end), 0) as image_count,
@@ -36,7 +36,7 @@ try {
     order by j.id`)
   for (const job of rows) {
     const input = {
-      id: Number(job.id), title: job.title, salary: job.salary, description: job.description, source_text: job.source_text,
+      id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,
       phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses],
       values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
       valueGroups: [[job.hours, job.work_days]],

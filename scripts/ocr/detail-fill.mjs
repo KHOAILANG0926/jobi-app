@@ -30,7 +30,7 @@ const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') ||
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select j.id, j.title, j.company, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
+    select j.id, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block,
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
@@ -51,7 +51,7 @@ try {
         }
       }
       const current = String(job.description ?? '')
-      const ctx = { title: job.title, company: job.company, salary: job.salary,
+      const ctx = { title: job.title, company: job.company, contactName: job.contact_name, salary: job.salary,
         // Preserve the explicit reviewed notice on rebuild. Never infer factory status from VSIP/KCN.
         dutiesUnspecified: current.split(/\r?\n/).some(line => line.trim() === UNSPECIFIED_DUTIES_NOTICE),
         values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
