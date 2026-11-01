@@ -3,7 +3,12 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer, { type MapSummaryResult } from '../components/home/DesktopHomeMapExplorer'
 import MapSummaryResults from '../components/home/MapSummaryResults'
-import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
+import { selectFeaturedJobs } from '../components/FeaturedJobsSection'
+import HomeSectionGrid from '../components/home/HomeSectionGrid'
+import { homeSections } from '../lib/homeSections'
+import { useBrands } from '../context/BrandsContext'
+
+const HOME_SECTION_TITLES = { special: 'Việc làm đặc biệt', featured: 'Việc làm nổi bật', brand: 'Thương hiệu tuyển dụng' } as const
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
 import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
@@ -261,10 +266,12 @@ export function Home() {
   const filtered = conditionMatches.length ? conditionMatches : available
 
 
-  const { featured, remaining } = useMemo(
-    // 2026-10-29 Lee: PC는 추천 4칸 한 줄(화살표 없음), 나머지는 아래 전체 결과에 4칸씩. 모바일은 그대로.
+  const { remaining } = useMemo(
+    // 2026-10-29 Lee: PC는 추천 4칸 한 줄 → 2026-11-01 Lee: 칸 나누기(homeSections)로 바뀜. remaining은 도시 결과에서만 씀.
     () => partitionMainCards(filtered, selectFeaturedJobs(filtered).slice(0, 4)), [filtered],
   )
+  const { brands } = useBrands()
+  const sections = useMemo(() => homeSections(filtered, brands), [filtered, brands])
   const urgentJobs = useMemo(() => remaining.filter(j => j.urgent), [remaining])
   const regularJobs = useMemo(() => remaining.filter(j => !j.urgent), [remaining])
 
@@ -357,13 +364,15 @@ export function Home() {
 
       <HomeJobFilters count={conditionMatches.length} loading={loading} />
 
-      <FeaturedJobsSection
-        jobs={featured}
-        isApplied={isApplied}
-        onApply={handleApply}
-        isSaved={(id) => savedIds.has(id)}
-        onToggleSave={handleToggleSave}
-      />
+      {/* 2026-11-01 Lee: 알바몬처럼 칸을 나눔 — ① 특별한 알바 ② 주목받는 알바 ③ 브랜드 알바 ④ 전체(아래). 규칙: src/lib/homeSections.ts */}
+      {!mapCategorySelected && !selectedCity && (
+        <section className="home-sections" ref={jobResultRef}>
+          {(['special', 'featured', 'brand'] as const).map((key) => (
+            <HomeSectionGrid key={key} id={key} title={HOME_SECTION_TITLES[key]} jobs={sections[key]}
+              isApplied={isApplied} onApply={handleApply} isSaved={(id) => savedIds.has(id)} onToggleSave={handleToggleSave} />
+          ))}
+        </section>
+      )}
 
       {/* ── City filtered results ──────────────────────────────── */}
       {!mapCategorySelected && selectedCity && (() => {
@@ -416,36 +425,19 @@ export function Home() {
         )
       })()}
 
-      {/* ── Job listings: 전체 결과 (기존 방식 그대로) ─────────────── */}
-      {!mapCategorySelected && !selectedCity && (
-        <section className="home-section" ref={jobResultRef}>
+      {/* ── 결과 없음 안내(공고 0건·필터 0건). 공고가 있으면 위 칸들(①②③)이 전부 보여 준다 —
+           한 공고는 한 칸에만 나온다(test-jobcard-integrity: 같은 공고 두 번 금지). ── */}
+      {!mapCategorySelected && !selectedCity && (jobs.length === 0 || filtered.length === 0) && (
+        <section className="home-section">
           <h2 className="home-section__title">Tất cả kết quả</h2>
           {jobs.length === 0 ? (
             <NoPublicJobs />
-          ) : filtered.length === 0 ? (
-            // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 아무것도
-            // 렌더링되지 않던 결함 수정 — 안내 문구 없이 섹션 전체가 사라져서
-            // "로딩이 안 되나?" 오인을 유발했다(실측 확인: ?cat=cafe, ?brand=...).
+          ) : (
+            // 필터(ngành/thương hiệu/khu vực/...) 결과가 0건일 때 안내 문구(실측 확인: ?cat=cafe, ?brand=...).
             <div className="city-result__empty">
               <span>🔍</span>
               <p>Không tìm thấy việc làm phù hợp với bộ lọc hiện tại.</p>
               <NavLink to="/">← Xem tất cả việc làm</NavLink>
-            </div>
-          ) : remaining.length === 0 ? (
-            <p className="home-list-note">Các việc làm hiện có được hiển thị trong mục Việc làm nổi bật phía trên.</p>
-          ) : (
-            <div className="home-jobs-grid">
-              {remaining.map((job) => (
-                <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
-                  <JobCard
-                    job={job}
-                    isApplied={isApplied(job.id)}
-                    onApply={handleApply}
-                    isSaved={savedIds.has(job.id)}
-                    onToggleSave={handleToggleSave}
-                  />
-                </NavLink>
-              ))}
             </div>
           )}
         </section>
