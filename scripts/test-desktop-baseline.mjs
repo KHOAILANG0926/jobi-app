@@ -1,3 +1,4 @@
+// 2026-11-01: index.css — Lee "수평 전개": 급여 표시 한 곳(SalaryText) 색 규칙 추가. PC 틀 변경 없음.
 // 2026-11-01: JobDetail.tsx — Lee 지시(브랜드 로고 수평 전개): 등록 브랜드 공고는 로고 자리에 브랜드 공식 사이트 아이콘. 틀 변경 없음.
 // 2026-11-01: 기준값 갱신 — master가 이미 달랐음(이 검사는 모바일 홈 파일 PR에서만 돌아 못 잡음): LayoutDesktop.tsx(#403 브랜드 로고 흰 바탕), JobDetail.tsx(#397 오토바이가 핀을 따라감), HomeDesktop·DesktopHomeMap*(이미 병합된 PR). index.css는 이번 PR(#407 Lee 적용: 공고 카드 급여 한 줄·단위 색, 모바일 목록 같은 규칙) 포함. PC 틀 변경은 카드 급여 줄 글자·색뿐.
 // 2026-10-30: JobDetail.tsx — Lee 적용: 상단 복리후생 아이콘 7종 움직임(있는 것만, 칸 PC 52px·휴대폰 44px).
@@ -58,7 +59,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "4ab250005407b0b03ac745a35df52738abbc39617c9ec2d185db33757be0a5ae",
+    "sha256": "a779d83107ea533caded89a47fd955c601b5e651ad958dd4674afb0092f97444",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -90,7 +91,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "cb1b64fa201f72c0ce83e91d3498e926ba2fa9cc3facbdfed28395edcd2618fe",
+    "sha256": "0d0eb20f6180003d562f0ccaf73183189411cecd962d930f34bee8bd59990084",
     "restore": []
   },
   {

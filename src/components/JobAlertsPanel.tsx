@@ -1,3 +1,4 @@
+import SalaryText from './SalaryText'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useJobs } from '../context/JobsContext'
@@ -423,7 +424,7 @@ function JobLine({ jobId, job, children }: { jobId: number; job?: Job; children?
     <li className="ja-job">
       <Link to={`/viec-lam/${appId}`} className="ja-job__link">
         <span className="ja-job__title">{job?.title ?? `Tin tuyển dụng #${jobId}`}</span>
-        {job && <span className="ja-job__meta">{job.company} · {job.salary} · {job.location}</span>}
+        {job && <span className="ja-job__meta">{job.company} · <SalaryText job={job} /> · {job.location}</span>}
       </Link>
       {children}
     </li>

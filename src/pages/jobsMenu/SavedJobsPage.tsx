@@ -1,3 +1,4 @@
+import SalaryText from '../../components/SalaryText'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import JobsListToolbar from '../../components/JobsListToolbar'
@@ -149,6 +150,8 @@ export default function SavedJobsPage() {
           title: job.title,
           company: job.company,
           salary: job.salary,
+          salaryPeriod: job.salaryPeriod,
+          description: job.description,
           hours: job.hours,
           dateLabel: isOpen ? formatShortDate(job.postedAt) : `Hạn nộp: ${formatDeadlineVi(job.applicationDeadline)}`,
         },
@@ -299,7 +302,7 @@ export default function SavedJobsPage() {
                     <Link to={tableRow.href} className="saved-list__link">
                       <span className="saved-list__title">{tableRow.title}</span>
                       <span className="saved-list__meta">{tableRow.company} · {tableRow.region}</span>
-                      <span className="saved-list__meta">{tableRow.salary || tableRow.dateLabel}</span>
+                      <span className="saved-list__meta">{tableRow.salary ? <SalaryText job={{ salary: tableRow.salary, salaryPeriod: tableRow.salaryPeriod, description: tableRow.description }} /> : tableRow.dateLabel}</span>
                     </Link>
                   ) : (
                     <span className="saved-list__link">

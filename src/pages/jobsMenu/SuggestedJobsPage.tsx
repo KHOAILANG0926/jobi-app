@@ -13,6 +13,7 @@ import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFil
 import { hasPrefs, loadPrefs } from '../../lib/recommendStorage'
 import { loadSavedJobIds } from '../../lib/storage'
 import type { Job, JobCategory } from '../../types/job'
+import SalaryText from '../../components/SalaryText'
 
 function formatShortDate(iso: string | undefined) {
   if (!iso) return undefined
@@ -181,6 +182,8 @@ export default function SuggestedJobsPage() {
                 title: job.title,
                 company: job.company,
                 salary: job.salary,
+                salaryPeriod: job.salaryPeriod,
+                description: job.description,
                 hours: job.hours,
                 dateLabel: formatShortDate(job.postedAt),
                 badge: reasons[0],
@@ -205,7 +208,7 @@ export default function SuggestedJobsPage() {
                   <Link to={`/viec-lam/${job.id}`} className="rec-card__link">
                     <p className="rec-card__title">{job.title}</p>
                     <p className="rec-card__company">{job.company}</p>
-                    <p className="rec-card__salary">{job.salary}</p>
+                    <p className="rec-card__salary"><SalaryText job={job} /></p>
                     <p className="rec-card__location">📍 {job.location}</p>
                   </Link>
                   <div className="rec-card__actions">

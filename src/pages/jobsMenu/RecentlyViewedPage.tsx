@@ -84,6 +84,8 @@ export default function RecentlyViewedPage() {
               title: job.title,
               company: job.company,
               salary: job.salary,
+              salaryPeriod: job.salaryPeriod,
+              description: job.description,
               hours: job.hours,
               dateLabel: `Đã xem: ${formatViewedAt(entry.viewedAt)}`,
             }

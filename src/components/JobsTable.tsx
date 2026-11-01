@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
+import SalaryText from './SalaryText'
 
 // 2026-09-20 사용자 지시(알바몬 "찜한 공고함" 캡처 — "이렇게 표기해줘",
 // "스타일은 알바몬하고 최대한 동일하게") — UrgentJobsPage.tsx가 이미 쓰고
@@ -16,6 +17,9 @@ export interface JobsTableRow {
   title: string
   company?: string
   salary?: string
+  /** 2026-11-01 급여 표시 한 곳(SalaryText)용 — 지급 단위·직무별 급여 판단. */
+  salaryPeriod?: import('../types/job').Job['salaryPeriod']
+  description?: string
   hours?: string
   /** 이미 포맷된 날짜 문자열 — 페이지마다 의미가 달라서("등록일" vs "đã xem
    *  lúc") 호출 쪽에서 직접 포맷해 넘긴다. */
@@ -96,7 +100,7 @@ export default function JobsTable({
                 )}
                 {row.company && <p className="jm-urgent-table__company">{row.company}</p>}
               </td>
-              <td className="jm-urgent-table__salary">{row.salary || '—'}</td>
+              <td className="jm-urgent-table__salary"><SalaryText job={{ salary: row.salary ?? '', salaryPeriod: row.salaryPeriod, description: row.description }} /></td>
               <td>{row.hours || '—'}</td>
               <td>
                 {row.dateLabel || '—'}

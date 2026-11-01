@@ -12446,3 +12446,11 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .discovery-job__salary .pay-amount { color: #4b5563; }
 .discovery-job__salary .pay-none { color: #9ca3af; }
 .discovery-job__company { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 2026-11-01 Lee "수평 전개": 급여 표시 한 곳(SalaryText) — 모든 화면 같은 색 */
+.pay .pay-label { font-weight: 600; }
+.pay .pay-label--month { color: #e53935; }
+.pay .pay-label--hour, .pay .pay-label--year { color: #1a73e8; }
+.pay .pay-label--day { color: #7c3aed; }
+.pay .pay-amount { color: #4b5563; font-weight: 500; }
+.pay .pay-none { color: #9ca3af; font-weight: 400; }

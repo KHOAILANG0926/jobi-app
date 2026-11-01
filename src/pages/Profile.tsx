@@ -1,3 +1,4 @@
+import SalaryText from '../components/SalaryText'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { CvBuilder } from '../components/CvBuilder'
@@ -491,7 +492,7 @@ export function Profile() {
                   <Link to={`/viec-lam/${job.id}`} className="saved-list__link">
                     <span className="saved-list__title">{job.title}</span>
                     <span className="saved-list__meta">{job.company} · {job.location}</span>
-                    <span className="saved-list__meta">{job.salary}</span>
+                    <span className="saved-list__meta"><SalaryText job={job} /></span>
                   </Link>
                   <button
                     type="button"
