@@ -2,10 +2,15 @@ import type { DetailSection, DetailTextKey } from './jobDetailSections.ts'
 
 export interface RoleGroup { role?: string; lines: string[] }
 export interface RoleSection { key: DetailTextKey; label: string; groups: RoleGroup[] }
+/** 직무 제목 줄: "CÔ RỬA BÁT FULL TIME"(끝에 full/part time) 또는 "1. FULL-TIME CA TỐI: 02 NHÂN VIÊN"(번호 + full/part time으로 시작, #5247 Wallace 2026-11-01). */
+export function isRoleHeading(line: string): boolean {
+  const t = line.trim()
+  return /^.+\s+(?:full|part)[ -]?time$/i.test(t) || /^\d+[.)]\s*(?:full|part)[ -]?time\b.{0,60}$/i.test(t)
+}
 export function splitRoleLine(line: string): { role?: string; line: string } {
-  const match=line.match(/^(.+\s+(?:full|part)[ -]?time)\s+—\s+(.*)$/i)
-  if (match) return { role:match[1],line:match[2] }
-  return /^.+\s+(?:full|part)[ -]?time$/i.test(line) ? {role:line,line:''} : {line}
+  const at=line.indexOf(' — ')
+  if (at>0 && isRoleHeading(line.slice(0,at))) return { role:line.slice(0,at),line:line.slice(at+3) }
+  return isRoleHeading(line) ? {role:line,line:''} : {line}
 }
 const continuation=(line:string)=>/^\+\s*(?:thưởng|thuong|tip)\b/i.test(line)
 
@@ -48,14 +53,14 @@ export function roleScopedMeals(description: string | null | undefined): string[
 export interface RoleConditionSummary {
   roleCount:number; salary:string; hours:string; workPeriod:string; workDays:string; numHires:string; mealBenefit?:string
 }
-export const shortRole=(role:string)=>role.replace(/\s+(?:full|part)[ -]?time$/i,'').replace(/^(?:cô\s+|nhân viên\s+(?:nam\s*\/\s*nữ\s+)?)/iu,'').toLocaleLowerCase('vi')
+export const shortRole=(role:string)=>role.replace(/^\d+[.)]\s*/,'').replace(/\s*:\s*\d+\s*nhân viên$/iu,'').replace(/\s+(?:full|part)[ -]?time$/i,'').replace(/^(?:cô\s+|nhân viên\s+(?:nam\s*\/\s*nữ\s+)?)/iu,'').toLocaleLowerCase('vi')
 export const capitalize=(text:string)=>text.charAt(0).toLocaleUpperCase('vi')+text.slice(1)
 /** Values approved by Lee, derived from role-labelled text rather than a job ID. */
 export function roleConditionSummary(description:string|null|undefined):RoleConditionSummary|null {
   const records=String(description??'').split(/\r?\n/).map(splitRoleLine)
   const roles=[...new Set(records.map(r=>r.role).filter((r):r is string=>!!r))]
   if (roles.length<2) return null
-  const kinds=[...new Set(roles.map(role=>/full[ -]?time$/i.test(role)?'Full time':'Part time'))]
+  const kinds=[...new Set(roles.map(role=>/full[ -]?time/i.test(role)?'Full time':'Part time'))]
   const days=roles.map(role=> {
     const day=records.filter(r=>r.role===role).map(r=>r.line).join('\n').match(/Tháng nghỉ\s+(\d+)\s+ngày/iu)
     return `${shortRole(role)}: ${day?`nghỉ ${day[1]} ngày/tháng`:'chưa nêu'}`

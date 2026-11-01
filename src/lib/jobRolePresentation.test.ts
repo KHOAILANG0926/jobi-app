@@ -40,3 +40,13 @@ assert(roleConditionSummary('Công việc\nLàm linh kiện tai nghe')===null, '
 assert(roleScopedMeals('BẾP FULL TIME\nSẢNH PART TIME\nBẾP FULL TIME — Không bao ăn').length===0, 'negated role meals must not become a benefit promise')
 const noWageContinuation=cleanSourceText('Tháng nghỉ 4 ngày\n+ thưởng + tip').text
 assert(noWageContinuation==='Tháng nghỉ 4 ngày\n+ thưởng + tip', 'continuation cannot attach to a non-wage condition just because it has a number')
+
+// 2026-11-01 #5247 Wallace: "1. FULL-TIME CA TỐI: 02 NHÂN VIÊN" 형식도 직무 제목 — 메인 카드 직무별 급여
+import { isRoleHeading as _isRole, roleSalaryLines as _rsl } from './jobRolePresentation.ts'
+if (!_isRole('1. FULL-TIME CA TỐI: 02 NHÂN VIÊN') || !_isRole('CÔ RỬA BÁT FULL TIME') || _isRole('• Nhân viên Bán hàng (Sales)  Fulltime- partime') || _isRole('Lương part-time 25k/giờ')) throw new Error('role heading forms')
+{
+  const d = 'Thu nhập\n1. FULL-TIME CA TỐI: 02 NHÂN VIÊN — Mức lương: 34K – 36K – 38K/giờ\n2. PART-TIME CA TỐI: 08 NHÂN VIÊN — Mức lương: 25K – 27K/giờ'
+  const got = JSON.stringify(_rsl(d))
+  if (got !== JSON.stringify(['Full-time ca tối: 34K – 36K – 38K/giờ', 'Part-time ca tối: 25K – 27K/giờ'])) throw new Error('#5247 card lines ' + got)
+}
+console.log('jobRolePresentation #5247 numbered role headings passed')

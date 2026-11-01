@@ -9,6 +9,7 @@ import { cleanSourceText, sameLine, timeRanges } from './jobDescriptionBuild.ts'
 import { headingOf } from './jobDetailSections.ts'
 import { isCovered } from './jobDetailFill.ts'
 import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
+import { cardSalary } from './mainJobCards.ts'
 
 export interface InspectInput extends ShownAbove {
   id: number
@@ -34,7 +35,7 @@ export interface InspectInput extends ShownAbove {
 }
 /** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
 export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
-  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'public', 'hours_review'] as const
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review'] as const
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
@@ -133,6 +134,9 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 16. 회사명이 항목 이름표("Vị trí", "Địa điểm" …)가 아닌가 — 2026-11-01 #5231 "Vị trí tuyển dụng:"의 "Vị trí"를 회사명으로 잡음
   const companyLabel = /^(?:vi tri|dia diem|muc luong|thoi gian|yeu cau|lien he|quyen loi|bang tin)$/.test(bare(String(j.company ?? '')))
   add('company', '회사명 정상', !companyLabel, companyLabel ? `회사명이 항목 이름표: ${j.company}` : undefined)
+  // 2026-11-01 #5231·#5247: 공개돼도 메인 화면 카드가 급여를 못 읽으면 목록에서 빠진다 → 검사에서 잡는다(공개는 막지 않고 알림만 — REVIEW_ONLY: 지도·검색에는 보이므로).
+  const card = !!cardSalary({ salary: j.salary ?? '', salaryPeriod: null, description: j.description ?? '' } as never)
+  add('card', '메인 화면 카드에 보임', card, card ? undefined : `메인 카드가 급여를 못 읽음: ${j.salary}`)
   // 11. 공개 상태
   add('public', '공개됨', !!j.active && !j.admin_hidden, j.admin_hidden ? '관리자가 숨김' : !j.active ? '비공개' : undefined)
 
@@ -150,7 +154,7 @@ export function inspectJob(j: InspectInput): InspectResult {
  *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
  */
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
-export const REVIEW_ONLY = ['hours_review']
+export const REVIEW_ONLY = ['hours_review', 'card']
 
 export function publishDecision(
   r: InspectResult,

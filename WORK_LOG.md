@@ -1,3 +1,7 @@
+## 2026-11-01 — 메인 목록에서 빠진 공고(#5231·#5247) (Claude)
+- 원인 [직접 확인]: 메인 카드가 급여 금액을 못 읽으면 목록에서 뺌. #5231 "VNĐ" 단위 미인식, #5247 "1. FULL-TIME CA TỐI: 02 NHÂN VIÊN" 직무 제목 미인식(급여가 직무별로 안 묶임). 검사는 메인 카드 노출을 안 봄.
+- 변경: mainJobCards 금액 단위 VNĐ, jobRolePresentation.isRoleHeading(번호+full/part-time 제목, 한 곳) — 상세 묶음·카드 직무 급여 공용, 직무 묶음은 "Yêu cầu"에서 끝남. 검사 항목 card(메인 카드에 보임, 알림만).
+
 ## 2026-11-01 — 업종으로 큰 분류(서비스업) (Claude)
 - 요청: Lee "업체 이름으로 어떤 일인지 큰 틀에서 볼 수 있잖아 / 서비스업이라고 쓰면 어때?" (#5247 Wallace — 원문에 업무 없음, 웹 검색 결과 닭튀김 체인 9호점 216 Nguyễn Trãi).
 - 변경: src/lib/businessType.ts + scripts/ocr/business-type.mjs(이름 → 검색 인용문 이름+번지 일치 → 아니면 보류), 코드 5, 근거=원문 업체 이름, 업무 칸 "Nhân viên cửa hàng"(jobDescriptionBuild dutyLine). 처리 순서에 추가(AI 다음, 상세 다시 채우기 전). CLAUDE.md 직업분류 절에 Lee 예외 기록. DB 변경 없음(R8은 근거가 원문 안에 있으면 통과).

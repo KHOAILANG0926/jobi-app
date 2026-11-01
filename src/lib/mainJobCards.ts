@@ -19,7 +19,8 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'> & Partial<P
     return { label: 'Lương', text: roleLines.join(' · '), lines }
   }
   const text = (job.salary || '').trim()
-  const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vnd\b|đ|usd\b)|\$\s*\d)/iu
+  // 2026-11-01 #5231: "25.000 VNĐ/giờ"의 VNĐ도 돈 단위(전에는 vnd만 알아봐 메인 목록에서 빠짐).
+  const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vn[dđ](?!\p{L})|đ|usd\b)|\$\s*\d)/iu
   if (!amount.test(text)) return null
   const clauses = text.split(/\s*[,;|\n]\s*/).filter(clause => amount.test(clause)
     && !/chuyên cần|chuyen can|phụ cấp|phu cap|thưởng|thuong/iu.test(clause))

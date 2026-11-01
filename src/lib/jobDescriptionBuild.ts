@@ -14,6 +14,7 @@
 import { bare, fold, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
 import { lineKey } from './aiClassifyGuard.ts'
 import { classifySource, isCovered, FILL_HEADINGS, type FillContext, type FillLine, type FillSource } from './jobDetailFill.ts'
+import { isRoleHeading } from './jobRolePresentation.ts'
 
 const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
 
@@ -116,13 +117,13 @@ export function shiftOnlyLine(line: string): boolean {
  * Labels annotate presentation; the original item.line and source_text stay unchanged. */
 function roleBlocks(text: string): Array<{ role?: string; text: string }> {
   const rows = text.split('\n')
-  const isRole = (line: string) => /^.+\s+(?:full|part)[ -]?time$/i.test(line)
+  const isRole = isRoleHeading
   if (rows.filter(isRole).length < 2) return [{ text }]
   const blocks: Array<{ role?: string; text: string }> = []
   let role: string | undefined
   for (const line of rows) {
     if (isRole(line)) role = line
-    else if (/^(?:quyen loi|phuc loi|lien he|dia chi)\s*:?$/i.test(bare(line))) role = undefined
+    else if (/^(?:quyen loi|phuc loi|lien he|dia chi|yeu cau|mo ta cong viec)\s*:?$/i.test(bare(line))) role = undefined
     const last = blocks[blocks.length - 1]
     if (last && last.role === role) last.text += '\n' + line
     else blocks.push({ role, text: line })

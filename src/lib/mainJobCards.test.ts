@@ -40,3 +40,8 @@ const multi = job('sb-4982', 'Theo vị trí — xem chi tiết', { description:
 assert.deepEqual(cardSalary(multi)?.lines, ['Rửa bát: Lương thỏa thuận + thưởng', 'Chạy bàn: 30k-35k/ 1h'], 'multi-role card salary lines')
 assert.equal(mainCardJobs([multi]).length, 1, 'multi-role job stays on main')
 assert.equal(mainCardJobs([job('x', 'Theo vị trí — xem chi tiết')]).length, 0, 'no salary anywhere stays off main')
+
+// 2026-11-01 #5231: "VNĐ"도 돈 단위 — 전에는 메인 목록에서 빠짐
+import { cardSalary as _cs } from './mainJobCards.ts'
+if (_cs({ salary: '23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)', salaryPeriod: 'hour' } as never)?.text !== '23.000 – 25.000 VNĐ/giờ (xét tăng theo năng lực)') throw new Error('#5231 VNĐ card')
+console.log('mainJobCards #5231 VNĐ passed')
