@@ -1,3 +1,8 @@
+## 2026-11-01 저녁 — 확인된 체인 브랜드 3개 등록 (Claude)
+- 요청: Lee "진행하자"(브랜드: 공식 출처 지점 3곳 이상 + 매장 일치).
+- [직접 확인] Highlands 1,000호점(tapchicongthuong 2026-06-12), Trung Nguyên Legend 22(중국)+5(미국)(VCCI), Wallace 공식 페이지 24개 지점(gà rán·hamburger). Wallace 공식 페이지는 CS9 "219 Nguyễn Trãi", 공고·foody는 216 — 1번지 차이 기록.
+- 변경: migration 20261101210000(job_brands 확인 칸 4개 + 브랜드 3개·별칭), production check, CI 단계. 기존 13개 브랜드 불변.
+
 ## 2026-11-01 저녁 — 확인된 음식점이 "Vệ sinh / Giúp việc" 메뉴에 나오던 문제 (Claude)
 - 원인 [직접 확인]: 코드 5 → category dich_vu → 메뉴 "Vệ sinh / Giúp việc"(cat=dich_vu). #5247 Wallace(닭튀김).
 - 변경: businessType.ts 업종 종류 kind(fnb·retail·service, 이름 낱말 또는 검색 답) 기록, business-type.mjs가 kind 없는 코드 5 공고 재확인(web-v4). DB migration 20261101200000: category_for_job(code, ocr_check) — 코드 5만 fnb→am_thuc_do_uong, retail→quan_ly_ban_hang. 직업 코드·근거·공개 변경 없음. 로컬 PostgreSQL CI 스크립트·시험 통과. 운영 적용은 Lee 확인 후.
