@@ -222,6 +222,34 @@ try {
     failures.push(...checkInvariants(href, d, truth))
   }
 
+  // 2026-11-01 Lee: 지도를 옮겨도 오토바이가 핀(목적지)을 찾아가야 한다 — 끝점 = 핀 끝, 지도를 끈 뒤에도 같음.
+  const bikeEnd = () => page.evaluate(() => {
+    const bike = document.querySelector('.jd2-ride-bike'), host = bike?.parentElement
+    const map = host?.querySelector('.jd2-map-tap'), pin = map?.querySelector('.hme-map__job-marker')
+    if (!bike || !host || !map || !pin) return null
+    const h = host.getBoundingClientRect(), p = pin.getBoundingClientRect(), m = map.getBoundingClientRect()
+    const nums = (getComputedStyle(bike).offsetPath || '').match(/-?\d+(?:\.\d+)?/g)
+    const inside = p.left + p.width / 2 >= m.left && p.left + p.width / 2 <= m.right && p.bottom >= m.top && p.bottom <= m.bottom
+    return { end: nums ? nums.slice(-2).map(Number) : null, pin: [p.left + p.width / 2 - h.left, p.bottom - h.top], inside, map: [m.left + m.width / 2, m.top + m.height / 2] }
+  })
+  const near = (b) => b.end && Math.abs(b.end[0] - b.pin[0]) <= 3 && Math.abs(b.end[1] - b.pin[1]) <= 3
+  let bikeChecked = false
+  for (const href of toCheck) {
+    await readJobDetail(page, href)
+    const before = await bikeEnd()
+    if (!before) continue
+    if (!near(before)) failures.push(`${href}: 오토바이 끝점 ${before.end} ≠ 핀 ${before.pin.map(Math.round)}`)
+    await page.mouse.move(before.map[0], before.map[1]); await page.mouse.down()
+    await page.mouse.move(before.map[0] + 120, before.map[1] + 40, { steps: 8 }); await page.mouse.up()
+    await page.waitForTimeout(600)
+    const after = await bikeEnd()
+    if (after?.inside && !near(after)) failures.push(`${href}: 지도를 옮긴 뒤 오토바이 끝점 ${after.end} ≠ 핀 ${after.pin.map(Math.round)}`)
+    console.log(`bike follows pin: ${href} before ${JSON.stringify(before.end)} after ${JSON.stringify(after?.end)} pin ${JSON.stringify(after?.pin.map(Math.round))}`)
+    bikeChecked = true
+    break
+  }
+  if (!bikeChecked) console.log('bike follows pin: 지도 핀이 그려진 상세 화면이 없어 건너뜀(지도 키 없음 등)')
+
   await page.close()
 
   console.log(JSON.stringify(results, null, 2))
