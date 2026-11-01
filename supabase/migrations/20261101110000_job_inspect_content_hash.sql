@@ -2,7 +2,7 @@
 create or replace function public.job_inspect_content_hash(j public.local_jobs) returns text
 language sql stable set search_path = pg_catalog, public as $$
   select md5(jsonb_build_object(
-    'title',j.title,'company',j.company,'salary',j.salary,
+    'title',j.title,'company',j.company,'salary',j.salary,'salary_min',j.salary_min,'salary_max',j.salary_max,'salary_period',j.salary_period,
     'description',j.description,'images',j.images,'source_text',j.source_text,
     'ocr_text',j.ocr_text,'location',j.location,
     'employer_phone',j.employer_phone,'contact_zalo',j.contact_zalo,
