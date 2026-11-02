@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-02 09:46 (VN)**
-- 기준 커밋: `3155d50` (docs(handoff): 2026-11-02 업종 사진 데모·Lee 결정 대기 3건 (#409))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41379392140
+- 생성 시각: **2026-11-03 06:34 (VN)**
+- 기준 커밋: `3db3590` (fix(db): R8 직업코드 1~5단계 허용 재적용 + 보충 작업의 옛 규칙 덮어쓰기 제거 (#414))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41546379927
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -27,7 +27,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `290461f` · 상태 **success** · 2026-11-01 23:36 (VN)
+- 마지막 Production 배포: `d97f1dc` · 상태 **success** · 2026-11-02 20:25 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -35,21 +35,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #414 | 2026-11-03 06:23 (VN) | `3db3590` | fix(db): R8 직업코드 1~5단계 허용 재적용 + 보충 작업의 옛 규칙 덮어쓰기 제거 |
+| #413 | 2026-11-02 22:25 (VN) | `e3272f6` | chore(rules): 규칙 자동 표시·커밋 전 검사 장치 (Lee 2026-11-02) |
+| #411 | 2026-11-02 20:51 (VN) | `e0b795f` | docs(handoff): 2026-11-02 저녁 — 모바일 데모·#5299 공개·공고 파일 기록 |
+| #410 | 2026-11-02 20:24 (VN) | `d97f1dc` | fix(rules): R8 보충 기존 공고 보호 + 꾸밈말 소제목 인식 (#5299) |
 | #409 | 2026-11-02 06:25 (VN) | `3155d50` | docs: HANDOFF·WORK_LOG 2026-11-02 (업종 사진 데모, Lee 결정 대기) |
 | #408 | 2026-11-01 23:35 (VN) | `290461f` | feat: 수평 전개 — 브랜드 로고·급여 표시 모든 화면 |
 | #407 | 2026-11-01 23:04 (VN) | `45021d7` | feat(card): 공고 카드 정리(급여 한 줄·단위 색·짧은 위치·제목 글자) |
 | #405 | 2026-11-01 21:22 (VN) | `edb9ac7` | fix(verify): 코드 5 가게의 메뉴 칸 검사 맞춤 |
 | #403 | 2026-11-01 21:15 (VN) | `7942c1f` | fix(brands): 로고를 흰 바탕에 크게 |
 | #402 | 2026-11-01 21:00 (VN) | `5f4a28f` | feat(brands): 확인된 브랜드 공식 로고(사이트 아이콘) |
-| #401 | 2026-11-01 20:47 (VN) | `5313424` | feat(brands): 확인된 체인 3개 등록(지점 3곳 이상·출처 기록) |
-| #400 | 2026-11-01 19:22 (VN) | `0267e18` | fix(category): 확인된 음식점·판매점을 맞는 메뉴 칸으로 |
-| #399 | 2026-11-01 18:47 (VN) | `cf55350` | docs(handoff): 메인 화면 구분 기준 확정 기록 |
-| #398 | 2026-11-01 18:38 (VN) | `d52a322` | docs(handoff): 2026-11-01 저녁 상태·메인 구분 결정 대기 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **8건** (전체 11건, 숨김·비활성 3건)
-- 출처별: muaban 2 · 출처 없음 3 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 공개 중: **9건** (전체 12건, 숨김·비활성 3건)
+- 출처별: muaban 2 · 출처 없음 4 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -64,6 +64,7 @@
 
 | 날짜 | 호출 | 마지막 갱신 |
 |---|---|---|
+| 2026-11-02 | 2 | 2026-11-02 19:32 (VN) |
 | 2026-11-01 | 4 | 2026-11-01 16:28 (VN) |
 | 2026-10-31 | 2 | 2026-10-31 16:18 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
@@ -72,16 +73,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-03 06:25 (VN) | location_candidate.approve | job 5311 |
+| 2026-11-03 06:25 (VN) | location_candidate.add | job 5311 |
+| 2026-11-02 22:26 (VN) | location_candidate.approve | job 5306 |
+| 2026-11-02 22:26 (VN) | location_candidate.add | job 5306 |
+| 2026-11-02 20:52 (VN) | location_candidate.approve | job 5304 |
+| 2026-11-02 20:52 (VN) | location_candidate.add | job 5304 |
+| 2026-11-02 20:25 (VN) | location_candidate.approve | job 5300 |
+| 2026-11-02 20:25 (VN) | location_candidate.add | job 5300 |
 | 2026-11-02 06:26 (VN) | location_candidate.approve | job 5297 |
 | 2026-11-02 06:26 (VN) | location_candidate.add | job 5297 |
-| 2026-11-01 23:36 (VN) | location_candidate.approve | job 5293 |
-| 2026-11-01 23:36 (VN) | location_candidate.add | job 5293 |
-| 2026-11-01 23:05 (VN) | location_candidate.approve | job 5291 |
-| 2026-11-01 23:05 (VN) | location_candidate.add | job 5291 |
-| 2026-11-01 21:23 (VN) | location_candidate.approve | job 5288 |
-| 2026-11-01 21:23 (VN) | location_candidate.add | job 5288 |
-| 2026-11-01 21:16 (VN) | location_candidate.approve | job 5285 |
-| 2026-11-01 21:16 (VN) | location_candidate.add | job 5285 |
 
 ## 8. 검증 장치 변경 이력
 
