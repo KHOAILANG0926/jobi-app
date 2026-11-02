@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
+import { mobileHomeSections } from '../../lib/mobileHomeSections'
 import { shortArea } from '../../lib/shortArea'
 import { cardCompany, cardTitle } from '../../lib/cardText'
 import { CompanyLogo } from '../JobCard'
@@ -40,22 +41,24 @@ function JobSummary({ job, logo = 'side' }: { job: Job; logo?: 'top' | 'side' })
   </NavLink>
 }
 
-function ThreeJobCarousel({ jobs }: { jobs: Job[] }) {
-  const pages = groupDiscoveryJobs(mainCardJobs(jobs), 6)
+// 2026-11-02 Lee: 모바일 칸은 모두 옆으로 넘긴다(아래로 끝없이 길어지지 않게, 알바몬 모바일 방식).
+// 카드형 칸 = 한 면 2열×3줄, 로고는 카드 위. 목록형 칸 = 한 면 5개, 로고는 오른쪽.
+function JobCarousel({ id, title, jobs, layout, moreTo }: { id: string; title: string; jobs: Job[]; layout: 'cards' | 'list'; moreTo?: string }) {
+  const pages = groupDiscoveryJobs(jobs, layout === 'cards' ? 6 : 5)
   const track = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
   const signature = pages.flat().map(job => job.id).join('|')
   useEffect(() => { setActive(0); track.current?.scrollTo({ left: 0, behavior: 'instant' }) }, [signature])
   const go = (index: number) => track.current?.scrollTo({ left: index * track.current.clientWidth, behavior: 'smooth' })
   if (!pages.length) return null
-  return <section className="discovery-featured" aria-label="Việc làm nổi bật">
-    <div className="discovery-section-head"><h2>Việc làm nổi bật</h2><span>{jobs.length} tin đang có</span></div>
+  return <section className={`discovery-featured discovery-featured--${layout}`} aria-label={title} data-section={id}>
+    <div className="discovery-section-head"><h2>{title}</h2><span>{pages.length > 1 ? `${active + 1}/${pages.length}` : `${jobs.length} tin`}</span></div>
     <div className="discovery-carousel" ref={track} onScroll={() => {
       const el = track.current
       if (el?.clientWidth) setActive(Math.round(el.scrollLeft / el.clientWidth))
     }}>
-      {pages.map((page, index) => <div className="discovery-carousel__page" key={page[0].id} role="group" aria-label={`Nhóm ${index + 1} / ${pages.length}`}>
-        {page.map(job => <JobSummary job={job} key={job.id} logo="top" />)}
+      {pages.map((page, index) => <div className={`discovery-carousel__page discovery-carousel__page--${layout}`} key={page[0].id} role="group" aria-label={`Nhóm ${index + 1} / ${pages.length}`}>
+        {page.map(job => <JobSummary job={job} key={job.id} logo={layout === 'cards' ? 'top' : 'side'} />)}
       </div>)}
     </div>
     {pages.length > 1 && <div className="discovery-carousel__paging">
@@ -64,6 +67,7 @@ function ThreeJobCarousel({ jobs }: { jobs: Job[] }) {
       <span aria-live="polite">{Math.min(active + 1, pages.length)}/{pages.length}</span>
       <button type="button" aria-label="Nhóm công việc tiếp theo" disabled={active >= pages.length - 1} onClick={() => go(active + 1)}><ChevronRight size={18} /></button>
     </div>}
+    {moreTo && <NavLink className="discovery-more" to={moreTo}>Xem tất cả việc làm<ChevronRight size={16} aria-hidden /></NavLink>}
   </section>
 }
 
@@ -105,7 +109,7 @@ export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState
     <div className="home-mobile-discovery">
       <h1 className="home-discovery-sr">Việc làm gần bạn</h1>
       {beforeJobs}
-      <ThreeJobCarousel jobs={state.jobs} />
+      <JobCarousel id="high-pay" title="Việc làm lương cao" jobs={mobileHomeSections(mainCardJobs(state.jobs)).highPay} layout="cards" />
       <nav className="home-shortcuts" aria-label="Khám phá việc làm">
         <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
         <button type="button" onClick={() => state.openFilters(2)}><Briefcase /><span>Ngành nghề</span></button>
@@ -129,17 +133,11 @@ export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState
   </>
 }
 
-/** Sections consume the same real filtered records as the map. Empty sections vanish. */
+/** 2026-11-02 Lee: 모바일 메인 칸 ② 특별한 공고 ③ 실시간 공고(규칙: src/lib/mobileHomeSections.ts). ①은 지도 위 HomeDiscovery. 빈 칸은 숨김. */
 export function HomeDiscoverySections({ jobs }: { jobs: Job[] }) {
-  const cards = mainCardJobs(jobs)
-  const sections = [
-    { id: 'urgent', title: 'Đang tuyển gấp', jobs: cards.filter(job => job.urgent), layout: 'horizontal' },
-    { id: 'direct', title: 'Doanh nghiệp đăng trực tiếp', jobs: cards.filter(job => !!job.employerId), layout: 'grid' },
-    { id: 'all', title: 'Việc làm hiện có', jobs: cards, layout: 'list' },
-  ].filter(section => section.jobs.length)
-  return <div className="home-mobile-sections">{sections.map(section => <section key={section.id} className="home-discovery-section" data-section={section.id}>
-    <div className="discovery-section-head"><h2>{section.title}</h2><span>{section.jobs.length} tin</span></div>
-    <div className={`discovery-jobs discovery-jobs--${section.layout}`}>{section.jobs.map(job => <JobSummary key={job.id} job={job} logo={section.layout === 'list' ? 'side' : 'top'} />)}</div>
-  </section>)}</div>
+  const { special, live } = mobileHomeSections(mainCardJobs(jobs))
+  return <div className="home-mobile-sections">
+    <JobCarousel id="special" title="Việc làm đặc biệt" jobs={special} layout="list" />
+    <JobCarousel id="live" title="Việc làm mới nhất" jobs={live} layout="list" moreTo="/viec-lam/tim-kiem" />
+  </div>
 }
-

@@ -119,9 +119,12 @@
 
 /* 2026-11-02 Lee "알바몬 구성": 모바일 카드 로고 자리. 위쪽 밀기 칸 = 한 면 2열×3줄 카드, 로고는 카드 위.
    아래 목록 = 로고는 오른쪽. 로고는 contain, 업종 사진(jc__logo--photo)은 cover. 로고가 없으면 PC와 같은 순서로 채움. */
-.discovery-carousel__page { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
-.discovery-carousel__page > .discovery-job { padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
-.discovery-carousel__page > .discovery-job + .discovery-job { border-top: 1px solid #e2e8f0; }
+.discovery-carousel__page--cards, .discovery-carousel__page--list { display: grid !important; gap: 8px; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.discovery-carousel__page--cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.discovery-carousel__page--cards > .discovery-job, .discovery-carousel__page--list > .discovery-job { padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.discovery-carousel__page--cards > .discovery-job + .discovery-job, .discovery-carousel__page--list > .discovery-job + .discovery-job { border-top: 1px solid #e2e8f0; }
+.home-mobile-sections .discovery-featured { margin-bottom: 18px; }
+.discovery-more { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 8px 14px 0; min-height: 44px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #334155; font-size: 13px; text-decoration: none; }
 .discovery-job__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; }
 .discovery-job--logo-side { flex-direction: row !important; align-items: center; gap: 12px; }
 .discovery-job__logo { display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; border-radius: 6px; }
