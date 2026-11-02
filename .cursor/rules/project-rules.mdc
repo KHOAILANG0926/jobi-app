@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Viecganban 프로젝트 규칙
 
-작업 전 `CLAUDE.md`, `AGENTS.md`, `CHATGPT_HANDOFF.md`, `WORK_LOG.md`, `VIECGANBAN_STRUCTURE_BASELINE.md`를 읽고 따른다.
+작업 전 `.claude/RULES_CORE.md`(핵심 규칙 요약, Lee 2026-11-02)를 먼저 읽고, `CLAUDE.md`, `AGENTS.md`, `CHATGPT_HANDOFF.md`, `WORK_LOG.md`, `VIECGANBAN_STRUCTURE_BASELINE.md`를 읽고 따른다.
 secret 값은 커밋·로그·응답에 출력하지 않는다.
 
 ## 보고 검증 규정 — 최우선 MANDATORY (2026-10-11 사용자 지시)
