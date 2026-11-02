@@ -43,7 +43,7 @@ function JobSummary({ job, logo = 'side' }: { job: Job; logo?: 'top' | 'side' })
 
 // 2026-11-02 Lee: 모바일 칸은 모두 옆으로 넘긴다(아래로 끝없이 길어지지 않게, 알바몬 모바일 방식).
 // 카드형 칸 = 한 면 2열×3줄, 로고는 카드 위. 목록형 칸 = 한 면 5개, 로고는 오른쪽.
-function JobCarousel({ id, title, jobs, layout, moreTo }: { id: string; title: string; jobs: Job[]; layout: 'cards' | 'list' | 'top3'; moreTo?: string }) {
+export function JobCarousel({ id, title, jobs, layout, moreTo }: { id: string; title: string; jobs: Job[]; layout: 'cards' | 'list' | 'top3'; moreTo?: string }) {
   const pages = groupDiscoveryJobs(jobs, layout === 'cards' ? 6 : layout === 'top3' ? 3 : 5)
   const track = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)

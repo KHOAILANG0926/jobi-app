@@ -139,3 +139,10 @@
 .discovery-carousel__page--top3 .discovery-job__logo--side { width: 52px; height: 52px; }
 /* 2026-11-02 Lee: 위치 안내 상자 대신 — 위치를 안 정했으면 헤더 위치 버튼을 주황색으로. */
 .home-mobile-header__location.is-unset { color: #ea580c; font-weight: 700; }
+/* 2026-11-02 Lee: 모바일 지도 아래 한 줄(지도 범위 안 공고 수 → 목록 탭). 목록 탭은 지도 자리에서 옆으로 넘김(안쪽 세로 스크롤 없음). */
+.hme-mobile-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 48px; padding: 10px 14px; border: 0; border-top: 1px solid #eef0f3; background: #fff; color: #334155; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.hme-mobile-summary strong { color: #ea580c; font-size: 15px; margin-right: 4px; }
+.hme-mobile-summary > span:last-child { display: inline-flex; align-items: center; gap: 2px; color: #ea580c; font-weight: 600; }
+.hme-mobile-list { padding-top: 12px; background: #fff; }
+.hme-mobile-list .discovery-featured { margin: 0; }
+.hme-mobile-list .hme-intro__hint { padding: 16px 14px; }

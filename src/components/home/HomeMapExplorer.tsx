@@ -8,7 +8,8 @@ import { fitWithNearest } from '../../lib/fitPins'
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, X } from 'lucide-react'
+import { Briefcase, ChevronDown, ChevronRight, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, X } from 'lucide-react'
+import { JobCarousel } from './HomeDiscovery'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_SHORT } from '../../data/categories'
 import { REGION_MACRO_TABS, jobMatchesRegion } from '../../data/jobRegions'
@@ -170,6 +171,8 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
   const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = isMobileLayout ? (radiusActive ? result.radiusJobs : result.entries) : result.visibleEntries
+  // 모바일 Danh sách 탭: 지도 화면 안(반경을 쓰면 반경 안) 공고. 지도가 아직 안 불러와졌으면(범위 없음) 전체.
+  const mobileListJobs = (bounds ? result.visibleEntries : listEntries).map(e => e.job)
   const directions = selected ? planJobDirections(selected.job) : null
   // Google 길찾기 주소 하나만(확인 좌표 → 공단 입구 → 주소·회사+지역 글자 순, planJobDirections가 정함). 위치 정보가 전혀 없으면 버튼 없음.
   const directionsHref = !directions ? null
@@ -473,6 +476,22 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
         )}
       </div>
 
+      {/* 2026-11-02 Lee: 모바일은 지도 옆 설명 칸(hme__panel)을 없애고 지도 아래 한 줄만. 누르면 Danh sách 탭(지도 자리, 같은 높이, 옆으로 넘김). */}
+      {isMobileLayout ? (
+        mobileView === 'map' ? (
+          <button type="button" className="hme-mobile-summary" onClick={() => setMobileView('list')}>
+            <span><strong>{bounds ? result.visibleCount : mobileListJobs.length}</strong> việc trong khung bản đồ</span>
+            <span>Xem danh sách <ChevronRight size={15} aria-hidden /></span>
+          </button>
+        ) : (
+          <div className="hme-mobile-list">
+            {mobileListJobs.length
+              ? <JobCarousel id="map-list" title="Việc làm trong khung bản đồ" jobs={mobileListJobs} layout="top3" />
+              : <p className="hme-intro__hint">{emptyReason}</p>}
+            <button type="button" className="hme-mobile-summary" onClick={() => setMobileView('map')}><span>Quay lại bản đồ</span><ChevronRight size={15} aria-hidden /></button>
+          </div>
+        )
+      ) : (
       <aside className="hme__panel" aria-live="polite" ref={panelRef}>
         {detail && !isMobileLayout ? detail : (
           <div className="hme-intro">
@@ -496,6 +515,7 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
           </div>
         )}
       </aside>
+      )}
       {isMobileLayout && detail && (
         <MobileDetailSheet selectionKey={pickedPlace?.key ?? selectedId ?? ''} label={pickedPlace ? 'Thông tin địa điểm' : 'Thông tin tin tuyển dụng'}
           onClose={() => { setPickedPlace(null); setSelectedId(null) }}>
