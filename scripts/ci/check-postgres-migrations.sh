@@ -117,6 +117,22 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/occupation_category_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261103000000_r8_any_level_restore.sql' ]]; then
+    # 2026-11-03: 옛 10-15 정의가 다시 덮어써진 상태(11-02 사고)를 재현 → 이 파일이 10-18 규칙으로 되돌리는지 확인.
+    echo "PostgreSQL R8 any-level restore: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.local_jobs add column if not exists category text default 'khac', add column if not exists title text default '', add column if not exists company text default '', add column if not exists description text, add column if not exists source_text text, add column if not exists active boolean default false, add column if not exists admin_hidden boolean default false, add column if not exists ocr_check jsonb"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "create table if not exists public.job_posting_rules(rule_key text unique,content text,decided_on date,incidents text,machine_checkable text,block_mode text,implementation text)"
+    for dep in 20261015100000_occupation_master.sql 20261015100100_occupation_master_seed.sql 20261015120000_local_jobs_occupation_r8.sql 20261017070517_occupation_publication_gate.sql 20261018090000_occupation_code_any_level.sql 20261015120000_local_jobs_occupation_r8.sql; do
+      psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f "supabase/migrations/$dep" >/dev/null
+    done
+    if psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/r8_any_level_restore_production_check.sql >/dev/null 2>&1; then
+      echo "::error::옛 정의 재현 상태에서 점검이 통과함(점검이 사고를 못 잡음)"; exit 1
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/r8_any_level_restore_production_check.sql
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261101210000_brands_verified_chains.sql' ]]; then
     echo "PostgreSQL verified brands: $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
