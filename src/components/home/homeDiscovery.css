@@ -146,3 +146,5 @@
 .hme-mobile-list { padding-top: 12px; background: #fff; }
 .hme-mobile-list .discovery-featured { margin: 0; }
 .hme-mobile-list .hme-intro__hint { padding: 16px 14px; }
+/* 2026-11-02 Lee: 지도 위 필터 줄(툴바 아래 한 줄 전체, 옆으로 밀기). */
+.hme-mobile-toolbar__filters { flex: 1 0 100%; min-width: 0; padding: 0 !important; }

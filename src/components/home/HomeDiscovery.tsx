@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Briefcase, ChevronLeft, ChevronRight, Flame, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
+import { Briefcase, ChevronLeft, ChevronRight, Flame, MapPin, Menu, Search, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
 import { mobileHomeSections } from '../../lib/mobileHomeSections'
@@ -100,7 +100,7 @@ export function HomeDiscovery({ state }: { state: HomeDiscoveryState }) {
   </>
 }
 
-/** 지도 바로 아래: 급여 높은 공고 칸, 아이콘 줄, 필터 줄, 위치·빈 결과 안내. */
+/** 지도 바로 아래: 급여 높은 공고 칸, 아이콘 줄, 위치·빈 결과 안내(필터 줄은 지도 위로 옮김, 2026-11-02). */
 export function HomeDiscoveryBody({ state }: { state: HomeDiscoveryState }) {
   const navigate = useNavigate()
   return <>
@@ -115,14 +115,6 @@ export function HomeDiscoveryBody({ state }: { state: HomeDiscoveryState }) {
         <NavLink to="/viec-lam/tuyen-gap"><Flame /><span>Tuyển gấp</span></NavLink>
         <NavLink to="/viec-han-quoc"><span className="home-shortcuts__flag" aria-hidden>🇰🇷</span><span>Hàn Quốc</span></NavLink>
       </nav>
-      <div className="home-filter-rail" aria-label="Bộ lọc việc làm">
-        <button type="button" onClick={() => state.openFilters(0)}><SlidersHorizontal size={16} />Bộ lọc{state.filterCount > 0 && ` · ${state.filterCount}`}</button>
-        <button type="button" onClick={state.openLocation}>Khu vực · Bán kính</button>
-        <button type="button" onClick={() => state.openFilters(2)}>Ngành nghề</button>
-        <button type="button" onClick={() => state.openFilters(1)}>Mức lương</button>
-        <button type="button" onClick={() => state.openFilters(3)}>Ca làm · Phúc lợi</button>
-        {state.filterCount > 0 && <button type="button" onClick={state.reset}>Đặt lại</button>}
-      </div>
       {state.geoState === 'loading' && <p role="status" className="home-discovery-status">Đang xác định vị trí…</p>}
       {(state.geoState === 'denied' || state.geoState === 'unsupported') && <p role="status" className="home-discovery-status">Không lấy được vị trí. Bạn vẫn có thể <button type="button" onClick={state.openLocation}>chọn khu vực</button>.</p>}
       {!state.jobs.length && !state.loading && !state.jobsError && <div className="home-discovery-empty"><strong>Chưa có việc phù hợp</strong><p>Thử thay đổi khu vực hoặc điều kiện tìm kiếm.</p><button type="button" onClick={state.reset}>Đặt lại điều kiện</button><button type="button" onClick={() => navigate('/viec-lam/tim-kiem')}>Tìm theo khu vực</button></div>}

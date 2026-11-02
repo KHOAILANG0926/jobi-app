@@ -347,7 +347,15 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
     <section ref={explorerRef} className={`hme${mobileFiltersOpen ? ' hme--filters-open' : ''} hme--view-${mobileView}`} aria-label="Tìm việc quanh bạn trên bản đồ">
       <div className="hme-mobile-toolbar">
         <h2>Việc làm quanh bạn</h2>
-        <div><button type="button" aria-pressed={mobileView === 'map'} onClick={() => setMobileView('map')}>Bản đồ</button><button type="button" aria-pressed={mobileView === 'list'} onClick={() => setMobileView('list')}>Danh sách</button><button type="button" aria-label="Mở bộ lọc bản đồ" onClick={() => openFilters(0)}><SlidersHorizontal size={17} /></button></div>
+        <div><button type="button" aria-pressed={mobileView === 'map'} onClick={() => setMobileView('map')}>Bản đồ</button><button type="button" aria-pressed={mobileView === 'list'} onClick={() => setMobileView('list')}>Danh sách</button></div>
+        {/* 2026-11-02 Lee: 글자 없는 필터 아이콘 대신, 지도 바로 위에 글자 있는 필터 줄(지도 아래에 있던 줄을 옮김). */}
+        <div className="home-filter-rail hme-mobile-toolbar__filters" aria-label="Bộ lọc việc làm">
+          <button type="button" onClick={discoveryState.openLocation}>Khu vực · Bán kính</button>
+          <button type="button" onClick={() => openFilters(1)}>Mức lương</button>
+          <button type="button" onClick={() => openFilters(2)}>Ngành nghề</button>
+          <button type="button" onClick={() => openFilters(0)}><SlidersHorizontal size={15} aria-hidden />Bộ lọc{discoveryState.filterCount > 0 && ` · ${discoveryState.filterCount}`}</button>
+          {discoveryState.filterCount > 0 && <button type="button" onClick={discoveryState.reset}>Đặt lại</button>}
+        </div>
       </div>
       <div className="hme__controls" ref={controlsRef} role={isMobileLayout && mobileFiltersOpen ? 'dialog' : undefined} aria-modal={isMobileLayout && mobileFiltersOpen ? true : undefined} aria-label="Bộ lọc việc làm">
         <div className="hme-mobile-filter-head"><h2>Bộ lọc việc làm</h2><button type="button" aria-label="Đóng bộ lọc" onClick={() => setMobileFiltersOpen(false)}><X /></button></div>
