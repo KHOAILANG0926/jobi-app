@@ -1,5 +1,7 @@
 # Viecganban 자동 작업 규칙
 
+> **세션 시작 필수(Lee 2026-11-02)**: `.claude/RULES_CORE.md`(핵심 규칙 요약)를 먼저 읽고, 작업 종류가 바뀌면 이 문서의 해당 절을 다시 읽는다. 목차만 보고 읽었다고 하지 않는다.
+
 ## 운영 DB 직접 접근 금지 — Lee 2026-10-27 재확인 (10-13 결정)
 - Codex는 Supabase 도구 등으로 운영 DB에 직접 연결해 SQL을 실행하거나 조회하지 않는다. 앞으로도 같은 경로를 사용하지 않는다.
 - 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.
