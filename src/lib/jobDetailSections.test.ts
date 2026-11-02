@@ -216,6 +216,12 @@ Phúc lợi và môi trường làm việc
 }
 console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu khác) regression passed')
 {
+  // 2026-11-03 #5299: 식비 수당 태그 "Phụ cấp ăn"은 상단 식사 아이콘과 같은 뜻 → 상단 태그 줄에서 숨김(중복 분홍 태그 회귀 방지).
+  const { jobTags, ICON_TAGS } = await import('./jobDetailView.ts')
+  const tags = jobTags({ mealProvided: true, description: 'Có phụ cấp ăn uống' } as never)
+  assert(tags.includes('Phụ cấp ăn') && tags.every((t) => ICON_TAGS.has(t)), 'meal allowance tag hidden like icon tags')
+}
+{
   // Lee 2026-10-30 "알바몬처럼"(먼저 sb-4828): 원문은 상세요강에 그대로, 급여 아래·복리후생에는 같은 원문 줄을 복사
   const { albamonConditionLines, sourceAgeValue, ALBAMON_LAYOUT_JOB_IDS } = await import('./jobQuyenLoi.ts')
   const d = detailSections('Thu nhập và phụ cấp\n- Hình thức trả lương: Theo tháng\n- Thưởng chuyên cần 300k\nPhúc lợi\n- Đóng BHXH đầy đủ\n- Có nhà ăn\nYêu cầu\n- Độ tuổi: 18 - 40 tuổi')

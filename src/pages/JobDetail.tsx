@@ -31,7 +31,7 @@ import { useBrandsOptional } from '../context/BrandsContext'
 import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, ICON_TAGS, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary } from '../lib/jobRolePresentation'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
@@ -602,9 +602,9 @@ export function JobDetail() {
                 </span>
               ))}
             </div>
-            {tags.filter((t) => !['Xe đưa đón', 'Ký túc xá', 'Bao ăn'].includes(t)).length > 0 && (
+            {tags.filter((t) => !ICON_TAGS.has(t)).length > 0 && (
               <div className="jd2-tags">
-                {tags.filter((t) => !['Xe đưa đón', 'Ký túc xá', 'Bao ăn'].includes(t)).map((t) => <span key={t} className="jd2-tag">{t}</span>)}
+                {tags.filter((t) => !ICON_TAGS.has(t)).map((t) => <span key={t} className="jd2-tag">{t}</span>)}
               </div>
             )}
             <div className="jd2-header__meta">

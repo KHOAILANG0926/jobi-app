@@ -54,6 +54,9 @@ const WEEKLY_PAY_RE = /(\/|trên|mỗi|theo)\s*tuần|lương\s+tuần|(hàng|h�
 
 /** 헤더 태그 — 지원 결정에 직결되는 것만(통근버스·기숙사·식사·즉시출근·주급). 값이 true/확인된 것만, 추정 금지.
  *  BHXH·상여·여행 등은 근무조건의 "Phúc lợi" 행(benefitList)으로. */
+/** 상세 상단 아이콘(통근버스·기숙사·식사)과 같은 뜻의 태그 — 상단 태그 줄에서는 숨긴다(아이콘과 중복). 2026-11-03: 식비 수당 이름 "Phụ cấp ăn" 추가. */
+export const ICON_TAGS: ReadonlySet<string> = new Set(['Xe đưa đón', 'Ký túc xá', 'Bao ăn', 'Phụ cấp ăn'])
+
 export function jobTags(job: Job): string[] {
   const tags: string[] = []
   if (job.shuttleBus === true) tags.push('Xe đưa đón')
