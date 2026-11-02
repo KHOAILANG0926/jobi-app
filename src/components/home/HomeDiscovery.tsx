@@ -106,8 +106,8 @@ export function HomeDiscoveryBody({ state }: { state: HomeDiscoveryState }) {
   return <>
     <div className="home-mobile-discovery">
       <h1 className="home-discovery-sr">Việc làm gần bạn</h1>
-      {/* 2026-11-02 Lee: 급여 높은 공고는 한 면 3개 목록(낮은 높이)으로. */}
-      <JobCarousel id="high-pay" title="Việc làm lương cao" jobs={mobileHomeSections(mainCardJobs(state.jobs)).highPay} layout="top3" />
+      {/* 2026-11-02 Lee: 지도가 위로 올라가서 급여 높은 공고는 알바몬처럼 2열 카드(한 면 2열×3줄). */}
+      <JobCarousel id="high-pay" title="Việc làm lương cao" jobs={mobileHomeSections(mainCardJobs(state.jobs)).highPay} layout="cards" />
       <nav className="home-shortcuts" aria-label="Khám phá việc làm">
         <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
         <button type="button" onClick={() => state.openFilters(2)}><Briefcase /><span>Ngành nghề</span></button>
