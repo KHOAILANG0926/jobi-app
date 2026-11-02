@@ -367,7 +367,7 @@ export function JobDetail() {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })
-  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[], pay: [] as string[], bonus: [] as string[], overtime: [] as string[] }
+  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
   const sourceRoles = sourceRecruitmentRoles(job.description)
   const shownTitle = job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title
   const companyText = companyLine(shownTitle, job.company)
@@ -398,26 +398,23 @@ export function JobDetail() {
     ['jobDuration', 'workDays', 'hours'],
     ['workPeriod', 'shift', 'weekend'],
   ] : [
-    ['salary', 'allowance', 'payMethod', 'jobDuration', 'workDays', 'hours'],
+    ['salary', 'allowance', 'jobDuration', 'workDays', 'hours'],
     ['category', 'workPeriod', 'shift', 'weekend', 'benefits'],
   ]
   // 2026-10-18 Lee: PC 근무조건 오른쪽 칸에 업종·복리후생(알바몬 2열 구성). 모바일은 기존 그대로라 PC 전용 행.
   const CONDITION_PC_ONLY = new Set(['category', 'benefits'])
   const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
-      salaryText || (salaryNote && !isAllowanceNote) ? (
+      salaryText || (salaryNote && !isAllowanceNote) || albamonLines.salary.length ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
           {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
-          {/* 2026-11-02: 상여·수당·지급 방식은 급여 아래가 아니라 아래 별도 줄(CLAUDE.md 10-30 최종 확정 ① 근무조건). */}
+          {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음) */}
+          {albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    // 2026-11-02 CLAUDE.md 10-30 최종 확정: Phụ cấp·Thưởng / Trả lương은 급여와 별도 줄. 원문 줄을 한 줄씩(쉼표에서 끊지 않음).
-    albamonLines.bonus.length
-      ? row('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', <>{[...(isAllowanceNote && salaryNote ? [salaryNote] : []), ...albamonLines.bonus].map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</>)
-      : textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
-    row('payMethod', <Briefcase size={14} strokeWidth={1.8} />, 'Trả lương', albamonLines.pay.length ? <>{albamonLines.pay.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</> : undefined),
+    textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
     textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
     textRow('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
     textRow('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),

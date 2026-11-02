@@ -19,26 +19,18 @@ export function usesAlbamonLayout(id: string): boolean {
 }
 
 /** 원문 줄을 지우지 않고 근무조건에 보일 줄만 고른다(급여 아래: 지급 방식·보너스·수당·연장 수당 / 복리후생: 보험). 01은 제외. */
-// 2026-11-02: CLAUDE.md 10-30 최종 확정(#327, #326 시험 17분 뒤) ① 근무조건은 Lương / Phụ cấp·Thưởng / Trả lương 별도 줄,
-// 연장 수당 금액·배율은 근무조건이 아니라 상세요강. 그래서 줄 종류별로 나눠 돌려준다(salary = 예전 합친 목록, 시험 호환).
-export function albamonConditionLines(sections: DetailSection[]): { salary: string[]; insurance: string[]; pay: string[]; bonus: string[]; overtime: string[] } {
-  const salary: string[] = [], insurance: string[] = [], pay: string[] = [], bonus: string[] = [], overtime: string[] = []
+export function albamonConditionLines(sections: DetailSection[]): { salary: string[]; insurance: string[] } {
+  const salary: string[] = [], insurance: string[] = []
   for (const sec of sections) {
     if (sec.key === '01') continue
     for (const raw of sec.lines) {
       const line = raw.replace(/^\s*[-•*]\s+/, '').trim()
       const key = quyenLoiKeyOf(line)
       if (key === 'insurance') insurance.push(line)
-      else if (key) {
-        salary.push(line)
-        if (key === 'pay') pay.push(line)
-        else if (key === 'bonus') bonus.push(line)
-        else overtime.push(line)
-      }
+      else if (key) salary.push(line)
     }
   }
-  const u = (xs: string[]) => [...new Set(xs)]
-  return { salary: u(salary), insurance: u(insurance), pay: u(pay), bonus: u(bonus), overtime: u(overtime) }
+  return { salary: [...new Set(salary)], insurance: [...new Set(insurance)] }
 }
 
 /** "Độ tuổi: 18 - 50 tuổi" 같은 원문 줄에서 나이 값(모집조건 칸이 비어 있을 때만 씀). */
