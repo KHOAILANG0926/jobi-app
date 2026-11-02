@@ -30,6 +30,8 @@ async function ask(prompt) {
 const FLAG = { shuttle_bus: 'shuttle_bus', dormitory: 'dormitory', meal_provided: 'meal_provided' }
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
+// 2026-11-02 Lee: 식비 수당도 식사 혜택으로 확인(lib/mealBenefit.ts). 규칙이 바뀌었으니 기준 시각 이후 공고는 한 번 다시 판정한다.
+const MEAL_RULE_VERSION = 'meal-allowance-20261103'
 let kinds = 0, benefits = 0, failed = 0
 try {
   const known = new Set((await client.query('select line_key from public.detail_line_kinds')).rows.map((r) => r.line_key))
@@ -43,7 +45,7 @@ try {
     order by id`)
   for (const job of rows) {
     const source = [job.source_text, job.ocr_text].filter(Boolean).join('\n')
-    const hash = createHash('md5').update(MODEL + '|' + JSON.stringify(BENEFIT_CODES) + '|' + source).digest('hex')
+    const hash = createHash('md5').update(MODEL + '|' + JSON.stringify(BENEFIT_CODES) + '|' + MEAL_RULE_VERSION + '|' + source).digest('hex')
     const lines = job.unclassified.filter((l) => l && !known.has(lineKey(l)))
     const needBenefits = job.benefits_hash !== hash
     if (!lines.length && !needBenefits) continue

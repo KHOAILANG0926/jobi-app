@@ -44,6 +44,7 @@ import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
+import { mealLabel } from '../lib/mealBenefit'
 import { usesAlbamonLayout, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
@@ -408,10 +409,12 @@ export function JobDetail() {
       salaryText || (salaryNote && !isAllowanceNote) || albamonLines.salary.length ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
-          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음).
+              2026-11-02 Lee "정렬도 안 되고 모양이 개판": 작은 회색 글씨 스타일(jd2-salary-sub)이 없어 급여처럼 빨간 큰 글씨였음 → 스타일 추가,
+              금액과 같은 줄 시작(jd2-salary-lines 안)으로 정렬. 위치·순서는 그대로. */}
+          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
-          {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음) */}
-          {albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
+          {!salaryText && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
       ) : undefined, 'jd2-info-val--salary'),
     textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
@@ -495,7 +498,7 @@ export function JobDetail() {
   const benefitIcons = [
     { key: 'bus', label: 'Xe đưa đón', active: job.shuttleBus === true, icon: Bus, color: '#2563eb', bg: '#dbeafe' },
     { key: 'dorm', label: 'Ký túc xá', active: job.dormitory === true, icon: BedDouble, color: '#7c3aed', bg: '#ede9fe' },
-    { key: 'meal', label: roleSummary?.mealBenefit ?? 'Ăn ca', active: !!roleSummary?.mealBenefit || job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
+    { key: 'meal', label: roleSummary?.mealBenefit ?? mealLabel(job.description), active: !!roleSummary?.mealBenefit || job.mealProvided === true, icon: Utensils, color: '#ea580c', bg: '#ffedd5' },
     { key: 'attendance', label: 'Chuyên cần', active: explicitBenefit(/(?:chuyên cần|chuyen can)(?:\\s*[:：-]?\\s*[\\d.,]+\\s*(?:k|đ|vnd|đồng))?/i, 'Chuyên cần'), icon: CalendarCheck, color: '#16a34a', bg: '#dcfce7' },
     { key: 'housing', label: 'Nhà ở', active: explicitBenefit(/(?:phụ cấp nhà ở|hỗ trợ nhà ở|tiền nhà|phu cap nha o|ho tro nha o)/i, 'Nhà ở'), icon: House, color: '#db2777', bg: '#fce7f3' },
     { key: 'fuel', label: 'Xăng xe', active: explicitBenefit(/(?:phụ cấp xăng xe|hỗ trợ xăng xe|tiền xăng|phu cap xang xe|ho tro xang xe)/i, 'Xăng xe'), icon: Fuel, color: '#0891b2', bg: '#cffafe' },

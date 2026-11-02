@@ -1,4 +1,5 @@
 import type { Job } from '../types/job'
+import { mealLabel } from './mealBenefit'
 import { JOB_SECTIONS, type JobSection } from '../data/jobSchema'
 
 /** 상세 화면 구역(순서·키는 jobSchema.ts가 정본) — 탭 라벨·앵커 id. 탭은 내용을 숨기지 않고 스크롤 이동만 한다. */
@@ -57,7 +58,7 @@ export function jobTags(job: Job): string[] {
   const tags: string[] = []
   if (job.shuttleBus === true) tags.push('Xe đưa đón')
   if (job.dormitory === true) tags.push('Ký túc xá')
-  if (job.mealProvided === true) tags.push('Bao ăn')
+  if (job.mealProvided === true) tags.push(mealLabel(job.description, 'Bao ăn'))
   if (job.immediateStart === true) tags.push('Đi làm ngay')
   if (job.rawSalary && WEEKLY_PAY_RE.test(job.rawSalary)) tags.push('Lương tuần')
   return tags
