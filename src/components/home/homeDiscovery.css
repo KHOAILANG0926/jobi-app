@@ -137,3 +137,5 @@
 .discovery-job__logo .jc__logo-text { font-size: 11px; }
 /* 2026-11-02 Lee "지도 위치 유지": 위 칸(급여 높은 공고)은 예전 칸과 같은 모양 — 한 상자 안에 3개, 줄로 구분. 로고는 오른쪽에 작게. */
 .discovery-carousel__page--top3 .discovery-job__logo--side { width: 52px; height: 52px; }
+/* 2026-11-02 Lee: 위치 안내 상자 대신 — 위치를 안 정했으면 헤더 위치 버튼을 주황색으로. */
+.home-mobile-header__location.is-unset { color: #ea580c; font-weight: 700; }

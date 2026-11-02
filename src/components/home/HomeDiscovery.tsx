@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
@@ -86,30 +86,27 @@ function HomeMenu({ onClose }: { onClose: () => void }) {
   </dialog>
 }
 
-export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState; beforeJobs?: ReactNode }) {
-  const navigate = useNavigate()
+// 2026-11-02 Lee: 모바일 메인 순서 — 배너 → 지도(조건 검색 상자를 없앤 자리) → 급여 높은 공고 → 아이콘·필터 줄 → 실시간 공고.
+// 위치 안내 상자는 없앴다(헤더 위치 버튼·"Gần tôi"와 같은 기능). 위치를 안 정했으면 헤더 위치 버튼을 주황색으로 강조.
+export function HomeDiscovery({ state }: { state: HomeDiscoveryState }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [notice, setNotice] = useState(false)
-  useEffect(() => { try { setNotice(sessionStorage.getItem('vgb:location-choice') !== 'dismissed') } catch { setNotice(true) } }, [])
-  const dismissNotice = () => { setNotice(false); try { sessionStorage.setItem('vgb:location-choice', 'dismissed') } catch { /* optional */ } }
   return <>
     <div className="home-mobile-header">
-      <button type="button" className="home-mobile-header__location" onClick={state.openLocation}><MapPin size={18} /><span>{state.originLabel}</span><span aria-hidden>⌄</span></button>
+      <button type="button" className={`home-mobile-header__location${state.originLabel === 'Chọn khu vực' ? ' is-unset' : ''}`} onClick={state.openLocation}><MapPin size={18} /><span>{state.originLabel}</span><span aria-hidden>⌄</span></button>
       <NavLink to="/viec-lam/tim-kiem" aria-label="Tìm kiếm việc làm"><Search size={21} /></NavLink>
       <button type="button" aria-label="Mở tất cả danh mục" onClick={() => setMenuOpen(true)}><Menu size={22} /></button>
     </div>
-    {notice && <aside className="home-location-notice" aria-label="Chọn vị trí tìm việc">
-      <div><strong>Tìm việc gần bạn hơn</strong><p>Dùng vị trí hiện tại hoặc tự chọn khu vực để bắt đầu.</p></div>
-      <button className="home-location-notice__close" type="button" aria-label="Để sau" onClick={dismissNotice}><X size={17} /></button>
-      <div className="home-location-notice__actions">
-        <button type="button" onClick={() => { dismissNotice(); state.locate() }}><LocateFixed size={15} />Dùng vị trí hiện tại</button>
-        <button type="button" onClick={() => { dismissNotice(); state.openLocation() }}>Chọn khu vực</button>
-      </div>
-    </aside>}
+    {menuOpen && <HomeMenu onClose={() => setMenuOpen(false)} />}
+  </>
+}
+
+/** 지도 바로 아래: 급여 높은 공고 칸, 아이콘 줄, 필터 줄, 위치·빈 결과 안내. */
+export function HomeDiscoveryBody({ state }: { state: HomeDiscoveryState }) {
+  const navigate = useNavigate()
+  return <>
     <div className="home-mobile-discovery">
       <h1 className="home-discovery-sr">Việc làm gần bạn</h1>
-      {beforeJobs}
-      {/* 2026-11-02 Lee: 지도 위치는 예전 그대로 — 위 칸은 예전과 같은 높이(한 면 3개 목록)로 둔다. */}
+      {/* 2026-11-02 Lee: 급여 높은 공고는 한 면 3개 목록(낮은 높이)으로. */}
       <JobCarousel id="high-pay" title="Việc làm lương cao" jobs={mobileHomeSections(mainCardJobs(state.jobs)).highPay} layout="top3" />
       <nav className="home-shortcuts" aria-label="Khám phá việc làm">
         <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
@@ -130,11 +127,10 @@ export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState
       {(state.geoState === 'denied' || state.geoState === 'unsupported') && <p role="status" className="home-discovery-status">Không lấy được vị trí. Bạn vẫn có thể <button type="button" onClick={state.openLocation}>chọn khu vực</button>.</p>}
       {!state.jobs.length && !state.loading && !state.jobsError && <div className="home-discovery-empty"><strong>Chưa có việc phù hợp</strong><p>Thử thay đổi khu vực hoặc điều kiện tìm kiếm.</p><button type="button" onClick={state.reset}>Đặt lại điều kiện</button><button type="button" onClick={() => navigate('/viec-lam/tim-kiem')}>Tìm theo khu vực</button></div>}
     </div>
-    {menuOpen && <HomeMenu onClose={() => setMenuOpen(false)} />}
   </>
 }
 
-/** 2026-11-02 Lee: 모바일 메인 칸 ② 특별한 공고 ③ 실시간 공고(규칙: src/lib/mobileHomeSections.ts). ①은 지도 위 HomeDiscovery. 빈 칸은 숨김. */
+/** 2026-11-02 Lee: 모바일 메인 칸 ② 특별한 공고 ③ 실시간 공고(규칙: src/lib/mobileHomeSections.ts). ①은 지도 아래 HomeDiscoveryBody. 빈 칸은 숨김. */
 export function HomeDiscoverySections({ jobs }: { jobs: Job[] }) {
   const { special, live } = mobileHomeSections(mainCardJobs(jobs))
   return <div className="home-mobile-sections">

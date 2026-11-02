@@ -12454,3 +12454,14 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .pay .pay-label--day { color: #7c3aed; }
 .pay .pay-amount { color: #4b5563; font-weight: 500; }
 .pay .pay-none { color: #9ca3af; font-weight: 400; }
+
+/* 2026-11-02 Lee "배너가 너무 길다(예전에 줄였는데 원위치됨)": 10-16 f5dee9c에서 줄였던 모바일 배너가
+   같은 날 #104(취소된 재디자인 되돌리기)에 함께 되돌아갔다. 그때 값(높이 210px)으로 다시 줄인다. 모바일만. */
+@media (max-width: 760px) {
+  .home-top-bg { padding-top: 0.5rem; padding-bottom: 0; margin-bottom: 0.5rem; }
+  .home-brand-hero { min-height: 0; height: 210px; margin-inline: 0; padding: 0.9rem 1rem 3.8rem; background-position: center; background-size: cover; }
+  .home-brand-hero__title { font-size: clamp(1.25rem, 5.4vw, 1.6rem); line-height: 1.15; }
+  .home-brand-hero__lead { font-size: 0.78rem; line-height: 1.35; margin: 0.3rem 0; }
+  .home-hero-search { left: 1rem; right: 1rem; bottom: 0.65rem; padding: 0.55rem 0.7rem; }
+  .home-brand-hero__links { display: none; }
+}

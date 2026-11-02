@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import ApplyModal from '../components/ApplyModal'
 import HomeMapExplorer from '../components/home/HomeMapExplorer'
-import { HomeDiscovery, HomeDiscoverySections } from '../components/home/HomeDiscovery'
+import { HomeDiscovery, HomeDiscoveryBody, HomeDiscoverySections } from '../components/home/HomeDiscovery'
 import FeaturedJobsSection, { selectFeaturedJobs } from '../components/FeaturedJobsSection'
 import { mainCardJobs, partitionMainCards } from '../lib/mainJobCards'
 import JobCard from '../components/JobCard'
-import HomeJobFilters, { useHomeJobConditions } from '../components/home/HomeJobFilters'
+import { useHomeJobConditions } from '../components/home/HomeJobFilters'
 import { NoPublicJobs } from '../components/NoPublicJobs'
 import { useApply } from '../components/useApply'
 import { useAuth } from '../context/AuthContext'
@@ -165,7 +165,7 @@ function AdSlot({ slotId }: AdSlotProps) {
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function Home() {
-  const { jobs, jobsError, loading } = useJobs()
+  const { jobs, jobsError } = useJobs()
   const conditions = useHomeJobConditions()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -344,9 +344,12 @@ export function Home() {
 
       {/* ── 내 주변 일자리 지도 탐색 (2026-10-01: 광고·브랜드·지역·빠른필터·업종 select 블록을 대체) ── */}
       <HomeMapExplorer jobsOverride={searchResults}
-        renderBeforeMap={(state) => <HomeDiscovery state={{ ...state, jobs: displayHomeJobs(state.jobs) }}
-          beforeJobs={<HomeJobFilters count={filterHomeJobs(state.jobs).length} loading={loading} />} />}
-        renderAfterMap={(state) => <HomeDiscoverySections jobs={displayHomeJobs(state.jobs)} />} />
+        renderBeforeMap={(state) => <HomeDiscovery state={{ ...state, jobs: displayHomeJobs(state.jobs) }} />}
+        renderAfterMap={(state) => <>
+          {/* 2026-11-02 Lee: 조건 검색 상자(HomeJobFilters)는 모바일에서 없애고 그 자리에 지도. 급여 높은 공고·아이콘·필터 줄은 지도 아래. */}
+          <HomeDiscoveryBody state={{ ...state, jobs: displayHomeJobs(state.jobs) }} />
+          <HomeDiscoverySections jobs={displayHomeJobs(state.jobs)} />
+        </>} />
 
       </div>{/* /.home-top-bg */}
 
