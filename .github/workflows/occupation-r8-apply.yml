@@ -11,6 +11,8 @@ on:
       - supabase/tests/local_jobs_occupation_r8_check.sql
       - crawler/occupation_classifier.py
       - scripts/occupations/backfill_occupations.py
+      - scripts/occupations/backfill_occupations_test.py
+      - config/auto-processing-cutoff.json
       - .github/workflows/occupation-r8-apply.yml
   workflow_dispatch: {}
 
@@ -44,9 +46,11 @@ jobs:
       - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
         run: |
           psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261015120000','local_jobs_occupation_r8') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
-      - name: 미분류 공고 자동 분류
+      - name: 보충 보호 기준 시험 (기존 공고 보호, Lee 2026-11-01)
+        run: python3 -I scripts/occupations/backfill_occupations_test.py
+      - name: 미분류 공고 자동 분류 (기준 시각 이후 공고만)
         run: |
-          psql "$SUPABASE_DB_URL" -X -At -c "select coalesce(json_agg(json_build_object('id', id, 'title', title, 'source_text', source_text)), '[]') from public.local_jobs where occupation_code is null" > rows.json
+          psql "$SUPABASE_DB_URL" -X -At -c "select coalesce(json_agg(json_build_object('id', id, 'title', title, 'source_text', source_text, 'created_at', created_at)), '[]') from public.local_jobs where occupation_code is null" > rows.json
           python3 -I scripts/occupations/backfill_occupations.py < rows.json > backfill.sql
           psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f backfill.sql
       - name: 공개 상태 비교 (후)
