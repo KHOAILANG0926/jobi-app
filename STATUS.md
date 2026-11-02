@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-01 09:39 (VN)**
-- 기준 커밋: `b41e554` (fix(benefits): prevent animated icons from stopping midway while visible (#372))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41266059044
+- 생성 시각: **2026-11-02 09:46 (VN)**
+- 기준 커밋: `3155d50` (docs(handoff): 2026-11-02 업종 사진 데모·Lee 결정 대기 3건 (#409))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41379392140
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -22,34 +22,34 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 93/93 파일 통과 |
+| 테스트 `npm test` | ✅ 102/102 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `b41e554` · 상태 **success** · 2026-10-31 18:19 (VN)
-- master 최신 커밋과 ✅ 같음
+- 마지막 Production 배포: `290461f` · 상태 **success** · 2026-11-01 23:36 (VN)
+- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #372 | 2026-10-31 18:18 (VN) | `b41e554` | fix(benefits): prevent mid-cycle animation stops on visible job cards |
-| #371 | 2026-10-31 16:20 (VN) | `b21e307` | fix: source/OCR backed recruitment headline on existing-job ingest |
-| #370 | 2026-10-31 12:24 (VN) | `b3a7504` | feat: unified automatic reprocessing queue and admin trigger |
-| #369 | 2026-10-31 11:23 (VN) | `ff26cb3` | ops: trigger approved #5157 ingest and R7 via master workflow |
-| #368 | 2026-10-31 11:03 (VN) | `5f3c244` | fix(detail): real Facebook role classification and empty labels without changing approved 4-section layout |
-| #365 | 2026-10-31 10:17 (VN) | `556de74` | fix(crawler/facebook): Highlands #5157 제목·회사·급여·주소 추출 |
-| #367 | 2026-10-31 08:08 (VN) | `86b81ad` | fix(admin): R7 기록을 Xem nội dung에 표시 |
-| #366 | 2026-10-31 07:54 (VN) | `6a58996` | feat(db): 관리자 전용 R7 증거 읽기 함수 및 운영 점검 |
-| #364 | 2026-10-30 21:17 (VN) | `4eba5b5` | feat(admin): R7 사진 대조 기록 보기 |
-| #362 | 2026-10-30 20:48 (VN) | `8538251` | feat(detail): 움직이는 복리후생 아이콘 7종 |
+| #409 | 2026-11-02 06:25 (VN) | `3155d50` | docs: HANDOFF·WORK_LOG 2026-11-02 (업종 사진 데모, Lee 결정 대기) |
+| #408 | 2026-11-01 23:35 (VN) | `290461f` | feat: 수평 전개 — 브랜드 로고·급여 표시 모든 화면 |
+| #407 | 2026-11-01 23:04 (VN) | `45021d7` | feat(card): 공고 카드 정리(급여 한 줄·단위 색·짧은 위치·제목 글자) |
+| #405 | 2026-11-01 21:22 (VN) | `edb9ac7` | fix(verify): 코드 5 가게의 메뉴 칸 검사 맞춤 |
+| #403 | 2026-11-01 21:15 (VN) | `7942c1f` | fix(brands): 로고를 흰 바탕에 크게 |
+| #402 | 2026-11-01 21:00 (VN) | `5f4a28f` | feat(brands): 확인된 브랜드 공식 로고(사이트 아이콘) |
+| #401 | 2026-11-01 20:47 (VN) | `5313424` | feat(brands): 확인된 체인 3개 등록(지점 3곳 이상·출처 기록) |
+| #400 | 2026-11-01 19:22 (VN) | `0267e18` | fix(category): 확인된 음식점·판매점을 맞는 메뉴 칸으로 |
+| #399 | 2026-11-01 18:47 (VN) | `cf55350` | docs(handoff): 메인 화면 구분 기준 확정 기록 |
+| #398 | 2026-11-01 18:38 (VN) | `d52a322` | docs(handoff): 2026-11-01 저녁 상태·메인 구분 결정 대기 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **6건** (전체 9건, 숨김·비활성 3건)
-- 출처별: 출처 없음 1 · muaban 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1 · manual 2
+- 공개 중: **8건** (전체 11건, 숨김·비활성 3건)
+- 출처별: muaban 2 · 출처 없음 3 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -64,24 +64,24 @@
 
 | 날짜 | 호출 | 마지막 갱신 |
 |---|---|---|
+| 2026-11-01 | 4 | 2026-11-01 16:28 (VN) |
 | 2026-10-31 | 2 | 2026-10-31 16:18 (VN) |
-| 2026-10-25 | 1 | 2026-10-25 12:58 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-10-31 18:19 (VN) | location_candidate.approve | job 5193 |
-| 2026-10-31 18:19 (VN) | location_candidate.add | job 5193 |
-| 2026-10-31 16:21 (VN) | location_candidate.approve | job 5191 |
-| 2026-10-31 16:21 (VN) | location_candidate.add | job 5191 |
-| 2026-10-31 12:26 (VN) | location_candidate.approve | job 5188 |
-| 2026-10-31 12:25 (VN) | location_candidate.add | job 5188 |
-| 2026-10-31 11:24 (VN) | location_candidate.approve | job 5184 |
-| 2026-10-31 11:24 (VN) | location_candidate.add | job 5184 |
-| 2026-10-31 11:04 (VN) | location_candidate.approve | job 5180 |
-| 2026-10-31 11:04 (VN) | location_candidate.add | job 5180 |
+| 2026-11-02 06:26 (VN) | location_candidate.approve | job 5297 |
+| 2026-11-02 06:26 (VN) | location_candidate.add | job 5297 |
+| 2026-11-01 23:36 (VN) | location_candidate.approve | job 5293 |
+| 2026-11-01 23:36 (VN) | location_candidate.add | job 5293 |
+| 2026-11-01 23:05 (VN) | location_candidate.approve | job 5291 |
+| 2026-11-01 23:05 (VN) | location_candidate.add | job 5291 |
+| 2026-11-01 21:23 (VN) | location_candidate.approve | job 5288 |
+| 2026-11-01 21:23 (VN) | location_candidate.add | job 5288 |
+| 2026-11-01 21:16 (VN) | location_candidate.approve | job 5285 |
+| 2026-11-01 21:16 (VN) | location_candidate.add | job 5285 |
 
 ## 8. 검증 장치 변경 이력
 
@@ -101,7 +101,7 @@
 |---|---|---|---|
 | `R1_phone_digits_only` | 없음 | 2026-10-25 12:57 (VN) | ✅ 통과 |
 | `R2_decision_columns_code_only` | 없음 | 2026-10-25 12:57 (VN) | ✅ 통과 |
-| `R2b_publish_gate_reason_code_only` | 없음 | — | — 시험 없음 |
+| `R2b_publish_gate_reason_code_only` | 보류 | — | — 시험 없음 |
 | `R3_source_evidence_required` | 저장거부 | 2026-10-25 12:57 (VN) | ✅ 통과 |
 | `R5_verbatim_names` | 저장거부 | 2026-10-25 12:57 (VN) | ✅ 통과 |
 | `R6_age_preserved` | 저장거부 | 2026-10-25 12:57 (VN) | ✅ 통과 |
