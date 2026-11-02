@@ -116,3 +116,19 @@
 
 /* 2026-10-18 도면 측정에서 발견(#4828 회사명 빈값): 모바일 목록 카드도 빈값이어도 회사명 줄 자리를 유지한다. 가짜 값 없음. */
 .discovery-job__company:empty::before { content: '\00a0'; }
+
+/* 2026-11-02 Lee "알바몬 구성": 모바일 카드 로고 자리. 위쪽 밀기 칸 = 한 면 2열×3줄 카드, 로고는 카드 위.
+   아래 목록 = 로고는 오른쪽. 로고는 contain, 업종 사진(jc__logo--photo)은 cover. 로고가 없으면 PC와 같은 순서로 채움. */
+.discovery-carousel__page { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.discovery-carousel__page > .discovery-job { padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.discovery-carousel__page > .discovery-job + .discovery-job { border-top: 1px solid #e2e8f0; }
+.discovery-job__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; }
+.discovery-job--logo-side { flex-direction: row !important; align-items: center; gap: 12px; }
+.discovery-job__logo { display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; border-radius: 6px; }
+.discovery-job__logo--top { height: 56px; margin-bottom: 4px; }
+.discovery-job__logo--side { width: 64px; height: 64px; }
+.discovery-job__logo .jc__logo { width: 100%; height: 100%; object-fit: contain; border: 0; padding: 0; }
+.discovery-job__logo--top .jc__logo { width: auto; max-width: 100%; }
+.discovery-job__logo .jc__logo--photo { object-fit: cover; }
+.discovery-job__logo--top .jc__logo--photo { width: 72px; }
+.discovery-job__logo .jc__logo-text { font-size: 11px; }

@@ -15,4 +15,8 @@ for (const count of [1, 2, 3, 4, 7]) {
   assert.equal(input.length, count, 'input is not mutated')
 }
 assert.deepEqual(groupDiscoveryJobs([jobs[0], jobs[0], ...jobs.slice(1)]).flat(), jobs)
+const six = groupDiscoveryJobs(jobs, 6)
+assert.equal(six.length, 2)
+assert.equal(six[0].length, 6)
+assert.deepEqual(six.flat(), jobs, 'six per page keeps every job once')
 console.log('homeDiscovery: real-job page grouping passed')
