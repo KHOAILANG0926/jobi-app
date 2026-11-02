@@ -135,3 +135,5 @@
 .discovery-job__logo .jc__logo--photo { object-fit: cover; }
 .discovery-job__logo--top .jc__logo--photo { width: 72px; }
 .discovery-job__logo .jc__logo-text { font-size: 11px; }
+/* 2026-11-02 Lee "지도 위치 유지": 위 칸(급여 높은 공고)은 예전 칸과 같은 모양 — 한 상자 안에 3개, 줄로 구분. 로고는 오른쪽에 작게. */
+.discovery-carousel__page--top3 .discovery-job__logo--side { width: 52px; height: 52px; }

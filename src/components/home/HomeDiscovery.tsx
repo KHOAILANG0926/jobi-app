@@ -43,8 +43,8 @@ function JobSummary({ job, logo = 'side' }: { job: Job; logo?: 'top' | 'side' })
 
 // 2026-11-02 Lee: 모바일 칸은 모두 옆으로 넘긴다(아래로 끝없이 길어지지 않게, 알바몬 모바일 방식).
 // 카드형 칸 = 한 면 2열×3줄, 로고는 카드 위. 목록형 칸 = 한 면 5개, 로고는 오른쪽.
-function JobCarousel({ id, title, jobs, layout, moreTo }: { id: string; title: string; jobs: Job[]; layout: 'cards' | 'list'; moreTo?: string }) {
-  const pages = groupDiscoveryJobs(jobs, layout === 'cards' ? 6 : 5)
+function JobCarousel({ id, title, jobs, layout, moreTo }: { id: string; title: string; jobs: Job[]; layout: 'cards' | 'list' | 'top3'; moreTo?: string }) {
+  const pages = groupDiscoveryJobs(jobs, layout === 'cards' ? 6 : layout === 'top3' ? 3 : 5)
   const track = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
   const signature = pages.flat().map(job => job.id).join('|')
@@ -109,7 +109,8 @@ export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState
     <div className="home-mobile-discovery">
       <h1 className="home-discovery-sr">Việc làm gần bạn</h1>
       {beforeJobs}
-      <JobCarousel id="high-pay" title="Việc làm lương cao" jobs={mobileHomeSections(mainCardJobs(state.jobs)).highPay} layout="cards" />
+      {/* 2026-11-02 Lee: 지도 위치는 예전 그대로 — 위 칸은 예전과 같은 높이(한 면 3개 목록)로 둔다. */}
+      <JobCarousel id="high-pay" title="Việc làm lương cao" jobs={mobileHomeSections(mainCardJobs(state.jobs)).highPay} layout="top3" />
       <nav className="home-shortcuts" aria-label="Khám phá việc làm">
         <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
         <button type="button" onClick={() => state.openFilters(2)}><Briefcase /><span>Ngành nghề</span></button>
