@@ -7,7 +7,6 @@ on:
   push:
     branches: [master]
     paths:
-      - supabase/migrations/20261015120000_local_jobs_occupation_r8.sql
       - supabase/tests/local_jobs_occupation_r8_check.sql
       - crawler/occupation_classifier.py
       - scripts/occupations/backfill_occupations.py
@@ -41,11 +40,10 @@ jobs:
           test "$n" = "1505" || { echo "::error::occupation_master가 1505건이 아닙니다($n)."; exit 1; }
       - name: 공개 상태 기록 (전)
         run: psql "$SUPABASE_DB_URL" -X -At -c "select coalesce(md5(string_agg(id||':'||coalesce(active::text,'')||':'||admin_hidden::text, ',' order by id)),'') from public.local_jobs" > before.txt
-      - name: R8 적용 (한 트랜잭션, 멱등)
-        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261015120000_local_jobs_occupation_r8.sql
-      - name: 마이그레이션 이력 기록 (이미 있으면 건너뜀)
-        run: |
-          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin insert into supabase_migrations.schema_migrations(version, name) values ('20261015120000','local_jobs_occupation_r8') on conflict do nothing; exception when others then raise notice 'schema_migrations 기록 생략: %', sqlerrm; end \$\$;"
+      # 2026-11-03: 옛 migration(20261015120000)을 다시 실행하던 "R8 적용"·"이력 기록" 단계를 없앴다.
+      # 그 단계가 10-18 규칙(1~5단계 허용)을 옛 정의(4·5단계만)로 덮어썼다(11-02 #5247 실패). DB 규칙은 migrations-apply만 적용한다.
+      - name: R8 현재 규칙 확인 (읽기 전용)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/r8_any_level_restore_production_check.sql
       - name: 보충 보호 기준 시험 (기존 공고 보호, Lee 2026-11-01)
         run: python3 -I scripts/occupations/backfill_occupations_test.py
       - name: 미분류 공고 자동 분류 (기준 시각 이후 공고만)
