@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
+import { Briefcase, ChevronLeft, ChevronRight, Flame, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
 import { mobileHomeSections } from '../../lib/mobileHomeSections'
