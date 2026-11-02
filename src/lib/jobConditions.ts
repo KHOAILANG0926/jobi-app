@@ -1,6 +1,7 @@
 // 공고 근무조건(근무 형태·통근/복지·채용 형태·모집 상태·근무 일정) 라벨과 표시 규칙 — 2026-10-01.
 // null = 정보 미확인. 배지는 확인된 값(true 또는 명시된 선택지)만 보여주고, null을 "없음"으로 표시하지 않는다.
 import type { Job, RecruitmentType, ShiftType, WorkSchedule } from '../types/job'
+import { mealLabel } from './mealBenefit'
 
 export const SHIFT_LABELS: Record<ShiftType, string> = {
   day: 'Ca ngày',
@@ -67,7 +68,7 @@ export function conditionBadges(job: Job): ConditionBadge[] {
   if (job.shiftType) out.push({ key: 'shift', label: SHIFT_LABELS[job.shiftType], tone: 'neutral' })
   if (job.shuttleBus === true) out.push({ key: 'bus', label: 'Xe đưa đón', tone: 'good' })
   if (job.dormitory === true) out.push({ key: 'dorm', label: 'Ký túc xá', tone: 'good' })
-  if (job.mealProvided === true) out.push({ key: 'meal', label: 'Có bữa ăn', tone: 'good' })
+  if (job.mealProvided === true) out.push({ key: 'meal', label: mealLabel(job.description, 'Có bữa ăn'), tone: 'good' })
   if (job.recruitmentType === 'direct') out.push({ key: 'rt', label: RECRUITMENT_LABELS.direct, tone: 'good' })
   if (job.recruitmentType === 'agency') out.push({ key: 'rt', label: RECRUITMENT_LABELS.agency, tone: 'warn' })
   if (job.immediateStart === true) out.push({ key: 'now', label: 'Đi làm ngay', tone: 'neutral' })

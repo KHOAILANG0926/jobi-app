@@ -10598,6 +10598,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-sec--recruit-grid .jd2-kv__row dd { min-width: 0; }
 .jd2-salary-lines { display: inline-flex; flex-direction: column; vertical-align: top; margin-left: 0.25rem; }
 .jd2-salary-line { display: block; }
+/* 2026-11-02 Lee: 급여 아래 상여·수당·지급 방식 원문 줄 = 작은 회색 글씨(급여 금액과 구분). */
+.jd2-salary-line.jd2-salary-sub,
+.jd2-kv dd.jd2-info-val--salary .jd2-salary-sub,
+.jd2-two-col-card__row dd.jd2-info-val--salary .jd2-salary-sub { margin-top: 0.15rem; font-size: 0.82rem; font-weight: 500; line-height: 1.45; color: #64748b; }
 @media (min-width: 761px) {
   .jd2-sec--conditions-grid .jd2-kv,
   .jd2-sec--recruit-grid .jd2-kv { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.4rem; }

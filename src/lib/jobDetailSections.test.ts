@@ -223,6 +223,9 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   assert(a.salary.length === 2 && a.insurance[0] === 'Đóng BHXH đầy đủ', 'pay/bonus under salary, insurance in benefits')
   assert(d.sections.flatMap((s) => s.lines).some((l) => l.includes('Thưởng chuyên cần')), 'description keeps the original line (not removed)')
   assert(sourceAgeValue(d.sections) === '18 - 40 tuổi' && ALBAMON_LAYOUT_JOB_IDS.has('sb-4828'), 'age value from source, pilot job only')
+  // 2026-11-03 #5299 실제 원문: 급여 아래 작은 글씨 줄(상여·수당)과 복리후생(보험)이 나뉜다(상세 화면 급여 칸 스타일 수정의 회귀 시험).
+  const v = albamonConditionLines(detailSections('Thu nhập và phụ cấp\n- Thu nhập: 8 – 12 triệu/tháng\n- Thưởng Lễ, Tết, lương tháng 13\nQUYỀN LỢI HẤP DẪN:\n- Thử việc hưởng 100% lương\n- Được đóng BHXH, ký HĐLĐ đầy đủ\n- Có phụ cấp ăn uống').sections)
+  assert(v.salary.includes('Thưởng Lễ, Tết, lương tháng 13') && v.salary.includes('Có phụ cấp ăn uống') && v.insurance[0] === 'Được đóng BHXH, ký HĐLĐ đầy đủ', '#5299 salary sub lines and insurance')
 }
 {
   // Lee 2026-10-30 신규부터: 새 공고 = 4칸 틀, 기존 공개 공고·KDA는 그대로.

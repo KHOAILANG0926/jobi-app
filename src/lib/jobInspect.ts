@@ -10,6 +10,7 @@ import { headingOf } from './jobDetailSections.ts'
 import { isCovered } from './jobDetailFill.ts'
 import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
 import { cardSalary } from './mainJobCards.ts'
+import { MEAL_HINT } from './mealBenefit.ts'
 
 export interface InspectInput extends ShownAbove {
   id: number
@@ -44,7 +45,8 @@ const SITE_JUNK = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dun
 export const BENEFIT_HINTS: Array<{ key: 'shuttle_bus' | 'dormitory' | 'meal_provided'; label: string; re: RegExp }> = [
   { key: 'shuttle_bus', label: 'Xe đưa đón', re: /\b(?:xe dua don|xe dua ruoc|xe don|dua don)\b/ },
   { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|cho o)\b/ },
-  { key: 'meal_provided', label: 'Ăn ca', re: /\b(?:an ca|bua ca|bua an|com trua|ho tro an|bao an|an trua)\b/ },
+  // 2026-11-02 Lee: 식비 수당(phụ cấp ăn uống 등)도 식사 혜택 — 낱말 규칙 한 곳(lib/mealBenefit.ts).
+  { key: 'meal_provided', label: 'Ăn ca', re: MEAL_HINT },
 ]
 const NEGATED = /\b(?:khong|ko|k co|tu tuc)\b/
 
