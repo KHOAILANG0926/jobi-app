@@ -1,3 +1,4 @@
+// 2026-11-03: LayoutDesktop.tsx·DesktopHomeMapExplorer.tsx·index.css — Lee 지시: PC 메인 왼쪽 칸 위치·급여만("거리하고 기본 금액만"), 메뉴 "Theo khu vực" 34개 성·급구 → 지역별 일자리(/viec-lam/khu-vuc), 지역별 페이지 전용 CSS(.jm-urgent-page 아래)·지도. 공고 카드·상세 틀 변경 없음.
 // 2026-11-03: JobDetail.tsx·index.css — Lee 지시(11-03 "123수정"): 급여 아래 상여·수당 줄 작은 회색 글씨·금액과 정렬(#415), 식비 수당 이름 Phụ cấp ăn·아이콘 중복 태그 숨김(#415·#416). 칸 순서·위치 등 PC 틀 변경 없음. 기준값 갱신이 늦어 master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돎).
 // 2026-11-01: index.css — Lee "수평 전개": 급여 표시 한 곳(SalaryText) 색 규칙 추가. PC 틀 변경 없음.
 // 2026-11-01: JobDetail.tsx — Lee 지시(브랜드 로고 수평 전개): 등록 브랜드 공고는 로고 자리에 브랜드 공식 사이트 아이콘. 틀 변경 없음.
@@ -55,12 +56,12 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "5381dfbe61819431a203e249dd178f54220b7e3b57ae71963183a743cdf715be",
+    "sha256": "5679d31145778b96c4334521d53ae773ffff6d73c864fe3e551e693c3e3dc7c6",
     "restore": []
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "a779d83107ea533caded89a47fd955c601b5e651ad958dd4674afb0092f97444",
+    "sha256": "e0529024cec5fba8adc9deb8fc81e2120f8f91451bb1df5a081ccd51ff5eb063",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",
@@ -92,7 +93,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "b7f1ef7e6d3c95b319ae2fab7b203aa934e5392e411299405522b6c3df6b8e9f",
+    "sha256": "7b25a5595c330bf9e51193b8a5737ea1d17f36f6c9f559178639786cc5957b73",
     "restore": []
   },
   {

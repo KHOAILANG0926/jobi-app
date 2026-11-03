@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link } from 'react-router-dom'
 import { useJobs } from '../context/JobsContext'
 import { ALL_CATEGORIES, CATEGORY_LABELS } from '../data/categories'
-import { REGION_MACRO_TABS } from '../data/jobRegions'
+import { ALERT_REGION_TABS as REGION_MACRO_TABS } from '../data/jobRegions'
 import { searchAddress } from '../lib/geoapify'
 import {
   CRITERION_LABELS,

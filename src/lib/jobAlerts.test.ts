@@ -2,7 +2,7 @@
  * Standalone tests for jobAlerts.ts — plain assertions, no framework (jobRows.test.ts와
  * 같은 방식). `npm test`가 실행한다.
  */
-import { regionKeywords } from './regionKeywords'
+import { JOB_REGIONS } from '../data/jobRegions'
 import { normalizeViText } from './jobCoords'
 import {
   DISTANCE_DISABLED_REASON,
@@ -45,18 +45,21 @@ const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as {
 }
 
 // ---------------------------------------------------------------------------
-// 1. SQL 지역 키워드 = src/lib/regionKeywords.ts (2026-11-03부터 공식 34개 성 자료에서 생성, 드리프트 방지)
+// 1. SQL 지역 키워드 목록 = src/data/jobRegions.ts JOB_REGIONS (드리프트 방지)
 // ---------------------------------------------------------------------------
 {
-  const sql = readFileSync(new URL('../../supabase/migrations/20261103120000_job_alert_regions_34.sql', import.meta.url), 'utf8')
+  const sql = readFileSync(new URL('../../supabase/migrations/20260927090000_job_alerts.sql', import.meta.url), 'utf8')
   const seedBlock = sql.slice(sql.indexOf('insert into public.job_alert_region_keywords'), sql.indexOf(') as v(region_id, keyword)'))
   const sqlPairs = new Set<string>()
-  for (const m of seedBlock.matchAll(/\('([a-z]+)', '((?:[^']|'')+)'\)/g)) sqlPairs.add(`${m[1]}|${normalizeViText(m[2].replace(/''/g, "'"))}`)
-  const tsPairs = new Set(regionKeywords().map((r) => `${r.regionId}|${r.keyword}`))
+  for (const m of seedBlock.matchAll(/\('([a-z]+)', '([^']+)'\)/g)) {
+    sqlPairs.add(`${m[1]}|${normalizeViText(m[2])}`)
+  }
+  const tsPairs = new Set<string>()
+  for (const r of JOB_REGIONS) for (const k of r.match) tsPairs.add(`${r.id}|${normalizeViText(k)}`)
   const onlyTs = [...tsPairs].filter((p) => !sqlPairs.has(p))
   const onlySql = [...sqlPairs].filter((p) => !tsPairs.has(p))
-  assert.deepEqual(onlyTs.slice(0, 5), [], 'regionKeywords missing from SQL seed (regenerate with scripts/data/gen-alert-region-keywords.mjs)')
-  assert.deepEqual(onlySql.slice(0, 5), [], 'SQL seed has keywords not in regionKeywords')
+  assert.deepEqual(onlyTs, [], 'JOB_REGIONS keywords missing from SQL seed')
+  assert.deepEqual(onlySql, [], 'SQL seed has keywords not in JOB_REGIONS')
 }
 
 // ---------------------------------------------------------------------------
