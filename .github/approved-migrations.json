@@ -17,6 +17,14 @@
       "approvedAt": "2026-10-28",
       "approval": "Lee 2026-10-28 15:16 chat: '예, 이 파일만 승인'. Canonical area/gate/exact pin releases and prevents the unlocated hold.",
       "scope": "Only this exact newly added migration. DELETE FROM removes rows from the map_r1_unlocated hold list only (no announcement data deleted). No blanket destructive SQL approval."
+    },
+    {
+      "path": "supabase/migrations/20261103190000_brand_categories_restaurant_retail.sql",
+      "sha256": "ef4689562676fe7a0a40bbc897a448de530b97eae054ff1d787b2bad12988c83",
+      "approvedBy": "Lee",
+      "approvedAt": "2026-11-03",
+      "approval": "Lee 2026-11-03 chat: Claude가 '브랜드 분류에 식당 추가는 DB 구조 변경(DDL)이라 승인 필요'라고 보고한 뒤 '식당이 없는게 말이되?', '쿠팡같은 물류는 브랜드가될수있어도', '지적한거 수정해'.",
+      "scope": "Only this exact newly added migration. DROP CONSTRAINT replaces job_brands_category_check with a wider allowed list (adds restaurant, retail); no rows or columns removed. No blanket destructive SQL approval."
     }
   ]
 }

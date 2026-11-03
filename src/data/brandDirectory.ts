@@ -12,18 +12,23 @@ import { normalizeViText } from '../lib/jobCoords'
  * 코드 수정 없이 메뉴에 나타난다.
  */
 
+// 2026-11-03 Lee "식당이 없는게 말이되?": 식당·판매 매장 추가. 물류는 delivery. 공장은 브랜드가 아니다.
 export type BrandCategoryId =
   | 'fastfood'
+  | 'restaurant'
   | 'cafe'
   | 'bakery'
   | 'convenience'
+  | 'retail'
   | 'delivery'
 
 export const BRAND_CATEGORY_LABELS: Record<BrandCategoryId, string> = {
   fastfood: 'Fast food',
+  restaurant: 'Nhà hàng',
   cafe: 'Cafe / Trà sữa',
   bakery: 'Bakery',
   convenience: 'Cửa hàng tiện lợi',
+  retail: 'Cửa hàng / Bán lẻ',
   delivery: 'Giao hàng / Dịch vụ',
 }
 
@@ -70,7 +75,7 @@ export function computeBrandCounts(jobs: Job[], brands: BrandDefinition[]): Bran
 export function groupBrandsByCategory(
   brandsWithCount: BrandWithCount[],
 ): { id: BrandCategoryId; label: string; brands: BrandWithCount[] }[] {
-  const order: BrandCategoryId[] = ['fastfood', 'cafe', 'bakery', 'convenience', 'delivery']
+  const order: BrandCategoryId[] = ['fastfood', 'restaurant', 'cafe', 'bakery', 'convenience', 'retail', 'delivery']
   return order
     .map((id) => ({
       id,
