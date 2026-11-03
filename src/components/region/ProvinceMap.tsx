@@ -79,10 +79,17 @@ function fitBox(x0: number, y0: number, x1: number, y1: number): Box {
   return { x: (x0 + x1) / 2 - tw / 2, y: (y0 + y1) / 2 - th / 2, w: tw, h: th }
 }
 
-export default function ProvinceMap({ counts, selected, onSelect }: {
+/** 동 표시(Lee 2026-11-03 "지도에 동 표시"): 동 경계 자료가 없어, 그 동으로 확정된 공고들의 핀 평균 위치에
+ * 동 이름 + 공고 수를 띄운다. 공고가 있는 동만 나온다. */
+export interface WardPoint { ward: string; lat: number; lng: number; count: number }
+
+export default function ProvinceMap({ counts, selected, onSelect, wardPoints = [], selectedWards, onWardSelect }: {
   counts: Map<string, number>
   selected: string | null
   onSelect: (province: string | null) => void
+  wardPoints?: WardPoint[]
+  selectedWards?: Set<string>
+  onWardSelect?: (ward: string) => void
 }) {
   const { shapes, centers } = useMemo(buildShapes, [])
   const [hover, setHover] = useState<string | null>(null)
@@ -251,7 +258,19 @@ export default function ProvinceMap({ counts, selected, onSelect }: {
         {zoom > 3 && VN_ISLANDS.map((i) => (
           <text key={`l-${i.name}`} x={px(i.lng) + 4 / zoom} y={py(i.lat)} dy="0.35em" className="pmap__island-label" fontSize={8 / zoom}>{i.name}</text>
         ))}
-        {[...centers].filter(([p]) => (counts.get(p) ?? 0) > 0).map(([p, c]) => {
+        {selected && zoom >= 2.2 && wardPoints.map((w) => {
+          const on = selectedWards?.has(w.ward)
+          const x = px(w.lng), y = py(w.lat)
+          return (
+            <g key={w.ward} className={`pmap__ward${on ? ' is-selected' : ''}`} onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } onWardSelect?.(w.ward) }}>
+              <title>{w.ward} · {w.count} việc làm (vị trí theo các tin trong phường/xã)</title>
+              <circle cx={x} cy={y} r={7 / zoom} />
+              <text x={x} y={y} dy="0.35em" fontSize={8 / zoom} className="pmap__ward-count">{w.count}</text>
+              <text x={x + 10 / zoom} y={y} dy="0.35em" fontSize={9 / zoom} className="pmap__ward-label">{w.ward.replace(/^(Phường|Xã|Đặc khu) /, '')}</text>
+            </g>
+          )
+        })}
+        {(!selected || zoom < 2.2) && [...centers].filter(([p]) => (counts.get(p) ?? 0) > 0).map(([p, c]) => {
           const n = counts.get(p)!
           const r = (11 + Math.min(10, Math.sqrt(n) * 3)) / zoom
           return (

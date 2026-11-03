@@ -494,6 +494,21 @@ export default function UrgentJobsPage() {
     for (const a of jobAreas.values()) for (const p of a.provinces) m.set(p, (m.get(p) ?? 0) + 1)
     return m
   }, [jobAreas])
+  // 지도 동 표시: 동 하나로 확정된 공고만, 그 공고 핀(근무지 좌표, 없으면 공고 좌표)의 평균 위치.
+  const wardPoints = useMemo(() => {
+    if (!selectedProvince) return []
+    const acc = new Map<string, { lat: number; lng: number; n: number }>()
+    for (const j of openJobs) {
+      const a = jobAreas.get(j.id)
+      if (!a || a.wards.length !== 1 || !a.provinces.includes(selectedProvince)) continue
+      const loc = (j.workLocations ?? []).find((l) => Number.isFinite(l.lat) && Number.isFinite(l.lng))
+      const lat = loc?.lat ?? j.lat, lng = loc?.lng ?? j.lng
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+      const c = acc.get(a.wards[0]) ?? { lat: 0, lng: 0, n: 0 }
+      acc.set(a.wards[0], { lat: c.lat + lat!, lng: c.lng + lng!, n: c.n + 1 })
+    }
+    return [...acc].map(([ward, c]) => ({ ward, lat: c.lat / c.n, lng: c.lng / c.n, count: c.n }))
+  }, [openJobs, jobAreas, selectedProvince])
   const rankedProvinces = useMemo(
     () => VN_PROVINCES.map((p) => [p, provinceCounts.get(p) ?? 0] as const).sort((a, b) => b[1] - a[1]),
     [provinceCounts],
@@ -704,7 +719,8 @@ export default function UrgentJobsPage() {
           오른쪽 34개 성 목록(공고 많은 순, 없는 곳도 빼지 않음 — "지금 없다고 안 만들면 안 돼"). */}
       <section className="jm-region-hero">
         <Suspense fallback={<div className="pmap pmap--loading">Đang tải bản đồ…</div>}>
-          <ProvinceMap counts={provinceCounts} selected={selectedProvince} onSelect={selectProvince} />
+          <ProvinceMap counts={provinceCounts} selected={selectedProvince} onSelect={selectProvince}
+            wardPoints={wardPoints} selectedWards={selectedWards} onWardSelect={(w) => { setSelectedDistrict(null); toggleWard(w) }} />
         </Suspense>
         <div className="jm-region-rank">
           <p className="jm-region-rank__total">

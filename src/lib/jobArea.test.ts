@@ -1,10 +1,10 @@
 // 2026-11-03 Lee "지역명이 서로 안 맞으면 공고 올려도 안 들어갈 거 아니야" —
 // 메인·검색·추천·급구가 같은 공식 34개 성 판정을 쓰는지, 옛 이름(성·군/구)도
 // 지금 성·동으로 잡히는지 확인한다.
-import { resolveProvinces, jobProvinces } from './jobArea.ts'
+import { resolveProvinces } from './jobArea.ts'
 import { resolveJobArea, setOldWardData } from './jobAreaWards.ts'
 import { VN_OLD_WARDS_BY_PROVINCE } from '../data/vnOldWards.ts'
-import { jobMatchesRegion, REGION_MACRO_TABS, REGION_PROVINCE, ALERT_REGION_TABS, currentRegionId } from '../data/jobRegions.ts'
+import { jobMatchesRegion, REGION_MACRO_TABS, REGION_PROVINCE, currentRegionId } from '../data/jobRegions.ts'
 import { VN_PROVINCES } from '../data/vnProvinces.ts'
 
 function assert(cond: boolean, msg: string) { if (!cond) throw new Error(`FAIL: ${msg}`) }
@@ -69,18 +69,6 @@ const area = (location: string) => resolveJobArea({ location, workLocations: [] 
   }
   assert(wrongSingle === 0 && wrongProvince === 0, `official table: wrongSingle ${wrongSingle}, wrongProvince ${wrongProvince}`)
   assert(missing <= 5, `official table: candidates miss the answer ${missing} times`)
-}
-
-// DB에 이미 채워진 값이 있으면 함께 인정(없어도 주소로 판정)
-{
-  const p = jobProvinces({ location: '', workLocations: [{ rawAddress: '', resolvedProvince: 'Thành phố Bắc Ninh' }] })
-  assert(p.join() === 'Thành phố Bắc Ninh', 'stored resolved province still counts')
-}
-
-// 알림은 DB 키워드 표(job_alert_region_keywords)와 맞춘 예전 29개 그대로
-{
-  const ids = ALERT_REGION_TABS.flatMap((t) => t.provinces.map((p) => p.id))
-  assert(ids.length === 29 && ids.includes('bacgiang') && ids.includes('longan') && !ids.includes('caobang'), 'alert list unchanged until DB migration')
 }
 
 console.log('jobArea.test.ts: all passed')

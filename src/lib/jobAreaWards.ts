@@ -126,7 +126,7 @@ function matchOldWards(hay: string, provinces: string[]): { wards: Set<string>; 
   return { wards, hay: masked }
 }
 
-export function resolveJobArea(job: JobAreaSource & { workLocations?: { resolvedWards?: string[] | null }[] }): JobArea {
+export function resolveJobArea(job: JobAreaSource): JobArea {
   const locs = job.workLocations ?? []
   const fullHay = normalizedHay([job.location, ...locs.map((l) => l.rawAddress)])
   let provinces = jobProvinces(job)
@@ -163,6 +163,5 @@ export function resolveJobArea(job: JobAreaSource & { workLocations?: { resolved
       for (const w of VN_WARDS_BY_DISTRICT[d.province]?.[d.district] ?? []) wards.add(w)
     }
   }
-  for (const l of locs) for (const w of l.resolvedWards ?? []) wards.add(w)
   return { provinces, wards: [...wards] }
 }

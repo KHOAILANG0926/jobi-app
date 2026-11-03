@@ -200,9 +200,8 @@ export const JOB_REGIONS = [
     match: ['ca mau', 'bac lieu', 'soc trang'],
   },
   /* ── 2026-11-03 Lee "지역명 서로 맞춰야" — 공식 34개 성 중 빠져 있던 7곳.
-   * match는 비워 둔다: match는 job_alert_region_keywords(DB 알림 판정) 시드와
-   * 1:1로 맞춰야 하는 목록이라(jobAlerts.test.ts), 알림 쪽은 DB migration 전까지
-   * 바꾸지 않는다. 화면 필터는 match가 아니라 jobArea.ts 판정을 쓴다. */
+   * match(옛 손 목록)는 더 이상 판정에 쓰지 않는다 — 화면은 lib/jobArea.ts, 알림 DB 키워드는
+   * lib/regionKeywords.ts(같은 공식 자료)에서 만든다. */
   { id: 'caobang', label: 'Cao Bằng', match: [] },
   { id: 'dienbien', label: 'Điện Biên', match: [] },
   { id: 'laichau', label: 'Lai Châu', match: [] },
@@ -291,18 +290,6 @@ export const REGION_MACRO_TABS: {
   },
 ]
 
-/** 알림(JobAlertsPanel) 전용 — DB job_alert_region_keywords에 있는 예전 29개 그대로.
- * 알림 판정은 DB 함수라, 공식 34개로 맞추려면 별도 migration(STRICT)이 필요하다. */
-const ALERT_EXTRA: Partial<Record<JobRegionId, { id: JobRegionId; label: string }>> = {
-  bacninh: { id: 'bacgiang', label: 'Bắc Giang' },
-  tayninh: { id: 'longan', label: 'Long An' },
-}
-const ALERT_EXCLUDED = new Set<JobRegionId>(['caobang', 'dienbien', 'laichau', 'langson', 'laocai', 'sonla', 'tuyenquang'])
-export const ALERT_REGION_TABS: typeof REGION_MACRO_TABS = REGION_MACRO_TABS.map((tab) => ({
-  ...tab,
-  provinces: tab.provinces.filter((p) => !ALERT_EXCLUDED.has(p.id)).flatMap((p) => (ALERT_EXTRA[p.id] ? [p, ALERT_EXTRA[p.id]!] : [p])),
-}))
-
 const PROVINCE_TO_MACRO: Partial<Record<JobRegionId, MacroGroupId>> = {}
 for (const tab of REGION_MACRO_TABS) {
   for (const p of tab.provinces) {
@@ -322,7 +309,7 @@ export function macroGroupForRegionId(id: JobRegionId): MacroGroupId | undefined
 export function jobMatchesRegion(
   location: string,
   regionId: JobRegionId,
-  workLocations?: { rawAddress: string; resolvedProvince?: string | null }[],
+  workLocations?: { rawAddress: string }[],
 ): boolean {
   const province = REGION_PROVINCE[regionId]
   if (!province) return true

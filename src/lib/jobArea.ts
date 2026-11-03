@@ -112,13 +112,12 @@ export function resolveProvinces(texts: (string | null | undefined)[]): string[]
 
 export interface JobAreaSource {
   location?: string | null
-  workLocations?: { rawAddress?: string | null; resolvedProvince?: string | null }[]
+  workLocations?: { rawAddress?: string | null }[]
 }
 
-/** 공고 하나의 성/시 후보(주소 판정 + DB에 이미 채워진 값이 있으면 합침). */
+/** 공고 하나의 성/시 후보 — 주소 글자로만 판정(Lee 2026-11-03 "명확한 기준"). DB의 resolved_province는
+ * 수집기 판정(규칙이 다름)이라 섞지 않는다. */
 export function jobProvinces(job: JobAreaSource): string[] {
   const locs = job.workLocations ?? []
-  const set = new Set(resolveProvinces([job.location, ...locs.map((l) => l.rawAddress)]))
-  for (const l of locs) if (l.resolvedProvince && VN_PROVINCES.includes(l.resolvedProvince)) set.add(l.resolvedProvince)
-  return [...set]
+  return resolveProvinces([job.location, ...locs.map((l) => l.rawAddress)])
 }

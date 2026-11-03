@@ -1,0 +1,2888 @@
+{
+"_note": "행정구역 공통 시험 문항(Lee 2026-11-03). 앱(src/lib/vnAdminCases.test.ts)과 수집기(crawler/test_vn_admin_cases.py)가 같은 문항으로 검사. 판: scripts/data/vn-admin-version.json",
+"cases": [
+{
+"old": [
+"Phường Đại Phúc",
+"Thành phố Bắc Ninh",
+"Tỉnh Bắc Ninh"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Võ Cường"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Phường Đình Bảng",
+"Thành phố Từ Sơn",
+"Tỉnh Bắc Ninh"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Từ Sơn"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Xã Đại Đồng Thành",
+"Thị xã Thuận Thành",
+"Tỉnh Bắc Ninh"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Thuận Thành"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Phường Xương Giang",
+"Thành phố Bắc Giang",
+"Tỉnh Bắc Giang"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Bắc Giang"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Phường Song Khê",
+"Thành phố Bắc Giang",
+"Tỉnh Bắc Giang"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Tiền Phong"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Xã Chí Hòa",
+"Huyện Hưng Hà",
+"Tỉnh Thái Bình"
+],
+"prov": "Tỉnh Hưng Yên",
+"wards": [
+"Xã Hồng Minh"
+],
+"provOptions": [
+"Tỉnh Hưng Yên"
+]
+},
+{
+"old": [
+"Xã Quế Mỹ",
+"Huyện Quế Sơn",
+"Tỉnh Quảng Nam"
+],
+"prov": "Thành phố Đà Nẵng",
+"wards": [
+"Xã Quế Sơn Trung"
+],
+"provOptions": [
+"Thành phố Đà Nẵng"
+]
+},
+{
+"old": [
+"Xã Sơn Tân",
+"Huyện Cam Lâm",
+"Tỉnh Khánh Hòa"
+],
+"prov": "Tỉnh Khánh Hòa",
+"wards": [
+"Xã Cam Hiệp"
+],
+"provOptions": [
+"Tỉnh Khánh Hòa"
+]
+},
+{
+"old": [
+"Phường Nam Bình",
+"Thành phố Hoa Lư",
+"Tỉnh Ninh Bình"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Phường Hoa Lư"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Ích Hậu",
+"Huyện Thạch Hà",
+"Tỉnh Hà Tĩnh"
+],
+"prov": "Tỉnh Hà Tĩnh",
+"wards": [
+"Xã Đông Kinh"
+],
+"provOptions": [
+"Tỉnh Hà Tĩnh"
+]
+},
+{
+"old": [
+"Xã Kim Hỷ",
+"Huyện Na Rì",
+"Tỉnh Bắc Kạn"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Xã Văn Lang"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Xã Hòa Khánh Đông",
+"Huyện Đức Hòa",
+"Tỉnh Long An"
+],
+"prov": "Tỉnh Tây Ninh",
+"wards": [
+"Xã Hòa Khánh"
+],
+"provOptions": [
+"Tỉnh Tây Ninh"
+]
+},
+{
+"old": [
+"Xã Vĩnh Phong",
+"Huyện Bảo Lâm",
+"Tỉnh Cao Bằng"
+],
+"prov": "Tỉnh Cao Bằng",
+"wards": [
+"Xã Bảo Lâm"
+],
+"provOptions": [
+"Tỉnh Cao Bằng"
+]
+},
+{
+"old": [
+"Xã Yên Mỹ",
+"Huyện Yên Mô",
+"Tỉnh Ninh Bình"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Yên Mạc"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Việt Hùng",
+"Huyện Vũ Thư",
+"Tỉnh Thái Bình"
+],
+"prov": "Tỉnh Hưng Yên",
+"wards": [
+"Xã Vạn Xuân"
+],
+"provOptions": [
+"Tỉnh Hưng Yên"
+]
+},
+{
+"old": [
+"Phường 5",
+"Quận Tân Bình",
+"Thành phố Hồ Chí Minh"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Tân Sơn Nhất"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Cẩm Thạch",
+"Huyện Cẩm Thủy",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Cẩm Thạch"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Trung Sơn",
+"Thị xã Việt Yên",
+"Tỉnh Bắc Giang"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Vân Hà"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Xã Trạm Thản",
+"Huyện Phù Ninh",
+"Tỉnh Phú Thọ"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Trạm Thản"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Xã Đồng Tâm",
+"Huyện Bắc Quang",
+"Tỉnh Hà Giang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Đồng Tâm"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Xã Phượng Sơn",
+"Huyện Quốc Oai",
+"Thành phố Hà Nội"
+],
+"prov": "Thành phố Hà Nội",
+"wards": [
+"Xã Quốc Oai",
+"Xã Tây Phương"
+],
+"provOptions": [
+"Thành phố Hà Nội"
+]
+},
+{
+"old": [
+"Phường Tân Phong",
+"Quận 7",
+"Thành phố Hồ Chí Minh"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Tân Hưng"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Đại Hưng",
+"Huyện Đại Lộc",
+"Tỉnh Quảng Nam"
+],
+"prov": "Thành phố Đà Nẵng",
+"wards": [
+"Xã Thượng Đức"
+],
+"provOptions": [
+"Thành phố Đà Nẵng"
+]
+},
+{
+"old": [
+"Xã Trường Lâm",
+"Thị xã Nghi Sơn",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Trường Lâm"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Thị trấn Bến Sung",
+"Huyện Như Thanh",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Như Thanh"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Muổi Nọi",
+"Huyện Thuận Châu",
+"Tỉnh Sơn La"
+],
+"prov": "Tỉnh Sơn La",
+"wards": [
+"Xã Muổi Nọi"
+],
+"provOptions": [
+"Tỉnh Sơn La"
+]
+},
+{
+"old": [
+"Xã Tân Thủy",
+"Huyện Lệ Thủy",
+"Tỉnh Quảng Bình"
+],
+"prov": "Tỉnh Quảng Trị",
+"wards": [
+"Xã Tân Mỹ"
+],
+"provOptions": [
+"Tỉnh Quảng Trị"
+]
+},
+{
+"old": [
+"Phường Tân An",
+"Thành phố Buôn Ma Thuột",
+"Tỉnh Đắk Lắk"
+],
+"prov": "Tỉnh Đắk Lắk",
+"wards": [
+"Phường Tân An"
+],
+"provOptions": [
+"Tỉnh Đắk Lắk"
+]
+},
+{
+"old": [
+"Xã Vĩnh Hòa Hưng Nam",
+"Huyện Gò Quao",
+"Tỉnh Kiên Giang"
+],
+"prov": "Tỉnh An Giang",
+"wards": [
+"Xã Vĩnh Hòa Hưng"
+],
+"provOptions": [
+"Tỉnh An Giang"
+]
+},
+{
+"old": [
+"Xã Thường Thới Hậu A",
+"Huyện Hồng Ngự",
+"Tỉnh Đồng Tháp"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Phường Thường Lạc"
+],
+"provOptions": [
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Phường Tân Tiến",
+"Thành phố Buôn Ma Thuột",
+"Tỉnh Đắk Lắk"
+],
+"prov": "Tỉnh Đắk Lắk",
+"wards": [
+"Phường Buôn Ma Thuột"
+],
+"provOptions": [
+"Tỉnh Đắk Lắk"
+]
+},
+{
+"old": [
+"Xã Pú Đao",
+"Huyện Nậm Nhùn",
+"Tỉnh Lai Châu"
+],
+"prov": "Tỉnh Lai Châu",
+"wards": [
+"Xã Lê Lợi"
+],
+"provOptions": [
+"Tỉnh Lai Châu"
+]
+},
+{
+"old": [
+"Phường Trà Bá",
+"Thành phố Pleiku",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Phường Hội Phú"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Phường Trần Phú",
+"Thành phố Quy Nhơn",
+"Tỉnh Bình Định"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Phường Quy Nhơn"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Minh Sơn",
+"Huyện Thanh Chương",
+"Tỉnh Nghệ An"
+],
+"prov": "Tỉnh Nghệ An",
+"wards": [
+"Xã Cát Ngạn"
+],
+"provOptions": [
+"Tỉnh Nghệ An"
+]
+},
+{
+"old": [
+"Xã Đức Hòa",
+"Huyện Mộ Đức",
+"Tỉnh Quảng Ngãi"
+],
+"prov": "Tỉnh Quảng Ngãi",
+"wards": [
+"Xã Mộ Đức"
+],
+"provOptions": [
+"Tỉnh Quảng Ngãi"
+]
+},
+{
+"old": [
+"Thị trấn Ba Hàng Đồi",
+"Huyện Lạc Thủy",
+"Tỉnh Hoà Bình"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã An Nghĩa"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Xã Trung Hà",
+"Huyện Chiêm Hóa",
+"Tỉnh Tuyên Quang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Trung Hà"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Phường Duy Minh",
+"Thị xã Duy Tiên",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Phường Duy Hà"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Phúc Lợi",
+"Huyện Lục Yên",
+"Tỉnh Yên Bái"
+],
+"prov": "Tỉnh Lào Cai",
+"wards": [
+"Xã Phúc Lợi"
+],
+"provOptions": [
+"Tỉnh Lào Cai"
+]
+},
+{
+"old": [
+"Xã Lộc Châu",
+"Thành phố Bảo Lộc",
+"Tỉnh Lâm Đồng"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Phường 3 Bảo Lộc"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Xã Lộc Tấn",
+"Huyện Lộc Ninh",
+"Tỉnh Bình Phước"
+],
+"prov": "Thành phố Đồng Nai",
+"wards": [
+"Xã Lộc Tấn"
+],
+"provOptions": [
+"Thành phố Đồng Nai"
+]
+},
+{
+"old": [
+"Xã Quảng Hợp",
+"Huyện Quảng Trạch",
+"Tỉnh Quảng Bình"
+],
+"prov": "Tỉnh Quảng Trị",
+"wards": [
+"Xã Phú Trạch"
+],
+"provOptions": [
+"Tỉnh Quảng Trị"
+]
+},
+{
+"old": [
+"Xã Mỹ Lộc",
+"Huyện Hậu Lộc",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Hậu Lộc"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Diên Phước",
+"Huyện Diên Khánh",
+"Tỉnh Khánh Hòa"
+],
+"prov": "Tỉnh Khánh Hòa",
+"wards": [
+"Xã Diên Thọ"
+],
+"provOptions": [
+"Tỉnh Khánh Hòa"
+]
+},
+{
+"old": [
+"Xã Thái Bình Trung",
+"Huyện Vĩnh Hưng",
+"Tỉnh Long An"
+],
+"prov": "Tỉnh Tây Ninh",
+"wards": [
+"Xã Vĩnh Hưng",
+"Xã Khánh Hưng",
+"Xã Tuyên Bình"
+],
+"provOptions": [
+"Tỉnh Tây Ninh"
+]
+},
+{
+"old": [
+"Xã Phù Lưu",
+"Huyện Hàm Yên",
+"Tỉnh Tuyên Quang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Phù Lưu"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Xã Tân Lập 1",
+"Huyện Tân Phước",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã Tân Phước 3"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã An Xuyên",
+"Thành phố Cà Mau",
+"Tỉnh Cà Mau"
+],
+"prov": "Tỉnh Cà Mau",
+"wards": [
+"Phường An Xuyên"
+],
+"provOptions": [
+"Tỉnh Cà Mau"
+]
+},
+{
+"old": [
+"Xã Đồng Lạc",
+"Huyện Yên Lập",
+"Tỉnh Phú Thọ"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Yên Lập"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Thị trấn Kiến Đức",
+"Huyện Đắk R'Lấp",
+"Tỉnh Đắk Nông"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Xã Kiến Đức"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Phường Long Sơn",
+"Thị xã Thái Hoà",
+"Tỉnh Nghệ An"
+],
+"prov": "Tỉnh Nghệ An",
+"wards": [
+"Phường Thái Hòa"
+],
+"provOptions": [
+"Tỉnh Nghệ An"
+]
+},
+{
+"old": [
+"Xã Phú Thành",
+"Huyện Trà Ôn",
+"Tỉnh Vĩnh Long"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Xã Lục Sĩ Thành"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Thanh Hương",
+"Huyện Thanh Liêm",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Thanh Liêm"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Đức Hương",
+"Huyện Vũ Quang",
+"Tỉnh Hà Tĩnh"
+],
+"prov": "Tỉnh Hà Tĩnh",
+"wards": [
+"Xã Thượng Đức"
+],
+"provOptions": [
+"Tỉnh Hà Tĩnh"
+]
+},
+{
+"old": [
+"Xã Tường Thượng",
+"Huyện Phù Yên",
+"Tỉnh Sơn La"
+],
+"prov": "Tỉnh Sơn La",
+"wards": [
+"Xã Tường Hạ"
+],
+"provOptions": [
+"Tỉnh Sơn La"
+]
+},
+{
+"old": [
+"Phường Tứ Hạ",
+"Thị xã Hương Trà",
+"Thành phố Huế"
+],
+"prov": "Thành phố Huế",
+"wards": [
+"Phường Hương Trà"
+],
+"provOptions": [
+"Thành phố Huế"
+]
+},
+{
+"old": [
+"Xã Gia Thuận",
+"Huyện Gò Công Đông",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã Gia Thuận"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã Quế Nham",
+"Huyện Tân Yên",
+"Tỉnh Bắc Giang"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Đa Mai"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Xã Tân Hội Đông",
+"Huyện Châu Thành",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã Tân Hương"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã Gia Trung",
+"Huyện Gia Viễn",
+"Tỉnh Ninh Bình"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Đại Hoàng"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Cam Thịnh Tây",
+"Thành phố Cam Ranh",
+"Tỉnh Khánh Hòa"
+],
+"prov": "Tỉnh Khánh Hòa",
+"wards": [
+"Xã Nam Cam Ranh"
+],
+"provOptions": [
+"Tỉnh Khánh Hòa"
+]
+},
+{
+"old": [
+"Phường Phan Đình Phùng",
+"Thành phố Thái Nguyên",
+"Tỉnh Thái Nguyên"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Phường Phan Đình Phùng"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Xã Pi Toong",
+"Huyện Mường La",
+"Tỉnh Sơn La"
+],
+"prov": "Tỉnh Sơn La",
+"wards": [
+"Xã Mường La"
+],
+"provOptions": [
+"Tỉnh Sơn La"
+]
+},
+{
+"old": [
+"Xã An Thái Trung",
+"Huyện Cái Bè",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã Thanh Hưng"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã Yên Trường",
+"Huyện Yên Định",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Yên Trường"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Xa Lý",
+"Huyện Lục Ngạn",
+"Tỉnh Bắc Giang"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Xã Sa Lý"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Phường Cẩm Sơn",
+"Thành phố Cẩm Phả",
+"Tỉnh Quảng Ninh"
+],
+"prov": "Thành phố Quảng Ninh",
+"wards": [
+"Phường Cửa Ông"
+],
+"provOptions": [
+"Thành phố Quảng Ninh"
+]
+},
+{
+"old": [
+"Xã Thạnh Xuân",
+"Huyện Châu Thành A",
+"Tỉnh Hậu Giang"
+],
+"prov": "Thành phố Cần Thơ",
+"wards": [
+"Xã Thạnh Xuân"
+],
+"provOptions": [
+"Thành phố Cần Thơ"
+]
+},
+{
+"old": [
+"Xã Tân Hưng",
+"Huyện Tân Châu",
+"Tỉnh Tây Ninh"
+],
+"prov": "Tỉnh Tây Ninh",
+"wards": [
+"Xã Tân Phú"
+],
+"provOptions": [
+"Tỉnh Tây Ninh"
+]
+},
+{
+"old": [
+"Xã Tạ An Khương Nam",
+"Huyện Đầm Dơi",
+"Tỉnh Cà Mau"
+],
+"prov": "Tỉnh Cà Mau",
+"wards": [
+"Xã Tạ An Khương"
+],
+"provOptions": [
+"Tỉnh Cà Mau"
+]
+},
+{
+"old": [
+"Xã Mai Lạp",
+"Huyện Chợ Mới",
+"Tỉnh Bắc Kạn"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Xã Thanh Mai"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Xã Chiềng Ngần",
+"Thành phố Sơn La",
+"Tỉnh Sơn La"
+],
+"prov": "Tỉnh Sơn La",
+"wards": [
+"Phường Chiềng Sinh"
+],
+"provOptions": [
+"Tỉnh Sơn La"
+]
+},
+{
+"old": [
+"Thị trấn Long Hồ",
+"Huyện Long Hồ",
+"Tỉnh Vĩnh Long"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Xã Long Hồ"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Bàn Đạt",
+"Huyện Phú Bình",
+"Tỉnh Thái Nguyên"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Xã Tân Khánh"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Xã Liên Mạc",
+"Huyện Thanh Hà",
+"Tỉnh Hải Dương"
+],
+"prov": "Thành phố Hải Phòng",
+"wards": [
+"Xã Hà Nam"
+],
+"provOptions": [
+"Thành phố Hải Phòng"
+]
+},
+{
+"old": [
+"Xã Hoàng Nông",
+"Huyện Đại Từ",
+"Tỉnh Thái Nguyên"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Xã La Bằng"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Phường Mỹ Bình",
+"Thành phố Long Xuyên",
+"Tỉnh An Giang"
+],
+"prov": "Tỉnh An Giang",
+"wards": [
+"Phường Long Xuyên"
+],
+"provOptions": [
+"Tỉnh An Giang"
+]
+},
+{
+"old": [
+"Xã Sán Xả Hồ",
+"Huyện Hoàng Su Phì",
+"Tỉnh Hà Giang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Pờ Ly Ngài"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Xã Hồng Nam",
+"Huyện Hoà An",
+"Tỉnh Cao Bằng"
+],
+"prov": "Tỉnh Cao Bằng",
+"wards": [
+"Xã Kim Đồng"
+],
+"provOptions": [
+"Tỉnh Cao Bằng"
+]
+},
+{
+"old": [
+"Xã Nam Anh",
+"Huyện Nam Đàn",
+"Tỉnh Nghệ An"
+],
+"prov": "Tỉnh Nghệ An",
+"wards": [
+"Xã Đại Huệ"
+],
+"provOptions": [
+"Tỉnh Nghệ An"
+]
+},
+{
+"old": [
+"Xã Phú Túc",
+"Huyện Định Quán",
+"Tỉnh Đồng Nai"
+],
+"prov": "Thành phố Đồng Nai",
+"wards": [
+"Xã Thống Nhất"
+],
+"provOptions": [
+"Thành phố Đồng Nai"
+]
+},
+{
+"old": [
+"Xã Hưng Hà",
+"Huyện Tân Hưng",
+"Tỉnh Long An"
+],
+"prov": "Tỉnh Tây Ninh",
+"wards": [
+"Xã Hưng Điền"
+],
+"provOptions": [
+"Tỉnh Tây Ninh"
+]
+},
+{
+"old": [
+"Xã Phong Thạnh",
+"Huyện Cầu Kè",
+"Tỉnh Trà Vinh"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Xã Phong Thạnh"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Phường Hương Vân",
+"Thị xã Hương Trà",
+"Thành phố Huế"
+],
+"prov": "Thành phố Huế",
+"wards": [
+"Phường Hương Trà"
+],
+"provOptions": [
+"Thành phố Huế"
+]
+},
+{
+"old": [
+"Phường 15",
+"Quận 8",
+"Thành phố Hồ Chí Minh"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Phú Định"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Dìn Chin",
+"Huyện Mường Khương",
+"Tỉnh Lào Cai"
+],
+"prov": "Tỉnh Lào Cai",
+"wards": [
+"Xã Pha Long"
+],
+"provOptions": [
+"Tỉnh Lào Cai"
+]
+},
+{
+"old": [
+"Phường Trường An",
+"Thành phố Vĩnh Long",
+"Tỉnh Vĩnh Long"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Phường Long Châu"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Đạ Tông",
+"Huyện Đam Rông",
+"Tỉnh Lâm Đồng"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Xã Đam Rông 4"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Phường Hòa Xuân",
+"Quận Cẩm Lệ",
+"Thành phố Đà Nẵng"
+],
+"prov": "Thành phố Đà Nẵng",
+"wards": [
+"Phường Hòa Xuân"
+],
+"provOptions": [
+"Thành phố Đà Nẵng"
+]
+},
+{
+"old": [
+"Xã Buôn Tría",
+"Huyện Lắk",
+"Tỉnh Đắk Lắk"
+],
+"prov": "Tỉnh Đắk Lắk",
+"wards": [
+"Xã Đắk Liêng"
+],
+"provOptions": [
+"Tỉnh Đắk Lắk"
+]
+},
+{
+"old": [
+"Xã Mỹ Thạnh An",
+"Thành phố Bến Tre",
+"Tỉnh Bến Tre"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Phường An Hội"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Tân Ninh",
+"Huyện Quảng Ninh",
+"Tỉnh Quảng Bình"
+],
+"prov": "Tỉnh Quảng Trị",
+"wards": [
+"Xã Ninh Châu"
+],
+"provOptions": [
+"Tỉnh Quảng Trị"
+]
+},
+{
+"old": [
+"Xã Minh Hoàng",
+"Huyện Phù Cừ",
+"Tỉnh Hưng Yên"
+],
+"prov": "Tỉnh Hưng Yên",
+"wards": [
+"Xã Đoàn Đào"
+],
+"provOptions": [
+"Tỉnh Hưng Yên"
+]
+},
+{
+"old": [
+"Thị trấn Sóc Sơn",
+"Huyện Hòn Đất",
+"Tỉnh Kiên Giang"
+],
+"prov": "Tỉnh An Giang",
+"wards": [
+"Xã Mỹ Thuận"
+],
+"provOptions": [
+"Tỉnh An Giang"
+]
+},
+{
+"old": [
+"Xã Vĩnh Hậu A",
+"Huyện Hoà Bình",
+"Tỉnh Bạc Liêu"
+],
+"prov": "Tỉnh Cà Mau",
+"wards": [
+"Xã Vĩnh Hậu"
+],
+"provOptions": [
+"Tỉnh Cà Mau"
+]
+},
+{
+"old": [
+"Xã Kim Bình",
+"Thành phố Phủ Lý",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Phường Phù Vân"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Trạch Mỹ Lộc",
+"Huyện Phúc Thọ",
+"Thành phố Hà Nội"
+],
+"prov": "Thành phố Hà Nội",
+"wards": [
+"Xã Phúc Thọ"
+],
+"provOptions": [
+"Thành phố Hà Nội"
+]
+},
+{
+"old": [
+"Xã Chư Ngọc",
+"Huyện Krông Pa",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Phú Túc"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Trà Don",
+"Huyện Nam Trà My",
+"Tỉnh Quảng Nam"
+],
+"prov": "Thành phố Đà Nẵng",
+"wards": [
+"Xã Nam Trà My"
+],
+"provOptions": [
+"Thành phố Đà Nẵng"
+]
+},
+{
+"old": [
+"Thị trấn Nưa",
+"Huyện Triệu Sơn",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Tân Ninh"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Tân Bình",
+"Thành phố Tây Ninh",
+"Tỉnh Tây Ninh"
+],
+"prov": "Tỉnh Tây Ninh",
+"wards": [
+"Phường Bình Minh"
+],
+"provOptions": [
+"Tỉnh Tây Ninh"
+]
+},
+{
+"old": [
+"Phường 9",
+"Thành phố Trà Vinh",
+"Tỉnh Trà Vinh"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Phường Trà Vinh"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Quảng Hưng",
+"Huyện Quảng Trạch",
+"Tỉnh Quảng Bình"
+],
+"prov": "Tỉnh Quảng Trị",
+"wards": [
+"Xã Quảng Trạch"
+],
+"provOptions": [
+"Tỉnh Quảng Trị"
+]
+},
+{
+"old": [
+"Xã Trung Lương",
+"Huyện Bình Lục",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Bình An"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Phường Thạnh Xuân",
+"Quận 12",
+"Thành phố Hồ Chí Minh"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Thới An"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Phường Đáp Cầu",
+"Thành phố Bắc Ninh",
+"Tỉnh Bắc Ninh"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Phường Vũ Ninh"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Xã Đồng Nai Thượng",
+"Huyện Đạ Huoai",
+"Tỉnh Lâm Đồng"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Xã Cát Tiên 3"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Phường Đậu Liêu",
+"Thị xã Hồng Lĩnh",
+"Tỉnh Hà Tĩnh"
+],
+"prov": "Tỉnh Hà Tĩnh",
+"wards": [
+"Phường Nam Hồng Lĩnh"
+],
+"provOptions": [
+"Tỉnh Hà Tĩnh"
+]
+},
+{
+"old": [
+"Xã Trà Tây",
+"Huyện Trà Bồng",
+"Tỉnh Quảng Ngãi"
+],
+"prov": "Tỉnh Quảng Ngãi",
+"wards": [
+"Xã Tây Trà Bồng"
+],
+"provOptions": [
+"Tỉnh Quảng Ngãi"
+]
+},
+{
+"old": [
+"Xã Ea Yông",
+"Huyện Krông Pắc",
+"Tỉnh Đắk Lắk"
+],
+"prov": "Tỉnh Đắk Lắk",
+"wards": [
+"Xã Krông Pắc"
+],
+"provOptions": [
+"Tỉnh Đắk Lắk"
+]
+},
+{
+"old": [
+"Xã Bình Yên",
+"Huyện Thạch Thất",
+"Thành phố Hà Nội"
+],
+"prov": "Thành phố Hà Nội",
+"wards": [
+"Xã Hạ Bằng",
+"Xã Hòa Lạc"
+],
+"provOptions": [
+"Thành phố Hà Nội"
+]
+},
+{
+"old": [
+"Xã Đông Trà",
+"Huyện Tiền Hải",
+"Tỉnh Thái Bình"
+],
+"prov": "Tỉnh Hưng Yên",
+"wards": [
+"Xã Đông Tiền Hải"
+],
+"provOptions": [
+"Tỉnh Hưng Yên"
+]
+},
+{
+"old": [
+"Xã Ia HLốp",
+"Huyện Chư Sê",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Ia Ko"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Tốt Động",
+"Huyện Chương Mỹ",
+"Thành phố Hà Nội"
+],
+"prov": "Thành phố Hà Nội",
+"wards": [
+"Xã Quảng Bị"
+],
+"provOptions": [
+"Thành phố Hà Nội"
+]
+},
+{
+"old": [
+"Phường Tân Hiệp",
+"Thành phố Phủ Lý",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Phường Hà Nam"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Đức Thuận",
+"Huyện Tánh Linh",
+"Tỉnh Bình Thuận"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Xã Tánh Linh"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Xã Hoa Thủy",
+"Huyện Lệ Thủy",
+"Tỉnh Quảng Bình"
+],
+"prov": "Tỉnh Quảng Trị",
+"wards": [
+"Xã Lệ Ninh"
+],
+"provOptions": [
+"Tỉnh Quảng Trị"
+]
+},
+{
+"old": [
+"Xã A Rooi",
+"Huyện Đông Giang",
+"Tỉnh Quảng Nam"
+],
+"prov": "Thành phố Đà Nẵng",
+"wards": [
+"Xã Đông Giang"
+],
+"provOptions": [
+"Thành phố Đà Nẵng"
+]
+},
+{
+"old": [
+"Xã Quảng Nghĩa",
+"Thành phố Móng Cái",
+"Tỉnh Quảng Ninh"
+],
+"prov": "Thành phố Quảng Ninh",
+"wards": [
+"Xã Hải Ninh"
+],
+"provOptions": [
+"Thành phố Quảng Ninh"
+]
+},
+{
+"old": [
+"Xã Hưng Đạo",
+"Huyện Bảo Lạc",
+"Tỉnh Cao Bằng"
+],
+"prov": "Tỉnh Cao Bằng",
+"wards": [
+"Xã Hưng Đạo"
+],
+"provOptions": [
+"Tỉnh Cao Bằng"
+]
+},
+{
+"old": [
+"Xã Xuân Phú",
+"Huyện Ea Kar",
+"Tỉnh Đắk Lắk"
+],
+"prov": "Tỉnh Đắk Lắk",
+"wards": [
+"Xã Ea Kar"
+],
+"provOptions": [
+"Tỉnh Đắk Lắk"
+]
+},
+{
+"old": [
+"Xã Trung Chải",
+"Thị xã Sa Pa",
+"Tỉnh Lào Cai"
+],
+"prov": "Tỉnh Lào Cai",
+"wards": [
+"Xã Tả Phìn"
+],
+"provOptions": [
+"Tỉnh Lào Cai"
+]
+},
+{
+"old": [
+"Xã Ia Tô",
+"Huyện Ia Grai",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Ia Krái"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Tân Mỹ",
+"Huyện Văn Lãng",
+"Tỉnh Lạng Sơn"
+],
+"prov": "Tỉnh Lạng Sơn",
+"wards": [
+"Xã Hoàng Văn Thụ"
+],
+"provOptions": [
+"Tỉnh Lạng Sơn"
+]
+},
+{
+"old": [
+"Phường Lam Sơn",
+"Thành phố Thanh Hóa",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Phường Hạc Thành"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Trịnh Tường",
+"Huyện Bát Xát",
+"Tỉnh Lào Cai"
+],
+"prov": "Tỉnh Lào Cai",
+"wards": [
+"Xã Trịnh Tường"
+],
+"provOptions": [
+"Tỉnh Lào Cai"
+]
+},
+{
+"old": [
+"Xã Xuân Hòa",
+"Huyện Như Xuân",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Xuân Bình"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Long Tiên",
+"Huyện Cai Lậy",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã Long Tiên"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã Chư Rcăm",
+"Huyện Krông Pa",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Ia Rsai"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Thị trấn Lai Uyên",
+"Huyện Bàu Bàng",
+"Tỉnh Bình Dương"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Xã Trừ Văn Thố",
+"Xã Bàu Bàng"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Trung Thành",
+"Huyện Đà Bắc",
+"Tỉnh Hoà Bình"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Quy Đức"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Xã Đinh Xá",
+"Thành phố Phủ Lý",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Phường Liêm Tuyền"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Canh Hòa",
+"Huyện Vân Canh",
+"Tỉnh Bình Định"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Vân Canh"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Hoàng Nam",
+"Huyện Nghĩa Hưng",
+"Tỉnh Nam Định"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Đồng Thịnh"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Thị trấn Tiên Điền",
+"Huyện Nghi Xuân",
+"Tỉnh Hà Tĩnh"
+],
+"prov": "Tỉnh Hà Tĩnh",
+"wards": [
+"Xã Tiên Điền"
+],
+"provOptions": [
+"Tỉnh Hà Tĩnh"
+]
+},
+{
+"old": [
+"Xã Quài Nưa",
+"Huyện Tuần Giáo",
+"Tỉnh Điện Biên"
+],
+"prov": "Tỉnh Điện Biên",
+"wards": [
+"Xã Tuần Giáo"
+],
+"provOptions": [
+"Tỉnh Điện Biên"
+]
+},
+{
+"old": [
+"Xã Chư Băh",
+"Thị xã Ayun Pa",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Ia Rbol"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Phú Xuyên",
+"Huyện Đại Từ",
+"Tỉnh Thái Nguyên"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Xã Phú Xuyên"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Xã Bình Châu",
+"Huyện Bình Sơn",
+"Tỉnh Quảng Ngãi"
+],
+"prov": "Tỉnh Quảng Ngãi",
+"wards": [
+"Xã Đông Sơn"
+],
+"provOptions": [
+"Tỉnh Quảng Ngãi"
+]
+},
+{
+"old": [
+"Xã Chiềng Chăn",
+"Huyện Mai Sơn",
+"Tỉnh Sơn La"
+],
+"prov": "Tỉnh Sơn La",
+"wards": [
+"Xã Chiềng Sung"
+],
+"provOptions": [
+"Tỉnh Sơn La"
+]
+},
+{
+"old": [
+"Phường Hiệp Thành",
+"Quận 12",
+"Thành phố Hồ Chí Minh"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Tân Thới Hiệp"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Biên Sơn",
+"Huyện Lục Ngạn",
+"Tỉnh Bắc Giang"
+],
+"prov": "Thành phố Bắc Ninh",
+"wards": [
+"Xã Biên Sơn"
+],
+"provOptions": [
+"Thành phố Bắc Ninh"
+]
+},
+{
+"old": [
+"Xã Dray Sáp",
+"Huyện Krông A Na",
+"Tỉnh Đắk Lắk"
+],
+"prov": "Tỉnh Đắk Lắk",
+"wards": [
+"Xã Ea Na"
+],
+"provOptions": [
+"Tỉnh Đắk Lắk"
+]
+},
+{
+"old": [
+"Xã Quang Tiến",
+"Thành phố Hòa Bình",
+"Tỉnh Hoà Bình"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Thịnh Minh"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Xã Vĩnh Thuận",
+"Huyện Vĩnh Thạnh",
+"Tỉnh Bình Định"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Vĩnh Quang"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Phú Hưng",
+"Huyện Phú Tân",
+"Tỉnh An Giang"
+],
+"prov": "Tỉnh An Giang",
+"wards": [
+"Xã Phú Tân"
+],
+"provOptions": [
+"Tỉnh An Giang"
+]
+},
+{
+"old": [
+"Xã Mỹ Thành",
+"Huyện Yên Thành",
+"Tỉnh Nghệ An"
+],
+"prov": "Tỉnh Nghệ An",
+"wards": [
+"Xã Vân Tụ"
+],
+"provOptions": [
+"Tỉnh Nghệ An"
+]
+},
+{
+"old": [
+"Xã Vĩnh Bình",
+"Huyện Vĩnh Thạnh",
+"Thành phố Cần Thơ"
+],
+"prov": "Thành phố Cần Thơ",
+"wards": [
+"Xã Vĩnh Trinh"
+],
+"provOptions": [
+"Thành phố Cần Thơ"
+]
+},
+{
+"old": [
+"Xã Tam Phước",
+"Huyện Châu Thành",
+"Tỉnh Bến Tre"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Phường Sơn Đông"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Phường Bình Hòa",
+"Thành phố Thuận An",
+"Tỉnh Bình Dương"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Bình Hòa"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Yên Viên",
+"Huyện Gia Lâm",
+"Thành phố Hà Nội"
+],
+"prov": "Thành phố Hà Nội",
+"wards": [
+"Xã Phù Đổng"
+],
+"provOptions": [
+"Thành phố Hà Nội"
+]
+},
+{
+"old": [
+"Xã Đồng Lạc",
+"Huyện Chợ Đồn",
+"Tỉnh Bắc Kạn"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Xã Nam Cường"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Phường Phú Bài",
+"Thị xã Hương Thủy",
+"Thành phố Huế"
+],
+"prov": "Thành phố Huế",
+"wards": [
+"Phường Phú Bài"
+],
+"provOptions": [
+"Thành phố Huế"
+]
+},
+{
+"old": [
+"Xã Mỹ Lương",
+"Huyện Cái Bè",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã An Hữu"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã Mường Chiên",
+"Huyện Quỳnh Nhai",
+"Tỉnh Sơn La"
+],
+"prov": "Tỉnh Sơn La",
+"wards": [
+"Xã Mường Chiên"
+],
+"provOptions": [
+"Tỉnh Sơn La"
+]
+},
+{
+"old": [
+"Xã Khánh Hưng",
+"Huyện Trần Văn Thời",
+"Tỉnh Cà Mau"
+],
+"prov": "Tỉnh Cà Mau",
+"wards": [
+"Xã Khánh Hưng"
+],
+"provOptions": [
+"Tỉnh Cà Mau"
+]
+},
+{
+"old": [
+"Xã Hoằng Trường",
+"Huyện Hoằng Hóa",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Hoằng Tiến"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Ia Kla",
+"Huyện Đức Cơ",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Ia Dơk"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Đắk Hòa",
+"Huyện Đắk Song",
+"Tỉnh Đắk Nông"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Xã Đắk Song"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Xã Sơn Lộc",
+"Huyện Can Lộc",
+"Tỉnh Hà Tĩnh"
+],
+"prov": "Tỉnh Hà Tĩnh",
+"wards": [
+"Xã Xuân Lộc"
+],
+"provOptions": [
+"Tỉnh Hà Tĩnh"
+]
+},
+{
+"old": [
+"Xã Hải Sơn",
+"Thành phố Móng Cái",
+"Tỉnh Quảng Ninh"
+],
+"prov": "Thành phố Quảng Ninh",
+"wards": [
+"Xã Hải Sơn"
+],
+"provOptions": [
+"Thành phố Quảng Ninh"
+]
+},
+{
+"old": [
+"Xã Đông La",
+"Huyện Đông Hưng",
+"Tỉnh Thái Bình"
+],
+"prov": "Tỉnh Hưng Yên",
+"wards": [
+"Xã Đông Hưng"
+],
+"provOptions": [
+"Tỉnh Hưng Yên"
+]
+},
+{
+"old": [
+"Xã Võ Ninh",
+"Huyện Quảng Ninh",
+"Tỉnh Quảng Bình"
+],
+"prov": "Tỉnh Quảng Trị",
+"wards": [
+"Xã Quảng Ninh"
+],
+"provOptions": [
+"Tỉnh Quảng Trị"
+]
+},
+{
+"old": [
+"Xã Cẩm Đường",
+"Huyện Long Thành",
+"Tỉnh Đồng Nai"
+],
+"prov": "Thành phố Đồng Nai",
+"wards": [
+"Xã Xuân Đường"
+],
+"provOptions": [
+"Thành phố Đồng Nai"
+]
+},
+{
+"old": [
+"Xã Canh Tân",
+"Huyện Thạch An",
+"Tỉnh Cao Bằng"
+],
+"prov": "Tỉnh Cao Bằng",
+"wards": [
+"Xã Canh Tân"
+],
+"provOptions": [
+"Tỉnh Cao Bằng"
+]
+},
+{
+"old": [
+"Phường Vạn Hương",
+"Quận Đồ Sơn",
+"Thành phố Hải Phòng"
+],
+"prov": "Thành phố Hải Phòng",
+"wards": [
+"Phường Đồ Sơn",
+"Phường Nam Đồ Sơn"
+],
+"provOptions": [
+"Thành phố Hải Phòng"
+]
+},
+{
+"old": [
+"Xã Thẩm Dương",
+"Huyện Văn Bàn",
+"Tỉnh Lào Cai"
+],
+"prov": "Tỉnh Lào Cai",
+"wards": [
+"Xã Dương Quỳ"
+],
+"provOptions": [
+"Tỉnh Lào Cai"
+]
+},
+{
+"old": [
+"Xã Ngọc Biên",
+"Huyện Trà Cú",
+"Tỉnh Trà Vinh"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Xã Long Hiệp"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Phường Cô Giang",
+"Quận 1",
+"Thành phố Hồ Chí Minh"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Phường Cầu Ông Lãnh"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Ia Dom",
+"Huyện Đức Cơ",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Ia Dom"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Việt Hải",
+"Huyện Cát Hải",
+"Thành phố Hải Phòng"
+],
+"prov": "Thành phố Hải Phòng",
+"wards": [
+"Đặc khu Cát Hải"
+],
+"provOptions": [
+"Thành phố Hải Phòng"
+]
+},
+{
+"old": [
+"Xã Chí Thảo",
+"Huyện Quảng Hòa",
+"Tỉnh Cao Bằng"
+],
+"prov": "Tỉnh Cao Bằng",
+"wards": [
+"Xã Quảng Uyên"
+],
+"provOptions": [
+"Tỉnh Cao Bằng"
+]
+},
+{
+"old": [
+"Xã Hưng Điền A",
+"Huyện Vĩnh Hưng",
+"Tỉnh Long An"
+],
+"prov": "Tỉnh Tây Ninh",
+"wards": [
+"Xã Khánh Hưng"
+],
+"provOptions": [
+"Tỉnh Tây Ninh"
+]
+},
+{
+"old": [
+"Xã Hành Phước",
+"Huyện Nghĩa Hành",
+"Tỉnh Quảng Ngãi"
+],
+"prov": "Tỉnh Quảng Ngãi",
+"wards": [
+"Xã Đình Cương"
+],
+"provOptions": [
+"Tỉnh Quảng Ngãi"
+]
+},
+{
+"old": [
+"Xã Đông Hà",
+"Huyện Quản Bạ",
+"Tỉnh Hà Giang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Lùng Tám"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Thị trấn Bình Dương",
+"Huyện Phù Mỹ",
+"Tỉnh Bình Định"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Xã Bình Dương"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Đạ Oai",
+"Huyện Đạ Huoai",
+"Tỉnh Lâm Đồng"
+],
+"prov": "Tỉnh Lâm Đồng",
+"wards": [
+"Xã Đạ Huoai"
+],
+"provOptions": [
+"Tỉnh Lâm Đồng"
+]
+},
+{
+"old": [
+"Thị trấn Đất Đỏ",
+"Huyện Long Đất",
+"Tỉnh Bà Rịa - Vũng Tàu"
+],
+"prov": "Thành phố Hồ Chí Minh",
+"wards": [
+"Xã Đất Đỏ"
+],
+"provOptions": [
+"Thành phố Hồ Chí Minh"
+]
+},
+{
+"old": [
+"Xã Trung Thượng",
+"Huyện Quan Sơn",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Quan Sơn"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Phường Phú Xá",
+"Thành phố Thái Nguyên",
+"Tỉnh Thái Nguyên"
+],
+"prov": "Tỉnh Thái Nguyên",
+"wards": [
+"Phường Tích Lương"
+],
+"provOptions": [
+"Tỉnh Thái Nguyên"
+]
+},
+{
+"old": [
+"Phường An Bình",
+"Thị xã An Khê",
+"Tỉnh Gia Lai"
+],
+"prov": "Tỉnh Gia Lai",
+"wards": [
+"Phường An Bình"
+],
+"provOptions": [
+"Tỉnh Gia Lai"
+]
+},
+{
+"old": [
+"Xã Vĩnh Lại",
+"Huyện Lâm Thao",
+"Tỉnh Phú Thọ"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Bản Nguyên"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Phường Châu Văn Liêm",
+"Quận Ô Môn",
+"Thành phố Cần Thơ"
+],
+"prov": "Thành phố Cần Thơ",
+"wards": [
+"Phường Ô Môn"
+],
+"provOptions": [
+"Thành phố Cần Thơ"
+]
+},
+{
+"old": [
+"Xã Nậm Manh",
+"Huyện Nậm Nhùn",
+"Tỉnh Lai Châu"
+],
+"prov": "Tỉnh Lai Châu",
+"wards": [
+"Xã Nậm Hàng"
+],
+"provOptions": [
+"Tỉnh Lai Châu"
+]
+},
+{
+"old": [
+"Xã Pù Nhi",
+"Huyện Mường Lát",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Pù Nhi"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Xã Chiêu Yên",
+"Huyện Yên Sơn",
+"Tỉnh Tuyên Quang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Lực Hành"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Xã Lỗ Sơn",
+"Huyện Tân Lạc",
+"Tỉnh Hoà Bình"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Toàn Thắng"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Thị trấn Sông Đốc",
+"Huyện Trần Văn Thời",
+"Tỉnh Cà Mau"
+],
+"prov": "Tỉnh Cà Mau",
+"wards": [
+"Xã Sông Đốc"
+],
+"provOptions": [
+"Tỉnh Cà Mau"
+]
+},
+{
+"old": [
+"Xã Khoan Dụ",
+"Huyện Lạc Thủy",
+"Tỉnh Hoà Bình"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Lạc Thủy"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Xã Thạnh Lộc",
+"Huyện Cai Lậy",
+"Tỉnh Tiền Giang"
+],
+"prov": "Tỉnh Đồng Tháp",
+"wards": [
+"Xã Thạnh Phú"
+],
+"provOptions": [
+"Tỉnh Tây Ninh",
+"Tỉnh Đồng Tháp"
+]
+},
+{
+"old": [
+"Xã Văn Bán",
+"Huyện Cẩm Khê",
+"Tỉnh Phú Thọ"
+],
+"prov": "Tỉnh Phú Thọ",
+"wards": [
+"Xã Vân Bán"
+],
+"provOptions": [
+"Tỉnh Phú Thọ"
+]
+},
+{
+"old": [
+"Xã Tịnh Hiệp",
+"Huyện Sơn Tịnh",
+"Tỉnh Quảng Ngãi"
+],
+"prov": "Tỉnh Quảng Ngãi",
+"wards": [
+"Xã Ba Gia"
+],
+"provOptions": [
+"Tỉnh Quảng Ngãi"
+]
+},
+{
+"old": [
+"Xã Phước Đồng",
+"Thành phố Nha Trang",
+"Tỉnh Khánh Hòa"
+],
+"prov": "Tỉnh Khánh Hòa",
+"wards": [
+"Phường Nam Nha Trang"
+],
+"provOptions": [
+"Tỉnh Khánh Hòa"
+]
+},
+{
+"old": [
+"Xã Xuân Hải",
+"Huyện Ninh Hải",
+"Tỉnh Ninh Thuận"
+],
+"prov": "Tỉnh Khánh Hòa",
+"wards": [
+"Xã Xuân Hải"
+],
+"provOptions": [
+"Tỉnh Khánh Hòa"
+]
+},
+{
+"old": [
+"Xã Thanh Thủy",
+"Huyện Thanh Liêm",
+"Tỉnh Hà Nam"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Tân Thanh"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Bàu Hàm",
+"Huyện Trảng Bom",
+"Tỉnh Đồng Nai"
+],
+"prov": "Thành phố Đồng Nai",
+"wards": [
+"Xã Bàu Hàm"
+],
+"provOptions": [
+"Thành phố Đồng Nai"
+]
+},
+{
+"old": [
+"Xã Hồng Phong",
+"Huyện Ninh Giang",
+"Tỉnh Hải Dương"
+],
+"prov": "Thành phố Hải Phòng",
+"wards": [
+"Xã Khúc Thừa Dụ"
+],
+"provOptions": [
+"Thành phố Hải Phòng"
+]
+},
+{
+"old": [
+"Xã Duy Trinh",
+"Huyện Duy Xuyên",
+"Tỉnh Quảng Nam"
+],
+"prov": "Thành phố Đà Nẵng",
+"wards": [
+"Xã Duy Xuyên"
+],
+"provOptions": [
+"Thành phố Đà Nẵng"
+]
+},
+{
+"old": [
+"Xã Mỹ Long Bắc",
+"Huyện Cầu Ngang",
+"Tỉnh Trà Vinh"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Xã Mỹ Long"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Pờ Ly Ngài",
+"Huyện Hoàng Su Phì",
+"Tỉnh Hà Giang"
+],
+"prov": "Tỉnh Tuyên Quang",
+"wards": [
+"Xã Pờ Ly Ngài"
+],
+"provOptions": [
+"Tỉnh Tuyên Quang"
+]
+},
+{
+"old": [
+"Xã Hoằng Quỳ",
+"Huyện Hoằng Hóa",
+"Tỉnh Thanh Hóa"
+],
+"prov": "Tỉnh Thanh Hóa",
+"wards": [
+"Xã Hoằng Giang"
+],
+"provOptions": [
+"Tỉnh Thanh Hóa"
+]
+},
+{
+"old": [
+"Thị trấn Cái Nhum",
+"Huyện Mang Thít",
+"Tỉnh Vĩnh Long"
+],
+"prov": "Tỉnh Vĩnh Long",
+"wards": [
+"Xã Cái Nhum"
+],
+"provOptions": [
+"Tỉnh Vĩnh Long"
+]
+},
+{
+"old": [
+"Xã Hải Hưng",
+"Huyện Hải Hậu",
+"Tỉnh Nam Định"
+],
+"prov": "Tỉnh Ninh Bình",
+"wards": [
+"Xã Hải Hưng"
+],
+"provOptions": [
+"Tỉnh Ninh Bình"
+]
+},
+{
+"old": [
+"Xã Xuân Hoà",
+"Huyện Bảo Yên",
+"Tỉnh Lào Cai"
+],
+"prov": "Tỉnh Lào Cai",
+"wards": [
+"Xã Xuân Hòa"
+],
+"provOptions": [
+"Tỉnh Lào Cai"
+]
+}
+]
+}
