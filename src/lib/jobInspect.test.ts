@@ -86,3 +86,19 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(bad(r).includes('company') && bad(r).includes('salary'), '#5231 회사명·급여 칸 문제 찾음: ' + JSON.stringify(bad(r)))
   console.log('jobInspect.test.ts: #5231 회사명 이름표·시급 급여 칸 검사 통과')
 }
+
+// 2026-11-03 Bảo An VCC 같은 포스터식 소제목(공고 번호 전용 아님): 꾸밈말·괄호 설명이 붙은 소제목은 칸 제목, ':'로 끝나는 긴 소개 문장은 빈 이름표가 아님.
+{
+  const desc = [
+    'Công ty Cổ phần Dịch vụ Bảo vệ Bảo An VCC đang cần tuyển gấp số lượng lớn anh chị em làm việc tại hệ thống kho xuất nhập khu vực Bắc Ninh:  ',
+    '💰 MỨC THU NHẬP ỔN ĐỊNH (Trả lương đúng hạn):  ', ' Ca ngày: 8.500.000đ / tháng.  ',
+    '🎁 QUYỀN LỢI ĐẶC BIỆT:  ', ' Thưởng tháng 13, thưởng sinh nhật.  ',
+    '✅ YÊU CẦU CỰC KỲ ĐƠN GIẢN:  ', ' Nam / Nữ độ tuổi từ 18 – 60 tuổi.  ',
+    '📲 ĐĂNG KÝ NHẬN VIỆC NGAY:', 'Gọi/nhắn Zalo 0914880849 - Hoàng',
+  ].join('\n')
+  const r = inspectJob({ id: 11, description: desc, pin: 'area', category: 'dich_vu', occupation_code: '540', active: true })
+  assert(r.items.find((i) => i.key === 'junk')!.ok, '포스터식 소제목·소개 문장은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
+  const short = inspectJob({ id: 12, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!short.items.find((i) => i.key === 'junk')!.ok, '값 없는 짧은 이름표는 계속 잡음')
+  console.log('jobInspect.test.ts: 포스터식 소제목(꾸밈말·괄호)·긴 소개 문장 검사 통과')
+}
