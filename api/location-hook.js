@@ -18,7 +18,8 @@ function runtime() {
     run: async (jobId, force) => {
       const { applyLocationVerdict, runLocationJob, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
       const goongKey = process.env.GOONG_API_KEY
-      const googleKey = process.env.GOOGLE_PLACES_API_KEY // Lee 2026-11-03: 없으면 Google 단계만 건너뜀
+      // Lee 2026-11-03 "구글키는 있어": 전용 키가 없으면 기존 Google 지도 키(VITE_GOOGLE_MAPS_API_KEY)를 쓴다. 둘 다 없으면 Google 단계만 건너뜀.
+      const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY
       const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey) : null)
       // 결정 0006: 결과에 따라 비공개·다시 공개(성 중심뿐이면 비공개)
       const verdict = await applyLocationVerdict(db, jobId)

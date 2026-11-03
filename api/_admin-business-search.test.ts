@@ -45,3 +45,13 @@ await createAdminBusinessSearchHandler(deps('K', [{ ref_id: 's1', name: 'Ngô T�
 assert(res.code === 200 && !urls[0].includes('layers=POI') && res.body.hits[0].address === 'Võ Cường, Bắc Ninh', 'street search is not limited to businesses and returns the hit address')
 assert(validate({ provider: 'goong', kind: 'street', company: 'x' }) === null, 'street search is VietMap only')
 console.log('admin business-search: no TS import, search/detail split, Goong normalize, missing key, upstream error, no key leak passed')
+
+// 2026-11-03 Google 비교(검색만, 좌표 포함)
+{
+  assert(validate({ provider: 'google', company: 'Bảo An VCC', area: 'Bắc Ninh' })?.text === 'Bảo An VCC Bắc Ninh', 'google search query')
+  assert(validate({ provider: 'google', id: 'p1' }) === null, 'google has no detail lookup')
+  const r2: any = { code: 0, body: null, setHeader() {}, status(c: number) { this.code = c; return this }, json(b: unknown) { this.body = b; return this } }
+  await createAdminBusinessSearchHandler({ key: () => 'K', async fetchJson() { throw new Error('no') }, async fetchGoogle() { return { ok: true, json: { places: [{ id: 'p1', displayName: { text: 'Bảo An VCC' }, formattedAddress: 'Bắc Ninh', location: { latitude: 21.1, longitude: 106.1 } }] } } } } as any)({ method: 'POST', body: { provider: 'google', company: 'Bảo An VCC', area: 'Bắc Ninh' } } as any, r2)
+  assert(r2.code === 200 && r2.body.hits[0].lat === 21.1 && r2.body.hits[0].name === 'Bảo An VCC', 'google hits carry coordinates')
+  console.log('admin business-search: google provider passed')
+}
