@@ -288,3 +288,20 @@ Chăm sóc khách hàng`
   assert(JSON.stringify(a) === '[23000,25000]', 'hourly dot-thousands amounts: ' + JSON.stringify(a))
   console.log('jobDetailSections: hourly salary amount regression passed')
 }
+
+// 2026-11-03 포스터식 소제목: 꾸밈말(ổn định·đặc biệt·cực kỳ đơn giản)·끝 괄호 설명이 붙어도 같은 칸 제목(Bảo An VCC 같은 꼴, 공고 번호 전용 아님)
+{
+  const { headingOf } = await import('./jobDetailSections.ts')
+  const cases: Array<[string, string | undefined]> = [
+    ['💰 MỨC THU NHẬP ỔN ĐỊNH (Trả lương đúng hạn):  ', '04'],
+    ['🎁 QUYỀN LỢI ĐẶC BIỆT:  ', '05'],
+    ['✅ YÊU CẦU CỰC KỲ ĐƠN GIẢN:  ', '02'],
+    ['📲 ĐĂNG KÝ NHẬN VIỆC NGAY:', '06'],
+    ['QUYỀN LỢI HẤP DẪN:', '05'],
+    // 내용 줄(소제목 모양 아님)은 그대로
+    ['Môi trường làm việc ổn định', undefined],
+    ['Thu nhập ổn định, đúng thời hạn', undefined],
+  ]
+  for (const [line, want] of cases) assert(headingOf(line) === want, `headingOf(${line}) = ${headingOf(line)} ≠ ${want}`)
+  console.log('jobDetailSections: poster heading praise/parenthesis regression passed')
+}
