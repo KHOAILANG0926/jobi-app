@@ -350,10 +350,11 @@ export default function HomeMapExplorer({ jobsOverride, renderBeforeMap, renderA
         <div><button type="button" aria-pressed={mobileView === 'map'} onClick={() => setMobileView('map')}>Bản đồ</button><button type="button" aria-pressed={mobileView === 'list'} onClick={() => setMobileView('list')}>Danh sách</button></div>
         {/* 2026-11-02 Lee: 글자 없는 필터 아이콘 대신, 지도 바로 위에 글자 있는 필터 줄(지도 아래에 있던 줄을 옮김). */}
         <div className="home-filter-rail hme-mobile-toolbar__filters" aria-label="Bộ lọc việc làm">
+          {/* 2026-11-03: 'Bộ lọc'이 오른쪽 끝에서 잘려(촬영 확인) 맨 앞으로. */}
+          <button type="button" onClick={() => openFilters(0)}><SlidersHorizontal size={15} aria-hidden />Bộ lọc{discoveryState.filterCount > 0 && ` · ${discoveryState.filterCount}`}</button>
           <button type="button" onClick={discoveryState.openLocation}>Khu vực · Bán kính</button>
           <button type="button" onClick={() => openFilters(1)}>Mức lương</button>
           <button type="button" onClick={() => openFilters(2)}>Ngành nghề</button>
-          <button type="button" onClick={() => openFilters(0)}><SlidersHorizontal size={15} aria-hidden />Bộ lọc{discoveryState.filterCount > 0 && ` · ${discoveryState.filterCount}`}</button>
           {discoveryState.filterCount > 0 && <button type="button" onClick={discoveryState.reset}>Đặt lại</button>}
         </div>
       </div>
