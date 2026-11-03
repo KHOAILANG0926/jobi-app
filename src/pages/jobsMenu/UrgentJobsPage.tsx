@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
-import JobApplyButton from '../../components/JobApplyButton'
+import JobCard from '../../components/JobCard'
 import ApplyModal from '../../components/ApplyModal'
 import { useApply } from '../../components/useApply'
 import { useAuth } from '../../context/AuthContext'
@@ -29,18 +29,11 @@ import {
   type TimeBucket,
 } from '../../lib/workScheduleParse'
 import type { Job, JobCategory } from '../../types/job'
-import SalaryText from '../../components/SalaryText'
 
 type SortMode = 'newest' | 'deadline'
 type PanelKey = 'region' | 'category' | 'workPeriod' | 'detail' | null
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
-
-function formatShortDate(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
 
 // "Tỉnh "/"Thành phố " 접두어는 정식 명칭의 일부지만 목록에 매번 반복되면
 // 지저분해서, 화면 표시에서만 뺀다(매칭/저장에 쓰는 실제 값은 그대로 유지).
@@ -1291,52 +1284,13 @@ export default function UrgentJobsPage() {
           <NavLink to="/">← Xem tất cả việc làm</NavLink>
         </div>
       ) : (
-        <div className="admin-table-wrap jm-urgent-table-wrap">
-          <table className="admin-table jm-urgent-table">
-            <thead>
-              <tr>
-                <th aria-label="Lưu tin" />
-                <th>Khu vực</th>
-                <th>Tin tuyển dụng</th>
-                <th>Lương</th>
-                <th>Thời gian làm việc</th>
-                <th>Ngày đăng</th>
-                <th aria-label="Thao tác" />
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((job) => (
-                <tr key={job.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className="jm-urgent-table__save"
-                      aria-label={savedIds.has(job.id) ? 'Bỏ lưu tin' : 'Lưu tin'}
-                      onClick={() => handleToggleSave(job)}
-                    >
-                      {savedIds.has(job.id) ? '★' : '☆'}
-                    </button>
-                  </td>
-                  <td className="jm-urgent-table__region">{job.location}</td>
-                  <td>
-                    {job.urgent && <span className="jm-urgent-table__badge">Khẩn cấp</span>}
-                    <NavLink to={`/viec-lam/${job.id}`} className="jm-urgent-table__title">
-                      {job.title}
-                    </NavLink>
-                    <p className="jm-urgent-table__company">{job.company}</p>
-                  </td>
-                  <td className="jm-urgent-table__salary"><SalaryText job={job} /></td>
-                  <td>{job.hours || '—'}</td>
-                  <td>
-                    {formatShortDate(job.postedAt)}
-                  </td>
-                  <td>
-                    <JobApplyButton job={job} applied={isApplied(job.id)} onInternalApply={handleApply} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        // 2026-11-03 Lee "우리 메인에 올라온 공고 그대로 쓰면 되잖아" — 표 대신 메인과 같은 승인된 공고 카드.
+        <div className="home-jobs-grid">
+          {visible.map((job) => (
+            <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+              <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
+            </NavLink>
+          ))}
         </div>
       )}
 
