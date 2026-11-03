@@ -12,7 +12,7 @@ import { sanitizeVietMapError } from './vietMapError'
 import { createVietMapStyleUrl, fetchVietMapStyle, type VietMapStyleKind } from './vietMapStyle'
 import { BUILDING_CLICK_LAYERS, applyLifeMapStyle, type StyleLike } from './lifeMapStyle'
 import { pointInPolygon, poisInsideBuilding, polygonCenter, type LngLat, type PickedPlace, type PolygonRings } from '../../../lib/mapPlace'
-import { planHomeMapMarkers, type MarkerPlanItem } from './homeMapClusters'
+import { clusterBounds, planHomeMapMarkers, type MarkerPlanItem } from './homeMapClusters'
 import { SHARED_JOB_POPUP_OPTIONS } from './sharedJobPopupOptions'
 import { NEARBY_RADII_M, summarizeNearby, type MapPoi } from '../../../lib/nearbyFacilities'
 
@@ -83,7 +83,12 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
       element.setAttribute('role', 'button')
       element.setAttribute('aria-label', element.title)
       element.tabIndex = 0
-      const zoomIn = () => map.easeTo({ center: [item.lng, item.lat], zoom: Math.min(map.getZoom() + 2, 15) })
+      // 2026-11-03 Lee: 평균점(실제 핀 없는 곳)으로 +2 확대하면 핀이 화면 밖에 있었다 → 묶인 공고 전부가 들어오는 범위로 확대.
+      const zoomIn = () => {
+        const b = clusterBounds(item.markers)
+        if (b.single) { map.easeTo({ center: [b.west, b.south], zoom: Math.max(map.getZoom() + 2, 15), duration: 500 }); return }
+        map.fitBounds([[b.west, b.south], [b.east, b.north]], { padding: 64, maxZoom: 16, duration: 500 })
+      }
       element.addEventListener('click', zoomIn)
       element.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zoomIn() } })
       return element
@@ -415,6 +420,10 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
       if (sig(next) !== sig(picked)) { pickedRef.current = next; propsRef.current.onPlacePick?.(next) }
     }
     const onMoveEnd = () => { reportViewport(); renderMarkers(); refreshPicked() }
+    // 2026-11-03 Lee "몇 초 있다가 축소해야 나온다": 핀 묶음을 손을 뗀 뒤(moveend)에만 다시 계산해서, 확대하는 동안 묶음이 안 풀렸다.
+    // 확대·축소 중에도 한 프레임에 한 번 다시 계산한다(서버 호출 없음, 화면 안 핀만).
+    let zoomFrame = 0
+    const onZoom = () => { if (zoomFrame) return; zoomFrame = requestAnimationFrame(() => { zoomFrame = 0; renderMarkers() }) }
     const onClick = (e: { point: { x: number; y: number }; lngLat: { lng: number; lat: number }; originalEvent: MouseEvent }) => {
       const target = e.originalEvent?.target as HTMLElement | null
       if (target?.closest?.('.vietmapgl-marker, .vietmapgl-popup, .hme-map__modes')) return
@@ -437,6 +446,7 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     map.on('click', onClick)
     map.on('mousemove', onHover)
     map.on('moveend', onMoveEnd)
+    map.on('zoom', onZoom)
     map.on('error', reportFailure)
     map.on('style.load', onStyleLoad)
 
@@ -445,6 +455,8 @@ export default function VietMapMapCanvas(props: HomeMapProviderProps) {
     return () => {
       resizeObserver.disconnect()
       map.off('moveend', onMoveEnd)
+      map.off('zoom', onZoom)
+      if (zoomFrame) cancelAnimationFrame(zoomFrame)
       map.off('error', reportFailure)
       map.off('style.load', onStyleLoad)
       map.off('click', onClick)

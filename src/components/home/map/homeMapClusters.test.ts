@@ -38,3 +38,13 @@ assert(plan.length <= 100, `5000 jobs collapse to a bounded number of DOM marker
 assert(plan.reduce((s, i) => s + i.markers.length, 0) === 5000, 'no job lost by clustering')
 
 console.log('homeMapClusters.test.ts: viewport filtering / clustering / shared pin assertions passed')
+
+{
+  // 2026-11-03 Lee: 묶음을 누르면 묶인 공고 전부가 보이는 범위로(평균점 확대 금지).
+  const { clusterBounds } = await import('./homeMapClusters.ts')
+  const two = [{ id: 'a', lat: 21.18, lng: 106.05, label: 'a' }, { id: 'b', lat: 21.17, lng: 106.07, label: 'b' }] as never[]
+  const b = clusterBounds(two)
+  if (!(b.west === 106.05 && b.east === 106.07 && b.south === 21.17 && b.north === 21.18 && !b.single)) throw new Error('cluster bounds cover every member')
+  if (!clusterBounds([two[0], { ...(two[0] as object), id: 'c' }] as never[]).single) throw new Error('same point is single')
+  console.log('homeMapClusters: cluster click bounds passed')
+}

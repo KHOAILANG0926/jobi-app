@@ -53,3 +53,12 @@ export function planHomeMapMarkers(markers: HomeMapMarker[], options: MarkerPlan
   }
   return out
 }
+
+/** 묶음 핀을 눌렀을 때 보여 줄 범위(2026-11-03 Lee "확대할수록 위치가 정확해져야지"):
+ *  묶음 표시 위치는 공고들의 평균점이라 실제 핀이 없는 곳일 수 있다 → 평균점이 아니라 묶인 공고 전부가 들어오는 범위로 확대한다.
+ *  모두 같은 점이면 single=true(범위 없이 그 점으로 확대). */
+export function clusterBounds(markers: HomeMapMarker[]): { west: number; south: number; east: number; north: number; single: boolean } {
+  const lats = markers.map((m) => m.lat), lngs = markers.map((m) => m.lng)
+  const west = Math.min(...lngs), east = Math.max(...lngs), south = Math.min(...lats), north = Math.max(...lats)
+  return { west, south, east, north, single: east - west < 1e-6 && north - south < 1e-6 }
+}
