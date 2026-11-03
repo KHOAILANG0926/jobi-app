@@ -1,3 +1,10 @@
+## 2026-11-03 15:45 — 지역 기준 통일·지역별 일자리 페이지·지도 고르기 데모 (Claude, demo/region-unify, 운영 미반영)
+- 요청: Lee 11-03 "급구 페이지 지역 0건", "지역명 서로 맞춰야", "급구가 아니라 지역별로", "알바몬처럼", "A 지도 데모", "섬·Hoàng Sa·Trường Sa까지", "최근 행정구역 다시 확인", "5~8 수정진행", "PC 왼쪽 거리·급여만".
+- 원인: 급구 지역 필터가 자동으로 채워지지 않는 DB 칸(resolved_*)을 봄 + 화면마다 지역 목록 3가지. 급구 0건은 urgent 공고 자체가 0건(급구 표시는 FB·TopCV 수집기만 켬).
+- 변경: 지역 판정 함수 하나(jobArea/jobAreaWards, 주소 글자 기준), 행정구역 9월판 생성기(gen-vn-admin.py, 3월판으로 기존 자료와 동일 확인), 옛 동 대응표, /viec-lam/khu-vuc 페이지·메뉴 34개 성, 지도(ProvinceMap, 섬 vnIslands.ts), 알림 키워드 생성(regionKeywords.ts) + migration(미적용), 수집기 판·공통 시험.
+- 검증: 대응표 10,023개 시험(후보 포함 100%, 틀린 단일 0), 전국 600 표본 동 정확 4%→98%, 데모 빌드 통과, 알림 migration 로컬 폐기 DB dry-run 통과. 화면은 Lee 캡처로만 확인.
+- 남은 문제: 운영 반영·알림 migration 적용은 Lee가 공고 올린 뒤 결정. 주소에 동이 없는 공고는 동 후보 여럿/없음(정보 부족). 휴대폰 화면은 나중에 한 번에.
+
 ## 2026-11-03 09:40 — R8 규칙 복구·상세 급여 줄·식비 수당·지도 묶음 확대·규칙 장치 (Claude)
 - 요청: Lee 11-02 밤~11-03 지시(규칙 장치 "진행해", R8 "진행해", 급여 아래 줄 모양, "식사제공이나 식비제공", 지도 묶음 "확대할수록 위치가 정확해져야지", 검사 구멍 "1번은 다시 수정할수있는거야?").
 - 변경: #413 규칙 장치(.claude/RULES_CORE.md·세션 시작/매 메시지/커밋 전 tsc·build 검사, CLAUDE.md 바꾸면 요약본도 바꾸게 검사). #414 R8 직업코드 1~5단계 허용 재적용(migration 20261103000000) + occupation-r8-apply가 옛 10-15 migration을 다시 돌리던 단계 제거(11-02 제가 수동 실행해 규칙이 되돌아간 사고). #415 급여 아래 줄(상여·수당·지급방식) 작은 회색 글씨·금액과 정렬, 식비 수당 → "Phụ cấp ăn"(src/lib/mealBenefit.ts, AI 분류 규칙 버전 올려 기준 이후 공고 재판정). #416 Phụ cấp ăn 분홍 태그 중복 숨김. #417 지도 묶음 핀 누르면 묶인 공고 전부 보이게 확대 + 확대 중 다시 묶기(PC·모바일 같은 코드). #418 PC 기준 화면 지문 갱신. #419 그 지문 검사가 상세 화면·CSS PR에서도 돌게.
@@ -45,30 +52,3 @@
 ## 2026-11-01 저녁 — 확인된 음식점이 "Vệ sinh / Giúp việc" 메뉴에 나오던 문제 (Claude)
 - 원인 [직접 확인]: 코드 5 → category dich_vu → 메뉴 "Vệ sinh / Giúp việc"(cat=dich_vu). #5247 Wallace(닭튀김).
 - 변경: businessType.ts 업종 종류 kind(fnb·retail·service, 이름 낱말 또는 검색 답) 기록, business-type.mjs가 kind 없는 코드 5 공고 재확인(web-v4). DB migration 20261101200000: category_for_job(code, ocr_check) — 코드 5만 fnb→am_thuc_do_uong, retail→quan_ly_ban_hang. 직업 코드·근거·공개 변경 없음. 로컬 PostgreSQL CI 스크립트·시험 통과. 운영 적용은 Lee 확인 후.
-
-## 2026-11-01 저녁 — 메인 화면 구분 기준 확정 (Lee)
-- 순서: 특별한 알바(맨 위) → 주목받는 알바 → 브랜드 알바 → 전체. 브랜드=체인 3곳 이상+매장 일치, 특별=혜택 2개 이상 또는 높은 급여(숫자 기준은 구현 전 확정). 상세는 CHATGPT_HANDOFF.md.
-
-## 2026-11-01 저녁 — 옛 HANDOFF 본문 보관 (Claude)
-    # HANDOFF — 검사 통과해야 공개되는 틀 (2026-11-01, Claude)
-    
-    ## 1. 실제 상태
-    - PR #376(fix/inspect-content-hash-20261101): 내용 지문 트리거 + 검사표 3항목 + 상세요강 빌더 수정. 병합·운영 migration·#5157 화면 확인 전에는 완료 아님.
-    - 공개 규칙: crawler/admin 공고는 `ocr_check.inspect.content_hash`가 지금 내용과 같고 `publishable=true`일 때만 공개(트리거 trg_zzz_inspect_current). 공개 시작(새 공고·비공개→공개)만 막고, 공개 중인 공고는 내용이 바뀌어도 유지 → job-inspect가 재검사 실패 시 내림(20261101170000).
-    - 직접 Supabase 운영 DB SQL 금지(읽기 전용 조회만). migration + production_check 경로만.
-    
-    - 결정 0007(회사명·지점명 줄) 화면 반영: src/lib/companyBranch.ts. 다수 지점(결정 3)은 아직 미구현.
-    
-    - 2026-11-01 "빠짐 0": 상세요강은 원문 줄을 소제목·사이트 글자·완전 중복 외엔 빼지 않음(10-30 ④). 칸 정하는 순서는 src/lib/jobDetailFill.ts 머리말 한 곳. 실제 공고 시험 src/lib/realJobs.test.ts(새 유형은 원문 추가).
-    
-    ## 2. 다음 할 일
-    1. #376 병합 → migrations-apply 운영 적용 → job-ocr-check 실행 후 #5157 통과·공개, #4982 비공개(R11) 확인.
-    2. Lee 확인: 10-30 "④ 원문 전체 보여줌"과 급여 총액 빼기·포스터 머리글(HIGHLANDS COFFEE/TUYỂN DỤNG 등) 기타란 처리 충돌.
-    3. 규정 표 check_ref 강제(20261101150000): 새 규정은 장치(trigger:/inspect:/ci:/decision_*/work_rule)와 함께만 저장.
-    
-    - PR 설명란: 검사 결과는 미리 적지 않아도 됨(pending 허용). 실제 결과는 봇 병합이 확인.
-    
-    - publish_gate_reason은 DB 트리거(trg_zz0_publish_gate)가 계산·덮어씀. 수집기 값은 무시됨.
-    
-    ## 3. 필수 규칙
-    - 특정 공고 번호 전용 코드 금지, 틀(규칙·검사)로만 수정. 검사 통과 전 공개 우회 금지.
