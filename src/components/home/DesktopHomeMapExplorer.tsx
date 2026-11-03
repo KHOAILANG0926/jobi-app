@@ -206,6 +206,8 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
+  // 반경을 고르면 거리 검색을 켠다(기준: 고른 지역 중심, Gần tôi를 눌렀으면 내 위치).
+  const setRadius = (radiusKm: number) => { update({ radiusKm }); setRadiusActive(true) }
 
   const originLabel = origin.kind === 'user' ? 'Vị trí hiện tại của bạn' : origin.kind === 'chosen' ? 'Điểm đã chọn' : origin.label
   const emptyReason = loading ? 'Đang tải việc làm…' : jobsError ? 'Chưa tải được đầy đủ việc làm. Vui lòng thử lại sau.' : 'Chưa có việc làm phù hợp với điều kiện đã chọn.'
@@ -290,24 +292,25 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
             )}
           </div>
           <button type="button" className="hme-loc__use" onClick={useCurrentLocation} disabled={geoState === 'loading'}>Gần tôi</button>
-          {!radiusActive && <p className="hme-loc__hint">Không giới hạn khoảng cách. Chọn Gần tôi để tìm theo bán kính.</p>}
-          {radiusActive && <>
-          <button type="button" className="hme-more-link" onClick={clearRadius}>Bỏ giới hạn bán kính</button>
+          {/* 2026-11-03 Lee "거리재는 거 어디 갔냐 — 그냥 보이게 해": 반경 칸은 항상 보인다. 반경을 고르면 그때부터
+              고른 지역(또는 Gần tôi를 눌렀으면 내 위치) 기준으로 거리 검색. 전에는 Gần tôi를 눌러야만 나타났다(#99). */}
+          {radiusActive
+            ? <button type="button" className="hme-more-link" onClick={clearRadius}>Bỏ giới hạn bán kính</button>
+            : <p className="hme-loc__hint">Không giới hạn khoảng cách. Chọn bán kính để tìm quanh {originLabel}.</p>}
           <div className="hme-radius">
             <div className="hme-radius__row">
               <span>Bán kính tìm kiếm</span>
-              <SearchRadiusInput value={filters.radiusKm} onChange={(radiusKm) => update({ radiusKm })} />
+              <SearchRadiusInput value={filters.radiusKm} onChange={(radiusKm) => setRadius(radiusKm)} />
             </div>
             <input type="range" min={RADIUS_MIN_KM} max={RADIUS_MAX_KM} step={0.1} value={filters.radiusKm}
-              aria-label="Bán kính tìm kiếm (km)" aria-valuetext={formatSearchRadius(filters.radiusKm)} onChange={(e) => update({ radiusKm: normalizeSearchRadius(Number(e.target.value)) })} />
+              aria-label="Bán kính tìm kiếm (km)" aria-valuetext={formatSearchRadius(filters.radiusKm)} onChange={(e) => setRadius(normalizeSearchRadius(Number(e.target.value)))} />
             <div className="hme-radius__scale"><span>{formatSearchRadius(RADIUS_MIN_KM)}</span><span>{formatSearchRadius(RADIUS_MAX_KM)}</span></div>
             <div className="hme-radius__quick" aria-label="Chọn nhanh bán kính">
               {[0.1, 0.3, 0.5, 1, 3, 5, 10, 20].map((km) => (
-                <button key={km} type="button" aria-pressed={filters.radiusKm === km} className={filters.radiusKm === km ? 'is-active' : ''} onClick={() => update({ radiusKm: km })}>{formatSearchRadius(km)}</button>
+                <button key={km} type="button" aria-pressed={radiusActive && filters.radiusKm === km} className={radiusActive && filters.radiusKm === km ? 'is-active' : ''} onClick={() => setRadius(km)}>{formatSearchRadius(km)}</button>
               ))}
             </div>
           </div>
-          </>}
         </div>
 
         <SalaryTicket filters={filters} onChange={update} />
