@@ -12575,3 +12575,25 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jm-urgent-page .jm-filter-dropdown__panel > :not(.jm-panel-top):not(.jm-region-columns):not(.jm-panel-bottom):not(.jm-filter-dropdown__footer):not(.jm-region-search-results) {
   margin: 1rem 1.5rem;
 }
+
+/* 2026-11-03 지역별 페이지 지도 고르기(A 데모): 왼쪽 지도 + 오른쪽 34개 성 순위. */
+.jm-urgent-page .jm-region-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.25rem; margin-bottom: 1.6rem; }
+.jm-urgent-page .pmap--loading { height: 560px; display: flex; align-items: center; justify-content: center; color: var(--color-muted); background: #eaf3f8; border-radius: 14px; }
+.jm-urgent-page .jm-region-rank { background: #fff; border: 1px solid #e3e5e8; border-radius: 14px; padding: 1rem 1rem 0.5rem; display: flex; flex-direction: column; min-height: 0; max-height: 560px; }
+.jm-urgent-page .jm-region-rank__total { margin: 0 0 0.75rem; font-size: 1.15rem; color: #333; }
+.jm-urgent-page .jm-region-rank__total b { color: var(--color-primary); }
+.jm-urgent-page .jm-region-rank__list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 0.6rem; align-content: start; }
+.jm-urgent-page .jm-region-rank__row {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  border: 1px solid transparent; border-radius: 8px; background: #f6f7f9; padding: 0.55rem 0.75rem;
+  font: inherit; font-size: 0.93rem; color: #222; cursor: pointer;
+}
+.jm-urgent-page .jm-region-rank__row b { color: var(--color-primary); font-size: 0.95rem; }
+.jm-urgent-page .jm-region-rank__row.is-empty { color: #9aa0a6; background: #fafafa; }
+.jm-urgent-page .jm-region-rank__row.is-empty b { color: #b0b5ba; font-weight: 500; font-size: 0.78rem; }
+.jm-urgent-page .jm-region-rank__row:hover { border-color: #ffc7bb; }
+.jm-urgent-page .jm-region-rank__row.is-selected { background: #fff1ee; border-color: var(--color-primary); }
+@media (max-width: 760px) {
+  .jm-urgent-page .jm-region-hero { grid-template-columns: 1fr; }
+  .jm-urgent-page .pmap__svg, .jm-urgent-page .pmap--loading { height: 420px; }
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import JobCard from '../../components/JobCard'
@@ -29,6 +29,8 @@ import {
   type TimeBucket,
 } from '../../lib/workScheduleParse'
 import type { Job, JobCategory } from '../../types/job'
+
+const ProvinceMap = lazy(() => import('../../components/region/ProvinceMap'))
 
 type SortMode = 'newest' | 'deadline'
 type PanelKey = 'region' | 'category' | 'workPeriod' | 'detail' | null
@@ -478,6 +480,15 @@ export default function UrgentJobsPage() {
     [jobs, todayStr],
   )
   const jobAreas = useMemo(() => new Map(openJobs.map((j) => [j.id, resolveJobArea(j)])), [openJobs])
+  const provinceCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const a of jobAreas.values()) for (const p of a.provinces) m.set(p, (m.get(p) ?? 0) + 1)
+    return m
+  }, [jobAreas])
+  const rankedProvinces = useMemo(
+    () => VN_PROVINCES.map((p) => [p, provinceCounts.get(p) ?? 0] as const).sort((a, b) => b[1] - a[1]),
+    [provinceCounts],
+  )
 
   // work_period는 크롤러 자유텍스트(닫힌 enum 아님)라 job_duration과 달리
   // 고정 목록을 쓰지 않는다 — 실제 존재하는 값만 동적으로 보여준다(2026-09-18
@@ -680,15 +691,35 @@ export default function UrgentJobsPage() {
         </p>
       </header>
 
-      {/* 알바몬 "지역별" 맨 위 지역 칩 줄 — 공식 34개 성 전부(Lee "지금 없다고 안 만들면 안 돼"). */}
-      <nav className="jm-province-chips" aria-label="Chọn nhanh tỉnh/thành phố">
-        <button type="button" className={`jm-province-chip${selectedProvince === null ? ' is-selected' : ''}`} aria-pressed={selectedProvince === null}
-          onClick={() => selectProvince(null)}>Toàn quốc</button>
-        {VN_PROVINCES.map((p) => (
-          <button key={p} type="button" className={`jm-province-chip${selectedProvince === p ? ' is-selected' : ''}`} aria-pressed={selectedProvince === p}
-            onClick={() => selectProvince(p)}>{shortProvinceName(p)}</button>
-        ))}
-      </nav>
+      {/* 2026-11-03 Lee "A 데모 간단하게" — 지도로 고르기: 왼쪽 베트남 지도(성마다 공고 수),
+          오른쪽 34개 성 목록(공고 많은 순, 없는 곳도 빼지 않음 — "지금 없다고 안 만들면 안 돼"). */}
+      <section className="jm-region-hero">
+        <Suspense fallback={<div className="pmap pmap--loading">Đang tải bản đồ…</div>}>
+          <ProvinceMap counts={provinceCounts} selected={selectedProvince} onSelect={selectProvince} />
+        </Suspense>
+        <div className="jm-region-rank">
+          <p className="jm-region-rank__total">
+            {selectedProvince
+              ? <><b>{shortProvinceName(selectedProvince)}</b> · {provinceCounts.get(selectedProvince) ?? 0} việc làm</>
+              : <>Toàn quốc · <b>{openJobs.length}</b> việc làm</>}
+          </p>
+          <ul className="jm-region-rank__list">
+            <li>
+              <button type="button" className={`jm-region-rank__row${selectedProvince === null ? ' is-selected' : ''}`} onClick={() => selectProvince(null)}>
+                <span>Toàn quốc</span><b>{openJobs.length}</b>
+              </button>
+            </li>
+            {rankedProvinces.map(([p, n]) => (
+              <li key={p}>
+                <button type="button" className={`jm-region-rank__row${selectedProvince === p ? ' is-selected' : ''}${n === 0 ? ' is-empty' : ''}`}
+                  onClick={() => selectProvince(selectedProvince === p ? null : p)}>
+                  <span>{shortProvinceName(p)}</span><b>{n > 0 ? n : 'Sắp có'}</b>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <div className="jm-urgent-filters">
         <FilterDropdown
