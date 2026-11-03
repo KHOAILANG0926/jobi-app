@@ -128,8 +128,9 @@ function FilterDropdown({
         className={`jm-filter-dropdown__btn${isOpen ? ' is-open' : ''}${count > 0 ? ' has-value' : ''}`}
         onClick={onToggle}
       >
-        {label}{count > 0 ? ` (${count})` : ''}
-        <span className="jm-filter-dropdown__caret" aria-hidden>▾</span>
+        {label}
+        {count > 0 && <span className="jm-filter-dropdown__count">{count}</span>}
+        <span className="jm-filter-dropdown__caret" aria-hidden>{isOpen ? '▲' : '▼'}</span>
       </button>
       {isOpen && panelSlot && createPortal(
         <div className="jm-filter-dropdown__panel">{children}</div>,
@@ -698,11 +699,12 @@ export default function UrgentJobsPage() {
           onClose={closePanel}
           panelSlot={panelSlot}
         >
+          <div className="jm-panel-top">
           <div className="jm-search-input-wrap jm-search-input-wrap--khu-vuc">
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder=""
+              placeholder="Tìm khu vực, vd: Bắc Ninh, Từ Sơn"""
               value={regionSearch}
               onChange={(e) => setRegionSearch(e.target.value)}
             />
@@ -710,6 +712,8 @@ export default function UrgentJobsPage() {
               <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.6" />
               <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+          </div>
+          <span className="jm-panel-top__count">Đã chọn <b>{(selectedProvince ? 1 : 0) + selectedWards.size}</b></span>
           </div>
           {regionSearch.trim() ? (
             <ul className="jm-region-col__list jm-region-search-results">
@@ -741,7 +745,7 @@ export default function UrgentJobsPage() {
                         className={`jm-region-row${selectedProvince === p ? ' is-selected' : ''}`}
                         onClick={() => selectProvince(selectedProvince === p ? null : p)}
                       >
-                        {shortProvinceName(p)}
+                        {shortProvinceName(p)}{selectedProvince === p && <span className="jm-region-row__check" aria-hidden>✓</span>}
                       </button>
                     </li>
                   ))}
@@ -749,10 +753,17 @@ export default function UrgentJobsPage() {
               </div>
               <div className="jm-region-col jm-region-col--quan">
                 <p className="jm-region-col__head">Quận / Huyện</p>
-                {!selectedProvince ? (
-                  <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
-                ) : (
+                {!selectedProvince ? null : (
                   <ul className="jm-region-col__list">
+                    <li>
+                      <button
+                        type="button"
+                        className={`jm-region-row${selectedWards.size === 0 && !selectedDistrict ? ' is-selected' : ''}`}
+                        onClick={() => selectProvince(selectedProvince)}
+                      >
+                        {shortProvinceName(selectedProvince)} tất cả{selectedWards.size === 0 && !selectedDistrict && <span className="jm-region-row__check" aria-hidden>✓</span>}
+                      </button>
+                    </li>
                     {districtOptions.map((d) => (
                       <li key={d}>
                         <button
@@ -760,7 +771,7 @@ export default function UrgentJobsPage() {
                           className={`jm-region-row${selectedDistrict === d ? ' is-selected' : ''}`}
                           onClick={() => selectDistrict(d)}
                         >
-                          {d}
+                          {d}{selectedDistrict === d && <span className="jm-region-row__check" aria-hidden>✓</span>}
                         </button>
                       </li>
                     ))}
@@ -769,11 +780,7 @@ export default function UrgentJobsPage() {
               </div>
               <div className="jm-region-col jm-region-col--wide">
                 <p className="jm-region-col__head">Xã / Phường</p>
-                {!selectedProvince ? (
-                  <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
-                ) : !selectedDistrict ? (
-                  <p className="hint jm-region-col__hint">Chọn quận/huyện trước.</p>
-                ) : districtWardOptions.length === 0 ? (
+                {!selectedProvince || !selectedDistrict ? null : districtWardOptions.length === 0 ? (
                   <p className="hint jm-region-col__hint">Các tin ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
                 ) : (
                   <ul className="jm-region-col__list">
@@ -793,7 +800,7 @@ export default function UrgentJobsPage() {
                           className={`jm-region-row${selectedWards.has(w) ? ' is-selected' : ''}`}
                           onClick={() => toggleWard(w)}
                         >
-                          {w}
+                          {w}{selectedWards.has(w) && <span className="jm-region-row__check" aria-hidden>✓</span>}
                         </button>
                       </li>
                     ))}
@@ -802,7 +809,8 @@ export default function UrgentJobsPage() {
               </div>
             </div>
           )}
-          {selectedProvince && (
+          <div className="jm-panel-bottom">
+          {selectedProvince ? (
             <div className="jm-region-picked" aria-label="Khu vực đã chọn">
               {selectedWards.size === 0 ? (
                 <button type="button" className="jm-region-picked__chip" onClick={() => selectProvince(null)}>
@@ -814,8 +822,7 @@ export default function UrgentJobsPage() {
                 </button>
               ))}
             </div>
-          )}
-          <div className="jm-filter-dropdown__footer">
+          ) : <span />}
             <button type="button" className="jm-filter-dropdown__reset" onClick={() => { selectProvince(null); setRegionSearch('') }}>
               ↻ Đặt lại
             </button>
@@ -830,11 +837,12 @@ export default function UrgentJobsPage() {
           onClose={closePanel}
           panelSlot={panelSlot}
         >
+          <div className="jm-panel-top">
           <div className="jm-search-input-wrap jm-search-input-wrap--nganh-nghe">
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder=""
+              placeholder="Tìm ngành nghề, vd: phục vụ, bán hàng"
               value={categorySearch}
               onChange={(e) => setCategorySearch(e.target.value)}
             />
@@ -842,6 +850,8 @@ export default function UrgentJobsPage() {
               <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.6" />
               <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+          </div>
+          <span className="jm-panel-top__count">Đã chọn <b>{categoryIds.size + selectedSubcategoryKeys.size}</b></span>
           </div>
           <div className="jm-region-columns jm-region-columns--category">
             <div className="jm-region-col jm-region-col--narrow">

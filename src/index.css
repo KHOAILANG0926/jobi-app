@@ -12511,3 +12511,67 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .pay .pay-label--day { color: #7c3aed; }
 .pay .pay-amount { color: #4b5563; font-weight: 500; }
 .pay .pay-none { color: #9ca3af; font-weight: 400; }
+
+/* ── 2026-11-03 Lee "재미가 없어 디자인이" → 지역별 페이지(.jm-urgent-page)만 알바몬
+ * "지역별" 필터 모양으로: 넓은 네모 탭 + 빨간 숫자 동그라미, 패널 윗줄 회색 바탕
+ * 검색, 가운데 정렬 제목 줄, 고른 줄 ✓, 아래줄 고른 칩 + 네모 초기화 버튼.
+ * 다른 페이지(JobSearchPage 등)에는 영향 없음(전부 .jm-urgent-page 아래로 한정). */
+.jm-urgent-page .jm-province-chips { gap: 0.6rem 0.55rem; margin-bottom: 1.6rem; }
+.jm-urgent-page .jm-province-chip {
+  border: 1px solid transparent; background: #f1f2f4; padding: 0.6rem 1.15rem;
+  font-size: 0.95rem; transition: background 0.15s, border-color 0.15s;
+}
+.jm-urgent-page .jm-province-chip:hover { background: #e7e9ec; }
+.jm-urgent-page .jm-province-chip.is-selected { background: #fff; border-color: var(--color-primary); color: var(--color-primary); }
+
+.jm-urgent-page .jm-urgent-filters { gap: 0.6rem; }
+.jm-urgent-page .jm-filter-dropdown__btn {
+  min-width: 11.5rem; padding: 0.85rem 1.1rem; border: 1px solid #d5d8dd; border-radius: 6px;
+  font-size: 1.02rem; font-weight: 700; color: #222;
+}
+.jm-urgent-page .jm-filter-dropdown__btn.has-value { border-color: #d5d8dd; color: #222; }
+.jm-urgent-page .jm-filter-dropdown__btn.is-open { border-color: #222; }
+.jm-urgent-page .jm-filter-dropdown__count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem; border-radius: 999px;
+  background: var(--color-primary); color: #fff; font-size: 0.75rem; font-weight: 700;
+}
+.jm-urgent-page .jm-filter-dropdown__caret { font-size: 0.7rem; color: #999; }
+.jm-urgent-page .jm-filter-dropdown__btn.is-open .jm-filter-dropdown__caret { color: #222; }
+
+.jm-urgent-page .jm-filter-dropdown__panel {
+  padding: 0; border: 1px solid #d5d8dd; border-radius: 8px; box-shadow: none; max-height: none;
+}
+.jm-urgent-page .jm-panel-top {
+  display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.5rem;
+  background: #f7f7f8; border-bottom: 1px solid #e3e5e8;
+}
+.jm-urgent-page .jm-panel-top .jm-search-input-wrap { flex: 0 1 25rem; margin: 0; }
+.jm-urgent-page .jm-panel-top .jm-filter-dropdown__search { background: #fff; border-radius: 8px; padding-top: 0.65rem; padding-bottom: 0.65rem; }
+.jm-urgent-page .jm-panel-top__count { margin-left: auto; color: var(--color-muted); font-size: 0.95rem; }
+.jm-urgent-page .jm-panel-top__count b { color: var(--color-primary); }
+
+.jm-urgent-page .jm-region-columns { border: none; border-radius: 0; border-bottom: 1px solid #e3e5e8; }
+.jm-urgent-page .jm-region-col__head {
+  text-align: center; color: #333; font-size: 0.95rem; font-weight: 600; background: #f7f7f8; padding: 0.7rem;
+}
+.jm-urgent-page .jm-region-col__list { max-height: 240px; }
+.jm-urgent-page .jm-region-row { padding: 0.65rem 1.1rem; color: #555; display: flex; align-items: center; gap: 0.35rem; }
+.jm-urgent-page .jm-region-row.is-selected { background: #fff6f5; color: var(--color-primary); font-weight: 600; }
+.jm-urgent-page .jm-region-row__check { font-size: 0.85rem; }
+.jm-urgent-page .jm-region-search-results { padding: 0.5rem 0; }
+
+.jm-urgent-page .jm-panel-bottom {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.5rem;
+}
+.jm-urgent-page .jm-region-picked { margin: 0; }
+.jm-urgent-page .jm-region-picked__chip { background: #f4f5f7; border-color: #e3e5e8; padding: 0.45rem 0.75rem; color: #444; }
+.jm-urgent-page .jm-filter-dropdown__reset {
+  flex: none; border: 1px solid #d5d8dd; border-radius: 6px; background: #fff; color: #222;
+  text-decoration: none; padding: 0.5rem 0.85rem; font-size: 0.9rem;
+}
+.jm-urgent-page .jm-filter-dropdown__footer { border-top: 1px solid #e3e5e8; margin: 0; padding: 1rem 1.5rem; }
+/* 나머지 패널(근무시간·조건)의 내용은 테두리에 붙지 않게 여백. */
+.jm-urgent-page .jm-filter-dropdown__panel > :not(.jm-panel-top):not(.jm-region-columns):not(.jm-panel-bottom):not(.jm-filter-dropdown__footer):not(.jm-region-search-results) {
+  margin: 1rem 1.5rem;
+}
