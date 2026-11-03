@@ -203,7 +203,35 @@ export default function ProvinceMap({ counts, selected, onSelect }: {
       <svg ref={svgRef} className={`pmap__svg${drag.current?.moved ? ' is-dragging' : ''}`} viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
         role="img" aria-label="Bản đồ chọn tỉnh/thành phố"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-        <rect x={-2000} y={-2000} width={5000} height={5000} className="pmap__sea" onClick={() => pick(null)} />
+        {/* 2026-11-03 Lee "입체적으로, 바다도 꾸미고": 바다 그라데이션 + 물결, 땅은 두께(아래로 밀린 그림자 층)
+            + 위쪽 밝은 그라데이션으로 떠 있는 판처럼. */}
+        <defs>
+          <radialGradient id="pmap-sea" cx="35%" cy="30%" r="80%">
+            <stop offset="0%" stopColor="#d9eff9" />
+            <stop offset="55%" stopColor="#a9d6ee" />
+            <stop offset="100%" stopColor="#6fb0d6" />
+          </radialGradient>
+          <pattern id="pmap-waves" width="28" height="14" patternUnits="userSpaceOnUse">
+            <path d="M0 7 Q7 3 14 7 T28 7" fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.8" />
+          </pattern>
+          <linearGradient id="pmap-land" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fffdf7" />
+            <stop offset="100%" stopColor="#efe5cf" />
+          </linearGradient>
+          <filter id="pmap-shadow" x="-10%" y="-10%" width="120%" height="130%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+            <feOffset dx="0" dy="4" result="b" />
+            <feComponentTransfer><feFuncA type="linear" slope="0.35" /></feComponentTransfer>
+            <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <rect x={-2000} y={-2000} width={5000} height={5000} fill="url(#pmap-sea)" className="pmap__sea" onClick={() => pick(null)} />
+        <rect x={-2000} y={-2000} width={5000} height={5000} fill="url(#pmap-waves)" pointerEvents="none" />
+        {/* 땅 두께(옆면): 같은 모양을 아래로 조금 밀어 진하게 */}
+        <g transform={`translate(0 ${2.4 / zoom})`} filter="url(#pmap-shadow)" pointerEvents="none">
+          {shapes.map((s, i) => <path key={i} d={s.d} className="pmap__side" />)}
+          {VN_ISLANDS.filter((i) => i.km > 0).map((i) => <circle key={i.name} cx={px(i.lng)} cy={py(i.lat)} r={Math.max(i.km * KM, 1.8 / zoom)} className="pmap__side" />)}
+        </g>
         {shapes.map((s, i) => (
           <path key={i} d={s.d} className={`pmap__prov${cls(s.province)}`} strokeWidth={0.6 / zoom}
             onMouseEnter={enter(s.province)} onMouseLeave={leave} onClick={() => pick(s.province === selected ? null : s.province)}>
