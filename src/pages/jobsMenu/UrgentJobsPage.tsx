@@ -704,7 +704,7 @@ export default function UrgentJobsPage() {
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder="Tìm khu vực, vd: Bắc Ninh, Từ Sơn"""
+              placeholder="Tìm khu vực, vd: Bắc Ninh, Từ Sơn"
               value={regionSearch}
               onChange={(e) => setRegionSearch(e.target.value)}
             />
