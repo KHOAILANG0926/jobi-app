@@ -133,7 +133,8 @@ export function googlePlacesRequest(key) {
   return async (text) => {
     const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST', signal: AbortSignal.timeout(15000),
-      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location' },
+      // 기존 지도 키는 사이트 주소로 제한돼 있을 수 있어 우리 사이트 주소를 Referer로 보낸다(Lee 2026-11-03 "구글키는 있어").
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location' },
       body: JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 }),
     })
     if (!res.ok) throw new Error('upstream_failed')

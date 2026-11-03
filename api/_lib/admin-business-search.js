@@ -7,7 +7,8 @@
 // - 관리자 확인은 api/admin.js 라우터가 먼저 한다(app_metadata.role === 'admin').
 
 const UPSTREAM_TIMEOUT_MS = 15_000
-const PROVIDERS = ['vietmap', 'goong']
+// 2026-11-03 Lee "구글키는 있어": Google Places Text Search(New)도 같은 질문으로 비교(검색만, 결과에 좌표 포함).
+const PROVIDERS = ['vietmap', 'goong', 'google']
 
 export function validate(body) {
   const provider = body?.provider
@@ -18,6 +19,7 @@ export function validate(body) {
   // kind 'street'(Lee 2026-10-28 거리 가운데 시험): 업체(POI)로 좁히지 않고 거리 이름 그대로 찾는다. VietMap만.
   const kind = body?.kind === 'street' ? 'street' : 'business'
   if (kind === 'street' && provider !== 'vietmap') return null
+  if (id && provider === 'google') return null   // Google은 검색 결과에 좌표가 있어 상세 조회가 없다
   if (id) return { provider, id }
   if (!company || company.length > 120 || area.length > 200) return null
   return { provider, kind, text: `${company} ${area}`.trim() }
@@ -36,6 +38,8 @@ export function upstreamUrls(provider, key) {
 
 /** 검색 결과를 같은 모양(이름·id)으로 정리. */
 export function normalizeHits(provider, json) {
+  if (provider === 'google') return (json?.places ?? []).map((p) => ({ id: p.id, name: p.displayName?.text ?? '', address: String(p.formattedAddress ?? '').slice(0, 200),
+    lat: p.location?.latitude, lng: p.location?.longitude }))
   if (provider === 'vietmap') return (Array.isArray(json) ? json : []).map((h) => ({ id: h.ref_id, name: h.name ?? '', address: String(h.address || h.display || '').slice(0, 200),
     categories: (Array.isArray(h.categories) ? h.categories : []).map(String).slice(0, 5) }))
   return (json?.predictions ?? []).map((p) => ({ id: p.place_id, name: p.structured_formatting?.main_text ?? '' }))
@@ -48,7 +52,14 @@ export function normalizeDetail(provider, json) {
 
 function runtimeDependencies() {
   return {
-    key: (provider) => (provider === 'vietmap' ? process.env.VIETMAP_SERVICE_KEY : process.env.GOONG_API_KEY) || '',
+    key: (provider) => (provider === 'vietmap' ? process.env.VIETMAP_SERVICE_KEY : provider === 'google' ? (process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY) : process.env.GOONG_API_KEY) || '',
+    async fetchGoogle(text, key) {
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', { method: 'POST', signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location' },
+        body: JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 }) })
+      if (!res.ok) return { ok: false, status: res.status }
+      return { ok: true, json: await res.json() }
+    },
     async fetchJson(url) {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS)
@@ -71,8 +82,8 @@ export function createAdminBusinessSearchHandler(injected) {
       const deps = injected || runtimeDependencies()
       const key = deps.key(request.provider)
       if (!key) return res.status(503).json({ error: 'not_configured', provider: request.provider })
-      const urls = upstreamUrls(request.provider, key)
-      const up = await deps.fetchJson(request.id ? urls.detail(request.id) : urls.search(request.text, request.kind))
+      const up = request.provider === 'google' ? await deps.fetchGoogle(request.text, key)
+        : await deps.fetchJson(request.id ? upstreamUrls(request.provider, key).detail(request.id) : upstreamUrls(request.provider, key).search(request.text, request.kind))
       if (!up.ok) return res.status(502).json({ error: 'upstream_error', provider: request.provider, upstreamStatus: up.status })
       if (!request.id) return res.status(200).json({ ok: true, provider: request.provider, hits: normalizeHits(request.provider, up.json).filter((h) => h.id).slice(0, 10) })
       const place = normalizeDetail(request.provider, up.json)
