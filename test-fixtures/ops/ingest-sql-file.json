@@ -10,5 +10,8 @@
   "source_text": "Tuyển phụ bếp ca tối. Công ty Fixture SQL File. Gọi 0912 000 333. Địa chỉ: Phường Võ Cường, TP. Bắc Ninh. Ký tự lạ $ingest$ ' \\ để thử.",
   "images": [
     "fixture/ingest-sql-file.png"
-  ]
+  ],
+  "logo_check": {
+    "result": "poster"
+  }
 }
