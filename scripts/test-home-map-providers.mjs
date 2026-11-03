@@ -183,7 +183,6 @@ async function verifyNoKeyGeoapify(browser) {
   await chooseRegion(page, 'Bắc Giang')
   const afterRegion = await readViewport(page)
   if (Math.abs(afterRegion.lat - afterControlRadius.lat) < 0.01) throw new Error('Region change did not recenter')
-  await page.locator('.hme-loc__current').click()
   await page.locator('.hme-loc__use').click()
   await page.waitForTimeout(900)
   const afterLocation = await readViewport(page)
