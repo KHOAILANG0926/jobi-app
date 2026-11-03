@@ -28,6 +28,28 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
     await secs.first().screenshot({ path: `out/home-${name}.png` }).catch((e) => console.log('shot fail', e.message))
   } else console.log(name, 'no .home-sections')
   await page.screenshot({ path: `out/home-${name}-full.png`, fullPage: true }).catch(() => {})
+  if (name === 'mobile') {
+    // 2026-11-03 Lee "3 진행": 모바일 데모 확인 3가지를 숫자·사진으로 남긴다.
+    // ① 옆으로 넘기는 칸이 처음에 몇 쪽인지 ② 지도 위 필터 줄에서 화면에 다 보이는 버튼 ③ "Xem danh sách" 누른 뒤 목록 탭.
+    const pages = await page.evaluate(() => [...document.querySelectorAll('.discovery-featured')].map((s) => ({
+      id: s.getAttribute('data-section'), paging: s.querySelector('.discovery-carousel__paging > span')?.textContent ?? null,
+      head: s.querySelector('.discovery-section-head span')?.textContent ?? null, scrollLeft: s.querySelector('.discovery-carousel')?.scrollLeft ?? null })))
+    console.log('mobile PAGES', JSON.stringify(pages))
+    const rail = await page.evaluate(() => { const r = document.querySelector('.hme-mobile-toolbar__filters'); if (!r) return null; const box = r.getBoundingClientRect()
+      return { scrollWidth: r.scrollWidth, clientWidth: r.clientWidth, buttons: [...r.querySelectorAll('button')].map((b) => { const x = b.getBoundingClientRect(); return { text: b.textContent?.trim(), fullyVisible: x.left >= box.left - 1 && x.right <= box.right + 1 } }) } })
+    console.log('mobile FILTER_RAIL', JSON.stringify(rail))
+    const listBtn = page.locator('.hme-mobile-summary').first()
+    if (await listBtn.count()) {
+      await listBtn.scrollIntoViewIfNeeded().catch(() => {})
+      await listBtn.click({ timeout: 3000 }).catch((e) => console.log('list click fail', e.message))
+      await page.waitForTimeout(1500)
+      const list = await page.evaluate(() => ({ mapHidden: getComputedStyle(document.querySelector('.hme__map') ?? document.body).display === 'none',
+        cards: document.querySelectorAll('.hme-mobile-list .discovery-job').length, head: document.querySelector('.hme-mobile-list .discovery-section-head')?.textContent ?? null }))
+      console.log('mobile LIST_TAB', JSON.stringify(list))
+      const box = page.locator('.hme').first()
+      await box.screenshot({ path: 'out/home-mobile-list.png' }).catch((e) => console.log('list shot fail', e.message))
+    } else console.log('mobile LIST_TAB no summary button')
+  }
   await ctx.close()
 }
 await browser.close()
