@@ -1,3 +1,4 @@
+// 2026-11-03: JobDetail.tsx·index.css — Lee 지시(11-03 "123수정"): 급여 아래 상여·수당 줄 작은 회색 글씨·금액과 정렬(#415), 식비 수당 이름 Phụ cấp ăn·아이콘 중복 태그 숨김(#415·#416). 칸 순서·위치 등 PC 틀 변경 없음. 기준값 갱신이 늦어 master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돎).
 // 2026-11-01: index.css — Lee "수평 전개": 급여 표시 한 곳(SalaryText) 색 규칙 추가. PC 틀 변경 없음.
 // 2026-11-01: JobDetail.tsx — Lee 지시(브랜드 로고 수평 전개): 등록 브랜드 공고는 로고 자리에 브랜드 공식 사이트 아이콘. 틀 변경 없음.
 // 2026-11-01: 기준값 갱신 — master가 이미 달랐음(이 검사는 모바일 홈 파일 PR에서만 돌아 못 잡음): LayoutDesktop.tsx(#403 브랜드 로고 흰 바탕), JobDetail.tsx(#397 오토바이가 핀을 따라감), HomeDesktop·DesktopHomeMap*(이미 병합된 PR). index.css는 이번 PR(#407 Lee 적용: 공고 카드 급여 한 줄·단위 색, 모바일 목록 같은 규칙) 포함. PC 틀 변경은 카드 급여 줄 글자·색뿐.
@@ -86,12 +87,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "b9276ee2f5de75e25342b6fadf9d67c717439adf70bbbf12190456755f060e68",
+    "sha256": "33bfe7030f4a2b98d4c429e1d15938ab1dd3ded37c02d3b5e2674ebfdc83f2c1",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "0d0eb20f6180003d562f0ccaf73183189411cecd962d930f34bee8bd59990084",
+    "sha256": "b7f1ef7e6d3c95b319ae2fab7b203aa934e5392e411299405522b6c3df6b8e9f",
     "restore": []
   },
   {
