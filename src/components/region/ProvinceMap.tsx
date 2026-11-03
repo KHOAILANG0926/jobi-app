@@ -137,11 +137,39 @@ export default function ProvinceMap({ counts, selected, onSelect }: {
     return () => svg.removeEventListener('wheel', onWheel)
   }, [])
 
+  // 끌어 이동 + 휴대폰 두 손가락 확대(pinch). 손가락(포인터)을 id별로 기억한다.
+  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; box: Box; mid: { x: number; y: number } } | null>(null)
+  const toSvg = (cx: number, cy: number) => {
+    const ctm = svgRef.current?.getScreenCTM()
+    return ctm ? new DOMPoint(cx, cy).matrixTransform(ctm.inverse()) : null
+  }
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     cancelAnimationFrame(anim.current)
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()]
+      const mid = toSvg((a.x + b.x) / 2, (a.y + b.y) / 2)
+      pinch.current = mid ? { dist: Math.hypot(a.x - b.x, a.y - b.y), box: boxRef.current, mid: { x: mid.x, y: mid.y } } : null
+      drag.current = null
+      suppressClick.current = true
+      return
+    }
+    if (pointers.current.size === 1) suppressClick.current = false
     drag.current = { x: e.clientX, y: e.clientY, box: boxRef.current, moved: false }
   }
   const onPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const pz = pinch.current
+    if (pz && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y)
+      if (dist < 1) return
+      const w = Math.min(FULL.w * 1.2, Math.max(MIN_W, pz.box.w * (pz.dist / dist)))
+      const s = w / pz.box.w
+      setBox({ x: pz.mid.x - (pz.mid.x - pz.box.x) * s, y: pz.mid.y - (pz.mid.y - pz.box.y) * s, w, h: pz.box.h * s })
+      return
+    }
     const d = drag.current
     const ctm = svgRef.current?.getScreenCTM()
     if (!d || !ctm) return
@@ -150,7 +178,13 @@ export default function ProvinceMap({ counts, selected, onSelect }: {
     if (!d.moved) { d.moved = true; svgRef.current?.setPointerCapture(e.pointerId) }
     setBox({ ...d.box, x: d.box.x - dx / ctm.a, y: d.box.y - dy / ctm.d })
   }
-  const onPointerUp = () => {
+  const onPointerUp = (e: ReactPointerEvent<SVGSVGElement>) => {
+    pointers.current.delete(e.pointerId)
+    if (pinch.current) {
+      if (pointers.current.size < 2) pinch.current = null
+      drag.current = null
+      return
+    }
     suppressClick.current = !!drag.current?.moved
     drag.current = null
   }
