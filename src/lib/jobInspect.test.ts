@@ -102,3 +102,12 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(!short.items.find((i) => i.key === 'junk')!.ok, '값 없는 짧은 이름표는 계속 잡음')
   console.log('jobInspect.test.ts: 포스터식 소제목(꾸밈말·괄호)·긴 소개 문장 검사 통과')
 }
+
+// 2026-11-04 "NHÀ HÀNG … TUYỂN GẤP:" 같은 모집 소개 줄(공고 번호 전용 아님) — 빈 이름표 아님. 값 없는 짧은 이름표는 계속 잡음.
+{
+  const r = inspectJob({ id: 13, description: 'Công việc\nNHÀ HÀNG TÂM HỒ NHẤT HẠCH TUYỂN GẤP:\n05 nhân viên phục vụ (Nam/Nữ)', pin: 'area', category: 'am_thuc_do_uong', occupation_code: '5131', active: true })
+  assert(r.items.find((i) => i.key === 'junk')!.ok, '모집 소개 줄은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
+  const short = inspectJob({ id: 14, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!short.items.find((i) => i.key === 'junk')!.ok, '값 없는 짧은 이름표는 계속 잡음')
+  console.log('jobInspect.test.ts: 모집 소개 줄(… tuyển gấp:) 검사 통과')
+}
