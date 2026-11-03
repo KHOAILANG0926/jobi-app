@@ -307,3 +307,16 @@ Chăm sóc khách hàng`
   for (const [line, want] of cases) assert(headingOf(line) === want, `headingOf(${line}) = ${headingOf(line)} ≠ ${want}`)
   console.log('jobDetailSections: poster heading praise/parenthesis regression passed')
 }
+
+// 2026-11-03 Lee "숫자 합치지 말라는 게 아예 안 넣으라는 말은 아닌데"(#440): 여러 직무 공고 상세 근무조건 급여 칸은 직무별 금액 줄(원문 그대로, 합치지 않음).
+{
+  const { roleSalaryLines, roleConditionSummary } = await import('./jobRolePresentation.ts')
+  // 상세요강에 저장되는 모양("직무 — 원문 줄", 공고 #5342 같은 꼴)
+  const desc = ['NHÂN VIÊN PHỤC VỤ — • Full-time: 8.974.000 – 10.490.000đ/tháng', 'NHÂN VIÊN PHA CHẾ — • Full-time: 8.500.000 – 10.000.000đ/tháng',
+    'NHÂN VIÊN BẾP / PHỤ BẾP — • Bếp phụ: 8.000.000 – 11.200.000đ/tháng'].join('\n')
+  const lines = roleSalaryLines(desc)
+  assert(roleConditionSummary(desc)?.roleCount === 3, 'three roles')
+  assert(lines.length === 3 && lines.every((l) => /\d[\d.]+ – [\d.]+đ\/tháng/.test(l)), 'role salary lines keep source amounts: ' + JSON.stringify(lines))
+  assert(!lines.some((l) => /8\.000\.000 – 10\.490\.000/.test(l)), 'no merged range across roles')
+  console.log('jobDetailSections: multi-role salary lines (amounts, not merged) passed')
+}

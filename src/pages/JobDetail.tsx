@@ -33,7 +33,7 @@ import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
-import { descriptionRoleGroups, roleConditionSummary } from '../lib/jobRolePresentation'
+import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines } from '../lib/jobRolePresentation'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
 import { companyLine } from '../lib/companyBranch'
 import { recruitOrdered } from '../lib/recruitColumns'
@@ -341,6 +341,10 @@ export function JobDetail() {
   // ── 빈 데이터 처리: 원본이 명시적으로 채운 값만 표시, 나머지는 필드 자체를 숨긴다 ──
   const roleSummary = roleConditionSummary(job.description)
   const salaryText = roleSummary?.salary ?? nonEmpty(job.rawSalary)
+  // 2026-11-03 Lee "숫자 합치지 말라는 게 아예 안 넣으라는 말은 아닌데": 여러 직무면 근무조건 급여 칸에 직무별 급여 줄(원문 그대로, 메인 카드와 같은 함수).
+  // 최대 3줄(근무조건 한 칸 3줄 규칙), 넘치면 마지막 줄에 +N. 위쪽 머리 카드(승인된 틀)는 그대로 "Theo từng vị trí".
+  const roleSalary = roleSummary ? roleSalaryLines(job.description) : []
+  const conditionSalaryLines = roleSalary.length > 3 ? [...roleSalary.slice(0, 2), `${roleSalary[2]} +${roleSalary.length - 3}`] : roleSalary
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
   const educationText = nonEmpty(job.rawEducation)
@@ -412,7 +416,7 @@ export function JobDetail() {
           {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음).
               2026-11-02 Lee "정렬도 안 되고 모양이 개판": 작은 회색 글씨 스타일(jd2-salary-sub)이 없어 급여처럼 빨간 큰 글씨였음 → 스타일 추가,
               금액과 같은 줄 시작(jd2-salary-lines 안)으로 정렬. 위치·순서는 그대로. */}
-          {salaryText && <span className="jd2-salary-lines">{salaryText.split(/(?<=,)\s*(?=\d)/).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
           {!salaryText && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>

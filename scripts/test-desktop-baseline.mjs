@@ -1,5 +1,6 @@
 // 2026-11-03: DesktopHomeMapExplorer.tsx — Lee "거리재는 거 어디 갔냐, 그냥 보이게 해": 반경 칸 항상 표시(고르면 거리 검색 켜짐). 위치 칸 펼침 메뉴·중복 Gần tôi 제거(Lee "꼭 필요한 거야?" → 진행). 다른 PC 틀 변경 없음.
 // 2026-11-03: LayoutDesktop.tsx·DesktopHomeMapExplorer.tsx·index.css — Lee 지시: PC 메인 왼쪽 칸 위치·급여만("거리하고 기본 금액만"), 메뉴 "Theo khu vực" 34개 성·급구 → 지역별 일자리(/viec-lam/khu-vuc), 지역별 페이지 전용 CSS(.jm-urgent-page 아래)·지도. 공고 카드·상세 틀 변경 없음.
+// 2026-11-03: JobDetail.tsx — Lee 지시("오케이 진행", #440): 여러 직무 공고 근무조건 급여 칸에 직무별 금액 줄(원문 그대로, 최대 3줄). 칸 순서·위치·머리 카드 등 PC 틀 변경 없음.
 // 2026-11-03: JobDetail.tsx·index.css — Lee 지시(11-03 "123수정"): 급여 아래 상여·수당 줄 작은 회색 글씨·금액과 정렬(#415), 식비 수당 이름 Phụ cấp ăn·아이콘 중복 태그 숨김(#415·#416). 칸 순서·위치 등 PC 틀 변경 없음. 기준값 갱신이 늦어 master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돎).
 // 2026-11-01: index.css — Lee "수평 전개": 급여 표시 한 곳(SalaryText) 색 규칙 추가. PC 틀 변경 없음.
 // 2026-11-01: JobDetail.tsx — Lee 지시(브랜드 로고 수평 전개): 등록 브랜드 공고는 로고 자리에 브랜드 공식 사이트 아이콘. 틀 변경 없음.
@@ -89,7 +90,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "33bfe7030f4a2b98d4c429e1d15938ab1dd3ded37c02d3b5e2674ebfdc83f2c1",
+    "sha256": "b50145b68e4e93e6d6c9d80f57fd21e264995b866e4d7434a0d3e03f7fabf522",
     "restore": []
   },
   {
