@@ -10,6 +10,13 @@ on:
       - 'scripts/test-mobile-home.mjs'
       - 'scripts/test-desktop-baseline.mjs'
       - '.github/workflows/mobile-home-preview.yml'
+      # 2026-11-03: PC 기준 화면 잠금(test-desktop-baseline.mjs)이 잠근 파일을 고칠 때도 돌게 한다.
+      # 전에는 홈 파일 PR에서만 돌아 상세 화면(JobDetail·index.css) 변경을 못 잡았다(10-29·11-01·11-03 반복).
+      - 'src/pages/HomeDesktop.tsx'
+      - 'src/components/LayoutDesktop.tsx'
+      - 'src/pages/JobDetail.tsx'
+      - 'src/index.css'
+      - 'src/components/apply.css'
 permissions:
   contents: read
 jobs:
