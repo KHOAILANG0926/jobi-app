@@ -1,0 +1,28 @@
+name: 관리자 위치 확정 (수동, 관리자 화면과 같은 API)
+# Lee 2026-11-03: PC 로그인 없이 관리자 위치 확정. 관리자 화면 "📍 Vị trí"와 같은 단계(대기 목록 → Google 링크 좌표 → 확정).
+on:
+  workflow_dispatch:
+    inputs:
+      job_id: {description: '공고 번호', required: true}
+      google_link: {description: 'Google 지도 링크', required: true}
+permissions:
+  contents: read
+jobs:
+  confirm:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 확정
+        env:
+          ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+          ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+          JOB_ID: ${{ inputs.job_id }}
+          GOOGLE_LINK: ${{ inputs.google_link }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/admin-location-confirm.mjs
