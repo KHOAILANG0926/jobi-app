@@ -34,8 +34,11 @@ try {
     }))
     assert.deepEqual(bounds[1], bounds[0], `missing image layout at ${width}px`)
     assert.deepEqual(bounds[2], bounds[0], `rejected image layout at ${width}px`)
-    assert.equal(await page.locator('.jc__logo').count(), 1, 'no fabricated images')
-    assert.equal(await page.locator('.jc__logo-text').count(), 2, 'missing or rejected image must show factual company text')
+    // 2026-11-02 Lee "로고·사진 없는 공고는 업종 사진으로 대신(사람인처럼)": 빈 로고 자리만 업종 대표 사진(public/images/industry),
+    // 카드 틀·크기는 그대로. 공고 사진처럼 꾸미지 않고 jc__logo--photo로 구분.
+    assert.equal(await page.locator('.jc__logo').count(), 3, 'poster + 2 industry photos in the same logo slot')
+    assert.equal(await page.locator('.jc__logo--photo').count(), 2, 'missing or rejected image uses the industry photo')
+    assert.ok((await page.locator('.jc__logo--photo').evaluateAll(els => els.map(e => e.getAttribute('src')))).every(src => src?.startsWith('/images/industry/')), 'industry photo comes from our own folder')
     console.log(`JobCard ${width}px: image/missing/blocked-image geometry identical`)
   }
   // Lee 2026-10-30: 여러 직무 공고는 급여 칸 안에서만 직무별 2줄 — 이미지·회사·제목 자리는 기준 카드와 같아야 한다.
