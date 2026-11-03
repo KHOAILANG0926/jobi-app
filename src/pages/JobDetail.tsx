@@ -34,6 +34,7 @@ import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines } from '../lib/jobRolePresentation'
+import { insuranceTags } from '../lib/jobQuyenLoi'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
 import { companyLine } from '../lib/companyBranch'
 import { recruitOrdered } from '../lib/recruitColumns'
@@ -512,7 +513,8 @@ export function JobDetail() {
   const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
   const conditionPcFields = [
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
-    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', [activeBenefitText, ...albamonLines.insurance].filter(Boolean).join(' · ') || undefined),
+    // 2026-11-04 Lee 데모(GPT 디자인 안): 최신 틀은 보험 원문 줄 대신 짧은 표시(BHXH·BHYT·BHTN) — 원문 줄은 상세요강에 그대로.
+    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', [activeBenefitText, ...(albamonLayout ? insuranceTags(albamonLines.insurance) : albamonLines.insurance)].filter(Boolean).join(' · ') || undefined),
   ].filter(Boolean) as InfoField[]
   // 2026-11-01 Lee: 등록 브랜드는 브랜드 로고 먼저(공고 카드·브랜드 메뉴와 같은 로고, 수평 전개). 그다음 공고 포스터.
   const logoUrl = brandLogoFor(job, brands) ?? companyLogoUrl(job.imageUrl)
@@ -559,7 +561,7 @@ export function JobDetail() {
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
-    <div className="jd2-page" style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
+    <div className={`jd2-page${albamonLayout ? ' jd2-page--v2' : ''}`} style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
       {!publicJob && adminPreview && <p role="status" style={{ margin: '8px 0', padding: '10px 14px', borderRadius: 8, background: '#fff4f2', color: '#d92d20', fontWeight: 700 }}>
         🔒 Chưa công khai — chỉ quản trị viên xem được (비공개 공고, 관리자만 보임). Lý do: {!adminPreview.occupationCode ? 'thiếu mã nghề' : adminPreview.adminHidden ? 'quản trị viên đã ẩn' : 'xem trang quản trị'}</p>}
 

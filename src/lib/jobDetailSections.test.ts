@@ -320,3 +320,12 @@ Chăm sóc khách hàng`
   assert(!lines.some((l) => /8\.000\.000 – 10\.490\.000/.test(l)), 'no merged range across roles')
   console.log('jobDetailSections: multi-role salary lines (amounts, not merged) passed')
 }
+
+// 2026-11-04 최신 틀 근무조건 복리후생 칸: 보험 원문 줄 대신 짧은 표시(원문에 적힌 것만)
+{
+  const { insuranceTags } = await import('./jobQuyenLoi.ts')
+  const t = insuranceTags(['Tham gia đầy đủ BHXH, BHYT, BHTN theo quy định.', 'Tham gia đầy đủ BHXH, BHYT theo quy định.'])
+  assert(JSON.stringify(t) === JSON.stringify(['BHXH', 'BHYT', 'BHTN']), 'insurance tags from source lines: ' + JSON.stringify(t))
+  assert(insuranceTags([]).length === 0, 'no insurance line → no tag (nothing invented)')
+  console.log('jobDetailSections: condition insurance short tags passed')
+}

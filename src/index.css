@@ -12613,3 +12613,29 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   border-radius: 14px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
+
+/* 2026-11-04 Lee 데모(GPT 디자인 안 참고): 최신 4칸 틀(.jd2-page--v2)만. KDA·예전 틀은 그대로.
+   상자 높이 = 내용만큼, 구역 간격 24px, 연한 테두리, 급여 강조, 상세요강 문서형(빨간 세로 막대·점 없음·직무 제목 강조). */
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--first .jd2-sec { height: auto; }
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--first .jd2-box { flex: none; }
+.jd2-page--v2 .jd2-grid--detail-redesign { row-gap: 1.5rem; align-items: start; }
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--full,
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--first { gap: 1.5rem; }
+.jd2-page--v2 .jd2-box { border-color: #e2e8f0; }
+.jd2-page--v2 .jd2-hl-salary__val { font-size: 22px; }
+.jd2-page--v2 .jd2-detail-sections { padding: 1.5rem 1.75rem; }
+.jd2-page--v2 .jd2-detail-section + .jd2-detail-section { margin-top: 1.75rem; padding-top: 1.75rem; border-top: 1px solid #eef1f5; }
+.jd2-page--v2 .jd2-detail-section__title { font-size: 17px; margin-bottom: .75rem; }
+.jd2-page--v2 .jd2-detail-section__title::before { width: 4px; background: #e53935; border-radius: 2px; }
+.jd2-page--v2 .jd2-detail-section__lines { gap: .5rem; padding-left: 0; }
+.jd2-page--v2 .jd2-detail-section__line { padding-left: 0; font-size: 15px; line-height: 1.65; color: #334155; }
+.jd2-page--v2 .jd2-detail-section__line::before { display: none; }
+.jd2-page--v2 .jd2-detail-section__line[data-role-heading] { margin-top: .5rem; color: #0f172a; }
+.jd2-page--v2 .jd2-detail-section__line[data-role-heading]:first-child { margin-top: 0; }
+@media (min-width: 768px) { .jd2-page--v2 .jd2-hl-salary__val { font-size: 26px; } }
+@media (max-width: 640px) {
+  .jd2-page--v2 .jd2-detail-sections { padding: 1rem; }
+  .jd2-page--v2 .jd2-detail-section + .jd2-detail-section { margin-top: 1.25rem; padding-top: 1.25rem; }
+  .jd2-page--v2 .jd2-detail-section__line { font-size: 14px; }
+  .jd2-page--v2 .jd2-grid--detail-redesign { row-gap: 1.25rem; }
+}
