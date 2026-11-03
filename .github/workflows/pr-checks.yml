@@ -48,6 +48,8 @@ jobs:
           node --test scripts/ci/location-test-policy.test.mjs
           node scripts/ci/location-test-policy.mjs
           node scripts/ops/location-point-oracle.test.mjs
+      - name: 공고 등록 전 로고 확인 검사 시험 (Lee 2026-11-03)
+        run: node scripts/ops/logo-check.test.mjs
       - name: 타입 검사
         run: npx tsc --noEmit
       - name: 테스트

@@ -4,6 +4,7 @@
 // 사용: node scripts/ops/ingest-sql.mjs <file.json> [storage_path] | psql ... -v ON_ERROR_STOP=1 -1
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { logoCheckProblems, withoutLogoCheck } from './logo-check.mjs'
 
 const fail = (msg) => { console.error(`::error::${msg}`); process.exit(1) }
 
@@ -48,5 +49,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!file) fail('사용: ingest-sql.mjs <file.json> [storage_path]')
   let payload
   try { payload = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { fail(`JSON 읽기 실패: ${e.message}`) }
-  try { process.stdout.write(buildSql(payload, storagePath || undefined)) } catch (e) { fail(e.message) }
+  // 로고 확인(Lee 2026-11-03): 로고가 없으면 검색 결과를 파일에 적어야 등록된다.
+  const logoProblems = logoCheckProblems(payload)
+  if (logoProblems.length) fail(logoProblems.join(' / '))
+  try { process.stdout.write(buildSql(withoutLogoCheck(payload), storagePath || undefined)) } catch (e) { fail(e.message) }
 }

@@ -15,6 +15,7 @@ const INDUSTRY: Record<JobCategory, true> = {
 const CAFE_SUB = new Set(['barista', 'quan_ca_phe', 'kem_trang_mieng', 'tiem_banh', 'tho_lam_banh'])
 const NUONG_WORDS = /nướng|bbq|barbecue|barbeque/iu
 const LAU_WORDS = /\blẩu\b|hot\s*pot|hotpot/iu
+const RESTAURANT_WORDS = /nhà\s*hàng|restaurant|cuisine/iu
 const CAFE_WORDS = /cà\s*phê|ca\s*phe|coffee|caf[eé]|trà\s*sữa|barista|pha\s*chế/iu
 
 const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
@@ -29,12 +30,13 @@ const SHOP_KINDS: Array<[RegExp, string]> = [
 
 export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, text?: string | null): string {
   if (category === 'am_thuc_do_uong') {
-    const cafe = (subcategory && CAFE_SUB.has(subcategory)) || CAFE_WORDS.test(text ?? '')
-    if (cafe) return '/images/industry/am_thuc_do_uong.jpg'
+    if (subcategory && CAFE_SUB.has(subcategory)) return '/images/industry/am_thuc_do_uong.jpg'
     // 식당은 공고에 적힌 식당 종류 낱말로 고른다(Lee 2026-11-02: 한국 고깃집에 중국 연회장 사진 금지). 없으면 나라 느낌 없는 일반 식당.
+    // 2026-11-03 Lee "사진을 왜 커피로 했어?": 식당 종류 낱말을 카페 낱말보다 먼저 본다 — 핫팟 식당의 "pha chế"(음료 담당) 직무 때문에 카페 사진이 나왔다.
     const t = text ?? ''
     if (NUONG_WORDS.test(t)) return '/images/industry/nha_hang_nuong.jpg'
     if (LAU_WORDS.test(t)) return '/images/industry/nha_hang_lau.jpg'
+    if (CAFE_WORDS.test(t) && !RESTAURANT_WORDS.test(t)) return '/images/industry/am_thuc_do_uong.jpg'
     return '/images/industry/nha_hang_chung.jpg'
   }
   // 2026-11-03 Lee "사진을 더 찾아서 다양하게": 판매 업종은 공고 낱말로 가게 종류를 고른다(Groupe SEB 가전에 우유 진열대 사진 사례).
