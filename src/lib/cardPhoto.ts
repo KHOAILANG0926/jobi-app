@@ -17,6 +17,16 @@ const NUONG_WORDS = /nướng|bbq|barbecue|barbeque/iu
 const LAU_WORDS = /\blẩu\b|hot\s*pot|hotpot/iu
 const CAFE_WORDS = /cà\s*phê|ca\s*phe|coffee|caf[eé]|trà\s*sữa|barista|pha\s*chế/iu
 
+const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
+// 낱말은 성조를 뗀 글자로 비교한다. 순서 = 우선순위.
+const SHOP_KINDS: Array<[RegExp, string]> = [
+  [/\b(?:nem|noi that|giuong|sofa|chan ga|ga goi)\b/, 'ban_hang_noi_that'],
+  [/\b(?:dien thoai|smartphone|iphone|phu kien dien thoai|the gioi di dong|di dong)\b/, 'ban_hang_dien_thoai'],
+  [/\b(?:gia dung|dien may|dien lanh|do dien|tefal|noi com|tu lanh|may giat)\b/, 'ban_hang_dien_may'],
+  [/\b(?:quan ao|thoi trang|giay dep|tui xach|shop quan|boutique)\b/, 'ban_hang_thoi_trang'],
+  [/\b(?:tien loi|circle k|minimart|mini mart|tap hoa|7-eleven|ministop|gs25)\b/, 'ban_hang_tien_loi'],
+]
+
 export function industryPhotoUrl(category: string | null | undefined, subcategory?: string | null, text?: string | null): string {
   if (category === 'am_thuc_do_uong') {
     const cafe = (subcategory && CAFE_SUB.has(subcategory)) || CAFE_WORDS.test(text ?? '')
@@ -26,6 +36,12 @@ export function industryPhotoUrl(category: string | null | undefined, subcategor
     if (NUONG_WORDS.test(t)) return '/images/industry/nha_hang_nuong.jpg'
     if (LAU_WORDS.test(t)) return '/images/industry/nha_hang_lau.jpg'
     return '/images/industry/nha_hang_chung.jpg'
+  }
+  // 2026-11-03 Lee "사진을 더 찾아서 다양하게": 판매 업종은 공고 낱말로 가게 종류를 고른다(Groupe SEB 가전에 우유 진열대 사진 사례).
+  // 맞는 낱말이 없으면 예전 판매 사진(진열대). 약국은 쓸 만한 사진이 없어 아직 없음.
+  if (category === 'quan_ly_ban_hang') {
+    const f = fold(text ?? '')
+    for (const [re, file] of SHOP_KINDS) if (re.test(f)) return `/images/industry/${file}.jpg`
   }
   return `/images/industry/${category && category in INDUSTRY ? category : 'khac'}.jpg`
 }

@@ -10,3 +10,14 @@ eq(industryPhotoUrl('san_xuat_xay_dung'), '/images/industry/san_xuat_xay_dung.jp
 eq(industryPhotoUrl('other'), '/images/industry/khac.jpg', 'legacy/unknown → khac')
 eq(industryPhotoUrl(undefined), '/images/industry/khac.jpg', 'missing → khac')
 console.log('cardPhoto ok')
+
+// 2026-11-03 판매 업종 가게 종류(실제 공고 낱말)
+{
+  const { industryPhotoUrl: u } = await import('./cardPhoto.ts')
+  const ok = (a: string, b: string, n: string) => { if (a !== b) throw new Error(`${n}: ${a}`) }
+  ok(u('quan_ly_ban_hang', null, 'Groupe SEB Tefal tuyển PG bán hàng gia dụng'), '/images/industry/ban_hang_dien_may.jpg', 'Groupe SEB 가전')
+  ok(u('quan_ly_ban_hang', null, 'Vua Nệm Tuyển dụng nhân viên bán hàng'), '/images/industry/ban_hang_noi_that.jpg', 'Vua Nệm 매트리스')
+  ok(u('quan_ly_ban_hang', null, 'Tuyển nhân viên bán hàng'), '/images/industry/quan_ly_ban_hang.jpg', '낱말 없으면 예전 판매 사진')
+  ok(u('am_thuc_do_uong', null, 'nhà hàng nướng gia dụng'), '/images/industry/nha_hang_nuong.jpg', '음식 업종은 그대로')
+  console.log('cardPhoto shop kinds ok')
+}
