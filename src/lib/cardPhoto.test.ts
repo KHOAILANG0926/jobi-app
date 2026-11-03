@@ -21,3 +21,13 @@ console.log('cardPhoto ok')
   ok(u('am_thuc_do_uong', null, 'nhà hàng nướng gia dụng'), '/images/industry/nha_hang_nuong.jpg', '음식 업종은 그대로')
   console.log('cardPhoto shop kinds ok')
 }
+
+// 2026-11-03 핫팟 식당 공고의 "pha chế" 직무 → 카페가 아니라 핫팟 사진(Joy Thái 같은 꼴, 공고 번호 전용 아님)
+{
+  const { industryPhotoUrl: u } = await import('./cardPhoto.ts')
+  const ok = (a: string, b: string, n: string) => { if (a !== b) throw new Error(`${n}: ${a}`) }
+  ok(u('am_thuc_do_uong', null, 'JOY THÁI – THAI CUISINE & HOTPOT tuyển NHÂN VIÊN PHA CHẾ, NHÂN VIÊN BẾP'), '/images/industry/nha_hang_lau.jpg', 'hotpot + pha chế → hotpot')
+  ok(u('am_thuc_do_uong', null, 'Nhà hàng tuyển nhân viên pha chế, phục vụ'), '/images/industry/nha_hang_chung.jpg', 'nhà hàng + pha chế → restaurant')
+  ok(u('am_thuc_do_uong', null, 'Quán trà sữa tuyển nhân viên pha chế'), '/images/industry/am_thuc_do_uong.jpg', 'trà sữa pha chế → cafe')
+  console.log('cardPhoto restaurant-before-cafe ok')
+}
