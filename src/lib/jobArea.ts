@@ -89,8 +89,12 @@ export function hasPhrase(hay: string, phrase: string): boolean {
   return phrase.length > 0 && hay.includes(` ${phrase} `)
 }
 
+/** 쉼표 등으로 나뉜 주소 칸은 ' | '로 구분해 이름이 칸을 넘어 붙지 않게 한다
+ * (예: "Huyện Hưng Hà, Tỉnh Thái Bình"이 "hà tỉnh" → Hà Tĩnh으로 잡히던 문제). 줄표(-)는 "Phan Rang - Tháp Chàm"
+ * 같은 이름 안에도 있어 나누지 않는다. */
 export function normalizedHay(texts: (string | null | undefined)[]): string {
-  return ` ${texts.map((t) => normalizeViText(t ?? '')).filter(Boolean).join(' | ')} `
+  const parts = texts.flatMap((t) => (t ?? '').split(/[,;|/()\n]/)).map((t) => normalizeViText(t)).filter(Boolean)
+  return ` ${parts.join(' | ')} `
 }
 
 /** 텍스트들(공고 location + 근무지 주소들)에서 지금 성/시 후보. 이름이 직접 나오면

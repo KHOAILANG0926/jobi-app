@@ -32,8 +32,8 @@ export const VN_ISLANDS: VnIsland[] = [
   { name: 'Cồn Cỏ', province: 'Tỉnh Quảng Trị', lat: 17.16, lng: 107.34, km: 1.5 },
   { name: 'Bạch Long Vĩ', province: 'Thành phố Hải Phòng', lat: 20.13, lng: 107.73, km: 2 },
   { name: 'Cát Hải', province: 'Thành phố Hải Phòng', lat: 20.79, lng: 107.04, km: 7 },
-  { name: 'Vân Đồn', province: 'Tỉnh Quảng Ninh', lat: 21.07, lng: 107.45, km: 7 },
-  { name: 'Cô Tô', province: 'Tỉnh Quảng Ninh', lat: 20.98, lng: 107.77, km: 3 },
+  { name: 'Vân Đồn', province: 'Thành phố Quảng Ninh', lat: 21.07, lng: 107.45, km: 7 },
+  { name: 'Cô Tô', province: 'Thành phố Quảng Ninh', lat: 20.98, lng: 107.77, km: 3 },
   // Quần đảo Hoàng Sa — Đặc khu Hoàng Sa, Thành phố Đà Nẵng
   { name: 'Phú Lâm', province: 'Thành phố Đà Nẵng', lat: 16.83, lng: 112.34, km: 1.5, group: 'hoang-sa' },
   { name: 'Cây', province: 'Thành phố Đà Nẵng', lat: 16.98, lng: 112.26, km: 1, group: 'hoang-sa' },

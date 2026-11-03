@@ -1,4 +1,5 @@
-/** 옛 성/시(2025-07-01 이전) → 지금 성/시. scripts/data/gen-vn-old-provinces.py로 생성(공식 vietnam-provinces 자료), 손으로 고치지 않는다. */
+// 자동 생성: scripts/data/gen-vn-admin.py (vietnam-provinces v2026.9.0). 손으로 고치지 않는다.
+/** 옛 성/시(2025-07-01 이전) → 지금 성/시. */
 export const VN_OLD_PROVINCE_TO_NEW: Record<string, string[]> = {
  "Thành phố Hà Nội": [
   "Thành phố Hà Nội"
@@ -40,10 +41,10 @@ export const VN_OLD_PROVINCE_TO_NEW: Record<string, string[]> = {
   "Tỉnh Lạng Sơn"
  ],
  "Tỉnh Quảng Ninh": [
-  "Tỉnh Quảng Ninh"
+  "Thành phố Quảng Ninh"
  ],
  "Tỉnh Bắc Giang": [
-  "Tỉnh Bắc Ninh"
+  "Thành phố Bắc Ninh"
  ],
  "Tỉnh Phú Thọ": [
   "Tỉnh Phú Thọ"
@@ -52,7 +53,7 @@ export const VN_OLD_PROVINCE_TO_NEW: Record<string, string[]> = {
   "Tỉnh Phú Thọ"
  ],
  "Tỉnh Bắc Ninh": [
-  "Tỉnh Bắc Ninh"
+  "Thành phố Bắc Ninh"
  ],
  "Tỉnh Hải Dương": [
   "Thành phố Hải Phòng"
@@ -133,7 +134,7 @@ export const VN_OLD_PROVINCE_TO_NEW: Record<string, string[]> = {
   "Tỉnh Lâm Đồng"
  ],
  "Tỉnh Bình Phước": [
-  "Tỉnh Đồng Nai"
+  "Thành phố Đồng Nai"
  ],
  "Tỉnh Tây Ninh": [
   "Tỉnh Tây Ninh"
@@ -142,7 +143,7 @@ export const VN_OLD_PROVINCE_TO_NEW: Record<string, string[]> = {
   "Thành phố Hồ Chí Minh"
  ],
  "Tỉnh Đồng Nai": [
-  "Tỉnh Đồng Nai"
+  "Thành phố Đồng Nai"
  ],
  "Tỉnh Bà Rịa - Vũng Tàu": [
   "Thành phố Hồ Chí Minh"

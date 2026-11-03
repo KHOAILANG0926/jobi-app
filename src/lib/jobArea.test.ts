@@ -2,7 +2,8 @@
 // 메인·검색·추천·급구가 같은 공식 34개 성 판정을 쓰는지, 옛 이름(성·군/구)도
 // 지금 성·동으로 잡히는지 확인한다.
 import { resolveProvinces, jobProvinces } from './jobArea.ts'
-import { resolveJobArea } from './jobAreaWards.ts'
+import { resolveJobArea, setOldWardData } from './jobAreaWards.ts'
+import { VN_OLD_WARDS_BY_PROVINCE } from '../data/vnOldWards.ts'
 import { jobMatchesRegion, REGION_MACRO_TABS, REGION_PROVINCE, ALERT_REGION_TABS, currentRegionId } from '../data/jobRegions.ts'
 import { VN_PROVINCES } from '../data/vnProvinces.ts'
 
@@ -20,7 +21,7 @@ const area = (location: string) => resolveJobArea({ location, workLocations: [] 
 
 // 옛 성 이름 → 지금 성 (예전 링크 ?region=bacgiang 도 Bắc Ninh 으로)
 {
-  assert(resolveProvinces(['KCN Đình Trám, Việt Yên, Bắc Giang'])[0] === 'Tỉnh Bắc Ninh', 'old Bắc Giang → Bắc Ninh')
+  assert(resolveProvinces(['KCN Đình Trám, Việt Yên, Bắc Giang'])[0] === 'Thành phố Bắc Ninh', 'old Bắc Giang → Bắc Ninh')
   assert(resolveProvinces(['Bến Lức, Long An'])[0] === 'Tỉnh Tây Ninh', 'old Long An → Tây Ninh')
   assert(jobMatchesRegion('Việt Yên, Bắc Giang', 'bacninh'), 'Bắc Giang address shows under Bắc Ninh')
   assert(jobMatchesRegion('Việt Yên, Bắc Giang', 'bacgiang'), 'old bacgiang link still works')
@@ -30,8 +31,8 @@ const area = (location: string) => resolveJobArea({ location, workLocations: [] 
 
 // 성 이름 없이 옛 군/구만 있어도 성을 찾음
 {
-  assert(resolveProvinces(['Thị trấn Lim, huyện Tiên Du'])[0] === 'Tỉnh Bắc Ninh', 'old district Tiên Du → Bắc Ninh')
-  assert(resolveProvinces(['Từ Sơn'])[0] === 'Tỉnh Bắc Ninh', 'Từ Sơn → Bắc Ninh')
+  assert(resolveProvinces(['Thị trấn Lim, huyện Tiên Du'])[0] === 'Thành phố Bắc Ninh', 'old district Tiên Du → Bắc Ninh')
+  assert(resolveProvinces(['Từ Sơn'])[0] === 'Thành phố Bắc Ninh', 'Từ Sơn → Bắc Ninh')
   assert(resolveProvinces(['Quận 1, TP.HCM'])[0] === 'Thành phố Hồ Chí Minh', 'HCM abbreviation')
   assert(resolveProvinces(['']).length === 0, 'empty text → no guess')
 }
@@ -48,10 +49,32 @@ const area = (location: string) => resolveJobArea({ location, workLocations: [] 
   assert(area('VSIP Bắc Ninh').wards.length === 0, 'no ward evidence → no ward guess')
 }
 
+// 옛 동(2025-07-01 이전) 이름 → 지금 동: 공식 대응표를 넣으면 정확한 동으로
+{
+  setOldWardData(VN_OLD_WARDS_BY_PROVINCE)
+  const one = (s: string) => area(s).wards.join('/')
+  assert(one('Phường Đại Phúc, TP Bắc Ninh') === 'Phường Võ Cường', 'Đại Phúc → Võ Cường')
+  assert(one('Số 12 Đình Bảng, Từ Sơn, Bắc Ninh') === 'Phường Từ Sơn', 'Đình Bảng → Từ Sơn')
+  assert(one('Xã Đại Đồng Thành, Thuận Thành, Bắc Ninh') === 'Phường Thuận Thành', 'Đại Đồng Thành → Thuận Thành (not Xã Đại Đồng)')
+  assert(one('Phường Xương Giang, TP Bắc Giang') === 'Phường Bắc Giang', 'Xương Giang → Bắc Giang')
+  assert(one('Xã Song Khê, TP Bắc Giang') === 'Phường Tiền Phong', 'Song Khê → Tiền Phong')
+  assert(one('Xã Chí Hòa, Huyện Hưng Hà, Tỉnh Thái Bình') === 'Xã Hồng Minh', 'district name is not read as a same-named old ward')
+  // 공식 대응표 전체(약 1만 개): 후보에 정답 전부 포함, 잘못된 단일 확정 0건, 성 틀림 0건
+  let missing = 0, wrongSingle = 0, wrongProvince = 0
+  for (const [prov, list] of Object.entries(VN_OLD_WARDS_BY_PROVINCE)) for (const [w, d, p, news] of list) {
+    const r = area(`${w}, ${d}, ${p}`)
+    if (!r.provinces.includes(prov)) wrongProvince++
+    if (!news.every((x) => r.wards.includes(x))) missing++
+    if (r.wards.length === 1 && !news.includes(r.wards[0])) wrongSingle++
+  }
+  assert(wrongSingle === 0 && wrongProvince === 0, `official table: wrongSingle ${wrongSingle}, wrongProvince ${wrongProvince}`)
+  assert(missing <= 5, `official table: candidates miss the answer ${missing} times`)
+}
+
 // DB에 이미 채워진 값이 있으면 함께 인정(없어도 주소로 판정)
 {
-  const p = jobProvinces({ location: '', workLocations: [{ rawAddress: '', resolvedProvince: 'Tỉnh Bắc Ninh' }] })
-  assert(p.join() === 'Tỉnh Bắc Ninh', 'stored resolved province still counts')
+  const p = jobProvinces({ location: '', workLocations: [{ rawAddress: '', resolvedProvince: 'Thành phố Bắc Ninh' }] })
+  assert(p.join() === 'Thành phố Bắc Ninh', 'stored resolved province still counts')
 }
 
 // 알림은 DB 키워드 표(job_alert_region_keywords)와 맞춘 예전 29개 그대로

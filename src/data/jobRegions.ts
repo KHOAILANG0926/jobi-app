@@ -215,13 +215,13 @@ export const JOB_REGIONS = [
 /** 지역 id → 공식 성/시(vnProvinces.ts). Bắc Giang·Long An은 2025 개편으로 합쳐진
  * 옛 성이라 예전 링크·저장값 호환용으로만 남기고 합쳐진 성으로 판정한다. */
 export const REGION_PROVINCE: Record<JobRegionId, string> = {
-  hanoi: 'Thành phố Hà Nội', haiphong: 'Thành phố Hải Phòng', quangninh: 'Tỉnh Quảng Ninh',
-  bacninh: 'Tỉnh Bắc Ninh', bacgiang: 'Tỉnh Bắc Ninh', hunguyen: 'Tỉnh Hưng Yên',
+  hanoi: 'Thành phố Hà Nội', haiphong: 'Thành phố Hải Phòng', quangninh: 'Thành phố Quảng Ninh',
+  bacninh: 'Thành phố Bắc Ninh', bacgiang: 'Thành phố Bắc Ninh', hunguyen: 'Tỉnh Hưng Yên',
   thainguyen: 'Tỉnh Thái Nguyên', phutho: 'Tỉnh Phú Thọ', ninhbinh: 'Tỉnh Ninh Bình',
   thanhhoa: 'Tỉnh Thanh Hóa', nghean: 'Tỉnh Nghệ An', hatinh: 'Tỉnh Hà Tĩnh', quangtri: 'Tỉnh Quảng Trị',
   hue: 'Thành phố Huế', danang: 'Thành phố Đà Nẵng', quangngai: 'Tỉnh Quảng Ngãi', gialai: 'Tỉnh Gia Lai',
   daklak: 'Tỉnh Đắk Lắk', khanhhoa: 'Tỉnh Khánh Hòa', lamdong: 'Tỉnh Lâm Đồng',
-  hcm: 'Thành phố Hồ Chí Minh', dongnai: 'Tỉnh Đồng Nai', tayninh: 'Tỉnh Tây Ninh', longan: 'Tỉnh Tây Ninh',
+  hcm: 'Thành phố Hồ Chí Minh', dongnai: 'Thành phố Đồng Nai', tayninh: 'Tỉnh Tây Ninh', longan: 'Tỉnh Tây Ninh',
   dongthap: 'Tỉnh Đồng Tháp', angiang: 'Tỉnh An Giang', vinhlong: 'Tỉnh Vĩnh Long', cantho: 'Thành phố Cần Thơ',
   camau: 'Tỉnh Cà Mau', caobang: 'Tỉnh Cao Bằng', dienbien: 'Tỉnh Điện Biên', laichau: 'Tỉnh Lai Châu',
   langson: 'Tỉnh Lạng Sơn', laocai: 'Tỉnh Lào Cai', sonla: 'Tỉnh Sơn La', tuyenquang: 'Tỉnh Tuyên Quang',

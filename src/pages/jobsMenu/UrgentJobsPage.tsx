@@ -13,7 +13,7 @@ import { SUBCATEGORY_LABELS } from '../../data/subcategories'
 import { VN_DISTRICTS_BY_PROVINCE, VN_WARDS_BY_DISTRICT } from '../../data/vnDistricts'
 import { VN_PROVINCES } from '../../data/vnProvinces'
 import { VN_WARDS_BY_PROVINCE } from '../../data/vnWards'
-import { resolveJobArea } from '../../lib/jobAreaWards'
+import { resolveJobArea, setOldWardData } from '../../lib/jobAreaWards'
 import { loadApplications } from '../../lib/applicationsStorage'
 import { normalizeViText } from '../../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
@@ -479,7 +479,16 @@ export default function UrgentJobsPage() {
     () => jobs.filter((j) => !j.applicationDeadline || j.applicationDeadline >= todayStr),
     [jobs, todayStr],
   )
-  const jobAreas = useMemo(() => new Map(openJobs.map((j) => [j.id, resolveJobArea(j)])), [openJobs])
+  // 옛 동 → 지금 동 공식 대응표(약 0.9MB)는 이 페이지에서만 따로 불러온다. 오기 전에는 옛 군/구 기준
+  // 후보로 판정하고, 도착하면 다시 판정한다.
+  const [oldWardsReady, setOldWardsReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    import('../../data/vnOldWards').then((m) => { setOldWardData(m.VN_OLD_WARDS_BY_PROVINCE); if (alive) setOldWardsReady(true) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const jobAreas = useMemo(() => new Map(openJobs.map((j) => [j.id, resolveJobArea(j)])), [openJobs, oldWardsReady])
   const provinceCounts = useMemo(() => {
     const m = new Map<string, number>()
     for (const a of jobAreas.values()) for (const p of a.provinces) m.set(p, (m.get(p) ?? 0) + 1)

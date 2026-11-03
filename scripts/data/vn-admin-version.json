@@ -1,0 +1,11 @@
+{
+  "package": "vietnam-provinces",
+  "version": "2026.9.0",
+  "sha256": {
+    "vnProvinces.ts": "ccf608b7cf9132d3b95c0bcdc9abc93bff41ce3a9e3214e1cbba85e6bef266ef",
+    "vnWards.ts": "6297241183f4b1a2f8e4f15dc9520fd0f517940b217b509959006fcd57675813",
+    "vnDistricts.ts": "63cc7749227d775d33231a7498aca73d709412261a3d9f7b0a29d4e24804b1cf",
+    "vnOldProvinces.ts": "48ead22d02ab782d1e87f9c68a55e1137f84bfb227a940adb216fd1447ad4336",
+    "vnOldWards.ts": "c4bdbaf5fa2c500e395e402dcce671ef544805c48824f99e17dcc810444833a8"
+  }
+}
