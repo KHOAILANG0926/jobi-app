@@ -22,6 +22,13 @@ QUERIES = {
     'nha_hang_nuong': ['korean barbecue grill table', 'tabletop grill meat', 'samgyeopsal grill'],
     'nha_hang_lau': ['hot pot table', 'hotpot restaurant'],
     'quan_ly_ban_hang': ['supermarket shelves products', 'store shelves retail display'],
+    # 2026-11-03 Lee "사진을 더 찾아서 다양하게": 판매 업종을 가게 종류별로(Groupe SEB 가전에 우유 진열대, Vua Nệm 매트리스).
+    'ban_hang_dien_may': ['home appliance store interior', 'electronics store kitchen appliances display', 'appliance showroom'],
+    'ban_hang_dien_thoai': ['mobile phone shop interior', 'smartphone store display'],
+    'ban_hang_noi_that': ['mattress store showroom', 'furniture showroom beds', 'bed store display'],
+    'ban_hang_thoi_trang': ['clothing store interior', 'fashion boutique clothes rack'],
+    'ban_hang_nha_thuoc': ['pharmacy interior shelves', 'drugstore counter'],
+    'ban_hang_tien_loi': ['convenience store interior', 'minimart aisle'],
     'dich_vu': ['vacuum cleaner floor', 'hotel room bed made', 'cleaning supplies bucket mop'],
     'van_phong': ['empty office desks', 'open plan office', 'laptop on desk'],
     'cskh_kinh_doanh': ['headset', 'telephone on desk', 'call centre'],
