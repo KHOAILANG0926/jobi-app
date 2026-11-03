@@ -94,7 +94,8 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|cach nop ho so|hinh thuc nop ho so|dang ky nhan viec(?: ngay)?|dang ky ung tuyen(?: ngay)?|ung tuyen ngay)$/, '06'],
   [/^(?:thong tin khac|ghi chu|thong tin cong ty|thong tin co ban|hien so)$/, '07'],
   [/^(?:nganh nghe|loai hinh cong viec|hinh thuc tra luong|gioi tinh|do tuoi|hoc van toi thieu|ten cong ty|ca nhan dang tuyen)$/, '07'],
-  [/^(?:dia diem lam viec|dia chi|dia chi lam viec|khu vuc lam viec)$/, 'address'],
+  // 2026-11-03 포스터 "LÀM VIỆC TẠI:"(값은 다음 줄 — 위쪽 주소와 같아 빠지면 빈 이름표로 남던 것)
+  [/^(?:dia diem lam viec|dia chi|dia chi lam viec|khu vuc lam viec|lam viec tai|noi lam viec)$/, 'address'],
   [/^(?:lien he|hotline\s*\/\s*zalo|hotline|zalo)$/, 'contact'],
 ]
 // 2026-11-02(#5299 "QUYỀN LỢI HẤP DẪN:"): 포스터식 소제목은 뒤에 꾸밈말이 붙는다("hấp dẫn", "cực tốt"…).

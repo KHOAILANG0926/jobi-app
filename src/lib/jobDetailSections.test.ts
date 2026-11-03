@@ -297,6 +297,8 @@ Chăm sóc khách hàng`
     ['🎁 QUYỀN LỢI ĐẶC BIỆT:  ', '05'],
     ['✅ YÊU CẦU CỰC KỲ ĐƠN GIẢN:  ', '02'],
     ['📲 ĐĂNG KÝ NHẬN VIỆC NGAY:', '06'],
+    ['LÀM VIỆC TẠI:', 'address'],
+    ['Nơi làm việc:', 'address'],
     ['QUYỀN LỢI HẤP DẪN:', '05'],
     // 내용 줄(소제목 모양 아님)은 그대로
     ['Môi trường làm việc ổn định', undefined],
