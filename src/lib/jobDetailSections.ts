@@ -89,9 +89,9 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:vi tri tuyen dung|vi tri can tuyen)$/, '07'],
   [/^(?:yeu cau|yeu cau tuyen dung|yeu cau ung vien|yeu cau co ban|yeu cau cong viec)$/, '02'],
   [/^(?:thoi gian lam viec|hinh thuc lam viec|lich lam viec)$/, '03'],
-  [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap)$/, '04'],
+  [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap|muc thu nhap)$/, '04'],
   [/^(?:quyen loi|quyen loi chinh|phuc loi|quyen loi & moi truong lam viec|quyen loi va moi truong lam viec|moi truong lam viec)$/, '05'],
-  [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|cach nop ho so|hinh thuc nop ho so)$/, '06'],
+  [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|cach nop ho so|hinh thuc nop ho so|dang ky nhan viec(?: ngay)?|dang ky ung tuyen(?: ngay)?|ung tuyen ngay)$/, '06'],
   [/^(?:thong tin khac|ghi chu|thong tin cong ty|thong tin co ban|hien so)$/, '07'],
   [/^(?:nganh nghe|loai hinh cong viec|hinh thuc tra luong|gioi tinh|do tuoi|hoc van toi thieu|ten cong ty|ca nhan dang tuyen)$/, '07'],
   [/^(?:dia diem lam viec|dia chi|dia chi lam viec|khu vuc lam viec)$/, 'address'],
@@ -100,12 +100,13 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
 // 2026-11-02(#5299 "QUYỀN LỢI HẤP DẪN:"): 포스터식 소제목은 뒤에 꾸밈말이 붙는다("hấp dẫn", "cực tốt"…).
 // 꾸밈말만 떼고 같은 소제목 목록으로 다시 본다(새 칸을 만들지 않음). 내용 줄("Lương tốt", "Môi trường làm việc tốt")을
 // 소제목으로 잘못 먹지 않도록, 줄이 소제목 모양(대문자 또는 끝이 ':')일 때만 적용한다.
-const HEADING_PRAISE = / (?:cuc |rat |sieu )?(?:hap dan|tot|day du|uu dai|uu viet|hap dan nhat|cuc ky hap dan)$/
+// 2026-11-03(Bảo An VCC "MỨC THU NHẬP ỔN ĐỊNH (Trả lương đúng hạn):", "QUYỀN LỢI ĐẶC BIỆT:", "YÊU CẦU CỰC KỲ ĐƠN GIẢN:"): 꾸밈말 더하기 + 소제목 끝 괄호 설명 떼기.
+const HEADING_PRAISE = / (?:cuc |rat |sieu |cuc ky )?(?:hap dan|tot|day du|uu dai|uu viet|hap dan nhat|cuc ky hap dan|on dinh|dac biet|don gian)$/
 export function headingOf(line: string) {
   const s = bare(line.replace(/^[^\p{L}\p{N}]+/u, ''))
   const letters = line.replace(/[^\p{L}]/gu, '')
   const headingShape = /[:：]\s*$/.test(line) || (letters.length >= 4 && letters === letters.toLocaleUpperCase('vi'))
-  const plain = headingShape ? s.replace(HEADING_PRAISE, '') : s
+  const plain = headingShape ? s.replace(/\s*\([^)]*\)$/, '').replace(HEADING_PRAISE, '') : s
   return HEADINGS.find(([re]) => re.test(s))?.[1] ?? (plain !== s ? HEADINGS.find(([re]) => re.test(plain))?.[1] : undefined)
 }
 // 줄 하나만 보고 칸을 정하는 규칙(소제목 안이라도 내용이 분명하면 옮긴다).

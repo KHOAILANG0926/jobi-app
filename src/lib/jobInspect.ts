@@ -67,7 +67,8 @@ export function inspectJob(j: InspectInput): InspectResult {
   shown.forEach((a, i) => shown.forEach((b, k) => { if (k > i && sameLine(a, b)) dups.push(a) }))
   add('duplicate', '상세요강 같은 줄 반복 없음', !dups.length, dups.length ? dups.slice(0, 3).join(' / ') : undefined)
   // 4. 사이트 화면 글자·가려진 번호·값 없는 이름표
-  const junk = shown.filter((l) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || /[:：]\s*$/.test(l))
+  // 2026-11-03: ':'로 끝나는 긴 소개 문장("Công ty … đang cần tuyển … khu vực Bắc Ninh:")은 이름표가 아니다 — 짧은 줄만 빈 이름표로 본다.
+  const junk = shown.filter((l) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || (/[:：]\s*$/.test(l) && bare(l).length <= 60))
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
   // 6. 급여 칸: 원문에 급여가 있는데 위쪽 급여가 비어 있음
