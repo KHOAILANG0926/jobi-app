@@ -12602,14 +12602,15 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
  * 지역별 페이지 목록만: 회색 바탕 띠 위에 흰 카드(테두리 대신 바탕 대비 + 둥근 모서리).
  * 카드 안쪽 배치·크기(승인된 틀)는 그대로, 바깥 바탕과 카드 테두리·모서리만. */
 .jm-urgent-page .home-jobs-grid {
-  background: #eef0f3;
+  /* 13:48 Lee "지금은 그냥 전부 하얀색이야" — 밝은 화면에서도 보이게 바탕을 확실히 진하게. */
+  background: #dde1e6;
   padding: 18px;
   border-radius: 18px;
   gap: 16px;
 }
 .jm-urgent-page .home-jobs-grid .jc {
   background: #fff;
-  border: none;
+  border: 1px solid #c9ced5;
   border-radius: 14px;
-  box-shadow: none;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
