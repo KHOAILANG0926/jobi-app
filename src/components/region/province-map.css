@@ -19,3 +19,11 @@
   position: absolute; right: 12px; top: 12px; border: none; border-radius: 999px; padding: 0.45rem 0.85rem;
   background: #222; color: #fff; font: inherit; font-size: 0.85rem; cursor: pointer;
 }
+.pmap__svg { cursor: grab; touch-action: none; user-select: none; }
+.pmap__svg.is-dragging { cursor: grabbing; }
+.pmap__island { stroke: #9b937f; }
+.pmap__group-label { fill: #5b6b78; font-weight: 600; font-style: italic; pointer-events: none; }
+.pmap__island-label { fill: #5b6b78; pointer-events: none; }
+.pmap__zoom { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+.pmap__zoom button { width: 36px; height: 36px; border: none; background: #fff; font-size: 1.25rem; line-height: 1; cursor: pointer; color: #333; }
+.pmap__zoom button + button { border-top: 1px solid #e5e7eb; }
