@@ -5,13 +5,13 @@ import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
-export async function runLocationBatch(db, request, limit = 10, goong = null) {
-  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease}), goong)
+export async function runLocationBatch(db, request, limit = 10, goong = null, google = null) {
+  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_batch', {p_limit:limit,p_lease:lease}), goong, google)
 }
 
 /** 공고 한 건만(저장 즉시 위치 찾기, api/location-hook). 규칙·한도는 일괄 처리와 같다. */
-export async function runLocationJob(db, request, jobId, force = false, goong = null) {
-  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_job_v2', {p_id:jobId,p_lease:lease,p_force:force}), goong)
+export async function runLocationJob(db, request, jobId, force = false, goong = null, google = null) {
+  return runClaimed(db, request, (rpc, lease) => rpc('map_r1_claim_job_v2', {p_id:jobId,p_lease:lease,p_force:force}), goong, google)
 }
 
 /** 결정 0006(2026-10-20 Lee 수정): 찾음 → 숨김 해제(원래 공개였으면 다시 공개) / 원문에 위치 정보 없음 → 바로 삭제
@@ -49,7 +49,7 @@ export function canonicalVerdictKind(state) {
   return point?.kind ?? (state.provider_result?.kind === 'unresolved' ? 'unresolved' : null)
 }
 
-async function runClaimed(db, request, claim, goong = null) {
+async function runClaimed(db, request, claim, goong = null, google = null) {
   const lease = randomUUID()
   const rpc = async (name, args) => {
     const { data, error } = await db.rpc(name, args)
@@ -91,6 +91,7 @@ async function runClaimed(db, request, claim, goong = null) {
         },
         async request(action,params) { calls++; return request(action,params) },
         ...(goong ? { goong } : {}),
+        ...(google ? { google } : {}),
       })
       const saved = await rpc('map_r1_complete',{p_id:row.job_id,p_lease:lease,p_result:result})
       if (!saved) { summary.failed++; continue }
@@ -122,6 +123,19 @@ export function goongRequest(key) {
     if (!path) throw new Error('upstream_failed')
     const query = new URLSearchParams({ ...params, ...(action === 'autocomplete' ? { limit: '10' } : {}), api_key: key })
     const res = await fetch(`https://rsapi.goong.io/${path}?${query}`, { signal: AbortSignal.timeout(15000) })
+    if (!res.ok) throw new Error('upstream_failed')
+    return res.json()
+  }
+}
+
+/** 세 번째 자료 Google Places Text Search(New)(Lee 2026-11-03). 키는 Vercel 환경변수 GOOGLE_PLACES_API_KEY에만. 로그에 주소·키·응답을 쓰지 않는다. */
+export function googlePlacesRequest(key) {
+  return async (text) => {
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST', signal: AbortSignal.timeout(15000),
+      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location' },
+      body: JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 }),
+    })
     if (!res.ok) throw new Error('upstream_failed')
     return res.json()
   }

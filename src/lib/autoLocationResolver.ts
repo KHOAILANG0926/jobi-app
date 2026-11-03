@@ -8,6 +8,7 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
+import { companySearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
@@ -22,6 +23,8 @@ export interface ResolverDeps {
   request(action: 'search' | 'place', params: Record<string, string>): Promise<unknown>
   /** 두 번째 지도 자료 Goong(Lee 2026-10-29). 없으면(키 없음) 건너뛴다. VietMap 예산(reserve)과 따로, 한 번 판정에 최대 3번·같은 질문은 저장 결과 재사용. */
   goong?(action: 'geocode' | 'autocomplete' | 'detail', params: Record<string, string>): Promise<unknown>
+  /** 세 번째 자료 Google Places Text Search(Lee 2026-11-03). 키(Vercel GOOGLE_PLACES_API_KEY)가 없으면 건너뛴다. 공고당 1번. */
+  google?(text: string): Promise<unknown>
   /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
   wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
@@ -88,6 +91,11 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       if (found) return found
     }
     const park = findIndustrialPark(...targets.map(t => t.address), job.location)
+    // 추가 단계(Lee 2026-11-03): 공단 밖 공고는 회사 이름으로 Goong → Google 순서로 찾는다. 공단 공고는 기존 단계 그대로.
+    if (!park && job.company.trim()) {
+      const found = await resolveByCompanyName(job, sorted, deps, at)
+      if (found) return found
+    }
     const gate = park?.destination
     if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred}
     // 공단 표에 있는 공단인데 확인된 입구가 없으면 공단 중심(출처 OSM)을 대략 위치 핀으로 — 상세 화면 지도와 같은 점(2026-10-20 Lee)
@@ -164,6 +172,43 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
       if (place && validPoint(place) && insideParkOutline(park, place)) return { kind: 'exact', lat: place.lat, lng: place.lng, source: `Goong ${pick.placeId}`, checkedAt: at, address,
         workLocationId: target.workLocationId,
         evidence: [`[Tự động] Tên công ty khớp chính xác trên Goong: ${place.name}`, `Nằm trong ranh giới ${park.name} (OpenStreetMap ${park.source.ref})`, `Địa chỉ trong tin: ${address}`, `Goong place: ${pick.placeId}`].join('\n') }
+    }
+  }
+  return null
+}
+
+/** 공단 밖 공고: 회사 이름(핵심 이름 일치 1곳, 여럿이면 원문 거리로 좁힘)으로 Goong, 없으면 Google에서 찾는다.
+ *  결과는 대략 위치(area, chưa xác minh) — 성 경계 밖이면 resolveAutoLocation이 성 대략 위치로 되돌린다. */
+async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string): Promise<LocationDecision | null> {
+  const ask = async (key: unknown[], call: () => Promise<unknown>) => {
+    const k = JSON.stringify(key)
+    try {
+      const cached = await deps.cached(k)
+      if (cached !== null) return cached
+      const data = await call()
+      await deps.cache(k, data)
+      return data
+    } catch { return null }
+  }
+  for (const target of targets.slice(0, 2)) {
+    const address = target.address.trim() || job.location
+    if (!address || hasConflictingProvinces(address)) continue
+    const text = companySearchText(job.company, address)
+    if (deps.goong) {
+      const hits = goongPredictionHits(await ask(['company-v1', 'goong', text], () => deps.goong!('autocomplete', { input: text })))
+      const pick = pickCompanyPlace(job.company, address, hits)
+      if (pick.hit) {
+        const place = goongPlace(await ask(['company-v1', 'goong-detail', pick.hit.id], () => deps.goong!('detail', { place_id: pick.hit!.id })))
+        if (place && validPoint(place)) return { kind: 'area', lat: place.lat, lng: place.lng, source: `Goong ${pick.hit.id} (company)`, checkedAt: at, address, workLocationId: target.workLocationId,
+          evidence: [`[Tự động] Tìm theo tên công ty trên Goong: ${place.name}`, `Địa chỉ Goong: ${place.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`].join('\n') }
+      }
+    }
+    if (deps.google) {
+      const hits = googlePlaceHits(await ask(['company-v1', 'google', text], () => deps.google!(text)))
+      const pick = pickCompanyPlace(job.company, address, hits)
+      const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null
+      if (hit && validPoint(hit)) return { kind: 'area', lat: hit.lat, lng: hit.lng, source: `Google ${hit.id} (company)`, checkedAt: at, address, workLocationId: target.workLocationId,
+        evidence: [`[Tự động] Tìm theo tên công ty: ${hit.name}`, `Địa chỉ: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`].join('\n') }
     }
   }
   return null

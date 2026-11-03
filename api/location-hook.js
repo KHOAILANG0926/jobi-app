@@ -16,9 +16,10 @@ function runtime() {
   return {
     async tokenOk(token) { const { data, error } = await db.rpc('map_r1_hook_token_ok', { p_token: token }); if (error) throw new Error('unavailable'); return data === true },
     run: async (jobId, force) => {
-      const { applyLocationVerdict, runLocationJob, vietmapRequest, goongRequest } = await loadRuntime()
+      const { applyLocationVerdict, runLocationJob, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
       const goongKey = process.env.GOONG_API_KEY
-      const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force, goongKey ? goongRequest(goongKey) : null)
+      const googleKey = process.env.GOOGLE_PLACES_API_KEY // Lee 2026-11-03: 없으면 Google 단계만 건너뜀
+      const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey) : null)
       // 결정 0006: 결과에 따라 비공개·다시 공개(성 중심뿐이면 비공개)
       const verdict = await applyLocationVerdict(db, jobId)
       return { ...summary, verdict }
