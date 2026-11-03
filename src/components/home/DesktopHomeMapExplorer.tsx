@@ -9,16 +9,16 @@ import { fitWithNearest } from '../../lib/fitPins'
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Briefcase, ChevronDown, ChevronUp, Clock, LocateFixed, MapPin, SlidersHorizontal, X } from 'lucide-react'
+import { Briefcase, ChevronDown, Clock, LocateFixed, MapPin, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_SHORT } from '../../data/categories'
 import { REGION_MACRO_TABS } from '../../data/jobRegions'
 import { findRegionCenter } from '../../lib/jobCoords'
 import { conditionBadges } from '../../lib/jobConditions'
 import {
-  DEFAULT_FILTERS, EXTRA_CONDITION_GROUPS, RADIUS_MAX_KM, RADIUS_MIN_KM,
-  isConditionAvailable, verifiedJobPoints,
-  type ExtraConditionKey, type HomeMapFilterState, type MapJobPoint,
+  DEFAULT_FILTERS, RADIUS_MAX_KM, RADIUS_MIN_KM,
+  verifiedJobPoints,
+  type HomeMapFilterState, type MapJobPoint,
 } from '../../lib/homeMapFilters'
 import { formatSearchRadius, normalizeSearchRadius } from '../../lib/homeMapSearch'
 import type { HomeMapMode, NearbyState } from './map/HomeMapTypes'
@@ -29,7 +29,6 @@ import PlaceDetailPanel from './PlaceDetailPanel'
 import { chainWheelToPage } from './pageScrollChain'
 import MobileDetailSheet from './MobileDetailSheet'
 import { jobsNearPlace, type PickedPlace } from '../../lib/mapPlace'
-import { occupationGroupsInJobs, useOccupationNames } from '../../lib/occupations'
 import { DEFAULT_VIEWPORT, VIEWPORT_KEY, readViewport, mapSearch, selectedMapEntry, LOCATION_LABELS, validPoint, type RepresentativePoints, type MapBounds } from '../../lib/mapR1'
 import type { HomeMapViewport } from './map/HomeMapTypes'
 import { observeInViewOnce } from '../../lib/inViewOnce'
@@ -37,7 +36,6 @@ import SalaryText from '../SalaryText'
 
 const HomeMapCanvas = lazy(() => import('./DesktopHomeMapCanvas'))
 /** 'Ngành nghề'에 처음부터 보이는 그룹 수(공고 많은 순). 나머지는 'Xem thêm'. */
-const OCCUPATION_GROUPS_PRIMARY = 6
 
 const DEFAULT_REGION = 'Hà Nội'
 /** index.css의 .hme 모바일 레이아웃 기준과 같은 값. */
@@ -91,8 +89,6 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [locMenuOpen, setLocMenuOpen] = useState(false)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
-  const [showAllCategories, setShowAllCategories] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
   const [recenterRequest, setRecenterRequest] = useState(0)
   const [nearbyState, setNearbyState] = useState<NearbyState>({ status: 'idle' })
   const [pickedPlace, setPickedPlace] = useState<PickedPlace | null>(null)
@@ -128,14 +124,6 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   const searchOrigin = radiusActive ? origin.point : null
   const result = useMemo(() => mapSearch(mapJobs, filters, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives), [mapJobs, filters, origin, radiusActive, bounds, representatives])
   const nearby = result.entries
-  const occupationGroups = useMemo(() => {
-    const r = mapSearch(mapJobs, { ...filters, occupationGroups: [] }, searchOrigin, radiusActive ? filters.radiusKm : null, bounds, representatives)
-    const available = r.visibleEntries
-    const groups = occupationGroupsInJobs(available.map(e => e.job))
-    const missing = (filters.occupationGroups ?? []).filter(c => !groups.some(g => g.code === c)).map(code => ({ code, count: 0 }))
-    return [...groups, ...missing]
-  }, [mapJobs, filters, origin, radiusActive, bounds, representatives])
-  const occupationNames = useOccupationNames(occupationGroups.map(g => g.code))
   const selected = selectedMapEntry(nearby.find(n => n.job.id === selectedId) ?? null, selectedPoint, searchOrigin)
   const listEntries = result.visibleEntries
   useEffect(() => {
@@ -218,16 +206,8 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
-  // 2026-10-15 사용자 결정: 'Ngành nghề'는 공식 직업분류 2단계 그룹 — 실제 공고가 있는 그룹만 보여준다.
-  const selectedGroups = filters.occupationGroups ?? []
-  const toggleOccupationGroup = (code: string) =>
-    update({ occupationGroups: selectedGroups.includes(code) ? selectedGroups.filter((x) => x !== code) : [...selectedGroups, code] })
-  const toggleExtra = (k: ExtraConditionKey) =>
-    update({ extras: filters.extras.includes(k) ? filters.extras.filter((x) => x !== k) : [...filters.extras, k] })
 
   const originLabel = origin.kind === 'user' ? 'Vị trí hiện tại của bạn' : origin.kind === 'chosen' ? 'Điểm đã chọn' : origin.label
-  const visibleGroups = showAllCategories ? occupationGroups : occupationGroups.slice(0, OCCUPATION_GROUPS_PRIMARY)
-  const activeExtraCount = filters.extras.length
   const emptyReason = loading ? 'Đang tải việc làm…' : jobsError ? 'Chưa tải được đầy đủ việc làm. Vui lòng thử lại sau.' : 'Chưa có việc làm phù hợp với điều kiện đã chọn.'
   const clearRadius = () => { locationRequest.current += 1; setRadiusActive(false); setPickingOrigin(false); setGeoState('idle') }
   const pickOrigin = (point: MapJobPoint) => {
@@ -331,68 +311,7 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
         </div>
 
         <SalaryTicket filters={filters} onChange={update} />
-
-        {/* 업종 */}
-        <div className="hme-block">
-          <div className="hme-block__head"><Briefcase size={16} aria-hidden /> <span>Ngành nghề</span></div>
-          {occupationGroups.length === 0 ? (
-            <p className="hme-empty-note">{loading ? 'Đang tải…' : 'Chưa có việc làm phân loại theo nghề trong khu vực này.'}</p>
-          ) : (
-            <>
-              <div className="hme-chips hme-chips--list">
-                {visibleGroups.map((g) => {
-                  const name = occupationNames.get(g.code) ?? `Nhóm nghề ${g.code}`
-                  const active = selectedGroups.includes(g.code)
-                  return (
-                    <button key={g.code} type="button" title={name} className={`hme-chip${active ? ' is-active' : ''}`}
-                      aria-pressed={active} onClick={() => toggleOccupationGroup(g.code)}>
-                      {name} <span className="hme-chip__count">{g.count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              {occupationGroups.length > OCCUPATION_GROUPS_PRIMARY && (
-                <button type="button" className="hme-more-link" onClick={() => setShowAllCategories((v) => !v)}>
-                  {showAllCategories ? 'Thu gọn' : 'Xem thêm'} {showAllCategories ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* 조건 더보기 */}
-        <div className="hme-block">
-          <button type="button" className="hme-block__toggle" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
-            <SlidersHorizontal size={16} aria-hidden /> <span>Thêm điều kiện{activeExtraCount > 0 ? ` (${activeExtraCount})` : ''}</span>
-            {moreOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
-          </button>
-          {moreOpen && (
-            <div className="hme-extra">
-              {EXTRA_CONDITION_GROUPS.map((g) => (
-                <div key={g.title} className="hme-extra__group">
-                  <div className="hme-extra__title">{g.title}</div>
-                  <div className="hme-chips">
-                    {g.items.map((c) => {
-                      const available = isConditionAvailable(c.key)
-                      const on = filters.extras.includes(c.key)
-                      return (
-                        <button key={c.key} type="button" className={`hme-chip hme-chip--sm${on ? ' is-active' : ''}`}
-                          disabled={!available} aria-pressed={on} title={available ? undefined : 'Đang cập nhật dữ liệu'}
-                          onClick={() => toggleExtra(c.key)}>
-                          {c.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-              <p className="hme-extra__note">Chỉ hiện tin đã ghi rõ điều kiện này. Tin chưa cập nhật thông tin sẽ không được tính.</p>
-              {activeExtraCount > 0 && (
-                <button type="button" className="hme-more-link" onClick={() => update({ extras: [] })}>Bỏ chọn điều kiện</button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* 2026-11-03 Lee "거리하고 기본 금액만 남기면 될 것 같고" — PC 왼쪽 칸은 위치·급여만. 업종·조건 더보기 칸 제거(모바일은 그대로). */}
       </div>
 
       <div className="hme__map" ref={mapBoxRef}>

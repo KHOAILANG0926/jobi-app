@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import JobApplyButton from './JobApplyButton'
 import { useAuth } from '../context/AuthContext'
 import { ALL_CATEGORIES, CATEGORY_ICONS, CATEGORY_LABELS } from '../data/categories'
-import { JOB_REGIONS } from '../data/jobRegions'
+import { REGION_MACRO_TABS } from '../data/jobRegions'
 import { SUBCATEGORY_LABELS } from '../data/subcategories'
 import { hasAppliedToJob } from '../lib/applicationsStorage'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../lib/jobsListView'
@@ -297,7 +297,7 @@ export function RecommendSection({ jobs }: { jobs: Job[] }) {
                 onChange={(e) => setDraft((d) => ({ ...d, regionId: e.target.value }))}
               >
                 <option value="">Tất cả khu vực</option>
-                {JOB_REGIONS.map((r) => (
+                {REGION_MACRO_TABS.flatMap((t) => t.provinces).map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.label}
                   </option>

@@ -101,6 +101,16 @@ const PLACES: { keys: string[]; lat: number; lng: number }[] = [
     keys: ['lang son', 'lạng sơn'],
     lat: 21.8537, lng: 106.7610,
   },
+  // 2026-11-03 Lee "지역명 서로 맞춰야" — 메인 지역 목록을 공식 34개 성으로 맞추며
+  // 중심이 없던 5곳. 좌표는 임의로 만들지 않고 저장소의 옛 성 경계 자료
+  // (src/data/originalProvinceBoundaries.ts, Natural Earth)의 중심값을 그대로 쓴다.
+  // 지도 화면을 옮기는 용도일 뿐 근무지 좌표가 아니다.
+  { keys: ['cao bang', 'cao bằng'], lat: 22.7595, lng: 106.047 },
+  { keys: ['dien bien', 'điện biên'], lat: 21.7487, lng: 103.226 },
+  { keys: ['lai chau', 'lai châu'], lat: 22.3502, lng: 103.255 },
+  { keys: ['son la', 'sơn la'], lat: 21.3011, lng: 104.159 },
+  // Hà Giang -> Tuyên Quang(2025년 통합).
+  { keys: ['tuyen quang', 'tuyên quang', 'ha giang', 'hà giang'], lat: 22.131, lng: 105.229 },
 ]
 
 /** Chuẩn hoá để so khớp địa điểm / từ khoá (bỏ dấu, thường). */

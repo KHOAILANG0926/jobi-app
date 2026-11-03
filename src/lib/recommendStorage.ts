@@ -365,7 +365,7 @@ export function scoreJob(job: Job, prefs: RecommendPrefs): JobMatch {
 
   // Region (30 pts)
   if (prefs.regionId) {
-    if (jobMatchesRegion(job.location, prefs.regionId as JobRegionId)) {
+    if (jobMatchesRegion(job.location, prefs.regionId as JobRegionId, job.workLocations)) {
       score += 30
       reasons.push('Đúng khu vực')
     }

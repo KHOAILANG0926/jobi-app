@@ -13,6 +13,7 @@ import { SUBCATEGORY_LABELS } from '../../data/subcategories'
 import { VN_DISTRICTS_BY_PROVINCE, VN_WARDS_BY_DISTRICT } from '../../data/vnDistricts'
 import { VN_PROVINCES } from '../../data/vnProvinces'
 import { VN_WARDS_BY_PROVINCE } from '../../data/vnWards'
+import { resolveJobArea } from '../../lib/jobAreaWards'
 import { loadApplications } from '../../lib/applicationsStorage'
 import { normalizeViText } from '../../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
@@ -480,6 +481,7 @@ export default function UrgentJobsPage() {
     () => jobs.filter((j) => j.urgent && (!j.applicationDeadline || j.applicationDeadline >= todayStr)),
     [jobs, todayStr],
   )
+  const urgentAreas = useMemo(() => new Map(urgentJobs.map((j) => [j.id, resolveJobArea(j)])), [urgentJobs])
 
   // work_period는 크롤러 자유텍스트(닫힌 enum 아님)라 job_duration과 달리
   // 고정 목록을 쓰지 않는다 — 실제 존재하는 값만 동적으로 보여준다(2026-09-18
@@ -576,12 +578,15 @@ export default function UrgentJobsPage() {
 
   const filtered = useMemo(() => {
     let list = urgentJobs
+    // 2026-11-03 Lee "급구 페이지는 자동으로 연결하는 게 맞다" — DB에 따로 채워야
+    // 하던 resolved_* 칸 대신 공고 주소로 바로 판정(lib/jobAreaWards.ts, 메인·검색과 같은 기준).
     if (selectedProvince) {
-      list = list.filter((j) => (j.workLocations ?? []).some((loc) => {
-        if (loc.resolvedProvince !== selectedProvince) return false
+      list = list.filter((j) => {
+        const area = urgentAreas.get(j.id)
+        if (!area || !area.provinces.includes(selectedProvince)) return false
         if (selectedWards.size === 0) return true
-        return (loc.resolvedWards ?? []).some((w) => selectedWards.has(w))
-      }))
+        return area.wards.some((w) => selectedWards.has(w))
+      })
     }
     if (categoryIds.size > 0) list = list.filter((j) => categoryIds.has(j.category))
     if (selectedSubcategoryKeys.size > 0) {
@@ -628,7 +633,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [urgentJobs, urgentAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
