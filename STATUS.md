@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-03 06:34 (VN)**
-- 기준 커밋: `3db3590` (fix(db): R8 직업코드 1~5단계 허용 재적용 + 보충 작업의 옛 규칙 덮어쓰기 제거 (#414))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41546379927
+- 생성 시각: **2026-11-03 11:04 (VN)**
+- 기준 커밋: `566a4e6` (docs(handoff): 2026-11-03 — #413~#419, R8 복구, 데모 상태 (#420))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41575836580
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -22,12 +22,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 102/102 파일 통과 |
+| 테스트 `npm test` | ✅ 103/103 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `d97f1dc` · 상태 **success** · 2026-11-02 20:25 (VN)
+- 마지막 Production 배포: `5cde3ff` · 상태 **success** · 2026-11-03 07:40 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -35,21 +35,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #420 | 2026-11-03 09:46 (VN) | `566a4e6` | docs(handoff): 2026-11-03 — #413~#419, R8 복구, 데모 상태 |
+| #419 | 2026-11-03 07:50 (VN) | `f242187` | ci: PC 기준 화면 잠금 검사를 상세 화면·CSS PR에서도 실행 |
+| #418 | 2026-11-03 07:44 (VN) | `bd11580` | test(baseline): PC 기준 화면 지문 #415·#416 반영 갱신 |
+| #417 | 2026-11-03 07:39 (VN) | `5cde3ff` | fix(map): 묶음 핀 누르면 묶인 공고 전부 보이게 확대 + 확대 중 묶음 바로 풀림 |
+| #416 | 2026-11-03 06:59 (VN) | `bcc0bc3` | fix(detail): 식비 수당 태그 중복 표시 숨김 |
+| #415 | 2026-11-03 06:49 (VN) | `afc35cb` | fix(detail): 급여 아래 줄 작은 회색 글씨·정렬 + 식비 수당 = Phụ cấp ăn |
 | #414 | 2026-11-03 06:23 (VN) | `3db3590` | fix(db): R8 직업코드 1~5단계 허용 재적용 + 보충 작업의 옛 규칙 덮어쓰기 제거 |
 | #413 | 2026-11-02 22:25 (VN) | `e3272f6` | chore(rules): 규칙 자동 표시·커밋 전 검사 장치 (Lee 2026-11-02) |
 | #411 | 2026-11-02 20:51 (VN) | `e0b795f` | docs(handoff): 2026-11-02 저녁 — 모바일 데모·#5299 공개·공고 파일 기록 |
 | #410 | 2026-11-02 20:24 (VN) | `d97f1dc` | fix(rules): R8 보충 기존 공고 보호 + 꾸밈말 소제목 인식 (#5299) |
-| #409 | 2026-11-02 06:25 (VN) | `3155d50` | docs: HANDOFF·WORK_LOG 2026-11-02 (업종 사진 데모, Lee 결정 대기) |
-| #408 | 2026-11-01 23:35 (VN) | `290461f` | feat: 수평 전개 — 브랜드 로고·급여 표시 모든 화면 |
-| #407 | 2026-11-01 23:04 (VN) | `45021d7` | feat(card): 공고 카드 정리(급여 한 줄·단위 색·짧은 위치·제목 글자) |
-| #405 | 2026-11-01 21:22 (VN) | `edb9ac7` | fix(verify): 코드 5 가게의 메뉴 칸 검사 맞춤 |
-| #403 | 2026-11-01 21:15 (VN) | `7942c1f` | fix(brands): 로고를 흰 바탕에 크게 |
-| #402 | 2026-11-01 21:00 (VN) | `5f4a28f` | feat(brands): 확인된 브랜드 공식 로고(사이트 아이콘) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
 - 공개 중: **9건** (전체 12건, 숨김·비활성 3건)
-- 출처별: muaban 2 · 출처 없음 4 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 출처별: muaban 2 · manual 2 · 출처 없음 4 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -73,16 +73,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-03 06:25 (VN) | location_candidate.approve | job 5311 |
-| 2026-11-03 06:25 (VN) | location_candidate.add | job 5311 |
-| 2026-11-02 22:26 (VN) | location_candidate.approve | job 5306 |
-| 2026-11-02 22:26 (VN) | location_candidate.add | job 5306 |
-| 2026-11-02 20:52 (VN) | location_candidate.approve | job 5304 |
-| 2026-11-02 20:52 (VN) | location_candidate.add | job 5304 |
-| 2026-11-02 20:25 (VN) | location_candidate.approve | job 5300 |
-| 2026-11-02 20:25 (VN) | location_candidate.add | job 5300 |
-| 2026-11-02 06:26 (VN) | location_candidate.approve | job 5297 |
-| 2026-11-02 06:26 (VN) | location_candidate.add | job 5297 |
+| 2026-11-03 09:46 (VN) | location_candidate.approve | job 5328 |
+| 2026-11-03 09:46 (VN) | location_candidate.add | job 5328 |
+| 2026-11-03 07:51 (VN) | location_candidate.approve | job 5326 |
+| 2026-11-03 07:50 (VN) | location_candidate.add | job 5326 |
+| 2026-11-03 07:45 (VN) | location_candidate.approve | job 5323 |
+| 2026-11-03 07:45 (VN) | location_candidate.add | job 5323 |
+| 2026-11-03 07:40 (VN) | location_candidate.approve | job 5319 |
+| 2026-11-03 07:40 (VN) | location_candidate.add | job 5319 |
+| 2026-11-03 07:00 (VN) | location_candidate.approve | job 5316 |
+| 2026-11-03 07:00 (VN) | location_candidate.add | job 5316 |
 
 ## 8. 검증 장치 변경 이력
 
