@@ -329,3 +329,14 @@ Chăm sóc khách hàng`
   assert(insuranceTags([]).length === 0, 'no insurance line → no tag (nothing invented)')
   console.log('jobDetailSections: condition insurance short tags passed')
 }
+
+// 2026-11-04 Lee 승인: 여러 직무 급여 칸 — 직무 | 금액(Full-time 글자 없음, 파트타임 공통 한 줄, triệu 표기, 합치지 않음)
+{
+  const { roleSalaryRows } = await import('./jobRolePresentation.ts')
+  const desc = ['• Part-time: 25.000 – 31.000đ/giờ', 'NHÂN VIÊN PHỤC VỤ — • Full-time: 8.974.000 – 10.490.000đ/tháng', 'NHÂN VIÊN PHA CHẾ — • Full-time: 8.500.000 – 10.000.000đ/tháng',
+    'NHÂN VIÊN BẾP / PHỤ BẾP — • Bếp phụ: 8.000.000 – 11.200.000đ/tháng'].join('\n')
+  const rows = roleSalaryRows(desc)
+  assert(JSON.stringify(rows) === JSON.stringify([{ label: 'Phục vụ', amount: '8,97 – 10,49 triệu/tháng' }, { label: 'Pha chế', amount: '8,5 – 10 triệu/tháng' },
+    { label: 'Bếp phụ', amount: '8 – 11,2 triệu/tháng' }, { label: 'Part-time', amount: '25.000 – 31.000đ/giờ' }]), 'role salary rows: ' + JSON.stringify(rows))
+  console.log('jobDetailSections: role salary rows (label | amount) passed')
+}

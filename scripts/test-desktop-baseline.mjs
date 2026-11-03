@@ -1,6 +1,6 @@
 // 2026-11-03: DesktopHomeMapExplorer.tsx — Lee "거리재는 거 어디 갔냐, 그냥 보이게 해": 반경 칸 항상 표시(고르면 거리 검색 켜짐). 위치 칸 펼침 메뉴·중복 Gần tôi 제거(Lee "꼭 필요한 거야?" → 진행). 다른 PC 틀 변경 없음.
 // 2026-11-03: LayoutDesktop.tsx·DesktopHomeMapExplorer.tsx·index.css — Lee 지시: PC 메인 왼쪽 칸 위치·급여만("거리하고 기본 금액만"), 메뉴 "Theo khu vực" 34개 성·급구 → 지역별 일자리(/viec-lam/khu-vuc), 지역별 페이지 전용 CSS(.jm-urgent-page 아래)·지도. 공고 카드·상세 틀 변경 없음.
-// 2026-11-04: JobDetail.tsx·index.css — Lee 지시("데모를 좀 먼저 보자"): 최신 4칸 틀(.jd2-page--v2)만 디자인 정리(상자 높이·간격·테두리·급여 크기·상세요강·보험 짧은 표시). KDA·예전 틀 변경 없음.
+// 2026-11-04: JobDetail.tsx·index.css — Lee 지시("데모를 좀 먼저 보자"): 최신 4칸 틀(.jd2-page--v2)만 디자인 정리(상자 높이·간격·테두리·급여 크기·상세요강·보험 짧은 표시, 여러 직무 급여 직무|금액 두 칸). KDA·예전 틀 변경 없음.
 // 2026-11-03: JobDetail.tsx — Lee 지시("오케이 진행", #440): 여러 직무 공고 근무조건 급여 칸에 직무별 금액 줄(원문 그대로, 최대 3줄). 칸 순서·위치·머리 카드 등 PC 틀 변경 없음.
 // 2026-11-03: JobDetail.tsx·index.css — Lee 지시(11-03 "123수정"): 급여 아래 상여·수당 줄 작은 회색 글씨·금액과 정렬(#415), 식비 수당 이름 Phụ cấp ăn·아이콘 중복 태그 숨김(#415·#416). 칸 순서·위치 등 PC 틀 변경 없음. 기준값 갱신이 늦어 master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돎).
 // 2026-11-01: index.css — Lee "수평 전개": 급여 표시 한 곳(SalaryText) 색 규칙 추가. PC 틀 변경 없음.
@@ -91,12 +91,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "b576a9406130b5d1af8fd6c8e0723d0a7c22ebf0cb3a8e4ed3c4d394d033122c",
+    "sha256": "fe71bf7581a91fd7825825507c7d9e23cedc41ccee6e3bdf2c9d7bd07a2e6211",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "0f0ebc463173dbe2ed9577c57502812b4aa1e950153a9335578e5908050eefcd",
+    "sha256": "f0b77db88aecd409f2809ab028acbad3840d810c518da2a5c648210b3f8c03ce",
     "restore": []
   },
   {

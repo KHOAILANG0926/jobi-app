@@ -12639,3 +12639,10 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-page--v2 .jd2-detail-section__line { font-size: 14px; }
   .jd2-page--v2 .jd2-grid--detail-redesign { row-gap: 1.25rem; }
 }
+
+/* 2026-11-04 Lee 승인 글 모형: 여러 직무 급여 — 직무 | 금액 두 칸, 세로 줄 맞춤 */
+.jd2-page--v2 .jd2-salary-rows { display: grid; grid-template-columns: max-content 1fr; column-gap: 1rem; row-gap: .3rem; margin-top: .25rem; }
+.jd2-page--v2 .jd2-salary-row { display: contents; }
+.jd2-page--v2 .jd2-salary-row__label { font-size: 14px; font-weight: 600; color: #475569; }
+.jd2-page--v2 .jd2-salary-row__amount { font-size: 15px; font-weight: 700; color: #e53935; }
+@media (max-width: 640px) { .jd2-page--v2 .jd2-salary-rows { column-gap: .75rem; } .jd2-page--v2 .jd2-salary-row__amount { font-size: 14px; } }
