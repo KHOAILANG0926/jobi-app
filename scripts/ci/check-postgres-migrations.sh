@@ -154,6 +154,27 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brand_logo_domains_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261103190000_brand_categories_restaurant_retail.sql' ]]; then
+    echo "PostgreSQL brand categories restaurant/retail: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
+    if [[ "$(psql "$PG_TEST_URL" -X -At -c "select to_regclass('public.job_brands') is null")" == t ]]; then
+      for dep in 20260910120000_job_brands_master.sql 20261101210000_brands_verified_chains.sql 20261101230000_brand_logo_domains.sql; do
+        psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f "supabase/migrations/$dep" >/dev/null
+      done
+    fi
+    # 적용 전에는 식당 분류가 거부돼야 한다(시험이 실제 변화를 잡는지).
+    if psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "begin; insert into public.job_brands(name,slug,category,initial,color) values ('t','ci-restaurant','restaurant','T','#000'); rollback;" >/dev/null 2>&1; then
+      echo "::error::적용 전인데 restaurant 분류가 허용됨"; exit 1
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brand_categories_restaurant_retail_production_check.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brand_logo_domains_production_check.sql
+    if psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "begin; insert into public.job_brands(name,slug,category,initial,color) values ('t','ci-factory','factory','T','#000'); rollback;" >/dev/null 2>&1; then
+      echo "::error::factory(공장) 분류가 허용됨"; exit 1
+    fi
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
