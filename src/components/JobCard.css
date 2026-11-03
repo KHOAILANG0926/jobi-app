@@ -49,3 +49,4 @@
 .jc.jc--clean .jc__pay-label { font-weight: 600; }
 .jc.jc--clean .jc__pay-amount { font-weight: 500; color: #4b5563; }
 .jc.jc--clean .jc__pay-amount--none { color: #9ca3af; font-weight: 400; }
+.jc .jc__logo-wrap .jc__logo--photo { object-fit: cover; }
