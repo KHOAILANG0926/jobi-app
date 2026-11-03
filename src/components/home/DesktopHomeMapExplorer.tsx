@@ -9,7 +9,7 @@ import { fitWithNearest } from '../../lib/fitPins'
 // 조건은 비활성으로만 보여주고 가짜 판정을 하지 않는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Briefcase, ChevronDown, Clock, LocateFixed, MapPin, X } from 'lucide-react'
+import { Briefcase, Clock, LocateFixed, MapPin, X } from 'lucide-react'
 import { useJobs } from '../../context/JobsContext'
 import { CATEGORY_SHORT } from '../../data/categories'
 import { REGION_MACRO_TABS } from '../../data/jobRegions'
@@ -87,7 +87,6 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   }, [clearCategoryRequest])
   const [selectedPoint, setSelectedPoint] = useState<MapJobPoint | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [locMenuOpen, setLocMenuOpen] = useState(false)
   const [geoState, setGeoState] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle')
   const [recenterRequest, setRecenterRequest] = useState(0)
   const [nearbyState, setNearbyState] = useState<NearbyState>({ status: 'idle' })
@@ -181,7 +180,6 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
   }, [])
 
   const useCurrentLocation = () => {
-    setLocMenuOpen(false)
     setPickingOrigin(false)
     if (typeof navigator === 'undefined' || !navigator.geolocation) { setGeoState('unsupported'); return }
     setGeoState('loading')
@@ -195,17 +193,19 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
         // 지도 이동은 아래 '내 위치 + 가까운 핀' 맞춤이 한다(2026-10-21)
         setGeoState('idle')
       },
-      () => { if (request === locationRequest.current) { setGeoState('denied'); setLocMenuOpen(true) } },
+      () => { if (request === locationRequest.current) { setGeoState('denied') } },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     )
   }
 
   const chooseRegion = (label: string) => {
     const next = regionOrigin(label)
-    if (next) { locationRequest.current += 1; setRadiusActive(false); setPickingOrigin(false); setOrigin(next); setCameraRequest({center: next.point, zoom: 10}); setGeoState('idle'); setLocMenuOpen(false) }
+    if (next) { locationRequest.current += 1; setRadiusActive(false); setPickingOrigin(false); setOrigin(next); setCameraRequest({center: next.point, zoom: 10}); setGeoState('idle') }
   }
 
   const update = (patch: Partial<HomeMapFilterState>) => setFilters((f) => ({ ...f, ...patch }))
+  // 반경을 고르면 거리 검색을 켠다(기준: 고른 지역 중심, Gần tôi를 눌렀으면 내 위치).
+  const setRadius = (radiusKm: number) => { update({ radiusKm }); setRadiusActive(true) }
 
   const originLabel = origin.kind === 'user' ? 'Vị trí hiện tại của bạn' : origin.kind === 'chosen' ? 'Điểm đã chọn' : origin.label
   const emptyReason = loading ? 'Đang tải việc làm…' : jobsError ? 'Chưa tải được đầy đủ việc làm. Vui lòng thử lại sau.' : 'Chưa có việc làm phù hợp với điều kiện đã chọn.'
@@ -264,50 +264,45 @@ export default function HomeMapExplorer({ onResultsChange, clearCategoryRequest 
         {/* 위치 + 검색 반경 — 하나의 기능 */}
         <div className="hme-block">
           <div className="hme-block__head"><MapPin size={16} aria-hidden /> <span>Vị trí</span></div>
+          {/* 2026-11-03 Lee "저거 꼭 필요한 거야?": 펼침 메뉴·중복 Gần tôi 없이 Gần tôi 1개 + 성 선택 1개만 바로 보인다. */}
           <div className="hme-loc">
-            <button type="button" className="hme-loc__current" onClick={() => setLocMenuOpen((v) => !v)} aria-expanded={locMenuOpen}>
-              <span className="hme-loc__label">{originLabel}</span>
-              <ChevronDown size={16} aria-hidden />
-            </button>
-            {locMenuOpen && (
-              <div className="hme-loc__menu">
-                <button type="button" className="hme-loc__use" onClick={useCurrentLocation} disabled={geoState === 'loading'}>
-                  <LocateFixed size={15} aria-hidden /> {geoState === 'loading' ? 'Đang xác định vị trí…' : 'Gần tôi'}
-                </button>
-                {geoState === 'denied' && <p className="hme-loc__hint">Không lấy được vị trí. Hãy chọn khu vực bên dưới.</p>}
-                {geoState === 'unsupported' && <p className="hme-loc__hint">Trình duyệt không hỗ trợ định vị. Hãy chọn khu vực.</p>}
-                <label className="hme-loc__select-label" htmlFor="hme-region">Chọn khu vực</label>
-                <select id="hme-region" className="hme-loc__select" value={origin.kind === 'region' ? origin.label : ''}
-                  onChange={(e) => chooseRegion(e.target.value)}>
-                  {origin.kind !== 'region' && <option value="">Vị trí hiện tại</option>}
-                  {REGION_MACRO_TABS.map((t) => (
-                    <optgroup key={t.id} label={t.label}>
-                      {t.provinces.map((p) => <option key={p.id} value={p.label}>{p.label}</option>)}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="hme-loc__menu">
+              <button type="button" className="hme-loc__use" onClick={useCurrentLocation} disabled={geoState === 'loading'}>
+                <LocateFixed size={15} aria-hidden /> {geoState === 'loading' ? 'Đang xác định vị trí…' : 'Gần tôi'}
+              </button>
+              {geoState === 'denied' && <p className="hme-loc__hint">Không lấy được vị trí. Hãy chọn khu vực bên dưới.</p>}
+              {geoState === 'unsupported' && <p className="hme-loc__hint">Trình duyệt không hỗ trợ định vị. Hãy chọn khu vực.</p>}
+              <label className="hme-loc__select-label" htmlFor="hme-region">Chọn khu vực</label>
+              <select id="hme-region" className="hme-loc__select" value={origin.kind === 'region' ? origin.label : ''}
+                onChange={(e) => chooseRegion(e.target.value)}>
+                {origin.kind !== 'region' && <option value="">{originLabel}</option>}
+                {REGION_MACRO_TABS.map((t) => (
+                  <optgroup key={t.id} label={t.label}>
+                    {t.provinces.map((p) => <option key={p.id} value={p.label}>{p.label}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
           </div>
-          <button type="button" className="hme-loc__use" onClick={useCurrentLocation} disabled={geoState === 'loading'}>Gần tôi</button>
-          {!radiusActive && <p className="hme-loc__hint">Không giới hạn khoảng cách. Chọn Gần tôi để tìm theo bán kính.</p>}
-          {radiusActive && <>
-          <button type="button" className="hme-more-link" onClick={clearRadius}>Bỏ giới hạn bán kính</button>
+          {/* 2026-11-03 Lee "거리재는 거 어디 갔냐 — 그냥 보이게 해": 반경 칸은 항상 보인다. 반경을 고르면 그때부터
+              고른 지역(또는 Gần tôi를 눌렀으면 내 위치) 기준으로 거리 검색. 전에는 Gần tôi를 눌러야만 나타났다(#99). */}
+          {radiusActive
+            ? <button type="button" className="hme-more-link" onClick={clearRadius}>Bỏ giới hạn bán kính</button>
+            : <p className="hme-loc__hint">Không giới hạn khoảng cách. Chọn bán kính để tìm quanh {originLabel}.</p>}
           <div className="hme-radius">
             <div className="hme-radius__row">
               <span>Bán kính tìm kiếm</span>
-              <SearchRadiusInput value={filters.radiusKm} onChange={(radiusKm) => update({ radiusKm })} />
+              <SearchRadiusInput value={filters.radiusKm} onChange={(radiusKm) => setRadius(radiusKm)} />
             </div>
             <input type="range" min={RADIUS_MIN_KM} max={RADIUS_MAX_KM} step={0.1} value={filters.radiusKm}
-              aria-label="Bán kính tìm kiếm (km)" aria-valuetext={formatSearchRadius(filters.radiusKm)} onChange={(e) => update({ radiusKm: normalizeSearchRadius(Number(e.target.value)) })} />
+              aria-label="Bán kính tìm kiếm (km)" aria-valuetext={formatSearchRadius(filters.radiusKm)} onChange={(e) => setRadius(normalizeSearchRadius(Number(e.target.value)))} />
             <div className="hme-radius__scale"><span>{formatSearchRadius(RADIUS_MIN_KM)}</span><span>{formatSearchRadius(RADIUS_MAX_KM)}</span></div>
             <div className="hme-radius__quick" aria-label="Chọn nhanh bán kính">
               {[0.1, 0.3, 0.5, 1, 3, 5, 10, 20].map((km) => (
-                <button key={km} type="button" aria-pressed={filters.radiusKm === km} className={filters.radiusKm === km ? 'is-active' : ''} onClick={() => update({ radiusKm: km })}>{formatSearchRadius(km)}</button>
+                <button key={km} type="button" aria-pressed={radiusActive && filters.radiusKm === km} className={radiusActive && filters.radiusKm === km ? 'is-active' : ''} onClick={() => setRadius(km)}>{formatSearchRadius(km)}</button>
               ))}
             </div>
           </div>
-          </>}
         </div>
 
         <SalaryTicket filters={filters} onChange={update} />

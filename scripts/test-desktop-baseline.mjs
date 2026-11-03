@@ -1,3 +1,4 @@
+// 2026-11-03: DesktopHomeMapExplorer.tsx — Lee "거리재는 거 어디 갔냐, 그냥 보이게 해": 반경 칸 항상 표시(고르면 거리 검색 켜짐). 위치 칸 펼침 메뉴·중복 Gần tôi 제거(Lee "꼭 필요한 거야?" → 진행). 다른 PC 틀 변경 없음.
 // 2026-11-03: LayoutDesktop.tsx·DesktopHomeMapExplorer.tsx·index.css — Lee 지시: PC 메인 왼쪽 칸 위치·급여만("거리하고 기본 금액만"), 메뉴 "Theo khu vực" 34개 성·급구 → 지역별 일자리(/viec-lam/khu-vuc), 지역별 페이지 전용 CSS(.jm-urgent-page 아래)·지도. 공고 카드·상세 틀 변경 없음.
 // 2026-11-03: JobDetail.tsx·index.css — Lee 지시(11-03 "123수정"): 급여 아래 상여·수당 줄 작은 회색 글씨·금액과 정렬(#415), 식비 수당 이름 Phụ cấp ăn·아이콘 중복 태그 숨김(#415·#416). 칸 순서·위치 등 PC 틀 변경 없음. 기준값 갱신이 늦어 master가 이미 달랐음(이 검사는 홈 파일 PR에서만 돎).
 // 2026-11-01: index.css — Lee "수평 전개": 급여 표시 한 곳(SalaryText) 색 규칙 추가. PC 틀 변경 없음.
@@ -61,7 +62,7 @@ const baseline = [
   },
   {
     "path": "src/components/home/DesktopHomeMapExplorer.tsx",
-    "sha256": "e0529024cec5fba8adc9deb8fc81e2120f8f91451bb1df5a081ccd51ff5eb063",
+    "sha256": "1d31ed7c817dbd0327e2ae6c7e3068e8dae7405de311c391134ed027cc152ab9",
     "restore": [
       [
         "'./DesktopHomeMapCanvas'",

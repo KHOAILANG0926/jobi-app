@@ -9,6 +9,7 @@
   - 수집기 판 2026.9.0 + 같은 시험(test-fixtures/vn-admin-cases.json, vn-admin-sync workflow).
   - 알림 34개 migration: **운영에 넣지 않음**(Lee: 공고 올린 뒤). 알림 화면은 예전 29개(ALERT_REGION_TABS). dry-run 통과본은 demo/region-unify의 20261103120000_job_alert_regions_34.sql(생성기 scripts/data/gen-alert-region-keywords.mjs).
 - 11-03 저녁: 공고 #5342 Joy Thái(Lee 제공 FB, 출처 글 주소 · 작성자 Đỗ Ngọc Mai) 공개(#424·#425). 대문자 직무 제목(NHÂN VIÊN …)·금액만 있는 급여 줄 인식(#426, 메인 누락 해결). 로고 없는 카드 → 업종 사진(#427, demo/home-photo-cards 카드 부분만). 각 deploy-verify 통과.
+- 11-03 17:30: PC 메인 왼쪽 위치 칸 정리(fix/radius-always-visible) — 거리(반경) 칸 항상 표시, 펼침 메뉴·중복 Gần tôi 제거(Gần tôi 1개 + 성 선택 1개). 숨김은 #99(10-15 MAP-R1)에서 생긴 것, Lee 지시 기록 없음.
 - demo/home-photo-cards 나머지(모바일 메인 칸·배너 210px): 휴대폰 작업 때 한 번에.
 - FB 수집기: session_expired 잠금(FACEBOOK_ACCOUNT_LOCK), Lee Chrome도 Facebook 로그아웃 상태.
 

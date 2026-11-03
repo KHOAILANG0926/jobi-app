@@ -65,8 +65,7 @@ try {
       assert.equal(await page.locator('.home-location-notice').isVisible(), false, 'desktop added notice removed')
       assert.equal((await page.locator('.home-brand-hero__lead').innerText()).trim(), 'Hàng nghìn cơ hội việc làm tốt đang chờ bạn')
       assert.equal(await page.locator('[data-testid="map-area-summary"] h2').innerText(), 'Trong khung bản đồ')
-      await page.locator('.hme-loc__current').click()
-      assert.equal(await page.locator('#hme-region').inputValue(), 'Hà Nội')
+          assert.equal(await page.locator('#hme-region').inputValue(), 'Hà Nội')
     }
     assert.deepEqual(errors, [], 'no uncaught page errors')
     results.push({ kind: 'public-live', width, ok: true })
@@ -153,7 +152,6 @@ try {
   await desktopPage.goto(`${base}/?q=NO_MATCH_DESKTOP_TEST`)
   await ready(desktopPage)
   assert.equal(await desktopPage.locator('[data-testid="home-map-job-counts"]').getAttribute('data-loaded'), '7', 'desktop map retains previous independent job source')
-  await desktopPage.locator('.hme-loc__current').click()
   await desktopPage.locator('#hme-region').selectOption({ label: 'Bắc Ninh' })
   assert.equal(await desktopPage.locator('[data-testid="home-map-job-counts"]').getAttribute('data-loaded'), '7', 'desktop region restores previous camera-only behavior')
   results.push({ kind: 'browser-only-fixture', case: 'desktop-previous-copy-notice-region-search-scope', ok: true })
