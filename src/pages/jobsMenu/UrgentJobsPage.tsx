@@ -477,20 +477,22 @@ export default function UrgentJobsPage() {
   // 제외한다(SavedJobsPage의 "모집 중/마감" 판정과 동일 기준 — 마감일이 없으면
   // 상시 모집으로 보고 포함).
   const todayStr = new Date().toISOString().slice(0, 10)
-  const urgentJobs = useMemo(
-    () => jobs.filter((j) => j.urgent && (!j.applicationDeadline || j.applicationDeadline >= todayStr)),
+  // 2026-11-03 Lee "급구가 아니라 지역별로 바꾸는 게 맞아" — 급구 공고만이 아니라
+  // 모집 중인 모든 공개 공고를 지역으로 고르는 페이지(알바몬 "지역별 알바정보").
+  const openJobs = useMemo(
+    () => jobs.filter((j) => !j.applicationDeadline || j.applicationDeadline >= todayStr),
     [jobs, todayStr],
   )
-  const urgentAreas = useMemo(() => new Map(urgentJobs.map((j) => [j.id, resolveJobArea(j)])), [urgentJobs])
+  const jobAreas = useMemo(() => new Map(openJobs.map((j) => [j.id, resolveJobArea(j)])), [openJobs])
 
   // work_period는 크롤러 자유텍스트(닫힌 enum 아님)라 job_duration과 달리
   // 고정 목록을 쓰지 않는다 — 실제 존재하는 값만 동적으로 보여준다(2026-09-18
   // 사용자 지시로 고정 목록 시도 후 되돌림).
   const workPeriodOptions = useMemo(() => {
     const set = new Set<string>()
-    for (const j of urgentJobs) if (j.workPeriod) set.add(j.workPeriod)
+    for (const j of openJobs) if (j.workPeriod) set.add(j.workPeriod)
     return [...set].sort()
-  }, [urgentJobs])
+  }, [openJobs])
 
   // 성/시(1단계)뿐 아니라 동/사(2단계)도 공고 존재 여부와 무관하게 항상
   // 전체를 보여준다(2026-09-17 사용자 지시 — "2차 지역은 왜 다 안보여?").
@@ -577,12 +579,12 @@ export default function UrgentJobsPage() {
   )
 
   const filtered = useMemo(() => {
-    let list = urgentJobs
+    let list = openJobs
     // 2026-11-03 Lee "급구 페이지는 자동으로 연결하는 게 맞다" — DB에 따로 채워야
     // 하던 resolved_* 칸 대신 공고 주소로 바로 판정(lib/jobAreaWards.ts, 메인·검색과 같은 기준).
     if (selectedProvince) {
       list = list.filter((j) => {
-        const area = urgentAreas.get(j.id)
+        const area = jobAreas.get(j.id)
         if (!area || !area.provinces.includes(selectedProvince)) return false
         if (selectedWards.size === 0) return true
         return area.wards.some((w) => selectedWards.has(w))
@@ -633,7 +635,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, urgentAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [openJobs, jobAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -678,11 +680,21 @@ export default function UrgentJobsPage() {
   return (
     <div className="page jobs-menu-page jm-urgent-page">
       <header className="page-header">
-        <h1 className="page-header__title">🔥 Tuyển gấp</h1>
+        <h1 className="page-header__title">Việc làm theo khu vực</h1>
         <p className="page-header__lead">
-          Các công việc nhà tuyển dụng đánh dấu cần tuyển gấp — chọn điều kiện để lọc theo nhu cầu của bạn.
+          Chọn tỉnh/thành phố, quận/huyện, xã/phường để xem việc làm theo khu vực.
         </p>
       </header>
+
+      {/* 알바몬 "지역별" 맨 위 지역 칩 줄 — 공식 34개 성 전부(Lee "지금 없다고 안 만들면 안 돼"). */}
+      <nav className="jm-province-chips" aria-label="Chọn nhanh tỉnh/thành phố">
+        <button type="button" className={`jm-province-chip${selectedProvince === null ? ' is-selected' : ''}`} aria-pressed={selectedProvince === null}
+          onClick={() => selectProvince(null)}>Toàn quốc</button>
+        {VN_PROVINCES.map((p) => (
+          <button key={p} type="button" className={`jm-province-chip${selectedProvince === p ? ' is-selected' : ''}`} aria-pressed={selectedProvince === p}
+            onClick={() => selectProvince(p)}>{shortProvinceName(p)}</button>
+        ))}
+      </nav>
 
       <div className="jm-urgent-filters">
         <FilterDropdown
@@ -769,7 +781,7 @@ export default function UrgentJobsPage() {
                 ) : !selectedDistrict ? (
                   <p className="hint jm-region-col__hint">Chọn quận/huyện trước.</p>
                 ) : districtWardOptions.length === 0 ? (
-                  <p className="hint jm-region-col__hint">Các tin tuyển gấp ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
+                  <p className="hint jm-region-col__hint">Các tin ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
                 ) : (
                   <ul className="jm-region-col__list">
                     <li>
@@ -795,6 +807,19 @@ export default function UrgentJobsPage() {
                   </ul>
                 )}
               </div>
+            </div>
+          )}
+          {selectedProvince && (
+            <div className="jm-region-picked" aria-label="Khu vực đã chọn">
+              {selectedWards.size === 0 ? (
+                <button type="button" className="jm-region-picked__chip" onClick={() => selectProvince(null)}>
+                  Tất cả {shortProvinceName(selectedProvince)} <span aria-hidden>×</span>
+                </button>
+              ) : [...selectedWards].map((w) => (
+                <button key={w} type="button" className="jm-region-picked__chip" onClick={() => toggleWard(w)}>
+                  {w} <span aria-hidden>×</span>
+                </button>
+              ))}
             </div>
           )}
           <div className="jm-filter-dropdown__footer">
@@ -1135,7 +1160,7 @@ export default function UrgentJobsPage() {
             <p className="jm-filter-row__label">Loại hình công việc</p>
             <div className="jm-filter-row__body">
               {workPeriodOptions.length === 0 ? (
-                <p className="hint">Chưa có dữ liệu loại hình công việc cho tin tuyển gấp hiện tại.</p>
+                <p className="hint">Chưa có dữ liệu loại hình công việc cho tin hiện tại.</p>
               ) : (
                 <div className="jm-filter-dropdown__chips">
                   {workPeriodOptions.map((p) => (
@@ -1229,7 +1254,7 @@ export default function UrgentJobsPage() {
 
       <div className="jm-urgent-toolbar">
         <p className="jm-result-count">
-          Tổng {sorted.length} việc làm tuyển gấp
+          Tổng {sorted.length} việc làm
           {activeFilterCount > 0 && (
             <button type="button" className="jm-clear-filters" onClick={clearAllFilters}>Xóa hết bộ lọc</button>
           )}
@@ -1262,7 +1287,7 @@ export default function UrgentJobsPage() {
       ) : visible.length === 0 ? (
         <div className="city-result__empty">
           <span>🔍</span>
-          <p>Chưa có việc làm tuyển gấp phù hợp với điều kiện đã chọn.</p>
+          <p>Chưa có việc làm phù hợp với điều kiện đã chọn.</p>
           <NavLink to="/">← Xem tất cả việc làm</NavLink>
         </div>
       ) : (

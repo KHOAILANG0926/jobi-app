@@ -88,7 +88,7 @@ try {
    await ticket.getByRole('button',{name:'8M+',exact:true}).click()
    await ticket.screenshot({path:out+`/salary-${width}.png`})
    if(width===390) await page.getByRole('button',{name:'Đóng bộ lọc',exact:true}).click()
-   else {await menu('🔥 Tuyển gấp');await page.waitForURL('**/viec-lam/tuyen-gap')}
+   else {await menu('🗺️ Việc làm theo khu vực');await page.waitForURL('**/viec-lam/khu-vuc')}
   }
   assert.deepEqual(errors,[])
   checks.push({width,ok:true,scope:'home condition controls, placement, menu route, combine and clear; real matching-data acceptance deferred'})

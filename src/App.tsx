@@ -25,6 +25,7 @@ import type { Job } from './types/job'
 // SSR로 서비스하는 라우트를 code-split하지 않는 건 표준적인 트레이드오프다.
 import { JobDetail } from './pages/JobDetail'
 import UrgentJobsPage from './pages/jobsMenu/UrgentJobsPage'
+import { RedirectKeepSearch } from './components/RedirectKeepSearch'
 import { JobSearchPage } from './pages/JobSearchPage'
 
 const Community = lazy(() => import('./pages/Community').then((module) => ({ default: module.Community })))
@@ -89,7 +90,8 @@ export default function App({ initialJobs, initialJobsError }: AppProps = {}) {
                 <Route path="/viec-lam/phu-hop" element={lazyRoute(<MatchedJobsPage />)} />
                 <Route path="/viec-lam/goi-y" element={lazyRoute(<SuggestedJobsPage />)} />
                 <Route path="/viec-lam/tim-kiem" element={<JobSearchPage />} />
-                <Route path="/viec-lam/tuyen-gap" element={<UrgentJobsPage />} />
+                <Route path="/viec-lam/khu-vuc" element={<UrgentJobsPage />} />
+                <Route path="/viec-lam/tuyen-gap" element={<RedirectKeepSearch to="/viec-lam/khu-vuc" />} />
                 <Route path="/viec-lam/:id" element={<JobDetail />} />
                 <Route path="/dang-tin" element={lazyRoute(<PostJob />)} />
                 <Route path="/quan-ly-tin/:id" element={lazyRoute(<ManageGuestJob />)} />

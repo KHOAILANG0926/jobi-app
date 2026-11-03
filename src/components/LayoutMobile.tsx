@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { REGION_MENU_LINKS } from '../data/regionMenuLinks'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -31,7 +32,7 @@ interface MenuItem {
   label: string
   to: string
   end?: boolean
-  dropdown?: { heading: string; links: MenuLink[] }[]
+  dropdown?: { heading: string; links: MenuLink[]; inline?: boolean }[]
   cards?: MenuCard[]
   /** "Thương hiệu" 전용 — 업종→브랜드 2단 메가메뉴(BrandMegaMenu)로 렌더링한다.
    *  실제 활성 공고 데이터로 매번 다시 계산되므로 여기엔 정적 목록을 두지 않는다. */
@@ -153,7 +154,7 @@ const MENU_ITEMS: MenuItem[] = [
     dropdown: [
       { heading: 'Phổ biến', links: [
         { label: 'Tất cả việc làm', to: '/' },
-        { label: '🔥 Tuyển gấp', to: '/viec-lam/tuyen-gap' },
+        { label: '🗺️ Việc làm theo khu vực', to: '/viec-lam/khu-vuc' },
         { label: '📍 Gần tôi', to: '/ban-do' },
       ]},
       { heading: 'Việc làm của tôi', links: [
@@ -162,13 +163,7 @@ const MENU_ITEMS: MenuItem[] = [
         { label: '🎯 Việc làm phù hợp', to: '/viec-lam/phu-hop' },
         { label: '💡 Gợi ý việc làm', to: '/viec-lam/goi-y' },
       ]},
-      { heading: 'Theo khu vực', links: [
-        { label: 'Hà Nội', to: '/?region=hanoi' },
-        { label: 'TP. Hồ Chí Minh', to: '/?region=hcm' },
-        { label: 'Bắc Ninh', to: '/?region=bacninh' },
-        { label: 'Hải Phòng', to: '/?region=haiphong' },
-        { label: 'Đà Nẵng', to: '/?region=danang' },
-      ]},
+      { heading: 'Theo khu vực', inline: true, links: REGION_MENU_LINKS },
       { heading: 'Theo ngành', links: [
         { label: '☕ Cà phê / Nhà hàng / F&B', to: '/?cat=am_thuc_do_uong' },
         { label: '💼 Văn phòng / Part-time / Nhập liệu', to: '/?cat=van_phong' },
@@ -391,7 +386,7 @@ export function Layout() {
                           {item.dropdown.map((col, ci) => (
                             <div key={ci} className="mega-menu__col">
                               <h4 className="mega-menu__heading">{col.heading}</h4>
-                              <ul className="mega-menu__list">
+                              <ul className={`mega-menu__list${col.inline ? ' mega-menu__list--inline' : ''}`}>
                                 {col.links.map((link, li) => (
                                   <li key={li}>
                                     <button
