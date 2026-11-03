@@ -182,6 +182,8 @@ psql_local -c "do \$\$begin if to_regprocedure('public.map_r1_request_location(b
  revoke all on function public.map_r1_request_location(bigint,boolean) from public, anon, authenticated; end if; end\$\$" > "$bomunttl_log" 2>&1 || { area_fail recheck_stub; }
 psql_local -1 < supabase/migrations/20261029140000_recheck_area_pins_with_goong.sql > "$bomunttl_log" 2>&1 || { area_fail recheck; }
 psql_local < supabase/tests/recheck_area_pins_production_check.sql > "$bomunttl_log" 2>&1 || { area_fail recheck_check; }
+psql_local -1 < supabase/migrations/20261103210000_recheck_area_pins_company_name.sql > "$bomunttl_log" 2>&1 || { area_fail recheck_company; }
+psql_local < supabase/tests/recheck_area_pins_company_name_production_check.sql > "$bomunttl_log" 2>&1 || { area_fail recheck_company_check; }
 echo 'PASS: area pin recheck request applies cleanly'
 # #5063 삭제(Lee 2026-10-29): 시험 DB에는 그 공고가 없으므로 적용·점검이 깨끗이 끝나는지만 확인.
 psql_local -1 < supabase/migrations/20261029160000_delete_job_5063_no_info.sql > "$bomunttl_log" 2>&1 || { area_fail delete5063; }
