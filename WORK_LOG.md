@@ -1,3 +1,9 @@
+## 2026-11-03 17:15 — Joy Thái 공고 #5342·직무 제목 규칙·업종 사진 (Claude)
+- 요청: Lee "페이스북 크롤링 1건 진행"(수집기 session_expired → Lee가 원문·글 주소 제공), "메인에 왜 없어?", "로고 없으면 사진 넣기로 하지 않았어?", "데모 진행해서 허락한 거는 다 완료".
+- 변경: #424·#425 공고 파일(scripts/ops/jobs/fb-joythai-20261103.json, 첫 등록은 R3 출처 없음으로 거부 → 글 주소 추가) → ops-insert-job #5342 → ops-publish-jobs. #426 isRoleHeading 대문자 직무 제목·roleSalaryLines 금액만 줄·roleConditionSummary 없는 값 지어내지 않음·detail-fill 규칙 파일 추가. #427 JobCard 업종 사진(cardPhoto.ts, public/images/industry).
+- 검증: 운영 상세 sb-5342 직접 확인, 운영 메인에 Joy Thái·업종 사진 직접 확인, deploy-verify 41615464877·41616250543 success.
+- 남은 문제: FB 수집기 쿠키·잠금(Lee), 휴대폰 메인(한 번에).
+
 ## 2026-11-03 16:00 — 지역 기준 통일·지역별 일자리 페이지·지도 고르기 (Claude, PR #422 운영 반영 d2b40f0)
 - 요청: Lee 11-03 "급구 페이지 지역 0건", "지역명 서로 맞춰야", "급구가 아니라 지역별로", "알바몬처럼", "A 지도 데모", "섬·Hoàng Sa·Trường Sa까지", "최근 행정구역 다시 확인", "5~8 수정진행", "PC 왼쪽 거리·급여만".
 - 원인: 급구 지역 필터가 자동으로 채워지지 않는 DB 칸(resolved_*)을 봄 + 화면마다 지역 목록 3가지. 급구 0건은 urgent 공고 자체가 0건(급구 표시는 FB·TopCV 수집기만 켬).
@@ -49,7 +55,3 @@
 - 요청: Lee "진행하자"(브랜드: 공식 출처 지점 3곳 이상 + 매장 일치).
 - [직접 확인] Highlands 1,000호점(tapchicongthuong 2026-06-12), Trung Nguyên Legend 22(중국)+5(미국)(VCCI), Wallace 공식 페이지 24개 지점(gà rán·hamburger). Wallace 공식 페이지는 CS9 "219 Nguyễn Trãi", 공고·foody는 216 — 1번지 차이 기록.
 - 변경: migration 20261101210000(job_brands 확인 칸 4개 + 브랜드 3개·별칭), production check, CI 단계. 기존 13개 브랜드 불변.
-
-## 2026-11-01 저녁 — 확인된 음식점이 "Vệ sinh / Giúp việc" 메뉴에 나오던 문제 (Claude)
-- 원인 [직접 확인]: 코드 5 → category dich_vu → 메뉴 "Vệ sinh / Giúp việc"(cat=dich_vu). #5247 Wallace(닭튀김).
-- 변경: businessType.ts 업종 종류 kind(fnb·retail·service, 이름 낱말 또는 검색 답) 기록, business-type.mjs가 kind 없는 코드 5 공고 재확인(web-v4). DB migration 20261101200000: category_for_job(code, ocr_check) — 코드 5만 fnb→am_thuc_do_uong, retail→quan_ly_ban_hang. 직업 코드·근거·공개 변경 없음. 로컬 PostgreSQL CI 스크립트·시험 통과. 운영 적용은 Lee 확인 후.
