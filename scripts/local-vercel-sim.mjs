@@ -23,7 +23,7 @@ const MIME = {
 // vercel.json과 동일한 정적 슬러그 제외 목록 + :id 패턴 — api/ssr.js
 // 내부에도 같은 목록이 있지만, 여기서는 "이 요청을 SSR로 보낼지 정적
 // 파일/SPA로 보낼지" 라우팅 단계를 재현해야 해서 별도로 필요하다.
-const STATIC_SLUGS = new Set(['da-luu', 'da-xem', 'phu-hop', 'goi-y', 'tuyen-gap', 'tim-kiem'])
+const STATIC_SLUGS = new Set(['da-luu', 'da-xem', 'phu-hop', 'goi-y', 'tuyen-gap', 'khu-vuc', 'tim-kiem'])
 
 function wrapRes(nodeRes) {
   const wrapped = {
@@ -44,7 +44,7 @@ const server = createServer(async (req, res) => {
   }
 
   const jobLamMatch = pathname.match(/^\/viec-lam\/([^/]+)$/)
-  const isUrgentList = pathname === '/viec-lam/tuyen-gap'
+  const isUrgentList = pathname === '/viec-lam/khu-vuc'
   const isSearch = pathname === '/viec-lam/tim-kiem'
   const isJobDetail = jobLamMatch && !STATIC_SLUGS.has(jobLamMatch[1])
   if (isUrgentList || isSearch || isJobDetail) {

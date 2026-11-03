@@ -7,6 +7,7 @@ import { BrandsProvider } from './context/BrandsContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { JobDetail } from './pages/JobDetail'
 import UrgentJobsPage from './pages/jobsMenu/UrgentJobsPage'
+import { RedirectKeepSearch } from './components/RedirectKeepSearch'
 import { JobSearchPage } from './pages/JobSearchPage'
 import { fetchJobsData } from './lib/fetchJobsData'
 import { supabaseServer } from './lib/supabaseServer'
@@ -62,7 +63,8 @@ export function render(url: string, jobs: Job[], jobsError: boolean): string {
               <Routes>
                 <Route element={<Layout />}>
                   <Route path="/viec-lam/tim-kiem" element={<JobSearchPage />} />
-                  <Route path="/viec-lam/tuyen-gap" element={<UrgentJobsPage />} />
+                  <Route path="/viec-lam/khu-vuc" element={<UrgentJobsPage />} />
+                  <Route path="/viec-lam/tuyen-gap" element={<RedirectKeepSearch to="/viec-lam/khu-vuc" />} />
                   <Route path="/viec-lam/:id" element={<JobDetail />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

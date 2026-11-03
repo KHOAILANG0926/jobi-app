@@ -44,3 +44,8 @@ equal(externalMapLinks({lat:NaN,lng:106},true),null,'invalid external coordinate
 equal(externalMapLinks({lat:21,lng:106},false)?.viewKind,'area','unverified external view remains area only')
 equal(externalMapLinks({lat:21,lng:106},false)?.directions,null,'unverified external view never exposes confirmed directions')
 equal(formatDistanceLabel(1.234),'1.2 km đường chim bay','exact distance remains straight-line label')
+// 2026-11-03 Lee "지역명 서로 맞춰야": 메인 지역 목록 공식 34개 성 — 새로 들어간 5개 성도 지도 중심이 있어야 하고(근무지 좌표가 아니라 화면 이동용),
+// 기존 성 중심은 그대로.
+for (const [label, lat, lng] of [['Cao Bằng', 22.7595, 106.047], ['Điện Biên', 21.7487, 103.226], ['Lai Châu', 22.3502, 103.255], ['Sơn La', 21.3011, 104.159], ['Tuyên Quang', 22.131, 105.229], ['Hà Giang', 22.131, 105.229]] as const)
+  equal(findRegionCenter(label), { lat, lng }, `${label} has a camera center`)
+equal(findRegionCenter('Lạng Sơn'), { lat: 21.8537, lng: 106.761 }, 'existing Lạng Sơn center unchanged')

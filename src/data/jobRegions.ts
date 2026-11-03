@@ -1,4 +1,4 @@
-import { normalizeViText } from '../lib/jobCoords'
+import { jobProvinces } from '../lib/jobArea'
 
 export const JOB_REGIONS = [
   /* ── Miền Bắc ─────────────────────────────────────────── */
@@ -199,7 +199,32 @@ export const JOB_REGIONS = [
     label: 'Cà Mau',
     match: ['ca mau', 'bac lieu', 'soc trang'],
   },
+  /* ── 2026-11-03 Lee "지역명 서로 맞춰야" — 공식 34개 성 중 빠져 있던 7곳.
+   * match는 비워 둔다: match는 알림 DB 키워드(job_alert_region_keywords) 시드와 1:1로 맞추는 목록
+   * (jobAlerts.test.ts). 화면은 lib/jobArea.ts 판정을 쓴다. 알림 34개 전환은 lib/regionKeywords.ts로 migration 생성. */
+  { id: 'caobang', label: 'Cao Bằng', match: [] },
+  { id: 'dienbien', label: 'Điện Biên', match: [] },
+  { id: 'laichau', label: 'Lai Châu', match: [] },
+  { id: 'langson', label: 'Lạng Sơn', match: [] },
+  { id: 'laocai', label: 'Lào Cai', match: [] },
+  { id: 'sonla', label: 'Sơn La', match: [] },
+  { id: 'tuyenquang', label: 'Tuyên Quang', match: [] },
 ] as const
+
+/** 지역 id → 공식 성/시(vnProvinces.ts). Bắc Giang·Long An은 2025 개편으로 합쳐진
+ * 옛 성이라 예전 링크·저장값 호환용으로만 남기고 합쳐진 성으로 판정한다. */
+export const REGION_PROVINCE: Record<JobRegionId, string> = {
+  hanoi: 'Thành phố Hà Nội', haiphong: 'Thành phố Hải Phòng', quangninh: 'Thành phố Quảng Ninh',
+  bacninh: 'Thành phố Bắc Ninh', bacgiang: 'Thành phố Bắc Ninh', hunguyen: 'Tỉnh Hưng Yên',
+  thainguyen: 'Tỉnh Thái Nguyên', phutho: 'Tỉnh Phú Thọ', ninhbinh: 'Tỉnh Ninh Bình',
+  thanhhoa: 'Tỉnh Thanh Hóa', nghean: 'Tỉnh Nghệ An', hatinh: 'Tỉnh Hà Tĩnh', quangtri: 'Tỉnh Quảng Trị',
+  hue: 'Thành phố Huế', danang: 'Thành phố Đà Nẵng', quangngai: 'Tỉnh Quảng Ngãi', gialai: 'Tỉnh Gia Lai',
+  daklak: 'Tỉnh Đắk Lắk', khanhhoa: 'Tỉnh Khánh Hòa', lamdong: 'Tỉnh Lâm Đồng',
+  hcm: 'Thành phố Hồ Chí Minh', dongnai: 'Thành phố Đồng Nai', tayninh: 'Tỉnh Tây Ninh', longan: 'Tỉnh Tây Ninh',
+  dongthap: 'Tỉnh Đồng Tháp', angiang: 'Tỉnh An Giang', vinhlong: 'Tỉnh Vĩnh Long', cantho: 'Thành phố Cần Thơ',
+  camau: 'Tỉnh Cà Mau', caobang: 'Tỉnh Cao Bằng', dienbien: 'Tỉnh Điện Biên', laichau: 'Tỉnh Lai Châu',
+  langson: 'Tỉnh Lạng Sơn', laocai: 'Tỉnh Lào Cai', sonla: 'Tỉnh Sơn La', tuyenquang: 'Tỉnh Tuyên Quang',
+}
 
 export type MacroGroupId = 'north' | 'central' | 'south'
 
@@ -219,11 +244,17 @@ export const REGION_MACRO_TABS: {
       { id: 'haiphong', label: 'Hải Phòng' },
       { id: 'quangninh', label: 'Quảng Ninh' },
       { id: 'bacninh', label: 'Bắc Ninh' },
-      { id: 'bacgiang', label: 'Bắc Giang' },
       { id: 'hunguyen', label: 'Hưng Yên' },
       { id: 'thainguyen', label: 'Thái Nguyên' },
       { id: 'phutho', label: 'Phú Thọ' },
       { id: 'ninhbinh', label: 'Ninh Bình' },
+      { id: 'caobang', label: 'Cao Bằng' },
+      { id: 'dienbien', label: 'Điện Biên' },
+      { id: 'laichau', label: 'Lai Châu' },
+      { id: 'langson', label: 'Lạng Sơn' },
+      { id: 'laocai', label: 'Lào Cai' },
+      { id: 'sonla', label: 'Sơn La' },
+      { id: 'tuyenquang', label: 'Tuyên Quang' },
     ],
   },
   {
@@ -250,7 +281,6 @@ export const REGION_MACRO_TABS: {
       { id: 'hcm', label: 'TP. Hồ Chí Minh' },
       { id: 'dongnai', label: 'Đồng Nai' },
       { id: 'tayninh', label: 'Tây Ninh' },
-      { id: 'longan', label: 'Long An' },
       { id: 'dongthap', label: 'Đồng Tháp' },
       { id: 'angiang', label: 'An Giang' },
       { id: 'vinhlong', label: 'Vĩnh Long' },
@@ -259,6 +289,19 @@ export const REGION_MACRO_TABS: {
     ],
   },
 ]
+
+/** 알림(JobAlertsPanel) 전용 — DB job_alert_region_keywords에 있는 예전 29개 그대로.
+ * 알림 판정은 DB 함수라 34개로 맞추려면 migration이 필요하다(Lee 2026-11-03: 공고 올린 뒤 진행,
+ * 생성기 scripts/data/gen-alert-region-keywords.mjs). */
+const ALERT_EXTRA: Partial<Record<JobRegionId, { id: JobRegionId; label: string }>> = {
+  bacninh: { id: 'bacgiang', label: 'Bắc Giang' },
+  tayninh: { id: 'longan', label: 'Long An' },
+}
+const ALERT_EXCLUDED = new Set<JobRegionId>(['caobang', 'dienbien', 'laichau', 'langson', 'laocai', 'sonla', 'tuyenquang'])
+export const ALERT_REGION_TABS: typeof REGION_MACRO_TABS = REGION_MACRO_TABS.map((tab) => ({
+  ...tab,
+  provinces: tab.provinces.filter((p) => !ALERT_EXCLUDED.has(p.id)).flatMap((p) => (ALERT_EXTRA[p.id] ? [p, ALERT_EXTRA[p.id]!] : [p])),
+}))
 
 const PROVINCE_TO_MACRO: Partial<Record<JobRegionId, MacroGroupId>> = {}
 for (const tab of REGION_MACRO_TABS) {
@@ -272,24 +315,21 @@ export function macroGroupForRegionId(id: JobRegionId): MacroGroupId | undefined
 }
 
 /**
- * location(local_jobs의 대략적 텍스트) 매칭은 그대로 유지하고, 있으면
- * workLocations(job_work_locations의 실제 근무지들)도 OR로 같이 검사한다 —
- * 근무지 여러 개 중 하나라도 이 지역과 매칭되면 통과. workLocations가 없는
- * (또는 빈) 공고는 기존과 완전히 동일하게 location 문자열만으로 판정된다 —
- * 하위호환 100% 유지.
+ * 2026-11-03 Lee "지역명이 서로 안 맞으면 공고 올려도 안 들어갈 거 아니야" —
+ * 예전 손 목록(match 글자) 대신 공식 34개 성 판정(lib/jobArea.ts) 하나로 본다.
+ * 메인·검색·추천·급구가 같은 판정을 쓰므로 새 공고는 주소만 있으면 자동으로 걸린다.
  */
 export function jobMatchesRegion(
   location: string,
   regionId: JobRegionId,
   workLocations?: { rawAddress: string }[],
 ): boolean {
-  const region = JOB_REGIONS.find((r) => r.id === regionId)
-  if (!region) return true
-  const matchesText = (text: string) => {
-    const hay = normalizeViText(text)
-    if (!hay) return false
-    return region.match.some((m) => hay.includes(normalizeViText(m)))
-  }
-  if (matchesText(location)) return true
-  return (workLocations ?? []).some((loc) => matchesText(loc.rawAddress))
+  const province = REGION_PROVINCE[regionId]
+  if (!province) return true
+  return jobProvinces({ location, workLocations }).includes(province)
+}
+
+/** 예전 링크·저장값의 옛 성 id(bacgiang·longan)를 지금 성 id로. */
+export function currentRegionId(id: JobRegionId): JobRegionId {
+  return id === 'bacgiang' ? 'bacninh' : id === 'longan' ? 'tayninh' : id
 }

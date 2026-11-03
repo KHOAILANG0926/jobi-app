@@ -34,7 +34,7 @@ function getIndexHtmlTemplate() {
 // 목록이 App.tsx의 정적 /viec-lam/* 라우트와 어긋나면 그 라우트가 여기서
 // (잘못된) job id 취급을 받게 되므로, 새 정적 /viec-lam/* 라우트를 추가할
 // 때는 반드시 같이 갱신해야 한다.
-const STATIC_VIEC_LAM_SLUGS = new Set(['da-luu', 'da-xem', 'phu-hop', 'goi-y', 'tuyen-gap', 'tim-kiem'])
+const STATIC_VIEC_LAM_SLUGS = new Set(['da-luu', 'da-xem', 'phu-hop', 'goi-y', 'tuyen-gap', 'khu-vuc', 'tim-kiem'])
 
 // JSON.stringify 결과를 <script> 안에 안전하게 박기 위한 이스케이프 —
 // "</script"가 그대로 들어가면 태그가 조기 종료되고, U+2028/U+2029는 JSON
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
   const search = parsedUrl.search
 
   const jobDetailMatch = pathname.match(/^\/viec-lam\/([^/]+)$/)
-  const isUrgentList = pathname === '/viec-lam/tuyen-gap'
+  const isUrgentList = pathname === '/viec-lam/khu-vuc'
   const isSearch = pathname === '/viec-lam/tim-kiem'
   const isJobDetail = !isUrgentList && !isSearch && jobDetailMatch && !STATIC_VIEC_LAM_SLUGS.has(jobDetailMatch[1])
 
@@ -198,7 +198,7 @@ export default async function handler(req, res) {
     // hydration 후 값이 어긋나지 않는다.
     if (isRepresentative) representativeCopy = buildRepresentativePageCopy(normalizedQuery, resultCount)
   } else if (isUrgentList) {
-    canonicalUrl = `${SITE_ORIGIN}/viec-lam/tuyen-gap`
+    canonicalUrl = `${SITE_ORIGIN}/viec-lam/khu-vuc`
   } else {
     canonicalUrl = `${SITE_ORIGIN}${pathname}`
   }

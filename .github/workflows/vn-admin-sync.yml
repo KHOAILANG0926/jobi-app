@@ -1,0 +1,31 @@
+name: 행정구역 자료 판 일치(앱·수집기)
+
+# Lee 2026-11-03 "명확한 기준": 앱 자료(src/data/vn*.ts)와 수집기(crawler/requirements.txt)가 같은 판의
+# 공식 행정구역 자료를 쓰는지, 같은 시험 문항(test-fixtures/vn-admin-cases.json)으로 수집기 판정을 검사한다.
+# 앱 쪽 같은 문항 검사는 npm test(src/lib/vnAdminCases.test.ts, vnAdminVersion.test.ts).
+on:
+  pull_request:
+    paths:
+      - 'src/data/vn*.ts'
+      - 'scripts/data/**'
+      - 'crawler/requirements.txt'
+      - 'crawler/vn_provinces_lookup.py'
+      - 'crawler/test_vn_admin_cases.py'
+      - 'test-fixtures/vn-admin-cases.json'
+      - '.github/workflows/vn-admin-sync.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  crawler-same-cases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 수집기와 같은 판의 행정구역 패키지만 설치
+        run: pip install "$(grep '^vietnam-provinces==' crawler/requirements.txt)"
+      - run: python crawler/test_vn_admin_cases.py

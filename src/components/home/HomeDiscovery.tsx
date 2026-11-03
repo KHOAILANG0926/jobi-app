@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Briefcase, ChevronLeft, ChevronRight, Flame, LocateFixed, MapPin, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
+import { Briefcase, ChevronLeft, ChevronRight, LocateFixed, MapPin, MapPinned, Menu, Search, SlidersHorizontal, Timer, X } from 'lucide-react'
 import { cardSalary, mainCardJobs, PAY_LABELS } from '../../lib/mainJobCards'
 import { groupDiscoveryJobs } from '../../lib/homeDiscovery'
 import { shortArea } from '../../lib/shortArea'
@@ -51,7 +51,7 @@ function ThreeJobCarousel({ jobs }: { jobs: Job[] }) {
 }
 
 const MENU_GROUPS = [
-  { title: 'Tìm việc', links: [['Tất cả việc làm', '/'], ['Tìm kiếm', '/viec-lam/tim-kiem'], ['Bản đồ', '/ban-do'], ['Tuyển gấp', '/viec-lam/tuyen-gap'], ['Thương hiệu', '/franchise-jobs'], ['Việc làm tại Hàn Quốc', '/viec-han-quoc']] },
+  { title: 'Tìm việc', links: [['Tất cả việc làm', '/'], ['Tìm kiếm', '/viec-lam/tim-kiem'], ['Bản đồ', '/ban-do'], ['Theo khu vực', '/viec-lam/khu-vuc'], ['Thương hiệu', '/franchise-jobs'], ['Việc làm tại Hàn Quốc', '/viec-han-quoc']] },
   { title: 'Việc của tôi', links: [['Đã lưu', '/viec-lam/da-luu'], ['Đã xem', '/viec-lam/da-xem'], ['Hồ sơ · Tin nhắn', '/ho-so'], ['Công cụ', '/cong-cu']] },
   { title: 'Khám phá', links: [['Cộng đồng', '/cong-dong'], ['Đăng tuyển', '/dang-tin'], ['Đăng nhập', '/dang-nhap']] },
 ]
@@ -93,7 +93,7 @@ export function HomeDiscovery({ state, beforeJobs }: { state: HomeDiscoveryState
         <button type="button" onClick={state.showMap}><MapPin /><span>Gần tôi</span></button>
         <button type="button" onClick={() => state.openFilters(2)}><Briefcase /><span>Ngành nghề</span></button>
         <NavLink to={'/?duration=' + encodeURIComponent('Một ngày') + '#home-job-filters'}><Timer /><span>Ngắn hạn</span></NavLink>
-        <NavLink to="/viec-lam/tuyen-gap"><Flame /><span>Tuyển gấp</span></NavLink>
+        <NavLink to="/viec-lam/khu-vuc"><MapPinned /><span>Khu vực</span></NavLink>
         <NavLink to="/viec-han-quoc"><span className="home-shortcuts__flag" aria-hidden>🇰🇷</span><span>Hàn Quốc</span></NavLink>
       </nav>
       <div className="home-filter-rail" aria-label="Bộ lọc việc làm">

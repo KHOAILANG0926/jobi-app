@@ -2,10 +2,13 @@
   "git": {
     "deploymentEnabled": false
   },
+  "redirects": [
+    { "source": "/viec-lam/tuyen-gap", "destination": "/viec-lam/khu-vuc", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/api/admin/reprocess-jobs", "destination": "/api/admin?action=reprocess-jobs" },
     {
-      "source": "/viec-lam/tuyen-gap",
+      "source": "/viec-lam/khu-vuc",
       "destination": "/api/ssr"
     },
     {
@@ -13,7 +16,7 @@
       "destination": "/api/ssr"
     },
     {
-      "source": "/viec-lam/:id((?!da-luu$|da-xem$|phu-hop$|goi-y$|tuyen-gap$|tim-kiem$).+)",
+      "source": "/viec-lam/:id((?!da-luu$|da-xem$|phu-hop$|goi-y$|tuyen-gap$|khu-vuc$|tim-kiem$).+)",
       "destination": "/api/ssr"
     },
     {

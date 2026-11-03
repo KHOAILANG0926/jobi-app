@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
-import JobApplyButton from '../../components/JobApplyButton'
+import JobCard from '../../components/JobCard'
 import ApplyModal from '../../components/ApplyModal'
 import { useApply } from '../../components/useApply'
 import { useAuth } from '../../context/AuthContext'
@@ -13,6 +13,7 @@ import { SUBCATEGORY_LABELS } from '../../data/subcategories'
 import { VN_DISTRICTS_BY_PROVINCE, VN_WARDS_BY_DISTRICT } from '../../data/vnDistricts'
 import { VN_PROVINCES } from '../../data/vnProvinces'
 import { VN_WARDS_BY_PROVINCE } from '../../data/vnWards'
+import { resolveJobArea, setOldWardData } from '../../lib/jobAreaWards'
 import { loadApplications } from '../../lib/applicationsStorage'
 import { normalizeViText } from '../../lib/jobCoords'
 import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
@@ -28,18 +29,13 @@ import {
   type TimeBucket,
 } from '../../lib/workScheduleParse'
 import type { Job, JobCategory } from '../../types/job'
-import SalaryText from '../../components/SalaryText'
+
+const ProvinceMap = lazy(() => import('../../components/region/ProvinceMap'))
 
 type SortMode = 'newest' | 'deadline'
 type PanelKey = 'region' | 'category' | 'workPeriod' | 'detail' | null
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const
-
-function formatShortDate(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
 
 // "Tỉnh "/"Thành phố " 접두어는 정식 명칭의 일부지만 목록에 매번 반복되면
 // 지저분해서, 화면 표시에서만 뺀다(매칭/저장에 쓰는 실제 값은 그대로 유지).
@@ -134,8 +130,9 @@ function FilterDropdown({
         className={`jm-filter-dropdown__btn${isOpen ? ' is-open' : ''}${count > 0 ? ' has-value' : ''}`}
         onClick={onToggle}
       >
-        {label}{count > 0 ? ` (${count})` : ''}
-        <span className="jm-filter-dropdown__caret" aria-hidden>▾</span>
+        {label}
+        {count > 0 && <span className="jm-filter-dropdown__count">{count}</span>}
+        <span className="jm-filter-dropdown__caret" aria-hidden>{isOpen ? '▲' : '▼'}</span>
       </button>
       {isOpen && panelSlot && createPortal(
         <div className="jm-filter-dropdown__panel">{children}</div>,
@@ -476,9 +473,45 @@ export default function UrgentJobsPage() {
   // 제외한다(SavedJobsPage의 "모집 중/마감" 판정과 동일 기준 — 마감일이 없으면
   // 상시 모집으로 보고 포함).
   const todayStr = new Date().toISOString().slice(0, 10)
-  const urgentJobs = useMemo(
-    () => jobs.filter((j) => j.urgent && (!j.applicationDeadline || j.applicationDeadline >= todayStr)),
+  // 2026-11-03 Lee "급구가 아니라 지역별로 바꾸는 게 맞아" — 급구 공고만이 아니라
+  // 모집 중인 모든 공개 공고를 지역으로 고르는 페이지(알바몬 "지역별 알바정보").
+  const openJobs = useMemo(
+    () => jobs.filter((j) => !j.applicationDeadline || j.applicationDeadline >= todayStr),
     [jobs, todayStr],
+  )
+  // 옛 동 → 지금 동 공식 대응표(약 0.9MB)는 이 페이지에서만 따로 불러온다. 오기 전에는 옛 군/구 기준
+  // 후보로 판정하고, 도착하면 다시 판정한다.
+  const [oldWardsReady, setOldWardsReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    import('../../data/vnOldWards').then((m) => { setOldWardData(m.VN_OLD_WARDS_BY_PROVINCE); if (alive) setOldWardsReady(true) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const jobAreas = useMemo(() => new Map(openJobs.map((j) => [j.id, resolveJobArea(j)])), [openJobs, oldWardsReady])
+  const provinceCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const a of jobAreas.values()) for (const p of a.provinces) m.set(p, (m.get(p) ?? 0) + 1)
+    return m
+  }, [jobAreas])
+  // 지도 동 표시: 동 하나로 확정된 공고만, 그 공고 핀(근무지 좌표, 없으면 공고 좌표)의 평균 위치.
+  const wardPoints = useMemo(() => {
+    if (!selectedProvince) return []
+    const acc = new Map<string, { lat: number; lng: number; n: number }>()
+    for (const j of openJobs) {
+      const a = jobAreas.get(j.id)
+      if (!a || a.wards.length !== 1 || !a.provinces.includes(selectedProvince)) continue
+      const loc = (j.workLocations ?? []).find((l) => Number.isFinite(l.lat) && Number.isFinite(l.lng))
+      const lat = loc?.lat ?? j.lat, lng = loc?.lng ?? j.lng
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+      const c = acc.get(a.wards[0]) ?? { lat: 0, lng: 0, n: 0 }
+      acc.set(a.wards[0], { lat: c.lat + lat!, lng: c.lng + lng!, n: c.n + 1 })
+    }
+    return [...acc].map(([ward, c]) => ({ ward, lat: c.lat / c.n, lng: c.lng / c.n, count: c.n }))
+  }, [openJobs, jobAreas, selectedProvince])
+  const rankedProvinces = useMemo(
+    () => VN_PROVINCES.map((p) => [p, provinceCounts.get(p) ?? 0] as const).sort((a, b) => b[1] - a[1]),
+    [provinceCounts],
   )
 
   // work_period는 크롤러 자유텍스트(닫힌 enum 아님)라 job_duration과 달리
@@ -486,9 +519,9 @@ export default function UrgentJobsPage() {
   // 사용자 지시로 고정 목록 시도 후 되돌림).
   const workPeriodOptions = useMemo(() => {
     const set = new Set<string>()
-    for (const j of urgentJobs) if (j.workPeriod) set.add(j.workPeriod)
+    for (const j of openJobs) if (j.workPeriod) set.add(j.workPeriod)
     return [...set].sort()
-  }, [urgentJobs])
+  }, [openJobs])
 
   // 성/시(1단계)뿐 아니라 동/사(2단계)도 공고 존재 여부와 무관하게 항상
   // 전체를 보여준다(2026-09-17 사용자 지시 — "2차 지역은 왜 다 안보여?").
@@ -575,13 +608,16 @@ export default function UrgentJobsPage() {
   )
 
   const filtered = useMemo(() => {
-    let list = urgentJobs
+    let list = openJobs
+    // 2026-11-03 Lee "급구 페이지는 자동으로 연결하는 게 맞다" — DB에 따로 채워야
+    // 하던 resolved_* 칸 대신 공고 주소로 바로 판정(lib/jobAreaWards.ts, 메인·검색과 같은 기준).
     if (selectedProvince) {
-      list = list.filter((j) => (j.workLocations ?? []).some((loc) => {
-        if (loc.resolvedProvince !== selectedProvince) return false
+      list = list.filter((j) => {
+        const area = jobAreas.get(j.id)
+        if (!area || !area.provinces.includes(selectedProvince)) return false
         if (selectedWards.size === 0) return true
-        return (loc.resolvedWards ?? []).some((w) => selectedWards.has(w))
-      }))
+        return area.wards.some((w) => selectedWards.has(w))
+      })
     }
     if (categoryIds.size > 0) list = list.filter((j) => categoryIds.has(j.category))
     if (selectedSubcategoryKeys.size > 0) {
@@ -628,7 +664,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [urgentJobs, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [openJobs, jobAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -673,11 +709,42 @@ export default function UrgentJobsPage() {
   return (
     <div className="page jobs-menu-page jm-urgent-page">
       <header className="page-header">
-        <h1 className="page-header__title">🔥 Tuyển gấp</h1>
+        <h1 className="page-header__title">Việc làm theo khu vực</h1>
         <p className="page-header__lead">
-          Các công việc nhà tuyển dụng đánh dấu cần tuyển gấp — chọn điều kiện để lọc theo nhu cầu của bạn.
+          Chọn tỉnh/thành phố, quận/huyện, xã/phường để xem việc làm theo khu vực.
         </p>
       </header>
+
+      {/* 2026-11-03 Lee "A 데모 간단하게" — 지도로 고르기: 왼쪽 베트남 지도(성마다 공고 수),
+          오른쪽 34개 성 목록(공고 많은 순, 없는 곳도 빼지 않음 — "지금 없다고 안 만들면 안 돼"). */}
+      <section className="jm-region-hero">
+        <Suspense fallback={<div className="pmap pmap--loading">Đang tải bản đồ…</div>}>
+          <ProvinceMap counts={provinceCounts} selected={selectedProvince} onSelect={selectProvince}
+            wardPoints={wardPoints} selectedWards={selectedWards} onWardSelect={(w) => { setSelectedDistrict(null); toggleWard(w) }} />
+        </Suspense>
+        <div className="jm-region-rank">
+          <p className="jm-region-rank__total">
+            {selectedProvince
+              ? <><b>{shortProvinceName(selectedProvince)}</b> · {provinceCounts.get(selectedProvince) ?? 0} việc làm</>
+              : <>Toàn quốc · <b>{openJobs.length}</b> việc làm</>}
+          </p>
+          <ul className="jm-region-rank__list">
+            <li>
+              <button type="button" className={`jm-region-rank__row${selectedProvince === null ? ' is-selected' : ''}`} onClick={() => selectProvince(null)}>
+                <span>Toàn quốc</span><b>{openJobs.length}</b>
+              </button>
+            </li>
+            {rankedProvinces.map(([p, n]) => (
+              <li key={p}>
+                <button type="button" className={`jm-region-rank__row${selectedProvince === p ? ' is-selected' : ''}${n === 0 ? ' is-empty' : ''}`}
+                  onClick={() => selectProvince(selectedProvince === p ? null : p)}>
+                  <span>{shortProvinceName(p)}</span><b>{n > 0 ? n : 'Sắp có'}</b>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <div className="jm-urgent-filters">
         <FilterDropdown
@@ -688,11 +755,12 @@ export default function UrgentJobsPage() {
           onClose={closePanel}
           panelSlot={panelSlot}
         >
+          <div className="jm-panel-top">
           <div className="jm-search-input-wrap jm-search-input-wrap--khu-vuc">
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder=""
+              placeholder="Tìm khu vực, vd: Bắc Ninh, Từ Sơn"
               value={regionSearch}
               onChange={(e) => setRegionSearch(e.target.value)}
             />
@@ -700,6 +768,8 @@ export default function UrgentJobsPage() {
               <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.6" />
               <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+          </div>
+          <span className="jm-panel-top__count">Đã chọn <b>{(selectedProvince ? 1 : 0) + selectedWards.size}</b></span>
           </div>
           {regionSearch.trim() ? (
             <ul className="jm-region-col__list jm-region-search-results">
@@ -731,7 +801,7 @@ export default function UrgentJobsPage() {
                         className={`jm-region-row${selectedProvince === p ? ' is-selected' : ''}`}
                         onClick={() => selectProvince(selectedProvince === p ? null : p)}
                       >
-                        {shortProvinceName(p)}
+                        {shortProvinceName(p)}{selectedProvince === p && <span className="jm-region-row__check" aria-hidden>✓</span>}
                       </button>
                     </li>
                   ))}
@@ -739,10 +809,17 @@ export default function UrgentJobsPage() {
               </div>
               <div className="jm-region-col jm-region-col--quan">
                 <p className="jm-region-col__head">Quận / Huyện</p>
-                {!selectedProvince ? (
-                  <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
-                ) : (
+                {!selectedProvince ? null : (
                   <ul className="jm-region-col__list">
+                    <li>
+                      <button
+                        type="button"
+                        className={`jm-region-row${selectedWards.size === 0 && !selectedDistrict ? ' is-selected' : ''}`}
+                        onClick={() => selectProvince(selectedProvince)}
+                      >
+                        {shortProvinceName(selectedProvince)} tất cả{selectedWards.size === 0 && !selectedDistrict && <span className="jm-region-row__check" aria-hidden>✓</span>}
+                      </button>
+                    </li>
                     {districtOptions.map((d) => (
                       <li key={d}>
                         <button
@@ -750,7 +827,7 @@ export default function UrgentJobsPage() {
                           className={`jm-region-row${selectedDistrict === d ? ' is-selected' : ''}`}
                           onClick={() => selectDistrict(d)}
                         >
-                          {d}
+                          {d}{selectedDistrict === d && <span className="jm-region-row__check" aria-hidden>✓</span>}
                         </button>
                       </li>
                     ))}
@@ -759,12 +836,8 @@ export default function UrgentJobsPage() {
               </div>
               <div className="jm-region-col jm-region-col--wide">
                 <p className="jm-region-col__head">Xã / Phường</p>
-                {!selectedProvince ? (
-                  <p className="hint jm-region-col__hint">Chọn tỉnh/thành phố trước.</p>
-                ) : !selectedDistrict ? (
-                  <p className="hint jm-region-col__hint">Chọn quận/huyện trước.</p>
-                ) : districtWardOptions.length === 0 ? (
-                  <p className="hint jm-region-col__hint">Các tin tuyển gấp ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
+                {!selectedProvince || !selectedDistrict ? null : districtWardOptions.length === 0 ? (
+                  <p className="hint jm-region-col__hint">Các tin ở {shortProvinceName(selectedProvince)} chưa xác định được xã/phường cụ thể.</p>
                 ) : (
                   <ul className="jm-region-col__list">
                     <li>
@@ -783,7 +856,7 @@ export default function UrgentJobsPage() {
                           className={`jm-region-row${selectedWards.has(w) ? ' is-selected' : ''}`}
                           onClick={() => toggleWard(w)}
                         >
-                          {w}
+                          {w}{selectedWards.has(w) && <span className="jm-region-row__check" aria-hidden>✓</span>}
                         </button>
                       </li>
                     ))}
@@ -792,7 +865,20 @@ export default function UrgentJobsPage() {
               </div>
             </div>
           )}
-          <div className="jm-filter-dropdown__footer">
+          <div className="jm-panel-bottom">
+          {selectedProvince ? (
+            <div className="jm-region-picked" aria-label="Khu vực đã chọn">
+              {selectedWards.size === 0 ? (
+                <button type="button" className="jm-region-picked__chip" onClick={() => selectProvince(null)}>
+                  Tất cả {shortProvinceName(selectedProvince)} <span aria-hidden>×</span>
+                </button>
+              ) : [...selectedWards].map((w) => (
+                <button key={w} type="button" className="jm-region-picked__chip" onClick={() => toggleWard(w)}>
+                  {w} <span aria-hidden>×</span>
+                </button>
+              ))}
+            </div>
+          ) : <span />}
             <button type="button" className="jm-filter-dropdown__reset" onClick={() => { selectProvince(null); setRegionSearch('') }}>
               ↻ Đặt lại
             </button>
@@ -807,11 +893,12 @@ export default function UrgentJobsPage() {
           onClose={closePanel}
           panelSlot={panelSlot}
         >
+          <div className="jm-panel-top">
           <div className="jm-search-input-wrap jm-search-input-wrap--nganh-nghe">
             <input
               type="text"
               className="jm-filter-dropdown__search"
-              placeholder=""
+              placeholder="Tìm ngành nghề, vd: phục vụ, bán hàng"
               value={categorySearch}
               onChange={(e) => setCategorySearch(e.target.value)}
             />
@@ -819,6 +906,8 @@ export default function UrgentJobsPage() {
               <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.6" />
               <path d="M14 14L18 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+          </div>
+          <span className="jm-panel-top__count">Đã chọn <b>{categoryIds.size + selectedSubcategoryKeys.size}</b></span>
           </div>
           <div className="jm-region-columns jm-region-columns--category">
             <div className="jm-region-col jm-region-col--narrow">
@@ -1130,7 +1219,7 @@ export default function UrgentJobsPage() {
             <p className="jm-filter-row__label">Loại hình công việc</p>
             <div className="jm-filter-row__body">
               {workPeriodOptions.length === 0 ? (
-                <p className="hint">Chưa có dữ liệu loại hình công việc cho tin tuyển gấp hiện tại.</p>
+                <p className="hint">Chưa có dữ liệu loại hình công việc cho tin hiện tại.</p>
               ) : (
                 <div className="jm-filter-dropdown__chips">
                   {workPeriodOptions.map((p) => (
@@ -1224,7 +1313,7 @@ export default function UrgentJobsPage() {
 
       <div className="jm-urgent-toolbar">
         <p className="jm-result-count">
-          Tổng {sorted.length} việc làm tuyển gấp
+          Tổng {sorted.length} việc làm
           {activeFilterCount > 0 && (
             <button type="button" className="jm-clear-filters" onClick={clearAllFilters}>Xóa hết bộ lọc</button>
           )}
@@ -1257,56 +1346,17 @@ export default function UrgentJobsPage() {
       ) : visible.length === 0 ? (
         <div className="city-result__empty">
           <span>🔍</span>
-          <p>Chưa có việc làm tuyển gấp phù hợp với điều kiện đã chọn.</p>
+          <p>Chưa có việc làm phù hợp với điều kiện đã chọn.</p>
           <NavLink to="/">← Xem tất cả việc làm</NavLink>
         </div>
       ) : (
-        <div className="admin-table-wrap jm-urgent-table-wrap">
-          <table className="admin-table jm-urgent-table">
-            <thead>
-              <tr>
-                <th aria-label="Lưu tin" />
-                <th>Khu vực</th>
-                <th>Tin tuyển dụng</th>
-                <th>Lương</th>
-                <th>Thời gian làm việc</th>
-                <th>Ngày đăng</th>
-                <th aria-label="Thao tác" />
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((job) => (
-                <tr key={job.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className="jm-urgent-table__save"
-                      aria-label={savedIds.has(job.id) ? 'Bỏ lưu tin' : 'Lưu tin'}
-                      onClick={() => handleToggleSave(job)}
-                    >
-                      {savedIds.has(job.id) ? '★' : '☆'}
-                    </button>
-                  </td>
-                  <td className="jm-urgent-table__region">{job.location}</td>
-                  <td>
-                    <span className="jm-urgent-table__badge">Khẩn cấp</span>
-                    <NavLink to={`/viec-lam/${job.id}`} className="jm-urgent-table__title">
-                      {job.title}
-                    </NavLink>
-                    <p className="jm-urgent-table__company">{job.company}</p>
-                  </td>
-                  <td className="jm-urgent-table__salary"><SalaryText job={job} /></td>
-                  <td>{job.hours || '—'}</td>
-                  <td>
-                    {formatShortDate(job.postedAt)}
-                  </td>
-                  <td>
-                    <JobApplyButton job={job} applied={isApplied(job.id)} onInternalApply={handleApply} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        // 2026-11-03 Lee "우리 메인에 올라온 공고 그대로 쓰면 되잖아" — 표 대신 메인과 같은 승인된 공고 카드.
+        <div className="home-jobs-grid">
+          {visible.map((job) => (
+            <NavLink key={job.id} className="home-card-wrap" to={`/viec-lam/${job.id}`}>
+              <JobCard job={job} isApplied={isApplied(job.id)} onApply={handleApply} isSaved={savedIds.has(job.id)} onToggleSave={handleToggleSave} />
+            </NavLink>
+          ))}
         </div>
       )}
 
