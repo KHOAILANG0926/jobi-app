@@ -49,8 +49,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!file) fail('사용: ingest-sql.mjs <file.json> [storage_path]')
   let payload
   try { payload = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { fail(`JSON 읽기 실패: ${e.message}`) }
-  // 로고 확인(Lee 2026-11-03): 로고가 없으면 검색 결과를 파일에 적어야 등록된다.
-  const logoProblems = logoCheckProblems(payload)
-  if (logoProblems.length) fail(logoProblems.join(' / '))
+  // 로고 확인(Lee 2026-11-03): 등록은 멈추지 않는다 — 기록이 빠졌으면 경고만(로고 없으면 업종 사진).
+  for (const w of logoCheckProblems(payload)) console.error(`::warning::${w}`)
   try { process.stdout.write(buildSql(withoutLogoCheck(payload), storagePath || undefined)) } catch (e) { fail(e.message) }
 }

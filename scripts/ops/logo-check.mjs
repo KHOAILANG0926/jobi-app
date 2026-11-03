@@ -1,5 +1,6 @@
 // 공고 등록 전 로고 확인 — Lee 2026-11-03 "로고 없으면 검색으로 가자는 프로세스를 만들어".
-// 공고 내용 파일(scripts/ops/jobs/<name>.json)에 logo_check를 반드시 적는다. 없거나 형식이 틀리면 등록(ops-insert-job)이 멈춘다.
+// 2026-11-03 Lee 정정 "멈추는 이유가 뭐야? 해결을 해야지": 등록은 절대 멈추지 않는다. 로고가 없으면 검색해서 찾고,
+// 못 찾으면 업종에 맞는 사진(cardPhoto.ts)으로 채운다. 이 검사는 logo_check 기록이 빠졌거나 틀리면 경고만 낸다.
 //   result:
 //     "poster"         공고 포스터(images)가 있음 → 검색 불필요
 //     "brand"          회사 이름 검색 → 등록 브랜드(job_brands, domain 있음)로 로고가 붙음. brand = 브랜드 slug
@@ -18,7 +19,7 @@ export function brandsWithLogo(dir = 'supabase/migrations') {
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
     const sql = readFileSync(join(dir, f), 'utf8')
     // insert … values ('이름', 'slug', 'category', 'domain', …) 와 update … values ('slug', 'domain') 두 꼴만 읽는다.
-    for (const m of sql.matchAll(/\(\s*'[^']*'\s*,\s*'([a-z0-9-]+)'\s*,\s*'(?:fastfood|cafe|bakery|convenience|delivery|restaurant)'\s*,\s*'([a-z0-9.-]+\.[a-z]{2,})'/g)) slugs.add(m[1])
+    for (const m of sql.matchAll(/\(\s*'[^']*'\s*,\s*'([a-z0-9-]+)'\s*,\s*'(?:fastfood|restaurant|cafe|bakery|convenience|retail|delivery)'\s*,\s*'([a-z0-9.-]+\.[a-z]{2,})'/g)) slugs.add(m[1])
     if (/update\s+public\.job_brands\s+set\s+domain/i.test(sql)) {
       for (const m of sql.matchAll(/\(\s*'([a-z0-9-]+)'\s*,\s*'([a-z0-9.-]+\.[a-z]{2,})'\s*\)/g)) slugs.add(m[1])
     }

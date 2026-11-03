@@ -6,7 +6,7 @@ const brands = brandsWithLogo()
 assert.ok(brands.has('highlands-coffee') && brands.has('wallace'), '실제 migration의 로고 브랜드를 읽음')
 assert.ok(!brands.has('no-such-brand'))
 const base = { source_text: 'x', images: [] }
-assert.match(logoCheckProblems(base, brands)[0], /logo_check 없음/)
+assert.match(logoCheckProblems(base, brands)[0], /logo_check 없음/) // 경고 문구(등록은 멈추지 않음 — ingest-sql이 warning으로만 출력)
 assert.deepEqual(logoCheckProblems({ ...base, logo_check: { result: 'brand', brand: 'wallace' } }, brands), [])
 assert.match(logoCheckProblems({ ...base, logo_check: { result: 'brand', brand: 'joythai' } }, brands)[0], /등록돼 있지 않음/)
 assert.match(logoCheckProblems({ ...base, logo_check: { result: 'poster' } }, brands)[0], /포스터/)
