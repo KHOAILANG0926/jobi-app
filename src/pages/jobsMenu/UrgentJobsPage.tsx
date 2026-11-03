@@ -1319,7 +1319,7 @@ export default function UrgentJobsPage() {
                   </td>
                   <td className="jm-urgent-table__region">{job.location}</td>
                   <td>
-                    <span className="jm-urgent-table__badge">Khẩn cấp</span>
+                    {job.urgent && <span className="jm-urgent-table__badge">Khẩn cấp</span>}
                     <NavLink to={`/viec-lam/${job.id}`} className="jm-urgent-table__title">
                       {job.title}
                     </NavLink>
