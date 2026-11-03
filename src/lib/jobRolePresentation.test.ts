@@ -1,6 +1,6 @@
 import { buildDescriptionFromSources, cleanSourceText } from './jobDescriptionBuild.ts'
 import { detailSections } from './jobDetailSections.ts'
-import { descriptionRoleGroups, roleScopedMeals, roleConditionSummary } from './jobRolePresentation.ts'
+import { descriptionRoleGroups, roleScopedMeals, roleConditionSummary, roleSalaryLines, isRoleHeading } from './jobRolePresentation.ts'
 import { BOMUNTTL_SOURCE, BOMUNTTL_CONTEXT } from './jobMultiRole.fixtures.ts'
 function assert(ok: unknown, msg: string): asserts ok { if (!ok) throw new Error(msg) }
 const merged = cleanSourceText('Mức lương: 30k-35k/ 1h\n+ thưởng + tip').text
@@ -50,3 +50,19 @@ if (!_isRole('1. FULL-TIME CA TỐI: 02 NHÂN VIÊN') || !_isRole('CÔ RỬA BÁ
   if (got !== JSON.stringify(['Full-time ca tối: 34K – 36K – 38K/giờ', 'Part-time ca tối: 25K – 27K/giờ'])) throw new Error('#5247 card lines ' + got)
 }
 console.log('jobRolePresentation #5247 numbered role headings passed')
+
+// 2026-11-03 #5342 Joy Thái 같은 꼴(공고 번호 전용 아님): "CÁC VỊ TRÍ" 아래 대문자 직무 제목 + 금액만 있는 급여 줄.
+{
+  const JOY = ['THU NHẬP HẤP DẪN', '• Part-time: 25.000 – 31.000đ/giờ', 'CÁC VỊ TRÍ ĐANG TUYỂN', 'NHÂN VIÊN PHỤC VỤ',
+    '• Full-time: 8.974.000 – 10.490.000đ/tháng', 'NHÂN VIÊN PHA CHẾ', '• Full-time: 8.500.000 – 10.000.000đ/tháng',
+    'NHÂN VIÊN BẾP / PHỤ BẾP', '• Bếp phụ: 8.000.000 – 11.200.000đ/tháng', 'GIA NHẬP JOY THÁI, BẠN NHẬN ĐƯỢC GÌ?',
+    'Hỗ trợ ăn ca 2 bữa/ngày', 'HR. Hải – 0366.268.503'].join('\n')
+  const d = buildDescriptionFromSources([{ name: 'source_text', text: JOY }], { title: 'Tuyển phục vụ', company: 'JOY THÁI', phones: ['0366268503'] }).description
+  const lines = roleSalaryLines(d)
+  assert(lines.length === 3 && lines[0] === 'Phục vụ: Full-time: 8.974.000 – 10.490.000đ/tháng', 'caps role headings + amount-only salary lines read: ' + lines.join(' / '))
+  assert(!d.split('\n').some((l) => l.startsWith('NHÂN VIÊN BẾP / PHỤ BẾP — Hỗ trợ ăn ca')), 'benefits after another caps heading are not the last role\'s')
+  const s = roleConditionSummary(d)
+  assert(s?.roleCount === 3 && s.hours === undefined && s.workPeriod === undefined && s.workDays === undefined, 'no invented hours/work type/days when roles do not state them')
+  assert(!isRoleHeading('TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH') && !isRoleHeading('Nhân viên phục vụ'), 'title line and normal-case text are not role headings')
+  console.log('jobRolePresentation: caps role headings (Joy Thái form) pass')
+}

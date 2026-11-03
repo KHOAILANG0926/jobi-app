@@ -14,7 +14,7 @@
 import { bare, fold, type DetailTextKey, type ShownAbove } from './jobDetailSections.ts'
 import { lineKey } from './aiClassifyGuard.ts'
 import { classifySource, isCovered, FILL_HEADINGS, type FillContext, type FillLine, type FillSource } from './jobDetailFill.ts'
-import { isRoleHeading } from './jobRolePresentation.ts'
+import { isOtherCapsHeading, isRoleHeading } from './jobRolePresentation.ts'
 
 const ORDER: DetailTextKey[] = ['01', '02', '03', '04', '05', '06', '07']
 
@@ -124,6 +124,7 @@ function roleBlocks(text: string): Array<{ role?: string; text: string }> {
   for (const line of rows) {
     if (isRole(line)) role = line
     else if (/^(?:quyen loi|phuc loi|lien he|dia chi|yeu cau|mo ta cong viec)\s*:?$/i.test(bare(line))) role = undefined
+    else if (isOtherCapsHeading(line)) role = undefined
     const last = blocks[blocks.length - 1]
     if (last && last.role === role) last.text += '\n' + line
     else blocks.push({ role, text: line })
