@@ -346,7 +346,7 @@ export function JobDetail() {
   // 최대 3줄(근무조건 한 칸 3줄 규칙), 넘치면 마지막 줄에 +N. 위쪽 머리 카드(승인된 틀)는 그대로 "Theo từng vị trí".
   const roleSalary = roleSummary ? roleSalaryLines(job.description) : []
   // 2026-11-04 Lee 승인 글 모형: 최신 틀은 직무 | 금액 두 칸(Full-time 글자 없음, 파트타임 공통 시급 한 줄, triệu 표기). 상여·수당 줄은 상세요강에.
-  const salaryRows = roleSummary && albamonLayout ? roleSalaryRows(job.description) : []
+  const salaryRows = roleSummary && usesAlbamonLayout(job.id) ? roleSalaryRows(job.description) : []
   const conditionSalaryLines = roleSalary.length > 3 ? [...roleSalary.slice(0, 2), `${roleSalary[2]} +${roleSalary.length - 3}`] : roleSalary
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
