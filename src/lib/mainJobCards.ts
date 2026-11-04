@@ -34,7 +34,8 @@ export function cardSalary(job: Pick<Job, 'salary' | 'salaryPeriod'> & Partial<P
   // 2026-11-01 #5231: "25.000 VNĐ/giờ"의 VNĐ도 돈 단위(전에는 vnd만 알아봐 메인 목록에서 빠짐).
   const amount = /(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vn[dđ](?!\p{L})|đ|usd\b)|\$\s*\d)/iu
   if (!amount.test(text)) return null
-  const clauses = text.split(/\s*[,;|\n]\s*/).filter(clause => amount.test(clause)
+  // 2026-11-04 #5422: "13.500.000 – 20.000.000đ/tháng + thưởng"은 기본급 + 상여 꼬리 → " + "에서도 나눠 기본급 칸을 살린다(전에는 한 칸에 thưởng이 섞여 통째로 빠짐).
+  const clauses = text.split(/\s*[,;|\n]\s*|\s+\+\s+/).filter(clause => amount.test(clause)
     && !/chuyên cần|chuyen can|phụ cấp|phu cap|thưởng|thuong/iu.test(clause))
   if (!clauses.length) return null
   for (const period of ['hour', 'day', 'month'] as const) {

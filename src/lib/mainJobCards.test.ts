@@ -25,6 +25,8 @@ assert.equal(cardSalary(job('bonus', 'Phụ cấp: 50.000 đồng/ngày')), null
 assert.equal(cardSalary(job('bonus', 'Lương thỏa thuận; Phụ cấp: 50.000 đồng/ngày')), null)
 assert.equal(cardSalary(job('month', '9 - 12 triệu', { salaryPeriod: 'month' }))?.label, 'Lương tháng')
 assert.equal(cardSalary(job('unspecified', '9 - 12 triệu'))?.label, 'Tiền công', 'do not invent a missing pay period')
+assert.equal(cardSalary(job('base+bonus', '13.500.000 – 20.000.000đ/tháng + thưởng', { salaryPeriod: 'month' }))?.text, '13.500.000 – 20.000.000đ/tháng', '#5422 base pay before + thưởng')
+assert.equal(cardSalary(job('bonus-only', 'Thưởng 2 triệu + phụ cấp 500k')), null, 'bonus clauses alone stay out')
 for (const salary of ['', 'Thỏa thuận', 'Lương hấp dẫn', 'Ca 11 giờ', 'Chuyên cần: 50.000 đồng/tuần']) {
   assert.equal(cardSalary(job('unknown', salary)), null, salary)
 }
