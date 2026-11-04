@@ -32,7 +32,7 @@ import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
+import { balanceConditionColumns, detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines, roleSalaryRows } from '../lib/jobRolePresentation'
 import { insuranceTags } from '../lib/jobQuyenLoi'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
@@ -559,6 +559,10 @@ export function JobDetail() {
   const recruitRows = recruitOrdered(recruitShown)
   const conditionShown = newLayout ? conditionFields.filter((f) => !['salary', 'allowance'].includes(f.key)) : conditionFields
   const conditionPcShown = newLayout ? [] : conditionPcFields
+  // 2026-11-04 Lee "왼쪽 자리 왜 비운거지?"(#5437 급여·시간 없음): 최신 틀에서 한쪽 칸이 비면 보이는 항목을 두 칸에 나눠 채운다(순서 그대로).
+  const conditionColumnFields: InfoField[][] = balanceConditionColumns(
+    conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
+    albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
   const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
@@ -677,9 +681,9 @@ export function JobDetail() {
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
               <div className="jd2-two-col-card__grid">
-                {conditionColumns.map((keys, i) => (
+                {conditionColumnFields.map((fields, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
-                    {keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
+                    {fields.map((f) => (
                       <div className={`jd2-two-col-card__row${CONDITION_PC_ONLY.has(f.key) ? ' jd2-pc-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
                     ))}
                   </dl>

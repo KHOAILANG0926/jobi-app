@@ -1,4 +1,4 @@
-import { detailSections, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
+import { balanceConditionColumns, detailSections, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b)
 const byKey = (r: ReturnType<typeof detailSections>) => Object.fromEntries(r.sections.map((s) => [s.key, s.lines]))
@@ -349,4 +349,12 @@ Chăm sóc khách hàng`
   for (const t of ['Ứng viên vui lòng gửi CV', 'Quét QR', 'Email:', 'Cách thức ứng tuyển:']) assert((r['06'] ?? []).some((l: string) => l.startsWith(t)), t + ' → 채용 절차')
   assert((r['03'] ?? []).includes('FULL-TIME | PART-TIME'), 'FULL-TIME | PART-TIME → 시간·형태')
   console.log('jobDetailSections: 2026-11-04 줄 규칙(Vị trí·Địa điểm·신청 방법·근무 형태) passed')
+}
+
+// 2026-11-04 Lee "왼쪽 자리 왜 비운거지?": 최신 틀 근무조건 한쪽 칸이 비면 나눠 채움, 예전 틀·둘 다 찬 경우는 그대로.
+{
+  assert(same(balanceConditionColumns([[], ['category', 'workPeriod']], true).map((c) => c.join(',')), ['category', 'workPeriod']), '빈 왼쪽 칸 채움')
+  assert(same(balanceConditionColumns([[], ['category', 'workPeriod']], false).map((c) => c.join(',')), ['', 'category,workPeriod']), '예전 틀은 그대로')
+  assert(same(balanceConditionColumns([['salary'], ['category']], true).map((c) => c.join(',')), ['salary', 'category']), '둘 다 차 있으면 그대로')
+  console.log('jobDetailSections: 근무조건 빈 칸 나눠 채우기 passed')
 }
