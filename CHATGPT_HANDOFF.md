@@ -4,11 +4,11 @@
 - [직접 확인] GitHub 연결 도구로 master 750ebcf에서 fix/card-photo-images-first 생성. 로컬 push 사용 금지.
 - 공통 대표 이미지 함수: 브랜드 로고 → companyLogoUrl(imageUrl) → jobImagePublicUrl(images[0]) → industryPhotoUrl. JobCard와 JobDetail의 상단/기업정보에서 사용. CSS·하단 Hình ảnh tuyển dụng·DB·#5438 좌표 변경 없음.
 - [직접 확인] 대표 이미지·companyLogo 단위 시험 통과, desktop baseline 8/8. 전체 시험은 84/109(의존성 누락/환경 제약), 상세 회귀도 의존성 누락. 로컬 build는 tsc: not found. PR의 필수 CI로 대체하도록 Lee가 명시 허용.
-- [직접 확인] 연결 도구 커밋 2b93993·PR #465 생성. 첫 CI는 src 시험의 node:fs 타입 부재(TS2307)로 실패, 파일 접근 검사를 Node용 화면 시험으로 이동해 수정. 최종 CI·봇 병합·운영 검증 대기. 이전 상세 기록은 WORK_LOG.md로 보존.
+- [직접 확인] 연결 도구 커밋 2b93993·PR #465 생성. 첫 CI는 src 시험의 node:fs 타입 부재(TS2307)로 실패, 파일 접근 검사를 Node용 화면 시험으로 이동해 수정. f55711a의 GitHub 타입·전체 시험·빌드는 통과(41930320351). 다만 KDA 390px/no-image 화면 비교에서 머리 높이 262.5→279 변경으로 실패(41930296693). 업종 기본 사진을 새로 표시해 발생한 줄바꿈이며 CSS 변경은 없음. 크기 변경 금지 조건과 충돌하여 PR #465를 Draft로 전환, 병합·배포 중단. 이전 상세 기록은 WORK_LOG.md로 보존.
 
 ## 2. 다음 할 일 3개
-1. 연결 도구로 변경 파일 커밋·양식 PR 생성 → 필수 검사 → 기존 봇 병합. 실패 시 원문 보고·수정, 강제 병합 금지.
-2. deploy-verify 결과 확인 후 #5437 DOOKKI·#5438 NEW TEAM ROBOTICS의 PC/모바일 카드·상세 상단·하단 사진·깨짐/잘림 확인. 브라우저 미확인 시 사실대로 보고.
+1. Lee 결정 필요: 상세 상단에 새 업종 기본 사진이 나타날 때 생기는 높이 변화 허용 여부. 금지 조건을 그대로 유지하므로 현재 Draft·미병합. 검사 기대값/금지 조건을 임의 완화하지 않는다.
+2. 위 충돌 해결·필수 검사·기존 봇 병합 이후 deploy-verify 결과 확인 후 #5437 DOOKKI·#5438 NEW TEAM ROBOTICS의 PC/모바일 카드·상세 상단·하단 사진·깨짐/잘림 확인. 브라우저 미확인 시 사실대로 보고.
 3. 상세 항목 정리안 및 알바몬 데모는 Lee 지시로 보류. FB 수집기 연결은 기존 미완료 사항이며 이번 범위 밖.
 
 ## 3. 필수 규칙
