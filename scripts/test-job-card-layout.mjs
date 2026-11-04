@@ -5,6 +5,10 @@ import { createServer } from 'vite'
 import { chromium } from 'playwright'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+// 하단 Hình ảnh tuyển dụng은 대표 사진 선택과 무관하게 전체 목록을 유지한다.
+const detailSource = readFileSync('src/pages/JobDetail.tsx', 'utf8')
+assert.ok(detailSource.includes('const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)'), 'lower gallery keeps its existing conversion of all stored images')
+assert.ok(detailSource.includes('<ImageGallery images={extraImages} title={job.title} />'), 'lower gallery still renders its independent full image list')
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 let browser
 try {

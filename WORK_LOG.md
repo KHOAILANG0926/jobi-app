@@ -2,7 +2,7 @@
 - 요청: Lee 명시 지시, fix/card-photo-images-first. 로컬 push 금지, GitHub 연결 도구로 커밋·PR·필수 검사·기존 봇 병합·운영 확인.
 - 변경: 공통 jobRepresentativeImageUrl(브랜드 → 허용 imageUrl → 공개 images[0] → 업종 사진), 카드·상세 상단/기업정보에 적용. 하단 사진·CSS·위치·DB 변경 없음. 지도 목록은 JobCard 사용, 브랜드 디렉터리/메뉴는 공고 대표 이미지가 아닌 브랜드 자체 아이콘으로 해당 없음. 관리자 입력/업로드 미리보기는 입력값 확인용으로 해당 없음.
 - 검증 [직접 확인]: 새 대표 사진 단위 시험 실패 확인 후 통과, companyLogo 기존 시험 통과, desktop baseline 8/8. 전체 단위 시험 84/109(의존성 누락·환경 제약으로 25개 실패), 상세 회귀 시험도 @supabase/supabase-js 누락으로 중단. 로컬 build: sh: 1: tsc: not found. 최종 tsc/build/전체 시험/화면 검사는 PR CI로 확인 예정. 카드 레이아웃 시험에 images[0] 및 차단된 imageUrl 대체 경우 추가.
-- 상태: 연결 도구 브랜치 생성·조회 성공. 커밋·PR·CI·병합·운영 화면 검증은 아직 미완료.
+- 상태: 연결 도구로 2b93993 커밋·PR #465 생성 성공. 첫 CI 타입 검사에서 node:fs 타입 선언 부재(TS2307) 확인. 브라우저용 src 시험에서 파일 접근을 빼고 기존 Node용 카드 레이아웃 시험으로 하단 사진 소스 검사를 이동. 필수 CI·병합·운영 검증 대기.
 - 이전 HANDOFF 상세 보존:
 ```markdown
 # HANDOFF — 11-04 저녁: 상세 항목 정리안(결정 대기)·칸 나누기·공고 4건 (2026-11-04 18:15, Claude → GPT 인수인계)

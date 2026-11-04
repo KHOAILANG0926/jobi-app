@@ -359,9 +359,13 @@ Chăm sóc khách hàng`
   console.log('jobDetailSections: 근무조건 빈 칸 나눠 채우기 passed')
 }
 
-// 대표 사진 순서 변경이 하단 채용 사진 목록을 바꾸면 안 된다.
+// 대표 사진 선택이 기준 공고의 상세 원문·사진 목록·상세요강 분류를 변경하지 않는다.
 {
-  const { readFileSync } = await import('node:fs')
-  const detailPage = readFileSync(new URL('../pages/JobDetail.tsx', import.meta.url), 'utf8')
-  assert(detailPage.includes('const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)'), 'lower recruitment gallery keeps all public images independently of the representative image')
+  const { jobRepresentativeImageUrl } = await import('./companyLogo')
+  const photos = ['kda/kda-20261013.png', 'kda/workplace.png']
+  const job = { company: 'CTY KDA', title: kdaAbove.title, description: kda, images: [...photos] }
+  const before = JSON.stringify(job)
+  assert(jobRepresentativeImageUrl(job, []).endsWith('/job-images/kda/kda-20261013.png'), 'detail representative uses first public photo')
+  assert(JSON.stringify(job) === before, 'representative selection leaves every lower gallery image and description intact')
+  assert(JSON.stringify(detailSections(job.description, kdaAbove)) === JSON.stringify(kdaR), 'representative selection preserves baseline detail sections')
 }

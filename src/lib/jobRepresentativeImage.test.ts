@@ -1,5 +1,4 @@
 import * as images from './companyLogo.ts'
-import { readFileSync } from 'node:fs'
 import type { BrandDefinition } from '../data/brandDirectory'
 
 function eq(got: unknown, want: unknown, name: string) {
@@ -18,6 +17,4 @@ eq(resolve({ ...job, imageUrl: 'invalid' }, []), `${own}workplace.png`, '4 malfo
 eq(resolve({ ...job, imageUrl: undefined, images: [] }, []), '/images/industry/san_xuat_xay_dung.jpg', '5 industry fallback')
 eq(resolve({ ...job, imageUrl: undefined, images: ['../secret.png'] }, []), '/images/industry/san_xuat_xay_dung.jpg', 'unsafe first stored image falls through')
 eq(resolve({ ...job, imageUrl: undefined, images: ['https://cdn.example.com/a.png', 'workplace.png'] }, []), '/images/industry/san_xuat_xay_dung.jpg', 'only images[0] is considered and external URLs stay blocked')
-const detail = readFileSync(new URL('../pages/JobDetail.tsx', import.meta.url), 'utf8')
-eq(detail.includes('const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)'), true, '6 lower recruitment images retain their independent conversion')
 console.log('jobRepresentativeImage: all assertions passed')
