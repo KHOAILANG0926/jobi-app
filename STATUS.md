@@ -3,31 +3,33 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-03 11:04 (VN)**
-- 기준 커밋: `566a4e6` (docs(handoff): 2026-11-03 — #413~#419, R8 복구, 데모 상태 (#420))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41575836580
+- 생성 시각: **2026-11-04 10:21 (VN)**
+- 기준 커밋: `2ab1776` (docs(handoff): 2026-11-04 알바몬 상세 데모 2단계 기록(보류·운영 미반영) (#449))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41766482699
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 4건**
+**확인 필요 6건**
 
 - 핀 #4824: ❌ 공고 주소에 번지 없음
 - 핀 #4824: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 - 핀 #4878: ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인)
 - 핀 #4878: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
+- 핀 #5368: ❌ 공고 주소에 번지 없음
+- 핀 #5368: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 103/103 파일 통과 |
+| 테스트 `npm test` | ✅ 108/108 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `5cde3ff` · 상태 **success** · 2026-11-03 07:40 (VN)
+- 마지막 Production 배포: `663dce4` · 상태 **success** · 2026-11-04 07:07 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -35,21 +37,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #420 | 2026-11-03 09:46 (VN) | `566a4e6` | docs(handoff): 2026-11-03 — #413~#419, R8 복구, 데모 상태 |
-| #419 | 2026-11-03 07:50 (VN) | `f242187` | ci: PC 기준 화면 잠금 검사를 상세 화면·CSS PR에서도 실행 |
-| #418 | 2026-11-03 07:44 (VN) | `bd11580` | test(baseline): PC 기준 화면 지문 #415·#416 반영 갱신 |
-| #417 | 2026-11-03 07:39 (VN) | `5cde3ff` | fix(map): 묶음 핀 누르면 묶인 공고 전부 보이게 확대 + 확대 중 묶음 바로 풀림 |
-| #416 | 2026-11-03 06:59 (VN) | `bcc0bc3` | fix(detail): 식비 수당 태그 중복 표시 숨김 |
-| #415 | 2026-11-03 06:49 (VN) | `afc35cb` | fix(detail): 급여 아래 줄 작은 회색 글씨·정렬 + 식비 수당 = Phụ cấp ăn |
-| #414 | 2026-11-03 06:23 (VN) | `3db3590` | fix(db): R8 직업코드 1~5단계 허용 재적용 + 보충 작업의 옛 규칙 덮어쓰기 제거 |
-| #413 | 2026-11-02 22:25 (VN) | `e3272f6` | chore(rules): 규칙 자동 표시·커밋 전 검사 장치 (Lee 2026-11-02) |
-| #411 | 2026-11-02 20:51 (VN) | `e0b795f` | docs(handoff): 2026-11-02 저녁 — 모바일 데모·#5299 공개·공고 파일 기록 |
-| #410 | 2026-11-02 20:24 (VN) | `d97f1dc` | fix(rules): R8 보충 기존 공고 보호 + 꾸밈말 소제목 인식 (#5299) |
+| #449 | 2026-11-04 09:51 (VN) | `2ab1776` | docs(handoff): 11-04 알바몬 상세 데모 2단계 기록(보류) |
+| #448 | 2026-11-04 07:39 (VN) | `4db3fc7` | docs(handoff): 2026-11-04 아침 스냅샷 |
+| #447 | 2026-11-04 07:06 (VN) | `663dce4` | feat(detail): 최신 틀 디자인 정리 + 여러 직무 급여 직무\|금액 두 칸 (Lee 적용) |
+| #446 | 2026-11-04 06:09 (VN) | `20a96f8` | fix(rules): 모집 소개 줄(… tuyển gấp:)은 빈 이름표 아님 (#5405) |
+| #445 | 2026-11-04 06:02 (VN) | `4ebf076` | ops(job): Nhà hàng Tâm Hồ Nhất Hạch 서빙 5명 공고 파일 |
+| #444 | 2026-11-03 23:19 (VN) | `a597723` | ops: 관리자 위치 확정 수동 실행 도구 |
+| #443 | 2026-11-03 23:06 (VN) | `eeda66e` | docs(rules): 위치 계산 절차 (Google 주소 글자 → VietMap·Goong 핀 계산) |
+| #442 | 2026-11-03 22:48 (VN) | `9e24d62` | feat(location): Google 단계에 기존 지도 키 사용 + 업체 검색 비교에 Google |
+| #441 | 2026-11-03 22:33 (VN) | `f7f94b0` | docs(rules): 여러 직무 공고 급여 칸에 직무별 금액 줄 (Lee 적용) |
+| #440 | 2026-11-03 22:24 (VN) | `01976dd` | fix(detail): 여러 직무 공고 근무조건 급여 칸에 직무별 금액 줄 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **9건** (전체 12건, 숨김·비활성 3건)
-- 출처별: muaban 2 · manual 2 · 출처 없음 4 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 공개 중: **12건** (전체 15건, 숨김·비활성 3건)
+- 출처별: 출처 없음 7 · muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -59,11 +61,13 @@
 |---|---|---|---|---|---|---|
 | #4824 | 2026-10-26 06:52 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 | #4878 | 2026-10-30 11:09 (VN) | ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인) | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | 33 ly thai to | — | — |
+| #5368 | 2026-11-03 23:20 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
 | 날짜 | 호출 | 마지막 갱신 |
 |---|---|---|
+| 2026-11-03 | 1 | 2026-11-03 16:39 (VN) |
 | 2026-11-02 | 2 | 2026-11-02 19:32 (VN) |
 | 2026-11-01 | 4 | 2026-11-01 16:28 (VN) |
 | 2026-10-31 | 2 | 2026-10-31 16:18 (VN) |
@@ -73,16 +77,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-03 09:46 (VN) | location_candidate.approve | job 5328 |
-| 2026-11-03 09:46 (VN) | location_candidate.add | job 5328 |
-| 2026-11-03 07:51 (VN) | location_candidate.approve | job 5326 |
-| 2026-11-03 07:50 (VN) | location_candidate.add | job 5326 |
-| 2026-11-03 07:45 (VN) | location_candidate.approve | job 5323 |
-| 2026-11-03 07:45 (VN) | location_candidate.add | job 5323 |
-| 2026-11-03 07:40 (VN) | location_candidate.approve | job 5319 |
-| 2026-11-03 07:40 (VN) | location_candidate.add | job 5319 |
-| 2026-11-03 07:00 (VN) | location_candidate.approve | job 5316 |
-| 2026-11-03 07:00 (VN) | location_candidate.add | job 5316 |
+| 2026-11-04 09:52 (VN) | location_candidate.approve | job 5418 |
+| 2026-11-04 09:52 (VN) | location_candidate.add | job 5418 |
+| 2026-11-04 07:40 (VN) | location_candidate.approve | job 5416 |
+| 2026-11-04 07:40 (VN) | location_candidate.add | job 5416 |
+| 2026-11-04 07:07 (VN) | location_candidate.approve | job 5412 |
+| 2026-11-04 07:07 (VN) | location_candidate.add | job 5412 |
+| 2026-11-04 06:10 (VN) | location_candidate.approve | job 5410 |
+| 2026-11-04 06:10 (VN) | location_candidate.add | job 5410 |
+| 2026-11-04 06:03 (VN) | location_candidate.approve | job 5407 |
+| 2026-11-04 06:03 (VN) | location_candidate.add | job 5407 |
 
 ## 8. 검증 장치 변경 이력
 
