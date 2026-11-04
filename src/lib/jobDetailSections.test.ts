@@ -358,3 +358,14 @@ Chăm sóc khách hàng`
   assert(same(balanceConditionColumns([['salary'], ['category']], true).map((c) => c.join(',')), ['salary', 'category']), '둘 다 차 있으면 그대로')
   console.log('jobDetailSections: 근무조건 빈 칸 나눠 채우기 passed')
 }
+
+// 대표 사진 선택이 기준 공고의 상세 원문·사진 목록·상세요강 분류를 변경하지 않는다.
+{
+  const { jobRepresentativeImageUrl } = await import('./companyLogo')
+  const photos = ['kda/kda-20261013.png', 'kda/workplace.png']
+  const job = { company: 'CTY KDA', title: kdaAbove.title, description: kda, images: [...photos] }
+  const before = JSON.stringify(job)
+  assert(jobRepresentativeImageUrl(job, []).endsWith('/job-images/kda/kda-20261013.png'), 'detail representative uses first public photo')
+  assert(JSON.stringify(job) === before, 'representative selection leaves every lower gallery image and description intact')
+  assert(JSON.stringify(detailSections(job.description, kdaAbove)) === JSON.stringify(kdaR), 'representative selection preserves baseline detail sections')
+}

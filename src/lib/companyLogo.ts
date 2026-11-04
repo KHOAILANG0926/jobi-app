@@ -1,3 +1,8 @@
+import type { Job } from '../types/job'
+import type { BrandDefinition } from '../data/brandDirectory'
+import { brandLogoFor } from './brandLogo'
+import { industryPhotoUrl } from './cardPhoto'
+
 // 회사 로고로 보여줄 이미지 주소 (2026-10-06 사용자 결정).
 // 수집 출처 사이트(vieclam24h 등)·Facebook CDN 이미지는 로고로 쓰지 않는다. 로고가 없는 회사에 출처 사이트
 // 자체 기본 로고(vieclam24h_logo_customer_default)가 들어가 출처를 노출했고, 원본 채용사이트 노출 금지
@@ -28,4 +33,15 @@ export function jobImagePublicUrl(value: string | null | undefined): string | un
   const path = value.replace(/^\/+/, '').replace(/^job-images\//, '')
   if (!/^[A-Za-z0-9._\/-]+$/.test(path) || path.split('/').includes('..')) return undefined
   return `https://${OWN_STORAGE_HOST}${OWN_STORAGE_PATH}job-images/${path}`
+}
+
+/** 공고 대표 이미지 공통 순서. 하단 채용 사진 목록은 이 선택과 별개로 유지한다. */
+export function jobRepresentativeImageUrl(
+  job: Pick<Job, 'company' | 'title' | 'imageUrl' | 'images'> & Partial<Pick<Job, 'category' | 'subcategory' | 'description'>>,
+  brands: BrandDefinition[],
+): string {
+  return brandLogoFor(job, brands)
+    ?? companyLogoUrl(job.imageUrl)
+    ?? jobImagePublicUrl(job.images?.[0])
+    ?? industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title} ${job.description ?? ''}`)
 }

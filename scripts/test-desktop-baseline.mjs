@@ -1,3 +1,4 @@
+// 2026-11-04 Lee 명시 지시: 대표 이미지 공통 순서에 images[0] 추가. 상세 하단 사진·레이아웃·CSS 변경 없음.
 // 2026-11-04: JobDetail.tsx — Lee "왼쪽 자리 왜 비운거지?": 최신 틀 근무조건 칸 한쪽이 비면 보이는 항목을 두 칸에 나눔. KDA·예전 틀 변경 없음.
 // 2026-11-03: DesktopHomeMapExplorer.tsx — Lee "거리재는 거 어디 갔냐, 그냥 보이게 해": 반경 칸 항상 표시(고르면 거리 검색 켜짐). 위치 칸 펼침 메뉴·중복 Gần tôi 제거(Lee "꼭 필요한 거야?" → 진행). 다른 PC 틀 변경 없음.
 // 2026-11-03: LayoutDesktop.tsx·DesktopHomeMapExplorer.tsx·index.css — Lee 지시: PC 메인 왼쪽 칸 위치·급여만("거리하고 기본 금액만"), 메뉴 "Theo khu vực" 34개 성·급구 → 지역별 일자리(/viec-lam/khu-vuc), 지역별 페이지 전용 CSS(.jm-urgent-page 아래)·지도. 공고 카드·상세 틀 변경 없음.
@@ -92,7 +93,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "74312bb0707b2423e36a51b76372d72470d880a8813009f3e84f0ec3a4e670c3",
+    "sha256": "edd558cbffb6117908f1bd567b7d47a9f33ef6472fc63d32ab6b2093363c48a0",
     "restore": []
   },
   {

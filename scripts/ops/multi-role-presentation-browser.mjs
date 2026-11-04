@@ -42,17 +42,35 @@ async function open(base,job,width,imageState='none') {
  return {page,context}
 }
 async function frame(page) {
- return page.evaluate(()=>Object.fromEntries(['.jd2-header','.jd2-sec--conditions-grid','.jd2-sec--recruit-grid','.jd2-detail-sections'].map(selector=> {
-  const box=document.querySelector(selector)?.getBoundingClientRect()
-  return [selector,box?[box.x,box.width,box.height].map(n=>Math.round(n*10)/10):null]
- })))
+ return page.evaluate(()=> {
+  const round=n=>Math.round(n*10)/10
+  const header=document.querySelector('.jd2-header').getBoundingClientRect()
+  const sections=Object.fromEntries(['.jd2-header','.jd2-sec--conditions-grid','.jd2-sec--recruit-grid','.jd2-detail-sections'].map(selector=> {
+   const box=document.querySelector(selector)?.getBoundingClientRect()
+   return [selector,box?[box.x,box.width,box.height].map(round):null]
+  }))
+  const parts=Object.fromEntries(['.jd2-logo','.jd2-header__info','.jd2-header__title'].map(selector=> {
+   const box=document.querySelector('.jd2-header '+selector)?.getBoundingClientRect()
+   return [selector,box?[box.x-header.x,box.y-header.y,box.width,box.height].map(round):null]
+  }))
+  return {...sections,headerParts:parts,headerGap:getComputedStyle(document.querySelector('.jd2-header__left')).gap}
+ })
 }
 try {
  for(const width of [390,1366]) {
   for(const state of ['none','loaded','failed']) {
    const job={...kda,image_url:state==='none'?null:'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/test.png'}
-   const before=await open(baseline,job,width,state),after=await open(current,job,width,state)
-   assert.deepEqual(await frame(after.page),await frame(before.page),`KDA approved frame ${width}/${state}`)
+   // Lee 요청: 사진 없는 공고도 업종 사진 표시. 이전 none은 로고 DOM이 없어 높이가 달랐다.
+   // 같은 사진 존재 상태에서 기존 승인 로고 칸·제목·간격을 비교한다. loaded/failed는 기존 동일 입력 유지.
+   const baselineJob=state==='none'?{...job,image_url:'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/test.png'}:job
+   const before=await open(baseline,baselineJob,width,state==='none'?'loaded':state),after=await open(current,job,width,state)
+   if(state==='none') {
+    const fallback=after.page.locator('.jd2-header .jd2-logo__img')
+    assert.equal(await fallback.getAttribute('src'),'/images/industry/san_xuat_xay_dung.jpg','missing image selects the actual industry fallback')
+    for(const page of [before.page,after.page]) await page.locator('.jd2-header .jd2-logo__img').evaluate(img=>img.decode())
+    assert(await fallback.evaluate(img=>img.complete&&img.naturalWidth>0),'industry fallback really loads')
+   }
+   assert.deepEqual(await frame(after.page),await frame(before.page),`KDA approved image-present frame ${width}/${state}`)
    await before.context.close();await after.context.close()
   }
   const {page,context}=await open(current,multi,width)
