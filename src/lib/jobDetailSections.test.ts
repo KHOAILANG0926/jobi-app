@@ -358,3 +358,10 @@ Chăm sóc khách hàng`
   assert(same(balanceConditionColumns([['salary'], ['category']], true).map((c) => c.join(',')), ['salary', 'category']), '둘 다 차 있으면 그대로')
   console.log('jobDetailSections: 근무조건 빈 칸 나눠 채우기 passed')
 }
+
+// 대표 사진 순서 변경이 하단 채용 사진 목록을 바꾸면 안 된다.
+{
+  const { readFileSync } = await import('node:fs')
+  const detailPage = readFileSync(new URL('../pages/JobDetail.tsx', import.meta.url), 'utf8')
+  assert(detailPage.includes('const extraImages = (job.images ?? []).map(jobImagePublicUrl).filter((u): u is string => !!u)'), 'lower recruitment gallery keeps all public images independently of the representative image')
+}
