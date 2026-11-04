@@ -131,6 +131,14 @@ export function lineBucket(line: string, current: DetailTextKey): DetailTextKey 
   if (/^(?:nganh nghe|ban hang tai quay|tuyen nhan vien|pha che\b|cham soc khach hang\b|phuc vu khach\b|dong goi\b|kiem tra chat luong\b)/.test(s)) return '01'
   if (/^(?:phong van|nop ho so|quy trinh tuyen dung|ung tuyen|cach ung tuyen|ho so ung tuyen)\b/.test(s)) return '06'
   if (/^(?:chuong trinh cong tac vien|cong tac vien)\b/.test(s)) return '07'
+  // 2026-11-04 Lee "다 고치고"(#5438): "Vị trí: TRỢ LÝ NHÂN SỰ – 02 NGƯỜI"는 업무 칸, "Địa điểm: Nhà xưởng …"은 복리후생이 아니라 기타,
+  // "Ứng viên vui lòng gửi CV …"는 채용 절차.
+  if (/^vi tri(?: tuyen dung| can tuyen| cong viec)?\s*:\s*\S/.test(s)) return '01'
+  if (/^dia (?:chi|diem)(?: lam viec)?\s*:/.test(s)) return '07'
+  if (/\b(?:gui cv|nop cv|gui ho so)\b/.test(s)) return '06'
+  // #5437·#5421: 신청 방법 줄(QR·폼·이메일·"Cách thức ứng tuyển:")은 채용 절차, "FULL-TIME | PART-TIME"은 근무 형태.
+  if (/^(?:quet qr|dang ky tai|email|e-mail|cach thuc ung tuyen)\b/.test(s)) return '06'
+  if (/^(?:full[ -]?time|part[ -]?time)\b/.test(s)) return '03'
   return current
 }
 

@@ -340,3 +340,13 @@ Chăm sóc khách hàng`
     { label: 'Bếp phụ', amount: '8 – 11,2 triệu/tháng' }, { label: 'Part-time', amount: '25.000 – 31.000đ/giờ' }]), 'role salary rows: ' + JSON.stringify(rows))
   console.log('jobDetailSections: role salary rows (label | amount) passed')
 }
+
+// 2026-11-04 Lee "다 고치고"(#5437·#5438·#5421): 줄 규칙 — 직무 줄은 업무, 근무지 줄은 복리후생이 아님, 신청 방법은 채용 절차, 근무 형태는 시간·형태.
+{
+  const r = byKey(detailSections('Phúc lợi và môi trường làm việc\nVị trí: TRỢ LÝ NHÂN SỰ – 02 NGƯỜI\nĐịa điểm: Nhà xưởng NX 2-2, KCN Yên Phong\nỨng viên vui lòng gửi CV để được trao đổi chi tiết!\nQuét QR trên hình hoặc đăng ký tại: https://forms.gle/x\nEmail: hr@divina.vn\nCách thức ứng tuyển:\nFULL-TIME | PART-TIME'))
+  assert((r['01'] ?? []).includes('Vị trí: TRỢ LÝ NHÂN SỰ – 02 NGƯỜI'), 'Vị trí → 업무')
+  assert(!(r['05'] ?? []).some((l: string) => l.startsWith('Địa điểm')) && (r['07'] ?? []).some((l: string) => l.startsWith('Địa điểm')), 'Địa điểm → 기타')
+  for (const t of ['Ứng viên vui lòng gửi CV', 'Quét QR', 'Email:', 'Cách thức ứng tuyển:']) assert((r['06'] ?? []).some((l: string) => l.startsWith(t)), t + ' → 채용 절차')
+  assert((r['03'] ?? []).includes('FULL-TIME | PART-TIME'), 'FULL-TIME | PART-TIME → 시간·형태')
+  console.log('jobDetailSections: 2026-11-04 줄 규칙(Vị trí·Địa điểm·신청 방법·근무 형태) passed')
+}

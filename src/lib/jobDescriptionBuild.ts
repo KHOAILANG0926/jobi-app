@@ -119,8 +119,8 @@ export function contactDuplicate(line: string, shown: string[]): boolean {
 }
 // 주소·회사 낱말은 성조가 있는 원문 그대로 본다("đi đâu xa"의 xa ≠ "xã").
 const ADDRESS_HINT = /(?:^|[^\p{L}])(?:tầng|đường|phố|phường|xã|huyện|quận|thị trấn|thành phố|tp|kcn|khu công nghiệp|ccn|thôn|ngõ|ngách|số nhà|tòa|plaza|chi nhánh|cơ sở)(?![\p{L}])/u
-// 근무 조건 낱말이 있으면 "!"로 끝나도 정보다(#4824 "Công việc lâu dài!").
-const JOB_FACT_HINT = /(?:^|[^\p{L}])(?:lâu dài|ổn định|chính thức|thời vụ|bao ăn|bao ở|ăn ở|ký túc|ktx|xe đưa đón|đưa đón|bảo hiểm|bhxh|thưởng|phụ cấp|tăng ca|nghỉ|ca ngày|ca đêm|xoay ca|part[ -]?time|full[ -]?time|kinh nghiệm|đào tạo|lương|thu nhập|tuổi|nam|nữ)(?![\p{L}])/u
+// 근무 조건·지원 방법 낱말이 있으면 "!"로 끝나도 정보다(#4824 "Công việc lâu dài!", #5438 "Ứng viên vui lòng gửi CV …!").
+const JOB_FACT_HINT = /(?:^|[^\p{L}])(?:lâu dài|ổn định|chính thức|thời vụ|bao ăn|bao ở|ăn ở|ký túc|ktx|xe đưa đón|đưa đón|bảo hiểm|bhxh|thưởng|phụ cấp|tăng ca|nghỉ|ca ngày|ca đêm|xoay ca|part[ -]?time|full[ -]?time|kinh nghiệm|đào tạo|lương|thu nhập|tuổi|nam|nữ|cv|hồ sơ|phỏng vấn)(?![\p{L}])/u
 const COMPANY_HINT = /(?:^|[^\p{L}])(?:công ty|tnhh|cổ phần|tập đoàn|đơn vị|văn phòng)(?![\p{L}])/u
 /** 해시태그만 있는 줄(#TuyenDung #ViecLam …) — 어느 칸에 있든 뺀다. */
 export const isHashtagLine = (line: string) => /^(?:#[\p{L}\p{N}_]+[\s,]*)+$/u.test(String(line).trim())
@@ -199,8 +199,8 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         // ② 숫자·띄어쓰기만 다른 같은 연락처 줄
         if (contactDuplicate(item.line, lines.map((l) => l.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
         const kind = ctx.lineKinds?.[lineKey(item.line)]
-        // ③ 기타 칸(칸 못 정한 줄 포함)의 홍보·인사말 — Lee가 칸을 정한 줄은 그대로
-        if ((!kind || kind.by !== 'lee') && (isHashtagLine(item.line) || ((item.key === '07' || item.how === 'unclassified') && isPromoLine(item.line)))) { dropped.push({ line: item.line, reason: 'promo' }); continue }
+        // ③ 홍보·인사말(칸과 관계없이 — 모집 소개 줄 아래로 이어진 인사말도, 2026-11-04) — Lee가 칸을 정한 줄은 그대로
+        if ((!kind || kind.by !== 'lee') && (isHashtagLine(item.line) || isPromoLine(item.line))) { dropped.push({ line: item.line, reason: 'promo' }); continue }
         if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
         lines.push(item)
       }

@@ -103,6 +103,10 @@ export function classifySource(text: string | null | undefined, from: FillSource
     if ((companyBare && (s === companyBare || s === `cty ${companyBare}` || s === `cong ty ${companyBare}`)) || (titleBare && s === titleBare)) {
       out.push({ line, key: '07', how: 'kind_rule', from, rule: 'company_title_line' }); continue
     }
+    // 2026-11-04 Lee "다 고치고"(#5437): "DOOKKI ĐANG TUYỂN:"처럼 ':'로 끝나는 모집 소개 줄 아래는 직무 목록 → 업무 칸(01). 줄 자체도 01에 남긴다.
+    if (/[:：]\s*$/.test(line) && /(?:^|\s)(?:dang tuyen|can tuyen|tuyen dung|tuyen gap|vi tri tuyen dung|vi tri can tuyen)$/.test(s)) {
+      context = '01'; out.push({ line, key: '01', how: 'kind_rule', from, rule: 'hiring_intro_heading' }); continue
+    }
     const rule = KIND_RULES.find((r) => r.re.test(s))
     if (rule) { out.push({ line, key: rule.key, how: 'kind_rule', from, rule: rule.id }); continue }
     if (context === 'none' || context === 'address' || context === 'contact') {
