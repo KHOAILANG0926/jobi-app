@@ -192,3 +192,12 @@ export function sourceRecruitmentEligibility(description: string | null | undefi
   if (!eligibility) return undefined
   return eligibility.lines.find(line => /^\s*[-•*]?\s*(?:tuyển|tuyen|nam|nữ|nu)(?:\s|[,:.(]|$)/iu.test(line))
 }
+
+/** 2026-11-04 Lee "왼쪽 자리 왜 비운거지?"(#5437): 최신 틀 근무조건 두 칸 중 한쪽이 비면 보이는 항목을 순서대로 반씩 나눈다.
+ * 최신 틀이 아니거나(KDA·예전 3건) 두 칸 모두 차 있으면 그대로. */
+export function balanceConditionColumns<T>(cols: T[][], latestFrame: boolean): T[][] {
+  const all = cols.flat()
+  if (!latestFrame || all.length < 2 || cols.every((c) => c.length > 0)) return cols
+  const half = Math.ceil(all.length / 2)
+  return [all.slice(0, half), all.slice(half)]
+}
