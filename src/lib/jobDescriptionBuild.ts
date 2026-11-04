@@ -86,13 +86,50 @@ export interface BuildResult {
   description: string
   lines: Array<FillLine & { role?: string }>
   unclassified: FillLine[]
-  dropped: Array<{ line: string; reason: CleanDrop | 'salary_total_repeat' | 'shown_above' | 'duplicate' }>
+  dropped: Array<{ line: string; reason: CleanDrop | 'salary_total_repeat' | 'shown_above' | 'duplicate' | 'ocr_check_only' | 'promo' }>
   /** Lee-approved disclosures, kept distinct from verbatim source lines. */
   annotations: Array<{ key: DetailTextKey; line: string }>
 }
 
 export const UNSPECIFIED_DUTIES_NOTICE = 'Công việc cụ thể: chưa ghi trong tin gốc'
 export const CONTRACTOR_NOTICE = 'Tuyển qua nhà thầu'
+
+/** Lee 2026-11-04 "상세 페이지는 중요한 내용을 상세하게 — 안 중요한 내용도 적는 공간이 아니다".
+ * 걸러내는 것 3가지(애매하면 남김, 뺀 줄은 detail_fill.dropped와 검사표에 남는다):
+ *   ① 포스터 글자 읽기(OCR) — 원문 글이 있으면 화면에 넣지 않는다(사진 글자 대조 R7에만 쓴다)
+ *   ② 반복 — 숫자·띄어쓰기만 다른 같은 전화·이메일 줄
+ *   ③ 홍보·인사말 — 기타 칸에서 "!"/"?"로 끝나고 숫자·주소·회사·연락처·이름표(:)가 없는 줄
+ */
+const PHONE_RE = /(?:\+?84|0)(?:[\s.\-–]?\d){8,10}/g
+export function phonesIn(line: string): string[] {
+  return [...String(line).matchAll(PHONE_RE)].map((m) => m[0].replace(/\D/g, '').replace(/^84/, '0'))
+}
+const emailsIn = (line: string) => [...String(line).toLowerCase().matchAll(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g)].map((m) => m[0])
+const CONTACT_WORDS = new Set(['hotline', 'zalo', 'sdt', 'so', 'dien', 'thoai', 'lien', 'he', 'lh', 'email', 'mail', 'goi', 'call', 'phone', 'tel', 'hoac', 'va'])
+/** ② 이 줄의 전화·이메일이 이미 보인 줄에 다 있고, 나머지가 연락처 이름표뿐인가. */
+export function contactDuplicate(line: string, shown: string[]): boolean {
+  const phones = phonesIn(line), emails = emailsIn(line)
+  if (!phones.length && !emails.length) return false
+  const seenPhones = new Set(shown.flatMap(phonesIn)), seenEmails = new Set(shown.flatMap(emailsIn))
+  if (!phones.every((p) => seenPhones.has(p)) || !emails.every((e) => seenEmails.has(e))) return false
+  let rest = String(line).toLowerCase()
+  for (const e of emailsIn(line)) rest = rest.split(e).join(' ')
+  rest = rest.replace(PHONE_RE, ' ')
+  return fold(rest).split(/[^a-z]+/).filter(Boolean).every((w) => CONTACT_WORDS.has(w))
+}
+// 주소·회사 낱말은 성조가 있는 원문 그대로 본다("đi đâu xa"의 xa ≠ "xã").
+const ADDRESS_HINT = /(?:^|[^\p{L}])(?:tầng|đường|phố|phường|xã|huyện|quận|thị trấn|thành phố|tp|kcn|khu công nghiệp|ccn|thôn|ngõ|ngách|số nhà|tòa|plaza|chi nhánh|cơ sở)(?![\p{L}])/u
+const COMPANY_HINT = /(?:^|[^\p{L}])(?:công ty|tnhh|cổ phần|tập đoàn|đơn vị|văn phòng)(?![\p{L}])/u
+/** 해시태그만 있는 줄(#TuyenDung #ViecLam …) — 어느 칸에 있든 뺀다. */
+export const isHashtagLine = (line: string) => /^(?:#[\p{L}\p{N}_]+[\s,]*)+$/u.test(String(line).trim())
+/** ③ 홍보·인사말 줄인가(기타 칸에서만 쓴다). 해시태그만 있는 줄도 포함. */
+export function isPromoLine(line: string): boolean {
+  const t = String(line).trim()
+  if (isHashtagLine(t)) return true
+  if (!/[!?]\s*$/.test(t) || /\d/.test(t) || /[:：]/.test(t) || /@|https?:\/\/|zalo|hotline/i.test(t)) return false
+  const low = t.normalize('NFC').toLowerCase()
+  return !ADDRESS_HINT.test(low) && !COMPANY_HINT.test(low)
+}
 
 /** 같은 줄인가: 서로가 서로를 거의 다 덮을 때만(긴 소개 문단이 짧은 다른 줄을 '덮는다'고 지우지 않게 — #4879 '- Nam/nữ, tuổi từ 18 đến 45'). */
 export function sameLine(a: string, b: string): boolean {
@@ -136,8 +173,14 @@ function roleBlocks(text: string): Array<{ role?: string; text: string }> {
 export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildContext = {}): BuildResult {
   const lines: BuildResult['lines'] = []
   const dropped: BuildResult['dropped'] = []
+  const hasPost = sources.some((src) => src.name === 'source_text' && String(src.text ?? '').trim())
   for (const src of sources) {
     const clean = cleanSourceText(src.text)
+    // ① 원문 글이 있으면 포스터 글자 읽기(OCR)는 화면에 넣지 않는다 — 조각난 글자·잘못 짝지은 주소가 섞인다(#5437).
+    if (hasPost && src.name === 'ocr_text') {
+      for (const line of clean.text.split('\n').filter(Boolean)) dropped.push({ line, reason: 'ocr_check_only' })
+      continue
+    }
     dropped.push(...clean.dropped)
     for (const block of roleBlocks(clean.text)) {
       for (const original of classifySource(block.text, src.name, ctx)) {
@@ -151,7 +194,11 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
         if (shiftOnlyLine(item.line) && timeRanges(item.line).every((r) => lines.some((l) => l.role === item.role && timeRanges(l.line).includes(r)))) {
           dropped.push({ line: item.line, reason: 'duplicate' }); continue
         }
+        // ② 숫자·띄어쓰기만 다른 같은 연락처 줄
+        if (contactDuplicate(item.line, lines.map((l) => l.line))) { dropped.push({ line: item.line, reason: 'duplicate' }); continue }
         const kind = ctx.lineKinds?.[lineKey(item.line)]
+        // ③ 기타 칸(칸 못 정한 줄 포함)의 홍보·인사말 — Lee가 칸을 정한 줄은 그대로
+        if ((!kind || kind.by !== 'lee') && (isHashtagLine(item.line) || ((item.key === '07' || item.how === 'unclassified') && isPromoLine(item.line)))) { dropped.push({ line: item.line, reason: 'promo' }); continue }
         if (kind && (kind.by === 'lee' || item.how === 'unclassified')) { lines.push({ ...item, key: kind.section, how: 'line', rule: `kind:${kind.by}` }); continue }
         lines.push(item)
       }

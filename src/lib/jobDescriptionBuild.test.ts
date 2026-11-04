@@ -1,7 +1,7 @@
 // 원문에서 상세요강 만들기 시험 — 실제 운영 원문(jobDescriptionBuild.fixtures.ts, 2026-10-25 조회).
 // 새 공고에서 문제가 나오면 그 공고 원문을 fixtures 파일에 넣고 여기 기대값을 한 줄 더한다(버그 하나 = 시험 하나).
 import { DESCRIPTION_BUILD_JOBS as jobs } from './jobDescriptionBuild.fixtures.ts'
-import { buildDescriptionFromSources, cleanSourceText, sameLine } from './jobDescriptionBuild.ts'
+import { buildDescriptionFromSources, cleanSourceText, isPromoLine, sameLine } from './jobDescriptionBuild.ts'
 import { bare, detailSections } from './jobDetailSections.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
@@ -63,5 +63,18 @@ for (const id of Object.keys(jobs)) {
   const c = cleanSourceText('Liên hệ: \n033 715 ****\nHiện số\nNgành nghề:\nBán hàng\nGiới tính:\nĐộ tuổi:\n22 tuổi')
   assert(c.text === 'Ngành nghề: Bán hàng\nĐộ tuổi: 22 tuổi', 'clean: ' + JSON.stringify(c.text))
   assert(c.dropped.some((d) => d.reason === 'label_without_value' && d.line === 'Giới tính:'), '값 없는 이름표 제외')
+}
+
+// 2026-11-04 Lee "상세 페이지는 중요한 내용만": #5437 DOOKKI — 포스터 글자 조각·홍보 인사말·해시태그·같은 연락처 반복을 화면에서 뺀다(뺀 줄은 dropped에 남김).
+{
+  const post = 'DOOKKI ĐANG TUYỂN:\n- Phục vụ\nBẮC BLING CÓ GÌ?\nCó DOOKKI + JOB XỊN chứ có gì!\nKhông cần đi đâu xa tìm việc — job xịn ngay tại Bắc Ninh đây rồi!\nDOOKKI TỪ SƠN\n368 Minh Khai, P. Từ Sơn\nHotline/Zalo: 097 270 5674 – 036 336 2409\nHotline: 0972705674\n#DOOKKI #TuyenDung'
+  const r = buildDescriptionFromSources([{ name: 'source_text', text: post }, { name: 'ocr_text', text: 'Topokki\nTÌM BẠN\nBắc Ninh 2\n368 Minh Khai, P. Bắc Ninh' }], {})
+  for (const gone of ['BẮC BLING CÓ GÌ?', 'Có DOOKKI + JOB XỊN chứ có gì!', 'Topokki', 'TÌM BẠN', '368 Minh Khai, P. Bắc Ninh', 'Hotline: 0972705674', '#DOOKKI #TuyenDung']) {
+    assert(!r.description.includes(gone), '#5437 뺄 줄: ' + gone)
+    assert(r.dropped.some((d) => d.line === gone), '#5437 뺀 줄 기록: ' + gone)
+  }
+  for (const kept of ['- Phục vụ', '368 Minh Khai, P. Từ Sơn', 'DOOKKI TỪ SƠN', 'Hotline/Zalo: 097 270 5674 – 036 336 2409']) assert(r.description.includes(kept), '#5437 남길 줄: ' + kept)
+  // 주소·회사·숫자·이름표가 있는 "!" 줄은 남긴다(애매하면 남김)
+  assert(!isPromoLine('Làm việc tại xã Yên Trung, Bắc Ninh!') && !isPromoLine('Công ty TNHH ABC tuyển gấp!') && !isPromoLine('Lương 10 triệu!'), '정보 있는 줄은 홍보 아님')
 }
 console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 그대로·중복 없음·사이트 글자 제거 검사 통과')

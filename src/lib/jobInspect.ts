@@ -5,7 +5,7 @@
  * 여기 항목은 "Lee가 화면에서 보고 문제라고 할 것"을 기계가 먼저 찾는 것이다. 새 문제를 찾으면 항목을 하나 더한다.
  */
 import { bare, detailSections, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
-import { cleanSourceText, sameLine, timeRanges } from './jobDescriptionBuild.ts'
+import { cleanSourceText, contactDuplicate, isPromoLine, sameLine, timeRanges } from './jobDescriptionBuild.ts'
 import { headingOf } from './jobDetailSections.ts'
 import { isCovered } from './jobDetailFill.ts'
 import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
@@ -126,6 +126,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 14. 원문 줄이 공고에서 빠졌는가 — 2026-11-01 Lee "빠짐 0": 예외는 원문 소제목뿐(사이트 글자·가려진 번호는 cleanSourceText가 이미 뺌)
   const lost = srcLines.filter((line) => {
     if (headingOf(line) || /[:：]\s*$/.test(line)) return false   // 소제목·값 없는 이름표(값 줄은 따로 검사)
+    if (isPromoLine(line) || contactDuplicate(line, shown)) return false   // 2026-11-04 Lee: 걸러낸 홍보 문구·반복 연락처는 빠짐이 아님(뺀 줄 목록은 detail_fill.dropped)
     const b = bare(line)
     if (!b) return false
     return !shown.some((d) => sameLine(d, line) || isCovered(line, [d]))
