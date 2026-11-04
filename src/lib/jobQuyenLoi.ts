@@ -97,3 +97,16 @@ export function takeRequirementLines(sections: DetailSection[]): { lines: string
   const sec = sections.find((s) => s.key === key)
   return { lines: (sec?.lines ?? []).map((l) => l.replace(/^\s*[-•*]\s+/, '').trim()).filter(Boolean), sections: sections.filter((s) => s.key !== key) }
 }
+
+/** 2026-11-04: 근무조건 복리후생 칸용 보험 짧은 표시. 원문 줄에 적힌 보험만(BHXH·BHYT·BHTN), 없으면 'Bảo hiểm'. 지어내지 않음. */
+export function insuranceTags(lines: string[]): string[] {
+  const out: string[] = []
+  for (const line of lines) {
+    const t = line.normalize('NFC').toLowerCase()
+    const found = [
+      [/bhxh|bảo hiểm xã hội/u, 'BHXH'], [/bhyt|bảo hiểm y tế/u, 'BHYT'], [/bhtn|bảo hiểm thất nghiệp/u, 'BHTN'],
+    ].filter(([re]) => (re as RegExp).test(t)).map(([, tag]) => tag as string)
+    for (const tag of found.length ? found : (/bảo hiểm|bh\b/u.test(t) ? ['Bảo hiểm'] : [])) if (!out.includes(tag)) out.push(tag)
+  }
+  return out
+}

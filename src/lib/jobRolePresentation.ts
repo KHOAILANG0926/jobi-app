@@ -101,3 +101,36 @@ export function roleSalaryLines(description:string|null|undefined):string[] {
     return line ? [`${capitalize(shortRole(role))}: ${line.replace(/^\s*[•·*-]\s*/u,'').replace(/^\s*(?:mức\s+)?lương\s*[:：]\s*/iu,'').trim()}`] : []
   })
 }
+
+/** 2026-11-04 Lee 승인 글 모형("차라리 저게 낫지"): 상세 근무조건 급여 칸 — 직무 | 금액 두 칸.
+ *  정규직 금액이 기본이라 "Full-time:" 글자는 뺀다. 직무 안의 다른 이름(예: "Bếp phụ")은 그 이름을 쓴다.
+ *  원문에 직무 공통 "Part-time:" 시급 줄이 있으면 맨 아래 한 줄. 금액은 합치지 않고 표기만 triệu로 줄인다. */
+export interface RoleSalaryRow { label: string; amount: string }
+const MONEY = /\d[\d.,]{4,}\s*(?:đ|vn[dđ]|đồng)\s*\//iu
+export function shortAmount(text: string): string {
+  const t = text.trim()
+  if (!/\/\s*tháng/iu.test(t)) return t
+  const nums = [...t.matchAll(/\d{1,3}(?:\.\d{3}){2,}/g)].map((m) => Number(m[0].replace(/\./g, '')))
+  if (!nums.length || nums.some((n) => n < 1_000_000)) return t
+  const fmt = (n: number) => String(Math.round(n / 10_000) / 100).replace('.', ',')
+  return `${nums.map(fmt).join(' – ')} triệu/tháng`
+}
+export function roleSalaryRows(description: string | null | undefined): RoleSalaryRow[] {
+  const records = String(description ?? '').split(/\r?\n/).map(splitRoleLine)
+  const roles = [...new Set(records.map((r) => r.role).filter((r): r is string => !!r))]
+  if (roles.length < 2) return []
+  const rows: RoleSalaryRow[] = []
+  for (const role of roles) {
+    const line = records.find((r) => r.role === role && MONEY.test(r.line))?.line
+    if (!line) continue
+    const body = line.replace(/^\s*[•·*-]\s*/u, '').trim()
+    const m = body.match(/^([^:：]{1,40})[:：]\s*(.+)$/u)
+    const sub = m?.[1].trim() ?? ''
+    const amount = (m?.[2] ?? body).trim()
+    const label = !sub || /^(?:full[ -]?time|toàn thời gian|lương|mức lương)$/iu.test(sub) ? capitalize(shortRole(role)) : capitalize(sub.toLocaleLowerCase('vi'))
+    rows.push({ label, amount: shortAmount(amount) })
+  }
+  const part = records.find((r) => !r.role && /^\s*[•·*-]?\s*part[ -]?time\s*[:：]/iu.test(r.line) && /\d/.test(r.line))?.line
+  if (part && rows.length) rows.push({ label: 'Part-time', amount: shortAmount(part.replace(/^\s*[•·*-]?\s*part[ -]?time\s*[:：]\s*/iu, '')) })
+  return rows
+}

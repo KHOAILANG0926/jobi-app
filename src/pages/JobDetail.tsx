@@ -33,7 +33,8 @@ import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
-import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines } from '../lib/jobRolePresentation'
+import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines, roleSalaryRows } from '../lib/jobRolePresentation'
+import { insuranceTags } from '../lib/jobQuyenLoi'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
 import { companyLine } from '../lib/companyBranch'
 import { recruitOrdered } from '../lib/recruitColumns'
@@ -344,6 +345,8 @@ export function JobDetail() {
   // 2026-11-03 Lee "숫자 합치지 말라는 게 아예 안 넣으라는 말은 아닌데": 여러 직무면 근무조건 급여 칸에 직무별 급여 줄(원문 그대로, 메인 카드와 같은 함수).
   // 최대 3줄(근무조건 한 칸 3줄 규칙), 넘치면 마지막 줄에 +N. 위쪽 머리 카드(승인된 틀)는 그대로 "Theo từng vị trí".
   const roleSalary = roleSummary ? roleSalaryLines(job.description) : []
+  // 2026-11-04 Lee 승인 글 모형: 최신 틀은 직무 | 금액 두 칸(Full-time 글자 없음, 파트타임 공통 시급 한 줄, triệu 표기). 상여·수당 줄은 상세요강에.
+  const salaryRows = roleSummary && usesAlbamonLayout(job.id) ? roleSalaryRows(job.description) : []
   const conditionSalaryLines = roleSalary.length > 3 ? [...roleSalary.slice(0, 2), `${roleSalary[2]} +${roleSalary.length - 3}`] : roleSalary
   const locationText = nonEmpty(job.rawLocation)
   const preferenceText = nonEmpty(job.rawPreference)
@@ -416,7 +419,8 @@ export function JobDetail() {
           {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음).
               2026-11-02 Lee "정렬도 안 되고 모양이 개판": 작은 회색 글씨 스타일(jd2-salary-sub)이 없어 급여처럼 빨간 큰 글씨였음 → 스타일 추가,
               금액과 같은 줄 시작(jd2-salary-lines 안)으로 정렬. 위치·순서는 그대로. */}
-          {salaryText && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && salaryRows.length > 0 && <span className="jd2-salary-rows">{salaryRows.map((r, i) => <span key={i} className="jd2-salary-row"><span className="jd2-salary-row__label">{r.label}</span><span className="jd2-salary-row__amount">{r.amount}</span></span>)}</span>}
+          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
           {!salaryText && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
@@ -512,7 +516,8 @@ export function JobDetail() {
   const activeBenefitText = benefitIcons.filter((b) => b.active).map((b) => b.label).join(' · ')
   const conditionPcFields = [
     row('category', <Building2 size={14} strokeWidth={1.8} />, 'Ngành nghề', String(job.category) === 'other' ? undefined : catLabel),
-    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', [activeBenefitText, ...albamonLines.insurance].filter(Boolean).join(' · ') || undefined),
+    // 2026-11-04 Lee 데모(GPT 디자인 안): 최신 틀은 보험 원문 줄 대신 짧은 표시(BHXH·BHYT·BHTN) — 원문 줄은 상세요강에 그대로.
+    textRow('benefits', <Award size={14} strokeWidth={1.8} />, 'Phúc lợi', [activeBenefitText, ...(albamonLayout ? insuranceTags(albamonLines.insurance) : albamonLines.insurance)].filter(Boolean).join(' · ') || undefined),
   ].filter(Boolean) as InfoField[]
   // 2026-11-01 Lee: 등록 브랜드는 브랜드 로고 먼저(공고 카드·브랜드 메뉴와 같은 로고, 수평 전개). 그다음 공고 포스터.
   const logoUrl = brandLogoFor(job, brands) ?? companyLogoUrl(job.imageUrl)
@@ -559,7 +564,7 @@ export function JobDetail() {
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
   return (
-    <div className="jd2-page" style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
+    <div className={`jd2-page${albamonLayout ? ' jd2-page--v2' : ''}`} style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
       {!publicJob && adminPreview && <p role="status" style={{ margin: '8px 0', padding: '10px 14px', borderRadius: 8, background: '#fff4f2', color: '#d92d20', fontWeight: 700 }}>
         🔒 Chưa công khai — chỉ quản trị viên xem được (비공개 공고, 관리자만 보임). Lý do: {!adminPreview.occupationCode ? 'thiếu mã nghề' : adminPreview.adminHidden ? 'quản trị viên đã ẩn' : 'xem trang quản trị'}</p>}
 
