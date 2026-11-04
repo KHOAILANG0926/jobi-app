@@ -559,6 +559,15 @@ export function JobDetail() {
   const recruitRows = recruitOrdered(recruitShown)
   const conditionShown = newLayout ? conditionFields.filter((f) => !['salary', 'allowance'].includes(f.key)) : conditionFields
   const conditionPcShown = newLayout ? [] : conditionPcFields
+  // 2026-11-04 Lee "왼쪽 자리 왜 비운거지?"(#5437 급여·시간 없음): 최신 틀에서 한쪽 칸이 비면 보이는 항목을 두 칸에 나눠 채운다(순서 그대로).
+  const conditionColumnFields: InfoField[][] = (() => {
+    const pool = [...conditionShown, ...conditionPcShown]
+    const cols = conditionColumns.map((keys) => keys.map((key) => pool.find((f) => f.key === key)).filter((f): f is InfoField => !!f))
+    const all = cols.flat()
+    if (!albamonLayout || all.length < 2 || cols.every((c) => c.length > 0)) return cols
+    const half = Math.ceil(all.length / 2)
+    return [all.slice(0, half), all.slice(half)]
+  })()
   const roleSections = descriptionRoleGroups(descriptionSections)
   const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
@@ -677,9 +686,9 @@ export function JobDetail() {
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
               <div className="jd2-two-col-card__grid">
-                {conditionColumns.map((keys, i) => (
+                {conditionColumnFields.map((fields, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
-                    {keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f).map((f) => (
+                    {fields.map((f) => (
                       <div className={`jd2-two-col-card__row${CONDITION_PC_ONLY.has(f.key) ? ' jd2-pc-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>
                     ))}
                   </dl>
