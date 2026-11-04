@@ -1,3 +1,9 @@
+## 2026-11-04 15:40 — 공고 4건·Google 키·상세요강 거르기 (Claude)
+- 요청: Lee "공고 2개 추가해"(#5421·#5422, Lee Chrome에서 FB), 캡처 2건(#5437 DOOKKI·#5438 Team Robotics), "GOOGLE_PLACES_API_KEY 없어?", "상세 페이지는 중요한 내용만" → 적용.
+- 변경: #450·#452~#458 공고 파일·내 실수 고침(직업분류 9→9402, 급여 꼬리, 회사명 R5, 신청 링크 줄, 포스터 옮김 제거, 건물 사진) / #459 jobDescriptionBuild 거르기 + jobInspect 예외 + 옛 규칙 시험 갱신 + CLAUDE.md ④ / PR #451(카드 규칙 변경)은 Lee "기존 프로세스 건들지 마"로 닫음.
+- 검증: 검사표(41798722777) 4건 공개, 남은 문제는 급여 없는 메인 카드 2건(기존 규칙). demo-capture로 운영 데이터 상세 글 직접 확인. deploy-verify 41798740354 success.
+- 남은 문제: 상세요강 칸 오분류(위 HANDOFF 1번), 로컬 npm 저장소 차단으로 tsc·build는 CI에만 의존.
+
 ## 2026-11-04 09:50 — 알바몬 구직자 상세 데모 2단계 (Claude, 보류·운영 미반영)
 - 요청: Lee "구직자 상세 최신 틀을 알바몬 모바일 상세와 똑같이"(카드 상자 없이·구분선·제목 20px·회색 이름 칸). 09:10 "우리 거 말고 알바몬과 정확히 똑같이" → 캡처 8장 받음. 09:45 "일단 놔두고 나중에, 지금까지 만든 거 프로세스에 등록".
 - 변경(demo/detail-header-albamon): c99ccd1(우리 틀 덧칠 — 잘못 이해) → 6229a6d(캡처 색·크기 맞춤, src/index.css v2 전용 블록) → b06134b(demo-capture가 sb-5342 화면 전체 촬영). cty-kda-comparison에 4828 로고 크기·회사명 글자 제외 3항목, desktop baseline 해시 갱신.
@@ -53,10 +59,4 @@
 - 수정 파일: src/lib/cardPhoto.ts(+test), src/components/JobCard.tsx/.css, src/lib/homeSections.ts, src/pages/HomeDesktop.tsx, public/images/industry/*, data/industry-photos/SOURCES.json, CLAUDE.md, 촬영·사진 받기 workflow.
 - 검증: tsc·build·cardPhoto/homeSections 시험 통과, 데모 PC 화면 촬영(9239697) 직접 확인.
 - 이전 HANDOFF(11-01 저녁): 메인 칸 구분·브랜드/특별 기준·업종 메뉴 오류·FB 로그인 — 위 HANDOFF 2번에 남은 항목만 옮김.
-
-## 2026-11-01 밤 — 수평 전개: 브랜드 로고·급여 표시 모든 화면 (Claude)
-- 요청: Lee "수평 전개가 하나도 안 돼".
-- 브랜드 로고(lib/brandLogo.ts): 공고 카드 로고 칸, 상세 맨 위 로고, 상세 회사 정보 로고(브랜드 메뉴·브랜드 화면은 이미). 해당 없음: 모바일 목록·지도 창·추천 카드(로고 칸 없음), 관리자 입력 화면.
-- 급여 표시 한 곳(components/SalaryText.tsx): 지도 창(PC·모바일), 추천, 추천 페이지, 급구 표, 저장 목록·표, 최근 본 표, 내 정보 저장 목록, 지원 창, 알림 목록(카드·모바일 목록은 같은 cardSalary 규칙). 해당 없음: 관리자·고용주 입력 화면, 상세 화면(원문 그대로 보여 주는 칸).
-- CLAUDE.md "수평 전개 점검" 규칙 추가.
 
