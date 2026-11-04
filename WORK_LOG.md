@@ -3,6 +3,7 @@
 - 변경: 공통 jobRepresentativeImageUrl(브랜드 → 허용 imageUrl → 공개 images[0] → 업종 사진), 카드·상세 상단/기업정보에 적용. 하단 사진·CSS·위치·DB 변경 없음. 지도 목록은 JobCard 사용, 브랜드 디렉터리/메뉴는 공고 대표 이미지가 아닌 브랜드 자체 아이콘으로 해당 없음. 관리자 입력/업로드 미리보기는 입력값 확인용으로 해당 없음.
 - 검증 [직접 확인]: 새 대표 사진 단위 시험 실패 확인 후 통과, companyLogo 기존 시험 통과, desktop baseline 8/8. 전체 단위 시험 84/109(의존성 누락·환경 제약으로 25개 실패), 상세 회귀 시험도 @supabase/supabase-js 누락으로 중단. 로컬 build: sh: 1: tsc: not found. 최종 tsc/build/전체 시험/화면 검사는 PR CI로 확인 예정. 카드 레이아웃 시험에 images[0] 및 차단된 imageUrl 대체 경우 추가.
 - 상태: 연결 도구로 2b93993 커밋·PR #465 생성 성공. 첫 CI 타입 검사에서 node:fs 타입 선언 부재(TS2307) 확인. 브라우저용 src 시험에서 파일 접근을 빼고 기존 Node용 카드 레이아웃 시험으로 하단 사진 소스 검사를 이동. f55711a의 GitHub 타입·전체 시험·빌드는 통과(41930320351). 화면 비교 41930296693은 AssertionError [ERR_ASSERTION]: KDA approved frame 390/none, .jd2-header 높이 실제 279 / 기존 262.5로 실패. 새 업종 사진으로 제목 줄바꿈이 변함. CSS 수정/검사 완화 없이 PR #465 Draft 전환, 병합·배포 중단. 운영 화면 접속도 curl: (56) CONNECT tunnel failed, response 403으로 불가(아직 배포 안 함).
+- 후속 지시: Lee "별도 허락요청하지말고 … 다 진행". 독립 검토 결과 none 기준의 이미지 존재 상태가 달라 발생한 기능 효과로 판정. none만 기존 baseline 로고 칸이 있는 입력과 비교하고 로고·제목 상대 위치·크기·gap, fallback URL·실제 로드를 추가 검사. loaded/failed는 원래 동일 입력 비교 유지. CSS/JSX 수정·높이 허용 오차 확대 없음.
 - 이전 HANDOFF 상세 보존:
 ```markdown
 # HANDOFF — 11-04 저녁: 상세 항목 정리안(결정 대기)·칸 나누기·공고 4건 (2026-11-04 18:15, Claude → GPT 인수인계)
