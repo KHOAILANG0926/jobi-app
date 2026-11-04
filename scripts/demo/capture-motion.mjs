@@ -9,6 +9,8 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
   const ctx = await browser.newContext({ ...opt, locale: 'vi-VN' })
   const page = await ctx.newPage()
   await page.goto(`${BASE}/viec-lam/sb-${id}`, { waitUntil: 'networkidle', timeout: 90000 }).catch(() => {})
+  await page.waitForTimeout(2500)
+  await page.screenshot({ path: `out/full-${name}.png`, fullPage: true }).catch(() => {}) // 화면 전체(머리~끝) 확인용
   const box = page.locator('.jd2-bike-host').first()
   await box.scrollIntoViewIfNeeded().catch(() => {})
   await page.waitForTimeout(3000)
