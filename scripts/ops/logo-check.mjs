@@ -5,12 +5,13 @@
 //     "poster"         공고 포스터(images)가 있음 → 검색 불필요
 //     "brand"          회사 이름 검색 → 등록 브랜드(job_brands, domain 있음)로 로고가 붙음. brand = 브랜드 slug
 //     "found_unstored" 검색으로 공식 로고를 찾았지만 아직 저장 못 함(브랜드 기준 미달·등록 대기). official_url + note 필수
+//     "business_photo" 업체 실제 사진(Google 지도·업체 페이스북 등)을 찾아 images에 넣음(Lee 2026-11-04). photo_source(https) + note(업체 일치 근거) 필수
 //     "not_found"      검색했지만 공식 로고 없음 → 업종 사진. searched(검색어 목록) 필수
 // 실제 검색은 등록하는 작업자(Claude 등)가 한다. 이 검사는 "검색했는지·결과가 무엇인지"가 파일에 남았는지만 막는다.
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-const RESULTS = ['poster', 'brand', 'found_unstored', 'not_found']
+const RESULTS = ['poster', 'brand', 'found_unstored', 'business_photo', 'not_found']
 const nonEmptyText = (v) => typeof v === 'string' && v.trim() !== ''
 
 /** migration에 등록된 브랜드 slug 중 domain(로고 주소)이 들어간 것. */
@@ -42,6 +43,11 @@ export function logoCheckProblems(payload, logoBrands = brandsWithLogo()) {
   if (c.result === 'found_unstored') {
     if (!nonEmptyText(c.official_url) || !/^https:\/\//.test(c.official_url)) p.push('logo_check=found_unstored에는 official_url(https) 필요')
     if (!nonEmptyText(c.note)) p.push('logo_check=found_unstored에는 note(왜 아직 저장 못 했는지) 필요')
+  }
+  if (c.result === 'business_photo') {
+    if (images.length === 0) p.push('logo_check=business_photo인데 images(업체 사진)가 없음')
+    if (!nonEmptyText(c.photo_source) || !/^https:\/\//.test(c.photo_source)) p.push('logo_check=business_photo에는 photo_source(https 사진 출처) 필요')
+    if (!nonEmptyText(c.note)) p.push('logo_check=business_photo에는 note(같은 업체라는 근거) 필요')
   }
   if (c.result === 'not_found') {
     if (!Array.isArray(c.searched) || !c.searched.some(nonEmptyText)) p.push('logo_check=not_found에는 searched(실제 검색어 목록) 필요')
