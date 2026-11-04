@@ -12655,3 +12655,35 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-page--v2 .jd2-cert-tag--verified { color: #be123c; background: #fff1f2; border-color: #fecdd3; }
 .jd2-page--v2 .jd2-cert-tag--contract { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
 .jd2-page--v2 .jd2-cert-tag--insurance { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+
+/* 2026-11-04 Lee 데모(demo/detail-header-albamon 2단계): 알바몬 모바일 상세처럼 — 최신 틀(.jd2-page--v2)만.
+   카드 상자 없음·흰 바탕, 구역마다 전체 폭 얇은 회색 구분선(위아래 24px), 구역 제목 20px 굵게,
+   항목 = 글머리점 없이 회색 이름 칸(84px) + 진한 값. KDA·예전 3건은 v2가 아니라 영향 없음. */
+.jd2-page--v2 { background: #fff; }
+.jd2-page--v2 .jd2-header,
+.jd2-page--v2 .jd2-box,
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-aside--contact-only { border: 0; border-radius: 0; box-shadow: none; background: #fff; overflow: visible; }
+.jd2-page--v2 .jd2-header { padding: .5rem 0 1rem; margin-bottom: 0; }
+.jd2-page--v2 .jd2-box + .jd2-box { margin-top: 1rem; }
+.jd2-page--v2 .jd2-grid--detail-redesign { row-gap: 0; }
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--first,
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--full { gap: 0; }
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec,
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin: 0; padding: 24px 0; border-top: 1px solid #e5e7eb; }
+.jd2-page--v2 .jd2-sec__title { margin: 0 0 16px; font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.01em; }
+.jd2-page--v2 .jd2-two-col-card,
+.jd2-page--v2 .jd2-detail-sections,
+.jd2-page--v2 .jd2-card__body,
+.jd2-page--v2 .jd2-box__sub { padding: 0; }
+.jd2-page--v2 .jd2-box__sub { margin-bottom: .5rem; }
+.jd2-page--v2 .jd2-two-col-card__row { grid-template-columns: 84px minmax(0, 1fr); column-gap: 12px; padding: 7px 0; border: 0; }
+.jd2-page--v2 .jd2-two-col-card__row dt { font-size: 14px; font-weight: 400; color: #8b95a1; }
+.jd2-page--v2 .jd2-two-col-card__row dd { font-size: 15px; font-weight: 600; color: #111827; }
+.jd2-page--v2 .jd2-two-col-card__row dd.jd2-info-val--salary { font-size: 16px; font-weight: 800; }
+@media (max-width: 760px) {
+  /* 모바일 1단 + 구분선 화면 끝까지(페이지 좌우 여백 1rem 상쇄) */
+  .jd2-page--v2 .jd2-two-col-card__grid { grid-template-columns: minmax(0, 1fr); }
+  .jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec,
+  .jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin: 0 -1rem; padding: 24px 1rem; }
+  .jd2-page--v2 .jd2-detail-sections { padding: 0; }
+}
