@@ -12656,34 +12656,87 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-page--v2 .jd2-cert-tag--contract { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
 .jd2-page--v2 .jd2-cert-tag--insurance { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
 
-/* 2026-11-04 Lee 데모(demo/detail-header-albamon 2단계): 알바몬 모바일 상세처럼 — 최신 틀(.jd2-page--v2)만.
-   카드 상자 없음·흰 바탕, 구역마다 전체 폭 얇은 회색 구분선(위아래 24px), 구역 제목 20px 굵게,
-   항목 = 글머리점 없이 회색 이름 칸(84px) + 진한 값. KDA·예전 3건은 v2가 아니라 영향 없음. */
-.jd2-page--v2 { background: #fff; }
-.jd2-page--v2 .jd2-header,
+/* 2026-11-04 Lee 데모(demo/detail-header-albamon 2단계): 알바몬 모바일 상세 캡처(쿠팡CLS 공고)와 같은 모양 — 최신 틀(.jd2-page--v2)만.
+   캡처 색을 그대로 씀: 글자 #111/회색 이름 #6b6b6b/보조 #9e9e9e, 구분선 #e8e8e8(좌우 여백 안쪽), 주황 #ed7632.
+   상자 없음·흰 바탕, 제목 22px, 구역 제목 20px, 이름 칸 80px + 값 15px, 모바일 1단. KDA·예전 3건은 v2가 아니라 영향 없음. */
+.jd2-page--v2 { background: #fff; color: #111; }
+@media (max-width: 760px) { .jd2-page--v2 { padding-left: 24px; padding-right: 24px; } }
+
+/* 머리: 제목 → [로고 + 회사명] 한 줄 → 인증 태그 줄 (알바몬 순서) */
+.jd2-page--v2 .jd2-header { border: 0; border-radius: 0; box-shadow: none; background: #fff; padding: 8px 0 32px; margin: 0; gap: 0; }
+.jd2-page--v2 .jd2-header .jd2-header__title { font-size: 22px; font-weight: 700; line-height: 1.6; color: #111; letter-spacing: -0.02em; margin: 0 0 20px; }
+.jd2-page--v2 .jd2-header__left { flex-wrap: wrap; align-items: center; column-gap: 14px; row-gap: 0; }
+.jd2-page--v2 .jd2-header__info { display: contents; }
+.jd2-page--v2 .jd2-header__info > * { flex: 0 0 100%; order: 2; }
+.jd2-page--v2 .jd2-header .jd2-logo { order: 0; width: 48px; height: 48px; border-radius: 10px; border: 1px solid #e8e8e8; overflow: hidden; flex: none; }
+.jd2-page--v2 .jd2-header .jd2-header__company { order: 1; flex: 1 1 0; min-width: 0; margin: 0; font-size: 16px; font-weight: 500; color: #111; }
+.jd2-page--v2 .jd2-cert-tags { margin: 18px 0 0; gap: 8px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.jd2-page--v2 .jd2-cert-tags::-webkit-scrollbar { display: none; }
+.jd2-page--v2 .jd2-cert-tag { flex: none; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.jd2-page--v2 .jd2-cert-tag--verified { color: #d0453b; background: #fdf3f1; border-color: #f6cdc6; }
+.jd2-page--v2 .jd2-cert-tag--contract { color: #6a4fc7; background: #f3f0ff; border-color: #d7cefb; }
+.jd2-page--v2 .jd2-cert-tag--insurance { color: #3d6fd6; background: #f0f2fe; border-color: #c9d4f7; }
+.jd2-page--v2 .jd2-header .jd2-header__chips { margin-top: 12px; }
+.jd2-page--v2 .jd2-header .jd2-chip { background: #f4f4f4; color: #6b6b6b; border: 0; border-radius: 6px; font-weight: 500; }
+.jd2-page--v2 .jd2-header .jd2-hl-salary { margin-top: 16px; }
+.jd2-page--v2 .jd2-header .jd2-header__meta { margin-top: 12px; color: #9e9e9e; }
+
+/* 탭: 흰 바탕, 선택 = 검정 글자 + 주황 밑줄 */
+.jd2-page--v2 .jd2-tabs--sticky { margin: 0; border-bottom: 1px solid #e8e8e8; border-radius: 0; background: #fff; }
+.jd2-page--v2 .jd2-tabs--sticky .jd2-tab { background: #fff; border: 0; border-bottom: 3px solid transparent; margin: 0; color: #9e9e9e; font-weight: 500; }
+.jd2-page--v2 .jd2-tabs--sticky .jd2-tab:hover { background: #fff; color: #111; }
+.jd2-page--v2 .jd2-tabs--sticky .jd2-tab--active,
+.jd2-page--v2 .jd2-tabs--sticky .jd2-tab[aria-current='true'] { background: #fff; color: #111; font-weight: 700; border-bottom-color: #ed7632; }
+
+/* 구역: 상자 없음, 구역 사이 회색 선(좌우 여백 안쪽), 선 위아래 32px */
 .jd2-page--v2 .jd2-box,
 .jd2-page--v2 .jd2-grid--detail-redesign .jd2-aside--contact-only { border: 0; border-radius: 0; box-shadow: none; background: #fff; overflow: visible; }
-.jd2-page--v2 .jd2-header { padding: .5rem 0 1rem; margin-bottom: 0; }
-.jd2-page--v2 .jd2-box + .jd2-box { margin-top: 1rem; }
+.jd2-page--v2 .jd2-box + .jd2-box { margin-top: 16px; }
 .jd2-page--v2 .jd2-grid--detail-redesign { row-gap: 0; }
 .jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--first,
 .jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--full { gap: 0; }
 .jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec,
-.jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin: 0; padding: 24px 0; border-top: 1px solid #e5e7eb; }
-.jd2-page--v2 .jd2-sec__title { margin: 0 0 16px; font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.01em; }
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin: 0; padding: 32px 0; border-top: 1px solid #e8e8e8; }
+.jd2-page--v2 .jd2-grid--detail-redesign .jd2-main--first .jd2-sec { border-top: 0; }
+.jd2-page--v2 .jd2-sec__title { margin: 0 0 24px; font-size: 20px; font-weight: 700; color: #111; letter-spacing: -0.02em; }
 .jd2-page--v2 .jd2-two-col-card,
 .jd2-page--v2 .jd2-detail-sections,
 .jd2-page--v2 .jd2-card__body,
 .jd2-page--v2 .jd2-box__sub { padding: 0; }
-.jd2-page--v2 .jd2-box__sub { margin-bottom: .5rem; }
-.jd2-page--v2 .jd2-two-col-card__row { grid-template-columns: 84px minmax(0, 1fr); column-gap: 12px; padding: 7px 0; border: 0; }
-.jd2-page--v2 .jd2-two-col-card__row dt { font-size: 14px; font-weight: 400; color: #8b95a1; }
-.jd2-page--v2 .jd2-two-col-card__row dd { font-size: 15px; font-weight: 600; color: #111827; }
-.jd2-page--v2 .jd2-two-col-card__row dd.jd2-info-val--salary { font-size: 16px; font-weight: 800; }
+.jd2-page--v2 .jd2-box__sub { margin-bottom: 8px; }
+
+/* 항목: 글머리점 없이 회색 이름 칸 + 진한 값 */
+.jd2-page--v2 .jd2-two-col-card__row { grid-template-columns: 80px minmax(0, 1fr); column-gap: 14px; padding: 10px 0; border: 0; }
+.jd2-page--v2 .jd2-two-col-card__row:first-child { padding-top: 0; }
+.jd2-page--v2 .jd2-two-col-card__row dt { font-size: 15px; font-weight: 400; line-height: 1.6; color: #6b6b6b; }
+.jd2-page--v2 .jd2-two-col-card__row dd { font-size: 15px; font-weight: 400; line-height: 1.6; color: #111; }
+.jd2-page--v2 .jd2-two-col-card__row dt svg { display: none; }
+/* 급여: 주황 테두리 둥근 표시(Ngày/Tháng…) + 굵은 금액, 아래 보조 줄은 회색 */
+.jd2-page--v2 .jd2-two-col-card__row dd.jd2-info-val--salary { font-size: 17px; font-weight: 700; color: #111; }
+.jd2-page--v2 .jd2-two-col-card .jd2-pay-badge { border: 1px solid #ed7632; color: #ed7632; background: #fff; border-radius: 999px; padding: 1px 10px; font-size: 13px; font-weight: 500; margin-right: 6px; vertical-align: 0.1em; }
+.jd2-page--v2 .jd2-salary-line.jd2-salary-sub,
+.jd2-page--v2 .jd2-two-col-card__row dd.jd2-info-val--salary .jd2-salary-sub { margin-top: 8px; font-size: 15px; font-weight: 400; line-height: 1.6; color: #6b6b6b; }
+.jd2-page--v2 .jd2-salary-row__label { font-weight: 400; color: #6b6b6b; }
+.jd2-page--v2 .jd2-salary-row__amount { color: #111; font-weight: 700; }
+
+/* 근무지역: 주소 + 파란 "Sao chép", 지도는 둥근 모서리만 */
+.jd2-page--v2 .jd2-location-above-map__row { font-size: 15px; color: #111; }
+.jd2-page--v2 .jd2-location-copy { font-size: 15px; color: #3d8bd9; padding: 0 0 0 6px; }
+.jd2-page--v2 .jd2-vmap { border: 0; border-radius: 12px; }
+
+/* 상세요강·회사 글자색만 맞춤 */
+.jd2-page--v2 .jd2-detail-section__line { color: #111; }
+.jd2-page--v2 .jd2-detail-section__title::before { background: #ed7632; }
+
+/* 아래 고정 바: 전화·Zalo 흰 바탕 회색 테두리, 지원 = 주황 */
+.jd2-page--v2 .jd2-mobile-cta { box-shadow: none; border-top: 1px solid #e8e8e8; }
+.jd2-page--v2 .jd2-mobile-cta__call,
+.jd2-page--v2 .jd2-mobile-cta__zalo { background: #fff; color: #111; border: 1px solid #d9d9d9; border-radius: 8px; font-weight: 500; }
+.jd2-page--v2 .jd2-mobile-cta__apply { background: #ed7632; border-radius: 8px; font-weight: 700; }
+.jd2-page--v2 .jd2-mobile-cta__apply:disabled { background: #e8e8e8; color: #9e9e9e; }
+
 @media (max-width: 760px) {
-  /* 모바일 1단 + 구분선 화면 끝까지(페이지 좌우 여백 1rem 상쇄) */
   .jd2-page--v2 .jd2-two-col-card__grid { grid-template-columns: minmax(0, 1fr); }
-  .jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec,
-  .jd2-page--v2 .jd2-grid--detail-redesign .jd2-sec--conditions-grid + .jd2-sec--recruit-grid { margin: 0 -1rem; padding: 24px 1rem; }
   .jd2-page--v2 .jd2-detail-sections { padding: 0; }
+  .jd2-page--v2 .jd2-header { padding: 8px 0 32px; }
 }

@@ -35,6 +35,8 @@ try {
         if (id === '4828' && metric === 'header.salary.value.font') continue
         // 2026-11-04 Lee "똑같이 만들어줘": 최신 틀은 제목이 맨 위라 로고·칩 위치가 KDA와 다름 — 이 두 항목만 제외.
         if (id === '4828' && (metric === 'header.logo.top' || metric === 'header.chips.top')) continue
+        // 2026-11-04 Lee "알바몬하고 똑같이"(캡처 기준): 최신 틀 머리는 알바몬처럼 로고 48px 정사각 + 회사명 16px — 이 세 항목만 제외.
+        if (id === '4828' && (metric === 'header.logo.w' || metric === 'header.logo.h' || metric === 'header.company.font')) continue
         if (base[metric] === undefined || comparison[metric] === undefined) continue
         if (typeof base[metric] === 'number' && typeof comparison[metric] === 'number') {
           if (Math.abs(base[metric] - comparison[metric]) > 2) findings.push(id + ending + ': ' + metric + ' diverges from CTY KDA (' + comparison[metric] + ' vs ' + base[metric] + ')')

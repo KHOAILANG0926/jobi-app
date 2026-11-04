@@ -1,6 +1,6 @@
 // 2026-11-03: DesktopHomeMapExplorer.tsx — Lee "거리재는 거 어디 갔냐, 그냥 보이게 해": 반경 칸 항상 표시(고르면 거리 검색 켜짐). 위치 칸 펼침 메뉴·중복 Gần tôi 제거(Lee "꼭 필요한 거야?" → 진행). 다른 PC 틀 변경 없음.
 // 2026-11-03: LayoutDesktop.tsx·DesktopHomeMapExplorer.tsx·index.css — Lee 지시: PC 메인 왼쪽 칸 위치·급여만("거리하고 기본 금액만"), 메뉴 "Theo khu vực" 34개 성·급구 → 지역별 일자리(/viec-lam/khu-vuc), 지역별 페이지 전용 CSS(.jm-urgent-page 아래)·지도. 공고 카드·상세 틀 변경 없음.
-// 2026-11-04: index.css — Lee 지시(알바몬 구직자 상세 2단계 데모): 최신 틀(.jd2-page--v2)만 카드 상자 없이 흰 바탕·구역 전체 폭 회색 구분선·제목 20px·회색 이름 칸 84px. KDA·예전 틀 변경 없음.
+// 2026-11-04: index.css — Lee 지시(알바몬 구직자 상세 2단계 데모, "알바몬하고 똑같이" 캡처 기준): 최신 틀(.jd2-page--v2)만 상자 없음·흰 바탕·회색 구분선·제목 22px·구역 제목 20px·회색 이름 칸 80px·주황 탭/지원 버튼·로고 48px+회사명 한 줄. KDA·예전 틀 변경 없음.
 // 2026-11-04: JobDetail.tsx·index.css — Lee 지시(알바몬 구직자 상세 1단계): 최신 틀 머리 제목 맨 위 + 인증 표시. KDA·예전 틀 변경 없음.
 // 2026-11-04: JobDetail.tsx·index.css — Lee 지시("데모를 좀 먼저 보자"): 최신 4칸 틀(.jd2-page--v2)만 디자인 정리(상자 높이·간격·테두리·급여 크기·상세요강·보험 짧은 표시, 여러 직무 급여 직무|금액 두 칸). KDA·예전 틀 변경 없음.
 // 2026-11-03: JobDetail.tsx — Lee 지시("오케이 진행", #440): 여러 직무 공고 근무조건 급여 칸에 직무별 금액 줄(원문 그대로, 최대 3줄). 칸 순서·위치·머리 카드 등 PC 틀 변경 없음.
@@ -98,7 +98,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "fd906a1fc8ee89378e787a4304d8fab64e2c169564f8d5a28e7e942d4bc4dc83",
+    "sha256": "3cc5ee8922f66abcc1feaeecd621a6fd2c926fc3d05c7cac494d9c16006ca332",
     "restore": []
   },
   {
