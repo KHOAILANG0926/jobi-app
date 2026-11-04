@@ -378,6 +378,7 @@ export function JobDetail() {
   const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
   const sourceRoles = sourceRecruitmentRoles(job.description)
   const shownTitle = job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title
+  const titleEl = <h1 className={`jd2-header__title jd2-header__title--${shownTitle.length > 85 ? 'long' : shownTitle.length > 45 ? 'medium' : 'short'}`}>{shownTitle}</h1>
   const companyText = companyLine(shownTitle, job.company)
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)
@@ -575,7 +576,9 @@ export function JobDetail() {
       </button>
 
       {/* ── Header card: 급여·D-day·태그 강조, 경고는 한 줄 ── */}
-      <div className="jd2-header">
+      <div className={`jd2-header${albamonLayout ? ' jd2-header--title-first' : ''}`}>
+        {/* 2026-11-04 Lee "똑같이 만들어줘"(알바몬 구직자 상세): 최신 틀은 제목을 맨 위에, 그 아래 로고·회사·인증 표시 */}
+        {albamonLayout && titleEl}
         <div className="jd2-header__left">
           {logoUrl && (
             <div className="jd2-logo">
@@ -589,9 +592,14 @@ export function JobDetail() {
               {job.urgent && <span className="jd2-chip jd2-chip--urgent">Tuyển gấp</span>}
               {badge && <span className={`jd2-chip jd2-dday jd2-dday--${badge.tone}`}>{badge.label}</span>}
             </div>
-            <h1 className={`jd2-header__title jd2-header__title--${shownTitle.length > 85 ? 'long' : shownTitle.length > 45 ? 'medium' : 'short'}`}>{shownTitle}</h1>
+            {!albamonLayout && titleEl}
             {/* 결정 0007(Lee 2026-11-01): 제목에 회사명이 보이면 지점명만, 지점명이 없으면 줄을 그리지 않음 */}
             {companyText && <p className="jd2-header__company">{companyText}</p>}
+            {albamonLayout && (job.companyVerified || job.laborContractPledge || job.socialInsurancePledge) && <div className="jd2-cert-tags">
+              {job.companyVerified && <span className="jd2-cert-tag jd2-cert-tag--verified">Doanh nghiệp đã xác minh</span>}
+              {job.laborContractPledge && <span className="jd2-cert-tag jd2-cert-tag--contract">Cam kết hợp đồng lao động</span>}
+              {job.socialInsurancePledge && <span className="jd2-cert-tag jd2-cert-tag--insurance">Có bảo hiểm xã hội</span>}
+            </div>}
             {(salaryText || job.salaryBasis) && (
               <p className="jd2-hl-salary">
                 {periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}

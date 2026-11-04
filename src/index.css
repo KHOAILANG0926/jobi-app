@@ -12646,3 +12646,12 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-page--v2 .jd2-salary-row__label { font-size: 14px; font-weight: 600; color: #475569; }
 .jd2-page--v2 .jd2-salary-row__amount { font-size: 15px; font-weight: 700; color: #e53935; }
 @media (max-width: 640px) { .jd2-page--v2 .jd2-salary-rows { column-gap: .75rem; } .jd2-page--v2 .jd2-salary-row__amount { font-size: 14px; } }
+
+/* 2026-11-04 Lee "똑같이 만들어줘"(알바몬 구직자 상세) 1단계: 최신 틀 머리 — 제목 맨 위, 로고·회사·인증 표시 */
+.jd2-page--v2 .jd2-header--title-first { flex-direction: column; align-items: stretch; }
+.jd2-page--v2 .jd2-header--title-first > .jd2-header__title { margin: 0 0 .9rem; }
+.jd2-page--v2 .jd2-cert-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin: .45rem 0 .6rem; }
+.jd2-page--v2 .jd2-cert-tag { display: inline-flex; align-items: center; padding: .2rem .55rem; border-radius: 6px; font-size: 12.5px; font-weight: 600; border: 1px solid; }
+.jd2-page--v2 .jd2-cert-tag--verified { color: #be123c; background: #fff1f2; border-color: #fecdd3; }
+.jd2-page--v2 .jd2-cert-tag--contract { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+.jd2-page--v2 .jd2-cert-tag--insurance { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
