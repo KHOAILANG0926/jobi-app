@@ -1,3 +1,8 @@
+## 2026-11-04 07:35 — 11-03 저녁~11-04 아침 묶음 (Claude)
+- 요청·변경: Joy Thái 사진(식당 우선 #430)·로고 막힘 제거·브랜드 분류 식당/판매(#431·#432, JoyThai 브랜드) / Bảo An VCC #5368 등록·포스터 소제목 규칙(#433~#435)·위치 확정(Google 링크, 수동 도구 #444) / 공단 밖 회사 이름 위치 찾기 Goong→Google(#438·#439·#442, Vercel에 Google 키 없음) / 여러 직무 급여 칸(#440, 11-04 직무|금액 두 칸) / 위치 계산 절차·Google 규칙(#436·#437·#443) / Tâm Hồ Nhất Hạch #5405(Lee Chrome에서 FB 글, #445·#446) / 최신 틀 디자인(#447: 상자 높이·간격·테두리·급여 26px·상세요강 문서형·보험 짧은 표시, KDA·예전 3건 제외).
+- 검증: 각 PR 필수 검사 + deploy-verify(최종 41744451652 success, 663dce4).
+- 남은 문제: Vercel GOOGLE_PLACES_API_KEY 없음(Google 위치 단계 꺼짐), FB 수집기 session_expired, 검사표가 좌표만 있으면 '정확한 위치'로 표시, DB만 바뀐 병합 뒤 deploy-verify 자동 시작 안 됨.
+
 ## 2026-11-03 17:15 — Joy Thái 공고 #5342·직무 제목 규칙·업종 사진 (Claude)
 - 요청: Lee "페이스북 크롤링 1건 진행"(수집기 session_expired → Lee가 원문·글 주소 제공), "메인에 왜 없어?", "로고 없으면 사진 넣기로 하지 않았어?", "데모 진행해서 허락한 거는 다 완료".
 - 변경: #424·#425 공고 파일(scripts/ops/jobs/fb-joythai-20261103.json, 첫 등록은 R3 출처 없음으로 거부 → 글 주소 추가) → ops-insert-job #5342 → ops-publish-jobs. #426 isRoleHeading 대문자 직무 제목·roleSalaryLines 금액만 줄·roleConditionSummary 없는 값 지어내지 않음·detail-fill 규칙 파일 추가. #427 JobCard 업종 사진(cardPhoto.ts, public/images/industry).
@@ -53,11 +58,3 @@
 - 요청: Lee "적용" — 데모 demo/card-albamon.
 - 변경: 급여 한 줄(지급 단위 색: 월급 빨강·시급/연봉 파랑·일급 보라, 금액 회색, 직무 여럿이면 회색 "₫ Xem lương theo vị trí" — 10-30 직무별 2줄 규칙을 Lee가 바꿈), 위치는 동/성까지(shortArea), 제목 보통 굵기, 카드 글자만: 회사 끝 지역·제목 속 회사 이름 빼기·전부 대문자 제목 완화(cardText). 로고 칸·유료 그라데이션 띠 그대로. PC 카드(JobCard)·모바일 목록(HomeDiscovery).
 
-## 2026-11-01 밤 — 브랜드 로고(공식 사이트 아이콘) (Claude)
-- 요청: Lee "대기업들은 자체 로고가 있잖아 그거 넣어줘". 화면은 domain의 공식 사이트 아이콘을 로고로 씀.
-- 변경: migration 20261101230000 — Highlands(highlandscoffee.com.vn), Trung Nguyên Legend(trungnguyenlegend.com), Wallace(wallacevn.com), Xanh SM(greensm.com) domain. 공식 주소 확인 못 한 브랜드(SPX·Tamba·Orange·Americano 등)는 그대로.
-
-## 2026-11-01 저녁 — 확인된 체인 브랜드 3개 등록 (Claude)
-- 요청: Lee "진행하자"(브랜드: 공식 출처 지점 3곳 이상 + 매장 일치).
-- [직접 확인] Highlands 1,000호점(tapchicongthuong 2026-06-12), Trung Nguyên Legend 22(중국)+5(미국)(VCCI), Wallace 공식 페이지 24개 지점(gà rán·hamburger). Wallace 공식 페이지는 CS9 "219 Nguyễn Trãi", 공고·foody는 216 — 1번지 차이 기록.
-- 변경: migration 20261101210000(job_brands 확인 칸 4개 + 브랜드 3개·별칭), production check, CI 단계. 기존 13개 브랜드 불변.

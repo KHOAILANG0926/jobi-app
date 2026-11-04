@@ -1,26 +1,19 @@
-# HANDOFF — 지역 기준 통일 운영 반영 + Joy Thái 공고·직무 제목 규칙·업종 사진 (2026-11-03 17:15, Claude)
+# HANDOFF — 11-04 아침: 최신 상세 틀 디자인·여러 직무 급여·위치 절차 (2026-11-04 07:35, Claude)
 
 ## 1. 현재 상태
-- master(운영) d2b40f0 = PR #422 병합(Lee "어차피 데모 줘도 내가 확인 못하잖아" → 운영 반영), Production READY, deploy-verify 41606871616 통과. 공개 공고 9건(STATUS 11-03 11:04, 전부 Bắc Ninh).
-- 운영 반영 내용(#422): 
-  - 지역 판정 하나로: 공고 주소 글자 → 성·동(src/lib/jobArea.ts, jobAreaWards.ts). 메인·검색·추천·지역별 페이지 공통. DB 값(resolved_*) 안 씀 → 새 공고 자동 연결.
-  - 행정구역 자료 9월판(vietnam-provinces 2026.9.0, 생성기 scripts/data/gen-vn-admin.py): Bắc Ninh·Quảng Ninh·Đồng Nai = Thành phố. 옛 동→새 동 공식 대응표(vnOldWards.ts, 지역별 페이지만 따로 불러옴). 대응표 전체 10,023개 시험: 정답 후보 포함 100%, 틀린 단일 확정 0.
-  - 급구 페이지 → 지역별 일자리 /viec-lam/khu-vuc(옛 주소 넘김), 메인 공고 카드, 알바몬식 필터, 베트남 지도 고르기(섬·Hoàng Sa·Trường Sa 포함, 휠·두 손가락 확대, 확대 시 동 표시), PC 메인 왼쪽 칸 위치·급여만.
-  - 수집기 판 2026.9.0 + 같은 시험(test-fixtures/vn-admin-cases.json, vn-admin-sync workflow).
-  - 알림 34개 migration: **운영에 넣지 않음**(Lee: 공고 올린 뒤). 알림 화면은 예전 29개(ALERT_REGION_TABS). dry-run 통과본은 demo/region-unify의 20261103120000_job_alert_regions_34.sql(생성기 scripts/data/gen-alert-region-keywords.mjs).
-- 11-03 저녁: 공고 #5342 Joy Thái(Lee 제공 FB, 출처 글 주소 · 작성자 Đỗ Ngọc Mai) 공개(#424·#425). 대문자 직무 제목(NHÂN VIÊN …)·금액만 있는 급여 줄 인식(#426, 메인 누락 해결). 로고 없는 카드 → 업종 사진(#427, demo/home-photo-cards 카드 부분만). 각 deploy-verify 통과.
-- 11-03 17:30: PC 메인 왼쪽 위치 칸 정리(fix/radius-always-visible) — 거리(반경) 칸 항상 표시, 펼침 메뉴·중복 Gần tôi 제거(Gần tôi 1개 + 성 선택 1개). 숨김은 #99(10-15 MAP-R1)에서 생긴 것, Lee 지시 기록 없음.
-- demo/home-photo-cards 나머지(모바일 메인 칸·배너 210px): 휴대폰 작업 때 한 번에.
-- FB 수집기: session_expired 잠금(FACEBOOK_ACCOUNT_LOCK), Lee Chrome도 Facebook 로그아웃 상태.
+- master(운영) 663dce4 = PR #447, Production READY, deploy-verify 41744451652 통과.
+- 상세 화면: 최신 4칸 틀(.jd2-page--v2)만 새 디자인(상자 높이 내용만큼·간격 24px·연한 테두리·머리 급여 PC 26px/모바일 22px·상세요강 문서형·보험 짧은 표시). 여러 직무 급여 칸 = 직무 | 금액 두 칸(roleSalaryRows). KDA(sb-4824)·예전 3건(sb-4878·4879·4982)은 그대로(Lee: 앞으로 들어오는 것만).
+- 공고: #5342 Joy Thái(JoyThai 브랜드·식당 분류), #5368 Bảo An VCC(위치 Google 링크로 관리자 확정), #5405 Tâm Hồ Nhất Hạch(Google 주소). 검사표 연속 통과 7/10.
+- 위치: 공단 밖 공고 회사 이름 찾기(Goong → Google) 추가. Google 단계는 Vercel에 키가 없어 꺼져 있음(비교 41668349505 전부 not_configured). 절차: 원문에 도로 없으면 Google에서 회사 주소 글자 → 주소 칸 → VietMap·Goong 계산, 이미 올라간 공고는 관리자 위치 확정(수동 도구 admin-location-confirm.yml: 공고 번호 + Google 지도 링크, 링크는 /place/…/data=!3d…!4d… 전체).
+- 등록 방식 결정(Lee 11-04): 공고는 모아서 PR 한 번에(건당 시간 단축), 등록 전 검사표를 미리 돌림.
 
 ## 2. 다음 할 일
-1. Lee: Bắc Ninh 공고 100개 올린 뒤 다른 지역으로(1,000개 계획 변경, Lee 11-03). 공고 올린 뒤 지역 판정 확인 + 알림 34개 migration 진행.
-2. 휴대폰 화면은 나중에 한 번에(Lee 11-03): 배너 210px, 모바일 메인, 지도 터치 확인.
-3. Lee: FB 쿠키 Secrets 갱신·잠금 해제, Chrome Facebook 로그인. 직종 필터 통일(앱 category vs 공식 occupation_code) 결정 대기. 저녁 보고는 GitHub 이슈 #266 댓글뿐(알림 없음, 정시 아님) — 받는 방법 결정 대기.
+1. Lee: Vercel(Production)에 GOOGLE_PLACES_API_KEY(Places API New) 등록 → 브랜치 ops/recheck-area-pins-google(다시 찾기 migration) PR.
+2. Lee: FB 수집기 — 쿠키 재등록 또는 수집기를 베트남 IP/전용 계정으로(결정 대기). 그동안은 Lee Chrome에서 글을 읽어 등록.
+3. 모바일에서 여러 직무 급여 두 칸·새 디자인 화면 확인. 검사표 '정확한 위치' 오표시, DB만 바뀐 병합 뒤 deploy-verify 미시작(vercel-deploy가 push일 때 '앱 변경 없음' 기록만 남김 — workflow_run/수동 실행 필요).
 
 ## 3. 필수 규칙 (이번 지적)
-- 시킨 것만, 시키면 묻지 말고 진행. 진행 중이면 먼저 알릴 것("머해?" 나오기 전에).
-- 데모 링크 줄 때 운영과 다른 점(다른 데모에만 있는 수정 등)을 먼저 말할 것. 브라우저 확인은 허용 창이 뜨므로 꼭 필요할 때만.
-- 검증은 한 지역(Bắc Ninh)만으로 하지 말 것 — 전국 표본·공식 대응표 전체로.
-- Facebook 공고는 등록 전에 글 주소(또는 작성자)부터 확보(출처 규칙 R3). 공고 1건에 시간 끌지 말 것.
-- 확인 안 한 말 금지. [직접 확인]/[기존 기록]/[추정]. 보고는 짧게, 한국어로.
+- 결과만 보고. 중간보고 금지. 끝나면 바로 "완료". 모르면 먼저 확인하고 말할 것(이미 있는 키·설정 확인 없이 요청 금지).
+- 얘기 끝나기 전에 작업 시작 금지. 시킨 범위만(예: "앞으로 들어가는 것만" → 기존 공고 손대지 않음).
+- 같은 얘기 반복 금지. 이미 정한 건 다시 묻지 말 것. 시간 추정은 실제 작업 기준으로.
+- 데모 링크는 https://jobi-demo-mshw1895-6089s-projects.vercel.app/… (고정 주소. CLAUDE.md의 jobi-git-… 형식은 옛 것).
