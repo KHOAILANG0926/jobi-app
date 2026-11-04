@@ -63,8 +63,9 @@ try {
   assert.equal(await meal.count(),1)
   assert((await meal.innerText()).includes('Ăn ca: chỉ rửa bát, 2 bữa'))
   for(const paragraph of await page.locator('.jd2-detail-section__line').allTextContents())assert(!/FULL TIME —|PART TIME —/.test(paragraph),'no repeated role prefix in visible lines')
-  const other=await page.locator('#jd2-detail-07').innerText()
-  assert(other.includes('Gia nhập đội ngũ')&&other.includes('Ứng tuyển sớm'))
+  // Lee 2026-11-04 "상세 페이지는 중요한 내용만": 권유 인사말(Gia nhập đội ngũ…, Ứng tuyển sớm…)은 화면에서 거른다.
+  const detailText=(await page.locator('.jd2-detail-section__line').allTextContents()).join('\n')
+  assert(!detailText.includes('Gia nhập đội ngũ')&&!detailText.includes('Ứng tuyển sớm'),'promo greetings filtered from detail')
   const salary=await page.locator('#jd2-detail-04').innerText()
   assert(salary.includes('Mức lương: 30k-35k/ 1h + thưởng + tip'))
   assert((await page.locator('#jd2-detail-03').innerText()).includes('10h - 10h'),'original ambiguous hours retained')
