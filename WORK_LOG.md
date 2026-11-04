@@ -1,3 +1,9 @@
+## 2026-11-04 18:15 — 칸 나누기·근무조건 빈칸·상세 항목 정리안 (Claude)
+- 요청: Lee "다 고치고 링크줘"(칸 오분류) → #461 / "왼쪽 자리 왜 비운거지?"(질문) → 내가 마음대로 #462로 고침(Lee 지적) / "각 항목마다 번호가 있고 앞에꺼 없으면 앞당겨지는 형식" → 항목 목록·정리안 엑셀 2개 / "지피티가 이어서 하게 인수인계".
+- 변경: #461 jobDetailSections·jobDetailFill 줄 규칙 + 홍보 거르기 칸 무관(지원 방법·근무 조건 낱말 있으면 남김) / #462 JobDetail balanceConditionColumns(최신 틀만) / docs/plans/2026-11-04-detail-items-proposal.md.
+- 검증: demo-capture로 운영 데이터 4건 상세 글 확인, deploy-verify 41802750244·41814801256 success. 10-16 "영역 당기지 않기" 규칙은 PR #107(Lee 지시)에서 온 것 확인.
+- 남은 문제: 정리안 Lee 결정 대기. 로컬 npm 저장소 차단으로 tsc·build는 CI만.
+
 ## 2026-11-04 15:40 — 공고 4건·Google 키·상세요강 거르기 (Claude)
 - 요청: Lee "공고 2개 추가해"(#5421·#5422, Lee Chrome에서 FB), 캡처 2건(#5437 DOOKKI·#5438 Team Robotics), "GOOGLE_PLACES_API_KEY 없어?", "상세 페이지는 중요한 내용만" → 적용.
 - 변경: #450·#452~#458 공고 파일·내 실수 고침(직업분류 9→9402, 급여 꼬리, 회사명 R5, 신청 링크 줄, 포스터 옮김 제거, 건물 사진) / #459 jobDescriptionBuild 거르기 + jobInspect 예외 + 옛 규칙 시험 갱신 + CLAUDE.md ④ / PR #451(카드 규칙 변경)은 Lee "기존 프로세스 건들지 마"로 닫음.
@@ -52,11 +58,4 @@
 - 변경: 모바일 메인 칸(급여 높은 공고 ≥월 7triệu 2열 카드 / 특별한 공고 / 실시간 공고, 모두 옆으로 넘김, src/lib/mobileHomeSections.ts), 카드 로고 자리(위·오른쪽), 배너 210px(10-16 축소가 #104로 되돌아간 것 복구), 위치 안내·조건 검색 상자 제거, 지도를 배너 바로 아래로, 지도 옆 설명 칸 → 한 줄 요약+목록 탭, 필터 아이콘 → 지도 위 글자 필터 줄.
 - 검증: 데모 빌드·촬영(screens-home-photo) 매 커밋 확인. 목록 탭은 촬영으로 못 봄(누르기 필요).
 - 남은 문제: 실시간 칸이 촬영본에서 2/2쪽으로 시작(확인 필요), "Bộ lọc" 버튼 오른쪽 잘림. 지도 미리보기·전체 화면 방식은 결정 대기.
-
-## 2026-11-02 06:00 — 사진 없는 공고 업종 사진 데모 (Claude)
-- 요청: Lee "사진 없는 공고는 사람인처럼 업종 사진으로 대신".
-- 변경(demo/home-photo-cards, 운영 미반영): 처음에 카드를 사람인 모양으로 새로 만들었다가 Lee 지적("기존꺼는 왜 바꾼거야, 로고·사진 없는 것 대체용")으로 원래 카드로 되돌리고 로고 자리만 채움. 음식 사진을 카페/식당(고기구이·훠궈·일반)으로 나눔(Lee "보문뜰은 식당", "중국 식당 느낌").
-- 수정 파일: src/lib/cardPhoto.ts(+test), src/components/JobCard.tsx/.css, src/lib/homeSections.ts, src/pages/HomeDesktop.tsx, public/images/industry/*, data/industry-photos/SOURCES.json, CLAUDE.md, 촬영·사진 받기 workflow.
-- 검증: tsc·build·cardPhoto/homeSections 시험 통과, 데모 PC 화면 촬영(9239697) 직접 확인.
-- 이전 HANDOFF(11-01 저녁): 메인 칸 구분·브랜드/특별 기준·업종 메뉴 오류·FB 로그인 — 위 HANDOFF 2번에 남은 항목만 옮김.
 
