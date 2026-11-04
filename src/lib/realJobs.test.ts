@@ -17,12 +17,13 @@ for (const [id, j] of Object.entries(jobs)) {
   for (const src of [j.source_text, j.ocr_text]) {
     for (const line of cleanSourceText(src).text.split('\n').map((l) => l.trim()).filter(Boolean)) {
       if (headingOf(line) || /[:：]\s*$/.test(line) || line.includes('[?]')) continue
-      const dup = b.dropped.some((d) => d.reason === 'duplicate' && d.line === line)   // 같은 내용이 이미 보이는 줄(기록됨)
+      // 같은 내용이 이미 보이는 줄, 2026-11-04 Lee가 거르기로 한 줄(OCR 조각·홍보 인사말) — 모두 뺀 줄 목록에 기록됨
+      const dup = b.dropped.some((d) => ['duplicate', 'promo', 'ocr_check_only'].includes(d.reason) && d.line === line)
       assert(dup || shown.some((s) => isCovered(line, [s])), `#${id} 빠진 줄: ${line}`)
     }
   }
   // 버린 줄은 정해진 이유만
-  for (const d of b.dropped) assert(['site_chrome', 'masked_phone', 'label_without_value', 'shown_above_company', 'meaningless_value', 'duplicate'].includes(d.reason), `#${id} 허용 안 된 이유로 뺌: ${d.reason} ${d.line}`)
+  for (const d of b.dropped) assert(['site_chrome', 'masked_phone', 'label_without_value', 'shown_above_company', 'meaningless_value', 'duplicate', 'promo', 'ocr_check_only'].includes(d.reason), `#${id} 허용 안 된 이유로 뺌: ${d.reason} ${d.line}`)
   const r = inspectJob({ id: Number(id), ...ctx, description: b.description, source_text: j.source_text, contact_name: j.contact_name })
   for (const key of ['roles', 'hours_twice', 'source_lost', 'duplicate', 'sections']) {
     const item = r.items.find((i) => i.key === key)

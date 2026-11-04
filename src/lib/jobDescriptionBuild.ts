@@ -119,6 +119,8 @@ export function contactDuplicate(line: string, shown: string[]): boolean {
 }
 // 주소·회사 낱말은 성조가 있는 원문 그대로 본다("đi đâu xa"의 xa ≠ "xã").
 const ADDRESS_HINT = /(?:^|[^\p{L}])(?:tầng|đường|phố|phường|xã|huyện|quận|thị trấn|thành phố|tp|kcn|khu công nghiệp|ccn|thôn|ngõ|ngách|số nhà|tòa|plaza|chi nhánh|cơ sở)(?![\p{L}])/u
+// 근무 조건 낱말이 있으면 "!"로 끝나도 정보다(#4824 "Công việc lâu dài!").
+const JOB_FACT_HINT = /(?:^|[^\p{L}])(?:lâu dài|ổn định|chính thức|thời vụ|bao ăn|bao ở|ăn ở|ký túc|ktx|xe đưa đón|đưa đón|bảo hiểm|bhxh|thưởng|phụ cấp|tăng ca|nghỉ|ca ngày|ca đêm|xoay ca|part[ -]?time|full[ -]?time|kinh nghiệm|đào tạo|lương|thu nhập|tuổi|nam|nữ)(?![\p{L}])/u
 const COMPANY_HINT = /(?:^|[^\p{L}])(?:công ty|tnhh|cổ phần|tập đoàn|đơn vị|văn phòng)(?![\p{L}])/u
 /** 해시태그만 있는 줄(#TuyenDung #ViecLam …) — 어느 칸에 있든 뺀다. */
 export const isHashtagLine = (line: string) => /^(?:#[\p{L}\p{N}_]+[\s,]*)+$/u.test(String(line).trim())
@@ -128,7 +130,7 @@ export function isPromoLine(line: string): boolean {
   if (isHashtagLine(t)) return true
   if (!/[!?]\s*$/.test(t) || /\d/.test(t) || /[:：]/.test(t) || /@|https?:\/\/|zalo|hotline/i.test(t)) return false
   const low = t.normalize('NFC').toLowerCase()
-  return !ADDRESS_HINT.test(low) && !COMPANY_HINT.test(low)
+  return !ADDRESS_HINT.test(low) && !COMPANY_HINT.test(low) && !JOB_FACT_HINT.test(low)
 }
 
 /** 같은 줄인가: 서로가 서로를 거의 다 덮을 때만(긴 소개 문단이 짧은 다른 줄을 '덮는다'고 지우지 않게 — #4879 '- Nam/nữ, tuổi từ 18 đến 45'). */

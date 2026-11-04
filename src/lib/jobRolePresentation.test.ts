@@ -7,8 +7,9 @@ const merged = cleanSourceText('Mức lương: 30k-35k/ 1h\n+ thưởng + tip').
 assert(merged === 'Mức lương: 30k-35k/ 1h + thưởng + tip', 'salary continuation joined without rewriting')
 const built = buildDescriptionFromSources([{name:'source_text',text:BOMUNTTL_SOURCE}],BOMUNTTL_CONTEXT)
 const sections = detailSections(built.description,BOMUNTTL_CONTEXT).sections
-assert(sections.find(s=>s.key==='07')?.lines.some(l=>l.startsWith('Gia nhập đội ngũ')), 'join-team call is supplementary information')
-assert(sections.find(s=>s.key==='07')?.lines.some(l=>l.startsWith('Ứng tuyển sớm')), 'urgency call is supplementary information')
+// Lee 2026-11-04 "상세 페이지는 중요한 내용만": 권유 인사말은 화면에서 빼고 뺀 줄 목록에 남긴다(전에는 기타란에 보였다).
+assert(!built.description.includes('Gia nhập đội ngũ') && built.dropped.some(d=>d.reason==='promo'&&d.line.startsWith('Gia nhập đội ngũ')), 'join-team call is filtered as promo')
+assert(!built.description.includes('Ứng tuyển sớm') && built.dropped.some(d=>d.reason==='promo'&&d.line.startsWith('Ứng tuyển sớm')), 'urgency call is filtered as promo')
 const view=descriptionRoleGroups(sections)
 const salaries=view.find(s=>s.key==='04')!
 assert(salaries.groups.length===2, 'two role groups in salary section')

@@ -75,6 +75,6 @@ for (const id of Object.keys(jobs)) {
   }
   for (const kept of ['- Phục vụ', '368 Minh Khai, P. Từ Sơn', 'DOOKKI TỪ SƠN', 'Hotline/Zalo: 097 270 5674 – 036 336 2409']) assert(r.description.includes(kept), '#5437 남길 줄: ' + kept)
   // 주소·회사·숫자·이름표가 있는 "!" 줄은 남긴다(애매하면 남김)
-  assert(!isPromoLine('Làm việc tại xã Yên Trung, Bắc Ninh!') && !isPromoLine('Công ty TNHH ABC tuyển gấp!') && !isPromoLine('Lương 10 triệu!'), '정보 있는 줄은 홍보 아님')
+  assert(!isPromoLine('Làm việc tại xã Yên Trung, Bắc Ninh!') && !isPromoLine('Công ty TNHH ABC tuyển gấp!') && !isPromoLine('Lương 10 triệu!') && !isPromoLine('Công việc lâu dài!'), '정보 있는 줄은 홍보 아님(#4824 Công việc lâu dài!)')
 }
 console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 그대로·중복 없음·사이트 글자 제거 검사 통과')
