@@ -10,4 +10,11 @@ const complete = inspectJob({ ...base, postingFields: { hours: '08:00–17:00', 
 assert(complete.items.find(i => i.key === 'required_fields')?.ok, 'all nine existing required fields pass')
 const notFullTime = inspectJob({ ...base, postingFields: { hours: '08:00–17:00', application_deadline: '2026-12-31', num_hires: '2' } })
 assert(!notFullTime.items.find(i => i.key === 'required_fields')?.ok, 'monthly salary must never imply full-time employment')
+const legacy = inspectJob({ ...base, postingFields: { reviewOnly: true, num_hires: '2' } })
+const strict = incomplete.items.find(i => i.key === 'required_fields')!
+const warning = legacy.items.find(i => i.key === 'required_fields')!
+assert(!warning.ok, 'existing public postings must still report missing fields')
+assert(publishDecision({ ok: false, items: [warning] }, { active: true }).active, 'new mandatory-field policy must not retroactively hide an existing posting')
+assert(!publishDecision({ ok: false, items: [warning] }, { active: true }).publishable, 'warning-only legacy inspection cannot create a reusable publication proof')
+assert(!publishDecision({ ok: false, items: [strict] }, { active: false, hold: true }).active, 'new or held postings still cannot publish with missing fields')
 console.log('postingCompleteness: mandatory fields, explicit employment and publication hold passed')

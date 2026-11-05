@@ -44,9 +44,12 @@ try {
     where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
     order by j.id`)
   for (const job of rows) {
+    // Do not retroactively withdraw postings that were already public when this
+    // new check first ran. Persist the rollout mode; new/held postings stay strict.
+    const requiredFieldsEnforced = job.prev?.required_fields_enforced ?? !job.active
     const input = {
       id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,
-      postingFields: { hours: job.hours, employment_type: job.employment_type, application_deadline: job.application_deadline, num_hires: job.num_hires },
+      postingFields: { hours: job.hours, employment_type: job.employment_type, application_deadline: job.application_deadline, num_hires: job.num_hires, reviewOnly: !requiredFieldsEnforced },
       phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses],
       values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
       valueGroups: [[job.hours, job.work_days]],
@@ -63,7 +66,7 @@ try {
     const hash = createHash('md5').update(VERSION + JSON.stringify(r)).digest('hex')
     // 결과 지문이 같아도 공고 내용 지문이 바뀌었거나 공개 상태를 바꿔야 하면 반드시 다시 기록한다.
     if (job.prev?.hash === hash && job.prev?.content_hash === job.content_hash && d.active === !!job.active && !job.hold) continue
-    const inspect = { version: VERSION, hash, content_hash: job.content_hash, publishable: d.publishable, ok: r.ok, checked_at: new Date().toISOString(), items: r.items }
+    const inspect = { version: VERSION, hash, content_hash: job.content_hash, required_fields_enforced: requiredFieldsEnforced, publishable: d.publishable, ok: r.ok, checked_at: new Date().toISOString(), items: r.items }
     const recorded = await client.query(`update public.local_jobs
       set ocr_check = (coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold') || jsonb_build_object('inspect', $2::jsonb),
           active = $3::boolean
