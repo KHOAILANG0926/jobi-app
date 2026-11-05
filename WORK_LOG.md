@@ -1,3 +1,33 @@
+## 2026-11-06 — 위치 "구글을 따라" + #5438 확정 (Claude)
+- 요청: Lee "구글을 따라", "일단 바꾸고 앱에 적용 후 프로세스 변경", "허락받지말고 계속해".
+- 변경: PR #471(8b6be39) Google 검색어=상세 Google 버튼과 같게(회사, 주소 전체), 같은 이름 1곳이면 Google 장소 좌표(area), 업체 검색 비교 로그에 Google이 집은 곳 표시. PR #472(1e019d0) 원래 성 경계(Natural Earth 단순화) 경계선 2km 오차 허용.
+- 원인 [직접 확인]: 이전 검색어(주소 뒤 2토막)·경계 단순화로 Google이 찾은 NEW TEAMROBOTICS VIETNAM(21.22944,106.00377)을 "성 밖" 탈락(run 42127983264).
+- #5438: admin-location-confirm run 42131119321 성공(21.229440,106.003770). deploy-verify 42130784784 성공(#472 SHA). 공개 경계 검사 42131233126: #5438 원본·상세 문제 없음, 메인 핀 읽기는 전 공고 16/16 실패(10-28부터 실패 중인 검사 도구 문제, 별도).
+- 남은 문제: 이 Claude 환경은 viecganban.vn·Supabase 직접 접속 403 → PC·모바일 화면 직접 확인 못 함. "Google도 모르는 공고 수집 안 함" 자동 차단 미구현.
+
+## (이전 HANDOFF 2026-11-05 사진 처리 판정 스냅샷 보관)
+
+## 1. 현재 상태
+- 사용자 최신 지시: "일단 프로세서 수정해". 이번 작업은 사진 처리/완료 보고 경로 수정. Regal Edu 개별 사진 선택·교체·DB 데이터 보정은 하지 않음.
+- 기준 master c35e555 (#468 운영 반영 완료, 단위112/112 및 운영 deploy-verify41980985224 성공은 이전 작업 직접 확인 기록).
+- 원인: logo_check=found_unstored도 검사 통과했고, 등록 입구가 검색 기록을 제거한 뒤 사진 상태 없이 SQL만 출력. 코드·등록 성공을 실제 업체 사진 완료로 잘못 보고할 수 있었음.
+- 수정: found_unstored 항상 미완료 경고. 등록 SQL 생성은 유지하면서 다음 사진 단계를 출력. source-only 미완료 목록을 CI artifact로 보관(운영 검증 아님).
+- 사진 완료 주장에는 공식 출처/선택 이미지/회사·지점 확인 근거/저장 주소/등록 결과 공고번호/운영 URL 필요. 실제 검증기가 원본·저장 해시, 실제 공고ID·제목·회사·최종URL, 대표 이미지 URL·디코딩을1366/390px에서 확인하고 원본/상세 캡처+JSON 남김. 실제 검사 성공만 complete=true.
+- 공고 JSON PR은 사진 처리 미완료/완료 명시. 미완료는 등록을 막지 않음. 완료는 필수 checks와 app-screen이 실제 검증. 본문만 완료로 변경해도 edited 이벤트로 재검증. 같은 회사 다른 공고로 대체 검증 금지.
+- 강제 범위: 수동 ingest-sql 및 공고 JSON PR 완료 주장. 자동 검색·저장 또는 모든 DB/API 경로에 동기 차단을 구현했다고 주장하지 않음. 지점 의미 판별은 원본 화면·확인 근거의 사람 대조가 필요.
+- [직접 확인] found_unstored 통과·같은 회사 다른 공고 통과 재현 실패→수정. 핵심/PR/등록 출력 시험 통과. 격리 실제 Chromium에서 원본·저장·실제 DOM·이미지 디코딩·기본사진 거부·다른공고 거부·POST 차단·1366/390px 통과. 전체 단위112/112·타입·빌드·baseline8/8 통과. 독립 검토 Important2건 보완 후 추가 Critical/Important 없음.
+- GitHub 연결 도구 커밋·PR·필수 검사·기존 봇 병합 진행 예정. 로컬 push 금지 준수. 앱 화면/CSS/공고 사진/DB 변경 없음.
+
+## 2. 다음 할 일 3개
+1. 최종 소스를 GitHub 연결 도구로 fix/photo-process-completion에 커밋·PR, 필수 검사와 기존 봇 병합 확인.
+2. 완료 보고는 프로세스 판정 수정 범위로 한정. Regal 실제 사진은 미완료로 남았으며 바꿨다고 하지 않음.
+3. 후속 사진 작업은 재처리 목록의 단계부터 실제 원본/지점 확인→저장→연결→운영 증거로 진행. 별도 지시 없는 범위 확장 금지.
+
+## 3. 필수 규칙
+- 운영 DB SQL 직접 접근·번호 지정 데이터 덮어쓰기 금지. 승인 틀·하단 사진·STATUS 보호.
+- 로컬 push 금지, GitHub 연결 도구 사용. 강제 병합/필수 검사/승인 우회 금지.
+- 확인 범위와 미완료를 분명히 구분, 한국어 최종5줄 이내. Secret 출력 금지.
+
 ## 2026-11-05 — 사진 처리 미완료/완료 판정 강제 (Codex)
 - 요청: "일단 프로세서 수정해". 개별 Regal 사진 교체가 아니라 잘못된 완료 판정 경로 수정. found_unstored가 통과하던 원인 재현 후 항상 미완료 경고로 수정.
 - 수동 ingest-sql은 등록을 막지 않고 사진 미완료 단계 출력. 사진 완료 검증기는 공식 원본·저장 해시, 실제 공고ID/제목/회사/최종URL, 대표 이미지 URL/실제 디코딩을 PC1366/mobile390에서 검사하고 원본/운영 화면 캡처+JSON 생성. 메타데이터만으로 complete=true 불가.
@@ -171,29 +201,3 @@
 - 변경(demo/detail-header-albamon): c99ccd1(우리 틀 덧칠 — 잘못 이해) → 6229a6d(캡처 색·크기 맞춤, src/index.css v2 전용 블록) → b06134b(demo-capture가 sb-5342 화면 전체 촬영). cty-kda-comparison에 4828 로고 크기·회사명 글자 제외 3항목, desktop baseline 해시 갱신.
 - 검증: desktop baseline 8/8, 데모 deploy·capture success(CI npm run build 포함). 로컬 tsc·build는 npm 저장소 접속 막혀 못 돌림. KDA 비교 검사는 안 돌림.
 - 남은 문제: 머리 부분·회색 테두리 상자가 그대로라 Lee 눈에 "아까랑 똑같음". 다음에 머리 정리 여부 Lee 예/아니오부터.
-
-## 2026-11-04 07:35 — 11-03 저녁~11-04 아침 묶음 (Claude)
-- 요청·변경: Joy Thái 사진(식당 우선 #430)·로고 막힘 제거·브랜드 분류 식당/판매(#431·#432, JoyThai 브랜드) / Bảo An VCC #5368 등록·포스터 소제목 규칙(#433~#435)·위치 확정(Google 링크, 수동 도구 #444) / 공단 밖 회사 이름 위치 찾기 Goong→Google(#438·#439·#442, Vercel에 Google 키 없음) / 여러 직무 급여 칸(#440, 11-04 직무|금액 두 칸) / 위치 계산 절차·Google 규칙(#436·#437·#443) / Tâm Hồ Nhất Hạch #5405(Lee Chrome에서 FB 글, #445·#446) / 최신 틀 디자인(#447: 상자 높이·간격·테두리·급여 26px·상세요강 문서형·보험 짧은 표시, KDA·예전 3건 제외).
-- 검증: 각 PR 필수 검사 + deploy-verify(최종 41744451652 success, 663dce4).
-- 남은 문제: Vercel GOOGLE_PLACES_API_KEY 없음(Google 위치 단계 꺼짐), FB 수집기 session_expired, 검사표가 좌표만 있으면 '정확한 위치'로 표시, DB만 바뀐 병합 뒤 deploy-verify 자동 시작 안 됨.
-
-## 2026-11-03 17:15 — Joy Thái 공고 #5342·직무 제목 규칙·업종 사진 (Claude)
-- 요청: Lee "페이스북 크롤링 1건 진행"(수집기 session_expired → Lee가 원문·글 주소 제공), "메인에 왜 없어?", "로고 없으면 사진 넣기로 하지 않았어?", "데모 진행해서 허락한 거는 다 완료".
-- 변경: #424·#425 공고 파일(scripts/ops/jobs/fb-joythai-20261103.json, 첫 등록은 R3 출처 없음으로 거부 → 글 주소 추가) → ops-insert-job #5342 → ops-publish-jobs. #426 isRoleHeading 대문자 직무 제목·roleSalaryLines 금액만 줄·roleConditionSummary 없는 값 지어내지 않음·detail-fill 규칙 파일 추가. #427 JobCard 업종 사진(cardPhoto.ts, public/images/industry).
-- 검증: 운영 상세 sb-5342 직접 확인, 운영 메인에 Joy Thái·업종 사진 직접 확인, deploy-verify 41615464877·41616250543 success.
-- 남은 문제: FB 수집기 쿠키·잠금(Lee), 휴대폰 메인(한 번에).
-
-## 2026-11-03 17:30
-- 요청: Lee "거리재는 거 어디 갔냐 — 그냥 보이게 해", "저거 꼭 필요한 거야?" → 진행
-- 변경: PC 메인 위치 칸 — 반경 칸 항상 표시, 펼침 메뉴·중복 Gần tôi 제거
-- 파일: DesktopHomeMapExplorer.tsx, test-desktop-baseline.mjs(해시), test-home-map-providers.mjs, test-mobile-home.mjs(PC 부분 메뉴 열기 클릭 제거)
-- 검증: desktop baseline 8/8, tsc 새 오류 없음(로컬 모듈 없음), CI는 PR 검사
-
-## 2026-11-03 16:00 — 지역 기준 통일·지역별 일자리 페이지·지도 고르기 (Claude, PR #422 운영 반영 d2b40f0)
-- 요청: Lee 11-03 "급구 페이지 지역 0건", "지역명 서로 맞춰야", "급구가 아니라 지역별로", "알바몬처럼", "A 지도 데모", "섬·Hoàng Sa·Trường Sa까지", "최근 행정구역 다시 확인", "5~8 수정진행", "PC 왼쪽 거리·급여만".
-- 원인: 급구 지역 필터가 자동으로 채워지지 않는 DB 칸(resolved_*)을 봄 + 화면마다 지역 목록 3가지. 급구 0건은 urgent 공고 자체가 0건(급구 표시는 FB·TopCV 수집기만 켬).
-- 변경: 지역 판정 함수 하나(jobArea/jobAreaWards, 주소 글자 기준), 행정구역 9월판 생성기(gen-vn-admin.py, 3월판으로 기존 자료와 동일 확인), 옛 동 대응표, /viec-lam/khu-vuc 페이지·메뉴 34개 성, 지도(ProvinceMap, 섬 vnIslands.ts), 알림 키워드 생성(regionKeywords.ts) + migration(미적용), 수집기 판·공통 시험.
-- 검증: 대응표 10,023개 시험(후보 포함 100%, 틀린 단일 0), 전국 600 표본 동 정확 4%→98%, 데모 빌드 통과, 알림 migration 로컬 폐기 DB dry-run 통과. 화면은 Lee 캡처로만 확인.
-- 운영: #422 병합(알림 migration 제외, PC 기준 화면 지문 갱신, jobCoords 회귀 시험 추가), Production READY, deploy-verify 41606871616 success.
-- 남은 문제: 알림 34개 migration은 Lee가 공고 올린 뒤. 주소에 동이 없는 공고는 동 후보 여럿/없음(정보 부족). 휴대폰 화면은 나중에 한 번에.
-
