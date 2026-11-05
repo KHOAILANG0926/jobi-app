@@ -1,22 +1,24 @@
-# HANDOFF — 2026-11-05 사진 처리 완료 판정 수정
+# Claude 인수인계 — 2026-11-05 (Asia/Bangkok)
 
 ## 1. 현재 상태
-- 사용자 최신 지시: "일단 프로세서 수정해". 이번 작업은 사진 처리/완료 보고 경로 수정. Regal Edu 개별 사진 선택·교체·DB 데이터 보정은 하지 않음.
-- 기준 master c35e555 (#468 운영 반영 완료, 단위112/112 및 운영 deploy-verify41980985224 성공은 이전 작업 직접 확인 기록).
-- 원인: logo_check=found_unstored도 검사 통과했고, 등록 입구가 검색 기록을 제거한 뒤 사진 상태 없이 SQL만 출력. 코드·등록 성공을 실제 업체 사진 완료로 잘못 보고할 수 있었음.
-- 수정: found_unstored 항상 미완료 경고. 등록 SQL 생성은 유지하면서 다음 사진 단계를 출력. source-only 미완료 목록을 CI artifact로 보관(운영 검증 아님).
-- 사진 완료 주장에는 공식 출처/선택 이미지/회사·지점 확인 근거/저장 주소/등록 결과 공고번호/운영 URL 필요. 실제 검증기가 원본·저장 해시, 실제 공고ID·제목·회사·최종URL, 대표 이미지 URL·디코딩을1366/390px에서 확인하고 원본/상세 캡처+JSON 남김. 실제 검사 성공만 complete=true.
-- 공고 JSON PR은 사진 처리 미완료/완료 명시. 미완료는 등록을 막지 않음. 완료는 필수 checks와 app-screen이 실제 검증. 본문만 완료로 변경해도 edited 이벤트로 재검증. 같은 회사 다른 공고로 대체 검증 금지.
-- 강제 범위: 수동 ingest-sql 및 공고 JSON PR 완료 주장. 자동 검색·저장 또는 모든 DB/API 경로에 동기 차단을 구현했다고 주장하지 않음. 지점 의미 판별은 원본 화면·확인 근거의 사람 대조가 필요.
-- [직접 확인] found_unstored 통과·같은 회사 다른 공고 통과 재현 실패→수정. 핵심/PR/등록 출력 시험 통과. 격리 실제 Chromium에서 원본·저장·실제 DOM·이미지 디코딩·기본사진 거부·다른공고 거부·POST 차단·1366/390px 통과. 전체 단위112/112·타입·빌드·baseline8/8 통과. 독립 검토 Important2건 보완 후 추가 Critical/Important 없음.
-- GitHub 연결 도구 커밋·PR·필수 검사·기존 봇 병합 진행 예정. 로컬 push 금지 준수. 앱 화면/CSS/공고 사진/DB 변경 없음.
+- 사용자 최신 지시: "클로드가 하게 인수인계해". **우선 미완료는 #5438 실제 지도 위치 수정. Regal 사진 작업은 사용자 지시로 보류.** 이미 끝낸 코드 작업을 다시 만들지 말 것.
+- [직접 확인] GitHub master: `8f2d718cac6c06cd3c5c8abaadf98663f2bc7fda`. PR#468(요약·위치 검색 절차)·PR#469(사진 완료 판정)은 병합됨. 절차 수정과 실제 공고 데이터 완료를 혼동하지 말 것.
+- **#5438 NEW TEAM ROBOTICS VIETNAM 실제 위치는 미수정.** 공개 `/api/map-locations?ids=5438`: workLocationId1414, area,21.098/106.117,revision2,checkedAt2026-11-04T06:15:04.668Z. 이는 지역 대표점이다. Google 버튼은 회사명+주소 검색이며 실제 선택 장소 좌표를 아직 확보·확정하지 못했다.
+- 원문 주소: NX 2-2, lô CN1-2 và CN1-3, KCN Yên Phong(khu mở rộng), xã Yên Trung, Bắc Ninh. 원본 파일 `scripts/ops/jobs/fb-new-teamrobotics-20261104.json`. 동명의 Bình Dương 업체와 혼동 금지. 공단 중심/기존 city 좌표를 실제 회사 좌표로 추정해 넣지 말 것.
+- **인증 미비로 단정한 이전 설명은 철회.** [직접 확인] GitHub 연결 permissions admin/maintain/push=true. 기존 관리자 로그인·확정 E2E run42003962706 success. 비인증 GET401과 로컬 CLI오류는 전체 인증 부재의 증거가 아니다.
+- [직접 확인] 이 대화 VM은 restricted/enforced, spec/observed revision1. Regal·Wallace·JOBI·api.github.com 직접 curl은 TLS 전 `CONNECT tunnel failed, response 403`(envoy). github.com 및 Supabase 공개 이미지는200. 환경 허용 목록 차단이며 업체 서버 자체403으로 확인된 것이 아니다. 다른 PC/Claude 환경에는 그대로 적용해 추측하지 말고 직접 재검증.
+- GitHub/Vercel 연결 도구 조회는 정상이다. 이 ChatGPT 도구에는 workflow_dispatch 실행 함수가 없었음. 로컬 CLI `gh api`도 프록시 Forbidden. **Claude의 도구·브라우저·실행 경로는 다를 수 있으니 기존 연결부터 확인하고 재인증을 반복 요구하지 말 것.**
+- **Regal Edu Vân Dương #5422: 사진 미교체·보류.** 마지막 운영 확인은 `/images/industry/cskh_kinh_doanh.jpg`. 원본 JSON의 logo_check=found_unstored. 특정 업체 사진을 골라 시각 확인한 사실 없음. 공식 개원 글은 두 지점 사진이 섞여 있으므로 임의 선택 금지(상세는 WORK_LOG).
+- 완료된 공통 대표 이미지·상단 확대·WebGL fallback(#465~467), #468 상세 요약 연결, #469 완료 판정은 보존. #469는 수동 ingest-sql/공고JSON PR의 완료 주장만 강제하며 자동 검색·저장이나 모든 DB/API 경로 구현이 아님.
 
 ## 2. 다음 할 일 3개
-1. 최종 소스를 GitHub 연결 도구로 fix/photo-process-completion에 커밋·PR, 필수 검사와 기존 봇 병합 확인.
-2. 완료 보고는 프로세스 판정 수정 범위로 한정. Regal 실제 사진은 미완료로 남았으며 바꿨다고 하지 않음.
-3. 후속 사진 작업은 재처리 목록의 단계부터 실제 원본/지점 확인→저장→연결→운영 증거로 진행. 별도 지시 없는 범위 확장 금지.
+1. `.claude/RULES_CORE.md` → `CLAUDE.md`·`AGENTS.md`를 읽고 원격 master/열린 PR·현재 운영을 다시 확인. 미커밋 파일을 덮어쓰지 말 것. 최신 master에서 안전한 작업 영역을 사용. 인터넷/브라우저는 실제 접속으로 판단하고 설정 안내만 반복하지 말 것.
+2. #5438의 **실제 회사 위치 근거**를 확보한 뒤 기존 관리자 위치 확정 경로로 처리. `.github/workflows/admin-location-confirm.yml`(master, inputs job_id/ google_link) → `scripts/ops/admin-location-confirm.mjs` → 정상 관리자 API/canonical writer. 관리자 화면에서도 같은 처리가 가능하다. Google의 선택 장소 공유 링크 필요; 검색 URL/지도 화면 중심(@lat,lng)을 확정 좌표로 쓰지 말 것. 운영 SQL 직접 실행·공고번호 전용 패치로 우회하지 말 것.
+3. 확정 후 공개 API·상세·메인 핀·Google 길찾기를 실제 비교하고 PC/모바일 깨짐·잘림까지 확인한 뒤 최종 보고. 실제 반영 전 완료라고 하지 말 것. **사진 보류는 사용자 재개 지시 전 유지.**
 
 ## 3. 필수 규칙
-- 운영 DB SQL 직접 접근·번호 지정 데이터 덮어쓰기 금지. 승인 틀·하단 사진·STATUS 보호.
-- 로컬 push 금지, GitHub 연결 도구 사용. 강제 병합/필수 검사/승인 우회 금지.
-- 확인 범위와 미완료를 분명히 구분, 한국어 최종5줄 이내. Secret 출력 금지.
+- 추가 허락 반복 금지. 단 실제 기술적 차단/사용자가 해야 하는 부분만 원문 오류와 범위를 보고. 키·토큰·쿠키·비밀번호를 출력/커밋하지 말 것.
+- 로컬 push 금지, GitHub 연결 도구로 브랜치·커밋·PR. 필수 CI·기존 봇 병합·운영 검증 보호 우회 금지. 운영 DB 직접 SQL 조회/수정 금지.
+- canonical 위치 원본은 job_work_locations. 번호 지정 보정·추정 좌표 승인·Google을 틀린 지역 대표점으로 옮겨 일치시키기 금지. 승인 틀/CSS/하단 사진/STATUS 보호.
+- [직접 확인]/[기존 기록]/[추정]과 코드·절차·실제 데이터 완료를 구분, 최종5줄 이내. E2E 성공은 #5438 실제 수정 완료를 뜻하지 않는다.
+- 로컬 상태: /workspace/jobi-app은 work@750ebcf+기존 다수 변경, /workspace/jobi-process-preview는52752ed+문서변경, /workspace/jobi-photo-process는bc3b142+문서변경. 이 변경을 reset/overwrite하지 말 것. 이 문서의 GitHub 인수인계 브랜치를 읽고 최신 master를 기준으로 재개할 것.

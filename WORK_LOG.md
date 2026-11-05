@@ -1,3 +1,46 @@
+## 2026-11-05 — Claude 인수인계: 실제 #5438 위치 미완료, 사진 보류
+- 요청: "클로드가 하게 인수인계해". 이번 작업은 전달 문서만 정리하며 위치/사진/DB/앱 변경 없음.
+- [직접 확인] 원격 master8f2d718, PR#468/#469 병합. #5438 공개 원본 API는 여전히1414/area/21.098,106.117/revision2. 실제 회사 Google 선택 장소 좌표 확보·관리자 확정은 하지 못했음. 앞선 코드/절차 완료를 실제 위치 완료처럼 설명한 보고는 잘못이며 이를 철회한 상태.
+- [직접 확인] GitHub 관리자·push 권한 있음. 저장된 관리자 계정 E2E42003962706 성공. 로컬 CLI gh auth status의 invalid token 문구를 계정 인증 부족으로 해석한 판단은 철회: 이후 gh api 직접 호출도 Forbidden, curl로 api.github.com CONNECT403 확인. 비인증 관리자GET401도 계정 미설정 근거 아님.
+- 환경 실제 검사: Regal·Wallace·JOBI·api.github.com CONNECT403/envoy, github.com·Supabase공개 이미지200. 현재 task VM 정책 restricted/enforced revision1이고 허용 목록에 세 업체사이트/API 없음. 업체 서버에 도달하기 전 프록시 차단. 다른 환경이나 새로운 Claude 작업의 접근 가능 여부는 별도 실제 검증 필요.
+- 정상 실제 확정 경로: .github/workflows/admin-location-confirm.yml → scripts/ops/admin-location-confirm.mjs. master 수동 실행 inputs job_id=대상번호, google_link=실제 회사 Google 선택 장소 공유 링크. 기존 GitHub Secrets ADMIN_E2E_EMAIL/ADMIN_E2E_PASSWORD 사용, 관리자 정상 로그인→대기목록→Google링크 resolve→confirm/canonical writer. E2E 재실행이나 추정 좌표로 실제 문제 해결을 대신하지 말 것. 현재 ChatGPT MCP에는 workflow_dispatch 실행 함수가 없었고 이것은 사용자 인증 부재와 다름.
+- 사진 보류: Regal #5422 실제 업체 사진 저장/연결 미수행. 실제 이미지가 무엇인지 개별 시각 확인하지 못했으므로 선택 완료로 보고 금지. 마지막 운영 src=/images/industry/cskh_kinh_doanh.jpg, 원본파일 scripts/ops/jobs/fb-regal-edu-van-duong-20261104.json의 found_unstored 유지.
+- Regal 공식 자료: https://regal.edu.vn/vi/regal-edu-chinh-thuc-khai-truong-2-co-so-moi-tai-thanh-pho-bac-ninh.html (2022년 개원 글, Võ Cường/Vân Dương 두 지점 사진 혼재). 페이지에 사진이 있다는 사실만 확인했으며 어느 사진이 Vân Dương 외관인지 판별하지 못했다. 네트워크 복구와 사용자 재개 지시 전 임의 교체하지 말 것.
+- #469 프로세스 범위: found_unstored 미완료 경고, 등록 성공과 사진 완료 분리, 사진 완료 주장 시 source/stored 해시·정확한 대상 공고ID/제목/회사/최종URL·실제 대표 이미지 디코딩·PC/모바일 캡처 검증. edited에서도 재검증. 자동 검색/저장·모든 등록 경로 강제는 구현하지 않았음. 웹 원본URL이 없는 사용자 제공 사진은 현재 검증기 입력 전제와 다를 수 있으므로 출처를 꾸며 넣지 말 것.
+- 인수인계 파일은 GitHub 브랜치/문서 PR로 보존해 Claude에게 정확한 링크 전달. 미병합 문서는 master 반영 완료라고 하지 말 것.
+
+<details><summary>덮어쓰기 전 인수인계 본문 보존</summary>
+
+# HANDOFF — 2026-11-05 사진 처리 완료 판정 수정·병합 완료
+
+## 1. 현재 상태
+- 사용자 최신 지시: "일단 프로세서 수정해". 이번 작업은 사진 처리/완료 보고 경로 수정. Regal Edu 개별 사진 선택·교체·DB 데이터 보정은 하지 않음.
+- 기준 master c35e555 (#468 운영 반영 완료, 단위112/112 및 운영 deploy-verify41980985224 성공은 이전 작업 직접 확인 기록).
+- 원인: logo_check=found_unstored도 검사 통과했고, 등록 입구가 검색 기록을 제거한 뒤 사진 상태 없이 SQL만 출력. 코드·등록 성공을 실제 업체 사진 완료로 잘못 보고할 수 있었음.
+- 수정: found_unstored 항상 미완료 경고. 등록 SQL 생성은 유지하면서 다음 사진 단계를 출력. source-only 미완료 목록을 CI artifact로 보관(운영 검증 아님).
+- 사진 완료 주장에는 공식 출처/선택 이미지/회사·지점 확인 근거/저장 주소/등록 결과 공고번호/운영 URL 필요. 실제 검증기가 원본·저장 해시, 실제 공고ID·제목·회사·최종URL, 대표 이미지 URL·디코딩을1366/390px에서 확인하고 원본/상세 캡처+JSON 남김. 실제 검사 성공만 complete=true.
+- 공고 JSON PR은 사진 처리 미완료/완료 명시. 미완료는 등록을 막지 않음. 완료는 필수 checks와 app-screen이 실제 검증. 본문만 완료로 변경해도 edited 이벤트로 재검증. 같은 회사 다른 공고로 대체 검증 금지.
+- 강제 범위: 수동 ingest-sql 및 공고 JSON PR 완료 주장. 자동 검색·저장 또는 모든 DB/API 경로에 동기 차단을 구현했다고 주장하지 않음. 지점 의미 판별은 원본 화면·확인 근거의 사람 대조가 필요.
+- [직접 확인] found_unstored 통과·같은 회사 다른 공고 통과 재현 실패→수정. 핵심/PR/등록 출력 시험 통과. 격리 실제 Chromium에서 원본·저장·실제 DOM·이미지 디코딩·기본사진 거부·다른공고 거부·POST 차단·1366/390px 통과. 전체 단위112/112·타입·빌드·baseline8/8 통과. 독립 검토 Important2건 보완 후 추가 Critical/Important 없음.
+- [직접 확인] GitHub 연결 도구 커밋bc3b142, PR#469 기존 봇 병합8f2d718cac6c06cd3c5c8abaadf98663f2bc7fda. checks/app-screen/guard/publication-gate/browser/migration-postgres/sync 모두 success. 검사42003232511, 화면검사42003232614. 원본 미완료 목록 artifact photo-process-pending 생성. 앱 화면/CSS/공고 사진/DB 변경 없음.
+
+## 2. 다음 할 일 3개
+1. 이번 프로세스 수정은 PR#469/8f2d718로 병합 완료. 사용자에게 수정 범위와 남은 실제 사진 작업을 구분해 보고.
+2. 완료 보고는 프로세스 판정 수정 범위로 한정. Regal 실제 사진은 미완료로 남았으며 바꿨다고 하지 않음.
+3. 후속 사진 작업은 재처리 목록의 단계부터 실제 원본/지점 확인→저장→연결→운영 증거로 진행. 별도 지시 없는 범위 확장 금지.
+
+## 3. 필수 규칙
+- 운영 DB SQL 직접 접근·번호 지정 데이터 덮어쓰기 금지. 승인 틀·하단 사진·STATUS 보호.
+- 로컬 push 금지, GitHub 연결 도구 사용. 강제 병합/필수 검사/승인 우회 금지.
+- 확인 범위와 미완료를 분명히 구분, 한국어 최종5줄 이내. Secret 출력 금지.
+
+</details>
+
+## 2026-11-05 — 사진 처리 완료 판정 최종 적용 (Codex)
+- [직접 확인] PR#469 기존 봇 병합8f2d718, 소스bc3b142의 checks/app-screen/guard/publication-gate/browser/migration-postgres/sync 전부 success. 신규 사진 검증기 자체 시험과 사진 완료 주장 경로도 GitHub에서 통과. 검사42003232511·화면검사42003232614.
+- found_unstored 미완료 경고, 등록 후 사진 미완료 단계 출력, 공고 JSON PR 상태 명시, 완료 주장 실제 원본·저장·공고ID/제목/회사/최종URL·대표 이미지 디코딩·PC/모바일 검증, 본문 edited 재검증까지 연결. source-only 재처리 목록은 운영 검증으로 오인하지 않게 artifact 보존.
+- 이번은 프로세스 판정 적용이며 Regal 사진을 선택/저장/연결한 것이 아님. 실제 사진은 저장 미완료 상태로 남김. 자동 검색·저장·모든 DB/API 경로 강제를 구현했다고 주장하지 않음. 앱/CSS/사진/DB 직접 변경 없음.
+
 ## 2026-11-05 — 사진 처리 미완료/완료 판정 강제 (Codex)
 - 요청: "일단 프로세서 수정해". 개별 Regal 사진 교체가 아니라 잘못된 완료 판정 경로 수정. found_unstored가 통과하던 원인 재현 후 항상 미완료 경고로 수정.
 - 수동 ingest-sql은 등록을 막지 않고 사진 미완료 단계 출력. 사진 완료 검증기는 공식 원본·저장 해시, 실제 공고ID/제목/회사/최종URL, 대표 이미지 URL/실제 디코딩을 PC1366/mobile390에서 검사하고 원본/운영 화면 캡처+JSON 생성. 메타데이터만으로 complete=true 불가.
