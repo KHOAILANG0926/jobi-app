@@ -52,7 +52,8 @@ async function call(provider, body) {
   return out
 }
 async function search(provider, job) {
-  const found = await call(provider, {company: job.company, area: areaText(job.address)})
+  // Google은 위치 찾기·상세 Google 버튼과 같은 말(회사, 원문 주소 전체)로 묻는다(Lee 2026-11-06).
+  const found = await call(provider, {company: job.company, area: provider === 'google' ? String(job.address).slice(0, 200) : areaText(job.address)})
   if (!found) return {skip: true}
   // Google(2026-11-03): 위치 찾기 추가 단계와 같은 판정(핵심 이름 1곳, 여럿이면 원문 거리로 좁힘). 검색 결과에 좌표가 있다.
   if (provider === 'google') {
@@ -60,7 +61,9 @@ async function search(provider, job) {
     const pick = pickCompanyPlace(job.company, job.address, found.hits ?? [])
     const hit = pick.hit && (found.hits ?? []).find((h) => h.id === pick.hit.id)
     if (!hit || !Number.isFinite(hit.lat)) return {calls: 1, ...judge(job, null), why: `${pick.reason}; 후보 ${names.length ? names.map((n) => `"${n}"`).join(', ') : '없음'}`}
-    return {calls: 1, ...judge(job, {lat: hit.lat, lng: hit.lng, address: hit.address || ''})}
+    const r = judge(job, {lat: hit.lat, lng: hit.lng, address: hit.address || ''})
+    // 무엇을 집었는지 남긴다(성 밖이면 동명 다른 회사인지 사람이 바로 본다).
+    return {calls: 1, ...r, why: `집은 곳 "${hit.name}" ${hit.address || ''} (${hit.lat.toFixed(5)}, ${hit.lng.toFixed(5)})`}
   }
   const exact = (found.hits ?? []).filter((h) => h.name && isExactCompanyName(job.company, h.name))
   // 후보 이름을 그대로 보여 줘 표기 차이(대소문자·띄어쓰기·CTY/Công ty·성조)인지, 업체가 없는 것인지 가린다.
@@ -98,7 +101,7 @@ for (const job of cases) {
       if (r.found && REF.company && Number.isFinite(REF.lat) && isExactCompanyName(REF.company, job.company)) {
         const m = meters(r, REF); diff = ` 참고점 차이 ${m}m`; errors[name].push(m)
       }
-      parts.push(`${name}=${r.found ? '찾음' : `못찾음(${r.why})`}${r.found ? ` 성 안=${r.inside ? '예' : '아니오'} 거리=${r.streetOk === null ? '원문 거리 없음' : r.streetOk ? '일치' : '불일치'} 채택조건=${accepted ? '충족' : '미충족'}${diff}` : ''} 호출 ${r.calls}`)
+      parts.push(`${name}=${r.found ? '찾음' : `못찾음(${r.why})`}${r.found ? ` 성 안=${r.inside ? '예' : '아니오'} 거리=${r.streetOk === null ? '원문 거리 없음' : r.streetOk ? '일치' : '불일치'} 채택조건=${accepted ? '충족' : '미충족'}${diff}${r.why ? ` ${r.why}` : ''}` : ''} 호출 ${r.calls}`)
     } catch (e) { total[name].errors++; parts.push(`${name}=오류(${String(e.message).slice(0, 40)})`) }
   }
   note(`#${job.id} ${job.company} [${park}] 원문 "${job.address}" → ${parts.join(' | ')}`)

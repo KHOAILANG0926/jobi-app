@@ -22,6 +22,8 @@ export function validate(body) {
   if (id && provider === 'google') return null   // Google은 검색 결과에 좌표가 있어 상세 조회가 없다
   if (id) return { provider, id }
   if (!company || company.length > 120 || area.length > 200) return null
+  // Google: 상세 Google 버튼·위치 찾기와 같은 말(회사, 주소)로 묻는다(Lee 2026-11-06).
+  if (provider === 'google') return { provider, kind, text: [company, area].filter(Boolean).join(', ') }
   return { provider, kind, text: `${company} ${area}`.trim() }
 }
 

@@ -48,7 +48,7 @@ console.log('admin business-search: no TS import, search/detail split, Goong nor
 
 // 2026-11-03 Google 비교(검색만, 좌표 포함)
 {
-  assert(validate({ provider: 'google', company: 'Bảo An VCC', area: 'Bắc Ninh' })?.text === 'Bảo An VCC Bắc Ninh', 'google search query')
+  assert(validate({ provider: 'google', company: 'Bảo An VCC', area: 'Bắc Ninh' })?.text === 'Bảo An VCC, Bắc Ninh', 'google search query = Google button form')
   assert(validate({ provider: 'google', id: 'p1' }) === null, 'google has no detail lookup')
   const r2: any = { code: 0, body: null, setHeader() {}, status(c: number) { this.code = c; return this }, json(b: unknown) { this.body = b; return this } }
   await createAdminBusinessSearchHandler({ key: () => 'K', async fetchJson() { throw new Error('no') }, async fetchGoogle() { return { ok: true, json: { places: [{ id: 'p1', displayName: { text: 'Bảo An VCC' }, formattedAddress: 'Bắc Ninh', location: { latitude: 21.1, longitude: 106.1 } }] } } } } as any)({ method: 'POST', body: { provider: 'google', company: 'Bảo An VCC', area: 'Bắc Ninh' } } as any, r2)

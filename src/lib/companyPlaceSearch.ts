@@ -66,6 +66,13 @@ export function googlePlaceHits(json: unknown): (PlaceHit & { lat: number; lng: 
   })
 }
 
+/** Google 검색어 — 상세 화면 Google 버튼과 같은 말(회사 이름, 원문 주소 전체)로 묻는다(Lee 2026-11-06 "구글을 따라").
+ * 버튼과 다른 말(주소 뒤쪽만)로 물으면 같은 Google이라도 다른 장소가 나와 핀과 Google 목적지가 어긋난다(#5438). */
+export function googleSearchText(company: string, address: string): string {
+  const c = String(company ?? '').trim(), a = String(address ?? '').trim()
+  return c && a ? `${c}, ${a}` : c || a
+}
+
 /** 검색어: 회사 이름 + 원문 주소 뒤쪽(동·구·성). */
 export function companySearchText(company: string, address: string): string {
   const area = String(address ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(-2).join(', ')

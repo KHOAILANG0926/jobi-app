@@ -8,7 +8,7 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
-import { companySearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace } from './companyPlaceSearch'
+import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
@@ -206,8 +206,8 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
   return null
 }
 
-/** Company-name fallback, including industrial parks. Google recovers address text;
- * only VietMap/Goong street verification may supply the resulting pin. */
+/** Company-name fallback, including industrial parks. Google address text verified by VietMap/Goong → exact;
+ * otherwise Google's single same-name place itself → area (Lee 2026-11-06). Google not knowing → no company pin. */
 async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string,
   reason: (reason: string) => void,
   verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>): Promise<LocationDecision | null> {
@@ -236,15 +236,22 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
       }
     }
     if (deps.google) {
-      const hits = googlePlaceHits(await ask(['company-v1', 'google', text], () => deps.google!(text)))
+      // Ask Google exactly what the detail-page Google button asks (company, full address).
+      const gText = googleSearchText(job.company, address)
+      const hits = googlePlaceHits(await ask(['company-v2', 'google', gText], () => deps.google!(gText)))
       const pick = pickCompanyPlace(job.company, address, hits)
       if (!pick.hit) reason(`google:${pick.reason}`)
       const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null
       if (hit) {
         const verified = await verifyAddress(hit.address, target)
         if (verified && verified.kind === 'exact') return { ...verified, address, resolvedAddress: hit.address, workLocationId: target.workLocationId,
-          evidence: [verified.evidence, `[Tự động] Tìm địa chỉ theo tên công ty: ${hit.name}`, `Địa chỉ tìm được: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`, 'Google: address only; pin verified by VietMap/Goong'].filter(Boolean).join('\n') }
-        reason(parseStreetAddress(hit.address).searchable ? 'google:address_verification_failed' : 'google:no_street_address')
+          evidence: [verified.evidence, `[Tự động] Tìm địa chỉ theo tên công ty: ${hit.name}`, `Địa chỉ tìm được: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`, 'Google: address verified by VietMap/Goong'].filter(Boolean).join('\n') }
+        // Lee 2026-11-06: when Google knows the company (one same-name place), follow Google's place itself.
+        // Unverified (area) like the Goong company step; the original-province check in resolveAutoLocation still applies
+        // (outside → administrative area + boundary mismatch, i.e. Google picked a same-name company elsewhere).
+        if (validPoint(hit)) return { kind: 'area', lat: hit.lat, lng: hit.lng, source: `Google ${hit.id} (company)`, checkedAt: at, address, resolvedAddress: hit.address, workLocationId: target.workLocationId,
+          evidence: [`[Tự động] Tìm theo tên công ty trên Google: ${hit.name}`, `Địa chỉ Google: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`, 'Google: place location (same query as Google button)'].join('\n') }
+        reason('google:invalid_point')
       }
     }
   }
