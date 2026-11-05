@@ -20,3 +20,8 @@ assert(administrativeArea('Đường A - TP. Hải Dương, Hải Dương')===nu
 assert(administrativeArea('Ngô Tất Tố - TP. Bắc Ninh')?.key==='city:bac ninh','hyphen embedded explicit city uses known locality witness')
 
 assert(administrativeAreaForTarget('Hải Dương','Hải Dương, Hà Nội')?.key==='province:hai duong','concrete workplace does not inherit unrelated province conflict from summary')
+
+// 2026-11-06: simplified Natural Earth outline cuts KCN Yên Phong mở rộng (Google place of NEW TEAMROBOTICS, Yên Trung, Bắc Ninh) — edge tolerance keeps it inside
+assert(areaContains(bacNinh, {lat:21.22944,lng:106.00377}),'Yên Phong expansion park near simplified border is inside Bắc Ninh')
+assert(!areaContains(bacNinh, {lat:21.0285,lng:105.8542}),'Hà Nội center stays outside Bắc Ninh')
+assert(!areaContains(bacNinh, {lat:11.05,lng:106.70}),'Bình Dương stays outside Bắc Ninh')
