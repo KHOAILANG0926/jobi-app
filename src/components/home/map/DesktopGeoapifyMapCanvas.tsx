@@ -3,11 +3,13 @@ import * as maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { HomeMapProviderProps, MapViewportSize } from './HomeMapTypes'
 import { groupHomeMapMarkers } from './groupHomeMapMarkers'
 import { calculateInitialZoom, createRadiusPolygon } from './homeMapGeometry'
 import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './homeMapGestures'
+
+const RasterMapCanvas = lazy(() => import('./RasterMapCanvas'))
 
 const CIRCLE_SOURCE = 'home-search-radius'
 maplibregl.setWorkerUrl(mapWorkerUrl)
@@ -57,6 +59,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
   const propsRef = useRef(props)
   const lastViewportRef = useRef({ origin: props.origin, recenterRequest: props.recenterRequest })
   const [tileError, setTileError] = useState(false)
+  const [useRaster, setUseRaster] = useState(false)
   propsRef.current = props
 
   const updateMarkers = () => {
@@ -117,14 +120,20 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     const initial = propsRef.current
     const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined
     const initialViewport = initial.initialViewport
-    const map = new maplibregl.Map({
+    let map: MapLibreMap
+    try {
+      map = new maplibregl.Map({
       container: box,
       style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${encodeURIComponent(apiKey ?? '')}`,
       center: initialViewport ? [initialViewport.center.lng, initialViewport.center.lat] : [initial.origin.lng, initial.origin.lat],
       zoom: initialViewport?.zoom ?? calculateInitialZoom(initial.origin.lat, initial.radiusKm, canvasSize(box)),
       attributionControl: false,
       ...HOME_MAP_GESTURE_OPTIONS,
-    })
+      })
+    } catch {
+      setUseRaster(true)
+      return
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     map.addControl(new maplibregl.AttributionControl({ compact: true }))
     mapRef.current = map
@@ -213,6 +222,8 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     const v = props.cameraRequest
     if (v && mapRef.current) mapRef.current.jumpTo({ center: [v.center.lng, v.center.lat], zoom: v.zoom })
   }, [props.cameraRequest])
+
+  if (useRaster) return <Suspense fallback={<div className="hme-map" role="status">Đang tải bản đồ…</div>}><RasterMapCanvas {...props} /></Suspense>
 
   return (
     <div className="hme-map" data-map-provider="geoapify">

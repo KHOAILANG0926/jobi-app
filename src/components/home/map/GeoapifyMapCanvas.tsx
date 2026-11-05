@@ -3,11 +3,13 @@ import * as maplibregl from 'maplibre-gl'
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { HomeMapProviderProps, MapViewportSize } from './HomeMapTypes'
 import { groupHomeMapMarkers } from './groupHomeMapMarkers'
 import { calculateInitialZoom, createRadiusPolygon } from './homeMapGeometry'
 import { HOME_MAP_GESTURE_OPTIONS, applyTouchMapDefaults, isTouchDevice } from './homeMapGestures'
+
+const RasterMapCanvas = lazy(() => import('./RasterMapCanvas'))
 
 const CIRCLE_SOURCE = 'home-search-radius'
 maplibregl.setWorkerUrl(mapWorkerUrl)
@@ -57,6 +59,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
   const propsRef = useRef(props)
   const lastViewportRef = useRef({ origin: props.origin, recenterRequest: props.recenterRequest })
   const [tileError, setTileError] = useState(false)
+  const [useRaster, setUseRaster] = useState(false)
   propsRef.current = props
 
   const updateMarkers = () => {
@@ -129,7 +132,7 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     })
     } catch {
       // WebGL initialization may throw before MapLibre can emit an error event.
-      setTileError(true)
+      setUseRaster(true)
       propsRef.current.onFailure('render-error')
       return
     }
@@ -221,6 +224,8 @@ export default function GeoapifyMapCanvas(props: HomeMapProviderProps) {
     const v = props.cameraRequest
     if (v && mapRef.current) mapRef.current.jumpTo({ center: [v.center.lng, v.center.lat], zoom: v.zoom })
   }, [props.cameraRequest])
+
+  if (useRaster) return <Suspense fallback={<div className="hme-map" role="status">Đang tải bản đồ…</div>}><RasterMapCanvas {...props} /></Suspense>
 
   return (
     <div className="hme-map" data-map-provider="geoapify">
