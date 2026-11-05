@@ -33,11 +33,13 @@ export interface InspectInput extends ShownAbove {
   company?: string | null
   /** 담당자 이름(위쪽 연락 버튼에 보임) */
   contact_name?: string | null
+  /** Explicit fields supplied by the publication worker. Missing values fail closed. */
+  postingFields?: { hours?: string | null; employment_type?: string | null; application_deadline?: string | null; num_hires?: string | number | null; reviewOnly?: boolean }
 }
 /** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
 export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
-  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review'] as const
-export interface InspectItem { key: string; label: string; ok: boolean; detail?: string }
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields'] as const
+export interface InspectItem { key: string; label: string; ok: boolean; detail?: string; reviewOnly?: boolean }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
 const SITE_JUNK = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dung)$/
@@ -56,6 +58,19 @@ export function inspectJob(j: InspectInput): InspectResult {
   const above: ShownAbove = { title: j.title, phones: j.phones, addresses: j.addresses, salary: j.salary, values: j.values, valueGroups: j.valueGroups }
   const view = detailSections(j.description, above)
   const shown = view.sections.flatMap((s) => s.lines)
+  if (j.postingFields) {
+    const filled = (v: unknown) => v != null && String(v).trim() !== ''
+    const p = j.postingFields
+    const mandatory: Array<[string, boolean]> = [
+      ['급여', filled(j.salary)], ['근무시간', filled(p.hours)], ['고용형태', filled(p.employment_type)],
+      ['업직종', filled(j.occupation_code) && filled(j.category)], ['모집마감', filled(p.application_deadline)],
+      ['모집인원', filled(p.num_hires)], ['주소', (j.addresses ?? []).some(filled)],
+      ['업무 내용', (view.sections.find(s => s.key === '01')?.lines.length ?? 0) > 0], ['연락처', (j.phones ?? []).some(filled)],
+    ]
+    const missing = mandatory.filter(([, ok]) => !ok).map(([name]) => name)
+    add('required_fields', '필수 9개 항목', missing.length === 0, missing.length ? `누락: ${missing.join(', ')} — 원문에 없으면 확인 필요(추정 입력 금지)` : undefined)
+    if (p.reviewOnly) items[items.length - 1].reviewOnly = true
+  }
 
   // 1. 지도 핀
   add('pin', '지도 핀', !!j.pin, j.pin ? ({ exact: '정확한 위치', gate: '공단 입구', area: '동·공단 대략 위치' } as Record<string, string>)[j.pin] ?? j.pin
@@ -167,7 +182,13 @@ export function publishDecision(
   today = new Date().toISOString().slice(0, 10),
 ): { publishable: boolean; active: boolean } {
   const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || i.ok)
-  if (!publishable) return { publishable, active: false }
+  if (!publishable) {
+    // Preserve an existing public posting during rollout, but do not issue a
+    // reusable publication proof: hiding it later must require a strict pass.
+    const keepExisting = j.active === true && !j.admin_hidden && r.items.every((i) =>
+      i.key === 'public' || REVIEW_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
+    return { publishable, active: keepExisting }
+  }
   if (j.active) return { publishable, active: true }
   const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
   const open = !deadline || String(deadline).slice(0, 10) >= today

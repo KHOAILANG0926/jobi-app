@@ -35,7 +35,7 @@ const viaGoogle = await resolveAutoLocation(job, { ...noop,
   async goong() { return { predictions: [{ place_id: 'x', structured_formatting: { main_text: 'Bảo An', secondary_text: 'Bắc Ninh' } }] } },
   async google() { return { places: [{ id: 'p9', displayName: { text: 'Công ty CP Dịch vụ Bảo vệ Bảo An VCC' }, formattedAddress: 'Bắc Ninh', location: { latitude: 21.16, longitude: 106.05 } }] } },
 })
-assert(viaGoogle.kind === 'area' && 'lat' in viaGoogle && viaGoogle.lat === 21.16, 'Google 회사 이름 핀: ' + JSON.stringify(viaGoogle))
+assert(viaGoogle.kind === 'unresolved', 'Google without a street address must not supply a company-coordinate pin: ' + JSON.stringify(viaGoogle))
 // 둘 다 없으면 기존처럼 성 대략 위치로 내려감(administrativeCenter)
 const none = await resolveAutoLocation(job, { ...noop, async goong() { return { predictions: [] } },
   async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'area', checkedAt: 'x' } } })

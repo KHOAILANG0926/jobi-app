@@ -63,6 +63,15 @@ jobs:
           cat preview.log; exit 1
       - name: WebGL 없는 PC·모바일 지도 및 필터 회귀 (격리 데이터)
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=map-no-webgl-proof node scripts/ops/map-webgl-fallback-check.mjs
+      - name: 공고 원문 조건 요약 연결 검사 (PC·모바일, 운영 쓰기 없음)
+        run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=job-process-proof node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-process-preview-browser.mjs
+      - name: 공고 조건 요약 확인 화면 보존
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-process-proof
+          path: job-process-proof/
+          retention-days: 14
       - name: WebGL 대체 지도 검증 화면 보존
         if: always()
         uses: actions/upload-artifact@v4
