@@ -5,6 +5,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { logoCheckProblems, withoutLogoCheck } from './logo-check.mjs'
+import { photoProcessPlan } from './photo-process.mjs'
 
 const fail = (msg) => { console.error(`::error::${msg}`); process.exit(1) }
 
@@ -51,5 +52,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try { payload = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { fail(`JSON 읽기 실패: ${e.message}`) }
   // 로고 확인(Lee 2026-11-03): 등록은 멈추지 않는다 — 기록이 빠졌으면 경고만(로고 없으면 업종 사진).
   for (const w of logoCheckProblems(payload)) console.error(`::warning::${w}`)
-  try { process.stdout.write(buildSql(withoutLogoCheck(payload), storagePath || undefined)) } catch (e) { fail(e.message) }
+  try {
+    process.stdout.write(buildSql(withoutLogoCheck(payload), storagePath || undefined))
+    const photo = photoProcessPlan(payload)
+    // A successful ingest is not evidence that the photo process finished.
+    process.stdout.write(`\\echo 사진 처리 미완료: ${photo.stage} — photo-process-verify.mjs로 별도 검증 필요\n`)
+  } catch (e) { fail(e.message) }
 }

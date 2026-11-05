@@ -5,12 +5,14 @@
 //     "poster"         공고 포스터(images)가 있음 → 검색 불필요
 //     "brand"          회사 이름 검색 → 등록 브랜드(job_brands, domain 있음)로 로고가 붙음. brand = 브랜드 slug
 //     "found_unstored" 검색으로 공식 로고를 찾았지만 아직 저장 못 함(브랜드 기준 미달·등록 대기). official_url + note 필수
+//     "stored"        공식 이미지 확인·저장·연결 기록(실제 완료는 photo-process-verify로 별도 검증)
 //     "not_found"      검색했지만 공식 로고 없음 → 업종 사진. searched(검색어 목록) 필수
-// 실제 검색은 등록하는 작업자(Claude 등)가 한다. 이 검사는 "검색했는지·결과가 무엇인지"가 파일에 남았는지만 막는다.
+// 실제 검색·지점 식별은 작업자가 한다. 이 메타데이터 검사만으로 완료라고 할 수 없다.
+// found_unstored는 항상 미완료 경고, 실제 완료는 원본/저장/운영 PC·모바일 검증 결과로만 판정한다.
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-const RESULTS = ['poster', 'brand', 'found_unstored', 'not_found']
+const RESULTS = ['poster', 'brand', 'stored', 'found_unstored', 'not_found']
 const nonEmptyText = (v) => typeof v === 'string' && v.trim() !== ''
 
 /** migration에 등록된 브랜드 slug 중 domain(로고 주소)이 들어간 것. */
@@ -42,7 +44,9 @@ export function logoCheckProblems(payload, logoBrands = brandsWithLogo()) {
   if (c.result === 'found_unstored') {
     if (!nonEmptyText(c.official_url) || !/^https:\/\//.test(c.official_url)) p.push('logo_check=found_unstored에는 official_url(https) 필요')
     if (!nonEmptyText(c.note)) p.push('logo_check=found_unstored에는 note(왜 아직 저장 못 했는지) 필요')
+    if (p.length === 0) p.push('사진 처리 미완료: 찾은 자료의 지점 확인·저장·연결·실제 화면 검증 필요')
   }
+  if (c.result === 'stored' && (!nonEmptyText(c.stored_url) || !nonEmptyText(c.source_image_url) || !nonEmptyText(c.company_evidence))) p.push('사진 처리 미완료: 저장 주소·공식 원본 이미지·회사/지점 확인 근거 필요')
   if (c.result === 'not_found') {
     if (!Array.isArray(c.searched) || !c.searched.some(nonEmptyText)) p.push('logo_check=not_found에는 searched(실제 검색어 목록) 필요')
   }
