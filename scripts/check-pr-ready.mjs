@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs'
+import { changedPhotoPayloads } from './ops/photo-process-changed.mjs'
+import { photoProcessPrProblems } from './ops/photo-process-pr.mjs'
 
 export function checkCompletion(body, headSha) {
   const errors = []
@@ -41,6 +43,7 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
     process.exit(0)
   }
   const errors = checkCompletion(pr.body || '', pr.head?.sha)
+  errors.push(...photoProcessPrProblems(pr.body || '', changedPhotoPayloads(event)))
   for (const error of errors) console.error('::error::' + error)
   if (errors.length) process.exit(1)
   console.log('READY 근거 형식 확인; 실제 테스트 성공 여부는 필수 CI에서 별도 판정')
