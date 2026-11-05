@@ -16,6 +16,8 @@ assert.match(logoCheckProblems({ ...base, logo_check: { result: 'not_found', sea
 assert.deepEqual(logoCheckProblems({ ...base, logo_check: { result: 'not_found', searched: ['Công ty ABC Bắc Ninh'] } }, brands), [])
 assert.equal(logoCheckProblems({ ...base, logo_check: { result: 'found_unstored', official_url: 'http://x' } }, brands).length, 2)
 assert.deepEqual(logoCheckProblems({ ...base, logo_check: { result: 'found_unstored', official_url: 'https://joythai.vn/', note: '브랜드 등록 대기' } }, brands), [])
+assert.equal(logoCheckProblems({ ...base, logo_check: { result: 'business_photo' } }, brands).length, 3) // 사진·출처·근거 모두 없음
+assert.deepEqual(logoCheckProblems({ ...base, images: ['fb/x.png'], logo_check: { result: 'business_photo', photo_source: 'https://maps.app.goo.gl/x', note: '상호·주소 일치' } }, brands), [])
 assert.match(logoCheckProblems({ ...base, logo_check: { result: 'guess' } }, brands)[0], /중 하나/)
 assert.deepEqual(Object.keys(withoutLogoCheck({ ...base, logo_check: { result: 'poster' } })), ['source_text', 'images'])
 console.log('logo-check: all assertions passed')
