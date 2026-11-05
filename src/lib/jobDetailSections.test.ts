@@ -369,3 +369,6 @@ Chăm sóc khách hàng`
   assert(JSON.stringify(job) === before, 'representative selection leaves every lower gallery image and description intact')
   assert(JSON.stringify(detailSections(job.description, kdaAbove)) === JSON.stringify(kdaR), 'representative selection preserves baseline detail sections')
 }
+
+// 상단 사진 확대 기능은 기존 기준 공고의 상세요강 구성을 변경하지 않는다.
+assert(kdaR.preserved && same(byKey(kdaR)['01'], kdaWant['01']), 'header photo zoom preserves KDA work detail content')

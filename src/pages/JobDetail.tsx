@@ -581,9 +581,7 @@ export function JobDetail() {
       <div className="jd2-header">
         <div className="jd2-header__left">
           {logoUrl && (
-            <div className="jd2-logo">
-              <img src={logoUrl} alt={job.company} className="jd2-logo__img" />
-            </div>
+            <ImageGallery images={[logoUrl]} title={job.company} header />
           )}
           <div className="jd2-header__info">
             <div className="jd2-header__chips">
@@ -1129,13 +1127,17 @@ function MapLinks({ links }: { links: ExternalMapLinks | null }) {
 
 // 기준 공고(CTY KDA) 틀의 길찾기 버튼. 공단 공고뿐 아니라 모든 Google Maps 길찾기에 같은 모양을 쓴다(2026-10-18 사용자 지적).
 // 2026-10-19 Lee: 채용 이미지(포스터·회사·작업장 사진)를 같은 크기 작은 사진 한 줄로, 누르면 크게(옆으로 넘기기·Esc 닫기).
-function ImageGallery({ images, title }: { images: string[]; title: string }) {
+function ImageGallery({ images, title, header = false }: { images: string[]; title: string; header?: boolean }) {
   const [open, setOpen] = useState<number | null>(null)
   const [broken, setBroken] = useState<Set<string>>(() => new Set())
   const list = images.filter((u) => !broken.has(u))
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (open === null) return
+    if (header) closeRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {
+      if (header && e.key === 'Tab') { e.preventDefault(); closeRef.current?.focus() }
       if (e.key === 'Escape') setOpen(null)
       if (e.key === 'ArrowRight') setOpen((i) => (i === null ? i : (i + 1) % list.length))
       if (e.key === 'ArrowLeft') setOpen((i) => (i === null ? i : (i - 1 + list.length) % list.length))
@@ -1143,21 +1145,28 @@ function ImageGallery({ images, title }: { images: string[]; title: string }) {
     window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
-  }, [open, list.length])
+    return () => {
+      window.removeEventListener('keydown', onKey); document.body.style.overflow = prev
+      if (header) triggerRef.current?.focus()
+    }
+  }, [open, list.length, header])
   const touch = useRef<number | null>(null)
   if (!list.length) return null
   return (
     <>
-      <div className="jd2-gallery">
+      {header ? (
+        <button ref={triggerRef} type="button" className="jd2-logo" style={{ padding: 0, cursor: 'zoom-in' }} onClick={() => setOpen(0)} aria-label={`Xem ảnh ${title}`} aria-haspopup="dialog">
+          <img src={list[0]} alt={title} className="jd2-logo__img" />
+        </button>
+      ) : <div className="jd2-gallery">
         {list.map((url, i) => (
           <button key={url} type="button" className="jd2-gallery__thumb" onClick={() => setOpen(i)} aria-label={`Xem ảnh ${i + 1}`}>
             <img src={url} alt={`${title} ${i + 1}`} loading="lazy" onError={() => setBroken((b) => new Set(b).add(url))} />
           </button>
         ))}
-      </div>
+      </div>}
       {open !== null && list[open] && (
-        <div className="jd2-lightbox" role="dialog" aria-modal="true" onClick={() => setOpen(null)}
+        <div className="jd2-lightbox" role="dialog" aria-label={header ? `Ảnh ${title}` : undefined} aria-modal="true" onClick={() => setOpen(null)}
           onTouchStart={(e) => { touch.current = e.touches[0].clientX }}
           onTouchEnd={(e) => {
             const start = touch.current; touch.current = null
@@ -1166,7 +1175,7 @@ function ImageGallery({ images, title }: { images: string[]; title: string }) {
             if (Math.abs(dx) > 40) setOpen((i) => (i === null ? i : (i + (dx < 0 ? 1 : -1) + list.length) % list.length))
           }}>
           <img src={list[open]} alt={`${title} ${open + 1}`} onClick={(e) => e.stopPropagation()} />
-          <button type="button" className="jd2-lightbox__close" aria-label="Đóng" onClick={() => setOpen(null)}>×</button>
+          <button ref={closeRef} type="button" className="jd2-lightbox__close" aria-label="Đóng" onClick={() => setOpen(null)}>×</button>
           {list.length > 1 && <>
             <button type="button" className="jd2-lightbox__nav jd2-lightbox__nav--prev" aria-label="Ảnh trước" onClick={(e) => { e.stopPropagation(); setOpen((open - 1 + list.length) % list.length) }}>‹</button>
             <button type="button" className="jd2-lightbox__nav jd2-lightbox__nav--next" aria-label="Ảnh sau" onClick={(e) => { e.stopPropagation(); setOpen((open + 1) % list.length) }}>›</button>
