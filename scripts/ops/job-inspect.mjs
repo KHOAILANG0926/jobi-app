@@ -29,7 +29,7 @@ try {
              -- 검사 실패로 내린 공고도 다시 통과하면 되살린다(관리자가 직접 내린 공고는 해당 없음)
              or exists (select 1 from jsonb_array_elements(coalesce(j.ocr_check->'inspect'->'items', '[]'::jsonb)) i
                         where i->>'key' = 'public' and i->>'detail' = '검사 실패로 비공개 보류')) as hold,
-           j.application_deadline, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
+           j.application_deadline, j.employment_type, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
            j.category, j.occupation_code, j.active, j.admin_hidden, j.shuttle_bus, j.dormitory, j.meal_provided,
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,
            coalesce(jsonb_array_length(case when jsonb_typeof(j.images) = 'array' then j.images end), 0) as image_count,
@@ -46,6 +46,7 @@ try {
   for (const job of rows) {
     const input = {
       id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,
+      postingFields: { hours: job.hours, employment_type: job.employment_type, application_deadline: job.application_deadline, num_hires: job.num_hires },
       phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses],
       values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
       valueGroups: [[job.hours, job.work_days]],

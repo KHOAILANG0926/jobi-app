@@ -11,7 +11,7 @@ import type { PoiCandidate } from './locationCandidateMatch'
 import { companySearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
-export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
+export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
 export interface ResolverDeps {
   withinAdministrativeArea?(addresses:string[],point:{lat:number;lng:number}): Promise<boolean>
   administrativeCenter?(addresses: string[]): Promise<{lat:number;lng:number;source:string;checkedAt:string} | null>
@@ -28,7 +28,18 @@ export interface ResolverDeps {
   /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
   wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
-export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
+export async function resolveAutoLocation(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
+  // Share the original three-request cap across address, company and replay stages.
+  let goongCalls = 0, googleCalls = 0
+  const deps: ResolverDeps = { ...providedDeps, ...(providedDeps.goong ? { async goong(action, params) {
+    if (goongCalls >= 3) return null
+    goongCalls++
+    return providedDeps.goong!(action, params)
+  } } : {}), ...(providedDeps.google ? { async google(text) {
+    if (googleCalls >= 1) return null
+    googleCalls++
+    return providedDeps.google!(text)
+  } } : {}) }
   const result=await resolveEvidence(job,deps)
   if(result.kind==='unresolved')return result
   const targets=job.targets.length?job.targets:[{address:job.location,workLocationId:null}]
@@ -38,7 +49,7 @@ export async function resolveAutoLocation(job: ResolverJob, deps: ResolverDeps):
   }
   for(const target of candidates) {
     const area=await deps.administrativeCenter?.([target.address,job.location])
-    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed:result.failed,deferred:result.deferred}
+    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed:result.failed,deferred:result.deferred,evidence:[result.evidence,'administrative_boundary:mismatch'].filter(Boolean).join('\n')}
   }
   return {kind:'unresolved',failed:result.failed,deferred:result.deferred}
 }
@@ -47,12 +58,13 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
   let calls = 0
   let failed = false
   let deferred = false
+  const reasons: string[] = []
   const at = new Date().toISOString()
   const query = async (action: 'search' | 'place', params: Record<string, string>) => {
     const key = JSON.stringify(['map-r1-v1', action, params])
     const cached = await deps.cached(key)
     if (cached !== null) return cached
-    if (calls >= Math.min(2, deps.remainingCalls ?? 2)) return null
+    if (failed || deferred || calls >= Math.min(2, deps.remainingCalls ?? 2)) return null
     if (!await deps.reserve()) { deferred = true; return null }
     calls++
     try {
@@ -91,15 +103,32 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       if (found) return found
     }
     const park = findIndustrialPark(...targets.map(t => t.address), job.location)
-    // 추가 단계(Lee 2026-11-03): 공단 밖 공고는 회사 이름으로 Goong → Google 순서로 찾는다. 공단 공고는 기존 단계 그대로.
-    if (!park && job.company.trim()) {
-      const found = await resolveByCompanyName(job, sorted, deps, at)
+    // Company lookup also applies after an industrial-park lookup failed.
+    // Google supplies address text only; the existing address rules determine the pin.
+    if (job.company.trim()) {
+      reasons.push(failed ? 'vietmap:provider_failed' : deferred ? 'vietmap:budget_deferred' : 'vietmap:no_verified_match', 'goong:no_verified_match')
+      if (!deps.google) reasons.push('google:not_configured')
+      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), async (address, target) => {
+        if (!parseStreetAddress(address).searchable || hasConflictingProvinces(address)) return null
+        const hits = await query('search', { text: ADDRESS_STRATEGY.searchText(job.company, address) })
+        const pick = pickAddressHit(address, hits)
+        if (pick.hit?.ref_id && !pick.multiple) {
+          const place = await query('place', { refid: pick.hit.ref_id }) as Record<string, unknown> | null
+          if (place && validPoint({ lat: place.lat as number, lng: place.lng as number }) && pickAddressHit(address, [{ ...place, ref_id: pick.hit.ref_id }]).hit) {
+            const poi: PoiCandidate = { name: String(place.name || ''), address: String(place.display || place.address || ''), lat: place.lat as number, lng: place.lng as number, refId: pick.hit.ref_id,
+              units: { ward: place.ward as string, district: place.district as string, province: place.city as string } }
+            if (judgeAddressPois({ address }, { hits: 1, pois: [poi] }).approvePoi) return { kind: 'exact', lat: poi.lat, lng: poi.lng, source: `VietMap ${poi.refId}`, checkedAt: at }
+          }
+        }
+        // This replay uses the same cached address question and matching rules.
+        return deps.goong ? resolveWithGoong({ ...job, location: address }, [{ ...target, address }], deps, at) : null
+      })
       if (found) return found
     }
     const gate = park?.destination
-    if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred}
+    if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred,evidence:reasons.join('\n')}
     // 공단 표에 있는 공단인데 확인된 입구가 없으면 공단 중심(출처 OSM)을 대략 위치 핀으로 — 상세 화면 지도와 같은 점(2026-10-20 Lee)
-    if (park && validPoint({lat:park.lat,lng:park.lng})) return {kind:'area',lat:park.lat,lng:park.lng,source:`${park.source.provider} ${park.source.ref}`,checkedAt:at}
+    if (park && validPoint({lat:park.lat,lng:park.lng})) return {kind:'area',lat:park.lat,lng:park.lng,source:`${park.source.provider} ${park.source.ref}`,checkedAt:at,evidence:reasons.join('\n')}
     // A known industrial park without a verified gate must not silently become a ward pin.
     // 공단 표에 없는 공단(예: "KCN Yên Phong"): VietMap에서 같은 이름의 공단 1곳을 찾아 대략 위치 핀(2026-10-20, Lee 10-13 '핀은 무조건').
     const unlisted = !park ? parkNameFromAddresses([...targets.map(t => t.address), job.location]) : null
@@ -115,7 +144,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       const unit = wardUnitForAddresses(targets.map(t => t.address))
       if (unit && !failed) {
         const saved = await deps.wardCenter?.(unit)
-        if (saved && validPoint(saved)) return {kind:'area',lat:saved.lat,lng:saved.lng,source:`VietMap ward cache ${unit.key}`,checkedAt:saved.at || at}
+        if (saved && validPoint(saved)) return {kind:'area',lat:saved.lat,lng:saved.lng,source:`VietMap ward cache ${unit.key}`,checkedAt:saved.at || at,evidence:reasons.join('\n')}
         const hits = await query('search', {text:unit.searchText})
         const pick = pickWardHit(unit, hits)
         if (pick.hit?.ref_id && !pick.multiple) {
@@ -129,9 +158,9 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
   // unverified evidence persisted by the same canonical writer as every tier.
   for(const target of targets) {
     const area=await deps.administrativeCenter?.([target.address,job.location])
-    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed,deferred}
+    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed,deferred,evidence:reasons.join('\n')}
   }
-  return {kind:'unresolved',failed,deferred}
+  return {kind:'unresolved',failed,deferred,evidence:reasons.join('\n')}
 }
 
 /** ① 번지: 번지·도로명이 결과에 그대로 + 원문 동/구 일치 / ② 회사+공단: 회사명 정확 일치 1곳 + 공단 경계 안. 실패는 조용히 다음 단계로. */
@@ -177,9 +206,11 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
   return null
 }
 
-/** 공단 밖 공고: 회사 이름(핵심 이름 일치 1곳, 여럿이면 원문 거리로 좁힘)으로 Goong, 없으면 Google에서 찾는다.
- *  결과는 대략 위치(area, chưa xác minh) — 성 경계 밖이면 resolveAutoLocation이 성 대략 위치로 되돌린다. */
-async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string): Promise<LocationDecision | null> {
+/** Company-name fallback, including industrial parks. Google recovers address text;
+ * only VietMap/Goong street verification may supply the resulting pin. */
+async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string,
+  reason: (reason: string) => void,
+  verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>): Promise<LocationDecision | null> {
   const ask = async (key: unknown[], call: () => Promise<unknown>) => {
     const k = JSON.stringify(key)
     try {
@@ -188,7 +219,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
       const data = await call()
       await deps.cache(k, data)
       return data
-    } catch { return null }
+    } catch { reason(`${String(key[1])}:provider_failed`); return null }
   }
   for (const target of targets.slice(0, 2)) {
     const address = target.address.trim() || job.location
@@ -197,6 +228,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     if (deps.goong) {
       const hits = goongPredictionHits(await ask(['company-v1', 'goong', text], () => deps.goong!('autocomplete', { input: text })))
       const pick = pickCompanyPlace(job.company, address, hits)
+      if (!pick.hit) reason(`goong:${pick.reason}`)
       if (pick.hit) {
         const place = goongPlace(await ask(['company-v1', 'goong-detail', pick.hit.id], () => deps.goong!('detail', { place_id: pick.hit!.id })))
         if (place && validPoint(place)) return { kind: 'area', lat: place.lat, lng: place.lng, source: `Goong ${pick.hit.id} (company)`, checkedAt: at, address, workLocationId: target.workLocationId,
@@ -206,9 +238,14 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     if (deps.google) {
       const hits = googlePlaceHits(await ask(['company-v1', 'google', text], () => deps.google!(text)))
       const pick = pickCompanyPlace(job.company, address, hits)
+      if (!pick.hit) reason(`google:${pick.reason}`)
       const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null
-      if (hit && validPoint(hit)) return { kind: 'area', lat: hit.lat, lng: hit.lng, source: `Google ${hit.id} (company)`, checkedAt: at, address, workLocationId: target.workLocationId,
-        evidence: [`[Tự động] Tìm theo tên công ty: ${hit.name}`, `Địa chỉ: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`].join('\n') }
+      if (hit) {
+        const verified = await verifyAddress(hit.address, target)
+        if (verified && verified.kind === 'exact') return { ...verified, address, resolvedAddress: hit.address, workLocationId: target.workLocationId,
+          evidence: [verified.evidence, `[Tự động] Tìm địa chỉ theo tên công ty: ${hit.name}`, `Địa chỉ tìm được: ${hit.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`, 'Google: address only; pin verified by VietMap/Goong'].filter(Boolean).join('\n') }
+        reason(parseStreetAddress(hit.address).searchable ? 'google:address_verification_failed' : 'google:no_street_address')
+      }
     }
   }
   return null

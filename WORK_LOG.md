@@ -1,3 +1,11 @@
+## 2026-11-05 — 위치·상세 처리 결함 수정 미리보기 (Codex)
+- 요청: #5438 지도와 상세 작성 프로세스 원인 조사 후 "수정하고 보여줘, 본 다음 운영 적용 결정". 운영 반영·병합·DB 수정 없음.
+- 변경: 기존 age_min/max·원문 나이/경력/언어/CV를 최신 틀의 공통 Job 매핑에서 요약 표시. 공개/SSR/기업/등록 응답 경로의 기존 나이 열 읽기 연결. 구조화 값 우선, 불명확·없는 값 추정 없음, 기존 틀/하단 원문·사진 유지.
+- 위치: 산업단지 Google 주소 검색 생략 제거, Google 좌표 대신 얻은 주소를 VietMap/Goong 기존 주소 판정으로 검증. 원래 canonical 대상 유지, 복원 주소는 result/evidence 보관(이미 게시된 공고의 주소/좌표는 관리자 확정 대상). 제공자 실패 원인 보관, 전체 실행에서 실제 호출 VietMap2/Goong3/Google1 상한. 실제 #5438 위치 수정 없음.
+- 강제 검사: job-inspect worker에 필수 9개 명시값 전달, 누락이면 기존 publishDecision이 공개 보류. 운영 worker 실행하지 않음. 미리보기는 읽기 전용 화면, 자동 작업/DB 변경 경로 실행 없음.
+- [직접 확인] 재현 시험 실패 후 구현, 단위112/112·tsc·build·PC/모바일 요약 연결/원문 보존/넘침 없음·desktop baseline8/8 통과. 최신 호출 상한 수정 후 최종 재검사도 통과. 독립 리뷰 신규 Critical/Important 없음, 지적된 호출 상한도 시험 후 수정.
+- 상태: demo/job-process-preview 브랜치 생성. GitHub 연결 도구로 커밋/draft PR·Preview 준비, 사용자 검토 전 병합/운영 반영 금지.
+
 ## 2026-11-05 — WebGL2 미지원 PC 흰 화면 수정 (Codex)
 - 요청/근거: Lee 운영 PC 흰 화면 및 콘솔 GPUInitializationError: WebGL2 is required … DesktopGeoapifyMapCanvas. 별도 허락 요청 없이 원인 확인·수정·검사·기존 봇 병합·운영 반영.
 - 원인 [직접 확인]: 운영 HTML/초기 JS·지도 JS/CSS 모두200. 실제 실행 파일로 기본 화면 로딩 확인, 최종 사용자 콘솔로 GPU 초기화 예외 확인. WebGL context를 null로 만든 격리 브라우저에서 같은 오류3개가 React 밖으로 전파돼 페이지가 사라짐 재현.

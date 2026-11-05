@@ -2,6 +2,8 @@ import { ensureJobFields } from './jobUtils.ts'
 import { supabase } from './supabase.ts'
 import { stripSourceTags } from './sourceTag.ts'
 import { isDetailedAddress } from './addressParse.ts'
+import { recruitmentSummary } from './jobRecruitmentSummary.ts'
+import { usesAlbamonLayout } from './jobQuyenLoi.ts'
 import type { AddressAccuracy, CoordinateAccuracy, GeocodeStatus, Job } from '../types/job.ts'
 
 /** DB row(local_jobs/job_work_locations) -> Job 매핑 로직 — JobsContext.tsx와
@@ -68,6 +70,7 @@ export function rowToWorkLocation(r: Record<string, unknown>): Job['workLocation
 
 export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLocations']): Job {
   const { description, source } = parseDescription((r.description as string) ?? '')
+  const summary = usesAlbamonLayout(`sb-${r.id}`) ? recruitmentSummary({ ...r, description }) : undefined
   return ensureJobFields({
     id: `sb-${r.id}`,
     title: (r.title as string) ?? '',
@@ -115,15 +118,15 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     employmentType: (r.employment_type as Job['employmentType'] | null | undefined) ?? undefined,
     rotatingShifts: (r.rotating_shifts as Job['rotatingShifts'] | null | undefined) ?? undefined,
     benefitTags: (r.benefit_tags as string[] | null | undefined)?.filter((t) => t?.trim()) ?? undefined,
-    languageRequirement: (r.language_requirement as string | null | undefined)?.trim() || undefined,
+    languageRequirement: summary?.languageRequirement ?? ((r.language_requirement as string | null | undefined)?.trim() || undefined),
     businessTrip: (r.business_trip as boolean | null | undefined) ?? undefined,
-    requiredDocuments: (r.required_documents as string | null | undefined)?.trim() || undefined,
+    requiredDocuments: summary?.requiredDocuments ?? ((r.required_documents as string | null | undefined)?.trim() || undefined),
     jobDuration: (r.job_duration as string) ?? undefined,
     genderRequirement: (r.gender_requirement as string) ?? undefined,
-    ageRequirement: (r.age_requirement as string) ?? undefined,
+    ageRequirement: summary?.ageRequirement ?? (r.age_requirement as string) ?? undefined,
     workDays: (r.work_days as string) ?? undefined,
     education: (r.education as string) ?? undefined,
-    preference: (r.preference as string) ?? undefined,
+    preference: summary?.preference ?? (r.preference as string) ?? undefined,
     numHires: (r.num_hires as string) ?? undefined,
     companyVerified: (r.company_verified as boolean) ?? undefined,
     companyFoundedYear: (r.company_founded_year as number) ?? undefined,
@@ -133,7 +136,7 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     rawSalary: (r.salary as string)?.trim() || undefined,
     rawLocation: (r.location as string)?.trim() || undefined,
     rawEducation: (r.education as string)?.trim() || undefined,
-    rawPreference: (r.preference as string)?.trim() || undefined,
+    rawPreference: summary?.preference ?? ((r.preference as string)?.trim() || undefined),
     rawLat: typeof r.lat === 'number' && Number.isFinite(r.lat) ? (r.lat as number) : undefined,
     rawLng: typeof r.lng === 'number' && Number.isFinite(r.lng) ? (r.lng as number) : undefined,
     workLocations: workLocations && workLocations.length > 0 ? workLocations : undefined,
@@ -161,7 +164,7 @@ export interface JobsQueryClient {
 }
 
 export const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,subcategory,occupation_code,occupation_evidence,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
+  'id,title,company,category,subcategory,occupation_code,occupation_evidence,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,age_min,age_max,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
 export const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,point_kind,point_precision,point_evidence,point_revision,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route'
 
