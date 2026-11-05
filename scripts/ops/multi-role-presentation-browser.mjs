@@ -41,6 +41,30 @@ async function open(base,job,width,imageState='none') {
  await page.evaluate(()=>document.fonts.ready)
  return {page,context}
 }
+async function checkHeaderPhotoZoom(page,width,state) {
+ const trigger=page.locator('.jd2-header button.jd2-logo')
+ assert.equal(await trigger.count(),1,'header photo is an accessible button')
+ const before=await frame(page)
+ const src=await trigger.locator('img').getAttribute('src')
+ await trigger.click()
+ const dialog=page.getByRole('dialog',{name:'Ảnh CTY KDA'})
+ await dialog.waitFor({state:'visible'})
+ assert.equal(await dialog.locator('img').getAttribute('src'),src,'zoom shows the original representative image')
+ assert(await dialog.locator('img').evaluate(img=>img.getBoundingClientRect().width)>52,'photo is displayed larger')
+ assert.equal(await page.evaluate(()=>document.body.style.overflow),'hidden','zoom locks background scroll')
+ await page.screenshot({path:`/tmp/multi-role-browser/header-photo-${width}-${state}.png`})
+ await page.keyboard.press('Escape')
+ await dialog.waitFor({state:'hidden'})
+ assert(await trigger.evaluate(el=>el===document.activeElement),'closing restores focus')
+ await page.keyboard.press('Enter')
+ await dialog.waitFor({state:'visible'})
+ await dialog.getByRole('button',{name:'Đóng',exact:true}).click()
+ await dialog.waitFor({state:'hidden'})
+ await trigger.click()
+ await dialog.click({position:{x:5,y:5}})
+ await dialog.waitFor({state:'hidden'})
+ assert.deepEqual(await frame(page),before,'zoom leaves the detail frame unchanged')
+}
 async function frame(page) {
  return page.evaluate(()=> {
   const round=n=>Math.round(n*10)/10
@@ -71,7 +95,24 @@ try {
     assert(await fallback.evaluate(img=>img.complete&&img.naturalWidth>0),'industry fallback really loads')
    }
    assert.deepEqual(await frame(after.page),await frame(before.page),`KDA approved image-present frame ${width}/${state}`)
+   if(state!=='failed') await checkHeaderPhotoZoom(after.page,width,state)
    await before.context.close();await after.context.close()
+  }
+  {
+   const galleryJob={...kda,image_url:'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/test.png',images:['kda/first.png','kda/second.png']}
+   const {page,context}=await open(current,galleryJob,width,'loaded')
+   const thumbnails=page.locator('.jd2-gallery__thumb img')
+   const sources=await thumbnails.evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src')))
+   assert.equal(sources.length,2,'both lower recruitment photos remain')
+   await page.locator('.jd2-header button.jd2-logo').click()
+   await page.keyboard.press('Escape')
+   assert.deepEqual(await thumbnails.evaluateAll(imgs=>imgs.map(img=>img.getAttribute('src'))),sources,'header zoom preserves the lower gallery')
+   await page.locator('.jd2-gallery__thumb').first().click()
+   const dialog=page.getByRole('dialog')
+   await dialog.waitFor({state:'visible'})
+   assert.equal(await dialog.locator('img').getAttribute('src'),sources[0],'lower gallery still zooms its own photo')
+   await page.keyboard.press('Escape')
+   await context.close()
   }
   const {page,context}=await open(current,multi,width)
   const conditions=await page.locator('.jd2-sec--conditions-grid').innerText()

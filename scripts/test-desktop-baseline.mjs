@@ -1,3 +1,4 @@
+// 2026-11-05 Lee 요청: 상세 상단 대표 사진 클릭 확대. 기존 슬롯 치수·간격·하단 사진 유지.
 // 2026-11-04 Lee 명시 지시: 대표 이미지 공통 순서에 images[0] 추가. 상세 하단 사진·레이아웃·CSS 변경 없음.
 // 2026-11-04: JobDetail.tsx — Lee "왼쪽 자리 왜 비운거지?": 최신 틀 근무조건 칸 한쪽이 비면 보이는 항목을 두 칸에 나눔. KDA·예전 틀 변경 없음.
 // 2026-11-03: DesktopHomeMapExplorer.tsx — Lee "거리재는 거 어디 갔냐, 그냥 보이게 해": 반경 칸 항상 표시(고르면 거리 검색 켜짐). 위치 칸 펼침 메뉴·중복 Gần tôi 제거(Lee "꼭 필요한 거야?" → 진행). 다른 PC 틀 변경 없음.
@@ -93,7 +94,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "edd558cbffb6117908f1bd567b7d47a9f33ef6472fc63d32ab6b2093363c48a0",
+    "sha256": "1181517aa500084c4ef8f81dbeb093fe8a5604aae02252eb123e37c917c29674",
     "restore": []
   },
   {
