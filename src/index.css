@@ -12286,6 +12286,27 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-conditions-with-contact .jd2-aside-contact__zalo svg { width: 15px; height: 15px; }
 }
 
+/* 2026-11-06 Lee: contact buttons are their own block. They sit at the right end of the title row of the
+   first box that is shown (① → ② → ③); a missing box leaves no gap. Same look as the original ① title-row pills. */
+@media (min-width: 761px) {
+  .jd2-contact-wrap { position: relative; }
+  .jd2-contact-wrap > .jd2-aside--contact-only {
+    position: absolute; top: 0; right: 0; width: auto; flex-direction: row; display: flex; gap: 0.5rem;
+    background: transparent; border: 0; box-shadow: none; padding: 0; margin: 0; min-width: 0;
+  }
+  .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; }
+  .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact__call,
+  .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact__zalo {
+    width: auto; height: 42px; min-height: 42px; padding: 0 0.975rem; border-radius: 999px;  /* = current 1.3x PC size (2026-10-24) */
+    display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6.5px; font-size: 1.04rem; line-height: 1; text-decoration: none;
+  }
+  .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact__call svg,
+  .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact__zalo svg { width: 20px; height: 20px; }
+}
+@media (max-width: 760px) {
+  .jd2-contact-wrap > .jd2-aside--contact-only { display: none; }
+}
+
 /* 2026-10-24: desktop TEFAL detail tab height and contact buttons (1.3x).
    Keep mobile and all content positions unchanged. */
 @media (min-width: 761px) {

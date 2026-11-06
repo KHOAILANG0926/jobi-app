@@ -1,4 +1,4 @@
-import { balanceConditionColumns, detailSections, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
+import { contactHostFor, balanceConditionColumns, detailSections, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b)
 const byKey = (r: ReturnType<typeof detailSections>) => Object.fromEntries(r.sections.map((s) => [s.key, s.lines]))
@@ -372,3 +372,9 @@ Chăm sóc khách hàng`
 
 // 상단 사진 확대 기능은 기존 기준 공고의 상세요강 구성을 변경하지 않는다.
 assert(kdaR.preserved && same(byKey(kdaR)['01'], kdaWant['01']), 'header photo zoom preserves KDA work detail content')
+
+// 2026-11-06 Lee: 4칸 중 한 칸이 통째로 빠지면 아래 칸이 올라오고, 연락 버튼은 위쪽 자리(남은 첫 상자 제목 줄) 그대로.
+assert(contactHostFor({ conditions: 3, quyenLoi: 2, newLayout: true, recruitKeys: ['age'] }) === 'conditions', 'contact host: ① 있으면 ①')
+assert(contactHostFor({ conditions: 0, quyenLoi: 2, newLayout: true, recruitKeys: ['age'] }) === 'quyenloi', 'contact host: ① 없으면 예전 틀 Quyền lợi')
+assert(contactHostFor({ conditions: 0, quyenLoi: 0, newLayout: false, recruitKeys: ['age', 'category'] }) === 'recruit', 'contact host: ② 모집조건')
+assert(contactHostFor({ conditions: 0, quyenLoi: 0, newLayout: false, recruitKeys: ['category'] }) === 'location', 'contact host: 업직종만 있으면 ③')
