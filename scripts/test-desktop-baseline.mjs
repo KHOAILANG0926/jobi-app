@@ -1,3 +1,4 @@
+// 2026-11-06: JobDetail.tsx·index.css — Lee 데모 적용(demo/contact-separate): 4칸 중 한 칸이 통째로 없으면 상자를 빼고 아래 칸이 올라옴. Gọi·Zalo 버튼은 상자와 별도로 원래 위쪽 자리 그대로. KDA·예전 틀 변경 없음.
 // 2026-11-05 Lee PC 흰 화면 오류: WebGL 초기화 예외를 잡고 비WebGL 2D 지도로 전환. 정상 PC 틀/CSS 변경 없음.
 // 2026-11-05 Lee 요청: 상세 상단 대표 사진 클릭 확대. 기존 슬롯 치수·간격·하단 사진 유지.
 // 2026-11-04 Lee 명시 지시: 대표 이미지 공통 순서에 images[0] 추가. 상세 하단 사진·레이아웃·CSS 변경 없음.
@@ -95,12 +96,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "1181517aa500084c4ef8f81dbeb093fe8a5604aae02252eb123e37c917c29674",
+    "sha256": "36a07863674def74949459d35b799a0aca8916b5be8beea3541b56ce9e851e2e",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "f0b77db88aecd409f2809ab028acbad3840d810c518da2a5c648210b3f8c03ce",
+    "sha256": "7a540cb51b61ccb593e175a66da4d1e7b4b0990518e740360ed34579fe36ce7e",
     "restore": []
   },
   {
