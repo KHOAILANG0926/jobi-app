@@ -18,16 +18,19 @@ export function fold(s: string | null | undefined): string {
 // 회사 형태
 const LEGAL = ['cong ty', 'cty', 'ct', 'tnhh', 'mtv', 'co phan', 'cp', 'jsc', 'co ltd', 'co., ltd', 'ltd', 'limited', 'corporation', 'corp', 'group', 'tap doan', 'tong cong ty', 'doanh nghiep', 'dntn', 'hkd', 'ho kinh doanh']
 // 가게 종류 낱말 → 업종(사이트 소분류 키). 이름에서는 빼고 업종으로 쓴다.
+// 성조를 지우지 않고 원래 글자로 찾는다(Lee 2026-11-06): Phở≠Phố, Quán≠Quận, Lẩu≠Lâu, Cơm≠Còm, Bún≠Bùn.
 const KIND_WORDS: Array<[string, string]> = [
-  ['tra sua', 'quan_ca_phe'], ['ca phe', 'quan_ca_phe'], ['cafe', 'quan_ca_phe'], ['coffee', 'quan_ca_phe'], ['cofe', 'quan_ca_phe'],
-  ['nha hang', 'nha_hang'], ['lau', 'nha_hang'], ['nuong', 'nha_hang'], ['buffet', 'nha_hang'], ['restaurant', 'nha_hang'], ['bbq', 'nha_hang'],
-  ['quan an', 'quan_an_binh_dan'], ['com', 'quan_an_binh_dan'], ['pho', 'quan_an_binh_dan'], ['bun', 'quan_an_binh_dan'],
-  ['ga ran', 'ga_ran_pizza'], ['pizza', 'ga_ran_pizza'], ['tiem banh', 'tiem_banh'], ['bakery', 'tiem_banh'], ['banh mi', 'tiem_banh'],
-  ['quan bia', 'quan_bia'], ['quan nhau', 'quan_bia'], ['bia hoi', 'quan_bia'], ['bar', 'bar'], ['pub', 'bar'],
-  ['karaoke', 'karaoke'], ['spa', 'sauna_spa'], ['gym', 'gym_the_thao'], ['khach san', 'khach_san_resort'], ['hotel', 'khach_san_resort'], ['resort', 'khach_san_resort'],
-  ['sieu thi', 'sieu_thi'], ['mart', 'sieu_thi'], ['tap hoa', 'cua_hang_tien_loi'], ['cua hang', 'cua_hang'], ['shop', 'cua_hang'], ['tiem', 'cua_hang'], ['quan', 'quan'],
-  ['bat dong san', 'bat_dong_san'], ['bds', 'bat_dong_san'], ['nha khoa', 'nha_khoa'], ['nail', 'toc_lam_dep_nail'], ['salon', 'toc_lam_dep_nail'],
+  ['trà sữa', 'quan_ca_phe'], ['cà phê', 'quan_ca_phe'], ['café', 'quan_ca_phe'], ['cafe', 'quan_ca_phe'], ['coffee', 'quan_ca_phe'], ['cofe', 'quan_ca_phe'],
+  ['nhà hàng', 'nha_hang'], ['lẩu', 'nha_hang'], ['nướng', 'nha_hang'], ['buffet', 'nha_hang'], ['restaurant', 'nha_hang'], ['bbq', 'nha_hang'],
+  ['quán ăn', 'quan_an_binh_dan'], ['cơm', 'quan_an_binh_dan'], ['phở', 'quan_an_binh_dan'], ['bún', 'quan_an_binh_dan'],
+  ['gà rán', 'ga_ran_pizza'], ['pizza', 'ga_ran_pizza'], ['tiệm bánh', 'tiem_banh'], ['bakery', 'tiem_banh'], ['bánh mì', 'tiem_banh'],
+  ['quán bia', 'quan_bia'], ['quán nhậu', 'quan_bia'], ['bia hơi', 'quan_bia'], ['bar', 'bar'], ['pub', 'bar'],
+  ['karaoke', 'karaoke'], ['spa', 'sauna_spa'], ['gym', 'gym_the_thao'], ['khách sạn', 'khach_san_resort'], ['hotel', 'khach_san_resort'], ['resort', 'khach_san_resort'],
+  ['siêu thị', 'sieu_thi'], ['mart', 'sieu_thi'], ['tạp hóa', 'cua_hang_tien_loi'], ['tạp hoá', 'cua_hang_tien_loi'], ['cửa hàng', 'cua_hang'], ['shop', 'cua_hang'], ['tiệm', 'cua_hang'], ['quán', 'quan'],
+  ['bất động sản', 'bat_dong_san'], ['bđs', 'bat_dong_san'], ['nha khoa', 'nha_khoa'], ['nail', 'toc_lam_dep_nail'], ['salon', 'toc_lam_dep_nail'],
 ]
+// 성조 없이 쓴 이름("Nha hang ABC")은 지운 글자로 찾되, 지우면 다른 낱말과 같아지는 것은 쓰지 않는다.
+const AMBIGUOUS_WITHOUT_TONES = new Set(['pho', 'quan', 'lau', 'com', 'bun', 'tiem', 'quan an', 'quan bia', 'quan nhau'])
 // 사이트 소분류 중 "가게 종류"인 것만 업종으로 쓴다(서빙·요리사·바리스타처럼 하는 일 소분류는 쓰지 않음).
 const KIND_SUBCATEGORIES = new Set([
   'quan_an_binh_dan', 'nha_hang', 'nha_hang_gia_dinh', 'thuc_an_nhanh', 'ga_ran_pizza', 'quan_ca_phe', 'kem_trang_mieng', 'tiem_banh', 'quan_bia', 'bar',
@@ -48,36 +51,47 @@ const PLACES: string[][] = (() => {
   return [...out].map(toks).sort((x, y) => y.length - x.length)
 })()
 const LEGAL_T = LEGAL.map((w) => toks(w.replace(/[.,]/g, ' '))).sort((x, y) => y.length - x.length)
-const KIND_T = KIND_WORDS.map(([w, k]) => [toks(w), k] as [string[], string]).sort((x, y) => y[0].length - x[0].length)
+const lowerVi = (x: string | null | undefined) => String(x ?? '').normalize('NFC').toLowerCase()
+const KIND_TONED = KIND_WORDS.map(([w, k]) => [toks(lowerVi(w)), k] as [string[], string]).sort((x, y) => y[0].length - x[0].length)
+const KIND_PLAIN = KIND_WORDS.map(([w, k]) => [toks(fold(w)), k] as [string[], string])
+  .filter(([ph]) => !AMBIGUOUS_WITHOUT_TONES.has(ph.join(' '))).sort((x, y) => y[0].length - x[0].length)
 const at = (t: string[], i: number, ph: string[]) => ph.every((w, k) => t[i + k] === w)
+const BRANCH_MARK = [['chi', 'nhanh'], ['co', 'so'], ['cn'], ['cs'], ['van', 'phong', 'dai', 'dien'], ['vpdd']]
 
 /**
  * 회사 이름 → 핵심 이름(회사) · 가게 종류(업종) · 지점명(지점 칸).
  *  예: "Highlands Coffee Mường Thanh Bắc Ninh" → { core: 'highlands', kind: 'quan_ca_phe', branch: 'muong thanh bac ninh' }
  *  - "-", "–", "|", "(", "Chi nhánh", "Cơ sở", "CN", "CS" 뒤는 지점명.
  *  - 이름 뒤에 붙은 가게 종류 낱말 다음은 지점명("Highlands Coffee | Mường Thanh"). 앞에 붙으면 뒤가 이름("Nhà hàng | Thanh Phệ").
+ *  - 가게 종류 낱말은 성조 그대로 찾는다. 이름 전체에 성조가 없을 때만 지운 글자로 찾고, 그때도 헷갈리는 낱말(phở/phố 등)은 안 쓴다.
  *  - 이름 끝에 붙은 성·군·동 이름은 지점명으로 옮긴다(가운데·앞은 회사 이름 일부라 둔다, 핵심이 비면 안 됨).
  */
 export function companyCore(name: string | null | undefined): { core: string; kind: string | null; branch: string } {
-  let raw = ' ' + fold(name) + ' '
+  const lower = lowerVi(name).replace(/[–—|()]/g, ' $& ')
+  let tTone = toks(lower.replace(/[[\]"'“”.,&/\\:]/g, ' '))
+  const toned = fold(lower) !== lower.replace(/đ/g, 'd')            // 성조·đ가 하나라도 있으면 원래 글자로 찾는다
   const branchParts: string[] = []
-  const cut = raw.search(/\s[-–—|]\s|[–—|(]|\s(chi nhanh|co so|cn|cs|van phong dai dien|vpdd)[\s.:]/)
-  if (cut > 0) { branchParts.push(raw.slice(cut)); raw = raw.slice(0, cut) }
-  let t = toks(raw.replace(/[()[\]"'“”.,&/\\:]/g, ' '))
+  // 지점 구분자
+  let tPlain = tTone.map(fold)
+  const cut = tPlain.findIndex((w, i) => i > 0 && (/^[-–—|(]$/.test(w) || BRANCH_MARK.some((ph) => at(tPlain, i, ph))))
+  if (cut > 0) { branchParts.push(tPlain.slice(cut).join(' ')); tTone = tTone.slice(0, cut); tPlain = tPlain.slice(0, cut) }
   // 회사 형태 빼기
-  t = t.filter((_, i, arr) => !LEGAL_T.some((ph) => ph.some((__, k) => i - k >= 0 && at(arr, i - k, ph))))
+  const legal = tPlain.map((_, i, arr) => LEGAL_T.some((ph) => ph.some((__, k) => i - k >= 0 && at(arr, i - k, ph))))
+  tTone = tTone.filter((_, i) => !legal[i]); tPlain = tPlain.filter((_, i) => !legal[i])
   // 가게 종류
+  const kinds = toned ? KIND_TONED : KIND_PLAIN
+  const look = toned ? tTone : tPlain
   let kind: string | null = null
   const kept: string[] = []
-  for (let i = 0; i < t.length; ) {
-    const hit = KIND_T.find(([ph]) => at(t, i, ph))
+  for (let i = 0; i < look.length; ) {
+    const hit = kinds.find(([ph]) => at(look, i, ph))
     if (hit) {
       if (!kind || kind === 'cua_hang' || kind === 'quan') kind = hit[1]
       i += hit[0].length
-      if (kept.length && i < t.length) { branchParts.push(t.slice(i).join(' ')); break }   // 이름 뒤 가게 종류 → 나머지는 지점명
+      if (kept.length && i < look.length) { branchParts.push(tPlain.slice(i).join(' ')); break }   // 이름 뒤 가게 종류 → 나머지는 지점명
       continue
     }
-    kept.push(t[i]); i++
+    kept.push(tPlain[i]); i++
   }
   // 지역 이름 → 지점명: 이름 끝에 붙은 것만 뗀다(예: "Wallace Bắc Ninh"). 흔한 동 이름("Thanh", "Bảo An", "Trung Nguyên")이
   // 이름 가운데·앞에 있으면 회사 이름 일부라 그대로 둔다. 이름이 지역 이름뿐이면 비우지 않는다.
