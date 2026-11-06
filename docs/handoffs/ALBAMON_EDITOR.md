@@ -2,15 +2,16 @@
 
 ## 요청과 현재 결과
 
-사용자 요청: 새로 디자인하지 않고 알바몬과 같은 배치와 편집 흐름을 JOBI 앱에 적용한다.
+최신 사용자 요청: 알바몬의 편집 흐름을 참고하되 100% 같은 외형은 피하고, 디자인을 조금 수정한다.
+현재 기준은 JOBI 청록색/둥근 탭과 패널/사각 컬러칩/본문 왼쪽 브랜드·밑줄 제목이다. 이전 주황색 데모로 되돌리지 않는다.
 현재 작업 중인 큰 작업을 마친 후 이 문서 순서대로 연결한다. 데모를 다시 개발하거나 사용자가 파일을 옮기게 하지 않는다.
 이 문서는 **독립 데모를 실제 앱에 연결하는 인계**다. 운영 기능이 완성됐다는 뜻이 아니다.
 
 - 저장소: `KHOAILANG0926/jobi-app`
 - 구현 브랜치: `demo/albamon-editor`
-- 소스 고정 커밋: `f8372e9b5e92beaf0d3647d4800a3eeb6e109141`
-- 데모: `https://jobi-maelh9h7k-mshw1895-6089s-projects.vercel.app/demos/albamon-editor/index.html`
-- Vercel 배포: `dpl_8Xd6Y78PpS2LHi4Q5PYME1vh9d2P`, READY와 해당 HTML HTTP 200 직접 확인.
+- 소스 고정 커밋: `09eaf1d89be7b50daf9dec2cfeb610a82d3ea998`
+- 최신 데모: `https://jobi-demo-mshw1895-6089s-projects.vercel.app/demos/albamon-editor/index.html` (공유 별칭이므로 다른 데모가 나중에 덮을 수 있음)
+- 이전 배포 `dpl_8Xd6Y78PpS2LHi4Q5PYME1vh9d2P`는 주황색 데모다. 최신 디자인은 구현 브랜치의 고정 커밋을 기준으로 사용하고 배포 URL은 해당 SHA로 다시 확인한다.
 - 데모는 6개 자체 배치/12색이며, 알바몬 원본 78개 템플릿이나 원본 사진·로고를 복제한 것은 아니다.
 
 ## 1. 현재 작업을 보존하고 필요한 파일만 가져온다
@@ -22,7 +23,7 @@
 ```sh
 git fetch origin demo/albamon-editor
 # 아래 경로가 현재 작업에서 이미 수정됐으면 먼저 diff를 비교하고 기존 변경을 보존한다.
-git restore --source=f8372e9b5e92beaf0d3647d4800a3eeb6e109141 -- \
+git restore --source=09eaf1d89be7b50daf9dec2cfeb610a82d3ea998 -- \
   public/demos/albamon-editor/index.html \
   public/demos/albamon-editor/README.md \
   scripts/demo/albamon-editor.browser.mjs
