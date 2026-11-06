@@ -1,3 +1,9 @@
+## 2026-11-06 22:30 — 중복 기준 확정·1단계 중복 세기 도구 (Claude)
+- 요청: Lee "같은 공고 두 번 안 올라오게 하는 프로세스가 제대로 작동하는지", "회사·하는 일·위치 같으면 중복", "기존 것도 다", "순서대로 제대로".
+- 확인 [직접 확인: supabase/migrations/20261029010000_ingest_one_door.sql find_existing, crawler/crawl_facebook.py filter_new_jobs, scripts/ocr/detail-fill.mjs]: 입구는 링크 같음·(전화+회사+원문 md5) 같음만 잡음. Facebook 수집기 사전 비교는 [source:facebook] 표식 행만 보는데 11-01 이후 상세 정리가 글을 다시 써 표식이 빠짐 → 사실상 고장. 운영 중복 수 검사 없음.
+- 변경: src/lib/jobIdentity.ts(+test) 중복 기준 계산, scripts/ops/dup-count.mjs + .github/workflows/dup-count.yml 공개 공고 중복 세기(읽기 전용).
+- 남은 문제: 실행 결과 보고 → 2단계(회사 코드표).
+
 ## 2026-11-06 20:05 — 운영 상세 화면 읽기 도구 (Claude)
 - 요청: Lee "1번 방법 OK" — 작업자가 상세 화면을 직접 읽는 도구(GitHub 서버에서 열기).
 - 변경: .github/workflows/detail-read.yml(수동 실행, job_ids 입력), scripts/ops/detail-read.mjs(PC1366·모바일390으로 /viec-lam/sb-번호 열어 화면 글 전체를 로그·Summary, 전체 화면 사진 첨부). 읽기 전용.
@@ -52,8 +58,3 @@
 - 강제 범위: 수동 ingest-sql 및 공고 JSON PR 완료 주장. 자동 검색·저장 또는 모든 DB/API 경로에 동기 차단을 구현했다고 주장하지 않음. 지점 의미 판별은 원본 화면·확인 근거의 사람 대조가 필요.
 - [직접 확인] found_unstored 통과·같은 회사 다른 공고 통과 재현 실패→수정. 핵심/PR/등록 출력 시험 통과. 격리 실제 Chromium에서 원본·저장·실제 DOM·이미지 디코딩·기본사진 거부·다른공고 거부·POST 차단·1366/390px 통과. 전체 단위112/112·타입·빌드·baseline8/8 통과. 독립 검토 Important2건 보완 후 추가 Critical/Important 없음.
 - GitHub 연결 도구 커밋·PR·필수 검사·기존 봇 병합 진행 예정. 로컬 push 금지 준수. 앱 화면/CSS/공고 사진/DB 변경 없음.
-
-## 2. 다음 할 일 3개
-1. 최종 소스를 GitHub 연결 도구로 fix/photo-process-completion에 커밋·PR, 필수 검사와 기존 봇 병합 확인.
-2. 완료 보고는 프로세스 판정 수정 범위로 한정. Regal 실제 사진은 미완료로 남았으며 바꿨다고 하지 않음.
-3. 후속 사진 작업은 재처리 목록의 단계부터 실제 원본/지점 확인→저장→연결→운영 증거로 진행. 별도 지시 없는 범위 확장 금지.

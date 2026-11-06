@@ -1,0 +1,23 @@
+name: 공개 공고 중복 세기 (읽기 전용)
+# Lee 2026-11-06 중복 1단계: "같은 회사·같은 일·같은 위치"면 중복. 공개 조회만 하고 아무것도 바꾸지 않는다.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dup-count
+  cancel-in-progress: false
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 중복 세기
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/dup-count.mjs
