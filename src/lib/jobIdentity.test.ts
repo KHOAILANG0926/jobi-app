@@ -64,3 +64,20 @@ console.log('jobIdentity.test.ts: 회사·업종·하는 일·위치 중복 기�
   assert(sc({ id: 1, company: 'TRUNG NGUYÊN LEGEND BẮC NINH', category: 'am_thuc_do_uong' }, { id: 2, company: 'Trung Nguyên Legend Café', category: 'am_thuc_do_uong' }), 'Trung Nguyên: 큰 분류 vs 카페 → 같은 회사')
   console.log('jobIdentity.test.ts: 회사·지점 분리, 업종 맞음 규칙 통과')
 }
+
+// 성조 그대로 찾기(Lee 2026-11-06): 지우면 Phở=Phố, Quán=Quận, Lẩu=Lâu가 같아져 업종이 틀린다
+{
+  const { companyCore: cc } = await import('./jobIdentity.ts')
+  const a = cc('Cafe Phố Cổ')
+  assert(a.kind === 'quan_ca_phe' && a.core === 'phoco', 'Phố(거리)는 가게 종류 아님: ' + JSON.stringify(a))
+  const b = cc('Phở Thìn')
+  assert(b.kind === 'quan_an_binh_dan' && b.core === 'thin', 'Phở는 가게 종류: ' + JSON.stringify(b))
+  const c = cc('Thanh Lâu Garden')
+  assert(c.kind === null && c.core === 'thanhlaugarden', 'Lâu는 Lẩu 아님: ' + JSON.stringify(c))
+  assert(cc('Lẩu Haidilao Bắc Ninh').core === 'haidilao' && cc('Lẩu Haidilao Bắc Ninh').kind === 'nha_hang', 'Lẩu는 가게 종류')
+  // 성조 없이 쓴 이름: 헷갈리지 않는 낱말만
+  const d = cc('Nha hang Thanh Phe')
+  assert(d.kind === 'nha_hang' && d.core === 'thanhphe', '성조 없는 Nhà hàng: ' + JSON.stringify(d))
+  assert(cc('Highlands Coffee Muong Thanh').core === 'highlands', '성조 없는 이름도 지점 분리')
+  console.log('jobIdentity.test.ts: 성조 그대로 가게 종류 찾기 통과')
+}

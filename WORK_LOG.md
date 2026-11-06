@@ -1,3 +1,8 @@
+## 2026-11-06 23:30 — 회사 이름 가게 종류 낱말 성조 그대로 찾기 (Claude)
+- 요청: Lee "2단계 문제 없는 거야?" → 성조를 지워 Phở=Phố·Quán=Quận·Lẩu=Lâu가 같아지는 문제 발견 → "진행해".
+- 변경: src/lib/jobIdentity.ts 가게 종류 낱말을 성조 그대로 찾음. 이름 전체에 성조가 없을 때만 지운 글자로 찾고, 헷갈리는 낱말(phở·quán·lẩu·cơm·bún·tiệm)은 안 씀. 테스트 추가.
+- 한계: 성조 없이 "Lau Haidilao"처럼 쓰면 lau를 가게 종류로 못 봐 다른 회사로 갈림 → 회사 코드표에 다른 이름으로 등록해 해결.
+
 ## 2026-11-06 23:15 — 회사 코드표 운영 적용 (Claude)
 - 요청: Lee 23:06 "진행해" — 회사 코드표 운영 DB 생성 승인.
 - 변경: supabase/migrations/20261106230000_job_company_codes.sql(job_companies·names·phones·branches, local_jobs.company_id·company_branch_id 빈 칸, RLS·공개 권한 없음), supabase/tests/job_company_codes_production_check.sql.
@@ -49,10 +54,3 @@
 - 변경: PR #474 최우선 규칙 문서. PR #475 crawler/ingest_gateway.py 새 공고 등록 전 위치 확인(못 찾음·확인 불가 → 등록 안 함, location_precheck_failed), api/location-hook.js precheck 모드(서버 키 인증, 공고·위치 쓰지 않음), api/_lib/auto-location-runtime.mjs precheckLocation(지도와 같은 resolver·같은 저장 결과), src/lib/locationPrecheck.ts 판정.
 - 검증 [직접 확인]: locationPrecheck·location-hook·auto-location-runtime·companyPlaceSearch·autoLocationResolver 시험, crawler test_ingest_gateway·test_scheduled_cli·test_source_fields 통과.
 - 남은 문제: 관리자·고용주·Lee 제공 등록 경로에는 차단 없음. 첫 실제 크롤링 결과 미확인.
-
-## 2026-11-06 — 위치 "구글을 따라" + #5438 확정 (Claude)
-- 요청: Lee "구글을 따라", "일단 바꾸고 앱에 적용 후 프로세스 변경", "허락받지말고 계속해".
-- 변경: PR #471(8b6be39) Google 검색어=상세 Google 버튼과 같게(회사, 주소 전체), 같은 이름 1곳이면 Google 장소 좌표(area), 업체 검색 비교 로그에 Google이 집은 곳 표시. PR #472(1e019d0) 원래 성 경계(Natural Earth 단순화) 경계선 2km 오차 허용.
-- 원인 [직접 확인]: 이전 검색어(주소 뒤 2토막)·경계 단순화로 Google이 찾은 NEW TEAMROBOTICS VIETNAM(21.22944,106.00377)을 "성 밖" 탈락(run 42127983264).
-- #5438: admin-location-confirm run 42131119321 성공(21.229440,106.003770). deploy-verify 42130784784 성공(#472 SHA). 공개 경계 검사 42131233126: #5438 원본·상세 문제 없음, 메인 핀 읽기는 전 공고 16/16 실패(10-28부터 실패 중인 검사 도구 문제, 별도).
-- 남은 문제: 이 Claude 환경은 viecganban.vn·Supabase 직접 접속 403 → PC·모바일 화면 직접 확인 못 함. "Google도 모르는 공고 수집 안 함" 자동 차단 미구현.
