@@ -566,6 +566,63 @@ export function JobDetail() {
   const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
+
+  // 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계. 4단 중 한 단이 통째로 빠지면 아래 단이 그대로 올라오고,
+  // 연락 버튼(PC)은 남아 있는 첫 상자(① → ② → ③) 제목 줄 오른쪽 끝에 붙는다. 모바일은 하단 고정 바 그대로.
+  const contactHost: 'conditions' | 'recruit' | 'location' = conditionShown.length > 0 ? 'conditions'
+    : recruitShown.length > 0 && !recruitShown.every((f) => f.key === 'category') ? 'recruit' : 'location'
+  const contactAside = (
+      <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
+        {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
+        {showApply && (
+          <button
+            type="button"
+            className="jd2-btn-apply"
+            onClick={onApplyClick}
+            disabled={applyDisabled}
+          >
+            {applyLabel}
+          </button>
+        )}
+        {canApplyInternally ? (
+          <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
+        ) : !hasContact ? (
+          <div id="jd2-apply-unavailable">
+            <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
+          </div>
+        ) : null}
+
+        {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
+        {hasContact && (
+          <div className="jd2-aside-contact">
+            {contact.phone && (
+              <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call" title={`Gọi ${contact.phone}`} aria-label={`Gọi ${contact.phone}`}>
+                <Phone size={17} strokeWidth={2} />
+                <span className="jd2-contact-action-label">Gọi</span>
+              </a>
+            )}
+            {contact.zalo && (
+              <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo" title="Liên hệ qua Zalo" aria-label="Liên hệ qua Zalo">
+                <MessageCircle size={17} strokeWidth={2} />
+                <span className="jd2-contact-action-label">Zalo</span>
+              </a>
+            )}
+          </div>
+        )}
+
+
+        {/* Message employer */}
+        {showMessageCta && (
+          <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
+            <MessageCircle size={17} strokeWidth={2} />
+            Nhắn tin nhà tuyển dụng
+          </button>
+        )}
+
+
+      </aside>
+  )
+
   return (
     <div className={`jd2-page${albamonLayout ? ' jd2-page--v2' : ''}`} style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
       {!publicJob && adminPreview && <p role="status" style={{ margin: '8px 0', padding: '10px 14px', borderRadius: 8, background: '#fff4f2', color: '#d92d20', fontWeight: 700 }}>
@@ -676,8 +733,8 @@ export function JobDetail() {
 
           {/* 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계 — "Điều kiện làm việc"는 다른 상자처럼 칸이 없으면 통째로 빠지고,
               연락 버튼은 상자와 상관없이 같은 자리(PC: 첫 상자 제목 줄 오른쪽 끝, 상자가 없으면 그 자리 한 줄)에 남는다. 모바일은 하단 고정 바 그대로. */}
-          {(conditionShown.length > 0 || hasContact || showApply || showMessageCta) && <div className={`jd2-conditions-with-contact jd2-contact-wrap${conditionShown.length > 0 ? '' : ' jd2-contact-wrap--alone'}`}>
-          {conditionShown.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
+          {conditionShown.length > 0 && <div className="jd2-conditions-with-contact jd2-contact-wrap">
+          {<section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
@@ -691,63 +748,16 @@ export function JobDetail() {
               </div>
             </div>
           </section>}
-        <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
-          {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
-          {showApply && (
-            <button
-              type="button"
-              className="jd2-btn-apply"
-              onClick={onApplyClick}
-              disabled={applyDisabled}
-            >
-              {applyLabel}
-            </button>
-          )}
-          {canApplyInternally ? (
-            <span className="jd2-aside-hint">Ứng tuyển nhanh bằng CV đã lưu trong Hồ sơ</span>
-          ) : !hasContact ? (
-            <div id="jd2-apply-unavailable">
-              <ApplyUnavailableNotice job={job} onShowDescription={() => scrollToSection('description')} />
-            </div>
-          ) : null}
-
-          {/* 연락처는 화면에 한 곳만: PC는 이 요약 박스, 모바일(≤760px)은 하단 고정 바 */}
-          {hasContact && (
-            <div className="jd2-aside-contact">
-              {contact.phone && (
-                <a href={`tel:${contact.phone.replace(/\s/g, '')}`} className="jd2-aside-contact__call" title={`Gọi ${contact.phone}`} aria-label={`Gọi ${contact.phone}`}>
-                  <Phone size={17} strokeWidth={2} />
-                  <span className="jd2-contact-action-label">Gọi</span>
-                </a>
-              )}
-              {contact.zalo && (
-                <a href={zaloMeUrl(contact.zalo)} target="_blank" rel="noopener noreferrer" className="jd2-aside-contact__zalo" title="Liên hệ qua Zalo" aria-label="Liên hệ qua Zalo">
-                  <MessageCircle size={17} strokeWidth={2} />
-                  <span className="jd2-contact-action-label">Zalo</span>
-                </a>
-              )}
-            </div>
-          )}
-
-
-          {/* Message employer */}
-          {showMessageCta && (
-            <button type="button" className="jd2-btn-zalo jd2-btn-message" onClick={() => setMessageOpen(true)}>
-              <MessageCircle size={17} strokeWidth={2} />
-              Nhắn tin nhà tuyển dụng
-            </button>
-          )}
-
-
-        </aside>
+          {contactAside}
           </div>}
 
         </div>
 
         <div className="jd2-main jd2-main--full">
           {/* Thông tin tuyển dụng: independent columns on desktop; one column on mobile. */}
-          {recruitShown.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitShown.every((f) => f.key === 'category') ? ' jd2-mobile-only' : ''}`}>
+          {recruitShown.length > 0 && <section id={jobSectionId('recruit')} className={`jd2-sec jd2-sec--recruit-grid${recruitShown.every((f) => f.key === 'category') ? ' jd2-mobile-only' : ''}${contactHost === 'recruit' ? ' jd2-contact-wrap' : ''}`}>
             <h2 className="jd2-sec__title">Thông tin tuyển dụng</h2>
+            {contactHost === 'recruit' && contactAside}
             <div className="jd2-box jd2-two-col-card">
               <dl className="jd2-two-col-card__grid jd2-two-col-card__column">
                 {recruitRows.map((f) => <div className={`jd2-two-col-card__row${f.key === 'category' ? ' jd2-mobile-only' : ''}`} key={f.key}><dt>{f.label}</dt><dd className={f.cls}>{f.value}</dd></div>)}
@@ -756,8 +766,9 @@ export function JobDetail() {
           </section>}
 
           {/* ③ 근무지역 */}
-          <section id={jobSectionId('location')} className="jd2-sec">
+          <section id={jobSectionId('location')} className={`jd2-sec${contactHost === 'location' ? ' jd2-contact-wrap' : ''}`}>
           <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.location}</h2>
+          {contactHost === 'location' && contactAside}
           <div className="jd2-location-above-map">
             {(job.workLocations?.length ? job.workLocations.map((loc) => loc.rawAddress).filter(Boolean) :
               hasRecruitmentRegionsOnly ? (job.recruitmentRegions ?? []) : locationText ? [locationText] : []).map((addr, i) => (
