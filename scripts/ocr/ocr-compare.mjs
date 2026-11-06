@@ -7,6 +7,8 @@ const digits = (x) => String(x ?? '').replace(/[^0-9]/g, '')
 // 단위 없이 1000 미만인 숫자(근무시간 "11h" 등)는 금액이 아니므로 버린다.
 export function moneyValues(text) {
   const t = String(text ?? '').toLowerCase().replace(/(\d)[ ](?=\d{3}(?!\d))/g, '$1').replace(/(\d)[ ](?=\d{3}(?!\d))/g, '$1')
+    // 범위 "13 - 15 triệu"·"8 – 15tr": 단위가 뒤 숫자에만 붙어도 앞 숫자에 같은 단위를 쓴다(#5505·#5506 오판).
+    .replace(/(\d+(?:[.,]\d+)?)(\s*[-–~]\s*|\s+đến\s+)(\d+(?:[.,]\d+)?)\s*(k|nghìn|nghin|ngàn|ngan|triệu|trieu|tr|m)(?![a-zà-ỹ])/g, '$1 $4$2$3 $4')
   const out = new Set()
   for (const m of t.matchAll(/(\d+(?:[.,]\d+)*)\s*(?:(k|nghìn|nghin|ngàn|ngan|triệu|trieu|tr|m)(?![a-zà-ỹ]))?/g)) {
     let raw = m[1]; const unit = m[2]

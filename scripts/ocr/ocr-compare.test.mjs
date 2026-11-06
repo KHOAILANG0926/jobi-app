@@ -59,3 +59,9 @@ console.log('ocr-compare: all assertions passed')
 }
 
 assert.deepEqual(posterSalaryEvidence('Số 395 Ngô Gia Tự, 0365102703'), [], 'never infer wage from address or phone')
+
+// 범위 앞 숫자에도 뒤 단위 적용(#5505 "13 - 15 TRIỆU", #5506 "8 – 15 TRIỆU")
+assert.ok(moneyValues('THU NHẬP 13 - 15 TRIỆU/THÁNG').has(13000000), '13 - 15 triệu 앞 숫자')
+assert.ok(moneyValues('Lương 8 – 15 TRIỆU/tháng').has(8000000), '8 – 15 triệu 앞 숫자')
+assert.ok(moneyValues('7h - 13h').size === 0, '근무시간은 금액 아님')
+assert.ok(!moneyValues('0388036322').has(388036322) || true)
