@@ -1,3 +1,10 @@
+## 2026-11-07 06:30 — 중복 4단계 판정 (Claude, 승인 대기)
+- 요청: Lee "4단계 진행", "애매하면 관리자 게시판(분류 못 한 줄 고르기)", "정상 공고가 잘못 버려지면 안 됨", "시작해".
+- 설계: 입구(ingest_job) 대신 모든 경로가 저장 직후 부르는 위치 찾기(api/location-hook)에서 위치가 정해진 뒤 판정 — 보내는 곳 수정 불필요·위치 확정 후 비교. 판정 규칙은 DB 한 곳.
+- 변경: supabase/migrations/20261107070000_job_duplicate_check.sql(job_identity_attach·job_duplicate_check·job_duplicate_decide, 공개 순간 판정 트리거, 판정 칸 공개 차단, 기존 회사 큰 분류 채움), api/_lib/auto-location-runtime.mjs applyDuplicateVerdict + api/location-hook.js, api/_lib/admin-users.js 의심 목록·결정, src/components/admin/AdminLinePicks.tsx 「🔁 Nghi trùng lặp」, src/lib/jobIdentity.ts companyIdentity·kindCategory, 시험 supabase/tests/job_duplicate_check.pglite.test.mjs·production_check, api/_admin-duplicates.test.ts.
+- 검증 [직접 확인]: 로컬 폐기용 Postgres 16에서 판정 시험 14개 통과. 정확한 점 = 번지·공단 정문·관리자 확정(Google 업체 자리는 출처가 DB에 안 남아 애매로 감 → 게시판).
+- 남은 문제: Lee 적용 승인 → draft 해제·병합 → 운영 적용·운영 점검.
+
 ## 2026-11-06 23:45 — 중복 3단계: 공개 공고 회사 코드 붙이기 도구 (Claude)
 - 요청: Lee "기존 공고에도 회사 코드를 붙이라고 했잖아"(기존 공고 자동 작업 제외 규칙보다 Lee 직접 지시 우선 — 내용·화면은 안 바뀌고 코드 칸만).
 - 변경: scripts/ops/company-code-assign.mjs + .github/workflows/company-code-assign.yml(수동, apply=false면 시험 후 되돌림). 대상 공개 공고(보류·숨김 제외), 규칙 jobIdentity.ts, 공고 번호 지정 없음.
@@ -47,9 +54,3 @@
 - 변경: src/lib/jobInspect.ts 원문(source_text) 순서에서도 바로 아래가 글머리면 목록 제목. src/lib/jobInspect.test.ts 사례 2개(통과/계속 잡음).
 - 검증 [직접 확인]: jobInspect·realJobs·postingCompleteness·jobMultiRole·fushanSource 시험 통과(새 시험은 이전 코드에서 실패).
 - 남은 문제: 병합 후 검사표에서 #5506 해소·공개 확인.
-
-## 2026-11-06 15:50 — Google 먼저·위치 프로세스·박닌 3건 공개 처리·크롤링 소스 점검 (Claude)
-- 요청: Lee "바로 구글로", "프로세스 정립 진행해", "나머지 항목 등록해", "2번(Chợ Tốt) 먼저", "박닌 1건 진행 크롤링".
-- 변경: #480 범위 금액 단위, #482 비교 검색 extra 1건만, #483 #5506·#5507 화면 글 정리·보류 공고 재대조(v3), #484 필수 누락 경고만 공개, #485 목록 제목 줄 예외·#5507 원문 정리, #486 #5506 원문 정리, #481 상세 빈 칸 상자 빠짐·연락 버튼 별도, #488 Google 먼저, #489 위치 확인 프로세스·비교 검색 차단, #487·#490 Chợ Tốt 읽기 시험.
-- 검증 [직접 확인]: deploy-verify 42173749730(#481)·42184464122(#488) 성공. 이슈 #237 검사표: #5505·#5507 공개, #5506 빈 이름표로 보류. Chợ Tốt 시험 run 42187019576. Facebook dryrun 42185487440 session_expired.
-- 남은 문제: Google 429(한도 숫자 미확인), Facebook 쿠키, Chợ Tốt 계정 정지·번호 로그인 필요, Muaban 미시험, #5506 보류, Haidilao 출처.

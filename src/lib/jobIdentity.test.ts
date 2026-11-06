@@ -81,3 +81,15 @@ console.log('jobIdentity.test.ts: 회사·업종·하는 일·위치 중복 기�
   assert(cc('Highlands Coffee Muong Thanh').core === 'highlands', '성조 없는 이름도 지점 분리')
   console.log('jobIdentity.test.ts: 성조 그대로 가게 종류 찾기 통과')
 }
+
+// 4단계: 회사 코드표에 넣는 값
+{
+  const { companyIdentity, kindCategory } = await import('./jobIdentity.ts')
+  assert(kindCategory('quan_ca_phe') === 'am_thuc_do_uong' && kindCategory('am_thuc_do_uong') === 'am_thuc_do_uong' && kindCategory('bat_dong_san') === null, 'kindCategory')
+  const h = companyIdentity({ company: 'Highlands Coffee Mường Thanh Bắc Ninh', employer_phone: '0384 873 315' })!
+  assert(h.core === 'highlands' && h.kind === 'quan_ca_phe' && h.kindCategory === 'am_thuc_do_uong' && h.branch.includes('muong thanh') && h.phones[0] === '0384873315', 'Highlands 값: ' + JSON.stringify(h))
+  const n = companyIdentity({ company: '', employer_phone: '+84 912 345 678', category: 'san_xuat_xay_dung' })!
+  assert(n.core === 'p0912345678' && n.kindCategory === 'san_xuat_xay_dung', '이름 없으면 번호가 회사: ' + JSON.stringify(n))
+  assert(companyIdentity({ company: '' }) === null, '이름·번호 둘 다 없으면 null')
+  console.log('jobIdentity.test.ts: 회사 코드표 값 통과')
+}
