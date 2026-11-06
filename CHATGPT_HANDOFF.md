@@ -12,7 +12,7 @@
 ## 2. 다음 할 일 3개
 1. Facebook 쿠키 갱신 후 crawl-facebook-one dryrun → 박닌 1건 save(위치 확인 Google 먼저 적용 첫 실전).
 2. Muaban 로그인 없이 읽기·번호 노출 시험(chotot_probe 방식, 저장 없음).
-3. #5506 검사기 수정 PR 병합 → 검사표에서 빈 이름표 해소·공개 확인 / Haidilao 출처 받아 등록(일반 Google 지도 위치 확인 먼저).
+3. #5506 덩어리 유지 수정 병합 후 상세 화면·검사표 확인 / Haidilao 출처 받아 등록(일반 Google 지도 위치 확인 먼저).
 
 ## 3. 필수 규칙
 - 시키면 바로 실행(Lee 11-06). 운영 DB 직접 SQL·번호 지정 덮어쓰기 금지, STRICT만 승인.
