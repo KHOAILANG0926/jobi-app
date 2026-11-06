@@ -1,0 +1,46 @@
+name: 상세 화면 읽기 (운영, 읽기 전용)
+# Lee 2026-11-06: 등록 후 상세 화면은 작업자가 직접 읽는다(캡처 요청 금지).
+# 운영 사이트 상세 화면을 PC·모바일로 열어 화면 글 전체를 로그·Summary에 남기고 화면 사진을 첨부한다. 아무것도 바꾸지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      job_ids:
+        description: '공고 번호(여러 개는 띄어쓰기, 예: 5506 5507)'
+        required: true
+      base_url:
+        description: '사이트 주소'
+        required: false
+        default: 'https://viecganban.vn'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: detail-read-${{ github.event.inputs.job_ids }}
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+      - name: 상세 화면 읽기
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url }}
+          JOB_IDS: ${{ github.event.inputs.job_ids }}
+        run: node scripts/ops/detail-read.mjs
+      - name: 화면 사진·글 첨부
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detail-read
+          path: detail-read/
+          retention-days: 14
