@@ -1,0 +1,34 @@
+name: 회사 코드 붙이기 (공개 공고)
+# Lee 2026-11-06 중복 3단계: 공개 공고(기존 포함, 보류·숨김 제외)에 회사·지점 코드를 붙인다. 공고 내용·화면은 안 바뀜.
+# apply=false(기본)는 시험만 하고 되돌린다.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '적용(true) / 시험만(false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: company-code-assign
+  cancel-in-progress: false
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 회사 코드 붙이기
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          APPLY: ${{ github.event.inputs.apply == 'true' && '1' || '0' }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/company-code-assign.mjs
