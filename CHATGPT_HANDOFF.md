@@ -4,12 +4,12 @@
 - master 1e019d0: PR #471(Google 검색어=Google 버튼, Google 장소 좌표 사용)·#472(성 경계 2km 오차 허용) 운영 반영, deploy-verify 42130784784 성공 [직접 확인].
 - #5438 NEW TEAM ROBOTICS: 관리자 위치 확정 완료 21.229440,106.003770(run 42131119321) [직접 확인]. 근거: 업체 검색 비교 run 42127983264에서 Google이 "CÔNG TY TNHH NEW TEAMROBOTICS VIETNAM", NX 2-2, KCN Yên Phong (khu mở rộng), Yên Trung, Bắc Ninh을 찾음.
 - 공개 경계 검사 42131233126: #5438 원본·상세 일치·성 안. 메인 핀 읽기는 16/16 전 공고 실패(10-28부터 실패하던 검사 도구) — 별도 과제.
-- 프로세스 문서 개정(CLAUDE.md "위치 못 찾을 때 Google 지도"·RULES_CORE). "Google도 모르는 공고 수집 안 함"은 규칙만, 자동 차단 미구현.
+- 프로세스 문서 개정(CLAUDE.md "위치 못 찾을 때 Google 지도"·RULES_CORE). 최우선 규칙 "수집 첫 단계 = 위치 확인"(PR #474) + 크롤러 자동 차단(PR #475: crawler/ingest_gateway.py → api/location-hook precheck, 지도와 같은 판정). 관리자·Lee 제공(ops-insert-job) 경로는 아직 수동 확인.
 - Regal #5422 사진은 사용자 지시로 계속 보류.
 
 ## 2. 다음 할 일 3개
 1. #5438 PC·모바일 실제 화면(메인 핀·상세 지도·Google 목적지) 직접 확인 — 이 Claude 환경은 운영 접속 403이라 미확인.
-2. "Google도 모르는 공고 수집 안 함" 수집 경로 자동 차단 구현(Lee 지시 시).
+2. PR #475 운영 반영 뒤 다음 크롤링 실행에서 location_precheck_failed 건수·이유 확인(첫 실전 결과).
 3. 공개 경계 검사(administrative-pin-check) 메인 핀 읽기 실패 원인 조사(전 공고 공통).
 
 ## 3. 필수 규칙

@@ -228,7 +228,7 @@ FAST/NORMAL의 "중복 승인 없이 Production까지"는 1·2순위를 침범�
 - 공고를 수집(크롤링·등록)할 때 **가장 먼저** 위치를 찾을 수 있는지 확인한다. 다른 처리(직업분류·로고·사진·상세 정리)보다 앞선다.
 - "찾을 수 있음" = 번지 주소가 지도에서 확인되거나(VietMap·Goong) 공단 정문이 있거나, Google이 그 회사를 안다(상세 Google 버튼과 같은 검색어로 같은 이름 1곳, 원래 성 안). 동·시·공단 중심 같은 대략 위치만 나오면 "못 찾음"이다.
 - 못 찾으면 그 공고는 수집하지 않는다(건수에도 넣지 않는다). 못 찾은 이유는 기록한다.
-- [자동 차단 미구현 — 구현 전까지 담당자가 등록 전에 업체 검색(business-search-compare)으로 확인. 구현 여부는 이 줄을 고쳐 표시]
+- 자동 차단(PR #475 구현): 크롤러 등록 입구 `crawler/ingest_gateway.py`가 새 공고마다 서버 위치 확인(`api/location-hook.js` precheck, 지도와 같은 `resolveAutoLocation`·판정 `src/lib/locationPrecheck.ts`)을 먼저 부르고, 못 찾거나 확인 불가면 등록하지 않는다(`location_precheck_failed`, 규칙 거부 집계). 기존 공고 다시 수집은 거치지 않는다. 관리자·고용주·Lee 제공 공고(ops-insert-job) 경로에는 아직 없음.
 - 이미 올라간 공고(cutoff 이전)는 이 규칙으로 자동 삭제·숨김하지 않는다.
 
 ## 공고 수집 소스 규칙 — MANDATORY (2026-10-07 사용자 지시)
@@ -458,7 +458,7 @@ Viecganban 프로젝트의 모든 향후 작업에 적용한다.
 - 원칙(Lee 2026-11-06): Google이 회사 위치를 알면 Google 위치를 쓴다. Google도 모르면 따르지 않는다. 근무지든 사무실이든 지원자가 찾아갈 곳이면 된다. 위치는 위치일 뿐 "Google 지도"를 출처로 따로 표시하지 않는다.
 - 계산 절차(구현: src/lib/autoLocationResolver.ts·companyPlaceSearch.ts, PR #471·#472): ① VietMap·Goong 회사 이름 찾기 → ② 실패하면 Google에 상세 화면 Google 버튼과 **같은 검색어**(회사 이름, 원문 주소 전체)로 묻는다 → ③ 같은 이름 1곳이면: 그 주소를 VietMap·Goong이 번지로 검증하면 exact, 아니면 **Google 장소 좌표**를 대략 위치(area·chưa xác minh)로 쓴다.
 - Google도 모르는 경우(따르지 않음): 결과 없음 / 업체가 아니라 지역만 / 같은 이름 후보 여럿(원문 거리로 못 좁힘) / 원래 성 밖(동명 다른 회사). 이때는 기존 순서표 대략 위치 + 관리자 위치 확정 대기.
-- 수집(Lee 2026-11-06 결정): Google도 위치를 모르는 공고는 처음부터 수집하지 않는다. [아직 자동 차단 미구현 — 수집 경로 구현 전까지 담당자가 등록 전에 확인]
+- 수집(Lee 2026-11-06 결정): Google도 위치를 모르는 공고는 처음부터 수집하지 않는다 → 「수집 첫 단계 = 위치 확인」 절(크롤러 자동 차단 구현).
 - 원래 성 경계는 단순화 자료라 경계선 2km 안은 성 안으로 본다(src/lib/administrativeArea.ts BOUNDARY_TOLERANCE_M, #5438 KCN Yên Phong mở rộng 사례).
 - 이미 올라간 공고는 자동 작업이 바꾸지 않는다 → 업체 검색 비교(business-search-compare, Google이 집은 곳의 이름·주소·좌표를 로그에 표시)로 Google 장소를 확인한 뒤 관리자 위치 확정(admin-location-confirm)으로 넣는다. 공고 번호 지정 데이터 수정·운영 SQL 금지.
 - 실패하면 이유(업체 없음·이름 불일치·지점 여럿·성 밖)를 위치 기록(evidence)에 남기고, 같은 이유가 반복되면 단계를 업그레이드한다. 기존 위치 순서표·canonical writer·chưa xác minh 표시는 그대로 둔다.
