@@ -76,7 +76,30 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
   const targets = job.targets.length ? job.targets : [{ address: job.location, workLocationId: null }]
   // Detailed street first across ALL workplaces. Max two actual requests across the whole job.
   const sorted = [...targets].sort((a,b) => Number(parseStreetAddress(b.address).searchable) - Number(parseStreetAddress(a.address).searchable))
+  // Google이 알려 준 주소를 VietMap(·Goong)으로 번지까지 확인 — 맞으면 정확한 위치(exact).
+  const verifyAddress = async (address: string, target: ResolverJob['targets'][number]): Promise<LocationDecision | null> => {
+    if (!parseStreetAddress(address).searchable || hasConflictingProvinces(address)) return null
+    const hits = await query('search', { text: ADDRESS_STRATEGY.searchText(job.company, address) })
+    const pick = pickAddressHit(address, hits)
+    if (pick.hit?.ref_id && !pick.multiple) {
+      const place = await query('place', { refid: pick.hit.ref_id }) as Record<string, unknown> | null
+      if (place && validPoint({ lat: place.lat as number, lng: place.lng as number }) && pickAddressHit(address, [{ ...place, ref_id: pick.hit.ref_id }]).hit) {
+        const poi: PoiCandidate = { name: String(place.name || ''), address: String(place.display || place.address || ''), lat: place.lat as number, lng: place.lng as number, refId: pick.hit.ref_id,
+          units: { ward: place.ward as string, district: place.district as string, province: place.city as string } }
+        if (judgeAddressPois({ address }, { hits: 1, pois: [poi] }).approvePoi) return { kind: 'exact', lat: poi.lat, lng: poi.lng, source: `VietMap ${poi.refId}`, checkedAt: at }
+      }
+    }
+    // This replay uses the same cached address question and matching rules.
+    return deps.goong ? resolveWithGoong({ ...job, location: address }, [{ ...target, address }], deps, at) : null
+  }
   try {
+    // Lee 2026-11-06 "VietMap하고 Goong 하지 말고 바로 구글로": 회사 이름이 있으면 Google(상세 Google 버튼과 같은 검색어)부터.
+    // Google이 같은 이름 1곳을 알면 그 자리 — 주소가 VietMap·Goong에서 번지까지 맞으면 exact, 아니면 Google 좌표(area·chưa xác minh).
+    // Google이 모르면 아래 기존 단계(번지·공단 입구·대략 위치)로 핀만 정한다(수집 여부는 locationPrecheck가 판정).
+    if (job.company.trim() && deps.google) {
+      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), verifyAddress, { goong: false })
+      if (found) return found
+    }
     for (const target of sorted) {
       if (failed || calls >= 2) break
       const address = target.address.trim()
@@ -108,21 +131,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     if (job.company.trim()) {
       reasons.push(failed ? 'vietmap:provider_failed' : deferred ? 'vietmap:budget_deferred' : 'vietmap:no_verified_match', 'goong:no_verified_match')
       if (!deps.google) reasons.push('google:not_configured')
-      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), async (address, target) => {
-        if (!parseStreetAddress(address).searchable || hasConflictingProvinces(address)) return null
-        const hits = await query('search', { text: ADDRESS_STRATEGY.searchText(job.company, address) })
-        const pick = pickAddressHit(address, hits)
-        if (pick.hit?.ref_id && !pick.multiple) {
-          const place = await query('place', { refid: pick.hit.ref_id }) as Record<string, unknown> | null
-          if (place && validPoint({ lat: place.lat as number, lng: place.lng as number }) && pickAddressHit(address, [{ ...place, ref_id: pick.hit.ref_id }]).hit) {
-            const poi: PoiCandidate = { name: String(place.name || ''), address: String(place.display || place.address || ''), lat: place.lat as number, lng: place.lng as number, refId: pick.hit.ref_id,
-              units: { ward: place.ward as string, district: place.district as string, province: place.city as string } }
-            if (judgeAddressPois({ address }, { hits: 1, pois: [poi] }).approvePoi) return { kind: 'exact', lat: poi.lat, lng: poi.lng, source: `VietMap ${poi.refId}`, checkedAt: at }
-          }
-        }
-        // This replay uses the same cached address question and matching rules.
-        return deps.goong ? resolveWithGoong({ ...job, location: address }, [{ ...target, address }], deps, at) : null
-      })
+      const found = await resolveByCompanyName(job, sorted, deps, at, reason => reasons.push(reason), verifyAddress, { google: false })
       if (found) return found
     }
     const gate = park?.destination
@@ -210,7 +219,8 @@ async function resolveWithGoong(job: ResolverJob, targets: ResolverJob['targets'
  * otherwise Google's single same-name place itself → area (Lee 2026-11-06). Google not knowing → no company pin. */
 async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targets'], deps: ResolverDeps, at: string,
   reason: (reason: string) => void,
-  verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>): Promise<LocationDecision | null> {
+  verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>,
+  use: { goong?: boolean; google?: boolean } = {}): Promise<LocationDecision | null> {
   const ask = async (key: unknown[], call: () => Promise<unknown>) => {
     const k = JSON.stringify(key)
     try {
@@ -225,7 +235,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     const address = target.address.trim() || job.location
     if (!address || hasConflictingProvinces(address)) continue
     const text = companySearchText(job.company, address)
-    if (deps.goong) {
+    if (deps.goong && use.goong !== false) {
       const hits = goongPredictionHits(await ask(['company-v1', 'goong', text], () => deps.goong!('autocomplete', { input: text })))
       const pick = pickCompanyPlace(job.company, address, hits)
       if (!pick.hit) reason(`goong:${pick.reason}`)
@@ -235,7 +245,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
           evidence: [`[Tự động] Tìm theo tên công ty trên Goong: ${place.name}`, `Địa chỉ Goong: ${place.address}`, `Địa chỉ trong tin: ${address}`, `Cách chọn: ${pick.reason}`].join('\n') }
       }
     }
-    if (deps.google) {
+    if (deps.google && use.google !== false) {
       // Ask Google exactly what the detail-page Google button asks (company, full address).
       const gText = googleSearchText(job.company, address)
       const hits = googlePlaceHits(await ask(['company-v2', 'google', gText], () => deps.google!(gText)))

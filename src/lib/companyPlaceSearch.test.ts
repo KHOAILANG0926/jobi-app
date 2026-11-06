@@ -61,4 +61,16 @@ assert(!('source' in many) || !/Google/.test(String((many as { source?: string }
 const none = await resolveAutoLocation(job, { ...noop, async goong() { return { predictions: [] } },
   async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'area', checkedAt: 'x' } } })
 assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으면 기존 성 대략 위치')
+// Lee 2026-11-06 "VietMap하고 Goong 하지 말고 바로 구글로": 회사 이름이 있으면 Google을 가장 먼저 묻는다.
+{
+  const order: string[] = []
+  const street = { id: 11, company: 'nhẹ cafe', location: 'Bắc Ninh', targets: [{ address: '128 Đ. Triệu Việt Vương, P. Võ Cường, Bắc Ninh', workLocationId: 3 }] }
+  const r = await resolveAutoLocation(street, { ...noop,
+    async request(action: string) { order.push('vietmap:' + action); return [] },
+    async goong(action: string) { order.push('goong:' + action); return { predictions: [] } },
+    async google() { order.push('google'); return { places: [{ id: 'nh1', displayName: { text: 'nhẹ cafe' }, formattedAddress: '128 Triệu Việt Vương, Võ Cường, Bắc Ninh', location: { latitude: 21.17, longitude: 106.07 } }] } },
+    async withinAdministrativeArea() { return true } })
+  assert(order[0] === 'google', 'Google을 가장 먼저: ' + order.join(','))
+  assert(r.kind === 'area' && /Google nh1/.test(String((r as { source?: string }).source)), 'Google 장소 채택: ' + JSON.stringify(r))
+}
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')
