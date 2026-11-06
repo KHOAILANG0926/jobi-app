@@ -3,15 +3,15 @@
 ## 요청과 현재 결과
 
 최신 사용자 요청: 알바몬의 편집 흐름을 참고하되 100% 같은 외형은 피하고, 디자인을 조금 수정한다.
-현재 기준은 JOBI 청록색/둥근 탭과 패널/사각 컬러칩/본문 왼쪽 브랜드·밑줄 제목이다. 이전 주황색 데모로 되돌리지 않는다.
+최종 기준은 문서 왼쪽·설정 오른쪽, 2열 템플릿 갤러리, 넓은 배너·작은 삽화·카드형 항목이다. JOBI 청록색/둥근 탭/사각 컬러칩을 유지한다. 이전 주황색 데모로 되돌리지 않는다.
 현재 작업 중인 큰 작업을 마친 후 이 문서 순서대로 연결한다. 데모를 다시 개발하거나 사용자가 파일을 옮기게 하지 않는다.
 이 문서는 **독립 데모를 실제 앱에 연결하는 인계**다. 운영 기능이 완성됐다는 뜻이 아니다.
 
 - 저장소: `KHOAILANG0926/jobi-app`
 - 구현 브랜치: `demo/albamon-editor`
-- 소스 고정 커밋: `09eaf1d89be7b50daf9dec2cfeb610a82d3ea998`
-- 최신 데모: `https://jobi-nr3gnlsnl-mshw1895-6089s-projects.vercel.app/demos/albamon-editor/index.html`
-- 최신 배포 `dpl_HK8DfWeufucUpjyDMoX8KJwUZHYS`: 고정 커밋과 일치하는 READY, HTTP 200, 새 테마/탭/청록색 코드 반영 직접 확인. 이전 주황색 배포는 사용하지 않는다.
+- 소스 고정 커밋: `e3c5e2a8989843e853c71ab3cf2d3f95801a18de`
+- 최신 데모: `https://jobi-mfa33m0ul-mshw1895-6089s-projects.vercel.app/demos/albamon-editor/index.html`
+- 최신 배포 `dpl_55EYFD6KawamDYjjRsu2GdHfV3dG`: 고정 커밋과 일치하는 READY, HTTP 200, 오른쪽 설정/2열 갤러리/공고 스튜디오 코드 반영 직접 확인. 이전 주황색 배포는 사용하지 않는다.
 - 데모는 6개 자체 배치/12색이며, 알바몬 원본 78개 템플릿이나 원본 사진·로고를 복제한 것은 아니다.
 
 ## 1. 현재 작업을 보존하고 필요한 파일만 가져온다
@@ -23,7 +23,7 @@
 ```sh
 git fetch origin demo/albamon-editor
 # 아래 경로가 현재 작업에서 이미 수정됐으면 먼저 diff를 비교하고 기존 변경을 보존한다.
-git restore --source=09eaf1d89be7b50daf9dec2cfeb610a82d3ea998 -- \
+git restore --source=e3c5e2a8989843e853c71ab3cf2d3f95801a18de -- \
   public/demos/albamon-editor/index.html \
   public/demos/albamon-editor/README.md \
   scripts/demo/albamon-editor.browser.mjs
@@ -36,7 +36,7 @@ git restore --source=09eaf1d89be7b50daf9dec2cfeb610a82d3ea998 -- \
 
 - 기존 React 18/TypeScript/Vite 구조를 유지한다. 새 앱/새 디자인 시스템을 만들지 않는다.
 - `PostJob.tsx`의 마지막 `Mô tả công việc` 섹션이 입력 연결 위치다. 기존 상단 근무조건·모집조건·위치 입력과 인증/등록 절차를 보존한다.
-- 데모에서 재사용할 화면: 상단 간편 템플릿/에디터/직접입력, 좌측 템플릿/색상/항목, 우측 직접 입력, PC/모바일 미리보기.
+- 데모에서 재사용할 화면: 상단 간편 템플릿/에디터/직접입력, 오른쪽 2열 템플릿/색상/항목 설정, 왼쪽 직접 입력 문서, PC/모바일 미리보기.
 - 한국어 UI 문구를 베트남어로 바꾸되 배치/간격/기능 흐름은 유지한다. 기존 앱의 회사명·제목은 편집기와 중복된 서로 다른 값이 되지 않도록 한 상태로 연결한다.
 - React 컴포넌트로 분리하되 제목/표 등의 입력 중 DOM 재생성으로 커서가 사라지지 않게 한다. 데모 자체는 입력 이벤트에서 전체 render를 하지 않는다.
 - 기존 데이터가 없는 공고를 자동으로 새 템플릿으로 재작성하지 않는다. 기존 description만 있는 공고는 기존 표시를 유지한다.
