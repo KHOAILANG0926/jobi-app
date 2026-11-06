@@ -569,7 +569,9 @@ export function JobDetail() {
 
   // 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계. 4단 중 한 단이 통째로 빠지면 아래 단이 그대로 올라오고,
   // 연락 버튼(PC)은 남아 있는 첫 상자(① → ② → ③) 제목 줄 오른쪽 끝에 붙는다. 모바일은 하단 고정 바 그대로.
-  const contactHost: 'conditions' | 'recruit' | 'location' = conditionShown.length > 0 ? 'conditions'
+  // 위치는 그대로(위쪽): ①이 있으면 ① 제목 줄(지금과 같음), ①이 없으면 그 위 Quyền lợi(예전 틀) 제목 줄, 둘 다 없을 때만 아래 단.
+  const contactHost: 'conditions' | 'quyenloi' | 'recruit' | 'location' = conditionShown.length > 0 ? 'conditions'
+    : newLayout && quyenLoi.rows.length > 0 ? 'quyenloi'
     : recruitShown.length > 0 && !recruitShown.every((f) => f.key === 'category') ? 'recruit' : 'location'
   const contactAside = (
       <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
@@ -718,8 +720,9 @@ export function JobDetail() {
         <div className="jd2-main jd2-main--first">
 
           {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
-          {newLayout && quyenLoi.rows.length > 0 && <section id="jd-sec-quyenloi" className="jd2-sec jd2-sec--quyenloi">
+          {newLayout && quyenLoi.rows.length > 0 && <section id="jd-sec-quyenloi" className={`jd2-sec jd2-sec--quyenloi${contactHost === 'quyenloi' ? ' jd2-contact-wrap' : ''}`}>
             <h2 className="jd2-sec__title">Quyền lợi</h2>
+            {contactHost === 'quyenloi' && contactAside}
             <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
                 {[quyenLoi.rows.filter((_, i) => i % 2 === 0), quyenLoi.rows.filter((_, i) => i % 2 === 1)].map((group, i) => (
