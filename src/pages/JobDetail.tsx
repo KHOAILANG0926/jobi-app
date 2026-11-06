@@ -674,9 +674,12 @@ export function JobDetail() {
             </div>
           </section>}
 
-          {(conditionShown.length > 0 || (newLayout && (hasContact || showApply || showMessageCta))) && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
+          {/* 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계 — "Điều kiện làm việc"는 다른 상자처럼 칸이 없으면 통째로 빠지고,
+              연락 버튼은 상자와 상관없이 같은 자리(PC: 첫 상자 제목 줄 오른쪽 끝, 상자가 없으면 그 자리 한 줄)에 남는다. 모바일은 하단 고정 바 그대로. */}
+          {(conditionShown.length > 0 || hasContact || showApply || showMessageCta) && <div className={`jd2-conditions-with-contact jd2-contact-wrap${conditionShown.length > 0 ? '' : ' jd2-contact-wrap--alone'}`}>
+          {conditionShown.length > 0 && <section id={jobSectionId('conditions')} className="jd2-sec jd2-sec--conditions-grid">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.conditions}</h2>
-            <div className="jd2-box jd2-two-col-card jd2-conditions-with-contact">
+            <div className="jd2-box jd2-two-col-card">
               <div className="jd2-two-col-card__grid">
                 {conditionColumnFields.map((fields, i) => (
                   <dl className="jd2-two-col-card__column" key={i}>
@@ -686,6 +689,8 @@ export function JobDetail() {
                   </dl>
                 ))}
               </div>
+            </div>
+          </section>}
         <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
           {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
           {showApply && (
@@ -735,8 +740,7 @@ export function JobDetail() {
 
 
         </aside>
-            </div>
-          </section>}
+          </div>}
 
         </div>
 
