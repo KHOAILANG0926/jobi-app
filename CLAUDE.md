@@ -456,7 +456,7 @@ Viecganban 프로젝트의 모든 향후 작업에 적용한다.
 
 ## 위치 못 찾을 때 Google 지도 — Lee 2026-11-03, 2026-11-06 개정 "구글을 따라"
 - 원칙(Lee 2026-11-06): Google이 회사 위치를 알면 Google 위치를 쓴다. Google도 모르면 따르지 않는다. 근무지든 사무실이든 지원자가 찾아갈 곳이면 된다. 위치는 위치일 뿐 "Google 지도"를 출처로 따로 표시하지 않는다.
-- 계산 절차(구현: src/lib/autoLocationResolver.ts·companyPlaceSearch.ts, PR #471·#472): ① VietMap·Goong 회사 이름 찾기 → ② 실패하면 Google에 상세 화면 Google 버튼과 **같은 검색어**(회사 이름, 원문 주소 전체)로 묻는다 → ③ 같은 이름 1곳이면: 그 주소를 VietMap·Goong이 번지로 검증하면 exact, 아니면 **Google 장소 좌표**를 대략 위치(area·chưa xác minh)로 쓴다.
+- 계산 절차(구현: src/lib/autoLocationResolver.ts·companyPlaceSearch.ts, PR #471·#472, Lee 2026-11-06 "VietMap하고 Goong 하지 말고 바로 구글로"): ① 회사 이름이 있으면 **Google부터** 상세 화면 Google 버튼과 **같은 검색어**(회사 이름, 원문 주소 전체)로 묻는다 → ② 같은 이름 1곳이면: 그 주소를 VietMap·Goong이 번지로 검증하면 exact, 아니면 **Google 장소 좌표**를 대략 위치(area·chưa xác minh)로 쓴다 → ③ Google이 모르면 기존 단계(번지·공단 입구·대략 위치)로 핀만 정한다(VietMap·Goong은 번지 검증·핀용).
 - Google도 모르는 경우(따르지 않음): 결과 없음 / 업체가 아니라 지역만 / 같은 이름 후보 여럿(원문 거리로 못 좁힘) / 원래 성 밖(동명 다른 회사). 이때는 기존 순서표 대략 위치 + 관리자 위치 확정 대기.
 - 수집(Lee 2026-11-06 결정): Google도 위치를 모르는 공고는 처음부터 수집하지 않는다 → 「수집 첫 단계 = 위치 확인」 절(크롤러 자동 차단 구현).
 - 원래 성 경계는 단순화 자료라 경계선 2km 안은 성 안으로 본다(src/lib/administrativeArea.ts BOUNDARY_TOLERANCE_M, #5438 KCN Yên Phong mở rộng 사례).
