@@ -85,7 +85,12 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 2026-11-04(#5405 "NHÀ HÀNG … TUYỂN GẤP:"): '… tuyển (gấp/dụng):'는 아래 직무 줄을 여는 소개 줄 — 빈 이름표가 아니다.
   // 2026-11-03: ':'로 끝나는 긴 소개 문장("Công ty … đang cần tuyển … khu vực Bắc Ninh:")은 이름표가 아니다 — 짧은 줄만 빈 이름표로 본다.
   // 2026-11-06 Lee OK(#5506 "🌟 CƠ CHẾ … DÀNH CHO BẠN:"): 바로 아래 줄이 글머리(•·-·*·✓ 등) 목록이면 그 목록의 제목 — 빈 이름표가 아니다.
-  const opensList = (i: number) => /^\s*(?:[•·\-–*+✓✔☑️👉🔹🔸▪◦○●]|\d+[.)])/u.test(shown[i + 1] ?? '')
+  // 2026-11-06 #5506 재발: AI가 정한 줄 칸(detail_line_kinds)으로 글머리 줄이 다른 칸으로 옮겨지면 화면 순서에선 제목 아래가 목록이 아니게 된다
+  // → 원문(source_text) 순서에서도 바로 아래 줄이 글머리면 목록 제목으로 본다.
+  const BULLET = /^\s*(?:[•·\-–*+✓✔☑️👉🔹🔸▪◦○●]|\d+[.)])/u
+  const srcOrder = cleanSourceText(j.source_text).text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const opensList = (i: number) => BULLET.test(shown[i + 1] ?? '')
+    || srcOrder.some((l, k) => sameLine(l, shown[i]) && BULLET.test(srcOrder[k + 1] ?? ''))
   const junk = shown.filter((l, i) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || (/[:：]\s*$/.test(l) && bare(l).length <= 60 && !/\btuyen\b/.test(bare(l)) && !opensList(i)))
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
