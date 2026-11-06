@@ -118,3 +118,11 @@ jobs:
           python -u crawl_facebook.py --save-from /tmp/fbdry/facebook_dryrun.json --post-keys "$POST_KEY" --max-save 1 2>&1 | tee /tmp/fb.log || {
             echo "::error title=저장 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
           grep -E '저장 ID|결과:|⛔|🚧|저장 전 점검' /tmp/fb.log | while read -r line; do echo "::notice title=저장 결과::$line"; done
+      - name: 서버 정리(실행마다) — VPS 디스크가 차지 않게
+        if: always()
+        run: |
+          # 2026-11-06: VPS(11GB)가 실행 찌꺼기로 100% 참. 다시 받을 수 있는 캐시·임시 파일·하루 지난 실행기 기록만 지운다.
+          python -m pip cache purge >/dev/null 2>&1 || true
+          rm -rf /tmp/deps.log /tmp/fb.log /tmp/facebook_dryrun.json /tmp/fbdry
+          find "$HOME/actions-runner/_diag" -name '*.log' -mtime +1 -delete 2>/dev/null || true
+          df -h / | tail -1 | awk '{print "::notice title=서버 남은 공간::"$4" ("$5" 사용)"}'
