@@ -73,9 +73,11 @@ def main() -> int:
     print("== 1) 목록 화면", LIST_URL)
     st, html = get(LIST_URL)
     print("  상태", st, "크기", len(html))
-    if WARN.search(html[:5000]):
-        print("::error::차단 문구 감지 — 중단")
-        return 2
+    blocked = st == 403 or bool(WARN.search(html[:5000]))
+    if blocked:
+        # 웹 화면이 로봇 확인으로 막히면 화면은 다시 시도하지 않는다(우회 금지). 공개 gateway 목록만 1번 확인한다.
+        print("::warning::웹 화면 차단(로봇 확인) — 화면은 더 열지 않고 공개 gateway만 확인", st)
+        html = ""
     ads: list[dict] = []
     nd = next_data(html) if st == 200 else None
     print("  __NEXT_DATA__", "있음" if nd else "없음")
@@ -95,6 +97,9 @@ def main() -> int:
     q = f"{GATEWAY}?limit=5&o=0" + (f"&region_v2={region}" if region else "") + (f"&cg={cg}" if cg else "&cg=13000")
     st, body = get(q)
     print("  상태", st, "크기", len(body))
+    if st == 403 or WARN.search(body[:3000]):
+        print("::error::gateway도 차단 — 중단(우회하지 않음)")
+        return 2
     gw_ads = []
     try:
         gw_ads = json.loads(body).get("ads") or []
