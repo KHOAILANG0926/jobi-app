@@ -84,7 +84,9 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 4. 사이트 화면 글자·가려진 번호·값 없는 이름표
   // 2026-11-04(#5405 "NHÀ HÀNG … TUYỂN GẤP:"): '… tuyển (gấp/dụng):'는 아래 직무 줄을 여는 소개 줄 — 빈 이름표가 아니다.
   // 2026-11-03: ':'로 끝나는 긴 소개 문장("Công ty … đang cần tuyển … khu vực Bắc Ninh:")은 이름표가 아니다 — 짧은 줄만 빈 이름표로 본다.
-  const junk = shown.filter((l) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || (/[:：]\s*$/.test(l) && bare(l).length <= 60 && !/\btuyen\b/.test(bare(l))))
+  // 2026-11-06 Lee OK(#5506 "🌟 CƠ CHẾ … DÀNH CHO BẠN:"): 바로 아래 줄이 글머리(•·-·*·✓ 등) 목록이면 그 목록의 제목 — 빈 이름표가 아니다.
+  const opensList = (i: number) => /^\s*(?:[•·\-–*+✓✔☑️👉🔹🔸▪◦○●]|\d+[.)])/u.test(shown[i + 1] ?? '')
+  const junk = shown.filter((l, i) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || (/[:：]\s*$/.test(l) && bare(l).length <= 60 && !/\btuyen\b/.test(bare(l)) && !opensList(i)))
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
   // 6. 급여 칸: 원문에 급여가 있는데 위쪽 급여가 비어 있음
@@ -181,7 +183,8 @@ export function publishDecision(
   j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
   today = new Date().toISOString().slice(0, 10),
 ): { publishable: boolean; active: boolean } {
-  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || i.ok)
+  // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
+  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
   if (!publishable) {
     // Preserve an existing public posting during rollout, but do not issue a
     // reusable publication proof: hiding it later must require a strict pass.

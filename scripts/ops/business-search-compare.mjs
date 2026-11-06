@@ -78,8 +78,11 @@ async function search(provider, job) {
 const {data: jobs, error} = await publicClient.from('local_jobs').select('id,company,location').eq('active', true).eq('admin_hidden', false).order('id').abortSignal(AbortSignal.timeout(15000))
 if (error) { console.log('::error::public_jobs_unavailable'); process.exit(1) }
 const {data: places} = await publicClient.from('job_work_locations').select('job_id,raw_address').in('job_id', jobs.map((j) => j.id))
-const cases = jobs.filter((j) => j.company?.trim()).map((j) => ({id: j.id, company: j.company, location: j.location || '', address: places?.find((p) => p.job_id === j.id)?.raw_address || j.location || ''}))
-if (EXTRA.company && EXTRA.address && !cases.some((c) => isExactCompanyName(EXTRA.company, c.company))) cases.push({id: 'extra', company: EXTRA.company, location: EXTRA.address, address: EXTRA.address})
+// 확인할 공고(extra)를 넣으면 그 1건만 묻는다(Lee 2026-11-06 "올린거 4개만 확인하면 되잖아").
+// 기준 공고 16곳까지 매번 묻다가 Google 한도(429)를 다 써 크롤러 위치 확인까지 막았음. 비교는 extra 없이 돌릴 때만.
+const cases = EXTRA.company && EXTRA.address
+  ? [{id: 'extra', company: EXTRA.company, location: EXTRA.address, address: EXTRA.address}]
+  : jobs.filter((j) => j.company?.trim()).map((j) => ({id: j.id, company: j.company, location: j.location || '', address: places?.find((p) => p.job_id === j.id)?.raw_address || j.location || ''}))
 note(`표본 ${cases.length}건(공개 공고 ${jobs.length}건 중 회사명 있음${EXTRA.company ? ' + 입력 사례' : ''}). 관리자 API(Vercel 키) 경유`)
 
 const total = {vietmap: {found: 0, ok: 0, calls: 0, errors: 0}, goong: {found: 0, ok: 0, calls: 0, errors: 0}, google: {found: 0, ok: 0, calls: 0, errors: 0}}
