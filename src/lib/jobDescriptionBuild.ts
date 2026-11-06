@@ -171,6 +171,27 @@ function roleBlocks(text: string): Array<{ role?: string; text: string }> {
   return blocks
 }
 
+const LIST_BULLET = /^\s*(?:[•·\-–*+✓✔☑️👉🔹🔸▪◦○●]|\d+[.)])/u
+/**
+ * 원문 묶음 유지(Lee 2026-11-06, #5506): "~:"로 끝나는 제목 줄과 바로 아래 이어지는 글머리 줄은 한 덩어리다.
+ * 줄마다 칸을 정하면(규칙·AI 줄 칸) 목록이 제목에서 떨어져 화면에 빈 제목이 남으므로, 덩어리 전체를 한 칸에 넣는다.
+ * 칸은 덩어리 안에서 규칙으로 정해진 첫 줄의 칸, 없으면 제목 줄의 칸. 같은 원문·같은 직무 묶음 안에서만 묶는다.
+ */
+function keepListBlocks(lines: Array<FillLine & { role?: string }>): void {
+  for (let i = 0; i < lines.length; i++) {
+    const head = lines[i]
+    // 직무 제목 줄(여러 직무 공고)은 직무 묶음 규칙이 따로 칸을 나눈다 — 건드리지 않는다.
+    if (head.role === head.line || LIST_BULLET.test(head.line) || !/[:：]\s*$/.test(head.line)) continue
+    let end = i + 1
+    while (end < lines.length && lines[end].from === head.from && lines[end].role === head.role && LIST_BULLET.test(lines[end].line)) end++
+    if (end === i + 1) continue
+    const block = lines.slice(i, end)
+    const key = (block.find((l) => l.how !== 'unclassified' && !String(l.rule ?? '').startsWith('kind:')) ?? head).key
+    for (const l of block) l.key = key
+    i = end - 1
+  }
+}
+
 /** 원문들로 상세요강 글 전체를 만든다. 원문이 비어 있으면 description은 ''. */
 export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildContext = {}): BuildResult {
   const lines: BuildResult['lines'] = []
@@ -206,6 +227,7 @@ export function buildDescriptionFromSources(sources: FillSource[], ctx: BuildCon
       }
     }
   }
+  keepListBlocks(lines)
   const annotations: BuildResult['annotations'] = []
   if (ctx.dutiesUnspecified && !lines.some(l => l.line === UNSPECIFIED_DUTIES_NOTICE)) {
     annotations.push({ key: '01', line: UNSPECIFIED_DUTIES_NOTICE })
