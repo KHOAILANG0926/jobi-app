@@ -31,7 +31,7 @@ import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { balanceConditionColumns, detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
+import { contactHostFor, balanceConditionColumns, detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines, roleSalaryRows } from '../lib/jobRolePresentation'
 import { insuranceTags } from '../lib/jobQuyenLoi'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
@@ -570,9 +570,7 @@ export function JobDetail() {
   // 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계. 4단 중 한 단이 통째로 빠지면 아래 단이 그대로 올라오고,
   // 연락 버튼(PC)은 남아 있는 첫 상자(① → ② → ③) 제목 줄 오른쪽 끝에 붙는다. 모바일은 하단 고정 바 그대로.
   // 위치는 그대로(위쪽): ①이 있으면 ① 제목 줄(지금과 같음), ①이 없으면 그 위 Quyền lợi(예전 틀) 제목 줄, 둘 다 없을 때만 아래 단.
-  const contactHost: 'conditions' | 'quyenloi' | 'recruit' | 'location' = conditionShown.length > 0 ? 'conditions'
-    : newLayout && quyenLoi.rows.length > 0 ? 'quyenloi'
-    : recruitShown.length > 0 && !recruitShown.every((f) => f.key === 'category') ? 'recruit' : 'location'
+  const contactHost = contactHostFor({ conditions: conditionShown.length, quyenLoi: newLayout ? quyenLoi.rows.length : 0, newLayout, recruitKeys: recruitShown.map((f) => f.key) })
   const contactAside = (
       <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
         {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
