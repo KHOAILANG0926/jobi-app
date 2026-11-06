@@ -69,7 +69,7 @@ def source_fields(title: str | None, body: str | None, extras: tuple | list = ()
     }
 
 
-_RULE_RX = re.compile(r"(job_rule_R\d+|job_posting_policy_excluded)")
+_RULE_RX = re.compile(r"(job_rule_R\d+|job_posting_policy_excluded|location_precheck_failed)")
 
 
 def rule_code(err: BaseException | str) -> str | None:

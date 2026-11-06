@@ -16,6 +16,10 @@ import os
 from contextlib import asynccontextmanager
 
 import crawl_topcv
+import ingest_gateway
+
+# 수집 첫 단계 위치 확인(Lee 2026-11-06)은 test_ingest_gateway.py가 본다. 이 시험은 그 뒤 저장 흐름만 본다.
+ingest_gateway.PRECHECK = lambda job: {"findable": True, "reason": "test"}
 import geocode
 from crawl_topcv import (
     VerifyWriteExistingMatchError,

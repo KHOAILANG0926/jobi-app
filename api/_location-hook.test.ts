@@ -20,4 +20,15 @@ assert(f.code === 200 && forced[1] === true, 'retry also re-judges')
 const broken = createLocationHookHandler({ async tokenOk() { throw new Error('db') }, async run() { return {} } })
 const r = makeRes(); await broken({ method: 'POST', headers: { authorization: 'Bearer good' }, body: { job_id: 1 } } as never, r as never)
 assert(r.code === 503, 'storage failure → 503')
+// 수집 첫 단계 위치 확인(Lee 2026-11-06): 서버 키로만, 결과(찾을 수 있음/없음)만 돌려준다
+let asked: unknown = null
+const pre = { ...deps, serviceKeyOk: (t: string) => t === 'service-key', async precheck(input: unknown) { asked = input; return { findable: true, kind: 'area', reason: 'google_company_place' } } }
+const pcall = async (req: Record<string, unknown>) => { const res = makeRes(); await createLocationHookHandler(pre)(req as never, res as never); return res }
+const body = { precheck: { company: 'NEW TEAM ROBOTICS VIETNAM', location: 'Bắc Ninh', addresses: ['NX 2-2, KCN Yên Phong (khu mở rộng), xã Yên Trung, Bắc Ninh'] } }
+assert((await pcall({ method: 'POST', headers: {}, body })).code === 400 && asked === null, 'precheck needs a key')
+assert((await pcall({ method: 'POST', headers: { authorization: 'Bearer wrong' }, body })).code === 401 && asked === null, 'wrong key → no lookup')
+const pok = await pcall({ method: 'POST', headers: { authorization: 'Bearer service-key' }, body })
+assert(pok.code === 200 && (pok.body as { findable: boolean }).findable === true && asked !== null && ran.length === 2, 'precheck answers without touching any job')
+const pbroken = await (async () => { const res = makeRes(); await createLocationHookHandler({ ...pre, async precheck() { throw new Error('x') } })({ method: 'POST', headers: { authorization: 'Bearer service-key' }, body } as never, res as never); return res })()
+assert(pbroken.code === 503, 'precheck failure → 503')
 console.log('location-hook api tests: all assertions passed')

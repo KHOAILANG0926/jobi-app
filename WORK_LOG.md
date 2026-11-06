@@ -1,3 +1,9 @@
+## 2026-11-06 — 수집 첫 단계 = 위치 확인, 크롤러 자동 차단 (Claude)
+- 요청: Lee "크롤링 할 때 제일 먼저 위치를 찾을 수 있는지 먼저… 제일 규칙으로", "자동으로 막는 기능도 넣고, 지도 구현한 것도 프로세스에도 적용".
+- 변경: PR #474 최우선 규칙 문서. PR #475 crawler/ingest_gateway.py 새 공고 등록 전 위치 확인(못 찾음·확인 불가 → 등록 안 함, location_precheck_failed), api/location-hook.js precheck 모드(서버 키 인증, 공고·위치 쓰지 않음), api/_lib/auto-location-runtime.mjs precheckLocation(지도와 같은 resolver·같은 저장 결과), src/lib/locationPrecheck.ts 판정.
+- 검증 [직접 확인]: locationPrecheck·location-hook·auto-location-runtime·companyPlaceSearch·autoLocationResolver 시험, crawler test_ingest_gateway·test_scheduled_cli·test_source_fields 통과.
+- 남은 문제: 관리자·고용주·Lee 제공 등록 경로에는 차단 없음. 첫 실제 크롤링 결과 미확인.
+
 ## 2026-11-06 — 위치 "구글을 따라" + #5438 확정 (Claude)
 - 요청: Lee "구글을 따라", "일단 바꾸고 앱에 적용 후 프로세스 변경", "허락받지말고 계속해".
 - 변경: PR #471(8b6be39) Google 검색어=상세 Google 버튼과 같게(회사, 주소 전체), 같은 이름 1곳이면 Google 장소 좌표(area), 업체 검색 비교 로그에 Google이 집은 곳 표시. PR #472(1e019d0) 원래 성 경계(Natural Earth 단순화) 경계선 2km 오차 허용.
@@ -195,9 +201,3 @@
 - 변경: #450·#452~#458 공고 파일·내 실수 고침(직업분류 9→9402, 급여 꼬리, 회사명 R5, 신청 링크 줄, 포스터 옮김 제거, 건물 사진) / #459 jobDescriptionBuild 거르기 + jobInspect 예외 + 옛 규칙 시험 갱신 + CLAUDE.md ④ / PR #451(카드 규칙 변경)은 Lee "기존 프로세스 건들지 마"로 닫음.
 - 검증: 검사표(41798722777) 4건 공개, 남은 문제는 급여 없는 메인 카드 2건(기존 규칙). demo-capture로 운영 데이터 상세 글 직접 확인. deploy-verify 41798740354 success.
 - 남은 문제: 상세요강 칸 오분류(위 HANDOFF 1번), 로컬 npm 저장소 차단으로 tsc·build는 CI에만 의존.
-
-## 2026-11-04 09:50 — 알바몬 구직자 상세 데모 2단계 (Claude, 보류·운영 미반영)
-- 요청: Lee "구직자 상세 최신 틀을 알바몬 모바일 상세와 똑같이"(카드 상자 없이·구분선·제목 20px·회색 이름 칸). 09:10 "우리 거 말고 알바몬과 정확히 똑같이" → 캡처 8장 받음. 09:45 "일단 놔두고 나중에, 지금까지 만든 거 프로세스에 등록".
-- 변경(demo/detail-header-albamon): c99ccd1(우리 틀 덧칠 — 잘못 이해) → 6229a6d(캡처 색·크기 맞춤, src/index.css v2 전용 블록) → b06134b(demo-capture가 sb-5342 화면 전체 촬영). cty-kda-comparison에 4828 로고 크기·회사명 글자 제외 3항목, desktop baseline 해시 갱신.
-- 검증: desktop baseline 8/8, 데모 deploy·capture success(CI npm run build 포함). 로컬 tsc·build는 npm 저장소 접속 막혀 못 돌림. KDA 비교 검사는 안 돌림.
-- 남은 문제: 머리 부분·회색 테두리 상자가 그대로라 Lee 눈에 "아까랑 똑같음". 다음에 머리 정리 여부 Lee 예/아니오부터.
