@@ -45,3 +45,22 @@ const g = duplicateGroups(jobs)
 assert(JSON.stringify(g.duplicates) === '[[10,11]]', '같은 지점만 중복: ' + JSON.stringify(g))
 assert(g.unknownLocation.some(([a, b]) => a === 10 && b === 13), '대략 위치는 확인 목록: ' + JSON.stringify(g.unknownLocation))
 console.log('jobIdentity.test.ts: 회사·업종·하는 일·위치 중복 기준 통과')
+
+// 2단계(Lee 2026-11-06): 회사는 따로, 지점은 따로 — 지점명·동 이름은 회사에서 떼어 지점 칸으로
+{
+  const { companyCore: cc, kindsCompatible: kc, sameCompany: sc } = await import('./jobIdentity.ts')
+  const h = cc('Highlands Coffee Mường Thanh Bắc Ninh')
+  assert(h.core === 'highlands' && h.kind === 'quan_ca_phe' && h.branch.includes('muong thanh'), 'Highlands 지점명 분리: ' + JSON.stringify(h))
+  assert(cc('Highlands Coffee Vincom').core === 'highlands', '다른 Highlands 지점도 같은 회사')
+  const n = cc('nhẹ cafe – Bách Nghệ Kinh Bắc')
+  assert(n.core === 'nhe' && n.branch.includes('bach nghe'), 'nhẹ cafe 지점 분리: ' + JSON.stringify(n))
+  const r = cc('Regal Edu Vân Dương')
+  assert(r.core === 'regaledu' && r.branch.includes('van duong'), '동 이름은 지점 칸: ' + JSON.stringify(r))
+  assert(cc('Nhà hàng Thanh Phệ').core === 'thanhphe' && cc('Nhà hàng Tâm Hồ Nhất Hạch').core === 'tamhonhathach', '가게 종류가 앞이면 뒤가 이름')
+  assert(cc('Haidilao - Chi nhánh Bắc Ninh').core === 'haidilao' && cc('CÔNG TY TNHH HAIDILAO VIỆT NAM').core === 'haidilao', 'Haidilao 유지')
+  assert(cc('Nhà hàng Bắc Ninh').core === 'bacninh', '이름이 지역 이름뿐이면 핵심을 비우지 않음')
+  // 업종: 큰 분류와 그 아래 소분류는 같은 회사, 소분류끼리 다르면 다른 회사
+  assert(kc('am_thuc_do_uong', 'quan_ca_phe') && !kc('quan_ca_phe', 'nha_hang') && kc('cua_hang', 'nha_hang') && !kc('am_thuc_do_uong', 'sieu_thi'), '업종 맞음 규칙')
+  assert(sc({ id: 1, company: 'TRUNG NGUYÊN LEGEND BẮC NINH', category: 'am_thuc_do_uong' }, { id: 2, company: 'Trung Nguyên Legend Café', category: 'am_thuc_do_uong' }), 'Trung Nguyên: 큰 분류 vs 카페 → 같은 회사')
+  console.log('jobIdentity.test.ts: 회사·지점 분리, 업종 맞음 규칙 통과')
+}

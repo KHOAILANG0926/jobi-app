@@ -36,7 +36,7 @@ for (let i = 0; i < list.length; i++) for (let k = i + 1; k < list.length; k++) 
 
 const site = 'https://viecganban.vn/viec-lam/sb-'
 const line = (id) => { const j = byId.get(id); const pt = j.points.find((p) => p.lat != null)
-  return `  - sb-${id} | ${j.company ?? '(회사 없음)'} [핵심:${companyCore(j.company).core || '-'} 업종:${businessKind(j) || '-'}] | 직업 ${j.occupation_code ?? '-'} | ${j.title?.slice(0, 70) ?? ''} | 위치 ${pt ? `${pt.point_kind} ${pt.lat?.toFixed?.(5)},${pt.lng?.toFixed?.(5)}` : '없음'}${j.points[0]?.industrial_park ? ' ' + j.points[0].industrial_park : ''} | ${site}${id}` }
+  return `  - sb-${id} | ${j.company ?? '(회사 없음)'} [핵심:${companyCore(j.company).core || "-"} 지점:${companyCore(j.company).branch || "-"} 업종:${businessKind(j) || "-"}] | 직업 ${j.occupation_code ?? '-'} | ${j.title?.slice(0, 70) ?? ''} | 위치 ${pt ? `${pt.point_kind} ${pt.lat?.toFixed?.(5)},${pt.lng?.toFixed?.(5)}` : '없음'}${j.points[0]?.industrial_park ? ' ' + j.points[0].industrial_park : ''} | ${site}${id}` }
 
 const out = []
 out.push('## 공개 공고 중복 세기 (읽기 전용)', '')
