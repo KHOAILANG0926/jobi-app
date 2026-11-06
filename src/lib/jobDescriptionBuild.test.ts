@@ -90,3 +90,26 @@ for (const id of Object.keys(jobs)) {
   assert(!inKey('05', 'Địa điểm:') && inKey('07', 'Địa điểm:'), '근무지 줄은 복리후생 칸이 아님')
 }
 console.log('jobDescriptionBuild.test.ts: 실제 원문 #4878·#4879 + 글자 그대로·중복 없음·사이트 글자 제거 검사 통과')
+
+// 2026-11-06 Lee "예외 말고 망가뜨린 단계를 고쳐라"(#5506): "~:" 제목 줄과 바로 아래 글머리 목록은 한 덩어리 — 줄 칸(AI)이 갈라도 같은 칸에 같이 나온다.
+{
+  const { lineKey } = await import('./aiClassifyGuard.ts')
+  const { inspectJob } = await import('./jobInspect.ts')
+  const post = 'Anh em sale tự do đang mệt mỏi? Về đội Phúc Lộc tại Bắc Ninh 9.171 ha.\n🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:\n• Lương ổn định: 8 – 15 TRIỆU/tháng\n• Đột phá Marketing: Hỗ trợ tới 90% chi phí MKT\n• Đào tạo bài bản: cầm tay chỉ việc từ A-Z\n📍 Địa điểm làm việc: Văn phòng Dự án Vinhomes Olympic'
+  // AI가 목록 줄을 제목과 다른 칸으로 나눈 상황(운영 #5506)
+  const lineKinds = {
+    [lineKey('🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:')]: { section: '07' as const, by: 'ai' as const },
+    [lineKey('• Đột phá Marketing: Hỗ trợ tới 90% chi phí MKT')]: { section: '05' as const, by: 'ai' as const },
+    [lineKey('• Đào tạo bài bản: cầm tay chỉ việc từ A-Z')]: { section: '05' as const, by: 'ai' as const },
+  }
+  const d = buildDescriptionFromSources([{ name: 'source_text', text: post }], { lineKinds }).description.split('\n')
+  const h = d.indexOf('🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:')
+  assert(h >= 0 && d[h + 1].startsWith('• Lương') && d[h + 2].startsWith('• Đột phá') && d[h + 3].startsWith('• Đào tạo'), '제목 줄 바로 아래 목록이 그대로 이어짐: ' + d.join(' | '))
+  const r = inspectJob({ id: 19, description: d.join('\n'), source_text: post, pin: 'area', category: 'kinh_doanh', occupation_code: '3334', active: true })
+  assert(r.items.find((i) => i.key === 'junk')!.ok, '검사기 예외 없이 빈 이름표 아님')
+  // 아래가 목록이 아닌 제목 줄은 묶지 않는다(값 없는 이름표는 계속 검사기가 잡음)
+  const e = buildDescriptionFromSources([{ name: 'source_text', text: 'Số điện thoại:\nThưởng tháng 13' }], {}).description
+  const r2 = inspectJob({ id: 20, description: e, source_text: 'Số điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!r2.items.find((i) => i.key === 'junk')!.ok, '아래가 목록이 아니면 계속 빈 이름표')
+  console.log('jobDescriptionBuild.test.ts: 제목 줄+글머리 목록 한 덩어리 검사 통과')
+}

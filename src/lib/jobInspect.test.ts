@@ -121,14 +121,3 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   console.log('jobInspect.test.ts: 목록 제목 줄(~: + 글머리) 검사 통과')
 }
 
-// 2026-11-06 #5506 재발: AI 줄 칸으로 글머리 줄이 다른 칸에 가서 화면에선 제목 아래가 목록이 아님 — 원문 순서로 목록 제목 판단.
-{
-  const src = 'Anh em sale tự do\n🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:\n• Đào tạo bài bản: cầm tay chỉ việc\n📍 Địa điểm làm việc: Văn phòng Dự án'
-  const desc = 'Quyền lợi\n• Đào tạo bài bản: cầm tay chỉ việc\nThông tin khác\nAnh em sale tự do\n🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:\n📍 Địa điểm làm việc: Văn phòng Dự án'
-  const r = inspectJob({ id: 17, description: desc, source_text: src, pin: 'area', category: 'kinh_doanh', occupation_code: '3334', active: true })
-  assert(r.items.find((i) => i.key === 'junk')!.ok, '원문에서 목록을 여는 제목 줄은 칸이 갈려도 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
-  const src2 = 'Anh em sale tự do\nSố điện thoại:\n📍 Địa điểm làm việc: Văn phòng Dự án'
-  const r2 = inspectJob({ id: 18, description: 'Thông tin khác\nAnh em sale tự do\nSố điện thoại:\n📍 Địa điểm làm việc: Văn phòng Dự án', source_text: src2, pin: 'area', category: 'x', occupation_code: '1', active: true })
-  assert(!r2.items.find((i) => i.key === 'junk')!.ok, '원문에서도 아래가 목록이 아니면 계속 빈 이름표')
-  console.log('jobInspect.test.ts: 원문 순서 목록 제목 검사 통과')
-}
