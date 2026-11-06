@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { timingSafeEqual } from 'node:crypto'
 // 서버에서는 빌드 때 묶은 파일(dist/api-lib, vite.api.config.mjs)을 쓴다. src/의 .ts를 직접 import하면 Vercel에서 시작부터 실패한다(2026-10-20 실측).
 const loadRuntime = () => import('../dist/api-lib/auto-location-runtime.js')
 
@@ -25,6 +26,17 @@ function runtime() {
       const verdict = await applyLocationVerdict(db, jobId)
       return { ...summary, verdict }
     },
+    // 수집 첫 단계 위치 확인(Lee 2026-11-06): 크롤러가 등록 전에 부른다. 크롤러가 이미 가진 서버 키로만 연다(새 비밀 없음).
+    serviceKeyOk(token) {
+      const a = Buffer.from(String(token)), b = Buffer.from(key)
+      return a.length === b.length && timingSafeEqual(a, b)
+    },
+    precheck: async (input) => {
+      const { precheckLocation, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
+      const goongKey = process.env.GOONG_API_KEY
+      const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY
+      return precheckLocation(db, vietmapRequest(vietmap), input, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey) : null)
+    },
   }
 }
 
@@ -35,10 +47,17 @@ export function createLocationHookHandler(injected) {
     const token = String(req.headers?.authorization || '').replace(/^Bearer /, '')
     let body = req.body
     if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = null } }
+    let deps
+    if (body && typeof body.precheck === 'object' && body.precheck) {
+      if (!token) return res.status(400).json({ error: 'invalid_request' })
+      try { deps = injected || runtime() } catch { return res.status(503).json({ error: 'not_configured' }) }
+      if (!deps.serviceKeyOk?.(token)) return res.status(401).json({ error: 'unauthorized' })
+      try { return res.status(200).json(await deps.precheck(body.precheck)) }
+      catch { console.error('api/location-hook: precheck failed'); return res.status(503).json({ error: 'location_service_unavailable' }) }
+    }
     const jobId = Number(body?.job_id)
     if (!token || !Number.isSafeInteger(jobId) || jobId <= 0) return res.status(400).json({ error: 'invalid_request' })
-    let deps
-    try { deps = injected || runtime() } catch { return res.status(503).json({ error: 'not_configured' }) }
+    try { deps = deps || injected || runtime() } catch { return res.status(503).json({ error: 'not_configured' }) }
     try {
       if (!(await deps.tokenOk(token))) return res.status(401).json({ error: 'unauthorized' })
       // 항상 다시 판정한다(force): 이전 결과가 옛 규칙(예: 2단계 주소 미인식)으로 '못 찾음'이어도 새 규칙으로 다시 본다.

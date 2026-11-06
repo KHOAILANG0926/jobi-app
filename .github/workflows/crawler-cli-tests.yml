@@ -21,3 +21,4 @@ jobs:
           python-version: '3.11'
       # Standard library only. Never import crawler runtime or provide secrets.
       - run: python -I crawler/test_scheduled_cli.py
+      - run: python -I crawler/test_ingest_gateway.py

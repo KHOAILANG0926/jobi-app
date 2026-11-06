@@ -3,6 +3,7 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
+import { precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
 export async function runLocationBatch(db, request, limit = 10, goong = null, google = null) {
@@ -49,6 +50,52 @@ export function canonicalVerdictKind(state) {
   return point?.kind ?? (state.provider_result?.kind === 'unresolved' ? 'unresolved' : null)
 }
 
+/** 수집 첫 단계 위치 확인(Lee 2026-11-06). 지도와 같은 resolveAutoLocation·같은 저장 결과(research_artifacts)를 쓴다 —
+ * 등록 뒤 위치 찾기(location-hook)는 같은 질문을 저장 결과로 다시 쓰므로 호출이 늘지 않는다. DB에 공고·위치를 쓰지 않는다. */
+export async function precheckLocation(db, request, input, goong = null, google = null) {
+  const job = precheckJob(input)
+  if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text' }
+  let used = 0
+  const result = await resolveAutoLocation(job, resolverDeps(db, async (action, params) => request(action, params), {
+    remainingCalls: 2, reserve: async () => used++ < 2,
+  }, goong, google))
+  return precheckVerdict(result)
+}
+
+function resolverDeps(db, request, extra, goong, google) {
+  return {
+    async withinAdministrativeArea(addresses, point) {
+      const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
+      return !!area && areaContains(area,point)
+    },
+    async administrativeCenter(addresses) {
+      const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
+      return area ? {lat:area.lat,lng:area.lng,source:`Original administrative area ${area.key}`,checkedAt:new Date().toISOString()} : null
+    },
+    async cached(key) {
+      const name = createHash('sha256').update(key).digest('hex')
+      const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','map-r1-query').eq('name',name).maybeSingle()
+      if (error) throw new Error('cache_unavailable')
+      return data?.payload?.data ?? null
+    },
+    async cache(key,data) {
+      const name = createHash('sha256').update(key).digest('hex')
+      const {error} = await db.from('research_artifacts').upsert({kind:'map-r1-query',name,payload:{data},meta:{}},{onConflict:'kind,name'})
+      if (error) throw new Error('cache_unavailable')
+    },
+    async wardCenter(unit) {
+      const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','autolocate').eq('name','ward_centers').maybeSingle()
+      if (error) return null
+      const e = findWardCenter(data?.payload ?? null, unit.key)
+      return e && typeof e.lat==='number' && typeof e.lng==='number' ? {lat:e.lat,lng:e.lng,at:e.at||''} : null
+    },
+    request,
+    ...(goong ? { goong } : {}),
+    ...(google ? { google } : {}),
+    ...extra,
+  }
+}
+
 async function runClaimed(db, request, claim, goong = null, google = null) {
   const lease = randomUUID()
   const rpc = async (name, args) => {
@@ -61,38 +108,10 @@ async function runClaimed(db, request, claim, goong = null, google = null) {
   for (const row of claimed ?? []) {
     let calls = 0
     try {
-      const result = await resolveAutoLocation(row.snapshot, {
+      const result = await resolveAutoLocation(row.snapshot, resolverDeps(db, async (action,params) => { calls++; return request(action,params) }, {
         remainingCalls: Math.max(0,2-row.calls),
-        async withinAdministrativeArea(addresses, point) {
-          const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
-          return !!area && areaContains(area,point)
-        },
-        async administrativeCenter(addresses) {
-          const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
-          return area ? {lat:area.lat,lng:area.lng,source:`Original administrative area ${area.key}`,checkedAt:new Date().toISOString()} : null
-        },
-        async cached(key) {
-          const name = createHash('sha256').update(key).digest('hex')
-          const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','map-r1-query').eq('name',name).maybeSingle()
-          if (error) throw new Error('cache_unavailable')
-          return data?.payload?.data ?? null
-        },
-        async cache(key,data) {
-          const name = createHash('sha256').update(key).digest('hex')
-          const {error} = await db.from('research_artifacts').upsert({kind:'map-r1-query',name,payload:{data},meta:{}},{onConflict:'kind,name'})
-          if (error) throw new Error('cache_unavailable')
-        },
         reserve: () => rpc('map_r1_reserve_call',{p_id:row.job_id,p_lease:lease}),
-        async wardCenter(unit) {
-          const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','autolocate').eq('name','ward_centers').maybeSingle()
-          if (error) return null
-          const e = findWardCenter(data?.payload ?? null, unit.key)
-          return e && typeof e.lat==='number' && typeof e.lng==='number' ? {lat:e.lat,lng:e.lng,at:e.at||''} : null
-        },
-        async request(action,params) { calls++; return request(action,params) },
-        ...(goong ? { goong } : {}),
-        ...(google ? { google } : {}),
-      })
+      }, goong, google))
       const saved = await rpc('map_r1_complete',{p_id:row.job_id,p_lease:lease,p_result:result})
       if (!saved) { summary.failed++; continue }
       summary.processed++
