@@ -12,7 +12,7 @@
 ## 2. 다음 할 일 3개
 1. Facebook 쿠키 갱신 후 crawl-facebook-one dryrun → 박닌 1건 save(위치 확인 Google 먼저 적용 첫 실전).
 2. Muaban 로그인 없이 읽기·번호 노출 시험(chotot_probe 방식, 저장 없음).
-3. 상세 화면 읽기 도구(GitHub 서버에서 운영 상세 열어 글 전체+PC·모바일 화면 남김) 만들지 Lee 결정 대기 — 이 세션은 viecganban.vn 접속·WebFetch 막힘, Chrome 미연결. 등록 후 상세 화면 확인은 작업자가 직접(Lee 캡처 요청 금지, Lee 11-06). / Haidilao 출처 받아 등록(일반 Google 지도 위치 확인 먼저).
+3. 등록 후 상세 화면은 작업자가 직접 읽는다(Lee 캡처 요청 금지, Lee 11-06): GitHub 「상세 화면 읽기」(detail-read.yml, 입력 job_ids) → 로그에 PC·모바일 화면 글 전체, 사진은 첨부. / Haidilao 출처 받아 등록(일반 Google 지도 위치 확인 먼저).
 
 ## 3. 필수 규칙
 - 시키면 바로 실행(Lee 11-06). 운영 DB 직접 SQL·번호 지정 덮어쓰기 금지, STRICT만 승인.
