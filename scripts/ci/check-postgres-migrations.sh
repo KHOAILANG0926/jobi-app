@@ -175,6 +175,26 @@ SQL
     fi
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261107070000_job_duplicate_check.sql' ]]; then
+    echo "PostgreSQL duplicate check (Lee 2026-11-07): company codes + needed columns, then $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+create schema if not exists auth;
+create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
+create or replace function public.is_admin() returns boolean language sql stable as 'select false';
+alter table public.local_jobs
+  add column if not exists title text, add column if not exists occupation_code text,
+  add column if not exists active boolean not null default true, add column if not exists admin_hidden boolean not null default false,
+  add column if not exists created_at timestamptz not null default now();
+alter table public.job_work_locations
+  add column if not exists point_kind text not null default 'unresolved', add column if not exists point_authority text not null default 'unresolved';
+SQL
+    if ! psql "$PG_TEST_URL" -X -At -c "select to_regclass('public.job_companies') is not null" | grep -q t; then
+      psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261106230000_job_company_codes.sql
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_duplicate_check_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done
