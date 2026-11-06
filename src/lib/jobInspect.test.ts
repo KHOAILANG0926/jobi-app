@@ -111,3 +111,12 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(!short.items.find((i) => i.key === 'junk')!.ok, '값 없는 짧은 이름표는 계속 잡음')
   console.log('jobInspect.test.ts: 모집 소개 줄(… tuyển gấp:) 검사 통과')
 }
+
+// 2026-11-06 Lee OK: 바로 아래가 글머리 목록인 "~:" 줄은 목록 제목(#5506 "🌟 CƠ CHẾ … DÀNH CHO BẠN:") — 빈 이름표 아님.
+{
+  const r = inspectJob({ id: 15, description: 'Quyền lợi\n🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:\n• Lương ổn định: 8 – 15 TRIỆU/tháng\n• Đào tạo bài bản', pin: 'area', category: 'kinh_doanh', occupation_code: '3334', active: true })
+  assert(r.items.find((i) => i.key === 'junk')!.ok, '목록 제목 줄은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
+  const empty = inspectJob({ id: 16, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!empty.items.find((i) => i.key === 'junk')!.ok, '아래가 목록이 아니면 계속 빈 이름표')
+  console.log('jobInspect.test.ts: 목록 제목 줄(~: + 글머리) 검사 통과')
+}
