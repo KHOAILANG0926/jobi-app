@@ -1,0 +1,24 @@
+name: Chợ Tốt 박닌 읽기 시험 (저장 없음)
+
+# Lee 2026-11-06 "2번(Chợ Tốt) 먼저 하자": 수집기를 만들기 전에 VPS에서 로그인 없이
+# 박닌 목록·상세·전화번호를 읽을 수 있는지만 본다. DB 저장 없음, 키 사용 없음, 정기 실행 없음(수동만).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crawl-chotot-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    # 베트남 IP(AZDIGI VPS)에서 실제 수집과 같은 조건으로 확인.
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: 읽기 시험(요청 몇 번, 2~4초 간격)
+        working-directory: crawler
+        run: python3 -u chotot_probe.py
