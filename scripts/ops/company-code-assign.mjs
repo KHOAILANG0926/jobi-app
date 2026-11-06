@@ -41,10 +41,16 @@ try {
         company = ins[0]; stat.newCompany++
       }
     } else if (phones.length) {
-      const { rows } = await client.query('select company_id as id from public.job_company_phones where phone = any($1) order by company_id limit 1', [phones])
+      const { rows } = await client.query('select c.id, c.kind from public.job_company_phones p join public.job_companies c on c.id = p.company_id where p.phone = any($1) order by c.id limit 1', [phones])
       company = rows[0] ?? null
+      if (!company) {
+        // 회사 이름 없는 공고: 사장 번호가 곧 회사(Lee 2026-11-06). 핵심 이름 = "p" + 첫 번호.
+        const { rows: ins } = await client.query('insert into public.job_companies(core, kind) values ($1, $2) on conflict do nothing returning id, kind', ['p' + phones[0], kind])
+        company = ins[0] ?? (await client.query('select id, kind from public.job_companies where core = $1 order by id limit 1', ['p' + phones[0]])).rows[0]
+        if (ins[0]) stat.newCompany++
+      }
     }
-    if (!company) { stat.skipped++; out.push(`- sb-${j.id} 건너뜀: 회사 이름 없음·번호로 찾은 회사 없음 (${j.title?.slice(0, 60) ?? ''})`); continue }
+    if (!company) { stat.skipped++; out.push(`- sb-${j.id} 건너뜀: 회사 이름·전화번호 둘 다 없음 (${j.title?.slice(0, 60) ?? ''})`); continue }
     if (String(j.company ?? '').trim()) await client.query('insert into public.job_company_names(company_id, raw_name) values ($1, $2) on conflict do nothing', [company.id, String(j.company).trim()])
     for (const p of phones) await client.query('insert into public.job_company_phones(company_id, phone) values ($1, $2) on conflict do nothing', [company.id, p])
     await client.query('insert into public.job_company_branches(company_id, branch) values ($1, $2) on conflict do nothing', [company.id, branch])
