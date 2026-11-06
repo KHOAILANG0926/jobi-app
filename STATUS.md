@@ -3,14 +3,14 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-05 10:46 (VN)**
-- 기준 커밋: `5c83dbb` (feat(detail): enlarge the header company photo on click (#466))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/41963488297
+- 생성 시각: **2026-11-06 10:42 (VN)**
+- 기준 커밋: `cbb3bd8` (ci(crawl): Facebook 1건 수집을 AZDIGI VPS 실행기에서 — 로그인 IP와 같게 (Lee 2026-11-06) (#476))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/42158005253
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 6건**
+**확인 필요 8건**
 
 - 핀 #4824: ❌ 공고 주소에 번지 없음
 - 핀 #4824: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
@@ -18,40 +18,42 @@
 - 핀 #4878: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 - 핀 #5368: ❌ 공고 주소에 번지 없음
 - 핀 #5368: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
+- 핀 #5438: ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인)
+- 핀 #5438: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 109/109 파일 통과 |
+| 테스트 `npm test` | ✅ 113/113 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `5c83dbb` · 상태 **success** · 2026-11-05 08:02 (VN)
-- master 최신 커밋과 ✅ 같음
+- 마지막 Production 배포: `378d46b` · 상태 **success** · 2026-11-06 07:10 (VN)
+- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #476 | 2026-11-06 10:29 (VN) | `cbb3bd8` | ci(crawl): Facebook 1건 수집을 AZDIGI VPS 실행기에서 — 로그인 IP와 같게 (Lee 2026-11-06) |
+| #475 | 2026-11-06 07:09 (VN) | `378d46b` | feat(crawl): 수집 첫 단계 = 위치 확인 — 못 찾으면 등록 안 함 (Lee 2026-11-06) |
+| #474 | 2026-11-06 07:03 (VN) | `d51ce5b` | docs(rules): 수집 첫 단계 = 위치 확인, 못 찾으면 수집 안 함 (Lee 2026-11-06 최우선) |
+| #473 | 2026-11-06 06:48 (VN) | `6944c6e` | docs(rules): 위치 절차 "구글을 따라" 개정 + HANDOFF/WORK_LOG (Lee 2026-11-06) |
+| #472 | 2026-11-06 06:35 (VN) | `1e019d0` | fix(location): 성 경계 단순화 오차 허용 — Google이 찾은 Yên Phong 공장이 '성 밖'으로 탈락하던 문제 (Lee 2026-11-06) |
+| #471 | 2026-11-06 06:11 (VN) | `8b6be39` | fix(location): Google이 회사를 알면 Google 장소를 따른다 — 검색어를 Google 버튼과 같게 (Lee 2026-11-06) |
+| #469 | 2026-11-05 16:37 (VN) | `8f2d718` | fix(process): 사진 처리 미완료를 완료로 보고하지 못하도록 검증 |
+| #468 | 2026-11-05 13:30 (VN) | `c35e555` | fix(jobs): 공고 요약·위치 절차 및 기존 공개 유지 |
+| #467 | 2026-11-05 11:38 (VN) | `8320df5` | fix(map): WebGL2 초기화 실패 시 2D 지도로 전환해 PC 흰 화면 방지 |
 | #466 | 2026-11-05 08:00 (VN) | `5c83dbb` | feat(detail): 상단 회사 사진 클릭 확대 |
-| #465 | 2026-11-05 06:14 (VN) | `8b3a118` | fix(images): 대표 사진에 images[0] 공통 대체 순서 적용 |
-| #463 | 2026-11-04 18:33 (VN) | `750ebcf` | docs(handoff): 11-04 저녁 GPT 인수인계 |
-| #462 | 2026-11-04 17:30 (VN) | `e196ce2` | fix(detail): 근무조건 한쪽 칸 비면 나눠 채움 |
-| #461 | 2026-11-04 15:50 (VN) | `30567bb` | fix(detail): 상세요강 칸 나누기 고침(Lee '다 고치고') |
-| #460 | 2026-11-04 15:30 (VN) | `204c018` | docs(handoff): 11-04 오후 기록 |
-| #459 | 2026-11-04 15:18 (VN) | `66041cd` | feat(detail): 상세요강에서 필요 없는 줄 거르기(Lee 적용) |
-| #458 | 2026-11-04 13:09 (VN) | `ab72573` | ops(jobs): #5437 포스터 옮김 중복 제거 |
-| #457 | 2026-11-04 12:44 (VN) | `412735e` | ops(jobs): #5438 근무지 건물 사진 넣기 |
-| #456 | 2026-11-04 12:27 (VN) | `e97ee32` | ops(jobs): #5437 신청 링크 줄 붙임 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
 - 공개 중: **16건** (전체 19건, 숨김·비활성 3건)
-- 출처별: muaban 2 · manual 2 · 출처 없음 11 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 출처별: 출처 없음 11 · muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -62,6 +64,7 @@
 | #4824 | 2026-10-26 06:52 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
 | #4878 | 2026-10-30 11:09 (VN) | ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인) | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | 33 ly thai to | — | — |
 | #5368 | 2026-11-03 23:20 (VN) | ❌ 공고 주소에 번지 없음 | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | — | — | — |
+| #5438 | 2026-11-06 06:40 (VN) | ⚠️ 근거에 번지 없음 (회사명 일치 규칙으로 승인) | ⚠️ 재확인 불가 (근거에 VietMap ref 없음) | 2 va cn | — | — |
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
@@ -78,16 +81,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-05 08:05 (VN) | location_candidate.approve | job 5470 |
-| 2026-11-05 08:05 (VN) | location_candidate.add | job 5470 |
-| 2026-11-05 06:15 (VN) | location_candidate.approve | job 5467 |
-| 2026-11-05 06:15 (VN) | location_candidate.add | job 5467 |
-| 2026-11-04 18:34 (VN) | location_candidate.approve | job 5464 |
-| 2026-11-04 18:34 (VN) | location_candidate.add | job 5464 |
-| 2026-11-04 17:31 (VN) | location_candidate.approve | job 5461 |
-| 2026-11-04 17:31 (VN) | location_candidate.add | job 5461 |
-| 2026-11-04 15:51 (VN) | location_candidate.approve | job 5458 |
-| 2026-11-04 15:51 (VN) | location_candidate.add | job 5458 |
+| 2026-11-06 10:30 (VN) | location_candidate.approve | job 5497 |
+| 2026-11-06 10:30 (VN) | location_candidate.add | job 5497 |
+| 2026-11-06 07:10 (VN) | location_candidate.approve | job 5494 |
+| 2026-11-06 07:10 (VN) | location_candidate.add | job 5494 |
+| 2026-11-06 07:04 (VN) | location_candidate.approve | job 5490 |
+| 2026-11-06 07:04 (VN) | location_candidate.add | job 5490 |
+| 2026-11-06 06:49 (VN) | location_candidate.approve | job 5488 |
+| 2026-11-06 06:49 (VN) | location_candidate.add | job 5488 |
+| 2026-11-06 06:40 (VN) | location_candidate.approve | job 5438 |
+| 2026-11-06 06:40 (VN) | location_candidate.add | job 5438 |
 
 ## 8. 검증 장치 변경 이력
 
