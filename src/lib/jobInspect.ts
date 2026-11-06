@@ -181,7 +181,8 @@ export function publishDecision(
   j: { active?: boolean | null; admin_hidden?: boolean | null; hold?: boolean | null; application_deadline?: string | Date | null },
   today = new Date().toISOString().slice(0, 10),
 ): { publishable: boolean; active: boolean } {
-  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || i.ok)
+  // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
+  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
   if (!publishable) {
     // Preserve an existing public posting during rollout, but do not issue a
     // reusable publication proof: hiding it later must require a strict pass.
