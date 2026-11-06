@@ -1,3 +1,9 @@
+## 2026-11-06 23:20 — 중복 2단계: 회사·지점 분리, 업종 맞음 규칙, 회사 코드표 변경안 (Claude)
+- 요청: Lee "회사는 따로, 지점은 따로", "보류는 해결될 때까지 놔둬", "진행하자".
+- 1단계 결과 [직접 확인 dup-count run 42245834965]: 공개 19건 중복 0, 회사만 같은 쌍 0(19건 모두 다른 회사). 허점 3개 발견: 지점명이 회사에 붙음(Highlands Mường Thanh), 동 이름 안 빠짐(Regal Edu Vân Dương), 업종 흔들림(Trung Nguyên Legend).
+- 변경: src/lib/jobIdentity.ts companyCore → {core, kind, branch}(구분자·이름 뒤 가게 종류 낱말 뒤·끝에 붙은 성·군·동(옛 이름 포함)은 지점), kindsCompatible(큰 분류↔그 아래 소분류 같음, 소분류끼리 다르면 다른 회사). 흔한 동 이름(Thanh·Bảo An·Trung Nguyên)이 이름 가운데면 안 뗌. supabase/pending/company-code-20261106/01-schema-dryrun.sql(회사·이름·번호·지점 표, local_jobs.company_id 빈 칸) — 적용 전 Lee 승인.
+- 검증: jobIdentity.test.ts 통과, 공개 19건 이름 대조.
+
 ## 2026-11-06 22:30 — 중복 기준 확정·1단계 중복 세기 도구 (Claude)
 - 요청: Lee "같은 공고 두 번 안 올라오게 하는 프로세스가 제대로 작동하는지", "회사·하는 일·위치 같으면 중복", "기존 것도 다", "순서대로 제대로".
 - 확인 [직접 확인: supabase/migrations/20261029010000_ingest_one_door.sql find_existing, crawler/crawl_facebook.py filter_new_jobs, scripts/ocr/detail-fill.mjs]: 입구는 링크 같음·(전화+회사+원문 md5) 같음만 잡음. Facebook 수집기 사전 비교는 [source:facebook] 표식 행만 보는데 11-01 이후 상세 정리가 글을 다시 써 표식이 빠짐 → 사실상 고장. 운영 중복 수 검사 없음.
@@ -47,14 +53,3 @@
 - 남은 문제: 이 Claude 환경은 viecganban.vn·Supabase 직접 접속 403 → PC·모바일 화면 직접 확인 못 함. "Google도 모르는 공고 수집 안 함" 자동 차단 미구현.
 
 ## (이전 HANDOFF 2026-11-05 사진 처리 판정 스냅샷 보관)
-
-## 1. 현재 상태
-- 사용자 최신 지시: "일단 프로세서 수정해". 이번 작업은 사진 처리/완료 보고 경로 수정. Regal Edu 개별 사진 선택·교체·DB 데이터 보정은 하지 않음.
-- 기준 master c35e555 (#468 운영 반영 완료, 단위112/112 및 운영 deploy-verify41980985224 성공은 이전 작업 직접 확인 기록).
-- 원인: logo_check=found_unstored도 검사 통과했고, 등록 입구가 검색 기록을 제거한 뒤 사진 상태 없이 SQL만 출력. 코드·등록 성공을 실제 업체 사진 완료로 잘못 보고할 수 있었음.
-- 수정: found_unstored 항상 미완료 경고. 등록 SQL 생성은 유지하면서 다음 사진 단계를 출력. source-only 미완료 목록을 CI artifact로 보관(운영 검증 아님).
-- 사진 완료 주장에는 공식 출처/선택 이미지/회사·지점 확인 근거/저장 주소/등록 결과 공고번호/운영 URL 필요. 실제 검증기가 원본·저장 해시, 실제 공고ID·제목·회사·최종URL, 대표 이미지 URL·디코딩을1366/390px에서 확인하고 원본/상세 캡처+JSON 남김. 실제 검사 성공만 complete=true.
-- 공고 JSON PR은 사진 처리 미완료/완료 명시. 미완료는 등록을 막지 않음. 완료는 필수 checks와 app-screen이 실제 검증. 본문만 완료로 변경해도 edited 이벤트로 재검증. 같은 회사 다른 공고로 대체 검증 금지.
-- 강제 범위: 수동 ingest-sql 및 공고 JSON PR 완료 주장. 자동 검색·저장 또는 모든 DB/API 경로에 동기 차단을 구현했다고 주장하지 않음. 지점 의미 판별은 원본 화면·확인 근거의 사람 대조가 필요.
-- [직접 확인] found_unstored 통과·같은 회사 다른 공고 통과 재현 실패→수정. 핵심/PR/등록 출력 시험 통과. 격리 실제 Chromium에서 원본·저장·실제 DOM·이미지 디코딩·기본사진 거부·다른공고 거부·POST 차단·1366/390px 통과. 전체 단위112/112·타입·빌드·baseline8/8 통과. 독립 검토 Important2건 보완 후 추가 Critical/Important 없음.
-- GitHub 연결 도구 커밋·PR·필수 검사·기존 봇 병합 진행 예정. 로컬 push 금지 준수. 앱 화면/CSS/공고 사진/DB 변경 없음.

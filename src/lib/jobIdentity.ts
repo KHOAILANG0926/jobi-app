@@ -1,5 +1,5 @@
 // 공고 중복 기준 (Lee 2026-11-06): 글이 같은지가 아니라 "같은 회사 · 같은 일 · 같은 위치"면 사실상 중복이다.
-//  - 회사 = 핵심 이름(회사 형태·가게 종류·지역·지점 낱말을 뺀 이름) + 업종(가게 종류 소분류). 이름이 같아도 업종이 다르면 다른 회사
+//  - 회사 = 핵심 이름(회사 형태·가게 종류를 빼고, 지역·지점명은 지점 칸으로 뗀 이름) + 업종(가게 종류 소분류). 지점은 따로(지점명·위치). 이름이 같아도 업종이 다르면 다른 회사
 //    (카페와 식당은 따로 — 사이트 소분류 Quán cà phê / Nhà hàng). 업종은 가게 종류로만 나누고 하는 일(서빙·요리)로는 나누지 않는다.
 //    한쪽에 회사 이름이 없으면 전화·Zalo 번호로 같은 회사를 본다. 양쪽 이름이 있는데 다르면 번호가 같아도 다른 회사(인력업체 번호 공유).
 //  - 하는 일 = 공식 직업분류 코드. 둘 다 세부(4자리 이상)면 같아야 하고, 한쪽이라도 큰 분류뿐이면 첫 자리만 비교.
@@ -7,6 +7,9 @@
 // 이 파일은 계산만 한다(읽기 전용). 등록 입구·DB 규칙 변경은 별도 단계(승인 필요).
 import { VN_PROVINCES } from '../data/vnProvinces'
 import { VN_DISTRICTS_BY_PROVINCE } from '../data/vnDistricts'
+import { VN_WARDS_BY_PROVINCE } from '../data/vnWards'
+import { VN_OLD_WARDS_BY_PROVINCE } from '../data/vnOldWards'
+import { SUBCATEGORY_LABELS } from '../data/subcategories'
 
 export function fold(s: string | null | undefined): string {
   return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase()
@@ -14,8 +17,6 @@ export function fold(s: string | null | undefined): string {
 
 // 회사 형태
 const LEGAL = ['cong ty', 'cty', 'ct', 'tnhh', 'mtv', 'co phan', 'cp', 'jsc', 'co ltd', 'co., ltd', 'ltd', 'limited', 'corporation', 'corp', 'group', 'tap doan', 'tong cong ty', 'doanh nghiep', 'dntn', 'hkd', 'ho kinh doanh']
-// 지점 표시
-const BRANCH = ['chi nhanh', 'co so', 'cn', 'cs', 'van phong dai dien', 'vpdd']
 // 가게 종류 낱말 → 업종(사이트 소분류 키). 이름에서는 빼고 업종으로 쓴다.
 const KIND_WORDS: Array<[string, string]> = [
   ['tra sua', 'quan_ca_phe'], ['ca phe', 'quan_ca_phe'], ['cafe', 'quan_ca_phe'], ['coffee', 'quan_ca_phe'], ['cofe', 'quan_ca_phe'],
@@ -34,26 +35,61 @@ const KIND_SUBCATEGORIES = new Set([
   'noi_that', 'do_gia_dung', 'nha_sach_van_phong_pham', 'nong_san_thuy_san', 'cua_hang_hoa', 'quan_net', 'karaoke', 'bowling_billiard', 'ca_phe_chu_de',
   'ca_phe_tre_em', 'sauna_spa', 'gym_the_thao', 'khach_san_resort', 'cong_vien_giai_tri', 'rap_chieu_phim', 'cay_xang_rua_xe', 'toc_lam_dep_nail', 'cham_soc_da_massage',
 ])
-const ADMIN_PREFIX = /^(thanh pho|tinh|thi xa|thi tran|huyen|quan|phuong|xa)\s+/
-const PLACES: string[] = (() => {
-  const out = new Set<string>(['viet nam', 'vietnam', 'vn', 'ha noi', 'hn', 'hcm', 'tp hcm', 'sai gon', 'bac ninh', 'bac giang'])
-  const add = (n: string) => { const f = fold(n).replace(ADMIN_PREFIX, '').trim(); if (f.length >= 3) out.add(f) }
+const ADMIN_PREFIX = /^(thanh pho|tinh|thi xa|thi tran|huyen|quan|phuong|xa|dac khu)\s+/
+const toks = (s: string) => s.split(/\s+/).filter(Boolean)
+// 지역 이름(성·군·동) — 회사 이름에서 떼어 지점 칸으로 옮긴다(Lee 2026-11-06: 회사는 따로, 지점은 따로).
+const PLACES: string[][] = (() => {
+  const out = new Set<string>(['viet nam', 'vietnam', 'vn', 'ha noi', 'hn', 'hcm', 'tp hcm', 'sai gon', 'bac ninh', 'bac giang', 'kinh bac'])
+  const add = (n: string) => { const f = fold(n).replace(ADMIN_PREFIX, '').replace(/\s+/g, ' ').trim(); if (f.length >= 3) out.add(f) }
   for (const p of VN_PROVINCES) add(p)
   for (const ds of Object.values(VN_DISTRICTS_BY_PROVINCE)) for (const d of ds) add(d)
-  return [...out].sort((a, b) => b.length - a.length)
+  for (const ws of Object.values(VN_WARDS_BY_PROVINCE)) for (const w of ws) add(w)
+  for (const ws of Object.values(VN_OLD_WARDS_BY_PROVINCE)) for (const [w, d] of ws) { add(w); add(d) }   // 옛 동·군(2025-07 이전) — 공고 글은 옛 이름을 많이 씀
+  return [...out].map(toks).sort((x, y) => y.length - x.length)
 })()
+const LEGAL_T = LEGAL.map((w) => toks(w.replace(/[.,]/g, ' '))).sort((x, y) => y.length - x.length)
+const KIND_T = KIND_WORDS.map(([w, k]) => [toks(w), k] as [string[], string]).sort((x, y) => y[0].length - x[0].length)
+const at = (t: string[], i: number, ph: string[]) => ph.every((w, k) => t[i + k] === w)
 
-const word = (w: string) => new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+')}(?=$|[^a-z0-9])`, 'g')
-
-/** 회사 이름에서 핵심 이름과 이름에 붙은 가게 종류를 뽑는다. 예: "Lẩu Haidilao Bắc Ninh" → { core: 'haidilao', kind: 'nha_hang' } */
-export function companyCore(name: string | null | undefined): { core: string; kind: string | null } {
-  let s = ' ' + fold(name).replace(/[()[\]"'“”.,&/\\|–—-]/g, ' ') + ' '
+/**
+ * 회사 이름 → 핵심 이름(회사) · 가게 종류(업종) · 지점명(지점 칸).
+ *  예: "Highlands Coffee Mường Thanh Bắc Ninh" → { core: 'highlands', kind: 'quan_ca_phe', branch: 'muong thanh bac ninh' }
+ *  - "-", "–", "|", "(", "Chi nhánh", "Cơ sở", "CN", "CS" 뒤는 지점명.
+ *  - 이름 뒤에 붙은 가게 종류 낱말 다음은 지점명("Highlands Coffee | Mường Thanh"). 앞에 붙으면 뒤가 이름("Nhà hàng | Thanh Phệ").
+ *  - 이름 끝에 붙은 성·군·동 이름은 지점명으로 옮긴다(가운데·앞은 회사 이름 일부라 둔다, 핵심이 비면 안 됨).
+ */
+export function companyCore(name: string | null | undefined): { core: string; kind: string | null; branch: string } {
+  let raw = ' ' + fold(name) + ' '
+  const branchParts: string[] = []
+  const cut = raw.search(/\s[-–—|]\s|[–—|(]|\s(chi nhanh|co so|cn|cs|van phong dai dien|vpdd)[\s.:]/)
+  if (cut > 0) { branchParts.push(raw.slice(cut)); raw = raw.slice(0, cut) }
+  let t = toks(raw.replace(/[()[\]"'“”.,&/\\:]/g, ' '))
+  // 회사 형태 빼기
+  t = t.filter((_, i, arr) => !LEGAL_T.some((ph) => ph.some((__, k) => i - k >= 0 && at(arr, i - k, ph))))
+  // 가게 종류
   let kind: string | null = null
-  for (const [w, k] of KIND_WORDS) { const re = word(w); if (re.test(s)) { if (!kind || kind === 'cua_hang' || kind === 'quan') kind = k; s = s.replace(word(w), ' ') } }
-  for (const w of [...LEGAL, ...BRANCH]) s = s.replace(word(w), ' ')
-  for (const p of PLACES) s = s.replace(word(p), ' ')
-  const core = s.replace(/[^a-z0-9]/g, '')
-  return { core, kind }
+  const kept: string[] = []
+  for (let i = 0; i < t.length; ) {
+    const hit = KIND_T.find(([ph]) => at(t, i, ph))
+    if (hit) {
+      if (!kind || kind === 'cua_hang' || kind === 'quan') kind = hit[1]
+      i += hit[0].length
+      if (kept.length && i < t.length) { branchParts.push(t.slice(i).join(' ')); break }   // 이름 뒤 가게 종류 → 나머지는 지점명
+      continue
+    }
+    kept.push(t[i]); i++
+  }
+  // 지역 이름 → 지점명: 이름 끝에 붙은 것만 뗀다(예: "Wallace Bắc Ninh"). 흔한 동 이름("Thanh", "Bảo An", "Trung Nguyên")이
+  // 이름 가운데·앞에 있으면 회사 이름 일부라 그대로 둔다. 이름이 지역 이름뿐이면 비우지 않는다.
+  const nameToks = [...kept]; const tail: string[] = []
+  for (;;) {
+    const ph = PLACES.find((p) => p.length < nameToks.length && at(nameToks, nameToks.length - p.length, p))
+    if (!ph) break
+    tail.unshift(ph.join(' ')); nameToks.splice(nameToks.length - ph.length)
+  }
+  if (tail.length) branchParts.unshift(tail.join(' '))
+  const branch = branchParts.join(' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  return { core: nameToks.join('').replace(/[^a-z0-9]/g, ''), kind, branch }
 }
 
 /** 업종: 이름의 가게 종류 낱말 → 가게 종류 소분류 → 큰 분류. */
@@ -80,9 +116,29 @@ export interface IdentityJob {
   points?: Array<{ lat?: number | null; lng?: number | null; point_kind?: string | null; industrial_park?: string | null }>
 }
 
+// 소분류 → 큰 분류
+const SUB_TO_CAT: Record<string, string> = Object.fromEntries(Object.entries(SUBCATEGORY_LABELS).flatMap(([cat, subs]) => Object.keys(subs ?? {}).map((k) => [k, cat])))
+const CATEGORIES = new Set(Object.keys(SUBCATEGORY_LABELS))
+/**
+ * 업종이 서로 맞는지 (Lee 2026-11-06). 같은 회사가 공고마다 다른 업종으로 잡히는 걸 막는다.
+ *  - 큰 분류("음식·음료")와 그 아래 소분류("카페")는 맞음. 소분류끼리 다르면(카페 ≠ 식당) 다른 회사.
+ *  - "가게"·"quán"처럼 종류가 흐린 낱말, 업종 없음은 무엇과도 맞음.
+ *  - 이름 낱말에서 나온 소분류 밖 업종(부동산·치과 등)은 어느 큰 분류와도 맞고, 다른 구체 업종과만 다름.
+ */
+export function kindsCompatible(a: string, b: string): boolean {
+  if (a === b || !a || !b) return true
+  const vague = (k: string) => k === 'cua_hang' || k === 'quan'
+  if (vague(a) || vague(b)) return true
+  const catA = CATEGORIES.has(a), catB = CATEGORIES.has(b)
+  if (catA && catB) return false
+  if (catA) return !SUB_TO_CAT[b] || SUB_TO_CAT[b] === a
+  if (catB) return !SUB_TO_CAT[a] || SUB_TO_CAT[a] === b
+  return false
+}
+
 export function sameCompany(a: IdentityJob, b: IdentityJob): boolean {
   const ca = companyCore(a.company).core, cb = companyCore(b.company).core
-  if (ca && cb) return ca === cb && businessKind(a) === businessKind(b)
+  if (ca && cb) return ca === cb && kindsCompatible(businessKind(a), businessKind(b))
   const pa = phoneKeys(a.employer_phone, a.contact_zalo), pb = new Set(phoneKeys(b.employer_phone, b.contact_zalo))
   return pa.some((p) => pb.has(p))
 }
