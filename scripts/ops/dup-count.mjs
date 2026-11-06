@@ -3,7 +3,7 @@
 //   공개 조회(anon, 사이트 번들에 공개된 키)로 공개 공고와 근무지 점을 읽어 src/lib/jobIdentity.ts 기준으로 묶는다.
 //   쓰기·숨김·합치기 없음. 비공개(숨김·보류) 공고는 공개 조회로 안 보이므로 범위 밖(결과에 적는다).
 import { appendFileSync, readFileSync } from 'node:fs'
-import { duplicateGroups, companyCore, businessKind } from '../../src/lib/jobIdentity.ts'
+import { duplicateGroups, companyCore, businessKind, sameCompany } from '../../src/lib/jobIdentity.ts'
 
 const src = readFileSync(new URL('../../src/lib/supabase.ts', import.meta.url), 'utf8')
 const URL_ = src.match(/https:\/\/[a-z0-9]+\.supabase\.co/)?.[0]
@@ -30,6 +30,9 @@ for (let i = 0; i < ids.length; i += 100) {
 }
 const list = [...byId.values()]
 const { duplicates, unknownLocation } = duplicateGroups(list)
+// 근거 확인용: 회사만 같은 쌍(일·위치 무관) — 0건이 기준 탓인지 실제인지 보려고
+const sameCo = []
+for (let i = 0; i < list.length; i++) for (let k = i + 1; k < list.length; k++) if (sameCompany(list[i], list[k])) sameCo.push([list[i].id, list[k].id])
 
 const site = 'https://viecganban.vn/viec-lam/sb-'
 const line = (id) => { const j = byId.get(id); const pt = j.points.find((p) => p.lat != null)
@@ -44,6 +47,10 @@ out.push('### 중복 묶음')
 duplicates.forEach((g, i) => { out.push(`${i + 1}.`); g.forEach((id) => out.push(line(id))) })
 out.push('', '### 위치 판단 불가 쌍')
 unknownLocation.forEach(([a, b], i) => { out.push(`${i + 1}.`); out.push(line(a)); out.push(line(b)) })
+out.push('', `### 회사만 같은 쌍(참고): ${sameCo.length}쌍`)
+sameCo.forEach(([a, b], i) => { out.push(`${i + 1}.`); out.push(line(a)); out.push(line(b)) })
+out.push('', `### 공개 공고 전체 ${list.length}건과 비교 값`)
+list.forEach((j) => out.push(line(j.id)))
 const text = out.join('\n')
 console.log(text)
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text + '\n')
