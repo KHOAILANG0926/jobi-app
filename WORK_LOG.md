@@ -1,3 +1,10 @@
+## 2026-11-06 17:00 — #5506 빈 이름표 원인·검사기 수정 (Claude)
+- 요청: Lee "어쩌라고?" → Phúc Lộc 비공개 원인 찾아 고침.
+- 원인 [직접 확인]: ocr 04:42 run 42163969733 "#5506 칸 17줄"(AI 줄 칸 지정) → 원문에서 다시 만들 때 글머리 줄이 다른 칸으로 가서 화면 순서에선 "🌟 CƠ CHẾ … :" 아래가 목록이 아님. #485 예외는 화면 바로 아래 줄만 봐서 못 잡음.
+- 변경: src/lib/jobInspect.ts 원문(source_text) 순서에서도 바로 아래가 글머리면 목록 제목. src/lib/jobInspect.test.ts 사례 2개(통과/계속 잡음).
+- 검증 [직접 확인]: jobInspect·realJobs·postingCompleteness·jobMultiRole·fushanSource 시험 통과(새 시험은 이전 코드에서 실패).
+- 남은 문제: 병합 후 검사표에서 #5506 해소·공개 확인.
+
 ## 2026-11-06 15:50 — Google 먼저·위치 프로세스·박닌 3건 공개 처리·크롤링 소스 점검 (Claude)
 - 요청: Lee "바로 구글로", "프로세스 정립 진행해", "나머지 항목 등록해", "2번(Chợ Tốt) 먼저", "박닌 1건 진행 크롤링".
 - 변경: #480 범위 금액 단위, #482 비교 검색 extra 1건만, #483 #5506·#5507 화면 글 정리·보류 공고 재대조(v3), #484 필수 누락 경고만 공개, #485 목록 제목 줄 예외·#5507 원문 정리, #486 #5506 원문 정리, #481 상세 빈 칸 상자 빠짐·연락 버튼 별도, #488 Google 먼저, #489 위치 확인 프로세스·비교 검색 차단, #487·#490 Chợ Tốt 읽기 시험.
@@ -52,21 +59,3 @@
 - 최초 PR#468/9d2a3cb의 GitHub 필수 검사 전부 통과, Preview READY와 실제 #5438 SSR 요약 나이·경력·중국어·CV 확인.
 - 적용 영향 확인: job-inspect가 필수9개 누락을 기존 공개 공고에도 소급 적용해 내릴 수 있어, 병합 전 draft 유지하고 보완. 기존 공개는 새 필수항목 누락 경고만, 신규·보류 및 숨김→공개는 반드시 통과해야 함. 전환 모드 기존 inspect JSON에 보관, DB스키마/번호 지정 보정 없음. 다른 공개 규칙은 그대로.
 - [직접 확인] 기존 공개 유지 시험 실패→수정 후 통과. 전체112/112·타입·빌드·baseline8/8 통과. 독립 검토 지적 수정: 기존 공개 유지 시에도 필수값 부족하면 재공개 증거(publishable)는 false로 기록. 수정 커밋 후 최종 CI·기존 봇 병합·운영 READY/도메인SHA·deploy-verify 순서 진행.
-
-## 2026-11-05 — 위치·상세 처리 결함 수정 미리보기 (Codex)
-- 요청: #5438 지도와 상세 작성 프로세스 원인 조사 후 "수정하고 보여줘, 본 다음 운영 적용 결정". 운영 반영·병합·DB 수정 없음.
-- 변경: 기존 age_min/max·원문 나이/경력/언어/CV를 최신 틀의 공통 Job 매핑에서 요약 표시. 공개/SSR/기업/등록 응답 경로의 기존 나이 열 읽기 연결. 구조화 값 우선, 불명확·없는 값 추정 없음, 기존 틀/하단 원문·사진 유지.
-- 위치: 산업단지 Google 주소 검색 생략 제거, Google 좌표 대신 얻은 주소를 VietMap/Goong 기존 주소 판정으로 검증. 원래 canonical 대상 유지, 복원 주소는 result/evidence 보관(이미 게시된 공고의 주소/좌표는 관리자 확정 대상). 제공자 실패 원인 보관, 전체 실행에서 실제 호출 VietMap2/Goong3/Google1 상한. 실제 #5438 위치 수정 없음.
-- 강제 검사: job-inspect worker에 필수 9개 명시값 전달, 누락이면 기존 publishDecision이 공개 보류. 운영 worker 실행하지 않음. 미리보기는 읽기 전용 화면, 자동 작업/DB 변경 경로 실행 없음.
-- [직접 확인] 재현 시험 실패 후 구현, 단위112/112·tsc·build·PC/모바일 요약 연결/원문 보존/넘침 없음·desktop baseline8/8 통과. 최신 호출 상한 수정 후 최종 재검사도 통과. 독립 리뷰 신규 Critical/Important 없음, 지적된 호출 상한도 시험 후 수정.
-- 상태: demo/job-process-preview 브랜치 생성. GitHub 연결 도구로 커밋/draft PR·Preview 준비, 사용자 검토 전 병합/운영 반영 금지.
-
-## 2026-11-05 — WebGL2 미지원 PC 흰 화면 수정 (Codex)
-- 요청/근거: Lee 운영 PC 흰 화면 및 콘솔 GPUInitializationError: WebGL2 is required … DesktopGeoapifyMapCanvas. 별도 허락 요청 없이 원인 확인·수정·검사·기존 봇 병합·운영 반영.
-- 원인 [직접 확인]: 운영 HTML/초기 JS·지도 JS/CSS 모두200. 실제 실행 파일로 기본 화면 로딩 확인, 최종 사용자 콘솔로 GPU 초기화 예외 확인. WebGL context를 null로 만든 격리 브라우저에서 같은 오류3개가 React 밖으로 전파돼 페이지가 사라짐 재현.
-- 변경: PC Geoapify 초기화 예외 catch, 모바일의 기존 catch도 공용 RasterMapCanvas로 전환. Leaflet+기존 Geoapify raster tile endpoint, WebGL 불필요. 기존 canonical 좌표·정확도·핀 묶음/클릭·반경·지도 범위/카메라·급여 필터 연결 유지. 모든 타일이 실패해도 핀·사이트 유지하고 기존 안내 표시. 정상 GPU 경로·CSS·DB·좌표 수정 없음.
-- 검증 [직접 확인]: tsc·build·단위109/109·desktop baseline8/8. WebGL 없는 PC1366/모바일390×타일 성공/전체 실패4경우에서 사이트·핀출처·정확도·공고 선택·급여 필터 통과. 모바일 테스트는 실제 필터창/상세창 닫기 동작으로 조작. 독립 리뷰 Important/Critical 없음. 최종 PR CI 대기.
-- 상태: fix/map-webgl-unavailable 브랜치 생성, 커밋·PR·운영은 진행 예정. 기존 상세 사진 확대는 PR #466 운영5c83dbb, deploy-verify41945676187 통과 상태 유지.
-- 이전 HANDOFF 보존:
-```markdown
-# HANDOFF — 2026-11-05 상세 상단 사진 확대 운영 반영 완료
