@@ -9,10 +9,10 @@
 
 - 저장소: `KHOAILANG0926/jobi-app`
 - 구현 브랜치: `demo/albamon-editor`
-- 소스 고정 커밋: `e3c5e2a8989843e853c71ab3cf2d3f95801a18de`
-- 최신 데모: `https://jobi-mfa33m0ul-mshw1895-6089s-projects.vercel.app/demos/albamon-editor/index.html`
-- 최신 배포 `dpl_55EYFD6KawamDYjjRsu2GdHfV3dG`: 고정 커밋과 일치하는 READY, HTTP 200, 오른쪽 설정/2열 갤러리/공고 스튜디오 코드 반영 직접 확인. 이전 주황색 배포는 사용하지 않는다.
-- 데모는 6개 자체 배치/12색이며, 알바몬 원본 78개 템플릿이나 원본 사진·로고를 복제한 것은 아니다.
+- 소스 고정 커밋: `d3287c209a1a61d3f51f05075633b0ebf098c527`
+- 최신 데모: `https://jobi-hj5chr2i5-mshw1895-6089s-projects.vercel.app/demos/albamon-editor/index.html`
+- 최신 배포 `dpl_FCztGVLGDThn4WDBgDA7kv6gJrSC`: 고정 커밋과 일치하는 READY, HTTP 200, 6종 개별 삽화/공통 renderer/본문 카드 보존 코드 반영 직접 확인. 이전 주황색 배포는 사용하지 않는다.
+- 데모는 서로 다른 그림 6개와 6개 배치/12색이며, 알바몬 원본 78개 템플릿이나 원본 사진·로고를 복제한 것은 아니다.
 
 ## 1. 현재 작업을 보존하고 필요한 파일만 가져온다
 
@@ -23,14 +23,16 @@
 ```sh
 git fetch origin demo/albamon-editor
 # 아래 경로가 현재 작업에서 이미 수정됐으면 먼저 diff를 비교하고 기존 변경을 보존한다.
-git restore --source=e3c5e2a8989843e853c71ab3cf2d3f95801a18de -- \
+git restore --source=d3287c209a1a61d3f51f05075633b0ebf098c527 -- \
   public/demos/albamon-editor/index.html \
   public/demos/albamon-editor/README.md \
   scripts/demo/albamon-editor.browser.mjs
 ```
 
 데모 HTML은 CSS/JS/SVG가 한 파일에 들어 있어 외부 패키지·이미지 다운로드 없이 열린다.
-구현 코드의 `initial`, `templateView`, `generatedHTML`, `sanitize`, `render`, `window.JobEditor`를 읽는다.
+구현 코드의 `initial`, `templateNames/templateStyles`, `artworkSVGs/imageURIs`, `heroHTML`, `renderDocument`, `sanitize`, `window.JobEditor`를 읽는다.
+썸네일은 heroHTML의 축소본, 편집/HTML/미리보기는 renderDocument(editable) 한 코드 경로다. 별도의 renderer를 다시 만들지 않는다.
+6종은 클래식(강사), 보드(칠판), 북스(책), 온라인(노트북), 노트(공책), 클래스(두 사람)로 모두 다른 SVG를 포함한다.
 
 ## 2. 화면 연결
 
@@ -103,7 +105,8 @@ type EditorDocument = {
 - 데모 미리보기는 sandbox iframe + CSP를 사용한다. 그대로 유지한다.
 - 데모는 `document.execCommand`를 쓰는 기본 에디터이며 브라우저별 IME/선택 영역/실행 취소 검증이 필요하다. 기존 앱에 검증된 에디터가 있으면 같은 화면 구성에 활용하되 새 디자인으로 바꾸지 않는다.
 - 데모에는 서버 저장/자동저장/실제 이미지 업로드가 없다. 새로고침하면 입력이 사라진다. 이를 실제 앱 기능으로 보고하지 않는다.
-- 데모 `generatedHTML`은 편집 UI 전체 CSS를 그대로 복제한 렌더러가 아니다. 실제 게시 전 선택한 배치의 PC·모바일 출력이 편집 화면과 일치하도록 공통 renderer를 사용하고 비교한다.
+- 그림과 본문이 어긋나는 문제가 수정되었다. `heroHTML`/`renderDocument`를 재사용해 6종 그림/배경/배치의 일치를 유지한다. 편집용 입력칸/삭제 버튼은 출력에서 빠지는 것이 정상이다.
+- SVG data URI는 내장된 `imageURIs` 여섯 개만 허용한다. 입력 HTML의 임의 SVG나 임의 data URL까지 허용하지 않는다.
 
 ## 5. 완료 검사 — 이것까지 한 번에
 
@@ -111,6 +114,7 @@ type EditorDocument = {
 - [ ] 기존 공고: description만 있는 공고는 기존 틀/글/지도/이미지 그대로.
 - [ ] 수정: 회사명/제목 동기화, 숨김/복구, 행 추가/삭제, 자유 HTML 탭 왕복에도 내용 보존.
 - [ ] 로그인 고용주와 게스트 관리 경로 모두 저장/권한/실패 처리를 검증. 타인 수정 불가.
+- [ ] 6종 각각 썸네일/편집/미리보기 그림과 배경/배치가 일치하고 그림이 로딩되는지 검사.
 - [ ] PC/390px에서 편집/미리보기/실제 상세 비교. 긴 글·긴 단어·빈 값·이미지 실패에도 바깥 가로 넘침 없음.
 - [ ] HTML 주입과 CSS 부모 침범 차단, 서버 정제, 순수 텍스트 정책 검사와 SSR 유지.
 - [ ] `npx tsc --noEmit`, `npm run build`, 영향 테스트 및 필수 CI. 동일 SHA의 이미 성공한 무관 테스트를 반복하지 않음.
@@ -132,7 +136,7 @@ node scripts/demo/albamon-editor.browser.mjs
 
 ## Codex가 이미 확인한 검사
 
-- 브라우저: 템플릿 변경 후 입력 유지, 색상/행/항목, rich/HTML 왕복, HTML 주입 제거, sandbox, 390px 가로 넘침, JSON API 복원 통과.
+- 브라우저: 6종 삽화 중복 없음, 썸네일/본문/출력 이미지 일치/로딩, 6종 배경/배치/본문 카드 유지 일치, 모두 390px 폭 유지, 입력 보존, 색상/행/항목, rich/HTML 왕복, HTML 주입 제거, sandbox, JSON 복원 통과. 캐시를 끄고 현재 소스를 검사한다.
 - `npx tsc --noEmit` / `npm run build` 통과. 원격 Actions 배포 빌드도 통과.
 - 전체 `npm test`: 113/114. `_ingest-one-door-guard.test.ts`에서 sandbox `spawnSync git EPERM`; 해당 파일만 허용된 실행 환경에서 재실행하여 732개 파일 검사 통과. 전체 suite 114/114를 한 번에 통과했다고 주장하지 않음.
 - 운영 DB/공고/기존 앱 화면 변경 없음. 데모는 별도 브랜치에서만 배포.
