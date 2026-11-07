@@ -1,6 +1,6 @@
 import type { Job } from '../types/job'
 import type { BrandDefinition } from '../data/brandDirectory'
-import { brandLogoFor } from './brandLogo'
+import { brandIconUrl, brandLogoFor } from './brandLogo'
 import { industryPhotoUrl } from './cardPhoto'
 
 // 회사 로고로 보여줄 이미지 주소 (2026-10-06 사용자 결정).
@@ -35,13 +35,20 @@ export function jobImagePublicUrl(value: string | null | undefined): string | un
   return `https://${OWN_STORAGE_HOST}${OWN_STORAGE_PATH}job-images/${path}`
 }
 
-/** 공고 대표 이미지 공통 순서. 하단 채용 사진 목록은 이 선택과 별개로 유지한다. */
+/** 회사 공식 웹사이트 아이콘(Lee 2026-11-07): 사진·브랜드 로고가 없는 공고만 서버가 Google 장소의 웹사이트로 채운 도메인. */
+export function companySiteLogoUrl(domain: string | null | undefined): string | undefined {
+  return domain && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain) ? brandIconUrl(domain) : undefined
+}
+
+/** 공고 대표 이미지 공통 순서. 하단 채용 사진 목록은 이 선택과 별개로 유지한다.
+ *  브랜드 로고 → 공고 사진(우리 저장소: 페이스북 사진 복사본·포스터·업로드) → 회사 웹사이트 아이콘 → 업종 공용 사진(Lee 2026-11-07). */
 export function jobRepresentativeImageUrl(
-  job: Pick<Job, 'company' | 'title' | 'imageUrl' | 'images'> & Partial<Pick<Job, 'category' | 'subcategory' | 'description'>>,
+  job: Pick<Job, 'company' | 'title' | 'imageUrl' | 'images'> & Partial<Pick<Job, 'category' | 'subcategory' | 'description' | 'companyDomain'>>,
   brands: BrandDefinition[],
 ): string {
   return brandLogoFor(job, brands)
     ?? companyLogoUrl(job.imageUrl)
     ?? jobImagePublicUrl(job.images?.[0])
+    ?? companySiteLogoUrl(job.companyDomain)
     ?? industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title} ${job.description ?? ''}`)
 }

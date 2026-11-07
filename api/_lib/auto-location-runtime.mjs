@@ -5,6 +5,8 @@ import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 import { precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity } from '../../src/lib/jobIdentity.ts'
+import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
+import { assembleBrands } from '../../src/lib/brandRows.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
 export async function runLocationBatch(db, request, limit = 10, goong = null, google = null) {
@@ -173,9 +175,19 @@ export function goongRequest(key) {
   }
 }
 
-/** 세 번째 자료 Google Places Text Search(New)(Lee 2026-11-03). 키는 Vercel 환경변수 GOOGLE_PLACES_API_KEY에만. 로그에 주소·키·응답을 쓰지 않는다. */
-export function googlePlacesRequest(key) {
+/** 외부 API 한 번 부르기 전 월 한도 예약(Lee 2026-11-07). DB(external_api_reserve)가 세고, 한도에 닿거나 DB를 못 물으면 부르지 않는다. */
+export function apiReserve(db, api) {
+  return async () => {
+    const { data, error } = await db.rpc('external_api_reserve', { p_api: api })
+    return !error && data === true
+  }
+}
+
+/** 세 번째 자료 Google Places Text Search(New)(Lee 2026-11-03). 키는 Vercel 환경변수 GOOGLE_PLACES_API_KEY에만. 로그에 주소·키·응답을 쓰지 않는다.
+ *  reserve: 월 한도 예약(apiReserve(db,'google_text_search')). 한도에 닿으면 Google을 부르지 않고 실패로 넘긴다(위치는 다음 단계로). */
+export function googlePlacesRequest(key, reserve) {
   return async (text) => {
+    if (!reserve || !(await reserve())) throw new Error('quota_exhausted')
     const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST', signal: AbortSignal.timeout(15000),
       // 기존 지도 키는 사이트 주소로 제한돼 있을 수 있어 우리 사이트 주소를 Referer로 보낸다(Lee 2026-11-03 "구글키는 있어").
@@ -185,4 +197,50 @@ export function googlePlacesRequest(key) {
     if (!res.ok) throw new Error('upstream_failed')
     return res.json()
   }
+}
+
+/** 사진 없는 공고의 회사 로고 찾기(Lee 2026-11-07). 위치 확인이 저장한 Google 결과에서 같은 회사 1곳의 장소 번호를 꺼내
+ *  웹사이트만 한 번 묻는다(월 한도 google_place_website). 결과는 job_logo_lookup_record 한 곳으로 기록한다.
+ *  돌려주는 값: done(이미 기록) / has_logo(브랜드·공고 사진 있음) / found / none / excluded / no_place / quota. */
+export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
+  const { data: job, error } = await db.from('local_jobs').select('id,company,title,image_url,images,logo_lookup').eq('id', jobId).maybeSingle()
+  if (error) throw new Error('logo_storage_unavailable')
+  if (!job) return 'missing'
+  if (job.logo_lookup) return 'done'
+  const { data: brandRows, error: be } = await db.from('job_brands').select('id,name,slug,category,domain,initial,color,active,featured').eq('active', true)
+  const { data: aliasRows, error: ae } = await db.from('job_brand_aliases').select('brand_id,alias,is_primary').eq('active', true)
+  if (be || ae) throw new Error('logo_storage_unavailable')
+  const images = Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : []
+  if (!needsLogoLookup({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, images }, assembleBrands(brandRows ?? [], aliasRows ?? []))) return 'has_logo'
+  const record = async (result, domain = null, placeId = null) => {
+    const { data, error: re } = await db.rpc('job_logo_lookup_record', { p_job: jobId, p_result: result, p_domain: domain, p_place_id: placeId })
+    if (re) throw new Error('logo_record_failed')
+    return data
+  }
+  const { data: st, error: se } = await db.from('map_r1_location_jobs').select('snapshot').eq('job_id', jobId).maybeSingle()
+  if (se) throw new Error('logo_storage_unavailable')
+  const snap = st?.snapshot ?? {}
+  const resolverJob = { id: jobId, company: String(snap.company ?? job.company ?? ''), location: String(snap.location ?? ''),
+    targets: (Array.isArray(snap.targets) ? snap.targets : []).map((t) => ({ address: String(t?.address ?? ''), workLocationId: null })) }
+  const deps = resolverDeps(db, null, {}, null, null)
+  const placeId = await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
+  if (!placeId) return record('no_place')
+  const cacheKey = JSON.stringify(['place-website-v1', placeId])
+  let site = await deps.cached(cacheKey)
+  if (site === null) {
+    if (!googleKey || !(await apiReserve(db, 'google_place_website')())) return record('quota', null, placeId)
+    const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'X-Goog-Api-Key': googleKey, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'websiteUri' },
+    })
+    if (!res.ok) throw new Error('upstream_failed')
+    site = { websiteUri: (await res.json())?.websiteUri ?? null }
+    await deps.cache(cacheKey, site)
+  }
+  const domain = websiteDomain(site?.websiteUri)
+  if (!domain) return record('none', null, placeId)
+  // 사이트 아이콘이 없는 도메인(기본 지구본 그림)은 로고로 쓰지 않는다.
+  const icon = await fetchImpl(`https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}`, { signal: AbortSignal.timeout(10000) }).catch(() => null)
+  if (!icon || icon.status !== 200) return record('none', null, placeId)
+  return record('found', domain, placeId)
 }

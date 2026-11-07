@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from '../lib/supabase'
+import { assembleBrands } from '../lib/brandRows'
 import type { BrandDefinition } from '../data/brandDirectory'
 
 /**
@@ -47,31 +48,7 @@ export function BrandsProvider({ children }: { children: ReactNode }) {
       .select('brand_id,alias,is_primary')
       .in('brand_id', brandIds)
       .eq('active', true)
-    const aliasesByBrand = new Map<number, { alias: string; isPrimary: boolean }[]>()
-    for (const a of aliasRows ?? []) {
-      const brandId = a.brand_id as number
-      const list = aliasesByBrand.get(brandId) ?? []
-      list.push({ alias: a.alias as string, isPrimary: (a.is_primary as boolean) ?? false })
-      aliasesByBrand.set(brandId, list)
-    }
-    const assembled: BrandDefinition[] = rows
-      .map((r): BrandDefinition | null => {
-        const aliasList = aliasesByBrand.get(r.id as number) ?? []
-        if (aliasList.length === 0) return null
-        const primary = aliasList.find((a) => a.isPrimary) ?? aliasList[0]
-        return {
-          id: r.id as number,
-          name: r.name as string,
-          matchKeys: aliasList.map((a) => a.alias),
-          category: r.category as BrandDefinition['category'],
-          linkTo: primary.alias,
-          domain: (r.domain as string | null) ?? undefined,
-          initial: r.initial as string,
-          color: r.color as string,
-          featured: (r.featured as boolean) ?? false,
-        }
-      })
-      .filter((b): b is BrandDefinition => b !== null)
+    const assembled = assembleBrands(rows, aliasRows ?? [])
     setBrands(assembled)
     setLoading(false)
   }, [])

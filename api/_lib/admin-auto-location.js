@@ -6,7 +6,7 @@ function runtime() {
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY, vietmap=process.env.VIETMAP_SERVICE_KEY
   if(!key||!vietmap)throw new Error('not_configured')
   const db=createClient(process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co',key,{auth:{persistSession:false,autoRefreshToken:false}})
-  return {enabled:()=>process.env.MAP_R1_ENABLED==='true',async verify(token){const {data,error}=await db.auth.getUser(token);if(error)throw new Error('unauthorized');return data.user},run:async()=>{const {runLocationBatch,vietmapRequest,goongRequest,googlePlacesRequest}=await loadRuntime();const g=process.env.GOONG_API_KEY,gp=process.env.GOOGLE_PLACES_API_KEY||process.env.VITE_GOOGLE_MAPS_API_KEY;return runLocationBatch(db,vietmapRequest(vietmap),5,g?goongRequest(g):null,gp?googlePlacesRequest(gp):null)}}
+  return {enabled:()=>process.env.MAP_R1_ENABLED==='true',async verify(token){const {data,error}=await db.auth.getUser(token);if(error)throw new Error('unauthorized');return data.user},run:async()=>{const {runLocationBatch,apiReserve,vietmapRequest,goongRequest,googlePlacesRequest}=await loadRuntime();const g=process.env.GOONG_API_KEY,gp=process.env.GOOGLE_PLACES_API_KEY||process.env.VITE_GOOGLE_MAPS_API_KEY;return runLocationBatch(db,vietmapRequest(vietmap),5,g?goongRequest(g):null,gp?googlePlacesRequest(gp,apiReserve(db,'google_text_search')):null)}}
 }
 export function createAutoLocationHandler(injected) {
   return async (req,res)=>{

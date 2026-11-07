@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 // 관리자 전용 "업체 검색 비교" (Lee 2026-10-28). 주소가 아니라 업체명 + 원문 거리·시로 장소를 찾는다.
 // - VietMap 업체 검색(search/v4 POI → place/v4)과 Goong 장소 검색(Place AutoComplete → Place Detail)을 같은 질문으로 비교.
 // - 키(VIETMAP_SERVICE_KEY, GOONG_API_KEY)는 Vercel 서버 환경변수만 쓴다. 키·URL·공급자 원문 응답은 응답·로그에 내보내지 않는다.
@@ -62,6 +63,14 @@ function runtimeDependencies() {
       if (!res.ok) return { ok: false, status: res.status }
       return { ok: true, json: await res.json() }
     },
+    // Lee 2026-11-07: Google은 DB 월 한도(google_text_search) 안에서만. DB를 못 물으면 부르지 않는다.
+    async reserveGoogle() {
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!key) return false
+      const db = createClient(process.env.SUPABASE_URL || 'https://edhuesdnuxlbcfephutq.supabase.co', key, { auth: { persistSession: false, autoRefreshToken: false } })
+      const { data, error } = await db.rpc('external_api_reserve', { p_api: 'google_text_search' })
+      return !error && data === true
+    },
     async fetchJson(url) {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS)
@@ -84,6 +93,7 @@ export function createAdminBusinessSearchHandler(injected) {
       const deps = injected || runtimeDependencies()
       const key = deps.key(request.provider)
       if (!key) return res.status(503).json({ error: 'not_configured', provider: request.provider })
+      if (request.provider === 'google' && deps.reserveGoogle && !(await deps.reserveGoogle())) return res.status(429).json({ error: 'quota_exhausted', provider: 'google' })
       const up = request.provider === 'google' ? await deps.fetchGoogle(request.text, key)
         : await deps.fetchJson(request.id ? upstreamUrls(request.provider, key).detail(request.id) : upstreamUrls(request.provider, key).search(request.text, request.kind))
       if (!up.ok) return res.status(502).json({ error: 'upstream_error', provider: request.provider, upstreamStatus: up.status })

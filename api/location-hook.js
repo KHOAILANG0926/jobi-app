@@ -17,18 +17,23 @@ function runtime() {
   return {
     async tokenOk(token) { const { data, error } = await db.rpc('map_r1_hook_token_ok', { p_token: token }); if (error) throw new Error('unavailable'); return data === true },
     run: async (jobId, force) => {
-      const { applyLocationVerdict, applyDuplicateVerdict, runLocationJob, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
+      const { applyLocationVerdict, applyDuplicateVerdict, applyLogoLookup, apiReserve, runLocationJob, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
       const goongKey = process.env.GOONG_API_KEY
       // Lee 2026-11-03 "구글키는 있어": 전용 키가 없으면 기존 Google 지도 키(VITE_GOOGLE_MAPS_API_KEY)를 쓴다. 둘 다 없으면 Google 단계만 건너뜀.
       const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY
-      const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey) : null)
+      // Lee 2026-11-07: Google은 DB 월 한도 안에서만 부른다(google_text_search 4,500).
+      const summary = await runLocationJob(db, vietmapRequest(vietmap), jobId, force, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey, apiReserve(db, 'google_text_search')) : null)
       // 결정 0006: 결과에 따라 비공개·다시 공개(성 중심뿐이면 비공개)
       const verdict = await applyLocationVerdict(db, jobId)
       // 중복 판정(Lee 2026-11-07): 위치가 정해진 뒤 같은 회사·같은 일·같은 위치 확인. 실패해도 위치 결과는 그대로 돌려준다(기록만).
       let duplicate
       try { duplicate = await applyDuplicateVerdict(db, jobId) }
       catch (e) { console.error('api/location-hook: duplicate check failed', e?.message); duplicate = 'error' }
-      return { ...summary, verdict, duplicate }
+      // 로고 찾기(Lee 2026-11-07): 사진·브랜드 로고 없는 공고만, 위치 확인이 저장한 Google 결과로 회사 웹사이트 로고. 실패해도 위치 결과는 그대로.
+      let logo
+      try { logo = await applyLogoLookup(db, jobId, googleKey) }
+      catch (e) { console.error('api/location-hook: logo lookup failed', e?.message); logo = 'error' }
+      return { ...summary, verdict, duplicate, logo }
     },
     // 수집 첫 단계 위치 확인(Lee 2026-11-06): 크롤러가 등록 전에 부른다. 크롤러가 이미 가진 서버 키로만 연다(새 비밀 없음).
     // 2026-11-07: 크롤러(GitHub Secrets)와 Vercel의 서버 키 글자가 달라 모든 위치 확인이 401(unauthorized)로 실패했다.
@@ -45,10 +50,10 @@ function runtime() {
       } catch { return false }
     },
     precheck: async (input) => {
-      const { precheckLocation, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
+      const { precheckLocation, apiReserve, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
       const goongKey = process.env.GOONG_API_KEY
       const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY
-      return precheckLocation(db, vietmapRequest(vietmap), input, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey) : null)
+      return precheckLocation(db, vietmapRequest(vietmap), input, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey, apiReserve(db, 'google_text_search')) : null)
     },
     // 원문 주소 읽기만(Lee 2026-11-07 주소 읽기 한 곳): 지도·Google 조회 없음. 이미 올라간 공고 다시 수집이 쓴다.
     readAddress: async (input) => (await loadRuntime()).readLocationOnly(input),

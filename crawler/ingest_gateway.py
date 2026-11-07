@@ -6,8 +6,10 @@ local_jobs에 직접 insert하면 DB 트리거(trg_000_ingest_gateway_only)가 �
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import urllib.parse
 import urllib.error
 import urllib.request
 from datetime import date, datetime
@@ -108,12 +110,69 @@ def require_location(job: dict) -> dict:
     return verdict
 
 
+# 페이스북 사진을 우리 저장소로 복사(Lee 2026-11-07 "페북에 올라온 건 그냥 쓴다"). 화면은 우리 저장소 사진만 쓰고(10-06 결정,
+# 출처 사이트 노출 금지) 페이스북 사진 주소는 며칠 뒤 만료된다. 페이스북 사진(fbcdn.net)만 복사한다 — 다른 출처 사이트 그림은
+# 복사하지 않는다(출처 사이트 기본 로고 노출 방지). 복사 실패는 등록을 막지 않는다(그 공고는 로고 찾기·공용 사진으로).
+IMAGE_BUCKET = "job-images"
+_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+def _is_facebook_image(url: str) -> bool:
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return url.startswith("https://") and (host == "fbcdn.net" or host.endswith(".fbcdn.net"))
+
+
+def http_download_image(url: str) -> tuple[bytes, str] | None:
+    req = urllib.request.Request(url, headers={"user-agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:  # noqa: S310 — 페이스북 사진 주소만(_is_facebook_image)
+            ctype = (res.headers.get("content-type") or "").split(";")[0].strip().lower()
+            data = res.read(_MAX_IMAGE_BYTES + 1)
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return None
+    if ctype not in _IMAGE_TYPES or not data or len(data) > _MAX_IMAGE_BYTES:
+        return None
+    return data, ctype
+
+
+DOWNLOAD_IMAGE = http_download_image
+
+
+def store_facebook_images(client, job: dict, limit: int = 5) -> int:
+    """job의 페이스북 사진(최대 limit장)을 우리 저장소(job-images/facebook/<내용 지문>.<확장자>)로 복사하고
+    images·image_url을 우리 저장소 경로로 바꾼다. 복사한 장수를 돌려준다. 하나라도 실패하면 원래 값 그대로 둔다."""
+    images = [x for x in (job.get("images") or []) if isinstance(x, str)]
+    if not images or not all(_is_facebook_image(x) for x in images):
+        return 0
+    stored: list[str] = []
+    for url in images[:limit]:
+        got = DOWNLOAD_IMAGE(url)
+        if not got:
+            return 0
+        data, ctype = got
+        path = f"facebook/{hashlib.sha256(data).hexdigest()[:32]}.{_IMAGE_TYPES[ctype]}"
+        try:
+            client.storage.from_(IMAGE_BUCKET).upload(path, data, {"content-type": ctype, "upsert": "true"})
+        except Exception:  # noqa: BLE001 — 저장 실패는 등록을 막지 않음
+            return 0
+        stored.append(path)
+    base = os.getenv("SUPABASE_URL", "https://edhuesdnuxlbcfephutq.supabase.co").rstrip("/")
+    job["images"] = stored
+    job["image_url"] = f"{base}/storage/v1/object/public/{IMAGE_BUCKET}/{stored[0]}"
+    return len(stored)
+
+
 def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None) -> int:
     """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
     새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로)."""
     existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
     if not existing:
         require_location(job)
+        store_facebook_images(client, job)
     result = client.rpc("ingest_job", {"p": build_payload(job, job_id=job_id, update_fields=update_fields)}).execute()
     if not isinstance(result.data, int) or result.data <= 0:
         raise RuntimeError(f"ingest_job이 공고 번호를 돌려주지 않음: {result.data!r}")
