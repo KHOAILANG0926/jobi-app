@@ -4,6 +4,7 @@ import { administrativeAreaForTarget, areaContains } from '../../src/lib/adminis
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 import { precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { companyIdentity } from '../../src/lib/jobIdentity.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
 export async function runLocationBatch(db, request, limit = 10, goong = null, google = null) {
@@ -38,6 +39,25 @@ export async function applyLocationVerdict(db, jobId) {
   // 공고는 그대로 두고, 핀은 canonical writer의 성/시 대략 위치 + chưa xác minh로 남는다.
   // (map_r1_delete_no_info는 더 이상 부르지 않는다.)
   return verdict
+}
+
+/** 중복 판정(Lee 2026-11-07 4단계): 위치가 정해진 뒤 회사 코드를 붙이고(job_identity_attach) DB 판정(job_duplicate_check)을 부른다.
+ * 확실한 중복 → 비공개(버림), 애매 → 비공개 + 관리자 게시판, 다르면 그대로. 판정 규칙은 DB 한 곳(20261107070000_job_duplicate_check.sql). */
+export async function applyDuplicateVerdict(db, jobId) {
+  const { data: job, error } = await db.from('local_jobs')
+    .select('id,company,category,subcategory,employer_phone,contact_zalo,duplicate_status').eq('id', jobId).maybeSingle()
+  if (error) throw new Error('duplicate_storage_unavailable')
+  if (!job) return 'missing'
+  const identity = companyIdentity(job)
+  if (!identity) return 'no_identity'
+  const { error: attachError } = await db.rpc('job_identity_attach', {
+    p_job: jobId, p_core: identity.core, p_kind: identity.kind, p_kind_category: identity.kindCategory,
+    p_branch: identity.branch, p_name: job.company ?? '', p_phones: identity.phones,
+  })
+  if (attachError) throw new Error('identity_attach_failed')
+  const { data: result, error: checkError } = await db.rpc('job_duplicate_check', { p_job: jobId })
+  if (checkError) throw new Error('duplicate_check_failed')
+  return result
 }
 
 // Display/located evidence comes only from the source-derived projection.

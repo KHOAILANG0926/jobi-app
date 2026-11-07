@@ -62,7 +62,26 @@ async function handleLinePicks(req,res,adminClient) {
       if(typeof line !== 'string' || !line.trim() || known.has(lineKey(line))) continue
       pending.push({jobId:job.id,title:job.title,line})
     }
-    return res.status(200).json({pending})
+    // 중복 의심(Lee 2026-11-07): 회사는 같은데 일·위치를 확정 못 한 새 공고 — 같은 게시판에서 「중복 아님/중복」만 고른다.
+    const {data:suspects,error:dupError}=await adminClient.from('local_jobs')
+      .select('id,title,company,duplicate_of,duplicate_reason').eq('duplicate_status','suspect').order('id',{ascending:false}).limit(100)
+    if(dupError) throw dupError
+    const otherIds=[...new Set((suspects||[]).map(d=>d.duplicate_of).filter(Boolean))]
+    const {data:others,error:otherError}=otherIds.length
+      ? await adminClient.from('local_jobs').select('id,title,company').in('id',otherIds) : {data:[],error:null}
+    if(otherError) throw otherError
+    const byId=new Map((others||[]).map(o=>[o.id,o]))
+    const duplicates=(suspects||[]).map(d=>({jobId:d.id,title:d.title,company:d.company,reason:d.duplicate_reason,
+      other:byId.get(d.duplicate_of)?{jobId:d.duplicate_of,title:byId.get(d.duplicate_of).title,company:byId.get(d.duplicate_of).company}:null}))
+    return res.status(200).json({pending,duplicates})
+  }
+  if(req.method === 'POST' && req.body?.action === 'duplicate-decision') {
+    const {jobId,decision}=req.body||{}
+    if(!Number.isSafeInteger(jobId)||!['not_duplicate','duplicate'].includes(decision))
+      return res.status(400).json({error:'Invalid selection'})
+    const {data,error:decideError}=await adminClient.rpc('job_duplicate_decide',{p_job:jobId,p_decision:decision})
+    if(decideError) return res.status(409).json({error:decideError.message||'Không thể lưu'})
+    return res.status(200).json({ok:true,jobId,result:data})
   }
   if(req.method !== 'POST' || req.body?.action !== 'line-pick')
     return res.status(400).json({error:'Invalid action'})
@@ -112,7 +131,7 @@ async function handleLinePicks(req,res,adminClient) {
 
 export function createAdminUsersHandler(injectedDependencies) {
   return async function adminUsersHandler(req, res) {
-    const isLinePick = req.url?.includes('operation=line-picks') || req.body?.action === 'line-pick'
+    const isLinePick = req.url?.includes('operation=line-picks') || req.body?.action === 'line-pick' || req.body?.action === 'duplicate-decision'
     if (!isLinePick && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
     const token = bearerToken(req)

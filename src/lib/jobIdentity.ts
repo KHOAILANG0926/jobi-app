@@ -139,6 +139,24 @@ const CATEGORIES = new Set(Object.keys(SUBCATEGORY_LABELS))
  *  - "가게"·"quán"처럼 종류가 흐린 낱말, 업종 없음은 무엇과도 맞음.
  *  - 이름 낱말에서 나온 소분류 밖 업종(부동산·치과 등)은 어느 큰 분류와도 맞고, 다른 구체 업종과만 다름.
  */
+/** 업종의 큰 분류: 소분류면 그 위, 큰 분류면 자기, 이름 낱말 업종(부동산 등)·없음은 null. DB job_companies.kind_category와 같다. */
+export function kindCategory(kind: string | null | undefined): string | null {
+  if (!kind) return null
+  if (CATEGORIES.has(kind)) return kind
+  return SUB_TO_CAT[kind] ?? null
+}
+
+/** 회사 코드표에 넣을 값(Lee 2026-11-06·07). 이름이 없으면 번호가 곧 회사("p" + 첫 번호). 이름도 번호도 없으면 null. */
+export function companyIdentity(job: { company?: string | null; subcategory?: string | null; category?: string | null; employer_phone?: string | null; contact_zalo?: string | null }):
+  { core: string; kind: string | null; kindCategory: string | null; branch: string; phones: string[] } | null {
+  const { core, branch } = companyCore(job.company)
+  const phones = phoneKeys(job.employer_phone, job.contact_zalo)
+  const kind = businessKind(job) || null
+  if (core) return { core, kind, kindCategory: kindCategory(kind), branch, phones }
+  if (phones.length) return { core: 'p' + phones[0], kind, kindCategory: kindCategory(kind), branch: '', phones }
+  return null
+}
+
 export function kindsCompatible(a: string, b: string): boolean {
   if (a === b || !a || !b) return true
   const vague = (k: string) => k === 'cua_hang' || k === 'quan'
