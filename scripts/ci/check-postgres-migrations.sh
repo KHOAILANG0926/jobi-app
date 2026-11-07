@@ -195,6 +195,16 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_duplicate_check_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261107130000_dedupe_precise_verified.sql' ]]; then
+    echo "PostgreSQL dedupe precise=verified (Lee 2026-11-07): needs 4단계 first"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.job_work_locations add column if not exists location_verified boolean default false"
+    if ! psql "$PG_TEST_URL" -X -At -c "select to_regprocedure('dedupe_private.precise_points(bigint)') is not null" | grep -q t; then
+      bash -c 'file=supabase/migrations/20261107070000_job_duplicate_check.sql; '"$(sed -n "/20261107070000_job_duplicate_check.sql' \]\]; then/,/continue/p" scripts/ci/check-postgres-migrations.sh | sed '1d;$d')"
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/dedupe_precise_verified_production_check.sql
+    continue
+  fi
   echo "PostgreSQL clean application: $file"
   psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
 done

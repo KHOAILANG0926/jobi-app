@@ -16,16 +16,16 @@ create table public.local_jobs (
   created_at timestamptz not null default now());
 create table public.job_work_locations (
   id bigint generated always as identity primary key, job_id bigint not null references public.local_jobs(id),
-  lat double precision, lng double precision, point_kind text not null default 'unresolved',
+  lat double precision, lng double precision, point_kind text not null default 'unresolved', location_verified boolean not null default false,
   point_authority text not null default 'unresolved', industrial_park text);
 `)
-for (const f of ['20261106230000_job_company_codes.sql', '20261107070000_job_duplicate_check.sql'])
+for (const f of ['20261106230000_job_company_codes.sql', '20261107070000_job_duplicate_check.sql', '20261107130000_dedupe_precise_verified.sql'])
   await db.exec(readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8'))
 
 const NEW = `'2026-11-08 10:00+07'`
 async function job(id, { company = 'Haidilao', occ = '5131', active = true, created = NEW, pts = [], park = null } = {}) {
   await db.exec(`insert into public.local_jobs(id,title,company,occupation_code,active,created_at) values (${id},'t${id}','${company}',${occ === null ? 'null' : `'${occ}'`},${active},${created})`)
-  for (const [lat, lng, kind] of pts) await db.exec(`insert into public.job_work_locations(job_id,lat,lng,point_kind,industrial_park) values (${id},${lat},${lng},'${kind}',${park ? `'${park}'` : 'null'})`)
+  for (const [lat, lng, kind] of pts) await db.exec(`insert into public.job_work_locations(job_id,lat,lng,point_kind,location_verified,industrial_park) values (${id},${lat},${lng},'${kind}',${kind === 'exact'},${park ? `'${park}'` : 'null'})`)
   if (!pts.length && park) await db.exec(`insert into public.job_work_locations(job_id,point_kind,industrial_park) values (${id},'area','${park}')`)
 }
 const attach = (id, core, kind = 'nha_hang', cat = 'am_thuc_do_uong', phones = '{}') =>
@@ -84,6 +84,12 @@ await assert.rejects(db.query(`select public.job_duplicate_decide(1, 'duplicate'
 await job(20, { company: 'Trung Nguyên', pts: [[20.0, 105.0, 'exact']] }); const a = (await db.query(`select public.job_identity_attach(20,'trungnguyen','am_thuc_do_uong','am_thuc_do_uong','','n','{}') c`)).rows[0].c
 await job(21, { company: 'Trung Nguyên Café', pts: [[20.5, 105.0, 'exact']] }); const b = (await db.query(`select public.job_identity_attach(21,'trungnguyen','quan_ca_phe','am_thuc_do_uong','','n','{}') c`)).rows[0].c
 assert.equal(a, b); assert.equal((await db.query(`select kind from public.job_companies where id=${a}`)).rows[0].kind, 'quan_ca_phe')
+// 수평 전개(Lee 2026-11-07): exact라도 확인 안 된 점은 정확한 점이 아님 → 확실한 중복 아님, 애매(게시판)
+await job(30, { company: 'Netco', occ: '8322', pts: [] }); await attach(30, 'netcopost', 'lai_xe_giao_hang', 'lai_xe_giao_hang')
+await db.exec(`insert into public.job_work_locations(job_id,lat,lng,point_kind,location_verified) values (30,21.096,105.970,'exact',false)`)
+await job(31, { company: 'Netco', occ: '8322', pts: [] }); await attach(31, 'netcopost', 'lai_xe_giao_hang', 'lai_xe_giao_hang')
+await db.exec(`insert into public.job_work_locations(job_id,lat,lng,point_kind,location_verified) values (31,21.096,105.970,'exact',false)`)
+assert.match(await check(31), /^suspect:30:location_unclear$/)
 // 공개 접근 차단
 assert.equal((await db.query(`select has_function_privilege('anon', 'public.job_duplicate_check(bigint)', 'execute') p`)).rows[0].p, false)
 assert.equal((await db.query(`select has_function_privilege('anon', 'public.job_identity_attach(bigint,text,text,text,text,text,text[])', 'execute') p`)).rows[0].p, false)
