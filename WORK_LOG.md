@@ -1,3 +1,9 @@
+## 2026-11-07 15:30 — 대표 사진·로고 자동 처리·Google 월 한도 (Claude)
+- 요청: Lee "1번 전체 수정"·"진행"·"Ok"·"전체 진행해"(#5599 NETCO 공용 사진 — 로고 검색 단계가 크롤러 경로에 없었음).
+- 원인 [직접 확인]: 로고·사진 검사는 수동 공고 파일 경로에만 연결. 페이스북 사진은 페북 서버 주소만 저장돼 화면(우리 저장소 사진만 허용, 10-06)에 안 나옴. Google 호출은 공고당 2번 제한뿐 월 한도 없음.
+- 변경: DB #516(external_api_limits/calls·external_api_reserve, local_jobs.company_domain 공개·logo_lookup 비공개·보호 트리거·job_logo_lookup_record, NETCO POST 브랜드 81지점) → migrations-apply 42352856500 성공. 코드 #517: 페북 사진(fbcdn) 우리 저장소 복사(ingest_gateway), 사진·브랜드 없으면 저장된 Google 결과의 웹사이트 아이콘(applyLogoLookup, 월 900), Google 위치 검색 월 4,500(4곳 모두), companyLogo 순서 브랜드→사진→웹사이트→공용, 검사표 「대표 사진·로고」(공개·연속 통과 영향 없음), CLAUDE.md 로고 절 한 줄.
+- 배포: deploy-verify 42354796132 성공. 기존 공고(15:50 이전)는 로고 찾기 대상 아님.
+
 ## 2026-11-07 13:30 — 주소 읽기 한 곳(addressReader) (Claude)
 - 요청: Lee "왜 한번에 못하고 반복" → 주소 읽기를 급여처럼 한 곳으로 "진행해".
 - 원인 [직접 확인]: 원문 주소를 읽는 기준이 소스마다 따로(페이스북 crawl_facebook.extract_district), 빠질 때마다 공고별로 덧댐(#5157, #5599).
@@ -49,9 +55,3 @@
 - 1단계 결과 [직접 확인 dup-count run 42245834965]: 공개 19건 중복 0, 회사만 같은 쌍 0(19건 모두 다른 회사). 허점 3개 발견: 지점명이 회사에 붙음(Highlands Mường Thanh), 동 이름 안 빠짐(Regal Edu Vân Dương), 업종 흔들림(Trung Nguyên Legend).
 - 변경: src/lib/jobIdentity.ts companyCore → {core, kind, branch}(구분자·이름 뒤 가게 종류 낱말 뒤·끝에 붙은 성·군·동(옛 이름 포함)은 지점), kindsCompatible(큰 분류↔그 아래 소분류 같음, 소분류끼리 다르면 다른 회사). 흔한 동 이름(Thanh·Bảo An·Trung Nguyên)이 이름 가운데면 안 뗌. supabase/pending/company-code-20261106/01-schema-dryrun.sql(회사·이름·번호·지점 표, local_jobs.company_id 빈 칸) — 적용 전 Lee 승인.
 - 검증: jobIdentity.test.ts 통과, 공개 19건 이름 대조.
-
-## 2026-11-06 22:30 — 중복 기준 확정·1단계 중복 세기 도구 (Claude)
-- 요청: Lee "같은 공고 두 번 안 올라오게 하는 프로세스가 제대로 작동하는지", "회사·하는 일·위치 같으면 중복", "기존 것도 다", "순서대로 제대로".
-- 확인 [직접 확인: supabase/migrations/20261029010000_ingest_one_door.sql find_existing, crawler/crawl_facebook.py filter_new_jobs, scripts/ocr/detail-fill.mjs]: 입구는 링크 같음·(전화+회사+원문 md5) 같음만 잡음. Facebook 수집기 사전 비교는 [source:facebook] 표식 행만 보는데 11-01 이후 상세 정리가 글을 다시 써 표식이 빠짐 → 사실상 고장. 운영 중복 수 검사 없음.
-- 변경: src/lib/jobIdentity.ts(+test) 중복 기준 계산, scripts/ops/dup-count.mjs + .github/workflows/dup-count.yml 공개 공고 중복 세기(읽기 전용).
-- 남은 문제: 실행 결과 보고 → 2단계(회사 코드표).
