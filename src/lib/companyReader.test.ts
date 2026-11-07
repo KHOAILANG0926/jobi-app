@@ -1,6 +1,6 @@
 // 회사 이름 읽기 한 곳(Lee 2026-11-07). 실제 공고 사례를 모두 여기 모은다 — 새 사례는 여기 추가하고 companyReader.ts를 고친다.
 // (옛 페이스북 수집기 extract_company 시험 사례를 옮기고, 2026-11-07 잘못 읽은 실제 글을 더했다.)
-import { readCompany, hasNameWord } from './companyReader.ts'
+import { readCompany, hasNameWord, readWorkplace } from './companyReader.ts'
 const fails: string[] = []
 function eq(a: unknown, b: unknown, name: string) { if (JSON.stringify(a) !== JSON.stringify(b)) fails.push(`${name}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`) }
 const n = (t: string) => readCompany(t).name
@@ -52,5 +52,11 @@ eq(readCompany('Công ty Thành Đạt tuyển gấp\nChuyên cung ứng lao đ�
 eq(readCompany('CTY BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC NAM/NỮ\nĐịa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh').agency, false, '#5633 direct factory is not agency')
 eq(readCompany('Nhà hàng Tâm Anh tuyển phục vụ cho ca tối').agency, false, '"tuyển … cho ca" is not for another company')
 eq(hasNameWord('Thu nhập: 8'), false, 'numbers + job words'); eq(hasNameWord('Hữu Nghị'), true, 'ordinary-word name kept')
+// 소개소 공고의 실제 근무 공장·공단(중복 판정 열쇠)
+eq(readWorkplace('Công ty TNHH Thành Đạt tuyển 50 LĐPT cho công ty Samsung KCN Yên Phong'), 'samsung', 'factory after "cho công ty"')
+eq(readWorkplace('Nhân lực Minh Anh tuyển gấp làm việc tại nhà máy Canon, lương 9tr'), 'canon', 'factory after "làm việc tại nhà máy"')
+eq(readWorkplace('Công ty Nhân lực Minh Anh tuyển gấp 50 LĐPT làm tại nhà máy KCN Quế Võ'), 'kcn que vo', 'park only when no factory name')
+eq(readWorkplace('Tuyển LĐPT\nĐịa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh'), 'kcn yen phong mo rong', 'park with mở rộng')
+eq(readWorkplace('Tuyển phục vụ quán cafe, lương 25k/h'), '', 'no workplace')
 if (fails.length) throw new Error('\n' + fails.join('\n'))
 console.log('companyReader: 옛 사례 · 2026-11-07 잘못 읽은 글 · 가게 이름 · 소개소/수수료 통과')

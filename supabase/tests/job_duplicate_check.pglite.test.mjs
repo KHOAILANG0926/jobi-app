@@ -11,7 +11,7 @@ create role anon nologin; create role authenticated nologin; create role service
 create schema auth; create function auth.uid() returns uuid language sql as $$ select null::uuid $$;
 create function public.is_admin() returns boolean language sql as $$ select false $$;
 create table public.local_jobs (
-  id bigint primary key, title text, company text, occupation_code text,
+  id bigint primary key, title text, company text, occupation_code text, recruitment_type text,
   active boolean not null default true, admin_hidden boolean not null default false,
   created_at timestamptz not null default now());
 create table public.job_work_locations (
@@ -19,7 +19,7 @@ create table public.job_work_locations (
   lat double precision, lng double precision, point_kind text not null default 'unresolved',
   point_authority text not null default 'unresolved', industrial_park text);
 `)
-for (const f of ['20261106230000_job_company_codes.sql', '20261107070000_job_duplicate_check.sql'])
+for (const f of ['20261106230000_job_company_codes.sql', '20261107070000_job_duplicate_check.sql', '20261108000000_agency_workplace_dedup.sql'])
   await db.exec(readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8'))
 
 const NEW = `'2026-11-08 10:00+07'`
@@ -84,6 +84,17 @@ await assert.rejects(db.query(`select public.job_duplicate_decide(1, 'duplicate'
 await job(20, { company: 'Trung Nguyên', pts: [[20.0, 105.0, 'exact']] }); const a = (await db.query(`select public.job_identity_attach(20,'trungnguyen','am_thuc_do_uong','am_thuc_do_uong','','n','{}') c`)).rows[0].c
 await job(21, { company: 'Trung Nguyên Café', pts: [[20.5, 105.0, 'exact']] }); const b = (await db.query(`select public.job_identity_attach(21,'trungnguyen','quan_ca_phe','am_thuc_do_uong','','n','{}') c`)).rows[0].c
 assert.equal(a, b); assert.equal((await db.query(`select kind from public.job_companies where id=${a}`)).rows[0].kind, 'quan_ca_phe')
+// ⑮ 소개소 공고끼리(Lee 2026-11-07 A): 소개소·사무실이 같아도 실제 근무 공장이 다르면 다른 공고, 공장을 모르면 애매
+const agency = async (id, plant) => {
+  await job(id, { company: 'Nhân lực Minh Anh', occ: '8212', pts: [[21.3, 106.3, 'exact']] })
+  await db.exec(`update public.local_jobs set recruitment_type = 'agency', agency_workplace_key = ${plant ? `'${plant}'` : 'null'} where id = ${id}`)
+  await attach(id, 'nhanlucminhanh', null, null)
+}
+await agency(30, 'samsung')
+await agency(31, 'canon'); assert.equal(await check(31), 'new')
+await agency(32, 'samsung'); assert.match(await check(32), /^duplicate:30:/)
+await agency(33, null); assert.match(await check(33), /^suspect:30:location_unclear$/)
+assert.equal((await db.query(`select has_column_privilege('anon', 'public.local_jobs', 'agency_workplace_key', 'select') p`)).rows[0].p, false)
 // 공개 접근 차단
 assert.equal((await db.query(`select has_function_privilege('anon', 'public.job_duplicate_check(bigint)', 'execute') p`)).rows[0].p, false)
 assert.equal((await db.query(`select has_function_privilege('anon', 'public.job_identity_attach(bigint,text,text,text,text,text,text[])', 'execute') p`)).rows[0].p, false)
