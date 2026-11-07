@@ -31,9 +31,18 @@ function runtime() {
       return { ...summary, verdict, duplicate }
     },
     // 수집 첫 단계 위치 확인(Lee 2026-11-06): 크롤러가 등록 전에 부른다. 크롤러가 이미 가진 서버 키로만 연다(새 비밀 없음).
-    serviceKeyOk(token) {
+    // 2026-11-07: 크롤러(GitHub Secrets)와 Vercel의 서버 키 글자가 달라 모든 위치 확인이 401(unauthorized)로 실패했다.
+    // 글자가 같으면 바로 통과, 다르면 그 키로 Supabase 관리자 조회가 되는지(=이 프로젝트의 진짜 서버 키인지) 확인한다.
+    // 공개 키(anon)·가짜 키는 관리자 조회가 거부돼 통과하지 못한다.
+    async serviceKeyOk(token) {
       const a = Buffer.from(String(token)), b = Buffer.from(key)
-      return a.length === b.length && timingSafeEqual(a, b)
+      if (a.length === b.length && timingSafeEqual(a, b)) return true
+      if (!token || String(token).length < 20) return false
+      try {
+        const other = createClient(SUPABASE_URL, String(token), { auth: { persistSession: false, autoRefreshToken: false } })
+        const { error } = await other.auth.admin.listUsers({ page: 1, perPage: 1 })
+        return !error
+      } catch { return false }
     },
     precheck: async (input) => {
       const { precheckLocation, vietmapRequest, goongRequest, googlePlacesRequest } = await loadRuntime()
@@ -55,7 +64,7 @@ export function createLocationHookHandler(injected) {
     if (body && typeof body.precheck === 'object' && body.precheck) {
       if (!token) return res.status(400).json({ error: 'invalid_request' })
       try { deps = injected || runtime() } catch { return res.status(503).json({ error: 'not_configured' }) }
-      if (!deps.serviceKeyOk?.(token)) return res.status(401).json({ error: 'unauthorized' })
+      if (!(await deps.serviceKeyOk?.(token))) return res.status(401).json({ error: 'unauthorized' })
       try { return res.status(200).json(await deps.precheck(body.precheck)) }
       catch { console.error('api/location-hook: precheck failed'); return res.status(503).json({ error: 'location_service_unavailable' }) }
     }
