@@ -70,7 +70,7 @@ export function conditionBadges(job: Job): ConditionBadge[] {
   if (job.dormitory === true) out.push({ key: 'dorm', label: 'Ký túc xá', tone: 'good' })
   if (job.mealProvided === true) out.push({ key: 'meal', label: mealLabel(job.description, 'Có bữa ăn'), tone: 'good' })
   if (job.recruitmentType === 'direct') out.push({ key: 'rt', label: RECRUITMENT_LABELS.direct, tone: 'good' })
-  if (job.recruitmentType === 'agency') out.push({ key: 'rt', label: RECRUITMENT_LABELS.agency, tone: 'warn' })
+  if (job.recruitmentType === 'agency') out.push({ key: 'rt', label: RECRUITMENT_LABELS.agency, tone: 'neutral' })  // Lee 2026-11-07 "빼": 소개소에 경고색 근거 없음(수수료 소개소는 수집 안 함)
   if (job.immediateStart === true) out.push({ key: 'now', label: 'Đi làm ngay', tone: 'neutral' })
   if (job.workSchedule) out.push({ key: 'sched', label: SCHEDULE_LABELS[job.workSchedule], tone: 'neutral' })
   if (job.weekendWork === true) out.push({ key: 'weekend', label: 'Làm cuối tuần', tone: 'neutral' })

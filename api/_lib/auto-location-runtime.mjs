@@ -3,8 +3,8 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
-import { precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
-import { companyIdentity } from '../../src/lib/jobIdentity.ts'
+import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
 import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
 import { assembleBrands } from '../../src/lib/brandRows.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
@@ -77,6 +77,7 @@ export function canonicalVerdictKind(state) {
 export async function precheckLocation(db, request, input, goong = null, google = null) {
   // 회사 이름 규정(Lee 2026-11-07): 회사 이름이 없으면 수집하지 않는다(포스터 글자까지 본 뒤). 수수료 받는 소개소도 수집하지 않는다.
   const company = precheckCompany(input)
+  if (company.name && !company.agency) company.agency = await phoneSaysAgency(db, company.name, input)
   const who = { company: company.name, agency: company.agency, company_from: company.from }
   if (!company.name) return { findable: false, kind: 'unresolved', reason: input?.poster_text ? 'no_company' : 'no_company_text', location: '', ...who }
   if (company.agency && company.fee) return { findable: false, kind: 'unresolved', reason: 'agency_fee', location: '', ...who }
@@ -88,6 +89,17 @@ export async function precheckLocation(db, request, input, goong = null, google 
   }, goong, google))
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
   return { ...precheckVerdict(result), location: job.location, ...who }
+}
+
+/** 전화번호 기록으로 소개소 보기(Lee 2026-11-07 5번 B, 읽기만). 조회 실패는 소개소 아님으로 둔다(등록을 막지 않음). */
+async function phoneSaysAgency(db, name, input) {
+  const phones = phoneKeys(String(input?.source_text ?? '').slice(0, 20000), String(input?.poster_text ?? '').slice(0, 20000)).slice(0, 5)
+  if (!phones.length || !db?.from) return false
+  try {
+    const { data, error } = await db.from('job_company_phones').select('phone, job_companies(core)').in('phone', phones)
+    if (error || !Array.isArray(data)) return false
+    return agencyByPhone(name, data.map((r) => ({ core: r?.job_companies?.core ?? null })))
+  } catch { return false }
 }
 
 /** 원문 주소 읽기만(외부 지도 조회 없음). 이미 올라간 공고 다시 수집이 같은 기준으로 위치 글자를 받는다. */

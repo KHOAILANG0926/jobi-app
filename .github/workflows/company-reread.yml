@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       field:
-        description: '다시 읽을 칸(company: 회사 이름 / salary: 급여)'
+        description: '다시 읽을 칸(company: 회사 이름 / salary: 급여 / agency: 소개소 표시 칸 건수)'
         type: choice
-        options: [company, salary]
+        options: [company, salary, agency]
         default: company
       show_text:
         description: '다른 공고의 원문 앞 8줄도 보기(전화번호 가림)'

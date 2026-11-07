@@ -3,7 +3,9 @@
 // 찾는 순서: ① 이름표 줄 "Công ty: …" ② "CÔNG TY/CTY …"로 시작하는 줄 ③ 가게 낱말 바로 뒤 이름(같은 줄 안에서만)
 //            ④ "tại + 이름"(Việc làm tại VINAMILK) ⑤ 제목 대시 뒤 ⑥ "… tuyển dụng" 앞(첫 줄들)
 // 버림: 구인 글 낱말·숫자·금액·지역·나라·공단 낱말만으로 된 후보, 홍보 문장(!/? 끝), 60자 넘음.
-// 못 찾으면 ''(→ 그 공고는 수집하지 않음, Lee 2026-11-07). 소개소(인력 회사)는 그 이름을 회사로 쓰고 agency=true(화면 "소개소" 표시).
+// 못 찾으면 ''(→ 그 공고는 수집하지 않음, Lee 2026-11-07). 소개소(인력 회사)는 그 이름을 회사로 쓰고 agency=true
+// (공고 '채용 형태' 칸 recruitment_type='agency' — 화면 "Qua công ty cung ứng". 소개소 판정: 이름 인력 낱말+다른 근무지, 또는 다른 회사를 위해 뽑는 문구,
+//  또는 위치 확인 서버가 본 전화번호 기록(같은 번호가 다른 회사 이름으로 쓰임, locationPrecheck.agencyByPhone)).
 import { fold } from './jobIdentity'
 import { ADMINISTRATIVE_AREAS } from './administrativeArea'
 
@@ -45,6 +47,8 @@ const EMOJI = /[\u{1F000}-\u{1FAFF}☀-➿️‍]+/gu
 const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
 const AGENCY = /nhan luc|cung ung|tuyen dung ho|xuat khau lao dong|viec lam|manpower|\bhr\b|headhunt/
 const WORKPLACE = /nha may|xuong|kcn|ccn|khu cong nghiep|cum cong nghiep|cong ty [a-z]/
+// 다른 회사를 위해 뽑는 문구(Lee 2026-11-07 5번 A): 이름에 인력 낱말이 없어도 소개소로 본다.
+const FOR_OTHER = /tuyen (?:\S+ ){0,4}cho (?:cong ty|cty|nha may|xuong|cac|nhieu)|cung (?:cap|ung) (?:lao dong|nhan luc|cong nhan)|(?:cac|nhieu) (?:cong ty|nha may) (?:trong|tai|o) (?:kcn|ccn|khu cong nghiep)/
 const FEE = /phi tuyen|thu phi|dat coc|\bcoc\b|le phi|phi ho so|mat phi/
 const NO_FEE = /khong (?:thu )?(?:mat )?phi|mien phi|khong (?:dat )?coc|0 ?d phi|free/
 
@@ -99,7 +103,7 @@ export function readCompany(text: string): CompanyRead {
   }
   const name = pick()
   const all = fold(src)
-  const agency = !!name && AGENCY.test(fold(name)) && WORKPLACE.test(all.replace(fold(name), ' '))
+  const agency = !!name && ((AGENCY.test(fold(name)) && WORKPLACE.test(all.replace(fold(name), ' '))) || FOR_OTHER.test(all))
   const fee = FEE.test(all) && !NO_FEE.test(all)
   return { name, agency, fee }
 }
