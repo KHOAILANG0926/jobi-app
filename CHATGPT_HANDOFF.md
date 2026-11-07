@@ -1,23 +1,22 @@
-# HANDOFF — 2026-11-07 오후 (Claude) · 주소 읽기 한 곳·대표 사진·로고·Google 월 한도
+# HANDOFF — 2026-11-07 밤 (Claude) · 회사 이름 읽기 한 곳·카드 상호·급여 동 금액
 
 ## 1. 현재 상태
-- master 380b4bb(#517 대표 사진·로고) — deploy-verify 42354796132 성공 [직접 확인]. DB #516 적용(migrations-apply 42352856500).
-- 대표 사진·로고(Lee 11-07, 기존 방향 변경): 브랜드 → 공고 사진(우리 저장소, 페북 사진 수집 때 자동 복사) → 회사 웹사이트 아이콘(저장된 Google 결과로 자동, 새 검색 없음) → 공용 사진(끝). Google 호출은 DB 월 한도(위치 검색 4,500·웹사이트 900) 안에서만 — 사람이 비교 검색 반복 금지. NETCO POST 브랜드 등록(5599 로고).
-- 브랜드 로고 그림(Lee 11-07): job_brands.logo_url(public/brand-logos/<slug>.png) → 없으면 사이트 아이콘. 받기 brand-logo.yml(discover/prepare, PR은 사람이 생성), 매달 비교 brand-logo-watch.yml. NETCO = Lee 제공 두 줄 로고(공식 페북 프로필). #519·#520·#521, deploy-verify 42364873642 성공.
-- 주소 읽기(Lee 11-07, 기존 방향 변경): 원문 주소는 src/lib/addressReader.ts 한 곳에서만 읽는다(급여 salaryReader와 같은 방식). Facebook 수집기는 주소를 읽지 않고 원문(source_text)만 보냄 → 위치 확인 서버(api/location-hook precheck)가 읽은 "주소, 지역"을 공고 위치로 저장(crawler/ingest_gateway.require_location). 사이트 주소 칸 있는 소스(TopCV)는 그 칸 먼저. 다시 수집은 location-hook read_address(지도 조회 없음). 빠진 주소 = 사례를 addressReader.test.ts에 추가 → 함수 수정(소스·공고별 규칙 금지). CLAUDE.md 「수집 첫 단계」 절.
-- 중복 4단계 운영 중(회사 코드·같은 일·같은 위치 → 확실=비공개, 애매=비공개+관리자 🔁 Nghi trùng lặp). 기존 공고는 판정 제외.
-- 공고: #5595 EAGLEON 등록·비공개(업무 미기재·직업분류 없음, 프로세스대로). #5599 NETCO POST 공개(핀 대략 위치).
-- 크롤러 위치 확인 401(키 글자 다름) 해결(#507~#510). 검사표 핀 정확도 = 화면 기준(exact+확인)(#511).
-- Facebook 쿠키 11-07 11:07 갱신(VPS IP 경유). 유지 기간 측정 중. VPS 공간 1.2G 남음(옛 실행기 정리), root 정리(snap·apt 약 0.5GB)는 미실행.
-- VPS AZDIGI 3개월 결제(11-07), 다음 납부 2027-02 초 — 기한 전 Lee에게 알림.
+- master 946cd4f(#533 급여 동 금액) — deploy-verify 42382412330 성공 [직접 확인].
+- 회사 이름 읽기(Lee 11-07, 기존 방향 변경): src/lib/companyReader.ts 한 곳(사이트 칸 → 원문 → 포스터 글자). 회사 이름 없으면 수집 안 함(no_company / poster_read_failed). 소개소는 소개소 이름 + recruiter_agency(DB #525), 수수료·보증금 소개소는 수집 안 함(agency_fee). 잘못 읽은 공고는 companyReader.test.ts 사례 추가 → 함수 수정(#523~#528). 기존 공개 공고 이름은 바꾸지 않음(company-reread 읽기 전용 목록).
+- 카드 상호(#531, Lee 11-07): 회사 형태 낱말(CÔNG TY·TNHH·CỔ PHẦN·CTY) 빼고 최대 2줄, 지점은 지역 줄("지점, 성"), 지역뿐인 지점은 버림, 제목에서 상호·지점 반복 안 함. 카드만(src/lib/cardText.cardCompanyParts — JobCard·HomeDiscovery). DB·상세 그대로.
+- 급여 읽기(#533): salaryReader에 동 전체 금액·k 금액(지급 단위 붙은 것만, 수당·비용 줄 제외), "/N tiếng·/Nh"(N≥2) = 일급. detail-fill이 #5633 급여를 채움(빈칸 → 320.000đ/12 tiếng). 미리 보기: company-reread.yml field=salary(읽기 전용).
+- 대표 사진·로고·Google 월 한도·브랜드 로고 그림·주소 읽기 한 곳: 이전 스냅샷 그대로(#516~#521, WORK_LOG).
+- 모바일 홈 검사(mobile-home)의 지도 미표시 안내 시험은 계속 실패 — 병합 필수 검사 아님, Lee: 오래된 폰은 신경 쓰지 않음(그대로 둠).
+- 소개소 표시 화면: 글 모형 먼저 보여 주고 Lee 결정 후 만든다(미착수).
+- VPS AZDIGI 다음 납부 2027-02 초 — 기한 전 Lee에게 알림.
 
 ## 2. 다음 할 일 3개
-1. Facebook 1건씩 천천히 등록(원문 업무 먼저 읽기 → facebook-preview-read.yml).
-2. Facebook 쿠키 만료 시점 기록·보고.
-3. Muaban 읽기 시험 / Haidilao(R3 출처) / Chợ Tốt 이의 결과 — Lee 지시 시.
+1. Lee 지시 시 Muaban·Chợ Tốt 수집(집에서).
+2. 소개소 표시 글 모형 → Lee 결정.
+3. Facebook 1건씩 등록 계속(원문 업무 먼저 읽기).
 
 ## 3. 필수 규칙
-- 확인하고 말한다(추측 금지), 기존 프로세스 먼저 확인, 덧대기 금지. 보고는 한국어·최종 보고만·짧게.
+- 확인하고 말한다(추측 금지), 기존 프로세스 먼저 확인, 덧대기 금지. 보고는 한국어·최종 보고만·짧게. 프로세스대로 끝났으면 완료(임의 조건 붙이지 않음).
 - 운영 DB 직접 SQL·번호 지정 덮어쓰기 금지, DDL·데이터 변경은 STRICT(Lee 승인).
 - 비밀값(키·쿠키) 어디에도 출력 금지. 로그인은 Lee가 VPS에서.
 - 완료 = PR → 검사 → 병합 → 배포 → deploy-verify → 화면 확인 → HANDOFF·WORK_LOG.
