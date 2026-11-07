@@ -357,9 +357,28 @@ def test_highlands_5157_fields() -> None:
     assert_equal(extract_title("🔎 Vị trí tuyển dụng:\nMr Tuấn Minh", "Highlands"), "Highlands tuyển dụng", "heading-only fallback")
     assert_equal(extract_district(HIGHLANDS_5157), "Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh", "address line with house number")
 
+
+NETCO_5599 = """NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH
+KHÔNG CỌC – KHÔNG PHÍ TUYỂN DỤNG
+THỬ VIỆC 01 THÁNG NHẬN 100% LƯƠNG
+Ca ngày - ca đêm
+Thu nhập: 13 – 15 triệu/tháng
+📍 Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh
+Yêu cầu: Nam, bằng lái hạng C, có kinh nghiệm 1 năm lái xe
+ỨNG TUYỂN NGAY: 0585 812 600 – Hải Yến (Zalo)"""
+
+
+def test_unlabeled_address_line_5599() -> None:
+    """Lee 2026-11-07 수평 전개(#5599): 이름표 없는 주소 줄도 원문 주소. 제목·급여·연락 줄은 주소 아님."""
+    assert_equal(extract_district(NETCO_5599), "Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh", "unlabeled address line")
+    assert_equal(extract_district("NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH\nLương 8 triệu, thưởng, Bắc Ninh"), "", "title/salary lines are not addresses")
+    assert_equal(extract_district(HIGHLANDS_5157), "Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh", "labeled line still wins")
+    assert_equal(extract_district("🏢 Làm việc tại: Lý Đạo Thành, Phường Kinh Bắc, Bắc Ninh"), "Lý Đạo Thành, Phường Kinh Bắc, Bắc Ninh", "other label prefix removed")
+
 def main() -> int:
     tests = [
         test_highlands_5157_fields,
+        test_unlabeled_address_line_5599,
         test_group_region_only_when_post_names_it,
         test_non_job_money_post,
         test_ambiguous_generic_post_skipped,
