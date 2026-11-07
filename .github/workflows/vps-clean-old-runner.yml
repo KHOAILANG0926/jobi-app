@@ -1,0 +1,33 @@
+name: VPS 옛 실행기 버전 지우기
+# Lee 2026-11-07 "OK": VPS(11GB) 95%. 지금 쓰는 실행기 버전(bin·externals가 가리키는 폴더)은 남기고,
+# 쓰지 않는 옛 버전 폴더(bin.<옛>, externals.<옛>)만 지운다. 브라우저·도구·작업 폴더는 건드리지 않는다.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-clean-old-runner
+  cancel-in-progress: false
+
+jobs:
+  clean:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - name: 옛 버전만 지우기
+        run: |
+          set -eu
+          R="$HOME/actions-runner"
+          cur_bin=$(readlink -f "$R/bin"); cur_ext=$(readlink -f "$R/externals")
+          echo "지금 쓰는 버전: $(basename "$cur_bin") / $(basename "$cur_ext")"
+          df -h / | tail -1 | awk '{print "지우기 전 남은 공간: "$4" ("$5")"}'
+          for d in "$R"/bin.* "$R"/externals.*; do
+            [ -d "$d" ] || continue
+            real=$(readlink -f "$d")
+            if [ "$real" = "$cur_bin" ] || [ "$real" = "$cur_ext" ]; then echo "남김: $(basename "$d")"; continue; fi
+            echo "지움: $(basename "$d") ($(du -sh "$d" | cut -f1))"
+            rm -rf "$d"
+          done
+          df -h / | tail -1 | awk '{print "::notice title=지운 뒤 남은 공간::"$4" ("$5" 사용)"}'

@@ -1,3 +1,9 @@
+## 2026-11-07 12:00 — 위치 확인 401 원인·VPS 공간 (Claude)
+- 요청: Lee "두개 확인해서 최종 보고" → "OK".
+- 확인 [직접 확인 vps-diag run 42340102791]: VPS→api/location-hook precheck가 HTTP 401 unauthorized 두 번 → 크롤러(GitHub Secrets)와 Vercel의 SUPABASE_SERVICE_ROLE_KEY 글자가 다름. #475(11-06) 뒤 크롤러 새 공고는 전부 location_precheck_failed: precheck_unavailable로 버려짐(EAGLEON 재시도 run 42338759387).
+- 변경: api/location-hook.js 키 글자가 다르면 그 키로 Supabase 관리자 조회가 되는지(진짜 서버 키인지) 확인 후 통과. 테스트 추가. crawler 거부 이유 기록(#507). VPS 옛 실행기 버전 지우기 워크플로(vps-clean-old-runner.yml).
+- VPS 공간 [직접 확인]: 11GB 중 9.7GB. 옛 실행기 2.338.0 약 680MB 지움 대상. 브라우저 chromium-1117은 Facebook 수집(playwright 1.44)이 쓰는 것 — 지우지 않음. chromium-1248 사용처 미확인 — 둠. root 필요: snap 옛 버전(791MB 중 일부)·apt 캐시 123MB.
+
 ## 2026-11-07 09:00 — 중복 4단계 운영 적용·VPS 결제 확인 (Claude)
 - 중복 4단계: PR #505 병합 → migrations-apply 42323400255(적용·운영 점검 성공), deploy-verify 42323599503 성공. 병합 지연 원인: PR 설명 시험표 SHA가 옛 커밋(checks 실패) → 갱신 후 병합.
 - VPS: AZDIGI 청구서 431073(기한 11-09) Lee 결제(11-07). 3개월 주기, 다음 2027-02 초.
@@ -45,9 +51,3 @@
 - 요청: Lee "프로세스대로 됐는지 먼저 봐", "캡처할 거면 왜 너랑 일해".
 - 확인: #494 뒤 상세 화면에서 제목+혜택 5줄 한 칸·채용 절차 묶음 정상(Lee 캡처). 확실한 위반: 등록 후 상세 화면 읽고 보고 안 함, 같은 원인 2회 실패 뒤 Claude가 2번 더 수정(#492·#494). 회사명 줄(포스터→source_text)은 R3·R5상 위반 아님, #483·#486 번호 지정 수정은 "Lee 지시" 기록 — Lee 확인 질문 남음.
 - 남은 문제: 상세 화면 읽기 도구 결정, "로켓 장착" 칸 이름 결정, Lee 지시 여부 확인.
-
-## 2026-11-06 17:30 — 제목 줄+목록 한 덩어리 유지, 검사기 예외 제거 (Claude)
-- 요청: Lee "예외가 계속 나온다" → "진행해": 검사기 예외 대신 글을 망가뜨린 정리 단계를 고침.
-- 변경: src/lib/jobDescriptionBuild.ts keepListBlocks — "~:" 제목 줄과 바로 아래 글머리 줄은 같은 칸(덩어리 안 규칙 칸 우선, 없으면 제목 칸, 직무 제목 줄 제외). src/lib/jobInspect.ts·test #492 원문 순서 예외 제거. jobDescriptionBuild.test.ts 사례 추가(AI 칸이 갈라도 붙어 나옴·값 없는 이름표는 계속 잡음).
-- 검증 [직접 확인]: 저장된 공고 11건 중 바뀐 것은 #5506뿐(두 덩어리 붙음). 전체 시험 86/113 — 수정 전과 같은 실패 목록(이 환경 패키지 없음). 새 시험은 이전 코드에서 실패.
-- 남은 문제: 병합 후 운영 정리 재실행 → #5506 상세 화면·검사표 확인.

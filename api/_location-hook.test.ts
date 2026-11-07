@@ -31,4 +31,9 @@ const pok = await pcall({ method: 'POST', headers: { authorization: 'Bearer serv
 assert(pok.code === 200 && (pok.body as { findable: boolean }).findable === true && asked !== null && ran.length === 2, 'precheck answers without touching any job')
 const pbroken = await (async () => { const res = makeRes(); await createLocationHookHandler({ ...pre, async precheck() { throw new Error('x') } })({ method: 'POST', headers: { authorization: 'Bearer service-key' }, body } as never, res as never); return res })()
 assert(pbroken.code === 503, 'precheck failure → 503')
+// 2026-11-07: 키 확인이 비동기여도(진짜 서버 키인지 Supabase에 물음) 결과를 기다려 판정한다
+const preAsync = { ...pre, async serviceKeyOk(t: string) { return t === 'other-genuine-service-key' } }
+const acall = async (auth: string) => { const res = makeRes(); await createLocationHookHandler(preAsync)({ method: 'POST', headers: { authorization: auth }, body } as never, res as never); return res }
+assert((await acall('Bearer other-genuine-service-key')).code === 200, 'async genuine key → answered')
+assert((await acall('Bearer anon-or-fake')).code === 401, 'async rejected key → 401')
 console.log('location-hook api tests: all assertions passed')
