@@ -24,7 +24,7 @@ assert(jobImagePublicUrl('../secret.png') === undefined, 'path traversal blocked
 // Lee 2026-11-07: 브랜드 → 공고 사진(우리 저장소) → 회사 웹사이트 아이콘 → 업종 공용 사진
 import { jobRepresentativeImageUrl } from './companyLogo'
 {
-  const base = { company: 'Hojeong', title: 'Công nhân', imageUrl: undefined, images: undefined, category: 'san_xuat' }
+  const base = { company: 'Hojeong', title: 'Công nhân', imageUrl: undefined, images: undefined as string[] | undefined }
   const site = jobRepresentativeImageUrl({ ...base, companyDomain: 'hojeong.co.kr' }, [])
   assert(site === 'https://www.google.com/s2/favicons?sz=128&domain=hojeong.co.kr', 'website icon when no photo: ' + site)
   const photo = jobRepresentativeImageUrl({ ...base, companyDomain: 'hojeong.co.kr', images: ['facebook/a.jpg'] }, [])
