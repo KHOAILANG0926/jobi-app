@@ -208,12 +208,42 @@ def extract_zalo(text: str) -> str:
     return ""
 
 
+_PROVINCE_KEYS = None
+_NOT_ADDRESS = re.compile(r"tuyển|tuyen|lương|luong|triệu|trieu|thu nhập|thu nhap|liên hệ|lien he|zalo|ứng tuyển|ung tuyen|yêu cầu|yeu cau|ca ngày|ca đêm|\d{4,}", re.IGNORECASE)
+
+
+def _unlabeled_address_line(text: str) -> str:
+    """이름표 없는 주소 줄: '…, …, <성 이름>' 꼴(2~6칸, 160자 이하). 없으면 ''."""
+    global _PROVINCE_KEYS
+    if _PROVINCE_KEYS is None:
+        from job_quality import PROVINCE_COORDS, ascii_key
+        _PROVINCE_KEYS = {ascii_key(n): n for n in PROVINCE_COORDS}
+    from job_quality import ascii_key
+    for raw in text.splitlines():
+        line = re.sub(r"^[^\w]+", "", raw).strip(" .")
+        head = line.split(",", 1)[0]
+        if re.search(r"[:：]", head):          # "Làm việc tại: …" 같은 앞 이름표는 떼고 주소만
+            line = line.split(re.search(r"[:：]", head).group(0), 1)[1].strip(" .")
+        parts = [x.strip() for x in line.split(",") if x.strip()]
+        if not (2 <= len(parts) <= 6) or len(line) > 160 or _NOT_ADDRESS.search(line):
+            continue
+        last = re.sub(r"^(?:tỉnh|tinh|thành phố|tp\.?)\s+", "", parts[-1], flags=re.IGNORECASE)
+        if ascii_key(last) in _PROVINCE_KEYS:
+            return line
+    return ""
+
+
 def extract_district(text: str) -> str:
     """구/군/동/도로명 등 상세 위치 추출"""
     # Lee 2026-10-30(#5157): "Địa điểm: Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh"처럼 주소 줄이 있으면 그 줄 값을 그대로(번지 포함).
     m = re.search(r"^[^\w\n]*(?:địa điểm|địa chỉ)(?: làm việc)?\s*[:：]\s*([^\n]{6,160})$", text, re.IGNORECASE | re.MULTILINE)
     if m:
         return m.group(1).strip(" .")
+    # 2026-11-07 Lee 수평 전개(#5599 NETCO POST): 이름표 없이 주소만 적힌 줄("Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh")도 원문 주소다.
+    # 쉼표로 나뉜 2칸 이상이고 끝 칸이 성 이름이며, 모집·급여·연락 낱말이 없는 줄만(제목·급여 줄을 주소로 잡지 않게).
+    line = _unlabeled_address_line(text)
+    if line:
+        return line
     matches = DISTRICT_PATTERN.findall(text)
     if matches:
         # 가장 짧고 구체적인 매치 우선

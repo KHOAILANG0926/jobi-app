@@ -37,8 +37,13 @@ try {
            coalesce(j.ocr_check->'detail_fill'->'unclassified', '[]'::jsonb) as unclassified,
            j.ocr_check->'inspect' as prev,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses,
-           case when exists (select 1 from public.job_work_locations w where w.job_id = j.id and w.lat is not null) then 'exact'
-                else (select s.result->>'kind' from public.map_r1_location_jobs s where s.job_id = j.id and s.result->>'kind' in ('gate','area')) end as pin,
+           -- 2026-11-07 수평 전개(#5599): 화면(src/lib/jobCoords.ts precise·mapR1 locationPoints)과 같은 기준.
+           -- 정확한 위치 = 핀 종류 exact + 확인됨(location_verified). 좌표만 있다고 정확한 위치가 아니다(대략 위치에도 좌표가 있음, 10-28 핀 무조건).
+           coalesce((select case when bool_or(w.point_kind = 'exact' and w.location_verified) then 'exact'
+                        when bool_or(w.point_kind = 'gate') then 'gate'
+                        when bool_or(w.point_kind in ('exact','area') and w.lat is not null) then 'area' end
+              from public.job_work_locations w where w.job_id = j.id)
+           , (select s.result->>'kind' from public.map_r1_location_jobs s where s.job_id = j.id and s.result->>'kind' in ('gate','area'))) as pin,
            (select u.reason from public.map_r1_unlocated u where u.job_id = j.id) as unlocated_reason
     from public.local_jobs j
     where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다

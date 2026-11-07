@@ -1,3 +1,10 @@
+## 2026-11-07 13:00 — 수평 전개: 핀 정확도 기준·이름표 없는 주소 줄 (Claude)
+- 요청: Lee "수평 전개 진행해"(#5599 NETCO POST: 근무지역 "Bắc Ninh"만, 검사표 핀 "정확한 위치" vs 화면 "대략 위치").
+- 원인 [직접 확인]: ① crawler/crawl_facebook.py extract_district가 "Địa điểm:/Địa chỉ:" 줄·quận/phường/đường/khu 낱말만 읽음(10-31 #5157 땜질) ② scripts/ops/job-inspect.mjs가 좌표 있으면 exact(10-25 작성, 10-26 핀 종류·10-28 대략 핀 좌표 뒤 미반영).
+- 수평 전개(핀 정확도 판단하는 곳): 화면 src/lib/jobCoords.ts·mapR1.ts(exact+verified, 기준) / 검사표 job-inspect.mjs(고침) / 중복 판정 dedupe_private.precise_points(exact 미확인도 정확으로 봄 — migration 별도, 승인 필요) / api/map-locations.js·locationLevel.ts(종류만 전달·located 판정, 해당 없음) / locationPrecheck.ts(수집 첫 단계 찾을 수 있음 기준, 다른 목적이라 해당 없음).
+- 수평 전개(주소 추출): crawl_facebook.py extract_district(고침) / crawl_topcv.py(사이트 구조화 주소, 해당 없음·꺼짐) / Chợ Tốt·Muaban 수집기 없음.
+- 변경: extract_district에 이름표 없는 주소 줄(쉼표 2~6칸, 끝이 성 이름, 모집·급여·연락 낱말 없음, 앞 "…:" 이름표 뗌). job-inspect 핀 = exact+verified/gate/area(화면 기준). 시험: test_facebook_quality 30/30, 미리 보기 30건 재생(4건 주소 줄 잡힘, 오탐 없음).
+
 ## 2026-11-07 12:00 — 위치 확인 401 원인·VPS 공간 (Claude)
 - 요청: Lee "두개 확인해서 최종 보고" → "OK".
 - 확인 [직접 확인 vps-diag run 42340102791]: VPS→api/location-hook precheck가 HTTP 401 unauthorized 두 번 → 크롤러(GitHub Secrets)와 Vercel의 SUPABASE_SERVICE_ROLE_KEY 글자가 다름. #475(11-06) 뒤 크롤러 새 공고는 전부 location_precheck_failed: precheck_unavailable로 버려짐(EAGLEON 재시도 run 42338759387).
@@ -46,8 +53,3 @@
 - 요청: Lee "1번 방법 OK" — 작업자가 상세 화면을 직접 읽는 도구(GitHub 서버에서 열기).
 - 변경: .github/workflows/detail-read.yml(수동 실행, job_ids 입력), scripts/ops/detail-read.mjs(PC1366·모바일390으로 /viec-lam/sb-번호 열어 화면 글 전체를 로그·Summary, 전체 화면 사진 첨부). 읽기 전용.
 - 검증: 문법 확인. 병합 후 #5506으로 실행해 결과 확인.
-
-## 2026-11-06 17:50 — #5506 화면 확인·프로세스 점검 (Claude)
-- 요청: Lee "프로세스대로 됐는지 먼저 봐", "캡처할 거면 왜 너랑 일해".
-- 확인: #494 뒤 상세 화면에서 제목+혜택 5줄 한 칸·채용 절차 묶음 정상(Lee 캡처). 확실한 위반: 등록 후 상세 화면 읽고 보고 안 함, 같은 원인 2회 실패 뒤 Claude가 2번 더 수정(#492·#494). 회사명 줄(포스터→source_text)은 R3·R5상 위반 아님, #483·#486 번호 지정 수정은 "Lee 지시" 기록 — Lee 확인 질문 남음.
-- 남은 문제: 상세 화면 읽기 도구 결정, "로켓 장착" 칸 이름 결정, Lee 지시 여부 확인.
