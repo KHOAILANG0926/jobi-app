@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-06 10:42 (VN)**
-- 기준 커밋: `cbb3bd8` (ci(crawl): Facebook 1건 수집을 AZDIGI VPS 실행기에서 — 로그인 IP와 같게 (Lee 2026-11-06) (#476))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/42158005253
+- 생성 시각: **2026-11-07 10:16 (VN)**
+- 기준 커밋: `ef249f4` (docs(handoff): 중복 4단계 완료·VPS 결제(다음 2027-02 초) (#506))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/42333110449
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -26,12 +26,12 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 113/113 파일 통과 |
+| 테스트 `npm test` | ✅ 115/115 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `378d46b` · 상태 **success** · 2026-11-06 07:10 (VN)
+- 마지막 Production 배포: `593e141` · 상태 **success** · 2026-11-07 08:21 (VN)
 - master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -39,21 +39,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #476 | 2026-11-06 10:29 (VN) | `cbb3bd8` | ci(crawl): Facebook 1건 수집을 AZDIGI VPS 실행기에서 — 로그인 IP와 같게 (Lee 2026-11-06) |
-| #475 | 2026-11-06 07:09 (VN) | `378d46b` | feat(crawl): 수집 첫 단계 = 위치 확인 — 못 찾으면 등록 안 함 (Lee 2026-11-06) |
-| #474 | 2026-11-06 07:03 (VN) | `d51ce5b` | docs(rules): 수집 첫 단계 = 위치 확인, 못 찾으면 수집 안 함 (Lee 2026-11-06 최우선) |
-| #473 | 2026-11-06 06:48 (VN) | `6944c6e` | docs(rules): 위치 절차 "구글을 따라" 개정 + HANDOFF/WORK_LOG (Lee 2026-11-06) |
-| #472 | 2026-11-06 06:35 (VN) | `1e019d0` | fix(location): 성 경계 단순화 오차 허용 — Google이 찾은 Yên Phong 공장이 '성 밖'으로 탈락하던 문제 (Lee 2026-11-06) |
-| #471 | 2026-11-06 06:11 (VN) | `8b6be39` | fix(location): Google이 회사를 알면 Google 장소를 따른다 — 검색어를 Google 버튼과 같게 (Lee 2026-11-06) |
-| #469 | 2026-11-05 16:37 (VN) | `8f2d718` | fix(process): 사진 처리 미완료를 완료로 보고하지 못하도록 검증 |
-| #468 | 2026-11-05 13:30 (VN) | `c35e555` | fix(jobs): 공고 요약·위치 절차 및 기존 공개 유지 |
-| #467 | 2026-11-05 11:38 (VN) | `8320df5` | fix(map): WebGL2 초기화 실패 시 2D 지도로 전환해 PC 흰 화면 방지 |
-| #466 | 2026-11-05 08:00 (VN) | `5c83dbb` | feat(detail): 상단 회사 사진 클릭 확대 |
+| #506 | 2026-11-07 08:57 (VN) | `ef249f4` | docs(handoff): 중복 4단계 완료·VPS 결제 |
+| #505 | 2026-11-07 08:19 (VN) | `593e141` | feat(dedupe): 중복 판정 4단계 (승인 대기) |
+| #504 | 2026-11-07 00:04 (VN) | `f98d9db` | fix(ops): 회사 이름 없는 공고는 전화번호를 회사로 |
+| #503 | 2026-11-06 23:49 (VN) | `92f1f50` | feat(ops): 공개 공고 회사·지점 코드 붙이기 (중복 3단계) |
+| #502 | 2026-11-06 23:22 (VN) | `87a709e` | fix(identity): 가게 종류 낱말 성조 그대로 찾기 |
+| #501 | 2026-11-06 23:12 (VN) | `d7dcf80` | feat(db): 회사 코드표 생성 (중복 2단계, Lee 승인) |
+| #500 | 2026-11-06 23:05 (VN) | `64dc498` | feat(identity): 회사·지점 분리, 업종 맞음 규칙 + 회사 코드표 변경안 |
+| #499 | 2026-11-06 22:43 (VN) | `d736eda` | feat(ops): 중복 세기 결과에 공고별 비교 값 표시 |
+| #498 | 2026-11-06 22:26 (VN) | `03c2ac4` | feat(ops): 중복 기준 계산 + 공개 공고 중복 세기(읽기 전용) |
+| #496 | 2026-11-06 20:05 (VN) | `77b6500` | feat(ops): 운영 상세 화면 읽기 도구 (작업자 직접 확인) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **16건** (전체 19건, 숨김·비활성 3건)
-- 출처별: 출처 없음 11 · muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 공개 중: **19건** (전체 22건, 숨김·비활성 3건)
+- 출처별: 출처 없음 14 · muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -70,6 +70,7 @@
 
 | 날짜 | 호출 | 마지막 갱신 |
 |---|---|---|
+| 2026-11-06 | 4 | 2026-11-06 15:12 (VN) |
 | 2026-11-04 | 3 | 2026-11-04 12:19 (VN) |
 | 2026-11-03 | 1 | 2026-11-03 16:39 (VN) |
 | 2026-11-02 | 2 | 2026-11-02 19:32 (VN) |
@@ -81,16 +82,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-06 10:30 (VN) | location_candidate.approve | job 5497 |
-| 2026-11-06 10:30 (VN) | location_candidate.add | job 5497 |
-| 2026-11-06 07:10 (VN) | location_candidate.approve | job 5494 |
-| 2026-11-06 07:10 (VN) | location_candidate.add | job 5494 |
-| 2026-11-06 07:04 (VN) | location_candidate.approve | job 5490 |
-| 2026-11-06 07:04 (VN) | location_candidate.add | job 5490 |
-| 2026-11-06 06:49 (VN) | location_candidate.approve | job 5488 |
-| 2026-11-06 06:49 (VN) | location_candidate.add | job 5488 |
-| 2026-11-06 06:40 (VN) | location_candidate.approve | job 5438 |
-| 2026-11-06 06:40 (VN) | location_candidate.add | job 5438 |
+| 2026-11-07 08:58 (VN) | location_candidate.approve | job 5583 |
+| 2026-11-07 08:58 (VN) | location_candidate.add | job 5583 |
+| 2026-11-07 08:20 (VN) | location_candidate.approve | job 5580 |
+| 2026-11-07 08:20 (VN) | location_candidate.add | job 5580 |
+| 2026-11-06 23:50 (VN) | location_candidate.approve | job 5576 |
+| 2026-11-06 23:50 (VN) | location_candidate.add | job 5576 |
+| 2026-11-06 23:23 (VN) | location_candidate.approve | job 5572 |
+| 2026-11-06 23:23 (VN) | location_candidate.add | job 5572 |
+| 2026-11-06 23:14 (VN) | location_candidate.approve | job 5570 |
+| 2026-11-06 23:14 (VN) | location_candidate.add | job 5570 |
 
 ## 8. 검증 장치 변경 이력
 
