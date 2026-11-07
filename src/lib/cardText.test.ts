@@ -1,5 +1,5 @@
 // 카드 글자 다듬기(Lee 2026-11-01) — 실제 공개 공고
-import { cardCompany, cardTitle } from './cardText.ts'
+import { cardCompany, cardCompanyParts, cardTitle } from './cardText.ts'
 function eq(got: unknown, want: unknown, name: string) { if (got !== want) throw new Error(`${name}: ${JSON.stringify(got)} ≠ ${JSON.stringify(want)}`) }
 eq(cardCompany('WALLACE BẮC NINH', 'Võ Cường, Bắc Ninh'), 'WALLACE', '#5247 region already below')
 eq(cardCompany('TRUNG NGUYÊN LEGEND BẮC NINH', 'p Vũ Ninh, tỉnh Bắc Ninh'), 'TRUNG NGUYÊN LEGEND', '#5231')
@@ -11,4 +11,14 @@ eq(cardTitle('TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NIN
 eq(cardTitle('Highlands Coffee tuyển nhân viên bán hàng, pha chế và phục vụ', 'Highlands Coffee Mường Thanh Bắc Ninh'), 'Highlands Coffee tuyển nhân viên bán hàng, pha chế và phục vụ', 'partial company kept (not the full name)')
 eq(cardTitle('tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', 'CTY KDA'), 'tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', 'normal title unchanged')
 eq(cardTitle('TEFAL TUYỂN PG BÁN HÀNG GIA DỤNG', 'Groupe SEB'), 'Tefal tuyển PG bán hàng gia dụng', 'all caps softened')
+// 2026-11-07 상호·지점 분리, 회사 형태 낱말 빼기(카드만)
+const pp = (c: string, a: string) => JSON.stringify(cardCompanyParts(c, a))
+eq(pp('nhẹ cafe – Bách Nghệ Kinh Bắc', 'P. Võ Cường, Bắc Ninh'), JSON.stringify({ name: 'nhẹ cafe', branch: 'Bách Nghệ Kinh Bắc', place: 'Bách Nghệ Kinh Bắc, Bắc Ninh' }), '#5507 shop / branch')
+eq(pp('JOY THÁI BẮC NINH', 'Kinh Bắc, Bắc Ninh'), JSON.stringify({ name: 'JOY THÁI', branch: '', place: 'Kinh Bắc, Bắc Ninh' }), '#5342 region-only branch dropped')
+eq(cardCompanyParts('CÔNG TY CỔ PHẦN BẤT ĐỘNG SẢN PHÚC LỘC', 'Kinh Bắc, Bắc Ninh').name, 'BẤT ĐỘNG SẢN PHÚC LỘC', '#5506 legal form removed')
+eq(cardCompanyParts('CÔNG TY TNHH HOJEONG', 'Từ Sơn, Bắc Ninh').name, 'HOJEONG', 'tnhh removed')
+eq(cardCompanyParts('Nhà hàng Tâm Anh - CN Bắc Ninh', 'Võ Cường, Bắc Ninh').branch, '', 'CN + region only → no branch')
+eq(cardCompanyParts('CTY KDA', 'KCN Yên Phong, Bắc Ninh').name, 'KDA', 'cty removed')
+eq(cardCompanyParts('Công ty', 'Bắc Ninh').name, 'Công ty', 'never empty')
+eq(cardTitle('nhẹ cafe Bách Nghệ Kinh Bắc tuyển nhân viên pha chế & phục vụ', 'nhẹ cafe – Bách Nghệ Kinh Bắc'), 'tuyển nhân viên pha chế & phục vụ', '#5507 title without shop+branch')
 console.log('cardText: real titles passed')
