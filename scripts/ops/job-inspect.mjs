@@ -6,12 +6,14 @@ import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS } from '../../src/lib/jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, INFO_ONLY } from '../../src/lib/jobInspect.ts'
 import { afterCutoff } from './auto-cutoff.mjs'
+import { photoSource } from '../../src/lib/logoLookup.ts'
+import { assembleBrands } from '../../src/lib/brandRows.ts'
 
 const { SUPABASE_DB_URL, GH_TOKEN, REPO } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
-const RULES = ['jobInspect.ts', 'jobDetailSections.ts', 'jobDescriptionBuild.ts', 'jobDetailFill.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8')).join('\n')
+const RULES = ['jobInspect.ts', 'jobDetailSections.ts', 'jobDescriptionBuild.ts', 'jobDetailFill.ts', 'logoLookup.ts', 'companyLogo.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8')).join('\n')
 const VERSION = 'inspect-v1:' + createHash('md5').update(RULES).digest('hex').slice(0, 8)
 const STREAK_GOAL = 10
 
@@ -24,6 +26,10 @@ try {
   const missing = refs.filter((r) => !INSPECT_KEYS.includes(r.ref.slice(8)))
   if (missing.length) { console.error('::error::규정이 가리키는 검사표 항목 없음: ' + missing.map((m) => `${m.rule_key}→${m.ref}`).join(', ')); process.exitCode = 3 }
 
+  // 대표 사진·로고 출처(Lee 2026-11-07): 화면과 같은 브랜드 목록
+  const brands = assembleBrands(
+    (await client.query(`select id,name,slug,category,domain,initial,color,active,featured from public.job_brands where active`)).rows,
+    (await client.query(`select brand_id,alias,is_primary from public.job_brand_aliases where active`)).rows)
   const { rows } = await client.query(`
     select public.job_inspect_content_hash(j) as content_hash, (coalesce((j.ocr_check->>'inspect_hold')::boolean, false)
              -- 검사 실패로 내린 공고도 다시 통과하면 되살린다(관리자가 직접 내린 공고는 해당 없음)
@@ -34,6 +40,7 @@ try {
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,
            coalesce(jsonb_array_length(case when jsonb_typeof(j.images) = 'array' then j.images end), 0) as image_count,
            j.ocr_check->>'status' as ocr_status,
+           j.image_url, j.images, j.company_domain, j.logo_lookup->>'result' as logo_result, j.created_at,
            coalesce(j.ocr_check->'detail_fill'->'unclassified', '[]'::jsonb) as unclassified,
            j.ocr_check->'inspect' as prev,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses,
@@ -63,13 +70,16 @@ try {
       category: job.category, occupation_code: job.occupation_code, active: job.active, admin_hidden: job.admin_hidden,
       image_count: job.image_count, ocr_status: job.ocr_status, pin: job.pin, unlocated_reason: job.unlocated_reason,
       shuttle_bus: job.shuttle_bus, dormitory: job.dormitory, meal_provided: job.meal_provided, unclassified_lines: job.unclassified,
+      photo: photoSource({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, companyDomain: job.company_domain ?? undefined,
+        images: Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : undefined,
+        lookupResult: job.logo_result, createdAt: job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at }, brands),
     }
     const r0 = inspectJob(input)
     // 공개 여부(public 항목)는 검사 결과가 아니라 이 판정의 결과다. 나머지 항목이 전부 통과해야 공개할 수 있다.
     const d = publishDecision(r0, { active: job.active, admin_hidden: job.admin_hidden, hold: job.hold, application_deadline: job.application_deadline })
     const items = r0.items.map((i) => i.key !== 'public' ? i
       : { ...i, ok: d.active && !job.admin_hidden, detail: job.admin_hidden ? '관리자가 숨김' : d.active ? undefined : d.publishable ? '비공개' : '검사 실패로 비공개 보류' })
-    const r = { ok: items.every((i) => i.ok), items }
+    const r = { ok: items.every((i) => i.ok || INFO_ONLY.includes(i.key)), items }
     const hash = createHash('md5').update(VERSION + JSON.stringify(r)).digest('hex')
     // 결과 지문이 같아도 공고 내용 지문이 바뀌었거나 공개 상태를 바꿔야 하면 반드시 다시 기록한다.
     if (job.prev?.hash === hash && job.prev?.content_hash === job.content_hash && d.active === !!job.active && !job.hold) continue

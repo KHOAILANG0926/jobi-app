@@ -121,3 +121,16 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   console.log('jobInspect.test.ts: 목록 제목 줄(~: + 글머리) 검사 통과')
 }
 
+
+// Lee 2026-11-07: 대표 사진·로고는 표시만 — 공개·연속 통과(ok)를 막지 않는다
+{
+  const job = { id: 30, description: 'Công việc\nLái xe giao hàng', pin: 'area', category: 'x', occupation_code: '8322', active: true }
+  const pending = inspectJob({ ...job, photo: 'pending' })
+  const item = pending.items.find((i) => i.key === 'photo')!
+  assert(!item.ok && item.detail === '로고 찾기 대기', 'pending shown')
+  assert(pending.ok === inspectJob(job).ok, 'photo does not change ok')
+  assert(publishDecision(pending, { active: false, hold: true }).publishable === publishDecision(inspectJob(job), { active: false, hold: true }).publishable, 'photo does not change publish')
+  assert(inspectJob({ ...job, photo: 'site' }).items.find((i) => i.key === 'photo')!.detail === '회사 웹사이트 로고', 'site label')
+  assert(INSPECT_KEYS.includes('photo' as never), 'photo key registered')
+  console.log('jobInspect.test.ts: 대표 사진·로고 표시 항목 통과')
+}

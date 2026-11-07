@@ -20,3 +20,15 @@ import { jobImagePublicUrl } from './companyLogo'
 assert(jobImagePublicUrl('kda/kda-20261013.png') === 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/kda/kda-20261013.png', 'storage path → public url')
 assert(jobImagePublicUrl('https://raw.githubusercontent.com/x/y.png') === undefined, 'outside allowlist blocked')
 assert(jobImagePublicUrl('../secret.png') === undefined, 'path traversal blocked')
+
+// Lee 2026-11-07: 브랜드 → 공고 사진(우리 저장소) → 회사 웹사이트 아이콘 → 업종 공용 사진
+import { jobRepresentativeImageUrl } from './companyLogo'
+{
+  const base = { company: 'Hojeong', title: 'Công nhân', imageUrl: undefined, images: undefined as string[] | undefined }
+  const site = jobRepresentativeImageUrl({ ...base, companyDomain: 'hojeong.co.kr' }, [])
+  assert(site === 'https://www.google.com/s2/favicons?sz=128&domain=hojeong.co.kr', 'website icon when no photo: ' + site)
+  const photo = jobRepresentativeImageUrl({ ...base, companyDomain: 'hojeong.co.kr', images: ['facebook/a.jpg'] }, [])
+  assert(photo.endsWith('/job-images/facebook/a.jpg'), 'stored photo before website icon')
+  assert(!jobRepresentativeImageUrl({ ...base, companyDomain: 'bad domain' }, []).includes('favicons'), 'invalid domain ignored')
+  console.log('companyLogo.test.ts: 사진 → 웹사이트 아이콘 → 공용 사진 순서 통과')
+}

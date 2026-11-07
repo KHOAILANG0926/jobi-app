@@ -72,6 +72,41 @@ def run():
     finally:
         if saved is not None:
             os.environ["SUPABASE_SERVICE_ROLE_KEY"] = saved
+
+    # 2026-11-07 페이스북 사진을 우리 저장소로 복사(위치 확인 통과 뒤, 새 공고만)
+    class Storage:
+        def __init__(self):
+            self.saved = []
+        def from_(self, bucket):
+            outer = self
+            class B:
+                def upload(self, path, data, opts):
+                    outer.saved.append((bucket, path, opts["content-type"]))
+            return B()
+    class SClient(Client):
+        def __init__(self):
+            super().__init__()
+            self.storage = Storage()
+    g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh"}
+    g.DOWNLOAD_IMAGE = lambda url: (b"img-" + url.encode(), "image/jpeg")
+    c = SClient()
+    fb_images = ["https://scontent.fhan2-1.fna.fbcdn.net/v/a.jpg?x=1", "https://scontent.fhan2-1.fna.fbcdn.net/v/b.jpg"]
+    fbjob = {"title": "x", "company": "A", "location": "Bắc Ninh", "source_text": "t",
+             "images": ["https://scontent.fhan2-1.fna.fbcdn.net/v/a.jpg?x=1", "https://scontent.fhan2-1.fna.fbcdn.net/v/b.jpg"]}
+    assert g.ingest_job(c, fbjob) == 77
+    sent = c.calls[0][1]["p"]
+    assert all(p.startswith("facebook/") and p.endswith(".jpg") for p in sent["images"]) and len(c.storage.saved) == 2, sent
+    assert sent["image_url"].endswith("/storage/v1/object/public/job-images/" + sent["images"][0]), sent["image_url"]
+    # 다른 출처 사이트 그림은 복사하지 않는다(10-06 출처 노출 금지)
+    c = SClient()
+    other = {**fbjob, "images": ["https://cdn.vieclam24h.vn/logo.png"]}
+    g.ingest_job(c, other)
+    assert c.storage.saved == [] and c.calls[0][1]["p"]["images"] == ["https://cdn.vieclam24h.vn/logo.png"]
+    # 내려받기 실패 → 원래 값 그대로, 등록은 계속
+    g.DOWNLOAD_IMAGE = lambda url: None
+    c = SClient()
+    g.ingest_job(c, {**fbjob, "images": list(fb_images), "image_url": None})
+    assert c.storage.saved == [] and c.calls[0][1]["p"]["images"][0].startswith("https://scontent")
     print("test_ingest_gateway: location-first gate passed")
 
 

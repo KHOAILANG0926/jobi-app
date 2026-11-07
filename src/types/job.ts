@@ -137,6 +137,8 @@ export interface Job {
   lat?: number
   lng?: number
   imageUrl?: string
+  /** 회사 공식 웹사이트 도메인(사진·브랜드 로고가 없을 때 로고로 쓰는 사이트 아이콘, Lee 2026-11-07) */
+  companyDomain?: string
   images?: string[]
   source?: string
   workPeriod?: string

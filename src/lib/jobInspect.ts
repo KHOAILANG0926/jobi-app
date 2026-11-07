@@ -35,10 +35,18 @@ export interface InspectInput extends ShownAbove {
   contact_name?: string | null
   /** Explicit fields supplied by the publication worker. Missing values fail closed. */
   postingFields?: { hours?: string | null; employment_type?: string | null; application_deadline?: string | null; num_hires?: string | number | null; reviewOnly?: boolean }
+  /** 대표 사진·로고 출처(Lee 2026-11-07): brand/photo/site, 공용 사진이면 로고 찾기 결과(none/excluded/no_place/quota), 아직이면 pending. */
+  photo?: PhotoSource
+}
+export type PhotoSource = 'brand' | 'photo' | 'site' | 'none' | 'excluded' | 'no_place' | 'quota' | 'pending' | 'before_rule'
+const PHOTO_LABEL: Record<PhotoSource, string> = {
+  brand: '브랜드 로고', photo: '공고 사진', site: '회사 웹사이트 로고', none: '공용 사진(회사 웹사이트 없음)',
+  excluded: '공용 사진(웹사이트가 SNS·쇼핑몰·구인 사이트)', no_place: '공용 사진(Google이 회사를 모름)',
+  quota: '공용 사진(이번 달 Google 한도)', pending: '로고 찾기 대기', before_rule: '공용 사진(로고 찾기 전 등록 공고)',
 }
 /** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
 export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
-  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields'] as const
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields', 'photo'] as const
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string; reviewOnly?: boolean }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
@@ -110,6 +118,8 @@ export function inspectJob(j: InspectInput): InspectResult {
   add('occupation', '직업분류·업종 메뉴', classified, classified ? undefined : !j.occupation_code ? '직업 코드 없음' : '업종이 기타(khac)')
   // 9. 포스터 글자 대조
   if ((j.image_count ?? 0) > 0) add('ocr', '포스터 글자 대조', j.ocr_status === 'ok', j.ocr_status ? `결과: ${j.ocr_status}` : '아직 안 읽음')
+  // 9-1. 대표 사진·로고(Lee 2026-11-07): 출처 표시만 — 공개·연속 통과에는 영향 없음(INFO_ONLY)
+  if (j.photo) add('photo', '대표 사진·로고', j.photo !== 'pending', PHOTO_LABEL[j.photo])
   // 10. 칸을 못 정한 새 종류 줄
   const unc = j.unclassified_lines ?? []
   add('new_kind', '칸 못 정한 줄 없음', !unc.length, unc.length ? unc.slice(0, 3).join(' / ') : undefined)
@@ -166,7 +176,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   const equalHours = [...String(j.source_text ?? '').matchAll(/\b(\d{1,2})\s*h\s*[-–]\s*\1\s*h\b/gi)].map(m => m[0])
   if (equalHours.length) add('hours_review', '근무시간 관리자 확인', false, '원문 그대로 보존: ' + equalHours.join(' / '))
 
-  return { ok: items.every((i) => i.ok), items }
+  return { ok: items.every((i) => i.ok || INFO_ONLY.includes(i.key)), items }
 }
 
 /**
@@ -177,6 +187,8 @@ export function inspectJob(j: InspectInput): InspectResult {
  */
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
 export const REVIEW_ONLY = ['hours_review', 'card']
+/** 표시만 하는 항목: 공개도 연속 통과도 막지 않는다(사진은 등록·공개와 별개, Lee 2026-11-05·11-07). */
+export const INFO_ONLY = ['photo']
 
 export function publishDecision(
   r: InspectResult,
@@ -184,12 +196,12 @@ export function publishDecision(
   today = new Date().toISOString().slice(0, 10),
 ): { publishable: boolean; active: boolean } {
   // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
-  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
+  const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
   if (!publishable) {
     // Preserve an existing public posting during rollout, but do not issue a
     // reusable publication proof: hiding it later must require a strict pass.
     const keepExisting = j.active === true && !j.admin_hidden && r.items.every((i) =>
-      i.key === 'public' || REVIEW_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
+      i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
     return { publishable, active: keepExisting }
   }
   if (j.active) return { publishable, active: true }
