@@ -29,6 +29,8 @@ jobs:
           : > /tmp/changed.txt
           while IFS='|' read -r slug src sha; do
             [ -n "$slug" ] || continue
+            # Lee 제공·페이스북 출처 그림은 그림 주소가 아니라 자동 비교하지 않는다(사람이 확인)
+            case "$src" in https://www.facebook.com/*|https://facebook.com/*) echo "건너뜀: $slug(페이스북 출처)"; continue ;; esac
             now=$(curl -sSfL -m 30 -A "Mozilla/5.0" "$src" 2>/dev/null | sha256sum | cut -d' ' -f1 || true)
             if [ -z "$now" ] || [ "$now" = "$(printf '' | sha256sum | cut -d' ' -f1)" ]; then echo "- $slug: 공식 그림을 못 받음($src)" >> /tmp/changed.txt
             elif [ "$now" != "$sha" ]; then echo "- $slug: 공식 사이트 로고가 바뀜($src)" >> /tmp/changed.txt; fi
