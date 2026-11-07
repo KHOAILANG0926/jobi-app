@@ -1276,7 +1276,10 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
             code = rule_code(one)
             if not code:
                 raise
-            REJECTIONS.add(code, payload.get("title", ""))
+            # 거부 이유(예: location_precheck_failed: approximate_only / precheck_unavailable)를 기록에 남긴다(Lee 2026-11-07).
+            detail = str(one).split(code, 1)[-1].strip(" :")[:80]
+            print(f"    🚧 규칙 거부({code}): {payload.get('title', '')[:60]!r} — 이유: {detail or '없음'}")
+            REJECTIONS.add(code, f"{payload.get('title', '')[:50]} | 이유: {detail or '없음'}")
             continue
         saved.append({"id": job_id, "title": payload.get("title")})
     print(f"  ✅ 저장: {len(saved)}/{len(new_jobs)}개")

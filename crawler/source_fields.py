@@ -88,7 +88,7 @@ class RuleRejections:
     def add(self, code: str, label: str = "") -> None:
         self.by_rule[code] += 1
         if len(self.samples) < 20:
-            self.samples.append((code, label[:60]))
+            self.samples.append((code, label[:140]))
 
     @property
     def total(self) -> int:
