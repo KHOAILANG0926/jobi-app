@@ -55,37 +55,56 @@ class LocationNotFound(RuntimeError):
     """수집 첫 단계 위치 확인 실패. 메시지에 규칙 코드(location_precheck_*)가 들어가 rule_code()로 잡힌다."""
 
 
+def _work_addresses(job: dict) -> list[str]:
+    return [a for a in (str(w.get("raw_address") or "").strip() for w in (job.get("work_locations") or []) if isinstance(w, dict)) if a]
+
+
 def precheck_input(job: dict) -> dict:
-    """지도와 같은 위치 찾기에 보낼 원문: 회사·지역·근무지 주소."""
-    addresses = [str(w.get("raw_address") or "").strip() for w in (job.get("work_locations") or []) if isinstance(w, dict)]
+    """지도와 같은 위치 찾기에 보낼 원문: 회사·지역·근무지 주소(사이트 주소 칸)·원문 전체.
+    주소 칸이 없으면 서버가 원문(source_text)에서 주소를 읽는다 — 주소 읽기는 src/lib/addressReader.ts 한 곳(Lee 2026-11-07)."""
     return {"company": str(job.get("company") or ""), "location": str(job.get("location") or ""),
-            "addresses": [a for a in addresses if a][:5]}
+            "addresses": _work_addresses(job)[:5], "source_text": str(job.get("source_text") or "")}
 
 
-def http_precheck(job: dict) -> dict:
-    """서버(Vercel)의 위치 확인을 부른다. 키·주소·응답 본문은 출력하지 않는다."""
+def _post_hook(body: dict, failed: dict) -> dict:
+    """서버(Vercel) 위치 hook 호출. 키·주소·응답 본문은 출력하지 않는다."""
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     if not key:
-        return {"findable": False, "reason": "precheck_not_configured"}
-    req = urllib.request.Request(PRECHECK_URL, data=json.dumps({"precheck": precheck_input(job)}).encode("utf-8"), method="POST",
+        return {**failed, "reason": "precheck_not_configured"}
+    req = urllib.request.Request(PRECHECK_URL, data=json.dumps(body).encode("utf-8"), method="POST",
                                  headers={"content-type": "application/json", "authorization": f"Bearer {key}"})
     try:
         with urllib.request.urlopen(req, timeout=60) as res:  # noqa: S310 — 고정된 우리 서버 주소
             return json.loads(res.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, ValueError):
-        return {"findable": False, "reason": "precheck_unavailable"}
+        return {**failed, "reason": "precheck_unavailable"}
+
+
+def http_precheck(job: dict) -> dict:
+    """서버의 위치 확인(Google·지도 조회 포함)."""
+    return _post_hook({"precheck": precheck_input(job)}, {"findable": False})
+
+
+def http_read_location(source_text: str, region: str = "") -> dict:
+    """서버의 원문 주소 읽기만(지도·Google 조회 없음). 이미 올라간 공고 다시 수집용."""
+    return _post_hook({"read_address": {"source_text": source_text, "location": region}}, {})
 
 
 # 테스트는 이 값을 바꿔 네트워크 없이 판정을 넣는다.
 PRECHECK = http_precheck
+READ_LOCATION = http_read_location
 
 
 def require_location(job: dict) -> dict:
-    """수집 첫 단계 = 위치 확인(Lee 2026-11-06 최우선). 못 찾으면 등록하지 않는다(LocationNotFound)."""
+    """수집 첫 단계 = 위치 확인(Lee 2026-11-06 최우선). 못 찾으면 등록하지 않는다(LocationNotFound).
+    찾으면 서버가 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역)를 공고 위치로 쓴다(주소 칸이 있는 소스는 그대로)."""
     verdict = PRECHECK(job) or {}
     if verdict.get("findable") is not True:
         reason = str(verdict.get("reason") or "not_found")
         raise LocationNotFound(f"location_precheck_failed: {reason}")
+    checked = str(verdict.get("location") or "").strip()
+    if checked and not _work_addresses(job):
+        job["location"] = checked
     return verdict
 
 

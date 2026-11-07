@@ -1,3 +1,10 @@
+## 2026-11-07 13:30 — 주소 읽기 한 곳(addressReader) (Claude)
+- 요청: Lee "왜 한번에 못하고 반복" → 주소 읽기를 급여처럼 한 곳으로 "진행해".
+- 원인 [직접 확인]: 원문 주소를 읽는 기준이 소스마다 따로(페이스북 crawl_facebook.extract_district), 빠질 때마다 공고별로 덧댐(#5157, #5599).
+- 변경: src/lib/addressReader.ts(① 이름표 줄 ② 이름표 없는 줄(끝 칸 원래 성 63곳) ③ 동·구·도로 조각, 옛 규칙 그대로 옮김) + addressReader.test.ts(#5157·#5599·FUSHAN 사례). locationPrecheck가 주소 칸 없으면 source_text를 이 함수로 읽어 "주소, 지역" 확인·응답(location). ingest_gateway가 원문을 보내고 응답 위치를 공고 위치로 저장. 페이스북 수집기의 주소 읽기 삭제. 다시 수집(refresh_facebook_existing)은 location-hook read_address(지도 조회 없음). CLAUDE.md 「수집 첫 단계」 절·RULES_CORE 한 줄.
+- 수평 전개: 원문에서 주소를 읽는 곳은 페이스북 수집기뿐(고침). crawl_topcv·job_quality는 사이트 주소 칸 정리(그대로 먼저 씀). jobDetailFill/jobDetailSections는 주소 줄을 상세요강에서 빼는 용도(해당 없음). 관리자·Lee 제공(ops-insert-job)은 위치 확인 미연결(기존과 같음).
+- 검증: addressReader·locationPrecheck·location-hook 시험, test_facebook_quality 28/28, test_ingest_gateway, test_job_quality 21/21(로컬). tsc/build는 CI.
+
 ## 2026-11-07 13:00 — 수평 전개: 핀 정확도 기준·이름표 없는 주소 줄 (Claude)
 - 요청: Lee "수평 전개 진행해"(#5599 NETCO POST: 근무지역 "Bắc Ninh"만, 검사표 핀 "정확한 위치" vs 화면 "대략 위치").
 - 원인 [직접 확인]: ① crawler/crawl_facebook.py extract_district가 "Địa điểm:/Địa chỉ:" 줄·quận/phường/đường/khu 낱말만 읽음(10-31 #5157 땜질) ② scripts/ops/job-inspect.mjs가 좌표 있으면 exact(10-25 작성, 10-26 핀 종류·10-28 대략 핀 좌표 뒤 미반영).
@@ -48,8 +55,3 @@
 - 확인 [직접 확인: supabase/migrations/20261029010000_ingest_one_door.sql find_existing, crawler/crawl_facebook.py filter_new_jobs, scripts/ocr/detail-fill.mjs]: 입구는 링크 같음·(전화+회사+원문 md5) 같음만 잡음. Facebook 수집기 사전 비교는 [source:facebook] 표식 행만 보는데 11-01 이후 상세 정리가 글을 다시 써 표식이 빠짐 → 사실상 고장. 운영 중복 수 검사 없음.
 - 변경: src/lib/jobIdentity.ts(+test) 중복 기준 계산, scripts/ops/dup-count.mjs + .github/workflows/dup-count.yml 공개 공고 중복 세기(읽기 전용).
 - 남은 문제: 실행 결과 보고 → 2단계(회사 코드표).
-
-## 2026-11-06 20:05 — 운영 상세 화면 읽기 도구 (Claude)
-- 요청: Lee "1번 방법 OK" — 작업자가 상세 화면을 직접 읽는 도구(GitHub 서버에서 열기).
-- 변경: .github/workflows/detail-read.yml(수동 실행, job_ids 입력), scripts/ops/detail-read.mjs(PC1366·모바일390으로 /viec-lam/sb-번호 열어 화면 글 전체를 로그·Summary, 전체 화면 사진 첨부). 읽기 전용.
-- 검증: 문법 확인. 병합 후 #5506으로 실행해 결과 확인.

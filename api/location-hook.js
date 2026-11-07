@@ -50,6 +50,8 @@ function runtime() {
       const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY
       return precheckLocation(db, vietmapRequest(vietmap), input, goongKey ? goongRequest(goongKey) : null, googleKey ? googlePlacesRequest(googleKey) : null)
     },
+    // 원문 주소 읽기만(Lee 2026-11-07 주소 읽기 한 곳): 지도·Google 조회 없음. 이미 올라간 공고 다시 수집이 쓴다.
+    readAddress: async (input) => (await loadRuntime()).readLocationOnly(input),
   }
 }
 
@@ -61,12 +63,14 @@ export function createLocationHookHandler(injected) {
     let body = req.body
     if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = null } }
     let deps
-    if (body && typeof body.precheck === 'object' && body.precheck) {
+    const mode = body && typeof body.precheck === 'object' && body.precheck ? 'precheck'
+      : body && typeof body.read_address === 'object' && body.read_address ? 'readAddress' : null
+    if (mode) {
       if (!token) return res.status(400).json({ error: 'invalid_request' })
       try { deps = injected || runtime() } catch { return res.status(503).json({ error: 'not_configured' }) }
       if (!(await deps.serviceKeyOk?.(token))) return res.status(401).json({ error: 'unauthorized' })
-      try { return res.status(200).json(await deps.precheck(body.precheck)) }
-      catch { console.error('api/location-hook: precheck failed'); return res.status(503).json({ error: 'location_service_unavailable' }) }
+      try { return res.status(200).json(await deps[mode](mode === 'precheck' ? body.precheck : body.read_address)) }
+      catch { console.error(`api/location-hook: ${mode} failed`); return res.status(503).json({ error: 'location_service_unavailable' }) }
     }
     const jobId = Number(body?.job_id)
     if (!token || !Number.isSafeInteger(jobId) || jobId <= 0) return res.status(400).json({ error: 'invalid_request' })

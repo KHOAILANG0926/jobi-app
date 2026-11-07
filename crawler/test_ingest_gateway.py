@@ -28,6 +28,16 @@ def run():
     assert g.ingest_job(c, job) == 77 and len(c.calls) == 1, "찾을 수 있으면 등록"
     assert seen[0]["addresses"] == ["NX 2-2, KCN Yên Phong (khu mở rộng), xã Yên Trung, Bắc Ninh"] and seen[0]["company"] == "NEW TEAM ROBOTICS VIETNAM", seen
 
+    assert c.calls[0][1]["p"]["location"] == "Bắc Ninh", "주소 칸이 있는 소스는 위치 글자를 바꾸지 않는다"
+
+    # 2026-11-07 주소 읽기 한 곳: 주소 칸이 없는 소스(페이스북)는 원문을 보내고, 서버가 읽은 "주소, 지역"을 위치로 저장
+    fb = {"title": "Tài xế", "company": "NETCO POST", "location": "Bắc Ninh", "source_text": "📍 Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh"}
+    seen.clear()
+    g.PRECHECK = lambda j: (seen.append(g.precheck_input(j)), {"findable": True, "location": "Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh, Bắc Ninh"})[1]
+    c = Client()
+    assert g.ingest_job(c, fb) == 77 and seen[0]["source_text"] == fb["source_text"] and seen[0]["addresses"] == [], seen
+    assert c.calls[0][1]["p"]["location"] == "Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh, Bắc Ninh", c.calls
+
     g.PRECHECK = lambda j: {"findable": False, "reason": "approximate_only"}
     c = Client()
     try:
@@ -58,6 +68,7 @@ def run():
     saved = os.environ.pop("SUPABASE_SERVICE_ROLE_KEY", None)
     try:
         assert g.http_precheck(job)["reason"] == "precheck_not_configured"
+        assert g.http_read_location("x").get("location") is None, "키 없으면 읽은 위치 없음"
     finally:
         if saved is not None:
             os.environ["SUPABASE_SERVICE_ROLE_KEY"] = saved

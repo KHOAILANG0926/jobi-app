@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 from crawl_facebook import parse_post, supabase
+import ingest_gateway
 from ingest_gateway import ingest_job
 
 # 급여는 다시 수집이 쓰지 않는다(2026-11-01 Lee "읽는 규칙을 하나로" — src/lib/salaryReader.ts 한 곳).
@@ -45,6 +46,8 @@ def refresh_existing(job_id: int):
         parsed["title"] = backed_title
     if not parsed["title"] or not parsed["company"] or parsed["title"].endswith(":"):
         raise RuntimeError("Parsed title or company is missing or is only a heading")
+    # 원문 주소는 위치 확인 서버의 주소 읽기 한 곳(src/lib/addressReader.ts)으로 읽는다(Lee 2026-11-07, 지도 조회 없음).
+    parsed["location"] = str((ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}).get("location") or "").strip()
     if not parsed.get("location"):
         raise RuntimeError("Cannot refresh location without a source-backed location")
     # Source text is preserved. No user-written field value is applied.

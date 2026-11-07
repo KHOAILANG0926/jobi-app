@@ -128,13 +128,9 @@ OFFICE_JOB_PATTERNS = re.compile(
     re.IGNORECASE
 )
 
-# ── 구/군/동 패턴 ────────────────────────────────────────────────────
-DISTRICT_PATTERN = re.compile(
-    r"(?:quận|q\.|huyện|thành phố|tp\.)\s*[\d\w\s]{1,20}|"
-    r"(?:phường|p\.|xã|thị trấn)\s*[\w\s]{1,20}|"
-    r"(?:đường|ngõ|ngách|khu(?!\s+vực)|kp)\s+[\w\s\d]{2,30}",  # "khu vực làm việc"(소제목)는 지역 아님(2026-10-30 #5157)
-    re.IGNORECASE
-)
+# 주소는 수집기가 읽지 않는다 — Lee 2026-11-07 "주소 읽기를 한 곳으로"(급여와 같은 방식). 원문 주소는 등록 전 위치 확인 서버가
+# src/lib/addressReader.ts 한 곳에서 읽고, 그 결과(위치 글자)를 공고 위치로 저장한다(ingest_gateway.require_location).
+# 옛 extract_district 규칙과 시험 사례(#5157·#5599 등)는 그쪽으로 옮겼다.
 
 
 NON_JOB_PATTERNS = re.compile(
@@ -205,50 +201,6 @@ def extract_zalo(text: str) -> str:
     if m:
         return re.sub(r"[\s\.\-]", "", m.group(1))
     # Zalo 언급 없지만 전화번호 첫 번째를 Zalo 로도 쓸 수 있음 — phone과 공유
-    return ""
-
-
-_PROVINCE_KEYS = None
-_NOT_ADDRESS = re.compile(r"tuyển|tuyen|lương|luong|triệu|trieu|thu nhập|thu nhap|liên hệ|lien he|zalo|ứng tuyển|ung tuyen|yêu cầu|yeu cau|ca ngày|ca đêm|\d{4,}", re.IGNORECASE)
-
-
-def _unlabeled_address_line(text: str) -> str:
-    """이름표 없는 주소 줄: '…, …, <성 이름>' 꼴(2~6칸, 160자 이하). 없으면 ''."""
-    global _PROVINCE_KEYS
-    if _PROVINCE_KEYS is None:
-        from job_quality import PROVINCE_COORDS, ascii_key
-        _PROVINCE_KEYS = {ascii_key(n): n for n in PROVINCE_COORDS}
-    from job_quality import ascii_key
-    for raw in text.splitlines():
-        line = re.sub(r"^[^\w]+", "", raw).strip(" .")
-        head = line.split(",", 1)[0]
-        if re.search(r"[:：]", head):          # "Làm việc tại: …" 같은 앞 이름표는 떼고 주소만
-            line = line.split(re.search(r"[:：]", head).group(0), 1)[1].strip(" .")
-        parts = [x.strip() for x in line.split(",") if x.strip()]
-        if not (2 <= len(parts) <= 6) or len(line) > 160 or _NOT_ADDRESS.search(line):
-            continue
-        last = re.sub(r"^(?:tỉnh|tinh|thành phố|tp\.?)\s+", "", parts[-1], flags=re.IGNORECASE)
-        if ascii_key(last) in _PROVINCE_KEYS:
-            return line
-    return ""
-
-
-def extract_district(text: str) -> str:
-    """구/군/동/도로명 등 상세 위치 추출"""
-    # Lee 2026-10-30(#5157): "Địa điểm: Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh"처럼 주소 줄이 있으면 그 줄 값을 그대로(번지 포함).
-    m = re.search(r"^[^\w\n]*(?:địa điểm|địa chỉ)(?: làm việc)?\s*[:：]\s*([^\n]{6,160})$", text, re.IGNORECASE | re.MULTILINE)
-    if m:
-        return m.group(1).strip(" .")
-    # 2026-11-07 Lee 수평 전개(#5599 NETCO POST): 이름표 없이 주소만 적힌 줄("Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh")도 원문 주소다.
-    # 쉼표로 나뉜 2칸 이상이고 끝 칸이 성 이름이며, 모집·급여·연락 낱말이 없는 줄만(제목·급여 줄을 주소로 잡지 않게).
-    line = _unlabeled_address_line(text)
-    if line:
-        return line
-    matches = DISTRICT_PATTERN.findall(text)
-    if matches:
-        # 가장 짧고 구체적인 매치 우선
-        parts = [m.strip() for m in matches if len(m.strip()) > 2]
-        return ", ".join(dict.fromkeys(parts[:3]))  # 최대 3개, 중복 제거
     return ""
 
 
@@ -1094,11 +1046,10 @@ def parse_post(post: dict) -> dict:
 
     phone = extract_phone(text)
     zalo = extract_zalo(text) or phone  # Zalo 미표기 시 전화번호 공유
-    district = extract_district(text)
     # Lee 2026-10-29(#5063 원인): 그룹 지역은 글에 그 이름이 있을 때만 쓴다. 그룹 이름만으로
     # 지역을 채우면 지도가 원문에 없는 성 중심에 핀을 찍는다. 글에 위치가 없으면 빈칸(관리자 위치 확정).
+    # 원문 주소는 여기서 읽지 않는다(Lee 2026-11-07): 위치 확인 서버가 원문(source_text)에서 읽어 "주소, 지역"으로 돌려준다.
     region = location if location and _place_key(location) in _place_key(text) else ""
-    full_location = ", ".join(p for p in (district, region) if p)
 
     company = extract_company(text)
     title = extract_title(text, company)
@@ -1109,7 +1060,7 @@ def parse_post(post: dict) -> dict:
     job = {
         "title": title,
         "company": company or "Nhà tuyển dụng Facebook",
-        "location": full_location,
+        "location": region,
         "employer_phone": phone,
         "zalo": zalo,
         "description": f"[source:facebook] {text}",

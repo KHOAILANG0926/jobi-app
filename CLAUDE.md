@@ -230,6 +230,7 @@ FAST/NORMAL의 "중복 승인 없이 Production까지"는 1·2순위를 침범�
 - 못 찾으면 그 공고는 수집하지 않는다(건수에도 넣지 않는다). 못 찾은 이유는 기록한다.
 - 자동 차단(PR #475 구현): 크롤러 등록 입구 `crawler/ingest_gateway.py`가 새 공고마다 서버 위치 확인(`api/location-hook.js` precheck, 지도와 같은 `resolveAutoLocation`·판정 `src/lib/locationPrecheck.ts`)을 먼저 부르고, 못 찾거나 확인 불가면 등록하지 않는다(`location_precheck_failed`, 규칙 거부 집계). 기존 공고 다시 수집은 거치지 않는다. 관리자·고용주·Lee 제공 공고(ops-insert-job) 경로에는 아직 없음.
 - 이미 올라간 공고(cutoff 이전)는 이 규칙으로 자동 삭제·숨김하지 않는다.
+- 원문 주소 읽기는 `src/lib/addressReader.ts` 한 곳(Lee 2026-11-07, 급여 salaryReader와 같은 방식). 수집기는 원문만 넘기고 위치 확인 서버가 읽은 "주소, 지역"을 공고 위치로 저장한다. 사이트 주소 칸이 있는 소스(TopCV 등)는 그 칸을 먼저 쓴다. 빠진 주소를 발견하면 이 함수 확인 → `addressReader.test.ts`에 그 공고 사례 추가 → 함수 수정 → 예전 사례 모두 통과해야 병합. 소스별·공고별로 따로 읽는 규칙을 만들지 않는다.
 
 ## 공고 수집 소스 규칙 — MANDATORY (2026-10-07 사용자 지시)
 

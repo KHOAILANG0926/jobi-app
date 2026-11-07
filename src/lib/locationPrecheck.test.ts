@@ -1,5 +1,5 @@
 // 수집 첫 단계 = 위치 확인(Lee 2026-11-06). 지도와 같은 resolver 결과 → 찾을 수 있음/없음.
-import { precheckJob, precheckVerdict } from './locationPrecheck.ts'
+import { precheckJob, precheckLocationText, precheckVerdict } from './locationPrecheck.ts'
 import { resolveAutoLocation } from './autoLocationResolver.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const v = (d: object) => precheckVerdict(d as never)
@@ -26,3 +26,10 @@ const none = await resolveAutoLocation(vague, { ...noop, async goong() { return 
   async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'Original administrative area province:bac ninh', checkedAt: 'x' } } })
 assert(!precheckVerdict(none).findable, 'only province → do not collect: ' + JSON.stringify(none))
 console.log('locationPrecheck: findable verdicts and real resolver cases passed')
+
+// 2026-11-07 주소 읽기 한 곳: 주소 칸이 없으면 원문에서 읽은 주소 + 그룹 지역, 주소 칸이 있으면 그 칸(원문은 읽지 않음)
+const netco = 'NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH\nThu nhập: 13 – 15 triệu/tháng\n📍 Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh'
+assert(precheckJob({ company: 'NETCO', location: 'Bắc Ninh', source_text: netco })?.location === 'Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh, Bắc Ninh', 'source text address read for precheck')
+assert(precheckJob({ company: 'NETCO', location: '', source_text: netco })?.targets[0].address === 'Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh', 'read address becomes the checked target')
+assert(precheckJob({ company: 'A', location: 'Bắc Ninh', addresses: ['KCN Quế Võ, Bắc Ninh'], source_text: netco })?.location === 'Bắc Ninh', 'site address field wins; source text not read')
+assert(precheckLocationText({ location: 'Bắc Ninh', source_text: 'Cần tuyển phục vụ' }) === 'Bắc Ninh', 'no address in text → region only')
