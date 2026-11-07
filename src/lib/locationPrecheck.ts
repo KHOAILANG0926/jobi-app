@@ -1,6 +1,7 @@
 // 수집 첫 단계 = 위치 확인(Lee 2026-11-06 최우선 규칙). 지도와 같은 위치 찾기(resolveAutoLocation) 결과로만 판정한다.
 // "찾을 수 있음" = 번지 확인(exact) · 공단 정문(gate) · 회사 이름으로 찾은 업체 자리(Google/Goong company).
 // 동·거리·공단 중심·성 대략 위치만 나오면 "못 찾음" → 수집하지 않는다.
+import { companyCore } from './jobIdentity'
 import type { LocationDecision, ResolverJob } from './autoLocationResolver'
 import { readLocationText } from './addressReader'
 import { readCompany, type CompanyRead } from './companyReader'
@@ -52,4 +53,15 @@ export function precheckLocationText(input: PrecheckInput, hasAddresses = false)
   const region = typeof input?.location === 'string' ? input.location.trim() : ''
   const source = typeof input?.source_text === 'string' ? input.source_text.slice(0, 20000) : ''
   return (!hasAddresses && source ? readLocationText(source, region) : region).slice(0, 300)
+}
+
+/** 전화번호 기록으로 소개소 보기(Lee 2026-11-07 5번 B): 이 공고 번호가 회사 코드표(job_company_phones)에 다른 회사로 이미 쓰였으면 소개소.
+ * rows = 그 번호들에 묶인 회사의 핵심 이름(core). 이름 없는 공고(번호가 곧 회사, p0…)는 근거가 아니다. 이름이 서로 포함되면 같은 회사로 본다. */
+export function agencyByPhone(name: string, rows: Array<{ core?: string | null }>): boolean {
+  const me = companyCore(name).core
+  if (!me) return false
+  return rows.some((r) => {
+    const other = String(r?.core ?? '')
+    return !!other && !/^p0\d{8,10}$/.test(other) && !other.includes(me) && !me.includes(other)
+  })
 }

@@ -1,5 +1,5 @@
 // 수집 첫 단계 = 위치 확인(Lee 2026-11-06). 지도와 같은 resolver 결과 → 찾을 수 있음/없음.
-import { precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from './locationPrecheck.ts'
+import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from './locationPrecheck.ts'
 import { resolveAutoLocation } from './autoLocationResolver.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const v = (d: object) => precheckVerdict(d as never)
@@ -41,3 +41,8 @@ assert(precheckCompany({ source_text: 'Nhà chị cần tuyển 3 phụ bếp' }
 const fromPoster = precheckCompany({ source_text: 'Tuyển gấp LĐPT', poster_text: 'CÔNG TY TNHH HOJEONG VINA\nTuyển công nhân' })
 assert(fromPoster.name === 'CÔNG TY TNHH HOJEONG VINA' && fromPoster.from === 'poster', 'poster company')
 assert(precheckJob({ company: '', location: 'Bắc Ninh', source_text: 'CTY BÁNH KẸO HỮU NGHỊ – TUYỂN\nĐịa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh' })?.company === 'CTY BÁNH KẸO HỮU NGHỊ', 'resolver gets read company')
+// 전화번호 기록으로 소개소 보기(Lee 2026-11-07 5번 B)
+assert(agencyByPhone('Nhân lực Minh Anh', [{ core: 'samsung' }]) === true, 'phone already used by another company → agency')
+assert(agencyByPhone('CTY BÁNH KẸO HỮU NGHỊ', [{ core: 'banhkeohuunghi' }]) === false, 'same company name → not agency')
+assert(agencyByPhone('Highlands Coffee', [{ core: 'p0912345678' }]) === false, 'nameless job record is not evidence')
+assert(agencyByPhone('Highlands Coffee', []) === false, 'no record → not agency')

@@ -146,7 +146,7 @@ def require_location(job: dict) -> dict:
     if str(verdict.get("company") or "").strip():
         job["company"] = str(verdict["company"]).strip()
     if verdict.get("agency") is True:
-        job["recruiter_agency"] = True
+        job["recruitment_type"] = "agency"  # 공고 '채용 형태' 칸(원래 칸, 화면 "Qua công ty cung ứng") — Lee 2026-11-07 같은 내용은 한 칸에만
     return verdict
 
 
