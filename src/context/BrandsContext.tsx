@@ -34,7 +34,7 @@ export function BrandsProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const { data: brandRows } = await supabase
       .from('job_brands')
-      .select('id,name,slug,category,domain,initial,color,active,featured')
+      .select('id,name,slug,category,domain,logo_url,initial,color,active,featured')
       .eq('active', true)
     const rows = brandRows ?? []
     if (rows.length === 0) {

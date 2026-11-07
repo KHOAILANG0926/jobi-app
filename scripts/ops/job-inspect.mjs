@@ -28,7 +28,7 @@ try {
 
   // 대표 사진·로고 출처(Lee 2026-11-07): 화면과 같은 브랜드 목록
   const brands = assembleBrands(
-    (await client.query(`select id,name,slug,category,domain,initial,color,active,featured from public.job_brands where active`)).rows,
+    (await client.query(`select id,name,slug,category,domain,logo_url,initial,color,active,featured from public.job_brands where active`)).rows,
     (await client.query(`select brand_id,alias,is_primary from public.job_brand_aliases where active`)).rows)
   const { rows } = await client.query(`
     select public.job_inspect_content_hash(j) as content_hash, (coalesce((j.ocr_check->>'inspect_hold')::boolean, false)
