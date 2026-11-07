@@ -15,7 +15,7 @@ const JOB_WORDS = new Set((
   'nhe de don gian lam ngoi phong thuong on dinh lau dai hap dan tot cao hot nong gap thong bao co hoi nganh san xuat ' +
   'dao tao hoc vien hoc chua biet ung vien ung tuyen lien he zalo sdt dt bao an o ho tro phu cap thuong kinh nghiem yeu cau ' +
   'mien phi phi xe dua don ky tuc xa ktx tang ca giu khong nuoi tra tuan quan ly bo phan dong goi boc xep phu xe giao hang ban hang ' +
-  'phuc vu tap vu bep ky thuat vien tho cty company truong pho dong doi team doi ngu kiem'
+  'phuc vu tap vu bep ky thuat vien tho cty company truong pho dong doi team doi ngu kiem chung toi minh ho'
 ).split(/\s+/))
 // 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
 // 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
