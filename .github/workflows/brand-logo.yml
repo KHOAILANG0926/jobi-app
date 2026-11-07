@@ -1,0 +1,130 @@
+name: 브랜드 로고 그림 (공식 사이트에서 받기)
+# Lee 2026-11-07 "OK": 브랜드 로고는 공식 사이트 로고 그림을 정사각형 256px로 맞춰 쓴다(사이트 아이콘은 마스코트 등이 나올 수 있음).
+# mode=discover: 공식 사이트 첫 화면에서 로고 후보 주소만 보여 준다(저장 없음).
+# mode=prepare : 고른 공식 그림 주소에서 받아 자동으로 맞춤(여백 자르기·흰 배경·정사각형·256px) → 거의 흰 그림이면 멈춤
+#                → public/brand-logos/<slug>.png + 기록 migration을 새 브랜치에 올리고 초안 PR을 만든다(DB는 migration으로만).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'discover(후보 보기) 또는 prepare(받아서 PR)'
+        required: true
+        default: discover
+      slug:
+        description: '브랜드 slug(예: netco-post)'
+        required: true
+      domain:
+        description: 'discover: 공식 사이트 도메인(예: netco.com.vn)'
+        required: false
+      source_url:
+        description: 'prepare: 공식 사이트의 로고 그림 주소(https://<공식 도메인>/...)'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: brand-logo-${{ inputs.slug }}
+  cancel-in-progress: false
+
+jobs:
+  logo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: 입력 확인
+        env:
+          SLUG: ${{ inputs.slug }}
+          DOMAIN: ${{ inputs.domain }}
+          SRC: ${{ inputs.source_url }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          [[ "$SLUG" =~ ^[a-z0-9-]+$ ]] || { echo "::error::slug 형식 오류"; exit 1; }
+          case "$MODE" in
+            discover) [[ "$DOMAIN" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ ]] || { echo "::error::domain 형식 오류"; exit 1; } ;;
+            prepare) [[ "$SRC" =~ ^https://[^[:space:]\"\'\<\>]+$ ]] || { echo "::error::source_url은 https 주소"; exit 1; } ;;
+            *) echo "::error::mode는 discover 또는 prepare"; exit 1 ;;
+          esac
+      - name: 로고 후보 보기
+        if: inputs.mode == 'discover'
+        env:
+          DOMAIN: ${{ inputs.domain }}
+        run: |
+          set +e
+          curl -sSL -m 30 -A "Mozilla/5.0" "https://$DOMAIN/" -o /tmp/home.html
+          python3 - "$DOMAIN" <<'PY'
+          import re, sys, html, urllib.parse
+          base = f"https://{sys.argv[1]}/"
+          s = open('/tmp/home.html', encoding='utf-8', errors='ignore').read()
+          seen = []
+          def add(kind, u):
+              u = urllib.parse.urljoin(base, html.unescape(u.strip()))
+              if u.startswith('https://') and (kind, u) not in seen: seen.append((kind, u))
+          for m in re.finditer(r'<img[^>]+>', s, re.I):
+              tag = m.group(0)
+              if re.search(r'logo', tag, re.I):
+                  src = re.search(r'(?:data-src|src)\s*=\s*["\']([^"\']+)', tag, re.I)
+                  if src: add('img(logo)', src.group(1))
+          for m in re.finditer(r'<link[^>]+rel=["\'][^"\']*(apple-touch-icon|icon)[^"\']*["\'][^>]*>', s, re.I):
+              h = re.search(r'href\s*=\s*["\']([^"\']+)', m.group(0), re.I)
+              if h: add(m.group(1), h.group(1))
+          for m in re.finditer(r'<meta[^>]+property=["\']og:image["\'][^>]*>', s, re.I):
+              c = re.search(r'content\s*=\s*["\']([^"\']+)', m.group(0), re.I)
+              if c: add('og:image', c.group(1))
+          print(f'로고 후보 {len(seen)}개')
+          for k, u in seen[:20]: print(f'- {k}: {u}')
+          PY
+      - name: 받아서 맞추기
+        if: inputs.mode == 'prepare'
+        env:
+          SLUG: ${{ inputs.slug }}
+          SRC: ${{ inputs.source_url }}
+        run: |
+          set -euo pipefail
+          command -v convert >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick librsvg2-bin >/dev/null; }
+          curl -sSfL -m 30 -A "Mozilla/5.0" "$SRC" -o /tmp/src.bin
+          SHA=$(sha256sum /tmp/src.bin | cut -d' ' -f1)
+          mkdir -p public/brand-logos
+          OUT="public/brand-logos/$SLUG.png"
+          # 흰 배경에 올리고(투명 → 흰색) 여백 자르기 → 216px 안에 맞춰 256px 정사각형 가운데
+          convert -density 300 /tmp/src.bin[0] -background white -alpha remove -alpha off -fuzz 6% -trim +repage \
+            -resize 216x216 -gravity center -background white -extent 256x256 -strip "$OUT"
+          DARK=$(convert "$OUT" -colorspace gray -threshold 90% -format "%[fx:1-mean]" info:)
+          echo "흰색 아닌 부분 비율: $DARK"
+          python3 -c "import sys; sys.exit(0 if float('$DARK') >= 0.03 else 1)" || { echo "::error::그림 대부분이 흰색 — 흰 글자 로고일 수 있음(확인 필요). 저장하지 않음"; exit 1; }
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+      - name: 초안 PR 만들기
+        if: inputs.mode == 'prepare'
+        env:
+          SLUG: ${{ inputs.slug }}
+          SRC: ${{ inputs.source_url }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TS=$(TZ=Asia/Ho_Chi_Minh date +%Y%m%d%H%M%S)
+          SAFE=$(echo "$SLUG" | tr '-' '_')
+          MIG="supabase/migrations/${TS}_brand_logo_${SAFE}.sql"
+          SRC_SQL=$(printf "%s" "$SRC" | sed "s/'/''/g")
+          cat > "$MIG" <<SQL
+          -- 브랜드 로고 그림 기록(brand-logo.yml, Lee 2026-11-07): $SLUG ← 공식 그림 주소, 원본 지문.
+          do \$m\$
+          declare n integer;
+          begin
+            update public.job_brands set logo_url = '/brand-logos/$SLUG.png', logo_source_url = '$SRC_SQL', logo_sha256 = '$SHA'
+             where slug = '$SLUG' and domain is not null
+               and lower(split_part(split_part('$SRC_SQL', '://', 2), '/', 1)) in (lower(domain), 'www.' || lower(domain));
+            get diagnostics n = row_count;
+            if n <> 1 then raise exception '브랜드 로고 그림: % 브랜드가 없거나 그림 주소가 공식 도메인이 아님', '$SLUG'; end if;
+          end \$m\$;
+          SQL
+          BR="brand-logo/$SLUG-$TS"
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          git add "$OUT" "$MIG"
+          git commit -m "feat(brand): $SLUG 로고 그림(공식 사이트)"
+          git push -u origin "$BR"
+          gh pr create --draft --base master --head "$BR" --title "feat(brand): $SLUG 로고 그림(공식 사이트)" --body "브랜드 로고 그림(brand-logo.yml). 출처: $SRC · 지문 $SHA. 작업자가 그림을 눈으로 확인한 뒤 본문을 PR 양식으로 채우고 준비 상태로 바꾼다."
