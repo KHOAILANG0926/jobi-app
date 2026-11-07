@@ -2,7 +2,7 @@
 - 요청: Lee "같은내용을 두번 적는게 맞아? 원래대로", "빼"(경고색), 5번 A+B, "먼저수정하고 7,8번 확인".
 - 원인 [직접 확인]: #525에서 기존 recruitment_type 칸을 확인하지 않고 recruiter_agency 칸을 새로 만듦(화면은 기존 칸만 봐서 표시 안 됨).
 - 변경: #536 수집 입구가 recruitment_type='agency'에 적음, 경고색 뺌, 소개소 판정 문구·전화번호 기록(job_company_phones) 추가, 읽기 전용 확인(company-reread field=agency). #538 Lee 승인 기록, #537 recruiter_agency 칸 삭제(0건 확인, 있으면 멈춤).
-- 배포: deploy-verify 42387724259 성공, migrations-apply 42391081797 성공. 남은 것: 소개소 중복 판정 공장 이름 비교(저장 방법 보고 대기).
+- 배포: deploy-verify 42387724259 성공, migrations-apply 42391081797 성공. 이어서 #540(Lee "A"·"3번가자"): agency_workplace_key 칸 + dedupe_private.verdict(소개소끼리 공장 다르면 다른 공고, 모르면 애매) + companyReader.readWorkplace. migrations-apply 42392546481, deploy-verify 42392718489 성공.
 
 ## 2026-11-07 22:00 — 회사 이름 읽기·카드 상호·급여 동 금액 (Claude)
 - 요청: Lee 회사 이름 규정(#523~#528), "2번으로 하고 문제는 상호명이 긴거야"→OK(#531), 급여 못 읽음 문제점 확인 후 OK(#533).
