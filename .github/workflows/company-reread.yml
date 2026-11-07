@@ -3,6 +3,11 @@ name: 기존 공고 회사 이름 다시 읽기 (읽기 전용)
 on:
   workflow_dispatch:
     inputs:
+      field:
+        description: '다시 읽을 칸(company: 회사 이름 / salary: 급여)'
+        type: choice
+        options: [company, salary]
+        default: company
       show_text:
         description: '다른 공고의 원문 앞 8줄도 보기(전화번호 가림)'
         type: boolean
@@ -28,4 +33,4 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci --no-audit --no-fund
       - name: 다시 읽기
-        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/company-reread.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/${{ inputs.field || 'company' }}-reread.mjs | tee -a "$GITHUB_STEP_SUMMARY"

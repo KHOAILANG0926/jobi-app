@@ -4,7 +4,7 @@
  * 서로 다른 값을 썼다(#5231: 다시 수집이 맞는 급여를 빈 값으로 덮음). 이제 수집기는 급여를 읽지 않고,
  * OCR 단계(사진 있는 공고)와 상세 채우기(사진 없는 공고)가 이 함수 하나로 급여 칸을 채운다.
  * 0) 직무마다 급여가 다르면(급여 줄 2개 이상, 값이 다름) 위쪽 칸은 "Theo vị trí — xem chi tiết"(Lee 2026-10-28 복수직무 규칙, 숫자 합치기 금지).
- * 순서(앞이 이김): ① 원문 급여 이름표 줄(salaryFromSource) ② 원문 이름표 없는 금액 ③ 포스터 사진 금액 ④ 원문 "thỏa thuận"·"cạnh tranh" 글자.
+ * 순서(앞이 이김): ① 원문 급여 이름표 줄(salaryFromSource) ② 원문 이름표 없는 금액(triệu·tr → 동 전체 금액·k + 지급 단위) ③ 포스터 사진 금액 ④ 원문 "thỏa thuận"·"cạnh tranh" 글자.
  * 모두 원문·포스터 글자 그대로이며 계산·추정·바꿔 쓰기를 하지 않는다.
  */
 import { salaryFromSource, type SourceSalary } from './sourceSalary.ts'
@@ -35,11 +35,20 @@ const UNLABELED = [
   new RegExp(`\\d+[.,]?\\d*\\s*${TR}(?:\\s*\\/\\s*\\p{L}+|\\s*tháng|\\s*month)?`, 'iu'),
   /\d+\s*[-–]\s*\d+\s*\$/u,
 ]
+// ②-2 동(đ) 전체 금액·k 금액(Lee 2026-11-07 #5633 "Ca ngày: 320.000đ/12 tiếng", "310k/11h"): 지급 단위("/giờ·/h·/N tiếng·/ngày·/ca·/tháng")가
+//  붙은 금액만 읽는다. 수당·상여·지원·비용·보증금 줄의 금액은 급여가 아니므로 건너뛴다.
+const AMT = '(?:\\d{1,3}(?:[.,]\\d{3})+\\s*(?:đ|đồng|vnđ|vnd)?|\\d{1,4}\\s*k)'
+const PER = '\\s*\\/\\s*(?:\\d+\\s*)?(?:giờ|gio|h|tiếng|tieng|ngày|ngay|ca|tháng|thang)(?![\\p{L}])'
+const DONG_K = new RegExp(`(?<![\\d.,])${AMT}(?:\\s*[-–~]\\s*${AMT})?(?:\\s*(?:đ|đồng|vnđ|vnd))?${PER}`, 'iu')
+const NOT_PAY_LINE = /\b(?:ho tro|phu cap|thuong|chuyen can|phi|coc|dat coc|tang ca|an trua|an ca|xang xe|nha o)\b/
 const SALARY_WORD = /\b(?:luong|thu nhap|muc luong|salary)\b/
 const VAGUE = /(?:thu nhập cạnh tranh|lương cạnh tranh|thỏa thuận|thoả thuận)/iu
 
 const periodOf = (v: string): SourceSalary['period'] => {
   const b = bare(v)
+  // "/12 tiếng"·"/11h"(2시간 이상 한 교대 금액)은 일급(Lee 2026-11-07). "/1h"는 시급.
+  const shift = b.match(/\/\s*(\d+)\s*(?:tieng|h)\b/)
+  if (shift) return Number(shift[1]) >= 2 ? 'day' : 'hour'
   return /\/\s*(?:gio|h)\b/.test(b) ? 'hour' : /\/\s*ngay\b/.test(b) ? 'day' : /(?:\/\s*thang\b|\bthang\b|\bmonth\b)/.test(b) ? 'month' : null
 }
 
@@ -70,6 +79,13 @@ export function readSalary(sourceText: string | null | undefined, ocrText?: stri
         const m = line.match(re)
         if (m) return { salary: m[0].trim(), period: periodOf(m[0]), evidence: [line] }
       }
+    }
+  }
+  for (const pool of [lines.filter((l) => SALARY_WORD.test(bare(l))), lines]) {
+    for (const line of pool) {
+      if (NOT_PAY_LINE.test(bare(line))) continue
+      const m = line.match(DONG_K)
+      if (m) return { salary: m[0].trim(), period: periodOf(m[0]), evidence: [line] }
     }
   }
   const wages = posterSalaryEvidence(ocrText)

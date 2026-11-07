@@ -36,4 +36,13 @@ eq(s('Mức lương: 7 triệu\nLương: 7 triệu')?.salary, '7 triệu', 'same
 eq(s(REAL_JOBS['4878'].source_text)?.salary, REAL_JOBS['4878'].salary, '#4878 real')
 eq(s(REAL_JOBS['4879'].source_text)?.salary, REAL_JOBS['4879'].salary, '#4879 real')
 eq(s(REAL_JOBS['4982'].source_text)?.salary, REAL_JOBS['4982'].salary, '#4982 real multi-role')
+// ②-2 동 전체 금액·k 금액(2026-11-07 #5633 실제 원문)
+const T5633 = 'CTY  BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC NAM/NỮ \n Địa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh\n Đối tượng: Nam/Nữ từ 16–60 tuổi\n Công việc: Làm ngồi, đóng gói bánh kẹo – công việc đơn giản, dễ làm.\n LƯƠNG THEO CA\n Ca ngày: 320.000đ/12 tiếng\n Ca đêm: 370.000đ/12 tiếng\n Thanh toán lương hàng tuần – nhận lương thứ 6'
+eq(s(T5633)?.salary, '320.000đ/12 tiếng', '#5633 full-dong shift wage')
+eq(s(T5633)?.period, 'day', '#5633 12-hour shift is a day wage')
+eq(s('Tuyển nam nữ làm KCN Yên Phong\n310k/11h ca ngày')?.salary, '310k/11h', 'k shift wage')
+eq(s('Tuyển nam nữ làm KCN Yên Phong\n310k/11h ca ngày')?.period, 'day', 'k shift period')
+eq(s('Tuyển phụ bếp\nPart-time: 25.000 – 31.000đ/giờ')?.period, 'hour', 'full-dong hourly range')
+eq(s('Tuyển phục vụ\nHỗ trợ 500k/tháng tiền xăng\nLương thỏa thuận')?.salary, 'thỏa thuận', 'allowance line is not salary')
+eq(s('Tuyển lao động\nPhí hồ sơ 300.000đ/người'), null, 'fee is not salary')
 console.log('salaryReader: all assertions passed')
