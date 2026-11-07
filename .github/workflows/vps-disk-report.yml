@@ -1,0 +1,32 @@
+name: VPS 저장 공간 확인 (읽기 전용)
+# Lee 2026-11-07: AZDIGI VPS(11GB)가 95% 참. 무엇이 공간을 차지하는지 보기만 한다. 아무것도 지우지 않는다.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-disk-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - name: 공간 확인
+        run: |
+          set +e
+          echo "## VPS 저장 공간" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          { echo "== 전체"; df -h / ;
+            echo; echo "== 실행기 사용자 폴더(큰 순)"; du -xh --max-depth=2 "$HOME" 2>/dev/null | sort -rh | head -25;
+            echo; echo "== 실행기 작업·도구 폴더"; du -xh --max-depth=2 "$HOME/actions-runner" 2>/dev/null | sort -rh | head -20;
+            echo; echo "== 캐시(브라우저·pip)"; du -sh "$HOME/.cache"/* 2>/dev/null | sort -rh | head -15;
+            echo; echo "== /tmp"; du -xsh /tmp 2>/dev/null;
+            echo; echo "== 읽을 수 있는 시스템 폴더(큰 순)"; du -xh --max-depth=1 / 2>/dev/null | sort -rh | head -15;
+            echo; echo "== 큰 파일 20개(200MB 이상, 읽을 수 있는 곳)"; find / -xdev -type f -size +200M 2>/dev/null | xargs -r ls -lh 2>/dev/null | sort -k5 -rh | head -20;
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit 0
