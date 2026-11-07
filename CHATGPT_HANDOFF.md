@@ -1,24 +1,21 @@
-# HANDOFF — 2026-11-06 오후 (Claude) · 위치 Google 먼저·박닌 공고 3건·크롤링 소스 점검
+# HANDOFF — 2026-11-07 오후 (Claude) · 주소 읽기 한 곳·중복 4단계·FB 쿠키
 
 ## 1. 현재 상태
-- master ba135dc. 코드 변경 최신 299a172(#488 Google 먼저) deploy-verify 42184464122 성공 [직접 확인].
-- 위치: 회사 이름 있으면 Google부터(상세 Google 버튼과 같은 검색어) → VietMap 번지 검증 exact / 아니면 Google 좌표(area). 프로세스 문서 CLAUDE.md 「공고 위치 확인 프로세스」(#489): 키는 크롤러 자동 확인만, Lee 제공·기존 공고는 일반 Google 지도 링크 → admin-location-confirm. business-search-compare는 extra 1건만·동시 실행 차단·전체 비교는 confirm_compare=true.
-- 2026-11-06 Google Places 429(한도 초과): 작업자가 비교 검색 14회(회당 16곳)·4개 동시 실행해 소진. 실제 한도 숫자는 콘솔에서만 확인 가능(미확인).
-- 공고: #5505 Hojeong·#5507 nhẹ cafe 공개(검사표 기준) [직접 확인: 이슈 #237]. #5506 BĐS Phúc Lộc 공개. #494로 "~:" 제목+글머리 목록이 한 칸에 붙어 나옴(Lee 캡처 17:35로 확인). "로켓 장착" 묶음이 소득·수당 칸에 들어감 — 규칙 위반 아님, 둘지 고칠지 Lee 결정 대기. Haidilao 미등록 — R3 출처(FB 작성자 이름 또는 캡처) 필요, 원문은 Lee 대화에 있음.
-- 검사/등록 변경: 범위 금액 앞 숫자 단위(#480), 원문에 없는 필수 항목은 경고만·새 공고도 공개(#479·#484), 목록 제목 줄 예외(#485), 포스터 옮김은 원문(source_text)에서 빼고 업체 이름 줄만(#485·#486, 규칙 ④①).
-- 상세: 빈 칸 상자 빠지고 아래 칸 올라옴·연락 버튼 별도(#481, deploy-verify 42173749730 성공). mobile-home 시험은 11-05부터 실패 중(무관).
-- VPS(AZDIGI 103.221.223.71, 3개월 결제 391,600đ): 11-07 청구서 431073 결제(Lee). 다음 납부 2027-02 초 — 기한 전 Lee에게 미리 알림.
-- 크롤링: Facebook session_expired(run 42185487440) → Lee 쿠키 갱신(VPS SOCKS) 대기. Chợ Tốt: 웹 403, 공개 gateway 목록·본문 읽힘·번호 가려짐(run 42187019576), Lee 계정 정지(ABB, 이의 메일 발송됨). Muaban 수집기 없음. TopCV/Vieclam24h 꺼짐(8월 지시).
+- master a943767(#513 주소 읽기 한 곳) — Vercel 배포·deploy-verify 42347185802 성공 [직접 확인].
+- 주소 읽기(Lee 11-07, 기존 방향 변경): 원문 주소는 src/lib/addressReader.ts 한 곳에서만 읽는다(급여 salaryReader와 같은 방식). Facebook 수집기는 주소를 읽지 않고 원문(source_text)만 보냄 → 위치 확인 서버(api/location-hook precheck)가 읽은 "주소, 지역"을 공고 위치로 저장(crawler/ingest_gateway.require_location). 사이트 주소 칸 있는 소스(TopCV)는 그 칸 먼저. 다시 수집은 location-hook read_address(지도 조회 없음). 빠진 주소 = 사례를 addressReader.test.ts에 추가 → 함수 수정(소스·공고별 규칙 금지). CLAUDE.md 「수집 첫 단계」 절.
+- 중복 4단계 운영 중(회사 코드·같은 일·같은 위치 → 확실=비공개, 애매=비공개+관리자 🔁 Nghi trùng lặp). 기존 공고는 판정 제외.
+- 공고: #5595 EAGLEON 등록·비공개(업무 미기재·직업분류 없음, 프로세스대로). #5599 NETCO POST 공개(핀 대략 위치).
+- 크롤러 위치 확인 401(키 글자 다름) 해결(#507~#510). 검사표 핀 정확도 = 화면 기준(exact+확인)(#511).
+- Facebook 쿠키 11-07 11:07 갱신(VPS IP 경유). 유지 기간 측정 중. VPS 공간 1.2G 남음(옛 실행기 정리), root 정리(snap·apt 약 0.5GB)는 미실행.
+- VPS AZDIGI 3개월 결제(11-07), 다음 납부 2027-02 초 — 기한 전 Lee에게 알림.
 
 ## 2. 다음 할 일 3개
-1. Facebook 쿠키 갱신 후 crawl-facebook-one dryrun → 박닌 1건 save(위치 확인 Google 먼저 적용 첫 실전).
-2. Muaban 로그인 없이 읽기·번호 노출 시험(chotot_probe 방식, 저장 없음).
-3. 등록 후 상세 화면은 작업자가 직접 읽는다(Lee 캡처 요청 금지, Lee 11-06): GitHub 「상세 화면 읽기」(detail-read.yml, 입력 job_ids) → 로그에 PC·모바일 화면 글 전체, 사진은 첨부. / Haidilao 출처 받아 등록(일반 Google 지도 위치 확인 먼저).
+1. Facebook 1건씩 천천히 등록(원문 업무 먼저 읽기 → facebook-preview-read.yml).
+2. Facebook 쿠키 만료 시점 기록·보고.
+3. Muaban 읽기 시험 / Haidilao(R3 출처) / Chợ Tốt 이의 결과 — Lee 지시 시.
 
 ## 3. 필수 규칙
-- 시키면 바로 실행(Lee 11-06). 운영 DB 직접 SQL·번호 지정 덮어쓰기 금지, STRICT만 승인.
-- Google 키는 크롤러 자동 확인만. 사람 확인은 일반 Google 지도. 비교 검색 1건씩.
-- 로그인·비밀번호 입력은 작업자 금지 — Lee가 VPS에서 로그인, 쿠키는 Secrets에만.
-- GitHub 연결로 브랜치·PR, 필수 검사·봇 병합 우회 금지. 보고 5줄·앱 화면 기준.
-
-- 중복 기준(Lee 2026-11-06 확정): 글이 같은지가 아니라 회사(핵심 이름+업종 소분류 — 카페·식당 따로, 하는 일로는 안 나눔; 이름 없으면 전화·Zalo)·하는 일(직업분류, 미기재면 큰 분류)·위치(정확한 핀 200m/같은 공단, 대략 위치는 묶지 않고 확인 목록)가 같으면 중복 → 확실하면 새 공고 비공개(버림), 애매하면 비공개+관리자 게시판(Lee 11-07, 덮어쓰기 없음). 기존 공고 포함. 순서: ①공개 공고 중복 세기(dup-count.yml, 읽기 전용 — 11-06 공개 19건 중 중복 0, 19건 모두 다른 회사) ②회사 코드표(jobIdentity 회사·지점 분리·업종 맞음 규칙 완료, 회사 코드표 Lee 승인 23:06 → migration 20261106230000_job_company_codes 적용) ③기존 공고 코드 부여 완료(공개 19건, company-code-assign.yml) ④중복 판정 운영 적용 완료(migration 20261107070000, 운영 점검·deploy-verify 42323599503 통과): 저장 직후 위치 찾기 뒤 회사 코드 붙이고 확실한 중복=비공개, 애매=비공개+관리자 「분류 못 한 줄 고르기」 게시판 🔁 Nghi trùng lặp, 기존 공고 제외. 기존 공고끼리 중복 처리(숨김·합치기)는 ① 결과 보고 Lee 결정. 보류(비공개) 공고는 검사에서 뺌(Lee: 해결될 때까지 둠) — 4단계에서 보류가 풀려 공개될 때도 중복 검사. 현행 장치: 링크 같음·글자 완전 같음만 잡음, Facebook 수집기 사전 비교는 11-01 상세 정리 뒤 [source:facebook] 표식이 빠져 사실상 고장.
+- 확인하고 말한다(추측 금지), 기존 프로세스 먼저 확인, 덧대기 금지. 보고는 한국어·최종 보고만·짧게.
+- 운영 DB 직접 SQL·번호 지정 덮어쓰기 금지, DDL·데이터 변경은 STRICT(Lee 승인).
+- 비밀값(키·쿠키) 어디에도 출력 금지. 로그인은 Lee가 VPS에서.
+- 완료 = PR → 검사 → 병합 → 배포 → deploy-verify → 화면 확인 → HANDOFF·WORK_LOG.
