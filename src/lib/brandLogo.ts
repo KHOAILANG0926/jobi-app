@@ -8,7 +8,18 @@ import { jobMatchesBrand, type BrandDefinition } from '../data/brandDirectory'
 
 export const brandIconUrl = (domain: string) => `https://www.google.com/s2/favicons?sz=128&domain=${domain}`
 
+/** 브랜드 로고 한 곳(Lee 2026-11-07): 공식 로고 그림(public/brand-logos) → 없으면 공식 사이트 아이콘. 메뉴·카드·상세가 같이 쓴다. */
+export function brandImageUrl(brand: Pick<BrandDefinition, 'domain' | 'logoUrl'>): string | undefined {
+  if (brand.logoUrl && /^\/brand-logos\/[a-z0-9-]+\.png$/.test(brand.logoUrl)) return brand.logoUrl
+  return brand.domain ? brandIconUrl(brand.domain) : undefined
+}
+
 export function brandLogoFor(job: Pick<Job, 'company' | 'title'>, brands: BrandDefinition[]): string | undefined {
   const brand = brands.find((b) => b.domain && jobMatchesBrand(job as Job, b))
-  return brand?.domain ? brandIconUrl(brand.domain) : undefined
+  return brand ? brandImageUrl(brand) : undefined
+}
+
+/** 공고와 맞는 브랜드(검사표용). */
+export function brandFor(job: Pick<Job, 'company' | 'title'>, brands: BrandDefinition[]): BrandDefinition | undefined {
+  return brands.find((b) => b.domain && jobMatchesBrand(job as Job, b))
 }

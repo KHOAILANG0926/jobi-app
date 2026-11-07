@@ -38,9 +38,9 @@ export interface InspectInput extends ShownAbove {
   /** 대표 사진·로고 출처(Lee 2026-11-07): brand/photo/site, 공용 사진이면 로고 찾기 결과(none/excluded/no_place/quota), 아직이면 pending. */
   photo?: PhotoSource
 }
-export type PhotoSource = 'brand' | 'photo' | 'site' | 'none' | 'excluded' | 'no_place' | 'quota' | 'pending' | 'before_rule'
+export type PhotoSource = 'brand' | 'brand_icon' | 'photo' | 'site' | 'none' | 'excluded' | 'no_place' | 'quota' | 'pending' | 'before_rule'
 const PHOTO_LABEL: Record<PhotoSource, string> = {
-  brand: '브랜드 로고', photo: '공고 사진', site: '회사 웹사이트 로고', none: '공용 사진(회사 웹사이트 없음)',
+  brand: '브랜드 로고', brand_icon: '브랜드 로고(사이트 아이콘 — 로고 그림 없음, brand-logo.yml로 받기)', photo: '공고 사진', site: '회사 웹사이트 로고', none: '공용 사진(회사 웹사이트 없음)',
   excluded: '공용 사진(웹사이트가 SNS·쇼핑몰·구인 사이트)', no_place: '공용 사진(Google이 회사를 모름)',
   quota: '공용 사진(이번 달 Google 한도)', pending: '로고 찾기 대기', before_rule: '공용 사진(로고 찾기 전 등록 공고)',
 }

@@ -4,7 +4,7 @@
 import type { ResolverJob } from './autoLocationResolver'
 import { googlePlaceHits, googleSearchText, pickCompanyPlace } from './companyPlaceSearch'
 import { companyLogoUrl, jobImagePublicUrl } from './companyLogo'
-import { brandLogoFor } from './brandLogo'
+import { brandFor, brandLogoFor } from './brandLogo'
 import type { BrandDefinition } from '../data/brandDirectory'
 import type { Job } from '../types/job'
 
@@ -50,8 +50,9 @@ export const LOGO_LOOKUP_SINCE = '2026-11-07T15:50:00+07:00'
 export function photoSource(
   job: Pick<Job, 'company' | 'title' | 'imageUrl' | 'images' | 'companyDomain'> & { createdAt?: string | null; lookupResult?: string | null },
   brands: BrandDefinition[],
-): 'brand' | 'photo' | 'site' | 'none' | 'excluded' | 'no_place' | 'quota' | 'pending' | 'before_rule' {
-  if (brandLogoFor(job, brands)) return 'brand'
+): 'brand' | 'brand_icon' | 'photo' | 'site' | 'none' | 'excluded' | 'no_place' | 'quota' | 'pending' | 'before_rule' {
+  const brand = brandFor(job, brands)
+  if (brand) return brand.logoUrl ? 'brand' : 'brand_icon'
   if (companyLogoUrl(job.imageUrl) || jobImagePublicUrl(job.images?.[0])) return 'photo'
   if (job.companyDomain) return 'site'
   const r = job.lookupResult

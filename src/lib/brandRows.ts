@@ -21,6 +21,7 @@ export function assembleBrands(rows: Record<string, unknown>[], aliasRows: Recor
         category: r.category as BrandDefinition['category'],
         linkTo: primary.alias,
         domain: (r.domain as string | null) ?? undefined,
+        logoUrl: (r.logo_url as string | null) ?? undefined,
         initial: r.initial as string,
         color: r.color as string,
         featured: (r.featured as boolean) ?? false,

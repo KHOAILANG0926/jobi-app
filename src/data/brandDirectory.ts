@@ -43,6 +43,8 @@ export interface BrandDefinition {
    *  (job_brand_aliases.is_primary=true인 것). */
   linkTo: string
   domain?: string
+  /** 브랜드 로고 그림(공식 사이트 로고를 정사각형 PNG로 맞춰 함께 배포, Lee 2026-11-07). 없으면 사이트 아이콘. */
+  logoUrl?: string
   initial: string
   color: string
   /** 관리자가 /admin에서 직접 지정 — 예전처럼 공고 수 임계값으로 자동

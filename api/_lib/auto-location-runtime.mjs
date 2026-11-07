@@ -207,7 +207,7 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   if (error) throw new Error('logo_storage_unavailable')
   if (!job) return 'missing'
   if (job.logo_lookup) return 'done'
-  const { data: brandRows, error: be } = await db.from('job_brands').select('id,name,slug,category,domain,initial,color,active,featured').eq('active', true)
+  const { data: brandRows, error: be } = await db.from('job_brands').select('id,name,slug,category,domain,logo_url,initial,color,active,featured').eq('active', true)
   const { data: aliasRows, error: ae } = await db.from('job_brand_aliases').select('brand_id,alias,is_primary').eq('active', true)
   if (be || ae) throw new Error('logo_storage_unavailable')
   const images = Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : []

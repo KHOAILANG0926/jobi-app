@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { brandImageUrl } from '../lib/brandLogo'
 import { REGION_MENU_LINKS } from '../data/regionMenuLinks'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
@@ -129,7 +130,7 @@ function BrandMegaMenu({ jobs, brands, onNavigate }: { jobs: import('../types/jo
                 className="mega-menu__brand-mini-card"
                 onClick={() => onNavigate(`/?brand=${encodeURIComponent(b.linkTo)}`)}
               >
-                <BrandCardLogo color={b.color} logo={b.domain ? `https://www.google.com/s2/favicons?sz=128&domain=${b.domain}` : undefined} initial={b.initial} />
+                <BrandCardLogo color={b.color} logo={brandImageUrl(b)} initial={b.initial} />
                 <span className="mega-menu__brand-mini-card-label">{b.name}</span>
                 <span className="mega-menu__brand-mini-card-count">{b.count}</span>
               </button>
