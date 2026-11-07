@@ -64,8 +64,12 @@ def _work_addresses(job: dict) -> list[str]:
 def precheck_input(job: dict) -> dict:
     """지도와 같은 위치 찾기에 보낼 원문: 회사·지역·근무지 주소(사이트 주소 칸)·원문 전체.
     주소 칸이 없으면 서버가 원문(source_text)에서 주소를 읽는다 — 주소 읽기는 src/lib/addressReader.ts 한 곳(Lee 2026-11-07)."""
-    return {"company": str(job.get("company") or ""), "location": str(job.get("location") or ""),
-            "addresses": _work_addresses(job)[:5], "source_text": str(job.get("source_text") or "")}
+    company = str(job.get("company") or "")
+    if job.get("_company_from_text"):
+        company = ""  # 원문에서 읽은 회사 이름은 서버가 다시 읽는다(회사 이름 읽기 한 곳). 사이트 회사 칸만 그대로 보낸다.
+    return {"company": company, "location": str(job.get("location") or ""),
+            "addresses": _work_addresses(job)[:5], "source_text": str(job.get("source_text") or ""),
+            "poster_text": str(job.get("_poster_text") or "")}
 
 
 def _post_hook(body: dict, failed: dict) -> dict:
@@ -97,16 +101,52 @@ PRECHECK = http_precheck
 READ_LOCATION = http_read_location
 
 
+def http_read_poster(url: str) -> str | None:
+    """포스터 글자 읽기(등록 뒤 판독과 같은 판독기 scripts/ocr/read-poster.mjs). 실패하면 None."""
+    import subprocess
+    import tempfile
+    got = DOWNLOAD_IMAGE(url)
+    if not got:
+        return None
+    with tempfile.NamedTemporaryFile(suffix="." + _IMAGE_TYPES[got[1]]) as f:
+        f.write(got[0])
+        f.flush()
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        try:
+            res = subprocess.run(["node", "scripts/ocr/read-poster.mjs", f.name], cwd=root, capture_output=True, text=True, timeout=90)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    return res.stdout if res.returncode == 0 else None
+
+
+READ_POSTER = http_read_poster
+
+
 def require_location(job: dict) -> dict:
     """수집 첫 단계 = 위치 확인(Lee 2026-11-06 최우선). 못 찾으면 등록하지 않는다(LocationNotFound).
-    찾으면 서버가 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역)를 공고 위치로 쓴다(주소 칸이 있는 소스는 그대로)."""
+    찾으면 서버가 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역)를 공고 위치로 쓴다(주소 칸이 있는 소스는 그대로).
+    회사 이름(Lee 2026-11-07): 서버가 원문에서 읽고, 못 찾으면 포스터 글자를 읽어 다시 묻는다. 그래도 없으면 등록하지 않는다.
+    포스터 판독 실패는 "회사 이름 없음"과 구분한다(poster_read_failed — 등록하지 않았으니 다음 수집 때 다시 시도된다)."""
     verdict = PRECHECK(job) or {}
+    if verdict.get("reason") == "no_company_text":
+        posters = [x for x in (job.get("images") or []) if isinstance(x, str) and x.startswith("https://")][:1]
+        if posters:
+            text = READ_POSTER(posters[0])
+            if text is None:
+                raise LocationNotFound("location_precheck_failed: poster_read_failed")
+            job["_poster_text"] = text
+            verdict = PRECHECK(job) or {}
     if verdict.get("findable") is not True:
         reason = str(verdict.get("reason") or "not_found")
-        raise LocationNotFound(f"location_precheck_failed: {reason}")
+        who = str(verdict.get("company") or "").strip()
+        raise LocationNotFound(f"location_precheck_failed: {reason}" + (f" (회사: {who[:60]})" if who else ""))
     checked = str(verdict.get("location") or "").strip()
     if checked and not _work_addresses(job):
         job["location"] = checked
+    if str(verdict.get("company") or "").strip():
+        job["company"] = str(verdict["company"]).strip()
+    if verdict.get("agency") is True:
+        job["recruiter_agency"] = True
     return verdict
 
 

@@ -1,0 +1,100 @@
+// 공고 원문에서 회사(업체) 이름을 읽는 단 한 곳 — Lee 2026-11-07 "회사 이름 규정"(주소 addressReader·급여 salaryReader와 같은 방식).
+// 수집기는 이 함수를 위치 확인 서버를 통해 쓴다(직접 읽지 않음). 잘못 읽은 공고는 companyReader.test.ts에 사례 추가 → 여기 고침.
+// 찾는 순서: ① 이름표 줄 "Công ty: …" ② "CÔNG TY/CTY …"로 시작하는 줄 ③ 가게 낱말 바로 뒤 이름(같은 줄 안에서만)
+//            ④ "tại + 이름"(Việc làm tại VINAMILK) ⑤ 제목 대시 뒤 ⑥ "… tuyển dụng" 앞(첫 줄들)
+// 버림: 구인 글 낱말·숫자·금액·지역·나라·공단 낱말만으로 된 후보, 홍보 문장(!/? 끝), 60자 넘음.
+// 못 찾으면 ''(→ 그 공고는 수집하지 않음, Lee 2026-11-07). 소개소(인력 회사)는 그 이름을 회사로 쓰고 agency=true(화면 "소개소" 표시).
+import { fold } from './jobIdentity'
+import { ADMINISTRATIVE_AREAS } from './administrativeArea'
+
+// 구인 글에 늘 나오는 낱말(접은 글자). 이 낱말·숫자만으로 된 후보는 회사 이름이 아니다.
+const JOB_WORDS = new Set((
+  'tuyen dung gap can them lien tuc nhieu so luong vi tri nhan vien nv lao dong ldpt ld pho thong cong nhan viec lam thoi vu chinh thuc ' +
+  'part time parttime fulltime full luong co ban thu nhap trieu tr k vnd d dong ngay thang tuan gio h ca dem sang chieu toi ' +
+  'nam nu va hoac cho cua tai o tu den tren duoi voi la co khong ko kg nhan ca nguoi ban anh chi em ae moi cac ' +
+  'nhe de don gian lam ngoi phong thuong on dinh lau dai hap dan tot cao hot nong gap thong bao co hoi nganh san xuat ' +
+  'dao tao hoc vien hoc chua biet ung vien ung tuyen lien he zalo sdt dt bao an o ho tro phu cap thuong kinh nghiem yeu cau ' +
+  'mien phi phi xe dua don ky tuc xa ktx tang ca giu khong nuoi tra tuan quan ly bo phan dong goi boc xep phu xe giao hang ban hang ' +
+  'phuc vu tap vu bep ky thuat vien tho cty company'
+).split(/\s+/))
+// 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
+// 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
+const NOT_NAME_PHRASES = ['cua hang', 'nha hang', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
+const REGION_PHRASES = [...new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))].sort((a, b) => b.length - a.length)
+
+/** 회사 이름이 될 수 있는 낱말이 하나라도 남는가(구인 낱말·숫자·지역·나라·공단 낱말 제외). */
+export function hasNameWord(candidate: string): boolean {
+  let s = ` ${fold(candidate).replace(/[^a-z0-9]+/g, ' ')} `
+  for (const p of [...NOT_NAME_PHRASES, ...REGION_PHRASES]) s = s.split(` ${p} `).join(' ')
+  return s.split(/\s+/).some((w) => w && !JOB_WORDS.has(w) && !/\d/.test(w) && w.length > 1)
+}
+
+const MAX = 60
+function clean(c: string): string {
+  return c.replace(/\s{2,}/g, ' ').replace(/^[\s\-–•*:|]+|[\s\-–•*:|,.]+$/g, '').trim()
+}
+function ok(c: string): string {
+  const v = clean(c)
+  if (!v || v.length > MAX || /[!?]$/.test(v) || !hasNameWord(v)) return ''
+  return v
+}
+
+const EMOJI = /[\u{1F000}-\u{1FAFF}☀-➿️‍]+/gu
+const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
+const AGENCY = /nhan luc|cung ung|tuyen dung ho|xuat khau lao dong|viec lam|manpower|\bhr\b|headhunt/
+const WORKPLACE = /nha may|xuong|kcn|ccn|khu cong nghiep|cum cong nghiep|cong ty [a-z]/
+const FEE = /phi tuyen|thu phi|dat coc|\bcoc\b|le phi|phi ho so|mat phi/
+const NO_FEE = /khong (?:thu )?(?:mat )?phi|mien phi|khong (?:dat )?coc|0 ?d phi|free/
+
+export interface CompanyRead { name: string; agency: boolean; fee: boolean }
+
+/** 원문(여러 줄)에서 회사 이름. 못 찾으면 name=''. */
+export function readCompany(text: string): CompanyRead {
+  const src = String(text ?? '').normalize('NFC')
+  const lines = src.split('\n').map((l) => clean(l.replace(EMOJI, ' '))).filter(Boolean)
+  const pick = (): string => {
+    // ① 이름표 줄
+    for (const l of lines) {
+      const m = l.match(/^(?:tên )?(?:công ty|cty|đơn vị|nhà tuyển dụng|doanh nghiệp)\s*[:：]\s*(.+)$/iu)
+      if (m && ok(m[1])) return ok(m[1])
+    }
+    // ② "CÔNG TY/CTY …"로 시작하는 줄(앞 8줄) — 뒤에 붙은 "– TUYỂN …"·"tuyển …"·주소는 뗀다
+    for (const l of lines.slice(0, 8)) {
+      if (!/^(?:công ty|cty)\b/iu.test(l) || /^(?:công ty|cty)\s+(?:có|hỗ trợ|được|sẽ|luôn|cam kết)(?=\s|$)/iu.test(l)) continue
+      const c = l.replace(/\s*[-–|]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển|tuyen)\b.*$/iu, '')
+        .replace(/\s*[-–]\s*(?:số|sn)?\s*\d.*$/iu, '')
+      if (ok(c)) return ok(c)
+    }
+    // ③ 가게 낱말 바로 뒤 이름(같은 줄 안)
+    for (const l of lines.slice(0, 8)) {
+      const m = l.match(new RegExp(`${KIND}\\s+([^,.!?:\\n]{2,60})`, 'iu'))
+      if (!m) continue
+      const c = m[1].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển|tìm|mới khai trương)\b.*$/iu, '')
+      if (ok(c)) return ok(`${m[0].slice(0, m[0].length - m[1].length).trim()} ${c}`)
+    }
+    // ④ "tại + 이름"(Việc làm tại VINAMILK - BẮC NINH)
+    for (const l of lines.slice(0, 3)) {
+      const m = l.match(/\btại\s+([^,.!?\n]{2,60})/iu)
+      if (!m) continue
+      const c = m[1].replace(new RegExp(`^${KIND}\\s*[:：]\\s*`, 'iu'), '').replace(/\s*[-–]\s*.*$/u, '')
+      if (ok(c)) return ok(c)
+    }
+    // ⑤ 제목 대시 뒤("TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH")
+    for (const l of lines.slice(0, 2)) {
+      const m = l.match(/^(?:tuyển|tuyen|tuyển dụng|tuyển gấp|cần tuyển)\b.*?\s[–-]\s+(.{3,80})$/iu)
+      if (m && ok(m[1])) return ok(m[1])
+    }
+    // ⑥ "… TUYỂN DỤNG" 앞(첫 4줄)
+    for (const l of lines.slice(0, 4)) {
+      if (!/tuyển dụng|cần tuyển|tuyển\b/iu.test(l)) continue
+      const c = l.replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển)\b.*$/iu, '').replace(/\s*thông báo\s*$/iu, '')
+      if (ok(c)) return ok(c)
+    }
+    return ''
+  }
+  const name = pick()
+  const all = fold(src)
+  const agency = !!name && AGENCY.test(fold(name)) && WORKPLACE.test(all.replace(fold(name), ' '))
+  const fee = FEE.test(all) && !NO_FEE.test(all)
+  return { name, agency, fee }
+}

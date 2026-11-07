@@ -1,0 +1,25 @@
+name: 기존 공고 회사 이름 다시 읽기 (읽기 전용)
+# Lee 2026-11-07(1번): 공개 공고의 회사 이름을 새 기준(companyReader)으로 다시 읽어 차이 목록만 로그에 보여 준다. DB 변경 없음.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: company-reread
+  cancel-in-progress: false
+
+jobs:
+  reread:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - name: 다시 읽기
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/company-reread.mjs | tee -a "$GITHUB_STEP_SUMMARY"

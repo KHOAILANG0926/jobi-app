@@ -1,5 +1,5 @@
 // 수집 첫 단계 = 위치 확인(Lee 2026-11-06). 지도와 같은 resolver 결과 → 찾을 수 있음/없음.
-import { precheckJob, precheckLocationText, precheckVerdict } from './locationPrecheck.ts'
+import { precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from './locationPrecheck.ts'
 import { resolveAutoLocation } from './autoLocationResolver.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const v = (d: object) => precheckVerdict(d as never)
@@ -33,3 +33,11 @@ assert(precheckJob({ company: 'NETCO', location: 'Bắc Ninh', source_text: netc
 assert(precheckJob({ company: 'NETCO', location: '', source_text: netco })?.targets[0].address === 'Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh', 'read address becomes the checked target')
 assert(precheckJob({ company: 'A', location: 'Bắc Ninh', addresses: ['KCN Quế Võ, Bắc Ninh'], source_text: netco })?.location === 'Bắc Ninh', 'site address field wins; source text not read')
 assert(precheckLocationText({ location: 'Bắc Ninh', source_text: 'Cần tuyển phục vụ' }) === 'Bắc Ninh', 'no address in text → region only')
+
+// 2026-11-07 회사 이름 규정: 사이트 칸 → 원문 → 포스터. 페이스북 기본값은 이름이 아님
+assert(precheckCompany({ company: 'NEW TEAM ROBOTICS VIETNAM', source_text: 'x' }).from === 'site', 'site company field wins')
+assert(precheckCompany({ company: 'Nhà tuyển dụng Facebook', source_text: 'CTY BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC' }).name === 'CTY BÁNH KẸO HỮU NGHỊ', 'facebook fallback → read text')
+assert(precheckCompany({ source_text: 'Nhà chị cần tuyển 3 phụ bếp' }).name === '', 'no company in text')
+const fromPoster = precheckCompany({ source_text: 'Tuyển gấp LĐPT', poster_text: 'CÔNG TY TNHH HOJEONG VINA\nTuyển công nhân' })
+assert(fromPoster.name === 'CÔNG TY TNHH HOJEONG VINA' && fromPoster.from === 'poster', 'poster company')
+assert(precheckJob({ company: '', location: 'Bắc Ninh', source_text: 'CTY BÁNH KẸO HỮU NGHỊ – TUYỂN\nĐịa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh' })?.company === 'CTY BÁNH KẸO HỮU NGHỊ', 'resolver gets read company')

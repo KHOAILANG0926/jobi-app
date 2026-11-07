@@ -30,6 +30,7 @@ from job_posting_policy import evaluate_job_posting_policy, crawler_policy_error
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
 from source_fields import REJECTIONS, rule_code, source_fields
+import ingest_gateway
 from ingest_gateway import ingest_job
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -228,40 +229,14 @@ def extract_title(text: str, company: str = "") -> str:
     return f"{company} tuyển dụng" if company else "Tuyển dụng"
 
 
-_COMPANY_LABEL = re.compile(r"^(?:vị trí|vi tri|địa điểm|dia diem|mức lương|muc luong|thời gian|thoi gian|yêu cầu|yeu cau|liên hệ|lien he|quyền lợi|quyen loi|bảng tin|bang tin)\b", re.IGNORECASE)
-
-
-def extract_company(text: str) -> str:
-    lines = [l.strip(" -*•\t") for l in text.split("\n") if l.strip()]
-    for line in lines[:8]:
-        if re.match(r"^(?:công ty|cty)\b", line, re.IGNORECASE) and 6 < len(line) < 100:
-            if not re.search(r"\b(?:có|hỗ trợ|ho tro|cần|can|tuyển|tuyen)\b", line, re.IGNORECASE):
-                return line
-    m = re.search(
-        r"(?:công ty|cty|shop|cửa hàng|nhà hàng|quán|trung tâm|siêu thị)[:\s]+([^\n,\.]{3,80})",
-        text, re.IGNORECASE
-    )
-    if m:
-        candidate = m.group(1).strip()
-        # "TRUNG TÂM TIẾNG ANH X TUYỂN DỤNG TRỢ GIẢNG…" → "TIẾNG ANH X"
-        candidate = re.sub(r"\s*[-–]?\s*(?:cần tuyển|tuyển dụng|tuyển)\b.*$", "", candidate, flags=re.IGNORECASE).strip()
-        # Lee 2026-10-30(#5157): "Highlands Coffee Mường Thanh Bắc Ninh- Số 395 Ngô Gia Tự" → 주소(- Số …, - 123 …)는 회사명이 아니다.
-        candidate = re.sub(r"\s*[-–]\s*(?:số|so|sn)?\s*\d.*$", "", candidate, flags=re.IGNORECASE).strip()
-        if candidate and not re.match(r"^(?:có|ho tro|hỗ trợ|can|cần|tuyen|tuyển)\b", candidate, re.IGNORECASE):
-            return candidate
-    # 2026-11-01 #5231: "TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH" → 대시 뒤가 회사(원문 글자 그대로).
-    for line in lines[:2]:
-        m = re.match(r"^(?:tuyển|tuyen|tuyển dụng|tuyển gấp)\b.*?\s[–-]\s+(.{3,80})$", line, re.IGNORECASE)
-        if m and not _COMPANY_LABEL.match(m.group(1)):
-            return m.group(1).strip()
-    for line in lines[:4]:
-        if "tuyển dụng" in line.lower() and len(line) < 120:
-            candidate = re.sub(r"\s*[-–]?\s*tuyển dụng.*$", "", line, flags=re.IGNORECASE).strip()
-            candidate = re.sub(r"\s*thông báo\s*$", "", candidate, flags=re.IGNORECASE).strip()
-            # "Vị trí tuyển dụng: …"의 "Vị trí"처럼 항목 이름표는 회사명이 아니다(#5231).
-            if candidate and not _COMPANY_LABEL.match(candidate):
-                return candidate
-    return ""
+# 회사 이름은 수집기가 직접 읽지 않는다 — Lee 2026-11-07 "회사 이름 규정"(주소·급여와 같은 방식). 원문 회사 이름은
+# src/lib/companyReader.ts 한 곳에서 읽는다(위치 확인 서버의 읽기 기능, 지도 조회 없음). 옛 extract_company 규칙과 시험 사례는 그쪽으로 옮겼다.
+# 서버를 못 물으면 틀린 값으로 진행하지 않고 멈춘다(company_read_unavailable).
+def read_company(text: str) -> str:
+    got = ingest_gateway.READ_LOCATION(text, "") or {}
+    if "company" not in got:
+        raise RuntimeError(f"company_read_unavailable: {got.get('reason') or 'no_response'}")
+    return str(got.get("company") or "").strip()
 
 
 def extract_deadline(text: str) -> str | None:
@@ -1051,7 +1026,7 @@ def parse_post(post: dict) -> dict:
     # 원문 주소는 여기서 읽지 않는다(Lee 2026-11-07): 위치 확인 서버가 원문(source_text)에서 읽어 "주소, 지역"으로 돌려준다.
     region = location if location and _place_key(location) in _place_key(text) else ""
 
-    company = extract_company(text)
+    company = read_company(text)
     title = extract_title(text, company)
     category = classify(title, company, text)
     subcategory = classify_subcategory(category, title, company, text)
@@ -1060,6 +1035,7 @@ def parse_post(post: dict) -> dict:
     job = {
         "title": title,
         "company": company or "Nhà tuyển dụng Facebook",
+        "_company_from_text": True,
         "location": region,
         "employer_phone": phone,
         "zalo": zalo,

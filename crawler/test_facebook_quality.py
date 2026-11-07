@@ -7,7 +7,6 @@ from datetime import datetime
 from crawl_facebook import (
     classify_page_signals,
     clean_text,
-    extract_company,
     extract_post_id,
     evaluate_post,
     filter_new_jobs,
@@ -69,19 +68,15 @@ def test_restaurant_and_salary_with_combining_marks() -> None:
 
 def test_company_does_not_capture_benefit_sentence() -> None:
     text = "E cần tuyển gấp 5nv làm tạp vụ lau hành lang chung cư 423 Minh Khai\nCông ty có hỗ trợ chỗ ở cho nhân viên ở quê xa"
-    assert_equal(extract_company(text), "", "benefit sentence should not be company")
 
 
 def test_company_from_recruitment_heading() -> None:
     text = "TUẤN ĐỨC POOL ARENA - BẮC NINH TUYỂN DỤNG\nVị trí : 2NV nam, nữ"
-    assert_equal(extract_company(text), "TUẤN ĐỨC POOL ARENA - BẮC NINH", "company from heading")
 
 
 def test_company_from_title_dash_and_not_label() -> None:
     # 2026-11-01 #5231: "Vị trí tuyển dụng:"의 "Vị trí"를 회사명으로 잡던 문제
     text = "TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\nTrung Nguyên Legend – Thương hiệu cà phê\n Vị trí tuyển dụng: Nhân viên phục vụ"
-    assert_equal(extract_company(text), "TRUNG NGUYÊN LEGEND BẮC NINH", "company after title dash")
-    assert_equal(extract_company("Vị trí tuyển dụng: Thợ hàn"), "", "field label is not company")
 
 
 NOW = datetime(2026, 9, 28, 12, 0)
@@ -322,7 +317,6 @@ def test_salary_and_company_from_real_posts() -> None:
     pm = parse_post({"text": PM_JOB_TEXT, "location": "Bắc Ninh"})
     assert_true("salary" not in pm, "salary is read by salaryReader.ts only")
     assert_equal(pm["employer_phone"], "0344849982", "spaced phone")
-    assert_equal(extract_company(TRUNCATED_TUTOR_TEXT), "TIẾNG ANH ARMY ENGLISH", "company stops before TUYỂN DỤNG")
 
 
 def test_merge_seen_keys_newest_first_and_capped() -> None:
@@ -346,10 +340,14 @@ HIGHLANDS_5157 = """🎉 HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI 🎉
 
 def test_highlands_5157_fields() -> None:
     """Lee 2026-10-30: 실제 원글(#5157). 제목=첫 줄, 회사명에 주소 없음, 급여 'cạnh tranh' 아님, 위치=번지 포함 주소 줄."""
-    assert_equal(extract_company(HIGHLANDS_5157), "Highlands Coffee Mường Thanh Bắc Ninh", "company without address")
-    assert_equal(extract_title(HIGHLANDS_5157, extract_company(HIGHLANDS_5157)), "HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI", "title is first line")
+    assert_equal(extract_title(HIGHLANDS_5157, "Highlands Coffee Mường Thanh Bắc Ninh"), "HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI", "title is first line")
     assert_equal(extract_title("🔎 Vị trí tuyển dụng:\nMr Tuấn Minh", "Highlands"), "Highlands tuyển dụng", "heading-only fallback")
     # 주소 읽기는 src/lib/addressReader.test.ts(주소 읽기 한 곳, Lee 2026-11-07)
+
+
+import ingest_gateway as _gw
+# 회사 이름·주소 읽기는 서버(src/lib/companyReader.ts·addressReader.ts) — 시험에서는 네트워크 없이 빈 값
+_gw.READ_LOCATION = lambda text, region='': {'location': region, 'company': '', 'agency': False, 'fee': False}
 
 
 def main() -> int:

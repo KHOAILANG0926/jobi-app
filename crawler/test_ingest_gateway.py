@@ -107,6 +107,31 @@ def run():
     c = SClient()
     g.ingest_job(c, {**fbjob, "images": list(fb_images), "image_url": None})
     assert c.storage.saved == [] and c.calls[0][1]["p"]["images"][0].startswith("https://scontent")
+
+    # 2026-11-07 회사 이름: 원문에 없으면 포스터 글자를 읽어 다시 묻고, 서버가 읽은 이름·소개소 표시를 저장
+    calls = []
+    def pre(j):
+        calls.append(g.precheck_input(j))
+        if not j.get("_poster_text"):
+            return {"findable": False, "reason": "no_company_text"}
+        return {"findable": True, "location": "KCN Quế Võ, Bắc Ninh", "company": "Công ty Nhân lực Minh Anh", "agency": True}
+    g.PRECHECK = pre
+    g.READ_POSTER = lambda url: "Công ty Nhân lực Minh Anh tuyển LĐPT KCN Quế Võ"
+    c = SClient()
+    job = {"title": "x", "company": "Nhà tuyển dụng Facebook", "_company_from_text": True, "location": "", "source_text": "Tuyển gấp",
+           "images": ["https://scontent.fhan2-1.fna.fbcdn.net/v/p.jpg"]}
+    assert g.ingest_job(c, job) == 77
+    assert calls[0]["company"] == "" and calls[1]["poster_text"].startswith("Công ty"), calls
+    sent = c.calls[0][1]["p"]
+    assert sent["company"] == "Công ty Nhân lực Minh Anh" and sent["recruiter_agency"] is True and "_poster_text" not in sent, sent
+    # 포스터 판독 실패는 "회사 이름 없음"과 구분
+    g.PRECHECK = lambda j: {"findable": False, "reason": "no_company_text"}
+    g.READ_POSTER = lambda url: None
+    try:
+        g.ingest_job(SClient(), {**job, "images": ["https://scontent.fhan2-1.fna.fbcdn.net/v/p.jpg"]})
+        raise AssertionError("must reject")
+    except g.LocationNotFound as e:
+        assert "poster_read_failed" in str(e), e
     print("test_ingest_gateway: location-first gate passed")
 
 
