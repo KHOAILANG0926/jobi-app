@@ -1,7 +1,12 @@
 name: 기존 공고 회사 이름 다시 읽기 (읽기 전용)
 # Lee 2026-11-07(1번): 공개 공고의 회사 이름을 새 기준(companyReader)으로 다시 읽어 차이 목록만 로그에 보여 준다. DB 변경 없음.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      show_text:
+        description: '다른 공고의 원문 앞 8줄도 보기(전화번호 가림)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -16,6 +21,7 @@ jobs:
     timeout-minutes: 10
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SHOW_TEXT: ${{ inputs.show_text && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

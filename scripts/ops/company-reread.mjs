@@ -22,6 +22,8 @@ for (const r of rows) {
   if (norm(got.name) === norm(now)) { same++; continue }
   if (!got.name) empty++; else diff++
   out.push(`- #${r.id} | 지금: ${now.slice(0, 60) || '(빈칸)'} | 새 기준: ${got.name || '(못 찾음)'}${got.agency ? ' [소개소]' : ''}`)
+  // 원문 앞 8줄(시험 사례로 옮기기 위해 — 전화번호는 가림)
+  if (process.env.SHOW_TEXT === '1') out.push(text.split('\n').slice(0, 8).map((l) => '    > ' + l.replace(/(?:\+?84|0)[\s.\-]?\d(?:[\s.\-]?\d){7,9}/g, '[전화]').slice(0, 160)).join('\n'))
 }
 console.log(`공개 공고 ${rows.length}건: 같음 ${same} · 새 기준이 다름 ${diff} · 새 기준으로 못 찾음 ${empty}`)
 console.log(out.join('\n'))
