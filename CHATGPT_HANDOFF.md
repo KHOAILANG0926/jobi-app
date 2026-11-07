@@ -3,6 +3,7 @@
 ## 1. 현재 상태
 - master 380b4bb(#517 대표 사진·로고) — deploy-verify 42354796132 성공 [직접 확인]. DB #516 적용(migrations-apply 42352856500).
 - 대표 사진·로고(Lee 11-07, 기존 방향 변경): 브랜드 → 공고 사진(우리 저장소, 페북 사진 수집 때 자동 복사) → 회사 웹사이트 아이콘(저장된 Google 결과로 자동, 새 검색 없음) → 공용 사진(끝). Google 호출은 DB 월 한도(위치 검색 4,500·웹사이트 900) 안에서만 — 사람이 비교 검색 반복 금지. NETCO POST 브랜드 등록(5599 로고).
+- 브랜드 로고 그림(Lee 11-07): job_brands.logo_url(public/brand-logos/<slug>.png) → 없으면 사이트 아이콘. 받기 brand-logo.yml(discover/prepare, PR은 사람이 생성), 매달 비교 brand-logo-watch.yml. NETCO = Lee 제공 두 줄 로고(공식 페북 프로필). #519·#520·#521, deploy-verify 42364873642 성공.
 - 주소 읽기(Lee 11-07, 기존 방향 변경): 원문 주소는 src/lib/addressReader.ts 한 곳에서만 읽는다(급여 salaryReader와 같은 방식). Facebook 수집기는 주소를 읽지 않고 원문(source_text)만 보냄 → 위치 확인 서버(api/location-hook precheck)가 읽은 "주소, 지역"을 공고 위치로 저장(crawler/ingest_gateway.require_location). 사이트 주소 칸 있는 소스(TopCV)는 그 칸 먼저. 다시 수집은 location-hook read_address(지도 조회 없음). 빠진 주소 = 사례를 addressReader.test.ts에 추가 → 함수 수정(소스·공고별 규칙 금지). CLAUDE.md 「수집 첫 단계」 절.
 - 중복 4단계 운영 중(회사 코드·같은 일·같은 위치 → 확실=비공개, 애매=비공개+관리자 🔁 Nghi trùng lặp). 기존 공고는 판정 제외.
 - 공고: #5595 EAGLEON 등록·비공개(업무 미기재·직업분류 없음, 프로세스대로). #5599 NETCO POST 공개(핀 대략 위치).
