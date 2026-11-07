@@ -1,0 +1,40 @@
+name: Facebook 미리 보기 내용 읽기 (읽기 전용)
+# Lee 2026-11-07: 1건 저장 전에 미리 보기 후보의 원문 내용(업무·급여·주소)을 먼저 확인한다(프로세스: 원문 업무 확인 → 등록).
+# 미리 보기 결과 파일(비공개 artifact, 1일 보관)을 읽어 후보별 내용을 로그에 찍는다. Facebook 접속·저장 없음. 전화번호는 찍지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      dryrun_run_id:
+        description: '미리 보기 실행 번호(run id)'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: facebook-dryrun
+          path: /tmp/fbdry
+          run-id: ${{ inputs.dryrun_run_id }}
+          github-token: ${{ github.token }}
+      - name: 후보 내용
+        run: |
+          python3 - <<'PY'
+          import json, re
+          d = json.load(open('/tmp/fbdry/facebook_dryrun.json', encoding='utf-8'))
+          hide = lambda s: re.sub(r'(?:\+?84|0)[\s.\-]?\d(?:[\s.\-]?\d){7,9}', '[전화]', str(s or ''))
+          for j in d.get('jobs', []):
+              print('=' * 60)
+              print('키:', j.get('fb_post_key'))
+              for k in ('title', 'company', 'location', 'salary', 'hours', 'category', 'occupation_code'):
+                  print(f'{k}:', hide(j.get(k))[:200])
+              print('연락처:', '있음' if (j.get('employer_phone') or j.get('contact_zalo')) else '없음')
+              print('근무지:', [hide(w.get('raw_address'))[:120] for w in (j.get('work_locations') or []) if isinstance(w, dict)][:3])
+              print('원문:', hide(j.get('source_text') or j.get('description'))[:600].replace('\n', ' / '))
+          PY
