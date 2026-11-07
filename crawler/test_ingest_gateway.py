@@ -114,7 +114,7 @@ def run():
         calls.append(g.precheck_input(j))
         if not j.get("_poster_text"):
             return {"findable": False, "reason": "no_company_text"}
-        return {"findable": True, "location": "KCN Quế Võ, Bắc Ninh", "company": "Công ty Nhân lực Minh Anh", "agency": True}
+        return {"findable": True, "location": "KCN Quế Võ, Bắc Ninh", "company": "Công ty Nhân lực Minh Anh", "agency": True, "workplace_key": "kcn que vo"}
     g.PRECHECK = pre
     g.READ_POSTER = lambda url: "Công ty Nhân lực Minh Anh tuyển LĐPT KCN Quế Võ"
     c = SClient()
@@ -123,7 +123,7 @@ def run():
     assert g.ingest_job(c, job) == 77
     assert calls[0]["company"] == "" and calls[1]["poster_text"].startswith("Công ty"), calls
     sent = c.calls[0][1]["p"]
-    assert sent["company"] == "Công ty Nhân lực Minh Anh" and sent["recruitment_type"] == "agency" and "recruiter_agency" not in sent and "_poster_text" not in sent, sent
+    assert sent["company"] == "Công ty Nhân lực Minh Anh" and sent["recruitment_type"] == "agency" and sent["agency_workplace_key"] == "kcn que vo" and "recruiter_agency" not in sent and "_poster_text" not in sent, sent
     # 포스터 판독 실패는 "회사 이름 없음"과 구분
     g.PRECHECK = lambda j: {"findable": False, "reason": "no_company_text"}
     g.READ_POSTER = lambda url: None

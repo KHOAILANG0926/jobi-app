@@ -107,3 +107,23 @@ export function readCompany(text: string): CompanyRead {
   const fee = FEE.test(all) && !NO_FEE.test(all)
   return { name, agency, fee }
 }
+
+// 소개소 공고의 실제 근무 공장·공단(Lee 2026-11-07 "3번가자"): 중복 판정에만 쓰는 비교 열쇠(접은 글자). 화면에는 쓰지 않는다.
+// 순서: ① "làm (việc) tại / cho / tuyển … cho" + 공장·회사 낱말 + 이름 ② 공단 이름(KCN/CCN/Khu công nghiệp). 못 찾으면 ''(→ 중복 판정은 애매로).
+const PLANT_WORD = '(?:nhà máy|công ty|cty|xưởng)'
+const STOP = /\s+(?:tại|ở|o|thuộc|khu|kcn|ccn|với|lương|thu nhập|tuyển|cần|làm|ca|giờ|liên hệ)(?=\s|$).*$/iu
+export function readWorkplace(text: string): string {
+  const src = String(text ?? '').normalize('NFC').replace(EMOJI, ' ')
+  const key = (s: string) => fold(s).replace(/[^a-z0-9]+/g, ' ').trim()
+  const plant = src.match(new RegExp(`(?:làm việc|làm|đi làm|cho)\\s+(?:tại\\s+)?${PLANT_WORD}\\s+(?:tnhh\\s+|cp\\s+)?([^\\n,.;:!?()–-]{2,60})`, 'iu'))
+  if (plant) {
+    const name = plant[1].replace(STOP, '').trim()
+    if (name && hasNameWord(name)) return key(name)
+  }
+  const park = src.match(/(?:kcn|ccn|khu công nghiệp|cụm công nghiệp)\s+([^\n,.;:!?()–-]{2,40})/iu)
+  if (park) {
+    const name = park[1].replace(/\s+(?:mở rộng|bắc ninh|bac ninh|tỉnh|thành phố|tp)(?=\s|$).*$/iu, (m) => (/mở rộng/i.test(m) ? ' mo rong' : '')).trim()
+    if (name) return 'kcn ' + key(name)
+  }
+  return ''
+}

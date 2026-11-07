@@ -5,6 +5,7 @@ import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
+import { readWorkplace } from '../../src/lib/companyReader.ts'
 import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
 import { assembleBrands } from '../../src/lib/brandRows.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
@@ -78,7 +79,9 @@ export async function precheckLocation(db, request, input, goong = null, google 
   // 회사 이름 규정(Lee 2026-11-07): 회사 이름이 없으면 수집하지 않는다(포스터 글자까지 본 뒤). 수수료 받는 소개소도 수집하지 않는다.
   const company = precheckCompany(input)
   if (company.name && !company.agency) company.agency = await phoneSaysAgency(db, company.name, input)
-  const who = { company: company.name, agency: company.agency, company_from: company.from }
+  // 소개소면 실제 근무 공장·공단 열쇠(중복 판정에만, Lee 2026-11-07)
+  const workplace_key = company.agency ? readWorkplace(`${input?.source_text ?? ''}\n${input?.poster_text ?? ''}`.slice(0, 40000)) : ''
+  const who = { company: company.name, agency: company.agency, company_from: company.from, workplace_key }
   if (!company.name) return { findable: false, kind: 'unresolved', reason: input?.poster_text ? 'no_company' : 'no_company_text', location: '', ...who }
   if (company.agency && company.fee) return { findable: false, kind: 'unresolved', reason: 'agency_fee', location: '', ...who }
   const job = precheckJob(input)
@@ -105,7 +108,8 @@ async function phoneSaysAgency(db, name, input) {
 /** 원문 주소 읽기만(외부 지도 조회 없음). 이미 올라간 공고 다시 수집이 같은 기준으로 위치 글자를 받는다. */
 export function readLocationOnly(input) {
   const c = precheckCompany(input || {})
-  return { location: precheckLocationText(input || {}, false), company: c.name, agency: c.agency, fee: c.fee }
+  return { location: precheckLocationText(input || {}, false), company: c.name, agency: c.agency, fee: c.fee,
+    workplace_key: c.agency ? readWorkplace(`${input?.source_text ?? ''}\n${input?.poster_text ?? ''}`.slice(0, 40000)) : '' }
 }
 
 function resolverDeps(db, request, extra, goong, google) {
