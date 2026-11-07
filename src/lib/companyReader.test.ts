@@ -40,6 +40,7 @@ eq(n('Bắc Ninh vốn trọng chữ tình — DOOKKI thì đang trọng… ngư
 eq(n('🔥 ĐẤT NỀN LẮNG SÓNG, TỰ BỎ TIỀN TÚI CHẠY AD MÀ KHÔNG RA KHÁCH?\nAnh em sale tự do đang mệt mỏi! Về đội BĐS Phúc Lộc để đón sóng dòng tiền thực tại Siêu đại đô thị 9.\nLương ổn định: 8 – 15 TRIỆU/tháng'), '', '#5506 "thực tại" is not "tại + company"')
 eq(n('📢 128 Đ. Triệu Việt Vương, P, Võ Cường, Bắc Ninh\nChúng mình đang tìm thêm người vào team\nBạn thích không khí quán cafe, thích pha chế?\nVị trí: Nhân viên Pha chế & Phục vụ'), '', '#5507 "quán cafe" alone is not company')
 
+eq(n('Chúng tôi đang tuyển dụng công nhân sản xuất'), '', '#4879 pronoun "Chúng tôi" is not company')
 // 소개소·수수료
 const ag = readCompany('Công ty Nhân lực Minh Anh tuyển gấp 50 LĐPT làm tại nhà máy KCN Quế Võ\nKhông thu phí')
 eq([ag.name, ag.agency, ag.fee], ['Công ty Nhân lực Minh Anh', true, false], 'agency with workplace, no fee')
