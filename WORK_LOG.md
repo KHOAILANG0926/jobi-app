@@ -1,3 +1,9 @@
+## 2026-11-07 23:30 — 소개소 표시 원래 칸 하나로 (Claude)
+- 요청: Lee "같은내용을 두번 적는게 맞아? 원래대로", "빼"(경고색), 5번 A+B, "먼저수정하고 7,8번 확인".
+- 원인 [직접 확인]: #525에서 기존 recruitment_type 칸을 확인하지 않고 recruiter_agency 칸을 새로 만듦(화면은 기존 칸만 봐서 표시 안 됨).
+- 변경: #536 수집 입구가 recruitment_type='agency'에 적음, 경고색 뺌, 소개소 판정 문구·전화번호 기록(job_company_phones) 추가, 읽기 전용 확인(company-reread field=agency). #538 Lee 승인 기록, #537 recruiter_agency 칸 삭제(0건 확인, 있으면 멈춤).
+- 배포: deploy-verify 42387724259 성공, migrations-apply 42391081797 성공. 남은 것: 소개소 중복 판정 공장 이름 비교(저장 방법 보고 대기).
+
 ## 2026-11-07 22:00 — 회사 이름 읽기·카드 상호·급여 동 금액 (Claude)
 - 요청: Lee 회사 이름 규정(#523~#528), "2번으로 하고 문제는 상호명이 긴거야"→OK(#531), 급여 못 읽음 문제점 확인 후 OK(#533).
 - 변경: companyReader 한 곳·소개소/수수료(DB #525 recruiter_agency). 카드 cardCompanyParts(회사 형태 낱말 빼기·2줄·지점 지역 줄) + 레이아웃 회귀 시험, PC 기준값(LayoutDesktop — #520으로 이미 달랐음). salaryReader 동 전체 금액·k 금액, 교대 금액 일급, salary-reread 읽기 전용 미리 보기(대상 15건 중 #5633만 바뀜).
@@ -50,9 +56,4 @@
 - 요청: Lee "기존 공고에도 회사 코드를 붙이라고 했잖아"(기존 공고 자동 작업 제외 규칙보다 Lee 직접 지시 우선 — 내용·화면은 안 바뀌고 코드 칸만).
 - 변경: scripts/ops/company-code-assign.mjs + .github/workflows/company-code-assign.yml(수동, apply=false면 시험 후 되돌림). 대상 공개 공고(보류·숨김 제외), 규칙 jobIdentity.ts, 공고 번호 지정 없음.
 - 정정: 30분 정리 작업에 넣자던 안은 "기존 공고 자동 작업 안 건드림" 규칙과 충돌해 철회. 중복 확인은 등록 입구(ingest_job)의 중복 단계를 고치는 방식(4단계).
-
-## 2026-11-06 23:30 — 회사 이름 가게 종류 낱말 성조 그대로 찾기 (Claude)
-- 요청: Lee "2단계 문제 없는 거야?" → 성조를 지워 Phở=Phố·Quán=Quận·Lẩu=Lâu가 같아지는 문제 발견 → "진행해".
-- 변경: src/lib/jobIdentity.ts 가게 종류 낱말을 성조 그대로 찾음. 이름 전체에 성조가 없을 때만 지운 글자로 찾고, 헷갈리는 낱말(phở·quán·lẩu·cơm·bún·tiệm)은 안 씀. 테스트 추가.
-- 한계: 성조 없이 "Lau Haidilao"처럼 쓰면 lau를 가게 종류로 못 봐 다른 회사로 갈림 → 회사 코드표에 다른 이름으로 등록해 해결.
 
