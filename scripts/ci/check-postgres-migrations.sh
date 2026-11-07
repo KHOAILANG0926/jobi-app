@@ -175,6 +175,22 @@ SQL
     fi
     continue
   fi
+  if [[ "$file" =~ ^supabase/migrations/[0-9]+_brand_logo(_image|_[a-z0-9_]+)\.sql$ ]]; then
+    echo "PostgreSQL brand logo image (Lee 2026-11-07): brands, then $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
+    if [[ "$(psql "$PG_TEST_URL" -X -At -c "select to_regclass('public.job_brands') is null")" == t ]]; then
+      for dep in 20260910120000_job_brands_master.sql 20261101210000_brands_verified_chains.sql 20261101230000_brand_logo_domains.sql 20261103190000_brand_categories_restaurant_retail.sql; do
+        psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f "supabase/migrations/$dep" >/dev/null
+      done
+    fi
+    if [[ "$file" != *_brand_logo_image.sql ]]; then
+      psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261107180000_brand_logo_image.sql >/dev/null 2>&1 || true
+      psql "$PG_TEST_URL" -X -q -c "insert into public.job_brands (name, slug, category, domain, initial, color, active, featured, verified_branches, evidence_url, evidence_note, verified_on) values ('NETCO POST','netco-post','delivery','netco.com.vn','N','#0a8f3c',true,true,81,'https://netco.com.vn/vi/contact/post-offices','x','2026-11-07') on conflict (slug) do nothing" >/dev/null 2>&1 || true
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/brand_logo_image_production_check.sql
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261107150000_logo_lookup_api_limits.sql' ]]; then
     echo "PostgreSQL logo lookup + API limits (Lee 2026-11-07): brands + anon/service roles, then $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql

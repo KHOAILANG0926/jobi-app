@@ -1,0 +1,41 @@
+name: 브랜드 로고 바뀜 확인 (매달)
+# Lee 2026-11-07: 저장한 브랜드 로고 그림의 원본 지문과 공식 사이트의 지금 그림을 매달 비교해, 달라지면 공고 검사표(#237)에 표시한다.
+# 읽기만 한다(DB·그림 변경 없음). 다시 받기는 brand-logo.yml(prepare)로 사람이 한다.
+on:
+  schedule:
+    - cron: '17 2 3 * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: brand-logo-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: 비교
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -X -At -F '|' -c "select slug, logo_source_url, logo_sha256 from public.job_brands where active and logo_url is not null order by slug" > /tmp/brands.txt
+          : > /tmp/changed.txt
+          while IFS='|' read -r slug src sha; do
+            [ -n "$slug" ] || continue
+            now=$(curl -sSfL -m 30 -A "Mozilla/5.0" "$src" 2>/dev/null | sha256sum | cut -d' ' -f1 || true)
+            if [ -z "$now" ] || [ "$now" = "$(printf '' | sha256sum | cut -d' ' -f1)" ]; then echo "- $slug: 공식 그림을 못 받음($src)" >> /tmp/changed.txt
+            elif [ "$now" != "$sha" ]; then echo "- $slug: 공식 사이트 로고가 바뀜($src)" >> /tmp/changed.txt; fi
+          done < /tmp/brands.txt
+          echo "확인한 브랜드: $(grep -c . /tmp/brands.txt || true)"
+          if [ -s /tmp/changed.txt ]; then
+            cat /tmp/changed.txt
+            { echo "### 브랜드 로고 바뀜 확인 ($(TZ=Asia/Ho_Chi_Minh date +%F))"; cat /tmp/changed.txt; echo; echo "다시 받기: brand-logo.yml(prepare)"; } > /tmp/body.md
+            gh issue comment 237 --repo "$GITHUB_REPOSITORY" --body-file /tmp/body.md
+          fi
