@@ -69,6 +69,8 @@ class OccupationClassifierTests(unittest.TestCase):
 
     def test_facebook_parse_post_carries_occupation(self):
         import crawl_facebook
+        import ingest_gateway
+        ingest_gateway.READ_LOCATION = lambda text, region='': {'location': region, 'company': 'CTY KDA', 'agency': False, 'fee': False}  # 회사 이름은 서버(companyReader)
         job = crawl_facebook.parse_post({'text': 'CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong\nLiên hệ 0877880756',
                                          'images': [], 'location': 'Bắc Ninh'})
         self.assertEqual((job['occupation_code'], job['occupation_evidence']), ('82022', 'làm linh kiện tai nghe'))

@@ -45,6 +45,8 @@ jobs:
       FB_XS: ${{ secrets.FB_XS }}
       FB_DATR: ${{ secrets.FB_DATR }}
       FB_FR: ${{ secrets.FB_FR }}
+      # 등록 입구 포스터 글자 읽기(회사 이름이 글에 없을 때만, Lee 2026-11-07)
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       MODE: ${{ inputs.mode }}
       GROUP: ${{ inputs.group }}
       POST_KEY: ${{ inputs.post_key }}

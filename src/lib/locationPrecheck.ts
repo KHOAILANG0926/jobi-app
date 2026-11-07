@@ -3,10 +3,12 @@
 // 동·거리·공단 중심·성 대략 위치만 나오면 "못 찾음" → 수집하지 않는다.
 import type { LocationDecision, ResolverJob } from './autoLocationResolver'
 import { readLocationText } from './addressReader'
+import { readCompany, type CompanyRead } from './companyReader'
 
 // source_text: 원문 전체. 주소 칸(addresses)이 없으면 원문 주소는 이 원문에서 주소 읽기 한 곳(addressReader)으로 읽는다(Lee 2026-11-07).
 // 그때 location은 수집 그룹 지역(원문에 이름이 있을 때만)이고, 읽은 주소 + 지역이 위치 글자가 된다.
-export interface PrecheckInput { company?: unknown; location?: unknown; addresses?: unknown; source_text?: unknown }
+// company: 사이트 회사 칸(TopCV 등)만. 없으면 원문(source_text) → 포스터 글자(poster_text) 순으로 회사 이름 읽기 한 곳(companyReader)으로 읽는다.
+export interface PrecheckInput { company?: unknown; location?: unknown; addresses?: unknown; source_text?: unknown; poster_text?: unknown }
 export interface PrecheckVerdict { findable: boolean; kind: string; reason: string }
 
 const COMPANY_PLACE = /^(?:Google|Goong) \S+ \(company\)$/
@@ -21,9 +23,23 @@ export function precheckVerdict(decision: LocationDecision): PrecheckVerdict {
   return { findable: false, kind, reason: decision.failed ? 'provider_failed' : 'not_found' }
 }
 
+const FALLBACK_COMPANY = /^nhà tuyển dụng facebook$/i
+/** 회사 이름(Lee 2026-11-07 규정): 사이트 회사 칸 → 원문 → 포스터 글자. 못 찾으면 name=''(→ 수집하지 않음). */
+export function precheckCompany(input: PrecheckInput): CompanyRead & { from: 'site' | 'text' | 'poster' | '' } {
+  const site = typeof input?.company === 'string' ? input.company.trim().slice(0, 200) : ''
+  const text = typeof input?.source_text === 'string' ? input.source_text.slice(0, 20000) : ''
+  const poster = typeof input?.poster_text === 'string' ? input.poster_text.slice(0, 20000) : ''
+  const fromText = text ? readCompany(text) : { name: '', agency: false, fee: false }
+  if (site && !FALLBACK_COMPANY.test(site)) return { ...fromText, name: site, from: 'site' }
+  if (fromText.name) return { ...fromText, from: 'text' }
+  const fromPoster = poster ? readCompany(poster) : { name: '', agency: false, fee: false }
+  if (fromPoster.name) return { ...fromPoster, fee: fromPoster.fee || fromText.fee, from: 'poster' }
+  return { name: '', agency: false, fee: fromText.fee, from: '' }
+}
+
 /** 수집기가 보낸 원문(회사·지역·근무지 주소)을 위치 찾기 입력으로. 잘못된 입력은 null. */
 export function precheckJob(input: PrecheckInput): ResolverJob | null {
-  const company = typeof input?.company === 'string' ? input.company.trim().slice(0, 200) : ''
+  const company = precheckCompany(input).name
   const addresses = (Array.isArray(input?.addresses) ? input.addresses : [])
     .filter((a): a is string => typeof a === 'string' && a.trim().length > 0).map((a) => a.trim().slice(0, 300)).slice(0, 5)
   const location = precheckLocationText(input, addresses.length > 0)
