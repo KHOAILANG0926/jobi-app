@@ -224,6 +224,16 @@ end $t$;
 SQL
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261107230000_drop_recruiter_agency.sql' ]]; then
+    echo "PostgreSQL drop recruiter_agency (Lee 2026-11-07 소개소 표시 한 칸): row on the extra column must stop the drop, then $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "alter table public.local_jobs add column if not exists recruitment_type text, add column if not exists recruiter_agency boolean not null default false"
+    if psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -c "insert into public.local_jobs(id, company, recruiter_agency) values (987654321, 'Nhân lực CI', true)" -f "$file" >/dev/null 2>&1; then
+      echo "::error::이 칸에만 소개소로 적힌 공고가 있는데 칸이 지워짐"; exit 1
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/drop_recruiter_agency_production_check.sql
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261107070000_job_duplicate_check.sql' ]]; then
     echo "PostgreSQL duplicate check (Lee 2026-11-07): company codes + needed columns, then $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
