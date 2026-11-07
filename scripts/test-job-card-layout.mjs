@@ -88,6 +88,23 @@ try {
   const logoBoxes = await page.locator('.jc__logo-wrap').evaluateAll(els => els.map(e => { const b = e.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)] }))
   assert.deepEqual(logoBoxes[1], logoBoxes[0], 'brand logo keeps the same logo slot size')
   console.log('JobCard: brand logo in the same logo slot')
+  // 2026-11-07 Lee "2번으로 하고 문제는 상호명이 긴거야"→OK: 카드 상호는 회사 형태 낱말 빼고 최대 2줄, 지점은 지역 줄("지점, 성"), 로고 칸 크기 그대로.
+  const longName = renderToStaticMarkup(createElement(JobCard, { job: { ...data, id: 'long-name', company: 'CÔNG TY CỔ PHẦN BẤT ĐỘNG SẢN PHÚC LỘC VINHOMES OLYMPIC TRỐNG ĐỒNG MIỀN BẮC VIỆT NAM', location: 'Kinh Bắc, Bắc Ninh' }, isApplied: false }))
+  const branchCard = renderToStaticMarkup(createElement(JobCard, { job: { ...data, id: 'branch', company: 'nhẹ cafe – Bách Nghệ Kinh Bắc', title: 'nhẹ cafe Bách Nghệ Kinh Bắc tuyển nhân viên pha chế & phục vụ', location: '128 Đ. Triệu Việt Vương, P. Võ Cường, Bắc Ninh' }, isApplied: false }))
+  for (const width of [390, 1366]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.setContent(`<style>${styles}\n#test-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;width:${width < 600 ? width - 32 : 1270}px} @media(max-width:600px){#test-cards{grid-template-columns:1fr}}</style><div id="test-cards">${cards[1]}${longName}${branchCard}</div>`)
+    const company = page.locator('.jc__company')
+    assert.ok(!/CÔNG TY|CỔ PHẦN/.test(await company.nth(1).innerText()), `legal form removed on card at ${width}px`)
+    const lines = await company.nth(1).evaluate(el => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)))
+    assert.ok(lines <= 2, `company name at most 2 lines at ${width}px (got ${lines})`)
+    assert.equal(await company.nth(2).innerText(), 'nhẹ cafe', 'shop name only')
+    assert.equal(await page.locator('.jc__meta').nth(2).innerText(), 'Bách Nghệ Kinh Bắc, Bắc Ninh', 'branch goes to the location line')
+    assert.ok(!/nhẹ cafe|Bách Nghệ/i.test(await page.locator('.jc__title').nth(2).innerText()), 'title does not repeat shop or branch')
+    const logos = await page.locator('.jc__logo-wrap').evaluateAll(els => els.map(e => { const b = e.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)] }))
+    assert.deepEqual(logos[1], logos[0], `logo slot unchanged for long name at ${width}px`)
+    console.log(`JobCard ${width}px: card company ≤2 lines, legal form removed, branch on location line`)
+  }
 } finally {
   if (browser) await browser.close()
   await server.close()

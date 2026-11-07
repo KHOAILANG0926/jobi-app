@@ -16,7 +16,7 @@ function PayLine({ kind, text, block }: { kind: PayKind; text: string; block?: b
 }
 import { conditionBadges } from '../lib/jobConditions'
 import { shortArea } from '../lib/shortArea'
-import { cardCompany, cardTitle } from '../lib/cardText'
+import { cardCompanyParts, cardTitle } from '../lib/cardText'
 
 // 2026-11-02 Lee: 로고·포스터가 없거나 깨지면 로고 자리를 업종 대표 사진으로 채운다(카드 틀은 그대로, 사람인 방식).
 // 업종 사진도 깨질 때만 예전처럼 회사 이름 글자.
@@ -65,14 +65,16 @@ export default function JobCard({
 
   // 2026-11-01 Lee: 로고 자리(포스터 + 회사·위치)는 원래 틀 그대로. 나머지만 깔끔하게 — 위치는 동/성까지만(잘림 방지),
   // 제목 보통 굵기 2줄, 급여 한 줄(단위 색 + 회색 금액, 직무가 여럿이면 회색 안내 한 줄). 위 유료 그라데이션 띠는 그대로.
+  // Lee 2026-11-07: 상호와 지점을 한 줄에 넣지 않는다 — 상호(회사 형태 낱말 뺌, 최대 2줄) / 지점이 있으면 "지점, 성"을 지역 줄에.
+  const shown = cardCompanyParts(job.company, shortArea(job.location))
   return (
     <article className={`jc jc--clean${isApplied ? ' jc--applied' : ''}${expanded ? ' jc--expanded' : ''}`} data-job-id={job.id}>
       <div className="jc__header">
         <div className="jc__logo-wrap"><CompanyLogo company={job.company} imageUrl={imageUrl} category={job.category} subcategory={job.subcategory} text={`${job.company} ${job.title} ${job.description ?? ""}`} /></div>
         <div className="jc__identity">
-          <p className="jc__company">{cardCompany(job.company, shortArea(job.location))}</p>
+          <p className="jc__company">{shown.name}</p>
           <p className="jc__meta">
-            {shortArea(job.location)}
+            {shown.place}
             {distanceKm !== undefined && ` · ${formatDistanceLabel(distanceKm, distancePrecise)}`}
           </p>
         </div>

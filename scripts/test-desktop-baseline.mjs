@@ -1,3 +1,4 @@
+// 2026-11-07: 기준값 갱신 — LayoutDesktop.tsx는 #520(Lee 승인: 브랜드 로고 그림 우선, 메뉴 로고 그림)으로 master가 이미 달랐음. 이번 PR(#531 카드 상호 2줄·지점 지역 줄)은 이 파일을 바꾸지 않음.
 // 2026-11-06: JobDetail.tsx·index.css — Lee 데모 적용(demo/contact-separate): 4칸 중 한 칸이 통째로 없으면 상자를 빼고 아래 칸이 올라옴. Gọi·Zalo 버튼은 상자와 별도로 원래 위쪽 자리 그대로. KDA·예전 틀 변경 없음.
 // 2026-11-05 Lee PC 흰 화면 오류: WebGL 초기화 예외를 잡고 비WebGL 2D 지도로 전환. 정상 PC 틀/CSS 변경 없음.
 // 2026-11-05 Lee 요청: 상세 상단 대표 사진 클릭 확대. 기존 슬롯 치수·간격·하단 사진 유지.
@@ -64,7 +65,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "5679d31145778b96c4334521d53ae773ffff6d73c864fe3e551e693c3e3dc7c6",
+    "sha256": "56693030489bbee39834a57ae8c12250dca6ba3f991b7c90fe999d1a198483fd",
     "restore": []
   },
   {
