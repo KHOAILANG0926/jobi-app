@@ -10,7 +10,7 @@ eq(n('Công ty có hỗ trợ ăn trưa cho nhân viên'), '', 'benefit sentence
 eq(n('TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\nLương 25k/h'), 'TRUNG NGUYÊN LEGEND BẮC NINH', '#5231 company after title dash')
 eq(n('Vị trí tuyển dụng: Thợ hàn'), '', 'field label is not company')
 eq(n('🎉 HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI 🎉\n📍 Khu vực làm việc: Highlands Coffee Mường Thanh Bắc Ninh\n👉 Nộp trực tiếp CV tại cửa hàng: Highlands Coffee Mường Thanh Bắc Ninh- Số 395 Ngô Gia Tự'),
-  'Highlands Coffee Mường Thanh Bắc Ninh', '#5157 highlands (tại cửa hàng: …)')
+  'HIGHLANDS COFFEE', '#5157 highlands (title before TÌM ĐỒNG ĐỘI)')
 eq(n('CTY BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC NAM/NỮ\nĐịa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh'), 'CTY BÁNH KẸO HỮU NGHỊ', '#5633 cty line')
 eq(n('NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH\nThu nhập: 13 – 15 triệu/tháng'), 'NETCO POST', '#5599 before TUYỂN DỤNG')
 eq(n('Công ty EAGLEON khu công nghiệp ECO Châu Cầu - Bắc Ninh\nTUYỂN DỤNG LAO ĐỘNG THỜI VỤ'), 'Công ty EAGLEON khu công nghiệp ECO Châu Cầu - Bắc Ninh', '#5595 cty line')
@@ -29,6 +29,16 @@ eq(n('Cuối Năm Cửa Hàng Quần Áo Khánh Ly Cần Tuyển Thêm Nhân Vi�
 eq(n('SPA HOÀNG KIM PHÚ KIỀU MỚI KHAI TRƯƠNG TUYỂN DỤNG 05 NHÂN VIÊN MASSAGE NỮ'), 'SPA HOÀNG KIM PHÚ KIỀU', 'spa name')
 eq(n('HỆ THỐNG SIÊU THỊ ĐIỆN MÁY MEDIAMART TUYỂN DỤNG – KHU VỰC BẮC NINH'), 'SIÊU THỊ ĐIỆN MÁY MEDIAMART', 'mediamart')
 eq(n('SEN TÀI THU TUYỂN DỤNG KỸ THUẬT VIÊN TRỊ LIỆU\nThu nhập: 15–20 triệu/tháng'), 'SEN TÀI THU', 'before TUYỂN DỤNG')
+
+// 2026-11-07 기존 공개 공고 다시 읽기(company-reread)에서 틀린 실제 글 — 원문 앞 8줄
+eq(n('TUYỂN NHÂN VIÊN BÁN HÀNG SẢN PHẨM TEFAL\nThu nhập đến 18.000.000đ/tháng + hỗ trợ 1.000.000đ\nKhu vực làm việc (nhiều vị trí): siêu thị / trung tâm thương mại (Long Biên, Thăng Long, Hải Dương), cửa hàng điện máy tại Đà Nẵng\nThời gian: Ca xoay 8 tiếng'), '', '#4878 work-area label is not company')
+eq(n('Bomunttl\nNhà hàng nướng\nNgô Tất Tố - TP. Bắc Ninh\nTUYỂN NHÂN SỰ NHÀ HÀNG\nCÔ RỬA BÁT FULL TIME'), 'Bomunttl', '#4982 name-only first line')
+eq(n('HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI\nKhu vực làm việc: Highlands Coffee Mường Thanh Bắc Ninh\nĐịa điểm: Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh\nVị trí tuyển dụng:\n• Nhân viên Bán hàng (Sales)'), 'HIGHLANDS COFFEE', '#5157 before TÌM ĐỒNG ĐỘI')
+eq(n('JOY THÁI BẮC NINH TUYỂN DỤNG – ĐI LÀM NGAY!\nJOY THÁI – THAI CUISINE & HOTPOT đang tìm kiếm những đồng đội\nCƠ SỞ BẮC NINH\n100 Huyền Quang, Kinh Bắc, Bắc Ninh'), 'JOY THÁI BẮC NINH', '#5342')
+eq(n('ANH NGỮ REGAL EDU VÂN DƯƠNG TUYỂN DỤNG\nThu nhập 13,5–20 triệu/tháng + thưởng'), 'ANH NGỮ REGAL EDU VÂN DƯƠNG', '#5422')
+eq(n('Bắc Ninh vốn trọng chữ tình — DOOKKI thì đang trọng… người về chung team!\nBẮC BLING CÓ GÌ?\nCó DOOKKI + JOB XỊN chứ có gì!\nDOOKKI ĐANG TUYỂN:\n- Cửa hàng trưởng\n- Cửa hàng phó\n- Thu ngân'), 'DOOKKI', '#5437 role "Cửa hàng trưởng" is not company')
+eq(n('🔥 ĐẤT NỀN LẮNG SÓNG, TỰ BỎ TIỀN TÚI CHẠY AD MÀ KHÔNG RA KHÁCH?\nAnh em sale tự do đang mệt mỏi! Về đội BĐS Phúc Lộc để đón sóng dòng tiền thực tại Siêu đại đô thị 9.\nLương ổn định: 8 – 15 TRIỆU/tháng'), '', '#5506 "thực tại" is not "tại + company"')
+eq(n('📢 128 Đ. Triệu Việt Vương, P, Võ Cường, Bắc Ninh\nChúng mình đang tìm thêm người vào team\nBạn thích không khí quán cafe, thích pha chế?\nVị trí: Nhân viên Pha chế & Phục vụ'), '', '#5507 "quán cafe" alone is not company')
 
 // 소개소·수수료
 const ag = readCompany('Công ty Nhân lực Minh Anh tuyển gấp 50 LĐPT làm tại nhà máy KCN Quế Võ\nKhông thu phí')

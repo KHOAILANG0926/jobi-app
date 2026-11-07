@@ -15,11 +15,11 @@ const JOB_WORDS = new Set((
   'nhe de don gian lam ngoi phong thuong on dinh lau dai hap dan tot cao hot nong gap thong bao co hoi nganh san xuat ' +
   'dao tao hoc vien hoc chua biet ung vien ung tuyen lien he zalo sdt dt bao an o ho tro phu cap thuong kinh nghiem yeu cau ' +
   'mien phi phi xe dua don ky tuc xa ktx tang ca giu khong nuoi tra tuan quan ly bo phan dong goi boc xep phu xe giao hang ban hang ' +
-  'phuc vu tap vu bep ky thuat vien tho cty company'
+  'phuc vu tap vu bep ky thuat vien tho cty company truong pho dong doi team doi ngu kiem'
 ).split(/\s+/))
 // 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
 // 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
-const NOT_NAME_PHRASES = ['cua hang', 'nha hang', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
+const NOT_NAME_PHRASES = ['cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
 const REGION_PHRASES = [...new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))].sort((a, b) => b.length - a.length)
 
 /** 회사 이름이 될 수 있는 낱말이 하나라도 남는가(구인 낱말·숫자·지역·나라·공단 낱말 제외). */
@@ -39,6 +39,8 @@ function ok(c: string): string {
   return v
 }
 
+// 항목 이름표 줄(근무 지역·위치·직무 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
+const LABEL_LINE = /^(?:khu vực(?: làm việc)?|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu
 const EMOJI = /[\u{1F000}-\u{1FAFF}☀-➿️‍]+/gu
 const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
 const AGENCY = /nhan luc|cung ung|tuyen dung ho|xuat khau lao dong|viec lam|manpower|\bhr\b|headhunt/
@@ -53,28 +55,31 @@ export function readCompany(text: string): CompanyRead {
   const src = String(text ?? '').normalize('NFC')
   const lines = src.split('\n').map((l) => clean(l.replace(EMOJI, ' '))).filter(Boolean)
   const pick = (): string => {
+    // ⓪ 첫 줄이 이름만 있는 짧은 줄(#4982 "Bomunttl" — 다음 줄 "Nhà hàng nướng"): 구인 낱말·가게 종류뿐이 아니고 4낱말 이하
+    if (lines[0] && lines[0].split(/\s+/).length <= 4 && !/[:：!?]/.test(lines[0]) && ok(lines[0])) return ok(lines[0])
     // ① 이름표 줄
     for (const l of lines) {
       const m = l.match(/^(?:tên )?(?:công ty|cty|đơn vị|nhà tuyển dụng|doanh nghiệp)\s*[:：]\s*(.+)$/iu)
       if (m && ok(m[1])) return ok(m[1])
     }
     // ② "CÔNG TY/CTY …"로 시작하는 줄(앞 8줄) — 뒤에 붙은 "– TUYỂN …"·"tuyển …"·주소는 뗀다
-    for (const l of lines.slice(0, 8)) {
+    for (const l of lines) {
       if (!/^(?:công ty|cty)\b/iu.test(l) || /^(?:công ty|cty)\s+(?:có|hỗ trợ|được|sẽ|luôn|cam kết)(?=\s|$)/iu.test(l)) continue
       const c = l.replace(/\s*[-–|]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển|tuyen)\b.*$/iu, '')
         .replace(/\s*[-–]\s*(?:số|sn)?\s*\d.*$/iu, '')
       if (ok(c)) return ok(c)
     }
     // ③ 가게 낱말 바로 뒤 이름(같은 줄 안)
-    for (const l of lines.slice(0, 8)) {
-      const m = l.match(new RegExp(`${KIND}\\s+([^,.!?:\\n]{2,60})`, 'iu'))
+    for (const l of lines) {
+      if (LABEL_LINE.test(l)) continue
+      const m = l.match(new RegExp(`(${KIND})\\s+([^,.!?:\\n]{2,60})`, 'iu'))
       if (!m) continue
-      const c = m[1].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển|tìm|mới khai trương)\b.*$/iu, '')
-      if (ok(c)) return ok(`${m[0].slice(0, m[0].length - m[1].length).trim()} ${c}`)
+      const c = m[2].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển|tìm|mới khai trương)(?=\s|[:：!–-]|$).*$/iu, '')
+      if (ok(c)) return ok(`${m[1]} ${c}`)
     }
     // ④ "tại + 이름"(Việc làm tại VINAMILK - BẮC NINH)
     for (const l of lines.slice(0, 3)) {
-      const m = l.match(/\btại\s+([^,.!?\n]{2,60})/iu)
+      const m = l.match(/(?:việc làm|làm việc|tuyển dụng|cơ hội)\s+tại\s+([^,.!?\n]{2,60})/iu)
       if (!m) continue
       const c = m[1].replace(new RegExp(`^${KIND}\\s*[:：]\\s*`, 'iu'), '').replace(/\s*[-–]\s*.*$/u, '')
       if (ok(c)) return ok(c)
@@ -86,8 +91,8 @@ export function readCompany(text: string): CompanyRead {
     }
     // ⑥ "… TUYỂN DỤNG" 앞(첫 4줄)
     for (const l of lines.slice(0, 4)) {
-      if (!/tuyển dụng|cần tuyển|tuyển\b/iu.test(l)) continue
-      const c = l.replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển)\b.*$/iu, '').replace(/\s*thông báo\s*$/iu, '')
+      if (!/tuyển dụng|cần tuyển|tuyển\b|tìm đồng đội|tìm kiếm/iu.test(l)) continue
+      const c = l.replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển|tìm đồng đội|tìm kiếm)(?=\s|[:：!–-]|$).*$/iu, '').replace(/\s*thông báo\s*$/iu, '')
       if (ok(c)) return ok(c)
     }
     return ''
