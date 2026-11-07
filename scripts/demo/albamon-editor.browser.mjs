@@ -37,6 +37,7 @@ for (let i = 0; i < 6; i++) {
   assert.ok((await run('document.querySelector("#preview-frame").srcdoc')).includes(body),`template ${i+1}: mobile preview artwork matches`)
   await run(`document.querySelector('[data-action="close-preview"]').click()`)
   await send('Emulation.setDeviceMetricsOverride',{width:1180,height:1100,deviceScaleFactor:1,mobile:false})
+  assert.equal(await run(`(() => {const d=document.createElement('div');d.innerHTML=JobEditor.getHTML();return d.querySelectorAll('section').length===document.querySelectorAll('.template-document section').length})()`),true,`template ${i+1}: export keeps section cards`)
   renderedTemplates.push(html)
 }
 assert.equal(new Set(artSources).size,6,'all six templates have distinct artwork')
