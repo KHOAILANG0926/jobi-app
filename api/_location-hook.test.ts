@@ -36,4 +36,11 @@ const preAsync = { ...pre, async serviceKeyOk(t: string) { return t === 'other-g
 const acall = async (auth: string) => { const res = makeRes(); await createLocationHookHandler(preAsync)({ method: 'POST', headers: { authorization: auth }, body } as never, res as never); return res }
 assert((await acall('Bearer other-genuine-service-key')).code === 200, 'async genuine key → answered')
 assert((await acall('Bearer anon-or-fake')).code === 401, 'async rejected key → 401')
+// 2026-11-07 주소 읽기 한 곳: 원문 주소 읽기만 하는 요청도 서버 키로만, 지도 조회 없이
+let readAsked: unknown = null
+const reader = { ...pre, async readAddress(input: unknown) { readAsked = input; return { location: 'Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh' } } }
+const rcall = async (auth: string) => { const res = makeRes(); await createLocationHookHandler(reader)({ method: 'POST', headers: { authorization: auth }, body: { read_address: { source_text: 'x' } } } as never, res as never); return res }
+assert((await rcall('Bearer wrong')).code === 401 && readAsked === null, 'read_address needs the server key')
+const rok = await rcall('Bearer service-key')
+assert(rok.code === 200 && (rok.body as { location: string }).location.startsWith('Tiểu KCN') && readAsked !== null, 'read_address answers location text')
 console.log('location-hook api tests: all assertions passed')

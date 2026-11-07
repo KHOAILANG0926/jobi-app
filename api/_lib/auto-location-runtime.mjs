@@ -3,7 +3,7 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
-import { precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity } from '../../src/lib/jobIdentity.ts'
 export { hasLocationClue } from '../../src/lib/locationReviewClue.ts'
 
@@ -74,12 +74,18 @@ export function canonicalVerdictKind(state) {
  * 등록 뒤 위치 찾기(location-hook)는 같은 질문을 저장 결과로 다시 쓰므로 호출이 늘지 않는다. DB에 공고·위치를 쓰지 않는다. */
 export async function precheckLocation(db, request, input, goong = null, google = null) {
   const job = precheckJob(input)
-  if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text' }
+  if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text', location: '' }
   let used = 0
   const result = await resolveAutoLocation(job, resolverDeps(db, async (action, params) => request(action, params), {
     remainingCalls: 2, reserve: async () => used++ < 2,
   }, goong, google))
-  return precheckVerdict(result)
+  // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
+  return { ...precheckVerdict(result), location: job.location }
+}
+
+/** 원문 주소 읽기만(외부 지도 조회 없음). 이미 올라간 공고 다시 수집이 같은 기준으로 위치 글자를 받는다. */
+export function readLocationOnly(input) {
+  return { location: precheckLocationText(input || {}, false) }
 }
 
 function resolverDeps(db, request, extra, goong, google) {

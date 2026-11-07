@@ -22,7 +22,6 @@ from crawl_facebook import (
     missing_required,
     parse_time_label,
     post_key,
-    extract_district,
     is_job_post,
     is_ambiguous_job,
     parse_post,
@@ -83,11 +82,6 @@ def test_company_from_title_dash_and_not_label() -> None:
     text = "TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH\nTrung Nguyên Legend – Thương hiệu cà phê\n Vị trí tuyển dụng: Nhân viên phục vụ"
     assert_equal(extract_company(text), "TRUNG NGUYÊN LEGEND BẮC NINH", "company after title dash")
     assert_equal(extract_company("Vị trí tuyển dụng: Thợ hàn"), "", "field label is not company")
-
-
-def test_district_pattern_does_not_match_plain_letter_p() -> None:
-    text = "Làm ngồi, phòng thường\nđộ tuổi từ 18 đến 45\nđịa chỉ tại Vsip - Bắc Ninh"
-    assert_equal(extract_district(text), "", "plain p in Vietnamese words must not become location")
 
 
 NOW = datetime(2026, 9, 28, 12, 0)
@@ -355,30 +349,12 @@ def test_highlands_5157_fields() -> None:
     assert_equal(extract_company(HIGHLANDS_5157), "Highlands Coffee Mường Thanh Bắc Ninh", "company without address")
     assert_equal(extract_title(HIGHLANDS_5157, extract_company(HIGHLANDS_5157)), "HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI", "title is first line")
     assert_equal(extract_title("🔎 Vị trí tuyển dụng:\nMr Tuấn Minh", "Highlands"), "Highlands tuyển dụng", "heading-only fallback")
-    assert_equal(extract_district(HIGHLANDS_5157), "Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh", "address line with house number")
+    # 주소 읽기는 src/lib/addressReader.test.ts(주소 읽기 한 곳, Lee 2026-11-07)
 
-
-NETCO_5599 = """NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH
-KHÔNG CỌC – KHÔNG PHÍ TUYỂN DỤNG
-THỬ VIỆC 01 THÁNG NHẬN 100% LƯƠNG
-Ca ngày - ca đêm
-Thu nhập: 13 – 15 triệu/tháng
-📍 Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh
-Yêu cầu: Nam, bằng lái hạng C, có kinh nghiệm 1 năm lái xe
-ỨNG TUYỂN NGAY: 0585 812 600 – Hải Yến (Zalo)"""
-
-
-def test_unlabeled_address_line_5599() -> None:
-    """Lee 2026-11-07 수평 전개(#5599): 이름표 없는 주소 줄도 원문 주소. 제목·급여·연락 줄은 주소 아님."""
-    assert_equal(extract_district(NETCO_5599), "Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh", "unlabeled address line")
-    assert_equal(extract_district("NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH\nLương 8 triệu, thưởng, Bắc Ninh"), "", "title/salary lines are not addresses")
-    assert_equal(extract_district(HIGHLANDS_5157), "Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh", "labeled line still wins")
-    assert_equal(extract_district("🏢 Làm việc tại: Lý Đạo Thành, Phường Kinh Bắc, Bắc Ninh"), "Lý Đạo Thành, Phường Kinh Bắc, Bắc Ninh", "other label prefix removed")
 
 def main() -> int:
     tests = [
         test_highlands_5157_fields,
-        test_unlabeled_address_line_5599,
         test_group_region_only_when_post_names_it,
         test_non_job_money_post,
         test_ambiguous_generic_post_skipped,
@@ -386,7 +362,6 @@ def main() -> int:
         test_company_does_not_capture_benefit_sentence,
         test_company_from_recruitment_heading,
         test_company_from_title_dash_and_not_label,
-        test_district_pattern_does_not_match_plain_letter_p,
         test_post_id_from_permalink,
         test_post_key_without_link_is_stable_text_hash,
         test_time_label_relative,
