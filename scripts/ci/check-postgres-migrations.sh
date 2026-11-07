@@ -175,6 +175,39 @@ SQL
     fi
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261107150000_logo_lookup_api_limits.sql' ]]; then
+    echo "PostgreSQL logo lookup + API limits (Lee 2026-11-07): brands + anon/service roles, then $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
+    if [[ "$(psql "$PG_TEST_URL" -X -At -c "select to_regclass('public.job_brands') is null")" == t ]]; then
+      for dep in 20260910120000_job_brands_master.sql 20261101210000_brands_verified_chains.sql 20261101230000_brand_logo_domains.sql 20261103190000_brand_categories_restaurant_retail.sql; do
+        psql "$PG_TEST_URL" -X -q -v ON_ERROR_STOP=1 -1 -f "supabase/migrations/$dep" >/dev/null
+      done
+    fi
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/logo_lookup_api_limits_production_check.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+do $t$
+declare r text; ok boolean; i int;
+begin
+  insert into public.local_jobs(id, company, location) values (990001, 'Cty A', 'Bắc Ninh');
+  -- 등록 경로로는 회사 웹사이트를 넣을 수 없다
+  update public.local_jobs set company_domain = 'evil.com' where id = 990001;
+  if (select company_domain from public.local_jobs where id = 990001) is not null then raise exception '보호 장치 실패'; end if;
+  r := public.job_logo_lookup_record(990001, 'found', 'https://www.facebook.com/x', 'p1');
+  if r <> 'none' then raise exception 'URL 형식 처리 오류: %', r; end if;
+  r := public.job_logo_lookup_record(990001, 'found', 'facebook.com', 'p1');
+  if r <> 'excluded' then raise exception '페이스북 제외 실패: %', r; end if;
+  r := public.job_logo_lookup_record(990001, 'found', 'www.Netco.com.vn', 'p1');
+  if r <> 'found' or (select company_domain from public.local_jobs where id = 990001) <> 'netco.com.vn' then raise exception '도메인 기록 실패'; end if;
+  -- 월 한도: 900에서 멈춤
+  for i in 1..900 loop ok := public.external_api_reserve('google_place_website'); if not ok then raise exception '한도 전에 멈춤 %', i; end if; end loop;
+  if public.external_api_reserve('google_place_website') then raise exception '한도 넘김'; end if;
+  if (select calls from public.external_api_calls where api = 'google_place_website') <> 900 then raise exception '횟수 오류'; end if;
+  raise notice 'logo lookup CI cases passed';
+end $t$;
+SQL
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261107070000_job_duplicate_check.sql' ]]; then
     echo "PostgreSQL duplicate check (Lee 2026-11-07): company codes + needed columns, then $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
