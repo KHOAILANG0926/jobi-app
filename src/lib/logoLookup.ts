@@ -44,7 +44,7 @@ export function needsLogoLookup(job: Pick<Job, 'company' | 'title' | 'imageUrl' 
 }
 
 /** 로고 찾기를 붙인 시각(이전 등록 공고는 찾기를 거치지 않았다 — 자동 작업은 기존 공고를 건드리지 않음). */
-export const LOGO_LOOKUP_SINCE = '2026-11-07T23:59:00+07:00'
+export const LOGO_LOOKUP_SINCE = '2026-11-07T15:50:00+07:00'
 
 /** 검사표용 대표 사진·로고 출처. 화면 순서(companyLogo.jobRepresentativeImageUrl)와 같다. */
 export function photoSource(
