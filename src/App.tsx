@@ -55,6 +55,8 @@ const SavedJobsPage = lazy(() => import('./pages/jobsMenu/SavedJobsPage'))
 const RecentlyViewedPage = lazy(() => import('./pages/jobsMenu/RecentlyViewedPage'))
 const MatchedJobsPage = lazy(() => import('./pages/jobsMenu/MatchedJobsPage'))
 const SuggestedJobsPage = lazy(() => import('./pages/jobsMenu/SuggestedJobsPage'))
+// 데모 전용(demo/albamon-template 브랜치): 알바몬 간편 템플릿 따라 하기
+const AlbamonTemplateDemo = lazy(() => import('./pages/demo/AlbamonTemplateDemo'))
 
 function RouteLoading() {
   return <div className="page page--narrow" role="status">Đang tải...</div>
@@ -121,6 +123,7 @@ export default function App({ initialJobs, initialJobsError }: AppProps = {}) {
                 <Route path="/cau-hoi-phong-van" element={lazyRoute(<InterviewTips />)} />
                 <Route path="/chinh-sach-bao-mat" element={lazyRoute(<PrivacyPolicy />)} />
                 <Route path="/dieu-khoan" element={lazyRoute(<TermsOfUse />)} />
+                <Route path="/demo/mau-nhanh" element={lazyRoute(<AlbamonTemplateDemo />)} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
               <Route
