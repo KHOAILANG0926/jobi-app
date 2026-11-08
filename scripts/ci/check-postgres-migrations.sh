@@ -133,6 +133,18 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/r8_any_level_restore_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261108130000_template_inquiry_employment.sql' ]]; then
+    echo "PostgreSQL template html·extra employment·1:1 inquiry: $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+create schema if not exists auth;
+create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
+create or replace function public.is_admin() returns boolean language sql stable as 'select false';
+SQL
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/template_inquiry_employment_production_check.sql
+    if psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file" >/dev/null 2>&1; then echo "::error::re-run must fail (already applied)"; exit 1; fi
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261101210000_brands_verified_chains.sql' ]]; then
     echo "PostgreSQL verified brands: $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f scripts/ci/brands-fixture.sql
