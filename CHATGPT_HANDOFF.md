@@ -1,6 +1,7 @@
-# HANDOFF — 2026-11-07 밤 (Claude) · 회사 이름 읽기 한 곳·카드 상호·급여 동 금액
+# HANDOFF — 2026-11-08 (Claude) · 알바몬 따라 하기 1~6번 운영 반영
 
 ## 1. 현재 상태
+- 알바몬 따라 하기(Lee 11-08 "이거먼저", DB 변경 없음): ① 고객센터 FAQ·공지 /ho-tro ② 벽보 만들기 /lam-poster(내 공고만, 그림 받기·인쇄) ③ 테마 채용관 /chu-de/:slug 8개(ServicePages.tsx) ④ 등록 화면 급여 칸 'Tính lương Gross ↔ Net' 링크 ⑤ 임시저장(이 브라우저에만, 사진·핀 제외) ⑥ PC(≥1240) 오른쪽 체크 목록. 미리보기는 상세 화면(승인된 틀)을 고쳐야 해서 뺌. 7번(새 입력 칸, DB)·8번(간편 템플릿)은 미승인 — 데모 브랜치 demo/albamon-template에만.
 - master 946cd4f(#533 급여 동 금액) — deploy-verify 42382412330 성공 [직접 확인].
 - 회사 이름 읽기(Lee 11-07, 기존 방향 변경): src/lib/companyReader.ts 한 곳(사이트 칸 → 원문 → 포스터 글자). 회사 이름 없으면 수집 안 함(no_company / poster_read_failed). 소개소는 소개소 이름 + recruiter_agency(DB #525), 수수료·보증금 소개소는 수집 안 함(agency_fee). 잘못 읽은 공고는 companyReader.test.ts 사례 추가 → 함수 수정(#523~#528). 기존 공개 공고 이름은 바꾸지 않음(company-reread 읽기 전용 목록).
 - 카드 상호(#531, Lee 11-07): 회사 형태 낱말(CÔNG TY·TNHH·CỔ PHẦN·CTY) 빼고 최대 2줄, 지점은 지역 줄("지점, 성"), 지역뿐인 지점은 버림, 제목에서 상호·지점 반복 안 함. 카드만(src/lib/cardText.cardCompanyParts — JobCard·HomeDiscovery). DB·상세 그대로.
@@ -11,7 +12,7 @@
 - VPS AZDIGI 다음 납부 2027-02 초 — 기한 전 Lee에게 알림.
 
 ## 2. 다음 할 일 3개
-1. Lee 지시 시 Muaban·Chợ Tốt 수집(집에서).
+1. Lee 지시 시 Muaban·Chợ Tốt 수집(집에서). 알바몬 7번(DB 칸)·8번(템플릿)·미리보기는 Lee 결정 대기.
 2. (완료 #540) 소개소 중복 판정 공장·공단 비교 — 다음: Lee 지시 시 Facebook·Muaban 수집.
 3. Facebook 1건씩 등록 계속(원문 업무 먼저 읽기).
 

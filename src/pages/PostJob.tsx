@@ -95,6 +95,9 @@ const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v
   <label className="pj-check"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />{children}</label>
 )
 
+// Lee 2026-11-08 승인(알바몬 공고등록 따라 하기 5번): 임시저장 = 이 브라우저에만 보관(서버·DB 저장 없음). 사진·지도 핀은 넣지 않는다.
+const DRAFT_KEY = 'vgb:postjob-draft'
+
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 
 export function PostJob() {
@@ -156,6 +159,22 @@ export function PostJob() {
   const quickGuestMode = employerCheck === 'guest' && postMode === 'quick'
   const [showDemog, setShowDemog] = useState(false)
   const [showBenefits, setShowBenefits] = useState(false)
+  // 임시저장(5번) — 저장 시각만 보여 주고 'Mở lại'를 눌러야 채운다(알바몬처럼 자동으로 덮어쓰지 않음)
+  const [draftAt, setDraftAt] = useState<string | null>(null)
+  const [toast, setToast] = useState('')
+  useEffect(() => {
+    try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); if (d?.at) setDraftAt(d.at) } catch { /* 저장소를 못 쓰면 넘어간다 */ }
+  }, [])
+  const flash = (t: string) => { setToast(t); window.setTimeout(() => setToast(''), 2000) }
+  const saveDraft = () => {
+    const at = new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ at, form, conditions })); flash('Đã lưu tạm trên trình duyệt này') } catch { flash('Không lưu được trên trình duyệt này') }
+  }
+  const loadDraft = () => {
+    try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); if (d) { setForm({ ...emptyForm, ...d.form }); setConditions({ ...EMPTY_CONDITIONS, ...d.conditions }) } } catch { /* 무시 */ }
+    setDraftAt(null)
+  }
+  const dropDraft = () => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* 무시 */ } setDraftAt(null) }
   const [guestEmail, setGuestEmail] = useState('')
   const [guestSuccess, setGuestSuccess] = useState<{ jobId: string; manageUrl: string } | null>(null)
   const [emailSuccess, setEmailSuccess] = useState<{ jobId: string; email: string } | null>(null)
@@ -276,7 +295,7 @@ export function PostJob() {
         })
         if (pinError) setPinWarning(true)
       }
-      const resetForm = () => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null) }
+      const resetForm = () => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); dropDraft() }
 
       if (employerCheck === 'guest' && postMode === 'email') {
         // "이메일로 등록" — 화면엔 별도 가입 단계를 안 보여주고, 뒤에서
@@ -413,12 +432,30 @@ export function PostJob() {
   const benefitText = [conditions.shuttleBus && 'Xe đưa đón', conditions.dormitory && 'Ký túc xá', conditions.mealProvided && 'Ăn ca',
     ...form.benefitTags, form.insurance && 'Bảo hiểm'].filter(Boolean).join(', ')
 
+  // Lee 2026-11-08 승인(6번): PC 오른쪽 체크 목록 — 필수 칸이 채워진 구역에 체크, 누르면 그 구역으로 이동
+  const sections: [string, string, boolean][] = [
+    ['pj-s1', 'Nội dung tuyển dụng', !!form.title.trim() && !!form.employmentType && (!!form.hires || form.hiresUndecided)],
+    ['pj-s2', 'Điều kiện làm việc', (form.hoursNegotiable || (!!form.timeStart && !!form.timeEnd)) && (form.salaryNegotiable || !!form.salaryAmount.trim())],
+    ['pj-s3', 'Nơi làm việc', !!form.street.trim() && !!form.province && !!form.company.trim()],
+    ['pj-s4', 'Hạn nộp · Cách ứng tuyển', form.ongoing || !!form.applicationDeadline || quickGuestMode],
+    ['pj-s5', 'Người liên hệ', !!normalizeVnPhone(form.employerPhone)],
+    ['pj-s6', 'Mô tả công việc', !!form.work.trim()],
+  ]
+  const goSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
   return (
-    <div className="pj">
+    <div className="pj pj--side">
+      <div className="pj__main">
       <h1 className="pj__title">Đăng tin tuyển dụng</h1>
       <p className="pj__lead">Nhà tuyển dụng đăng việc miễn phí — tiếp cận ứng viên ngay hôm nay.</p>
+      {draftAt && (
+        <div className="pj-draft">Có bản lưu tạm lúc {draftAt}.
+          <button type="button" className="pj-link" onClick={loadDraft}>Mở lại</button>
+          <button type="button" className="pj-link" onClick={dropDraft}>Xoá</button>
+        </div>
+      )}
 
-      <form onSubmit={onSubmit} noValidate>
+      <form id="pj-form" onSubmit={onSubmit} noValidate>
         {error && <p className="pj-form-error" role="alert" ref={errorRef}>{error}</p>}
 
         {employerCheck === 'guest' && (
@@ -438,7 +475,7 @@ export function PostJob() {
           </div>
         )}
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s1">
           <h2 className="pj-sec__h">Nội dung tuyển dụng</h2>
           <Row label="Tiêu đề" req>
             <div className="pj-line">
@@ -516,7 +553,7 @@ export function PostJob() {
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s2">
           <h2 className="pj-sec__h">Điều kiện làm việc</h2>
           <Row label="Thời hạn làm việc">
             <div className="pj-seg pj-seg--fill" role="group" aria-label="Thời hạn làm việc">
@@ -580,6 +617,8 @@ export function PostJob() {
               <Check checked={form.payMethod === 'Theo tuần'} onChange={(v) => set('payMethod', v ? 'Theo tuần' : '')}>Trả theo tuần</Check>
               <Check checked={form.payMethod === 'Theo ngày'} onChange={(v) => set('payMethod', v ? 'Theo ngày' : '')}>Trả theo ngày</Check>
             </div>
+            {/* Lee 2026-11-08 승인(4번): 알바몬처럼 급여 칸 옆 계산기 링크 — 우리 계산기는 Gross ↔ Net(세후 환산)이라 이름 그대로 */}
+            <a className="pj-calc" href="/tinh-luong" target="_blank" rel="noopener">Tính lương Gross ↔ Net ›</a>
             <input className="pj-input pj-input--round" value={form.allowance} onChange={(e) => set('allowance', e.target.value)}
               placeholder="Phụ cấp · Thưởng (tuỳ chọn, ví dụ: Chuyên cần 500.000đ/tháng)" />
           </Row>
@@ -607,7 +646,7 @@ export function PostJob() {
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s3">
           <h2 className="pj-sec__h">Nơi làm việc</h2>
           <Row label="Địa chỉ" req>
             <input ref={streetRef} className="pj-input" value={form.street} onChange={(e) => set('street', e.target.value)} placeholder="Số nhà, đường (ví dụ: 33 Lý Thái Tổ)" />
@@ -653,7 +692,7 @@ export function PostJob() {
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s4">
           <h2 className="pj-sec__h">Hạn nộp · Cách ứng tuyển</h2>
           <Row label="Hạn nộp hồ sơ" req>
             <div className="pj-line">
@@ -670,7 +709,7 @@ export function PostJob() {
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s5">
           <h2 className="pj-sec__h">Người liên hệ</h2>
           <Row label="Điện thoại" req>
             <div className="pj-line">
@@ -691,7 +730,7 @@ export function PostJob() {
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s6">
           <h2 className="pj-sec__h">Mô tả công việc</h2>
           <Row label="Nội dung công việc" req>
             <textarea ref={descriptionRef} className="pj-textarea" value={form.work} onChange={(e) => set('work', e.target.value)} placeholder="Nhập nội dung công việc" />
@@ -707,9 +746,26 @@ export function PostJob() {
         <div className="pj-bar">
           <button type="button" className="pj-bar__ghost" disabled={submitting}
             onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }}>Xoá form</button>
+          <button type="button" className="pj-bar__ghost" disabled={submitting} onClick={saveDraft}>Lưu tạm</button>
           <button type="submit" className="pj-bar__main" disabled={submitting || employerCheck === 'checking'}>{submitting ? 'Đang đăng...' : 'Đăng tin'}</button>
         </div>
       </form>
+      </div>
+
+      <aside className="pj-side" aria-label="Tiến độ điền tin">
+        <button type="button" className="pj-side__save" onClick={saveDraft} disabled={submitting}>Lưu tạm</button>
+        <button type="submit" form="pj-form" className="pj-side__done" disabled={submitting || employerCheck === 'checking'}>{submitting ? 'Đang đăng...' : 'Đăng tin'}</button>
+        <ul className="pj-side__list">
+          {sections.map(([id, t, done]) => (
+            <li key={id} className={done ? 'is-done' : ''}>
+              <button type="button" onClick={() => goSection(id)}>
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>{t}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </aside>
+      {toast && <div className="pj-toast" role="status">{toast}</div>}
     </div>
   )
 }

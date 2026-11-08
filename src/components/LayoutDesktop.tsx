@@ -189,6 +189,17 @@ const MENU_ITEMS: MenuItem[] = [
         { label: '💰 Lương cao', to: '/?sort=salary' },
         { label: '🤝 Có cam kết hợp đồng / BHXH', to: '/?pledge=1#home-job-filters' },
       ]},
+      // Lee 2026-11-08 승인: 알바몬 '테마 채용관'처럼 주제별 목록(/chu-de/:slug, ServicePages.THEMES와 같은 8개)
+      { heading: 'Theo chủ đề', links: [
+        { label: '🏠 Có ký túc xá', to: '/chu-de/ky-tuc-xa' },
+        { label: '🚌 Có xe đưa đón', to: '/chu-de/xe-dua-don' },
+        { label: '🍱 Có bao ăn', to: '/chu-de/bao-an' },
+        { label: '⏱️ Việc ngắn hạn', to: '/chu-de/ngan-han' },
+        { label: '🕐 Việc part-time', to: '/chu-de/part-time' },
+        { label: '🌙 Làm ca đêm', to: '/chu-de/ca-dem' },
+        { label: '⚡ Đi làm ngay', to: '/chu-de/di-lam-ngay' },
+        { label: '🏭 Việc trong KCN', to: '/chu-de/khu-cong-nghiep' },
+      ]},
     ],
   },
   {
@@ -361,6 +372,7 @@ export function Layout() {
                   ['Tin đã đăng', '/bang-dieu-khien?tab=jobs'],
                   ['Quản lý ứng viên', '/bang-dieu-khien?tab=applicants'],
                   ['Tin nhắn', '/bang-dieu-khien?tab=messages'],
+                  ['Làm poster tuyển dụng', '/lam-poster'],
                 ].map(([label, to]) => (
                   <li key={to}><NavLink className="mega-menu__link" to={to} onClick={() => setEmployerMenuOpen(false)}>{label}</NavLink></li>
                 ))}
@@ -534,6 +546,7 @@ export function Layout() {
             <div className="footer-cs">
               <h4 className="footer-cs__title">Trung tâm hỗ trợ</h4>
               <ul className="footer-cs__links">
+                <li><a href="/ho-tro">Câu hỏi thường gặp</a></li>
                 <li><a href="mailto:support@viecganban.vn">Liên hệ 1:1</a></li>
               </ul>
             </div>
@@ -543,6 +556,7 @@ export function Layout() {
               <ul className="footer-cs__links">
                 <li><a href="/">Tìm việc làm</a></li>
                 <li><a href="/dang-tin">Tuyển dụng</a></li>
+                <li><a href="/lam-poster">Làm poster tuyển dụng</a></li>
                 <li><a href="/cong-dong">Cộng đồng</a></li>
               </ul>
             </div>

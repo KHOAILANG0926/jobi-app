@@ -1,3 +1,8 @@
+## 2026-11-08 — 알바몬 따라 하기 1~6번 운영 반영 (Claude)
+- 요청: Lee "이거먼저"(데모 demo/albamon-template에서 DB 변경 없는 1~6번).
+- 변경: src/pages/ServicePages.tsx/.css(/ho-tro FAQ·공지, /lam-poster 벽보, /chu-de/:slug 테마 8개 — 데모 표본 공고 버튼 뺌, 인쇄 CSS는 'In' 버튼 때만), App.tsx 경로, 메뉴 'Việc làm'에 'Theo chủ đề'(PC·모바일), 바닥 'Câu hỏi thường gặp'·'Làm poster tuyển dụng', PC 기업 메뉴 'Làm poster tuyển dụng'. PostJob: 급여 칸 계산기 링크, 임시저장(vgb:postjob-draft, 등록 성공 시 지움), 구역 id pj-s1~6, PC 오른쪽 상자(Lưu tạm·Đăng tin·체크 목록), 아래 막대에 Lưu tạm.
+- 뺀 것: 미리보기(상세 화면 틀 변경 필요), 7·8번(미승인).
+
 ## 2026-11-07 23:30 — 소개소 표시 원래 칸 하나로 (Claude)
 - 요청: Lee "같은내용을 두번 적는게 맞아? 원래대로", "빼"(경고색), 5번 A+B, "먼저수정하고 7,8번 확인".
 - 원인 [직접 확인]: #525에서 기존 recruitment_type 칸을 확인하지 않고 recruiter_agency 칸을 새로 만듦(화면은 기존 칸만 봐서 표시 안 됨).
@@ -44,16 +49,3 @@
 ## 2026-11-07 09:00 — 중복 4단계 운영 적용·VPS 결제 확인 (Claude)
 - 중복 4단계: PR #505 병합 → migrations-apply 42323400255(적용·운영 점검 성공), deploy-verify 42323599503 성공. 병합 지연 원인: PR 설명 시험표 SHA가 옛 커밋(checks 실패) → 갱신 후 병합.
 - VPS: AZDIGI 청구서 431073(기한 11-09) Lee 결제(11-07). 3개월 주기, 다음 2027-02 초.
-
-## 2026-11-07 06:30 — 중복 4단계 판정 (Claude, 승인 대기)
-- 요청: Lee "4단계 진행", "애매하면 관리자 게시판(분류 못 한 줄 고르기)", "정상 공고가 잘못 버려지면 안 됨", "시작해".
-- 설계: 입구(ingest_job) 대신 모든 경로가 저장 직후 부르는 위치 찾기(api/location-hook)에서 위치가 정해진 뒤 판정 — 보내는 곳 수정 불필요·위치 확정 후 비교. 판정 규칙은 DB 한 곳.
-- 변경: supabase/migrations/20261107070000_job_duplicate_check.sql(job_identity_attach·job_duplicate_check·job_duplicate_decide, 공개 순간 판정 트리거, 판정 칸 공개 차단, 기존 회사 큰 분류 채움), api/_lib/auto-location-runtime.mjs applyDuplicateVerdict + api/location-hook.js, api/_lib/admin-users.js 의심 목록·결정, src/components/admin/AdminLinePicks.tsx 「🔁 Nghi trùng lặp」, src/lib/jobIdentity.ts companyIdentity·kindCategory, 시험 supabase/tests/job_duplicate_check.pglite.test.mjs·production_check, api/_admin-duplicates.test.ts.
-- 검증 [직접 확인]: 로컬 폐기용 Postgres 16에서 판정 시험 14개 통과. 정확한 점 = 번지·공단 정문·관리자 확정(Google 업체 자리는 출처가 DB에 안 남아 애매로 감 → 게시판).
-- 남은 문제: Lee 적용 승인 → draft 해제·병합 → 운영 적용·운영 점검.
-
-## 2026-11-06 23:45 — 중복 3단계: 공개 공고 회사 코드 붙이기 도구 (Claude)
-- 요청: Lee "기존 공고에도 회사 코드를 붙이라고 했잖아"(기존 공고 자동 작업 제외 규칙보다 Lee 직접 지시 우선 — 내용·화면은 안 바뀌고 코드 칸만).
-- 변경: scripts/ops/company-code-assign.mjs + .github/workflows/company-code-assign.yml(수동, apply=false면 시험 후 되돌림). 대상 공개 공고(보류·숨김 제외), 규칙 jobIdentity.ts, 공고 번호 지정 없음.
-- 정정: 30분 정리 작업에 넣자던 안은 "기존 공고 자동 작업 안 건드림" 규칙과 충돌해 철회. 중복 확인은 등록 입구(ingest_job)의 중복 단계를 고치는 방식(4단계).
-
