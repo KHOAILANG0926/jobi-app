@@ -133,7 +133,7 @@ function Preview({ s, mobile }: { s: DocState; mobile?: boolean }) {
   return (
     <div className={`amt-pv${mobile ? ' amt-pv--m' : ''}`} style={docVars(s.colorId)}>
       <BrandLine />
-      <div className="amt-pv__visual">
+      <div className="amt-pv__visual amt-visual--fade">
         {s.tpl.photo ? <img className="amt-visual__img" src={s.tpl.photo} alt="" /> : <div className="amt-visual__none">Ảnh đang chuẩn bị</div>}
         {s.on.logo && <p className={`amt-pv__company ${tc}`}>{s.company}</p>}
         {s.title && <h2 className={`amt-pv__title ${tc}`}>{s.title}</h2>}
@@ -165,7 +165,7 @@ function DocEdit({ s, set, version }: { s: DocState; set: DocSetters; version: n
     <div className="amt-doc" style={docVars(s.colorId)}>
       <BrandLine />
       <div className="amt-top">
-        <div className="amt-visual">
+        <div className="amt-visual amt-visual--fade">
           {s.tpl.photo ? <img className="amt-visual__img" src={s.tpl.photo} alt="" /> : <div className="amt-visual__none">Ảnh đang chuẩn bị</div>}
           {s.on.logo && <p className={`amt-visual__company ${tc}`}>{s.company}</p>}
           <div className={`amt-visual__title ${tc}`}>
