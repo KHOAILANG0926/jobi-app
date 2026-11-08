@@ -305,6 +305,8 @@ body.amt-pvwin .amt-pv--m { margin-left: auto; }
 /* 공고 상세 ④ 상세요강에 템플릿 모양 그대로(Lee 2026-11-08 B안) */
 .jd2-template-doc { padding: 24px; overflow: hidden; }
 .jd2-template-doc .amt-pv { width: auto; max-width: 708px; }
+/* PC: 알바몬 상세처럼 본문 칸 가운데(알바몬 775px 틀이 1030px 칸 가운데, 2026-11-09 직접 잼). 휴대폰은 아래 규칙 그대로 */
+@media (min-width: 761px) { .jd2-template-doc .amt-pv { margin: 0 auto; } }
 /* 휴대폰: 알바몬처럼 모바일 틀 크기(미리보기 모바일과 같은 값) */
 @media (max-width: 760px) {
   .jd2-template-doc { padding: 0; }

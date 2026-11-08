@@ -124,6 +124,7 @@ interface DocSetters {
   title: (v: string) => void; desc: (v: string) => void; colHeads: (v: [string, string]) => void; roles: (r: Role[]) => void
   body: (k: BodyKey, v: string) => void; etcTitle: (k: EtcKey, v: string) => void; remove: (k: SectionKey) => void
 }
+const COMPANY_PH = 'Tên công ty'
 const shownKeys = (s: DocState) => (['roles', 'work', 'support', 'apply', 'contact', ...s.extras] as SectionKey[]).filter((k) => s.on[k])
 const docVars = (colorId: number) => { const c = colorOf(colorId); return { '--amt-bar': c.bar, '--amt-head': c.head } as CSSProperties }
 
@@ -135,7 +136,8 @@ function Preview({ s, mobile }: { s: DocState; mobile?: boolean }) {
       <BrandLine />
       <div className="amt-pv__visual amt-visual--fade">
         {s.tpl.photo ? <img className="amt-visual__img" src={s.tpl.photo} alt="" /> : <div className="amt-visual__none">Ảnh đang chuẩn bị</div>}
-        {s.on.logo && <p className={`amt-pv__company ${tc}`}>{s.company}</p>}
+        {/* 회사 이름이 비면 작성 화면 안내 글자('Tên công ty')를 결과·공고에 찍지 않는다(알바몬은 실제 이름만) */}
+        {s.on.logo && s.company !== COMPANY_PH && <p className={`amt-pv__company ${tc}`}>{s.company}</p>}
         {s.title && <h2 className={`amt-pv__title ${tc}`}>{s.title}</h2>}
       </div>
       {s.desc.trim() && <p className="amt-pv__desc">{s.desc}</p>}
@@ -323,7 +325,7 @@ export function AlbamonTemplateEditor({ outer = FORM, company = '', onHtml }: { 
 
   const pick = (t: TemplateInfo) => { setTplId(t.id); setColorId(t.color); setPage(TEMPLATE_CATEGORIES.indexOf(t.category)) }
   const pageTemplates = TEMPLATES.filter((t) => t.category === TEMPLATE_CATEGORIES[page])
-  const s: DocState = { tpl, colorId, on, extras, company: company.trim() || 'Tên công ty', title, desc, colHeads, roles, bodies, etcTitles }
+  const s: DocState = { tpl, colorId, on, extras, company: company.trim() || COMPANY_PH, title, desc, colHeads, roles, bodies, etcTitles }
   const set: DocSetters = {
     title: setTitle, desc: setDesc, colHeads: setColHeads, roles: setRoles,
     body: (k, v) => setBodies((b) => ({ ...b, [k]: v })),
