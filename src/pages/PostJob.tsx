@@ -203,6 +203,13 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
   const dropDraft = () => { try { localStorage.removeItem(AB_DRAFT_KEY) } catch { /* 무시 */ } setDraftAt(null) }
   const saveContact = () => { try { localStorage.setItem(AB_CONTACT_KEY, JSON.stringify({ name: abx.contactName, phone: form.employerPhone })); flash('Đã lưu thông tin người liên hệ') } catch { /* 무시 */ } }
   const myPastJobs = user ? allJobs.filter((j) => j.employerId === user.id) : []
+  // 알바몬 '재등록'처럼: /demo/mau-nhanh?rereg=<공고 번호> 로 들어오면 그 공고 값으로 채운다(데모)
+  useEffect(() => {
+    if (!ab) return
+    const id = new URLSearchParams(window.location.search).get('rereg')
+    const j = id ? allJobs.find((x) => x.id === id) : undefined
+    if (j) setForm((f) => ({ ...f, title: j.title, company: j.company, category: j.category, employmentType: j.employmentType ?? '', jobDuration: j.jobDuration ?? '', employerPhone: j.employerPhone || f.employerPhone, zalo: j.zalo ?? f.zalo }))
+  }, [ab, allJobs])
   const loadPastJob = (j: (typeof allJobs)[number]) => {
     setForm((f) => ({ ...f, title: j.title, company: j.company, category: j.category, employmentType: j.employmentType ?? '', jobDuration: j.jobDuration ?? '', employerPhone: j.employerPhone || f.employerPhone, zalo: j.zalo ?? f.zalo }))
     setPastOpen(false); flash('Đã điền từ tin cũ')

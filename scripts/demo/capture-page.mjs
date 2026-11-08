@@ -73,6 +73,18 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
   if (name === 'pc') { for (let i = 1; i <= 4; i++) await click(`.amt-item--ins:nth-child(${i})`) } else { await click('.amt-row'); await click('.amt-pill:nth-child(1)'); await click('.amt-pill:nth-child(3)'); await click('.amt-sheet__foot button') }
   await page.waitForTimeout(400)
   await shot('07-direct')
+  // 공고등록 우대조건 창
+  await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle', timeout: 90000 }).catch(() => {})
+  await page.waitForTimeout(800)
+  const pref = page.locator('.pj-btn-dark', { hasText: 'Chọn' }).first()
+  if (await pref.count()) { await pref.scrollIntoViewIfNeeded().catch(() => {}); await pref.click().catch(() => {}); await page.waitForTimeout(400); await shot('08-pref', false); await page.keyboard.press('Escape').catch(() => {}) } else errors.push('no pref btn')
+  // 다른 데모 화면
+  for (const [p2, n2] of [['/demo', 'hub'], ['/demo/chu-de/ky-tuc-xa', 'theme'], ['/demo/ho-tro', 'faq'], ['/demo/poster', 'poster']]) {
+    await page.goto(`${BASE}${p2}`, { waitUntil: 'networkidle', timeout: 90000 }).catch(() => {})
+    await page.waitForTimeout(1200)
+    if (n2 === 'poster') { const s = page.locator('.ad-link'); if (await s.count()) { await s.click().catch(() => {}); await page.waitForTimeout(500) } }
+    await page.screenshot({ path: `out/page-${name}-x-${n2}.png`, fullPage: true })
+  }
   console.log(name, JSON.stringify({ errors, dialogs }))
   await ctx.close()
 }

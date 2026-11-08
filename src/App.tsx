@@ -57,6 +57,10 @@ const MatchedJobsPage = lazy(() => import('./pages/jobsMenu/MatchedJobsPage'))
 const SuggestedJobsPage = lazy(() => import('./pages/jobsMenu/SuggestedJobsPage'))
 // 데모 전용(demo/albamon-template 브랜치): 알바몬 간편 템플릿 따라 하기
 const AlbamonTemplateDemo = lazy(() => import('./pages/demo/AlbamonTemplateDemo'))
+const ThemeJobsDemo = lazy(() => import('./pages/demo/AlbamonExtraDemos').then((m) => ({ default: m.ThemeJobsDemo })))
+const SupportDemo = lazy(() => import('./pages/demo/AlbamonExtraDemos').then((m) => ({ default: m.SupportDemo })))
+const PosterDemo = lazy(() => import('./pages/demo/AlbamonExtraDemos').then((m) => ({ default: m.PosterDemo })))
+const DemoHub = lazy(() => import('./pages/demo/AlbamonExtraDemos').then((m) => ({ default: m.DemoHub })))
 
 function RouteLoading() {
   return <div className="page page--narrow" role="status">Đang tải...</div>
@@ -124,6 +128,10 @@ export default function App({ initialJobs, initialJobsError }: AppProps = {}) {
                 <Route path="/chinh-sach-bao-mat" element={lazyRoute(<PrivacyPolicy />)} />
                 <Route path="/dieu-khoan" element={lazyRoute(<TermsOfUse />)} />
                 <Route path="/demo/mau-nhanh" element={lazyRoute(<AlbamonTemplateDemo />)} />
+                <Route path="/demo" element={lazyRoute(<DemoHub />)} />
+                <Route path="/demo/chu-de/:slug" element={lazyRoute(<ThemeJobsDemo />)} />
+                <Route path="/demo/ho-tro" element={lazyRoute(<SupportDemo />)} />
+                <Route path="/demo/poster" element={lazyRoute(<PosterDemo />)} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
               <Route
