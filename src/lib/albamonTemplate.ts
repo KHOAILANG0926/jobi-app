@@ -44,10 +44,30 @@ const PHOTO: Record<number, string> = {
 }
 
 export interface TemplateInfo { id: number; name: string; category: string; color: number; darkTitle: boolean; photo: string | null }
+// Lee 2026-11-08 "빈칸은 만들면 안 되고 구성은 채워야": 전용 사진이 없는 틀은 같은 업종의 우리 사진을 돌려 쓴다(임시, 나중에 전용 사진으로 교체).
+const CATEGORY_PHOTOS: string[][] = [
+  ['khac', 'van_phong', 'dich_vu', 'quan_ly_ban_hang', 'cskh_kinh_doanh', 'san_xuat_xay_dung'],
+  ['am_thuc_do_uong', 'nha_hang_chung', 'nha_hang_lau', 'nha_hang_nuong'],
+  ['quan_ly_ban_hang', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that'],
+  ['dich_vu', 'ban_hang_tien_loi', 'nha_hang_chung', 'khac'],
+  ['van_phong', 'cskh_kinh_doanh', 'cntt_ky_thuat', 'thiet_ke'],
+  ['cskh_kinh_doanh', 'van_phong', 'quan_ly_ban_hang'],
+  ['san_xuat_xay_dung', 'lai_xe_giao_hang', 'khac'],
+  ['cntt_ky_thuat', 'van_phong', 'thiet_ke'],
+  ['thiet_ke', 'truyen_thong', 'van_phong'],
+  ['truyen_thong', 'thiet_ke', 'van_phong'],
+  ['lai_xe_giao_hang', 'san_xuat_xay_dung', 'khac'],
+  ['y_te_dieu_duong', 'van_phong', 'dich_vu'],
+  ['giao_duc_giang_day', 'van_phong', 'truyen_thong'],
+]
 export const TEMPLATES: TemplateInfo[] = Array.from({ length: 78 }, (_, i) => {
   const id = 41 + i
-  const category = TEMPLATE_CATEGORIES[Math.floor(i / 6)]
-  return { id, category, name: `${category} ${(i % 6) + 1}`, color: DEFAULT_COLOR[id], darkTitle: DARK_TITLE.has(id), photo: PHOTO[id] ? `/images/industry/${PHOTO[id]}.jpg` : null }
+  const g = Math.floor(i / 6)
+  const category = TEMPLATE_CATEGORIES[g]
+  const own = PHOTO[id]
+  const list = CATEGORY_PHOTOS[g]
+  const photo = own ?? list[(i % 6) % list.length]
+  return { id, category, name: `${category} ${(i % 6) + 1}`, color: DEFAULT_COLOR[id], darkTitle: DARK_TITLE.has(id), photo: `/images/industry/${photo}.jpg` }
 })
 export const colorOf = (id: number) => TEMPLATE_COLORS.find((c) => c.id === id) ?? TEMPLATE_COLORS[7]
 
