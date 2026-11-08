@@ -158,10 +158,6 @@ export interface Job {
   salaryBasis?: 'base' | 'total_with_overtime'
   salaryNote?: string
   employmentType?: 'full_time' | 'seasonal' | 'part_time'
-  /** 추가 고용형태(알바몬 최대 2개, Lee 2026-11-08) */
-  employmentTypeExtra?: 'contract' | 'internship' | 'collaborator'
-  /** 간편 템플릿으로 쓴 상세모집요강 HTML(Lee 2026-11-08 B안) — 상세 ④에 그대로 */
-  descriptionHtml?: string
   rotatingShifts?: 2 | 3
   benefitTags?: string[]
   requiredDocuments?: string

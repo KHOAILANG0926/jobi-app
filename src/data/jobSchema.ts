@@ -19,8 +19,6 @@ export const JOB_CATEGORIES: readonly JobCategory[] = [
 /** 고정 값 목록(DB check 제약과 동일). */
 export const SALARY_BASES = ['base', 'total_with_overtime'] as const
 export const EMPLOYMENT_TYPES = ['full_time', 'seasonal', 'part_time'] as const
-/** 추가 고용형태(local_jobs.employment_type_extra, 2026-11-08) */
-export const EMPLOYMENT_TYPES_EXTRA = ['contract', 'internship', 'collaborator'] as const
 export const ROTATING_SHIFTS = [2, 3] as const
 export const SALARY_PERIODS = ['hour', 'day', 'month', 'other'] as const
 export const SHIFT_TYPES = ['day', 'night', 'rotating', 'other'] as const
@@ -51,7 +49,6 @@ export const JOB_FIELDS: readonly JobFieldDef[] = [
   f('shiftType', 'local_jobs.shift_type', 'conditions'),
   f('rotatingShifts', 'local_jobs.rotating_shifts', 'conditions'),
   f('employmentType', 'local_jobs.employment_type', 'conditions'),
-  f('employmentTypeExtra', 'local_jobs.employment_type_extra', 'conditions'),
   f('weekendWork', 'local_jobs.weekend_work', 'conditions'),
   f('shuttleBus', 'local_jobs.shuttle_bus', 'conditions'),
   f('dormitory', 'local_jobs.dormitory', 'conditions'),
@@ -73,7 +70,6 @@ export const JOB_FIELDS: readonly JobFieldDef[] = [
   f('shuttleRoute', 'job_work_locations.shuttle_route', 'location'),
   // ④ 상세요강
   f('description', 'local_jobs.description', 'description'),
-  f('descriptionHtml', 'local_jobs.description_html', 'description'),
   // ⑤ 기업정보 / 연락
   f('company', 'local_jobs.company', 'company'),
   f('recruitmentType', 'local_jobs.recruitment_type', 'company'),
