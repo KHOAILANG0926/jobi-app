@@ -1,3 +1,10 @@
+## 2026-11-09 새벽 — 밤 근무 3회차: #570 운영 반영·#566 Codex 대기 장치·#575 봇 다시 보기 (Claude)
+- #570(Lee "적용"): Codex P1(예전 저장 공고 흰 제목 위 흐림) → 흐림을 새 템플릿 클래스 amt-visual--fade에만(AlbamonTemplate.tsx·.css). 병합 f8aa798, deploy-verify 성공.
+- #566: Codex P2(왕복 횟수 장치가 아무 계정 답이나 셈) → claude-auto.yml이 REPLY_AUTHORS만 셈 + 목록 일치 시험. 병합 1d6fd88.
+- #575(#574): 예약 실행(*/15)이 안 돌아 Codex 대기 PR이 멈춤 → bot-pr-automerge.yml이 Codex 리뷰·요약 댓글·Claude 답 도착 때 다시 보고, 'Codex 검사 대기(x/30분)'이면 codex-wait-timer.yml이 남은 분 뒤 다시 부름. 병합 184d753.
+- 검증: 각 tsc·npm test 119/119·build 로컬 통과, PR 필수 검사 통과, deploy-verify 42514709892·42514737829 성공.
+- 남은 것: 운영 /dang-tin 템플릿 그림 PC·모바일 눈 확인(이 근무 환경은 운영 주소 접속 막힘, #571).
+
 ## 2026-11-08 밤 — 봇 병합 뒤 검사·문서만 바뀐 커밋도 운영 검사 (Claude 밤 근무)
 - 발견: #565·#568(시험·문서만) 봇 병합 뒤 vercel-deploy가 workflow_dispatch로 돌아 "앱 변경 없음, 운영 그대로" 기록 단계(push 전용)를 건너뜀 → deploy-verify 시작 안 됨, 수동 시작 시 20분 대기 실패(#572).
 - 변경: .github/workflows/vercel-deploy.yml — 그 기록 단계를 workflow_dispatch에도 실행하고, dispatch일 때 deploy-verify를 시작.
@@ -49,8 +56,3 @@
 - 변경: companyReader 한 곳·소개소/수수료(DB #525 recruiter_agency). 카드 cardCompanyParts(회사 형태 낱말 빼기·2줄·지점 지역 줄) + 레이아웃 회귀 시험, PC 기준값(LayoutDesktop — #520으로 이미 달랐음). salaryReader 동 전체 금액·k 금액, 교대 금액 일급, salary-reread 읽기 전용 미리 보기(대상 15건 중 #5633만 바뀜).
 - 배포: #531 deploy-verify 42376344502 실패(#5633 급여 없어 메인 카드 없음) → #533 후 detail-fill 42382435615(#5633 급여 채움), deploy-verify 42382412330 성공.
 - 남은 문제: 소개소 표시 화면(글 모형 대기).
-
-## 2026-11-07 18:00 — 브랜드 로고 그림 (Claude)
-- 요청: Lee "OK"·"1"(NETCO 카드에 마스코트 아이콘 → 선명한 로고).
-- 변경: #519 job_brands.logo_url/logo_source_url/logo_sha256 + brand-logo.yml(공식 사이트 로고 받기·자동 맞춤·흰 그림 차단)·brand-logo-watch.yml(매달 비교). #520 brandImageUrl 한 곳(메뉴 PC·모바일·카드·상세), 검사표 그림 없는 브랜드 표시. #521 NETCO 두 줄 로고(Lee 제공).
-- 배포: migrations-apply 42363733255·42364745319, deploy-verify 42364873642 성공. 남은 것: 다른 브랜드 로고 그림은 아직 사이트 아이콘(검사표에 표시).
