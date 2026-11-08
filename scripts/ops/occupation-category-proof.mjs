@@ -30,7 +30,7 @@ try{
   if(width===1366){
    await page.goto(base+'/viec-lam/tim-kiem',{waitUntil:'domcontentloaded'})
    await page.getByRole('button',{name:'Mở danh mục Việc làm',exact:true}).hover()
-   const link=page.getByRole('button',{name:'🏭 Nhà máy / Sản xuất / KCN',exact:true})
+   const link=page.getByRole('button',{name:'Nhà máy / Sản xuất / KCN',exact:true})
    await link.waitFor({state:'visible'})
    await page.screenshot({path:'app-smoke-screens/category-menu-pc.png'})
    await link.click()
