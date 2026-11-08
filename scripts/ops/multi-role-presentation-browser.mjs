@@ -50,6 +50,8 @@ async function checkHeaderPhotoZoom(page,width,state) {
  const dialog=page.getByRole('dialog',{name:'Ảnh CTY KDA'})
  await dialog.waitFor({state:'visible'})
  assert.equal(await dialog.locator('img').getAttribute('src'),src,'zoom shows the original representative image')
+ // 2026-11-09: 크기를 재기 전에 확대 그림이 다 읽힐 때까지 기다린다(크기 지정 없는 img라 읽히기 전 폭 0 → 개발 서버가 빠를 때 1366/none에서 연속 실패, #578). 판정 기준(>52px)은 그대로.
+ await dialog.locator('img').evaluate(img=>img.decode().catch(()=>undefined))
  assert(await dialog.locator('img').evaluate(img=>img.getBoundingClientRect().width)>52,'photo is displayed larger')
  assert.equal(await page.evaluate(()=>document.body.style.overflow),'hidden','zoom locks background scroll')
  await page.screenshot({path:`/tmp/multi-role-browser/header-photo-${width}-${state}.png`})
