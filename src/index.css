@@ -3853,6 +3853,15 @@ a:hover {
   gap: 0.5rem;
 }
 
+/* 휴대폰: 정렬 줄 칸이 화면보다 넓으면 아래 줄로 내린다(Lee 2026-11-08 A안). PC는 그대로. */
+@media (max-width: 640px) {
+  .jm-urgent-toolbar__controls {
+    flex-wrap: wrap;
+    align-items: center;
+    max-width: 100%;
+  }
+}
+
 .jm-urgent-table-wrap {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
