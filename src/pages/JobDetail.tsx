@@ -42,6 +42,7 @@ import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
+import { sanitizeTemplateHtml } from '../lib/templateHtml'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
 import { mealLabel } from '../lib/mealBenefit'
@@ -364,6 +365,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
   // Lee 2026-10-30 "알바몬처럼": 상세요강은 원문 전체(위쪽 칸과 겹쳐도 지우지 않음). 전화·주소 줄 규칙(10-14)은 그대로.
   const albamonLayout = usesAlbamonLayout(job.id) // Lee 2026-10-30: 새 공고는 모두 #4828 4칸 틀
+  const templateHtml = previewJob ? sanitizeTemplateHtml((previewJob as Job & { descriptionHtml?: string }).descriptionHtml) : ''
   const detail = detailSections(job.description, albamonLayout ? {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
@@ -565,7 +567,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
     albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
-  const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
+  const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
 
@@ -996,7 +998,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-            {descriptionSections.length > 0 && (
+            {/* 데모 B안(Lee 2026-11-08): 간편 템플릿으로 쓴 상세모집요강은 그 모양 그대로(미리보기에서만 값이 옴) */}
+            {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
               <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
                 {descriptionSections.map((section) => (
                   <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">

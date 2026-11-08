@@ -17,6 +17,7 @@ import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
 import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type GenderChoice, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { PREVIEW_KEY } from '../lib/postJobPreview'
+import { AlbamonTemplateEditor } from './demo/AlbamonTemplateDemo'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 import type { JobCategory, ShiftType } from '../types/job'
 
@@ -182,6 +183,8 @@ export function PostJob() {
   // 임시저장(5번) — 저장 시각만 보여 주고 'Mở lại'를 눌러야 채운다(알바몬처럼 자동으로 덮어쓰지 않음)
   const [draftAt, setDraftAt] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  // 데모 B안(Lee 2026-11-08): 상세모집요강 간편 템플릿 결과 모양 — 미리보기 상세 ④에 그대로
+  const [tplHtml, setTplHtml] = useState('')
   const [prefOpen, setPrefOpen] = useState(false)
   const [prefDraft, setPrefDraft] = useState<string[]>([])
   useEffect(() => {
@@ -248,6 +251,7 @@ export function PostJob() {
       salaryNote: salaryNoteText() || undefined,
       location: composeLocation(form.street, form.ward, form.province, form.park) ?? [form.street, form.ward, form.province].filter(Boolean).join(', '),
       description: composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: processText(), benefitOther: form.benefitOther }) ?? '',
+      descriptionHtml: tplHtml || undefined,
       hours: hours || undefined, jobDuration: form.jobDuration || undefined, employmentType: form.employmentType || undefined,
       workDays: form.daysNegotiable ? 'Thỏa thuận' : (form.workDays.length ? form.workDays.join(', ') : undefined),
       benefitTags: form.benefitTags.length ? form.benefitTags : undefined,
@@ -267,6 +271,8 @@ export function PostJob() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    // 데모 브랜치: 실제 등록 막음(가짜 공고 공개 금지)
+    setError('Đây là bản demo — tin không được đăng. Hãy bấm "Xem trước" để xem.'); errorRef.current?.scrollIntoView({ block: 'center' }); return
 
     const salary = composeSalary(form.salaryAmount, form.salaryUnit, form.salaryNegotiable)
     const hours = form.hoursNegotiable ? 'Thỏa thuận' : composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
@@ -825,6 +831,15 @@ export function PostJob() {
           <Row label="Môi trường làm việc">
             <input className="pj-input" value={form.environment} onChange={(e) => set('environment', e.target.value)} placeholder="(tuỳ chọn)" />
           </Row>
+        </section>
+
+        <section className="pj-sec" id="pj-s7">
+          <h2 className="pj-sec__h">Mô tả chi tiết (mẫu nhanh)</h2>
+          <AlbamonTemplateEditor company={form.company} onHtml={setTplHtml} outer={{
+            title: form.title, roles: [], period: form.jobDuration, days: form.workDays, start: form.timeStart, end: form.timeEnd,
+            benefits: benefitText, education: form.education, preferred: preferenceText(),
+            applyMethods: form.applyMethods.join(', '), contactName: form.contactName.trim(), contactPhone: form.employerPhone.trim(),
+          }} />
         </section>
 
         <div className="pj-bar">

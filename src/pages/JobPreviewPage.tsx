@@ -4,6 +4,7 @@ import { JobDetail } from './JobDetail'
 import { PREVIEW_KEY } from '../lib/postJobPreview'
 import type { Job } from '../types/job'
 import './JobPreviewPage.css'
+import './demo/AlbamonTemplateDemo.css'
 
 function readPreview(): Job | null {
   try { const j = JSON.parse(localStorage.getItem(PREVIEW_KEY) || 'null'); return j && typeof j === 'object' ? (j as Job) : null } catch { return null }
