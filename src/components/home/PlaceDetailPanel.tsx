@@ -62,7 +62,7 @@ export default function PlaceDetailPanel({ place, selectedJob, jobs, selectableI
       </button>
 
       <section className="hme-place__jobs" aria-label="Việc làm tại đây">
-        <h4 className="hme-life__title">Việc làm trên Viecganban</h4>
+        <h4 className="hme-life__title">Việc làm trên Việc gần Bạn</h4>
         {jobs.length === 0 ? (
           <p className="hme-place__empty">Chưa có tin tuyển dụng tại hoặc trong 500 m quanh điểm này.</p>
         ) : (

@@ -22,7 +22,7 @@ export default function FranchiseJobs() {
       <header className="page-header">
         <h1 className="page-header__title">Thương hiệu tuyển dụng</h1>
         <p className="page-header__lead">
-          Các thương hiệu chuỗi/cửa hàng đang có tin tuyển dụng thực tế trên Việcganban.
+          Các thương hiệu chuỗi/cửa hàng đang có tin tuyển dụng thực tế trên Việc gần Bạn.
         </p>
       </header>
 

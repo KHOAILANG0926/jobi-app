@@ -1,3 +1,4 @@
+// 2026-11-08: LayoutDesktop.tsx — Lee "로고는 하나로 맞춰 브라우저 탭으로": 머리 줄 로고 글자 Việcganban → Việc gần Bạn. 틀 변경 없음.
 // 2026-11-08: LayoutDesktop.tsx — Lee 지시("메인 화면만 빼고 다 적용"): 머리 줄·메뉴·바닥 알바몬 기준(검색 칸, 메뉴 이모지 빼기·4칸 배열, 바닥 SiteFooter). 메인 본문·공고 카드·상세 변경 없음. (#542 메뉴·바닥 링크 추가로 master가 이미 달랐음)
 // 2026-11-07: 기준값 갱신 — LayoutDesktop.tsx는 #520(Lee 승인: 브랜드 로고 그림 우선, 메뉴 로고 그림)으로 master가 이미 달랐음. 이번 PR(#531 카드 상호 2줄·지점 지역 줄)은 이 파일을 바꾸지 않음.
 // 2026-11-06: JobDetail.tsx·index.css — Lee 데모 적용(demo/contact-separate): 4칸 중 한 칸이 통째로 없으면 상자를 빼고 아래 칸이 올라옴. Gọi·Zalo 버튼은 상자와 별도로 원래 위쪽 자리 그대로. KDA·예전 틀 변경 없음.
@@ -66,7 +67,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "25ff73b934e3ad76af0451af7870e8ce43fff699b1ded9eefedcce93a3a691fa",
+    "sha256": "8d5ece123728f3c5d10f7be9d3ce9cd06b4a546a1c14f4a2dc14a49386316a61",
     "restore": []
   },
   {

@@ -1,3 +1,8 @@
+## 2026-11-08 — 로고 이름 하나로(Việc gần Bạn) (Claude)
+- 요청: Lee "색깔은 그냥 놔두고 로고는 하나로 맞춰 브라우저 탭으로".
+- 변경: 머리 줄 로고(PC·휴대폰)·바닥 로고·저작권 Việcganban/Việt Gần Bạn → Việc gần Bạn, 바닥의 중복 회사 이름 줄 삭제, 브랜드 목록·지도 창 문구 Việcganban → Việc gần Bạn. 바탕색 그대로(데모 demo/white-bg 미적용).
+- 남은 것: 약관·개인정보·가입 화면·검색 제목(SEO)·공고 상세 문구의 "Việt Gần Bạn"/"Việc Gần Bạn" — Lee 결정 대기.
+
 ## 2026-11-08 — 머리 줄·메뉴·바닥 알바몬 기준 (Claude)
 - 요청: Lee "왜 이렇게 촌스럽냐 … 지금 바꿔야", 데모 후 "메인 화면만 빼고 다 적용해".
 - 변경: LayoutDesktop/LayoutMobile(메뉴 이모지 24개 빼기, PC 검색 칸·버튼 메뉴 줄로, 펼침 col 칸 묶음, 바닥 → SiteFooter.tsx), siteChrome.css(.layout--d/.layout--m 아래만), menu-search-check 메뉴 이름(이모지 뺌), test-desktop-baseline 기준값.
@@ -51,7 +56,3 @@
 - 확인 [직접 확인 vps-diag run 42340102791]: VPS→api/location-hook precheck가 HTTP 401 unauthorized 두 번 → 크롤러(GitHub Secrets)와 Vercel의 SUPABASE_SERVICE_ROLE_KEY 글자가 다름. #475(11-06) 뒤 크롤러 새 공고는 전부 location_precheck_failed: precheck_unavailable로 버려짐(EAGLEON 재시도 run 42338759387).
 - 변경: api/location-hook.js 키 글자가 다르면 그 키로 Supabase 관리자 조회가 되는지(진짜 서버 키인지) 확인 후 통과. 테스트 추가. crawler 거부 이유 기록(#507). VPS 옛 실행기 버전 지우기 워크플로(vps-clean-old-runner.yml).
 - VPS 공간 [직접 확인]: 11GB 중 9.7GB. 옛 실행기 2.338.0 약 680MB 지움 대상. 브라우저 chromium-1117은 Facebook 수집(playwright 1.44)이 쓰는 것 — 지우지 않음. chromium-1248 사용처 미확인 — 둠. root 필요: snap 옛 버전(791MB 중 일부)·apt 캐시 123MB.
-
-## 2026-11-07 09:00 — 중복 4단계 운영 적용·VPS 결제 확인 (Claude)
-- 중복 4단계: PR #505 병합 → migrations-apply 42323400255(적용·운영 점검 성공), deploy-verify 42323599503 성공. 병합 지연 원인: PR 설명 시험표 SHA가 옛 커밋(checks 실패) → 갱신 후 병합.
-- VPS: AZDIGI 청구서 431073(기한 11-09) Lee 결제(11-07). 3개월 주기, 다음 2027-02 초.
