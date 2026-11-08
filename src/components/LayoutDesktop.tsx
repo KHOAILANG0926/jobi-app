@@ -395,7 +395,7 @@ export function Layout() {
             <NavLink to="/" className="header-top__brand">
               <img src="/logo.png" alt="logo" className="header-top__logo" />
               <span className="header-top__brand-copy">
-                <span className="header-top__title">Việcganban</span>
+                <span className="header-top__title">Việc gần Bạn</span>
                 <span className="header-top__tagline">Kết nối cơ hội, vươn xa tương lai</span>
               </span>
             </NavLink>

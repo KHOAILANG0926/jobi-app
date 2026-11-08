@@ -23,9 +23,8 @@ export function SiteFooter() {
       </div>
       <div className="site-footer__in site-footer__main">
         <div className="site-footer__co">
-          <p className="site-footer__logo"><img src="/logo.png" alt="" width="24" height="24" />Việcganban</p>
-          <p className="site-footer__name">Việt Gần Bạn</p>
-          <p className="site-footer__txt">Email: support@viecganban.vn</p>
+          <p className="site-footer__logo"><img src="/logo.png" alt="" width="24" height="24" />Việc gần Bạn</p>
+                    <p className="site-footer__txt">Email: support@viecganban.vn</p>
         </div>
         <div className="site-footer__cs">
           <p className="site-footer__cs-h">Trung tâm hỗ trợ</p>
@@ -42,7 +41,7 @@ export function SiteFooter() {
           <a href="/lam-poster">Làm poster tuyển dụng</a>
           <a href="/cong-dong">Cộng đồng</a>
         </nav>
-        <p className="site-footer__copy">© {new Date().getFullYear()} Việt Gần Bạn. All rights reserved.</p>
+        <p className="site-footer__copy">© {new Date().getFullYear()} Việc gần Bạn. All rights reserved.</p>
       </div>
     </footer>
   )
