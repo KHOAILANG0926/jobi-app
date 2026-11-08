@@ -1,3 +1,9 @@
+## 2026-11-08 밤 — 휴대폰 메인 검사(mobile-home) 고장 고침 #559 (Claude 밤 근무)
+- 요청: ai-team 이슈 #559(지도 못 그리는 휴대폰에서 안내 45초 안 보여 실패).
+- 원인: 11-05부터 WebGL이 없으면 안내 대신 대체 지도(RasterMapCanvas)를 그림. 안내는 바탕 그림을 못 받을 때만 나와 시험 기대가 낡음(화면 버그 아님). 11-05 fix/map-webgl-unavailable 실행부터 계속 실패.
+- 변경: scripts/test-mobile-home.mjs — 안내 대신 대체 지도(data-map-provider="raster")가 보이는지 확인. 화면 코드 변경 없음.
+- 검증: tsc·npm test 119/119·build 통과, 로컬 WebGL 막은 390px에서 대체 지도 표시 확인.
+
 ## 2026-11-08 — 간편 템플릿 B안·1:1 문의·추가 고용형태 (Claude)
 - 요청: Lee "3,4,5,6적용" → 5번 "B로 바꾸고 데모 먼저"(데모 demo/template-detail) → "마무리먼저".
 - DB(#552, 추가만): local_jobs.description_html·employment_type_extra(공개 조회), support_inquiries(넣기 누구나, 읽기·처리 관리자, RLS).
@@ -49,10 +55,3 @@
 - 원인 [직접 확인]: 로고·사진 검사는 수동 공고 파일 경로에만 연결. 페이스북 사진은 페북 서버 주소만 저장돼 화면(우리 저장소 사진만 허용, 10-06)에 안 나옴. Google 호출은 공고당 2번 제한뿐 월 한도 없음.
 - 변경: DB #516(external_api_limits/calls·external_api_reserve, local_jobs.company_domain 공개·logo_lookup 비공개·보호 트리거·job_logo_lookup_record, NETCO POST 브랜드 81지점) → migrations-apply 42352856500 성공. 코드 #517: 페북 사진(fbcdn) 우리 저장소 복사(ingest_gateway), 사진·브랜드 없으면 저장된 Google 결과의 웹사이트 아이콘(applyLogoLookup, 월 900), Google 위치 검색 월 4,500(4곳 모두), companyLogo 순서 브랜드→사진→웹사이트→공용, 검사표 「대표 사진·로고」(공개·연속 통과 영향 없음), CLAUDE.md 로고 절 한 줄.
 - 배포: deploy-verify 42354796132 성공. 기존 공고(15:50 이전)는 로고 찾기 대상 아님.
-
-## 2026-11-07 13:30 — 주소 읽기 한 곳(addressReader) (Claude)
-- 요청: Lee "왜 한번에 못하고 반복" → 주소 읽기를 급여처럼 한 곳으로 "진행해".
-- 원인 [직접 확인]: 원문 주소를 읽는 기준이 소스마다 따로(페이스북 crawl_facebook.extract_district), 빠질 때마다 공고별로 덧댐(#5157, #5599).
-- 변경: src/lib/addressReader.ts(① 이름표 줄 ② 이름표 없는 줄(끝 칸 원래 성 63곳) ③ 동·구·도로 조각, 옛 규칙 그대로 옮김) + addressReader.test.ts(#5157·#5599·FUSHAN 사례). locationPrecheck가 주소 칸 없으면 source_text를 이 함수로 읽어 "주소, 지역" 확인·응답(location). ingest_gateway가 원문을 보내고 응답 위치를 공고 위치로 저장. 페이스북 수집기의 주소 읽기 삭제. 다시 수집(refresh_facebook_existing)은 location-hook read_address(지도 조회 없음). CLAUDE.md 「수집 첫 단계」 절·RULES_CORE 한 줄.
-- 수평 전개: 원문에서 주소를 읽는 곳은 페이스북 수집기뿐(고침). crawl_topcv·job_quality는 사이트 주소 칸 정리(그대로 먼저 씀). jobDetailFill/jobDetailSections는 주소 줄을 상세요강에서 빼는 용도(해당 없음). 관리자·Lee 제공(ops-insert-job)은 위치 확인 미연결(기존과 같음).
-- 검증: addressReader·locationPrecheck·location-hook 시험, test_facebook_quality 28/28, test_ingest_gateway, test_job_quality 21/21(로컬). tsc/build는 CI.
