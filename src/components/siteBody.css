@@ -9,9 +9,10 @@ body .jc, body .jc.jc--clean { padding: 22px 24px 20px; border: 1px solid #e6e8e
 body .home-card-wrap:hover .jc { border-color: #e6e8ea; box-shadow: 0 16px 24px rgba(0, 0, 0, .08); }
 /* 위: 로고(높이 40) / 아래: 회사 · 지역 한 줄 */
 body .jc .jc__header { display: block; min-height: 0; margin: 0 0 14px; }
-body .jc .jc__logo-wrap { display: flex; align-items: center; justify-content: flex-start; width: auto; max-width: 120px; height: 40px; margin: 0 0 14px; overflow: hidden; }
-body .jc .jc__logo-wrap .jc__logo { width: auto; max-width: 120px; height: 40px; max-height: 40px; object-fit: contain; border-radius: 0; }
-body .jc .jc__logo-wrap .jc__logo--photo { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; }
+/* 알바몬은 로고(가로형)만 있어 높이 40. 우리는 사진·포스터가 많아 40이면 너무 작아 보여 56으로(사진은 정사각 둥근 모서리) */
+body .jc .jc__logo-wrap { display: flex; align-items: center; justify-content: flex-start; width: auto; max-width: 140px; height: 56px; margin: 0 0 14px; overflow: hidden; }
+body .jc .jc__logo-wrap .jc__logo { width: auto; max-width: 140px; height: 56px; max-height: 56px; object-fit: contain; border-radius: 0; }
+body .jc .jc__logo-wrap .jc__logo--photo { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid #f0f0f0; }
 body .jc .jc__logo-text { font-size: 13px; -webkit-line-clamp: 2; text-align: left; padding: 0; color: #575f6c; }
 body .jc .jc__identity { display: flex; align-items: center; min-width: 0; font-size: 14px; line-height: 22px; color: #575f6c; }
 body .jc.jc--clean .jc__company { flex: 0 1 auto; margin: 0; font-size: 14px; font-weight: 400; line-height: 22px; color: #575f6c; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
