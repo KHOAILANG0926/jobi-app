@@ -2,7 +2,7 @@
 // 배치·크기·동작은 알바몬 PC(www)·모바일(m) 화면에서 직접 확인한 값. 저장 없음. 에디터 탭은 보류(패키지 설치 허용 전).
 // 바꾼 것: 글자는 베트남어, 사진은 우리 업종 사진(없으면 회색 '사진 준비 중'), 알바몬 로고 자리는 우리 로고,
 // 알바몬 전용(꿀팁 마스코트·제한규정 링크·외부 제휴 게시 안내) 뺌.
-import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   TEMPLATES, TEMPLATE_CATEGORIES, TEMPLATE_COLORS, SECTION_LABEL, ROLE_DUTY_DEFAULT, bodyFromForm, colorOf,
@@ -357,6 +357,14 @@ export function AlbamonTemplateEditor({ outer = FORM, company = '' }: { outer?: 
       : <Preview s={s} mobile={mobile} />)
     if (!openPreview(html, mobile)) setModal(mobile ? 'mobile' : 'pc')
   }
+  // 공고 등록 화면 오른쪽 상자·아래 줄의 '미리보기'가 보내는 신호
+  const previewRef = useRef(preview)
+  previewRef.current = preview
+  useEffect(() => {
+    const h = (e: Event) => previewRef.current(!!(e as CustomEvent<{ mobile?: boolean }>).detail?.mobile)
+    window.addEventListener('amt:preview', h)
+    return () => window.removeEventListener('amt:preview', h)
+  }, [])
   const openAll = () => { setPending(tplId); setFilter(''); setModal('all') }
   const itemSummary = () => {
     const names = ALL_KEYS.filter((k) => on[k] && (!k.startsWith('etc') || extras.includes(k as EtcKey))).map((k) => ITEM_LABEL[k])

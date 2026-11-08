@@ -96,6 +96,20 @@ const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v
   <label className="pj-check"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />{children}</label>
 )
 
+// 데모(알바몬 공고등록 그대로) 전용 값 — 운영 화면에서는 쓰지 않는다.
+const AB_EMPTY = { beginner: false, withFriends: false, extraEmployment: '', prefPicks: [] as string[], mealAllowance: false, probation: false, applyMethods: ['Gọi điện', 'Nhắn Zalo'] as string[], contactName: '' }
+const AB_EXTRA_EMPLOYMENT = ['Hợp đồng', 'Thực tập', 'Cộng tác viên'] as const
+const AB_APPLY_METHODS = ['Ứng tuyển online', 'Nhắn Zalo', 'Email', 'Gọi điện', 'Đến trực tiếp']
+// 알바몬 우대조건 묶음 그대로(한글 문서 HWP는 빼고 베트남에 맞게 한국어·일본어 순서만 바꿈)
+const AB_PREF_GROUPS = [
+  ['Biết tiếng Anh', 'Biết tiếng Trung', 'Biết tiếng Hàn', 'Biết tiếng Nhật'],
+  ['Biết vi tính', 'Biết Photoshop', 'Biết Word', 'Biết Excel', 'Biết PowerPoint'],
+  ['Có chứng chỉ liên quan', 'Có kinh nghiệm tương tự', 'Ở gần', 'Sinh viên đang học', 'Sinh viên bảo lưu'],
+  ['Có xe máy', 'Có bằng lái ô tô', 'Người khuyết tật'],
+]
+const AB_DRAFT_KEY = 'vgb:postjob-draft-demo'
+const AB_CONTACT_KEY = 'vgb:postjob-contact-demo'
+
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 
 // detailSlot: 데모(/demo/mau-nhanh) 전용 — 맨 아래 '상세모집요강' 자리에 알바몬 간편 템플릿을 넣는다. 없으면(운영 /dang-tin) 화면·동작 그대로.
@@ -159,6 +173,40 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
   const quickGuestMode = employerCheck === 'guest' && postMode === 'quick'
   const [showDemog, setShowDemog] = useState(false)
   const [showBenefits, setShowBenefits] = useState(false)
+  // ── 데모(알바몬 공고등록 그대로) 전용 상태 — detailSlot이 있을 때만 화면에 나온다(운영 /dang-tin 무변경) ──
+  const ab = !!detailSlot
+  const { jobs: allJobs } = useJobs()
+  const [abx, setAbx] = useState(AB_EMPTY)
+  const setX = <K extends keyof typeof AB_EMPTY>(k: K, v: (typeof AB_EMPTY)[K]) => setAbx((x) => ({ ...x, [k]: v }))
+  const [prefOpen, setPrefOpen] = useState(false)
+  const [prefDraft, setPrefDraft] = useState<string[]>([])
+  const [pastOpen, setPastOpen] = useState(false)
+  const [toast, setToast] = useState('')
+  const [draftAt, setDraftAt] = useState<string | null>(null)
+  useEffect(() => {
+    if (!ab) return
+    try {
+      const d = JSON.parse(localStorage.getItem(AB_DRAFT_KEY) || 'null'); if (d?.at) setDraftAt(d.at)
+      const c = JSON.parse(localStorage.getItem(AB_CONTACT_KEY) || 'null')
+      if (c) { setAbx((x) => ({ ...x, contactName: c.name || '' })); setForm((f) => ({ ...f, employerPhone: f.employerPhone || c.phone || '' })) }
+    } catch { /* 저장소를 못 쓰면 그냥 넘어간다 */ }
+  }, [ab])
+  const flash = (t: string) => { setToast(t); window.setTimeout(() => setToast(''), 2000) }
+  const saveDraft = () => {
+    const at = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    try { localStorage.setItem(AB_DRAFT_KEY, JSON.stringify({ at, form, conditions, abx })); setDraftAt(at); flash('Đã lưu tạm') } catch { flash('Không lưu được trên trình duyệt này') }
+  }
+  const loadDraft = () => {
+    try { const d = JSON.parse(localStorage.getItem(AB_DRAFT_KEY) || 'null'); if (d) { setForm({ ...emptyForm, ...d.form }); setConditions({ ...EMPTY_CONDITIONS, ...d.conditions }); setAbx({ ...AB_EMPTY, ...d.abx }) } } catch { /* 무시 */ }
+    setDraftAt(null)
+  }
+  const dropDraft = () => { try { localStorage.removeItem(AB_DRAFT_KEY) } catch { /* 무시 */ } setDraftAt(null) }
+  const saveContact = () => { try { localStorage.setItem(AB_CONTACT_KEY, JSON.stringify({ name: abx.contactName, phone: form.employerPhone })); flash('Đã lưu thông tin người liên hệ') } catch { /* 무시 */ } }
+  const myPastJobs = user ? allJobs.filter((j) => j.employerId === user.id) : []
+  const loadPastJob = (j: (typeof allJobs)[number]) => {
+    setForm((f) => ({ ...f, title: j.title, company: j.company, category: j.category, employmentType: j.employmentType ?? '', jobDuration: j.jobDuration ?? '', employerPhone: j.employerPhone || f.employerPhone, zalo: j.zalo ?? f.zalo }))
+    setPastOpen(false); flash('Đã điền từ tin cũ')
+  }
   const [guestEmail, setGuestEmail] = useState('')
   const [guestSuccess, setGuestSuccess] = useState<{ jobId: string; manageUrl: string } | null>(null)
   const [emailSuccess, setEmailSuccess] = useState<{ jobId: string; email: string } | null>(null)
@@ -408,6 +456,20 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
     )
   }
 
+  // 데모: 오른쪽 체크 목록(필수 칸이 채워지면 체크)
+  const abSections: [string, string, boolean][] = [
+    ['pj-s1', 'Nội dung tuyển dụng', !!form.title.trim() && !!form.employmentType && (!!form.hires || form.hiresUndecided)],
+    ['pj-s2', 'Điều kiện làm việc', (form.hoursNegotiable || (!!form.timeStart && !!form.timeEnd)) && (form.salaryNegotiable || !!form.salaryAmount.trim())],
+    ['pj-s3', 'Nơi làm việc', !!form.street.trim() && !!form.province && !!form.company.trim()],
+    ['pj-s4', 'Hạn nộp · Cách ứng tuyển', form.ongoing || !!form.applicationDeadline || (employerCheck === 'guest' && postMode === 'quick')],
+    ['pj-s5', 'Người liên hệ', !!normalizeVnPhone(form.employerPhone) && !!abx.contactName.trim()],
+    ['pj-s6', 'Mô tả chi tiết', false],
+  ]
+  const goSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const abPreview = (mobile: boolean) => window.dispatchEvent(new CustomEvent('amt:preview', { detail: { mobile } }))
+  const empCount = (form.employmentType ? 1 : 0) + (abx.extraEmployment ? 1 : 0) + (conditions.recruitmentType === 'agency' ? 1 : 0)
+  const prefText = [...abx.prefPicks, form.preference.trim()].filter(Boolean).join(', ')
+
   // 2026-10-30 Lee: 알바몬 일반공고와 같은 디자인(PostJob.css). 순서: 모집내용 → 근무조건 → 근무지 정보 → 접수기간·방법 → 담당자정보 → 상세모집요강.
   const set = <K extends keyof typeof emptyForm>(k: K, v: (typeof emptyForm)[K]) => setForm((f) => ({ ...f, [k]: v }))
   const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
@@ -418,11 +480,37 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
     ...form.benefitTags, form.insurance && 'Bảo hiểm'].filter(Boolean).join(', ')
 
   return (
-    <div className="pj">
+    <div className={`pj${ab ? ' pj--ab' : ''}`}>
+      <div className="pj__main">
       <h1 className="pj__title">Đăng tin tuyển dụng</h1>
       <p className="pj__lead">Nhà tuyển dụng đăng việc miễn phí — tiếp cận ứng viên ngay hôm nay.</p>
 
-      <form onSubmit={onSubmit} noValidate>
+      {ab && (
+        <div className="pj-past">
+          <button type="button" className="pj-past__head" aria-expanded={pastOpen} onClick={() => setPastOpen(!pastOpen)}>
+            <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden><path d="M5 4h11l4 4v14H5z" fill="none" stroke="#111" strokeWidth="1.6" /><path d="M9 11h8M9 15h8M9 19h5" stroke="#111" strokeWidth="1.6" /><path d="M21 3l-4 4m0-3v3h3" fill="none" stroke="#ff501b" strokeWidth="1.6" /></svg>
+            Tải tin đã đăng trước đây
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden style={{ marginLeft: 'auto', transform: pastOpen ? 'rotate(180deg)' : 'none' }}><path d="M3 6l5 5 5-5" fill="none" stroke="#333" strokeWidth="1.6" /></svg>
+          </button>
+          {pastOpen && (
+            <div className="pj-past__body">
+              {!user ? <p className="pj-hint">Đăng nhập tài khoản nhà tuyển dụng để tải tin đã đăng.</p>
+                : myPastJobs.length === 0 ? <p className="pj-hint">Chưa có tin đã đăng.</p>
+                : <ul>{myPastJobs.slice(0, 10).map((j) => (
+                  <li key={j.id}><span>{j.title}</span><button type="button" className="pj-btn-line" onClick={() => loadPastJob(j)}>Tải</button></li>
+                ))}</ul>}
+            </div>
+          )}
+        </div>
+      )}
+      {ab && draftAt && (
+        <div className="pj-draft">Có bản lưu tạm lúc {draftAt}.
+          <button type="button" className="pj-link" onClick={loadDraft}>Mở lại</button>
+          <button type="button" className="pj-link" onClick={dropDraft}>Xoá</button>
+        </div>
+      )}
+
+      <form id="pj-form" onSubmit={onSubmit} noValidate>
         {error && <p className="pj-form-error" role="alert" ref={errorRef}>{error}</p>}
 
         {employerCheck === 'guest' && (
@@ -442,7 +530,7 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
           </div>
         )}
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s1">
           <h2 className="pj-sec__h">Nội dung tuyển dụng</h2>
           <Row label="Tiêu đề" req>
             <div className="pj-line">
@@ -464,14 +552,19 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
                 </select>
               )}
             </div>
+            {ab && <Check checked={abx.beginner} onChange={(v) => setX('beginner', v)}>Không cần kinh nghiệm</Check>}
           </Row>
-          <Row label="Hình thức" req>
+          <Row label="Hình thức" req count={ab ? `${empCount}/2` : undefined}>
             <div className="pj-chips" role="group" aria-label="Hình thức làm việc">
               {([['full_time', 'Chính thức'], ['seasonal', 'Thời vụ'], ['part_time', 'Part-time']] as const).map(([v, t], i) => (
                 <button key={v} ref={i === 0 ? employmentRef : undefined} type="button" aria-pressed={form.employmentType === v} onClick={() => set('employmentType', v)}>{t}</button>
               ))}
               <button type="button" aria-pressed={conditions.recruitmentType === 'agency'}
                 onClick={() => setConditions((c) => ({ ...c, recruitmentType: c.recruitmentType === 'agency' ? null : 'agency' }))}>{RECRUITMENT_LABELS.agency}</button>
+              {ab && AB_EXTRA_EMPLOYMENT.map((t) => (
+                <button key={t} type="button" aria-pressed={abx.extraEmployment === t} disabled={abx.extraEmployment !== t && empCount >= 2}
+                  onClick={() => setX('extraEmployment', abx.extraEmployment === t ? '' : t)}>{t}</button>
+              ))}
             </div>
           </Row>
           <Row label="Số lượng tuyển" req>
@@ -480,6 +573,7 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
                 onChange={(e) => set('hires', e.target.value.replace(/\D/g, ''))} />
               <span className="pj-suffix">người</span>
               <Check checked={form.hiresUndecided} onChange={(v) => set('hiresUndecided', v)}>Chưa xác định</Check>
+              {ab && <Check checked={abx.withFriends} onChange={(v) => setX('withFriends', v)}>Có thể đi làm cùng bạn bè</Check>}
             </div>
           </Row>
           <Row label="Giới tính·Tuổi·Học vấn" req>
@@ -514,17 +608,24 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
             )}
           </Row>
           <Row label="Ưu tiên">
+            {ab && (
+              <div className="pj-line">
+                <input className="pj-input pj-input--grow" readOnly value={abx.prefPicks.join(', ')} onClick={() => { setPrefDraft(abx.prefPicks); setPrefOpen(true) }}
+                  placeholder="Ở gần, có kinh nghiệm tương tự... hãy chọn điều kiện ưu tiên." />
+                <button type="button" className="pj-btn-dark" onClick={() => { setPrefDraft(abx.prefPicks); setPrefOpen(true) }}>Chọn</button>
+              </div>
+            )}
             <input className="pj-input" value={form.preference} onChange={(e) => set('preference', e.target.value)}
-              placeholder="Kinh nghiệm, ở gần, ... (tuỳ chọn)" />
+              placeholder={ab ? 'Ưu tiên khác (tuỳ chọn)' : 'Kinh nghiệm, ở gần, ... (tuỳ chọn)'} />
             <Check checked={conditions.immediateStart === true} onChange={(v) => setConditions((c) => ({ ...c, immediateStart: v ? true : null }))}>Đi làm ngay</Check>
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s2">
           <h2 className="pj-sec__h">Điều kiện làm việc</h2>
           <Row label="Thời hạn làm việc">
-            <div className="pj-seg pj-seg--fill" role="group" aria-label="Thời hạn làm việc">
-              {JOB_DURATION_OPTIONS.map((d) => (
+            <div className={`pj-seg pj-seg--fill${ab ? ' pj-seg--8' : ''}`} role="group" aria-label="Thời hạn làm việc">
+              {[...JOB_DURATION_OPTIONS, ...(ab ? ['Thỏa thuận'] : [])].map((d) => (
                 <button key={d} type="button" aria-pressed={form.jobDuration === d} onClick={() => set('jobDuration', form.jobDuration === d ? '' : d)}>{d}</button>
               ))}
             </div>
@@ -583,7 +684,10 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
               <Check checked={form.salaryIncludesOvertime} onChange={(v) => set('salaryIncludesOvertime', v)}>Đã gồm tăng ca</Check>
               <Check checked={form.payMethod === 'Theo tuần'} onChange={(v) => set('payMethod', v ? 'Theo tuần' : '')}>Trả theo tuần</Check>
               <Check checked={form.payMethod === 'Theo ngày'} onChange={(v) => set('payMethod', v ? 'Theo ngày' : '')}>Trả theo ngày</Check>
+              {ab && <Check checked={abx.mealAllowance} onChange={(v) => setX('mealAllowance', v)}>Phụ cấp ăn riêng</Check>}
+              {ab && <Check checked={abx.probation} onChange={(v) => setX('probation', v)}>Có thời gian thử việc</Check>}
             </div>
+            {ab && <a className="pj-calc" href="/tinh-luong" target="_blank" rel="noopener">Tính lương ›</a>}
             <input className="pj-input pj-input--round" value={form.allowance} onChange={(e) => set('allowance', e.target.value)}
               placeholder="Phụ cấp · Thưởng (tuỳ chọn, ví dụ: Chuyên cần 500.000đ/tháng)" />
           </Row>
@@ -611,7 +715,7 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s3">
           <h2 className="pj-sec__h">Nơi làm việc</h2>
           <Row label="Địa chỉ" req>
             <input ref={streetRef} className="pj-input" value={form.street} onChange={(e) => set('street', e.target.value)} placeholder="Số nhà, đường (ví dụ: 33 Lý Thái Tổ)" />
@@ -657,7 +761,7 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
           </Row>
         </section>
 
-        <section className="pj-sec">
+        <section className="pj-sec" id="pj-s4">
           <h2 className="pj-sec__h">Hạn nộp · Cách ứng tuyển</h2>
           <Row label="Hạn nộp hồ sơ" req>
             <div className="pj-line">
@@ -669,13 +773,29 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
             </div>
             {quickGuestMode && <p className="pj-hint">• Đăng nhanh: để trống = hết hạn sau 7 ngày.</p>}
           </Row>
+          {ab && (
+            <Row label="Cách ứng tuyển" req>
+              <div className="pj-chips" role="group" aria-label="Cách ứng tuyển">
+                {AB_APPLY_METHODS.map((t) => (
+                  <button key={t} type="button" aria-pressed={abx.applyMethods.includes(t)}
+                    onClick={() => setX('applyMethods', abx.applyMethods.includes(t) ? abx.applyMethods.filter((x) => x !== t) : AB_APPLY_METHODS.filter((x) => x === t || abx.applyMethods.includes(x)))}>{t}</button>
+                ))}
+              </div>
+              {abx.applyMethods.length > 0 && <div className="pj-note">Đã chọn: <strong>{abx.applyMethods.join(', ')}</strong></div>}
+            </Row>
+          )}
           <Row label="Quy trình tuyển dụng">
             <input className="pj-input" value={form.process} onChange={(e) => set('process', e.target.value)} placeholder="Ví dụ: Phỏng vấn trực tiếp, mang CCCD (tuỳ chọn)" />
           </Row>
         </section>
 
-        <section className="pj-sec">
-          <h2 className="pj-sec__h">Người liên hệ</h2>
+        <section className="pj-sec" id="pj-s5">
+          <h2 className="pj-sec__h">Người liên hệ{ab && <button type="button" className="pj-btn-line pj-sec__act" onClick={saveContact}>Lưu thông tin người liên hệ</button>}</h2>
+          {ab && (
+            <Row label="Tên người liên hệ" req>
+              <input className="pj-input" style={{ width: 320 }} value={abx.contactName} onChange={(e) => setX('contactName', e.target.value)} placeholder="Ví dụ: Chị Lan" />
+            </Row>
+          )}
           <Row label="Điện thoại" req>
             <div className="pj-line">
               <input ref={employerPhoneRef} className={`pj-input${phoneBad ? ' pj-input--bad' : ''}`} style={{ width: 320 }} value={form.employerPhone}
@@ -695,12 +815,12 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
           </Row>
         </section>
 
-        {detailSlot ? detailSlot({
+        {detailSlot ? <div id="pj-s6">{detailSlot({
           title: form.title, roles: [], period: form.jobDuration, days: form.workDays, start: form.timeStart, end: form.timeEnd,
-          benefits: benefitText, education: form.education, preferred: form.preference,
-          applyMethods: [form.employerPhone.trim() && 'Gọi điện', (form.zaloSameAsPhone ? form.employerPhone.trim() : form.zalo.trim()) && 'Zalo'].filter(Boolean).join(', '),
-          contactName: '', contactPhone: form.employerPhone.trim(),
-        }, form.company) : (
+          benefits: benefitText, education: form.education, preferred: prefText,
+          applyMethods: abx.applyMethods.join(', '),
+          contactName: abx.contactName.trim(), contactPhone: form.employerPhone.trim(),
+        }, form.company)}</div> : (
         <section className="pj-sec">
           <h2 className="pj-sec__h">Mô tả công việc</h2>
           <Row label="Nội dung công việc" req>
@@ -715,12 +835,76 @@ export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, compan
         </section>
         )}
 
+        {ab ? (
+          <>
+            <div className="pj-endbtns">
+              <button type="button" className="pj-endbtns__save" onClick={saveDraft}>Lưu tạm</button>
+              <button type="submit" className="pj-endbtns__main">Đăng tin</button>
+            </div>
+            <div className="pj-bar pj-bar--ab">
+              <button type="button" className="pj-bar__ghost" onClick={saveDraft}>Lưu tạm</button>
+              <button type="button" className="pj-bar__ghost pj-bar__dark" onClick={() => abPreview(true)}>Xem trước</button>
+              <button type="submit" className="pj-bar__main">Đăng tin</button>
+            </div>
+          </>
+        ) : (
         <div className="pj-bar">
           <button type="button" className="pj-bar__ghost" disabled={submitting}
             onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }}>Xoá form</button>
           <button type="submit" className="pj-bar__main" disabled={submitting || employerCheck === 'checking'}>{submitting ? 'Đang đăng...' : 'Đăng tin'}</button>
         </div>
+        )}
       </form>
+      </div>
+
+      {ab && (
+        <aside className="pj-side">
+          <button type="button" className="pj-side__save" onClick={saveDraft}>
+            <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>{[0, 45, 90, 135, 180, 225, 270, 315].map((a) => <path key={a} d="M10 2v4" stroke="#171717" strokeWidth="1.6" strokeLinecap="round" transform={`rotate(${a} 10 10)`} />)}</svg>Lưu tạm
+          </button>
+          <button type="submit" form="pj-form" className="pj-side__done">
+            <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden><path d="M4 10.5l4 4L16 6" fill="none" stroke="#fff" strokeWidth="2" /></svg>Đăng tin
+          </button>
+          <ul className="pj-side__list">
+            {abSections.map(([id, t, done]) => (
+              <li key={id} className={done ? 'is-done' : ''}>
+                <button type="button" onClick={() => goSection(id)}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>{t}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="pj-side__pv">
+            <button type="button" onClick={() => abPreview(false)}><svg width="22" height="20" viewBox="0 0 22 20" aria-hidden><rect x="2" y="2" width="18" height="12" rx="1" fill="none" stroke="#171717" strokeWidth="1.4" /><path d="M11 14v3M7 18h8" stroke="#171717" strokeWidth="1.4" /></svg><b>Xem trước</b><span>PC</span></button>
+            <button type="button" onClick={() => abPreview(true)}><svg width="16" height="20" viewBox="0 0 16 20" aria-hidden><rect x="2" y="1.5" width="12" height="17" rx="2" fill="none" stroke="#171717" strokeWidth="1.4" /><circle cx="8" cy="15.5" r=".9" fill="#171717" /></svg><b>Xem trước</b><span>Mobile</span></button>
+          </div>
+        </aside>
+      )}
+
+      {ab && prefOpen && (
+        <div className="pj-modal" role="dialog" aria-modal onClick={(e) => { if (e.target === e.currentTarget) setPrefOpen(false) }}>
+          <section className="pj-modal__box">
+            <header className="pj-modal__h">
+              <button type="button" aria-label="Đóng" onClick={() => setPrefOpen(false)}>×</button>
+              <h1>Điều kiện ưu tiên</h1>
+            </header>
+            <div className="pj-modal__body">
+              <div className="pj-pref">
+                {AB_PREF_GROUPS.map((g, i) => (
+                  <p key={i}>{g.map((t) => (
+                    <button key={t} type="button" aria-pressed={prefDraft.includes(t)} disabled={!prefDraft.includes(t) && prefDraft.length >= 7}
+                      onClick={() => setPrefDraft(prefDraft.includes(t) ? prefDraft.filter((x) => x !== t) : [...prefDraft, t])}>{t}</button>
+                  ))}</p>
+                ))}
+              </div>
+              <div className="pj-pref__foot"><span><b>{prefDraft.length}</b>/7</span>
+                <button type="button" className="pj-btn-main" onClick={() => { setX('prefPicks', prefDraft); setPrefOpen(false) }}>Áp dụng</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+      {ab && toast && <div className="pj-toast" role="status">{toast}</div>}
     </div>
   )
 }
