@@ -49,7 +49,7 @@ try {
   await panel.screenshot({path:out+`/duration-${width}.png`})
   if(width===1366){
    await menu('Dưới 1 tuần');await verify('Dưới 1 tuần')
-   await menu('🤝 Có cam kết hợp đồng / BHXH');await verify('',true)
+   await menu('Có cam kết hợp đồng / BHXH');await verify('',true)
   }else {
    await duration.selectOption('');await verify()
    await pledge.click();await verify('',true)
@@ -88,7 +88,7 @@ try {
    await ticket.getByRole('button',{name:'8M+',exact:true}).click()
    await ticket.screenshot({path:out+`/salary-${width}.png`})
    if(width===390) await page.getByRole('button',{name:'Đóng bộ lọc',exact:true}).click()
-   else {await menu('🗺️ Việc làm theo khu vực');await page.waitForURL('**/viec-lam/khu-vuc')}
+   else {await menu('Việc làm theo khu vực');await page.waitForURL('**/viec-lam/khu-vuc')}
   }
   assert.deepEqual(errors,[])
   checks.push({width,ok:true,scope:'home condition controls, placement, menu route, combine and clear; real matching-data acceptance deferred'})

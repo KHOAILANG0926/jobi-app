@@ -8,6 +8,7 @@ import { useJobs } from '../context/JobsContext'
 import { useBrands } from '../context/BrandsContext'
 import { computeBrandCounts, groupBrandsByCategory, type BrandDefinition, type BrandWithCount } from '../data/brandDirectory'
 import { NotificationBell } from './NotificationBell'
+import { SiteFooter } from './SiteFooter'
 
 function BrandCardLogo({ color, logo, initial }: { color: string; logo?: string; initial: string }) {
   const [failed, setFailed] = useState(false)
@@ -31,7 +32,7 @@ interface MenuItem {
   label: string
   to: string
   end?: boolean
-  dropdown?: { heading: string; links: MenuLink[]; inline?: boolean }[]
+  dropdown?: { heading: string; links: MenuLink[]; inline?: boolean; col?: number }[]
   cards?: MenuCard[]
   /** "Thương hiệu" 전용 — 업종→브랜드 2단 메가메뉴(BrandMegaMenu)로 렌더링한다.
    *  실제 활성 공고 데이터로 매번 다시 계산되므로 여기엔 정적 목록을 두지 않는다. */
@@ -151,26 +152,26 @@ const MENU_ITEMS: MenuItem[] = [
     to: '/',
     end: true,
     dropdown: [
-      { heading: 'Phổ biến', links: [
+      { heading: 'Phổ biến', col: 0, links: [
         { label: 'Tất cả việc làm', to: '/' },
-        { label: '🗺️ Việc làm theo khu vực', to: '/viec-lam/khu-vuc' },
-        { label: '📍 Gần tôi', to: '/ban-do' },
+        { label: 'Việc làm theo khu vực', to: '/viec-lam/khu-vuc' },
+        { label: 'Gần tôi', to: '/ban-do' },
       ]},
-      { heading: 'Việc làm của tôi', links: [
-        { label: '🔖 Việc làm đã lưu', to: '/viec-lam/da-luu' },
-        { label: '🕘 Việc làm đã xem', to: '/viec-lam/da-xem' },
-        { label: '🎯 Việc làm phù hợp', to: '/viec-lam/phu-hop' },
-        { label: '💡 Gợi ý việc làm', to: '/viec-lam/goi-y' },
+      { heading: 'Việc làm của tôi', col: 0, links: [
+        { label: 'Việc làm đã lưu', to: '/viec-lam/da-luu' },
+        { label: 'Việc làm đã xem', to: '/viec-lam/da-xem' },
+        { label: 'Việc làm phù hợp', to: '/viec-lam/phu-hop' },
+        { label: 'Gợi ý việc làm', to: '/viec-lam/goi-y' },
       ]},
-      { heading: 'Theo khu vực', inline: true, links: REGION_MENU_LINKS },
-      { heading: 'Theo ngành', links: [
-        { label: '☕ Cà phê / Nhà hàng / F&B', to: '/?cat=am_thuc_do_uong' },
-        { label: '💼 Văn phòng / Part-time / Nhập liệu', to: '/?cat=van_phong' },
-        { label: '🛍️ Bán lẻ / Siêu thị / Cửa hàng', to: '/?cat=quan_ly_ban_hang' },
-        { label: '🏭 Nhà máy / Sản xuất / KCN', to: '/?cat=san_xuat_xay_dung' },
-        { label: '🛵 Giao hàng / Kho vận / Tài xế', to: '/?cat=lai_xe_giao_hang' },
-        { label: '🧹 Vệ sinh / Giúp việc', to: '/?cat=dich_vu' },
-        { label: '🇰🇷 Lao động Hàn Quốc', to: '/viec-han-quoc' },
+      { heading: 'Theo khu vực', col: 1, inline: true, links: REGION_MENU_LINKS },
+      { heading: 'Theo ngành', col: 2, links: [
+        { label: 'Cà phê / Nhà hàng / F&B', to: '/?cat=am_thuc_do_uong' },
+        { label: 'Văn phòng / Part-time / Nhập liệu', to: '/?cat=van_phong' },
+        { label: 'Bán lẻ / Siêu thị / Cửa hàng', to: '/?cat=quan_ly_ban_hang' },
+        { label: 'Nhà máy / Sản xuất / KCN', to: '/?cat=san_xuat_xay_dung' },
+        { label: 'Giao hàng / Kho vận / Tài xế', to: '/?cat=lai_xe_giao_hang' },
+        { label: 'Vệ sinh / Giúp việc', to: '/?cat=dich_vu' },
+        { label: 'Lao động Hàn Quốc', to: '/viec-han-quoc' },
       ]},
       // 2026-09-20 사용자 지시("헤더 메가메뉴 탐색축 세분화", 알바몬
       // "기간별 알바정보"/"근무조건별 알바정보" 참고) — 알바몬처럼 축마다
@@ -179,26 +180,26 @@ const MENU_ITEMS: MenuItem[] = [
       // 라벨 그대로 사용), pledge는 이번 세션에 새로 추가한 자가서약
       // 필터(JobSearchPage의 pledgeOnly)로 실제 연결된다 — 둘 다 가짜
       // 링크가 아니라 실제 필터 상태를 URL로 프리셋하는 진짜 기능.
-      { heading: 'Theo thời gian', links: [
+      { heading: 'Theo thời gian', col: 2, links: [
         { label: 'Một ngày', to: '/?duration=' + encodeURIComponent('Một ngày') + '#home-job-filters' },
         { label: 'Dưới 1 tuần', to: '/?duration=' + encodeURIComponent('Dưới 1 tuần') + '#home-job-filters' },
         { label: '1 - 3 tháng', to: '/?duration=' + encodeURIComponent('1 - 3 tháng') + '#home-job-filters' },
         { label: 'Trên 1 năm', to: '/?duration=' + encodeURIComponent('Trên 1 năm') + '#home-job-filters' },
       ]},
-      { heading: 'Theo điều kiện', links: [
-        { label: '💰 Lương cao', to: '/?sort=salary' },
-        { label: '🤝 Có cam kết hợp đồng / BHXH', to: '/?pledge=1#home-job-filters' },
+      { heading: 'Theo điều kiện', col: 3, links: [
+        { label: 'Lương cao', to: '/?sort=salary' },
+        { label: 'Có cam kết hợp đồng / BHXH', to: '/?pledge=1#home-job-filters' },
       ]},
       // Lee 2026-11-08 승인: 알바몬 '테마 채용관'처럼 주제별 목록(/chu-de/:slug, ServicePages.THEMES와 같은 8개)
-      { heading: 'Theo chủ đề', links: [
-        { label: '🏠 Có ký túc xá', to: '/chu-de/ky-tuc-xa' },
-        { label: '🚌 Có xe đưa đón', to: '/chu-de/xe-dua-don' },
-        { label: '🍱 Có bao ăn', to: '/chu-de/bao-an' },
-        { label: '⏱️ Việc ngắn hạn', to: '/chu-de/ngan-han' },
-        { label: '🕐 Việc part-time', to: '/chu-de/part-time' },
-        { label: '🌙 Làm ca đêm', to: '/chu-de/ca-dem' },
-        { label: '⚡ Đi làm ngay', to: '/chu-de/di-lam-ngay' },
-        { label: '🏭 Việc trong KCN', to: '/chu-de/khu-cong-nghiep' },
+      { heading: 'Theo chủ đề', col: 3, links: [
+        { label: 'Có ký túc xá', to: '/chu-de/ky-tuc-xa' },
+        { label: 'Có xe đưa đón', to: '/chu-de/xe-dua-don' },
+        { label: 'Có bao ăn', to: '/chu-de/bao-an' },
+        { label: 'Việc ngắn hạn', to: '/chu-de/ngan-han' },
+        { label: 'Việc part-time', to: '/chu-de/part-time' },
+        { label: 'Làm ca đêm', to: '/chu-de/ca-dem' },
+        { label: 'Đi làm ngay', to: '/chu-de/di-lam-ngay' },
+        { label: 'Việc trong KCN', to: '/chu-de/khu-cong-nghiep' },
       ]},
     ],
   },
@@ -247,7 +248,7 @@ const MENU_ITEMS: MenuItem[] = [
     to: '/cong-dong',
   },
   {
-    label: '🇰🇷 Làm việc tại Hàn Quốc',
+    label: 'Làm việc tại Hàn Quốc',
     to: '/viec-han-quoc',
   },
 ]
@@ -260,6 +261,7 @@ export function Layout() {
   const location = useLocation()
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const [employerMenuOpen, setEmployerMenuOpen] = useState(false)
+  const [headerQuery, setHeaderQuery] = useState('')
   const employerMenuRef = useRef<HTMLDivElement>(null)
   const employerArrowRef = useRef<HTMLButtonElement>(null)
   const navRef = useRef<HTMLDivElement>(null)
@@ -385,7 +387,7 @@ export function Layout() {
   )
 
   return (
-    <div className="layout">
+    <div className="layout layout--d">
       <header className="layout__header">
         {/* Row 1: Brand */}
         <div className="header-top">
@@ -397,6 +399,14 @@ export function Layout() {
                 <span className="header-top__tagline">Kết nối cơ hội, vươn xa tương lai</span>
               </span>
             </NavLink>
+            {/* Lee 2026-11-08 "촌스럽다 → 지금 바꿔": 알바몬처럼 로고 옆 검색 칸. 사용자·등록 버튼은 원래 자리(첫 줄 오른쪽) — 로그인하면 버튼이 늘어 메뉴 줄에 두면 넘침 */}
+            <form className="header-search" role="search" onSubmit={(e) => { e.preventDefault(); const q = headerQuery.trim(); navigate(q ? `/viec-lam/tim-kiem?q=${encodeURIComponent(q)}` : '/viec-lam/tim-kiem') }}>
+              <input className="header-search__input" value={headerQuery} onChange={(e) => setHeaderQuery(e.target.value)}
+                placeholder="Tìm việc theo tên công việc, công ty..." aria-label="Tìm việc làm" />
+              <button type="submit" className="header-search__btn" aria-label="Tìm">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>
+              </button>
+            </form>
             {headerActions}
           </div>
         </div>
@@ -430,7 +440,10 @@ export function Layout() {
                         style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
                         <div className="mega-menu__inner">
-                          {item.dropdown.map((col, ci) => (
+                          {/* Lee 2026-11-08 "무슨 배열이 이래?": 알바몬처럼 정해진 세로 칸(col)에 묶음을 위아래로 쌓는다. col 없는 메뉴는 묶음마다 한 칸. */}
+                          {Object.values(item.dropdown.reduce<Record<number, NonNullable<MenuItem['dropdown']>>>((acc, g, gi) => { const k = g.col ?? gi; (acc[k] ??= []).push(g); return acc }, {})).map((stack, si) => (
+                          <div key={si} className="mega-menu__stack">
+                          {stack.map((col, ci) => (
                             <div key={ci} className="mega-menu__col">
                               <h4 className="mega-menu__heading">{col.heading}</h4>
                               <ul className={`mega-menu__list${col.inline ? ' mega-menu__list--inline' : ''}`}>
@@ -447,6 +460,8 @@ export function Layout() {
                                 ))}
                               </ul>
                             </div>
+                          ))}
+                          </div>
                           ))}
                         </div>
                       </div>
@@ -530,7 +545,6 @@ export function Layout() {
                   })
               )}
             </nav>
-
           </div>
         </div>
       </header>
@@ -539,72 +553,7 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <footer className="layout__footer">
-        {/* 고객센터 */}
-        <div className="footer-top">
-          <div className="footer-top__inner">
-            <div className="footer-cs">
-              <h4 className="footer-cs__title">Trung tâm hỗ trợ</h4>
-              <ul className="footer-cs__links">
-                <li><a href="/ho-tro">Câu hỏi thường gặp</a></li>
-                <li><a href="mailto:support@viecganban.vn">Liên hệ 1:1</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-cs">
-              <h4 className="footer-cs__title">Dịch vụ</h4>
-              <ul className="footer-cs__links">
-                <li><a href="/">Tìm việc làm</a></li>
-                <li><a href="/dang-tin">Tuyển dụng</a></li>
-                <li><a href="/lam-poster">Làm poster tuyển dụng</a></li>
-                <li><a href="/cong-dong">Cộng đồng</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-sns">
-              <h4 className="footer-cs__title">Kết nối</h4>
-              <div className="footer-sns__icons">
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg>
-                </a>
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                </a>
-                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 회사 정보 */}
-        <div className="footer-info">
-          <div className="footer-info__inner">
-            <p className="footer-info__company">
-              <strong>Việt Gần Bạn</strong>
-            </p>
-            <p className="footer-info__contact">
-              {/* 2026-09-22 실제 hydration 검증 중 발견 — JSX 텍스트의
-                  "&nbsp;" HTML 엔티티를 클라이언트/SSR 두 vite build가
-                  서로 다르게 처리했다(SSR은 실제 U+00A0로 디코딩, 클라이언트
-                  프로덕션 번들은 리터럴 "&nbsp;" 문자열 그대로 유지) — 텍스트
-                  노드 내용이 서버/클라이언트에서 달라져 React가 hydration을
-                  통째로 포기하고 전체 페이지를 클라이언트에서 다시 그리는
-                  원인이었다(브라우저로 직접 재현 확인). 엔티티 대신 실제
-                  유니코드 줄바꿈 방지 공백 문자(U+00A0)를 문자열 리터럴로
-                  직접 쓰면 두 빌드가 더 이상 다르게 해석할 여지가 없다. */}
-              Email: support@viecganban.vn {' | '} Giờ làm việc: T2–T6, 09:00–18:00
-            </p>
-            <div className="footer-info__legal">
-              <a href="/dieu-khoan">Điều khoản sử dụng</a>
-              <span className="footer-info__dot">·</span>
-              <a href="/chinh-sach-bao-mat">Chính sách bảo mật</a>
-            </div>
-            <p className="footer-info__copy">© {new Date().getFullYear()} Việt Gần Bạn. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
