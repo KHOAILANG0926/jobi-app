@@ -1,3 +1,9 @@
+## 2026-11-08 — 머리 줄·메뉴·바닥 알바몬 기준 (Claude)
+- 요청: Lee "왜 이렇게 촌스럽냐 … 지금 바꿔야", 데모 후 "메인 화면만 빼고 다 적용해".
+- 변경: LayoutDesktop/LayoutMobile(메뉴 이모지 24개 빼기, PC 검색 칸·버튼 메뉴 줄로, 펼침 col 칸 묶음, 바닥 → SiteFooter.tsx), siteChrome.css(.layout--d/.layout--m 아래만), menu-search-check 메뉴 이름(이모지 뺌), test-desktop-baseline 기준값.
+- 뺀 것: 메인 본문·공고 카드(데모에서 바꿨다가 Lee 지적으로 되돌림 — 승인 틀은 글 모형 먼저).
+- 남은 문제: 사이트 바탕 연분홍·이름 세 가지(Việcganban / Việt Gần Bạn / Việc gần Bạn) — Lee 결정 전 그대로.
+
 ## 2026-11-08 — 알바몬 따라 하기 1~6번 운영 반영 (Claude)
 - 요청: Lee "이거먼저"(데모 demo/albamon-template에서 DB 변경 없는 1~6번).
 - 변경: src/pages/ServicePages.tsx/.css(/ho-tro FAQ·공지, /lam-poster 벽보, /chu-de/:slug 테마 8개 — 데모 표본 공고 버튼 뺌, 인쇄 CSS는 'In' 버튼 때만), App.tsx 경로, 메뉴 'Việc làm'에 'Theo chủ đề'(PC·모바일), 바닥 'Câu hỏi thường gặp'·'Làm poster tuyển dụng', PC 기업 메뉴 'Làm poster tuyển dụng'. PostJob: 급여 칸 계산기 링크, 임시저장(vgb:postjob-draft, 등록 성공 시 지움), 구역 id pj-s1~6, PC 오른쪽 상자(Lưu tạm·Đăng tin·체크 목록), 아래 막대에 Lưu tạm.

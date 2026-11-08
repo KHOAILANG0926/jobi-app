@@ -1,6 +1,7 @@
-# HANDOFF — 2026-11-08 (Claude) · 알바몬 따라 하기 1~6번 운영 반영
+# HANDOFF — 2026-11-08 (Claude) · 알바몬 따라 하기 1~6번 + 머리 줄·메뉴·바닥
 
 ## 1. 현재 상태
+- 머리 줄·메뉴·바닥(Lee 11-08 "메인 화면만 빼고 다 적용"): 알바몬 PC 실측 기준 — 로고+검색 칸(/viec-lam/tim-kiem?q=), 메뉴 18px 굵게·이모지 없음·펼침 4칸(col)·아래 어둡게, 오른쪽 버튼 회색/흰 테두리(1240 이하 첫 줄, 960 이하 검색 돋보기), 바닥 SiteFooter(PC·휴대폰 공용). CSS는 src/components/siteChrome.css 한 곳. 메인 본문·공고 카드·상세는 그대로(카드 변경 데모는 Lee 거부로 되돌림 — 카드 틀 변경 금지 재확인).
 - 알바몬 따라 하기(Lee 11-08 "이거먼저", DB 변경 없음): ① 고객센터 FAQ·공지 /ho-tro ② 벽보 만들기 /lam-poster(내 공고만, 그림 받기·인쇄) ③ 테마 채용관 /chu-de/:slug 8개(ServicePages.tsx) ④ 등록 화면 급여 칸 'Tính lương Gross ↔ Net' 링크 ⑤ 임시저장(이 브라우저에만, 사진·핀 제외) ⑥ PC(≥1240) 오른쪽 체크 목록. 미리보기는 상세 화면(승인된 틀)을 고쳐야 해서 뺌. 7번(새 입력 칸, DB)·8번(간편 템플릿)은 미승인 — 데모 브랜치 demo/albamon-template에만.
 - master 946cd4f(#533 급여 동 금액) — deploy-verify 42382412330 성공 [직접 확인].
 - 회사 이름 읽기(Lee 11-07, 기존 방향 변경): src/lib/companyReader.ts 한 곳(사이트 칸 → 원문 → 포스터 글자). 회사 이름 없으면 수집 안 함(no_company / poster_read_failed). 소개소는 소개소 이름 + recruiter_agency(DB #525), 수수료·보증금 소개소는 수집 안 함(agency_fee). 잘못 읽은 공고는 companyReader.test.ts 사례 추가 → 함수 수정(#523~#528). 기존 공개 공고 이름은 바꾸지 않음(company-reread 읽기 전용 목록).

@@ -1,3 +1,4 @@
+// 2026-11-08: LayoutDesktop.tsx — Lee 지시("메인 화면만 빼고 다 적용"): 머리 줄·메뉴·바닥 알바몬 기준(검색 칸, 메뉴 이모지 빼기·4칸 배열, 바닥 SiteFooter). 메인 본문·공고 카드·상세 변경 없음. (#542 메뉴·바닥 링크 추가로 master가 이미 달랐음)
 // 2026-11-07: 기준값 갱신 — LayoutDesktop.tsx는 #520(Lee 승인: 브랜드 로고 그림 우선, 메뉴 로고 그림)으로 master가 이미 달랐음. 이번 PR(#531 카드 상호 2줄·지점 지역 줄)은 이 파일을 바꾸지 않음.
 // 2026-11-06: JobDetail.tsx·index.css — Lee 데모 적용(demo/contact-separate): 4칸 중 한 칸이 통째로 없으면 상자를 빼고 아래 칸이 올라옴. Gọi·Zalo 버튼은 상자와 별도로 원래 위쪽 자리 그대로. KDA·예전 틀 변경 없음.
 // 2026-11-05 Lee PC 흰 화면 오류: WebGL 초기화 예외를 잡고 비WebGL 2D 지도로 전환. 정상 PC 틀/CSS 변경 없음.
@@ -65,7 +66,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "56693030489bbee39834a57ae8c12250dca6ba3f991b7c90fe999d1a198483fd",
+    "sha256": "34f30082b87a0c1bb1eccd8c5601b8e06c5631e67b047efb0b5b9df0ab14e6f7",
     "restore": []
   },
   {

@@ -1,0 +1,182 @@
+/* Lee 2026-11-08 "우리는 뭘 해도 왜 이렇게 촌스럽냐 … 지금 바꿔야 돼":
+   사이트 머리 줄·메뉴·바닥만 알바몬 기준으로(알바몬 PC를 실제로 재서 옮김: 머리 줄 = 로고+둥근 검색 칸 / 메뉴 줄 18px 굵게 + 오른쪽 회색·테두리 버튼,
+   메뉴 펼침 = 화면 폭 흰 판 + 아래 어둡게, 제목 16px 굵게·항목 14px 회색, 바닥 = 도움말 줄·회사 정보·약관 줄).
+   색은 우리 상표 빨강 하나 + 검정·회색만. 이모지 없음. 공고 카드·상세·홈 본문은 이 파일 대상이 아니다(.layout--d/.layout--m 머리·바닥, .mega-menu만). */
+:root { --ch-ink: #171717; --ch-sub: #6a6a6a; --ch-mute: #9e9e9e; --ch-btn: #3e434b; --ch-line: #e8e8e8; --ch-soft: #f8f8f8; --ch-red: #e53935; }
+
+/* ── PC 머리 줄 ── */
+.layout--d .layout__header { border-bottom: 1px solid var(--ch-line); box-shadow: none; }
+.layout--d .header-top { border-bottom: 0; }
+.layout--d .header-top__inner { max-width: 1280px; padding: 24px 20px 0; justify-content: flex-start; gap: 36px; }
+.layout--d .header-top__brand { gap: 8px; }
+.layout--d .header-top__logo { height: 32px; }
+.layout--d .header-top__title { font-size: 24px; font-weight: 800; letter-spacing: -0.6px; color: var(--ch-red); }
+.layout--d .header-top__tagline { display: none; }
+.layout--d .header-search { flex: 0 1 440px; height: 42px; border: 1px solid var(--ch-red); border-radius: 24px; padding: 0 16px 0 24px; background: #fff; overflow: visible; }
+.layout--d .header-search:focus-within { box-shadow: none; }
+.layout--d .header-search__input { padding: 0; font-size: 16px; font-weight: 500; color: var(--ch-ink); font-family: inherit; min-width: 0; }
+.layout--d .header-search__input::placeholder { color: var(--ch-mute); font-weight: 400; }
+.layout--d .header-search__btn { width: 28px; height: 28px; background: none; color: var(--ch-mute); }
+.layout--d .header-search__btn:hover { background: none; color: var(--ch-ink); }
+
+.layout--d .header-tabs__inner { max-width: 1280px; padding: 0 20px; gap: 24px; }
+.layout--d .header-tab { padding: 15px 36px 15px 0; font-size: 18px; font-weight: 700; letter-spacing: -0.2px; line-height: 36px; color: var(--ch-ink); border-bottom: 0; }
+.layout--d .header-tab--split { padding: 0; }
+.layout--d .header-tab__label { padding: 15px 4px 15px 0; }
+.layout--d .header-tab__arrow-btn { padding: 15px 32px 15px 0; }
+.layout--d .header-tab__arrow { opacity: .35; }
+.layout--d .header-tab:hover,
+.layout--d .header-tab-wrap--open .header-tab,
+.layout--d .header-tab--active { color: var(--ch-red); border-bottom-color: transparent; }
+
+/* 화면이 좁아도 메뉴 글자가 두 줄로 꺾이지 않게(Lee 2026-11-08 1297px 화면에서 "Việc / làm" 두 줄 → "더 이상해") */
+.layout--d .header-tabs__nav { flex-shrink: 0; flex-wrap: nowrap; }
+.layout--d .header-tab, .layout--d .header-tab__label, .layout--d .header-tab__arrow-btn { white-space: nowrap; }
+@media (max-width: 1360px) {
+  .layout--d .header-tab { padding-right: 26px; font-size: 17px; }
+  .layout--d .header-tab--split { padding: 0; }
+  .layout--d .header-tab__arrow-btn { padding-right: 22px; }
+}
+/* 1240 이하: 오른쪽 버튼을 첫 줄(검색 칸 오른쪽)로 올려 메뉴 줄 자리를 비운다 */
+@media (max-width: 1240px) {
+  .layout--d .header-top__inner { padding-right: 480px; }
+  .layout--d .header-tabs__actions { position: absolute; right: 20px; bottom: calc(100% + 1px); }
+  .layout--d .header-search { flex: 1 1 auto; max-width: 440px; }
+}
+@media (max-width: 1100px) {
+  .layout--d .header-top__inner { gap: 20px; padding-right: 480px; }
+  .layout--d .header-tab { padding-right: 18px; font-size: 16px; }
+  .layout--d .header-tab--split { padding: 0; }
+  .layout--d .header-tab__arrow-btn { padding-right: 16px; }
+  .layout--d .header-tabs__login, .layout--d .header-tabs__cv, .layout--d .header-tabs__post { font-size: 14px; }
+  .layout--d .header-tabs__login, .layout--d .header-tabs__cv { padding: 0 10px; }
+  .layout--d .header-tabs__post { padding: 0 4px 0 10px; }
+}
+@media (max-width: 900px) {
+  .layout--d .header-top__title { font-size: 20px; }
+  .layout--d .header-top__inner { padding-right: 480px; }
+  .layout--d .header-tab { padding-right: 12px; font-size: 15px; }
+  .layout--d .header-tab--split { padding: 0; }
+  .layout--d .header-tab__arrow-btn { padding-right: 10px; }
+}
+/* 960 이하: 검색 칸은 돋보기 단추만(누르면 검색 화면으로) — 오른쪽 버튼과 겹치지 않게 */
+@media (max-width: 960px) {
+  .layout--d .header-search { flex: 0 0 42px; width: 42px; padding: 0; justify-content: center; }
+  .layout--d .header-search__input { display: none; }
+  .layout--d .header-search__btn { color: var(--ch-ink); }
+}
+
+/* 오른쪽 버튼(알바몬: 이름 = 회색 바탕, 맞춤인재·공고 등록 = 흰 바탕 테두리) */
+.layout--d .header-tabs__actions { gap: 8px; }
+.layout--d .header-tabs__login,
+.layout--d .header-tabs__cv,
+.layout--d .header-tabs__post-wrap { display: inline-flex; align-items: center; height: 40px; border-radius: 12px; font-size: 15px; font-weight: 400; text-decoration: none; }
+.layout--d .header-tabs__login { padding: 0 14px; background: var(--ch-soft); color: var(--ch-sub); border: 1px solid transparent; }
+.layout--d .header-tabs__login:hover { color: var(--ch-ink); }
+.layout--d .header-tabs__logout { border: 0; background: none; padding: 0 4px; font-size: 14px; color: var(--ch-mute); }
+.layout--d .header-tabs__logout:hover { background: none; color: var(--ch-ink); }
+.layout--d .header-tabs__cv { padding: 0 14px; background: #fff; color: var(--ch-btn); border: 1px solid var(--ch-line); }
+.layout--d .header-tabs__cv:hover { border-color: #c4c4c4; color: var(--ch-ink); }
+.layout--d .header-tabs__post-wrap { background: #fff; border: 1px solid var(--ch-line); overflow: visible; }
+.layout--d .header-tabs__post-wrap:hover { background: #fff; border-color: #c4c4c4; }
+.layout--d .header-tabs__post { padding: 0 6px 0 14px; font-size: 15px; font-weight: 400; color: var(--ch-btn); }
+.layout--d .header-tabs__post:hover { color: var(--ch-ink); }
+.layout--d .header-tabs__post-arrow { background: none; border: 0; padding: 0 12px 0 4px; color: var(--ch-sub); }
+.layout--d .header-tabs__post-arrow:hover { background: none; }
+
+/* ── PC 메뉴 펼침: 화면 폭 흰 판 + 아래 어둡게(알바몬) ── */
+.layout--d .header-tab-wrap { position: static; }
+.layout--d .mega-menu:not(.mega-menu--employer) {
+  top: 100%; left: 20px; right: 20px; width: auto; min-width: 0; max-width: none;
+  padding: 32px 0 40px; border: 0; border-top: 1px solid var(--ch-line); box-shadow: 0 0 0 100vmax #fff; clip-path: inset(0 -100vmax);
+  animation: none; background: #fff;
+}
+/* 아래 어둡게: 판(clip-path)에 잘리지 않게 열린 메뉴 칸에 붙이고 판보다 아래 층 */
+.layout--d .header-tab-wrap--open:has(> .mega-menu)::after {
+  content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 100vh; z-index: 99; pointer-events: none;
+  background: rgba(0, 0, 0, .4); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .4); clip-path: inset(0 -100vmax -100vmax);
+}
+.layout--d .mega-menu__inner { width: auto; max-width: none; padding: 0; gap: 32px 72px; flex-wrap: nowrap; }
+.layout--d .mega-menu__stack { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+@media (max-width: 1240px) { .layout--d .mega-menu__inner { gap: 32px 40px; } .layout--d .mega-menu__list--inline { max-width: 300px; } }
+@media (max-width: 960px) { .layout--d .mega-menu__inner { flex-wrap: wrap; } }
+.layout--d .mega-menu__col { min-width: 0; }
+.layout--d .mega-menu__heading { margin: 0 0 14px; padding: 0; border: 0; font-size: 16px; font-weight: 700; color: var(--ch-ink); }
+.layout--d .mega-menu__list { display: flex; flex-direction: column; gap: 6px; }
+.layout--d .mega-menu__list--inline { flex-direction: row; flex-wrap: wrap; gap: 6px 14px; max-width: 340px; }
+.layout--d .mega-menu__link,
+.layout--d .mega-menu__list--inline .mega-menu__link { width: auto; margin: 0; padding: 0; font-size: 14px; line-height: 22px; color: var(--ch-sub); border-radius: 0; }
+.layout--d .mega-menu__link:hover { background: none; color: var(--ch-ink); text-decoration: underline; text-underline-offset: 3px; }
+/* 기업 메뉴(작은 상자) */
+.layout--d .header-tabs__employer .mega-menu--employer { top: calc(100% + 6px); border: 1px solid var(--ch-line); border-top: 1px solid var(--ch-line); border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, .08); animation: none; }
+.layout--d .mega-menu--employer .mega-menu__inner { padding: 8px; }
+.layout--d .mega-menu--employer .mega-menu__list { gap: 0; }
+.layout--d .mega-menu--employer .mega-menu__link { display: block; width: 100%; padding: 9px 12px; font-size: 14px; color: var(--ch-ink); border-radius: 8px; }
+.layout--d .mega-menu--employer .mega-menu__link:hover { background: var(--ch-soft); text-decoration: none; }
+
+/* ── 휴대폰 머리 줄(홈은 자체 머리 줄이라 해당 없음) ── */
+.layout--m .layout__header { border-bottom: 1px solid var(--ch-line); box-shadow: none; }
+.layout--m .header-top { border-bottom: 0; }
+.layout--m .header-top__inner { padding: 10px 16px 0; gap: 8px; }
+.layout--m .header-top__logo { height: 28px; }
+.layout--m .header-top__title { font-size: 19px; letter-spacing: -0.5px; color: var(--ch-red); }
+.layout--m .header-top__tagline { display: none; }
+.layout--m .header-tabs__actions { width: 100%; padding: 8px 0 2px; border-top: 0; justify-content: flex-end; gap: 6px; }
+.layout--m .header-tabs__login,
+.layout--m .header-tabs__signup,
+.layout--m .header-tabs__cv,
+.layout--m .header-tabs__post-wrap,
+.layout--m .btn-zalo-header { display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; font-weight: 400; text-decoration: none; }
+.layout--m .header-tabs__login { background: var(--ch-soft); color: var(--ch-sub); }
+.layout--m .header-tabs__signup { background: none; color: var(--ch-sub); padding: 0 6px; }
+.layout--m .header-tabs__signup:hover { background: none; }
+.layout--m .header-tabs__logout { border: 0; background: none; padding: 0 4px; font-size: 13px; color: var(--ch-mute); }
+.layout--m .header-tabs__cv { background: #fff; color: var(--ch-btn); border: 1px solid var(--ch-line); }
+.layout--m .header-tabs__post-wrap { background: #fff; border: 1px solid var(--ch-line); }
+.layout--m .header-tabs__post-wrap:hover { background: #fff; }
+.layout--m .header-tabs__post { padding: 0; font-size: 13px; font-weight: 400; color: var(--ch-btn); }
+.layout--m .btn-zalo-header { background: #fff; color: var(--ch-btn); border: 1px solid var(--ch-line); gap: 4px; }
+.layout--m .btn-zalo-header:hover { background: #fff; }
+.layout--m .header-tabs__inner { padding: 0 6px; }
+.layout--m .header-tab { padding: 12px 10px 10px; font-size: 15px; font-weight: 700; color: var(--ch-ink); border-bottom: 2px solid transparent; }
+.layout--m .header-tab--split { padding: 0; }
+.layout--m .header-tab__label { padding: 12px 2px 10px 10px; }
+.layout--m .header-tab__arrow-btn { padding: 12px 10px 10px 2px; }
+.layout--m .header-tab--active { color: var(--ch-red); border-bottom-color: var(--ch-red); }
+/* 휴대폰 메뉴 펼침(body로 옮겨 띄움) */
+.mega-menu.mega-menu--mobile { left: 0; right: 0; border: 0; border-top: 1px solid var(--ch-line); border-radius: 0; box-shadow: 0 12px 24px rgba(0, 0, 0, .12); animation: none; }
+.mega-menu--mobile .mega-menu__inner { padding: 20px 16px 24px; gap: 24px 32px; }
+.mega-menu--mobile .mega-menu__heading { margin: 0 0 10px; padding: 0; border: 0; font-size: 15px; font-weight: 700; color: var(--ch-ink); }
+.mega-menu--mobile .mega-menu__link { margin: 0; padding: 5px 0; font-size: 14px; color: var(--ch-sub); border-radius: 0; }
+.mega-menu--mobile .mega-menu__link:hover { background: none; color: var(--ch-ink); }
+.mega-menu--mobile .mega-menu__list--inline { gap: 0 14px; max-width: none; }
+.mega-menu--mobile .mega-menu__list--inline .mega-menu__link { padding: 5px 0; }
+
+/* ── 바닥(PC·휴대폰 공용, 알바몬 구성) ── */
+.layout__footer.site-footer { margin-top: 40px; border-top: 0; background: #fff; color: var(--ch-ink); font-size: 14px; }
+.site-footer__in { max-width: 1280px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; }
+.site-footer__bar { border-top: 1px solid var(--ch-line); border-bottom: 1px solid var(--ch-line); }
+.site-footer__bar-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; }
+.site-footer__help { display: flex; gap: 20px; }
+.site-footer__help a { font-size: 14px; color: var(--ch-ink); text-decoration: none; }
+.site-footer__help a:hover { text-decoration: underline; }
+.site-footer__sns { display: flex; gap: 8px; }
+.site-footer__sns a { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; }
+.site-footer__sns .is-fb { background: #1877f2; }
+.site-footer__sns .is-ig { background: #e1306c; }
+.site-footer__sns .is-yt { background: #ff0000; }
+.site-footer__main { display: flex; justify-content: space-between; gap: 32px; padding-top: 40px; padding-bottom: 24px; }
+.site-footer__main p { margin: 0; }
+.site-footer__logo { display: flex; align-items: center; gap: 6px; margin-bottom: 20px !important; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--ch-red); }
+.site-footer__name { margin-bottom: 8px !important; font-size: 14px; font-weight: 700; }
+.site-footer__txt { font-size: 13px; line-height: 20px; color: var(--ch-mute); }
+.site-footer__cs { min-width: 200px; }
+.site-footer__cs-h { margin-bottom: 8px !important; font-size: 14px; font-weight: 700; }
+.site-footer__cs-mail { margin-bottom: 4px !important; font-size: 18px; font-weight: 700; }
+.site-footer__links { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 20px 0 12px; border-top: 1px solid var(--ch-line); }
+.site-footer__links a { font-size: 13px; color: #494949; text-decoration: none; }
+.site-footer__links a:hover { text-decoration: underline; }
+.site-footer__copy { margin: 0; padding: 0 0 40px; font-size: 12px; color: var(--ch-mute); }
+.layout--m .site-footer__main { flex-direction: column; gap: 20px; padding-top: 28px; }
+.layout--m .site-footer__in { padding: 0 16px; }
+.layout--m .site-footer__copy { padding-bottom: 96px; }
