@@ -178,7 +178,7 @@ export function JobSearchPage() {
       <header className="page-header">
         <h1 className="page-header__title">{representativeCopy?.h1 ?? 'Tìm việc làm'}</h1>
         <p className="page-header__lead">
-          Tìm kiếm và lọc toàn bộ tin tuyển dụng đang hoạt động trên Việt Gần Bạn.
+          Tìm kiếm và lọc toàn bộ tin tuyển dụng đang hoạt động trên Việc gần Bạn.
         </p>
       </header>
 

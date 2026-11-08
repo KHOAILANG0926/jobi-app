@@ -143,8 +143,8 @@ export function buildRepresentativePageCopy(normalizedQuery: string, jobCount: n
     const cat = decodeURIComponent(catMatch[1]) as JobCategory
     const label = CATEGORY_LABELS[cat] ?? cat
     return {
-      title: `Việc làm ${label} mới nhất | Việt Gần Bạn`,
-      description: `Xem ${jobCount} việc làm ${label} đang tuyển tại Việt Gần Bạn, cập nhật mới nhất.`,
+      title: `Việc làm ${label} mới nhất | Việc gần Bạn`,
+      description: `Xem ${jobCount} việc làm ${label} đang tuyển tại Việc gần Bạn, cập nhật mới nhất.`,
       h1: `Việc làm ${label} mới nhất`,
     }
   }
@@ -153,8 +153,8 @@ export function buildRepresentativePageCopy(normalizedQuery: string, jobCount: n
     const region = decodeURIComponent(regionMatch[1])
     const label = ALL_REGIONS.find((r) => r.id === region)?.label ?? region
     return {
-      title: `Việc làm tại ${label} mới nhất | Việt Gần Bạn`,
-      description: `Xem ${jobCount} việc làm tại ${label} đang tuyển tại Việt Gần Bạn, cập nhật mới nhất.`,
+      title: `Việc làm tại ${label} mới nhất | Việc gần Bạn`,
+      description: `Xem ${jobCount} việc làm tại ${label} đang tuyển tại Việc gần Bạn, cập nhật mới nhất.`,
       h1: `Việc làm tại ${label} mới nhất`,
     }
   }

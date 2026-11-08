@@ -15,7 +15,7 @@ export function ApplyUnavailableNotice({ job, onShowDescription }: {
   const zalo = job.zalo?.trim() || phone
   return (
     <div className="apply-unavailable" role="status">
-      <p className="apply-unavailable__title">Tin này chưa nhận hồ sơ trực tuyến trên Việc Gần Bạn</p>
+      <p className="apply-unavailable__title">Tin này chưa nhận hồ sơ trực tuyến trên Việc gần Bạn</p>
       {phone || zalo ? (
         <>
           <p className="apply-unavailable__text">Vui lòng liên hệ trực tiếp nhà tuyển dụng:</p>
