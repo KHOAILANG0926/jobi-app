@@ -1,0 +1,3 @@
+/* 미리보기: 상세 화면 틀은 그대로, 누르는 것만 막는다(지원·전화·Zalo·저장·신고·길찾기). */
+.jd2-page--preview a, .jd2-page--preview button, .jd2-page--preview [role="button"] { pointer-events: none; }
+.jd2-preview-note { margin: 8px 0; padding: 10px 14px; border-radius: 8px; background: #fff4f2; color: #d92d20; font-weight: 700; font-size: 14px; }

@@ -1,3 +1,9 @@
+## 2026-11-08 — 공고 등록 미리보기·입력 칸 추가(알바몬 3·4번) (Claude)
+- 요청: Lee "3,4,5,6적용" — 이 PR은 DB 없는 3번·4번(고용형태 3개 추가 제외).
+- 변경: PostJob 미리보기 PC·Mobile(오른쪽 상자·아래 막대) → /xem-truoc-tin 새 창이 JobDetail(previewJob)로 저장 전 입력값을 그대로 보여 줌(단추 막힘). 입력 칸: Không cần kinh nghiệm·Có thể đi làm cùng bạn bè·우대조건 선택 창(7개)·근무기간 Thỏa thuận·Phụ cấp ăn riêng·Có thời gian thử việc·Cách ứng tuyển·Tên người liên hệ(+저장). DB 새 칸 없이 preference·salary_note·상세요강 '채용 절차'에 넣음.
+- 시험: scripts/layout/job-preview-check.mjs(app-screen).
+- 남은 것: 5번(템플릿 표시 방식 A/B)·6번 1:1 문의·고용형태 3개 추가(DB) — Lee 답 대기.
+
 ## 2026-11-08 — 로고 이름 하나로(Việc gần Bạn) (Claude)
 - 요청: Lee "색깔은 그냥 놔두고 로고는 하나로 맞춰 브라우저 탭으로".
 - 변경: 머리 줄 로고(PC·휴대폰)·바닥 로고·저작권 Việcganban/Việt Gần Bạn → Việc gần Bạn, 바닥의 중복 회사 이름 줄 삭제, 브랜드 목록·지도 창 문구 Việcganban → Việc gần Bạn. 바탕색 그대로(데모 demo/white-bg 미적용).
@@ -50,9 +56,3 @@
 - 수평 전개(핀 정확도 판단하는 곳): 화면 src/lib/jobCoords.ts·mapR1.ts(exact+verified, 기준) / 검사표 job-inspect.mjs(고침) / 중복 판정 dedupe_private.precise_points(exact 미확인도 정확으로 봄 — migration 별도, 승인 필요) / api/map-locations.js·locationLevel.ts(종류만 전달·located 판정, 해당 없음) / locationPrecheck.ts(수집 첫 단계 찾을 수 있음 기준, 다른 목적이라 해당 없음).
 - 수평 전개(주소 추출): crawl_facebook.py extract_district(고침) / crawl_topcv.py(사이트 구조화 주소, 해당 없음·꺼짐) / Chợ Tốt·Muaban 수집기 없음.
 - 변경: extract_district에 이름표 없는 주소 줄(쉼표 2~6칸, 끝이 성 이름, 모집·급여·연락 낱말 없음, 앞 "…:" 이름표 뗌). job-inspect 핀 = exact+verified/gate/area(화면 기준). 시험: test_facebook_quality 30/30, 미리 보기 30건 재생(4건 주소 줄 잡힘, 오탐 없음).
-
-## 2026-11-07 12:00 — 위치 확인 401 원인·VPS 공간 (Claude)
-- 요청: Lee "두개 확인해서 최종 보고" → "OK".
-- 확인 [직접 확인 vps-diag run 42340102791]: VPS→api/location-hook precheck가 HTTP 401 unauthorized 두 번 → 크롤러(GitHub Secrets)와 Vercel의 SUPABASE_SERVICE_ROLE_KEY 글자가 다름. #475(11-06) 뒤 크롤러 새 공고는 전부 location_precheck_failed: precheck_unavailable로 버려짐(EAGLEON 재시도 run 42338759387).
-- 변경: api/location-hook.js 키 글자가 다르면 그 키로 Supabase 관리자 조회가 되는지(진짜 서버 키인지) 확인 후 통과. 테스트 추가. crawler 거부 이유 기록(#507). VPS 옛 실행기 버전 지우기 워크플로(vps-clean-old-runner.yml).
-- VPS 공간 [직접 확인]: 11GB 중 9.7GB. 옛 실행기 2.338.0 약 680MB 지움 대상. 브라우저 chromium-1117은 Facebook 수집(playwright 1.44)이 쓰는 것 — 지우지 않음. chromium-1248 사용처 미확인 — 둠. root 필요: snap 옛 버전(791MB 중 일부)·apt 캐시 123MB.

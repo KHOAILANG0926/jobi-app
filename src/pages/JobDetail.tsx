@@ -104,9 +104,11 @@ function ClientOnlyMap({ tapHref, ...props }: JobVietMapProps & { tapHref?: stri
 
 type InfoField = { key: string; icon: ReactNode; label: string; value: ReactNode; cls?: string }
 
-export function JobDetail() {
+// previewJob: Lee 2026-11-08 "3 적용" — 공고 등록 화면의 '미리보기'(저장 전 입력값). 화면 틀은 그대로, 단추만 막는다(/xem-truoc-tin).
+export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const brands = useBrandsOptional()
-  const { id } = useParams<{ id: string }>()
+  const { id: routeId } = useParams<{ id: string }>()
+  const id = previewJob ? previewJob.id : routeId
   const navigate = useNavigate()
   const { user } = useAuth()
   const { jobs, mapAcceptanceJobs, loading: jobsLoading } = useJobs()
@@ -151,7 +153,7 @@ export function JobDetail() {
     }).catch(() => {})
     return () => { cancelled = true }
   }, [publicJob, jobsLoading, id, user])
-  const job = publicJob ?? adminPreview ?? undefined
+  const job = previewJob ?? publicJob ?? adminPreview ?? undefined
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
   const location = useLocation()
   useEffect(() => {
@@ -231,7 +233,7 @@ export function JobDetail() {
   // "최근 본 공고" — 상세페이지를 실제로 열람했을 때만 기록한다(목록 카드
   // 노출만으로는 기록하지 않음). 로딩 중이라 job을 아직 못 찾은 상태는 제외.
   useEffect(() => {
-    if (job) recordJobView(job.id)
+    if (job && !previewJob) recordJobView(job.id)
   }, [job?.id])
 
   // jobs는 앱 로드 시 한 번(페이지네이션 포함) 비동기로 불러온다 — 아직 로딩
@@ -624,7 +626,8 @@ export function JobDetail() {
   )
 
   return (
-    <div className={`jd2-page${albamonLayout ? ' jd2-page--v2' : ''}`} style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
+    <div className={`jd2-page${albamonLayout ? ' jd2-page--v2' : ''}${previewJob ? ' jd2-page--preview' : ''}`} style={{ '--jd-tabs-top': `${tabsTop}px` } as CSSProperties}>
+      {previewJob && <p role="status" className="jd2-preview-note">Xem trước — tin chưa được đăng. Các nút trong bản xem trước không hoạt động.</p>}
       {!publicJob && adminPreview && <p role="status" style={{ margin: '8px 0', padding: '10px 14px', borderRadius: 8, background: '#fff4f2', color: '#d92d20', fontWeight: 700 }}>
         🔒 Chưa công khai — chỉ quản trị viên xem được (비공개 공고, 관리자만 보임). Lý do: {!adminPreview.occupationCode ? 'thiếu mã nghề' : adminPreview.adminHidden ? 'quản trị viên đã ẩn' : 'xem trang quản trị'}</p>}
 

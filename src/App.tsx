@@ -58,6 +58,7 @@ const SuggestedJobsPage = lazy(() => import('./pages/jobsMenu/SuggestedJobsPage'
 // Lee 2026-11-08 승인(알바몬 따라 하기 1~3번): 테마 채용관·고객센터 FAQ·벽보 제작
 const ThemeJobsPage = lazy(() => import('./pages/ServicePages').then((m) => ({ default: m.ThemeJobsPage })))
 const HelpCenterPage = lazy(() => import('./pages/ServicePages').then((m) => ({ default: m.HelpCenterPage })))
+const JobPreviewPage = lazy(() => import('./pages/JobPreviewPage'))
 const PosterMakerPage = lazy(() => import('./pages/ServicePages').then((m) => ({ default: m.PosterMakerPage })))
 
 function RouteLoading() {
@@ -128,6 +129,7 @@ export default function App({ initialJobs, initialJobsError }: AppProps = {}) {
                 <Route path="/chu-de/:slug" element={lazyRoute(<ThemeJobsPage />)} />
                 <Route path="/ho-tro" element={lazyRoute(<HelpCenterPage />)} />
                 <Route path="/lam-poster" element={lazyRoute(<PosterMakerPage />)} />
+                <Route path="/xem-truoc-tin" element={lazyRoute(<JobPreviewPage />)} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
               <Route
