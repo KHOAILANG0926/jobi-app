@@ -133,3 +133,8 @@
   .pj-pref { padding: 16px; }
   .pj-sec__h--act { flex-wrap: wrap; }
 }
+/* 휴대폰: 아래 고정 메뉴(Trang chủ·Bản đồ·Đã lưu·Cá nhân, 높이 62)가 등록 막대를 덮어 'Đăng tin'을 누를 수 없었음(2026-11-08 미리보기 시험에서 발견) → 막대를 메뉴 위로 */
+@media (max-width: 760px) {
+  .pj-bar { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .pj { padding-bottom: 200px; }
+}
