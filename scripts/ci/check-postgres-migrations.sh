@@ -133,6 +133,19 @@ SQL
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/r8_any_level_restore_production_check.sql
     continue
   fi
+  if [[ "$file" == 'supabase/migrations/20261108150000_support_inquiries_privileges.sql' ]]; then
+    echo "PostgreSQL support_inquiries privileges (기본 권한이 열린 상태 재현 후 적용): $file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+create schema if not exists auth;
+create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
+create or replace function public.is_admin() returns boolean language sql stable as 'select false';
+SQL
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/migrations/20261108130000_template_inquiry_employment.sql
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -c "grant all on public.support_inquiries to anon, authenticated"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f "$file"
+    psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/support_inquiries_privileges_production_check.sql
+    continue
+  fi
   if [[ "$file" == 'supabase/migrations/20261108130000_template_inquiry_employment.sql' ]]; then
     echo "PostgreSQL template html·extra employment·1:1 inquiry: $file"
     psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
