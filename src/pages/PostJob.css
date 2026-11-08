@@ -138,3 +138,34 @@
   .pj-bar { bottom: calc(62px + env(safe-area-inset-bottom)); }
   .pj { padding-bottom: 200px; }
 }
+/* 2026-11-09 Lee: 알바몬 일반공고 작성 화면과 나란히 비교 후 맞춤 */
+/* 바탕: 알바몬처럼 흰색(이 화면에서만) */
+body:has(.pj) { background: #fff; }
+/* 업직종: 짧은 버튼 + 고른 이름 */
+.pj-btn-line--add { height: 40px; padding: 0 14px; font-size: 14px; }
+.pj-picked { font-size: 15px; font-weight: 600; color: #171717; }
+.pj-btn-ghost { height: 48px; padding: 0 28px; border: 1px solid #ccc; border-radius: 8px; background: #fff; color: #171717; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.pj-cat__search { width: 100%; border-radius: 24px; margin-bottom: 16px; }
+.pj-cat { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; }
+.pj-cat__col + .pj-cat__col { border-left: 1px solid #e8e8e8; }
+.pj-cat__h { padding: 10px; background: #f6f6f6; border-bottom: 1px solid #e8e8e8; text-align: center; font-size: 14px; font-weight: 700; }
+.pj-cat ul, .pj-cat__hits { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.pj-cat li button, .pj-cat__hits li button { display: block; width: 100%; padding: 10px 16px; border: 0; background: none; text-align: left; font-size: 14px; color: #333; cursor: pointer; font-family: inherit; }
+.pj-cat li button[aria-pressed="true"], .pj-cat__hits li button[aria-pressed="true"] { background: #fff4ee; color: #ff501b; font-weight: 600; }
+.pj-cat__hits { border: 1px solid #e8e8e8; border-radius: 8px; }
+.pj-cat__none { padding: 16px; margin: 0; font-size: 14px; color: #888; text-align: center; }
+.pj-cat__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+/* 사진 4칸 + 동영상 2칸(알바몬 사진·동영상과 같은 배치) */
+.pj-photos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pj-photos__cell { position: relative; aspect-ratio: 16 / 10; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #999; font-size: 14px; cursor: pointer; overflow: hidden; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+.pj-photos__cell:disabled { cursor: default; opacity: .5; }
+.pj-photos__cell--on img { width: 100%; height: 100%; object-fit: cover; }
+.pj-photos__cell--on button { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
+.pj-photos__main { position: absolute; left: 4px; bottom: 4px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; }
+.pj-videos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pj-videos__cell { aspect-ratio: 16 / 9; max-height: 180px; width: 100%; border: 1px solid #e5e5e5; border-radius: 6px; background: #fafafa; color: #aaa; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+@media (max-width: 720px) {
+  .pj-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pj-cat { grid-template-columns: 1fr 1fr; }
+  .pj-cat ul { max-height: 40vh; }
+}
