@@ -167,10 +167,12 @@ try {
   await noGpuPage.goto(base)
   await ready(noGpuPage)
   await noGpuPage.locator('.hme__map').scrollIntoViewIfNeeded()
-  await noGpuPage.locator('.hme-map__notice').waitFor({ timeout: 45000 })
+  // 2026-11-05 이후 WebGL이 없으면 안내 대신 WebGL 없는 대체 지도(raster)를 그린다(GeoapifyMapCanvas → RasterMapCanvas).
+  // 안내(.hme-map__notice)는 바탕 그림(타일)을 못 받을 때만 나오므로 네트워크에 따라 달라진다 → 대체 지도가 보이는지로 검사(#559).
+  await noGpuPage.locator('.hme-map[data-map-provider="raster"]').waitFor({ state: 'visible', timeout: 45000 })
   assert.equal(await noGpuPage.locator('.home-mobile-header').isVisible(), true, 'map GPU failure must not remove the home page')
   await noGpuPage.screenshot({ path: `${out}/no-webgl-home.jpg` })
-  results.push({ kind: 'browser-only-fixture', case: 'WebGL-unavailable-preserves-home', ok: true })
+  results.push({ kind: 'browser-only-fixture', case: 'WebGL-unavailable-raster-map-preserves-home', ok: true })
   await noGpuContext.close()
 } finally {
   await browser.close()
