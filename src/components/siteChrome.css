@@ -29,6 +29,37 @@
 .layout--d .header-tab-wrap--open .header-tab,
 .layout--d .header-tab--active { color: var(--ch-red); border-bottom-color: transparent; }
 
+/* 화면이 좁아도 메뉴 글자가 두 줄로 꺾이지 않게(Lee 2026-11-08 1297px 화면에서 "Việc / làm" 두 줄 → "더 이상해") */
+.layout--d .header-tabs__nav { flex-shrink: 0; flex-wrap: nowrap; }
+.layout--d .header-tab, .layout--d .header-tab__label, .layout--d .header-tab__arrow-btn { white-space: nowrap; }
+@media (max-width: 1360px) {
+  .layout--d .header-tab { padding-right: 26px; font-size: 17px; }
+  .layout--d .header-tab--split { padding: 0; }
+  .layout--d .header-tab__arrow-btn { padding-right: 22px; }
+}
+/* 1240 이하: 오른쪽 버튼을 첫 줄(검색 칸 오른쪽)로 올려 메뉴 줄 자리를 비운다 */
+@media (max-width: 1240px) {
+  .layout--d .header-top__inner { padding-right: 440px; }
+  .layout--d .header-tabs__actions { position: absolute; right: 20px; bottom: calc(100% + 1px); }
+  .layout--d .header-search { flex: 1 1 auto; max-width: 440px; }
+}
+@media (max-width: 1100px) {
+  .layout--d .header-top__inner { gap: 20px; padding-right: 400px; }
+  .layout--d .header-tab { padding-right: 18px; font-size: 16px; }
+  .layout--d .header-tab--split { padding: 0; }
+  .layout--d .header-tab__arrow-btn { padding-right: 16px; }
+  .layout--d .header-tabs__login, .layout--d .header-tabs__cv, .layout--d .header-tabs__post { font-size: 14px; }
+  .layout--d .header-tabs__login, .layout--d .header-tabs__cv { padding: 0 10px; }
+  .layout--d .header-tabs__post { padding: 0 4px 0 10px; }
+}
+@media (max-width: 900px) {
+  .layout--d .header-top__title { font-size: 20px; }
+  .layout--d .header-top__inner { padding-right: 360px; }
+  .layout--d .header-tab { padding-right: 12px; font-size: 15px; }
+  .layout--d .header-tab--split { padding: 0; }
+  .layout--d .header-tab__arrow-btn { padding-right: 10px; }
+}
+
 /* 오른쪽 버튼(알바몬: 이름 = 회색 바탕, 맞춤인재·공고 등록 = 흰 바탕 테두리) */
 .layout--d .header-tabs__actions { gap: 8px; }
 .layout--d .header-tabs__login,
