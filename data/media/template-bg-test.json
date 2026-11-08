@@ -1,0 +1,35 @@
+{
+ "max": 6,
+ "jobs": [
+  {
+   "name": "fnb-flash25",
+   "model": "gemini-2.5-flash-image",
+   "prompt": "Wide 16:9 photograph for the header background of a Vietnamese job posting template. A bright, clean, modern restaurant interior in Bac Ninh, Vietnam, warm natural daylight, tables and an open kitchen counter, a few Vietnamese staff in simple uniforms working, faces not in focus. Calm composition with empty space in the middle-left for overlaid title text. Realistic photo style, soft colors. No text, no letters, no signs with words, no logos, no watermarks.",
+   "aspect": "16:9"
+  },
+  {
+   "name": "fnb-flash31",
+   "model": "gemini-3.1-flash-image",
+   "prompt": "Wide 16:9 photograph for the header background of a Vietnamese job posting template. A bright, clean, modern restaurant interior in Bac Ninh, Vietnam, warm natural daylight, tables and an open kitchen counter, a few Vietnamese staff in simple uniforms working, faces not in focus. Calm composition with empty space in the middle-left for overlaid title text. Realistic photo style, soft colors. No text, no letters, no signs with words, no logos, no watermarks.",
+   "aspect": "16:9"
+  },
+  {
+   "name": "fnb-pro3",
+   "model": "gemini-3-pro-image-preview",
+   "prompt": "Wide 16:9 photograph for the header background of a Vietnamese job posting template. A bright, clean, modern restaurant interior in Bac Ninh, Vietnam, warm natural daylight, tables and an open kitchen counter, a few Vietnamese staff in simple uniforms working, faces not in focus. Calm composition with empty space in the middle-left for overlaid title text. Realistic photo style, soft colors. No text, no letters, no signs with words, no logos, no watermarks.",
+   "aspect": "16:9"
+  },
+  {
+   "name": "factory-flash31",
+   "model": "gemini-3.1-flash-image",
+   "prompt": "Wide 16:9 photograph for the header background of a Vietnamese job posting template. A clean, well-lit electronics assembly factory floor in an industrial park in Bac Ninh, Vietnam, workers in light blue uniforms and caps at assembly lines, faces not in focus. Calm composition with empty space in the middle-left for overlaid title text. Realistic photo style, soft colors. No text, no letters, no signs with words, no logos, no watermarks.",
+   "aspect": "16:9"
+  },
+  {
+   "name": "factory-pro3",
+   "model": "gemini-3-pro-image-preview",
+   "prompt": "Wide 16:9 photograph for the header background of a Vietnamese job posting template. A clean, well-lit electronics assembly factory floor in an industrial park in Bac Ninh, Vietnam, workers in light blue uniforms and caps at assembly lines, faces not in focus. Calm composition with empty space in the middle-left for overlaid title text. Realistic photo style, soft colors. No text, no letters, no signs with words, no logos, no watermarks.",
+   "aspect": "16:9"
+  }
+ ]
+}

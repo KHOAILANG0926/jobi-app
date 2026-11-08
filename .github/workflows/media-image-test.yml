@@ -1,0 +1,36 @@
+name: 그림 담당 Gemini 시험 (템플릿 배경 비교)
+
+# AI 팀 그림 담당 시험(Lee 2026-11-08). 시험 브랜치에 올릴 때만 돈다. 한 번에 최대 6장.
+# 결과 그림은 실행 결과물(artifact)로만 남긴다(저장소·운영에 넣지 않음).
+on:
+  push:
+    branches: ['media/template-bg-test']
+    paths: ['data/media/template-bg-test.json', 'scripts/media/gemini-image.mjs', '.github/workflows/media-image-test.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-image-test
+  cancel-in-progress: false
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Gemini로 그림 그리기
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LIST_MODELS: '1'
+        run: node scripts/media/gemini-image.mjs data/media/template-bg-test.json out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: template-bg-test
+          path: out
+          retention-days: 7
