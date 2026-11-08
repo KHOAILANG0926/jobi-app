@@ -6,6 +6,7 @@ import './index.css'
 import './components/apply.css'
 import './components/home/homeDiscovery.css'
 import './components/siteChrome.css'
+import './components/siteBody.css'
 
 const rootEl = document.getElementById('root')!
 

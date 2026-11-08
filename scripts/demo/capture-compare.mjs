@@ -15,6 +15,13 @@ for (const [tag, base] of [['before', BEFORE], ['after', AFTER]]) {
     }
     await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(600)
     await p.screenshot({ path: `out/cmp-${n}-foot-${tag}.png` })
+    // 메인 화면 카드
+    await p.goto(base + '/', { waitUntil: 'networkidle', timeout: 60000 }).catch(() => {}); await p.waitForTimeout(1500)
+    await p.getByRole('button', { name: 'Để sau' }).click({ timeout: 3000 }).catch(() => {})
+    await p.waitForTimeout(500)
+    const feat = p.locator(n === 'pc' ? '.home-featured' : '.jc').first()
+    await feat.scrollIntoViewIfNeeded().catch(() => {}); await p.evaluate(() => window.scrollBy(0, -90)); await p.waitForTimeout(800)
+    await p.screenshot({ path: `out/cmp-${n}-home-${tag}.png` })
     await ctx.close()
   }
 }

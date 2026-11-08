@@ -21,7 +21,7 @@ jobs:
           node scripts/demo/capture-motion.mjs 4828 || true
           node scripts/demo/capture-chrome.mjs
           node scripts/demo/capture-compare.mjs || true
-          for k in pc-top pc-menu pc-foot m-top m-foot; do montage -label '%f' out/cmp-$k-before.png out/cmp-$k-after.png -tile 2x -geometry +12+12 out/cmp-$k.png || true; done
+          for k in pc-top pc-menu pc-foot pc-home m-top m-foot m-home; do montage -label '%f' out/cmp-$k-before.png out/cmp-$k-after.png -tile 2x -geometry +12+12 out/cmp-$k.png || true; done
           montage out/pc-*.png -tile 2x -geometry +4+4 out/pc-sheet.png || true
           montage out/mobile-*.png -tile 4x -geometry +4+4 out/mobile-sheet.png || true
       - name: 저장 (screens 브랜치)
