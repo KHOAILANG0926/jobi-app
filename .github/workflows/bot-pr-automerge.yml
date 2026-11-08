@@ -8,6 +8,9 @@ on:
     branches: [master]
     paths: ['.github/workflows/bot-pr-automerge.yml']
   workflow_dispatch: {}
+  # Codex 검사 대기(30분)가 끝난 PR을 다시 보려고 15분마다 한 번 더 확인한다(Lee 2026-11-08 AI 팀).
+  schedule:
+    - cron: '*/15 * * * *'
   issue_comment:
     types: [created]
 
@@ -97,6 +100,12 @@ jobs:
                 gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
               fi
               continue
+            fi
+            # AI 팀 검사관(Lee 2026-11-08): GPT Codex 검사를 기다린다. 30분 안 오면 진행, 지적이 있으면 Claude 답이 있어야 진행.
+            gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
+            head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
+            if ! node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date"; then
+              echo "PR #$num Codex 검사 대기: 병합 생략"; continue
             fi
             # PR 준비 표시와 현재 head SHA 최종 재검증
             for try in 1 2 3 4 5; do
