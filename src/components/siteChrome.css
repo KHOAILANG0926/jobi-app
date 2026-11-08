@@ -96,11 +96,14 @@
   content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 100vh; z-index: 99; pointer-events: none;
   background: rgba(0, 0, 0, .4); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .4); clip-path: inset(0 -100vmax -100vmax);
 }
-.layout--d .mega-menu__inner { width: auto; max-width: none; padding: 0; gap: 32px 56px; }
+.layout--d .mega-menu__inner { width: auto; max-width: none; padding: 0; gap: 32px 72px; flex-wrap: nowrap; }
+.layout--d .mega-menu__stack { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+@media (max-width: 1240px) { .layout--d .mega-menu__inner { gap: 32px 40px; } .layout--d .mega-menu__list--inline { max-width: 300px; } }
+@media (max-width: 960px) { .layout--d .mega-menu__inner { flex-wrap: wrap; } }
 .layout--d .mega-menu__col { min-width: 0; }
 .layout--d .mega-menu__heading { margin: 0 0 14px; padding: 0; border: 0; font-size: 16px; font-weight: 700; color: var(--ch-ink); }
 .layout--d .mega-menu__list { display: flex; flex-direction: column; gap: 6px; }
-.layout--d .mega-menu__list--inline { flex-direction: row; flex-wrap: wrap; gap: 6px 14px; max-width: 360px; }
+.layout--d .mega-menu__list--inline { flex-direction: row; flex-wrap: wrap; gap: 6px 14px; max-width: 340px; }
 .layout--d .mega-menu__link,
 .layout--d .mega-menu__list--inline .mega-menu__link { width: auto; margin: 0; padding: 0; font-size: 14px; line-height: 22px; color: var(--ch-sub); border-radius: 0; }
 .layout--d .mega-menu__link:hover { background: none; color: var(--ch-ink); text-decoration: underline; text-underline-offset: 3px; }

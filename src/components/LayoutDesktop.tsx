@@ -32,7 +32,7 @@ interface MenuItem {
   label: string
   to: string
   end?: boolean
-  dropdown?: { heading: string; links: MenuLink[]; inline?: boolean }[]
+  dropdown?: { heading: string; links: MenuLink[]; inline?: boolean; col?: number }[]
   cards?: MenuCard[]
   /** "Thương hiệu" 전용 — 업종→브랜드 2단 메가메뉴(BrandMegaMenu)로 렌더링한다.
    *  실제 활성 공고 데이터로 매번 다시 계산되므로 여기엔 정적 목록을 두지 않는다. */
@@ -152,19 +152,19 @@ const MENU_ITEMS: MenuItem[] = [
     to: '/',
     end: true,
     dropdown: [
-      { heading: 'Phổ biến', links: [
+      { heading: 'Phổ biến', col: 0, links: [
         { label: 'Tất cả việc làm', to: '/' },
         { label: 'Việc làm theo khu vực', to: '/viec-lam/khu-vuc' },
         { label: 'Gần tôi', to: '/ban-do' },
       ]},
-      { heading: 'Việc làm của tôi', links: [
+      { heading: 'Việc làm của tôi', col: 0, links: [
         { label: 'Việc làm đã lưu', to: '/viec-lam/da-luu' },
         { label: 'Việc làm đã xem', to: '/viec-lam/da-xem' },
         { label: 'Việc làm phù hợp', to: '/viec-lam/phu-hop' },
         { label: 'Gợi ý việc làm', to: '/viec-lam/goi-y' },
       ]},
-      { heading: 'Theo khu vực', inline: true, links: REGION_MENU_LINKS },
-      { heading: 'Theo ngành', links: [
+      { heading: 'Theo khu vực', col: 1, inline: true, links: REGION_MENU_LINKS },
+      { heading: 'Theo ngành', col: 2, links: [
         { label: 'Cà phê / Nhà hàng / F&B', to: '/?cat=am_thuc_do_uong' },
         { label: 'Văn phòng / Part-time / Nhập liệu', to: '/?cat=van_phong' },
         { label: 'Bán lẻ / Siêu thị / Cửa hàng', to: '/?cat=quan_ly_ban_hang' },
@@ -180,18 +180,18 @@ const MENU_ITEMS: MenuItem[] = [
       // 라벨 그대로 사용), pledge는 이번 세션에 새로 추가한 자가서약
       // 필터(JobSearchPage의 pledgeOnly)로 실제 연결된다 — 둘 다 가짜
       // 링크가 아니라 실제 필터 상태를 URL로 프리셋하는 진짜 기능.
-      { heading: 'Theo thời gian', links: [
+      { heading: 'Theo thời gian', col: 2, links: [
         { label: 'Một ngày', to: '/?duration=' + encodeURIComponent('Một ngày') + '#home-job-filters' },
         { label: 'Dưới 1 tuần', to: '/?duration=' + encodeURIComponent('Dưới 1 tuần') + '#home-job-filters' },
         { label: '1 - 3 tháng', to: '/?duration=' + encodeURIComponent('1 - 3 tháng') + '#home-job-filters' },
         { label: 'Trên 1 năm', to: '/?duration=' + encodeURIComponent('Trên 1 năm') + '#home-job-filters' },
       ]},
-      { heading: 'Theo điều kiện', links: [
+      { heading: 'Theo điều kiện', col: 3, links: [
         { label: 'Lương cao', to: '/?sort=salary' },
         { label: 'Có cam kết hợp đồng / BHXH', to: '/?pledge=1#home-job-filters' },
       ]},
       // Lee 2026-11-08 승인: 알바몬 '테마 채용관'처럼 주제별 목록(/chu-de/:slug, ServicePages.THEMES와 같은 8개)
-      { heading: 'Theo chủ đề', links: [
+      { heading: 'Theo chủ đề', col: 3, links: [
         { label: 'Có ký túc xá', to: '/chu-de/ky-tuc-xa' },
         { label: 'Có xe đưa đón', to: '/chu-de/xe-dua-don' },
         { label: 'Có bao ăn', to: '/chu-de/bao-an' },
@@ -439,7 +439,10 @@ export function Layout() {
                         style={isMobilePortal ? { top: mobileDropdownTop } : undefined}
                       >
                         <div className="mega-menu__inner">
-                          {item.dropdown.map((col, ci) => (
+                          {/* Lee 2026-11-08 "무슨 배열이 이래?": 알바몬처럼 정해진 세로 칸(col)에 묶음을 위아래로 쌓는다. col 없는 메뉴는 묶음마다 한 칸. */}
+                          {Object.values(item.dropdown.reduce<Record<number, NonNullable<MenuItem['dropdown']>>>((acc, g, gi) => { const k = g.col ?? gi; (acc[k] ??= []).push(g); return acc }, {})).map((stack, si) => (
+                          <div key={si} className="mega-menu__stack">
+                          {stack.map((col, ci) => (
                             <div key={ci} className="mega-menu__col">
                               <h4 className="mega-menu__heading">{col.heading}</h4>
                               <ul className={`mega-menu__list${col.inline ? ' mega-menu__list--inline' : ''}`}>
@@ -456,6 +459,8 @@ export function Layout() {
                                 ))}
                               </ul>
                             </div>
+                          ))}
+                          </div>
                           ))}
                         </div>
                       </div>

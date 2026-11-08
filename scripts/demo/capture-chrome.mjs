@@ -41,6 +41,9 @@ for (const w of [1297, 1100, 900, 780]) {
   const m = await p.evaluate(() => ({ tabsH: Math.max(...[...document.querySelectorAll('.layout--d .header-tab')].map((e) => Math.round(e.getBoundingClientRect().height))), sw: document.documentElement.scrollWidth, navR: Math.round(document.querySelector('.header-tabs__nav')?.getBoundingClientRect().right ?? 0), actL: Math.round(document.querySelector('.header-tabs__actions')?.getBoundingClientRect().left ?? 0), searchR: Math.round(document.querySelector('.header-search')?.getBoundingClientRect().right ?? 0) }))
   log.push(w + ' ' + JSON.stringify(m))
   await p.screenshot({ path: `out/chrome-w${w}.png`, clip: { x: 0, y: 0, width: w, height: 200 } })
+  await p.setViewportSize({ width: w, height: 760 })
+  await p.getByRole('button', { name: 'Mở danh mục Việc làm', exact: true }).hover().catch(() => {}); await p.waitForTimeout(500)
+  await p.screenshot({ path: `out/chrome-menu-w${w}.png` })
   await ctx.close()
 }
 console.log(log.join('\n'))
