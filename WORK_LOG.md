@@ -1,3 +1,9 @@
+## 2026-11-09 새벽 — 밤 근무 4회차: 템플릿 모바일 미리보기 치우침 #577 (Claude)
+- 발견(#571 확인 중): 간편 템플릿 'Xem trước' Mobile 새 창(420px)에서 내용이 왼쪽 43px·오른쪽 16px로 치우침. PC용 `body.amt-pvwin .amt-pv { margin-left: 27px }`이 `.amt-pv--m { margin: 0 auto }`를 덮음.
+- 변경: src/components/template/AlbamonTemplate.css 한 줄 `body.amt-pvwin .amt-pv--m { margin-left: auto }`(새 창 미리보기만).
+- 검증: tsc·npm test 119/119·build 통과, 로컬 Playwright 모바일 창 16/16px·PC 창 27px 그대로.
+- #571: 같은 SHA(fa5e275) 로컬 화면으로 /dang-tin 템플릿 그림·흐림·검정 제목 PC·모바일 확인. 운영 주소 눈 확인은 이 환경 접속 막힘으로 남음.
+
 ## 2026-11-09 새벽 — 밤 근무 3회차: #570 운영 반영·#566 Codex 대기 장치·#575 봇 다시 보기 (Claude)
 - #570(Lee "적용"): Codex P1(예전 저장 공고 흰 제목 위 흐림) → 흐림을 새 템플릿 클래스 amt-visual--fade에만(AlbamonTemplate.tsx·.css). 병합 f8aa798, deploy-verify 성공.
 - #566: Codex P2(왕복 횟수 장치가 아무 계정 답이나 셈) → claude-auto.yml이 REPLY_AUTHORS만 셈 + 목록 일치 시험. 병합 1d6fd88.
@@ -50,9 +56,3 @@
 - 원인 [직접 확인]: #525에서 기존 recruitment_type 칸을 확인하지 않고 recruiter_agency 칸을 새로 만듦(화면은 기존 칸만 봐서 표시 안 됨).
 - 변경: #536 수집 입구가 recruitment_type='agency'에 적음, 경고색 뺌, 소개소 판정 문구·전화번호 기록(job_company_phones) 추가, 읽기 전용 확인(company-reread field=agency). #538 Lee 승인 기록, #537 recruiter_agency 칸 삭제(0건 확인, 있으면 멈춤).
 - 배포: deploy-verify 42387724259 성공, migrations-apply 42391081797 성공. 이어서 #540(Lee "A"·"3번가자"): agency_workplace_key 칸 + dedupe_private.verdict(소개소끼리 공장 다르면 다른 공고, 모르면 애매) + companyReader.readWorkplace. migrations-apply 42392546481, deploy-verify 42392718489 성공.
-
-## 2026-11-07 22:00 — 회사 이름 읽기·카드 상호·급여 동 금액 (Claude)
-- 요청: Lee 회사 이름 규정(#523~#528), "2번으로 하고 문제는 상호명이 긴거야"→OK(#531), 급여 못 읽음 문제점 확인 후 OK(#533).
-- 변경: companyReader 한 곳·소개소/수수료(DB #525 recruiter_agency). 카드 cardCompanyParts(회사 형태 낱말 빼기·2줄·지점 지역 줄) + 레이아웃 회귀 시험, PC 기준값(LayoutDesktop — #520으로 이미 달랐음). salaryReader 동 전체 금액·k 금액, 교대 금액 일급, salary-reread 읽기 전용 미리 보기(대상 15건 중 #5633만 바뀜).
-- 배포: #531 deploy-verify 42376344502 실패(#5633 급여 없어 메인 카드 없음) → #533 후 detail-fill 42382435615(#5633 급여 채움), deploy-verify 42382412330 성공.
-- 남은 문제: 소개소 표시 화면(글 모형 대기).
