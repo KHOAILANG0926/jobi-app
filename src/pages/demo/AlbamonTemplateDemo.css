@@ -52,7 +52,8 @@
 .amt-doc { padding: 0 0 24px; }
 .amt-blogo { display: flex; align-items: center; gap: 16px; padding: 24px 13px 24px 0; }
 .amt-blogo::before { content: ''; flex: 1; height: 1px; background: #6a6a6a; }
-.amt-blogo img { height: 20px; }
+.amt-blogo__mark { display: inline-flex; align-items: center; gap: 4px; font-size: 16px; font-weight: 800; color: #e53935; letter-spacing: -0.3px; }
+.amt-blogo__mark img { height: 20px; }
 .amt-top { padding: 0 13px 0 0; }
 .amt-visual { position: relative; height: 458px; overflow: hidden; background: #c4c4c4; }
 .amt-visual__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -102,10 +103,9 @@
 .amt-ed__menu--colors { width: 168px; }
 .amt-ed__menu button { border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer; font-family: inherit; }
 .amt-ed__sw { width: 24px; height: 24px; padding: 0; }
-.amt-ed__text { height: 160px; overflow-y: auto; padding: 0 24px; font-size: 18px; line-height: 27px; outline: none; word-break: break-word; }
-.amt-ed__text:empty::before { content: attr(data-ph); display: block; margin: 18px 0; color: #b8b8b8; }
-.amt-ed__text > :first-child { margin-top: 18px; }
-.amt-ed__text p, .amt-ed__text ul, .amt-ed__text ol { margin: 18px 0; }
+.amt-ed__text { height: 160px; box-sizing: border-box; overflow-y: auto; padding: 18px 24px; font-size: 18px; line-height: 27px; outline: none; word-break: break-word; }
+.amt-ed__text:empty::before { content: attr(data-ph); display: block; color: #b8b8b8; }
+.amt-ed__text p, .amt-ed__text ul, .amt-ed__text ol { margin: 0 0 8px; }
 .amt-ed__text ul, .amt-ed__text ol, .amt-view ul, .amt-view ol { padding-left: 24px; }
 .amt-view { font-size: 18px; line-height: 27px; word-break: break-word; }
 .amt-view p { margin: 0 0 8px; }

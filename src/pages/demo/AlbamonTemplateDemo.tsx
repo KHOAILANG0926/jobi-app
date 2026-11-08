@@ -78,6 +78,9 @@ function TextBox({ html, onChange }: { html: string; onChange: (v: string) => vo
   )
 }
 
+// 위아래 줄 + 사이트 로고(알바몬 자리에 우리 로고)
+const BrandLine = () => <div className="amt-blogo"><span className="amt-blogo__mark"><img src="/logo.png" alt="" />Việcganban</span></div>
+
 interface DocState {
   tpl: TemplateInfo; colorId: number; on: Record<SectionKey, boolean>; extras: EtcKey[]; company: string; title: string; desc: string
   colHeads: [string, string]; roles: Role[]; bodies: Record<BodyKey, string>; etcTitles: Record<EtcKey, string>
@@ -97,7 +100,7 @@ function DocView({ s, mobile }: { s: DocState; mobile?: boolean }) {
   return (
     <div className={`amt-preview${mobile ? ' amt-preview--m' : ''}`} style={vars}>
       <div className="amt-doc">
-        <div className="amt-blogo"><img src="/logo.png" alt="Viecganban" /></div>
+        <BrandLine />
         <div className="amt-top">
           <div className="amt-visual">
             {s.tpl.photo ? <img className="amt-visual__img" src={s.tpl.photo} alt="" /> : <div className="amt-visual__none">Ảnh đang chuẩn bị</div>}
@@ -119,7 +122,7 @@ function DocView({ s, mobile }: { s: DocState; mobile?: boolean }) {
             </div>
           </section>
         ))}
-        <div className="amt-blogo"><img src="/logo.png" alt="Viecganban" /></div>
+        <BrandLine />
       </div>
     </div>
   )
@@ -133,7 +136,7 @@ function DocEdit({ s, set }: { s: DocState; set: DocSetters }) {
   const grow = (el: HTMLTextAreaElement) => { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }
   return (
     <div className="amt-doc" style={vars}>
-      <div className="amt-blogo"><img src="/logo.png" alt="Viecganban" /></div>
+      <BrandLine />
       <div className="amt-top">
         <div className="amt-visual">
           {s.tpl.photo ? <img className="amt-visual__img" src={s.tpl.photo} alt="" /> : <div className="amt-visual__none">Ảnh đang chuẩn bị</div>}
@@ -184,7 +187,7 @@ function DocEdit({ s, set }: { s: DocState; set: DocSetters }) {
           </section>
         )
       })}
-      <div className="amt-blogo"><img src="/logo.png" alt="Viecganban" /></div>
+      <BrandLine />
     </div>
   )
 }
