@@ -108,6 +108,7 @@ const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v
 // Lee 2026-11-08 승인(알바몬 공고등록 따라 하기 5번): 임시저장 = 이 브라우저에만 보관(서버·DB 저장 없음). 사진·지도 핀은 넣지 않는다.
 const DRAFT_KEY = 'vgb:postjob-draft'
 const CONTACT_KEY = 'vgb:postjob-contact'
+const DEMO_NO_SUBMIT = true as boolean // 데모 브랜치 전용
 
 // (키는 lib/postJobPreview.ts 한 곳)
 const APPLY_METHODS = ['Ứng tuyển online', 'Nhắn Zalo', 'Email', 'Gọi điện', 'Đến trực tiếp']
@@ -272,7 +273,7 @@ export function PostJob() {
     e.preventDefault()
     setError(null)
     // 데모 브랜치: 실제 등록 막음(가짜 공고 공개 금지)
-    setError('Đây là bản demo — tin không được đăng. Hãy bấm "Xem trước" để xem.'); errorRef.current?.scrollIntoView({ block: 'center' }); return
+    if (DEMO_NO_SUBMIT) { setError('Đây là bản demo — tin không được đăng. Hãy bấm "Xem trước" để xem.'); errorRef.current?.scrollIntoView({ block: 'center' }); return }
 
     const salary = composeSalary(form.salaryAmount, form.salaryUnit, form.salaryNegotiable)
     const hours = form.hoursNegotiable ? 'Thỏa thuận' : composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
