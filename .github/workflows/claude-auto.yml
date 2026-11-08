@@ -95,6 +95,8 @@ jobs:
         if: steps.guard.outputs.stop != 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          # Codex 검사관은 봇 계정이라 이 이름만 허용한다(다른 봇은 거절 유지).
+          allowed_bots: 'chatgpt-codex-connector'
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           prompt: |
