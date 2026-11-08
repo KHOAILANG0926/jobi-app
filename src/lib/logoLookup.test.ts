@@ -1,5 +1,5 @@
 // 로고 찾기(Lee 2026-11-07): 위치 확인이 저장한 Google 결과만 쓰고, 같은 이름 1곳·원래 성 안일 때만 장소 번호.
-import { cachedGooglePlaceId, googleCacheKey, needsLogoLookup, websiteDomain } from './logoLookup.ts'
+import { cachedGooglePlace, cachedGooglePlaceId, googleCacheKey, needsLogoLookup, websiteDomain } from './logoLookup.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
 const job = { id: 1, company: 'Hojeong', location: 'Bắc Ninh', targets: [{ address: 'KCN Quế Võ, Bắc Ninh', workLocationId: null }] }
@@ -10,6 +10,13 @@ const inside = async () => true, outside = async () => false
 
 assert(await cachedGooglePlaceId(job, cached, inside) === 'ChIJabc', 'cached same-name place → id')
 assert(await cachedGooglePlaceId(job, cached, outside) === null, 'outside original province → no id')
+// 업종 판정(Lee 2026-11-08)이 같은 함수로 장소 종류를 받는다. 예전 저장분(종류 없음)은 빈 목록.
+const p1 = await cachedGooglePlace(job, cached, inside)
+assert(p1?.id === 'ChIJabc' && Array.isArray(p1.types) && p1.types.length === 0 && p1.primaryType === null, 'old cache → place without types')
+const k2 = googleCacheKey('Highlands', '1 Lý Thái Tổ, Bắc Ninh')
+store.set(k2, { places: [{ ...place('ChIJh', 'Highlands Coffee'), types: ['coffee_shop', 'cafe'], primaryType: 'coffee_shop' }] })
+const p2 = await cachedGooglePlace({ id: 2, company: 'Highlands', location: 'Bắc Ninh', targets: [{ address: '1 Lý Thái Tổ, Bắc Ninh', workLocationId: null }] }, cached, inside)
+assert(p2?.primaryType === 'coffee_shop' && p2.types.includes('cafe'), 'new cache keeps place kind')
 assert(await cachedGooglePlaceId({ ...job, company: 'XYZ' }, cached, inside) === null, 'no cached search → no id (never asks Google)')
 store.set(googleCacheKey(job.company, 'KCN Quế Võ, Bắc Ninh'), { places: [place('a', 'Công ty TNHH Hojeong Vina'), place('b', 'Công ty TNHH Hojeong Vina', 21.2)] })
 assert(await cachedGooglePlaceId(job, cached, inside) === null, 'two same-name places → no id')

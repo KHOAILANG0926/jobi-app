@@ -1,5 +1,5 @@
 // 업종으로 큰 분류 정하기(Lee 2026-11-01, #5247 Wallace) — 실제 원문 사례
-import { businessFromName, guardWebAnswer, dutyLine, streetOf, SERVICE_CODE } from './businessType.ts'
+import { businessFromName, businessFromGoogle, kindFromGoogleTypes, guardWebAnswer, dutyLine, streetOf, SERVICE_CODE } from './businessType.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
 function eq(got: unknown, want: unknown, name: string) { if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${name}: ${JSON.stringify(got)} ≠ ${JSON.stringify(want)}`) }
 
@@ -34,4 +34,15 @@ const b = buildDescriptionFromSources([{ name: 'source_text', text: W.source_tex
 eq(b.annotations.some((a) => a.key === '01' && a.line === 'Nhân viên cửa hàng'), true, 'duty line shown when source has no duty line')
 const b2 = buildDescriptionFromSources([{ name: 'source_text', text: 'Mô tả công việc:\n- Phục vụ khách, dọn bàn\nLiên hệ 0912345678' }], { dutyLine: 'Nhân viên cửa hàng' })
 eq([b2.lines.some((l) => l.key === '01'), b2.annotations.some((a) => a.line === 'Nhân viên cửa hàng')], [true, false], 'never added on top of real duty lines')
+// Google 장소 종류(Lee 2026-11-08): 같은 이름 1곳(원래 성 안)인 저장된 Google 결과의 종류로 정한다
+const gW = businessFromGoogle(W, { id: 'ChIJw', primaryType: 'fast_food_restaurant', types: ['fast_food_restaurant', 'restaurant', 'food', 'point_of_interest'] })
+eq([gW?.code, gW?.kind, gW?.method, gW?.evidence, gW?.place_id], [SERVICE_CODE, 'fnb', 'google', 'WALLACE BẮC NINH', 'ChIJw'], 'google fnb place → code 5, evidence = company in source')
+eq(kindFromGoogleTypes('convenience_store', []), 'retail', 'convenience store → retail')
+eq(kindFromGoogleTypes('beauty_salon', []), 'service', 'salon → service')
+eq(kindFromGoogleTypes(null, ['point_of_interest', 'cafe']), 'fnb', 'no primary → types list')
+// 대표 종류가 공장·회사면 곁가지 store가 있어도 가게로 보지 않는다
+eq(kindFromGoogleTypes('manufacturer', ['store', 'establishment']), null, 'factory primary type never shop')
+eq(kindFromGoogleTypes('corporate_office', ['point_of_interest']), null, 'office → none')
+eq(businessFromGoogle(W, null), null, 'no Google place → none (AI search step decides)')
+eq(businessFromGoogle({ ...W, company: 'XYZ' }, { id: 'p', primaryType: 'cafe', types: [] }), null, 'company not in source → none (R8 evidence)')
 console.log('businessType: all assertions passed')

@@ -56,13 +56,18 @@ export function goongPredictionHits(json: unknown): PlaceHit[] {
 }
 
 /** Google Places Text Search(New) 응답 → 후보 목록 + 좌표. */
-export function googlePlaceHits(json: unknown): (PlaceHit & { lat: number; lng: number })[] {
+/** Google 장소 종류(types·primaryType, Lee 2026-11-08 업종 판정용). 예전에 저장된 결과에는 없을 수 있다(빈 목록). */
+export type GooglePlaceHit = PlaceHit & { lat: number; lng: number; types: string[]; primaryType: string | null }
+
+export function googlePlaceHits(json: unknown): GooglePlaceHit[] {
   const places = (json as { places?: unknown[] } | null)?.places
   return (Array.isArray(places) ? places : []).flatMap((p) => {
-    const x = p as { id?: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude?: number; longitude?: number } }
+    const x = p as { id?: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude?: number; longitude?: number }; types?: unknown; primaryType?: unknown }
     const lat = x.location?.latitude, lng = x.location?.longitude
+    const types = Array.isArray(x.types) ? x.types.filter((t): t is string => typeof t === 'string') : []
     return x.id && x.displayName?.text && typeof lat === 'number' && typeof lng === 'number'
-      ? [{ id: String(x.id), name: String(x.displayName.text), address: String(x.formattedAddress ?? ''), lat, lng }] : []
+      ? [{ id: String(x.id), name: String(x.displayName.text), address: String(x.formattedAddress ?? ''), lat, lng, types,
+          primaryType: typeof x.primaryType === 'string' ? x.primaryType : null }] : []
   })
 }
 
