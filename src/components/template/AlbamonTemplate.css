@@ -73,6 +73,11 @@
 .amt-top { padding: 0 13px 0 0; }
 .amt-visual { position: relative; height: 458px; overflow: hidden; background: #c4c4c4; }
 .amt-visual__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* 제목 자리(왼쪽)만 하얗게 흐리게 덮어 현실적인 사진 위에서도 글자가 보이게(Lee 2026-11-09). 사진 자체는 그대로.
+   새로 만드는 템플릿(검정 글자)에만 붙는 amt-visual--fade 아래에서만 — 이미 저장된 공고 HTML(흰 글자 amt-c2, 이 클래스 없음)은 그대로 둔다(Codex #570). */
+.amt-visual--fade::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.88) 0%, rgba(255,255,255,.88) 30%, rgba(255,255,255,0) 62%); }
+.amt-visual--fade .amt-visual__company, .amt-visual--fade .amt-visual__title, .amt-visual--fade .amt-pv__company, .amt-visual--fade .amt-pv__title { z-index: 2; }
 .amt-visual__none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #8a8a8a; font-size: 16px; font-weight: 700; }
 .amt-visual__company { position: absolute; top: 108px; left: 40px; margin: 0; font-size: 20px; line-height: 28px; }
 .amt-visual__title { position: absolute; top: 172px; left: 40px; width: 408px; }

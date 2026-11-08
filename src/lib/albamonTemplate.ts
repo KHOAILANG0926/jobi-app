@@ -1,6 +1,6 @@
 // 알바몬 '간편! 템플릿' 그대로 따라 하기(Lee 2026-11-08 "새로 만들지 말고 알바몬 그대로"). 2026-11-08 알바몬 기업회원 화면 직접 확인값.
 // 78개 = 13개 업직종 × 6. 모든 템플릿 같은 틀(큰 사진 위 회사명·제목). 템플릿마다 기본 색·제목 글자색(검정/흰색)이 정해져 있다.
-// 사진: 알바몬 사진은 쓰지 않는다. 우리 업종 사진(public/images/industry)이 있는 템플릿만 사진, 나머지는 회색 '사진 준비 중'(Lee 2026-11-08).
+// 사진: 알바몬 사진은 쓰지 않는다. 업종별 우리 그림(public/images/template, Lee 2026-11-08 AI 팀 그림 담당).
 
 export interface TemplateColor { id: number; name: string; bar: string; head: string; dot: string }
 // 색 12가지: 소제목 왼쪽 막대색(bar)과 표 머리 배경색(head). 알바몬 계산값 그대로.
@@ -34,40 +34,25 @@ const DEFAULT_COLOR: Record<number, number> = {
   111: 13, 112: 12, 113: 13, 114: 14, 115: 15, 116: 10, 117: 12, 118: 9,
 }
 // 제목 글자가 검정인 템플릿(알바몬 color_1). 나머지는 흰 글자.
-const DARK_TITLE = new Set([41, 42, 45, 46, 49, 50, 55, 58, 62, 63, 68, 74, 75, 76, 78, 79, 84, 91, 94, 101, 103, 106, 107, 110, 113, 114, 115, 116])
-// 우리 사진(있는 것만). 없으면 null → 회색 '사진 준비 중'.
-const PHOTO: Record<number, string> = {
-  41: 'khac', 47: 'am_thuc_do_uong', 48: 'nha_hang_chung', 49: 'nha_hang_lau', 50: 'nha_hang_nuong',
-  53: 'quan_ly_ban_hang', 54: 'ban_hang_thoi_trang', 55: 'ban_hang_tien_loi', 56: 'ban_hang_dien_may', 57: 'ban_hang_dien_thoai', 58: 'ban_hang_noi_that',
-  59: 'dich_vu', 65: 'van_phong', 71: 'cskh_kinh_doanh', 77: 'san_xuat_xay_dung', 83: 'cntt_ky_thuat', 89: 'thiet_ke', 95: 'truyen_thong',
-  101: 'lai_xe_giao_hang', 107: 'y_te_dieu_duong', 113: 'giao_duc_giang_day',
-}
+// 2026-11-08: 우리 그림은 모두 왼쪽(글자 자리)이 밝은 벽이라 흰 글자가 안 보인다 → 모든 틀 검정 글자(아래 TEMPLATES). 표는 알바몬 기록으로 남김.
+export const ALBAMON_DARK_TITLE = new Set([41, 42, 45, 46, 49, 50, 55, 58, 62, 63, 68, 74, 75, 76, 78, 79, 84, 91, 94, 101, 103, 106, 107, 110, 113, 114, 115, 116])
+// 템플릿 머리 사진(Lee 2026-11-08): AI 팀 그림 담당(ChatGPT·Gemini 앱)이 그린 업종별 우리 그림 — public/images/template.
+// 13개 업직종 순서 그대로, 업종마다 1~3장을 6개 틀에 번갈아 쓴다. 글자·로고 없는 그림이라 출처 표시 의무가 없다.
+// 왼쪽 제목 자리는 화면에서 하얗게 흐리게 덮는다(AlbamonTemplate.css .amt-visual::after) — 현실적인 사진도 글자가 보이게(Lee 2026-11-09).
+const CATEGORY_IMAGES: string[][] = [
+  ['01-co-ban', '01b-co-ban', '01c-co-ban'], ['02-an-uong', '02b-an-uong', '02c-an-uong'], ['03-ban-hang', '03b-ban-hang'], ['04-dich-vu', '04b-dich-vu'],
+  ['05-van-phong', '05b-van-phong'], ['06-cskh'], ['07-san-xuat', '07b-san-xuat'], ['08-it', '08b-it'], ['09-thiet-ke', '09b-thiet-ke'],
+  ['10-truyen-thong', '10b-truyen-thong'], ['11-giao-hang', '11b-giao-hang'], ['12-y-te', '12b-y-te'], ['13-giao-duc', '13b-giao-duc'],
+]
 
 export interface TemplateInfo { id: number; name: string; category: string; color: number; darkTitle: boolean; photo: string | null }
-// Lee 2026-11-08 "빈칸은 만들면 안 되고 구성은 채워야": 전용 사진이 없는 틀은 같은 업종의 우리 사진을 돌려 쓴다(임시, 나중에 전용 사진으로 교체).
-const CATEGORY_PHOTOS: string[][] = [
-  ['khac', 'van_phong', 'dich_vu', 'quan_ly_ban_hang', 'cskh_kinh_doanh', 'san_xuat_xay_dung'],
-  ['am_thuc_do_uong', 'nha_hang_chung', 'nha_hang_lau', 'nha_hang_nuong'],
-  ['quan_ly_ban_hang', 'ban_hang_thoi_trang', 'ban_hang_tien_loi', 'ban_hang_dien_may', 'ban_hang_dien_thoai', 'ban_hang_noi_that'],
-  ['dich_vu', 'ban_hang_tien_loi', 'nha_hang_chung', 'khac'],
-  ['van_phong', 'cskh_kinh_doanh', 'cntt_ky_thuat', 'thiet_ke'],
-  ['cskh_kinh_doanh', 'van_phong', 'quan_ly_ban_hang'],
-  ['san_xuat_xay_dung', 'lai_xe_giao_hang', 'khac'],
-  ['cntt_ky_thuat', 'van_phong', 'thiet_ke'],
-  ['thiet_ke', 'truyen_thong', 'van_phong'],
-  ['truyen_thong', 'thiet_ke', 'van_phong'],
-  ['lai_xe_giao_hang', 'san_xuat_xay_dung', 'khac'],
-  ['y_te_dieu_duong', 'van_phong', 'dich_vu'],
-  ['giao_duc_giang_day', 'van_phong', 'truyen_thong'],
-]
 export const TEMPLATES: TemplateInfo[] = Array.from({ length: 78 }, (_, i) => {
   const id = 41 + i
   const g = Math.floor(i / 6)
   const category = TEMPLATE_CATEGORIES[g]
-  const own = PHOTO[id]
-  const list = CATEGORY_PHOTOS[g]
-  const photo = own ?? list[(i % 6) % list.length]
-  return { id, category, name: `${category} ${(i % 6) + 1}`, color: DEFAULT_COLOR[id], darkTitle: DARK_TITLE.has(id), photo: `/images/industry/${photo}.jpg` }
+  const list = CATEGORY_IMAGES[g]
+  const photo = list[(i % 6) % list.length]
+  return { id, category, name: `${category} ${(i % 6) + 1}`, color: DEFAULT_COLOR[id], darkTitle: true, photo: `/images/template/${photo}.jpg` }
 })
 export const colorOf = (id: number) => TEMPLATE_COLORS.find((c) => c.id === id) ?? TEMPLATE_COLORS[7]
 
