@@ -11,8 +11,12 @@ on:
   # Codex 검사 대기(30분)가 끝난 PR을 다시 보려고 15분마다 한 번 더 확인한다(Lee 2026-11-08 AI 팀).
   schedule:
     - cron: '*/15 * * * *'
+  # GitHub 예약 실행은 자주 빠진다(#574: */15가 1시간 반 동안 0번). 그래서 Codex 리뷰·요약 댓글·Claude 답이
+  # 오는 순간에도 다시 보고, 30분 대기는 codex-wait-timer.yml이 끝나는 시각에 다시 부른다. 예약은 예비로 둔다.
+  pull_request_review:
+    types: [submitted]
   issue_comment:
-    types: [created]
+    types: [created, edited]
 
 permissions:
   contents: write
@@ -28,10 +32,17 @@ concurrency:
 jobs:
   merge:
     if: >-
-      github.event_name != 'issue_comment' ||
-      (github.event.issue.pull_request != null &&
-       github.event.comment.user.login == 'KHOAILANG0926' &&
-       startsWith(github.event.comment.body, 'LEE-APPROVE '))
+      (github.event_name != 'issue_comment' && github.event_name != 'pull_request_review') ||
+      (github.event_name == 'pull_request_review' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.review.user.login == 'chatgpt-codex-connector[bot]') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
+       ((github.event.action == 'created' &&
+         github.event.comment.user.login == 'KHOAILANG0926' &&
+         startsWith(github.event.comment.body, 'LEE-APPROVE ')) ||
+        github.event.comment.user.login == 'chatgpt-codex-connector[bot]' ||
+        ((github.event.comment.user.login == 'KHOAILANG0926' || github.event.comment.user.login == 'claude[bot]') &&
+         contains(github.event.comment.body, '<!-- claude-codex-reply -->'))))
     runs-on: ubuntu-latest
     steps:
       # Never check out the candidate PR: only trusted master supplies executable code.
@@ -48,14 +59,19 @@ jobs:
           REPO: ${{ github.repository }}
           APPROVAL_BODY: ${{ github.event.comment.body }}
           APPROVAL_ISSUE: ${{ github.event.issue.number }}
+          EVENT_ACTION: ${{ github.event.action }}
         shell: bash
         run: |
           set -euo pipefail
+          # Lee 승인 댓글로 시작한 실행만 그 PR 하나로 좁힌다. Codex 댓글·Claude 답으로 시작한 실행은 평소처럼 전체를 본다.
+          lee_approval=false
+          if [ "${{ github.event_name }}" = issue_comment ] && [ "$EVENT_ACTION" = created ] && [[ "$APPROVAL_BODY" == "LEE-APPROVE "* ]]; then lee_approval=true; fi
+          : > codex-wait.txt
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName] | @tsv' |
           while IFS=$'\t' read -r num sha branch; do
             [ -n "$num" ] || continue
             # Comment-triggered runs must inspect only the PR Lee actually approved.
-            if [ "${{ github.event_name }}" = issue_comment ]; then
+            if [ "$lee_approval" = true ]; then
               [ "$num" = "$APPROVAL_ISSUE" ] && [ "$APPROVAL_BODY" = "LEE-APPROVE $sha" ] || continue
             fi
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
@@ -104,9 +120,14 @@ jobs:
             # AI 팀 검사관(Lee 2026-11-08): GPT Codex 검사를 기다린다. 30분 안 오면 진행, 지적이 있으면 Claude 답이 있어야 진행.
             gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
-            if ! node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date"; then
+            if ! node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date" > gate.txt; then
+              cat gate.txt
+              # 'Codex 검사 대기(x/30분)'이면 30분이 차는 시각에 다시 보도록 남은 분을 적어 둔다(#574).
+              waited=$(sed -n 's/.*Codex 검사 대기(\([0-9]*\)\/\([0-9]*\)분).*/\2 \1/p' gate.txt | awk '{print $1-$2+1}')
+              [ -n "$waited" ] && echo "$waited" >> codex-wait.txt
               echo "PR #$num Codex 검사 대기: 병합 생략"; continue
             fi
+            cat gate.txt
             # PR 준비 표시와 현재 head SHA 최종 재검증
             for try in 1 2 3 4 5; do
               gh api "repos/$REPO/pulls/$num" --jq '[.head.sha,.draft,.mergeable_state] | @tsv' > state.txt
@@ -151,3 +172,9 @@ jobs:
               echo "::warning::PR #$num 병합 거절(권한/branch protection), 재시도 생략"
             fi
           done
+          # Codex를 기다리는 PR이 있으면 가장 먼저 30분이 차는 시각에 다시 부른다(예약 실행이 빠져도 멈추지 않게, #574).
+          if [ "$lee_approval" != true ] && [ -s codex-wait.txt ]; then
+            minutes=$(sort -n codex-wait.txt | head -1)
+            gh workflow run codex-wait-timer.yml --repo "$REPO" --ref master -f minutes="$minutes" \
+              && echo "::notice::Codex 대기 PR: ${minutes}분 뒤 다시 확인" || echo "::warning::다시 확인 예약 실패(예약 실행으로 대신)"
+          fi
