@@ -1046,7 +1046,7 @@ export function JobDetail() {
                     {job.companyFoundedYear && <li>Thành lập năm {job.companyFoundedYear}</li>}
                     {job.hireCount !== undefined && job.hireCount > 0 && <li>Đã tuyển: {job.hireCount}</li>}
                     {employerJobCount !== undefined && employerJobCount > 0 && (
-                      <li>Đã đăng {employerJobCount} tin tuyển dụng trên Việc Gần Bạn</li>
+                      <li>Đã đăng {employerJobCount} tin tuyển dụng trên Việc gần Bạn</li>
                     )}
                   </ul>
                   {(job.laborContractPledge || job.socialInsurancePledge) && (
@@ -1089,7 +1089,7 @@ export function JobDetail() {
 
 
           <p className="jd2-warn1">
-            <span aria-hidden="true">⚠️</span> Việc Gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
+            <span aria-hidden="true">⚠️</span> Việc gần Bạn không thu phí. Cẩn thận nếu bị yêu cầu đặt cọc, mã OTP hoặc chuyển tiền.
           </p>
 
       </div>

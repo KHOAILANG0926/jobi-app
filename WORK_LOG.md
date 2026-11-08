@@ -1,7 +1,7 @@
 ## 2026-11-08 — 로고 이름 하나로(Việc gần Bạn) (Claude)
 - 요청: Lee "색깔은 그냥 놔두고 로고는 하나로 맞춰 브라우저 탭으로".
 - 변경: 머리 줄 로고(PC·휴대폰)·바닥 로고·저작권 Việcganban/Việt Gần Bạn → Việc gần Bạn, 바닥의 중복 회사 이름 줄 삭제, 브랜드 목록·지도 창 문구 Việcganban → Việc gần Bạn. 바탕색 그대로(데모 demo/white-bg 미적용).
-- 남은 것: 약관·개인정보·가입 화면·검색 제목(SEO)·공고 상세 문구의 "Việt Gần Bạn"/"Việc Gần Bạn" — Lee 결정 대기.
+- 이어서(Lee "운영 링크만 빼고 통일"): 약관·개인정보·가입·검색 제목(SEO, api/ssr.js·representativeSearchPages)·상세·지원 안내 문구도 Việc gần Bạn. 주소(viecganban.vn)·이메일은 그대로.
 
 ## 2026-11-08 — 머리 줄·메뉴·바닥 알바몬 기준 (Claude)
 - 요청: Lee "왜 이렇게 촌스럽냐 … 지금 바꿔야", 데모 후 "메인 화면만 빼고 다 적용해".

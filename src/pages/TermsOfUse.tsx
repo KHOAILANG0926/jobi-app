@@ -6,13 +6,13 @@ export function TermsOfUse() {
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '1.5rem 0 0.5rem' }}>1. Chấp nhận điều khoản</h2>
       <p>
-        Bằng cách truy cập và sử dụng Việt Gần Bạn (<strong>viecganban.vn</strong>), bạn đồng ý tuân thủ
+        Bằng cách truy cập và sử dụng Việc gần Bạn (<strong>viecganban.vn</strong>), bạn đồng ý tuân thủ
         các điều khoản và điều kiện sử dụng này. Nếu bạn không đồng ý, vui lòng không sử dụng dịch vụ.
       </p>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '1.5rem 0 0.5rem' }}>2. Mô tả dịch vụ</h2>
       <p>
-        Việt Gần Bạn là nền tảng kết nối người tìm việc và nhà tuyển dụng tại Việt Nam,
+        Việc gần Bạn là nền tảng kết nối người tìm việc và nhà tuyển dụng tại Việt Nam,
         tập trung vào các việc làm địa phương, bán thời gian và lao động phổ thông.
         Chúng tôi cung cấp công cụ đăng tin tuyển dụng, ứng tuyển, tính lương và tư vấn nghề nghiệp.
       </p>
@@ -37,21 +37,21 @@ export function TermsOfUse() {
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '1.5rem 0 0.5rem' }}>5. Nội dung do người dùng đăng tải</h2>
       <p>
-        Bạn sở hữu nội dung mình đăng tải và cấp cho Việt Gần Bạn giấy phép sử dụng,
+        Bạn sở hữu nội dung mình đăng tải và cấp cho Việc gần Bạn giấy phép sử dụng,
         hiển thị và phân phối nội dung đó trong phạm vi vận hành dịch vụ.
         Chúng tôi có quyền xóa nội dung vi phạm điều khoản mà không cần thông báo trước.
       </p>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '1.5rem 0 0.5rem' }}>6. Miễn trừ trách nhiệm</h2>
       <p>
-        Việt Gần Bạn là nền tảng trung gian. Chúng tôi không chịu trách nhiệm về tính chính xác
+        Việc gần Bạn là nền tảng trung gian. Chúng tôi không chịu trách nhiệm về tính chính xác
         của thông tin tuyển dụng do nhà tuyển dụng đăng, kết quả tuyển dụng, hoặc tranh chấp
         phát sinh giữa người tìm việc và nhà tuyển dụng.
       </p>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '1.5rem 0 0.5rem' }}>7. Sở hữu trí tuệ</h2>
       <p>
-        Toàn bộ giao diện, logo, mã nguồn và nội dung do Việt Gần Bạn tạo ra
+        Toàn bộ giao diện, logo, mã nguồn và nội dung do Việc gần Bạn tạo ra
         thuộc sở hữu của chúng tôi và được bảo hộ theo pháp luật Việt Nam.
         Không được sao chép hoặc sử dụng cho mục đích thương mại mà không có sự đồng ý bằng văn bản.
       </p>

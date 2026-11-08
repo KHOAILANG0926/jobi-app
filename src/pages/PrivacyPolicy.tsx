@@ -5,7 +5,7 @@ export function PrivacyPolicy() {
       <p style={{ color: '#888', marginBottom: '2rem' }}>Cập nhật lần cuối: 01/01/2026</p>
 
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '1.5rem 0 0.5rem' }}>1. Thông tin chúng tôi thu thập</h2>
-      <p>Việt Gần Bạn thu thập các thông tin sau khi bạn sử dụng dịch vụ:</p>
+      <p>Việc gần Bạn thu thập các thông tin sau khi bạn sử dụng dịch vụ:</p>
       <ul style={{ paddingLeft: '1.5rem' }}>
         <li>Thông tin tài khoản: họ tên, địa chỉ email, số điện thoại khi đăng ký.</li>
         <li>Thông tin hồ sơ: kinh nghiệm làm việc, kỹ năng, khu vực mong muốn làm việc.</li>

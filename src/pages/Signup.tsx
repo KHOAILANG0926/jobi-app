@@ -58,7 +58,7 @@ export function Signup() {
     return (
       <div className="signup-choose">
         <div className="signup-choose__head">
-          <h1 className="signup-choose__title">Việt Gần Bạn</h1>
+          <h1 className="signup-choose__title">Việc gần Bạn</h1>
           <p className="signup-choose__sub">Tạo tài khoản miễn phí và bắt đầu ngay hôm nay</p>
         </div>
 

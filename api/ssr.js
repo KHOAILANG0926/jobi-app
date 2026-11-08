@@ -84,7 +84,7 @@ function buildJobPostingJsonLd(job, canonicalUrl) {
     },
     identifier: {
       '@type': 'PropertyValue',
-      name: 'Việt Gần Bạn',
+      name: 'Việc gần Bạn',
       value: job.id,
     },
     url: canonicalUrl,
@@ -225,10 +225,10 @@ export default async function handler(req, res) {
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 150)
-    const title = `${foundJob.title} — ${foundJob.company} | Việt Gần Bạn`
+    const title = `${foundJob.title} — ${foundJob.company} | Việc gần Bạn`
     const description = descSnippet
       ? `${foundJob.title} tại ${foundJob.company}. ${descSnippet}`
-      : `${foundJob.title} tại ${foundJob.company} — ${foundJob.location}. Xem chi tiết và ứng tuyển trên Việt Gần Bạn.`
+      : `${foundJob.title} tại ${foundJob.company} — ${foundJob.location}. Xem chi tiết và ứng tuyển trên Việc gần Bạn.`
     finalHtml = finalHtml
       .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(title)}</title>`)
       .replace(
