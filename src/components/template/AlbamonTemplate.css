@@ -183,6 +183,8 @@
 /* 미리보기 창(새 창) 바탕 */
 body.amt-pvwin { margin: 0; background: #fff; font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 body.amt-pvwin .amt-pv { margin-left: 27px; }
+/* 모바일 미리보기 창은 .amt-pv--m 의 가운데 정렬(margin 0 auto)을 그대로 — 위 PC용 27px 이 덮어써 왼쪽 43px·오른쪽 16px 로 치우쳤음 */
+body.amt-pvwin .amt-pv--m { margin-left: auto; }
 
 /* 창(타입선택·견본·미리보기 대신) */
 .amt-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
