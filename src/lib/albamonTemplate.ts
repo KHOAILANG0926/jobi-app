@@ -40,7 +40,7 @@ export const ALBAMON_DARK_TITLE = new Set([41, 42, 45, 46, 49, 50, 55, 58, 62, 6
 // 13개 업직종 순서 그대로 1장씩, 예비 그림이 있는 업종은 6개 틀에 번갈아 쓴다. 글자·로고 없는 그림이라 출처 표시 의무가 없다.
 const CATEGORY_IMAGES: string[][] = [
   ['01-co-ban', '01b-co-ban'], ['02-an-uong', '02b-an-uong'], ['03-ban-hang'], ['04-dich-vu'], ['05-van-phong', '05b-van-phong'],
-  ['06-cskh'], ['07-san-xuat', '07b-san-xuat'], ['08-it'], ['09-thiet-ke'], ['10-truyen-thong'], ['11-giao-hang'], ['12-y-te'], ['13-giao-duc'],
+  ['06-cskh'], ['07-san-xuat', '07b-san-xuat'], ['08-it', '08b-it'], ['09-thiet-ke', '09b-thiet-ke'], ['10-truyen-thong', '10b-truyen-thong'], ['11-giao-hang'], ['12-y-te'], ['13-giao-duc'],
 ]
 
 export interface TemplateInfo { id: number; name: string; category: string; color: number; darkTitle: boolean; photo: string | null }
