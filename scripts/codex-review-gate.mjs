@@ -10,13 +10,13 @@ export const REPLY_MARKER = '<!-- claude-codex-reply -->'
 export const REPLY_AUTHORS = new Set(['claude[bot]', 'KHOAILANG0926'])
 export const isCodex = (u) => /codex/i.test(String(u?.login ?? ''))
 
-/** Codex 요약 댓글(<!-- codex-review-state:v1 {...} -->)의 code_review 상태. 없거나 읽을 수 없으면 null. */
+/** Codex 요약 댓글(<!-- codex-review-state:v1 {...} -->)의 code_review 상태 + 그 댓글이 마지막으로 바뀐 시각(at). 없으면 null. */
 export function codexSummary(comments) {
   for (const c of [...comments].reverse()) {
     if (!isCodex(c.user)) continue
     const m = String(c.body ?? '').match(/<!-- codex-review-state:v1 (\{.*?\}) -->/)
     if (!m) continue
-    try { return JSON.parse(m[1]).code_review ?? null } catch { return null }
+    try { const r = JSON.parse(m[1]).code_review; return r ? { ...r, at: c.updated_at ?? c.created_at ?? '' } : null } catch { return null }
   }
   return null
 }
@@ -35,7 +35,9 @@ export function codexGate({ reviews, reviewComments, comments, sha, headDate, no
   const blocking = mine.some((r) => r.state === 'CHANGES_REQUESTED')
   const unresolved = summaryHere?.has_unresolved_findings === true
   if (!lines && !blocking && !unresolved) return { ok: true, reason: 'Codex 검사 통과(지적 없음)' }
-  const last = mine.map((r) => r.submitted_at).filter(Boolean).sort().at(-1) ?? ''
+  // 답은 이 커밋에 대한 Codex 검사(리뷰 또는 요약 갱신) 뒤에 달린 것만 인정한다(Codex #566 지적: 예전 커밋 답 재사용 방지).
+  const last = [...mine.map((r) => r.submitted_at), summaryHere?.at].filter(Boolean).sort().at(-1) ?? ''
+  if (!last) return { ok: false, reason: 'Codex 검사 시각을 알 수 없음 — 대기' }
   const replied = comments.some((c) => REPLY_AUTHORS.has(String(c.user?.login ?? '')) && String(c.body ?? '').includes(REPLY_MARKER) && c.created_at >= last)
   const what = `Codex 지적(줄 ${lines}${blocking ? ', 수정 요청' : ''}${unresolved ? ', 미해결 표시' : ''})`
   return replied ? { ok: true, reason: `${what} — Claude 답 있음` } : { ok: false, reason: `${what} — Claude 답 대기` }
