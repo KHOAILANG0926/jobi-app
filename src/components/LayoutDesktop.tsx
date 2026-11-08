@@ -403,7 +403,8 @@ export function Layout() {
             <form className="header-search" role="search" onSubmit={(e) => { e.preventDefault(); const q = headerQuery.trim(); navigate(q ? `/viec-lam/tim-kiem?q=${encodeURIComponent(q)}` : '/viec-lam/tim-kiem') }}>
               <input className="header-search__input" value={headerQuery} onChange={(e) => setHeaderQuery(e.target.value)}
                 placeholder="Tìm việc theo tên công việc, công ty..." aria-label="Tìm việc làm" />
-              <button type="submit" className="header-search__btn" aria-label="Tìm">
+              {/* type="button": 다른 화면(로그인 등)의 제출 단추와 겹치지 않게 — 입력 칸 Enter는 그대로 검색 */}
+              <button type="button" className="header-search__btn" aria-label="Tìm" onClick={(e) => e.currentTarget.form?.requestSubmit()}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>
               </button>
             </form>

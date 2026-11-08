@@ -66,7 +66,7 @@ const baseline = [
   },
   {
     "path": "src/components/LayoutDesktop.tsx",
-    "sha256": "b504fdb70b38efbef586a9ee8c2a6ba7a3c9da96b2694aa44754b537d03bad2e",
+    "sha256": "25ff73b934e3ad76af0451af7870e8ce43fff699b1ded9eefedcce93a3a691fa",
     "restore": []
   },
   {
