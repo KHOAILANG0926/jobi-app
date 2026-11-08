@@ -1,0 +1,39 @@
+name: Codex 대기 끝나면 봇 병합 다시 보기
+# bot-pr-automerge.yml이 Codex 검사를 기다리는 PR을 찾으면 남은 분을 넘겨 이 작업을 부른다.
+# 그 시간만큼 기다렸다가 봇 병합을 다시 부른다(GitHub 예약 실행이 자주 빠져 30분 대기가 끝나도 병합이 멈추던 문제, #574).
+# 코드를 받지 않고 기다렸다가 부르기만 한다. 새 타이머가 오면 예전 타이머는 취소(가장 최근 계산이 모든 대기 PR 기준).
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: '기다릴 분(1~35)'
+        required: true
+        default: '31'
+
+permissions:
+  actions: write
+
+concurrency:
+  group: codex-wait-timer
+  cancel-in-progress: true
+
+jobs:
+  wait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: 기다렸다가 봇 병합 부르기
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          MINUTES: ${{ inputs.minutes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          m="$MINUTES"
+          [[ "$m" =~ ^[0-9]+$ ]] || m=31
+          [ "$m" -lt 1 ] && m=1
+          [ "$m" -gt 35 ] && m=35
+          echo "${m}분 기다림"
+          sleep "$((m * 60))"
+          gh workflow run bot-pr-automerge.yml --repo "$REPO" --ref master
