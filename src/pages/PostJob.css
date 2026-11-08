@@ -99,3 +99,42 @@
   .pj-bar .pj-bar__ghost { width: auto; padding: 0 14px; }
   .pj-bar .pj-bar__main { flex: 1; width: auto; max-width: none; }
 }
+
+/* ── Lee 2026-11-08 "3,4 적용": 미리보기(PC·Mobile)·우대조건 선택 창·접수 방법·담당자 이름(알바몬 공고등록 데모 그대로) ── */
+.pj-seg--fill.pj-seg--8 { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.pj-btn-line { height: 34px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 13px; font-weight: 400; color: #111; cursor: pointer; font-family: inherit; letter-spacing: 0; }
+.pj-btn-main { height: 48px; padding: 0 28px; border: 0; border-radius: 8px; background: #ff501b; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.pj-sec__h--act { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pj-chips button:disabled { opacity: .4; cursor: not-allowed; }
+.pj-side__pv { display: grid; grid-template-columns: 1fr 1fr; margin-top: 8px; border: 1px solid #e8e8e8; border-radius: 8px; padding: 14px 0; }
+.pj-side__pv button { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; cursor: pointer; font-family: inherit; color: #171717; }
+.pj-side__pv button + button { border-left: 1px solid #e8e8e8; }
+.pj-side__pv b { font-size: 13px; }
+.pj-side__pv span { font-size: 12px; color: #6a6a6a; }
+.pj-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.pj-modal__box { width: 100%; max-width: 800px; background: #fff; border-radius: 8px; padding: 0 32px 32px; }
+.pj-modal__h { position: relative; padding: 48px 0 24px; }
+.pj-modal__h button { position: absolute; top: 20px; right: -12px; border: 0; background: none; font-size: 30px; font-weight: 300; line-height: 1; cursor: pointer; color: #171717; }
+.pj-modal__h h1 { margin: 0; font-size: 26px; font-weight: 700; }
+.pj-pref { border: 1px solid #e8e8e8; border-radius: 8px 8px 0 0; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.pj-pref p { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.pj-pref button { height: 30px; padding: 0 10px; border: 1px solid #e8e8e8; border-radius: 4px; background: #fff; font-size: 14px; color: #494949; cursor: pointer; font-family: inherit; }
+.pj-pref button[aria-pressed="true"] { border-color: #ff501b; color: #ff501b; }
+.pj-pref button:disabled { opacity: .45; cursor: not-allowed; }
+.pj-pref__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border: 1px solid #e8e8e8; border-top: 0; border-radius: 0 0 8px 8px; font-size: 14px; color: #6a6a6a; }
+.pj-pref__foot b { color: #ff501b; }
+@media (max-width: 720px) {
+  .pj-seg--fill.pj-seg--8 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pj-modal { align-items: flex-end; padding: 0; }
+  .pj-modal__box { border-radius: 16px 16px 0 0; padding: 0 16px 16px; max-height: 88vh; overflow-y: auto; }
+  .pj-modal__h { padding: 28px 0 16px; }
+  .pj-modal__h button { top: 14px; right: 0; }
+  .pj-modal__h h1 { font-size: 20px; }
+  .pj-pref { padding: 16px; }
+  .pj-sec__h--act { flex-wrap: wrap; }
+}
+/* 휴대폰: 아래 고정 메뉴(Trang chủ·Bản đồ·Đã lưu·Cá nhân, 높이 62)가 등록 막대를 덮어 'Đăng tin'을 누를 수 없었음(2026-11-08 미리보기 시험에서 발견) → 막대를 메뉴 위로 */
+@media (max-width: 760px) {
+  .pj-bar { bottom: calc(62px + env(safe-area-inset-bottom)); }
+  .pj { padding-bottom: 200px; }
+}

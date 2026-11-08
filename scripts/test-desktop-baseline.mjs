@@ -1,3 +1,4 @@
+// 2026-11-08: JobDetail.tsx — Lee "3 적용": 공고 등록 미리보기용 previewJob 입력(/xem-truoc-tin, 단추 막힘·안내 한 줄). 공개 상세 화면 틀 변경 없음.
 // 2026-11-08: JobDetail.tsx — Lee "운영 링크만 빼고 통일": 문구 속 이름 Việc Gần Bạn → Việc gần Bạn(글자만). 틀 변경 없음.
 // 2026-11-08: LayoutDesktop.tsx — Lee "로고는 하나로 맞춰 브라우저 탭으로": 머리 줄 로고 글자 Việcganban → Việc gần Bạn. 틀 변경 없음.
 // 2026-11-08: LayoutDesktop.tsx — Lee 지시("메인 화면만 빼고 다 적용"): 머리 줄·메뉴·바닥 알바몬 기준(검색 칸, 메뉴 이모지 빼기·4칸 배열, 바닥 SiteFooter). 메인 본문·공고 카드·상세 변경 없음. (#542 메뉴·바닥 링크 추가로 master가 이미 달랐음)
@@ -100,7 +101,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "4740aa8764220ba1b4a82bd696158f270934144570a311555486e408769e8f70",
+    "sha256": "91352fc4b34e708789bf2987301a5ea5169bc3aeabd3f0d0a3f56aeaccdc4ca0",
     "restore": []
   },
   {

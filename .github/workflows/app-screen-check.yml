@@ -93,6 +93,8 @@ jobs:
           retention-days: 14
       - name: PC 헤더·기업 메뉴·로그인 복귀·모바일 유지 회귀
         run: BASE_URL=http://localhost:4173 node scripts/ops/desktop-header-check.mjs
+      - name: 공고 등록 미리보기(저장 전 입력값 → 상세 틀, 단추 막힘) PC·모바일
+        run: BASE_URL=http://localhost:4173 node scripts/layout/job-preview-check.mjs
       - name: 관리자 URL 탭·뒤로가기·목록 스크롤·새 탭 링크 회귀 (PC·모바일, 격리 데이터)
         run: BASE_URL=http://localhost:4173 node scripts/ops/admin-navigation-check.mjs
       - name: 공고 목록 검사 회귀 (추천만·일반만·혼합·중복·빈 목록)

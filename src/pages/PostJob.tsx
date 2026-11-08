@@ -16,6 +16,7 @@ import { shrinkImage } from '../lib/imageResize'
 import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
 import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type GenderChoice, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
+import { PREVIEW_KEY } from '../lib/postJobPreview'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 import type { JobCategory, ShiftType } from '../types/job'
 
@@ -58,6 +59,14 @@ const emptyForm = {
   work: '',
   overtime: '',
   environment: '',
+  // Lee 2026-11-08 "4 적용"(알바몬 공고등록 따라 하기): DB 새 칸 없이 기존 칸에 넣는다 — 경력·우대는 preference, 식대·수습은 salaryNote, 접수 방법·담당자 이름은 상세요강 '채용 절차'.
+  beginner: false,
+  withFriends: false,
+  prefPicks: [] as string[],
+  mealAllowance: false,
+  probation: false,
+  applyMethods: ['Gọi điện', 'Nhắn Zalo'] as string[],
+  contactName: '',
   process: '',
   employerPhone: '',
   zalo: '',
@@ -97,6 +106,17 @@ const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v
 
 // Lee 2026-11-08 승인(알바몬 공고등록 따라 하기 5번): 임시저장 = 이 브라우저에만 보관(서버·DB 저장 없음). 사진·지도 핀은 넣지 않는다.
 const DRAFT_KEY = 'vgb:postjob-draft'
+const CONTACT_KEY = 'vgb:postjob-contact'
+
+// (키는 lib/postJobPreview.ts 한 곳)
+const APPLY_METHODS = ['Ứng tuyển online', 'Nhắn Zalo', 'Email', 'Gọi điện', 'Đến trực tiếp']
+// 알바몬 우대조건 묶음(한글 문서 등 한국 전용은 빼고 베트남에 맞게). 최대 7개.
+const PREF_GROUPS = [
+  ['Biết tiếng Anh', 'Biết tiếng Trung', 'Biết tiếng Hàn', 'Biết tiếng Nhật'],
+  ['Biết vi tính', 'Biết Photoshop', 'Biết Word', 'Biết Excel', 'Biết PowerPoint'],
+  ['Có chứng chỉ liên quan', 'Có kinh nghiệm tương tự', 'Ở gần', 'Sinh viên đang học', 'Sinh viên bảo lưu'],
+  ['Có xe máy', 'Có bằng lái ô tô', 'Người khuyết tật'],
+]
 
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 
@@ -162,6 +182,14 @@ export function PostJob() {
   // 임시저장(5번) — 저장 시각만 보여 주고 'Mở lại'를 눌러야 채운다(알바몬처럼 자동으로 덮어쓰지 않음)
   const [draftAt, setDraftAt] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [prefOpen, setPrefOpen] = useState(false)
+  const [prefDraft, setPrefDraft] = useState<string[]>([])
+  useEffect(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem(CONTACT_KEY) || 'null')
+      if (c) setForm((f) => ({ ...f, contactName: f.contactName || c.name || '', employerPhone: f.employerPhone || c.phone || '' }))
+    } catch { /* 저장소를 못 쓰면 넘어간다 */ }
+  }, [])
   useEffect(() => {
     try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); if (d?.at) setDraftAt(d.at) } catch { /* 저장소를 못 쓰면 넘어간다 */ }
   }, [])
@@ -200,6 +228,42 @@ export function PostJob() {
     }
   }
 
+  // 4번: 기존 칸에 넣을 글(제출·미리보기 공용)
+  const preferenceText = () => [form.beginner && 'Không cần kinh nghiệm', form.withFriends && 'Có thể đi làm cùng bạn bè', ...form.prefPicks, form.preference.trim()].filter(Boolean).join(', ')
+  const processText = () => [form.process.trim(), form.applyMethods.length ? `Cách ứng tuyển: ${form.applyMethods.join(', ')}` : '', form.contactName.trim() ? `Người liên hệ: ${form.contactName.trim()}` : ''].filter(Boolean).join('\n')
+  const salaryNoteText = () => [form.allowance.trim() && `Phụ cấp·Thưởng: ${form.allowance.trim()}`, form.mealAllowance && 'Phụ cấp ăn riêng', form.probation && 'Có thời gian thử việc', form.payMethod && `Trả lương: ${form.payMethod}`].filter(Boolean).join('; ')
+  const saveContact = () => { try { localStorage.setItem(CONTACT_KEY, JSON.stringify({ name: form.contactName.trim(), phone: form.employerPhone.trim() })); flash('Đã lưu thông tin người liên hệ') } catch { flash('Không lưu được trên trình duyệt này') } }
+
+  // 3번 미리보기: 지금 입력값으로 상세 화면을 새 창에 그대로(저장·등록 없음). 빈 칸은 빈 채로.
+  const openPreview = (mobile: boolean) => {
+    const salary = composeSalary(form.salaryAmount, form.salaryUnit, form.salaryNegotiable)
+    const hours = form.hoursNegotiable ? 'Thỏa thuận' : composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
+    const phone = normalizeVnPhone(form.employerPhone) ?? form.employerPhone.trim()
+    const zalo = form.zaloSameAsPhone ? phone : form.zalo.trim()
+    const job = {
+      id: 'preview', postedAt: new Date().toISOString(),
+      title: form.title.trim(), company: form.company.trim(), category: form.category, subcategory: form.subcategory || undefined,
+      salary: salary?.salary ?? '', salaryPeriod: salary?.salaryPeriod,
+      salaryBasis: form.salaryIncludesOvertime && !form.salaryNegotiable ? 'total_with_overtime' : undefined,
+      salaryNote: salaryNoteText() || undefined,
+      location: composeLocation(form.street, form.ward, form.province, form.park) ?? [form.street, form.ward, form.province].filter(Boolean).join(', '),
+      description: composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: processText(), benefitOther: form.benefitOther }) ?? '',
+      hours: hours || undefined, jobDuration: form.jobDuration || undefined, employmentType: form.employmentType || undefined,
+      workDays: form.daysNegotiable ? 'Thỏa thuận' : (form.workDays.length ? form.workDays.join(', ') : undefined),
+      benefitTags: form.benefitTags.length ? form.benefitTags : undefined,
+      numHires: composeHires(form.hires, form.hiresUndecided, form.gender, form.genderMale, form.genderFemale) || undefined,
+      genderRequirement: form.gender || undefined, ageRequirement: composeAge(form.ageMin, form.ageMax) || undefined,
+      education: form.education || undefined, preference: preferenceText() || undefined,
+      laborContractPledge: form.laborContractPledge || undefined, socialInsurancePledge: form.insurance || undefined,
+      employerPhone: phone, zalo: zalo || undefined, urgent: form.urgent, imageUrl: imagePreview || undefined,
+      applicationDeadline: form.ongoing ? '' : form.applicationDeadline.trim(),
+      ...conditions,
+    }
+    try { localStorage.setItem(PREVIEW_KEY, JSON.stringify(job)) } catch { flash('Không mở được bản xem trước trên trình duyệt này'); return }
+    const w = window.open('/xem-truoc-tin', 'vgb-preview', mobile ? 'width=420,height=860' : 'width=1280,height=900')
+    if (!w) flash('Trình duyệt đã chặn cửa sổ mới — hãy cho phép cửa sổ bật lên')
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -209,7 +273,7 @@ export function PostJob() {
     const hires = composeHires(form.hires, form.hiresUndecided, form.gender, form.genderMale, form.genderFemale)
     const age = composeAge(form.ageMin, form.ageMax)
     const location = composeLocation(form.street, form.ward, form.province, form.park)
-    const description = composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: form.process, benefitOther: form.benefitOther })
+    const description = composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: processText(), benefitOther: form.benefitOther })
     const phone = normalizeVnPhone(form.employerPhone)
     const zalo = form.zaloSameAsPhone ? phone : (form.zalo.trim() ? normalizeVnPhone(form.zalo) : null)
     const deadlineChosen = form.ongoing || !!form.applicationDeadline.trim() || quickGuestMode
@@ -254,7 +318,7 @@ export function PostJob() {
         imageUrl = data.publicUrl
       }
 
-      const salaryNote = [form.allowance.trim() && `Phụ cấp·Thưởng: ${form.allowance.trim()}`, form.payMethod && `Trả lương: ${form.payMethod}`].filter(Boolean).join('; ')
+      const salaryNote = salaryNoteText()
       const baseFields = {
         title: form.title.trim(),
         company: form.company.trim(),
@@ -275,7 +339,7 @@ export function PostJob() {
         genderRequirement: form.gender || undefined,
         ageRequirement: age || undefined,
         education: form.education || undefined,
-        preference: form.preference.trim() || undefined,
+        preference: preferenceText() || undefined,
         laborContractPledge: form.laborContractPledge || undefined,
         socialInsurancePledge: form.insurance || undefined,
         employerPhone: phone!,
@@ -497,6 +561,7 @@ export function PostJob() {
                 </select>
               )}
             </div>
+            <Check checked={form.beginner} onChange={(v) => set('beginner', v)}>Không cần kinh nghiệm</Check>
           </Row>
           <Row label="Hình thức" req>
             <div className="pj-chips" role="group" aria-label="Hình thức làm việc">
@@ -513,6 +578,7 @@ export function PostJob() {
                 onChange={(e) => set('hires', e.target.value.replace(/\D/g, ''))} />
               <span className="pj-suffix">người</span>
               <Check checked={form.hiresUndecided} onChange={(v) => set('hiresUndecided', v)}>Chưa xác định</Check>
+              <Check checked={form.withFriends} onChange={(v) => set('withFriends', v)}>Có thể đi làm cùng bạn bè</Check>
             </div>
           </Row>
           <Row label="Giới tính·Tuổi·Học vấn" req>
@@ -547,8 +613,13 @@ export function PostJob() {
             )}
           </Row>
           <Row label="Ưu tiên">
+            <div className="pj-line">
+              <input className="pj-input pj-input--grow" readOnly value={form.prefPicks.join(', ')} onClick={() => { setPrefDraft(form.prefPicks); setPrefOpen(true) }}
+                placeholder="Ở gần, có kinh nghiệm tương tự... chọn điều kiện ưu tiên" />
+              <button type="button" className="pj-btn-dark" onClick={() => { setPrefDraft(form.prefPicks); setPrefOpen(true) }}>Chọn</button>
+            </div>
             <input className="pj-input" value={form.preference} onChange={(e) => set('preference', e.target.value)}
-              placeholder="Kinh nghiệm, ở gần, ... (tuỳ chọn)" />
+              placeholder="Ưu tiên khác (tuỳ chọn)" />
             <Check checked={conditions.immediateStart === true} onChange={(v) => setConditions((c) => ({ ...c, immediateStart: v ? true : null }))}>Đi làm ngay</Check>
           </Row>
         </section>
@@ -556,8 +627,8 @@ export function PostJob() {
         <section className="pj-sec" id="pj-s2">
           <h2 className="pj-sec__h">Điều kiện làm việc</h2>
           <Row label="Thời hạn làm việc">
-            <div className="pj-seg pj-seg--fill" role="group" aria-label="Thời hạn làm việc">
-              {JOB_DURATION_OPTIONS.map((d) => (
+            <div className="pj-seg pj-seg--fill pj-seg--8" role="group" aria-label="Thời hạn làm việc">
+              {[...JOB_DURATION_OPTIONS, 'Thỏa thuận'].map((d) => (
                 <button key={d} type="button" aria-pressed={form.jobDuration === d} onClick={() => set('jobDuration', form.jobDuration === d ? '' : d)}>{d}</button>
               ))}
             </div>
@@ -616,6 +687,8 @@ export function PostJob() {
               <Check checked={form.salaryIncludesOvertime} onChange={(v) => set('salaryIncludesOvertime', v)}>Đã gồm tăng ca</Check>
               <Check checked={form.payMethod === 'Theo tuần'} onChange={(v) => set('payMethod', v ? 'Theo tuần' : '')}>Trả theo tuần</Check>
               <Check checked={form.payMethod === 'Theo ngày'} onChange={(v) => set('payMethod', v ? 'Theo ngày' : '')}>Trả theo ngày</Check>
+              <Check checked={form.mealAllowance} onChange={(v) => set('mealAllowance', v)}>Phụ cấp ăn riêng</Check>
+              <Check checked={form.probation} onChange={(v) => set('probation', v)}>Có thời gian thử việc</Check>
             </div>
             {/* Lee 2026-11-08 승인(4번): 알바몬처럼 급여 칸 옆 계산기 링크 — 우리 계산기는 Gross ↔ Net(세후 환산)이라 이름 그대로 */}
             <a className="pj-calc" href="/tinh-luong" target="_blank" rel="noopener">Tính lương Gross ↔ Net ›</a>
@@ -704,13 +777,24 @@ export function PostJob() {
             </div>
             {quickGuestMode && <p className="pj-hint">• Đăng nhanh: để trống = hết hạn sau 7 ngày.</p>}
           </Row>
+          <Row label="Cách ứng tuyển">
+            <div className="pj-chips" role="group" aria-label="Cách ứng tuyển">
+              {APPLY_METHODS.map((t) => (
+                <button key={t} type="button" aria-pressed={form.applyMethods.includes(t)}
+                  onClick={() => set('applyMethods', form.applyMethods.includes(t) ? form.applyMethods.filter((x) => x !== t) : APPLY_METHODS.filter((x) => x === t || form.applyMethods.includes(x)))}>{t}</button>
+              ))}
+            </div>
+          </Row>
           <Row label="Quy trình tuyển dụng">
             <input className="pj-input" value={form.process} onChange={(e) => set('process', e.target.value)} placeholder="Ví dụ: Phỏng vấn trực tiếp, mang CCCD (tuỳ chọn)" />
           </Row>
         </section>
 
         <section className="pj-sec" id="pj-s5">
-          <h2 className="pj-sec__h">Người liên hệ</h2>
+          <h2 className="pj-sec__h pj-sec__h--act">Người liên hệ<button type="button" className="pj-btn-line" onClick={saveContact}>Lưu thông tin người liên hệ</button></h2>
+          <Row label="Tên người liên hệ">
+            <input className="pj-input" style={{ width: 320 }} value={form.contactName} onChange={(e) => set('contactName', e.target.value)} placeholder="Ví dụ: Chị Lan" />
+          </Row>
           <Row label="Điện thoại" req>
             <div className="pj-line">
               <input ref={employerPhoneRef} className={`pj-input${phoneBad ? ' pj-input--bad' : ''}`} style={{ width: 320 }} value={form.employerPhone}
@@ -747,6 +831,7 @@ export function PostJob() {
           <button type="button" className="pj-bar__ghost" disabled={submitting}
             onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }}>Xoá form</button>
           <button type="button" className="pj-bar__ghost" disabled={submitting} onClick={saveDraft}>Lưu tạm</button>
+          <button type="button" className="pj-bar__ghost" disabled={submitting} onClick={() => openPreview(window.innerWidth < 761)}>Xem trước</button>
           <button type="submit" className="pj-bar__main" disabled={submitting || employerCheck === 'checking'}>{submitting ? 'Đang đăng...' : 'Đăng tin'}</button>
         </div>
       </form>
@@ -764,7 +849,32 @@ export function PostJob() {
             </li>
           ))}
         </ul>
+        <div className="pj-side__pv">
+          <button type="button" onClick={() => openPreview(false)}><b>Xem trước</b><span>PC</span></button>
+          <button type="button" onClick={() => openPreview(true)}><b>Xem trước</b><span>Mobile</span></button>
+        </div>
       </aside>
+      {prefOpen && (
+        <div className="pj-modal" role="dialog" aria-modal aria-label="Điều kiện ưu tiên" onClick={(e) => { if (e.target === e.currentTarget) setPrefOpen(false) }}>
+          <section className="pj-modal__box">
+            <header className="pj-modal__h">
+              <button type="button" aria-label="Đóng" onClick={() => setPrefOpen(false)}>×</button>
+              <h1>Điều kiện ưu tiên</h1>
+            </header>
+            <div className="pj-pref">
+              {PREF_GROUPS.map((g, i) => (
+                <p key={i}>{g.map((t) => (
+                  <button key={t} type="button" aria-pressed={prefDraft.includes(t)} disabled={!prefDraft.includes(t) && prefDraft.length >= 7}
+                    onClick={() => setPrefDraft(prefDraft.includes(t) ? prefDraft.filter((x) => x !== t) : [...prefDraft, t])}>{t}</button>
+                ))}</p>
+              ))}
+            </div>
+            <div className="pj-pref__foot"><span><b>{prefDraft.length}</b>/7</span>
+              <button type="button" className="pj-btn-main" onClick={() => { set('prefPicks', prefDraft); setPrefOpen(false) }}>Áp dụng</button>
+            </div>
+          </section>
+        </div>
+      )}
       {toast && <div className="pj-toast" role="status">{toast}</div>}
     </div>
   )
