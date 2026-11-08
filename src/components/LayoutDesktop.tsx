@@ -399,7 +399,7 @@ export function Layout() {
                 <span className="header-top__tagline">Kết nối cơ hội, vươn xa tương lai</span>
               </span>
             </NavLink>
-            {/* Lee 2026-11-08 "촌스럽다 → 지금 바꿔": 알바몬처럼 로고 옆 검색 칸, 사용자·등록 버튼은 메뉴 줄 오른쪽 */}
+            {/* Lee 2026-11-08 "촌스럽다 → 지금 바꿔": 알바몬처럼 로고 옆 검색 칸. 사용자·등록 버튼은 원래 자리(첫 줄 오른쪽) — 로그인하면 버튼이 늘어 메뉴 줄에 두면 넘침 */}
             <form className="header-search" role="search" onSubmit={(e) => { e.preventDefault(); const q = headerQuery.trim(); navigate(q ? `/viec-lam/tim-kiem?q=${encodeURIComponent(q)}` : '/viec-lam/tim-kiem') }}>
               <input className="header-search__input" value={headerQuery} onChange={(e) => setHeaderQuery(e.target.value)}
                 placeholder="Tìm việc theo tên công việc, công ty..." aria-label="Tìm việc làm" />
@@ -407,6 +407,7 @@ export function Layout() {
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>
               </button>
             </form>
+            {headerActions}
           </div>
         </div>
 
@@ -544,7 +545,6 @@ export function Layout() {
                   })
               )}
             </nav>
-            {headerActions}
           </div>
         </div>
       </header>
