@@ -1,3 +1,8 @@
+## 2026-11-08 밤 — 봇 병합 뒤 검사·문서만 바뀐 커밋도 운영 검사 (Claude 밤 근무)
+- 발견: #565·#568(시험·문서만) 봇 병합 뒤 vercel-deploy가 workflow_dispatch로 돌아 "앱 변경 없음, 운영 그대로" 기록 단계(push 전용)를 건너뜀 → deploy-verify 시작 안 됨, 수동 시작 시 20분 대기 실패(#572).
+- 변경: .github/workflows/vercel-deploy.yml — 그 기록 단계를 workflow_dispatch에도 실행하고, dispatch일 때 deploy-verify를 시작.
+- 검증: YAML 읽기 확인. 실제 확인은 이 PR 병합 뒤 운영 검사 실행.
+
 ## 2026-11-08 밤 — 휴대폰 메인 검사(mobile-home) 고장 고침 #559 (Claude 밤 근무)
 - 요청: ai-team 이슈 #559(지도 못 그리는 휴대폰에서 안내 45초 안 보여 실패).
 - 원인: 11-05부터 WebGL이 없으면 안내 대신 대체 지도(RasterMapCanvas)를 그림. 안내는 바탕 그림을 못 받을 때만 나와 시험 기대가 낡음(화면 버그 아님). 11-05 fix/map-webgl-unavailable 실행부터 계속 실패.
@@ -49,9 +54,3 @@
 - 요청: Lee "OK"·"1"(NETCO 카드에 마스코트 아이콘 → 선명한 로고).
 - 변경: #519 job_brands.logo_url/logo_source_url/logo_sha256 + brand-logo.yml(공식 사이트 로고 받기·자동 맞춤·흰 그림 차단)·brand-logo-watch.yml(매달 비교). #520 brandImageUrl 한 곳(메뉴 PC·모바일·카드·상세), 검사표 그림 없는 브랜드 표시. #521 NETCO 두 줄 로고(Lee 제공).
 - 배포: migrations-apply 42363733255·42364745319, deploy-verify 42364873642 성공. 남은 것: 다른 브랜드 로고 그림은 아직 사이트 아이콘(검사표에 표시).
-
-## 2026-11-07 15:30 — 대표 사진·로고 자동 처리·Google 월 한도 (Claude)
-- 요청: Lee "1번 전체 수정"·"진행"·"Ok"·"전체 진행해"(#5599 NETCO 공용 사진 — 로고 검색 단계가 크롤러 경로에 없었음).
-- 원인 [직접 확인]: 로고·사진 검사는 수동 공고 파일 경로에만 연결. 페이스북 사진은 페북 서버 주소만 저장돼 화면(우리 저장소 사진만 허용, 10-06)에 안 나옴. Google 호출은 공고당 2번 제한뿐 월 한도 없음.
-- 변경: DB #516(external_api_limits/calls·external_api_reserve, local_jobs.company_domain 공개·logo_lookup 비공개·보호 트리거·job_logo_lookup_record, NETCO POST 브랜드 81지점) → migrations-apply 42352856500 성공. 코드 #517: 페북 사진(fbcdn) 우리 저장소 복사(ingest_gateway), 사진·브랜드 없으면 저장된 Google 결과의 웹사이트 아이콘(applyLogoLookup, 월 900), Google 위치 검색 월 4,500(4곳 모두), companyLogo 순서 브랜드→사진→웹사이트→공용, 검사표 「대표 사진·로고」(공개·연속 통과 영향 없음), CLAUDE.md 로고 절 한 줄.
-- 배포: deploy-verify 42354796132 성공. 기존 공고(15:50 이전)는 로고 찾기 대상 아님.

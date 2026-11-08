@@ -83,13 +83,17 @@ jobs:
           echo "- 운영 ${prod:0:7} → master ${GITHUB_SHA:0:7}, 앱 파일 차이 ${changed}개" >> "$GITHUB_STEP_SUMMARY"
           [ "$changed" -gt 0 ] && echo "go=1" >> "$GITHUB_OUTPUT" || echo "go=0" >> "$GITHUB_OUTPUT"
       - name: 앱 파일 변경 없음 → 배포 생략, 운영 그대로 기록
-        if: steps.need.outputs.go == '0' && steps.need.outputs.same != '1' && github.event_name == 'push'
+        # 봇 병합은 GITHUB_TOKEN이라 push가 아니라 workflow_dispatch로 이 파일을 부른다(bot-pr-automerge.yml).
+        # 그때도 "운영 그대로" 기록을 남기고 deploy-verify를 시작해야 검사·문서만 바뀐 병합도 운영 검사를 받는다(2026-11-08 #565·#568 사례).
+        if: steps.need.outputs.go == '0' && steps.need.outputs.same != '1' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |
           id=$(gh api "repos/${{ github.repository }}/deployments" -X POST -f ref="${{ github.sha }}" -f environment=Production \
             -F auto_merge=false -f 'required_contexts[]' -f description="앱 파일 변경 없음 — 운영 그대로(배포 생략, 한도 절약)" --jq .id)
           gh api "repos/${{ github.repository }}/deployments/$id/statuses" -X POST -f state=success \
             -f environment_url="${{ steps.need.outputs.url }}" -f description="No app changes; production unchanged" >/dev/null
           echo "- 배포 생략(앱 파일 변경 없음). 운영 그대로 기록" >> "$GITHUB_STEP_SUMMARY"
+          # push는 deploy-verify가 스스로 돈다. 수동·봇 병합(workflow_dispatch)은 여기서 시작한다.
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then gh workflow run deploy-verify.yml --repo "${{ github.repository }}" --ref master; fi
       - uses: actions/setup-node@v4
         if: steps.need.outputs.go == '1'
         with:
