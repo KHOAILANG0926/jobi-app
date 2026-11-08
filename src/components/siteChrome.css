@@ -54,8 +54,9 @@
   padding: 32px 0 40px; border: 0; border-top: 1px solid var(--ch-line); box-shadow: 0 0 0 100vmax #fff; clip-path: inset(0 -100vmax);
   animation: none; background: #fff;
 }
-.layout--d .mega-menu:not(.mega-menu--employer)::after {
-  content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 100vh; pointer-events: none;
+/* 아래 어둡게: 판(clip-path)에 잘리지 않게 열린 메뉴 칸에 붙이고 판보다 아래 층 */
+.layout--d .header-tab-wrap--open:has(> .mega-menu)::after {
+  content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 100vh; z-index: 99; pointer-events: none;
   background: rgba(0, 0, 0, .4); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .4); clip-path: inset(0 -100vmax -100vmax);
 }
 .layout--d .mega-menu__inner { width: auto; max-width: none; padding: 0; gap: 32px 56px; }
@@ -108,6 +109,8 @@
 .mega-menu--mobile .mega-menu__heading { margin: 0 0 10px; padding: 0; border: 0; font-size: 15px; font-weight: 700; color: var(--ch-ink); }
 .mega-menu--mobile .mega-menu__link { margin: 0; padding: 5px 0; font-size: 14px; color: var(--ch-sub); border-radius: 0; }
 .mega-menu--mobile .mega-menu__link:hover { background: none; color: var(--ch-ink); }
+.mega-menu--mobile .mega-menu__list--inline { gap: 0 14px; max-width: none; }
+.mega-menu--mobile .mega-menu__list--inline .mega-menu__link { padding: 5px 0; }
 
 /* ── 바닥(PC·휴대폰 공용, 알바몬 구성) ── */
 .layout__footer.site-footer { margin-top: 40px; border-top: 0; background: #fff; color: var(--ch-ink); font-size: 14px; }
