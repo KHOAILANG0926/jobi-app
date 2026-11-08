@@ -17,6 +17,8 @@ import { RECRUITMENT_LABELS, SHIFT_LABELS } from '../lib/jobConditions'
 import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, composeHours, composeLocation, composeSalary, normalizeVnPhone, type GenderChoice, type PayUnit } from '../lib/postJobForm'
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { PREVIEW_KEY } from '../lib/postJobPreview'
+import { AlbamonTemplateEditor } from '../components/template/AlbamonTemplate'
+import { sanitizeTemplateHtml } from '../lib/templateHtml'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 import type { JobCategory, ShiftType } from '../types/job'
 
@@ -38,6 +40,8 @@ const emptyForm = {
   breakMinutes: '',
   jobDuration: '',
   employmentType: '' as '' | 'full_time' | 'seasonal' | 'part_time',
+  // 알바몬처럼 고용형태 하나 더(최대 2개, Lee 2026-11-08) — local_jobs.employment_type_extra
+  employmentTypeExtra: '' as '' | 'contract' | 'internship' | 'collaborator',
   benefitTags: [] as string[],
   insurance: false,
   benefitOther: '',
@@ -182,6 +186,8 @@ export function PostJob() {
   // 임시저장(5번) — 저장 시각만 보여 주고 'Mở lại'를 눌러야 채운다(알바몬처럼 자동으로 덮어쓰지 않음)
   const [draftAt, setDraftAt] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  // 상세모집요강 간편 템플릿(Lee 2026-11-08 B안): 결과 모양 HTML → local_jobs.description_html, 상세 ④에 그대로
+  const [tplHtml, setTplHtml] = useState('')
   const [prefOpen, setPrefOpen] = useState(false)
   const [prefDraft, setPrefDraft] = useState<string[]>([])
   useEffect(() => {
@@ -249,6 +255,7 @@ export function PostJob() {
       location: composeLocation(form.street, form.ward, form.province, form.park) ?? [form.street, form.ward, form.province].filter(Boolean).join(', '),
       description: composeDescription({ work: form.work, overtime: form.overtime, environment: form.environment, process: processText(), benefitOther: form.benefitOther }) ?? '',
       hours: hours || undefined, jobDuration: form.jobDuration || undefined, employmentType: form.employmentType || undefined,
+      employmentTypeExtra: form.employmentTypeExtra || undefined, descriptionHtml: tplHtml || undefined,
       workDays: form.daysNegotiable ? 'Thỏa thuận' : (form.workDays.length ? form.workDays.join(', ') : undefined),
       benefitTags: form.benefitTags.length ? form.benefitTags : undefined,
       numHires: composeHires(form.hires, form.hiresUndecided, form.gender, form.genderMale, form.genderFemale) || undefined,
@@ -333,6 +340,8 @@ export function PostJob() {
         hours: hours!,
         jobDuration: form.jobDuration || undefined,
         employmentType: form.employmentType || undefined,
+        employmentTypeExtra: form.employmentTypeExtra || undefined,
+        descriptionHtml: sanitizeTemplateHtml(tplHtml) || undefined,
         workDays: form.daysNegotiable ? 'Thỏa thuận' : (form.workDays.length ? form.workDays.join(', ') : undefined),
         benefitTags: form.benefitTags.length ? form.benefitTags : undefined,
         numHires: hires!,
@@ -504,6 +513,7 @@ export function PostJob() {
     ['pj-s4', 'Hạn nộp · Cách ứng tuyển', form.ongoing || !!form.applicationDeadline || quickGuestMode],
     ['pj-s5', 'Người liên hệ', !!normalizeVnPhone(form.employerPhone)],
     ['pj-s6', 'Mô tả công việc', !!form.work.trim()],
+    ['pj-s7', 'Mô tả chi tiết', !!tplHtml],
   ]
   const goSection = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
@@ -570,7 +580,11 @@ export function PostJob() {
               ))}
               <button type="button" aria-pressed={conditions.recruitmentType === 'agency'}
                 onClick={() => setConditions((c) => ({ ...c, recruitmentType: c.recruitmentType === 'agency' ? null : 'agency' }))}>{RECRUITMENT_LABELS.agency}</button>
+              {([['contract', 'Hợp đồng'], ['internship', 'Thực tập'], ['collaborator', 'Cộng tác viên']] as const).map(([v, t]) => (
+                <button key={v} type="button" aria-pressed={form.employmentTypeExtra === v} onClick={() => set('employmentTypeExtra', form.employmentTypeExtra === v ? '' : v)}>{t}</button>
+              ))}
             </div>
+            <p className="pj-hint">Chọn 1 hình thức chính (Chính thức / Thời vụ / Part-time) và có thể thêm 1 hình thức khác.</p>
           </Row>
           <Row label="Số lượng tuyển" req>
             <div className="pj-line">
@@ -825,6 +839,16 @@ export function PostJob() {
           <Row label="Môi trường làm việc">
             <input className="pj-input" value={form.environment} onChange={(e) => set('environment', e.target.value)} placeholder="(tuỳ chọn)" />
           </Row>
+        </section>
+
+        <section className="pj-sec" id="pj-s7">
+          <h2 className="pj-sec__h">Mô tả chi tiết tuyển dụng</h2>
+          <p className="pj-hint">Không bắt buộc. Nếu viết bằng mẫu, trang tin sẽ hiển thị đúng như mẫu này.</p>
+          <AlbamonTemplateEditor company={form.company} onHtml={setTplHtml} outer={{
+            title: form.title, roles: [], period: form.jobDuration, days: form.workDays, start: form.timeStart, end: form.timeEnd,
+            benefits: benefitText, education: form.education, preferred: preferenceText(),
+            applyMethods: form.applyMethods.join(', '), contactName: form.contactName.trim(), contactPhone: form.employerPhone.trim(),
+          }} />
         </section>
 
         <div className="pj-bar">

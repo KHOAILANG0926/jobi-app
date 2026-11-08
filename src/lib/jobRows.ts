@@ -117,6 +117,8 @@ export function rowToJob(r: Record<string, unknown>, workLocations?: Job['workLo
     salaryBasis: (r.salary_basis as Job['salaryBasis'] | null | undefined) ?? undefined,
     salaryNote: (r.salary_note as string | null | undefined)?.trim() || undefined,
     employmentType: (r.employment_type as Job['employmentType'] | null | undefined) ?? undefined,
+    employmentTypeExtra: (r.employment_type_extra as Job['employmentTypeExtra'] | null | undefined) ?? undefined,
+    descriptionHtml: (r.description_html as string | null | undefined)?.trim() || undefined,
     rotatingShifts: (r.rotating_shifts as Job['rotatingShifts'] | null | undefined) ?? undefined,
     benefitTags: (r.benefit_tags as string[] | null | undefined)?.filter((t) => t?.trim()) ?? undefined,
     languageRequirement: summary?.languageRequirement ?? ((r.language_requirement as string | null | undefined)?.trim() || undefined),
@@ -165,7 +167,7 @@ export interface JobsQueryClient {
 }
 
 export const EMPLOYER_JOBS_SELECT_COLUMNS =
-  'id,title,company,category,subcategory,occupation_code,occupation_evidence,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,company_domain,source,work_period,job_duration,gender_requirement,age_requirement,age_min,age_max,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
+  'id,title,company,category,subcategory,occupation_code,occupation_evidence,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,admin_hidden,created_at,image_url,company_domain,source,work_period,job_duration,gender_requirement,age_requirement,age_min,age_max,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,employment_type_extra,description_html,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
 export const JOB_WORK_LOCATIONS_SELECT_COLUMNS =
   'id,job_id,raw_address,normalized_address,lat,lng,sort_order,address_accuracy,coordinate_accuracy,location_verified,point_kind,point_precision,point_evidence,point_revision,matched_recruitment_regions,geocode_status,resolved_province,resolved_wards,industrial_park,shuttle_route'
 

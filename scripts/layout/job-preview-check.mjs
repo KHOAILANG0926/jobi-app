@@ -1,4 +1,4 @@
-// Lee 2026-11-08 "3 적용": 공고 등록 '미리보기'가 저장 전 입력값을 상세 화면 틀 그대로 새 창에 보여 주고, 단추는 눌리지 않는지(PC·휴대폰).
+// Lee 2026-11-08 "3 적용"·5번 B안: 공고 등록 '미리보기'가 저장 전 입력값을 상세 화면 틀 그대로 새 창에 보여 주고, 단추는 눌리지 않는지(PC·휴대폰).
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 const base = (process.env.BASE_URL || 'http://localhost:4173').replace(/\/$/, '')
@@ -12,6 +12,9 @@ try {
     const title = 'Tuyển nhân viên phục vụ thử xem trước ' + name
     await page.locator('.pj input[maxlength="40"]').first().fill(title.slice(0, 40))
     await page.locator('.pj').getByRole('button', { name: 'Part-time', exact: true }).click()
+    // Lee 2026-11-08 B안: 간편 템플릿 '적용하기' → 미리보기 상세 ④가 템플릿 모양 그대로
+    page.on('dialog', (d) => d.accept())
+    await page.locator('.amt-apply__btn').click()
     const popupP = ctx.waitForEvent('page')
     await page.locator(button).first().click()
     const pop = await popupP
@@ -19,6 +22,8 @@ try {
     await pop.locator('.jd2-preview-note').waitFor()
     assert.equal((await pop.locator('h1.jd2-header__title').innerText()).trim(), title.slice(0, 40), 'preview shows typed title')
     assert.equal(await pop.locator('.jd2-page--v2').count(), 1, 'preview uses the latest detail frame')
+    await pop.locator('.jd2-template-doc .amt-pv').waitFor()
+    assert.equal(await pop.locator('.jd2-detail-sections').count(), 0, 'template replaces plain description lines')
     const pe = await pop.locator('.jd2-page--preview button').first().evaluate((el) => getComputedStyle(el).pointerEvents)
     assert.equal(pe, 'none', 'buttons are inert in preview')
     console.log('PASS job preview', name)

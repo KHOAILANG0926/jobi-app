@@ -12,7 +12,7 @@ export function SiteFooter() {
         <div className="site-footer__in site-footer__bar-in">
           <nav className="site-footer__help" aria-label="Hỗ trợ">
             <a href="/ho-tro">Câu hỏi thường gặp ›</a>
-            <a href="mailto:support@viecganban.vn">Liên hệ 1:1 ›</a>
+            <a href="/ho-tro?tab=hoi">Liên hệ 1:1 ›</a>
           </nav>
           <div className="site-footer__sns">
             <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="is-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d={FB} /></svg></a>

@@ -1,3 +1,4 @@
+// 2026-11-08: JobDetail.tsx — Lee B안("B로 바꾸고"·"마무리먼저"): 간편 템플릿으로 쓴 공고는 ④ 상세요강을 템플릿 모양 그대로(description_html), 추가 고용형태 이름. 다른 칸·KDA 틀 변경 없음.
 // 2026-11-08: JobDetail.tsx — Lee "3 적용": 공고 등록 미리보기용 previewJob 입력(/xem-truoc-tin, 단추 막힘·안내 한 줄). 공개 상세 화면 틀 변경 없음.
 // 2026-11-08: JobDetail.tsx — Lee "운영 링크만 빼고 통일": 문구 속 이름 Việc Gần Bạn → Việc gần Bạn(글자만). 틀 변경 없음.
 // 2026-11-08: LayoutDesktop.tsx — Lee "로고는 하나로 맞춰 브라우저 탭으로": 머리 줄 로고 글자 Việcganban → Việc gần Bạn. 틀 변경 없음.
@@ -101,7 +102,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "91352fc4b34e708789bf2987301a5ea5169bc3aeabd3f0d0a3f56aeaccdc4ca0",
+    "sha256": "f9fd4e5376440a2f29e6a4fe152ae6e6eabadf27bbe50f16e11ca750ddf58d70",
     "restore": []
   },
   {

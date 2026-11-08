@@ -30,7 +30,7 @@ import { useBrandsOptional } from '../context/BrandsContext'
 import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, EMPLOYMENT_TYPE_EXTRA_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
 import { contactHostFor, balanceConditionColumns, detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines, roleSalaryRows } from '../lib/jobRolePresentation'
 import { insuranceTags } from '../lib/jobQuyenLoi'
@@ -42,6 +42,8 @@ import { isWideAreaAddress } from '../lib/addressParse'
 import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
+import { sanitizeTemplateHtml } from '../lib/templateHtml'
+import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
 import { mealLabel } from '../lib/mealBenefit'
@@ -154,6 +156,9 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     return () => { cancelled = true }
   }, [publicJob, jobsLoading, id, user])
   const job = previewJob ?? publicJob ?? adminPreview ?? undefined
+  // Lee 2026-11-08 B안: 간편 템플릿으로 쓴 공고는 ④ 상세요강을 그 모양 그대로. 서버 화면(SSR)과 어긋나지 않게 화면이 뜬 뒤에 정리해서 넣는다.
+  const [templateHtml, setTemplateHtml] = useState('')
+  useEffect(() => { setTemplateHtml(sanitizeTemplateHtml(job?.descriptionHtml)) }, [job?.descriptionHtml])
   // 목록의 '연락 방법 보기'(#lien-he)로 들어오면 로그인 없이 연락 안내로 바로 이동(2026-09-30)
   const location = useLocation()
   useEffect(() => {
@@ -384,7 +389,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const contact = contactOf(job)
   const shift = shiftLabel(job)
   const weekend = weekendLabel(job.weekendWork)
-  const employmentText = roleSummary?.workPeriod ?? (sourceRoles.workTypes.length > 1 ? sourceRoles.workTypes.join(' / ') : (job.employmentType ? EMPLOYMENT_TYPE_LABEL[job.employmentType] : workPeriodText ?? sourceRoles.workTypes[0]))
+  const employmentText = roleSummary?.workPeriod ?? (sourceRoles.workTypes.length > 1 ? sourceRoles.workTypes.join(' / ') : (job.employmentType ? [EMPLOYMENT_TYPE_LABEL[job.employmentType], job.employmentTypeExtra && EMPLOYMENT_TYPE_EXTRA_LABEL[job.employmentTypeExtra]].filter(Boolean).join(' · ') : workPeriodText ?? sourceRoles.workTypes[0]))
   const otherJobsOfCompany = isGenericCompanyName(job.company) ? [] : jobs
     .filter((j) => j.id !== job.id && companyKeyFromName(j.company) === companyKeyFromName(job.company))
     .slice(0, 5)
@@ -565,7 +570,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
     albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
-  const showDescriptionSection = descriptionSections.length > 0 || extraImages.length > 0
+  const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
 
@@ -996,7 +1001,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           {showDescriptionSection && (
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
-            {descriptionSections.length > 0 && (
+            {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
               <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
                 {descriptionSections.map((section) => (
                   <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
