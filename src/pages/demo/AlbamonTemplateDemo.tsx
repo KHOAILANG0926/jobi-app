@@ -9,6 +9,7 @@ import {
   type OuterForm, type SectionKey, type TemplateInfo,
 } from '../../lib/albamonTemplate'
 import './AlbamonTemplateDemo.css'
+import { PostJob } from '../PostJob'
 
 type BodyKey = Exclude<SectionKey, 'logo' | 'roles'>
 type EtcKey = 'etc1' | 'etc2' | 'etc3' | 'etc4'
@@ -292,7 +293,8 @@ function openPreview(html: string, mobile: boolean): boolean {
 const emptyBodies = (): Record<BodyKey, string> => ({ work: '', support: '', apply: '', contact: '', etc1: '', etc2: '', etc3: '', etc4: '' })
 const startOn = (): Record<SectionKey, boolean> => ({ logo: true, roles: true, work: true, support: true, apply: true, contact: false, etc1: false, etc2: false, etc3: false, etc4: false })
 
-export default function AlbamonTemplateDemo() {
+// 공고 등록 화면(PostJob) 맨 아래 '상세모집요강' 자리에 들어간다. outer = 위에서 입력한 값(적용하기에 씀), company = 기업정보 회사 이름.
+export function AlbamonTemplateEditor({ outer = FORM, company = '' }: { outer?: OuterForm; company?: string }) {
   const [tplId, setTplId] = useState(41)
   const tpl = TEMPLATES.find((t) => t.id === tplId) ?? TEMPLATES[0]
   const [colorId, setColorId] = useState(tpl.color)
@@ -321,7 +323,7 @@ export default function AlbamonTemplateDemo() {
 
   const pick = (t: TemplateInfo) => { setTplId(t.id); setColorId(t.color); setPage(TEMPLATE_CATEGORIES.indexOf(t.category)) }
   const pageTemplates = TEMPLATES.filter((t) => t.category === TEMPLATE_CATEGORIES[page])
-  const s: DocState = { tpl, colorId, on, extras, company: 'Công ty mẫu', title, desc, colHeads, roles, bodies, etcTitles }
+  const s: DocState = { tpl, colorId, on, extras, company: company.trim() || 'Tên công ty', title, desc, colHeads, roles, bodies, etcTitles }
   const set: DocSetters = {
     title: setTitle, desc: setDesc, colHeads: setColHeads, roles: setRoles,
     body: (k, v) => setBodies((b) => ({ ...b, [k]: v })),
@@ -329,9 +331,11 @@ export default function AlbamonTemplateDemo() {
     remove: (k) => setOn((o) => ({ ...o, [k]: false })),
   }
   // '현재 입력한 조건으로 상세모집요강에 적용하기'(확인 없이 바로): 모집부문 업무칸 + 근무·지원·접수·담당자 칸을 이름표로 채운다. 제목·급여는 넣지 않는다.
+  // 알바몬 확인: 공고제목이 사진 위 제목으로 들어가고(평소에는 따로), 모집분야가 있으면 표 줄 이름이 된다.
   const applyForm = () => {
-    setRoles((rs) => rs.map((r) => ({ ...r, duties: ROLE_DUTY_DEFAULT })))
-    setBodies((b) => ({ ...b, work: bodyFromForm('work', FORM), support: bodyFromForm('support', FORM), apply: bodyFromForm('apply', FORM), contact: bodyFromForm('contact', FORM) }))
+    setTitle(outer.title)
+    setRoles((rs) => outer.roles.length ? outer.roles.map((name) => ({ name, duties: ROLE_DUTY_DEFAULT })) : rs.map((r) => ({ ...r, duties: ROLE_DUTY_DEFAULT })))
+    setBodies((b) => ({ ...b, work: bodyFromForm('work', outer), support: bodyFromForm('support', outer), apply: bodyFromForm('apply', outer), contact: bodyFromForm('contact', outer) }))
     setVersion((v) => v + 1)
   }
   // 탭 이동(알바몬과 같은 확인 문구). 간편! 템플릿으로 돌아오면 처음 상태에 바깥 조건이 채워지고, 직접입력은 빈 칸에서 시작한다.
@@ -341,7 +345,7 @@ export default function AlbamonTemplateDemo() {
     if (next === 'template') {
       setOn(startOn()); setExtras([]); setTitle(''); setDesc(''); setColHeads(['Vị trí tuyển dụng', 'Công việc và yêu cầu'])
       setRoles([{ name: '', duties: ROLE_DUTY_DEFAULT }, { name: '', duties: ROLE_DUTY_DEFAULT }])
-      setBodies({ ...emptyBodies(), work: bodyFromForm('work', FORM), support: bodyFromForm('support', FORM), apply: bodyFromForm('apply', FORM), contact: bodyFromForm('contact', FORM) })
+      setBodies({ ...emptyBodies(), work: bodyFromForm('work', outer), support: bodyFromForm('support', outer), apply: bodyFromForm('apply', outer), contact: bodyFromForm('contact', outer) })
       setEtcTitles({ etc1: '', etc2: '', etc3: '', etc4: '' }); setVersion((v) => v + 1)
     } else setDirectText('')
     setTab(next)
@@ -387,7 +391,7 @@ export default function AlbamonTemplateDemo() {
   )
 
   return (
-    <div className="amt">
+    <div className="amt amt--embed">
       <div className="amt-apply">
         <button type="button" className="amt-apply__btn" onClick={applyForm}>
           <Chevrons /><span><small>Áp dụng các điều kiện đã nhập</small><b>vào mô tả chi tiết tuyển dụng</b></span><Chevrons />
@@ -591,4 +595,9 @@ export default function AlbamonTemplateDemo() {
       )}
     </div>
   )
+}
+
+// 데모 화면: 우리 공고 등록 화면(/dang-tin과 같은 PostJob) 위쪽 그대로 + 맨 아래 상세모집요강 = 알바몬 간편 템플릿. 등록은 막혀 있다.
+export default function AlbamonTemplateDemo() {
+  return <PostJob detailSlot={(outer, company) => <AlbamonTemplateEditor outer={outer} company={company} />} />
 }

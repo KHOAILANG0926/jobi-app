@@ -290,3 +290,7 @@ body.amt-pvwin .amt-pv { margin-left: 27px; }
   .amt-all__top select { width: 140px; }
   .amt-modal__body--white .amt-pv { width: auto; }
 }
+
+/* 공고 등록 화면(.pj) 안에 들어갈 때 */
+.amt.amt--embed { max-width: none; padding: 0 0 56px; font-size: 14px; }
+@media (max-width: 1060px) { .amt.amt--embed { padding: 0 0 40px; } }

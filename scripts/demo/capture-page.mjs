@@ -16,10 +16,15 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
   await page.waitForTimeout(1500)
   const shot = (n, full = true) => page.screenshot({ path: `out/page-${name}-${n}.png`, fullPage: full })
   const click = async (sel) => { const l = page.locator(sel).first(); if (await l.count() && await l.isVisible()) await l.click().catch((e) => errors.push(`click ${sel}: ${e.message.slice(0, 80)}`)); else errors.push(`missing ${sel}`) }
-  await shot('01-start')
-  // 적용하기 → 제목·첫 글칸 입력
+  await shot('00-page')
+  // 위 공고 등록 칸 일부 입력 → 적용하기
+  await page.locator('.pj input[maxlength="40"]').first().fill('Tuyển nhân viên phục vụ').catch((e) => errors.push('pj title ' + e.message.slice(0, 60)))
+  await page.locator('.pj-days button').first().click().catch(() => {})
+  await page.locator('.amt-apply').scrollIntoViewIfNeeded().catch(() => {})
+  await page.screenshot({ path: `out/page-${name}-01-start.png` })
   await click('.amt-apply__btn')
-  await page.locator('.amt-visual__title textarea').fill('Tuyển nhân viên phục vụ').catch((e) => errors.push('title ' + e.message.slice(0, 60)))
+  await page.waitForTimeout(300)
+  dialogs.push('heroTitle=' + await page.locator('.amt-visual__title textarea').inputValue().catch(() => '?'))
   await page.locator('.amt-tbl td textarea').first().fill('Phục vụ').catch(() => {})
   await page.waitForTimeout(400)
   if (name === 'pc') {

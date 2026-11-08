@@ -18,6 +18,7 @@ import { BENEFIT_TAG_OPTIONS, composeAge, composeDescription, composeHires, comp
 import type { PinPoint } from '../components/job-form/LocationPinPicker'
 import { EMPTY_CONDITIONS, type JobConditions } from '../lib/jobConditions'
 import type { JobCategory, ShiftType } from '../types/job'
+import type { OuterForm } from '../lib/albamonTemplate'
 
 // 2026-10-30 Lee: 공고 작성 체크리스트 순서(① 근무조건 ② 모집조건 ③ 근무지역 ④ 상세요강). 필수 9개 = 급여·근무시간·고용형태·업직종·모집마감·모집인원·주소·업무 내용·연락처.
 const emptyForm = {
@@ -97,7 +98,9 @@ const Check = ({ checked, onChange, children }: { checked: boolean; onChange: (v
 
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 
-export function PostJob() {
+// detailSlot: 데모(/demo/mau-nhanh) 전용 — 맨 아래 '상세모집요강' 자리에 알바몬 간편 템플릿을 넣는다. 없으면(운영 /dang-tin) 화면·동작 그대로.
+// 데모에서는 실제로 등록하지 않는다(가짜 공고 공개 금지).
+export function PostJob({ detailSlot }: { detailSlot?: (outer: OuterForm, company: string) => ReactNode } = {}) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { addPostedJob } = useJobs()
@@ -184,6 +187,7 @@ export function PostJob() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    if (detailSlot) { setError('Đây là bản demo — tin không được đăng.'); return }
 
     const salary = composeSalary(form.salaryAmount, form.salaryUnit, form.salaryNegotiable)
     const hours = form.hoursNegotiable ? 'Thỏa thuận' : composeHours(form.timeStart, form.timeEnd, form.breakMinutes)
@@ -691,6 +695,12 @@ export function PostJob() {
           </Row>
         </section>
 
+        {detailSlot ? detailSlot({
+          title: form.title, roles: [], period: form.jobDuration, days: form.workDays, start: form.timeStart, end: form.timeEnd,
+          benefits: benefitText, education: form.education, preferred: form.preference,
+          applyMethods: [form.employerPhone.trim() && 'Gọi điện', (form.zaloSameAsPhone ? form.employerPhone.trim() : form.zalo.trim()) && 'Zalo'].filter(Boolean).join(', '),
+          contactName: '', contactPhone: form.employerPhone.trim(),
+        }, form.company) : (
         <section className="pj-sec">
           <h2 className="pj-sec__h">Mô tả công việc</h2>
           <Row label="Nội dung công việc" req>
@@ -703,6 +713,7 @@ export function PostJob() {
             <input className="pj-input" value={form.environment} onChange={(e) => set('environment', e.target.value)} placeholder="(tuỳ chọn)" />
           </Row>
         </section>
+        )}
 
         <div className="pj-bar">
           <button type="button" className="pj-bar__ghost" disabled={submitting}
