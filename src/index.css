@@ -38,7 +38,8 @@ body {
   font-size: 16px;
   line-height: 1.5;
   color: var(--color-text);
-  background: #f7f7f7;
+  /* Lee 2026-11-08: 바탕 흰색(알바몬 기준). 예전 #f7f7f7 */
+  background: #fff;
   -webkit-font-smoothing: antialiased;
 }
 
