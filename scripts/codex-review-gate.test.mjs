@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { codexGate, REPLY_MARKER, WAIT_MIN } from './codex-review-gate.mjs'
 
 const sha = 'abc123', headDate = '2026-11-08T16:00:00Z'
-const codex = { login: 'chatgpt-codex-connector[bot]' }, claude = { login: 'claude[bot]' }, stranger = { login: 'random-user' }
+const codex = { login: 'chatgpt-codex-connector[bot]', type: 'Bot' }, claude = { login: 'claude[bot]' }, stranger = { login: 'random-user' }
 const at = (min) => new Date(Date.parse(headDate) + min * 60000)
 const base = { reviews: [], reviewComments: [], comments: [], sha, headDate }
 
@@ -29,4 +29,8 @@ assert.equal(codexGate({ ...base, comments: [summary('other', false)], now: at(5
 assert.equal(codexGate({ ...base, comments: [summary(sha, true), { user: { login: 'KHOAILANG0926' }, body: `${REPLY_MARKER} 근거`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude session reply (Lee account) accepted')
 // Codex #566 지적: 요약만 있는 지적에 예전 답(요약 갱신 전)을 재사용하지 않는다
 assert.equal(codexGate({ ...base, comments: [{ user: claude, body: `${REPLY_MARKER} 예전 커밋 답`, created_at: '2026-11-08T16:10:00Z' }, summary(sha, true)], now: at(30) }).ok, false, 'old reply before summary update does not count')
+// Codex #566 지적: 이름에 codex가 든 가짜 계정의 '통과' 요약은 무시(진짜 미해결 요약을 덮지 못함)
+const fake = { ...summary(sha, false), user: { login: 'random-codex-user', type: 'User' }, updated_at: '2026-11-08T16:20:00Z' }
+assert.equal(codexGate({ ...base, comments: [summary(sha, true), fake], now: at(30) }).ok, false, 'forged finding-free summary from look-alike account ignored')
+assert.equal(codexGate({ ...base, reviews: [{ ...rv[0], user: { login: 'random-codex-user', type: 'User' } }], now: at(11) }).ok, false, 'look-alike reviewer is not Codex')
 console.log('codex-review-gate: all assertions passed')

@@ -8,7 +8,9 @@
 export const WAIT_MIN = 30
 export const REPLY_MARKER = '<!-- claude-codex-reply -->'
 export const REPLY_AUTHORS = new Set(['claude[bot]', 'KHOAILANG0926'])
-export const isCodex = (u) => /codex/i.test(String(u?.login ?? ''))
+// 진짜 Codex 검사관 봇 계정만(Codex #566 지적: 이름에 codex가 든 아무 계정이나 인정하면 가짜 요약으로 통과 가능).
+export const CODEX_LOGIN = 'chatgpt-codex-connector[bot]'
+export const isCodex = (u) => String(u?.login ?? '') === CODEX_LOGIN && (u?.type === undefined || u.type === 'Bot')
 
 /** Codex 요약 댓글(<!-- codex-review-state:v1 {...} -->)의 code_review 상태 + 그 댓글이 마지막으로 바뀐 시각(at). 없으면 null. */
 export function codexSummary(comments) {
