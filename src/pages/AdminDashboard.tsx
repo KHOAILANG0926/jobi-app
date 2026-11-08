@@ -10,13 +10,14 @@ import { AdminJobs } from '../components/admin/AdminJobs'
 import { AdminUsers } from '../components/admin/AdminUsers'
 import { AdminBrands } from '../components/admin/AdminBrands'
 import { AdminReports } from '../components/admin/AdminReports'
+import { AdminInquiries } from '../components/admin/AdminInquiries'
 import { AdminAuditLogs } from '../components/admin/AdminAuditLogs'
 import { AdminLocations } from '../components/admin/AdminLocations'
 import { listAdminJobs, listAdminUsers } from '../lib/adminOperations'
 import { CATEGORY_ICONS, CATEGORY_LABELS as CATEGORY_NAME_LABELS } from '../data/categories'
 
-type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'locations' | 'audit'
-const ADMIN_TABS: readonly Tab[] = ['dashboard', 'jobs', 'users', 'brands', 'reports', 'locations', 'audit']
+type Tab = 'dashboard' | 'jobs' | 'users' | 'brands' | 'reports' | 'inquiries' | 'locations' | 'audit'
+const ADMIN_TABS: readonly Tab[] = ['dashboard', 'jobs', 'users', 'brands', 'reports', 'inquiries', 'locations', 'audit']
 
 interface Stats {
   koreaJobs: number
@@ -294,7 +295,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
 
       {/* Tabs */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex' }}>
-        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['locations', '📍 Vị trí'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
+        {([['dashboard', '📊 Dashboard'], ['jobs', '📋 Jobs'], ['users', '👥 Users'], ['brands', '🏷️ Brands'], ['reports', '🚩 Reports'], ['inquiries', '💬 Hỏi đáp 1:1'], ['locations', '📍 Vị trí'], ['audit', '🧾 Audit Logs']] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '14px 24px', fontSize: '14px', fontWeight: tab === t ? 700 : 400,
             color: tab === t ? '#e74c3c' : '#666', background: 'none', border: 'none',
@@ -620,6 +621,7 @@ Trả về JSON với các trường sau (nếu không tìm thấy thì để ch
         {tab === 'users' && <AdminUsers initialRole={usersView} />}
         {tab === 'brands' && <AdminBrands />}
         {tab === 'reports' && <AdminReports />}
+        {tab === 'inquiries' && <AdminInquiries />}
         {tab === 'locations' && <AdminLocations />}
         {tab === 'audit' && <AdminAuditLogs />}
       </div>

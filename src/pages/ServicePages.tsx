@@ -1,7 +1,7 @@
 // 알바몬 화면을 따라 한 서비스 화면(Lee 2026-11-08 데모 승인 1~3번 "이거먼저"): 테마 채용관(/chu-de/:slug) · 고객센터 FAQ·공지(/ho-tro) · 벽보 제작(/lam-poster).
 // 목록 표는 이미 승인된 우리 부품(JobsTable·JobsListToolbar)을 그대로 쓴다. 저장·전송 없음, DB 변경 없음.
 // /viec-lam/* 는 Vercel이 SSR 상세로 보내므로 이 화면들은 그 밖의 주소를 쓴다.
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import JobsListToolbar from '../components/JobsListToolbar'
 import JobsTable, { type JobsTableRow } from '../components/JobsTable'
@@ -12,6 +12,7 @@ import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
 import { JOB_REGIONS, jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../lib/jobsListView'
 import type { Job, JobCategory } from '../types/job'
+import { supabase } from '../lib/supabase'
 import './ServicePages.css'
 
 const shortDate = (iso?: string) => { if (!iso) return undefined; const d = new Date(iso); return Number.isNaN(d.getTime()) ? undefined : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
@@ -116,9 +117,51 @@ const FAQ_EMPLOYER: Faq[] = [
   { cat: 'Quản lý tin', q: 'Sửa hoặc ngừng đăng tin ở đâu?', a: 'Tài khoản nhà tuyển dụng: vào Bảng điều khiển. Đăng nhanh không tài khoản: mở link quản lý tin đã nhận lúc đăng.' },
   { cat: 'Ứng viên', q: 'Xem ứng viên đã ứng tuyển ở đâu?', a: 'Trong Bảng điều khiển nhà tuyển dụng, mục ứng viên của từng tin; có thể nhắn tin và hẹn phỏng vấn.' },
 ]
+// Lee 2026-11-08 6번: 고객센터 1:1 문의(알바몬 '1:1 문의'). public.support_inquiries에 넣기만(읽기·처리는 관리자 화면).
+const ASK_CATEGORIES = ['Ứng tuyển', 'Đăng tin', 'Tài khoản', 'Báo cáo tin sai', 'Khác']
+function AskForm() {
+  const { user } = useAuth()
+  const [who, setWho] = useState<'seeker' | 'employer'>('seeker')
+  const [cat, setCat] = useState(ASK_CATEGORIES[0])
+  const [name, setName] = useState(user?.name ?? '')
+  const [contact, setContact] = useState('')
+  const [message, setMessage] = useState('')
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  const [err, setErr] = useState('')
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return setErr('Vui lòng nhập họ tên.')
+    if (contact.trim().length < 3) return setErr('Vui lòng nhập số điện thoại, Zalo hoặc email để chúng tôi trả lời.')
+    if (message.trim().length < 5) return setErr('Vui lòng nhập nội dung câu hỏi (ít nhất 5 ký tự).')
+    setErr(''); setState('sending')
+    const { error } = await supabase.from('support_inquiries').insert({ audience: who, category: cat, name: name.trim().slice(0, 100), contact: contact.trim().slice(0, 200), message: message.trim().slice(0, 4000) })
+    if (error) { setState('error'); setErr('Gửi chưa được. Vui lòng thử lại sau.'); return }
+    setState('done')
+  }
+  if (state === 'done') return (
+    <div className="ad-ask__done"><h1 className="ad-cs__title">Đã gửi câu hỏi</h1><p>Chúng tôi sẽ trả lời qua liên hệ bạn đã để lại.</p>
+      <button type="button" className="ad-btn-line" onClick={() => { setMessage(''); setState('idle') }}>Gửi câu hỏi khác</button></div>
+  )
+  return (
+    <form className="ad-ask" onSubmit={submit} noValidate>
+      <h1 className="ad-cs__title">Hỏi đáp 1:1</h1>
+      <div className="ad-cs__tabs">
+        <button type="button" className={who === 'seeker' ? 'is-on' : ''} onClick={() => setWho('seeker')}>Người tìm việc</button>
+        <button type="button" className={who === 'employer' ? 'is-on' : ''} onClick={() => setWho('employer')}>Nhà tuyển dụng</button>
+      </div>
+      <label>Phân loại<select value={cat} onChange={(e) => setCat(e.target.value)}>{ASK_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></label>
+      <label>Họ tên<input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} /></label>
+      <label>Liên hệ để trả lời<input value={contact} maxLength={200} onChange={(e) => setContact(e.target.value)} placeholder="Số điện thoại, Zalo hoặc email" /></label>
+      <label>Nội dung<textarea value={message} maxLength={4000} rows={7} onChange={(e) => setMessage(e.target.value)} placeholder="Nhập câu hỏi của bạn" /><small>{message.length}/4000</small></label>
+      {err && <p className="ad-ask__err" role="alert">{err}</p>}
+      <button type="submit" className="ad-btn-main" disabled={state === 'sending'}>{state === 'sending' ? 'Đang gửi...' : 'Gửi câu hỏi'}</button>
+    </form>
+  )
+}
+
 export function HelpCenterPage() {
   const [params] = useSearchParams()
-  const [tab, setTab] = useState<'faq' | 'notice'>(params.get('tab') === 'thong-bao' ? 'notice' : 'faq')
+  const [tab, setTab] = useState<'faq' | 'notice' | 'ask'>(params.get('tab') === 'thong-bao' ? 'notice' : params.get('tab') === 'hoi' ? 'ask' : 'faq')
   const [who, setWho] = useState<'seeker' | 'employer'>('seeker')
   const [fcat, setFcat] = useState('')
   const [q, setQ] = useState('')
@@ -130,8 +173,9 @@ export function HelpCenterPage() {
       <div className="ad-cs__menu">
         <button type="button" className={tab === 'faq' ? 'is-on' : ''} onClick={() => setTab('faq')}>Câu hỏi thường gặp</button>
         <button type="button" className={tab === 'notice' ? 'is-on' : ''} onClick={() => setTab('notice')}>Thông báo</button>
+        <button type="button" className={tab === 'ask' ? 'is-on' : ''} onClick={() => setTab('ask')}>Hỏi đáp 1:1</button>
       </div>
-      {tab === 'faq' ? (
+      {tab === 'ask' ? <AskForm /> : tab === 'faq' ? (
         <>
           <h1 className="ad-cs__title">Câu hỏi thường gặp</h1>
           <div className="ad-cs__tabs">

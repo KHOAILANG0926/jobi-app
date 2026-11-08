@@ -1,3 +1,10 @@
+## 2026-11-08 — 간편 템플릿 B안·1:1 문의·추가 고용형태 (Claude)
+- 요청: Lee "3,4,5,6적용" → 5번 "B로 바꾸고 데모 먼저"(데모 demo/template-detail) → "마무리먼저".
+- DB(#552, 추가만): local_jobs.description_html·employment_type_extra(공개 조회), support_inquiries(넣기 누구나, 읽기·처리 관리자, RLS).
+- 화면: 공고 등록 맨 아래 'Mô tả chi tiết tuyển dụng' = 간편 템플릿(78틀, 전용 사진 없는 57틀은 같은 업종 우리 사진 임시) → 결과 HTML 저장, 상세 ④가 그 모양 그대로(화면 뜬 뒤 정리해 넣음, 휴대폰은 모바일 틀 크기). 고용형태 하나 더(Hợp đồng·Thực tập·Cộng tác viên). /ho-tro 'Hỏi đáp 1:1' 작성·바닥 'Liên hệ 1:1' 연결, 관리자 '💬 Hỏi đáp 1:1' 탭.
+- 시험: job-preview-check(템플릿 → 미리보기 ④), jobSchema 38칸.
+- 남은 것: 알바몬 원본 템플릿 사진 출처·사용 조건 확인(브라우저 연결 필요), 에디터 탭(패키지 설치 필요), 상세 AI 배경(다음 작업).
+
 ## 2026-11-08 — 공고 등록 미리보기·입력 칸 추가(알바몬 3·4번) (Claude)
 - 요청: Lee "3,4,5,6적용" — 이 PR은 DB 없는 3번·4번(고용형태 3개 추가 제외).
 - 변경: PostJob 미리보기 PC·Mobile(오른쪽 상자·아래 막대) → /xem-truoc-tin 새 창이 JobDetail(previewJob)로 저장 전 입력값을 그대로 보여 줌(단추 막힘). 입력 칸: Không cần kinh nghiệm·Có thể đi làm cùng bạn bè·우대조건 선택 창(7개)·근무기간 Thỏa thuận·Phụ cấp ăn riêng·Có thời gian thử việc·Cách ứng tuyển·Tên người liên hệ(+저장). DB 새 칸 없이 preference·salary_note·상세요강 '채용 절차'에 넣음.
@@ -49,10 +56,3 @@
 - 변경: src/lib/addressReader.ts(① 이름표 줄 ② 이름표 없는 줄(끝 칸 원래 성 63곳) ③ 동·구·도로 조각, 옛 규칙 그대로 옮김) + addressReader.test.ts(#5157·#5599·FUSHAN 사례). locationPrecheck가 주소 칸 없으면 source_text를 이 함수로 읽어 "주소, 지역" 확인·응답(location). ingest_gateway가 원문을 보내고 응답 위치를 공고 위치로 저장. 페이스북 수집기의 주소 읽기 삭제. 다시 수집(refresh_facebook_existing)은 location-hook read_address(지도 조회 없음). CLAUDE.md 「수집 첫 단계」 절·RULES_CORE 한 줄.
 - 수평 전개: 원문에서 주소를 읽는 곳은 페이스북 수집기뿐(고침). crawl_topcv·job_quality는 사이트 주소 칸 정리(그대로 먼저 씀). jobDetailFill/jobDetailSections는 주소 줄을 상세요강에서 빼는 용도(해당 없음). 관리자·Lee 제공(ops-insert-job)은 위치 확인 미연결(기존과 같음).
 - 검증: addressReader·locationPrecheck·location-hook 시험, test_facebook_quality 28/28, test_ingest_gateway, test_job_quality 21/21(로컬). tsc/build는 CI.
-
-## 2026-11-07 13:00 — 수평 전개: 핀 정확도 기준·이름표 없는 주소 줄 (Claude)
-- 요청: Lee "수평 전개 진행해"(#5599 NETCO POST: 근무지역 "Bắc Ninh"만, 검사표 핀 "정확한 위치" vs 화면 "대략 위치").
-- 원인 [직접 확인]: ① crawler/crawl_facebook.py extract_district가 "Địa điểm:/Địa chỉ:" 줄·quận/phường/đường/khu 낱말만 읽음(10-31 #5157 땜질) ② scripts/ops/job-inspect.mjs가 좌표 있으면 exact(10-25 작성, 10-26 핀 종류·10-28 대략 핀 좌표 뒤 미반영).
-- 수평 전개(핀 정확도 판단하는 곳): 화면 src/lib/jobCoords.ts·mapR1.ts(exact+verified, 기준) / 검사표 job-inspect.mjs(고침) / 중복 판정 dedupe_private.precise_points(exact 미확인도 정확으로 봄 — migration 별도, 승인 필요) / api/map-locations.js·locationLevel.ts(종류만 전달·located 판정, 해당 없음) / locationPrecheck.ts(수집 첫 단계 찾을 수 있음 기준, 다른 목적이라 해당 없음).
-- 수평 전개(주소 추출): crawl_facebook.py extract_district(고침) / crawl_topcv.py(사이트 구조화 주소, 해당 없음·꺼짐) / Chợ Tốt·Muaban 수집기 없음.
-- 변경: extract_district에 이름표 없는 주소 줄(쉼표 2~6칸, 끝이 성 이름, 모집·급여·연락 낱말 없음, 앞 "…:" 이름표 뗌). job-inspect 핀 = exact+verified/gate/area(화면 기준). 시험: test_facebook_quality 30/30, 미리 보기 30건 재생(4건 주소 줄 잡힘, 오탐 없음).

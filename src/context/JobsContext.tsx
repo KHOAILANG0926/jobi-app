@@ -11,7 +11,7 @@ import { assertJobPublishable } from '../lib/jobPostingPolicy.mjs'
 import { checkedLocalJobUpdate, checkedPublicJobInsert } from '../lib/jobPolicyWrite'
 
 // 등록 직후 돌려받는 열(guest_manage_token 등 비공개 열 제외 — 열 단위 SELECT 권한 참고)
-const JOB_INSERT_RETURN_COLUMNS = 'id,title,company,category,subcategory,admin_hidden,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,age_min,age_max,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
+const JOB_INSERT_RETURN_COLUMNS = 'id,title,company,category,subcategory,admin_hidden,salary,location,hours,employer_phone,employer_id,application_deadline,urgent,description,posted_at,lat,lng,active,created_at,image_url,source,work_period,job_duration,gender_requirement,age_requirement,age_min,age_max,work_days,education,preference,num_hires,company_verified,company_founded_year,hire_count,labor_contract_pledge,social_insurance_pledge,images,recruitment_regions,shift_type,shuttle_bus,dormitory,meal_provided,immediate_start,recruitment_type,work_schedule,weekend_work,salary_basis,salary_note,employment_type,employment_type_extra,description_html,rotating_shifts,benefit_tags,required_documents,contact_zalo,salary_period,language_requirement,business_trip'
 import { ensureJobFields } from '../lib/jobUtils'
 import { rowToJob } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
@@ -136,6 +136,8 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
         weekend_work: draft.weekendWork ?? null,
         // 2026-10-30 Lee 공고 작성 체크리스트: 이미 있는 칸에 등록 화면 값을 그대로 저장(없으면 NULL).
         employment_type: draft.employmentType ?? null,
+        employment_type_extra: draft.employmentTypeExtra ?? null,
+        description_html: draft.descriptionHtml ?? null,
         salary_period: draft.salaryPeriod ?? null,
         salary_basis: draft.salaryBasis ?? null,
         salary_note: draft.salaryNote ?? null,

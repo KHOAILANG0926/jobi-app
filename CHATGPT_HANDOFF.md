@@ -1,6 +1,7 @@
 # HANDOFF — 2026-11-08 (Claude) · 알바몬 따라 하기 1~6번 + 머리 줄·메뉴·바닥
 
 ## 1. 현재 상태
+- 간편 템플릿 B안(Lee 11-08): 등록 화면 템플릿 → local_jobs.description_html → 상세 ④ 그 모양 그대로. 1:1 문의(support_inquiries, /ho-tro?tab=hoi, 관리자 탭), 추가 고용형태(employment_type_extra). 다음: 상세 AI 배경(Lee 지시), 알바몬 템플릿 사진 출처 확인(브라우저 필요).
 - 공고 등록(Lee 11-08 "3,4 적용"): 미리보기 PC·Mobile(/xem-truoc-tin, JobDetail previewJob), 입력 칸 추가(초보 가능·친구와 함께·우대조건 7개·기간 협의·식대·수습·접수 방법·담당자 이름) — DB 없이 기존 칸에. 5번 템플릿·6번 1:1 문의·고용형태 추가(DB)는 Lee 결정 대기.
 - 이름(Lee 11-08): 로고 글자는 브라우저 탭과 같은 "Việc gần Bạn"(머리 줄·바닥). 바탕색은 그대로(#f7f7f7). 약관·SEO 제목까지 전부 "Việc gần Bạn"(주소 viecganban.vn·이메일 그대로).
 - 머리 줄·메뉴·바닥(Lee 11-08 "메인 화면만 빼고 다 적용"): 알바몬 PC 실측 기준 — 로고+검색 칸(/viec-lam/tim-kiem?q=), 메뉴 18px 굵게·이모지 없음·펼침 4칸(col)·아래 어둡게, 오른쪽 버튼 회색/흰 테두리(원래 자리 첫 줄 오른쪽 — 로그인 시 버튼이 늘어 메뉴 줄에 두면 넘침, 960 이하 검색 돋보기), 바닥 SiteFooter(PC·휴대폰 공용). CSS는 src/components/siteChrome.css 한 곳. 메인 본문·공고 카드·상세는 그대로(카드 변경 데모는 Lee 거부로 되돌림 — 카드 틀 변경 금지 재확인).

@@ -40,6 +40,8 @@ export function salaryPeriodLabel(p: Job['salaryPeriod'] | null | undefined): st
 }
 
 export const EMPLOYMENT_TYPE_LABEL = { full_time: 'Toàn thời gian', seasonal: 'Thời vụ', part_time: 'Bán thời gian' } as const
+/** 추가 고용형태 이름(등록 화면 단추와 같은 글자, 2026-11-08) */
+export const EMPLOYMENT_TYPE_EXTRA_LABEL = { contract: 'Hợp đồng', internship: 'Thực tập', collaborator: 'Cộng tác viên' } as const
 
 /** 상단 탭(알바몬식 3개). Điều kiện 탭이 근무조건·모집조건·근무지역을 묶는다. 구역 키·순서는 jobSchema(JOB_SECTIONS)가 정본. */
 export type JobTabKey = 'conditions' | 'description' | 'company'
