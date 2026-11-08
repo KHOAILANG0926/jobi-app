@@ -20,7 +20,7 @@
 .amt-side__sec > .amt-side__h { margin-bottom: 16px; }
 
 .amt-thumbs { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-.amt-thumb { position: relative; display: block; width: 202px; height: 64px; padding: 0; border: 0; border-radius: 4px; background: #c4c4c4; cursor: pointer; overflow: hidden; }
+.amt-thumb { position: relative; display: block; width: 100%; height: 64px; padding: 0; border: 0; border-radius: 4px; background: #c4c4c4; cursor: pointer; overflow: hidden; }
 .amt-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .amt-thumb__dim { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); border-radius: 4px; }
 .amt-thumb__name { color: #fff; font-size: 14px; font-weight: 700; }
@@ -171,6 +171,7 @@
   .amt-tbl th input { font-size: 15px; }
   .amt-tbl td textarea { font-size: 15px; padding: 10px; }
   .amt-addrow { padding: 0; }
+  .amt-items, .amt-previews { grid-template-columns: 1fr 1fr; column-gap: 8px; }
   .amt-all__grid { grid-template-columns: repeat(3, 1fr); }
   .amt-modal__h { padding: 20px 16px 0; font-size: 22px; }
   .amt-modal__body { padding: 16px; }
