@@ -24,6 +24,15 @@ for (const [name, opt] of [['pc', { viewport: { width: 1366, height: 900 } }], [
   await click(name === 'pc' ? '.amt-previews button:nth-child(1)' : '.amt-previews button:nth-child(2)')
   await page.waitForTimeout(800)
   await page.screenshot({ path: `out/page-${name}-preview.png`, fullPage: true })
+  await click('.amt-modal__h button')
+  // 직접입력 탭: 열기 → 템플릿 가져오기 → 미리보기
+  await click('.amt-tab:nth-child(3)')
+  await click('.amt-direct__btns button:nth-child(1)')
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: `out/page-${name}-direct.png`, fullPage: true })
+  await click(name === 'pc' ? '.amt-direct__btns button:nth-child(2)' : '.amt-direct__btns button:nth-child(3)')
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `out/page-${name}-direct-preview.png` })
   console.log(name, JSON.stringify({ errors }))
   await ctx.close()
 }

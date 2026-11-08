@@ -1,6 +1,7 @@
 // 알바몬 기업회원 '간편! 템플릿'(상세모집요강 작성기) 그대로 따라 한 데모 — Lee 2026-11-08.
 // 데모 전용 화면(저장 없음). 에디터·직접입력 탭은 보류(패키지 설치 허용 전). 한국 전용 항목은 넣지 않는다.
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import {
   TEMPLATES, TEMPLATE_CATEGORIES, TEMPLATE_COLORS, SECTION_LABEL, SECTION_ORDER, ROLE_DUTY_DEFAULT,
   bodyFromForm, colorOf, type OuterForm, type SectionKey, type TemplateInfo,
@@ -131,6 +132,19 @@ function Doc({ s, edit, mobile, version, set }: {
   )
 }
 
+// 직접입력 HTML 정리: 실행되는 것(스크립트·틀·이벤트·javascript: 주소)은 지운다.
+function cleanHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
+  doc.querySelectorAll('script,iframe,object,embed,link,meta,style,form,base').forEach((el) => el.remove())
+  doc.querySelectorAll('*').forEach((el) => {
+    for (const a of Array.from(el.attributes)) {
+      const v = a.value.trim().toLowerCase()
+      if (a.name.startsWith('on') || ((a.name === 'href' || a.name === 'src') && (v.startsWith('javascript:') || v.startsWith('data:text')))) el.removeAttribute(a.name)
+    }
+  })
+  return doc.body.firstElementChild?.innerHTML ?? ''
+}
+
 export default function AlbamonTemplateDemo() {
   const [tplId, setTplId] = useState(41)
   const tpl = TEMPLATES.find((t) => t.id === tplId) ?? TEMPLATES[0]
@@ -147,6 +161,8 @@ export default function AlbamonTemplateDemo() {
   const [etcTitles, setEtcTitles] = useState<Record<EtcKey, string>>({ etc1: 'Khác 1', etc2: 'Khác 2', etc3: 'Khác 3', etc4: 'Khác 4' })
   const [version, setVersion] = useState(0)
   const [modal, setModal] = useState<'all' | 'pc' | 'mobile' | null>(null)
+  const [tab, setTab] = useState<'template' | 'direct'>('template')
+  const [directHtml, setDirectHtml] = useState('')
 
   const pick = (t: TemplateInfo) => { setTplId(t.id); setColorId(t.color); setPage(TEMPLATE_CATEGORIES.indexOf(t.category)) }
   const pageTemplates = TEMPLATES.filter((t) => t.category === TEMPLATE_CATEGORIES[page])
@@ -161,6 +177,11 @@ export default function AlbamonTemplateDemo() {
     if (next) { setExtras([...extras, next]); setOn((o) => ({ ...o, [next]: true })) }
   }
   const s: DocState = { tpl, colorId, on, extras, company, title, roles, bodies, etcTitles }
+  // '현재 템플릿에서 가져오기': 지금 템플릿 문서를 HTML로 바꿔 직접입력 칸을 바꾼다(내용이 있으면 확인 후).
+  const importTemplate = () => {
+    if (directHtml.trim() && !window.confirm('Nội dung đang nhập sẽ bị thay bằng mẫu hiện tại. Tiếp tục?')) return
+    setDirectHtml(renderToStaticMarkup(<Doc s={s} edit={false} version={version} />))
+  }
 
   return (
     <div className="amt">
@@ -168,11 +189,24 @@ export default function AlbamonTemplateDemo() {
       <p className="amt__lead">Bản demo theo mẫu Albamon — chưa lưu dữ liệu.</p>
 
       <div className="amt-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected className="amt-tab amt-tab--on">Mẫu nhanh!</button>
+        <button type="button" role="tab" aria-selected={tab === 'template'} className={`amt-tab${tab === 'template' ? ' amt-tab--on' : ''}`} onClick={() => setTab('template')}>Mẫu nhanh!</button>
         <button type="button" role="tab" aria-selected={false} className="amt-tab" disabled>Trình soạn thảo<small>Đang chuẩn bị</small></button>
-        <button type="button" role="tab" aria-selected={false} className="amt-tab" disabled>Nhập trực tiếp<small>Đang chuẩn bị</small></button>
+        <button type="button" role="tab" aria-selected={tab === 'direct'} className={`amt-tab${tab === 'direct' ? ' amt-tab--on' : ''}`} onClick={() => setTab('direct')}>Nhập trực tiếp</button>
       </div>
 
+      {tab === 'direct' ? (
+        <div className="amt-direct">
+          <div className="amt-direct__bar">
+            <span>Nhập trực tiếp nội dung (có thể dùng HTML).</span>
+            <div className="amt-direct__btns">
+              <button type="button" onClick={importTemplate}>Lấy nội dung từ mẫu hiện tại</button>
+              <button type="button" onClick={() => setModal('pc')}>Xem trước PC</button>
+              <button type="button" onClick={() => setModal('mobile')}>Xem trước Mobile</button>
+            </div>
+          </div>
+          <textarea className="amt-direct__text" value={directHtml} onChange={(e) => setDirectHtml(e.target.value)} placeholder="Nhập mô tả chi tiết tuyển dụng" />
+        </div>
+      ) : (
       <div className="amt-body">
         <aside className="amt-side">
           <div className="amt-box">
@@ -235,6 +269,7 @@ export default function AlbamonTemplateDemo() {
           }} />
         </main>
       </div>
+      )}
 
       {modal && (
         <div className="amt-modal" role="dialog" aria-modal onClick={(e) => { if (e.target === e.currentTarget) setModal(null) }}>
@@ -256,7 +291,9 @@ export default function AlbamonTemplateDemo() {
                     ))}
                   </div>
                 </div>
-              )) : <Doc s={s} edit={false} mobile={modal === 'mobile'} version={version} />}
+              )) : tab === 'direct'
+                ? <div className={`amt-doc amt-doc--free${modal === 'mobile' ? ' amt-doc--mobile' : ''}`} dangerouslySetInnerHTML={{ __html: cleanHtml(directHtml) || '<p>Chưa có nội dung.</p>' }} />
+                : <Doc s={s} edit={false} mobile={modal === 'mobile'} version={version} />}
             </div>
           </div>
         </div>
