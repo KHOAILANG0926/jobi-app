@@ -1,0 +1,45 @@
+name: AI 비교 시험 (Sonnet vs Haiku, 운영 DB 읽기만)
+
+# Lee 2026-11-08: AI 비용을 줄이려고 싼 AI(Haiku)로 바꿔도 판정이 같은지 먼저 시험한다.
+# 운영 DB는 읽기 전용 트랜잭션으로만 연다. 결과는 PR 댓글(표)로 남긴다.
+on:
+  pull_request:
+    paths:
+      - scripts/ops/ai-model-compare.mjs
+      - .github/workflows/ai-model-compare.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-model-compare
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      COMPARE_JOBS: '10'
+      COMPARE_WEB: '5'
+      OUT: compare.md
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm i --no-save pg@8
+      - name: 비교 실행
+        run: node --experimental-strip-types scripts/ops/ai-model-compare.mjs
+      - name: 결과 요약
+        if: always()
+        run: test -f compare.md && cat compare.md >> "$GITHUB_STEP_SUMMARY" || true
+      - name: PR 댓글로 결과 남기기
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test -f compare.md && gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body-file compare.md || true
