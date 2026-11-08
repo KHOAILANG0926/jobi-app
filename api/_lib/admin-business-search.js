@@ -58,7 +58,7 @@ function runtimeDependencies() {
     key: (provider) => (provider === 'vietmap' ? process.env.VIETMAP_SERVICE_KEY : provider === 'google' ? (process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY) : process.env.GOONG_API_KEY) || '',
     async fetchGoogle(text, key) {
       const res = await fetch('https://places.googleapis.com/v1/places:searchText', { method: 'POST', signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location' },
+        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType' },
         body: JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 }) })
       if (!res.ok) return { ok: false, status: res.status }
       return { ok: true, json: await res.json() }

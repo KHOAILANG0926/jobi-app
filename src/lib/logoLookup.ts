@@ -2,7 +2,7 @@
 // Google 검색을 새로 하지 않는다: 위치 확인이 이미 물어 저장해 둔 Google 결과(같은 검색어·같은 같은 이름 1곳·원래 성 안)에서
 // 장소 번호만 꺼낸다. 웹사이트는 그 장소 번호로 한 번만 묻고(월 한도는 DB external_api_reserve) 결과는 공고에 기록한다.
 import type { ResolverJob } from './autoLocationResolver'
-import { googlePlaceHits, googleSearchText, pickCompanyPlace } from './companyPlaceSearch'
+import { googlePlaceHits, googleSearchText, pickCompanyPlace, type GooglePlaceHit } from './companyPlaceSearch'
 import { companyLogoUrl, jobImagePublicUrl } from './companyLogo'
 import { brandFor, brandLogoFor } from './brandLogo'
 import type { BrandDefinition } from '../data/brandDirectory'
@@ -11,21 +11,31 @@ import type { Job } from '../types/job'
 /** 위치 확인과 같은 저장 열쇠(autoLocationResolver resolveByCompanyName의 Google 단계). */
 export const googleCacheKey = (company: string, address: string) => JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])
 
-/** 위치 확인이 저장해 둔 Google 결과에서 같은 회사 1곳(원래 성 안)의 장소 번호. 저장된 결과가 없으면 null(새로 묻지 않음). */
-export async function cachedGooglePlaceId(
+/** 위치 확인이 저장해 둔 Google 결과에서 같은 회사 1곳(원래 성 안). 저장된 결과가 없으면 null(새로 묻지 않음).
+ *  로고 찾기(장소 번호)와 업종 판정(장소 종류, Lee 2026-11-08)이 같은 판정을 쓴다. */
+export async function cachedGooglePlace(
   job: ResolverJob,
   cached: (key: string) => Promise<unknown | null>,
   within: (addresses: string[], point: { lat: number; lng: number }) => Promise<boolean>,
-): Promise<string | null> {
+): Promise<GooglePlaceHit | null> {
   if (!job.company.trim()) return null
   const addresses = [...new Set([...job.targets.map((t) => t.address.trim()), job.location].filter(Boolean))]
   for (const address of addresses) {
     const hits = googlePlaceHits(await cached(googleCacheKey(job.company, address)))
     const pick = pickCompanyPlace(job.company, address, hits)
     const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null
-    if (hit && await within([address, job.location], hit)) return hit.id
+    if (hit && await within([address, job.location], hit)) return hit
   }
   return null
+}
+
+/** 같은 판정의 장소 번호만(로고 찾기용). */
+export async function cachedGooglePlaceId(
+  job: ResolverJob,
+  cached: (key: string) => Promise<unknown | null>,
+  within: (addresses: string[], point: { lat: number; lng: number }) => Promise<boolean>,
+): Promise<string | null> {
+  return (await cachedGooglePlace(job, cached, within))?.id ?? null
 }
 
 /** Google websiteUri → 도메인(소문자, www 뗌). 잘못된 주소는 null. */
