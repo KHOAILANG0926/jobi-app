@@ -37,10 +37,12 @@ const DEFAULT_COLOR: Record<number, number> = {
 // 2026-11-08: 우리 그림은 모두 왼쪽(글자 자리)이 밝은 벽이라 흰 글자가 안 보인다 → 모든 틀 검정 글자(아래 TEMPLATES). 표는 알바몬 기록으로 남김.
 export const ALBAMON_DARK_TITLE = new Set([41, 42, 45, 46, 49, 50, 55, 58, 62, 63, 68, 74, 75, 76, 78, 79, 84, 91, 94, 101, 103, 106, 107, 110, 113, 114, 115, 116])
 // 템플릿 머리 사진(Lee 2026-11-08): AI 팀 그림 담당(ChatGPT·Gemini 앱)이 그린 업종별 우리 그림 — public/images/template.
-// 13개 업직종 순서 그대로 1장씩, 예비 그림이 있는 업종은 6개 틀에 번갈아 쓴다. 글자·로고 없는 그림이라 출처 표시 의무가 없다.
+// 13개 업직종 순서 그대로, 업종마다 1~3장을 6개 틀에 번갈아 쓴다. 글자·로고 없는 그림이라 출처 표시 의무가 없다.
+// 왼쪽 제목 자리는 화면에서 하얗게 흐리게 덮는다(AlbamonTemplate.css .amt-visual::after) — 현실적인 사진도 글자가 보이게(Lee 2026-11-09).
 const CATEGORY_IMAGES: string[][] = [
-  ['01-co-ban', '01b-co-ban'], ['02-an-uong', '02b-an-uong'], ['03-ban-hang'], ['04-dich-vu'], ['05-van-phong', '05b-van-phong'],
-  ['06-cskh'], ['07-san-xuat', '07b-san-xuat'], ['08-it'], ['09-thiet-ke'], ['10-truyen-thong'], ['11-giao-hang'], ['12-y-te'], ['13-giao-duc'],
+  ['01-co-ban', '01b-co-ban', '01c-co-ban'], ['02-an-uong', '02b-an-uong', '02c-an-uong'], ['03-ban-hang', '03b-ban-hang'], ['04-dich-vu', '04b-dich-vu'],
+  ['05-van-phong', '05b-van-phong'], ['06-cskh'], ['07-san-xuat', '07b-san-xuat'], ['08-it', '08b-it'], ['09-thiet-ke', '09b-thiet-ke'],
+  ['10-truyen-thong', '10b-truyen-thong'], ['11-giao-hang', '11b-giao-hang'], ['12-y-te', '12b-y-te'], ['13-giao-duc', '13b-giao-duc'],
 ]
 
 export interface TemplateInfo { id: number; name: string; category: string; color: number; darkTitle: boolean; photo: string | null }
