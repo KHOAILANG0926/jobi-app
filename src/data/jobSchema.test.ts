@@ -19,7 +19,7 @@ assert(same(ROTATING_SHIFTS, [2, 3]), 'rotating shift values')
 assert(same(SALARY_PERIODS, ['hour', 'day', 'month', 'other']), 'salary period values')
 assert(same(SHIFT_TYPES, ['day', 'night', 'rotating', 'other']), 'shift type values')
 
-assert(JOB_FIELDS.length === 36, `field count is fixed at 36 (got ${JOB_FIELDS.length}) — update docs/DB/screen together`)
+assert(JOB_FIELDS.length === 38, `field count is fixed at 38 (2026-11-08 +employment_type_extra·description_html) (got ${JOB_FIELDS.length}) — update docs/DB/screen together`)
 const keys = JOB_FIELDS.map((x) => x.key)
 assert(new Set(keys).size === keys.length, 'field keys are unique')
 const cols = JOB_FIELDS.map((x) => x.column)
