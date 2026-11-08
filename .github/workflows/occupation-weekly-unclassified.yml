@@ -4,7 +4,7 @@ name: 직업군 주간 미분류 보고·규칙 보강 (A안)
 # (crawler/occupation_classifier.py)에 규칙을 더하는 PR을 만든다. master 직접 push 없음, DB 쓰기 없음.
 # PR이 병합되면 occupation-r8-apply.yml이 다시 돌아 미분류 공고에 새 규칙을 적용한다.
 # 2026-10-15 사용자 결정: A안으로 시작, 미분류가 많아지면(예: 주 50건 이상) B안(규칙에 안 걸린 공고만 AI 분류) 검토.
-# 키: SUPABASE_DB_URL(읽기 조회만), ANTHROPIC_API_KEY(없으면 보고만 하고 PR 단계는 건너뜀)
+# 키: SUPABASE_DB_URL(읽기 조회만), 구독 열쇠 CLAUDE_CODE_OAUTH_TOKEN(2026-11-08, 없으면 ANTHROPIC_API_KEY, 둘 다 없으면 보고만)
 on:
   schedule:
     - cron: '47 0 * * 1'   # 매주 월요일 07:47 (UTC+7)
@@ -13,6 +13,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 concurrency:
   group: occupation-weekly-unclassified
@@ -24,7 +25,7 @@ jobs:
     timeout-minutes: 30
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+      HAS_ANTHROPIC_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - name: 키 등록 확인
@@ -53,7 +54,8 @@ jobs:
         if: steps.q.outputs.count != '0' && env.HAS_ANTHROPIC_KEY == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           prompt: |
             작업: 공식 직업분류 자동 분류 규칙 보강 (규칙 R8). 먼저 CLAUDE.md를 읽고 지킨다.
 
