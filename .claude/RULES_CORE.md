@@ -5,6 +5,7 @@
 - 새 세션: git status → branch/HEAD → CHATGPT_HANDOFF.md → 요청. 작업 종류가 바뀌면 CLAUDE.md 해당 절을 먼저 읽는다(목차만 보고 읽었다고 하지 않는다).
 - 시킨 것만 한다. 지시 없는 변경·파일 생성(그림·문서·패치) 금지.
 - 구현 전 한 번: ① 범위 ② 완료 조건(사용자 말에서만) ③ 필수 테스트 ④ 중단 조건.
+- 덧붙이기 전에 고치기·합치기·지우기(Lee 11-09): 새 조건·예외·규칙·검사·자동화 전에 기존 코드를 고치거나 합칠 수 있는지, 안 쓰게 된 것을 지울 수 있는지 먼저 본다. 공고 번호·파일 이름·날짜별 예외 금지(이름 규칙·공통 함수). 줄 수가 아니라 구조 안정이 목표. PR에 `- 지운 것/합친 것:` 기록, Codex가 대조.
 
 ## AI 팀(Lee 11-08)
 - Claude 개발 · Codex 검사관(PR 자동 리뷰, AGENTS.md Review guidelines) · 그림은 필요할 때. 소통은 GitHub PR·이슈.
@@ -37,7 +38,7 @@
 
 ## 코드·배포
 - 커밋 전 npx tsc --noEmit, push 전 + npm run build (자동 검사가 막음).
-- 운영 DB는 migration + production_check PR로만. 직접 SQL 금지. DDL·삭제·권한은 STRICT(별도 승인).
+- 운영 DB는 migration + production_check PR로만. 직접 SQL 금지. DDL·삭제·권한은 STRICT(별도 승인). 시험 DB 준비·확인은 `supabase/tests/<이름>.setup.sql`·`.local.sql` 이름 규칙(검사 스크립트에 예외 덧붙이지 않기).
 - 완료 = PR → 검사 → 병합 → 운영 배포 → deploy-verify 통과 → 실제 화면 확인. 끝나면 CHATGPT_HANDOFF(1페이지)·WORK_LOG(최근 10개) 갱신.
 - 비밀값(키·토큰·쿠키)은 어디에도 출력하지 않는다.
 - 대표 사진·로고(11-07): 브랜드 → 공고 사진(우리 저장소, 페북 사진 자동 복사) → 회사 웹사이트 아이콘(자동) → 공용 사진. Google 호출은 DB 월 한도 안에서만(사람이 비교 검색 반복 금지).
