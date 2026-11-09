@@ -13,8 +13,12 @@ const rv = [{ user: codex, commit_id: sha, submitted_at: '2026-11-08T16:10:00Z' 
 assert.equal(codexGate({ ...base, reviews: rv, now: at(11) }).ok, true, 'Codex reviewed, no findings → proceed')
 const rc = [{ user: codex, commit_id: sha }]
 assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, now: at(300) }).ok, false, 'findings without Claude reply → wait, never times out')
-assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, comments: [{ user: claude, body: `${REPLY_MARKER} 근거…`, created_at: '2026-11-08T16:05:00Z' }], now: at(20) }).ok, false, 'reply before the review does not count')
-assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, comments: [{ user: claude, body: `${REPLY_MARKER} 근거…`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude replied after findings → proceed')
+assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, comments: [{ user: claude, body: `${REPLY_MARKER}\n근거…`, created_at: '2026-11-08T16:05:00Z' }], now: at(20) }).ok, false, 'reply before the review does not count')
+assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, comments: [{ user: claude, body: `${REPLY_MARKER}\n근거…`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude replied after findings → proceed')
+// 답 표시는 첫 줄 단독이어야 한다: 같은 줄 설명·인용(>)·첫 줄 아님은 거부
+for (const body of [`${REPLY_MARKER} 근거…`, `> ${REPLY_MARKER}\n근거`, `안녕\n${REPLY_MARKER}`]) {
+  assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, comments: [{ user: claude, body, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, false, `marker not alone on first line rejected: ${body.slice(0, 12)}`)
+}
 assert.equal(codexGate({ ...base, reviews: [{ user: { login: 'someone' }, commit_id: sha, submitted_at: '2026-11-08T16:10:00Z' }], now: at(11) }).ok, false, 'non-Codex review is not the Codex check')
 // Codex #558 지적 1: 남이 단 답 표시는 인정하지 않는다(공개 저장소)
 assert.equal(codexGate({ ...base, reviews: rv, reviewComments: rc, comments: [{ user: stranger, body: `${REPLY_MARKER}`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, false, 'reply marker from non-Claude account ignored')
@@ -26,9 +30,9 @@ assert.equal(codexGate({ ...base, comments: [summary(sha, true)], now: at(11) })
 assert.equal(codexGate({ ...base, comments: [summary(sha, false)], now: at(11) }).ok, true, 'summary completed without findings → proceed (no review object needed)')
 assert.equal(codexGate({ ...base, comments: [summary(sha, false, 'running')], now: at(5) }).ok, false, 'summary still running → wait')
 assert.equal(codexGate({ ...base, comments: [summary('other', false)], now: at(5) }).ok, false, 'summary for older commit → wait')
-assert.equal(codexGate({ ...base, comments: [summary(sha, true), { user: { login: 'KHOAILANG0926' }, body: `${REPLY_MARKER} 근거`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude session reply (Lee account) accepted')
+assert.equal(codexGate({ ...base, comments: [summary(sha, true), { user: { login: 'KHOAILANG0926' }, body: `${REPLY_MARKER}\n근거`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude session reply (Lee account) accepted')
 // Codex #566 지적: 요약만 있는 지적에 예전 답(요약 갱신 전)을 재사용하지 않는다
-assert.equal(codexGate({ ...base, comments: [{ user: claude, body: `${REPLY_MARKER} 예전 커밋 답`, created_at: '2026-11-08T16:10:00Z' }, summary(sha, true)], now: at(30) }).ok, false, 'old reply before summary update does not count')
+assert.equal(codexGate({ ...base, comments: [{ user: claude, body: `${REPLY_MARKER}\n예전 커밋 답`, created_at: '2026-11-08T16:10:00Z' }, summary(sha, true)], now: at(30) }).ok, false, 'old reply before summary update does not count')
 // Codex #566 지적: 이름에 codex가 든 가짜 계정의 '통과' 요약은 무시(진짜 미해결 요약을 덮지 못함)
 const fake = { ...summary(sha, false), user: { login: 'random-codex-user', type: 'User' }, updated_at: '2026-11-08T16:20:00Z' }
 assert.equal(codexGate({ ...base, comments: [summary(sha, true), fake], now: at(30) }).ok, false, 'forged finding-free summary from look-alike account ignored')
