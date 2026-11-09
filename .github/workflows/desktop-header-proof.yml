@@ -1,10 +1,7 @@
 name: PC 헤더 운영 화면 캡처
 
+# 운영 배포(vercel-deploy.yml)가 끝나면 그쪽에서 workflow_dispatch로 부른다(#586 — 봇 병합 배포는 workflow_run을 발생시키지 않음).
 on:
-  workflow_run:
-    workflows: ['Vercel 배포 (GitHub Actions에서 직접)']
-    types: [completed]
-    branches: [master]
   workflow_dispatch: {}
 
 permissions:
@@ -16,13 +13,12 @@ concurrency:
 
 jobs:
   capture:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -39,6 +35,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-header-production-${{ github.event.workflow_run.head_sha || github.sha }}
+          name: desktop-header-production-${{ github.sha }}
           path: header-screens/
           retention-days: 14
