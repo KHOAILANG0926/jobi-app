@@ -88,10 +88,16 @@ const DETAIL_GROUP: Record<string, number> = {
   khac: 0, am_thuc_do_uong: 1, quan_ly_ban_hang: 2, dich_vu: 3, van_phong: 4, cskh_kinh_doanh: 5, san_xuat_xay_dung: 6,
   cntt_ky_thuat: 7, thiet_ke: 8, truyen_thong: 9, lai_xe_giao_hang: 10, y_te_dieu_duong: 11, giao_duc_giang_day: 12,
 }
-export function detailLook(category: string | null | undefined, seed: number): { photo: string; bar: string; head: string } {
+export type DetailStyle = 'table' | 'band' | 'card'
+export const DETAIL_STYLES: DetailStyle[] = ['table', 'band', 'card']
+/** 알바몬처럼 공고마다 다르게(Lee 2026-11-09 "다양하게"): 업종 그림 중 하나 + 그 업종 6개 틀 중 하나의 기본 색 + 본문 모양 3가지 중 하나.
+ *  같은 공고는 늘 같은 모양(공고 번호로 고름). 칸 구성·순서·글자는 그대로 — 모양만 다르다. */
+export function detailLook(category: string | null | undefined, seed: number, style?: string | null): { photo: string; bar: string; head: string; style: DetailStyle } {
   const g = DETAIL_GROUP[String(category ?? '')] ?? 0
+  const n = Math.abs(Math.trunc(seed || 0))
   const list = CATEGORY_IMAGES[g]
-  const photo = list[Math.abs(Math.trunc(seed || 0)) % list.length]
-  const c = colorOf(DEFAULT_COLOR[41 + g * 6])
-  return { photo: `/images/template/${photo}.jpg`, bar: c.bar, head: c.head }
+  const photo = list[n % list.length]
+  const c = colorOf(DEFAULT_COLOR[41 + g * 6 + (n % 6)])
+  const pick = DETAIL_STYLES.find((x) => x === style) ?? DETAIL_STYLES[n % DETAIL_STYLES.length]
+  return { photo: `/images/template/${photo}.jpg`, bar: c.bar, head: c.head, style: pick }
 }
