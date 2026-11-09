@@ -208,6 +208,11 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
   const cut = (v, n) => String(v ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n)
   const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}${x.error ? ` err=${x.error}` : ''}` : '-')
   rows.forEach((r, i) => console.log(`ROW ${i + 1} | ${cut(r.title, 60)} | ${cut(r.company, 50)} | ${cut(r.location, 80)} | A: ${v(r.a)} | B: ${v(r.b)} | ${r.same ? 'same' : 'DIFF'}${r.distanceM != null ? ` ${r.distanceM}m` : ''}`))
+  // 시험 사례 만들기용(DUMP_TEXT=1): 원문 앞부분을 공고별로. 전화·Zalo 숫자(6자리 이상)와 링크는 가린다.
+  if (process.env.DUMP_TEXT === '1') jobs.slice(0, limit).forEach((j, i) => {
+    const t = String(j.source_text ?? '').replace(/https?:\/\/\S+/g, '[link]').replace(/(?:\d[\s.\-]?){6,}/g, '[số]')
+    console.log(`TEXT ${i + 1} | ${t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 20).join(' ⏎ ').slice(0, 1500)}`)
+  })
   const s = summarize(rows, g.calls)
   writeFileSync(out, JSON.stringify({ summary: s, rows }, null, 1))
   const md = markdown(s)

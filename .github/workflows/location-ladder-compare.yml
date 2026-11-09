@@ -16,6 +16,11 @@ on:
         description: '최대 공고 수(Google Pro 호출 상한과 같음)'
         required: false
         default: '200'
+      dump_text:
+        description: '시험 사례 만들기용 원문 앞부분 출력(전화·링크 가림)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -71,6 +76,7 @@ jobs:
           # Vercel의 Google·Goong 키는 민감 값이라 실행에서 꺼낼 수 없다(받은 값 길이 11, 시험 42600892199).
           # Lee 2026-11-09 "가": 같은 Google 키를 GitHub Secret GOOGLE_PLACES_API_KEY에 등록해 쓴다. Goong은 있으면 쓰고 없으면 뺀다(두 방식 똑같이).
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          DUMP_TEXT: ${{ inputs.dump_text && '1' || '' }}
           GOONG_API_KEY: ${{ secrets.GOONG_API_KEY }}
           VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
           SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
