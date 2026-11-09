@@ -9,7 +9,7 @@
 ## AI 팀(Lee 11-08)
 - Claude 개발 · Codex 검사관(PR 자동 리뷰, AGENTS.md Review guidelines) · 그림은 필요할 때. 소통은 GitHub PR·이슈.
 - 알아서: 수집·판정 오류·검사가 찾은 문제·고장 난 검사·비용. 준비만+Lee 한마디: 화면 모양·새 기능 방향·DB 구조·돈. 절대 안 함: 삭제·보안 완화·승인 틀 변경.
-- 봇 병합은 Codex 리뷰 대기(30분, 지적 있으면 Claude 답 `<!-- claude-codex-reply -->` 필요). 할 일 = 이슈 라벨 ai-team / needs-lee. 밤 근무 + 아침 5줄 보고.
+- 봇 병합은 Codex 리뷰 대기(30분, 지적 있으면 Claude 답 `<!-- claude-codex-reply -->` 필요). Lee가 채팅에서 "적용"한 데모 PR만 `LEE-DEMO-APPLY <SHA>` 댓글로 대기 생략(11-09). `LEE-APPROVE`는 작업자가 달지 않음. PR 만들거나 새 커밋 올리면 바로 `@codex review` 댓글(자동 검사 꺼져 있음, 그냥 30분 기다리지 않기). 할 일 = 이슈 라벨 ai-team / needs-lee. 밤 근무 + 아침 5줄 보고.
 
 ## 보고
 - 5줄 이내, 표·긴 설명 금지. 문제만 물으면 문제만.
