@@ -44,4 +44,6 @@ console.log('addressReader: #5157 이름표 줄 · #5599 이름표 없는 줄 ·
 eq(readAddress('TUYỂN NHÂN VIÊN PARTIME\nLương 30k-35k/h\nĐịa chỉ: Nhà hàng Seoseo Galbi\n213 Ngọc Hân Công Chúa, Phường Võ Cường, TP Bắc Ninh\nLiên hệ qua zalo'), '213 Ngọc Hân Công Chúa, Phường Võ Cường, TP Bắc Ninh', '#560-1 shop name on label, street on next line')
 eq(readAddress('Địa chỉ: Nhà hàng Seoseo Galbi\nLiên hệ 0912345678'), 'Nhà hàng Seoseo Galbi', 'next line not an address keeps label value')
 eq(readAddress('em cần tìm việc ở thành phố bắc ninh\n댓글\nAi đó\nĐịa chỉ: 99 Lý Thái Tổ, Bắc Ninh'), 'thành phố bắc ninh', '#560-5 comment address is not the post address')
+eq(readAddress('Địa chỉ: KCN Yên Phong, Bắc Ninh\n2 ca xoay: 6h-14h và 14h-22h'), 'KCN Yên Phong, Bắc Ninh', 'Codex #616: working-hours line is not an address')
+eq(readAddress('Địa chỉ: Nhà hàng Hoa Sen\n20 người, ca xoay'), 'Nhà hàng Hoa Sen', 'Codex #616: head-count line is not an address')
 console.log('addressReader: #560 cases passed')

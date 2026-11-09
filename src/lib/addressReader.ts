@@ -5,7 +5,7 @@
 // 읽는 순서: ① 이름표 붙은 주소 줄 ② 이름표 없는 주소 줄 ③ 동·구·도로 조각.
 import { ADMINISTRATIVE_AREAS } from './administrativeArea'
 import { normalizePlaceText } from './locationCandidateMatch'
-import { postBody } from './companyReader'
+import { KIND, postBody } from './companyReader'
 
 const WORD = '\\p{L}\\p{N}_'
 // ① "Địa điểm: Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh" — 그 줄 값을 그대로(번지 포함). Lee 2026-10-30 #5157.
@@ -43,7 +43,12 @@ export function readAddress(sourceText: string): string {
     // "Địa chỉ: Nhà hàng Seoseo Galbi" + 다음 줄 "213 Ngọc Hân Công Chúa, …": 값에 번지가 없고 다음 줄이 번지로 시작하면 그 줄이 주소(#560)
     const value = trimDots(labeled[1].trim())
     const next = text.slice((labeled.index ?? 0) + labeled[0].length).split('\n').map((l) => l.trim()).find(Boolean) ?? ''
-    if (!/\d/.test(value) && /^(?:số\s*)?\d/iu.test(next) && next.length <= 160 && !NOT_ADDRESS.test(next.replace(/^(?:số\s*)?\d+[\w/-]*/iu, ''))) return trimDots(next)
+    // 바꾸는 조건(Codex #616): 값이 가게 이름(가게 낱말로 시작)이고, 다음 줄이 번지로 시작하며 쉼표로 나뉜 주소 근거(동·구·거리·성 이름)가 있을 때만.
+    const nextParts = next.split(',').map((x) => x.trim()).filter(Boolean)
+    const nextIsAddress = /^(?:số\s*)?\d+[\p{L}]?(?:\/\d+)?\s+\p{L}/iu.test(next) && nextParts.length >= 2 && next.length <= 160 &&
+      !NOT_ADDRESS.test(next.replace(/^(?:số\s*)?\d+[^\s]*/iu, '')) &&
+      (/(?:phường|xã|quận|huyện|thị xã|thị trấn|tp\.?|thành phố|tỉnh|đường|phố)\s/iu.test(next) || PROVINCES.has(normalizePlaceText(nextParts[nextParts.length - 1]).replace(/^(?:tinh|thanh pho|tp) /, '')))
+    if (!/\d/.test(value) && new RegExp(`^${KIND}\\s`, 'iu').test(value) && nextIsAddress) return trimDots(next)
     return value
   }
   const line = unlabeledLine(text)

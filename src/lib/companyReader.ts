@@ -37,14 +37,14 @@ function clean(c: string): string {
 }
 function ok(c: string): string {
   const v = clean(c)
-  if (!v || v.length > MAX || /[!?]$/.test(v) || !hasNameWord(v)) return ''
+  if (!v || v.length > MAX || /[!?]$/.test(v) || !hasNameWord(v) || /^(?:cong ty|cty)(?: (?:tnhh|cp|co phan))?$/.test(fold(v))) return '' // "Công ty"만은 이름이 아니다
   return v
 }
 
 // 항목 이름표 줄(근무 지역·위치·직무 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
 const LABEL_LINE = /^(?:khu vực(?: làm việc)?|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu
 const EMOJI = /[\u{1F000}-\u{1FAFF}☀-➿️‍]+/gu
-const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
+export const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
 const AGENCY = /nhan luc|cung ung|tuyen dung ho|xuat khau lao dong|viec lam|manpower|\bhr\b|headhunt/
 const WORKPLACE = /nha may|xuong|kcn|ccn|khu cong nghiep|cum cong nghiep|cong ty [a-z]/
 // 다른 회사를 위해 뽑는 문구(Lee 2026-11-07 5번 A): 이름에 인력 낱말이 없어도 소개소로 본다.
@@ -82,7 +82,8 @@ export function readCompany(text: string): CompanyRead {
       const c = l.replace(/^((?:công ty|cty))\s*[-–:]\s*/iu, '$1 ')
         .replace(/\s*[-–|]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển|tuyen)\b.*$/iu, '')
         .replace(/\s*[-–]\s*(?:số|sn)?\s*\d.*$/iu, '')
-        .replace(/\s+(?:thưởng|lương|thu nhập|khu cn|khu công nghiệp|cụm cn|cụm công nghiệp|kcn|ccn|tại|ở)(?=\s|$).*$/iu, '')
+        .replace(/\s+(?:thưởng|lương|thu nhập)\s*[:：]?\s*\d.*$/iu, '') // 금액이 바로 따라올 때만(“Công ty Lương thực …”은 이름, Codex #616)
+        .replace(/\s+(?:khu cn|khu công nghiệp|cụm cn|cụm công nghiệp|kcn|ccn|tại|ở)(?=\s|$).*$/iu, '')
       if (ok(c)) return ok(c)
     }
     // ③ 가게 낱말 바로 뒤 이름(같은 줄 안)
