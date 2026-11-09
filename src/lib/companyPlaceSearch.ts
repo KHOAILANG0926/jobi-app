@@ -86,8 +86,10 @@ export function pickCompanyPlace(company: string, address: string, hits: PlaceHi
     // 지도 주소는 "KCN" 없이 "Quế Võ, Bắc Ninh"처럼 쓰기도 한다 → 표의 이름이 그대로 있고 뒤에 다른 순번(1·2·III…)이 붙지 않을 때만 같은 공단.
     const words = ` ${foldText(h.address).replace(/[^a-z0-9]+/g, ' ')} `
     const names = [...new Set(tablePark.aliases.flatMap((a) => [a, a.replace(/ (?:khu )?mo rong$/, '')]))] // 확장 구역은 본 공단 이름으로도
+    // 공단 낱말 바로 뒤에 이름이 있을 때만 — "Phường Quế Võ"처럼 행정구역 이름만 같은 시내 주소는 공단이 아니다(Codex #616).
     return names.some((a) => {
-      const i = words.indexOf(` ${a} `)
+      const m = words.match(new RegExp(` (?:kcn|kcx|ccn|khu cong nghiep|khu che xuat|cum cong nghiep|khu cn|cum cn) ${a} `))
+      const i = m ? (m.index ?? 0) + m[0].length - a.length - 2 : -1
       if (i < 0) return false
       const next = words.slice(i + a.length + 2).split(' ')[0]
       return !(next && /^(?:\d+|i|ii|iii|iv|v|vi)$/.test(next) && !/(?:\d+|i|ii|iii|iv|v|vi)$/.test(a))

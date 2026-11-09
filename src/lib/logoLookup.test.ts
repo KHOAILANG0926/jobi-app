@@ -3,7 +3,8 @@ import { cachedGooglePlace, cachedGooglePlaceId, googleCacheKey, needsLogoLookup
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
 const job = { id: 1, company: 'Hojeong', location: 'Bắc Ninh', targets: [{ address: 'KCN Quế Võ, Bắc Ninh', workLocationId: null }] }
-const place = (id: string, name: string, lat = 21.15) => ({ id, displayName: { text: name }, formattedAddress: 'Quế Võ, Bắc Ninh', location: { latitude: lat, longitude: 106.15 } })
+// 후보 주소는 원문 공단(KCN Quế Võ)과 같은 공단으로(#560 공단 비교)
+const place = (id: string, name: string, lat = 21.15) => ({ id, displayName: { text: name }, formattedAddress: 'KCN Quế Võ, Bắc Ninh', location: { latitude: lat, longitude: 106.15 } })
 const store = new Map<string, unknown>([[googleCacheKey(job.company, 'KCN Quế Võ, Bắc Ninh'), { places: [place('ChIJabc', 'Công ty TNHH Hojeong Vina')] }]])
 const cached = async (k: string) => store.get(k) ?? null
 const inside = async () => true, outside = async () => false
