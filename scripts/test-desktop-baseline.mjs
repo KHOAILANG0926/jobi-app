@@ -110,7 +110,7 @@ baseline.push(...[
   },
   {
     "path": "src/index.css",
-    "sha256": "559360ebc1f9ef787b84b385e02bc32cb12ccdb399f3e1a2d2f5f01f5acc72df",
+    "sha256": "2edfa0185aaf33a0c4128401ed510a87d70a7c4f48a0a663d39f0380f4639be8",
     "restore": []
   },
   {
