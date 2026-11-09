@@ -134,3 +134,18 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(INSPECT_KEYS.includes('photo' as never), 'photo key registered')
   console.log('jobInspect.test.ts: 대표 사진·로고 표시 항목 통과')
 }
+
+// 붙인 뒤에도 빠진 줄(Lee 2026-11-09): 이미 계산된 값을 검사표에 표시만 — 공개·연속 통과 영향 없음
+{
+  const job = { id: 31, description: 'Công việc\nLái xe giao hàng', pin: 'area', category: 'x', occupation_code: '8322', active: true }
+  const base = inspectJob(job)
+  assert(!base.items.some((i) => i.key === 'still_missing'), 'no item when nothing is missing')
+  const m = inspectJob({ ...job, still_missing_lines: ['Ca đêm 22h-6h', 'Nghỉ CN'] })
+  const item = m.items.find((i) => i.key === 'still_missing')!
+  assert(item && !item.ok && item.detail!.startsWith('2줄 — 코드 수정 필요: Ca đêm 22h-6h'), 'missing lines shown')
+  assert(m.ok === base.ok, 'still_missing does not change ok/streak')
+  assert(publishDecision(m, { active: false, hold: true }).publishable === publishDecision(base, { active: false, hold: true }).publishable, 'still_missing does not change publish')
+  assert(inspectReport({ id: 1 }, m).includes('❌ 붙인 뒤에도 빠진 줄 없음 — 2줄'), 'shown in report')
+  assert(INSPECT_KEYS.includes('still_missing' as never), 'key registered')
+  console.log('jobInspect.test.ts: 붙인 뒤에도 빠진 줄 표시 항목 통과')
+}
