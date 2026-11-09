@@ -88,9 +88,10 @@ const DETAIL_GROUP: Record<string, number> = {
   khac: 0, am_thuc_do_uong: 1, quan_ly_ban_hang: 2, dich_vu: 3, van_phong: 4, cskh_kinh_doanh: 5, san_xuat_xay_dung: 6,
   cntt_ky_thuat: 7, thiet_ke: 8, truyen_thong: 9, lai_xe_giao_hang: 10, y_te_dieu_duong: 11, giao_duc_giang_day: 12,
 }
-export function detailLook(category: string | null | undefined, seed: number): { photo: string; bar: string } {
+export function detailLook(category: string | null | undefined, seed: number): { photo: string; bar: string; head: string } {
   const g = DETAIL_GROUP[String(category ?? '')] ?? 0
   const list = CATEGORY_IMAGES[g]
   const photo = list[Math.abs(Math.trunc(seed || 0)) % list.length]
-  return { photo: `/images/template/${photo}.jpg`, bar: colorOf(DEFAULT_COLOR[41 + g * 6]).bar }
+  const c = colorOf(DEFAULT_COLOR[41 + g * 6])
+  return { photo: `/images/template/${photo}.jpg`, bar: c.bar, head: c.head }
 }

@@ -12495,13 +12495,23 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-desc-visual__company { position: absolute; z-index: 2; top: 22%; left: 6%; max-width: 50%; margin: 0; font-size: 1.05rem; line-height: 1.35; color: #202020; }
 .jd2-desc-visual__title { position: absolute; z-index: 2; top: 38%; left: 6%; max-width: 52%; margin: 0; font-size: 1.75rem; font-weight: 700; line-height: 1.3; letter-spacing: -.01em; color: #202020;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.jd2-detail-sections--tpl .jd2-detail-section__title { font-size: 1.25rem; }
-.jd2-detail-sections--tpl .jd2-detail-section__title::before { width: 8px; height: 1.45em; background: var(--jd2-bar, #e58aa0); }
+/* 아래 칸들도 템플릿 본문 모양(알바몬 표): 굵은 22px 소제목 + 색 막대, 내용은 위 3px 색 선 표 — 줄마다 아래 선, 첫 줄(표 머리)은 연한 템플릿 색 바탕. 글머리점 없음. */
+.jd2-detail-sections--tpl .jd2-detail-section + .jd2-detail-section { margin-top: 2.6rem; }
+.jd2-detail-sections--tpl .jd2-detail-section__title { gap: 1rem; margin-bottom: 1rem; font-size: 1.375rem; letter-spacing: -.02em; color: #202020; }
+.jd2-detail-sections--tpl .jd2-detail-section__title::before { width: 8px; height: 24px; background: var(--jd2-bar, #e58aa0); }
+.jd2-detail-sections--tpl .jd2-detail-section__lines { gap: 0; padding-left: 0; border-top: 3px solid var(--jd2-bar, #e58aa0); }
+.jd2-detail-sections--tpl .jd2-detail-section__line { padding: .95rem 1.25rem; border-bottom: 1px solid #e0e0e0; font-size: 1.06rem; line-height: 1.65; color: #171717; }
+.jd2-detail-sections--tpl .jd2-detail-section__line:first-child { background: var(--jd2-head, #fbf0f1); }
+.jd2-detail-sections--tpl .jd2-detail-section__line::before { display: none; }
+.jd2-detail-sections--tpl .jd2-detail-section__line[data-role-heading] { background: var(--jd2-head, #fbf0f1); font-weight: 700; }
 @media (max-width: 640px) {
   .jd2-desc-visual { margin: -1.1rem -1rem 1.4rem; border-radius: 0; aspect-ratio: 520 / 338; }
   .jd2-desc-visual__company { top: 19%; left: 16px; font-size: .9rem; }
   .jd2-desc-visual__title { top: 34%; left: 16px; max-width: 58%; font-size: 1.15rem; }
+  .jd2-detail-sections--tpl .jd2-detail-section + .jd2-detail-section { margin-top: 1.9rem; }
   .jd2-detail-sections--tpl .jd2-detail-section__title { font-size: 1.1rem; }
+  .jd2-detail-sections--tpl .jd2-detail-section__title::before { width: 6px; height: 20px; }
+  .jd2-detail-sections--tpl .jd2-detail-section__line { padding: .75rem .9rem; font-size: .95rem; }
 }
 
 /* 2026-10-19 Lee: 채용 이미지 갤러리 — 같은 크기 작은 사진 한 줄(휴대폰은 옆으로 밀기), 누르면 크게. 회색 바탕 없음. */

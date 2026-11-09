@@ -977,7 +977,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
             {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
-              <div className="jd2-box jd2-detail-sections jd2-detail-sections--tpl" style={{ '--jd2-bar': look.bar } as React.CSSProperties} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+              <div className="jd2-box jd2-detail-sections jd2-detail-sections--tpl" style={{ '--jd2-bar': look.bar, '--jd2-head': look.head } as React.CSSProperties} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
                 {/* #563 데모: 간편 템플릿 머리(업종 그림 + 왼쪽 흐림 위 회사·제목). 그림은 장식이라 alt 비움 */}
                 <div className="jd2-desc-visual">
                   <img className="jd2-desc-visual__img" src={look.photo} alt="" loading="lazy" />
