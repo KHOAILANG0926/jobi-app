@@ -76,7 +76,9 @@ jobs:
             [ -n "$num" ] || continue
             # Comment-triggered runs must inspect only the PR Lee actually approved.
             if [ "$lee_approval" = true ]; then
-              [ "$num" = "$APPROVAL_ISSUE" ] && { [ "$APPROVAL_BODY" = "LEE-APPROVE $sha" ] || [ "$APPROVAL_BODY" = "LEE-DEMO-APPLY $sha" ]; } || continue
+              # 첫 줄만 본다 — 작업 세션 댓글 끝에 자동 서명 줄이 붙어 표시가 안 맞던 문제(2026-11-09).
+              first_line=$(printf '%s' "$APPROVAL_BODY" | head -n1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+              [ "$num" = "$APPROVAL_ISSUE" ] && { [ "$first_line" = "LEE-APPROVE $sha" ] || [ "$first_line" = "LEE-DEMO-APPLY $sha" ]; } || continue
             fi
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
             [ "$num" -ge 251 ] || continue
@@ -126,7 +128,7 @@ jobs:
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
             # 데모 적용 표시는 댓글로 남아 있으면 이후 실행(검사 끝난 뒤 workflow_run 등)에서도 인정한다(Codex #581 지적).
             pr_demo_apply="$demo_apply"
-            if jq -e --arg body "LEE-DEMO-APPLY $sha" '.[] | select(.user.login=="KHOAILANG0926" and ((.body // "") | gsub("^\\s+|\\s+$";"")) == $body)' comments.json >/dev/null; then pr_demo_apply=true; fi
+            if jq -e --arg body "LEE-DEMO-APPLY $sha" '.[] | select(.user.login=="KHOAILANG0926" and ((.body // "") | split("\n")[0] | gsub("^\\s+|\\s+$";"")) == $body)' comments.json >/dev/null; then pr_demo_apply=true; fi
             if [ "$pr_demo_apply" = true ]; then
               echo "Lee 데모 적용(LEE-DEMO-APPLY $sha) — Codex 대기 생략" > gate.txt
             elif ! node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date" files.json > gate.txt; then
