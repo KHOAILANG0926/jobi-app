@@ -1,3 +1,8 @@
+## 2026-11-09 저녁 — #560 시험 중단 사유 · #594 이슈 @claude 연결
+- #560 시험(#608·#609·#611): 미리 보기 8개 그룹 중 새 글은 Bắc Ninh 30건뿐(나머지 그룹은 몇 달 전 글). 시험의 Google 호출은 모두 API_KEY_INVALID — Vercel이 민감 값으로 둔 GOOGLE_PLACES_API_KEY는 env pull로 받을 수 없음(받은 값 길이 11). 운영 Google은 정상(business-search-compare 42599813839 오류 0). 같은 원인 2회 실패로 시험 중단, Lee 결정 대기(키를 GitHub Secret에 추가 vs 관리자 전용 서버 시험 API). 시험 예약으로 운영 카운터 54회 사용.
+- 30건 분석 [직접 확인]: 주소 글 없음 8(공단 이름만 'Quế Võ 3'·'Nam Sơn'·'Phố Nếnh' 등), 회사 이름 잘못 읽음 약 9('quán cạnh ngã 6'·'BẢNG TIN'·'Hotel 06 Ngô Tất Tố' 등), 회사 이름 없음 4, 체인 지점 7.
+- #594: 이슈 @claude 받는 곳이 없었음 → #610 claude-auto issue-mention(읽기 전용, 개인 bypass 설정 제외 — Codex P0), #594에서 시험 성공(run 42602216824). 남은 것: GPT 쪽 자동 수신(Codex 환경 생성 — Lee), #612 다른 자동 작업의 bypass 설정.
+
 ## 2026-11-09 오후 — #560 위치 확인 방식 비교 시험 도구 (Lee 승인 "200건 시험")
 - 요청: 운영 공고·DB 변경 없이 시험 데이터로 현재 방식(Google Text Search Pro) vs 4단계(시험 장부 → IDs Only 무료 → Autocomplete+Details Essentials → Pro) 비교.
 - 변경: scripts/ops/location-ladder-compare.mjs(+test), .github/workflows/location-ladder-compare.yml(수동). 판정은 운영과 같은 함수(resolveAutoLocation·precheckVerdict), 캐시 메모리만, 운영 DB는 공고·핀·캐시 쓰기 없음, Google Pro 호출만 운영 월 한도 예약(external_api_reserve)으로 셈(Codex 지적 반영).
