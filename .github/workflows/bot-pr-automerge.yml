@@ -124,7 +124,10 @@ jobs:
             # AI 팀 검사관(Lee 2026-11-08): GPT Codex 검사를 기다린다. 30분 안 오면 진행, 지적이 있으면 Claude 답이 있어야 진행.
             gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
-            if [ "$demo_apply" = true ]; then
+            # 데모 적용 표시는 댓글로 남아 있으면 이후 실행(검사 끝난 뒤 workflow_run 등)에서도 인정한다(Codex #581 지적).
+            pr_demo_apply="$demo_apply"
+            if jq -e --arg body "LEE-DEMO-APPLY $sha" '.[] | select(.user.login=="KHOAILANG0926" and ((.body // "") | gsub("^\\s+|\\s+$";"")) == $body)' comments.json >/dev/null; then pr_demo_apply=true; fi
+            if [ "$pr_demo_apply" = true ]; then
               echo "Lee 데모 적용(LEE-DEMO-APPLY $sha) — Codex 대기 생략" > gate.txt
             elif ! node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date" > gate.txt; then
               cat gate.txt
