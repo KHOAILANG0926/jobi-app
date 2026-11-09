@@ -116,6 +116,8 @@ jobs:
           allowed_bots: 'chatgpt-codex-connector'
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          # 비대화형 실행은 허용한 명령만 쓸 수 있다(Codex #598 지적): 지적 읽기·답·이슈(gh), 검사(npx tsc·npm·node), 커밋·push(git).
+          claude_args: '--allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh api:*),Bash(gh issue create:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(npx tsc:*),Bash(npm run build),Bash(npm test),Bash(npm ci),Bash(node:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*)"'
           prompt: |
             너는 이 저장소 AI 팀의 개발 담당 Claude다. 검사 담당 GPT Codex가 PR #${{ steps.guard.outputs.pr }}
             (브랜치 ${{ steps.guard.outputs.head_ref }}, 커밋 ${{ steps.guard.outputs.head_sha }})에 검사를 남겼다.
