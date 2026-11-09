@@ -12676,3 +12676,9 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-page--v2 .jd2-salary-row__label { font-size: 14px; font-weight: 600; color: #475569; }
 .jd2-page--v2 .jd2-salary-row__amount { font-size: 15px; font-weight: 700; color: #e53935; }
 @media (max-width: 640px) { .jd2-page--v2 .jd2-salary-rows { column-gap: .75rem; } .jd2-page--v2 .jd2-salary-row__amount { font-size: 14px; } }
+
+/* #579 (2026-11-09): 연락처가 없을 때(작성 미리보기 등) 제목 줄 오른쪽에 떠 있던 안내 상자가 아래 지도·표 위로 겹쳤다.
+   연락처가 없을 때만 그 상자를 제목 아래 흐름에 둔다 — 연락처가 있을 때의 Gọi/Zalo 버튼 배치(승인된 틀)는 그대로. */
+@media (min-width: 761px) {
+  .jd2-contact-wrap > .jd2-aside--contact-only.jd2-aside--no-contact { position: static; display: block; width: 100%; max-width: none; margin: .75rem 0 0; padding: 0; justify-self: stretch; }
+}

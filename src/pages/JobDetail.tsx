@@ -566,7 +566,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   // 위치는 그대로(위쪽): ①이 있으면 ① 제목 줄, 없을 때만 아래 단.
   const contactHost = contactHostFor({ conditions: conditionShown.length, recruitKeys: recruitShown.map((f) => f.key) })
   const contactAside = (
-      <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
+      <aside className={`jd2-aside jd2-aside--contact-only${hasContact ? '' : ' jd2-aside--no-contact'}`} aria-label="Liên hệ tuyển dụng">
         {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
         {showApply && (
           <button
