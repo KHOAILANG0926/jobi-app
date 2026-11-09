@@ -5,6 +5,7 @@
 ## 운영 DB 직접 접근 금지 — Lee 2026-10-27 재확인 (10-13 결정)
 - Codex는 Supabase 도구 등으로 운영 DB에 직접 연결해 SQL을 실행하거나 조회하지 않는다. 앞으로도 같은 경로를 사용하지 않는다.
 - 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.
+- 시험 DB 검사(2026-11-09 공통화): `<시각>_<이름>.sql`이면 `supabase/tests/<이름>.setup.sql`(준비)·`<이름>.local.sql`(확인)을 이름 규칙으로 둔다. `scripts/ci/check-postgres-migrations.sh`에 파일별 예외를 덧붙이지 않는다.
 - 파일 하나는 한 트랜잭션이며 충돌·근거 누락은 RAISE로 전체 취소한다. 운영 `migrations-apply` 실패 시 원문 오류 그대로 보고하고 멈춘다. 직접 SQL·별도 경로·자동 재시도로 우회하지 않는다.
 - 실제 좌표 확인은 정상 운영 검사/읽기 전용 공개 화면·API의 실행 증거로 한다. 로컬 폐기용 DB 시험은 운영 접근과 구분한다.
 
@@ -151,7 +152,7 @@ FAST/NORMAL의 "중복 승인 없이 Production까지"는 1·2순위를 침범�
 
 1. **기존 설계 우선**: 코드를 수정하기 전에 `VIECGANBAN_STRUCTURE_BASELINE.md`를
    먼저 읽고, 거기 기록된 기존 구조/설계 의도를 최대한 유지한다. 이미 있는 구조를
-   갈아엎거나 임의로 통합/삭제하지 않는다.
+   갈아엎지 않는다. 통합·삭제는 아래 8번처럼 근거(참조 확인·시험)를 갖추고 PR에 밝힌다.
 2. **작업 범위 준수**: 지시받은 범위 밖의 리팩터링, 기능 추가, 코드 스타일 변경을
    같이 하지 않는다. 범위를 벗어나는 게 필요해 보이면 먼저 멈추고 알린다.
 3. **큰 구조 변경 전 중단**: DB 스키마 변경(DDL), 인증 방식 변경, 기존 테이블
@@ -169,6 +170,11 @@ FAST/NORMAL의 "중복 승인 없이 Production까지"는 1·2순위를 침범�
    필요하면 GitHub Secrets 등 안전한 저장소를 참조만 하고 값은 다루지 않는다.
 7. **master 직접 push 금지(자동화 한정)**: 자동 실행 워크플로에서 만든 변경은
    반드시 새 브랜치로 커밋하고 PR을 생성한다. master에 직접 push하지 않는다.
+8. **덧붙이기 전에 고치기·합치기·지우기 (Lee 2026-11-09)**: 문제를 고칠 때 새 조건문·예외·
+   별도 로직·규칙·검사·자동화를 더하기 전에, 같은 일을 하는 기존 코드를 고치거나 합칠 수 있는지,
+   더 이상 안 쓰게 된 코드를 지울 수 있는지 먼저 본다. 공고 번호·파일 이름·날짜별 예외는 만들지 않는다
+   (이름 규칙·공통 함수로). 목표는 줄 수가 아니라 구조 안정 — 기능·검증이 약해지면 하지 않는다.
+   PR 설명 「작업 범위」에 `- 지운 것/합친 것:`을 적는다(없으면 "없음 — 이유"). Codex 검토가 이 줄과 실제 변경을 대조한다(AGENTS.md).
 
 ## 보고 형식 — MANDATORY (2026-09-28 사용자 지시, 2026-10-06 강화)
 
@@ -181,20 +187,12 @@ FAST/NORMAL의 "중복 승인 없이 Production까지"는 1·2순위를 침범�
 - 진행 중 안내는 한 줄. 중간 보고로 흐름을 끊지 않는다.
 - 이미 읽은 파일 재조회, 불필요한 탐색, 같은 명령 재시도를 최소화한다.
 
-## ChatGPT 추적용 기록 — MANDATORY (2026-10-01 사용자 지시)
-
-목적: 사용자가 ChatGPT를 거치지 않고 Claude Code에 직접 지시한 작업도 ChatGPT가 repo만 보고 따라오게 한다.
-기존 규칙(우선 원칙 5의 HANDOFF 스냅샷, FAST/NORMAL 배포, 짧은 보고)은 그대로 유지한다.
-
-- `CHATGPT_HANDOFF.md`: 1페이지 최신 스냅샷(현재 상태 / 다음 할 일 3개 / 필수 규칙). 누적 문서로 만들지 않는다.
-  branch / HEAD / Production·DB 상태 / 구현 상태 / 미완료 / 다음 작업 중심. ChatGPT가 이 문서 하나로 현재 상태를 알 수 있어야 한다.
-  사용자 직접 지시로 기존 설계 방향이 바뀌었으면 "기존 방향에서 무엇이 바뀌었는지"를 명시한다.
-- `WORK_LOG.md`: 실제 변경이 있었던 작업마다 맨 위에 짧게 추가, **최근 10개만 유지**(넘으면 오래된 것 삭제, 장기 이력은 git).
-  항목: `## YYYY-MM-DD HH:mm` + 요청 / 변경 / 수정 파일 / 검증 / commit / push / deploy / 남은 문제. 중요한 설계 변경만 이유 1~2줄.
-- 단순 질문·탐색·설명만 했으면 두 문서 모두 갱신하지 않는다.
-- 새 세션 시작: git status → branch/HEAD → `CHATGPT_HANDOFF.md` → 사용자 요청. `WORK_LOG.md`는 과거 이유·상세가 필요할 때만 읽는다.
-- 배포: 사용자가 그 작업에서 "배포하지 마 / 로컬만 / 검토만 / 코드 수정하지 마 / Production 건드리지 마"라고 하면 그 지시가 FAST/NORMAL보다 우선한다.
-- 채팅 완료 보고는 1~3줄. 세부는 두 문서에 기록하고 채팅에 반복하지 않는다. 민감정보는 두 문서에도 쓰지 않는다.
+## 작업 기록 — MANDATORY (2026-10-01, 2026-10-08)
+- `CHATGPT_HANDOFF.md`: 1페이지 최신 스냅샷(현재 상태 / 다음 할 일 3개 / 필수 규칙). 누적하지 않는다. 사용자 직접 지시로 설계 방향이 바뀌면 무엇이 바뀌었는지 적는다.
+- `WORK_LOG.md`: 실제 변경이 있었던 작업마다 맨 위에 짧게(요청 / 변경 / 수정 파일 / 검증 / commit·deploy / 남은 문제), **최근 10개만**(장기 이력은 git).
+- 단순 질문·탐색·설명만 했으면 두 문서 모두 갱신하지 않는다. 민감정보는 쓰지 않는다.
+- 새 세션: git status → branch/HEAD → `CHATGPT_HANDOFF.md` → 요청. `WORK_LOG.md`는 과거 이유가 필요할 때만.
+- "배포하지 마 / 로컬만 / 검토만 / Production 건드리지 마" 지시는 FAST/NORMAL보다 우선한다.
 
 ## 한국 일자리 모듈 분리 규칙 — MANDATORY (2026-10-01 사용자 지시)
 
@@ -281,166 +279,26 @@ Claude Code·Cursor·Codex 모두 적용한다(`.cursor/rules/project-rules.mdc`
 - DB 변경(공개/비공개 전환, 삭제, 정리 포함)을 할 때는 화면에 미치는 영향(0건·빈 목록 등)까지 확인한다.
 
 ## 필수 작업 상태 규칙
+- 상태를 구분한다: **IMPLEMENTED**(코드) → **VERIFIED**(시험·build·화면 확인) → **APPROVED**(Lee 확인) → **DEPLOYED**(병합·운영 배포·운영 URL 확인).
+- 이미 IMPLEMENTED/VERIFIED/승인된 작업을 이유 없이 다시 만들지 않는다. "적용해/반영해/실제 사이트에 넣어" = 현재 VERIFIED 결과의 배포 요청.
+- 운영에 안 보이면 재구현보다 commit/push/배포 상태부터 확인한다. 화면 캡처가 있으면 추측보다 화면을 따른다.
 
-모든 UI/기능 작업은 아래 상태를 명시적으로 구분한다.
+## 작업 등급 — MANDATORY (2026-08-27)
+- **FAST**(Lee가 지시·승인한 단순 UI/글/배치)·**NORMAL**(일반 기능 수정, "수정해/적용해/바로 해"): 구현 → 검증 → PR → 검사 → 병합 → 운영 배포 → 운영 화면 확인까지 한 번에. 중간에 "배포해도 될까요?"를 다시 묻지 않는다. 예상 못 한 범위 확대·새 제품 결정이 생기면 멈추고 묻는다.
+- **STRICT**(별도 승인·안전 절차 유지): 운영 DB migration, 데이터 삭제·대량 수정, 인증·RLS·권한, 보안·비밀값, 결제, 사용자 데이터 영향, 파괴적·되돌리기 어려운 변경, 예상 못 한 대규모 구조 변경.
+- 브랜치 push와 운영 배포 상태는 구분해 보고한다. 위 우선순위(명시 금지·운영 보호·확정 완료 조건)가 먼저다.
 
-1. **IMPLEMENTED**: 코드 구현 완료
-2. **VERIFIED**: 테스트, build, 실제 로컬 화면 검증 완료
-3. **APPROVED**: 사용자가 결과를 확인하고 승인 완료
-4. **DEPLOYED**: commit/push, Production 배포, 실제 운영 URL 반영 확인 완료
+## 여러 작업 환경 — MANDATORY (2026-08-28, 회사·집 PC → 지금은 클라우드 세션 포함)
+- 한 환경에만 있는 변경은 완료가 아니다: 코드는 GitHub master까지, DB는 migration 파일(master 포함)로 운영 적용, 서비스는 운영 배포 확인까지.
+- 작업 시작 전 git status·fetch·origin/master 비교. 깨끗하고 fast-forward 가능하면 맞춘다. 커밋 안 된 작업이 있으면 reset/덮어쓰기 하지 말고 먼저 보존한다.
+- 열쇠·.env·로그인 정보·기계 전용 경로는 GitHub에 올리지 않는다(영구 운영 원칙: 키는 Vercel·GitHub Secrets에만).
+- 완료 보고는 IMPLEMENTED → VERIFIED → MASTER PUSHED → PRODUCTION DEPLOYED → PRODUCTION VERIFIED를 구분한다. 넘겨줄 상태가 있으면 CHATGPT_HANDOFF.md에.
 
-- 이미 `IMPLEMENTED` 또는 `VERIFIED`인 동일 작업을 이유 없이 다시 구현하지 않는다.
-- 사용자가 승인한 구현은 다시 만들거나 재설계하지 않고 다음 상태로 진행한다.
-- 사용자가 “적용해”, “반영해”, “실제 사이트에 넣어”라고 하면 현재 `VERIFIED`
-  결과에 대한 배포 요청으로 처리한다.
-- commit/push가 안 된 상태와 구현이 안 된 상태를 혼동하지 않는다.
-- 운영 사이트에 결과가 안 보이면 재구현보다 commit/push/배포 상태를 먼저 확인한다.
-- 기존 완료 상태를 확인하기 전에 동일 작업을 처음부터 다시 시작하지 않는다.
-- 새 세션은 `AGENTS.md`, `CLAUDE.md`, `CHATGPT_HANDOFF.md`를 먼저 읽고 상태를 복원한다.
-- 화면 캡처가 제공되면 추측보다 실제 화면을 우선하며, 확인되지 않은 상태를 완료로 보고하지 않는다.
-- 반복 작업으로 사용자 시간과 토큰을 낭비하지 않는다.
-
-## MANDATORY WORK MODE — 작업 등급별 배포 규칙
-
-모든 작업을 시작하기 전에 아래 세 등급 중 하나로 분류하고, 그 등급의 흐름을 따른다.
-(2026-08-27 사용자 지시로 영구 반영)
-
-### FAST 작업
-
-사용자가 현재 대화에서 수정 내용을 명확히 승인/지시한 단순 UI/CSS/텍스트/배치 작업.
-
-흐름: 구현 → 최소 검증(`tsc`/`build` 등) → commit → master 반영 → master push →
-Vercel Production 배포 → 실제 사이트 대표 화면 1회 확인 → 완료.
-
-- 중간에 "승인 대기", "Production 배포해도 될까요?"를 다시 묻지 않는다.
-- 사용자의 구체적인 구현 지시 자체를 해당 FAST 작업의 승인으로 본다.
-
-### NORMAL 작업
-
-일반적인 기능 수정. 사용자가 "수정해", "적용해", "바로 해"처럼 명확하게 지시한 경우에는
-구현/검증 후 별도의 중복 승인을 요구하지 않고 master/Production까지 진행한다.
-
-- 단, 예상하지 못한 범위 확대나 중요한 제품 결정이 새로 필요해지면 멈추고 질문한다.
-
-### STRICT 작업
-
-다음은 기존처럼 별도 승인/안전 절차를 유지한다 — FAST/NORMAL 흐름을 적용하지 않는다:
-
-- Production DB migration
-- 데이터 삭제/대량 수정
-- Auth/RLS/권한
-- 보안/secret
-- 결제
-- 사용자 데이터에 영향을 주는 작업
-- destructive operation
-- 되돌리기 어려운 변경
-- 예상하지 못한 대규모 구조 변경
-
-### 공통 원칙
-
-- Git branch push와 Production 배포 상태는 항상 구분해서 보고한다.
-- 하지만 안전을 이유로 모든 사소한 UI 작업을 branch에서 멈추는 방식은 쓰지 않는다 —
-  FAST/NORMAL 작업은 위 흐름대로 Production까지 끝맺는다.
-  단 사용자의 명시적 금지·운영/보안 보호·확정된 완료 조건이 우선한다(상단 "규칙 우선순위" 절).
-
-## TWO-PC WORKFLOW — MANDATORY
-
-사용자는 이 프로젝트를 두 PC에서 번갈아 작업한다.
-(2026-08-28 사용자 지시로 영구 반영. 특정 작업이 아니라 Viecganban 프로젝트의
-모든 향후 작업에 적용되며, 위 MANDATORY WORK MODE와 충돌하지 않고 함께 적용된다 —
-WORK MODE는 "언제 다음 단계로 진행하는가"를, 이 섹션은 "다음 단계가 두 PC 모두에서
-동일하게 이어지려면 무엇이 GitHub/Production에 실제로 반영돼 있어야 하는가"를 규정한다.)
-
-- 회사 PC
-- 집 PC
-
-따라서 한 PC에만 존재하는 변경은 절대 "완료"로 간주하지 않는다.
-
-### 영구 변경 원칙
-
-1. 모든 코드 변경
-   → GitHub master까지 push
-
-2. 모든 Production DB 변경
-   → shared Supabase Production에 migration으로 적용
-   → migration 파일도 GitHub master에 반드시 포함
-
-3. 서비스 변경
-   → Vercel Production 배포 및 실제 반영 확인
-
-4. 작업 시작 전
-   → git status 확인
-   → git fetch origin
-   → local과 origin/master 상태 비교
-
-5. local이 clean하고 fast-forward 가능한 경우
-   → origin/master 기준으로 안전하게 동기화
-
-6. uncommitted/local-only 작업이 있으면
-   → 절대 reset/overwrite하지 말고 먼저 보호
-
-7. 회사 PC에서 작업했더라도
-   집 PC가 이후 origin/master를 pull하면
-   동일한 코드/migration 상태를 이어받을 수 있어야 한다.
-
-8. 집 PC에서 작업한 경우도 동일하다.
-
-9. PC-local 항목:
-   - access token
-   - local .env
-   - CLI login/session
-   - machine-specific path
-
-   은 GitHub에 올리지 않는다.
-
-10. PC-local credential이 필요한 작업과
-    프로젝트의 영구 상태를 명확히 구분한다.
-
-11. 한 PC에서만 작동하는 설정/변경이라면
-    Production 작업 완료로 보고하지 않는다.
-
-12. 작업 완료 기준:
-
-    IMPLEMENTED
-    → VERIFIED
-    → MASTER PUSHED
-    → PRODUCTION DEPLOYED
-    → PRODUCTION VERIFIED
-
-    를 구분해서 보고한다.
-
-13. 회사/집 PC 간 전달해야 할 현재 작업 상태가 있으면
-    CHATGPT_HANDOFF.md를 최신 snapshot으로 갱신하고
-    GitHub master에 포함한다.
-
-중요:
-이 규칙은 특정 작업에만 적용되는 것이 아니라
-Viecganban 프로젝트의 모든 향후 작업에 적용한다.
-
-## 작업 브랜치·Preview·Git 종료 게이트 — MANDATORY (2026-10-05 사용자 지시)
-
-재발 방지 근거: VietMap 최종 Preview(`dpl_5vVjSum6NNQYVyFBf9vif4p8kgYE`)가 미커밋 CLI 배포 소스에서
-만들어졌다. 검증은 끝났지만 GitHub/master에 최종 소스가 남지 않아 Vercel deployment source를
-다시 회수해야 했다. 그래서 Preview 승인 이후 Git 보존을 강제하는 종료 게이트를 둔다.
-
-1. 모든 작업은 시작 전에 기준 branch/worktree를 명확히 고정한다.
-2. 다른 오래된 branch나 임시 worktree를 기준으로 새 기능을 이어서 개발하지 않는다.
-3. 표준 순서는 반드시:
-   기준 branch 고정 → 수정 → tsc/build/tests → Preview 배포 → 사용자 검증/승인
-   → commit → push → git status clean 확인 → HANDOFF/WORK_LOG 기록 → 다음 작업
-4. 사용자에게 승인된 Preview가 있는데 그 소스가 아직 commit/push되지 않았다면
-   다음 기능 작업을 시작하지 않는다.
-5. 미커밋 상태로 CLI/API Preview를 배포할 수는 있지만, 그 Preview가 승인되면
-   동일 소스를 즉시 Git branch에 보존한다.
-6. Preview만 존재하고 GitHub/정식 working tree에 소스가 없는 상태를 만들지 않는다.
-7. 여러 branch/worktree가 존재하면 작업 시작 전에 어느 것이 canonical source인지 확인한다.
-8. 기존 미커밋 변경이 있는 다른 worktree를 임의로 merge/reset/rebase/checkout 하지 않는다.
-9. Production 배포 전에는 반드시 다음을 거친다:
-   - 승인된 Preview와 Git 소스 일치
-   - commit/push 완료
-   - git status 확인
-10. 실험 provider/임시 코드/acceptance fixture는 정식 기준 branch에 합칠 때
-    포함/제외를 명시적으로 판단한다.
+## 작업 브랜치·데모·Git 종료 게이트 — MANDATORY (2026-10-05)
+재발 방지 근거: 승인된 VietMap Preview가 커밋 안 된 소스에서 만들어져 소스를 다시 회수해야 했음.
+- 시작 전 기준 브랜치를 정하고, 오래된 브랜치·임시 worktree 위에서 새 기능을 잇지 않는다. 남의 커밋 안 된 worktree를 merge/reset/rebase/checkout 하지 않는다.
+- 순서: 수정 → tsc/build/tests → 데모(Preview) → Lee 승인 → commit·push(같은 소스) → 운영. 승인된 데모의 소스가 GitHub에 없으면 다음 작업을 시작하지 않는다.
+- 운영 배포 전: 승인된 데모와 Git 소스 일치, push 완료, git status 확인. 실험·임시 코드는 포함 여부를 명시적으로 정한다.
 
 ## 공고 등록 전 직업분류 확인 — MANDATORY (2026-10-17)
 - 공개 요청을 받더라도 먼저 실제 업무를 원문에서 확인하고 공식 직업분류의 명칭·업무 설명과 대조한다. 회사명·도구(휴대폰/컴퓨터)·급여만으로 직종을 추정하지 않는다.
