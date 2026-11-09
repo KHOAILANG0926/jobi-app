@@ -42,6 +42,7 @@ try {
            j.ocr_check->>'status' as ocr_status,
            j.image_url, j.images, j.company_domain, j.logo_lookup->>'result' as logo_result, j.created_at,
            coalesce(j.ocr_check->'detail_fill'->'unclassified', '[]'::jsonb) as unclassified,
+           coalesce(j.ocr_check->'detail_fill'->'still_missing', '[]'::jsonb) as still_missing,
            j.ocr_check->'inspect' as prev,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses,
            -- 2026-11-07 수평 전개(#5599): 화면(src/lib/jobCoords.ts precise·mapR1 locationPoints)과 같은 기준.
@@ -70,6 +71,7 @@ try {
       category: job.category, occupation_code: job.occupation_code, active: job.active, admin_hidden: job.admin_hidden,
       image_count: job.image_count, ocr_status: job.ocr_status, pin: job.pin, unlocated_reason: job.unlocated_reason,
       shuttle_bus: job.shuttle_bus, dormitory: job.dormitory, meal_provided: job.meal_provided, unclassified_lines: job.unclassified,
+      still_missing_lines: job.still_missing,
       photo: photoSource({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, companyDomain: job.company_domain ?? undefined,
         images: Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : undefined,
         lookupResult: job.logo_result, createdAt: job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at }, brands),

@@ -29,6 +29,8 @@ export interface InspectInput extends ShownAbove {
   dormitory?: boolean | null
   meal_provided?: boolean | null
   unclassified_lines?: string[]
+  /** 상세요강 보충(detail-fill) 뒤에도 원문에서 빠진 줄 — 이미 계산된 값(ocr_check.detail_fill.still_missing). */
+  still_missing_lines?: string[]
   /** 회사명(원문 줄 빠짐 검사에서 회사명만 있는 줄은 위쪽에 보이므로 허용) */
   company?: string | null
   /** 담당자 이름(위쪽 연락 버튼에 보임) */
@@ -46,7 +48,7 @@ const PHOTO_LABEL: Record<PhotoSource, string> = {
 }
 /** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
 export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
-  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields', 'photo'] as const
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields', 'photo', 'still_missing'] as const
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string; reviewOnly?: boolean }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
@@ -123,6 +125,9 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 10. 칸을 못 정한 새 종류 줄
   const unc = j.unclassified_lines ?? []
   add('new_kind', '칸 못 정한 줄 없음', !unc.length, unc.length ? unc.slice(0, 3).join(' / ') : undefined)
+  // 10-1. 붙인 뒤에도 빠진 줄(Lee 2026-11-09): detail-fill이 이미 계산한 값을 표시만 — 코드 수정 필요 신호, 공개·연속 통과 영향 없음(INFO_ONLY)
+  const miss = j.still_missing_lines ?? []
+  if (miss.length) add('still_missing', '붙인 뒤에도 빠진 줄 없음', false, `${miss.length}줄 — 코드 수정 필요: ${miss.slice(0, 3).join(' / ')}`)
   // 12~14 (2026-11-01 Lee: 규정 R10·10-30 확정 구성이 실제로 지켜졌는지 원문과 대조)
   const srcLines = cleanSourceText(j.source_text).text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   // 12. 원문 직무 목록(Vị trí tuyển dụng 아래 줄)이 전부 업무 칸(01)에 있는가 — R10
@@ -188,7 +193,7 @@ export function inspectJob(j: InspectInput): InspectResult {
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
 export const REVIEW_ONLY = ['hours_review', 'card']
 /** 표시만 하는 항목: 공개도 연속 통과도 막지 않는다(사진은 등록·공개와 별개, Lee 2026-11-05·11-07). */
-export const INFO_ONLY = ['photo']
+export const INFO_ONLY = ['photo', 'still_missing']
 
 export function publishDecision(
   r: InspectResult,
