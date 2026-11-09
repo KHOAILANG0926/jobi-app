@@ -31,8 +31,9 @@ try {
     for (const id of jobs.slice(1)) {
       const comparison = measured[id + ending]
       for (const metric of keys) {
-        // 2026-11-04 Lee 적용(#447): 최신 4칸 틀(sb-4828 등)은 머리 급여 글자를 키움(PC 26px·모바일 22px). KDA와 같을 필요 없음 — 이 한 항목만 제외.
-        if (id === '4828' && metric === 'header.salary.value.font') continue
+        // 2026-11-04 Lee 적용(#447): 최신 4칸 틀은 머리 급여 글자를 키움(PC 26px·모바일 22px). KDA와 같을 필요 없음 — 이 한 항목만 제외.
+        // 2026-11-09 틀이 KDA·4칸 2가지뿐이라 비교 대상(KDA 아닌 공고)은 모두 4칸 틀 — 공고 번호별 예외 대신 같은 규칙.
+        if (metric === 'header.salary.value.font') continue
         if (base[metric] === undefined || comparison[metric] === undefined) continue
         if (typeof base[metric] === 'number' && typeof comparison[metric] === 'number') {
           if (Math.abs(base[metric] - comparison[metric]) > 2) findings.push(id + ending + ': ' + metric + ' diverges from CTY KDA (' + comparison[metric] + ' vs ' + base[metric] + ')')
