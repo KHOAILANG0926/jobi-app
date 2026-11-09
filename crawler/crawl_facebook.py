@@ -1250,6 +1250,7 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
 def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) -> int:
     """DRY-RUN 결과 파일에서 지정한 게시물만 저장(페이스북 재접속 없음). 사람이 원문을
     대조한 뒤 소량 저장할 때 쓴다."""
+    ingest_gateway._HOLDS_RETRIED = True  # 선택 저장은 그 글만 — 다른 보류 공고를 같이 처리하지 않는다
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     by_key = {j.get("fb_post_key"): j for j in data.get("jobs", [])}
     picked = []
