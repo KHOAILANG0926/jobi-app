@@ -165,7 +165,20 @@ export function siteCacheKey(company: string, address: string): string {
   const site = street && house ? `st:${house} ${street}` : park ? `park:${park.id}` : ''
   if (!site) return ''
   const area = administrativeAreaForTarget(address, '')
-  return `${core}|${site}|${area ? area.parentKey ?? area.key : ''}` // 원래 성 단위("TP Bắc Ninh"·"Bắc Ninh" 같은 성)
+  const province = area ? area.parentKey ?? area.key : ''
+  // 번지 열쇠는 동·구까지 같아야 같은 사업장(Codex #619: 같은 성 안 다른 동의 "12 Lý Thái Tổ"는 다른 지점). 동·구를 안 적은 주소는 따로 센다(합치지 않음).
+  const locality = street && house ? `|${localityOf(address, area)}` : ''
+  return `${core}|${site}|${province}${locality}` // 원래 성 단위("TP Bắc Ninh"·"Bắc Ninh" 같은 성)
+}
+
+const LOCALITY_PREFIX = /^(?:phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\s+/
+/** 주소의 동·구 글자(번지·거리 칸과 성·시 이름·나라 이름 빼고, 머리말 phường·xã·quận·huyện·TP 등 떼고). */
+function localityOf(address: string, area: { key: string; aliases: string[]; parentKey?: string } | null): string {
+  const aliases = new Set([...(area?.aliases ?? []), ...[area?.key, area?.parentKey].filter(Boolean).map((k) => String(k).replace(/^[a-z]+:/, ''))])
+  const parts = String(address ?? '').split(',').slice(1)
+    .map((p) => normalizePlaceText(p).replace(/\./g, ' ').replace(/\s+/g, ' ').trim().replace(LOCALITY_PREFIX, '').trim())
+    .filter((p) => p && !aliases.has(p) && !/^(?:viet nam|vietnam)$/.test(p) && !/^\d+$/.test(p))
+  return [...new Set(parts)].sort().join('+')
 }
 
 /** Google 결과 저장 열쇠 — 위치 확인·로고·업종이 같은 함수(한 곳). 첫 열쇠에 저장하고, 읽을 때는 차례로 찾는다.

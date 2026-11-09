@@ -248,7 +248,9 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const resolverJob = { id: jobId, company: String(snap.company ?? job.company ?? ''), location: String(snap.location ?? ''),
     targets: (Array.isArray(snap.targets) ? snap.targets : []).map((t) => ({ address: String(t?.address ?? ''), workLocationId: null })) }
   const deps = resolverDeps(db, null, {}, null, null)
-  const placeId = await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
+  // 한도 초과로 남았던 공고는 그때 확인한 장소 번호를 그대로 쓴다(장소 번호는 약관상 계속 저장 가능 — 30일 지난 검색 결과가 없어도 다시 시도, Codex #619 P2).
+  const recorded = job.logo_lookup?.result === 'quota' && typeof job.logo_lookup?.place_id === 'string' && job.logo_lookup.place_id ? job.logo_lookup.place_id : null
+  const placeId = recorded ?? await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
   if (!placeId) return record('no_place')
   const cacheKey = JSON.stringify(['place-website-v1', placeId])
   let site = await deps.cached(cacheKey)

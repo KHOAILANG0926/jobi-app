@@ -88,6 +88,11 @@ const fetchOk = (website: string | null, iconStatus = 200) => async (url: string
   const { db: d3 } = fakeDb(base, { cache: c3 })
   assert(await applyLogoLookup(d3, 9, 'k', async (u: string) => { if (u.includes('places.googleapis.com')) asked++; return fetchOk('https://hojeong.vn')(u) }) === 'found' && asked === 1, '30-day expired website → asked again')
 }
+{ // Codex #619 P2: 한도 초과 기록의 장소 번호로 다시 시도(검색 결과가 30일 지나 정리돼도)
+  const { db, calls } = fakeDb({ ...base, logo_lookup: { result: 'quota', place_id: 'ChIJrec' } })
+  assert(await applyLogoLookup(db, 9, 'k', fetchOk('https://hojeong.vn')) === 'found', 'recorded place id reused')
+  assert(calls.rpc.find(([n]) => n === 'job_logo_lookup_record')![1].p_place_id === 'ChIJrec', 'same place id recorded')
+}
 { // 다시 시도 묶음: 한도가 아직이면 첫 건에서 멈춘다(헛 호출 없음)
   const rows = [{ id: 9 }, { id: 10 }]
   const inner = fakeDb(base, { cache: new Map([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit]]) }).db
