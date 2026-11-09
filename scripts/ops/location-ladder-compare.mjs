@@ -22,11 +22,18 @@ const GOOGLE = 'https://places.googleapis.com/v1'
 
 /** Google Places(New) 호출 묶음. fetchImpl은 시험용으로 바꿔 넣는다. 호출 수를 센다. cap을 넘으면 부르지 않는다.
  *  reservePro: 운영과 같은 월 한도 예약(external_api_reserve('google_text_search')) — 시험 호출도 운영 카운터에 들어간다(Codex #608 P1). */
-export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250, autocomplete: 250, details: 750 }, reservePro = async () => true) {
+/*  reserveTest: 시험 몫 예약(external_api_reserve('google_text_search_test'), Lee 2026-11-09 시험·운영 분리). Pro·IDs Only 모두 같은
+ *  Google SearchText 한도를 쓰므로 둘 다 시험 몫을 먼저 예약한다. searchCap: 한 번 실행의 SearchText(Pro+IDs) 합계 상한. */
+export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250, autocomplete: 250, details: 750 }, reservePro = async () => true, reserveTest = async () => true, searchCap = Infinity) {
   const calls = { pro: 0, ids: 0, autocomplete: 0, details: 0 }
   const headers = (mask) => ({ 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': mask })
   async function call(sku, url, init) {
     if (calls[sku] >= cap[sku]) throw new Error('test_cap_reached')
+    if (sku === 'pro' || sku === 'ids') {
+      if (calls.pro + calls.ids >= searchCap) throw new Error('test_cap_reached')
+      if (!(await reserveTest())) throw new Error('test_quota_exhausted')
+      if (sku === 'pro' && !(await reservePro())) throw new Error('quota_exhausted') // 시험 몫 다음에 운영 몫(헛 예약 없게)
+    }
     calls[sku]++
     const res = await fetchImpl(url, { ...init, signal: AbortSignal.timeout(15000) })
     // 실패 이유는 Google 오류 코드만(예: PERMISSION_DENIED/API_KEY_HTTP_REFERRER_BLOCKED). 메시지 본문·키는 남기지 않는다.
@@ -41,7 +48,7 @@ export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250,
   return {
     calls,
     // 현재 운영과 같은 요청(auto-location-runtime googlePlacesRequest와 같은 칸)
-    pro: async (text) => { if (!(await reservePro())) throw new Error('quota_exhausted'); return call('pro', `${GOOGLE}/places:searchText`, { method: 'POST', headers: headers('places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType'), body: searchBody(text) }) },
+    pro: async (text) => { return call('pro', `${GOOGLE}/places:searchText`, { method: 'POST', headers: headers('places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType'), body: searchBody(text) }) },
     ids: async (text) => ((await call('ids', `${GOOGLE}/places:searchText`, { method: 'POST', headers: headers('places.id'), body: searchBody(text) }))?.places ?? []).map((p) => String(p.id)),
     autocomplete: async (text) => ((await call('autocomplete', `${GOOGLE}/places:autocomplete`, { method: 'POST', headers: headers('suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat'),
       body: JSON.stringify({ input: text, languageCode: 'vi', includedRegionCodes: ['vn'] }) }))?.suggestions ?? [])
@@ -200,11 +207,14 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
   const limit = Number(process.env.MAX_JOBS || 250)
   // 운영 카운터 예약(서비스 키로 RPC). 한도에 닿으면 Pro를 부르지 않는다 — 운영과 같은 규칙.
   const supa = need('SUPABASE_URL'), sk = need('SUPABASE_SERVICE_ROLE_KEY')
-  const reservePro = async () => {
-    const r = await fetch(`${supa}/rest/v1/rpc/external_api_reserve`, { method: 'POST', headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_api: 'google_text_search' }) })
+  const reserve = (api) => async () => {
+    const r = await fetch(`${supa}/rest/v1/rpc/external_api_reserve`, { method: 'POST', headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_api: api }) })
     return r.ok && (await r.json()) === true
   }
-  const g = googleClient(need('GOOGLE_PLACES_API_KEY'), fetch, { pro: limit, ids: limit, autocomplete: limit, details: limit * 3 }, reservePro)
+  // 시험 몫(600/월)을 먼저, Pro는 운영 몫에도 센다. 한 번 실행의 SearchText 합계는 TEST_SEARCH_CAP(기본 40)까지 — 운영 몫 보호(Lee 2026-11-09).
+  const searchCap = Number(process.env.TEST_SEARCH_CAP || 40)
+  const g = googleClient(need('GOOGLE_PLACES_API_KEY'), fetch, { pro: limit, ids: limit, autocomplete: limit, details: limit * 3 },
+    reserve('google_text_search'), reserve('google_text_search_test'), searchCap)
   const ctx = { g, registry: new Map(), shared: new Map(), vietmap: vietmapRequest(need('VIETMAP_SERVICE_KEY')), goong: process.env.GOONG_API_KEY ? goongRequest(process.env.GOONG_API_KEY) : null }
   const rows = []
   for (const j of jobs.slice(0, limit)) {

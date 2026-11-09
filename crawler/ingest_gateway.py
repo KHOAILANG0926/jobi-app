@@ -12,7 +12,7 @@ import os
 import urllib.parse
 import urllib.error
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 _CHANNELS = (("topcv", "crawler_topcv"), ("facebook", "crawler_facebook"), ("muaban", "crawler_muaban"), ("chotot", "crawler_chotot"),
              ("chợ tốt", "crawler_chotot"))
@@ -55,6 +55,17 @@ PRECHECK_URL = os.getenv("LOCATION_PRECHECK_URL", "https://www.viecganban.vn/api
 
 class LocationNotFound(RuntimeError):
     """수집 첫 단계 위치 확인 실패. 메시지에 규칙 코드(location_precheck_*)가 들어가 rule_code()로 잡힌다."""
+
+
+class LocationDeferred(LocationNotFound):
+    """위치를 '못 찾음'이 아니라 '지금 확인 못 함'(Google 한도 초과·확인 서버 오류). 공고는 버리지 않고 보류해 다음 수집 때 다시 묻는다(Lee 2026-11-09)."""
+
+
+# 지금 확인 못 함 = 보류 후 자동 재시도. 그 밖의 이유(approximate_only·not_found 등)는 지금처럼 수집하지 않는다.
+DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured"}
+HOLD_KIND = "location-hold"  # 비공개 저장소(research_artifacts, RLS 공개 차단)
+HOLD_RETRY_PER_RUN = 5
+HOLD_MAX_DAYS = 14
 
 
 def _work_addresses(job: dict) -> list[str]:
@@ -139,6 +150,8 @@ def require_location(job: dict) -> dict:
     if verdict.get("findable") is not True:
         reason = str(verdict.get("reason") or "not_found")
         who = str(verdict.get("company") or "").strip()
+        if reason in DEFERRED_REASONS:
+            raise LocationDeferred(f"location_precheck_held: {reason}" + (f" (회사: {who[:60]})" if who else ""))
         raise LocationNotFound(f"location_precheck_failed: {reason}" + (f" (회사: {who[:60]})" if who else ""))
     checked = str(verdict.get("location") or "").strip()
     if checked and not _work_addresses(job):
@@ -208,14 +221,112 @@ def store_facebook_images(client, job: dict, limit: int = 5) -> int:
     return len(stored)
 
 
-def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None) -> int:
-    """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
-    새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로)."""
-    existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
-    if not existing:
-        require_location(job)
-        store_facebook_images(client, job)
+def _hold_name(job: dict) -> str:
+    key = str(job.get("source_url") or "") or json.dumps([job.get("source"), job.get("source_id"), job.get("title"),
+                                                           job.get("company"), job.get("source_text")], ensure_ascii=False, default=str)
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def hold_job(client, job: dict, reason: str) -> None:
+    """확인 못 한 새 공고를 보류함에 넣는다(지우지 않음, 같은 공고는 한 줄). 저장 실패는 수집을 멈추지 않는다(다음 수집 때 다시 만난다)."""
+    if job.get("admin_hidden") is True:
+        return  # 검증 저장(verify_write)은 보류하지 않는다 — 재시도가 숨김 처리를 건너뛰게 되므로
+    payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_")}
+    try:
+        client.table("research_artifacts").upsert(
+            {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload,
+             "meta": {"status": "held", "reason": reason, "held_at": _now(), "attempts": 0}},
+            on_conflict="kind,name").execute()
+    except Exception:  # noqa: BLE001
+        print("    ⚠️  보류함 저장 실패 — 다음 수집 때 다시 확인")
+
+
+_HOLDS_RETRIED = False
+
+
+def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
+    """보류함의 공고를 다시 확인한다(수집 실행마다 한 번, 최대 limit건). 줄은 지우지 않고 상태만 바꾼다:
+    registered(등록됨) / rejected(못 찾음 — 수집 안 함) / expired(14일 넘음) / 그대로 held(아직 한도 초과).
+    첫 건이 또 한도 초과면 그 실행에서는 더 묻지 않는다(한도를 헛되이 쓰지 않게)."""
+    counts = {"registered": 0, "rejected": 0, "held": 0, "expired": 0}
+    try:
+        rows = (client.table("research_artifacts").select("name,payload,meta").eq("kind", HOLD_KIND)
+                .eq("meta->>status", "held").order("created_at").limit(limit).execute().data) or []
+    except Exception:  # noqa: BLE001
+        return counts
+    for row in rows:
+        meta = dict(row.get("meta") or {})
+        meta["attempts"] = int(meta.get("attempts") or 0) + 1
+        meta["retried_at"] = _now()
+        held_at = str(meta.get("held_at") or "")
+        try:
+            old = (datetime.now(timezone.utc) - datetime.fromisoformat(held_at)).days >= HOLD_MAX_DAYS if held_at else False
+        except ValueError:
+            old = False
+        stop = False
+        if old:
+            meta["status"] = "expired"
+        else:
+            try:
+                meta["job_id"] = _ingest_new(client, dict(row.get("payload") or {}))
+                meta["status"] = "registered"
+            except LocationDeferred as exc:
+                meta["reason"] = str(exc).split("location_precheck_held:", 1)[-1].strip()[:80]
+                stop = True
+            except LocationNotFound as exc:
+                meta["status"] = "rejected"
+                meta["reason"] = str(exc).split("location_precheck_failed:", 1)[-1].strip()[:80]
+            except Exception as exc:  # noqa: BLE001 — 입구 규칙 거부는 기록, 그 밖의 오류(네트워크 등)는 보류 유지하고 이번엔 멈춤
+                from source_fields import rule_code
+                code = rule_code(exc)
+                if code:
+                    meta["status"] = "rejected"
+                    meta["reason"] = code[:80]
+                else:
+                    meta["reason"] = "retry_error"
+                    stop = True
+        counts[meta.get("status", "held")] += 1
+        try:
+            client.table("research_artifacts").update({"meta": meta}).eq("kind", HOLD_KIND).eq("name", row["name"]).execute()
+        except Exception:  # noqa: BLE001
+            pass
+        if stop:
+            break
+    if any(counts.values()):
+        print(f"  ⏸️  보류 공고 다시 확인: 등록 {counts['registered']} · 못 찾음 {counts['rejected']} · 아직 보류 {counts['held']} · 기간 지남 {counts['expired']}")
+    return counts
+
+
+def _ingest_new(client, job: dict) -> int:
+    require_location(job)
+    store_facebook_images(client, job)
+    return _call_gateway(client, job)
+
+
+def _call_gateway(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None) -> int:
     result = client.rpc("ingest_job", {"p": build_payload(job, job_id=job_id, update_fields=update_fields)}).execute()
     if not isinstance(result.data, int) or result.data <= 0:
         raise RuntimeError(f"ingest_job이 공고 번호를 돌려주지 않음: {result.data!r}")
     return result.data
+
+
+def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None) -> int:
+    """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
+    새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로).
+    지금 확인 못 하면(Google 한도 초과 등) 버리지 않고 보류함에 넣고, 다음 수집 실행 때 먼저 다시 확인한다."""
+    global _HOLDS_RETRIED
+    existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
+    if existing:
+        return _call_gateway(client, job, job_id=job_id, update_fields=update_fields)
+    if not _HOLDS_RETRIED:
+        _HOLDS_RETRIED = True
+        retry_held(client)
+    try:
+        return _ingest_new(client, job)
+    except LocationDeferred as exc:
+        hold_job(client, job, str(exc).split("location_precheck_held:", 1)[-1].strip()[:80])
+        raise

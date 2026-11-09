@@ -192,7 +192,8 @@ export function goongRequest(key) {
     if (!path) throw new Error('upstream_failed')
     const query = new URLSearchParams({ ...params, ...(action === 'autocomplete' ? { limit: '10' } : {}), api_key: key })
     const res = await fetch(`https://rsapi.goong.io/${path}?${query}`, { signal: AbortSignal.timeout(15000) })
-    if (!res.ok) throw new Error('upstream_failed')
+    // 429 = Google 쪽 한도 → 한도 초과로 구분(못 찾음과 다르게 보류, #560)
+    if (!res.ok) throw new Error(res.status === 429 ? 'upstream_failed_429' : 'upstream_failed')
     return res.json()
   }
 }
@@ -216,7 +217,8 @@ export function googlePlacesRequest(key, reserve) {
       headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType' },
       body: JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 }),
     })
-    if (!res.ok) throw new Error('upstream_failed')
+    // 429 = Google 쪽 한도 → 한도 초과로 구분(못 찾음과 다르게 보류, #560)
+    if (!res.ok) throw new Error(res.status === 429 ? 'upstream_failed_429' : 'upstream_failed')
     return res.json()
   }
 }
@@ -228,7 +230,8 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const { data: job, error } = await db.from('local_jobs').select('id,company,title,image_url,images,logo_lookup').eq('id', jobId).maybeSingle()
   if (error) throw new Error('logo_storage_unavailable')
   if (!job) return 'missing'
-  if (job.logo_lookup) return 'done'
+  // 한도 초과(quota)는 영구 결과가 아니다 — 다시 묻는다(Lee 2026-11-09). 그 밖의 결과는 한 번으로 끝.
+  if (job.logo_lookup && job.logo_lookup.result !== 'quota') return 'done'
   const { data: brandRows, error: be } = await db.from('job_brands').select('id,name,slug,category,domain,logo_url,initial,color,active,featured').eq('active', true)
   const { data: aliasRows, error: ae } = await db.from('job_brand_aliases').select('brand_id,alias,is_primary').eq('active', true)
   if (be || ae) throw new Error('logo_storage_unavailable')
@@ -249,12 +252,13 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   if (!placeId) return record('no_place')
   const cacheKey = JSON.stringify(['place-website-v1', placeId])
   let site = await deps.cached(cacheKey)
-  if (site === null) {
+  if (site === null || site?.expired) { // 30일 지나 정리된 웹사이트 결과는 다시 묻는다(약관, scripts/ops/google-cache-expire.mjs)
     if (!googleKey || !(await apiReserve(db, 'google_place_website')())) return record('quota', null, placeId)
     const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
       signal: AbortSignal.timeout(15000),
       headers: { 'X-Goog-Api-Key': googleKey, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'websiteUri' },
     })
+    if (res.status === 429) return record('quota', null, placeId) // Google 쪽 한도 — 나중에 다시
     if (!res.ok) throw new Error('upstream_failed')
     site = { websiteUri: (await res.json())?.websiteUri ?? null }
     await deps.cache(cacheKey, site)
@@ -265,4 +269,22 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const icon = await fetchImpl(`https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}`, { signal: AbortSignal.timeout(10000) }).catch(() => null)
   if (!icon || icon.status !== 200) return record('none', null, placeId)
   return record('found', domain, placeId)
+}
+
+/** 로고 찾기 한도 초과(quota) 공고 다시 시도(Lee 2026-11-09 "재시도 가능 상태로"). 마지막 시도 6시간 지난 것만, 한 번에 최대 limit건.
+ *  같은 applyLogoLookup·같은 월 한도(google_place_website)를 쓴다. 한도가 아직이면 첫 건에서 멈춘다. */
+export const LOGO_RETRY_HOURS = 6
+export async function retryQuotaLogos(db, googleKey, limit = 10, now = new Date()) {
+  const before = new Date(now.getTime() - LOGO_RETRY_HOURS * 3600000).toISOString()
+  const { data, error } = await db.from('local_jobs').select('id').eq('logo_lookup->>result', 'quota').lt('logo_lookup->>checked_at', before)
+    .order('id').limit(Math.min(Math.max(1, limit | 0), 20))
+  if (error) throw new Error('logo_storage_unavailable')
+  const out = { tried: 0, quota: 0, other: 0 }
+  for (const { id } of data ?? []) {
+    out.tried++
+    const r = await applyLogoLookup(db, id, googleKey)
+    if (r === 'quota') { out.quota++; break }
+    out.other++
+  }
+  return out
 }

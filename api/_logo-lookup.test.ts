@@ -1,6 +1,6 @@
 // 로고 찾기(Lee 2026-11-07): 저장된 Google 결과로 장소 번호 → 웹사이트 1번(월 한도) → 기록. 사진·브랜드 있으면 건너뜀.
 import { createHash } from 'node:crypto'
-import { applyLogoLookup, googlePlacesRequest } from './_lib/auto-location-runtime.mjs'
+import { applyLogoLookup, googlePlacesRequest, retryQuotaLogos } from './_lib/auto-location-runtime.mjs'
 import { googleCacheKey } from '../src/lib/logoLookup.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 
@@ -75,6 +75,39 @@ const fetchOk = (website: string | null, iconStatus = 200) => async (url: string
   const own = 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/facebook/a.jpg'
   assert(await applyLogoLookup(fakeDb({ ...base, image_url: own }).db, 9, 'k', fetchOk(null)) === 'has_logo', 'own photo → skip')
   assert(await applyLogoLookup(fakeDb({ ...base, logo_lookup: { result: 'none' } }).db, 9, 'k', fetchOk(null)) === 'done', 'recorded → done')
+}
+{ // Lee 2026-11-09: 한도 초과(quota)는 영구 실패가 아니다 — 다시 묻는다. Google 429도 quota로 남긴다.
+  const cache = new Map([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit]])
+  const { db } = fakeDb({ ...base, logo_lookup: { result: 'quota' } }, { cache })
+  assert(await applyLogoLookup(db, 9, 'k', fetchOk('https://www.hojeong.co.kr')) === 'found', 'quota → retried → found')
+  const c2 = new Map([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit]])
+  const { db: d2 } = fakeDb(base, { cache: c2 })
+  assert(await applyLogoLookup(d2, 9, 'k', async () => ({ ok: false, status: 429, json: async () => ({}) })) === 'quota', 'Google 429 → quota (retryable)')
+  const c3 = new Map<string, unknown>([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit], [hashKey(JSON.stringify(['place-website-v1', 'ChIJx'])), { expired: true, places: [] }]])
+  let asked = 0
+  const { db: d3 } = fakeDb(base, { cache: c3 })
+  assert(await applyLogoLookup(d3, 9, 'k', async (u: string) => { if (u.includes('places.googleapis.com')) asked++; return fetchOk('https://hojeong.vn')(u) }) === 'found' && asked === 1, '30-day expired website → asked again')
+}
+{ // 다시 시도 묶음: 한도가 아직이면 첫 건에서 멈춘다(헛 호출 없음)
+  const rows = [{ id: 9 }, { id: 10 }]
+  const inner = fakeDb(base, { cache: new Map([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit]]) }).db
+  const filters: string[] = []
+  const db = {
+    from(t: string) {
+      if (t === 'local_jobs') {
+        const q: Record<string, unknown> = {}
+        Object.assign(q, { select: (c: string) => { filters.push(c); return q }, eq: (k: string, v: string) => { filters.push(`${k}=${v}`); return q }, lt: (k: string) => { filters.push(`${k}<`); return q },
+          order: () => q, limit: async () => ({ data: rows, error: null }),
+          maybeSingle: async () => ({ data: { ...base, logo_lookup: { result: 'quota' } }, error: null }) })
+        return q
+      }
+      return inner.from(t)
+    },
+    async rpc(name: string, args: Row) { if (name === 'external_api_reserve') return { data: false, error: null }; return { data: args.p_result ?? null, error: null } },
+  }
+  const out = await retryQuotaLogos(db, 'k', 10, new Date('2026-11-10T00:00:00Z'))
+  assert(filters.includes('logo_lookup->>result=quota') && filters.includes('logo_lookup->>checked_at<'), 'only quota rows older than 6h')
+  assert(out.tried === 1 && out.quota === 1, 'still capped → stop after first: ' + JSON.stringify(out))
 }
 { // Google 위치 검색도 월 한도 안에서만
   let asked = 0

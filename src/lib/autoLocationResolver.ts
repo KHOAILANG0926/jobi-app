@@ -8,7 +8,7 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
-import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace } from './companyPlaceSearch'
+import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys, googleFresh } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
@@ -221,15 +221,23 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
   reason: (reason: string) => void,
   verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>,
   use: { goong?: boolean; google?: boolean } = {}): Promise<LocationDecision | null> {
-  const ask = async (key: unknown[], call: () => Promise<unknown>) => {
-    const k = JSON.stringify(key)
+  // keys: 첫 열쇠에 저장, 읽을 때는 차례로(Google은 사업장 열쇠 → 예전 검색 글자 열쇠, googleCacheKeys 한 곳).
+  const ask = async (key: unknown[] | string[], call: () => Promise<unknown>, provider = String(key[1])) => {
+    const keys = provider === 'google' && key.every((x) => typeof x === 'string' && x.startsWith('[')) ? key as string[] : [JSON.stringify(key)]
     try {
-      const cached = await deps.cached(k)
-      if (cached !== null) return cached
+      for (const k of keys) {
+        const cached = await deps.cached(k)
+        if (cached !== null && googleFresh(cached, at)) return cached
+      }
       const data = await call()
-      await deps.cache(k, data)
+      // Google 결과는 30일만 쓴다(Google Maps Platform 약관: 좌표 캐시 최대 30일). 저장할 때 시각을 함께 둔다.
+      await deps.cache(keys[0], provider === 'google' && data && typeof data === 'object' ? { ...(data as object), cachedAt: at } : data)
       return data
-    } catch { reason(`${String(key[1])}:provider_failed`); return null }
+    } catch (e) {
+      // 한도(우리 월 한도 또는 Google 429)는 '못 찾음'이 아니다 → 따로 표시해 공고를 버리지 않고 보류한다(#560).
+      reason(`${provider}:${/quota_exhausted|upstream_failed_429/.test(String((e as Error)?.message)) ? 'quota' : 'provider_failed'}`)
+      return null
+    }
   }
   for (const target of targets.slice(0, 2)) {
     const address = target.address.trim() || job.location
@@ -248,7 +256,8 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     if (deps.google && use.google !== false) {
       // Ask Google exactly what the detail-page Google button asks (company, full address).
       const gText = googleSearchText(job.company, address)
-      const hits = googlePlaceHits(await ask(['company-v2', 'google', gText], () => deps.google!(gText)))
+      // 같은 사업장(회사+번지/공단+성)이면 표기가 달라도 한 번만 묻는다. 사업장을 못 정하면 예전처럼 검색 글자로(googleCacheKeys 한 곳).
+      const hits = googlePlaceHits(await ask(googleCacheKeys(job.company, address), () => deps.google!(gText), 'google'))
       const pick = pickCompanyPlace(job.company, address, hits)
       if (!pick.hit) reason(`google:${pick.reason}`)
       const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null

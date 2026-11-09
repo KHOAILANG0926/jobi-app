@@ -43,4 +43,11 @@ const rcall = async (auth: string) => { const res = makeRes(); await createLocat
 assert((await rcall('Bearer wrong')).code === 401 && readAsked === null, 'read_address needs the server key')
 const rok = await rcall('Bearer service-key')
 assert(rok.code === 200 && (rok.body as { location: string }).location.startsWith('Tiểu KCN') && readAsked !== null, 'read_address answers location text')
+// Lee 2026-11-09: 로고 한도 초과 다시 시도도 서버 키로만
+let retryAsked: unknown = null
+const retrier = { ...pre, async logoRetry(input: unknown) { retryAsked = input; return { tried: 1, quota: 0, other: 1 } } }
+const lcall = async (auth: string) => { const res = makeRes(); await createLocationHookHandler(retrier)({ method: 'POST', headers: { authorization: auth }, body: { logo_retry: { limit: 10 } } } as never, res as never); return res }
+assert((await lcall('Bearer wrong')).code === 401 && retryAsked === null, 'logo_retry needs the server key')
+const lok = await lcall('Bearer service-key')
+assert(lok.code === 200 && (retryAsked as { limit: number }).limit === 10 && (lok.body as { tried: number }).tried === 1, 'logo_retry runs')
 console.log('location-hook api tests: all assertions passed')

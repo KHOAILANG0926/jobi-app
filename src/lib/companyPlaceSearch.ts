@@ -8,6 +8,7 @@
 // 결과는 '대략 위치(area)' — 화면은 chưa xác minh 그대로, 핀만 실제 업체 자리.
 import { companyTokens, normalizePlaceText } from './locationCandidateMatch'
 import { findIndustrialPark, foldText } from './industrialPark'
+import { administrativeAreaForTarget } from './administrativeArea'
 
 /** 이름 앞뒤 수식어를 뺀 핵심 이름(띄어쓰기 없이). "JoyThai - Thai Cuisine & Hotpot" → "joythai". */
 export function coreName(name: string): string {
@@ -150,4 +151,37 @@ export function googleSearchText(company: string, address: string): string {
 export function companySearchText(company: string, address: string): string {
   const area = String(address ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(-2).join(', ')
   return `${company} ${area}`.trim()
+}
+
+/** 같은 사업장을 Google에 두 번 묻지 않게(#560 Lee 2026-11-09 "같은 사업장 중복 검색 줄이기"): 검색 결과를 저장할 사업장 열쇠.
+ *  회사 핵심 이름 + (번지·거리 | 공단) + 성. 번지·공단이 없으면 '' — 그때는 검색 글자 그대로 저장한다(지점을 잘못 합치지 않게).
+ *  저장하는 것은 후보 목록이고, 어느 후보를 고를지는 매번 그 공고의 주소로 pickCompanyPlace가 다시 정한다(다른 지점은 거리·공단 확인에서 걸러짐). */
+export function siteCacheKey(company: string, address: string): string {
+  const core = coreName(company)
+  if (core.length < 4) return ''
+  const house = String(address ?? '').match(/^\s*(?:số\s*)?(\d+\p{L}?(?:\s*[\/-]\s*\d+\p{L}?)*)/iu)?.[1]?.replace(/\s+/g, '') ?? ''
+  const street = numberedStreet(address)
+  const park = findIndustrialPark(address)
+  const site = street && house ? `st:${house} ${street}` : park ? `park:${park.id}` : ''
+  if (!site) return ''
+  const area = administrativeAreaForTarget(address, '')
+  return `${core}|${site}|${area ? area.parentKey ?? area.key : ''}` // 원래 성 단위("TP Bắc Ninh"·"Bắc Ninh" 같은 성)
+}
+
+/** Google 결과 저장 열쇠 — 위치 확인·로고·업종이 같은 함수(한 곳). 첫 열쇠에 저장하고, 읽을 때는 차례로 찾는다.
+ *  사업장(회사+번지/공단+성)을 정하면 사업장 열쇠가 먼저, 그다음 예전 검색 글자 열쇠(이미 저장된 결과를 다시 묻지 않게). */
+export function googleCacheKeys(company: string, address: string): string[] {
+  const site = siteCacheKey(company, address)
+  const text = JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])
+  return site ? [JSON.stringify(['company-v3', 'google', site]), text] : [text]
+}
+
+/** 저장된 Google 결과를 쓸 수 있나: 30일 안이고 좌표가 지워지지 않았을 때(Google Maps Platform 약관: 좌표 캐시 최대 30일, 장소 번호는 무기한). */
+export const GOOGLE_CACHE_DAYS = 30
+export function googleFresh(cached: unknown, now: string): boolean {
+  const c = cached as { places?: unknown; cachedAt?: string; expired?: boolean } | null
+  if (!c || typeof c !== 'object' || !('places' in c)) return true
+  if (c.expired) return false
+  if (!c.cachedAt) return true // 저장 시각 없는 예전 결과(2026-11-03 이후) — 정리 작업이 저장일 기준 30일 지난 것의 좌표를 지운다
+  return Date.parse(now) - Date.parse(c.cachedAt) < GOOGLE_CACHE_DAYS * 86400000
 }

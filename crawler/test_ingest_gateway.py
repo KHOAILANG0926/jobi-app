@@ -135,5 +135,129 @@ def run():
     print("test_ingest_gateway: location-first gate passed")
 
 
+class HoldClient:
+    """보류함(research_artifacts)을 흉내 내는 가짜 저장소 — 지우기 기능이 없다(지우면 시험이 실패하도록)."""
+
+    def __init__(self):
+        self.rows = {}
+        self.calls = []
+
+    def rpc(self, name, params):
+        self.calls.append((name, params))
+        return type("Q", (), {"execute": lambda _s: type("R", (), {"data": 90 + len(self.calls)})()})()
+
+    def table(self, name):
+        assert name == "research_artifacts", name
+        outer = self
+
+        class T:
+            def __init__(self):
+                self.op, self.filters, self.data = None, {}, None
+
+            def upsert(self, row, on_conflict=None):
+                assert on_conflict == "kind,name"
+                self.op, self.data = "upsert", row
+                return self
+
+            def update(self, data):
+                self.op, self.data = "update", data
+                return self
+
+            def select(self, _cols):
+                self.op = "select"
+                return self
+
+            def eq(self, k, v):
+                self.filters[k] = v
+                return self
+
+            def order(self, _c):
+                return self
+
+            def limit(self, _n):
+                return self
+
+            def execute(self):
+                if self.op == "upsert":
+                    outer.rows[self.data["name"]] = dict(self.data)
+                    return type("R", (), {"data": [self.data]})()
+                if self.op == "update":
+                    outer.rows[self.filters["name"]]["meta"] = self.data["meta"]
+                    return type("R", (), {"data": []})()
+                held = [r for r in outer.rows.values() if r["meta"].get("status") == self.filters.get("meta->>status")]
+                return type("R", (), {"data": held})()
+
+        return T()
+
+
+def run_hold():
+    """Lee 2026-11-09: Google 한도 초과는 '위치 없음'과 다르다 — 공고를 버리지 않고 보류, 다음 수집 때 자동으로 다시 확인."""
+    g._HOLDS_RETRIED = False
+    c = HoldClient()
+    g.PRECHECK = lambda j: {"findable": False, "reason": "google_quota"}
+    jobs = [{"title": f"Công nhân {i}", "company": f"Cty {i}", "location": "Bắc Ninh", "source": "facebook",
+             "source_url": f"https://example.invalid/p/{i}", "source_text": "Tuyển", "_poster_text": "x"} for i in range(3)]
+    for job in jobs:
+        try:
+            g.ingest_job(c, dict(job))
+            raise AssertionError("한도 초과면 지금 등록하지 않는다")
+        except g.LocationDeferred as exc:
+            assert rule_code(exc) == "location_precheck_held" and "google_quota" in str(exc), exc
+    assert c.calls == [] and len(c.rows) == 3, "한도 초과 공고 3건은 보류함에, 입구는 부르지 않음"
+    assert all(r["meta"]["status"] == "held" and r["meta"]["reason"] == "google_quota" and "_poster_text" not in r["payload"] for r in c.rows.values())
+    # 같은 공고가 다시 와도 한 줄(중복 보류 없음)
+    try:
+        g.ingest_job(c, dict(jobs[0]))
+    except g.LocationDeferred:
+        pass
+    assert len(c.rows) == 3
+
+    # '못 찾음'은 보류하지 않는다(지금처럼 수집 안 함)
+    g.PRECHECK = lambda j: {"findable": False, "reason": "approximate_only"}
+    try:
+        g.ingest_job(c, {"title": "y", "company": "Cty Y", "location": "Bắc Ninh", "source_url": "https://example.invalid/y"})
+        raise AssertionError
+    except g.LocationDeferred:
+        raise AssertionError("못 찾음을 보류로 바꾸면 안 됨")
+    except g.LocationNotFound:
+        pass
+    assert len(c.rows) == 3
+
+    # 다음 수집 실행: 아직 한도 초과면 첫 건만 묻고 멈춘다(한도 낭비 없음), 줄은 그대로
+    g._HOLDS_RETRIED = False
+    asked = []
+    g.PRECHECK = lambda j: (asked.append(j["title"]), {"findable": False, "reason": "google_quota"})[1]
+    out = g.retry_held(c)
+    assert len(asked) == 1 and out["held"] == 1 and out["registered"] == 0 and len(c.rows) == 3, (asked, out)
+
+    # 한도가 풀린 실행: 첫 새 공고 전에 보류 공고부터 등록. 하나는 이제 '못 찾음' → rejected 기록(지우지 않음)
+    g._HOLDS_RETRIED = False
+    def pre(j):
+        if j["company"] == "Cty 1":
+            return {"findable": False, "reason": "not_found"}
+        return {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+    g.PRECHECK = pre
+    new_id = g.ingest_job(c, {"title": "Mới", "company": "Cty Mới", "location": "Bắc Ninh", "source_url": "https://example.invalid/new"})
+    status = sorted(r["meta"]["status"] for r in c.rows.values())
+    assert status == ["registered", "registered", "rejected"], status
+    assert len(c.calls) == 3 and c.calls[-1][1]["p"]["title"] == "Mới" and new_id > 0, c.calls
+    assert all(r["meta"].get("job_id") for r in c.rows.values() if r["meta"]["status"] == "registered")
+    assert len(c.rows) == 3, "보류함 줄은 지우지 않는다"
+    # 보류 공고도 같은 입구·같은 위치 확인으로만 등록된다(별도 경로 없음)
+    assert {p["p"]["company"] for _n, p in c.calls[:2]} == {"Cty 0", "Cty 2"}
+
+    # 검증 저장(숨김) 공고는 보류하지 않는다
+    g.PRECHECK = lambda j: {"findable": False, "reason": "precheck_unavailable"}
+    c2 = HoldClient()
+    try:
+        g.ingest_job(c2, {"title": "v", "company": "V", "location": "Hà Nội", "admin_hidden": True, "active": False})
+    except g.LocationDeferred:
+        pass
+    assert c2.rows == {}
+    g._HOLDS_RETRIED = True
+    print("test_ingest_gateway: quota hold/retry passed")
+
+
 if __name__ == "__main__":
     run()
+    run_hold()
