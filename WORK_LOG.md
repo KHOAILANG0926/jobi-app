@@ -3,6 +3,10 @@
 - 시험: 30건 실제 원문·Google 후보로 사례 추가(바로 읽기 9, 고르기 4, 보류 9). 예전 기대값 3곳 변경: EAGLEON 이름에서 공단 말 뺌, KCN 원문인데 Google이 시내 거리면 따르지 않음(locationProcess), logoLookup 시험 후보 주소를 실제처럼.
 - 검증: tsc · npm test 115/115 · build. Codex 지적 7건 반영(왕복 5회 넘어 needs-lee).
 - 수정 전후 [직접 확인 run 42607934688 → 42618711506, Bắc Ninh 30건, Pro 방식]: 위치 찾음 1 → 4(Trung Nguyên 27 Kinh Dương Vương · New Phoenix · Kingsport · Fushan VSIP — 원문과 대조해 모두 맞음), 잘못 확정 0. 다른 거리·공단 후보 보류: Minh Nguyệt·Đại Tân Việt. 4단계는 같은 표본에서 5건이지만 Sen Tài Thu를 Pro와 다른 곳(10.9km)으로 잡음 → 정확도 위험.
+## 2026-11-09 밤 — #579 연락처 없는 공고 PC 안내 상자 겹침 (Lee "2번")
+- 원인: 연락처 없을 때도 연락 상자가 제목 줄 오른쪽 절대 위치라, 키 큰 안내 상자가 아래 표·지도를 덮음.
+- 변경: 연락처 없을 때만(jd2-aside--no-contact) PC에서 흐름 안에 둠. 연락처 있을 때 Gọi/Zalo 배치(승인된 틀)는 그대로, 모바일 그대로.
+- 검증 [직접 확인]: 로컬 빌드 미리보기(/xem-truoc-tin) PC 1366 — 전화 없음: 겹침 0, 전화 있음: 기존 절대 위치 그대로. tsc·시험·빌드 통과.
 ## 2026-11-09 밤 — #612 자동 작업 권한: 개인 설정 파일 저장소에서 뺌 (Lee "3번부터")
 - 원인 [직접 확인]: .claude/settings.local.json(개인 PC 권한 223줄 + defaultMode bypassPermissions)이 저장소에 올라가 GitHub의 Claude 자동 작업 3개가 그 설정을 읽음 → --allowedTools가 제한이 아니었음.
 - 변경: 파일을 저장소 추적에서 빼고 .gitignore(다른 PC가 pull하면 그 PC 파일도 지워짐 — 각자 다시 만들면 됨), issue-mention의 지우기 단계 삭제(필요 없어짐), claude-task·codex-response에 --permission-mode default, claude-task에 허용 목록(전엔 없음).
