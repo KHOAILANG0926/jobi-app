@@ -1,3 +1,9 @@
+## 2026-11-09 낮 — 검사표 확대·헤더 검사 연결 (Lee 승인)
+- #592 검사표에 '붙인 뒤에도 빠진 줄' 표시(공개 영향 없음), 예약 작업 「상세요강 새 종류 줄 알림」은 운영 DB 조회 대신 검사표 이슈 + STATUS 읽기.
+- #593 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전) 읽기 전용 검사 — 첫 실행 7건 검사(모두 11-01 이전, 고용주 공고 0건), DB 변경 없음. #596 알림 단계 크기 초과 실패 고침.
+- #586 PC 헤더 운영 검사: deploy-verify(보호 파일) 대신 운영 배포 끝에서 workflow_dispatch로 부름, workflow_run 시작 삭제(중복 없음). #591 닫음.
+- 대기: 운영 SQL 전용 낮은 권한 계정(방향 승인, 비밀번호 만들기 방법 Lee 결정 대기).
+
 ## 2026-11-09 오전 — Codex 대기 판정 보완·운영 SQL 좁히기 (Lee "예", "좁히기")
 - 확인 [직접]: Codex 요약 '미해결' 표시는 리뷰 대화 해결 상태와 안 맞음(#581·#584·#585) → 기존 답 표시(claude-codex-reply)로 판정.
 - #587: 예전 커밋 Codex 지적에 답 없으면 30분 통과 안 함, Codex 없이 운영·보안·DB 파일 바뀐 PR은 needs-lee로 멈춤(check-repository-policy 기존 목록 재사용).
@@ -54,8 +60,3 @@
 - 변경: PostJob 미리보기 PC·Mobile(오른쪽 상자·아래 막대) → /xem-truoc-tin 새 창이 JobDetail(previewJob)로 저장 전 입력값을 그대로 보여 줌(단추 막힘). 입력 칸: Không cần kinh nghiệm·Có thể đi làm cùng bạn bè·우대조건 선택 창(7개)·근무기간 Thỏa thuận·Phụ cấp ăn riêng·Có thời gian thử việc·Cách ứng tuyển·Tên người liên hệ(+저장). DB 새 칸 없이 preference·salary_note·상세요강 '채용 절차'에 넣음.
 - 시험: scripts/layout/job-preview-check.mjs(app-screen).
 - 남은 것: 5번(템플릿 표시 방식 A/B)·6번 1:1 문의·고용형태 3개 추가(DB) — Lee 답 대기.
-
-## 2026-11-08 — 로고 이름 하나로(Việc gần Bạn) (Claude)
-- 요청: Lee "색깔은 그냥 놔두고 로고는 하나로 맞춰 브라우저 탭으로".
-- 변경: 머리 줄 로고(PC·휴대폰)·바닥 로고·저작권 Việcganban/Việt Gần Bạn → Việc gần Bạn, 바닥의 중복 회사 이름 줄 삭제, 브랜드 목록·지도 창 문구 Việcganban → Việc gần Bạn. 바탕색 그대로(데모 demo/white-bg 미적용).
-- 이어서(Lee "운영 링크만 빼고 통일"): 약관·개인정보·가입·검색 제목(SEO, api/ssr.js·representativeSearchPages)·상세·지원 안내 문구도 Việc gần Bạn. 주소(viecganban.vn)·이메일은 그대로.

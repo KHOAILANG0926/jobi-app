@@ -163,6 +163,11 @@ jobs:
       - name: 따라잡기 배포 뒤 운영 화면 검사 시작(예약 실행일 때)
         if: steps.need.outputs.go == '1' && github.event_name != 'push' && github.ref == 'refs/heads/master'
         run: gh workflow run deploy-verify.yml --repo "${{ github.repository }}" --ref master
+      - name: PC 헤더 운영 검사 시작 (#586)
+        # 봇 병합은 GITHUB_TOKEN으로 이 배포를 부르므로 예전 workflow_run 시작이 안 됐다(11-04 이후 멈춤).
+        # workflow_dispatch는 GITHUB_TOKEN으로도 시작되므로 운영 배포가 끝나면 여기서 한 번만 부른다(헤더 검사 쪽 workflow_run은 지워 중복 없음).
+        if: steps.need.outputs.go == '1' && github.ref == 'refs/heads/master'
+        run: gh workflow run desktop-header-proof.yml --repo "${{ github.repository }}" --ref master
       - name: 위치 못 찾은 공고 다시 찾기 (운영 반영 후 — 고친 위치 코드로)
         if: steps.need.outputs.go == '1' && github.ref == 'refs/heads/master'
         env:
