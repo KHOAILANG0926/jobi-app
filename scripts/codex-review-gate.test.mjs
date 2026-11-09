@@ -33,4 +33,7 @@ assert.equal(codexGate({ ...base, comments: [{ user: claude, body: `${REPLY_MARK
 const fake = { ...summary(sha, false), user: { login: 'random-codex-user', type: 'User' }, updated_at: '2026-11-08T16:20:00Z' }
 assert.equal(codexGate({ ...base, comments: [summary(sha, true), fake], now: at(30) }).ok, false, 'forged finding-free summary from look-alike account ignored')
 assert.equal(codexGate({ ...base, reviews: [{ ...rv[0], user: { login: 'random-codex-user', type: 'User' } }], now: at(11) }).ok, false, 'look-alike reviewer is not Codex')
+// #581: 예전 커밋 줄 지적이 GitHub에서 commit_id만 최신으로 옮겨져도 새 지적으로 세지 않는다
+assert.equal(codexGate({ ...base, comments: [summary(sha, false)], reviewComments: [{ user: codex, commit_id: sha, original_commit_id: 'old' }], now: at(11) }).ok, true, 'stale inline finding moved to new head is not a new finding')
+assert.equal(codexGate({ ...base, comments: [summary(sha, false)], reviewComments: [{ user: codex, commit_id: sha, original_commit_id: sha }], now: at(11) }).ok, false, 'inline finding made on this head still blocks')
 console.log('codex-review-gate: all assertions passed')

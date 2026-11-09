@@ -33,7 +33,9 @@ export function codexGate({ reviews, reviewComments, comments, sha, headDate, no
       ? { ok: true, reason: `Codex 검사 없음(${Math.floor(ageMin)}분 경과) — 기존 검사만으로 진행` }
       : { ok: false, reason: `Codex 검사 대기(${Math.floor(ageMin)}/${WAIT_MIN}분)` }
   }
-  const lines = reviewComments.filter((c) => isCodex(c.user) && c.commit_id === sha).length
+  // 줄 지적은 처음 단 커밋(original_commit_id) 기준 — GitHub은 새 커밋이 와도 줄이 그대로면 commit_id를 최신으로 옮겨서,
+  // 이미 고친 예전 지적이 새 커밋 지적처럼 보여 병합이 멈췄다(2026-11-09 #581).
+  const lines = reviewComments.filter((c) => isCodex(c.user) && (c.original_commit_id ?? c.commit_id) === sha).length
   const blocking = mine.some((r) => r.state === 'CHANGES_REQUESTED')
   const unresolved = summaryHere?.has_unresolved_findings === true
   if (!lines && !blocking && !unresolved) return { ok: true, reason: 'Codex 검사 통과(지적 없음)' }
