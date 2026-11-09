@@ -73,4 +73,39 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   assert(order[0] === 'google', 'Google을 가장 먼저: ' + order.join(','))
   assert(r.kind === 'area' && /Google nh1/.test(String((r as { source?: string }).source)), 'Google 장소 채택: ' + JSON.stringify(r))
 }
+// 2026-11-09 #560 시험 — 실제 Google 후보(run 42614049523)로: 맞는 곳은 고르고, 다른 회사·다른 지점은 고르지 않는다(Lee "잘못된 위치 확정 0건").
+{
+  const H = (id: string, name: string, address: string) => ({ id, name, address })
+  const pick = (c: string, a: string, hits: { id: string; name: string; address: string }[]) => pickCompanyPlace(c, a, hits)
+  // 고름
+  assert(pick('CTY ChunQiu', 'khu cn hoà phú', [H('c1', 'Công Ty Chunqiu Electronic', 'CN - 09, KCN Hòa Phú, Xuân Cẩm, Bắc Ninh')]).hit?.id === 'c1', '#560-8 ChunQiu same park')
+  assert(pick('TRUNG NGUYÊN LEGEND BẮC NINH', 'Trung Nguyên Legend 27 kinh dương vương-p Vũ Ninh- tỉnh Bắc Ninh', [H('t1', 'Trung Nguyên Legend Café', '27 Đ. Kinh Dương Vương, Kinh Bắc, Bắc Ninh')]).hit?.id === 't1', '#560-9 Trung Nguyên')
+  assert(pick('BAR NEW PHOENIX BẮC NINH', 'Bắc Ninh', [H('n1', 'New Phoenix Club', '7 Đ. Phúc Sơn, Phúc Sơn, Vũ Ninh, Bắc Ninh')]).hit?.id === 'n1', '#560-11 bar word is not the name')
+  assert(pick('SIÊU THỊ ĐIỆN MÁY MEDIAMART', 'Số 37 Đường Lý Thái Tổ, P. Võ Cường, TP. Bắc Ninh', [H('m1', 'Mediamart Bắc Ninh', '37 Đ. Lý Thái Tổ, Kinh Bắc, Bắc Ninh 16000'), H('m2', 'Điện Máy MediaMart Thị Cầu', 'Đường Lý Thường Kiệt, Bắc Ninh')]).hit?.id === 'm1', '#560-16 MediaMart branch by street')
+  // 고르지 않음(보류)
+  assert(pick('KHÁCH SẠN MINH NGUYỆT', '288 Hàn Thuyên, Kinh Bắc, Bắc Ninh', [H('x1', 'Luxury Phoenix Hotel | 凤凰明月酒店', 'City, 288 Đ. Hàn Thuyên, Kinh Bắc, Bắc Ninh'), H('x2', 'Hệ thống khách sạn Minh Nguyệt', '27 Đ. Kinh Dương Vương, Bắc Ninh, 16000')]).hit === null, '#560-30 same name at another street is not this hotel')
+  assert(pick('Nhà hàng Seoseo Galbi', '213 Ngọc Hân Công Chúa, Phường Võ Cường, TP Bắc Ninh', [H('s1', '(seoseo galbi korean restaurant)', '9 Đ. Hoàng Hoa Thám, Võ Cường, Bắc Ninh')]).hit === null, '#560-1 other street → hold')
+  assert(pick('ĐẠI TÂN VIỆT', 'KCN VSIP Bắc Ninh, Bắc Ninh', [H('d1', 'Công Ty Đại Tân (TNHH)', 'Lô 2-6, 1 KCN Quế Võ 2, Đào Viên, Bắc Ninh')]).hit === null, '#560-3 shorter different company / other park')
+  assert(!sameCoreName('ĐẠI TÂN VIỆT', 'Công Ty Đại Tân (TNHH)'), '#560-3 "Đại Tân" is not "Đại Tân Việt"')
+  assert(pick('CÔNG TY EAGLEON', 'KCN Quế Võ 2', [H('e1', 'Công ty TNHH Eagle On Vietnam', '4793+XC7, Phù Lãng, Bắc Ninh')]).hit === null, '#560-25 park not in candidate address → hold')
+  assert(pick('Trung tâm kho vận Đông Việt', 'Trung tâm kho vận Đông Việt - Cụm công nghiệp Xuân Lâm - Thuận Thành - Bắc Ninh', [H('v1', 'Công ty cổ phần Đông Việt', 'Cụm công nghiệp, Song Liễu, Bắc Ninh')]).hit === null, '#560-20 other industrial cluster')
+  assert(pick('JOLLIBEE BẮC NINH', 'Bắc Ninh', [H('j1', 'Jollibee Trần Hưng Đạo Bắc Ninh', '393 Trần Hưng Đạo, Võ Cường, Bắc Ninh'), H('j2', 'Jollibee Nguyễn Trãi', '207 Nguyễn Trãi, Võ Cường, Bắc Ninh')]).hit === null, '#560-21 chain without branch')
+  assert(pick('THƯƠNG HIỆU THỜI TRANG ILABY KIDS', '148 Trần Hưng Đạo, TP Bắc Ninh', [H('k1', 'KRIK - 148 Trần Hưng Đạo (TP.Bắc Ninh)', '152 Trần Hưng Đạo - P.Kinh Bắc - TP.Bắc Ninh')]).hit === null, '#560-19 other brand at same street')
+  // Codex #616: 번지와 거리 사이 쉼표
+  assert(pick('Highlands Coffee', 'Số 10, đường Lý Thái Tổ, Bắc Ninh', [H('h1', 'Highlands Coffee', '10 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 'h1', 'Codex #616 comma between number and street')
+  assert(pick('Highlands Coffee', 'Số 10, đường Lý Thái Tổ, Bắc Ninh', [H('h2', 'Highlands Coffee', '5 Nguyễn Trãi, Bắc Ninh')]).hit === null, 'comma form still guards other street')
+  // Codex #616: 슬래시 번지, 로마 숫자 공단 순번
+  assert(pick('Highlands Coffee', '10/2 Lý Thái Tổ, Bắc Ninh', [H('s1', 'Highlands Coffee', '10/2 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 's1', 'Codex #616 slash house number')
+  assert(pick('Công ty ABC Việt', 'KCN Quế Võ III, Bắc Ninh', [H('q1', 'Công ty ABC Việt', 'KCN Quế Võ 1, Bắc Ninh'), H('q2', 'Công ty ABC Việt', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 roman numeral park III is not Quế Võ 1')
+  assert(pick('Công ty ABC Việt', 'KCN Quế Võ III, Bắc Ninh', [H('q3', 'Công ty ABC Việt', 'KCN Quế Võ 3, Bắc Ninh')]).hit?.id === 'q3', 'Codex #616 roman III = 3')
+  // Codex #616: 로마 숫자 공단, 슬래시 번지
+  assert(pick('Hojeong', 'KCN Quế Võ III, Bắc Ninh', [H('q1', 'Hojeong Vina', 'KCN Quế Võ 1, Bắc Ninh'), H('q2', 'Hojeong Vina', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 Quế Võ III ≠ Quế Võ 1')
+  assert(pick('Highlands Coffee', '10/2 Lý Thái Tổ, Bắc Ninh', [H('s2', 'Highlands Coffee', '10/2 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 's2', 'Codex #616 slash house number')
+  assert(pick('Kingsport Quế Võ', '25-27 Đ. Trần Hưng Đạo, Quế Võ, Bắc Ninh', [H('k2', 'Kingsport Quế Võ - Bắc Ninh (Ghế massage, máy chạy bộ)', '25-27 Đ. Trần Hưng Đạo, Quế Võ, Bắc Ninh')]).hit?.id === 'k2', '#560-17 Kingsport range house number')
+  assert(pick('Hojeong', 'KCN Quế Võ, Bắc Ninh', [H('w1', 'Hojeong', '100 Đường Nguyễn Trãi, Phường Quế Võ, Bắc Ninh'), H('w2', 'Hojeong', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 ward name Quế Võ is not KCN Quế Võ')
+  assert(pick('Hojeong', 'KCN Quế Võ, Bắc Ninh', [H('w3', 'Hojeong', 'Lô C, KCN Quế Võ, Phường Nam Sơn, Bắc Ninh')]).hit?.id === 'w3', 'same park with KCN word')
+  assert(pick('Hojeong', 'Khu CN Quế Võ, Bắc Ninh', [H('a1', 'Hojeong', 'KCN Quế Võ 2, Bắc Ninh'), H('a2', 'Hojeong', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 "Khu CN" abbreviation keeps park numbering')
+  assert(pick('Hojeong', 'Khu CN Hoà Phú', [H('a3', 'Hojeong', 'KCN Hòa Phú 2, Bắc Ninh')]).hit === null, 'unlisted park keeps numbering too')
+  assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
+}
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')

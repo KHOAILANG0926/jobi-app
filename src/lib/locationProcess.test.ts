@@ -23,9 +23,12 @@ const result = await resolveAutoLocation({ id: 900001, company: 'Example Robotic
   },
 })
 assert(calls.includes('google:company'), 'known industrial parks must not skip Google address recovery after a miss')
-assert(result.kind === 'exact' && result.lat === 21 && result.lng === 105.8, 'pin must come from street verification, never the Google company coordinate')
+// #560(Lee 2026-11-09 "잘못된 위치 확정 0건"): 원문은 KCN Yên Phong인데 Google 장소 주소가 그 공단이 아닌 시내 거리면
+// 같은 이름의 다른 사업장(사무실 등)일 수 있어 따르지 않는다 — Google 좌표도, 그 주소의 번지 검증 좌표도 쓰지 않고 공단 단계로 내려간다.
+assert(!(result.kind === 'exact' && result.lat === 21 && result.lng === 105.8), 'Google place outside the named park must not become an exact pin')
+assert(!('source' in result) || !/^Google /.test(String((result as { source?: string }).source)), 'never the Google company coordinate')
 assert(result.address === original && result.workLocationId === 55, 'canonical writer target identity must remain the original work location')
-assert(result.evidence?.includes(street), 'recovered street must be retained as evidence')
+assert(result.evidence?.includes('google:park_mismatch'), 'why Google was not followed must be retained as evidence')
 console.log('locationProcess: industrial-park recovery, address replay and canonical target passed')
 const missed = await resolveAutoLocation({ id: 900002, company: 'Example Robotics', location: original, targets: [] }, {
   async cached() { return null }, async cache() {}, async reserve() { return true }, async request() { return [] },
