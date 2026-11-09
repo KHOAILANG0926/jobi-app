@@ -61,7 +61,8 @@ export function postBody(text: string): string {
   return (cut >= 0 ? lines.slice(0, cut) : lines).join('\n')
 }
 // 가게 낱말 뒤가 이름이 아니라 위치 설명("quán cạnh ngã 6", "Hotel 06 Ngô Tất Tố")이면 버린다(#560).
-const NOT_NAME_START = /^(?:cạnh|gần|đối diện|sát|ngay|bên|trước|sau|trong|ở|tại|số|sn)(?=\s|[.,:]|$)/iu // 낱말 끝까지("Snail"은 상호, Codex #616)
+// 위치 설명 = 위치 낱말 + 장소 낱말·번호("cạnh ngã 6", "gần chợ", "đối diện trường", "số 12"). 위치 낱말만으로는 버리지 않는다("Nhà hàng Bên Sông", "Snail" — Codex #616).
+const NOT_NAME_START = /^(?:(?:cạnh|gần|đối diện|sát|ngay|bên|trước|sau|trong|ở|tại)\s+(?:ngã|cổng|chợ|trường|bệnh viện|siêu thị|ngõ|đường|phố|công viên|ủy ban|ubnd|kcn|ccn|cây xăng|bến|cầu|nhà|quán|tòa|khu|số|\d)|(?:số|sn)\s*\d)/iu
 // 숫자로 시작하는 뒤말은 주소 근거가 있을 때만 주소로 본다("Hotel 06 Ngô Tất Tố, Võ Cường, Bắc Ninh"). "Nhà hàng 5 Sao, Bắc Ninh"은 상호(Codex #616).
 const isAddressAfter = (rest: string) => /^\d/.test(rest) &&
   (/^\d+\p{L}?(?:[\/-]\d+)*\s+(?:đường|đ\.|phố|ngõ|ngách|hẻm|kiệt)(?=\s|$)/iu.test(rest) || (rest.match(/,/g) ?? []).length >= 2)
