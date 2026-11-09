@@ -67,6 +67,11 @@ jobs:
         run: BASE_URL="$PROD_URL" SCREENSHOT_DIR=app-smoke-screens/map-summary node scripts/ops/map-summary-check.mjs
       - name: 기간·계약 메뉴 전체 검색 운영 확인
         run: BASE_URL="$PROD_URL" SCREENSHOT_DIR=app-smoke-screens/menu-search node scripts/ops/menu-search-check.mjs
+      # PC 헤더 검사(#586): 예전 별도 자동 작업(desktop-header-proof.yml)은 봇이 시작한 배포에서 불리지 않아 11-04 이후 멈춰 있었다 → 여기로 합침.
+      - name: PC 헤더 운영 확인 (비로그인·모바일, 계정 주입 없음)
+        run: BASE_URL=https://www.viecganban.vn SCREENSHOT_DIR=app-smoke-screens/header-live node scripts/ops/desktop-header-production-check.mjs
+      - name: PC 헤더 로그인 상태 격리 브라우저 확인 (실제 계정 인증 아님)
+        run: BASE_URL=https://www.viecganban.vn SCREENSHOT_DIR=app-smoke-screens/header-fixtures node scripts/ops/desktop-header-check.mjs
       - name: 운영 화면 확인 근거 보존
         if: always()
         uses: actions/upload-artifact@v4
