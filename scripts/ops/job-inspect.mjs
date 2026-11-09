@@ -144,8 +144,10 @@ try {
     const marker = '<!-- readonly-inspect'
     const digest = createHash('md5').update(VERSION + outsideBad.join('\n')).digest('hex').slice(0, 12)
     const num = issue()
+    // 이슈가 없어서 처음 결과를 이슈 본문으로 만든 경우도 있으므로 본문 + 댓글을 순서대로 본다(Codex #593 지적).
     const pages = num ? JSON.parse(gh(['api', `repos/${REPO}/issues/${num}/comments?per_page=100`, '--paginate', '--slurp'])) : []
-    const last = pages.flat().filter((c) => String(c.body ?? '').includes(marker)).at(-1)?.body ?? ''
+    const issueBody = num ? gh(['api', `repos/${REPO}/issues/${num}`, '--jq', '.body // ""']) : ''
+    const last = [issueBody, ...pages.flat().map((c) => String(c.body ?? ''))].filter((b) => b.includes(marker)).at(-1) ?? ''
     if (!last.includes(digest) && (outsideBad.length || last)) {
       post(`**읽기 전용 검사 — 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전 등) ${outside.length}건 중 문제 ${outsideBad.length}건**\n` +
         `공고 내용·공개 상태는 바꾸지 않았습니다(표시만). 공개 판정은 기존대로입니다.\n\n${outsideBad.join('\n') || '문제 없음'}\n\n${marker} ${digest} -->`)
