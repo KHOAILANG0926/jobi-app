@@ -49,4 +49,5 @@ bad('select id from public.local_jobs where id = :job_id;', ':job_id only after 
 bad('select $$x$$;', 'dollar quoting in queries rejected')
 bad('', 'empty file rejected')
 assert.equal(planSql("select '::notice::' || count(*) from public.local_jobs;").ok, true, 'colons inside quoted text are not psql variables')
+assert.equal(planSql('\\pset footer off\nselect 1;').ok, true, 'footer display command allowed')
 console.log('run-sql-plan: all assertions passed')
