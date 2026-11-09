@@ -15,7 +15,9 @@ export const REPLY_AUTHORS = new Set(['claude[bot]', 'KHOAILANG0926'])
 // 진짜 Codex 검사관 봇 계정만(Codex #566 지적: 이름에 codex가 든 아무 계정이나 인정하면 가짜 요약으로 통과 가능).
 export const CODEX_LOGIN = 'chatgpt-codex-connector[bot]'
 export const isCodex = (u) => String(u?.login ?? '') === CODEX_LOGIN && (u?.type === undefined || u.type === 'Bot')
-const repliedAfter = (comments, time) => comments.some((c) => REPLY_AUTHORS.has(String(c.user?.login ?? '')) && String(c.body ?? '').includes(REPLY_MARKER) && c.created_at >= time)
+// 답 표시는 댓글 첫 줄이어야 인정한다(다른 댓글이 답을 인용(>)해 표시가 중간에 들어간 경우 제외).
+export const isClaudeReply = (c) => !REPLY_AUTHORS.has(String(c.user?.login ?? '')) && String(c.body ?? '').split('\n')[0].trim() === REPLY_MARKER
+const repliedAfter = (comments, time) => comments.some((c) => isClaudeReply(c) && c.created_at >= time)
 
 /** Codex 요약 댓글(<!-- codex-review-state:v1 {...} -->)의 code_review 상태 + 그 댓글이 마지막으로 바뀐 시각(at). 없으면 null. */
 export function codexSummary(comments) {
