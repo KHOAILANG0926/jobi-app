@@ -124,6 +124,55 @@ const PREF_GROUPS = [
 
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
 
+// 업직종 선택 창(알바몬 '업직종을 선택해주세요.'): 검색 + 대분류 | 세부 두 칸 + 취소·확인. 우리 공고는 업직종 1개만 저장.
+function CategoryPicker({ category, subcategory, onClose, onPick }: {
+  category: JobCategory, subcategory: string, onClose: () => void, onPick: (c: JobCategory, sub: string) => void
+}) {
+  const [cat, setCat] = useState<JobCategory>(category)
+  const [sub, setSub] = useState(subcategory)
+  const [q, setQ] = useState('')
+  const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
+  const hits = q.trim() ? ALL_CATEGORIES.flatMap((c) => [
+    ...(norm(CATEGORY_LABELS[c]).includes(norm(q)) ? [{ c, id: '', label: CATEGORY_LABELS[c] }] : []),
+    ...Object.entries(SUBCATEGORY_LABELS[c] ?? {}).filter(([, l]) => norm(l).includes(norm(q))).map(([id, l]) => ({ c, id, label: `${CATEGORY_LABELS[c]} › ${l}` })),
+  ]) : null
+  const subs = SUBCATEGORY_LABELS[cat]
+  return (
+    <div className="pj-modal" role="dialog" aria-modal aria-label="Chọn ngành nghề" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <section className="pj-modal__box">
+        <header className="pj-modal__h">
+          <button type="button" aria-label="Đóng" onClick={onClose}>×</button>
+          <h1>Chọn ngành nghề</h1>
+        </header>
+        <input className="pj-input pj-cat__search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm ngành nghề" />
+        {hits ? (
+          <ul className="pj-cat__hits">
+            {hits.length ? hits.map((h) => (
+              <li key={h.c + h.id}><button type="button" aria-pressed={cat === h.c && sub === h.id} onClick={() => { setCat(h.c); setSub(h.id); setQ('') }}>{h.label}</button></li>
+            )) : <li className="pj-cat__none">Không tìm thấy</li>}
+          </ul>
+        ) : (
+          <div className="pj-cat">
+            <div className="pj-cat__col">
+              <div className="pj-cat__h">Ngành</div>
+              <ul>{ALL_CATEGORIES.map((c) => <li key={c}><button type="button" aria-pressed={cat === c} onClick={() => { setCat(c); if (c !== cat) setSub('') }}>{CATEGORY_LABELS[c]}</button></li>)}</ul>
+            </div>
+            <div className="pj-cat__col">
+              <div className="pj-cat__h">Chi tiết</div>
+              {subs ? <ul>{Object.entries(subs).map(([id, l]) => <li key={id}><button type="button" aria-pressed={sub === id} onClick={() => setSub(sub === id ? '' : id)}>{l}</button></li>)}</ul>
+                : <p className="pj-cat__none">Ngành này không có phân loại chi tiết.</p>}
+            </div>
+          </div>
+        )}
+        <div className="pj-cat__foot">
+          <button type="button" className="pj-btn-ghost" onClick={onClose}>Hủy</button>
+          <button type="button" className="pj-btn-main" onClick={() => onPick(cat, sub)}>Xác nhận</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export function PostJob() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -134,8 +183,11 @@ export function PostJob() {
   const [pinWarning, setPinWarning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  // 사진 최대 4장(알바몬 '공고사진' 4칸과 같음, 2026-11-09 Lee). 첫 장이 대표 사진.
+  const [photos, setPhotos] = useState<{ file: File, url: string }[]>([])
+  const imagePreview = photos[0]?.url ?? null
+  const clearPhotos = () => setPhotos([])
+  const [catOpen, setCatOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const errorRef = useRef<HTMLParagraphElement>(null)
 
@@ -223,12 +275,12 @@ export function PostJob() {
   }, [user])
 
   const onImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? []).slice(0, 4 - photos.length)
+    e.target.value = ''
+    if (!files.length) return
     try {
-      const small = await shrinkImage(file)
-      setImageFile(small)
-      setImagePreview(URL.createObjectURL(small))
+      const added = await Promise.all(files.map(async (file) => { const small = await shrinkImage(file); return { file: small, url: URL.createObjectURL(small) } }))
+      setPhotos((ps) => [...ps, ...added].slice(0, 4))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không đọc được ảnh.')
     }
@@ -313,16 +365,16 @@ export function PostJob() {
     setSubmitting(true)
     try {
       let imageUrl: string | undefined = undefined
-
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop()
-        const path = `${Date.now()}.${ext}`
+      const imagePaths: string[] = []
+      for (const [i, photo] of photos.entries()) {
+        const ext = photo.file.name.split('.').pop()
+        const path = `${Date.now()}-${i}.${ext}`
         const { error: uploadError } = await supabase.storage
           .from('job-images')
-          .upload(path, imageFile, { upsert: true })
+          .upload(path, photo.file, { upsert: true })
         if (uploadError) throw new Error('Tải ảnh thất bại: ' + uploadError.message)
-        const { data } = supabase.storage.from('job-images').getPublicUrl(path)
-        imageUrl = data.publicUrl
+        imagePaths.push(path)
+        if (i === 0) imageUrl = supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
       }
 
       const salaryNote = salaryNoteText()
@@ -355,6 +407,7 @@ export function PostJob() {
         zalo: zalo || undefined,
         urgent: form.urgent,
         imageUrl,
+        images: imagePaths.length ? imagePaths : undefined,
         ...conditions,
         workSchedule: form.workDays.length === 5 ? '5_days' as const : form.workDays.length === 6 ? '6_days' as const : form.workDays.length ? 'other' as const : conditions.workSchedule,
       }
@@ -398,8 +451,7 @@ export function PostJob() {
           redirectTo: `${window.location.origin}/dat-lai-mat-khau`,
         })
         resetForm()
-        setImageFile(null)
-        setImagePreview(null)
+        clearPhotos()
         setEmailSuccess({ jobId: job.id, email })
       } else if (employerCheck === 'guest' && postMode === 'quick') {
         // "Đăng nhanh, không cần đăng ký" — 계정 없이, 클라이언트가 만든
@@ -417,8 +469,7 @@ export function PostJob() {
         await savePin(job.id, token)
         const rawId = job.id.replace(/^sb-/, '')
         resetForm()
-        setImageFile(null)
-        setImagePreview(null)
+        clearPhotos()
         setGuestSuccess({
           jobId: job.id,
           manageUrl: `${window.location.origin}/quan-ly-tin/${rawId}?token=${token}`,
@@ -429,8 +480,7 @@ export function PostJob() {
         const job = await addPostedJob({ ...baseFields, applicationDeadline: deadline, employerId: user?.id })
         await savePin(job.id, null)
         resetForm()
-        setImageFile(null)
-        setImagePreview(null)
+        clearPhotos()
         navigate(`/viec-lam/${job.id}`, { replace: true })
       }
     } catch (err) {
@@ -521,7 +571,6 @@ export function PostJob() {
     <div className="pj pj--side">
       <div className="pj__main">
       <h1 className="pj__title">Đăng tin tuyển dụng</h1>
-      <p className="pj__lead">Nhà tuyển dụng đăng việc miễn phí — tiếp cận ứng viên ngay hôm nay.</p>
       {draftAt && (
         <div className="pj-draft">Có bản lưu tạm lúc {draftAt}.
           <button type="button" className="pj-link" onClick={loadDraft}>Mở lại</button>
@@ -539,7 +588,7 @@ export function PostJob() {
               <button type="button" aria-pressed={postMode === 'email'} onClick={() => setPostMode('email')}>Đăng ký bằng email</button>
             </div>
             {postMode === 'quick' ? (
-              <p className="pj-hint" style={{ marginTop: 10 }}>Tin hiển thị ngay và <strong>tự động hết hạn sau 7 ngày</strong> nếu không chọn hạn nộp. Sau khi đăng bạn nhận một link riêng để sửa/ngừng đăng — hãy lưu lại link đó.</p>
+              <p className="pj-hint" style={{ marginTop: 10 }}>Không chọn hạn nộp: tin hết hạn sau 7 ngày. Hãy lưu link quản lý nhận được sau khi đăng.</p>
             ) : (
               <div className="pj-line" style={{ marginTop: 10 }}>
                 <input ref={guestEmailRef} className="pj-input pj-input--grow" type="email" value={guestEmail}
@@ -559,21 +608,16 @@ export function PostJob() {
             </div>
           </Row>
           <Row label="Ngành nghề" req>
+            {/* 알바몬 '업직종 추가하기'처럼 짧은 버튼 → 선택 창(대분류·세부 두 칸). 고르면 버튼 옆에 고른 이름 */}
             <div className="pj-line">
-              <select className="pj-select" style={{ flex: '1 1 220px' }} value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as JobCategory, subcategory: '' }))}>
-                {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-              </select>
-              {subcategoryOptions && (
-                <select className="pj-select" style={{ flex: '1 1 220px' }} value={form.subcategory} onChange={(e) => set('subcategory', e.target.value)}>
-                  <option value="">Phân loại chi tiết</option>
-                  {Object.entries(subcategoryOptions).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-                </select>
+              <button type="button" className="pj-btn-line pj-btn-line--add" onClick={() => setCatOpen(true)}>+ {form.category === 'khac' && !form.subcategory ? 'Chọn ngành nghề' : 'Đổi ngành nghề'}</button>
+              {(form.category !== 'khac' || form.subcategory) && (
+                <span className="pj-picked">{CATEGORY_LABELS[form.category]}{form.subcategory && subcategoryOptions?.[form.subcategory] ? ` › ${subcategoryOptions[form.subcategory]}` : ''}</span>
               )}
             </div>
             <Check checked={form.beginner} onChange={(v) => set('beginner', v)}>Không cần kinh nghiệm</Check>
           </Row>
-          <Row label="Hình thức" req>
+          <Row label="Hình thức" req count={`${(form.employmentType ? 1 : 0) + (form.employmentTypeExtra || conditions.recruitmentType === 'agency' ? 1 : 0)}/2`}>
             <div className="pj-chips" role="group" aria-label="Hình thức làm việc">
               {([['full_time', 'Chính thức'], ['seasonal', 'Thời vụ'], ['part_time', 'Part-time']] as const).map(([v, t], i) => (
                 <button key={v} ref={i === 0 ? employmentRef : undefined} type="button" aria-pressed={form.employmentType === v} onClick={() => set('employmentType', v)}>{t}</button>
@@ -584,7 +628,6 @@ export function PostJob() {
                 <button key={v} type="button" aria-pressed={form.employmentTypeExtra === v} onClick={() => set('employmentTypeExtra', form.employmentTypeExtra === v ? '' : v)}>{t}</button>
               ))}
             </div>
-            <p className="pj-hint">Chọn 1 hình thức chính (Chính thức / Thời vụ / Part-time) và có thể thêm 1 hình thức khác.</p>
           </Row>
           <Row label="Số lượng tuyển" req>
             <div className="pj-line">
@@ -641,10 +684,14 @@ export function PostJob() {
         <section className="pj-sec" id="pj-s2">
           <h2 className="pj-sec__h">Điều kiện làm việc</h2>
           <Row label="Thời hạn làm việc">
-            <div className="pj-seg pj-seg--fill pj-seg--8" role="group" aria-label="Thời hạn làm việc">
-              {[...JOB_DURATION_OPTIONS, 'Thỏa thuận'].map((d) => (
-                <button key={d} type="button" aria-pressed={form.jobDuration === d} onClick={() => set('jobDuration', form.jobDuration === d ? '' : d)}>{d}</button>
+            {/* 알바몬 근무기간처럼 7칸 + '협의가능'은 칸 밖 체크(8칸이면 글자가 잘렸음, 2026-11-09). 체크는 Ngày làm việc처럼 아래 줄. 저장 값은 그대로, 화면만 '~' */}
+            <div className="pj-seg pj-seg--fill" role="group" aria-label="Thời hạn làm việc">
+              {JOB_DURATION_OPTIONS.map((d) => (
+                <button key={d} type="button" aria-pressed={form.jobDuration === d} onClick={() => set('jobDuration', form.jobDuration === d ? '' : d)}>{d.replace(' - ', '~')}</button>
               ))}
+            </div>
+            <div className="pj-checks">
+              <Check checked={form.jobDuration === 'Thỏa thuận'} onChange={(v) => set('jobDuration', v ? 'Thỏa thuận' : '')}>Thỏa thuận</Check>
             </div>
           </Row>
           <Row label="Ngày làm việc">
@@ -767,15 +814,23 @@ export function PostJob() {
             <input ref={companyRef} className="pj-input" maxLength={30} value={form.company} onChange={(e) => set('company', e.target.value)} placeholder="Công ty TNHH ..." />
             <div className="pj-note">Gợi ý: Tên công ty + (chi nhánh). Không ghi quảng cáo quá mức.</div>
           </Row>
-          <Row label="Ảnh">
-            <div className="pj-line">
-              <div className="pj-photo" onClick={() => fileInputRef.current?.click()}>
-                {imagePreview ? <img src={imagePreview} alt="preview" /> : '⊕ Thêm ảnh'}
-              </div>
-              {imagePreview && <button type="button" className="pj-link" onClick={() => { setImageFile(null); setImagePreview(null) }}>Xoá ảnh</button>}
+          <Row label="Ảnh·Video">
+            {/* 알바몬 '사진·동영상': 사진 4칸 + 동영상 2칸. 동영상은 아직 저장 칸이 없어 자리만(Lee 2026-11-09 "구성은 만들 필요") */}
+            <div className="pj-photos">
+              {[0, 1, 2, 3].map((i) => photos[i] ? (
+                <div key={i} className="pj-photos__cell pj-photos__cell--on">
+                  <img src={photos[i].url} alt={`Ảnh ${i + 1}`} />
+                  {i === 0 && <span className="pj-photos__main">Ảnh đại diện</span>}
+                  <button type="button" aria-label={`Xoá ảnh ${i + 1}`} onClick={() => setPhotos((ps) => ps.filter((_, j) => j !== i))}>×</button>
+                </div>
+              ) : (
+                <button key={i} type="button" className="pj-photos__cell" disabled={i > photos.length} onClick={() => fileInputRef.current?.click()}>⊕ Thêm ảnh</button>
+              ))}
             </div>
-            <p className="pj-hint">Ảnh ngang, tối đa 10MB — hệ thống tự thu nhỏ.</p>
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void onImageChange(e)} />
+            <div className="pj-videos">
+              {[0, 1].map((i) => <div key={i} className="pj-videos__cell" aria-disabled="true">⊕ Thêm video <small>(sắp có)</small></div>)}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => void onImageChange(e)} />
           </Row>
         </section>
 
@@ -789,7 +844,6 @@ export function PostJob() {
               </div>
               {!form.ongoing && <input ref={deadlineRef} type="date" className="pj-input" style={{ width: 200 }} value={form.applicationDeadline} onChange={(e) => set('applicationDeadline', e.target.value)} />}
             </div>
-            {quickGuestMode && <p className="pj-hint">• Đăng nhanh: để trống = hết hạn sau 7 ngày.</p>}
           </Row>
           <Row label="Cách ứng tuyển">
             <div className="pj-chips" role="group" aria-label="Cách ứng tuyển">
@@ -843,7 +897,6 @@ export function PostJob() {
 
         <section className="pj-sec" id="pj-s7">
           <h2 className="pj-sec__h">Mô tả chi tiết tuyển dụng</h2>
-          <p className="pj-hint">Không bắt buộc. Nếu viết bằng mẫu, trang tin sẽ hiển thị đúng như mẫu này.</p>
           <AlbamonTemplateEditor company={form.company} onHtml={setTplHtml} outer={{
             title: form.title, roles: [], period: form.jobDuration, days: form.workDays, start: form.timeStart, end: form.timeEnd,
             benefits: benefitText, education: form.education, preferred: preferenceText(),
@@ -853,7 +906,7 @@ export function PostJob() {
 
         <div className="pj-bar">
           <button type="button" className="pj-bar__ghost" disabled={submitting}
-            onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); setImageFile(null); setImagePreview(null) }}>Xoá form</button>
+            onClick={() => { setForm(emptyForm); setConditions(EMPTY_CONDITIONS); setPin(null); clearPhotos() }}>Xoá form</button>
           <button type="button" className="pj-bar__ghost" disabled={submitting} onClick={saveDraft}>Lưu tạm</button>
           <button type="button" className="pj-bar__ghost" disabled={submitting} onClick={() => openPreview(window.innerWidth < 761)}>Xem trước</button>
           <button type="submit" className="pj-bar__main" disabled={submitting || employerCheck === 'checking'}>{submitting ? 'Đang đăng...' : 'Đăng tin'}</button>
@@ -899,6 +952,8 @@ export function PostJob() {
           </section>
         </div>
       )}
+      {catOpen && <CategoryPicker category={form.category} subcategory={form.subcategory} onClose={() => setCatOpen(false)}
+        onPick={(category, subcategory) => { setForm((f) => ({ ...f, category, subcategory })); setCatOpen(false) }} />}
       {toast && <div className="pj-toast" role="status">{toast}</div>}
     </div>
   )

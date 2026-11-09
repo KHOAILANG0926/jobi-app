@@ -181,7 +181,8 @@
 .amt-pvd { width: 720px; padding: 0 0 0 28px; font-size: 16px; line-height: 1.4; color: #171717; word-break: break-word; }
 .amt-pvd--m { width: auto; padding: 0; }
 /* 미리보기 창(새 창) 바탕 */
-body.amt-pvwin { margin: 0; background: #fff; font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+/* 미리보기 창도 사이트 글자체(2026-09-17 Inter로 정함, index.css --font)와 같게 — 예전엔 불러오지도 않는 Pretendard라 기기 기본 글꼴로 보였음 */
+body.amt-pvwin { margin: 0; background: #fff; font-family: var(--font, "Inter", "Noto Sans KR", system-ui, sans-serif); }
 body.amt-pvwin .amt-pv { margin-left: 27px; }
 /* 모바일 미리보기 창은 .amt-pv--m 의 가운데 정렬(margin 0 auto)을 그대로 — 위 PC용 27px 이 덮어써 왼쪽 43px·오른쪽 16px 로 치우쳤음 */
 body.amt-pvwin .amt-pv--m { margin-left: auto; }
@@ -305,6 +306,8 @@ body.amt-pvwin .amt-pv--m { margin-left: auto; }
 /* 공고 상세 ④ 상세요강에 템플릿 모양 그대로(Lee 2026-11-08 B안) */
 .jd2-template-doc { padding: 24px; overflow: hidden; }
 .jd2-template-doc .amt-pv { width: auto; max-width: 708px; }
+/* PC: 알바몬 상세처럼 본문 칸 가운데(알바몬 775px 틀이 1030px 칸 가운데, 2026-11-09 직접 잼). 휴대폰은 아래 규칙 그대로 */
+@media (min-width: 761px) { .jd2-template-doc .amt-pv { margin: 0 auto; } }
 /* 휴대폰: 알바몬처럼 모바일 틀 크기(미리보기 모바일과 같은 값) */
 @media (max-width: 760px) {
   .jd2-template-doc { padding: 0; }

@@ -143,6 +143,9 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
         salary_note: draft.salaryNote ?? null,
         contact_zalo: draft.zalo ?? null,
         benefit_tags: draft.benefitTags?.length ? draft.benefitTags : null,
+        // 2026-11-09: 고용주가 올린 사진이 저장소에만 올라가고 공고에 연결되지 않던 문제 — 대표 사진(image_url)과 사진 목록(images, 저장소 경로)을 같이 넣는다.
+        image_url: draft.imageUrl ?? null,
+        ...(draft.images?.length ? { images: draft.images } : {}),
       }, JOB_INSERT_RETURN_COLUMNS)
       // guest_manage_token 컬럼은 anon/authenticated 양쪽 다 컬럼 단위로 SELECT가
       // REVOKE돼 있다(마이그레이션 참고) — bare .select()(=select=*)로 반환받으면

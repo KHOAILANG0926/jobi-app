@@ -1,3 +1,11 @@
+## 2026-11-09 아침 — 공고 작성 화면·상세 템플릿 알바몬 맞춤 (Lee "적용")
+- 요청: 알바몬 실제 공고(120083527)·알바몬 일반공고 작성 화면과 나란히 비교한 차이 고치기.
+- 변경: 상세 템플릿 PC 가운데 정렬·빈 회사 이름 안내 글자 숨김·미리보기 창 글자체 Inter(AlbamonTemplate.tsx/.css). /dang-tin 흰 바탕(이 화면만), 업직종 짧은 버튼+선택 창(검색·Ngành|Chi tiết), 근무기간 7칸+Thỏa thuận 체크(글자 잘림), 사진 4칸+동영상 2칸 자리(동영상 저장 칸 없음 → sắp có), 불필요 안내 문구 삭제, Hình thức 0/2 숫자(PostJob.tsx/.css).
+- 버그 수정: 고용주 사진이 저장소에만 올라가고 공고 image_url에 연결되지 않던 문제 → image_url + images(저장소 경로) 저장(JobsContext.tsx, ingest_job이 local_jobs 칸을 그대로 받음, DB 변경 없음).
+- 알바몬 확인(Lee 크롬, 저장 없음): 공고사진 4칸(사진첩 최대 30장, 500KB 미만 jpg·gif·png), 동영상 2칸 = 유튜브 링크만(30분 이내).
+- 검증: tsc·build 통과, 로컬 Playwright PC·모바일 화면 확인, 데모 Lee 크롬에서 확인.
+- 남은 것: 동영상(유튜브 링크) 저장 칸 = DB 변경 → Lee 결정. 빠른 등록에 Tuyển liên tục 보일지 Lee 결정. #579(연락처 없는 미리보기 상자 겹침).
+
 ## 2026-11-09 새벽 — 밤 근무 4회차: 템플릿 모바일 미리보기 치우침 #577 (Claude)
 - 발견(#571 확인 중): 간편 템플릿 'Xem trước' Mobile 새 창(420px)에서 내용이 왼쪽 43px·오른쪽 16px로 치우침. PC용 `body.amt-pvwin .amt-pv { margin-left: 27px }`이 `.amt-pv--m { margin: 0 auto }`를 덮음.
 - 변경: src/components/template/AlbamonTemplate.css 한 줄 `body.amt-pvwin .amt-pv--m { margin-left: auto }`(새 창 미리보기만).
@@ -50,9 +58,3 @@
 - 요청: Lee "이거먼저"(데모 demo/albamon-template에서 DB 변경 없는 1~6번).
 - 변경: src/pages/ServicePages.tsx/.css(/ho-tro FAQ·공지, /lam-poster 벽보, /chu-de/:slug 테마 8개 — 데모 표본 공고 버튼 뺌, 인쇄 CSS는 'In' 버튼 때만), App.tsx 경로, 메뉴 'Việc làm'에 'Theo chủ đề'(PC·모바일), 바닥 'Câu hỏi thường gặp'·'Làm poster tuyển dụng', PC 기업 메뉴 'Làm poster tuyển dụng'. PostJob: 급여 칸 계산기 링크, 임시저장(vgb:postjob-draft, 등록 성공 시 지움), 구역 id pj-s1~6, PC 오른쪽 상자(Lưu tạm·Đăng tin·체크 목록), 아래 막대에 Lưu tạm.
 - 뺀 것: 미리보기(상세 화면 틀 변경 필요), 7·8번(미승인).
-
-## 2026-11-07 23:30 — 소개소 표시 원래 칸 하나로 (Claude)
-- 요청: Lee "같은내용을 두번 적는게 맞아? 원래대로", "빼"(경고색), 5번 A+B, "먼저수정하고 7,8번 확인".
-- 원인 [직접 확인]: #525에서 기존 recruitment_type 칸을 확인하지 않고 recruiter_agency 칸을 새로 만듦(화면은 기존 칸만 봐서 표시 안 됨).
-- 변경: #536 수집 입구가 recruitment_type='agency'에 적음, 경고색 뺌, 소개소 판정 문구·전화번호 기록(job_company_phones) 추가, 읽기 전용 확인(company-reread field=agency). #538 Lee 승인 기록, #537 recruiter_agency 칸 삭제(0건 확인, 있으면 멈춤).
-- 배포: deploy-verify 42387724259 성공, migrations-apply 42391081797 성공. 이어서 #540(Lee "A"·"3번가자"): agency_workplace_key 칸 + dedupe_private.verdict(소개소끼리 공장 다르면 다른 공고, 모르면 애매) + companyReader.readWorkplace. migrations-apply 42392546481, deploy-verify 42392718489 성공.
