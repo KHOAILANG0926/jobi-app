@@ -98,6 +98,10 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   assert(pick('Highlands Coffee', '10/2 Lý Thái Tổ, Bắc Ninh', [H('s1', 'Highlands Coffee', '10/2 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 's1', 'Codex #616 slash house number')
   assert(pick('Công ty ABC Việt', 'KCN Quế Võ III, Bắc Ninh', [H('q1', 'Công ty ABC Việt', 'KCN Quế Võ 1, Bắc Ninh'), H('q2', 'Công ty ABC Việt', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 roman numeral park III is not Quế Võ 1')
   assert(pick('Công ty ABC Việt', 'KCN Quế Võ III, Bắc Ninh', [H('q3', 'Công ty ABC Việt', 'KCN Quế Võ 3, Bắc Ninh')]).hit?.id === 'q3', 'Codex #616 roman III = 3')
+  // Codex #616: 로마 숫자 공단, 슬래시 번지
+  assert(pick('Hojeong', 'KCN Quế Võ III, Bắc Ninh', [H('q1', 'Hojeong Vina', 'KCN Quế Võ 1, Bắc Ninh'), H('q2', 'Hojeong Vina', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 Quế Võ III ≠ Quế Võ 1')
+  assert(pick('Highlands Coffee', '10/2 Lý Thái Tổ, Bắc Ninh', [H('s2', 'Highlands Coffee', '10/2 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 's2', 'Codex #616 slash house number')
+  assert(pick('Kingsport Quế Võ', '25-27 Đ. Trần Hưng Đạo, Quế Võ, Bắc Ninh', [H('k2', 'Kingsport Quế Võ - Bắc Ninh (Ghế massage, máy chạy bộ)', '25-27 Đ. Trần Hưng Đạo, Quế Võ, Bắc Ninh')]).hit?.id === 'k2', '#560-17 Kingsport range house number')
   assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
 }
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')

@@ -7,6 +7,7 @@
 // 채택: 핵심 이름이 같은 후보 1곳(여럿이면 원문 거리 이름으로 좁혀 1곳) → 원래 성 경계 안인지는 resolver가 다시 본다.
 // 결과는 '대략 위치(area)' — 화면은 chưa xác minh 그대로, 핀만 실제 업체 자리.
 import { companyTokens, normalizePlaceText } from './locationCandidateMatch'
+import { findIndustrialPark, foldText } from './industrialPark'
 
 /** 이름 앞뒤 수식어를 뺀 핵심 이름(띄어쓰기 없이). "JoyThai - Thai Cuisine & Hotpot" → "joythai". */
 export function coreName(name: string): string {
@@ -34,23 +35,16 @@ export function sameCoreName(company: string, placeName: string): boolean {
 /** 원문 주소의 거리 이름(번지·"đường/phố" 없이). 없으면 ''. */
 export function streetOf(address: string): string {
   // "27 kinh dương vương-p Vũ Ninh"처럼 붙어 쓴 '-p'·'-tỉnh'도 끊는다.
-  // 번지("10/2", "Số 10")는 글자를 다듬기 전에 뗀다 — 다듬으면 "/"가 공백이 돼 "2"가 거리 이름에 남는다(Codex #616).
-  const rawFirst = String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? ''
-  const first = normalizePlaceText(rawFirst.replace(/^\s*(?:số\s*)?\d+[a-z]?(?:\s*\/\s*\d+[a-z]?)*(?![\p{L}\d])\s*/iu, ''))
+  const first = normalizePlaceText(String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? '')
   const street = first.replace(/^(?:so\s+)?\d+[a-z]?(?:\/\d+)*\s+/, '').replace(/^(?:duong|pho|d)\s+/, '').trim() // "Đ. Triệu Việt Vương"의 Đ.(đường 줄임)도 뗀다
   return street.length > 2 && !/^(?:kcn|ccn|khu|cum|phuong|p|xa|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\b/.test(first) ? street : ''
 }
 
 export interface PlaceHit { id: string; name: string; address: string }
 
-const ROMAN_TO_ARABIC: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5', vi: '6' }
-const PARK_NUMBERING = new RegExp(`^(?:\\d+|${Object.keys(ROMAN_TO_ARABIC).join('|')})$`)
-/** 후보 주소의 공단 순번도 같은 아라비아 숫자로 맞춘다("Quế Võ III" ↔ "Quế Võ 3"). 공단 말(kcn 등) 뒤의 순번만 바꾼다. */
-function arabicParkNumbers(text: string): string {
-  return text.replace(/ (kcn|ccn|cong nghiep|cn)( (?:[a-z]+ ){1,2}?)(i|ii|iii|iv|v|vi)(?= )/g, (_m, a: string, b: string, r: string) => ` ${a}${b}${ROMAN_TO_ARABIC[r]}`)
-}
-
-/** 원문 주소의 공단 이름:KCN/CCN/khu công nghiệp 뒤 2낱말(+번호, 예 "que vo 2"), 쉼표·괄호·지역 말에서 끊음. 없으면 ''. */
+// "a|b": b가 a에 "mở rộng"만 붙은 이름인가
+const EXTENSION = /^([a-z0-9 ]+)\|\1 (?:khu )?mo rong$/
+/** 원문 주소의 공단 이름: KCN/CCN/khu công nghiệp 뒤 2낱말(+번호, 예 "que vo 2"), 쉼표·괄호·지역 말에서 끊음. 없으면 ''. */
 export function parkNameOf(address: string): string {
   for (const part of String(address ?? '').split(/[,(;]|\s[-–]\s/)) {
     const m = ` ${normalizePlaceText(part)} `.match(/ (?:kcn|ccn|khu cong nghiep|cum cong nghiep|khu cn|cum cn) (.+)$/)
@@ -60,8 +54,7 @@ export function parkNameOf(address: string): string {
       /^(?:thanh pho|thi xa|thi tran|bac ninh|bac giang|ha noi|hai duong|hung yen)$/.test(`${w} ${words[i + 1] ?? ''}`))
     const name = (stop >= 0 ? words.slice(0, stop) : words).slice(0, 2)
     const num = words[name.length]
-    // 순번은 아라비아·로마 숫자 모두(기존 공단 판독 NUMBERING과 같은 기준) — "III"가 빠지면 다른 공단과 같아진다(Codex #616).
-    if (name.length && num && PARK_NUMBERING.test(num)) name.push(ROMAN_TO_ARABIC[num] ?? num)
+    if (name.length && num && /^(?:\d+|i|ii|iii|iv|v|vi)$/.test(num)) name.push(num)
     if (name.length) return name.join(' ')
   }
   return ''
@@ -70,12 +63,10 @@ export function parkNameOf(address: string): string {
 function numberedStreet(address: string): string {
   const text = String(address ?? '')
   if (!/^\s*(?:số\s*)?\d/iu.test(text)) return ''
-  const s = streetOf(text)
-  // "Số 10, đường Lý Thái Tổ": 첫 칸이 번지뿐이면 다음 칸의 거리 이름(Codex #616). 그래도 거리가 없으면 거리 조건을 쓰지 않는다.
-  if (s && !/^(?:so\s*)?\d+[a-z]?(?:\/\d+)*$/.test(s)) return s
-  const rest = text.split(',').slice(1).join(',')
-  const next = rest ? streetOf(rest) : ''
-  return next && !/^(?:so\s*)?\d/.test(next) ? next : ''
+  // 번지 전체("10/2", "25-27", "Số 10,")를 먼저 떼고 거리 이름을 읽는다(Codex #616: 슬래시·쉼표 번지).
+  const rest = text.replace(/^\s*(?:số\s*)?\d+\p{L}?(?:\s*[\/-]\s*\d+\p{L}?)*\s*,?\s*/iu, '')
+  const s = rest ? streetOf(rest) : ''
+  return s && !/^\d/.test(s) ? s : ''
 }
 
 /** 핵심 이름이 같은 후보 1곳. 여럿이면 원문 거리 이름이 주소에 있는 것만 남겨 1곳일 때만.
@@ -83,10 +74,26 @@ function numberedStreet(address: string): string {
  *  원문 공단과 후보 주소의 공단이 다르면 고르지 않는다(보류). */
 export function pickCompanyPlace(company: string, address: string, hits: PlaceHit[]): { hit: PlaceHit | null; reason: string } {
   const named = hits.filter((h) => h.id && sameCoreName(company, h.name))
-  const numbered = numberedStreet(address), park = parkNameOf(address)
+  const numbered = numberedStreet(address)
   const has = (h: PlaceHit, words: string) => ` ${normalizePlaceText(h.address)} `.includes(` ${words} `)
-  const hasPark = (h: PlaceHit) => arabicParkNumbers(` ${normalizePlaceText(h.address)} `).includes(` ${park} `)
-  const same = named.filter((h) => (!numbered || has(h, numbered)) && (!park || hasPark(h)))
+  // 공단: 공단 표(industrialPark — 로마 숫자·순번 구분)에 있으면 표의 공단끼리 비교, 표에 없으면 원문 공단 이름 글자로(Codex #616).
+  const tablePark = findIndustrialPark(address), park = tablePark ? '' : parkNameOf(address)
+  const samePark = (h: PlaceHit) => {
+    if (!tablePark) return !park || has(h, park)
+    const theirs = findIndustrialPark(h.address)
+    // 같은 공단, 또는 "mở rộng"(확장 구역)만 다른 같은 공단(KCN Yên Phong ↔ KCN Yên Phong mở rộng, #5438). 순번(1·2·III)이 다르면 다른 공단.
+    if (theirs) return theirs.id === tablePark.id || tablePark.aliases.some((a) => theirs.aliases.some((b) => EXTENSION.test(`${a}|${b}`) || EXTENSION.test(`${b}|${a}`)))
+    // 지도 주소는 "KCN" 없이 "Quế Võ, Bắc Ninh"처럼 쓰기도 한다 → 표의 이름이 그대로 있고 뒤에 다른 순번(1·2·III…)이 붙지 않을 때만 같은 공단.
+    const words = ` ${foldText(h.address).replace(/[^a-z0-9]+/g, ' ')} `
+    const names = [...new Set(tablePark.aliases.flatMap((a) => [a, a.replace(/ (?:khu )?mo rong$/, '')]))] // 확장 구역은 본 공단 이름으로도
+    return names.some((a) => {
+      const i = words.indexOf(` ${a} `)
+      if (i < 0) return false
+      const next = words.slice(i + a.length + 2).split(' ')[0]
+      return !(next && /^(?:\d+|i|ii|iii|iv|v|vi)$/.test(next) && !/(?:\d+|i|ii|iii|iv|v|vi)$/.test(a))
+    })
+  }
+  const same = named.filter((h) => (!numbered || has(h, numbered)) && samePark(h))
   if (named.length && !same.length) return { hit: null, reason: numbered && !named.some((h) => has(h, numbered)) ? 'street_mismatch' : 'park_mismatch' }
   if (same.length === 1) return { hit: same[0], reason: 'single_core_name' }
   if (same.length === 0) return { hit: null, reason: 'no_core_name' }
