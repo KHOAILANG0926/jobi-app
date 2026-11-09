@@ -198,6 +198,10 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
     try { rows.push({ key: j.fb_post_key ?? null, title: String(j.title ?? '').slice(0, 120), ...(await compareOne(precheckInputOf(j), ctx)) }) }
     catch (e) { rows.push({ key: j.fb_post_key ?? null, title: String(j.title ?? '').slice(0, 120), a: { findable: false, reason: `error:${String(e.message).slice(0, 40)}` }, b: null, same: true }) }
   }
+  // 공고별 한 줄(분석용). 공개 저장소 로그라 원문·전화번호는 넣지 않는다 — 제목·회사·읽은 위치 글자(미리 보기 알림과 같은 수준)와 판정만.
+  const cut = (v, n) => String(v ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n)
+  const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}` : '-')
+  rows.forEach((r, i) => console.log(`ROW ${i + 1} | ${cut(r.title, 60)} | ${cut(r.company, 50)} | ${cut(r.location, 80)} | A: ${v(r.a)} | B: ${v(r.b)} | ${r.same ? 'same' : 'DIFF'}${r.distanceM != null ? ` ${r.distanceM}m` : ''}`))
   const s = summarize(rows, g.calls)
   writeFileSync(out, JSON.stringify({ summary: s, rows }, null, 1))
   const md = markdown(s)
