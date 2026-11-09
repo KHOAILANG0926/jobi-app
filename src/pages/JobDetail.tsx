@@ -47,7 +47,7 @@ import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
 import { mealLabel } from '../lib/mealBenefit'
-import { usesAlbamonLayout, BASELINE_FRAME_JOB_IDS, albamonConditionLines, sourceAgeValue, splitQuyenLoi, takeRequirementLines } from '../lib/jobQuyenLoi'
+import { usesAlbamonLayout, albamonConditionLines, sourceAgeValue } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
@@ -406,12 +406,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const isAllowanceNote = !!salaryNote && /(?:phụ cấp|phuc cap|thưởng|thuong|chuyên cần|chuyen can|trợ cấp|tro cap)/iu.test(salaryNote)
   // Fixed future-proof slots: missing values do not remove the field definition.
   // Only populated slots render; don't fabricate values or infer benefits from source text.
-  // Lee 2026-10-29 새 구성: 기준 공고(KDA)만 기존 틀, 나머지는 ② Quyền lợi + ③ 일하는 방식만(급여·수당·업종·복리후생 줄 없음).
-  const newLayout = !BASELINE_FRAME_JOB_IDS.has(job.id) && !albamonLayout
-  const conditionColumns: readonly (readonly string[])[] = newLayout ? [
-    ['jobDuration', 'workDays', 'hours'],
-    ['workPeriod', 'shift', 'weekend'],
-  ] : [
+  // 틀은 2가지: 기준 공고(KDA)와 새 4칸 틀(나머지 전부). 예전 Quyền lợi 틀(3건)은 Lee 2026-11-09 "적용"으로 새 틀에 합침.
+  const conditionColumns: readonly (readonly string[])[] = [
     ['salary', 'allowance', 'jobDuration', 'workDays', 'hours'],
     ['category', 'workPeriod', 'shift', 'weekend', 'benefits'],
   ]
@@ -551,20 +547,11 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     if (!descriptionSections.some((sec) => sec.key === key)) descriptionSections.push({ key, label: DETAIL_LABELS[key], lines: [] })
   }
   descriptionSections.sort((a, b) => a.key.localeCompare(b.key))
-  // ② Quyền lợi / ④ Yêu cầu khác: 원문 줄을 옮기고 상세요강에서는 뺀다(같은 정보 한 곳만). 복수직무는 직무 묶음을 깨지 않게 줄을 옮기지 않는다.
-  const quyenLoi = newLayout && !roleSummary
-    ? splitQuyenLoi(descriptionSections, { periodLabel, allowanceNote: isAllowanceNote ? salaryNote : undefined })
-    : { rows: newLayout && periodLabel ? [{ key: 'pay' as const, label: 'Trả lương', lines: [periodLabel] }] : [], sections: descriptionSections }
-  const requirement = newLayout && !roleSummary ? takeRequirementLines(quyenLoi.sections) : { lines: [] as string[], sections: quyenLoi.sections }
-  descriptionSections.splice(0, descriptionSections.length, ...requirement.sections)
-  const otherRequirementRow = requirement.lines.length
-    ? ({ key: 'otherReq', icon: <Award size={14} strokeWidth={1.8} />, label: 'Yêu cầu khác', value: <>{requirement.lines.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</> } as InfoField)
-    : null
-  const recruitShown = otherRequirementRow ? [...recruitFields, otherRequirementRow] : recruitFields
+  const recruitShown = recruitFields
   // 2026-11-01 Lee: 순번대로 1 왼쪽 · 2 오른쪽 · 3 다음 줄 왼쪽 … (없는 항목은 건너뜀, 빈칸 없음)
   const recruitRows = recruitOrdered(recruitShown)
-  const conditionShown = newLayout ? conditionFields.filter((f) => !['salary', 'allowance'].includes(f.key)) : conditionFields
-  const conditionPcShown = newLayout ? [] : conditionPcFields
+  const conditionShown = conditionFields
+  const conditionPcShown = conditionPcFields
   // 2026-11-04 Lee "왼쪽 자리 왜 비운거지?"(#5437 급여·시간 없음): 최신 틀에서 한쪽 칸이 비면 보이는 항목을 두 칸에 나눠 채운다(순서 그대로).
   const conditionColumnFields: InfoField[][] = balanceConditionColumns(
     conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
@@ -576,8 +563,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
 
   // 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계. 4단 중 한 단이 통째로 빠지면 아래 단이 그대로 올라오고,
   // 연락 버튼(PC)은 남아 있는 첫 상자(① → ② → ③) 제목 줄 오른쪽 끝에 붙는다. 모바일은 하단 고정 바 그대로.
-  // 위치는 그대로(위쪽): ①이 있으면 ① 제목 줄(지금과 같음), ①이 없으면 그 위 Quyền lợi(예전 틀) 제목 줄, 둘 다 없을 때만 아래 단.
-  const contactHost = contactHostFor({ conditions: conditionShown.length, quyenLoi: newLayout ? quyenLoi.rows.length : 0, newLayout, recruitKeys: recruitShown.map((f) => f.key) })
+  // 위치는 그대로(위쪽): ①이 있으면 ① 제목 줄, 없을 때만 아래 단.
+  const contactHost = contactHostFor({ conditions: conditionShown.length, recruitKeys: recruitShown.map((f) => f.key) })
   const contactAside = (
       <aside className="jd2-aside jd2-aside--contact-only" aria-label="Liên hệ tuyển dụng">
         {/* 지원 영역: 내부 지원이거나 연락처가 없을 때만 — 연락처가 있으면 하단 Gọi/Zalo 버튼만 */}
@@ -726,20 +713,6 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
         <div className="jd2-main jd2-main--first">
 
           {/* Điều kiện làm việc: independent columns on desktop; one column on mobile. */}
-          {newLayout && quyenLoi.rows.length > 0 && <section id="jd-sec-quyenloi" className={`jd2-sec jd2-sec--quyenloi${contactHost === 'quyenloi' ? ' jd2-contact-wrap' : ''}`}>
-            <h2 className="jd2-sec__title">Quyền lợi</h2>
-            {contactHost === 'quyenloi' && contactAside}
-            <div className="jd2-box jd2-two-col-card">
-              <div className="jd2-two-col-card__grid">
-                {[quyenLoi.rows.filter((_, i) => i % 2 === 0), quyenLoi.rows.filter((_, i) => i % 2 === 1)].map((group, i) => (
-                  <dl className="jd2-two-col-card__column" key={i}>
-                    {group.map((r) => <div className="jd2-two-col-card__row" key={r.key}><dt>{r.label}</dt><dd>{r.lines.map((l, j) => <span key={j} className="jd2-salary-line">{l}</span>)}</dd></div>)}
-                  </dl>
-                ))}
-              </div>
-            </div>
-          </section>}
-
           {/* 2026-11-06 Lee: 연락 버튼은 상자와 별도 체계 — "Điều kiện làm việc"는 다른 상자처럼 칸이 없으면 통째로 빠지고,
               연락 버튼은 상자와 상관없이 같은 자리(PC: 첫 상자 제목 줄 오른쪽 끝, 상자가 없으면 그 자리 한 줄)에 남는다. 모바일은 하단 고정 바 그대로. */}
           {conditionShown.length > 0 && <div className="jd2-conditions-with-contact jd2-contact-wrap">

@@ -204,10 +204,9 @@ export function balanceConditionColumns<T>(cols: T[][], latestFrame: boolean): T
 
 /** 2026-11-06 Lee: 연락 버튼(PC)은 상자와 별도 — 위쪽 자리 그대로. ① 근무조건이 있으면 ① 제목 줄, 없으면 예전 틀 Quyền lợi,
  * 둘 다 없으면 ② 모집조건(업직종만 있는 칸은 제외), 그것도 없으면 ③ 근무지역 제목 줄. */
-export type ContactHost = 'conditions' | 'quyenloi' | 'recruit' | 'location'
-export function contactHostFor(p: { conditions: number; quyenLoi: number; newLayout: boolean; recruitKeys: string[] }): ContactHost {
+export type ContactHost = 'conditions' | 'recruit' | 'location'
+export function contactHostFor(p: { conditions: number; recruitKeys: string[] }): ContactHost {
   if (p.conditions > 0) return 'conditions'
-  if (p.newLayout && p.quyenLoi > 0) return 'quyenloi'
   if (p.recruitKeys.length > 0 && !p.recruitKeys.every((k) => k === 'category')) return 'recruit'
   return 'location'
 }
