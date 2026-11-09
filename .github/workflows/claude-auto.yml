@@ -117,7 +117,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           # 비대화형 실행은 허용한 명령만 쓸 수 있다(Codex #598 지적): 지적 읽기·답·이슈(gh), 검사(npx tsc·npm·node), 커밋·push(git).
-          claude_args: '--allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh api:*),Bash(gh issue create:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(npx tsc:*),Bash(npm run build),Bash(npm test),Bash(npm ci),Bash(node:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*)"'
+          claude_args: '--allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh api:*),Bash(gh issue create:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(npx tsc:*),Bash(npm run build),Bash(npm test),Bash(npm ci),Bash(node:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git fetch:*),Bash(git show:*),Bash(jq:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh label list:*)"'
           prompt: |
             너는 이 저장소 AI 팀의 개발 담당 Claude다. 검사 담당 GPT Codex가 PR #${{ steps.guard.outputs.pr }}
             (브랜치 ${{ steps.guard.outputs.head_ref }}, 커밋 ${{ steps.guard.outputs.head_sha }})에 검사를 남겼다.
@@ -135,9 +135,12 @@ jobs:
                그 아래 한국어 쉬운 말로 지적별 처리(고침/안 고침+근거/이슈 번호)를 5줄 이내로. 고쳐서 push했으면 마지막 줄에 `@codex review`.
             4. master에 직접 push하지 않는다. 비밀값을 출력하지 않는다. 시험을 지우거나 약하게 바꾸지 않는다.
 
-      - name: 실패 원인 보이기 (오류 문구만)
-        if: failure() && steps.claude.outcome == 'failure'
+      - name: 실행 기록 보이기 (결과·거절된 명령·오류 문구 — 비밀값 없음, Codex #601 지적으로 한 단계로 합침)
+        if: always() && steps.claude.outcome != 'skipped' && steps.claude.outcome != ''
         run: |
           f="$RUNNER_TEMP/claude-execution-output.json"
           [ -f "$f" ] || { echo "실행 기록 파일 없음"; exit 0; }
-          jq -r '(if type == "array" then .[] else . end) | select(.type == "result" or .error != null or (.message.content? // [] | tostring | test("rror|limit|login|auth"; "i"))) | {type, subtype, result, error, api_error_status} | tostring' "$f" | head -20
+          jq -r '(if type == "array" then .[] else . end)
+            | if .type == "result" then "결과(\(.subtype // "")\(if .is_error then ", 오류" else "" end)): \(.result // "" | .[0:600]) \(.errors // [] | tostring | .[0:300]) \(.api_error_status // "")", (.permission_denials // [] | .[] | "거절: \(.tool_name) \(.tool_input | tostring | .[0:200])")
+              elif .error != null then "오류: \(.error) \(.api_error_status // "")"
+              else empty end' "$f" | head -30
