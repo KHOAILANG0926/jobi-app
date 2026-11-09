@@ -12,7 +12,7 @@ import os
 import urllib.parse
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 _CHANNELS = (("topcv", "crawler_topcv"), ("facebook", "crawler_facebook"), ("muaban", "crawler_muaban"), ("chotot", "crawler_chotot"),
              ("chợ tốt", "crawler_chotot"))
@@ -61,11 +61,18 @@ class LocationDeferred(LocationNotFound):
     """위치를 '못 찾음'이 아니라 '지금 확인 못 함'(Google 한도 초과·확인 서버 오류). 공고는 버리지 않고 보류해 다음 수집 때 다시 묻는다(Lee 2026-11-09)."""
 
 
-# 지금 확인 못 함 = 보류 후 자동 재시도. 그 밖의 이유(approximate_only·not_found 등)는 지금처럼 수집하지 않는다.
-DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured"}
+# 지금 확인 못 함 = 보류 후 다음 수집 때 바로 재시도(status held).
+DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured", "provider_failed", "poster_read_failed"}
+# 위치를 못 찾음(Lee 2026-11-09 "위치가 불확실하더라도 유효한 공고라면 비공개 보류 상태로 보존하고, 나중에 다시 확인") — 공고 목록에
+# 넣지 않고 보류함에 비공개로 보관(status unfound), 7일 뒤 다시 확인(최대 2번). 찾으면 같은 입구로 등록 → 기존 공개 판정 그대로.
+# 위치와 상관없는 수집 금지 사유(수수료 소개소·회사 이름 없음)는 보관하지 않는다.
+UNFOUND_REASONS = {"approximate_only", "not_found", "outside_original_province", "no_location_text"}
+UNFOUND_RECHECK_DAYS = 7
+UNFOUND_MAX_CHECKS = 2
 HOLD_KIND = "location-hold"  # 비공개 저장소(research_artifacts, RLS 공개 차단)
 HOLD_RETRY_PER_RUN = 5
-HOLD_MAX_DAYS = 14
+HOLD_MAX_DAYS = 14  # held(한도 초과)
+UNFOUND_MAX_DAYS = 30
 
 
 def _work_addresses(job: dict) -> list[str]:
@@ -144,7 +151,7 @@ def require_location(job: dict) -> dict:
         if posters:
             text = READ_POSTER(posters[0])
             if text is None:
-                raise LocationNotFound("location_precheck_failed: poster_read_failed")
+                raise LocationDeferred("location_precheck_held: poster_read_failed")
             job["_poster_text"] = text
             verdict = PRECHECK(job) or {}
     if verdict.get("findable") is not True:
@@ -231,16 +238,30 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def hold_job(client, job: dict, reason: str) -> None:
-    """확인 못 한 새 공고를 보류함에 넣는다(지우지 않음, 같은 공고는 한 줄). 저장 실패는 수집을 멈추지 않는다(다음 수집 때 다시 만난다)."""
+def _after(days: int) -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+
+
+def _reason_of(exc: BaseException) -> str:
+    text = str(exc)
+    for code in ("location_precheck_held:", "location_precheck_failed:"):
+        if code in text:
+            return text.split(code, 1)[-1].strip().split(" ", 1)[0][:80]
+    return ""
+
+
+def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
+    """확인 못 한 새 공고를 보류함에 넣는다(비공개, 지우지 않음, 같은 공고는 한 줄). held=다음 수집 때 바로, unfound=7일 뒤 다시 확인.
+    이미 보류함에 있는 공고는 상태·횟수를 덮어쓰지 않는다(재수집이 재확인 일정을 되돌리지 않게). 저장 실패는 수집을 멈추지 않는다."""
     if job.get("admin_hidden") is True:
         return  # 검증 저장(verify_write)은 보류하지 않는다 — 재시도가 숨김 처리를 건너뛰게 되므로
     payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_")}
+    meta = {"status": status, "reason": reason, "held_at": _now(), "attempts": 0,
+            "next_at": _now() if status == "held" else _after(UNFOUND_RECHECK_DAYS)}
     try:
         client.table("research_artifacts").upsert(
-            {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload,
-             "meta": {"status": "held", "reason": reason, "held_at": _now(), "attempts": 0}},
-            on_conflict="kind,name").execute()
+            {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload, "meta": meta},
+            on_conflict="kind,name", ignore_duplicates=True).execute()
     except Exception:  # noqa: BLE001
         print("    ⚠️  보류함 저장 실패 — 다음 수집 때 다시 확인")
 
@@ -249,13 +270,14 @@ _HOLDS_RETRIED = False
 
 
 def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
-    """보류함의 공고를 다시 확인한다(수집 실행마다 한 번, 최대 limit건). 줄은 지우지 않고 상태만 바꾼다:
-    registered(등록됨) / rejected(못 찾음 — 수집 안 함) / expired(14일 넘음) / 그대로 held(아직 한도 초과).
-    첫 건이 또 한도 초과면 그 실행에서는 더 묻지 않는다(한도를 헛되이 쓰지 않게)."""
-    counts = {"registered": 0, "rejected": 0, "held": 0, "expired": 0}
+    """보류함의 공고를 다시 확인한다(수집 실행마다 한 번, 다시 볼 때가 된 것 최대 limit건). 줄은 지우지 않고 상태만 바꾼다:
+    registered(등록됨 — 공개는 기존 공개 판정대로) / unfound(위치 못 찾음, 7일 뒤 다시) / rejected(2번 확인해도 못 찾음·수집 금지 사유)
+    / expired(기간 지남) / held(아직 한도 초과 — 이번 실행은 여기서 멈춤, 한도를 헛되이 쓰지 않게)."""
+    counts = {"registered": 0, "unfound": 0, "rejected": 0, "held": 0, "expired": 0}
     try:
         rows = (client.table("research_artifacts").select("name,payload,meta").eq("kind", HOLD_KIND)
-                .eq("meta->>status", "held").order("created_at").limit(limit).execute().data) or []
+                .in_("meta->>status", ["held", "unfound"]).lt("meta->>next_at", _now())
+                .order("created_at").limit(limit).execute().data) or []
     except Exception:  # noqa: BLE001
         return counts
     for row in rows:
@@ -263,8 +285,9 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         meta["attempts"] = int(meta.get("attempts") or 0) + 1
         meta["retried_at"] = _now()
         held_at = str(meta.get("held_at") or "")
+        max_days = UNFOUND_MAX_DAYS if meta.get("status") == "unfound" else HOLD_MAX_DAYS
         try:
-            old = (datetime.now(timezone.utc) - datetime.fromisoformat(held_at)).days >= HOLD_MAX_DAYS if held_at else False
+            old = (datetime.now(timezone.utc) - datetime.fromisoformat(held_at)).days >= max_days if held_at else False
         except ValueError:
             old = False
         stop = False
@@ -275,11 +298,16 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
                 meta["job_id"] = _ingest_new(client, dict(row.get("payload") or {}))
                 meta["status"] = "registered"
             except LocationDeferred as exc:
-                meta["reason"] = str(exc).split("location_precheck_held:", 1)[-1].strip()[:80]
+                meta["status"], meta["reason"], meta["next_at"] = "held", _reason_of(exc), _now()
                 stop = True
             except LocationNotFound as exc:
-                meta["status"] = "rejected"
-                meta["reason"] = str(exc).split("location_precheck_failed:", 1)[-1].strip()[:80]
+                meta["reason"] = _reason_of(exc)
+                checks = int(meta.get("checks") or 0) + 1
+                meta["checks"] = checks
+                if meta["reason"] in UNFOUND_REASONS and checks < UNFOUND_MAX_CHECKS:
+                    meta["status"], meta["next_at"] = "unfound", _after(UNFOUND_RECHECK_DAYS)
+                else:
+                    meta["status"] = "rejected"
             except Exception as exc:  # noqa: BLE001 — 입구 규칙 거부는 기록, 그 밖의 오류(네트워크 등)는 보류 유지하고 이번엔 멈춤
                 from source_fields import rule_code
                 code = rule_code(exc)
@@ -297,7 +325,7 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         if stop:
             break
     if any(counts.values()):
-        print(f"  ⏸️  보류 공고 다시 확인: 등록 {counts['registered']} · 못 찾음 {counts['rejected']} · 아직 보류 {counts['held']} · 기간 지남 {counts['expired']}")
+        print("  ⏸️  보류 공고 다시 확인: " + " · ".join(f"{k} {v}" for k, v in counts.items()))
     return counts
 
 
@@ -328,5 +356,9 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     try:
         return _ingest_new(client, job)
     except LocationDeferred as exc:
-        hold_job(client, job, str(exc).split("location_precheck_held:", 1)[-1].strip()[:80])
+        hold_job(client, job, _reason_of(exc), "held")
+        raise
+    except LocationNotFound as exc:
+        if _reason_of(exc) in UNFOUND_REASONS:
+            hold_job(client, job, _reason_of(exc), "unfound")  # 공고 목록에는 넣지 않고 비공개 보관(Lee 2026-11-09)
         raise

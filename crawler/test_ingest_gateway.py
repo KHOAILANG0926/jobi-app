@@ -154,9 +154,17 @@ class HoldClient:
             def __init__(self):
                 self.op, self.filters, self.data = None, {}, None
 
-            def upsert(self, row, on_conflict=None):
-                assert on_conflict == "kind,name"
+            def upsert(self, row, on_conflict=None, ignore_duplicates=False):
+                assert on_conflict == "kind,name" and ignore_duplicates is True, "이미 있는 보류 줄은 덮어쓰지 않는다"
                 self.op, self.data = "upsert", row
+                return self
+
+            def in_(self, k, v):
+                self.filters[k] = list(v)
+                return self
+
+            def lt(self, k, v):
+                self.filters[k + "<"] = v
                 return self
 
             def update(self, data):
@@ -179,12 +187,13 @@ class HoldClient:
 
             def execute(self):
                 if self.op == "upsert":
-                    outer.rows[self.data["name"]] = dict(self.data)
+                    outer.rows.setdefault(self.data["name"], dict(self.data))
                     return type("R", (), {"data": [self.data]})()
                 if self.op == "update":
                     outer.rows[self.filters["name"]]["meta"] = self.data["meta"]
                     return type("R", (), {"data": []})()
-                held = [r for r in outer.rows.values() if r["meta"].get("status") == self.filters.get("meta->>status")]
+                held = [r for r in outer.rows.values() if r["meta"].get("status") in self.filters["meta->>status"]
+                        and r["meta"].get("next_at", "") < self.filters["meta->>next_at<"]]
                 return type("R", (), {"data": held})()
 
         return T()
@@ -212,23 +221,40 @@ def run_hold():
         pass
     assert len(c.rows) == 3
 
-    # '못 찾음'은 보류하지 않는다(지금처럼 수집 안 함)
+    # '못 찾음'(Lee 2026-11-09): 공고 목록(입구)에는 넣지 않고 보류함에 비공개 보관(unfound), 7일 뒤 다시 확인
     g.PRECHECK = lambda j: {"findable": False, "reason": "approximate_only"}
     try:
         g.ingest_job(c, {"title": "y", "company": "Cty Y", "location": "Bắc Ninh", "source_url": "https://example.invalid/y"})
         raise AssertionError
     except g.LocationDeferred:
-        raise AssertionError("못 찾음을 보류로 바꾸면 안 됨")
+        raise AssertionError("못 찾음은 한도 초과와 구분")
+    except g.LocationNotFound as exc:
+        assert rule_code(exc) == "location_precheck_failed"
+    assert c.calls == [] and len(c.rows) == 4
+    y = c.rows[g._hold_name({"source_url": "https://example.invalid/y"})]["meta"]
+    assert y["status"] == "unfound" and y["next_at"] > g._now(), y
+    # 수집 금지 사유(수수료 소개소·회사 이름 없음)는 보관하지 않는다
+    for reason in ("agency_fee", "no_company"):
+        g.PRECHECK = lambda j, r=reason: {"findable": False, "reason": r}
+        try:
+            g.ingest_job(c, {"title": reason, "company": "Z", "location": "Bắc Ninh", "source_url": f"https://example.invalid/{reason}"})
+        except g.LocationNotFound:
+            pass
+    assert len(c.rows) == 4
+    # 이미 보류 중인 공고가 다시 수집돼도 재확인 일정을 되돌리지 않는다
+    g.PRECHECK = lambda j: {"findable": False, "reason": "google_quota"}
+    try:
+        g.ingest_job(c, {"title": "y", "company": "Cty Y", "location": "Bắc Ninh", "source_url": "https://example.invalid/y"})
     except g.LocationNotFound:
         pass
-    assert len(c.rows) == 3
+    assert c.rows[g._hold_name({"source_url": "https://example.invalid/y"})]["meta"]["status"] == "unfound"
 
     # 다음 수집 실행: 아직 한도 초과면 첫 건만 묻고 멈춘다(한도 낭비 없음), 줄은 그대로
     g._HOLDS_RETRIED = False
     asked = []
     g.PRECHECK = lambda j: (asked.append(j["title"]), {"findable": False, "reason": "google_quota"})[1]
     out = g.retry_held(c)
-    assert len(asked) == 1 and out["held"] == 1 and out["registered"] == 0 and len(c.rows) == 3, (asked, out)
+    assert len(asked) == 1 and out["held"] == 1 and out["registered"] == 0 and len(c.rows) == 4, (asked, out)
 
     # 한도가 풀린 실행: 첫 새 공고 전에 보류 공고부터 등록. 하나는 이제 '못 찾음' → rejected 기록(지우지 않음)
     g._HOLDS_RETRIED = False
@@ -239,10 +265,23 @@ def run_hold():
     g.PRECHECK = pre
     new_id = g.ingest_job(c, {"title": "Mới", "company": "Cty Mới", "location": "Bắc Ninh", "source_url": "https://example.invalid/new"})
     status = sorted(r["meta"]["status"] for r in c.rows.values())
-    assert status == ["registered", "registered", "rejected"], status
+    assert status == ["registered", "registered", "unfound", "unfound"], status  # Cty 1: 한도 풀린 뒤 못 찾음 → 7일 뒤 다시(비공개)
     assert len(c.calls) == 3 and c.calls[-1][1]["p"]["title"] == "Mới" and new_id > 0, c.calls
     assert all(r["meta"].get("job_id") for r in c.rows.values() if r["meta"]["status"] == "registered")
-    assert len(c.rows) == 3, "보류함 줄은 지우지 않는다"
+    assert len(c.rows) == 4, "보류함 줄은 지우지 않는다"
+
+    # 7일 뒤: 다시 확인 — y는 이번엔 찾음 → 같은 입구로 등록, Cty 1은 두 번째도 못 찾음 → rejected(줄은 남음)
+    for r in c.rows.values():
+        if r["meta"]["status"] == "unfound":
+            r["meta"]["next_at"] = "2000-01-01T00:00:00+00:00"
+    g.PRECHECK = lambda j: {"findable": False, "reason": "not_found"} if j["company"] == "Cty 1" else {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+    out = g.retry_held(c)
+    assert out["registered"] == 1 and out["rejected"] == 1, out
+    assert c.calls[-1][1]["p"]["company"] == "Cty Y" and len(c.rows) == 4
+    # 끝난 줄(registered·rejected)은 다시 보지 않는다
+    before = len(c.calls)
+    g.retry_held(c)
+    assert len(c.calls) == before
     # 보류 공고도 같은 입구·같은 위치 확인으로만 등록된다(별도 경로 없음)
     assert {p["p"]["company"] for _n, p in c.calls[:2]} == {"Cty 0", "Cty 2"}
 
