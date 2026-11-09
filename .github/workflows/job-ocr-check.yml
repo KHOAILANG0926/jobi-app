@@ -99,7 +99,11 @@ jobs:
       - name: Google 결과 30일 정리 (Lee 2026-11-09 약관 — 장소 번호만 남기고 좌표 등은 비움, 줄은 지우지 않음)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         continue-on-error: true
-        run: node scripts/ops/google-cache-expire.mjs
+        run: |
+          # migration으로 설치한 함수(google_cache_expire, 서버 키만)를 부른다 — 직접 SQL 없음(Codex #619 P0). 함수가 아직 없으면(적용 전) 경고만.
+          n=$(curl -fsS -m 60 -X POST "$SUPABASE_URL/rest/v1/rpc/google_cache_expire" -H 'content-type: application/json' \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -d '{"p_limit":2000}') \
+            && echo "::notice::Google 결과 30일 정리 ${n}건(장소 번호만 남김)" || echo "::warning::Google 30일 정리 함수 호출 실패(적용 전이거나 서버 오류 — 다음 실행에 다시)"
       - name: 로고 찾기 한도 초과 공고 다시 시도 (Lee 2026-11-09 — 한도 초과는 영구 실패가 아님, 6시간 지난 것만 최대 10건, 같은 월 한도)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         continue-on-error: true

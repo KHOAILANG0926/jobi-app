@@ -252,7 +252,7 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   if (!placeId) return record('no_place')
   const cacheKey = JSON.stringify(['place-website-v1', placeId])
   let site = await deps.cached(cacheKey)
-  if (site === null || site?.expired) { // 30일 지나 정리된 웹사이트 결과는 다시 묻는다(약관, scripts/ops/google-cache-expire.mjs)
+  if (site === null || site?.expired) { // 30일 지나 정리된 웹사이트 결과는 다시 묻는다(약관, DB 함수 google_cache_expire)
     if (!googleKey || !(await apiReserve(db, 'google_place_website')())) return record('quota', null, placeId)
     const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
       signal: AbortSignal.timeout(15000),
