@@ -17,6 +17,10 @@ const SECRETS = [
   /(^|\/)\.env(?:\..+)?$/i, /\.(?:pem|p12|pfx|key)$/i,
   /(^|\/)(?:credentials|secrets)\.json$/i,
 ]
+// Codex 검사 없이 병합하면 안 되는 파일(Lee 2026-11-09, codex-review-gate.mjs): 위 보호·STRICT·비밀 목록 + DB migration·자동화·운영 SQL.
+export const needsSecondReview = (path) => [...PROTECTED, ...STRICT, ...SECRETS,
+  /^supabase\/migrations\//, /^\.github\/workflows\//, /^scripts\/ops\/jobs\/.*\.sql$/,
+  /^scripts\/(?:codex-review-gate|check-repository-policy|decision-approval-gate|approved-migrations)\.mjs$/].some((re) => re.test(path))
 const SOURCE_EXPOSURE = /\b(?:source_url|sourceUrl|originalJobUrl|externalPostingUrl)\b/
 const SRC_EXPOSURE_PATH = /^src\/(?:pages|components|context|lib)\//
 
