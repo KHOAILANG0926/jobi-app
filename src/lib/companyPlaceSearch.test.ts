@@ -104,6 +104,8 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   assert(pick('Kingsport Quế Võ', '25-27 Đ. Trần Hưng Đạo, Quế Võ, Bắc Ninh', [H('k2', 'Kingsport Quế Võ - Bắc Ninh (Ghế massage, máy chạy bộ)', '25-27 Đ. Trần Hưng Đạo, Quế Võ, Bắc Ninh')]).hit?.id === 'k2', '#560-17 Kingsport range house number')
   assert(pick('Hojeong', 'KCN Quế Võ, Bắc Ninh', [H('w1', 'Hojeong', '100 Đường Nguyễn Trãi, Phường Quế Võ, Bắc Ninh'), H('w2', 'Hojeong', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 ward name Quế Võ is not KCN Quế Võ')
   assert(pick('Hojeong', 'KCN Quế Võ, Bắc Ninh', [H('w3', 'Hojeong', 'Lô C, KCN Quế Võ, Phường Nam Sơn, Bắc Ninh')]).hit?.id === 'w3', 'same park with KCN word')
+  assert(pick('Hojeong', 'Khu CN Quế Võ, Bắc Ninh', [H('a1', 'Hojeong', 'KCN Quế Võ 2, Bắc Ninh'), H('a2', 'Hojeong', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 "Khu CN" abbreviation keeps park numbering')
+  assert(pick('Hojeong', 'Khu CN Hoà Phú', [H('a3', 'Hojeong', 'KCN Hòa Phú 2, Bắc Ninh')]).hit === null, 'unlisted park keeps numbering too')
   assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
 }
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')

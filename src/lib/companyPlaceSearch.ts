@@ -42,6 +42,7 @@ export function streetOf(address: string): string {
 
 export interface PlaceHit { id: string; name: string; address: string }
 
+const NUMBERING_WORD = /^(?:\d+|i|ii|iii|iv|v|vi)$/
 // "a|b": b가 a에 "mở rộng"만 붙은 이름인가
 const EXTENSION = /^([a-z0-9 ]+)\|\1 (?:khu )?mo rong$/
 /** 원문 주소의 공단 이름: KCN/CCN/khu công nghiệp 뒤 2낱말(+번호, 예 "que vo 2"), 쉼표·괄호·지역 말에서 끊음. 없으면 ''. */
@@ -79,7 +80,14 @@ export function pickCompanyPlace(company: string, address: string, hits: PlaceHi
   // 공단: 공단 표(industrialPark — 로마 숫자·순번 구분)에 있으면 표의 공단끼리 비교, 표에 없으면 원문 공단 이름 글자로(Codex #616).
   const tablePark = findIndustrialPark(address), park = tablePark ? '' : parkNameOf(address)
   const samePark = (h: PlaceHit) => {
-    if (!tablePark) return !park || has(h, park)
+    if (!tablePark) {
+      if (!park) return true
+      // 표에 없는 공단도 순번은 지킨다: 원문 "Quế Võ"인데 후보가 "Quế Võ 2"면 다른 공단(Codex #616)
+      const w = ` ${normalizePlaceText(h.address)} `, i = w.indexOf(` ${park} `)
+      if (i < 0) return false
+      const next = w.slice(i + park.length + 2).split(' ')[0]
+      return !(next && NUMBERING_WORD.test(next) && !NUMBERING_WORD.test(park.split(' ').pop() ?? ''))
+    }
     const theirs = findIndustrialPark(h.address)
     // 같은 공단, 또는 "mở rộng"(확장 구역)만 다른 같은 공단(KCN Yên Phong ↔ KCN Yên Phong mở rộng, #5438). 순번(1·2·III)이 다르면 다른 공단.
     if (theirs) return theirs.id === tablePark.id || tablePark.aliases.some((a) => theirs.aliases.some((b) => EXTENSION.test(`${a}|${b}`) || EXTENSION.test(`${b}|${a}`)))
