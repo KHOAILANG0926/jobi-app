@@ -4,7 +4,7 @@ name: 시험 - 위치 확인 방식 비교 (#560, 수동, 운영 DB 쓰기 없�
 # 입력 = Facebook 미리 보기(crawl-facebook-one.yml mode=dryrun, 저장 없음) 실행 번호들. 미리 보기 파일은 1일만 보관되므로 그날 돌린다.
 # 운영 DB: 공고 저장·핀·캐시 쓰기 없음. Google Pro 호출만 운영과 같은 월 한도 예약(external_api_reserve)으로 센다 —
 #   시험 호출도 같은 키라 운영 카운터에 들어가야 무료 한도를 넘지 않는다(Codex #608 P1). 한도에 닿으면 시험이 멈춘다.
-# 키: Google·Goong은 Vercel 환경변수에서 이 실행 안에서만 받아 쓰고(로그 가림), VietMap은 기존 GitHub Secret. 새 비밀값 없음.
+# 키: GitHub Secret만(GOOGLE_PLACES_API_KEY — Lee 2026-11-09 등록 결정, VIETMAP_SERVICE_KEY, 선택 GOONG_API_KEY).
 # 로그(공개 저장소)에는 건수만. 공고별 결과는 1일 보관 비공개 artifact.
 on:
   workflow_dispatch:
@@ -31,8 +31,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      VERCEL_ORG_ID: team_48tvt6TTdvSNgfLZLMM3bcRi
-      VERCEL_PROJECT_ID: prj_l6tTPI7w8Kfz3cu2DiWzPpgKtGLU
       IDS: ${{ inputs.dryrun_run_ids }}
       MAX_JOBS: ${{ inputs.max_jobs }}
     steps:
@@ -70,24 +68,18 @@ jobs:
           [ $((used + MAX_JOBS)) -le 3500 ] || { echo "::error::시험 뒤 운영 몫이 1,000회 미만 — 시험 중단"; exit 1; }
       - name: 비교 실행
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Vercel의 Google·Goong 키는 민감 값이라 실행에서 꺼낼 수 없다(받은 값 길이 11, 시험 42600892199).
+          # Lee 2026-11-09 "가": 같은 Google 키를 GitHub Secret GOOGLE_PLACES_API_KEY에 등록해 쓴다. Goong은 있으면 쓰고 없으면 뺀다(두 방식 똑같이).
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GOONG_API_KEY: ${{ secrets.GOONG_API_KEY }}
           VIETMAP_SERVICE_KEY: ${{ secrets.VIETMAP_SERVICE_KEY }}
           SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          envf="$RUNNER_TEMP/vercel.env"
-          npx --yes vercel@latest env pull "$envf" --environment=production --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || { echo "::error::Vercel 환경변수 받기 실패"; exit 1; }
-          # vercel env pull은 값을 "…"로 감싸고 끝 줄바꿈을 글자 \n으로 적는다 — 그대로 쓰면 API_KEY_INVALID(첫 시험 42599618299).
-          # 따옴표·\n 표기·앞뒤 공백을 걷어 낸다(운영 서버는 같은 값을 그대로 받아 정상 — business-search-compare 42599813839 Google 오류 0).
-          val() { grep -E "^$1=" "$envf" | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e 's/\\n//g' -e 's/\\r//g' | tr -d '[:space:]'; }
-          GOOGLE_PLACES_API_KEY=$(val GOOGLE_PLACES_API_KEY); GOONG_API_KEY=$(val GOONG_API_KEY)
-          rm -f "$envf"
-          [ -n "$GOOGLE_PLACES_API_KEY" ] || { echo "::error::Vercel에서 GOOGLE_PLACES_API_KEY 값을 받지 못함(민감 값 설정이면 받을 수 없음)"; exit 1; }
-          echo "::add-mask::$GOOGLE_PLACES_API_KEY"; [ -n "$GOONG_API_KEY" ] && echo "::add-mask::$GOONG_API_KEY"
-          # 키 형식만 확인(값은 안 보임): Google 키는 39자, AIza로 시작.
-          case "$GOOGLE_PLACES_API_KEY" in AIza*) pre=예;; *) pre=아니오;; esac
-          echo "::notice::Google 키 형식: 길이 ${#GOOGLE_PLACES_API_KEY}, AIza 시작 $pre"
-          export GOOGLE_PLACES_API_KEY GOONG_API_KEY
+          [ -n "$GOOGLE_PLACES_API_KEY" ] || { echo "::error::GitHub Secret GOOGLE_PLACES_API_KEY 없음 — Lee 등록 후 다시 실행"; exit 1; }
+          # 키 형식만 확인(값은 안 보임): Google 키는 39자, AIza로 시작. 아니면 Google을 부르지 않고 멈춘다(헛 호출로 한도를 쓰지 않게).
+          case "$GOOGLE_PLACES_API_KEY" in AIza*) [ ${#GOOGLE_PLACES_API_KEY} -eq 39 ] || { echo "::error::Google 키 길이 ${#GOOGLE_PLACES_API_KEY}(39 아님)"; exit 1; };; *) echo "::error::Google 키가 AIza로 시작하지 않음"; exit 1;; esac
+          echo "::notice::Google 키 형식 정상 · Goong $([ -n "$GOONG_API_KEY" ] && echo 사용 || echo 없음)"
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-ladder-compare.mjs \
             "$RUNNER_TEMP/result.json" "$RUNNER_TEMP"/dry/*/facebook_dryrun.json
       - name: 공고별 결과 보관(1일, 비공개)
