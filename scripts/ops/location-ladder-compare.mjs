@@ -128,7 +128,7 @@ export async function compareOne(input, ctx) {
   const proResponses = new Map()
   const traceA = {}
   const googleA = async (text) => {
-    try { const r = await ctx.g.pro(text); proResponses.set(text, r); traceA.proCount = googlePlaceHits(r).length; traceA.proSame = googlePlaceHits(r).filter((h) => sameCoreName(job.company, h.name)).length; return r }
+    try { const r = await ctx.g.pro(text); proResponses.set(text, r); traceA.proCount = googlePlaceHits(r).length; traceA.names = googlePlaceHits(r).slice(0, 4).map((h) => `${h.name} @ ${h.address}`.slice(0, 110)); traceA.proSame = googlePlaceHits(r).filter((h) => sameCoreName(job.company, h.name)).length; return r }
     catch (e) { proResponses.set(text, e); traceA.error = String(e.message).slice(0, 80); throw e }
   }
   const decA = await resolveAutoLocation(job, deps({ ...ctx, google: googleA }))
@@ -207,6 +207,8 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
   // 공고별 한 줄(분석용). 공개 저장소 로그라 원문·전화번호는 넣지 않는다 — 제목·회사·읽은 위치 글자(미리 보기 알림과 같은 수준)와 판정만.
   const cut = (v, n) => String(v ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n)
   const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}${x.error ? ` err=${x.error}` : ''}` : '-')
+  // Google 후보 이름·주소(업체 정보, 이름 비교 개선용)
+  rows.forEach((r, i) => { if (r.a?.names?.length) console.log(`CAND ${i + 1} | ${r.a.names.join(' ;; ')}`) })
   rows.forEach((r, i) => console.log(`ROW ${i + 1} | ${cut(r.title, 60)} | ${cut(r.company, 50)} | ${cut(r.location, 80)} | A: ${v(r.a)} | B: ${v(r.b)} | ${r.same ? 'same' : 'DIFF'}${r.distanceM != null ? ` ${r.distanceM}m` : ''}`))
   // 시험 사례 만들기용(DUMP_TEXT=1): 원문 앞부분을 공고별로. 전화·Zalo 숫자(6자리 이상)와 링크는 가린다.
   if (process.env.DUMP_TEXT === '1') jobs.slice(0, limit).forEach((j, i) => {
