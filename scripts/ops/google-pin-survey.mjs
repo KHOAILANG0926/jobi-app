@@ -6,13 +6,17 @@
 //   2b google_link : 관리자 확정이지만 Google 지도 링크에서 옮긴 좌표(따로 표시 — Lee 판단)
 //   0 none      : 좌표 없음
 // 출력: 건수 + 공고별 한 줄(번호·회사·분류·점 종류·출처 근거 앞부분). 연락처·원문은 출력하지 않는다.
+import { createClient } from '@supabase/supabase-js'
 import { supabaseServer as db } from '../../src/lib/supabaseServer.ts'
+// 공개 점 기록의 출처 글자는 줄여져 있다(source_evidence 등) — 실제 출처는 비공개 기록에 있어 서버 키로 읽기만 한다(select만, 쓰기 없음).
+const sk = process.env.SUPABASE_SERVICE_ROLE_KEY
+const priv = sk ? createClient('https://edhuesdnuxlbcfephutq.supabase.co', sk, { auth: { persistSession: false, autoRefreshToken: false } }) : null
 
 const GOOGLE_API = /Google [A-Za-z0-9_-]{10,} \(company\)/
-const GOOGLE_LINK = /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/i
+const GOOGLE_LINK = /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|Google Maps location/i
 /** 점 하나의 출처·검증 분류. 근거: point_authority(있으면)·point_kind·point_evidence(출처 글자). */
 export function classifyPoint(p) {
-  const ev = typeof p.point_evidence === 'string' ? p.point_evidence : JSON.stringify(p.point_evidence ?? '')
+  const ev = [p.point_evidence, p.provider, p.candidate].map((x) => typeof x === 'string' ? x : JSON.stringify(x ?? '')).join(' ')
   const kind = String(p.point_kind ?? ''), auth = String(p.point_authority ?? '')
   if (p.lat === null || p.lat === undefined || !Number.isFinite(Number(p.lat)) || !Number.isFinite(Number(p.lng))) return { cls: 'none', why: 'no_point' }
   if (GOOGLE_API.test(ev)) return { cls: 'google', why: `google_api:${kind}/${auth || '?'}` }
@@ -34,8 +38,26 @@ if (process.argv[1]?.endsWith('google-pin-survey.mjs')) {
     if (e) { console.log('::error::public_points_unavailable ' + e.message); process.exit(1) }
     points.push(...data)
   }
+  // 비공개 기록(읽기만): 자동 위치 찾기 결과의 출처(provider_result.source·근거 첫 줄), 관리자 확정 후보의 근거·링크
+  const provider = new Map(), candidate = new Map()
+  if (priv) {
+    const ids = jobs.map((j) => j.id)
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data: st, error: e1 } = await priv.from('map_r1_location_jobs').select('job_id,provider_result').in('job_id', ids.slice(i, i + 100))
+      if (e1) { console.log('::error::private_state_unavailable'); process.exit(1) }
+      for (const r of st ?? []) provider.set(r.job_id, { source: r.provider_result?.source ?? '', kind: r.provider_result?.kind ?? '', evidence: String(r.provider_result?.evidence ?? '').split('\n').slice(0, 2).join(' / ') })
+      const { data: cs, error: e2 } = await priv.from('job_location_candidates').select('job_id,status,source,evidence,evidence_urls').in('job_id', ids.slice(i, i + 100)).eq('status', 'approved')
+      if (e2) { console.log('::error::private_candidates_unavailable'); process.exit(1) }
+      for (const c of cs ?? []) candidate.set(c.job_id, { source: c.source, evidence: c.evidence, urls: (c.evidence_urls ?? []).map((u) => String(u).replace(/^(https?:\/\/[^/]+).*/, '$1')) })
+    }
+  } else console.log('::notice::서버 키 없음 — 공개 기록만으로 분류(출처가 줄여져 있어 Google 여부를 못 가를 수 있음)')
   const byJob = new Map(jobs.map((j) => [j.id, { ...j, pts: [] }]))
-  for (const p of points) byJob.get(p.job_id)?.pts.push({ ...p, ...classifyPoint(p) })
+  for (const p of points) {
+    const q = { ...p, provider: provider.get(p.job_id) ?? null, candidate: candidate.get(p.job_id) ?? null }
+    // 자동 결과 출처는 그 점이 자동으로 쓰인 경우만(관리자 확정·재사용 점에는 후보 근거만)
+    if (/admin_confirmed|auto_reuse/.test(String(p.point_authority ?? ''))) q.provider = null
+    byJob.get(p.job_id)?.pts.push({ ...q, ...classifyPoint(q) })
+  }
   const count = { verified: 0, google: 0, google_link: 0, representative: 0, none: 0 }
   const lines = []
   for (const j of byJob.values()) {
@@ -43,7 +65,7 @@ if (process.argv[1]?.endsWith('google-pin-survey.mjs')) {
     // 공고 분류: Google 점이 하나라도 있으면 2, 아니면 검증 점이 있으면 1, 아니면 대표 좌표 3, 점 없음 0
     const cls = pts.some((p) => p.cls === 'google') ? 'google' : pts.some((p) => p.cls === 'google_link') ? 'google_link' : pts.some((p) => p.cls === 'verified') ? 'verified' : pts.some((p) => p.cls === 'representative') ? 'representative' : 'none'
     count[cls]++
-    const ev = (p) => String(typeof p.point_evidence === 'string' ? p.point_evidence : JSON.stringify(p.point_evidence ?? '')).replace(/\s+/g, ' ').slice(0, 90)
+    const ev = (p) => [p.provider?.source || (p.point_evidence?.source ?? ''), p.candidate ? `후보:${p.candidate.source}:${p.candidate.evidence}:${p.candidate.urls.join(' ')}` : '', p.provider?.evidence ?? ''].filter(Boolean).join(' · ').replace(/\s+/g, ' ').slice(0, 160)
     lines.push(`${cls}\t#${j.id}\t${String(j.company ?? '').slice(0, 40)}\t${pts.map((p) => `${p.why}${p.coordinate_accuracy ? `/${p.coordinate_accuracy}` : ''}`).join(',')}\t${pts.map(ev).join(' | ')}`)
   }
   console.log(`공개 공고 ${jobs.length}건 · 근무지 점 ${points.length}개`)
