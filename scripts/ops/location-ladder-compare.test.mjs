@@ -1,6 +1,6 @@
 // location-ladder-compare 자체 시험(네트워크 없음). 실행: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-ladder-compare.test.mjs
 import assert from 'node:assert/strict'
-import { googleClient, ladderGoogle, compareOne, summarize, precheckInputOf, siteKeyOf } from './location-ladder-compare.mjs'
+import { googleClient, ladderGoogle, compareOne, summarize, precheckInputOf, siteKeyOf, maskContacts } from './location-ladder-compare.mjs'
 
 const json = (body) => ({ ok: true, json: async () => body })
 // 가짜 Google: Pro는 같은 이름 2곳(다른 거리), Autocomplete는 같은 이름 1곳, 상세는 좌표.
@@ -77,4 +77,9 @@ function fakeFetch(log) {
   assert.ok(s.perJobUSD.b < s.perJobUSD.a)
   console.log('row', JSON.stringify({ a: row.a, b: row.b, same: row.same }))
 }
+// 6) 공개 로그 가림(Codex #615 P1): 구분자가 여러 글자여도 전화번호는 가린다. 주소 번지·짧은 숫자는 남긴다.
+for (const raw of ['Zalo: 0987  123  456', 'ĐT 0912.345.678', '(+84) 912 - 345 - 678', '0987 – 123 – 456', 'sđt:0912345678', 'mail a.b@gmail.com', 'https://zalo.me/0912345678']) {
+  assert.ok(!/\d{3}/.test(maskContacts(raw).replace(/\+84/, '')), `masked: ${raw} → ${maskContacts(raw)}`)
+}
+assert.equal(maskContacts('Số 37 Đường Lý Thái Tổ, ca 8h-17h'), 'Số 37 Đường Lý Thái Tổ, ca 8h-17h')
 console.log('location-ladder-compare: all assertions passed')
