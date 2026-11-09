@@ -8,15 +8,22 @@ echo "Regression: always apply the current location-memory migration on fresh Po
 psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -1 -f scripts/ci/reference-location-fixed.sql
 bomunttl_checked=0
 # 바뀐 migration마다 같은 방식(2026-11-09 공통화 — 예전에는 파일 이름별 예외를 하나씩 덧붙였음, 27곳):
-#   ① supabase/tests/<이름>.setup.sql 이 있으면 먼저 실행(빈 시험 DB에 없는 칸·함수 등 준비)
+#   ① supabase/tests/<이름>.setup.sql 이 있으면 먼저 실행(빈 시험 DB에 없는 칸·함수 등 준비, psql \i 로 앞선 migration을 불러도 됨)
 #   ② migration 적용(한 트랜잭션)
 #   ③ supabase/tests/<이름>.local.sql 이 있으면 실행(시험 DB 전용 확인)
 #   ④ supabase/tests/<이름>_production_check.sql 이 있고 ①이나 ③이 있으면 실행(준비가 있는 경우만 — 빈 DB에선 운영 점검이 칸 부족으로 실패)
-# <이름> = 파일 이름에서 앞의 시각_ 과 .sql 을 뺀 것. 새 준비·시험은 이 이름 규칙의 파일로 넣고 이 스크립트는 고치지 않는다.
+# <이름> = 파일 이름에서 앞의 시각_ 과 .sql 을 뺀 것. 그 이름의 시험 파일이 없으면 뒤에서부터 _조각을 하나씩 떼어
+# 가장 긴 이름을 찾는다(예: brand_logo_kfc → brand_logo — 자동 생성 migration이 공통 준비를 함께 씀).
+# 새 준비·시험은 이 이름 규칙의 파일로 넣고 이 스크립트는 고치지 않는다.
 # 이미 운영에 적용된 migration은 다시 바뀌지 않으므로(파일 삭제는 위에서 막음) 예전 파일별 시험은 다시 실행될 일이 없어 뺐다(git 기록에 남음).
 for file in "${changed[@]}"; do
   test -f "$file" || { echo "::error::Migration file deleted: $file"; exit 1; }
   stem=$(basename "$file" .sql); stem=${stem#*_}
+  try=$stem
+  while [[ -n "$try" ]]; do
+    if compgen -G "supabase/tests/$try.setup.sql" >/dev/null || compgen -G "supabase/tests/$try.local.sql" >/dev/null || compgen -G "supabase/tests/${try}_production_check.sql" >/dev/null; then stem=$try; break; fi
+    [[ "$try" == *_* ]] && try=${try%_*} || try=""
+  done
   setup="supabase/tests/$stem.setup.sql"; local_check="supabase/tests/$stem.local.sql"; prod_check="supabase/tests/${stem}_production_check.sql"
   echo "PostgreSQL migration: $file (시험 이름 $stem)"
   [[ -f "$setup" ]] && psql "$PG_TEST_URL" -X -v ON_ERROR_STOP=1 -f "$setup"
