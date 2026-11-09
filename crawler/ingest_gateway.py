@@ -350,7 +350,7 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
     if existing:
         return _call_gateway(client, job, job_id=job_id, update_fields=update_fields)
-    if not _HOLDS_RETRIED:
+    if not _HOLDS_RETRIED and job.get("admin_hidden") is not True:  # 검증 저장은 대기열을 건드리지 않는다
         _HOLDS_RETRIED = True
         retry_held(client)
     try:

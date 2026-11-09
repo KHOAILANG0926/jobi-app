@@ -293,6 +293,15 @@ def run_hold():
     except g.LocationDeferred:
         pass
     assert c2.rows == {}
+    # 검증 저장은 보류 대기열을 처리하지 않는다(다른 공고를 건드리지 않음)
+    g._HOLDS_RETRIED = False
+    c3 = HoldClient()
+    g.PRECHECK = lambda j: {"findable": False, "reason": "not_found"}
+    try:
+        g.ingest_job(c3, {"title": "w", "company": "W", "location": "Hà Nội", "admin_hidden": True, "active": False})
+    except g.LocationNotFound:
+        pass
+    assert g._HOLDS_RETRIED is False and c3.calls == []
     g._HOLDS_RETRIED = True
     print("test_ingest_gateway: quota hold/retry passed")
 
