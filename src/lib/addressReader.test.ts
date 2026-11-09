@@ -39,3 +39,9 @@ eq(readAddress(HIGHLANDS_5157.normalize('NFD')), 'Số 395 Ngô Gia Tự, Phư�
 eq(readLocationText(NETCO_5599, 'Bắc Ninh'), 'Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh, Bắc Ninh', 'address + group region (같은 결합 방식)')
 eq(readLocationText('Cần tuyển ở BẮC NINH', 'Bắc Ninh'), 'Bắc Ninh', 'region only')
 console.log('addressReader: #5157 이름표 줄 · #5599 이름표 없는 줄 · 제목/급여 줄 제외 · 낱말 속 p 제외 통과')
+
+// 2026-11-09 #560 시험 원문
+eq(readAddress('TUYỂN NHÂN VIÊN PARTIME\nLương 30k-35k/h\nĐịa chỉ: Nhà hàng Seoseo Galbi\n213 Ngọc Hân Công Chúa, Phường Võ Cường, TP Bắc Ninh\nLiên hệ qua zalo'), '213 Ngọc Hân Công Chúa, Phường Võ Cường, TP Bắc Ninh', '#560-1 shop name on label, street on next line')
+eq(readAddress('Địa chỉ: Nhà hàng Seoseo Galbi\nLiên hệ 0912345678'), 'Nhà hàng Seoseo Galbi', 'next line not an address keeps label value')
+eq(readAddress('em cần tìm việc ở thành phố bắc ninh\n댓글\nAi đó\nĐịa chỉ: 99 Lý Thái Tổ, Bắc Ninh'), 'thành phố bắc ninh', '#560-5 comment address is not the post address')
+console.log('addressReader: #560 cases passed')

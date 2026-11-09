@@ -5,6 +5,7 @@
 // 읽는 순서: ① 이름표 붙은 주소 줄 ② 이름표 없는 주소 줄 ③ 동·구·도로 조각.
 import { ADMINISTRATIVE_AREAS } from './administrativeArea'
 import { normalizePlaceText } from './locationCandidateMatch'
+import { postBody } from './companyReader'
 
 const WORD = '\\p{L}\\p{N}_'
 // ① "Địa điểm: Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh" — 그 줄 값을 그대로(번지 포함). Lee 2026-10-30 #5157.
@@ -36,9 +37,15 @@ function unlabeledLine(text: string): string {
 
 /** 원문에서 근무지 주소 글자. 없으면 ''. */
 export function readAddress(sourceText: string): string {
-  const text = String(sourceText ?? '').normalize('NFC')
+  const text = postBody(String(sourceText ?? '').normalize('NFC')) // 댓글(다른 사람 글)은 읽지 않는다(#560)
   const labeled = text.match(LABELED)
-  if (labeled) return trimDots(labeled[1].trim())
+  if (labeled) {
+    // "Địa chỉ: Nhà hàng Seoseo Galbi" + 다음 줄 "213 Ngọc Hân Công Chúa, …": 값에 번지가 없고 다음 줄이 번지로 시작하면 그 줄이 주소(#560)
+    const value = trimDots(labeled[1].trim())
+    const next = text.slice((labeled.index ?? 0) + labeled[0].length).split('\n').map((l) => l.trim()).find(Boolean) ?? ''
+    if (!/\d/.test(value) && /^(?:số\s*)?\d/iu.test(next) && next.length <= 160 && !NOT_ADDRESS.test(next.replace(/^(?:số\s*)?\d+[\w/-]*/iu, ''))) return trimDots(next)
+    return value
+  }
   const line = unlabeledLine(text)
   if (line) return line
   const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).filter((m) => m.length > 2)

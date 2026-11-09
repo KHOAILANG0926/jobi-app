@@ -73,4 +73,24 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   assert(order[0] === 'google', 'Google을 가장 먼저: ' + order.join(','))
   assert(r.kind === 'area' && /Google nh1/.test(String((r as { source?: string }).source)), 'Google 장소 채택: ' + JSON.stringify(r))
 }
+// 2026-11-09 #560 시험 — 실제 Google 후보(run 42614049523)로: 맞는 곳은 고르고, 다른 회사·다른 지점은 고르지 않는다(Lee "잘못된 위치 확정 0건").
+{
+  const H = (id: string, name: string, address: string) => ({ id, name, address })
+  const pick = (c: string, a: string, hits: { id: string; name: string; address: string }[]) => pickCompanyPlace(c, a, hits)
+  // 고름
+  assert(pick('CTY ChunQiu', 'khu cn hoà phú', [H('c1', 'Công Ty Chunqiu Electronic', 'CN - 09, KCN Hòa Phú, Xuân Cẩm, Bắc Ninh')]).hit?.id === 'c1', '#560-8 ChunQiu same park')
+  assert(pick('TRUNG NGUYÊN LEGEND BẮC NINH', 'Trung Nguyên Legend 27 kinh dương vương-p Vũ Ninh- tỉnh Bắc Ninh', [H('t1', 'Trung Nguyên Legend Café', '27 Đ. Kinh Dương Vương, Kinh Bắc, Bắc Ninh')]).hit?.id === 't1', '#560-9 Trung Nguyên')
+  assert(pick('BAR NEW PHOENIX BẮC NINH', 'Bắc Ninh', [H('n1', 'New Phoenix Club', '7 Đ. Phúc Sơn, Phúc Sơn, Vũ Ninh, Bắc Ninh')]).hit?.id === 'n1', '#560-11 bar word is not the name')
+  assert(pick('SIÊU THỊ ĐIỆN MÁY MEDIAMART', 'Số 37 Đường Lý Thái Tổ, P. Võ Cường, TP. Bắc Ninh', [H('m1', 'Mediamart Bắc Ninh', '37 Đ. Lý Thái Tổ, Kinh Bắc, Bắc Ninh 16000'), H('m2', 'Điện Máy MediaMart Thị Cầu', 'Đường Lý Thường Kiệt, Bắc Ninh')]).hit?.id === 'm1', '#560-16 MediaMart branch by street')
+  // 고르지 않음(보류)
+  assert(pick('KHÁCH SẠN MINH NGUYỆT', '288 Hàn Thuyên, Kinh Bắc, Bắc Ninh', [H('x1', 'Luxury Phoenix Hotel | 凤凰明月酒店', 'City, 288 Đ. Hàn Thuyên, Kinh Bắc, Bắc Ninh'), H('x2', 'Hệ thống khách sạn Minh Nguyệt', '27 Đ. Kinh Dương Vương, Bắc Ninh, 16000')]).hit === null, '#560-30 same name at another street is not this hotel')
+  assert(pick('Nhà hàng Seoseo Galbi', '213 Ngọc Hân Công Chúa, Phường Võ Cường, TP Bắc Ninh', [H('s1', '(seoseo galbi korean restaurant)', '9 Đ. Hoàng Hoa Thám, Võ Cường, Bắc Ninh')]).hit === null, '#560-1 other street → hold')
+  assert(pick('ĐẠI TÂN VIỆT', 'KCN VSIP Bắc Ninh, Bắc Ninh', [H('d1', 'Công Ty Đại Tân (TNHH)', 'Lô 2-6, 1 KCN Quế Võ 2, Đào Viên, Bắc Ninh')]).hit === null, '#560-3 shorter different company / other park')
+  assert(!sameCoreName('ĐẠI TÂN VIỆT', 'Công Ty Đại Tân (TNHH)'), '#560-3 "Đại Tân" is not "Đại Tân Việt"')
+  assert(pick('CÔNG TY EAGLEON', 'KCN Quế Võ 2', [H('e1', 'Công ty TNHH Eagle On Vietnam', '4793+XC7, Phù Lãng, Bắc Ninh')]).hit === null, '#560-25 park not in candidate address → hold')
+  assert(pick('Trung tâm kho vận Đông Việt', 'Trung tâm kho vận Đông Việt - Cụm công nghiệp Xuân Lâm - Thuận Thành - Bắc Ninh', [H('v1', 'Công ty cổ phần Đông Việt', 'Cụm công nghiệp, Song Liễu, Bắc Ninh')]).hit === null, '#560-20 other industrial cluster')
+  assert(pick('JOLLIBEE BẮC NINH', 'Bắc Ninh', [H('j1', 'Jollibee Trần Hưng Đạo Bắc Ninh', '393 Trần Hưng Đạo, Võ Cường, Bắc Ninh'), H('j2', 'Jollibee Nguyễn Trãi', '207 Nguyễn Trãi, Võ Cường, Bắc Ninh')]).hit === null, '#560-21 chain without branch')
+  assert(pick('THƯƠNG HIỆU THỜI TRANG ILABY KIDS', '148 Trần Hưng Đạo, TP Bắc Ninh', [H('k1', 'KRIK - 148 Trần Hưng Đạo (TP.Bắc Ninh)', '152 Trần Hưng Đạo - P.Kinh Bắc - TP.Bắc Ninh')]).hit === null, '#560-19 other brand at same street')
+  assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
+}
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')

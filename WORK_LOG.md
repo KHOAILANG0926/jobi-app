@@ -1,3 +1,8 @@
+## 2026-11-09 밤 — #560 회사 이름·이름 비교·주소 읽기 공통 고침 (Lee "먼저 공통 로직 개선, 잘못 확정 0건")
+- 고친 곳(한 곳씩, 모든 경로 공통): companyReader(댓글 아래 무시·"quán cạnh ngã 6"류 위치 설명 버림·CTY 줄 뒤 상여/공단 말 떼기·제목 대시 일반화·[지역] 머리 떼기·partime), addressReader(댓글 무시·주소 이름표 값이 가게 이름이면 다음 번지 줄), companyPlaceSearch(업종 머리말 묶음 빼기·짧은 지도 이름 8자 이상·따로 쓴 Việt/Nam 유지·**원문 번지 거리/공단과 다른 후보는 고르지 않음**).
+- 시험: 30건 실제 원문·Google 후보로 사례 추가(바로 읽기 9, 고르기 4, 보류 9). 예전 기대값 3곳 변경: EAGLEON 이름에서 공단 말 뺌, KCN 원문인데 Google이 시내 거리면 따르지 않음(locationProcess), logoLookup 시험 후보 주소를 실제처럼.
+- 검증: tsc · npm test 115/115 · build.
+
 ## 2026-11-09 저녁 — #560 시험 중단 사유 · #594 이슈 @claude 연결
 - #560 시험(#608·#609·#611): 미리 보기 8개 그룹 중 새 글은 Bắc Ninh 30건뿐(나머지 그룹은 몇 달 전 글). 시험의 Google 호출은 모두 API_KEY_INVALID — Vercel이 민감 값으로 둔 GOOGLE_PLACES_API_KEY는 env pull로 받을 수 없음(받은 값 길이 11). 운영 Google은 정상(business-search-compare 42599813839 오류 0). 같은 원인 2회 실패로 시험 중단, Lee 결정 대기(키를 GitHub Secret에 추가 vs 관리자 전용 서버 시험 API). 시험 예약으로 운영 카운터 54회 사용.
 - 30건 분석 [직접 확인]: 주소 글 없음 8(공단 이름만 'Quế Võ 3'·'Nam Sơn'·'Phố Nếnh' 등), 회사 이름 잘못 읽음 약 9('quán cạnh ngã 6'·'BẢNG TIN'·'Hotel 06 Ngô Tất Tố' 등), 회사 이름 없음 4, 체인 지점 7.

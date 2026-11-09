@@ -14,7 +14,8 @@ assert(await cachedGooglePlaceId(job, cached, outside) === null, 'outside origin
 const p1 = await cachedGooglePlace(job, cached, inside)
 assert(p1?.id === 'ChIJabc' && Array.isArray(p1.types) && p1.types.length === 0 && p1.primaryType === null, 'old cache → place without types')
 const k2 = googleCacheKey('Highlands', '1 Lý Thái Tổ, Bắc Ninh')
-store.set(k2, { places: [{ ...place('ChIJh', 'Highlands Coffee'), types: ['coffee_shop', 'cafe'], primaryType: 'coffee_shop' }] })
+// 원문이 번지 주소면 후보 주소에도 그 거리가 있어야 고른다(#560) — 시험 후보 주소를 실제처럼 같은 거리로.
+store.set(k2, { places: [{ ...place('ChIJh', 'Highlands Coffee'), formattedAddress: '1 Lý Thái Tổ, Bắc Ninh', types: ['coffee_shop', 'cafe'], primaryType: 'coffee_shop' }] })
 const p2 = await cachedGooglePlace({ id: 2, company: 'Highlands', location: 'Bắc Ninh', targets: [{ address: '1 Lý Thái Tổ, Bắc Ninh', workLocationId: null }] }, cached, inside)
 assert(p2?.primaryType === 'coffee_shop' && p2.types.includes('cafe'), 'new cache keeps place kind')
 assert(await cachedGooglePlaceId({ ...job, company: 'XYZ' }, cached, inside) === null, 'no cached search → no id (never asks Google)')
