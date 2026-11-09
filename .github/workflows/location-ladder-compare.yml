@@ -77,11 +77,16 @@ jobs:
         run: |
           envf="$RUNNER_TEMP/vercel.env"
           npx --yes vercel@latest env pull "$envf" --environment=production --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || { echo "::error::Vercel 환경변수 받기 실패"; exit 1; }
-          val() { grep -E "^$1=" "$envf" | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
+          # vercel env pull은 값을 "…"로 감싸고 끝 줄바꿈을 글자 \n으로 적는다 — 그대로 쓰면 API_KEY_INVALID(첫 시험 42599618299).
+          # 따옴표·\n 표기·앞뒤 공백을 걷어 낸다(운영 서버는 같은 값을 그대로 받아 정상 — business-search-compare 42600… 오류 0).
+          val() { grep -E "^$1=" "$envf" | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e 's/\\n//g' -e 's/\\r//g' | tr -d '[:space:]'; }
           GOOGLE_PLACES_API_KEY=$(val GOOGLE_PLACES_API_KEY); GOONG_API_KEY=$(val GOONG_API_KEY)
           rm -f "$envf"
           [ -n "$GOOGLE_PLACES_API_KEY" ] || { echo "::error::Vercel에서 GOOGLE_PLACES_API_KEY 값을 받지 못함(민감 값 설정이면 받을 수 없음)"; exit 1; }
           echo "::add-mask::$GOOGLE_PLACES_API_KEY"; [ -n "$GOONG_API_KEY" ] && echo "::add-mask::$GOONG_API_KEY"
+          # 키 형식만 확인(값은 안 보임): Google 키는 39자, AIza로 시작.
+          case "$GOOGLE_PLACES_API_KEY" in AIza*) pre=예;; *) pre=아니오;; esac
+          echo "::notice::Google 키 형식: 길이 ${#GOOGLE_PLACES_API_KEY}, AIza 시작 $pre"
           export GOOGLE_PLACES_API_KEY GOONG_API_KEY
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-ladder-compare.mjs \
             "$RUNNER_TEMP/result.json" "$RUNNER_TEMP"/dry/*/facebook_dryrun.json
