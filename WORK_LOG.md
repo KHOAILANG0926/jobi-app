@@ -1,3 +1,11 @@
+## 2026-11-09 아침 — 공고 작성 화면·상세 템플릿 알바몬 맞춤 (Lee "적용")
+- 요청: 알바몬 실제 공고(120083527)·알바몬 일반공고 작성 화면과 나란히 비교한 차이 고치기.
+- 변경: 상세 템플릿 PC 가운데 정렬·빈 회사 이름 안내 글자 숨김·미리보기 창 글자체 Inter(AlbamonTemplate.tsx/.css). /dang-tin 흰 바탕(이 화면만), 업직종 짧은 버튼+선택 창(검색·Ngành|Chi tiết), 근무기간 7칸+Thỏa thuận 체크(글자 잘림), 사진 4칸+동영상 2칸 자리(동영상 저장 칸 없음 → sắp có), 불필요 안내 문구 삭제, Hình thức 0/2 숫자(PostJob.tsx/.css).
+- 버그 수정: 고용주 사진이 저장소에만 올라가고 공고 image_url에 연결되지 않던 문제 → image_url + images(저장소 경로) 저장(JobsContext.tsx, ingest_job이 local_jobs 칸을 그대로 받음, DB 변경 없음).
+- 알바몬 확인(Lee 크롬, 저장 없음): 공고사진 4칸(사진첩 최대 30장, 500KB 미만 jpg·gif·png), 동영상 2칸 = 유튜브 링크만(30분 이내).
+- 검증: tsc·build 통과, 로컬 Playwright PC·모바일 화면 확인, 데모 Lee 크롬에서 확인.
+- 남은 것: 동영상(유튜브 링크) 저장 칸 = DB 변경 → Lee 결정. 빠른 등록에 Tuyển liên tục 보일지 Lee 결정. #579(연락처 없는 미리보기 상자 겹침).
+
 ## 2026-11-09 새벽 — 밤 근무 4회차: 템플릿 모바일 미리보기 치우침 #577 (Claude)
 - 발견(#571 확인 중): 간편 템플릿 'Xem trước' Mobile 새 창(420px)에서 내용이 왼쪽 43px·오른쪽 16px로 치우침. PC용 `body.amt-pvwin .amt-pv { margin-left: 27px }`이 `.amt-pv--m { margin: 0 auto }`를 덮음.
 - 변경: src/components/template/AlbamonTemplate.css 한 줄 `body.amt-pvwin .amt-pv--m { margin-left: auto }`(새 창 미리보기만).
