@@ -58,9 +58,3 @@
 - 요청: Lee "이거먼저"(데모 demo/albamon-template에서 DB 변경 없는 1~6번).
 - 변경: src/pages/ServicePages.tsx/.css(/ho-tro FAQ·공지, /lam-poster 벽보, /chu-de/:slug 테마 8개 — 데모 표본 공고 버튼 뺌, 인쇄 CSS는 'In' 버튼 때만), App.tsx 경로, 메뉴 'Việc làm'에 'Theo chủ đề'(PC·모바일), 바닥 'Câu hỏi thường gặp'·'Làm poster tuyển dụng', PC 기업 메뉴 'Làm poster tuyển dụng'. PostJob: 급여 칸 계산기 링크, 임시저장(vgb:postjob-draft, 등록 성공 시 지움), 구역 id pj-s1~6, PC 오른쪽 상자(Lưu tạm·Đăng tin·체크 목록), 아래 막대에 Lưu tạm.
 - 뺀 것: 미리보기(상세 화면 틀 변경 필요), 7·8번(미승인).
-
-## 2026-11-07 23:30 — 소개소 표시 원래 칸 하나로 (Claude)
-- 요청: Lee "같은내용을 두번 적는게 맞아? 원래대로", "빼"(경고색), 5번 A+B, "먼저수정하고 7,8번 확인".
-- 원인 [직접 확인]: #525에서 기존 recruitment_type 칸을 확인하지 않고 recruiter_agency 칸을 새로 만듦(화면은 기존 칸만 봐서 표시 안 됨).
-- 변경: #536 수집 입구가 recruitment_type='agency'에 적음, 경고색 뺌, 소개소 판정 문구·전화번호 기록(job_company_phones) 추가, 읽기 전용 확인(company-reread field=agency). #538 Lee 승인 기록, #537 recruiter_agency 칸 삭제(0건 확인, 있으면 멈춤).
-- 배포: deploy-verify 42387724259 성공, migrations-apply 42391081797 성공. 이어서 #540(Lee "A"·"3번가자"): agency_workplace_key 칸 + dedupe_private.verdict(소개소끼리 공장 다르면 다른 공고, 모르면 애매) + companyReader.readWorkplace. migrations-apply 42392546481, deploy-verify 42392718489 성공.
