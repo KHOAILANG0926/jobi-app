@@ -11,7 +11,8 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { precheckCompany, precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
-import { googleSearchText, googlePlaceHits, pickCompanyPlace, sameCoreName } from '../../src/lib/companyPlaceSearch.ts'
+import { googlePlaceHits, pickCompanyPlace, sameCoreName } from '../../src/lib/companyPlaceSearch.ts'
+import { normalizePlaceText } from '../../src/lib/locationCandidateMatch.ts'
 import { vietmapRequest, goongRequest } from '../../api/_lib/auto-location-runtime.mjs'
 
 // 1,000건당 USD(공식 가격표 첫 유료 구간, 2026-11-09 확인) ÷ 1000. 무료 한도는 집계에서 따로 뺀다.
@@ -19,8 +20,9 @@ export const PRICE = { pro: 0.032, ids: 0, autocomplete: 0.00283, details: 0.005
 export const FREE = { pro: 5000, ids: Infinity, autocomplete: 10000, details: 10000 }
 const GOOGLE = 'https://places.googleapis.com/v1'
 
-/** Google Places(New) 호출 묶음. fetchImpl은 시험용으로 바꿔 넣는다. 호출 수를 센다. cap을 넘으면 부르지 않는다. */
-export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250, autocomplete: 250, details: 750 }) {
+/** Google Places(New) 호출 묶음. fetchImpl은 시험용으로 바꿔 넣는다. 호출 수를 센다. cap을 넘으면 부르지 않는다.
+ *  reservePro: 운영과 같은 월 한도 예약(external_api_reserve('google_text_search')) — 시험 호출도 운영 카운터에 들어간다(Codex #608 P1). */
+export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250, autocomplete: 250, details: 750 }, reservePro = async () => true) {
   const calls = { pro: 0, ids: 0, autocomplete: 0, details: 0 }
   const headers = (mask) => ({ 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': mask })
   async function call(sku, url, init) {
@@ -34,7 +36,7 @@ export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250,
   return {
     calls,
     // 현재 운영과 같은 요청(auto-location-runtime googlePlacesRequest와 같은 칸)
-    pro: (text) => call('pro', `${GOOGLE}/places:searchText`, { method: 'POST', headers: headers('places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType'), body: searchBody(text) }),
+    pro: async (text) => { if (!(await reservePro())) throw new Error('quota_exhausted'); return call('pro', `${GOOGLE}/places:searchText`, { method: 'POST', headers: headers('places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType'), body: searchBody(text) }) },
     ids: async (text) => ((await call('ids', `${GOOGLE}/places:searchText`, { method: 'POST', headers: headers('places.id'), body: searchBody(text) }))?.places ?? []).map((p) => String(p.id)),
     autocomplete: async (text) => ((await call('autocomplete', `${GOOGLE}/places:autocomplete`, { method: 'POST', headers: headers('suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat'),
       body: JSON.stringify({ input: text, languageCode: 'vi', includedRegionCodes: ['vn'] }) }))?.suggestions ?? [])
@@ -49,8 +51,11 @@ export function ladderGoogle({ g, registry, proFor, company, address, trace }) {
   return async (text) => {
     const ids = await g.ids(text)
     trace.idsCount = ids.length
-    const known = ids.map((id) => registry.get(id)).find((r) => r && sameCoreName(company, r.place.displayName.text))
-    if (known) { trace.step = 'registry'; return { places: [known.place] } }
+    // 장부 재사용은 같은 사업장일 때만(Codex #608 P2): 같은 이름 장부 후보가 1곳이고, 그 장부의 원문 주소가 지금 공고와 같을 때.
+    // 같은 이름 지점이 여럿이거나 주소가 다르면 다음 단계로(다른 지점 좌표를 붙이지 않는다).
+    const same = ids.map((id) => registry.get(id)).filter((r) => r && sameCoreName(company, r.place.displayName.text))
+    if (same.length === 1 && same[0].siteKey === siteKeyOf(address)) { trace.step = 'registry'; return { places: [same[0].place] } }
+    if (same.length) trace.registrySkipped = same.length
     const preds = await g.autocomplete(text)
     trace.acCount = preds.length
     trace.acSame = preds.filter((p) => sameCoreName(company, p.name)).length
@@ -68,6 +73,9 @@ export function ladderGoogle({ g, registry, proFor, company, address, trace }) {
     return proFor(text)
   }
 }
+
+/** 사업장 열쇠 = 원문 주소(정규화). 같은 회사라도 주소가 다르면 다른 사업장. */
+export const siteKeyOf = (address) => normalizePlaceText(String(address ?? ''))
 
 function deps({ vietmap, goong, google, shared }) {
   const own = new Map()
@@ -130,7 +138,7 @@ export async function compareOne(input, ctx) {
   const pa = 'lat' in decA ? decA : null, pb = 'lat' in decB ? decB : null
   // B가 같은 이름 1곳을 확정하면 시험 안 장부에 넣는다(다음 공고의 ① 단계에서 재사용되는지 보려고).
   const placeId = /^Google (\S+) \(company\)$/.exec(String(decB?.source ?? ''))?.[1]
-  if (b.findable && placeId && pb) ctx.registry.set(placeId, { place: { id: placeId, displayName: { text: job.company }, formattedAddress: String(decB.resolvedAddress ?? ''), location: { latitude: pb.lat, longitude: pb.lng } } })
+  if (b.findable && placeId && pb) ctx.registry.set(placeId, { siteKey: siteKeyOf(address), place: { id: placeId, displayName: { text: job.company }, formattedAddress: String(decB.resolvedAddress ?? ''), location: { latitude: pb.lat, longitude: pb.lng } } })
   return { ...row, a, b, same: a.findable === b.findable && a.place === b.place, distanceM: pa && pb ? meters(pa, pb) : null }
 }
 
@@ -177,7 +185,13 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
     if (!seen.has(k)) { seen.add(k); jobs.push(j) }
   }
   const limit = Number(process.env.MAX_JOBS || 250)
-  const g = googleClient(need('GOOGLE_PLACES_API_KEY'), fetch, { pro: limit, ids: limit, autocomplete: limit, details: limit * 3 })
+  // 운영 카운터 예약(서비스 키로 RPC). 한도에 닿으면 Pro를 부르지 않는다 — 운영과 같은 규칙.
+  const supa = need('SUPABASE_URL'), sk = need('SUPABASE_SERVICE_ROLE_KEY')
+  const reservePro = async () => {
+    const r = await fetch(`${supa}/rest/v1/rpc/external_api_reserve`, { method: 'POST', headers: { apikey: sk, Authorization: `Bearer ${sk}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_api: 'google_text_search' }) })
+    return r.ok && (await r.json()) === true
+  }
+  const g = googleClient(need('GOOGLE_PLACES_API_KEY'), fetch, { pro: limit, ids: limit, autocomplete: limit, details: limit * 3 }, reservePro)
   const ctx = { g, registry: new Map(), shared: new Map(), vietmap: vietmapRequest(need('VIETMAP_SERVICE_KEY')), goong: process.env.GOONG_API_KEY ? goongRequest(process.env.GOONG_API_KEY) : null }
   const rows = []
   for (const j of jobs.slice(0, limit)) {

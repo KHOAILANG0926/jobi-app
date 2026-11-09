@@ -1,6 +1,6 @@
 // location-ladder-compare 자체 시험(네트워크 없음). 실행: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-ladder-compare.test.mjs
 import assert from 'node:assert/strict'
-import { googleClient, ladderGoogle, compareOne, summarize, precheckInputOf } from './location-ladder-compare.mjs'
+import { googleClient, ladderGoogle, compareOne, summarize, precheckInputOf, siteKeyOf } from './location-ladder-compare.mjs'
 
 const json = (body) => ({ ok: true, json: async () => body })
 // 가짜 Google: Pro는 같은 이름 2곳(다른 거리), Autocomplete는 같은 이름 1곳, 상세는 좌표.
@@ -32,10 +32,26 @@ function fakeFetch(log) {
 {
   const log = [], trace = {}
   const g = googleClient('k', fakeFetch(log))
-  const registry = new Map([['P1', { place: proBody.places[0] }]])
+  const registry = new Map([['P1', { siteKey: siteKeyOf('x'), place: proBody.places[0] }]])
   await ladderGoogle({ g, registry, proFor: async () => null, company: 'Woojeon Vina', address: 'x', trace })('q')
   assert.deepEqual(log, ['ids'])
   assert.equal(trace.step, 'registry')
+}
+// 2-1) 장부에 같은 이름이 있어도 다른 사업장(주소 다름)이면 재사용하지 않고 다음 단계로(Codex #608 P2).
+{
+  const log = [], trace = {}
+  const g = googleClient('k', fakeFetch(log))
+  const registry = new Map([['P1', { siteKey: siteKeyOf('12 Lý Thái Tổ, Bắc Ninh'), place: proBody.places[0] }]])
+  await ladderGoogle({ g, registry, proFor: async () => null, company: 'Woojeon Vina', address: 'KCN Quế Võ, Bắc Ninh', trace })('q')
+  assert.notEqual(trace.step, 'registry')
+  assert.equal(trace.registrySkipped, 1)
+}
+// 2-2) Pro는 운영 한도 예약이 거절되면 부르지 않는다(Codex #608 P1).
+{
+  const log = []
+  const g = googleClient('k', fakeFetch(log), undefined, async () => false)
+  await assert.rejects(() => g.pro('q'), /quota_exhausted/)
+  assert.deepEqual(log, [])
 }
 // 3) 호출 상한을 넘으면 부르지 않는다.
 {
