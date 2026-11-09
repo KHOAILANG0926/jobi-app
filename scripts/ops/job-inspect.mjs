@@ -132,7 +132,7 @@ try {
   }
   console.log(`읽기 전용 검사(대상 밖) ${outside.length}건, 문제 있음 ${outsideBad.length}건`)
   for (const line of outsideBad) console.log(line)
-  const gh = (args) => execFileSync('gh', args, { encoding: 'utf8' }).trim()
+  const gh = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim()
   const title = '공고 검사표'
   const issue = () => gh(['issue', 'list', '--repo', REPO, '--state', 'open', '--search', `"${title}" in:title`, '--json', 'number', '--jq', '.[0].number // empty'])
   const post = (body) => { const num = issue(); if (num) gh(['issue', 'comment', num, '--repo', REPO, '--body', body]); else gh(['issue', 'create', '--repo', REPO, '--title', title, '--body', body]) }
@@ -145,9 +145,10 @@ try {
     const digest = createHash('md5').update(VERSION + outsideBad.join('\n')).digest('hex').slice(0, 12)
     const num = issue()
     // 이슈가 없어서 처음 결과를 이슈 본문으로 만든 경우도 있으므로 본문 + 댓글을 순서대로 본다(Codex #593 지적).
-    const pages = num ? JSON.parse(gh(['api', `repos/${REPO}/issues/${num}/comments?per_page=100`, '--paginate', '--slurp'])) : []
+    // 댓글 전체를 받으면 너무 커서 실패한다(2026-11-09 ENOBUFS) → 표시가 든 댓글 본문만 한 줄씩(JSON 글자) 받는다.
+    const found = num ? gh(['api', `repos/${REPO}/issues/${num}/comments?per_page=100`, '--paginate', '--jq', `.[] | select(.body | contains("${marker}")) | .body | @json`]) : ''
     const issueBody = num ? gh(['api', `repos/${REPO}/issues/${num}`, '--jq', '.body // ""']) : ''
-    const last = [issueBody, ...pages.flat().map((c) => String(c.body ?? ''))].filter((b) => b.includes(marker)).at(-1) ?? ''
+    const last = [issueBody, ...found.split('\n').filter(Boolean).map((l) => JSON.parse(l))].filter((b) => b.includes(marker)).at(-1) ?? ''
     if (!last.includes(digest) && (outsideBad.length || last)) {
       post(`**읽기 전용 검사 — 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전 등) ${outside.length}건 중 문제 ${outsideBad.length}건**\n` +
         `공고 내용·공개 상태는 바꾸지 않았습니다(표시만). 공개 판정은 기존대로입니다.\n\n${outsideBad.join('\n') || '문제 없음'}\n\n${marker} ${digest} -->`)
