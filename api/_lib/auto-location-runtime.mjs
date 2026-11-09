@@ -260,7 +260,7 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
     })
     if (res.status === 429) return record('quota', null, placeId) // Google 쪽 한도 — 나중에 다시
     if (!res.ok) throw new Error('upstream_failed')
-    site = { websiteUri: (await res.json())?.websiteUri ?? null }
+    site = { websiteUri: (await res.json())?.websiteUri ?? null, cachedAt: new Date().toISOString() } // 저장 시각(30일 정리 기준, Text Search와 같은 방식)
     await deps.cache(cacheKey, site)
   }
   const domain = websiteDomain(site?.websiteUri)

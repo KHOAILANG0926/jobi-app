@@ -217,10 +217,18 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
     reserve('google_text_search'), reserve('google_text_search_test'), searchCap)
   const ctx = { g, registry: new Map(), shared: new Map(), vietmap: vietmapRequest(need('VIETMAP_SERVICE_KEY')), goong: process.env.GOONG_API_KEY ? goongRequest(process.env.GOONG_API_KEY) : null }
   const rows = []
+  // 상한·한도에 닿은 호출은 측정이 아니다 — 그 공고는 집계에서 빼고 거기서 멈춘다(Codex #619 P1).
+  const capped = (r) => [r?.a?.error, r?.b?.error].some((m) => /test_cap_reached|test_quota_exhausted|quota_exhausted/.test(String(m ?? '')))
+  let stoppedAt = null
   for (const j of jobs.slice(0, limit)) {
-    try { rows.push({ key: j.fb_post_key ?? null, title: String(j.title ?? '').slice(0, 120), ...(await compareOne(precheckInputOf(j), ctx)) }) }
+    try {
+      const row = { key: j.fb_post_key ?? null, title: String(j.title ?? '').slice(0, 120), ...(await compareOne(precheckInputOf(j), ctx)) }
+      if (capped(row)) { stoppedAt = rows.length + 1; break }
+      rows.push(row)
+    }
     catch (e) { rows.push({ key: j.fb_post_key ?? null, title: String(j.title ?? '').slice(0, 120), a: { findable: false, reason: `error:${String(e.message).slice(0, 40)}` }, b: null, same: true }) }
   }
+  if (stoppedAt) console.log(`::notice::SearchText 상한·한도에 닿아 ${stoppedAt}번째 공고에서 멈춤 — 그 공고부터는 집계에서 뺌(측정 ${rows.length}건)`)
   // 공고별 한 줄(분석용). 공개 저장소 로그라 원문·전화번호는 넣지 않는다 — 제목·회사·읽은 위치 글자(미리 보기 알림과 같은 수준)와 판정만.
   const cut = (v, n) => String(v ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n)
   const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}${x.error ? ` err=${x.error}` : ''}` : '-')
