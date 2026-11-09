@@ -1,6 +1,9 @@
 name: 운영 - 지정 SQL 실행 (수동 실행)
 
 # 사용자 승인 후에만 수동 실행한다. scripts/ops/jobs/<name>.sql 만 실행한다. 규칙 트리거 우회 없음.
+# Lee 2026-11-09 "좁히기": master에서 Lee 계정 실행만. 허용 문장 = 정식 입구로 기존 공고 고치기 1줄(job_id+update_fields) + 조회.
+# 글자 검사만 믿지 않는다 — scripts/ops/run-sql-plan.mjs가 입구 호출 뒤(없으면 처음부터) 읽기 전용을 걸어 DB가 쓰기를 거부한다.
+# 새 공고 등록은 ops-insert-job(입구)으로만. 운영 DB 구조 변경은 migrations-apply 경로로만.
 on:
   workflow_dispatch:
     inputs:
@@ -13,21 +16,30 @@ permissions:
 
 jobs:
   run:
+    if: github.ref == 'refs/heads/master' && github.actor == 'KHOAILANG0926'
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       NAME: ${{ inputs.name }}
     steps:
       - uses: actions/checkout@v4
-      - name: 입력 확인
+        with:
+          ref: master
+      - name: 입력 확인·실행할 SQL 만들기(허용 문장만)
         run: |
           echo "$NAME" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::name 형식 오류"; exit 1; }
           test -f "scripts/ops/jobs/$NAME.sql"
-          # 새 공고는 입구(ops-insert-job → ingest_job)로만 들어온다. 이 작업으로 공고·근무지·원문 보존 표에 새로 넣지 않는다.
-          if grep -Eiq 'insert[[:space:]]+into[[:space:]]+(public\.)?(local_jobs|job_work_locations|job_ingest_raw|job_ingest_log)\b' "scripts/ops/jobs/$NAME.sql"; then
-            echo "::error::새 공고 등록은 ops-insert-job(입구)으로만 합니다"; exit 1
-          fi
+          node scripts/ops/run-sql-plan.mjs "scripts/ops/jobs/$NAME.sql" > "$RUNNER_TEMP/plan.sql"
       - name: PostgreSQL 클라이언트 설치
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-      - name: SQL 실행 (한 트랜잭션)
-        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "scripts/ops/jobs/$NAME.sql"
+      - name: 실행 권한 확인(읽기 전용)
+        run: |
+          # 입구 호출 권한이 없으면 멈춘다. 접속 계정이 관리자급이면 알림만(계정 변경은 비밀값 변경이라 Lee 결정).
+          read -r who super can < <(psql "$SUPABASE_DB_URL" -X -At -F ' ' -v ON_ERROR_STOP=1 -c "begin read only;" \
+            -c "select current_user, r.rolsuper, has_function_privilege('public.ingest_job(jsonb)', 'execute') from pg_roles r where r.rolname = current_user;" -c "commit;" | grep -v -E '^(BEGIN|COMMIT)$')
+          echo "접속 계정 $who / 관리자급 $super / 입구 호출 권한 $can"
+          [ "$can" = t ] || { echo "::error::접속 계정에 ingest_job 실행 권한 없음"; exit 1; }
+          [ "$super" = t ] && echo "::notice::접속 계정이 관리자급입니다 — 실행 문장은 위 허용 목록·읽기 전용으로 제한됨"
+          true
+      - name: SQL 실행 (한 트랜잭션, 입구 호출 뒤 읽기 전용)
+        run: psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/plan.sql"

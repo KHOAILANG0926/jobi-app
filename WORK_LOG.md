@@ -1,3 +1,9 @@
+## 2026-11-09 오전 — Codex 대기 판정 보완·운영 SQL 좁히기 (Lee "예", "좁히기")
+- 확인 [직접]: Codex 요약 '미해결' 표시는 리뷰 대화 해결 상태와 안 맞음(#581·#584·#585) → 기존 답 표시(claude-codex-reply)로 판정.
+- #587: 예전 커밋 Codex 지적에 답 없으면 30분 통과 안 함, Codex 없이 운영·보안·DB 파일 바뀐 PR은 needs-lee로 멈춤(check-repository-policy 기존 목록 재사용).
+- 운영 SQL: master·Lee 계정 실행만, 허용 = 입구로 기존 공고 고치기 1줄(job_id+update_fields) + 조회, 입구 호출 뒤 읽기 전용(DB가 쓰기 거부, 로컬 PostgreSQL 16 확인), 실행 전 입구 호출 권한 확인. 예전 파일 4개(cleanup·kda×2·mao-yen)는 이제 실행 안 됨(실행 끝난 기록).
+- 남은 것: 접속 계정이 관리자급인지 첫 실행 로그로 확인 → 관리자급이면 전용 계정 분리는 Lee 결정(비밀값 변경).
+
 ## 2026-11-09 오전 — 구조 단순화 1차 (Lee "덧붙이기 전에 고치기·합치기·지우기")
 - 상세 틀 3→2(Lee "적용"): 예전 Quyền lợi 틀 3건(sb-4878·4879·4982)을 새 4칸 틀로, 그 틀 전용 코드(splitQuyenLoi·takeRequirementLines·Quyền lợi 상자·contactHost quyenloi) 삭제. KDA·데이터 그대로.
 - 함께 낸 PR: #583 Codex 자동 대응 잡 중지(실행 0회), #584 안 쓰는 파일 15개·자동 작업 3개 삭제, #585 DB 검사 파일별 예외 27곳 → 이름 규칙(setup/local), #587 Codex 줄 지적은 처음 단 커밋 기준, #588 규칙 문서 513→371줄 + 원칙 8·PR 양식·Codex 검토 기준. 해결된 경보 글 21개 닫음.
@@ -53,9 +59,3 @@
 - 요청: Lee "색깔은 그냥 놔두고 로고는 하나로 맞춰 브라우저 탭으로".
 - 변경: 머리 줄 로고(PC·휴대폰)·바닥 로고·저작권 Việcganban/Việt Gần Bạn → Việc gần Bạn, 바닥의 중복 회사 이름 줄 삭제, 브랜드 목록·지도 창 문구 Việcganban → Việc gần Bạn. 바탕색 그대로(데모 demo/white-bg 미적용).
 - 이어서(Lee "운영 링크만 빼고 통일"): 약관·개인정보·가입·검색 제목(SEO, api/ssr.js·representativeSearchPages)·상세·지원 안내 문구도 Việc gần Bạn. 주소(viecganban.vn)·이메일은 그대로.
-
-## 2026-11-08 — 머리 줄·메뉴·바닥 알바몬 기준 (Claude)
-- 요청: Lee "왜 이렇게 촌스럽냐 … 지금 바꿔야", 데모 후 "메인 화면만 빼고 다 적용해".
-- 변경: LayoutDesktop/LayoutMobile(메뉴 이모지 24개 빼기, PC 검색 칸·버튼 메뉴 줄로, 펼침 col 칸 묶음, 바닥 → SiteFooter.tsx), siteChrome.css(.layout--d/.layout--m 아래만), menu-search-check 메뉴 이름(이모지 뺌), test-desktop-baseline 기준값.
-- 뺀 것: 메인 본문·공고 카드(데모에서 바꿨다가 Lee 지적으로 되돌림 — 승인 틀은 글 모형 먼저).
-- 남은 문제: 사이트 바탕 연분홍·이름 세 가지(Việcganban / Việt Gần Bạn / Việc gần Bạn) — Lee 결정 전 그대로.
