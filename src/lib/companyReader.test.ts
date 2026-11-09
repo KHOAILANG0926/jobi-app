@@ -70,6 +70,7 @@ eq(n('CTY - FUSHAN THƯỞNG 14.000.000Đ\nTuyển: Chính Thức và Thời V�
 eq(n('SEN TÀI THU TUYỂN DỤNG KỸ THUẬT VIÊN TRỊ LIỆU\nThu nhập: 15–20 triệu/tháng\nSen Tài Thu Bắc Ninh – H Hotel 06 Ngô Tất Tố, Võ Cường, Bắc Ninh'), 'SEN TÀI THU', '#560-24 "Hotel 06 Ngô Tất Tố" is an address')
 eq(n('Highlands Coffee tuyển dụng nhân viên phục vụ\nĐịa chỉ: 128 Lý Thái Tổ, cạnh nhà hàng ABC, Bắc Ninh'), 'Highlands Coffee', 'Codex #616: nearby shop in address is not the company')
 eq(n('Tuyển nhân viên phục vụ\nNhà hàng Snail, Bắc Ninh'), 'Nhà hàng Snail', 'Codex #616: "Snail" starts with sn but is a name')
+eq(n('FUTURE GROUP TUYỂN DỤNG – CHUYÊN VIÊN KINH DOANH/ SALE\nTHU NHẬP: 10 triệu'), 'FUTURE GROUP', '#560-28 name before TUYỂN DỤNG, job title after dash')
 eq(n('Công ty Lương thực Bắc Ninh tuyển dụng nhân viên'), 'Công ty Lương thực Bắc Ninh', 'Codex #616: "Lương thực" is part of the name')
 eq(n('CTY - FUSHAN LƯƠNG 12tr\nTuyển gấp'), 'CTY FUSHAN', 'salary amount after name is cut')
 eq(n('TUYỂN NHÂN VIÊN QUÁN CÀ PHÊ\nĐịa chỉ: 128 Đ. Triệu Việt Vương, P, Võ Cường, Bắc Ninh'), '', '#560-27 no name stays empty')

@@ -107,8 +107,9 @@ export function readCompany(text: string): CompanyRead {
     }
     // ⑤ 제목 대시 뒤("TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND BẮC NINH", "BẢNG TIN TUYỂN DỤNG THÁNG 11 – HIGHLANDS COFFEE")
     for (const l of lines.slice(0, 2)) {
-      const m = l.match(/^(?:[^–-]{0,20}\s)?(?:tuyển|tuyen|tuyển dụng|tuyển gấp|cần tuyển)\b.*?\s[–-]\s+(.{3,80})$/iu)
-      if (m && ok(m[1])) return ok(m[1])
+      const m = l.match(/^([^–-]{0,20}\s)?(?:tuyển|tuyen|tuyển dụng|tuyển gấp|cần tuyển)\b.*?\s[–-]\s+(.{3,80})$/iu)
+      // 앞말이 이름이면("FUTURE GROUP TUYỂN DỤNG – CHUYÊN VIÊN…") 대시 뒤는 직무다 → ⑥에서 앞말을 읽는다. 앞말이 "BẢNG TIN"처럼 이름이 아닐 때만 대시 뒤.
+      if (m && !(m[1] && ok(m[1])) && ok(m[2])) return ok(m[2])
     }
     // ⑥ "… TUYỂN DỤNG" 앞(첫 4줄)
     for (const l of lines.slice(0, 4)) {
