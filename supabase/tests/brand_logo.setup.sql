@@ -4,11 +4,15 @@ create schema if not exists auth;
 create table if not exists auth.users(id uuid primary key);
 create or replace function public.is_admin() returns boolean language sql stable as $$ select false $$;
 create or replace function public.require_admin() returns uuid language plpgsql as $$ begin raise exception 'not admin'; end $$;
+-- 같은 PR에 로고 migration이 여러 개면 이 준비가 여러 번 돈다 — 브랜드 표가 이미 있으면 다시 만들지 않는다(Codex #585 P2).
+select to_regclass('public.job_brands') is null as need_brands \gset
+\if :need_brands
 \i supabase/migrations/20260910120000_job_brands_master.sql
 \i supabase/migrations/20261101210000_brands_verified_chains.sql
 \i supabase/migrations/20261101230000_brand_logo_domains.sql
 \i supabase/migrations/20261103190000_brand_categories_restaurant_retail.sql
 \i supabase/migrations/20261107180000_brand_logo_image.sql
+\endif
 insert into public.job_brands (name, slug, category, domain, initial, color, active, featured, verified_branches, evidence_url, evidence_note, verified_on)
 values ('NETCO POST','netco-post','delivery','netco.com.vn','N','#0a8f3c',true,true,81,'https://netco.com.vn/vi/contact/post-offices','x','2026-11-07')
 on conflict (slug) do nothing;
