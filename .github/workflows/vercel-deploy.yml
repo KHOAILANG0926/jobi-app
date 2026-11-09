@@ -94,6 +94,8 @@ jobs:
           echo "- 배포 생략(앱 파일 변경 없음). 운영 그대로 기록" >> "$GITHUB_STEP_SUMMARY"
           # push는 deploy-verify가 스스로 돈다. 수동·봇 병합(workflow_dispatch)은 여기서 시작한다.
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then gh workflow run deploy-verify.yml --repo "${{ github.repository }}" --ref master; fi
+          # PC 헤더 운영 검사도 같은 때 한 번(#586, Codex #597 지적: 검사·자동화만 바뀐 병합도 검사를 받게).
+          if [ "$GITHUB_REF" = refs/heads/master ]; then gh workflow run desktop-header-proof.yml --repo "${{ github.repository }}" --ref master; fi
       - uses: actions/setup-node@v4
         if: steps.need.outputs.go == '1'
         with:
