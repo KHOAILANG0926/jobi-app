@@ -43,6 +43,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
+import { detailLook } from '../lib/albamonTemplate'
 import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
@@ -557,6 +558,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
     albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
+  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')))
   const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
@@ -975,7 +977,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
             {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
-              <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+              <div className="jd2-box jd2-detail-sections jd2-detail-sections--tpl" style={{ '--jd2-bar': look.bar } as React.CSSProperties} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+                {/* #563 데모: 간편 템플릿 머리(업종 그림 + 왼쪽 흐림 위 회사·제목). 그림은 장식이라 alt 비움 */}
+                <div className="jd2-desc-visual">
+                  <img className="jd2-desc-visual__img" src={look.photo} alt="" loading="lazy" />
+                  {job.company && <p className="jd2-desc-visual__company">{job.company}</p>}
+                  <p className="jd2-desc-visual__title">{job.title}</p>
+                </div>
                 {descriptionSections.map((section) => (
                   <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
                     <h3 className="jd2-detail-section__title">{section.label}</h3>

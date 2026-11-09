@@ -81,3 +81,16 @@ export function bodyFromForm(key: 'work' | 'support' | 'apply' | 'contact', f: O
   return li([`Người liên hệ: ${f.contactName}`, `Số điện thoại: ${f.contactPhone}`])
 }
 export const ROLE_DUTY_DEFAULT = '- Công việc:\n- Yêu cầu:'
+
+// #563 (Lee 2026-11-08·09 "KDA도"): 수집 공고 상세 ④도 간편 템플릿 모양 — 업종 그림 머리 + 템플릿 색 소제목 막대. 글자는 원문 그대로.
+// 공고 업종 13개는 템플릿 13개 업직종과 같은 순서(khac = Cơ bản). 그림은 업종 그림 중 공고 번호로 하나, 색은 그 업종 첫 틀의 기본 색.
+const DETAIL_GROUP: Record<string, number> = {
+  khac: 0, am_thuc_do_uong: 1, quan_ly_ban_hang: 2, dich_vu: 3, van_phong: 4, cskh_kinh_doanh: 5, san_xuat_xay_dung: 6,
+  cntt_ky_thuat: 7, thiet_ke: 8, truyen_thong: 9, lai_xe_giao_hang: 10, y_te_dieu_duong: 11, giao_duc_giang_day: 12,
+}
+export function detailLook(category: string | null | undefined, seed: number): { photo: string; bar: string } {
+  const g = DETAIL_GROUP[String(category ?? '')] ?? 0
+  const list = CATEGORY_IMAGES[g]
+  const photo = list[Math.abs(Math.trunc(seed || 0)) % list.length]
+  return { photo: `/images/template/${photo}.jpg`, bar: colorOf(DEFAULT_COLOR[41 + g * 6]).bar }
+}
