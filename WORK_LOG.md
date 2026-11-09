@@ -1,3 +1,9 @@
+## 2026-11-09 오후 — #560 위치 확인 방식 비교 시험 도구 (Lee 승인 "200건 시험")
+- 요청: 운영 공고·DB 변경 없이 시험 데이터로 현재 방식(Google Text Search Pro) vs 4단계(시험 장부 → IDs Only 무료 → Autocomplete+Details Essentials → Pro) 비교.
+- 변경: scripts/ops/location-ladder-compare.mjs(+test), .github/workflows/location-ladder-compare.yml(수동). 판정은 운영과 같은 함수(resolveAutoLocation·precheckVerdict), 캐시 메모리만, 운영 DB는 Google 이번 달 사용 횟수 읽기만.
+- 거부 분석 [직접 확인]: Facebook 저장 시도 15건 중 저장 5 · 위치 거부 8(대략 위치만 5, 주소 글 없음 1, 원래 성 밖 1, 확인 서버 응답 없음 1) · 기타 2. 앞서 보고한 '16건'은 로그 줄 중복으로 두 번 센 것.
+- 남은 것: 미리 보기 8개 그룹 실행 → 비교 실행 → 결과 보고, VietMap 저장 문의 메일(Lee 승인 후 발송).
+
 ## 2026-11-09 오후 — AI 팀 Co-work 자동 협업 연결 (Lee 최우선)
 - #598 Codex 지적 → GitHub Actions Claude 자동 수정·답·재검사 요청 다시 켬, #601 실행 기록(결과·거절 명령·오류) 표시, #602 실행 전 npm ci.
 - 원인 확인: 예전 2초 실패(#582) = 구독 열쇠 무효(401) → Lee가 새 열쇠 등록(11-09 13:05).
