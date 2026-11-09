@@ -94,6 +94,10 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   // Codex #616: 번지와 거리 사이 쉼표
   assert(pick('Highlands Coffee', 'Số 10, đường Lý Thái Tổ, Bắc Ninh', [H('h1', 'Highlands Coffee', '10 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 'h1', 'Codex #616 comma between number and street')
   assert(pick('Highlands Coffee', 'Số 10, đường Lý Thái Tổ, Bắc Ninh', [H('h2', 'Highlands Coffee', '5 Nguyễn Trãi, Bắc Ninh')]).hit === null, 'comma form still guards other street')
+  // Codex #616: 슬래시 번지, 로마 숫자 공단 순번
+  assert(pick('Highlands Coffee', '10/2 Lý Thái Tổ, Bắc Ninh', [H('s1', 'Highlands Coffee', '10/2 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 's1', 'Codex #616 slash house number')
+  assert(pick('Công ty ABC Việt', 'KCN Quế Võ III, Bắc Ninh', [H('q1', 'Công ty ABC Việt', 'KCN Quế Võ 1, Bắc Ninh'), H('q2', 'Công ty ABC Việt', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 roman numeral park III is not Quế Võ 1')
+  assert(pick('Công ty ABC Việt', 'KCN Quế Võ III, Bắc Ninh', [H('q3', 'Công ty ABC Việt', 'KCN Quế Võ 3, Bắc Ninh')]).hit?.id === 'q3', 'Codex #616 roman III = 3')
   assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
 }
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')

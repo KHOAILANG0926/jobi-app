@@ -34,14 +34,23 @@ export function sameCoreName(company: string, placeName: string): boolean {
 /** 원문 주소의 거리 이름(번지·"đường/phố" 없이). 없으면 ''. */
 export function streetOf(address: string): string {
   // "27 kinh dương vương-p Vũ Ninh"처럼 붙어 쓴 '-p'·'-tỉnh'도 끊는다.
-  const first = normalizePlaceText(String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? '')
+  // 번지("10/2", "Số 10")는 글자를 다듬기 전에 뗀다 — 다듬으면 "/"가 공백이 돼 "2"가 거리 이름에 남는다(Codex #616).
+  const rawFirst = String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? ''
+  const first = normalizePlaceText(rawFirst.replace(/^\s*(?:số\s*)?\d+[a-z]?(?:\s*\/\s*\d+[a-z]?)*(?![\p{L}\d])\s*/iu, ''))
   const street = first.replace(/^(?:so\s+)?\d+[a-z]?(?:\/\d+)*\s+/, '').replace(/^(?:duong|pho|d)\s+/, '').trim() // "Đ. Triệu Việt Vương"의 Đ.(đường 줄임)도 뗀다
   return street.length > 2 && !/^(?:kcn|ccn|khu|cum|phuong|p|xa|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\b/.test(first) ? street : ''
 }
 
 export interface PlaceHit { id: string; name: string; address: string }
 
-/** 원문 주소의 공단 이름: KCN/CCN/khu công nghiệp 뒤 2낱말(+번호, 예 "que vo 2"), 쉼표·괄호·지역 말에서 끊음. 없으면 ''. */
+const ROMAN_TO_ARABIC: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5', vi: '6' }
+const PARK_NUMBERING = new RegExp(`^(?:\\d+|${Object.keys(ROMAN_TO_ARABIC).join('|')})$`)
+/** 후보 주소의 공단 순번도 같은 아라비아 숫자로 맞춘다("Quế Võ III" ↔ "Quế Võ 3"). 공단 말(kcn 등) 뒤의 순번만 바꾼다. */
+function arabicParkNumbers(text: string): string {
+  return text.replace(/ (kcn|ccn|cong nghiep|cn)( (?:[a-z]+ ){1,2}?)(i|ii|iii|iv|v|vi)(?= )/g, (_m, a: string, b: string, r: string) => ` ${a}${b}${ROMAN_TO_ARABIC[r]}`)
+}
+
+/** 원문 주소의 공단 이름:KCN/CCN/khu công nghiệp 뒤 2낱말(+번호, 예 "que vo 2"), 쉼표·괄호·지역 말에서 끊음. 없으면 ''. */
 export function parkNameOf(address: string): string {
   for (const part of String(address ?? '').split(/[,(;]|\s[-–]\s/)) {
     const m = ` ${normalizePlaceText(part)} `.match(/ (?:kcn|ccn|khu cong nghiep|cum cong nghiep|khu cn|cum cn) (.+)$/)
@@ -51,7 +60,8 @@ export function parkNameOf(address: string): string {
       /^(?:thanh pho|thi xa|thi tran|bac ninh|bac giang|ha noi|hai duong|hung yen)$/.test(`${w} ${words[i + 1] ?? ''}`))
     const name = (stop >= 0 ? words.slice(0, stop) : words).slice(0, 2)
     const num = words[name.length]
-    if (name.length && num && /^\d+$/.test(num)) name.push(num)
+    // 순번은 아라비아·로마 숫자 모두(기존 공단 판독 NUMBERING과 같은 기준) — "III"가 빠지면 다른 공단과 같아진다(Codex #616).
+    if (name.length && num && PARK_NUMBERING.test(num)) name.push(ROMAN_TO_ARABIC[num] ?? num)
     if (name.length) return name.join(' ')
   }
   return ''
@@ -75,7 +85,8 @@ export function pickCompanyPlace(company: string, address: string, hits: PlaceHi
   const named = hits.filter((h) => h.id && sameCoreName(company, h.name))
   const numbered = numberedStreet(address), park = parkNameOf(address)
   const has = (h: PlaceHit, words: string) => ` ${normalizePlaceText(h.address)} `.includes(` ${words} `)
-  const same = named.filter((h) => (!numbered || has(h, numbered)) && (!park || has(h, park)))
+  const hasPark = (h: PlaceHit) => arabicParkNumbers(` ${normalizePlaceText(h.address)} `).includes(` ${park} `)
+  const same = named.filter((h) => (!numbered || has(h, numbered)) && (!park || hasPark(h)))
   if (named.length && !same.length) return { hit: null, reason: numbered && !named.some((h) => has(h, numbered)) ? 'street_mismatch' : 'park_mismatch' }
   if (same.length === 1) return { hit: same[0], reason: 'single_core_name' }
   if (same.length === 0) return { hit: null, reason: 'no_core_name' }
