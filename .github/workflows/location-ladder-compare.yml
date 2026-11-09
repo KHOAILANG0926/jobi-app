@@ -78,7 +78,7 @@ jobs:
           envf="$RUNNER_TEMP/vercel.env"
           npx --yes vercel@latest env pull "$envf" --environment=production --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || { echo "::error::Vercel 환경변수 받기 실패"; exit 1; }
           # vercel env pull은 값을 "…"로 감싸고 끝 줄바꿈을 글자 \n으로 적는다 — 그대로 쓰면 API_KEY_INVALID(첫 시험 42599618299).
-          # 따옴표·\n 표기·앞뒤 공백을 걷어 낸다(운영 서버는 같은 값을 그대로 받아 정상 — business-search-compare 42600… 오류 0).
+          # 따옴표·\n 표기·앞뒤 공백을 걷어 낸다(운영 서버는 같은 값을 그대로 받아 정상 — business-search-compare 42599813839 Google 오류 0).
           val() { grep -E "^$1=" "$envf" | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e 's/\\n//g' -e 's/\\r//g' | tr -d '[:space:]'; }
           GOOGLE_PLACES_API_KEY=$(val GOOGLE_PLACES_API_KEY); GOONG_API_KEY=$(val GOONG_API_KEY)
           rm -f "$envf"
