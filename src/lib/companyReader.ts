@@ -91,6 +91,8 @@ export function readCompany(text: string): CompanyRead {
       // 이름표 줄은 건너뛰되 "Địa chỉ: Nhà hàng Seoseo Galbi"처럼 주소 이름표 값이 가게 이름이면 읽는다(#560).
       const value = l.match(/^(?:địa chỉ|địa điểm(?: làm việc)?)\s*[:：]\s*(.+)$/iu)?.[1]
       if (LABEL_LINE.test(l) && !value) continue
+      // 주소 이름표 값은 가게 낱말로 시작할 때만(주소 속 "cạnh nhà hàng ABC" 같은 주변 업체는 아님, Codex #616)
+      if (value !== undefined && !new RegExp(`^${KIND}\\s`, 'iu').test(value.trim())) continue
       const m = (value ?? l).match(new RegExp(`(${KIND})\\s+([^,.!?:\\n]{2,60})`, 'iu'))
       if (!m || NOT_NAME_START.test(m[2].trim())) continue
       const c = m[2].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển|tìm|mới khai trương)(?=\s|[:：!–-]|$).*$/iu, '')

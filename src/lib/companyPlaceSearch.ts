@@ -58,7 +58,14 @@ export function parkNameOf(address: string): string {
 }
 /** 원문이 번지부터 적은 주소면 그 거리 이름(예: "213 Ngọc Hân Công Chúa" → "ngoc han cong chua"). 아니면 ''. */
 function numberedStreet(address: string): string {
-  return /^\s*(?:số\s*)?\d/iu.test(String(address ?? '')) ? streetOf(address) : ''
+  const text = String(address ?? '')
+  if (!/^\s*(?:số\s*)?\d/iu.test(text)) return ''
+  const s = streetOf(text)
+  // "Số 10, đường Lý Thái Tổ": 첫 칸이 번지뿐이면 다음 칸의 거리 이름(Codex #616). 그래도 거리가 없으면 거리 조건을 쓰지 않는다.
+  if (s && !/^(?:so\s*)?\d+[a-z]?(?:\/\d+)*$/.test(s)) return s
+  const rest = text.split(',').slice(1).join(',')
+  const next = rest ? streetOf(rest) : ''
+  return next && !/^(?:so\s*)?\d/.test(next) ? next : ''
 }
 
 /** 핵심 이름이 같은 후보 1곳. 여럿이면 원문 거리 이름이 주소에 있는 것만 남겨 1곳일 때만.

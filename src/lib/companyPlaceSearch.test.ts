@@ -91,6 +91,9 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   assert(pick('Trung tâm kho vận Đông Việt', 'Trung tâm kho vận Đông Việt - Cụm công nghiệp Xuân Lâm - Thuận Thành - Bắc Ninh', [H('v1', 'Công ty cổ phần Đông Việt', 'Cụm công nghiệp, Song Liễu, Bắc Ninh')]).hit === null, '#560-20 other industrial cluster')
   assert(pick('JOLLIBEE BẮC NINH', 'Bắc Ninh', [H('j1', 'Jollibee Trần Hưng Đạo Bắc Ninh', '393 Trần Hưng Đạo, Võ Cường, Bắc Ninh'), H('j2', 'Jollibee Nguyễn Trãi', '207 Nguyễn Trãi, Võ Cường, Bắc Ninh')]).hit === null, '#560-21 chain without branch')
   assert(pick('THƯƠNG HIỆU THỜI TRANG ILABY KIDS', '148 Trần Hưng Đạo, TP Bắc Ninh', [H('k1', 'KRIK - 148 Trần Hưng Đạo (TP.Bắc Ninh)', '152 Trần Hưng Đạo - P.Kinh Bắc - TP.Bắc Ninh')]).hit === null, '#560-19 other brand at same street')
+  // Codex #616: 번지와 거리 사이 쉼표
+  assert(pick('Highlands Coffee', 'Số 10, đường Lý Thái Tổ, Bắc Ninh', [H('h1', 'Highlands Coffee', '10 Đ. Lý Thái Tổ, Bắc Ninh')]).hit?.id === 'h1', 'Codex #616 comma between number and street')
+  assert(pick('Highlands Coffee', 'Số 10, đường Lý Thái Tổ, Bắc Ninh', [H('h2', 'Highlands Coffee', '5 Nguyễn Trãi, Bắc Ninh')]).hit === null, 'comma form still guards other street')
   assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
 }
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')
