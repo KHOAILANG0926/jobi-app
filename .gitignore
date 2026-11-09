@@ -17,3 +17,6 @@ scripts/research/contact_sources/*.tsv
 # 박닌 수집 검토용 산출물(경쟁 사이트 공고 데이터) — 커밋 금지
 scripts/research/out/
 android/project/
+
+# 개인 PC의 Claude Code 권한 설정(모든 권한 묻지 않기 등) — 저장소에 올리면 GitHub 자동 작업도 그 설정을 읽어 도구 제한이 무력해진다(#612)
+.claude/settings.local.json
