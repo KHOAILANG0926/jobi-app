@@ -61,7 +61,7 @@ export function postBody(text: string): string {
   return (cut >= 0 ? lines.slice(0, cut) : lines).join('\n')
 }
 // 가게 낱말 뒤가 이름이 아니라 위치 설명("quán cạnh ngã 6", "Hotel 06 Ngô Tất Tố")이면 버린다(#560).
-const NOT_NAME_START = /^(?:cạnh|gần|đối diện|sát|ngay|bên|trước|sau|trong|ở|tại|số|sn|\d)/iu
+const NOT_NAME_START = /^(?:(?:cạnh|gần|đối diện|sát|ngay|bên|trước|sau|trong|ở|tại|số|sn)(?=\s|[.,:]|$)|\d)/iu // 낱말 끝까지("Snail"은 상호, Codex #616)
 
 /** 원문(여러 줄)에서 회사 이름. 못 찾으면 name=''. */
 export function readCompany(text: string): CompanyRead {
