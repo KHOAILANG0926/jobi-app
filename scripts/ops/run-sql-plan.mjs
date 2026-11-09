@@ -52,6 +52,8 @@ export function planSql(text) {
     if (line.includes('$')) return errors.push(`${n}: $ 인용 금지`)
     // 따옴표 글자 안은 psql이 변수로 바꾸지 않고 함수로 실행되지도 않는다 → 빼고 본다.
     const code = line.replace(/'(?:[^']|'')*'/g, "''")
+    // 큰따옴표 이름("pg_cancel_backend")·주석(/**/, --)은 함수 이름 검사를 피해 갈 수 있어 조회 줄에서 금지(Codex #590 지적).
+    if (/["]|\/\*|--/.test(code)) return errors.push(`${n}: 큰따옴표 이름·주석 금지`)
     if (ADMIN_FN.test(code)) return errors.push(`${n}: 관리 함수 호출 금지`)
     const vars = code.match(/(?<!:):(?!:)['"]?[A-Za-z_]\w*/g) ?? []
     if (vars.some((v) => v !== ':job_id')) return errors.push(`${n}: psql 변수는 :job_id만`)
