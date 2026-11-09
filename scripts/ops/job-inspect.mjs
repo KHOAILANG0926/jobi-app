@@ -30,12 +30,12 @@ try {
   const brands = assembleBrands(
     (await client.query(`select id,name,slug,category,domain,logo_url,initial,color,active,featured from public.job_brands where active`)).rows,
     (await client.query(`select brand_id,alias,is_primary from public.job_brand_aliases where active`)).rows)
-  const { rows } = await client.query(`
+  const selectJobs = (where) => client.query(`
     select public.job_inspect_content_hash(j) as content_hash, (coalesce((j.ocr_check->>'inspect_hold')::boolean, false)
              -- 검사 실패로 내린 공고도 다시 통과하면 되살린다(관리자가 직접 내린 공고는 해당 없음)
              or exists (select 1 from jsonb_array_elements(coalesce(j.ocr_check->'inspect'->'items', '[]'::jsonb)) i
                         where i->>'key' = 'public' and i->>'detail' = '검사 실패로 비공개 보류')) as hold,
-           j.application_deadline, j.employment_type, j.work_period, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
+           j.origin, j.application_deadline, j.employment_type, j.work_period, j.id, j.title, j.contact_name, j.company, j.salary, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text,
            j.category, j.occupation_code, j.active, j.admin_hidden, j.shuttle_bus, j.dormitory, j.meal_provided,
            j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days,
            coalesce(jsonb_array_length(case when jsonb_typeof(j.images) = 'array' then j.images end), 0) as image_count,
@@ -54,28 +54,32 @@ try {
            , (select s.result->>'kind' from public.map_r1_location_jobs s where s.job_id = j.id and s.result->>'kind' in ('gate','area'))) as pin,
            (select u.reason from public.map_r1_unlocated u where u.job_id = j.id) as unlocated_reason
     from public.local_jobs j
-    where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
-    order by j.id`)
+    where ${where}
+    order by j.id`).then((r) => r.rows)
+  // 자동 작업 대상: 수집·관리자 공고 중 기준 시각 이후(Lee 2026-11-01: 기존 공고는 건드리지 않는다)
+  const SCOPE = `j.origin in ('crawler','admin') and ${afterCutoff('j')}`
+  const rows = await selectJobs(SCOPE)
+  const toInput = (job) => ({
+    id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,
+    // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목은 비워 둔 채 공개한다 — 누락은 경고만(모든 공고).
+    // 고용형태는 employment_type이 없으면 원문에서 옮긴 work_period(화면 "Hình thức làm việc"와 같은 값)로 본다.
+    postingFields: { hours: job.hours, employment_type: job.employment_type || job.work_period, application_deadline: job.application_deadline, num_hires: job.num_hires, reviewOnly: true },
+    phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses],
+    values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
+    valueGroups: [[job.hours, job.work_days]],
+    category: job.category, occupation_code: job.occupation_code, active: job.active, admin_hidden: job.admin_hidden,
+    image_count: job.image_count, ocr_status: job.ocr_status, pin: job.pin, unlocated_reason: job.unlocated_reason,
+    shuttle_bus: job.shuttle_bus, dormitory: job.dormitory, meal_provided: job.meal_provided, unclassified_lines: job.unclassified,
+    still_missing_lines: job.still_missing,
+    photo: photoSource({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, companyDomain: job.company_domain ?? undefined,
+      images: Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : undefined,
+      lookupResult: job.logo_result, createdAt: job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at }, brands),
+  })
   for (const job of rows) {
     // Do not retroactively withdraw postings that were already public when this
     // new check first ran. Persist the rollout mode; new/held postings stay strict.
     const requiredFieldsEnforced = job.prev?.required_fields_enforced ?? !job.active
-    const input = {
-      id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,
-      // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목은 비워 둔 채 공개한다 — 누락은 경고만(모든 공고).
-      // 고용형태는 employment_type이 없으면 원문에서 옮긴 work_period(화면 "Hình thức làm việc"와 같은 값)로 본다.
-      postingFields: { hours: job.hours, employment_type: job.employment_type || job.work_period, application_deadline: job.application_deadline, num_hires: job.num_hires, reviewOnly: true },
-      phones: [job.employer_phone, job.contact_zalo], addresses: [job.location, ...job.addresses],
-      values: [job.age_requirement, job.gender_requirement, job.education, job.preference, job.num_hires, job.language_requirement, job.required_documents],
-      valueGroups: [[job.hours, job.work_days]],
-      category: job.category, occupation_code: job.occupation_code, active: job.active, admin_hidden: job.admin_hidden,
-      image_count: job.image_count, ocr_status: job.ocr_status, pin: job.pin, unlocated_reason: job.unlocated_reason,
-      shuttle_bus: job.shuttle_bus, dormitory: job.dormitory, meal_provided: job.meal_provided, unclassified_lines: job.unclassified,
-      still_missing_lines: job.still_missing,
-      photo: photoSource({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, companyDomain: job.company_domain ?? undefined,
-        images: Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : undefined,
-        lookupResult: job.logo_result, createdAt: job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at }, brands),
-    }
+    const input = toInput(job)
     const r0 = inspectJob(input)
     // 공개 여부(public 항목)는 검사 결과가 아니라 이 판정의 결과다. 나머지 항목이 전부 통과해야 공개할 수 있다.
     const d = publishDecision(r0, { active: job.active, admin_hidden: job.admin_hidden, hold: job.hold, application_deadline: job.application_deadline })
@@ -115,13 +119,37 @@ try {
   let streak = 0
   for (const x of recent) { if (x.ok) streak++; else break }
   console.log(`연속 통과 ${streak}/${STREAK_GOAL}`)
+  // 읽기 전용 검사(Lee 2026-11-09): 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전 등)에도 같은 검사(inspectJob)를 돌려 결과만 알린다.
+  // DB에는 아무것도 쓰지 않는다 — 공고 내용·공개 상태·검사 기록 그대로, 과거 공고 자동 수정 없음. 관리자가 숨긴 공고는 제외.
+  const outside = await selectJobs(`not (${SCOPE}) and not j.admin_hidden`)
+  const outsideBad = []
+  for (const job of outside) {
+    let bad
+    // 읽기 전용 검사가 실패해도 위의 본 검사 결과에는 영향 없게(경고만, 다음 실행에 다시)
+    try { bad = inspectJob(toInput(job)).items.filter((i) => i.key !== 'public' && !i.ok && !INFO_ONLY.includes(i.key)) }
+    catch (e) { console.log(`::warning::#${job.id} 읽기 전용 검사 실패: ${e.message}`); continue }
+    if (bad.length) outsideBad.push(`- #${job.id} (${job.origin ?? '?'}·${job.active ? '공개' : '비공개'}) ${String(job.title ?? '').slice(0, 50)}: ${bad.map((i) => i.label + (i.detail ? ` — ${i.detail}` : '')).join(' / ')}`)
+  }
+  console.log(`읽기 전용 검사(대상 밖) ${outside.length}건, 문제 있음 ${outsideBad.length}건`)
+  for (const line of outsideBad) console.log(line)
+  const gh = (args) => execFileSync('gh', args, { encoding: 'utf8' }).trim()
+  const title = '공고 검사표'
+  const issue = () => gh(['issue', 'list', '--repo', REPO, '--state', 'open', '--search', `"${title}" in:title`, '--json', 'number', '--jq', '.[0].number // empty'])
+  const post = (body) => { const num = issue(); if (num) gh(['issue', 'comment', num, '--repo', REPO, '--body', body]); else gh(['issue', 'create', '--repo', REPO, '--title', title, '--body', body]) }
   if (reports.length && GH_TOKEN && REPO) {
-    const title = '공고 검사표'
-    const body = `${reports.join('\n\n')}\n\n**연속 통과 ${streak}/${STREAK_GOAL}** ${streak >= STREAK_GOAL ? '— 크롤링 시작 조건 충족' : '(10개가 되면 크롤링 시작 조건 충족)'}`
-    const gh = (args) => execFileSync('gh', args, { encoding: 'utf8' }).trim()
-    const num = gh(['issue', 'list', '--repo', REPO, '--state', 'open', '--search', `"${title}" in:title`, '--json', 'number', '--jq', '.[0].number // empty'])
-    if (num) gh(['issue', 'comment', num, '--repo', REPO, '--body', body])
-    else gh(['issue', 'create', '--repo', REPO, '--title', title, '--body', body])
+    post(`${reports.join('\n\n')}\n\n**연속 통과 ${streak}/${STREAK_GOAL}** ${streak >= STREAK_GOAL ? '— 크롤링 시작 조건 충족' : '(10개가 되면 크롤링 시작 조건 충족)'}`)
+  }
+  // 대상 밖 결과는 지난번 알림과 달라졌을 때만 남긴다(기록은 이슈 댓글로만 — DB에 쓰지 않음).
+  if (GH_TOKEN && REPO) {
+    const marker = '<!-- readonly-inspect'
+    const digest = createHash('md5').update(VERSION + outsideBad.join('\n')).digest('hex').slice(0, 12)
+    const num = issue()
+    const pages = num ? JSON.parse(gh(['api', `repos/${REPO}/issues/${num}/comments?per_page=100`, '--paginate', '--slurp'])) : []
+    const last = pages.flat().filter((c) => String(c.body ?? '').includes(marker)).at(-1)?.body ?? ''
+    if (!last.includes(digest) && (outsideBad.length || last)) {
+      post(`**읽기 전용 검사 — 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전 등) ${outside.length}건 중 문제 ${outsideBad.length}건**\n` +
+        `공고 내용·공개 상태는 바꾸지 않았습니다(표시만). 공개 판정은 기존대로입니다.\n\n${outsideBad.join('\n') || '문제 없음'}\n\n${marker} ${digest} -->`)
+    }
   }
 } finally {
   await client.end()
