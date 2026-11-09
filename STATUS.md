@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-08 09:45 (VN)**
-- 기준 커밋: `5a24b43` (docs(handoff): 소개소 중복 판정 공장 비교(#540) (#541))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/42439755221
+- 생성 시각: **2026-11-09 10:01 (VN)**
+- 기준 커밋: `58bc02d` (DB 검사: migration 파일별 예외 27곳 → 이름 규칙 하나로 (#585))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/42553926388
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -26,29 +26,29 @@
 | 항목 | 결과 |
 |---|---|
 | 타입 검사 `tsc --noEmit` | ✅ 통과 |
-| 테스트 `npm test` | ✅ 119/119 파일 통과 |
+| 테스트 `npm test` | ✅ 115/115 파일 통과 |
 | 빌드 `npm run build` | ✅ 통과 |
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `e68e30d` · 상태 **success** · 2026-11-07 23:43 (VN)
-- master 최신 커밋과 ⚠️ 다름 (아직 배포 안 됐거나 다른 브랜치에서 배포됨)
+- 마지막 Production 배포: `58bc02d` · 상태 **success** · 2026-11-09 08:59 (VN)
+- master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
 ## 3. 최근 병합된 PR
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #541 | 2026-11-07 23:51 (VN) | `5a24b43` | docs(handoff): 소개소 중복 판정 공장 비교 |
-| #540 | 2026-11-07 23:41 (VN) | `e68e30d` | 소개소 중복 판정: 실제 근무 공장·공단 비교(새 칸, 화면 미사용) |
-| #539 | 2026-11-07 23:29 (VN) | `82e133e` | docs(handoff): 소개소 표시 원래 칸 하나로 |
-| #537 | 2026-11-07 23:23 (VN) | `302d22a` | DB: 따로 만든 소개소 칸 지우기(원래 채용 형태 칸 하나로) |
-| #538 | 2026-11-07 22:46 (VN) | `8a237e4` | approve: 따로 만든 소개소 칸 지우기 migration 승인 기록(Lee) |
-| #536 | 2026-11-07 22:41 (VN) | `b1d1961` | 소개소 표시 원래 칸 하나로·경고색 빼기·판정 문구·번호 기록 |
-| #534 | 2026-11-07 21:46 (VN) | `4ca533c` | docs(handoff): 2026-11-07 밤 스냅샷 |
-| #533 | 2026-11-07 21:35 (VN) | `946cd4f` | 급여 읽기: 동 전체 금액·k 금액, 교대 금액은 일급 (#5633) |
-| #531 | 2026-11-07 20:16 (VN) | `2ac65a2` | 카드 상호: 회사 형태 낱말 빼기·2줄·지점은 지역 줄로 |
-| #528 | 2026-11-07 19:50 (VN) | `b328c21` | fix: 회사 이름 읽기 — 대명사 제외(#4879) |
+| #585 | 2026-11-09 08:59 (VN) | `58bc02d` | DB 검사: migration 파일별 예외 27곳 → 이름 규칙 하나로 |
+| #589 | 2026-11-09 08:52 (VN) | `e7549fa` | 상세: 예전 Quyền lợi 틀 3건을 새 4칸 틀로 합침(Lee 적용) — 틀 3→2 |
+| #588 | 2026-11-09 08:24 (VN) | `1a04ede` | 규칙 문서 간소화 + '덧붙이기 전에 고치기·합치기·지우기' 원칙(PR 양식·Codex 검토) |
+| #584 | 2026-11-09 08:21 (VN) | `331e644` | 정리: 아무 데도 안 쓰는 파일 15개·끝난 자동 작업 3개 삭제 |
+| #581 | 2026-11-09 08:15 (VN) | `6596a56` | AI 팀: Lee가 '적용'한 데모 PR은 Codex 대기 생략 |
+| #583 | 2026-11-09 08:02 (VN) | `e87c598` | AI 팀: 실패만 하던 Codex 지적 자동 대응 잡 중지 (#582) |
+| #580 | 2026-11-09 07:27 (VN) | `6b56132` | 공고 작성 화면·상세 템플릿 알바몬 맞춤 (Lee 데모 적용) |
+| #578 | 2026-11-09 05:31 (VN) | `450ccef` | fix(template): 모바일 미리보기 새 창 가운데 정렬 (#577) |
+| #576 | 2026-11-09 02:34 (VN) | `fa5e275` | docs(handoff): 밤 근무 3회차 — #570·#566·#575 운영 반영 |
+| #566 | 2026-11-09 02:21 (VN) | `1d6fd88` | fix(ai-team): Codex 지적 2건 반영 + Codex 봇 리뷰로 Claude 자동 대응 허용 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -75,23 +75,22 @@
 | 2026-11-04 | 3 | 2026-11-04 12:19 (VN) |
 | 2026-11-03 | 1 | 2026-11-03 16:39 (VN) |
 | 2026-11-02 | 2 | 2026-11-02 19:32 (VN) |
-| 2026-11-01 | 4 | 2026-11-01 16:28 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-07 23:52 (VN) | location_candidate.approve | job 5674 |
-| 2026-11-07 23:52 (VN) | location_candidate.add | job 5674 |
-| 2026-11-07 23:43 (VN) | location_candidate.approve | job 5670 |
-| 2026-11-07 23:43 (VN) | location_candidate.add | job 5670 |
-| 2026-11-07 23:30 (VN) | location_candidate.approve | job 5667 |
-| 2026-11-07 23:30 (VN) | location_candidate.add | job 5667 |
-| 2026-11-07 23:25 (VN) | location_candidate.approve | job 5664 |
-| 2026-11-07 23:25 (VN) | location_candidate.add | job 5664 |
-| 2026-11-07 22:47 (VN) | location_candidate.approve | job 5660 |
-| 2026-11-07 22:47 (VN) | location_candidate.add | job 5660 |
+| 2026-11-09 09:00 (VN) | location_candidate.approve | job 5760 |
+| 2026-11-09 09:00 (VN) | location_candidate.add | job 5760 |
+| 2026-11-09 08:53 (VN) | location_candidate.approve | job 5757 |
+| 2026-11-09 08:53 (VN) | location_candidate.add | job 5757 |
+| 2026-11-09 08:25 (VN) | location_candidate.approve | job 5755 |
+| 2026-11-09 08:25 (VN) | location_candidate.add | job 5755 |
+| 2026-11-09 08:22 (VN) | location_candidate.approve | job 5752 |
+| 2026-11-09 08:22 (VN) | location_candidate.add | job 5752 |
+| 2026-11-09 08:16 (VN) | location_candidate.approve | job 5748 |
+| 2026-11-09 08:16 (VN) | location_candidate.add | job 5748 |
 
 ## 8. 검증 장치 변경 이력
 
