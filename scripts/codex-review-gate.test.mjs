@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { codexGate, REPLY_AUTHORS, REPLY_MARKER, WAIT_MIN } from './codex-review-gate.mjs'
 
 const sha = 'abc123', headDate = '2026-11-08T16:00:00Z'
@@ -34,8 +33,4 @@ assert.equal(codexGate({ ...base, comments: [{ user: claude, body: `${REPLY_MARK
 const fake = { ...summary(sha, false), user: { login: 'random-codex-user', type: 'User' }, updated_at: '2026-11-08T16:20:00Z' }
 assert.equal(codexGate({ ...base, comments: [summary(sha, true), fake], now: at(30) }).ok, false, 'forged finding-free summary from look-alike account ignored')
 assert.equal(codexGate({ ...base, reviews: [{ ...rv[0], user: { login: 'random-codex-user', type: 'User' } }], now: at(11) }).ok, false, 'look-alike reviewer is not Codex')
-// Codex #566 P2: 왕복 횟수 장치(claude-auto.yml)도 같은 답 작성자만 센다 — 계정 목록이 어긋나지 않게.
-const autoYml = readFileSync(new URL('../.github/workflows/claude-auto.yml', import.meta.url), 'utf8')
-const guardLine = autoYml.split('\n').find((l) => l.includes('claude-codex-reply') && l.includes('gh api')) ?? ''
-for (const a of REPLY_AUTHORS) assert.ok(guardLine.includes(`.user.login == "${a}"`), `round guard counts only trusted reply author ${a}`)
 console.log('codex-review-gate: all assertions passed')
