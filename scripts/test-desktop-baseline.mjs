@@ -1,4 +1,5 @@
 // 2026-11-08: index.css — Lee "적용해도 괜찮아"(데모 A안): 휴대폰(≤640px)에서만 정렬 줄(JobsListToolbar) 칸이 넘치면 아래 줄로. PC 틀·CSS 동작 변경 없음(폭 1280 정렬 줄 위치·크기 수정 전후 같음).
+// 2026-11-09: JobDetail.tsx — Lee "적용"(demo/legacy-frame): 예전 Quyền lợi 틀 3건(sb-4878·4879·4982)을 새 4칸 틀로 합치고 그 틀 전용 코드 삭제. KDA 틀·데이터 변경 없음.
 // 2026-11-08: JobDetail.tsx — Lee B안("B로 바꾸고"·"마무리먼저"): 간편 템플릿으로 쓴 공고는 ④ 상세요강을 템플릿 모양 그대로(description_html), 추가 고용형태 이름. 다른 칸·KDA 틀 변경 없음.
 // 2026-11-08: JobDetail.tsx — Lee "3 적용": 공고 등록 미리보기용 previewJob 입력(/xem-truoc-tin, 단추 막힘·안내 한 줄). 공개 상세 화면 틀 변경 없음.
 // 2026-11-08: JobDetail.tsx — Lee "운영 링크만 빼고 통일": 문구 속 이름 Việc Gần Bạn → Việc gần Bạn(글자만). 틀 변경 없음.
@@ -103,7 +104,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "f9fd4e5376440a2f29e6a4fe152ae6e6eabadf27bbe50f16e11ca750ddf58d70",
+    "sha256": "849ec4e48a594129b026d1522e6da2af998406b38a39c9e11f9445313411623a",
     "restore": []
   },
   {

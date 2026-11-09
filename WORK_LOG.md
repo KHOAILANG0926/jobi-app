@@ -1,3 +1,9 @@
+## 2026-11-09 오전 — 구조 단순화 1차 (Lee "덧붙이기 전에 고치기·합치기·지우기")
+- 상세 틀 3→2(Lee "적용"): 예전 Quyền lợi 틀 3건(sb-4878·4879·4982)을 새 4칸 틀로, 그 틀 전용 코드(splitQuyenLoi·takeRequirementLines·Quyền lợi 상자·contactHost quyenloi) 삭제. KDA·데이터 그대로.
+- 함께 낸 PR: #583 Codex 자동 대응 잡 중지(실행 0회), #584 안 쓰는 파일 15개·자동 작업 3개 삭제, #585 DB 검사 파일별 예외 27곳 → 이름 규칙(setup/local), #587 Codex 줄 지적은 처음 단 커밋 기준, #588 규칙 문서 513→371줄 + 원칙 8·PR 양식·Codex 검토 기준. 해결된 경보 글 21개 닫음.
+- 조사만(Lee 결정 대기): 「운영 - 지정 SQL 실행」은 수정·삭제 문장을 막지 않아 승인 절차 우회 가능 → 입구 호출·조회만 허용하는 제한안. #586 운영 헤더 검사 11-04 이후 미실행.
+- 검증: tsc·npm test 119/119·build·desktop baseline 8/8.
+
 ## 2026-11-09 아침 — 공고 작성 화면·상세 템플릿 알바몬 맞춤 (Lee "적용")
 - 요청: 알바몬 실제 공고(120083527)·알바몬 일반공고 작성 화면과 나란히 비교한 차이 고치기.
 - 변경: 상세 템플릿 PC 가운데 정렬·빈 회사 이름 안내 글자 숨김·미리보기 창 글자체 Inter(AlbamonTemplate.tsx/.css). /dang-tin 흰 바탕(이 화면만), 업직종 짧은 버튼+선택 창(검색·Ngành|Chi tiết), 근무기간 7칸+Thỏa thuận 체크(글자 잘림), 사진 4칸+동영상 2칸 자리(동영상 저장 칸 없음 → sắp có), 불필요 안내 문구 삭제, Hình thức 0/2 숫자(PostJob.tsx/.css).
@@ -53,8 +59,3 @@
 - 변경: LayoutDesktop/LayoutMobile(메뉴 이모지 24개 빼기, PC 검색 칸·버튼 메뉴 줄로, 펼침 col 칸 묶음, 바닥 → SiteFooter.tsx), siteChrome.css(.layout--d/.layout--m 아래만), menu-search-check 메뉴 이름(이모지 뺌), test-desktop-baseline 기준값.
 - 뺀 것: 메인 본문·공고 카드(데모에서 바꿨다가 Lee 지적으로 되돌림 — 승인 틀은 글 모형 먼저).
 - 남은 문제: 사이트 바탕 연분홍·이름 세 가지(Việcganban / Việt Gần Bạn / Việc gần Bạn) — Lee 결정 전 그대로.
-
-## 2026-11-08 — 알바몬 따라 하기 1~6번 운영 반영 (Claude)
-- 요청: Lee "이거먼저"(데모 demo/albamon-template에서 DB 변경 없는 1~6번).
-- 변경: src/pages/ServicePages.tsx/.css(/ho-tro FAQ·공지, /lam-poster 벽보, /chu-de/:slug 테마 8개 — 데모 표본 공고 버튼 뺌, 인쇄 CSS는 'In' 버튼 때만), App.tsx 경로, 메뉴 'Việc làm'에 'Theo chủ đề'(PC·모바일), 바닥 'Câu hỏi thường gặp'·'Làm poster tuyển dụng', PC 기업 메뉴 'Làm poster tuyển dụng'. PostJob: 급여 칸 계산기 링크, 임시저장(vgb:postjob-draft, 등록 성공 시 지움), 구역 id pj-s1~6, PC 오른쪽 상자(Lưu tạm·Đăng tin·체크 목록), 아래 막대에 Lưu tạm.
-- 뺀 것: 미리보기(상세 화면 틀 변경 필요), 7·8번(미승인).

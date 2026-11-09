@@ -193,28 +193,6 @@ assert(calls.preserved && !calls.usedFallback, 'call lines preserved')
 assert(calls.sections.find(s => s.key === '07')?.lines.length === 2, 'calls are supplementary, not recruitment steps')
 assert(!calls.sections.some(s => s.key === '06'), 'no invented recruitment process')
 
-// ── Lee 2026-10-29 새 구성: 상세요강 결과 → ② Quyền lợi / ④ Yêu cầu khác로 옮긴 뒤 같은 줄이 아래에 남지 않음 ──
-{
-  const { splitQuyenLoi, takeRequirementLines } = await import('./jobQuyenLoi.ts')
-  const adtek = detailSections(`Yêu cầu ứng viên
-- Nam/nữ, tuổi từ 18 đến 45
-- Sức khỏe tốt, chịu được ca và tăng ca
-Thời gian và hình thức làm việc
-- Tăng ca thường xuyên, làm thêm cả Chủ nhật
-Thu nhập và phụ cấp
-- Hình thức trả lương: Theo tháng
-Phúc lợi và môi trường làm việc
-- Có ký túc xá cho công nhân
-- Khích lệ: 6.000.000 VNĐ/6 tháng`)
-  const q = splitQuyenLoi(adtek.sections, {})
-  const r = takeRequirementLines(q.sections)
-  const below = r.sections.flatMap((s) => s.lines).join('\n')
-  assert(q.rows.some((x) => x.key === 'bonus' && x.lines.some((l) => l.includes('6.000.000'))), 'incentive shown in Quyền lợi')
-  assert(!below.includes('6.000.000') && !below.includes('trả lương'), 'moved benefit lines not repeated in description')
-  assert(r.lines.some((l) => l.includes('Sức khỏe tốt')) && !r.sections.some((s) => s.key === '02'), 'requirements moved to recruitment')
-  assert(below.includes('Tăng ca thường xuyên') && below.includes('ký túc xá'), 'working-time and icon-backed lines stay')
-}
-console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu khác) regression passed')
 {
   // Lee 2026-10-30 "알바몬처럼"(먼저 sb-4828): 원문은 상세요강에 그대로, 급여 아래·복리후생에는 같은 원문 줄을 복사
   const { albamonConditionLines, sourceAgeValue, ALBAMON_LAYOUT_JOB_IDS } = await import('./jobQuyenLoi.ts')
@@ -228,10 +206,11 @@ console.log('jobDetailSections: new detail structure (Quyền lợi / Yêu cầu
   assert(v.salary.includes('Thưởng Lễ, Tết, lương tháng 13') && v.salary.includes('Có phụ cấp ăn uống') && v.insurance[0] === 'Được đóng BHXH, ký HĐLĐ đầy đủ', '#5299 salary sub lines and insurance')
 }
 {
-  // Lee 2026-10-30 신규부터: 새 공고 = 4칸 틀, 기존 공개 공고·KDA는 그대로.
+  // 틀 2가지(Lee 2026-11-09): KDA 기준 공고만 기존 틀, 나머지(예전 Quyền lợi 3건 포함)는 모두 4칸 틀.
   const { usesAlbamonLayout } = await import('./jobQuyenLoi.ts')
   assert(usesAlbamonLayout('sb-4828') && usesAlbamonLayout('sb-5100') && usesAlbamonLayout('sb-9999'), 'new jobs use 4-section layout')
-  assert(!usesAlbamonLayout('sb-4824') && !usesAlbamonLayout('sb-4878') && !usesAlbamonLayout('sb-4879') && !usesAlbamonLayout('sb-4982'), 'baseline and existing jobs unchanged')
+  assert(usesAlbamonLayout('sb-4878') && usesAlbamonLayout('sb-4879') && usesAlbamonLayout('sb-4982'), 'former Quyền lợi jobs now use 4-section layout')
+  assert(!usesAlbamonLayout('sb-4824'), 'KDA baseline unchanged')
 }
 {
   // 2026-10-30 관리자 미리 보기: 비공개 공고 행도 같은 변환(rowToJob)으로 상세 화면을 그린다.
@@ -374,7 +353,6 @@ Chăm sóc khách hàng`
 assert(kdaR.preserved && same(byKey(kdaR)['01'], kdaWant['01']), 'header photo zoom preserves KDA work detail content')
 
 // 2026-11-06 Lee: 4칸 중 한 칸이 통째로 빠지면 아래 칸이 올라오고, 연락 버튼은 위쪽 자리(남은 첫 상자 제목 줄) 그대로.
-assert(contactHostFor({ conditions: 3, quyenLoi: 2, newLayout: true, recruitKeys: ['age'] }) === 'conditions', 'contact host: ① 있으면 ①')
-assert(contactHostFor({ conditions: 0, quyenLoi: 2, newLayout: true, recruitKeys: ['age'] }) === 'quyenloi', 'contact host: ① 없으면 예전 틀 Quyền lợi')
-assert(contactHostFor({ conditions: 0, quyenLoi: 0, newLayout: false, recruitKeys: ['age', 'category'] }) === 'recruit', 'contact host: ② 모집조건')
-assert(contactHostFor({ conditions: 0, quyenLoi: 0, newLayout: false, recruitKeys: ['category'] }) === 'location', 'contact host: 업직종만 있으면 ③')
+assert(contactHostFor({ conditions: 3, recruitKeys: ['age'] }) === 'conditions', 'contact host: ① 있으면 ①')
+assert(contactHostFor({ conditions: 0, recruitKeys: ['age', 'category'] }) === 'recruit', 'contact host: ② 모집조건')
+assert(contactHostFor({ conditions: 0, recruitKeys: ['category'] }) === 'location', 'contact host: 업직종만 있으면 ③')
