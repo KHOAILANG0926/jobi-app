@@ -1,3 +1,7 @@
+## 2026-11-09 밤 — #612 자동 작업 권한: 개인 설정 파일 저장소에서 뺌 (Lee "3번부터")
+- 원인 [직접 확인]: .claude/settings.local.json(개인 PC 권한 223줄 + defaultMode bypassPermissions)이 저장소에 올라가 GitHub의 Claude 자동 작업 3개가 그 설정을 읽음 → --allowedTools가 제한이 아니었음.
+- 변경: 파일을 저장소 추적에서 빼고 .gitignore(각자 PC 파일은 그대로 남음), issue-mention의 지우기 단계 삭제(필요 없어짐), claude-task·codex-response에 --permission-mode default, claude-task에 허용 목록(전엔 없음).
+
 ## 2026-11-09 저녁 — #560 시험 중단 사유 · #594 이슈 @claude 연결
 - #560 시험(#608·#609·#611): 미리 보기 8개 그룹 중 새 글은 Bắc Ninh 30건뿐(나머지 그룹은 몇 달 전 글). 시험의 Google 호출은 모두 API_KEY_INVALID — Vercel이 민감 값으로 둔 GOOGLE_PLACES_API_KEY는 env pull로 받을 수 없음(받은 값 길이 11). 운영 Google은 정상(business-search-compare 42599813839 오류 0). 같은 원인 2회 실패로 시험 중단, Lee 결정 대기(키를 GitHub Secret에 추가 vs 관리자 전용 서버 시험 API). 시험 예약으로 운영 카운터 54회 사용.
 - 30건 분석 [직접 확인]: 주소 글 없음 8(공단 이름만 'Quế Võ 3'·'Nam Sơn'·'Phố Nếnh' 등), 회사 이름 잘못 읽음 약 9('quán cạnh ngã 6'·'BẢNG TIN'·'Hotel 06 Ngô Tất Tố' 등), 회사 이름 없음 4, 체인 지점 7.
