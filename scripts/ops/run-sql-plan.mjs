@@ -12,7 +12,7 @@ const QUERY = /^(?:select|with)\s/i
 const ADMIN_FN = /\b(?:pg_\w+|lo_\w+|dblink\w*|set_config|current_setting|query_to_xml\w*|txid_\w*)\s*\(/i
 
 // 화면 표시만 바꾸는 psql 명령(조회 결과를 GitHub 주석으로 찍을 때 씀)과 이미 넣는 읽기 전용 선언은 허용.
-const DISPLAY = /^\\pset (?:tuples_only (?:on|off)|format (?:unaligned|aligned))$/
+const DISPLAY = /^\\pset (?:tuples_only (?:on|off)|format (?:unaligned|aligned)|footer (?:on|off))$/
 const READ_ONLY = /^set transaction read only;$/i
 
 export function planSql(text) {
