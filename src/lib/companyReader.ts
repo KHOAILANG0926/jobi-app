@@ -61,7 +61,10 @@ export function postBody(text: string): string {
   return (cut >= 0 ? lines.slice(0, cut) : lines).join('\n')
 }
 // 가게 낱말 뒤가 이름이 아니라 위치 설명("quán cạnh ngã 6", "Hotel 06 Ngô Tất Tố")이면 버린다(#560).
-const NOT_NAME_START = /^(?:(?:cạnh|gần|đối diện|sát|ngay|bên|trước|sau|trong|ở|tại|số|sn)(?=\s|[.,:]|$)|\d)/iu // 낱말 끝까지("Snail"은 상호, Codex #616)
+const NOT_NAME_START = /^(?:cạnh|gần|đối diện|sát|ngay|bên|trước|sau|trong|ở|tại|số|sn)(?=\s|[.,:]|$)/iu // 낱말 끝까지("Snail"은 상호, Codex #616)
+// 숫자로 시작하는 뒤말은 주소 근거가 있을 때만 주소로 본다("Hotel 06 Ngô Tất Tố, Võ Cường, Bắc Ninh"). "Nhà hàng 5 Sao, Bắc Ninh"은 상호(Codex #616).
+const isAddressAfter = (rest: string) => /^\d/.test(rest) &&
+  (/^\d+\p{L}?(?:[\/-]\d+)*\s+(?:đường|đ\.|phố|ngõ|ngách|hẻm|kiệt)(?=\s|$)/iu.test(rest) || (rest.match(/,/g) ?? []).length >= 2)
 
 /** 원문(여러 줄)에서 회사 이름. 못 찾으면 name=''. */
 export function readCompany(text: string): CompanyRead {
@@ -94,7 +97,7 @@ export function readCompany(text: string): CompanyRead {
       // 주소 이름표 값은 가게 낱말로 시작할 때만(주소 속 "cạnh nhà hàng ABC" 같은 주변 업체는 아님, Codex #616)
       if (value !== undefined && !new RegExp(`^${KIND}\\s`, 'iu').test(value.trim())) continue
       const m = (value ?? l).match(new RegExp(`(${KIND})\\s+([^,.!?:\\n]{2,60})`, 'iu'))
-      if (!m || NOT_NAME_START.test(m[2].trim())) continue
+      if (!m || NOT_NAME_START.test(m[2].trim()) || isAddressAfter((value ?? l).slice((m.index ?? 0) + m[1].length).trim())) continue
       const c = m[2].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|tuyển dụng|tuyển|tìm|mới khai trương)(?=\s|[:：!–-]|$).*$/iu, '')
       if (ok(c)) return ok(`${m[1]} ${c}`)
     }
