@@ -29,7 +29,12 @@ export function googleClient(key, fetchImpl = fetch, cap = { pro: 250, ids: 250,
     if (calls[sku] >= cap[sku]) throw new Error('test_cap_reached')
     calls[sku]++
     const res = await fetchImpl(url, { ...init, signal: AbortSignal.timeout(15000) })
-    if (!res.ok) throw new Error(`upstream_failed_${res.status}`)
+    // 실패 이유는 Google 오류 코드만(예: PERMISSION_DENIED/API_KEY_HTTP_REFERRER_BLOCKED). 메시지 본문·키는 남기지 않는다.
+    if (!res.ok) {
+      let code = ''
+      try { const e = (await res.json())?.error; code = [e?.status, e?.details?.find?.((d) => d?.reason)?.reason].filter(Boolean).join('/') } catch { /* 본문 없음 */ }
+      throw new Error(`upstream_failed_${res.status}${code ? `_${code}` : ''}`)
+    }
     return res.json()
   }
   const searchBody = (text) => JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 })
@@ -124,13 +129,14 @@ export async function compareOne(input, ctx) {
   const traceA = {}
   const googleA = async (text) => {
     try { const r = await ctx.g.pro(text); proResponses.set(text, r); traceA.proCount = googlePlaceHits(r).length; traceA.proSame = googlePlaceHits(r).filter((h) => sameCoreName(job.company, h.name)).length; return r }
-    catch (e) { proResponses.set(text, e); throw e }
+    catch (e) { proResponses.set(text, e); traceA.error = String(e.message).slice(0, 80); throw e }
   }
   const decA = await resolveAutoLocation(job, deps({ ...ctx, google: googleA }))
   const traceB = {}
   // ④ 현재 방식: A와 같은 검색어면 A가 받은 응답을 그대로(운영에서는 이때 Pro 1번 = 비용에 넣는다)
   const proFor = async (text) => { traceB.proReused = true; const r = proResponses.get(text); if (r instanceof Error) throw r; return r ?? ctx.g.pro(text) }
-  const googleB = ladderGoogle({ g: ctx.g, registry: ctx.registry, proFor, company: job.company, address, trace: traceB })
+  const ladder = ladderGoogle({ g: ctx.g, registry: ctx.registry, proFor, company: job.company, address, trace: traceB })
+  const googleB = async (text) => { try { return await ladder(text) } catch (e) { traceB.error = String(e.message).slice(0, 80); throw e } }
   let decB
   try { decB = await resolveAutoLocation(job, deps({ ...ctx, google: googleB })) } catch (e) { decB = { kind: 'unresolved', failed: true, evidence: String(e.message) } }
   const a = { ...precheckVerdict(decA), place: placeOf(decA), why: why(decA), ...traceA }
@@ -159,7 +165,7 @@ export function summarize(rows, calls) {
     samePlaceFar: count((r) => r.same && r.distanceM != null && r.distanceM > 50),
     reasonsA: tally((r) => (r.a.findable ? null : r.a.reason)), whyA: tally((r) => (r.a.findable ? null : r.a.why || null)),
     stepB: tally((r) => r.b?.step ?? null), proCandidates: tally((r) => r.a.proCount ?? null), proSameName: tally((r) => r.a.proSame ?? null),
-    acSameName: tally((r) => r.b?.acSame ?? null), companyRepeat: repeat, usage,
+    acSameName: tally((r) => r.b?.acSame ?? null), errors: tally((r) => r.a.error ?? r.b?.error ?? null), companyRepeat: repeat, usage,
     // 시험 건수 기준 1건당 비용(무료 한도 빼기 전). 월 비용 = 건당 × 월 건수 − 무료 한도는 보고서에서 계산.
     perJobUSD: { a: n ? per(usage.a) / n : 0, b: n ? per(usage.b) / n : 0 },
   }
@@ -171,7 +177,7 @@ function markdown(s) {
     `- 찾음: 현재 방식 ${s.findableA} / 4단계 ${s.findableB} — 판정 다름 ${s.disagree} (4단계만 찾음 ${s.bOnly}, 현재만 찾음 ${s.aOnly})`,
     `- 현재 방식 못 찾은 이유: ${t(s.reasonsA)}`, `- Google 단계 세부: ${t(s.whyA)}`,
     `- 4단계가 끝난 단계: ${t(s.stepB)}`, `- Pro 후보 수: ${t(s.proCandidates)}`, `- Pro 같은 이름 수: ${t(s.proSameName)}`, `- Autocomplete 같은 이름 수: ${t(s.acSameName)}`,
-    `- 같은 회사+지역 반복: ${s.companyRepeat}건`, `- 호출: ${JSON.stringify(s.usage)}`,
+    `- Google 오류: ${t(s.errors)}`, `- 같은 회사+지역 반복: ${s.companyRepeat}건`, `- 호출: ${JSON.stringify(s.usage)}`,
     `- 1건당 비용(무료 한도 전): 현재 $${s.perJobUSD.a.toFixed(4)} / 4단계 $${s.perJobUSD.b.toFixed(4)}`].join('\n')
 }
 
@@ -200,7 +206,7 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
   }
   // 공고별 한 줄(분석용). 공개 저장소 로그라 원문·전화번호는 넣지 않는다 — 제목·회사·읽은 위치 글자(미리 보기 알림과 같은 수준)와 판정만.
   const cut = (v, n) => String(v ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n)
-  const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}` : '-')
+  const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}${x.error ? ` err=${x.error}` : ''}` : '-')
   rows.forEach((r, i) => console.log(`ROW ${i + 1} | ${cut(r.title, 60)} | ${cut(r.company, 50)} | ${cut(r.location, 80)} | A: ${v(r.a)} | B: ${v(r.b)} | ${r.same ? 'same' : 'DIFF'}${r.distanceM != null ? ` ${r.distanceM}m` : ''}`))
   const s = summarize(rows, g.calls)
   writeFileSync(out, JSON.stringify({ summary: s, rows }, null, 1))
