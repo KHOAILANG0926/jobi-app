@@ -129,8 +129,9 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
       if (!v.mapLinks.some((h) => { const p = linkPoint(h); return !!p && meters(p, g) <= NEAR })) add('directions', true, d, `핀이 Google 장소(${g.lat},${g.lng})인데 Google 버튼이 그 좌표가 아님`)
       if (pins.length && !pins.some((q) => meters(q, g) <= NEAR)) add('pin', true, d, `지도 핀이 Google 장소 좌표(${g.lat},${g.lng})와 다름`)
     }
+    // apiPins: null/undefined = 지도 목록을 못 읽음(대조 생략), 배열(빈 배열 포함) = 읽음 → 양방향 대조
     const api = (job.apiPins ?? []).map(parsePoint).filter((p): p is { lat: number; lng: number } => !!p)
-    if (api.length && pins.length && !pins.every((q) => api.some((a) => meters(q, a) <= NEAR))) add('pin', true, d, `상세 핀(${v.pins.join(' / ')})이 지도 목록 핀(${(job.apiPins ?? []).join(' / ')})과 다름`)
+    if (job.apiPins && (!pins.every((q) => api.some((a) => meters(q, a) <= NEAR)) || !api.every((a) => pins.some((q) => meters(q, a) <= NEAR)))) add('pin', true, d, `상세 핀(${v.pins.join(' / ')})이 지도 목록 핀(${(job.apiPins ?? []).join(' / ')})과 다름`)
     // ④ 연락처
     for (const t of v.tel) { const n = phoneDigits(t); if (n.length >= 9 && !phones.has(n)) add('phone', hasSource, d, `화면 전화 ${t}가 원문·DB에 없음`) }
     for (const z of v.zalo) { const n = phoneDigits(z); if (n.length >= 9 && !phones.has(n)) add('zalo', hasSource, d, `화면 Zalo ${z}가 원문·DB에 없음`) }

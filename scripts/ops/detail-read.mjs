@@ -36,7 +36,7 @@ if (SUPABASE_DB_URL) {
   await db.connect()
   try {
     const rows = (await db.query(`
-      select j.id, j.title, j.company, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active,
+      select j.id, j.title, j.company, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active, j.admin_hidden,
         coalesce((select jsonb_agg(jsonb_build_object('kind', w.point_kind, 'verified', w.location_verified, 'lat', w.lat, 'lng', w.lng,
           'source', w.point_evidence->>'source', 'raw', w.raw_address, 'park', w.industrial_park)) from public.job_work_locations w where w.job_id = j.id), '[]') as locs
       from public.local_jobs j where ${ALL ? 'j.active and not j.admin_hidden' : 'j.id = any($1::bigint[])'} order by j.id`, ALL ? [] : [ids])).rows
@@ -57,7 +57,10 @@ const apiPins = {}
 if (dbJobs.size) for (let i = 0; i < ids.length; i += 100) {
   try {
     const r = await fetch(`${BASE_URL}/api/map-locations?ids=${ids.slice(i, i + 100).join(',')}`, { signal: AbortSignal.timeout(20_000) })
-    const data = r.ok ? await r.json() : {}
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const data = await r.json()
+    // 읽기에 성공하면 공개 공고는 응답에 없어도 "핀 0개"로 대조한다(상세에 핀이 있으면 불일치)
+    for (const id of ids.slice(i, i + 100)) if (dbJobs.get(id)?.active && !dbJobs.get(id)?.admin_hidden) apiPins[id] = []
     for (const [k, pts] of Object.entries(data.points ?? {})) apiPins[Number(k.replace('sb-', ''))] = pts.map((p) => `${p.lat},${p.lng}`)
   } catch (e) { console.log(`::warning::지도 목록 핀 읽기 실패: ${e.message}`) }
 }
@@ -88,7 +91,7 @@ async function readJob(id) {
   let openError
   for (const v of VIEWPORTS) {
     const context = await browser.newContext({ viewport: v.viewport, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'vi-VN',
-      ...(job && !job.active ? { storageState: await adminLogin().catch((e) => { openError = e.message; return undefined }) } : {}) })
+      ...(job && (!job.active || job.admin_hidden) ? { storageState: await adminLogin().catch((e) => { openError = e.message; return undefined }) } : {}) })
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e.message || e)))

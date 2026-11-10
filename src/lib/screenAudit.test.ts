@@ -35,6 +35,12 @@ assert(screenAudit({ ...job, source_text: '' }, [{ ...after, tel: ['0987654321']
 // 버튼 좌표가 핀과 멀면 확정 오류, 지도 목록 핀과 상세 핀이 다르면 확정 오류
 assert(screenAudit({ ...job, googlePin: null }, [{ ...after, mapLinks: ['https://www.google.com/maps/dir/?api=1&destination=21.2,106.1'] }]).some((f) => f.key === 'directions' && f.sure), '버튼 좌표 ≠ 핀')
 assert(screenAudit({ ...job, googlePin: null, apiPins: ['21.3,106.2'] }, [after]).some((f) => f.key === 'pin' && f.sure), '상세 핀 ≠ 지도 목록 핀')
+// 핀 집합은 양방향 대조: 목록 핀 2곳인데 상세엔 1곳 / 목록 핀 있는데 상세 0곳 / 목록 0곳인데 상세 핀 있음 → 확정 오류, 목록을 못 읽음(null)이면 생략
+const two = ['21.1585515,106.0664443', '21.3,106.2']
+assert(screenAudit({ ...job, googlePin: null, apiPins: two }, [after]).some((f) => f.key === 'pin' && f.sure), '목록 핀 2곳, 상세 1곳 → 오류')
+assert(screenAudit({ ...job, googlePin: null, apiPins: two }, [{ ...after, pins: [] }]).some((f) => f.key === 'pin' && f.sure), '상세 핀 0곳 → 오류')
+assert(screenAudit({ ...job, googlePin: null, apiPins: [] }, [after]).some((f) => f.key === 'pin' && f.sure), '목록 0곳, 상세 핀 있음 → 오류')
+assert(!screenAudit({ ...job, googlePin: null, apiPins: null }, [after]).some((f) => f.key === 'pin'), '목록 못 읽음 → 대조 생략')
 // PC·모바일 같은 문제는 한 줄
 assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) => f.key === 'title' && f.detail.includes('기호')).length === 1, 'PC·모바일 한 줄')
 
