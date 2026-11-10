@@ -120,7 +120,13 @@ async function readJob(id) {
       }
     } catch (e) {
       failed++
-      openError = String(e.message || e).split('\n')[0]
+      // 왜 못 열었는지 화면 상태를 같이 남긴다(sb-5938 2026-11-11: 관리자 로그인 뒤에도 제목이 안 뜸) — 보이는 h1·주소·로그인 흔적
+      const seen = await page.evaluate(() => ({
+        h1: document.querySelector('h1')?.textContent?.trim()?.slice(0, 60) ?? '(h1 없음)',
+        path: location.pathname,
+        auth: Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k)),
+      })).catch(() => null)
+      openError = String(e.message || e).split('\n')[0] + (seen ? ` — 화면 h1 "${seen.h1}", 주소 ${seen.path}, 로그인 흔적 ${seen.auth ? '있음' : '없음'}` : '')
       text = `열기 실패: ${openError}`
     }
     if (keepText) {
