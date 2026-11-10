@@ -333,6 +333,16 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
     return counts
 
 
+def retry_held_once(client) -> dict | None:
+    """보류 공고 다시 확인을 수집 실행마다 한 번만(이미 했거나 선택 저장·검증 저장이 막았으면 건너뜀).
+    수집 입구(Facebook·TopCV 저장)가 새 공고가 없어도 부르고, 새 공고 등록(ingest_job)도 같은 함수로 부른다(Codex #619)."""
+    global _HOLDS_RETRIED
+    if _HOLDS_RETRIED:
+        return None
+    _HOLDS_RETRIED = True
+    return retry_held(client)
+
+
 def _ingest_new(client, job: dict) -> int:
     require_location(job)
     store_facebook_images(client, job)
@@ -350,13 +360,11 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
     새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로).
     지금 확인 못 하면(Google 한도 초과 등) 버리지 않고 보류함에 넣고, 다음 수집 실행 때 먼저 다시 확인한다."""
-    global _HOLDS_RETRIED
     existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
     if existing:
         return _call_gateway(client, job, job_id=job_id, update_fields=update_fields)
-    if not _HOLDS_RETRIED and job.get("admin_hidden") is not True:  # 검증 저장은 대기열을 건드리지 않는다
-        _HOLDS_RETRIED = True
-        retry_held(client)
+    if job.get("admin_hidden") is not True:  # 검증 저장은 대기열을 건드리지 않는다
+        retry_held_once(client)
     try:
         return _ingest_new(client, job)
     except LocationDeferred as exc:

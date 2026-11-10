@@ -6,7 +6,7 @@
 - ②-2 위치 못 찾은 공고(Lee 11-09 "예"): 공고 목록에 넣지 않고 같은 보류함에 비공개 보관(unfound), 7일 뒤 다시 확인 최대 2번, 찾으면 같은 입구로 등록. 수수료 소개소·회사 이름 없음은 보관 안 함. CLAUDE.md 「수집 첫 단계」 줄 갱신.
 - ⑤ 시험 몫 google_text_search_test 600/월(migration 20261110090000, 한 줄 추가) — 시험 도구가 Pro·IDs 모두 먼저 예약, Pro는 운영 몫에도. 시험은 베트남 날짜 하루 한 번, 실행당 SearchText 40회.
 - 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
-- 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft).
+- 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft). 이어서 Codex 새 지적 2건(Lee "둘 다 고쳐"): 한도 초과 뒤 공단·동 중심 대략 위치로 가도 한도 기록 유지(→ 보류, 7일 뒤 아님) · 새 공고 없는 수집 실행에서도 보류 공고 다시 확인(retry_held_once, Facebook·TopCV 저장 입구, 선택·검증 저장 제외).
 
 ## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
 - 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).

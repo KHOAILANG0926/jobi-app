@@ -139,6 +139,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     // 공단 표에 있는 공단인데 확인된 입구가 없으면 공단 중심(출처 OSM)을 대략 위치 핀으로 — 상세 화면 지도와 같은 점(2026-10-20 Lee)
     if (park && validPoint({lat:park.lat,lng:park.lng})) return {kind:'area',lat:park.lat,lng:park.lng,source:`${park.source.provider} ${park.source.ref}`,checkedAt:at,evidence:reasons.join('\n')}
     // A known industrial park without a verified gate must not silently become a ward pin.
+    // 대략 위치로 돌아갈 때도 앞 단계 기록(google:quota 등)을 그대로 남긴다 — 한도 초과가 '못 찾음'으로 바뀌지 않게(Codex #619).
     // 공단 표에 없는 공단(예: "KCN Yên Phong"): VietMap에서 같은 이름의 공단 1곳을 찾아 대략 위치 핀(2026-10-20, Lee 10-13 '핀은 무조건').
     const unlisted = !park ? parkNameFromAddresses([...targets.map(t => t.address), job.location]) : null
     if (unlisted && !failed) {
@@ -146,7 +147,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       const pick = pickParkHit(unlisted, hits)
       if (pick.hit?.ref_id && !pick.multiple) {
         const place = await query('place', {refid:pick.hit.ref_id}) as {lat?:number;lng?:number;city?:string} | null
-        if (parkPlaceOk(unlisted, place) && validPoint({lat:place!.lat!,lng:place!.lng!})) return {kind:'area',lat:place!.lat!,lng:place!.lng!,source:`VietMap ${pick.hit.ref_id} (KCN)`,checkedAt:at}
+        if (parkPlaceOk(unlisted, place) && validPoint({lat:place!.lat!,lng:place!.lng!})) return {kind:'area',lat:place!.lat!,lng:place!.lng!,source:`VietMap ${pick.hit.ref_id} (KCN)`,checkedAt:at,evidence:reasons.join('\n')}
       }
     }
     if (!park) {
@@ -158,7 +159,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
         const pick = pickWardHit(unit, hits)
         if (pick.hit?.ref_id && !pick.multiple) {
           const place = await query('place', {refid:pick.hit.ref_id}) as Parameters<typeof checkWardPlace>[1] | null
-          if (place && checkWardPlace(unit,place) === null && validPoint({lat:place.lat!,lng:place.lng!})) return {kind:'area',lat:place.lat!,lng:place.lng!,source:`VietMap ${pick.hit.ref_id}`,checkedAt:at}
+          if (place && checkWardPlace(unit,place) === null && validPoint({lat:place.lat!,lng:place.lng!})) return {kind:'area',lat:place.lat!,lng:place.lng!,source:`VietMap ${pick.hit.ref_id}`,checkedAt:at,evidence:reasons.join('\n')}
         }
       }
     }

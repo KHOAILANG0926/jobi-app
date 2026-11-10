@@ -1223,6 +1223,8 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
             payload["source_url"] = url
         return payload
 
+    # 새 공고가 없어도 보류 공고는 다시 확인한다(Codex #619). 선택 저장은 미리 막아 둠(save_selected_from_dryrun).
+    ingest_gateway.retry_held_once(supabase)
     saved: list[dict] = []
     # 등록은 DB 입구 하나만(Lee 2026-10-29): 한 건씩 입구로 보내고, 규칙에 걸린 공고만 건너뛴다.
     for job in new_jobs:

@@ -74,6 +74,16 @@ for (const msg of ['quota_exhausted', 'upstream_failed_429']) {
   assert(!v.findable && v.reason === 'google_quota', `${msg} → google_quota: ${JSON.stringify(v)}`)
   assert(!store.has(siteKey) && !store.has(textKey), 'failed Google call stores nothing (no false "not found" cached)')
 }
+// Codex #619: 한도 초과 뒤 VietMap 공단(표에 없는 공단)·동 중심 대략 위치가 나와도 '한도 초과'(보류)로 남는다 — 7일 뒤 '못 찾음'이 아님
+{
+  const vm = (hits: unknown[], place: unknown) => async (action: string) => action === 'search' ? hits : place
+  const quotaDeps = (request: (a: string) => Promise<unknown>) => ({ ...deps(async () => { throw new Error('quota_exhausted') }), request })
+  store.clear()
+  const parkJob = precheckJob({ company: 'Công ty TNHH Hojeong Vina', location: 'Bắc Ninh', addresses: ['KCN Thuận Thành 9, Bắc Ninh'] })!
+  const pr = await resolveAutoLocation(parkJob, quotaDeps(vm([{ ref_id: 'vm1', name: 'KCN Thuận Thành 9', address: 'Bắc Ninh', display: 'Bắc Ninh' }], { lat: 21.03, lng: 106.08, city: 'Bắc Ninh' })))
+  assert(pr.kind === 'area' && String((pr as { source?: string }).source).includes('(KCN)'), 'unlisted park center reached: ' + JSON.stringify(pr))
+  assert(precheckVerdict(pr).reason === 'google_quota', 'quota then unlisted park center → still google_quota: ' + precheckVerdict(pr).reason)
+}
 const other = precheckVerdict(await resolveAutoLocation(job1, deps(async () => { throw new Error('upstream_failed') })))
 assert(other.reason !== 'google_quota', 'other provider error is not quota')
 const nf = precheckVerdict(await resolveAutoLocation(job1, deps(async () => ({ places: [] }))))

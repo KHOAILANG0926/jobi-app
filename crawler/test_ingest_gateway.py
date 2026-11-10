@@ -345,7 +345,28 @@ def run_poster_hold():
     print("test_ingest_gateway: poster failure does not block other held jobs passed")
 
 
+def run_hold_without_new_jobs():
+    """Codex #619: 새 공고가 없는 수집 실행에서도 보류 공고를 다시 확인한다(수집 입구가 retry_held_once를 부름) — 실행마다 한 번만."""
+    c = HoldClient()
+    payload = {"title": "h", "company": "Cty H", "location": "Bắc Ninh", "source_url": "https://example.invalid/h"}
+    c.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                      "meta": {"status": "held", "reason": "google_quota", "held_at": g._now(), "attempts": 0,
+                                               "next_at": "2000-01-01T00:00:00+00:00"}}
+    g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+    g._HOLDS_RETRIED = False
+    out = g.retry_held_once(c)
+    assert out and out["registered"] == 1 and len(c.calls) == 1, out
+    assert g.retry_held_once(c) is None and len(c.calls) == 1, "같은 실행에서 두 번 돌지 않음"
+    # 선택 저장(미리 막음)은 다른 보류 공고를 건드리지 않는다
+    c2 = HoldClient()
+    c2.rows.update({k: {**v, "meta": {**v["meta"], "status": "held"}} for k, v in c.rows.items()})
+    g._HOLDS_RETRIED = True
+    assert g.retry_held_once(c2) is None and c2.calls == []
+    print("test_ingest_gateway: holds retried even without new jobs passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
     run_poster_hold()
+    run_hold_without_new_jobs()

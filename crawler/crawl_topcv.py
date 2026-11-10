@@ -47,7 +47,7 @@ from job_quality import (
 )
 from job_posting_policy import crawler_policy_errors
 from source_fields import REJECTIONS, rule_code, source_fields
-from ingest_gateway import ingest_job
+from ingest_gateway import ingest_job, retry_held_once
 from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -2278,6 +2278,7 @@ def save_to_supabase(jobs: list[dict], source: str = "vieclam24h"):
     demoted = 0
     work_location_rows_total = 0
     with enable_writes():
+        retry_held_once(supabase)  # 새 공고가 없어도 보류 공고는 다시 확인(Codex #619, 실행마다 한 번)
         for job in jobs:
             existing = match_existing_row(job, by_source_url, by_key)
             was_active_crawler = bool(
