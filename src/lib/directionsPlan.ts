@@ -32,6 +32,8 @@ export function planDirections(input: {
   approvedLinks: DirectionsLink[]
   gateHref: string | null
   gateNote?: string
+  /** Google이 회사 이름으로 찾은 장소 좌표(위치 확인 결과, 미확인) — 지도 핀과 같은 점으로 길찾기(Lee 2026-11-10 #5876). */
+  googlePoint?: { lat: number; lng: number } | null
   addressQuery?: string | null
   addressNote?: string
   phone?: string | null
@@ -44,9 +46,12 @@ export function planDirections(input: {
   if (input.gateHref && googleDestination(input.gateHref)) return { tier: 'gate', link: { label: DIRECTIONS_LABEL.gate, href: input.gateHref }, note: input.gateNote }
   const digits = (input.phone ?? '').replace(/[^\d+]/g, '')
   const hasPhone = digits.replace(/\D/g, '').length >= 8
-  if (input.addressQuery) {
-    const q = encodeURIComponent(input.addressQuery)
-    return { tier: 'address', note: input.addressNote ?? ADDRESS_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
+  // 목적지 선택만 다르고 링크·전화 구성은 한 경로로 공유(Google 좌표 우선, 없으면 주소 글자).
+  const gp = input.googlePoint
+  const hasGooglePoint = !!gp && Number.isFinite(gp.lat) && Number.isFinite(gp.lng)
+  if (hasGooglePoint || input.addressQuery) {
+    const q = hasGooglePoint ? `${gp!.lat},${gp!.lng}` : encodeURIComponent(input.addressQuery!)
+    return { tier: 'address', note: input.addressNote ?? (hasGooglePoint ? COMPANY_AREA_NOTE : ADDRESS_NOTE), links: [{ label: DIRECTIONS_LABEL.approved,
       href: `https://www.google.com/maps/dir/?api=1&destination=${q}`, viewHref: `https://www.google.com/maps/search/?api=1&query=${q}` }],
       ...(hasPhone ? { call: { href: `tel:${digits}`, phone: input.phone!.trim() } } : {}) }
   }
@@ -79,8 +84,13 @@ export function planJobDirections(job: Job): DirectionsPlan {
   const addressQuery = (job.workLocations ?? []).length === 1
     ? preciseStreetAddressQuery(job.workLocations![0].rawAddress, job.workLocations![0].industrialPark) : null
   const searchQuery = addressQuery ? null : companyAreaQuery(job)
+  // 지도 핀이 Google 회사 장소 좌표(위치 확인 결과)면 버튼도 그 점으로 — 글자 검색은 Google이 다른 후보·지역을 열 수 있다(#5876).
+  //  동·공단 중심 같은 대략 점(출처가 Google이 아닌 area)은 여전히 목적지로 쓰지 않는다.
+  const only = (job.workLocations ?? []).length === 1 ? job.workLocations![0] : null
+  const googlePoint = only && only.pointKind === 'area' && only.pointEvidence?.source === 'Google'
+    && typeof only.lat === 'number' && typeof only.lng === 'number' ? { lat: only.lat, lng: only.lng } : null
   return planDirections({ approvedLinks, gateHref: gate ? `https://www.google.com/maps/dir/?api=1&destination=${gate.lat},${gate.lng}` : null,
-    gateNote: gate ? 'Cổng KCN — chưa xác minh vị trí nhà xưởng.' : undefined,
+    gateNote: gate ? 'Cổng KCN — chưa xác minh vị trí nhà xưởng.' : undefined, googlePoint: addressQuery ? null : googlePoint,
     addressQuery: addressQuery ?? searchQuery?.query, addressNote: addressQuery ? undefined : searchQuery?.note, phone: contactOf(job).phone })
 }
 
