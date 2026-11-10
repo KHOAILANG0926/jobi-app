@@ -22,7 +22,7 @@ const JOB_WORDS = new Set((
 // 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
 // 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
 // 자기 가게를 부르는 말("nhà mình", "bên em")·'수요 있음' 문구는 이름이 아니다(#633 2026-11-10 dryrun)
-const NOT_NAME_PHRASES = ['quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
+const NOT_NAME_PHRASES = ['quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'gan tet', 'truoc tet', 'sau tet', 'cuoi nam', 'dau nam', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
 const REGION_PHRASES = [...new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))].sort((a, b) => b.length - a.length)
 
 /** 회사 이름이 될 수 있는 낱말이 하나라도 남는가(구인 낱말·숫자·지역·나라·공단 낱말 제외). */
@@ -44,8 +44,8 @@ function ok(c: string): string {
   return v
 }
 
-// 항목 이름표 줄(근무 지역·위치·직무 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
-const LABEL_LINE = /^(?:khu vực(?: làm việc)?|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu
+// 항목 이름표 줄(근무 지역·위치·직무·지원 양식 "Gửi thông tin: Họ tên – SĐT – Cửa hàng làm việc" 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
+const LABEL_LINE = /^(?:khu vực(?: làm việc)?|cửa hàng làm việc|gửi thông tin|cú pháp|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu
 const EMOJI = /[\u{1F000}-\u{1FAFF}☀-➿️‍]+/gu
 export const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
 const AGENCY = /nhan luc|cung ung|tuyen dung ho|xuat khau lao dong|viec lam|manpower|\bhr\b|headhunt/
@@ -75,11 +75,13 @@ export function readCompany(text: string): CompanyRead {
   const src = postBody(String(text ?? '').normalize('NFC'))
   const lines = src.split('\n').map((l) => clean(l.replace(EMOJI, ' '))).filter(Boolean)
   const pick = (): string => {
-    // ⓪ 첫 줄이 이름만 있는 짧은 줄(#4982 "Bomunttl" — 다음 줄 "Nhà hàng nướng"): 구인 낱말·가게 종류뿐이 아니고 4낱말 이하
-    if (lines[0] && lines[0].split(/\s+/).length <= 4 && !/[:：!?]/.test(lines[0]) && ok(lines[0])) return ok(lines[0])
-    //    첫 줄이 "상호 한 낱말 – 장소"(#633 "KHVATEC – DO NHA, QUẾ VÕ 1"): 대시 앞이 한 낱말 상호일 때만
-    const brand = lines[0]?.match(/^(\p{L}[\p{L}\d&.]{2,30})\s+[–-]{1,2}\s+\S/u)?.[1]
-    if (brand && !/[:：!?]/.test(lines[0]) && ok(brand)) return ok(brand)
+    // ⓪ 첫 줄이 이름만 있는 짧은 줄(#4982 "Bomunttl" — 다음 줄 "Nhà hàng nướng"): 구인 낱말·가게 종류뿐이 아니고 4낱말 이하.
+    //    "상호 한 낱말 – 장소"(#633 "KHVATEC – DO NHA, QUẾ VÕ 1")면 대시 앞 한 낱말만 본다.
+    //    대시 앞 낱말이 이름이 아니면("COFFEE - MỘC") 첫 줄 전체를 그대로 본다.
+    const l0 = lines[0] ?? ''
+    const dashed = l0.replace(/^(\p{L}[\p{L}\d&.]{2,30})\s+[–-]{1,2}\s+\S.*$/u, '$1')
+    const first = [dashed, l0].find((c) => c && c.split(/\s+/).length <= 4 && ok(c))
+    if (first && !/[:：!?]/.test(l0)) return ok(first)
     // ① 이름표 줄
     for (const l of lines) {
       const m = l.match(/^(?:tên )?(?:công ty|cty|đơn vị|nhà tuyển dụng|doanh nghiệp)\s*[:：]\s*(.+)$/iu)
@@ -106,6 +108,7 @@ export function readCompany(text: string): CompanyRead {
       const m = (value ?? l).match(new RegExp(`(${KIND})\\s+([^,.!?:\\n]{2,60})`, 'iu'))
       if (!m || NOT_NAME_START.test(m[2].trim()) || isAddressAfter((value ?? l).slice((m.index ?? 0) + m[1].length).trim())) continue
       const c = m[2].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|cần|tuyển dụng|tuyển|tìm|mới khai trương)(?=\s|[:：!–-]|$).*$/iu, '')
+        .replace(/\s+khu vực(?=\s|$).*$/iu, '') // "cửa hàng WinMart+ khu vực Bắc Ninh": 뒤 지역 말은 이름이 아니다(②의 공단·장소 말 떼기와 같은 규칙, #633)
         .replace(/\s+\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*\s+\p{Lu}.*$/u, '') // "Jollibee 393 Trần Hưng Đạo": 상호 뒤 번지·거리는 주소(#633)
       if (ok(c) && ok(`${m[1]} ${c}`)) return ok(`${m[1]} ${c}`)
     }

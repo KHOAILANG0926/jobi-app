@@ -82,6 +82,7 @@ eq(n('Nhà hàng bên em đang cần tuyển một thu ngân\nĐịa chỉ : qu�
 eq(n('Xin chào các bạn!\nGenz Coffee mở đợt tuyển dụng nhân sự tại\n- Genz Suối Hoa - Bắc Ninh'), 'Genz Coffee', '#633 "mở đợt tuyển dụng" cut')
 eq(n('Thông tin việc làm tại Bắc Giang\nHiện có nhu cầu tuyển công nhân sản xuất tại KCN Quang Châu và Vân Trung.'), '', '#633 "Hiện có nhu cầu" is not a name')
 eq(n('KHVATEC – DO NHA, QUẾ VÕ 1\n HỖ TRỢ LƯƠNG NGÀY, LƯƠNG TUẦN\n Công việc: Lắp ráp linh kiện điện thoại'), 'KHVATEC', '#633 one-word brand before dash')
+eq(n('COFFEE - MỘC\nTuyển nhân viên phục vụ'), 'COFFEE - MỘC', '#668 Codex: dash prefix rejected → keep whole first line')
 eq(n('ĐỢT TUYỂN DỤNG NHÂN VIÊN TẠI JOLLIBEE TRẦN HƯNG ĐẠO TỚI ĐÂY\nDo nhu cầu kinh doanh, Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng nhân viên part time:'), 'Cửa hàng Jollibee', '#633 house number after shop name is address')
 eq(n('TRƯỜNG CHINH -- HẢI DƯƠNG CŨ\nTuyển nhân viên'), '', '#633 two-word street before dash is not a brand')
 // #633 2026-11-10 저장 실행 42779175427: 대괄호 안 업체 이름 / 'CÔNG TY MÌNH'(자기 회사를 부르는 말)
@@ -89,5 +90,10 @@ eq(n('[ HAIDILAO VINCOM BẮC NINH ] TUYỂN DỤNG GẤP NHIỀU VỊ TRÍ\nPh�
 eq(n('CÔNG TY MÌNH Ở KHÚC XUYÊN CẦN TUYỂN 10 NỮ\nLương 8 triệu'), '', '#633 CÔNG TY MÌNH is not a name')
 eq(n('CÔNG TY JMT KCN QUẾ VÕ 2\nTuyển 20 nam nữ'), 'CÔNG TY JMT', '#633 JMT company before KCN')
 eq(n('Công ty Minh Anh tuyển dụng công nhân'), 'Công ty Minh Anh', 'Codex #663 name Minh (no accent) is a name')
+eq(n('GOERTEK – KCN Quế Võ\nTuyển công nhân'), 'GOERTEK', '#633 one-word brand before dash uses the first-line step')
+// 2026-11-11 #633 미리 보기 2차
+eq(n('Gần Tết Cửa Hàng Nhà Mình Cần Tuyển Thêm Nhân Viên Đi Làm Luôn Lâu Dài Và Thời Vụ\\n 5 Nam Nữ Đóng Hàng Theo Đơn : 10-13tr'), '', '#633 "Gần Tết" + "Nhà Mình" has no name')
+eq(n('BẮC BLING ĐANG HOT – JOB CIRCLE K ĐANG CHỜ BẠN!\nBắc Ninh mình đã đủ Bling chưa? Nếu vẫn đang thiếu một chiếc job để tăng thu nhập thì ghé Circle K ngay thôi!\n CỬA HÀNG LÀM VIỆC:\nTầng 5 Tòa Phúc Lợi\nSố 02 đường Hồ Ngọc Lân\nSố 341 Nguyễn Cao\nSố 125 Trần Hưng Đạo, khu phố 4\n ỨNG TUYỂN NGAY: ***067 – Ms Thảo\nGửi thông tin: Họ tên – SĐT – Cửa hàng àm việc.'), '', '#633 Circle K form line "Gửi thông tin: … Cửa hàng àm việc" and heading "CỬA HÀNG LÀM VIỆC:" are labels, not a name')
+eq(n('WINMART+ TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG TẠI [TP. BẮC NINH]\nLàm việc tại cửa hàng WinMart+ khu vực Bắc Ninh'), 'cửa hàng WinMart+', '#633 "khu vực …" after a shop name is a place')
 if (fails.length) throw new Error('\n' + fails.join('\n'))
 console.log('companyReader: 옛 사례 · 2026-11-07 잘못 읽은 글 · 가게 이름 · 소개소/수수료 통과')
