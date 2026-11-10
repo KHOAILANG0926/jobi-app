@@ -57,13 +57,14 @@ export function readAddress(sourceText: string): string {
   }
   const line = unlabeledLine(text)
   if (line) return line
-  // 가게 이름 바로 뒤 번지+거리("Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng", #633): 가게 낱말 줄에서 번지 + 대문자로 시작하는 낱말 2~4개
-  for (const l of text.split('\n')) {
+  // ③ 조각: 동·구·도로·공단(FRAGMENT) + 가게 이름 바로 뒤 번지+거리("Cửa hàng Jollibee 393 Trần Hưng Đạo", #633 —
+  //    거리 이름을 대문자로 알아봐야 해서 대소문자 무시인 FRAGMENT에는 못 넣고 같은 조각 목록에 앞에 둔다)
+  const shopStreets = text.split('\n').flatMap((l) => {
     const k = l.match(new RegExp(KIND, 'iu'))
-    const shop = k && l.slice((k.index ?? 0) + k[0].length).match(/^[^,\n]*?\s(\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*(?:\s+\p{Lu}\p{Ll}*){1,3})/u)
-    if (shop) return shop[1]
-  }
-  const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).map((m) => (/^(?:kcn|ccn)\s/iu.test(m) ? m.replace(FRAGMENT_TAIL, '') : m)).filter((m) => m.length > 2)
+    const m = k && l.slice((k.index ?? 0) + k[0].length).match(/^[^,\n]*?\s(\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*(?:\s+\p{Lu}\p{Ll}*){1,3})/u)
+    return m ? [m[1]] : []
+  })
+  const parts = [...shopStreets, ...[...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).map((m) => (/^(?:kcn|ccn)\s/iu.test(m) ? m.replace(FRAGMENT_TAIL, '') : m))].filter((m) => m.length > 2)
   return [...new Set(parts.slice(0, 3))].join(', ')
 }
 

@@ -89,5 +89,6 @@ eq(n('[ HAIDILAO VINCOM BẮC NINH ] TUYỂN DỤNG GẤP NHIỀU VỊ TRÍ\nPh�
 eq(n('CÔNG TY MÌNH Ở KHÚC XUYÊN CẦN TUYỂN 10 NỮ\nLương 8 triệu'), '', '#633 CÔNG TY MÌNH is not a name')
 eq(n('CÔNG TY JMT KCN QUẾ VÕ 2\nTuyển 20 nam nữ'), 'CÔNG TY JMT', '#633 JMT company before KCN')
 eq(n('Công ty Minh Anh tuyển dụng công nhân'), 'Công ty Minh Anh', 'Codex #663 name Minh (no accent) is a name')
+eq(n('GOERTEK – KCN Quế Võ\nTuyển công nhân'), 'GOERTEK', '#633 one-word brand before dash uses the first-line step')
 if (fails.length) throw new Error('\n' + fails.join('\n'))
 console.log('companyReader: 옛 사례 · 2026-11-07 잘못 읽은 글 · 가게 이름 · 소개소/수수료 통과')

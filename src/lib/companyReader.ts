@@ -75,11 +75,10 @@ export function readCompany(text: string): CompanyRead {
   const src = postBody(String(text ?? '').normalize('NFC'))
   const lines = src.split('\n').map((l) => clean(l.replace(EMOJI, ' '))).filter(Boolean)
   const pick = (): string => {
-    // ⓪ 첫 줄이 이름만 있는 짧은 줄(#4982 "Bomunttl" — 다음 줄 "Nhà hàng nướng"): 구인 낱말·가게 종류뿐이 아니고 4낱말 이하
-    if (lines[0] && lines[0].split(/\s+/).length <= 4 && !/[:：!?]/.test(lines[0]) && ok(lines[0])) return ok(lines[0])
-    //    첫 줄이 "상호 한 낱말 – 장소"(#633 "KHVATEC – DO NHA, QUẾ VÕ 1"): 대시 앞이 한 낱말 상호일 때만
-    const brand = lines[0]?.match(/^(\p{L}[\p{L}\d&.]{2,30})\s+[–-]{1,2}\s+\S/u)?.[1]
-    if (brand && !/[:：!?]/.test(lines[0]) && ok(brand)) return ok(brand)
+    // ⓪ 첫 줄이 이름만 있는 짧은 줄(#4982 "Bomunttl" — 다음 줄 "Nhà hàng nướng"): 구인 낱말·가게 종류뿐이 아니고 4낱말 이하.
+    //    "상호 한 낱말 – 장소"(#633 "KHVATEC – DO NHA, QUẾ VÕ 1")면 대시 앞 한 낱말만 본다.
+    const first = (lines[0] ?? '').replace(/^(\p{L}[\p{L}\d&.]{2,30})\s+[–-]{1,2}\s+\S.*$/u, '$1')
+    if (first && first.split(/\s+/).length <= 4 && !/[:：!?]/.test(lines[0]) && ok(first)) return ok(first)
     // ① 이름표 줄
     for (const l of lines) {
       const m = l.match(/^(?:tên )?(?:công ty|cty|đơn vị|nhà tuyển dụng|doanh nghiệp)\s*[:：]\s*(.+)$/iu)
