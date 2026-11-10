@@ -1,3 +1,4 @@
+// 2026-11-10: index.css·JobDetail.tsx — #563 업종 그림 머리·색 막대 상자 CSS(Lee 데모 "상단은 마음에 들어"). / Lee "세부구성은 왜 안바꿔?"·"우리 AI 이미지 넣어야지"(데모): 10-30 확정 자리로 원문 줄 나눔(① Phụ cấp·Thưởng·근무시간, ② Yêu cầu khác, ④ 6칸) + #563 업종 그림 머리. 4칸 순서·상단 카드 틀 변경 없음, KDA 제외.
 // 2026-11-10: JobDetail.tsx — Lee "Mức lương 왜케 지저분해"(글 모형 #647): 급여 칸 줄 정리(위 금액 반복·제목·대문자 줄 빼고 3줄) + 금액 옆 'chưa tính tăng ca'. 칸 순서·위치 등 틀 변경 없음.
 // 2026-11-10: JobDetail.tsx — #646 화면 대조 검사: 상단 제목 계산을 공용 함수 detailTitle(companyBranch.ts)로 옮김(화면·검사가 같은 함수, 결과 같음 — #642와 같은 식). 틀·CSS 변경 없음.
 // 2026-11-08: index.css — Lee "적용해도 괜찮아"(데모 A안): 휴대폰(≤640px)에서만 정렬 줄(JobsListToolbar) 칸이 넘치면 아래 줄로. PC 틀·CSS 동작 변경 없음(폭 1280 정렬 줄 위치·크기 수정 전후 같음).
@@ -107,12 +108,12 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "207ded5095549696121817658677655ba0f5ee2d9b959da1a4d7596068e1d929",
+    "sha256": "d04fe0bf89f129f7ad618e4244bb8e610aca987dbe6a08a7e4c37ad1abd28410",
     "restore": []
   },
   {
     "path": "src/index.css",
-    "sha256": "2edfa0185aaf33a0c4128401ed510a87d70a7c4f48a0a663d39f0380f4639be8",
+    "sha256": "aed1ce7d31d5e361ea8f346777cdedec477fa36a965db5a294fcfa2f5d7e7cc7",
     "restore": []
   },
   {

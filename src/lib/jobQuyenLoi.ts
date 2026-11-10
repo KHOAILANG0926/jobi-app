@@ -90,3 +90,68 @@ export function insuranceTags(lines: string[]): string[] {
   }
   return out
 }
+
+/**
+ * 최신 4칸 틀 상세 구성(CLAUDE.md 「공고 상세페이지 구성 … 최종 확정」 2026-10-30, Lee 2026-11-10 "세부구성은 왜 안바꿔?").
+ * 원문 줄(detailSections 결과)을 지우지 않고 확정 자리로 나눈다. 글자는 그대로.
+ * - ② 모집조건: 자격 줄(02) → 'Kinh nghiệm'(경험 낱말 줄 1개, DB 값이 없을 때) + 'Yêu cầu khác'(나머지)
+ * - ① 근무조건 Phụ cấp·Thưởng: 상여·수당 줄(albamonConditionLines, 최대 3줄) / 보험은 ① Phúc lợi 짧은 표시
+ * - ④ 상세요강: Nội dung công việc(01 + 위에 없는 07 설명 줄) · Tăng ca(연장 줄) · Phụ cấp · Thưởng(① 3줄을 넘은 나머지만)
+ *   · Môi trường làm việc(05 보험 외) · Quy trình tuyển dụng(06 연락처 외) · Liên hệ(전화·Zalo·이메일 줄)
+ * - 위쪽에 이미 있는 줄(제목·회사 이름·근무지 주소와 같은 줄, 급여 금액 반복·제목·대문자 홍보 줄)은 ④에 다시 넣지 않는다.
+ * - 근무시간·형태 줄(03 연장 외)은 ① 근무시간이 비어 있으면 그 칸(최대 3줄), 아니면 ④ Nội dung công việc 끝에 남긴다(지우지 않음).
+ */
+export interface Compose1030 {
+  experience?: string
+  otherRequirements: string[]
+  allowance: string[]
+  overtimeNote?: string
+  hours: string[]
+  detail: DetailSection[]
+}
+const CONTACT_LINE = /(?:điện thoại|đt|sđt|hotline|zalo|email|e-mail|liên hệ)\s*[:：]|(?:\+?84|0)[\d .-]{8,}\d|@[\w-]+\.[a-z]{2,}/iu
+const OT_LINE = /tăng ca|tang ca|làm thêm giờ|ngoài giờ/iu
+export function albamonCompose(sections: DetailSection[], ctx: { title?: string | null; company?: string | null; addresses?: (string | null | undefined)[]; salary?: string | null; hasHours?: boolean; preference?: string | null }): Compose1030 {
+  const at = (k: string) => sections.find((s) => s.key === k)?.lines.map((l) => l.trim()) ?? []
+  const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const above = [ctx.title, ctx.company, ...(ctx.addresses ?? [])].map((s) => fold(String(s ?? ''))).filter((s) => s.length >= 4)
+  const shownAbove = (l: string) => { const f = fold(l); return !!f && above.some((a) => a === f || a.startsWith(f) || (f.length >= 12 && a.includes(f))) }
+  const cond = albamonConditionLines(sections, ctx.salary)
+  // 02 → ②
+  const req = at('02')
+  // ② Kinh nghiệm 칸에 DB 값이 이미 보이면 같은 줄은 다시 넣지 않는다
+  const pref = fold(String(ctx.preference ?? ''))
+  const expIdx = pref ? -1 : req.findIndex((l) => /kinh nghiệm|kinh nghiem/iu.test(l))
+  const experience = expIdx >= 0 ? req[expIdx] : undefined
+  const otherRequirements = req.filter((l, i) => i !== expIdx && !(pref && fold(l) === pref))
+  // 03·04 → 연장 줄은 ④ Tăng ca, 나머지 03은 ① 근무시간(비었을 때)
+  const ot: string[] = [], timeLines: string[] = []
+  for (const l of at('03')) (OT_LINE.test(l) ? ot : timeLines).push(l)
+  const top = salaryAmounts(ctx.salary)
+  const payRest: string[] = []
+  for (const l of at('04')) {
+    if (OT_LINE.test(l) && !(top.length && salaryAmounts(l).some((a) => top.includes(a)))) { ot.push(l); continue }
+    if (cond.salary.includes(l.replace(/^\s*[-•*]\s+/, ''))) continue
+    if (top.length && salaryAmounts(l).some((a) => top.includes(a))) continue
+    const letters = l.replace(/[^\p{L}]/gu, '')
+    if (/[:：]\s*$/.test(l) || (letters.length >= 4 && letters === letters.toLocaleUpperCase('vi'))) continue
+    payRest.push(l)
+  }
+  const hours = !ctx.hasHours ? timeLines.slice(0, SALARY_CELL_MAX) : []
+  const timeRest = ctx.hasHours ? timeLines : timeLines.slice(SALARY_CELL_MAX)
+  const env = at('05').filter((l) => quyenLoiKeyOf(l) !== 'insurance')
+  const contact: string[] = [], process: string[] = []
+  for (const l of at('06')) (CONTACT_LINE.test(l) ? contact : process).push(l)
+  const extra: string[] = []
+  for (const l of at('07')) { if (shownAbove(l)) continue; (CONTACT_LINE.test(l) ? contact : extra).push(l) }
+  const detail: DetailSection[] = [
+    // 회사 소개·모집 안내 줄("… cần tuyển …")은 업무 앞, 그 밖의 설명 줄은 업무 뒤
+    { key: '01' as const, label: 'Nội dung công việc', lines: [...extra.filter((l) => /tuyển|tuyen/iu.test(l)), ...at('01'), ...extra.filter((l) => !/tuyển|tuyen/iu.test(l)), ...timeRest] },
+    { key: '03' as const, label: 'Tăng ca', lines: ot },
+    { key: '04' as const, label: 'Phụ cấp · Thưởng', lines: payRest.filter((l) => !cond.salary.includes(l)) },
+    { key: '05' as const, label: 'Môi trường làm việc', lines: env },
+    { key: '06' as const, label: 'Quy trình tuyển dụng', lines: process },
+    { key: '07' as const, label: 'Liên hệ', lines: contact },
+  ].filter((s) => s.lines.length) as DetailSection[]
+  return { experience, otherRequirements, allowance: cond.salary, ...(cond.overtimeNote ? { overtimeNote: cond.overtimeNote } : {}), hours, detail }
+}

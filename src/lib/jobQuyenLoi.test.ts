@@ -1,4 +1,4 @@
-import { quyenLoiKeyOf, albamonConditionLines, usesAlbamonLayout, BASELINE_FRAME_JOB_IDS } from './jobQuyenLoi.ts'
+import { quyenLoiKeyOf, albamonConditionLines, albamonCompose, usesAlbamonLayout, BASELINE_FRAME_JOB_IDS } from './jobQuyenLoi.ts'
 import { detailSections } from './jobDetailSections.ts'
 function assert(v: unknown, m: string) { if (!v) throw new Error(m) }
 // ADTEK(2026-10-29) 원문 줄 모양 그대로 — 4칸 틀: 급여 아래·복리후생에 복사, 상세요강 원문은 그대로
@@ -27,5 +27,22 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   assert(c.overtimeNote === 'chưa tính tăng ca', 'overtime note from the repeated amount line')
   assert(!zhan.sections.flatMap((x) => x.lines).includes('1. CHẾ ĐỘ LƯƠNG & THƯỞNG'), 'numbered source heading dropped from ④')
   assert(zhan.sections.flatMap((x) => x.lines).includes('THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ'), '④ keeps the source lines')
+}
+// 10-30 확정 구성(Lee 2026-11-10 "세부구성"): 원문 줄을 ①②④ 확정 자리로 — 지우지 않고 옮김, 위쪽에 있는 줄만 ④에서 뺌
+{
+  const desc = ['Công việc', '2. CÔNG VIỆC', 'Vận hành, hỗ trợ sản xuất tại bộ phận ép nhựa.', 'Yêu cầu', '3. YÊU CẦU', 'Không yêu cầu kinh nghiệm, được hướng dẫn công việc.', 'Chăm chỉ, có trách nhiệm, nghiêm túc trong công việc.',
+    'Thu nhập', 'LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA!', 'Tiền tăng ca được tính riêng theo quy định.', 'Làm đủ 30 ngày: Thưởng 500.000đ.',
+    'Quyền lợi', 'Tham gia BHXH, BHYT, BHTN theo quy định.', 'Quy trình tuyển dụng', '5. LIÊN HỆ ỨNG TUYỂN', 'Điện thoại: 0969 661 314', 'Email: zhanan@zhan-an.com', 'Các bạn có nhu cầu tìm việc vui lòng liên hệ trực tiếp.',
+    'Thông tin khác', 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', 'Công ty TNHH ZHAN AN cần tuyển công nhân sản xuất làm việc tại khu vực Khắc Niệm.', '4. ĐỊA ĐIỂM LÀM VIỆC', 'CÔNG TY TNHH ZHAN AN', 'Khu vực Khắc Niệm, phường Hạp Lĩnh, Bắc Ninh.'].join('\n')
+  const c = albamonCompose(detailSections(desc).sections, { title: 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', company: 'CÔNG TY TNHH ZHAN AN',
+    addresses: ['Khu vực Khắc Niệm, phường Hạp Lĩnh, Bắc Ninh, Bắc Ninh'], salary: '7.300.000Đ/THÁNG', hasHours: false, preference: 'Không yêu cầu kinh nghiệm, được hướng dẫn công việc.' })
+  const by = (l: string) => c.detail.find((x) => x.label === l)?.lines ?? []
+  assert(JSON.stringify(c.detail.map((x) => x.label)) === JSON.stringify(['Nội dung công việc', 'Tăng ca', 'Quy trình tuyển dụng', 'Liên hệ']), 'labels ' + JSON.stringify(c.detail.map((x) => x.label)))
+  assert(by('Nội dung công việc')[0].startsWith('Công ty TNHH ZHAN AN cần tuyển') && by('Nội dung công việc')[1].startsWith('Vận hành'), 'intro then duties')
+  assert(by('Tăng ca')[0] === 'Tiền tăng ca được tính riêng theo quy định.', 'overtime line')
+  assert(JSON.stringify(by('Liên hệ')) === JSON.stringify(['Điện thoại: 0969 661 314', 'Email: zhanan@zhan-an.com']), 'contact')
+  assert(JSON.stringify(c.otherRequirements) === JSON.stringify(['Chăm chỉ, có trách nhiệm, nghiêm túc trong công việc.']), 'other requirements without the preference repeat')
+  assert(c.allowance[0] === 'Làm đủ 30 ngày: Thưởng 500.000đ.' && c.overtimeNote === 'chưa tính tăng ca', 'allowance + note')
+  assert(!c.detail.flatMap((x) => x.lines).some((l) => l === 'CÔNG TY TNHH ZHAN AN' || l.startsWith('Khu vực Khắc Niệm') || l.startsWith('CÔNG TY TNHH ZHAN AN –')), 'lines shown above are not repeated in ④')
 }
 console.log('jobQuyenLoi: verbatim copies, baseline exempt, two frames only')
