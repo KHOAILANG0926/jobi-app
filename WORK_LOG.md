@@ -7,6 +7,10 @@
 - ⑤ 시험 몫 google_text_search_test 600/월(migration 20261110090000, 한 줄 추가) — 시험 도구가 Pro·IDs 모두 먼저 예약, Pro는 운영 몫에도. 시험은 베트남 날짜 하루 한 번, 실행당 SearchText 40회.
 - 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
 
+## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
+- 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).
+- 변경: 모르는 slug → /chu-de/ky-tuc-xa로 replace, 지역 칸 = REGION_MACRO_TABS 34개 성(메인·검색과 같은 목록). 판정 함수는 원래 34개 공통이라 그대로. 화면 틀 그대로.
+- 검증 [직접 확인]: tsc · npm test 115/115 · build · 로컬 미리보기 /chu-de/abc → /chu-de/ky-tuc-xa, 지역 34개(Bắc Giang·Long An 없음, Lạng Sơn 있음).
 ## 2026-11-09 밤 — #560 회사 이름·이름 비교·주소 읽기 공통 고침 (Lee "먼저 공통 로직 개선, 잘못 확정 0건")
 - 고친 곳(한 곳씩, 모든 경로 공통): companyReader(댓글 아래 무시·"quán cạnh ngã 6"류 위치 설명 버림·CTY 줄 뒤 상여/공단 말 떼기·제목 대시 일반화·[지역] 머리 떼기·partime), addressReader(댓글 무시·주소 이름표 값이 가게 이름이면 다음 번지 줄), companyPlaceSearch(업종 머리말 묶음 빼기·짧은 지도 이름 8자 이상·따로 쓴 Việt/Nam 유지·**원문 번지 거리/공단과 다른 후보는 고르지 않음**).
 - 시험: 30건 실제 원문·Google 후보로 사례 추가(바로 읽기 9, 고르기 4, 보류 9). 예전 기대값 3곳 변경: EAGLEON 이름에서 공단 말 뺌, KCN 원문인데 Google이 시내 거리면 따르지 않음(locationProcess), logoLookup 시험 후보 주소를 실제처럼.
@@ -48,9 +52,3 @@
 - #587: 예전 커밋 Codex 지적에 답 없으면 30분 통과 안 함, Codex 없이 운영·보안·DB 파일 바뀐 PR은 needs-lee로 멈춤(check-repository-policy 기존 목록 재사용).
 - 운영 SQL: master·Lee 계정 실행만, 허용 = 입구로 기존 공고 고치기 1줄(job_id+update_fields) + 조회, 입구 호출 뒤 읽기 전용(DB가 쓰기 거부, 로컬 PostgreSQL 16 확인), 실행 전 입구 호출 권한 확인. 예전 파일 4개(cleanup·kda×2·mao-yen)는 이제 실행 안 됨(실행 끝난 기록).
 - 남은 것: 접속 계정이 관리자급인지 첫 실행 로그로 확인 → 관리자급이면 전용 계정 분리는 Lee 결정(비밀값 변경).
-
-## 2026-11-09 오전 — 구조 단순화 1차 (Lee "덧붙이기 전에 고치기·합치기·지우기")
-- 상세 틀 3→2(Lee "적용"): 예전 Quyền lợi 틀 3건(sb-4878·4879·4982)을 새 4칸 틀로, 그 틀 전용 코드(splitQuyenLoi·takeRequirementLines·Quyền lợi 상자·contactHost quyenloi) 삭제. KDA·데이터 그대로.
-- 함께 낸 PR: #583 Codex 자동 대응 잡 중지(실행 0회), #584 안 쓰는 파일 15개·자동 작업 3개 삭제, #585 DB 검사 파일별 예외 27곳 → 이름 규칙(setup/local), #587 Codex 줄 지적은 처음 단 커밋 기준, #588 규칙 문서 513→371줄 + 원칙 8·PR 양식·Codex 검토 기준. 해결된 경보 글 21개 닫음.
-- 조사만(Lee 결정 대기): 「운영 - 지정 SQL 실행」은 수정·삭제 문장을 막지 않아 승인 절차 우회 가능 → 입구 호출·조회만 허용하는 제한안. #586 운영 헤더 검사 11-04 이후 미실행.
-- 검증: tsc·npm test 119/119·build·desktop baseline 8/8.
