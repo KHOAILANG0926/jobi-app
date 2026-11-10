@@ -53,6 +53,12 @@ export function readAddress(sourceText: string): string {
   }
   const line = unlabeledLine(text)
   if (line) return line
+  // 가게 이름 바로 뒤 번지+거리("Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng", #633): 가게 낱말 줄에서 번지 + 대문자로 시작하는 낱말 2~4개
+  for (const l of text.split('\n')) {
+    const k = l.match(new RegExp(KIND, 'iu'))
+    const shop = k && l.slice((k.index ?? 0) + k[0].length).match(/^[^,\n]*?\s(\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*(?:\s+\p{Lu}\p{Ll}*){1,3})/u)
+    if (shop) return shop[1]
+  }
   const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).filter((m) => m.length > 2)
   return [...new Set(parts.slice(0, 3))].join(', ')
 }
