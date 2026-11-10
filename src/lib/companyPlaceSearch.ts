@@ -8,6 +8,7 @@
 // 결과는 '대략 위치(area)' — 화면은 chưa xác minh 그대로, 핀만 실제 업체 자리.
 import { companyTokens, normalizePlaceText } from './locationCandidateMatch'
 import { findIndustrialPark, foldText } from './industrialPark'
+import { NAME_HEAD_WORDS } from './shopKinds'
 
 /** 이름 앞뒤 수식어를 뺀 핵심 이름(띄어쓰기 없이). "JoyThai - Thai Cuisine & Hotpot" → "joythai". */
 export function coreName(name: string): string {
@@ -16,12 +17,14 @@ export function coreName(name: string): string {
   // 낱말 하나씩 빼면(예: 'trang') 사람 이름까지 지워지므로 낱말 묶음으로만 뺀다.
   // 'Việt Nam'(나라 이름)은 빼되, 따로 쓰인 'Việt'·'Nam'은 이름의 일부다("Đại Tân Việt" ≠ "Đại Tân", #560) — 공용 낱말 목록(companyTokens)이
   // 둘을 늘 빼므로 여기서만 지켜 둔다.
-  const bare = ` ${normalizePlaceText(head)} `.replace(GENERIC_HEAD, ' ').replace(/ (?:viet nam|vietnam) /g, ' ').replace(/ (viet|nam)(?= )/g, ' $1x')
+  const bare = ` ${normalizePlaceText(head)} `.replace(GENERIC_HEAD, ' ').replace(/\s+/g, ' ').replace(SHOP_HEAD, ' ').replace(/ (?:viet nam|vietnam) /g, ' ').replace(/ (viet|nam)(?= )/g, ' $1x')
   const tokens = companyTokens(bare).map((t) => t.replace(/^(viet|nam)x$/, '$1')).filter((t) => !CORE_IGNORED.has(t))
   return tokens.join('')
 }
 // 업종 일반어·지역 이름(이름의 '핵심'이 아님). 너무 많이 빼면 다른 회사와 같아지므로 짧게 둔다.
 const GENERIC_HEAD = / (?:he thong|sieu thi|dien may|khach san|thuong hieu|bar)(?= )/g
+// 이름 맨 앞에 붙은 가게 종류·소개소 낱말(shopKinds 한 곳): "Siêu Thị Mẹ Bầu & Em Bé Con Cưng" ↔ "CON CƯNG"(2026-11-11). 앞머리만 뗀다(이름 중간 낱말은 이름의 일부).
+const SHOP_HEAD = new RegExp(`^ (?:(?:${NAME_HEAD_WORDS.map((w) => normalizePlaceText(w)).filter(Boolean).join('|')}) )+`)
 const CORE_IGNORED = new Set(['dich', 'vu', 'bao', 've', 'ninh', 'bac', 'giang', 'ha', 'noi', 'tp', 'thanh', 'pho', 'tinh', 'chi', 'nhanh', 'cn', 'co', 'so', 'nha', 'hang', 'quan', 'cua'])
 
 /** 공고 회사 이름 ↔ 지도 업체 이름이 핵심 이름으로 같은가. 핵심 이름이 4글자보다 짧으면 판단하지 않는다(오탐 방지). */
@@ -110,7 +113,13 @@ export function pickCompanyPlace(company: string, address: string, hits: PlaceHi
   const street = streetOf(address)
   if (!street) return { hit: null, reason: 'multiple_no_street' }
   const onStreet = same.filter((h) => ` ${normalizePlaceText(h.address)} `.includes(` ${street} `))
-  return onStreet.length === 1 ? { hit: onStreet[0], reason: 'multiple_street_match' } : { hit: null, reason: onStreet.length ? 'multiple_same_street' : 'multiple_no_street_match' }
+  if (onStreet.length === 1) return { hit: onStreet[0], reason: 'multiple_street_match' }
+  // 같은 체인이 같은 거리에 여러 곳이면(2026-11-11 KRIK 152·340 Trần Hưng Đạo) 원문 번지가 그 후보 주소에 '번지 + 거리'로 있는 곳만.
+  // 번지가 없거나 번지까지 같은 곳이 1곳이 아니면 지금처럼 보류(다른 지점을 고르지 않는다).
+  const no = /^\s*(?:số\s*)?(\d+[a-z]?(?:\/\d+)*)\s/iu.exec(address)?.[1]?.toLowerCase()
+  const atNo = no ? onStreet.filter((h) => new RegExp(`(?:^| )${no.replace('/', ' ')} (?:d |duong |pho )?${street} `).test(` ${normalizePlaceText(h.address)} `)) : []
+  if (atNo.length === 1) return { hit: atNo[0], reason: 'multiple_house_number_match' }
+  return { hit: null, reason: onStreet.length ? 'multiple_same_street' : 'multiple_no_street_match' }
 }
 
 /** Goong AutoComplete 응답 → 후보 목록. */

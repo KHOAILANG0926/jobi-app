@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
-import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
+import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
@@ -130,8 +130,7 @@ export function readLocationOnly(input) {
 function resolverDeps(db, request, extra, goong, google) {
   return {
     async withinAdministrativeArea(addresses, point) {
-      const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
-      return !!area && areaContains(area,point)
+      return withinOriginalProvince(addresses[0], addresses[1] || '', point)
     },
     async administrativeCenter(addresses) {
       const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')

@@ -96,7 +96,9 @@ def precheck_input(job: dict) -> dict:
             "addresses": _work_addresses(job)[:5], "source_text": str(job.get("source_text") or ""),
             "poster_text": str(job.get("_poster_text") or ""),
             # 보류함 '못 찾음' 7일 뒤 다시 확인: 서버가 저장된 Google 결과를 다시 쓰지 않고 새로 묻는다(Codex #619)
-            "recheck": job.get("_recheck") is True}
+            "recheck": job.get("_recheck") is True,
+            # Google 검색어에만 붙이는 지역(수집 그룹 지역). 위치 글자·핀에는 쓰지 않는다(crawl_facebook.py, Lee 2026-11-11)
+            "search_region": str(job.get("_search_region") or "")}
 
 
 def _post_hook(body: dict, failed: dict) -> dict:

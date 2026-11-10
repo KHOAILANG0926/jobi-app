@@ -25,6 +25,23 @@ const vague = precheckJob({ company: 'Cty ABC', location: 'Bắc Ninh' })!
 const none = await resolveAutoLocation(vague, { ...noop, async goong() { return { predictions: [] } }, async google() { return { places: [] } },
   async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'Original administrative area province:bac ninh', checkedAt: 'x' } } })
 assert(!precheckVerdict(none).findable, 'only province → do not collect: ' + JSON.stringify(none))
+// 2026-11-11 Jollibee: 글에 성 이름이 없으면 수집 그룹 지역을 Google 검색어에만 붙이고, 성 안 검사도 그 지역으로. 위치 글자는 그대로.
+{
+  const jb = 'ĐỢT TUYỂN DỤNG NHÂN VIÊN TẠI JOLLIBEE TRẦN HƯNG ĐẠO TỚI ĐÂY\nDo nhu cầu kinh doanh, Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng nhân viên part time:'
+  const j = precheckJob({ company: '', location: '', source_text: jb, search_region: 'Bắc Ninh' })!
+  assert(j.location === '393 Trần Hưng Đạo' && j.searchRegion === 'Bắc Ninh', 'search region kept apart from the location text: ' + JSON.stringify(j))
+  const asked: string[] = []
+  const { withinOriginalProvince } = await import('./administrativeArea.ts')
+  const r = await resolveAutoLocation(j, { ...noop, async goong() { return { predictions: [] } },
+    async google(text: string) { asked.push(text); return { places: [
+      { id: 'jb1', displayName: { text: 'Jollibee Trần Hưng Đạo Bắc Ninh' }, formattedAddress: '393 Trần Hưng Đạo, Võ Cường, Bắc Ninh', location: { latitude: 21.1752, longitude: 106.0661 } },
+      { id: 'jb2', displayName: { text: 'Jollibee Nguyễn Trãi' }, formattedAddress: '207 Nguyễn Trãi, Võ Cường, Bắc Ninh', location: { latitude: 21.1712, longitude: 106.0601 } }] } },
+    async withinAdministrativeArea(a: string[], p: { lat: number; lng: number }) { return withinOriginalProvince(a[0], a[1] || '', p) } })
+  assert(asked.length === 1 && asked[0].endsWith('393 Trần Hưng Đạo, Bắc Ninh'), 'Google asked with the group region: ' + asked[0])
+  assert(precheckVerdict(r).findable && 'source' in r && /jb1/.test(String(r.source)), 'Jollibee 393 Trần Hưng Đạo found: ' + JSON.stringify(r))
+  const noRegion = precheckJob({ company: '', location: '', source_text: jb })!
+  assert(!noRegion.searchRegion, 'no search region when the crawler gives none')
+}
 console.log('locationPrecheck: findable verdicts and real resolver cases passed')
 
 // 2026-11-07 주소 읽기 한 곳: 주소 칸이 없으면 원문에서 읽은 주소 + 그룹 지역, 주소 칸이 있으면 그 칸(원문은 읽지 않음)

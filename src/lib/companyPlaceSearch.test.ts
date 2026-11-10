@@ -106,6 +106,13 @@ assert(none.kind === 'area' && 'lat' in none && none.lat === 21.098, '못 찾으
   assert(pick('Hojeong', 'KCN Quế Võ, Bắc Ninh', [H('w3', 'Hojeong', 'Lô C, KCN Quế Võ, Phường Nam Sơn, Bắc Ninh')]).hit?.id === 'w3', 'same park with KCN word')
   assert(pick('Hojeong', 'Khu CN Quế Võ, Bắc Ninh', [H('a1', 'Hojeong', 'KCN Quế Võ 2, Bắc Ninh'), H('a2', 'Hojeong', 'KCN Yên Phong, Bắc Ninh')]).hit === null, 'Codex #616 "Khu CN" abbreviation keeps park numbering')
   assert(pick('Hojeong', 'Khu CN Hoà Phú', [H('a3', 'Hojeong', 'KCN Hòa Phú 2, Bắc Ninh')]).hit === null, 'unlisted park keeps numbering too')
+  // 2026-11-11 저장된 Google 답(위치 비교 시험 from_cache run 42919537607) — 맞는 곳을 거절하던 것
+  assert(pick('KRIK', '152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Bắc Ninh', [H('r1', 'KRIK - 148 Trần Hưng Đạo (TP.Bắc Ninh)', '152 Trần Hưng Đạo - P.Kinh Bắc - TP.Bắc Ninh, Kinh Bắc, Bắc Ninh 1600'), H('r2', 'KRIK - 340 Trần Hưng Đạo, Quế Võ, Bắc Ninh', '340 Đ. Trần Hưng Đạo, Phương Liễu, Bắc Ninh')]).hit?.id === 'r1', '11-11 KRIK: same chain twice on one street → the one at the same house number')
+  assert(pick('KRIK', '200 Trần Hưng Đạo, Bắc Ninh', [H('r1', 'KRIK A', '152 Trần Hưng Đạo, Bắc Ninh'), H('r2', 'KRIK B', '340 Đ. Trần Hưng Đạo, Bắc Ninh')]).hit === null, '11-11 KRIK: no candidate at our house number → hold')
+  assert(pick('KRIK', 'Trần Hưng Đạo, Bắc Ninh', [H('r1', 'KRIK A', '152 Trần Hưng Đạo, Bắc Ninh'), H('r2', 'KRIK B', '340 Đ. Trần Hưng Đạo, Bắc Ninh')]).hit === null, '11-11 KRIK: no house number in post → hold')
+  assert(pick('KRIK', '15 Trần Hưng Đạo, Bắc Ninh', [H('r1', 'KRIK A', '152 Trần Hưng Đạo, Bắc Ninh'), H('r2', 'KRIK B', '340 Đ. Trần Hưng Đạo, Bắc Ninh')]).hit === null, '11-11 KRIK: 15 is not 152')
+  assert(pick('CON CƯNG BẮC NINH', 'Thửa đất số 163, tờ bản đồ số 37, thôn Đại Thượng, xã Đại Đồng, huyện Tiên Du, tỉnh Bắc Ninh', [H('c1', 'Siêu Thị Mẹ Bầu & Em Bé Con Cưng', 'Thửa đất số 163, tờ bản đồ, số 37 thôn, Đại Thượng, Đại Đồng, Bắc Ninh 7900')]).hit?.id === 'c1', '11-11 Con Cưng: shop-kind head words (shopKinds) are not the name')
+  assert(!sameCoreName('Vua Nệm', 'Nệm Vạn Thành'), '11-11 shop words only leave the head; "Vua Nệm" ≠ "Nệm Vạn Thành"')
   assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
 }
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')

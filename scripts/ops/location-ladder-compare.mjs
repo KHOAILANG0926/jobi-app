@@ -9,7 +9,7 @@
 // 로그(공개 저장소)에는 건수만. 공고별 내용은 결과 파일(1일 보관 비공개 artifact)에만. 키·응답 본문은 출력하지 않는다.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
-import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
+import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { precheckCompany, precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { googlePlaceHits, pickCompanyPlace, sameCoreName } from '../../src/lib/companyPlaceSearch.ts'
 import { normalizePlaceText } from '../../src/lib/locationCandidateMatch.ts'
@@ -101,7 +101,7 @@ function deps({ vietmap, goong, google, shared }) {
   // VietMap·Goong 응답은 A·B가 같이 쓴다(같은 질문 두 번 안 함). Google 응답은 방식마다 따로.
   const store = (key) => (key.includes('"google"') ? own : shared)
   return {
-    async withinAdministrativeArea(addresses, point) { const a = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return !!a && areaContains(a, point) },
+    async withinAdministrativeArea(addresses, point) { return withinOriginalProvince(addresses[0], addresses[1] || '', point) },
     async administrativeCenter(addresses) { const a = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return a ? { lat: a.lat, lng: a.lng, source: `Original administrative area ${a.key}`, checkedAt: new Date().toISOString() } : null },
     async cached(key) { return store(key).get(key) ?? null },
     async cache(key, data) { store(key).set(key, data) },
