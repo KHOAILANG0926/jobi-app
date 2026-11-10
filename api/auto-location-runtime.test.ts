@@ -28,3 +28,26 @@ assert.equal(missingVerifiedCoordinate({active:true,admin_hidden:false,company:'
   assert.ok(!rpcCalls.includes('map_r1_delete_no_info'), 'no_info must not delete the job')
   console.log('location verdict: no_info keeps the job (no delete)')
 }
+
+// Lee 2026-11-09·11-10: 관리자 확정 위치(같은 회사 + 같은 주소)가 있으면 Google·지도에 묻지 않고 찾음으로 본다. 조회 실패·없음은 기존 순서.
+{
+  const { precheckLocation } = await import('./_lib/auto-location-runtime.mjs')
+  const input = { company: 'Công ty TNHH Alpha', location: 'Bắc Ninh', addresses: ['Lô A1 KCN Quế Võ, Bắc Ninh'], source_text: 'Tuyển công nhân' }
+  const calls: string[] = []
+  const request = async (action: string) => { calls.push(action); return null }
+  const google = async () => { calls.push('google'); return null }
+  const memoryDb = (result: any) => ({
+    rpc: async (name: string, args: any) => { calls.push('rpc:' + name); if (name === 'location_memory_point') { assert.deepEqual(args, { p_company: 'Công ty TNHH Alpha', p_addresses: ['Lô A1 KCN Quế Võ, Bắc Ninh'] }); return result } return { data: null, error: null } },
+    from: () => { const q: any = { select: () => q, eq: () => q, in: async () => ({ data: [], error: null }), maybeSingle: async () => ({ data: null, error: null }), upsert: async () => ({ error: null }) }; return q },
+  })
+  const hit = await precheckLocation(memoryDb({ data: [{ candidate_id: 1 }], error: null }), request, input, null, google)
+  assert.equal(hit.findable, true); assert.equal(hit.reason, 'confirmed_memory'); assert.equal(hit.kind, 'exact')
+  assert.deepEqual(calls.filter((c) => !c.startsWith('rpc:')), [], 'confirmed memory → no map/Google call')
+  for (const result of [{ data: [], error: null }, { data: null, error: { message: 'x' } }]) {
+    calls.length = 0
+    const miss = await precheckLocation(memoryDb(result), request, input, null, google).catch(() => ({ reason: 'resolver_ran' }))
+    assert.notEqual(miss.reason, 'confirmed_memory', 'no memory / lookup error → existing order')
+    assert.ok(calls.some((c) => !c.startsWith('rpc:')) || miss.reason === 'resolver_ran', 'existing resolver still runs')
+  }
+  console.log('precheck: confirmed memory skips Google, miss/error keeps existing order')
+}
