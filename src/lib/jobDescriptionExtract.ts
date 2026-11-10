@@ -206,14 +206,17 @@ export function extractJobFields(description: string, ctx: ExtractContext = {}):
  * - 근무시간: 시계 범위(8h-17h, 08:00–17:00)가 있으면 원문 그대로 첫 범위들, 없고 "N tiếng"만 있으면 "Ca ngày / Ca đêm, N tiếng"
  * 원문에 없는 값은 만들지 않는다(빈칸). 쓰는 곳: scripts/ocr/detail-fill.mjs(급여 readSalary와 같은 자리, 빈칸일 때만).
  */
-const CLOCK_RANGE = /\b\d{1,2}\s*(?:h|giờ|:)\s*\d{0,2}\s*(?:-|–|—|đến|~)\s*\d{1,2}\s*(?:h|giờ|:)\s*\d{0,2}\b/gi
+// 공백은 같은 줄 안(space·tab)만 허용 — 줄바꿈 뒤 다음 줄 숫자(18 tuổi 등)를 분으로 먹지 않는다. 분은 h·: 바로 뒤 숫자만.
+const CLOCK_RANGE = /\b\d{1,2}[ \t]*(?:h|giờ|:)\d{0,2}[ \t]*(?:-|–|—|đến|~)[ \t]*\d{1,2}[ \t]*(?:h|giờ|:)\d{0,2}\b/gi
 export function readWorkTime(...texts: (string | null | undefined)[]): { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } {
   const text = texts.filter(Boolean).join('\n')
   if (!text.trim()) return {}
-  const day = /\bca\s+ngày\b/i.test(text), night = /\bca\s+(?:đêm|tối)\b/i.test(text)
+  // 부정 표현("không làm ca đêm", "không xoay ca")은 제공하는 교대가 아니므로 교대 판정 글에서 뺀다.
+  const shiftText = text.replace(/(?<![\p{L}\d])(?:không|ko|chẳng)\s+(?:có\s+)?(?:làm\s+|phải\s+)?(?:xoay\s+ca|đảo\s+ca|ca\s+(?:ngày|đêm|tối|xoay)|\d\s*ca)(?![\p{L}\d])/giu, ' ')
+  const day = /\bca\s+ngày\b/i.test(shiftText), night = /\bca\s+(?:đêm|tối)\b/i.test(shiftText)
   // "2 ca/tuần"·"2 ca mỗi tuần" = 주당 근무 횟수(교대 종류 수 아님) → 제외. 베트남어 글자(đ 등)는 \b가 못 보므로 \p{L} 경계.
-  const nShift = text.match(/(?<![\p{L}\d])([23])\s*ca(?![\p{L}\d])(?!\s*(?:\/|mỗi\s|một\s|trong\s)\s*(?:tuần|tháng|ngày|week))/iu)?.[1]
-  const rotating = (day && night) || /(?<![\p{L}\d])(?:xoay\s+ca|ca\s+xoay|đảo\s+ca|làm\s+đảo\s+ca|luân\s+phiên\s+ca|ca\s+luân\s+phiên)(?![\p{L}\d])/iu.test(text) || !!nShift
+  const nShift = shiftText.match(/(?<![\p{L}\d])([23])\s*ca(?![\p{L}\d])(?!\s*(?:\/|mỗi\s|một\s|trong\s)\s*(?:tuần|tháng|ngày|week))/iu)?.[1]
+  const rotating = (day && night) || /(?<![\p{L}\d])(?:xoay\s+ca|ca\s+xoay|đảo\s+ca|làm\s+đảo\s+ca|luân\s+phiên\s+ca|ca\s+luân\s+phiên)(?![\p{L}\d])/iu.test(shiftText) || !!nShift
   const out: { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } = {}
   if (rotating) { out.shiftType = 'rotating'; if (nShift) out.rotatingShifts = Number(nShift); else if (day && night) out.rotatingShifts = 2 }
   else if (day) out.shiftType = 'day'
@@ -232,7 +235,12 @@ export function readWorkTime(...texts: (string | null | undefined)[]): { shiftTy
   if (clocks.length) out.hours = clocks.join(', ')
   else {
     // 교대별로 시간이 다르면(8 tiếng / 12 tiếng) 하나로 합치지 않고 비워 둔다(원문 없는 값 금지).
-    const nums = [...new Set([...text.matchAll(/(?<![\p{L}\d])(\d{1,2})\s*tiếng(?![\p{L}\d])/giu)].map((m) => m[1]))]
+    // 휴게·면접 시간("nghỉ trưa 1 tiếng")은 근무 시간 후보에서 뺀다(쉼표 단위 절까지 봄).
+    const nums = [...new Set([...text.matchAll(/(?<![\p{L}\d])(\d{1,2})\s*tiếng(?![\p{L}\d])/giu)].filter((m) => {
+      const before = text.slice(0, m.index)
+      const clause = before.slice(Math.max(before.lastIndexOf('\n'), before.lastIndexOf('.'), before.lastIndexOf(';'), before.lastIndexOf('|'), before.lastIndexOf(',')) + 1)
+      return !NOT_WORK.test(clause)
+    }).map((m) => m[1]))]
     const n = nums.length === 1 ? nums[0] : undefined
     const labels = [day ? 'Ca ngày' : '', night ? 'Ca đêm' : ''].filter(Boolean).join(' / ')
     if (n && Number(n) >= 4 && Number(n) <= 14) out.hours = labels ? `${labels}, ${n} tiếng` : `${n} tiếng`
