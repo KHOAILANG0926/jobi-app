@@ -21,7 +21,8 @@ const FRAGMENT = new RegExp(
   `(?:đường|ngõ|ngách|khu(?!\\s+vực)|kp)\\s+[${WORD}\\s\\d]{2,30}|` +
   // 공단 이름 "KCN QUẾ VÕ 2"(제목 줄 "CÔNG TY JMT KCN QUẾ VÕ 2", #633) — 그 줄 안에서만, 뒤 구인 낱말은 뗀다
   `(?:kcn|ccn)\\s+[${WORD} ]{2,30}`, 'giu')
-const FRAGMENT_TAIL = /\s+(?:tuyển|tuyen|cần|lương|thu nhập|làm|liên hệ)(?=\s|$).*$/iu
+const FRAGMENT_TAIL = // 공단 조각에만(동·구 이름 "huyện Cần Giờ"는 그대로, Codex #663)
+  /\s+(?:tuyển|tuyen|cần|lương|thu nhập|làm|liên hệ)(?=\s|$).*$/iu
 
 const trimDots = (s: string) => s.replace(/^[ .]+|[ .]+$/g, '')
 
@@ -62,7 +63,7 @@ export function readAddress(sourceText: string): string {
     const shop = k && l.slice((k.index ?? 0) + k[0].length).match(/^[^,\n]*?\s(\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*(?:\s+\p{Lu}\p{Ll}*){1,3})/u)
     if (shop) return shop[1]
   }
-  const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim().replace(FRAGMENT_TAIL, '')).filter((m) => m.length > 2)
+  const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).map((m) => (/^(?:kcn|ccn)\s/iu.test(m) ? m.replace(FRAGMENT_TAIL, '') : m)).filter((m) => m.length > 2)
   return [...new Set(parts.slice(0, 3))].join(', ')
 }
 

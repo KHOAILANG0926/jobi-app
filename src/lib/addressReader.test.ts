@@ -49,5 +49,6 @@ eq(readAddress('Địa chỉ: Nhà hàng Hoa Sen\n20 người, ca xoay'), 'Nhà 
 eq(readAddress('ĐỢT TUYỂN DỤNG NHÂN VIÊN TẠI JOLLIBEE TRẦN HƯNG ĐẠO TỚI ĐÂY\nDo nhu cầu kinh doanh, Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng nhân viên part time:\n Tuổi từ 18- 25.'), '393 Trần Hưng Đạo', '#633 house number + street after shop name')
 eq(readAddress('CÔNG TY JMT KCN QUẾ VÕ 2\nTuyển 20 nam nữ\nLương 9tr'), 'KCN QUẾ VÕ 2', '#633 KCN name only in title line')
 eq(readAddress('CÔNG TY JMT KCN QUẾ VÕ 2 TUYỂN 20 NAM NỮ\nLương 9tr'), 'KCN QUẾ VÕ 2', '#633 KCN name stops before TUYỂN')
+eq(readAddress('Tuyển nhân viên\nLàm việc ở huyện Cần Giờ'), 'huyện Cần Giờ', 'Codex #663 district name with Cần kept')
 eq(readAddress('Tuyển nhân viên phục vụ\nNhà hàng 5 Sao rất đẹp'), '', '#633 number in shop name without street is not an address')
 console.log('addressReader: #560 cases passed')

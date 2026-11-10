@@ -21,8 +21,8 @@ const JOB_WORDS = new Set((
 ).split(/\s+/))
 // 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
 // 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
-// 자기 가게를 부르는 말("nhà mình", "bên em", "công ty mình")·'수요 있음' 문구는 이름이 아니다(#633 2026-11-10 dryrun)
-const NOT_NAME_PHRASES = ['cong ty minh', 'cty minh', 'cong ty em', 'cty em', 'quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
+// 자기 가게를 부르는 말("nhà mình", "bên em")·'수요 있음' 문구는 이름이 아니다(#633 2026-11-10 dryrun)
+const NOT_NAME_PHRASES = ['quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
 const REGION_PHRASES = [...new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))].sort((a, b) => b.length - a.length)
 
 /** 회사 이름이 될 수 있는 낱말이 하나라도 남는가(구인 낱말·숫자·지역·나라·공단 낱말 제외). */
@@ -39,6 +39,8 @@ function clean(c: string): string {
 function ok(c: string): string {
   const v = clean(c)
   if (!v || v.length > MAX || /[!?]$/.test(v) || !hasNameWord(v) || /^(?:cong ty|cty)(?: (?:tnhh|cp|co phan))?$/.test(fold(v))) return '' // "Công ty"만은 이름이 아니다
+  // "CÔNG TY MÌNH"(자기 회사를 부르는 말, #633): 성조 붙은 'mình'만 — 접기 전에 봐야 이름 "Công ty Minh Anh"를 살린다(Codex #663)
+  if (/^(?:công ty|cty)\s+mình(?=\s|$)/iu.test(v)) return ''
   return v
 }
 
