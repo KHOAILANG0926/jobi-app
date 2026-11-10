@@ -127,4 +127,13 @@ jobs:
           python -m pip cache purge >/dev/null 2>&1 || true
           rm -rf /tmp/deps.log /tmp/fb.log /tmp/facebook_dryrun.json /tmp/fbdry
           find "$HOME/actions-runner/_diag" -name '*.log' -mtime +1 -delete 2>/dev/null || true
+          # 2026-11-10 Lee(11-07 "바로 지울 수 있는 공간 정리" 마무리): 수집기 playwright(requirements 고정 버전)가 쓰는 브라우저만 남기고
+          # 다른 chromium 버전 폴더는 지운다(다시 받을 수 있음). 쓰는 버전을 못 읽으면 아무것도 지우지 않는다.
+          keep=$(python -m playwright install --dry-run chromium 2>/dev/null | awk '/Install location:/{print $3; exit}')
+          if [ -n "$keep" ] && [ -d "$keep" ]; then
+            for d in "$(dirname "$keep")"/chromium*; do
+              [ -d "$d" ] || continue
+              case "$(basename "$d")" in "$(basename "$keep")") ;; *) echo "안 쓰는 브라우저 지움: $(basename "$d") ($(du -sh "$d" | cut -f1))"; rm -rf "$d";; esac
+            done
+          fi
           df -h / | tail -1 | awk '{print "::notice title=서버 남은 공간::"$4" ("$5" 사용)"}'

@@ -17,6 +17,18 @@ export function checkCompletion(body, headSha) {
   if (!/^- 요청:\s*\S/m.test(body) || !/^- 완료 조건:\s*\S/m.test(body))
     errors.push('요청 및 확정된 완료 조건 누락')
   if (!/^- 변경 파일:\s*\S/m.test(body)) errors.push('변경 파일 누락')
+  // Lee 2026-11-10: 끝내지 못한 일이 기록 없이 사라지지 않게(11-07 VPS 정리를 다 하지 않고 기록도 안 해 다시 문제로 꺼낸 일).
+  // 후속 칸은 "없음"이거나, 줄마다 할 일 번호(#이슈)가 있어야 한다.
+  const later = body.split(/^## 후속 개선 과제[^\n]*\n/m)[1]?.split('\n## ')[0]
+  if (later === undefined) errors.push('후속 개선 과제: 칸 없음(없으면 "없음")')
+  else {
+    const lines = later.replace(/<!--[\s\S]*?-->/g, '').split('\n').map(l => l.trim()).filter(Boolean)
+    if (!lines.length) errors.push('후속 개선 과제: 내용 없음(없으면 "없음")')
+    for (const line of lines) {
+      if (/^(?:-\s*)?없음(?:$|[\s—(,.:-])/.test(line)) continue
+      if (!/#\d+/.test(line)) errors.push('후속 개선 과제: 할 일 번호(#이슈) 없는 줄 — ' + line.slice(0, 60))
+    }
+  }
 
   // 2026-11-01 Lee "기초 정리": 이 검사(checks)가 끝나기 전에 checks·app-screen 성공을 설명란에 미리 적으라는 요구는
   // 스스로를 증명하라는 순환이라 삭제. 실제 검사 결과는 봇 병합(bot-pr-automerge.yml)이 GitHub check-runs로 직접 확인한다.

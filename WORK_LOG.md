@@ -1,3 +1,8 @@
+## 2026-11-10 오후 — VPS 안 쓰는 브라우저 자동 정리·후속 칸 할 일 번호 강제 (Lee "지시한 걸 안 한 것")
+- 11-07 "바로 지울 수 있는 공간 정리"에서 안 쓰는 브라우저(chromium-1248·headless_shell, 약 680MB)를 남기고 기록도 안 함 → Facebook 수집 정리 단계가 수집기 playwright(1.44 = chromium-1117)가 쓰는 버전만 남기고 다른 chromium 폴더를 지움(쓰는 버전을 못 읽으면 안 지움).
+- 재발 방지: check-pr-ready가 PR 「후속 개선 과제」 칸을 요구하고, "없음"이 아닌 줄마다 할 일 번호(#이슈)를 요구(템플릿 안내도). 시스템 파일 정리(관리자 권한)는 #636.
+- 검증: check-pr-ready.test 7/7(후속 칸 없음·번호 없음 거부, 번호 있음·없음 통과), playwright 1.44 dry-run 출력 형식 확인(Install location → chromium-1117).
+
 ## 2026-11-10 오후 — 위치 확인: 관리자 확정 위치 먼저 (Lee 11-10 2단계 "자체 사업장 위치 DB 미완성 기능 보완")
 - 원인 [직접 확인]: 새 공고 위치 확인(precheckLocation)이 관리자 확정 기억표를 보지 않고 Google부터 물음. 기억표는 등록 뒤 자동 재사용(valid_memory_targets)에만 쓰여, 우리가 이미 확정한 회사·주소도 Google 한도·'못 찾음'에 막힐 수 있었음.
 - 변경: DB 함수 public.location_memory_point(읽기만, service_role, 등록 뒤 재사용과 같은 조건 — 같은 회사 이름 + 같은 주소 열쇠) → precheck가 맞으면 Google 없이 찾음(confirmed_memory). 조회 실패는 기존 순서. 다른 지점·다른 회사·꺼진 기억은 맞지 않음(시험).
@@ -47,9 +52,3 @@
 - 변경: scripts/ops/location-ladder-compare.mjs(+test), .github/workflows/location-ladder-compare.yml(수동). 판정은 운영과 같은 함수(resolveAutoLocation·precheckVerdict), 캐시 메모리만, 운영 DB는 공고·핀·캐시 쓰기 없음, Google Pro 호출만 운영 월 한도 예약(external_api_reserve)으로 셈(Codex 지적 반영).
 - 거부 분석 [직접 확인]: Facebook 저장 시도 15건 중 저장 5 · 위치 거부 8(대략 위치만 5, 주소 글 없음 1, 원래 성 밖 1, 확인 서버 응답 없음 1) · 기타 2. 앞서 보고한 '16건'은 로그 줄 중복으로 두 번 센 것.
 - 남은 것: 미리 보기 8개 그룹 실행 → 비교 실행 → 결과 보고, VietMap 저장 문의 메일(Lee 승인 후 발송).
-
-## 2026-11-09 오후 — AI 팀 Co-work 자동 협업 연결 (Lee 최우선)
-- #598 Codex 지적 → GitHub Actions Claude 자동 수정·답·재검사 요청 다시 켬, #601 실행 기록(결과·거절 명령·오류) 표시, #602 실행 전 npm ci.
-- 원인 확인: 예전 2초 실패(#582) = 구독 열쇠 무효(401) → Lee가 새 열쇠 등록(11-09 13:05).
-- #600 실제 시험: Codex 지적 → Claude 자동 수정 push(ae52377)·답 → (Lee 계정 재검토 요청) → Codex 통과 → 봇 병합 → 운영 배포 검사 통과.
-- 남은 연결: Codex가 claude[bot]의 재검토 요청에 반응 안 함(10분 확인) → Codex 자동 검토 설정(Lee) 필요.
