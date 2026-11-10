@@ -110,7 +110,7 @@ const fetchOk = (website: string | null, iconStatus = 200) => async (url: string
       if (t === 'local_jobs') {
         const q: Record<string, unknown> = {}
         Object.assign(q, { select: (c: string) => { filters.push(c); return q }, eq: (k: string, v: string) => { filters.push(`${k}=${v}`); return q }, lt: (k: string) => { filters.push(`${k}<`); return q },
-          order: () => q, limit: async () => ({ data: rows, error: null }),
+          gte: (k: string, v: string) => { filters.push(`${k}>=${v}`); return q }, order: (c: string) => { filters.push(`order:${c}`); return q }, limit: async () => ({ data: rows, error: null }),
           maybeSingle: async () => ({ data: { ...base, logo_lookup: { result: 'quota' } }, error: null }) })
         return q
       }
@@ -121,6 +121,59 @@ const fetchOk = (website: string | null, iconStatus = 200) => async (url: string
   const out = await retryQuotaLogos(db, 'k', 10, new Date('2026-11-10T00:00:00Z'))
   assert(filters.includes('logo_lookup->>result=quota') && filters.includes('logo_lookup->>checked_at<'), 'only quota rows older than 6h')
   assert(out.tried === 1 && out.quota === 1, 'still capped → stop after first: ' + JSON.stringify(out))
+  assert(filters.includes('order:logo_lookup->>checked_at'), 'longest-waiting first (deferred jobs go to the back)')
+  assert(filters.includes('created_at>=2026-10-27T00:00:00.000Z'), 'no endless retry: only jobs registered within 14 days')
+}
+{ // Codex #619 P2: 이 공고만의 오류는 묶음을 막지 않는다. 장소 번호 무효(Google 404 NOT_FOUND)는 확정 → 다시 묻지 않음
+  const res = (status: number, body: unknown = {}) => async (u: string) => u.includes('places.googleapis.com')
+    ? { ok: status === 200, status, json: async () => body } : { ok: true, status: 200, json: async () => ({}) }
+  // ① 404 NOT_FOUND → no_place, 무효 기록 → 같은 장소 번호는 다음부터 Google에 묻지 않음. 공고·위치는 건드리지 않음(기록 함수만 부름)
+  const cache = new Map<string, unknown>()
+  const quotaJob = { ...base, logo_lookup: { result: 'quota', place_id: 'ChIJgone' } }
+  const a = fakeDb(quotaJob, { cache })
+  assert(await applyLogoLookup(a.db, 9, 'k', res(404, { error: { status: 'NOT_FOUND' } })) === 'no_place', '404 NOT_FOUND → no_place')
+  assert(a.calls.rpc.filter(([n]) => n === 'job_logo_lookup_record').every(([, x]) => x.p_result === 'no_place'), 'only the logo record changes')
+  let asked = 0
+  const b = fakeDb(quotaJob, { cache })
+  assert(await applyLogoLookup(b.db, 9, 'k', async () => { asked++; return { ok: true, status: 200, json: async () => ({}) } }) === 'no_place' && asked === 0, 'confirmed-invalid place id never asked again')
+  // 404인데 NOT_FOUND 확인이 없으면 무효로 확정하지 않는다 → 일시 오류로 다시 시도
+  assert(await applyLogoLookup(fakeDb(quotaJob).db, 9, 'k', res(404, {})) === 'retry_later', '404 without NOT_FOUND → not confirmed, retry later')
+  // ② 일시 오류(서버 오류·연결 끊김) → quota로 다시 기록(시각 새로) → retry_later
+  for (const f of [res(500), async () => { throw new Error('network') }]) {
+    const c = fakeDb(quotaJob)
+    assert(await applyLogoLookup(c.db, 9, 'k', f) === 'retry_later', 'temporary error → retry_later')
+    assert(c.calls.rpc.some(([n, x]) => n === 'job_logo_lookup_record' && x.p_result === 'quota' && x.p_place_id === 'ChIJgone'), 'kept as quota with same place id (checked_at refreshed)')
+  }
+  // ③ Google 장애(503) → 묶음 멈춤(예외)
+  let threw = ''
+  try { await applyLogoLookup(fakeDb(quotaJob).db, 9, 'k', res(503)) } catch (e) { threw = (e as Error).message }
+  assert(threw === 'upstream_unavailable', 'Google 503 → stop batch')
+  // ④ 묶음: 첫 공고 일시 오류여도 다음 공고 계속, 한도 초과일 때만 멈춤
+  const ids = [{ id: 9 }, { id: 10 }, { id: 11 }]
+  let n = 0
+  const inner = fakeDb(quotaJob).db
+  const db = {
+    from(t: string) {
+      if (t === 'local_jobs') {
+        const q: Record<string, unknown> = {}
+        Object.assign(q, { select: () => q, eq: () => q, lt: () => q, gte: () => q, order: () => q, limit: async () => ({ data: ids, error: null }),
+          maybeSingle: async () => { const id = ids[n++]?.id; return { data: { ...quotaJob, id, logo_lookup: { result: 'quota', place_id: `ChIJp${id}` } }, error: null } } })
+        return q
+      }
+      return inner.from(t)
+    },
+    async rpc(name: string, args: Row) { if (name === 'external_api_reserve') return { data: true, error: null }; return { data: args.p_result ?? null, error: null } },
+  }
+  // 공고 9: 서버 오류(일시) → 다음으로 / 10: 웹사이트 찾음 / 11: Google 한도(429) → 멈춤
+  const statuses = [500, 200, 429]
+  let call = 0
+  const f = async (u: string) => {
+    if (!u.includes('places.googleapis.com')) return { ok: true, status: 200, json: async () => ({}) }
+    const s = statuses[call++]
+    return { ok: s === 200, status: s, json: async () => (s === 200 ? { websiteUri: 'https://hojeong.vn' } : {}) }
+  }
+  const out = await retryQuotaLogos(db, 'k', 10, new Date('2026-11-10T00:00:00Z'), f)
+  assert(out.tried === 3 && out.later === 1 && out.other === 1 && out.quota === 1, 'per-job error skipped, quota stops: ' + JSON.stringify(out))
 }
 { // Google 위치 검색도 월 한도 안에서만
   let asked = 0
