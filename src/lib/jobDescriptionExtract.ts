@@ -206,8 +206,8 @@ export function extractJobFields(description: string, ctx: ExtractContext = {}):
  * - 근무시간: 시계 범위(8h-17h, 08:00–17:00)가 있으면 원문 그대로 첫 범위들, 없고 "N tiếng"만 있으면 "Ca ngày / Ca đêm, N tiếng"
  * 원문에 없는 값은 만들지 않는다(빈칸). 쓰는 곳: scripts/ocr/detail-fill.mjs(급여 readSalary와 같은 자리, 빈칸일 때만).
  */
-// 앞뒤 경계는 유니코드 글자 기준("17 giờ"의 ờ — Codex #628). 공백은 같은 줄 안(space·tab)만 허용 — 줄바꿈 뒤 다음 줄 숫자(18 tuổi 등)를 분으로 먹지 않는다. 분은 h·: 바로 뒤 숫자만.
-const CLOCK_RANGE = /(?<![\p{L}\d])\d{1,2}[ \t]*(?:h|giờ|:)\d{0,2}[ \t]*(?:-|–|—|đến|~)[ \t]*\d{1,2}[ \t]*(?:h|giờ|:)\d{0,2}(?![\p{L}\d])/giu
+// 분은 단위 바로 뒤 또는 같은 줄 공백 하나 뒤("17h 30", 뒤가 글자면 분이 아님 — "17h 18 tuổi", Codex #628). 앞뒤 경계는 유니코드 글자 기준("17 giờ"의 ờ — Codex #628). 공백은 같은 줄 안(space·tab)만 허용 — 줄바꿈 뒤 다음 줄 숫자(18 tuổi 등)를 분으로 먹지 않는다. 분은 h·: 바로 뒤 숫자만.
+const CLOCK_RANGE = /(?<![\p{L}\d])\d{1,2}[ \t]*(?:h|giờ|:)(?:\d{1,2}|[ \t]\d{1,2}(?=[ \t]*(?:phút|[^\p{L}\d \t]|$)))?[ \t]*(?:-|–|—|đến|~)[ \t]*\d{1,2}[ \t]*(?:h|giờ|:)(?:\d{1,2}|[ \t]\d{1,2}(?=[ \t]*(?:phút|[^\p{L}\d \t]|$)))?(?![\p{L}\d])/giu
 export function readWorkTime(...texts: (string | null | undefined)[]): { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } {
   const text = texts.filter(Boolean).join('\n')
   if (!text.trim()) return {}
