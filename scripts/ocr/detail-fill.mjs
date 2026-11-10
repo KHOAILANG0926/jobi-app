@@ -61,11 +61,14 @@ try {
         const wt = readWorkTime(job.source_text, job.ocr_text)
         const hours = !String(job.hours ?? '').trim() && wt.hours ? wt.hours : null
         const shift = !job.shift_type && wt.shiftType ? wt.shiftType : null
-        if (hours || shift) {
+        // 교대 수는 교대 유형과 따로 빈칸만(이미 rotating인데 수가 비었을 때도, Codex #628)
+        const rotatingNow = (shift ?? job.shift_type) === 'rotating'
+        const count = rotatingNow && !job.rotating_shifts && wt.shiftType === 'rotating' && wt.rotatingShifts ? wt.rotatingShifts : null
+        if (hours || shift || count) {
           await client.query(`update public.local_jobs set hours = coalesce($2, hours), shift_type = coalesce($3, shift_type),
-              rotating_shifts = case when $3 = 'rotating' then coalesce($4, rotating_shifts) else rotating_shifts end where id = $1`,
-            [job.id, hours, shift, wt.rotatingShifts ?? null])
-          console.log(`#${job.id} 근무시간·교대(원문): ${hours ?? '-'} / ${shift ?? '-'}`)
+              rotating_shifts = coalesce(rotating_shifts, $4) where id = $1`,
+            [job.id, hours, shift, count])
+          console.log(`#${job.id} 근무시간·교대(원문): ${hours ?? '-'} / ${shift ?? '-'} / ${count ?? '-'}`)
           if (hours) job.hours = hours
         }
       }
