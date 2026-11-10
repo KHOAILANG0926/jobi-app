@@ -97,5 +97,7 @@ console.log('jobDescriptionExtract.test.ts: all assertions passed')
   if (rng.hours !== 'Ca ngày, 8-10 tiếng') throw new Error('Codex #628 range kept: ' + JSON.stringify(rng))
   const gio = readWorkTime('Thời gian làm việc: 8 giờ - 17 giờ')
   if (gio.hours !== '8 giờ - 17 giờ') throw new Error('Codex #628 giờ boundary: ' + JSON.stringify(gio))
+  const four = readWorkTime('Ca 1: 6h-10h; Ca 2: 10h-14h; Ca 3: 14h-18h; Ca 4: 18h-22h')
+  if (four.hours !== '6h-10h, 10h-14h, 14h-18h, 18h-22h') throw new Error('Codex #628 4 ranges kept: ' + JSON.stringify(four))
   console.log('readWorkTime (#622) passed')
 }

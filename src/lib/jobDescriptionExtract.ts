@@ -239,12 +239,12 @@ export function readWorkTime(...texts: (string | null | undefined)[]): { shiftTy
       // 요일 이름표(Thứ Hai–Thứ Sáu / T2-T6 / Chủ nhật)가 붙은 범위도 요일마다 시간이 다를 수 있다.
       roleLabels.push((!!label && !TIME_LABEL.test(label)) || /thứ\s+(?:hai|ba|tư|năm|sáu|bảy)|(?<![\p{L}\d])T[2-7](?![\p{L}\d])|chủ\s+nhật/iu.test(clause))
     }
-    if (clocks.length >= 3) break
   }
   // 서로 다른 시간 범위가 직무 이름표와 함께 둘 이상이면 어느 직무 시간인지 잃으므로 공통 칸을 비워 둔다(직무별 표시는 상세요강 원문).
   const perRole = clocks.length > 1 && roleLabels.some(Boolean)
   if (perRole) { /* hours 비움 */ }
-  else if (clocks.length) out.hours = clocks.join(', ')
+  // 범위는 모두 본다(중간에 끊어 일부만 저장하지 않음, Codex #628). 6개를 넘으면 한 칸에 담기 어려워 비워 둔다(원문은 상세요강).
+  else if (clocks.length && clocks.length <= 6) out.hours = clocks.join(', ')
   else {
     // 교대별로 시간이 다르면(8 tiếng / 12 tiếng) 하나로 합치지 않고 비워 둔다(원문 없는 값 금지).
     // 휴게·면접 시간("nghỉ trưa 1 tiếng")은 근무 시간 후보에서 뺀다(쉼표 단위 절까지 봄).
