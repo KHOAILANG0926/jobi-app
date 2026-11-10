@@ -2163,7 +2163,9 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             insert_payload["origin"] = "crawler"
         try:
             # 등록은 DB 입구 하나만(Lee 2026-10-29). 입구는 판정 칸(origin·admin_hidden 등)을 받지 않는다.
-            job_id = ingest_job(supabase, insert_payload)
+            # hold=False: 근무지 여러 곳은 등록 뒤 _replace_job_work_locations로 따로 쓰므로 보류 재처리(그 단계 없음)에 넣지 않는다.
+            # 확인 못 한 공고는 예전처럼 거부 → 저장 안 됨 → 다음 수집 때 다시 만남(Codex #619).
+            job_id = ingest_job(supabase, insert_payload, hold=False)
         except Exception as exc:  # noqa: BLE001 — 규칙 거부만 건너뛰고 나머지 오류는 그대로 올린다
             code = rule_code(exc)
             if not code:

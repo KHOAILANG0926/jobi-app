@@ -371,10 +371,12 @@ def _call_gateway(client, job: dict, *, job_id: int | None = None, update_fields
     return result.data
 
 
-def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None) -> int:
+def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: list[str] | None = None, hold: bool = True) -> int:
     """입구를 불러 공고 번호를 돌려받는다(새 공고·같은 공고·다시 수집 모두 같은 함수).
     새 공고는 먼저 위치를 찾을 수 있는지 확인하고, 못 찾으면 등록하지 않는다(이미 있는 공고 다시 수집은 그대로).
-    지금 확인 못 하면(Google 한도 초과 등) 버리지 않고 보류함에 넣고, 다음 수집 실행 때 먼저 다시 확인한다."""
+    지금 확인 못 하면(Google 한도 초과 등) 버리지 않고 보류함에 넣고, 다음 수집 실행 때 먼저 다시 확인한다.
+    hold=False: 등록 뒤에 따로 하는 단계가 있는 수집기(TopCV 계열 — 근무지 여러 곳을 등록 뒤 따로 씀)는 보류하지 않는다.
+    보류 재처리는 그 단계를 거치지 않으므로, 예전처럼 거부만 하고 다음 수집 때 그 수집기가 다시 만나 처리한다(Codex #619)."""
     existing = job_id is not None or update_fields is not None or job.get("job_id") is not None or job.get("refresh")
     if existing:
         return _call_gateway(client, job, job_id=job_id, update_fields=update_fields)
@@ -383,9 +385,10 @@ def ingest_job(client, job: dict, *, job_id: int | None = None, update_fields: l
     try:
         return _ingest_new(client, job)
     except LocationDeferred as exc:
-        hold_job(client, job, _reason_of(exc), "held")
+        if hold:
+            hold_job(client, job, _reason_of(exc), "held")
         raise
     except LocationNotFound as exc:
-        if _reason_of(exc) in UNFOUND_REASONS:
+        if hold and _reason_of(exc) in UNFOUND_REASONS:
             hold_job(client, job, _reason_of(exc), "unfound")  # 공고 목록에는 넣지 않고 비공개 보관(Lee 2026-11-09)
         raise
