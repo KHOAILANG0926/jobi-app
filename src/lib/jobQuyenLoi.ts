@@ -1,7 +1,7 @@
 // Lee 2026-10-29 상세페이지 새 구성(CLAUDE.md "공고 상세페이지 구성 확정"):
 // 받는 것 줄 판정(지급 방식·주기 / Thưởng·Phụ cấp / 연장 수당 금액 / Bảo hiểm) — 4칸 틀에서 근무조건 급여 아래·복리후생에 원문 줄을 복사할 때 쓴다(상세요강에서도 지우지 않음).
 // 식사·숙소·통근버스는 상단 아이콘에 있으므로 여기서 다루지 않는다.
-import type { DetailSection } from './jobDetailSections'
+import { salaryAmounts, type DetailSection } from './jobDetailSections'
 
 /** 기준 공고(승인된 기존 틀 유지, Lee 2026-10-29 "기준 공고는 절대 건드리지 마"). */
 export const BASELINE_FRAME_JOB_IDS: ReadonlySet<string> = new Set(['sb-4824'])
@@ -16,19 +16,34 @@ export function usesAlbamonLayout(id: string): boolean {
   return ALBAMON_LAYOUT_JOB_IDS.has(id) || !BASELINE_FRAME_JOB_IDS.has(id)
 }
 
-/** 원문 줄을 지우지 않고 근무조건에 보일 줄만 고른다(급여 아래: 지급 방식·보너스·수당·연장 수당 / 복리후생: 보험). 01은 제외. */
-export function albamonConditionLines(sections: DetailSection[]): { salary: string[]; insurance: string[] } {
+/** 원문 줄을 지우지 않고 근무조건에 보일 줄만 고른다(급여 아래: 지급 방식·보너스·수당·연장 수당 / 복리후생: 보험). 01은 제외.
+ *  급여 칸 정리(Lee 2026-11-10 "Mức lương 왜케 지저분해", 글 모형 #647 — 근무조건 한 칸 최대 3줄 규칙):
+ *  ① 위 금액(topSalary)과 같은 금액이 든 줄은 빼고, 그 줄의 "chưa tính / đã gồm tăng ca"만 짧은 표시(overtimeNote)로
+ *  ② "…:"로 끝나는 제목 줄, 대문자 홍보 줄("THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ")은 뺀다 ③ 남은 줄은 3줄까지. 뺀 줄은 상세요강에 원문 그대로 있다. */
+export const SALARY_CELL_MAX = 3
+export function albamonConditionLines(sections: DetailSection[], topSalary?: string | null): { salary: string[]; insurance: string[]; overtimeNote?: string } {
   const salary: string[] = [], insurance: string[] = []
+  const top = salaryAmounts(topSalary)
+  let overtimeNote: string | undefined
   for (const sec of sections) {
     if (sec.key === '01') continue
     for (const raw of sec.lines) {
       const line = raw.replace(/^\s*[-•*]\s+/, '').trim()
       const key = quyenLoiKeyOf(line)
-      if (key === 'insurance') insurance.push(line)
-      else if (key) salary.push(line)
+      if (key === 'insurance') { insurance.push(line); continue }
+      if (!key) continue
+      const t = lower(line)
+      if (top.length && salaryAmounts(line).some((a) => top.includes(a))) {
+        overtimeNote ??= /(?:chưa (?:tính|bao gồm|gồm)|chua tinh) (?:tăng ca|tang ca)/u.test(t) ? 'chưa tính tăng ca'
+          : /(?:đã (?:gồm|bao gồm|tính)|bao gồm|da gom) (?:tăng ca|tang ca)/u.test(t) ? 'đã gồm tăng ca' : undefined
+        continue
+      }
+      const letters = line.replace(/[^\p{L}]/gu, '')
+      if (/[:：]\s*$/.test(line) || (letters.length >= 4 && letters === letters.toLocaleUpperCase('vi'))) continue
+      salary.push(line)
     }
   }
-  return { salary: [...new Set(salary)], insurance: [...new Set(insurance)] }
+  return { salary: [...new Set(salary)].slice(0, SALARY_CELL_MAX), insurance: [...new Set(insurance)], ...(overtimeNote ? { overtimeNote } : {}) }
 }
 
 /** "Độ tuổi: 18 - 50 tuổi" 같은 원문 줄에서 나이 값(모집조건 칸이 비어 있을 때만 씀). */

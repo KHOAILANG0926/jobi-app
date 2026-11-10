@@ -1,3 +1,4 @@
+// 2026-11-10: JobDetail.tsx — Lee "Mức lương 왜케 지저분해"(글 모형 #647): 급여 칸 줄 정리(위 금액 반복·제목·대문자 줄 빼고 3줄) + 금액 옆 'chưa tính tăng ca'. 칸 순서·위치 등 틀 변경 없음.
 // 2026-11-10: JobDetail.tsx — #646 화면 대조 검사: 상단 제목 계산을 공용 함수 detailTitle(companyBranch.ts)로 옮김(화면·검사가 같은 함수, 결과 같음 — #642와 같은 식). 틀·CSS 변경 없음.
 // 2026-11-08: index.css — Lee "적용해도 괜찮아"(데모 A안): 휴대폰(≤640px)에서만 정렬 줄(JobsListToolbar) 칸이 넘치면 아래 줄로. PC 틀·CSS 동작 변경 없음(폭 1280 정렬 줄 위치·크기 수정 전후 같음).
 // 2026-11-09: JobDetail.tsx·index.css — Lee "2번"(#579): 연락처 없을 때만 PC 안내 상자를 제목 줄에 띄우지 않고 흐름에 둠(표·지도 겹침 고침). 연락처 있을 때 Gọi/Zalo 배치·모바일·KDA 틀 변경 없음.
@@ -106,7 +107,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "75bab7d8856f93b2e0fc80b89eb23fa44d7eb07279e50a678034c382ea53d2b0",
+    "sha256": "207ded5095549696121817658677655ba0f5ee2d9b959da1a4d7596068e1d929",
     "restore": []
   },
   {

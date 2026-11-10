@@ -381,7 +381,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })
-  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
+  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections, job.salary) : { salary: [] as string[], insurance: [] as string[], overtimeNote: undefined }
   const sourceRoles = sourceRecruitmentRoles(job.description)
   const shownTitle = detailTitle(job.title, job.company)
   const companyText = companyLine(shownTitle, job.company)
@@ -422,7 +422,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
               2026-11-02 Lee "정렬도 안 되고 모양이 개판": 작은 회색 글씨 스타일(jd2-salary-sub)이 없어 급여처럼 빨간 큰 글씨였음 → 스타일 추가,
               금액과 같은 줄 시작(jd2-salary-lines 안)으로 정렬. 위치·순서는 그대로. */}
           {salaryText && salaryRows.length > 0 && <span className="jd2-salary-rows">{salaryRows.map((r, i) => <span key={i} className="jd2-salary-row"><span className="jd2-salary-row__label">{r.label}</span><span className="jd2-salary-row__amount">{r.amount}</span></span>)}</span>}
-          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}{i === 0 && albamonLines.overtimeNote ? <span className="jd2-salary-sub"> · {albamonLines.overtimeNote}</span> : null}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
           {!salaryText && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
