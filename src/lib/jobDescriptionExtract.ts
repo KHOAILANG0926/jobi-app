@@ -199,3 +199,30 @@ export function extractJobFields(description: string, ctx: ExtractContext = {}):
   const sourceTag = description.match(/^\s*(\[source:[^\]]*\])/i)?.[1]
   return { fields, items, remaining, sourceTag }
 }
+
+/**
+ * 근무시간·교대 읽기(#622, Lee 2026-11-10 "전체 수정"): 원문(source_text·포스터 글자)에서
+ * - 교대: "Ca ngày"+"Ca đêm" 둘 다 / "xoay ca·đảo ca·2 ca·3 ca" → rotating(2 ca·3 ca면 그 수), 하나만 → day/night
+ * - 근무시간: 시계 범위(8h-17h, 08:00–17:00)가 있으면 원문 그대로 첫 범위들, 없고 "N tiếng"만 있으면 "Ca ngày / Ca đêm, N tiếng"
+ * 원문에 없는 값은 만들지 않는다(빈칸). 쓰는 곳: scripts/ocr/detail-fill.mjs(급여 readSalary와 같은 자리, 빈칸일 때만).
+ */
+const CLOCK_RANGE = /\b\d{1,2}\s*(?:h|giờ|:)\s*\d{0,2}\s*(?:-|–|—|đến|~)\s*\d{1,2}\s*(?:h|giờ|:)\s*\d{0,2}\b/gi
+export function readWorkTime(...texts: (string | null | undefined)[]): { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } {
+  const text = texts.filter(Boolean).join('\n')
+  if (!text.trim()) return {}
+  const day = /\bca\s+ngày\b/i.test(text), night = /\bca\s+(?:đêm|tối)\b/i.test(text)
+  const nShift = text.match(/\b([23])\s*ca\b/i)?.[1]
+  const rotating = (day && night) || /\b(?:xoay\s+ca|đảo\s+ca|luân\s+phiên\s+ca)\b/i.test(text) || !!nShift
+  const out: { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } = {}
+  if (rotating) { out.shiftType = 'rotating'; if (nShift) out.rotatingShifts = Number(nShift); else if (day && night) out.rotatingShifts = 2 }
+  else if (day) out.shiftType = 'day'
+  else if (night) out.shiftType = 'night'
+  const clocks = [...new Set((text.match(CLOCK_RANGE) ?? []).map((s) => s.trim()))].slice(0, 3)
+  if (clocks.length) out.hours = clocks.join(', ')
+  else {
+    const n = text.match(/\b(\d{1,2})\s*tiếng\b/i)?.[1]
+    const labels = [day ? 'Ca ngày' : '', night ? 'Ca đêm' : ''].filter(Boolean).join(' / ')
+    if (n && Number(n) >= 4 && Number(n) <= 14) out.hours = labels ? `${labels}, ${n} tiếng` : `${n} tiếng`
+  }
+  return out
+}

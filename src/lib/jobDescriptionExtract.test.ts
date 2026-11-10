@@ -41,3 +41,19 @@ const mix = extractJobFields('Đóng BHXH, được cấp xe đưa đón từ tr
 assert(mix.remaining.includes('xe đưa đón'), 'sentence with extra content is kept')
 
 console.log('jobDescriptionExtract.test.ts: all assertions passed')
+
+// #622 sb-5633: "Ca ngày: 320.000đ/12 tiếng · Ca đêm: 370.000đ/12 tiếng" → 교대 2 ca, 근무시간 "Ca ngày / Ca đêm, 12 tiếng"
+{
+  const { readWorkTime } = await import('./jobDescriptionExtract.ts')
+  const a = readWorkTime('Ca ngày: 320.000đ/12 tiếng\nCa đêm: 370.000đ/12 tiếng')
+  if (a.shiftType !== 'rotating' || a.rotatingShifts !== 2 || a.hours !== 'Ca ngày / Ca đêm, 12 tiếng') throw new Error('sb-5633 shift: ' + JSON.stringify(a))
+  const b = readWorkTime('Thời gian: 8h - 17h, nghỉ trưa 1 tiếng')
+  if (b.hours !== '8h - 17h' || b.shiftType) throw new Error('clock range kept verbatim, no shift guessed: ' + JSON.stringify(b))
+  const c = readWorkTime('Làm ca đêm 22h-6h')
+  if (c.shiftType !== 'night' || c.hours !== '22h-6h') throw new Error('night: ' + JSON.stringify(c))
+  const d = readWorkTime('Làm 3 ca xoay')
+  if (d.shiftType !== 'rotating' || d.rotatingShifts !== 3) throw new Error('3 ca: ' + JSON.stringify(d))
+  const e = readWorkTime('Tuyển nhân viên bán hàng, lương 8 triệu')
+  if (Object.keys(e).length) throw new Error('nothing in text → nothing: ' + JSON.stringify(e))
+  console.log('readWorkTime (#622) passed')
+}
