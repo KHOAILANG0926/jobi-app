@@ -36,7 +36,7 @@ export function albamonConditionLines(sections: DetailSection[], topSalary?: str
       if (!key) continue
       const t = lower(line)
       if (repeatsTop(line, top)) {
-        overtimeNote ??= /(?:chưa (?:tính|bao gồm|gồm)|chua tinh) (?:tăng ca|tang ca)/u.test(t) ? 'chưa tính tăng ca'
+        overtimeNote ??= /(?:chưa|không|khong|ko) (?:tính|bao gồm|gồm|bao gom|gom|tinh) (?:cả |luôn )?(?:tăng ca|tang ca)/u.test(t) ? 'chưa tính tăng ca'
           : /(?:đã (?:gồm|bao gồm|tính)|bao gồm|da gom) (?:tăng ca|tang ca)/u.test(t) ? 'đã gồm tăng ca' : undefined
         continue
       }

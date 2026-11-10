@@ -28,6 +28,13 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   assert(!zhan.sections.flatMap((x) => x.lines).includes('1. CHẾ ĐỘ LƯƠNG & THƯỞNG'), 'numbered source heading dropped from ④')
   assert(zhan.sections.flatMap((x) => x.lines).includes('THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ'), '④ keeps the source lines')
 }
+// Codex #653: "không bao gồm tăng ca"(제외)를 "đã gồm tăng ca"로 읽지 않는다
+{
+  const neg = albamonConditionLines(detailSections('Thu nhập\nLương 7 triệu, không bao gồm tăng ca').sections, '7 triệu')
+  assert(neg.overtimeNote === 'chưa tính tăng ca', 'negated overtime: ' + neg.overtimeNote)
+  const pos = albamonConditionLines(detailSections('Thu nhập\nLương 7 triệu, đã bao gồm tăng ca').sections, '7 triệu')
+  assert(pos.overtimeNote === 'đã gồm tăng ca', 'positive overtime: ' + pos.overtimeNote)
+}
 // 10-30 확정 구성(Lee 2026-11-10 "세부구성"): 원문 줄을 ①②④ 확정 자리로 — 지우지 않고 옮김, 위쪽에 있는 줄만 ④에서 뺌
 {
   const desc = ['Công việc', '2. CÔNG VIỆC', 'Vận hành, hỗ trợ sản xuất tại bộ phận ép nhựa.', 'Yêu cầu', '3. YÊU CẦU', 'Không yêu cầu kinh nghiệm, được hướng dẫn công việc.', 'Chăm chỉ, có trách nhiệm, nghiêm túc trong công việc.',
