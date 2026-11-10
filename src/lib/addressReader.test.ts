@@ -46,4 +46,6 @@ eq(readAddress('Địa chỉ: Nhà hàng Seoseo Galbi\nLiên hệ 0912345678'), 
 eq(readAddress('em cần tìm việc ở thành phố bắc ninh\n댓글\nAi đó\nĐịa chỉ: 99 Lý Thái Tổ, Bắc Ninh'), 'thành phố bắc ninh', '#560-5 comment address is not the post address')
 eq(readAddress('Địa chỉ: KCN Yên Phong, Bắc Ninh\n2 ca xoay: 6h-14h và 14h-22h'), 'KCN Yên Phong, Bắc Ninh', 'Codex #616: working-hours line is not an address')
 eq(readAddress('Địa chỉ: Nhà hàng Hoa Sen\n20 người, ca xoay'), 'Nhà hàng Hoa Sen', 'Codex #616: head-count line is not an address')
+eq(readAddress('ĐỢT TUYỂN DỤNG NHÂN VIÊN TẠI JOLLIBEE TRẦN HƯNG ĐẠO TỚI ĐÂY\nDo nhu cầu kinh doanh, Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng nhân viên part time:\n Tuổi từ 18- 25.'), '393 Trần Hưng Đạo', '#633 house number + street after shop name')
+eq(readAddress('Tuyển nhân viên phục vụ\nNhà hàng 5 Sao rất đẹp'), '', '#633 number in shop name without street is not an address')
 console.log('addressReader: #560 cases passed')
