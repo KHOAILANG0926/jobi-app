@@ -12,14 +12,16 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { screenAudit } from '../../src/lib/screenAudit.ts'
 import { preciseStreetAddressQuery } from '../../src/lib/directionsPlan.ts'
-import { collectScreen } from './screen-collect.mjs'
+import { collectScreen, SCREEN_CANDIDATES } from './screen-collect.mjs'
 
 const { SUPABASE_DB_URL, ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, GH_TOKEN, REPO, ISSUE } = process.env
 const BASE_URL = (process.env.BASE_URL || 'https://viecganban.vn').replace(/\/$/, '')
 const ALL = process.env.ALL_PUBLIC === '1'
+// 공개 판정 연결(#646): 화면 대조 대상(SCREEN_CANDIDATES)을 관리자 비공개 상세로 대조하고 결과를 ocr_check.screen_audit에 기록한다(job-ocr-check.yml).
+const CANDIDATES = process.env.SCREEN_CANDIDATES === '1'
 let ids = String(process.env.JOB_IDS || '').split(/[\s,]+/).map((s) => s.replace(/^sb-/, '')).filter((s) => /^\d+$/.test(s)).map(Number)
-if (!ids.length && !ALL) { console.error('JOB_IDS 필요(예: "5506 5507") 또는 ALL_PUBLIC=1'); process.exit(2) }
-if (ALL && !SUPABASE_DB_URL) { console.error('ALL_PUBLIC=1은 SUPABASE_DB_URL 필요'); process.exit(2) }
+if (!ids.length && !ALL && !CANDIDATES) { console.error('JOB_IDS 필요(예: "5506 5507") 또는 ALL_PUBLIC=1'); process.exit(2) }
+if ((ALL || CANDIDATES) && !SUPABASE_DB_URL) { console.error('ALL_PUBLIC=1·SCREEN_CANDIDATES=1은 SUPABASE_DB_URL 필요'); process.exit(2) }
 
 const OUT = 'detail-read'
 mkdirSync(OUT, { recursive: true })
@@ -27,23 +29,25 @@ const VIEWPORTS = [
   { name: 'pc', label: 'PC', viewport: { width: 1366, height: 900 } },
   { name: 'mobile', label: '모바일', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ]
-const keepText = !ALL
+const keepText = !ALL && !CANDIDATES
 
 // 대조용 DB 값(읽기만)
 const dbJobs = new Map()
+let db
 if (SUPABASE_DB_URL) {
   const { default: pg } = await import('pg')
-  const db = new pg.Client({ connectionString: SUPABASE_DB_URL })
+  db = new pg.Client({ connectionString: SUPABASE_DB_URL })
   await db.connect()
   try {
     const rows = (await db.query(`
       select j.id, j.title, j.company, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active, j.admin_hidden,
+        public.job_inspect_content_hash(j) as content_hash,
         coalesce((select jsonb_agg(jsonb_build_object('kind', w.point_kind, 'verified', w.location_verified, 'lat', w.lat, 'lng', w.lng,
           'source', w.point_evidence->>'source', 'raw', w.raw_address, 'park', w.industrial_park)) from public.job_work_locations w where w.job_id = j.id), '[]') as locs
-      from public.local_jobs j where ${ALL ? 'j.active and not j.admin_hidden' : 'j.id = any($1::bigint[])'} order by j.id`, ALL ? [] : [ids])).rows
+      from public.local_jobs j where ${CANDIDATES ? SCREEN_CANDIDATES : ALL ? 'j.active and not j.admin_hidden' : 'j.id = any($1::bigint[])'} order by j.id`, ALL || CANDIDATES ? [] : [ids])).rows
     for (const r of rows) dbJobs.set(Number(r.id), r)
-  } finally { await db.end() }
-  if (ALL) ids = [...dbJobs.keys()]
+  } finally { if (!CANDIDATES) await db.end() }
+  if (ALL || CANDIDATES) ids = [...dbJobs.keys()]
 }
 console.log(`대상 ${ids.length}건`)
 
@@ -84,6 +88,7 @@ async function adminLogin() {
 }
 
 let failed = 0
+let openFailed = 0 // 대상 공고 모드: 화면을 못 연 공고 수
 const summary = [`## 상세 화면 읽기 (${BASE_URL})`, '']
 const audits = []
 async function readJob(id) {
@@ -128,6 +133,15 @@ async function readJob(id) {
   const findings = openError ? [{ key: 'open', sure: true, device: '-', detail: `화면 열기 실패: ${openError}` }]
     : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null }, views)
   audits.push({ id, title: job.title, active: job.active, findings, views })
+  // 기록(대상 공고만): 화면 열기 실패는 기록하지 않는다(일시 오류 — 다음 실행에 다시). 대조 중 내용이 바뀌면 기록하지 않는다.
+  if (CANDIDATES && openError) openFailed++
+  if (CANDIDATES && !openError) {
+    const rec = { content_hash: job.content_hash, ok: !findings.some((f) => f.sure), checked_at: new Date().toISOString(), base_url: BASE_URL,
+      findings: findings.map(({ key, sure, device, detail }) => ({ key, sure, device, detail })) }
+    const w = await db.query(`update public.local_jobs set ocr_check = coalesce(ocr_check, '{}'::jsonb) || jsonb_build_object('screen_audit', $2::jsonb)
+      where id = $1 and public.job_inspect_content_hash(local_jobs) = $3`, [id, JSON.stringify(rec), job.content_hash])
+    if (w.rowCount !== 1) console.log(`sb-${id} 대조 중 공고 내용 변경: 다음 실행에서 다시`)
+  }
   const sure = findings.filter((f) => f.sure).length
   console.log(`화면 대조 sb-${id}: ${sure ? `확정 오류 ${sure}` : '확정 오류 없음'}${findings.length - sure ? ` · 불명확 ${findings.length - sure}` : ''}`)
 }
@@ -135,6 +149,7 @@ const queue = [...ids]
 // 글·사진을 남길 때는 로그 순서를 지키려고 하나씩, 전체 대조는 3개씩
 await Promise.all(Array.from({ length: keepText ? 1 : 3 }, async () => { for (let id; (id = queue.shift()) !== undefined;) await readJob(id) }))
 await browser.close()
+if (CANDIDATES) await db.end()
 
 let sureCount = 0
 if (dbJobs.size) {
@@ -151,10 +166,14 @@ if (dbJobs.size) {
     ...(unsureJobs.length ? ['### 판정 불명확', ...unsureJobs.map((r) => line(r, false))] : [])].join('\n')
   console.log('\n' + report)
   summary.unshift(report, '')
-  if (GH_TOKEN && REPO && ISSUE) {
+  if (GH_TOKEN && REPO && ISSUE && !CANDIDATES) {
     const body = report.length > 60000 ? report.slice(0, 60000) + '\n\n(길어서 잘림 — 실행 첨부 detail-read/screen-audit.json)' : report
     execFileSync('gh', ['issue', 'comment', ISSUE, '--repo', REPO, '--body', body], { stdio: 'inherit' })
   }
 }
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n').slice(0, 900_000) + '\n')
-process.exit(failed || sureCount ? 1 : 0)
+// 대상 공고 모드: 확정 오류는 검사표(job-inspect)가 공개 판정·알림으로 이어 받으므로 종료 코드로 멈추지 않는다.
+// 단 화면 열기 실패(관리자 로그인·상세 로딩)는 기록이 없어 알림이 안 가므로 모든 공고를 처리한 뒤 실패로 끝내 '공고 처리 멈춤' 알림(failure())이 가게 한다.
+// 뒤 단계(검사표 다시)는 !cancelled()라 실패 뒤에도 돈다.
+if (CANDIDATES && openFailed) console.log(`::error::공개 후보 ${openFailed}건 화면 열기 실패 — 로그인·상세 로딩 확인 필요`)
+process.exit(CANDIDATES ? (openFailed ? 1 : 0) : failed || sureCount ? 1 : 0)

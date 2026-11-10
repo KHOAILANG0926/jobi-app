@@ -4,10 +4,11 @@
 // 필요 환경변수: SUPABASE_DB_URL, (알림용) GH_TOKEN·REPO
 import pg from 'pg'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { appendFileSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, INFO_ONLY } from '../../src/lib/jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, INFO_ONLY, SCREEN_WAIT } from '../../src/lib/jobInspect.ts'
 import { afterCutoff } from './auto-cutoff.mjs'
+import { SCREEN_CANDIDATES } from './screen-collect.mjs'
 import { photoSource } from '../../src/lib/logoLookup.ts'
 import { assembleBrands } from '../../src/lib/brandRows.ts'
 
@@ -43,7 +44,7 @@ try {
            j.image_url, j.images, j.company_domain, j.logo_lookup->>'result' as logo_result, j.created_at,
            coalesce(j.ocr_check->'detail_fill'->'unclassified', '[]'::jsonb) as unclassified,
            coalesce(j.ocr_check->'detail_fill'->'still_missing', '[]'::jsonb) as still_missing,
-           j.ocr_check->'inspect' as prev,
+           j.ocr_check->'inspect' as prev, j.ocr_check->'screen_audit' as screen_audit,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses,
            -- 2026-11-07 수평 전개(#5599): 화면(src/lib/jobCoords.ts precise·mapR1 locationPoints)과 같은 기준.
            -- 정확한 위치 = 핀 종류 exact + 확인됨(location_verified). 좌표만 있다고 정확한 위치가 아니다(대략 위치에도 좌표가 있음, 10-28 핀 무조건).
@@ -74,7 +75,18 @@ try {
     photo: photoSource({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, companyDomain: job.company_domain ?? undefined,
       images: Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : undefined,
       lookupResult: job.logo_result, createdAt: job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at }, brands),
+    screen: screenState(job),
   })
+  // 화면 대조(#646): 같은 내용 지문의 기록만 쓴다. 비공개 공고는 대조 전이면 대기, 이미 공개 중이면 공개 유지(대조 기록 없음).
+  function screenState(job) {
+    const a = job.screen_audit
+    if (a && a.content_hash === job.content_hash) {
+      const sure = (a.findings ?? []).filter((f) => f.sure)
+      return sure.length ? { state: 'fail', detail: sure.slice(0, 3).map((f) => `[${f.device}] ${f.detail}`).join(' / ') }
+        : { state: 'ok', unsure: (a.findings ?? []).length }
+    }
+    return { state: job.active ? 'none' : 'pending' }
+  }
   for (const job of rows) {
     // Do not retroactively withdraw postings that were already public when this
     // new check first ran. Persist the rollout mode; new/held postings stay strict.
@@ -89,7 +101,10 @@ try {
     const hash = createHash('md5').update(VERSION + JSON.stringify(r)).digest('hex')
     // 결과 지문이 같아도 공고 내용 지문이 바뀌었거나 공개 상태를 바꿔야 하면 반드시 다시 기록한다.
     if (job.prev?.hash === hash && job.prev?.content_hash === job.content_hash && d.active === !!job.active && !job.hold) continue
-    const inspect = { version: VERSION, hash, content_hash: job.content_hash, required_fields_enforced: requiredFieldsEnforced, publishable: d.publishable, ok: r.ok, checked_at: new Date().toISOString(), items: r.items }
+    // 화면 대조만 남은 비공개 공고 = 대조 대상(detail-read.mjs SCREEN_CANDIDATES가 읽음)
+    const screenWaitOnly = !d.publishable && !job.admin_hidden && r0.items.some((i) => i.key === 'screen' && i.detail === SCREEN_WAIT) &&
+      publishDecision({ ...r0, items: r0.items.filter((i) => i.key !== 'screen') }, { active: job.active, admin_hidden: job.admin_hidden, hold: job.hold, application_deadline: job.application_deadline }).publishable
+    const inspect = { version: VERSION, hash, content_hash: job.content_hash, required_fields_enforced: requiredFieldsEnforced, publishable: d.publishable, ok: r.ok, checked_at: new Date().toISOString(), items: r.items, ...(screenWaitOnly ? { screen_wait: true } : {}) }
     const recorded = await client.query(`update public.local_jobs
       set ocr_check = (coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold') || jsonb_build_object('inspect', $2::jsonb),
           active = $3::boolean
@@ -108,8 +123,8 @@ try {
       await client.query(`update public.local_jobs set ocr_check = jsonb_set(ocr_check, '{inspect}', $2::jsonb) where id = $1`,
         [job.id, JSON.stringify({ ...inspect, ok: false, items })])
     }
-    // 관리자가 숨긴 공고는 알림하지 않는다(Lee가 이미 뺀 공고)
-    if (!job.admin_hidden) reports.push(inspectReport({ id: job.id, title: job.title }, r))
+    // 관리자가 숨긴 공고는 알림하지 않는다(Lee가 이미 뺀 공고). 화면 대조 대기만 남은 공고는 같은 실행에서 대조 뒤 다시 검사하므로 그때 알린다.
+    if (!screenWaitOnly && !job.admin_hidden) reports.push(inspectReport({ id: job.id, title: job.title }, r))
     console.log(`#${job.id} ${r.ok ? '통과' : '문제 ' + r.items.filter((i) => !i.ok).length + '개'}`)
   }
   // 연속 통과: 최근 공고부터(숨긴 공고 제외) 통과가 몇 개 이어지는지
@@ -119,6 +134,10 @@ try {
   let streak = 0
   for (const x of recent) { if (x.ok) streak++; else break }
   console.log(`연속 통과 ${streak}/${STREAK_GOAL}`)
+  // 화면 대조 대상(#646): 화면 대조만 남은 비공개 공고 + 확정 오류로 막힌 지 3시간 지난 공고(화면 코드가 고쳐졌을 수 있어 다시 대조)
+  const screenWait = Number((await client.query(`select count(*)::int as n from public.local_jobs j where ${SCREEN_CANDIDATES}`)).rows[0].n)
+  console.log(`화면 대조 대기 ${screenWait}건`)
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `screen_wait=${screenWait}\n`)
   // 읽기 전용 검사(Lee 2026-11-09): 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전 등)에도 같은 검사(inspectJob)를 돌려 결과만 알린다.
   // DB에는 아무것도 쓰지 않는다 — 공고 내용·공개 상태·검사 기록 그대로, 과거 공고 자동 수정 없음. 관리자가 숨긴 공고는 제외.
   const outside = await selectJobs(`not (${SCOPE}) and not j.admin_hidden`)

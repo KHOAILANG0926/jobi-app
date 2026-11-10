@@ -39,6 +39,11 @@ export interface InspectInput extends ShownAbove {
   postingFields?: { hours?: string | null; employment_type?: string | null; application_deadline?: string | null; num_hires?: string | number | null; reviewOnly?: boolean }
   /** 대표 사진·로고 출처(Lee 2026-11-07): brand/photo/site, 공용 사진이면 로고 찾기 결과(none/excluded/no_place/quota), 아직이면 pending. */
   photo?: PhotoSource
+  /**
+   * 화면 대조 검사(#646, src/lib/screenAudit.ts — scripts/ops/detail-read.mjs가 관리자 비공개 상세로 기록). 같은 내용 지문의 결과만 넘긴다.
+   * ok = 확정 오류 없음(unsure = 판정 불명확 건수, 공개는 막지 않음) / fail = 확정 오류 / pending = 비공개 공고인데 아직 대조 전 / none = 이미 공개 중이고 대조 기록 없음(공개 유지).
+   */
+  screen?: { state: 'ok' | 'fail' | 'pending' | 'none'; detail?: string; unsure?: number }
 }
 export type PhotoSource = 'brand' | 'brand_icon' | 'photo' | 'site' | 'none' | 'excluded' | 'no_place' | 'quota' | 'pending' | 'before_rule'
 const PHOTO_LABEL: Record<PhotoSource, string> = {
@@ -48,7 +53,7 @@ const PHOTO_LABEL: Record<PhotoSource, string> = {
 }
 /** 검사표 항목 키 전체. 규정 표(job_posting_rules.check_ref)의 inspect:<키>는 이 안에 있어야 한다(job-inspect가 매번 확인). */
 export const INSPECT_KEYS = ['pin', 'sections', 'duplicate', 'junk', 'salary', 'benefits', 'occupation', 'ocr', 'new_kind',
-  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields', 'photo', 'still_missing'] as const
+  'roles', 'hours_twice', 'source_lost', 'promo_in_07', 'company', 'card', 'public', 'hours_review', 'required_fields', 'photo', 'still_missing', 'screen'] as const
 export interface InspectItem { key: string; label: string; ok: boolean; detail?: string; reviewOnly?: boolean }
 export interface InspectResult { ok: boolean; items: InspectItem[] }
 
@@ -178,6 +183,10 @@ export function inspectJob(j: InspectInput): InspectResult {
   const card = !!cardSalary({ salary: j.salary ?? '', salaryPeriod: null, description: j.description ?? '' } as never)
   add('card', '메인 화면 카드에 보임', card, card ? undefined : `메인 카드가 급여를 못 읽음: ${j.salary}`)
   // 11. 공개 상태
+  // 화면 대조(#646, Lee 2026-11-10 sb-5876): 운영 화면에 실제로 보이는 것이 원문·DB와 맞는지. 확정 오류·대조 전이면 공개하지 않는다.
+  if (j.screen) add('screen', '화면 대조', j.screen.state === 'ok' || j.screen.state === 'none',
+    j.screen.state === 'fail' ? j.screen.detail : j.screen.state === 'pending' ? SCREEN_WAIT
+      : j.screen.state === 'none' ? '대조 기록 없음(공개 중 — 공개 유지)' : j.screen.unsure ? `판정 불명확 ${j.screen.unsure}개(관리자 확인, 공개 영향 없음)` : undefined)
   add('public', '공개됨', !!j.active && !j.admin_hidden, j.admin_hidden ? '관리자가 숨김' : !j.active ? '비공개' : undefined)
 
   // Same start/end is ambiguous, not evidence of a 12-hour or overnight shift.
@@ -194,6 +203,8 @@ export function inspectJob(j: InspectInput): InspectResult {
  *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
  */
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
+/** 화면 대조 대기 표시 — 이 항목만 남은 공고가 대조 대상(job-inspect가 screen_wait로 기록). */
+export const SCREEN_WAIT = '화면 대조 대기'
 export const REVIEW_ONLY = ['hours_review', 'card']
 /** 표시만 하는 항목: 공개도 연속 통과도 막지 않는다(사진은 등록·공개와 별개, Lee 2026-11-05·11-07). */
 export const INFO_ONLY = ['photo', 'still_missing']
