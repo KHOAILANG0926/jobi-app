@@ -169,3 +169,5 @@ body:has(.pj) { background: #fff; }
   .pj-cat { grid-template-columns: 1fr 1fr; }
   .pj-cat ul { max-height: 40vh; }
 }
+/* 아래 고정 등록 막대(높이 약 77px)가 페이지 맨 아래(바닥글 링크 줄)를 덮어 잘려 보였음(Lee 2026-11-10 PC 화면) → 막대 높이만큼 페이지 끝에 여백 */
+body:has(.pj-bar) { padding-bottom: 77px; }
