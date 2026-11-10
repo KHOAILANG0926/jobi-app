@@ -53,7 +53,14 @@ jobs:
               select coalesce(meta->>'status','?') s, count(*) n from public.research_artifacts
               where kind='location-hold' group by 1) t;
           ")
-          note=$(printf '%s\n위치 보류함(비공개): %s\n\n%s' "$note" "$holds" "$integrity")
+          # Google 월 사용/한도(#560): 대량 수집 전 남은 몫을 보려고 건수만 읽는다(external_api_reserve와 같은 베트남 달).
+          google=$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+            select coalesce(string_agg(l.api||' '||coalesce(c.calls,0)||'/'||l.monthly_limit, ' · ' order by l.api),'없음')
+            from public.external_api_limits l
+            left join public.external_api_calls c on c.api=l.api
+              and c.month=date_trunc('month', now() at time zone 'Asia/Ho_Chi_Minh')::date;
+          ")
+          note=$(printf '%s\n위치 보류함(비공개): %s\nGoogle 이번 달 사용/한도: %s\n\n%s' "$note" "$holds" "$google" "$integrity")
           echo "$note" | tee -a "$GITHUB_STEP_SUMMARY"
           title="저녁 8시 운영 보고 — 위치 확정"
           issue=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')

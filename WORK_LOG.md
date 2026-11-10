@@ -1,3 +1,7 @@
+## 2026-11-11 밤 근무 — 저녁 8시 보고에 Google 이번 달 사용/한도 (#560)
+- 원인 [직접 확인]: 한도 장치(external_api_limits·external_api_reserve)는 있으나 이번 달 사용 횟수를 매일 보는 경로가 없어 대량 수집 전 남은 몫을 판단할 수 없었다(#560 11-08 메모).
+- 변경: .github/workflows/admin-location-evening-report.yml에 한 줄 — 한도 표 전부(운영·웹사이트·시험 몫)를 베트남 달 사용 횟수와 함께 'api 사용/한도'로(읽기만, 건수만).
+- 검증 [직접 확인]: 같은 SQL을 로컬 폐기용 PGlite에서 실행 → 'google_place_website 0/900 · google_text_search 123/4500 · google_text_search_test 0/600'(지난달 줄 제외), YAML 읽기 정상, tsc·npm test 119/119·build. 운영 출력은 다음 20시 실행에서 확인.
 ## 2026-11-11 밤 근무 — 주소 읽기: GOERTEK 'Làm việc tại: Nam Sơn / Quế Võ 1 - Bắc Ninh' (#633)
 - 원인 [직접 확인]: 미리 보기 42843415361 원문 id:1479749020957235. 이름표 뒤 값이 쉼표 없이 띄어 쓴 대시로 성 이름과 나뉘어 ② 이름표 없는 주소 줄(쉼표 2칸 이상)에 안 걸리고, 조각도 없어 주소 ''.
 - 변경: src/lib/addressReader.ts ②에서 이름표("…:")를 뗀 값만 띄어 쓴 대시를 쉼표 칸으로 봄(이름표 없는 제목 줄 "… – BẮC NINH"은 그대로). 시험 사례 2개(GOERTEK 읽음·이름표 없는 대시 줄은 안 읽음).
@@ -40,9 +44,3 @@
 - 알바몬 쿠팡 공고 참고: 그림 머리 아래 큰 급여·상여 알약(원문 대문자 줄)·형광펜 소제목·아이콘 카드·채용 절차 화살표(원문 단계 낱말, 부정 표현이면 생략)·복리후생 타일·큰 전화 버튼. src/components/DetailRich.tsx, src/lib/detailRich.ts, 색 albamonTemplate DETAIL_PALETTE(13색, 금액 빨강·흰 카드 통일).
 - 운영 확인 [직접 확인]: sb-5876 PC·모바일 꾸민 본문·앰버 색·tel 버튼·가로 넘침 없음, KDA sb-4824 그대로. deploy-verify 42837555553 통과.
 - 남은 것: 봇 커밋마다 PR 표 SHA 옛 근거·취소된 중복 실행이 봇 병합을 막음 → 매번 수동 정리(#648 우선 처리 필요).
-
-## 2026-11-10 밤 — 상세 10-30 확정 구성 + 업종 그림 머리 + 급여 칸 정리 (Lee "Ok" 적용, #653)
-- ① Mức lương 금액 + "chưa/đã gồm tăng ca", Phụ cấp·Thưởng 상여 줄(최대 3줄) / ② Yêu cầu khác / ④ Nội dung công việc·Tăng ca·Môi trường làm việc·Quy trình tuyển dụng·Liên hệ + #563 업종 그림 머리. 번호 붙은 원문 소제목(2. CÔNG VIỆC 등)도 소제목으로. 구현 src/lib/jobQuyenLoi.ts albamonCompose·albamonConditionLines.
-- Codex 지적 4건(KDA 그림 제외, 금액 더 있는 급여 내역 보존, 보험 문장 ④ 보존, 'không bao gồm tăng ca') 봇이 반영.
-- 운영 확인 [직접 확인]: sb-5876 PC·모바일 ④ 6칸·그림 07-nhua-ep·급여 칸, KDA sb-4824 기존 틀 그대로. deploy-verify 42827351625 통과.
-- 남은 것: 봇 커밋마다 PR 표 SHA 옛 근거로 checks 실패 → 옛 실행 수동 삭제(#648).
