@@ -15,6 +15,27 @@ import { normalizeViText } from './jobCoords'
 
 const EXTRA: Partial<Record<JobRegionId, string[]>> = { hcm: ['hcm', 'tp hcm', 'tphcm', 'sai gon', 'saigon'] }
 
+/** 성 이름 키워드(지금 성 이름·그 성에만 합쳐진 옛 성 이름·EXTRA) — 알림 판정은 화면처럼 이것을 먼저 보고,
+ *  하나도 없을 때만 군·구 이름을 쓴다(Codex #625: "Phường Thanh Bình, Hải Châu, Đà Nẵng"이 Đồng Tháp의 Thanh Bình으로도 잡히던 문제). */
+export function provinceKeywords(): string[] {
+  return provinceKeywordPairs().map((p) => p.keyword)
+}
+function provinceKeywordPairs(): { regionId: JobRegionId; keyword: string }[] {
+  const ids = REGION_MACRO_TABS.flatMap((t) => t.provinces.map((p) => p.id))
+  const byProvince = new Map(ids.map((id) => [REGION_PROVINCE[id], id]))
+  const out: { regionId: JobRegionId; keyword: string }[] = []
+  for (const id of ids) {
+    out.push({ regionId: id, keyword: normalizeViText(provinceShortName(REGION_PROVINCE[id])) })
+    for (const e of EXTRA[id] ?? []) out.push({ regionId: id, keyword: normalizeViText(e) })
+  }
+  for (const [oldName, news] of Object.entries(VN_OLD_PROVINCE_TO_NEW)) {
+    if (news.length !== 1) continue
+    const id = byProvince.get(news[0])
+    if (id) out.push({ regionId: id, keyword: normalizeViText(provinceShortName(oldName)) })
+  }
+  return out.filter((p) => p.keyword)
+}
+
 export function regionKeywords(): { regionId: JobRegionId; keyword: string }[] {
   const ids = REGION_MACRO_TABS.flatMap((t) => t.provinces.map((p) => p.id))
   const byProvince = new Map(ids.map((id) => [REGION_PROVINCE[id], id]))
@@ -25,15 +46,8 @@ export function regionKeywords(): { regionId: JobRegionId; keyword: string }[] {
     if (!pairs.has(n)) pairs.set(n, new Set())
     pairs.get(n)!.add(id)
   }
-  for (const id of ids) {
-    add(provinceShortName(REGION_PROVINCE[id]), id)
-    for (const e of EXTRA[id] ?? []) add(e, id)
-  }
-  for (const [oldName, news] of Object.entries(VN_OLD_PROVINCE_TO_NEW)) {
-    if (news.length !== 1) continue
-    const id = byProvince.get(news[0])
-    if (id) add(provinceShortName(oldName), id)
-  }
+  // 성 이름 키워드는 provinceKeywordPairs() 한 곳(성 우선 판정 목록과 같은 규칙, Codex #625)
+  for (const p of provinceKeywordPairs()) add(p.keyword, p.regionId)
   for (const d of districtAliases()) {
     const id = byProvince.get(d.province)
     if (id) for (const f of d.forms) add(f, id)

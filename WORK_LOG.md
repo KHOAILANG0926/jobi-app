@@ -1,3 +1,8 @@
+## 2026-11-10 낮 — 알림 지역을 34개 성으로 (점검 #3, Lee "전체 수정")
+- 공고 알림 DB 지역 키워드를 공식 34개 성 자료(src/lib/regionKeywords.ts, 화면 판정과 같은 자료)로 다시 만듦(migration 20261110120000, 생성기 scripts/data/gen-alert-region-keywords.mjs — 11-03에 만들어 둔 것). 랑선→Lạng Sơn, 옛 Hòa Bình→Phú Thọ, 옛 Bắc Giang→Bắc Ninh. 알림 설정의 옛 성 id(bacgiang·longan)는 합쳐진 성으로.
+- 지운 것: jobRegions.ts 손 목록(match 36개)과 알림 전용 지역 탭 예외(ALERT_REGION_TABS) — 알림 화면도 34개 성 탭.
+- 검증: tsc · npm test 116/116 · build · 로컬 PostgreSQL setup→migration→local→production_check.
+
 ## 2026-11-10 새벽 — Google 한도: 사업장 중복 검색 줄임·한도 초과 보류·로고 재시도·시험 몫 (Lee 11-09 5개 지시)
 - ① Google 결과 다시 쓰기: 검색 글자(회사 이름 + 원문 주소) 완전 일치만(googleCacheKeys, 위치·로고·업종 같은 함수, 열쇠는 #619 전과 같음). 11-10 Lee "나": 비슷한 사업장 자동 병합(번지·공단·구획·동 열쇠)은 위치가 잘못 붙을 위험이 있어 뺌.
 - 11-10 오전: 비슷한 사업장 병합 제외(위치 고르는 판정은 master와 같음 — 저장 열쇠만 같음 확인) · '못 찾음' 다시 확인이 한도에 막혀도 다음에 새로 묻기 유지(Codex P2).
@@ -48,9 +53,3 @@
 - #593 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전) 읽기 전용 검사 — 첫 실행 7건 검사(모두 11-01 이전, 고용주 공고 0건), DB 변경 없음. #596 알림 단계 크기 초과 실패 고침.
 - #586 PC 헤더 운영 검사: deploy-verify(보호 파일) 대신 운영 배포 끝에서 workflow_dispatch로 부름, workflow_run 시작 삭제(중복 없음). #591 닫음.
 - 대기: 운영 SQL 전용 낮은 권한 계정(방향 승인, 비밀번호 만들기 방법 Lee 결정 대기).
-
-## 2026-11-09 오전 — Codex 대기 판정 보완·운영 SQL 좁히기 (Lee "예", "좁히기")
-- 확인 [직접]: Codex 요약 '미해결' 표시는 리뷰 대화 해결 상태와 안 맞음(#581·#584·#585) → 기존 답 표시(claude-codex-reply)로 판정.
-- #587: 예전 커밋 Codex 지적에 답 없으면 30분 통과 안 함, Codex 없이 운영·보안·DB 파일 바뀐 PR은 needs-lee로 멈춤(check-repository-policy 기존 목록 재사용).
-- 운영 SQL: master·Lee 계정 실행만, 허용 = 입구로 기존 공고 고치기 1줄(job_id+update_fields) + 조회, 입구 호출 뒤 읽기 전용(DB가 쓰기 거부, 로컬 PostgreSQL 16 확인), 실행 전 입구 호출 권한 확인. 예전 파일 4개(cleanup·kda×2·mao-yen)는 이제 실행 안 됨(실행 끝난 기록).
-- 남은 것: 접속 계정이 관리자급인지 첫 실행 로그로 확인 → 관리자급이면 전용 계정 분리는 Lee 결정(비밀값 변경).
