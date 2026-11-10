@@ -339,6 +339,11 @@ Claude Code·Cursor·Codex 모두 적용한다(`.cursor/rules/project-rules.mdc`
    - 키는 크롤러 자동 확인에만 쓴다. 사람이 확인할 수 있는 건 일반 Google 지도로 한다.
    - 확인은 필요한 공고만 하나씩. 업체 검색 비교(business-search-compare)는 확인할 공고를 넣으면 그 1건만 묻고, 기준 공고 전체 비교는 Lee 확인 후 confirm_compare=true로만(워크플로가 자동 차단).
    - 같은 검색은 동시에 돌리지 않는다(워크플로 concurrency로 강제).
+5. 위치 자료 관리·재사용 기준(Lee 2026-11-09 결정, 11-10 정비 — 새 규칙이 아니라 이미 있는 장치의 순서):
+   - ① 우리 확정 위치 먼저: 관리자 확정 기억표가 같은 회사 이름 + 같은 주소 글자 열쇠이면 Google 없이 다시 쓴다(위치 확인 `location_memory_point`·등록 뒤 재사용 `valid_memory_targets`가 같은 자격 `location_private.eligible_memory`를 읽음).
+   - ② Google 결과: 비공개 저장(research_artifacts map-r1-query)에서 검색 글자 완전 일치일 때만 다시 쓴다(`googleCacheKeys`). 비슷한 사업장·다른 지점 자동 병합 금지(Lee 11-10 "나").
+   - ③ 공고 위치 원본에는 출처를 남긴다: VietMap(번지 검증)·admin_approved·poster_pin·Google·그 밖(`location_private.safe_source`). 기존 위치 줄·좌표는 바꾸지 않는다.
+   - ④ 한도 초과·못 찾음은 비공개 보류함(location-hold)으로, 상태별 건수는 저녁 8시 보고.
 
 ## 위치 못 찾을 때 Google 지도 — Lee 2026-11-03, 2026-11-06 개정 "구글을 따라"
 - 원칙(Lee 2026-11-06): Google이 회사 위치를 알면 Google 위치를 쓴다. Google도 모르면 따르지 않는다. 근무지든 사무실이든 지원자가 찾아갈 곳이면 된다. 위치는 위치일 뿐 "Google 지도"를 출처로 따로 표시하지 않는다.
