@@ -18,7 +18,10 @@ const PROVINCES = new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))
 const FRAGMENT = new RegExp(
   `(?:quận|q\\.|huyện|thành phố|tp\\.)\\s*[\\d${WORD}\\s]{1,20}|` +
   `(?:phường|p\\.|xã|thị trấn)\\s*[${WORD}\\s]{1,20}|` +
-  `(?:đường|ngõ|ngách|khu(?!\\s+vực)|kp)\\s+[${WORD}\\s\\d]{2,30}`, 'giu')
+  `(?:đường|ngõ|ngách|khu(?!\\s+vực)|kp)\\s+[${WORD}\\s\\d]{2,30}|` +
+  // 공단 이름 "KCN QUẾ VÕ 2"(제목 줄 "CÔNG TY JMT KCN QUẾ VÕ 2", #633) — 그 줄 안에서만, 뒤 구인 낱말은 뗀다
+  `(?:kcn|ccn)\\s+[${WORD} ]{2,30}`, 'giu')
+const FRAGMENT_TAIL = /\s+(?:tuyển|tuyen|cần|lương|thu nhập|làm|liên hệ)(?=\s|$).*$/iu
 
 const trimDots = (s: string) => s.replace(/^[ .]+|[ .]+$/g, '')
 
@@ -59,7 +62,7 @@ export function readAddress(sourceText: string): string {
     const shop = k && l.slice((k.index ?? 0) + k[0].length).match(/^[^,\n]*?\s(\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*(?:\s+\p{Lu}\p{Ll}*){1,3})/u)
     if (shop) return shop[1]
   }
-  const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).filter((m) => m.length > 2)
+  const parts = [...text.matchAll(FRAGMENT)].map((m) => m[0].trim().replace(FRAGMENT_TAIL, '')).filter((m) => m.length > 2)
   return [...new Set(parts.slice(0, 3))].join(', ')
 }
 

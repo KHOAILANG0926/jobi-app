@@ -21,8 +21,8 @@ const JOB_WORDS = new Set((
 ).split(/\s+/))
 // 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
 // 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
-// 자기 가게를 부르는 말("nhà mình", "bên em")·'수요 있음' 문구는 이름이 아니다(#633 2026-11-10 dryrun)
-const NOT_NAME_PHRASES = ['quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
+// 자기 가게를 부르는 말("nhà mình", "bên em", "công ty mình")·'수요 있음' 문구는 이름이 아니다(#633 2026-11-10 dryrun)
+const NOT_NAME_PHRASES = ['cong ty minh', 'cty minh', 'cong ty em', 'cty em', 'quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
 const REGION_PHRASES = [...new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))].sort((a, b) => b.length - a.length)
 
 /** 회사 이름이 될 수 있는 낱말이 하나라도 남는가(구인 낱말·숫자·지역·나라·공단 낱말 제외). */
@@ -124,8 +124,12 @@ export function readCompany(text: string): CompanyRead {
     for (const l of lines.slice(0, 4)) {
       if (!/tuyển dụng|cần tuyển|tuyển\b|tìm đồng đội|tìm kiếm|bổ sung nhân sự/iu.test(l)) continue
       const c = l.replace(/\s*[-–]?\s*(?:đang\s+)?(?:mở\s+(?:đợt\s+)?)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển|tìm đồng đội|tìm kiếm|bổ sung nhân sự)(?=\s|[:：!–-]|$).*$/iu, '').replace(/\s*thông báo\s*$/iu, '')
-        .replace(/^\[[^\]]{0,40}\]\s*/u, '') // "[Kinh Bắc - Bắc Ninh] Trang sức Huy Thanh"(#560)
-      if (ok(c)) return ok(c)
+        .replace(/\s+(?:ở|tại)\s.*$/iu, '') // "CÔNG TY MÌNH Ở KHÚC XUYÊN CẦN TUYỂN": 뒤 장소 말은 이름이 아니다(②와 같은 규칙, #633)
+      // "[Kinh Bắc - Bắc Ninh] Trang sức Huy Thanh"(#560): 대괄호는 장소 → 뒤가 이름. 뒤가 비면 대괄호 안이 이름("[ HAIDILAO VINCOM BẮC NINH ] TUYỂN DỤNG", #633)
+      const bracket = c.match(/^\[([^\]]{0,40})\]\s*/u)
+      if (bracket && ok(c.slice(bracket[0].length))) return ok(c.slice(bracket[0].length))
+      if (bracket && !c.slice(bracket[0].length).trim() && ok(bracket[1])) return ok(bracket[1])
+      if (!bracket && ok(c)) return ok(c)
     }
     return ''
   }
