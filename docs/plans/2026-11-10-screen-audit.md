@@ -22,3 +22,8 @@
 - 이 방식(운영 화면 글을 원문과 대조)에 빈틈이 있나? 화면을 보지 않고 코드에서 같은 함수를 다시 불러 비교하는 방식보다 나은가?
 - 검사가 공개 뒤에 도는 문제(운영 화면은 공개돼야 열림) — 공개 전 미리 보기(/xem-truoc-tin, 비공개 공고) 화면으로 대조하는 게 맞나?
 - 더 단순한 방법이 있나? 기존 장치(job-inspect·deploy-verify app-smoke·detail-read) 중 합칠 곳은?
+
+## Codex 의견 반영(2026-11-10, Claude가 코드로 확인함)
+- 공개 전 화면: /xem-truoc-tin은 작성 중 입력값(localStorage)만 보여 줌(JobPreviewPage.tsx:9) → 저장된 비공개 공고는 관리자 비공개 상세(JobDetail.tsx 관리자 미리 보기, checkIsAdmin)로 연다. 결과는 job-inspect의 publishDecision에 합쳐 통과 전 공개 안 함. app-smoke는 배포 건전성 검사로 그대로.
+- 대조 방법: 글자 그대로 비교하면 승인된 표시 변환(복수직무 "Theo vị trí", triệu 줄임, 홍보·중복 연락처·OCR 조각 제외 → detail_fill.dropped)도 실패가 됨 → 원문 근거·제외 기록·승인 변환을 기준으로 금액·연락처·직무 대응을 보고, "확정 오류"와 "판정 불명확(관리자 확인)"을 나눈다.
+- 수집 범위: detail-read.mjs는 innerText·캡처만 저장(33–54행) → 같은 PC·모바일 순회를 넓혀 링크 href(Google 목적지·tel·Zalo), 켜진 아이콘(.jd2-benefit--active), 지도 점을 구조로 모으고 판정 결과를 돌려준다(새 브라우저 검사기 만들지 않음).
