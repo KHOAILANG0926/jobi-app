@@ -2,11 +2,13 @@
 // 사용: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/data/gen-alert-region-keywords.mjs <migration 파일>
 // 키워드는 src/lib/regionKeywords.ts(화면 지역 판정과 같은 공식 자료)에서만 만든다. 손으로 고치지 않는다.
 import { writeFileSync } from 'node:fs'
-import { regionKeywords } from '../../src/lib/regionKeywords.ts'
+import { provinceKeywords, regionKeywords } from '../../src/lib/regionKeywords.ts'
 
 const out = process.argv[2]
 if (!out) throw new Error('migration 파일 경로 필요')
 const rows = regionKeywords()
+const kept = new Set(rows.map((r) => r.keyword))
+const provinces = [...new Set(provinceKeywords())].filter((k) => kept.has(k)).sort()
 const ids = [...new Set(rows.map((r) => r.regionId))]
 const q = (s) => `'${s.replace(/'/g, "''")}'`
 const values = rows.map((r) => `  (${q(r.regionId)}, ${q(r.keyword)})`).join(',\n')
@@ -23,6 +25,43 @@ from (values
 ${values}
 ) as v(region_id, keyword)
 on conflict do nothing;
+
+-- 지역 찾기: 화면(resolveProvinces)처럼 성 이름을 먼저 보고, 성 이름이 하나도 없을 때만 군·구 이름을 쓴다(Codex #625 P1).
+-- 함수 이름·입력·출력은 그대로(job_alert_evaluate가 그대로 부른다). 성 이름 목록은 생성기가 regionKeywords.ts에서 만든다.
+create or replace function public.job_alert_detect_regions(input text)
+returns text[]
+language plpgsql
+stable
+set search_path = pg_catalog, public
+as $fn$
+declare
+  hay text := ' ' || public.job_alert_normalize_text(input) || ' ';
+  kw record;
+  found text[] := '{}';
+  pass int;
+  province_kw constant text[] := array[${provinces.map(q).join(', ')}];
+begin
+  if hay = '  ' then
+    return found;
+  end if;
+  for pass in 1..2 loop
+    for kw in
+      select region_id, keyword from public.job_alert_region_keywords
+      where (pass = 1) = (keyword = any(province_kw))
+      order by length(keyword) desc, keyword
+    loop
+      if position(' ' || kw.keyword || ' ' in hay) > 0 then
+        if not kw.region_id = any(found) then
+          found := found || kw.region_id;
+        end if;
+        hay := replace(hay, ' ' || kw.keyword || ' ', ' | ');
+      end if;
+    end loop;
+    exit when cardinality(found) > 0;
+  end loop;
+  return found;
+end;
+$fn$;
 
 do $$
 declare n int;
@@ -51,10 +90,13 @@ begin
   if exists (select 1 from public.job_alert_preferences where region_ids && array['bacgiang', 'longan']) then
     raise exception '알림 설정에 옛 성 id가 남음';
   end if;
+  if public.job_alert_detect_regions('Phường Thanh Bình, Hải Châu, Đà Nẵng') <> array['danang'] then
+    raise exception '성 이름 우선 안 됨: %', public.job_alert_detect_regions('Phường Thanh Bình, Hải Châu, Đà Nẵng');
+  end if;
   if public.job_alert_detect_regions('KCN Đình Trám, Việt Yên, Bắc Giang') <> array['bacninh'] then
     raise exception '옛 Bắc Giang 주소가 Bắc Ninh으로 잡히지 않음: %', public.job_alert_detect_regions('KCN Đình Trám, Việt Yên, Bắc Giang');
   end if;
 end $$;
 `
 writeFileSync(out, sql)
-console.log(out, rows.length, 'keywords,', ids.length, 'regions')
+console.log(out, rows.length, 'keywords,', ids.length, 'regions,', provinces.length, 'province keywords')

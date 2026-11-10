@@ -1,7 +1,7 @@
 // 알림 지역 판정(34개 성 키워드, DB job_alert_detect_regions와 같은 방식) ↔ 화면 지역 판정(jobArea.jobProvinces) 대조.
 // Lee 2026-11-10 #625 조건 3 "기존 공고의 지역 정보와 새 알림 지역 판정이 일치하는지". 공개 조회만, 쓰기 없음.
 import { supabaseServer as db } from '../../src/lib/supabaseServer.ts'
-import { regionKeywords } from '../../src/lib/regionKeywords.ts'
+import { provinceKeywords, regionKeywords } from '../../src/lib/regionKeywords.ts'
 import { REGION_PROVINCE } from '../../src/data/jobRegions.ts'
 import { jobProvinces } from '../../src/lib/jobArea.ts'
 
@@ -13,12 +13,18 @@ export const normalize = (s) => [...String(s ?? '').normalize('NFC').toLowerCase
 const KW = regionKeywords().map((r) => ({ id: r.regionId, k: normalize(r.keyword) }))
   .sort((a, b) => b.k.length - a.k.length || (a.k < b.k ? -1 : a.k > b.k ? 1 : 0))
 // DB job_alert_detect_regions와 같은 차례: 긴 낱말부터, 맞춘 글자는 지운다
+const PROV = new Set(provinceKeywords().map(normalize))
+// 성 이름 먼저, 없을 때만 군·구 이름(Codex #625 — DB 함수와 같은 차례)
 export function detect(text) {
   let hay = ` ${normalize(text)} `
   const found = []
   if (hay === '  ') return found
-  for (const { id, k } of KW) {
-    if (hay.includes(` ${k} `)) { if (!found.includes(id)) found.push(id); hay = hay.split(` ${k} `).join(' | ') }
+  for (const pass of [true, false]) {
+    for (const { id, k } of KW) {
+      if (PROV.has(k) !== pass) continue
+      if (hay.includes(` ${k} `)) { if (!found.includes(id)) found.push(id); hay = hay.split(` ${k} `).join(' | ') }
+    }
+    if (found.length) break
   }
   return found
 }

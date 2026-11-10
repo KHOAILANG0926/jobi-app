@@ -7,6 +7,12 @@ begin
   if public.job_alert_detect_regions('Lương Sơn, Hòa Bình') <> array['phutho'] then
     raise exception 'Hòa Bình → %', public.job_alert_detect_regions('Lương Sơn, Hòa Bình');
   end if;
+  if public.job_alert_detect_regions('Phường Thanh Bình, Hải Châu, Đà Nẵng') <> array['danang'] then
+    raise exception 'Codex #625 성 이름 우선: %', public.job_alert_detect_regions('Phường Thanh Bình, Hải Châu, Đà Nẵng');
+  end if;
+  if public.job_alert_detect_regions('Tiểu KCN Ba Bên, Từ Sơn') <> array['bacninh'] then
+    raise exception '성 이름 없으면 군·구: %', public.job_alert_detect_regions('Tiểu KCN Ba Bên, Từ Sơn');
+  end if;
   if public.job_alert_detect_regions('Hạ Long, Quảng Ninh') <> array['quangninh'] then
     raise exception 'Quảng Ninh → %', public.job_alert_detect_regions('Hạ Long, Quảng Ninh');
   end if;

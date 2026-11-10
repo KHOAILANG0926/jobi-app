@@ -15,6 +15,27 @@ import { normalizeViText } from './jobCoords'
 
 const EXTRA: Partial<Record<JobRegionId, string[]>> = { hcm: ['hcm', 'tp hcm', 'tphcm', 'sai gon', 'saigon'] }
 
+/** 성 이름 키워드(지금 성 이름·그 성에만 합쳐진 옛 성 이름·EXTRA) — 알림 판정은 화면처럼 이것을 먼저 보고,
+ *  하나도 없을 때만 군·구 이름을 쓴다(Codex #625: "Phường Thanh Bình, Hải Châu, Đà Nẵng"이 Đồng Tháp의 Thanh Bình으로도 잡히던 문제). */
+export function provinceKeywords(): string[] {
+  return provinceKeywordPairs().map((p) => p.keyword)
+}
+function provinceKeywordPairs(): { regionId: JobRegionId; keyword: string }[] {
+  const ids = REGION_MACRO_TABS.flatMap((t) => t.provinces.map((p) => p.id))
+  const byProvince = new Map(ids.map((id) => [REGION_PROVINCE[id], id]))
+  const out: { regionId: JobRegionId; keyword: string }[] = []
+  for (const id of ids) {
+    out.push({ regionId: id, keyword: normalizeViText(provinceShortName(REGION_PROVINCE[id])) })
+    for (const e of EXTRA[id] ?? []) out.push({ regionId: id, keyword: normalizeViText(e) })
+  }
+  for (const [oldName, news] of Object.entries(VN_OLD_PROVINCE_TO_NEW)) {
+    if (news.length !== 1) continue
+    const id = byProvince.get(news[0])
+    if (id) out.push({ regionId: id, keyword: normalizeViText(provinceShortName(oldName)) })
+  }
+  return out.filter((p) => p.keyword)
+}
+
 export function regionKeywords(): { regionId: JobRegionId; keyword: string }[] {
   const ids = REGION_MACRO_TABS.flatMap((t) => t.provinces.map((p) => p.id))
   const byProvince = new Map(ids.map((id) => [REGION_PROVINCE[id], id]))
