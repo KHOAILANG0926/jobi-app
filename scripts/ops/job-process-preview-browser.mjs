@@ -27,7 +27,8 @@ try {
     await page.locator('h1.jd2-header__title').waitFor()
     const summary = page.locator('.jd2-page')
     for (const value of ['Không quá 30 tuổi.', 'Có kinh nghiệm làm nhân sự, nắm vững quy trình cơ bản.', 'Giao tiếp tiếng Trung lưu loát.', 'Ứng viên vui lòng gửi CV để được trao đổi chi tiết!']) {
-      assert((await summary.getByText(value, { exact: true }).count()) >= 2, `${value}: summary and preserved source at ${width}px`)
+      // Lee 2026-11-10 적용(10-30 확정 구성): 원문 줄은 ①②④ 중 한 자리로 옮겨 한 번만 보인다(지우지 않음)
+      assert((await summary.getByText(value, { exact: true }).count()) >= 1, `${value}: shown (moved, not dropped) at ${width}px`)
     }
     assert.equal(await page.getByText('Không yêu cầu kinh nghiệm', { exact: true }).count(), 0, 'no invented no-experience requirement')
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)
