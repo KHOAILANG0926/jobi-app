@@ -12523,6 +12523,11 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 .jd2-detail-sections--card .jd2-detail-section__lines { padding-left: .2rem; }
 .jd2-detail-sections--card .jd2-detail-section__line { padding-left: 1.1rem; }
 .jd2-detail-sections--card .jd2-detail-section__line::before { content: '-'; top: 0; width: auto; height: auto; background: none; color: var(--jd2-bar); font-weight: 700; border-radius: 0; }
+/* ④ box (Lee 2026-11-10 고른 모양 — 템플릿 편집 화면처럼): 소제목 앞 업종 색 막대 + 내용은 둥근 테두리 상자 */
+.jd2-detail-sections--box .jd2-detail-section__title { margin-bottom: .8rem; }
+.jd2-detail-sections--box .jd2-detail-section__lines { gap: .55rem; padding: 1.15rem 1.4rem; border: 1px solid #d9d9d9; border-radius: 8px; background: #fff; }
+.jd2-detail-sections--box .jd2-detail-section__line { padding-left: 1rem; }
+.jd2-detail-sections--box .jd2-detail-section__line::before { left: 0; top: .7em; width: 4px; height: 4px; background: #9a9a9a; }
 @media (max-width: 640px) {
   .jd2-desc-visual { margin: -1.1rem -1rem 1.4rem; border-radius: 0; aspect-ratio: 520 / 338; }
   .jd2-desc-visual__company { top: 19%; left: 16px; font-size: .9rem; }
@@ -12531,6 +12536,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
   .jd2-detail-sections--tpl .jd2-detail-section__title { font-size: 1.1rem; }
   .jd2-detail-sections--tpl .jd2-detail-section__title::before { width: 6px; height: 20px; }
   .jd2-detail-sections--tpl .jd2-detail-section__line { font-size: .95rem; }
+  .jd2-detail-sections--box .jd2-detail-section__lines { padding: .9rem 1rem; }
   .jd2-detail-sections--table .jd2-detail-section__line { padding: .75rem .9rem; }
   .jd2-detail-sections--card .jd2-detail-section { padding: 1rem; }
   .jd2-detail-sections--card .jd2-detail-section__title::before { width: 1.7rem; height: 1.7rem; font-size: .8rem; }

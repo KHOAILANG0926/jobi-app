@@ -566,7 +566,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
   // 데모 비교용: ?tpl=table|band|card 로 같은 공고에 다른 모양을 볼 수 있다(없으면 공고 번호로).
-  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'))
+  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), `${job.company ?? ''} ${job.title ?? ''}`)
   const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
