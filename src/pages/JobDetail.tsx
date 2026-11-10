@@ -43,6 +43,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
+import { detailLook } from '../lib/albamonTemplate'
 import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
@@ -364,6 +365,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const deadlineText = formatDeadlineVi(job.applicationDeadline)
 
   const badge = deadlineBadge(job.applicationDeadline)
+  // Lee 2026-11-10: 상단 날짜에 "Ngày đăng"(우리 사이트에 올라온 날) 문구 + 같은 줄에 마감일(② 칸 Hạn nộp hồ sơ와 같은 글자 formatDeadlineVi)
+  const headerDates = (
+    <>
+      Ngày đăng: <time dateTime={job.postedAt}>{new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</time>
+      {' · '}Hạn nộp: {deadlineText}
+    </>
+  )
   const tags = jobTags(job)
   // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
@@ -557,6 +565,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
     albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
+  // 데모 비교용: ?tpl=table|band|card 로 같은 공고에 다른 모양을 볼 수 있다(없으면 공고 번호로).
+  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), `${job.company ?? ''} ${job.title ?? ''}`)
   const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
@@ -671,17 +681,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
             )}
             <div className="jd2-header__meta">
               {locationText && <span className="jd2-meta-item"><MapPin size={13} strokeWidth={1.8} />{locationText}</span>}
-              <time className="jd2-meta-date" dateTime={job.postedAt}>
-                {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              </time>
+              <span className="jd2-meta-date">{headerDates}</span>
             </div>
           </div>
         </div>
         <div className="jd2-header__actions">
           {/* 2026-10-18 Lee 지시(PC): 등록일은 즐겨찾기 왼쪽. 모바일은 기존 위치(아래 줄) 유지 — CSS로 화면별 하나만 보임 */}
-          <time className="jd2-meta-date jd2-meta-date--top" dateTime={job.postedAt}>
-            {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-          </time>
+          <span className="jd2-meta-date jd2-meta-date--top">{headerDates}</span>
           <button
             type="button"
             className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
@@ -975,7 +981,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
             {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
-              <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+              <div className={`jd2-box jd2-detail-sections jd2-detail-sections--tpl jd2-detail-sections--${look.style}`} style={{ '--jd2-bar': look.bar, '--jd2-head': look.head } as React.CSSProperties} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+                {/* #563 데모: 간편 템플릿 머리(업종 그림 + 왼쪽 흐림 위 회사·제목). 그림은 장식이라 alt 비움 */}
+                <div className="jd2-desc-visual">
+                  <img className="jd2-desc-visual__img" src={look.photo} alt="" loading="lazy" />
+                  {job.company && <p className="jd2-desc-visual__company">{job.company}</p>}
+                  <p className="jd2-desc-visual__title">{job.title}</p>
+                </div>
                 {descriptionSections.map((section) => (
                   <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
                     <h3 className="jd2-detail-section__title">{section.label}</h3>

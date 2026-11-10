@@ -81,3 +81,57 @@ export function bodyFromForm(key: 'work' | 'support' | 'apply' | 'contact', f: O
   return li([`Người liên hệ: ${f.contactName}`, `Số điện thoại: ${f.contactPhone}`])
 }
 export const ROLE_DUTY_DEFAULT = '- Công việc:\n- Yêu cầu:'
+
+// #563 (Lee 2026-11-08·09 "KDA도"): 수집 공고 상세 ④도 간편 템플릿 모양 — 업종 그림 머리 + 템플릿 색 소제목 막대. 글자는 원문 그대로.
+// 공고 업종 13개는 템플릿 13개 업직종과 같은 순서(khac = Cơ bản). 그림은 업종 그림 중 공고 번호로 하나, 색은 그 업종 첫 틀의 기본 색.
+const DETAIL_GROUP: Record<string, number> = {
+  khac: 0, am_thuc_do_uong: 1, quan_ly_ban_hang: 2, dich_vu: 3, van_phong: 4, cskh_kinh_doanh: 5, san_xuat_xay_dung: 6,
+  cntt_ky_thuat: 7, thiet_ke: 8, truyen_thong: 9, lai_xe_giao_hang: 10, y_te_dieu_duong: 11, giao_duc_giang_day: 12,
+}
+export type DetailStyle = 'box' | 'table' | 'band' | 'card'
+// Lee 2026-11-10: 'box'(소제목 색 막대 + 테두리 상자)로 통일. 나머지는 ?tpl= 비교용으로만 남김.
+export const DETAIL_STYLES: DetailStyle[] = ['box', 'table', 'band', 'card']
+/** 상세 ④ 모양(Lee 2026-11-10): 사진 = 업종 그림(공장은 만드는 것으로 고름) 중 공고 번호로 하나, 색 = 업종마다 하나, 모양 = box(?tpl=로 다른 모양 비교).
+ *  같은 공고는 늘 같은 모양(공고 번호로 고름). 칸 구성·순서·글자는 그대로 — 모양만 다르다. */
+// 공장 공고는 무엇을 만드는 곳인지 회사 이름·제목 낱말로 먼저 가려 그 사진을 쓴다(Lee 2026-11-10 "과자회사인데 왜 전자회사 사진").
+// 위에서부터 먼저 맞는 것. 맞는 종류가 없으면 공장 사진 대신 업종 구분 없는 기본 사진(엉뚱한 공장 사진보다 낫다).
+// 낱말은 성조 뺀 글자로 비교 — "sữa(우유)/sửa(수리)", "giày(신발)/giấy(종이)", "may(봉제)/máy(기계)"가 같아지므로 두 낱말 이상 묶음만 쓴다.
+// 새 종류는 사진(public/images/template/07-*.jpg)을 받으면 여기 한 줄 추가.
+const FACTORY_PHOTOS: [RegExp, string[]][] = [
+  [/\b(?:banh keo|keo ngot|banh quy|snack|socola|chocolate|keo deo)\b/, ['07-food-banhkeo']],
+  [/\b(?:banh mi|banh ngot|bakery|lo banh)\b/, ['07-food-banhmi']],
+  [/\b(?:nuoc giai khat|do uong|nuoc ngot|nuoc suoi|bia|ruou|beverage|nuoc trai cay)\b/, ['07-food-douong']],
+  [/\b(?:sua tuoi|sua chua|sua bot|nha may sua|vinamilk|th true milk|dairy)\b/, ['07-food-sua']],
+  [/\b(?:thuy san|hai san|che bien tom|che bien ca|ca tra|fillet)\b/, ['07-food-thuysan']],
+  [/\b(?:che bien thit|xuc xich|giam bong|thit heo|thit lon|thit ga|thit bo)\b/, ['07-food-thit']],
+  [/\b(?:thuc pham|che bien thuc pham|dong goi thuc pham|food)\b/, ['07-food-donggoi']],
+  [/\b(?:giay dep|da giay|giay the thao|pouchen|changshin|footwear)\b/, ['07-giay']],
+  [/\b(?:may mac|xuong may|cong nhan may|may cong nghiep|quan ao|garment)\b/, ['07-may']],
+  [/\b(?:det may|det nhuom|soi|vai|textile)\b/, ['07-detsoi']],
+  [/\b(?:phu tung o to|linh kien o to|phu tung xe|o to|xe may|auto parts)\b/, ['07-oto-phutung']],
+  [/\b(?:dien tu|linh kien dien tu|bo mach|smt|pcb|samsung|electronics)\b/, ['07-dientu', '07-san-xuat', '07b-san-xuat']],
+  [/\b(?:nhua|ep phun|khuon nhua|ep nhua|plastic)\b/, ['07-nhua-ep']],
+  [/\b(?:tho han|han dien|han tig|han mig|han co2|welding)\b/, ['07-han']],
+  [/\b(?:co khi|cnc|tien phay|gia cong kim loai|gia cong co khi)\b/, ['07-co-khi']],
+  [/\b(?:do go|noi that|che bien go|xuong go|furniture)\b/, ['07-go-noithat']],
+  [/\b(?:bao bi|in an|nha in|thung carton|printing)\b/, ['07-baobi-in']],
+]
+const fold = (t: string) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+// 성조로만 갈리는 낱말은 원래 글자로 한 번 더 본다: 우유 sữa(≠ sửa chữa 수리)
+const NEEDS_TONE: Record<string, RegExp> = { '07-food-sua': /sữa|vinamilk|th true milk|dairy/i }
+export function factoryPhotos(text: string): string[] | null {
+  const t = ` ${fold(text)} `
+  const raw = String(text ?? '').normalize('NFC').toLowerCase()
+  return FACTORY_PHOTOS.find(([re, photos]) => re.test(t) && (NEEDS_TONE[photos[0]]?.test(raw) ?? true))?.[1] ?? null
+}
+
+export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = ''): { photo: string; bar: string; head: string; style: DetailStyle } {
+  const g = DETAIL_GROUP[String(category ?? '')] ?? 0
+  const n = Math.abs(Math.trunc(seed || 0))
+  const list = g === DETAIL_GROUP.san_xuat_xay_dung ? (factoryPhotos(text) ?? CATEGORY_IMAGES[0]) : CATEGORY_IMAGES[g]
+  const photo = list[n % list.length]
+  // 색은 업종마다 하나로 통일(Lee 2026-11-10 "색깔은 업종별로 통일 구분") — 그 업종 첫 틀의 기본 색
+  const c = colorOf(DEFAULT_COLOR[41 + g * 6])
+  const pick = DETAIL_STYLES.find((x) => x === style) ?? 'box'
+  return { photo: `/images/template/${photo}.jpg`, bar: c.bar, head: c.head, style: pick }
+}
