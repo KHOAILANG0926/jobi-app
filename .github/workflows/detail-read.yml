@@ -4,6 +4,9 @@ name: 상세 화면 읽기 (운영, 읽기 전용)
 # #646 Lee 2026-11-10: 같은 순회에서 화면 대조 검사(제목·회사 줄·Google 버튼·핀·전화·Zalo·아이콘·급여 ↔ 원문·DB).
 #   번호를 비우면 공개 공고 전체를 대조만 한다. 결과는 Summary·이슈 #646 댓글·첨부 detail-read/screen-audit.json.
 on:
+  # 공개 중 공고 정기 화면 대조(#646 후속, Lee 2026-11-10 "물어보지 말고 진행"): 매일 아침 베트남 6시 31분 — 결과가 바뀔 때만 #646에 남김
+  schedule:
+    - cron: '31 23 * * *'
   workflow_dispatch:
     inputs:
       job_ids:
@@ -20,7 +23,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: detail-read-${{ github.event.inputs.job_ids }}
+  group: detail-read-${{ github.event.inputs.job_ids || 'all' }}
   cancel-in-progress: false
 
 jobs:
@@ -38,9 +41,9 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: 상세 화면 읽기
         env:
-          BASE_URL: ${{ github.event.inputs.base_url }}
-          JOB_IDS: ${{ github.event.inputs.job_ids }}
-          ALL_PUBLIC: ${{ github.event.inputs.job_ids == '' && '1' || '' }}
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://viecganban.vn' }}
+          JOB_IDS: ${{ github.event.inputs.job_ids || '' }}
+          ALL_PUBLIC: ${{ (github.event_name == 'schedule' || github.event.inputs.job_ids == '') && '1' || '' }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
           ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}

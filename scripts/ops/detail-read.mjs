@@ -167,8 +167,17 @@ if (dbJobs.size) {
   console.log('\n' + report)
   summary.unshift(report, '')
   if (GH_TOKEN && REPO && ISSUE && !CANDIDATES) {
-    const body = report.length > 60000 ? report.slice(0, 60000) + '\n\n(길어서 잘림 — 실행 첨부 detail-read/screen-audit.json)' : report
-    execFileSync('gh', ['issue', 'comment', ISSUE, '--repo', REPO, '--body', body], { stdio: 'inherit' })
+    // 매일 실행(공개 공고 전체)은 결과가 지난번과 같으면 댓글을 남기지 않는다 — 공고 번호·찾은 문제가 같으면 같은 결과.
+    const marker = '<!-- screen-audit-digest'
+    const { createHash } = await import('node:crypto')
+    const digest = createHash('md5').update(JSON.stringify(audits.map((r) => [r.id, r.findings.map((f) => f.key + f.sure + f.detail)]))).digest('hex').slice(0, 12)
+    let last = ''
+    if (ALL) try { last = execFileSync('gh', ['api', `repos/${REPO}/issues/${ISSUE}/comments?per_page=100`, '--paginate', '--jq', `.[] | select(.body | contains("${marker}")) | .body`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }).split(marker).at(-1) ?? '' } catch { last = '' }
+    if (ALL && last.includes(digest)) console.log('지난 화면 대조와 결과 같음 — 댓글 생략')
+    else {
+      const body = (report.length > 60000 ? report.slice(0, 60000) + '\n\n(길어서 잘림 — 실행 첨부 detail-read/screen-audit.json)' : report) + `\n\n${marker} ${digest} -->`
+      execFileSync('gh', ['issue', 'comment', ISSUE, '--repo', REPO, '--body', body], { stdio: 'inherit' })
+    }
   }
 }
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n').slice(0, 900_000) + '\n')
