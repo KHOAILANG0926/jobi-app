@@ -443,8 +443,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           {!salaryText && !compose && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    isAllowanceNote || !compose ? textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined)
-      : linesRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', compose.allowance),
+    !compose ? textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined)
+      : linesRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote && salaryNote ? [salaryNote, ...compose.allowance.filter((l) => l.trim() !== salaryNote.trim())] : compose.allowance),
     hoursText || !compose ? textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText)
       : linesRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', compose.hours),
     textRow('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
