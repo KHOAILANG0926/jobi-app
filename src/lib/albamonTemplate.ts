@@ -108,7 +108,13 @@ const FACTORY_PHOTOS: [RegExp, string[]][] = [
   [/\b(?:giay dep|da giay|giay the thao|pouchen|changshin|footwear)\b/, ['07-giay']],
   [/\b(?:may mac|xuong may|cong nhan may|may cong nghiep|quan ao|garment)\b/, ['07-may']],
   [/\b(?:det may|det nhuom|soi|vai|textile)\b/, ['07-detsoi']],
-  [/\b(?:dien tu|linh kien|bo mach|smt|pcb|samsung|electronics)\b/, ['07-san-xuat', '07b-san-xuat']],
+  [/\b(?:phu tung o to|linh kien o to|phu tung xe|o to|xe may|auto parts)\b/, ['07-oto-phutung']],
+  [/\b(?:dien tu|linh kien dien tu|bo mach|smt|pcb|samsung|electronics)\b/, ['07-dientu', '07-san-xuat', '07b-san-xuat']],
+  [/\b(?:nhua|ep phun|khuon nhua|ep nhua|plastic)\b/, ['07-nhua-ep']],
+  [/\b(?:tho han|han dien|han tig|han mig|han co2|welding)\b/, ['07-han']],
+  [/\b(?:co khi|cnc|tien phay|gia cong kim loai|gia cong co khi)\b/, ['07-co-khi']],
+  [/\b(?:do go|noi that|che bien go|xuong go|furniture)\b/, ['07-go-noithat']],
+  [/\b(?:bao bi|in an|nha in|thung carton|printing)\b/, ['07-baobi-in']],
 ]
 const fold = (t: string) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, ' ')
 // 성조로만 갈리는 낱말은 원래 글자로 한 번 더 본다: 우유 sữa(≠ sửa chữa 수리)
