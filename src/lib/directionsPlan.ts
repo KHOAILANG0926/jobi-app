@@ -46,15 +46,12 @@ export function planDirections(input: {
   if (input.gateHref && googleDestination(input.gateHref)) return { tier: 'gate', link: { label: DIRECTIONS_LABEL.gate, href: input.gateHref }, note: input.gateNote }
   const digits = (input.phone ?? '').replace(/[^\d+]/g, '')
   const hasPhone = digits.replace(/\D/g, '').length >= 8
-  if (input.googlePoint && Number.isFinite(input.googlePoint.lat) && Number.isFinite(input.googlePoint.lng)) {
-    const at = `${input.googlePoint.lat},${input.googlePoint.lng}`
-    return { tier: 'address', note: input.addressNote ?? COMPANY_AREA_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
-      href: `https://www.google.com/maps/dir/?api=1&destination=${at}`, viewHref: `https://www.google.com/maps/search/?api=1&query=${at}` }],
-      ...(hasPhone ? { call: { href: `tel:${digits}`, phone: input.phone!.trim() } } : {}) }
-  }
-  if (input.addressQuery) {
-    const q = encodeURIComponent(input.addressQuery)
-    return { tier: 'address', note: input.addressNote ?? ADDRESS_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
+  // 목적지 선택만 다르고 링크·전화 구성은 한 경로로 공유(Google 좌표 우선, 없으면 주소 글자).
+  const gp = input.googlePoint
+  const hasGooglePoint = !!gp && Number.isFinite(gp.lat) && Number.isFinite(gp.lng)
+  if (hasGooglePoint || input.addressQuery) {
+    const q = hasGooglePoint ? `${gp!.lat},${gp!.lng}` : encodeURIComponent(input.addressQuery!)
+    return { tier: 'address', note: input.addressNote ?? (hasGooglePoint ? COMPANY_AREA_NOTE : ADDRESS_NOTE), links: [{ label: DIRECTIONS_LABEL.approved,
       href: `https://www.google.com/maps/dir/?api=1&destination=${q}`, viewHref: `https://www.google.com/maps/search/?api=1&query=${q}` }],
       ...(hasPhone ? { call: { href: `tel:${digits}`, phone: input.phone!.trim() } } : {}) }
   }
