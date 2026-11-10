@@ -1,3 +1,4 @@
+// 2026-11-10: JobDetail.tsx — #646 화면 대조 검사: 상단 제목 계산을 공용 함수 detailTitle(companyBranch.ts)로 옮김(화면·검사가 같은 함수, 결과 같음 — #642와 같은 식). 틀·CSS 변경 없음.
 // 2026-11-08: index.css — Lee "적용해도 괜찮아"(데모 A안): 휴대폰(≤640px)에서만 정렬 줄(JobsListToolbar) 칸이 넘치면 아래 줄로. PC 틀·CSS 동작 변경 없음(폭 1280 정렬 줄 위치·크기 수정 전후 같음).
 // 2026-11-09: JobDetail.tsx·index.css — Lee "2번"(#579): 연락처 없을 때만 PC 안내 상자를 제목 줄에 띄우지 않고 흐름에 둠(표·지도 겹침 고침). 연락처 있을 때 Gọi/Zalo 배치·모바일·KDA 틀 변경 없음.
 // 2026-11-09: JobDetail.tsx — Lee "적용"(demo/legacy-frame): 예전 Quyền lợi 틀 3건(sb-4878·4879·4982)을 새 4칸 틀로 합치고 그 틀 전용 코드 삭제. KDA 틀·데이터 변경 없음.
@@ -105,7 +106,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "962645e6a466507a5fd1afd283b8a5dead35329cfdb0bb5fcb7f870c7469fdad",
+    "sha256": "75bab7d8856f93b2e0fc80b89eb23fa44d7eb07279e50a678034c382ea53d2b0",
     "restore": []
   },
   {

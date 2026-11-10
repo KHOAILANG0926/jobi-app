@@ -12,6 +12,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { screenAudit } from '../../src/lib/screenAudit.ts'
 import { preciseStreetAddressQuery } from '../../src/lib/directionsPlan.ts'
+import { collectScreen } from './screen-collect.mjs'
 
 const { SUPABASE_DB_URL, ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, GH_TOKEN, REPO, ISSUE } = process.env
 const BASE_URL = (process.env.BASE_URL || 'https://viecganban.vn').replace(/\/$/, '')
@@ -105,18 +106,7 @@ async function readJob(id) {
       // 지연 로딩 영역까지 보이도록 끝까지 내렸다가 위로
       await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)) } window.scrollTo(0, 0) })
       await page.waitForTimeout(800)
-      views.push(await page.evaluate((device) => {
-        const txt = (s) => document.querySelector(s)?.textContent?.trim() ?? null
-        const hrefs = (s) => [...document.querySelectorAll(s)].map((a) => a.getAttribute('href') ?? '')
-        return {
-          device, title: txt('h1.jd2-header__title') ?? txt('h1') ?? '', company: txt('.jd2-header__company'), salary: txt('.jd2-hl-salary__val'),
-          mapLinks: [...new Set(hrefs('a[href*="google.com/maps"]'))],
-          pins: [...new Set([...document.querySelectorAll('[data-map-pins]')].flatMap((e) => (e.getAttribute('data-map-pins') ?? '').split(';')).filter(Boolean))],
-          tel: [...new Set(hrefs('a[href^="tel:"]').map((h) => h.slice(4)))],
-          zalo: [...new Set(hrefs('a[href*="zalo.me"]').map((h) => (/zalo\.me\/(\+?\d+)/.exec(h) ?? [])[1]).filter(Boolean))],
-          benefits: [...document.querySelectorAll('.jd2-benefit--active[data-benefit-key]')].map((e) => e.getAttribute('data-benefit-key')),
-        }
-      }, v.label))
+      views.push(await collectScreen(page, v.label))
       if (keepText) {
         text = (await page.locator('main').first().innerText().catch(() => '')) || (await page.locator('body').innerText())
         await page.screenshot({ path: `${OUT}/${id}-${v.name}.png`, fullPage: true })

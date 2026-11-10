@@ -1,4 +1,4 @@
-import { screenAudit, amounts, linkPoint, phoneDigits, type ScreenView, type ScreenJob } from './screenAudit'
+import { screenAudit, amounts, linkPoint, phoneDigits, BENEFIT_ORDER, type ScreenView, type ScreenJob } from './screenAudit'
 
 function assert(c: unknown, m: string) { if (!c) throw new Error('FAIL: ' + m) }
 
@@ -48,4 +48,13 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
 assert(amounts('8tr5').includes(8_500_000) && amounts('8,5 triệu').includes(8_500_000) && amounts('7.500.000đ').includes(7_500_000) && amounts('250k/ngày').includes(250_000), '금액 읽기')
 assert(phoneDigits('+84 912 345 678') === '0912345678', '전화 +84')
 assert(linkPoint('https://www.google.com/maps/search/?api=1&query=21.1,106.2')?.lat === 21.1 && linkPoint('https://www.google.com/maps/dir/?api=1&destination=ABC') === null, '링크 좌표')
+// 수집기가 n번째 아이콘을 키로 읽으므로 상세 화면 아이콘 순서와 같아야 한다
+{
+  const fsModule = 'node:fs'
+  const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readFileSync: (path: URL, enc: string) => string }
+  const src = readFileSync(new URL('../pages/JobDetail.tsx', import.meta.url), 'utf8')
+  const block = src.slice(src.indexOf('const benefitIcons = ['), src.indexOf('] as const', src.indexOf('const benefitIcons = [')))
+  const keys = [...block.matchAll(/\{ key: '([a-z]+)'/g)].map((m) => m[1])
+  assert(JSON.stringify(keys) === JSON.stringify(BENEFIT_ORDER), `아이콘 순서 ${keys.join(',')} ≠ BENEFIT_ORDER`)
+}
 console.log('screenAudit.test.ts: 통과')

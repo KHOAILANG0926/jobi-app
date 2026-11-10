@@ -1,6 +1,8 @@
 // Lee 2026-11-08 "3 적용"·5번 B안: 공고 등록 '미리보기'가 저장 전 입력값을 상세 화면 틀 그대로 새 창에 보여 주고, 단추는 눌리지 않는지(PC·휴대폰).
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { collectScreen } from '../ops/screen-collect.mjs'
+import { screenAudit } from '../../src/lib/screenAudit.ts'
 const base = (process.env.BASE_URL || 'http://localhost:4173').replace(/\/$/, '')
 const b = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined })
 try {
@@ -42,6 +44,10 @@ try {
     await pop.locator('.jd2-preview-note').waitFor()
     assert.equal((await pop.locator('h1.jd2-header__title').innerText()).trim(), 'TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', 'title loses company prefix and its dash')
     assert.equal((await pop.locator('.jd2-header__company').innerText()).trim(), 'CÔNG TY TNHH ZHAN AN', 'company line is the full name')
+    // 화면 대조 검사(#646): 같은 화면을 수집기·판정 함수로 읽어도 제목·회사 줄 확정 오류가 없어야 한다(운영 검사와 같은 부품)
+    const seen = await collectScreen(pop, name)
+    const bad = screenAudit({ id: 0, title: 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', company: 'CÔNG TY TNHH ZHAN AN' }, [seen]).filter((f) => f.sure && ['title', 'company'].includes(f.key))
+    assert.deepEqual(bad, [], 'screen audit finds no title/company error on the rendered preview')
     console.log('PASS job preview', name)
     await ctx.close()
   }

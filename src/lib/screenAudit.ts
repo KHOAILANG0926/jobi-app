@@ -6,7 +6,7 @@
  * - unsure: 판정 불명확 → 공개는 막지 않고 목록으로만 알린다(승인된 표시 변환·포스터 글자 등 사람이 봐야 하는 것).
  * 특정 회사·공고 번호 분기 없음. 순수 함수(브라우저 수집은 scripts/ops/screen-audit.mjs).
  */
-import { companyLine, companyLineBroken, detailTitle } from './companyBranch'
+import { companyLine, companyLineBroken, detailTitle } from './companyBranch.ts'
 
 export type ScreenView = {
   device: string
@@ -14,11 +14,11 @@ export type ScreenView = {
   company?: string | null
   /** 화면의 Google 지도·길찾기 링크 href 전부 */
   mapLinks: string[]
-  /** 화면 지도 핀 "lat,lng" (data-map-pins) */
+  /** 화면 지도 핀 "lat,lng" (.jd2-vmap data-planned-location-points) */
   pins: string[]
   tel: string[]
   zalo: string[]
-  /** 켜진 복리후생 아이콘 key(data-benefit-key) */
+  /** 켜진 복리후생 아이콘 key(BENEFIT_ORDER) */
   benefits: string[]
   salary?: string | null
 }
@@ -76,6 +76,8 @@ const BENEFIT_EVIDENCE: Record<string, RegExp> = {
   fuel: /xang/,
   performance: /nang suat|san luong/,
 }
+/** 상단 복리후생 아이콘 순서 — src/pages/JobDetail.tsx benefitIcons와 같은 순서(화면 대조 수집기가 n번째 아이콘을 이 키로 읽음). */
+export const BENEFIT_ORDER = ['bus', 'dorm', 'meal', 'attendance', 'housing', 'fuel', 'performance'] as const
 const BENEFIT_LABEL: Record<string, string> = { bus: 'Xe đưa đón', dorm: 'Ký túc xá', meal: 'Bữa ăn', attendance: 'Chuyên cần', housing: 'Nhà ở', fuel: 'Xăng xe', performance: 'Năng suất' }
 
 /** 금액(VND) 목록: "8.000.000", "8 triệu", "8tr5", "8,5 triệu", "8-10 triệu" */
