@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
 import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../src/lib/jobDescriptionBuild.ts'
 import { readSalary } from '../../src/lib/salaryReader.ts'
+import { readWorkTime } from '../../src/lib/jobDescriptionExtract.ts'
 import { afterCutoff } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL } = process.env
@@ -16,7 +17,7 @@ if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1)
 // 규정(KIND_RULES)이 바뀌면 이 값이 저절로 바뀐다 → 모든 공고를 한 번 다시 보고 07에 있던 줄을 정한 칸으로 옮긴다.
 // 2026-10-25: 원문이 있는 공고는 상세요강을 원문에서 기계가 다시 만든다(jobDescriptionBuild.ts) — 규칙 파일이 바뀌면 값이 바뀌어 전부 다시 만든다.
 // 이 실행기 자신과 급여 채우기 규칙도 넣는다 — 바뀌면 모든 공고를 다시 처리(2026-10-25 #4879 급여 칸이 안 채워진 원인).
-const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts', 'sourceSalary.ts', 'salaryReader.ts', 'jobRolePresentation.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
+const RULE_FILES = ['jobDescriptionBuild.ts', 'jobDetailFill.ts', 'jobDetailSections.ts', 'sourceSalary.ts', 'salaryReader.ts', 'jobRolePresentation.ts', 'jobDescriptionExtract.ts'].map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), 'utf8'))
   .concat(readFileSync(new URL(import.meta.url), 'utf8'))
 const RULE_HASH = JSON.stringify(KIND_RULES.map((r) => [r.id, r.re.source, r.key])) + RULE_FILES.join('\n')
 const BACKUP_REASON = 'rebuild-from-source-20261025'
@@ -33,7 +34,7 @@ const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') ||
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select j.id, j.origin, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block, j.ocr_check->'business_type'->>'duty' as duty_line,
+    select j.id, j.origin, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.shift_type, j.rotating_shifts, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block, j.ocr_check->'business_type'->>'duty' as duty_line,
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
@@ -53,6 +54,22 @@ try {
           await client.query(`update public.local_jobs set salary = $2, salary_period = $3 where id = $1`, [job.id, sal.salary, sal.period])
           console.log(`#${job.id} 급여 칸(원문): ${job.salary || '(빈칸)'} → ${sal.salary}`)
           job.salary = sal.salary
+        }
+      }
+      // 근무시간·교대(#622): 원문에 있으면 빈칸만 채운다(사람이 쓴 값·이미 있는 값은 그대로). 읽는 곳 하나 readWorkTime.
+      {
+        const wt = readWorkTime(job.source_text, job.ocr_text)
+        const hours = !String(job.hours ?? '').trim() && wt.hours ? wt.hours : null
+        const shift = !job.shift_type && wt.shiftType ? wt.shiftType : null
+        // 교대 수는 교대 유형과 따로 빈칸만(이미 rotating인데 수가 비었을 때도, Codex #628)
+        const rotatingNow = (shift ?? job.shift_type) === 'rotating'
+        const count = rotatingNow && !job.rotating_shifts && wt.shiftType === 'rotating' && wt.rotatingShifts ? wt.rotatingShifts : null
+        if (hours || shift || count) {
+          await client.query(`update public.local_jobs set hours = coalesce($2, hours), shift_type = coalesce($3, shift_type),
+              rotating_shifts = coalesce(rotating_shifts, $4) where id = $1`,
+            [job.id, hours, shift, count])
+          console.log(`#${job.id} 근무시간·교대(원문): ${hours ?? '-'} / ${shift ?? '-'} / ${count ?? '-'}`)
+          if (hours) job.hours = hours
         }
       }
       const current = String(job.description ?? '')

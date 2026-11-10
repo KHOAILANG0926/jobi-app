@@ -199,3 +199,65 @@ export function extractJobFields(description: string, ctx: ExtractContext = {}):
   const sourceTag = description.match(/^\s*(\[source:[^\]]*\])/i)?.[1]
   return { fields, items, remaining, sourceTag }
 }
+
+/**
+ * 근무시간·교대 읽기(#622, Lee 2026-11-10 "전체 수정"): 원문(source_text·포스터 글자)에서
+ * - 교대: "Ca ngày"+"Ca đêm" 둘 다 / "xoay ca·đảo ca·2 ca·3 ca" → rotating(2 ca·3 ca면 그 수), 하나만 → day/night
+ * - 근무시간: 시계 범위(8h-17h, 08:00–17:00)가 있으면 원문 그대로 첫 범위들, 없고 "N tiếng"만 있으면 "Ca ngày / Ca đêm, N tiếng"
+ * 원문에 없는 값은 만들지 않는다(빈칸). 쓰는 곳: scripts/ocr/detail-fill.mjs(급여 readSalary와 같은 자리, 빈칸일 때만).
+ */
+// 분은 단위 바로 뒤 또는 같은 줄 공백 하나 뒤("17h 30", 뒤가 글자면 분이 아님 — "17h 18 tuổi", Codex #628). 앞뒤 경계는 유니코드 글자 기준("17 giờ"의 ờ — Codex #628). 공백은 같은 줄 안(space·tab)만 허용 — 줄바꿈 뒤 다음 줄 숫자(18 tuổi 등)를 분으로 먹지 않는다. 분은 h·: 바로 뒤 숫자만.
+const CLOCK_RANGE = /(?<![\p{L}\d])\d{1,2}[ \t]*(?:h|giờ|:)(?:\d{1,2}|[ \t]\d{1,2}(?=[ \t]*(?:phút|[^\p{L}\d \t]|$)))?[ \t]*(?:-|–|—|đến|~)[ \t]*\d{1,2}[ \t]*(?:h|giờ|:)(?:\d{1,2}|[ \t]\d{1,2}(?=[ \t]*(?:phút|[^\p{L}\d \t]|$)))?(?![\p{L}\d])/giu
+export function readWorkTime(...texts: (string | null | undefined)[]): { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } {
+  const text = texts.filter(Boolean).join('\n')
+  if (!text.trim()) return {}
+  // 부정 표현("không làm ca đêm", "không xoay ca")은 제공하는 교대가 아니므로 교대 판정 글에서 뺀다.
+  const shiftText = text.replace(/(?<![\p{L}\d])(?:không|ko|chẳng)\s+(?:có\s+)?(?:làm\s+|phải\s+)?(?:xoay\s+ca|đảo\s+ca|ca\s+(?:ngày|đêm|tối|xoay)|\d\s*ca)(?![\p{L}\d])/giu, ' ')
+  const day = /\bca\s+ngày\b/i.test(shiftText), night = /\bca\s+(?:đêm|tối)\b/i.test(shiftText)
+  // "2 ca/tuần"·"2 ca mỗi tuần" = 주당 근무 횟수(교대 종류 수 아님) → 제외. 베트남어 글자(đ 등)는 \b가 못 보므로 \p{L} 경계.
+  const nShift = shiftText.match(/(?<![\p{L}\d])([23])\s*ca(?![\p{L}\d])(?!\s*(?:\/|mỗi\s|một\s|trong\s)\s*(?:tuần|tháng|ngày|week))/iu)?.[1]
+  const rotating = (day && night) || /(?<![\p{L}\d])(?:xoay\s+ca|ca\s+xoay|đảo\s+ca|làm\s+đảo\s+ca|luân\s+phiên\s+ca|ca\s+luân\s+phiên)(?![\p{L}\d])/iu.test(shiftText) || !!nShift
+  const out: { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } = {}
+  if (rotating) { out.shiftType = 'rotating'; if (nShift) out.rotatingShifts = Number(nShift); else if (day && night) out.rotatingShifts = 2 }
+  else if (day) out.shiftType = 'day'
+  else if (night) out.shiftType = 'night'
+  // 면접·휴게·접수 시각은 근무시간이 아니다 → 같은 문장(줄·마침표·; 기준) 안 시계 범위 앞에 그런 낱말이 있으면 제외.
+  const NOT_WORK = /phỏng\s+vấn|nghỉ|giải\s+lao|ăn\s+(?:trưa|ca|tối)|hẹn|nộp\s+hồ\s+sơ|hạn\s+nộp/iu
+  // 앞 절은 쉼표까지 끊어 본다: "Sáng: 7h-11h, nghỉ trưa 11h-12h, Chiều: 12h-16h"에서 오후 범위가 앞 휴게 낱말 때문에 빠지지 않게.
+  const clocks: string[] = []
+  const roleLabels: boolean[] = []
+  const TIME_LABEL = /sáng|chiều|tối|trưa|đêm|\bca\b|ngày|thời\s+gian|giờ|làm\s+việc|thứ|hành\s+chính|giờ\s+làm/iu
+  for (const m of text.matchAll(CLOCK_RANGE)) {
+    const before = text.slice(0, m.index)
+    const clause = before.slice(Math.max(before.lastIndexOf('\n'), before.lastIndexOf('.'), before.lastIndexOf(';'), before.lastIndexOf('|'), before.lastIndexOf(',')) + 1)
+    if (NOT_WORK.test(clause)) continue
+    const s = m[0].trim()
+    if (!clocks.includes(s)) {
+      clocks.push(s)
+      // 직무 이름표("Phục vụ: 8h-16h")가 붙은 범위 → 직무마다 시간이 다를 수 있다.
+      const label = clause.match(/(\p{L}[\p{L}\s]*?)\s*:\s*$/u)?.[1]
+      // 요일 이름표(Thứ Hai–Thứ Sáu / T2-T6 / Chủ nhật)가 붙은 범위도 요일마다 시간이 다를 수 있다.
+      roleLabels.push((!!label && !TIME_LABEL.test(label)) || /thứ\s+(?:hai|ba|tư|năm|sáu|bảy)|(?<![\p{L}\d])T[2-7](?![\p{L}\d])|chủ\s+nhật/iu.test(clause))
+    }
+  }
+  // 서로 다른 시간 범위가 직무 이름표와 함께 둘 이상이면 어느 직무 시간인지 잃으므로 공통 칸을 비워 둔다(직무별 표시는 상세요강 원문).
+  const perRole = clocks.length > 1 && roleLabels.some(Boolean)
+  if (perRole) { /* hours 비움 */ }
+  // 범위는 모두 본다(중간에 끊어 일부만 저장하지 않음, Codex #628). 6개를 넘으면 한 칸에 담기 어려워 비워 둔다(원문은 상세요강).
+  else if (clocks.length && clocks.length <= 6) out.hours = clocks.join(', ')
+  else {
+    // 교대별로 시간이 다르면(8 tiếng / 12 tiếng) 하나로 합치지 않고 비워 둔다(원문 없는 값 금지).
+    // 휴게·면접 시간("nghỉ trưa 1 tiếng")은 근무 시간 후보에서 뺀다(쉼표 단위 절까지 봄).
+    const nums = [...new Set([...text.matchAll(/(?<![\p{L}\d]|\d[.,]|\d\s*[-–~]\s*)(\d{1,2}(?:\s*[-–~]\s*\d{1,2})?)\s*tiếng(?![\p{L}\d])/giu)].filter((m) => {
+      const before = text.slice(0, m.index)
+      const clause = before.slice(Math.max(before.lastIndexOf('\n'), before.lastIndexOf('.'), before.lastIndexOf(';'), before.lastIndexOf('|'), before.lastIndexOf(',')) + 1)
+      return !NOT_WORK.test(clause)
+    }).map((m) => m[1]))]
+    const n = nums.length === 1 ? nums[0] : undefined
+    const labels = [day ? 'Ca ngày' : '', night ? 'Ca đêm' : ''].filter(Boolean).join(' / ')
+    // "8-10 tiếng"처럼 범위면 원문 범위 그대로(윗값만 떼지 않음, Codex #628)
+    const top = n ? Number(n.split(/[-–~]/).pop()) : NaN
+    if (n && top >= 4 && top <= 14) out.hours = labels ? `${labels}, ${n.replace(/\s+/g, '')} tiếng` : `${n.replace(/\s+/g, '')} tiếng`
+  }
+  return out
+}
