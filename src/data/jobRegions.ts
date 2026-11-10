@@ -5,210 +5,131 @@ export const JOB_REGIONS = [
   {
     id: 'hanoi',
     label: 'Hà Nội',
-    match: [
-      'ha noi', 'hanoi', 'ha dong', 'cau giay', 'dong da', 'hoan kiem',
-      'long bien', 'nam tu liem', 'bac tu liem', 'hai ba trung', 'tay ho',
-      'thanh xuan', 'hoa binh', 'luong son', 'ky son',
-    ],
   },
   {
     id: 'haiphong',
     label: 'Hải Phòng',
-    match: [
-      'hai phong', 'ngo quyen', 'le chan', 'kien an',
-      'hai duong', 'chi linh', 'cam giang', 'tu ky', 'nam sach', 'kinh mon',
-    ],
   },
   {
     id: 'quangninh',
     label: 'Quảng Ninh',
-    match: ['quang ninh', 'ha long', 'cam pha', 'mong cai', 'uong bi', 'lang son', 'dong dang'],
   },
   {
     id: 'bacninh',
     label: 'Bắc Ninh',
-    match: ['bac ninh', 'tu son', 'yen phong', 'tien du', 'que vo'],
   },
   {
     id: 'bacgiang',
     label: 'Bắc Giang',
-    match: ['bac giang', 'viet yen', 'yen the', 'hiep hoa', 'lang giang'],
   },
   {
     id: 'hunguyen',
     label: 'Hưng Yên',
-    match: [
-      'hung yen', 'my hao', 'pho noi', 'yen my', 'kim dong', 'khoai chau',
-      'thai binh', 'dong hung', 'quynh phu', 'vu thu',
-    ],
   },
   {
     id: 'thainguyen',
     label: 'Thái Nguyên',
-    match: ['thai nguyen', 'song cong', 'pho yen', 'dai tu', 'bac kan', 'bac kan'],
   },
   {
     id: 'phutho',
     label: 'Phú Thọ',
-    match: [
-      'phu tho', 'viet tri', 'lam thao',
-      'vinh phuc', 'vinh yen', 'phuc yen', 'lap thach',
-    ],
   },
   {
     id: 'ninhbinh',
     label: 'Ninh Bình',
-    match: [
-      'ninh binh', 'tam diep', 'hoa lu',
-      'nam dinh', 'my loc', 'y yen',
-      'ha nam', 'phu ly', 'duy tien',
-    ],
   },
 
   /* ── Miền Trung ────────────────────────────────────────── */
   {
     id: 'thanhhoa',
     label: 'Thanh Hóa',
-    match: ['thanh hoa', 'sam son', 'bim son'],
   },
   {
     id: 'nghean',
     label: 'Nghệ An',
-    match: ['nghe an', 'vinh', 'tp vinh', 'cua lo'],
   },
   {
     id: 'hatinh',
     label: 'Hà Tĩnh',
-    match: ['ha tinh', 'hong linh', 'ky anh'],
   },
   {
     id: 'quangtri',
     label: 'Quảng Trị',
-    match: ['quang tri', 'dong ha', 'quang binh', 'dong hoi', 'ba don'],
   },
   {
     id: 'hue',
     label: 'Huế',
-    match: ['hue', 'thua thien hue', 'phu hau', 'tp hue'],
   },
   {
     id: 'danang',
     label: 'Đà Nẵng',
-    match: [
-      'da nang', 'danang', 'hai chau', 'son tra', 'cam le', 'lien chieu',
-      'quang nam', 'hoi an', 'tam ky', 'dien ban',
-    ],
   },
   {
     id: 'quangngai',
     label: 'Quảng Ngãi',
-    match: ['quang ngai', 'tu nghia', 'son ha'],
   },
   {
     id: 'gialai',
     label: 'Gia Lai',
-    match: [
-      'gia lai', 'pleiku', 'an khe',
-      'binh dinh', 'quy nhon', 'quy nhơn',
-    ],
   },
   {
     id: 'daklak',
     label: 'Đắk Lắk',
-    match: ['dak lak', 'buon ma thuot', 'buon ho'],
   },
   {
     id: 'khanhhoa',
     label: 'Khánh Hòa',
-    match: [
-      'khanh hoa', 'nha trang', 'cam ranh',
-      'phu yen', 'tuy hoa', 'song cau',
-      'ninh thuan', 'phan rang',
-    ],
   },
   {
     id: 'lamdong',
     label: 'Lâm Đồng',
-    match: [
-      'lam dong', 'da lat', 'bao loc',
-      'dak nong', 'gia nghia',
-      'binh thuan', 'phan thiet', 'la gi',
-    ],
   },
 
   /* ── Miền Nam ──────────────────────────────────────────── */
   {
     id: 'hcm',
     label: 'TP. Hồ Chí Minh',
-    match: [
-      'ho chi minh', 'tp ho chi minh', 'tp hcm', 'hcm', 'sai gon',
-      'quan 1', 'quan 3', 'quan 7', 'binh thanh', 'thu duc', 'go vap', 'tan binh', 'phu nhuan',
-      'binh duong', 'thu dau mot', 'di an', 'thuan an', 'tan uyen',
-      'ba ria', 'vung tau', 'ba ria vung tau', 'br vt',
-    ],
   },
   {
     id: 'dongnai',
     label: 'Đồng Nai',
-    match: ['dong nai', 'bien hoa', 'long thanh', 'trang bom'],
   },
   {
     id: 'tayninh',
     label: 'Tây Ninh',
-    match: ['tay ninh', 'tay ninh city', 'go dau', 'trang bang'],
   },
   {
     id: 'longan',
     label: 'Long An',
-    match: [
-      'long an', 'tan an', 'ben luc', 'duc hoa',
-      'tien giang', 'my tho', 'cai lay', 'go cong',
-    ],
   },
   {
     id: 'dongthap',
     label: 'Đồng Tháp',
-    match: ['dong thap', 'cao lanh', 'sa dec', 'hong ngu'],
   },
   {
     id: 'angiang',
     label: 'An Giang',
-    match: [
-      'an giang', 'long xuyen', 'chau doc',
-      'kien giang', 'rach gia', 'ha tien', 'phu quoc',
-    ],
   },
   {
     id: 'vinhlong',
     label: 'Vĩnh Long',
-    match: [
-      'vinh long', 'vinh long city',
-      'ben tre', 'tra vinh',
-    ],
   },
   {
     id: 'cantho',
     label: 'Cần Thơ',
-    match: [
-      'can tho', 'ninh kieu', 'cai rang',
-      'soc trang', 'hau giang', 'vi thanh',
-    ],
   },
   {
     id: 'camau',
     label: 'Cà Mau',
-    match: ['ca mau', 'bac lieu', 'soc trang'],
   },
-  /* ── 2026-11-03 Lee "지역명 서로 맞춰야" — 공식 34개 성 중 빠져 있던 7곳.
-   * match는 비워 둔다: match는 알림 DB 키워드(job_alert_region_keywords) 시드와 1:1로 맞추는 목록
-   * (jobAlerts.test.ts). 화면은 lib/jobArea.ts 판정을 쓴다. 알림 34개 전환은 lib/regionKeywords.ts로 migration 생성. */
-  { id: 'caobang', label: 'Cao Bằng', match: [] },
-  { id: 'dienbien', label: 'Điện Biên', match: [] },
-  { id: 'laichau', label: 'Lai Châu', match: [] },
-  { id: 'langson', label: 'Lạng Sơn', match: [] },
-  { id: 'laocai', label: 'Lào Cai', match: [] },
-  { id: 'sonla', label: 'Sơn La', match: [] },
-  { id: 'tuyenquang', label: 'Tuyên Quang', match: [] },
+  /* ── 2026-11-03 Lee "지역명 서로 맞춰야" — 공식 34개 성 중 빠져 있던 7곳. */
+  { id: 'caobang', label: 'Cao Bằng' },
+  { id: 'dienbien', label: 'Điện Biên' },
+  { id: 'laichau', label: 'Lai Châu' },
+  { id: 'langson', label: 'Lạng Sơn' },
+  { id: 'laocai', label: 'Lào Cai' },
+  { id: 'sonla', label: 'Sơn La' },
+  { id: 'tuyenquang', label: 'Tuyên Quang' },
 ] as const
 
 /** 지역 id → 공식 성/시(vnProvinces.ts). Bắc Giang·Long An은 2025 개편으로 합쳐진
@@ -289,19 +210,6 @@ export const REGION_MACRO_TABS: {
     ],
   },
 ]
-
-/** 알림(JobAlertsPanel) 전용 — DB job_alert_region_keywords에 있는 예전 29개 그대로.
- * 알림 판정은 DB 함수라 34개로 맞추려면 migration이 필요하다(Lee 2026-11-03: 공고 올린 뒤 진행,
- * 생성기 scripts/data/gen-alert-region-keywords.mjs). */
-const ALERT_EXTRA: Partial<Record<JobRegionId, { id: JobRegionId; label: string }>> = {
-  bacninh: { id: 'bacgiang', label: 'Bắc Giang' },
-  tayninh: { id: 'longan', label: 'Long An' },
-}
-const ALERT_EXCLUDED = new Set<JobRegionId>(['caobang', 'dienbien', 'laichau', 'langson', 'laocai', 'sonla', 'tuyenquang'])
-export const ALERT_REGION_TABS: typeof REGION_MACRO_TABS = REGION_MACRO_TABS.map((tab) => ({
-  ...tab,
-  provinces: tab.provinces.filter((p) => !ALERT_EXCLUDED.has(p.id)).flatMap((p) => (ALERT_EXTRA[p.id] ? [p, ALERT_EXTRA[p.id]!] : [p])),
-}))
 
 const PROVINCE_TO_MACRO: Partial<Record<JobRegionId, MacroGroupId>> = {}
 for (const tab of REGION_MACRO_TABS) {

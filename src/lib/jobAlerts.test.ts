@@ -2,7 +2,7 @@
  * Standalone tests for jobAlerts.ts — plain assertions, no framework (jobRows.test.ts와
  * 같은 방식). `npm test`가 실행한다.
  */
-import { JOB_REGIONS } from '../data/jobRegions'
+import { regionKeywords } from './regionKeywords'
 import { normalizeViText } from './jobCoords'
 import {
   DISTANCE_DISABLED_REASON,
@@ -45,21 +45,25 @@ const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as {
 }
 
 // ---------------------------------------------------------------------------
-// 1. SQL 지역 키워드 목록 = src/data/jobRegions.ts JOB_REGIONS (드리프트 방지)
+// 1. 알림 DB 지역 키워드(최신 migration 시드) = src/lib/regionKeywords.ts(화면과 같은 34개 성 자료) — 드리프트 방지
 // ---------------------------------------------------------------------------
 {
-  const sql = readFileSync(new URL('../../supabase/migrations/20260927090000_job_alerts.sql', import.meta.url), 'utf8')
+  const sql = readFileSync(new URL('../../supabase/migrations/20261110120000_alert_region_keywords_34.sql', import.meta.url), 'utf8')
   const seedBlock = sql.slice(sql.indexOf('insert into public.job_alert_region_keywords'), sql.indexOf(') as v(region_id, keyword)'))
   const sqlPairs = new Set<string>()
   for (const m of seedBlock.matchAll(/\('([a-z]+)', '([^']+)'\)/g)) {
     sqlPairs.add(`${m[1]}|${normalizeViText(m[2])}`)
   }
   const tsPairs = new Set<string>()
-  for (const r of JOB_REGIONS) for (const k of r.match) tsPairs.add(`${r.id}|${normalizeViText(k)}`)
+  for (const r of regionKeywords()) tsPairs.add(`${r.regionId}|${normalizeViText(r.keyword)}`)
   const onlyTs = [...tsPairs].filter((p) => !sqlPairs.has(p))
   const onlySql = [...sqlPairs].filter((p) => !tsPairs.has(p))
-  assert.deepEqual(onlyTs, [], 'JOB_REGIONS keywords missing from SQL seed')
-  assert.deepEqual(onlySql, [], 'SQL seed has keywords not in JOB_REGIONS')
+  assert.deepEqual(onlyTs, [], 'regionKeywords missing from SQL seed (다시 생성: scripts/data/gen-alert-region-keywords.mjs)')
+  assert.deepEqual(onlySql, [], 'SQL seed has keywords not in regionKeywords')
+  // 점검 #3: 랑선은 꽝닌이 아니라 랑선, 옛 Hòa Bình은 Phú Thọ, 옛 Bắc Giang은 Bắc Ninh
+  assert.equal(sqlPairs.has('langson|lang son') && !sqlPairs.has('quangninh|lang son'), true, 'Lạng Sơn → langson')
+  assert.equal(sqlPairs.has('phutho|hoa binh') && !sqlPairs.has('hanoi|hoa binh'), true, 'Hòa Bình → phutho')
+  assert.equal(sqlPairs.has('bacninh|bac giang'), true, 'Bắc Giang → bacninh')
 }
 
 // ---------------------------------------------------------------------------
