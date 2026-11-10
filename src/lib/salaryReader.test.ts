@@ -45,4 +45,13 @@ eq(s('Tuyển nam nữ làm KCN Yên Phong\n310k/11h ca ngày')?.period, 'day', 
 eq(s('Tuyển phụ bếp\nPart-time: 25.000 – 31.000đ/giờ')?.period, 'hour', 'full-dong hourly range')
 eq(s('Tuyển phục vụ\nHỗ trợ 500k/tháng tiền xăng\nLương thỏa thuận')?.salary, 'thỏa thuận', 'allowance line is not salary')
 eq(s('Tuyển lao động\nPhí hồ sơ 300.000đ/người'), null, 'fee is not salary')
+// 급여 단어 줄의 phụ cấp·tăng ca 안내는 급여 줄(2026-11-10 #5876 ZHAN AN 실제 원문, 전화번호 없는 줄만)
+const T5876 = ' 1. CHẾ ĐỘ LƯƠNG & THƯỞNG\n LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA!\n Lương và phụ cấp khi làm đủ công chuẩn: 7.300.000đ/tháng.\n THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ\n Thưởng gắn bó dành cho nhân viên mới:\nLàm đủ 30 ngày: Thưởng 500.000đ.\nLàm đủ 90 ngày: Thưởng thêm 1.000.000đ.\nTổng thưởng gắn bó: 1.500.000đ (thưởng một lần theo từng mốc).'
+eq(s(T5876)?.salary, '7.300.000Đ/THÁNG', '#5876 lương & phụ cấp line is salary')
+eq(s(T5876)?.period, 'month', '#5876 monthly')
+eq(s('Tuyển công nhân\nLương tăng ca: 30.000đ/giờ'), null, 'overtime rate line is still not salary')
+eq(s('Tuyển công nhân\nTăng ca: lương 30.000đ/giờ'), null, 'overtime line starting with tăng ca is not salary')
+eq(s('Tuyển công nhân\nPhụ cấp xăng xe 500.000đ/tháng'), null, 'allowance without salary word is not salary')
+eq(s('Tuyển công nhân\nPhụ cấp ngoài lương 500.000đ/tháng\n310k/11h ca ngày')?.salary, '310k/11h', 'Codex #641: allowance outside salary is not salary')
+eq(s('Tuyển công nhân\nTiền lương làm thêm tăng ca 30.000đ/giờ'), null, 'Codex #641: overtime pay is not salary')
 console.log('salaryReader: all assertions passed')

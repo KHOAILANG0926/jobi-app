@@ -118,6 +118,11 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(r.items.find((i) => i.key === 'junk')!.ok, '목록 제목 줄은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
   const empty = inspectJob({ id: 16, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
   assert(!empty.items.find((i) => i.key === 'junk')!.ok, '아래가 목록이 아니면 계속 빈 이름표')
+  // 2026-11-10 #5876: 긴 소개 줄 아래가 '이름: 값' 줄이면 묶음 제목. 짧은 칸 이름 아래 '이름: 값'은 계속 빈 이름표.
+  const group = inspectJob({ id: 17, description: 'Quyền lợi\nThưởng gắn bó dành cho nhân viên mới:\nLàm đủ 30 ngày: Thưởng 500.000đ.\nLàm đủ 90 ngày: Thưởng thêm 1.000.000đ.', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(group.items.find((i) => i.key === 'junk')!.ok, '묶음 제목 줄은 빈 이름표 아님: ' + group.items.find((i) => i.key === 'junk')!.detail)
+  const shortLabel = inspectJob({ id: 18, description: 'Quyền lợi\nSố điện thoại:\nĐịa chỉ: KCN Quế Võ', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!shortLabel.items.find((i) => i.key === 'junk')!.ok, '짧은 칸 이름은 아래가 이름: 값이어도 빈 이름표')
   console.log('jobInspect.test.ts: 목록 제목 줄(~: + 글머리) 검사 통과')
 }
 
