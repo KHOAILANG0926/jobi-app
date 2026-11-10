@@ -108,6 +108,7 @@ export function readCompany(text: string): CompanyRead {
       const m = (value ?? l).match(new RegExp(`(${KIND})\\s+([^,.!?:\\n]{2,60})`, 'iu'))
       if (!m || NOT_NAME_START.test(m[2].trim()) || isAddressAfter((value ?? l).slice((m.index ?? 0) + m[1].length).trim())) continue
       const c = m[2].replace(/\s*[-–]?\s*(?:đang\s+)?(?:cần tuyển|cần|tuyển dụng|tuyển|tìm|mới khai trương)(?=\s|[:：!–-]|$).*$/iu, '')
+        .replace(/\s+khu vực(?=\s|$).*$/iu, '') // "cửa hàng WinMart+ khu vực Bắc Ninh": 뒤 지역 말은 이름이 아니다(②의 공단·장소 말 떼기와 같은 규칙, #633)
         .replace(/\s+\d{1,4}\p{L}?(?:\/\d+)*\s+\p{Lu}\p{Ll}*\s+\p{Lu}.*$/u, '') // "Jollibee 393 Trần Hưng Đạo": 상호 뒤 번지·거리는 주소(#633)
       if (ok(c) && ok(`${m[1]} ${c}`)) return ok(`${m[1]} ${c}`)
     }

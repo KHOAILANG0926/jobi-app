@@ -94,5 +94,6 @@ eq(n('GOERTEK – KCN Quế Võ\nTuyển công nhân'), 'GOERTEK', '#633 one-wor
 // 2026-11-11 #633 미리 보기 2차
 eq(n('Gần Tết Cửa Hàng Nhà Mình Cần Tuyển Thêm Nhân Viên Đi Làm Luôn Lâu Dài Và Thời Vụ\\n 5 Nam Nữ Đóng Hàng Theo Đơn : 10-13tr'), '', '#633 "Gần Tết" + "Nhà Mình" has no name')
 eq(n('BẮC BLING ĐANG HOT – JOB CIRCLE K ĐANG CHỜ BẠN!\nBắc Ninh mình đã đủ Bling chưa? Nếu vẫn đang thiếu một chiếc job để tăng thu nhập thì ghé Circle K ngay thôi!\n CỬA HÀNG LÀM VIỆC:\nTầng 5 Tòa Phúc Lợi\nSố 02 đường Hồ Ngọc Lân\nSố 341 Nguyễn Cao\nSố 125 Trần Hưng Đạo, khu phố 4\n ỨNG TUYỂN NGAY: ***067 – Ms Thảo\nGửi thông tin: Họ tên – SĐT – Cửa hàng àm việc.'), '', '#633 Circle K form line "Gửi thông tin: … Cửa hàng àm việc" and heading "CỬA HÀNG LÀM VIỆC:" are labels, not a name')
+eq(n('WINMART+ TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG TẠI [TP. BẮC NINH]\nLàm việc tại cửa hàng WinMart+ khu vực Bắc Ninh'), 'cửa hàng WinMart+', '#633 "khu vực …" after a shop name is a place')
 if (fails.length) throw new Error('\n' + fails.join('\n'))
 console.log('companyReader: 옛 사례 · 2026-11-07 잘못 읽은 글 · 가게 이름 · 소개소/수수료 통과')
