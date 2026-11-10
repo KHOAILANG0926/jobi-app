@@ -96,7 +96,7 @@ jobs:
               print(f"::notice title=후보 {j.get('fb_post_key')}::{cell(j.get('title'))} / {cell(j.get('company'))} / 연락처 {contact}")
           # 원문 읽기(작업자가 회사 이름·주소 읽기 오류를 로그로 바로 고치게, #633) — 전화번호는 끝 3자리만, 로그에만(요약·DB 아님)
           import re
-          mask = lambda t: re.sub(r'(?<![\d.,])(?:\+?84|0)[\d .\-]{5,}(\d{3})', lambda m: '***' + m.group(1), t)
+          mask = lambda t: re.sub(r'(?<![\d.])(?:\+?84|0)[\d .\-]{5,}(\d{3})', lambda m: '***' + m.group(1), t)
           for j in jobs[:20]:
               text = str(j.get('source_text') or j.get('description') or '')[:1500]
               print(f"::group::원문 {j.get('fb_post_key')}")
