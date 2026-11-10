@@ -655,7 +655,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
             )}
             <div className="jd2-benefits" aria-label="Phúc lợi: màu thể hiện quyền lợi được xác nhận; màu xám là chưa có thông tin">
               {benefitIcons.map(({ key, label, active, icon: Icon, color, bg }) => (
-                <span key={key} data-benefit-scope={key === 'meal' && roleSummary?.mealBenefit ? 'role' : undefined} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
+                <span key={key} data-benefit-key={key} data-benefit-scope={key === 'meal' && roleSummary?.mealBenefit ? 'role' : undefined} className={`jd2-benefit ${active ? 'jd2-benefit--active' : 'jd2-benefit--unknown'}`} title={`${label}: ${active ? 'Đã xác nhận' : 'Chưa có thông tin'}`}>
                   {/* 2026-10-30 Lee 확정: 있는 복리후생은 움직이는 아이콘(7종, 색 겹치지 않게), 없는 것은 회색 그대로 */}
                   {active && hasAnimatedBenefitIcon(key) ? <AnimatedBenefitIcon iconKey={key} /> : <span className="jd2-benefit__icon" style={active ? { color, background: bg } : undefined}>
                     <Icon size={19} strokeWidth={1.9} aria-hidden="true" />
@@ -764,7 +764,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
 
           {/* ── Location / Map — always shown open, at the best accuracy the job data allows ── */}
           <div className="jd2-box">
-            <div className="jd2-card__body jd2-bike-host">
+            {/* 화면 대조 검사(#646)가 읽는 지도 핀 좌표(보이지 않음) */}
+            <div className="jd2-card__body jd2-bike-host" data-map-pins={displayMapPoints.map((p) => `${p.lat},${p.lng}`).join(';') || undefined}>
               <BikeRide />
               {mapLocations.source === 'pending' && !hasMapPoints ? (
                 <div className="jd2-location-pending-compact">
