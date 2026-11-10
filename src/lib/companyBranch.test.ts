@@ -12,4 +12,7 @@ assert(companyLine('TEFAL TUYỂN PG BÁN HÀNG GIA DỤNG', 'Tefal') === undefi
 // 낱말 중간 일치는 인정하지 않음("Co" ≠ "Coffee")
 assert(companyLine('Coffee shop tuyển', 'Co Ltd') === 'Co Ltd', '낱말 경계')
 assert(companyLine('x', '') === undefined && companyLine('x', null) === undefined, '회사명 없음')
+// #5876: 제목의 'công nhân'의 'công'을 회사명 앞부분으로 보지 않는다(회사 형태 낱말만으로는 일치 아님)
+assert(companyLine('– TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', 'CÔNG TY TNHH ZHAN AN') === 'CÔNG TY TNHH ZHAN AN', '회사 형태 낱말만 일치 → 회사명 그대로')
+assert(companyLine('TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', 'CÔNG TY TNHH ZHAN AN') === 'CÔNG TY TNHH ZHAN AN', '제목 정리 뒤에도 그대로')
 console.log('companyBranch.test.ts: 결정 0007 6개 경우 통과')

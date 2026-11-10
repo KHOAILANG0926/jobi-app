@@ -5,6 +5,7 @@
  * 3. 제목에 회사명이 없으면 지금처럼 회사명 전체를 보여 준다.
  * 화면 표시만 정한다. DB의 company(원문 그대로, R5)는 바꾸지 않는다. 특정 회사·공고 번호 분기 없음.
  */
+const LEGAL_WORDS = new Set(['cong', 'ty', 'cty', 'tnhh', 'trach', 'nhiem', 'huu', 'han', 'mot', 'thanh', 'vien', 'mtv', 'co', 'phan', 'jsc', 'ltd', 'limited', 'corp', 'corporation'])
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase()
 
 export function companyLine(title: string | null | undefined, company: string | null | undefined): string | undefined {
@@ -16,6 +17,8 @@ export function companyLine(title: string | null | undefined, company: string | 
   let k = 0
   for (let i = words.length; i >= 1; i--) {
     const prefix = fold(words.slice(0, i).join(' ')).replace(/[^a-z0-9]+/g, ' ').trim()
+    // 회사 형태 낱말만("CÔNG", "CÔNG TY TNHH")으로 된 앞부분은 회사명이 제목에 보인다는 근거가 아니다(#5876: 제목 "… CÔNG NHÂN …"의 'công').
+    if (prefix.split(' ').every((w) => LEGAL_WORDS.has(w))) continue
     if (prefix.length >= 2 && shownTitle.includes(` ${prefix} `)) { k = i; break }
   }
   if (k === 0) return name
