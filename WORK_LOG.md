@@ -1,3 +1,8 @@
+## 2026-11-10 저녁 — 크롤링 1단계 첫 공개(sb-5876)와 화면 오류 수정 (Lee "1건씩")
+- Facebook 1건씩 저장: 5873(원문에 업무·급여 없음 → 비공개 맞음), 5876 ZHAN AN 공개. 위치에서 빠짐: Jollibee·JMT(주소 못 읽음 #633), TOKYOLIFE(성 밖 → 보류함).
+- 고침: 급여 'Lương và phụ cấp' 줄(#641, Codex P1 반영), 검사표 묶음 제목(#641), 상세 머리 대시·'công nhân' 회사명 오인(#642 + 미리 보기 회귀), 길찾기 검색어 = 위치 확인 검색어(#643), Google 핀이면 버튼도 같은 좌표(#644), 급여 못 읽은 공고 원문 조회(#640 읽기 전용, 전화 가림), VPS 안 쓰는 브라우저 정리·후속 칸 할 일 번호 강제(#637), 1GB 미만 알림(#639).
+- Lee 지적: 검사표를 통과한 화면 오류가 공개됨 → 화면 대조 검사(#646, 계획 #645).
+
 ## 2026-11-10 오후 — VPS 안 쓰는 브라우저 자동 정리·후속 칸 할 일 번호 강제 (Lee "지시한 걸 안 한 것")
 - 11-07 "바로 지울 수 있는 공간 정리"에서 안 쓰는 브라우저(chromium-1248·headless_shell, 약 680MB)를 남기고 기록도 안 함 → Facebook 수집 정리 단계가 수집기 playwright(1.44 = chromium-1117)가 쓰는 버전만 남기고 다른 chromium 폴더를 지움(쓰는 버전을 못 읽으면 안 지움).
 - 재발 방지: check-pr-ready가 PR 「후속 개선 과제」 칸을 요구하고, "없음"이 아닌 줄마다 할 일 번호(#이슈)를 요구(템플릿 안내도). 시스템 파일 정리(관리자 권한)는 #636.
@@ -46,9 +51,3 @@
 - #560 시험(#608·#609·#611): 미리 보기 8개 그룹 중 새 글은 Bắc Ninh 30건뿐(나머지 그룹은 몇 달 전 글). 시험의 Google 호출은 모두 API_KEY_INVALID — Vercel이 민감 값으로 둔 GOOGLE_PLACES_API_KEY는 env pull로 받을 수 없음(받은 값 길이 11). 운영 Google은 정상(business-search-compare 42599813839 오류 0). 같은 원인 2회 실패로 시험 중단, Lee 결정 대기(키를 GitHub Secret에 추가 vs 관리자 전용 서버 시험 API). 시험 예약으로 운영 카운터 54회 사용.
 - 30건 분석 [직접 확인]: 주소 글 없음 8(공단 이름만 'Quế Võ 3'·'Nam Sơn'·'Phố Nếnh' 등), 회사 이름 잘못 읽음 약 9('quán cạnh ngã 6'·'BẢNG TIN'·'Hotel 06 Ngô Tất Tố' 등), 회사 이름 없음 4, 체인 지점 7.
 - #594: 이슈 @claude 받는 곳이 없었음 → #610 claude-auto issue-mention(읽기 전용, 개인 bypass 설정 제외 — Codex P0), #594에서 시험 성공(run 42602216824). 남은 것: GPT 쪽 자동 수신(Codex 환경 생성 — Lee), #612 다른 자동 작업의 bypass 설정.
-
-## 2026-11-09 오후 — #560 위치 확인 방식 비교 시험 도구 (Lee 승인 "200건 시험")
-- 요청: 운영 공고·DB 변경 없이 시험 데이터로 현재 방식(Google Text Search Pro) vs 4단계(시험 장부 → IDs Only 무료 → Autocomplete+Details Essentials → Pro) 비교.
-- 변경: scripts/ops/location-ladder-compare.mjs(+test), .github/workflows/location-ladder-compare.yml(수동). 판정은 운영과 같은 함수(resolveAutoLocation·precheckVerdict), 캐시 메모리만, 운영 DB는 공고·핀·캐시 쓰기 없음, Google Pro 호출만 운영 월 한도 예약(external_api_reserve)으로 셈(Codex 지적 반영).
-- 거부 분석 [직접 확인]: Facebook 저장 시도 15건 중 저장 5 · 위치 거부 8(대략 위치만 5, 주소 글 없음 1, 원래 성 밖 1, 확인 서버 응답 없음 1) · 기타 2. 앞서 보고한 '16건'은 로그 줄 중복으로 두 번 센 것.
-- 남은 것: 미리 보기 8개 그룹 실행 → 비교 실행 → 결과 보고, VietMap 저장 문의 메일(Lee 승인 후 발송).
