@@ -63,6 +63,9 @@ class LocationDeferred(LocationNotFound):
 
 # 지금 확인 못 함 = 보류 후 다음 수집 때 바로 재시도(status held).
 DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured", "provider_failed", "poster_read_failed"}
+# 그 공고만의 문제(포스터 그림을 못 읽음) — 보류 대기열을 다시 확인할 때 다른 공고까지 멈추지 않는다(Codex #619).
+# 나머지 보류 사유(한도 초과·확인 서버 문제)는 모든 공고에 같으므로 그 자리에서 멈춘다(한도를 헛되이 쓰지 않게).
+JOB_ONLY_DEFERRED_REASONS = {"poster_read_failed"}
 # 위치를 못 찾음(Lee 2026-11-09 "위치가 불확실하더라도 유효한 공고라면 비공개 보류 상태로 보존하고, 나중에 다시 확인") — 공고 목록에
 # 넣지 않고 보류함에 비공개로 보관(status unfound), 7일 뒤 다시 확인(최대 2번). 찾으면 같은 입구로 등록 → 기존 공개 판정 그대로.
 # 위치와 상관없는 수집 금지 사유(수수료 소개소·회사 이름 없음)는 보관하지 않는다.
@@ -272,12 +275,13 @@ _HOLDS_RETRIED = False
 def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
     """보류함의 공고를 다시 확인한다(수집 실행마다 한 번, 다시 볼 때가 된 것 최대 limit건). 줄은 지우지 않고 상태만 바꾼다:
     registered(등록됨 — 공개는 기존 공개 판정대로) / unfound(위치 못 찾음, 7일 뒤 다시) / rejected(2번 확인해도 못 찾음·수집 금지 사유)
-    / expired(기간 지남) / held(아직 한도 초과 — 이번 실행은 여기서 멈춤, 한도를 헛되이 쓰지 않게)."""
+    / expired(기간 지남) / held(아직 한도 초과 — 이번 실행은 여기서 멈춤, 한도를 헛되이 쓰지 않게.
+    포스터 판독 실패처럼 그 공고만의 문제는 보류로 두고 다음 공고를 계속 확인)."""
     counts = {"registered": 0, "unfound": 0, "rejected": 0, "held": 0, "expired": 0}
     try:
         rows = (client.table("research_artifacts").select("name,payload,meta").eq("kind", HOLD_KIND)
                 .in_("meta->>status", ["held", "unfound"]).lt("meta->>next_at", _now())
-                .order("created_at").limit(limit).execute().data) or []
+                .order("meta->>next_at").limit(limit).execute().data) or []  # 다시 볼 때가 오래된 것부터 — 방금 미룬 공고는 뒤로
     except Exception:  # noqa: BLE001
         return counts
     for row in rows:
@@ -299,7 +303,7 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
                 meta["status"] = "registered"
             except LocationDeferred as exc:
                 meta["status"], meta["reason"], meta["next_at"] = "held", _reason_of(exc), _now()
-                stop = True
+                stop = meta["reason"] not in JOB_ONLY_DEFERRED_REASONS
             except LocationNotFound as exc:
                 meta["reason"] = _reason_of(exc)
                 checks = int(meta.get("checks") or 0) + 1

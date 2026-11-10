@@ -225,7 +225,7 @@ export function googlePlacesRequest(key, reserve) {
 
 /** 사진 없는 공고의 회사 로고 찾기(Lee 2026-11-07). 위치 확인이 저장한 Google 결과에서 같은 회사 1곳의 장소 번호를 꺼내
  *  웹사이트만 한 번 묻는다(월 한도 google_place_website). 결과는 job_logo_lookup_record 한 곳으로 기록한다.
- *  돌려주는 값: done(이미 기록) / has_logo(브랜드·공고 사진 있음) / found / none / excluded / no_place / quota. */
+ *  돌려주는 값: done(이미 기록) / has_logo(브랜드·공고 사진 있음 — 한도 초과로 남았던 공고면 has_logo로 기록) / found / none / excluded / no_place / quota. */
 export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const { data: job, error } = await db.from('local_jobs').select('id,company,title,image_url,images,logo_lookup').eq('id', jobId).maybeSingle()
   if (error) throw new Error('logo_storage_unavailable')
@@ -236,11 +236,15 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const { data: aliasRows, error: ae } = await db.from('job_brand_aliases').select('brand_id,alias,is_primary').eq('active', true)
   if (be || ae) throw new Error('logo_storage_unavailable')
   const images = Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : []
-  if (!needsLogoLookup({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, images }, assembleBrands(brandRows ?? [], aliasRows ?? []))) return 'has_logo'
   const record = async (result, domain = null, placeId = null) => {
     const { data, error: re } = await db.rpc('job_logo_lookup_record', { p_job: jobId, p_result: result, p_domain: domain, p_place_id: placeId })
     if (re) throw new Error('logo_record_failed')
     return data
+  }
+  if (!needsLogoLookup({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, images }, assembleBrands(brandRows ?? [], aliasRows ?? []))) {
+    // 한도 초과로 남았던 공고가 그사이 사진·브랜드 로고를 갖게 됐으면 has_logo로 끝내 다시 시도 목록에서 뺀다(Codex #619 P2).
+    if (job.logo_lookup?.result === 'quota') await record('has_logo', null, job.logo_lookup.place_id ?? null)
+    return 'has_logo'
   }
   const { data: st, error: se } = await db.from('map_r1_location_jobs').select('snapshot').eq('job_id', jobId).maybeSingle()
   if (se) throw new Error('logo_storage_unavailable')
@@ -248,13 +252,13 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const resolverJob = { id: jobId, company: String(snap.company ?? job.company ?? ''), location: String(snap.location ?? ''),
     targets: (Array.isArray(snap.targets) ? snap.targets : []).map((t) => ({ address: String(t?.address ?? ''), workLocationId: null })) }
   const deps = resolverDeps(db, null, {}, null, null)
-  // 한도 초과로 남았던 공고는 그때 확인한 장소 번호를 그대로 쓴다(장소 번호는 약관상 계속 저장 가능 — 30일 지난 검색 결과가 없어도 다시 시도, Codex #619 P2).
+  // 한도 초과로 남았던 공고는 그때 확인한 장소 번호를 그대로 쓴다(저장된 검색 결과가 없어도 다시 시도, Codex #619 P2).
   const recorded = job.logo_lookup?.result === 'quota' && typeof job.logo_lookup?.place_id === 'string' && job.logo_lookup.place_id ? job.logo_lookup.place_id : null
   const placeId = recorded ?? await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
   if (!placeId) return record('no_place')
   const cacheKey = JSON.stringify(['place-website-v1', placeId])
   let site = await deps.cached(cacheKey)
-  if (site === null || site?.expired) { // 30일 지나 정리된 웹사이트 결과는 다시 묻는다(약관, DB 함수 google_cache_expire)
+  if (site === null) {
     if (!googleKey || !(await apiReserve(db, 'google_place_website')())) return record('quota', null, placeId)
     const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
       signal: AbortSignal.timeout(15000),
@@ -262,7 +266,7 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
     })
     if (res.status === 429) return record('quota', null, placeId) // Google 쪽 한도 — 나중에 다시
     if (!res.ok) throw new Error('upstream_failed')
-    site = { websiteUri: (await res.json())?.websiteUri ?? null, cachedAt: new Date().toISOString() } // 저장 시각(30일 정리 기준, Text Search와 같은 방식)
+    site = { websiteUri: (await res.json())?.websiteUri ?? null }
     await deps.cache(cacheKey, site)
   }
   const domain = websiteDomain(site?.websiteUri)

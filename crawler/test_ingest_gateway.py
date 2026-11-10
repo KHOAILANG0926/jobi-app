@@ -179,7 +179,8 @@ class HoldClient:
                 self.filters[k] = v
                 return self
 
-            def order(self, _c):
+            def order(self, c):
+                self.filters["order"] = c
                 return self
 
             def limit(self, _n):
@@ -194,6 +195,8 @@ class HoldClient:
                     return type("R", (), {"data": []})()
                 held = [r for r in outer.rows.values() if r["meta"].get("status") in self.filters["meta->>status"]
                         and r["meta"].get("next_at", "") < self.filters["meta->>next_at<"]]
+                if self.filters.get("order") == "meta->>next_at":
+                    held.sort(key=lambda r: r["meta"].get("next_at", ""))
                 return type("R", (), {"data": held})()
 
         return T()
@@ -306,6 +309,43 @@ def run_hold():
     print("test_ingest_gateway: quota hold/retry passed")
 
 
+def run_poster_hold():
+    """Codex #619: 포스터 판독 실패는 그 공고만의 문제 — 보류 대기열의 다른 공고 재확인을 막지 않는다.
+    한도 초과(모든 공고에 같음)는 그대로 첫 건에서 멈춘다."""
+    c = HoldClient()
+    old = "2000-01-01T00:00:00+00:00"
+    for i, name in enumerate(["poster", "ok", "ok2"]):
+        payload = {"title": name, "company": "" if name == "poster" else f"Cty {name}", "location": "Bắc Ninh",
+                   "source_url": f"https://example.invalid/{name}", "images": ["https://example.invalid/p.jpg"] if name == "poster" else []}
+        c.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                          "meta": {"status": "held", "reason": "google_quota", "held_at": g._now(), "attempts": 0,
+                                                   "next_at": f"2000-01-0{i + 1}T00:00:00+00:00"}}
+    saved_read = g.READ_POSTER
+    g.READ_POSTER = lambda _url: None  # 포스터 그림을 못 읽음
+    g.PRECHECK = lambda j: {"findable": False, "reason": "no_company_text"} if not j.get("company") else {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"}
+    try:
+        out = g.retry_held(c)
+    finally:
+        g.READ_POSTER = saved_read
+    st = {r["payload"]["title"]: r["meta"] for r in c.rows.values()}
+    assert out["registered"] == 2 and out["held"] == 1, out
+    assert st["poster"]["status"] == "held" and st["poster"]["reason"] == "poster_read_failed", st["poster"]
+    assert st["ok"]["status"] == "registered" and st["ok2"]["status"] == "registered", st
+    assert st["poster"]["next_at"] > old, "미룬 공고는 다음 실행에서 뒤로(다시 볼 때 순서)"
+    # 한도 초과는 여전히 첫 건에서 멈춘다
+    c2 = HoldClient()
+    for i in range(3):
+        payload = {"title": f"q{i}", "company": f"Cty q{i}", "location": "Bắc Ninh", "source_url": f"https://example.invalid/q{i}"}
+        c2.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                           "meta": {"status": "held", "reason": "google_quota", "held_at": g._now(), "attempts": 0, "next_at": old}}
+    asked = []
+    g.PRECHECK = lambda j: (asked.append(j["title"]), {"findable": False, "reason": "google_quota"})[1]
+    out = g.retry_held(c2)
+    assert len(asked) == 1 and out["held"] == 1, (asked, out)
+    print("test_ingest_gateway: poster failure does not block other held jobs passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
+    run_poster_hold()

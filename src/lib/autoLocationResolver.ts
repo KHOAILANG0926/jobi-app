@@ -8,7 +8,7 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
-import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys, googleFresh } from './companyPlaceSearch'
+import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
@@ -227,11 +227,10 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     try {
       for (const k of keys) {
         const cached = await deps.cached(k)
-        if (cached !== null && googleFresh(cached, at)) return cached
+        if (cached !== null) return cached
       }
       const data = await call()
-      // Google 결과는 30일만 쓴다(Google Maps Platform 약관: 좌표 캐시 최대 30일). 저장할 때 시각을 함께 둔다.
-      await deps.cache(keys[0], provider === 'google' && data && typeof data === 'object' ? { ...(data as object), cachedAt: at } : data)
+      await deps.cache(keys[0], data)
       return data
     } catch (e) {
       // 한도(우리 월 한도 또는 Google 429)는 '못 찾음'이 아니다 → 따로 표시해 공고를 버리지 않고 보류한다(#560).

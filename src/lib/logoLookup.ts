@@ -2,7 +2,7 @@
 // Google 검색을 새로 하지 않는다: 위치 확인이 이미 물어 저장해 둔 Google 결과(같은 검색어·같은 같은 이름 1곳·원래 성 안)에서
 // 장소 번호만 꺼낸다. 웹사이트는 그 장소 번호로 한 번만 묻고(월 한도는 DB external_api_reserve) 결과는 공고에 기록한다.
 import type { ResolverJob } from './autoLocationResolver'
-import { googleCacheKeys, googleFresh, googlePlaceHits, pickCompanyPlace, type GooglePlaceHit } from './companyPlaceSearch'
+import { googleCacheKeys, googlePlaceHits, pickCompanyPlace, type GooglePlaceHit } from './companyPlaceSearch'
 import { companyLogoUrl, jobImagePublicUrl } from './companyLogo'
 import { brandFor, brandLogoFor } from './brandLogo'
 import type { BrandDefinition } from '../data/brandDirectory'
@@ -25,7 +25,7 @@ export async function cachedGooglePlace(
     let stored: unknown = null
     for (const k of googleCacheKeys(job.company, address)) {
       const got = await cached(k)
-      if (got !== null && googleFresh(got, new Date().toISOString())) { stored = got; break } // 30일 지난 Google 결과는 쓰지 않는다(약관)
+      if (got !== null) { stored = got; break }
     }
     const hits = googlePlaceHits(stored)
     const pick = pickCompanyPlace(job.company, address, hits)

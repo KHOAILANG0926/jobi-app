@@ -83,15 +83,23 @@ const fetchOk = (website: string | null, iconStatus = 200) => async (url: string
   const c2 = new Map([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit]])
   const { db: d2 } = fakeDb(base, { cache: c2 })
   assert(await applyLogoLookup(d2, 9, 'k', async () => ({ ok: false, status: 429, json: async () => ({}) })) === 'quota', 'Google 429 → quota (retryable)')
-  const c3 = new Map<string, unknown>([[hashKey(googleCacheKey('Hojeong', 'KCN Quế Võ, Bắc Ninh')), hit], [hashKey(JSON.stringify(['place-website-v1', 'ChIJx'])), { expired: true, places: [] }]])
-  let asked = 0
-  const { db: d3 } = fakeDb(base, { cache: c3 })
-  assert(await applyLogoLookup(d3, 9, 'k', async (u: string) => { if (u.includes('places.googleapis.com')) asked++; return fetchOk('https://hojeong.vn')(u) }) === 'found' && asked === 1, '30-day expired website → asked again')
 }
-{ // Codex #619 P2: 한도 초과 기록의 장소 번호로 다시 시도(검색 결과가 30일 지나 정리돼도)
+{ // Codex #619 P2: 한도 초과 기록의 장소 번호로 다시 시도(저장된 검색 결과가 없어도)
   const { db, calls } = fakeDb({ ...base, logo_lookup: { result: 'quota', place_id: 'ChIJrec' } })
   assert(await applyLogoLookup(db, 9, 'k', fetchOk('https://hojeong.vn')) === 'found', 'recorded place id reused')
   assert(calls.rpc.find(([n]) => n === 'job_logo_lookup_record')![1].p_place_id === 'ChIJrec', 'same place id recorded')
+}
+{ // Codex #619 P2: 한도 초과로 남은 공고가 그사이 사진·브랜드를 갖게 되면 has_logo로 기록 → 다시 시도 목록(result=quota)에서 빠짐
+  const own = 'https://edhuesdnuxlbcfephutq.supabase.co/storage/v1/object/public/job-images/9/a.jpg'
+  for (const job of [{ ...base, image_url: own, logo_lookup: { result: 'quota', place_id: 'ChIJq' } }, { ...base, company: 'NETCO POST', logo_lookup: { result: 'quota' } }]) {
+    const { db, calls } = fakeDb(job)
+    let asked = 0
+    assert(await applyLogoLookup(db, 9, 'k', async () => { asked++; return { ok: true, status: 200, json: async () => ({}) } }) === 'has_logo' && asked === 0, 'has logo now → no Google call')
+    const rec = calls.rpc.find(([n]) => n === 'job_logo_lookup_record')
+    assert(rec && rec[1].p_result === 'has_logo', 'quota row closed as has_logo: ' + JSON.stringify(rec))
+  }
+  const { db, calls } = fakeDb({ ...base, image_url: own })
+  assert(await applyLogoLookup(db, 9, 'k', fetchOk(null)) === 'has_logo' && !calls.rpc.some(([n]) => n === 'job_logo_lookup_record'), 'never-checked job with photo → nothing recorded (unchanged)')
 }
 { // 다시 시도 묶음: 한도가 아직이면 첫 건에서 멈춘다(헛 호출 없음)
   const rows = [{ id: 9 }, { id: 10 }]

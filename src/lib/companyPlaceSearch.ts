@@ -162,13 +162,20 @@ export function siteCacheKey(company: string, address: string): string {
   const house = String(address ?? '').match(/^\s*(?:số\s*)?(\d+\p{L}?(?:\s*[\/-]\s*\d+\p{L}?)*)/iu)?.[1]?.replace(/\s+/g, '') ?? ''
   const street = numberedStreet(address)
   const park = findIndustrialPark(address)
-  const site = street && house ? `st:${house} ${street}` : park ? `park:${park.id}` : ''
+  // 같은 공단 안 다른 구획(Lô C3 / Lô D5)은 다른 사업장(Codex #619). 구획을 안 적은 주소는 따로 센다(합치지 않음).
+  const site = street && house ? `st:${house} ${street}` : park ? `park:${park.id}|lot:${lotOf(address)}` : ''
   if (!site) return ''
   const area = administrativeAreaForTarget(address, '')
   const province = area ? area.parentKey ?? area.key : ''
   // 번지 열쇠는 동·구까지 같아야 같은 사업장(Codex #619: 같은 성 안 다른 동의 "12 Lý Thái Tổ"는 다른 지점). 동·구를 안 적은 주소는 따로 센다(합치지 않음).
   const locality = street && house ? `|${localityOf(address, area)}` : ''
   return `${core}|${site}|${province}${locality}` // 원래 성 단위("TP Bắc Ninh"·"Bắc Ninh" 같은 성)
+}
+
+/** 공단 안 구획 번호("Lô C3", "lô số D-5", "Lot CN-02") — 글자·숫자만, 대문자. 없으면 ''. */
+function lotOf(address: string): string {
+  const m = foldText(String(address ?? '')).match(/(?:^| )(?:lo|lot)(?: dat)?(?: so)? ([a-z]{0,4} ?\d+[a-z]?(?: \d+[a-z]?)*)(?: |$)/)
+  return m ? m[1].replace(/ /g, '').toUpperCase() : ''
 }
 
 const LOCALITY_PREFIX = /^(?:phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\s+/
@@ -187,14 +194,4 @@ export function googleCacheKeys(company: string, address: string): string[] {
   const site = siteCacheKey(company, address)
   const text = JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])
   return site ? [JSON.stringify(['company-v3', 'google', site]), text] : [text]
-}
-
-/** 저장된 Google 결과를 쓸 수 있나: 30일 안이고 좌표가 지워지지 않았을 때(Google Maps Platform 약관: 좌표 캐시 최대 30일, 장소 번호는 무기한). */
-export const GOOGLE_CACHE_DAYS = 30
-export function googleFresh(cached: unknown, now: string): boolean {
-  const c = cached as { places?: unknown; cachedAt?: string; expired?: boolean } | null
-  if (!c || typeof c !== 'object' || !('places' in c)) return true
-  if (c.expired) return false
-  if (!c.cachedAt) return true // 저장 시각 없는 예전 결과(2026-11-03 이후) — 정리 작업이 저장일 기준 30일 지난 것의 좌표를 지운다
-  return Date.parse(now) - Date.parse(c.cachedAt) < GOOGLE_CACHE_DAYS * 86400000
 }
