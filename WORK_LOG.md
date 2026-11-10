@@ -1,3 +1,7 @@
+## 2026-11-10 밤 — 화면 대조가 비공개 공고의 'Không tìm thấy' 화면을 대조하던 것 (sb-5931 KHVATEC)
+- 원인: 관리자 미리 보기를 불러오는 동안 잠깐 뜨는 'Không tìm thấy' h1을 기다림 대상(아무 h1)으로 잡아 '제목 다름' 확정 오류 → 새 공고가 공개될 수 없음.
+- 변경: scripts/ops/detail-read.mjs가 공고 제목 머리(h1.jd2-header__title)를 기다리고, 안 뜨면 열기 실패(기록 안 함).
+- 검증 [직접 확인]: 운영 sb-5876 PC·모바일 읽기 정상, 로그인 없이 sb-5931은 열기 실패로 처리.
 ## 2026-11-10 밤 근무 — 회사·주소 읽기 #633 남은 3건 (HAIDILAO·CÔNG TY MÌNH·JMT)
 - 회사: "[ HAIDILAO VINCOM BẮC NINH ] TUYỂN DỤNG" → 대괄호 뒤가 비면 대괄호 안이 이름. "CÔNG TY MÌNH Ở KHÚC XUYÊN" → 이름 아님(성조 붙은 'công ty mình'만 — 이름 'Công ty Minh Anh'은 살림, ⑥ 뒤 "ở/tại …" 장소 말 떼기 — ②와 같은 규칙). Codex 지적 2건 반영(Minh 이름·'huyện Cần Giờ' 보존).
 - 주소: "CÔNG TY JMT KCN QUẾ VÕ 2" → 'KCN QUẾ VÕ 2'(조각 읽기에 KCN·CCN 이름 추가, 그 줄 안에서만, 뒤 구인 낱말 뗌).

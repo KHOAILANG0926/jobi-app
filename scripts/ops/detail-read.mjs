@@ -107,7 +107,9 @@ async function readJob(id) {
     try {
       const res = await page.goto(url, { waitUntil: keepText ? 'networkidle' : 'domcontentloaded', timeout: 60_000 })
       status = res?.status() ?? 0
-      await page.getByRole('heading', { level: 1 }).first().waitFor({ timeout: 30_000 })
+      // 공고 제목 머리(h1.jd2-header__title)를 기다린다. 비공개 공고는 관리자 미리 보기를 불러오는 동안 잠깐 'Không tìm thấy' h1이 떠서,
+      // 아무 h1이나 기다리면 그 화면을 대조해 '제목 다름' 확정 오류가 났다(sb-5931, 2026-11-10). 끝내 안 뜨면 열기 실패.
+      await page.locator('h1.jd2-header__title').first().waitFor({ timeout: 30_000 })
       // 지연 로딩 영역까지 보이도록 끝까지 내렸다가 위로
       await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)) } window.scrollTo(0, 0) })
       await page.waitForTimeout(800)
