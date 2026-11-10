@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { checkCompletion } from './check-pr-ready.mjs'
+import { checkCompletion, recordProblems, recentPrsFor } from './check-pr-ready.mjs'
 import { evaluateFiles, parseGitDiff } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
@@ -93,3 +93,38 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   assert.ok(twice.includes('| checks | success | 1234567890123456789012345678901234567890 |'), 'worker rows untouched')
   console.log('PR bot proof (#648): passed')
 }
+
+// 확인한 기록(#666): #661 사례 — companyReader.ts를 바꾸면서 최근 병합 PR #616과 같은 파일을 고치던 열린 PR #663을 안 봄
+{
+  const now = Date.parse('2026-11-10T16:00:00Z')
+  const api = (path) => {
+    if (path.startsWith('commits?') && path.includes(encodeURIComponent('src/lib/companyReader.ts'))) return [
+      { commit: { message: '회사·주소 읽기: 공통 고침 (#616)\n\n본문' } },
+      { commit: { message: '회사 이름 규정 (#540)' } },
+      { commit: { message: '직접 올린 커밋(번호 없음)' } }]
+    if (path.startsWith('commits?')) return []
+    if (path.startsWith('pulls?')) return [
+      { number: 663, updated_at: '2026-11-10T15:00:00Z' },
+      { number: 661, updated_at: '2026-11-10T15:00:00Z' }, // 자기 자신
+      { number: 300, updated_at: '2026-10-30T00:00:00Z' }] // 오래된 열린 PR은 제외
+    if (path === 'pulls/663/files?per_page=100') return [{ filename: 'src/lib/companyReader.ts' }]
+    throw new Error('예상 밖 호출 ' + path)
+  }
+  const required = recentPrsFor({ files: ['src/lib/companyReader.ts', 'WORK_LOG.md'], self: 661, now, api })
+  assert.deepEqual(required.map((r) => r.num), [616, 540, 663])
+  assert.match(required[2].why, /열린 PR/)
+  // 칸 없음 / 하나 빠짐 / 번호만 → 실패
+  assert.match(recordProblems('## 작업 범위와 변경 파일\n- 변경 파일: x', required).join(), /칸 없음/)
+  const partial = '## 확인한 기록\n- #616: 회사 이름·주소 공통 고침, 같은 단계 순서를 그대로 씀\n- #540: 11-07 회사 이름 규정(한 곳에서 읽기)\n\n## 다음'
+  assert.match(recordProblems(partial, required).join(), /#663 없음/)
+  const bare = partial.replace('\n\n## 다음', '\n- #663\n\n## 다음')
+  assert.match(recordProblems(bare, required).join(), /#663 설명 없음/)
+  const full = partial.replace('\n\n## 다음', '\n- #663: 밤 근무가 같은 함수에 HAIDILAO·JMT 사례 추가 중 — 충돌 없게 그 뒤에 합침\n\n## 다음')
+  assert.deepEqual(recordProblems(full, required), [])
+  // #6630처럼 앞 번호가 같은 다른 번호는 #663으로 치지 않음
+  assert.match(recordProblems(full.replace('#663:', '#6630:'), required).join(), /#663 없음/)
+  // 볼 기록이 없으면(작업 기록만 바꾼 PR 등) 칸이 없어도 통과
+  assert.deepEqual(recordProblems('본문', []), [])
+  assert.deepEqual(recentPrsFor({ files: ['WORK_LOG.md'], self: 1, now, api: (p) => (p.startsWith('pulls?') ? [] : assert.fail(p)) }), [])
+}
+console.log('check-pr-ready: 확인한 기록(#666) 통과')
