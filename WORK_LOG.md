@@ -3,6 +3,11 @@
 - Codex 지적 1건(HANDOFF 23번 줄 미갱신) 반영. 운영 검증(봇 커밋 PR에서 옛 실행 실패가 사라지는지)은 병합 뒤 확인 예정 [미확인].
 - 이전 HANDOFF 문구: "봇 커밋 뒤 PR 표 SHA(#648 — 옛 실행 실패가 봇 병합을 막음, 이번에 수동 정리)".
 
+## 2026-11-10 밤 — 회사·주소 읽기 #633 Facebook 미리 보기 사례 7건 (Lee "물어보지 말고 진행해")
+- 회사: "Quán Nét nhà mình"·"Nhà hàng bên em"·"Hiện có nhu cầu" → 이름 없음, "Genz Coffee mở đợt" → Genz Coffee, "KHVATEC – DO NHA" → KHVATEC(대시 앞 한 낱말 상호), "Cửa hàng Jollibee 393 Trần Hưng Đạo" → Cửa hàng Jollibee. 주소: 가게 이름 뒤 번지+거리 → "393 Trần Hưng Đạo".
+- 미리 보기 로그 전화 가림이 10자리 번호·금액에서 빠지던 것 고침(crawl-facebook-one.yml).
+- 검증 [직접 확인]: companyReader·addressReader 시험 통과, 미리 보기 원문 20건 다시 읽음, tsc·npm test 119/119·build.
+
 ## 2026-11-10 밤 — 상세 ④ 꾸민 본문 + 업종별 색 13가지 (Lee "처음으로 마음에 드는", "가자", #655)
 - 알바몬 쿠팡 공고 참고: 그림 머리 아래 큰 급여·상여 알약(원문 대문자 줄)·형광펜 소제목·아이콘 카드·채용 절차 화살표(원문 단계 낱말, 부정 표현이면 생략)·복리후생 타일·큰 전화 버튼. src/components/DetailRich.tsx, src/lib/detailRich.ts, 색 albamonTemplate DETAIL_PALETTE(13색, 금액 빨강·흰 카드 통일).
 - 운영 확인 [직접 확인]: sb-5876 PC·모바일 꾸민 본문·앰버 색·tel 버튼·가로 넘침 없음, KDA sb-4824 그대로. deploy-verify 42837555553 통과.
@@ -52,12 +57,3 @@
 - 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
 - 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft). 이어서 Codex 새 지적 2건(Lee "둘 다 고쳐"): 한도 초과 뒤 공단·동 중심 대략 위치로 가도 한도 기록 유지(→ 보류, 7일 뒤 아님) · 새 공고 없는 수집 실행에서도 보류 공고 다시 확인(retry_held_once, Facebook·TopCV 저장 입구, 선택·검증 저장 제외). 로고 다시 시도(Codex P2, Lee 지시): Google이 장소 번호 없음(404 NOT_FOUND) 확인 → no_place로 끝(같은 번호 다시 안 물음, 공고·위치 그대로), 일시 오류 → quota로 다시 기록해 줄 뒤로·다음 공고 계속, Google 한도(429)·장애(503)만 묶음 멈춤, 등록 14일 지난 공고는 다시 시도 안 함(보류함 한도 초과 기한과 같음). 이어서(Lee "두 건 모두"): 숫자 동·구(Phường 1/2, Quận 3)를 사업장 열쇠에서 구분(P.1·P1은 같은 곳) · 보류함 '못 찾음' 7일 뒤 다시 확인은 저장된 Google 결과를 쓰지 않고 새로 물음(recheck → refreshGoogle).
 
-## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
-- 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).
-- 변경: 모르는 slug → /chu-de/ky-tuc-xa로 replace, 지역 칸 = REGION_MACRO_TABS 34개 성(메인·검색과 같은 목록). 판정 함수는 원래 34개 공통이라 그대로. 화면 틀 그대로.
-- 검증 [직접 확인]: tsc · npm test 115/115 · build · 로컬 미리보기 /chu-de/abc → /chu-de/ky-tuc-xa, 지역 34개(Bắc Giang·Long An 없음, Lạng Sơn 있음).
-## 2026-11-09 밤 — #560 회사 이름·이름 비교·주소 읽기 공통 고침 (Lee "먼저 공통 로직 개선, 잘못 확정 0건")
-- 고친 곳(한 곳씩, 모든 경로 공통): companyReader(댓글 아래 무시·"quán cạnh ngã 6"류 위치 설명 버림·CTY 줄 뒤 상여/공단 말 떼기·제목 대시 일반화·[지역] 머리 떼기·partime), addressReader(댓글 무시·주소 이름표 값이 가게 이름이면 다음 번지 줄), companyPlaceSearch(업종 머리말 묶음 빼기·짧은 지도 이름 8자 이상·따로 쓴 Việt/Nam 유지·**원문 번지 거리/공단과 다른 후보는 고르지 않음**).
-- 시험: 30건 실제 원문·Google 후보로 사례 추가(바로 읽기 9, 고르기 4, 보류 9). 예전 기대값 3곳 변경: EAGLEON 이름에서 공단 말 뺌, KCN 원문인데 Google이 시내 거리면 따르지 않음(locationProcess), logoLookup 시험 후보 주소를 실제처럼.
-- 검증: tsc · npm test 115/115 · build. Codex 지적 7건 반영(왕복 5회 넘어 needs-lee).
-- 수정 전후 [직접 확인 run 42607934688 → 42618711506, Bắc Ninh 30건, Pro 방식]: 위치 찾음 1 → 4(Trung Nguyên 27 Kinh Dương Vương · New Phoenix · Kingsport · Fushan VSIP — 원문과 대조해 모두 맞음), 잘못 확정 0. 다른 거리·공단 후보 보류: Minh Nguyệt·Đại Tân Việt. 4단계는 같은 표본에서 5건이지만 Sen Tài Thu를 Pro와 다른 곳(10.9km)으로 잡음 → 정확도 위험.
