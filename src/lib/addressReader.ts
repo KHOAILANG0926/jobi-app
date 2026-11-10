@@ -14,11 +14,11 @@ const LABELED = new RegExp(`^[^${WORD}\\n]*(?:địa điểm|địa chỉ)(?: l�
 //    모집·급여·연락 낱말이 있는 줄은 주소가 아니다(제목·급여 줄을 주소로 잡지 않게).
 const NOT_ADDRESS = /tuyển|tuyen|lương|luong|triệu|trieu|thu nhập|thu nhap|liên hệ|lien he|zalo|ứng tuyển|ung tuyen|yêu cầu|yeu cau|ca ngày|ca đêm|\d{4,}/iu
 const PROVINCES = new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))
-// ③ 동·구·도로 조각. "khu vực làm việc"(소제목)는 지역 아님(2026-10-30 #5157).
+// ③ 동·구·도로 조각(한 줄 안에서만 — 줄바꿈을 넘어 다음 줄 매장 주소까지 붙이지 않게, #633 Circle K). "khu vực làm việc"(소제목)는 지역 아님(2026-10-30 #5157).
 const FRAGMENT = new RegExp(
-  `(?:quận|q\\.|huyện|thành phố|tp\\.)\\s*[\\d${WORD}\\s]{1,20}|` +
-  `(?:phường|p\\.|xã|thị trấn)\\s*[${WORD}\\s]{1,20}|` +
-  `(?:đường|ngõ|ngách|khu(?!\\s+vực)|kp)\\s+[${WORD}\\s\\d]{2,30}|` +
+  `(?:quận|q\\.|huyện|thành phố|tp\\.)\\s*[\\d${WORD} ]{1,20}|` +
+  `(?:phường|p\\.|xã|thị trấn)\\s*[${WORD} ]{1,20}|` +
+  `(?:đường|ngõ|ngách|khu(?!\\s+vực)|kp)\\s+[${WORD} \\d]{2,30}|` +
   // 공단 이름 "KCN QUẾ VÕ 2"(제목 줄 "CÔNG TY JMT KCN QUẾ VÕ 2", #633) — 그 줄 안에서만, 뒤 구인 낱말은 뗀다
   `(?:kcn|ccn)\\s+[${WORD} ]{2,30}`, 'giu')
 const FRAGMENT_TAIL = // 공단 조각에만(동·구 이름 "huyện Cần Giờ"는 그대로, Codex #663)

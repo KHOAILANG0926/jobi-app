@@ -22,7 +22,7 @@ const JOB_WORDS = new Set((
 // 나라·공단 낱말(회사 이름이 아니라 소개 글에 붙는 말)
 // 가게 종류 낱말만으로는 이름이 아니다("Shop", "Nhà hàng")
 // 자기 가게를 부르는 말("nhà mình", "bên em")·'수요 있음' 문구는 이름이 아니다(#633 2026-11-10 dryrun)
-const NOT_NAME_PHRASES = ['quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
+const NOT_NAME_PHRASES = ['quan net', 'tiem net', 'nha minh', 'ben minh', 'ben em', 'ben toi', 'chung em', 'hien co nhu cau', 'nhu cau', 'gan tet', 'truoc tet', 'sau tet', 'cuoi nam', 'dau nam', 'khu vuc', 'bang tin', 'thuong hieu', 'he thong', 'cafe', 'ca phe', 'coffee', 'tra sua', 'quan an', 'cua hang', 'nha hang', 'thuong mai', 'dien may', 'sieu thi', 'trung tam', 'khach san', 'shop', 'quan', 'tiem', 'salon', 'hotel', 'xuong', 'spa', 'nha', 'han quoc', 'trung quoc', 'nhat ban', 'nhat', 'dai loan', 'viet nam', 'kcn', 'ccn', 'khu cong nghiep', 'cum cong nghiep', 'thanh pho', 'tp', 'tinh', 'quan', 'huyen', 'phuong', 'xa', 'thi xa', 'thi tran']
 const REGION_PHRASES = [...new Set(ADMINISTRATIVE_AREAS.flatMap((a) => a.aliases))].sort((a, b) => b.length - a.length)
 
 /** 회사 이름이 될 수 있는 낱말이 하나라도 남는가(구인 낱말·숫자·지역·나라·공단 낱말 제외). */
@@ -44,8 +44,8 @@ function ok(c: string): string {
   return v
 }
 
-// 항목 이름표 줄(근무 지역·위치·직무 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
-const LABEL_LINE = /^(?:khu vực(?: làm việc)?|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu
+// 항목 이름표 줄(근무 지역·위치·직무·지원 양식 "Gửi thông tin: Họ tên – SĐT – Cửa hàng làm việc" 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
+const LABEL_LINE = /^(?:khu vực(?: làm việc)?|cửa hàng làm việc|gửi thông tin|cú pháp|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu
 const EMOJI = /[\u{1F000}-\u{1FAFF}☀-➿️‍]+/gu
 export const KIND = '(?:cửa hàng|quán|nhà hàng|shop|siêu thị|spa|tiệm|salon|trung tâm|khách sạn|hotel|xưởng)'
 const AGENCY = /nhan luc|cung ung|tuyen dung ho|xuat khau lao dong|viec lam|manpower|\bhr\b|headhunt/
