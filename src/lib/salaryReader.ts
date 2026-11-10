@@ -44,8 +44,13 @@ const NOT_PAY_LINE = /\b(?:ho tro|phu cap|thuong|chuyen can|phi|coc|dat coc|tang
 // "Lương và phụ cấp …: 7.300.000đ/tháng", "LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA"(#5876 ZHAN AN, Lee 2026-11-10):
 //  급여 단어가 있는 줄의 'phụ cấp'(급여에 포함)·'tăng ca'(포함/불포함 안내)는 급여 줄을 막지 않는다. 연장 수당 줄("lương tăng ca", "Tăng ca: …")은 그대로 건너뛴다.
 const OTHER_NOT_PAY = /\b(?:ho tro|thuong|chuyen can|phi|coc|dat coc|an trua|an ca|xang xe|nha o)\b/
-const OT_RATE_LINE = /(?:\bluong tang ca\b|^tang ca\b)/
-const notPay = (b: string) => NOT_PAY_LINE.test(b) && !(SALARY_WORD.test(b) && !OTHER_NOT_PAY.test(b) && !OT_RATE_LINE.test(b))
+// 면제는 "급여+수당 합계" 이름표(luong va/&/+ phu cap)이거나 연장 포함/불포함 안내 낱말이 있을 때만(Codex #641: "Phụ cấp ngoài lương", "Tiền lương làm thêm tăng ca"는 급여가 아님).
+const COMBINED_PAY = /\b(?:luong|thu nhap)\s*(?:va|&|\+|,)\s*phu cap\b/
+const OT_INCLUDE = /\b(?:chua tinh|khong tinh|da gom|chua gom|bao gom|da bao gom|chua bao gom|da tinh|da co)\s+tang ca\b/
+const NOT_BASE_PAY = /\b(?:ngoai luong|ngoai|them|lam them|tang ca\s*:)/
+const notPay = (b: string) =>
+  NOT_PAY_LINE.test(b) &&
+  !(SALARY_WORD.test(b) && !OTHER_NOT_PAY.test(b) && !NOT_BASE_PAY.test(b) && (COMBINED_PAY.test(b) || OT_INCLUDE.test(b)))
 const SALARY_WORD = /\b(?:luong|thu nhap|muc luong|salary)\b/
 const VAGUE = /(?:thu nhập cạnh tranh|lương cạnh tranh|thỏa thuận|thoả thuận)/iu
 
