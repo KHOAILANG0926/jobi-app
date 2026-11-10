@@ -20,6 +20,9 @@ https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345
 ## 미충족 조건 또는 실제 병합 차단 사유
 없음
 
+## 후속 개선 과제 (현재 작업 완료 조건과 분리)
+- 없음
+
 ## 최종 상태
 - [ ] BLOCKED
 - [x] READY FOR APPROVAL
@@ -27,6 +30,14 @@ https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345
 
 assert.deepEqual(checkCompletion(valid, '1234567890123456789012345678901234567890'), [])
 assert.ok(checkCompletion(valid, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa').length > 0, 'old HEAD evidence rejected')
+{
+  const sha = '1234567890123456789012345678901234567890'
+  const later = (text) => valid.replace('- 없음\n\n## 최종 상태', text + '\n\n## 최종 상태')
+  assert.ok(checkCompletion(valid.replace(/## 후속 개선 과제[^\n]*\n- 없음\n\n/, ''), sha).some(e => e.includes('후속')), 'missing follow-up section rejected')
+  assert.ok(checkCompletion(later('- VPS 브라우저 옛 버전 지우기'), sha).some(e => e.includes('할 일 번호')), 'follow-up without issue rejected')
+  assert.deepEqual(checkCompletion(later('- VPS 브라우저 옛 버전 지우기 (#640)'), sha), [], 'follow-up with issue accepted')
+  assert.deepEqual(checkCompletion(later('없음 — 이번 범위 안에서 끝남'), sha), [], 'none with reason accepted')
+}
 assert.ok(checkCompletion(valid.replace('| app-screen | success |', '| app-screen | failure |'), '1234567890123456789012345678901234567890').length > 0, 'failed screen check rejected')
 assert.ok(checkCompletion('').length > 0)
 // 2026-11-01: 링크·성공 미리 적기는 요구하지 않는다(실제 결과는 봇 병합이 check-runs로 확인)
