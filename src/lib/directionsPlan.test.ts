@@ -89,4 +89,9 @@ assert(ward.tier === 'address' && ward.note === COMPANY_AREA_NOTE && ward.links.
   'ward-only job still gets Google directions (company + area) and keeps the phone button')
 assert(companyAreaQuery({ ...wardJob, company: 'Nhà tuyển dụng ẩn danh' })?.note === AREA_ONLY_NOTE, 'generic company → area-only query with explicit note')
 assert(companyAreaQuery({ ...wardJob, rawLocation: '', workLocations: [] }) === null, 'no location at all → no Google link')
+// 2026-11-10 #5876: 버튼 검색어 = 위치 확인 Google 검색어(회사 이름, 원문 주소 전체) — 앞부분(Khu vực …)을 빼지 않는다
+{
+  const job = { ...wardJob, company: 'CÔNG TY TNHH ZHAN AN', workLocations: [{ rawAddress: 'Khu vực Khắc Niệm, phường Hạp Lĩnh, Bắc Ninh, Bắc Ninh', locationVerified: false }] } as unknown as Job
+  assert(companyAreaQuery(job)?.query === 'CÔNG TY TNHH ZHAN AN, Khu vực Khắc Niệm, phường Hạp Lĩnh, Bắc Ninh, Bắc Ninh', 'button query keeps the full original address')
+}
 console.log('directions never hidden (2026-10-13): all assertions passed')
