@@ -1,3 +1,9 @@
+## 2026-11-10 밤 — 화면 대조 검사(#646): 운영 화면을 원문·DB와 대조, 공개 전 통과 필수 (Lee "이어서")
+- #650: 상세 화면 읽기(detail-read)에 대조 추가 — 제목·회사 줄·Google 버튼=핀·상세 핀=지도 목록 핀·전화·Zalo(확정 오류), 아이콘 근거·급여 금액(판정 불명확). 판정 src/lib/screenAudit.ts, 수집 scripts/ops/screen-collect.mjs(미리보기 검사와 공유), 제목 계산 detailTitle 한 곳. Codex 지적 2건(핀 양방향·숨김 공고 관리자 로그인) 반영.
+- 공개 공고 전체 1회 점검: 22건 확정 오류 0·불명확 0 [직접 확인 run 42809331299, #646 댓글]. 수집값 5건 운영 화면에서 확인.
+- #651: 검사표 '화면 대조' 항목 — 비공개 공개 후보는 job-ocr-check가 관리자 비공개 상세로 대조 → 확정 오류 없으면 같은 실행에서 공개. 확정 오류는 3시간 뒤 다시 대조, 화면 열기 실패는 실행 실패 알림(Codex 지적). 이미 공개 중 공고는 기록 없으면 유지. deploy-verify 42814545437 통과.
+- 남은 것: 공개 중 공고 정기 대조(지금은 detail-read 번호 비우고 수동), 봇 커밋 뒤 표 SHA(#648 — 이번에도 옛 실행 실패를 수동 정리).
+
 ## 2026-11-10 저녁 — 크롤링 1단계 첫 공개(sb-5876)와 화면 오류 수정 (Lee "1건씩")
 - Facebook 1건씩 저장: 5873(원문에 업무·급여 없음 → 비공개 맞음), 5876 ZHAN AN 공개. 위치에서 빠짐: Jollibee·JMT(주소 못 읽음 #633), TOKYOLIFE(성 밖 → 보류함).
 - 고침: 급여 'Lương và phụ cấp' 줄(#641, Codex P1 반영), 검사표 묶음 제목(#641), 상세 머리 대시·'công nhân' 회사명 오인(#642 + 미리 보기 회귀), 길찾기 검색어 = 위치 확인 검색어(#643), Google 핀이면 버튼도 같은 좌표(#644), 급여 못 읽은 공고 원문 조회(#640 읽기 전용, 전화 가림), VPS 안 쓰는 브라우저 정리·후속 칸 할 일 번호 강제(#637), 1GB 미만 알림(#639).
@@ -46,8 +52,3 @@
 ## 2026-11-09 밤 — #612 자동 작업 권한: 개인 설정 파일 저장소에서 뺌 (Lee "3번부터")
 - 원인 [직접 확인]: .claude/settings.local.json(개인 PC 권한 223줄 + defaultMode bypassPermissions)이 저장소에 올라가 GitHub의 Claude 자동 작업 3개가 그 설정을 읽음 → --allowedTools가 제한이 아니었음.
 - 변경: 파일을 저장소 추적에서 빼고 .gitignore(다른 PC가 pull하면 그 PC 파일도 지워짐 — 각자 다시 만들면 됨), issue-mention의 지우기 단계 삭제(필요 없어짐), claude-task·codex-response에 --permission-mode default, claude-task에 허용 목록(전엔 없음).
-
-## 2026-11-09 저녁 — #560 시험 중단 사유 · #594 이슈 @claude 연결
-- #560 시험(#608·#609·#611): 미리 보기 8개 그룹 중 새 글은 Bắc Ninh 30건뿐(나머지 그룹은 몇 달 전 글). 시험의 Google 호출은 모두 API_KEY_INVALID — Vercel이 민감 값으로 둔 GOOGLE_PLACES_API_KEY는 env pull로 받을 수 없음(받은 값 길이 11). 운영 Google은 정상(business-search-compare 42599813839 오류 0). 같은 원인 2회 실패로 시험 중단, Lee 결정 대기(키를 GitHub Secret에 추가 vs 관리자 전용 서버 시험 API). 시험 예약으로 운영 카운터 54회 사용.
-- 30건 분석 [직접 확인]: 주소 글 없음 8(공단 이름만 'Quế Võ 3'·'Nam Sơn'·'Phố Nếnh' 등), 회사 이름 잘못 읽음 약 9('quán cạnh ngã 6'·'BẢNG TIN'·'Hotel 06 Ngô Tất Tố' 등), 회사 이름 없음 4, 체인 지점 7.
-- #594: 이슈 @claude 받는 곳이 없었음 → #610 claude-auto issue-mention(읽기 전용, 개인 bypass 설정 제외 — Codex P0), #594에서 시험 성공(run 42602216824). 남은 것: GPT 쪽 자동 수신(Codex 환경 생성 — Lee), #612 다른 자동 작업의 bypass 설정.
