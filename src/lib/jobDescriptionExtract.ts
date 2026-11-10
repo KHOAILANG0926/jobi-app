@@ -211,8 +211,9 @@ export function readWorkTime(...texts: (string | null | undefined)[]): { shiftTy
   const text = texts.filter(Boolean).join('\n')
   if (!text.trim()) return {}
   const day = /\bca\s+ngày\b/i.test(text), night = /\bca\s+(?:đêm|tối)\b/i.test(text)
-  const nShift = text.match(/\b([23])\s*ca\b/i)?.[1]
-  const rotating = (day && night) || /\b(?:xoay\s+ca|đảo\s+ca|luân\s+phiên\s+ca)\b/i.test(text) || !!nShift
+  // "2 ca/tuần"·"2 ca mỗi tuần" = 주당 근무 횟수(교대 종류 수 아님) → 제외. 베트남어 글자(đ 등)는 \b가 못 보므로 \p{L} 경계.
+  const nShift = text.match(/(?<![\p{L}\d])([23])\s*ca(?![\p{L}\d])(?!\s*(?:\/|mỗi\s|một\s|trong\s)\s*(?:tuần|tháng|ngày|week))/iu)?.[1]
+  const rotating = (day && night) || /(?<![\p{L}\d])(?:xoay\s+ca|ca\s+xoay|đảo\s+ca|làm\s+đảo\s+ca|luân\s+phiên\s+ca|ca\s+luân\s+phiên)(?![\p{L}\d])/iu.test(text) || !!nShift
   const out: { shiftType?: 'day' | 'night' | 'rotating'; rotatingShifts?: number; hours?: string } = {}
   if (rotating) { out.shiftType = 'rotating'; if (nShift) out.rotatingShifts = Number(nShift); else if (day && night) out.rotatingShifts = 2 }
   else if (day) out.shiftType = 'day'
@@ -220,7 +221,9 @@ export function readWorkTime(...texts: (string | null | undefined)[]): { shiftTy
   const clocks = [...new Set((text.match(CLOCK_RANGE) ?? []).map((s) => s.trim()))].slice(0, 3)
   if (clocks.length) out.hours = clocks.join(', ')
   else {
-    const n = text.match(/\b(\d{1,2})\s*tiếng\b/i)?.[1]
+    // 교대별로 시간이 다르면(8 tiếng / 12 tiếng) 하나로 합치지 않고 비워 둔다(원문 없는 값 금지).
+    const nums = [...new Set([...text.matchAll(/(?<![\p{L}\d])(\d{1,2})\s*tiếng(?![\p{L}\d])/giu)].map((m) => m[1]))]
+    const n = nums.length === 1 ? nums[0] : undefined
     const labels = [day ? 'Ca ngày' : '', night ? 'Ca đêm' : ''].filter(Boolean).join(' / ')
     if (n && Number(n) >= 4 && Number(n) <= 14) out.hours = labels ? `${labels}, ${n} tiếng` : `${n} tiếng`
   }
