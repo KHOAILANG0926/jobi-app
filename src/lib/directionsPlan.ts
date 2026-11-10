@@ -1,6 +1,7 @@
 import { isVerifiedWorkLocation, workLocationExternalLinks } from './jobCoords'
 import { contactOf, isGenericCompanyName } from './jobDetailView'
 import type { Job } from '../types/job'
+import { googleSearchText } from './companyPlaceSearch'
 
 // 길찾기 3단계 (2026-10-08 사용자 지시) — 위에서부터 하나만 보여준다.
 //   1) 승인 좌표가 있으면         "Chỉ đường"      — 사람이 승인한(또는 자동 승인 기준을 통과한) 근무지 좌표
@@ -31,6 +32,8 @@ export function planDirections(input: {
   approvedLinks: DirectionsLink[]
   gateHref: string | null
   gateNote?: string
+  /** Google이 회사 이름으로 찾은 장소 좌표(위치 확인 결과, 미확인) — 지도 핀과 같은 점으로 길찾기(Lee 2026-11-10 #5876). */
+  googlePoint?: { lat: number; lng: number } | null
   addressQuery?: string | null
   addressNote?: string
   phone?: string | null
@@ -43,6 +46,12 @@ export function planDirections(input: {
   if (input.gateHref && googleDestination(input.gateHref)) return { tier: 'gate', link: { label: DIRECTIONS_LABEL.gate, href: input.gateHref }, note: input.gateNote }
   const digits = (input.phone ?? '').replace(/[^\d+]/g, '')
   const hasPhone = digits.replace(/\D/g, '').length >= 8
+  if (input.googlePoint && Number.isFinite(input.googlePoint.lat) && Number.isFinite(input.googlePoint.lng)) {
+    const at = `${input.googlePoint.lat},${input.googlePoint.lng}`
+    return { tier: 'address', note: input.addressNote ?? COMPANY_AREA_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
+      href: `https://www.google.com/maps/dir/?api=1&destination=${at}`, viewHref: `https://www.google.com/maps/search/?api=1&query=${at}` }],
+      ...(hasPhone ? { call: { href: `tel:${digits}`, phone: input.phone!.trim() } } : {}) }
+  }
   if (input.addressQuery) {
     const q = encodeURIComponent(input.addressQuery)
     return { tier: 'address', note: input.addressNote ?? ADDRESS_NOTE, links: [{ label: DIRECTIONS_LABEL.approved,
@@ -78,8 +87,13 @@ export function planJobDirections(job: Job): DirectionsPlan {
   const addressQuery = (job.workLocations ?? []).length === 1
     ? preciseStreetAddressQuery(job.workLocations![0].rawAddress, job.workLocations![0].industrialPark) : null
   const searchQuery = addressQuery ? null : companyAreaQuery(job)
+  // 지도 핀이 Google 회사 장소 좌표(위치 확인 결과)면 버튼도 그 점으로 — 글자 검색은 Google이 다른 후보·지역을 열 수 있다(#5876).
+  //  동·공단 중심 같은 대략 점(출처가 Google이 아닌 area)은 여전히 목적지로 쓰지 않는다.
+  const only = (job.workLocations ?? []).length === 1 ? job.workLocations![0] : null
+  const googlePoint = only && only.pointKind === 'area' && only.pointEvidence?.source === 'Google'
+    && typeof only.lat === 'number' && typeof only.lng === 'number' ? { lat: only.lat, lng: only.lng } : null
   return planDirections({ approvedLinks, gateHref: gate ? `https://www.google.com/maps/dir/?api=1&destination=${gate.lat},${gate.lng}` : null,
-    gateNote: gate ? 'Cổng KCN — chưa xác minh vị trí nhà xưởng.' : undefined,
+    gateNote: gate ? 'Cổng KCN — chưa xác minh vị trí nhà xưởng.' : undefined, googlePoint: addressQuery ? null : googlePoint,
     addressQuery: addressQuery ?? searchQuery?.query, addressNote: addressQuery ? undefined : searchQuery?.note, phone: contactOf(job).phone })
 }
 
@@ -93,7 +107,9 @@ export function companyAreaQuery(job: Pick<Job, 'company' | 'rawLocation' | 'wor
   const area = parts.slice(-3).join(', ')
   if (!area) return null
   const company = (job.company ?? '').trim()
-  if (company && !isGenericCompanyName(company)) return { query: `${company}, ${area}`, note: COMPANY_AREA_NOTE }
+  // Lee 2026-11-06 "상세 Google 버튼과 같은 검색어": 위치 확인이 Google에 물은 글자(회사 이름, 원문 주소 전체)와 같게 —
+  //  주소 앞부분(마을·구역)을 빼면 Google이 다른 곳을 열어 지도 핀(위치 확인 결과)과 어긋난다(#5876 ZHAN AN, Lee 2026-11-10 "구글하고 비엣맵 안맞아").
+  if (company && !isGenericCompanyName(company)) return { query: googleSearchText(company, parts.join(', ')), note: COMPANY_AREA_NOTE }
   return { query: area, note: AREA_ONLY_NOTE }
 }
 
