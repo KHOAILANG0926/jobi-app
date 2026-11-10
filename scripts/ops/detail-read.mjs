@@ -88,6 +88,7 @@ async function adminLogin() {
 }
 
 let failed = 0
+let openFailed = 0 // 대상 공고 모드: 화면을 못 연 공고 수
 const summary = [`## 상세 화면 읽기 (${BASE_URL})`, '']
 const audits = []
 async function readJob(id) {
@@ -133,6 +134,7 @@ async function readJob(id) {
     : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null }, views)
   audits.push({ id, title: job.title, active: job.active, findings, views })
   // 기록(대상 공고만): 화면 열기 실패는 기록하지 않는다(일시 오류 — 다음 실행에 다시). 대조 중 내용이 바뀌면 기록하지 않는다.
+  if (CANDIDATES && openError) openFailed++
   if (CANDIDATES && !openError) {
     const rec = { content_hash: job.content_hash, ok: !findings.some((f) => f.sure), checked_at: new Date().toISOString(), base_url: BASE_URL,
       findings: findings.map(({ key, sure, device, detail }) => ({ key, sure, device, detail })) }
@@ -170,5 +172,8 @@ if (dbJobs.size) {
   }
 }
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n').slice(0, 900_000) + '\n')
-// 대상 공고 모드: 결과는 검사표(job-inspect)가 공개 판정·알림으로 이어 받는다 — 확정 오류·열기 실패로 처리 작업을 멈추지 않는다.
-process.exit(CANDIDATES ? 0 : failed || sureCount ? 1 : 0)
+// 대상 공고 모드: 확정 오류는 검사표(job-inspect)가 공개 판정·알림으로 이어 받으므로 종료 코드로 멈추지 않는다.
+// 단 화면 열기 실패(관리자 로그인·상세 로딩)는 기록이 없어 알림이 안 가므로 모든 공고를 처리한 뒤 실패로 끝내 '공고 처리 멈춤' 알림(failure())이 가게 한다.
+// 뒤 단계(검사표 다시)는 !cancelled()라 실패 뒤에도 돈다.
+if (CANDIDATES && openFailed) console.log(`::error::공개 후보 ${openFailed}건 화면 열기 실패 — 로그인·상세 로딩 확인 필요`)
+process.exit(CANDIDATES ? (openFailed ? 1 : 0) : failed || sureCount ? 1 : 0)
