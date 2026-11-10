@@ -365,8 +365,26 @@ def run_hold_without_new_jobs():
     print("test_ingest_gateway: holds retried even without new jobs passed")
 
 
+def run_unfound_recheck_fresh():
+    """Codex #619: '못 찾음' 7일 뒤 다시 확인은 서버에 recheck 표시를 보내 저장된 Google '없음'을 다시 쓰지 않게 한다.
+    한도 초과(held) 다시 확인은 저장 결과를 그대로 써도 된다(recheck 없음)."""
+    c = HoldClient()
+    for name, status in (("u", "unfound"), ("q", "held")):
+        payload = {"title": name, "company": f"Cty {name}", "location": "Bắc Ninh", "source_url": f"https://example.invalid/{name}"}
+        c.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                          "meta": {"status": status, "reason": "not_found", "held_at": g._now(), "attempts": 0,
+                                                   "next_at": "2000-01-01T00:00:00+00:00"}}
+    sent = {}
+    g.PRECHECK = lambda j: (sent.__setitem__(j["title"], g.precheck_input(j)["recheck"]), {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"})[1]
+    g.retry_held(c)
+    assert sent == {"u": True, "q": False}, sent
+    assert all("_recheck" not in r["payload"] for r in c.rows.values()), "보류함 원본은 그대로"
+    print("test_ingest_gateway: unfound recheck asks Google again passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
     run_poster_hold()
     run_hold_without_new_jobs()
+    run_unfound_recheck_fresh()

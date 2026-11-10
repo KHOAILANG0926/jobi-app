@@ -178,12 +178,19 @@ function lotOf(address: string): string {
   return m ? m[1].replace(/ /g, '').toUpperCase() : ''
 }
 
-const LOCALITY_PREFIX = /^(?:phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\s+/
-/** 주소의 동·구 글자(번지·거리 칸과 성·시 이름·나라 이름 빼고, 머리말 phường·xã·quận·huyện·TP 등 떼고). */
+const LOCALITY_PREFIX = /^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t) ?(?=\d|\s|$)/
+// 머리말 종류(같은 종류는 한 글자로): 숫자 동·구("Phường 1"·"P.1"·"P1", "Quận 3"·"Q3")는 종류+숫자로 남긴다(Codex #619 — 숫자를 버리면 다른 동이 합쳐짐).
+const LOCALITY_KIND: Record<string, string> = { phuong: 'p', p: 'p', xa: 'x', x: 'x', 'thi tran': 'tt', tt: 'tt', quan: 'q', q: 'q', huyen: 'h', h: 'h', 'thi xa': 'tx', tx: 'tx', 'thanh pho': 'tp', tp: 'tp', tinh: 't', t: 't' }
+/** 주소의 동·구 글자(번지·거리 칸과 성·시 이름·나라 이름 빼고, 머리말 phường·xã·quận·huyện·TP 등 떼고). 숫자 동·구는 "p1"·"q3"처럼. */
 function localityOf(address: string, area: { key: string; aliases: string[]; parentKey?: string } | null): string {
   const aliases = new Set([...(area?.aliases ?? []), ...[area?.key, area?.parentKey].filter(Boolean).map((k) => String(k).replace(/^[a-z]+:/, ''))])
   const parts = String(address ?? '').split(',').slice(1)
-    .map((p) => normalizePlaceText(p).replace(/\./g, ' ').replace(/\s+/g, ' ').trim().replace(LOCALITY_PREFIX, '').trim())
+    .map((p) => {
+      const text = normalizePlaceText(p).replace(/\./g, ' ').replace(/\s+/g, ' ').trim()
+      const m = text.match(LOCALITY_PREFIX)
+      const rest = m ? text.slice(m[0].length).trim() : text
+      return m && /^\d+$/.test(rest) ? `${LOCALITY_KIND[m[1]]}${Number(rest)}` : rest
+    })
     .filter((p) => p && !aliases.has(p) && !/^(?:viet nam|vietnam)$/.test(p) && !/^\d+$/.test(p))
   return [...new Set(parts)].sort().join('+')
 }

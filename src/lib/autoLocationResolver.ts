@@ -25,6 +25,8 @@ export interface ResolverDeps {
   goong?(action: 'geocode' | 'autocomplete' | 'detail', params: Record<string, string>): Promise<unknown>
   /** 세 번째 자료 Google Places Text Search(Lee 2026-11-03). 키(Vercel GOOGLE_PLACES_API_KEY)가 없으면 건너뛴다. 공고당 1번. */
   google?(text: string): Promise<unknown>
+  /** 보류함 '못 찾음' 7일 뒤 다시 확인(Codex #619): 저장된 Google 결과를 쓰지 않고 새로 묻는다(새 결과는 같은 열쇠에 저장). */
+  refreshGoogle?: boolean
   /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
   wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
@@ -226,7 +228,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
   const ask = async (key: unknown[] | string[], call: () => Promise<unknown>, provider = String(key[1])) => {
     const keys = provider === 'google' && key.every((x) => typeof x === 'string' && x.startsWith('[')) ? key as string[] : [JSON.stringify(key)]
     try {
-      for (const k of keys) {
+      for (const k of provider === 'google' && deps.refreshGoogle ? [] : keys) {
         const cached = await deps.cached(k)
         if (cached !== null) return cached
       }

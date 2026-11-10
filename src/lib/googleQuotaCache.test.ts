@@ -1,6 +1,6 @@
 // Lee 2026-11-09 Google 한도 지시 시험: ① 같은 사업장 중복 검색 줄이기(지점이 다르면 합치지 않음) ② 한도 초과 ≠ 위치 없음
 // 크롤러 보류·재시도는 crawler/test_ingest_gateway.py, 로고 재시도는 api/_logo-lookup.test.ts.
-import { googleCacheKeys, siteCacheKey } from './companyPlaceSearch.ts'
+import { googleCacheKeys, googlePlaceHits, siteCacheKey } from './companyPlaceSearch.ts'
 import { precheckJob, precheckVerdict } from './locationPrecheck.ts'
 import { resolveAutoLocation } from './autoLocationResolver.ts'
 import { cachedGooglePlace } from './logoLookup.ts'
@@ -23,6 +23,12 @@ assert(siteCacheKey('Highlands Coffee', '12 Nguyễn Văn Cừ, Bắc Ninh') !==
 assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Hoàn Kiếm, Hà Nội') !== s1, 'other province = other branch')
 assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Từ Sơn, Bắc Ninh') !== s1, 'Codex #619: same house+street, other locality in same province = other branch')
 assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Bắc Ninh') !== s1, 'locality missing → not merged with a locality-named address')
+// Codex #619: 숫자 동·구는 숫자까지 구분 — Phường 1 / Phường 2는 다른 지점, 표기만 다른 Phường 1 / P.1 / P1은 같은 곳
+const w1 = siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Phường 1, TP Hồ Chí Minh')
+assert(w1 && w1 !== siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Phường 2, TP Hồ Chí Minh'), 'Phường 1 vs Phường 2 = other branch')
+assert(w1 === siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, P.1, TP Hồ Chí Minh') && w1 === siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, P1, Hồ Chí Minh'), 'Phường 1 / P.1 / P1 = same ward')
+assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Quận 3, TP Hồ Chí Minh') !== siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Quận 1, TP Hồ Chí Minh'), 'Quận 3 vs Quận 1 = other branch')
+assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Phường 1, TP Hồ Chí Minh') !== siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Quận 1, TP Hồ Chí Minh'), 'Phường 1 vs Quận 1 = different units')
 assert(siteCacheKey('Highlands Coffee', 'Lý Thái Tổ, Bắc Ninh') === '', 'street without house number → no site key (old text key)')
 assert(siteCacheKey('ABC', 'KCN Quế Võ, Bắc Ninh') === '', 'too-short core name → no site key')
 assert(googleCacheKeys('Highlands Coffee', 'Lý Thái Tổ, Bắc Ninh').length === 1, 'no site → only text key')
@@ -83,6 +89,18 @@ for (const msg of ['quota_exhausted', 'upstream_failed_429']) {
   const pr = await resolveAutoLocation(parkJob, quotaDeps(vm([{ ref_id: 'vm1', name: 'KCN Thuận Thành 9', address: 'Bắc Ninh', display: 'Bắc Ninh' }], { lat: 21.03, lng: 106.08, city: 'Bắc Ninh' })))
   assert(pr.kind === 'area' && String((pr as { source?: string }).source).includes('(KCN)'), 'unlisted park center reached: ' + JSON.stringify(pr))
   assert(precheckVerdict(pr).reason === 'google_quota', 'quota then unlisted park center → still google_quota: ' + precheckVerdict(pr).reason)
+}
+// Codex #619: '못 찾음' 7일 뒤 다시 확인(refreshGoogle)은 저장된 Google '없음'을 다시 쓰지 않고 새로 묻는다 → 이번엔 찾음
+{
+  store.clear(); asked = 0
+  const first = precheckVerdict(await resolveAutoLocation(job1, deps(async () => ({ places: [] }))))
+  assert(!first.findable && asked === 1, 'first: Google knows nothing')
+  const again = precheckVerdict(await resolveAutoLocation(job1, deps(async () => hoj)))
+  assert(!again.findable && asked === 1, 'normal run reuses stored negative (no new request)')
+  const fresh = precheckVerdict(await resolveAutoLocation(job1, { ...deps(async () => hoj), refreshGoogle: true }))
+  assert(fresh.findable && asked === 2, 'recheck asks Google again and finds it: ' + JSON.stringify(fresh))
+  assert(googlePlaceHits(store.get(googleCacheKeys(job1.company, job1.targets[0].address)[0])).length === 1, 'new result stored over the old negative')
+  store.clear()
 }
 const other = precheckVerdict(await resolveAutoLocation(job1, deps(async () => { throw new Error('upstream_failed') })))
 assert(other.reason !== 'google_quota', 'other provider error is not quota')

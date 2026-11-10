@@ -87,9 +87,11 @@ export async function precheckLocation(db, request, input, goong = null, google 
   const job = precheckJob(input)
   if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text', location: '', ...who }
   let used = 0
-  const result = await resolveAutoLocation(job, resolverDeps(db, async (action, params) => request(action, params), {
+  const deps = resolverDeps(db, async (action, params) => request(action, params), {
     remainingCalls: 2, reserve: async () => used++ < 2,
-  }, goong, google))
+  }, goong, google)
+  // 보류함 '못 찾음' 공고를 7일 뒤 다시 확인할 때는 저장된 Google 결과(그때의 '없음')를 다시 쓰지 않고 새로 묻는다(Codex #619).
+  const result = await resolveAutoLocation(job, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
   return { ...precheckVerdict(result), location: job.location, ...who }
 }

@@ -90,7 +90,9 @@ def precheck_input(job: dict) -> dict:
         company = ""  # 원문에서 읽은 회사 이름은 서버가 다시 읽는다(회사 이름 읽기 한 곳). 사이트 회사 칸만 그대로 보낸다.
     return {"company": company, "location": str(job.get("location") or ""),
             "addresses": _work_addresses(job)[:5], "source_text": str(job.get("source_text") or ""),
-            "poster_text": str(job.get("_poster_text") or "")}
+            "poster_text": str(job.get("_poster_text") or ""),
+            # 보류함 '못 찾음' 7일 뒤 다시 확인: 서버가 저장된 Google 결과를 다시 쓰지 않고 새로 묻는다(Codex #619)
+            "recheck": job.get("_recheck") is True}
 
 
 def _post_hook(body: dict, failed: dict) -> dict:
@@ -299,7 +301,10 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
             meta["status"] = "expired"
         else:
             try:
-                meta["job_id"] = _ingest_new(client, dict(row.get("payload") or {}))
+                payload = dict(row.get("payload") or {})
+                if meta.get("status") == "unfound":
+                    payload["_recheck"] = True
+                meta["job_id"] = _ingest_new(client, payload)
                 meta["status"] = "registered"
             except LocationDeferred as exc:
                 meta["status"], meta["reason"], meta["next_at"] = "held", _reason_of(exc), _now()
