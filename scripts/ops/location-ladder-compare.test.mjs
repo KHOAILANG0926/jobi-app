@@ -58,6 +58,18 @@ function fakeFetch(log) {
   const g = googleClient('k', fakeFetch([]), { pro: 0, ids: 0, autocomplete: 0, details: 0 })
   await assert.rejects(() => g.ids('q'), /test_cap_reached/)
 }
+// 3-2) 시험 몫(Lee 2026-11-09): Pro·IDs 모두 시험 몫을 먼저 예약, 다 쓰면 Google을 부르지 않는다. 실행당 SearchText 합계 상한.
+{
+  const log = []
+  let test = 0, ops = 0
+  const g = googleClient('k', fakeFetch(log), undefined, async () => (ops++, true), async () => test++ < 2, 3)
+  await g.ids('a'); await g.pro('b')
+  await assert.rejects(() => g.ids('c'), /test_quota_exhausted/)
+  assert.equal(log.length, 2); assert.equal(ops, 1, 'IDs Only는 운영 몫에 안 셈, Pro만')
+  const h = googleClient('k', fakeFetch([]), undefined, async () => true, async () => true, 2)
+  await h.ids('a'); await h.pro('b')
+  await assert.rejects(() => h.ids('c'), /test_cap_reached/)
+}
 // 4) 입력 변환 = 수집기 precheck_input과 같은 칸
 {
   const i = precheckInputOf({ company: 'X', _company_from_text: true, location: 'Bắc Ninh', source_text: 'abc', work_locations: [{ raw_address: ' 12 Lý Thái Tổ ' }, {}] })

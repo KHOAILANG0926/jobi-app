@@ -1223,6 +1223,8 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
             payload["source_url"] = url
         return payload
 
+    # 새 공고가 없어도 보류 공고는 다시 확인한다(Codex #619). 선택 저장은 미리 막아 둠(save_selected_from_dryrun).
+    ingest_gateway.retry_held_once(supabase)
     saved: list[dict] = []
     # 등록은 DB 입구 하나만(Lee 2026-10-29): 한 건씩 입구로 보내고, 규칙에 걸린 공고만 건너뛴다.
     for job in new_jobs:
@@ -1250,6 +1252,7 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
 def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) -> int:
     """DRY-RUN 결과 파일에서 지정한 게시물만 저장(페이스북 재접속 없음). 사람이 원문을
     대조한 뒤 소량 저장할 때 쓴다."""
+    ingest_gateway._HOLDS_RETRIED = True  # 선택 저장은 그 글만 — 다른 보류 공고를 같이 처리하지 않는다
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     by_key = {j.get("fb_post_key"): j for j in data.get("jobs", [])}
     picked = []

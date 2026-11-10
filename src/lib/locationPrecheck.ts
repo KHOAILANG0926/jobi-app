@@ -20,7 +20,10 @@ export function precheckVerdict(decision: LocationDecision): PrecheckVerdict {
   if (kind === 'gate') return { findable: true, kind, reason: 'park_gate' }
   const source = 'source' in decision ? String(decision.source ?? '') : ''
   if (kind === 'area' && COMPANY_PLACE.test(source)) return { findable: true, kind, reason: source.startsWith('Google') ? 'google_company_place' : 'goong_company_place' }
+  if (kind === 'area' && /google:quota/.test(String(decision.evidence ?? ''))) return { findable: false, kind, reason: 'google_quota' }
   if (kind === 'area') return { findable: false, kind, reason: /administrative/i.test(String(decision.evidence ?? '')) && /mismatch/.test(String(decision.evidence ?? '')) ? 'outside_original_province' : 'approximate_only' }
+  // Google 한도로 못 물었으면 '못 찾음'이 아니라 보류(google_quota) — 수집기가 버리지 않고 나중에 다시 묻는다(#560).
+  if (/google:quota/.test(String(decision.evidence ?? ''))) return { findable: false, kind, reason: 'google_quota' }
   return { findable: false, kind, reason: decision.failed ? 'provider_failed' : 'not_found' }
 }
 

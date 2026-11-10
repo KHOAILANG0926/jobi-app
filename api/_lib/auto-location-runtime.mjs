@@ -87,9 +87,11 @@ export async function precheckLocation(db, request, input, goong = null, google 
   const job = precheckJob(input)
   if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text', location: '', ...who }
   let used = 0
-  const result = await resolveAutoLocation(job, resolverDeps(db, async (action, params) => request(action, params), {
+  const deps = resolverDeps(db, async (action, params) => request(action, params), {
     remainingCalls: 2, reserve: async () => used++ < 2,
-  }, goong, google))
+  }, goong, google)
+  // 보류함 '못 찾음' 공고를 7일 뒤 다시 확인할 때는 저장된 Google 결과(그때의 '없음')를 다시 쓰지 않고 새로 묻는다(Codex #619).
+  const result = await resolveAutoLocation(job, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
   return { ...precheckVerdict(result), location: job.location, ...who }
 }
@@ -192,7 +194,8 @@ export function goongRequest(key) {
     if (!path) throw new Error('upstream_failed')
     const query = new URLSearchParams({ ...params, ...(action === 'autocomplete' ? { limit: '10' } : {}), api_key: key })
     const res = await fetch(`https://rsapi.goong.io/${path}?${query}`, { signal: AbortSignal.timeout(15000) })
-    if (!res.ok) throw new Error('upstream_failed')
+    // 429 = Google 쪽 한도 → 한도 초과로 구분(못 찾음과 다르게 보류, #560)
+    if (!res.ok) throw new Error(res.status === 429 ? 'upstream_failed_429' : 'upstream_failed')
     return res.json()
   }
 }
@@ -216,28 +219,35 @@ export function googlePlacesRequest(key, reserve) {
       headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType' },
       body: JSON.stringify({ textQuery: text, languageCode: 'vi', regionCode: 'VN', pageSize: 10 }),
     })
-    if (!res.ok) throw new Error('upstream_failed')
+    // 429 = Google 쪽 한도 → 한도 초과로 구분(못 찾음과 다르게 보류, #560)
+    if (!res.ok) throw new Error(res.status === 429 ? 'upstream_failed_429' : 'upstream_failed')
     return res.json()
   }
 }
 
 /** 사진 없는 공고의 회사 로고 찾기(Lee 2026-11-07). 위치 확인이 저장한 Google 결과에서 같은 회사 1곳의 장소 번호를 꺼내
  *  웹사이트만 한 번 묻는다(월 한도 google_place_website). 결과는 job_logo_lookup_record 한 곳으로 기록한다.
- *  돌려주는 값: done(이미 기록) / has_logo(브랜드·공고 사진 있음) / found / none / excluded / no_place / quota. */
+ *  돌려주는 값: done(이미 기록) / has_logo(브랜드·공고 사진 있음 — 한도 초과로 남았던 공고면 has_logo로 기록) / found / none / excluded / no_place / quota
+ *  / retry_later(이 공고만의 일시 오류 — quota로 기록, 6시간 뒤 다시). Google 장애(503)·저장소 오류는 예외로 던진다. */
 export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const { data: job, error } = await db.from('local_jobs').select('id,company,title,image_url,images,logo_lookup').eq('id', jobId).maybeSingle()
   if (error) throw new Error('logo_storage_unavailable')
   if (!job) return 'missing'
-  if (job.logo_lookup) return 'done'
+  // 한도 초과(quota)는 영구 결과가 아니다 — 다시 묻는다(Lee 2026-11-09). 그 밖의 결과는 한 번으로 끝.
+  if (job.logo_lookup && job.logo_lookup.result !== 'quota') return 'done'
   const { data: brandRows, error: be } = await db.from('job_brands').select('id,name,slug,category,domain,logo_url,initial,color,active,featured').eq('active', true)
   const { data: aliasRows, error: ae } = await db.from('job_brand_aliases').select('brand_id,alias,is_primary').eq('active', true)
   if (be || ae) throw new Error('logo_storage_unavailable')
   const images = Array.isArray(job.images) ? job.images.map((x) => (typeof x === 'string' ? x : x?.url ?? x?.path ?? '')).filter(Boolean) : []
-  if (!needsLogoLookup({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, images }, assembleBrands(brandRows ?? [], aliasRows ?? []))) return 'has_logo'
   const record = async (result, domain = null, placeId = null) => {
     const { data, error: re } = await db.rpc('job_logo_lookup_record', { p_job: jobId, p_result: result, p_domain: domain, p_place_id: placeId })
     if (re) throw new Error('logo_record_failed')
     return data
+  }
+  if (!needsLogoLookup({ company: job.company ?? '', title: job.title ?? '', imageUrl: job.image_url ?? undefined, images }, assembleBrands(brandRows ?? [], aliasRows ?? []))) {
+    // 한도 초과로 남았던 공고가 그사이 사진·브랜드 로고를 갖게 됐으면 has_logo로 끝내 다시 시도 목록에서 뺀다(Codex #619 P2).
+    if (job.logo_lookup?.result === 'quota') await record('has_logo', null, job.logo_lookup.place_id ?? null)
+    return 'has_logo'
   }
   const { data: st, error: se } = await db.from('map_r1_location_jobs').select('snapshot').eq('job_id', jobId).maybeSingle()
   if (se) throw new Error('logo_storage_unavailable')
@@ -245,17 +255,35 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const resolverJob = { id: jobId, company: String(snap.company ?? job.company ?? ''), location: String(snap.location ?? ''),
     targets: (Array.isArray(snap.targets) ? snap.targets : []).map((t) => ({ address: String(t?.address ?? ''), workLocationId: null })) }
   const deps = resolverDeps(db, null, {}, null, null)
-  const placeId = await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
+  // 한도 초과로 남았던 공고는 그때 확인한 장소 번호를 그대로 쓴다(저장된 검색 결과가 없어도 다시 시도, Codex #619 P2).
+  const recorded = job.logo_lookup?.result === 'quota' && typeof job.logo_lookup?.place_id === 'string' && job.logo_lookup.place_id ? job.logo_lookup.place_id : null
+  const placeId = recorded ?? await cachedGooglePlaceId(resolverJob, (k) => deps.cached(k), (a, p) => deps.withinAdministrativeArea(a, p))
   if (!placeId) return record('no_place')
   const cacheKey = JSON.stringify(['place-website-v1', placeId])
   let site = await deps.cached(cacheKey)
+  // Google이 없다고 확인한 장소 번호는 다시 묻지 않는다(같은 장소 번호를 쓰는 다른 공고도). 공고·위치는 그대로, 로고만 '장소 없음'.
+  if (site?.placeNotFound) return record('no_place', null, placeId)
   if (site === null) {
     if (!googleKey || !(await apiReserve(db, 'google_place_website')())) return record('quota', null, placeId)
-    const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
-      signal: AbortSignal.timeout(15000),
-      headers: { 'X-Goog-Api-Key': googleKey, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'websiteUri' },
-    })
-    if (!res.ok) throw new Error('upstream_failed')
+    // 이 공고만의 일시 오류(연결 끊김·Google 서버 오류)는 '다시 시도'로 두고 시각만 새로 적는다 → 다시 시도 줄 맨 뒤(Codex #619).
+    const later = async () => { await record('quota', null, placeId); return 'retry_later' }
+    let res
+    try {
+      res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'X-Goog-Api-Key': googleKey, Referer: 'https://viecganban.vn/', 'X-Goog-FieldMask': 'websiteUri' },
+      })
+    } catch { return later() }
+    if (res.status === 429) return record('quota', null, placeId) // Google 쪽 한도 — 나중에 다시
+    if (res.status === 503) throw new Error('upstream_unavailable') // Google이 서비스 장애라고 응답 — 다시 시도 묶음 멈춤
+    if (res.status === 404) {
+      const body = await res.json().catch(() => null)
+      if (body?.error?.status === 'NOT_FOUND') { // Google이 이 장소 번호가 없다고 확인 — 무효 확정
+        await deps.cache(cacheKey, { websiteUri: null, placeNotFound: true })
+        return record('no_place', null, placeId)
+      }
+    }
+    if (!res.ok) return later()
     site = { websiteUri: (await res.json())?.websiteUri ?? null }
     await deps.cache(cacheKey, site)
   }
@@ -265,4 +293,28 @@ export async function applyLogoLookup(db, jobId, googleKey, fetchImpl = fetch) {
   const icon = await fetchImpl(`https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}`, { signal: AbortSignal.timeout(10000) }).catch(() => null)
   if (!icon || icon.status !== 200) return record('none', null, placeId)
   return record('found', domain, placeId)
+}
+
+/** 로고 찾기 한도 초과(quota) 공고 다시 시도(Lee 2026-11-09 "재시도 가능 상태로"). 마지막 시도 6시간 지난 것만, 한 번에 최대 limit건.
+ *  같은 applyLogoLookup·같은 월 한도(google_place_website)를 쓴다. 한도가 아직이면 첫 건에서 멈춘다.
+ *  오래 기다린 것부터(마지막 시도 시각 순) — 일시 오류로 미룬 공고는 줄 뒤로 가서 다른 공고를 막지 않는다(Codex #619).
+ *  끝없이 다시 시도하지 않게, 등록 뒤 LOGO_RETRY_MAX_DAYS 안의 공고만 다시 시도한다(위치 보류함 한도 초과 기한과 같은 14일,
+ *  crawler/ingest_gateway.py HOLD_MAX_DAYS). 그 뒤엔 quota로 남아 업종 사진을 그대로 쓴다. */
+export const LOGO_RETRY_HOURS = 6
+export const LOGO_RETRY_MAX_DAYS = 14
+export async function retryQuotaLogos(db, googleKey, limit = 10, now = new Date(), fetchImpl = fetch) {
+  const before = new Date(now.getTime() - LOGO_RETRY_HOURS * 3600000).toISOString()
+  const since = new Date(now.getTime() - LOGO_RETRY_MAX_DAYS * 86400000).toISOString()
+  const { data, error } = await db.from('local_jobs').select('id').eq('logo_lookup->>result', 'quota').lt('logo_lookup->>checked_at', before)
+    .gte('created_at', since).order('logo_lookup->>checked_at').limit(Math.min(Math.max(1, limit | 0), 20))
+  if (error) throw new Error('logo_storage_unavailable')
+  const out = { tried: 0, quota: 0, later: 0, other: 0 }
+  for (const { id } of data ?? []) {
+    out.tried++
+    const r = await applyLogoLookup(db, id, googleKey, fetchImpl)
+    if (r === 'quota') { out.quota++; break } // 한도 초과는 모든 공고에 같음 — 멈춤
+    if (r === 'retry_later') { out.later++; continue } // 이 공고만의 오류 — 다음 공고로
+    out.other++
+  }
+  return out
 }

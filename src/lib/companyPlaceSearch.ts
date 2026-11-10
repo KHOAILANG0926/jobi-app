@@ -151,3 +151,9 @@ export function companySearchText(company: string, address: string): string {
   const area = String(address ?? '').split(',').map((s) => s.trim()).filter(Boolean).slice(-2).join(', ')
   return `${company} ${area}`.trim()
 }
+
+/** Google 결과 저장 열쇠 — 위치 확인·로고·업종이 같은 함수(한 곳). 검색 글자(회사 이름 + 원문 주소)가 완전히 같을 때만 다시 쓴다
+ *  (Lee 2026-11-10 "나": 비슷한 사업장 자동 병합은 빼고 기존 완전 일치 방식). 배열인 것은 읽는 쪽이 차례로 찾는 모양을 그대로 쓰기 위함. */
+export function googleCacheKeys(company: string, address: string): string[] {
+  return [JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])]
+}

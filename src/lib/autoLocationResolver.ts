@@ -8,7 +8,7 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
-import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace } from './companyPlaceSearch'
+import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
@@ -25,6 +25,8 @@ export interface ResolverDeps {
   goong?(action: 'geocode' | 'autocomplete' | 'detail', params: Record<string, string>): Promise<unknown>
   /** 세 번째 자료 Google Places Text Search(Lee 2026-11-03). 키(Vercel GOOGLE_PLACES_API_KEY)가 없으면 건너뛴다. 공고당 1번. */
   google?(text: string): Promise<unknown>
+  /** 보류함 '못 찾음' 7일 뒤 다시 확인(Codex #619): 저장된 Google 결과를 쓰지 않고 새로 묻는다(새 결과는 같은 열쇠에 저장). */
+  refreshGoogle?: boolean
   /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
   wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
@@ -139,6 +141,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     // 공단 표에 있는 공단인데 확인된 입구가 없으면 공단 중심(출처 OSM)을 대략 위치 핀으로 — 상세 화면 지도와 같은 점(2026-10-20 Lee)
     if (park && validPoint({lat:park.lat,lng:park.lng})) return {kind:'area',lat:park.lat,lng:park.lng,source:`${park.source.provider} ${park.source.ref}`,checkedAt:at,evidence:reasons.join('\n')}
     // A known industrial park without a verified gate must not silently become a ward pin.
+    // 대략 위치로 돌아갈 때도 앞 단계 기록(google:quota 등)을 그대로 남긴다 — 한도 초과가 '못 찾음'으로 바뀌지 않게(Codex #619).
     // 공단 표에 없는 공단(예: "KCN Yên Phong"): VietMap에서 같은 이름의 공단 1곳을 찾아 대략 위치 핀(2026-10-20, Lee 10-13 '핀은 무조건').
     const unlisted = !park ? parkNameFromAddresses([...targets.map(t => t.address), job.location]) : null
     if (unlisted && !failed) {
@@ -146,7 +149,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
       const pick = pickParkHit(unlisted, hits)
       if (pick.hit?.ref_id && !pick.multiple) {
         const place = await query('place', {refid:pick.hit.ref_id}) as {lat?:number;lng?:number;city?:string} | null
-        if (parkPlaceOk(unlisted, place) && validPoint({lat:place!.lat!,lng:place!.lng!})) return {kind:'area',lat:place!.lat!,lng:place!.lng!,source:`VietMap ${pick.hit.ref_id} (KCN)`,checkedAt:at}
+        if (parkPlaceOk(unlisted, place) && validPoint({lat:place!.lat!,lng:place!.lng!})) return {kind:'area',lat:place!.lat!,lng:place!.lng!,source:`VietMap ${pick.hit.ref_id} (KCN)`,checkedAt:at,evidence:reasons.join('\n')}
       }
     }
     if (!park) {
@@ -158,7 +161,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
         const pick = pickWardHit(unit, hits)
         if (pick.hit?.ref_id && !pick.multiple) {
           const place = await query('place', {refid:pick.hit.ref_id}) as Parameters<typeof checkWardPlace>[1] | null
-          if (place && checkWardPlace(unit,place) === null && validPoint({lat:place.lat!,lng:place.lng!})) return {kind:'area',lat:place.lat!,lng:place.lng!,source:`VietMap ${pick.hit.ref_id}`,checkedAt:at}
+          if (place && checkWardPlace(unit,place) === null && validPoint({lat:place.lat!,lng:place.lng!})) return {kind:'area',lat:place.lat!,lng:place.lng!,source:`VietMap ${pick.hit.ref_id}`,checkedAt:at,evidence:reasons.join('\n')}
         }
       }
     }
@@ -221,15 +224,22 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
   reason: (reason: string) => void,
   verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>,
   use: { goong?: boolean; google?: boolean } = {}): Promise<LocationDecision | null> {
-  const ask = async (key: unknown[], call: () => Promise<unknown>) => {
-    const k = JSON.stringify(key)
+  // keys: 첫 열쇠에 저장, 읽을 때는 차례로(Google 열쇠는 googleCacheKeys 한 곳 — 검색 글자 완전 일치).
+  const ask = async (key: unknown[] | string[], call: () => Promise<unknown>, provider = String(key[1])) => {
+    const keys = provider === 'google' && key.every((x) => typeof x === 'string' && x.startsWith('[')) ? key as string[] : [JSON.stringify(key)]
     try {
-      const cached = await deps.cached(k)
-      if (cached !== null) return cached
+      for (const k of provider === 'google' && deps.refreshGoogle ? [] : keys) {
+        const cached = await deps.cached(k)
+        if (cached !== null) return cached
+      }
       const data = await call()
-      await deps.cache(k, data)
+      await deps.cache(keys[0], data)
       return data
-    } catch { reason(`${String(key[1])}:provider_failed`); return null }
+    } catch (e) {
+      // 한도(우리 월 한도 또는 Google 429)는 '못 찾음'이 아니다 → 따로 표시해 공고를 버리지 않고 보류한다(#560).
+      reason(`${provider}:${/quota_exhausted|upstream_failed_429/.test(String((e as Error)?.message)) ? 'quota' : 'provider_failed'}`)
+      return null
+    }
   }
   for (const target of targets.slice(0, 2)) {
     const address = target.address.trim() || job.location
@@ -248,7 +258,8 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     if (deps.google && use.google !== false) {
       // Ask Google exactly what the detail-page Google button asks (company, full address).
       const gText = googleSearchText(job.company, address)
-      const hits = googlePlaceHits(await ask(['company-v2', 'google', gText], () => deps.google!(gText)))
+      // 검색 글자가 완전히 같으면 저장된 결과를 다시 쓴다(googleCacheKeys 한 곳).
+      const hits = googlePlaceHits(await ask(googleCacheKeys(job.company, address), () => deps.google!(gText), 'google'))
       const pick = pickCompanyPlace(job.company, address, hits)
       if (!pick.hit) reason(`google:${pick.reason}`)
       const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null

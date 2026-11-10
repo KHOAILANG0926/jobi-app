@@ -2,8 +2,8 @@ name: 시험 - 위치 확인 방식 비교 (#560, 수동, 운영 DB 쓰기 없�
 
 # Lee 2026-11-09 승인: "200건 시험 수집과 기존 방식·새 4단계 방식의 비교 측정 … 기존 운영 공고와 DB는 변경하지 않고 시험 데이터로만".
 # 입력 = Facebook 미리 보기(crawl-facebook-one.yml mode=dryrun, 저장 없음) 실행 번호들. 미리 보기 파일은 1일만 보관되므로 그날 돌린다.
-# 운영 DB: 공고 저장·핀·캐시 쓰기 없음. Google Pro 호출만 운영과 같은 월 한도 예약(external_api_reserve)으로 센다 —
-#   시험 호출도 같은 키라 운영 카운터에 들어가야 무료 한도를 넘지 않는다(Codex #608 P1). 한도에 닿으면 시험이 멈춘다.
+# 운영 DB: 공고 저장·핀·캐시 쓰기 없음. Google 호출은 시험 몫(google_text_search_test 600/월, Lee 2026-11-09)을 먼저 예약하고,
+#   Pro는 운영 월 한도(google_text_search)에도 센다(무료 5,000은 같이 씀, Codex #608 P1). 하루 한 번·실행당 SearchText 40회까지.
 # 키: GitHub Secret만(GOOGLE_PLACES_API_KEY — Lee 2026-11-09 등록 결정, VIETMAP_SERVICE_KEY, 선택 GOONG_API_KEY).
 # 로그(공개 저장소)에는 건수만. 공고별 결과는 1일 보관 비공개 artifact.
 on:
@@ -38,11 +38,22 @@ jobs:
     env:
       IDS: ${{ inputs.dryrun_run_ids }}
       MAX_JOBS: ${{ inputs.max_jobs }}
+      # 한 번 실행의 Google SearchText(Pro+IDs Only) 합계. 하루 한 번만 돌므로 하루 시험량도 이만큼(운영 몫 보호, Lee 2026-11-09).
+      TEST_SEARCH_CAP: '40'
     steps:
       - name: 입력 확인
         run: |
           echo "$IDS" | grep -Eq '^[0-9]+(,[0-9]+)*$' || { echo "::error::실행 번호 형식 오류(숫자, 쉼표)"; exit 1; }
           echo "$MAX_JOBS" | grep -Eq '^[0-9]{1,3}$' && [ "$MAX_JOBS" -le 300 ] || { echo "::error::max_jobs는 300 이하"; exit 1; }
+      - name: 시험은 하루 한 번(운영 몫 보호, Lee 2026-11-09)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Google 하루 한도는 시험·운영이 같이 쓴다(같은 프로젝트). 베트남 날짜로 오늘 이미 돈 시험이 있으면 멈춘다(취소·건너뜀 제외).
+          today=$(TZ=Asia/Ho_Chi_Minh date +%Y-%m-%d)
+          n=$(gh run list -R "$GITHUB_REPOSITORY" -w location-ladder-compare.yml -L 20 --json databaseId,createdAt,conclusion \
+            --jq "[.[] | select(.databaseId != ${{ github.run_id }}) | select(.conclusion != \"cancelled\" and .conclusion != \"skipped\") | select((.createdAt | fromdateiso8601 + 25200 | strftime(\"%Y-%m-%d\")) == \"$today\")] | length")
+          [ "$n" = 0 ] || { echo "::error::오늘(베트남 시간) 시험을 이미 했음 — 내일 다시"; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -68,7 +79,7 @@ jobs:
           month=$(TZ=Asia/Ho_Chi_Minh date +%Y-%m-01)
           used=$(curl -fsS "$SUPABASE_URL/rest/v1/external_api_calls?api=eq.google_text_search&month=eq.$month&select=calls" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0]?.calls??0))')
-          echo "::notice::Google Text Search 이번 달 사용 ${used}회(이전 시험 포함) / 한도 4,500 · 이번 시험 최대 ${MAX_JOBS}회(운영 카운터에 예약하며 셈)"
+          echo "::notice::Google Text Search 이번 달 운영 몫 사용 ${used}회 / 4,500 · 이번 시험 SearchText(Pro+IDs) 최대 ${TEST_SEARCH_CAP}회(시험 몫 600/월에서 먼저 셈, Pro는 운영 몫에도 셈)"
           # 운영 몫을 남긴다: 시험 뒤에도 1,000회 이상 남을 때만 시작(한도 도달 시 예약이 거절돼 시험이 먼저 멈춤).
           [ $((used + MAX_JOBS)) -le 3500 ] || { echo "::error::시험 뒤 운영 몫이 1,000회 미만 — 시험 중단"; exit 1; }
       - name: 비교 실행

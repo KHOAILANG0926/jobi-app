@@ -96,6 +96,13 @@ jobs:
         run: |
           node --experimental-strip-types src/lib/businessType.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/business-type.mjs
+      - name: 로고 찾기 한도 초과 공고 다시 시도 (Lee 2026-11-09 — 한도 초과는 영구 실패가 아님, 6시간 지난 것만 최대 10건, 같은 월 한도)
+        if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
+        continue-on-error: true
+        run: |
+          # 결과는 건수만(공고 내용·키 출력 없음). 서버가 안 되면 다음 실행에 다시.
+          curl -fsS -m 60 -X POST https://www.viecganban.vn/api/location-hook -H 'content-type: application/json' \
+            -H "authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -d '{"logo_retry":{"limit":10}}' || echo "::warning::로고 다시 시도 서버 응답 없음(다음 실행에 다시)"
       - name: 상세요강 다시 채우기 (2026-11-01 — AI가 방금 정한 칸을 같은 실행에서 반영, 다음 실행까지 기다리지 않음)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: node --experimental-strip-types scripts/ocr/detail-fill.mjs

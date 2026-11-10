@@ -2,14 +2,15 @@
 // Google 검색을 새로 하지 않는다: 위치 확인이 이미 물어 저장해 둔 Google 결과(같은 검색어·같은 같은 이름 1곳·원래 성 안)에서
 // 장소 번호만 꺼낸다. 웹사이트는 그 장소 번호로 한 번만 묻고(월 한도는 DB external_api_reserve) 결과는 공고에 기록한다.
 import type { ResolverJob } from './autoLocationResolver'
-import { googlePlaceHits, googleSearchText, pickCompanyPlace, type GooglePlaceHit } from './companyPlaceSearch'
+import { googleCacheKeys, googlePlaceHits, pickCompanyPlace, type GooglePlaceHit } from './companyPlaceSearch'
 import { companyLogoUrl, jobImagePublicUrl } from './companyLogo'
 import { brandFor, brandLogoFor } from './brandLogo'
 import type { BrandDefinition } from '../data/brandDirectory'
 import type { Job } from '../types/job'
 
 /** 위치 확인과 같은 저장 열쇠(autoLocationResolver resolveByCompanyName의 Google 단계). */
-export const googleCacheKey = (company: string, address: string) => JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])
+/** Google 결과 저장 열쇠(위치 확인과 같은 googleCacheKeys). */
+export const googleCacheKey = (company: string, address: string) => googleCacheKeys(company, address)[0]
 
 /** 위치 확인이 저장해 둔 Google 결과에서 같은 회사 1곳(원래 성 안). 저장된 결과가 없으면 null(새로 묻지 않음).
  *  로고 찾기(장소 번호)와 업종 판정(장소 종류, Lee 2026-11-08)이 같은 판정을 쓴다. */
@@ -21,7 +22,12 @@ export async function cachedGooglePlace(
   if (!job.company.trim()) return null
   const addresses = [...new Set([...job.targets.map((t) => t.address.trim()), job.location].filter(Boolean))]
   for (const address of addresses) {
-    const hits = googlePlaceHits(await cached(googleCacheKey(job.company, address)))
+    let stored: unknown = null
+    for (const k of googleCacheKeys(job.company, address)) {
+      const got = await cached(k)
+      if (got !== null) { stored = got; break }
+    }
+    const hits = googlePlaceHits(stored)
     const pick = pickCompanyPlace(job.company, address, hits)
     const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null
     if (hit && await within([address, job.location], hit)) return hit

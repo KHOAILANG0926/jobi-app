@@ -57,6 +57,11 @@ function runtime() {
     },
     // 원문 주소 읽기만(Lee 2026-11-07 주소 읽기 한 곳): 지도·Google 조회 없음. 이미 올라간 공고 다시 수집이 쓴다.
     readAddress: async (input) => (await loadRuntime()).readLocationOnly(input),
+    // 로고 찾기 한도 초과 공고 다시 시도(Lee 2026-11-09). 정기 검사(job-ocr-check)가 30분마다 부른다.
+    logoRetry: async (input) => {
+      const { retryQuotaLogos } = await loadRuntime()
+      return retryQuotaLogos(db, process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY, Number(input?.limit) || 10)
+    },
   }
 }
 
@@ -69,12 +74,13 @@ export function createLocationHookHandler(injected) {
     if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = null } }
     let deps
     const mode = body && typeof body.precheck === 'object' && body.precheck ? 'precheck'
-      : body && typeof body.read_address === 'object' && body.read_address ? 'readAddress' : null
+      : body && typeof body.read_address === 'object' && body.read_address ? 'readAddress'
+      : body && typeof body.logo_retry === 'object' && body.logo_retry ? 'logoRetry' : null
     if (mode) {
       if (!token) return res.status(400).json({ error: 'invalid_request' })
       try { deps = injected || runtime() } catch { return res.status(503).json({ error: 'not_configured' }) }
       if (!(await deps.serviceKeyOk?.(token))) return res.status(401).json({ error: 'unauthorized' })
-      try { return res.status(200).json(await deps[mode](mode === 'precheck' ? body.precheck : body.read_address)) }
+      try { return res.status(200).json(await deps[mode]({ precheck: body.precheck, readAddress: body.read_address, logoRetry: body.logo_retry }[mode])) }
       catch { console.error(`api/location-hook: ${mode} failed`); return res.status(503).json({ error: 'location_service_unavailable' }) }
     }
     const jobId = Number(body?.job_id)

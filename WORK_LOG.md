@@ -1,3 +1,14 @@
+## 2026-11-10 새벽 — Google 한도: 사업장 중복 검색 줄임·한도 초과 보류·로고 재시도·시험 몫 (Lee 11-09 5개 지시)
+- ① Google 결과 다시 쓰기: 검색 글자(회사 이름 + 원문 주소) 완전 일치만(googleCacheKeys, 위치·로고·업종 같은 함수, 열쇠는 #619 전과 같음). 11-10 Lee "나": 비슷한 사업장 자동 병합(번지·공단·구획·동 열쇠)은 위치가 잘못 붙을 위험이 있어 뺌.
+- 11-10 오전: 비슷한 사업장 병합 제외(위치 고르는 판정은 master와 같음 — 저장 열쇠만 같음 확인) · '못 찾음' 다시 확인이 한도에 막혀도 다음에 새로 묻기 유지(Codex P2).
+- ② 한도 초과(우리 월 한도·Google 429)·확인 서버 오류 = google_quota/precheck_unavailable → 크롤러 입구가 버리지 않고 보류함(research_artifacts location-hold, 지우지 않음)에 넣고 다음 수집 실행 첫머리에 최대 5건 다시 확인(아직 한도면 첫 건에서 멈춤, 14일 지나면 expired 표시). '못 찾음'은 지금처럼 수집 안 함.
+- ③ 로고 quota는 영구 결과 아님: 다시 묻고, 정기 검사(job-ocr-check)가 30분마다 6시간 지난 quota 최대 10건 다시 시도(location-hook logo_retry). Google 429도 quota.
+- ④ Google 결과 30일 정리: 이번 PR에서 제외(Lee 11-10 — migration·정기 실행·30일 지난 결과 다시 묻기 모두 뺌).
+- ②-2 위치 못 찾은 공고(Lee 11-09 "예"): 공고 목록에 넣지 않고 같은 보류함에 비공개 보관(unfound), 7일 뒤 다시 확인 최대 2번, 찾으면 같은 입구로 등록. 수수료 소개소·회사 이름 없음은 보관 안 함. CLAUDE.md 「수집 첫 단계」 줄 갱신.
+- ⑤ 시험 몫 google_text_search_test 600/월(migration 20261110090000, 한 줄 추가) — 시험 도구가 Pro·IDs 모두 먼저 예약, Pro는 운영 몫에도. 시험은 베트남 날짜 하루 한 번, 실행당 SearchText 40회.
+- 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
+- 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft). 이어서 Codex 새 지적 2건(Lee "둘 다 고쳐"): 한도 초과 뒤 공단·동 중심 대략 위치로 가도 한도 기록 유지(→ 보류, 7일 뒤 아님) · 새 공고 없는 수집 실행에서도 보류 공고 다시 확인(retry_held_once, Facebook·TopCV 저장 입구, 선택·검증 저장 제외). 로고 다시 시도(Codex P2, Lee 지시): Google이 장소 번호 없음(404 NOT_FOUND) 확인 → no_place로 끝(같은 번호 다시 안 물음, 공고·위치 그대로), 일시 오류 → quota로 다시 기록해 줄 뒤로·다음 공고 계속, Google 한도(429)·장애(503)만 묶음 멈춤, 등록 14일 지난 공고는 다시 시도 안 함(보류함 한도 초과 기한과 같음). 이어서(Lee "두 건 모두"): 숫자 동·구(Phường 1/2, Quận 3)를 사업장 열쇠에서 구분(P.1·P1은 같은 곳) · 보류함 '못 찾음' 7일 뒤 다시 확인은 저장된 Google 결과를 쓰지 않고 새로 물음(recheck → refreshGoogle).
+
 ## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
 - 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).
 - 변경: 모르는 slug → /chu-de/ky-tuc-xa로 replace, 지역 칸 = REGION_MACRO_TABS 34개 성(메인·검색과 같은 목록). 판정 함수는 원래 34개 공통이라 그대로. 화면 틀 그대로.
@@ -43,41 +54,3 @@
 - #587: 예전 커밋 Codex 지적에 답 없으면 30분 통과 안 함, Codex 없이 운영·보안·DB 파일 바뀐 PR은 needs-lee로 멈춤(check-repository-policy 기존 목록 재사용).
 - 운영 SQL: master·Lee 계정 실행만, 허용 = 입구로 기존 공고 고치기 1줄(job_id+update_fields) + 조회, 입구 호출 뒤 읽기 전용(DB가 쓰기 거부, 로컬 PostgreSQL 16 확인), 실행 전 입구 호출 권한 확인. 예전 파일 4개(cleanup·kda×2·mao-yen)는 이제 실행 안 됨(실행 끝난 기록).
 - 남은 것: 접속 계정이 관리자급인지 첫 실행 로그로 확인 → 관리자급이면 전용 계정 분리는 Lee 결정(비밀값 변경).
-
-## 2026-11-09 오전 — 구조 단순화 1차 (Lee "덧붙이기 전에 고치기·합치기·지우기")
-- 상세 틀 3→2(Lee "적용"): 예전 Quyền lợi 틀 3건(sb-4878·4879·4982)을 새 4칸 틀로, 그 틀 전용 코드(splitQuyenLoi·takeRequirementLines·Quyền lợi 상자·contactHost quyenloi) 삭제. KDA·데이터 그대로.
-- 함께 낸 PR: #583 Codex 자동 대응 잡 중지(실행 0회), #584 안 쓰는 파일 15개·자동 작업 3개 삭제, #585 DB 검사 파일별 예외 27곳 → 이름 규칙(setup/local), #587 Codex 줄 지적은 처음 단 커밋 기준, #588 규칙 문서 513→371줄 + 원칙 8·PR 양식·Codex 검토 기준. 해결된 경보 글 21개 닫음.
-- 조사만(Lee 결정 대기): 「운영 - 지정 SQL 실행」은 수정·삭제 문장을 막지 않아 승인 절차 우회 가능 → 입구 호출·조회만 허용하는 제한안. #586 운영 헤더 검사 11-04 이후 미실행.
-- 검증: tsc·npm test 119/119·build·desktop baseline 8/8.
-
-## 2026-11-09 아침 — 공고 작성 화면·상세 템플릿 알바몬 맞춤 (Lee "적용")
-- 요청: 알바몬 실제 공고(120083527)·알바몬 일반공고 작성 화면과 나란히 비교한 차이 고치기.
-- 변경: 상세 템플릿 PC 가운데 정렬·빈 회사 이름 안내 글자 숨김·미리보기 창 글자체 Inter(AlbamonTemplate.tsx/.css). /dang-tin 흰 바탕(이 화면만), 업직종 짧은 버튼+선택 창(검색·Ngành|Chi tiết), 근무기간 7칸+Thỏa thuận 체크(글자 잘림), 사진 4칸+동영상 2칸 자리(동영상 저장 칸 없음 → sắp có), 불필요 안내 문구 삭제, Hình thức 0/2 숫자(PostJob.tsx/.css).
-- 버그 수정: 고용주 사진이 저장소에만 올라가고 공고 image_url에 연결되지 않던 문제 → image_url + images(저장소 경로) 저장(JobsContext.tsx, ingest_job이 local_jobs 칸을 그대로 받음, DB 변경 없음).
-- 알바몬 확인(Lee 크롬, 저장 없음): 공고사진 4칸(사진첩 최대 30장, 500KB 미만 jpg·gif·png), 동영상 2칸 = 유튜브 링크만(30분 이내).
-- 검증: tsc·build 통과, 로컬 Playwright PC·모바일 화면 확인, 데모 Lee 크롬에서 확인.
-- 남은 것: 동영상(유튜브 링크) 저장 칸 = DB 변경 → Lee 결정. 빠른 등록에 Tuyển liên tục 보일지 Lee 결정. #579(연락처 없는 미리보기 상자 겹침).
-
-## 2026-11-09 새벽 — 밤 근무 4회차: 템플릿 모바일 미리보기 치우침 #577 (Claude)
-- 발견(#571 확인 중): 간편 템플릿 'Xem trước' Mobile 새 창(420px)에서 내용이 왼쪽 43px·오른쪽 16px로 치우침. PC용 `body.amt-pvwin .amt-pv { margin-left: 27px }`이 `.amt-pv--m { margin: 0 auto }`를 덮음.
-- 변경: src/components/template/AlbamonTemplate.css 한 줄 `body.amt-pvwin .amt-pv--m { margin-left: auto }`(새 창 미리보기만).
-- 검증: tsc·npm test 119/119·build 통과, 로컬 Playwright 모바일 창 16/16px·PC 창 27px 그대로.
-- #571: 같은 SHA(fa5e275) 로컬 화면으로 /dang-tin 템플릿 그림·흐림·검정 제목 PC·모바일 확인. 운영 주소 눈 확인은 이 환경 접속 막힘으로 남음.
-
-## 2026-11-09 새벽 — 밤 근무 3회차: #570 운영 반영·#566 Codex 대기 장치·#575 봇 다시 보기 (Claude)
-- #570(Lee "적용"): Codex P1(예전 저장 공고 흰 제목 위 흐림) → 흐림을 새 템플릿 클래스 amt-visual--fade에만(AlbamonTemplate.tsx·.css). 병합 f8aa798, deploy-verify 성공.
-- #566: Codex P2(왕복 횟수 장치가 아무 계정 답이나 셈) → claude-auto.yml이 REPLY_AUTHORS만 셈 + 목록 일치 시험. 병합 1d6fd88.
-- #575(#574): 예약 실행(*/15)이 안 돌아 Codex 대기 PR이 멈춤 → bot-pr-automerge.yml이 Codex 리뷰·요약 댓글·Claude 답 도착 때 다시 보고, 'Codex 검사 대기(x/30분)'이면 codex-wait-timer.yml이 남은 분 뒤 다시 부름. 병합 184d753.
-- 검증: 각 tsc·npm test 119/119·build 로컬 통과, PR 필수 검사 통과, deploy-verify 42514709892·42514737829 성공.
-- 남은 것: 운영 /dang-tin 템플릿 그림 PC·모바일 눈 확인(이 근무 환경은 운영 주소 접속 막힘, #571).
-
-## 2026-11-08 밤 — 봇 병합 뒤 검사·문서만 바뀐 커밋도 운영 검사 (Claude 밤 근무)
-- 발견: #565·#568(시험·문서만) 봇 병합 뒤 vercel-deploy가 workflow_dispatch로 돌아 "앱 변경 없음, 운영 그대로" 기록 단계(push 전용)를 건너뜀 → deploy-verify 시작 안 됨, 수동 시작 시 20분 대기 실패(#572).
-- 변경: .github/workflows/vercel-deploy.yml — 그 기록 단계를 workflow_dispatch에도 실행하고, dispatch일 때 deploy-verify를 시작.
-- 검증: YAML 읽기 확인. 실제 확인은 이 PR 병합 뒤 운영 검사 실행.
-
-## 2026-11-08 밤 — 휴대폰 메인 검사(mobile-home) 고장 고침 #559 (Claude 밤 근무)
-- 요청: ai-team 이슈 #559(지도 못 그리는 휴대폰에서 안내 45초 안 보여 실패).
-- 원인: 11-05부터 WebGL이 없으면 안내 대신 대체 지도(RasterMapCanvas)를 그림. 안내는 바탕 그림을 못 받을 때만 나와 시험 기대가 낡음(화면 버그 아님). 11-05 fix/map-webgl-unavailable 실행부터 계속 실패.
-- 변경: scripts/test-mobile-home.mjs — 안내 대신 대체 지도(data-map-provider="raster")가 보이는지 확인. 화면 코드 변경 없음.
-- 검증: tsc·npm test 119/119·build 통과, 로컬 WebGL 막은 390px에서 대체 지도 표시 확인.
