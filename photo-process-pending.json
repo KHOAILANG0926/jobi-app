@@ -1,0 +1,83 @@
+{
+  "kind": "source_inventory_not_live_verification",
+  "complete": false,
+  "rows": [
+    {
+      "file": "fb-bao-an-vcc-20261103.json",
+      "company": "Công ty Cổ phần Dịch vụ Bảo vệ Bảo An VCC",
+      "complete": false,
+      "stage": "search_pending",
+      "reason": "공식 출처와 선택한 원본 이미지 주소 필요"
+    },
+    {
+      "file": "fb-dookki-bacninh-20261104.json",
+      "company": "DOOKKI",
+      "complete": false,
+      "stage": "search_pending",
+      "reason": "공식 출처와 선택한 원본 이미지 주소 필요"
+    },
+    {
+      "file": "fb-hojeong-tamson-20261106.json",
+      "company": "CÔNG TY TNHH HOJEONG",
+      "complete": false,
+      "stage": "search_pending",
+      "reason": "공식 출처와 선택한 원본 이미지 주소 필요"
+    },
+    {
+      "file": "fb-joythai-20261103.json",
+      "company": "JOY THÁI",
+      "complete": false,
+      "stage": "store_pending",
+      "reason": "찾았지만 저장·연결 미완료. 브랜드 비대상도 저장 생략 사유가 아님"
+    },
+    {
+      "file": "fb-new-teamrobotics-20261104.json",
+      "company": "NEW TEAM ROBOTICS VIETNAM",
+      "complete": false,
+      "stage": "fallback_pending",
+      "reason": "공고 등록은 유지. 검색어·확인한 출처·못 찾은 이유를 남기고 사진 재처리 대상에 유지"
+    },
+    {
+      "file": "fb-nhe-cafe-20261106.json",
+      "company": "nhẹ cafe – Bách Nghệ Kinh Bắc",
+      "complete": false,
+      "stage": "search_pending",
+      "reason": "공식 출처와 선택한 원본 이미지 주소 필요"
+    },
+    {
+      "file": "fb-phucloc-20261106.json",
+      "company": "CÔNG TY CỔ PHẦN BẤT ĐỘNG SẢN PHÚC LỘC",
+      "complete": false,
+      "stage": "search_pending",
+      "reason": "공식 출처와 선택한 원본 이미지 주소 필요"
+    },
+    {
+      "file": "fb-regal-edu-van-duong-20261104.json",
+      "company": "Regal Edu Vân Dương",
+      "complete": false,
+      "stage": "store_pending",
+      "reason": "찾았지만 저장·연결 미완료. 브랜드 비대상도 저장 생략 사유가 아님"
+    },
+    {
+      "file": "fb-tam-ho-nhat-hach-20261104.json",
+      "company": "Nhà hàng Tâm Hồ Nhất Hạch",
+      "complete": false,
+      "stage": "fallback_pending",
+      "reason": "공고 등록은 유지. 검색어·확인한 출처·못 찾은 이유를 남기고 사진 재처리 대상에 유지"
+    },
+    {
+      "file": "fb-thanh-phe-20261104.json",
+      "company": "Nhà hàng Thanh Phệ",
+      "complete": false,
+      "stage": "fallback_pending",
+      "reason": "공고 등록은 유지. 검색어·확인한 출처·못 찾은 이유를 남기고 사진 재처리 대상에 유지"
+    },
+    {
+      "file": "fb-vua-nem-20261102.json",
+      "company": "Vua Nệm",
+      "complete": false,
+      "stage": "search_pending",
+      "reason": "회사명·공고 제목·검색 기록 필요"
+    }
+  ]
+}

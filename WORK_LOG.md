@@ -1,11 +1,12 @@
-## 2026-11-10 새벽 — Google 한도: 사업장 중복 검색 줄임·한도 초과 보류·로고 재시도·30일 저장·시험 몫 (Lee 11-09 5개 지시)
+## 2026-11-10 새벽 — Google 한도: 사업장 중복 검색 줄임·한도 초과 보류·로고 재시도·시험 몫 (Lee 11-09 5개 지시)
 - ① 같은 사업장 = 회사 핵심 이름 + (번지+도로 또는 공단) + 원래 성 → Google 결과 저장 열쇠 하나(googleCacheKeys, 위치·로고·업종 같은 함수). 번지·도로·공단(번호 포함)·성이 다르면 다른 열쇠, 예전 글자 열쇠 결과도 그대로 읽음. 고르는 판정(pickCompanyPlace)은 공고마다 그대로.
 - ② 한도 초과(우리 월 한도·Google 429)·확인 서버 오류 = google_quota/precheck_unavailable → 크롤러 입구가 버리지 않고 보류함(research_artifacts location-hold, 지우지 않음)에 넣고 다음 수집 실행 첫머리에 최대 5건 다시 확인(아직 한도면 첫 건에서 멈춤, 14일 지나면 expired 표시). '못 찾음'은 지금처럼 수집 안 함.
 - ③ 로고 quota는 영구 결과 아님: 다시 묻고, 정기 검사(job-ocr-check)가 30분마다 6시간 지난 quota 최대 10건 다시 시도(location-hook logo_retry). Google 429도 quota.
-- ④ 약관: 새 Google 결과에 저장 시각, 30일 지난 결과는 안 씀. 정기 검사가 30일 지난 Google 결과를 장소 번호만 남기고 비움(줄 삭제 없음, migration 함수 google_cache_expire — 직접 SQL 아님). 남은 판단(Lee): 공고 위치 원본에 Google 좌표 영구 저장, Google 아닌 지도에 Google 결과 표시.
+- ④ Google 결과 30일 정리: 이번 PR에서 제외(Lee 11-10 — migration·정기 실행·30일 지난 결과 다시 묻기 모두 뺌).
 - ②-2 위치 못 찾은 공고(Lee 11-09 "예"): 공고 목록에 넣지 않고 같은 보류함에 비공개 보관(unfound), 7일 뒤 다시 확인 최대 2번, 찾으면 같은 입구로 등록. 수수료 소개소·회사 이름 없음은 보관 안 함. CLAUDE.md 「수집 첫 단계」 줄 갱신.
 - ⑤ 시험 몫 google_text_search_test 600/월(migration 20261110090000, 한 줄 추가) — 시험 도구가 Pro·IDs 모두 먼저 예약, Pro는 운영 몫에도. 시험은 베트남 날짜 하루 한 번, 실행당 SearchText 40회.
 - 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
+- 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft).
 
 ## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
 - 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).
