@@ -271,6 +271,7 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
         client.table("research_artifacts").upsert(
             {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload, "meta": meta},
             on_conflict="kind,name", ignore_duplicates=True).execute()
+        print(f"  ⏸️  보류함 보관(비공개): {status} · {reason or '-'} — {str(job.get('title') or '')[:60]}")
     except Exception as exc:  # noqa: BLE001
         # 보관 못 하면 '거부'로 넘기지 않는다 — 수집기가 본 글로 표시해 공고를 잃지 않게 실행을 실패시킨다(Codex #619 P1).
         raise HoldStoreError("hold_store_failed: 보류함 저장 실패 — 이 글은 본 글로 표시하지 않음") from exc

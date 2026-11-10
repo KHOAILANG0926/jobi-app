@@ -47,7 +47,13 @@ jobs:
             select coalesce(jsonb_agg(to_jsonb(i) order by issue,job_id,work_location_id),'[]'::jsonb)
             from public.location_integrity_issues() i;
           " | node scripts/ci/location-integrity-report.mjs)
-          note=$(printf '%s\n\n%s' "$note" "$integrity")
+          # 위치 보류함(#619, Lee 2026-11-10 실제 동작 확인): 상태별 건수만 읽는다(공고 내용·원문은 보고에 넣지 않음).
+          holds=$(psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+            select coalesce(string_agg(s||' '||n, ' · ' order by s),'없음') from (
+              select coalesce(meta->>'status','?') s, count(*) n from public.research_artifacts
+              where kind='location-hold' group by 1) t;
+          ")
+          note=$(printf '%s\n위치 보류함(비공개): %s\n\n%s' "$note" "$holds" "$integrity")
           echo "$note" | tee -a "$GITHUB_STEP_SUMMARY"
           title="저녁 8시 운영 보고 — 위치 확정"
           issue=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
