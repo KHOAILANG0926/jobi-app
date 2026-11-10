@@ -140,6 +140,20 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   }
   assert.deepEqual(recentPrsFor({ files: ['src/lib/companyReader.ts'], self: 1, now: Date.parse('2026-11-10T16:00:00Z'), api: big }).map((x) => x.num), [9])
 }
+// Codex 지적: 열린 PR 목록 둘째 페이지의 PR에서만 파일이 겹쳐도 찾음
+{
+  const recent = (i) => ({ number: 1000 + i, title: `다른 일 ${i}`, updated_at: '2026-11-10T15:00:00Z' })
+  const paged = (path) => {
+    if (path.startsWith('commits?')) return []
+    if (path.startsWith('pulls?')) {
+      const page = Number(/page=(\d+)/.exec(path)[1])
+      return page === 1 ? Array.from({ length: 100 }, (_, i) => recent(i)) : [{ number: 7, title: '같은 파일 고침', updated_at: '2026-11-10T14:00:00Z' }]
+    }
+    const n = Number(/pulls\/(\d+)\/files/.exec(path)[1])
+    return n === 7 ? [{ filename: 'src/lib/companyReader.ts' }] : [{ filename: 'x.ts' }]
+  }
+  assert.deepEqual(recentPrsFor({ files: ['src/lib/companyReader.ts'], self: 1, now: Date.parse('2026-11-10T16:00:00Z'), api: paged }).map((x) => x.num), [7])
+}
 // 그 PR을 열어 봤는지(#666 2단계): 제목 낱말이 줄에 하나도 없으면 실패
 {
   assert.deepEqual(titleWords('fix(ci): 회사 이름 규정 HAIDILAO (#616)'), ['회사', '이름', '규정', 'haidilao'])

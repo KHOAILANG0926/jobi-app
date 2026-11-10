@@ -109,8 +109,14 @@ export function recentPrsFor({ files, self, now = Date.now(), api }) {
       if (n !== self && !need.has(n)) need.set(n, { why: `최근 ${f}를 바꾼 병합 PR`, words: titleWords(t) })
     }
   }
-  const open = api('pulls?state=open&sort=updated&direction=desc&per_page=30')
-    .filter((p) => p.number !== self && Date.parse(p.updated_at) >= now - 3 * 864e5)
+  // 열린 PR 목록도 끝 페이지까지(최근 갱신 순이라 3일 범위를 벗어나는 PR이 나오면 거기서 멈춤)
+  const cutoff = now - 3 * 864e5
+  const open = []
+  for (let page = 1; page <= 30; page++) {
+    const got = api(`pulls?state=open&sort=updated&direction=desc&per_page=100&page=${page}`)
+    open.push(...got.filter((p) => p.number !== self && Date.parse(p.updated_at) >= cutoff))
+    if (got.length < 100 || got.some((p) => Date.parse(p.updated_at) < cutoff)) break
+  }
   for (const p of open) {
     // 파일 목록은 끝 페이지까지(100개 넘는 큰 PR에서 뒤쪽 공통 파일을 놓치지 않게)
     const all = []
