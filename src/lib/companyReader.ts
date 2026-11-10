@@ -39,6 +39,8 @@ function clean(c: string): string {
 function ok(c: string): string {
   const v = clean(c)
   if (!v || v.length > MAX || /[!?]$/.test(v) || !hasNameWord(v) || /^(?:cong ty|cty)(?: (?:tnhh|cp|co phan))?$/.test(fold(v))) return '' // "Công ty"만은 이름이 아니다
+  // "CÔNG TY MÌNH"(자기 회사를 부르는 말, #633): 성조 붙은 'mình'만 — 접기 전에 봐야 이름 "Công ty Minh Anh"를 살린다(Codex #663)
+  if (/^(?:công ty|cty)\s+mình(?=\s|$)/iu.test(v)) return ''
   return v
 }
 
@@ -124,8 +126,12 @@ export function readCompany(text: string): CompanyRead {
     for (const l of lines.slice(0, 4)) {
       if (!/tuyển dụng|cần tuyển|tuyển\b|tìm đồng đội|tìm kiếm|bổ sung nhân sự/iu.test(l)) continue
       const c = l.replace(/\s*[-–]?\s*(?:đang\s+)?(?:mở\s+(?:đợt\s+)?)?(?:cần tuyển|tuyển dụng|tuyển gấp|tuyển|tìm đồng đội|tìm kiếm|bổ sung nhân sự)(?=\s|[:：!–-]|$).*$/iu, '').replace(/\s*thông báo\s*$/iu, '')
-        .replace(/^\[[^\]]{0,40}\]\s*/u, '') // "[Kinh Bắc - Bắc Ninh] Trang sức Huy Thanh"(#560)
-      if (ok(c)) return ok(c)
+        .replace(/\s+(?:ở|tại)\s.*$/iu, '') // "CÔNG TY MÌNH Ở KHÚC XUYÊN CẦN TUYỂN": 뒤 장소 말은 이름이 아니다(②와 같은 규칙, #633)
+      // "[Kinh Bắc - Bắc Ninh] Trang sức Huy Thanh"(#560): 대괄호는 장소 → 뒤가 이름. 뒤가 비면 대괄호 안이 이름("[ HAIDILAO VINCOM BẮC NINH ] TUYỂN DỤNG", #633)
+      const bracket = c.match(/^\[([^\]]{0,40})\]\s*/u)
+      if (bracket && ok(c.slice(bracket[0].length))) return ok(c.slice(bracket[0].length))
+      if (bracket && !c.slice(bracket[0].length).trim() && ok(bracket[1])) return ok(bracket[1])
+      if (!bracket && ok(c)) return ok(c)
     }
     return ''
   }
