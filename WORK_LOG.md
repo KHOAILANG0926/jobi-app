@@ -1,3 +1,8 @@
+## 2026-11-10 밤 — 상세 ④ 꾸민 본문 + 업종별 색 13가지 (Lee "처음으로 마음에 드는", "가자", #655)
+- 알바몬 쿠팡 공고 참고: 그림 머리 아래 큰 급여·상여 알약(원문 대문자 줄)·형광펜 소제목·아이콘 카드·채용 절차 화살표(원문 단계 낱말, 부정 표현이면 생략)·복리후생 타일·큰 전화 버튼. src/components/DetailRich.tsx, src/lib/detailRich.ts, 색 albamonTemplate DETAIL_PALETTE(13색, 금액 빨강·흰 카드 통일).
+- 운영 확인 [직접 확인]: sb-5876 PC·모바일 꾸민 본문·앰버 색·tel 버튼·가로 넘침 없음, KDA sb-4824 그대로. deploy-verify 42837555553 통과.
+- 남은 것: 봇 커밋마다 PR 표 SHA 옛 근거·취소된 중복 실행이 봇 병합을 막음 → 매번 수동 정리(#648 우선 처리 필요).
+
 ## 2026-11-10 밤 — 상세 10-30 확정 구성 + 업종 그림 머리 + 급여 칸 정리 (Lee "Ok" 적용, #653)
 - ① Mức lương 금액 + "chưa/đã gồm tăng ca", Phụ cấp·Thưởng 상여 줄(최대 3줄) / ② Yêu cầu khác / ④ Nội dung công việc·Tăng ca·Môi trường làm việc·Quy trình tuyển dụng·Liên hệ + #563 업종 그림 머리. 번호 붙은 원문 소제목(2. CÔNG VIỆC 등)도 소제목으로. 구현 src/lib/jobQuyenLoi.ts albamonCompose·albamonConditionLines.
 - Codex 지적 4건(KDA 그림 제외, 금액 더 있는 급여 내역 보존, 보험 문장 ④ 보존, 'không bao gồm tăng ca') 봇이 반영.
@@ -51,7 +56,3 @@
 - 시험: 30건 실제 원문·Google 후보로 사례 추가(바로 읽기 9, 고르기 4, 보류 9). 예전 기대값 3곳 변경: EAGLEON 이름에서 공단 말 뺌, KCN 원문인데 Google이 시내 거리면 따르지 않음(locationProcess), logoLookup 시험 후보 주소를 실제처럼.
 - 검증: tsc · npm test 115/115 · build. Codex 지적 7건 반영(왕복 5회 넘어 needs-lee).
 - 수정 전후 [직접 확인 run 42607934688 → 42618711506, Bắc Ninh 30건, Pro 방식]: 위치 찾음 1 → 4(Trung Nguyên 27 Kinh Dương Vương · New Phoenix · Kingsport · Fushan VSIP — 원문과 대조해 모두 맞음), 잘못 확정 0. 다른 거리·공단 후보 보류: Minh Nguyệt·Đại Tân Việt. 4단계는 같은 표본에서 5건이지만 Sen Tài Thu를 Pro와 다른 곳(10.9km)으로 잡음 → 정확도 위험.
-## 2026-11-09 밤 — #579 연락처 없는 공고 PC 안내 상자 겹침 (Lee "2번")
-- 원인: 연락처 없을 때도 연락 상자가 제목 줄 오른쪽 절대 위치라, 키 큰 안내 상자가 아래 표·지도를 덮음.
-- 변경: 연락처 없을 때만(jd2-aside--no-contact) PC에서 흐름 안에 둠. 연락처 있을 때 Gọi/Zalo 배치(승인된 틀)는 그대로, 모바일 그대로.
-- 검증 [직접 확인]: 로컬 빌드 미리보기(/xem-truoc-tin) PC 1366 — 전화 없음: 겹침 0, 전화 있음: 기존 절대 위치 그대로. tsc·시험·빌드 통과.
