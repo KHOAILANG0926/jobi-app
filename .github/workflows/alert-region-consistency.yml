@@ -1,0 +1,17 @@
+name: 확인 - 알림 지역 판정과 화면 지역 판정 대조 (#625, 읽기 전용)
+# Lee 2026-11-10 #625 조건 3. 공개 조회만(쓰기·외부 지도 호출 없음). 병합 전 이 PR에서 지운다.
+on:
+  pull_request:
+    paths: [scripts/ops/alert-region-consistency.mjs]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/alert-region-consistency.mjs
