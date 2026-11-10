@@ -100,7 +100,7 @@ create or replace function public.ks_add_review(
   p_company text, p_region text, p_industry text,
   p_pay int, p_overtime text, p_dorm boolean, p_viet int, p_body text
 ) returns bigint language plpgsql security definer set search_path = public as $$
-declare v_visa text; v_company bigint; v_id bigint;
+declare v_visa text; v_company bigint;
 begin
   select visa into v_visa from public.ks_profiles where user_id = auth.uid();
   if v_visa is null then raise exception 'ks_profile_required'; end if;
@@ -110,9 +110,8 @@ begin
   select id into v_company from public.ks_companies
     where host_country = 'KR' and lower(name) = lower(btrim(p_company)) and lower(region) = lower(btrim(p_region));
   insert into public.ks_reviews (company_id, author_id, author_visa, monthly_pay_manwon, overtime, dorm, vietnamese_count, body)
-    values (v_company, auth.uid(), v_visa, p_pay, p_overtime, p_dorm, p_viet, nullif(btrim(p_body), ''))
-    returning id into v_id;
-  return v_id;
+    values (v_company, auth.uid(), v_visa, p_pay, p_overtime, p_dorm, p_viet, nullif(btrim(p_body), ''));
+  return v_company; -- 화면이 후기를 쓴 회사로 바로 이동
 end $$;
 
 revoke all on function public.ks_my_profile() from public, anon;

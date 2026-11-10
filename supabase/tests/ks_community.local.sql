@@ -10,7 +10,7 @@ do $t$ begin
     raise exception '남의 이름으로 글 쓰기가 됨';
   exception when insufficient_privilege or foreign_key_violation then null; end;
   perform public.ks_add_review('Hanil Tech', 'Gyeonggi', 'Ép nhựa', 250, 'nhieu', true, 5, 'ok');
-  perform public.ks_add_review(' hanil tech ', 'gyeonggi', null, 260, 'vua', true, 6, null);
+  if public.ks_add_review(' hanil tech ', 'gyeonggi', null, 260, 'vua', true, 6, null) <> (select id from public.ks_companies limit 1) then raise exception '회사 번호를 안 돌려줌'; end if;
   if (select count(*) from public.ks_companies) <> 1 then raise exception '같은 회사가 둘로 갈림'; end if;
   if (select count(*) from public.ks_reviews where author_visa = 'E-9') <> 2 then raise exception '후기 비자가 프로필에서 안 채워짐'; end if;
   if (select gender from public.ks_my_profile()) <> 'nam' then raise exception '본인 프로필 못 읽음'; end if;
