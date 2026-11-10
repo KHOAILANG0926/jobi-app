@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { checkCompletion, recordProblems, recentPrsFor } from './check-pr-ready.mjs'
+import { checkCompletion, recordProblems, recentPrsFor, titleWords } from './check-pr-ready.mjs'
 import { evaluateFiles, parseGitDiff } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
@@ -104,7 +104,7 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
       { commit: { message: '직접 올린 커밋(번호 없음)' } }]
     if (path.startsWith('commits?')) return []
     if (path.startsWith('pulls?')) return [
-      { number: 663, updated_at: '2026-11-10T15:00:00Z' },
+      { number: 663, title: '회사·주소 읽기: #633 HAIDILAO 대괄호·CÔNG TY MÌNH·JMT 공단 주소', updated_at: '2026-11-10T15:00:00Z' },
       { number: 661, updated_at: '2026-11-10T15:00:00Z' }, // 자기 자신
       { number: 300, updated_at: '2026-10-30T00:00:00Z' }] // 오래된 열린 PR은 제외
     if (path === 'pulls/663/files?per_page=100') return [{ filename: 'src/lib/companyReader.ts' }]
@@ -126,5 +126,23 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   // 볼 기록이 없으면(작업 기록만 바꾼 PR 등) 칸이 없어도 통과
   assert.deepEqual(recordProblems('본문', []), [])
   assert.deepEqual(recentPrsFor({ files: ['WORK_LOG.md'], self: 1, now, api: (p) => (p.startsWith('pulls?') ? [] : assert.fail(p)) }), [])
+}
+// 그 PR을 열어 봤는지(#666 2단계): 제목 낱말이 줄에 하나도 없으면 실패
+{
+  assert.deepEqual(titleWords('fix(ci): 회사 이름 규정 HAIDILAO (#616)'), ['회사', '이름', '규정', 'haidilao'])
+  const r = [{ num: 616, why: 'x', words: titleWords('위치 확인: 회사 이름·이름 비교·주소 읽기 공통 고침 (#616)') }]
+  assert.match(recordProblems('## 확인한 기록\n- #616: 잘 봤고 이번 변경과 관계없음 확인했습니다\n', r).join(), /그 PR 내용이 없음/)
+  assert.deepEqual(recordProblems('## 확인한 기록\n- #616: 이름 비교를 공통으로 고친 PR — 이번엔 그 비교는 안 건드림\n', r), [])
+  // 성조 없이 적어도 같은 낱말로 침
+  const v = [{ num: 1, why: 'x', words: titleWords('Công ty JMT Quế Võ (#1)') }]
+  assert.deepEqual(recordProblems('## 확인한 기록\n- #1: cong ty JMT 공단 주소 읽기 사례\n', v), [])
+}
+// 11-07 결정(#666 3단계): 회사·주소·급여 읽기 함수를 고치면 그 시험에 eq 사례가 더해져야 함
+{
+  const src = { 'src/lib/companyReader.ts': '+  const x = 1\n' }
+  assert.match(evaluateFiles(['src/lib/companyReader.ts'], '', src).join(), /companyReader\.test\.ts에 eq/)
+  assert.match(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '-eq(n("a"), "", "x")\n' }).join(), /eq/)
+  assert.deepEqual(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '+eq(n("Quán X"), "", "새 사례")\n' }).filter((e) => /Reader/.test(e)), [])
+  assert.deepEqual(evaluateFiles(['src/lib/salaryReader.test.ts'], '', { 'src/lib/salaryReader.test.ts': '+eq(1, 1, "y")\n' }).filter((e) => /Reader/.test(e)), [])
 }
 console.log('check-pr-ready: 확인한 기록(#666) 통과')

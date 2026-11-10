@@ -59,6 +59,13 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   if (changed.has('src/components/JobVietMap.tsx') &&
       !hasTest(/jobCoords\.test\.|test-job-location-detail\.mjs|map.*\.test\./i))
     errors.push('지도 컴포넌트 변경 시 위치 회귀 테스트 필수')
+  // 11-07 Lee "읽기는 한 곳에서, 틀린 공고는 사례를 시험에 추가 → 함수 수정"(회사·주소·급여): 함수를 고치면 그 시험 파일에
+  // 새 사례(eq 줄)가 더해져야 한다. 사례 없이 규칙만 덧대는 수정을 막는다(#666, #661 사례). 결정 자체의 변경 여부는 기계가 판단 못 함.
+  for (const name of ['companyReader', 'addressReader', 'salaryReader']) {
+    const src = `src/lib/${name}.ts`
+    if (changed.has(src) && !/^\+(?!\+\+).*\beq\(/m.test(patches[`src/lib/${name}.test.ts`] ?? ''))
+      errors.push(`${src}: 11-07 결정 — 고칠 때는 그 공고 사례를 ${name}.test.ts에 eq(…)로 추가해야 함`)
+  }
   for (const [path, patch] of Object.entries(patches)) {
     if (!SRC_EXPOSURE_PATH.test(path)) continue
     const added = patch.split('\n').filter(line => line.startsWith('+') && !line.startsWith('+++')).join('\n')

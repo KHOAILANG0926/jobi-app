@@ -67,6 +67,13 @@ export function checkCompletion(body, headSha, botOnlySince = () => false) {
 export const RECORD_HEADING = '확인한 기록'
 /** 기록을 볼 필요 없는 파일(모든 PR이 같이 바꾸는 작업 기록·자동 생성 파일) */
 export const RECORD_SKIP = /^(?:WORK_LOG\.md|CHATGPT_HANDOFF\.md|package-lock\.json|tsconfig\.tsbuildinfo)$/
+const foldWords = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC').replace(/đ/gi, 'd').toLowerCase()
+const STOP = new Set(['fix', 'feat', 'docs', 'test', 'tests', 'chore', 'ci', 'rules', 'ops', 'lee', 'pr', '추가', '고침', '수정', '검사', '정리', '반영', '확인', '변경', '공통', '자동', '실제', '기록'])
+/** PR 제목(병합 커밋 첫 줄)의 낱말 — 확인한 기록 줄에 이 중 하나는 있어야 그 PR을 열어 본 것으로 본다. */
+export function titleWords(title) {
+  return [...new Set(foldWords(String(title ?? '').replace(/\(#\d+\)/g, ' ')).split(/[^a-z0-9\uac00-\ud7a3]+/)
+    .filter((w) => !STOP.has(w) && !/^\d+$/.test(w) && (/[\uac00-\ud7a3]/.test(w) ? w.length >= 2 : w.length >= 4)))]
+}
 export function recordProblems(body, required) {
   if (!required.length) return []
   const section = body.split(/^## 확인한 기록[^\n]*\n/m)[1]?.split('\n## ')[0]
@@ -79,6 +86,8 @@ export function recordProblems(body, required) {
     const said = line?.replace(/#\d+/g, '').replace(/[\s\-–—:·,.|()[\]*`]/g, '') ?? ''
     if (!line) errors.push(`${RECORD_HEADING}: #${r.num} 없음 (${r.why})`)
     else if (said.length < 8) errors.push(`${RECORD_HEADING}: #${r.num} 설명 없음(번호만) — 무엇을 왜 바꿨고 이번 변경과 어떤 관계인지 한 줄`)
+    // 그 PR을 실제로 열어 봤는지: 제목 낱말이 하나도 없으면 실패(번호만 베껴 아무 말이나 쓴 줄을 막음)
+    else if (r.words?.length && !r.words.some((w) => foldWords(line).includes(w))) errors.push(`${RECORD_HEADING}: #${r.num} 줄에 그 PR 내용이 없음 — 제목 낱말(${r.words.slice(0, 4).join(', ')} …) 중 하나 이상으로 무엇을 바꿨는지 적기`)
   }
   return errors
 }
@@ -89,16 +98,22 @@ export function recentPrsFor({ files, self, now = Date.now(), api }) {
   const targets = files.filter((f) => !RECORD_SKIP.test(f))
   for (const f of targets) {
     const nums = api(`commits?sha=master&path=${encodeURIComponent(f)}&since=${since}&per_page=30`)
-      .map((c) => /\(#(\d+)\)\s*$/.exec(String(c.commit?.message ?? '').split('\n')[0])?.[1]).filter(Boolean)
-    for (const n of [...new Set(nums)].slice(0, 5)) if (Number(n) !== self && !need.has(Number(n))) need.set(Number(n), `최근 ${f}를 바꾼 병합 PR`)
+      .map((c) => { const t = String(c.commit?.message ?? '').split('\n')[0]; const n = /\(#(\d+)\)\s*$/.exec(t)?.[1]; return n && { n: Number(n), t } }).filter(Boolean)
+    const seen = new Set()
+    for (const { n, t } of nums) {
+      if (seen.size >= 5) break
+      if (seen.has(n)) continue
+      seen.add(n)
+      if (n !== self && !need.has(n)) need.set(n, { why: `최근 ${f}를 바꾼 병합 PR`, words: titleWords(t) })
+    }
   }
   const open = api('pulls?state=open&sort=updated&direction=desc&per_page=30')
     .filter((p) => p.number !== self && Date.parse(p.updated_at) >= now - 3 * 864e5)
   for (const p of open) {
     const same = api(`pulls/${p.number}/files?per_page=100`).map((x) => x.filename).filter((f) => targets.includes(f))
-    if (same.length && !need.has(p.number)) need.set(p.number, `지금 같은 파일(${same.slice(0, 3).join(', ')})을 고치는 열린 PR`)
+    if (same.length && !need.has(p.number)) need.set(p.number, { why: `지금 같은 파일(${same.slice(0, 3).join(', ')})을 고치는 열린 PR`, words: titleWords(p.title) })
   }
-  return [...need].map(([num, why]) => ({ num, why }))
+  return [...need].map(([num, v]) => ({ num, ...v }))
 }
 
 if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
