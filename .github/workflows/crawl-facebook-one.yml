@@ -27,6 +27,7 @@ on:
 permissions:
   contents: read
   actions: read
+  issues: write  # 서버 공간 1GB 미만 알림(#636)
 
 concurrency:
   group: crawl-facebook-one
@@ -122,6 +123,8 @@ jobs:
           grep -E '저장 ID|결과:|⛔|🚧|저장 전 점검' /tmp/fb.log | while read -r line; do echo "::notice title=저장 결과::$line"; done
       - name: 서버 정리(실행마다) — VPS 디스크가 차지 않게
         if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # 2026-11-06: VPS(11GB)가 실행 찌꺼기로 100% 참. 다시 받을 수 있는 캐시·임시 파일·하루 지난 실행기 기록만 지운다.
           python -m pip cache purge >/dev/null 2>&1 || true
@@ -137,3 +140,12 @@ jobs:
             done
           fi
           df -h / | tail -1 | awk '{print "::notice title=서버 남은 공간::"$4" ("$5" 사용)"}'
+          # 2026-11-10 Lee "반영": 남은 공간이 1GB 아래로 내려가면 그때 시스템 파일 정리(관리자 권한, #636) — 할 일에 자동으로 알린다.
+          avail_kb=$(df -k / | tail -1 | awk '{print $4}')
+          if [ "${avail_kb:-0}" -lt 1048576 ]; then
+            left=$(df -h / | tail -1 | awk '{print $4}')
+            echo "::warning title=서버 공간 부족::남은 공간 $left — 시스템 파일 정리 필요(#636)"
+            curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/636/comments" \
+              -d "{\"body\":\"수집 서버 남은 공간 $left(1GB 미만) — 실행 $GITHUB_RUN_ID. 시스템 파일 정리 필요(관리자 권한).\"}" >/dev/null || true
+          fi
