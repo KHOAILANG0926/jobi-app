@@ -64,5 +64,10 @@ console.log('jobDescriptionExtract.test.ts: all assertions passed')
   if (h.hours) throw new Error('different hours per shift must not merge: ' + JSON.stringify(h))
   const i = readWorkTime('Yêu cầu làm tối thiểu 2 ca/tuần')
   if (i.shiftType || i.rotatingShifts) throw new Error('2 ca/tuần is frequency: ' + JSON.stringify(i))
+  // Codex #628: 면접·휴게 시각은 근무시간 아님
+  const j = readWorkTime('Phỏng vấn: 8h-17h. Làm ca đêm 12 tiếng.')
+  if (j.shiftType !== 'night' || j.hours !== 'Ca đêm, 12 tiếng') throw new Error('interview hours excluded: ' + JSON.stringify(j))
+  const k = readWorkTime('Làm việc 8h-17h, nghỉ trưa 12h-13h')
+  if (k.hours !== '8h-17h') throw new Error('break hours excluded: ' + JSON.stringify(k))
   console.log('readWorkTime (#622) passed')
 }

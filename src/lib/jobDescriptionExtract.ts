@@ -218,7 +218,17 @@ export function readWorkTime(...texts: (string | null | undefined)[]): { shiftTy
   if (rotating) { out.shiftType = 'rotating'; if (nShift) out.rotatingShifts = Number(nShift); else if (day && night) out.rotatingShifts = 2 }
   else if (day) out.shiftType = 'day'
   else if (night) out.shiftType = 'night'
-  const clocks = [...new Set((text.match(CLOCK_RANGE) ?? []).map((s) => s.trim()))].slice(0, 3)
+  // 면접·휴게·접수 시각은 근무시간이 아니다 → 같은 문장(줄·마침표·; 기준) 안 시계 범위 앞에 그런 낱말이 있으면 제외.
+  const NOT_WORK = /phỏng\s+vấn|nghỉ|giải\s+lao|ăn\s+(?:trưa|ca|tối)|hẹn|nộp\s+hồ\s+sơ|hạn\s+nộp/iu
+  const clocks: string[] = []
+  for (const m of text.matchAll(CLOCK_RANGE)) {
+    const before = text.slice(0, m.index)
+    const clause = before.slice(Math.max(before.lastIndexOf('\n'), before.lastIndexOf('.'), before.lastIndexOf(';'), before.lastIndexOf('|')) + 1)
+    if (NOT_WORK.test(clause)) continue
+    const s = m[0].trim()
+    if (!clocks.includes(s)) clocks.push(s)
+    if (clocks.length >= 3) break
+  }
   if (clocks.length) out.hours = clocks.join(', ')
   else {
     // 교대별로 시간이 다르면(8 tiếng / 12 tiếng) 하나로 합치지 않고 비워 둔다(원문 없는 값 금지).
