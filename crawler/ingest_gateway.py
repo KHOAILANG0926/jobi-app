@@ -96,9 +96,7 @@ def precheck_input(job: dict) -> dict:
             "addresses": _work_addresses(job)[:5], "source_text": str(job.get("source_text") or ""),
             "poster_text": str(job.get("_poster_text") or ""),
             # 보류함 '못 찾음' 7일 뒤 다시 확인: 서버가 저장된 Google 결과를 다시 쓰지 않고 새로 묻는다(Codex #619)
-            "recheck": job.get("_recheck") is True,
-            # Google 검색어에만 붙이는 지역(수집 그룹 지역). 위치 글자·핀에는 쓰지 않는다(crawl_facebook.py, Lee 2026-11-11)
-            "search_region": str(job.get("_search_region") or "")}
+            "recheck": job.get("_recheck") is True}
 
 
 def _post_hook(body: dict, failed: dict) -> dict:
@@ -269,8 +267,6 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
     payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_")}
     meta = {"status": status, "reason": reason, "held_at": _now(), "attempts": 0,
             "next_at": _now() if status == "held" else _after(UNFOUND_RECHECK_DAYS)}
-    if job.get("_search_region"):
-        meta["search_region"] = str(job["_search_region"])[:80]  # 다시 확인 때도 같은 지역으로 Google에 묻는다(Codex #674)
     try:
         client.table("research_artifacts").upsert(
             {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload, "meta": meta},
@@ -312,8 +308,6 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         else:
             try:
                 payload = dict(row.get("payload") or {})
-                if meta.get("search_region"):
-                    payload["_search_region"] = meta["search_region"]
                 # '못 찾음' 다시 확인은 Google에 새로 묻는다. 도중에 한도에 막혀 held가 돼도 새로 물어야 함은 남긴다(Codex #619 P2).
                 refresh = meta.get("status") == "unfound" or meta.get("refresh") is True
                 if refresh:

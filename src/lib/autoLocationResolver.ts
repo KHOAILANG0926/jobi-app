@@ -8,12 +8,9 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
-import { administrativeAreaForTarget } from './administrativeArea'
 import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
-export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[]
-  /** Google 검색어에만 붙이는 지역(수집 그룹 지역) — 주소에 성 이름이 없을 때만. 위치 글자·핀에는 쓰지 않는다(Lee 2026-11-11). */
-  searchRegion?: string }
+export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
 export interface ResolverDeps {
   withinAdministrativeArea?(addresses:string[],point:{lat:number;lng:number}): Promise<boolean>
@@ -50,9 +47,7 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
   const targets=job.targets.length?job.targets:[{address:job.location,workLocationId:null}]
   const candidates=result.address?targets.filter(t=>t.address===result.address):result.workLocationId!=null?targets.filter(t=>t.workLocationId===result.workLocationId):targets
   for(const target of candidates) {
-    // 원문 위치 글자에 성 이름이 없으면 Google 검색에 붙인 수집 그룹 지역으로 성 안을 본다(Jollibee "393 Trần Hưng Đạo", 2026-11-11).
-    const context=job.searchRegion&&!administrativeAreaForTarget(job.location,'')?job.searchRegion:job.location
-    if(!deps.withinAdministrativeArea||await deps.withinAdministrativeArea([target.address,context],result))return {...result,address:target.address,workLocationId:target.workLocationId}
+    if(!deps.withinAdministrativeArea||await deps.withinAdministrativeArea([target.address,job.location],result))return {...result,address:target.address,workLocationId:target.workLocationId}
   }
   for(const target of candidates) {
     const area=await deps.administrativeCenter?.([target.address,job.location])
@@ -262,11 +257,9 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     }
     if (deps.google && use.google !== false) {
       // Ask Google exactly what the detail-page Google button asks (company, full address).
-      // 주소에 성 이름이 없으면 수집 그룹 지역을 검색어에만 붙인다(2026-11-11 Jollibee "393 Trần Hưng Đạo" → 호찌민 지점). 판정·핀은 원래 주소 그대로.
-      const gAddress = job.searchRegion && !administrativeAreaForTarget(address, '') ? `${address}, ${job.searchRegion}` : address
-      const gText = googleSearchText(job.company, gAddress)
+      const gText = googleSearchText(job.company, address)
       // 검색 글자가 완전히 같으면 저장된 결과를 다시 쓴다(googleCacheKeys 한 곳).
-      const hits = googlePlaceHits(await ask(googleCacheKeys(job.company, gAddress), () => deps.google!(gText), 'google'))
+      const hits = googlePlaceHits(await ask(googleCacheKeys(job.company, address), () => deps.google!(gText), 'google'))
       const pick = pickCompanyPlace(job.company, address, hits)
       if (!pick.hit) reason(`google:${pick.reason}`)
       const hit = pick.hit ? hits.find((h) => h.id === pick.hit!.id) : null

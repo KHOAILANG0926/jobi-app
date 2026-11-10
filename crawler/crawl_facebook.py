@@ -1037,9 +1037,6 @@ def parse_post(post: dict) -> dict:
         "company": company or "Nhà tuyển dụng Facebook",
         "_company_from_text": True,
         "location": region,
-        # Google 검색어에만 붙이는 그룹 지역(Lee 2026-11-11 "그룹 지역을 당연히 구글에 검색을 해야지"). 공고 위치·핀에는 쓰지 않는다
-        # (10-29 #5063 결정 — 글에 없는 성 중심 핀 방지 — 그대로). 글에 성 이름이 없는 Jollibee 글이 호찌민 지점으로 검색됐다.
-        "_search_region": location or "",
         "employer_phone": phone,
         "zalo": zalo,
         "description": f"[source:facebook] {text}",

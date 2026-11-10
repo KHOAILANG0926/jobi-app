@@ -129,7 +129,7 @@ const meters = (a, b) => {
 export function precheckInputOf(job) {
   const company = job._company_from_text ? '' : String(job.company ?? '')
   const addresses = (Array.isArray(job.work_locations) ? job.work_locations : []).map((w) => String(w?.raw_address ?? '').trim()).filter(Boolean).slice(0, 5)
-  return { company, location: String(job.location ?? ''), addresses, source_text: String(job.source_text ?? ''), poster_text: '', search_region: String(job._search_region ?? '') }
+  return { company, location: String(job.location ?? ''), addresses, source_text: String(job.source_text ?? ''), poster_text: '' }
 }
 
 /** 공고 1건을 A·B 두 방식으로. */

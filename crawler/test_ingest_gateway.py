@@ -291,21 +291,6 @@ def run_hold():
     # 보류 공고도 같은 입구·같은 위치 확인으로만 등록된다(별도 경로 없음)
     assert {p["p"]["company"] for _n, p in c.calls[:2]} == {"Cty 0", "Cty 2"}
 
-    # Codex #674: 보류된 공고도 그룹 지역(_search_region)을 기억해 다시 확인 때 같은 지역으로 묻는다(공고 위치 글자에는 넣지 않음)
-    g.PRECHECK = lambda j: {"findable": False, "reason": "google_quota"}
-    sr_job = {"title": "sr", "company": "Cty SR", "location": "", "source_url": "https://example.invalid/sr", "_search_region": "Bắc Ninh"}
-    try:
-        g.ingest_job(c, dict(sr_job))
-    except g.LocationNotFound:
-        pass
-    sr_row = c.rows[g._hold_name(sr_job)]
-    assert sr_row["meta"]["search_region"] == "Bắc Ninh" and "_search_region" not in sr_row["payload"], sr_row
-    g._HOLDS_RETRIED = False
-    seen = []
-    g.PRECHECK = lambda j: (seen.append(j.get("search_region")), {"findable": True, "location": "Bắc Ninh"})[1]
-    g.retry_held(c)
-    assert seen and seen[-1] == "Bắc Ninh", seen
-
     # 검증 저장(숨김) 공고는 보류하지 않는다
     g.PRECHECK = lambda j: {"findable": False, "reason": "precheck_unavailable"}
     c2 = HoldClient()

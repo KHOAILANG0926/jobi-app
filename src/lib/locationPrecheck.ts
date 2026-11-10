@@ -9,7 +9,7 @@ import { readCompany, type CompanyRead } from './companyReader'
 // source_text: 원문 전체. 주소 칸(addresses)이 없으면 원문 주소는 이 원문에서 주소 읽기 한 곳(addressReader)으로 읽는다(Lee 2026-11-07).
 // 그때 location은 수집 그룹 지역(원문에 이름이 있을 때만)이고, 읽은 주소 + 지역이 위치 글자가 된다.
 // company: 사이트 회사 칸(TopCV 등)만. 없으면 원문(source_text) → 포스터 글자(poster_text) 순으로 회사 이름 읽기 한 곳(companyReader)으로 읽는다.
-export interface PrecheckInput { company?: unknown; location?: unknown; addresses?: unknown; source_text?: unknown; poster_text?: unknown; search_region?: unknown }
+export interface PrecheckInput { company?: unknown; location?: unknown; addresses?: unknown; source_text?: unknown; poster_text?: unknown }
 export interface PrecheckVerdict { findable: boolean; kind: string; reason: string }
 
 const COMPANY_PLACE = /^(?:Google|Goong) \S+ \(company\)$/
@@ -48,8 +48,7 @@ export function precheckJob(input: PrecheckInput): ResolverJob | null {
     .filter((a): a is string => typeof a === 'string' && a.trim().length > 0).map((a) => a.trim().slice(0, 300)).slice(0, 5)
   const location = precheckLocationText(input, addresses.length > 0)
   if (!location && !addresses.length) return null
-  const searchRegion = typeof input?.search_region === 'string' ? input.search_region.trim().slice(0, 80) : ''
-  return { id: 0, company, location, targets: (addresses.length ? addresses : [location]).map((address) => ({ address, workLocationId: null })), ...(searchRegion ? { searchRegion } : {}) }
+  return { id: 0, company, location, targets: (addresses.length ? addresses : [location]).map((address) => ({ address, workLocationId: null })) }
 }
 
 /** 위치 글자. 주소 칸이 없고 원문이 오면 원문에서 주소를 읽어 지역 앞에 붙인다(주소 읽기는 addressReader 한 곳). */
