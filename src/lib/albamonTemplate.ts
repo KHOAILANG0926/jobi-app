@@ -125,13 +125,29 @@ export function factoryPhotos(text: string): string[] | null {
   return FACTORY_PHOTOS.find(([re, photos]) => re.test(t) && (NEEDS_TONE[photos[0]]?.test(raw) ?? true))?.[1] ?? null
 }
 
-export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = ''): { photo: string; bar: string; head: string; style: DetailStyle } {
+/** 상세 ④ 업종별 색(Lee 2026-11-10 "색깔은 업종별로 좀 구분해서" — 13개 업종이 서로 다른 색, 글 모형 확인 "가자").
+ *  bg = 바탕, hi = 소제목 형광펜, point = 아이콘·화살표·전화 버튼. 흰 카드·검정 글자·금액 빨강은 모든 업종 같음(CSS). */
+export const DETAIL_PALETTE: Record<string, { bg: string; hi: string; point: string }> = {
+  san_xuat_xay_dung: { bg: '#FFF7E6', hi: '#FCD58A', point: '#B45309' },
+  am_thuc_do_uong: { bg: '#FFF1EA', hi: '#FDBA9A', point: '#C2410C' },
+  quan_ly_ban_hang: { bg: '#FDF0F5', hi: '#F7B4CC', point: '#BE185D' },
+  dich_vu: { bg: '#F5F0FF', hi: '#CDB8F5', point: '#6D28D9' },
+  van_phong: { bg: '#EEF5FF', hi: '#A9CBF5', point: '#1D4ED8' },
+  cskh_kinh_doanh: { bg: '#E9FAF6', hi: '#99E0CF', point: '#0F766E' },
+  cntt_ky_thuat: { bg: '#EEF0FF', hi: '#B4BCF5', point: '#4338CA' },
+  thiet_ke: { bg: '#FCEFFB', hi: '#F0B3EA', point: '#A21CAF' },
+  truyen_thong: { bg: '#FFF0F0', hi: '#F7B7B7', point: '#B91C1C' },
+  lai_xe_giao_hang: { bg: '#EEFAEE', hi: '#A6E0A9', point: '#15803D' },
+  y_te_dieu_duong: { bg: '#EAF7FB', hi: '#9ED9EA', point: '#0E7490' },
+  giao_duc_giang_day: { bg: '#F6FAE8', hi: '#CDE59A', point: '#4D7C0F' },
+  khac: { bg: '#F1F3F6', hi: '#C4CCD8', point: '#475569' },
+}
+export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = ''): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
   const g = DETAIL_GROUP[String(category ?? '')] ?? 0
   const n = Math.abs(Math.trunc(seed || 0))
   const list = g === DETAIL_GROUP.san_xuat_xay_dung ? (factoryPhotos(text) ?? CATEGORY_IMAGES[0]) : CATEGORY_IMAGES[g]
   const photo = list[n % list.length]
-  // 색은 업종마다 하나로 통일(Lee 2026-11-10 "색깔은 업종별로 통일 구분") — 그 업종 첫 틀의 기본 색
-  const c = colorOf(DEFAULT_COLOR[41 + g * 6])
+  const c = DETAIL_PALETTE[String(category ?? '')] ?? DETAIL_PALETTE.khac
   const pick = DETAIL_STYLES.find((x) => x === style) ?? 'box'
-  return { photo: `/images/template/${photo}.jpg`, bar: c.bar, head: c.head, style: pick }
+  return { photo: `/images/template/${photo}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
 }
