@@ -8,6 +8,7 @@
 // 캐시는 메모리만(운영 research_artifacts를 읽지도 쓰지도 않는다). 동 중심 캐시도 쓰지 않는다(공개 여부 판정에 영향 없음).
 // 로그(공개 저장소)에는 건수만. 공고별 내용은 결과 파일(1일 보관 비공개 artifact)에만. 키·응답 본문은 출력하지 않는다.
 import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { precheckCompany, precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
@@ -96,14 +97,16 @@ export function maskContacts(text) {
     .replace(/\d(?:[^\p{L}\d\n]{0,3}\d){5,}/gu, '[số]')
 }
 
-function deps({ vietmap, goong, google, shared }) {
+function deps({ vietmap, goong, google, shared, prodGoogle }) {
   const own = new Map()
   // VietMap·Goong 응답은 A·B가 같이 쓴다(같은 질문 두 번 안 함). Google 응답은 방식마다 따로.
   const store = (key) => (key.includes('"google"') ? own : shared)
+  // FROM_CACHE(Lee 2026-11-11 "7일 뒤 같은 방법이면 무슨 의미야, 지금 원인 찾아"): Google 답은 운영이 저장해 둔 것만 읽는다(새 호출 없음).
+  const isGoogle = (key) => key.startsWith('[') && key.includes('"google"')
   return {
     async withinAdministrativeArea(addresses, point) { return withinOriginalProvince(addresses[0], addresses[1] || '', point) },
     async administrativeCenter(addresses) { const a = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return a ? { lat: a.lat, lng: a.lng, source: `Original administrative area ${a.key}`, checkedAt: new Date().toISOString() } : null },
-    async cached(key) { return store(key).get(key) ?? null },
+    async cached(key) { if (prodGoogle && isGoogle(key)) return prodGoogle(key); return store(key).get(key) ?? null },
     async cache(key, data) { store(key).set(key, data) },
     async wardCenter() { return null },
     remainingCalls: 2,
@@ -145,7 +148,14 @@ export async function compareOne(input, ctx) {
     try { const r = await ctx.g.pro(text); proResponses.set(text, r); traceA.proCount = googlePlaceHits(r).length; traceA.names = googlePlaceHits(r).slice(0, 4).map((h) => `${h.name} @ ${h.address}`.slice(0, 110)); traceA.proSame = googlePlaceHits(r).filter((h) => sameCoreName(job.company, h.name)).length; return r }
     catch (e) { proResponses.set(text, e); traceA.error = String(e.message).slice(0, 80); throw e }
   }
-  const decA = await resolveAutoLocation(job, deps({ ...ctx, google: googleA }))
+  const prodGoogle = ctx.fromCache ? async (key) => {
+    const r = await ctx.fromCache(key)
+    if (r) { const h = googlePlaceHits(r); traceA.cached = true; traceA.proCount = h.length; traceA.proSame = h.filter((x) => sameCoreName(job.company, x.name)).length; traceA.names = h.slice(0, 4).map((x) => `${x.name} @ ${x.address}`.slice(0, 110)) }
+    return r
+  } : null
+  const googleFallback = ctx.fromCache ? async () => { traceA.cached = false; throw new Error('not_in_cache') } : googleA
+  const decA = await resolveAutoLocation(job, deps({ ...ctx, google: googleFallback, prodGoogle }))
+  if (ctx.fromCache) return { ...row, a: { ...precheckVerdict(decA), place: placeOf(decA), why: why(decA), ...traceA, evidence: String(decA?.evidence ?? '').split('\n').filter((l) => /google:|Cách chọn|mismatch|Không|reason/i.test(l)).slice(0, 4).join(' / ').slice(0, 300) }, b: null, same: true }
   const traceB = {}
   // ④ 현재 방식: A와 같은 검색어면 A가 받은 응답을 그대로(운영에서는 이때 Pro 1번 = 비용에 넣는다)
   const proFor = async (text) => { traceB.proReused = true; const r = proResponses.get(text); if (r instanceof Error) throw r; return r ?? ctx.g.pro(text) }
@@ -213,9 +223,17 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
   }
   // 시험 몫(600/월)을 먼저, Pro는 운영 몫에도 센다. 한 번 실행의 SearchText 합계는 TEST_SEARCH_CAP(기본 40)까지 — 운영 몫 보호(Lee 2026-11-09).
   const searchCap = Number(process.env.TEST_SEARCH_CAP || 40)
-  const g = googleClient(need('GOOGLE_PLACES_API_KEY'), fetch, { pro: limit, ids: limit, autocomplete: limit, details: limit * 3 },
+  const fromCache = process.env.FROM_CACHE === '1'
+  const g = fromCache ? { calls: { pro: 0, ids: 0, autocomplete: 0, details: 0 } } : googleClient(need('GOOGLE_PLACES_API_KEY'), fetch, { pro: limit, ids: limit, autocomplete: limit, details: limit * 3 },
     reserve('google_text_search'), reserve('google_text_search_test'), searchCap)
-  const ctx = { g, registry: new Map(), shared: new Map(), vietmap: vietmapRequest(need('VIETMAP_SERVICE_KEY')), goong: process.env.GOONG_API_KEY ? goongRequest(process.env.GOONG_API_KEY) : null }
+  // 저장된 Google 답 읽기만(운영 위치 확인이 쓰는 research_artifacts map-r1-query, 이름 = 열쇠의 sha256). 쓰지 않는다.
+  const readCache = async (key) => {
+    const name = createHash('sha256').update(key).digest('hex')
+    const r = await fetch(`${supa}/rest/v1/research_artifacts?select=payload&kind=eq.map-r1-query&name=eq.${name}`, { headers: { apikey: sk, Authorization: `Bearer ${sk}` } })
+    if (!r.ok) throw new Error(`cache_read_${r.status}`)
+    return (await r.json())[0]?.payload?.data ?? null
+  }
+  const ctx = { g, fromCache: fromCache ? readCache : null, registry: new Map(), shared: new Map(), vietmap: vietmapRequest(need('VIETMAP_SERVICE_KEY')), goong: process.env.GOONG_API_KEY ? goongRequest(process.env.GOONG_API_KEY) : null }
   const rows = []
   // 상한·한도에 닿은 호출은 측정이 아니다 — 그 공고는 집계에서 빼고 거기서 멈춘다(Codex #619 P1).
   const capped = (r) => [r?.a?.error, r?.b?.error].some((m) => /test_cap_reached|test_quota_exhausted|quota_exhausted/.test(String(m ?? '')))
@@ -231,7 +249,7 @@ if (process.argv[1]?.endsWith('location-ladder-compare.mjs')) {
   if (stoppedAt) console.log(`::notice::SearchText 상한·한도에 닿아 ${stoppedAt}번째 공고에서 멈춤 — 그 공고부터는 집계에서 뺌(측정 ${rows.length}건)`)
   // 공고별 한 줄(분석용). 공개 저장소 로그라 원문·전화번호는 넣지 않는다 — 제목·회사·읽은 위치 글자(미리 보기 알림과 같은 수준)와 판정만.
   const cut = (v, n) => String(v ?? '').replace(/[\r\n|]+/g, ' ').slice(0, n)
-  const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}${x.error ? ` err=${x.error}` : ''}` : '-')
+  const v = (x) => (x ? `${x.findable ? 'O' : 'X'} ${x.reason}${x.why ? ` ${x.why}` : ''}${x.step ? ` step=${x.step}` : ''}${x.proCount != null ? ` pro=${x.proCount}/${x.proSame}` : ''}${x.acCount != null ? ` ac=${x.acCount}/${x.acSame}` : ''}${x.error ? ` err=${x.error}` : ''}${x.cached != null ? ` cache=${x.cached ? 'hit' : 'miss'}` : ''}${x.evidence ? ` ev=${cut(x.evidence, 220)}` : ''}` : '-')
   // Google 후보 이름·주소(업체 정보, 이름 비교 개선용)
   rows.forEach((r, i) => { if (r.a?.names?.length) console.log(`CAND ${i + 1} | ${r.a.names.join(' ;; ')}`) })
   rows.forEach((r, i) => console.log(`ROW ${i + 1} | ${cut(r.title, 60)} | ${cut(r.company, 50)} | ${cut(r.location, 80)} | A: ${v(r.a)} | B: ${v(r.b)} | ${r.same ? 'same' : 'DIFF'}${r.distanceM != null ? ` ${r.distanceM}m` : ''}`))
