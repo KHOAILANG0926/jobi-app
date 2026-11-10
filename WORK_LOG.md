@@ -1,3 +1,9 @@
+## 2026-11-10 밤 — 상세 10-30 확정 구성 + 업종 그림 머리 + 급여 칸 정리 (Lee "Ok" 적용, #653)
+- ① Mức lương 금액 + "chưa/đã gồm tăng ca", Phụ cấp·Thưởng 상여 줄(최대 3줄) / ② Yêu cầu khác / ④ Nội dung công việc·Tăng ca·Môi trường làm việc·Quy trình tuyển dụng·Liên hệ + #563 업종 그림 머리. 번호 붙은 원문 소제목(2. CÔNG VIỆC 등)도 소제목으로. 구현 src/lib/jobQuyenLoi.ts albamonCompose·albamonConditionLines.
+- Codex 지적 4건(KDA 그림 제외, 금액 더 있는 급여 내역 보존, 보험 문장 ④ 보존, 'không bao gồm tăng ca') 봇이 반영.
+- 운영 확인 [직접 확인]: sb-5876 PC·모바일 ④ 6칸·그림 07-nhua-ep·급여 칸, KDA sb-4824 기존 틀 그대로. deploy-verify 42827351625 통과.
+- 남은 것: 봇 커밋마다 PR 표 SHA 옛 근거로 checks 실패 → 옛 실행 수동 삭제(#648).
+
 ## 2026-11-10 밤 — 화면 대조 검사(#646): 운영 화면을 원문·DB와 대조, 공개 전 통과 필수 (Lee "이어서")
 - #650: 상세 화면 읽기(detail-read)에 대조 추가 — 제목·회사 줄·Google 버튼=핀·상세 핀=지도 목록 핀·전화·Zalo(확정 오류), 아이콘 근거·급여 금액(판정 불명확). 판정 src/lib/screenAudit.ts, 수집 scripts/ops/screen-collect.mjs(미리보기 검사와 공유), 제목 계산 detailTitle 한 곳. Codex 지적 2건(핀 양방향·숨김 공고 관리자 로그인) 반영.
 - 공개 공고 전체 1회 점검: 22건 확정 오류 0·불명확 0 [직접 확인 run 42809331299, #646 댓글]. 수집값 5건 운영 화면에서 확인.
@@ -49,6 +55,3 @@
 - 원인: 연락처 없을 때도 연락 상자가 제목 줄 오른쪽 절대 위치라, 키 큰 안내 상자가 아래 표·지도를 덮음.
 - 변경: 연락처 없을 때만(jd2-aside--no-contact) PC에서 흐름 안에 둠. 연락처 있을 때 Gọi/Zalo 배치(승인된 틀)는 그대로, 모바일 그대로.
 - 검증 [직접 확인]: 로컬 빌드 미리보기(/xem-truoc-tin) PC 1366 — 전화 없음: 겹침 0, 전화 있음: 기존 절대 위치 그대로. tsc·시험·빌드 통과.
-## 2026-11-09 밤 — #612 자동 작업 권한: 개인 설정 파일 저장소에서 뺌 (Lee "3번부터")
-- 원인 [직접 확인]: .claude/settings.local.json(개인 PC 권한 223줄 + defaultMode bypassPermissions)이 저장소에 올라가 GitHub의 Claude 자동 작업 3개가 그 설정을 읽음 → --allowedTools가 제한이 아니었음.
-- 변경: 파일을 저장소 추적에서 빼고 .gitignore(다른 PC가 pull하면 그 PC 파일도 지워짐 — 각자 다시 만들면 됨), issue-mention의 지우기 단계 삭제(필요 없어짐), claude-task·codex-response에 --permission-mode default, claude-task에 허용 목록(전엔 없음).
