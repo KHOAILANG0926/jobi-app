@@ -58,6 +58,79 @@ export function checkCompletion(body, headSha, botOnlySince = () => false) {
   return errors
 }
 
+/**
+ * 확인한 기록(#666, Lee 2026-11-10 "규칙을 확인도 안 할 거면 규칙은 왜 있니"): PR이 바꾼 파일을 최근에 바꾼 PR·지금 같은 파일을 고치는
+ * 다른 열린 PR을 검사가 직접 찾고(recentPrsFor), PR 설명 `## 확인한 기록` 칸에 그 번호가 줄마다 설명과 함께 있는지 본다.
+ * 목록은 검사가 정하므로 작성자가 빼거나 "확인함"만 적고 넘어갈 수 없다. 읽고 이해했는지는 기계가 확인하지 못한다(한계).
+ * 사례: #661이 companyReader.ts에 새 단계를 붙일 때 11-07 결정·#616을 안 보고, 같은 파일을 고치던 #663도 몰랐다.
+ */
+export const RECORD_HEADING = '확인한 기록'
+/** 기록을 볼 필요 없는 파일(모든 PR이 같이 바꾸는 작업 기록·자동 생성 파일) */
+export const RECORD_SKIP = /^(?:WORK_LOG\.md|CHATGPT_HANDOFF\.md|package-lock\.json|tsconfig\.tsbuildinfo)$/
+const foldWords = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC').replace(/đ/gi, 'd').toLowerCase()
+const STOP = new Set(['fix', 'feat', 'docs', 'test', 'tests', 'chore', 'ci', 'rules', 'ops', 'lee', 'pr', '추가', '고침', '수정', '검사', '정리', '반영', '확인', '변경', '공통', '자동', '실제', '기록'])
+/** PR 제목(병합 커밋 첫 줄)의 낱말 — 확인한 기록 줄에 이 중 하나는 있어야 그 PR을 열어 본 것으로 본다. */
+export function titleWords(title) {
+  return [...new Set(foldWords(String(title ?? '').replace(/\(#\d+\)/g, ' ')).split(/[^a-z0-9\uac00-\ud7a3]+/)
+    .filter((w) => !STOP.has(w) && !/^\d+$/.test(w) && (/[\uac00-\ud7a3]/.test(w) ? w.length >= 2 : w.length >= 4)))]
+}
+export function recordProblems(body, required) {
+  if (!required.length) return []
+  const section = body.split(/^## 확인한 기록[^\n]*\n/m)[1]?.split('\n## ')[0]
+  if (section === undefined) return [`${RECORD_HEADING}: 칸 없음 — 이 PR이 바꾼 파일의 최근·진행 중 PR(${required.map((r) => '#' + r.num).join(' ')})을 읽고 줄마다 한 줄씩 적어야 함`]
+  const lines = section.replace(/<!--[\s\S]*?-->/g, '').split('\n')
+  const errors = []
+  for (const r of required) {
+    // 번호마다 자기 줄: 줄 맨 앞(글머리 뒤)의 번호가 그 PR이어야 하고, 다른 필수 PR 번호가 같이 있는 줄은 쓰지 않는다
+    const others = required.filter((o) => o.num !== r.num).map((o) => new RegExp(`#${o.num}(?!\\d)`))
+    const line = lines.find((l) => new RegExp(`^\\s*(?:[-*]\\s*)?#${r.num}(?!\\d)`).test(l) && !others.some((re) => re.test(l)))
+    // 번호만 적은 줄은 안 됨: 번호·기호를 뺀 설명 글자가 8자 이상
+    const said = line?.replace(/#\d+/g, '').replace(/[\s\-–—:·,.|()[\]*`]/g, '') ?? ''
+    if (!line) errors.push(`${RECORD_HEADING}: #${r.num} 없음 (${r.why})`)
+    else if (said.length < 8) errors.push(`${RECORD_HEADING}: #${r.num} 설명 없음(번호만) — 무엇을 왜 바꿨고 이번 변경과 어떤 관계인지 한 줄`)
+    // 그 PR을 실제로 열어 봤는지: 제목 낱말이 하나도 없으면 실패(번호만 베껴 아무 말이나 쓴 줄을 막음)
+    else if (r.words?.length && !r.words.some((w) => foldWords(line).includes(w))) errors.push(`${RECORD_HEADING}: #${r.num} 줄에 그 PR 내용이 없음 — 제목 낱말(${r.words.slice(0, 4).join(', ')} …) 중 하나 이상으로 무엇을 바꿨는지 적기`)
+  }
+  return errors
+}
+/** 바뀐 파일마다 ① 최근 14일 그 파일을 바꾼 병합 PR(파일당 최근 5개) ② 최근 3일 갱신된 다른 열린 PR 중 같은 파일을 고치는 것. */
+export function recentPrsFor({ files, self, now = Date.now(), api }) {
+  const need = new Map()
+  const since = new Date(now - 14 * 864e5).toISOString()
+  const targets = files.filter((f) => !RECORD_SKIP.test(f))
+  for (const f of targets) {
+    const nums = api(`commits?sha=master&path=${encodeURIComponent(f)}&since=${since}&per_page=30`)
+      .map((c) => { const t = String(c.commit?.message ?? '').split('\n')[0]; const n = /\(#(\d+)\)\s*$/.exec(t)?.[1]; return n && { n: Number(n), t } }).filter(Boolean)
+    const seen = new Set()
+    for (const { n, t } of nums) {
+      if (seen.size >= 5) break
+      if (seen.has(n)) continue
+      seen.add(n)
+      if (n !== self && !need.has(n)) need.set(n, { why: `최근 ${f}를 바꾼 병합 PR`, words: titleWords(t) })
+    }
+  }
+  // 열린 PR 목록도 끝 페이지까지(최근 갱신 순이라 3일 범위를 벗어나는 PR이 나오면 거기서 멈춤)
+  const cutoff = now - 3 * 864e5
+  const open = []
+  for (let page = 1; page <= 30; page++) {
+    const got = api(`pulls?state=open&sort=updated&direction=desc&per_page=100&page=${page}`)
+    open.push(...got.filter((p) => p.number !== self && Date.parse(p.updated_at) >= cutoff))
+    if (got.length < 100 || got.some((p) => Date.parse(p.updated_at) < cutoff)) break
+  }
+  for (const p of open) {
+    // 파일 목록은 끝 페이지까지(100개 넘는 큰 PR에서 뒤쪽 공통 파일을 놓치지 않게)
+    const all = []
+    for (let page = 1; page <= 30; page++) {
+      const got = api(`pulls/${p.number}/files?per_page=100&page=${page}`)
+      all.push(...got)
+      if (got.length < 100) break
+    }
+    const same = all.map((x) => x.filename).filter((f) => targets.includes(f))
+    if (same.length && !need.has(p.number)) need.set(p.number, { why: `지금 같은 파일(${same.slice(0, 3).join(', ')})을 고치는 열린 PR`, words: titleWords(p.title) })
+  }
+  return [...need].map(([num, v]) => ({ num, ...v }))
+}
+
 if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
   const pr = event.pull_request
@@ -82,6 +155,14 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
   }
   const errors = checkCompletion(body, pr.head?.sha, botOnlySince)
   errors.push(...photoProcessPrProblems(body, changedPhotoPayloads(event)))
+  // 확인한 기록(#666): 목록은 검사가 GitHub에서 직접 찾는다. 못 읽으면 통과시키지 않는다(우회 방지).
+  try {
+    const api = (path) => JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/${path}`], { encoding: 'utf8' }))
+    const files = execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/pulls/${pr.number}/files?per_page=100`, '--paginate', '--jq', '.[].filename'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+    const required = recentPrsFor({ files, self: pr.number, api })
+    if (required.length) console.log('확인한 기록 대상: ' + required.map((r) => `#${r.num}(${r.why})`).join(', '))
+    errors.push(...recordProblems(body, required))
+  } catch (e) { errors.push(`${RECORD_HEADING}: 최근·진행 중 PR 목록을 못 읽음 — ${String(e.message).split('\n')[0]}`) }
   for (const error of errors) console.error('::error::' + error)
   if (errors.length) process.exit(1)
   console.log('READY 근거 형식 확인; 실제 테스트 성공 여부는 필수 CI에서 별도 판정')

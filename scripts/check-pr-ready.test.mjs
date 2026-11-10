@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { checkCompletion } from './check-pr-ready.mjs'
+import { checkCompletion, recordProblems, recentPrsFor, titleWords } from './check-pr-ready.mjs'
 import { evaluateFiles, parseGitDiff } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
@@ -93,3 +93,84 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   assert.ok(twice.includes('| checks | success | 1234567890123456789012345678901234567890 |'), 'worker rows untouched')
   console.log('PR bot proof (#648): passed')
 }
+
+// 확인한 기록(#666): #661 사례 — companyReader.ts를 바꾸면서 최근 병합 PR #616과 같은 파일을 고치던 열린 PR #663을 안 봄
+{
+  const now = Date.parse('2026-11-10T16:00:00Z')
+  const api = (path) => {
+    if (path.startsWith('commits?') && path.includes(encodeURIComponent('src/lib/companyReader.ts'))) return [
+      { commit: { message: '회사·주소 읽기: 공통 고침 (#616)\n\n본문' } },
+      { commit: { message: '회사 이름 규정 (#540)' } },
+      { commit: { message: '직접 올린 커밋(번호 없음)' } }]
+    if (path.startsWith('commits?')) return []
+    if (path.startsWith('pulls?')) return [
+      { number: 663, title: '회사·주소 읽기: #633 HAIDILAO 대괄호·CÔNG TY MÌNH·JMT 공단 주소', updated_at: '2026-11-10T15:00:00Z' },
+      { number: 661, updated_at: '2026-11-10T15:00:00Z' }, // 자기 자신
+      { number: 300, updated_at: '2026-10-30T00:00:00Z' }] // 오래된 열린 PR은 제외
+    if (path === 'pulls/663/files?per_page=100&page=1') return [{ filename: 'src/lib/companyReader.ts' }]
+    throw new Error('예상 밖 호출 ' + path)
+  }
+  const required = recentPrsFor({ files: ['src/lib/companyReader.ts', 'WORK_LOG.md'], self: 661, now, api })
+  assert.deepEqual(required.map((r) => r.num), [616, 540, 663])
+  assert.match(required[2].why, /열린 PR/)
+  // 칸 없음 / 하나 빠짐 / 번호만 → 실패
+  assert.match(recordProblems('## 작업 범위와 변경 파일\n- 변경 파일: x', required).join(), /칸 없음/)
+  const partial = '## 확인한 기록\n- #616: 회사 이름·주소 공통 고침, 같은 단계 순서를 그대로 씀\n- #540: 11-07 회사 이름 규정(한 곳에서 읽기)\n\n## 다음'
+  assert.match(recordProblems(partial, required).join(), /#663 없음/)
+  const bare = partial.replace('\n\n## 다음', '\n- #663\n\n## 다음')
+  assert.match(recordProblems(bare, required).join(), /#663 설명 없음/)
+  const full = partial.replace('\n\n## 다음', '\n- #663: 밤 근무가 같은 함수에 HAIDILAO·JMT 사례 추가 중 — 충돌 없게 그 뒤에 합침\n\n## 다음')
+  assert.deepEqual(recordProblems(full, required), [])
+  // #6630처럼 앞 번호가 같은 다른 번호는 #663으로 치지 않음
+  assert.match(recordProblems(full.replace('#663:', '#6630:'), required).join(), /#663 없음/)
+  // 볼 기록이 없으면(작업 기록만 바꾼 PR 등) 칸이 없어도 통과
+  assert.deepEqual(recordProblems('본문', []), [])
+  assert.deepEqual(recentPrsFor({ files: ['WORK_LOG.md'], self: 1, now, api: (p) => (p.startsWith('pulls?') ? [] : assert.fail(p)) }), [])
+}
+// Codex 지적: 한 줄에 필수 번호 둘을 몰아 쓰면 실패, 101번째 파일에서만 겹쳐도 찾음
+{
+  const r = [{ num: 616, why: 'x', words: ['회사'] }, { num: 663, why: 'y', words: ['회사'] }]
+  const merged = '## 확인한 기록\n- #616 #663: 회사 이름 그대로 유지하며 기존 결정을 따름\n'
+  assert.ok(recordProblems(merged, r).length >= 1)
+  const big = (path) => {
+    if (path.startsWith('commits?')) return []
+    if (path.startsWith('pulls?')) return [{ number: 9, title: '큰 PR', updated_at: '2026-11-10T15:00:00Z' }]
+    const page = Number(/page=(\d+)/.exec(path)[1])
+    return page === 1 ? Array.from({ length: 100 }, (_, i) => ({ filename: `a${i}.ts` })) : [{ filename: 'src/lib/companyReader.ts' }]
+  }
+  assert.deepEqual(recentPrsFor({ files: ['src/lib/companyReader.ts'], self: 1, now: Date.parse('2026-11-10T16:00:00Z'), api: big }).map((x) => x.num), [9])
+}
+// Codex 지적: 열린 PR 목록 둘째 페이지의 PR에서만 파일이 겹쳐도 찾음
+{
+  const recent = (i) => ({ number: 1000 + i, title: `다른 일 ${i}`, updated_at: '2026-11-10T15:00:00Z' })
+  const paged = (path) => {
+    if (path.startsWith('commits?')) return []
+    if (path.startsWith('pulls?')) {
+      const page = Number(/page=(\d+)/.exec(path)[1])
+      return page === 1 ? Array.from({ length: 100 }, (_, i) => recent(i)) : [{ number: 7, title: '같은 파일 고침', updated_at: '2026-11-10T14:00:00Z' }]
+    }
+    const n = Number(/pulls\/(\d+)\/files/.exec(path)[1])
+    return n === 7 ? [{ filename: 'src/lib/companyReader.ts' }] : [{ filename: 'x.ts' }]
+  }
+  assert.deepEqual(recentPrsFor({ files: ['src/lib/companyReader.ts'], self: 1, now: Date.parse('2026-11-10T16:00:00Z'), api: paged }).map((x) => x.num), [7])
+}
+// 그 PR을 열어 봤는지(#666 2단계): 제목 낱말이 줄에 하나도 없으면 실패
+{
+  assert.deepEqual(titleWords('fix(ci): 회사 이름 규정 HAIDILAO (#616)'), ['회사', '이름', '규정', 'haidilao'])
+  const r = [{ num: 616, why: 'x', words: titleWords('위치 확인: 회사 이름·이름 비교·주소 읽기 공통 고침 (#616)') }]
+  assert.match(recordProblems('## 확인한 기록\n- #616: 잘 봤고 이번 변경과 관계없음 확인했습니다\n', r).join(), /그 PR 내용이 없음/)
+  assert.deepEqual(recordProblems('## 확인한 기록\n- #616: 이름 비교를 공통으로 고친 PR — 이번엔 그 비교는 안 건드림\n', r), [])
+  // 성조 없이 적어도 같은 낱말로 침
+  const v = [{ num: 1, why: 'x', words: titleWords('Công ty JMT Quế Võ (#1)') }]
+  assert.deepEqual(recordProblems('## 확인한 기록\n- #1: cong ty JMT 공단 주소 읽기 사례\n', v), [])
+}
+// 11-07 결정(#666 3단계): 회사·주소·급여 읽기 함수를 고치면 그 시험에 eq 사례가 더해져야 함
+{
+  const src = { 'src/lib/companyReader.ts': '+  const x = 1\n' }
+  assert.match(evaluateFiles(['src/lib/companyReader.ts'], '', src).join(), /companyReader\.test\.ts에 eq/)
+  assert.match(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '-eq(n("a"), "", "x")\n' }).join(), /eq/)
+  assert.deepEqual(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '+eq(n("Quán X"), "", "새 사례")\n' }).filter((e) => /Reader/.test(e)), [])
+  assert.match(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '+// eq(n("a"), "", "다음에 추가")\n' }).join(), /eq/)
+  assert.deepEqual(evaluateFiles(['src/lib/salaryReader.test.ts'], '', { 'src/lib/salaryReader.test.ts': '+eq(1, 1, "y")\n' }).filter((e) => /Reader/.test(e)), [])
+}
+console.log('check-pr-ready: 확인한 기록(#666) 통과')
