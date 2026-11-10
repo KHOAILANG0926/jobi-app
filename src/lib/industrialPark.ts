@@ -9,7 +9,8 @@ export function foldText(s: string): string {
 
 // 2026-10-25: "Nhà máy Quế Võ III"처럼 공장 이름이 공단 이름인 경우(#4879 ADTEK)도 공단 표 이름과 정확히 맞으면 그 공단.
 // 표에 있는 이름(aliases)과만 맞추므로 "Nhà máy Samsung" 같은 회사 이름은 공단이 되지 않는다.
-const KCN_TOKEN = /(?:^| )(?:kcn|kcx|ccn|khu cong nghiep|khu che xuat|cum cong nghiep|nha may)(?: cn)?(?= |$)/g
+// "Khu CN"·"Cụm CN" 줄임도 같은 공단 낱말(#560 Codex #616: 줄임을 못 읽어 순번 확인을 건너뛰었음)
+const KCN_TOKEN = /(?:^| )(?:kcn|kcx|ccn|khu cong nghiep|khu che xuat|cum cong nghiep|khu cn|cum cn|nha may)(?: cn)?(?= |$)/g
 const NUMBERING = /^(?:\d+|i|ii|iii|iv|v|vi)$/
 
 export function findIndustrialPark(...texts: (string | null | undefined)[]): IndustrialPark | undefined {

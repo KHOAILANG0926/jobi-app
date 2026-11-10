@@ -39,7 +39,7 @@ function fakeDb(job: Row, opts: { reserve?: boolean; cache?: Map<string, unknown
   return { db, calls, cache }
 }
 const hashKey = (k: string) => createHash('sha256').update(k).digest('hex')
-const hit = { places: [{ id: 'ChIJx', displayName: { text: 'Công ty TNHH Hojeong Vina' }, formattedAddress: 'Quế Võ, Bắc Ninh', location: { latitude: 21.15, longitude: 106.15 } }] }
+const hit = { places: [{ id: 'ChIJx', displayName: { text: 'Công ty TNHH Hojeong Vina' }, formattedAddress: 'KCN Quế Võ, Bắc Ninh', location: { latitude: 21.15, longitude: 106.15 } }] }
 const base = { id: 9, company: 'Hojeong', title: 'Công nhân', image_url: null, images: null, logo_lookup: null }
 const fetchOk = (website: string | null, iconStatus = 200) => async (url: string) => url.includes('places.googleapis.com')
   ? { ok: true, status: 200, json: async () => (website ? { websiteUri: website } : {}) }

@@ -1,3 +1,20 @@
+## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
+- 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).
+- 변경: 모르는 slug → /chu-de/ky-tuc-xa로 replace, 지역 칸 = REGION_MACRO_TABS 34개 성(메인·검색과 같은 목록). 판정 함수는 원래 34개 공통이라 그대로. 화면 틀 그대로.
+- 검증 [직접 확인]: tsc · npm test 115/115 · build · 로컬 미리보기 /chu-de/abc → /chu-de/ky-tuc-xa, 지역 34개(Bắc Giang·Long An 없음, Lạng Sơn 있음).
+## 2026-11-09 밤 — #560 회사 이름·이름 비교·주소 읽기 공통 고침 (Lee "먼저 공통 로직 개선, 잘못 확정 0건")
+- 고친 곳(한 곳씩, 모든 경로 공통): companyReader(댓글 아래 무시·"quán cạnh ngã 6"류 위치 설명 버림·CTY 줄 뒤 상여/공단 말 떼기·제목 대시 일반화·[지역] 머리 떼기·partime), addressReader(댓글 무시·주소 이름표 값이 가게 이름이면 다음 번지 줄), companyPlaceSearch(업종 머리말 묶음 빼기·짧은 지도 이름 8자 이상·따로 쓴 Việt/Nam 유지·**원문 번지 거리/공단과 다른 후보는 고르지 않음**).
+- 시험: 30건 실제 원문·Google 후보로 사례 추가(바로 읽기 9, 고르기 4, 보류 9). 예전 기대값 3곳 변경: EAGLEON 이름에서 공단 말 뺌, KCN 원문인데 Google이 시내 거리면 따르지 않음(locationProcess), logoLookup 시험 후보 주소를 실제처럼.
+- 검증: tsc · npm test 115/115 · build. Codex 지적 7건 반영(왕복 5회 넘어 needs-lee).
+- 수정 전후 [직접 확인 run 42607934688 → 42618711506, Bắc Ninh 30건, Pro 방식]: 위치 찾음 1 → 4(Trung Nguyên 27 Kinh Dương Vương · New Phoenix · Kingsport · Fushan VSIP — 원문과 대조해 모두 맞음), 잘못 확정 0. 다른 거리·공단 후보 보류: Minh Nguyệt·Đại Tân Việt. 4단계는 같은 표본에서 5건이지만 Sen Tài Thu를 Pro와 다른 곳(10.9km)으로 잡음 → 정확도 위험.
+## 2026-11-09 밤 — #579 연락처 없는 공고 PC 안내 상자 겹침 (Lee "2번")
+- 원인: 연락처 없을 때도 연락 상자가 제목 줄 오른쪽 절대 위치라, 키 큰 안내 상자가 아래 표·지도를 덮음.
+- 변경: 연락처 없을 때만(jd2-aside--no-contact) PC에서 흐름 안에 둠. 연락처 있을 때 Gọi/Zalo 배치(승인된 틀)는 그대로, 모바일 그대로.
+- 검증 [직접 확인]: 로컬 빌드 미리보기(/xem-truoc-tin) PC 1366 — 전화 없음: 겹침 0, 전화 있음: 기존 절대 위치 그대로. tsc·시험·빌드 통과.
+## 2026-11-09 밤 — #612 자동 작업 권한: 개인 설정 파일 저장소에서 뺌 (Lee "3번부터")
+- 원인 [직접 확인]: .claude/settings.local.json(개인 PC 권한 223줄 + defaultMode bypassPermissions)이 저장소에 올라가 GitHub의 Claude 자동 작업 3개가 그 설정을 읽음 → --allowedTools가 제한이 아니었음.
+- 변경: 파일을 저장소 추적에서 빼고 .gitignore(다른 PC가 pull하면 그 PC 파일도 지워짐 — 각자 다시 만들면 됨), issue-mention의 지우기 단계 삭제(필요 없어짐), claude-task·codex-response에 --permission-mode default, claude-task에 허용 목록(전엔 없음).
+
 ## 2026-11-09 저녁 — #560 시험 중단 사유 · #594 이슈 @claude 연결
 - #560 시험(#608·#609·#611): 미리 보기 8개 그룹 중 새 글은 Bắc Ninh 30건뿐(나머지 그룹은 몇 달 전 글). 시험의 Google 호출은 모두 API_KEY_INVALID — Vercel이 민감 값으로 둔 GOOGLE_PLACES_API_KEY는 env pull로 받을 수 없음(받은 값 길이 11). 운영 Google은 정상(business-search-compare 42599813839 오류 0). 같은 원인 2회 실패로 시험 중단, Lee 결정 대기(키를 GitHub Secret에 추가 vs 관리자 전용 서버 시험 API). 시험 예약으로 운영 카운터 54회 사용.
 - 30건 분석 [직접 확인]: 주소 글 없음 8(공단 이름만 'Quế Võ 3'·'Nam Sơn'·'Phố Nếnh' 등), 회사 이름 잘못 읽음 약 9('quán cạnh ngã 6'·'BẢNG TIN'·'Hotel 06 Ngô Tất Tố' 등), 회사 이름 없음 4, 체인 지점 7.
@@ -64,10 +81,3 @@
 - 원인: 11-05부터 WebGL이 없으면 안내 대신 대체 지도(RasterMapCanvas)를 그림. 안내는 바탕 그림을 못 받을 때만 나와 시험 기대가 낡음(화면 버그 아님). 11-05 fix/map-webgl-unavailable 실행부터 계속 실패.
 - 변경: scripts/test-mobile-home.mjs — 안내 대신 대체 지도(data-map-provider="raster")가 보이는지 확인. 화면 코드 변경 없음.
 - 검증: tsc·npm test 119/119·build 통과, 로컬 WebGL 막은 390px에서 대체 지도 표시 확인.
-
-## 2026-11-08 — 간편 템플릿 B안·1:1 문의·추가 고용형태 (Claude)
-- 요청: Lee "3,4,5,6적용" → 5번 "B로 바꾸고 데모 먼저"(데모 demo/template-detail) → "마무리먼저".
-- DB(#552, 추가만): local_jobs.description_html·employment_type_extra(공개 조회), support_inquiries(넣기 누구나, 읽기·처리 관리자, RLS).
-- 화면: 공고 등록 맨 아래 'Mô tả chi tiết tuyển dụng' = 간편 템플릿(78틀, 전용 사진 없는 57틀은 같은 업종 우리 사진 임시) → 결과 HTML 저장, 상세 ④가 그 모양 그대로(화면 뜬 뒤 정리해 넣음, 휴대폰은 모바일 틀 크기). 고용형태 하나 더(Hợp đồng·Thực tập·Cộng tác viên). /ho-tro 'Hỏi đáp 1:1' 작성·바닥 'Liên hệ 1:1' 연결, 관리자 '💬 Hỏi đáp 1:1' 탭.
-- 시험: job-preview-check(템플릿 → 미리보기 ④), jobSchema 38칸.
-- 남은 것: 알바몬 원본 템플릿 사진 출처·사용 조건 확인(브라우저 연결 필요), 에디터 탭(패키지 설치 필요), 상세 AI 배경(다음 작업).

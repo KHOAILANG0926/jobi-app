@@ -12303,6 +12303,8 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
     position: absolute; top: 0; right: 0; width: auto; flex-direction: row; display: flex; gap: 0.5rem;
     background: transparent; border: 0; box-shadow: none; padding: 0; margin: 0; min-width: 0;
   }
+  /* #579: 연락처가 없을 때(안내 상자)는 제목 줄에 띄우지 않고 흐름 안에 — 키 큰 상자가 아래 표·지도를 덮지 않게. 연락처 있을 때 Gọi/Zalo는 위 그대로. */
+  .jd2-contact-wrap > .jd2-aside--contact-only.jd2-aside--no-contact { position: static; display: block; width: 100%; margin: .75rem 0 0; }
   .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; }
   .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact__call,
   .jd2-contact-wrap > .jd2-aside--contact-only .jd2-aside-contact__zalo {

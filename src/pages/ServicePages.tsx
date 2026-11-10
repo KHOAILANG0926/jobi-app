@@ -2,20 +2,23 @@
 // 목록 표는 이미 승인된 우리 부품(JobsTable·JobsListToolbar)을 그대로 쓴다. 저장·전송 없음, DB 변경 없음.
 // /viec-lam/* 는 Vercel이 SSR 상세로 보내므로 이 화면들은 그 밖의 주소를 쓴다.
 import { useMemo, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import JobsListToolbar from '../components/JobsListToolbar'
 import JobsTable, { type JobsTableRow } from '../components/JobsTable'
 import { useAuth } from '../context/AuthContext'
 import { useJobs } from '../context/JobsContext'
 import { CATEGORY_LABELS } from '../data/categories'
 import { JOB_DURATION_OPTIONS } from '../data/jobDuration'
-import { JOB_REGIONS, jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
+import { REGION_MACRO_TABS, jobMatchesRegion, type JobRegionId } from '../data/jobRegions'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../lib/jobsListView'
 import type { Job, JobCategory } from '../types/job'
 import { supabase } from '../lib/supabase'
 import './ServicePages.css'
 
 const shortDate = (iso?: string) => { if (!iso) return undefined; const d = new Date(iso); return Number.isNaN(d.getTime()) ? undefined : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
+
+// 지역 칸은 메인·검색과 같은 34개 성(#623 — 합쳐진 옛 성 Bắc Giang·Long An은 넣지 않음).
+const THEME_REGIONS = REGION_MACRO_TABS.flatMap((t) => t.provinces)
 
 // ── 테마 채용관: 우리 데이터에 근거가 있는 것만(알바몬의 역세권·대학가·시니어·관공서 등은 뺌) ──
 const SHORT = new Set(['Một ngày', 'Dưới 1 tuần', '1 tuần - 1 tháng'])
@@ -34,7 +37,8 @@ export function ThemeJobsPage() {
   const { slug = THEMES[0].slug } = useParams()
   const navigate = useNavigate()
   const { jobs } = useJobs()
-  const theme = THEMES.find((t) => t.slug === slug) ?? THEMES[0]
+  const known = THEMES.find((t) => t.slug === slug)
+  const theme = known ?? THEMES[0]
   const [cat, setCat] = useState<JobCategory | ''>('')
   const [region, setRegion] = useState<JobRegionId | ''>('')
   const [duration, setDuration] = useState('')
@@ -54,6 +58,8 @@ export function ThemeJobsPage() {
     id: job.id, href: `/viec-lam/${job.id}`, region: job.location, title: job.title, company: job.company, salary: job.salary,
     salaryPeriod: job.salaryPeriod, description: job.description, hours: job.hours, dateLabel: shortDate(job.postedAt), badge: theme.label,
   }))
+  // 모르는 주소는 첫 테마 주소로 바꿔 보낸다(#623 — 주소와 내용이 다르게 보이지 않게).
+  if (!known) return <Navigate to={`/chu-de/${THEMES[0].slug}`} replace />
   return (
     <div className="page jobs-menu-page ad-theme">
       <div className="ad-theme__switch" role="tablist" aria-label="Chủ đề">
@@ -70,7 +76,7 @@ export function ThemeJobsPage() {
       <div className="ad-filter">
         <select value={region} onChange={(e) => setRegion(e.target.value as JobRegionId | '')} aria-label="Khu vực">
           <option value="">Khu vực</option>
-          {JOB_REGIONS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+          {THEME_REGIONS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
         </select>
         <select value={cat} onChange={(e) => setCat(e.target.value as JobCategory | '')} aria-label="Ngành nghề">
           <option value="">Ngành nghề</option>
@@ -82,7 +88,7 @@ export function ThemeJobsPage() {
         </select>
       </div>
       {(cat || region || duration) ? (
-        <p className="ad-filter__picked">Đang lọc: {[cat && CATEGORY_LABELS[cat], region && JOB_REGIONS.find((r) => r.id === region)?.label, duration].filter(Boolean).join(' · ')}
+        <p className="ad-filter__picked">Đang lọc: {[cat && CATEGORY_LABELS[cat], region && THEME_REGIONS.find((r) => r.id === region)?.label, duration].filter(Boolean).join(' · ')}
           <button type="button" onClick={() => { setCat(''); setRegion(''); setDuration('') }}>Bỏ lọc</button></p>
       ) : <p className="ad-filter__picked ad-filter__picked--empty">Hãy chọn điều kiện tìm kiếm.</p>}
       <h2 className="ad-theme__sub">Danh sách việc làm</h2>

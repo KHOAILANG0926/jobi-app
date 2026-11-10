@@ -24,6 +24,15 @@ try {
     assert.equal(await pop.locator('.jd2-page--v2').count(), 1, 'preview uses the latest detail frame')
     await pop.locator('.jd2-template-doc .amt-pv').waitFor()
     assert.equal(await pop.locator('.jd2-detail-sections').count(), 0, 'template replaces plain description lines')
+    // #579: 전화 없이 미리 보면 연락처 없음 안내 상자가 다른 칸(표·지도)을 덮지 않는다
+    const overlaps = await pop.evaluate(() => {
+      const a = document.querySelector('.jd2-aside--no-contact'); if (!a || getComputedStyle(a).display === 'none') return []
+      const ab = a.getBoundingClientRect()
+      return [...a.parentElement.children].filter((c) => c !== a && c.tagName !== 'H2' && getComputedStyle(c).display !== 'none')
+        .filter((c) => { const r = c.getBoundingClientRect(); return r.top < ab.bottom - 1 && r.bottom > ab.top + 1 && r.left < ab.right - 1 && r.right > ab.left + 1 })
+        .map((c) => c.className)
+    })
+    assert.deepEqual(overlaps, [], 'no-contact notice does not cover other boxes')
     const pe = await pop.locator('.jd2-page--preview button').first().evaluate((el) => getComputedStyle(el).pointerEvents)
     assert.equal(pe, 'none', 'buttons are inert in preview')
     console.log('PASS job preview', name)
