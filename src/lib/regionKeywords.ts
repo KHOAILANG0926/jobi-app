@@ -46,15 +46,8 @@ export function regionKeywords(): { regionId: JobRegionId; keyword: string }[] {
     if (!pairs.has(n)) pairs.set(n, new Set())
     pairs.get(n)!.add(id)
   }
-  for (const id of ids) {
-    add(provinceShortName(REGION_PROVINCE[id]), id)
-    for (const e of EXTRA[id] ?? []) add(e, id)
-  }
-  for (const [oldName, news] of Object.entries(VN_OLD_PROVINCE_TO_NEW)) {
-    if (news.length !== 1) continue
-    const id = byProvince.get(news[0])
-    if (id) add(provinceShortName(oldName), id)
-  }
+  // 성 이름 키워드는 provinceKeywordPairs() 한 곳(성 우선 판정 목록과 같은 규칙, Codex #625)
+  for (const p of provinceKeywordPairs()) add(p.keyword, p.regionId)
   for (const d of districtAliases()) {
     const id = byProvince.get(d.province)
     if (id) for (const f of d.forms) add(f, id)
