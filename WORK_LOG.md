@@ -1,3 +1,9 @@
+## 2026-11-10 오후 — 위치 확인: 관리자 확정 위치 먼저 (Lee 11-10 2단계 "자체 사업장 위치 DB 미완성 기능 보완")
+- 원인 [직접 확인]: 새 공고 위치 확인(precheckLocation)이 관리자 확정 기억표를 보지 않고 Google부터 물음. 기억표는 등록 뒤 자동 재사용(valid_memory_targets)에만 쓰여, 우리가 이미 확정한 회사·주소도 Google 한도·'못 찾음'에 막힐 수 있었음.
+- 변경: DB 함수 public.location_memory_point(읽기만, service_role, 등록 뒤 재사용과 같은 조건 — 같은 회사 이름 + 같은 주소 열쇠) → precheck가 맞으면 Google 없이 찾음(confirmed_memory). 조회 실패는 기존 순서. 다른 지점·다른 회사·꺼진 기억은 맞지 않음(시험).
+- 같이: 보류함 보관 때 수집 기록 한 줄 + 저녁 보고 상태별 건수(#632), 규칙 2곳에 문제 제기 다섯 가지(#631).
+- 검증: tsc · npm test 116/116 · build · 로컬 PostgreSQL setup→migration→local→production_check.
+
 ## 2026-11-10 낮 — 알림 지역을 34개 성으로 (점검 #3, Lee "전체 수정")
 - 공고 알림 DB 지역 키워드를 공식 34개 성 자료(src/lib/regionKeywords.ts, 화면 판정과 같은 자료)로 다시 만듦(migration 20261110120000, 생성기 scripts/data/gen-alert-region-keywords.mjs — 11-03에 만들어 둔 것). 랑선→Lạng Sơn, 옛 Hòa Bình→Phú Thọ, 옛 Bắc Giang→Bắc Ninh. 알림 설정의 옛 성 id(bacgiang·longan)는 합쳐진 성으로.
 - 지운 것: jobRegions.ts 손 목록(match 36개)과 알림 전용 지역 탭 예외(ALERT_REGION_TABS) — 알림 화면도 34개 성 탭.
@@ -47,9 +53,3 @@
 - 원인 확인: 예전 2초 실패(#582) = 구독 열쇠 무효(401) → Lee가 새 열쇠 등록(11-09 13:05).
 - #600 실제 시험: Codex 지적 → Claude 자동 수정 push(ae52377)·답 → (Lee 계정 재검토 요청) → Codex 통과 → 봇 병합 → 운영 배포 검사 통과.
 - 남은 연결: Codex가 claude[bot]의 재검토 요청에 반응 안 함(10분 확인) → Codex 자동 검토 설정(Lee) 필요.
-
-## 2026-11-09 낮 — 검사표 확대·헤더 검사 연결 (Lee 승인)
-- #592 검사표에 '붙인 뒤에도 빠진 줄' 표시(공개 영향 없음), 예약 작업 「상세요강 새 종류 줄 알림」은 운영 DB 조회 대신 검사표 이슈 + STATUS 읽기.
-- #593 자동 작업 대상 밖 공고(고용주 직접 등록·기준 시각 이전) 읽기 전용 검사 — 첫 실행 7건 검사(모두 11-01 이전, 고용주 공고 0건), DB 변경 없음. #596 알림 단계 크기 초과 실패 고침.
-- #586 PC 헤더 운영 검사: deploy-verify(보호 파일) 대신 운영 배포 끝에서 workflow_dispatch로 부름, workflow_run 시작 삭제(중복 없음). #591 닫음.
-- 대기: 운영 SQL 전용 낮은 권한 계정(방향 승인, 비밀번호 만들기 방법 Lee 결정 대기).

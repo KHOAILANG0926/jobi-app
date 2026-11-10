@@ -86,6 +86,10 @@ export async function precheckLocation(db, request, input, goong = null, google 
   if (company.agency && company.fee) return { findable: false, kind: 'unresolved', reason: 'agency_fee', location: '', ...who }
   const job = precheckJob(input)
   if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text', location: '', ...who }
+  // 우리 확정 위치 먼저(Lee 2026-11-09·11-10): 같은 회사 + 같은 주소 글자로 관리자가 확정한 위치가 있으면 Google에 묻지 않는다.
+  // 조건은 등록 뒤 자동 재사용과 같아서(DB location_memory_point) 등록 직후 그 위치가 그대로 붙는다. 다른 지점은 맞지 않는다.
+  if (await hasConfirmedPoint(db, company.name, job.targets.map((t) => t.address)))
+    return { findable: true, kind: 'exact', reason: 'confirmed_memory', location: job.location, ...who }
   let used = 0
   const deps = resolverDeps(db, async (action, params) => request(action, params), {
     remainingCalls: 2, reserve: async () => used++ < 2,
@@ -94,6 +98,15 @@ export async function precheckLocation(db, request, input, goong = null, google 
   const result = await resolveAutoLocation(job, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
   return { ...precheckVerdict(result), location: job.location, ...who }
+}
+
+/** 관리자 확정 기억표 조회(읽기만). 조회 실패는 '없음'으로 두고 기존 순서(Google부터)로 확인한다 — 등록을 막지 않는다. */
+async function hasConfirmedPoint(db, company, addresses) {
+  if (!company || !addresses.length || !db?.rpc) return false
+  try {
+    const { data, error } = await db.rpc('location_memory_point', { p_company: company, p_addresses: addresses })
+    return !error && Array.isArray(data) && data.length > 0
+  } catch { return false }
 }
 
 /** 전화번호 기록으로 소개소 보기(Lee 2026-11-07 5번 B, 읽기만). 조회 실패는 소개소 아님으로 둔다(등록을 막지 않음). */
