@@ -33,6 +33,8 @@ const STEPS: [RegExp, string][] = [
 ]
 export function richProcessSteps(lines: string[]): string[] {
   const t = fold(lines.join(' '))
+  // 부정·선택 표현(예: "Không cần phỏng vấn")은 단계 여부를 판별할 수 없으니 화살표 요약을 생략하고 원문 카드만 보여 준다.
+  if (/\b(?:khong|chua|mien|bo qua|tuy chon|co the)\b/.test(t)) return []
   return STEPS.map(([re, label]) => ({ label, at: t.search(re) })).filter((s) => s.at >= 0).sort((a, b) => a.at - b.at).map((s) => s.label)
 }
 

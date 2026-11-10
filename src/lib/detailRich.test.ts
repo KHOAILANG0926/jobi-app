@@ -10,6 +10,7 @@ assert(richLineIcon('Tiền tăng ca được tính riêng theo quy định.') =
 // 채용 절차: 원문에 나온 단계만, 나온 순서대로
 assert(JSON.stringify(richProcessSteps(['vui lòng liên hệ trực tiếp để được tư vấn và sắp xếp phỏng vấn.'])) === JSON.stringify(['Liên hệ', 'Tư vấn', 'Phỏng vấn']), 'steps in order')
 assert(richProcessSteps(['Gọi ngay']).length === 0, 'no steps → no arrows')
+assert(richProcessSteps(['Không cần phỏng vấn, nhận việc ngay.']).length === 0, 'negated step → no arrows')
 // 상여 알약: 대문자 홍보 줄 중 위 급여 반복이 아닌 줄(원문 그대로)
 const top = salaryAmounts('7.300.000Đ/THÁNG')
 assert(richPill(['LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA!', 'THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ', 'Làm đủ 30 ngày: Thưởng 500.000đ.'], top, salaryAmounts) === 'THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ', 'pill')
