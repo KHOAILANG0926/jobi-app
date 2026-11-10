@@ -19,3 +19,16 @@ const a = detailLook('am_thuc_do_uong', 1), b = detailLook('am_thuc_do_uong', 2)
 eq([a.bar, a.style], [b.bar, 'box'], 'same industry → same color, box style')
 if (detailLook('am_thuc_do_uong', 1).bar === detailLook('san_xuat_xay_dung', 1).bar) throw new Error('different industries → different colors')
 console.log('albamonTemplate: factory photos, industry color, box style passed')
+
+// 2026-11-11 Lee "사진 안 맞는다": 상세 ④ 그림도 카드 사진과 같은 가게·식당 종류(cardPhoto.photoKind)
+{
+  const { detailLook: d } = await import('./albamonTemplate.ts')
+  const ph = (cat: string, kindText: string, sub: string | null = null, seed = 1) => d(cat, seed, null, '', kindText, sub).photo
+  eq(ph('am_thuc_do_uong', 'TRUNG NGUYÊN LEGEND BẮC NINH TUYỂN NHÂN VIÊN PHỤC VỤ cà phê'), '/images/industry/am_thuc_do_uong.jpg', 'Trung Nguyên coffee → cafe photo, not pho kitchen')
+  eq(ph('quan_ly_ban_hang', 'Vua Nệm Tuyển dụng nhân viên bán hàng'), '/images/industry/ban_hang_noi_that.jpg', 'Vua Nệm → furniture store photo, not grocery')
+  eq(ph('am_thuc_do_uong', 'Nhà hàng nướng Bomunttl'), '/images/industry/nha_hang_nuong.jpg', 'grill restaurant')
+  for (const seed of [1, 2, 3, 4]) if (ph('am_thuc_do_uong', 'Nhà hàng tuyển phục vụ', null, seed) === '/images/template/02c-an-uong.jpg') throw new Error('plain restaurant never gets the pho kitchen')
+  eq(ph('am_thuc_do_uong', 'Quán phở Thìn tuyển phục vụ'), '/images/template/02c-an-uong.jpg', 'pho shop → pho kitchen')
+  eq(ph('quan_ly_ban_hang', 'Tuyển nhân viên bán hàng', null, 0), '/images/template/03-ban-hang.jpg', 'unknown shop kind → our sales drawing as before')
+  eq(d('san_xuat_xay_dung', 1, null, 'Công ty may mặc', 'Công ty may mặc', null).photo, '/images/template/07-may.jpg', 'factory unchanged')
+}

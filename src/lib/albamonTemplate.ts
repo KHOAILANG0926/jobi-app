@@ -1,3 +1,4 @@
+import { photoKind } from './cardPhoto'
 // 알바몬 '간편! 템플릿' 그대로 따라 하기(Lee 2026-11-08 "새로 만들지 말고 알바몬 그대로"). 2026-11-08 알바몬 기업회원 화면 직접 확인값.
 // 78개 = 13개 업직종 × 6. 모든 템플릿 같은 틀(큰 사진 위 회사명·제목). 템플릿마다 기본 색·제목 글자색(검정/흰색)이 정해져 있다.
 // 사진: 알바몬 사진은 쓰지 않는다. 업종별 우리 그림(public/images/template, Lee 2026-11-08 AI 팀 그림 담당).
@@ -142,12 +143,19 @@ export const DETAIL_PALETTE: Record<string, { bg: string; hi: string; point: str
   giao_duc_giang_day: { bg: '#F6FAE8', hi: '#CDE59A', point: '#4D7C0F' },
   khac: { bg: '#F1F3F6', hi: '#C4CCD8', point: '#475569' },
 }
-export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = ''): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
+/** kindText·subcategory: 카드 사진과 같은 글(회사·제목·상세)로 가게·식당 종류를 고른다(cardPhoto.photoKind 한 곳, 2026-11-11 Lee "사진 안 맞는다").
+ *  우리 그림이 있는 종류는 우리 그림, 아직 없는 종류(카페·고깃집·훠궈·가구·전화기·가전·옷·편의점)는 카드와 같은 업종 사진.
+ *  공장은 지금처럼 만드는 것(factoryPhotos). 종류를 모르면 지금처럼 업종 그림 중 공고 번호로. */
+export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = '', kindText = '', subcategory?: string | null): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
   const g = DETAIL_GROUP[String(category ?? '')] ?? 0
   const n = Math.abs(Math.trunc(seed || 0))
-  const list = g === DETAIL_GROUP.san_xuat_xay_dung ? (factoryPhotos(text) ?? CATEGORY_IMAGES[0]) : CATEGORY_IMAGES[g]
-  const photo = list[n % list.length]
   const c = DETAIL_PALETTE[String(category ?? '')] ?? DETAIL_PALETTE.khac
   const pick = DETAIL_STYLES.find((x) => x === style) ?? 'box'
+  const kind = g === DETAIL_GROUP.san_xuat_xay_dung ? null : photoKind(category, subcategory, kindText || text)
+  // 일반 식당은 우리 식당 그림(홀 2장 — 쌀국수 주방 그림은 쌀국수·phở 낱말이 있을 때만)
+  const own = kind === 'nha_hang_chung' ? (/\b(?:pho|bun|mien|chao)\b/.test(fold(kindText || text)) ? ['02c-an-uong'] : ['02-an-uong', '02b-an-uong']) : null
+  if (kind && !own) return { photo: `/images/industry/${kind}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
+  const list = own ?? (g === DETAIL_GROUP.san_xuat_xay_dung ? (factoryPhotos(text) ?? CATEGORY_IMAGES[0]) : CATEGORY_IMAGES[g])
+  const photo = list[n % list.length]
   return { photo: `/images/template/${photo}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
 }

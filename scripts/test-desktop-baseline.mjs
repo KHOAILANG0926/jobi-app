@@ -1,3 +1,4 @@
+// 2026-11-11: JobDetail.tsx — Lee "사진 안 맞는다"(Vua Nệm 마트·Trung Nguyên 쌀국수): ④ 그림을 카드 사진과 같은 가게·식당 종류(cardPhoto.photoKind)로 고르게 글만 넘김. 틀·칸·CSS 변경 없음.
 // 2026-11-10: JobDetail.tsx·index.css — Lee "처음으로 마음에 드는"·"가자": 상세 ④ 꾸민 본문(DetailRich: 큰 급여·알약·형광펜 소제목·아이콘 카드·절차 화살표·복리후생 타일·전화 버튼) + 업종별 색 13가지, 휴대폰 그림 머리 회사 이름 한 줄. ①②③·상단 카드·KDA 틀 변경 없음.
 // 2026-11-10: index.css·JobDetail.tsx — #563 업종 그림 머리·색 막대 상자 CSS(Lee 데모 "상단은 마음에 들어"). / Lee "세부구성은 왜 안바꿔?"·"우리 AI 이미지 넣어야지"(데모): 10-30 확정 자리로 원문 줄 나눔(① Phụ cấp·Thưởng·근무시간, ② Yêu cầu khác, ④ 6칸) + #563 업종 그림 머리. 4칸 순서·상단 카드 틀 변경 없음, KDA 제외.
 // 2026-11-10: JobDetail.tsx — Lee "Mức lương 왜케 지저분해"(글 모형 #647): 급여 칸 줄 정리(위 금액 반복·제목·대문자 줄 빼고 3줄) + 금액 옆 'chưa tính tăng ca'. 칸 순서·위치 등 틀 변경 없음.
@@ -109,7 +110,7 @@ const baseline = [
 baseline.push(...[
   {
     "path": "src/pages/JobDetail.tsx",
-    "sha256": "40340427c7b1dd65847ab06f7339c54056dd64ac06354bf79c8649be22afbb5e",
+    "sha256": "68f41c5071dfbfd7511bcc1fa7976d560a0acc42f1550e1082e76719eae4babc",
     "restore": []
   },
   {

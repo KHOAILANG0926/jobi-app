@@ -60,6 +60,13 @@ try {
     assert.equal((await pop.locator('.jd2-rich__step').count()), 3, 'rich: process arrows from source words')
     assert.equal(await pop.locator('a.jd2-rich__cta').getAttribute('href'), 'tel:0969661314', 'rich: call button')
     assert(!(await pop.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), 'rich: no horizontal overflow')
+    assert.match(await pop.locator('.jd2-desc-visual__img').getAttribute('src'), /07-nhua-ep/, 'header drawing: factory kind (ép nhựa) as before')
+    // 2026-11-11 Lee "사진 안 맞는다": 커피 가게는 카드와 같은 카페 사진(쌀국수 주방 아님)
+    await pop.evaluate(() => { const k = 'vgb:postjob-preview'; const j = JSON.parse(localStorage.getItem(k) || '{}')
+      localStorage.setItem(k, JSON.stringify({ ...j, category: 'am_thuc_do_uong', company: 'TRUNG NGUYÊN LEGEND BẮC NINH', title: 'TUYỂN NHÂN VIÊN PHỤC VỤ – TRUNG NGUYÊN LEGEND', description: `${j.description}\nPha chế cà phê, phục vụ khách` })) })
+    await pop.reload({ waitUntil: 'domcontentloaded' })
+    await pop.locator('.jd2-desc-visual__img').waitFor()
+    assert.equal(await pop.locator('.jd2-desc-visual__img').getAttribute('src'), '/images/industry/am_thuc_do_uong.jpg', 'header photo: coffee shop gets the cafe photo like the card')
     console.log('PASS job preview', name)
     await ctx.close()
   }
