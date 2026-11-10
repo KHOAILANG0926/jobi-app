@@ -9,7 +9,7 @@ import type { BrandDefinition } from '../data/brandDirectory'
 import type { Job } from '../types/job'
 
 /** 위치 확인과 같은 저장 열쇠(autoLocationResolver resolveByCompanyName의 Google 단계). */
-/** 저장할 때 쓰는 열쇠(첫 열쇠). 읽기는 googleCacheKeys 차례로. */
+/** Google 결과 저장 열쇠(위치 확인과 같은 googleCacheKeys). */
 export const googleCacheKey = (company: string, address: string) => googleCacheKeys(company, address)[0]
 
 /** 위치 확인이 저장해 둔 Google 결과에서 같은 회사 1곳(원래 성 안). 저장된 결과가 없으면 null(새로 묻지 않음).

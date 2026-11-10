@@ -1,38 +1,15 @@
-// Lee 2026-11-09 Google 한도 지시 시험: ① 같은 사업장 중복 검색 줄이기(지점이 다르면 합치지 않음) ② 한도 초과 ≠ 위치 없음
+// Lee 2026-11-09 Google 한도 지시 시험: ① 같은 검색 다시 쓰기(완전 일치만, 비슷한 사업장 병합 없음) ② 한도 초과 ≠ 위치 없음
 // 크롤러 보류·재시도는 crawler/test_ingest_gateway.py, 로고 재시도는 api/_logo-lookup.test.ts.
-import { googleCacheKeys, googlePlaceHits, siteCacheKey } from './companyPlaceSearch.ts'
+import { googleCacheKeys, googlePlaceHits } from './companyPlaceSearch.ts'
 import { precheckJob, precheckVerdict } from './locationPrecheck.ts'
 import { resolveAutoLocation } from './autoLocationResolver.ts'
 import { cachedGooglePlace } from './logoLookup.ts'
 function assert(v: unknown, m: string) { if (!v) throw new Error(m) }
 
-// ① 같은 사업장 = 회사 핵심 이름 + (번지+도로 또는 공단) + 원래 성
-const a = siteCacheKey('Công ty TNHH Hojeong Vina', 'Lô C3, KCN Quế Võ, phường Phương Liễu, Bắc Ninh')
-const b = siteCacheKey('CTY HOJEONG VINA', 'lô số C3 KCN Quế Võ, Quế Võ, Bắc Ninh')
-assert(a && a === b, `same company + same park + same lot → one key: ${a} / ${b}`)
-assert(siteCacheKey('Hojeong Vina', 'Lô D5, KCN Quế Võ, Bắc Ninh') !== a, 'Codex #619: same park, other lot (D5) = other site')
-assert(siteCacheKey('Hojeong Vina', 'KCN Quế Võ, Bắc Ninh') !== a, 'lot missing → not merged with a lot-named address')
-assert(siteCacheKey('Hojeong Vina', 'Lô đất CN-02, KCN Quế Võ, Bắc Ninh') === siteCacheKey('Hojeong Vina', 'lô CN 02, KCN Quế Võ, Bắc Ninh'), 'lot written differently (CN-02 / CN 02) = same lot')
-assert(siteCacheKey('Hojeong Vina', 'KCN Quế Võ 2, Bắc Ninh') !== a, 'numbered park (Quế Võ 2) is another site')
-assert(siteCacheKey('Hojeong Vina', 'KCN Yên Phong, Bắc Ninh') !== a, 'same name, other park → not merged')
-const s1 = siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Suối Hoa, Bắc Ninh')
-const s2 = siteCacheKey('HIGHLANDS COFFEE', 'số 12 Lý Thái Tổ, P. Suối Hoa, TP Bắc Ninh')
-assert(s1 && s1 === s2, `same house number + street → one key: ${s1} / ${s2}`)
-assert(siteCacheKey('Highlands Coffee', '15 Lý Thái Tổ, Bắc Ninh') !== s1, 'other house number = other branch')
-assert(siteCacheKey('Highlands Coffee', '12 Nguyễn Văn Cừ, Bắc Ninh') !== s1, 'other street = other branch')
-assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Hoàn Kiếm, Hà Nội') !== s1, 'other province = other branch')
-assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Từ Sơn, Bắc Ninh') !== s1, 'Codex #619: same house+street, other locality in same province = other branch')
-assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Bắc Ninh') !== s1, 'locality missing → not merged with a locality-named address')
-// Codex #619: 숫자 동·구는 숫자까지 구분 — Phường 1 / Phường 2는 다른 지점, 표기만 다른 Phường 1 / P.1 / P1은 같은 곳
-const w1 = siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Phường 1, TP Hồ Chí Minh')
-assert(w1 && w1 !== siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Phường 2, TP Hồ Chí Minh'), 'Phường 1 vs Phường 2 = other branch')
-assert(w1 === siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, P.1, TP Hồ Chí Minh') && w1 === siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, P1, Hồ Chí Minh'), 'Phường 1 / P.1 / P1 = same ward')
-assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Quận 3, TP Hồ Chí Minh') !== siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Quận 1, TP Hồ Chí Minh'), 'Quận 3 vs Quận 1 = other branch')
-assert(siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Phường 1, TP Hồ Chí Minh') !== siteCacheKey('Highlands Coffee', '12 Lý Thái Tổ, Quận 1, TP Hồ Chí Minh'), 'Phường 1 vs Quận 1 = different units')
-assert(siteCacheKey('Highlands Coffee', 'Lý Thái Tổ, Bắc Ninh') === '', 'street without house number → no site key (old text key)')
-assert(siteCacheKey('ABC', 'KCN Quế Võ, Bắc Ninh') === '', 'too-short core name → no site key')
-assert(googleCacheKeys('Highlands Coffee', 'Lý Thái Tổ, Bắc Ninh').length === 1, 'no site → only text key')
-assert(googleCacheKeys('Highlands Coffee', '12 Lý Thái Tổ, Bắc Ninh').length === 2, 'site key first, old text key second')
+// ① 저장된 Google 결과는 검색 글자(회사 이름 + 원문 주소)가 완전히 같을 때만 다시 쓴다(Lee 2026-11-10 "나": 비슷한 사업장 자동 병합 없음)
+assert(googleCacheKeys('Highlands Coffee', '12 Lý Thái Tổ, Bắc Ninh').length === 1, 'one exact text key')
+assert(googleCacheKeys('Highlands Coffee', '12 Lý Thái Tổ, Bắc Ninh')[0] === JSON.stringify(['company-v2', 'google', 'Highlands Coffee, 12 Lý Thái Tổ, Bắc Ninh']), 'same key as before #619 (stored results stay usable)')
+assert(googleCacheKeys('Hojeong Vina', 'Lô C3, KCN Quế Võ, Bắc Ninh')[0] !== googleCacheKeys('Hojeong Vina', 'Lô D5, KCN Quế Võ, Bắc Ninh')[0], 'other lot → other key')
 
 const store = new Map<string, unknown>()
 let asked = 0
@@ -48,8 +25,10 @@ const job1 = precheckJob({ company: 'Công ty TNHH Hojeong Vina', location: 'B�
 const job2 = precheckJob({ company: 'CTY HOJEONG VINA', location: 'Bắc Ninh', addresses: ['lô số C3 KCN Quế Võ, Quế Võ, Bắc Ninh'] })!
 const hoj = { places: [place('hj1', 'Công ty TNHH Hojeong Vina', 'Lô C3, KCN Quế Võ, Bắc Ninh')] }
 const r1 = await resolveAutoLocation(job1, deps(async () => hoj))
+const r1b = await resolveAutoLocation(job1, deps(async () => hoj))
+assert(precheckVerdict(r1).findable && precheckVerdict(r1b).findable && asked === 1, `same text → Google asked once (asked ${asked})`)
 const r2 = await resolveAutoLocation(job2, deps(async () => hoj))
-assert(precheckVerdict(r1).findable && precheckVerdict(r2).findable && asked === 1, `same site, different wording → Google asked once (asked ${asked})`)
+assert(precheckVerdict(r2).findable && asked === 2, `different wording → asked again, never merged (asked ${asked})`)
 
 // 다른 지점(같은 회사 이름, 다른 공단)은 저장된 결과를 쓰지 않고 따로 묻는다 — 잘못된 사업장 연결 없음
 asked = 0
@@ -62,15 +41,13 @@ asked = 0
 const r4 = await resolveAutoLocation(precheckJob({ company: 'Hojeong Vina', location: 'Bắc Ninh', addresses: ['KCN Quế Võ 2, Bắc Ninh'] })!, deps(async () => ({ places: [] })))
 assert(!String((r4 as { source?: string }).source ?? "").includes('Google x'), 'cached other-park place never linked: ' + JSON.stringify((r4 as { source?: string }).source))
 
-// 예전 검색 글자 열쇠(company-v2)에 저장된 결과도 그대로 쓴다(이미 낸 요청을 다시 내지 않음)
+// 이미 저장된 결과(예전과 같은 열쇠)는 그대로 쓴다 — 위치 확인·로고·업종 모두
 store.clear(); asked = 0
-const [siteKey, textKey] = googleCacheKeys(job1.company, job1.targets[0].address)
+const [textKey] = googleCacheKeys(job1.company, job1.targets[0].address)
 store.set(textKey, hoj)
 const r5 = await resolveAutoLocation(job1, deps(async () => hoj))
-assert(precheckVerdict(r5).findable && asked === 0 && !store.has(siteKey), 'legacy text-key result reused, no new request')
-assert((await cachedGooglePlace(job1, async (k) => store.get(k) ?? null, async () => true))?.id === 'hj1', 'logo/business lookup reads legacy key too')
-store.clear(); store.set(siteKey, { ...hoj })
-assert((await cachedGooglePlace(job1, async (k) => store.get(k) ?? null, async () => true))?.id === 'hj1', 'logo/business lookup reads site key')
+assert(precheckVerdict(r5).findable && asked === 0, 'stored result reused, no new request')
+assert((await cachedGooglePlace(job1, async (k) => store.get(k) ?? null, async () => true))?.id === 'hj1', 'logo/business lookup reads the same key')
 
 // ② 한도 초과(우리 월 한도·Google 429)는 '위치 없음'이 아니라 google_quota(보류)
 for (const msg of ['quota_exhausted', 'upstream_failed_429']) {
@@ -78,7 +55,7 @@ for (const msg of ['quota_exhausted', 'upstream_failed_429']) {
   const q = await resolveAutoLocation(job1, deps(async () => { throw new Error(msg) }))
   const v = precheckVerdict(q)
   assert(!v.findable && v.reason === 'google_quota', `${msg} → google_quota: ${JSON.stringify(v)}`)
-  assert(!store.has(siteKey) && !store.has(textKey), 'failed Google call stores nothing (no false "not found" cached)')
+  assert(!store.has(textKey), 'failed Google call stores nothing (no false "not found" cached)')
 }
 // Codex #619: 한도 초과 뒤 VietMap 공단(표에 없는 공단)·동 중심 대략 위치가 나와도 '한도 초과'(보류)로 남는다 — 7일 뒤 '못 찾음'이 아님
 {
@@ -107,4 +84,4 @@ assert(other.reason !== 'google_quota', 'other provider error is not quota')
 const nf = precheckVerdict(await resolveAutoLocation(job1, deps(async () => ({ places: [] }))))
 assert(!nf.findable && nf.reason !== 'google_quota', 'Google knows nothing → still not found (not held): ' + nf.reason)
 
-console.log('googleQuotaCache: same-site reuse, branch separation, quota hold reason passed')
+console.log('googleQuotaCache: exact-text reuse, branch separation, quota hold reason passed')

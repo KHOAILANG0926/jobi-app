@@ -8,7 +8,6 @@
 // 결과는 '대략 위치(area)' — 화면은 chưa xác minh 그대로, 핀만 실제 업체 자리.
 import { companyTokens, normalizePlaceText } from './locationCandidateMatch'
 import { findIndustrialPark, foldText } from './industrialPark'
-import { administrativeAreaForTarget } from './administrativeArea'
 
 /** 이름 앞뒤 수식어를 뺀 핵심 이름(띄어쓰기 없이). "JoyThai - Thai Cuisine & Hotpot" → "joythai". */
 export function coreName(name: string): string {
@@ -153,52 +152,8 @@ export function companySearchText(company: string, address: string): string {
   return `${company} ${area}`.trim()
 }
 
-/** 같은 사업장을 Google에 두 번 묻지 않게(#560 Lee 2026-11-09 "같은 사업장 중복 검색 줄이기"): 검색 결과를 저장할 사업장 열쇠.
- *  회사 핵심 이름 + (번지·거리 | 공단) + 성. 번지·공단이 없으면 '' — 그때는 검색 글자 그대로 저장한다(지점을 잘못 합치지 않게).
- *  저장하는 것은 후보 목록이고, 어느 후보를 고를지는 매번 그 공고의 주소로 pickCompanyPlace가 다시 정한다(다른 지점은 거리·공단 확인에서 걸러짐). */
-export function siteCacheKey(company: string, address: string): string {
-  const core = coreName(company)
-  if (core.length < 4) return ''
-  const house = String(address ?? '').match(/^\s*(?:số\s*)?(\d+\p{L}?(?:\s*[\/-]\s*\d+\p{L}?)*)/iu)?.[1]?.replace(/\s+/g, '') ?? ''
-  const street = numberedStreet(address)
-  const park = findIndustrialPark(address)
-  // 같은 공단 안 다른 구획(Lô C3 / Lô D5)은 다른 사업장(Codex #619). 구획을 안 적은 주소는 따로 센다(합치지 않음).
-  const site = street && house ? `st:${house} ${street}` : park ? `park:${park.id}|lot:${lotOf(address)}` : ''
-  if (!site) return ''
-  const area = administrativeAreaForTarget(address, '')
-  const province = area ? area.parentKey ?? area.key : ''
-  // 번지 열쇠는 동·구까지 같아야 같은 사업장(Codex #619: 같은 성 안 다른 동의 "12 Lý Thái Tổ"는 다른 지점). 동·구를 안 적은 주소는 따로 센다(합치지 않음).
-  const locality = street && house ? `|${localityOf(address, area)}` : ''
-  return `${core}|${site}|${province}${locality}` // 원래 성 단위("TP Bắc Ninh"·"Bắc Ninh" 같은 성)
-}
-
-/** 공단 안 구획 번호("Lô C3", "lô số D-5", "Lot CN-02") — 글자·숫자만, 대문자. 없으면 ''. */
-function lotOf(address: string): string {
-  const m = foldText(String(address ?? '')).match(/(?:^| )(?:lo|lot)(?: dat)?(?: so)? ([a-z]{0,4} ?\d+[a-z]?(?: \d+[a-z]?)*)(?: |$)/)
-  return m ? m[1].replace(/ /g, '').toUpperCase() : ''
-}
-
-const LOCALITY_PREFIX = /^(phuong|p|xa|x|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t) ?(?=\d|\s|$)/
-// 머리말 종류(같은 종류는 한 글자로): 숫자 동·구("Phường 1"·"P.1"·"P1", "Quận 3"·"Q3")는 종류+숫자로 남긴다(Codex #619 — 숫자를 버리면 다른 동이 합쳐짐).
-const LOCALITY_KIND: Record<string, string> = { phuong: 'p', p: 'p', xa: 'x', x: 'x', 'thi tran': 'tt', tt: 'tt', quan: 'q', q: 'q', huyen: 'h', h: 'h', 'thi xa': 'tx', tx: 'tx', 'thanh pho': 'tp', tp: 'tp', tinh: 't', t: 't' }
-/** 주소의 동·구 글자(번지·거리 칸과 성·시 이름·나라 이름 빼고, 머리말 phường·xã·quận·huyện·TP 등 떼고). 숫자 동·구는 "p1"·"q3"처럼. */
-function localityOf(address: string, area: { key: string; aliases: string[]; parentKey?: string } | null): string {
-  const aliases = new Set([...(area?.aliases ?? []), ...[area?.key, area?.parentKey].filter(Boolean).map((k) => String(k).replace(/^[a-z]+:/, ''))])
-  const parts = String(address ?? '').split(',').slice(1)
-    .map((p) => {
-      const text = normalizePlaceText(p).replace(/\./g, ' ').replace(/\s+/g, ' ').trim()
-      const m = text.match(LOCALITY_PREFIX)
-      const rest = m ? text.slice(m[0].length).trim() : text
-      return m && /^\d+$/.test(rest) ? `${LOCALITY_KIND[m[1]]}${Number(rest)}` : rest
-    })
-    .filter((p) => p && !aliases.has(p) && !/^(?:viet nam|vietnam)$/.test(p) && !/^\d+$/.test(p))
-  return [...new Set(parts)].sort().join('+')
-}
-
-/** Google 결과 저장 열쇠 — 위치 확인·로고·업종이 같은 함수(한 곳). 첫 열쇠에 저장하고, 읽을 때는 차례로 찾는다.
- *  사업장(회사+번지/공단+성)을 정하면 사업장 열쇠가 먼저, 그다음 예전 검색 글자 열쇠(이미 저장된 결과를 다시 묻지 않게). */
+/** Google 결과 저장 열쇠 — 위치 확인·로고·업종이 같은 함수(한 곳). 검색 글자(회사 이름 + 원문 주소)가 완전히 같을 때만 다시 쓴다
+ *  (Lee 2026-11-10 "나": 비슷한 사업장 자동 병합은 빼고 기존 완전 일치 방식). 배열인 것은 읽는 쪽이 차례로 찾는 모양을 그대로 쓰기 위함. */
 export function googleCacheKeys(company: string, address: string): string[] {
-  const site = siteCacheKey(company, address)
-  const text = JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])
-  return site ? [JSON.stringify(['company-v3', 'google', site]), text] : [text]
+  return [JSON.stringify(['company-v2', 'google', googleSearchText(company, address)])]
 }

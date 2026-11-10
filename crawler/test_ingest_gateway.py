@@ -379,6 +379,19 @@ def run_unfound_recheck_fresh():
     g.retry_held(c)
     assert sent == {"u": True, "q": False}, sent
     assert all("_recheck" not in r["payload"] for r in c.rows.values()), "보류함 원본은 그대로"
+    # Codex #619 P2: '못 찾음' 다시 확인이 한도에 막혀 held가 돼도, 한도가 풀린 다음 확인은 여전히 새로 묻는다
+    c2 = HoldClient()
+    payload = {"title": "r", "company": "Cty r", "location": "Bắc Ninh", "source_url": "https://example.invalid/r"}
+    c2.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                      "meta": {"status": "unfound", "reason": "not_found", "held_at": g._now(), "attempts": 0,
+                                               "next_at": "2000-01-01T00:00:00+00:00"}}
+    flags = []
+    g.PRECHECK = lambda j: (flags.append(g.precheck_input(j)["recheck"]), {"findable": False, "reason": "google_quota"})[1]
+    g.retry_held(c2)
+    g.PRECHECK = lambda j: (flags.append(g.precheck_input(j)["recheck"]), {"findable": True, "location": "KCN Quế Võ, Bắc Ninh"})[1]
+    g.retry_held(c2)
+    meta = c2.rows[g._hold_name(payload)]["meta"]
+    assert flags == [True, True] and meta["status"] == "registered" and "refresh" not in meta, (flags, meta)
     print("test_ingest_gateway: unfound recheck asks Google again passed")
 
 

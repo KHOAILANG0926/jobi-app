@@ -302,12 +302,17 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         else:
             try:
                 payload = dict(row.get("payload") or {})
-                if meta.get("status") == "unfound":
+                # '못 찾음' 다시 확인은 Google에 새로 묻는다. 도중에 한도에 막혀 held가 돼도 새로 물어야 함은 남긴다(Codex #619 P2).
+                refresh = meta.get("status") == "unfound" or meta.get("refresh") is True
+                if refresh:
                     payload["_recheck"] = True
+                meta.pop("refresh", None)
                 meta["job_id"] = _ingest_new(client, payload)
                 meta["status"] = "registered"
             except LocationDeferred as exc:
                 meta["status"], meta["reason"], meta["next_at"] = "held", _reason_of(exc), _now()
+                if refresh:
+                    meta["refresh"] = True
                 stop = meta["reason"] not in JOB_ONLY_DEFERRED_REASONS
             except LocationNotFound as exc:
                 meta["reason"] = _reason_of(exc)

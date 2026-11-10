@@ -224,7 +224,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
   reason: (reason: string) => void,
   verifyAddress: (address: string, target: ResolverJob['targets'][number]) => Promise<LocationDecision | null>,
   use: { goong?: boolean; google?: boolean } = {}): Promise<LocationDecision | null> {
-  // keys: 첫 열쇠에 저장, 읽을 때는 차례로(Google은 사업장 열쇠 → 예전 검색 글자 열쇠, googleCacheKeys 한 곳).
+  // keys: 첫 열쇠에 저장, 읽을 때는 차례로(Google 열쇠는 googleCacheKeys 한 곳 — 검색 글자 완전 일치).
   const ask = async (key: unknown[] | string[], call: () => Promise<unknown>, provider = String(key[1])) => {
     const keys = provider === 'google' && key.every((x) => typeof x === 'string' && x.startsWith('[')) ? key as string[] : [JSON.stringify(key)]
     try {
@@ -258,7 +258,7 @@ async function resolveByCompanyName(job: ResolverJob, targets: ResolverJob['targ
     if (deps.google && use.google !== false) {
       // Ask Google exactly what the detail-page Google button asks (company, full address).
       const gText = googleSearchText(job.company, address)
-      // 같은 사업장(회사+번지/공단+성)이면 표기가 달라도 한 번만 묻는다. 사업장을 못 정하면 예전처럼 검색 글자로(googleCacheKeys 한 곳).
+      // 검색 글자가 완전히 같으면 저장된 결과를 다시 쓴다(googleCacheKeys 한 곳).
       const hits = googlePlaceHits(await ask(googleCacheKeys(job.company, address), () => deps.google!(gText), 'google'))
       const pick = pickCompanyPlace(job.company, address, hits)
       if (!pick.hit) reason(`google:${pick.reason}`)
