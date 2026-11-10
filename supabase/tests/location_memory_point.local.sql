@@ -2,7 +2,9 @@
 begin;
 insert into public.local_jobs(id, company, location) values
  (990001, 'Công ty TNHH Alpha', 'Lô A1 KCN Quế Võ, Bắc Ninh'),
- (990002, 'Công ty TNHH Beta', 'Số 5 Lý Thái Tổ, Bắc Ninh');
+ (990002, 'Công ty TNHH Beta', 'Số 5 Lý Thái Tổ, Bắc Ninh'),
+ (990003, 'công ty tnhh  Alpha', 'Lô A1, KCN Quế Võ - Bắc Ninh'),
+ (990004, 'Công ty TNHH Alpha', 'Lô B2 KCN Quế Võ, Bắc Ninh');
 insert into public.job_location_candidates(job_id, company_snapshot, address_snapshot, lat, lng, place_precision, evidence, status, reviewed_by, reviewed_at)
 values
  (990001, 'Công ty TNHH Alpha', 'Lô A1 KCN Quế Võ, Bắc Ninh', 21.15, 106.15, 'building', 'Google Maps link', 'approved', '00000000-0000-0000-0000-000000000001', '2026-11-01 00:00+00'),
@@ -31,5 +33,13 @@ begin
  if n <> 0 then raise exception 'empty company must not match'; end if;
  select count(*) into n from public.location_memory_point('Công ty TNHH Alpha', array['', '  ']);
  if n <> 0 then raise exception 'empty address must not match'; end if;
+ -- 등록 뒤 자동 재사용(view)과 위치 확인 조회가 같은 자격·같은 확정 위치를 고른다
+ select count(*) into n from location_private.valid_memory_targets where job_id = 990003;
+ if n <> 1 then raise exception 'new job with same company+address must get reuse target (got %)', n; end if;
+ select count(*) into n from location_private.valid_memory_targets where job_id = 990004;
+ if n <> 0 then raise exception 'other branch job must not get reuse target (got %)', n; end if;
+ select count(*) into n from location_private.valid_memory_targets t
+  where not exists(select 1 from public.location_memory_point(t.company, array[t.address]) p where p.candidate_id = t.source_candidate_id);
+ if n <> 0 then raise exception 'view and precheck lookup disagree (% rows)', n; end if;
 end $$;
 rollback;
