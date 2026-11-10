@@ -72,8 +72,9 @@ function fakeFetch(log) {
 }
 // 4) 입력 변환 = 수집기 precheck_input과 같은 칸
 {
-  const i = precheckInputOf({ company: 'X', _company_from_text: true, location: 'Bắc Ninh', source_text: 'abc', work_locations: [{ raw_address: ' 12 Lý Thái Tổ ' }, {}] })
-  assert.deepEqual(i, { company: '', location: 'Bắc Ninh', addresses: ['12 Lý Thái Tổ'], source_text: 'abc', poster_text: '' })
+  const i = precheckInputOf({ company: 'X', _company_from_text: true, location: 'Bắc Ninh', source_text: 'abc', work_locations: [{ raw_address: ' 12 Lý Thái Tổ ' }, {}], _search_region: 'Bắc Ninh' })
+  assert.deepEqual(i, { company: '', location: 'Bắc Ninh', addresses: ['12 Lý Thái Tổ'], source_text: 'abc', poster_text: '', search_region: 'Bắc Ninh' })
+  assert.equal(precheckInputOf({ company: 'X' }).search_region, '', 'no group region → empty (수집기 precheck_input과 같음)')
 }
 // 5) 한 건 비교 + 집계(VietMap·Goong은 결과 없음)
 {
