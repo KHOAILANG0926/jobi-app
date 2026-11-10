@@ -38,7 +38,9 @@ export function sameCoreName(company: string, placeName: string): boolean {
 /** 원문 주소의 거리 이름(번지·"đường/phố" 없이). 없으면 ''. */
 export function streetOf(address: string): string {
   // "27 kinh dương vương-p Vũ Ninh"처럼 붙어 쓴 '-p'·'-tỉnh'도 끊는다.
-  const first = normalizePlaceText(String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? '')
+  // 슬래시·줄표 번지("10/2", "25-27")는 글자 그대로 먼저 뗀다 — 정규화하면 "10 2"가 되어 '2'가 거리 이름에 붙는다(Codex #674).
+  const raw = (String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? '').replace(/^\s*(?:số\s*)?\d+\p{L}?(?:\s*[\/-]\s*\d+\p{L}?)+\s+/iu, '')
+  const first = normalizePlaceText(raw)
   const street = first.replace(/^(?:so\s+)?\d+[a-z]?(?:\/\d+)*\s+/, '').replace(/^(?:duong|pho|d)\s+/, '').trim() // "Đ. Triệu Việt Vương"의 Đ.(đường 줄임)도 뗀다
   return street.length > 2 && !/^(?:kcn|ccn|khu|cum|phuong|p|xa|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\b/.test(first) ? street : ''
 }
@@ -116,8 +118,11 @@ export function pickCompanyPlace(company: string, address: string, hits: PlaceHi
   if (onStreet.length === 1) return { hit: onStreet[0], reason: 'multiple_street_match' }
   // 같은 체인이 같은 거리에 여러 곳이면(2026-11-11 KRIK 152·340 Trần Hưng Đạo) 원문 번지가 그 후보 주소에 '번지 + 거리'로 있는 곳만.
   // 번지가 없거나 번지까지 같은 곳이 1곳이 아니면 지금처럼 보류(다른 지점을 고르지 않는다).
-  const no = /^\s*(?:số\s*)?(\d+[a-z]?(?:\/\d+)*)\s/iu.exec(address)?.[1]?.toLowerCase()
-  const atNo = no ? onStreet.filter((h) => new RegExp(`(?:^| )${no.replace('/', ' ')} (?:d |duong |pho )?${street} `).test(` ${normalizePlaceText(h.address)} `)) : []
+  // 번지는 통째로 비교한다(Codex #674: "1/152"를 "152"로 보지 않게 — 슬래시·줄표 번지를 그대로 둔 글자로 읽는다).
+  const houseText = (t: string) => ` ${String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s*([/-])\s*(?=\d)/g, '$1').replace(/[^a-z0-9/-]+/g, ' ').replace(/\s+/g, ' ').trim()} `
+  const no = /^\s*(?:số\s*)?(\d+[a-z]?(?:\s*[/-]\s*\d+[a-z]?)*)\s/iu.exec(address)?.[1]?.toLowerCase().replace(/\s+/g, '')
+  const houseOf = (h: PlaceHit) => new RegExp(`(?:^|[^0-9/-])(\\d+[a-z]?(?:[/-]\\d+[a-z]?)*) (?:d |duong |pho )?${street} `).exec(houseText(h.address))?.[1]
+  const atNo = no ? onStreet.filter((h) => houseOf(h) === no) : []
   if (atNo.length === 1) return { hit: atNo[0], reason: 'multiple_house_number_match' }
   return { hit: null, reason: onStreet.length ? 'multiple_same_street' : 'multiple_no_street_match' }
 }
