@@ -31,6 +31,9 @@ function unlabeledLine(text: string): string {
     let line = trimDots(raw.replace(new RegExp(`^[^${WORD}]+`, 'u'), '').trim())
     const colon = line.split(',', 1)[0].match(/[:：]/)
     if (colon) line = trimDots(line.slice(line.indexOf(colon[0]) + 1)) // "Làm việc tại: …" 앞 이름표는 떼고 주소만
+    // 이름표 뒤 값은 띄어 쓴 대시도 칸 구분("Làm việc tại: Nam Sơn / Quế Võ 1 - Bắc Ninh", #633 GOERTEK).
+    // 이름표 없는 줄(제목 "… – BẮC NINH")에는 적용하지 않는다.
+    if (colon) line = line.replace(/\s+[-–]\s+/gu, ', ')
     const parts = line.split(',').map((x) => x.trim()).filter(Boolean)
     if (parts.length < 2 || parts.length > 6 || line.length > 160 || NOT_ADDRESS.test(line)) continue
     const last = parts[parts.length - 1].replace(/^(?:tỉnh|tinh|thành phố|tp\.?)\s+/iu, '')
