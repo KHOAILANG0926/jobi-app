@@ -33,6 +33,14 @@
       "approvedAt": "2026-11-07",
       "approval": "Lee 2026-11-07 chat: '같은내용을 두번 적는게 맞아? 이걸 원래대로 하라고', '먼저수정하고 7,8번 확인', '아까 니가만든거 지우라고 했잖아 중복이라고 / 아까 얘기 다끝난거 아니야?'. #525에서 같은 내용을 따로 적으려고 만든 recruiter_agency 칸을 지워 원래 recruitment_type 칸 하나로 되돌림.",
       "scope": "Only this exact newly added migration. DROP COLUMN removes local_jobs.recruiter_agency only; read-only check run 42387154011 found 0 rows with true, and the migration raises (no drop) if any row is true. No blanket destructive SQL approval."
+    },
+    {
+      "path": "supabase/migrations/20261110120000_alert_region_keywords_34.sql",
+      "sha256": "e070d3b3ba8826b2ec547a92fa0f4d339740fe11525a5137d679307fcba457c5",
+      "approvedBy": "Lee",
+      "approvedAt": "2026-11-10",
+      "approval": "Lee 2026-11-10 chat: '#625의 기존 지역 낱말 표 삭제 및 34개 성 기준 교체는 조건부 승인합니다' — 조건 1 알림 조건 삭제·누락 없음(조건은 UPDATE만, 로컬 시험), 2 옛 성→새 성 확대 확인(옛 성 조건 수를 적용 기록에 NOTICE), 3 공개 공고 21건 알림 판정=화면 판정 21건(읽기 전용 run 42762201669).",
+      "scope": "Only this exact newly added migration. DELETE removes job_alert_region_keywords rows only (region keyword reference list, regenerated from src/lib/regionKeywords.ts); no job, location or user rows are deleted. No blanket destructive SQL approval."
     }
   ]
 }
