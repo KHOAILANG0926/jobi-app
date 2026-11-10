@@ -383,7 +383,9 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   })
   const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
   const sourceRoles = sourceRecruitmentRoles(job.description)
-  const shownTitle = job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ') ? job.title.slice(job.company.length).trim() : job.title
+  // 제목 앞 회사명을 떼면 이어 붙은 대시·쌍점도 뗀다(#5876 "CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG …" → "TUYỂN DỤNG …"). 남는 글자가 없으면 원래 제목.
+  const shownTitle = job.company && job.title.toLowerCase().startsWith(job.company.toLowerCase() + ' ')
+    ? job.title.slice(job.company.length).replace(/^[\s\-–—:|·,]+/u, '').trim() || job.title : job.title
   const companyText = companyLine(shownTitle, job.company)
   const sourceEligibility = sourceRecruitmentEligibility(job.description)
   const contact = contactOf(job)

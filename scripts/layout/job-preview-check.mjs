@@ -35,6 +35,13 @@ try {
     assert.deepEqual(overlaps, [], 'no-contact notice does not cover other boxes')
     const pe = await pop.locator('.jd2-page--preview button').first().evaluate((el) => getComputedStyle(el).pointerEvents)
     assert.equal(pe, 'none', 'buttons are inert in preview')
+    // #5876(Lee 2026-11-10): 제목 앞 회사명을 떼면 이어 붙은 대시도 떼고, 제목의 'CÔNG NHÂN'을 회사명으로 보지 않는다(회사 줄 = 회사명 전체)
+    await pop.evaluate(() => { const k = 'vgb:postjob-preview'; const j = JSON.parse(localStorage.getItem(k) || '{}')
+      localStorage.setItem(k, JSON.stringify({ ...j, company: 'CÔNG TY TNHH ZHAN AN', title: 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT' })) })
+    await pop.reload({ waitUntil: 'domcontentloaded' })
+    await pop.locator('.jd2-preview-note').waitFor()
+    assert.equal((await pop.locator('h1.jd2-header__title').innerText()).trim(), 'TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', 'title loses company prefix and its dash')
+    assert.equal((await pop.locator('.jd2-header__company').innerText()).trim(), 'CÔNG TY TNHH ZHAN AN', 'company line is the full name')
     console.log('PASS job preview', name)
     await ctx.close()
   }
