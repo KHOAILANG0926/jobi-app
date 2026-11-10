@@ -48,6 +48,18 @@ try {
     const seen = await collectScreen(pop, name)
     const bad = screenAudit({ id: 0, title: 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', company: 'CÔNG TY TNHH ZHAN AN' }, [seen]).filter((f) => f.sure && ['title', 'company'].includes(f.key))
     assert.deepEqual(bad, [], 'screen audit finds no title/company error on the rendered preview')
+    // Lee 2026-11-10 적용(상세 ④ 꾸민 본문): 수집 공고 모양(템플릿 없이 원문 줄)으로 큰 급여·아이콘 카드·절차 화살표·전화 버튼이 나오고 가로로 넘치지 않는다
+    await pop.evaluate(() => { const k = 'vgb:postjob-preview'; const j = JSON.parse(localStorage.getItem(k) || '{}')
+      localStorage.setItem(k, JSON.stringify({ ...j, descriptionHtml: undefined, description_html: undefined, category: 'san_xuat_xay_dung', rawSalary: '7.300.000Đ/THÁNG', salary: '7.300.000Đ/THÁNG', employerPhone: '0969661314',
+        description: ['Công việc', '2. CÔNG VIỆC', 'Vận hành, hỗ trợ sản xuất tại bộ phận ép nhựa.', 'Lắp ráp và đóng gói sản phẩm nhựa.', 'Thu nhập', 'THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ', 'Tiền tăng ca được tính riêng theo quy định.',
+          'Quy trình tuyển dụng', 'Vui lòng liên hệ trực tiếp để được tư vấn và sắp xếp phỏng vấn.'].join('\n') })) })
+    await pop.reload({ waitUntil: 'domcontentloaded' })
+    await pop.locator('.jd2-rich').waitFor()
+    assert.equal((await pop.locator('.jd2-rich__hero b').innerText()).trim(), '7.300.000Đ/THÁNG', 'rich: big salary')
+    assert((await pop.locator('.jd2-rich__card').count()) >= 3, 'rich: icon cards')
+    assert.equal((await pop.locator('.jd2-rich__step').count()), 3, 'rich: process arrows from source words')
+    assert.equal(await pop.locator('a.jd2-rich__cta').getAttribute('href'), 'tel:0969661314', 'rich: call button')
+    assert(!(await pop.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), 'rich: no horizontal overflow')
     console.log('PASS job preview', name)
     await ctx.close()
   }

@@ -31,7 +31,7 @@ import { ConditionLines } from '../components/ConditionLines'
 import { conditionItems, itemsCoveredBy } from '../lib/conditionLines'
 import { companyKeyFromName } from '../lib/reviewsStorage'
 import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, JOB_TABS, SALARY_BASIS_LABEL, EMPLOYMENT_TYPE_LABEL, EMPLOYMENT_TYPE_EXTRA_LABEL, contactOf, deadlineBadge, isGenericCompanyName, salaryPeriodLabel, jobSectionId, jobTags, shiftLabel, tabOfSection, weekendLabel, type JobTabKey } from '../lib/jobDetailView'
-import { contactHostFor, balanceConditionColumns, detailSections, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
+import { contactHostFor, balanceConditionColumns, detailSections, salaryAmounts, DETAIL_LABELS, sourceRecruitmentEligibility, type DetailTextKey } from '../lib/jobDetailSections'
 import { descriptionRoleGroups, roleConditionSummary, roleSalaryLines, roleSalaryRows } from '../lib/jobRolePresentation'
 import { insuranceTags } from '../lib/jobQuyenLoi'
 import { sourceRecruitmentRoles } from '../lib/sourceRecruitmentRoles'
@@ -44,6 +44,8 @@ import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
 import { detailLook, factoryPhotos } from '../lib/albamonTemplate'
+import { DetailRich } from '../components/DetailRich'
+import { richPill } from '../lib/detailRich'
 import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
@@ -995,7 +997,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
             {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
-              <div className={`jd2-box jd2-detail-sections${albamonLayout ? ` jd2-detail-sections--tpl jd2-detail-sections--${look.style}` : ''}`} style={albamonLayout ? { '--jd2-bar': look.bar, '--jd2-head': look.head } as React.CSSProperties : undefined} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+              <div className={`jd2-box jd2-detail-sections${albamonLayout ? ` jd2-detail-sections--tpl jd2-detail-sections--${look.style}` : ''}`} style={albamonLayout ? { '--jd2-bar': look.bar, '--jd2-head': look.head, '--jd2-point': look.point } as React.CSSProperties : undefined} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
                 {/* #563 데모: 간편 템플릿 머리(업종 그림 + 왼쪽 흐림 위 회사·제목). 그림은 장식이라 alt 비움 */}
                 {albamonLayout && (
                 <div className="jd2-desc-visual">
@@ -1004,7 +1006,14 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
                   <p className="jd2-desc-visual__title">{shownTitle}</p>
                 </div>
                 )}
-                {descriptionSections.map((section) => (
+                {/* Lee 2026-11-10 "이런 식으로 좀 화려하게"(알바몬 쿠팡 공고 참고) — 최신 틀·10-30 구성 공고만. KDA·여러 직무 공고는 아래 기존 모양 */}
+                {compose ? (
+                  <DetailRich periodLabel={periodLabel} salaryText={salaryText} overtimeNote={albamonLines.overtimeNote}
+                    pill={richPill(detail.sections.find((sec) => sec.key === '04')?.lines ?? [], salaryAmounts(job.salary), salaryAmounts)}
+                    sections={descriptionSections.map((sec) => ({ ...sec, lines: [...(conditionExtras[sec.key]?.map((e) => `${e.label}: ${e.text}`) ?? []), ...sec.lines] }))}
+                    benefits={benefitIcons.filter((b) => b.active).map((b) => ({ key: b.key, label: b.label }))}
+                    insurance={insuranceTags(albamonLines.insurance)} phone={contact.phone} />
+                ) : descriptionSections.map((section) => (
                   <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
                     <h3 className="jd2-detail-section__title">{section.label}</h3>
                     <div className="jd2-detail-section__lines">
