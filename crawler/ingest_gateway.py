@@ -269,6 +269,8 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
     payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_")}
     meta = {"status": status, "reason": reason, "held_at": _now(), "attempts": 0,
             "next_at": _now() if status == "held" else _after(UNFOUND_RECHECK_DAYS)}
+    if job.get("_search_region"):
+        meta["search_region"] = str(job["_search_region"])[:80]  # 다시 확인 때도 같은 지역으로 Google에 묻는다(Codex #674)
     try:
         client.table("research_artifacts").upsert(
             {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload, "meta": meta},
@@ -310,6 +312,8 @@ def retry_held(client, limit: int = HOLD_RETRY_PER_RUN) -> dict:
         else:
             try:
                 payload = dict(row.get("payload") or {})
+                if meta.get("search_region"):
+                    payload["_search_region"] = meta["search_region"]
                 # '못 찾음' 다시 확인은 Google에 새로 묻는다. 도중에 한도에 막혀 held가 돼도 새로 물어야 함은 남긴다(Codex #619 P2).
                 refresh = meta.get("status") == "unfound" or meta.get("refresh") is True
                 if refresh:
