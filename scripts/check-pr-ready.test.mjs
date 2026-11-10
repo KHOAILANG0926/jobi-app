@@ -107,7 +107,7 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
       { number: 663, title: '회사·주소 읽기: #633 HAIDILAO 대괄호·CÔNG TY MÌNH·JMT 공단 주소', updated_at: '2026-11-10T15:00:00Z' },
       { number: 661, updated_at: '2026-11-10T15:00:00Z' }, // 자기 자신
       { number: 300, updated_at: '2026-10-30T00:00:00Z' }] // 오래된 열린 PR은 제외
-    if (path === 'pulls/663/files?per_page=100') return [{ filename: 'src/lib/companyReader.ts' }]
+    if (path === 'pulls/663/files?per_page=100&page=1') return [{ filename: 'src/lib/companyReader.ts' }]
     throw new Error('예상 밖 호출 ' + path)
   }
   const required = recentPrsFor({ files: ['src/lib/companyReader.ts', 'WORK_LOG.md'], self: 661, now, api })
@@ -127,6 +127,19 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   assert.deepEqual(recordProblems('본문', []), [])
   assert.deepEqual(recentPrsFor({ files: ['WORK_LOG.md'], self: 1, now, api: (p) => (p.startsWith('pulls?') ? [] : assert.fail(p)) }), [])
 }
+// Codex 지적: 한 줄에 필수 번호 둘을 몰아 쓰면 실패, 101번째 파일에서만 겹쳐도 찾음
+{
+  const r = [{ num: 616, why: 'x', words: ['회사'] }, { num: 663, why: 'y', words: ['회사'] }]
+  const merged = '## 확인한 기록\n- #616 #663: 회사 이름 그대로 유지하며 기존 결정을 따름\n'
+  assert.ok(recordProblems(merged, r).length >= 1)
+  const big = (path) => {
+    if (path.startsWith('commits?')) return []
+    if (path.startsWith('pulls?')) return [{ number: 9, title: '큰 PR', updated_at: '2026-11-10T15:00:00Z' }]
+    const page = Number(/page=(\d+)/.exec(path)[1])
+    return page === 1 ? Array.from({ length: 100 }, (_, i) => ({ filename: `a${i}.ts` })) : [{ filename: 'src/lib/companyReader.ts' }]
+  }
+  assert.deepEqual(recentPrsFor({ files: ['src/lib/companyReader.ts'], self: 1, now: Date.parse('2026-11-10T16:00:00Z'), api: big }).map((x) => x.num), [9])
+}
 // 그 PR을 열어 봤는지(#666 2단계): 제목 낱말이 줄에 하나도 없으면 실패
 {
   assert.deepEqual(titleWords('fix(ci): 회사 이름 규정 HAIDILAO (#616)'), ['회사', '이름', '규정', 'haidilao'])
@@ -143,6 +156,7 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   assert.match(evaluateFiles(['src/lib/companyReader.ts'], '', src).join(), /companyReader\.test\.ts에 eq/)
   assert.match(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '-eq(n("a"), "", "x")\n' }).join(), /eq/)
   assert.deepEqual(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '+eq(n("Quán X"), "", "새 사례")\n' }).filter((e) => /Reader/.test(e)), [])
+  assert.match(evaluateFiles(['src/lib/companyReader.ts', 'src/lib/companyReader.test.ts'], '', { ...src, 'src/lib/companyReader.test.ts': '+// eq(n("a"), "", "다음에 추가")\n' }).join(), /eq/)
   assert.deepEqual(evaluateFiles(['src/lib/salaryReader.test.ts'], '', { 'src/lib/salaryReader.test.ts': '+eq(1, 1, "y")\n' }).filter((e) => /Reader/.test(e)), [])
 }
 console.log('check-pr-ready: 확인한 기록(#666) 통과')

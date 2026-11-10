@@ -63,7 +63,9 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   // 새 사례(eq 줄)가 더해져야 한다. 사례 없이 규칙만 덧대는 수정을 막는다(#666, #661 사례). 결정 자체의 변경 여부는 기계가 판단 못 함.
   for (const name of ['companyReader', 'addressReader', 'salaryReader']) {
     const src = `src/lib/${name}.ts`
-    if (changed.has(src) && !/^\+(?!\+\+).*\beq\(/m.test(patches[`src/lib/${name}.test.ts`] ?? ''))
+    // 주석 줄(// … eq(…))은 사례로 치지 않는다: 추가된 줄 중 주석이 아닌 줄에 eq(가 있어야 함
+    const addedTest = (patches[`src/lib/${name}.test.ts`] ?? '').split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && !/^\+\s*(?:\/\/|\*|\/\*)/.test(l))
+    if (changed.has(src) && !addedTest.some((l) => /\beq\(/.test(l)))
       errors.push(`${src}: 11-07 결정 — 고칠 때는 그 공고 사례를 ${name}.test.ts에 eq(…)로 추가해야 함`)
   }
   for (const [path, patch] of Object.entries(patches)) {

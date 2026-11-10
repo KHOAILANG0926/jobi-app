@@ -81,7 +81,9 @@ export function recordProblems(body, required) {
   const lines = section.replace(/<!--[\s\S]*?-->/g, '').split('\n')
   const errors = []
   for (const r of required) {
-    const line = lines.find((l) => new RegExp(`#${r.num}(?!\\d)`).test(l))
+    // 번호마다 자기 줄: 줄 맨 앞(글머리 뒤)의 번호가 그 PR이어야 하고, 다른 필수 PR 번호가 같이 있는 줄은 쓰지 않는다
+    const others = required.filter((o) => o.num !== r.num).map((o) => new RegExp(`#${o.num}(?!\\d)`))
+    const line = lines.find((l) => new RegExp(`^\\s*(?:[-*]\\s*)?#${r.num}(?!\\d)`).test(l) && !others.some((re) => re.test(l)))
     // 번호만 적은 줄은 안 됨: 번호·기호를 뺀 설명 글자가 8자 이상
     const said = line?.replace(/#\d+/g, '').replace(/[\s\-–—:·,.|()[\]*`]/g, '') ?? ''
     if (!line) errors.push(`${RECORD_HEADING}: #${r.num} 없음 (${r.why})`)
@@ -110,7 +112,14 @@ export function recentPrsFor({ files, self, now = Date.now(), api }) {
   const open = api('pulls?state=open&sort=updated&direction=desc&per_page=30')
     .filter((p) => p.number !== self && Date.parse(p.updated_at) >= now - 3 * 864e5)
   for (const p of open) {
-    const same = api(`pulls/${p.number}/files?per_page=100`).map((x) => x.filename).filter((f) => targets.includes(f))
+    // 파일 목록은 끝 페이지까지(100개 넘는 큰 PR에서 뒤쪽 공통 파일을 놓치지 않게)
+    const all = []
+    for (let page = 1; page <= 30; page++) {
+      const got = api(`pulls/${p.number}/files?per_page=100&page=${page}`)
+      all.push(...got)
+      if (got.length < 100) break
+    }
+    const same = all.map((x) => x.filename).filter((f) => targets.includes(f))
     if (same.length && !need.has(p.number)) need.set(p.number, { why: `지금 같은 파일(${same.slice(0, 3).join(', ')})을 고치는 열린 PR`, words: titleWords(p.title) })
   }
   return [...need].map(([num, v]) => ({ num, ...v }))
