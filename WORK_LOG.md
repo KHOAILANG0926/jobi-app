@@ -57,7 +57,3 @@
 - 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
 - 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft). 이어서 Codex 새 지적 2건(Lee "둘 다 고쳐"): 한도 초과 뒤 공단·동 중심 대략 위치로 가도 한도 기록 유지(→ 보류, 7일 뒤 아님) · 새 공고 없는 수집 실행에서도 보류 공고 다시 확인(retry_held_once, Facebook·TopCV 저장 입구, 선택·검증 저장 제외). 로고 다시 시도(Codex P2, Lee 지시): Google이 장소 번호 없음(404 NOT_FOUND) 확인 → no_place로 끝(같은 번호 다시 안 물음, 공고·위치 그대로), 일시 오류 → quota로 다시 기록해 줄 뒤로·다음 공고 계속, Google 한도(429)·장애(503)만 묶음 멈춤, 등록 14일 지난 공고는 다시 시도 안 함(보류함 한도 초과 기한과 같음). 이어서(Lee "두 건 모두"): 숫자 동·구(Phường 1/2, Quận 3)를 사업장 열쇠에서 구분(P.1·P1은 같은 곳) · 보류함 '못 찾음' 7일 뒤 다시 확인은 저장된 Google 결과를 쓰지 않고 새로 물음(recheck → refreshGoogle).
 
-## 2026-11-09 밤 — 밤 근무: 테마 채용관 잘못된 주소·옛 지역 목록 #623 (Claude, #594 P1·P3)
-- 원인 [직접 확인]: ServicePages.tsx ThemeJobsPage가 모르는 slug면 기숙사 테마를 그 주소 그대로 보여 줌, 지역 칸은 JOB_REGIONS(36개, 합쳐진 Bắc Giang·Long An 포함).
-- 변경: 모르는 slug → /chu-de/ky-tuc-xa로 replace, 지역 칸 = REGION_MACRO_TABS 34개 성(메인·검색과 같은 목록). 판정 함수는 원래 34개 공통이라 그대로. 화면 틀 그대로.
-- 검증 [직접 확인]: tsc · npm test 115/115 · build · 로컬 미리보기 /chu-de/abc → /chu-de/ky-tuc-xa, 지역 34개(Bắc Giang·Long An 없음, Lạng Sơn 있음).
