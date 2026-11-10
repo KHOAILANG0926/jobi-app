@@ -248,14 +248,16 @@ export function readWorkTime(...texts: (string | null | undefined)[]): { shiftTy
   else {
     // 교대별로 시간이 다르면(8 tiếng / 12 tiếng) 하나로 합치지 않고 비워 둔다(원문 없는 값 금지).
     // 휴게·면접 시간("nghỉ trưa 1 tiếng")은 근무 시간 후보에서 뺀다(쉼표 단위 절까지 봄).
-    const nums = [...new Set([...text.matchAll(/(?<![\p{L}\d]|\d[.,])(\d{1,2})\s*tiếng(?![\p{L}\d])/giu)].filter((m) => {
+    const nums = [...new Set([...text.matchAll(/(?<![\p{L}\d]|\d[.,]|\d\s*[-–~]\s*)(\d{1,2}(?:\s*[-–~]\s*\d{1,2})?)\s*tiếng(?![\p{L}\d])/giu)].filter((m) => {
       const before = text.slice(0, m.index)
       const clause = before.slice(Math.max(before.lastIndexOf('\n'), before.lastIndexOf('.'), before.lastIndexOf(';'), before.lastIndexOf('|'), before.lastIndexOf(',')) + 1)
       return !NOT_WORK.test(clause)
     }).map((m) => m[1]))]
     const n = nums.length === 1 ? nums[0] : undefined
     const labels = [day ? 'Ca ngày' : '', night ? 'Ca đêm' : ''].filter(Boolean).join(' / ')
-    if (n && Number(n) >= 4 && Number(n) <= 14) out.hours = labels ? `${labels}, ${n} tiếng` : `${n} tiếng`
+    // "8-10 tiếng"처럼 범위면 원문 범위 그대로(윗값만 떼지 않음, Codex #628)
+    const top = n ? Number(n.split(/[-–~]/).pop()) : NaN
+    if (n && top >= 4 && top <= 14) out.hours = labels ? `${labels}, ${n.replace(/\s+/g, '')} tiếng` : `${n.replace(/\s+/g, '')} tiếng`
   }
   return out
 }

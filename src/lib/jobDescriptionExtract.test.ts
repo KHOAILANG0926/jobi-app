@@ -93,5 +93,7 @@ console.log('jobDescriptionExtract.test.ts: all assertions passed')
   if (u.hours) throw new Error('weekday-specific hours must not be flattened: ' + JSON.stringify(u))
   const v = readWorkTime('Thứ Hai – Thứ Sáu: 08:00 – 17:00')
   if (v.hours !== '08:00 – 17:00') throw new Error('single weekday range kept: ' + JSON.stringify(v))
+  const rng = readWorkTime('Ca ngày làm 8-10 tiếng')
+  if (rng.hours !== 'Ca ngày, 8-10 tiếng') throw new Error('Codex #628 range kept: ' + JSON.stringify(rng))
   console.log('readWorkTime (#622) passed')
 }
