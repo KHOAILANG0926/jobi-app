@@ -1999,6 +1999,14 @@ from (values
 ) as v(region_id, keyword)
 on conflict do nothing;
 
+do $$
+declare n int;
+begin
+  -- 옛 성을 고른 알림 조건 수(합쳐진 성으로 바뀌어 지역이 넓어지는 조건) — 운영 적용 기록에 남긴다(Lee 2026-11-10 #625 조건 2)
+  select count(*) into n from public.job_alert_preferences where region_ids && array['bacgiang', 'longan'];
+  raise notice '옛 성(bacgiang·longan) 알림 조건 %건 → 합쳐진 성(bacninh·tayninh)으로', n;
+end $$;
+
 update public.job_alert_preferences p
 set region_ids = (
   select array_agg(distinct x order by x)
