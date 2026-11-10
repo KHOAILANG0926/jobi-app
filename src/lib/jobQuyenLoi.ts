@@ -21,6 +21,8 @@ export function usesAlbamonLayout(id: string): boolean {
  *  ① 위 금액(topSalary)과 같은 금액이 든 줄은 빼고, 그 줄의 "chưa tính / đã gồm tăng ca"만 짧은 표시(overtimeNote)로
  *  ② "…:"로 끝나는 제목 줄, 대문자 홍보 줄("THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ")은 뺀다 ③ 남은 줄은 3줄까지. 뺀 줄은 상세요강에 원문 그대로 있다. */
 export const SALARY_CELL_MAX = 3
+/** 줄의 금액이 모두 위 금액과 같을 때만 반복으로 본다(다른 금액이 하나라도 있으면 내역이라 남긴다). */
+const repeatsTop = (line: string, top: number[]) => { const a = salaryAmounts(line); return top.length > 0 && a.length > 0 && a.every((x) => top.includes(x)) }
 export function albamonConditionLines(sections: DetailSection[], topSalary?: string | null): { salary: string[]; insurance: string[]; overtimeNote?: string } {
   const salary: string[] = [], insurance: string[] = []
   const top = salaryAmounts(topSalary)
@@ -33,7 +35,7 @@ export function albamonConditionLines(sections: DetailSection[], topSalary?: str
       if (key === 'insurance') { insurance.push(line); continue }
       if (!key) continue
       const t = lower(line)
-      if (top.length && salaryAmounts(line).some((a) => top.includes(a))) {
+      if (repeatsTop(line, top)) {
         overtimeNote ??= /(?:chưa (?:tính|bao gồm|gồm)|chua tinh) (?:tăng ca|tang ca)/u.test(t) ? 'chưa tính tăng ca'
           : /(?:đã (?:gồm|bao gồm|tính)|bao gồm|da gom) (?:tăng ca|tang ca)/u.test(t) ? 'đã gồm tăng ca' : undefined
         continue
@@ -130,16 +132,16 @@ export function albamonCompose(sections: DetailSection[], ctx: { title?: string 
   const top = salaryAmounts(ctx.salary)
   const payRest: string[] = []
   for (const l of at('04')) {
-    if (OT_LINE.test(l) && !(top.length && salaryAmounts(l).some((a) => top.includes(a)))) { ot.push(l); continue }
+    if (OT_LINE.test(l) && !repeatsTop(l, top)) { ot.push(l); continue }
     if (cond.salary.includes(l.replace(/^\s*[-•*]\s+/, ''))) continue
-    if (top.length && salaryAmounts(l).some((a) => top.includes(a))) continue
+    if (repeatsTop(l, top)) continue
     const letters = l.replace(/[^\p{L}]/gu, '')
     if (/[:：]\s*$/.test(l) || (letters.length >= 4 && letters === letters.toLocaleUpperCase('vi'))) continue
     payRest.push(l)
   }
   const hours = !ctx.hasHours ? timeLines.slice(0, SALARY_CELL_MAX) : []
   const timeRest = ctx.hasHours ? timeLines : timeLines.slice(SALARY_CELL_MAX)
-  const env = at('05').filter((l) => quyenLoiKeyOf(l) !== 'insurance')
+  const env = at('05') // 보험 문장(시용 조건 등)은 모바일에서 ① 복리후생이 숨겨지므로 원문 그대로 남긴다
   const contact: string[] = [], process: string[] = []
   for (const l of at('06')) (CONTACT_LINE.test(l) ? contact : process).push(l)
   const extra: string[] = []

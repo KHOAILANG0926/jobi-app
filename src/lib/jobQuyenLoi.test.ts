@@ -37,12 +37,19 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   const c = albamonCompose(detailSections(desc).sections, { title: 'CÔNG TY TNHH ZHAN AN – TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', company: 'CÔNG TY TNHH ZHAN AN',
     addresses: ['Khu vực Khắc Niệm, phường Hạp Lĩnh, Bắc Ninh, Bắc Ninh'], salary: '7.300.000Đ/THÁNG', hasHours: false, preference: 'Không yêu cầu kinh nghiệm, được hướng dẫn công việc.' })
   const by = (l: string) => c.detail.find((x) => x.label === l)?.lines ?? []
-  assert(JSON.stringify(c.detail.map((x) => x.label)) === JSON.stringify(['Nội dung công việc', 'Tăng ca', 'Quy trình tuyển dụng', 'Liên hệ']), 'labels ' + JSON.stringify(c.detail.map((x) => x.label)))
+  assert(JSON.stringify(c.detail.map((x) => x.label)) === JSON.stringify(['Nội dung công việc', 'Tăng ca', 'Môi trường làm việc', 'Quy trình tuyển dụng', 'Liên hệ']), 'labels ' + JSON.stringify(c.detail.map((x) => x.label)))
   assert(by('Nội dung công việc')[0].startsWith('Công ty TNHH ZHAN AN cần tuyển') && by('Nội dung công việc')[1].startsWith('Vận hành'), 'intro then duties')
   assert(by('Tăng ca')[0] === 'Tiền tăng ca được tính riêng theo quy định.', 'overtime line')
   assert(JSON.stringify(by('Liên hệ')) === JSON.stringify(['Điện thoại: 0969 661 314', 'Email: zhanan@zhan-an.com']), 'contact')
   assert(JSON.stringify(c.otherRequirements) === JSON.stringify(['Chăm chỉ, có trách nhiệm, nghiêm túc trong công việc.']), 'other requirements without the preference repeat')
   assert(c.allowance[0] === 'Làm đủ 30 ngày: Thưởng 500.000đ.' && c.overtimeNote === 'chưa tính tăng ca', 'allowance + note')
+  assert(by('Môi trường làm việc').includes('Tham gia BHXH, BHYT, BHTN theo quy định.'), 'Codex #653: insurance sentence kept for mobile')
   assert(!c.detail.flatMap((x) => x.lines).some((l) => l === 'CÔNG TY TNHH ZHAN AN' || l.startsWith('Khu vực Khắc Niệm') || l.startsWith('CÔNG TY TNHH ZHAN AN –')), 'lines shown above are not repeated in ④')
+}
+// Codex #653: 위 금액과 같은 금액이 하나 들어 있어도 다른 금액(내역)이 있으면 지우지 않는다
+{
+  const c = albamonCompose(detailSections('Thu nhập\nLương cơ bản 7 triệu + phụ cấp 1 triệu').sections, { salary: '7 triệu' })
+  const all = [...c.allowance, ...c.detail.flatMap((x) => x.lines)].join('|')
+  assert(all.includes('phụ cấp 1 triệu'), 'breakdown with extra amount kept: ' + all)
 }
 console.log('jobQuyenLoi: verbatim copies, baseline exempt, two frames only')
