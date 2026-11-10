@@ -364,6 +364,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const deadlineText = formatDeadlineVi(job.applicationDeadline)
 
   const badge = deadlineBadge(job.applicationDeadline)
+  // Lee 2026-11-10: 상단 날짜에 "Ngày đăng"(우리 사이트에 올라온 날) 문구 + 같은 줄에 마감일(② 칸 Hạn nộp hồ sơ와 같은 글자 formatDeadlineVi)
+  const headerDates = (
+    <>
+      Ngày đăng: <time dateTime={job.postedAt}>{new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</time>
+      {' · '}Hạn nộp: {deadlineText}
+    </>
+  )
   const tags = jobTags(job)
   // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
@@ -671,17 +678,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
             )}
             <div className="jd2-header__meta">
               {locationText && <span className="jd2-meta-item"><MapPin size={13} strokeWidth={1.8} />{locationText}</span>}
-              <time className="jd2-meta-date" dateTime={job.postedAt}>
-                {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              </time>
+              <span className="jd2-meta-date">{headerDates}</span>
             </div>
           </div>
         </div>
         <div className="jd2-header__actions">
           {/* 2026-10-18 Lee 지시(PC): 등록일은 즐겨찾기 왼쪽. 모바일은 기존 위치(아래 줄) 유지 — CSS로 화면별 하나만 보임 */}
-          <time className="jd2-meta-date jd2-meta-date--top" dateTime={job.postedAt}>
-            {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-          </time>
+          <span className="jd2-meta-date jd2-meta-date--top">{headerDates}</span>
           <button
             type="button"
             className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
