@@ -70,3 +70,26 @@ assert.deepEqual(parsed.files, ['src/pages/JobDetail.tsx'])
 assert.ok(evaluateFiles(parsed.files, '', parsed.patches).some(x => x.includes('원문 URL')), 'source URL leak blocked')
 assert.ok(evaluateFiles(['src/pages/JobDetail.tsx', 'scripts/test-job-location-detail.mjs'], '', {'src/pages/JobDetail.tsx': '+// source_url is forbidden\n'}).length === 0, 'comment is not exposure')
 console.log('Expanded policy negative/positive cases: 10/10 passed')
+
+// #648: 봇(claude[bot])이 고친 커밋을 올린 뒤 — 작업자 줄은 옛 SHA 그대로, 봇이 새 HEAD에서 돌린 검증 줄이 있으면 통과
+{
+  const { BOT_PROOF_LABEL } = await import('./check-pr-ready.mjs')
+  const head = 'a'.repeat(40)
+  const withBot = valid.replace('| app-screen | success | 1234567890123456789012345678901234567890 |',
+    `| app-screen | success | 1234567890123456789012345678901234567890 |\n| ${BOT_PROOF_LABEL} | [직접 확인] 통과 | ${head} |`)
+  assert.deepEqual(checkCompletion(withBot, head, () => true), [], 'bot-only commits after old SHA + bot proof at HEAD → ok')
+  assert.ok(checkCompletion(withBot, head, () => false).some(e => e.includes('옛 근거')), 'a human commit after old SHA → still stale')
+  assert.ok(checkCompletion(valid, head, () => true).some(e => e.includes('옛 근거')), 'no bot proof row at HEAD → still stale')
+  assert.ok(checkCompletion(withBot.replace(`[직접 확인] 통과 | ${head}`, `실패 | ${head}`), head, () => true).length > 0, 'failed bot proof → not ok')
+}
+// #648: 봇 검증 줄 넣기 → 같은 줄 두 번째는 바꾸기, 다른 줄은 그대로
+{
+  const { withBotProof } = await import('./ops/pr-bot-proof.mjs')
+  const head = 'b'.repeat(40)
+  const once = withBotProof(valid, head, '[직접 확인] 통과')
+  assert.deepEqual(checkCompletion(once, head, () => true), [], 'inserted bot proof passes')
+  const twice = withBotProof(once, 'c'.repeat(40), '[직접 확인] 통과')
+  assert.equal(twice.split('\n').filter(l => l.includes('봇 수정 뒤')).length, 1, 'one bot proof row')
+  assert.ok(twice.includes('| checks | success | 1234567890123456789012345678901234567890 |'), 'worker rows untouched')
+  console.log('PR bot proof (#648): passed')
+}

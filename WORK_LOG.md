@@ -3,6 +3,11 @@
 - 주소: "CÔNG TY JMT KCN QUẾ VÕ 2" → 'KCN QUẾ VÕ 2'(조각 읽기에 KCN·CCN 이름 추가, 그 줄 안에서만, 뒤 구인 낱말 뗌).
 - 검증 [직접 확인]: companyReader·addressReader 시험 사례 5개 추가 통과, tsc·npm test 119/119·build. 실제 수집 등록은 다음 미리 보기 실행에서 확인 [미확인].
 
+## 2026-11-10 밤 — 봇 커밋 뒤 PR 검사가 옛 근거로 막히던 것 (#648, PR #657)
+- 변경: claude-auto.yml 봇이 새 HEAD에서 직접 검증한 줄(scripts/ops/pr-bot-proof.mjs)을 PR에 남김, check-pr-ready는 최신 PR 설명·GitHub 커밋 작성자로 판정(pr-checks.yml 연결), check-pr-ready.test.mjs 시험 추가.
+- Codex 지적 1건(HANDOFF 23번 줄 미갱신) 반영. 운영 검증(봇 커밋 PR에서 옛 실행 실패가 사라지는지)은 병합 뒤 확인 예정 [미확인].
+- 이전 HANDOFF 문구: "봇 커밋 뒤 PR 표 SHA(#648 — 옛 실행 실패가 봇 병합을 막음, 이번에 수동 정리)".
+
 ## 2026-11-10 밤 — 회사·주소 읽기 #633 Facebook 미리 보기 사례 7건 (Lee "물어보지 말고 진행해")
 - 회사: "Quán Nét nhà mình"·"Nhà hàng bên em"·"Hiện có nhu cầu" → 이름 없음, "Genz Coffee mở đợt" → Genz Coffee, "KHVATEC – DO NHA" → KHVATEC(대시 앞 한 낱말 상호), "Cửa hàng Jollibee 393 Trần Hưng Đạo" → Cửa hàng Jollibee. 주소: 가게 이름 뒤 번지+거리 → "393 Trần Hưng Đạo".
 - 미리 보기 로그 전화 가림이 10자리 번호·금액에서 빠지던 것 고침(crawl-facebook-one.yml).
@@ -45,15 +50,4 @@
 - 공고 알림 DB 지역 키워드를 공식 34개 성 자료(src/lib/regionKeywords.ts, 화면 판정과 같은 자료)로 다시 만듦(migration 20261110120000, 생성기 scripts/data/gen-alert-region-keywords.mjs — 11-03에 만들어 둔 것). 랑선→Lạng Sơn, 옛 Hòa Bình→Phú Thọ, 옛 Bắc Giang→Bắc Ninh. 알림 설정의 옛 성 id(bacgiang·longan)는 합쳐진 성으로.
 - 지운 것: jobRegions.ts 손 목록(match 36개)과 알림 전용 지역 탭 예외(ALERT_REGION_TABS) — 알림 화면도 34개 성 탭.
 - 검증: tsc · npm test 116/116 · build · 로컬 PostgreSQL setup→migration→local→production_check.
-
-## 2026-11-10 새벽 — Google 한도: 사업장 중복 검색 줄임·한도 초과 보류·로고 재시도·시험 몫 (Lee 11-09 5개 지시)
-- ① Google 결과 다시 쓰기: 검색 글자(회사 이름 + 원문 주소) 완전 일치만(googleCacheKeys, 위치·로고·업종 같은 함수, 열쇠는 #619 전과 같음). 11-10 Lee "나": 비슷한 사업장 자동 병합(번지·공단·구획·동 열쇠)은 위치가 잘못 붙을 위험이 있어 뺌.
-- 11-10 오전: 비슷한 사업장 병합 제외(위치 고르는 판정은 master와 같음 — 저장 열쇠만 같음 확인) · '못 찾음' 다시 확인이 한도에 막혀도 다음에 새로 묻기 유지(Codex P2).
-- ② 한도 초과(우리 월 한도·Google 429)·확인 서버 오류 = google_quota/precheck_unavailable → 크롤러 입구가 버리지 않고 보류함(research_artifacts location-hold, 지우지 않음)에 넣고 다음 수집 실행 첫머리에 최대 5건 다시 확인(아직 한도면 첫 건에서 멈춤, 14일 지나면 expired 표시). '못 찾음'은 지금처럼 수집 안 함.
-- ③ 로고 quota는 영구 결과 아님: 다시 묻고, 정기 검사(job-ocr-check)가 30분마다 6시간 지난 quota 최대 10건 다시 시도(location-hook logo_retry). Google 429도 quota.
-- ④ Google 결과 30일 정리: 이번 PR에서 제외(Lee 11-10 — migration·정기 실행·30일 지난 결과 다시 묻기 모두 뺌).
-- ②-2 위치 못 찾은 공고(Lee 11-09 "예"): 공고 목록에 넣지 않고 같은 보류함에 비공개 보관(unfound), 7일 뒤 다시 확인 최대 2번, 찾으면 같은 입구로 등록. 수수료 소개소·회사 이름 없음은 보관 안 함. CLAUDE.md 「수집 첫 단계」 줄 갱신.
-- ⑤ 시험 몫 google_text_search_test 600/월(migration 20261110090000, 한 줄 추가) — 시험 도구가 Pro·IDs 모두 먼저 예약, Pro는 운영 몫에도. 시험은 베트남 날짜 하루 한 번, 실행당 SearchText 40회.
-- 검증: tsc · npm test 116/116 · build · 크롤러 입구 시험(보류·재시도) · 로컬 PostgreSQL에서 migration·운영 점검.
-- 11-10 아침(Lee "남은 Codex 3건만"): 같은 공단 다른 구획(Lô) = 다른 사업장 열쇠 · 포스터 판독 실패가 다른 보류 공고 재확인을 막지 않음(다시 볼 때 순서로) · 한도 초과 로고 공고가 그사이 로고·사진을 갖게 되면 has_logo로 기록해 재시도 목록에서 뺌(migration 20261110092000, 기록 함수 결과 값 1개 추가). master 8035ee9와 합침(WORK_LOG 충돌만). 검증: tsc · npm test · build · 크롤러 입구 시험 · 로컬 PostgreSQL 16 migration 시험·운영 점검. 병합·배포 안 함(draft). 이어서 Codex 새 지적 2건(Lee "둘 다 고쳐"): 한도 초과 뒤 공단·동 중심 대략 위치로 가도 한도 기록 유지(→ 보류, 7일 뒤 아님) · 새 공고 없는 수집 실행에서도 보류 공고 다시 확인(retry_held_once, Facebook·TopCV 저장 입구, 선택·검증 저장 제외). 로고 다시 시도(Codex P2, Lee 지시): Google이 장소 번호 없음(404 NOT_FOUND) 확인 → no_place로 끝(같은 번호 다시 안 물음, 공고·위치 그대로), 일시 오류 → quota로 다시 기록해 줄 뒤로·다음 공고 계속, Google 한도(429)·장애(503)만 묶음 멈춤, 등록 14일 지난 공고는 다시 시도 안 함(보류함 한도 초과 기한과 같음). 이어서(Lee "두 건 모두"): 숫자 동·구(Phường 1/2, Quận 3)를 사업장 열쇠에서 구분(P.1·P1은 같은 곳) · 보류함 '못 찾음' 7일 뒤 다시 확인은 저장된 Google 결과를 쓰지 않고 새로 물음(recheck → refreshGoogle).
 

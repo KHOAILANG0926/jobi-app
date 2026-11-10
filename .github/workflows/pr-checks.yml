@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   checks:
@@ -29,6 +30,9 @@ jobs:
         run: node scripts/check-pr-ready.test.mjs
       - name: PR 완료 근거 검사 (Draft는 제외, 필수 CI는 유지)
         if: github.event_name == 'pull_request'
+        env:
+          # #648: 최신 PR 설명·커밋 작성자를 읽는다(읽기만)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-pr-ready.mjs
       - name: 정확한 migration 승인 회귀 검사
         run: node scripts/approved-migrations.test.mjs
