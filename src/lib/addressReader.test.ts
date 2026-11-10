@@ -53,4 +53,6 @@ eq(readAddress('Tuyển nhân viên\nLàm việc ở huyện Cần Giờ'), 'huy
 eq(readAddress('Tuyển nhân viên phục vụ\nNhà hàng 5 Sao rất đẹp'), '', '#633 number in shop name without street is not an address')
 eq(readAddress('Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển nhân viên\nLàm tại phường Kinh Bắc'), '393 Trần Hưng Đạo, phường Kinh Bắc', '#633 shop street joins the other fragments (one fragment step)')
 eq(readAddress('BẮC BLING ĐANG HOT – JOB CIRCLE K ĐANG CHỜ BẠN!\nBắc Ninh mình đã đủ Bling chưa? Nếu vẫn đang thiếu một chiếc job để tăng thu nhập thì ghé Circle K ngay thôi!\n CỬA HÀNG LÀM VIỆC:\nTầng 5 Tòa Phúc Lợi\nSố 02 đường Hồ Ngọc Lân\nSố 341 Nguyễn Cao\nSố 125 Trần Hưng Đạo, khu phố 4\n ỨNG TUYỂN NGAY: ***067 – Ms Thảo\nGửi thông tin: Họ tên – SĐT – Cửa hàng àm việc.').includes('\\n') ? 'newline' : 'one-line', 'one-line', '#633 fragments stay inside one line (Circle K store list)')
+eq(readAddress('GOERTEK VIỆT NAM TUYỂN DỤNG LAO ĐỘNG\n Làm việc tại: Nam Sơn / Quế Võ 1 - Bắc Ninh\n Nam/Nữ từ 18 đến 48 tuổi\n Liên hệ: Zalo Hiền HR'), 'Nam Sơn / Quế Võ 1, Bắc Ninh', '#633 GOERTEK labeled value with spaced dash before province')
+eq(readAddress('Mỳ Cay SaSin - Bắc Ninh\nCần người phục vụ'), '', '#633 unlabeled line with dash is not read as address')
 console.log('addressReader: #560 cases passed')
