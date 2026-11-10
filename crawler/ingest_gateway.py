@@ -57,6 +57,10 @@ class LocationNotFound(RuntimeError):
     """수집 첫 단계 위치 확인 실패. 메시지에 규칙 코드(location_precheck_*)가 들어가 rule_code()로 잡힌다."""
 
 
+class HoldStoreError(RuntimeError):
+    """보류함 저장 실패. 규칙 코드가 없어 수집기가 '거부'로 넘기지 않고 실행을 실패시킨다 → 본 글 기록이 저장되지 않아 다음 실행에 다시 만난다."""
+
+
 class LocationDeferred(LocationNotFound):
     """위치를 '못 찾음'이 아니라 '지금 확인 못 함'(Google 한도 초과·확인 서버 오류). 공고는 버리지 않고 보류해 다음 수집 때 다시 묻는다(Lee 2026-11-09)."""
 
@@ -267,8 +271,9 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
         client.table("research_artifacts").upsert(
             {"kind": HOLD_KIND, "name": _hold_name(job), "payload": payload, "meta": meta},
             on_conflict="kind,name", ignore_duplicates=True).execute()
-    except Exception:  # noqa: BLE001
-        print("    ⚠️  보류함 저장 실패 — 다음 수집 때 다시 확인")
+    except Exception as exc:  # noqa: BLE001
+        # 보관 못 하면 '거부'로 넘기지 않는다 — 수집기가 본 글로 표시해 공고를 잃지 않게 실행을 실패시킨다(Codex #619 P1).
+        raise HoldStoreError("hold_store_failed: 보류함 저장 실패 — 이 글은 본 글로 표시하지 않음") from exc
 
 
 _HOLDS_RETRIED = False

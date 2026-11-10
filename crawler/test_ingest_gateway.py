@@ -18,6 +18,9 @@ class Client:
         self.calls.append((name, params))
         return type("Q", (), {"execute": lambda _s: type("R", (), {"data": 77})()})()
 
+    def table(self, name):  # 보류함(가짜, 매번 빈 저장소) — 이 시험들은 입구 판정만 본다
+        return HoldClient().table(name)
+
 
 def run():
     job = {"title": "Công nhân", "company": "NEW TEAM ROBOTICS VIETNAM", "location": "Bắc Ninh",
@@ -392,6 +395,23 @@ def run_unfound_recheck_fresh():
     g.retry_held(c2)
     meta = c2.rows[g._hold_name(payload)]["meta"]
     assert flags == [True, True] and meta["status"] == "registered" and "refresh" not in meta, (flags, meta)
+    # Codex #619 P1: 보류함 저장이 실패하면 거부(건너뛰기)가 아니라 실패 — 수집기가 본 글로 표시하지 않음
+    class BrokenHold(HoldClient):
+        def table(self, name):
+            t = super().table(name)
+            def boom(*_a, **_k):
+                raise RuntimeError("storage down")
+            t.upsert = boom
+            return t
+    g._HOLDS_RETRIED = True
+    g.PRECHECK = lambda j: {"findable": False, "reason": "google_quota"}
+    try:
+        g.ingest_job(BrokenHold(), {"title": "b", "company": "Cty b", "location": "Bắc Ninh", "source_url": "https://example.invalid/b"})
+        raise AssertionError("must fail")
+    except g.LocationNotFound:
+        raise AssertionError("저장 실패를 거부로 넘기면 공고를 잃는다")
+    except g.HoldStoreError as exc:
+        assert rule_code(exc) is None, exc
     print("test_ingest_gateway: unfound recheck asks Google again passed")
 
 
