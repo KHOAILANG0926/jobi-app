@@ -1,0 +1,21 @@
+// 상세 ④ 모양(#563 데모, Lee 2026-11-10): 공장은 만드는 것으로 사진을 고르고, 색은 업종마다 하나, 모양은 'box'.
+import { detailLook, factoryPhotos } from './albamonTemplate.ts'
+const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: ${JSON.stringify(a)}`) }
+eq(factoryPhotos('CTY BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC NAM/NỮ'), ['07-food-banhkeo'], 'candy')
+eq(factoryPhotos('Sửa chữa máy'), null, 'sửa chữa is repair, not dairy')
+eq(factoryPhotos('Sữa chua Vinamilk'), ['07-food-sua'], 'dairy')
+eq(factoryPhotos('Công ty giấy in'), null, 'paper is not shoes')
+eq(factoryPhotos('Máy móc công nghiệp'), null, 'machine is not garment')
+eq(factoryPhotos('Samsung linh kiện điện tử'), ['07-dientu', '07-san-xuat', '07b-san-xuat'], 'electronics')
+eq(factoryPhotos('Linh kiện ô tô Hyundai'), ['07-oto-phutung'], 'auto parts before electronics')
+eq(factoryPhotos('Tuyển thợ hàn TIG'), ['07-han'], 'welding')
+eq(factoryPhotos('Việc làm Hàn Quốc'), null, 'Hàn Quốc is Korea, not welding')
+eq(factoryPhotos('Công ty nhựa ép phun'), ['07-nhua-ep'], 'plastic')
+eq(factoryPhotos('Gia công CNC'), ['07-co-khi'], 'CNC')
+eq(factoryPhotos('Xưởng đồ gỗ nội thất'), ['07-go-noithat'], 'wood')
+eq(factoryPhotos('Công ty bao bì in ấn'), ['07-baobi-in'], 'printing')
+if (!detailLook('san_xuat_xay_dung', 1, null, 'Công ty TNHH Hojeong').photo.includes('/01')) throw new Error('unknown factory → basic photo')
+const a = detailLook('am_thuc_do_uong', 1), b = detailLook('am_thuc_do_uong', 2)
+eq([a.bar, a.style], [b.bar, 'box'], 'same industry → same color, box style')
+if (detailLook('am_thuc_do_uong', 1).bar === detailLook('san_xuat_xay_dung', 1).bar) throw new Error('different industries → different colors')
+console.log('albamonTemplate: factory photos, industry color, box style passed')

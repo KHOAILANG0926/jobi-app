@@ -356,3 +356,10 @@ assert(kdaR.preserved && same(byKey(kdaR)['01'], kdaWant['01']), 'header photo z
 assert(contactHostFor({ conditions: 3, recruitKeys: ['age'] }) === 'conditions', 'contact host: ① 있으면 ①')
 assert(contactHostFor({ conditions: 0, recruitKeys: ['age', 'category'] }) === 'recruit', 'contact host: ② 모집조건')
 assert(contactHostFor({ conditions: 0, recruitKeys: ['category'] }) === 'location', 'contact host: 업직종만 있으면 ③')
+// 2026-11-10 #5876: 번호 붙은 원문 소제목도 빼고, 우리 칸 제목 바로 뒤의 원문 소제목은 앞 칸을 유지한다
+{
+  const r = detailSections(['Công việc', '2. CÔNG VIỆC', 'Vận hành, hỗ trợ sản xuất tại bộ phận ép nhựa.', 'Quy trình tuyển dụng', '5. LIÊN HỆ ỨNG TUYỂN', 'Email: zhanan@zhan-an.com'].join('\n'))
+  const at = (k: string) => r.sections.find((x) => x.key === k)?.lines ?? []
+  if (!(at('01').length === 1 && at('01')[0].startsWith('Vận hành') && at('06').includes('Email: zhanan@zhan-an.com') && r.preserved)) throw new Error('numbered headings: ' + JSON.stringify(r.sections))
+  console.log('jobDetailSections: 번호 소제목 통과')
+}

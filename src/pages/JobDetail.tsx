@@ -43,11 +43,12 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
+import { detailLook, factoryPhotos } from '../lib/albamonTemplate'
 import '../components/template/AlbamonTemplate.css'
 
 // 근무조건 칸이 'Xem thêm'으로 접힐 때 전체 내용을 보여 줄 상세요강 소제목.
 import { mealLabel } from '../lib/mealBenefit'
-import { usesAlbamonLayout, albamonConditionLines, sourceAgeValue } from '../lib/jobQuyenLoi'
+import { usesAlbamonLayout, albamonConditionLines, albamonCompose, sourceAgeValue } from '../lib/jobQuyenLoi'
 
 const CONDITION_DETAIL_KEY: Record<string, DetailTextKey> = {
   allowance: '04', hours: '03', workDays: '03', workPeriod: '03', shift: '03', jobDuration: '03', weekend: '03', benefits: '05',
@@ -364,6 +365,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const deadlineText = formatDeadlineVi(job.applicationDeadline)
 
   const badge = deadlineBadge(job.applicationDeadline)
+  // Lee 2026-11-10: 상단 날짜에 "Ngày đăng"(우리 사이트에 올라온 날) 문구 + 같은 줄에 마감일(② 칸 Hạn nộp hồ sơ와 같은 글자 formatDeadlineVi)
+  const headerDates = (
+    <>
+      Ngày đăng: <time dateTime={job.postedAt}>{new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</time>
+      {' · '}Hạn nộp: {deadlineText}
+    </>
+  )
   const tags = jobTags(job)
   // 2026-10-14 Lee 결정 예외 ③: 위에 이미 보이는 전화·근무지 주소 줄은 상세요강에서 반복하지 않는다.
   // 2026-10-25 Lee: 상단 급여 총액 반복도 뺀다(급여 구성 줄은 남김).
@@ -381,7 +389,12 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     phones: [job.employerPhone, job.zalo],
     addresses: [job.rawLocation, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
   })
-  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections) : { salary: [] as string[], insurance: [] as string[] }
+  const albamonLines = albamonLayout && !roleSummary ? albamonConditionLines(detail.sections, job.salary) : { salary: [] as string[], insurance: [] as string[], overtimeNote: undefined }
+  // Lee 2026-11-10 "세부구성은 왜 안바꿔?": 10-30 확정 자리로 원문 줄을 나눈다(① Phụ cấp·Thưởng·근무시간, ② Yêu cầu khác, ④ 확정 6칸). 여러 직무 공고는 직무 묶음 표시가 있어 기존대로.
+  const compose = albamonLayout && !roleSummary ? albamonCompose(detail.sections, {
+    title: job.title, company: job.company, salary: job.salary, hasHours: !!hoursText, preference: preferenceText,
+    addresses: [job.rawLocation, job.location, ...(job.workLocations ?? []).map((l) => l.rawAddress)],
+  }) : null
   const sourceRoles = sourceRecruitmentRoles(job.description)
   const shownTitle = detailTitle(job.title, job.company)
   const companyText = companyLine(shownTitle, job.company)
@@ -399,6 +412,9 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const row = (key: string, icon: ReactNode, label: string, value: ReactNode | undefined, cls?: string) =>
     value ? ({ key, icon, label, value, cls } as InfoField) : null
   // 2026-10-18 Lee 결정 근무조건 내용 규칙: 한 항목 = 한 줄, 최대 3줄, 넘치면 'Xem thêm' → 상세요강 해당 소제목.
+  // 10-30 구성으로 옮긴 원문 줄(최대 3줄) — 접기('Xem thêm') 없이 줄마다 그대로
+  const linesRow = (key: string, icon: ReactNode, label: string, lines: string[] | undefined) =>
+    lines?.length ? row(key, icon, label, <span className="jd2-salary-lines">{lines.map((l, i) => <span key={i} className="jd2-salary-line">{l}</span>)}</span>) : null
   const textRow = (key: string, icon: ReactNode, label: string, value: string | undefined) =>
     value ? row(key, icon, label, <ConditionLines text={value} showPreview={albamonLayout && key === 'benefits'} compactText={roleSummary ? (key === 'hours' ? `${roleSummary.roleCount} vị trí, giờ khác` : key === 'workDays' ? 'Theo từng vị trí' : key === 'benefits' ? 'Theo từng vị trí' : undefined) : undefined} onOverflowChange={(o) => setConditionOverflow(key, label, value, o)} onMore={() => scrollToDetail(CONDITION_DETAIL_KEY[key] ?? '07')} />) : null
   // 급여 2행 전용: 구조화된 급여·급여 메모만 사용. 원문 설명을 임의 추출/환산하지 않는다.
@@ -415,20 +431,22 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const CONDITION_PC_ONLY = new Set(['category', 'benefits'])
   const conditionFields = [
     row('salary', <Briefcase size={14} strokeWidth={1.8} />, 'Mức lương',
-      salaryText || (salaryNote && !isAllowanceNote) || albamonLines.salary.length ? (
+      salaryText || (salaryNote && !isAllowanceNote) || (!compose && albamonLines.salary.length) ? (
         <>
           {salaryText && periodLabel && <span className="jd2-pay-badge">{periodLabel}</span>}
           {/* Lee 2026-10-30 알바몬식: 지급 방식·보너스·수당·연장 수당 원문 줄을 급여 아래 작은 글씨로(상세요강에서도 지우지 않음).
               2026-11-02 Lee "정렬도 안 되고 모양이 개판": 작은 회색 글씨 스타일(jd2-salary-sub)이 없어 급여처럼 빨간 큰 글씨였음 → 스타일 추가,
               금액과 같은 줄 시작(jd2-salary-lines 안)으로 정렬. 위치·순서는 그대로. */}
           {salaryText && salaryRows.length > 0 && <span className="jd2-salary-rows">{salaryRows.map((r, i) => <span key={i} className="jd2-salary-row"><span className="jd2-salary-row__label">{r.label}</span><span className="jd2-salary-row__amount">{r.amount}</span></span>)}</span>}
-          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}</span>)}{albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}{i === 0 && albamonLines.overtimeNote ? <span className="jd2-salary-sub"> · {albamonLines.overtimeNote}</span> : null}</span>)}{!compose && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
-          {!salaryText && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
+          {!salaryText && !compose && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
       ) : undefined, 'jd2-info-val--salary'),
-    textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined),
-    textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText),
+    !compose ? textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined)
+      : linesRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote && salaryNote ? [salaryNote, ...compose.allowance.filter((l) => l.trim() !== salaryNote.trim())] : compose.allowance),
+    hoursText || !compose ? textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText)
+      : linesRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', compose.hours),
     textRow('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
     textRow('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
     textRow('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
@@ -440,7 +458,8 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
-    row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText),
+    row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText ?? compose?.experience),
+    linesRow('otherReq', <Award size={14} strokeWidth={1.8} />, 'Yêu cầu khác', compose?.otherRequirements),
     row('age', <Users size={14} strokeWidth={1.8} />, 'Độ tuổi', nonEmpty(job.ageRequirement) ?? (albamonLayout ? sourceAgeValue(detail.sections) : undefined)),
     row('sourceEligibility', <Users size={14} strokeWidth={1.8} />, 'Đối tượng tuyển', !nonEmpty(job.ageRequirement) || !nonEmpty(job.genderRequirement) ? sourceEligibility : undefined),
     row('gender', <Users size={14} strokeWidth={1.8} />, 'Giới tính', nonEmpty(job.genderRequirement)),
@@ -542,7 +561,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     if (itemsCoveredBy(items, lines)) continue
     ;(conditionExtras[target] ??= []).push({ label, text })
   }
-  const descriptionSections = [...detail.sections]
+  const descriptionSections = [...(compose ? compose.detail : detail.sections)]
   for (const key of Object.keys(conditionExtras) as DetailTextKey[]) {
     if (!descriptionSections.some((sec) => sec.key === key)) descriptionSections.push({ key, label: DETAIL_LABELS[key], lines: [] })
   }
@@ -557,6 +576,11 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
     conditionColumns.map((keys) => keys.map((key) => [...conditionShown, ...conditionPcShown].find((f) => f.key === key)).filter((f): f is InfoField => !!f)),
     albamonLayout)
   const roleSections = descriptionRoleGroups(descriptionSections)
+  // 데모 비교용: ?tpl=table|band|card 로 같은 공고에 다른 모양을 볼 수 있다(없으면 공고 번호로).
+  // 공장 그림: 회사 이름·제목으로 무엇을 만드는지 먼저 보고, 모르면 업무 내용(원문)까지 본다(#5876 'ép nhựa'는 업무 줄에만 있음).
+  const lookHead = `${job.company ?? ''} ${job.title ?? ''}`
+  const lookText = factoryPhotos(lookHead) ? lookHead : `${lookHead} ${detail.sections.find((sec) => sec.key === '01')?.lines.join(' ') ?? ''}`
+  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), lookText)
   const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 
@@ -671,17 +695,13 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
             )}
             <div className="jd2-header__meta">
               {locationText && <span className="jd2-meta-item"><MapPin size={13} strokeWidth={1.8} />{locationText}</span>}
-              <time className="jd2-meta-date" dateTime={job.postedAt}>
-                {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              </time>
+              <span className="jd2-meta-date">{headerDates}</span>
             </div>
           </div>
         </div>
         <div className="jd2-header__actions">
           {/* 2026-10-18 Lee 지시(PC): 등록일은 즐겨찾기 왼쪽. 모바일은 기존 위치(아래 줄) 유지 — CSS로 화면별 하나만 보임 */}
-          <time className="jd2-meta-date jd2-meta-date--top" dateTime={job.postedAt}>
-            {new Date(job.postedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-          </time>
+          <span className="jd2-meta-date jd2-meta-date--top">{headerDates}</span>
           <button
             type="button"
             className={`jd2-save-btn${saved ? ' jd2-save-btn--active' : ''}`}
@@ -975,7 +995,15 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
           <section id={jobSectionId('description')} className="jd2-sec">
             <h2 className="jd2-sec__title">{JOB_SECTION_LABELS.description}</h2>
             {templateHtml ? <div className="jd2-box jd2-template-doc" dangerouslySetInnerHTML={{ __html: templateHtml }} /> : descriptionSections.length > 0 && (
-              <div className="jd2-box jd2-detail-sections" data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+              <div className={`jd2-box jd2-detail-sections${albamonLayout ? ` jd2-detail-sections--tpl jd2-detail-sections--${look.style}` : ''}`} style={albamonLayout ? { '--jd2-bar': look.bar, '--jd2-head': look.head } as React.CSSProperties : undefined} data-source-preserved={detail.preserved ? 'true' : 'false'} data-source-fallback={detail.usedFallback ? 'true' : 'false'}>
+                {/* #563 데모: 간편 템플릿 머리(업종 그림 + 왼쪽 흐림 위 회사·제목). 그림은 장식이라 alt 비움 */}
+                {albamonLayout && (
+                <div className="jd2-desc-visual">
+                  <img className="jd2-desc-visual__img" src={look.photo} alt="" loading="lazy" />
+                  {job.company && <p className="jd2-desc-visual__company">{job.company}</p>}
+                  <p className="jd2-desc-visual__title">{shownTitle}</p>
+                </div>
+                )}
                 {descriptionSections.map((section) => (
                   <section key={section.key} id={`jd2-detail-${section.key}`} className="jd2-detail-section">
                     <h3 className="jd2-detail-section__title">{section.label}</h3>

@@ -89,22 +89,24 @@ const HEADINGS: Array<[RegExp, DetailTextKey | 'address' | 'contact']> = [
   [/^(?:vi tri tuyen dung|vi tri can tuyen)$/, '07'],
   [/^(?:yeu cau|yeu cau tuyen dung|yeu cau ung vien|yeu cau co ban|yeu cau cong viec)$/, '02'],
   [/^(?:thoi gian lam viec|hinh thuc lam viec|lich lam viec)$/, '03'],
-  [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap|muc thu nhap)$/, '04'],
+  [/^(?:luong va phuc loi|luong|luong thuong|muc luong|muc luong & phu cap|muc luong va phu cap|thu nhap|muc thu nhap|che do luong(?: (?:&|va) thuong)?|che do luong thuong|che do dai ngo)$/, '04'],
   [/^(?:quyen loi|quyen loi chinh|phuc loi|quyen loi & moi truong lam viec|quyen loi va moi truong lam viec|moi truong lam viec)$/, '05'],
   [/^(?:quy trinh tuyen dung|ho so ung tuyen|cach ung tuyen|cach thuc nop ho so|cach nop ho so|hinh thuc nop ho so|dang ky nhan viec(?: ngay)?|dang ky ung tuyen(?: ngay)?|ung tuyen ngay)$/, '06'],
   [/^(?:thong tin khac|ghi chu|thong tin cong ty|thong tin co ban|hien so)$/, '07'],
   [/^(?:nganh nghe|loai hinh cong viec|hinh thuc tra luong|gioi tinh|do tuoi|hoc van toi thieu|ten cong ty|ca nhan dang tuyen)$/, '07'],
   // 2026-11-03 포스터 "LÀM VIỆC TẠI:"(값은 다음 줄 — 위쪽 주소와 같아 빠지면 빈 이름표로 남던 것)
   [/^(?:dia diem lam viec|dia chi|dia chi lam viec|khu vuc lam viec|lam viec tai|noi lam viec)$/, 'address'],
-  [/^(?:lien he|hotline\s*\/\s*zalo|hotline|zalo)$/, 'contact'],
+  [/^(?:lien he(?: ung tuyen)?|hotline\s*\/\s*zalo|hotline|zalo)$/, 'contact'],
 ]
 // 2026-11-02(#5299 "QUYỀN LỢI HẤP DẪN:"): 포스터식 소제목은 뒤에 꾸밈말이 붙는다("hấp dẫn", "cực tốt"…).
 // 꾸밈말만 떼고 같은 소제목 목록으로 다시 본다(새 칸을 만들지 않음). 내용 줄("Lương tốt", "Môi trường làm việc tốt")을
 // 소제목으로 잘못 먹지 않도록, 줄이 소제목 모양(대문자 또는 끝이 ':')일 때만 적용한다.
 // 2026-11-03(Bảo An VCC "MỨC THU NHẬP ỔN ĐỊNH (Trả lương đúng hạn):", "QUYỀN LỢI ĐẶC BIỆT:", "YÊU CẦU CỰC KỲ ĐƠN GIẢN:"): 꾸밈말 더하기 + 소제목 끝 괄호 설명 떼기.
 const HEADING_PRAISE = / (?:cuc |rat |sieu |cuc ky )?(?:hap dan|tot|day du|uu dai|uu viet|hap dan nhat|cuc ky hap dan|on dinh|dac biet|don gian)$/
+// 2026-11-10 Lee(#5876 "2. CÔNG VIỆC", "1. CHẾ ĐỘ LƯƠNG & THƯỞNG"): 번호 붙은 원문 소제목도 소제목이다. 번호(1. / 2) / I. / II-)를 떼고 같은 목록으로 본다.
+const HEADING_NUMBER = /^(?:\d{1,2}|[ivx]{1,4})\s*[.)\-:]\s+/iu
 export function headingOf(line: string) {
-  const s = bare(line.replace(/^[^\p{L}\p{N}]+/u, ''))
+  const s = bare(line.replace(/^[^\p{L}\p{N}]+/u, '').replace(HEADING_NUMBER, ''))
   const letters = line.replace(/[^\p{L}]/gu, '')
   const headingShape = /[:：]\s*$/.test(line) || (letters.length >= 4 && letters === letters.toLocaleUpperCase('vi'))
   const plain = headingShape ? s.replace(/\s*\([^)]*\)$/, '').replace(HEADING_PRAISE, '') : s
@@ -162,14 +164,20 @@ export function detailSections(description: string | null | undefined, _above: S
   const dropped: DroppedLine[] = []
   let current: DetailTextKey = '07'
   let context: DetailTextKey | 'address' | 'contact' = '07'
+  let prevHeading = false
   for (const line of lines) {
     const heading = headingOf(line)
     if (heading) { // ① 원문 소제목: 우리 칸 제목과 겹치므로 뺀다
-      context = heading
-      current = heading === 'address' || heading === 'contact' ? '07' : heading
+      // 소제목 바로 뒤의 소제목(우리 칸 제목 "Quy trình tuyển dụng" 다음 원문 "5. LIÊN HỆ ỨNG TUYỂN")은 같은 칸의 원문 제목 — 앞 칸을 유지한다(#5876).
+      if (!prevHeading) {
+        context = heading
+        current = heading === 'address' || heading === 'contact' ? '07' : heading
+      }
+      prevHeading = true
       dropped.push({ line, reason: 'heading' })
       continue
     }
+    prevHeading = false
     // 2026-11-01 Lee "빠짐 0"(10-30 확정 ④ 원문 전체, 위쪽 칸과 겹쳐도 지우지 않음):
     // 제목·전화·주소·급여 총액·위쪽 값과 겹치는 줄도 그대로 보여 준다. 빼는 것은 원문 소제목뿐.
     // A preceding address/contact label must not swallow a later, independently recognizable duty.
