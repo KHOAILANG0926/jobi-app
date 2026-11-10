@@ -75,15 +75,13 @@ let adminState = null
 async function adminLogin() {
   if (adminState) return adminState
   if (!ADMIN_E2E_EMAIL || !ADMIN_E2E_PASSWORD) throw new Error('비공개 공고는 관리자 로그인 필요(ADMIN_E2E_EMAIL·ADMIN_E2E_PASSWORD)')
-  const ctx = await browser.newContext()
-  const page = await ctx.newPage()
-  await page.goto(BASE_URL + '/dang-nhap?redirect=/admin', { waitUntil: 'domcontentloaded' })
-  await page.locator('input[type="email"]').fill(ADMIN_E2E_EMAIL)
-  await page.locator('input[type="password"]').fill(ADMIN_E2E_PASSWORD)
-  await page.locator('button[type="submit"]').click()
-  await page.waitForURL(/\/admin(?:[?#]|$)/, { timeout: 30_000 })
-  adminState = await ctx.storageState()
-  await ctx.close()
+  // 화면 로그인 대신 앱과 같은 Supabase 클라이언트로 로그인해 그 세션을 브라우저 저장소(앱이 읽는 열쇠 이름)에 넣는다.
+  // 2026-11-11 sb-5938: 화면 로그인 뒤 상세에 로그인 흔적이 없어(진단 실행) 관리자 미리 보기가 안 떴다. 같은 방식은 admin-location-confirm.mjs가 이미 씀.
+  const { supabase } = await import('../../src/lib/supabase.ts')
+  const { data, error } = await supabase.auth.signInWithPassword({ email: ADMIN_E2E_EMAIL, password: ADMIN_E2E_PASSWORD })
+  if (error || !data?.session) throw new Error('관리자 로그인 실패: ' + (error?.message ?? '세션 없음'))
+  const key = `sb-${new URL(supabase.supabaseUrl).hostname.split('.')[0]}-auth-token`
+  adminState = { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: key, value: JSON.stringify(data.session) }] }] }
   return adminState
 }
 
@@ -120,7 +118,13 @@ async function readJob(id) {
       }
     } catch (e) {
       failed++
-      openError = String(e.message || e).split('\n')[0]
+      // 왜 못 열었는지 화면 상태를 같이 남긴다(sb-5938 2026-11-11: 관리자 로그인 뒤에도 제목이 안 뜸) — 보이는 h1·주소·로그인 흔적
+      const seen = await page.evaluate(() => ({
+        h1: document.querySelector('h1')?.textContent?.trim()?.slice(0, 60) ?? '(h1 없음)',
+        path: location.pathname,
+        auth: Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k)),
+      })).catch(() => null)
+      openError = (openError ? openError + ' / ' : '') + String(e.message || e).split('\n')[0] + (seen ? ` — 화면 h1 "${seen.h1}", 주소 ${seen.path}, 로그인 흔적 ${seen.auth ? '있음' : '없음'}` : '')
       text = `열기 실패: ${openError}`
     }
     if (keepText) {
