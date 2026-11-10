@@ -95,7 +95,10 @@ export function inspectJob(j: InspectInput): InspectResult {
   // 2026-11-04(#5405 "NHÀ HÀNG … TUYỂN GẤP:"): '… tuyển (gấp/dụng):'는 아래 직무 줄을 여는 소개 줄 — 빈 이름표가 아니다.
   // 2026-11-03: ':'로 끝나는 긴 소개 문장("Công ty … đang cần tuyển … khu vực Bắc Ninh:")은 이름표가 아니다 — 짧은 줄만 빈 이름표로 본다.
   // 2026-11-06 Lee OK(#5506 "🌟 CƠ CHẾ … DÀNH CHO BẠN:"): 바로 아래 줄이 글머리(•·-·*·✓ 등) 목록이면 그 목록의 제목 — 빈 이름표가 아니다.
+  // 2026-11-10(#5876 "Thưởng gắn bó dành cho nhân viên mới:" + 아래 "Làm đủ 30 ngày: Thưởng 500.000đ."): 다섯 낱말 이상 소개 줄 아래가
+  //  '이름: 값' 줄이면 그 묶음의 제목 — 빈 이름표가 아니다. 짧은 칸 이름("Lương:", "Liên hệ:")은 그대로 빈 이름표로 본다.
   const opensList = (i: number) => /^\s*(?:[•·\-–*+✓✔☑️👉🔹🔸▪◦○●]|\d+[.)])/u.test(shown[i + 1] ?? '')
+    || (bare(shown[i]).split(' ').filter(Boolean).length >= 5 && /^[^:：]{2,40}[:：]\s*\S/u.test(shown[i + 1] ?? ''))
   const junk = shown.filter((l, i) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || (/[:：]\s*$/.test(l) && bare(l).length <= 60 && !/\btuyen\b/.test(bare(l)) && !opensList(i)))
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
