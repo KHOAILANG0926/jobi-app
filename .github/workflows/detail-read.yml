@@ -1,12 +1,15 @@
 name: 상세 화면 읽기 (운영, 읽기 전용)
 # Lee 2026-11-06: 등록 후 상세 화면은 작업자가 직접 읽는다(캡처 요청 금지).
 # 운영 사이트 상세 화면을 PC·모바일로 열어 화면 글 전체를 로그·Summary에 남기고 화면 사진을 첨부한다. 아무것도 바꾸지 않는다.
+# #646 Lee 2026-11-10: 같은 순회에서 화면 대조 검사(제목·회사 줄·Google 버튼·핀·전화·Zalo·아이콘·급여 ↔ 원문·DB).
+#   번호를 비우면 공개 공고 전체를 대조만 한다. 결과는 Summary·이슈 #646 댓글·첨부 detail-read/screen-audit.json.
 on:
   workflow_dispatch:
     inputs:
       job_ids:
-        description: '공고 번호(여러 개는 띄어쓰기, 예: 5506 5507)'
-        required: true
+        description: '공고 번호(여러 개는 띄어쓰기, 예: 5506 5507). 비우면 공개 공고 전체 화면 대조'
+        required: false
+        default: ''
       base_url:
         description: '사이트 주소'
         required: false
@@ -14,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: detail-read-${{ github.event.inputs.job_ids }}
@@ -22,7 +26,7 @@ concurrency:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,7 +40,14 @@ jobs:
         env:
           BASE_URL: ${{ github.event.inputs.base_url }}
           JOB_IDS: ${{ github.event.inputs.job_ids }}
-        run: node scripts/ops/detail-read.mjs
+          ALL_PUBLIC: ${{ github.event.inputs.job_ids == '' && '1' || '' }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+          ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: '646'
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/detail-read.mjs
       - name: 화면 사진·글 첨부
         if: always()
         uses: actions/upload-artifact@v4
