@@ -37,6 +37,9 @@ on:
       - src/lib/companyPlaceSearch.ts
       - config/auto-processing-cutoff.json
       - scripts/ops/job-inspect.mjs
+      - scripts/ops/detail-read.mjs
+      - scripts/ops/screen-collect.mjs
+      - src/lib/screenAudit.ts
       - .github/workflows/job-ocr-check.yml
 
 permissions:
@@ -50,7 +53,7 @@ concurrency:
 jobs:
   ocr:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -107,6 +110,7 @@ jobs:
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: node --experimental-strip-types scripts/ocr/detail-fill.mjs
       - name: 공고 검사표 (2026-10-25 Lee 결정 — 올린 공고마다 문제를 찾아 알림, 연속 10개 통과가 크롤링 시작 조건)
+        id: inspect
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -114,6 +118,25 @@ jobs:
         run: |
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs src/lib/jobInspect.test.ts
           node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-inspect.mjs
+      # 화면 대조(#646, Lee 2026-11-10 sb-5876): 검사표에서 '화면 대조'만 남은 비공개 공고를 관리자 비공개 상세(PC·모바일)로 열어
+      # 원문·DB와 대조하고 기록 → 검사표를 한 번 더 돌려 확정 오류가 없으면 같은 실행에서 공개. 대상이 없으면 브라우저를 설치하지 않는다.
+      - name: 화면 대조 브라우저 설치
+        if: ${{ !cancelled() && steps.inspect.outputs.screen_wait != '' && steps.inspect.outputs.screen_wait != '0' }}
+        run: npx playwright install --with-deps chromium
+      - name: 화면 대조 (공개 후보, 관리자 비공개 상세)
+        if: ${{ !cancelled() && steps.inspect.outputs.screen_wait != '' && steps.inspect.outputs.screen_wait != '0' }}
+        env:
+          SCREEN_CANDIDATES: '1'
+          BASE_URL: https://viecganban.vn
+          ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
+          ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/detail-read.mjs
+      - name: 공고 검사표 다시 (화면 대조 결과 반영)
+        if: ${{ !cancelled() && steps.inspect.outputs.screen_wait != '' && steps.inspect.outputs.screen_wait != '0' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-inspect.mjs
       - name: 멈춤 알림 (2026-11-01 Lee — 처리 단계가 멈추면 바로 알림)
         if: ${{ failure() }}
         env:

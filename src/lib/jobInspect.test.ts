@@ -1,7 +1,7 @@
 // 공고 검사표 시험 — 실제 원문(jobDescriptionBuild.fixtures.ts). 새 문제를 찾으면 사례를 더한다.
 import { DESCRIPTION_BUILD_JOBS as jobs } from './jobDescriptionBuild.fixtures.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
-import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS } from './jobInspect.ts'
+import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, SCREEN_WAIT } from './jobInspect.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const run = (id: string, extra: Record<string, unknown>) => {
   const j = jobs[id]
@@ -153,4 +153,19 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(inspectReport({ id: 1 }, m).includes('❌ 붙인 뒤에도 빠진 줄 없음 — 2줄'), 'shown in report')
   assert(INSPECT_KEYS.includes('still_missing' as never), 'key registered')
   console.log('jobInspect.test.ts: 붙인 뒤에도 빠진 줄 표시 항목 통과')
+}
+// 화면 대조(#646, Lee 2026-11-10 sb-5876): 확정 오류·대조 전 비공개 공고는 공개하지 않는다. 이미 공개 중이고 기록이 없으면 공개 유지.
+{
+  const job = { id: 5876, description: 'Công việc: công nhân sản xuất', pin: 'area', category: 'san_xuat_xay_dung', occupation_code: '93', active: false, admin_hidden: false }
+  const base = inspectJob(job)
+  const pub = (r: ReturnType<typeof inspectJob>, active = false) => publishDecision(r, { active, hold: true }, '2026-11-01')
+  const withScreen = (screen: NonNullable<Parameters<typeof inspectJob>[0]['screen']>, active = false) => inspectJob({ ...job, active, screen })
+  assert(INSPECT_KEYS.includes('screen' as never), 'screen key registered')
+  assert(pub(base).publishable, 'base case publishes without screen record')
+  assert(!pub(withScreen({ state: 'pending' })).publishable, 'pending blocks publish')
+  assert(withScreen({ state: 'pending' }).items.find((i) => i.key === 'screen')?.detail === SCREEN_WAIT, 'pending detail is the wait marker')
+  assert(!pub(withScreen({ state: 'fail', detail: '[PC] 제목이 기호로 시작' })).publishable, 'confirmed error blocks publish')
+  assert(pub(withScreen({ state: 'ok', unsure: 2 })).publishable, 'ok with unsure items publishes')
+  assert(pub(withScreen({ state: 'none' }, true), true).active === pub(inspectJob({ ...job, active: true }), true).active, 'already public without record keeps state')
+  console.log('jobInspect.test.ts: 화면 대조 항목 통과')
 }
