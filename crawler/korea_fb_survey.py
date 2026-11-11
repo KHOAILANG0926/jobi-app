@@ -211,7 +211,10 @@ COMMENTS_JS = """() => {
   const out = []
   for (const a of arts) {
     if (a === top) continue
-    const t = [...a.querySelectorAll('div[dir="auto"]')].map(d => (d.innerText || '').trim()).filter(x => x.length > 1)
+    // 작성자 이름은 링크·제목 안에 있다 → 그런 노드와 링크만 담은 노드는 빼고 본문 노드만 쓴다(사람 이름 비저장)
+    const t = [...a.querySelectorAll('div[dir="auto"]')]
+      .filter(d => !d.closest('a, h2, h3, h4') && !(d.querySelector('a') && !(d.innerText || '').replace(d.querySelector('a').innerText || '', '').trim()))
+      .map(d => (d.innerText || '').trim()).filter(x => x.length > 1)
     const txt = [...new Set(t)].join(' ').trim()
     if (txt) out.push(txt)
   }
@@ -412,7 +415,8 @@ async def main(argv=None) -> int:
                 result["detail"].append({**about, "name": g["name"], "members": g["members"], "daily": g["daily"],
                                          "post_counts": counts, "posts_read": len(posts),
                                          "jobs_with_visa": sum(1 for x in posts if x["class"] == "job" and x["visa"]),
-                                         "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws, "posts": posts})
+                                         "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws,
+                                         "posts": [{**x, "text": mask(x["text"])} for x in posts]})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
                 await page.wait_for_timeout(random.randint(60000, 120000))  # 수집기와 같은 그룹 간 쉬는 시간
         except StopAsyncIteration:
