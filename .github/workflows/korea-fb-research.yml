@@ -27,6 +27,7 @@ jobs:
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # 글 갈래 나누기(Haiku, Lee 2026-11-12 승인)
       FB_C_USER: ${{ secrets.FB_C_USER }}
       FB_XS: ${{ secrets.FB_XS }}
       FB_DATR: ${{ secrets.FB_DATR }}
@@ -56,7 +57,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           d = json.load(open('/tmp/korea_fb_research.json', encoding='utf-8'))
-          names = {'company_q': '회사 질문', 'change_co': '회사 바꾸기', 'job': '일자리', 'sell': '판매', 'ask': '질문', 'money': '환전·송금', 'room': '방', 'visa_doc': '비자·서류', 'other': '기타'}
+          names = d.get('class_names') or {}
           tot = d['posts'] or 1
           L = [f"## 페이스북 장기 조사 보고 {d['at']}", "", f"쌓인 글 {d['posts']}개 · 댓글 {d['comments']}개 · 본 그룹 {d['groups_visited']}/{d['groups_known']}곳", "",
                "| 종류 | 글 | 비율 |", "|---|---|---|"]
@@ -70,7 +71,7 @@ jobs:
                   L.append(f"| {names.get(k, k)} | {v}% |")
           gs = d.get('group_share_pct') or {}
           if gs:
-              cols = ['company_q', 'change_co', 'job', 'sell', 'ask', 'money', 'room', 'visa_doc', 'other']
+              cols = list(names)
               L += ["", "그룹별 비율(%)", "", "| 그룹 | 회원 | 글 | " + " | ".join(names[c] for c in cols) + " |", "|---|---|---|" + "---|" * len(cols)]
               for gname, v in sorted(gs.items(), key=lambda x: -x[1]['members']):
                   L.append(f"| {gname} | {v['members']:,} | {v['posts']} | " + " | ".join(str(v.get(c, 0)) for c in cols) + " |")

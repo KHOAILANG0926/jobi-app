@@ -9,6 +9,9 @@ Lee 컴퓨터가 꺼져 있어도 VPS 실행기에서 돈다(crawl-facebook-one�
 import argparse
 import asyncio
 import json
+import os
+import unicodedata
+import urllib.request
 import random
 import re
 import sys
@@ -21,8 +24,9 @@ import hashlib
 from datetime import timedelta, timezone
 
 import crawl_facebook
-from crawl_facebook import (account_lock_reason, advance_feed, build_cookies, expand_visible_posts, extract_visible_posts,
-                            inspect_page_state, parse_time_label, write_account_lock)
+from crawl_facebook import (TOP_LEVEL_POSTS_JS, account_lock_reason, advance_feed, build_cookies, expand_and_reread,
+                            expand_visible_posts, extract_visible_posts, inspect_page_state, is_truncated_post,
+                            mobile_group_url, parse_time_label, write_account_lock)
 
 try:
     from playwright_stealth import stealth_async
@@ -34,28 +38,73 @@ NOT_IN_KOREA = re.compile(r"thợ hàn|bắc ninh|quế võ|hà nội|tp\.?hcm|h
 KOREA_NAME = re.compile(r"korea|hàn quốc|tại hàn\b|ở hàn\b|seoul|busan|incheon|inchoen|ulsan|ansan|suwon|daegu|daejeon|대전|gwangju|gimhae|changwon|hwaseong|pyeongtaek", re.I)
 PHONE = re.compile(r"(?<!\d)(?:\+?\d[\d .\-]{7,}\d)")
 
-# 글 종류(앞에서부터 처음 맞는 것). 조사용 대략 분류 — 숫자는 "대략"으로 보고한다.
-CLASSES = [
-    # 회사 질문·회사 바꾸기는 구인보다 먼저 본다("이 회사 괜찮나요"가 구인으로 세어지지 않게)
-    ("company_q", r"công ty (này|đó|nào|ấy)|xưởng (này|đó|nào)|có ổn không|có tốt không|review|đánh giá công ty|làm ở đó"),
-    ("change_co", r"đổi công ty|chuyển công ty|chuyển xưởng|đổi xưởng|xin chuyển|chuyển việc|사업장 변경"),
-    ("job", r"tuyển|tìm việc|việc làm|cần (người|tuyển|gấp|thợ)|nhận (lao động|người|thợ)|xin việc|công việc|đi làm|ca ngày|ca đêm|lương|시급|구인|nhân viên"),
-    ("money", r"đổi tiền|chuyển tiền|tỷ giá|gửi tiền về|vay"),
-    ("room", r"phòng trọ|ở ghép|thuê nhà|cho thuê|원룸|nhà nghỉ"),
-    ("visa_doc", r"visa|gia hạn|thẻ người nước ngoài|xuất nhập cảnh|hồ sơ|bảo hiểm|thuế|lương hưu|퇴직금"),
-    ("sell", r"\d+\s?kk?\b|\bkg\b|thùng|ship|giải cứu|\bbán\b|giá|order|sale|combo|inbox|lên đơn"),
-    ("ask", r"\?|cho (e|em|mình) hỏi|ai biết|xin ý kiến|tư vấn giúp"),
-]
-CLASS_RE = [(k, re.compile(p, re.I)) for k, p in CLASSES]
 VISA_RE = re.compile(r"\b(E-?9|E-?7|E-?8|H-?2|D-?2|D-?4|D-?10|F-?2|F-?4|F-?5|F-?6)\b", re.I)
 NO_VISA_RE = re.compile(r"không (cần|yêu cầu) visa|ko cần visa|k cần visa|bất hợp pháp|bhp|không giấy tờ", re.I)
 
 
-def classify(text: str) -> str:
-    for k, rx in CLASS_RE:
-        if rx.search(text):
-            return k
-    return "other"
+# 글 갈래는 AI(Haiku)가 나눈다 — 낱말 규칙은 2026-11-11 직접 읽어 본 100개 중 "일자리" 8개 중 7개가 틀렸고
+# (배 판매·전기자전거 광고·정치 글), 가장 큰 주제인 유학 갈래가 없었다. Lee 2026-11-12 승인(한 달 몇천 원 수준).
+CLASSES = {
+    "du_hoc": "유학(학교·입학·D2/D4·한국어 시험·유학 비자 신청)",
+    "di_han": "한국에 일하러 가는 방법(송출·EPS·E-9·E-7 절차·센터 문의)",
+    "job_offer": "구인(사람을 뽑는 글)",
+    "job_seek": "구직(일을 찾는 글)",
+    "company": "특정 회사·일터에 대한 질문이나 후기(근무 조건·분위기·괜찮은지)",
+    "change_job": "회사 바꾸기·이직(사업장 변경)",
+    "visa_doc": "한국 안 체류·서류(비자 연장·외국인등록증·보험·세금·퇴직금)",
+    "life": "한국 생활(집·돈 보내기·휴대폰·병원·일상 질문)",
+    "sell": "판매·광고(음식·물건·서비스 홍보)",
+    "other": "기타(잡담·뉴스·정치·스팸)",
+}
+CLASS_NAMES = {"du_hoc": "유학", "di_han": "한국 가는 법", "job_offer": "구인", "job_seek": "구직", "company": "회사 질문·후기",
+               "change_job": "회사 바꾸기", "visa_doc": "체류·서류", "life": "생활", "sell": "판매·광고", "other": "기타",
+               "unclassified": "분류 안 됨"}  # 보고 표 이름도 여기 한 곳(워크플로가 결과 파일에서 읽음)
+WRITERS = {"kr": "지금 한국에 있음", "vn": "아직 한국 밖(베트남 등)", "unk": "알 수 없음"}
+AI_MODEL = os.getenv("KOREA_CLASSIFY_MODEL", "claude-haiku-5-5")
+
+
+def _ai_call(prompt: str) -> str | None:
+    key = os.getenv("ANTHROPIC_API_KEY")
+    if not key:
+        return None
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", method="POST",
+                                 headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                                 data=json.dumps({"model": AI_MODEL, "max_tokens": 1500,
+                                                  "messages": [{"role": "user", "content": prompt}]}).encode())
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                return "".join(c.get("text", "") for c in json.load(r).get("content", []))
+        except Exception as e:  # noqa: BLE001
+            print(f"  ⚠️ AI 분류 실패({attempt}/2): {type(e).__name__}")
+    return None
+
+
+def ai_classify(posts: list[dict]) -> None:
+    """글마다 class(CLASSES 열쇠)·writer(WRITERS 열쇠)를 채운다. 열쇠가 없거나 실패하면 'unclassified'로 남겨
+    숫자에 섞지 않는다(낱말 규칙으로 대신 채우지 않음)."""
+    for p in posts:
+        p["class"], p["writer"] = "unclassified", "unk"
+    cls = "\n".join(f"- {k}: {v}" for k, v in CLASSES.items())
+    for k in range(0, len(posts), 20):
+        batch = posts[k:k + 20]
+        lines = "\n".join(f"[{i}] " + re.sub(r"\s+", " ", p["text"])[:1200] for i, p in enumerate(batch))
+        prompt = ("한국 관련 베트남어 페이스북 그룹 글이다. 글마다 갈래 하나와 글쓴이 위치를 골라라.\n"
+                  f"갈래:\n{cls}\n글쓴이: kr(지금 한국에 있음) / vn(아직 한국 밖) / unk(알 수 없음)\n"
+                  "JSON 배열만 답하라. 예: [{\"i\":0,\"c\":\"sell\",\"w\":\"kr\"}]\n\n" + lines)
+        out = _ai_call(prompt)
+        if not out:
+            continue
+        m = re.search(r"\[.*\]", out, re.S)
+        try:
+            rows = json.loads(m.group(0)) if m else []
+        except ValueError:
+            rows = []
+        for r in rows:
+            i = r.get("i") if isinstance(r, dict) else None
+            if isinstance(i, int) and 0 <= i < len(batch) and r.get("c") in CLASSES:
+                batch[i]["class"] = r["c"]
+                batch[i]["writer"] = r.get("w") if r.get("w") in WRITERS else "unk"
 
 
 def is_korea_group(name: str) -> bool:
@@ -136,31 +185,71 @@ async def read_about(page, gid: str) -> dict:
     return info
 
 
-async def read_recent_posts(page, gid: str, want: int) -> list[dict] | None:
-    """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다.
-    화면이 안 열리면 None(정상적으로 글이 없는 빈 그룹의 [] 와 구분)."""
-    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
+# 글쓴이 본문만: 수집기 textOf는 본문 칸이 없으면 글 안 모든 글자(댓글·댓글 쓴 사람 이름 포함)를 모은다
+# (2026-11-11 직접 읽은 100개에 댓글이 섞임). 댓글은 글 안에 다시 들어 있는 후보 칸이라, 이 글에 바로 속한 글자만 읽는다.
+OWN_TEXT_JS = "(idx) => {" + TOP_LEVEL_POSTS_JS + """
+    const el = document.querySelector(`[data-jobi-idx="${idx}"]`)
+    if (!el) return null
+    const preview = el.querySelector('[data-ad-preview="message"], [data-ad-comet-preview="message"]')
+    const nodes = preview ? [preview] : [...el.querySelectorAll('[dir="auto"]')].filter(n => n.closest(CAND) === el)
+    const lines = []
+    for (const n of nodes) {
+        const t = (n.innerText || n.textContent || '').trim()
+        if (t && t.length > 2 && !lines.some(x => x.includes(t))) lines.push(t)
+    }
+    return { text: lines.join('\\n').trim(), hasSeeMore: !!seeMoreBtn(el) }
+}"""
+TAIL_RE = re.compile(r"\s*(적게 보기|Ẩn bớt|See less)\s*$")
+
+
+def dedupe_key(text: str) -> str:
+    """접힌 글과 펼친 글이 따로 세어지지 않게(2026-11-11: 50개 중 6개 두 번) — 꾸밈 글자(𝐒)·띄어쓰기·대소문자를 지운 앞 60자."""
+    t = unicodedata.normalize("NFKC", text).lower()
+    return re.sub(r"[\W_]+", "", t)[:60]
+
+
+async def own_text(page, idx: int) -> dict | None:
+    r = await page.evaluate(OWN_TEXT_JS, idx)
+    if r and is_truncated_post(r["text"], r["hasSeeMore"]):
+        await expand_and_reread(page, idx)  # 실제 마우스 클릭으로 한 번 펼침(수집기와 같은 방법)
+        r = await page.evaluate(OWN_TEXT_JS, idx) or r
+    if r:
+        r["text"] = TAIL_RE.sub("", r["text"])
+        r["truncated"] = is_truncated_post(r["text"], r["hasSeeMore"])
+    return r
+
+
+async def read_recent_posts(page, gid: str, want: int, mobile: bool = False) -> list[dict] | None:
+    """그룹 최근 글(글쓴이 본문만, 접힌 글은 펼쳐서). 시험 조사·장기 수집이 함께 쓴다.
+    화면이 안 열리면 None(정상적으로 글이 없는 빈 그룹의 [] 와 구분). 갈래는 ai_classify가 따로 채운다."""
+    url = f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"
+    if not await open_page(page, mobile_group_url(url) if mobile else url):
         return None
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
         raise RuntimeError(state)
-    seen, out, stall = set(), [], 0
+    seen_raw, seen_own, out, stall = set(), set(), [], 0
     for _ in range(40):
         await expand_visible_posts(page)
         await page.wait_for_timeout(random.randint(800, 1500))
         got = await extract_visible_posts(page)
         before = len(out)
         for p in got.get("posts", []):
-            key = p["text"][:120]
-            if key in seen:
+            raw_key = dedupe_key(p["text"])
+            if raw_key in seen_raw:
                 continue
-            seen.add(key)
-            text = re.sub(r"[ \t]+", " ", p["text"]).strip()
+            seen_raw.add(raw_key)
+            own = await own_text(page, p["idx"])
+            text = re.sub(r"[ \t]+", " ", (own or {}).get("text") or "").strip()
+            key = dedupe_key(text)
+            if len(text) < 15 or key in seen_own:
+                continue
+            seen_own.add(key)
             t = parse_time_label(p.get("timeLabel", ""))
             raw_url = p.get("postUrl") or ""
             out.append({"text": text, "url": raw_url.split("?")[0] if "/posts/" in raw_url else raw_url,
-                        "head": mask(re.sub(r"\s+", " ", text)[:160]),
-                        "class": classify(text), "visa": sorted({v.upper() for v in VISA_RE.findall(text)}),
+                        "head": mask(re.sub(r"\s+", " ", text)[:160]), "truncated": (own or {}).get("truncated", False),
+                        "visa": sorted({v.upper() for v in VISA_RE.findall(text)}),
                         "no_visa": bool(NO_VISA_RE.search(text)), "time": p.get("timeLabel", "")[:30],
                         "est": (t or {}).get("estimate"), "images": len(p.get("images") or [])})
         if len(out) >= want:
@@ -170,6 +259,20 @@ async def read_recent_posts(page, gid: str, want: int) -> list[dict] | None:
             break
         await advance_feed(page)
     return out[:want]
+
+
+async def read_posts_with_fallback(page, ctx, gid: str, want: int):
+    """글 읽기 한도(15분)를 넘기거나 안 열리면 휴대폰용 화면으로 한 번 더(같은 그룹이 3번 멈춤: 32만 명 [Korea] Người Tìm Việc).
+    돌려주는 값: (page, posts|None, how)"""
+    posts = await limited(read_recent_posts(page, gid, want), 900, "글 읽기", page)
+    if posts not in ("timeout", None):
+        return page, posts, "pc"
+    if posts == "timeout":
+        page = await fresh_page(ctx, page)
+    posts = await limited(read_recent_posts(page, gid, want, mobile=True), 600, "글 읽기(휴대폰 화면)", page)
+    if posts == "timeout":
+        return await fresh_page(ctx, page), None, "failed"
+    return page, posts, "mobile" if posts is not None else "failed"
 
 
 async def open_page(page, url: str) -> bool:
@@ -344,12 +447,10 @@ async def collect(page, ctx, groups_per_run: int, want_posts: int, comment_posts
             page = await fresh_page(ctx, page)
             about = {"id": gid, "error": "timeout"}
         await page.wait_for_timeout(random.randint(10000, 20000))
-        posts = await limited(read_recent_posts(page, gid, want_posts), 900, "글 읽기", page)
-        if posts == "timeout":
-            page = await fresh_page(ctx, page)
-            posts = None
+        page, posts, how = await read_posts_with_fallback(page, ctx, gid, want_posts)
         failed = bool(about.get("error")) or posts is None  # 소개·글 화면 중 하나라도 안 열렸으면 실패
         posts = posts or []
+        ai_classify(posts)
         names = [post_name(gid, p["text"], p["url"]) for p in posts]
         existing = {}
         for k in range(0, len(names), 100):  # 이번에 읽은 글만 이름으로 조회(저장분이 1,000건을 넘어도 안전)
@@ -369,7 +470,8 @@ async def collect(page, ctx, groups_per_run: int, want_posts: int, comment_posts
                     comments = []
                 with_comments += 1
                 stats["comments"] += len(comments)
-            payload = {"gid": gid, "group": gname, "text": mask(p["text"])[:3000], "class": p["class"], "visa": p["visa"],
+            payload = {"gid": gid, "group": gname, "text": mask(p["text"])[:3000], "class": p["class"], "writer": p.get("writer", "unk"),
+                       "truncated": p.get("truncated", False), "visa": p["visa"],
                        "no_visa": p["no_visa"], "time_label": p["time"], "est": p["est"], "images": p["images"]}
             if comments:
                 payload["comments"] = comments
@@ -426,9 +528,9 @@ def report(out_path: str) -> dict:
            "groups_known": len(groups), "groups_visited": len(visited),
            "by_class_weighted_pct": by_class_weighted, "group_share_pct": group_share,
            "no_visa_posts": sum(1 for p in posts if p.get("no_visa")),
-           "jobs_with_visa": sum(1 for p in posts if p["class"] == "job" and p.get("visa")),
+           "jobs_with_visa": sum(1 for p in posts if p["class"] == "job_offer" and p.get("visa")),
            "group_history": {(g["payload"] or {}).get("name", "")[:40]: (g["meta"] or {}).get("history", []) for g in visited},
-           "samples": samples}
+           "samples": samples, "class_names": CLASS_NAMES}
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=1)
     return res
@@ -454,7 +556,7 @@ async def main(argv=None) -> int:
         print(f"::error title=Facebook 계정 잠금::{lock} — 수집기와 같은 잠금이라 시작하지 않습니다.")
         return 2
 
-    result = {"at": datetime.now().isoformat(timespec="seconds"), "queries": [], "groups": [], "detail": []}
+    result = {"at": datetime.now().isoformat(timespec="seconds"), "queries": [], "groups": [], "detail": [], "class_names": CLASS_NAMES}
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-setuid-sandbox"])
         ctx = await browser.new_context(viewport={"width": 1280, "height": 800}, locale="ko-KR",
@@ -486,21 +588,21 @@ async def main(argv=None) -> int:
                     page = await fresh_page(ctx, page)
                     about = {"id": g["id"], "error": "timeout"}
                 await page.wait_for_timeout(random.randint(8000, 15000))
-                posts = await limited(read_recent_posts(page, g["id"], a.posts), 900, "글 읽기", page)
-                if posts == "timeout":
-                    page = await fresh_page(ctx, page)
-                    posts = None
+                page, posts, how = await read_posts_with_fallback(page, ctx, g["id"], a.posts)
                 failed = bool(about.get("error")) or posts is None
                 posts = posts or []
+                ai_classify(posts)
                 counts = {}
                 for x in posts:
                     counts[x["class"]] = counts.get(x["class"], 0) + 1
                 result["detail"].append({**about, "name": g["name"], "members": g["members"], "daily": g["daily"],
                                          "post_counts": counts, "posts_read": len(posts),
-                                         "jobs_with_visa": sum(1 for x in posts if x["class"] == "job" and x["visa"]),
+                                         "read_how": how, "truncated": sum(1 for x in posts if x.get("truncated")),
+                                         "writers": {w: sum(1 for x in posts if x.get("writer") == w) for w in WRITERS},
+                                         "jobs_with_visa": sum(1 for x in posts if x["class"] == "job_offer" and x["visa"]),
                                          "no_visa_posts": sum(1 for x in posts if x["no_visa"]),
                                          "posts": [{**x, "text": mask(x["text"])} for x in posts]})
-                print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
+                print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개({how}) {counts}")
                 fails = fails + 1 if (failed and not posts) else 0
                 if fails >= 2:  # 그룹 2곳 연속으로 화면이 안 열리면 몇 시간 헛돌지 않고 멈춘다
                     print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 원인 확인 전까지 중단")
