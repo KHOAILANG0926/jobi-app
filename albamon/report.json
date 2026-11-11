@@ -1,0 +1,108 @@
+[
+  {
+    "device": "iphone",
+    "name": "home",
+    "path": "/",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 5547,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "list",
+    "path": "/jobs/total",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 3049,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "area",
+    "path": "/jobs/area",
+    "failed": "page.screenshot: Protocol error (Page.captureScreenshot): Unable to capture screenshot\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n",
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "search",
+    "path": "/search",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 664,
+    "wide": [
+      "div.Error_error__content__jl6vR 610px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-auto",
+    "path": "https://m.albamon.com/jobs/detail/120233260?productCode=mdlgrand&sc=1&space=M_MAIN&pageNo=0&pageIndex=0",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 8160,
+    "wide": [],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "home",
+    "path": "/",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 5547,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "list",
+    "path": "/jobs/total",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 3049,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "area",
+    "path": "/jobs/area",
+    "failed": "page.screenshot: Protocol error (Page.captureScreenshot): Unable to capture screenshot\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n",
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "search",
+    "path": "/search",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 740,
+    "wide": [
+      "div.Error_error__content__jl6vR 610px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-auto",
+    "path": "https://m.albamon.com/jobs/detail/120147970?productCode=mdlgrand&sc=1&space=M_MAIN&pageNo=0&pageIndex=0",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 5364,
+    "wide": [],
+    "smallText": 0,
+    "errors": []
+  }
+]
