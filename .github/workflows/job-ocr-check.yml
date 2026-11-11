@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       all_jobs:
-        description: '기준 시각 이전 공고도 상세 채우기·AI 판정·업종·검사표를 한 번 다시 (Lee 2026-11-08·11-12, KDA 제외)'
+        description: '기준 시각 이전 공고도 상세 채우기·AI 판정·업종을 한 번 다시 (Lee 2026-11-08·11-12, KDA 제외, 검사표는 읽기 전용)'
         type: boolean
         default: false
   # 2026-11-01 Lee "공고 하나를 빨리": 공고를 저장하는 작업이 끝나면 30분을 기다리지 않고 바로 처리한다.
