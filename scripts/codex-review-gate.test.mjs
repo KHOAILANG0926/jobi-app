@@ -1,13 +1,31 @@
 import assert from 'node:assert/strict'
-import { codexGate, REPLY_AUTHORS, REPLY_MARKER, WAIT_MIN } from './codex-review-gate.mjs'
+import { codexGate, REPLY_AUTHORS, REPLY_MARKER, WAIT_MIN, FALLBACK_WAIT_MIN, FALLBACK_MARKER, FALLBACK_REQUEST } from './codex-review-gate.mjs'
 
 const sha = 'abc123', headDate = '2026-11-08T16:00:00Z'
 const codex = { login: 'chatgpt-codex-connector[bot]', type: 'Bot' }, claude = { login: 'claude[bot]' }, stranger = { login: 'random-user' }
 const at = (min) => new Date(Date.parse(headDate) + min * 60000)
 const base = { reviews: [], reviewComments: [], comments: [], sha, headDate }
+const bot = { login: 'github-actions[bot]' }
+// Claude 검토관 요청 표시(봇) — WAIT_MIN 시각에 단 것으로 둔다
+const asked = { user: bot, body: `${FALLBACK_REQUEST} ${sha}`, created_at: at(WAIT_MIN).toISOString() }
+const lateNow = at(WAIT_MIN + FALLBACK_WAIT_MIN + 1)
 
 assert.equal(codexGate({ ...base, now: at(5) }).ok, false, 'no Codex review yet → wait')
-assert.equal(codexGate({ ...base, now: at(WAIT_MIN + 1) }).ok, true, 'Codex silent past wait → proceed')
+assert.equal(codexGate({ ...base, now: at(WAIT_MIN + 1) }).needFallback, true, 'Codex silent past wait → call Claude fallback reviewer')
+// Lee 2026-11-11: Codex 한도 초과 답이 오면 기다리지 않고 바로 검토관
+const limit = { user: codex, body: 'You have reached your Codex usage limits for code reviews.', created_at: at(1).toISOString() }
+assert.equal(codexGate({ ...base, comments: [limit], now: at(2) }).needFallback, true, 'Codex usage limit → fallback immediately')
+assert.equal(codexGate({ ...base, comments: [{ ...limit, user: stranger }], now: at(2) }).ok, false, 'limit text from non-Codex account does not skip the wait')
+assert.equal(codexGate({ ...base, comments: [{ ...limit, user: stranger }], now: at(2) }).needFallback, undefined, 'limit text from non-Codex account → still waiting')
+assert.equal(codexGate({ ...base, comments: [asked], now: at(WAIT_MIN + 5) }).ok, false, 'fallback requested, result not yet in → wait')
+const fbr = (n, who = claude, s2 = sha) => ({ user: who, body: `${FALLBACK_MARKER}\nsha: ${s2}\nfindings: ${n}\n내용`, created_at: at(WAIT_MIN + 6).toISOString() })
+assert.equal(codexGate({ ...base, files: ['scripts/codex-review-gate.mjs'], comments: [asked, fbr(0)], now: at(WAIT_MIN + 7) }).ok, true, 'fallback review without findings → proceed (even risky files)')
+assert.equal(codexGate({ ...base, comments: [asked, fbr(2)], now: lateNow }).ok, false, 'fallback findings without reply → wait')
+assert.equal(codexGate({ ...base, comments: [asked, fbr(2), { user: claude, body: REPLY_MARKER, created_at: at(WAIT_MIN + 8).toISOString() }], now: lateNow }).ok, true, 'fallback findings answered → proceed')
+assert.equal(codexGate({ ...base, comments: [asked, fbr(0, stranger)], now: at(WAIT_MIN + 7) }).ok, false, 'fallback result from other account ignored')
+assert.equal(codexGate({ ...base, comments: [asked, fbr(0, claude, 'old')], now: at(WAIT_MIN + 7) }).ok, false, 'fallback result for another commit ignored')
+assert.equal(codexGate({ ...base, comments: [{ ...asked, user: stranger }], now: at(WAIT_MIN + 5) }).needFallback, true, 'request marker from non-bot account ignored')
+assert.equal(codexGate({ ...base, comments: [asked], now: lateNow }).ok, true, 'fallback timed out, ordinary files → proceed on existing checks')
 assert.equal(codexGate({ ...base, reviews: [{ user: codex, commit_id: 'old', submitted_at: '2026-11-08T15:00:00Z' }], now: at(5) }).ok, false, 'review on older commit does not count')
 const rv = [{ user: codex, commit_id: sha, submitted_at: '2026-11-08T16:10:00Z' }]
 assert.equal(codexGate({ ...base, reviews: rv, now: at(11) }).ok, true, 'Codex reviewed, no findings → proceed')
@@ -42,15 +60,15 @@ assert.equal(codexGate({ ...base, comments: [summary(sha, false)], reviewComment
 assert.equal(codexGate({ ...base, comments: [summary(sha, false)], reviewComments: [{ user: codex, commit_id: sha, original_commit_id: sha }], now: at(11) }).ok, false, 'inline finding made on this head still blocks')
 // Lee 2026-11-09: 예전 커밋 지적에 답 없이 새 커밋만 올리고 Codex가 안 오면 30분으로 넘어가지 않는다
 const oldLine = [{ user: codex, commit_id: 'old', original_commit_id: 'old', created_at: '2026-11-08T15:30:00Z' }]
-assert.equal(codexGate({ ...base, reviewComments: oldLine, now: at(WAIT_MIN + 5) }).ok, false, 'earlier finding without reply blocks the 30-minute pass')
-assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [{ user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:40:00Z' }], now: at(WAIT_MIN + 5) }).ok, true, 'earlier finding answered → 30-minute pass allowed')
+assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [asked], now: lateNow }).ok, false, 'earlier finding without reply blocks the timeout pass')
+assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [{ user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:40:00Z' }, asked], now: lateNow }).ok, true, 'earlier finding answered → timeout pass allowed')
 assert.equal(codexGate({ ...base, comments: [summary('old', true)], now: at(WAIT_MIN + 5) }).ok, false, 'older-commit summary with unresolved findings and no reply blocks')
 assert.equal(codexGate({ ...base, reviews: [{ user: codex, commit_id: 'old', state: 'CHANGES_REQUESTED', submitted_at: '2026-11-08T15:30:00Z' }], now: at(WAIT_MIN + 5) }).ok, false, 'older CHANGES_REQUESTED without reply blocks')
 // Lee 2026-11-09: Codex가 안 오면(사용량 소진 등) 운영·보안·DB 파일 PR은 멈추고 Lee 확인
 for (const f of ['supabase/migrations/20261109_x.sql', '.github/workflows/ops-run-sql.yml', 'scripts/ops/jobs/fix-1.sql', 'src/lib/authStorage.ts', 'scripts/codex-review-gate.mjs']) {
-  const r = codexGate({ ...base, files: [f], now: at(WAIT_MIN + 5) })
+  const r = codexGate({ ...base, files: [f], comments: [asked], now: lateNow })
   assert.equal(r.ok, false, `risky file ${f} without Codex → stop`); assert.equal(r.needsLee, true, `risky file ${f} → needs-lee`)
 }
-assert.equal(codexGate({ ...base, files: ['src/pages/PostJob.tsx', 'scripts/ops/jobs/fb-x.json'], now: at(WAIT_MIN + 5) }).ok, true, 'ordinary files without Codex → proceed after wait')
+assert.equal(codexGate({ ...base, files: ['src/pages/PostJob.tsx', 'scripts/ops/jobs/fb-x.json'], comments: [asked], now: lateNow }).ok, true, 'ordinary files without Codex or fallback → proceed after wait')
 assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [summary(sha, false)], now: at(11) }).ok, true, 'risky file with finding-free Codex review → proceed')
 console.log('codex-review-gate: all assertions passed')

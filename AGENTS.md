@@ -16,7 +16,7 @@ Codex는 이 저장소 PR을 자동 리뷰한다. 아래 순서로 본다. 지�
 목적: Lee가 자는 시간에도 개발·운영이 이어지게 한다. 방향을 일일이 지시하지 않아도 이 문서의 규칙이 "기본 선"이다.
 - 역할: **Claude = 개발**(수정·PR, Codex 지적 대응, 밤 근무) / **GPT Codex = 검사관**(PR 자동 리뷰, 이 저장소 AGENTS.md "Review guidelines") / **Gemini·GPT 그림 = 그림·영상**(필요할 때, 열쇠는 그때 금고에). Lee는 방향·승인만.
 - 소통은 GitHub에서: PR 리뷰·댓글·이슈. Lee가 AI 사이에서 글을 옮기지 않게 한다.
-- 흐름: Claude PR → Codex 자동 리뷰 → 지적이 있으면 Claude가 고쳐 올리거나 근거를 답함(`<!-- claude-codex-reply -->` 댓글) → 필수 검사 통과 → 봇 병합 → 운영 검사. 봇은 Codex 리뷰를 기다린다(30분 안 오면 진행, 지적이 있으면 Claude 답이 있어야 진행 — scripts/codex-review-gate.mjs). Codex↔Claude 왕복 5번 넘으면 멈추고 needs-lee.
+- 흐름: Claude PR → Codex 자동 리뷰 → 지적이 있으면 Claude가 고쳐 올리거나 근거를 답함(`<!-- claude-codex-reply -->` 댓글) → 필수 검사 통과 → 봇 병합 → 운영 검사. 봇은 Codex 리뷰를 기다린다(지적이 있으면 Claude 답이 있어야 진행 — scripts/codex-review-gate.mjs). Codex가 한도 초과·12분 무응답이면 Claude 검토관이 이 「Review guidelines」로 대신 검토하고(`<!-- claude-fallback-review -->`), 그것도 20분 안 오면 일반 파일만 진행·운영·보안·DB 파일은 needs-lee(Lee 2026-11-11). Codex↔Claude 왕복 5번 넘으면 멈추고 needs-lee.
 - **알아서 하는 것(Lee 확인 없음)**: 공고 수집·등록, 위치·업종·회사 이름·급여 판정 오류 고치기(사례를 시험에 추가하는 기존 방식), 검사표·운영 검사가 찾은 문제 고치기, 고장 난 검사 고치기, 비용·속도 개선, 이 문서 규칙을 지키게 하는 자동 장치.
 - **준비만 하고 Lee 한마디로 진행**: 화면 모양 변경(글 모형·데모까지 만들고 "적용" 대기), 새 기능 방향, DB 구조 변경(STRICT), 돈이 드는 것(새 열쇠·충전·유료 서비스). 이슈 라벨 needs-lee.
 - **절대 안 함**: 데이터 삭제, 보안·권한(RLS·인증·비밀값) 완화, 승인된 틀(KDA·상세 구성) 변경, 원본 채용사이트 링크.

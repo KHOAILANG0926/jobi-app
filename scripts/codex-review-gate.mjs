@@ -1,7 +1,7 @@
 // AI 팀 검사관 대기(Lee 2026-11-08 "팀을 만들자"): Claude가 만든 PR은 GPT Codex 검사를 거친 뒤 봇이 병합한다.
 // 판정(현재 head 커밋 기준):
-//  - Codex 검사가 이 커밋에 아직 없음 → 커밋 후 WAIT_MIN분까지 기다림. 넘으면 진행(Codex가 안 오면 일이 멈추지 않게, 기록만).
-//    단(Lee 2026-11-09): 이 PR의 예전 커밋 Codex 지적에 Claude 답이 없으면 진행 안 함(답 없이 새 커밋만 올려 30분으로 넘어가는 것 차단),
+//  - Codex 검사가 이 커밋에 아직 없음 → 커밋 후 WAIT_MIN분까지 기다림(Codex가 한도 초과로 답하면 바로). 넘으면 Claude 검토관(2026-11-11) → 그것도 없으면 진행(기록만).
+//    단(Lee 2026-11-09): 이 PR의 예전 커밋 Codex 지적에 Claude 답이 없으면 진행 안 함(답 없이 새 커밋만 올려 대기 시간으로 넘어가는 것 차단),
 //    운영·보안·DB 파일(check-repository-policy.mjs needsSecondReview)이 바뀐 PR은 Codex 검사 없이 진행 안 함(Codex 사용량이 떨어져도 두 번째 눈 없이 병합 안 됨).
 //  - Codex 검사가 끝났고 지적이 없음 → 진행.
 //  - 지적이 있음 → 그 검사 뒤에 Claude 답(REPLY_MARKER 댓글)이 있어야 진행. 답이 없으면 기다림(시간 초과 없음).
@@ -9,7 +9,28 @@
 // 답 표시는 Claude만 단다(Codex #558 지적: 공개 저장소라 누구나 댓글 가능) — REPLY_AUTHORS 계정의 댓글만 인정.
 import { needsSecondReview } from './check-repository-policy.mjs'
 
-export const WAIT_MIN = 30
+// 12분(Lee 2026-11-11 "30분 너무 오래"): 최근 PR 9개 Codex 응답 27번 중 25번이 11분 안(절반은 2분 안) — 2026-11-11 실측.
+export const WAIT_MIN = 12
+// Claude 검토관(Codex 대신): Codex가 한도 초과로 답하거나 WAIT_MIN 안에 안 오면 GitHub에서 새 Claude 세션이 이 커밋을 검토한다
+// (claude-auto.yml fallback-review, 구독 열쇠 — 추가 요금 없음). 요청 뒤 FALLBACK_WAIT_MIN 안에 결과가 없으면 예전 규칙(일반 파일은 진행, 운영·보안·DB 파일은 Lee 확인).
+export const FALLBACK_WAIT_MIN = 20
+export const FALLBACK_MARKER = '<!-- claude-fallback-review -->'
+export const FALLBACK_REQUEST = '<!-- claude-fallback-request -->'
+// Codex가 "You have reached your Codex usage limits for code reviews"로 답하면 기다리지 않는다(2026-11-11 #674: 10초 안에 이 답이 옴).
+export const isCodexLimit = (c) => isCodex(c.user) && /usage limits for code reviews/i.test(String(c.body ?? ''))
+/** 이 커밋의 Claude 검토관 결과: 첫 줄 표시, 둘째 줄 "sha: <커밋>", 셋째 줄 "findings: <수>". claude[bot] 계정만 인정(누구나 댓글 가능한 공개 저장소). */
+export function fallbackReview(comments, sha) {
+  return [...comments].reverse().map((c) => {
+    if (String(c.user?.login ?? '') !== 'claude[bot]') return null
+    const [first, shaLine, findLine] = String(c.body ?? '').split('\n').map((l) => l.trim())
+    if (first !== FALLBACK_MARKER || shaLine !== `sha: ${sha}`) return null
+    const n = /^findings: (\d+)$/.exec(findLine ?? '')
+    return n ? { findings: Number(n[1]), at: c.created_at } : null
+  }).find(Boolean) ?? null
+}
+/** 이 커밋으로 Claude 검토관을 부른 시각(봇이 단 요청 표시 댓글). */
+export const fallbackRequestedAt = (comments, sha) => comments.find((c) => String(c.user?.login ?? '') === 'github-actions[bot]'
+  && String(c.body ?? '').startsWith(`${FALLBACK_REQUEST} ${sha}`))?.created_at ?? ''
 export const REPLY_MARKER = '<!-- claude-codex-reply -->'
 export const REPLY_AUTHORS = new Set(['claude[bot]', 'KHOAILANG0926'])
 // 진짜 Codex 검사관 봇 계정만(Codex #566 지적: 이름에 codex가 든 아무 계정이나 인정하면 가짜 요약으로 통과 가능).
@@ -36,17 +57,29 @@ export function codexGate({ reviews, reviewComments, comments, sha, headDate, fi
   const summaryHere = summary && summary.commit_sha === sha && summary.status === 'completed' ? summary : null
   if (!mine.length && !summaryHere) {
     const ageMin = (new Date(now) - new Date(headDate)) / 60000
-    if (ageMin < WAIT_MIN) return { ok: false, reason: `Codex 검사 대기(${Math.floor(ageMin)}/${WAIT_MIN}분)` }
-    // 이 PR에서 Codex가 마지막으로 지적한 시각(어느 커밋이든). 그 뒤에 Claude 답이 있어야 30분 통과를 쓴다.
+    const limited = comments.some((c) => isCodexLimit(c) && c.created_at >= headDate)
+    if (ageMin < WAIT_MIN && !limited) return { ok: false, reason: `Codex 검사 대기(${Math.floor(ageMin)}/${WAIT_MIN}분)` }
+    const why = limited ? 'Codex 한도 초과' : `Codex 검사 없음(${Math.floor(ageMin)}분 경과)`
+    // 이 PR에서 Codex가 마지막으로 지적한 시각(어느 커밋이든). 그 뒤에 Claude 답이 있어야 대기 통과를 쓴다.
     const lastFinding = [
       ...reviewComments.filter((c) => isCodex(c.user)).map((c) => c.created_at),
       ...reviews.filter((r) => isCodex(r.user) && r.state === 'CHANGES_REQUESTED').map((r) => r.submitted_at),
       summary?.has_unresolved_findings === true ? summary.at : '',
     ].filter(Boolean).sort().at(-1)
-    if (lastFinding && !repliedAfter(comments, lastFinding)) return { ok: false, reason: `Codex 검사 없음(${Math.floor(ageMin)}분 경과) — 예전 Codex 지적에 Claude 답 대기` }
+    if (lastFinding && !repliedAfter(comments, lastFinding)) return { ok: false, reason: `${why} — 예전 Codex 지적에 Claude 답 대기` }
+    // Claude 검토관(두 번째 눈): 결과가 있으면 그것으로, 없으면 부르고, 불렀는데 FALLBACK_WAIT_MIN 안에 안 오면 예전 규칙.
+    const fb = fallbackReview(comments, sha)
+    if (fb) {
+      if (!fb.findings) return { ok: true, reason: `${why} — Claude 검토관 통과(지적 없음)` }
+      return repliedAfter(comments, fb.at) ? { ok: true, reason: `${why} — Claude 검토관 지적 ${fb.findings}개, 답 있음` } : { ok: false, reason: `${why} — Claude 검토관 지적 ${fb.findings}개, 답 대기` }
+    }
+    const asked = fallbackRequestedAt(comments, sha)
+    if (!asked) return { ok: false, needFallback: true, reason: `${why} — Claude 검토관 요청` }
+    const askedMin = (new Date(now) - new Date(asked)) / 60000
+    if (askedMin < FALLBACK_WAIT_MIN) return { ok: false, reason: `${why} — Claude 검토관 대기(${Math.floor(askedMin)}/${FALLBACK_WAIT_MIN}분)` }
     const risky = files.filter(needsSecondReview)
-    if (risky.length) return { ok: false, needsLee: true, reason: `Codex 검사 없음(${Math.floor(ageMin)}분 경과) — 운영·보안·DB 파일 변경(${risky.slice(0, 3).join(', ')}${risky.length > 3 ? ' 외' : ''})이라 Lee 확인 필요` }
-    return { ok: true, reason: `Codex 검사 없음(${Math.floor(ageMin)}분 경과) — 기존 검사만으로 진행` }
+    if (risky.length) return { ok: false, needsLee: true, reason: `${why}, Claude 검토관도 없음 — 운영·보안·DB 파일 변경(${risky.slice(0, 3).join(', ')}${risky.length > 3 ? ' 외' : ''})이라 Lee 확인 필요` }
+    return { ok: true, reason: `${why}, Claude 검토관도 없음 — 기존 검사만으로 진행` }
   }
   // 줄 지적은 처음 단 커밋(original_commit_id) 기준 — GitHub은 새 커밋이 와도 줄이 그대로면 commit_id를 최신으로 옮겨서,
   // 이미 고친 예전 지적이 새 커밋 지적처럼 보여 병합이 멈췄다(2026-11-09 #581).
@@ -63,12 +96,12 @@ export function codexGate({ reviews, reviewComments, comments, sha, headDate, fi
 }
 
 // CLI (bot-pr-automerge.yml, 신뢰된 master 소스): reviews.json review-comments.json comments.json sha headDate files.json
-// 종료 코드: 0 진행 / 1 대기 / 2 Lee 확인 필요(needs-lee)
+// 종료 코드: 0 진행 / 1 대기 / 2 Lee 확인 필요(needs-lee) / 3 Claude 검토관을 불러야 함
 if (process.argv[1]?.endsWith('codex-review-gate.mjs')) {
   const { readFileSync } = await import('node:fs')
   const [reviews, reviewComments, comments] = process.argv.slice(2, 5).map((p) => JSON.parse(readFileSync(p, 'utf8')))
   const files = process.argv[7] ? JSON.parse(readFileSync(process.argv[7], 'utf8')).map((f) => f.filename) : []
   const r = codexGate({ reviews, reviewComments, comments, sha: process.argv[5], headDate: process.argv[6], files })
   console.log(r.reason)
-  process.exit(r.ok ? 0 : r.needsLee ? 2 : 1)
+  process.exit(r.ok ? 0 : r.needsLee ? 2 : r.needFallback ? 3 : 1)
 }
