@@ -1,7 +1,7 @@
 // 화면 대조 검사(#646) 수집기 — 열린 상세 화면에서 보이는 값을 모은다(판정은 src/lib/screenAudit.ts).
 // 상세 화면 읽기(scripts/ops/detail-read.mjs)와 공고 미리보기 화면 검사(scripts/layout/job-preview-check.mjs)가 같이 쓴다.
 import { BENEFIT_ORDER } from '../../src/lib/screenAudit.ts'
-import { afterCutoff } from './auto-cutoff.mjs'
+import { autoScope } from './auto-cutoff.mjs'
 
 /**
  * 화면 대조 대상(별칭 j, SQL 조건) — 공개 판정(job-inspect.mjs)과 대조기(detail-read.mjs SCREEN_CANDIDATES=1)가 같이 쓴다.
@@ -9,7 +9,7 @@ import { afterCutoff } from './auto-cutoff.mjs'
  * ② 지금 내용으로 확정 오류가 기록된 지 3시간 지난 비공개 공고(화면 코드를 고쳤을 수 있어 다시 대조)
  */
 const H = 'public.job_inspect_content_hash(j)'
-export const SCREEN_CANDIDATES = `j.origin in ('crawler','admin') and ${afterCutoff('j')} and not j.active and not j.admin_hidden and (
+export const SCREEN_CANDIDATES = `j.origin in ('crawler','admin') and ${autoScope('j')} and not j.active and not j.admin_hidden and (
   (j.ocr_check->'inspect'->>'screen_wait' = 'true' and j.ocr_check->'inspect'->>'content_hash' = ${H}
     and (j.ocr_check->'screen_audit'->>'content_hash') is distinct from ${H})
   or (j.ocr_check->'screen_audit'->>'content_hash' = ${H} and (j.ocr_check->'screen_audit'->>'ok') = 'false'
