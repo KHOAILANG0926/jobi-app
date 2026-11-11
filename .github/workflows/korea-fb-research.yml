@@ -47,6 +47,7 @@ jobs:
           python -m pip install -r crawler/requirements.txt
           if [ "$MODE" = collect ]; then python -m playwright install chromium; fi
       - name: 실행
+        timeout-minutes: 160  # 작업 한도(180)보다 먼저 — 결과 보관 단계가 돌게(글은 읽는 대로 저장됨)
         working-directory: crawler
         run: python -u korea_fb_survey.py --mode "$MODE" --posts 150 --out /tmp/korea_fb_research.json
       - name: 보고 표
