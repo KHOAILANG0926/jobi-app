@@ -30,7 +30,8 @@ permissions:
   issues: write  # 서버 공간 1GB 미만 알림(#636)
 
 concurrency:
-  group: crawl-facebook-one
+  # 미리 보기는 한국 Facebook 조사(korea-fb-*)와 같은 계정·컴퓨터라 같은 줄, 저장은 Facebook에 안 붙어 따로 줄(Codex #690)
+  group: ${{ inputs.mode == 'save' && 'facebook-save' || 'crawl-facebook-one' }}
   cancel-in-progress: false
 
 jobs:
