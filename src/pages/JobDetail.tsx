@@ -43,7 +43,7 @@ import { RECRUITMENT_LABELS } from '../lib/jobConditions'
 import type { JobSection } from '../data/jobSchema'
 import type { Job } from '../types/job'
 import { sanitizeTemplateHtml } from '../lib/templateHtml'
-import { detailLook, factoryPhotos } from '../lib/albamonTemplate'
+import { detailLook } from '../lib/albamonTemplate'
 import { DetailRich } from '../components/DetailRich'
 import { richPill } from '../lib/detailRich'
 import '../components/template/AlbamonTemplate.css'
@@ -580,9 +580,10 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   const roleSections = descriptionRoleGroups(descriptionSections)
   // 데모 비교용: ?tpl=table|band|card 로 같은 공고에 다른 모양을 볼 수 있다(없으면 공고 번호로).
   // 공장 그림: 회사 이름·제목으로 무엇을 만드는지 먼저 보고, 모르면 업무 내용(원문)까지 본다(#5876 'ép nhựa'는 업무 줄에만 있음).
-  const lookHead = `${job.company ?? ''} ${job.title ?? ''}`
-  const lookText = factoryPhotos(lookHead) ? lookHead : `${lookHead} ${detail.sections.find((sec) => sec.key === '01')?.lines.join(' ') ?? ''}`
-  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), lookText)
+  // 카드 사진과 같은 입력(cardPhoto.industryPhotoUrl): 공장 그림은 회사 이름·제목만, 가게·식당 종류는 원문까지(Lee 2026-11-11)
+  const lookText = `${job.company ?? ''} ${job.title ?? ''}`
+  // 가게·식당 종류는 카드 사진과 같은 글(회사·제목·원문)로 고른다(cardPhoto.photoKind, 2026-11-11)
+  const look = detailLook(job.category, Number(String(job.id).replace(/\D/g, '')), new URLSearchParams(location.search).get('tpl'), lookText, `${lookText} ${job.description ?? ''}`, job.subcategory)
   const showDescriptionSection = !!templateHtml || descriptionSections.length > 0 || extraImages.length > 0
   const visibleTabs = JOB_TABS.filter((t) => t.key !== 'company' || showCompanySection).filter((t) => t.key !== 'description' || showDescriptionSection)
 

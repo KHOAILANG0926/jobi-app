@@ -7,6 +7,12 @@ eq(industryPhotoUrl('am_thuc_do_uong', null, 'Nhà hàng tuyển phục vụ'), 
 eq(industryPhotoUrl('am_thuc_do_uong', 'barista', ''), '/images/industry/am_thuc_do_uong.jpg', 'barista → cafe photo')
 eq(industryPhotoUrl('am_thuc_do_uong', null, 'Highlands Coffee tuyển nhân viên'), '/images/industry/am_thuc_do_uong.jpg', 'coffee word → cafe')
 eq(industryPhotoUrl('san_xuat_xay_dung'), '/images/industry/san_xuat_xay_dung.jpg', 'factory')
+// 2026-11-11 Lee "3개 사진이 안 맞는데"(CTY BÁNH KẸO HỮU NGHỊ): 카드 사진도 상세 ④와 같은 공장 그림
+eq(industryPhotoUrl('san_xuat_xay_dung', null, 'BÁNH KẸO HỮU NGHỊ CTY BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC NAM/NỮ'), '/images/template/07-food-banhkeo.jpg', '11-11 candy factory card = detail candy factory art')
+// Lee 2026-11-11 "덧대기": 본문은 보지 않는다 — 회사 이름·제목에 종류가 없으면 업종 기본 사진(본문 'xe máy'·'vai trò'·'ô tô' 걱정 없음)
+eq(industryPhotoUrl('san_xuat_xay_dung', null, 'Công ty ABC tuyển công nhân', 'Vai trò: đứng máy ép nhựa. Có xe ô tô đưa đón, xe máy'), '/images/industry/san_xuat_xay_dung.jpg', 'factory: body never read (vai trò·ô tô·xe máy·ép nhựa in body ignored)')
+eq(industryPhotoUrl('am_thuc_do_uong', null, 'TRUNG NGUYÊN LEGEND BẮC NINH TUYỂN NHÂN VIÊN PHỤC VỤ', 'Pha chế cà phê, phục vụ khách'), '/images/industry/am_thuc_do_uong.jpg', 'shop/food kind still reads the body as before (Trung Nguyên cafe)')
+eq(industryPhotoUrl('san_xuat_xay_dung', null, 'Công ty nhựa ABC tuyển công nhân ép nhựa'), '/images/template/07-nhua-ep.jpg', 'kind in company/title → that factory art')
 eq(industryPhotoUrl('other'), '/images/industry/khac.jpg', 'legacy/unknown → khac')
 eq(industryPhotoUrl(undefined), '/images/industry/khac.jpg', 'missing → khac')
 console.log('cardPhoto ok')

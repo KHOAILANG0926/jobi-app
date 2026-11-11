@@ -24,6 +24,10 @@ try {
   const cards = cases.map(job => renderToStaticMarkup(createElement(JobCard, { job: { ...data, ...job }, isApplied: false })))
   // This fails on the original bug, before any production edit.
   for (const [i, html] of cards.entries()) assert.match(html, /class="jc__logo-wrap"/, `case ${cases[i].id} must preserve poster slot`)
+  // 2026-11-11 Lee "3개 사진이 안 맞는데": 과자 공장 카드는 상세 ④와 같은 과자 공장 그림(같은 로고 칸, 같은 우리 폴더)
+  const candy = renderToStaticMarkup(createElement(JobCard, { job: { ...data, id: 'test-candy', company: 'CTY BÁNH KẸO HỮU NGHỊ', title: 'TUYỂN LIÊN TỤC NAM/NỮ' }, isApplied: false }))
+  assert.match(candy, /src="\/images\/template\/07-food-banhkeo\.jpg"/, 'candy factory card uses the same candy factory art as the detail header')
+  assert.match(candy, /class="jc__logo-wrap"/, 'candy factory keeps the same logo slot')
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage()
   await page.route('https://edhuesdnuxlbcfephutq.supabase.co/**', route => route.abort())
@@ -47,7 +51,7 @@ try {
     // 카드 틀·크기는 그대로. 공고 사진처럼 꾸미지 않고 jc__logo--photo로 구분.
     assert.equal(await page.locator('.jc__logo').count(), 5, 'poster + 2 stored images + 2 industry photos in the same logo slot')
     assert.equal(await page.locator('.jc__logo--photo').count(), 2, 'missing or rejected image uses the industry photo')
-    assert.ok((await page.locator('.jc__logo--photo').evaluateAll(els => els.map(e => e.getAttribute('src')))).every(src => src?.startsWith('/images/industry/')), 'industry photo comes from our own folder')
+    assert.ok((await page.locator('.jc__logo--photo').evaluateAll(els => els.map(e => e.getAttribute('src')))).every(src => /^\/images\/(?:industry|template)\//.test(src ?? '')), 'industry photo comes from our own folder')
     console.log(`JobCard ${width}px: image/missing/blocked-image geometry identical`)
   }
   // Lee 2026-10-30: 여러 직무 공고는 급여 칸 안에서만 직무별 2줄 — 이미지·회사·제목 자리는 기준 카드와 같아야 한다.
