@@ -9,6 +9,7 @@ import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
 import { precheckVerdict } from './locationPrecheck'
+import { hasProvince } from './addressReader'
 import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
@@ -41,7 +42,8 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
   if (job.targets.length <= 1) return resolveStore(job, providedDeps)
   const results: LocationDecision[] = []
   for (const t of job.targets.filter((x) => x.address).slice(0, 5)) {
-    results.push(await resolveStore({ ...job, location: t.address, targets: [t] }, providedDeps))
+    // 매장 주소에 성 이름이 없으면 공고 위치 글자(지역)를 뒤에 붙여 원래 성 안 검사 근거를 지킨다(Codex #697)
+    results.push(await resolveStore({ ...job, location: hasProvince(t.address) ? t.address : [t.address, job.location].filter(Boolean).join(', '), targets: [t] }, providedDeps))
   }
   const found = results.filter((r) => r.kind !== 'unresolved' && precheckVerdict(r).findable)
   if (!found.length) return results.find((r) => /google:quota/.test(String(r.evidence ?? ''))) ?? results[0] ?? { kind: 'unresolved' }

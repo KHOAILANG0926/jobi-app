@@ -163,5 +163,14 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   } as never)
   assert(fm.kind !== 'unresolved' && fm.address === g1 && fm.workLocationId === 2, 'first found store becomes main: ' + JSON.stringify(fm).slice(0, 200))
   assert(((fm as { others?: Array<{ address?: string }> }).others ?? []).map((o) => o.address).join('|') === g2, 'other found store kept, unfound first store dropped')
+  // Codex #697: 매장 주소에 성 이름이 없으면 공고 지역을 붙여 원래 성 안 검사 근거를 지킨다(매장이 늘어도 찾던 곳이 안 빠짐)
+  const ctx: string[] = []
+  const pv = await resolver.resolveAutoLocation({ id: 24, company: 'Fixture Cafe', location: 'Bắc Ninh', targets: [{ address: '12 Trần Phú', workLocationId: 1 }, { address: '5 Lê Lợi', workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { return { places: [{ id: 'k' + text.length, displayName: { text: 'Fixture Cafe' }, formattedAddress: text.replace('Fixture Cafe, ', ''), location: { latitude: 21.18, longitude: 106.07 } }] } },
+    async withinAdministrativeArea(a: string[]) { ctx.push(a.join(' | ')); return a.join(' ').includes('Bắc Ninh') },
+  } as never)
+  assert(ctx.length > 0 && ctx.every((c) => c.includes('Bắc Ninh')), 'province context kept per store: ' + JSON.stringify(ctx))
+  assert(pv.kind !== 'unresolved', 'store without province still found with job region')
   console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }

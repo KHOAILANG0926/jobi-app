@@ -119,7 +119,7 @@ export function readAddresses(sourceText: string): string[] {
 }
 
 // 매장 주소에 이미 성 이름이 있으면(다른 성 지점 포함) 수집 그룹 지역을 붙이지 않는다 — 다른 성 매장이 그룹 성으로 찍히지 않게(Codex #697).
-const hasProvince = (a: string) => {
+export const hasProvince = (a: string) => {
   const last = a.split(',').map((x) => x.trim()).filter(Boolean).pop() ?? ''
   return PROVINCES.has(normalizePlaceText(last.replace(/^(?:tỉnh|tinh|thành phố|tp\.?)\s+/iu, '')).replace(/\s+/g, ' ').trim())
 }

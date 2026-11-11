@@ -88,16 +88,26 @@ export async function precheckLocation(db, request, input, goong = null, google 
   if (!job) return { findable: false, kind: 'unresolved', reason: 'no_location_text', location: '', ...who }
   // 우리 확정 위치 먼저(Lee 2026-11-09·11-10): 같은 회사 + 같은 주소 글자로 관리자가 확정한 위치가 있으면 Google에 묻지 않는다.
   // 조건은 등록 뒤 자동 재사용과 같아서(DB location_memory_point) 등록 직후 그 위치가 그대로 붙는다. 다른 지점은 맞지 않는다.
-  if (await hasConfirmedPoint(db, company.name, job.targets.map((t) => t.address)))
-    return { findable: true, kind: 'exact', reason: 'confirmed_memory', location: job.location, ...who }
+  //  매장이 여러 곳이면 매장마다 따로 맞춰 본다(Codex #697) — 확정된 매장은 그대로 찾은 매장, 나머지만 아래에서 찾는다.
+  const confirmed = []
+  for (const t of job.targets.slice(0, 5)) if (await hasConfirmedPoint(db, company.name, [t.address])) confirmed.push(t.address)
+  if (confirmed.length && confirmed.length === Math.min(5, job.targets.length))
+    return { findable: true, kind: 'exact', reason: 'confirmed_memory', location: confirmed[0], ...(confirmed.length > 1 ? { stores: confirmed } : {}), ...who }
   let used = 0
   const deps = resolverDeps(db, async (action, params) => request(action, params), {
     // VietMap은 매장마다 2번(Lee 2026-11-11 "한도 안 넘었는데 왜 비용 걱정" — 공고당 묶음 제한 없음, 하루 한도는 DB가 그대로)
     remainingCalls: 2, reserve: async () => used++ < 2 * Math.max(1, Math.min(5, job.targets.length)),
   }, goong, google)
   // 보류함 '못 찾음' 공고를 7일 뒤 다시 확인할 때는 저장된 Google 결과(그때의 '없음')를 다시 쓰지 않고 새로 묻는다(Codex #619).
-  const result = await resolveAutoLocation(job, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
-  const verdict = precheckVerdict(result)
+  const rest = confirmed.length ? { ...job, targets: job.targets.filter((t) => !confirmed.includes(t.address)) } : job
+  const found = await resolveAutoLocation(rest, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
+  // 확정 위치가 있는 매장은 원문 순서대로 찾은 매장에 넣는다(대표 = 원문 맨 앞의 찾은 매장).
+  const foundAddresses = precheckVerdict(found).findable ? [found.address, ...(found.others ?? []).map((o) => o.address)].filter(Boolean) : []
+  const ordered = job.targets.map((t) => t.address).filter((a) => confirmed.includes(a) || foundAddresses.includes(a))
+  const result = !confirmed.length || !ordered.length ? found
+    : confirmed.includes(ordered[0]) ? { kind: 'exact', reason: 'confirmed_memory', source: 'admin_approved', address: ordered[0], others: ordered.slice(1).map((address) => ({ address })) }
+    : { ...found, others: ordered.filter((a) => a !== found.address).map((address) => ({ address })) }
+  const verdict = confirmed.length && ordered.length ? { findable: true, kind: result.kind, reason: confirmed.includes(ordered[0]) ? 'confirmed_memory' : precheckVerdict(found).reason } : precheckVerdict(result)
   // stores: 원문 매장이 여러 곳이면 위치를 찾은 매장만(첫 매장과 같은 방법으로 매장마다 찾음, Lee 2026-11-11 "모르면 찍지 마").
   //  수집기가 찾은 매장만 근무지 줄로 넣고 첫 번째를 공고 위치로 쓴다. 주소 칸이 있는 소스는 그 칸 그대로.
   const fromText = !(Array.isArray(input?.addresses) && input.addresses.length)
