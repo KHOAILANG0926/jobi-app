@@ -67,15 +67,24 @@ def refresh_existing(job_id: int):
                 s = unicodedata.normalize("NFD", str(a or "")).replace("đ", "d").replace("Đ", "D")
                 s = "".join(c for c in s if not unicodedata.combining(c))
                 return re.sub(r"[\W_]+", " ", s.lower()).strip()
-            have = {key(r.get("raw_address")) for r in existing}
+            # 같은 매장 = 한 주소가 다른 주소를 낱말 단위로 통째로 포함(addressReader.sameStore와 같은 규칙).
+            # 기존 줄은 지역을 덧붙여 저장돼("…, TP. Bắc Ninh, Bắc Ninh") 글자가 완전히 같지 않다(2026-11-11 5992·5994 같은 매장 핀 2개).
+            def same(a, b):
+                return f" {a} " in f" {b} " or f" {b} " in f" {a} "
             # 기존 줄은 주소만 보낸다 — 확정(admin)·검증(exact) 핀은 DB 쓰기 함수가 그대로 지키고, 대략 핀은 위치 찾기가 저장된 결과로 다시 붙인다.
-            keep = [{"raw_address": r["raw_address"]} for r in existing if r.get("raw_address")]
+            # 기존 줄끼리 같은 매장이 두 번 있으면(예전 다시 처리 결과) 앞의 것만 남긴다 — DB 입구가 빠진 줄을 지운다.
+            keep, have = [], []
+            for r in existing:
+                k = key(r.get("raw_address"))
+                if k and not any(same(k, h) for h in have):
+                    have.append(k)
+                    keep.append({"raw_address": r["raw_address"]})
             added = []
             for a in found:
-                if key(a) not in have:
-                    have.add(key(a))
+                if not any(same(key(a), h) for h in have):
+                    have.append(key(a))
                     added.append({"raw_address": a})
-            if added:
+            if added or len(keep) < sum(1 for r in existing if r.get("raw_address")):
                 rows = keep + added
                 if not existing:
                     parsed["location"] = found[0]
