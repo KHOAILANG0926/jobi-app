@@ -5,9 +5,9 @@
     "path": "/",
     "vw": 390,
     "scrollW": 390,
-    "height": 6008,
+    "height": 6555,
     "wide": [],
-    "smallText": 34,
+    "smallText": 37,
     "errors": []
   },
   {
@@ -16,7 +16,7 @@
     "path": "/viec-lam/tim-kiem",
     "vw": 390,
     "scrollW": 390,
-    "height": 5788,
+    "height": 5760,
     "wide": [],
     "smallText": 4,
     "errors": []
@@ -27,7 +27,7 @@
     "path": "/viec-lam/khu-vuc",
     "vw": 390,
     "scrollW": 390,
-    "height": 7235,
+    "height": 7208,
     "wide": [],
     "smallText": 6,
     "errors": []
@@ -89,6 +89,39 @@
   },
   {
     "device": "iphone",
+    "name": "detail-5994",
+    "path": "/viec-lam/sb-5994",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 4461,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5993",
+    "path": "/viec-lam/sb-5993",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 4012,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5992",
+    "path": "/viec-lam/sb-5992",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 3679,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
     "name": "detail-5942",
     "path": "/viec-lam/sb-5942",
     "vw": 390,
@@ -99,47 +132,14 @@
     "errors": []
   },
   {
-    "device": "iphone",
-    "name": "detail-5938",
-    "path": "/viec-lam/sb-5938",
-    "vw": 390,
-    "scrollW": 390,
-    "height": 4121,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
-    "device": "iphone",
-    "name": "detail-5931",
-    "path": "/viec-lam/sb-5931",
-    "vw": 390,
-    "scrollW": 390,
-    "height": 3566,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
-    "device": "iphone",
-    "name": "detail-5876",
-    "path": "/viec-lam/sb-5876",
-    "vw": 390,
-    "scrollW": 390,
-    "height": 4981,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
     "device": "galaxy",
     "name": "home",
     "path": "/",
     "vw": 360,
     "scrollW": 360,
-    "height": 6080,
+    "height": 6627,
     "wide": [],
-    "smallText": 34,
+    "smallText": 37,
     "errors": []
   },
   {
@@ -148,7 +148,7 @@
     "path": "/viec-lam/tim-kiem",
     "vw": 360,
     "scrollW": 360,
-    "height": 5788,
+    "height": 5760,
     "wide": [],
     "smallText": 4,
     "errors": []
@@ -159,7 +159,7 @@
     "path": "/viec-lam/khu-vuc",
     "vw": 360,
     "scrollW": 360,
-    "height": 7235,
+    "height": 7208,
     "wide": [],
     "smallText": 6,
     "errors": []
@@ -224,44 +224,44 @@
   },
   {
     "device": "galaxy",
+    "name": "detail-5994",
+    "path": "/viec-lam/sb-5994",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 4589,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5993",
+    "path": "/viec-lam/sb-5993",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 4162,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5992",
+    "path": "/viec-lam/sb-5992",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 3760,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
     "name": "detail-5942",
     "path": "/viec-lam/sb-5942",
     "vw": 360,
     "scrollW": 360,
     "height": 4606,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
-    "device": "galaxy",
-    "name": "detail-5938",
-    "path": "/viec-lam/sb-5938",
-    "vw": 360,
-    "scrollW": 360,
-    "height": 4279,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
-    "device": "galaxy",
-    "name": "detail-5931",
-    "path": "/viec-lam/sb-5931",
-    "vw": 360,
-    "scrollW": 360,
-    "height": 3646,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
-    "device": "galaxy",
-    "name": "detail-5876",
-    "path": "/viec-lam/sb-5876",
-    "vw": 360,
-    "scrollW": 360,
-    "height": 5134,
     "wide": [],
     "smallText": 13,
     "errors": []
