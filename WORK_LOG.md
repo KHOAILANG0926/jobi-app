@@ -1,3 +1,7 @@
+## 2026-11-11 — 모바일 화면 자동 캡처 (Lee "내가 일일이 캡처해서 보내줘?")
+- 원인 [직접 확인]: 작업 세션은 공고 데이터 서버·검사 결과 그림 저장소에 접속이 막혀 운영 모바일 화면을 볼 수 없었다(git은 됨).
+- 변경: scripts/ops/mobile-screens.mjs + .github/workflows/mobile-screens.yml — 운영 배포 검사 성공 뒤·수동으로 아이폰(390)·갤럭시(360) 크기로 주요 화면·최근 공고 상세를 찍어 'screens' 브랜치에 덮어 올림. 가로 넘침·11px 미만 글자를 README에 적음. unmerged-work-alert에서 screens 브랜치 제외.
+- 검증 [직접 확인]: 로컬에서 스크립트 실행(데이터는 막혀 빈 화면) — 갤럭시에서 한국 메인 버튼·KDA 상세 하단 연락 칸 가로 넘침 검출.
 ## 2026-11-11 — Codex 한도 초과 때 Claude 검토관 (Lee "진행해")
 - 원인 [직접 확인]: Codex 주간 한도 0%라 #674에 "usage limits for code reviews"만 옴. 봇은 30분을 그냥 기다린 뒤 위험 파일 PR을 needs-lee로 멈춤(두 번째 눈 없음). 30분은 11-08 근거 없이 정한 값 — 실측 27번 중 25번이 11분 안.
 - 변경: codex-review-gate 12분·한도 초과 즉시 → Claude 검토관(claude-auto fallback-review, 읽기 전용, AGENTS.md 기준, 결과 claude[bot] 표시 댓글) → 20분 안 없으면 일반 파일만 진행, 중요 파일은 검토관 재요청(3번, 그래도 없으면 장치 고장 이슈) — Lee 11-11 "Codex는 의견, 최종 판단은 Claude": Lee 확인 넘김(needs-lee) 없앰. 검토관 지적은 codex-response가 처리. 문서: @codex review는 PR당 한 번.
