@@ -42,7 +42,7 @@ for (const [dname, dev] of DEVICES) {
     await p0.goto(BASE_URL + PAGES[0][1], { waitUntil: 'networkidle', timeout: 60_000 }).catch(() => {})
     await p0.waitForTimeout(3000)
     const href = await p0.evaluate((re) => [...document.querySelectorAll('a[href]')].map((a) => a.href).find((h) => new RegExp(re).test(h)), DETAIL_LINK.source)
-    if (href) pages.push(['detail-auto', new URL(href).pathname + new URL(href).search])
+    if (href) pages.push(['detail-auto', href]) // 찾은 주소 그대로(다른 하위 주소·# 경로 유지, Codex #681)
     await p0.close()
   }
   for (const [name, path] of pages) {
@@ -50,7 +50,7 @@ for (const [dname, dev] of DEVICES) {
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 160)))
     try {
-      await page.goto(BASE_URL + path, { waitUntil: 'networkidle', timeout: 60_000 }).catch(() => {})
+      await page.goto(/^https?:\/\//.test(path) ? path : BASE_URL + path, { waitUntil: 'networkidle', timeout: 60_000 }).catch(() => {})
       await page.waitForTimeout(3000)
       // 아래까지 한 번 내려 지연 표시(지도·목록)를 깨운 뒤 맨 위로
       for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 800); await page.waitForTimeout(400) }
