@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { appendFileSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, INFO_ONLY, SCREEN_WAIT } from '../../src/lib/jobInspect.ts'
-import { afterCutoff } from './auto-cutoff.mjs'
+import { autoScope } from './auto-cutoff.mjs'
 import { SCREEN_CANDIDATES } from './screen-collect.mjs'
 import { photoSource } from '../../src/lib/logoLookup.ts'
 import { assembleBrands } from '../../src/lib/brandRows.ts'
@@ -58,7 +58,7 @@ try {
     where ${where}
     order by j.id`).then((r) => r.rows)
   // 자동 작업 대상: 수집·관리자 공고 중 기준 시각 이후(Lee 2026-11-01: 기존 공고는 건드리지 않는다)
-  const SCOPE = `j.origin in ('crawler','admin') and ${afterCutoff('j')}`
+  const SCOPE = `j.origin in ('crawler','admin') and ${autoScope('j')}`
   const rows = await selectJobs(SCOPE)
   const toInput = (job) => ({
     id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,

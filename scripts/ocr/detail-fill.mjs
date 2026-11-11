@@ -10,7 +10,7 @@ import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
 import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../src/lib/jobDescriptionBuild.ts'
 import { readSalary } from '../../src/lib/salaryReader.ts'
 import { readWorkTime } from '../../src/lib/jobDescriptionExtract.ts'
-import { afterCutoff } from '../ops/auto-cutoff.mjs'
+import { autoScope } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -38,7 +38,7 @@ try {
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
-    where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
+    where j.origin in ('crawler','admin') and ${autoScope('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다(수동 all_jobs 한 번 정리만 예외, auto-cutoff.mjs)
       and (jsonb_typeof(j.images) is distinct from 'array' or jsonb_array_length(j.images) = 0 or j.ocr_check->>'status' is not null)
       and (j.ocr_check->'detail_fill'->>'hash') is distinct from ${HASH.replace(/\b(description|source_text|ocr_text)\b/g, 'j.$1')}
     order by j.id limit 500`)

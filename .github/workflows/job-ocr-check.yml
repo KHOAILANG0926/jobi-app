@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       all_jobs:
-        description: '기준 시각 이전 공고도 AI 판정·업종을 한 번 다시 (Lee 2026-11-08)'
+        description: '기준 시각 이전 공고도 상세 채우기·AI 판정·업종·검사표를 한 번 다시 (Lee 2026-11-08·11-12, KDA 제외)'
         type: boolean
         default: false
   # 2026-11-01 Lee "공고 하나를 빨리": 공고를 저장하는 작업이 끝나면 30분을 기다리지 않고 바로 처리한다.
@@ -59,8 +59,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      CLASSIFY_ALL_JOBS: ${{ inputs.all_jobs && '1' || '' }}
-      BUSINESS_ALL_JOBS: ${{ inputs.all_jobs && '1' || '' }}
+      AUTO_ALL_JOBS: ${{ inputs.all_jobs && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,10 +84,10 @@ jobs:
         run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs
       - name: OCR 대조 실행
         if: steps.ready.outputs.ready == '1'
-        run: node --experimental-strip-types scripts/ocr/ocr-check.mjs
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/ocr-check.mjs
       - name: 상세요강 빠진 줄 자동 보충 (2026-10-20 Lee 결정 — 막지 않고 원문 글자 그대로 채움)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
-        run: node --experimental-strip-types scripts/ocr/detail-fill.mjs
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/detail-fill.mjs
       - name: AI 칸·복리후생 판정 (2026-10-25 Lee — 단어 규칙이 못 정한 줄·복리후생을 뜻으로, 정해진 번호표 중에서만)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
         run: |
@@ -108,7 +107,7 @@ jobs:
             -H "authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -d '{"logo_retry":{"limit":10}}' || echo "::warning::로고 다시 시도 서버 응답 없음(다음 실행에 다시)"
       - name: 상세요강 다시 채우기 (2026-11-01 — AI가 방금 정한 칸을 같은 실행에서 반영, 다음 실행까지 기다리지 않음)
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
-        run: node --experimental-strip-types scripts/ocr/detail-fill.mjs
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/detail-fill.mjs
       - name: 공고 검사표 (2026-10-25 Lee 결정 — 올린 공고마다 문제를 찾아 알림, 연속 10개 통과가 크롤링 시작 조건)
         id: inspect
         if: ${{ !cancelled() && steps.ready.outputs.ready == '1' }}
