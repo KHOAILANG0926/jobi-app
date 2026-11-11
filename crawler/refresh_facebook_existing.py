@@ -50,6 +50,18 @@ def refresh_existing(job_id: int):
     parsed["location"] = str((ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}).get("location") or "").strip()
     if not parsed.get("location"):
         raise RuntimeError("Cannot refresh location without a source-backed location")
+    # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'만 근무지 줄로 넣는다.
+    # 못 찾은 매장은 넣지 않는다(지도 위치 절대 원칙). 확인 실패·매장 1곳이면 예전처럼 위치 글자만. 이미 확정·검증된 핀은 DB가 지킨다.
+    stores = []
+    try:
+        verdict = ingest_gateway.PRECHECK({"company": parsed.get("company") or "", "location": "", "source_text": text}) or {}
+        found = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
+        if verdict.get("findable") is True and len(found) > 1:
+            stores = found
+    except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
+        print(f"store precheck skipped: {type(exc).__name__}")
+    if stores:
+        parsed["location"] = stores[0]
     # Source text is preserved. No user-written field value is applied.
     payload = {
         "channel": "crawler_facebook",
@@ -61,6 +73,7 @@ def refresh_existing(job_id: int):
         "source_text": text,
         "images": old.get("images") or [],
         **{k: parsed[k] for k in FIELDS},
+        **({"work_locations": [{"raw_address": a} for a in stores]} if stores else {}),
     }
     result = ingest_job(supabase, payload)
     if int(result) != job_id:
