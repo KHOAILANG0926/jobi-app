@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { codexGate, REPLY_AUTHORS, REPLY_MARKER, WAIT_MIN, FALLBACK_WAIT_MIN, FALLBACK_MARKER, FALLBACK_REQUEST } from './codex-review-gate.mjs'
+import { codexGate, REPLY_AUTHORS, REPLY_MARKER, WAIT_MIN, FALLBACK_WAIT_MIN, FALLBACK_MARKER, FALLBACK_REQUEST, FALLBACK_MAX_TRIES } from './codex-review-gate.mjs'
 
 const sha = 'abc123', headDate = '2026-11-08T16:00:00Z'
 const codex = { login: 'chatgpt-codex-connector[bot]', type: 'Bot' }, claude = { login: 'claude[bot]' }, stranger = { login: 'random-user' }
@@ -64,11 +64,16 @@ assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [asked], no
 assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [{ user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:40:00Z' }, asked], now: lateNow }).ok, true, 'earlier finding answered → timeout pass allowed')
 assert.equal(codexGate({ ...base, comments: [summary('old', true)], now: at(WAIT_MIN + 5) }).ok, false, 'older-commit summary with unresolved findings and no reply blocks')
 assert.equal(codexGate({ ...base, reviews: [{ user: codex, commit_id: 'old', state: 'CHANGES_REQUESTED', submitted_at: '2026-11-08T15:30:00Z' }], now: at(WAIT_MIN + 5) }).ok, false, 'older CHANGES_REQUESTED without reply blocks')
-// Lee 2026-11-09: Codex가 안 오면(사용량 소진 등) 운영·보안·DB 파일 PR은 멈추고 Lee 확인
+// Lee 2026-11-11: Codex는 의견 — 운영·보안·DB 파일도 Lee 확인으로 넘기지 않고 Claude 검토관을 다시 부른다. 3번 다 결과 없으면 장치 고장.
 for (const f of ['supabase/migrations/20261109_x.sql', '.github/workflows/ops-run-sql.yml', 'scripts/ops/jobs/fix-1.sql', 'src/lib/authStorage.ts', 'scripts/codex-review-gate.mjs']) {
   const r = codexGate({ ...base, files: [f], comments: [asked], now: lateNow })
-  assert.equal(r.ok, false, `risky file ${f} without Codex → stop`); assert.equal(r.needsLee, true, `risky file ${f} → needs-lee`)
+  assert.equal(r.ok, false, `risky file ${f} without any review → not merged`); assert.equal(r.needFallback, true, `risky file ${f} → ask reviewer again`)
+  assert.equal(r.needsLee, undefined, `risky file ${f} → never handed to Lee`)
 }
+const tries = Array.from({ length: FALLBACK_MAX_TRIES }, (_, i) => ({ ...asked, created_at: at(WAIT_MIN + i * (FALLBACK_WAIT_MIN + 1)).toISOString() }))
+const broken = codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: tries, now: at(WAIT_MIN + FALLBACK_MAX_TRIES * (FALLBACK_WAIT_MIN + 1)) })
+assert.equal(broken.ok, false, 'reviewer failed every try → risky PR held'); assert.equal(broken.reviewerBroken, true, 'reviewer failed every try → reported as broken')
+assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [...tries, fbr(0)], now: at(200) }).ok, true, 'reviewer finally passes after retries → proceed')
 assert.equal(codexGate({ ...base, files: ['src/pages/PostJob.tsx', 'scripts/ops/jobs/fb-x.json'], comments: [asked], now: lateNow }).ok, true, 'ordinary files without Codex or fallback → proceed after wait')
 assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [summary(sha, false)], now: at(11) }).ok, true, 'risky file with finding-free Codex review → proceed')
 console.log('codex-review-gate: all assertions passed')

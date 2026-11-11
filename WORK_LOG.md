@@ -1,6 +1,6 @@
 ## 2026-11-11 — Codex 한도 초과 때 Claude 검토관 (Lee "진행해")
 - 원인 [직접 확인]: Codex 주간 한도 0%라 #674에 "usage limits for code reviews"만 옴. 봇은 30분을 그냥 기다린 뒤 위험 파일 PR을 needs-lee로 멈춤(두 번째 눈 없음). 30분은 11-08 근거 없이 정한 값 — 실측 27번 중 25번이 11분 안.
-- 변경: codex-review-gate 12분·한도 초과 즉시 → Claude 검토관(claude-auto fallback-review, 읽기 전용, AGENTS.md 기준, 결과 claude[bot] 표시 댓글) → 20분 안 없으면 예전 규칙. 검토관 지적은 codex-response가 처리. 문서: @codex review는 PR당 한 번.
+- 변경: codex-review-gate 12분·한도 초과 즉시 → Claude 검토관(claude-auto fallback-review, 읽기 전용, AGENTS.md 기준, 결과 claude[bot] 표시 댓글) → 20분 안 없으면 일반 파일만 진행, 중요 파일은 검토관 재요청(3번, 그래도 없으면 장치 고장 이슈) — Lee 11-11 "Codex는 의견, 최종 판단은 Claude": Lee 확인 넘김(needs-lee) 없앰. 검토관 지적은 codex-response가 처리. 문서: @codex review는 PR당 한 번.
 - 검증 [직접 확인]: codex-review-gate 시험(한도·검토관 통과/지적/답/가짜 계정/다른 커밋/시간 초과 추가), tsc·npm test 119/119·build, YAML 읽기. 실제 검토관 실행은 병합 뒤 첫 PR에서 확인.
 ## 2026-11-11 밤 근무 — 저녁 8시 보고에 Google 이번 달 사용/한도 (#560)
 - 원인 [직접 확인]: 한도 장치(external_api_limits·external_api_reserve)는 있으나 이번 달 사용 횟수를 매일 보는 경로가 없어 대량 수집 전 남은 몫을 판단할 수 없었다(#560 11-08 메모).

@@ -144,12 +144,10 @@ jobs:
                 else echo "::warning::PR #$num 검토관 요청 댓글 실패"; fi
                 echo 21 >> codex-wait.txt
               fi
-              # Codex 검사 없이 운영·보안·DB 파일이 바뀐 PR(종료 코드 2): needs-lee 표시 + 쉬운 말 한 번만 남기고 멈춘다(Lee 2026-11-09).
-              if grep -q 'Lee 확인 필요' gate.txt; then
-                gh api -X POST "repos/$REPO/issues/$num/labels" -f 'labels[]=needs-lee' >/dev/null || echo "::warning::PR #$num needs-lee 표시 실패"
-                if ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- codex-missing-risky -->") and contains($sha[0:7]))' comments.json >/dev/null; then
-                  gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- codex-missing-risky --> ${sha:0:7}: Codex 검사와 Claude 검토관이 모두 오지 않았고 운영·보안·DB 파일이 바뀌어 자동 병합을 멈췄습니다. 작업자가 \`@codex review\`를 다시 요청합니다. Codex가 계속 오지 않으면 Lee가 채팅에서 \"적용\"이라고 한 경우에만 LEE-DEMO-APPLY로 진행합니다." >/dev/null || echo "::warning::PR #$num 안내 댓글 실패"
-                fi
+              # 검토관이 여러 번 결과를 못 낸 운영·보안·DB 파일 PR(종료 코드 2): 장치 고장 — Lee에게 넘기지 않고 ai-team 이슈로 한 번 알린다(Lee 2026-11-11).
+              if [ "$gate_rc" = 2 ] && ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- fallback-reviewer-broken -->") and contains($sha[0:7]))' comments.json >/dev/null; then
+                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- fallback-reviewer-broken --> ${sha:0:7}: Claude 검토관이 여러 번 결과를 내지 못했습니다(장치 고장). 운영·보안·DB 파일이라 두 번째 검토 없이 병합하지 않고, 검토관 실행 기록을 고칩니다." >/dev/null || echo "::warning::PR #$num 안내 댓글 실패"
+                gh api -X POST "repos/$REPO/issues" -f title="Claude 검토관 결과 없음 — PR #$num (${sha:0:7})" -f body="봇 병합이 PR #$num 에 Claude 검토관(claude-auto.yml fallback-review)을 여러 번 불렀지만 결과 댓글이 없습니다. 실행 기록을 확인해 고칠 것." -f 'labels[]=ai-team' >/dev/null || echo "::warning::이슈 생성 실패"
               fi
               # 'Codex 검사 대기(x/12분)'·'Claude 검토관 대기(x/20분)'이면 시간이 차는 시각에 다시 보도록 남은 분을 적어 둔다(#574).
               waited=$(sed -n 's/.*대기(\([0-9]*\)\/\([0-9]*\)분).*/\2 \1/p' gate.txt | awk '{print $1-$2+1}')
