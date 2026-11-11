@@ -1,3 +1,6 @@
+## 2026-11-11 — 화면 캡처: 다른 사이트(알바몬)·데모도 찍게 (Lee "핸드폰 디자인 알바몬과 동일하게")
+- 변경: mobile-screens 수동 실행에 base_url·slot·pages·detail_link 입력 — 알바몬 모바일 화면(screens/albamon)·데모 주소를 우리 화면과 같은 방식으로 찍어 나란히 비교. 넘친 링크·글자는 앞 20자까지 기록.
+- 검증 [직접 확인]: node --check·YAML 읽기. 실제 촬영은 병합 뒤 수동 실행.
 ## 2026-11-11 — 모바일 화면 자동 캡처 (Lee "내가 일일이 캡처해서 보내줘?")
 - 원인 [직접 확인]: 작업 세션은 공고 데이터 서버·검사 결과 그림 저장소에 접속이 막혀 운영 모바일 화면을 볼 수 없었다(git은 됨).
 - 변경: scripts/ops/mobile-screens.mjs + .github/workflows/mobile-screens.yml — 운영 배포 검사 성공 뒤·수동으로 아이폰(390)·갤럭시(360) 크기로 주요 화면·최근 공고 상세를 찍어 'screens' 브랜치 mobile 칸에 올림. 기존 데모 촬영(demo-capture)도 같은 브랜치를 통째로 덮어써서 게시를 scripts/ops/publish-screens.sh 한 곳으로 합치고 칸(demo·mobile)별로만 바꾸게 함(Codex #680). 가로 넘침·11px 미만 글자를 README에 적음. unmerged-work-alert에서 screens 브랜치 제외.
