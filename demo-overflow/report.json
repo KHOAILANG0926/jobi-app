@@ -1,0 +1,114 @@
+[
+  {
+    "device": "iphone",
+    "name": "detail-kda",
+    "path": "/viec-lam/sb-4824",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 721,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5942",
+    "path": "/viec-lam/sb-5942",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 721,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5938",
+    "path": "/viec-lam/sb-5938",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 721,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 721,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-kda",
+    "path": "/viec-lam/sb-4824",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 740,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5942",
+    "path": "/viec-lam/sb-5942",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 740,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5938",
+    "path": "/viec-lam/sb-5938",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 740,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 740,
+    "wide": [
+      "div.absolute.z-[999999999] 7px",
+      "svg 7px"
+    ],
+    "smallText": 0,
+    "errors": []
+  }
+]
