@@ -380,13 +380,13 @@ def report(out_path: str) -> dict:
     by_class, by_group, comments = {}, {}, 0
     for p in posts:
         by_class[p["class"]] = by_class.get(p["class"], 0) + 1
-        g = by_group.setdefault(p["group"][:40], {})
+        g = by_group.setdefault(p.get("gid") or p["group"][:40], {})
         g[p["class"]] = g.get(p["class"], 0) + 1
         comments += len(p.get("comments") or [])
     samples = {c: [p["text"][:300] for p in posts if p["class"] == c][:40] for c in by_class if c != "sell"}
     visited = [g for g in groups if (g["meta"] or {}).get("visits")]
     # Lee 2026-11-11: 글을 그냥 합치면 한 그룹의 쏠림이 전체처럼 보인다 → 그룹마다 비율을 낸 뒤 회원 수로 가중 평균
-    members = {(g["payload"] or {}).get("name", "")[:40]: (g["payload"] or {}).get("members", 0) for g in groups}
+    members = {g["name"]: (g["payload"] or {}).get("members", 0) for g in groups}  # 그룹 ID(행 이름)로 연결 — 잘린 이름 충돌 방지
     weighted, wsum = {}, 0
     group_share = {}
     for gname, cnt in by_group.items():
