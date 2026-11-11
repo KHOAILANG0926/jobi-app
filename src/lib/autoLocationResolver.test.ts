@@ -83,7 +83,8 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
  const area=await resolver.resolveAutoLocation({id:125,company:'Any employer',location:'Bắc Ninh',targets:[{address:'Khu A, Bắc Ninh',workLocationId:301},{address:'Khu B, Bắc Ninh',workLocationId:302}]},{
   ...deps,async administrativeCenter(){return {lat:21.098,lng:106.117,source:'Original province reference',checkedAt:'2026-10-28T05:00:00Z'}}
  })
- assert(area.kind==='area'&&area.address==='Khu A, Bắc Ninh'&&area.workLocationId===301,'multi-workplace area fallback binds explicit canonical target')
+ // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 근무지 여러 곳 모두 못 찾으면 성 중심 핀 없이 못 찾음(예전 '성 중심 대략 핀' 기대값을 바꿈)
+ assert(area.kind==='unresolved'&&!('lat' in area),'multi-workplace with no found store gets no province-centre pin')
 }
 
 // ── Goong 두 번째 자료(Lee 2026-10-29): 같은 판정 규칙, 조건 못 채우면 핀 없음 ──
@@ -172,5 +173,11 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   } as never)
   assert(ctx.length > 0 && ctx.every((c) => c.includes('Bắc Ninh')), 'province context kept per store: ' + JSON.stringify(ctx))
   assert(pv.kind !== 'unresolved', 'store without province still found with job region')
+  // Codex #697: 매장을 하나도 못 찾으면 행정구역 중심 핀 없이 '못 찾음'
+  const none = await resolver.resolveAutoLocation({ id: 25, company: 'Fixture Cafe', location: 'Bắc Ninh', targets: [{ address: '1 Phố M, Bắc Ninh', workLocationId: 1 }, { address: '2 Phố N, Bắc Ninh', workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] }, async google() { return { places: [] } },
+    async administrativeCenter() { return { lat: 21.18, lng: 106.07, source: 'Original administrative area bac ninh', checkedAt: 'x' } },
+  } as never)
+  assert(none.kind === 'unresolved' && !('lat' in none), 'no store found → no approximate pin: ' + JSON.stringify(none).slice(0, 160))
   console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }
