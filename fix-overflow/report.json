@@ -33,6 +33,17 @@
     "errors": []
   },
   {
+    "device": "iphone",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 3566,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
     "device": "galaxy",
     "name": "detail-kda",
     "path": "/viec-lam/sb-4824",
@@ -61,6 +72,17 @@
     "vw": 360,
     "scrollW": 360,
     "height": 4279,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 3646,
     "wide": [],
     "smallText": 13,
     "errors": []
