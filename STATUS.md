@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-11 12:54 (VN)**
-- 기준 커밋: `e1af028` (Facebook 1건 저장은 GitHub 서버에서 (수집용 컴퓨터 대기 없음) (#690))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/42968731472
+- 생성 시각: **2026-11-11 19:32 (VN)**
+- 기준 커밋: `0be52aa` (매장 여러 곳: 찾은 매장마다 근무지·핀 + 지도 위치 절대 원칙 (DB, Lee 확인 후 병합) (#697))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43020930114
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -31,7 +31,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `e1af028` · 상태 **success** · 2026-11-11 12:54 (VN)
+- 마지막 Production 배포: `0be52aa` · 상태 **success** · 2026-11-11 19:31 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -39,21 +39,21 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #697 | 2026-11-11 19:30 (VN) | `0be52aa` | 매장 여러 곳: 찾은 매장마다 근무지·핀 + 지도 위치 절대 원칙 (DB, Lee 확인 후 병합) |
+| #700 | 2026-11-11 18:57 (VN) | `92a471a` | 한국 페북 조사: 멈춤 시간 한도·진행 기록 |
+| #696 | 2026-11-11 14:23 (VN) | `dc78333` | 검사표 빈 이름표: 예외 4개 대신 한 규칙 (MediaMart) |
+| #695 | 2026-11-11 14:18 (VN) | `605d25b` | 조사: 그룹 화면 열기 방식(#688에서 빠진 커밋) |
+| #693 | 2026-11-11 13:04 (VN) | `ccebb81` | 급여 읽기: 급여 단어 줄의 VNĐ 금액 (Con Cưng) |
 | #690 | 2026-11-11 12:53 (VN) | `e1af028` | Facebook 1건 저장은 GitHub 서버에서 (수집용 컴퓨터 대기 없음) |
 | #689 | 2026-11-11 12:21 (VN) | `a767e2c` | 한국 사이트: 조사 결과 그룹 목록 읽기 |
 | #688 | 2026-11-11 12:03 (VN) | `33f97da` | 조사: 시간 한도로 끊겨도 결과가 남게 |
 | #683 | 2026-11-11 11:55 (VN) | `b4b8d61` | 카드 사진·상세 ④ 그림을 같은 종류로(공장=만드는 것·가게·식당) — Hữu Nghị 과자 공장·커피 가게·매트리스 가게 |
 | #685 | 2026-11-11 11:47 (VN) | `ee6ef44` | 모바일 상세 가로 넘침: 등록일 줄·하단 연락 바·식사 아이콘(배치 그대로) |
-| #687 | 2026-11-11 11:38 (VN) | `fc62ed0` | 규칙: 지적이 같은 종류 실패의 반복이면 예외 대신 방법 변경안 보고 (Lee 11-11 덧대기) |
-| #684 | 2026-11-11 10:25 (VN) | `e8d409f` | 화면 캡처: 칸마다 따로 차례로(알바몬 촬영 취소 방지) |
-| #681 | 2026-11-11 10:14 (VN) | `c38540a` | 화면 캡처: 알바몬·데모 주소도 같은 방식으로 찍게 (모바일 알바몬 맞추기 준비) |
-| #679 | 2026-11-11 09:22 (VN) | `628d134` | 한국 사이트: 페이스북 장기 조사(매일 수집·매주 집계) |
-| #680 | 2026-11-11 09:09 (VN) | `fbc5484` | 모바일 화면 자동 캡처 → screens 브랜치 (작업자가 핸드폰 화면을 직접 봄) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **26건** (전체 34건, 숨김·비활성 8건)
-- 출처별: 출처 없음 21 · muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
+- 공개 중: **28건** (전체 33건, 숨김·비활성 5건)
+- 출처별: 출처 없음 23 · muaban 2 · manual 2 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
 
@@ -79,16 +79,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-11 12:22 (VN) | location_candidate.approve | job 5990 |
-| 2026-11-11 12:22 (VN) | location_candidate.add | job 5990 |
-| 2026-11-11 12:04 (VN) | location_candidate.approve | job 5987 |
-| 2026-11-11 12:04 (VN) | location_candidate.add | job 5987 |
-| 2026-11-11 11:48 (VN) | location_candidate.approve | job 5984 |
-| 2026-11-11 11:48 (VN) | location_candidate.add | job 5984 |
-| 2026-11-11 10:26 (VN) | location_candidate.approve | job 5980 |
-| 2026-11-11 10:26 (VN) | location_candidate.add | job 5980 |
-| 2026-11-11 09:23 (VN) | location_candidate.approve | job 5977 |
-| 2026-11-11 09:23 (VN) | location_candidate.add | job 5977 |
+| 2026-11-11 18:58 (VN) | location_candidate.approve | job 6008 |
+| 2026-11-11 18:58 (VN) | location_candidate.add | job 6008 |
+| 2026-11-11 14:24 (VN) | location_candidate.approve | job 6004 |
+| 2026-11-11 14:24 (VN) | location_candidate.add | job 6004 |
+| 2026-11-11 14:19 (VN) | location_candidate.approve | job 6002 |
+| 2026-11-11 14:19 (VN) | location_candidate.add | job 6002 |
+| 2026-11-11 13:05 (VN) | location_candidate.approve | job 5999 |
+| 2026-11-11 13:05 (VN) | location_candidate.add | job 5999 |
+| 2026-11-11 12:55 (VN) | location_candidate.approve | job 5996 |
+| 2026-11-11 12:55 (VN) | location_candidate.add | job 5996 |
 
 ## 8. 검증 장치 변경 이력
 
