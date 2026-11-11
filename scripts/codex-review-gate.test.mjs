@@ -76,4 +76,9 @@ assert.equal(broken.ok, false, 'reviewer failed every try → risky PR held'); a
 assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [...tries, fbr(0)], now: at(200) }).ok, true, 'reviewer finally passes after retries → proceed')
 assert.equal(codexGate({ ...base, files: ['src/pages/PostJob.tsx', 'scripts/ops/jobs/fb-x.json'], comments: [asked], now: lateNow }).ok, true, 'ordinary files without Codex or fallback → proceed after wait')
 assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [summary(sha, false)], now: at(11) }).ok, true, 'risky file with finding-free Codex review → proceed')
+// Codex #677 P1: 검토관 지적은 새 커밋·Codex 통과로 사라지지 않는다
+const oldFb = { ...fbr(2, claude, 'old0000'), created_at: '2026-11-08T15:50:00Z' }
+assert.equal(codexGate({ ...base, comments: [oldFb, asked], now: lateNow }).ok, false, 'fallback findings on an earlier commit without reply block the timeout pass')
+assert.equal(codexGate({ ...base, comments: [oldFb, summary(sha, false)], now: at(11) }).ok, false, 'fallback findings without reply block even a clean Codex review')
+assert.equal(codexGate({ ...base, comments: [oldFb, { user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:55:00Z' }, summary(sha, false)], now: at(11) }).ok, true, 'answered fallback findings + clean Codex → proceed')
 console.log('codex-review-gate: all assertions passed')

@@ -21,13 +21,18 @@ export const FALLBACK_REQUEST = '<!-- claude-fallback-request -->'
 export const isCodexLimit = (c) => isCodex(c.user) && /usage limits for code reviews/i.test(String(c.body ?? ''))
 /** 이 커밋의 Claude 검토관 결과: 첫 줄 표시, 둘째 줄 "sha: <커밋>", 셋째 줄 "findings: <수>". claude[bot] 계정만 인정(누구나 댓글 가능한 공개 저장소). */
 export function fallbackReview(comments, sha) {
-  return [...comments].reverse().map((c) => {
+  return fallbackReviews(comments).filter((r) => r.sha === sha).at(-1) ?? null
+}
+/** 이 PR의 모든 Claude 검토관 결과(오래된 것부터, 커밋 상관없이). */
+export function fallbackReviews(comments) {
+  return comments.map((c) => {
     if (String(c.user?.login ?? '') !== 'claude[bot]') return null
     const [first, shaLine, findLine] = String(c.body ?? '').split('\n').map((l) => l.trim())
-    if (first !== FALLBACK_MARKER || shaLine !== `sha: ${sha}`) return null
+    const sm = /^sha: (\S+)$/.exec(shaLine ?? '')
+    if (first !== FALLBACK_MARKER || !sm) return null
     const n = /^findings: (\d+)$/.exec(findLine ?? '')
-    return n ? { findings: Number(n[1]), at: c.created_at } : null
-  }).find(Boolean) ?? null
+    return n ? { sha: sm[1], findings: Number(n[1]), at: c.created_at } : null
+  }).filter(Boolean)
 }
 /** 이 커밋으로 Claude 검토관을 부른 시각들(봇이 단 요청 표시 댓글, 오래된 것부터). */
 export const fallbackRequests = (comments, sha) => comments.filter((c) => String(c.user?.login ?? '') === 'github-actions[bot]'
@@ -57,6 +62,10 @@ export function codexGate({ reviews, reviewComments, comments, sha, headDate, fi
   const mine = reviews.filter((r) => isCodex(r.user) && r.commit_id === sha)
   const summary = codexSummary(comments)
   const summaryHere = summary && summary.commit_sha === sha && summary.status === 'completed' ? summary : null
+  // Codex #677 P1: Claude 검토관 지적은 어느 커밋이든 답이 있어야 한다 — 새 커밋을 올리거나 Codex가 나중에 통과시켜도 답 의무가 사라지지 않게
+  // (Codex 예전 지적에 답을 요구하는 것과 같은 규칙). 모든 통과 경로보다 먼저 본다.
+  const lastFallbackFinding = fallbackReviews(comments).filter((r) => r.findings > 0).map((r) => r.at).sort().at(-1)
+  if (lastFallbackFinding && !repliedAfter(comments, lastFallbackFinding)) return { ok: false, reason: 'Claude 검토관 지적에 Claude 답 대기' }
   if (!mine.length && !summaryHere) {
     const ageMin = (new Date(now) - new Date(headDate)) / 60000
     const limited = comments.some((c) => isCodexLimit(c) && c.created_at >= headDate)
