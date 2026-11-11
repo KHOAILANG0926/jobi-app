@@ -3,7 +3,7 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
-import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckLocationTexts, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
 import { readWorkplace } from '../../src/lib/companyReader.ts'
 import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
@@ -81,9 +81,7 @@ export async function precheckLocation(db, request, input, goong = null, google 
   if (company.name && !company.agency) company.agency = await phoneSaysAgency(db, company.name, input)
   // 소개소면 실제 근무 공장·공단 열쇠(중복 판정에만, Lee 2026-11-07)
   const workplace_key = company.agency ? readWorkplace(`${input?.source_text ?? ''}\n${input?.poster_text ?? ''}`.slice(0, 40000)) : ''
-  // stores: 원문 매장이 여러 곳이면 매장마다 위치 글자 — 수집기가 근무지 줄로 넣는다(주소 칸이 있는 소스는 그 칸 그대로, Lee 2026-11-11)
-  const stores = Array.isArray(input?.addresses) && input.addresses.length ? [] : precheckLocationTexts(input || {})
-  const who = { company: company.name, agency: company.agency, company_from: company.from, workplace_key, ...(stores.length > 1 ? { stores } : {}) }
+  const who = { company: company.name, agency: company.agency, company_from: company.from, workplace_key }
   if (!company.name) return { findable: false, kind: 'unresolved', reason: input?.poster_text ? 'no_company' : 'no_company_text', location: '', ...who }
   if (company.agency && company.fee) return { findable: false, kind: 'unresolved', reason: 'agency_fee', location: '', ...who }
   const job = precheckJob(input)
@@ -98,8 +96,14 @@ export async function precheckLocation(db, request, input, goong = null, google 
   }, goong, google)
   // 보류함 '못 찾음' 공고를 7일 뒤 다시 확인할 때는 저장된 Google 결과(그때의 '없음')를 다시 쓰지 않고 새로 묻는다(Codex #619).
   const result = await resolveAutoLocation(job, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
+  const verdict = precheckVerdict(result)
+  // stores: 원문 매장이 여러 곳이면 위치를 찾은 매장만(첫 매장과 같은 방법으로 매장마다 찾음, Lee 2026-11-11 "모르면 찍지 마").
+  //  수집기가 찾은 매장만 근무지 줄로 넣고 첫 번째를 공고 위치로 쓴다. 주소 칸이 있는 소스는 그 칸 그대로.
+  const fromText = !(Array.isArray(input?.addresses) && input.addresses.length)
+  const stores = verdict.findable && fromText && job.targets.length > 1
+    ? [...new Set([result.address, ...(result.others ?? []).map((o) => o.address)].filter(Boolean))] : []
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
-  return { ...precheckVerdict(result), location: job.location, ...who }
+  return { ...verdict, location: stores.length > 1 ? stores[0] : job.location, ...(stores.length > 1 ? { stores } : {}), ...who }
 }
 
 /** 관리자 확정 기억표 조회(읽기만). 조회 실패는 '없음'으로 두고 기존 순서(Google부터)로 확인한다 — 등록을 막지 않는다. */

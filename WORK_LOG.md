@@ -1,7 +1,8 @@
-## 2026-11-11 — 매장 여러 곳 공고: 매장마다 근무지 줄·핀 (Lee "핀이 한 개만", KRIK 2곳·MediaMart 4곳)
-- 원인 [직접 확인]: Facebook 글은 주소 1개만 읽어 근무지 1줄·핀 1개(근무지 여러 줄은 사이트 주소 칸이 있는 TopCV 계열에만). 위치 찾기·DB 기록(map_r1_complete)도 공고당 핀 1개.
-- 변경: addressReader.readAddresses(매장 주소 전부, 첫 번째=기존 readAddress) → 위치 확인 대상·응답 stores → 등록 입구가 새 공고에 매장마다 근무지 줄(이미 있는 DB 입구 work_locations) → 위치 찾기가 첫 매장은 지금 순서, 다른 매장은 지도 호출 없이 저장된 동 중심→행정구역 중심 대략 위치(others) → DB map_r1_complete가 핀 빈 줄에만 같은 쓰기 함수로 기록(migration, Lee 확인 후 적용).
-- 검증 [직접 확인]: addressReader(실제 Facebook 20건 중 KRIK 2·MediaMart 4, 나머지 거짓 매장 0)·resolver·precheck·gateway 시험, tsc·npm test·build. DB 시험은 CI(migration-postgres).
+## 2026-11-11 — 매장 여러 곳 공고: 찾은 매장마다 근무지 줄·핀 + 지도 위치 절대 원칙 (Lee "핀이 한 개만", "모르면 마음대로 찍지 마")
+- 원인 [직접 확인]: Facebook 글은 주소 1개만 읽어 근무지 1줄·핀 1개. 위치 찾기·DB 기록(map_r1_complete)도 공고당 핀 1개.
+- 변경: addressReader.readAddresses → 위치 확인이 매장마다 첫 매장과 같은 방법(Google 같은 이름 1곳·번지 확인, 월 한도 안)으로 찾음 → 찾은 매장만 stores → 등록 입구가 찾은 매장만 근무지 줄 → DB map_r1_complete가 핀 빈 줄에만 같은 쓰기 함수로 기록(migration, Lee 확인 후). 동·시 중심 대략 핀은 쓰지 않음.
+- 규칙: CLAUDE.md·RULES_CORE·AGENTS.md(Codex 검토 0번 P0)에 「지도 위치 절대 원칙」. Google 사용 [직접 확인] 11-10 저녁 보고 151/4,500.
+- 검증 [직접 확인]: addressReader(실제 Facebook 20건)·resolver·precheck·gateway 시험, tsc·npm test 119/119·build.
 ## 2026-11-11 — 검사표 '빈 이름표' 판정을 한 규칙으로 (MediaMart sb-5994)
 - 원인 [직접 확인]: 'Yêu cầu chung:' 아래 'Nam/Nữ, từ 18 tuổi trở lên'(목록 아님)을 빈 이름표로 잡아 비공개. 이 판정은 아래 줄 모양 예외가 4번(11-03·04·06·10) 붙어 있었음.
 - 변경: jobInspect — 예외 4개를 지우고 "상세요강 글 순서에서 아래에 같은 묶음 글이 없는 짧은 '…:' 줄(글 끝·칸 제목 위·이름표 위)"만 빈 이름표. 화면 칸은 줄을 종류별로 다시 모으므로 글 순서로 봄.

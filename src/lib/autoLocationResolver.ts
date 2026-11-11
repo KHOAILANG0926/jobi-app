@@ -8,11 +8,12 @@ import { pickWardHit, checkWardPlace } from './wardLocate'
 import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
+import { precheckVerdict } from './locationPrecheck'
 import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
 export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean
-  /** 다른 매장 핀(대략 위치만, 2026-11-11). DB map_r1_complete가 매장마다 같은 위치 쓰기 함수로 기록한다. */
+  /** 다른 매장 핀(찾은 매장만, 2026-11-11). DB map_r1_complete가 매장마다 같은 위치 쓰기 함수로 기록한다. */
   others?: LocationDecision[] }
 export interface ResolverDeps {
   withinAdministrativeArea?(addresses:string[],point:{lat:number;lng:number}): Promise<boolean>
@@ -64,20 +65,14 @@ async function resolveMain(job: ResolverJob, deps: ResolverDeps): Promise<Locati
   return {kind:'unresolved',failed:result.failed,deferred:result.deferred}
 }
 
-/** 매장이 여러 곳인 공고(Lee 2026-11-11 KRIK·MediaMart): 첫 핀을 정한 매장 말고 다른 매장마다 대략 위치 핀(chưa xác minh).
- *  지도 자료를 새로 부르지 않는다(공고당 호출 한도 그대로) — 저장해 둔 동 중심 → 원래 행정구역 중심 순서(10-14 순서표의 동·시 단계). 최대 4곳. */
+/** 매장이 여러 곳인 공고(Lee 2026-11-11 KRIK·MediaMart): 다른 매장도 첫 매장과 같은 방법(같은 위치 찾기, Google 같은 이름 1곳·번지 확인)으로
+ *  매장마다 따로 찾고, 수집 기준으로 '찾음'(번지·공단 정문·회사 장소)인 매장만 핀을 남긴다. 위치를 모르는 매장에는 핀을 찍지 않는다
+ *  (Lee 2026-11-11 절대 원칙 "지도 위치를 모르면 마음대로 찍지 마" — 동·시 중심 대략 위치는 쓰지 않음). 최대 4곳, Google은 매장마다 1번(월 한도 안). */
 async function otherStorePoints(job: ResolverJob, chosen: string | undefined, deps: ResolverDeps): Promise<LocationDecision[]> {
   const out: LocationDecision[] = []
   for (const t of job.targets.filter((x) => x.address && x.address !== chosen).slice(0, 4)) {
-    const unit = wardUnitForAddresses([t.address])
-    const saved = unit ? await deps.wardCenter?.(unit).catch(() => null) : null
-    // 저장된 동 중심도 대표 핀과 같이 원래 행정구역 안인지 확인한다(밖이면 행정구역 중심으로, Codex #697).
-    if (unit && saved && validPoint(saved) && (!deps.withinAdministrativeArea || await deps.withinAdministrativeArea([t.address, job.location], saved))) {
-      out.push({ kind: 'area', lat: saved.lat, lng: saved.lng, source: `VietMap ward cache ${unit.key}`, checkedAt: saved.at || new Date().toISOString(), address: t.address, workLocationId: t.workLocationId, evidence: 'other_store:ward_cache' })
-      continue
-    }
-    const area = await deps.administrativeCenter?.([t.address, job.location])
-    if (area && validPoint(area)) out.push({ kind: 'area', ...area, address: t.address, workLocationId: t.workLocationId, evidence: 'other_store:administrative_center' })
+    const one = await resolveAutoLocation({ ...job, location: t.address, targets: [t] }, deps)
+    if (one.kind !== 'unresolved' && precheckVerdict(one).findable) out.push({ ...one, address: t.address, workLocationId: t.workLocationId })
   }
   return out
 }

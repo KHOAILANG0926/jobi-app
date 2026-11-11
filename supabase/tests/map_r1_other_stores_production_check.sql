@@ -3,7 +3,7 @@ do $$declare d text;bad boolean;begin
  if to_regprocedure('public.map_r1_complete(bigint,uuid,jsonb)') is null then raise exception 'map_r1_complete missing';end if;
  d:=pg_get_functiondef('public.map_r1_complete(bigint,uuid,jsonb)'::regprocedure);
  if position('p_result->''others''' in d)=0 or position('write_location(p_id,''upsert''' in d)=0 then raise exception 'map_r1_complete is not the other-stores version';end if;
- if position('''auto_area''' in d)=0 then raise exception 'other stores must be written as auto_area';end if;
+ if position('o->>''kind''=''exact'' and nullif(btrim(o->>''evidence''),'''') is null' in d)=0 then raise exception 'other-store exact must require evidence';end if;
  if has_function_privilege('anon','public.map_r1_complete(bigint,uuid,jsonb)','EXECUTE')
   or has_function_privilege('authenticated','public.map_r1_complete(bigint,uuid,jsonb)','EXECUTE')
   or not has_function_privilege('service_role','public.map_r1_complete(bigint,uuid,jsonb)','EXECUTE') then
