@@ -22,4 +22,5 @@ export function shopKindOf(text: string | null | undefined): string | null {
   return KIND_RES.find((k) => k.re.test(f))?.kind ?? null
 }
 /** 이름 앞머리에서 뗄 가게 종류 일반 낱말(체인 이름 제외) + 소개소 앞머리(2026-11-11 "CTY CUNG ỨNG NHÂN LỰC TÂN THÀNH GROUP"). */
-export const NAME_HEAD_WORDS: string[] = [...SHOP_KINDS.flatMap((k) => k.words), 'cung ung nhan luc', 'cung ung lao dong', 'cung ung']
+// 어학원 앞머리(2026-11-11 'Anh ngữ Regal Edu Vân Dương' ↔ Google 'Regal Edu Vân Dương')도 이름 비교에서만 뗀다.
+export const NAME_HEAD_WORDS: string[] = [...SHOP_KINDS.flatMap((k) => k.words), 'cung ung nhan luc', 'cung ung lao dong', 'cung ung', 'trung tam anh ngu', 'trung tam ngoai ngu', 'anh ngu', 'ngoai ngu']

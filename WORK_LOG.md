@@ -1,3 +1,8 @@
+## 2026-11-11 — Google 이름 비교: 'Thanh'(사람 이름)·어학원 앞머리 (기존 공고 5421·5422 다시 찾기)
+- 원인 [직접 확인]: 업체 검색 비교 — Google이 'Nhà Hàng Thanh Phệ'·'Regal Edu Vân Dương'을 찾았는데 이름 비교가 'thanh'을 회사 형태 낱말(một thành viên)로 지워 'phe'(3자)만 남거나, 'Anh ngữ' 앞머리를 못 떼 거절(no_core_name).
+- 변경: companyPlaceSearch.coreName — 'một thành viên' 묶음만 빼고 따로 쓰인 'Thanh'은 이름으로 지킴(Việt·Nam과 같은 방식), 'thành phố'는 묶음으로 뺌. shopKinds 이름 앞머리에 어학원 낱말.
+- 같은 날 기존 짐작 핀 9건 중 5건(4982·5231·5405·5505·5599) 업체 검색 비교 → 관리자 위치 확정 [직접 확인: 운영 지도 자료 exact admin_approved].
+- 검증 [직접 확인]: companyPlaceSearch 시험, tsc·npm test 119/119·build.
 ## 2026-11-11 — 위치 찾기에서 짐작 핀(동·시·공단 중심) 없앰 (Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마")
 - 원인 [직접 확인]: 한 매장 공고도 위치를 못 찾으면 동 중심·시 중심·공단 중심·행정구역 중심을 대략 핀(area)으로 찍었음. 공개 공고 28건 중 9건이 그런 핀(공개 지도 API).
 - 변경: 위치 찾기의 대략 위치 단계(공단 중심·표에 없는 공단 VietMap 검색·동 중심 저장값·동 VietMap 검색·행정구역 중심)를 지움(Codex #702 — 버릴 결과를 만들려고 지도 호출 금지). 찾지 못하면 좌표 없이 unresolved(기록·한도 초과 보류 유지). 쓰지 않게 된 wardCenter·administrativeCenter 의존도 지움. 화면은 DB 핀만 쓰므로 새 짐작 핀 없음. 대략 핀을 기대하던 시험 기대값을 바꿈.

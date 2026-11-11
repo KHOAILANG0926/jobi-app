@@ -16,16 +16,17 @@ export function coreName(name: string, { keepShopHead = false } = {}): string {
   // 업종 머리말(여러 낱말)은 이름의 핵심이 아니다: "SIÊU THỊ ĐIỆN MÁY MEDIAMART" ↔ "Mediamart Bắc Ninh", "BAR NEW PHOENIX" ↔ "New Phoenix Club"(#560).
   // 낱말 하나씩 빼면(예: 'trang') 사람 이름까지 지워지므로 낱말 묶음으로만 뺀다.
   // 'Việt Nam'(나라 이름)은 빼되, 따로 쓰인 'Việt'·'Nam'은 이름의 일부다("Đại Tân Việt" ≠ "Đại Tân", #560) — 공용 낱말 목록(companyTokens)이
-  // 둘을 늘 빼므로 여기서만 지켜 둔다.
-  const bare = ` ${normalizePlaceText(head)} `.replace(GENERIC_HEAD, ' ').replace(/\s+/g, ' ').replace(keepShopHead ? /^$/ : SHOP_HEAD, ' ').replace(/ (?:viet nam|vietnam) /g, ' ').replace(/ (viet|nam)(?= )/g, ' $1x')
-  const tokens = companyTokens(bare).map((t) => t.replace(/^(viet|nam)x$/, '$1')).filter((t) => !CORE_IGNORED.has(t))
+  // 둘을 늘 빼므로 여기서만 지켜 둔다. 'Thanh'도 같다('một thành viên'만 회사 형태 낱말, 'Thanh Phệ'는 이름 — 2026-11-11).
+  const bare = ` ${normalizePlaceText(head)} `.replace(GENERIC_HEAD, ' ').replace(/\s+/g, ' ').replace(keepShopHead ? /^$/ : SHOP_HEAD, ' ').replace(/ (?:viet nam|vietnam) /g, ' ').replace(/ (?:mot )?thanh vien(?= )/g, ' ').replace(/ (viet|nam|thanh)(?= )/g, ' $1x')
+  const tokens = companyTokens(bare).map((t) => t.replace(/^(viet|nam|thanh)x$/, '$1')).filter((t) => !CORE_IGNORED.has(t))
   return tokens.join('')
 }
 // 업종 일반어·지역 이름(이름의 '핵심'이 아님). 너무 많이 빼면 다른 회사와 같아지므로 짧게 둔다.
-const GENERIC_HEAD = / (?:he thong|sieu thi|dien may|khach san|thuong hieu|bar)(?= )/g
+const GENERIC_HEAD = / (?:he thong|sieu thi|dien may|khach san|thuong hieu|bar|thanh pho)(?= )/g
 // 이름 맨 앞에 붙은 가게 종류·소개소 낱말(shopKinds 한 곳): "Siêu Thị Mẹ Bầu & Em Bé Con Cưng" ↔ "CON CƯNG"(2026-11-11). 앞머리만 뗀다(이름 중간 낱말은 이름의 일부).
 const SHOP_HEAD = new RegExp(`^ (?:(?:${NAME_HEAD_WORDS.map((w) => normalizePlaceText(w)).filter(Boolean).join('|')}) )+`)
-const CORE_IGNORED = new Set(['dich', 'vu', 'bao', 've', 'ninh', 'bac', 'giang', 'ha', 'noi', 'tp', 'thanh', 'pho', 'tinh', 'chi', 'nhanh', 'cn', 'co', 'so', 'nha', 'hang', 'quan', 'cua'])
+// 'thanh'·'pho'는 낱말 하나로 빼지 않는다 — 'Thanh'은 사람 이름(Nhà hàng Thanh Phệ, 2026-11-11). '시'는 'thanh pho' 묶음으로만 뺀다(GENERIC_HEAD).
+const CORE_IGNORED = new Set(['dich', 'vu', 'bao', 've', 'ninh', 'bac', 'giang', 'ha', 'noi', 'tp', 'tinh', 'chi', 'nhanh', 'cn', 'co', 'so', 'nha', 'hang', 'quan', 'cua'])
 
 /** 공고 회사 이름 ↔ 지도 업체 이름이 핵심 이름으로 같은가. 핵심 이름이 4글자보다 짧으면 판단하지 않는다(오탐 방지). */
 export function sameCoreName(company: string, placeName: string): boolean {
