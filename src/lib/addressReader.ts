@@ -80,6 +80,8 @@ export function readAddress(sourceText: string): string {
 const STORE_MARK = /(?:^|[\s,])(?:số\s*)?\d{1,4}\p{L}?(?:\/\d+)*\s+\p{L}|(?:^|[\s,])(?:đường|phố|quốc lộ|ql\.?|khu phố|kp\.?|thôn|tòa|toà)\s/iu
 const UNIT_MARK = /(?:^|[\s,])(?:phường|p\.|xã|quận|q\.|huyện|thị xã|thị trấn|tp\.?|thành phố|khu phố)\s/iu
 const placeKey = (s: string) => normalizePlaceText(s).replace(/[^a-z0-9]+/g, ' ').trim()
+// 같은 매장 = 한 주소가 다른 주소를 낱말 단위로 통째로 포함(가게 이름 + 같은 주소). 낱말 중간은 안 본다 — 12번지 ≠ 112번지(Codex #697).
+const sameStore = (a: string, b: string) => ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `)
 function storeLine(raw: string): string {
   let line = trimDots(raw.replace(new RegExp(`^[^${WORD}]+`, 'u'), '').trim())
   const colon = line.split(',', 1)[0].match(/[:：]/)
@@ -96,7 +98,7 @@ function storeLines(text: string): string[] {
   for (const raw of text.split('\n')) {
     const a = storeLine(raw)
     const k = a && placeKey(a)
-    if (k && !out.some((x) => { const y = placeKey(x); return y.includes(k) || k.includes(y) })) out.push(a)
+    if (k && !out.some((x) => sameStore(placeKey(x), k))) out.push(a)
   }
   return out
 }
@@ -110,7 +112,7 @@ export function readAddresses(sourceText: string): string[] {
   for (const a of storeLines(postBody(String(sourceText ?? '').normalize('NFC')))) {
     if (out.length >= 5) break
     const k = placeKey(a)
-    if (keys.some((x) => x.includes(k) || k.includes(x))) continue
+    if (keys.some((x) => sameStore(x, k))) continue
     out.push(a); keys.push(k)
   }
   return out

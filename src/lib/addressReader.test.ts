@@ -77,6 +77,7 @@ eq(readLocationTexts(HN, 'Bắc Ninh')[1], '148 Trần Phú, Phường Mộ Lao,
 // Codex #697: 성 없는 매장 줄 목록은 동 조각을 이어 붙인 가짜 주소 대신 매장 줄 그대로(2곳 = 2곳)
 const NOPROV = 'Tuyển nhân viên\nCN 1: 152 Trần Hưng Đạo, Phường Kinh Bắc\nCN 2: 148 Trần Phú, Phường Từ Sơn\nLiên hệ Zalo'
 eq(JSON.stringify(readAddresses(NOPROV)), JSON.stringify(['152 Trần Hưng Đạo, Phường Kinh Bắc', '148 Trần Phú, Phường Từ Sơn']), 'Codex #697 no synthetic fragment store')
+eq(readAddresses('Địa chỉ: 12 Trần Phú, Phường Từ Sơn, Bắc Ninh\n112 Trần Phú, Phường Từ Sơn, Bắc Ninh').length + '', '2', 'Codex #697 12 vs 112 are different stores')
 eq(JSON.stringify(readLocationTexts(NOPROV, 'Bắc Ninh')), JSON.stringify(['152 Trần Hưng Đạo, Phường Kinh Bắc, Bắc Ninh', '148 Trần Phú, Phường Từ Sơn, Bắc Ninh']), 'stores without province get the group region')
 eq(readLocationTexts(NETCO_5599, 'Bắc Ninh')[0], readLocationText(NETCO_5599, 'Bắc Ninh'), 'first location text unchanged')
 console.log('addressReader: 매장 여러 곳(KRIK·MediaMart) 통과')
