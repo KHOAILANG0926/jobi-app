@@ -1,0 +1,323 @@
+[
+  {
+    "device": "iphone",
+    "name": "home",
+    "path": "/",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 6008,
+    "wide": [],
+    "smallText": 34,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "search",
+    "path": "/viec-lam/tim-kiem",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 5788,
+    "wide": [],
+    "smallText": 4,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "area",
+    "path": "/viec-lam/khu-vuc",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 7235,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "map",
+    "path": "/ban-do",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 1655,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "korea",
+    "path": "/viec-han-quoc",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 2074,
+    "wide": [],
+    "smallText": 22,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "post",
+    "path": "/dang-tin",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 9369,
+    "wide": [],
+    "smallText": 4,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "saved",
+    "path": "/viec-lam/da-luu",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 1073,
+    "wide": [],
+    "smallText": 4,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-kda",
+    "path": "/viec-lam/sb-4824",
+    "vw": 390,
+    "scrollW": 408,
+    "height": 3807,
+    "wide": [
+      "span.jd2-meta-date 408px",
+      "div.jd2-mobile-cta__inner 394px",
+      "a.jd2-mobile-cta__zalo 394px",
+      "a 400px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5942",
+    "path": "/viec-lam/sb-5942",
+    "vw": 390,
+    "scrollW": 404,
+    "height": 4358,
+    "wide": [
+      "span.jd2-meta-date 403px",
+      "a 396px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5938",
+    "path": "/viec-lam/sb-5938",
+    "vw": 390,
+    "scrollW": 406,
+    "height": 4121,
+    "wide": [
+      "span.jd2-meta-date 406px",
+      "div.jd2-mobile-cta__inner 392px",
+      "a.jd2-mobile-cta__zalo 392px",
+      "a 398px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 390,
+    "scrollW": 406,
+    "height": 3566,
+    "wide": [
+      "span.jd2-meta-date 406px",
+      "div.jd2-mobile-cta__inner 392px",
+      "a.jd2-mobile-cta__zalo 392px",
+      "a 398px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5876",
+    "path": "/viec-lam/sb-5876",
+    "vw": 390,
+    "scrollW": 406,
+    "height": 4989,
+    "wide": [
+      "span.jd2-meta-date 406px",
+      "div.jd2-mobile-cta__inner 392px",
+      "a.jd2-mobile-cta__zalo 392px",
+      "a 398px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "home",
+    "path": "/",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 6080,
+    "wide": [],
+    "smallText": 34,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "search",
+    "path": "/viec-lam/tim-kiem",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 5788,
+    "wide": [],
+    "smallText": 4,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "area",
+    "path": "/viec-lam/khu-vuc",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 7235,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "map",
+    "path": "/ban-do",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 1679,
+    "wide": [],
+    "smallText": 6,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "korea",
+    "path": "/viec-han-quoc",
+    "vw": 360,
+    "scrollW": 390,
+    "height": 2146,
+    "wide": [
+      "button.kh-discovery__cta 390px",
+      "a 382px"
+    ],
+    "smallText": 22,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "post",
+    "path": "/dang-tin",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 9510,
+    "wide": [],
+    "smallText": 4,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "saved",
+    "path": "/viec-lam/da-luu",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 1097,
+    "wide": [],
+    "smallText": 4,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-kda",
+    "path": "/viec-lam/sb-4824",
+    "vw": 360,
+    "scrollW": 408,
+    "height": 3931,
+    "wide": [
+      "span.jd2-meta-date 408px",
+      "div.jd2-mobile-cta__inner 394px",
+      "a.jd2-mobile-cta__zalo 394px",
+      "a 400px",
+      "svg 362px",
+      "span 373px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5942",
+    "path": "/viec-lam/sb-5942",
+    "vw": 360,
+    "scrollW": 404,
+    "height": 4606,
+    "wide": [
+      "span.jd2-meta-date 403px",
+      "div.jd2-mobile-cta__inner 390px",
+      "a.jd2-mobile-cta__zalo 390px",
+      "a 396px",
+      "span 370px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5938",
+    "path": "/viec-lam/sb-5938",
+    "vw": 360,
+    "scrollW": 406,
+    "height": 4279,
+    "wide": [
+      "span.jd2-meta-date 406px",
+      "div.jd2-mobile-cta__inner 392px",
+      "a.jd2-mobile-cta__zalo 392px",
+      "a 398px",
+      "span 371px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 360,
+    "scrollW": 406,
+    "height": 3646,
+    "wide": [
+      "span.jd2-meta-date 406px",
+      "div.jd2-mobile-cta__inner 392px",
+      "a.jd2-mobile-cta__zalo 392px",
+      "a 398px",
+      "span 371px"
+    ],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5876",
+    "path": "/viec-lam/sb-5876",
+    "vw": 360,
+    "scrollW": 406,
+    "height": 5134,
+    "wide": [
+      "span.jd2-meta-date 406px",
+      "div.jd2-mobile-cta__inner 392px",
+      "a.jd2-mobile-cta__zalo 392px",
+      "a 398px",
+      "span 371px"
+    ],
+    "smallText": 13,
+    "errors": []
+  }
+]
