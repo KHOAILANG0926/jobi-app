@@ -42,7 +42,8 @@ const wrong=await run([hit],{...place,display:'99 Other Road, Hồ Chí Minh',na
 assert(wrong.kind==='unresolved','Place response cannot override correct search hit with wrong location')
 let total=0
 await resolver.resolveAutoLocation({...job,targets:[...job.targets,{address:'20 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội',workLocationId:101}]},{...deps,async reserve(){return true},async request(){total++;return []}})
-assert(total<=2,'multiple workplaces share the two-call cap')
+// 2026-11-11 Lee "한도 안 넘었는데 왜 비용 걱정": 매장마다 같은 찾기(매장마다 2번까지) — 공고당 묶음 한도 없음, 월 한도·DB 예약은 그대로
+assert(total<=4,'each workplace keeps its own two-call cap')
 console.log('autoLocationResolver: exact match, ambiguity, wrong Place, multi-workplace passed')
 const deferred=await resolver.resolveAutoLocation(job,{...deps,async reserve(){return false}})
 assert(deferred.deferred===true,'daily budget refusal must defer instead of permanently marking unresolved')
@@ -153,5 +154,14 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   } as never)
   assert(asked.length === 2, 'each store asks Google once: ' + asked.length)
   assert(((gm as { others?: unknown[] }).others ?? []).length === 1, 'second store found through its own Google call')
+  // Codex #697: 첫 매장을 못 찾고 다른 매장들만 찾으면 — 찾은 맨 앞 매장이 대표, 나머지가 others(공고를 버리지 않음)
+  const g0 = '9 Phố Z, Phường Q, Hà Nội'
+  const asked2: string[] = []
+  const fm = await resolver.resolveAutoLocation({ id: 23, company: 'Fixture Cafe', location: g0, targets: [{ address: g0, workLocationId: 1 }, { address: g1, workLocationId: 2 }, { address: g2, workLocationId: 3 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { asked2.push(text); return text.includes('Phố Z') ? { places: [] } : { places: [{ id: 'h' + asked2.length, displayName: { text: 'Fixture Cafe' }, formattedAddress: text.includes('Phố B') ? g2 : g1, location: { latitude: 21.0 + asked2.length / 100, longitude: 105.8 } }] } },
+  } as never)
+  assert(fm.kind !== 'unresolved' && fm.address === g1 && fm.workLocationId === 2, 'first found store becomes main: ' + JSON.stringify(fm).slice(0, 200))
+  assert(((fm as { others?: Array<{ address?: string }> }).others ?? []).map((o) => o.address).join('|') === g2, 'other found store kept, unfound first store dropped')
   console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }

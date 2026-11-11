@@ -33,8 +33,23 @@ export interface ResolverDeps {
   /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
   wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
+/** 매장(근무지)이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 매장 구분 없이 매장마다 같은 위치 찾기를 한 번씩 돌리고,
+ *  수집 기준으로 '찾음'(번지·공단 정문·회사 장소, precheckVerdict)인 매장만 남긴다 — 맨 앞 찾은 매장이 대표 핀, 나머지는 others.
+ *  위치를 모르는 매장에는 핀을 찍지 않는다(Lee 2026-11-11 절대 원칙). 지도 호출 수는 매장마다 따로(월 한도·DB 예약은 그대로).
+ *  찾은 매장이 없으면 예전처럼 첫 매장 결과(한도 초과 기록 등)를 그대로 돌려준다. 최대 5곳. */
 export async function resolveAutoLocation(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
-  // Share the original three-request cap across address, company and replay stages.
+  if (job.targets.length <= 1) return resolveStore(job, providedDeps)
+  const results: LocationDecision[] = []
+  for (const t of job.targets.filter((x) => x.address).slice(0, 5)) {
+    results.push(await resolveStore({ ...job, location: t.address, targets: [t] }, providedDeps))
+  }
+  const found = results.filter((r) => r.kind !== 'unresolved' && precheckVerdict(r).findable)
+  if (!found.length) return results.find((r) => /google:quota/.test(String(r.evidence ?? ''))) ?? results[0] ?? { kind: 'unresolved' }
+  return found.length > 1 ? { ...found[0], others: found.slice(1) } : found[0]
+}
+
+/** 매장 하나의 위치 찾기(예전 resolveAutoLocation 그대로) — Google 1번·Goong 3번은 매장마다. */
+async function resolveStore(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
   let goongCalls = 0, googleCalls = 0
   const deps: ResolverDeps = { ...providedDeps, ...(providedDeps.goong ? { async goong(action, params) {
     if (goongCalls >= 3) return null
@@ -45,9 +60,7 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
     googleCalls++
     return providedDeps.google!(text)
   } } : {}) }
-  const main=await resolveMain(job,deps)
-  const others=main.kind==='unresolved'?[]:await otherStorePoints(job,main.address,providedDeps)
-  return others.length?{...main,others}:main
+  return resolveMain(job, deps)
 }
 
 async function resolveMain(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
@@ -63,18 +76,6 @@ async function resolveMain(job: ResolverJob, deps: ResolverDeps): Promise<Locati
     if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed:result.failed,deferred:result.deferred,evidence:[result.evidence,'administrative_boundary:mismatch'].filter(Boolean).join('\n')}
   }
   return {kind:'unresolved',failed:result.failed,deferred:result.deferred}
-}
-
-/** 매장이 여러 곳인 공고(Lee 2026-11-11 KRIK·MediaMart): 다른 매장도 첫 매장과 같은 방법(같은 위치 찾기, Google 같은 이름 1곳·번지 확인)으로
- *  매장마다 따로 찾고, 수집 기준으로 '찾음'(번지·공단 정문·회사 장소)인 매장만 핀을 남긴다. 위치를 모르는 매장에는 핀을 찍지 않는다
- *  (Lee 2026-11-11 절대 원칙 "지도 위치를 모르면 마음대로 찍지 마" — 동·시 중심 대략 위치는 쓰지 않음). 최대 4곳, Google은 매장마다 1번(월 한도 안). */
-async function otherStorePoints(job: ResolverJob, chosen: string | undefined, deps: ResolverDeps): Promise<LocationDecision[]> {
-  const out: LocationDecision[] = []
-  for (const t of job.targets.filter((x) => x.address && x.address !== chosen).slice(0, 4)) {
-    const one = await resolveAutoLocation({ ...job, location: t.address, targets: [t] }, deps)
-    if (one.kind !== 'unresolved' && precheckVerdict(one).findable) out.push({ ...one, address: t.address, workLocationId: t.workLocationId })
-  }
-  return out
 }
 
 async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {

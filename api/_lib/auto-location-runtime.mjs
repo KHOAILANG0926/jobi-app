@@ -100,6 +100,7 @@ export async function precheckLocation(db, request, input, goong = null, google 
   // stores: 원문 매장이 여러 곳이면 위치를 찾은 매장만(첫 매장과 같은 방법으로 매장마다 찾음, Lee 2026-11-11 "모르면 찍지 마").
   //  수집기가 찾은 매장만 근무지 줄로 넣고 첫 번째를 공고 위치로 쓴다. 주소 칸이 있는 소스는 그 칸 그대로.
   const fromText = !(Array.isArray(input?.addresses) && input.addresses.length)
+  // 위치 찾기가 매장마다 따로 찾고 찾은 매장만 돌려준다(대표 = 맨 앞 찾은 매장, 나머지 others).
   const stores = verdict.findable && fromText && job.targets.length > 1
     ? [...new Set([result.address, ...(result.others ?? []).map((o) => o.address)].filter(Boolean))] : []
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
