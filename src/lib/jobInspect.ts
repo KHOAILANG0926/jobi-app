@@ -7,7 +7,7 @@
 import { bare, detailSections, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
 import { cleanSourceText, contactDuplicate, isPromoLine, sameLine, timeRanges } from './jobDescriptionBuild.ts'
 import { headingOf } from './jobDetailSections.ts'
-import { isCovered } from './jobDetailFill.ts'
+import { FILL_HEADINGS, isCovered } from './jobDetailFill.ts'
 import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
 import { cardSalary } from './mainJobCards.ts'
 import { MEAL_HINT } from './mealBenefit.ts'
@@ -97,14 +97,18 @@ export function inspectJob(j: InspectInput): InspectResult {
   shown.forEach((a, i) => shown.forEach((b, k) => { if (k > i && sameLine(a, b)) dups.push(a) }))
   add('duplicate', '상세요강 같은 줄 반복 없음', !dups.length, dups.length ? dups.slice(0, 3).join(' / ') : undefined)
   // 4. 사이트 화면 글자·가려진 번호·값 없는 이름표
-  // 2026-11-04(#5405 "NHÀ HÀNG … TUYỂN GẤP:"): '… tuyển (gấp/dụng):'는 아래 직무 줄을 여는 소개 줄 — 빈 이름표가 아니다.
-  // 2026-11-03: ':'로 끝나는 긴 소개 문장("Công ty … đang cần tuyển … khu vực Bắc Ninh:")은 이름표가 아니다 — 짧은 줄만 빈 이름표로 본다.
-  // 2026-11-06 Lee OK(#5506 "🌟 CƠ CHẾ … DÀNH CHO BẠN:"): 바로 아래 줄이 글머리(•·-·*·✓ 등) 목록이면 그 목록의 제목 — 빈 이름표가 아니다.
-  // 2026-11-10(#5876 "Thưởng gắn bó dành cho nhân viên mới:" + 아래 "Làm đủ 30 ngày: Thưởng 500.000đ."): 다섯 낱말 이상 소개 줄 아래가
-  //  '이름: 값' 줄이면 그 묶음의 제목 — 빈 이름표가 아니다. 짧은 칸 이름("Lương:", "Liên hệ:")은 그대로 빈 이름표로 본다.
-  const opensList = (i: number) => /^\s*(?:[•·\-–*+✓✔☑️👉🔹🔸▪◦○●]|\d+[.)])/u.test(shown[i + 1] ?? '')
-    || (bare(shown[i]).split(' ').filter(Boolean).length >= 5 && /^[^:：]{2,40}[:：]\s*\S/u.test(shown[i + 1] ?? ''))
-  const junk = shown.filter((l, i) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l) || (/[:：]\s*$/.test(l) && bare(l).length <= 60 && !/\btuyen\b/.test(bare(l)) && !opensList(i)))
+  // 값 없는 이름표 = 상세요강 글 순서에서 아래에 내용이 없는 '…:' 줄(글 끝·칸 제목 바로 위·또 다른 '…:' 이름표 바로 위).
+  //  2026-11-11 Lee(MediaMart sb-5994 "Yêu cầu chung:" + 아래 "Nam/Nữ, từ 18 tuổi trở lên"): 아래 줄 모양(글머리·낱말 수·tuyển)으로
+  //  예외를 4번 붙여 온 것(11-03·11-04·11-06·11-10)을 지우고, 아래에 같은 묶음 글이 있는지 하나로 본다.
+  //  화면 칸(view.sections)은 줄 종류별로 다시 모아 순서가 바뀌므로 글 순서(description)로 본다.
+  // 이름표는 짧은 줄(60자 이하)만 — ':'로 끝나는 긴 소개 문장은 이름표가 아니다(2026-11-03 Bảo An VCC).
+  const isLabel = (l: string) => /[:：]\s*$/.test(l) && bare(l).length <= 60
+  const fillHeads = new Set(Object.values(FILL_HEADINGS).map((h) => bare(h)))
+  const order = String(j.description ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
+  const shownSet = new Set(shown.map((l) => l.trim()))
+  const emptyLabels = order.filter((l, i) => shownSet.has(l) && isLabel(l) &&
+    (i + 1 >= order.length || isLabel(order[i + 1]) || fillHeads.has(bare(order[i + 1]))))
+  const junk = [...shown.filter((l) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l)), ...emptyLabels]
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
   // 6. 급여 칸: 원문에 급여가 있는데 위쪽 급여가 비어 있음
