@@ -70,6 +70,13 @@ eq(ma[3], 'Quốc lộ 38, Ngã tư Đông Côi, Phường Thuận Thành, Tỉn
 eq(String(readAddresses(HIGHLANDS_5157).length), '1', '#5157 same store repeated in apply line stays 1')
 eq(String(readAddresses(NETCO_5599).length), '1', '#5599 one place')
 eq(JSON.stringify(readAddresses('Cần tuyển phục vụ quán ăn\nZalo 0911111111')), '[]', 'no address → []')
-eq(JSON.stringify(readLocationTexts(KRIK, 'Bắc Ninh')), JSON.stringify(['152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Bắc Ninh', '148 Trần Phú, Từ Sơn, Bắc Ninh, Bắc Ninh']), 'location texts per store + region')
+eq(JSON.stringify(readLocationTexts(KRIK, 'Bắc Ninh')), JSON.stringify(['152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Bắc Ninh', '148 Trần Phú, Từ Sơn, Bắc Ninh']), 'first store keeps old location text; other store with its province gets no extra region')
+// Codex #697: 다른 성 지점은 그룹 지역을 붙이지 않는다 / 성 없는 매장 줄은 붙인다
+const HN = 'Tuyển nhân viên\nĐịa chỉ: 152 Trần Hưng Đạo, Phường Kinh Bắc, Bắc Ninh\n148 Trần Phú, Phường Mộ Lao, Hà Nội'
+eq(readLocationTexts(HN, 'Bắc Ninh')[1], '148 Trần Phú, Phường Mộ Lao, Hà Nội', 'Codex #697 other-province branch keeps its own province')
+// Codex #697: 성 없는 매장 줄 목록은 동 조각을 이어 붙인 가짜 주소 대신 매장 줄 그대로(2곳 = 2곳)
+const NOPROV = 'Tuyển nhân viên\nCN 1: 152 Trần Hưng Đạo, Phường Kinh Bắc\nCN 2: 148 Trần Phú, Phường Từ Sơn\nLiên hệ Zalo'
+eq(JSON.stringify(readAddresses(NOPROV)), JSON.stringify(['152 Trần Hưng Đạo, Phường Kinh Bắc', '148 Trần Phú, Phường Từ Sơn']), 'Codex #697 no synthetic fragment store')
+eq(JSON.stringify(readLocationTexts(NOPROV, 'Bắc Ninh')), JSON.stringify(['152 Trần Hưng Đạo, Phường Kinh Bắc, Bắc Ninh', '148 Trần Phú, Phường Từ Sơn, Bắc Ninh']), 'stores without province get the group region')
 eq(readLocationTexts(NETCO_5599, 'Bắc Ninh')[0], readLocationText(NETCO_5599, 'Bắc Ninh'), 'first location text unchanged')
 console.log('addressReader: 매장 여러 곳(KRIK·MediaMart) 통과')
