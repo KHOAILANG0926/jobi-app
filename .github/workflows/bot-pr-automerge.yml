@@ -170,7 +170,7 @@ jobs:
             # gh pr merge는 서버에 묻기 전에 자기가 읽은 mergeStateStatus로 먼저 거절한다("base branch policy prohibits",
             # 검사가 다 끝났는데도 늦게 갱신된 값 — #681·#708, #686). 서버 병합 API를 바로 불러 서버 판단과 실제 거절 이유를 남긴다.
             # sha = --match-head-commit과 같음(그 사이 새 커밋이 오면 서버가 거절). 제목은 예전처럼 "PR 제목 (#번호)".
-            title=$(gh api "repos/$REPO/pulls/$num" --jq '.title')
+            title=$(gh api "repos/$REPO/pulls/$num" --jq '.title') || { echo "::warning::PR #$num 제목 조회 실패 — 다음 실행에서 다시 봄"; continue; }
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then
               echo "::notice::PR #$num github-actions[bot] 병합 성공"
               if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
