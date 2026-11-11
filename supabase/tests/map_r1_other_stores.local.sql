@@ -36,3 +36,10 @@ do $$begin
   "others":[{"kind":"area","lat":21.1,"lng":105.9,"source":"s","checkedAt":"c","address":"2 B, Bắc Ninh","workLocationId":5}]}');
  if (select count(*) from location_private.test_writes where job_id=9003)<>1 then raise exception 'existing pinned store must not be overwritten';end if;
 end$$;
+-- VietMap 예약: 매장 2곳이면 4번까지(공고당 2번 묶음 아님)
+insert into public.map_r1_search_history(job_id,search_key,calls) values (9001,'k',0);
+update public.map_r1_location_jobs set state='processing',lease='00000000-0000-0000-0000-0000000000a1',calls=0 where job_id=9001;
+do $$declare n int:=0;i int;begin
+ for i in 1..6 loop if public.map_r1_reserve_call(9001,'00000000-0000-0000-0000-0000000000a1') then n:=n+1; end if; end loop;
+ if n<>4 then raise exception 'two stores should allow 4 VietMap calls, got %',n;end if;
+end$$;

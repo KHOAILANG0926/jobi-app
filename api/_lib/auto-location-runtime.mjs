@@ -92,7 +92,8 @@ export async function precheckLocation(db, request, input, goong = null, google 
     return { findable: true, kind: 'exact', reason: 'confirmed_memory', location: job.location, ...who }
   let used = 0
   const deps = resolverDeps(db, async (action, params) => request(action, params), {
-    remainingCalls: 2, reserve: async () => used++ < 2,
+    // VietMap은 매장마다 2번(Lee 2026-11-11 "한도 안 넘었는데 왜 비용 걱정" — 공고당 묶음 제한 없음, 하루 한도는 DB가 그대로)
+    remainingCalls: 2, reserve: async () => used++ < 2 * Math.max(1, Math.min(5, job.targets.length)),
   }, goong, google)
   // 보류함 '못 찾음' 공고를 7일 뒤 다시 확인할 때는 저장된 Google 결과(그때의 '없음')를 다시 쓰지 않고 새로 묻는다(Codex #619).
   const result = await resolveAutoLocation(job, input?.recheck === true ? { ...deps, refreshGoogle: true } : deps)
@@ -181,7 +182,7 @@ async function runClaimed(db, request, claim, goong = null, google = null) {
     let calls = 0
     try {
       const result = await resolveAutoLocation(row.snapshot, resolverDeps(db, async (action,params) => { calls++; return request(action,params) }, {
-        remainingCalls: Math.max(0,2-row.calls),
+        remainingCalls: Math.max(0,2*Math.max(1,Math.min(5,(row.snapshot?.targets?.length)||1))-row.calls),
         reserve: () => rpc('map_r1_reserve_call',{p_id:row.job_id,p_lease:lease}),
       }, goong, google))
       const saved = await rpc('map_r1_complete',{p_id:row.job_id,p_lease:lease,p_result:result})

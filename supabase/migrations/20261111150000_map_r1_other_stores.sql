@@ -62,4 +62,25 @@ declare r public.map_r1_location_jobs;k text;addr text;wid bigint;latv float8;ln
 end$$;
 revoke all on function public.map_r1_complete(bigint,uuid,jsonb) from public,anon,authenticated;
 grant execute on function public.map_r1_complete(bigint,uuid,jsonb) to service_role;
+-- VietMap 예약: 공고당 2번 → 매장(근무지)마다 2번(최대 5곳). 하루 한도(vietmap_usage_take 250)·같은 검색 재호출 없음은 그대로.
+CREATE OR REPLACE FUNCTION public.map_r1_reserve_call(p_id bigint, p_lease uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+declare r public.map_r1_location_jobs; quota record; cap int;
+begin
+ select * into r from public.map_r1_location_jobs where job_id=p_id for update;
+ cap:=2*greatest(1,least(5,coalesce(jsonb_array_length(case when jsonb_typeof(r.snapshot->'targets')='array' then r.snapshot->'targets' end),1)));
+ if not found or r.lease is distinct from p_lease or r.state<>'processing' or r.calls>=cap
+   or r.snapshot is distinct from public.map_r1_snapshot(p_id) then return false; end if;
+ select * into quota from public.vietmap_usage_take((now() at time zone 'Asia/Ho_Chi_Minh')::date,250);
+ if not quota.ok then return false; end if;
+ update public.map_r1_search_history set calls=calls+1,updated_at=now()
+ where job_id=p_id and search_key=r.search_key and calls<cap;
+ if not found then return false; end if;
+ update public.map_r1_location_jobs set calls=calls+1,updated_at=now() where job_id=p_id;
+ return true;
+end $function$;
+
 commit;

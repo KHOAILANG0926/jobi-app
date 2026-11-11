@@ -12,4 +12,5 @@ do $$declare d text;bad boolean;begin
   execute 'select exists(select 1 from public.location_integrity_issues())' into bad;
   if bad then raise exception 'location integrity check failed after other-stores change';end if;
  end if;
+  if position('2*greatest(1,least(5' in pg_get_functiondef('public.map_r1_reserve_call(bigint,uuid)'::regprocedure))=0 then raise exception 'reserve_call is not per-store';end if;
 end$$;
