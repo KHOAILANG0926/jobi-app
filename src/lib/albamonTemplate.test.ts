@@ -20,6 +20,7 @@ eq([a.bar, a.style], [b.bar, 'box'], 'same industry → same color, box style')
 if (detailLook('am_thuc_do_uong', 1).bar === detailLook('san_xuat_xay_dung', 1).bar) throw new Error('different industries → different colors')
 // 2026-11-11: 공장 ④ 그림 = 카드 사진(같은 한 장, 공고 번호로 바뀌지 않음)
 import { industryPhotoUrl } from './cardPhoto.ts'
+for (const seed of [1, 2, 3]) eq(detailLook('san_xuat_xay_dung', seed, null, 'Công ty TNHH Hojeong').photo, industryPhotoUrl('san_xuat_xay_dung', null, 'Công ty TNHH Hojeong'), `#682 unknown factory detail = card photo (seed ${seed})`)
 for (const seed of [1, 2, 3]) eq(detailLook('san_xuat_xay_dung', seed, null, 'Samsung linh kiện điện tử').photo, industryPhotoUrl('san_xuat_xay_dung', null, 'Samsung linh kiện điện tử'), `factory detail = card photo (seed ${seed})`)
 // Codex #683: 주소의 phố는 쌀국수(phở)가 아니다
 if (detailLook('am_thuc_do_uong', 1, null, '', 'Nhà hàng tuyển phục vụ. Địa chỉ: Thành phố Bắc Ninh').photo.includes('02c')) throw new Error('Thành phố is not phở')

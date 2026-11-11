@@ -92,7 +92,7 @@ try {
    const before=await open(baseline,baselineJob,width,state==='none'?'loaded':state),after=await open(current,job,width,state)
    if(state==='none') {
     const fallback=after.page.locator('.jd2-header .jd2-logo__img')
-    assert.equal(await fallback.getAttribute('src'),'/images/industry/san_xuat_xay_dung.jpg','missing image selects the actual industry fallback')
+    assert.equal(await fallback.getAttribute('src'),'/images/template/01-co-ban.jpg','missing image selects the actual industry fallback')
     for(const page of [before.page,after.page]) await page.locator('.jd2-header .jd2-logo__img').evaluate(img=>img.decode())
     assert(await fallback.evaluate(img=>img.complete&&img.naturalWidth>0),'industry fallback really loads')
    }
