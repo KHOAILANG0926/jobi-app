@@ -1,0 +1,79 @@
+name: 한국 사이트 — 페이스북 그룹 조사 (읽기 전용)
+# Lee 2026-11-11: 한국 거주 베트남인 페이스북 그룹(수·회원·하루 글·실제 글 종류)을 Lee 컴퓨터 없이 조사.
+# crawl-facebook-one과 같은 VPS 실행기·같은 쿠키(같은 IP에서만 접속, 2026-11-06 결정). DB 저장 없음.
+# 결과: 실행 요약 표 + 비공개 결과 파일(7일). 사람 이름·전화번호는 남기지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      top:
+        description: '자세히 볼 큰 그룹 수'
+        default: '8'
+      posts:
+        description: '그룹마다 읽을 최근 글 수'
+        default: '50'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crawl-facebook-one  # 수집기와 같은 줄 — 같은 계정으로 동시에 접속하지 않게
+  cancel-in-progress: false
+
+jobs:
+  survey:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 90
+    env:
+      FB_C_USER: ${{ secrets.FB_C_USER }}
+      FB_XS: ${{ secrets.FB_XS }}
+      FB_DATR: ${{ secrets.FB_DATR }}
+      FB_FR: ${{ secrets.FB_FR }}
+      TOP: ${{ inputs.top }}
+      POSTS: ${{ inputs.posts }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 입력·키 확인
+        run: |
+          echo "$TOP$POSTS" | grep -Eq '^[0-9]+$' || { echo "::error::숫자만"; exit 1; }
+          [ -n "$FB_C_USER" ] && [ -n "$FB_XS" ] || { echo "::error title=Facebook 쿠키 없음::GitHub Secrets에 FB_C_USER·FB_XS 필요"; exit 1; }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존성 설치
+        run: python -m pip install -r crawler/requirements.txt && python -m playwright install chromium
+      - name: 조사
+        working-directory: crawler
+        run: python -u korea_fb_survey.py --top "$TOP" --posts "$POSTS" --out /tmp/korea_fb_survey.json
+      - name: 요약 표
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, os
+          try: d = json.load(open('/tmp/korea_fb_survey.json', encoding='utf-8'))
+          except Exception: raise SystemExit(0)
+          L = [f"## 페이스북 그룹 조사 {d['at']}", "", "| 검색어 | 그룹 | 10만+ | 1만+ | 하루 90+ |", "|---|---|---|---|---|"]
+          for q in d['queries']:
+              a = q['all']; L.append(f"| {q['query']} | {a['count']} | {a['ge_100k']} | {a['ge_10k']} | {a['daily_90plus']} |")
+          s = d.get('summary', {}).get('korea_named', {})
+          L += ["", f"중복 뺀 한국 이름 그룹: {s.get('count')}개 (10만+ {s.get('ge_100k')}, 1만+ {s.get('ge_10k')})", "",
+                "| 그룹 | 회원 | 만든 날 | 오늘 글 | 읽은 글 | 일자리 | 판매 | 질문 | 환전 | 방 | 비자·서류 | 기타 | 비자 적힌 구인 | '비자 필요 없음' |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+          for g in d.get('detail', []):
+              c = g.get('post_counts', {}); n = lambda k: c.get(k, 0)
+              L.append(f"| {g['name'][:35]} | {g['members']:,} | {g.get('created','')} | {g.get('today','')} | {g['posts_read']} | {n('job')} | {n('sell')} | {n('ask')} | {n('money')} | {n('room')} | {n('visa_doc')} | {n('other')} | {g['jobs_with_visa']} | {g['no_visa_posts']} |")
+          if d.get('stopped'): L.append(f"\n⚠️ 중단: {d['stopped']}")
+          open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
+          print('\n'.join(L))
+          PY
+      - name: 결과 보관(7일, 비공개)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: korea-fb-survey
+          path: /tmp/korea_fb_survey.json
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: 서버 정리
+        if: always()
+        run: |
+          python -m pip cache purge >/dev/null 2>&1 || true
+          rm -f /tmp/korea_fb_survey.json
