@@ -1,6 +1,6 @@
 // 주소 읽기 한 곳(Lee 2026-11-07). 실제 공고 사례를 모두 여기 모은다 — 새 사례는 여기 추가하고 addressReader.ts를 고친다.
 // (옛 페이스북 수집기 crawl_facebook.extract_district 시험 사례를 그대로 옮겼다.)
-import { readAddress, readLocationText } from './addressReader.ts'
+import { readAddress, readAddresses, readLocationText, readLocationTexts } from './addressReader.ts'
 function eq(a: string, b: string, name: string) { if (a !== b) throw new Error(`${name}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`) }
 
 const HIGHLANDS_5157 = `🎉 HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI 🎉
@@ -56,3 +56,20 @@ eq(readAddress('BẮC BLING ĐANG HOT – JOB CIRCLE K ĐANG CHỜ BẠN!\nBắc
 eq(readAddress('GOERTEK VIỆT NAM TUYỂN DỤNG LAO ĐỘNG\n Làm việc tại: Nam Sơn / Quế Võ 1 - Bắc Ninh\n Nam/Nữ từ 18 đến 48 tuổi\n Liên hệ: Zalo Hiền HR'), 'Nam Sơn / Quế Võ 1, Bắc Ninh', '#633 GOERTEK labeled value with spaced dash before province')
 eq(readAddress('Mỳ Cay SaSin - Bắc Ninh\nCần người phục vụ'), '', '#633 unlabeled line with dash is not read as address')
 console.log('addressReader: #560 cases passed')
+
+// 2026-11-11 Lee: 매장 여러 곳(KRIK 2곳, MediaMart 4곳) — 첫 주소는 그대로, 다른 줄 매장 주소도 읽는다
+const KRIK = 'KRIK TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG PARTTIME\n- Thu nhập: 25-35k/h\n- Thời gian làm việc: 8h30-12h hoặc 18h-22h30\nĐịa chỉ: 152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh\n148 Trần Phú - Từ Sơn - Bắc Ninh\n Quan tâm ib Ms. Trang: 0886530131'
+const ka = readAddresses(KRIK)
+eq(ka[0], readAddress(KRIK), 'KRIK first = readAddress')
+eq(ka.length + ' ' + ka[1], '2 148 Trần Phú, Từ Sơn, Bắc Ninh', 'KRIK second store')
+const MEDIAMART = 'HỆ THỐNG SIÊU THỊ ĐIỆN MÁY MEDIAMART TUYỂN DỤNG – KHU VỰC BẮC NINH\nLàm việc tại các trung tâm:\n- CN Bắc Ninh: Số 37 Đường Lý Thái Tổ, P. Võ Cường, TP. Bắc Ninh\n- CN Từ Sơn: Đường Trần Phú, Phường Từ Sơn, Thành phố Bắc Ninh, Việt Nam\n- Quế Võ: Khu phố Mao Dộc, Phường Phương Liễu , Tỉnh Bắc Ninh, Việt Nam\n- Quốc lộ 38, Ngã tư Đông Côi, Phường Thuận Thành, Tỉnh Bắc Ninh, Việt Nam\nCác vị trí tuyển dụng:\n1. Quản lý giao hàng lắp đặt\nYêu cầu chung:\nNam/Nữ, từ 18 tuổi trở lên\nQuyền lợi:\nThu nhập hấp dẫn, từ 10–15 triệu/tháng tùy vị trí và năng lực\nLiên hệ ứng tuyển:\nMs. Hải Anh – ***126'
+const ma = readAddresses(MEDIAMART)
+eq(String(ma.length), '4', 'MediaMart 4 stores: ' + JSON.stringify(ma))
+eq(ma[3], 'Quốc lộ 38, Ngã tư Đông Côi, Phường Thuận Thành, Tỉnh Bắc Ninh', 'MediaMart national-road store, Việt Nam removed')
+// 한 곳만 있는 글은 그대로 1곳(같은 주소를 다른 줄에 다시 적어도 1곳)
+eq(String(readAddresses(HIGHLANDS_5157).length), '1', '#5157 same store repeated in apply line stays 1')
+eq(String(readAddresses(NETCO_5599).length), '1', '#5599 one place')
+eq(JSON.stringify(readAddresses('Cần tuyển phục vụ quán ăn\nZalo 0911111111')), '[]', 'no address → []')
+eq(JSON.stringify(readLocationTexts(KRIK, 'Bắc Ninh')), JSON.stringify(['152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Bắc Ninh', '148 Trần Phú, Từ Sơn, Bắc Ninh, Bắc Ninh']), 'location texts per store + region')
+eq(readLocationTexts(NETCO_5599, 'Bắc Ninh')[0], readLocationText(NETCO_5599, 'Bắc Ninh'), 'first location text unchanged')
+console.log('addressReader: 매장 여러 곳(KRIK·MediaMart) 통과')

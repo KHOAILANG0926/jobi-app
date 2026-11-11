@@ -122,3 +122,24 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   assert(cachedHits >= 1, 'Goong questions are cached like VietMap ones')
   console.log('autoLocationResolver: Goong address/company-in-park assertions passed')
 }
+
+// 2026-11-11 Lee 매장 여러 곳(KRIK·MediaMart): 첫 매장은 지금 순서 그대로, 다른 매장은 지도 호출 없이 저장된 동 중심 → 행정구역 중심 대략 위치
+{
+  const a1 = '12 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội'
+  const a2 = 'Đường Trần Phú, Phường Từ Sơn, Thành phố Bắc Ninh'
+  const a3 = 'Ngõ 9, Nơi Không Có'
+  let calls = 0
+  const multi = await resolver.resolveAutoLocation({ id: 20, company: 'Fixture', location: a1, targets: [{ address: a1, workLocationId: 1 }, { address: a2, workLocationId: 2 }, { address: a3, workLocationId: 3 }] }, {
+    ...deps, async reserve() { return true },
+    async request(action: string) { calls++; return action === 'search' ? [{ ref_id: 'fixture-place', name: '12 Nguyễn Trãi', address: a1 }] : { name: '12 Nguyễn Trãi', display: a1, lat: 21.0, lng: 105.8, ward: 'Thanh Xuân Trung', district: 'Thanh Xuân', city: 'Hà Nội' } },
+    async wardCenter(unit: { key: string }) { return unit.key.includes('tu son') ? { lat: 21.12, lng: 105.96, at: '2026-11-01' } : null },
+    async administrativeCenter() { return null },
+  } as never)
+  assert(multi.kind === 'exact' && multi.address === a1, 'first store keeps the existing exact step')
+  assert(calls === 2, 'other stores add no map lookups: ' + calls)
+  const others = (multi as { others?: Array<{ kind: string; address?: string; workLocationId?: number | null; source?: string }> }).others ?? []
+  assert(others.length === 1 && others[0].kind === 'area' && others[0].address === a2 && others[0].workLocationId === 2 && /ward cache/.test(others[0].source ?? ''), 'second store gets saved ward-centre area pin: ' + JSON.stringify(others))
+  const single = await resolver.resolveAutoLocation({ id: 21, company: 'Fixture', location: 'unknown', targets: [] }, deps)
+  assert(!('others' in single), 'one-store job unchanged')
+  console.log('autoLocationResolver: 매장 여러 곳 — 첫 매장 그대로, 다른 매장 호출 없이 대략 위치 통과')
+}

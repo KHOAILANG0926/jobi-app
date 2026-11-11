@@ -3,7 +3,7 @@
 // 동·거리·공단 중심·성 대략 위치만 나오면 "못 찾음" → 수집하지 않는다.
 import { companyCore } from './jobIdentity'
 import type { LocationDecision, ResolverJob } from './autoLocationResolver'
-import { readLocationText } from './addressReader'
+import { readLocationText, readLocationTexts } from './addressReader'
 import { readCompany, type CompanyRead } from './companyReader'
 
 // source_text: 원문 전체. 주소 칸(addresses)이 없으면 원문 주소는 이 원문에서 주소 읽기 한 곳(addressReader)으로 읽는다(Lee 2026-11-07).
@@ -48,7 +48,10 @@ export function precheckJob(input: PrecheckInput): ResolverJob | null {
     .filter((a): a is string => typeof a === 'string' && a.trim().length > 0).map((a) => a.trim().slice(0, 300)).slice(0, 5)
   const location = precheckLocationText(input, addresses.length > 0)
   if (!location && !addresses.length) return null
-  return { id: 0, company, location, targets: (addresses.length ? addresses : [location]).map((address) => ({ address, workLocationId: null })) }
+  // 주소 칸이 없으면 원문에 적힌 매장마다 위치 글자(Lee 2026-11-11 매장 여러 곳). 첫 번째는 location과 같다.
+  const fromText = addresses.length ? [] : precheckLocationTexts(input)
+  const list = addresses.length ? addresses : fromText.length > 1 && fromText[0] === location ? fromText : [location]
+  return { id: 0, company, location, targets: list.map((address) => ({ address, workLocationId: null })) }
 }
 
 /** 위치 글자. 주소 칸이 없고 원문이 오면 원문에서 주소를 읽어 지역 앞에 붙인다(주소 읽기는 addressReader 한 곳). */
@@ -56,6 +59,13 @@ export function precheckLocationText(input: PrecheckInput, hasAddresses = false)
   const region = typeof input?.location === 'string' ? input.location.trim() : ''
   const source = typeof input?.source_text === 'string' ? input.source_text.slice(0, 20000) : ''
   return (!hasAddresses && source ? readLocationText(source, region) : region).slice(0, 300)
+}
+
+/** 원문 매장마다 위치 글자(최대 5곳, 첫 번째 = precheckLocationText). 원문이 없으면 지역 하나. */
+export function precheckLocationTexts(input: PrecheckInput): string[] {
+  const region = typeof input?.location === 'string' ? input.location.trim() : ''
+  const source = typeof input?.source_text === 'string' ? input.source_text.slice(0, 20000) : ''
+  return (source ? readLocationTexts(source, region) : [region]).map((t) => t.slice(0, 300)).filter(Boolean)
 }
 
 /** 전화번호 기록으로 소개소 보기(Lee 2026-11-07 5번 B): 이 공고 번호가 회사 코드표(job_company_phones)에 다른 회사로 이미 쓰였으면 소개소.

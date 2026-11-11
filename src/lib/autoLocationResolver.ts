@@ -11,7 +11,9 @@ import type { PoiCandidate } from './locationCandidateMatch'
 import { companySearchText, googleSearchText, goongPredictionHits, googlePlaceHits, pickCompanyPlace, googleCacheKeys } from './companyPlaceSearch'
 
 export interface ResolverJob { id: number; company: string; location: string; targets: {address: string; workLocationId: number | null}[] }
-export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean }
+export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'unresolved'}) & { address?: string; resolvedAddress?: string; workLocationId?: number | null; evidence?: string; failed?: boolean; deferred?: boolean
+  /** 다른 매장 핀(대략 위치만, 2026-11-11). DB map_r1_complete가 매장마다 같은 위치 쓰기 함수로 기록한다. */
+  others?: LocationDecision[] }
 export interface ResolverDeps {
   withinAdministrativeArea?(addresses:string[],point:{lat:number;lng:number}): Promise<boolean>
   administrativeCenter?(addresses: string[]): Promise<{lat:number;lng:number;source:string;checkedAt:string} | null>
@@ -42,6 +44,12 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
     googleCalls++
     return providedDeps.google!(text)
   } } : {}) }
+  const main=await resolveMain(job,deps)
+  const others=main.kind==='unresolved'?[]:await otherStorePoints(job,main.address,deps)
+  return others.length?{...main,others}:main
+}
+
+async function resolveMain(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
   const result=await resolveEvidence(job,deps)
   if(result.kind==='unresolved')return result
   const targets=job.targets.length?job.targets:[{address:job.location,workLocationId:null}]
@@ -54,6 +62,23 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
     if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed:result.failed,deferred:result.deferred,evidence:[result.evidence,'administrative_boundary:mismatch'].filter(Boolean).join('\n')}
   }
   return {kind:'unresolved',failed:result.failed,deferred:result.deferred}
+}
+
+/** 매장이 여러 곳인 공고(Lee 2026-11-11 KRIK·MediaMart): 첫 핀을 정한 매장 말고 다른 매장마다 대략 위치 핀(chưa xác minh).
+ *  지도 자료를 새로 부르지 않는다(공고당 호출 한도 그대로) — 저장해 둔 동 중심 → 원래 행정구역 중심 순서(10-14 순서표의 동·시 단계). 최대 4곳. */
+async function otherStorePoints(job: ResolverJob, chosen: string | undefined, deps: ResolverDeps): Promise<LocationDecision[]> {
+  const out: LocationDecision[] = []
+  for (const t of job.targets.filter((x) => x.address && x.address !== chosen).slice(0, 4)) {
+    const unit = wardUnitForAddresses([t.address])
+    const saved = unit ? await deps.wardCenter?.(unit).catch(() => null) : null
+    if (unit && saved && validPoint(saved)) {
+      out.push({ kind: 'area', lat: saved.lat, lng: saved.lng, source: `VietMap ward cache ${unit.key}`, checkedAt: saved.at || new Date().toISOString(), address: t.address, workLocationId: t.workLocationId, evidence: 'other_store:ward_cache' })
+      continue
+    }
+    const area = await deps.administrativeCenter?.([t.address, job.location])
+    if (area && validPoint(area)) out.push({ kind: 'area', ...area, address: t.address, workLocationId: t.workLocationId, evidence: 'other_store:administrative_center' })
+  }
+  return out
 }
 
 async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {

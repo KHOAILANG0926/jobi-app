@@ -71,6 +71,46 @@ export function readAddress(sourceText: string): string {
   return [...new Set(parts.slice(0, 3))].join(', ')
 }
 
+// 매장(근무지)이 여러 곳인 글(Lee 2026-11-11 KRIK 2곳·MediaMart 4곳 — 핀이 첫 곳만 찍힘): 첫 주소(readAddress) 다음에
+// 다른 줄에 적힌 매장 주소도 읽는다. 매장 주소 줄 = 번지+거리 또는 거리·국도·khu phố·thôn 낱말이 있고, 쉼표(띄어 쓴 대시)로 2칸 이상,
+// 끝 칸이 원래 성 이름이거나 동·구 낱말이 있는 줄. 앞 이름표("CN Từ Sơn:")와 끝 "Việt Nam"은 뗀다. 첫 주소와 같은 곳(포함)은 뺀다.
+const STORE_MARK = /(?:^|[\s,])(?:số\s*)?\d{1,4}\p{L}?(?:\/\d+)*\s+\p{L}|(?:^|[\s,])(?:đường|phố|quốc lộ|ql\.?|khu phố|kp\.?|thôn|tòa|toà)\s/iu
+const UNIT_MARK = /(?:^|[\s,])(?:phường|p\.|xã|quận|q\.|huyện|thị xã|thị trấn|tp\.?|thành phố|khu phố)\s/iu
+const placeKey = (s: string) => normalizePlaceText(s).replace(/[^a-z0-9]+/g, ' ').trim()
+function storeLine(raw: string): string {
+  let line = trimDots(raw.replace(new RegExp(`^[^${WORD}]+`, 'u'), '').trim())
+  const colon = line.split(',', 1)[0].match(/[:：]/)
+  if (colon) line = trimDots(line.slice(line.indexOf(colon[0]) + 1))
+  line = line.replace(/\s+[-–]\s+/gu, ', ').replace(/,\s*(?:việt nam|vietnam)\s*$/iu, '').trim()
+  const parts = line.split(',').map((x) => x.trim()).filter(Boolean)
+  if (parts.length < 2 || line.length > 160 || NOT_ADDRESS.test(line.replace(/quốc lộ\s*\d+/giu, '')) || !STORE_MARK.test(line)) return ''
+  const last = normalizePlaceText(parts[parts.length - 1].replace(/^(?:tỉnh|tinh|thành phố|tp\.?)\s+/iu, '')).replace(/\s+/g, ' ').trim()
+  return PROVINCES.has(last) || UNIT_MARK.test(line) ? parts.join(', ') : ''
+}
+
+/** 원문의 근무지 주소 목록(최대 5곳). 첫 번째는 readAddress와 같다. 주소가 없으면 []. */
+export function readAddresses(sourceText: string): string[] {
+  const first = readAddress(sourceText)
+  if (!first) return []
+  const out = [first]
+  const keys = [placeKey(first)]
+  for (const raw of postBody(String(sourceText ?? '').normalize('NFC')).split('\n')) {
+    if (out.length >= 5) break
+    const a = storeLine(raw)
+    const k = a && placeKey(a)
+    if (!k || keys.some((x) => x.includes(k) || k.includes(x))) continue
+    out.push(a); keys.push(k)
+  }
+  return out
+}
+
+/** 위치 확인에 쓸 위치 글자 목록: 매장마다 원문 주소 + 수집 그룹 지역. 첫 번째는 readLocationText와 같다. */
+export function readLocationTexts(sourceText: string, region = ''): string[] {
+  const r = String(region ?? '').trim()
+  const list = readAddresses(sourceText).map((a) => [a, r].filter(Boolean).join(', '))
+  return list.length ? list : [readLocationText(sourceText, region)].filter(Boolean)
+}
+
 /** 위치 확인에 쓸 위치 글자: 원문 주소 + (원문에 이름이 있는) 수집 그룹 지역. */
 export function readLocationText(sourceText: string, region = ''): string {
   return [readAddress(sourceText), String(region ?? '').trim()].filter(Boolean).join(', ')

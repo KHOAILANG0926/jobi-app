@@ -3,7 +3,7 @@ import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
-import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
+import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckLocationTexts, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
 import { readWorkplace } from '../../src/lib/companyReader.ts'
 import { cachedGooglePlaceId, needsLogoLookup, websiteDomain } from '../../src/lib/logoLookup.ts'
@@ -81,7 +81,9 @@ export async function precheckLocation(db, request, input, goong = null, google 
   if (company.name && !company.agency) company.agency = await phoneSaysAgency(db, company.name, input)
   // 소개소면 실제 근무 공장·공단 열쇠(중복 판정에만, Lee 2026-11-07)
   const workplace_key = company.agency ? readWorkplace(`${input?.source_text ?? ''}\n${input?.poster_text ?? ''}`.slice(0, 40000)) : ''
-  const who = { company: company.name, agency: company.agency, company_from: company.from, workplace_key }
+  // stores: 원문 매장이 여러 곳이면 매장마다 위치 글자 — 수집기가 근무지 줄로 넣는다(주소 칸이 있는 소스는 그 칸 그대로, Lee 2026-11-11)
+  const stores = Array.isArray(input?.addresses) && input.addresses.length ? [] : precheckLocationTexts(input || {})
+  const who = { company: company.name, agency: company.agency, company_from: company.from, workplace_key, ...(stores.length > 1 ? { stores } : {}) }
   if (!company.name) return { findable: false, kind: 'unresolved', reason: input?.poster_text ? 'no_company' : 'no_company_text', location: '', ...who }
   if (company.agency && company.fee) return { findable: false, kind: 'unresolved', reason: 'agency_fee', location: '', ...who }
   const job = precheckJob(input)

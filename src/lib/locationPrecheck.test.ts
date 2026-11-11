@@ -46,3 +46,15 @@ assert(agencyByPhone('Nhân lực Minh Anh', [{ core: 'samsung' }]) === true, 'p
 assert(agencyByPhone('CTY BÁNH KẸO HỮU NGHỊ', [{ core: 'banhkeohuunghi' }]) === false, 'same company name → not agency')
 assert(agencyByPhone('Highlands Coffee', [{ core: 'p0912345678' }]) === false, 'nameless job record is not evidence')
 assert(agencyByPhone('Highlands Coffee', []) === false, 'no record → not agency')
+
+// 2026-11-11 Lee 매장 여러 곳: 주소 칸 없는 원문은 매장마다 위치 찾기 대상, 첫 번째는 위치 글자와 같다. 주소 칸이 있으면 그 칸 그대로.
+{
+  const { precheckJob: pj, precheckLocationTexts: plt } = await import('./locationPrecheck.ts')
+  const src = 'KRIK TUYỂN DỤNG\nĐịa chỉ: 152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh\n148 Trần Phú - Từ Sơn - Bắc Ninh\nLiên hệ 0886530131'
+  const job = pj({ company: 'KRIK', location: 'Bắc Ninh', source_text: src })!
+  if (job.targets.length !== 2 || job.targets[0].address !== job.location) throw new Error('multi-store targets: ' + JSON.stringify(job))
+  if (plt({ location: 'Bắc Ninh', source_text: src }).length !== 2) throw new Error('location texts per store')
+  const site = pj({ company: 'KRIK', location: 'Bắc Ninh', addresses: ['1 A, Bắc Ninh'], source_text: src })!
+  if (site.targets.length !== 1 || site.targets[0].address !== '1 A, Bắc Ninh') throw new Error('site address column wins')
+  console.log('locationPrecheck: 매장 여러 곳 대상 통과')
+}
