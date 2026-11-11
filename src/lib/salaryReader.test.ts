@@ -46,6 +46,11 @@ eq(s('Tuyển phụ bếp\nPart-time: 25.000 – 31.000đ/giờ')?.period, 'hour
 eq(s('Tuyển phục vụ\nHỗ trợ 500k/tháng tiền xăng\nLương thỏa thuận')?.salary, 'thỏa thuận', 'allowance line is not salary')
 eq(s('Tuyển lao động\nPhí hồ sơ 300.000đ/người'), null, 'fee is not salary')
 // 급여 단어 줄의 phụ cấp·tăng ca 안내는 급여 줄(2026-11-10 #5876 ZHAN AN 실제 원문, 전화번호 없는 줄만)
+// 2026-11-11 Con Cưng(Facebook): 급여 단어 줄의 화폐 글자 붙은 동 금액은 지급 단위 없어도 급여, 급여 단어 없는 줄은 그대로 아님
+const TCONCUNG = 'THU NHẬP TỪ 8.300.000 - 12.000.000 VNĐ (Thu nhập tăng theo doanh số bán hàng)\n CON CƯNG BẮC NINH ĐANG TÌM ĐỒNG ĐỘI MỚI'
+eq(s(TCONCUNG)?.salary, '8.300.000 - 12.000.000 VNĐ', 'Con Cưng salary word + VNĐ without period')
+eq(s('Tuyển nhân viên\nThưởng 500.000đ cho nhân viên mới'), null, 'bonus amount without salary word is not salary')
+eq(s('Tuyển nhân viên\nĐặt cọc đồng phục 200.000đ'), null, 'deposit is not salary')
 const T5876 = ' 1. CHẾ ĐỘ LƯƠNG & THƯỞNG\n LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA!\n Lương và phụ cấp khi làm đủ công chuẩn: 7.300.000đ/tháng.\n THƯỞNG GẮN BÓ ĐẾN 1.000.000Đ\n Thưởng gắn bó dành cho nhân viên mới:\nLàm đủ 30 ngày: Thưởng 500.000đ.\nLàm đủ 90 ngày: Thưởng thêm 1.000.000đ.\nTổng thưởng gắn bó: 1.500.000đ (thưởng một lần theo từng mốc).'
 eq(s(T5876)?.salary, '7.300.000Đ/THÁNG', '#5876 lương & phụ cấp line is salary')
 eq(s(T5876)?.period, 'month', '#5876 monthly')

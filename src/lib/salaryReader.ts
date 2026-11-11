@@ -40,6 +40,9 @@ const UNLABELED = [
 const AMT = '(?:\\d{1,3}(?:[.,]\\d{3})+\\s*(?:đ|đồng|vnđ|vnd)?|\\d{1,4}\\s*k)'
 const PER = '\\s*\\/\\s*(?:\\d+\\s*)?(?:giờ|gio|h|tiếng|tieng|ngày|ngay|ca|tháng|thang)(?![\\p{L}])'
 const DONG_K = new RegExp(`(?<![\\d.,])${AMT}(?:\\s*[-–~]\\s*${AMT})?(?:\\s*(?:đ|đồng|vnđ|vnd))?${PER}`, 'iu')
+// 급여 단어 줄("THU NHẬP TỪ 8.300.000 - 12.000.000 VNĐ", Con Cưng 2026-11-11)은 지급 단위가 없어도 화폐 글자(đ·VNĐ)가 붙은 동 전체 금액을 읽는다.
+//  급여 단어가 없는 줄은 지금처럼 지급 단위가 있어야 한다(수당·상여·비용 금액을 급여로 잡지 않게).
+const DONG_CUR = new RegExp(`(?<![\\d.,])\\d{1,3}(?:[.,]\\d{3})+(?:\\s*(?:đ|đồng|vnđ|vnd))?(?:\\s*[-–~]\\s*\\d{1,3}(?:[.,]\\d{3})+)?\\s*(?:đồng|đ|vnđ|vnd)(?![\\p{L}])`, 'iu')
 const NOT_PAY_LINE = /\b(?:ho tro|phu cap|thuong|chuyen can|phi|coc|dat coc|tang ca|an trua|an ca|xang xe|nha o)\b/
 // "Lương và phụ cấp …: 7.300.000đ/tháng", "LƯƠNG & PHỤ CẤP 7.300.000Đ/THÁNG – CHƯA TÍNH TĂNG CA"(#5876 ZHAN AN, Lee 2026-11-10):
 //  급여 단어가 있는 줄의 'phụ cấp'(급여에 포함)·'tăng ca'(포함/불포함 안내)는 급여 줄을 막지 않는다. 연장 수당 줄("lương tăng ca", "Tăng ca: …")은 그대로 건너뛴다.
@@ -91,11 +94,13 @@ export function readSalary(sourceText: string | null | undefined, ocrText?: stri
       }
     }
   }
-  for (const pool of [lines.filter((l) => SALARY_WORD.test(bare(l))), lines]) {
+  for (const [pool, patterns] of [[lines.filter((l) => SALARY_WORD.test(bare(l))), [DONG_K, DONG_CUR]], [lines, [DONG_K]]] as const) {
     for (const line of pool) {
       if (notPay(bare(line))) continue
-      const m = line.match(DONG_K)
-      if (m) return { salary: m[0].trim(), period: periodOf(m[0]), evidence: [line] }
+      for (const re of patterns) {
+        const m = line.match(re)
+        if (m) return { salary: m[0].trim(), period: periodOf(m[0]), evidence: [line] }
+      }
     }
   }
   const wages = posterSalaryEvidence(ocrText)
