@@ -119,3 +119,10 @@ assert(none.kind === 'unresolved' && !('lat' in none), '못 찾으면 성 대략
   assert(pick('FUSHAN', 'VSIP - Bắc Ninh', [H('f1', 'Fushan Technology Việt Nam', '8 Đường 6, Khu công nghiệp VSIP, Từ Sơn, Bắc Ninh'), H('f2', 'Công Ty Fushan Technology Việt Nam (Cổng 2)', '22 Đ. 8, Từ Sơn, Bắc Ninh')]).hit?.id === 'f1', '#560-22 Fushan: of two gates the one whose address names VSIP (Lee confirmed FUSHAN at VSIP)')
 }
 console.log('companyPlaceSearch: core-name match, branch narrowing, Goong→Google company step, fallback unchanged — passed')
+
+// 2026-11-11 기존 공고 다시 찾기: 'Thanh'은 사람 이름(빼지 않음), 어학원 앞머리 'Anh ngữ'는 뗀다
+assert(sameCoreName('Nhà hàng Thanh Phệ', 'Nhà Hàng Thanh Phệ'), 'Thanh Phệ restaurant same name')
+assert(!sameCoreName('Nhà hàng Thanh Phệ', 'Nhà Hàng Thanh Thảo'), 'different restaurant stays different')
+assert(sameCoreName('Anh ngữ Regal Edu Vân Dương', 'Regal Edu Vân Dương'), 'language school head word removed')
+assert(sameCoreName('Nhà hàng Hoa Sen Thành phố Bắc Ninh', 'Nhà hàng Hoa Sen'), 'thành phố phrase still ignored')
+console.log('companyPlaceSearch: Thanh 이름·어학원 앞머리 통과')
