@@ -204,6 +204,9 @@ async def open_page(page, url: str) -> bool:
             except Exception:  # noqa: BLE001
                 title = "?"
             print(f"  ⛔ 열기 실패({attempt}/2): {type(e).__name__} · 지금 주소 {page.url[:80]} · 제목 {title[:40]}")
+            state = await inspect_page_state(page)  # 로그인·checkpoint로 튕긴 화면이면 일반 로딩 실패가 아니라 계정 이상
+            if state in ("checkpoint", "session_expired"):
+                raise RuntimeError(state)
             if attempt == 1:
                 await page.wait_for_timeout(30000)
     return False
@@ -361,6 +364,8 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
             if stats["load_failed"] >= 2:
                 print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 오늘 수집 중단")
                 break
+        else:
+            stats["load_failed"] = 0
         stats["new_posts"] += new
         print(f"그룹 {gname[:40]}: 읽음 {len(posts)} · 새 글 {new} · 댓글 읽은 글 {with_comments}")
         await page.wait_for_timeout(random.randint(60000, 120000))
