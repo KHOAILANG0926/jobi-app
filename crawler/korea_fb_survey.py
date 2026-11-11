@@ -58,6 +58,11 @@ def classify(text: str) -> str:
     return "other"
 
 
+def is_korea_group(name: str) -> bool:
+    """한국 거주자 그룹 판정 한 곳 — 검색 결과·저장된 그룹 모두 이 함수로(저장된 옛 판정은 믿지 않는다)."""
+    return bool(KOREA_NAME.search(name)) and not NOT_IN_KOREA.search(name)
+
+
 def mask(text: str) -> str:
     return PHONE.sub("[số]", text)
 
@@ -98,7 +103,7 @@ async def search_groups(page, query: str, scrolls: int) -> list[dict]:
         r["members"] = parse_members(r["meta"].split("·")[1] if "·" in r["meta"] else r["meta"])
         day = re.search(r"(일일 게시물|bài viết mỗi ngày|posts a day)\s*([\d+개,]+)|([\d+]+)\s*(bài viết mỗi ngày|posts a day)", r["meta"])
         r["daily"] = (day.group(2) or day.group(3)) if day else ""
-        r["korea_name"] = bool(KOREA_NAME.search(r["name"])) and not NOT_IN_KOREA.search(r["name"])
+        r["korea_name"] = is_korea_group(r["name"])
         r["query"] = query
     return rows
 
@@ -131,10 +136,11 @@ async def read_about(page, gid: str) -> dict:
     return info
 
 
-async def read_recent_posts(page, gid: str, want: int) -> list[dict]:
-    """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다."""
+async def read_recent_posts(page, gid: str, want: int) -> list[dict] | None:
+    """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다.
+    화면이 안 열리면 None(정상적으로 글이 없는 빈 그룹의 [] 와 구분)."""
     if not await open_page(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
-        return []
+        return None
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
         raise RuntimeError(state)
@@ -318,7 +324,7 @@ async def refresh_registry(page, queries: list[str]) -> None:
 
 
 def pick_groups(n: int) -> list[dict]:
-    rows = [r for r in _rows(KIND_GROUP) if (r["payload"] or {}).get("korea_name") and (r["payload"] or {}).get("members", 0) >= MIN_MEMBERS]
+    rows = [r for r in _rows(KIND_GROUP) if is_korea_group((r["payload"] or {}).get("name", "")) and (r["payload"] or {}).get("members", 0) >= MIN_MEMBERS]
     rows.sort(key=lambda r: ((r["meta"] or {}).get("last_visit") or "", -(r["payload"] or {}).get("members", 0)))
     return rows[:n]
 
@@ -330,6 +336,8 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
         about = await read_about(page, gid)
         await page.wait_for_timeout(random.randint(10000, 20000))
         posts = await read_recent_posts(page, gid, want_posts)
+        failed = bool(about.get("error")) or posts is None  # 소개·글 화면 중 하나라도 안 열렸으면 실패
+        posts = posts or []
         names = [post_name(gid, p["text"], p["url"]) for p in posts]
         existing = {}
         for k in range(0, len(names), 100):  # 이번에 읽은 글만 이름으로 조회(저장분이 1,000건을 넘어도 안전)
@@ -361,7 +369,7 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
                                   "admin_business_words": about.get("admin_business_words", [])},
                 {**(g["meta"] or {}), "last_visit": _now(), "visits": int((g["meta"] or {}).get("visits") or 0) + 1, "history": hist})
         stats["groups"].append({"name": gname[:40], "read": len(posts), "new": new, "with_comments": with_comments})
-        if about.get("error") and not posts:
+        if failed and not posts:
             stats["load_failed"] = stats.get("load_failed", 0) + 1
             if stats["load_failed"] >= 2:
                 print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 오늘 수집 중단")
@@ -460,8 +468,10 @@ async def main(argv=None) -> int:
                 about = await read_about(page, g["id"])
                 await page.wait_for_timeout(random.randint(8000, 15000))
                 posts = await read_recent_posts(page, g["id"], a.posts)
+                failed = bool(about.get("error")) or posts is None
+                posts = posts or []
                 kws = []
-                for kw in KEYWORDS:
+                for kw in ([] if failed and not posts else KEYWORDS):  # 화면이 안 열린 그룹은 키워드 검색까지 반복하지 않는다
                     await page.wait_for_timeout(random.randint(8000, 15000))
                     kws.append(await count_keyword(page, g["id"], kw))
                 counts = {}
@@ -473,7 +483,7 @@ async def main(argv=None) -> int:
                                          "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws,
                                          "posts": [{**x, "text": mask(x["text"])} for x in posts]})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
-                fails = fails + 1 if (about.get("error") and not posts) else 0
+                fails = fails + 1 if (failed and not posts) else 0
                 if fails >= 2:  # 그룹 2곳 연속으로 화면이 안 열리면 몇 시간 헛돌지 않고 멈춘다
                     print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 원인 확인 전까지 중단")
                     result["stopped"] = "group_page_load_failed"
