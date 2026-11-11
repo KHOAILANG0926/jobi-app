@@ -17,8 +17,12 @@ from urllib.parse import quote
 
 from playwright.async_api import async_playwright
 
+import hashlib
+from datetime import timedelta, timezone
+
+import crawl_facebook
 from crawl_facebook import (account_lock_reason, advance_feed, build_cookies, extract_visible_posts,
-                            goto_with_retry, inspect_page_state, write_account_lock)
+                            goto_with_retry, inspect_page_state, parse_time_label, write_account_lock)
 
 try:
     from playwright_stealth import stealth_async
@@ -186,13 +190,204 @@ def summarize(groups: list[dict]) -> dict:
     return {"all": stat(groups), "korea_named": stat([g for g in groups if g["korea_name"]])}
 
 
+# ── 장기 조사(Lee 2026-11-11 "한 달 이상 걸려도 철저히, 안까지 싹") ─────────────────────────
+# 매일 큰 그룹 몇 곳을 돌아가며(오래 안 본 곳부터) 최근 글 전부 + 판매 아닌 글의 댓글까지 읽어
+# 비공개 저장소(research_artifacts, 공개 접근 차단)에 쌓는다. 같은 글은 한 줄(다시 보면 마지막 본 날만 바뀜).
+# 주 1회 report가 쌓인 글로 "사람들이 무엇을 올리고 묻는가"를 센다. 사람 이름은 저장하지 않고 전화번호는 가린다.
+KIND_POST, KIND_GROUP, KIND_META = "korea-fb-post", "korea-fb-group", "korea-fb-meta"
+SEARCH_EVERY_DAYS = 7
+MIN_MEMBERS = 5000
+
+COMMENTS_JS = """() => {
+  const arts = [...document.querySelectorAll('[role="article"]')]
+  const top = arts.find(a => !(a.parentElement && a.parentElement.closest('[role="article"]')))
+  const out = []
+  for (const a of arts) {
+    if (a === top) continue
+    const t = [...a.querySelectorAll('div[dir="auto"]')].map(d => (d.innerText || '').trim()).filter(x => x.length > 1)
+    const txt = [...new Set(t)].join(' ').trim()
+    if (txt) out.push(txt)
+  }
+  return out
+}"""
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _db():
+    if not crawl_facebook.supabase:
+        raise SystemExit("::error::SUPABASE_SERVICE_ROLE_KEY 필요(비공개 저장소 쓰기)")
+    return crawl_facebook.supabase
+
+
+def _rows(kind: str) -> list[dict]:
+    out, start = [], 0
+    while True:
+        part = _db().table("research_artifacts").select("name,payload,meta").eq("kind", kind).range(start, start + 999).execute().data or []
+        out += part
+        if len(part) < 1000:
+            return out
+        start += 1000
+
+
+def _upsert(kind: str, name: str, payload: dict, meta: dict) -> None:
+    _db().table("research_artifacts").upsert({"kind": kind, "name": name, "payload": payload, "meta": meta},
+                                             on_conflict="kind,name").execute()
+
+
+def post_name(gid: str, text: str, url: str) -> str:
+    m = re.search(r"/(?:posts|permalink)/(\d+)|story_fbid=(\d+)|multi_permalinks=(\d+)", url or "")
+    pid = next((g for g in (m.groups() if m else ()) if g), None)
+    return f"{gid}:{pid or hashlib.sha1(text[:300].encode()).hexdigest()[:16]}"
+
+
+async def read_comments(page, url: str, cap: int = 40) -> list[str]:
+    if not url or not await goto_with_retry(page, url):
+        return []
+    for _ in range(3):  # 댓글 더 보기
+        try:
+            more = page.get_by_text(re.compile(r"^(댓글 더 보기|Xem thêm bình luận|View more comments|이전 댓글 보기)"))
+            if await more.count() == 0:
+                break
+            await more.first.click(timeout=3000)
+            await page.wait_for_timeout(random.randint(1500, 2500))
+        except Exception:
+            break
+    texts = await page.evaluate(COMMENTS_JS)
+    return [mask(re.sub(r"\s+", " ", t))[:300] for t in texts[:cap]]
+
+
+async def refresh_registry(page, queries: list[str]) -> None:
+    meta_rows = {r["name"]: r for r in _rows(KIND_META)}
+    last = (meta_rows.get("search", {}).get("meta") or {}).get("at", "")
+    if last and datetime.fromisoformat(last) > datetime.now(timezone.utc) - timedelta(days=SEARCH_EVERY_DAYS):
+        return
+    known = {r["name"]: r for r in _rows(KIND_GROUP)}
+    for q in queries:
+        for g in await search_groups(page, q, scrolls=8):
+            old = known.get(g["id"], {})
+            _upsert(KIND_GROUP, g["id"], {**(old.get("payload") or {}), **{k: g[k] for k in ("name", "members", "daily", "korea_name")}},
+                    old.get("meta") or {"found_at": _now(), "visits": 0})
+        await page.wait_for_timeout(random.randint(20000, 40000))
+    _upsert(KIND_META, "search", {"queries": queries}, {"at": _now()})
+    print(f"그룹 목록 갱신: 검색어 {len(queries)}개")
+
+
+def pick_groups(n: int) -> list[dict]:
+    rows = [r for r in _rows(KIND_GROUP) if (r["payload"] or {}).get("korea_name") and (r["payload"] or {}).get("members", 0) >= MIN_MEMBERS]
+    rows.sort(key=lambda r: ((r["meta"] or {}).get("last_visit") or "", -(r["payload"] or {}).get("members", 0)))
+    return rows[:n]
+
+
+async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int) -> dict:
+    stats = {"groups": [], "new_posts": 0, "comments": 0}
+    for g in pick_groups(groups_per_run):
+        gid, gname = g["name"], (g["payload"] or {}).get("name", "")
+        about = await read_about(page, gid)
+        await page.wait_for_timeout(random.randint(10000, 20000))
+        posts = await read_recent_posts_full(page, gid, want_posts)
+        existing = {r["name"]: r for r in _db().table("research_artifacts").select("name,meta").eq("kind", KIND_POST)
+                    .like("name", f"{gid}:%").execute().data or []}
+        new, with_comments = 0, 0
+        for p in posts:
+            name = post_name(gid, p["text"], p["url"])
+            old = existing.get(name)
+            comments = []
+            if not old and p["class"] != "sell" and p["url"] and with_comments < comment_posts:
+                await page.wait_for_timeout(random.randint(8000, 15000))
+                comments = await read_comments(page, p["url"])
+                with_comments += 1
+                stats["comments"] += len(comments)
+            payload = {"gid": gid, "group": gname, "text": mask(p["text"])[:3000], "class": p["class"], "visa": p["visa"],
+                       "no_visa": p["no_visa"], "time_label": p["time"], "est": p["est"], "images": p["images"]}
+            if comments:
+                payload["comments"] = comments
+            meta = {**((old or {}).get("meta") or {"first_seen": _now()}), "last_seen": _now()}
+            if old and not comments:
+                _db().table("research_artifacts").update({"meta": meta}).eq("kind", KIND_POST).eq("name", name).execute()
+            else:
+                _upsert(KIND_POST, name, payload, meta)
+            new += 0 if old else 1
+        hist = ((g["meta"] or {}).get("history") or [])[-89:] + [{"at": _now(), **{k: about.get(k, "") for k in ("today", "month", "total")}}]
+        _upsert(KIND_GROUP, gid, {**(g["payload"] or {}), "created": about.get("created", ""), "rules_head": about.get("rules_head", ""),
+                                  "admin_business_words": about.get("admin_business_words", [])},
+                {**(g["meta"] or {}), "last_visit": _now(), "visits": int((g["meta"] or {}).get("visits") or 0) + 1, "history": hist})
+        stats["groups"].append({"name": gname[:40], "read": len(posts), "new": new, "with_comments": with_comments})
+        stats["new_posts"] += new
+        print(f"그룹 {gname[:40]}: 읽음 {len(posts)} · 새 글 {new} · 댓글 읽은 글 {with_comments}")
+        await page.wait_for_timeout(random.randint(60000, 120000))
+    return stats
+
+
+async def read_recent_posts_full(page, gid: str, want: int) -> list[dict]:
+    """read_recent_posts와 같되 글 전체·주소·시각 추정까지(저장용)."""
+    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
+        return []
+    state = await inspect_page_state(page)
+    if state in ("checkpoint", "session_expired"):
+        raise RuntimeError(state)
+    seen, out, stall = set(), [], 0
+    for _ in range(40):
+        got = await extract_visible_posts(page)
+        before = len(out)
+        for p in got.get("posts", []):
+            key = p["text"][:120]
+            if key in seen:
+                continue
+            seen.add(key)
+            text = re.sub(r"[ \t]+", " ", p["text"]).strip()
+            t = parse_time_label(p.get("timeLabel", ""))
+            out.append({"text": text, "url": (p.get("postUrl") or "").split("?")[0] if "/posts/" in (p.get("postUrl") or "") else (p.get("postUrl") or ""),
+                        "class": classify(text), "visa": sorted({v.upper() for v in VISA_RE.findall(text)}),
+                        "no_visa": bool(NO_VISA_RE.search(text)), "time": p.get("timeLabel", "")[:30],
+                        "est": (t or {}).get("estimate"), "images": len(p.get("images") or [])})
+        if len(out) >= want:
+            break
+        stall = stall + 1 if len(out) == before else 0
+        if stall >= 3:
+            break
+        await advance_feed(page)
+    return out[:want]
+
+
+def report(out_path: str) -> dict:
+    posts = [r["payload"] for r in _rows(KIND_POST)]
+    groups = _rows(KIND_GROUP)
+    by_class, by_group, comments = {}, {}, 0
+    for p in posts:
+        by_class[p["class"]] = by_class.get(p["class"], 0) + 1
+        g = by_group.setdefault(p["group"][:40], {})
+        g[p["class"]] = g.get(p["class"], 0) + 1
+        comments += len(p.get("comments") or [])
+    samples = {c: [p["text"][:300] for p in posts if p["class"] == c][:40] for c in by_class if c != "sell"}
+    visited = [g for g in groups if (g["meta"] or {}).get("visits")]
+    res = {"at": _now(), "posts": len(posts), "comments": comments, "by_class": by_class, "by_group": by_group,
+           "groups_known": len(groups), "groups_visited": len(visited),
+           "no_visa_posts": sum(1 for p in posts if p.get("no_visa")),
+           "jobs_with_visa": sum(1 for p in posts if p["class"] == "job" and p.get("visa")),
+           "group_history": {(g["payload"] or {}).get("name", "")[:40]: (g["meta"] or {}).get("history", []) for g in visited},
+           "samples": samples}
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(res, f, ensure_ascii=False, indent=1)
+    return res
+
+
 async def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--queries", default="người việt tại hàn quốc|việc làm hàn quốc|cộng đồng việt nam hàn quốc")
     ap.add_argument("--top", type=int, default=10, help="자세히 볼 큰 그룹 수(한국 이름 그룹, 회원 수 순)")
     ap.add_argument("--posts", type=int, default=100)
     ap.add_argument("--out", default="/tmp/korea_fb_survey.json")
+    ap.add_argument("--mode", choices=["survey", "collect", "report"], default="survey")
+    ap.add_argument("--groups-per-run", type=int, default=4)
+    ap.add_argument("--comment-posts", type=int, default=12)
     a = ap.parse_args(argv)
+    if a.mode == "report":
+        r = report(a.out)
+        print(f"쌓인 글 {r['posts']} · 댓글 {r['comments']} · 그룹 {r['groups_visited']}/{r['groups_known']} · {r['by_class']}")
+        return 0
 
     lock = account_lock_reason()
     if lock:
@@ -208,6 +403,10 @@ async def main(argv=None) -> int:
         page = await ctx.new_page()
         await stealth_async(page)
         try:
+            if a.mode == "collect":
+                await refresh_registry(page, [x.strip() for x in a.queries.split("|") if x.strip()])
+                result["collect"] = await collect(page, a.groups_per_run, a.posts, a.comment_posts)
+                raise StopAsyncIteration
             found = {}
             for q in [x.strip() for x in a.queries.split("|") if x.strip()]:
                 rows = await search_groups(page, q, scrolls=8)
@@ -236,6 +435,8 @@ async def main(argv=None) -> int:
                                          "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws, "posts": posts})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
                 await page.wait_for_timeout(random.randint(60000, 120000))  # 수집기와 같은 그룹 간 쉬는 시간
+        except StopAsyncIteration:
+            pass
         except RuntimeError as e:
             write_account_lock(str(e), "korea_fb_survey")
             print(f"::error title=Facebook 계정 이상({e})::잠금을 만들고 멈춥니다. 일반 브라우저로 계정 확인 후 쿠키 갱신이 필요합니다.")
