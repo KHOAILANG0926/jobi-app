@@ -1,3 +1,8 @@
+## 2026-11-12 — 기존 공고 다시 처리: 같은 매장 핀 2개 방지 (KRIK 5992·MediaMart 5994)
+- 원인 [직접 확인]: 다시 처리 뒤 운영 지도 자료에 같은 좌표 핀 2개(5992 1776·1797, 5994 1778·1799). 기존 줄은 지역을 덧붙여 저장("…, TP. Bắc Ninh, Bắc Ninh")돼 글자 완전 일치 비교가 같은 매장을 못 가림.
+- 변경: refresh_facebook_existing — 같은 매장 판정을 addressReader.sameStore와 같은 규칙(낱말 단위 포함)으로, 기존 줄끼리 겹친 것도 앞 것만 남김.
+- 지운 것/합친 것: 글자 완전 일치 비교를 sameStore 규칙으로 바꿈(새 규칙 아님).
+- 남은 것: MediaMart Mao Dộc·Đông Côi 2곳은 Google 같은 이름 후보 여럿(multiple_no_street)으로 못 찾음 — 절대 원칙대로 안 넣음.
 ## 2026-11-11 밤 — 봇 병합: gh pr merge 대신 서버 병합 API (#686)
 - 원인 [직접 확인]: 봇 거절 문구 'the base branch policy prohibits the merge'는 gh 프로그램 안의 문구(gh 2.89 실행 파일에서 확인) — 서버에 묻기 전에 gh가 읽은 mergeStateStatus로 먼저 거절. #681(03:01~03:13)·#708(13:40) 모두 필수 검사 성공 뒤 거절, #708은 6분 뒤 같은 봇이 병합. 워크플로 파일 때문이라는 추정은 #680(워크플로 수정)을 봇이 병합해 맞지 않음.
 - 변경: bot-pr-automerge.yml — PUT pulls/{n}/merge(squash, sha=head로 --match-head-commit과 같음, 제목 "PR 제목 (#번호)"). 거절이면 서버 이유를 경고에 남김. 브랜치 보호는 서버가 그대로 집행.
