@@ -29,7 +29,9 @@ try:
 except ImportError:
     async def stealth_async(page): pass
 
-KOREA_NAME = re.compile(r"korea|hàn|seoul|busan|incheon|inchoen|ulsan|ansan|suwon|daegu|daejeon|대전|gwangju|gimhae|changwon|hwaseong|pyeongtaek", re.I)
+# 한국 거주자 그룹만: "hàn"만으로는 "thợ hàn"(용접공)·"tiếng Hàn"(베트남 안 한국어 일자리)이 섞였다(2026-11-11 그룹 목록)
+NOT_IN_KOREA = re.compile(r"thợ hàn|bắc ninh|quế võ|hà nội|tp\.?hcm|hồ chí minh|đà nẵng", re.I)
+KOREA_NAME = re.compile(r"korea|hàn quốc|tại hàn\b|ở hàn\b|seoul|busan|incheon|inchoen|ulsan|ansan|suwon|daegu|daejeon|대전|gwangju|gimhae|changwon|hwaseong|pyeongtaek", re.I)
 PHONE = re.compile(r"(?<!\d)(?:\+?\d[\d .\-]{7,}\d)")
 
 # 글 종류(앞에서부터 처음 맞는 것). 조사용 대략 분류 — 숫자는 "대략"으로 보고한다.
@@ -96,7 +98,7 @@ async def search_groups(page, query: str, scrolls: int) -> list[dict]:
         r["members"] = parse_members(r["meta"].split("·")[1] if "·" in r["meta"] else r["meta"])
         day = re.search(r"(일일 게시물|bài viết mỗi ngày|posts a day)\s*([\d+개,]+)|([\d+]+)\s*(bài viết mỗi ngày|posts a day)", r["meta"])
         r["daily"] = (day.group(2) or day.group(3)) if day else ""
-        r["korea_name"] = bool(KOREA_NAME.search(r["name"]))
+        r["korea_name"] = bool(KOREA_NAME.search(r["name"])) and not NOT_IN_KOREA.search(r["name"])
         r["query"] = query
     return rows
 
@@ -231,7 +233,7 @@ def summarize(groups: list[dict]) -> dict:
 # 주 1회 report가 쌓인 글로 "사람들이 무엇을 올리고 묻는가"를 센다. 사람 이름은 저장하지 않고 전화번호는 가린다.
 KIND_POST, KIND_GROUP, KIND_META = "korea-fb-post", "korea-fb-group", "korea-fb-meta"
 SEARCH_EVERY_DAYS = 7
-MIN_MEMBERS = 5000
+MIN_MEMBERS = 30000  # Lee 2026-11-11: 작은 그룹은 조사하지 않는다(몇만~몇십만 그룹이 충분히 많음)
 
 COMMENTS_JS = """() => {
   const arts = [...document.querySelectorAll('[role="article"]')]
@@ -383,8 +385,23 @@ def report(out_path: str) -> dict:
         comments += len(p.get("comments") or [])
     samples = {c: [p["text"][:300] for p in posts if p["class"] == c][:40] for c in by_class if c != "sell"}
     visited = [g for g in groups if (g["meta"] or {}).get("visits")]
+    # Lee 2026-11-11: 글을 그냥 합치면 한 그룹의 쏠림이 전체처럼 보인다 → 그룹마다 비율을 낸 뒤 회원 수로 가중 평균
+    members = {(g["payload"] or {}).get("name", "")[:40]: (g["payload"] or {}).get("members", 0) for g in groups}
+    weighted, wsum = {}, 0
+    group_share = {}
+    for gname, cnt in by_group.items():
+        n = sum(cnt.values())
+        m = members.get(gname, 0)
+        if not n or not m:
+            continue
+        group_share[gname] = {"members": m, "posts": n, **{k: round(v * 100 / n) for k, v in cnt.items()}}
+        wsum += m
+        for k, v in cnt.items():
+            weighted[k] = weighted.get(k, 0) + m * v / n
+    by_class_weighted = {k: round(v * 100 / wsum, 1) for k, v in weighted.items()} if wsum else {}
     res = {"at": _now(), "posts": len(posts), "comments": comments, "by_class": by_class, "by_group": by_group,
            "groups_known": len(groups), "groups_visited": len(visited),
+           "by_class_weighted_pct": by_class_weighted, "group_share_pct": group_share,
            "no_visa_posts": sum(1 for p in posts if p.get("no_visa")),
            "jobs_with_visa": sum(1 for p in posts if p["class"] == "job" and p.get("visa")),
            "group_history": {(g["payload"] or {}).get("name", "")[:40]: (g["meta"] or {}).get("history", []) for g in visited},
