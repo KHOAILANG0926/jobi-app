@@ -60,7 +60,7 @@ def refresh_existing(job_id: int):
         found = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
         if verdict.get("findable") is True and found:
             existing = (supabase.table("job_work_locations")
-                        .select("raw_address")
+                        .select("raw_address,lat,lng,location_verified")
                         .eq("job_id", job_id).order("sort_order").execute()).data or []
             # DB의 admin_location_key와 같은 방식(악센트·đ 제거, 구두점·공백을 한 칸으로, 소문자)으로 같은 주소를 가린다.
             def key(a):
@@ -73,12 +73,22 @@ def refresh_existing(job_id: int):
                 return f" {a} " in f" {b} " or f" {b} " in f" {a} "
             # 기존 줄은 주소만 보낸다 — 확정(admin)·검증(exact) 핀은 DB 쓰기 함수가 그대로 지키고, 대략 핀은 위치 찾기가 저장된 결과로 다시 붙인다.
             # 기존 줄끼리 같은 매장이 두 번 있으면(예전 다시 처리 결과) 앞의 것만 남긴다 — DB 입구가 빠진 줄을 지운다.
+            # 같은 매장이 겹치면 확정·검증된 줄(location_verified) → 좌표 있는 줄 → 앞 줄 순으로 남긴다(Codex #718: 검증 핀 삭제 방지).
+            def rank(r):
+                return (1 if r.get("location_verified") else 0) + (0.5 if r.get("lat") is not None and r.get("lng") is not None else 0)
             keep, have = [], []
             for r in existing:
                 k = key(r.get("raw_address"))
-                if k and not any(same(k, h) for h in have):
+                if not k:
+                    continue
+                i = next((n for n, h in enumerate(have) if same(k, h)), None)
+                if i is None:
                     have.append(k)
-                    keep.append({"raw_address": r["raw_address"]})
+                    keep.append(r)
+                elif rank(r) > rank(keep[i]):
+                    have[i] = k
+                    keep[i] = r
+            keep = [{"raw_address": r["raw_address"]} for r in keep]
             added = []
             for a in found:
                 if not any(same(key(a), h) for h in have):
