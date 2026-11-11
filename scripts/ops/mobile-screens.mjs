@@ -21,19 +21,31 @@ async function latestJobs(n) {
   } catch { return [] } // 조회 실패해도 나머지 화면은 찍는다
 }
 
-const PAGES = [
+// PAGES(JSON [[이름, 주소], …])를 주면 그 화면만 찍는다 — 다른 사이트(알바몬 등) 참고 화면을 같은 방식으로 찍을 때(Lee 2026-11-11 "알바몬과 동일하게").
+// DETAIL_LINK(정규식)를 주면 첫 화면에서 그 모양의 첫 링크(예: 공고 상세)를 찾아 'detail-auto'로 함께 찍는다.
+const PAGES = process.env.PAGES ? JSON.parse(process.env.PAGES) : [
   ['home', '/'], ['search', '/viec-lam/tim-kiem'], ['area', '/viec-lam/khu-vuc'], ['map', '/ban-do'],
   ['korea', '/viec-han-quoc'], ['post', '/dang-tin'], ['saved', '/viec-lam/da-luu'],
   ['detail-kda', '/viec-lam/sb-4824'], ...(await latestJobs(4)).map((id) => [`detail-${id}`, `/viec-lam/sb-${id}`]),
 ]
+const DETAIL_LINK = process.env.DETAIL_LINK ? new RegExp(process.env.DETAIL_LINK) : null
 const DEVICES = [['iphone', devices['iPhone 13']], ['galaxy', devices['Galaxy S8']]]
 
 mkdirSync(OUT, { recursive: true })
 const report = []
 const browser = await chromium.launch(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY } } : {})
 for (const [dname, dev] of DEVICES) {
-  const context = await browser.newContext({ ...dev, locale: 'vi-VN' })
-  for (const [name, path] of PAGES) {
+  const context = await browser.newContext({ ...dev, locale: process.env.LOCALE || 'vi-VN' })
+  const pages = [...PAGES]
+  if (DETAIL_LINK) {
+    const p0 = await context.newPage()
+    await p0.goto(BASE_URL + PAGES[0][1], { waitUntil: 'networkidle', timeout: 60_000 }).catch(() => {})
+    await p0.waitForTimeout(3000)
+    const href = await p0.evaluate((re) => [...document.querySelectorAll('a[href]')].map((a) => a.href).find((h) => new RegExp(re).test(h)), DETAIL_LINK.source)
+    if (href) pages.push(['detail-auto', new URL(href).pathname + new URL(href).search])
+    await p0.close()
+  }
+  for (const [name, path] of pages) {
     const page = await context.newPage()
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 160)))
@@ -49,7 +61,7 @@ for (const [dname, dev] of DEVICES) {
         // 가로 스크롤 칸(메뉴 탭 줄 등)·잘라 보이는 칸 안의 요소는 일부러 넘친 것이라 뺀다
         const clipped = (e) => { for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) { if (getComputedStyle(a).overflowX !== 'visible') return true } return false }
         const wide = [...document.querySelectorAll('body *')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > vw + 1 || r.left < -1) && getComputedStyle(e).position !== 'fixed' && !clipped(e) })
-          .slice(0, 8).map((e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : ''} ${Math.round(e.getBoundingClientRect().right)}px`)
+          .slice(0, 8).map((e) => `${e.tagName.toLowerCase()}${e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}${e.tagName === 'A' || e.tagName === 'SPAN' ? `"${(e.textContent || '').trim().slice(0, 20)}"` : ''} ${Math.round(e.getBoundingClientRect().right)}px`)
         const small = [...document.querySelectorAll('body *')].filter((e) => e.childNodes.length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 11 && e.getBoundingClientRect().width > 0).length
         return { vw, scrollW: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, wide, smallText: small }
       })
