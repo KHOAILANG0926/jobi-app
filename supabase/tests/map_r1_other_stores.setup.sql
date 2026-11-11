@@ -7,5 +7,3 @@ create or replace function public.map_r1_snapshot(p_id bigint) returns jsonb lan
 create or replace function location_private.provider_target(s jsonb, r jsonb) returns text language sql as $$ select r->>'address' $$;
 create or replace function location_private.write_location(p_job_id bigint, p_operation text, p_payload jsonb) returns bigint language sql as $$
  insert into location_private.test_writes values (p_job_id, p_payload) returning 1::bigint $$;
-create or replace function public.admin_location_key(t text) returns text language sql immutable as $$ select lower(btrim(t)) $$;
-create or replace function public.admin_reuse_confirmed_location(p_id bigint) returns void language sql as $$ select $$;
