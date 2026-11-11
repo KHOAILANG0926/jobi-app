@@ -46,11 +46,13 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
     results.push(await resolveStore({ ...job, location: hasProvince(t.address) ? t.address : [t.address, job.location].filter(Boolean).join(', '), targets: [t] }, providedDeps))
   }
   const found = results.filter((r) => r.kind !== 'unresolved' && precheckVerdict(r).findable)
-  // 찾은 매장이 없으면 좌표 없이 '못 찾음'(대략 위치 핀 금지, Lee 2026-11-11 절대 원칙) — 실패·한도 기록은 남긴다(한도 초과는 보류로).
+  // 한 매장이라도 Google 한도에 걸렸으면 공고 전체를 기존 보류(한도 초과 → 다음에 다시)로 — 매장을 빠뜨린 채 등록하지 않는다(Codex #697).
+  const quota = results.find((r) => !found.includes(r) && /google:quota/.test(String(r.evidence ?? '')))
+  if (quota) return { kind: 'unresolved', failed: false, deferred: true, evidence: [quota.evidence, 'stores:quota_retry'].filter(Boolean).join('\n') }
+  // 찾은 매장이 없으면 좌표 없이 '못 찾음'(대략 위치 핀 금지, Lee 2026-11-11 절대 원칙) — 실패 기록은 남긴다.
   if (!found.length) {
-    const quota = results.find((r) => /google:quota/.test(String(r.evidence ?? '')))
     return { kind: 'unresolved', failed: results.some((r) => r.failed), deferred: results.some((r) => r.deferred),
-      evidence: [quota?.evidence ?? results[0]?.evidence, 'stores:none_found'].filter(Boolean).join('\n') }
+      evidence: [results[0]?.evidence, 'stores:none_found'].filter(Boolean).join('\n') }
   }
   return found.length > 1 ? { ...found[0], others: found.slice(1) } : found[0]
 }

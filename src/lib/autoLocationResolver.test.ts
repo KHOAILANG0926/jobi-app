@@ -179,5 +179,11 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
     async administrativeCenter() { return { lat: 21.18, lng: 106.07, source: 'Original administrative area bac ninh', checkedAt: 'x' } },
   } as never)
   assert(none.kind === 'unresolved' && !('lat' in none), 'no store found → no approximate pin: ' + JSON.stringify(none).slice(0, 160))
+  // Codex #697: 한 매장이 Google 한도에 걸리면 공고 전체 보류(한도 기록 유지 → 기존 보류·재시도)
+  const qm = await resolver.resolveAutoLocation({ id: 26, company: 'Fixture Cafe', location: g1, targets: [{ address: g1, workLocationId: 1 }, { address: g2, workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { if (text.includes('Phố B')) throw new Error('quota_exhausted'); return { places: [{ id: 'q1', displayName: { text: 'Fixture Cafe' }, formattedAddress: g1, location: { latitude: 21.0, longitude: 105.8 } }] } },
+  } as never)
+  assert(qm.kind === 'unresolved' && qm.deferred && /google:quota/.test(String(qm.evidence)), 'quota-blocked store defers whole posting: ' + JSON.stringify(qm).slice(0, 200))
   console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }
