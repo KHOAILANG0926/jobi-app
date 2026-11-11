@@ -84,10 +84,10 @@
     "scrollW": 408,
     "height": 3807,
     "wide": [
-      "span.jd2-meta-date 408px",
+      "span.jd2-meta-date\"Ngày đăng: 13/10/202\" 408px",
       "div.jd2-mobile-cta__inner 394px",
-      "a.jd2-mobile-cta__zalo 394px",
-      "a 400px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 394px",
+      "a\"Cá nhân\" 400px"
     ],
     "smallText": 13,
     "errors": []
@@ -100,8 +100,8 @@
     "scrollW": 404,
     "height": 4358,
     "wide": [
-      "span.jd2-meta-date 403px",
-      "a 396px"
+      "span.jd2-meta-date\"Ngày đăng: 11/11/202\" 403px",
+      "a\"Cá nhân\" 396px"
     ],
     "smallText": 13,
     "errors": []
@@ -114,10 +114,10 @@
     "scrollW": 406,
     "height": 4121,
     "wide": [
-      "span.jd2-meta-date 406px",
+      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
       "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo 392px",
-      "a 398px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
+      "a\"Cá nhân\" 398px"
     ],
     "smallText": 13,
     "errors": []
@@ -130,10 +130,10 @@
     "scrollW": 406,
     "height": 3566,
     "wide": [
-      "span.jd2-meta-date 406px",
+      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
       "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo 392px",
-      "a 398px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
+      "a\"Cá nhân\" 398px"
     ],
     "smallText": 13,
     "errors": []
@@ -146,10 +146,10 @@
     "scrollW": 406,
     "height": 4989,
     "wide": [
-      "span.jd2-meta-date 406px",
+      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
       "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo 392px",
-      "a 398px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
+      "a\"Cá nhân\" 398px"
     ],
     "smallText": 13,
     "errors": []
@@ -207,7 +207,7 @@
     "height": 2146,
     "wide": [
       "button.kh-discovery__cta 390px",
-      "a 382px"
+      "a\"Cá nhân\" 382px"
     ],
     "smallText": 22,
     "errors": []
@@ -242,12 +242,12 @@
     "scrollW": 408,
     "height": 3931,
     "wide": [
-      "span.jd2-meta-date 408px",
+      "span.jd2-meta-date\"Ngày đăng: 13/10/202\" 408px",
       "div.jd2-mobile-cta__inner 394px",
-      "a.jd2-mobile-cta__zalo 394px",
-      "a 400px",
+      "a.jd2-mobile-cta__zalo\"Zalo\" 394px",
+      "a\"Cá nhân\" 400px",
       "svg 362px",
-      "span 373px"
+      "span\"Cá nhân\" 373px"
     ],
     "smallText": 13,
     "errors": []
@@ -260,11 +260,11 @@
     "scrollW": 404,
     "height": 4606,
     "wide": [
-      "span.jd2-meta-date 403px",
+      "span.jd2-meta-date\"Ngày đăng: 11/11/202\" 403px",
       "div.jd2-mobile-cta__inner 390px",
-      "a.jd2-mobile-cta__zalo 390px",
-      "a 396px",
-      "span 370px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 390px",
+      "a\"Cá nhân\" 396px",
+      "span\"Cá nhân\" 370px"
     ],
     "smallText": 13,
     "errors": []
@@ -277,11 +277,11 @@
     "scrollW": 406,
     "height": 4279,
     "wide": [
-      "span.jd2-meta-date 406px",
+      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
       "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo 392px",
-      "a 398px",
-      "span 371px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
+      "a\"Cá nhân\" 398px",
+      "span\"Cá nhân\" 371px"
     ],
     "smallText": 13,
     "errors": []
@@ -294,11 +294,11 @@
     "scrollW": 406,
     "height": 3646,
     "wide": [
-      "span.jd2-meta-date 406px",
+      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
       "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo 392px",
-      "a 398px",
-      "span 371px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
+      "a\"Cá nhân\" 398px",
+      "span\"Cá nhân\" 371px"
     ],
     "smallText": 13,
     "errors": []
@@ -311,11 +311,11 @@
     "scrollW": 406,
     "height": 5134,
     "wide": [
-      "span.jd2-meta-date 406px",
+      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
       "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo 392px",
-      "a 398px",
-      "span 371px"
+      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
+      "a\"Cá nhân\" 398px",
+      "span\"Cá nhân\" 371px"
     ],
     "smallText": 13,
     "errors": []
