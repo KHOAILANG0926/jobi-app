@@ -3,6 +3,9 @@ name: 한국 사이트 — 페이스북 그룹 조사 (읽기 전용)
 # crawl-facebook-one과 같은 VPS 실행기·같은 쿠키(같은 IP에서만 접속, 2026-11-06 결정). DB 저장 없음.
 # 결과: 실행 요약 표 + 비공개 결과 파일(7일). 사람 이름·전화번호는 남기지 않는다.
 on:
+  push:  # 병합되면 한 번 자동으로 돈다(Lee가 버튼을 누를 필요 없게). 조사 내용을 고치면 다시 돈다.
+    branches: [master]
+    paths: ['crawler/korea_fb_survey.py', '.github/workflows/korea-fb-survey.yml']
   workflow_dispatch:
     inputs:
       top:
@@ -28,8 +31,8 @@ jobs:
       FB_XS: ${{ secrets.FB_XS }}
       FB_DATR: ${{ secrets.FB_DATR }}
       FB_FR: ${{ secrets.FB_FR }}
-      TOP: ${{ inputs.top }}
-      POSTS: ${{ inputs.posts }}
+      TOP: ${{ inputs.top || '8' }}
+      POSTS: ${{ inputs.posts || '50' }}
     steps:
       - uses: actions/checkout@v4
       - name: 입력·키 확인
