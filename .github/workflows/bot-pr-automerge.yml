@@ -8,11 +8,11 @@ on:
     branches: [master]
     paths: ['.github/workflows/bot-pr-automerge.yml']
   workflow_dispatch: {}
-  # Codex 검사 대기(30분)가 끝난 PR을 다시 보려고 15분마다 한 번 더 확인한다(Lee 2026-11-08 AI 팀).
+  # Codex 검사 대기(12분)·Claude 검토관 대기(20분)가 끝난 PR을 다시 보려고 15분마다 한 번 더 확인한다(Lee 2026-11-08 AI 팀).
   schedule:
     - cron: '*/15 * * * *'
   # GitHub 예약 실행은 자주 빠진다(#574: */15가 1시간 반 동안 0번). 그래서 Codex 리뷰·요약 댓글·Claude 답이
-  # 오는 순간에도 다시 보고, 30분 대기는 codex-wait-timer.yml이 끝나는 시각에 다시 부른다. 예약은 예비로 둔다.
+  # 오는 순간에도 다시 보고, 대기 시간은 codex-wait-timer.yml이 끝나는 시각에 다시 부른다. 예약은 예비로 둔다.
   pull_request_review:
     types: [submitted]
   issue_comment:
@@ -42,7 +42,9 @@ jobs:
          (startsWith(github.event.comment.body, 'LEE-APPROVE ') || startsWith(github.event.comment.body, 'LEE-DEMO-APPLY '))) ||
         github.event.comment.user.login == 'chatgpt-codex-connector[bot]' ||
         ((github.event.comment.user.login == 'KHOAILANG0926' || github.event.comment.user.login == 'claude[bot]') &&
-         contains(github.event.comment.body, '<!-- claude-codex-reply -->'))))
+         contains(github.event.comment.body, '<!-- claude-codex-reply -->')) ||
+        (github.event.comment.user.login == 'claude[bot]' &&
+         startsWith(github.event.comment.body, '<!-- claude-fallback-review -->'))))
     runs-on: ubuntu-latest
     steps:
       # Never check out the candidate PR: only trusted master supplies executable code.
@@ -66,7 +68,7 @@ jobs:
           # Lee 승인 댓글로 시작한 실행만 그 PR 하나로 좁힌다. Codex 댓글·Claude 답으로 시작한 실행은 평소처럼 전체를 본다.
           lee_approval=false
           if [ "${{ github.event_name }}" = issue_comment ] && [ "$EVENT_ACTION" = created ] && [[ "$APPROVAL_BODY" == "LEE-APPROVE "* ]]; then lee_approval=true; fi
-          # Lee가 채팅에서 데모를 보고 "적용"한 PR(Lee 2026-11-09): Codex 30분 대기만 건너뛴다. 필수 검사·결정 문서 승인·DB 보호는 그대로.
+          # Lee가 채팅에서 데모를 보고 "적용"한 PR(Lee 2026-11-09): Codex 대기만 건너뛴다. 필수 검사·결정 문서 승인·DB 보호는 그대로.
           # LEE-APPROVE와 다른 표시를 쓴다 — LEE-APPROVE는 결정 문서 승인도 겸하므로 작업자가 대신 달면 안 된다.
           demo_apply=false
           if [ "${{ github.event_name }}" = issue_comment ] && [ "$EVENT_ACTION" = created ] && [[ "$APPROVAL_BODY" == "LEE-DEMO-APPLY "* ]]; then lee_approval=true; demo_apply=true; fi
@@ -123,7 +125,7 @@ jobs:
               fi
               continue
             fi
-            # AI 팀 검사관(Lee 2026-11-08): GPT Codex 검사를 기다린다. 30분 안 오면 진행, 지적이 있으면 Claude 답이 있어야 진행.
+            # AI 팀 검사관(Lee 2026-11-08, 11-11): GPT Codex 검사를 기다린다. 한도 초과·12분 무응답이면 Claude 검토관, 그것도 20분 안 오면 예전 규칙, 지적이 있으면 Claude 답이 있어야 진행.
             gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
             # 데모 적용 표시는 댓글로 남아 있으면 이후 실행(검사 끝난 뒤 workflow_run 등)에서도 인정한다(Codex #581 지적).
@@ -131,17 +133,24 @@ jobs:
             if jq -e --arg body "LEE-DEMO-APPLY $sha" '.[] | select(.user.login=="KHOAILANG0926" and ((.body // "") | split("\n")[0] | gsub("^\\s+|\\s+$";"")) == $body)' comments.json >/dev/null; then pr_demo_apply=true; fi
             if [ "$pr_demo_apply" = true ]; then
               echo "Lee 데모 적용(LEE-DEMO-APPLY $sha) — Codex 대기 생략" > gate.txt
-            elif ! node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date" files.json > gate.txt; then
+            elif node scripts/codex-review-gate.mjs reviews.json review-comments.json comments.json "$sha" "$head_date" files.json > gate.txt; gate_rc=$?; [ "$gate_rc" != 0 ]; then
               cat gate.txt
-              # Codex 검사 없이 운영·보안·DB 파일이 바뀐 PR(종료 코드 2): needs-lee 표시 + 쉬운 말 한 번만 남기고 멈춘다(Lee 2026-11-09).
-              if grep -q 'Lee 확인 필요' gate.txt; then
-                gh api -X POST "repos/$REPO/issues/$num/labels" -f 'labels[]=needs-lee' >/dev/null || echo "::warning::PR #$num needs-lee 표시 실패"
-                if ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- codex-missing-risky -->") and contains($sha[0:7]))' comments.json >/dev/null; then
-                  gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- codex-missing-risky --> ${sha:0:7}: Codex 검사가 오지 않았고 운영·보안·DB 파일이 바뀌어 자동 병합을 멈췄습니다. 작업자가 \`@codex review\`를 다시 요청합니다. Codex가 계속 오지 않으면 Lee가 채팅에서 \"적용\"이라고 한 경우에만 LEE-DEMO-APPLY로 진행합니다." >/dev/null || echo "::warning::PR #$num 안내 댓글 실패"
-                fi
+              # Codex 한도 초과·무응답(종료 코드 3): Claude 검토관을 한 번 부른다(Lee 2026-11-11). 요청 표시 댓글이 시각 기준이다.
+              if [ "$gate_rc" = 3 ]; then
+                if gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- claude-fallback-request --> $sha
+            Codex 검사가 오지 않아(한도 초과 또는 12분 무응답) Claude 검토관이 이 커밋을 대신 검토합니다." >/dev/null; then
+                  gh workflow run claude-auto.yml --repo "$REPO" --ref master -f fallback_pr="$num" \
+                    && echo "::notice::PR #$num Claude 검토관 요청" || echo "::warning::PR #$num Claude 검토관 실행 실패(20분 뒤 예전 규칙)"
+                else echo "::warning::PR #$num 검토관 요청 댓글 실패"; fi
+                echo 21 >> codex-wait.txt
               fi
-              # 'Codex 검사 대기(x/30분)'이면 30분이 차는 시각에 다시 보도록 남은 분을 적어 둔다(#574).
-              waited=$(sed -n 's/.*Codex 검사 대기(\([0-9]*\)\/\([0-9]*\)분).*/\2 \1/p' gate.txt | awk '{print $1-$2+1}')
+              # 검토관이 여러 번 결과를 못 낸 운영·보안·DB 파일 PR(종료 코드 2): 장치 고장 — Lee에게 넘기지 않고 ai-team 이슈로 한 번 알린다(Lee 2026-11-11).
+              if [ "$gate_rc" = 2 ] && ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- fallback-reviewer-broken -->") and contains($sha[0:7]))' comments.json >/dev/null; then
+                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- fallback-reviewer-broken --> ${sha:0:7}: Claude 검토관이 여러 번 결과를 내지 못했습니다(장치 고장). 운영·보안·DB 파일이라 두 번째 검토 없이 병합하지 않고, 검토관 실행 기록을 고칩니다." >/dev/null || echo "::warning::PR #$num 안내 댓글 실패"
+                gh api -X POST "repos/$REPO/issues" -f title="Claude 검토관 결과 없음 — PR #$num (${sha:0:7})" -f body="봇 병합이 PR #$num 에 Claude 검토관(claude-auto.yml fallback-review)을 여러 번 불렀지만 결과 댓글이 없습니다. 실행 기록을 확인해 고칠 것." -f 'labels[]=ai-team' >/dev/null || echo "::warning::이슈 생성 실패"
+              fi
+              # 'Codex 검사 대기(x/12분)'·'Claude 검토관 대기(x/20분)'이면 시간이 차는 시각에 다시 보도록 남은 분을 적어 둔다(#574).
+              waited=$(sed -n 's/.*대기(\([0-9]*\)\/\([0-9]*\)분).*/\2 \1/p' gate.txt | awk '{print $1-$2+1}')
               [ -n "$waited" ] && echo "$waited" >> codex-wait.txt
               echo "PR #$num Codex 검사 대기: 병합 생략"; continue
             fi
@@ -190,7 +199,7 @@ jobs:
               echo "::warning::PR #$num 병합 거절(권한/branch protection), 재시도 생략"
             fi
           done
-          # Codex를 기다리는 PR이 있으면 가장 먼저 30분이 차는 시각에 다시 부른다(예약 실행이 빠져도 멈추지 않게, #574).
+          # Codex를 기다리는 PR이 있으면 가장 먼저 대기가 끝나는 시각에 다시 부른다(예약 실행이 빠져도 멈추지 않게, #574).
           if [ "$lee_approval" != true ] && [ -s codex-wait.txt ]; then
             minutes=$(sort -n codex-wait.txt | head -1)
             gh workflow run codex-wait-timer.yml --repo "$REPO" --ref master -f minutes="$minutes" \
