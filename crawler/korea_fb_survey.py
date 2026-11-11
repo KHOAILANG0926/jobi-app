@@ -30,6 +30,9 @@ PHONE = re.compile(r"(?<!\d)(?:\+?\d[\d .\-]{7,}\d)")
 
 # 글 종류(앞에서부터 처음 맞는 것). 조사용 대략 분류 — 숫자는 "대략"으로 보고한다.
 CLASSES = [
+    # 회사 질문·회사 바꾸기는 구인보다 먼저 본다("이 회사 괜찮나요"가 구인으로 세어지지 않게)
+    ("company_q", r"công ty (này|đó|nào|ấy)|xưởng (này|đó|nào)|có ổn không|có tốt không|review|đánh giá công ty|làm ở đó"),
+    ("change_co", r"đổi công ty|chuyển công ty|chuyển xưởng|đổi xưởng|xin chuyển|chuyển việc|사업장 변경"),
     ("job", r"tuyển|tìm việc|việc làm|cần (người|tuyển|gấp|thợ)|nhận (lao động|người|thợ)|xin việc|công việc|đi làm|ca ngày|ca đêm|lương|시급|구인|nhân viên"),
     ("money", r"đổi tiền|chuyển tiền|tỷ giá|gửi tiền về|vay"),
     ("room", r"phòng trọ|ở ghép|thuê nhà|cho thuê|원룸|nhà nghỉ"),
@@ -150,6 +153,31 @@ async def read_recent_posts(page, gid: str, want: int) -> list[dict]:
     return out[:want]
 
 
+# 그룹 안 검색: 이 말이 든 글이 얼마나 있나(상한까지만 센다 — "많다/적다"를 보는 용도)
+KEYWORDS = ["công ty này", "có ổn không", "đổi công ty", "tìm việc", "gia hạn visa", "phòng trọ", "đổi tiền", "quảng cáo"]
+
+
+async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
+    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/search/?q={quote(kw)}"):
+        return {"kw": kw, "count": None}
+    state = await inspect_page_state(page)
+    if state in ("checkpoint", "session_expired"):
+        raise RuntimeError(state)
+    seen, heads = set(), []
+    for _ in range(6):
+        got = await extract_visible_posts(page)
+        for p in got.get("posts", []):
+            k = p["text"][:120]
+            if k not in seen:
+                seen.add(k)
+                if len(heads) < 3:
+                    heads.append({"time": p.get("timeLabel", "")[:20], "head": mask(re.sub(r"\s+", " ", p["text"])[:120])})
+        if len(seen) >= cap:
+            break
+        await advance_feed(page)
+    return {"kw": kw, "count": len(seen), "capped": len(seen) >= cap, "samples": heads}
+
+
 def summarize(groups: list[dict]) -> dict:
     def stat(rows):
         return {"count": len(rows), "ge_100k": sum(r["members"] >= 100_000 for r in rows),
@@ -161,8 +189,8 @@ def summarize(groups: list[dict]) -> dict:
 async def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--queries", default="người việt tại hàn quốc|việc làm hàn quốc|cộng đồng việt nam hàn quốc")
-    ap.add_argument("--top", type=int, default=8, help="자세히 볼 큰 그룹 수(한국 이름 그룹, 회원 수 순)")
-    ap.add_argument("--posts", type=int, default=50)
+    ap.add_argument("--top", type=int, default=10, help="자세히 볼 큰 그룹 수(한국 이름 그룹, 회원 수 순)")
+    ap.add_argument("--posts", type=int, default=100)
     ap.add_argument("--out", default="/tmp/korea_fb_survey.json")
     a = ap.parse_args(argv)
 
@@ -195,13 +223,17 @@ async def main(argv=None) -> int:
                 about = await read_about(page, g["id"])
                 await page.wait_for_timeout(random.randint(8000, 15000))
                 posts = await read_recent_posts(page, g["id"], a.posts)
+                kws = []
+                for kw in KEYWORDS:
+                    await page.wait_for_timeout(random.randint(8000, 15000))
+                    kws.append(await count_keyword(page, g["id"], kw))
                 counts = {}
                 for x in posts:
                     counts[x["class"]] = counts.get(x["class"], 0) + 1
                 result["detail"].append({**about, "name": g["name"], "members": g["members"], "daily": g["daily"],
                                          "post_counts": counts, "posts_read": len(posts),
                                          "jobs_with_visa": sum(1 for x in posts if x["class"] == "job" and x["visa"]),
-                                         "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "posts": posts})
+                                         "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws, "posts": posts})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
                 await page.wait_for_timeout(random.randint(60000, 120000))  # 수집기와 같은 그룹 간 쉬는 시간
         except RuntimeError as e:

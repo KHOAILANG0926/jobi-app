@@ -10,10 +10,10 @@ on:
     inputs:
       top:
         description: '자세히 볼 큰 그룹 수'
-        default: '8'
+        default: '10'
       posts:
         description: '그룹마다 읽을 최근 글 수'
-        default: '50'
+        default: '100'
 
 permissions:
   contents: read
@@ -25,14 +25,14 @@ concurrency:
 jobs:
   survey:
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 90
+    timeout-minutes: 240
     env:
       FB_C_USER: ${{ secrets.FB_C_USER }}
       FB_XS: ${{ secrets.FB_XS }}
       FB_DATR: ${{ secrets.FB_DATR }}
       FB_FR: ${{ secrets.FB_FR }}
-      TOP: ${{ inputs.top || '8' }}
-      POSTS: ${{ inputs.posts || '50' }}
+      TOP: ${{ inputs.top || '10' }}
+      POSTS: ${{ inputs.posts || '100' }}
     steps:
       - uses: actions/checkout@v4
       - name: 입력·키 확인
@@ -59,10 +59,16 @@ jobs:
               a = q['all']; L.append(f"| {q['query']} | {a['count']} | {a['ge_100k']} | {a['ge_10k']} | {a['daily_90plus']} |")
           s = d.get('summary', {}).get('korea_named', {})
           L += ["", f"중복 뺀 한국 이름 그룹: {s.get('count')}개 (10만+ {s.get('ge_100k')}, 1만+ {s.get('ge_10k')})", "",
-                "| 그룹 | 회원 | 만든 날 | 오늘 글 | 읽은 글 | 일자리 | 판매 | 질문 | 환전 | 방 | 비자·서류 | 기타 | 비자 적힌 구인 | '비자 필요 없음' |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+                "| 그룹 | 회원 | 만든 날 | 오늘 글 | 읽은 글 | 회사 질문 | 회사 바꾸기 | 일자리 | 판매 | 질문 | 환전 | 방 | 비자·서류 | 기타 | 비자 적힌 구인 | '비자 필요 없음' |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
           for g in d.get('detail', []):
               c = g.get('post_counts', {}); n = lambda k: c.get(k, 0)
-              L.append(f"| {g['name'][:35]} | {g['members']:,} | {g.get('created','')} | {g.get('today','')} | {g['posts_read']} | {n('job')} | {n('sell')} | {n('ask')} | {n('money')} | {n('room')} | {n('visa_doc')} | {n('other')} | {g['jobs_with_visa']} | {g['no_visa_posts']} |")
+              L.append(f"| {g['name'][:35]} | {g['members']:,} | {g.get('created','')} | {g.get('today','')} | {g['posts_read']} | {n('company_q')} | {n('change_co')} | {n('job')} | {n('sell')} | {n('ask')} | {n('money')} | {n('room')} | {n('visa_doc')} | {n('other')} | {g['jobs_with_visa']} | {g['no_visa_posts']} |")
+          kws = [k['kw'] for k in (d.get('detail') or [{}])[0].get('keywords', [])]
+          if kws:
+              L += ["", "그룹 안 검색(글 수, 40 이상은 40+)", "", "| 그룹 | " + " | ".join(kws) + " |", "|---|" + "---|" * len(kws)]
+              for g in d.get('detail', []):
+                  cell = lambda k: '-' if k.get('count') is None else (f"{k['count']}+" if k.get('capped') else str(k['count']))
+                  L.append(f"| {g['name'][:35]} | " + " | ".join(cell(k) for k in g.get('keywords', [])) + " |")
           if d.get('stopped'): L.append(f"\n⚠️ 중단: {d['stopped']}")
           open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
           print('\n'.join(L))
