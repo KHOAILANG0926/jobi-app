@@ -50,18 +50,28 @@ def refresh_existing(job_id: int):
     parsed["location"] = str((ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}).get("location") or "").strip()
     if not parsed.get("location"):
         raise RuntimeError("Cannot refresh location without a source-backed location")
-    # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'만 근무지 줄로 넣는다.
-    # 못 찾은 매장은 넣지 않는다(지도 위치 절대 원칙). 확인 실패·매장 1곳이면 예전처럼 위치 글자만. 이미 확정·검증된 핀은 DB가 지킨다.
-    stores = []
+    # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'을 더한다(못 찾은 매장은 안 넣음, 절대 원칙).
+    # 기존 근무지 줄은 그대로 둔다(Codex #705): DB 입구는 받은 목록으로 근무지를 바꾸고 빠진 줄은 지우므로, 기존 줄을 앞에 넣고
+    # 새로 찾은 매장만 뒤에 붙인다. 확인 실패면 예전 동작(위치 글자만).
+    rows = []
     try:
         verdict = ingest_gateway.PRECHECK({"company": parsed.get("company") or "", "location": "", "source_text": text}) or {}
         found = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
-        if verdict.get("findable") is True and len(found) > 1:
-            stores = found
+        if verdict.get("findable") is True and found:
+            existing = (supabase.table("job_work_locations")
+                        .select("raw_address")
+                        .eq("job_id", job_id).order("sort_order").execute()).data or []
+            key = lambda a: re.sub(r"\s+", " ", str(a or "").strip().lower())
+            have = {key(r.get("raw_address")) for r in existing}
+            # 기존 줄은 주소만 보낸다 — 확정(admin)·검증(exact) 핀은 DB 쓰기 함수가 그대로 지키고, 대략 핀은 위치 찾기가 저장된 결과로 다시 붙인다.
+            keep = [{"raw_address": r["raw_address"]} for r in existing if r.get("raw_address")]
+            added = [{"raw_address": a} for a in found if key(a) not in have]
+            if added:
+                rows = keep + added
+                if not existing:
+                    parsed["location"] = found[0]
     except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
         print(f"store precheck skipped: {type(exc).__name__}")
-    if stores:
-        parsed["location"] = stores[0]
     # Source text is preserved. No user-written field value is applied.
     payload = {
         "channel": "crawler_facebook",
@@ -73,7 +83,7 @@ def refresh_existing(job_id: int):
         "source_text": text,
         "images": old.get("images") or [],
         **{k: parsed[k] for k in FIELDS},
-        **({"work_locations": [{"raw_address": a} for a in stores]} if stores else {}),
+        **({"work_locations": rows} if rows else {}),
     }
     result = ingest_job(supabase, payload)
     if int(result) != job_id:
