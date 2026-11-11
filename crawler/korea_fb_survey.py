@@ -21,7 +21,7 @@ import hashlib
 from datetime import timedelta, timezone
 
 import crawl_facebook
-from crawl_facebook import (account_lock_reason, advance_feed, build_cookies, extract_visible_posts,
+from crawl_facebook import (account_lock_reason, advance_feed, build_cookies, expand_visible_posts, extract_visible_posts,
                             goto_with_retry, inspect_page_state, parse_time_label, write_account_lock)
 
 try:
@@ -130,13 +130,16 @@ async def read_about(page, gid: str) -> dict:
 
 
 async def read_recent_posts(page, gid: str, want: int) -> list[dict]:
+    """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다."""
     if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
         return []
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
         raise RuntimeError(state)
     seen, out, stall = set(), [], 0
-    for _ in range(25):
+    for _ in range(40):
+        await expand_visible_posts(page)
+        await page.wait_for_timeout(random.randint(800, 1500))
         got = await extract_visible_posts(page)
         before = len(out)
         for p in got.get("posts", []):
@@ -144,10 +147,14 @@ async def read_recent_posts(page, gid: str, want: int) -> list[dict]:
             if key in seen:
                 continue
             seen.add(key)
-            text = re.sub(r"\s+", " ", p["text"])
-            out.append({"class": classify(text), "visa": sorted({v.upper().replace("-", "-") for v in VISA_RE.findall(text)}),
-                        "no_visa": bool(NO_VISA_RE.search(text)), "time": p.get("timeLabel", "")[:20],
-                        "head": mask(text[:160])})
+            text = re.sub(r"[ \t]+", " ", p["text"]).strip()
+            t = parse_time_label(p.get("timeLabel", ""))
+            raw_url = p.get("postUrl") or ""
+            out.append({"text": text, "url": raw_url.split("?")[0] if "/posts/" in raw_url else raw_url,
+                        "head": mask(re.sub(r"\s+", " ", text)[:160]),
+                        "class": classify(text), "visa": sorted({v.upper() for v in VISA_RE.findall(text)}),
+                        "no_visa": bool(NO_VISA_RE.search(text)), "time": p.get("timeLabel", "")[:30],
+                        "est": (t or {}).get("estimate"), "images": len(p.get("images") or [])})
         if len(out) >= want:
             break
         stall = stall + 1 if len(out) == before else 0
@@ -287,9 +294,12 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
         gid, gname = g["name"], (g["payload"] or {}).get("name", "")
         about = await read_about(page, gid)
         await page.wait_for_timeout(random.randint(10000, 20000))
-        posts = await read_recent_posts_full(page, gid, want_posts)
-        existing = {r["name"]: r for r in _db().table("research_artifacts").select("name,meta").eq("kind", KIND_POST)
-                    .like("name", f"{gid}:%").execute().data or []}
+        posts = await read_recent_posts(page, gid, want_posts)
+        names = [post_name(gid, p["text"], p["url"]) for p in posts]
+        existing = {}
+        for k in range(0, len(names), 100):  # 이번에 읽은 글만 이름으로 조회(저장분이 1,000건을 넘어도 안전)
+            for r in _db().table("research_artifacts").select("name,meta").eq("kind", KIND_POST).in_("name", names[k:k + 100]).execute().data or []:
+                existing[r["name"]] = r
         new, with_comments = 0, 0
         for p in posts:
             name = post_name(gid, p["text"], p["url"])
@@ -319,37 +329,6 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
         print(f"그룹 {gname[:40]}: 읽음 {len(posts)} · 새 글 {new} · 댓글 읽은 글 {with_comments}")
         await page.wait_for_timeout(random.randint(60000, 120000))
     return stats
-
-
-async def read_recent_posts_full(page, gid: str, want: int) -> list[dict]:
-    """read_recent_posts와 같되 글 전체·주소·시각 추정까지(저장용)."""
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
-        return []
-    state = await inspect_page_state(page)
-    if state in ("checkpoint", "session_expired"):
-        raise RuntimeError(state)
-    seen, out, stall = set(), [], 0
-    for _ in range(40):
-        got = await extract_visible_posts(page)
-        before = len(out)
-        for p in got.get("posts", []):
-            key = p["text"][:120]
-            if key in seen:
-                continue
-            seen.add(key)
-            text = re.sub(r"[ \t]+", " ", p["text"]).strip()
-            t = parse_time_label(p.get("timeLabel", ""))
-            out.append({"text": text, "url": (p.get("postUrl") or "").split("?")[0] if "/posts/" in (p.get("postUrl") or "") else (p.get("postUrl") or ""),
-                        "class": classify(text), "visa": sorted({v.upper() for v in VISA_RE.findall(text)}),
-                        "no_visa": bool(NO_VISA_RE.search(text)), "time": p.get("timeLabel", "")[:30],
-                        "est": (t or {}).get("estimate"), "images": len(p.get("images") or [])})
-        if len(out) >= want:
-            break
-        stall = stall + 1 if len(out) == before else 0
-        if stall >= 3:
-            break
-        await advance_feed(page)
-    return out[:want]
 
 
 def report(out_path: str) -> dict:
