@@ -12764,7 +12764,7 @@ details[open] .sc2-info__summary::before { transform: rotate(90deg); }
 }
 /* 2026-11-11 모바일 가로 넘침(자동 캡처 scripts/ops/mobile-screens.mjs로 확인 — 아이폰·갤럭시 모든 상세): 등록일 줄·하단 연락 바가 화면 오른쪽 밖으로. 배치·크기는 그대로, 넘치지만 않게 */
 @media (max-width: 760px) {
-  .jd2-meta-date { white-space: normal; overflow-wrap: anywhere; }
+  .jd2-meta-date { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; } /* 한 줄 그대로, 넘치는 끝만 … (마감일은 ② 모집조건에 그대로) */
   .jd2-mobile-cta__inner { min-width: 0; }
   .jd2-mobile-cta__call, .jd2-mobile-cta__zalo, .jd2-mobile-cta__apply { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
