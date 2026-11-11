@@ -21,11 +21,11 @@ jobs:
           node scripts/demo/capture-motion.mjs 4828
           montage out/pc-*.png -tile 2x -geometry +4+4 out/pc-sheet.png || true
           montage out/mobile-*.png -tile 4x -geometry +4+4 out/mobile-sheet.png || true
-      - name: 저장 (screens 브랜치)
+      - name: 저장 (screens 브랜치 demo 칸 — 운영 모바일 캡처 칸은 그대로, Codex #680)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp -r out /tmp/out
-          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan screens-tmp && git rm -rfq . && git clean -fdxq
-          cp /tmp/out/*sheet.png . ; cp /tmp/out/pc-00.png /tmp/out/mobile-00.png /tmp/out/desc-*.png . 2>/dev/null || true
-          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
-          git add -A && git commit -qm "demo capture ${GITHUB_SHA::7}" && git push -f origin HEAD:screens
+          mkdir -p /tmp/demo-out
+          cp out/*sheet.png /tmp/demo-out/ 2>/dev/null || true
+          cp out/pc-00.png out/mobile-00.png out/desc-*.png /tmp/demo-out/ 2>/dev/null || true
+          scripts/ops/publish-screens.sh /tmp/demo-out demo "demo capture ${GITHUB_SHA::7}"

@@ -1,6 +1,6 @@
 name: 모바일 화면 캡처 (운영, 작업자 확인용)
 # Lee 2026-11-11: 작업 세션이 모바일 화면을 직접 볼 수 없어 Lee가 캡처를 보내야 하던 문제 → GitHub에서 핸드폰 크기로 찍어
-# 'screens' 브랜치(코드와 무관한 그림 전용, 매번 덮어씀)에 올린다. 작업자는 git fetch origin screens로 받아 본다.
+# 'screens' 브랜치(그림 전용) mobile 칸에 올린다(데모 촬영은 demo 칸, 게시는 scripts/ops/publish-screens.sh 한 곳). 작업자는 git fetch origin screens로 받아 본다.
 on:
   workflow_dispatch: {}
   workflow_run:
@@ -34,13 +34,7 @@ jobs:
           BASE_URL: https://viecganban.vn
           OUT: ${{ runner.temp }}/screens
         run: node scripts/ops/mobile-screens.mjs | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: screens 브랜치에 올리기 (그림만, 매번 새로)
+      - name: screens 브랜치 mobile 칸에 올리기 (데모 촬영 칸은 그대로, Codex #680)
         env:
-          OUT: ${{ runner.temp }}/screens
-        run: |
-          cd "$OUT"
-          git init -q -b screens
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A && git commit -qm "모바일 화면 캡처 ${GITHUB_SHA::7}"
-          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" screens:screens
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/ops/publish-screens.sh "${{ runner.temp }}/screens" mobile "모바일 화면 캡처 ${GITHUB_SHA::7}"
