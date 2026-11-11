@@ -248,14 +248,16 @@ def _upsert(kind: str, name: str, payload: dict, meta: dict) -> None:
 
 
 def post_name(gid: str, text: str, url: str) -> str:
-    m = re.search(r"/(?:posts|permalink)/(\d+)|story_fbid=(\d+)|multi_permalinks=(\d+)", url or "")
-    pid = next((g for g in (m.groups() if m else ()) if g), None)
+    pid = crawl_facebook.extract_post_id(url)  # pfbid 같은 영숫자 ID도 읽는 기존 함수
     return f"{gid}:{pid or hashlib.sha1(text[:300].encode()).hexdigest()[:16]}"
 
 
 async def read_comments(page, url: str, cap: int = 40) -> list[str]:
     if not url or not await goto_with_retry(page, url):
         return []
+    state = await inspect_page_state(page)
+    if state in ("checkpoint", "session_expired"):
+        raise RuntimeError(state)
     for _ in range(3):  # 댓글 더 보기
         try:
             more = page.get_by_text(re.compile(r"^(댓글 더 보기|Xem thêm bình luận|View more comments|이전 댓글 보기)"))
