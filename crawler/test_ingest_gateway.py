@@ -40,6 +40,21 @@ def run():
     c = Client()
     assert g.ingest_job(c, fb) == 77 and seen[0]["source_text"] == fb["source_text"] and seen[0]["addresses"] == [], seen
     assert c.calls[0][1]["p"]["location"] == "Tiểu KCN Ba Bên, Từ Sơn, Bắc Ninh, Bắc Ninh", c.calls
+    assert "work_locations" not in c.calls[0][1]["p"], "매장 한 곳이면 근무지 줄을 따로 넣지 않는다"
+
+    # 2026-11-11 Lee 매장 여러 곳(KRIK): 서버가 읽은 매장마다 근무지 줄로 등록(새 공고만)
+    krik_src = {"title": "Bán hàng", "company": "KRIK", "location": "Bắc Ninh", "source_text": "Địa chỉ: 152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh\n148 Trần Phú - Từ Sơn - Bắc Ninh"}
+    krik = dict(krik_src)
+    first, second = "152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh, Bắc Ninh", "148 Trần Phú, Từ Sơn, Bắc Ninh, Bắc Ninh"
+    g.PRECHECK = lambda j: {"findable": True, "location": first, "stores": [first, second]}
+    c = Client()
+    assert g.ingest_job(c, krik) == 77
+    assert c.calls[0][1]["p"]["work_locations"] == [{"raw_address": first}, {"raw_address": second}], c.calls
+    assert c.calls[0][1]["p"]["location"] == first
+    # 첫 매장이 위치 글자와 다르면(서버 응답 이상) 근무지 줄을 만들지 않는다
+    g.PRECHECK = lambda j: {"findable": True, "location": first, "stores": [second, first]}
+    c = Client()
+    assert g.ingest_job(c, dict(krik_src)) == 77 and "work_locations" not in c.calls[0][1]["p"]
 
     g.PRECHECK = lambda j: {"findable": False, "reason": "approximate_only"}
     c = Client()

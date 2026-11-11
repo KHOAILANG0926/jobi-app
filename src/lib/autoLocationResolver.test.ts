@@ -42,7 +42,8 @@ const wrong=await run([hit],{...place,display:'99 Other Road, Hồ Chí Minh',na
 assert(wrong.kind==='unresolved','Place response cannot override correct search hit with wrong location')
 let total=0
 await resolver.resolveAutoLocation({...job,targets:[...job.targets,{address:'20 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội',workLocationId:101}]},{...deps,async reserve(){return true},async request(){total++;return []}})
-assert(total<=2,'multiple workplaces share the two-call cap')
+// 2026-11-11 Lee "한도 안 넘었는데 왜 비용 걱정": 매장마다 같은 찾기(매장마다 2번까지) — 공고당 묶음 한도 없음, 월 한도·DB 예약은 그대로
+assert(total<=4,'each workplace keeps its own two-call cap')
 console.log('autoLocationResolver: exact match, ambiguity, wrong Place, multi-workplace passed')
 const deferred=await resolver.resolveAutoLocation(job,{...deps,async reserve(){return false}})
 assert(deferred.deferred===true,'daily budget refusal must defer instead of permanently marking unresolved')
@@ -82,7 +83,8 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
  const area=await resolver.resolveAutoLocation({id:125,company:'Any employer',location:'Bắc Ninh',targets:[{address:'Khu A, Bắc Ninh',workLocationId:301},{address:'Khu B, Bắc Ninh',workLocationId:302}]},{
   ...deps,async administrativeCenter(){return {lat:21.098,lng:106.117,source:'Original province reference',checkedAt:'2026-10-28T05:00:00Z'}}
  })
- assert(area.kind==='area'&&area.address==='Khu A, Bắc Ninh'&&area.workLocationId===301,'multi-workplace area fallback binds explicit canonical target')
+ // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 근무지 여러 곳 모두 못 찾으면 성 중심 핀 없이 못 찾음(예전 '성 중심 대략 핀' 기대값을 바꿈)
+ assert(area.kind==='unresolved'&&!('lat' in area),'multi-workplace with no found store gets no province-centre pin')
 }
 
 // ── Goong 두 번째 자료(Lee 2026-10-29): 같은 판정 규칙, 조건 못 채우면 핀 없음 ──
@@ -121,4 +123,67 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
     { ...withGoong(() => { throw new Error('upstream private message') }), async cached(k: string) { if (k.includes('goong-v1')) cachedHits++; return null } })
   assert(cachedHits >= 1, 'Goong questions are cached like VietMap ones')
   console.log('autoLocationResolver: Goong address/company-in-park assertions passed')
+}
+
+// 2026-11-11 Lee 매장 여러 곳(KRIK·MediaMart) + 절대 원칙 "위치를 모르면 찍지 마": 다른 매장도 첫 매장과 같은 방법으로 찾고, 찾은 매장만 핀
+{
+  const a1 = '12 Nguyễn Trãi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội'
+  const a2 = '5 Lê Lợi, Phường Thanh Xuân Trung, Quận Thanh Xuân, Hà Nội'
+  const a3 = 'Ngõ 9, Nơi Không Có'
+  const places: Record<string, { name: string; display: string }> = { 'p1': { name: '12 Nguyễn Trãi', display: a1 }, 'p2': { name: '5 Lê Lợi', display: a2 } }
+  const multi = await resolver.resolveAutoLocation({ id: 20, company: 'Fixture', location: a1, targets: [{ address: a1, workLocationId: 1 }, { address: a2, workLocationId: 2 }, { address: a3, workLocationId: 3 }] }, {
+    ...deps, async reserve() { return true },
+    async request(action: string, params: Record<string, string>) {
+      if (action === 'search') return params.text.includes('Lê Lợi') ? [{ ref_id: 'p2', name: '5 Lê Lợi', address: a2 }] : params.text.includes('Nguyễn Trãi') ? [{ ref_id: 'p1', name: '12 Nguyễn Trãi', address: a1 }] : []
+      const p = places[params.refid]; return p ? { ...p, lat: 21.0, lng: 105.8, ward: 'Thanh Xuân Trung', district: 'Thanh Xuân', city: 'Hà Nội' } : null
+    },
+    async wardCenter() { return { lat: 21.12, lng: 105.96, at: '2026-11-01' } },
+    async administrativeCenter() { return { lat: 21.03, lng: 105.85, source: 'Original administrative area ha noi', checkedAt: 'x' } },
+  } as never)
+  assert(multi.kind === 'exact' && multi.address === a1, 'first store keeps the existing exact step')
+  const others = (multi as { others?: Array<{ kind: string; address?: string; workLocationId?: number | null }> }).others ?? []
+  assert(others.length === 1 && others[0].kind === 'exact' && others[0].address === a2 && others[0].workLocationId === 2, 'found second store gets its own verified pin: ' + JSON.stringify(others))
+  assert(!others.some((o) => o.address === a3), 'unknown store gets no pin (no ward/city centre guess)')
+  const single = await resolver.resolveAutoLocation({ id: 21, company: 'Fixture', location: 'unknown', targets: [] }, deps)
+  assert(!('others' in single), 'one-store job unchanged')
+  // 지점마다 Google 한 번씩(Codex #697): 첫 지점이 Google을 썼어도 다음 지점은 따로 1번 물을 수 있다
+  const g1 = '5 Phố A, Phường X, Hà Nội', g2 = '7 Phố B, Phường Y, Hà Nội'
+  const asked: string[] = []
+  const gm = await resolver.resolveAutoLocation({ id: 22, company: 'Fixture Cafe', location: g1, targets: [{ address: g1, workLocationId: 1 }, { address: g2, workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { asked.push(text); return { places: [{ id: 'g' + asked.length, displayName: { text: 'Fixture Cafe' }, formattedAddress: text.includes('Phố B') ? g2 : g1, location: { latitude: 21.0 + asked.length / 100, longitude: 105.8 } }] } },
+  } as never)
+  assert(asked.length === 2, 'each store asks Google once: ' + asked.length)
+  assert(((gm as { others?: unknown[] }).others ?? []).length === 1, 'second store found through its own Google call')
+  // Codex #697: 첫 매장을 못 찾고 다른 매장들만 찾으면 — 찾은 맨 앞 매장이 대표, 나머지가 others(공고를 버리지 않음)
+  const g0 = '9 Phố Z, Phường Q, Hà Nội'
+  const asked2: string[] = []
+  const fm = await resolver.resolveAutoLocation({ id: 23, company: 'Fixture Cafe', location: g0, targets: [{ address: g0, workLocationId: 1 }, { address: g1, workLocationId: 2 }, { address: g2, workLocationId: 3 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { asked2.push(text); return text.includes('Phố Z') ? { places: [] } : { places: [{ id: 'h' + asked2.length, displayName: { text: 'Fixture Cafe' }, formattedAddress: text.includes('Phố B') ? g2 : g1, location: { latitude: 21.0 + asked2.length / 100, longitude: 105.8 } }] } },
+  } as never)
+  assert(fm.kind !== 'unresolved' && fm.address === g1 && fm.workLocationId === 2, 'first found store becomes main: ' + JSON.stringify(fm).slice(0, 200))
+  assert(((fm as { others?: Array<{ address?: string }> }).others ?? []).map((o) => o.address).join('|') === g2, 'other found store kept, unfound first store dropped')
+  // Codex #697: 매장 주소에 성 이름이 없으면 공고 지역을 붙여 원래 성 안 검사 근거를 지킨다(매장이 늘어도 찾던 곳이 안 빠짐)
+  const ctx: string[] = []
+  const pv = await resolver.resolveAutoLocation({ id: 24, company: 'Fixture Cafe', location: 'Bắc Ninh', targets: [{ address: '12 Trần Phú', workLocationId: 1 }, { address: '5 Lê Lợi', workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { return { places: [{ id: 'k' + text.length, displayName: { text: 'Fixture Cafe' }, formattedAddress: text.replace('Fixture Cafe, ', ''), location: { latitude: 21.18, longitude: 106.07 } }] } },
+    async withinAdministrativeArea(a: string[]) { ctx.push(a.join(' | ')); return a.join(' ').includes('Bắc Ninh') },
+  } as never)
+  assert(ctx.length > 0 && ctx.every((c) => c.includes('Bắc Ninh')), 'province context kept per store: ' + JSON.stringify(ctx))
+  assert(pv.kind !== 'unresolved', 'store without province still found with job region')
+  // Codex #697: 매장을 하나도 못 찾으면 행정구역 중심 핀 없이 '못 찾음'
+  const none = await resolver.resolveAutoLocation({ id: 25, company: 'Fixture Cafe', location: 'Bắc Ninh', targets: [{ address: '1 Phố M, Bắc Ninh', workLocationId: 1 }, { address: '2 Phố N, Bắc Ninh', workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] }, async google() { return { places: [] } },
+    async administrativeCenter() { return { lat: 21.18, lng: 106.07, source: 'Original administrative area bac ninh', checkedAt: 'x' } },
+  } as never)
+  assert(none.kind === 'unresolved' && !('lat' in none), 'no store found → no approximate pin: ' + JSON.stringify(none).slice(0, 160))
+  // Codex #697: 한 매장이 Google 한도에 걸리면 공고 전체 보류(한도 기록 유지 → 기존 보류·재시도)
+  const qm = await resolver.resolveAutoLocation({ id: 26, company: 'Fixture Cafe', location: g1, targets: [{ address: g1, workLocationId: 1 }, { address: g2, workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { if (text.includes('Phố B')) throw new Error('quota_exhausted'); return { places: [{ id: 'q1', displayName: { text: 'Fixture Cafe' }, formattedAddress: g1, location: { latitude: 21.0, longitude: 105.8 } }] } },
+  } as never)
+  assert(qm.kind === 'unresolved' && qm.deferred && /google:quota/.test(String(qm.evidence)), 'quota-blocked store defers whole posting: ' + JSON.stringify(qm).slice(0, 200))
+  console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }

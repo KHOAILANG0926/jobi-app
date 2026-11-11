@@ -172,6 +172,11 @@ def require_location(job: dict) -> dict:
     checked = str(verdict.get("location") or "").strip()
     if checked and not _work_addresses(job):
         job["location"] = checked
+        # 원문 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 위치를 찾은 매장만 근무지 줄 — 등록 입구가 같은 위치 쓰기 함수로 넣는다(새 공고만).
+        # 못 찾은 매장은 넣지 않는다(위치를 모르면 핀을 찍지 않음, Lee 2026-11-11 절대 원칙).
+        stores = [str(x).strip() for x in (verdict.get("stores") or []) if str(x).strip()][:5]
+        if len(stores) > 1 and stores[0] == checked:
+            job["work_locations"] = [{"raw_address": a} for a in stores]
     if str(verdict.get("company") or "").strip():
         job["company"] = str(verdict["company"]).strip()
     if verdict.get("agency") is True:

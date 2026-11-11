@@ -60,6 +60,9 @@ export function readAddress(sourceText: string): string {
   }
   const line = unlabeledLine(text)
   if (line) return line
+  // 매장 줄이 2곳 이상이면(성 이름 없는 "CN 1: 152 …, Phường Kinh Bắc" 목록) 동 이름 조각을 이어 붙인 가짜 주소 대신 첫 매장 줄(Codex #697)
+  const stores = storeLines(text)
+  if (stores.length >= 2) return stores[0]
   // ③ 조각: 동·구·도로·공단(FRAGMENT) + 가게 이름 바로 뒤 번지+거리("Cửa hàng Jollibee 393 Trần Hưng Đạo", #633 —
   //    거리 이름을 대문자로 알아봐야 해서 대소문자 무시인 FRAGMENT에는 못 넣고 같은 조각 목록에 앞에 둔다)
   const shopStreets = text.split('\n').flatMap((l) => {
@@ -69,6 +72,64 @@ export function readAddress(sourceText: string): string {
   })
   const parts = [...shopStreets, ...[...text.matchAll(FRAGMENT)].map((m) => m[0].trim()).map((m) => (/^(?:kcn|ccn)\s/iu.test(m) ? m.replace(FRAGMENT_TAIL, '') : m))].filter((m) => m.length > 2)
   return [...new Set(parts.slice(0, 3))].join(', ')
+}
+
+// 매장(근무지)이 여러 곳인 글(Lee 2026-11-11 KRIK 2곳·MediaMart 4곳 — 핀이 첫 곳만 찍힘): 첫 주소(readAddress) 다음에
+// 다른 줄에 적힌 매장 주소도 읽는다. 매장 주소 줄 = 번지+거리 또는 거리·국도·khu phố·thôn 낱말이 있고, 쉼표(띄어 쓴 대시)로 2칸 이상,
+// 끝 칸이 원래 성 이름이거나 동·구 낱말이 있는 줄. 앞 이름표("CN Từ Sơn:")와 끝 "Việt Nam"은 뗀다. 첫 주소와 같은 곳(포함)은 뺀다.
+const STORE_MARK = /(?:^|[\s,])(?:số\s*)?\d{1,4}\p{L}?(?:\/\d+)*\s+\p{L}|(?:^|[\s,])(?:đường|phố|quốc lộ|ql\.?|khu phố|kp\.?|thôn|tòa|toà)\s/iu
+const UNIT_MARK = /(?:^|[\s,])(?:phường|p\.|xã|quận|q\.|huyện|thị xã|thị trấn|tp\.?|thành phố|khu phố)\s/iu
+const placeKey = (s: string) => normalizePlaceText(s).replace(/[^a-z0-9]+/g, ' ').trim()
+// 같은 매장 = 한 주소가 다른 주소를 낱말 단위로 통째로 포함(가게 이름 + 같은 주소). 낱말 중간은 안 본다 — 12번지 ≠ 112번지(Codex #697).
+const sameStore = (a: string, b: string) => ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `)
+function storeLine(raw: string): string {
+  let line = trimDots(raw.replace(new RegExp(`^[^${WORD}]+`, 'u'), '').trim())
+  const colon = line.split(',', 1)[0].match(/[:：]/)
+  if (colon) line = trimDots(line.slice(line.indexOf(colon[0]) + 1))
+  line = line.replace(/\s+[-–]\s+/gu, ', ').replace(/,\s*(?:việt nam|vietnam)\s*$/iu, '').trim()
+  const parts = line.split(',').map((x) => x.trim()).filter(Boolean)
+  if (parts.length < 2 || line.length > 160 || NOT_ADDRESS.test(line.replace(/quốc lộ\s*\d+/giu, '')) || !STORE_MARK.test(line)) return ''
+  const last = normalizePlaceText(parts[parts.length - 1].replace(/^(?:tỉnh|tinh|thành phố|tp\.?)\s+/iu, '')).replace(/\s+/g, ' ').trim()
+  return PROVINCES.has(last) || UNIT_MARK.test(line) ? parts.join(', ') : ''
+}
+
+function storeLines(text: string): string[] {
+  const out: string[] = []
+  for (const raw of text.split('\n')) {
+    const a = storeLine(raw)
+    const k = a && placeKey(a)
+    if (k && !out.some((x) => sameStore(placeKey(x), k))) out.push(a)
+  }
+  return out
+}
+
+/** 원문의 근무지 주소 목록(최대 5곳). 첫 번째는 readAddress와 같다. 주소가 없으면 []. */
+export function readAddresses(sourceText: string): string[] {
+  const first = readAddress(sourceText)
+  if (!first) return []
+  const out = [first]
+  const keys = [placeKey(first)]
+  for (const a of storeLines(postBody(String(sourceText ?? '').normalize('NFC')))) {
+    if (out.length >= 5) break
+    const k = placeKey(a)
+    if (keys.some((x) => sameStore(x, k))) continue
+    out.push(a); keys.push(k)
+  }
+  return out
+}
+
+// 매장 주소에 이미 성 이름이 있으면(다른 성 지점 포함) 수집 그룹 지역을 붙이지 않는다 — 다른 성 매장이 그룹 성으로 찍히지 않게(Codex #697).
+export const hasProvince = (a: string) => {
+  const last = a.split(',').map((x) => x.trim()).filter(Boolean).pop() ?? ''
+  return PROVINCES.has(normalizePlaceText(last.replace(/^(?:tỉnh|tinh|thành phố|tp\.?)\s+/iu, '')).replace(/\s+/g, ' ').trim())
+}
+
+/** 위치 확인에 쓸 위치 글자 목록: 매장마다 원문 주소 + 수집 그룹 지역. 첫 번째는 readLocationText와 같다. */
+export function readLocationTexts(sourceText: string, region = ''): string[] {
+  const r = String(region ?? '').trim()
+  // 첫 매장은 지금까지와 같은 위치 글자(readLocationText), 다른 매장은 성 이름이 없을 때만 지역을 붙인다.
+  const list = readAddresses(sourceText).map((a, i) => (i === 0 ? readLocationText(sourceText, region) : hasProvince(a) ? a : [a, r].filter(Boolean).join(', ')))
+  return list.length ? list : [readLocationText(sourceText, region)].filter(Boolean)
 }
 
 /** 위치 확인에 쓸 위치 글자: 원문 주소 + (원문에 이름이 있는) 수집 그룹 지역. */

@@ -51,3 +51,22 @@ assert.equal(missingVerifiedCoordinate({active:true,admin_hidden:false,company:'
   }
   console.log('precheck: confirmed memory skips Google, miss/error keeps existing order')
 }
+
+// Codex #697: 매장 여러 곳 — 확정 위치는 매장마다 맞춰 본다. 두 번째 매장만 확정이고 첫 매장을 못 찾으면 두 번째 매장이 공고 위치(못 찾은 첫 매장은 안 넣음)
+{
+  const { precheckLocation } = await import('./_lib/auto-location-runtime.mjs')
+  const src = 'KRIK TUYỂN DỤNG\nĐịa chỉ: 152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh\n148 Trần Phú - Từ Sơn - Bắc Ninh\nLiên hệ 0886530131'
+  const db = {
+    rpc: async (name: string, args: any) => name === 'location_memory_point' ? { data: String(args.p_addresses[0]).startsWith('148') ? [{ candidate_id: 1 }] : [], error: null } : { data: null, error: null },
+    from: () => { const q: any = { select: () => q, eq: () => q, in: async () => ({ data: [], error: null }), maybeSingle: async () => ({ data: null, error: null }), upsert: async () => ({ error: null }) }; return q },
+  }
+  const r = await precheckLocation(db, async () => null, { company: 'KRIK', location: 'Bắc Ninh', source_text: src }, null, async () => ({ places: [] }))
+  assert.equal(r.findable, true, 'confirmed second store makes the posting findable')
+  assert.ok(String(r.location).startsWith('148 Trần Phú'), 'location = confirmed store, not the unfound first: ' + r.location)
+  assert.ok(!r.stores || r.stores.length === 1, 'only the one found store')
+  // Codex #697: 확정 매장 + 다른 매장 Google 한도 → 공고 전체 보류(google_quota)
+  const db2 = { ...db, rpc: async (name: string, args: any) => name === 'location_memory_point' ? { data: String(args.p_addresses[0]).startsWith('152') ? [{ candidate_id: 1 }] : [], error: null } : { data: null, error: null } }
+  const q = await precheckLocation(db2, async () => null, { company: 'KRIK', location: 'Bắc Ninh', source_text: src }, null, async () => { throw new Error('quota_exhausted') })
+  assert.equal(q.findable, false); assert.equal(q.reason, 'google_quota', 'quota on the other store holds the posting: ' + q.reason)
+  console.log('precheck: confirmed memory per store passed')
+}
