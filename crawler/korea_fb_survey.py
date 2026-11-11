@@ -172,31 +172,6 @@ async def read_recent_posts(page, gid: str, want: int) -> list[dict] | None:
     return out[:want]
 
 
-# 그룹 안 검색: 이 말이 든 글이 얼마나 있나(상한까지만 센다 — "많다/적다"를 보는 용도)
-KEYWORDS = ["công ty này", "có ổn không", "đổi công ty", "tìm việc", "gia hạn visa", "phòng trọ", "đổi tiền", "quảng cáo"]
-
-
-async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
-    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/search/?q={quote(kw)}"):
-        return {"kw": kw, "count": None}
-    state = await inspect_page_state(page)
-    if state in ("checkpoint", "session_expired"):
-        raise RuntimeError(state)
-    seen, heads = set(), []
-    for _ in range(6):
-        got = await extract_visible_posts(page)
-        for p in got.get("posts", []):
-            k = p["text"][:120]
-            if k not in seen:
-                seen.add(k)
-                if len(heads) < 3:
-                    heads.append({"time": p.get("timeLabel", "")[:20], "head": mask(re.sub(r"\s+", " ", p["text"])[:120])})
-        if len(seen) >= cap:
-            break
-        await advance_feed(page)
-    return {"kw": kw, "count": len(seen), "capped": len(seen) >= cap, "samples": heads}
-
-
 async def open_page(page, url: str) -> bool:
     """그룹 화면은 서버에서 'domcontentloaded'까지 30초 안에 안 끝나 전부 실패했다(2026-11-11 조사: 101번 모두 Timeout,
     검색 화면은 정상). 응답 시작(commit)만 기다린 뒤 본문 영역이 보이면 진행한다. 실패하면 어디서 멈췄는지 남기고 30초 뒤 1번 더."""
@@ -218,6 +193,36 @@ async def open_page(page, url: str) -> bool:
             if attempt == 1:
                 await page.wait_for_timeout(30000)
     return False
+
+
+async def limited(coro, secs: int, label: str, page):
+    """페이지 안 스크립트 실행(evaluate)에는 시간 한도가 없어, 화면이 멈추면 몇 시간 그대로 기다린다
+    (2026-11-11 시험: 검색 뒤 3시간 반 아무 출력 없이 멈춤 → 수집기 줄까지 막음). 단계마다 한도를 두고,
+    넘기면 그때 화면 주소·제목을 남기고 실패로 센다."""
+    t0 = datetime.now()
+    print(f"  · {label} 시작 {t0:%H:%M:%S}")
+    try:
+        r = await asyncio.wait_for(coro, timeout=secs)
+        print(f"  · {label} 끝 {(datetime.now() - t0).seconds}초")
+        return r
+    except asyncio.TimeoutError:
+        try:
+            title = await asyncio.wait_for(page.title(), timeout=10)
+        except Exception:  # noqa: BLE001
+            title = "?"
+        print(f"  ⛔ {label} {secs}초 넘김 — 지금 주소 {page.url[:80]} · 제목 {title[:40]}")
+        return "timeout"
+
+
+async def fresh_page(ctx, page):
+    """멈춘 화면은 닫고 새 화면으로 다음 단계를 잇는다."""
+    try:
+        await asyncio.wait_for(page.close(), timeout=15)
+    except Exception:  # noqa: BLE001
+        pass
+    np = await ctx.new_page()
+    await stealth_async(np)
+    return np
 
 
 def save_json(path: str, data: dict) -> None:
@@ -329,13 +334,20 @@ def pick_groups(n: int) -> list[dict]:
     return rows[:n]
 
 
-async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int) -> dict:
+async def collect(page, ctx, groups_per_run: int, want_posts: int, comment_posts: int) -> dict:
     stats = {"groups": [], "new_posts": 0, "comments": 0}
     for g in pick_groups(groups_per_run):
         gid, gname = g["name"], (g["payload"] or {}).get("name", "")
-        about = await read_about(page, gid)
+        print(f"그룹 {gname[:40]}")
+        about = await limited(read_about(page, gid), 300, "소개 화면", page)
+        if about == "timeout":
+            page = await fresh_page(ctx, page)
+            about = {"id": gid, "error": "timeout"}
         await page.wait_for_timeout(random.randint(10000, 20000))
-        posts = await read_recent_posts(page, gid, want_posts)
+        posts = await limited(read_recent_posts(page, gid, want_posts), 900, "글 읽기", page)
+        if posts == "timeout":
+            page = await fresh_page(ctx, page)
+            posts = None
         failed = bool(about.get("error")) or posts is None  # 소개·글 화면 중 하나라도 안 열렸으면 실패
         posts = posts or []
         names = [post_name(gid, p["text"], p["url"]) for p in posts]
@@ -351,7 +363,10 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
             # 새 글이거나, 저장된 댓글이 아직 없는 글(예전에 비어 있었거나 읽기 실패)은 이번 한도 안에서 다시 읽는다
             if (not old or not (old.get("payload") or {}).get("comments")) and p["class"] != "sell" and p["url"] and with_comments < comment_posts:
                 await page.wait_for_timeout(random.randint(8000, 15000))
-                comments = await read_comments(page, p["url"])
+                comments = await limited(read_comments(page, p["url"]), 180, "댓글", page)
+                if comments == "timeout":
+                    page = await fresh_page(ctx, page)
+                    comments = []
                 with_comments += 1
                 stats["comments"] += len(comments)
             payload = {"gid": gid, "group": gname, "text": mask(p["text"])[:3000], "class": p["class"], "visa": p["visa"],
@@ -450,7 +465,7 @@ async def main(argv=None) -> int:
         try:
             if a.mode == "collect":
                 await refresh_registry(page, [x.strip() for x in a.queries.split("|") if x.strip()])
-                result["collect"] = await collect(page, a.groups_per_run, a.posts, a.comment_posts)
+                result["collect"] = await collect(page, ctx, a.groups_per_run, a.posts, a.comment_posts)
                 raise StopAsyncIteration
             found = {}
             for q in [x.strip() for x in a.queries.split("|") if x.strip()]:
@@ -465,22 +480,25 @@ async def main(argv=None) -> int:
             targets = [g for g in result["groups"] if g["korea_name"] and g.get("members", 0) >= MIN_MEMBERS][: a.top]
             fails = 0
             for g in targets:
-                about = await read_about(page, g["id"])
+                print(f"그룹 {g['name'][:40]} ({g['members']:,}명)")
+                about = await limited(read_about(page, g["id"]), 300, "소개 화면", page)
+                if about == "timeout":
+                    page = await fresh_page(ctx, page)
+                    about = {"id": g["id"], "error": "timeout"}
                 await page.wait_for_timeout(random.randint(8000, 15000))
-                posts = await read_recent_posts(page, g["id"], a.posts)
+                posts = await limited(read_recent_posts(page, g["id"], a.posts), 900, "글 읽기", page)
+                if posts == "timeout":
+                    page = await fresh_page(ctx, page)
+                    posts = None
                 failed = bool(about.get("error")) or posts is None
                 posts = posts or []
-                kws = []
-                for kw in ([] if failed and not posts else KEYWORDS):  # 화면이 안 열린 그룹은 키워드 검색까지 반복하지 않는다
-                    await page.wait_for_timeout(random.randint(8000, 15000))
-                    kws.append(await count_keyword(page, g["id"], kw))
                 counts = {}
                 for x in posts:
                     counts[x["class"]] = counts.get(x["class"], 0) + 1
                 result["detail"].append({**about, "name": g["name"], "members": g["members"], "daily": g["daily"],
                                          "post_counts": counts, "posts_read": len(posts),
                                          "jobs_with_visa": sum(1 for x in posts if x["class"] == "job" and x["visa"]),
-                                         "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws,
+                                         "no_visa_posts": sum(1 for x in posts if x["no_visa"]),
                                          "posts": [{**x, "text": mask(x["text"])} for x in posts]})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
                 fails = fails + 1 if (failed and not posts) else 0
