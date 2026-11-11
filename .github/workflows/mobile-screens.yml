@@ -27,9 +27,10 @@ on:
 permissions:
   contents: write
 
+# 칸(slot)마다 따로, 앞 촬영을 지우지 않고 차례로(2026-11-11: 알바몬 촬영이 운영 배포 뒤 자동 촬영에 취소됨)
 concurrency:
-  group: mobile-screens
-  cancel-in-progress: true
+  group: mobile-screens-${{ inputs.slot || 'mobile' }}
+  cancel-in-progress: false
 
 jobs:
   capture:
