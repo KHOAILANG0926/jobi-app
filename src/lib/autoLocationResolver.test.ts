@@ -56,14 +56,16 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
     ...deps, async reserve() { return true }, async request() { calls++; return [] },
     async wardCenter(unit) { return unit.key === 'phuong:phuong lieu||bac ninh' ? { lat: 21.1568, lng: 106.1275, at: '2026-10-08T06:40:06Z' } : null },
   })
-  assert(r.kind === 'area' && calls === 0 && (r as { lat: number }).lat === 21.1568, '2-level address uses stored ward center without VietMap calls')
+  // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
+  assert(r.kind === 'unresolved' && calls === 0 && !('lat' in r) && /approximate_not_pinned/.test(String(r.evidence)), '2-level address: stored ward center is not pinned, no VietMap calls')
   console.log('autoLocationResolver: 2-level ward cache assertions passed')
 }
 {
  const approximate=await resolver.resolveAutoLocation({id:123,company:'Any employer',location:'Bắc Ninh',targets:[]},{
   ...deps,async administrativeCenter(){return {lat:21.1861,lng:106.0763,source:'Natural Earth original province bac ninh',checkedAt:'2026-10-28T00:00:00Z'}}
  })
- assert(approximate.kind==='area','null-coordinate jobs retain an administrative approximate pin after higher priority misses')
+ // 2026-11-11 Lee 절대 원칙: 대략 위치는 핀 없이 못 찾음
+ assert(approximate.kind==='unresolved'&&!('lat' in approximate),'administrative approximate is not pinned after higher priority misses')
 }
 {
  const outside=await resolver.resolveAutoLocation({id:124,company:'Any employer',location:'KCN Quế Võ, Bắc Ninh',targets:[]},{

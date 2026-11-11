@@ -39,6 +39,18 @@ export interface ResolverDeps {
  *  위치를 모르는 매장에는 핀을 찍지 않는다(Lee 2026-11-11 절대 원칙). 지도 호출 수는 매장마다 따로(월 한도·DB 예약은 그대로).
  *  찾은 매장이 없으면 예전처럼 첫 매장 결과(한도 초과 기록 등)를 그대로 돌려준다. 최대 5곳. */
 export async function resolveAutoLocation(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
+  return onlyFound(await resolveAllStores(job, providedDeps))
+}
+
+/** 지도 위치 절대 원칙(Lee 2026-11-11 "위치를 모르면 마음대로 찍지 마"): 수집 기준으로 '찾음'(번지·공단 정문·회사 장소)이 아닌 결과
+ *  (동·시·거리 가운데·공단 중심 같은 대략 위치)는 좌표 없이 '못 찾음'으로 돌려준다 — 핀을 찍지 않는다. 실패·한도 기록(evidence)은 남긴다. */
+function onlyFound(r: LocationDecision): LocationDecision {
+  if (r.kind === 'unresolved' || precheckVerdict(r).findable) return r
+  return { kind: 'unresolved', failed: r.failed, deferred: r.deferred || /google:quota/.test(String(r.evidence ?? '')),
+    evidence: [r.evidence, `approximate_not_pinned:${'source' in r ? r.source : ''}`].filter(Boolean).join('\n') }
+}
+
+async function resolveAllStores(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
   if (job.targets.length <= 1) return resolveStore(job, providedDeps)
   const results: LocationDecision[] = []
   for (const t of job.targets.filter((x) => x.address).slice(0, 5)) {
