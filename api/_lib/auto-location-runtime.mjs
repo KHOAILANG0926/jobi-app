@@ -104,10 +104,12 @@ export async function precheckLocation(db, request, input, goong = null, google 
   // 확정 위치가 있는 매장은 원문 순서대로 찾은 매장에 넣는다(대표 = 원문 맨 앞의 찾은 매장).
   const foundAddresses = precheckVerdict(found).findable ? [found.address, ...(found.others ?? []).map((o) => o.address)].filter(Boolean) : []
   const ordered = job.targets.map((t) => t.address).filter((a) => confirmed.includes(a) || foundAddresses.includes(a))
-  const result = !confirmed.length || !ordered.length ? found
+  // 나머지 매장 중 Google 한도에 걸린 곳이 있으면 확정 매장이 있어도 공고 전체를 기존 보류로(위치 찾기와 같은 판단, Codex #697)
+  const held = !precheckVerdict(found).findable && /google:quota/.test(String(found.evidence ?? ''))
+  const result = !confirmed.length || !ordered.length || held ? found
     : confirmed.includes(ordered[0]) ? { kind: 'exact', reason: 'confirmed_memory', source: 'admin_approved', address: ordered[0], others: ordered.slice(1).map((address) => ({ address })) }
     : { ...found, others: ordered.filter((a) => a !== found.address).map((address) => ({ address })) }
-  const verdict = confirmed.length && ordered.length ? { findable: true, kind: result.kind, reason: confirmed.includes(ordered[0]) ? 'confirmed_memory' : precheckVerdict(found).reason } : precheckVerdict(result)
+  const verdict = confirmed.length && ordered.length && !held ? { findable: true, kind: result.kind, reason: confirmed.includes(ordered[0]) ? 'confirmed_memory' : precheckVerdict(found).reason } : precheckVerdict(result)
   // stores: 원문 매장이 여러 곳이면 위치를 찾은 매장만(첫 매장과 같은 방법으로 매장마다 찾음, Lee 2026-11-11 "모르면 찍지 마").
   //  수집기가 찾은 매장만 근무지 줄로 넣고 첫 번째를 공고 위치로 쓴다. 주소 칸이 있는 소스는 그 칸 그대로.
   const fromText = !(Array.isArray(input?.addresses) && input.addresses.length)
