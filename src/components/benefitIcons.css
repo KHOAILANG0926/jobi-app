@@ -7,6 +7,11 @@
   .jd2-benefits .jd2-benefit__icon.bai-tile { width: 44px; height: 44px; border-radius: 12px; }
   .jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 42px; height: 42px; }
 }
+/* 2026-11-11: 7칸이 44px보다 좁은 휴대폰(390·360)에서 움직이는 식사 아이콘만 옆 칸을 덮던 것 — 칸 폭까지만(그보다 넓으면 44px 그대로) */
+@media (max-width: 440px) {
+  .jd2-benefits .jd2-benefit__icon.bai-tile { width: min(44px, 100%); height: auto; aspect-ratio: 1; }
+  .jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 95%; height: 95%; }
+}
 @media (prefers-reduced-motion: reduce) { .bai-tile * { animation: none !important; } }
 .bai-knife{animation:bai-k-saw .5s ease-in-out infinite alternate;transform-origin:30px 14px}
 @keyframes bai-k-saw{from{transform:translate(-2px,0) rotate(-4deg)}to{transform:translate(3px,2px) rotate(4deg)}}
