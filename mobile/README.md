@@ -1,4 +1,4 @@
-# 모바일 화면 캡처 (2026-11-11T04:46:26.829Z)
+# 모바일 화면 캡처 (2026-11-11T05:04:33.505Z)
 
 - iphone home (/): 폭 390/390, 높이 6008, 11px 미만 글자 34곳
 - iphone search (/viec-lam/tim-kiem): 폭 390/390, 높이 5788, 11px 미만 글자 4곳
@@ -7,11 +7,11 @@
 - iphone korea (/viec-han-quoc): 폭 390/390, 높이 2074, 11px 미만 글자 22곳
 - iphone post (/dang-tin): 폭 390/390, 높이 9369, 11px 미만 글자 4곳
 - iphone saved (/viec-lam/da-luu): 폭 390/390, 높이 1073, 11px 미만 글자 4곳
-- iphone detail-kda (/viec-lam/sb-4824): 폭 390/408 가로 넘침, 높이 3807, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 13/10/202" 408px · div.jd2-mobile-cta__inner 394px · a.jd2-mobile-cta__zalo"Zalo" 394px · a"Cá nhân" 400px
-- iphone detail-5942 (/viec-lam/sb-5942): 폭 390/404 가로 넘침, 높이 4358, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 11/11/202" 403px · a"Cá nhân" 396px
-- iphone detail-5938 (/viec-lam/sb-5938): 폭 390/406 가로 넘침, 높이 4121, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 10/11/202" 406px · div.jd2-mobile-cta__inner 392px · a.jd2-mobile-cta__zalo"Zalo" 392px · a"Cá nhân" 398px
-- iphone detail-5931 (/viec-lam/sb-5931): 폭 390/406 가로 넘침, 높이 3566, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 10/11/202" 406px · div.jd2-mobile-cta__inner 392px · a.jd2-mobile-cta__zalo"Zalo" 392px · a"Cá nhân" 398px
-- iphone detail-5876 (/viec-lam/sb-5876): 폭 390/406 가로 넘침, 높이 4989, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 10/11/202" 406px · div.jd2-mobile-cta__inner 392px · a.jd2-mobile-cta__zalo"Zalo" 392px · a"Cá nhân" 398px
+- iphone detail-kda (/viec-lam/sb-4824): 폭 390/390, 높이 3791, 11px 미만 글자 13곳
+- iphone detail-5942 (/viec-lam/sb-5942): 폭 390/390, 높이 4350, 11px 미만 글자 13곳
+- iphone detail-5938 (/viec-lam/sb-5938): 폭 390/390, 높이 4121, 11px 미만 글자 13곳
+- iphone detail-5931 (/viec-lam/sb-5931): 폭 390/390, 높이 3566, 11px 미만 글자 13곳
+- iphone detail-5876 (/viec-lam/sb-5876): 폭 390/390, 높이 4981, 11px 미만 글자 13곳
 - galaxy home (/): 폭 360/360, 높이 6080, 11px 미만 글자 34곳
 - galaxy search (/viec-lam/tim-kiem): 폭 360/360, 높이 5788, 11px 미만 글자 4곳
 - galaxy area (/viec-lam/khu-vuc): 폭 360/360, 높이 7235, 11px 미만 글자 6곳
@@ -19,8 +19,8 @@
 - galaxy korea (/viec-han-quoc): 폭 360/390 가로 넘침, 높이 2146, 11px 미만 글자 22곳, 넘친 요소 button.kh-discovery__cta 390px · a"Cá nhân" 382px
 - galaxy post (/dang-tin): 폭 360/360, 높이 9510, 11px 미만 글자 4곳
 - galaxy saved (/viec-lam/da-luu): 폭 360/360, 높이 1097, 11px 미만 글자 4곳
-- galaxy detail-kda (/viec-lam/sb-4824): 폭 360/408 가로 넘침, 높이 3931, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 13/10/202" 408px · div.jd2-mobile-cta__inner 394px · a.jd2-mobile-cta__zalo"Zalo" 394px · a"Cá nhân" 400px · svg 362px · span"Cá nhân" 373px
-- galaxy detail-5942 (/viec-lam/sb-5942): 폭 360/404 가로 넘침, 높이 4606, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 11/11/202" 403px · div.jd2-mobile-cta__inner 390px · a.jd2-mobile-cta__zalo"Zalo" 390px · a"Cá nhân" 396px · span"Cá nhân" 370px
-- galaxy detail-5938 (/viec-lam/sb-5938): 폭 360/406 가로 넘침, 높이 4279, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 10/11/202" 406px · div.jd2-mobile-cta__inner 392px · a.jd2-mobile-cta__zalo"Zalo" 392px · a"Cá nhân" 398px · span"Cá nhân" 371px
-- galaxy detail-5931 (/viec-lam/sb-5931): 폭 360/406 가로 넘침, 높이 3646, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 10/11/202" 406px · div.jd2-mobile-cta__inner 392px · a.jd2-mobile-cta__zalo"Zalo" 392px · a"Cá nhân" 398px · span"Cá nhân" 371px
-- galaxy detail-5876 (/viec-lam/sb-5876): 폭 360/406 가로 넘침, 높이 5134, 11px 미만 글자 13곳, 넘친 요소 span.jd2-meta-date"Ngày đăng: 10/11/202" 406px · div.jd2-mobile-cta__inner 392px · a.jd2-mobile-cta__zalo"Zalo" 392px · a"Cá nhân" 398px · span"Cá nhân" 371px
+- galaxy detail-kda (/viec-lam/sb-4824): 폭 360/360, 높이 3911, 11px 미만 글자 13곳
+- galaxy detail-5942 (/viec-lam/sb-5942): 폭 360/360, 높이 4606, 11px 미만 글자 13곳
+- galaxy detail-5938 (/viec-lam/sb-5938): 폭 360/360, 높이 4279, 11px 미만 글자 13곳
+- galaxy detail-5931 (/viec-lam/sb-5931): 폭 360/360, 높이 3646, 11px 미만 글자 13곳
+- galaxy detail-5876 (/viec-lam/sb-5876): 폭 360/360, 높이 5134, 11px 미만 글자 13곳

@@ -81,14 +81,9 @@
     "name": "detail-kda",
     "path": "/viec-lam/sb-4824",
     "vw": 390,
-    "scrollW": 408,
-    "height": 3807,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 13/10/202\" 408px",
-      "div.jd2-mobile-cta__inner 394px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 394px",
-      "a\"Cá nhân\" 400px"
-    ],
+    "scrollW": 390,
+    "height": 3791,
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -97,12 +92,9 @@
     "name": "detail-5942",
     "path": "/viec-lam/sb-5942",
     "vw": 390,
-    "scrollW": 404,
-    "height": 4358,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 11/11/202\" 403px",
-      "a\"Cá nhân\" 396px"
-    ],
+    "scrollW": 390,
+    "height": 4350,
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -111,14 +103,9 @@
     "name": "detail-5938",
     "path": "/viec-lam/sb-5938",
     "vw": 390,
-    "scrollW": 406,
+    "scrollW": 390,
     "height": 4121,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
-      "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
-      "a\"Cá nhân\" 398px"
-    ],
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -127,14 +114,9 @@
     "name": "detail-5931",
     "path": "/viec-lam/sb-5931",
     "vw": 390,
-    "scrollW": 406,
+    "scrollW": 390,
     "height": 3566,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
-      "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
-      "a\"Cá nhân\" 398px"
-    ],
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -143,14 +125,9 @@
     "name": "detail-5876",
     "path": "/viec-lam/sb-5876",
     "vw": 390,
-    "scrollW": 406,
-    "height": 4989,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
-      "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
-      "a\"Cá nhân\" 398px"
-    ],
+    "scrollW": 390,
+    "height": 4981,
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -239,16 +216,9 @@
     "name": "detail-kda",
     "path": "/viec-lam/sb-4824",
     "vw": 360,
-    "scrollW": 408,
-    "height": 3931,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 13/10/202\" 408px",
-      "div.jd2-mobile-cta__inner 394px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 394px",
-      "a\"Cá nhân\" 400px",
-      "svg 362px",
-      "span\"Cá nhân\" 373px"
-    ],
+    "scrollW": 360,
+    "height": 3911,
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -257,15 +227,9 @@
     "name": "detail-5942",
     "path": "/viec-lam/sb-5942",
     "vw": 360,
-    "scrollW": 404,
+    "scrollW": 360,
     "height": 4606,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 11/11/202\" 403px",
-      "div.jd2-mobile-cta__inner 390px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 390px",
-      "a\"Cá nhân\" 396px",
-      "span\"Cá nhân\" 370px"
-    ],
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -274,15 +238,9 @@
     "name": "detail-5938",
     "path": "/viec-lam/sb-5938",
     "vw": 360,
-    "scrollW": 406,
+    "scrollW": 360,
     "height": 4279,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
-      "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
-      "a\"Cá nhân\" 398px",
-      "span\"Cá nhân\" 371px"
-    ],
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -291,15 +249,9 @@
     "name": "detail-5931",
     "path": "/viec-lam/sb-5931",
     "vw": 360,
-    "scrollW": 406,
+    "scrollW": 360,
     "height": 3646,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
-      "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
-      "a\"Cá nhân\" 398px",
-      "span\"Cá nhân\" 371px"
-    ],
+    "wide": [],
     "smallText": 13,
     "errors": []
   },
@@ -308,15 +260,9 @@
     "name": "detail-5876",
     "path": "/viec-lam/sb-5876",
     "vw": 360,
-    "scrollW": 406,
+    "scrollW": 360,
     "height": 5134,
-    "wide": [
-      "span.jd2-meta-date\"Ngày đăng: 10/11/202\" 406px",
-      "div.jd2-mobile-cta__inner 392px",
-      "a.jd2-mobile-cta__zalo\"Zalo\" 392px",
-      "a\"Cá nhân\" 398px",
-      "span\"Cá nhân\" 371px"
-    ],
+    "wide": [],
     "smallText": 13,
     "errors": []
   }
