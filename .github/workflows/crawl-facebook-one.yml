@@ -37,7 +37,9 @@ jobs:
   one:
     # 2026-11-06 Lee: Facebook은 로그인한 곳과 같은 IP(AZDIGI VPS 103.221.223.71)에서만 접속한다.
     # GitHub 서버(미국, 매번 다른 IP)에서 돌리자 session_expired(run 42152363009). VPS에 이미 연결된 실행기(crawler)에서 실행.
-    runs-on: [self-hosted, Linux, X64]
+    # 2026-11-11: Facebook에 접속하는 건 미리 보기(dryrun)뿐 — 저장(save)은 미리 본 결과만 등록 입구로 보내므로 GitHub 서버에서 돈다
+    # (수집용 컴퓨터를 다른 조사가 몇 시간 쓰는 동안 저장이 묶이던 것, Lee "다른 데서 쓰고 있으면 넌 못하는 거야?").
+    runs-on: ${{ inputs.mode == 'save' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64"]') }}
     timeout-minutes: 30
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
@@ -130,7 +132,8 @@ jobs:
             echo "::error title=저장 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
           grep -E '저장 ID|결과:|⛔|🚧|저장 전 점검' /tmp/fb.log | while read -r line; do echo "::notice title=저장 결과::$line"; done
       - name: 서버 정리(실행마다) — VPS 디스크가 차지 않게
-        if: always()
+        # 저장(save)은 GitHub 서버에서 돌아 VPS 정리가 필요 없다(2026-11-11)
+        if: always() && inputs.mode == 'dryrun'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
