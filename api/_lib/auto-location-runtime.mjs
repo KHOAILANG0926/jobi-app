@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
 import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
-import { findWardCenter } from '../../src/lib/wardArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
@@ -167,12 +166,6 @@ function resolverDeps(db, request, extra, goong, google) {
       const name = createHash('sha256').update(key).digest('hex')
       const {error} = await db.from('research_artifacts').upsert({kind:'map-r1-query',name,payload:{data},meta:{}},{onConflict:'kind,name'})
       if (error) throw new Error('cache_unavailable')
-    },
-    async wardCenter(unit) {
-      const {data,error} = await db.from('research_artifacts').select('payload').eq('kind','autolocate').eq('name','ward_centers').maybeSingle()
-      if (error) return null
-      const e = findWardCenter(data?.payload ?? null, unit.key)
-      return e && typeof e.lat==='number' && typeof e.lng==='number' ? {lat:e.lat,lng:e.lng,at:e.at||''} : null
     },
     request,
     ...(goong ? { goong } : {}),

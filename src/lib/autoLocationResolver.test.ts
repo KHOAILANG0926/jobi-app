@@ -54,10 +54,9 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   const addr = 'Khu phố Mao Yên, phường Phương Liễu, Bắc Ninh'
   const r = await resolver.resolveAutoLocation({ id: 4828, company: '', location: addr, targets: [{ address: addr, workLocationId: 1 }] }, {
     ...deps, async reserve() { return true }, async request() { calls++; return [] },
-    async wardCenter(unit) { return unit.key === 'phuong:phuong lieu||bac ninh' ? { lat: 21.1568, lng: 106.1275, at: '2026-10-08T06:40:06Z' } : null },
   })
   // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
-  assert(r.kind === 'unresolved' && calls === 0 && !('lat' in r) && /approximate_not_pinned/.test(String(r.evidence)), '2-level address: stored ward center is not pinned, no VietMap calls')
+  assert(r.kind === 'unresolved' && calls === 0 && !('lat' in r),'2-level address: stored ward center is not pinned, no VietMap calls')
   console.log('autoLocationResolver: 2-level ward cache assertions passed')
 }
 {
@@ -139,7 +138,6 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
       if (action === 'search') return params.text.includes('Lê Lợi') ? [{ ref_id: 'p2', name: '5 Lê Lợi', address: a2 }] : params.text.includes('Nguyễn Trãi') ? [{ ref_id: 'p1', name: '12 Nguyễn Trãi', address: a1 }] : []
       const p = places[params.refid]; return p ? { ...p, lat: 21.0, lng: 105.8, ward: 'Thanh Xuân Trung', district: 'Thanh Xuân', city: 'Hà Nội' } : null
     },
-    async wardCenter() { return { lat: 21.12, lng: 105.96, at: '2026-11-01' } },
     async administrativeCenter() { return { lat: 21.03, lng: 105.85, source: 'Original administrative area ha noi', checkedAt: 'x' } },
   } as never)
   assert(multi.kind === 'exact' && multi.address === a1, 'first store keeps the existing exact step')

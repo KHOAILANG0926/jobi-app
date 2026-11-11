@@ -3,9 +3,6 @@ import { ADDRESS_STRATEGY, parseStreetAddress, hasConflictingProvinces, pickAddr
 import { COMPANY_STRATEGY, districtOf, type LocateStrategy } from './chototAutoLocate'
 import { goongAddressHits, goongPlace, insideParkOutline, pickGoongCompany } from './goongLocate'
 import { findIndustrialPark } from './industrialPark'
-import { wardUnitForAddresses, type WardUnit } from './wardArea'
-import { pickWardHit, checkWardPlace } from './wardLocate'
-import { parkNameFromAddresses, pickParkHit, parkPlaceOk } from './parkLocate'
 import { validPoint, type LocatedPoint } from './mapR1'
 import type { PoiCandidate } from './locationCandidateMatch'
 import { precheckVerdict } from './locationPrecheck'
@@ -31,8 +28,6 @@ export interface ResolverDeps {
   google?(text: string): Promise<unknown>
   /** 보류함 '못 찾음' 7일 뒤 다시 확인(Codex #619): 저장된 Google 결과를 쓰지 않고 새로 묻는다(새 결과는 같은 열쇠에 저장). */
   refreshGoogle?: boolean
-  /** 이미 저장된 동 중심 좌표(관리자 동 찾기 캐시). 있으면 VietMap을 부르지 않는다(2026-10-18). */
-  wardCenter?(unit: WardUnit): Promise<{ lat: number; lng: number; at: string } | null>
 }
 /** 매장(근무지)이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 매장 구분 없이 매장마다 같은 위치 찾기를 한 번씩 돌리고,
  *  수집 기준으로 '찾음'(번지·공단 정문·회사 장소, precheckVerdict)인 매장만 남긴다 — 맨 앞 찾은 매장이 대표 핀, 나머지는 others.
@@ -181,40 +176,9 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     }
     const gate = park?.destination
     if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred,evidence:reasons.join('\n')}
-    // 공단 표에 있는 공단인데 확인된 입구가 없으면 공단 중심(출처 OSM)을 대략 위치 핀으로 — 상세 화면 지도와 같은 점(2026-10-20 Lee)
-    if (park && validPoint({lat:park.lat,lng:park.lng})) return {kind:'area',lat:park.lat,lng:park.lng,source:`${park.source.provider} ${park.source.ref}`,checkedAt:at,evidence:reasons.join('\n')}
-    // A known industrial park without a verified gate must not silently become a ward pin.
-    // 대략 위치로 돌아갈 때도 앞 단계 기록(google:quota 등)을 그대로 남긴다 — 한도 초과가 '못 찾음'으로 바뀌지 않게(Codex #619).
-    // 공단 표에 없는 공단(예: "KCN Yên Phong"): VietMap에서 같은 이름의 공단 1곳을 찾아 대략 위치 핀(2026-10-20, Lee 10-13 '핀은 무조건').
-    const unlisted = !park ? parkNameFromAddresses([...targets.map(t => t.address), job.location]) : null
-    if (unlisted && !failed) {
-      const hits = await query('search', {text:unlisted.searchText})
-      const pick = pickParkHit(unlisted, hits)
-      if (pick.hit?.ref_id && !pick.multiple) {
-        const place = await query('place', {refid:pick.hit.ref_id}) as {lat?:number;lng?:number;city?:string} | null
-        if (parkPlaceOk(unlisted, place) && validPoint({lat:place!.lat!,lng:place!.lng!})) return {kind:'area',lat:place!.lat!,lng:place!.lng!,source:`VietMap ${pick.hit.ref_id} (KCN)`,checkedAt:at,evidence:reasons.join('\n')}
-      }
-    }
-    if (!park) {
-      const unit = wardUnitForAddresses(targets.map(t => t.address))
-      if (unit && !failed) {
-        const saved = await deps.wardCenter?.(unit)
-        if (saved && validPoint(saved)) return {kind:'area',lat:saved.lat,lng:saved.lng,source:`VietMap ward cache ${unit.key}`,checkedAt:saved.at || at,evidence:reasons.join('\n')}
-        const hits = await query('search', {text:unit.searchText})
-        const pick = pickWardHit(unit, hits)
-        if (pick.hit?.ref_id && !pick.multiple) {
-          const place = await query('place', {refid:pick.hit.ref_id}) as Parameters<typeof checkWardPlace>[1] | null
-          if (place && checkWardPlace(unit,place) === null && validPoint({lat:place.lat!,lng:place.lng!})) return {kind:'area',lat:place.lat!,lng:place.lng!,source:`VietMap ${pick.hit.ref_id}`,checkedAt:at,evidence:reasons.join('\n')}
-        }
-      }
-    }
+    // 공단 중심·동 중심·시 중심 같은 대략 위치 단계는 없앴다(지도 위치 절대 원칙, Lee 2026-11-11).
+    // 못 찾으면 아래에서 '못 찾음' — 한도·실패 기록(reasons)은 그대로 남아 보류(google:quota)로 이어진다.
   } catch { failed = true } // Cache/reservation unavailable: fail closed; no more requests.
-  // Administrative fallback survives provider failure/budget exhaustion. It is
-  // unverified evidence persisted by the same canonical writer as every tier.
-  for(const target of targets) {
-    const area=await deps.administrativeCenter?.([target.address,job.location])
-    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed,deferred,evidence:reasons.join('\n')}
-  }
   return {kind:'unresolved',failed,deferred,evidence:reasons.join('\n')}
 }
 

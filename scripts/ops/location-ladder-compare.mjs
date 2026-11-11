@@ -108,7 +108,6 @@ function deps({ vietmap, goong, google, shared, prodGoogle }) {
     async administrativeCenter(addresses) { const a = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return a ? { lat: a.lat, lng: a.lng, source: `Original administrative area ${a.key}`, checkedAt: new Date().toISOString() } : null },
     async cached(key) { if (prodGoogle && isGoogle(key)) return prodGoogle(key); return store(key).get(key) ?? null },
     async cache(key, data) { store(key).set(key, data) },
-    async wardCenter() { return null },
     remainingCalls: 2,
     reserve: (() => { let used = 0; return async () => used++ < 2 })(),
     request: vietmap,

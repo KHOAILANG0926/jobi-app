@@ -52,7 +52,7 @@ const elsewhere = await resolveAutoLocation(park, { ...noop, async goong() { ret
   async withinAdministrativeArea() { return false },
   async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'area', checkedAt: 'x' } } })
 // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
-assert(elsewhere.kind === 'unresolved' && !('lat' in elsewhere) && /administrative_boundary:mismatch/.test(String(elsewhere.evidence)), '성 밖 Google 결과는 따르지 않음(핀 없음): ' + JSON.stringify(elsewhere))
+assert(elsewhere.kind === 'unresolved' && !('lat' in elsewhere),'성 밖 Google 결과는 따르지 않음(핀 없음): ' + JSON.stringify(elsewhere))
 // Google 후보가 여럿(거리로 못 좁힘)이면 따르지 않는다
 const many = await resolveAutoLocation(park, { ...noop, async goong() { return { predictions: [] } },
   async google() { return { places: [1, 2].map((i) => ({ id: `m${i}`, displayName: { text: 'New Teamrobotics Vietnam' }, formattedAddress: `Bắc Ninh ${i}`, location: { latitude: 21.2 + i / 100, longitude: 106.0 } })) } },

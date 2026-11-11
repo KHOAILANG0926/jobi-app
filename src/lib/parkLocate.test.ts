@@ -23,7 +23,7 @@ const r = await resolveAutoLocation({ id: 4824, company: 'KDA', location: 'KCN Y
   async request(action) { calls++; return action === 'search' ? hits : { lat: 21.21, lng: 106.0, city: 'Bắc Ninh' } },
 })
 // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
-assert(r.kind === 'unresolved' && !('lat' in r) && /VietMap a \(KCN\)/.test(String(r.evidence)) && calls === 2, `#4824 → park centre found but not pinned: ${JSON.stringify(r)}`)
+assert(r.kind === 'unresolved' && !('lat' in r) && calls === 0, `#4824 → park centre not looked up, not pinned (no wasted calls):${JSON.stringify(r)}`)
 // 실제 VietMap 응답(2026-10-20 14:40, research_artifacts map-r1-query): 같은 이름 2개 — 공단 POI(분류 6005)만 고른다
 const real = [
   { ref_id: 'yt', name: 'Khu Công Nghiệp Yên Phong', address: 'Xã Yên Trung, Tỉnh Bắc Ninh', categories: [] },
@@ -38,5 +38,5 @@ const listed = await resolveAutoLocation({ id: 1, company: 'X', location: 'KCN Q
   async cached() { return null }, async cache() {}, async reserve() { return true }, async request() { throw new Error('no call expected') },
 })
 // 2026-11-11 Lee 절대 원칙: 대략 위치는 핀 없이 못 찾음
-assert(listed.kind === 'unresolved' && !('lat' in listed) && /OpenStreetMap way\/597872887/.test(String(listed.evidence)), `listed park centre not pinned: ${JSON.stringify(listed)}`)
+assert(listed.kind === 'unresolved' && !('lat' in listed),`listed park centre not pinned: ${JSON.stringify(listed)}`)
 console.log('parkLocate tests: all assertions passed')
