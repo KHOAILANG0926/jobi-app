@@ -298,14 +298,15 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
         names = [post_name(gid, p["text"], p["url"]) for p in posts]
         existing = {}
         for k in range(0, len(names), 100):  # 이번에 읽은 글만 이름으로 조회(저장분이 1,000건을 넘어도 안전)
-            for r in _db().table("research_artifacts").select("name,meta").eq("kind", KIND_POST).in_("name", names[k:k + 100]).execute().data or []:
+            for r in _db().table("research_artifacts").select("name,payload,meta").eq("kind", KIND_POST).in_("name", names[k:k + 100]).execute().data or []:
                 existing[r["name"]] = r
         new, with_comments = 0, 0
         for p in posts:
             name = post_name(gid, p["text"], p["url"])
             old = existing.get(name)
             comments = []
-            if not old and p["class"] != "sell" and p["url"] and with_comments < comment_posts:
+            # 새 글이거나, 저장된 댓글이 아직 없는 글(예전에 비어 있었거나 읽기 실패)은 이번 한도 안에서 다시 읽는다
+            if (not old or not (old.get("payload") or {}).get("comments")) and p["class"] != "sell" and p["url"] and with_comments < comment_posts:
                 await page.wait_for_timeout(random.randint(8000, 15000))
                 comments = await read_comments(page, p["url"])
                 with_comments += 1
