@@ -1,3 +1,9 @@
+## 2026-11-11 — DB 위치 쓰기에서 성·시 중심 짐작 핀 지움 (지도 위치 절대 원칙)
+- 원인 [직접 확인]: write_location(위치 쓰기 DB 함수)이 좌표 없는 줄에 원문 성·시 이름으로 중심 핀을 자동으로 찍음(20261028050507·20261029120000) — Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마" 위반.
+- 변경: 20261111200000_no_administrative_area_pin — 그 단계만 잘라냄(이미 찍힌 핀·관리자 확정 보호는 그대로). 예전 운영 검사 2개('공개 공고는 핀 필수'·'원문 확인 규칙 필수')를 새 원칙에 맞게 바꿈.
+- 지운 것/합친 것: write_location의 성·시 중심 핀 단계, 그 단계를 요구하던 운영 검사 2줄.
+- 검증: 시험 DB 검사(no_administrative_area_pin.setup/local), 운영 검사 production_check.
+
 ## 2026-11-11 — Google 이름 비교: 'Thanh'(사람 이름)·어학원 앞머리 (기존 공고 5421·5422 다시 찾기)
 - 원인 [직접 확인]: 업체 검색 비교 — Google이 'Nhà Hàng Thanh Phệ'·'Regal Edu Vân Dương'을 찾았는데 이름 비교가 'thanh'을 회사 형태 낱말(một thành viên)로 지워 'phe'(3자)만 남거나, 'Anh ngữ' 앞머리를 못 떼 거절(no_core_name).
 - 변경: companyPlaceSearch.coreName — 'một thành viên' 묶음만 빼고 따로 쓰인 'Thanh'은 이름으로 지킴(Việt·Nam과 같은 방식), 'thành phố'는 묶음으로 뺌. shopKinds 이름 앞머리에 어학원 낱말.

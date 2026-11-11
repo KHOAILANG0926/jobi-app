@@ -3,12 +3,8 @@
 -- normal anonymous REST and actual rendered public maps.
 do $$begin
  if exists(select 1 from public.location_integrity_issues()) then raise exception 'canonical location integrity mismatch';end if;
- -- Lee 2026-10-29: 원문(source_text)이 있는 공고는 원문에 성/시 이름이 있을 때만 대략 핀(20261029120000).
- -- 원문에 위치 정보가 전혀 없는 공고만 핀 없이 남을 수 있다(관리자 위치 확정 목록).
- if exists(select 1 from public.local_jobs j where j.active=true and not j.admin_hidden
- and not exists(select 1 from public.job_work_locations w where w.job_id=j.id and w.point_kind<>'unresolved' and w.lat is not null and w.lng is not null)
- and (nullif(btrim(j.source_text),'') is null or location_private.administrative_area(j.source_text) is not null))
- then raise exception 'public job has no canonical pin; resolve original administrative evidence before completing rollout';end if;
+ -- 2026-11-11 Lee 지도 위치 절대 원칙: 위치를 모르는 공고에 성·시 중심 핀을 찍지 않으므로 '공개 공고는 핀이 꼭 있어야 한다' 검사는 지웠다
+ -- (20261111200000_no_administrative_area_pin). 핀 없는 공개 공고는 관리자 위치 확정·Lee 결정 대상.
  if exists(select 1 from public.job_work_locations w where w.point_evidence ? 'administrativeAreaKey'
  and (w.point_authority<>'auto_area' or w.point_kind<>'area' or w.location_verified)) then raise exception 'administrative approximation promoted to verified workplace';end if;
  if has_schema_privilege('location_writer','location_private','CREATE') then raise exception 'temporary writer schema CREATE not restored';end if;
