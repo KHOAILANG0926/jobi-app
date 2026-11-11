@@ -189,6 +189,11 @@ async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
     return {"kw": kw, "count": len(seen), "capped": len(seen) >= cap, "samples": heads}
 
 
+def save_json(path: str, data: dict) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+
+
 def summarize(groups: list[dict]) -> dict:
     def stat(rows):
         return {"count": len(rows), "ge_100k": sum(r["members"] >= 100_000 for r in rows),
@@ -420,6 +425,7 @@ async def main(argv=None) -> int:
                                          "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws,
                                          "posts": [{**x, "text": mask(x["text"])} for x in posts]})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
+                save_json(a.out, result)  # 그룹마다 바로 저장 — 시간 한도로 끊겨도 본 데까지 남게(2026-11-11 4시간 한도 사고)
                 await page.wait_for_timeout(random.randint(60000, 120000))  # 수집기와 같은 그룹 간 쉬는 시간
         except StopAsyncIteration:
             pass
@@ -430,8 +436,7 @@ async def main(argv=None) -> int:
         finally:
             await browser.close()
 
-    with open(a.out, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=1)
+    save_json(a.out, result)
     return 0 if not result.get("stopped") else 3
 
 
