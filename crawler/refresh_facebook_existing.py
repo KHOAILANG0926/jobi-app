@@ -6,6 +6,7 @@ GitHub Actions with server-side Supabase credentials, never on a user's PC.
 import argparse
 import json
 import re
+import unicodedata
 from crawl_facebook import parse_post, supabase
 import ingest_gateway
 from ingest_gateway import ingest_job
@@ -61,11 +62,19 @@ def refresh_existing(job_id: int):
             existing = (supabase.table("job_work_locations")
                         .select("raw_address")
                         .eq("job_id", job_id).order("sort_order").execute()).data or []
-            key = lambda a: re.sub(r"\s+", " ", str(a or "").strip().lower())
+            # DB의 admin_location_key와 같은 방식(악센트·đ 제거, 구두점·공백을 한 칸으로, 소문자)으로 같은 주소를 가린다.
+            def key(a):
+                s = unicodedata.normalize("NFD", str(a or "")).replace("đ", "d").replace("Đ", "D")
+                s = "".join(c for c in s if not unicodedata.combining(c))
+                return re.sub(r"[\W_]+", " ", s.lower()).strip()
             have = {key(r.get("raw_address")) for r in existing}
             # 기존 줄은 주소만 보낸다 — 확정(admin)·검증(exact) 핀은 DB 쓰기 함수가 그대로 지키고, 대략 핀은 위치 찾기가 저장된 결과로 다시 붙인다.
             keep = [{"raw_address": r["raw_address"]} for r in existing if r.get("raw_address")]
-            added = [{"raw_address": a} for a in found if key(a) not in have]
+            added = []
+            for a in found:
+                if key(a) not in have:
+                    have.add(key(a))
+                    added.append({"raw_address": a})
             if added:
                 rows = keep + added
                 if not existing:
