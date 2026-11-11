@@ -38,7 +38,7 @@ jobs:
             echo
             echo "### PR 없이 master에 없는 최근 브랜치 (14일 이내)"
             gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' | while read -r b; do
-              if [ "$b" = "master" ] || [ "$b" = "status" ]; then continue; fi
+              if [ "$b" = "master" ] || [ "$b" = "status" ] || [ "$b" = "screens" ]; then continue; fi
               if echo "$open_heads" | grep -qx "$b"; then continue; fi
               if echo "$merged_heads" | grep -qx "$b"; then continue; fi
               cmp=$(gh api "repos/$REPO/compare/master...$b" --jq '[.ahead_by, (.commits[-1].commit.committer.date // "")] | @tsv' 2>/dev/null || true)

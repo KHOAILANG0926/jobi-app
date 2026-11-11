@@ -1,0 +1,40 @@
+name: 모바일 화면 캡처 (운영, 작업자 확인용)
+# Lee 2026-11-11: 작업 세션이 모바일 화면을 직접 볼 수 없어 Lee가 캡처를 보내야 하던 문제 → GitHub에서 핸드폰 크기로 찍어
+# 'screens' 브랜치(그림 전용) mobile 칸에 올린다(데모 촬영은 demo 칸, 게시는 scripts/ops/publish-screens.sh 한 곳). 작업자는 git fetch origin screens로 받아 본다.
+on:
+  workflow_dispatch: {}
+  workflow_run:
+    workflows: ['운영 배포 확인·실제 화면 검사']
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-screens
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: 핸드폰 크기 캡처 (아이폰 390·갤럭시 360)
+        env:
+          BASE_URL: https://viecganban.vn
+          OUT: ${{ runner.temp }}/screens
+        run: node scripts/ops/mobile-screens.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: screens 브랜치 mobile 칸에 올리기 (데모 촬영 칸은 그대로, Codex #680)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/ops/publish-screens.sh "${{ runner.temp }}/screens" mobile "모바일 화면 캡처 ${GITHUB_SHA::7}"
