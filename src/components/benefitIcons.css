@@ -4,12 +4,8 @@
 .jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 49px; height: 49px; overflow: visible; animation: none !important; }
 .bai-tile:not(.is-playing) * { animation-play-state: paused !important; }
 @media (max-width: 600px) {
-  .jd2-benefits .jd2-benefit__icon.bai-tile { width: 44px; height: 44px; border-radius: 12px; }
-  .jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 42px; height: 42px; }
-}
-/* 2026-11-11: 7칸이 44px보다 좁은 휴대폰(390·360)에서 움직이는 식사 아이콘만 옆 칸을 덮던 것 — 칸 폭까지만(그보다 넓으면 44px 그대로) */
-@media (max-width: 440px) {
-  .jd2-benefits .jd2-benefit__icon.bai-tile { width: min(44px, 100%); height: auto; aspect-ratio: 1; }
+  /* 2026-11-11: 7칸이 44px보다 좁은 휴대폰(390·360)에서 식사 아이콘이 옆 칸을 덮던 것 — 칸 폭까지만(넓으면 44px 그대로) */
+  .jd2-benefits .jd2-benefit__icon.bai-tile { width: min(44px, 100%); height: auto; aspect-ratio: 1; border-radius: 12px; }
   .jd2-benefits .jd2-benefit__icon.bai-tile .bai-svg { width: 95%; height: 95%; }
 }
 @media (prefers-reduced-motion: reduce) { .bai-tile * { animation: none !important; } }
