@@ -454,7 +454,7 @@ async def main(argv=None) -> int:
                 await page.wait_for_timeout(random.randint(20000, 40000))
             result["groups"] = sorted(found.values(), key=lambda r: -r["members"])
             result["summary"] = summarize(result["groups"])
-            targets = [g for g in result["groups"] if g["korea_name"]][: a.top]
+            targets = [g for g in result["groups"] if g["korea_name"] and g.get("members", 0) >= MIN_MEMBERS][: a.top]
             fails = 0
             for g in targets:
                 about = await read_about(page, g["id"])
