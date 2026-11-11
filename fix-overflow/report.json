@@ -1,0 +1,112 @@
+[
+  {
+    "device": "iphone",
+    "name": "detail-kda",
+    "path": "/viec-lam/sb-4824",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 3791,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5942",
+    "path": "/viec-lam/sb-5942",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 4350,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5938",
+    "path": "/viec-lam/sb-5938",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 4121,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 3566,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
+    "name": "home",
+    "path": "/",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 6008,
+    "wide": [],
+    "smallText": 34,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-kda",
+    "path": "/viec-lam/sb-4824",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 3911,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5942",
+    "path": "/viec-lam/sb-5942",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 4606,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5938",
+    "path": "/viec-lam/sb-5938",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 4279,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "detail-5931",
+    "path": "/viec-lam/sb-5931",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 3646,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
+    "name": "home",
+    "path": "/",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 6080,
+    "wide": [],
+    "smallText": 34,
+    "errors": []
+  }
+]
