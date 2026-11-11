@@ -64,12 +64,6 @@ jobs:
           for g in d.get('detail', []):
               c = g.get('post_counts', {}); n = lambda k: c.get(k, 0)
               L.append(f"| {g['name'][:35]} | {g['members']:,} | {g.get('created','')} | {g.get('today','')} | {g['posts_read']} | {n('company_q')} | {n('change_co')} | {n('job')} | {n('sell')} | {n('ask')} | {n('money')} | {n('room')} | {n('visa_doc')} | {n('other')} | {g['jobs_with_visa']} | {g['no_visa_posts']} |")
-          kws = [k['kw'] for k in (d.get('detail') or [{}])[0].get('keywords', [])]
-          if kws:
-              L += ["", "그룹 안 검색(글 수, 40 이상은 40+)", "", "| 그룹 | " + " | ".join(kws) + " |", "|---|" + "---|" * len(kws)]
-              for g in d.get('detail', []):
-                  cell = lambda k: '-' if k.get('count') is None else (f"{k['count']}+" if k.get('capped') else str(k['count']))
-                  L.append(f"| {g['name'][:35]} | " + " | ".join(cell(k) for k in g.get('keywords', [])) + " |")
           if d.get('stopped'): L.append(f"\n⚠️ 중단: {d['stopped']}")
           open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
           print('\n'.join(L))
