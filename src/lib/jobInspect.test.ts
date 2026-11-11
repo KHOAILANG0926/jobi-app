@@ -98,7 +98,7 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   ].join('\n')
   const r = inspectJob({ id: 11, description: desc, pin: 'area', category: 'dich_vu', occupation_code: '540', active: true })
   assert(r.items.find((i) => i.key === 'junk')!.ok, '포스터식 소제목·소개 문장은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
-  const short = inspectJob({ id: 12, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  const short = inspectJob({ id: 12, description: 'Quyền lợi\nThưởng tháng 13\nSố điện thoại:', pin: 'area', category: 'x', occupation_code: '1', active: true })
   assert(!short.items.find((i) => i.key === 'junk')!.ok, '값 없는 짧은 이름표는 계속 잡음')
   console.log('jobInspect.test.ts: 포스터식 소제목(꾸밈말·괄호)·긴 소개 문장 검사 통과')
 }
@@ -107,7 +107,7 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
 {
   const r = inspectJob({ id: 13, description: 'Công việc\nNHÀ HÀNG TÂM HỒ NHẤT HẠCH TUYỂN GẤP:\n05 nhân viên phục vụ (Nam/Nữ)', pin: 'area', category: 'am_thuc_do_uong', occupation_code: '5131', active: true })
   assert(r.items.find((i) => i.key === 'junk')!.ok, '모집 소개 줄은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
-  const short = inspectJob({ id: 14, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  const short = inspectJob({ id: 14, description: 'Quyền lợi\nThưởng tháng 13\nSố điện thoại:', pin: 'area', category: 'x', occupation_code: '1', active: true })
   assert(!short.items.find((i) => i.key === 'junk')!.ok, '값 없는 짧은 이름표는 계속 잡음')
   console.log('jobInspect.test.ts: 모집 소개 줄(… tuyển gấp:) 검사 통과')
 }
@@ -116,13 +116,19 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
 {
   const r = inspectJob({ id: 15, description: 'Quyền lợi\n🌟 CƠ CHẾ "LẮP TÊN LỬA" DÀNH CHO BẠN:\n• Lương ổn định: 8 – 15 TRIỆU/tháng\n• Đào tạo bài bản', pin: 'area', category: 'kinh_doanh', occupation_code: '3334', active: true })
   assert(r.items.find((i) => i.key === 'junk')!.ok, '목록 제목 줄은 빈 이름표 아님: ' + r.items.find((i) => i.key === 'junk')!.detail)
-  const empty = inspectJob({ id: 16, description: 'Quyền lợi\nSố điện thoại:\nThưởng tháng 13', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  const empty = inspectJob({ id: 16, description: 'Quyền lợi\nThưởng tháng 13\nSố điện thoại:', pin: 'area', category: 'x', occupation_code: '1', active: true })
   assert(!empty.items.find((i) => i.key === 'junk')!.ok, '아래가 목록이 아니면 계속 빈 이름표')
   // 2026-11-10 #5876: 긴 소개 줄 아래가 '이름: 값' 줄이면 묶음 제목. 짧은 칸 이름 아래 '이름: 값'은 계속 빈 이름표.
   const group = inspectJob({ id: 17, description: 'Quyền lợi\nThưởng gắn bó dành cho nhân viên mới:\nLàm đủ 30 ngày: Thưởng 500.000đ.\nLàm đủ 90 ngày: Thưởng thêm 1.000.000đ.', pin: 'area', category: 'x', occupation_code: '1', active: true })
   assert(group.items.find((i) => i.key === 'junk')!.ok, '묶음 제목 줄은 빈 이름표 아님: ' + group.items.find((i) => i.key === 'junk')!.detail)
-  const shortLabel = inspectJob({ id: 18, description: 'Quyền lợi\nSố điện thoại:\nĐịa chỉ: KCN Quế Võ', pin: 'area', category: 'x', occupation_code: '1', active: true })
-  assert(!shortLabel.items.find((i) => i.key === 'junk')!.ok, '짧은 칸 이름은 아래가 이름: 값이어도 빈 이름표')
+  const shortLabel = inspectJob({ id: 18, description: 'Quyền lợi\nSố điện thoại:\nLiên hệ:\nĐịa chỉ: KCN Quế Võ', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!shortLabel.items.find((i) => i.key === 'junk')!.ok, '바로 아래가 또 이름표면 빈 이름표')
+  // 2026-11-11 Lee(MediaMart sb-5994): 짧은 이름표 아래에 같은 칸 일반 글이 있으면 내용 있는 이름표(아래 줄 모양 예외 대신 한 규칙)
+  const mm = inspectJob({ id: 19, description: 'Công việc\nYêu cầu chung:\nNam/Nữ, từ 18 tuổi trở lên', pin: 'area', category: 'ban_hang', occupation_code: '5', active: true })
+  assert(mm.items.find((i) => i.key === 'junk')!.ok, '이름표 아래 같은 칸 글이 있으면 빈 이름표 아님: ' + mm.items.find((i) => i.key === 'junk')!.detail)
+  // Codex 지적: 칸 제목 판정은 화면과 같은 headingOf — 'Yêu cầu ứng viên' 같은 다른 제목 바로 위의 이름표도 빈 이름표
+  const beforeHeading = inspectJob({ id: 20, description: 'Quyền lợi\nSố điện thoại:\nYêu cầu ứng viên\nNam/Nữ, từ 18 tuổi trở lên', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!beforeHeading.items.find((i) => i.key === 'junk')!.ok, '다른 칸 제목 바로 위 이름표는 빈 이름표')
   console.log('jobInspect.test.ts: 목록 제목 줄(~: + 글머리) 검사 통과')
 }
 
