@@ -16,6 +16,10 @@ on:
         description: '찍을 화면 JSON [["이름","/주소"],…] (비우면 우리 기본 화면)'
         required: false
         type: string
+      build_ref:
+        description: '이 브랜치 코드를 이 실행 안에서 빌드해 찍음(데모는 Vercel 로그인이 막아서). 예: fix/mobile-detail-overflow'
+        required: false
+        type: string
       detail_link:
         description: '첫 화면에서 찾아 같이 찍을 링크 모양(정규식). 예: /jobs/detail/\d+'
         required: false
@@ -47,9 +51,23 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # 데모 주소는 Vercel 로그인이 막아 찍을 수 없다(2026-11-11 확인) → 브랜치 코드를 여기서 빌드해 띄운다(app-screen-check와 같은 방식).
+      # 촬영·게시 스크립트는 위에서 받은 master 것을 그대로 쓴다(브랜치 코드는 build 폴더에서만).
+      - name: 브랜치 빌드·띄우기 (build_ref가 있을 때만)
+        if: inputs.build_ref
+        env:
+          REF: ${{ inputs.build_ref }}
+        run: |
+          [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "브랜치 이름 형식 아님"; exit 1; }
+          git fetch -q --depth 1 origin "refs/heads/$REF:refs/remotes/origin/build-ref"
+          git worktree add -q "${{ runner.temp }}/build" origin/build-ref
+          cd "${{ runner.temp }}/build" && npm ci && npm run build
+          (npx vite preview --port 4173 --strictPort > "${{ runner.temp }}/preview.log" 2>&1 &)
+          for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
+          cat "${{ runner.temp }}/preview.log"; exit 1
       - name: 핸드폰 크기 캡처 (아이폰 390·갤럭시 360)
         env:
-          BASE_URL: ${{ inputs.base_url || 'https://viecganban.vn' }}
+          BASE_URL: ${{ inputs.build_ref && 'http://localhost:4173' || inputs.base_url || 'https://viecganban.vn' }}
           PAGES: ${{ inputs.pages }}
           LOCALE: ${{ contains(inputs.base_url, 'albamon') && 'ko-KR' || 'vi-VN' }}
           DETAIL_LINK: ${{ inputs.detail_link }}
