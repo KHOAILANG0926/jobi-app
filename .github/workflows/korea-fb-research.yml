@@ -63,6 +63,17 @@ jobs:
           for k, v in sorted(d['by_class'].items(), key=lambda x: -x[1]):
               L.append(f"| {names.get(k, k)} | {v} | {v * 100 // tot}% |")
           L += ["", f"비자가 적힌 구인 {d['jobs_with_visa']}개 · '비자 필요 없음' 류 {d['no_visa_posts']}개"]
+          w = d.get('by_class_weighted_pct') or {}
+          if w:
+              L += ["", "회원 수로 가중한 비율(그룹마다 비율을 낸 뒤 큰 그룹에 더 무게 — 작은 그룹 쏠림 제외)", "", "| 종류 | 가중 비율 |", "|---|---|"]
+              for k, v in sorted(w.items(), key=lambda x: -x[1]):
+                  L.append(f"| {names.get(k, k)} | {v}% |")
+          gs = d.get('group_share_pct') or {}
+          if gs:
+              cols = ['company_q', 'change_co', 'job', 'sell', 'ask', 'money', 'room', 'visa_doc', 'other']
+              L += ["", "그룹별 비율(%)", "", "| 그룹 | 회원 | 글 | " + " | ".join(names[c] for c in cols) + " |", "|---|---|---|" + "---|" * len(cols)]
+              for gname, v in sorted(gs.items(), key=lambda x: -x[1]['members']):
+                  L.append(f"| {gname} | {v['members']:,} | {v['posts']} | " + " | ".join(str(v.get(c, 0)) for c in cols) + " |")
           open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
           print('\n'.join(L))
           PY

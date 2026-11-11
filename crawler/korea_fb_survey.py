@@ -22,14 +22,16 @@ from datetime import timedelta, timezone
 
 import crawl_facebook
 from crawl_facebook import (account_lock_reason, advance_feed, build_cookies, expand_visible_posts, extract_visible_posts,
-                            goto_with_retry, inspect_page_state, parse_time_label, write_account_lock)
+                            inspect_page_state, parse_time_label, write_account_lock)
 
 try:
     from playwright_stealth import stealth_async
 except ImportError:
     async def stealth_async(page): pass
 
-KOREA_NAME = re.compile(r"korea|hàn|seoul|busan|incheon|inchoen|ulsan|ansan|suwon|daegu|daejeon|대전|gwangju|gimhae|changwon|hwaseong|pyeongtaek", re.I)
+# 한국 거주자 그룹만: "hàn"만으로는 "thợ hàn"(용접공)·"tiếng Hàn"(베트남 안 한국어 일자리)이 섞였다(2026-11-11 그룹 목록)
+NOT_IN_KOREA = re.compile(r"thợ hàn|bắc ninh|quế võ|hà nội|tp\.?hcm|hồ chí minh|đà nẵng", re.I)
+KOREA_NAME = re.compile(r"korea|hàn quốc|tại hàn\b|ở hàn\b|seoul|busan|incheon|inchoen|ulsan|ansan|suwon|daegu|daejeon|대전|gwangju|gimhae|changwon|hwaseong|pyeongtaek", re.I)
 PHONE = re.compile(r"(?<!\d)(?:\+?\d[\d .\-]{7,}\d)")
 
 # 글 종류(앞에서부터 처음 맞는 것). 조사용 대략 분류 — 숫자는 "대략"으로 보고한다.
@@ -54,6 +56,11 @@ def classify(text: str) -> str:
         if rx.search(text):
             return k
     return "other"
+
+
+def is_korea_group(name: str) -> bool:
+    """한국 거주자 그룹 판정 한 곳 — 검색 결과·저장된 그룹 모두 이 함수로(저장된 옛 판정은 믿지 않는다)."""
+    return bool(KOREA_NAME.search(name)) and not NOT_IN_KOREA.search(name)
 
 
 def mask(text: str) -> str:
@@ -86,7 +93,7 @@ SEARCH_JS = """() => {
 
 
 async def search_groups(page, query: str, scrolls: int) -> list[dict]:
-    if not await goto_with_retry(page, f"https://www.facebook.com/search/groups/?q={quote(query)}"):
+    if not await open_page(page, f"https://www.facebook.com/search/groups/?q={quote(query)}"):
         return []
     for _ in range(scrolls):
         await page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
@@ -96,7 +103,7 @@ async def search_groups(page, query: str, scrolls: int) -> list[dict]:
         r["members"] = parse_members(r["meta"].split("·")[1] if "·" in r["meta"] else r["meta"])
         day = re.search(r"(일일 게시물|bài viết mỗi ngày|posts a day)\s*([\d+개,]+)|([\d+]+)\s*(bài viết mỗi ngày|posts a day)", r["meta"])
         r["daily"] = (day.group(2) or day.group(3)) if day else ""
-        r["korea_name"] = bool(KOREA_NAME.search(r["name"]))
+        r["korea_name"] = is_korea_group(r["name"])
         r["query"] = query
     return rows
 
@@ -111,7 +118,7 @@ ABOUT_KEYS = {
 
 async def read_about(page, gid: str) -> dict:
     info = {"id": gid}
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/about"):
+    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/about"):
         info["error"] = "load_failed"
         return info
     state = await inspect_page_state(page)
@@ -129,10 +136,11 @@ async def read_about(page, gid: str) -> dict:
     return info
 
 
-async def read_recent_posts(page, gid: str, want: int) -> list[dict]:
-    """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다."""
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
-        return []
+async def read_recent_posts(page, gid: str, want: int) -> list[dict] | None:
+    """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다.
+    화면이 안 열리면 None(정상적으로 글이 없는 빈 그룹의 [] 와 구분)."""
+    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
+        return None
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
         raise RuntimeError(state)
@@ -169,7 +177,7 @@ KEYWORDS = ["công ty này", "có ổn không", "đổi công ty", "tìm việc"
 
 
 async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/search/?q={quote(kw)}"):
+    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/search/?q={quote(kw)}"):
         return {"kw": kw, "count": None}
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
@@ -187,6 +195,29 @@ async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
             break
         await advance_feed(page)
     return {"kw": kw, "count": len(seen), "capped": len(seen) >= cap, "samples": heads}
+
+
+async def open_page(page, url: str) -> bool:
+    """그룹 화면은 서버에서 'domcontentloaded'까지 30초 안에 안 끝나 전부 실패했다(2026-11-11 조사: 101번 모두 Timeout,
+    검색 화면은 정상). 응답 시작(commit)만 기다린 뒤 본문 영역이 보이면 진행한다. 실패하면 어디서 멈췄는지 남기고 30초 뒤 1번 더."""
+    for attempt in (1, 2):
+        try:
+            await page.goto(url, wait_until="commit", timeout=45000)
+            await page.wait_for_selector('[role="main"], [role="feed"]', timeout=45000)
+            await page.wait_for_timeout(2500)
+            return True
+        except Exception as e:  # noqa: BLE001
+            try:
+                title = await page.title()
+            except Exception:  # noqa: BLE001
+                title = "?"
+            print(f"  ⛔ 열기 실패({attempt}/2): {type(e).__name__} · 지금 주소 {page.url[:80]} · 제목 {title[:40]}")
+            state = await inspect_page_state(page)  # 로그인·checkpoint로 튕긴 화면이면 일반 로딩 실패가 아니라 계정 이상
+            if state in ("checkpoint", "session_expired"):
+                raise RuntimeError(state)
+            if attempt == 1:
+                await page.wait_for_timeout(30000)
+    return False
 
 
 def save_json(path: str, data: dict) -> None:
@@ -208,7 +239,7 @@ def summarize(groups: list[dict]) -> dict:
 # 주 1회 report가 쌓인 글로 "사람들이 무엇을 올리고 묻는가"를 센다. 사람 이름은 저장하지 않고 전화번호는 가린다.
 KIND_POST, KIND_GROUP, KIND_META = "korea-fb-post", "korea-fb-group", "korea-fb-meta"
 SEARCH_EVERY_DAYS = 7
-MIN_MEMBERS = 5000
+MIN_MEMBERS = 30000  # Lee 2026-11-11: 작은 그룹은 조사하지 않는다(몇만~몇십만 그룹이 충분히 많음)
 
 COMMENTS_JS = """() => {
   const arts = [...document.querySelectorAll('[role="article"]')]
@@ -258,7 +289,7 @@ def post_name(gid: str, text: str, url: str) -> str:
 
 
 async def read_comments(page, url: str, cap: int = 40) -> list[str]:
-    if not url or not await goto_with_retry(page, url):
+    if not url or not await open_page(page, url):
         return []
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
@@ -293,7 +324,7 @@ async def refresh_registry(page, queries: list[str]) -> None:
 
 
 def pick_groups(n: int) -> list[dict]:
-    rows = [r for r in _rows(KIND_GROUP) if (r["payload"] or {}).get("korea_name") and (r["payload"] or {}).get("members", 0) >= MIN_MEMBERS]
+    rows = [r for r in _rows(KIND_GROUP) if is_korea_group((r["payload"] or {}).get("name", "")) and (r["payload"] or {}).get("members", 0) >= MIN_MEMBERS]
     rows.sort(key=lambda r: ((r["meta"] or {}).get("last_visit") or "", -(r["payload"] or {}).get("members", 0)))
     return rows[:n]
 
@@ -305,6 +336,8 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
         about = await read_about(page, gid)
         await page.wait_for_timeout(random.randint(10000, 20000))
         posts = await read_recent_posts(page, gid, want_posts)
+        failed = bool(about.get("error")) or posts is None  # 소개·글 화면 중 하나라도 안 열렸으면 실패
+        posts = posts or []
         names = [post_name(gid, p["text"], p["url"]) for p in posts]
         existing = {}
         for k in range(0, len(names), 100):  # 이번에 읽은 글만 이름으로 조회(저장분이 1,000건을 넘어도 안전)
@@ -336,6 +369,13 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
                                   "admin_business_words": about.get("admin_business_words", [])},
                 {**(g["meta"] or {}), "last_visit": _now(), "visits": int((g["meta"] or {}).get("visits") or 0) + 1, "history": hist})
         stats["groups"].append({"name": gname[:40], "read": len(posts), "new": new, "with_comments": with_comments})
+        if failed and not posts:
+            stats["load_failed"] = stats.get("load_failed", 0) + 1
+            if stats["load_failed"] >= 2:
+                print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 오늘 수집 중단")
+                break
+        else:
+            stats["load_failed"] = 0
         stats["new_posts"] += new
         print(f"그룹 {gname[:40]}: 읽음 {len(posts)} · 새 글 {new} · 댓글 읽은 글 {with_comments}")
         await page.wait_for_timeout(random.randint(60000, 120000))
@@ -348,13 +388,28 @@ def report(out_path: str) -> dict:
     by_class, by_group, comments = {}, {}, 0
     for p in posts:
         by_class[p["class"]] = by_class.get(p["class"], 0) + 1
-        g = by_group.setdefault(p["group"][:40], {})
+        g = by_group.setdefault(p.get("gid") or p["group"][:40], {})
         g[p["class"]] = g.get(p["class"], 0) + 1
         comments += len(p.get("comments") or [])
     samples = {c: [p["text"][:300] for p in posts if p["class"] == c][:40] for c in by_class if c != "sell"}
     visited = [g for g in groups if (g["meta"] or {}).get("visits")]
+    # Lee 2026-11-11: 글을 그냥 합치면 한 그룹의 쏠림이 전체처럼 보인다 → 그룹마다 비율을 낸 뒤 회원 수로 가중 평균
+    members = {g["name"]: (g["payload"] or {}).get("members", 0) for g in groups}  # 그룹 ID(행 이름)로 연결 — 잘린 이름 충돌 방지
+    weighted, wsum = {}, 0
+    group_share = {}
+    for gname, cnt in by_group.items():
+        n = sum(cnt.values())
+        m = members.get(gname, 0)
+        if not n or not m:
+            continue
+        group_share[gname] = {"members": m, "posts": n, **{k: round(v * 100 / n) for k, v in cnt.items()}}
+        wsum += m
+        for k, v in cnt.items():
+            weighted[k] = weighted.get(k, 0) + m * v / n
+    by_class_weighted = {k: round(v * 100 / wsum, 1) for k, v in weighted.items()} if wsum else {}
     res = {"at": _now(), "posts": len(posts), "comments": comments, "by_class": by_class, "by_group": by_group,
            "groups_known": len(groups), "groups_visited": len(visited),
+           "by_class_weighted_pct": by_class_weighted, "group_share_pct": group_share,
            "no_visa_posts": sum(1 for p in posts if p.get("no_visa")),
            "jobs_with_visa": sum(1 for p in posts if p["class"] == "job" and p.get("visa")),
            "group_history": {(g["payload"] or {}).get("name", "")[:40]: (g["meta"] or {}).get("history", []) for g in visited},
@@ -407,13 +462,16 @@ async def main(argv=None) -> int:
                 await page.wait_for_timeout(random.randint(20000, 40000))
             result["groups"] = sorted(found.values(), key=lambda r: -r["members"])
             result["summary"] = summarize(result["groups"])
-            targets = [g for g in result["groups"] if g["korea_name"]][: a.top]
+            targets = [g for g in result["groups"] if g["korea_name"] and g.get("members", 0) >= MIN_MEMBERS][: a.top]
+            fails = 0
             for g in targets:
                 about = await read_about(page, g["id"])
                 await page.wait_for_timeout(random.randint(8000, 15000))
                 posts = await read_recent_posts(page, g["id"], a.posts)
+                failed = bool(about.get("error")) or posts is None
+                posts = posts or []
                 kws = []
-                for kw in KEYWORDS:
+                for kw in ([] if failed and not posts else KEYWORDS):  # 화면이 안 열린 그룹은 키워드 검색까지 반복하지 않는다
                     await page.wait_for_timeout(random.randint(8000, 15000))
                     kws.append(await count_keyword(page, g["id"], kw))
                 counts = {}
@@ -425,6 +483,12 @@ async def main(argv=None) -> int:
                                          "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws,
                                          "posts": [{**x, "text": mask(x["text"])} for x in posts]})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
+                fails = fails + 1 if (failed and not posts) else 0
+                if fails >= 2:  # 그룹 2곳 연속으로 화면이 안 열리면 몇 시간 헛돌지 않고 멈춘다
+                    print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 원인 확인 전까지 중단")
+                    result["stopped"] = "group_page_load_failed"
+                    save_json(a.out, result)
+                    break
                 save_json(a.out, result)  # 그룹마다 바로 저장 — 시간 한도로 끊겨도 본 데까지 남게(2026-11-11 4시간 한도 사고)
                 await page.wait_for_timeout(random.randint(60000, 120000))  # 수집기와 같은 그룹 간 쉬는 시간
         except StopAsyncIteration:
