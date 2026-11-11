@@ -1,0 +1,80 @@
+name: 한국 사이트 — 페이스북 장기 조사 (매일 수집·매주 보고)
+# Lee 2026-11-11: "한 달 이상 걸려도 철저히, 안까지 싹". 베트남 사람들이 페이스북 그룹에서 실제로 무엇을 올리고 묻는지 쌓아서 센다.
+# 매일: 오래 안 본 큰 그룹 4곳 → 최근 글 + 판매 아닌 글의 댓글 → 비공개 저장소(research_artifacts, 공개 접근 차단).
+# 매주 월요일: 쌓인 글 집계 보고(실행 요약 표). 사람 이름 저장 안 함, 전화번호 가림. 공고 등록·화면 반영 없음.
+# 수집기(crawl-facebook-one)와 같은 VPS·같은 쿠키·같은 동시 실행 줄 — 같은 계정으로 동시에 접속하지 않는다.
+on:
+  schedule:
+    - cron: '41 3 * * *'   # 매일 10:41(베트남)
+    - cron: '53 1 * * 1'   # 매주 월요일 08:53(베트남) 보고
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'collect(수집) / report(보고)'
+        default: 'collect'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crawl-facebook-one
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 180
+    env:
+      SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FB_C_USER: ${{ secrets.FB_C_USER }}
+      FB_XS: ${{ secrets.FB_XS }}
+      FB_DATR: ${{ secrets.FB_DATR }}
+      FB_FR: ${{ secrets.FB_FR }}
+      MODE: ${{ inputs.mode || (github.event.schedule == '53 1 * * 1' && 'report' || 'collect') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 입력·키 확인
+        run: |
+          [ "$MODE" = collect ] || [ "$MODE" = report ] || { echo "::error::mode는 collect/report"; exit 1; }
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || { echo "::error::SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
+          if [ "$MODE" = collect ]; then [ -n "$FB_C_USER" ] && [ -n "$FB_XS" ] || { echo "::error::Facebook 쿠키 없음"; exit 1; }; fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존성 설치
+        run: |
+          python -m pip install -r crawler/requirements.txt
+          if [ "$MODE" = collect ]; then python -m playwright install chromium; fi
+      - name: 실행
+        working-directory: crawler
+        run: python -u korea_fb_survey.py --mode "$MODE" --posts 150 --out /tmp/korea_fb_research.json
+      - name: 보고 표
+        if: env.MODE == 'report'
+        run: |
+          python3 - <<'PY'
+          import json, os
+          d = json.load(open('/tmp/korea_fb_research.json', encoding='utf-8'))
+          names = {'company_q': '회사 질문', 'change_co': '회사 바꾸기', 'job': '일자리', 'sell': '판매', 'ask': '질문', 'money': '환전·송금', 'room': '방', 'visa_doc': '비자·서류', 'other': '기타'}
+          tot = d['posts'] or 1
+          L = [f"## 페이스북 장기 조사 보고 {d['at']}", "", f"쌓인 글 {d['posts']}개 · 댓글 {d['comments']}개 · 본 그룹 {d['groups_visited']}/{d['groups_known']}곳", "",
+               "| 종류 | 글 | 비율 |", "|---|---|---|"]
+          for k, v in sorted(d['by_class'].items(), key=lambda x: -x[1]):
+              L.append(f"| {names.get(k, k)} | {v} | {v * 100 // tot}% |")
+          L += ["", f"비자가 적힌 구인 {d['jobs_with_visa']}개 · '비자 필요 없음' 류 {d['no_visa_posts']}개"]
+          open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
+          print('\n'.join(L))
+          PY
+      - name: 결과 보관(30일, 비공개)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: korea-fb-research-${{ env.MODE }}
+          path: /tmp/korea_fb_research.json
+          retention-days: 30
+          if-no-files-found: ignore
+      - name: 서버 정리
+        if: always()
+        run: |
+          python -m pip cache purge >/dev/null 2>&1 || true
+          rm -f /tmp/korea_fb_research.json
