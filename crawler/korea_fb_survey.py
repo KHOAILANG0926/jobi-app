@@ -22,7 +22,7 @@ from datetime import timedelta, timezone
 
 import crawl_facebook
 from crawl_facebook import (account_lock_reason, advance_feed, build_cookies, expand_visible_posts, extract_visible_posts,
-                            goto_with_retry, inspect_page_state, parse_time_label, write_account_lock)
+                            inspect_page_state, parse_time_label, write_account_lock)
 
 try:
     from playwright_stealth import stealth_async
@@ -86,7 +86,7 @@ SEARCH_JS = """() => {
 
 
 async def search_groups(page, query: str, scrolls: int) -> list[dict]:
-    if not await goto_with_retry(page, f"https://www.facebook.com/search/groups/?q={quote(query)}"):
+    if not await open_page(page, f"https://www.facebook.com/search/groups/?q={quote(query)}"):
         return []
     for _ in range(scrolls):
         await page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
@@ -111,7 +111,7 @@ ABOUT_KEYS = {
 
 async def read_about(page, gid: str) -> dict:
     info = {"id": gid}
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/about"):
+    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/about"):
         info["error"] = "load_failed"
         return info
     state = await inspect_page_state(page)
@@ -131,7 +131,7 @@ async def read_about(page, gid: str) -> dict:
 
 async def read_recent_posts(page, gid: str, want: int) -> list[dict]:
     """그룹 최근 글(접힌 '더 보기'는 펼친 뒤 전문). 시험 조사·장기 수집이 함께 쓴다."""
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
+    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL"):
         return []
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
@@ -169,7 +169,7 @@ KEYWORDS = ["công ty này", "có ổn không", "đổi công ty", "tìm việc"
 
 
 async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
-    if not await goto_with_retry(page, f"https://www.facebook.com/groups/{gid}/search/?q={quote(kw)}"):
+    if not await open_page(page, f"https://www.facebook.com/groups/{gid}/search/?q={quote(kw)}"):
         return {"kw": kw, "count": None}
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
@@ -187,6 +187,26 @@ async def count_keyword(page, gid: str, kw: str, cap: int = 40) -> dict:
             break
         await advance_feed(page)
     return {"kw": kw, "count": len(seen), "capped": len(seen) >= cap, "samples": heads}
+
+
+async def open_page(page, url: str) -> bool:
+    """그룹 화면은 서버에서 'domcontentloaded'까지 30초 안에 안 끝나 전부 실패했다(2026-11-11 조사: 101번 모두 Timeout,
+    검색 화면은 정상). 응답 시작(commit)만 기다린 뒤 본문 영역이 보이면 진행한다. 실패하면 어디서 멈췄는지 남기고 30초 뒤 1번 더."""
+    for attempt in (1, 2):
+        try:
+            await page.goto(url, wait_until="commit", timeout=45000)
+            await page.wait_for_selector('[role="main"], [role="feed"]', timeout=45000)
+            await page.wait_for_timeout(2500)
+            return True
+        except Exception as e:  # noqa: BLE001
+            try:
+                title = await page.title()
+            except Exception:  # noqa: BLE001
+                title = "?"
+            print(f"  ⛔ 열기 실패({attempt}/2): {type(e).__name__} · 지금 주소 {page.url[:80]} · 제목 {title[:40]}")
+            if attempt == 1:
+                await page.wait_for_timeout(30000)
+    return False
 
 
 def save_json(path: str, data: dict) -> None:
@@ -258,7 +278,7 @@ def post_name(gid: str, text: str, url: str) -> str:
 
 
 async def read_comments(page, url: str, cap: int = 40) -> list[str]:
-    if not url or not await goto_with_retry(page, url):
+    if not url or not await open_page(page, url):
         return []
     state = await inspect_page_state(page)
     if state in ("checkpoint", "session_expired"):
@@ -336,6 +356,11 @@ async def collect(page, groups_per_run: int, want_posts: int, comment_posts: int
                                   "admin_business_words": about.get("admin_business_words", [])},
                 {**(g["meta"] or {}), "last_visit": _now(), "visits": int((g["meta"] or {}).get("visits") or 0) + 1, "history": hist})
         stats["groups"].append({"name": gname[:40], "read": len(posts), "new": new, "with_comments": with_comments})
+        if about.get("error") and not posts:
+            stats["load_failed"] = stats.get("load_failed", 0) + 1
+            if stats["load_failed"] >= 2:
+                print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 오늘 수집 중단")
+                break
         stats["new_posts"] += new
         print(f"그룹 {gname[:40]}: 읽음 {len(posts)} · 새 글 {new} · 댓글 읽은 글 {with_comments}")
         await page.wait_for_timeout(random.randint(60000, 120000))
@@ -408,6 +433,7 @@ async def main(argv=None) -> int:
             result["groups"] = sorted(found.values(), key=lambda r: -r["members"])
             result["summary"] = summarize(result["groups"])
             targets = [g for g in result["groups"] if g["korea_name"]][: a.top]
+            fails = 0
             for g in targets:
                 about = await read_about(page, g["id"])
                 await page.wait_for_timeout(random.randint(8000, 15000))
@@ -425,6 +451,12 @@ async def main(argv=None) -> int:
                                          "no_visa_posts": sum(1 for x in posts if x["no_visa"]), "keywords": kws,
                                          "posts": [{**x, "text": mask(x["text"])} for x in posts]})
                 print(f"그룹 {g['name'][:40]}: 글 {len(posts)}개 {counts}")
+                fails = fails + 1 if (about.get("error") and not posts) else 0
+                if fails >= 2:  # 그룹 2곳 연속으로 화면이 안 열리면 몇 시간 헛돌지 않고 멈춘다
+                    print("::error title=그룹 화면이 열리지 않음::2곳 연속 실패 — 원인 확인 전까지 중단")
+                    result["stopped"] = "group_page_load_failed"
+                    save_json(a.out, result)
+                    break
                 save_json(a.out, result)  # 그룹마다 바로 저장 — 시간 한도로 끊겨도 본 데까지 남게(2026-11-11 4시간 한도 사고)
                 await page.wait_for_timeout(random.randint(60000, 120000))  # 수집기와 같은 그룹 간 쉬는 시간
         except StopAsyncIteration:
