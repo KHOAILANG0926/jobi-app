@@ -1,6 +1,6 @@
 ## 2026-11-12 — 기준 시각 이전 공고 상세요강 한 번 다시 정리 (Lee "예전 거는 지금 전체 확인해서 다시 수정")
 - 원인 [직접 확인]: sb-5157 상세요강 '업무 내용'에 포스터 글자 조각·주소·교대 시간이 섞임. 지금 규칙(원문 있으면 포스터 글자 안 넣음, 11-04)은 코드에 있지만 자동 작업이 기준 시각(11-01 16:15) 이후 공고만 다시 만들어 10-31 공고는 예전 내용 그대로. 화면 대조 검사(28건 0건)는 값 불일치만 봐서 못 잡음.
-- 변경: 수동 실행 입력 all_jobs 하나(AUTO_ALL_JOBS)로 상세 채우기·AI 칸·업종·검사표가 기준 시각 이전 공고도 다룸. 대상 조건은 auto-cutoff.mjs autoScope 한 곳, KDA(기준 틀)는 jobQuyenLoi.BASELINE_FRAME_JOB_IDS로 제외.
+- 변경: 수동 실행 입력 all_jobs 하나(AUTO_ALL_JOBS)로 상세 채우기·AI 칸·업종·검사표·화면 대조 대상이 기준 시각 이전 공고도 다룸. 대상 조건은 auto-cutoff.mjs autoScope 한 곳, KDA(기준 틀)는 jobQuyenLoi.BASELINE_FRAME_JOB_IDS로 제외.
 - 지운 것/합친 것: CLASSIFY_ALL_JOBS·BUSINESS_ALL_JOBS 두 개를 AUTO_ALL_JOBS 하나로 합침.
 
 ## 2026-11-12 — 기존 공고 다시 처리: 같은 매장 핀 2개 방지 (KRIK 5992·MediaMart 5994)
