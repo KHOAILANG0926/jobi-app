@@ -15,7 +15,6 @@ export type LocationDecision = (Omit<LocatedPoint, 'workLocationId'> | {kind: 'u
   others?: LocationDecision[] }
 export interface ResolverDeps {
   withinAdministrativeArea?(addresses:string[],point:{lat:number;lng:number}): Promise<boolean>
-  administrativeCenter?(addresses: string[]): Promise<{lat:number;lng:number;source:string;checkedAt:string} | null>
   remainingCalls?: number
   cached(key: string): Promise<unknown | null>
   cache(key: string, data: unknown): Promise<void>
@@ -34,15 +33,7 @@ export interface ResolverDeps {
  *  위치를 모르는 매장에는 핀을 찍지 않는다(Lee 2026-11-11 절대 원칙). 지도 호출 수는 매장마다 따로(월 한도·DB 예약은 그대로).
  *  찾은 매장이 없으면 예전처럼 첫 매장 결과(한도 초과 기록 등)를 그대로 돌려준다. 최대 5곳. */
 export async function resolveAutoLocation(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
-  return onlyFound(await resolveAllStores(job, providedDeps))
-}
-
-/** 지도 위치 절대 원칙(Lee 2026-11-11 "위치를 모르면 마음대로 찍지 마"): 수집 기준으로 '찾음'(번지·공단 정문·회사 장소)이 아닌 결과
- *  (동·시·거리 가운데·공단 중심 같은 대략 위치)는 좌표 없이 '못 찾음'으로 돌려준다 — 핀을 찍지 않는다. 실패·한도 기록(evidence)은 남긴다. */
-function onlyFound(r: LocationDecision): LocationDecision {
-  if (r.kind === 'unresolved' || precheckVerdict(r).findable) return r
-  return { kind: 'unresolved', failed: r.failed, deferred: r.deferred || /google:quota/.test(String(r.evidence ?? '')),
-    evidence: [r.evidence, `approximate_not_pinned:${'source' in r ? r.source : ''}`].filter(Boolean).join('\n') }
+  return resolveAllStores(job, providedDeps)
 }
 
 async function resolveAllStores(job: ResolverJob, providedDeps: ResolverDeps): Promise<LocationDecision> {
@@ -87,11 +78,8 @@ async function resolveMain(job: ResolverJob, deps: ResolverDeps): Promise<Locati
   for(const target of candidates) {
     if(!deps.withinAdministrativeArea||await deps.withinAdministrativeArea([target.address,job.location],result))return {...result,address:target.address,workLocationId:target.workLocationId}
   }
-  for(const target of candidates) {
-    const area=await deps.administrativeCenter?.([target.address,job.location])
-    if(area&&validPoint(area))return {kind:'area',...area,address:target.address,workLocationId:target.workLocationId,failed:result.failed,deferred:result.deferred,evidence:[result.evidence,'administrative_boundary:mismatch'].filter(Boolean).join('\n')}
-  }
-  return {kind:'unresolved',failed:result.failed,deferred:result.deferred}
+  // 원래 성 밖이면 따르지 않는다 — 대략 위치 핀 없이 못 찾음(기록은 남김)
+  return {kind:'unresolved',failed:result.failed,deferred:result.deferred,evidence:[result.evidence,'administrative_boundary:mismatch'].filter(Boolean).join('\n')}
 }
 
 async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<LocationDecision> {
@@ -176,8 +164,7 @@ async function resolveEvidence(job: ResolverJob, deps: ResolverDeps): Promise<Lo
     }
     const gate = park?.destination
     if (gate?.kind === 'gate' && gate.source.ref && gate.satelliteChecked && validPoint(gate)) return {kind:'gate',lat:gate.lat,lng:gate.lng,source:`${gate.source.provider} ${gate.source.ref}`,checkedAt:gate.satelliteChecked,failed,deferred,evidence:reasons.join('\n')}
-    // 공단 중심·동 중심·시 중심 같은 대략 위치 단계는 없앴다(지도 위치 절대 원칙, Lee 2026-11-11).
-    // 못 찾으면 아래에서 '못 찾음' — 한도·실패 기록(reasons)은 그대로 남아 보류(google:quota)로 이어진다.
+    // 공단 중심·표에 없는 공단·동 중심·행정구역 중심 같은 대략 위치는 찾지도 찍지도 않는다(Lee 2026-11-11 절대 원칙, Codex #702 — 버릴 결과를 만들려고 지도 호출을 쓰지 않음).
   } catch { failed = true } // Cache/reservation unavailable: fail closed; no more requests.
   return {kind:'unresolved',failed,deferred,evidence:reasons.join('\n')}
 }

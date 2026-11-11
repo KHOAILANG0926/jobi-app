@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
-import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
+import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { precheckCompany, precheckJob, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { googlePlaceHits, pickCompanyPlace, sameCoreName } from '../../src/lib/companyPlaceSearch.ts'
 import { normalizePlaceText } from '../../src/lib/locationCandidateMatch.ts'
@@ -105,7 +105,6 @@ function deps({ vietmap, goong, google, shared, prodGoogle }) {
   const isGoogle = (key) => key.startsWith('[') && key.includes('"google"')
   return {
     async withinAdministrativeArea(addresses, point) { return withinOriginalProvince(addresses[0], addresses[1] || '', point) },
-    async administrativeCenter(addresses) { const a = administrativeAreaForTarget(addresses[0], addresses[1] || ''); return a ? { lat: a.lat, lng: a.lng, source: `Original administrative area ${a.key}`, checkedAt: new Date().toISOString() } : null },
     async cached(key) { if (prodGoogle && isGoogle(key)) return prodGoogle(key); return store(key).get(key) ?? null },
     async cache(key, data) { store(key).set(key, data) },
     remainingCalls: 2,

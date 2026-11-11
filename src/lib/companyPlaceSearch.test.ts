@@ -49,18 +49,15 @@ assert(inPark.kind === 'area' && 'lat' in inPark && inPark.lat === 21.2101 && /G
 // Google이 다른 성의 같은 이름 회사를 집으면 따르지 않는다(성 대략 위치 + 경계 불일치 기록)
 const elsewhere = await resolveAutoLocation(park, { ...noop, async goong() { return { predictions: [] } },
   async google() { return { places: [{ id: 'bd1', displayName: { text: 'New Teamrobotics (Viet Nam)' }, formattedAddress: 'Bình Dương', location: { latitude: 11.05, longitude: 106.70 } }] } },
-  async withinAdministrativeArea() { return false },
-  async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'area', checkedAt: 'x' } } })
+  async withinAdministrativeArea() { return false },})
 // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
-assert(elsewhere.kind === 'unresolved' && !('lat' in elsewhere),'성 밖 Google 결과는 따르지 않음(핀 없음): ' + JSON.stringify(elsewhere))
+assert(elsewhere.kind === 'unresolved' && !('lat' in elsewhere), '성 밖 Google 결과는 따르지 않음(핀 없음): ' + JSON.stringify(elsewhere))
 // Google 후보가 여럿(거리로 못 좁힘)이면 따르지 않는다
 const many = await resolveAutoLocation(park, { ...noop, async goong() { return { predictions: [] } },
-  async google() { return { places: [1, 2].map((i) => ({ id: `m${i}`, displayName: { text: 'New Teamrobotics Vietnam' }, formattedAddress: `Bắc Ninh ${i}`, location: { latitude: 21.2 + i / 100, longitude: 106.0 } })) } },
-  async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'area', checkedAt: 'x' } } })
+  async google() { return { places: [1, 2].map((i) => ({ id: `m${i}`, displayName: { text: 'New Teamrobotics Vietnam' }, formattedAddress: `Bắc Ninh ${i}`, location: { latitude: 21.2 + i / 100, longitude: 106.0 } })) } },})
 assert(!('source' in many) || !/Google/.test(String((many as { source?: string }).source)), '후보 여럿이면 Google 따르지 않음: ' + JSON.stringify(many))
-// 둘 다 없으면 기존처럼 성 대략 위치로 내려감(administrativeCenter)
-const none = await resolveAutoLocation(job, { ...noop, async goong() { return { predictions: [] } },
-  async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'area', checkedAt: 'x' } } })
+// 둘 다 없으면 못 찾음(성 대략 위치 핀 없음, 2026-11-11 절대 원칙)
+const none = await resolveAutoLocation(job, { ...noop, async goong() { return { predictions: [] } },})
 // 2026-11-11 Lee 절대 원칙: 대략 위치는 핀 없이 못 찾음
 assert(none.kind === 'unresolved' && !('lat' in none), '못 찾으면 성 대략 위치 핀 없음')
 // Lee 2026-11-06 "VietMap하고 Goong 하지 말고 바로 구글로": 회사 이름이 있으면 Google을 가장 먼저 묻는다.

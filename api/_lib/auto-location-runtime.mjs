@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { resolveAutoLocation } from '../../src/lib/autoLocationResolver.ts'
-import { administrativeAreaForTarget, withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
+import { withinOriginalProvince } from '../../src/lib/administrativeArea.ts'
 import { locationVerdict } from '../../src/lib/locationLevel.ts'
 import { agencyByPhone, precheckCompany, precheckJob, precheckLocationText, precheckVerdict } from '../../src/lib/locationPrecheck.ts'
 import { companyIdentity, phoneKeys } from '../../src/lib/jobIdentity.ts'
@@ -151,10 +151,6 @@ function resolverDeps(db, request, extra, goong, google) {
   return {
     async withinAdministrativeArea(addresses, point) {
       return withinOriginalProvince(addresses[0], addresses[1] || '', point)
-    },
-    async administrativeCenter(addresses) {
-      const area=administrativeAreaForTarget(addresses[0],addresses[1]||'')
-      return area ? {lat:area.lat,lng:area.lng,source:`Original administrative area ${area.key}`,checkedAt:new Date().toISOString()} : null
     },
     async cached(key) {
       const name = createHash('sha256').update(key).digest('hex')

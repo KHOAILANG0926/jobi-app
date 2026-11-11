@@ -56,20 +56,18 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
     ...deps, async reserve() { return true }, async request() { calls++; return [] },
   })
   // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
-  assert(r.kind === 'unresolved' && calls === 0 && !('lat' in r),'2-level address: stored ward center is not pinned, no VietMap calls')
+  assert(r.kind === 'unresolved' && calls === 0 && !('lat' in r), '2-level address: no ward-centre pin, no VietMap calls')
   console.log('autoLocationResolver: 2-level ward cache assertions passed')
 }
 {
  const approximate=await resolver.resolveAutoLocation({id:123,company:'Any employer',location:'Bắc Ninh',targets:[]},{
-  ...deps,async administrativeCenter(){return {lat:21.1861,lng:106.0763,source:'Natural Earth original province bac ninh',checkedAt:'2026-10-28T00:00:00Z'}}
- })
+  ...deps,})
  // 2026-11-11 Lee 절대 원칙: 대략 위치는 핀 없이 못 찾음
  assert(approximate.kind==='unresolved'&&!('lat' in approximate),'administrative approximate is not pinned after higher priority misses')
 }
 {
  const outside=await resolver.resolveAutoLocation({id:124,company:'Any employer',location:'KCN Quế Võ, Bắc Ninh',targets:[]},{
-  ...deps,async withinAdministrativeArea(){return false},async administrativeCenter(){return null}
- })
+  ...deps,async withinAdministrativeArea(){return false},})
  assert(outside.kind==='unresolved','known park coordinates outside original administrative boundary cannot become an automatic pin')
 }
 {
@@ -78,12 +76,10 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
  const result=await resolver.resolveAutoLocation({...job,targets:[first,second]}, {
   ...deps,async reserve(){return true},async request(action){return action==='search'?[hit]:place},
   async withinAdministrativeArea(addresses){return addresses.includes(first.address)&&!addresses.includes(second.address)},
-  async administrativeCenter(){return null},
  })
  assert(result.kind==='exact'&&result.workLocationId===100,'concrete exact workplace survives unrelated province target')
  const area=await resolver.resolveAutoLocation({id:125,company:'Any employer',location:'Bắc Ninh',targets:[{address:'Khu A, Bắc Ninh',workLocationId:301},{address:'Khu B, Bắc Ninh',workLocationId:302}]},{
-  ...deps,async administrativeCenter(){return {lat:21.098,lng:106.117,source:'Original province reference',checkedAt:'2026-10-28T05:00:00Z'}}
- })
+  ...deps,})
  // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 근무지 여러 곳 모두 못 찾으면 성 중심 핀 없이 못 찾음(예전 '성 중심 대략 핀' 기대값을 바꿈)
  assert(area.kind==='unresolved'&&!('lat' in area),'multi-workplace with no found store gets no province-centre pin')
 }
@@ -138,7 +134,7 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
       if (action === 'search') return params.text.includes('Lê Lợi') ? [{ ref_id: 'p2', name: '5 Lê Lợi', address: a2 }] : params.text.includes('Nguyễn Trãi') ? [{ ref_id: 'p1', name: '12 Nguyễn Trãi', address: a1 }] : []
       const p = places[params.refid]; return p ? { ...p, lat: 21.0, lng: 105.8, ward: 'Thanh Xuân Trung', district: 'Thanh Xuân', city: 'Hà Nội' } : null
     },
-    async administrativeCenter() { return { lat: 21.03, lng: 105.85, source: 'Original administrative area ha noi', checkedAt: 'x' } },
+    async wardCenter() { return { lat: 21.12, lng: 105.96, at: '2026-11-01' } },
   } as never)
   assert(multi.kind === 'exact' && multi.address === a1, 'first store keeps the existing exact step')
   const others = (multi as { others?: Array<{ kind: string; address?: string; workLocationId?: number | null }> }).others ?? []
@@ -176,7 +172,6 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   // Codex #697: 매장을 하나도 못 찾으면 행정구역 중심 핀 없이 '못 찾음'
   const none = await resolver.resolveAutoLocation({ id: 25, company: 'Fixture Cafe', location: 'Bắc Ninh', targets: [{ address: '1 Phố M, Bắc Ninh', workLocationId: 1 }, { address: '2 Phố N, Bắc Ninh', workLocationId: 2 }] }, {
     ...deps, async reserve() { return true }, async request() { return [] }, async google() { return { places: [] } },
-    async administrativeCenter() { return { lat: 21.18, lng: 106.07, source: 'Original administrative area bac ninh', checkedAt: 'x' } },
   } as never)
   assert(none.kind === 'unresolved' && !('lat' in none), 'no store found → no approximate pin: ' + JSON.stringify(none).slice(0, 160))
   // Codex #697: 한 매장이 Google 한도에 걸리면 공고 전체 보류(한도 기록 유지 → 기존 보류·재시도)
