@@ -1,0 +1,38 @@
+name: 한국 사이트 — 페이스북 조사 결과 읽기 (읽기 전용)
+# 조사 결과 파일(비공개 보관)을 실행 기록에 표로 찍는다. Facebook 접속·DB 저장 없음.
+# 그룹 목록(이름·회원 수·하루 글 수)은 공개 그룹 검색 화면 정보라 기록에 남겨도 된다. 글 본문은 찍지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: '조사 실행 번호(run id)'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: korea-fb-survey
+          path: /tmp/s
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: 그룹 목록
+        run: |
+          python3 - <<'PY'
+          import json, os
+          d = json.load(open('/tmp/s/korea_fb_survey.json', encoding='utf-8'))
+          g = d.get('groups', [])
+          L = [f"## 그룹 목록 {len(g)}개 (회원 수 순)", "", "| # | 그룹 | 회원 | 하루 글 | 한국 이름 | 검색어 | id |", "|---|---|---|---|---|---|---|"]
+          for i, r in enumerate(g, 1):
+              cell = lambda v: str(v or '').replace('|', '/').replace('\n', ' ')
+              L.append(f"| {i} | {cell(r.get('name'))[:60]} | {r.get('members', 0):,} | {cell(r.get('daily'))} | {'O' if r.get('korea_name') else ''} | {cell(r.get('query'))} | {cell(r.get('id'))} |")
+          open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
+          print('\n'.join(L))
+          PY
