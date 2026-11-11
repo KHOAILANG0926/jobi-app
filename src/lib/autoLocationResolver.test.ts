@@ -139,6 +139,16 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   assert(calls === 2, 'other stores add no map lookups: ' + calls)
   const others = (multi as { others?: Array<{ kind: string; address?: string; workLocationId?: number | null; source?: string }> }).others ?? []
   assert(others.length === 1 && others[0].kind === 'area' && others[0].address === a2 && others[0].workLocationId === 2 && /ward cache/.test(others[0].source ?? ''), 'second store gets saved ward-centre area pin: ' + JSON.stringify(others))
+  // Codex #697: 저장된 동 중심이 원래 성 밖이면 쓰지 않고 행정구역 중심으로
+  const outside = await resolver.resolveAutoLocation({ id: 22, company: 'Fixture', location: a1, targets: [{ address: a1, workLocationId: 1 }, { address: a2, workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true },
+    async request(action: string) { return action === 'search' ? [{ ref_id: 'fixture-place', name: '12 Nguyễn Trãi', address: a1 }] : { name: '12 Nguyễn Trãi', display: a1, lat: 21.0, lng: 105.8, ward: 'Thanh Xuân Trung', district: 'Thanh Xuân', city: 'Hà Nội' } },
+    async wardCenter() { return { lat: 10.78, lng: 106.69, at: '2026-11-01' } },
+    async withinAdministrativeArea(_a: string[], p: { lat: number }) { return p.lat > 20 },
+    async administrativeCenter() { return { lat: 21.1, lng: 105.95, source: 'fixture-admin', checkedAt: '2026-11-01' } },
+  } as never)
+  const o2 = (outside as { others?: Array<{ lat: number; evidence?: string }> }).others ?? []
+  assert(o2.length === 1 && o2[0].lat === 21.1 && /administrative_center/.test(o2[0].evidence ?? ''), 'out-of-province ward cache falls back to admin centre: ' + JSON.stringify(o2))
   const single = await resolver.resolveAutoLocation({ id: 21, company: 'Fixture', location: 'unknown', targets: [] }, deps)
   assert(!('others' in single), 'one-store job unchanged')
   console.log('autoLocationResolver: 매장 여러 곳 — 첫 매장 그대로, 다른 매장 호출 없이 대략 위치 통과')

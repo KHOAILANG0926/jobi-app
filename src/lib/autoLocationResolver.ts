@@ -71,7 +71,8 @@ async function otherStorePoints(job: ResolverJob, chosen: string | undefined, de
   for (const t of job.targets.filter((x) => x.address && x.address !== chosen).slice(0, 4)) {
     const unit = wardUnitForAddresses([t.address])
     const saved = unit ? await deps.wardCenter?.(unit).catch(() => null) : null
-    if (unit && saved && validPoint(saved)) {
+    // 저장된 동 중심도 대표 핀과 같이 원래 행정구역 안인지 확인한다(밖이면 행정구역 중심으로, Codex #697).
+    if (unit && saved && validPoint(saved) && (!deps.withinAdministrativeArea || await deps.withinAdministrativeArea([t.address, job.location], saved))) {
       out.push({ kind: 'area', lat: saved.lat, lng: saved.lng, source: `VietMap ward cache ${unit.key}`, checkedAt: saved.at || new Date().toISOString(), address: t.address, workLocationId: t.workLocationId, evidence: 'other_store:ward_cache' })
       continue
     }
