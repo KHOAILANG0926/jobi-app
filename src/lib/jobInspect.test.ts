@@ -126,6 +126,9 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   // 2026-11-11 Lee(MediaMart sb-5994): 짧은 이름표 아래에 같은 칸 일반 글이 있으면 내용 있는 이름표(아래 줄 모양 예외 대신 한 규칙)
   const mm = inspectJob({ id: 19, description: 'Công việc\nYêu cầu chung:\nNam/Nữ, từ 18 tuổi trở lên', pin: 'area', category: 'ban_hang', occupation_code: '5', active: true })
   assert(mm.items.find((i) => i.key === 'junk')!.ok, '이름표 아래 같은 칸 글이 있으면 빈 이름표 아님: ' + mm.items.find((i) => i.key === 'junk')!.detail)
+  // Codex 지적: 칸 제목 판정은 화면과 같은 headingOf — 'Yêu cầu ứng viên' 같은 다른 제목 바로 위의 이름표도 빈 이름표
+  const beforeHeading = inspectJob({ id: 20, description: 'Quyền lợi\nSố điện thoại:\nYêu cầu ứng viên\nNam/Nữ, từ 18 tuổi trở lên', pin: 'area', category: 'x', occupation_code: '1', active: true })
+  assert(!beforeHeading.items.find((i) => i.key === 'junk')!.ok, '다른 칸 제목 바로 위 이름표는 빈 이름표')
   console.log('jobInspect.test.ts: 목록 제목 줄(~: + 글머리) 검사 통과')
 }
 

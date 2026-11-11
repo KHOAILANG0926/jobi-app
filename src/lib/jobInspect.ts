@@ -7,7 +7,7 @@
 import { bare, detailSections, salaryAmounts, type ShownAbove } from './jobDetailSections.ts'
 import { cleanSourceText, contactDuplicate, isPromoLine, sameLine, timeRanges } from './jobDescriptionBuild.ts'
 import { headingOf } from './jobDetailSections.ts'
-import { FILL_HEADINGS, isCovered } from './jobDetailFill.ts'
+import { isCovered } from './jobDetailFill.ts'
 import { sourceRecruitmentRoles } from './sourceRecruitmentRoles.ts'
 import { cardSalary } from './mainJobCards.ts'
 import { MEAL_HINT } from './mealBenefit.ts'
@@ -103,11 +103,10 @@ export function inspectJob(j: InspectInput): InspectResult {
   //  화면 칸(view.sections)은 줄 종류별로 다시 모아 순서가 바뀌므로 글 순서(description)로 본다.
   // 이름표는 짧은 줄(60자 이하)만 — ':'로 끝나는 긴 소개 문장은 이름표가 아니다(2026-11-03 Bảo An VCC).
   const isLabel = (l: string) => /[:：]\s*$/.test(l) && bare(l).length <= 60
-  const fillHeads = new Set(Object.values(FILL_HEADINGS).map((h) => bare(h)))
   const order = String(j.description ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
   const shownSet = new Set(shown.map((l) => l.trim()))
   const emptyLabels = order.filter((l, i) => shownSet.has(l) && isLabel(l) &&
-    (i + 1 >= order.length || isLabel(order[i + 1]) || fillHeads.has(bare(order[i + 1]))))
+    (i + 1 >= order.length || isLabel(order[i + 1]) || !!headingOf(order[i + 1])))
   const junk = [...shown.filter((l) => SITE_JUNK.test(bare(l)) || /\d[\d .]{2,}\*{2,}/.test(l)), ...emptyLabels]
   add('junk', '사이트 글자·빈 이름표 없음', !junk.length, junk.length ? junk.slice(0, 3).join(' / ') : undefined)
   // 5. (폐지 2026-11-01 Lee "빠짐 0": 10-30 확정 ④ 원문 전체 — 위쪽 칸과 겹치는 줄도 보여 준다)
