@@ -46,7 +46,7 @@ export async function resolveAutoLocation(job: ResolverJob, providedDeps: Resolv
     return providedDeps.google!(text)
   } } : {}) }
   const main=await resolveMain(job,deps)
-  const others=main.kind==='unresolved'?[]:await otherStorePoints(job,main.address,deps)
+  const others=main.kind==='unresolved'?[]:await otherStorePoints(job,main.address,providedDeps)
   return others.length?{...main,others}:main
 }
 

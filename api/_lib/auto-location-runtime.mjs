@@ -103,7 +103,8 @@ export async function precheckLocation(db, request, input, goong = null, google 
   const stores = verdict.findable && fromText && job.targets.length > 1
     ? [...new Set([result.address, ...(result.others ?? []).map((o) => o.address)].filter(Boolean))] : []
   // location: 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역). 수집기는 이 글자를 공고 위치로 저장한다(주소를 따로 읽지 않음).
-  return { ...verdict, location: stores.length > 1 ? stores[0] : job.location, ...(stores.length > 1 ? { stores } : {}), ...who }
+  // 찾은 매장이 하나뿐이어도(첫 매장은 못 찾고 다른 매장만 찾음) 그 매장 주소를 공고 위치로 쓴다.
+  return { ...verdict, location: stores.length ? stores[0] : job.location, ...(stores.length ? { stores } : {}), ...who }
 }
 
 /** 관리자 확정 기억표 조회(읽기만). 조회 실패는 '없음'으로 두고 기존 순서(Google부터)로 확인한다 — 등록을 막지 않는다. */

@@ -144,5 +144,14 @@ assert(deferred.deferred===true,'daily budget refusal must defer instead of perm
   assert(!others.some((o) => o.address === a3), 'unknown store gets no pin (no ward/city centre guess)')
   const single = await resolver.resolveAutoLocation({ id: 21, company: 'Fixture', location: 'unknown', targets: [] }, deps)
   assert(!('others' in single), 'one-store job unchanged')
+  // 지점마다 Google 한 번씩(Codex #697): 첫 지점이 Google을 썼어도 다음 지점은 따로 1번 물을 수 있다
+  const g1 = '5 Phố A, Phường X, Hà Nội', g2 = '7 Phố B, Phường Y, Hà Nội'
+  const asked: string[] = []
+  const gm = await resolver.resolveAutoLocation({ id: 22, company: 'Fixture Cafe', location: g1, targets: [{ address: g1, workLocationId: 1 }, { address: g2, workLocationId: 2 }] }, {
+    ...deps, async reserve() { return true }, async request() { return [] },
+    async google(text: string) { asked.push(text); return { places: [{ id: 'g' + asked.length, displayName: { text: 'Fixture Cafe' }, formattedAddress: text.includes('Phố B') ? g2 : g1, location: { latitude: 21.0 + asked.length / 100, longitude: 105.8 } }] } },
+  } as never)
+  assert(asked.length === 2, 'each store asks Google once: ' + asked.length)
+  assert(((gm as { others?: unknown[] }).others ?? []).length === 1, 'second store found through its own Google call')
   console.log('autoLocationResolver: 매장 여러 곳 — 매장마다 같은 방법으로 찾고 모르는 매장은 핀 없음 통과')
 }

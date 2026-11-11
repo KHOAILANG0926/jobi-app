@@ -41,4 +41,5 @@ await resolveAutoLocation({ id: 900003, company: 'Example Robotics', location: o
   async goong() { goongCalls++; return { predictions: [] } },
   async google() { googleCalls++; return { places: [] } },
 })
-assert(googleCalls <= 1 && goongCalls <= 3, `all stages share provider caps: Google=${googleCalls}, Goong=${goongCalls}`)
+// 한 매장의 단계들은 상한(Google 1·Goong 3)을 나눠 쓴다. 매장이 여러 곳이면 매장마다 따로(Codex #697) — 이 공고는 2곳.
+assert(googleCalls <= 2 && goongCalls <= 6, `each store shares provider caps across its stages: Google=${googleCalls}, Goong=${goongCalls}`)
