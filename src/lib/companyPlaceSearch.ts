@@ -8,25 +8,31 @@
 // 결과는 '대략 위치(area)' — 화면은 chưa xác minh 그대로, 핀만 실제 업체 자리.
 import { companyTokens, normalizePlaceText } from './locationCandidateMatch'
 import { findIndustrialPark, foldText } from './industrialPark'
+import { NAME_HEAD_WORDS } from './shopKinds'
 
 /** 이름 앞뒤 수식어를 뺀 핵심 이름(띄어쓰기 없이). "JoyThai - Thai Cuisine & Hotpot" → "joythai". */
-export function coreName(name: string): string {
+export function coreName(name: string, { keepShopHead = false } = {}): string {
   const head = String(name ?? '').split(/\s[-–|]\s|[|(]/)[0] ?? ''
   // 업종 머리말(여러 낱말)은 이름의 핵심이 아니다: "SIÊU THỊ ĐIỆN MÁY MEDIAMART" ↔ "Mediamart Bắc Ninh", "BAR NEW PHOENIX" ↔ "New Phoenix Club"(#560).
   // 낱말 하나씩 빼면(예: 'trang') 사람 이름까지 지워지므로 낱말 묶음으로만 뺀다.
   // 'Việt Nam'(나라 이름)은 빼되, 따로 쓰인 'Việt'·'Nam'은 이름의 일부다("Đại Tân Việt" ≠ "Đại Tân", #560) — 공용 낱말 목록(companyTokens)이
   // 둘을 늘 빼므로 여기서만 지켜 둔다.
-  const bare = ` ${normalizePlaceText(head)} `.replace(GENERIC_HEAD, ' ').replace(/ (?:viet nam|vietnam) /g, ' ').replace(/ (viet|nam)(?= )/g, ' $1x')
+  const bare = ` ${normalizePlaceText(head)} `.replace(GENERIC_HEAD, ' ').replace(/\s+/g, ' ').replace(keepShopHead ? /^$/ : SHOP_HEAD, ' ').replace(/ (?:viet nam|vietnam) /g, ' ').replace(/ (viet|nam)(?= )/g, ' $1x')
   const tokens = companyTokens(bare).map((t) => t.replace(/^(viet|nam)x$/, '$1')).filter((t) => !CORE_IGNORED.has(t))
   return tokens.join('')
 }
 // 업종 일반어·지역 이름(이름의 '핵심'이 아님). 너무 많이 빼면 다른 회사와 같아지므로 짧게 둔다.
 const GENERIC_HEAD = / (?:he thong|sieu thi|dien may|khach san|thuong hieu|bar)(?= )/g
+// 이름 맨 앞에 붙은 가게 종류·소개소 낱말(shopKinds 한 곳): "Siêu Thị Mẹ Bầu & Em Bé Con Cưng" ↔ "CON CƯNG"(2026-11-11). 앞머리만 뗀다(이름 중간 낱말은 이름의 일부).
+const SHOP_HEAD = new RegExp(`^ (?:(?:${NAME_HEAD_WORDS.map((w) => normalizePlaceText(w)).filter(Boolean).join('|')}) )+`)
 const CORE_IGNORED = new Set(['dich', 'vu', 'bao', 've', 'ninh', 'bac', 'giang', 'ha', 'noi', 'tp', 'thanh', 'pho', 'tinh', 'chi', 'nhanh', 'cn', 'co', 'so', 'nha', 'hang', 'quan', 'cua'])
 
 /** 공고 회사 이름 ↔ 지도 업체 이름이 핵심 이름으로 같은가. 핵심 이름이 4글자보다 짧으면 판단하지 않는다(오탐 방지). */
 export function sameCoreName(company: string, placeName: string): boolean {
-  const a = coreName(company), b = coreName(placeName)
+  // 가게 종류 앞머리를 떼기 전 이름으로 먼저 본다(Codex #674: "Nệm Vạn Thành" ↔ 같은 이름이 앞머리를 떼면 3글자가 되어 탈락하던 것) — 예전 판정 그대로.
+  return coreMatch(coreName(company, { keepShopHead: true }), coreName(placeName, { keepShopHead: true })) || coreMatch(coreName(company), coreName(placeName))
+}
+function coreMatch(a: string, b: string): boolean {
   if (a.length < 4 || b.length < 4) return false
   // 지도 이름이 공고 이름보다 짧으면(공고 "Đại Tân Việt" ↔ 지도 "Đại Tân") 지도 쪽 이름이 충분히 길 때만(8자) 같다고 본다 — 짧은 이름은 다른 회사일 수 있다(#560).
   return a === b || (b.startsWith(a) && a.length >= 6) || (a.startsWith(b) && b.length >= 8)
@@ -35,7 +41,9 @@ export function sameCoreName(company: string, placeName: string): boolean {
 /** 원문 주소의 거리 이름(번지·"đường/phố" 없이). 없으면 ''. */
 export function streetOf(address: string): string {
   // "27 kinh dương vương-p Vũ Ninh"처럼 붙어 쓴 '-p'·'-tỉnh'도 끊는다.
-  const first = normalizePlaceText(String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? '')
+  // 슬래시·줄표 번지("10/2", "25-27")는 글자 그대로 먼저 뗀다 — 정규화하면 "10 2"가 되어 '2'가 거리 이름에 붙는다(Codex #674).
+  const raw = (String(address ?? '').split(/,|\s[-–]\s|\s*[-–]\s*(?=(?:p\.?|phường|xã|tp\.?|tỉnh|q\.?|quận|huyện)\s)/iu)[0] ?? '').replace(/^\s*(?:số\s*)?\d+\p{L}?(?:\s*[\/-]\s*\d+\p{L}?)+\s+/iu, '')
+  const first = normalizePlaceText(raw)
   const street = first.replace(/^(?:so\s+)?\d+[a-z]?(?:\/\d+)*\s+/, '').replace(/^(?:duong|pho|d)\s+/, '').trim() // "Đ. Triệu Việt Vương"의 Đ.(đường 줄임)도 뗀다
   return street.length > 2 && !/^(?:kcn|ccn|khu|cum|phuong|p|xa|thi tran|tt|quan|q|huyen|h|thi xa|tx|thanh pho|tp|tinh|t)\b/.test(first) ? street : ''
 }
@@ -110,7 +118,17 @@ export function pickCompanyPlace(company: string, address: string, hits: PlaceHi
   const street = streetOf(address)
   if (!street) return { hit: null, reason: 'multiple_no_street' }
   const onStreet = same.filter((h) => ` ${normalizePlaceText(h.address)} `.includes(` ${street} `))
-  return onStreet.length === 1 ? { hit: onStreet[0], reason: 'multiple_street_match' } : { hit: null, reason: onStreet.length ? 'multiple_same_street' : 'multiple_no_street_match' }
+  if (onStreet.length === 1) return { hit: onStreet[0], reason: 'multiple_street_match' }
+  // 같은 체인이 같은 거리에 여러 곳이면(2026-11-11 KRIK 152·340 Trần Hưng Đạo) 원문 번지가 그 후보 주소에 '번지 + 거리'로 있는 곳만.
+  // 번지가 없거나 번지까지 같은 곳이 1곳이 아니면 지금처럼 보류(다른 지점을 고르지 않는다).
+  // 번지는 통째로 비교한다(Codex #674: "1/152"를 "152"로 보지 않게 — 슬래시·줄표 번지를 그대로 둔 글자로 읽는다).
+  const houseText = (t: string) => ` ${String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s*([/-])\s*(?=\d)/g, '$1').replace(/[^a-z0-9/-]+/g, ' ').replace(/\s+/g, ' ').trim()} `
+  const no = /^\s*(?:số\s*)?(\d+[a-z]?(?:\s*[/-]\s*\d+[a-z]?)*)\s/iu.exec(address)?.[1]?.toLowerCase().replace(/\s+/g, '')
+  // 후보의 번지 = 주소 맨 앞 번지가 바로 그 거리에 붙어 있을 때만(Codex #674: "12 Ngõ 152 Trần Hưng Đạo"의 152는 골목 번호지 집 번지가 아니다).
+  const houseOf = (h: PlaceHit) => new RegExp(`^ (?:so )?(\\d+[a-z]?(?:[/-]\\d+[a-z]?)*) (?:d |duong |pho )?${street} `).exec(houseText(h.address))?.[1]
+  const atNo = no ? onStreet.filter((h) => houseOf(h) === no) : []
+  if (atNo.length === 1) return { hit: atNo[0], reason: 'multiple_house_number_match' }
+  return { hit: null, reason: onStreet.length ? 'multiple_same_street' : 'multiple_no_street_match' }
 }
 
 /** Goong AutoComplete 응답 → 후보 목록. */

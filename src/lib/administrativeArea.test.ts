@@ -25,3 +25,14 @@ assert(administrativeAreaForTarget('Hải Dương','Hải Dương, Hà Nội')?.
 assert(areaContains(bacNinh, {lat:21.22944,lng:106.00377}),'Yên Phong expansion park near simplified border is inside Bắc Ninh')
 assert(!areaContains(bacNinh, {lat:21.0285,lng:105.8542}),'Hà Nội center stays outside Bắc Ninh')
 assert(!areaContains(bacNinh, {lat:11.05,lng:106.70}),'Bình Dương stays outside Bắc Ninh')
+
+// 2026-11-11 MediaMart(37 Lý Thái Tổ, Kinh Bắc): 원문 "TP. Bắc Ninh"이어도 "원래 성 안" 검사는 성 경계로 — 시 대표점과 다른 좌표도 성 안이면 통과
+{
+  const { withinOriginalProvince } = await import('./administrativeArea.ts')
+  const addr = 'Số 37 Đường Lý Thái Tổ, P. Võ Cường, TP. Bắc Ninh'
+  assert(withinOriginalProvince(addr, 'Bắc Ninh', { lat: 21.1810, lng: 106.0705 }), 'TP. Bắc Ninh address: point in Bắc Ninh province passes')
+  assert(!withinOriginalProvince(addr, 'Bắc Ninh', { lat: 10.7626, lng: 106.6602 }), 'TP. Bắc Ninh address: Hồ Chí Minh point fails')
+  // 시 중심 핀(대표점) 규칙은 그대로: 시 대표 자료는 그 점만 증명
+  const city = administrativeAreaForTarget(addr, 'Bắc Ninh')
+  assert(city?.key === 'city:bac ninh' && !areaContains(city, { lat: 21.1810, lng: 106.0705 }), 'city representative still proves only its own point')
+}
