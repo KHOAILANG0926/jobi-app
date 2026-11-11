@@ -64,7 +64,8 @@ for (const msg of ['quota_exhausted', 'upstream_failed_429']) {
   store.clear()
   const parkJob = precheckJob({ company: 'Công ty TNHH Hojeong Vina', location: 'Bắc Ninh', addresses: ['KCN Thuận Thành 9, Bắc Ninh'] })!
   const pr = await resolveAutoLocation(parkJob, quotaDeps(vm([{ ref_id: 'vm1', name: 'KCN Thuận Thành 9', address: 'Bắc Ninh', display: 'Bắc Ninh' }], { lat: 21.03, lng: 106.08, city: 'Bắc Ninh' })))
-  assert(pr.kind === 'area' && String((pr as { source?: string }).source).includes('(KCN)'), 'unlisted park center reached: ' + JSON.stringify(pr))
+  // 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
+  assert(pr.kind === 'unresolved' && !('lat' in pr) && /google:quota/.test(String(pr.evidence)), 'no park-centre pin, quota kept: ' + JSON.stringify(pr))
   assert(precheckVerdict(pr).reason === 'google_quota', 'quota then unlisted park center → still google_quota: ' + precheckVerdict(pr).reason)
 }
 // Codex #619: '못 찾음' 7일 뒤 다시 확인(refreshGoogle)은 저장된 Google '없음'을 다시 쓰지 않고 새로 묻는다 → 이번엔 찾음

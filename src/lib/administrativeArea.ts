@@ -74,7 +74,7 @@ export function administrativeAreaForTarget(address:string,context:string):Admin
 /** "원래 성 안" 검사(Lee 2026-11-06 — Google이 집은 장소·찾은 번지가 원문 성 안인가). 원문이 "TP. Bắc Ninh"처럼 시를 적어도
  *  성 경계(원래 성 polygon)로 본다. 시 대표점(trusted_city_representative)은 그 점 하나의 시 소속만 증명하는 자료라(10-28 결정,
  *  docs/ops/2026-10-28-bomunttl-followup.md) 다른 좌표의 경계 검사에 쓰면 시 중심과 같은 점 말고는 전부 '밖'이 된다(2026-11-11 MediaMart 37 Lý Thái Tổ).
- *  시 중심 핀(administrativeCenter)은 그대로 시 대표점을 쓴다. */
+ *  (시 중심 핀 단계는 2026-11-11 지도 위치 절대 원칙으로 없앰.) */
 export function withinOriginalProvince(address:string, context:string, point:{lat:number;lng:number}):boolean {
  const area=administrativeAreaForTarget(address,context)
  if(!area)return false

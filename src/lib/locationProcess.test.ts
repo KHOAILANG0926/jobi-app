@@ -27,7 +27,8 @@ assert(calls.includes('google:company'), 'known industrial parks must not skip G
 // 같은 이름의 다른 사업장(사무실 등)일 수 있어 따르지 않는다 — Google 좌표도, 그 주소의 번지 검증 좌표도 쓰지 않고 공단 단계로 내려간다.
 assert(!(result.kind === 'exact' && result.lat === 21 && result.lng === 105.8), 'Google place outside the named park must not become an exact pin')
 assert(!('source' in result) || !/^Google /.test(String((result as { source?: string }).source)), 'never the Google company coordinate')
-assert(result.address === original && result.workLocationId === 55, 'canonical writer target identity must remain the original work location')
+// 2026-11-11 Lee 절대 원칙 "위치를 모르면 마음대로 찍지 마": 대략 위치(동·시·공단 중심)는 핀 없이 못 찾음 — 예전 대략 핀 기대값을 바꿈
+assert(result.kind === 'unresolved' ? !('lat' in result) : (result.address === original && result.workLocationId === 55), 'canonical writer target identity must remain the original work location (or no pin)')
 assert(result.evidence?.includes('google:park_mismatch'), 'why Google was not followed must be retained as evidence')
 console.log('locationProcess: industrial-park recovery, address replay and canonical target passed')
 const missed = await resolveAutoLocation({ id: 900002, company: 'Example Robotics', location: original, targets: [] }, {

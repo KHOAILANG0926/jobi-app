@@ -22,8 +22,7 @@ const found = await resolveAutoLocation(job, { ...noop, async goong() { return {
   async withinAdministrativeArea() { return true } })
 assert(precheckVerdict(found).findable, 'Google knows the company → collect: ' + JSON.stringify(found))
 const vague = precheckJob({ company: 'Cty ABC', location: 'Bắc Ninh' })!
-const none = await resolveAutoLocation(vague, { ...noop, async goong() { return { predictions: [] } }, async google() { return { places: [] } },
-  async administrativeCenter() { return { lat: 21.098, lng: 106.117, source: 'Original administrative area province:bac ninh', checkedAt: 'x' } } })
+const none = await resolveAutoLocation(vague, { ...noop, async goong() { return { predictions: [] } }, async google() { return { places: [] } },})
 assert(!precheckVerdict(none).findable, 'only province → do not collect: ' + JSON.stringify(none))
 console.log('locationPrecheck: findable verdicts and real resolver cases passed')
 
