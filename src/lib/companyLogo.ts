@@ -50,5 +50,5 @@ export function jobRepresentativeImageUrl(
     ?? companyLogoUrl(job.imageUrl)
     ?? jobImagePublicUrl(job.images?.[0])
     ?? companySiteLogoUrl(job.companyDomain)
-    ?? industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title} ${job.description ?? ''}`)
+    ?? industryPhotoUrl(job.category, job.subcategory, `${job.company} ${job.title}`, job.description)
 }

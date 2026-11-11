@@ -1,3 +1,4 @@
+import { photoKind, factoryPhotos } from './cardPhoto'
 // 알바몬 '간편! 템플릿' 그대로 따라 하기(Lee 2026-11-08 "새로 만들지 말고 알바몬 그대로"). 2026-11-08 알바몬 기업회원 화면 직접 확인값.
 // 78개 = 13개 업직종 × 6. 모든 템플릿 같은 틀(큰 사진 위 회사명·제목). 템플릿마다 기본 색·제목 글자색(검정/흰색)이 정해져 있다.
 // 사진: 알바몬 사진은 쓰지 않는다. 업종별 우리 그림(public/images/template, Lee 2026-11-08 AI 팀 그림 담당).
@@ -93,37 +94,8 @@ export type DetailStyle = 'box' | 'table' | 'band' | 'card'
 export const DETAIL_STYLES: DetailStyle[] = ['box', 'table', 'band', 'card']
 /** 상세 ④ 모양(Lee 2026-11-10): 사진 = 업종 그림(공장은 만드는 것으로 고름) 중 공고 번호로 하나, 색 = 업종마다 하나, 모양 = box(?tpl=로 다른 모양 비교).
  *  같은 공고는 늘 같은 모양(공고 번호로 고름). 칸 구성·순서·글자는 그대로 — 모양만 다르다. */
-// 공장 공고는 무엇을 만드는 곳인지 회사 이름·제목 낱말로 먼저 가려 그 사진을 쓴다(Lee 2026-11-10 "과자회사인데 왜 전자회사 사진").
-// 위에서부터 먼저 맞는 것. 맞는 종류가 없으면 공장 사진 대신 업종 구분 없는 기본 사진(엉뚱한 공장 사진보다 낫다).
-// 낱말은 성조 뺀 글자로 비교 — "sữa(우유)/sửa(수리)", "giày(신발)/giấy(종이)", "may(봉제)/máy(기계)"가 같아지므로 두 낱말 이상 묶음만 쓴다.
-// 새 종류는 사진(public/images/template/07-*.jpg)을 받으면 여기 한 줄 추가.
-const FACTORY_PHOTOS: [RegExp, string[]][] = [
-  [/\b(?:banh keo|keo ngot|banh quy|snack|socola|chocolate|keo deo)\b/, ['07-food-banhkeo']],
-  [/\b(?:banh mi|banh ngot|bakery|lo banh)\b/, ['07-food-banhmi']],
-  [/\b(?:nuoc giai khat|do uong|nuoc ngot|nuoc suoi|bia|ruou|beverage|nuoc trai cay)\b/, ['07-food-douong']],
-  [/\b(?:sua tuoi|sua chua|sua bot|nha may sua|vinamilk|th true milk|dairy)\b/, ['07-food-sua']],
-  [/\b(?:thuy san|hai san|che bien tom|che bien ca|ca tra|fillet)\b/, ['07-food-thuysan']],
-  [/\b(?:che bien thit|xuc xich|giam bong|thit heo|thit lon|thit ga|thit bo)\b/, ['07-food-thit']],
-  [/\b(?:thuc pham|che bien thuc pham|dong goi thuc pham|food)\b/, ['07-food-donggoi']],
-  [/\b(?:giay dep|da giay|giay the thao|pouchen|changshin|footwear)\b/, ['07-giay']],
-  [/\b(?:may mac|xuong may|cong nhan may|may cong nghiep|quan ao|garment)\b/, ['07-may']],
-  [/\b(?:det may|det nhuom|soi|vai|textile)\b/, ['07-detsoi']],
-  [/\b(?:phu tung o to|linh kien o to|phu tung xe|o to|xe may|auto parts)\b/, ['07-oto-phutung']],
-  [/\b(?:dien tu|linh kien dien tu|bo mach|smt|pcb|samsung|electronics)\b/, ['07-dientu', '07-san-xuat', '07b-san-xuat']],
-  [/\b(?:nhua|ep phun|khuon nhua|ep nhua|plastic)\b/, ['07-nhua-ep']],
-  [/\b(?:tho han|han dien|han tig|han mig|han co2|welding)\b/, ['07-han']],
-  [/\b(?:co khi|cnc|tien phay|gia cong kim loai|gia cong co khi)\b/, ['07-co-khi']],
-  [/\b(?:do go|noi that|che bien go|xuong go|furniture)\b/, ['07-go-noithat']],
-  [/\b(?:bao bi|in an|nha in|thung carton|printing)\b/, ['07-baobi-in']],
-]
-const fold = (t: string) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, ' ')
-// 성조로만 갈리는 낱말은 원래 글자로 한 번 더 본다: 우유 sữa(≠ sửa chữa 수리)
-const NEEDS_TONE: Record<string, RegExp> = { '07-food-sua': /sữa|vinamilk|th true milk|dairy/i }
-export function factoryPhotos(text: string): string[] | null {
-  const t = ` ${fold(text)} `
-  const raw = String(text ?? '').normalize('NFC').toLowerCase()
-  return FACTORY_PHOTOS.find(([re, photos]) => re.test(t) && (NEEDS_TONE[photos[0]]?.test(raw) ?? true))?.[1] ?? null
-}
+// 공장 종류 사진 표·고르기는 cardPhoto.ts 한 곳(카드 사진과 상세 ④ 그림이 같은 공장 그림, 2026-11-11 Lee "3개 사진이 안 맞는데").
+export { factoryPhotos } from './cardPhoto'
 
 /** 상세 ④ 업종별 색(Lee 2026-11-10 "색깔은 업종별로 좀 구분해서" — 13개 업종이 서로 다른 색, 글 모형 확인 "가자").
  *  bg = 바탕, hi = 소제목 형광펜, point = 아이콘·화살표·전화 버튼. 흰 카드·검정 글자·금액 빨강은 모든 업종 같음(CSS). */
@@ -142,12 +114,23 @@ export const DETAIL_PALETTE: Record<string, { bg: string; hi: string; point: str
   giao_duc_giang_day: { bg: '#F6FAE8', hi: '#CDE59A', point: '#4D7C0F' },
   khac: { bg: '#F1F3F6', hi: '#C4CCD8', point: '#475569' },
 }
-export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = ''): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
+/** kindText·subcategory: 카드 사진과 같은 글(회사·제목·상세)로 가게·식당 종류를 고른다(cardPhoto.photoKind 한 곳, 2026-11-11 Lee "사진 안 맞는다").
+ *  우리 그림이 있는 종류는 우리 그림, 아직 없는 종류(카페·고깃집·훠궈·가구·전화기·가전·옷·편의점)는 카드와 같은 업종 사진.
+ *  공장은 지금처럼 만드는 것(factoryPhotos). 종류를 모르면 지금처럼 업종 그림 중 공고 번호로. */
+// 쌀국수·국수·죽 낱말은 성조 그대로 본다(Codex #683: 주소 'Thành phố'·'Khu phố'의 phố가 성조 빼면 phở와 같아짐)
+const NOODLE_WORDS = /(?<!\p{L})(?:phở|bún|miến|cháo)(?!\p{L})/iu
+export function detailLook(category: string | null | undefined, seed: number, style?: string | null, text = '', kindText = '', subcategory?: string | null): { photo: string; bar: string; head: string; point: string; style: DetailStyle } {
   const g = DETAIL_GROUP[String(category ?? '')] ?? 0
   const n = Math.abs(Math.trunc(seed || 0))
-  const list = g === DETAIL_GROUP.san_xuat_xay_dung ? (factoryPhotos(text) ?? CATEGORY_IMAGES[0]) : CATEGORY_IMAGES[g]
-  const photo = list[n % list.length]
   const c = DETAIL_PALETTE[String(category ?? '')] ?? DETAIL_PALETTE.khac
   const pick = DETAIL_STYLES.find((x) => x === style) ?? 'box'
+  const kind = g === DETAIL_GROUP.san_xuat_xay_dung ? null : photoKind(category, subcategory, kindText || text)
+  // 일반 식당은 우리 식당 그림(홀 2장 — 쌀국수 주방 그림은 쌀국수·phở 낱말이 있을 때만)
+  const own = kind === 'nha_hang_chung' ? (NOODLE_WORDS.test(String(kindText || text).normalize('NFC')) ? ['02c-an-uong'] : ['02-an-uong', '02b-an-uong']) : null
+  if (kind && !own) return { photo: `/images/industry/${kind}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
+  // 공장: 카드 사진과 같은 공장 그림 한 장(cardPhoto.factoryPhotos 첫 장) — 종류를 모르면 지금처럼 기본 그림 중 공고 번호로
+  const factory = g === DETAIL_GROUP.san_xuat_xay_dung ? factoryPhotos(text) : null
+  const list = own ?? (factory ? [factory[0]] : g === DETAIL_GROUP.san_xuat_xay_dung ? CATEGORY_IMAGES[0] : CATEGORY_IMAGES[g])
+  const photo = list[n % list.length]
   return { photo: `/images/template/${photo}.jpg`, bar: c.hi, head: c.bg, point: c.point, style: pick }
 }

@@ -18,4 +18,23 @@ if (!detailLook('san_xuat_xay_dung', 1, null, 'Công ty TNHH Hojeong').photo.inc
 const a = detailLook('am_thuc_do_uong', 1), b = detailLook('am_thuc_do_uong', 2)
 eq([a.bar, a.style], [b.bar, 'box'], 'same industry → same color, box style')
 if (detailLook('am_thuc_do_uong', 1).bar === detailLook('san_xuat_xay_dung', 1).bar) throw new Error('different industries → different colors')
+// 2026-11-11: 공장 ④ 그림 = 카드 사진(같은 한 장, 공고 번호로 바뀌지 않음)
+import { industryPhotoUrl } from './cardPhoto.ts'
+for (const seed of [1, 2, 3]) eq(detailLook('san_xuat_xay_dung', seed, null, 'Samsung linh kiện điện tử').photo, industryPhotoUrl('san_xuat_xay_dung', null, 'Samsung linh kiện điện tử'), `factory detail = card photo (seed ${seed})`)
+// Codex #683: 주소의 phố는 쌀국수(phở)가 아니다
+if (detailLook('am_thuc_do_uong', 1, null, '', 'Nhà hàng tuyển phục vụ. Địa chỉ: Thành phố Bắc Ninh').photo.includes('02c')) throw new Error('Thành phố is not phở')
+if (!detailLook('am_thuc_do_uong', 1, null, '', 'Quán phở Hà Nội tuyển phục vụ nhà hàng').photo.includes('02c')) throw new Error('phở shop → noodle kitchen art')
 console.log('albamonTemplate: factory photos, industry color, box style passed')
+
+// 2026-11-11 Lee "사진 안 맞는다": 상세 ④ 그림도 카드 사진과 같은 가게·식당 종류(cardPhoto.photoKind)
+{
+  const { detailLook: d } = await import('./albamonTemplate.ts')
+  const ph = (cat: string, kindText: string, sub: string | null = null, seed = 1) => d(cat, seed, null, '', kindText, sub).photo
+  eq(ph('am_thuc_do_uong', 'TRUNG NGUYÊN LEGEND BẮC NINH TUYỂN NHÂN VIÊN PHỤC VỤ cà phê'), '/images/industry/am_thuc_do_uong.jpg', 'Trung Nguyên coffee → cafe photo, not pho kitchen')
+  eq(ph('quan_ly_ban_hang', 'Vua Nệm Tuyển dụng nhân viên bán hàng'), '/images/industry/ban_hang_noi_that.jpg', 'Vua Nệm → furniture store photo, not grocery')
+  eq(ph('am_thuc_do_uong', 'Nhà hàng nướng Bomunttl'), '/images/industry/nha_hang_nuong.jpg', 'grill restaurant')
+  for (const seed of [1, 2, 3, 4]) if (ph('am_thuc_do_uong', 'Nhà hàng tuyển phục vụ', null, seed) === '/images/template/02c-an-uong.jpg') throw new Error('plain restaurant never gets the pho kitchen')
+  eq(ph('am_thuc_do_uong', 'Quán phở Thìn tuyển phục vụ'), '/images/template/02c-an-uong.jpg', 'pho shop → pho kitchen')
+  eq(ph('quan_ly_ban_hang', 'Tuyển nhân viên bán hàng', null, 0), '/images/template/03-ban-hang.jpg', 'unknown shop kind → our sales drawing as before')
+  eq(d('san_xuat_xay_dung', 1, null, 'Công ty may mặc', 'Công ty may mặc', null).photo, '/images/template/07-may.jpg', 'factory unchanged')
+}
