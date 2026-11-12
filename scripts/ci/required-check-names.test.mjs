@@ -57,6 +57,21 @@ const wf = (name, on, jobs) => `name: ${name}\non:\n${on}\njobs:\n${jobs}\n`
   const indented = parseWorkflow(wf('Indented', '  pull_request:', '    checks:\n        runs-on: ubuntu-latest\n    other:\n        name: checks\n        runs-on: ubuntu-latest'))
   assert.deepEqual(indented.jobs.map((j) => j.name), ['checks', 'checks'], '4칸 들여쓰기에서도 이름 충돌을 놓치지 않음')
 }
+// S2 정답 변경 근거 회귀: 날짜/번호만으로 허용되지 않고 신규 lib 테스트도 보호한다.
+{
+  const { evaluateFiles } = await import('../check-repository-policy.mjs')
+  const path = 'src/lib/newSemanticParser.test.ts'
+  const patch = '@@ -1 +1 @@\\n-old expected value\\n+new expected value\\n'
+  const changed = [path]
+  const noEvidence = evaluateFiles(changed, '', { [path]: patch })
+  const fakeDate = evaluateFiles(changed, '기대값 변경 근거: Lee 2026-11-11', { [path]: patch })
+  const fakeNumber = evaluateFiles(changed, '기대값 변경 근거: #999999', { [path]: patch })
+  const supported = evaluateFiles(changed, '기대값 변경 근거: #728 \"원문에 적힌 조건 그대로 유지\"', { [path]: patch })
+  assert.ok(noEvidence.length > 0, '신규 lib 의미 테스트의 기존 기대값 변경은 차단')
+  assert.ok(fakeDate.length > 0, '날짜만으로 기대값 변경 허용 금지')
+  assert.ok(fakeNumber.length > 0, '번호만으로 기대값 변경 허용 금지')
+  assert.deepEqual(supported, [], '이슈 번호와 인용이 함께 있는 변경은 기존 Codex 검토 경로로 전달')
+}
 // 실제 저장소 검사
 const dir = new URL('../../.github/workflows/', import.meta.url)
 const all = readdirSync(dir).filter((f) => /\.ya?ml$/.test(f)).map((f) => ({ f, ...parseWorkflow(readFileSync(new URL(f, dir), 'utf8')) }))
