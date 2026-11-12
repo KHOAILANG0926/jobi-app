@@ -1,0 +1,24 @@
+name: R2 운영 화면 검증 (검증 전용, 병합 금지)
+
+# #753 R2 검증용: 운영 사이트를 읽기 전용으로 열어 독립 기대값과 대조한다. 이 PR(검증 전용)에만 있고 병합하지 않는다.
+on:
+  pull_request:
+    paths: ['.github/workflows/r2-prod-screen-verify.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: 운영 대표 공고 화면 ↔ 독립 기대값 (PC1366·모바일390, 읽기 전용)
+        env:
+          BASE_URL: https://www.viecganban.vn
+        run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/r2-prod-screen-check.mjs
