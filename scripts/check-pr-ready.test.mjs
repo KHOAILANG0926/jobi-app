@@ -53,6 +53,15 @@ assert.deepEqual(checkCompletion(valid.replaceAll('| success | 12345678901234567
   assert.deepEqual(failedCheckRuns([run(1, 'checks', 'completed', 'failure', 1), run(2, 'checks', 'completed', 'success', 2)]), ['checks'], 'same-name job in another workflow cannot hide a failure (이름 충돌)')
   assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'cancelled')]), [], 'cancelled duplicate is not a failure')
   assert.deepEqual(failedCheckRuns(undefined), [])
+// #728 S5: 검사 파일의 새 생산 코드 import 금지
+{
+  const f = 'src/lib/jobInspect.ts'
+  const add = (l) => ({ [f]: `+${l}\n` })
+  assert.ok(evaluateFiles([f], '', add("import { benefitHints } from './aiClassifyGuard.ts'")).some((e) => e.includes('독립 판독')), 'new production import in inspector denied')
+  assert.equal(evaluateFiles([f], '', add("import type { Job } from './jobTypes.ts'")).length, 0, 'import type allowed')
+  assert.equal(evaluateFiles([f], '', { [f]: "-import { a } from './x.ts'\n+import { a, b } from './x.ts'\n" }).length, 0, 'existing import path kept is allowed')
+  assert.ok(evaluateFiles(['scripts/ops/detail-read.mjs'], '', { 'scripts/ops/detail-read.mjs': "+import { x } from '../../src/lib/jobCoords.ts'\n" }).length > 0, 'ops check script denied too')
+  assert.equal(evaluateFiles(['src/lib/salaryReader.ts'], '', { 'src/lib/salaryReader.ts': "+import { a } from './b.ts'\n" }).filter((e) => e.includes('독립')).length, 0, 'non-inspector files unaffected')
 }
 console.log('PR completion guard: 7/7 passed')
 
