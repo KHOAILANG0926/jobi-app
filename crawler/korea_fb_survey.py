@@ -429,20 +429,37 @@ async def read_comments(page, url: str, cap: int = 40) -> list[str]:
     return [mask(re.sub(r"\s+", " ", t))[:300] for t in texts[:cap]]
 
 
-async def refresh_registry(page, queries: list[str]) -> None:
+SEARCH_LIMIT_S = 300
+
+
+async def search_limited(page, ctx, query: str):
+    """검색 화면도 다른 단계처럼 시간 한도 안에서만 본다(2026-11-12 10그룹 조사: 첫 검색에서 215분 멈춤).
+    넘기면 그 화면을 닫고 새 화면으로 잇는다. 돌려주는 값: (화면, 그룹 목록 또는 None=실패)."""
+    rows = await limited(search_groups(page, query, scrolls=8), SEARCH_LIMIT_S, f"검색 '{query}'", page)
+    if rows == "timeout":
+        return await fresh_page(ctx, page), None
+    return page, rows
+
+
+async def refresh_registry(page, ctx, queries: list[str]):
     meta_rows = {r["name"]: r for r in _rows(KIND_META)}
     last = (meta_rows.get("search", {}).get("meta") or {}).get("at", "")
     if last and datetime.fromisoformat(last) > datetime.now(timezone.utc) - timedelta(days=SEARCH_EVERY_DAYS):
-        return
+        return page
     known = {r["name"]: r for r in _rows(KIND_GROUP)}
+    ok = 0
     for q in queries:
-        for g in await search_groups(page, q, scrolls=8):
+        page, rows = await search_limited(page, ctx, q)
+        ok += rows is not None
+        for g in rows or []:
             old = known.get(g["id"], {})
             _upsert(KIND_GROUP, g["id"], {**(old.get("payload") or {}), **{k: g[k] for k in ("name", "members", "daily", "korea_name")}},
                     old.get("meta") or {"found_at": _now(), "visits": 0})
         await page.wait_for_timeout(random.randint(20000, 40000))
-    _upsert(KIND_META, "search", {"queries": queries}, {"at": _now()})
-    print(f"그룹 목록 갱신: 검색어 {len(queries)}개")
+    if ok:  # 검색이 모두 멈췄으면 '갱신함'으로 적지 않는다 — 다음 수집 때 다시 검색
+        _upsert(KIND_META, "search", {"queries": queries}, {"at": _now()})
+    print(f"그룹 목록 갱신: 검색어 {ok}/{len(queries)}개")
+    return page
 
 
 def pick_groups(n: int) -> list[dict]:
@@ -585,17 +602,21 @@ async def main(argv=None) -> int:
         await stealth_async(page)
         try:
             if a.mode == "collect":
-                await refresh_registry(page, [x.strip() for x in a.queries.split("|") if x.strip()])
+                page = await refresh_registry(page, ctx, [x.strip() for x in a.queries.split("|") if x.strip()])
                 result["collect"] = await collect(page, ctx, a.groups_per_run, a.posts, a.comment_posts)
                 raise StopAsyncIteration
             found = {}
             for q in [x.strip() for x in a.queries.split("|") if x.strip()]:
-                rows = await search_groups(page, q, scrolls=8)
+                page, rows = await search_limited(page, ctx, q)
+                rows = rows or []
                 print(f"검색 '{q}': 그룹 {len(rows)}개")
                 result["queries"].append({"query": q, **summarize(rows)})
                 for r in rows:
                     found.setdefault(r["id"], r)
                 await page.wait_for_timeout(random.randint(20000, 40000))
+            if not found:
+                print("::error title=그룹 검색 실패::검색어 모두 결과 없음·멈춤 — 그룹 조사를 하지 않고 끝냅니다")
+                result["stopped"] = "search_failed"
             result["groups"] = sorted(found.values(), key=lambda r: -r["members"])
             result["summary"] = summarize(result["groups"])
             targets = [g for g in result["groups"] if g["korea_name"] and g.get("members", 0) >= MIN_MEMBERS][: a.top]
