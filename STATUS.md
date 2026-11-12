@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-12 20:56 (VN)**
-- 기준 커밋: `3399430` (폐지된 검사 파일 3개 삭제: approved-layout-guard·check-work-scope·test-work-scope (#728 S1 부분) (#738))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43231962370
+- 생성 시각: **2026-11-12 20:58 (VN)**
+- 기준 커밋: `1c1cdf7` (S1: 봇 자동병합이 같은 이름의 빨간 검사를 가리지 않게 (#728) (#744))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43232303646
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -50,7 +50,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `3399430` · 상태 **success** · 2026-11-12 20:55 (VN)
+- 마지막 Production 배포: `1c1cdf7` · 상태 **success** · 2026-11-12 20:57 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -58,6 +58,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #744 | 2026-11-12 20:57 (VN) | `1c1cdf7` | S1: 봇 자동병합이 같은 이름의 빨간 검사를 가리지 않게 (#728) |
 | #738 | 2026-11-12 20:55 (VN) | `3399430` | S1 부분: 폐지된 검사 파일 3개 삭제 (#728) |
 | #731 | 2026-11-12 15:24 (VN) | `894ad2a` | 한국 페북 조사: 화면이 죽어도 그 단계만 실패로 + 서버 메모리 진단 |
 | #730 | 2026-11-12 14:53 (VN) | `4a62164` | 한국 페북 조사: 그룹 검색에도 단계 시간 한도(첫 검색에서 215분 멈춤) |
@@ -67,11 +68,10 @@
 | #723 | 2026-11-12 08:22 (VN) | `06a8ca9` | 예전 공고 마무리: 근무시간 원문 먼저·매장 여러 곳 다시 찾기·#4828 삭제 |
 | #719 | 2026-11-12 07:04 (VN) | `ba948d8` | 기준 시각 이전 공고도 상세요강·검사표 한 번 다시 (all_jobs 하나로, KDA 제외) |
 | #718 | 2026-11-12 06:52 (VN) | `730c54b` | 기존 공고 다시 처리: 같은 매장 핀 2개 방지 (KRIK·MediaMart) |
-| #710 | 2026-11-12 01:59 (VN) | `4be6492` | 봇 병합: gh pr merge 대신 서버 병합 API — gh가 먼저 거절하던 'base branch policy' (#686) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **28건** (전체 36건, 숨김·비활성 8건)
+- 공개 중: **28건** (전체 33건, 숨김·비활성 5건)
 - 출처별: 출처 없음 24 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -103,16 +103,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-12 20:58 (VN) | location_candidate.approve | job 6057 |
+| 2026-11-12 20:58 (VN) | location_candidate.add | job 6057 |
+| 2026-11-12 20:56 (VN) | location_candidate.approve | job 6053 |
+| 2026-11-12 20:56 (VN) | location_candidate.add | job 6053 |
 | 2026-11-12 15:25 (VN) | location_candidate.approve | job 6051 |
 | 2026-11-12 15:25 (VN) | location_candidate.add | job 6051 |
 | 2026-11-12 14:54 (VN) | location_candidate.approve | job 6048 |
 | 2026-11-12 14:54 (VN) | location_candidate.add | job 6048 |
 | 2026-11-12 10:48 (VN) | location_candidate.approve | job 6044 |
 | 2026-11-12 10:48 (VN) | location_candidate.add | job 6044 |
-| 2026-11-12 09:45 (VN) | location_candidate.approve | job 6040 |
-| 2026-11-12 09:45 (VN) | location_candidate.add | job 6040 |
-| 2026-11-12 08:24 (VN) | location_candidate.approve | job 6038 |
-| 2026-11-12 08:24 (VN) | location_candidate.add | job 6038 |
 
 ## 8. 검증 장치 변경 이력
 
