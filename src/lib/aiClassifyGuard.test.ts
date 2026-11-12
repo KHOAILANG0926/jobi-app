@@ -55,3 +55,13 @@ assert(jobFlagCodes(found, 'CÔ RỬA BÁT FULL TIME — Bao ăn 2 bữa\nCÔ R�
 const aiOnly = [{ code: 'shuttle_bus' as const, evidence: 'Công ty lo phương tiện đi lại hằng ngày' }, { code: 'meal_provided' as const, evidence: 'Bao ăn 2 bữa' }]
 assert(ruleConfirmedFlags(aiOnly, 'Quyền lợi\nBao ăn 2 bữa').join(',') === 'meal_provided', 'AI-only shuttle wording stays a suggestion; rule-confirmed meal is applied')
 assert(ruleConfirmedFlags(aiOnly, multiRole).length === 0, 'multi-role meal never becomes a global flag even when the rule agrees')
+
+// #728 S7(5421): "Bao ăn ở"(숙식 제공)는 기숙사 — AI가 맞게 읽었는데 낱말표에 없어 버려지던 사례. 부정문은 여전히 버린다.
+{
+  const dorm = [{ code: 'dormitory' as const, evidence: 'Bao ăn ở' }, { code: 'meal_provided' as const, evidence: 'Bao ăn ở' }]
+  assert(ruleConfirmedFlags(dorm, 'Tuyển phụ bếp\nBao ăn ở\nLương thoả thuận').includes('dormitory'), '5421 "Bao ăn ở" turns the dormitory flag on')
+  assert(ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: 'Hỗ trợ ăn ở' }], 'Hỗ trợ ăn ở').includes('dormitory'), '"Hỗ trợ ăn ở" is dormitory')
+  const neg = guardAiResult({ benefits: [{ code: 'dormitory', evidence: 'bao ăn ở' }] }, { lines: [], source: 'Không bao ăn ở' })
+  assert(neg.benefits.length === 0, 'negated "Không bao ăn ở" is still rejected')
+  console.log('aiClassifyGuard.test.ts: 5421 숙식 제공 통과')
+}

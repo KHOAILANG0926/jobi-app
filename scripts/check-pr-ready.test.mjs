@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { checkCompletion, recordProblems, recentPrsFor, titleWords } from './check-pr-ready.mjs'
+import { checkCompletion, recordProblems, recentPrsFor, titleWords, failedCheckRuns } from './check-pr-ready.mjs'
 import { evaluateFiles, parseGitDiff } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
@@ -44,12 +44,42 @@ assert.ok(checkCompletion('').length > 0)
 assert.deepEqual(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', 'pending'), '1234567890123456789012345678901234567890'), [], 'no link needed')
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
 assert.deepEqual(checkCompletion(valid.replaceAll('| success | 1234567890123456789012345678901234567890 |', '| pending | (검사 후 자동 확인) |'), '1234567890123456789012345678901234567890'), [], 'pending before checks allowed')
+// #728 S6: 실제 check-run 결과로 완료 판정
+{
+  const run = (id, name, status, conclusion, suite = 1) => ({ id, name, status, conclusion, check_suite: { id: suite } })
+  assert.deepEqual(failedCheckRuns([run(1, 'checks', 'completed', 'success'), run(2, 'app-screen', 'in_progress', null)]), [], 'passing/in-progress is not failed')
+  assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'failure')]), ['app-screen'], 'completed failure detected')
+  assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'failure'), run(5, 'app-screen', 'completed', 'success')]), [], 'rerun success supersedes older failure')
+  assert.deepEqual(failedCheckRuns([run(1, 'checks', 'completed', 'failure', 1), run(2, 'checks', 'completed', 'success', 2)]), ['checks'], 'same-name job in another workflow cannot hide a failure (이름 충돌)')
+  assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'cancelled')]), [], 'cancelled duplicate is not a failure')
+  assert.deepEqual(failedCheckRuns(undefined), [])
+}
+// #728 S5: 검사 파일의 새 생산 코드 import 금지
+{
+  const f = 'src/lib/jobInspect.ts'
+  const add = (l) => ({ [f]: `+${l}\n` })
+  assert.ok(evaluateFiles([f], '', add("import { benefitHints } from './aiClassifyGuard.ts'")).some((e) => e.includes('독립 판독')), 'new production import in inspector denied')
+  assert.equal(evaluateFiles([f], '', add("import type { Job } from './jobTypes.ts'")).length, 0, 'import type allowed')
+  assert.equal(evaluateFiles([f], '', { [f]: "-import { a } from './x.ts'\n+import { a, b } from './x.ts'\n" }).length, 0, 'existing import path kept is allowed')
+  assert.ok(evaluateFiles(['scripts/ops/detail-read.mjs'], '', { 'scripts/ops/detail-read.mjs': "+import { x } from '../../src/lib/jobCoords.ts'\n" }).length > 0, 'ops check script denied too')
+  assert.equal(evaluateFiles(['src/lib/salaryReader.ts'], '', { 'src/lib/salaryReader.ts': "+import { a } from './b.ts'\n" }).filter((e) => e.includes('독립')).length, 0, 'non-inspector files unaffected')
+}
 console.log('PR completion guard: 7/7 passed')
 
 assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STATUS edits denied')
 // 결정 0002: 추가형 migration은 통과, 데이터 삭제·되돌리기 어려운 변경은 막음
 assert.equal(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+create table x(id int);\n' }).length, 0, 'additive DB migration allowed (decision 0002)')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+delete from public.local_jobs;\n' }).length > 0, 'destructive DB migration denied')
+// #728 S2: 정답 파일 보호
+const ans = 'src/lib/realJobs.fixtures.ts', prodF = 'src/lib/salaryReader.ts', edit = { [ans]: '-  salary: "7 triệu",\n+  salary: "8 triệu",\n' }
+assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).some((e) => e.includes('같은 PR')), 'answer edit + production code in one PR denied')
+assert.ok(evaluateFiles([ans], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit without evidence denied')
+assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).length, 0, 'answer-only PR with evidence allowed')
+assert.equal(evaluateFiles([ans, prodF], '', { [ans]: '+  salary: "9 triệu",\n' }).filter((e) => e.includes(ans)).length, 0, 'adding answer lines with production code allowed')
+// GPT 검토(#728): 의미 정답 시험(jobQuyenLoi 등)도 생산 코드와 같은 PR에서 기존 줄을 바꾸면 막는다. 인프라 시험은 자유.
+assert.ok(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).some((e) => e.includes('같은 PR')), 'semantic test (jobQuyenLoi) expectation edit + production code denied')
+assert.equal(evaluateFiles(['src/lib/businessType.test.ts', 'src/lib/businessType.ts'], '', { 'src/lib/businessType.test.ts': "-import { a } from './b.ts'\n+import { a, c } from './b.ts'\n+eq(1, 1, 'new case')\n" }).length, 0, 'import line edits and added cases are not expectation changes')
+assert.equal(evaluateFiles(['src/lib/homeMapFilters.test.ts', 'src/lib/homeMapFilters.ts'], '', { 'src/lib/homeMapFilters.test.ts': '-x\n+y\n' }).length, 0, 'infrastructure tests stay free')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+alter table public.local_jobs drop column title;\n' }).length > 0, 'dropping a column denied')
 assert.ok(evaluateFiles(['src/lib/jobDetailSections.ts']).length > 0, 'unverified detail categorization denied')
 assert.deepEqual(evaluateFiles(['src/lib/jobDetailSections.ts', 'src/lib/jobDetailSections.test.ts']), [], 'covered detail classification allowed')

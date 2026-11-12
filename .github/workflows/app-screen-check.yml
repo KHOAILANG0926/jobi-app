@@ -77,6 +77,8 @@ jobs:
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=map-no-webgl-proof node scripts/ops/map-webgl-fallback-check.mjs
       - name: 공고 원문 조건 요약 연결 검사 (PC·모바일, 운영 쓰기 없음)
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=job-process-proof node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-process-preview-browser.mjs
+      - name: 실제 공고 원문 ↔ 실제 화면 글자 대조 (PC·모바일, 알려진 실패는 줄기만 — #728 S4)
+        run: BASE_URL=http://localhost:4173 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/real-jobs-screen-replay.mjs
       - name: 공고 조건 요약 확인 화면 보존
         if: always()
         uses: actions/upload-artifact@v4
