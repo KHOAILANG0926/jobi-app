@@ -103,6 +103,7 @@ def ai_classify(posts: list[dict]) -> None:
         for r in rows:
             i = r.get("i") if isinstance(r, dict) else None
             if isinstance(i, int) and 0 <= i < len(batch) and r.get("c") in CLASSES:
+                batch[i]["ai_ok"] = True  # 이번 판정이 성공한 글(실패하면 저장된 예전 판정을 지키는 근거)
                 batch[i]["class"] = r["c"]
                 batch[i]["writer"] = r.get("w") if r.get("w") in WRITERS else "unk"
 
@@ -235,8 +236,8 @@ async def read_recent_posts(page, gid: str, want: int, mobile: bool = False) -> 
         got = await extract_visible_posts(page)
         before = len(out)
         for p in got.get("posts", []):
-            pu = (p.get("postUrl") or "").split("?")[0]
-            raw_key = pu or dedupe_key(p["text"])  # 게시물 주소가 있으면 주소가 먼저(같은 머리말 다른 글을 합치지 않음)
+            pu = crawl_facebook.extract_post_id(p.get("postUrl") or "")  # story_fbid 같은 쿼리 ID도 읽는 기존 함수
+            raw_key = pu or dedupe_key(p["text"])  # 게시물 ID가 있으면 ID가 먼저(같은 머리말 다른 글을 합치지 않음)
             if raw_key in seen_raw:
                 continue
             seen_raw.add(raw_key)
@@ -471,6 +472,9 @@ async def collect(page, ctx, groups_per_run: int, want_posts: int, comment_posts
                     comments = []
                 with_comments += 1
                 stats["comments"] += len(comments)
+            if old and not p.get("ai_ok"):  # AI 실패·누락이면 저장된 성공 판정을 덮어쓰지 않는다
+                op = old.get("payload") or {}
+                p["class"], p["writer"] = op.get("class", p["class"]), op.get("writer", p.get("writer", "unk"))
             payload = {"gid": gid, "group": gname, "text": mask(p["text"])[:3000], "class": p["class"], "writer": p.get("writer", "unk"),
                        "truncated": p.get("truncated", False), "visa": p["visa"],
                        "no_visa": p["no_visa"], "time_label": p["time"], "est": p["est"], "images": p["images"]}
