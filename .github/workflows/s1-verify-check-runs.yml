@@ -1,0 +1,48 @@
+name: S1 검증 — 봇 검사 조회 (검증 전용, 병합 금지)
+
+# #728 S1 검증용. 이 파일은 병합하지 않는 검증 PR(#745)에만 있다. 읽기 전용(contents·checks read), 병합·쓰기 없음.
+# 봇 자동병합이 쓰는 scripts/ci/fetch-check-runs.sh를 실제 GitHub Actions 환경에서 실제 API로 돌려
+# ① 다중 페이지(per_page=2)와 한 페이지(per_page=100) 결과가 같은지 ② 잘린 조회·잘못된 토큰·없는 커밋이 병합 보류로 이어지는지 확인한다.
+on:
+  pull_request:
+    paths: ['.github/workflows/s1-verify-check-runs.yml']
+permissions:
+  contents: read
+  checks: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 실제 API — 다중 페이지 동일성
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$REPO/commits/master" --jq .sha)
+          pages=$(gh api --paginate --slurp "repos/$REPO/commits/$sha/check-runs?per_page=2" | jq 'length')
+          total=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=1" --jq .total_count)
+          a=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha" 2 | jq -c 'sort_by(.name,.conclusion,.status)')
+          b=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha" 100 | jq -c 'sort_by(.name,.conclusion,.status)')
+          echo "master $sha: check-run $total개, per_page=2 페이지 $pages개"
+          echo "### 다중 페이지 동일성 (master $sha)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- check-run $total개, per_page=2로 $pages 페이지, 결과 $(echo "$a" | jq length)개 / per_page=100 결과 $(echo "$b" | jq length)개" >> "$GITHUB_STEP_SUMMARY"
+          [ "$pages" -gt 1 ] || { echo "::error::페이지가 1개뿐이라 다중 페이지 검증이 안 됨"; exit 1; }
+          [ "$a" = "$b" ] || { echo "::error::다중 페이지와 단일 페이지 결과가 다름"; echo "$a"; echo "$b"; exit 1; }
+          echo "- 결과 동일: OK" >> "$GITHUB_STEP_SUMMARY"
+      - name: 실제 API — 조회 실패·누락은 병합 보류
+        run: |
+          set -uo pipefail
+          sha=$(gh api "repos/$REPO/commits/master" --jq .sha)
+          fail=0
+          echo "### 조회 실패·누락 주입" >> "$GITHUB_STEP_SUMMARY"
+          # (a) 잘린 조회: 한 페이지(2개)만 받아 판정 → __incomplete__ 로 병합 보류여야 함
+          trunc=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=2" | jq -c -f scripts/ci/collapse-check-runs.jq)
+          if echo "$trunc" | jq -e 'any(.[]; .name=="__incomplete__")' >/dev/null && ! echo "$trunc" | jq -e -f scripts/ci/required-checks-pass.jq >/dev/null; then echo "- 잘린 조회 → 병합 보류: OK" >> "$GITHUB_STEP_SUMMARY"; else echo "::error::잘린 조회가 보류되지 않음"; fail=1; fi
+          # (b) 잘못된 토큰: 스크립트가 비정상 종료해야 함
+          if GH_TOKEN=invalid_token bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha" >/dev/null 2>&1; then echo "::error::잘못된 토큰인데 성공으로 끝남"; fail=1; else echo "- 잘못된 토큰 → 비정상 종료(병합 건너뜀): OK" >> "$GITHUB_STEP_SUMMARY"; fi
+          # (c) 없는 커밋
+          if bash scripts/ci/fetch-check-runs.sh "$REPO" 0000000000000000000000000000000000000000 >/dev/null 2>&1; then echo "::error::없는 커밋인데 성공으로 끝남"; fail=1; else echo "- 없는 커밋 → 비정상 종료: OK" >> "$GITHUB_STEP_SUMMARY"; fi
+          exit $fail
