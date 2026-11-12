@@ -183,7 +183,8 @@ jobs:
             # 대기 목록이 비었다는 것만으로 닫지 않는다(24시간 대기한 작업은 서버가 꺼져 있어도 실패로 사라짐, #756 검토).
             # 알림 뒤 서버가 실제로 작업을 맡은 기록(started_at·runner_name)이 있을 때만 닫는다.
             since=${issue#* }
-            started=$(self_jobs "created=>=${since:0:10}" ".status != \"queued\" and (.runner_name // \"\") != \"\" and .started_at > \"$since\"")
+            from=$(date -u -d "${since:0:10} -1 day" +%F)  # 자정 전부터 대기하던 작업도 포함(대기 한계 24시간, #757 검토)
+            started=$(self_jobs "created=>=$from" ".status != \"queued\" and (.runner_name // \"\") != \"\" and .started_at > \"$since\"")
             if [ -z "$started" ]; then
               echo "- 서버 대기: 대기 작업은 없지만 알림 뒤 서버가 맡은 작업도 없음 — 이슈 유지" >> "$GITHUB_STEP_SUMMARY"
               exit 0
