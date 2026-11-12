@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { compareWithOcr, canRepublish } from './ocr-compare.mjs'
 import { ocrCheckUpdateSql } from './ocr-check-write.mjs'
-import { readSalary } from '../../src/lib/salaryReader.ts'
+import { fillSalary } from './salary-fill.mjs'
 import { readImageAI, READER_ID } from './ai-reader.mjs'
 import { afterCutoff } from '../ops/auto-cutoff.mjs'
 
@@ -68,19 +68,8 @@ try {
       // 수집기는 급여를 읽지 않으므로 새 공고는 여기서(포스터 글자까지 본 뒤) 채운다. 이미 값이 있으면 바꾸지 않는다.
       // 기록은 ingest_job 한 입구로만(직접 SQL 금지).
       let checkedJob = job
-      if (job.origin === 'crawler' && !String(job.salary ?? '').trim() && String(job.source_text ?? '').trim()) {
-        const sal = readSalary(job.source_text, text)
-        if (sal) {
-          const payload = {
-            channel: 'crawler_other', job_id: job.id, refresh: true, update_fields: ['salary', 'salary_period'],
-            source_text: job.source_text, images: job.images, salary: sal.salary, salary_period: sal.period,
-          }
-          const written = await client.query('select public.ingest_job($1::jsonb) as job_id', [JSON.stringify(payload)])
-          if (Number(written.rows[0]?.job_id) !== Number(job.id)) throw new Error('ingest_job salary refresh returned wrong id')
-          checkedJob = { ...job, salary: sal.salary }
-          console.log('급여 칸 채움 #' + job.id + ': ' + sal.salary)
-        }
-      }
+      const filled = await fillSalary(client, job, text, 'empty')   // 급여 확정·저장은 salary-fill 한 곳(R2 #753)
+      if (filled) { checkedJob = { ...job, salary: filled.salary }; console.log('급여 칸 채움 #' + job.id + ': ' + filled.salary) }
       const res = compareWithOcr(checkedJob, text)
       const check = { status: res.status, reader: READER_ID, compare_version: 'source-aware-v3', checked_at: new Date().toISOString(), images_hash: createHash('md5').update(JSON.stringify(job.images)).digest('hex'), mismatches: res.mismatches }
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.

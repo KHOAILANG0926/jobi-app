@@ -1,5 +1,5 @@
 /**
- * 자동 수리 — 2026-11-01 Lee: "막는 것만으론 안 된다. 계속 틀리는 상태에서 공개가 안 되는 게 문제".
+ * 자동 수리(회사 이름만) — 2026-11-01 Lee: "막는 것만으론 안 된다. 계속 틀리는 상태에서 공개가 안 되는 게 문제".
  * 검사표가 실패한 칸만 AI가 원문에서 올바른 값을 찾아 제안하고, 기계가 확인한 값만 고친다.
  * - AI는 원문(source_text·ocr_text)에 글자 그대로 있는 값만 낼 수 있다(지어낸 값은 버림). DB 규칙(R5 등)이 한 번 더 막는다.
  * - 항목 이름표("Vị trí" 등)·빈 값·원래 값과 같은 값은 버린다.
@@ -8,19 +8,19 @@
 import { bare } from './jobDetailSections.ts'
 
 /** 검사 항목 키 → 고칠 칸. 여기에 없는 항목은 자동 수리 대상이 아니다. */
-export const REPAIRABLE: Record<string, 'company' | 'salary'> = { company: 'company', salary: 'salary' }
+// 급여는 자동 수리 대상이 아니다: 급여 읽기·쓰기는 salaryReader.readSalary + scripts/ocr/salary-fill.mjs 한 곳(R2 #753, Lee 2026-11-01 "읽는 규칙을 하나로") — AI 제안 값으로 따로 쓰지 않는다.
+export const REPAIRABLE: Record<string, 'company'> = { company: 'company' }
 
 const LABEL = /^(?:vi tri|dia diem|muc luong|thoi gian|yeu cau|lien he|quyen loi|bang tin|tuyen dung|nha tuyen dung facebook)$/
 
 export interface RepairInput { id: number; title?: string | null; company?: string | null; salary?: string | null; source_text?: string | null; ocr_text?: string | null }
-export interface RepairProposal { field: 'company' | 'salary'; from: string; to: string; evidence: string }
+export interface RepairProposal { field: 'company'; from: string; to: string; evidence: string }
 
-const FIELD_HELP: Record<'company' | 'salary', string> = {
+const FIELD_HELP: Record<'company', string> = {
   company: 'Tên công ty / cửa hàng / thương hiệu đang tuyển dụng (không phải nhãn mục như "Vị trí", "Địa điểm").',
-  salary: 'Mức lương hoặc thu nhập đúng như trong tin (cả khoảng và đơn vị, ví dụ "23.000 – 25.000 VNĐ/giờ").',
 }
 
-export function buildRepairPrompt(job: RepairInput, fields: Array<'company' | 'salary'>): string {
+export function buildRepairPrompt(job: RepairInput, fields: Array<'company'>): string {
   const source = [job.source_text, job.ocr_text].filter(Boolean).join('\n---\n')
   return [
     'Bạn sửa dữ liệu tin tuyển dụng. Chỉ được chép NGUYÊN VĂN một đoạn có trong "TIN GỐC". Không được tự viết, dịch, sửa chính tả hay ghép từ nhiều chỗ.',
@@ -35,7 +35,7 @@ export function buildRepairPrompt(job: RepairInput, fields: Array<'company' | 's
 const norm = (s: string) => s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
 
 /** AI 답 검사: 원문에 글자 그대로 있는 값만, 이름표·빈 값·원래 값 제외. */
-export function guardRepair(job: RepairInput, fields: Array<'company' | 'salary'>, answer: unknown): { proposals: RepairProposal[]; rejected: string[] } {
+export function guardRepair(job: RepairInput, fields: Array<'company'>, answer: unknown): { proposals: RepairProposal[]; rejected: string[] } {
   const source = norm([job.source_text, job.ocr_text].filter(Boolean).join('\n'))
   const proposals: RepairProposal[] = []
   const rejected: string[] = []

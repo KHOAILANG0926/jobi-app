@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
 import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../src/lib/jobDescriptionBuild.ts'
-import { readSalary } from '../../src/lib/salaryReader.ts'
+import { fillSalary } from './salary-fill.mjs'
 import { readWorkTime } from '../../src/lib/jobDescriptionExtract.ts'
 import { autoScope, ALL_JOBS } from '../ops/auto-cutoff.mjs'
 
@@ -34,7 +34,7 @@ const HASH = `md5(coalesce(description,'') || '|' || coalesce(source_text,'') ||
 let changed = 0, same = 0, failed = 0
 try {
   const { rows } = await client.query(`
-    select j.id, j.origin, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.shift_type, j.rotating_shifts, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.ocr_check->'detail_fill'->>'block' as prev_block, j.ocr_check->'business_type'->>'duty' as duty_line,
+    select j.id, j.origin, j.title, j.company, j.contact_name, j.salary, j.salary_period, j.age_requirement, j.gender_requirement, j.education, j.preference, j.num_hires, j.language_requirement, j.required_documents, j.hours, j.work_days, j.shift_type, j.rotating_shifts, j.employer_phone, j.contact_zalo, j.location, j.description, j.source_text, j.images, j.ocr_check->'detail_fill'->>'block' as prev_block, j.ocr_check->'business_type'->>'duty' as duty_line,
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
@@ -48,15 +48,8 @@ try {
     try {
       // 급여 읽는 곳 하나(readSalary, 2026-11-01). 수집 공고(기준 시각 이후)의 급여 칸은 이 함수만 쓰므로 규칙이 바뀌면 다시 읽어 맞춘다.
       // 관리자·Lee 등록 공고는 사람이 쓴 값이라 비어 있을 때만 채운다. 계산·추정 없음.
-      const ownedSalary = job.origin === 'crawler'
-      if (ownedSalary || !String(job.salary ?? '').trim()) {
-        const sal = readSalary(job.source_text, job.ocr_text)
-        if (sal && sal.salary !== job.salary) {
-          await client.query(`update public.local_jobs set salary = $2, salary_period = $3 where id = $1`, [job.id, sal.salary, sal.period])
-          console.log(`#${job.id} 급여 칸(원문): ${job.salary || '(빈칸)'} → ${sal.salary}`)
-          job.salary = sal.salary
-        }
-      }
+      const filled = await fillSalary(client, job, job.ocr_text, 'refresh')   // 급여 확정·저장은 salary-fill 한 곳(R2 #753): 수집 공고는 규칙이 바뀌면 다시 읽고, 사람이 쓴 값은 빈칸만
+      if (filled) { console.log(`#${job.id} 급여 칸(원문): ${job.salary || '(빈칸)'} → ${filled.salary}`); job.salary = filled.salary }
       // 근무시간·교대(#622): 원문에 있으면 빈칸만 채운다(사람이 쓴 값·이미 있는 값은 그대로). 읽는 곳 하나 readWorkTime.
       // 원문 글이 먼저, 원문에 시간이 없을 때만 포스터 글자(급여 읽기와 같은 순서, 상세 ④ "원문 있으면 포스터 글자 안 넣음").
       //  2026-11-12 sb-5157: 원문·포스터를 함께 읽어 같은 교대가 표기만 달리 두 번(06h30 – 14h30 / 6h30 - 14h30) 들어갔다.
