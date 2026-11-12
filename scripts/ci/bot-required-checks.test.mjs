@@ -39,3 +39,33 @@ assert.equal(gate(base([run(4, 'checks', 'success', 'a', 20, 'in_progress')])), 
   assert.equal(gate(page1), false, '조회가 잘렸으면(받은 개수 < total_count) 안전하게 병합 보류')
 }
 console.log('bot-required-checks.test.mjs: 이름 충돌·100개 초과 가림 재현(수정 전) + 수정 후 통과')
+
+// 조회 스크립트(fetch-check-runs.sh) 시험: 가짜 gh로 정상·다중 페이지·실패·잘림을 흉내낸다. 실패하면 비정상 종료해야 봇이 병합을 건너뛴다.
+{
+  const { mkdtempSync, writeFileSync, chmodSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { spawnSync } = await import('node:child_process')
+  const dir = mkdtempSync(join(tmpdir(), 'fakegh-'))
+  const fake = (body) => { writeFileSync(join(dir, 'gh'), `#!/usr/bin/env bash\n${body}\n`); chmodSync(join(dir, 'gh'), 0o755) }
+  const exec = () => spawnSync('bash', ['scripts/ci/fetch-check-runs.sh', 'o/r', 'abc'], { env: { ...process.env, PATH: `${dir}:${process.env.PATH}` }, encoding: 'utf8' })
+  const pages = (arr) => JSON.stringify(arr).replace(/'/g, "'\\''")
+  const ok = (id, name, c = 'success') => ({ id, name, conclusion: c, status: 'completed', started_at: 't', check_suite: { id } })
+  fake(`echo '${pages([{ total_count: 2, check_runs: [ok(1, 'checks')] }, { total_count: 2, check_runs: [ok(2, 'guard')] }])}'`)
+  let r = exec()
+  assert.equal(r.status, 0, '정상 다중 페이지는 종료 코드 0')
+  assert.equal(JSON.parse(r.stdout).length, 2, '두 페이지를 합쳐 2개')
+  fake(`echo '{"message":"Bad credentials"}' >&2; exit 1`)
+  r = exec(); assert.notEqual(r.status, 0, 'gh 인증/호출 실패는 비정상 종료(봇은 병합 건너뜀)')
+  fake(`echo '${pages([{ total_count: 5, check_runs: [ok(1, 'checks')] }])}'; exit 1`)
+  r = exec(); assert.notEqual(r.status, 0, '일부 출력 뒤 gh 실패도 비정상 종료(pipefail)')
+  fake(`echo '${pages([{ total_count: 5, check_runs: [ok(1, 'checks')] }])}'`)
+  r = exec(); assert.equal(r.status, 0, '잘렸어도 스크립트는 출력을 주지만')
+  assert.ok(JSON.parse(r.stdout).some((x) => x.name === '__incomplete__'), '__incomplete__ 실패 항목이 들어가 판정이 병합을 막음')
+  fake('exit 0')
+  r = exec()
+  let passed = false
+  try { jq(['-e', '-f', 'scripts/ci/required-checks-pass.jq'], r.stdout); passed = true } catch { passed = false }
+  assert.equal(passed, false, 'gh가 빈 출력으로 성공해도(필수 검사가 하나도 없음) 판정은 병합 보류')
+  console.log('bot-required-checks.test.mjs: 조회 스크립트 실패·잘림·다중 페이지 시험 통과')
+}
