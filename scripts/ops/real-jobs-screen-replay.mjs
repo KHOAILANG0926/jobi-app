@@ -5,6 +5,8 @@ import { chromium } from 'playwright'
 import { readFileSync, existsSync } from 'node:fs'
 import { REAL_JOBS } from '../../src/lib/realJobs.fixtures.ts'
 import { buildDescriptionFromSources } from '../../src/lib/jobDescriptionBuild.ts'
+import { BOMUNTTL_SOURCE, BOMUNTTL_CONTEXT } from '../../src/lib/jobMultiRole.fixtures.ts'
+import { FUSHAN_SOURCE, FUSHAN_CONTEXT } from '../../src/lib/fushanSource.fixture.ts'
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:4190'
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname)) throw new Error('local replay only')
@@ -17,7 +19,9 @@ const KNOWN_FAILURES = new Set(JSON.parse(readFileSync(new URL('./real-jobs-scre
 const EXTRA = { 'decimal-salary': { title: 'Tuyển nhân viên kỹ thuật', company: 'Công ty Vincom Bắc Ninh', salary: '7 – 8,5 triệu/tháng + Thưởng doanh thu', contact_name: null, phones: ['0912345678'],
   addresses: ['Đường Lý Thái Tổ, Phường Kinh Bắc, Bắc Ninh'], ocr_text: null,
   source_text: 'Công ty Vincom Bắc Ninh tuyển Nhân viên Kỹ thuật\nLương 7 – 8,5 triệu/tháng + Thưởng doanh thu\nĐịa chỉ: Đường Lý Thái Tổ, Phường Kinh Bắc, Bắc Ninh\nLiên hệ: 0912345678' } }
-const jobs = Object.entries({ ...REAL_JOBS, ...EXTRA }).map(([key, f], i) => ({ key, f, row: {
+// Lee가 제공한 실제 원문 2건 더(복수 직무 Bomunttl, 공단 공장 FUSHAN): 같은 화면 대조를 받는다.
+const LEE_SOURCES = { bomunttl: { ...BOMUNTTL_CONTEXT, contact_name: null, ocr_text: null, source_text: BOMUNTTL_SOURCE }, fushan: { ...FUSHAN_CONTEXT, contact_name: null, ocr_text: null, source_text: FUSHAN_SOURCE } }
+const jobs = Object.entries({ ...REAL_JOBS, ...EXTRA, ...LEE_SOURCES }).map(([key, f], i) => ({ key, f, row: {
   id: 920000 + i, title: f.title, company: f.company, salary: f.salary, location: f.addresses[0] ?? '', employer_phone: f.phones[0] ?? null,
   source_text: f.source_text, active: true, posted_at: '2026-11-04',
   description: buildDescriptionFromSources([{ name: 'source_text', text: f.source_text }, { name: 'ocr_text', text: f.ocr_text }], { title: f.title, company: f.company, salary: f.salary, phones: f.phones, addresses: f.addresses }).description,
