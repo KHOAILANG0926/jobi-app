@@ -33,7 +33,7 @@ export function parseWorkflow(text) {
         continue
       }
       const nm = /^\s+name\s*:\s*(.+?)\s*$/.exec(l)
-      if (nm && cur && indent > jobIndent) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
+      if (nm && cur && indent === jobIndent + 2) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
     }
   }
   return { pr, jobs }
