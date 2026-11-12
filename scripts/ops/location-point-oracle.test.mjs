@@ -31,3 +31,7 @@ test('감사 도중 비공개로 바뀐 공고는 changed, 그대로인데 어�
  assert.equal(await settleChange(boom,job,async()=>({public:true,points:[point(1,'area')]})),'changed','원본 위치가 바뀜')
  await assert.rejects(()=>settleChange(boom,job,async()=>({public:true,points:[point(1)]})),boom)
 })
+test('원본 점이 검증을 통과 못 하면 changed로 넘기지 않고 원래 오류',async()=>{
+ const bad={...point(1),revision:0};const job={id:1,points:[bad]};const boom=new Error('invalid source point')
+ await assert.rejects(()=>settleChange(boom,job,async()=>({public:true,points:[{...bad}]})),boom)
+})

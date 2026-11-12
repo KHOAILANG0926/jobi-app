@@ -192,7 +192,12 @@ export function areaFindings(job: ScreenJob, source: string, view: ScreenView): 
     if (promoLike(raw)) continue
     const f = fold(canonMoney(raw)).trim()
     if (f.length < 10) continue
-    const where = keys.filter((k) => text[k].includes(f))
+    let where = keys.filter((k) => text[k].includes(f))
+    if (!where.length && hasPayAmount(raw)) {
+      // 화면은 급여 이름표·금액 모양을 바꿔 보여 준다(Lương: 310k → Mức lương 310.000đ) — 글자 대신 금액으로 찾는다
+      const want = amounts(raw)
+      if (want.length) where = keys.filter((k) => { const have = new Set(amounts(areas[k] ?? '')); return want.every((n) => have.has(n)) })
+    }
     if (!where.length) continue
     const isContact = [...raw.matchAll(/(?:\+?84|0)[\d\s.\-]{8,14}\d/g)].some((m) => phoneDigits(m[0]).length >= 9) || /\bzalo\b/.test(f)
     const isRequirement = /\b(?:gioi tinh|do tuoi|nam nu|nam\/nu|hoc van|bang cap|yeu cau)\b/.test(f) && !isContact

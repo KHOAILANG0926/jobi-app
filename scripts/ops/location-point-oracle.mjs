@@ -45,7 +45,8 @@ export async function settleChange(error, job, readFresh) {
   const fresh=await readFresh(job.id)
   if(!fresh?.public) return 'changed'
   let same
-  try { same=JSON.stringify(canonical(fresh.points))===JSON.stringify(canonical(job.points)) } catch { same=false }
+  // 점이 검증을 통과하지 못하면 바뀌었는지 판단할 수 없으므로 '변경'으로 넘기지 않고 원래 오류를 유지한다.
+  try { same=JSON.stringify(canonical(fresh.points))===JSON.stringify(canonical(job.points)) } catch { throw error }
   if(!same) return 'changed'
   throw error
 }

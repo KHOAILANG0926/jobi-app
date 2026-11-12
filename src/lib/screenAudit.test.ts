@@ -57,6 +57,8 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(wrong.some((f) => f.key === 'placement' && f.sure && f.detail.includes('②')), '연락처가 ②에만 → 확정 오류')
   // 주입 결함: 급여 줄이 ②에만 있음
   assert(placement({ ...okAreas, '①': 'Điều kiện làm việc', '②': okAreas['②'] + ' Lương: 310k/ngày' }).some((f) => f.key === 'placement' && f.sure), '급여가 ②에만 → 확정 오류')
+  // 화면이 이름표를 바꿔 보여 줘도(Lương → Mức lương) 값으로 찾아 같은 확정 오류
+  assert(placement({ ...okAreas, '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng Mức lương 310.000đ/ngày' }).some((f) => f.key === 'placement' && f.sure), '이름표 바뀐 급여가 ②에만 → 확정 오류')
   // 주입 결함: 모집 조건 줄이 ③에만 있음
   assert(placement({ ...okAreas, '②': 'Thông tin tuyển dụng', '③': okAreas['③'] + ' Giới tính: Nam, Nữ 18-40 tuổi' }).some((f) => f.key === 'placement' && f.sure), '모집 조건이 ③에만 → 확정 오류')
   // 못 읽음 = 미검증(통과 아님)
