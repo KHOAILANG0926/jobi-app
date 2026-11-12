@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process'
 import { screenAudit } from '../../src/lib/screenAudit.ts'
 import { preciseStreetAddressQuery } from '../../src/lib/directionsPlan.ts'
 import { collectScreen, SCREEN_CANDIDATES } from './screen-collect.mjs'
+import { aiScreenReview } from './ai-screen-review.mjs'
 
 const { SUPABASE_DB_URL, ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, GH_TOKEN, REPO, ISSUE } = process.env
 const BASE_URL = (process.env.BASE_URL || 'https://viecganban.vn').replace(/\/$/, '')
@@ -93,6 +94,7 @@ async function readJob(id) {
   const job = dbJobs.get(id)
   const views = []
   let openError
+  let review = null // 따로 읽는 검사관에 줄 PC 화면 글·사진(ai-screen-review.mjs)
   for (const v of VIEWPORTS) {
     const context = await browser.newContext({ viewport: v.viewport, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'vi-VN',
       ...(job && (!job.active || job.admin_hidden) ? { storageState: await adminLogin().catch((e) => { openError = e.message; return undefined }) } : {}) })
@@ -112,6 +114,19 @@ async function readJob(id) {
       await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)) } window.scrollTo(0, 0) })
       await page.waitForTimeout(800)
       views.push(await collectScreen(page, v.label))
+      if (job && v.name === 'pc') {
+        // 화면 사진은 한 장으로 길게 찍으면 검사관이 글자를 못 읽을 만큼 줄어들어, 화면 높이만큼 나눠 찍는다(최대 6장).
+        const screenText = (await page.locator('main').first().innerText().catch(() => '')) || (await page.locator('body').innerText())
+        const h = await page.evaluate(() => document.body.scrollHeight)
+        const shots = []
+        for (let y = 0; y < h && shots.length < 6; y += v.viewport.height) {
+          await page.evaluate((y) => window.scrollTo(0, y), y)
+          await page.waitForTimeout(300)
+          shots.push(await page.screenshot())
+        }
+        await page.evaluate(() => window.scrollTo(0, 0))
+        review = { screenText, shots }
+      }
       if (keepText) {
         text = (await page.locator('main').first().innerText().catch(() => '')) || (await page.locator('body').innerText())
         await page.screenshot({ path: `${OUT}/${id}-${v.name}.png`, fullPage: true })
@@ -137,7 +152,8 @@ async function readJob(id) {
   }
   if (!job) return
   const findings = openError ? [{ key: 'open', sure: true, device: '-', detail: `화면 열기 실패: ${openError}` }]
-    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null }, views)
+    : [...screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null }, views),
+      ...(review ? await aiScreenReview({ source: [job.source_text, job.ocr_text].filter(Boolean).join('\n\n'), ...review }) : [])]
   audits.push({ id, title: job.title, active: job.active, findings, views })
   // 기록(대상 공고만): 화면 열기 실패는 기록하지 않는다(일시 오류 — 다음 실행에 다시). 대조 중 내용이 바뀌면 기록하지 않는다.
   if (CANDIDATES && openError) openFailed++

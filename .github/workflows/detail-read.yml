@@ -45,6 +45,7 @@ jobs:
           JOB_IDS: ${{ github.event.inputs.job_ids || '' }}
           ALL_PUBLIC: ${{ (github.event_name == 'schedule' || github.event.inputs.job_ids == '') && '1' || '' }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ADMIN_E2E_EMAIL: ${{ secrets.ADMIN_E2E_EMAIL }}
           ADMIN_E2E_PASSWORD: ${{ secrets.ADMIN_E2E_PASSWORD }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
