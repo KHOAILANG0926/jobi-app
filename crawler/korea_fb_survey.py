@@ -58,7 +58,7 @@ CLASSES = {
 }
 CLASS_NAMES = {"du_hoc": "유학", "di_han": "한국 가는 법", "job_offer": "구인", "job_seek": "구직", "company": "회사 질문·후기",
                "change_job": "회사 바꾸기", "visa_doc": "체류·서류", "life": "생활", "sell": "판매·광고", "other": "기타",
-               "unclassified": "분류 안 됨"}  # 보고 표 이름도 여기 한 곳(워크플로가 결과 파일에서 읽음)
+               "unclassified": "분류 안 됨", "legacy": "예전 낱말 갈래(AI 갈래 이전 저장분)"}  #보고 표 이름도 여기 한 곳(워크플로가 결과 파일에서 읽음)
 WRITERS = {"kr": "지금 한국에 있음", "vn": "아직 한국 밖(베트남 등)", "unk": "알 수 없음"}
 AI_MODEL = os.getenv("KOREA_CLASSIFY_MODEL", "claude-haiku-5-5")
 
@@ -504,6 +504,8 @@ def report(out_path: str) -> dict:
     groups = _rows(KIND_GROUP)
     by_class, by_group, comments = {}, {}, 0
     for p in posts:
+        if p.get("class") not in CLASS_NAMES:  # 예전 낱말 갈래 열쇠(company_q 등)로 저장된 글은 표에서 사라지지 않게 한 갈래로 모은다
+            p["class"] = "legacy"
         by_class[p["class"]] = by_class.get(p["class"], 0) + 1
         g = by_group.setdefault(p.get("gid") or p["group"][:40], {})
         g[p["class"]] = g.get(p["class"], 0) + 1
