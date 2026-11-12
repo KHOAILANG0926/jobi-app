@@ -3,14 +3,14 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-12 06:53 (VN)**
-- 기준 커밋: `730c54b` (기존 공고 다시 처리: 같은 매장 핀 2개 방지 (KRIK·MediaMart) (#718))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43123121715
+- 생성 시각: **2026-11-12 07:05 (VN)**
+- 기준 커밋: `ba948d8` (기준 시각 이전 공고도 상세요강·검사표 한 번 다시 (all_jobs 하나로, KDA 제외) (#719))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43124559871
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
 
-**확인 필요 20건**
+**확인 필요 27건**
 
 - 핀 #4824: ❌ 공고 주소에 번지 없음
 - 핀 #4824: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
@@ -32,6 +32,13 @@
 - 핀 #5599: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
 - 핀 #5422: ❌ 공고 주소에 번지 없음
 - 핀 #5422: VietMap 재확인 ⚠️ 재확인 불가 (근거에 VietMap ref 없음)
+- 규칙 시험 실패: R1_phone_digits_only
+- 규칙 시험 실패: R2_decision_columns_code_only
+- 규칙 시험 실패: R3_source_evidence_required
+- 규칙 시험 실패: R5_verbatim_names
+- 규칙 시험 실패: R6_age_preserved
+- 규칙 시험 실패: R7_ocr_crosscheck
+- 규칙 시험 실패: U2_age_min_under_15
 
 ## 1. 코드 검사 (이번 실행에서 직접 돌린 결과)
 
@@ -43,7 +50,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `730c54b` · 상태 **success** · 2026-11-12 06:52 (VN)
+- 마지막 Production 배포: `ba948d8` · 상태 **success** · 2026-11-12 07:04 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -51,6 +58,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #719 | 2026-11-12 07:04 (VN) | `ba948d8` | 기준 시각 이전 공고도 상세요강·검사표 한 번 다시 (all_jobs 하나로, KDA 제외) |
 | #718 | 2026-11-12 06:52 (VN) | `730c54b` | 기존 공고 다시 처리: 같은 매장 핀 2개 방지 (KRIK·MediaMart) |
 | #710 | 2026-11-12 01:59 (VN) | `4be6492` | 봇 병합: gh pr merge 대신 서버 병합 API — gh가 먼저 거절하던 'base branch policy' (#686) |
 | #705 | 2026-11-12 00:01 (VN) | `0701a17` | 기존 Facebook 공고 다시 처리: 찾은 매장 전부 근무지로 (KRIK·MediaMart) |
@@ -60,7 +68,6 @@
 | #697 | 2026-11-11 19:30 (VN) | `0be52aa` | 매장 여러 곳: 찾은 매장마다 근무지·핀 + 지도 위치 절대 원칙 (DB, Lee 확인 후 병합) |
 | #700 | 2026-11-11 18:57 (VN) | `92a471a` | 한국 페북 조사: 멈춤 시간 한도·진행 기록 |
 | #696 | 2026-11-11 14:23 (VN) | `dc78333` | 검사표 빈 이름표: 예외 4개 대신 한 규칙 (MediaMart) |
-| #695 | 2026-11-11 14:18 (VN) | `605d25b` | 조사: 그룹 화면 열기 방식(#688에서 빠진 커밋) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -90,7 +97,6 @@
 |---|---|---|
 | 2026-11-07 | 1 | 2026-11-07 17:48 (VN) |
 | 2026-11-06 | 4 | 2026-11-06 15:12 (VN) |
-| 2026-11-04 | 3 | 2026-11-04 12:19 (VN) |
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
@@ -124,16 +130,16 @@
 
 | 규칙 | 차단방식 | 마지막시험 | 결과 |
 |---|---|---|---|
-| `R1_phone_digits_only` | 없음 | 2026-10-25 12:57 (VN) | ✅ 통과 |
-| `R2_decision_columns_code_only` | 없음 | 2026-10-25 12:57 (VN) | ✅ 통과 |
+| `R1_phone_digits_only` | 없음 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `R2_decision_columns_code_only` | 없음 | 2026-11-12 07:04 (VN) | ❌ 실패 |
 | `R2b_publish_gate_reason_code_only` | 보류 | — | — 시험 없음 |
-| `R3_source_evidence_required` | 저장거부 | 2026-10-25 12:57 (VN) | ✅ 통과 |
-| `R5_verbatim_names` | 저장거부 | 2026-10-25 12:57 (VN) | ✅ 통과 |
-| `R6_age_preserved` | 저장거부 | 2026-10-25 12:57 (VN) | ✅ 통과 |
+| `R3_source_evidence_required` | 저장거부 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `R5_verbatim_names` | 저장거부 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `R6_age_preserved` | 저장거부 | 2026-11-12 07:04 (VN) | ❌ 실패 |
 | `R4_policy_exclusion_trigger` | 저장거부 | — | — 시험 없음 |
-| `R7_ocr_crosscheck` | 보류 | 2026-10-25 12:57 (VN) | ✅ 통과 |
+| `R7_ocr_crosscheck` | 보류 | 2026-11-12 07:04 (VN) | ❌ 실패 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
-| `U2_age_min_under_15` | 없음 | 2026-10-25 12:57 (VN) | ✅ 통과 |
+| `U2_age_min_under_15` | 없음 | 2026-11-12 07:04 (VN) | ❌ 실패 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 | `L1_single_location_source` | 저장거부 | — | — 시험 없음 |
 | `L2_single_location_writer` | 저장거부 | — | — 시험 없음 |
