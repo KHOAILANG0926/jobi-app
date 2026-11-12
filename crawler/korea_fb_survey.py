@@ -202,12 +202,14 @@ OWN_TEXT_JS = "(idx) => {" + TOP_LEVEL_POSTS_JS + """
     const nodes = preview ? [preview] : [...el.querySelectorAll('[dir="auto"]')].filter(n => n.closest(CAND) === el)
     const lines = []
     for (const n of nodes) {
-        const t = (n.innerText || n.textContent || '').replace(/\\s+/g, ' ').trim()
-        if (!t || t.length <= 2 || lines.some(x => x.includes(t))) continue
-        for (let i = lines.length - 1; i >= 0; i--) if (t.includes(lines[i])) lines.splice(i, 1)  // 미리보기 뒤에 온 전체 글: 짧은 쪽 지움(2026-11-12 "A A" 두 번 붙음)
-        lines.push(t)
+        // 저장하는 글은 원래 줄바꿈 유지(칸 안 띄어쓰기만 정리), 포함 비교는 공백을 모두 지운 키로
+        const t = (n.innerText || n.textContent || '').replace(/[ \\t]+/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim()
+        const k = t.replace(/\\s+/g, ' ')
+        if (!t || t.length <= 2 || lines.some(x => x.k.includes(k))) continue
+        for (let i = lines.length - 1; i >= 0; i--) if (k.includes(lines[i].k)) lines.splice(i, 1)  // 미리보기 뒤에 온 전체 글: 짧은 쪽 지움(2026-11-12 "A A" 두 번 붙음)
+        lines.push({ t, k })
     }
-    return { text: lines.join('\\n').trim(), hasSeeMore: !!seeMoreBtn(el) }
+    return { text: lines.map(x => x.t).join('\\n').trim(), hasSeeMore: !!seeMoreBtn(el) }
 }"""
 # 글 끝에 붙는 화면 단추 글자(2026-11-12 시험: "댓글 더 보기 답글 2개 보기"가 본문 끝에 남음). '더 보기' 하나만은 잘림 표시라 남긴다.
 TAIL_RE = re.compile(r"(\s*(적게 보기|Ẩn bớt|See less|댓글 더 보기|답변 더 보기|답글 \d+개 보기|Xem thêm bình luận|Xem \d+ phản hồi|View more comments|View \d+ repl(y|ies)))+\s*$")
