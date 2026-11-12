@@ -7,6 +7,8 @@
  * 특정 회사·공고 번호 분기 없음. 순수 함수(브라우저 수집은 scripts/ops/screen-audit.mjs).
  */
 import { companyLine, companyLineBroken, detailTitle } from './companyBranch.ts'
+import { cardSalary as _demoCardSalary } from './mainJobCards.ts'
+void _demoCardSalary
 
 export type ScreenView = {
   device: string

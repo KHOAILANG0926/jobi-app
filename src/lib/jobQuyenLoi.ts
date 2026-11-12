@@ -112,6 +112,7 @@ export interface Compose1030 {
   detail: DetailSection[]
 }
 const CONTACT_LINE = /(?:điện thoại|đt|sđt|hotline|zalo|email|e-mail|liên hệ)\s*[:：]|(?:\+?84|0)[\d .-]{8,}\d|@[\w-]+\.[a-z]{2,}/iu
+// demo: 생산 코드 변경
 const OT_LINE = /tăng ca|tang ca|làm thêm giờ|ngoài giờ/iu
 export function albamonCompose(sections: DetailSection[], ctx: { title?: string | null; company?: string | null; addresses?: (string | null | undefined)[]; salary?: string | null; hasHours?: boolean; preference?: string | null }): Compose1030 {
   const at = (k: string) => sections.find((s) => s.key === k)?.lines.map((l) => l.trim()) ?? []
