@@ -39,6 +39,14 @@ export function findIndustrialPark(...texts: (string | null | undefined)[]): Ind
   return undefined
 }
 
+/** 글에 공단(KCN·khu công nghiệp·nhà máy 낱말 또는 공단 표의 VSIP 계열 이름)이 나오는가 — 공단 안 공고인지 '확정'하는 것이 아니라(Lee: 공단 이름만으로 공장 여부를 확정하지 않는다)
+ *  가게 업종을 장소 유형·검색 결과로 확정하지 말아야 할 공장 맥락이 있는지 보는 용도(R2 #753). 같은 낱말 규칙(KCN_TOKEN)·표를 그대로 쓴다. */
+const PARK_BRANDS = INDUSTRIAL_PARKS.filter((p) => p.id.startsWith('vsip')).flatMap((p) => p.aliases.filter((a) => a.split(' ').length === 1))
+export function mentionsIndustrialPark(...texts: (string | null | undefined)[]): boolean {
+  const folded = foldText(texts.filter(Boolean).join(' \n '))
+  return folded.search(KCN_TOKEN) >= 0 || PARK_BRANDS.some((b) => new RegExp(`(?:^| )${b}(?: |$)`).test(folded))
+}
+
 /** 공단 길찾기("Đến cổng KCN") — 출처 있는 KCN 정문(gate) 좌표(`destination`)로만 만든다(2026-10-08 사용자 지시).
  *  영역 중심(lat/lng)은 절대 쓰지 않는다(빈 부지로 안내됨, 2026-10-07). 관리사무소(office)는 정문이 아니므로 쓰지 않는다.
  *  목적지가 없으면 null → 3단계(Gọi hỏi đường)로 넘어간다.
