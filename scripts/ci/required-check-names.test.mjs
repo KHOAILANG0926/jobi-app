@@ -20,6 +20,7 @@ export function parseWorkflow(text) {
   if (jobsIdx >= 0) {
     let cur = null
     let jobIndent = null
+    let propertyIndent = null
     for (let i = jobsIdx + 1; i < lines.length; i++) {
       const l = lines[i]
       if (/^\S/.test(l)) break
@@ -28,12 +29,14 @@ export function parseWorkflow(text) {
       const id = /^\s+([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$/.exec(l)
       if (id && (jobIndent === null || indent === jobIndent)) {
         jobIndent ??= indent
+        propertyIndent = null
         cur = { id: id[1], name: id[1] }
         jobs.push(cur)
         continue
       }
+      if (cur && indent > jobIndent && (propertyIndent === null || indent < propertyIndent)) propertyIndent = indent
       const nm = /^\s+name\s*:\s*(.+?)\s*$/.exec(l)
-      if (nm && cur && indent === jobIndent + 2) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
+      if (nm && cur && indent === propertyIndent) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
     }
   }
   return { pr, jobs }
