@@ -16,9 +16,14 @@ const jobs = R2_ORACLE.map((o, i) => ({ o, row: { id: 940000 + i, title: o.ctx.t
 const nums = (s) => [...String(s).toLowerCase().matchAll(/(\d[\d.,]*)\s*(k|tr|triệu)?/g)].map((m) => { const n = m[1].replace(/[.,]/g, ''); return m[2] === 'k' ? n + '000' : n })
 const classify = (areaText, f) => {
   const e = norm(f.evidence)
-  let found = Object.entries(areaText).filter(([, t]) => norm(t).includes(e)).map(([k]) => k)
-  if (!found.length && f.section === '04') { const n = nums(f.evidence); if (n.length) found = Object.entries(areaText).filter(([, t]) => { const have = new Set(nums(t)); return n.every((x) => have.has(x) || have.has(x + '000')) }).map(([k]) => k) }
-  return found
+  // 영역마다 원문 글자 또는(급여 줄만) 숫자 변환 표기를 따로 대조해 합친다 — 한 영역에서 찾았다고 다른 영역의 변환 표기를 건너뛰지 않는다
+  const n = f.section === '04' ? nums(f.evidence) : []
+  return Object.entries(areaText).filter(([, t]) => {
+    if (norm(t).includes(e)) return true
+    if (!n.length) return false
+    const have = new Set(nums(t))
+    return n.every((x) => have.has(x) || have.has(x + '000'))
+  }).map(([k]) => k)
 }
 const failures = []
 let checks = 0
@@ -62,6 +67,15 @@ try {
         const f = classify(injected, duty)
         checks++
         if (!f.some((a) => !ALLOWED_AREAS['01'].includes(a))) failures.push(`✗ [${o.id}] 음성 대조 실패: 업무 줄을 ② 영역에 넣어도 검사가 못 잡음`)
+      }
+      // 음성 대조 2: 급여 줄(변환 표기 대조 대상)이 이미 허용 영역에 있어도, 금지된 ② 영역에 변환 표기로 나오면 잡아야 한다
+      const pay = o.facts.find((f) => f.section === '04' && nums(f.evidence).length)
+      if (pay) {
+        const ok = ALLOWED_AREAS['04'][0]
+        const injected = { [ok]: pay.evidence, '②': nums(pay.evidence).join(' ') }
+        const f = classify(injected, pay)
+        checks++
+        if (!f.some((a) => !ALLOWED_AREAS['04'].includes(a))) failures.push(`✗ [${o.id}] 음성 대조 실패: 급여 줄이 허용 영역에 있고 ② 영역에도 변환 표기로 있는데 검사가 못 잡음`)
       }
     }
     await context.close()
