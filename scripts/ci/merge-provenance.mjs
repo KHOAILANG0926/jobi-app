@@ -14,7 +14,7 @@ export function aiClaims({ commits = [], prBody = '', branch = '' }) {
   const add = (worker, how) => { const c = claims.get(worker) ?? new Set(); c.add(how); claims.set(worker, c) }
   const scan = (text, where) => {
     const t = String(text ?? '')
-    if (/Claude-Session:\s*https:\/\/claude\.ai\/code\/session_/i.test(t) || /Co-Authored-By:\s*Claude/i.test(t) || /Generated with \[Claude Code\]/i.test(t)) add('Claude', where)
+    if (/Claude-Session:\s*https:\/\/claude\.ai\/code\/session_/i.test(t) || /Co-Authored-By:\s*Claude/i.test(t) || /Generated (?:with|by) \[Claude Code\]/i.test(t)) add('Claude', where)
     if (/Co-Authored-By:[^\n]*Codex/i.test(t)) add('Codex', where)
     if (/Co-Authored-By:[^\n]*Cursor|Cursor Agent/i.test(t)) add('Cursor', where)
     if (/Co-Authored-By:[^\n]*(?:GPT|ChatGPT|OpenAI)/i.test(t)) add('GPT', where)
@@ -25,13 +25,19 @@ export function aiClaims({ commits = [], prBody = '', branch = '' }) {
   return [...claims].map(([worker, hows]) => ({ worker, basis: [...hows], verified: false }))
 }
 
-/** 같은 이름 검사는 가장 최근 것만 본다(이름 묶음: 빨간 검사가 같은 이름의 오래된 초록에 가려지지 않게). */
-export function latestByName(checkRuns) {
+/**
+ * 같은 이름 검사는 시작이 가장 늦은 것 1개만 본다 — 봇의 scripts/ci/collapse-check-runs.jq와 같은 기준(started_at; 없을 때만 completed_at).
+ * atTime(병합 시각)을 주면 그 뒤에 시작한 실행은 빼고, 병합 때 아직 끝나지 않았던 실행은 진행 중으로 본다(병합 뒤 재실행이 당시 상태를 바꾸지 않게).
+ */
+export function latestByName(checkRuns, atTime = null) {
+  const cut = atTime ? Date.parse(atTime) : NaN
   const by = new Map()
   for (const r of checkRuns) {
-    const t = Date.parse(r.completed_at ?? r.started_at ?? 0) || 0
+    const t = Date.parse(r.started_at ?? r.completed_at ?? 0) || 0
+    if (!Number.isNaN(cut) && t > cut) continue
+    const doneAfterMerge = !Number.isNaN(cut) && r.status === 'completed' && Date.parse(r.completed_at ?? 0) > cut
     const prev = by.get(r.name)
-    if (!prev || t >= prev.t) by.set(r.name, { t, conclusion: r.status === 'completed' ? r.conclusion : r.status, id: r.id })
+    if (!prev || t >= prev.t) by.set(r.name, { t, conclusion: doneAfterMerge ? 'in_progress' : r.status === 'completed' ? r.conclusion : r.status, id: r.id })
   }
   return by
 }
@@ -44,7 +50,7 @@ export function latestByName(checkRuns) {
 export function provenance({ pr, commits, mergeCommit, checkRuns }) {
   const merger = pr.merged_by?.login ?? null
   const path = !merger ? UNKNOWN : BOT_MERGERS.includes(merger) ? 'bot-automerge' : 'account-credential'
-  const latest = latestByName(checkRuns)
+  const latest = latestByName(checkRuns, pr.merged_at)
   const required = REQUIRED_CHECKS.map((name) => ({ name, latest: latest.get(name)?.conclusion ?? 'missing' }))
   const notGreen = required.filter((r) => r.latest !== 'success')
   const claims = aiClaims({ commits, prBody: pr.body, branch: pr.head?.ref })
