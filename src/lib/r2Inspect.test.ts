@@ -4,6 +4,7 @@
 import { R2_ORACLE } from './r2Oracle.fixtures.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
 import { inspectJob } from './jobInspect.ts'
+import { promoLike, sourceLines, contactRepeat, cardReadableSalary } from './inspectReading.ts'
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 const failures: string[] = []
@@ -29,6 +30,11 @@ for (const o of R2_ORACLE) {
     if (!stillThere) ok(lost?.ok === false, `[${o.id}] "${f.evidence}" 줄을 뺀 공고를 검사표가 잡음`, `source_lost: ${JSON.stringify(lost)}`)
   }
 }
+// Codex #763 지적 사례: 정보 문장은 홍보로 안 빼고, 사이트 UI 글자·+84 반복 번호는 빼며, 카드 급여는 금액 단위·직무별 행이 있어야 읽힘.
+ok(!promoLike('Công việc lâu dài!') && !promoLike('Ứng viên vui lòng gửi CV để được trao đổi chi tiết!') && promoLike('Nhanh tay ứng tuyển để có công việc tốt nhé!'), '홍보 판별', 'promoLike')
+ok(sourceLines('Công việc\nẨn số\nXem thêm\nDoanh nghiệp đăng tuyển').length === 1, '사이트 UI 글자 제외', 'sourceLines')
+ok(contactRepeat('Liên hệ: +84 901 234 567', ['Hotline: 0901234567']), '+84 반복 번호', 'contactRepeat')
+ok(!cardReadableSalary('10000000') && !cardReadableSalary('Theo vị trí — xem chi tiết') && cardReadableSalary('10 triệu/tháng'), '카드 급여', 'cardReadableSalary')
 console.log(`r2Inspect: 공고 ${R2_ORACLE.length}개, 검사 ${checks}건, 실패 ${failures.length}건`)
 if (failures.length) { console.log(failures.join('\n')); throw new Error(`r2Inspect: 검사표가 못 잡은 항목 ${failures.length}건`) }
 console.log('r2Inspect.test.ts: all assertions passed')

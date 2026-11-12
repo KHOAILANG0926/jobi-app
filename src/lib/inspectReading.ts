@@ -9,7 +9,7 @@
 const fold = (s: string) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 // 사이트 화면 글자 + 사이트 선택 칸의 '기타' 기본값("Học vấn tối thiểu:" 다음 줄 "Khác" — 정보가 아니라 선택지 이름).
-export const SITE_CHROME = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dung|khac)$/
+export const SITE_CHROME = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dung|khac|an so|xem them|doanh nghiep dang tuyen)$/
 const MASKED_PHONE = /\d[\d .]{2,}\*{2,}/
 
 /** 원문 줄(공백 정리, 빈 줄·사이트 화면 글자·가려진 번호 줄 제외). */
@@ -34,10 +34,14 @@ export function timeRanges(line: string): string[] {
 export function promoLike(line: string): boolean {
   const t = String(line).trim()
   if (/^(?:#\S+\s*)+$/.test(t)) return true
-  return /[!?]\s*$/.test(t) && !/\d/.test(t) && !/[:：]/.test(t) && !/@|https?:\/\/|zalo|hotline/i.test(t) && t.length <= 120
+  if (!(/[!?]\s*$/.test(t) && !/\d/.test(t) && !/[:：]/.test(t) && !/@|https?:\/\/|zalo|hotline/i.test(t) && t.length <= 120)) return false
+  return !FACT_WORDS.test(' ' + fold(t) + ' ')   // 근무 조건·지원 방법·주소·회사 낱말이 있으면 홍보가 아니라 정보(CLAUDE.md 10-30 ④ "애매하면 남긴다")
 }
+// 검사 쪽 사본(만드는 쪽 JOB_FACT_HINT·ADDRESS_HINT·COMPANY_HINT와 일부러 따로, 성조 없는 형태). 낱말 목록은 보수적으로 넓게 — 홍보로 오인해 빠짐을 놓치는 쪽이 더 나쁘다.
+const FACT_WORDS = / (?:lau dai|on dinh|chinh thuc|thoi vu|bao an|bao o|an o|ky tuc|ktx|xe dua don|dua don|bao hiem|bhxh|thuong|phu cap|tang ca|nghi|ca ngay|ca dem|xoay ca|part ?time|full ?time|kinh nghiem|dao tao|luong|thu nhap|tuoi|nam|nu|cv|ho so|phong van|tang|duong|pho|phuong|xa|huyen|quan|thi tran|thanh pho|tp|kcn|khu cong nghiep|ccn|thon|ngo|ngach|so nha|toa|plaza|chi nhanh|co so|cong ty|tnhh|co phan|tap doan|don vi|van phong) /
 
-const DIGITS = (s: string) => [...String(s).matchAll(/\d[\d .()-]{7,}\d/g)].map((m) => m[0].replace(/\D/g, ''))
+// 베트남 국가번호(+84·84)와 국내 0 표기를 같은 번호로 본다("0901234567" = "+84 901 234 567").
+const DIGITS = (s: string) => [...String(s).matchAll(/\+?\d[\d .()-]{7,}\d/g)].map((m) => m[0].replace(/\D/g, '').replace(/^840?(?=\d{9}$)|^0(?=\d{9}$)/, ''))
 const CONTACT_WORDS = new Set(['lien', 'he', 'dt', 'sdt', 'zalo', 'hotline', 'email', 'goi', 'ngay', 'so', 'dien', 'thoai', 'phone', 'tel', 'mr', 'ms', 'anh', 'chi', 'co', 'a', 'c'])
 /** 이미 보이는 연락처의 반복인가: 줄의 번호가 모두 shown에 보이고 번호 밖 글자가 연락 낱말뿐. */
 export function contactRepeat(line: string, shown: string[]): boolean {
@@ -56,5 +60,10 @@ export function hasPayAmount(line: string): boolean {
 }
 /** 식사 혜택 낱말(검사 쪽 사본 — 만드는 쪽 mealBenefit.MEAL_HINT와 일부러 따로 둔다). */
 export const MEAL_WORDS = /\b(?:an ca|bua ca|bua an|com trua|com ca|ho tro an|bao an|an trua|phu cap an|tro cap an|ho tro tien an|tien an)\b/
-/** 메인 화면 카드가 읽을 수 있는 급여인가(숫자가 있거나 직무별 안내). */
-export function cardReadableSalary(salary: string | null | undefined): boolean { const s = String(salary ?? ''); return /\d/.test(s) || /theo vi tri/.test(fold(s)) }
+/** 메인 화면 카드가 읽을 수 있는 급여인가(돈 단위가 붙은 금액, 또는 상세에 직무별 급여 행이 있는 직무별 안내). */
+export function cardReadableSalary(salary: string | null | undefined, description?: string | null): boolean {
+  const s = String(salary ?? '')
+  if (/(?:\d[\d.,]*\s*(?:triệu|tr\b|k\b|đồng|dong\b|vn[dđ](?!\p{L})|đ|usd\b)|\$\s*\d)/iu.test(s)) return true
+  // 직무별 안내는 상세 description에 "직무 | 금액" 행이 하나라도 있어야 카드에 나온다.
+  return /theo vi tri/.test(fold(s)) && String(description ?? '').split(/\r\n|\n|\r/).some((l) => (/\b(?:luong)\b|\d+\s*k\s*\/|trieu/.test(fold(l)) || /\d[\d.,]{4,}\s*(?:đ|vn[dđ]|đồng)\s*\//iu.test(l)) && hasPayAmount(l))
+}

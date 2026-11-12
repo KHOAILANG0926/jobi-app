@@ -188,7 +188,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   const companyLabel = /^(?:vi tri|dia diem|muc luong|thoi gian|yeu cau|lien he|quyen loi|bang tin)$/.test(bare(String(j.company ?? '')))
   add('company', '회사명 정상', !companyLabel, companyLabel ? `회사명이 항목 이름표: ${j.company}` : undefined)
   // 2026-11-01 #5231·#5247: 공개돼도 메인 화면 카드가 급여를 못 읽으면 목록에서 빠진다 → 검사에서 잡는다(공개는 막지 않고 알림만 — REVIEW_ONLY: 지도·검색에는 보이므로).
-  const card = cardReadableSalary(j.salary)
+  const card = cardReadableSalary(j.salary, j.description)
   add('card', '메인 화면 카드에 보임', card, card ? undefined : `메인 카드가 급여를 못 읽음: ${j.salary}`)
   // 11. 공개 상태
   // 화면 대조(#646, Lee 2026-11-10 sb-5876): 운영 화면에 실제로 보이는 것이 원문·DB와 맞는지. 확정 오류·대조 전이면 공개하지 않는다.
