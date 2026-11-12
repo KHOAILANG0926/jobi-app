@@ -28,11 +28,13 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/
     title: j.title, company: j.company, salary: j.salary, hasHours: true, addresses: j.addresses })
   const lines = (label: string) => c.detail.find((s) => s.label === label)?.lines ?? []
   const duties = lines('Nội dung công việc')
-  const badDuty = duties.filter((l) => /^(?:dia diem|khu vuc lam viec)\s*:/.test(fold(l).replace(/^[\s•\-*]+/, '')) || /\bca [ab]\s*:/.test(fold(l)))
-  check(!badDuty.length, '5157 ④ 업무 칸에 주소·교대 시간 줄이 없다', `업무 칸에 들어간 줄: ${JSON.stringify(badDuty)}`)
-  const env = lines('Môi trường làm việc')
-  const badEnv = env.filter((l) => /bao hiem|dao tao mien phi|co hoi thang tien/.test(fold(l)))
-  check(!badEnv.length, '5157 ④ 근무환경 칸에 복리후생(보험·교육·승진) 줄이 없다', `근무환경 칸에 들어간 줄: ${JSON.stringify(badEnv)}`)
+  // 정정(2026-11-12, GPT 검토 반영): 교대 줄(Ca A/B)은 albamonCompose 설계상 ① 근무시간이 있어도 ④ 끝에 '지우지 않고' 남긴다(#653) — 오류 아님.
+  // 오류로 남는 것은 위쪽 ③에 이미 있는 근무지 주소가 라벨("Địa điểm: …")이 붙어 ④에 반복되는 것뿐이다(shownAbove가 라벨 줄을 못 알아봄).
+  const badDuty = duties.filter((l) => /^(?:dia diem)\s*:/.test(fold(l).replace(/^[\s•\-*]+/, '')) && j.addresses.some((a: string) => fold(l).includes(fold(a).split(',')[0])))
+  check(!badDuty.length, '5157 ④ 업무 칸에 위쪽 ③ 주소와 같은 라벨 주소 줄이 반복되지 않는다 (※ 11-01 "빠짐 0"과 #653 "위 줄 반복 안 함"이 충돌 — Lee 결정 대기)', `업무 칸에 들어간 줄: ${JSON.stringify(badDuty)}`)
+  // 사례 1b(보험·교육·승진이 근무환경 칸에 남음)는 오류로 세지 않는다: Lee가 적용한 #653이 "원문 줄은 지우지 않고 한 자리에 한 번"으로 정했고
+  // src/lib/jobQuyenLoi.test.ts:54가 보험 문장이 근무환경에 남는 것을 명시적으로 기대한다(Codex #653 모바일 보존). 10-30 문구와의 차이는 결정 쟁점.
+  console.log('· 5157 ④ 근무환경 칸의 복리후생 줄: 오류로 세지 않음(기존 결정 #653과 10-30 문구 충돌 — 쟁점)')
 }
 
 // ── 사례 2. 복리후생 "Bao ăn ở" = 숙식 제공 → 기숙사 켜짐 (5421) ────────────────────────
