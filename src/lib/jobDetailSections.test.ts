@@ -373,3 +373,11 @@ assert(contactHostFor({ conditions: 0, recruitKeys: ['category'] }) === 'locatio
   assert(kind('Làm ngồi, phòng thường, lắp ráp linh kiện') !== '05', 'one extra duty word makes it a duty line')
   console.log('jobDetailSections: 자세·환경 낱말뿐인 줄 한 규칙 통과')
 }
+
+// #728 S7(6043): 급여 소수점 쉼표가 든 원문 줄은 칸 나누기를 거쳐도 한 줄 그대로 남는다(원문 보존). 화면 급여 칸 나누기(conditionLines.salaryParts)와 같은 사례.
+{
+  const r = detailSections(['Mô tả công việc', '- Kiểm tra, bảo dưỡng máy game', 'Thu nhập', 'Lương 7 – 8,5 triệu/tháng + Thưởng doanh thu'].join('\n'))
+  const all = r.sections.flatMap((s) => s.lines)
+  assert(all.some((l) => l.includes('7 – 8,5 triệu/tháng')), 'decimal-comma salary line is preserved in one piece: ' + JSON.stringify(all))
+  console.log('jobDetailSections: 소수점 쉼표 급여 줄 보존 통과')
+}
