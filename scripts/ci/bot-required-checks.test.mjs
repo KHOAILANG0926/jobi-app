@@ -18,18 +18,26 @@ const realFail = run(4, 'checks', 'failure', '2026-11-12T10:01:00Z', 20)        
 const fakeGreenLater = run(5, 'checks', 'success', '2026-11-12T10:01:05Z', 21)    // approved-layout-guard의 항상 초록 checks (나중에 시작)
 const fakeGreenEarlier = run(6, 'checks', 'success', '2026-11-12T10:00:55Z', 21)  // (먼저 시작)
 
-assert.equal(oldGate(base([realFail, fakeGreenLater])), true, '수정 전 방식: 초록이 늦게 시작하면 실패가 가려져 통과(결함 재현)')
-assert.equal(gate(base([realFail, fakeGreenLater])), false, '초록 checks가 나중에 시작해도 빨간 checks가 보여 병합 보류')
-assert.equal(gate(base([realFail, fakeGreenEarlier])), false, '초록 checks가 먼저 시작해도 병합 보류')
-// 같은 실행 묶음에서 다시 돌려 성공하면 최신 결과만 본다
-assert.equal(gate(base([run(4, 'checks', 'failure', '2026-11-12T10:01:00Z', 20), run(7, 'checks', 'success', '2026-11-12T10:05:00Z', 20), fakeGreenLater])), true, '같은 묶음 재실행 성공은 통과')
-assert.equal(gate(base([run(4, 'checks', 'success', '2026-11-12T10:01:00Z', 20), fakeGreenLater])), true, '둘 다 성공하면 통과')
-assert.equal(gate({ check_runs: [run(1, 'app-screen', 'success', 'a', 10), run(2, 'guard', 'success', 'a', 11), run(4, 'checks', 'success', 'a', 20)] }), false, 'publication-gate 없으면 보류')
-assert.equal(gate(base([run(4, 'checks', 'success', 'a', 20, 'in_progress')])), false, '실행 중이면 보류')
+// 같은 커밋의 이벤트마다(Ready 전환·본문 수정) 같은 검사가 새 실행 묶음으로 다시 돈다 — 옛 실패 위에 새 성공이 있으면 통과해야 한다(PR #732에서 #744가 이걸 막았던 결함의 재현·수정 시험)
+const SUITE_STRICT = (resp) => {  // #744 방식(이름+묶음으로 나눔) 재현
+  const c = jq(['-c', '.check_runs | sort_by(.started_at) | group_by(.name + "|" + ((.check_suite.id // 0) | tostring)) | map(last) | map({name,conclusion,status})'], JSON.stringify(resp))
+  try { jq(['-e', '-f', 'scripts/ci/required-checks-pass.jq'], c); return true } catch { return false }
+}
+const failedEarlier = run(4, 'checks', 'failure', '2026-11-12T10:01:00Z', 20)
+const greenLater = run(7, 'checks', 'success', '2026-11-12T10:05:00Z', 22)
+assert.equal(SUITE_STRICT(base([failedEarlier, greenLater])), false, '#744 방식: 같은 커밋의 옛 실패 실행이 새 성공을 영원히 막음(결함 재현)')
+assert.equal(gate(base([failedEarlier, greenLater])), true, '이름당 최신 1개: 옛 실패 뒤 새 성공이면 통과')
+assert.equal(gate(base([run(4, 'checks', 'success', '2026-11-12T10:01:00Z', 20), run(8, 'checks', 'failure', '2026-11-12T10:06:00Z', 23)])), false, '최신이 실패면 보류')
+assert.equal(gate(base([run(4, 'checks', 'failure', '2026-11-12T10:01:00Z', 20), run(9, 'checks', 'success', '2026-11-12T10:07:00Z', 24, 'in_progress')])), false, '최신이 실행 중이면 보류')
+assert.equal(gate(base([realFail])), false, '실패한 checks 하나뿐이면 보류')
+assert.equal(gate(base([run(4, 'checks', 'success', '2026-11-12T10:01:00Z', 20)])), true, 'checks 성공이면 통과')
+// 이름이 같은 서로 다른 워크플로 잡의 충돌은 판정이 아니라 scripts/ci/required-check-names.test.mjs(정적, PR마다)가 막는다.
+assert.equal(gate({ check_runs: [run(1, 'app-screen', 'success', '2026-11-12T09:00:00Z', 10), run(2, 'guard', 'success', '2026-11-12T09:00:00Z', 11), run(4, 'checks', 'success', '2026-11-12T09:00:00Z', 20)] }), false, 'publication-gate 없으면 보류')
+assert.equal(gate(base([run(4, 'checks', 'success', '2026-11-12T09:00:00Z', 20, 'in_progress')])), false, '실행 중이면 보류')
 // 100개 초과(여러 페이지): 실패가 뒤 페이지에 있어도 보여야 한다
 {
   const filler = (from, n) => Array.from({ length: n }, (_, i) => run(1000 + from + i, `other-${from + i}`, 'success', '2026-11-12T10:00:00Z', 100 + from + i))
-  const page1 = { total_count: 105, check_runs: [run(1, 'app-screen', 'success', 'a', 10), run(2, 'guard', 'success', 'a', 11), run(3, 'publication-gate', 'success', 'a', 12), run(4, 'checks', 'success', 'a', 20), ...filler(0, 96)] }
+  const page1 = { total_count: 105, check_runs: [run(1, 'app-screen', 'success', '2026-11-12T09:00:00Z', 10), run(2, 'guard', 'success', '2026-11-12T09:00:00Z', 11), run(3, 'publication-gate', 'success', '2026-11-12T09:00:00Z', 12), run(4, 'checks', 'success', '2026-11-12T09:00:00Z', 20), ...filler(0, 96)] }
   const page2failing = { total_count: 105, check_runs: [run(9001, 'checks', 'failure', '2026-11-12T10:02:00Z', 21), ...filler(200, 4)] }
   const page2green = { total_count: 105, check_runs: [run(9001, 'checks', 'success', '2026-11-12T10:02:00Z', 21), ...filler(200, 4)] }
   // 수정 전 방식은 첫 페이지(100개)만 봐서 뒤 페이지의 빨간 검사를 못 본다 — 재현
