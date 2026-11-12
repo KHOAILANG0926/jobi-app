@@ -31,6 +31,7 @@ jobs:
       FB_XS: ${{ secrets.FB_XS }}
       FB_DATR: ${{ secrets.FB_DATR }}
       FB_FR: ${{ secrets.FB_FR }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # 글 갈래 나누기(Haiku, Lee 2026-11-12 승인)
       TOP: ${{ inputs.top || '10' }}
       POSTS: ${{ inputs.posts || '100' }}
     steps:
@@ -60,10 +61,14 @@ jobs:
               a = q['all']; L.append(f"| {q['query']} | {a['count']} | {a['ge_100k']} | {a['ge_10k']} | {a['daily_90plus']} |")
           s = d.get('summary', {}).get('korea_named', {})
           L += ["", f"중복 뺀 한국 이름 그룹: {s.get('count')}개 (10만+ {s.get('ge_100k')}, 1만+ {s.get('ge_10k')})", "",
-                "| 그룹 | 회원 | 만든 날 | 오늘 글 | 읽은 글 | 회사 질문 | 회사 바꾸기 | 일자리 | 판매 | 질문 | 환전 | 방 | 비자·서류 | 기타 | 비자 적힌 구인 | '비자 필요 없음' |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+                ]
+          names = d.get('class_names') or {}
+          cols = list(names)
+          L += ["| 그룹 | 회원 | 만든 날 | 오늘 글 | 읽은 글 | 읽은 화면 | 잘린 글 | 글쓴이 한국/밖/모름 | " + " | ".join(names[c] for c in cols) + " |",
+                "|---|---|---|---|---|---|---|---|" + "---|" * len(cols)]
           for g in d.get('detail', []):
-              c = g.get('post_counts', {}); n = lambda k: c.get(k, 0)
-              L.append(f"| {g['name'][:35]} | {g['members']:,} | {g.get('created','')} | {g.get('today','')} | {g['posts_read']} | {n('company_q')} | {n('change_co')} | {n('job')} | {n('sell')} | {n('ask')} | {n('money')} | {n('room')} | {n('visa_doc')} | {n('other')} | {g['jobs_with_visa']} | {g['no_visa_posts']} |")
+              c = g.get('post_counts', {}); w = g.get('writers', {})
+              L.append(f"| {g['name'][:35]} | {g['members']:,} | {g.get('created','')} | {g.get('today','')} | {g['posts_read']} | {g.get('read_how','')} | {g.get('truncated',0)} | {w.get('kr',0)}/{w.get('vn',0)}/{w.get('unk',0)} | " + " | ".join(str(c.get(k, 0)) for k in cols) + " |")
           if d.get('stopped'): L.append(f"\n⚠️ 중단: {d['stopped']}")
           open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write('\n'.join(L) + '\n')
           print('\n'.join(L))
