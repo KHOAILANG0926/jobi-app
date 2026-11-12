@@ -440,24 +440,26 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
               2026-11-02 Lee "정렬도 안 되고 모양이 개판": 작은 회색 글씨 스타일(jd2-salary-sub)이 없어 급여처럼 빨간 큰 글씨였음 → 스타일 추가,
               금액과 같은 줄 시작(jd2-salary-lines 안)으로 정렬. 위치·순서는 그대로. */}
           {salaryText && salaryRows.length > 0 && <span className="jd2-salary-rows">{salaryRows.map((r, i) => <span key={i} className="jd2-salary-row"><span className="jd2-salary-row__label">{r.label}</span><span className="jd2-salary-row__amount">{r.amount}</span></span>)}</span>}
-          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s*(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}{i === 0 && albamonLines.overtimeNote ? <span className="jd2-salary-sub"> · {albamonLines.overtimeNote}</span> : null}</span>)}{!compose && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
+          {salaryText && salaryRows.length === 0 && <span className="jd2-salary-lines">{(conditionSalaryLines.length ? conditionSalaryLines : salaryText.split(/(?<=,)\s+(?=\d)/)).map((part, i) => <span key={i} className="jd2-salary-line">{part}{i === 0 && albamonLines.overtimeNote ? <span className="jd2-salary-sub"> · {albamonLines.overtimeNote}</span> : null}</span>)}{!compose && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}</span>}{salaryText && job.salaryBasis ? ` · ${SALARY_BASIS_LABEL[job.salaryBasis]}` : ''}
           {salaryNote && !isAllowanceNote && <span>{salaryText ? ' · ' : ''}{salaryNote}</span>}
           {!salaryText && !compose && albamonLines.salary.map((l, i) => <span key={`a${i}`} className="jd2-salary-line jd2-salary-sub">{l}</span>)}
         </>
       ) : undefined, 'jd2-info-val--salary'),
     !compose ? textRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote ? salaryNote : undefined)
       : linesRow('allowance', <Award size={14} strokeWidth={1.8} />, 'Phụ cấp · Thưởng', isAllowanceNote && salaryNote ? [salaryNote, ...compose.allowance.filter((l) => l.trim() !== salaryNote.trim())] : compose.allowance),
-    hoursText || !compose ? textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', hoursText)
-      : linesRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', compose.hours),
+    !albamonLayout ? textRow('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift) : null,
+    // 10-30 확정: 교대는 'Thời gian làm việc'(시작~끝·휴게·교대) 안에 — 따로 'Ca làm việc' 줄을 두지 않는다(Lee 2026-11-12).
+    hoursText || !compose ? textRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', albamonLayout ? [hoursText, shift].filter(Boolean).join(' · ') || undefined : hoursText)
+      : linesRow('hours', <Clock size={14} strokeWidth={1.8} />, 'Thời gian làm việc', shift ? [...compose.hours, shift] : compose.hours),
     textRow('workDays', <Calendar size={14} strokeWidth={1.8} />, 'Ngày làm việc', workDaysText),
     textRow('workPeriod', <Briefcase size={14} strokeWidth={1.8} />, 'Hình thức làm việc', employmentText),
-    textRow('shift', <Clock size={14} strokeWidth={1.8} />, 'Ca làm việc', shift),
     textRow('jobDuration', <Timer size={14} strokeWidth={1.8} />, 'Thời hạn làm việc', nonEmpty(job.jobDuration)),
     textRow('weekend', <Calendar size={14} strokeWidth={1.8} />, 'Cuối tuần', weekend),
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
     row('roles', <Briefcase size={14} strokeWidth={1.8} />, 'Vị trí tuyển dụng', !roleSummary && sourceRoles.roles.length ? sourceRoles.roles.join(' · ') : undefined),
-    row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
+    row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : albamonLayout ? deadlineText : undefined, // 10-30 확정 ② 필수: 날짜 또는 상시모집(KDA 틀은 그대로)
+      badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
     row('preference', <Award size={14} strokeWidth={1.8} />, 'Kinh nghiệm', preferenceText ?? compose?.experience),
