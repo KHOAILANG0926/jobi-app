@@ -1,6 +1,6 @@
 // 공고 근무지 텍스트 → 공단(KCN/KCX) 중심 좌표 (src/data/industrialParks.ts의 출처 있는 좌표만).
 // 표에 없는 공단·이름만 비슷한 다른 공단·같은 이름이 다른 지역에 있는 경우는 매칭하지 않는다(추정 금지).
-import { INDUSTRIAL_PARKS, type IndustrialPark } from '../data/industrialParks'
+import { INDUSTRIAL_PARKS, type IndustrialPark } from '../data/industrialParks.ts'
 
 /** 성조 제거·소문자·기호를 공백으로 */
 export function foldText(s: string): string {
