@@ -7,7 +7,7 @@
     "scrollW": 390,
     "height": 6446,
     "wide": [],
-    "smallText": 36,
+    "smallText": 37,
     "errors": []
   },
   {
@@ -89,6 +89,17 @@
   },
   {
     "device": "iphone",
+    "name": "detail-6043",
+    "path": "/viec-lam/sb-6043",
+    "vw": 390,
+    "scrollW": 390,
+    "height": 3933,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "iphone",
     "name": "detail-5994",
     "path": "/viec-lam/sb-5994",
     "vw": 390,
@@ -121,17 +132,6 @@
     "errors": []
   },
   {
-    "device": "iphone",
-    "name": "detail-5942",
-    "path": "/viec-lam/sb-5942",
-    "vw": 390,
-    "scrollW": 390,
-    "height": 4350,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
     "device": "galaxy",
     "name": "home",
     "path": "/",
@@ -139,7 +139,7 @@
     "scrollW": 360,
     "height": 6518,
     "wide": [],
-    "smallText": 36,
+    "smallText": 37,
     "errors": []
   },
   {
@@ -224,6 +224,17 @@
   },
   {
     "device": "galaxy",
+    "name": "detail-6043",
+    "path": "/viec-lam/sb-6043",
+    "vw": 360,
+    "scrollW": 360,
+    "height": 4083,
+    "wide": [],
+    "smallText": 13,
+    "errors": []
+  },
+  {
+    "device": "galaxy",
     "name": "detail-5994",
     "path": "/viec-lam/sb-5994",
     "vw": 360,
@@ -251,17 +262,6 @@
     "vw": 360,
     "scrollW": 360,
     "height": 3867,
-    "wide": [],
-    "smallText": 13,
-    "errors": []
-  },
-  {
-    "device": "galaxy",
-    "name": "detail-5942",
-    "path": "/viec-lam/sb-5942",
-    "vw": 360,
-    "scrollW": 360,
-    "height": 4606,
     "wide": [],
     "smallText": 13,
     "errors": []
