@@ -77,6 +77,8 @@ jobs:
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=map-no-webgl-proof node scripts/ops/map-webgl-fallback-check.mjs
       - name: 공고 원문 조건 요약 연결 검사 (PC·모바일, 운영 쓰기 없음)
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=job-process-proof node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-process-preview-browser.mjs
+      - name: 대표 공고 항목이 승인된 4영역 중 맞는 칸에 나오는지 (PC·모바일, 격리 응답, R2 #753)
+        run: BASE_URL=http://localhost:4173 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/real-jobs-area-check.mjs
       - name: 공고 조건 요약 확인 화면 보존
         if: always()
         uses: actions/upload-artifact@v4
