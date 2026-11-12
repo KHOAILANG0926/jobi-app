@@ -10,7 +10,8 @@ import { buildDescriptionFromSources } from '../../src/lib/jobDescriptionBuild.t
 const base = process.env.BASE_URL || 'http://127.0.0.1:4190'
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname)) throw new Error('local replay only')
 const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-const jobs = R2_ORACLE.map((o, i) => ({ o, row: { id: 940000 + i, title: o.ctx.title, company: o.ctx.company, salary: o.ctx.salary, location: o.ctx.addresses[0] ?? '', employer_phone: o.ctx.phones[0] ?? null,
+// 실제 공고 번호가 있는 대표 공고는 그 번호 그대로 재생한다(KDA sb-4824는 기존 틀, 나머지는 최신 틀 — usesAlbamonLayout이 번호로 틀을 고름). 번호 없는 합성 사례만 94만대
+const jobs = R2_ORACLE.map((o, i) => ({ o, row: { id: /^\d{4}\b/.test(o.id) ? Number(o.id.slice(0, 4)) : 940000 + i, title: o.ctx.title, company: o.ctx.company, salary: o.ctx.salary, location: o.ctx.addresses[0] ?? '', employer_phone: o.ctx.phones[0] ?? null,
   source_text: o.source, active: true, posted_at: '2026-11-04', description: buildDescriptionFromSources([{ name: 'source_text', text: o.source }], o.ctx).description } }))
 // 숫자 낱말 비교(급여 줄은 화면에서 310k → 310.000đ, "12 -> 17 triệu" → "12 - 17 triệu"처럼 모양만 바뀌므로 글자 대신 숫자로 본다)
 const nums = (s) => [...String(s).toLowerCase().matchAll(/(\d[\d.,]*)\s*(k|tr|triệu)?/g)].map((m) => { const n = m[1].replace(/[.,]/g, ''); return m[2] === 'k' ? n + '000' : n })
