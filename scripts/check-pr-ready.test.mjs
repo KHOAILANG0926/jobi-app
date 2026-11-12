@@ -53,6 +53,7 @@ assert.deepEqual(checkCompletion(valid.replaceAll('| success | 12345678901234567
   assert.deepEqual(failedCheckRuns([run(1, 'checks', 'completed', 'failure', 1), run(2, 'checks', 'completed', 'success', 2)]), ['checks'], 'same-name job in another workflow cannot hide a failure (이름 충돌)')
   assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'cancelled')]), [], 'cancelled duplicate is not a failure')
   assert.deepEqual(failedCheckRuns(undefined), [])
+}
 // #728 S5: 검사 파일의 새 생산 코드 import 금지
 {
   const f = 'src/lib/jobInspect.ts'
