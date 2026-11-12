@@ -59,9 +59,11 @@ export interface InspectResult { ok: boolean; items: InspectItem[] }
 
 const SITE_JUNK = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dung)$/
 // 원문에 복리후생이 있는데 위쪽 표시(아이콘)가 꺼져 있는지 찾는 용도(표시 자체는 이 단어 목록을 쓰지 않는다).
+// 검사 쪽 낱말표는 일부러 만드는 쪽(benefitWords.ts)과 따로 둔다 — 같은 표를 쓰면 생산이 틀릴 때 검사도 같이 틀린다(#728, 결정 0004 독립).
+// 대신 같은 사례(예: 5421 "Bao ăn ở")를 양쪽 시험에 둔다(jobInspect.test.ts·aiClassifyGuard.test.ts).
 export const BENEFIT_HINTS: Array<{ key: 'shuttle_bus' | 'dormitory' | 'meal_provided'; label: string; re: RegExp }> = [
   { key: 'shuttle_bus', label: 'Xe đưa đón', re: /\b(?:xe dua don|xe dua ruoc|xe don|dua don)\b/ },
-  { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|cho o)\b/ },
+  { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|bao (?:an )?o|cho o)\b/ },
   // 2026-11-02 Lee: 식비 수당(phụ cấp ăn uống 등)도 식사 혜택 — 낱말 규칙 한 곳(lib/mealBenefit.ts).
   { key: 'meal_provided', label: 'Ăn ca', re: MEAL_HINT },
 ]
