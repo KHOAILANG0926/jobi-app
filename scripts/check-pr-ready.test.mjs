@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { checkCompletion, recordProblems, recentPrsFor, titleWords } from './check-pr-ready.mjs'
+import { checkCompletion, recordProblems, recentPrsFor, titleWords, failedCheckRuns } from './check-pr-ready.mjs'
 import { evaluateFiles, parseGitDiff } from './check-repository-policy.mjs'
 
 const valid = `## 사용자 요청 및 확정된 완료 조건
@@ -44,6 +44,16 @@ assert.ok(checkCompletion('').length > 0)
 assert.deepEqual(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', 'pending'), '1234567890123456789012345678901234567890'), [], 'no link needed')
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
 assert.deepEqual(checkCompletion(valid.replaceAll('| success | 1234567890123456789012345678901234567890 |', '| pending | (검사 후 자동 확인) |'), '1234567890123456789012345678901234567890'), [], 'pending before checks allowed')
+// #728 S6: 실제 check-run 결과로 완료 판정
+{
+  const run = (id, name, status, conclusion, suite = 1) => ({ id, name, status, conclusion, check_suite: { id: suite } })
+  assert.deepEqual(failedCheckRuns([run(1, 'checks', 'completed', 'success'), run(2, 'app-screen', 'in_progress', null)]), [], 'passing/in-progress is not failed')
+  assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'failure')]), ['app-screen'], 'completed failure detected')
+  assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'failure'), run(5, 'app-screen', 'completed', 'success')]), [], 'rerun success supersedes older failure')
+  assert.deepEqual(failedCheckRuns([run(1, 'checks', 'completed', 'failure', 1), run(2, 'checks', 'completed', 'success', 2)]), ['checks'], 'same-name job in another workflow cannot hide a failure (이름 충돌)')
+  assert.deepEqual(failedCheckRuns([run(1, 'app-screen', 'completed', 'cancelled')]), [], 'cancelled duplicate is not a failure')
+  assert.deepEqual(failedCheckRuns(undefined), [])
+}
 console.log('PR completion guard: 7/7 passed')
 
 assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STATUS edits denied')

@@ -59,6 +59,21 @@ export function checkCompletion(body, headSha, botOnlySince = () => false) {
 }
 
 /**
+ * #728 S6 완료 판정: 설명란에 적은 글이 아니라 현재 HEAD의 실제 check-run 결과로 본다.
+ * 같은 검사를 다시 돌린 경우(같은 이름·같은 실행 묶음) 최신 것만 본다. 진행 중·취소·건너뜀은 실패가 아니다(이 검사 자신도 진행 중).
+ * 한계: 진행 중인 검사의 최종 결과는 여기서 알 수 없다 — 그것은 필수 검사(master 보호)와 봇 병합이 판정한다.
+ */
+export const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'action_required', 'startup_failure'])
+export function failedCheckRuns(runs) {
+  const latest = new Map()
+  for (const r of runs ?? []) {
+    const key = `${r.name}|${r.check_suite?.id ?? ''}`
+    if (!latest.has(key) || r.id > latest.get(key).id) latest.set(key, r)
+  }
+  return [...latest.values()].filter((r) => r.status === 'completed' && FAILED_CONCLUSIONS.has(r.conclusion)).map((r) => r.name)
+}
+
+/**
  * 확인한 기록(#666, Lee 2026-11-10 "규칙을 확인도 안 할 거면 규칙은 왜 있니"): PR이 바꾼 파일을 최근에 바꾼 PR·지금 같은 파일을 고치는
  * 다른 열린 PR을 검사가 직접 찾고(recentPrsFor), PR 설명 `## 확인한 기록` 칸에 그 번호가 줄마다 설명과 함께 있는지 본다.
  * 목록은 검사가 정하므로 작성자가 빼거나 "확인함"만 적고 넘어갈 수 없다. 읽고 이해했는지는 기계가 확인하지 못한다(한계).
@@ -163,7 +178,13 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
     if (required.length) console.log('확인한 기록 대상: ' + required.map((r) => `#${r.num}(${r.why})`).join(', '))
     errors.push(...recordProblems(body, required))
   } catch (e) { errors.push(`${RECORD_HEADING}: 최근·진행 중 PR 목록을 못 읽음 — ${String(e.message).split('\n')[0]}`) }
+  // #728 S6: 같은 HEAD에서 이미 실패로 끝난 검사가 있는데 READY라고 적었으면 막는다. 못 읽으면 통과시키지 않는다(우회 방지).
+  try {
+    const runs = JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/commits/${pr.head.sha}/check-runs?per_page=100`, '--jq', '.check_runs'], { encoding: 'utf8' }))
+    const failed = failedCheckRuns(runs)
+    if (failed.length) errors.push(`READY 불가: 현재 HEAD에서 실패한 검사가 있음 — ${[...new Set(failed)].join(', ')}`)
+  } catch (e) { errors.push(`현재 HEAD의 검사 결과를 못 읽음 — ${String(e.message).split('\n')[0]}`) }
   for (const error of errors) console.error('::error::' + error)
   if (errors.length) process.exit(1)
-  console.log('READY 근거 형식 확인; 실제 테스트 성공 여부는 필수 CI에서 별도 판정')
+  console.log('READY 근거 형식 확인 + 현재 HEAD 실패 검사 없음; 진행 중 검사의 최종 성공 여부는 필수 CI·봇 병합이 판정')
 }
