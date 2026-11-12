@@ -24,8 +24,10 @@ def _pinned(rows):
 def problems(before, after):
     out = []
     b, a = _pinned(before or []), _pinned(after or [])
-    if len(a) < len(b):
-        out.append(f"pin_lost:{len(b)}->{len(a)}")
+    # 손실은 중복을 뺀 좌표 집합으로 비교한다 — 같은 매장 중복 줄을 합친 것은 손실이 아니다(Codex #724). 중복 남음은 아래 duplicate_pin이 따로 잡는다.
+    ub, ua = set(b), set(a)
+    if len(ua) < len(ub):
+        out.append(f"pin_lost:{len(ub)}->{len(ua)}")
     dup = sorted({p for p in a if a.count(p) > 1})
     if dup:
         out.append("duplicate_pin:" + ",".join(f"{x},{y}" for x, y in dup))

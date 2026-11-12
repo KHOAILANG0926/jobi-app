@@ -13,6 +13,12 @@ def test_duplicate_pin_detected():
     assert problems([{"lat": 21.1797715, "lng": 106.0667412}], after) == ["duplicate_pin:21.179772,106.066741"]
 
 
+def test_merging_duplicate_rows_is_not_a_loss():
+    # Codex #724: 같은 좌표 두 줄을 한 줄로 합친 것은 손실이 아니다
+    p = {"lat": 21.18, "lng": 106.06}
+    assert problems([p, dict(p)], [p]) == []
+
+
 def test_new_store_pin_is_fine():
     assert problems([{"lat": 21.17, "lng": 106.06}], [{"lat": 21.17, "lng": 106.06}, {"lat": 21.11, "lng": 105.95}]) == []
 
