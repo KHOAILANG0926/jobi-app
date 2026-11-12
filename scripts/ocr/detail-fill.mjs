@@ -58,9 +58,18 @@ try {
         }
       }
       // 근무시간·교대(#622): 원문에 있으면 빈칸만 채운다(사람이 쓴 값·이미 있는 값은 그대로). 읽는 곳 하나 readWorkTime.
+      // 원문 글이 먼저, 원문에 시간이 없을 때만 포스터 글자(급여 읽기와 같은 순서, 상세 ④ "원문 있으면 포스터 글자 안 넣음").
+      //  2026-11-12 sb-5157: 원문·포스터를 함께 읽어 같은 교대가 표기만 달리 두 번(06h30 – 14h30 / 6h30 - 14h30) 들어갔다.
+      //  예전에 이 함수가 원문+포스터로 채운 값(사람이 쓴 값 아님)은 새 값으로 바꾼다.
       {
-        const wt = readWorkTime(job.source_text, job.ocr_text)
-        const hours = !String(job.hours ?? '').trim() && wt.hours ? wt.hours : null
+        const fromPost = readWorkTime(job.source_text)
+        const both = readWorkTime(job.source_text, job.ocr_text)
+        // 칸마다 원문 먼저(Codex #723: 원문에 교대 종류만 있고 시간이 없으면 시간은 포스터에서).
+        const wt = { hours: fromPost.hours ?? both.hours, shiftType: fromPost.shiftType ?? both.shiftType,
+          rotatingShifts: fromPost.rotatingShifts ?? both.rotatingShifts }
+        const now = String(job.hours ?? '').trim()
+        const oldMachine = now && now === (both.hours ?? '') && now !== (wt.hours ?? now)
+        const hours = (!now || oldMachine) && wt.hours ? wt.hours : null
         const shift = !job.shift_type && wt.shiftType ? wt.shiftType : null
         // 교대 수는 교대 유형과 따로 빈칸만(이미 rotating인데 수가 비었을 때도, Codex #628)
         const rotatingNow = (shift ?? job.shift_type) === 'rotating'

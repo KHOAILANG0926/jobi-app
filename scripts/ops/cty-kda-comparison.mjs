@@ -4,7 +4,8 @@ import { chromium } from 'playwright'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { measureJob } from '../layout/measure.mjs'
 
-const jobs = ['4824', '4828', '4878']
+// 2026-11-12: #4828은 삭제(회사 이름 없음, Lee) — 같은 새 틀의 공개 공고 #5157로 바꿈.
+const jobs = ['4824', '5157', '4878']
 const views = ['pc', 'mobile']
 const keys = [
   'header.logo.w', 'header.logo.h', 'header.logo.top', 'header.chips.top',
