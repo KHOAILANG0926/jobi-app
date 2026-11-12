@@ -74,12 +74,14 @@ export function provenance({ pr, commits, mergeCommit, checkRuns }) {
 }
 
 const gh = (path) => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }))
+// 모든 페이지를 합친다(gh --paginate). 실패하면 던져서 그 PR은 error(미확인)로 남는다 — 일부 페이지만으로 판정하지 않는다.
+const ghAll = (path, itemExpr) => execFileSync('gh', ['api', '--paginate', path, '--jq', itemExpr], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\n').filter(Boolean).map((l) => JSON.parse(l))
 export function collect(repo, number) {
   const pr = gh(`repos/${repo}/pulls/${number}`)
   if (!pr.merged) return null
-  const commits = gh(`repos/${repo}/pulls/${number}/commits?per_page=100`).map((c) => ({ sha: c.sha, message: c.commit.message, authorLogin: c.author?.login, committerLogin: c.committer?.login }))
+  const commits = ghAll(`repos/${repo}/pulls/${number}/commits?per_page=100`, '.[]').map((c) => ({ sha: c.sha, message: c.commit.message, authorLogin: c.author?.login, committerLogin: c.committer?.login }))
   const mc = gh(`repos/${repo}/commits/${pr.merge_commit_sha}`)
-  const checkRuns = gh(`repos/${repo}/commits/${pr.head.sha}/check-runs?per_page=100`).check_runs
+  const checkRuns = ghAll(`repos/${repo}/commits/${pr.head.sha}/check-runs?per_page=100`, '.check_runs[]')
   return provenance({ pr, commits, mergeCommit: { committerLogin: mc.committer?.login, authorLogin: mc.author?.login, message: mc.commit.message }, checkRuns })
 }
 
