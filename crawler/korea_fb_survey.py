@@ -235,13 +235,14 @@ async def read_recent_posts(page, gid: str, want: int, mobile: bool = False) -> 
         got = await extract_visible_posts(page)
         before = len(out)
         for p in got.get("posts", []):
-            raw_key = dedupe_key(p["text"])
+            pu = (p.get("postUrl") or "").split("?")[0]
+            raw_key = pu or dedupe_key(p["text"])  # 게시물 주소가 있으면 주소가 먼저(같은 머리말 다른 글을 합치지 않음)
             if raw_key in seen_raw:
                 continue
             seen_raw.add(raw_key)
             own = await own_text(page, p["idx"])
             text = re.sub(r"[ \t]+", " ", (own or {}).get("text") or "").strip()
-            key = dedupe_key(text)
+            key = pu or dedupe_key(text)
             if len(text) < 15 or key in seen_own:
                 continue
             seen_own.add(key)
@@ -473,13 +474,13 @@ async def collect(page, ctx, groups_per_run: int, want_posts: int, comment_posts
             payload = {"gid": gid, "group": gname, "text": mask(p["text"])[:3000], "class": p["class"], "writer": p.get("writer", "unk"),
                        "truncated": p.get("truncated", False), "visa": p["visa"],
                        "no_visa": p["no_visa"], "time_label": p["time"], "est": p["est"], "images": p["images"]}
+            old_comments = (old or {}).get("payload", {}).get("comments") if old else None
             if comments:
                 payload["comments"] = comments
+            elif old_comments:
+                payload["comments"] = old_comments  # 저장된 댓글은 보존하고 새 판정(갈래·글쓴이)만 반영
             meta = {**((old or {}).get("meta") or {"first_seen": _now()}), "last_seen": _now()}
-            if old and not comments:
-                _db().table("research_artifacts").update({"meta": meta}).eq("kind", KIND_POST).eq("name", name).execute()
-            else:
-                _upsert(KIND_POST, name, payload, meta)
+            _upsert(KIND_POST, name, payload, meta)
             new += 0 if old else 1
         hist = ((g["meta"] or {}).get("history") or [])[-89:] + [{"at": _now(), **{k: about.get(k, "") for k in ("today", "month", "total")}}]
         _upsert(KIND_GROUP, gid, {**(g["payload"] or {}), "created": about.get("created", ""), "rules_head": about.get("rules_head", ""),
@@ -504,7 +505,7 @@ def report(out_path: str) -> dict:
     groups = _rows(KIND_GROUP)
     by_class, by_group, comments = {}, {}, 0
     for p in posts:
-        if p.get("class") not in CLASS_NAMES:  # 예전 낱말 갈래 열쇠(company_q 등)로 저장된 글은 표에서 사라지지 않게 한 갈래로 모은다
+        if p.get("class") not in CLASS_NAMES or "writer" not in p:  # AI 갈래 이전 저장분(writer 칸 없음, sell·other 이름이 같아도)은 한 갈래로 모은다
             p["class"] = "legacy"
         by_class[p["class"]] = by_class.get(p["class"], 0) + 1
         g = by_group.setdefault(p.get("gid") or p["group"][:40], {})

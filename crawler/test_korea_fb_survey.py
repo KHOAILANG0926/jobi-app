@@ -54,13 +54,14 @@ check("열쇠 없음 → 모두 분류 안 됨", all(p["class"] == "unclassified
 # 3. 보고 — 예전 낱말 갈래 글
 rows = {
     k.KIND_POST: [{"payload": {"class": "company_q", "gid": "g1", "group": "G", "text": "cũ"}},
-                  {"payload": {"class": "life", "gid": "g1", "group": "G", "text": "mới"}}],
+                  {"payload": {"class": "other", "gid": "g1", "group": "G", "text": "cũ regex"}},  # 이름은 같아도 writer 없음 = 예전 저장분
+                  {"payload": {"class": "life", "writer": "kr", "gid": "g1", "group": "G", "text": "mới"}}],
     k.KIND_GROUP: [{"name": "g1", "meta": {"visits": 1}, "payload": {"members": 1000}}],
 }
 k._rows = lambda kind: rows.get(kind, [])
 with tempfile.TemporaryDirectory() as tmp:
     res = k.report(str(Path(tmp) / "r.json"))
-check("예전 갈래는 legacy로 모임", res["by_class"] == {"legacy": 1, "life": 1})
+check("예전 갈래는 legacy로 모임", res["by_class"] == {"legacy": 2, "life": 1})
 
 if fails:
     sys.exit(f"{len(fails)}개 실패: {fails}")
