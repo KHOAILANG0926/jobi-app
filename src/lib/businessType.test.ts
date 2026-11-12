@@ -60,3 +60,21 @@ console.log('businessType: all assertions passed')
   eq(businessFromGoogle(noDuty, mall)?.kind, 'retail', 'duty not stated → Google place type still decides (Wallace rule kept)')
   console.log('businessType.test.ts: 6043 업무 기재 공고 통과')
 }
+
+// #728 S7 / GPT 검토(#737): 업무 기재 판정이 화면 칸 배치 오류와 섞이지 않는지 — 주소·교대·급여·복리후생만 있는 원문은 '업무 없음'이다(Wallace 업무 미기재 경로 유지).
+{
+  const mall = { id: 'p', primaryType: 'shopping_mall', types: ['shopping_mall'] }
+  const noDuty: Array<[string, string]> = [
+    ['address+shift+salary', 'Wallace Bắc Ninh tuyển nhân viên\nĐịa chỉ: 216 Nguyễn Trãi, Bắc Ninh\nCa A: 06h30 – 14h30\nCa B: 14h – 22h\nLương 7 – 8,5 triệu/tháng\nLiên hệ: 0912345678'],
+    ['address+hours+benefits', 'Wallace Bắc Ninh tuyển nhân viên\nKhu vực làm việc: Wallace Bắc Ninh\nĐịa điểm: Số 395 Ngô Gia Tự, Bắc Ninh\nThời gian làm việc: 8h/ngày\nĐược tham gia đầy đủ các chế độ bảo hiểm\nLiên hệ 0912345678'],
+    ['banner only', 'Wallace Bắc Ninh TUYỂN GẤP NHÂN VIÊN\nLương cao, môi trường tốt\nGọi ngay 0912345678'],
+  ]
+  for (const [name, text] of noDuty) {
+    const j = { company: 'Wallace Bắc Ninh', location: '216 Nguyễn Trãi, Bắc Ninh', source_text: text }
+    eq(dutyStated(j), false, `no duty (${name})`)
+    eq(businessFromGoogle(j, mall)?.kind, 'retail', `no duty (${name}) → Google place type still decides`)
+  }
+  // 알려진 한계(미수정): 제목 없이 한 줄로 적힌 업무(KDA "Làm ngồi linh kiện…")는 업무 칸 판정이 못 읽어 '업무 없음'으로 나온다 — 이전 동작과 같고 나빠지지는 않음.
+  eq(dutyStated({ source_text: 'CTY KDA TUYỂN FULL\nLàm ngồi linh kiện tai nghe\nCa ngày: 310k/11h' }), false, 'known limitation: untitled one-line duty is not detected')
+  console.log('businessType.test.ts: 업무 없음 오탐 방지 통과')
+}
