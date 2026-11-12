@@ -175,3 +175,19 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(pub(withScreen({ state: 'none' }, true), true).active === pub(inspectJob({ ...job, active: true }), true).active, 'already public without record keeps state')
   console.log('jobInspect.test.ts: 화면 대조 항목 통과')
 }
+
+// #728 S7(5421): 원문 "Bao ăn ở"인데 기숙사 표시가 꺼져 있으면 검사표가 잡는다(검사 쪽 낱말표도 같은 사례를 읽는다). 부정문은 잡지 않는다.
+{
+  const base = { id: 5421, title: 'Tuyển phụ bếp', description: 'Bao ăn ở', meal_provided: true } as Parameters<typeof inspectJob>[0]
+  const benefits = (extra: Record<string, unknown>, text: string) => inspectJob({ ...base, ...extra, source_text: text } as Parameters<typeof inspectJob>[0]).items.find((i) => i.key === 'benefits')
+  assert(benefits({ dormitory: false }, 'Tuyển nhân viên phụ bếp\nBao ăn ở\nLương thoả thuận')?.ok === false, '5421 inspector catches dormitory off')
+  assert(benefits({ dormitory: true }, 'Tuyển nhân viên phụ bếp\nBao ăn ở\nLương thoả thuận')?.ok === true, '5421 dormitory on passes')
+  assert(benefits({ dormitory: false, description: 'Không bao ăn ở' }, 'Không bao ăn ở')?.ok === true, 'negated lodging is not a missing benefit')
+  const cash = 'Tuyển nhân viên\nHỗ trợ ăn ở: 1.000.000đ/tháng (trả tiền mặt)'
+  assert(benefits({ dormitory: false, description: cash }, cash)?.ok === true, 'cash lodging allowance is not a missing dormitory flag')
+  for (const t of ['Bao ăn ở, 2 bữa/ngày', 'Bao ăn ở (phòng 2 người)']) {
+    const txt = `Tuyển nhân viên\n${t}`
+    assert(benefits({ dormitory: false, description: txt }, txt)?.ok === false, `"${t}" with dormitory off is caught`)
+  }
+  console.log('jobInspect.test.ts: 5421 숙식 제공 통과')
+}
