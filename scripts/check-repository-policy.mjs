@@ -21,6 +21,13 @@ const SECRETS = [
 export const needsSecondReview = (path) => [...PROTECTED, ...STRICT, ...SECRETS,
   /^supabase\/migrations\//, /^\.github\/workflows\//, /^scripts\/ops\/jobs\/.*\.sql$/,
   /^scripts\/(?:codex-review-gate|check-repository-policy|decision-approval-gate|approved-migrations)\.mjs$/].some((re) => re.test(path))
+// #728 S2 정답 보호: 정답 파일(사례 원문·기대값)의 기존 줄을 생산 코드와 같은 PR에서 바꾸거나 지울 수 없다.
+// 정답을 고치는 쪽이 코드도 같이 고치면 시험이 '맞는 값'이 아니라 '지금 코드가 내는 값'을 굳힌다. 줄 추가는 자유.
+// 기대값을 정말 바꿔야 하면 생산 파일 없이 그 파일만 바꾸는 별도 PR + 설명에 `기대값 변경 근거:`(원문 인용 또는 결정 번호).
+const ANSWER_FILES = [/^src\/lib\/realJobs\.fixtures\.ts$/, /^src\/lib\/(?:company|address|salary)Reader\.test\.ts$/, /^scripts\/repro\/.+\.repro\.ts$/]
+const isProductionFile = (p) => /^(?:api|crawler|scripts\/ocr)\//.test(p)
+  || (/^src\/(?:lib|pages|components)\//.test(p) && !/\.test\.[a-z]+$/.test(p) && !ANSWER_FILES.some((re) => re.test(p)))
+const removedLines = (patch = '') => patch.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---') && !/^-\s*(?:\/\/|\*|\/\*)?\s*$/.test(l))
 const SOURCE_EXPOSURE = /\b(?:source_url|sourceUrl|originalJobUrl|externalPostingUrl)\b/
 const SRC_EXPOSURE_PATH = /^src\/(?:pages|components|context|lib)\//
 
@@ -67,6 +74,14 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
     const addedTest = (patches[`src/lib/${name}.test.ts`] ?? '').split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && !/^\+\s*(?:\/\/|\*|\/\*)/.test(l))
     if (changed.has(src) && !addedTest.some((l) => /\beq\(/.test(l)))
       errors.push(`${src}: 11-07 결정 — 고칠 때는 그 공고 사례를 ${name}.test.ts에 eq(…)로 추가해야 함`)
+  }
+  const answerEdits = paths.filter((p) => ANSWER_FILES.some((re) => re.test(p)) && removedLines(patches[p]).length)
+  if (answerEdits.length) {
+    const prod = paths.filter(isProductionFile)
+    if (prod.length)
+      errors.push(`${answerEdits.join(', ')}: 정답 파일의 기존 줄 수정·삭제는 생산 코드(${prod[0]} 등)와 같은 PR에서 할 수 없음 — 정답 변경만 별도 PR로`)
+    else if (!/기대값 변경 근거:[ \t]*\S[^\n]{9,}/.test(body))
+      errors.push(`${answerEdits.join(', ')}: 정답 파일 기존 줄 변경은 PR 설명에 '기대값 변경 근거:'(원문 인용 또는 결정 번호) 필요`)
   }
   for (const [path, patch] of Object.entries(patches)) {
     if (!SRC_EXPOSURE_PATH.test(path)) continue

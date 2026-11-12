@@ -50,6 +50,13 @@ assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STA
 // 결정 0002: 추가형 migration은 통과, 데이터 삭제·되돌리기 어려운 변경은 막음
 assert.equal(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+create table x(id int);\n' }).length, 0, 'additive DB migration allowed (decision 0002)')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+delete from public.local_jobs;\n' }).length > 0, 'destructive DB migration denied')
+// #728 S2: 정답 파일 보호
+const ans = 'src/lib/realJobs.fixtures.ts', prodF = 'src/lib/salaryReader.ts', edit = { [ans]: '-  salary: "7 triệu",\n+  salary: "8 triệu",\n' }
+assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).some((e) => e.includes('같은 PR')), 'answer edit + production code in one PR denied')
+assert.ok(evaluateFiles([ans], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit without evidence denied')
+assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).length, 0, 'answer-only PR with evidence allowed')
+assert.equal(evaluateFiles([ans, prodF], '', { [ans]: '+  salary: "9 triệu",\n' }).filter((e) => e.includes(ans)).length, 0, 'adding answer lines with production code allowed')
+assert.equal(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).length, 0, 'non-answer tests unchanged (scope stays narrow)')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+alter table public.local_jobs drop column title;\n' }).length > 0, 'dropping a column denied')
 assert.ok(evaluateFiles(['src/lib/jobDetailSections.ts']).length > 0, 'unverified detail categorization denied')
 assert.deepEqual(evaluateFiles(['src/lib/jobDetailSections.ts', 'src/lib/jobDetailSections.test.ts']), [], 'covered detail classification allowed')
