@@ -18,7 +18,7 @@ jobs:
         run: |
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && break; sleep 1; done
-          node scripts/demo/capture-motion.mjs 4828
+          node scripts/demo/capture-motion.mjs 5157
           montage out/pc-*.png -tile 2x -geometry +4+4 out/pc-sheet.png || true
           montage out/mobile-*.png -tile 4x -geometry +4+4 out/mobile-sheet.png || true
       - name: 저장 (screens 브랜치 demo 칸 — 운영 모바일 캡처 칸은 그대로, Codex #680)

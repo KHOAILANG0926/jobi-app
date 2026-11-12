@@ -2,18 +2,16 @@
 // 대상: 기준 시각 이후 수집 공고 중 직업 코드가 없는 공고, 또는 업종 종류(kind) 기록 없이 코드 5가 된 공고(관리자 숨김 제외). 같은 원문으로 이미 시도했으면 다시 하지 않는다.
 // 기록: 직업 코드·근거는 ingest_job 한 입구로, 판단 출처(이름/검색 URL·인용문)는 ocr_check.business_type에.
 // 순서(Lee 2026-11-08): ① 업체 이름 → ② 위치 확인이 저장해 둔 Google 결과의 장소 종류(새 Google 검색 없음) → ③ Google이 장소를 모를 때만 AI 인터넷 검색.
-// BUSINESS_ALL_JOBS=1이면 기준 시각 이전 공고도 한 번 다시 본다(Lee 2026-11-08 "공고 적은 지금 다시 판정", 워크플로 수동 실행 입력).
 // 필요 환경변수: SUPABASE_DB_URL (검색에는 ANTHROPIC_API_KEY — 없으면 이름·Google 단계만)
 import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
 import { cachedGooglePlace } from '../../src/lib/logoLookup.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
-import { afterCutoff } from '../ops/auto-cutoff.mjs'
+import { autoScope } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 const MODEL = process.env.BUSINESS_AI_MODEL || 'claude-sonnet-5-5'  // 인터넷 검색 판정은 Haiku 비교 시험을 안 했으므로 그대로(PR #546은 칸·복리후생만 시험)
-const ALL_JOBS = process.env.BUSINESS_ALL_JOBS === '1'
 // Google 단계를 붙인 판(2026-11-08). 이미 시도한 공고도 이 단계로 한 번 다시 본다. 이 단계 규칙을 바꾸면 올린다.
 const GOOGLE_STEP_VERSION = 'google-types-v1'
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -59,7 +57,7 @@ try {
            ocr_check->'business_type'->>'src_hash' as tried
     from public.local_jobs
     where origin = 'crawler' and not admin_hidden and (occupation_code is null or (occupation_code = '5' and ocr_check->'business_type'->>'kind' is null)) and coalesce(source_text,'') <> ''
-      and ${ALL_JOBS ? 'true' : afterCutoff()}
+      and ${autoScope()}
     order by id`, [`${WEB_PROMPT_VERSION}|${GOOGLE_STEP_VERSION}`])
   console.log(`업종 확인 대상 ${rows.length}건`)
   for (const job of rows) {

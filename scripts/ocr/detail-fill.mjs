@@ -10,7 +10,7 @@ import { fillMissingLines, KIND_RULES } from '../../src/lib/jobDetailFill.ts'
 import { buildDescriptionFromSources, UNSPECIFIED_DUTIES_NOTICE } from '../../src/lib/jobDescriptionBuild.ts'
 import { readSalary } from '../../src/lib/salaryReader.ts'
 import { readWorkTime } from '../../src/lib/jobDescriptionExtract.ts'
-import { afterCutoff } from '../ops/auto-cutoff.mjs'
+import { autoScope, ALL_JOBS } from '../ops/auto-cutoff.mjs'
 
 const { SUPABASE_DB_URL } = process.env
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
@@ -38,8 +38,9 @@ try {
            case when j.ocr_check->>'reader' = 'ai-v1' then j.ocr_text end as ocr_text,
            coalesce((select array_agg(w.raw_address) from public.job_work_locations w where w.job_id = j.id), '{}') as addresses
     from public.local_jobs j
-    where j.origin in ('crawler','admin') and ${afterCutoff('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
-      and (jsonb_typeof(j.images) is distinct from 'array' or jsonb_array_length(j.images) = 0 or j.ocr_check->>'status' is not null)
+    where j.origin in ('crawler','admin') and ${autoScope('j')}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다(수동 all_jobs 한 번 정리만 예외, auto-cutoff.mjs)
+      -- 사진 공고는 OCR 기록 뒤에 채운다. 기존 공고 한 번 정리(all_jobs)는 OCR을 다시 하지 않으므로 원문 글이 있으면 원문으로 다시 만든다(Codex #719).
+      and (jsonb_typeof(j.images) is distinct from 'array' or jsonb_array_length(j.images) = 0 or j.ocr_check->>'status' is not null${ALL_JOBS ? " or coalesce(j.source_text, '') <> ''" : ''})
       and (j.ocr_check->'detail_fill'->>'hash') is distinct from ${HASH.replace(/\b(description|source_text|ocr_text)\b/g, 'j.$1')}
     order by j.id limit 500`)
   console.log(`보충 검사 대상 ${rows.length}건`)
@@ -57,9 +58,18 @@ try {
         }
       }
       // 근무시간·교대(#622): 원문에 있으면 빈칸만 채운다(사람이 쓴 값·이미 있는 값은 그대로). 읽는 곳 하나 readWorkTime.
+      // 원문 글이 먼저, 원문에 시간이 없을 때만 포스터 글자(급여 읽기와 같은 순서, 상세 ④ "원문 있으면 포스터 글자 안 넣음").
+      //  2026-11-12 sb-5157: 원문·포스터를 함께 읽어 같은 교대가 표기만 달리 두 번(06h30 – 14h30 / 6h30 - 14h30) 들어갔다.
+      //  예전에 이 함수가 원문+포스터로 채운 값(사람이 쓴 값 아님)은 새 값으로 바꾼다.
       {
-        const wt = readWorkTime(job.source_text, job.ocr_text)
-        const hours = !String(job.hours ?? '').trim() && wt.hours ? wt.hours : null
+        const fromPost = readWorkTime(job.source_text)
+        const both = readWorkTime(job.source_text, job.ocr_text)
+        // 칸마다 원문 먼저(Codex #723: 원문에 교대 종류만 있고 시간이 없으면 시간은 포스터에서).
+        const wt = { hours: fromPost.hours ?? both.hours, shiftType: fromPost.shiftType ?? both.shiftType,
+          rotatingShifts: fromPost.rotatingShifts ?? both.rotatingShifts }
+        const now = String(job.hours ?? '').trim()
+        const oldMachine = now && now === (both.hours ?? '') && now !== (wt.hours ?? now)
+        const hours = (!now || oldMachine) && wt.hours ? wt.hours : null
         const shift = !job.shift_type && wt.shiftType ? wt.shiftType : null
         // 교대 수는 교대 유형과 따로 빈칸만(이미 rotating인데 수가 비었을 때도, Codex #628)
         const rotatingNow = (shift ?? job.shift_type) === 'rotating'
