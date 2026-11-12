@@ -7,6 +7,7 @@
  * 특정 회사·공고 번호 분기 없음. 순수 함수(브라우저 수집은 scripts/ops/screen-audit.mjs).
  */
 import { companyLine, companyLineBroken, detailTitle } from './companyBranch.ts'
+import { sourceLines, hasPayAmount, timeRanges, promoLike } from './inspectReading.ts'
 
 export type ScreenView = {
   device: string
@@ -21,6 +22,8 @@ export type ScreenView = {
   /** 켜진 복리후생 아이콘 key(BENEFIT_ORDER) */
   benefits: string[]
   salary?: string | null
+  /** 승인된 4영역(10-30 확정)의 화면 글자: ① Điều kiện làm việc ② Thông tin tuyển dụng ③ Khu vực làm việc ④ Mô tả công việc. 못 읽으면 없음 */
+  areas?: Partial<Record<'①' | '②' | '③' | '④', string>>
 }
 export type ScreenJob = {
   id: number
@@ -29,6 +32,8 @@ export type ScreenJob = {
   source_text?: string | null
   ocr_text?: string | null
   employer_phone?: string | null
+  /** 공식 직업분류 코드(최상위 5 = 서비스·판매) */
+  occupation_code?: string | null
   contact_zalo?: string | null
   /** 근무지 1곳일 때 Google이 회사 이름으로 찾은 장소 좌표(핀 출처 Google) */
   googlePin?: { lat: number; lng: number } | null
@@ -148,6 +153,10 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
       const miss = shown.filter((n) => !srcAmounts.has(n))
       if (miss.length) add('salary', false, d, `화면 급여 "${String(v.salary).slice(0, 60)}"의 ${miss.map((n) => n.toLocaleString('vi-VN')).join(', ')}이 원문 금액에 없음`)
     }
+    // ⑦ 항목이 맞는 영역에 나오는가(운영 공고 전체용 독립 판정 — 원문 줄의 종류를 글자 모양으로만 읽는다, R2 #753)
+    for (const f of areaFindings(job, source, v)) add(f.key, f.sure, d, f.detail)
+    // ⑧ 업종: 공단·공장 글인데 서비스·판매(5)로 분류됐나 — 원문 업무로 사람이 봐야 하므로 판정 불명확
+    if (/^5/.test(String(job.occupation_code ?? '')) && FACTORY_WORDS.test(srcFold) && !SHOP_WORDS.test(srcFold)) add('industry', false, d, `업종 코드 ${job.occupation_code}(서비스·판매)인데 원문은 공단·공장 글(가게 낱말 없음)`)
   }
   // 같은 내용이 PC·모바일 둘 다 나오면 한 줄로
   const seen = new Map<string, ScreenFinding>()
@@ -158,3 +167,47 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
   }
   return [...seen.values()]
 }
+
+const FACTORY_WORDS = /\b(?:kcn|khu cong nghiep|vsip|nha may|cong nhan|xuong san xuat|lap rap)\b/
+const SHOP_WORDS = /\b(?:cua hang|quan an|nha hang|ca phe|cafe|coffee|tap hoa|sieu thi|shop|phuc vu|thu ngan|ban hang|bep)\b/
+const AREA_TITLE: Record<'①' | '②' | '③' | '④', string> = { '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng', '③': 'Khu vực làm việc', '④': 'Mô tả công việc' }
+
+/**
+ * 원문 줄의 종류를 글자 모양으로 읽어(연락처·모집 조건·급여·근무시간), 그 줄이 나와선 안 되는 영역에 나오면 확정 오류.
+ * 허용 영역은 10-30 확정 구성: 연락처 → ④ / 모집 조건 → ② 또는 ④(원문 보존) / 급여·근무시간 → ① 또는 ④.
+ * 영역을 못 읽으면 통과가 아니라 '미검증'(불명확)으로 남긴다. 연락처 번호가 ④에 하나도 없으면 빠짐 의심(불명확).
+ */
+export function areaFindings(job: ScreenJob, source: string, view: ScreenView): ScreenFinding[] {
+  const out: ScreenFinding[] = []
+  const d = view.device
+  const areas = view.areas
+  const keys = Object.keys(AREA_TITLE) as Array<keyof typeof AREA_TITLE>
+  if (!areas) return []   // 수집기가 영역을 모으지 않은 호출(이전 호출자)은 대조 생략
+  if (!keys.some((k) => (areas[k] ?? '').trim())) return [{ key: 'areas', sure: false, device: d, detail: '화면의 4영역 글자를 읽지 못함 — 배치 미검증' }]
+  const missing = keys.filter((k) => !(areas[k] ?? '').trim()).filter((k) => k === '④')
+  if (missing.length) out.push({ key: 'areas', sure: false, device: d, detail: '④ Mô tả công việc 영역을 읽지 못함 — 배치 미검증' })
+  const text = Object.fromEntries(keys.map((k) => [k, fold(canonMoney(areas[k] ?? ''))])) as Record<string, string>
+  const phones = new Set<string>(); for (const m of source.matchAll(/(?:\+?84|0)[\d\s.\-]{8,14}\d/g)) { const n = phoneDigits(m[0]); if (n.length >= 9 && n.length <= 11) phones.add(n) }
+  for (const raw of sourceLines(job.source_text)) {
+    if (promoLike(raw)) continue
+    const f = fold(canonMoney(raw)).trim()
+    if (f.length < 10) continue
+    const where = keys.filter((k) => text[k].includes(f))
+    if (!where.length) continue
+    const isContact = [...raw.matchAll(/(?:\+?84|0)[\d\s.\-]{8,14}\d/g)].some((m) => phoneDigits(m[0]).length >= 9) || /\bzalo\b/.test(f)
+    const isRequirement = /\b(?:gioi tinh|do tuoi|nam nu|nam\/nu|hoc van|bang cap|yeu cau)\b/.test(f) && !isContact
+    const isPayOrTime = !isContact && !isRequirement && (hasPayAmount(raw) || timeRanges(raw).length > 0)
+    const allowed: string[] | null = isContact ? ['④'] : isRequirement ? ['②', '④'] : isPayOrTime ? ['①', '④'] : null
+    if (!allowed) continue
+    const bad = where.filter((k) => !allowed.includes(k))
+    // 허용 영역에도 나오면(승인된 표시 변환·반복) 오류로 보지 않는다 — 허용 영역에 전혀 없고 금지 영역에만 있을 때
+    if (bad.length && !where.some((k) => allowed.includes(k))) out.push({ key: 'placement', sure: true, device: d, detail: `원문 줄 "${raw.slice(0, 50)}"이 ${bad.map((k) => k + AREA_TITLE[k as keyof typeof AREA_TITLE]).join(', ')}에 있음 — 허용 영역 ${allowed.join('·')}` })
+  }
+  if (phones.size && (areas['④'] ?? '').trim()) {
+    const four = String(areas['④']).replace(/\D/g, '')
+    if (![...phones].some((n) => four.includes(n.replace(/^0/, '')))) out.push({ key: 'placement', sure: false, device: d, detail: '원문 연락처 번호가 ④ 영역에 없음(빠짐 의심)' })
+  }
+  return out
+}
+// 금액 모양 통일(화면은 310k → 310.000đ 처럼 모양만 바꾼다): 천 단위 점·쉼표를 없애고 k는 000으로
+const canonMoney = (s: string) => s.replace(/(\d)[ \u00a0]+(?=\d)/g, '$1').replace(/(\d{1,3}(?:[.,]\d{3})+)/g, (m) => m.replace(/[.,]/g, '')).replace(/(\d+)\s*k\b/gi, '$1000')

@@ -39,3 +39,13 @@ export async function readPublicSnapshot(client, pageSize=500) {
   const {rows:caches}=await client.query('select job_id,source_points from public.map_r1_location_jobs where job_id=any($1::bigint[])',[ids])
   return jobs.map(job=>({ ...job,points:sourcePoints(locations.filter(w=>String(w.job_id)===String(job.id))),cache:caches.find(c=>String(c.job_id)===String(job.id))?.source_points??[] }))
 }
+// 오래 걸리는 운영 감사는 공고 목록을 먼저 읽고 나중에 화면·API와 대조하므로, 그 사이 공고가 비공개로 바뀌거나 위치가 바뀌면 불일치가 난다(2026-11-12 180f24b 첫 deploy-verify 실패: 5342).
+// 실패를 받으면 그 공고를 지금 상태로 다시 읽어, 더는 공개가 아니거나 원본 위치가 처음 읽은 것과 달라졌을 때만 'changed'(감사 도중 변경)로 구분하고, 그대로인데 어긋나면 원래 오류를 그대로 던진다.
+export async function settleChange(error, job, readFresh) {
+  const fresh=await readFresh(job.id)
+  if(!fresh?.public) return 'changed'
+  let same
+  try { same=JSON.stringify(canonical(fresh.points))===JSON.stringify(canonical(job.points)) } catch { same=false }
+  if(!same) return 'changed'
+  throw error
+}

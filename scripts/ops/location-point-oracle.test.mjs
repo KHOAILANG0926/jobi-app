@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {sourcePoints,assertPoints,pointsForJob,readPublicSnapshot} from './location-point-oracle.mjs'
+import {sourcePoints,assertPoints,pointsForJob,readPublicSnapshot,settleChange} from './location-point-oracle.mjs'
 const point=(id,kind='exact')=>({workLocationId:id,lat:21+id/100,lng:106,kind,precision:kind==='exact'?'building':'commune',revision:2})
 test('empty public database is valid and still reads source and cache',async()=>{
  const queries=[]
@@ -24,4 +24,10 @@ test('keyset pagination continues across full pages with no fixed job count',asy
  const pages=[[{id:2},{id:9}],[{id:12}],[],[]];const parameters=[]
  const result=await readPublicSnapshot({query:async(sql,args)=>{parameters.push(args);return {rows:pages.shift()}}},2)
  assert.deepEqual(result.map(j=>j.id),[2,9,12]);assert.equal(parameters[1][0],9)
+})
+test('감사 도중 비공개로 바뀐 공고는 changed, 그대로인데 어긋나면 원래 오류',async()=>{
+ const job={id:5342,points:[point(1)]};const boom=new Error('public cache full point set missing')
+ assert.equal(await settleChange(boom,job,async()=>({public:false,points:[]})),'changed')
+ assert.equal(await settleChange(boom,job,async()=>({public:true,points:[point(1,'area')]})),'changed','원본 위치가 바뀜')
+ await assert.rejects(()=>settleChange(boom,job,async()=>({public:true,points:[point(1)]})),boom)
 })
