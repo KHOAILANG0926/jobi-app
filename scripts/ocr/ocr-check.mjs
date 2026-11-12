@@ -8,6 +8,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { compareWithOcr, canRepublish } from './ocr-compare.mjs'
+import { ocrCheckUpdateSql } from './ocr-check-write.mjs'
 import { readSalary } from '../../src/lib/salaryReader.ts'
 import { readImageAI, READER_ID } from './ai-reader.mjs'
 import { afterCutoff } from '../ops/auto-cutoff.mjs'
@@ -85,12 +86,7 @@ try {
       // images_hash는 DB의 md5(images::text)와 같아야 재처리 루프가 생기지 않으므로 DB에서 계산한다.
       const hold = res.status === 'mismatch'
       await client.query(
-        `update public.local_jobs set ocr_text = $2, ocr_check = jsonb_set(
-          jsonb_set($3::jsonb, '{images_hash}', to_jsonb(md5(images::text))),
-          '{compared_hash}', to_jsonb(md5(to_jsonb(array[
-            employer_phone, contact_zalo, salary, contact_name, company,
-            age_min::text, age_max::text
-          ])::text))) ${hold ? ', active = false' : ''} where id = $1`,
+        ocrCheckUpdateSql(hold),
         [job.id, text, JSON.stringify(check)])
       if (hold) { held++; console.log(`보류 #${job.id}: ${res.mismatches.map((m) => m.field).join(', ')}`); console.log(`::warning title=R7 보류 #${job.id}::불일치 항목 ${res.mismatches.map((m) => m.field).join(', ')}`) } else ok++
       // OCR 'ok' → OCR 단계에서 공개로 되돌린다(기존 공개 조건 통과분만). 정책 판정(R4)은 DB 트리거가 강제:
