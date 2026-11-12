@@ -21,6 +21,13 @@ const SECRETS = [
 export const needsSecondReview = (path) => [...PROTECTED, ...STRICT, ...SECRETS,
   /^supabase\/migrations\//, /^\.github\/workflows\//, /^scripts\/ops\/jobs\/.*\.sql$/,
   /^scripts\/(?:codex-review-gate|check-repository-policy|decision-approval-gate|approved-migrations)\.mjs$/].some((re) => re.test(path))
+// #728 S5 검사 독립: 검사 파일이 새로 생산 코드(상대 경로 import)를 끌어오면 막는다 — 검사가 만드는 쪽과 같은 함수·단어표를 쓰면
+// 생산이 틀릴 때 검사도 같이 틀린다(결정 0004 독립 판독자). 이미 있는 import는 그대로 두고(줄기만 하는 목록), `import type`은 허용.
+// 같은 import를 옮긴 것(지운 줄에 같은 경로가 있음)도 허용. 새 import가 꼭 필요하면 정답 쪽(독립 코드)으로 만들거나 별도 결정.
+const INSPECT_FILES = [/^src\/lib\/(?:jobInspect|screenAudit)\.ts$/, /^scripts\/ops\/(?:detail-read|location-ladder-compare)\.mjs$/, /^scripts\/ops\/[^/]*check[^/]*\.mjs$/]
+const importPaths = (patch, sign) => patch.split('\n').filter((l) => l.startsWith(sign) && !l.startsWith(sign.repeat(3)))
+  .filter((l) => !/^.\s*import\s+type\b/.test(l))
+  .map((l) => /\bfrom\s+['"](\.{1,2}\/[^'"]+)['"]|^.\s*import\s+['"](\.{1,2}\/[^'"]+)['"]/.exec(l)).filter(Boolean).map((m) => m[1] ?? m[2])
 const SOURCE_EXPOSURE = /\b(?:source_url|sourceUrl|originalJobUrl|externalPostingUrl)\b/
 const SRC_EXPOSURE_PATH = /^src\/(?:pages|components|context|lib)\//
 
@@ -67,6 +74,12 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
     const addedTest = (patches[`src/lib/${name}.test.ts`] ?? '').split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && !/^\+\s*(?:\/\/|\*|\/\*)/.test(l))
     if (changed.has(src) && !addedTest.some((l) => /\beq\(/.test(l)))
       errors.push(`${src}: 11-07 결정 — 고칠 때는 그 공고 사례를 ${name}.test.ts에 eq(…)로 추가해야 함`)
+  }
+  for (const path of paths.filter((p) => INSPECT_FILES.some((re) => re.test(p)))) {
+    const removed = new Set(importPaths(patches[path] ?? '', '-'))
+    const added = importPaths(patches[path] ?? '', '+').filter((m) => !removed.has(m))
+    if (added.length)
+      errors.push(`${path}: 검사 파일이 새로 생산 코드(${added[0]})를 import함 — 검사는 만드는 쪽과 같은 함수·기준을 쓰면 안 됨(독립 판독, #728 S5)`)
   }
   for (const [path, patch] of Object.entries(patches)) {
     if (!SRC_EXPOSURE_PATH.test(path)) continue

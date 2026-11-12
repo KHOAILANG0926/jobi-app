@@ -44,6 +44,16 @@ assert.ok(checkCompletion('').length > 0)
 assert.deepEqual(checkCompletion(valid.replace('https://github.com/KHOAILANG0926/jobi-app/actions/runs/12345', 'pending'), '1234567890123456789012345678901234567890'), [], 'no link needed')
 assert.ok(checkCompletion(valid.replace('- [x] READY FOR APPROVAL', '- [ ] READY FOR APPROVAL')).length > 0)
 assert.deepEqual(checkCompletion(valid.replaceAll('| success | 1234567890123456789012345678901234567890 |', '| pending | (검사 후 자동 확인) |'), '1234567890123456789012345678901234567890'), [], 'pending before checks allowed')
+// #728 S5: 검사 파일의 새 생산 코드 import 금지
+{
+  const f = 'src/lib/jobInspect.ts'
+  const add = (l) => ({ [f]: `+${l}\n` })
+  assert.ok(evaluateFiles([f], '', add("import { benefitHints } from './aiClassifyGuard.ts'")).some((e) => e.includes('독립 판독')), 'new production import in inspector denied')
+  assert.equal(evaluateFiles([f], '', add("import type { Job } from './jobTypes.ts'")).length, 0, 'import type allowed')
+  assert.equal(evaluateFiles([f], '', { [f]: "-import { a } from './x.ts'\n+import { a, b } from './x.ts'\n" }).length, 0, 'existing import path kept is allowed')
+  assert.ok(evaluateFiles(['scripts/ops/detail-read.mjs'], '', { 'scripts/ops/detail-read.mjs': "+import { x } from '../../src/lib/jobCoords.ts'\n" }).length > 0, 'ops check script denied too')
+  assert.equal(evaluateFiles(['src/lib/salaryReader.ts'], '', { 'src/lib/salaryReader.ts': "+import { a } from './b.ts'\n" }).filter((e) => e.includes('독립')).length, 0, 'non-inspector files unaffected')
+}
 console.log('PR completion guard: 7/7 passed')
 
 assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STATUS edits denied')
