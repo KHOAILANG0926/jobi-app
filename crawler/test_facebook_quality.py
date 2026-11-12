@@ -10,6 +10,7 @@ from crawl_facebook import (
     extract_post_id,
     evaluate_post,
     filter_new_jobs,
+    is_facebook_row,
     load_seen_state,
     miss_risk,
     order_consistency,
@@ -267,6 +268,19 @@ def test_db_dedup_survives_extraction_change_and_lost_state() -> None:
     assert_equal(len(filter_new_jobs([other], existing)), 1, "different post is kept")
 
 
+def test_db_dedup_after_description_rebuilt() -> None:
+    # #633 ZHAN AN: 등록 뒤 상세요강이 원문에서 다시 만들어져 "[source:facebook]" 표시가 없어진 행도
+    # Facebook 공고로 읽고(원문 주소), 원문(source_text)으로 같은 글을 알아본다.
+    text = "Cần tuyển 2 bạn phục vụ quán cafe, lương 7 triệu/tháng, Zalo 0988000111"
+    job = parse_post({"text": text, "location": "Bắc Ninh"})
+    rebuilt = {"title": "옛 제목", "company": "옛 회사", "description": "Nội dung công việc\nPhục vụ quán cafe",
+               "source_text": text, "source_url": "https://www.facebook.com/1479000000000000"}
+    assert_equal(is_facebook_row(rebuilt), True, "rebuilt row is still a Facebook row (source_url)")
+    assert_equal(is_facebook_row({"description": "[source:facebook] x"}), True, "marker row")
+    assert_equal(is_facebook_row({"description": "x", "source_url": "https://www.topcv.vn/1"}), False, "other source")
+    assert_equal(filter_new_jobs([job], [rebuilt]), [], "same post must not be re-saved after rebuild")
+
+
 # 2026-09-28 VPS DRY-RUN에서 실제 수집된 두 글
 PM_JOB_TEXT = """TUYỂN DỤNG QUẢN LÝ DỰ ÁN - KCN VSIP BẮC NINH
  LƯƠNG: upto 30 TRIỆU/THÁNG
@@ -376,6 +390,7 @@ def main() -> int:
         test_dedup_title_edit_and_cross_group_repost,
         test_seen_state_backup_used_when_main_file_corrupt,
         test_db_dedup_survives_extraction_change_and_lost_state,
+        test_db_dedup_after_description_rebuilt,
         test_truncated_post_detection,
         test_required_fields_block_truncated_and_accept_full,
         test_salary_and_company_from_real_posts,

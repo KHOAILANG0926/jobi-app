@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import unicodedata
-from crawl_facebook import parse_post, supabase
+from crawl_facebook import is_facebook_row, parse_post, supabase
 import ingest_gateway
 from pin_guard import merge_store_rows
 from ingest_gateway import ingest_job
@@ -39,8 +39,7 @@ def refresh_existing(job_id: int):
     if old.get("origin") != "crawler" or old.get("admin_hidden"):
         raise RuntimeError("Cannot refresh a non-crawler or admin-hidden job")
     text = old.get("source_text") or ""
-    # 2026-11-01: 상세요강은 원문에서 다시 만들어져 "[source:facebook]" 표시가 사라진다 → 원문 주소(source_url)로도 판단.
-    from_facebook = "[source:facebook]" in (old.get("description") or "") or "facebook.com/" in (old.get("source_url") or "")
+    from_facebook = is_facebook_row(old)
     if not text or not from_facebook:
         raise RuntimeError("Not a preserved Facebook source post")
     group_location = ""

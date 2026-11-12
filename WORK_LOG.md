@@ -1,3 +1,8 @@
+## 2026-11-12 밤 — Facebook 기존 공고 찾기: 상세요강 다시 만든 공고도 (#633 ZHAN AN)
+- 원인 [직접 확인 코드]: 수집기 기존 공고 목록·관리자 다시 처리·규칙 변경 대기열이 상세요강(description)의 "[source:facebook]" 표시로 Facebook 공고를 찾는데, detail-fill이 상세요강을 원문에서 다시 만들며 표시가 사라짐 → "기존 facebook 공고 0개", 중복은 DB 입구만 잡음. refresh_facebook_existing만 11-01에 source_url로 고쳐져 있었음(수평 전개 누락).
+- 변경: crawl_facebook.is_facebook_row 한 곳(표시 또는 원문 주소)으로 수집기·다시 처리·대기열이 같이 씀, 관리자 API(admin-reprocess.js)도 같은 기준. 중복 지문은 원문(source_text)으로도 만듦. 시험 1개 추가.
+- 지운 것/합친 것: refresh_facebook_existing 안의 판단 줄을 공용 함수로 옮김.
+
 ## 2026-11-12 — 다시 처리 전후 지도 핀 비교 + 매장 줄 합치기 실제 공고 시험 (Lee "이런 거는 어떻게 고치냐")
 - 원인 [직접 확인]: 11-11~12 KRIK·MediaMart 다시 처리의 같은 매장 핀 2개·핀 빠짐을 운영 지도 자료로 사람이 확인해서야 알았다(처리 결과는 '제목·R7' 확인뿐).
 - 변경: crawler/pin_guard.py — 다시 처리 전 핀 기록 → 마무리 단계에서 다시 읽어 비교(핀 수 감소·같은 좌표 2개면 location_regression, ::error:: 표시, 공개 상태는 안 바꿈). 매장 줄 합치기(merge_store_rows)를 순수 함수로 옮겨 실제 공고 주소(5992·5994)로 시험.

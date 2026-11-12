@@ -1097,8 +1097,10 @@ def filter_new_jobs(jobs: list[dict], existing_rows: list[dict]) -> list[dict]:
     """기존 facebook 행(title/company/description)과 겹치지 않는 공고만. 같은 실행 안의
     중복도 걸러낸다. 키: ① 제목+회사 ② 본문 지문 ③ 제목 뺀 본문 지문."""
     seen_tc = {title_company_key(r) for r in existing_rows}
-    seen_fp = {text_fingerprint(r.get("description", "")) for r in existing_rows}
-    seen_tail = {body_tail_fingerprint(r.get("description", "")) for r in existing_rows} - {None}
+    # 상세요강(description)은 등록 뒤 원문에서 다시 만들어지므로, 원문(source_text)이 있으면 그것으로도 지문을 만든다(#633).
+    bodies = [b for r in existing_rows for b in (r.get("description"), r.get("source_text")) if b]
+    seen_fp = {text_fingerprint(b) for b in bodies}
+    seen_tail = {body_tail_fingerprint(b) for b in bodies} - {None}
     fresh = []
     for job in jobs:
         desc = job.get("description", "")
@@ -1113,19 +1115,25 @@ def filter_new_jobs(jobs: list[dict], existing_rows: list[dict]) -> list[dict]:
     return fresh
 
 
+def is_facebook_row(row: dict) -> bool:
+    """DB 공고 행이 Facebook 원문 공고인지. 상세요강은 등록 뒤 원문에서 다시 만들어져 "[source:facebook]" 표시가
+    사라지므로(2026-11-01) 원문 주소(source_url, DB 전용)로도 본다. 판단은 이 함수 한 곳에서 한다(#633)."""
+    return "[source:facebook]" in (row.get("description") or "") or "facebook.com/" in (row.get("source_url") or "")
+
+
 def fetch_existing_facebook_rows(page_size: int = 1000) -> list[dict]:
-    """PostgREST 기본 행 제한(1000)에 잘리지 않도록 페이지 단위로 전부 읽는다."""
+    """수집기 공고 중 Facebook 원문 공고 전부. PostgREST 기본 행 제한(1000)에 잘리지 않도록 페이지 단위로 읽는다."""
     rows: list[dict] = []
     start = 0
     while True:
         res = supabase.table("local_jobs") \
-            .select("id,title,company,description") \
-            .like("description", "%[source:facebook]%") \
+            .select("id,title,company,description,source_text,source_url") \
+            .eq("origin", "crawler") \
             .order("id") \
             .range(start, start + page_size - 1) \
             .execute()
         batch = res.data or []
-        rows.extend(batch)
+        rows.extend(r for r in batch if is_facebook_row(r))
         if len(batch) < page_size:
             return rows
         start += page_size
