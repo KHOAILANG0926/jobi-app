@@ -13,18 +13,16 @@ const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/
 // 실제 공고 번호가 있는 대표 공고는 그 번호 그대로 재생한다(KDA sb-4824는 기존 틀, 나머지는 최신 틀 — usesAlbamonLayout이 번호로 틀을 고름). 번호 없는 합성 사례만 94만대
 const jobs = R2_ORACLE.map((o, i) => ({ o, row: { id: /^\d{4}\b/.test(o.id) ? Number(o.id.slice(0, 4)) : 940000 + i, title: o.ctx.title, company: o.ctx.company, salary: o.ctx.salary, location: o.ctx.addresses[0] ?? '', employer_phone: o.ctx.phones[0] ?? null,
   source_text: o.source, active: true, posted_at: '2026-11-04', description: buildDescriptionFromSources([{ name: 'source_text', text: o.source }], o.ctx).description } }))
-// 숫자 낱말 비교(급여 줄은 화면에서 310k → 310.000đ, "12 -> 17 triệu" → "12 - 17 triệu"처럼 모양만 바뀌므로 글자 대신 숫자로 본다)
-const nums = (s) => [...String(s).toLowerCase().matchAll(/(\d[\d.,]*)\s*(k|tr|triệu)?/g)].map((m) => { const n = m[1].replace(/[.,]/g, ''); return m[2] === 'k' ? n + '000' : n })
+// 금액 표기 정규화(화면은 310k → 310.000đ처럼 금액 모양만 바꾼다): 금액 조각만 '#숫자'로 통일하고 줄의 나머지 글자(문맥)는 그대로 둔 채 줄 전체를 비교한다
+// — 숫자만 같으면 통과시키지 않는다(날짜의 "13"이 "lương tháng 13" 줄을 대신하지 못함, Codex 지적)
+const canon = (s) => String(s).replace(/(\d[\d.,]*)\s*(k|tr|triệu|vnđ|vnd|đ)?(?![a-zà-ỹ])/gi, (_, d, u) => {
+  const n = d.replace(/[.,]/g, ''); const x = (u ?? '').toLowerCase()
+  return ` #${x === 'k' ? n + '000' : x === 'tr' || x === 'triệu' ? n + '000000' : n} `
+})
 const classify = (areaText, f) => {
-  const e = norm(f.evidence)
-  // 영역마다 원문 글자 또는(급여 줄만) 숫자 변환 표기를 따로 대조해 합친다 — 한 영역에서 찾았다고 다른 영역의 변환 표기를 건너뛰지 않는다
-  const n = f.section === '04' ? nums(f.evidence) : []
-  return Object.entries(areaText).filter(([, t]) => {
-    if (norm(t).includes(e)) return true
-    if (!n.length) return false
-    const have = new Set(nums(t))
-    return n.every((x) => have.has(x) || have.has(x + '000'))
-  }).map(([k]) => k)
+  const e = norm(canon(f.evidence))
+  // 영역마다 따로 대조해 합친다 — 한 영역에서 찾았다고 다른 영역을 건너뛰지 않는다
+  return Object.entries(areaText).filter(([, t]) => norm(canon(t)).includes(e)).map(([k]) => k)
 }
 const failures = []
 let checks = 0
@@ -70,13 +68,18 @@ try {
         if (!f.some((a) => !ALLOWED_AREAS['01'].includes(a))) failures.push(`✗ [${o.id}] 음성 대조 실패: 업무 줄을 ② 영역에 넣어도 검사가 못 잡음`)
       }
       // 음성 대조 2: 급여 줄(변환 표기 대조 대상)이 이미 허용 영역에 있어도, 금지된 ② 영역에 변환 표기로 나오면 잡아야 한다
-      const pay = o.facts.find((f) => f.section === '04' && nums(f.evidence).length)
+      const pay = o.facts.find((f) => f.section === '04' && /\d/.test(f.evidence))
       if (pay) {
         const ok = ALLOWED_AREAS['04'][0]
-        const injected = { [ok]: pay.evidence, '②': nums(pay.evidence).join(' ') }
+        const converted = pay.evidence.replace(/(\d+)k(?![a-zà-ỹ])/gi, '$1.000đ')
+        const injected = { [ok]: pay.evidence, '②': converted }
         const f = classify(injected, pay)
         checks++
         if (!f.some((a) => !ALLOWED_AREAS['04'].includes(a))) failures.push(`✗ [${o.id}] 음성 대조 실패: 급여 줄이 허용 영역에 있고 ② 영역에도 변환 표기로 있는데 검사가 못 잡음`)
+        // 음성 대조 3: 줄은 빠지고 같은 숫자만 다른 문맥(날짜 등)에 있으면 빠짐으로 잡아야 한다
+        const onlyNums = { [ok]: 'Yêu cầu: Có thể làm việc từ ngày ' + (pay.evidence.match(/\d[\d.,]*/g) ?? []).join(' ') }
+        checks++
+        if (norm(pay.evidence).replace(/\d+/g, '').trim().length > 0 && classify(onlyNums, pay).length) failures.push(`✗ [${o.id}] 음성 대조 실패: 급여 줄이 없고 숫자만 다른 문맥에 있는데 검사가 통과시킴`)
       }
     }
     await context.close()
