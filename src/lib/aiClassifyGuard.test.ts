@@ -61,6 +61,7 @@ assert(ruleConfirmedFlags(aiOnly, multiRole).length === 0, 'multi-role meal neve
   const dorm = [{ code: 'dormitory' as const, evidence: 'Bao ăn ở' }, { code: 'meal_provided' as const, evidence: 'Bao ăn ở' }]
   assert(ruleConfirmedFlags(dorm, 'Tuyển phụ bếp\nBao ăn ở\nLương thoả thuận').includes('dormitory'), '5421 "Bao ăn ở" turns the dormitory flag on')
   assert(ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: 'Hỗ trợ ăn ở' }], 'Hỗ trợ ăn ở').includes('dormitory'), '"Hỗ trợ ăn ở" is dormitory')
+  assert(!ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: 'Hỗ trợ ăn ở: 1.000.000đ/tháng (trả tiền mặt)' }], 'Hỗ trợ ăn ở: 1.000.000đ/tháng (trả tiền mặt)').includes('dormitory'), 'cash "Hỗ trợ ăn ở: 1.000.000đ" is an allowance, not dormitory')
   const neg = guardAiResult({ benefits: [{ code: 'dormitory', evidence: 'bao ăn ở' }] }, { lines: [], source: 'Không bao ăn ở' })
   assert(neg.benefits.length === 0, 'negated "Không bao ăn ở" is still rejected')
   console.log('aiClassifyGuard.test.ts: 5421 숙식 제공 통과')

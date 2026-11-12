@@ -183,5 +183,7 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   assert(benefits({ dormitory: false }, 'Tuyển nhân viên phụ bếp\nBao ăn ở\nLương thoả thuận')?.ok === false, '5421 inspector catches dormitory off')
   assert(benefits({ dormitory: true }, 'Tuyển nhân viên phụ bếp\nBao ăn ở\nLương thoả thuận')?.ok === true, '5421 dormitory on passes')
   assert(benefits({ dormitory: false, description: 'Không bao ăn ở' }, 'Không bao ăn ở')?.ok === true, 'negated lodging is not a missing benefit')
+  const cash = 'Tuyển nhân viên\nHỗ trợ ăn ở: 1.000.000đ/tháng (trả tiền mặt)'
+  assert(benefits({ dormitory: false, description: cash }, cash)?.ok === true, 'cash lodging allowance is not a missing dormitory flag')
   console.log('jobInspect.test.ts: 5421 숙식 제공 통과')
 }
