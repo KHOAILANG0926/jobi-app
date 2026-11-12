@@ -18,20 +18,24 @@ jobs:
       REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
-      - name: 실제 API — 다중 페이지 동일성
+      - name: 실제 API — 다중 페이지 동일성 (100개 초과 커밋)
         run: |
           set -euo pipefail
           sha=$(gh api "repos/$REPO/commits/master" --jq .sha)
+          T0=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # 조회 사이에 새로 시작되는 실행(예: 봇 merge 잡)에 흔들리지 않게, 조회 시작 전에 시작된 check-run의 id 집합만 비교한다.
+          ids() { gh api --paginate --slurp "repos/$REPO/commits/$sha/check-runs?per_page=$1" | jq -c --arg t "$T0" '[.[].check_runs[] | select(.started_at < $t) | .id] | sort'; }
+          a=$(ids 2); b=$(ids 100)
           pages=$(gh api --paginate --slurp "repos/$REPO/commits/$sha/check-runs?per_page=2" | jq 'length')
-          total=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=1" --jq .total_count)
-          a=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha" 2 | jq -c 'sort_by(.name,.conclusion,.status)')
-          b=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha" 100 | jq -c 'sort_by(.name,.conclusion,.status)')
-          echo "master $sha: check-run $total개, per_page=2 페이지 $pages개"
+          na=$(echo "$a" | jq length); nb=$(echo "$b" | jq length)
+          echo "master $sha: 조회 시작 전 시작된 check-run per_page=2 → $na개($pages 페이지), per_page=100 → $nb개"
           echo "### 다중 페이지 동일성 (master $sha)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- check-run $total개, per_page=2로 $pages 페이지, 결과 $(echo "$a" | jq length)개 / per_page=100 결과 $(echo "$b" | jq length)개" >> "$GITHUB_STEP_SUMMARY"
-          [ "$pages" -gt 1 ] || { echo "::error::페이지가 1개뿐이라 다중 페이지 검증이 안 됨"; exit 1; }
-          [ "$a" = "$b" ] || { echo "::error::다중 페이지와 단일 페이지 결과가 다름"; echo "$a"; echo "$b"; exit 1; }
-          echo "- 결과 동일: OK" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 조회 시작 전 시작된 check-run: per_page=2 → $na개, per_page=100 → $nb개 (100개 초과: $([ "$nb" -gt 100 ] && echo 예 || echo 아니오))" >> "$GITHUB_STEP_SUMMARY"
+          [ "$nb" -gt 100 ] || { echo "::error::100개를 넘지 않아 다중 페이지 검증이 안 됨"; exit 1; }
+          [ "$a" = "$b" ] || { echo "::error::다중 페이지와 단일 페이지의 id 집합이 다름"; exit 1; }
+          echo "- id 집합 동일: OK" >> "$GITHUB_STEP_SUMMARY"
+          out=$(bash scripts/ci/fetch-check-runs.sh "$REPO" "$sha" 100)
+          echo "- 봇 조회 스크립트 출력 $(echo "$out" | jq length)개, __incomplete__ $(echo "$out" | jq '[.[]|select(.name=="__incomplete__")]|length')개" >> "$GITHUB_STEP_SUMMARY"
       - name: 실제 API — 조회 실패·누락은 병합 보류
         run: |
           set -uo pipefail
