@@ -41,6 +41,10 @@ check("겹친 글 1쌍 같은 열쇠", k.dedupe_key(a) == k.dedupe_key(b))
 check("겹친 글 2쌍 같은 열쇠", k.dedupe_key(c) == k.dedupe_key(d))
 check("다른 글 다른 열쇠", k.dedupe_key("Cho em hỏi công ty này ổn không") != k.dedupe_key(c))
 
+# 1-2. 글 끝 화면 단추 글자(2026-11-12 시험에서 본문 끝에 남음) — 잘림 표시 '더 보기'는 남김
+check("댓글 단추 글자 지움", k.TAIL_RE.sub("", "e xin vi 댓글 더 보기 답글 3개 보기 답글 2개 보기") == "e xin vi")
+check("잘림 표시 더 보기는 남김", k.TAIL_RE.sub("", "Bánh tráng… 더 보기") == "Bánh tráng… 더 보기")
+
 # 2. AI 답 거르기
 posts = [{"text": "Gà dai 7k/1 con"}, {"text": "Đi diện E9 đơn xây dựng thì có đợi lâu không"}, {"text": "x"}]
 k._ai_call = lambda p: 'Đây: [{"i":0,"c":"sell","w":"kr"},{"i":1,"c":"di_han","w":"vn"},{"i":2,"c":"bogus","w":"kr"},{"i":9,"c":"sell"}]'

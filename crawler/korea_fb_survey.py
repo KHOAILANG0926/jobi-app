@@ -202,12 +202,15 @@ OWN_TEXT_JS = "(idx) => {" + TOP_LEVEL_POSTS_JS + """
     const nodes = preview ? [preview] : [...el.querySelectorAll('[dir="auto"]')].filter(n => n.closest(CAND) === el)
     const lines = []
     for (const n of nodes) {
-        const t = (n.innerText || n.textContent || '').trim()
-        if (t && t.length > 2 && !lines.some(x => x.includes(t))) lines.push(t)
+        const t = (n.innerText || n.textContent || '').replace(/\\s+/g, ' ').trim()
+        if (!t || t.length <= 2 || lines.some(x => x.includes(t))) continue
+        for (let i = lines.length - 1; i >= 0; i--) if (t.includes(lines[i])) lines.splice(i, 1)  // 미리보기 뒤에 온 전체 글: 짧은 쪽 지움(2026-11-12 "A A" 두 번 붙음)
+        lines.push(t)
     }
     return { text: lines.join('\\n').trim(), hasSeeMore: !!seeMoreBtn(el) }
 }"""
-TAIL_RE = re.compile(r"\s*(적게 보기|Ẩn bớt|See less)\s*$")
+# 글 끝에 붙는 화면 단추 글자(2026-11-12 시험: "댓글 더 보기 답글 2개 보기"가 본문 끝에 남음). '더 보기' 하나만은 잘림 표시라 남긴다.
+TAIL_RE = re.compile(r"(\s*(적게 보기|Ẩn bớt|See less|댓글 더 보기|답변 더 보기|답글 \d+개 보기|Xem thêm bình luận|Xem \d+ phản hồi|View more comments|View \d+ repl(y|ies)))+\s*$")
 
 
 def dedupe_key(text: str) -> str:
@@ -218,7 +221,7 @@ def dedupe_key(text: str) -> str:
 
 async def own_text(page, idx: int) -> dict | None:
     r = await page.evaluate(OWN_TEXT_JS, idx)
-    if r and is_truncated_post(r["text"], r["hasSeeMore"]):
+    if r and is_truncated_post(TAIL_RE.sub("", r["text"]), r["hasSeeMore"]):  # 댓글 단추의 '더 보기'를 잘림으로 보지 않게
         await expand_and_reread(page, idx)  # 실제 마우스 클릭으로 한 번 펼침(수집기와 같은 방법)
         r = await page.evaluate(OWN_TEXT_JS, idx) or r
     if r:
