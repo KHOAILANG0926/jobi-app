@@ -89,6 +89,7 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
       errors.push(`${answerEdits.join(', ')}: 정답 파일의 기존 줄 수정·삭제는 생산 코드(${prod[0]} 등)와 같은 PR에서 할 수 없음 — 정답 변경만 별도 PR로`)
     else if (!/기대값 변경 근거:[ \t]*\S[^\n]{9,}/.test(body))
       errors.push(`${answerEdits.join(', ')}: 정답 파일 기존 줄 변경은 PR 설명에 '기대값 변경 근거:'(원문 인용 또는 결정 번호) 필요`)
+  }
   for (const path of paths.filter((p) => INSPECT_FILES.some((re) => re.test(p)))) {
     const removed = new Set(importPaths(patches[path] ?? '', '-'))
     const added = importPaths(patches[path] ?? '', '+').filter((m) => !removed.has(m))
