@@ -36,6 +36,9 @@ async function webLookup(job) {
 
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })
 await client.connect()
+// 저장된 줄 판정(detail_line_kinds: AI·Lee가 정한 칸) — 업무가 적혔는지(dutyStated)를 화면·상세 채우기와 같은 판정으로 본다(R2 #753). 못 읽으면 빈 판정으로 계속.
+const kindRows = await client.query('select line_key, section, decided_by from public.detail_line_kinds').then((r) => r.rows, () => [])
+const LINE_KINDS = Object.fromEntries(kindRows.map((r) => [r.line_key, { section: r.section, by: r.decided_by }]))
 
 /** 위치 확인이 저장한 Google 결과(research_artifacts map-r1-query, auto-location-runtime과 같은 열쇠)만 읽는다. Google을 새로 부르지 않는다. */
 async function googlePlaceFor(job) {
@@ -62,6 +65,7 @@ try {
   console.log(`업종 확인 대상 ${rows.length}건`)
   for (const job of rows) {
     if (job.tried === job.src_hash) continue
+    job.lineKinds = LINE_KINDS
     let found = businessFromName(job)
     let note = found ? 'name' : 'name:none'
     let place = null

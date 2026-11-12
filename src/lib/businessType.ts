@@ -10,6 +10,7 @@
  */
 import { bare, detailSections } from './jobDetailSections.ts'
 import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
+import { mentionsIndustrialPark } from './industrialPark.ts'
 
 export const SERVICE_CODE = '5'
 export const SERVICE_NAME = 'Nhân viên dịch vụ và bán hàng'
@@ -24,7 +25,7 @@ const KIND_WORDS: Array<{ kind: BusinessKind; re: RegExp }> = [
 export type BusinessKind = 'fnb' | 'retail' | 'service'
 const kindOf = (texts: string[]): BusinessKind | null => KIND_WORDS.find((k) => texts.some((t) => k.re.test(bare(t))))?.kind ?? null
 
-export interface BusinessJob { company?: string | null; title?: string | null; source_text?: string | null; location?: string | null }
+export interface BusinessJob { company?: string | null; title?: string | null; source_text?: string | null; location?: string | null; lineKinds?: Record<string, { section: '01' | '02' | '03' | '04' | '05' | '06' | '07'; by: 'ai' | 'lee' }> }
 export interface BusinessType { code: string; kind: BusinessKind; evidence: string; duty: string; method: 'name' | 'google' | 'web'; url?: string; quote?: string; place_id?: string; google_types?: string[] }
 
 const nfc = (s: string) => s.normalize('NFC')
@@ -44,10 +45,20 @@ export function companyInSource(job: BusinessJob): string | null {
  * 업무가 적혀 있으면 장소 종류·검색 결과로 업종을 추정하지 않는다(직업 분류는 원문 업무로, 못 정하면 미분류·보류).
  */
 export function dutyStated(job: BusinessJob): boolean {
-  const description = buildDescriptionFromSources([{ name: 'source_text', text: String(job.source_text ?? '') }], {}).description
+  // 저장된 줄 판정(detail_line_kinds: AI·Lee가 정한 칸)을 화면과 같이 읽는다 — 라벨 없는 업무 줄(예: "Làm ngồi linh kiện tai nghe")은 단어 규칙이 못 정하고 AI가 정하므로(R2 #753).
+  const description = buildDescriptionFromSources([{ name: 'source_text', text: String(job.source_text ?? '') }], { lineKinds: job.lineKinds }).description
   const lines = detailSections(description, {}).sections.find((s) => s.key === '01')?.lines ?? []
   // 화면은 "Tuyển nhân viên"(모집 문구만 있는 줄)도 01칸에 두지만 그것은 업무가 아니다(Codex #737) — 문구를 뺀 나머지가 있어야 업무.
   return lines.some((l) => bare(l).replace(/^tuyen (?:gap |dung )?nhan vien\b/, '').replace(/[^a-z0-9]/g, '').length > 0)
+}
+
+/**
+ * 장소 유형(Google)·검색 결과로 가게 업종을 확정해도 되는가(R2 #753): 업무가 적혀 있으면 안 되고(dutyStated), 공단 이름이 글에 있어도 안 된다
+ * (공장 맥락 — 업무 미기재 공장 공고가 쇼핑몰 유형으로 서비스·판매가 되던 구멍). 이때는 아무것도 정하지 않는다(미분류·보류 유지, Lee 2026-10-27).
+ * 업체 이름 낱말로 정하는 경로(businessFromName)는 이 제한을 받지 않는다 — 이름 자체가 가게 근거다.
+ */
+export function indirectBusinessAllowed(job: BusinessJob): boolean {
+  return !dutyStated(job) && !mentionsIndustrialPark(job.location, job.source_text)
 }
 
 /** 업무 칸 한 줄: 원문에 있는 가게 낱말만 쓴다. */
@@ -90,7 +101,7 @@ export function businessFromGoogle(job: BusinessJob, place: { id: string; types:
   if (!place) return null
   const evidence = companyInSource(job)
   const kind = kindFromGoogleTypes(place.primaryType, place.types)
-  if (!evidence || !kind || dutyStated(job)) return null
+  if (!evidence || !kind || !indirectBusinessAllowed(job)) return null
   return { code: SERVICE_CODE, kind, evidence, duty: dutyLine(job.source_text), method: 'google', place_id: place.id,
     google_types: [place.primaryType, ...place.types].filter((x): x is string => !!x).slice(0, 8) }
 }
@@ -122,7 +133,7 @@ export function guardWebAnswer(job: BusinessJob, answer: unknown, citations: Arr
   if (!['fnb', 'retail', 'service'].includes(String(a.type))) return null
   const evidence = companyInSource(job)
   const street = streetOf(job.location)
-  if (!evidence || !street || dutyStated(job)) return null
+  if (!evidence || !street || !indirectBusinessAllowed(job)) return null
   const brand = bare(evidence).split(' ')[0]
   // "Số 216 Đường Nguyễn Trãi"도 "216 Nguyễn Trãi"와 같은 주소로 본다(số·đường·phố 낱말만 뺌).
   const addr = (t: string) => bare(t).replace(/\b(?:so|duong|pho)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
