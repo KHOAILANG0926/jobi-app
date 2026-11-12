@@ -63,9 +63,12 @@ try {
       //  예전에 이 함수가 원문+포스터로 채운 값(사람이 쓴 값 아님)은 새 값으로 바꾼다.
       {
         const fromPost = readWorkTime(job.source_text)
-        const wt = fromPost.hours || fromPost.shiftType ? fromPost : readWorkTime(job.source_text, job.ocr_text)
+        const both = readWorkTime(job.source_text, job.ocr_text)
+        // 칸마다 원문 먼저(Codex #723: 원문에 교대 종류만 있고 시간이 없으면 시간은 포스터에서).
+        const wt = { hours: fromPost.hours ?? both.hours, shiftType: fromPost.shiftType ?? both.shiftType,
+          rotatingShifts: fromPost.shiftType ? fromPost.rotatingShifts : both.rotatingShifts }
         const now = String(job.hours ?? '').trim()
-        const oldMachine = now && now === (readWorkTime(job.source_text, job.ocr_text).hours ?? '') && now !== (wt.hours ?? now)
+        const oldMachine = now && now === (both.hours ?? '') && now !== (wt.hours ?? now)
         const hours = (!now || oldMachine) && wt.hours ? wt.hours : null
         const shift = !job.shift_type && wt.shiftType ? wt.shiftType : null
         // 교대 수는 교대 유형과 따로 빈칸만(이미 rotating인데 수가 비었을 때도, Codex #628)
