@@ -64,6 +64,10 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(placement({ '①': '', '②': '', '③': '', '④': '' })[0].key === 'areas', '전부 비어 있음 → 미검증')
   // 연락처 번호가 ④에 없으면 빠짐 의심(불명확)
   assert(placement({ ...okAreas, '④': 'Mô tả công việc Nhân viên' }).some((f) => f.key === 'placement' && !f.sure && f.detail.includes('빠짐')), '연락처 번호 빠짐 → 불명확')
+  // 운영 대조(2026-11-12)에서 나온 오탐: "22 trở lên"·"HSK3 trở lên"의 tr(trở)을 급여 단위로 읽어 ②의 모집 조건 줄을 오류로 잡았다 — 급여가 아닌 줄은 어느 영역에 있어도 배치 오류가 아니다
+  const req = 'Tốt nghiệp THCS trở lên (9/12), tuổi từ 22 trở lên\nBiết tiếng Trung HSK2 – HSK3 trở lên, lương THỎA THUẬN'
+  const jr = { id: 3, title: 't', company: 'c', source_text: req }
+  assert(areaFindings(jr, req, { ...mk({ '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng ' + req, '③': 'Khu vực làm việc', '④': 'Mô tả công việc' }) }).every((f) => f.key !== 'placement' || !f.sure), '"trở lên" 줄은 급여로 오인하지 않음')
 }
 // ⑧ 업종: 공단·공장 글인데 5(서비스·판매) → 불명확, 가게 낱말이 있으면 문제 없음
 {

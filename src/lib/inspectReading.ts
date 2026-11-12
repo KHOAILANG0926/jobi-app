@@ -56,7 +56,7 @@ export function contactRepeat(line: string, shown: string[]): boolean {
 /** 원문 줄에 급여 금액(단위가 붙은 숫자 또는 천 단위 숫자)이 있는가. */
 export function hasPayAmount(line: string): boolean {
   const f = fold(line)
-  return /\d[\d ]*(?:k|tr|trieu|d|vnd|dong)\b/.test(f) || /\d{1,3}(?: \d{3}){1,3}/.test(f) || /\d[\d.,]*\s*(?:k|tr|triệu|đ|vnd)\b/i.test(line) || /\d{1,3}(?:[.,]\d{3}){1,3}/.test(line)
+  return /\d[\d ]*(?:k|tr|trieu|d|vnd|dong)\b/.test(f) || /\d{1,3}(?: \d{3}){1,3}/.test(f) || /\d[\d.,]*\s*(?:k|tr|triệu|đ|vnd)(?![\p{L}])/iu.test(line)   // \b는 ASCII 기준이라 "22 trở"의 tr 뒤 ở를 경계로 봐 급여로 오인했다(2026-11-12 운영 대조 sb-4878·5405) || /\d{1,3}(?:[.,]\d{3}){1,3}/.test(line)
 }
 /** 식사 혜택 낱말(검사 쪽 사본 — 만드는 쪽 mealBenefit.MEAL_HINT와 일부러 따로 둔다). */
 export const MEAL_WORDS = /\b(?:an ca|bua ca|bua an|com trua|com ca|ho tro an|bao an|an trua|phu cap an|tro cap an|ho tro tien an|tien an)\b/
