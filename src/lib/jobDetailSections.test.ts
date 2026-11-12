@@ -1,4 +1,4 @@
-import { contactHostFor, balanceConditionColumns, detailSections, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
+import { contactHostFor, balanceConditionColumns, detailSections, lineBucket, sourceLines, sourceRecruitmentEligibility, verifyDescriptionPreserved } from './jobDetailSections.ts'
 function assert(ok: boolean, name: string) { if (!ok) throw new Error(name) }
 const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b)
 const byKey = (r: ReturnType<typeof detailSections>) => Object.fromEntries(r.sections.map((s) => [s.key, s.lines]))
@@ -362,4 +362,14 @@ assert(contactHostFor({ conditions: 0, recruitKeys: ['category'] }) === 'locatio
   const at = (k: string) => r.sections.find((x) => x.key === k)?.lines ?? []
   if (!(at('01').length === 1 && at('01')[0].startsWith('Vận hành') && at('06').includes('Email: zhanan@zhan-an.com') && r.preserved)) throw new Error('numbered headings: ' + JSON.stringify(r.sections))
   console.log('jobDetailSections: 번호 소제목 통과')
+}
+
+// R2(#753): 문구 전체 예외 대신 한 규칙 — 자세·환경 낱말로만 된 줄은 05, 다른 낱말이 있으면 업무로 보는 쪽(07 미정 포함)에 둔다.
+{
+  const kind = (line: string) => lineBucket(line, '07')
+  assert(kind('Công việc: Làm ngồi, phòng thường') === '05', 'FUSHAN decision line stays environment (05)')
+  assert(kind('Làm ngồi, thoải mái.') === '05', 'posture/environment words only → 05 without a 04 context')
+  assert(kind('Làm ngồi linh kiện tai nghe') !== '05', 'a duty with an object ("linh kiện tai nghe") is not an environment-only line')
+  assert(kind('Làm ngồi, phòng thường, lắp ráp linh kiện') !== '05', 'one extra duty word makes it a duty line')
+  console.log('jobDetailSections: 자세·환경 낱말뿐인 줄 한 규칙 통과')
 }
