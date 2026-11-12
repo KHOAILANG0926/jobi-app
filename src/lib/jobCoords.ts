@@ -319,17 +319,11 @@ export function isVerifiedWorkLocation(l: Partial<WorkLocationLike>): boolean { 
 export function hasApprovedPoint(l: Partial<WorkLocationLike>): boolean { return isVerifiedWorkLocation(l) }
 
 /**
- * 근무지 1곳을 지도 포인트로 변환한다 — 등급(A~D)과 무관하게 항상 무언가를
- * 반환하려 시도한다(정책: "모든 위치 등급에서 지도 표시"):
- * 1. 이 근무지 자체의 geocode 좌표가 있으면 그대로 쓴다(정확/근사 여부는
- *    precise 플래그로만 구분 — 'ward' 미검증/'region'도 좌표 자체는 있을 수
- *    있고, 이 경우 지오코더가 반환한 "안전한 상위 지역 좌표"로 근사 표시).
- * 2. 좌표가 아예 없으면(region_only 텍스트, 또는 'unresolved') 원문 텍스트
- *    자체에서 알려진 성·시/구·군 이름을 찾아 그 행정 중심으로 근사 표시.
- * 3. 그것도 못 찾으면 이 근무지에 매칭된 모집지역명으로 다시 시도한다.
- * 4. 전부 실패하면 null — 이 근무지 하나는 지도에 점을 못 찍지만(텍스트·
- *    길찾기는 호출부가 이 함수와 무관하게 항상 그대로 보여준다), 다른
- *    근무지가 있으면 그쪽은 계속 표시된다.
+ * 근무지 1곳을 지도 포인트로 변환한다 — **저장된 확정 좌표(canonical)만** 쓴다(Lee 2026-11-11 지도 위치 절대 원칙).
+ * 좌표가 없거나 'unresolved'이면 null: 원문 글자에서 성·시/구·군 이름을 찾아 행정 중심으로 근사하거나, 모집지역명으로 대신 찍지 않는다
+ * (예전 주석은 그렇게 근사 표시한다고 적혀 있었으나 코드는 이미 그렇게 하지 않는다 — jobCoords.test.ts "no code-generated region or legacy pins").
+ * null이면 이 근무지 하나는 지도에 점을 못 찍지만 텍스트·길찾기는 호출부가 항상 보여 주고, 다른 근무지가 있으면 그쪽은 계속 표시된다.
+ * 점의 정확도는 precise 플래그(= exact + locationVerified)로만 구분한다.
  */
 function resolveWorkLocationMapPoint(l: WorkLocationLike): ResolvedMapPoint | null { return canonicalWorkLocationPoint(l) }
 
