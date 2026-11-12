@@ -458,7 +458,7 @@ export function JobDetail({ previewJob }: { previewJob?: Job } = {}) {
   ].filter(Boolean) as InfoField[]
   const recruitFields = [
     row('roles', <Briefcase size={14} strokeWidth={1.8} />, 'Vị trí tuyển dụng', !roleSummary && sourceRoles.roles.length ? sourceRoles.roles.join(' · ') : undefined),
-    row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : albamonLayout ? deadlineText : undefined, // 10-30 확정 ② 필수: 날짜 또는 상시모집(KDA 틀은 그대로)
+    row('deadline', <Timer size={14} strokeWidth={1.8} />, 'Hạn nộp hồ sơ', job.applicationDeadline ? deadlineText + (badge ? ` (${badge.label})` : '') : undefined, // 원문에 없으면 줄째 숨김(Lee 11-12)
       badge?.tone === 'soon' ? 'jd2-info-val--soon' : undefined),
     row('numHires', <Users size={14} strokeWidth={1.8} />, 'Số lượng tuyển', numHiresText),
     row('education', <GraduationCap size={14} strokeWidth={1.8} />, 'Học vấn', educationText),
