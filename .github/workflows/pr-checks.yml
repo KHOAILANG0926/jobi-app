@@ -47,6 +47,10 @@ jobs:
         run: node scripts/codex-review-gate.test.mjs
       - name: 봇 자동병합 필수 검사 판정 시험 (이름 같은 검사가 빨간 검사를 가리지 않는지, #728 S1)
         run: node scripts/ci/bot-required-checks.test.mjs
+      - name: 급여 확정·저장 한 곳 시험 (R2 #753 — 정책·ingest_job 한 입구·직접 UPDATE 금지)
+        run: |
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/salary-fill.test.mjs
+          node scripts/ci/salary-single-writer.test.mjs
       - name: 필수 검사 이름 충돌 정적 시험 (checks·guard·app-screen·publication-gate가 PR 잡 1개씩인지, #728 S1)
         run: node scripts/ci/required-check-names.test.mjs
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
