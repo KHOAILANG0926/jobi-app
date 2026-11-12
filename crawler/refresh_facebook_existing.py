@@ -29,6 +29,11 @@ def title_from_evidence(source_text: str, ocr_text: str, company: str) -> str:
 
 
 
+def refresh_fields(parsed: dict) -> list:
+    """고칠 칸: 원문에서 읽은 값이 있는 칸만. 위치를 못 읽었으면 위치 칸은 빼서 기존 값을 지킨다."""
+    return [k for k in FIELDS if k != "location" or str(parsed.get("location") or "").strip()]
+
+
 def refresh_existing(job_id: int):
     if supabase is None:
         raise RuntimeError("Supabase server configuration unavailable")
@@ -50,9 +55,9 @@ def refresh_existing(job_id: int):
     if not parsed["title"] or not parsed["company"] or parsed["title"].endswith(":"):
         raise RuntimeError("Parsed title or company is missing or is only a heading")
     # 원문 주소는 위치 확인 서버의 주소 읽기 한 곳(src/lib/addressReader.ts)으로 읽는다(Lee 2026-11-07, 지도 조회 없음).
+    # 원문에서 주소를 못 읽으면(예: sb-5942 HAIDILAO — 원문에 번지 없이 '[ HAIDILAO VINCOM BẮC NINH ]'만, 위치는 관리자 확정)
+    # 위치 칸은 고치지 않고 기존 값을 그대로 둔다. 원문 근거 없는 위치를 쓰지 않는 원칙은 같고, 공고 하나 때문에 대기열 전체가 실패하지 않게 한다.
     parsed["location"] = str((ingest_gateway.READ_LOCATION(text, parsed.get("location") or "") or {}).get("location") or "").strip()
-    if not parsed.get("location"):
-        raise RuntimeError("Cannot refresh location without a source-backed location")
     # 매장이 여러 곳이면(Lee 2026-11-11 KRIK·MediaMart) 새 공고와 같은 위치 확인으로 '찾은 매장'을 더한다(못 찾은 매장은 안 넣음, 절대 원칙).
     # 기존 근무지 줄은 그대로 둔다(Codex #705): DB 입구는 받은 목록으로 근무지를 바꾸고 빠진 줄은 지우므로, 기존 줄을 앞에 넣고
     # 새로 찾은 매장만 뒤에 붙인다. 확인 실패면 예전 동작(위치 글자만).
@@ -69,17 +74,20 @@ def refresh_existing(job_id: int):
                 parsed["location"] = found[0]
     except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
         print(f"store precheck skipped: {type(exc).__name__}")
+    fields = refresh_fields(parsed)
+    if "location" not in fields:
+        print("source has no readable address: existing location kept")
     # Source text is preserved. No user-written field value is applied.
     payload = {
         "channel": "crawler_facebook",
         "job_id": job_id,
         "refresh": True,
-        "update_fields": FIELDS,
+        "update_fields": fields,
         "source": "facebook",
         "source_url": old.get("source_url"),
         "source_text": text,
         "images": old.get("images") or [],
-        **{k: parsed[k] for k in FIELDS},
+        **{k: parsed[k] for k in fields},
         **({"work_locations": rows} if rows else {}),
     }
     result = ingest_job(supabase, payload)
@@ -90,11 +98,11 @@ def refresh_existing(job_id: int):
              .eq("id", job_id).single().execute()).data
     if not after or after["id"] != job_id or after.get("admin_hidden"):
         raise RuntimeError("Refresh did not preserve existing job identity or admin protection")
-    for key in FIELDS:
+    for key in fields:
         if after.get(key) != parsed[key]:
             raise RuntimeError(f"Refresh not persisted for {key}: expected source-backed field")
     print("ingest_job persisted all source-backed fields for existing job", job_id)
-    print(json.dumps({"job_id": job_id, "updated": {k: after[k] for k in FIELDS},
+    print(json.dumps({"job_id": job_id, "updated": {k: after[k] for k in fields},
                       "active": after["active"]}, ensure_ascii=False))
 
 if __name__ == "__main__":
