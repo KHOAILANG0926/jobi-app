@@ -67,7 +67,8 @@ console.log('businessType: all assertions passed')
   const noDuty: Array<[string, string]> = [
     ['address+shift+salary', 'Wallace Bắc Ninh tuyển nhân viên\nĐịa chỉ: 216 Nguyễn Trãi, Bắc Ninh\nCa A: 06h30 – 14h30\nCa B: 14h – 22h\nLương 7 – 8,5 triệu/tháng\nLiên hệ: 0912345678'],
     ['address+hours+benefits', 'Wallace Bắc Ninh tuyển nhân viên\nKhu vực làm việc: Wallace Bắc Ninh\nĐịa điểm: Số 395 Ngô Gia Tự, Bắc Ninh\nThời gian làm việc: 8h/ngày\nĐược tham gia đầy đủ các chế độ bảo hiểm\nLiên hệ 0912345678'],
-    ['banner only', 'Wallace Bắc Ninh TUYỂN GẤP NHÂN VIÊN\nLương cao, môi trường tốt\nGọi ngay 0912345678'],
+    ['standalone recruit line (Codex #737)', 'Tuyển nhân viên\nWallace Bắc Ninh\nĐịa chỉ: 216 Nguyễn Trãi, Bắc Ninh\nLương 7 triệu/tháng'],
+    ['banner only','Wallace Bắc Ninh TUYỂN GẤP NHÂN VIÊN\nLương cao, môi trường tốt\nGọi ngay 0912345678'],
   ]
   for (const [name, text] of noDuty) {
     const j = { company: 'Wallace Bắc Ninh', location: '216 Nguyễn Trãi, Bắc Ninh', source_text: text }

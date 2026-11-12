@@ -45,7 +45,9 @@ export function companyInSource(job: BusinessJob): string | null {
  */
 export function dutyStated(job: BusinessJob): boolean {
   const description = buildDescriptionFromSources([{ name: 'source_text', text: String(job.source_text ?? '') }], {}).description
-  return (detailSections(description, {}).sections.find((s) => s.key === '01')?.lines.length ?? 0) > 0
+  const lines = detailSections(description, {}).sections.find((s) => s.key === '01')?.lines ?? []
+  // 화면은 "Tuyển nhân viên"(모집 문구만 있는 줄)도 01칸에 두지만 그것은 업무가 아니다(Codex #737) — 문구를 뺀 나머지가 있어야 업무.
+  return lines.some((l) => bare(l).replace(/^tuyen (?:gap |dung )?nhan vien\b/, '').replace(/[^a-z0-9]/g, '').length > 0)
 }
 
 /** 업무 칸 한 줄: 원문에 있는 가게 낱말만 쓴다. */
