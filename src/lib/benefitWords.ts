@@ -7,8 +7,8 @@
 import { MEAL_HINT } from './mealBenefit.ts'
 
 export const SHUTTLE_HINT = /\b(?:xe dua don|xe dua ruoc|xe don|dua don)\b/
-/** 기숙사·무료 숙소. "Bao ăn ở"/"Bao ở"/"Hỗ trợ ăn ở"(숙식 제공)도 기숙사 혜택이다(2026-11-12 #728 5421). */
-export const DORMITORY_HINT = /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|(?:bao|ho tro) (?:an )?o(?![^\n]{0,30}(?:\d[\d.,]*\s*(?:d|vnd|k|tr|trieu|nghin|ngan)\b|tien mat))|cho o)\b/
+/** 기숙사·무료 숙소. "Bao ăn ở"/"Bao ở"(숙식 **제공**)도 기숙사 혜택이다(2026-11-12 #728 5421). "Hỗ trợ ăn ở"(지원)는 현금일 수도 숙소일 수도 있어 일부러 넣지 않는다 — 넣으면 현금·숫자 예외를 계속 덧대게 된다(Codex #737 왕복 3회 후 방법 변경, CLAUDE.md 우선 원칙 8). */
+export const DORMITORY_HINT = /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|bao (?:an )?o|cho o)\b/
 export { MEAL_HINT }
 
 export const BENEFIT_WORDS: Array<{ key: 'shuttle_bus' | 'dormitory' | 'meal_provided'; label: string; re: RegExp }> = [

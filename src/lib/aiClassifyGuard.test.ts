@@ -60,7 +60,7 @@ assert(ruleConfirmedFlags(aiOnly, multiRole).length === 0, 'multi-role meal neve
 {
   const dorm = [{ code: 'dormitory' as const, evidence: 'Bao ăn ở' }, { code: 'meal_provided' as const, evidence: 'Bao ăn ở' }]
   assert(ruleConfirmedFlags(dorm, 'Tuyển phụ bếp\nBao ăn ở\nLương thoả thuận').includes('dormitory'), '5421 "Bao ăn ở" turns the dormitory flag on')
-  assert(ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: 'Hỗ trợ ăn ở' }], 'Hỗ trợ ăn ở').includes('dormitory'), '"Hỗ trợ ăn ở" is dormitory')
+  assert(!ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: 'Hỗ trợ ăn ở' }], 'Hỗ trợ ăn ở').includes('dormitory'), '"Hỗ trợ ăn ở"(지원)는 모호해 규칙이 확정하지 않음 — AI 제안으로만 남음')
   assert(!ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: 'Hỗ trợ ăn ở: 1.000.000đ/tháng (trả tiền mặt)' }], 'Hỗ trợ ăn ở: 1.000.000đ/tháng (trả tiền mặt)').includes('dormitory'), 'cash "Hỗ trợ ăn ở: 1.000.000đ" is an allowance, not dormitory')
   for (const t of ['Bao ăn ở, 2 bữa/ngày', 'Bao ăn ở (phòng 2 người)']) {
     assert(ruleConfirmedFlags([{ code: 'dormitory' as const, evidence: t }], t).includes('dormitory'), `"${t}" is dormitory (number is not an amount)`)

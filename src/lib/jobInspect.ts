@@ -63,7 +63,7 @@ const SITE_JUNK = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha tuyen dun
 // 대신 같은 사례(예: 5421 "Bao ăn ở")를 양쪽 시험에 둔다(jobInspect.test.ts·aiClassifyGuard.test.ts).
 export const BENEFIT_HINTS: Array<{ key: 'shuttle_bus' | 'dormitory' | 'meal_provided'; label: string; re: RegExp }> = [
   { key: 'shuttle_bus', label: 'Xe đưa đón', re: /\b(?:xe dua don|xe dua ruoc|xe don|dua don)\b/ },
-  { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|(?:bao|ho tro) (?:an )?o(?![^\n]{0,30}(?:\d[\d.,]*\s*(?:d|vnd|k|tr|trieu|nghin|ngan)\b|tien mat))|cho o)\b/ },
+  { key: 'dormitory', label: 'Ký túc xá', re: /\b(?:ky tuc xa|ktx|cho o mien phi|bo tri (?:cho )?an o|bao (?:an )?o|cho o)\b/ },
   // 2026-11-02 Lee: 식비 수당(phụ cấp ăn uống 등)도 식사 혜택 — 낱말 규칙 한 곳(lib/mealBenefit.ts).
   { key: 'meal_provided', label: 'Ăn ca', re: MEAL_HINT },
 ]
