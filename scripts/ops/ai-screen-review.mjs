@@ -40,7 +40,7 @@ Items:
 ${REVIEW_ITEMS.map(([k, d]) => `- ${k}: ${d}`).join('\n')}
 
 Answer ONLY a JSON array, one object per item: {"key": "<item key>", "verdict": "ok" | "wrong" | "unsure", "detail": "<if wrong/unsure: short Korean sentence quoting the exact wrong text and where it should be>"}.
-Page conventions (approved by the owner, not errors): the header row always shows 7 benefit icons — colored/highlighted = offered, grey/faded = NOT offered (judge only the highlighted ones); "Ngày đăng" date is the site's own posting date; rows for info the source lacks are hidden; call/Zalo BUTTONS are fine, only phone digits printed as text are wrong.
+Page conventions (approved by the owner, not errors): the header row always shows 7 benefit icons — colored/highlighted = offered, grey/faded = NOT offered (judge only the highlighted ones); "Ngày đăng" date is the site's own posting date; the top summary card repeating salary/company/address once is by design (only count repeats inside the lower sections as duplicates); write every detail in Korean; rows for info the source lacks are hidden; call/Zalo BUTTONS are fine, only phone digits printed as text are wrong.
 "wrong" only when you can point to concrete text/picture evidence. Missing optional info that the source also lacks is "ok".`
 
 /**
