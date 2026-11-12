@@ -9,6 +9,7 @@ import re
 import unicodedata
 from crawl_facebook import parse_post, supabase
 import ingest_gateway
+from pin_guard import merge_store_rows
 from ingest_gateway import ingest_job
 
 # 급여는 다시 수집이 쓰지 않는다(2026-11-01 Lee "읽는 규칙을 하나로" — src/lib/salaryReader.ts 한 곳).
@@ -24,6 +25,8 @@ def title_from_evidence(source_text: str, ocr_text: str, company: str) -> str:
             if 8 <= len(line) <= 120 and recruitment.search(line) and not heading.fullmatch(line):
                 return line
     return ""
+
+
 
 
 def refresh_existing(job_id: int):
@@ -62,45 +65,9 @@ def refresh_existing(job_id: int):
             existing = (supabase.table("job_work_locations")
                         .select("raw_address,lat,lng,location_verified,point_authority")
                         .eq("job_id", job_id).order("sort_order").execute()).data or []
-            # DB의 admin_location_key와 같은 방식(악센트·đ 제거, 구두점·공백을 한 칸으로, 소문자)으로 같은 주소를 가린다.
-            def key(a):
-                s = unicodedata.normalize("NFD", str(a or "")).replace("đ", "d").replace("Đ", "D")
-                s = "".join(c for c in s if not unicodedata.combining(c))
-                return re.sub(r"[\W_]+", " ", s.lower()).strip()
-            # 같은 매장 = 한 주소가 다른 주소를 낱말 단위로 통째로 포함(addressReader.sameStore와 같은 규칙).
-            # 기존 줄은 지역을 덧붙여 저장돼("…, TP. Bắc Ninh, Bắc Ninh") 글자가 완전히 같지 않다(2026-11-11 5992·5994 같은 매장 핀 2개).
-            def same(a, b):
-                return f" {a} " in f" {b} " or f" {b} " in f" {a} "
-            # 기존 줄은 주소만 보낸다 — 확정(admin)·검증(exact) 핀은 DB 쓰기 함수가 그대로 지키고, 대략 핀은 위치 찾기가 저장된 결과로 다시 붙인다.
-            # 기존 줄끼리 같은 매장이 두 번 있으면(예전 다시 처리 결과) 앞의 것만 남긴다 — DB 입구가 빠진 줄을 지운다.
-            # 같은 매장이 겹치면 관리자 확정 → 검증된 줄(location_verified) → 좌표 있는 줄 → 앞 줄 순으로 남긴다(Codex #718: 검증 핀 삭제 방지).
-            # 관리자 확정(admin_confirmed)·확정 재사용(auto_reuse)은 DB 쓰기 함수가 지키는 근거라 가장 먼저 남긴다.
-            def rank(r):
-                return ((2 if r.get("point_authority") in ("admin_confirmed", "auto_reuse") else 0)
-                        + (1 if r.get("location_verified") else 0)
-                        + (0.5 if r.get("lat") is not None and r.get("lng") is not None else 0))
-            keep, have = [], []
-            for r in existing:
-                k = key(r.get("raw_address"))
-                if not k:
-                    continue
-                i = next((n for n, h in enumerate(have) if same(k, h)), None)
-                if i is None:
-                    have.append(k)
-                    keep.append(r)
-                elif rank(r) > rank(keep[i]):
-                    have[i] = k
-                    keep[i] = r
-            keep = [{"raw_address": r["raw_address"]} for r in keep]
-            added = []
-            for a in found:
-                if not any(same(key(a), h) for h in have):
-                    have.append(key(a))
-                    added.append({"raw_address": a})
-            if added or len(keep) < sum(1 for r in existing if r.get("raw_address")):
-                rows = keep + added
-                if not existing:
-                    parsed["location"] = found[0]
+            rows = merge_store_rows(existing, found)
+            if rows and not existing:
+                parsed["location"] = found[0]
     except Exception as exc:  # 위치 확인 서버 오류로 다시 처리를 막지 않는다(예전 동작 그대로)
         print(f"store precheck skipped: {type(exc).__name__}")
     # Source text is preserved. No user-written field value is applied.
