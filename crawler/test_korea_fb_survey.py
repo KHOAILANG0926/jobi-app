@@ -3,6 +3,7 @@
 - 중복 열쇠: 실제로 겹쳤던 글 2쌍(접힌 글 / 펼친 글)이 같은 열쇠, 다른 글은 다른 열쇠
 - AI 답 거르기: 목록 밖 갈래·없는 번호는 버리고, 열쇠가 없으면 '분류 안 됨'
 - 보고: 예전 낱말 갈래로 저장된 글은 'legacy'로 모여 표에서 사라지지 않음
+- 검색 화면이 멈추면 시간 한도에서 끊고 새 화면으로 잇는다
 """
 from __future__ import annotations
 
@@ -69,6 +70,38 @@ k._rows = lambda kind: rows.get(kind, [])
 with tempfile.TemporaryDirectory() as tmp:
     res = k.report(str(Path(tmp) / "r.json"))
 check("예전 갈래는 legacy로 모임", res["by_class"] == {"legacy": 2, "life": 1})
+
+# 4. 검색 화면 시간 한도 — 2026-11-12 첫 검색에서 215분 멈춘 사고
+import asyncio  # noqa: E402
+
+
+class _Page:
+    url = "https://www.facebook.com/search/groups/?q=x"
+
+    async def title(self):
+        return "Facebook"
+
+    async def close(self):
+        pass
+
+
+class _Ctx:
+    async def new_page(self):
+        return _Page()
+
+
+async def _hang(page, query, scrolls):
+    await asyncio.sleep(3600)
+
+
+async def _noop(page):
+    pass
+
+
+k.search_groups, k.stealth_async, k.SEARCH_LIMIT_S = _hang, _noop, 0.2
+old_page = _Page()
+new_page, got = asyncio.run(k.search_limited(old_page, _Ctx(), "x"))
+check("멈춘 검색은 한도에서 끊고 새 화면", got is None and new_page is not old_page)
 
 if fails:
     sys.exit(f"{len(fails)}개 실패: {fails}")
