@@ -66,7 +66,7 @@ try {
         const both = readWorkTime(job.source_text, job.ocr_text)
         // 칸마다 원문 먼저(Codex #723: 원문에 교대 종류만 있고 시간이 없으면 시간은 포스터에서).
         const wt = { hours: fromPost.hours ?? both.hours, shiftType: fromPost.shiftType ?? both.shiftType,
-          rotatingShifts: fromPost.shiftType ? fromPost.rotatingShifts : both.rotatingShifts }
+          rotatingShifts: fromPost.rotatingShifts ?? both.rotatingShifts }
         const now = String(job.hours ?? '').trim()
         const oldMachine = now && now === (both.hours ?? '') && now !== (wt.hours ?? now)
         const hours = (!now || oldMachine) && wt.hours ? wt.hours : null
