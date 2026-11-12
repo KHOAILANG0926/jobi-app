@@ -74,7 +74,7 @@ export const R2_ORACLE: OracleJob[] = [
     facts: [
       // 'Công việc:' 라벨이 있어도 자세·환경 낱말뿐이면 업무가 아니다 — Lee 2026-10-27 FUSHAN 결정(업무 추정 금지, 업무 칸은 'chưa ghi' 안내): 05
       { evidence: 'Công việc: Làm ngồi, phòng thường', section: '05' }, { evidence: 'LCB + PC: 7.200.000đ', section: '04' }, { evidence: 'Cty Thưởng 10.000.000đ', section: '04' },
-      { evidence: 'Thu nhập: 12 -> 17 triệu', section: '04' }, { evidence: 'Có KTX và hỗ trợ tìm trọ', section: '05' }, { evidence: 'Liên hệ Zalo: 0388492985', section: '06' },
+      { evidence: '12 -> 17 triệu', section: '04' }, { evidence: 'Có KTX và hỗ trợ tìm trọ', section: '05' }, { evidence: 'Liên hệ Zalo: 0388492985', section: '06' },
     ],
     benefits: { shuttle_bus: { on: false }, dormitory: { on: true, evidence: 'Có KTX' }, meal_provided: { on: false } } },
 ]

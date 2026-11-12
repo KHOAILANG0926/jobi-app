@@ -15,7 +15,7 @@ const jobs = R2_ORACLE.map((o, i) => ({ o, row: { id: /^\d{4}\b/.test(o.id) ? Nu
   source_text: o.source, active: true, posted_at: '2026-11-04', description: buildDescriptionFromSources([{ name: 'source_text', text: o.source }], o.ctx).description } }))
 // 금액 표기 정규화(화면은 310k → 310.000đ처럼 금액 모양만 바꾼다): 금액 조각만 '#숫자'로 통일하고 줄의 나머지 글자(문맥)는 그대로 둔 채 줄 전체를 비교한다
 // — 숫자만 같으면 통과시키지 않는다(날짜의 "13"이 "lương tháng 13" 줄을 대신하지 못함, Codex 지적)
-const canon = (s) => String(s).replace(/(\d[\d.,]*)\s*(k|tr|triệu|vnđ|vnd|đ)?(?![a-zà-ỹ])/gi, (_, d, u) => {
+const canon = (s) => String(s).replace(/(\d)[ \u00a0]+(?=\d)/g, '$1').replace(/(\d[\d.,]*)\s*(k|tr|triệu|vnđ|vnd|đ)?(?![a-zà-ỹ])/gi, (_, d, u) => {
   const n = d.replace(/[.,]/g, ''); const x = (u ?? '').toLowerCase()
   return ` #${x === 'k' ? n + '000' : x === 'tr' || x === 'triệu' ? n + '000000' : n} `
 })
@@ -45,7 +45,9 @@ try {
       for (const sec of document.querySelectorAll('.jd2-page section.jd2-sec')) {
         const t = sec.querySelector(':scope > h2')?.textContent?.trim()
         const key = Object.keys(titles).find((k) => titles[k] === t)
-        if (key) out[key] = (out[key] ?? '') + '\n' + sec.textContent
+        if (key) { const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT); const parts = []
+        while (walker.nextNode()) parts.push(walker.currentNode.textContent) // 글자 조각 사이를 공백으로 이어 붙은 낱말(…đMôi trường)이 생기지 않게
+        out[key] = (out[key] ?? '') + '\n' + parts.join(' ') }
       }
       return out
     }, AREA_TITLES)
