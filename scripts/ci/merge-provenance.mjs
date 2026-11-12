@@ -89,7 +89,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const repo = process.env.REPO || 'KHOAILANG0926/jobi-app'
   const limit = Number(process.env.LIMIT || 40)
   const only = String(process.env.PRS || '').split(/[\s,]+/).filter(Boolean).map(Number)
-  const nums = only.length ? only : gh(`repos/${repo}/pulls?state=closed&base=master&sort=updated&direction=desc&per_page=${Math.min(limit * 2, 100)}`).map((p) => p.number)
+  // 병합된 PR이 limit개 모이거나 목록이 끝날 때까지 페이지를 넘긴다(미병합 종료 PR이 많아도 요청 수를 채움)
+  const recentMerged = () => {
+    const out = []
+    for (let page = 1; out.length < limit; page++) {
+      const list = gh(`repos/${repo}/pulls?state=closed&base=master&sort=updated&direction=desc&per_page=100&page=${page}`)
+      out.push(...list.filter((p) => p.merged_at).map((p) => p.number))
+      if (list.length < 100) break
+    }
+    return out.slice(0, limit)
+  }
+  const nums = only.length ? only : recentMerged()
   const rows = []
   for (const n of nums) { if (rows.length >= (only.length || limit)) break; try { const r = collect(repo, n); if (r) rows.push(r) } catch (e) { rows.push({ pr: n, error: String(e.message).slice(0, 120) }) } }
   const ok = rows.filter((r) => !r.error)
