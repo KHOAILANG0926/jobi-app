@@ -19,13 +19,21 @@ export function parseWorkflow(text) {
   const jobs = []
   if (jobsIdx >= 0) {
     let cur = null
+    let jobIndent = null
     for (let i = jobsIdx + 1; i < lines.length; i++) {
       const l = lines[i]
       if (/^\S/.test(l)) break
-      const id = /^  ([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$/.exec(l)
-      if (id) { cur = { id: id[1], name: id[1] }; jobs.push(cur); continue }
-      const nm = /^    name\s*:\s*(.+?)\s*$/.exec(l)
-      if (nm && cur) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
+      if (!l.trim() || /^\s*#/.test(l)) continue
+      const indent = l.match(/^ */)[0].length
+      const id = /^\s+([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$/.exec(l)
+      if (id && (jobIndent === null || indent === jobIndent)) {
+        jobIndent ??= indent
+        cur = { id: id[1], name: id[1] }
+        jobs.push(cur)
+        continue
+      }
+      const nm = /^\s+name\s*:\s*(.+?)\s*$/.exec(l)
+      if (nm && cur && indent > jobIndent) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
     }
   }
   return { pr, jobs }
@@ -43,6 +51,11 @@ const wf = (name, on, jobs) => `name: ${name}\non:\n${on}\njobs:\n${jobs}\n`
   const count = (list, n) => list.filter((w) => w.pr).flatMap((w) => w.jobs).filter((j) => j.name === n).length
   assert.equal(count([a, b, c], 'checks'), 2, '합성 충돌(잡 2개)을 감지')
   assert.equal(count([a, c], 'guard'), 0, 'PR 트리거 없는 같은 이름은 세지 않음')
+}
+// 회귀: 유효한 YAML은 잡 들여쓰기가 2칸으로 고정되지 않는다.
+{
+  const indented = parseWorkflow(wf('Indented', '  pull_request:', '    checks:\n        runs-on: ubuntu-latest\n    other:\n        name: checks\n        runs-on: ubuntu-latest'))
+  assert.deepEqual(indented.jobs.map((j) => j.name), ['checks', 'checks'], '4칸 들여쓰기에서도 이름 충돌을 놓치지 않음')
 }
 // 실제 저장소 검사
 const dir = new URL('../../.github/workflows/', import.meta.url)
