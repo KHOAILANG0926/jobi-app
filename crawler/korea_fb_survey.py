@@ -329,6 +329,11 @@ async def limited(coro, secs: int, label: str, page):
             title = "?"
         print(f"  ⛔ {label} {secs}초 넘김 — 지금 주소 {page.url[:80]} · 제목 {title[:40]}")
         return "timeout"
+    except RuntimeError:  # 계정 잠금(checkpoint·로그인 풀림)은 그대로 위로 — 멈춰야 함
+        raise
+    except Exception as e:  # noqa: BLE001 — 화면이 죽음(2026-11-12 'Target crashed'로 조사 전체가 끝남): 그 단계만 실패로 세고 새 화면으로
+        print(f"  ⛔ {label} 화면 오류 {type(e).__name__}: {str(e)[:80]} — 지금 주소 {page.url[:80]}")
+        return "timeout"
 
 
 async def fresh_page(ctx, page):

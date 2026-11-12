@@ -3,7 +3,7 @@
 - 중복 열쇠: 실제로 겹쳤던 글 2쌍(접힌 글 / 펼친 글)이 같은 열쇠, 다른 글은 다른 열쇠
 - AI 답 거르기: 목록 밖 갈래·없는 번호는 버리고, 열쇠가 없으면 '분류 안 됨'
 - 보고: 예전 낱말 갈래로 저장된 글은 'legacy'로 모여 표에서 사라지지 않음
-- 검색 화면이 멈추면 시간 한도에서 끊고 새 화면으로 잇는다
+- 검색 화면이 멈추거나 죽으면 그 단계만 실패로 세고 새 화면으로 잇는다(계정 잠금은 멈춤)
 """
 from __future__ import annotations
 
@@ -102,6 +102,25 @@ k.search_groups, k.stealth_async, k.SEARCH_LIMIT_S = _hang, _noop, 0.2
 old_page = _Page()
 new_page, got = asyncio.run(k.search_limited(old_page, _Ctx(), "x"))
 check("멈춘 검색은 한도에서 끊고 새 화면", got is None and new_page is not old_page)
+
+
+async def _crash(page, query, scrolls):
+    raise Exception("Locator.count: Target crashed")
+
+
+async def _locked(page, query, scrolls):
+    raise RuntimeError("checkpoint")
+
+
+k.search_groups = _crash
+new_page, got = asyncio.run(k.search_limited(old_page, _Ctx(), "x"))
+check("화면이 죽으면 그 단계만 실패, 새 화면", got is None and new_page is not old_page)
+k.search_groups = _locked
+try:
+    asyncio.run(k.search_limited(old_page, _Ctx(), "x"))
+    check("계정 잠금은 멈춤(위로 전달)", False)
+except RuntimeError:
+    check("계정 잠금은 멈춤(위로 전달)", True)
 
 if fails:
     sys.exit(f"{len(fails)}개 실패: {fails}")
