@@ -1,3 +1,8 @@
+## 2026-11-12 밤 — 다시 처리: 원문에 주소가 없으면 위치 칸은 그대로 (sb-5942 HAIDILAO, #633 후속)
+- 원인 [직접 확인 run 43294627112]: #760 뒤 대기열이 sb-5942(HAIDILAO)도 Facebook 공고로 찾음 → 원문에 번지가 없어 주소 읽기가 빈 값 → "Cannot refresh location without a source-backed location"로 그 공고 실패·대기열 실행 빨간색.
+- 변경: refresh_facebook_existing — 주소를 못 읽으면 위치 칸만 고칠 칸에서 빼고 기존 위치(관리자 확정)를 둠. 제목·회사는 그대로 다시 처리. 시험 1개(test_refresh_store_rows).
+- 지운 것/합친 것: 실패시키던 raise 한 줄을 지우고 고칠 칸 목록(refresh_fields) 한 곳으로.
+
 ## 2026-11-12 밤 — Facebook 기존 공고 찾기: 상세요강 다시 만든 공고도 (#633 ZHAN AN)
 - 원인 [직접 확인 코드]: 수집기 기존 공고 목록·관리자 다시 처리·규칙 변경 대기열이 상세요강(description)의 "[source:facebook]" 표시로 Facebook 공고를 찾는데, detail-fill이 상세요강을 원문에서 다시 만들며 표시가 사라짐 → "기존 facebook 공고 0개", 중복은 DB 입구만 잡음. refresh_facebook_existing만 11-01에 source_url로 고쳐져 있었음(수평 전개 누락).
 - 변경: crawl_facebook.is_facebook_row 한 곳(표시 또는 원문 주소)으로 수집기·다시 처리·대기열이 같이 씀, 관리자 API(admin-reprocess.js)도 같은 기준. 중복 지문은 원문(source_text)으로도 만듦. 시험 1개 추가.

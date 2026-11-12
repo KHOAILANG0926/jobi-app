@@ -26,3 +26,10 @@ def test_krik_no_change_returns_empty():
 def test_house_number_is_not_merged():
     assert merge_store_rows([{"raw_address": "12 Nguyễn Trãi, Bắc Ninh"}], ["112 Nguyễn Trãi, Bắc Ninh"]) == [
         {"raw_address": "12 Nguyễn Trãi, Bắc Ninh"}, {"raw_address": "112 Nguyễn Trãi, Bắc Ninh"}]
+
+
+def test_refresh_keeps_location_when_source_has_no_address():
+    # 운영 5942 HAIDILAO(2026-11-12 19:52 대기열 실패): 원문에 번지가 없으면 위치 칸은 고치지 않는다(관리자 확정 위치 보존)
+    from refresh_facebook_existing import refresh_fields
+    assert refresh_fields({"title": "t", "company": "HAIDILAO VINCOM BẮC NINH", "location": ""}) == ["title", "company"]
+    assert refresh_fields({"title": "t", "company": "c", "location": "152 Trần Hưng Đạo - Kinh Bắc - Bắc Ninh"}) == ["title", "company", "location"]
