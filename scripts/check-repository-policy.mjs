@@ -21,6 +21,20 @@ const SECRETS = [
 export const needsSecondReview = (path) => [...PROTECTED, ...STRICT, ...SECRETS,
   /^supabase\/migrations\//, /^\.github\/workflows\//, /^scripts\/ops\/jobs\/.*\.sql$/,
   /^scripts\/(?:codex-review-gate|check-repository-policy|decision-approval-gate|approved-migrations)\.mjs$/].some((re) => re.test(path))
+// #728 S2 정답 보호: 정답 파일(사례 원문·기대값)의 기존 줄을 바꾸거나 지우려면 PR 설명에 `기대값 변경 근거:`(결정 번호·Lee 결정 날짜·원문 인용)가 있어야 한다.
+// 출처 없이 정답을 고치면 시험이 '맞는 값'이 아니라 '지금 코드가 내는 값'을 굳힌다. 줄 추가는 자유.
+// 보호 대상 = 원문→값·칸·업종·위치·사진을 판정하는 '의미 정답' 시험과 사례 자료(src/lib 시험 85개 중 이름 목록, 화면·저장소·지도 조작 같은 인프라 시험은 제외).
+// 새 판정 모듈의 시험을 만들면 여기 이름을 더한다(목록은 줄이지 않는다).
+const SEMANTIC_TESTS = ['company', 'address', 'salary', 'jobQuyenLoi', 'jobDetailSections', 'jobDescriptionBuild', 'jobDescriptionExtract', 'jobDetailFill',
+  'aiClassifyGuard', 'businessType', 'mealBenefit', 'conditionLines', 'jobInspect', 'screenAudit', 'sourceSalary', 'sourceRecruitmentRoles',
+  'workScheduleParse', 'jobRolePresentation', 'jobMultiRole', 'realJobs', 'locationPrecheck', 'autoLocationResolver', 'administrativeArea',
+  'cardPhoto', 'companyLogo', 'brandLogo', 'vnAdminCases']
+// 같은 종류의 정답이 있는 다른 곳도 포함: DB 규칙 시험(supabase/tests/*.test.mjs, PGlite), OCR 시험(scripts/ocr/*.test.mjs), 크롤러 시험(crawler/test_*.py).
+const ANSWER_FILES = [new RegExp(`^src\\/lib\\/(?:${SEMANTIC_TESTS.join('|')})(?:Reader)?\\.test\\.ts$`), /^src\/lib\/[A-Za-z]+\.fixtures?\.ts$/, /^scripts\/repro\/.+\.repro\.ts$/,
+  /^supabase\/tests\/[^/]+\.test\.mjs$/, /^scripts\/ocr\/[^/]+\.test\.mjs$/, /^crawler\/test_[^/]+\.py$/]
+const isAnswerFile = (p) => ANSWER_FILES.some((re) => re.test(p))
+// import 줄은 기대값이 아니다(이름을 더하려고 줄이 바뀌는 것은 정상) — 지운 줄 세기에서 제외.
+const removedLines = (patch = '') => patch.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---') && !/^-\s*(?:\/\/|\*|\/\*|#)?\s*$/.test(l) && !/^-\s*(?:\/\/|#)/.test(l) && !/^-\s*(?:import|from)\b/.test(l))
 const SOURCE_EXPOSURE = /\b(?:source_url|sourceUrl|originalJobUrl|externalPostingUrl)\b/
 const SRC_EXPOSURE_PATH = /^src\/(?:pages|components|context|lib)\//
 
@@ -67,6 +81,15 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
     const addedTest = (patches[`src/lib/${name}.test.ts`] ?? '').split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && !/^\+\s*(?:\/\/|\*|\/\*)/.test(l))
     if (changed.has(src) && !addedTest.some((l) => /\beq\(/.test(l)))
       errors.push(`${src}: 11-07 결정 — 고칠 때는 그 공고 사례를 ${name}.test.ts에 eq(…)로 추가해야 함`)
+  }
+  const answerEdits = paths.filter((p) => isAnswerFile(p) && removedLines(patches[p]).length)
+  if (answerEdits.length) {
+    // 정답(기대값)의 기존 줄을 바꾸려면 PR 본문에 출처가 있어야 한다: 결정 번호(#번호·결정 0000)·Lee 결정 날짜·원문 인용("…"/「…」).
+    // 출처 없이 코드와 정답을 같이 바꾸면 시험이 '맞는 값'이 아니라 '지금 코드가 내는 값'을 굳힌다. 출처가 있으면 Codex가 그 근거와 대조한다.
+    // (정답만 바꾸는 별도 PR은 코드가 아직 안 바뀌어 npm test가 빨개져 병합할 수 없으므로 같은 PR 변경을 근거 조건부로 허용한다.)
+    const SOURCE = /기대값 변경 근거:[^\n]*(?:#\d+|결정\s*\d{4}|Lee\s*\d{4}-\d{2}-\d{2}|"[^"\n]{8,}"|「[^」\n]{8,}」)/
+    if (!SOURCE.test(body))
+      errors.push(`${answerEdits.join(', ')}: 정답 파일의 기존 줄 수정·삭제는 PR 설명에 '기대값 변경 근거:' 한 줄이 있어야 함 — 결정 번호(#번호·결정 0000)·Lee 결정 날짜(Lee 2026-11-11)·원문 인용("…") 중 하나 포함. 출처 없는 정답 변경 금지(#728 S2)`)
   }
   for (const [path, patch] of Object.entries(patches)) {
     if (!SRC_EXPOSURE_PATH.test(path)) continue
