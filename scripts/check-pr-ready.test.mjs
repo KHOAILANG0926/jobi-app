@@ -54,7 +54,7 @@ assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/mi
 const ans = 'src/lib/realJobs.fixtures.ts', prodF = 'src/lib/jobQuyenLoi.ts', edit = { [ans]: '-  salary: "7 triệu",\n+  salary: "8 triệu",\n' }
 assert.ok(evaluateFiles([ans, prodF], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit + production code without a source denied')
 assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 그냥 바꿈', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit with a vague reason denied')
-assert.equal(evaluateFiles([ans, prodF], '기대값 변경 근거: Lee 2026-11-11 지도 위치 절대 원칙', edit).length, 0, 'answer edit with a Lee decision date allowed')
+assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: Lee 2026-11-11 지도 위치 절대 원칙', edit).length > 0, 'date alone is not verifiable evidence')
 assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu/tháng" (#729)', edit).length, 0, 'answer edit with a quoted source / issue number allowed')
 assert.equal(evaluateFiles([ans, prodF], '', { [ans]: '+  salary: "9 triệu",\n' }).filter((e) => e.includes(ans)).length, 0, 'adding answer lines with production code allowed')
 // GPT 검토(#728): 의미 정답 시험(jobQuyenLoi 등)도 생산 코드와 같은 PR에서 기존 줄을 바꾸면 막는다. 인프라 시험은 자유.
@@ -63,7 +63,7 @@ assert.ok(evaluateFiles(['supabase/tests/occupation_publication.pglite.test.mjs'
 assert.ok(evaluateFiles(['crawler/test_x.py', 'crawler/x.py'], '', { 'crawler/test_x.py': '-    assert f(1) == 1\n+    assert f(1) == 2\n' }).some((e) => e.includes('기대값 변경 근거')), 'crawler test expectation edit denied without a source')
 assert.equal(evaluateFiles(['scripts/ocr/ocr-compare.test.mjs'], '', { 'scripts/ocr/ocr-compare.test.mjs': '+assert.equal(1, 1)\n' }).length, 0, 'a test file alone is not production code')
 assert.equal(evaluateFiles(['src/lib/businessType.test.ts', 'src/lib/businessType.ts'], '', { 'src/lib/businessType.test.ts': "-import { a } from './b.ts'\n+import { a, c } from './b.ts'\n+eq(1, 1, 'new case')\n" }).length, 0, 'import line edits and added cases are not expectation changes')
-assert.equal(evaluateFiles(['src/lib/homeMapFilters.test.ts', 'src/lib/homeMapFilters.ts'], '', { 'src/lib/homeMapFilters.test.ts': '-x\n+y\n' }).length, 0, 'infrastructure tests stay free')
+assert.ok(evaluateFiles(['src/lib/homeMapFilters.test.ts', 'src/lib/homeMapFilters.ts'], '', { 'src/lib/homeMapFilters.test.ts': '-x\n+y\n' }).length > 0, 'new lib test files must not silently bypass answer protection')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+alter table public.local_jobs drop column title;\n' }).length > 0, 'dropping a column denied')
 assert.ok(evaluateFiles(['src/lib/jobDetailSections.ts']).length > 0, 'unverified detail categorization denied')
 assert.deepEqual(evaluateFiles(['src/lib/jobDetailSections.ts', 'src/lib/jobDetailSections.test.ts']), [], 'covered detail classification allowed')

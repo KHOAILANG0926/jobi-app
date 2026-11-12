@@ -32,7 +32,7 @@ const SEMANTIC_TESTS = ['company', 'address', 'salary', 'jobQuyenLoi', 'jobDetai
 // 같은 종류의 정답이 있는 다른 곳도 포함: DB 규칙 시험(supabase/tests/*.test.mjs, PGlite), OCR 시험(scripts/ocr/*.test.mjs), 크롤러 시험(crawler/test_*.py).
 const ANSWER_FILES = [new RegExp(`^src\\/lib\\/(?:${SEMANTIC_TESTS.join('|')})(?:Reader)?\\.test\\.ts$`), /^src\/lib\/[A-Za-z]+\.fixtures?\.ts$/, /^scripts\/repro\/.+\.repro\.ts$/,
   /^supabase\/tests\/[^/]+\.test\.mjs$/, /^scripts\/ocr\/[^/]+\.test\.mjs$/, /^crawler\/test_[^/]+\.py$/]
-const isAnswerFile = (p) => ANSWER_FILES.some((re) => re.test(p))
+const isAnswerFile = (p) => ANSWER_FILES.some((re) => re.test(p)) || /^src\/lib\/[A-Za-z][A-Za-z0-9]*\.test\.ts$/.test(p)
 // import 줄은 기대값이 아니다(이름을 더하려고 줄이 바뀌는 것은 정상) — 지운 줄 세기에서 제외.
 const removedLines = (patch = '') => patch.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---') && !/^-\s*(?:\/\/|\*|\/\*|#)?\s*$/.test(l) && !/^-\s*(?:\/\/|#)/.test(l) && !/^-\s*(?:import|from)\b/.test(l))
 const SOURCE_EXPOSURE = /\b(?:source_url|sourceUrl|originalJobUrl|externalPostingUrl)\b/
@@ -87,7 +87,7 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
     // 정답(기대값)의 기존 줄을 바꾸려면 PR 본문에 출처가 있어야 한다: 결정 번호(#번호·결정 0000)·Lee 결정 날짜·원문 인용("…"/「…」).
     // 출처 없이 코드와 정답을 같이 바꾸면 시험이 '맞는 값'이 아니라 '지금 코드가 내는 값'을 굳힌다. 출처가 있으면 Codex가 그 근거와 대조한다.
     // (정답만 바꾸는 별도 PR은 코드가 아직 안 바뀌어 npm test가 빨개져 병합할 수 없으므로 같은 PR 변경을 근거 조건부로 허용한다.)
-    const SOURCE = /기대값 변경 근거:[^\n]*(?:#\d+|결정\s*\d{4}|Lee\s*\d{4}-\d{2}-\d{2}|"[^"\n]{8,}"|「[^」\n]{8,}」)/
+    const SOURCE = /기대값 변경 근거:(?=[^\n]*#\d+)(?=[^\n]*(?:"[^"\n]{8,}"|「[^」\n]{8,}」))[^\n]+/
     if (!SOURCE.test(body))
       errors.push(`${answerEdits.join(', ')}: 정답 파일의 기존 줄 수정·삭제는 PR 설명에 '기대값 변경 근거:' 한 줄이 있어야 함 — 결정 번호(#번호·결정 0000)·Lee 결정 날짜(Lee 2026-11-11)·원문 인용("…") 중 하나 포함. 출처 없는 정답 변경 금지(#728 S2)`)
   }

@@ -19,13 +19,24 @@ export function parseWorkflow(text) {
   const jobs = []
   if (jobsIdx >= 0) {
     let cur = null
+    let jobIndent = null
+    let propertyIndent = null
     for (let i = jobsIdx + 1; i < lines.length; i++) {
       const l = lines[i]
       if (/^\S/.test(l)) break
-      const id = /^  ([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$/.exec(l)
-      if (id) { cur = { id: id[1], name: id[1] }; jobs.push(cur); continue }
-      const nm = /^    name\s*:\s*(.+?)\s*$/.exec(l)
-      if (nm && cur) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
+      if (!l.trim() || /^\s*#/.test(l)) continue
+      const indent = l.match(/^ */)[0].length
+      const id = /^\s+([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$/.exec(l)
+      if (id && (jobIndent === null || indent === jobIndent)) {
+        jobIndent ??= indent
+        propertyIndent = null
+        cur = { id: id[1], name: id[1] }
+        jobs.push(cur)
+        continue
+      }
+      if (cur && indent > jobIndent && (propertyIndent === null || indent < propertyIndent)) propertyIndent = indent
+      const nm = /^\s+name\s*:\s*(.+?)\s*$/.exec(l)
+      if (nm && cur && indent === propertyIndent) cur.name = nm[1].replace(/^['"]|['"]$/g, '')
     }
   }
   return { pr, jobs }
@@ -43,6 +54,26 @@ const wf = (name, on, jobs) => `name: ${name}\non:\n${on}\njobs:\n${jobs}\n`
   const count = (list, n) => list.filter((w) => w.pr).flatMap((w) => w.jobs).filter((j) => j.name === n).length
   assert.equal(count([a, b, c], 'checks'), 2, '합성 충돌(잡 2개)을 감지')
   assert.equal(count([a, c], 'guard'), 0, 'PR 트리거 없는 같은 이름은 세지 않음')
+}
+// 회귀: 유효한 YAML은 잡 들여쓰기가 2칸으로 고정되지 않는다.
+{
+  const indented = parseWorkflow(wf('Indented', '  pull_request:', '    checks:\n        runs-on: ubuntu-latest\n    other:\n        name: checks\n        runs-on: ubuntu-latest'))
+  assert.deepEqual(indented.jobs.map((j) => j.name), ['checks', 'checks'], '4칸 들여쓰기에서도 이름 충돌을 놓치지 않음')
+}
+// S2 정답 변경 근거 회귀: 날짜/번호만으로 허용되지 않고 신규 lib 테스트도 보호한다.
+{
+  const { evaluateFiles } = await import('../check-repository-policy.mjs')
+  const path = 'src/lib/newSemanticParser.test.ts'
+  const patch = ['@@ -1 +1 @@', '-old expected value', '+new expected value'].join(String.fromCharCode(10))
+  const changed = [path]
+  const noEvidence = evaluateFiles(changed, '', { [path]: patch })
+  const fakeDate = evaluateFiles(changed, '기대값 변경 근거: Lee 2026-11-11', { [path]: patch })
+  const fakeNumber = evaluateFiles(changed, '기대값 변경 근거: #999999', { [path]: patch })
+  const supported = evaluateFiles(changed, '기대값 변경 근거: #728 \"원문에 적힌 조건 그대로 유지\"', { [path]: patch })
+  assert.ok(noEvidence.length > 0, '신규 lib 의미 테스트의 기존 기대값 변경은 차단')
+  assert.ok(fakeDate.length > 0, '날짜만으로 기대값 변경 허용 금지')
+  assert.ok(fakeNumber.length > 0, '번호만으로 기대값 변경 허용 금지')
+  assert.deepEqual(supported, [], '이슈 번호와 인용이 함께 있는 변경은 기존 Codex 검토 경로로 전달')
 }
 // 실제 저장소 검사
 const dir = new URL('../../.github/workflows/', import.meta.url)
