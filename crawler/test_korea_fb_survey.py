@@ -41,12 +41,19 @@ check("겹친 글 1쌍 같은 열쇠", k.dedupe_key(a) == k.dedupe_key(b))
 check("겹친 글 2쌍 같은 열쇠", k.dedupe_key(c) == k.dedupe_key(d))
 check("다른 글 다른 열쇠", k.dedupe_key("Cho em hỏi công ty này ổn không") != k.dedupe_key(c))
 
+# 1-2. 글 끝 화면 단추 글자(2026-11-12 시험에서 본문 끝에 남음) — 잘림 표시 '더 보기'는 남김
+check("댓글 단추 글자 지움", k.TAIL_RE.sub("", "e xin vi 댓글 더 보기 답글 3개 보기 답글 2개 보기") == "e xin vi")
+check("잘림 표시 더 보기는 남김", k.TAIL_RE.sub("", "Bánh tráng… 더 보기") == "Bánh tráng… 더 보기")
+
 # 2. AI 답 거르기
 posts = [{"text": "Gà dai 7k/1 con"}, {"text": "Đi diện E9 đơn xây dựng thì có đợi lâu không"}, {"text": "x"}]
 k._ai_call = lambda p: 'Đây: [{"i":0,"c":"sell","w":"kr"},{"i":1,"c":"di_han","w":"vn"},{"i":2,"c":"bogus","w":"kr"},{"i":9,"c":"sell"}]'
 k.ai_classify(posts)
 check("맞는 답은 반영", (posts[0]["class"], posts[0]["writer"]) == ("sell", "kr") and (posts[1]["class"], posts[1]["writer"]) == ("di_han", "vn"))
 check("목록 밖 갈래는 분류 안 됨", posts[2]["class"] == "unclassified")
+k._ai_call = lambda p: 'Kết quả [0] là bán hàng:\n```json\n[{"i":0,"c":"sell","w":"kr"},{"i":1,"c":"di_han","w":"vn"},{"i":2,"c":"li'
+k.ai_classify(posts)
+check("말이 붙고 중간에 끊긴 답도 읽은 만큼 반영", (posts[0]["class"], posts[1]["class"], posts[2]["class"]) == ("sell", "di_han", "unclassified"))
 k._ai_call = lambda p: None
 k.ai_classify(posts)
 check("열쇠 없음 → 모두 분류 안 됨", all(p["class"] == "unclassified" and p["writer"] == "unk" for p in posts))

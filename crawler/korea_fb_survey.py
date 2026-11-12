@@ -69,12 +69,15 @@ def _ai_call(prompt: str) -> str | None:
         return None
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", method="POST",
                                  headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                                 data=json.dumps({"model": AI_MODEL, "max_tokens": 1500,
+                                 data=json.dumps({"model": AI_MODEL, "max_tokens": 4000,
                                                   "messages": [{"role": "user", "content": prompt}]}).encode())
     for attempt in (1, 2):
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
-                return "".join(c.get("text", "") for c in json.load(r).get("content", []))
+                body = json.load(r)
+            if body.get("stop_reason") != "end_turn":  # 답이 중간에 끊김(2026-11-12 시험: 20개 묶음 2개가 통째로 '분류 안 됨')
+                print(f"  ⚠️ AI 답 끝 이유: {body.get('stop_reason')}")
+            return "".join(c.get("text", "") for c in body.get("content", []))
         except Exception as e:  # noqa: BLE001
             print(f"  ⚠️ AI 분류 실패({attempt}/2): {type(e).__name__}")
     return None
@@ -95,17 +98,21 @@ def ai_classify(posts: list[dict]) -> None:
         out = _ai_call(prompt)
         if not out:
             continue
-        m = re.search(r"\[.*\]", out, re.S)
-        try:
-            rows = json.loads(m.group(0)) if m else []
-        except ValueError:
-            rows = []
+        rows = []
+        for m in re.finditer(r"\{[^{}]*\}", out):  # 글 하나씩 읽음 — 배열이 끊기거나 앞뒤에 말이 붙어도 읽은 만큼은 살린다
+            try:
+                rows.append(json.loads(m.group(0)))
+            except ValueError:
+                pass
+        ok = 0
         for r in rows:
             i = r.get("i") if isinstance(r, dict) else None
             if isinstance(i, int) and 0 <= i < len(batch) and r.get("c") in CLASSES:
                 batch[i]["ai_ok"] = True  # 이번 판정이 성공한 글(실패하면 저장된 예전 판정을 지키는 근거)
                 batch[i]["class"] = r["c"]
                 batch[i]["writer"] = r.get("w") if r.get("w") in WRITERS else "unk"
+                ok += 1
+        print(f"  · AI 갈래 {k // 20 + 1}묶음: {ok}/{len(batch)}개 판정")  # 글 내용은 찍지 않음(공개 저장소)
 
 
 def is_korea_group(name: str) -> bool:
@@ -195,12 +202,17 @@ OWN_TEXT_JS = "(idx) => {" + TOP_LEVEL_POSTS_JS + """
     const nodes = preview ? [preview] : [...el.querySelectorAll('[dir="auto"]')].filter(n => n.closest(CAND) === el)
     const lines = []
     for (const n of nodes) {
-        const t = (n.innerText || n.textContent || '').trim()
-        if (t && t.length > 2 && !lines.some(x => x.includes(t))) lines.push(t)
+        // 저장하는 글은 원래 줄바꿈 유지(칸 안 띄어쓰기만 정리), 포함 비교는 공백을 모두 지운 키로
+        const t = (n.innerText || n.textContent || '').replace(/[ \\t]+/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim()
+        const k = t.replace(/\\s+/g, ' ')
+        if (!t || t.length <= 2 || lines.some(x => x.k.includes(k))) continue
+        for (let i = lines.length - 1; i >= 0; i--) if (k.includes(lines[i].k)) lines.splice(i, 1)  // 미리보기 뒤에 온 전체 글: 짧은 쪽 지움(2026-11-12 "A A" 두 번 붙음)
+        lines.push({ t, k })
     }
-    return { text: lines.join('\\n').trim(), hasSeeMore: !!seeMoreBtn(el) }
+    return { text: lines.map(x => x.t).join('\\n').trim(), hasSeeMore: !!seeMoreBtn(el) }
 }"""
-TAIL_RE = re.compile(r"\s*(적게 보기|Ẩn bớt|See less)\s*$")
+# 글 끝에 붙는 화면 단추 글자(2026-11-12 시험: "댓글 더 보기 답글 2개 보기"가 본문 끝에 남음). '더 보기' 하나만은 잘림 표시라 남긴다.
+TAIL_RE = re.compile(r"(\s*(적게 보기|Ẩn bớt|See less|댓글 더 보기|답변 더 보기|답글 \d+개 보기|Xem thêm bình luận|Xem \d+ phản hồi|View more comments|View \d+ repl(y|ies)))+\s*$")
 
 
 def dedupe_key(text: str) -> str:
@@ -211,7 +223,7 @@ def dedupe_key(text: str) -> str:
 
 async def own_text(page, idx: int) -> dict | None:
     r = await page.evaluate(OWN_TEXT_JS, idx)
-    if r and is_truncated_post(r["text"], r["hasSeeMore"]):
+    if r and is_truncated_post(TAIL_RE.sub("", r["text"]), r["hasSeeMore"]):  # 댓글 단추의 '더 보기'를 잘림으로 보지 않게
         await expand_and_reread(page, idx)  # 실제 마우스 클릭으로 한 번 펼침(수집기와 같은 방법)
         r = await page.evaluate(OWN_TEXT_JS, idx) or r
     if r:
