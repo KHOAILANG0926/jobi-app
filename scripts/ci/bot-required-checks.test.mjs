@@ -5,7 +5,7 @@ const jq = (args, input) => execFileSync('jq', args, { input, encoding: 'utf8' }
 const run = (id, name, conclusion, started, suite, status = 'completed') => ({ id, name, conclusion, status, started_at: started, check_suite: { id: suite } })
 const base = (extra) => ({ check_runs: [run(1, 'app-screen', 'success', '2026-11-12T10:00:00Z', 10), run(2, 'guard', 'success', '2026-11-12T10:00:00Z', 11),
   run(3, 'publication-gate', 'success', '2026-11-12T10:00:00Z', 12), ...extra] })
-const gate = (resp) => {
+const gate = (resp) => {  // resp = 한 페이지 객체 또는 페이지 배열(gh --paginate --slurp)
   const collapsed = jq(['-c', '-f', 'scripts/ci/collapse-check-runs.jq'], JSON.stringify(resp))
   try { jq(['-e', '-f', 'scripts/ci/required-checks-pass.jq'], collapsed); return true } catch { return false }
 }
@@ -26,4 +26,16 @@ assert.equal(gate(base([run(4, 'checks', 'failure', '2026-11-12T10:01:00Z', 20),
 assert.equal(gate(base([run(4, 'checks', 'success', '2026-11-12T10:01:00Z', 20), fakeGreenLater])), true, '둘 다 성공하면 통과')
 assert.equal(gate({ check_runs: [run(1, 'app-screen', 'success', 'a', 10), run(2, 'guard', 'success', 'a', 11), run(4, 'checks', 'success', 'a', 20)] }), false, 'publication-gate 없으면 보류')
 assert.equal(gate(base([run(4, 'checks', 'success', 'a', 20, 'in_progress')])), false, '실행 중이면 보류')
-console.log('bot-required-checks.test.mjs: 이름 충돌 가림 재현(수정 전) + 수정 후 7건 통과')
+// 100개 초과(여러 페이지): 실패가 뒤 페이지에 있어도 보여야 한다
+{
+  const filler = (from, n) => Array.from({ length: n }, (_, i) => run(1000 + from + i, `other-${from + i}`, 'success', '2026-11-12T10:00:00Z', 100 + from + i))
+  const page1 = { total_count: 105, check_runs: [run(1, 'app-screen', 'success', 'a', 10), run(2, 'guard', 'success', 'a', 11), run(3, 'publication-gate', 'success', 'a', 12), run(4, 'checks', 'success', 'a', 20), ...filler(0, 96)] }
+  const page2failing = { total_count: 105, check_runs: [run(9001, 'checks', 'failure', '2026-11-12T10:02:00Z', 21), ...filler(200, 4)] }
+  const page2green = { total_count: 105, check_runs: [run(9001, 'checks', 'success', '2026-11-12T10:02:00Z', 21), ...filler(200, 4)] }
+  // 수정 전 방식은 첫 페이지(100개)만 봐서 뒤 페이지의 빨간 검사를 못 본다 — 재현
+  assert.equal(oldGate(page1), true, '수정 전: 첫 100개만 보면 뒤 페이지 실패를 못 보고 통과(결함 재현)')
+  assert.equal(gate([page1, page2failing]), false, '2페이지의 실패한 checks도 병합 보류')
+  assert.equal(gate([page1, page2green]), true, '2페이지까지 전부 성공이면 통과')
+  assert.equal(gate(page1), false, '조회가 잘렸으면(받은 개수 < total_count) 안전하게 병합 보류')
+}
+console.log('bot-required-checks.test.mjs: 이름 충돌·100개 초과 가림 재현(수정 전) + 수정 후 통과')
