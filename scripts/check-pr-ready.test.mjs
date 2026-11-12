@@ -56,7 +56,10 @@ assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 원문 인용 "7
 assert.ok(evaluateFiles([ans], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit without evidence denied')
 assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).length, 0, 'answer-only PR with evidence allowed')
 assert.equal(evaluateFiles([ans, prodF], '', { [ans]: '+  salary: "9 triệu",\n' }).filter((e) => e.includes(ans)).length, 0, 'adding answer lines with production code allowed')
-assert.equal(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).length, 0, 'non-answer tests unchanged (scope stays narrow)')
+// GPT 검토(#728): 의미 정답 시험(jobQuyenLoi 등)도 생산 코드와 같은 PR에서 기존 줄을 바꾸면 막는다. 인프라 시험은 자유.
+assert.ok(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).some((e) => e.includes('같은 PR')), 'semantic test (jobQuyenLoi) expectation edit + production code denied')
+assert.equal(evaluateFiles(['src/lib/businessType.test.ts', 'src/lib/businessType.ts'], '', { 'src/lib/businessType.test.ts': "-import { a } from './b.ts'\n+import { a, c } from './b.ts'\n+eq(1, 1, 'new case')\n" }).length, 0, 'import line edits and added cases are not expectation changes')
+assert.equal(evaluateFiles(['src/lib/homeMapFilters.test.ts', 'src/lib/homeMapFilters.ts'], '', { 'src/lib/homeMapFilters.test.ts': '-x\n+y\n' }).length, 0, 'infrastructure tests stay free')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+alter table public.local_jobs drop column title;\n' }).length > 0, 'dropping a column denied')
 assert.ok(evaluateFiles(['src/lib/jobDetailSections.ts']).length > 0, 'unverified detail categorization denied')
 assert.deepEqual(evaluateFiles(['src/lib/jobDetailSections.ts', 'src/lib/jobDetailSections.test.ts']), [], 'covered detail classification allowed')

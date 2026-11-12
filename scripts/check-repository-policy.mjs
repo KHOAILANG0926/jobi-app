@@ -24,10 +24,17 @@ export const needsSecondReview = (path) => [...PROTECTED, ...STRICT, ...SECRETS,
 // #728 S2 정답 보호: 정답 파일(사례 원문·기대값)의 기존 줄을 생산 코드와 같은 PR에서 바꾸거나 지울 수 없다.
 // 정답을 고치는 쪽이 코드도 같이 고치면 시험이 '맞는 값'이 아니라 '지금 코드가 내는 값'을 굳힌다. 줄 추가는 자유.
 // 기대값을 정말 바꿔야 하면 생산 파일 없이 그 파일만 바꾸는 별도 PR + 설명에 `기대값 변경 근거:`(원문 인용 또는 결정 번호).
-const ANSWER_FILES = [/^src\/lib\/realJobs\.fixtures\.ts$/, /^src\/lib\/(?:company|address|salary)Reader\.test\.ts$/, /^scripts\/repro\/.+\.repro\.ts$/]
+// 보호 대상 = 원문→값·칸·업종·위치·사진을 판정하는 '의미 정답' 시험과 사례 자료(src/lib 시험 85개 중 이름 목록, 화면·저장소·지도 조작 같은 인프라 시험은 제외).
+// 새 판정 모듈의 시험을 만들면 여기 이름을 더한다(목록은 줄이지 않는다).
+const SEMANTIC_TESTS = ['company', 'address', 'salary', 'jobQuyenLoi', 'jobDetailSections', 'jobDescriptionBuild', 'jobDescriptionExtract', 'jobDetailFill',
+  'aiClassifyGuard', 'businessType', 'mealBenefit', 'conditionLines', 'jobInspect', 'screenAudit', 'sourceSalary', 'sourceRecruitmentRoles',
+  'workScheduleParse', 'jobRolePresentation', 'jobMultiRole', 'realJobs', 'locationPrecheck', 'autoLocationResolver', 'administrativeArea',
+  'cardPhoto', 'companyLogo', 'brandLogo', 'vnAdminCases']
+const ANSWER_FILES = [new RegExp(`^src\\/lib\\/(?:${SEMANTIC_TESTS.join('|')})(?:Reader)?\\.test\\.ts$`), /^src\/lib\/[A-Za-z]+\.fixtures?\.ts$/, /^scripts\/repro\/.+\.repro\.ts$/]
 const isProductionFile = (p) => /^(?:api|crawler|scripts\/ocr)\//.test(p)
   || (/^src\/(?:lib|pages|components)\//.test(p) && !/\.test\.[a-z]+$/.test(p) && !ANSWER_FILES.some((re) => re.test(p)))
-const removedLines = (patch = '') => patch.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---') && !/^-\s*(?:\/\/|\*|\/\*)?\s*$/.test(l))
+// import 줄은 기대값이 아니다(이름을 더하려고 줄이 바뀌는 것은 정상) — 지운 줄 세기에서 제외.
+const removedLines = (patch = '') => patch.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---') && !/^-\s*(?:\/\/|\*|\/\*)?\s*$/.test(l) && !/^-\s*import\b/.test(l))
 const SOURCE_EXPOSURE = /\b(?:source_url|sourceUrl|originalJobUrl|externalPostingUrl)\b/
 const SRC_EXPOSURE_PATH = /^src\/(?:pages|components|context|lib)\//
 
