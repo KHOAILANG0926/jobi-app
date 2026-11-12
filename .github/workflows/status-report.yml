@@ -117,7 +117,9 @@ jobs:
             git rm -rfq .
           fi
           cp "$RUNNER_TEMP/STATUS.md" STATUS.md
-          git add STATUS.md
+          # 기록 보관 가지는 Vercel이 배포하지 않게(Lee 2026-10-18 승인, 배포 한도 초과 원인 — status 가지가 하루 26번 배포됨)
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          git add STATUS.md vercel.json
           git commit -qm "status: ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)" || echo "변경 없음"
           git push origin status
 
