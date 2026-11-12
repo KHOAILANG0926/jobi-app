@@ -305,14 +305,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 50
-      - name: 실행 요청이면 ai-team 표시 (코드 권한 세션이 찾도록 — 이 실행은 수정하지 못함, #728 S6)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMENT: ${{ github.event.comment.body }}
-        run: |
-          if printf '%s' "$COMMENT" | grep -qE '진행|실행|수정|작업'; then
-            gh issue edit "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --add-label ai-team || echo "::warning::ai-team 라벨 표시 실패(표시만, 답에는 영향 없음)"
-          fi
       - name: Claude가 댓글에 답
         id: claude
         uses: anthropics/claude-code-action@v1
