@@ -1,6 +1,6 @@
-# 모바일 화면 캡처 (2026-11-12T00:12:09.545Z)
+# 모바일 화면 캡처 (2026-11-12T02:07:42.308Z)
 
-- iphone home (/): 폭 390/390, 높이 6573, 11px 미만 글자 37곳
+- iphone home (/): 폭 390/390, 높이 6446, 11px 미만 글자 36곳
 - iphone search (/viec-lam/tim-kiem): 폭 390/390, 높이 5760, 11px 미만 글자 4곳
 - iphone area (/viec-lam/khu-vuc): 폭 390/390, 높이 7208, 11px 미만 글자 6곳
 - iphone map (/ban-do): 폭 390/390, 높이 1655, 11px 미만 글자 6곳
@@ -8,11 +8,11 @@
 - iphone post (/dang-tin): 폭 390/390, 높이 9369, 11px 미만 글자 4곳
 - iphone saved (/viec-lam/da-luu): 폭 390/390, 높이 1073, 11px 미만 글자 4곳
 - iphone detail-kda (/viec-lam/sb-4824): 폭 390/390, 높이 3791, 11px 미만 글자 13곳
-- iphone detail-5994 (/viec-lam/sb-5994): 폭 390/390, 높이 4667, 11px 미만 글자 13곳
+- iphone detail-5994 (/viec-lam/sb-5994): 폭 390/390, 높이 4702, 11px 미만 글자 13곳
 - iphone detail-5993 (/viec-lam/sb-5993): 폭 390/390, 높이 4012, 11px 미만 글자 13곳
-- iphone detail-5992 (/viec-lam/sb-5992): 폭 390/390, 높이 3698, 11px 미만 글자 13곳
+- iphone detail-5992 (/viec-lam/sb-5992): 폭 390/390, 높이 3733, 11px 미만 글자 13곳
 - iphone detail-5942 (/viec-lam/sb-5942): 폭 390/390, 높이 4350, 11px 미만 글자 13곳
-- galaxy home (/): 폭 360/360, 높이 6645, 11px 미만 글자 37곳
+- galaxy home (/): 폭 360/360, 높이 6518, 11px 미만 글자 36곳
 - galaxy search (/viec-lam/tim-kiem): 폭 360/360, 높이 5760, 11px 미만 글자 4곳
 - galaxy area (/viec-lam/khu-vuc): 폭 360/360, 높이 7208, 11px 미만 글자 6곳
 - galaxy map (/ban-do): 폭 360/360, 높이 1679, 11px 미만 글자 6곳
@@ -20,7 +20,7 @@
 - galaxy post (/dang-tin): 폭 360/360, 높이 9510, 11px 미만 글자 4곳
 - galaxy saved (/viec-lam/da-luu): 폭 360/360, 높이 1097, 11px 미만 글자 4곳
 - galaxy detail-kda (/viec-lam/sb-4824): 폭 360/360, 높이 3911, 11px 미만 글자 13곳
-- galaxy detail-5994 (/viec-lam/sb-5994): 폭 360/360, 높이 4818, 11px 미만 글자 13곳
+- galaxy detail-5994 (/viec-lam/sb-5994): 폭 360/360, 높이 4836, 11px 미만 글자 13곳
 - galaxy detail-5993 (/viec-lam/sb-5993): 폭 360/360, 높이 4162, 11px 미만 글자 13곳
-- galaxy detail-5992 (/viec-lam/sb-5992): 폭 360/360, 높이 3849, 11px 미만 글자 13곳
+- galaxy detail-5992 (/viec-lam/sb-5992): 폭 360/360, 높이 3867, 11px 미만 글자 13곳
 - galaxy detail-5942 (/viec-lam/sb-5942): 폭 360/360, 높이 4606, 11px 미만 글자 13곳
