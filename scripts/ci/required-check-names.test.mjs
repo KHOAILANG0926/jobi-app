@@ -61,7 +61,7 @@ const wf = (name, on, jobs) => `name: ${name}\non:\n${on}\njobs:\n${jobs}\n`
 {
   const { evaluateFiles } = await import('../check-repository-policy.mjs')
   const path = 'src/lib/newSemanticParser.test.ts'
-  const patch = '@@ -1 +1 @@\\n-old expected value\\n+new expected value\\n'
+  const patch = ['@@ -1 +1 @@', '-old expected value', '+new expected value'].join(String.fromCharCode(10))
   const changed = [path]
   const noEvidence = evaluateFiles(changed, '', { [path]: patch })
   const fakeDate = evaluateFiles(changed, '기대값 변경 근거: Lee 2026-11-11', { [path]: patch })
