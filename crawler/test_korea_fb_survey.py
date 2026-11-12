@@ -47,6 +47,9 @@ k._ai_call = lambda p: 'Đây: [{"i":0,"c":"sell","w":"kr"},{"i":1,"c":"di_han",
 k.ai_classify(posts)
 check("맞는 답은 반영", (posts[0]["class"], posts[0]["writer"]) == ("sell", "kr") and (posts[1]["class"], posts[1]["writer"]) == ("di_han", "vn"))
 check("목록 밖 갈래는 분류 안 됨", posts[2]["class"] == "unclassified")
+k._ai_call = lambda p: 'Kết quả [0] là bán hàng:\n```json\n[{"i":0,"c":"sell","w":"kr"},{"i":1,"c":"di_han","w":"vn"},{"i":2,"c":"li'
+k.ai_classify(posts)
+check("말이 붙고 중간에 끊긴 답도 읽은 만큼 반영", (posts[0]["class"], posts[1]["class"], posts[2]["class"]) == ("sell", "di_han", "unclassified"))
 k._ai_call = lambda p: None
 k.ai_classify(posts)
 check("열쇠 없음 → 모두 분류 안 됨", all(p["class"] == "unclassified" and p["writer"] == "unk" for p in posts))

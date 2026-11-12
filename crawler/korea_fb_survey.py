@@ -69,12 +69,15 @@ def _ai_call(prompt: str) -> str | None:
         return None
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", method="POST",
                                  headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                                 data=json.dumps({"model": AI_MODEL, "max_tokens": 1500,
+                                 data=json.dumps({"model": AI_MODEL, "max_tokens": 4000,
                                                   "messages": [{"role": "user", "content": prompt}]}).encode())
     for attempt in (1, 2):
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
-                return "".join(c.get("text", "") for c in json.load(r).get("content", []))
+                body = json.load(r)
+            if body.get("stop_reason") != "end_turn":  # 답이 중간에 끊김(2026-11-12 시험: 20개 묶음 2개가 통째로 '분류 안 됨')
+                print(f"  ⚠️ AI 답 끝 이유: {body.get('stop_reason')}")
+            return "".join(c.get("text", "") for c in body.get("content", []))
         except Exception as e:  # noqa: BLE001
             print(f"  ⚠️ AI 분류 실패({attempt}/2): {type(e).__name__}")
     return None
@@ -95,17 +98,21 @@ def ai_classify(posts: list[dict]) -> None:
         out = _ai_call(prompt)
         if not out:
             continue
-        m = re.search(r"\[.*\]", out, re.S)
-        try:
-            rows = json.loads(m.group(0)) if m else []
-        except ValueError:
-            rows = []
+        rows = []
+        for m in re.finditer(r"\{[^{}]*\}", out):  # 글 하나씩 읽음 — 배열이 끊기거나 앞뒤에 말이 붙어도 읽은 만큼은 살린다
+            try:
+                rows.append(json.loads(m.group(0)))
+            except ValueError:
+                pass
+        ok = 0
         for r in rows:
             i = r.get("i") if isinstance(r, dict) else None
             if isinstance(i, int) and 0 <= i < len(batch) and r.get("c") in CLASSES:
                 batch[i]["ai_ok"] = True  # 이번 판정이 성공한 글(실패하면 저장된 예전 판정을 지키는 근거)
                 batch[i]["class"] = r["c"]
                 batch[i]["writer"] = r.get("w") if r.get("w") in WRITERS else "unk"
+                ok += 1
+        print(f"  · AI 갈래 {k // 20 + 1}묶음: {ok}/{len(batch)}개 판정")  # 글 내용은 찍지 않음(공개 저장소)
 
 
 def is_korea_group(name: str) -> bool:
