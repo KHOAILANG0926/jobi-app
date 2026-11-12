@@ -50,14 +50,18 @@ assert.ok(evaluateFiles(['scripts/status/generate-status.mjs']).length > 0, 'STA
 // 결정 0002: 추가형 migration은 통과, 데이터 삭제·되돌리기 어려운 변경은 막음
 assert.equal(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+create table x(id int);\n' }).length, 0, 'additive DB migration allowed (decision 0002)')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+delete from public.local_jobs;\n' }).length > 0, 'destructive DB migration denied')
-// #728 S2: 정답 파일 보호
-const ans = 'src/lib/realJobs.fixtures.ts', prodF = 'src/lib/salaryReader.ts', edit = { [ans]: '-  salary: "7 triệu",\n+  salary: "8 triệu",\n' }
-assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).some((e) => e.includes('같은 PR')), 'answer edit + production code in one PR denied')
-assert.ok(evaluateFiles([ans], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit without evidence denied')
-assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu"', edit).length, 0, 'answer-only PR with evidence allowed')
+// #728 S2: 정답 파일 보호 — 기존 줄을 바꾸려면 PR 본문에 출처(결정 번호·Lee 결정 날짜·원문 인용)가 있어야 한다
+const ans = 'src/lib/realJobs.fixtures.ts', prodF = 'src/lib/jobQuyenLoi.ts', edit = { [ans]: '-  salary: "7 triệu",\n+  salary: "8 triệu",\n' }
+assert.ok(evaluateFiles([ans, prodF], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit + production code without a source denied')
+assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 그냥 바꿈', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit with a vague reason denied')
+assert.equal(evaluateFiles([ans, prodF], '기대값 변경 근거: Lee 2026-11-11 지도 위치 절대 원칙', edit).length, 0, 'answer edit with a Lee decision date allowed')
+assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu/tháng" (#729)', edit).length, 0, 'answer edit with a quoted source / issue number allowed')
 assert.equal(evaluateFiles([ans, prodF], '', { [ans]: '+  salary: "9 triệu",\n' }).filter((e) => e.includes(ans)).length, 0, 'adding answer lines with production code allowed')
 // GPT 검토(#728): 의미 정답 시험(jobQuyenLoi 등)도 생산 코드와 같은 PR에서 기존 줄을 바꾸면 막는다. 인프라 시험은 자유.
-assert.ok(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).some((e) => e.includes('같은 PR')), 'semantic test (jobQuyenLoi) expectation edit + production code denied')
+assert.ok(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).some((e) => e.includes('기대값 변경 근거')), 'semantic test (jobQuyenLoi) expectation edit without a source denied')
+assert.ok(evaluateFiles(['supabase/tests/occupation_publication.pglite.test.mjs', 'supabase/migrations/20261112000000_x.sql'], '', { 'supabase/tests/occupation_publication.pglite.test.mjs': '-assert.equal(a, 1)\n+assert.equal(a, 2)\n' }).some((e) => e.includes('기대값 변경 근거')), 'DB rule test (pglite) expectation edit denied without a source')
+assert.ok(evaluateFiles(['crawler/test_x.py', 'crawler/x.py'], '', { 'crawler/test_x.py': '-    assert f(1) == 1\n+    assert f(1) == 2\n' }).some((e) => e.includes('기대값 변경 근거')), 'crawler test expectation edit denied without a source')
+assert.equal(evaluateFiles(['scripts/ocr/ocr-compare.test.mjs'], '', { 'scripts/ocr/ocr-compare.test.mjs': '+assert.equal(1, 1)\n' }).length, 0, 'a test file alone is not production code')
 assert.equal(evaluateFiles(['src/lib/businessType.test.ts', 'src/lib/businessType.ts'], '', { 'src/lib/businessType.test.ts': "-import { a } from './b.ts'\n+import { a, c } from './b.ts'\n+eq(1, 1, 'new case')\n" }).length, 0, 'import line edits and added cases are not expectation changes')
 assert.equal(evaluateFiles(['src/lib/homeMapFilters.test.ts', 'src/lib/homeMapFilters.ts'], '', { 'src/lib/homeMapFilters.test.ts': '-x\n+y\n' }).length, 0, 'infrastructure tests stay free')
 assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/migrations/20261024.sql': '+alter table public.local_jobs drop column title;\n' }).length > 0, 'dropping a column denied')
