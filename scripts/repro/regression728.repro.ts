@@ -1,15 +1,18 @@
 // #728 회귀 시험 — 과거에 "고쳤다"고 보고했지만 화면에 다시 나온 기본 오류 4건(Lee 2026-11-12 지시).
 // 이 파일은 생산 코드를 바꾸지 않는다. 지금 코드에서 실패해야 정상이다(실패 = 오류가 아직 남아 있다는 증거).
+// 격리: src/ 밖(scripts/repro/)이라 tsc(include: src)·npm test(src·api 수집)·build에 자동 편입되지 않는다. 수동 실행:
+//   node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/repro/regression728.repro.ts
+// 범위: 재현 증거이지 원인 확정이 아니다(5157=fixture 원문→함수, 5421=일부 문구+합성 입력, 급여=JobDetail.tsx 식 추출(실제 렌더 경로 사용 미검증), 업종=합성 직무+businessFromGoogle).
 // 기대값은 CLAUDE.md 확정 구성(10-30 ① ② ④)과 규칙 문구에서 그대로 가져왔다. 작업자가 지금 코드 결과에 맞춰 바꾸지 않는다.
 // 사례·원인 코드: GitHub 이슈 #728 3차 분석.
 import { readFileSync } from 'node:fs'
-import { buildDescriptionFromSources } from './jobDescriptionBuild.ts'
-import { detailSections } from './jobDetailSections.ts'
-import { albamonCompose } from './jobQuyenLoi.ts'
-import { ruleConfirmedFlags } from './aiClassifyGuard.ts'
-import { inspectJob } from './jobInspect.ts'
-import { businessFromGoogle } from './businessType.ts'
-import { REAL_JOBS } from './realJobs.fixtures.ts'
+import { buildDescriptionFromSources } from '../../src/lib/jobDescriptionBuild.ts'
+import { detailSections } from '../../src/lib/jobDetailSections.ts'
+import { albamonCompose } from '../../src/lib/jobQuyenLoi.ts'
+import { ruleConfirmedFlags } from '../../src/lib/aiClassifyGuard.ts'
+import { inspectJob } from '../../src/lib/jobInspect.ts'
+import { businessFromGoogle } from '../../src/lib/businessType.ts'
+import { REAL_JOBS } from '../../src/lib/realJobs.fixtures.ts'
 
 const failures: string[] = []
 const check = (ok: boolean, name: string, detail: string) => { if (!ok) failures.push(`✗ ${name}\n    ${detail}`); else console.log(`✓ ${name}`) }
@@ -46,7 +49,7 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/
 // ── 사례 3. 급여 소수점 쉼표 "8,5 triệu"가 두 줄로 깨지지 않는다 (6043) ───────────────────
 // 화면 코드(src/pages/JobDetail.tsx) 안의 급여 나누기 식을 그대로 꺼내 실행한다(생산 코드 그대로 검사).
 {
-  const src = readFileSync(new URL('../pages/JobDetail.tsx', import.meta.url), 'utf8')
+  const src = readFileSync(new URL('../../src/pages/JobDetail.tsx', import.meta.url), 'utf8')
   const m = /salaryText\.split\((\/.+?\/[a-z]*)\)/.exec(src)
   check(!!m, 'JobDetail 급여 나누기 식 찾음', '식을 못 찾음(코드 위치가 바뀌었으면 이 시험을 새 위치로)')
   if (m) {
@@ -67,7 +70,7 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/
 }
 
 if (failures.length) {
-  console.log(`\nregression728.test.ts: 실패 ${failures.length}개 — 아래 오류가 지금 코드에 남아 있음\n` + failures.join('\n'))
+  console.log(`\nregression728.repro.ts: 실패 ${failures.length}개 — 아래 오류가 지금 코드에 남아 있음\n` + failures.join('\n'))
   throw new Error(`regression728: ${failures.length}개 실패`)
 }
-console.log('regression728.test.ts: all assertions passed')
+console.log('regression728.repro.ts: all assertions passed')
