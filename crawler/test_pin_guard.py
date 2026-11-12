@@ -4,7 +4,7 @@ from pin_guard import problems
 def test_lost_pin_detected():
     before = [{"lat": 21.18, "lng": 106.06}, {"lat": 21.11, "lng": 105.96}]
     after = [{"lat": None, "lng": None}, {"lat": 21.11, "lng": 105.96}]
-    assert problems(before, after) == ["pin_lost:2->1"]
+    assert problems(before, after) == ["pin_lost:21.18,106.06"]
 
 
 def test_duplicate_pin_detected():
@@ -25,3 +25,9 @@ def test_new_store_pin_is_fine():
 
 def test_unpinned_before_and_after_is_fine():
     assert problems([{"lat": None, "lng": None}], [{"lat": None, "lng": None}]) == []
+
+
+def test_lost_pin_hidden_by_new_store_is_detected():
+    before = [{"lat": 21.18, "lng": 106.06}, {"lat": 21.11, "lng": 105.96}]
+    after = [{"lat": None, "lng": None}, {"lat": 21.11, "lng": 105.96}, {"lat": 21.09, "lng": 105.99}]
+    assert problems(before, after) == ["pin_lost:21.18,106.06"]

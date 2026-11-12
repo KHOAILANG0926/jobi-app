@@ -25,9 +25,10 @@ def problems(before, after):
     out = []
     b, a = _pinned(before or []), _pinned(after or [])
     # 손실은 중복을 뺀 좌표 집합으로 비교한다 — 같은 매장 중복 줄을 합친 것은 손실이 아니다(Codex #724). 중복 남음은 아래 duplicate_pin이 따로 잡는다.
-    ub, ua = set(b), set(a)
-    if len(ua) < len(ub):
-        out.append(f"pin_lost:{len(ub)}->{len(ua)}")
+    # 개수만 보지 않고 전에 있던 핀마다 뒤에도 가까운(약 50m 안) 핀이 있는지 본다 — 새 매장 핀이 사라진 핀을 가리지 않게(Codex #724).
+    gone = sorted({p for p in b if not any(abs(p[0] - q[0]) < 0.0005 and abs(p[1] - q[1]) < 0.0005 for q in a)})
+    if gone:
+        out.append("pin_lost:" + ",".join(f"{x},{y}" for x, y in gone))
     dup = sorted({p for p in a if a.count(p) > 1})
     if dup:
         out.append("duplicate_pin:" + ",".join(f"{x},{y}" for x, y in dup))
