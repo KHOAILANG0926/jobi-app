@@ -13,6 +13,16 @@ export function conditionItems(text: string | null | undefined): string[] {
     .filter(Boolean)
 }
 
+/**
+ * 급여 칸 대체 나누기(직무별 줄이 없을 때): 쉼표 **뒤 공백 + 숫자**에서만 나눈다("310k/11h, 360k/11h" → 2줄).
+ * 소수점 쉼표("8,5 triệu")는 쉼표 바로 뒤에 숫자라 나누지 않고, 괄호 안 설명("(fulltime, tùy năng lực)")도 나누지 않는다.
+ * 전에는 JobDetail.tsx에 `(?<=,)\s*(?=\d)` 식이 따로 있어 공백 없는 소수점 쉼표에서 "7 – 8," / "5 triệu"로 끊겼다(#728 6043).
+ * conditionItems(일반 항목 규칙)와는 일부러 다르다: 급여는 괄호 속 쉼표를 나누면 한 설명이 두 줄로 찢어진다.
+ */
+export function salaryParts(text: string): string[] {
+  return text.split(/(?<=,)\s+(?=\d)/)
+}
+
 /** 상세요강 해당 소제목에 이미 같은 내용이 있는지(대소문자·성조·끝 구두점 무시). 없으면 칸 내용을 그곳에 보여 준다. */
 export function itemsCoveredBy(items: string[], lines: string[]): boolean {
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase()

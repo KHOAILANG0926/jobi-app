@@ -1,4 +1,4 @@
-import { conditionItems, itemsCoveredBy } from './conditionLines.ts'
+import { conditionItems, itemsCoveredBy, salaryParts } from './conditionLines.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
 const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b)
@@ -19,3 +19,11 @@ assert(itemsCoveredBy(conditionItems('Phụ cấp: 1.200.000đ/tháng; thâm ni�
 assert(!itemsCoveredBy(['Chuyên cần 50k/tuần'], ['Ca ngày: 310k/11h']), 'missing from detail section')
 
 console.log('conditionLines.test.ts: all assertions passed')
+
+// #728 S7(6043): 급여 대체 나누기 — 소수점 쉼표는 나누지 않고, 괄호 속 쉼표도 나누지 않는다. 숫자 목록은 그대로 나눈다.
+{
+  assert(same(salaryParts('7 – 8,5 triệu/tháng + Thưởng doanh thu'), ['7 – 8,5 triệu/tháng + Thưởng doanh thu']), '6043 decimal comma stays one line')
+  assert(same(salaryParts('26K/giờ (parttime); 7–9 triệu/tháng (fulltime, tùy năng lực và vị trí)'), ['26K/giờ (parttime); 7–9 triệu/tháng (fulltime, tùy năng lực và vị trí)']), '5157 comma inside parentheses stays one line')
+  assert(same(salaryParts('310k/11h ca ngày, 360k/11h ca đêm'), ['310k/11h ca ngày,', '360k/11h ca đêm']), 'list "…, 360k" still splits')
+  console.log('conditionLines.test.ts: 급여 나누기 통과')
+}
