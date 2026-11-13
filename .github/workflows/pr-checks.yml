@@ -5,13 +5,14 @@ name: PR 검사 (병합 전 필수)
 # DB·VietMap·Secret을 쓰지 않는다.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, edited, converted_to_draft]
+    types: [opened, synchronize, reopened, ready_for_review, edited, converted_to_draft, labeled]
   push:
     branches: [master]
 
 permissions:
   contents: read
   pull-requests: read
+  issues: read
 
 jobs:
   checks:
@@ -34,6 +35,24 @@ jobs:
           # #648: 최신 PR 설명·커밋 작성자를 읽는다(읽기만)
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-pr-ready.mjs
+      - name: Lee 승인 검사 (결정 문서·승인 장치·승인된 화면 틀·needs-lee — 봇·수동 병합 공통, R3 #728)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # 검사는 PR이 고칠 수 없게 master의 파일로 돌린다(PR이 검사나 잠금 목록을 고쳐 스스로 통과하는 것 방지). 승인을 확인하지 못하면 통과시키지 않는다(보류).
+          # 승인 댓글(LEE-APPROVE <head SHA>)이나 승인 리뷰를 단 뒤에는 이 검사(checks)를 다시 실행하면 새 기록을 읽는다.
+          mkdir -p "$RUNNER_TEMP/gate"
+          git show origin/master:scripts/decision-approval-gate.mjs > "$RUNNER_TEMP/gate/decision-approval-gate.mjs"
+          git show origin/master:scripts/test-desktop-baseline.mjs > "$RUNNER_TEMP/gate/test-desktop-baseline.mjs"
+          if ! grep -q -- "'--pr'" "$RUNNER_TEMP/gate/decision-approval-gate.mjs"; then
+            # 이 단계가 master에 들어오기 전(master의 검사에 --pr이 아직 없을 때)만 건너뛴다. 병합 뒤에는 항상 실행된다.
+            echo "::notice::master의 승인 검사에 --pr이 아직 없음(이 단계를 처음 넣는 PR) — 건너뜀"
+          else
+            node "$RUNNER_TEMP/gate/decision-approval-gate.mjs" --pr "${{ github.event.pull_request.number }}"
+          fi
       - name: 정확한 migration 승인 회귀 검사
         run: node scripts/approved-migrations.test.mjs
       - name: 기존 규정 위반 변경 차단

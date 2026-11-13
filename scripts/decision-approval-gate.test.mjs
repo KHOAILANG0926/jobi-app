@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { decisionApproval, requestText, approvedFramePaths, NEEDS_LEE_LABEL } from './decision-approval-gate.mjs'
+import { decisionApproval, requestText, approvedFramePaths, NEEDS_LEE_LABEL, MACHINERY, runPr } from './decision-approval-gate.mjs'
 import { readFileSync } from 'node:fs'
 const sha = 'a'.repeat(40), old = 'b'.repeat(40)
 const doc = [{ filename: 'docs/decisions/ko/0006-x.md' }]
@@ -34,4 +34,72 @@ assert.equal(gate({ labels: [NEEDS_LEE_LABEL], comments: [lee(`LEE-APPROVE ${sha
 assert.equal(gate({ labels: ['ai-team'] }).required, false, '다른 라벨은 영향 없음')
 assert.equal(gate({ labels: [NEEDS_LEE_LABEL], files: frame }).reasons.length, 2, '둘 다 해당하면 이유 두 가지')
 assert.match(requestText(sha, ['src/pages/JobDetail.tsx'], ['승인된 화면 틀']), /승인된 화면 틀/)
-console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval at head; other PRs unaffected')
+
+
+// ── R3 승인 우회 해소(Lee 2026-11-13): PR 검사(checks)에서도 같은 판정 — 수정 전 우회 재현 → 수정 후 차단 → 정상 승인 통과 ──
+const labeledEv = [{ event: 'labeled', label: { name: NEEDS_LEE_LABEL } }, { event: 'unlabeled', label: { name: NEEDS_LEE_LABEL } }]
+// (1) 수정 전 우회 재현: 라벨 이력을 보지 않던 판정(labelEvents 없음)은 needs-lee를 지우면 승인 요구가 사라졌다.
+assert.equal(gate({ labels: [], labelEvents: undefined }).approved, true, '[수정 전 재현] 라벨을 지우면 승인 없이 통과(이력을 안 봄)')
+// (2) 수정 후 차단: 라벨 이력이 있으면 지워도 승인 요구가 남는다
+assert.equal(gate({ labels: [], labelEvents: labeledEv }).approved, false, '라벨을 지워도(이력에 labeled) 승인 전엔 막힘')
+assert.deepEqual(gate({ labels: [], labelEvents: labeledEv }).reasons, ['needs-lee 라벨'])
+assert.equal(gate({ labels: [], labelEvents: [{ event: 'labeled', label: { name: 'ai-team' } }] }).required, false, '다른 라벨 이력은 영향 없음')
+assert.equal(gate({ labels: [], labelEvents: [{ event: 'unlabeled', label: { name: NEEDS_LEE_LABEL } }] }).required, false, '붙인 기록 없이 지운 기록만 있으면 요구 없음')
+// (3) 정상 승인 통과
+assert.equal(gate({ labels: [], labelEvents: labeledEv, comments: [lee(`LEE-APPROVE ${sha}`)] }).approved, true, 'Lee 승인이 head에 있으면 라벨 이력 PR도 통과')
+assert.equal(gate({ labels: [], labelEvents: labeledEv, comments: [lee(`LEE-APPROVE ${old}`)] }).approved, false, '옛 커밋 승인은 라벨 이력 PR에서도 무효')
+// 승인 장치 자체를 바꾸는 PR: 결정 문서와 같은 문턱(데모 적용 표시 불인정)
+for (const f of MACHINERY) {
+  assert.equal(gate({ files: [{ filename: f }] }).approved, false, `승인 장치 변경은 승인 없이 막힘: ${f}`)
+  assert.equal(gate({ files: [{ filename: f }], comments: [lee(`LEE-DEMO-APPLY ${sha}`)] }).approved, false, `승인 장치는 데모 적용 표시를 인정하지 않음: ${f}`)
+  assert.equal(gate({ files: [{ filename: f }], comments: [lee(`LEE-APPROVE ${sha}`)] }).approved, true, `Lee 승인이 head에 있으면 통과: ${f}`)
+}
+assert.deepEqual(gate({ files: [{ filename: '.github/workflows/pr-checks.yml' }] }).reasons, ['승인 장치'])
+assert.equal(gate({ files: [{ filename: '.github/workflows/crawl-guard.yml' }, { filename: 'scripts/ci/merge-provenance.mjs' }] }).required, false, '승인 장치 밖 워크플로·스크립트는 영향 없음(정상 PR 통과)')
+
+// PR 검사 경로(runPr): 가짜 gh로 GitHub 기록을 넣어 종료 코드를 본다. 0 통과 / 3 승인 필요 / 4 확인 불가(보류)
+const REPO = 'o/r', PR = 7
+function fakeGh({ files = [], reviews = [], comments = [], events = [], labels = [], body = '', head = sha, fail = null, broken = null }) {
+  return (args) => {
+    const path = args.at(-1)
+    if (fail && path.includes(fail)) throw new Error('gh: HTTP 500')
+    const page = (v) => JSON.stringify([v])
+    if (path.includes('/pulls/7/files')) return page(files.map((filename) => ({ filename })))
+    if (path.includes('/pulls/7/reviews')) return page(reviews)
+    if (path.includes('/issues/7/comments')) return broken === 'comments' ? '{not json' : page(comments)
+    if (path.includes('/issues/7/events')) return page(events)
+    if (path.endsWith('/issues/7')) return JSON.stringify({ body, labels: labels.map((name) => ({ name })) })
+    if (path.endsWith('/pulls/7')) return JSON.stringify({ head: { sha: head } })
+    throw new Error('unexpected ' + path)
+  }
+}
+const quiet = []
+const pr = (o, headSha) => runPr({ repo: REPO, pr: PR, gh: fakeGh(o), headSha, framePaths, log: (m) => quiet.push(m) })
+assert.equal(pr({ files: ['src/a.ts'] }), 0, '승인 불필요한 정상 PR은 통과')
+assert.equal(pr({ files: ['src/a.ts'], body: 'Lee 승인 완료 LEE-APPROVE ' + sha, labels: ['ai-team'] }), 0, '정상 PR(본문 무관)')
+assert.equal(pr({ files: ['docs/decisions/ko/0006-x.md'], body: `Lee 승인 완료 LEE-APPROVE ${sha}` }), 3, 'PR 본문의 승인 자기신고는 무효')
+assert.equal(pr({ files: ['docs/decisions/ko/0006-x.md'], comments: [{ user: { login: 'claude[bot]' }, body: `LEE-APPROVE ${sha}` }] }), 3, '다른 계정의 승인 표시는 무효')
+assert.equal(pr({ files: ['src/a.ts'], events: labeledEv, labels: [] }), 3, '[수정 후] needs-lee를 붙였다 지운 PR은 승인 전 차단')
+assert.equal(pr({ files: ['src/a.ts'], events: labeledEv, labels: [], comments: [lee(`LEE-APPROVE ${sha}`)] }), 0, '[정상 승인] head에 Lee 승인이 있으면 통과')
+assert.equal(pr({ files: ['src/a.ts'], events: labeledEv, labels: [], comments: [lee(`LEE-APPROVE ${old}`)] }), 3, '옛 커밋 승인은 새 head에서 무효')
+assert.equal(pr({ files: ['src/a.ts'], events: labeledEv, labels: [], comments: [lee(`LEE-APPROVE ${sha}`)] }, old), 3, '검사가 가리키는 head(HEAD_SHA)와 다른 승인은 무효')
+assert.equal(pr({ files: ['.github/workflows/pr-checks.yml'] }), 3, '승인 장치를 고치는 PR은 승인 전 차단')
+assert.equal(pr({ files: ['src/pages/JobDetail.tsx'] }), 3, '승인된 화면 틀 변경은 승인 전 차단(봇·수동 공통)')
+assert.equal(pr({ files: ['src/pages/JobDetail.tsx'], reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha }] }), 0, 'head에 대한 Lee 승인 리뷰는 통과')
+// 승인 확인 불가는 통과가 아니라 보류(4)
+const unreadable = { 변경파일: (p) => p.includes('/pulls/7/files'), 리뷰: (p) => p.includes('/pulls/7/reviews'), 댓글: (p) => p.includes('/issues/7/comments'),
+  라벨이력: (p) => p.includes('/issues/7/events'), 라벨: (p) => p.endsWith('/issues/7'), head: (p) => p.endsWith('/pulls/7') }
+for (const [name, bad] of Object.entries(unreadable)) {
+  const ok = fakeGh({ files: ['src/a.ts'] })
+  const gh = (args) => { if (bad(args.at(-1))) throw new Error('gh: HTTP 500'); return ok(args) }
+  assert.equal(runPr({ repo: REPO, pr: PR, gh, framePaths, log: () => {} }), 4, `기록을 못 읽으면 보류: ${name}`)
+}
+assert.equal(pr({ files: ['src/a.ts'], broken: 'comments' }), 4, '깨진 응답도 보류')
+assert.ok(quiet.some((m) => m.includes('다시 실행')), '승인 뒤 checks를 다시 실행해야 한다는 안내를 남김')
+
+// 워크플로 연결: PR 검사(checks)가 master의 검사 파일로 이 판정을 돌린다(PR이 검사를 고쳐 통과하지 못하게). 승인 검사 단계가 빠지면 이 시험이 실패한다.
+const wf = readFileSync(new URL('../.github/workflows/pr-checks.yml', import.meta.url), 'utf8')
+assert.ok(/git show origin\/master:scripts\/decision-approval-gate\.mjs/.test(wf) && /decision-approval-gate\.mjs"? --pr/.test(wf), 'pr-checks.yml이 master의 승인 검사를 --pr로 실행')
+assert.ok(!/decision-approval-gate[^\n]*\n(?:[^\n]*\n){0,6}[^\n]*continue-on-error/.test(wf), '승인 검사 단계에 continue-on-error 금지')
+assert.ok(/types:\s*\[[^\]]*labeled[^\]]*\]/.test(wf), '라벨이 붙을 때도 검사가 다시 돈다(needs-lee를 늦게 붙여도 반영)')
+console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval at head; other PRs unaffected; R3 required-check integration passed')
