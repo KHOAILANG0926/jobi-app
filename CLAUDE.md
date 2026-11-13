@@ -13,6 +13,7 @@
 - 운영 DB 변경은 `supabase/migrations/` 파일과 `supabase/tests/*_production_check.sql`을 같은 PR로 제출하고 필수 검사→봇 병합→`migrations-apply.yml` 자동 적용으로만 진행한다.
 - 시험 DB 검사(2026-11-09 공통화): `<시각>_<이름>.sql`이면 `supabase/tests/<이름>.setup.sql`(준비)·`<이름>.local.sql`(확인)을 이름 규칙으로 둔다. `scripts/ci/check-postgres-migrations.sh`에 파일별 예외를 덧붙이지 않는다.
 - 파일 하나는 한 트랜잭션이며 충돌·근거 누락은 RAISE로 전체 취소한다. 운영 `migrations-apply` 실패 시 원문 오류 그대로 보고하고 멈춘다. 직접 SQL·별도 경로·자동 재시도로 우회하지 않는다.
+- 좁은 예외(Lee 2026-11-09 "좁히기", `.github/workflows/ops-run-sql.yml`·`scripts/ops/run-sql-plan.mjs`가 실제 구현): 사용자 승인 뒤 master에서 Lee 계정이 수동 실행하는 지정 SQL(`scripts/ops/jobs/<이름>.sql`)만 — 허용 문장 = 정식 입구(`ingest_job`)로 기존 공고 고치기 1줄(job_id+update_fields)과 조회 1줄. 입구 호출 뒤에는 읽기 전용을 걸어 DB가 쓰기를 거부하고 한 트랜잭션이다. 구조 변경(DDL)·삭제·새 공고 등록·`migrations-apply` 실패 우회는 이 경로로 못 하며(앞 줄의 '직접 SQL로 우회하지 않는다'는 그대로), 작업자의 직접 연결·임의 SQL 금지도 그대로다.
 - 실제 좌표 확인은 정상 운영 검사/읽기 전용 공개 화면·API의 실행 증거로 한다. 로컬 폐기용 DB 시험은 운영 접근과 구분한다.
 
 이 파일은 GitHub Actions 등 자동화 환경에서 실행되는 Claude Code를 포함해,
