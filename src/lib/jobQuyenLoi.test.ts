@@ -59,4 +59,12 @@ assert(usesAlbamonLayout('sb-4879'), 'former Quyền lợi job (ADTEK) uses 4-se
   const all = [...c.allowance, ...c.detail.flatMap((x) => x.lines)].join('|')
   assert(all.includes('phụ cấp 1 triệu'), 'breakdown with extra amount kept: ' + all)
 }
+// #653(Lee 2026-11-10 적용) "위쪽에 이미 있는 … 주소 … 줄만 ④에서 뺌" — 이름표(Địa điểm:)가 붙은 주소 줄도 같은 줄이다(5157). 주소가 아닌 이름표 줄은 그대로 둔다.
+{
+  const desc = ['Thông tin khác', 'HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI', 'Địa điểm:  Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh', 'Địa điểm: Nhà xưởng số 3'].join('\n')
+  const c = albamonCompose(detailSections(desc).sections, { title: 'Highlands Coffee tuyển nhân viên', company: 'Highlands Coffee', addresses: ['Số 395 Ngô Gia Tự, Phường Kinh Bắc, Tỉnh Bắc Ninh'] })
+  const all = c.detail.flatMap((x) => x.lines)
+  assert(!all.some((l) => l.includes('Số 395')), 'label+address line shown above is not repeated in ④: ' + JSON.stringify(all))
+  assert(all.includes('Địa điểm: Nhà xưởng số 3'), 'a label line that is not the shown address stays')
+}
 console.log('jobQuyenLoi: verbatim copies, baseline exempt, two frames only')

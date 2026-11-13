@@ -117,7 +117,8 @@ export function albamonCompose(sections: DetailSection[], ctx: { title?: string 
   const at = (k: string) => sections.find((s) => s.key === k)?.lines.map((l) => l.trim()) ?? []
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
   const above = [ctx.title, ctx.company, ...(ctx.addresses ?? [])].map((s) => fold(String(s ?? ''))).filter((s) => s.length >= 4)
-  const shownAbove = (l: string) => { const f = fold(l); return !!f && above.some((a) => a === f || a.startsWith(f) || (f.length >= 12 && a.includes(f))) }
+  // #653(Lee 2026-11-10 적용) "위쪽에 이미 있는 … 주소 … 줄만 ④에서 뺌": 이름표(Địa điểm:·Địa chỉ:)가 붙은 주소 줄도 위쪽 주소와 같은 줄이다(5157). 이름표를 뗀 글자로 비교한다.
+  const shownAbove = (l: string) => { const f = fold(l.replace(/^\s*(?:địa điểm|địa chỉ)\s*[:：]\s*/iu, '')); return !!f && above.some((a) => a === f || a.startsWith(f) || (f.length >= 12 && a.includes(f))) }
   const cond = albamonConditionLines(sections, ctx.salary)
   // 02 → ②
   const req = at('02')
