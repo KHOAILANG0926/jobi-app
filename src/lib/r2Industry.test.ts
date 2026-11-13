@@ -5,7 +5,7 @@ import { R2_INDUSTRY, HOSTILE_PLACES, WEB_BODIES } from './r2Industry.fixtures.t
 import { businessFromGoogle, businessFromName, dutyStated, guardWebAnswer, parseWebResponse } from './businessType.ts'
 import { lineKey } from './aiClassifyGuard.ts'
 
-const failures: string[] = []
+const failures: string[] = []  
 let checks = 0
 const ok = (c: boolean, what: string, detail: string) => { checks++; if (!c) failures.push(`✗ ${what}\n    ${detail}`) }
 
