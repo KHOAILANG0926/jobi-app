@@ -36,6 +36,8 @@ try {
  await page.locator('.hme__map').scrollIntoViewIfNeeded()
  await page.waitForFunction(n=>{const c=document.querySelector('[data-testid="home-map-job-counts"]');return c&&c.getAttribute('data-loading')!=='true'&&Number(c.getAttribute('data-loaded'))===n},jobs.length,{timeout:30000})
  const main=await page.locator('.hme-map [data-location-points]').evaluateAll(elements=>elements.flatMap(el=>JSON.parse(el.dataset.locationPoints)))
+ const diag=await page.evaluate(()=>({provider:document.querySelector('.hme-map')?.getAttribute('data-map-provider')??document.querySelector('[data-map-provider]')?.getAttribute('data-map-provider'),zoom:document.querySelector('[data-map-zoom]')?.getAttribute('data-map-zoom'),markers:document.querySelectorAll('.hme-map__job-marker').length,clusters:document.querySelectorAll('.hme-map__cluster').length,withPoints:document.querySelectorAll('.hme-map [data-location-points]').length,counts:document.querySelector('[data-testid="home-map-job-counts"]')?.outerHTML.slice(0,300)}))
+ console.log('DIAG '+JSON.stringify(diag))
  const mainPoints=Object.fromEntries(jobs.map(job=>[String(job.id),main.filter(p=>String(p.jobId).replace(/^sb-/,'')===String(job.id))]))
  const detailPoints={}
  for(const job of jobs) {
