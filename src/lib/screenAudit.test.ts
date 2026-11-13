@@ -99,6 +99,9 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(screenAudit({ ...base, cards: { PC: { ...ok, salary: 'Lương tháng 9.000.000đ/tháng' } } }, [v]).some((f) => f.key === 'card_salary' && !f.sure), '카드 급여가 원문·상세와 다름')
   assert(screenAudit({ ...base, cards: { PC: { ...ok, title: 'Nhân viên bán hàng' } } }, [v]).some((f) => f.key === 'card_title'), '카드 제목이 상세와 다름')
   assert(screenAudit({ ...base, cards: { PC: { ...ok, company: 'ZZZ' } } }, [v]).some((f) => f.key === 'card_company'), '카드 상호가 회사명과 다름')
+  assert(screenAudit({ ...base, cards: { PC: [] } }, [v]).some((f) => f.key === 'card_unread'), '어느 화면에도 카드가 없으면(빈 배열) 미검증')
+  assert(screenAudit({ ...base, cards: { PC: [ok] } }, [v]).every((f) => !f.key.startsWith('card')), '한 화면에서만 나와도 그 카드가 같으면 문제 없음(다른 화면에 없는 것은 미검증이 아님)')
+  assert(screenAudit({ ...base, cards: { PC: [ok, { ...ok, salary: 'Lương tháng 9.000.000đ/tháng' }] } }, [v]).some((f) => f.key === 'card_salary'), '여러 화면 중 한 화면 카드만 달라도 잡음')
   assert(screenAudit(base, [v]).every((f) => !f.key.startsWith('card')), '카드를 수집하지 않은 호출은 대조 생략')
   const bad = { ...ok, salary: 'Lương tháng 99.000.000đ/tháng' }
   assert(screenAudit({ ...base, cards: { PC: [ok, bad] } }, [v]).some((f) => f.key === 'card_salary'), '메인 카드는 맞고 검색 카드만 틀려도 잡음')

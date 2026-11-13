@@ -150,7 +150,7 @@ async function readJob(id) {
   }
   if (!job) return
   const findings = openError ? [{ key: 'open', sure: true, device: '-', detail: `화면 열기 실패: ${openError}` }]
-    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null, ...(ALL ? { cards: Object.fromEntries(VIEWPORTS.map((v) => [v.label, (cardsByDevice[v.label] ?? [null]).map((r) => r?.[String(id)] ?? null)])) } : {}) }, views)
+    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null, ...(ALL ? { cards: Object.fromEntries(VIEWPORTS.map((v) => [v.label, (cardsByDevice[v.label] ?? [null]).map((r) => r?.[String(id)] ?? null).filter(Boolean)])) } : {}) }, views)   // 이 공고가 나온 화면의 카드만 따로 대조, 어느 화면에도 없으면 빈 배열 = 미검증
   audits.push({ id, title: job.title, active: job.active, findings, views })
   // 기록(대상 공고만): 화면 열기 실패는 기록하지 않는다(일시 오류 — 다음 실행에 다시). 대조 중 내용이 바뀌면 기록하지 않는다.
   if (CANDIDATES && openError) openFailed++
