@@ -38,6 +38,9 @@ jobs:
         run: node scripts/approved-migrations.test.mjs
       - name: 기존 규정 위반 변경 차단
         if: github.event_name == 'pull_request'
+        env:
+          # 기대값 변경 근거(#번호)가 실제 이슈·PR인지 읽는다(읽기만)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-repository-policy.mjs
       - name: 서비스 이름 하나(Việc gần Bạn) 검사
         run: node scripts/layout/brand-name-check.mjs
