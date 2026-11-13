@@ -72,18 +72,26 @@ export async function collectCards(page, base, paths = ['/', '/viec-lam/tim-kiem
     try {
       await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 60_000 })
       await page.locator('article.jc[data-job-id]').first().waitFor({ timeout: 30_000 })
-      let last = -1
-      for (let i = 0; i < 30; i++) {
-        const n = await page.locator('article.jc[data-job-id]').count()
-        if (n === last) break
-        last = n
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-        await page.waitForTimeout(700)
+      // 검색 목록은 페이지가 나뉘어 있어(Sau → 버튼) 마지막 페이지까지 넘기며 모은다(메인은 버튼이 없어 한 번).
+      for (let pg = 0; pg < 50; pg++) {
+        let last = -1
+        for (let i = 0; i < 30; i++) {
+          const n = await page.locator('article.jc[data-job-id]').count()
+          if (n === last) break
+          last = n
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+          await page.waitForTimeout(700)
+        }
+        const got = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('article.jc[data-job-id]')].map((el) => [
+          String(el.getAttribute('data-job-id')).replace(/^sb-/, ''),
+          { title: el.querySelector('.jc__title')?.textContent?.trim() ?? '', company: el.querySelector('.jc__company')?.textContent?.trim() ?? '', salary: el.querySelector('.jc__salary')?.textContent?.trim() ?? '' }])))
+        Object.assign(cards, got)
+        const next = page.locator('button:has-text("Sau →")')
+        if (!(await next.count()) || !(await next.first().isEnabled())) break
+        const firstId = await page.locator('article.jc[data-job-id]').first().getAttribute('data-job-id')
+        await next.first().click()
+        await page.waitForFunction((id) => document.querySelector('article.jc[data-job-id]')?.getAttribute('data-job-id') !== id, firstId, { timeout: 15_000 })
       }
-      const got = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('article.jc[data-job-id]')].map((el) => [
-        String(el.getAttribute('data-job-id')).replace(/^sb-/, ''),
-        { title: el.querySelector('.jc__title')?.textContent?.trim() ?? '', company: el.querySelector('.jc__company')?.textContent?.trim() ?? '', salary: el.querySelector('.jc__salary')?.textContent?.trim() ?? '' }])))
-      Object.assign(cards, got)
     } catch { routes[routes.length - 1] = null /* 이 목록 화면을 못 읽음 — 호출자가 미검증으로 기록 */ }
   }
   return routes
