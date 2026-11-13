@@ -271,3 +271,4 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
   if (errors.length) process.exit(1)
   console.log('READY 근거 형식 확인; 실제 테스트 성공 여부는 필수 CI에서 별도 판정')
 }
+// probe
