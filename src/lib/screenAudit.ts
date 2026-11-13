@@ -165,7 +165,7 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
       else {
         const cardAmts = amounts(card.salary), detailAmts = amounts(v.salary ?? '')
         if (cardAmts.length && hasSource && cardAmts.some((n) => !srcAmounts.has(n))) add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 50)}"이 원문 금액에 없음`)
-        if (cardAmts.length && detailAmts.length && cardAmts.join() !== detailAmts.join()) add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 40)}"와 상세 급여 "${String(v.salary).slice(0, 40)}"가 다름`)
+        if (cardAmts.length && detailAmts.length && cardAmts.some((n) => !detailAmts.includes(n)))   // 카드는 대표 금액 1개만 보이므로 상세 금액의 일부이면 같은 값 add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 40)}"와 상세 급여 "${String(v.salary).slice(0, 40)}"가 다름`)
         const ct = fold(card.title).replace(/[^a-z0-9]+/g, ' ').trim(), dt = fold(title).replace(/[^a-z0-9]+/g, ' ').trim()
         if (ct && dt && !dt.includes(ct) && !ct.includes(dt)) add('card_title', false, d, `카드 제목 "${card.title.slice(0, 40)}"이 상세 제목 "${title.slice(0, 40)}"과 다름`)
         const cc = fold(card.company).replace(/[^a-z0-9]+/g, ' ').trim()

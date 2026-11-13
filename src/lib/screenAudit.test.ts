@@ -94,6 +94,7 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   const base: ScreenJob = { id: 8, title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', source_text: 'CÔNG TY ABC tuyển công nhân\nLương 8.000.000đ/tháng\nLH 0912345678' }
   const ok = { title: 'tuyển công nhân', company: 'ABC', salary: 'Lương tháng 8.000.000đ/tháng' }
   assert(screenAudit({ ...base, cards: { PC: ok } }, [v]).filter((f) => f.key.startsWith('card')).length === 0, '카드가 상세·원문과 같음 → 문제 없음')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, salary: 'Lương ngày 8.000.000đ' } } }, [{ ...v, salary: '8.000.000đ/tháng, 9.000.000đ/tháng' }]).every((f) => f.key !== 'card_salary'), '카드 금액이 상세 금액의 일부(대표 1개)면 같은 값')
   assert(screenAudit({ ...base, cards: { PC: null } }, [v]).some((f) => f.key === 'card_unread' && !f.sure), '카드 못 찾음 → 미검증')
   assert(screenAudit({ ...base, cards: { PC: { ...ok, salary: 'Lương tháng 9.000.000đ/tháng' } } }, [v]).some((f) => f.key === 'card_salary' && !f.sure), '카드 급여가 원문·상세와 다름')
   assert(screenAudit({ ...base, cards: { PC: { ...ok, title: 'Nhân viên bán hàng' } } }, [v]).some((f) => f.key === 'card_title'), '카드 제목이 상세와 다름')

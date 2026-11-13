@@ -63,7 +63,7 @@ export function collectScreen(page, device) {
  * 여러 목록 화면을 끝까지 내려 `article.jc[data-job-id]` 카드의 상호·제목·급여 글자를 번호별로 모은다(먼저 모은 값을 유지).
  * 못 찾은 공고는 호출자가 '카드 미검증'으로 다룬다(통과로 세지 않음).
  */
-export async function collectCards(page, base, paths = ['/', '/viec-lam/tim-kiem']) {
+export async function collectCards(page, base, paths = ['/', '/viec-lam/tim-kiem?pageSize=100']) {
   const cards = {}
   for (const path of paths) {
     try {
