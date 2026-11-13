@@ -1,4 +1,4 @@
--- 승인 대기 migration(supabase/pending/20261113000000_inspect_gate_employer_legacy.sql)의 실제 PostgreSQL 시험(폐기용 DB, 운영 접속 없음).
+-- supabase/migrations/20261113000000_inspect_gate_employer_legacy.sql 의 실제 PostgreSQL 시험(폐기용 DB, 운영 접속 없음).
 -- ① 고용주 새 공고 공개 요청 → 검사 전 거부(hold) ② legacy 같음 ③ 지금 내용 통과 기록 → 공개 시작 ④ 옛 내용 통과 기록 → 거부
 -- ⑤ 이미 공개 중인 고용주 공고는 내용이 바뀌어도 유지 ⑥ 고용주가 직접 내린 공고는 hold 없이 비공개 그대로 ⑦ crawler 동작 그대로
 do $test$

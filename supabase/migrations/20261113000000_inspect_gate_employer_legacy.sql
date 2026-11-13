@@ -1,4 +1,4 @@
--- 승인 대기(STRICT, Lee 결정 전 운영 적용 금지) — #728 R2 A4: 고용주·legacy 공고도 공개 "시작" 전에 검사 통과 기록을 요구한다.
+-- #728 R2 A4(Lee 2026-11-13 변경 방향 승인, STRICT: 정식 migration 경로로만 적용): 고용주·legacy 공고도 공개 "시작" 전에 검사 통과 기록을 요구한다.
 -- 지금: enforce_job_inspect_current()는 origin이 crawler·admin일 때만 공개 시작을 검사 기록과 대조한다(20261101110000·20261101170000).
 --       employer(고용주 직접 등록)·legacy는 `return new`로 곧바로 통과 — DB가 강제하는 공개 전 검증은 R8 직업분류·publish_gate(연락처·위치)·R4 정책뿐이다.
 -- 변경(함수 한 곳, 한 줄): 대상 origin에 'employer','legacy'를 더한다. 나머지(공개 중인 공고는 내용이 바뀌어도 유지, 직접 내리면 hold 제거,
