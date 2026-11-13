@@ -1,6 +1,8 @@
 name: 병합 출처 기록 (읽기 전용, R3 #728)
 # 병합된 PR의 코드 작성자·PR 작성자·병합 계정·병합 경로·AI 자기신고·필수 검사 최신 결과를 서로 다른 필드로 기록한다.
 on:
+  schedule:
+    - cron: '17 22 * * *'   # 매일 아침 베트남 5시 17분 — 필수 검사가 초록이 아닌 병합이 생기면 실행이 빨갛게 됨(회귀 게이트)
   workflow_dispatch:
     inputs:
       limit:
@@ -24,8 +26,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           LIMIT: ${{ github.event.inputs.limit || '60' }}
-        run: node scripts/ci/merge-provenance.mjs | tee provenance.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          set -o pipefail
+          node scripts/ci/merge-provenance.mjs | tee provenance.md | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: merge-provenance
           path: provenance.md
