@@ -68,13 +68,18 @@ def run():
         try:
             # 다시 처리 전 핀을 적어 두고 마무리 단계(finalize)에서 비교한다(pin_guard, 2026-11-12).
             pins_before = pin_guard.snapshot(supabase, item["job_id"])
+            # 재처리 전 공개 상태·이미지 개수도 적어 둔다 — 마무리 단계가 '재처리가 공개를 내렸는가'를 가린다(DB 구조 변경 없음, result에만).
+            row_before = (supabase.table("local_jobs").select("active,admin_hidden,images")
+                          .eq("id",item["job_id"]).single().execute().data) or {}
+            before = {"active":row_before.get("active"),"admin_hidden":row_before.get("admin_hidden"),
+                      "images":len(row_before["images"]) if isinstance(row_before.get("images"),list) else 0}
             refresh_existing(item["job_id"])
             current = (supabase.table("local_jobs")
                 .select("id,title,active,publish_gate_reason,ocr_check")
                 .eq("id",item["job_id"]).single().execute().data)
             result = {"title":current["title"],"active":current["active"],
                       "publish_gate_reason":current.get("publish_gate_reason"),
-                      "r7":(current.get("ocr_check") or {}).get("status"),"pins_before":pins_before}
+                      "r7":(current.get("ocr_check") or {}).get("status"),"pins_before":pins_before,"before":before}
             # Ingest success alone does not assert publication success.
             supabase.table("job_reprocess_queue").update({
                 "status":"running","result":result
