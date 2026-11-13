@@ -188,3 +188,70 @@ console.log('Expanded policy negative/positive cases: 10/10 passed')
   assert.deepEqual(evaluateFiles(['src/lib/salaryReader.test.ts'], '', { 'src/lib/salaryReader.test.ts': '+eq(1, 1, "y")\n' }).filter((e) => /Reader/.test(e)), [])
 }
 console.log('check-pr-ready: 확인한 기록(#666) 통과')
+
+// ───────── R3 (Lee 2026-11-13): 변경 범위·지운 것/합친 것·공고 번호 예외·반복 수정 표시 — 고의 위반 시험 ─────────
+import { declaredFiles, fieldOf, scopeProblems, mergeLineProblems, exceptionProblems, repeatedFiles } from './check-pr-ready.mjs'
+const prBody = (files, merged = '없음 — 이유가 있는 설명입니다', extra = '') => `## 작업 범위와 변경 파일\n- 범위(하지 않는 것 포함): 시험\n- 변경 파일: ${files}\n- 지운 것/합친 것: ${merged}\n${extra}\n## 확인한 기록\n`
+const ch = (filename, o = {}) => ({ filename, status: 'modified', additions: 3, deletions: 0, ...o })
+// 변경 파일 읽기: 쉼표·공백·백틱·폴더/·* 무늬
+assert.deepEqual(declaredFiles(prBody('`src/a.ts`, scripts/b.mjs (새 파일) docs/')).filter((t) => ['src/a.ts', 'scripts/b.mjs', 'docs/'].includes(t)), ['src/a.ts', 'scripts/b.mjs', 'docs/'])
+assert.ok(['src/a.ts', 'scripts/b.mjs'].every((f) => declaredFiles(prBody('src/a.ts(신규), scripts/b.mjs(추가만 — 시험)')).includes(f)), '파일 뒤 괄호 설명은 버림')
+assert.deepEqual(declaredFiles(prBody('')), [], '비어 있음')
+// ② 범위 대조: 본문에 없는 파일은 차단, 폴더·무늬는 포함, 이름 바꾸기는 옛 이름도 인정, 작업 기록 파일은 제외, 적고 안 바꾼 파일도 차단
+assert.deepEqual(scopeProblems(prBody('src/a.ts, scripts/b.mjs'), [ch('src/a.ts'), ch('scripts/b.mjs')]), [], '일치하면 통과')
+assert.ok(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('supabase/migrations/x.sql')]).some((e) => e.includes('본문에 없는 파일') && e.includes('supabase/migrations/x.sql')), '범위 밖 파일 차단')
+assert.deepEqual(scopeProblems(prBody('src/lib/'), [ch('src/lib/a.ts'), ch('src/lib/deep/b.ts')]), [], '폴더 접두')
+assert.deepEqual(scopeProblems(prBody('src/lib/*.test.ts'), [ch('src/lib/x.test.ts')]), [], '* 무늬')
+assert.ok(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('src/z.ts')]).length === 1)
+assert.deepEqual(scopeProblems(prBody('src/new.ts'), [ch('src/new.ts', { status: 'renamed', previous_filename: 'src/old.ts' })]), [])
+assert.deepEqual(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('WORK_LOG.md'), ch('tsconfig.tsbuildinfo')]), [], '작업 기록·자동 생성 파일은 제외')
+assert.ok(scopeProblems(prBody('src/a.ts, src/ghost.ts'), [ch('src/a.ts')], (p) => p === 'src/ghost.ts').some((e) => e.includes('실제로 바뀌지 않은') && e.includes('src/ghost.ts')), '적고 안 바꾼 파일')
+assert.ok(scopeProblems(prBody(''), [ch('src/a.ts')]).some((e) => e.includes('읽지 못함')), '목록 없음')
+// ③ 지운 것/합친 것: 칸 없음·이유 없는 없음·추가만 있는데 지웠다고 적음·새 검사기에 비교 근거 없음
+assert.ok(mergeLineProblems('## 작업 범위와 변경 파일\n- 변경 파일: a\n', [ch('src/a.ts')]).some((e) => e.includes('칸 없음')))
+assert.ok(mergeLineProblems(prBody('src/a.ts', '없음'), [ch('src/a.ts')]).some((e) => e.includes('이유가 없음')), '이유 없는 없음')
+assert.deepEqual(mergeLineProblems(prBody('src/a.ts', '없음 — 새 기능이라 같은 일을 하는 기존 코드가 없음'), [ch('src/a.ts')]), [])
+assert.ok(mergeLineProblems(prBody('src/a.ts', '합친 것 — 두 함수를 한 곳으로'), [ch('src/a.ts', { deletions: 0 })]).some((e) => e.includes('삭제된 줄·파일이 없음')), '추가만 있는데 합쳤다고 적음')
+assert.deepEqual(mergeLineProblems(prBody('src/a.ts', '합친 것 — 두 함수를 한 곳으로'), [ch('src/a.ts', { deletions: 12 })]), [], '실제 삭제가 있으면 통과')
+assert.deepEqual(mergeLineProblems(prBody('src/a.ts', '지운 것 — 옛 파일'), [ch('src/old.ts', { status: 'removed', additions: 0, deletions: 0 })]), [], '파일 삭제도 삭제로 인정')
+const wf = ch('.github/workflows/new-check.yml', { status: 'added' })
+assert.ok(mergeLineProblems(prBody('x', '없음 — 기존에 비슷한 검사가 전혀 없음'), [wf]).some((e) => e.includes('새 검사기')), '새 워크플로에 비교 근거 없는 없음')
+assert.deepEqual(mergeLineProblems(prBody('x', '없음 — scripts/check-pr-ready.mjs와 비교했고 겹치지 않음'), [wf]), [], '비교한 기존 파일을 적으면 통과')
+assert.deepEqual(mergeLineProblems(prBody('x', '없음 — #666 장치와 겹치지 않음을 확인'), [wf]), [], 'PR 번호도 비교 근거')
+assert.ok(mergeLineProblems(prBody('x', '없음 — 이유가 충분히 있음'), [ch('scripts/ops/new-audit.mjs', { status: 'added' })]).some((e) => e.includes('새 검사기')), '새 검사 스크립트')
+assert.deepEqual(mergeLineProblems(prBody('x', '없음 — 이유가 충분히 있음'), [ch('scripts/ops/new-audit.test.mjs', { status: 'added' })]), [], '시험 파일은 새 검사기가 아님')
+assert.equal(fieldOf(prBody('a', '합친 것 — 줄 하나\n  - 이어지는 줄', '- 예외 근거: #1'), '지운 것\\/합친 것'), '합친 것 — 줄 하나\n  - 이어지는 줄', '이어지는 줄까지 읽음')
+// 공고 번호 예외: 코드에 id 비교·sb-번호 상수를 더하면 차단(시험·자료·주석 제외), 실제 있는 근거(#이슈·결정)가 있으면 통과
+const patch = (line) => ({ ...ch('src/lib/x.ts'), patch: `@@ -1,1 +1,2 @@\n context\n+${line}\n` })
+assert.ok(exceptionProblems(prBody('x'), [patch("if (job.id === 5438) return 'area'")]).length === 1, 'id 비교 예외 차단')
+assert.ok(exceptionProblems(prBody('x'), [patch("const SPECIAL = ['sb-5438']")]).length === 1, 'sb-번호 상수 차단')
+assert.ok(exceptionProblems(prBody('x'), [patch("switch (x) { case 5438: break }")]).length === 1, 'case 번호 차단')
+assert.deepEqual(exceptionProblems(prBody('x'), [patch("// job.id === 5438 은 예전 예외라 지움")]), [], '주석은 제외')
+assert.deepEqual(exceptionProblems(prBody('x'), [{ ...patch("if (job.id === 5438) return 1"), filename: 'src/lib/x.test.ts' }]), [], '시험 파일은 제외')
+assert.deepEqual(exceptionProblems(prBody('x'), [patch('const year = 2026')]), [], '일반 코드는 통과')
+const okRef = (r) => r.issue === 728
+assert.ok(exceptionProblems(prBody('x', '없음 — 이유가 충분히 있음', '- 예외 근거: #99999'), [patch("if (job.id === 5438) return 1")], okRef).length === 1, '없는 이슈 번호는 근거가 아님')
+assert.deepEqual(exceptionProblems(prBody('x', '없음 — 이유가 충분히 있음', '- 예외 근거: #728 Lee 결정'), [patch("if (job.id === 5438) return 1")], okRef), [], '실제 있는 기록이면 통과')
+assert.deepEqual(scopeProblems(prBody('.gitignore, .env.example'), [ch('.gitignore'), ch('.env.example')]), [], '루트 점 파일도 변경 파일로 읽는다')
+assert.deepEqual(exceptionProblems(prBody('x'), [{ ...patch('job = {"id": "sb-4312"}'), filename: 'crawler/test_job_quality.py' }]), [], '파이썬 시험 파일은 제외')
+// 반복 수정 표시(차단 아님)
+assert.deepEqual(repeatedFiles({ 'src/lib/a.ts': 3, 'src/lib/a.test.ts': 5, 'src/lib/b.ts': 2 }, ['src/lib/a.ts', 'src/lib/a.test.ts', 'src/lib/b.ts']), [{ file: 'src/lib/a.ts', count: 3 }], '같은 파일 고침 PR 3건 이상만, 시험 파일 제외')
+// recentPrsFor 통계: 제목에 고침 낱말이 있는 병합 PR만 센다
+{
+  const stats = { fixCounts: {} }
+  const api = (path) => path.startsWith('commits?') ? [{ commit: { message: '오판 고침 (#11)' } }, { commit: { message: '새 기능 추가 (#12)' } }, { commit: { message: '예외 수정 (#13)' } }] : []
+  recentPrsFor({ files: ['src/lib/a.ts'], self: 1, api, stats })
+  assert.equal(stats.fixCounts['src/lib/a.ts'], 2, '고침 제목 2건만 반복 수정으로 센다')
+}
+// 방법 변경 시험(Codex 지적 3건): 점 파일·긴 확장자·앞머리 와일드카드·크롤러 파이썬 시험을 모양 추측 없이 덮는다
+assert.deepEqual(scopeProblems(prBody('.gitignore, .env.example'), [ch('.gitignore'), ch('.env.example')]), [], '루트 점 파일')
+assert.deepEqual(scopeProblems(prBody('README.md'), [ch('README.md')]), [])
+assert.deepEqual(scopeProblems(prBody('*.md'), [ch('README.md'), ch('docs/a.md')]), [], '앞머리 * 보존')
+assert.deepEqual(scopeProblems(prBody('**/*.mjs'), [ch('scripts/check-pr-ready.mjs')]), [], '앞머리 ** 보존')
+assert.deepEqual(scopeProblems(prBody('LICENSE Makefile'), [ch('LICENSE'), ch('Makefile')]), [], '확장자 없는 루트 파일도 같은 방법')
+assert.deepEqual(scopeProblems(prBody('src/very-long.extension_name'), [ch('src/very-long.extension_name')]), [], '확장자 길이 제한 없음')
+assert.ok(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('.gitignore')]).some((e) => e.includes('.gitignore')), '점 파일을 안 적고 바꾸면 차단')
+assert.ok(scopeProblems(prBody('src/a.ts, src/b.ts'), [ch('src/a.ts')], (p) => p === 'src/b.ts').some((e) => e.includes('src/b.ts')), '있는 파일을 적고 안 바꿈')
+assert.deepEqual(scopeProblems(prBody('src/a.ts, 새 파일은 src/n.ts.'), [ch('src/a.ts'), ch('src/n.ts', { status: 'added' })], () => false), [], '없는(새) 낱말·문장 끝 마침표')
+assert.deepEqual(exceptionProblems(prBody('x'), [{ ...ch('crawler/test_job_quality.py'), patch: '@@ -1 +1,2 @@\n+job = {"id": "sb-4312"}\n' }]), [], '크롤러 파이썬 시험 제외')
+console.log('R3 PR scope/merge-line/exception guards: passed')
