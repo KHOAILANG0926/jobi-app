@@ -5,7 +5,7 @@
 // 필요 환경변수: SUPABASE_DB_URL (검색에는 ANTHROPIC_API_KEY — 없으면 이름·Google 단계만)
 import pg from 'pg'
 import { createHash } from 'node:crypto'
-import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
+import { businessFromName, businessFromGoogle, buildWebPrompt, guardWebAnswer, parseWebResponse, streetOf, WEB_PROMPT_VERSION } from '../../src/lib/businessType.ts'
 import { cachedGooglePlace } from '../../src/lib/logoLookup.ts'
 import { administrativeAreaForTarget, areaContains } from '../../src/lib/administrativeArea.ts'
 import { autoScope } from '../ops/auto-cutoff.mjs'
@@ -24,14 +24,7 @@ async function webLookup(job) {
       messages: [{ role: 'user', content: buildWebPrompt(job) }] }),
   })
   if (!r.ok) throw new Error(`검색 AI ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  const body = await r.json()
-  const texts = body.content.filter((b) => b.type === 'text')
-  const citations = texts.flatMap((b) => b.citations ?? []).map((c) => ({ url: c.url, cited_text: c.cited_text }))
-  const joined = texts.map((b) => b.text).join('')
-  const m = joined.match(/\{[^{}]*\}(?![\s\S]*\{)/)
-  let answer = null
-  try { answer = m ? JSON.parse(m[0]) : null } catch { answer = null }
-  return { answer, citations }
+  return parseWebResponse(await r.json())
 }
 
 const client = new pg.Client({ connectionString: SUPABASE_DB_URL })

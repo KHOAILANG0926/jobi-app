@@ -26,7 +26,18 @@ export function collectScreen(page, device) {
     // 복리후생 아이콘: 상단 7칸 순서 그대로(칸 수가 다르면 읽지 않음)
     const icons = [...document.querySelectorAll('.jd2-header .jd2-benefits > .jd2-benefit')]
     const benefits = icons.length === order.length ? icons.flatMap((e, i) => (e.classList.contains('jd2-benefit--active') ? [order[i]] : [])) : []
+    // 승인된 4영역(제목으로 찾음): 영역별 글자. 글자 조각 사이를 공백으로 이어 붙은 낱말이 생기지 않게 한다.
+    const titles = { '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng', '③': 'Khu vực làm việc', '④': 'Mô tả công việc' }
+    const areas = {}
+    for (const sec of document.querySelectorAll('.jd2-page section.jd2-sec')) {
+      const key = Object.keys(titles).find((k) => titles[k] === sec.querySelector(':scope > h2')?.textContent?.trim())
+      if (!key) continue
+      const w = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT); const parts = []
+      while (w.nextNode()) parts.push(w.currentNode.textContent)
+      areas[key] = (areas[key] ?? '') + '\n' + parts.join(' ')
+    }
     return {
+      areas,
       device, title: txt('h1.jd2-header__title') ?? txt('h1') ?? '', company: txt('.jd2-header__company'), salary: txt('.jd2-hl-salary__val'),
       mapLinks: [...new Set(hrefs('a[href*="google.com/maps"]'))],
       pins: [...new Set(pins)],

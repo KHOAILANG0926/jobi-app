@@ -40,7 +40,7 @@ if (SUPABASE_DB_URL) {
   await db.connect()
   try {
     const rows = (await db.query(`
-      select j.id, j.title, j.company, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active, j.admin_hidden,
+      select j.id, j.title, j.company, j.occupation_code, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active, j.admin_hidden,
         public.job_inspect_content_hash(j) as content_hash,
         coalesce((select jsonb_agg(jsonb_build_object('kind', w.point_kind, 'verified', w.location_verified, 'lat', w.lat, 'lng', w.lng,
           'source', w.point_evidence->>'source', 'raw', w.raw_address, 'park', w.industrial_park)) from public.job_work_locations w where w.job_id = j.id), '[]') as locs
@@ -166,8 +166,10 @@ if (dbJobs.size) {
   sureCount = sureJobs.length
   const line = (r, sure) => `- sb-${r.id} ${String(r.title ?? '').slice(0, 45)}${r.active ? '' : ' (비공개)'}\n` +
     r.findings.filter((f) => f.sure === sure).map((f) => `  - [${f.device}] ${f.detail}`).join('\n')
+  // 미검증 = 화면을 못 열었거나 4영역을 못 읽어 배치를 대조하지 못한 공고 — 통과로 세지 않는다
+  const unverified = audits.filter((r) => r.findings.some((f) => f.key === 'open' || f.key === 'areas'))
   const report = [`## 화면 대조 검사 — ${audits.length}건 (${BASE_URL})`, '',
-    `확정 오류 ${sureJobs.length}건 · 판정 불명확(관리자 확인) ${unsureJobs.length}건 · 문제 없음 ${audits.filter((r) => !r.findings.length).length}건`, '',
+    `확정 오류 ${sureJobs.length}건 · 판정 불명확(관리자 확인) ${unsureJobs.length}건 · 미검증 ${unverified.length}건 · 문제 없음 ${audits.filter((r) => !r.findings.length).length}건`, '',
     ...(sureJobs.length ? ['### 확정 오류', ...sureJobs.map((r) => line(r, true)), ''] : []),
     ...(unsureJobs.length ? ['### 판정 불명확', ...unsureJobs.map((r) => line(r, false))] : [])].join('\n')
   console.log('\n' + report)

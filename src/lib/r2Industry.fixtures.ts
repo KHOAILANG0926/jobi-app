@@ -18,3 +18,26 @@ export const HOSTILE_PLACES = [
   { id: 'h-hotel', primaryType: 'lodging', types: ['lodging', 'hotel'] },
   { id: 'h-market', primaryType: 'supermarket', types: ['supermarket', 'grocery_store'] },
 ]
+
+// 검색 AI(web_search_20250305) 응답 — 실제 Messages API 응답 모양(server_tool_use → web_search_tool_result → citations가 붙은 text 블록)으로 만든 기록용 본문.
+// 라이브 호출이 아니라 문서화된 응답 구조를 따른 고정 본문이다(키·외부 호출 없음). 공장 업무 공고와 가게 공고에 같은 모양으로 준다.
+const searchBody = (answerJson: string, quotes: Array<{ url: string; cited_text: string }>) => ({
+  id: 'msg_x', type: 'message', role: 'assistant', stop_reason: 'end_turn',
+  content: [
+    { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: { query: 'x' } },
+    { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: quotes.map((q) => ({ type: 'web_search_result', url: q.url, title: 't', encrypted_content: 'e' })) },
+    { type: 'text', text: 'Kết quả: ', citations: quotes.map((q) => ({ type: 'web_search_result_location', url: q.url, title: 't', cited_text: q.cited_text, encrypted_index: 'i' })) },
+    { type: 'text', text: answerJson },
+  ],
+})
+export const WEB_BODIES = {
+  // 가게(Wallace) — 같은 이름+같은 번지·도로가 한 인용문에 있음
+  shop: searchBody('{"type":"fnb"}', [{ url: 'https://map.example/wallace', cited_text: 'Wallace Burger & Chicken - Quán ăn tại Số 216 Đường Nguyễn Trãi, Bắc Ninh' }]),
+  // 공장 업무 공고인데 검색은 같은 이름·거리의 음식점/마트를 집음(장소 유형이 업무를 덮으려는 상황)
+  factoryHostile: searchBody('{"type":"fnb"}', [{ url: 'https://map.example/fushan', cited_text: 'FUSHAN - Nhà hàng & Siêu thị tại 12 Đường số 5, KCN VSIP Bắc Ninh' }]),
+  noCitation: searchBody('{"type":"fnb"}', []),
+  noJson: searchBody('Không tìm thấy thông tin', [{ url: 'https://map.example/a', cited_text: 'x' }]),
+  badJson: searchBody('{"type": fnb', [{ url: 'https://map.example/a', cited_text: 'x' }]),
+  emptyContent: { id: 'msg_x', type: 'message', content: [] },
+  errorBody: { type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } },
+} as const

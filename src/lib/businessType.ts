@@ -128,6 +128,18 @@ export function buildWebPrompt(job: BusinessJob): string {
  * 2) 검색 답 검사: 검색 결과 인용문(citations) 하나에 업체 이름 앞 낱말과 공고 번지·도로가 함께 있어야 같은 매장으로 인정한다.
  * AI의 말만으로는 정하지 않는다.
  */
+// 검색 AI 응답(Messages API, web_search 도구) 본문 → 답(JSON 한 덩어리)과 인용문. 응답이 비었거나 모양이 달라도 던지지 않고 빈 결과를 준다(그러면 guardWebAnswer가 null).
+export function parseWebResponse(body: unknown): { answer: unknown; citations: Array<{ url?: string; cited_text?: string }> } {
+  const content = (body && typeof body === 'object' && Array.isArray((body as { content?: unknown }).content) ? (body as { content: unknown[] }).content : []) as Array<{ type?: string; text?: unknown; citations?: unknown }>
+  const texts = content.filter((b) => b && b.type === 'text')
+  const citations = texts.flatMap((b) => (Array.isArray(b.citations) ? b.citations : []) as Array<{ url?: string; cited_text?: string }>).map((c) => ({ url: c?.url, cited_text: c?.cited_text }))
+  const joined = texts.map((b) => String(b.text ?? '')).join('')
+  const m = joined.match(/\{[^{}]*\}(?![\s\S]*\{)/)
+  let answer: unknown = null
+  try { answer = m ? JSON.parse(m[0]) : null } catch { answer = null }
+  return { answer, citations }
+}
+
 export function guardWebAnswer(job: BusinessJob, answer: unknown, citations: Array<{ url?: string; cited_text?: string }>): BusinessType | null {
   const a = (answer && typeof answer === 'object' ? answer : {}) as { type?: unknown }
   if (!['fnb', 'retail', 'service'].includes(String(a.type))) return null

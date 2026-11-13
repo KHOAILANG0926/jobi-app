@@ -1,4 +1,4 @@
-import { screenAudit, amounts, linkPoint, phoneDigits, BENEFIT_ORDER, type ScreenView, type ScreenJob } from './screenAudit'
+import { screenAudit, areaFindings, amounts, linkPoint, phoneDigits, BENEFIT_ORDER, type ScreenView, type ScreenJob } from './screenAudit'
 
 function assert(c: unknown, m: string) { if (!c) throw new Error('FAIL: ' + m) }
 
@@ -43,6 +43,42 @@ assert(screenAudit({ ...job, googlePin: null, apiPins: [] }, [after]).some((f) =
 assert(!screenAudit({ ...job, googlePin: null, apiPins: null }, [after]).some((f) => f.key === 'pin'), '목록 못 읽음 → 대조 생략')
 // PC·모바일 같은 문제는 한 줄
 assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) => f.key === 'title' && f.detail.includes('기호')).length === 1, 'PC·모바일 한 줄')
+// ⑦ 영역 배치(운영 공고 전체 대조용, R2 #753): 줄이 허용 영역에 있으면 통과, 금지 영역에만 있으면 확정 오류, 영역을 못 읽으면 통과가 아니라 미검증
+{
+  const src = 'CÔNG TY ABC tuyển công nhân\nGiới tính: Nam, Nữ 18-40 tuổi\nLương: 310k/ngày\nLàm việc 7h30-16h30\nLiên hệ: 0388492985'
+  const j = { id: 1, title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', source_text: src, employer_phone: '0388492985' }
+  const okAreas = { '①': 'Điều kiện làm việc Mức lương 310.000đ/ngày Thời gian làm việc 7h30-16h30', '②': 'Thông tin tuyển dụng Giới tính: Nam, Nữ 18-40 tuổi', '③': 'Khu vực làm việc Bắc Ninh', '④': 'Mô tả công việc Liên hệ: 0388492985' } as const
+  const mk = (areas: ScreenView['areas']): ScreenView => ({ device: 'PC', title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', mapLinks: [], pins: [], tel: [], zalo: [], benefits: [], areas })
+  const placement = (areas: ScreenView['areas']) => areaFindings(j, src, mk(areas))
+  assert(placement(okAreas).length === 0, '맞는 영역 → 문제 없음')
+  assert(placement({ ...okAreas, '②': okAreas['②'] + ' Liên hệ: 0388492985' }).some((f) => f.key === 'placement' && f.sure) === false, '연락처가 ②에도 있어도 ④에 있으면(허용 영역) 오류 아님')
+  // 주입 결함: 연락처 줄이 ④가 아니라 ②에만 있음 → 확정 오류
+  const wrong = placement({ ...okAreas, '④': 'Mô tả công việc', '②': okAreas['②'] + ' Liên hệ: 0388492985' })
+  assert(wrong.some((f) => f.key === 'placement' && f.sure && f.detail.includes('②')), '연락처가 ②에만 → 확정 오류')
+  // 주입 결함: 급여 줄이 ②에만 있음
+  assert(placement({ ...okAreas, '①': 'Điều kiện làm việc', '②': okAreas['②'] + ' Lương: 310k/ngày' }).some((f) => f.key === 'placement' && f.sure), '급여가 ②에만 → 확정 오류')
+  // 화면이 이름표를 바꿔 보여 줘도(Lương → Mức lương) 값으로 찾아 같은 확정 오류
+  assert(placement({ ...okAreas, '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng Mức lương 310.000đ/ngày' }).some((f) => f.key === 'placement' && f.sure), '이름표 바뀐 급여가 ②에만 → 확정 오류')
+  // 주입 결함: 모집 조건 줄이 ③에만 있음
+  assert(placement({ ...okAreas, '②': 'Thông tin tuyển dụng', '③': okAreas['③'] + ' Giới tính: Nam, Nữ 18-40 tuổi' }).some((f) => f.key === 'placement' && f.sure), '모집 조건이 ③에만 → 확정 오류')
+  // 못 읽음 = 미검증(통과 아님)
+  assert(placement(undefined).length === 0, '수집 안 한 호출 → 대조 생략')
+  assert(placement({ '①': '', '②': '', '③': '', '④': '' })[0].key === 'areas', '전부 비어 있음 → 미검증')
+  // 연락처 번호가 ④에 없으면 빠짐 의심(불명확)
+  assert(placement({ ...okAreas, '④': 'Mô tả công việc Nhân viên' }).some((f) => f.key === 'placement' && !f.sure && f.detail.includes('빠짐')), '연락처 번호 빠짐 → 불명확')
+  // 운영 대조(2026-11-12)에서 나온 오탐: "22 trở lên"·"HSK3 trở lên"의 tr(trở)을 급여 단위로 읽어 ②의 모집 조건 줄을 오류로 잡았다 — 급여가 아닌 줄은 어느 영역에 있어도 배치 오류가 아니다
+  const req = 'Tốt nghiệp THCS trở lên (9/12), tuổi từ 22 trở lên\nBiết tiếng Trung HSK2 – HSK3 trở lên, lương THỎA THUẬN'
+  const jr = { id: 3, title: 't', company: 'c', source_text: req }
+  assert(areaFindings(jr, req, { ...mk({ '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng ' + req, '③': 'Khu vực làm việc', '④': 'Mô tả công việc' }) }).every((f) => f.key !== 'placement' || !f.sure), '"trở lên" 줄은 급여로 오인하지 않음')
+}
+// ⑧ 업종: 공단·공장 글인데 5(서비스·판매) → 불명확, 가게 낱말이 있으면 문제 없음
+{
+  const v: ScreenView = { device: 'PC', title: 't', mapLinks: [], pins: [], tel: [], zalo: [], benefits: [] }
+  const base = { id: 2, title: 't', company: 'c' }
+  assert(screenAudit({ ...base, source_text: 'Công ty ABC tuyển công nhân tại KCN VSIP Bắc Ninh\nLương 8 triệu', occupation_code: '5' }, [v]).some((f) => f.key === 'industry' && !f.sure), '공장 글 + 5 → 불명확')
+  assert(!screenAudit({ ...base, source_text: 'Quán ăn ABC tuyển phục vụ gần KCN VSIP\nLương 8 triệu', occupation_code: '5' }, [v]).some((f) => f.key === 'industry'), '가게 글 + 5 → 정상')
+  assert(!screenAudit({ ...base, source_text: 'Công ty ABC tuyển công nhân tại KCN VSIP Bắc Ninh', occupation_code: '9' }, [v]).some((f) => f.key === 'industry'), '공장 글 + 공장 코드 → 정상')
+}
 
 // 도우미
 assert(amounts('8tr5').includes(8_500_000) && amounts('8,5 triệu').includes(8_500_000) && amounts('7.500.000đ').includes(7_500_000) && amounts('250k/ngày').includes(250_000), '금액 읽기')
