@@ -159,13 +159,13 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
       if (miss.length) add('salary', false, d, `화면 급여 "${String(v.salary).slice(0, 60)}"의 ${miss.map((n) => n.toLocaleString('vi-VN')).join(', ')}이 원문 금액에 없음`)
     }
     // ⑦-1 목록·메인 카드(R2 잔여 검증): 카드의 급여·제목·상호가 상세와 원문에 맞는가. 카드가 보여 주는 값은 승인된 표시 변환이 있어 모두 '판정 불명확'으로만 알린다.
-    if (job.cards) {
+    if (job.cards) {   // 카드는 대표 금액 1개만 보이므로 상세 금액의 일부이면 같은 값으로 본다
       const card = job.cards[d]
       if (!card) add('card_unread', false, d, '목록·메인 카드에서 이 공고를 찾지 못함 — 카드 대조 미검증')
       else {
         const cardAmts = amounts(card.salary), detailAmts = amounts(v.salary ?? '')
         if (cardAmts.length && hasSource && cardAmts.some((n) => !srcAmounts.has(n))) add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 50)}"이 원문 금액에 없음`)
-        if (cardAmts.length && detailAmts.length && cardAmts.some((n) => !detailAmts.includes(n)))   // 카드는 대표 금액 1개만 보이므로 상세 금액의 일부이면 같은 값 add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 40)}"와 상세 급여 "${String(v.salary).slice(0, 40)}"가 다름`)
+        if (cardAmts.length && detailAmts.length && cardAmts.some((n) => !detailAmts.includes(n))) add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 40)}"와 상세 급여 "${String(v.salary).slice(0, 40)}"가 다름`)
         const ct = fold(card.title).replace(/[^a-z0-9]+/g, ' ').trim(), dt = fold(title).replace(/[^a-z0-9]+/g, ' ').trim()
         if (ct && dt && !dt.includes(ct) && !ct.includes(dt)) add('card_title', false, d, `카드 제목 "${card.title.slice(0, 40)}"이 상세 제목 "${title.slice(0, 40)}"과 다름`)
         const cc = fold(card.company).replace(/[^a-z0-9]+/g, ' ').trim()
