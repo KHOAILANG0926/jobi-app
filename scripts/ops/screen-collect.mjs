@@ -9,7 +9,8 @@ import { afterCutoff } from './auto-cutoff.mjs'
  * ② 지금 내용으로 확정 오류가 기록된 지 3시간 지난 비공개 공고(화면 코드를 고쳤을 수 있어 다시 대조)
  */
 const H = 'public.job_inspect_content_hash(j)'
-export const SCREEN_CANDIDATES = `j.origin in ('crawler','admin') and ${afterCutoff('j')} and not j.active and not j.admin_hidden and (
+// (승인 대기 짝 변경, #728 R2 A4) DB가 공개 시작을 막아 inspect_hold를 건 고용주·legacy 공고도 같은 화면 대조를 받는다 — 안 받으면 검사표의 화면 대조 대기가 풀리지 않는다.
+export const SCREEN_CANDIDATES = `((j.origin in ('crawler','admin') and ${afterCutoff('j')}) or (j.origin in ('employer','legacy') and j.ocr_check->>'inspect_hold' = 'true')) and not j.active and not j.admin_hidden and (
   (j.ocr_check->'inspect'->>'screen_wait' = 'true' and j.ocr_check->'inspect'->>'content_hash' = ${H}
     and (j.ocr_check->'screen_audit'->>'content_hash') is distinct from ${H})
   or (j.ocr_check->'screen_audit'->>'content_hash' = ${H} and (j.ocr_check->'screen_audit'->>'ok') = 'false'

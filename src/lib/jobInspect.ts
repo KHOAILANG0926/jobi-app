@@ -130,7 +130,7 @@ export function inspectJob(j: InspectInput): InspectResult {
   const classified = !!j.occupation_code && !!j.category && !['khac', 'other'].includes(String(j.category))
   add('occupation', '직업분류·업종 메뉴', classified, classified ? undefined : !j.occupation_code ? '직업 코드 없음' : '업종이 기타(khac)')
   // 9. 포스터 글자 대조
-  if ((j.image_count ?? 0) > 0) add('ocr', '포스터 글자 대조', j.ocr_status === 'ok', j.ocr_status ? `결과: ${j.ocr_status}` : '아직 안 읽음')
+  if ((j.image_count ?? 0) > 0) add('ocr', '포스터 글자 대조', j.ocr_status === 'ok' || j.ocr_status === 'no_text', j.ocr_status ? `결과: ${j.ocr_status}` : '아직 안 읽음')
   // 9-1. 대표 사진·로고(Lee 2026-11-07): 출처 표시만 — 공개·연속 통과에는 영향 없음(INFO_ONLY)
   if (j.photo) add('photo', '대표 사진·로고', j.photo !== 'pending', PHOTO_LABEL[j.photo])
   // 10. 칸을 못 정한 새 종류 줄

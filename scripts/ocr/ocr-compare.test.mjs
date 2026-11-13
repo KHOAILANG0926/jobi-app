@@ -20,6 +20,15 @@ assert.equal(compareWithOcr({ ...kda, salary: '320.000đ' }, kdaOcr).status, 'mi
 assert.ok(moneyValues('310k').has(310000) && moneyValues('310.000').has(310000) && moneyValues('310 nghìn').has(310000))
 assert.ok(moneyValues('8,5 triệu').has(8500000) && moneyValues('8 000 000').has(8000000) && !moneyValues('11h').size)
 assert.equal(compareWithOcr(base, '').status, 'unreadable')
+// #800: 글자 없는 일반 사진(근무지·대표 사진). 고용주·legacy는 입력값이 원문 칸에 있어 막지 않고(no_text), 수집·관리자 공고나 사진에만 기댄 값은 읽기불가 그대로.
+const typed = 'title: Nhân viên\ncompany: KDA\nsalary: 8.000.000 - 12.000.000\nemployer_phone: 0877880756\ncontact_name: NGOC ANH DUONG\nage_min: 14\nage_max: 50'
+assert.equal(compareWithOcr({ ...base, origin: 'employer', source_text: typed }, '').status, 'no_text')
+assert.equal(compareWithOcr({ ...base, origin: 'legacy', source_text: typed }, 'xin ch').status, 'no_text')
+assert.equal(compareWithOcr({ ...base, origin: 'crawler', source_text: typed }, '').status, 'unreadable')
+assert.equal(compareWithOcr({ ...base, origin: 'admin', source_text: typed }, '').status, 'unreadable')
+assert.equal(compareWithOcr({ ...base, origin: 'employer', source_text: 'company: KDA' }, '').status, 'unreadable')   // 전화·급여가 사진에만 있으면 통과시키지 않는다
+// 글자가 있는 포스터는 고용주 공고도 기존 대조 그대로(어긋나면 보류)
+assert.equal(compareWithOcr({ ...base, origin: 'employer', source_text: 'company: KDA', employer_phone: '0877880757' }, ocr).status, 'mismatch')
 const j0 = { occupation_code: '82022', occupation_evidence: 'làm linh kiện tai nghe', source_text: 'CTY KDA tuyển làm linh kiện tai nghe', origin: 'crawler', publish_gate_reason: 'ok', admin_hidden: false, created_at: '2026-10-14T01:00:00Z', application_deadline: null }
 assert.equal(canRepublish(j0, '2026-10-15'), true)
 assert.equal(canRepublish({ ...j0, publish_gate_reason: 'no_verified_coordinate' }, '2026-10-15'), false)

@@ -70,6 +70,28 @@ for (const fixture of cases) {
   }
 }
 const safe = { ...cases.find((r: { expected: string }) => r.expected === 'allow')!.input, active: true, admin_hidden: false }
+// #799: 검사 대기로 가려진(RLS) 비회원 공고 — 직접 읽기는 비고, 관리 토큰으로만 열리는 get_guest_job 으로 다시 읽어 결과를 돌려준다.
+{
+  const calls: string[] = []
+  const hidden = { client: {
+    from: () => { const c: Record<string, unknown> = { select: () => c, eq: () => c, single: async () => ({ data: null, error: { message: 'no rows' } }) }; return c },
+    rpc: async (name: string, params: Record<string, unknown>) => {
+      calls.push(name)
+      if (name === 'ingest_job') return { data: 7, error: null }
+      if (name === 'get_guest_job') return params.p_token === 'token-of-the-owner-xxxxxxxx' ? { data: [{ id: 7, title: 'T', active: false }], error: null } : { data: [], error: null }
+      return { data: null, error: null }
+    },
+  } as unknown as SupabaseClient }
+  const ok = await checkedPublicJobInsert(hidden.client, { ...safe, guest_manage_token: 'token-of-the-owner-xxxxxxxx' })
+  assert.equal(ok.error, null, 'guest hidden row: no error')
+  assert.equal(ok.data?.id, 7, 'guest hidden row: id returned'); assert.equal(ok.data?.active, false, 'guest hidden row: stays inactive')
+  assert.equal(calls.join(','), 'ingest_job,get_guest_job', 'guest hidden row: re-read only through token function')
+  const bad = await checkedPublicJobInsert(hidden.client, { ...safe, guest_manage_token: 'someone-elses-token-xxxxxxx' })
+  assert.equal(bad.data, null, 'a wrong token gets no row back')
+  const noToken = await checkedPublicJobInsert(hidden.client, { ...safe })
+  assert.equal(noToken.data, null, 'no token: no second read (RLS result stands)')
+  console.log('jobPolicyWrite: 비회원 검사 대기 공고 다시 읽기(#799) 통과')
+}
 const blocked = cases.find((r: { id: string }) => r.id === 'b2b-4750-type-synthetic')!.input
 for (const operation of [
   (client: SupabaseClient) => checkedLocalJobUpdate(client, 1, blocked),
