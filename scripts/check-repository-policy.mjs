@@ -182,10 +182,10 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
     } catch { /* deleted or unreadable source fails closed */ }
   }
   const repo = process.env.GITHUB_REPOSITORY
-  const gh = (path) => { try { return JSON.parse(execFileSync('gh', ['api', `repos/${repo}/${path}`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })) } catch { return null } }
+  const gh = (path, all = false) => { try { return JSON.parse(execFileSync('gh', ['api', ...(all ? ['--paginate', '--slurp'] : []), `repos/${repo}/${path}`], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })) } catch { return null } }
   const resolve = {
     self: event.pull_request?.number,
-    issue: (n) => { const i = gh(`issues/${n}`); if (!i) return null; const c = gh(`issues/${n}/comments?per_page=100`) ?? []; return [i.title, i.body, ...c.map((x) => x.body)].join('\n') },
+    issue: (n) => { const i = gh(`issues/${n}`); if (!i) return null; const c = (gh(`issues/${n}/comments?per_page=100`, true) ?? []).flat(); return [i.title, i.body, ...c.map((x) => x.body)].join('\n') },
     decision: (nnnn) => { try { const f = readdirSync('docs/decisions/ko').find((x) => x.startsWith(nnnn + '-')); return f ? readFileSync(`docs/decisions/ko/${f}`, 'utf8') : null } catch { return null } },
     leeDate: (d) => { const docs = ['CLAUDE.md', '.claude/RULES_CORE.md', 'AGENTS.md']; try { for (const f of readdirSync('docs/decisions/ko')) docs.push(`docs/decisions/ko/${f}`) } catch { /* 없음 */ }
       for (const f of docs) { try { if (new RegExp(`Lee\\s*${d}`).test(readFileSync(f, 'utf8'))) return f } catch { /* 없음 */ } } return null },
