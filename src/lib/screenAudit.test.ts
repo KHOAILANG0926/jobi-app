@@ -104,6 +104,11 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(screenAudit({ ...base, cards: { PC: [ok, bad] } }, [v]).some((f) => f.key === 'card_salary'), '메인 카드는 맞고 검색 카드만 틀려도 잡음')
   assert(screenAudit({ ...base, cards: { PC: [ok, null] } }, [v]).some((f) => f.key === 'card_unread'), '한 화면을 못 읽으면 미검증')
   assert(screenAudit({ ...base, cards: { PC: { title: '', company: '', salary: '' } } }, [v]).some((f) => f.key === 'card_unread'), '카드 글자가 비면 통과가 아니라 미검증')
+  // 시급(10만 미만)도 금액으로 대조한다
+  const hv: ScreenView = { ...v, salary: '25.000đ/giờ' }
+  const hb: ScreenJob = { ...base, source_text: 'CÔNG TY ABC tuyển công nhân\nLương 25.000đ/giờ\nLH 0912345678' }
+  assert(screenAudit({ ...hb, cards: { PC: { ...ok, salary: '99.000đ/giờ' } } }, [hv]).some((f) => f.key === 'card_salary'), '시급 카드가 원문·상세와 다르면 잡음')
+  assert(screenAudit({ ...hb, cards: { PC: { ...ok, salary: '25.000đ/giờ' } } }, [hv]).every((f) => !f.key.startsWith('card')), '시급 카드가 같으면 문제 없음')
 }
 
 // 도우미

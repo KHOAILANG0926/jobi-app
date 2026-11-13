@@ -102,7 +102,9 @@ export function amounts(text: string) {
     if (m[2]) out.add(one(m[2]))
   }
   for (const m of t.matchAll(/(\d{2,4})\s*k\b/g)) out.add(Number(m[1]) * 1000)
-  return [...out].filter((n) => n >= 100_000)
+  const hourly = new Set<number>()   // 시급은 10만 미만이어도 금액이다("25.000đ/giờ", "25k/h") — 아래 하한은 잡음 거르기용이라 시급 표시가 붙은 것만 남긴다
+  for (const m of t.matchAll(/(?:(\d{1,3}(?:[.,]\d{3}))|(\d{2,3})\s*k)\s*(?:d|dong|vnd)?\s*(?:\/|moi\s+|mot\s+)\s*(?:gio|h)\b/g)) hourly.add(m[1] ? Number(m[1].replace(/[.,]/g, '')) : Number(m[2]) * 1000)
+  return [...out].filter((n) => n >= 100_000 || hourly.has(n))
 }
 
 export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[] {
