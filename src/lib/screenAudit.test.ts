@@ -100,6 +100,10 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(screenAudit({ ...base, cards: { PC: { ...ok, title: 'Nhân viên bán hàng' } } }, [v]).some((f) => f.key === 'card_title'), '카드 제목이 상세와 다름')
   assert(screenAudit({ ...base, cards: { PC: { ...ok, company: 'ZZZ' } } }, [v]).some((f) => f.key === 'card_company'), '카드 상호가 회사명과 다름')
   assert(screenAudit(base, [v]).every((f) => !f.key.startsWith('card')), '카드를 수집하지 않은 호출은 대조 생략')
+  const bad = { ...ok, salary: 'Lương tháng 99.000.000đ/tháng' }
+  assert(screenAudit({ ...base, cards: { PC: [ok, bad] } }, [v]).some((f) => f.key === 'card_salary'), '메인 카드는 맞고 검색 카드만 틀려도 잡음')
+  assert(screenAudit({ ...base, cards: { PC: [ok, null] } }, [v]).some((f) => f.key === 'card_unread'), '한 화면을 못 읽으면 미검증')
+  assert(screenAudit({ ...base, cards: { PC: { title: '', company: '', salary: '' } } }, [v]).some((f) => f.key === 'card_unread'), '카드 글자가 비면 통과가 아니라 미검증')
 }
 
 // 도우미

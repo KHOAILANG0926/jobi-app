@@ -81,7 +81,7 @@ if (ALL) for (const v of VIEWPORTS) {
   const context = await browser.newContext({ viewport: v.viewport, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'vi-VN' })
   cardsByDevice[v.label] = await collectCards(await context.newPage(), BASE_URL)
   await context.close()
-  console.log(`${v.label} 카드 ${Object.keys(cardsByDevice[v.label]).length}개 수집`)
+  console.log(`${v.label} 카드 화면별 ${cardsByDevice[v.label].map((r) => (r ? Object.keys(r).length : '읽기 실패')).join(' / ')}개 수집`)
 }
 let adminState = null
 async function adminLogin() {
@@ -150,7 +150,7 @@ async function readJob(id) {
   }
   if (!job) return
   const findings = openError ? [{ key: 'open', sure: true, device: '-', detail: `화면 열기 실패: ${openError}` }]
-    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null, ...(ALL ? { cards: Object.fromEntries(VIEWPORTS.map((v) => [v.label, cardsByDevice[v.label]?.[String(id)] ?? null])) } : {}) }, views)
+    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null, ...(ALL ? { cards: Object.fromEntries(VIEWPORTS.map((v) => [v.label, (cardsByDevice[v.label] ?? [null]).map((r) => r?.[String(id)] ?? null)])) } : {}) }, views)
   audits.push({ id, title: job.title, active: job.active, findings, views })
   // 기록(대상 공고만): 화면 열기 실패는 기록하지 않는다(일시 오류 — 다음 실행에 다시). 대조 중 내용이 바뀌면 기록하지 않는다.
   if (CANDIDATES && openError) openFailed++
