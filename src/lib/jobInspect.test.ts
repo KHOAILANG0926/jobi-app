@@ -191,3 +191,27 @@ assert(!inspectJob({ id: 11, source_text: '(tg: 17h - 22h)' }).items.some(i => i
   }
   console.log('jobInspect.test.ts: 5421 숙식 제공 통과')
 }
+// #797(R2 A4) 고용주 등록 → 공개 전 검사 이어붙이기: 등록 입구가 만든 원문(ingestSourceText)과 글자 없는 일반 사진을 검사표·공개 판정에 그대로 넣어 본다.
+{
+  const { ingestSourceText } = await import('./jobPolicyWrite.ts')
+  const f = { title: 'Nhân viên bán hàng', company: 'Cửa hàng ABC', category: 'ban_hang', salary: '8 triệu/tháng', location: 'Số 1 Lý Thái Tổ, Bắc Ninh', hours: '8h-17h', description: 'Bán hàng, tư vấn khách.\nLàm việc theo ca.', employer_phone: '0912345678', urgent: false, origin: 'employer', active: true }
+  const input = (extra: Record<string, unknown> = {}) => ({ id: 1, title: f.title, company: f.company, salary: f.salary, description: f.description, source_text: ingestSourceText(f),
+    phones: [f.employer_phone], addresses: [f.location], values: [], valueGroups: [[f.hours]], postingFields: { hours: f.hours, reviewOnly: true },
+    category: 'ban_hang', occupation_code: '5', active: false, admin_hidden: false, image_count: 1, ocr_status: 'no_text', pin: 'exact', screen: { state: 'ok', unsure: 0 }, ...extra })
+  const hold = { hold: true, application_deadline: null }
+  const pass = (extra: Record<string, unknown> = {}) => { const r = inspectJob(input(extra) as never); return { r, d: publishDecision(r, { active: false, admin_hidden: false, ...hold }) } }
+  let x = pass()
+  assert(!x.r.items.some((i) => i.key === 'source_lost' && !i.ok), 'employer form-built source text is not "lost original lines": ' + JSON.stringify(x.r.items.filter((i) => !i.ok)))
+  assert(x.d.publishable && x.d.active, 'employer posting with a text-free general photo passes inspection and is published: ' + JSON.stringify(x.r.items.filter((i) => !i.ok)))
+  x = pass({ ocr_status: 'unreadable' })
+  assert(!x.d.publishable, 'an unreadable image (not proven by typed fields) still blocks publication')
+  x = pass({ ocr_status: 'mismatch' })
+  assert(!x.d.publishable, 'a poster that disagrees with the typed fields still blocks publication')
+  x = pass({ screen: { state: 'pending' } })
+  assert(!x.d.publishable, 'waiting for the screen check does not publish')
+  x = pass({ pin: undefined })
+  assert(!x.d.publishable, 'no map pin still blocks publication')
+  x = pass({ source_text: 'Cửa hàng ABC tuyển nhân viên bán hàng\nTăng ca có thưởng lớn\n' + ingestSourceText(f) })
+  assert(x.r.items.some((i) => i.key === 'source_lost' && !i.ok), 'a real pasted original with a missing line is still caught')
+  console.log('jobInspect.test.ts: 고용주 등록 → 검사 → 공개 판정(#797) 통과')
+}

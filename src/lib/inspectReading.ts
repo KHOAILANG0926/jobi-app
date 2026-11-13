@@ -13,8 +13,12 @@ export const SITE_CHROME = /^(?:hien so|thong tin co ban|ca nhan dang tuyen|nha 
 const MASKED_PHONE = /\d[\d .]{2,}\*{2,}/
 
 /** 원문 줄(공백 정리, 빈 줄·사이트 화면 글자·가려진 번호 줄 제외). */
+// 고용주 등록 화면에서 입력한 칸을 묶어 만든 원문(등록 입구 ingestSourceText)은 첫 줄이 'title: ' 이고 줄마다 영문 칸 이름표('company: ', 'hours: ')가 붙는다.
+// 그 줄들은 원문 글이 아니라 이미 칸에 들어 있는 입력값이라 '원문 줄이 빠졌는가' 대조 대상이 아니다(#797 Codex). 붙여 넣은 진짜 원문에는 적용하지 않는다(첫 줄 조건).
+const FORM_LABEL = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*:\s/
 export function sourceLines(text: string | null | undefined): string[] {
-  return String(text ?? '').split(/\r\n|\n|\r/).map((l) => l.trim()).filter((l) => l && !MASKED_PHONE.test(l) && !SITE_CHROME.test(fold(l)))
+  const lines = String(text ?? '').split(/\r\n|\n|\r/).map((l) => l.trim()).filter((l) => l && !MASKED_PHONE.test(l) && !SITE_CHROME.test(fold(l)))
+  return /^title:\s/.test(lines[0] ?? '') ? lines.filter((l) => !FORM_LABEL.test(l)) : lines
 }
 
 /** big이 small을 글자 그대로(성조·기호 무시) 포함하는가. */

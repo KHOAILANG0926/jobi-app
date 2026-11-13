@@ -31,7 +31,10 @@ export { posterSalaryEvidence }
 // job: { employer_phone, contact_zalo, salary, contact_name, company, age_min, age_max }
 export function compareWithOcr(job, ocrText) {
   const ocr = String(ocrText ?? '')
-  if (fold(ocr).length < 8) return { status: 'unreadable', mismatches: [] }   // 읽을 글자가 거의 없으면 비교하지 않는다
+  // 읽을 글자가 거의 없으면 포스터 글자와 비교할 것이 없다. 수집·관리자 공고는 사실이 포스터에서 올 수 있어 '읽기불가'로 비공개를 유지하지만,
+  // 고용주·legacy 공고는 사실을 직접 입력한 값(원문 칸에 같이 저장)이라 글자 없는 일반 사진(근무지·대표 사진, #800)은 막지 않는다 — 아래 대조를 원문만으로 해서
+  // 모두 원문으로 뒷받침되면 'no_text'(통과), 하나라도 사진에만 기댄 값이면 'unreadable' 그대로. 글자가 있는 포스터는 이 분기를 타지 않고 기존 대조 그대로.
+  const noText = fold(ocr).length < 8
   const ocrDigits = digits(ocr)
   const ocrFold = ` ${fold(ocr)} `
   const ocrTokens = new Set((ocr.match(/\d+/g) ?? []).map(String))
@@ -60,6 +63,7 @@ export function compareWithOcr(job, ocrText) {
     const sourceAges = new Set((String(job.source_text ?? '').match(/\d+/g) ?? []).map(String))
     if (job[f] != null && !sourceAges.has(String(job[f])) && !ocrTokens.has(String(job[f]))) mismatches.push({ field: f, value: job[f] })
   }
+  if (noText) return { status: ['employer', 'legacy'].includes(job.origin) && !mismatches.length ? 'no_text' : 'unreadable', mismatches: [] }
   return { status: mismatches.length ? 'mismatch' : 'ok', mismatches }
 }
 
