@@ -5,9 +5,9 @@
     "path": "/",
     "vw": 390,
     "scrollW": 390,
-    "height": 6446,
+    "height": 6050,
     "wide": [],
-    "smallText": 37,
+    "smallText": 32,
     "errors": []
   },
   {
@@ -16,7 +16,7 @@
     "path": "/viec-lam/tim-kiem",
     "vw": 390,
     "scrollW": 390,
-    "height": 5760,
+    "height": 5788,
     "wide": [],
     "smallText": 4,
     "errors": []
@@ -27,7 +27,7 @@
     "path": "/viec-lam/khu-vuc",
     "vw": 390,
     "scrollW": 390,
-    "height": 7208,
+    "height": 7235,
     "wide": [],
     "smallText": 6,
     "errors": []
@@ -93,7 +93,7 @@
     "path": "/viec-lam/sb-6043",
     "vw": 390,
     "scrollW": 390,
-    "height": 3933,
+    "height": 3871,
     "wide": [],
     "smallText": 13,
     "errors": []
@@ -126,7 +126,7 @@
     "path": "/viec-lam/sb-5992",
     "vw": 390,
     "scrollW": 390,
-    "height": 3733,
+    "height": 3654,
     "wide": [],
     "smallText": 13,
     "errors": []
@@ -137,9 +137,9 @@
     "path": "/",
     "vw": 360,
     "scrollW": 360,
-    "height": 6518,
+    "height": 6122,
     "wide": [],
-    "smallText": 37,
+    "smallText": 32,
     "errors": []
   },
   {
@@ -148,7 +148,7 @@
     "path": "/viec-lam/tim-kiem",
     "vw": 360,
     "scrollW": 360,
-    "height": 5760,
+    "height": 5788,
     "wide": [],
     "smallText": 4,
     "errors": []
@@ -159,7 +159,7 @@
     "path": "/viec-lam/khu-vuc",
     "vw": 360,
     "scrollW": 360,
-    "height": 7208,
+    "height": 7235,
     "wide": [],
     "smallText": 6,
     "errors": []
@@ -228,7 +228,7 @@
     "path": "/viec-lam/sb-6043",
     "vw": 360,
     "scrollW": 360,
-    "height": 4083,
+    "height": 4054,
     "wide": [],
     "smallText": 13,
     "errors": []
@@ -261,7 +261,7 @@
     "path": "/viec-lam/sb-5992",
     "vw": 360,
     "scrollW": 360,
-    "height": 3867,
+    "height": 3788,
     "wide": [],
     "smallText": 13,
     "errors": []
