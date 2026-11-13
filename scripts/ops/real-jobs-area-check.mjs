@@ -11,7 +11,14 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:4190'
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname)) throw new Error('local replay only')
 const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 // 실제 공고 번호가 있는 대표 공고는 그 번호 그대로 재생한다(KDA sb-4824는 기존 틀, 나머지는 최신 틀 — usesAlbamonLayout이 번호로 틀을 고름). 번호 없는 합성 사례만 94만대
-const jobs = R2_ORACLE.map((o, i) => ({ o, row: { id: /^\d{4}\b/.test(o.id) ? Number(o.id.slice(0, 4)) : 940000 + i, title: o.ctx.title, company: o.ctx.company, salary: o.ctx.salary, location: o.ctx.addresses[0] ?? '', employer_phone: o.ctx.phones[0] ?? null,
+// 초안 #735에서 가져온 것(#729 급여 소수점 쉼표 사례, 운영 원문 글자 그대로): 영역 사실(facts)은 없고 줄 끊김·가로 넘침만 본다.
+const DECIMAL_CASE = { id: 'decimal-salary', facts: [], ctx: { title: 'Tuyển nhân viên kỹ thuật', company: 'Công ty Vincom Bắc Ninh', salary: '7 – 8,5 triệu/tháng + Thưởng doanh thu', contact_name: null, phones: ['0912345678'], addresses: ['Đường Lý Thái Tổ, Phường Kinh Bắc, Bắc Ninh'], ocr_text: null },
+  source: 'Công ty Vincom Bắc Ninh tuyển Nhân viên Kỹ thuật\nLương 7 – 8,5 triệu/tháng + Thưởng doanh thu\nĐịa chỉ: Đường Lý Thái Tổ, Phường Kinh Bắc, Bắc Ninh\nLiên hệ: 0912345678' }
+// 알려진 실패 래칫(초안 #735): 아래 목록은 줄기만 한다 — 새 실패는 실패, 목록에 있는데 통과하면 목록에서 빼라고 실패. 이름은 '검사 항목@사례/너비'(공고 번호 아님).
+// 급여 소수점 쉼표 줄 끊김은 화면 수정(Lee 승인 대기)으로만 고쳐지므로 그때까지 목록에 둔다.
+const KNOWN_FAILURES = new Set(['decimal-comma-not-split@decimal-salary/1366', 'decimal-comma-not-split@decimal-salary/390'])
+const observed = new Set(), seen = new Set()
+const jobs = [...R2_ORACLE, DECIMAL_CASE].map((o, i) => ({ o, row: { id: /^\d{4}\b/.test(o.id) ? Number(o.id.slice(0, 4)) : 940000 + i, title: o.ctx.title, company: o.ctx.company, salary: o.ctx.salary, location: o.ctx.addresses[0] ?? '', employer_phone: o.ctx.phones[0] ?? null,
   source_text: o.source, active: true, posted_at: '2026-11-04', description: buildDescriptionFromSources([{ name: 'source_text', text: o.source }], o.ctx).description } }))
 // 금액 표기 정규화(화면은 310k → 310.000đ처럼 금액 모양만 바꾼다): 금액 조각만 '#숫자'로 통일하고 줄의 나머지 글자(문맥)는 그대로 둔 채 줄 전체를 비교한다
 // — 숫자만 같으면 통과시키지 않는다(날짜의 "13"이 "lương tháng 13" 줄을 대신하지 못함, Codex 지적)
@@ -51,6 +58,14 @@ try {
       }
       return out
     }, AREA_TITLES)
+    // 줄 끊김·가로 넘침(초안 #735에서 가져옴): 소수점 쉼표("8,5")에서 줄이 끊기거나 화면이 가로로 넘치면 실패 항목
+    {
+      const text = await page.locator('.jd2-page').first().innerText()
+      const itemId = (name) => `${name}@${o.id}/${width}`
+      const checkItem = (name, bad) => { checks++; seen.add(itemId(name)); if (bad) observed.add(itemId(name)) }
+      checkItem('decimal-comma-not-split', text.split('\n').some((l) => /\d,\s*$/.test(l.trim())))
+      checkItem('no-horizontal-overflow', await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1))
+    }
     const missingAreas = Object.keys(AREA_TITLES).filter((k) => !(k in areaText))
     checks++; if (missingAreas.length) failures.push(`✗ [${o.id}/${width}px] 승인된 영역 제목 없음: ${missingAreas.map((k) => k + AREA_TITLES[k]).join(', ')} (공고에 값이 없으면 영역이 빠질 수 있음 — 확인 필요)`)
     for (const f of o.facts) {
@@ -87,6 +102,11 @@ try {
     await context.close()
   }
 } finally { await browser.close() }
+const newFailures = [...observed].filter((x) => !KNOWN_FAILURES.has(x))
+const fixedKnown = [...KNOWN_FAILURES].filter((x) => seen.has(x) && !observed.has(x))
+for (const x of newFailures) failures.push(`✗ 새 실패 ${x}`)
+for (const x of fixedKnown) failures.push(`✗ 이제 통과하는데 알려진 실패 목록에 남아 있음(목록에서 빼야 함): ${x}`)
+if (observed.size) console.log(`알려진 실패(허용 목록 ${KNOWN_FAILURES.size}건) 중 아직 실패 중: ${[...observed].filter((x) => KNOWN_FAILURES.has(x)).join(', ') || '없음'}`)
 console.log(`real-jobs-area-check: 대표 공고 ${jobs.length}개 × PC·모바일, 검사 ${checks}건, 실패 ${failures.length}건`)
 if (failures.length) { console.log(failures.join('\n')); process.exit(1) }
 console.log('real-jobs-area-check: all assertions passed')
