@@ -12,5 +12,5 @@
 export const AREA_TITLES = { '①': 'Điều kiện làm việc', '②': 'Thông tin tuyển dụng', '③': 'Khu vực làm việc', '④': 'Mô tả công việc' } as const
 export type Area = keyof typeof AREA_TITLES
 export const ALLOWED_AREAS: Record<'01' | '02' | '03' | '04' | '05' | '06' | '07', Area[]> = {
-  '01': ['④'], '02': ['②', '④'], '03': ['①', '④'], '04': ['①', '④'], '05': ['①', '④'], '06': ['④'], '07': ['④'],
+  '01': ['④'], '02': ['②', '④'],  '03': ['①', '④'], '04': ['①', '④'], '05': ['①', '④'], '06': ['④'], '07': ['④'],
 }
