@@ -1,0 +1,32 @@
+name: 병합 출처 기록 (읽기 전용, R3 #728)
+# 병합된 PR의 코드 작성자·PR 작성자·병합 계정·병합 경로·AI 자기신고·필수 검사 최신 결과를 서로 다른 필드로 기록한다.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: '최근 병합 PR 몇 건'
+        required: false
+        default: '60'
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 병합 출처 기록
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          LIMIT: ${{ github.event.inputs.limit || '60' }}
+        run: node scripts/ci/merge-provenance.mjs | tee provenance.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: merge-provenance
+          path: provenance.md
+          retention-days: 30

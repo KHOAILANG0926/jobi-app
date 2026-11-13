@@ -53,6 +53,8 @@ jobs:
           node scripts/ci/salary-single-writer.test.mjs
       - name: 검사기 독립성 정적 시험 (jobInspect는 만드는 쪽 모듈을 import하지 않음, R2 #753)
         run: node scripts/ci/inspector-independence.test.mjs
+      - name: 병합 출처 기록 판정 시험 (#687 사례 — 병합 계정·작성자·AI 자기신고를 서로 다른 필드로, R3 #728)
+        run: node scripts/ci/merge-provenance.test.mjs
       - name: 필수 검사 이름 충돌 정적 시험 (checks·guard·app-screen·publication-gate가 PR 잡 1개씩인지, #728 S1)
         run: node scripts/ci/required-check-names.test.mjs
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
