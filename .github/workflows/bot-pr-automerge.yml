@@ -112,8 +112,10 @@ jobs:
             # 승인이 없으면 병합하지 않고 PR에 쉬운 말 승인 요청을 한 번 남긴다. 다른 PR은 영향 없음.
             gh api "repos/$REPO/pulls/$num/reviews?per_page=100" --paginate --slurp | jq 'add // []' > reviews.json
             gh api "repos/$REPO/issues/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > comments.json
-            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" > approval-request.txt; then
-              echo "::notice::PR #$num 결정 문서 변경: Lee 승인 대기 — 병합 안 함"
+            # R2(Lee 2026-11-13 승인): 결정 문서 외에 승인된 화면 틀 파일·needs-lee 라벨도 같은 문턱 — 라벨 조회에 실패하면 병합하지 않는다(닫힌 실패).
+            gh api "repos/$REPO/issues/$num" --jq '[.labels[].name]' > labels.json || { echo "::warning::PR #$num 라벨 조회 실패: 병합 안 함"; continue; }
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json > approval-request.txt; then
+              echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
               if ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- decision-approval-request -->") and contains($sha[0:7]))' comments.json >/dev/null; then
                 gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
               fi
