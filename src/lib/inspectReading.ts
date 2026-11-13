@@ -70,7 +70,7 @@ export function cardReadableSalary(salary: string | null | undefined, descriptio
 
 /**
  * 상단 제목·회사명 줄의 기대값(R2 #753 검사 독립성): 결정 0007(Lee 2026-11-01) 글을 보고 검사기가 따로 쓴 것 —
- * 화면이 쓰는 companyBranch.detailTitle·companyLine·companyLineBroken을 부르지 않는다(검사가 화면과 같은 함수로 기대값을 만들면 화면이 틀릴 때 같이 합격한다).
+ * 화면이 쓰는 companyBranch.detailTitle·companyLine을 부르지 않는다(검사가 화면과 같은 함수로 기대값을 만들면 화면이 틀릴 때 같이 합격한다).
  * 결정 0007: ① 제목 앞에 회사명이 이어 붙어 있으면 회사명과 이어 붙은 구분 기호를 떼고 보여 준다(남는 글자가 없으면 원래 제목)
  * ② 회사명 줄: 제목에 회사명이 낱말 단위로 보이면 그 뒤에 남는 부분(지점명)만, 남는 게 없으면 줄 없음, 제목에 회사명이 없으면 회사명 전체. 회사 형태 낱말만으로 된 앞부분은 일치로 보지 않는다.
  */
