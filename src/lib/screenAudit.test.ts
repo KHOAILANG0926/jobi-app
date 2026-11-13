@@ -1,3 +1,4 @@
+import { expectedTitle, expectedCompanyLine, brokenCompanyLine } from './inspectReading'
 import { screenAudit, areaFindings, amounts, linkPoint, phoneDigits, BENEFIT_ORDER, type ScreenView, type ScreenJob } from './screenAudit'
 
 function assert(c: unknown, m: string) { if (!c) throw new Error('FAIL: ' + m) }
@@ -115,6 +116,29 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   const rv: ScreenView = { ...v, salary: '25.000 - 30.000đ/giờ' }
   const rb: ScreenJob = { ...base, source_text: 'CÔNG TY ABC tuyển công nhân\nLương 25.000 - 30.000đ/giờ\nLH 0912345678' }
   assert(screenAudit({ ...rb, cards: { PC: { ...ok, salary: '99.000đ/giờ' } } }, [rv]).some((f) => f.key === 'card_salary'), '범위 시급 앞 금액도 대조함')
+}
+// 제목·회사 줄 기대값은 검사기 전용 읽기가 결정 0007 글로 따로 만든다(화면 companyBranch 함수 불사용): 사람이 정한 기대값과 같아야 하고, 화면이 틀리면 잡아야 한다
+{
+  const cl = (t: string, c: string | null) => expectedCompanyLine(t, c)
+  assert(cl('Highlands Coffee tuyển nhân viên bán hàng, pha chế và phục vụ', 'Highlands Coffee Mường Thanh Bắc Ninh') === 'Mường Thanh Bắc Ninh', '제목에 브랜드가 있으면 지점명만')
+  assert(cl('CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong', 'KDA') === undefined, '회사명이 제목에 다 있고 지점 없음 → 줄 없음')
+  assert(cl('Việc làm chính thức đi làm ngay', 'Công ty TNHH ADTEK Việt Nam') === 'Công ty TNHH ADTEK Việt Nam', '제목에 회사명 없음 → 회사명 그대로')
+  assert(cl('TEFAL TUYỂN PG BÁN HÀNG GIA DỤNG', 'Tefal') === undefined, '대소문자·성조 차이는 같은 글자')
+  assert(cl('Coffee shop tuyển', 'Co Ltd') === 'Co Ltd', '낱말 중간 일치 불인정')
+  assert(cl('– TUYỂN DỤNG CÔNG NHÂN SẢN XUẤT', 'CÔNG TY TNHH ZHAN AN') === 'CÔNG TY TNHH ZHAN AN', '회사 형태 낱말만 일치는 일치가 아님')
+  assert(cl('x', '') === undefined && cl('x', null) === undefined, '회사명 없음')
+  assert(expectedTitle('WALLACE BẮC NINH TUYỂN DỤNG NHÂN VIÊN', 'WALLACE BẮC NINH') === 'TUYỂN DỤNG NHÂN VIÊN', '제목 앞 회사명 떼기')
+  assert(expectedTitle('Công ty ABC - Tuyển công nhân', 'Công ty ABC') === 'Tuyển công nhân', '이어 붙은 대시도 뗌')
+  assert(expectedTitle('Công ty ABC', 'Công ty ABC') === 'Công ty ABC', '남는 글자가 없으면 원래 제목')
+  assert(expectedTitle('Tuyển công nhân Công ty ABC', 'Công ty ABC') === 'Tuyển công nhân Công ty ABC', '뒤에 있는 회사명은 떼지 않음')
+  assert(brokenCompanyLine('TY TNHH ZHAN AN', 'CÔNG TY TNHH ZHAN AN') && brokenCompanyLine('ZHAN AN', 'CÔNG TY TNHH ZHAN AN'), '회사 형태 낱말만 떼고 중간부터 보이면 깨짐')
+  assert(!brokenCompanyLine('Mường Thanh Bắc Ninh', 'Highlands Coffee Mường Thanh Bắc Ninh'), '브랜드 뒤 지점명은 깨짐이 아님')
+  // 화면이 틀린 값(회사 줄 중간부터)·틀린 제목을 실제로 잡는가
+  const jb: ScreenJob = { id: 9, title: 'Highlands Coffee tuyển nhân viên', company: 'Highlands Coffee Mường Thanh Bắc Ninh', source_text: '' }
+  const vv: ScreenView = { device: 'PC', title: 'Highlands Coffee tuyển nhân viên', company: 'Mường Thanh Bắc Ninh', mapLinks: [], pins: [], tel: [], zalo: [], benefits: [] }
+  assert(screenAudit(jb, [vv]).filter((f) => f.key === 'company' || f.key === 'title').length === 0, '맞는 화면은 문제 없음')
+  assert(screenAudit(jb, [{ ...vv, company: 'Highlands Coffee Mường Thanh Bắc Ninh' }]).some((f) => f.key === 'company' && f.sure), '제목에 이미 있는 회사명을 또 보여 주면 확정 오류')
+  assert(screenAudit(jb, [{ ...vv, title: 'Tuyển nhân viên' }]).some((f) => f.key === 'title' && f.sure), '다른 제목은 확정 오류')
 }
 
 // 도우미

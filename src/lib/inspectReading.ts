@@ -67,3 +67,40 @@ export function cardReadableSalary(salary: string | null | undefined, descriptio
   // 직무별 안내는 상세 description에 "직무 | 금액" 행이 하나라도 있어야 카드에 나온다.
   return /theo vi tri/.test(fold(s)) && String(description ?? '').split(/\r\n|\n|\r/).some((l) => (/\b(?:luong)\b|\d+\s*k\s*\/|trieu/.test(fold(l)) || /\d[\d.,]{4,}\s*(?:đ|vn[dđ]|đồng)\s*\//iu.test(l)) && hasPayAmount(l))
 }
+
+/**
+ * 상단 제목·회사명 줄의 기대값(R2 #753 검사 독립성): 결정 0007(Lee 2026-11-01) 글을 보고 검사기가 따로 쓴 것 —
+ * 화면이 쓰는 companyBranch.detailTitle·companyLine·companyLineBroken을 부르지 않는다(검사가 화면과 같은 함수로 기대값을 만들면 화면이 틀릴 때 같이 합격한다).
+ * 결정 0007: ① 제목 앞에 회사명이 이어 붙어 있으면 회사명과 이어 붙은 구분 기호를 떼고 보여 준다(남는 글자가 없으면 원래 제목)
+ * ② 회사명 줄: 제목에 회사명이 낱말 단위로 보이면 그 뒤에 남는 부분(지점명)만, 남는 게 없으면 줄 없음, 제목에 회사명이 없으면 회사명 전체. 회사 형태 낱말만으로 된 앞부분은 일치로 보지 않는다.
+ */
+const LEGAL_FORM = new Set(['cong', 'ty', 'cty', 'tnhh', 'trach', 'nhiem', 'huu', 'han', 'mot', 'thanh', 'vien', 'mtv', 'co', 'phan', 'jsc', 'ltd', 'limited', 'corp', 'corporation'])
+export function expectedTitle(title: string | null | undefined, company: string | null | undefined): string {
+  const t = String(title ?? '').trim(), c = String(company ?? '').trim()
+  if (!t || !c) return t
+  const cw = c.split(/\s+/)
+  const spans = [...t.matchAll(/\S+/g)]
+  if (spans.length <= cw.length || !cw.every((w, i) => fold(spans[i][0]) === fold(w))) return t
+  const end = spans[cw.length - 1].index! + spans[cw.length - 1][0].length
+  return t.slice(end).replace(/^[\s\-–—:|·,]+/u, '').trim() || t
+}
+export function expectedCompanyLine(shownTitle: string | null | undefined, company: string | null | undefined): string | undefined {
+  const name = String(company ?? '').trim()
+  if (!name) return undefined
+  const inTitle = ` ${fold(String(shownTitle ?? ''))} `
+  const cw = name.split(/\s+/)
+  for (let k = cw.length; k >= 1; k--) {
+    const head = fold(cw.slice(0, k).join(' '))
+    if (!head || head.split(' ').every((w) => LEGAL_FORM.has(w))) continue
+    if (head.length >= 2 && inTitle.includes(` ${head} `)) return cw.slice(k).join(' ').replace(/^[\s\-–—,:|]+/u, '').trim() || undefined
+  }
+  return name
+}
+/** 화면에 보인 회사 줄이 회사명의 뒷부분인데 앞을 회사 형태 낱말만 또는 낱말 중간에서 잘라 낸 것인가(#5876 "TY TNHH ZHAN AN"). */
+export function brokenCompanyLine(shownLine: string | null | undefined, company: string | null | undefined): boolean {
+  const name = String(company ?? '').trim(), line = String(shownLine ?? '').trim()
+  if (!name || !line || line === name || !name.endsWith(line)) return false
+  const cut = name.slice(0, name.length - line.length)
+  const removed = fold(cut).split(' ').filter(Boolean)
+  return !removed.length || removed.every((w) => LEGAL_FORM.has(w)) || !/[\s\-–—,:|(]$/u.test(cut)
+}

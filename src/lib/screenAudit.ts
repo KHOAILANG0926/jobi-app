@@ -6,8 +6,7 @@
  * - unsure: 판정 불명확 → 공개는 막지 않고 목록으로만 알린다(승인된 표시 변환·포스터 글자 등 사람이 봐야 하는 것).
  * 특정 회사·공고 번호 분기 없음. 순수 함수(브라우저 수집은 scripts/ops/screen-audit.mjs).
  */
-import { companyLine, companyLineBroken, detailTitle } from './companyBranch.ts'
-import { sourceLines, hasPayAmount, timeRanges, promoLike } from './inspectReading.ts'
+import { sourceLines, hasPayAmount, timeRanges, promoLike, expectedTitle, expectedCompanyLine, brokenCompanyLine } from './inspectReading.ts'
 
 export type ScreenView = {
   device: string
@@ -116,8 +115,8 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
   const phones = sourcePhones(source)
   for (const p of [job.employer_phone, job.contact_zalo]) if (p) { const d = phoneDigits(p); if (d.length >= 9) phones.add(d) }
   const srcAmounts = new Set(amounts(source))
-  const wantTitle = detailTitle(job.title, job.company)
-  const wantCompany = companyLine(wantTitle, job.company)
+  const wantTitle = expectedTitle(job.title, job.company)   // 검사기 전용(inspectReading): 화면이 쓰는 companyBranch 함수로 기대값을 만들지 않는다
+  const wantCompany = expectedCompanyLine(wantTitle, job.company)
   for (const v of views) {
     const d = v.device
     // ① 상단 제목
@@ -129,7 +128,7 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
     }
     // ② 회사 줄
     const company = (v.company ?? '').trim()
-    if (companyLineBroken(wantTitle, job.company)) add('company', true, d, `회사 줄이 회사명 중간부터: "${wantCompany}" (회사 "${job.company}")`)
+    if (brokenCompanyLine(company, job.company)) add('company', true, d, `회사 줄이 회사명 중간부터: "${company}" (회사 "${job.company}")`)
     if (company && job.company && !fold(job.company).includes(fold(company))) add('company', true, d, `회사 줄 "${company}"이 회사명 "${job.company}"에 없음`)
     if ((wantCompany ?? '') !== company) add('company', true, d, `회사 줄이 계산 값과 다름: 화면 "${company || '(없음)'}" / 계산 "${wantCompany ?? '(없음)'}"`)
     // ③ 길찾기 버튼 = 지도 핀
