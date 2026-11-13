@@ -232,6 +232,8 @@ assert.deepEqual(exceptionProblems(prBody('x'), [patch('const year = 2026')]), [
 const okRef = (r) => r.issue === 728
 assert.ok(exceptionProblems(prBody('x', '없음 — 이유가 충분히 있음', '- 예외 근거: #99999'), [patch("if (job.id === 5438) return 1")], okRef).length === 1, '없는 이슈 번호는 근거가 아님')
 assert.deepEqual(exceptionProblems(prBody('x', '없음 — 이유가 충분히 있음', '- 예외 근거: #728 Lee 결정'), [patch("if (job.id === 5438) return 1")], okRef), [], '실제 있는 기록이면 통과')
+assert.deepEqual(scopeProblems(prBody('.gitignore, .env.example'), [ch('.gitignore'), ch('.env.example')]), [], '루트 점 파일도 변경 파일로 읽는다')
+assert.deepEqual(exceptionProblems(prBody('x'), [{ ...patch('job = {"id": "sb-4312"}'), filename: 'crawler/test_job_quality.py' }]), [], '파이썬 시험 파일은 제외')
 // 반복 수정 표시(차단 아님)
 assert.deepEqual(repeatedFiles({ 'src/lib/a.ts': 3, 'src/lib/a.test.ts': 5, 'src/lib/b.ts': 2 }, ['src/lib/a.ts', 'src/lib/a.test.ts', 'src/lib/b.ts']), [{ file: 'src/lib/a.ts', count: 3 }], '같은 파일 고침 PR 3건 이상만, 시험 파일 제외')
 // recentPrsFor 통계: 제목에 고침 낱말이 있는 병합 PR만 센다

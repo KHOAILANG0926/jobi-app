@@ -156,7 +156,7 @@ export function fieldOf(body, name) {
 export function declaredFiles(body) {
   const v = fieldOf(body, '변경 파일')
   if (!v) return []
-  return [...new Set(v.split(/[\s,;、]+/).map((t) => t.replace(/\(.*$/, '').replace(/^[-*`'"(\[]+|[`'")\],.;:]+$/g, '')).filter((t) => (t.includes('/') || /\.[A-Za-z0-9]{1,6}$/.test(t)) && !/^https?:/.test(t)))]
+  return [...new Set(v.split(/[\s,;、]+/).map((t) => t.replace(/\(.*$/, '').replace(/^[-*`'"(\[]+|[`'")\],.;:]+$/g, '')).filter((t) => (t.includes('/') || /\.[A-Za-z0-9]{1,6}$/.test(t) || /^\.[\w-]+(?:\.[\w-]+)*$/.test(t)) && !/^https?:/.test(t)))]
 }
 const covers = (decl, f) => decl === f || (decl.endsWith('/') && f.startsWith(decl)) || (decl.includes('*') && new RegExp('^' + decl.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$').test(f))
 /** changed: [{filename, previous_filename?, status, additions, deletions, patch?}] */
@@ -174,7 +174,7 @@ export function scopeProblems(body, changed) {
   return out
 }
 const NEW_CHECKER = (c) => c.status === 'added' && (/^\.github\/workflows\/.+\.ya?ml$/.test(c.filename) || (/^scripts\/(?:[^/]+\/)*[^/]*(?:check|audit|verify|guard|gate|inspect)[^/]*\.m?[jt]s$/.test(c.filename) && !/\.test\.m?[jt]s$/.test(c.filename)))
-const isTestOrData = (f) => /(?:\.test\.|\.fixtures?\.|\.fixture\.|\/tests?\/|\/fixtures?\/)/.test(f) || /\.(?:md|json|sql|ya?ml|txt|csv)$/.test(f)
+const isTestOrData = (f) => /(?:^|\/)test_[^/]*\.py$|_test\.py$/.test(f) || /(?:\.test\.|\.fixtures?\.|\.fixture\.|\/tests?\/|\/fixtures?\/)/.test(f) || /\.(?:md|json|sql|ya?ml|txt|csv)$/.test(f)
 /** 지운 것/합친 것 칸을 실제 변경과 대조한다. */
 export function mergeLineProblems(body, changed) {
   const v = fieldOf(body, '지운 것\\/합친 것')
