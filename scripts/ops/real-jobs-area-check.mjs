@@ -15,8 +15,8 @@ const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/
 const DECIMAL_CASE = { id: 'decimal-salary', facts: [], ctx: { title: 'Tuyển nhân viên kỹ thuật', company: 'Công ty Vincom Bắc Ninh', salary: '7 – 8,5 triệu/tháng + Thưởng doanh thu', contact_name: null, phones: ['0912345678'], addresses: ['Đường Lý Thái Tổ, Phường Kinh Bắc, Bắc Ninh'], ocr_text: null },
   source: 'Công ty Vincom Bắc Ninh tuyển Nhân viên Kỹ thuật\nLương 7 – 8,5 triệu/tháng + Thưởng doanh thu\nĐịa chỉ: Đường Lý Thái Tổ, Phường Kinh Bắc, Bắc Ninh\nLiên hệ: 0912345678' }
 // 알려진 실패 래칫(초안 #735): 아래 목록은 줄기만 한다 — 새 실패는 실패, 목록에 있는데 통과하면 목록에서 빼라고 실패. 이름은 '검사 항목@사례/너비'(공고 번호 아님).
-// 급여 소수점 쉼표 줄 끊김은 화면 수정(Lee 승인 대기)으로만 고쳐지므로 그때까지 목록에 둔다.
-const KNOWN_FAILURES = new Set(['decimal-comma-not-split@decimal-salary/1366', 'decimal-comma-not-split@decimal-salary/390'])
+// 급여 소수점 쉼표 줄 끊김은 #740(Lee 2026-11-13 적용)으로 고쳐져 목록을 비웠다. 새 알려진 실패는 이 목록이 아니라 원인 수정으로 처리한다.
+const KNOWN_FAILURES = new Set([])
 const observed = new Set(), seen = new Set()
 const jobs = [...R2_ORACLE, DECIMAL_CASE].map((o, i) => ({ o, row: { id: /^\d{4}\b/.test(o.id) ? Number(o.id.slice(0, 4)) : 940000 + i, title: o.ctx.title, company: o.ctx.company, salary: o.ctx.salary, location: o.ctx.addresses[0] ?? '', employer_phone: o.ctx.phones[0] ?? null,
   source_text: o.source, active: true, posted_at: '2026-11-04', description: buildDescriptionFromSources([{ name: 'source_text', text: o.source }], o.ctx).description } }))
