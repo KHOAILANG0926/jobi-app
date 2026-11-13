@@ -60,7 +60,7 @@ try {
   // 자동 작업 대상: 수집·관리자 공고 중 기준 시각 이후(Lee 2026-11-01: 기존 공고는 건드리지 않는다)
   // 승인 대기 짝 변경(supabase/pending/20261113000000_inspect_gate_employer_legacy.sql, #728 R2 A4): DB가 공개 시작을 막아 inspect_hold를 건 고용주·legacy 공고도 검사 대상.
   // hold가 걸린 것만 — 고용주가 직접 내린 공고(hold 없음)는 검사기가 다시 올리지 않는다(publishDecision은 hold가 있는 공고만 공개).
-  const SCOPE = `((j.origin in ('crawler','admin') and ${afterCutoff('j')}) or (j.origin in ('employer','legacy') and j.ocr_check->>'inspect_hold' = 'true'))`
+  const SCOPE = `((j.origin in ('crawler','admin') and ${afterCutoff('j')}) or (j.origin in ('employer','legacy') and coalesce(j.ocr_check->>'inspect_hold', '') = 'true'))`
   const rows = await selectJobs(SCOPE)
   const toInput = (job) => ({
     id: Number(job.id), title: job.title, company: job.company, contact_name: job.contact_name, salary: job.salary, description: job.description, source_text: job.source_text,

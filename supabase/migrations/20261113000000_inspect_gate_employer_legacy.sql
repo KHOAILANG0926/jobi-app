@@ -7,7 +7,9 @@
 --       (publishDecision은 hold가 있는 공고만 공개하므로 고용주가 직접 내린 공고를 검사기가 다시 올리지 않는다).
 -- 영향: 고용주가 새로 올리거나 비공개에서 다시 공개하는 공고는 다음 검사 실행(job-ocr-check) 전까지 비공개(inspect_hold)로 대기한다 — 사용자에게 보이는 동작 변경이라 승인 필요.
 create or replace function public.enforce_job_inspect_current() returns trigger
-language plpgsql set search_path = pg_catalog, public as $$
+language plpgsql security definer set search_path = pg_catalog, public as $$
+-- security definer(Codex #797): 고용주 등록은 anon/authenticated 권한으로 실행되는데 job_inspect_content_hash는 두 역할의 실행이 막혀 있다(20261101110000).
+-- 이 함수는 새 행에 hold 표지만 쓰고 다른 표를 읽거나 쓰지 않으므로, 해시 계산만 소유자 권한으로 하게 한다(함수 실행 권한은 아래에서 그대로 막음).
 declare
   h text;
 begin
@@ -16,6 +18,11 @@ begin
   if not coalesce(new.active, false) then
     -- 누군가 공개 중인 공고를 직접 내리면 검사기가 되살리지 않는다.
     if tg_op = 'UPDATE' and coalesce(old.active, false) then
+      new.ocr_check := coalesce(new.ocr_check, '{}'::jsonb) - 'inspect_hold';
+    -- 검사 대기(hold) 중인 고용주·legacy 공고를 소유자가 내린 경우(Codex #797): 이미 비공개라 위 조건에 안 걸린다.
+    -- 검사기는 항상 ocr_check(inspect 기록)를 같이 쓰므로, ocr_check를 건드리지 않은 비공개→비공개 갱신은 소유자 철회로 보고 hold를 지운다(안전 쪽: 비공개 유지).
+    elsif tg_op = 'UPDATE' and new.origin in ('employer', 'legacy') and coalesce(old.ocr_check ->> 'inspect_hold', '') = 'true'
+          and new.ocr_check is not distinct from old.ocr_check then
       new.ocr_check := coalesce(new.ocr_check, '{}'::jsonb) - 'inspect_hold';
     end if;
     return new;
