@@ -31,12 +31,3 @@ export function detailTitle(title: string | null | undefined, company: string | 
   const t = String(title ?? ''), c = String(company ?? '')
   return c && t.toLowerCase().startsWith(c.toLowerCase() + ' ') ? t.slice(c.length).replace(/^[\s\-–—:|·,]+/u, '').trim() || t : t
 }
-
-/** 회사 줄이 회사 형태 낱말만 떼고 회사명 중간부터 시작하는지(#5876 "TY TNHH ZHAN AN") — 검사표용. */
-export function companyLineBroken(title: string | null | undefined, company: string | null | undefined): boolean {
-  const name = String(company ?? '').trim()
-  const line = companyLine(title, company)
-  if (!name || !line || line === name || !name.endsWith(line)) return false
-  const removed = fold(name.slice(0, name.length - line.length)).replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean)
-  return !removed.length || removed.every((w) => LEGAL_WORDS.has(w)) || !/[\s\-–—,:|(]$/u.test(name.slice(0, name.length - line.length))
-}
