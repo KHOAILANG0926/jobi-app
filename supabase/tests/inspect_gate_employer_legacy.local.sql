@@ -29,6 +29,9 @@ begin
   update public.local_jobs set active = true where id = 9302;
   update public.local_jobs set active = false, ocr_check = ocr_check || jsonb_build_object('inspect', jsonb_build_object('publishable', false)) where id = 9302;
   if not coalesce((select ocr_check->>'inspect_hold' from public.local_jobs where id = 9302)::boolean, false) then raise exception '⑨ 검사기 갱신이 hold를 지움'; end if;
+  -- ⑪ 대기 중 일반 수정(급구 토글 등, 다른 칸이 바뀜)은 hold를 유지
+  update public.local_jobs set urgent = not coalesce(urgent, false) where id = 9302;
+  if not coalesce((select ocr_check->>'inspect_hold' from public.local_jobs where id = 9302)::boolean, false) then raise exception '⑪ 일반 수정이 hold를 지움'; end if;
   -- ⑩ 고용주 등록은 anon/authenticated 권한으로 실행 — 해시 계산이 막히지 않게 트리거 함수는 security definer
   if not (select prosecdef from pg_proc where proname = 'enforce_job_inspect_current' and pronamespace = 'public'::regnamespace) then raise exception '⑩ 트리거 함수가 security definer가 아님'; end if;
   delete from public.local_jobs where id in (9301, 9302, 9303);

@@ -20,9 +20,10 @@ begin
     if tg_op = 'UPDATE' and coalesce(old.active, false) then
       new.ocr_check := coalesce(new.ocr_check, '{}'::jsonb) - 'inspect_hold';
     -- 검사 대기(hold) 중인 고용주·legacy 공고를 소유자가 내린 경우(Codex #797): 이미 비공개라 위 조건에 안 걸린다.
-    -- 검사기는 항상 ocr_check(inspect 기록)를 같이 쓰므로, ocr_check를 건드리지 않은 비공개→비공개 갱신은 소유자 철회로 보고 hold를 지운다(안전 쪽: 비공개 유지).
+    -- 소유자 철회(deleteJob)는 active=false만 쓰는데 이미 비공개라 행이 하나도 안 바뀐다. 검사기·일반 수정(급구 토글 등)은 다른 칸이 바뀌므로 hold를 지우지 않는다.
+    -- (바뀐 칸 비교는 updated_at 제외. 안전 쪽: 철회로 오인해도 비공개 유지일 뿐 공개되지 않는다.)
     elsif tg_op = 'UPDATE' and new.origin in ('employer', 'legacy') and coalesce(old.ocr_check ->> 'inspect_hold', '') = 'true'
-          and new.ocr_check is not distinct from old.ocr_check then
+          and (to_jsonb(new) - 'updated_at') = (to_jsonb(old) - 'updated_at') then
       new.ocr_check := coalesce(new.ocr_check, '{}'::jsonb) - 'inspect_hold';
     end if;
     return new;

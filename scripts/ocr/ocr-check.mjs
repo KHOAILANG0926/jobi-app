@@ -37,9 +37,12 @@ const { rows } = await client.query(`
     occupation_code, occupation_evidence, source_text,
     origin, publish_gate_reason, admin_hidden, created_at, application_deadline
   from public.local_jobs
-  where origin in ('crawler','admin') and jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
-    and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
-    and ${afterCutoff()}   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
+  where jsonb_typeof(images) = 'array' and jsonb_array_length(images) > 0
+    -- 고용주·legacy 공고는 검사 대기(inspect_hold)인 것만 포함(job-inspect.mjs SCOPE와 같은 기준, Codex #797)
+    and ((origin in ('crawler','admin')
+          and (created_at >= '2026-10-13' or active = false)   -- 기존 공개 공고를 일괄 보류하지 않는다
+          and ${afterCutoff()})   -- Lee 2026-11-01: 기존 공고는 건드리지 않는다
+         or (origin in ('employer','legacy') and coalesce(ocr_check->>'inspect_hold', '') = 'true'))
     and (ocr_check is null or ocr_check->>'images_hash' is distinct from md5(images::text)
          -- 판독자가 바뀌면(결정 0004: AI 독립 판독 ai-v1) 예전 판독자로 보류된 공고를 한 번 다시 읽는다
          or (ocr_check->>'status' in ('mismatch','unreadable') and ocr_check->>'reader' is distinct from 'ai-v1')
