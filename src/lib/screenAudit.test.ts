@@ -109,6 +109,9 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   const hb: ScreenJob = { ...base, source_text: 'CÔNG TY ABC tuyển công nhân\nLương 25.000đ/giờ\nLH 0912345678' }
   assert(screenAudit({ ...hb, cards: { PC: { ...ok, salary: '99.000đ/giờ' } } }, [hv]).some((f) => f.key === 'card_salary'), '시급 카드가 원문·상세와 다르면 잡음')
   assert(screenAudit({ ...hb, cards: { PC: { ...ok, salary: '25.000đ/giờ' } } }, [hv]).every((f) => !f.key.startsWith('card')), '시급 카드가 같으면 문제 없음')
+  const rv: ScreenView = { ...v, salary: '25.000 - 30.000đ/giờ' }
+  const rb: ScreenJob = { ...base, source_text: 'CÔNG TY ABC tuyển công nhân\nLương 25.000 - 30.000đ/giờ\nLH 0912345678' }
+  assert(screenAudit({ ...rb, cards: { PC: { ...ok, salary: '99.000đ/giờ' } } }, [rv]).some((f) => f.key === 'card_salary'), '범위 시급 앞 금액도 대조함')
 }
 
 // 도우미
