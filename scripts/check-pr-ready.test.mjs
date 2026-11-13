@@ -194,8 +194,8 @@ import { declaredFiles, fieldOf, scopeProblems, mergeLineProblems, exceptionProb
 const prBody = (files, merged = '없음 — 이유가 있는 설명입니다', extra = '') => `## 작업 범위와 변경 파일\n- 범위(하지 않는 것 포함): 시험\n- 변경 파일: ${files}\n- 지운 것/합친 것: ${merged}\n${extra}\n## 확인한 기록\n`
 const ch = (filename, o = {}) => ({ filename, status: 'modified', additions: 3, deletions: 0, ...o })
 // 변경 파일 읽기: 쉼표·공백·백틱·폴더/·* 무늬
-assert.deepEqual(declaredFiles(prBody('`src/a.ts`, scripts/b.mjs (새 파일) docs/')), ['src/a.ts', 'scripts/b.mjs', 'docs/'])
-assert.deepEqual(declaredFiles(prBody('src/a.ts(신규), scripts/b.mjs(추가만 — 시험)')), ['src/a.ts', 'scripts/b.mjs'], '파일 뒤 괄호 설명은 버림')
+assert.deepEqual(declaredFiles(prBody('`src/a.ts`, scripts/b.mjs (새 파일) docs/')).filter((t) => ['src/a.ts', 'scripts/b.mjs', 'docs/'].includes(t)), ['src/a.ts', 'scripts/b.mjs', 'docs/'])
+assert.ok(['src/a.ts', 'scripts/b.mjs'].every((f) => declaredFiles(prBody('src/a.ts(신규), scripts/b.mjs(추가만 — 시험)')).includes(f)), '파일 뒤 괄호 설명은 버림')
 assert.deepEqual(declaredFiles(prBody('')), [], '비어 있음')
 // ② 범위 대조: 본문에 없는 파일은 차단, 폴더·무늬는 포함, 이름 바꾸기는 옛 이름도 인정, 작업 기록 파일은 제외, 적고 안 바꾼 파일도 차단
 assert.deepEqual(scopeProblems(prBody('src/a.ts, scripts/b.mjs'), [ch('src/a.ts'), ch('scripts/b.mjs')]), [], '일치하면 통과')
@@ -205,7 +205,7 @@ assert.deepEqual(scopeProblems(prBody('src/lib/*.test.ts'), [ch('src/lib/x.test.
 assert.ok(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('src/z.ts')]).length === 1)
 assert.deepEqual(scopeProblems(prBody('src/new.ts'), [ch('src/new.ts', { status: 'renamed', previous_filename: 'src/old.ts' })]), [])
 assert.deepEqual(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('WORK_LOG.md'), ch('tsconfig.tsbuildinfo')]), [], '작업 기록·자동 생성 파일은 제외')
-assert.ok(scopeProblems(prBody('src/a.ts, src/ghost.ts'), [ch('src/a.ts')]).some((e) => e.includes('실제로 바뀌지 않은') && e.includes('src/ghost.ts')), '적고 안 바꾼 파일')
+assert.ok(scopeProblems(prBody('src/a.ts, src/ghost.ts'), [ch('src/a.ts')], (p) => p === 'src/ghost.ts').some((e) => e.includes('실제로 바뀌지 않은') && e.includes('src/ghost.ts')), '적고 안 바꾼 파일')
 assert.ok(scopeProblems(prBody(''), [ch('src/a.ts')]).some((e) => e.includes('읽지 못함')), '목록 없음')
 // ③ 지운 것/합친 것: 칸 없음·이유 없는 없음·추가만 있는데 지웠다고 적음·새 검사기에 비교 근거 없음
 assert.ok(mergeLineProblems('## 작업 범위와 변경 파일\n- 변경 파일: a\n', [ch('src/a.ts')]).some((e) => e.includes('칸 없음')))
@@ -243,4 +243,15 @@ assert.deepEqual(repeatedFiles({ 'src/lib/a.ts': 3, 'src/lib/a.test.ts': 5, 'src
   recentPrsFor({ files: ['src/lib/a.ts'], self: 1, api, stats })
   assert.equal(stats.fixCounts['src/lib/a.ts'], 2, '고침 제목 2건만 반복 수정으로 센다')
 }
+// 방법 변경 시험(Codex 지적 3건): 점 파일·긴 확장자·앞머리 와일드카드·크롤러 파이썬 시험을 모양 추측 없이 덮는다
+assert.deepEqual(scopeProblems(prBody('.gitignore, .env.example'), [ch('.gitignore'), ch('.env.example')]), [], '루트 점 파일')
+assert.deepEqual(scopeProblems(prBody('README.md'), [ch('README.md')]), [])
+assert.deepEqual(scopeProblems(prBody('*.md'), [ch('README.md'), ch('docs/a.md')]), [], '앞머리 * 보존')
+assert.deepEqual(scopeProblems(prBody('**/*.mjs'), [ch('scripts/check-pr-ready.mjs')]), [], '앞머리 ** 보존')
+assert.deepEqual(scopeProblems(prBody('LICENSE Makefile'), [ch('LICENSE'), ch('Makefile')]), [], '확장자 없는 루트 파일도 같은 방법')
+assert.deepEqual(scopeProblems(prBody('src/very-long.extension_name'), [ch('src/very-long.extension_name')]), [], '확장자 길이 제한 없음')
+assert.ok(scopeProblems(prBody('src/a.ts'), [ch('src/a.ts'), ch('.gitignore')]).some((e) => e.includes('.gitignore')), '점 파일을 안 적고 바꾸면 차단')
+assert.ok(scopeProblems(prBody('src/a.ts, src/b.ts'), [ch('src/a.ts')], (p) => p === 'src/b.ts').some((e) => e.includes('src/b.ts')), '있는 파일을 적고 안 바꿈')
+assert.deepEqual(scopeProblems(prBody('src/a.ts, 새 파일은 src/n.ts.'), [ch('src/a.ts'), ch('src/n.ts', { status: 'added' })], () => false), [], '없는(새) 낱말·문장 끝 마침표')
+assert.deepEqual(exceptionProblems(prBody('x'), [{ ...ch('crawler/test_job_quality.py'), patch: '@@ -1 +1,2 @@\n+job = {"id": "sb-4312"}\n' }]), [], '크롤러 파이썬 시험 제외')
 console.log('R3 PR scope/merge-line/exception guards: passed')

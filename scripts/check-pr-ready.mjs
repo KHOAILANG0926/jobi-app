@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, appendFileSync } from 'node:fs'
+import { readFileSync, readdirSync, appendFileSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { changedPhotoPayloads } from './ops/photo-process-changed.mjs'
 import { photoProcessPrProblems } from './ops/photo-process-pr.mjs'
@@ -154,13 +154,23 @@ export function fieldOf(body, name) {
 }
 /** 본문 `변경 파일:` 칸에서 파일 경로(또는 폴더/ 접두·* 무늬)를 읽는다. */
 export function declaredFiles(body) {
+  // 방법 변경(Codex 지적 3건 — 점 파일·와일드카드 앞머리·확장자 길이): 글자 모양으로 '이게 파일 경로인가'를 추측해 거르지 않는다.
+  // 낱말을 그대로 후보로 두고(앞뒤 괄호·따옴표·쉼표만 벗김, 점·* 는 보존) 실제 변경 파일이 후보에 덮이는지만 본다.
   const v = fieldOf(body, '변경 파일')
   if (!v) return []
-  return [...new Set(v.split(/[\s,;、]+/).map((t) => t.replace(/\(.*$/, '').replace(/^[-*`'"(\[]+|[`'")\],.;:]+$/g, '')).filter((t) => (t.includes('/') || /\.[A-Za-z0-9]{1,6}$/.test(t) || /^\.[\w-]+(?:\.[\w-]+)*$/.test(t)) && !/^https?:/.test(t)))]
+  const out = new Set()
+  for (const raw of v.split(/[\s,;、]+/)) {
+    const t = raw.replace(/\(.*$/, '').replace(/^[`'"(\[]+|[`'")\],;:]+$/g, '')
+    if (!t || /^https?:/.test(t)) continue
+    out.add(t)
+    if (/\.$/.test(t)) out.add(t.slice(0, -1)) // 문장 끝 마침표
+    if (/^-+$/.test(t)) out.delete(t)
+  }
+  return [...out]
 }
 const covers = (decl, f) => decl === f || (decl.endsWith('/') && f.startsWith(decl)) || (decl.includes('*') && new RegExp('^' + decl.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$').test(f))
 /** changed: [{filename, previous_filename?, status, additions, deletions, patch?}] */
-export function scopeProblems(body, changed) {
+export function scopeProblems(body, changed, exists = () => false) {
   const decl = declaredFiles(body)
   if (!decl.length) return ['변경 범위: 본문 `변경 파일:`에서 파일 경로를 읽지 못함 — 실제 변경 파일을 줄이나 쉼표로 적어야 함']
   const real = changed.filter((c) => !RECORD_SKIP.test(c.filename))
@@ -169,7 +179,8 @@ export function scopeProblems(body, changed) {
   const undeclared = real.filter((c) => !names(c).some((n) => decl.some((d) => covers(d, n)))).map((c) => c.filename)
   if (undeclared.length) out.push(`변경 범위: 본문에 없는 파일을 바꿈(${undeclared.length}개) — ${undeclared.slice(0, 6).join(', ')}${undeclared.length > 6 ? ' …' : ''}. 범위를 넓히려면 본문 범위·변경 파일을 먼저 고쳐 알린다`)
   const all = changed.flatMap(names)
-  const phantom = decl.filter((d) => !d.endsWith('/') && !d.includes('*') && !all.includes(d) && !RECORD_SKIP.test(d))
+  // 본문에 적은 낱말이 저장소에 실제 있는 파일인데 이 PR이 바꾸지 않았다면 거짓 범위(없는 낱말·새 파일은 변경 목록 쪽에서 이미 대조)
+  const phantom = decl.filter((d) => !d.endsWith('/') && !d.includes('*') && !all.includes(d) && !RECORD_SKIP.test(d) && exists(d))
   if (phantom.length) out.push(`변경 범위: 본문에 적었지만 실제로 바뀌지 않은 파일 — ${phantom.slice(0, 6).join(', ')}`)
   return out
 }
@@ -249,7 +260,7 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
     const required = recentPrsFor({ files, self: pr.number, api, stats })
     // R3: 변경 범위·지운 것/합친 것·공고 번호 예외 대조, 반복 수정 표시
     const resolveRef = (r) => { try { if (r.issue) { api(`issues/${r.issue}`); return true } return readdirSync('docs/decisions/ko').some((f) => f.startsWith(r.decision + '-')) } catch { return false } }
-    errors.push(...scopeProblems(body, changed), ...mergeLineProblems(body, changed), ...exceptionProblems(body, changed, resolveRef))
+    errors.push(...scopeProblems(body, changed, (p) => { try { return statSync(p).isFile() } catch { return false } }), ...mergeLineProblems(body, changed), ...exceptionProblems(body, changed, resolveRef))
     const repeated = repeatedFiles(stats.fixCounts, files)
     for (const r of repeated) console.log(`::warning::구조 변경 검토 필요: ${r.file}을(를) 최근 14일 '고침' PR ${r.count}건이 바꿨다 — 예외를 더하기 전에 방법을 바꾸는 안(무엇을 지우고 바꿀지·잃는 것)을 PR 댓글로 남긴다(CLAUDE.md 우선 원칙 8)`)
     if (repeated.length && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 구조 변경 검토 필요\n${repeated.map((r) => `- ${r.file}: 최근 14일 고침 PR ${r.count}건`).join('\n')}\n`)
