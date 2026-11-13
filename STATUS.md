@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-13 10:38 (VN)**
-- 기준 커밋: `80fcc2c` (화면 대조: 목록·메인 카드와 출처별 범위 (R2 잔여 검증 #753) (#780))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43360238286
+- 생성 시각: **2026-11-13 16:27 (VN)**
+- 기준 커밋: `c82321a` (feat(db): 고용주·legacy 공고도 공개 전 검사 통과 기록 요구 (Lee 11-13 A4 승인, R2 #728) (#797))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43401276661
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -48,7 +48,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `80fcc2c` · 상태 **success** · 2026-11-13 10:06 (VN)
+- 마지막 Production 배포: `c82321a` · 상태 **success** · 2026-11-13 16:27 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -56,16 +56,16 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
-| #780 | 2026-11-13 10:05 (VN) | `80fcc2c` | 화면 대조: 목록·메인 카드와 출처별 범위 (R2 잔여 검증 #753) |
-| #773 | 2026-11-13 08:28 (VN) | `5f581c9` | PR 검사 확장: 변경 범위·덧붙이기·공고 번호 예외 대조 (R3 #728) |
-| #772 | 2026-11-13 08:13 (VN) | `ab02c0e` | 화면 수집기: 비동기 지도 핀 기다림과 미검증 구분 (sb-5438, #728) |
-| #770 | 2026-11-13 07:39 (VN) | `a9ce3a3` | R3: 병합 회귀 게이트 — 필수 검사가 초록 아닌 병합 감시 (#728) |
-| #769 | 2026-11-13 07:28 (VN) | `5749066` | R3: 병합 출처 기록 도구와 #687 우회 원인 확정 (#728) |
-| #768 | 2026-11-13 07:13 (VN) | `33814fe` | R2 잔여 검증 3건: 운영 영역·업종 대조, 검색 응답 시험, 감사 비원자성 (#753) |
-| #767 | 2026-11-13 05:04 (VN) | `b16ed7f` | 다시 처리: 원문에 주소가 없으면 위치 칸은 그대로 (sb-5942 HAIDILAO, #633 후속) |
-| #765 | 2026-11-13 03:28 (VN) | `926ec0c` | R2: 화면 항목 영역 배치 검증 (#753) |
-| #763 | 2026-11-13 02:41 (VN) | `180f24b` | 검사기 독립성: jobInspect가 만드는 쪽 모듈 5개 import 제거, 검사기 전용 읽기로 교체 (R2 #753) |
-| #762 | 2026-11-13 02:40 (VN) | `4dd25cb` | 업종 독립 검증: 장소 유형이 공장 업무 공고를 가게 업종으로 덮지 못하게 (R2 #753) |
+| #797 | 2026-11-13 16:26 (VN) | `c82321a` | feat(db): 고용주·legacy 공고도 공개 전 검사 통과 기록 요구 (Lee 11-13 A4 승인, R2 #728) |
+| #798 | 2026-11-13 15:15 (VN) | `402dcdf` | fix(detail): 5157 이름표 붙은 주소 줄 ④에서 제거 (#653 규칙 이행, Lee 11-13 적용, R2 A5 #728) |
+| #740 | 2026-11-13 15:00 (VN) | `92ce55c` | fix(detail): 급여 소수점 쉼표 줄바꿈 한 곳으로 (Lee 11-13 적용, #728 A3) |
+| #796 | 2026-11-13 13:56 (VN) | `ea8f1ee` | 운영 지도 검사 모순 해결: public-pins 화면 핀 중복 삭제·경계 기준 원래 성으로 (R2 #728) |
+| #795 | 2026-11-13 13:12 (VN) | `6e23e55` | 작업 기록: R2 자동 병합 승인 통제 (#728) |
+| #792 | 2026-11-13 12:56 (VN) | `0421c1a` | 자동 병합 통제 강화: needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 문턱 (R2 #728) |
+| #791 | 2026-11-13 12:25 (VN) | `f9564be` | 영역 검사에 줄 끊김·가로 넘침과 알려진 실패 래칫 합침 (#735 대체, R2 #728) |
+| #787 | 2026-11-13 12:16 (VN) | `e26f2f7` | 화면 대조 독립: 제목·회사 줄 기대값을 검사기 전용 읽기로 (R2 #753) |
+| #790 | 2026-11-13 12:15 (VN) | `d2b7de3` | 이슈 멘션: 읽기 전용 실행이 계획 댓글만 반복하지 않게 (#736 대체, R2 #728) |
+| #789 | 2026-11-13 12:14 (VN) | `3d90429` | 지도 위치 절대 원칙: jobCoords 오래된 주석 정정 + 핀 안 만드는 시험 (#741 대체, R2 #728) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
@@ -101,16 +101,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-13 10:06 (VN) | location_candidate.approve | job 6116 |
-| 2026-11-13 10:06 (VN) | location_candidate.add | job 6116 |
-| 2026-11-13 08:29 (VN) | location_candidate.approve | job 6114 |
-| 2026-11-13 08:29 (VN) | location_candidate.add | job 6114 |
-| 2026-11-13 08:14 (VN) | location_candidate.approve | job 6110 |
-| 2026-11-13 08:14 (VN) | location_candidate.add | job 6110 |
-| 2026-11-13 07:40 (VN) | location_candidate.approve | job 6108 |
-| 2026-11-13 07:40 (VN) | location_candidate.add | job 6108 |
-| 2026-11-13 07:29 (VN) | location_candidate.approve | job 6105 |
-| 2026-11-13 07:29 (VN) | location_candidate.add | job 6105 |
+| 2026-11-13 15:17 (VN) | location_candidate.approve | job 6150 |
+| 2026-11-13 15:16 (VN) | location_candidate.add | job 6150 |
+| 2026-11-13 15:01 (VN) | location_candidate.approve | job 6147 |
+| 2026-11-13 15:01 (VN) | location_candidate.add | job 6147 |
+| 2026-11-13 13:57 (VN) | location_candidate.approve | job 6144 |
+| 2026-11-13 13:57 (VN) | location_candidate.add | job 6144 |
+| 2026-11-13 13:12 (VN) | location_candidate.approve | job 6140 |
+| 2026-11-13 13:12 (VN) | location_candidate.add | job 6140 |
+| 2026-11-13 12:57 (VN) | location_candidate.approve | job 6138 |
+| 2026-11-13 12:57 (VN) | location_candidate.add | job 6138 |
 
 ## 8. 검증 장치 변경 이력
 
@@ -128,16 +128,16 @@
 
 | 규칙 | 차단방식 | 마지막시험 | 결과 |
 |---|---|---|---|
-| `R1_phone_digits_only` | 없음 | 2026-11-12 07:04 (VN) | ❌ 실패 |
-| `R2_decision_columns_code_only` | 없음 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `R1_phone_digits_only` | 없음 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `R2_decision_columns_code_only` | 없음 | 2026-11-13 16:26 (VN) | ❌ 실패 |
 | `R2b_publish_gate_reason_code_only` | 보류 | — | — 시험 없음 |
-| `R3_source_evidence_required` | 저장거부 | 2026-11-12 07:04 (VN) | ❌ 실패 |
-| `R5_verbatim_names` | 저장거부 | 2026-11-12 07:04 (VN) | ❌ 실패 |
-| `R6_age_preserved` | 저장거부 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `R3_source_evidence_required` | 저장거부 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `R5_verbatim_names` | 저장거부 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `R6_age_preserved` | 저장거부 | 2026-11-13 16:26 (VN) | ❌ 실패 |
 | `R4_policy_exclusion_trigger` | 저장거부 | — | — 시험 없음 |
-| `R7_ocr_crosscheck` | 보류 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `R7_ocr_crosscheck` | 보류 | 2026-11-13 16:26 (VN) | ❌ 실패 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
-| `U2_age_min_under_15` | 없음 | 2026-11-12 07:04 (VN) | ❌ 실패 |
+| `U2_age_min_under_15` | 없음 | 2026-11-13 16:26 (VN) | ❌ 실패 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 | `L1_single_location_source` | 저장거부 | — | — 시험 없음 |
 | `L2_single_location_writer` | 저장거부 | — | — 시험 없음 |
