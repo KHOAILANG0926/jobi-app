@@ -88,6 +88,34 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(screenAudit(j, [base]).some((f) => f.key === 'pin' && f.sure), '읽었는데 핀이 없으면 여전히 확정 오류')
   assert(screenAudit(j, [{ ...base, pins: ['21.2,106.0'] }]).length === 0, '핀 일치 → 문제 없음')
 }
+// 목록·메인 카드 대조(R2 잔여 검증): 카드를 못 찾으면 통과가 아니라 미검증, 카드 값이 원문·상세와 다르면 판정 불명확, 같으면 문제 없음
+{
+  const v: ScreenView = { device: 'PC', title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', salary: '8.000.000đ/tháng', mapLinks: [], pins: [], tel: [], zalo: [], benefits: [] }
+  const base: ScreenJob = { id: 8, title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', source_text: 'CÔNG TY ABC tuyển công nhân\nLương 8.000.000đ/tháng\nLH 0912345678' }
+  const ok = { title: 'tuyển công nhân', company: 'ABC', salary: 'Lương tháng 8.000.000đ/tháng' }
+  assert(screenAudit({ ...base, cards: { PC: ok } }, [v]).filter((f) => f.key.startsWith('card')).length === 0, '카드가 상세·원문과 같음 → 문제 없음')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, salary: 'Lương ngày 8.000.000đ' } } }, [{ ...v, salary: '8.000.000đ/tháng, 9.000.000đ/tháng' }]).every((f) => f.key !== 'card_salary'), '카드 금액이 상세 금액의 일부(대표 1개)면 같은 값')
+  assert(screenAudit({ ...base, cards: { PC: null } }, [v]).some((f) => f.key === 'card_unread' && !f.sure), '카드 못 찾음 → 미검증')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, salary: 'Lương tháng 9.000.000đ/tháng' } } }, [v]).some((f) => f.key === 'card_salary' && !f.sure), '카드 급여가 원문·상세와 다름')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, title: 'Nhân viên bán hàng' } } }, [v]).some((f) => f.key === 'card_title'), '카드 제목이 상세와 다름')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, company: 'ZZZ' } } }, [v]).some((f) => f.key === 'card_company'), '카드 상호가 회사명과 다름')
+  assert(screenAudit({ ...base, cards: { PC: [] } }, [v]).some((f) => f.key === 'card_unread'), '어느 화면에도 카드가 없으면(빈 배열) 미검증')
+  assert(screenAudit({ ...base, cards: { PC: [ok] } }, [v]).every((f) => !f.key.startsWith('card')), '한 화면에서만 나와도 그 카드가 같으면 문제 없음(다른 화면에 없는 것은 미검증이 아님)')
+  assert(screenAudit({ ...base, cards: { PC: [ok, { ...ok, salary: 'Lương tháng 9.000.000đ/tháng' }] } }, [v]).some((f) => f.key === 'card_salary'), '여러 화면 중 한 화면 카드만 달라도 잡음')
+  assert(screenAudit(base, [v]).every((f) => !f.key.startsWith('card')), '카드를 수집하지 않은 호출은 대조 생략')
+  const bad = { ...ok, salary: 'Lương tháng 99.000.000đ/tháng' }
+  assert(screenAudit({ ...base, cards: { PC: [ok, bad] } }, [v]).some((f) => f.key === 'card_salary'), '메인 카드는 맞고 검색 카드만 틀려도 잡음')
+  assert(screenAudit({ ...base, cards: { PC: [ok, null] } }, [v]).some((f) => f.key === 'card_unread'), '한 화면을 못 읽으면 미검증')
+  assert(screenAudit({ ...base, cards: { PC: { title: '', company: '', salary: '' } } }, [v]).some((f) => f.key === 'card_unread'), '카드 글자가 비면 통과가 아니라 미검증')
+  // 시급(10만 미만)도 금액으로 대조한다
+  const hv: ScreenView = { ...v, salary: '25.000đ/giờ' }
+  const hb: ScreenJob = { ...base, source_text: 'CÔNG TY ABC tuyển công nhân\nLương 25.000đ/giờ\nLH 0912345678' }
+  assert(screenAudit({ ...hb, cards: { PC: { ...ok, salary: '99.000đ/giờ' } } }, [hv]).some((f) => f.key === 'card_salary'), '시급 카드가 원문·상세와 다르면 잡음')
+  assert(screenAudit({ ...hb, cards: { PC: { ...ok, salary: '25.000đ/giờ' } } }, [hv]).every((f) => !f.key.startsWith('card')), '시급 카드가 같으면 문제 없음')
+  const rv: ScreenView = { ...v, salary: '25.000 - 30.000đ/giờ' }
+  const rb: ScreenJob = { ...base, source_text: 'CÔNG TY ABC tuyển công nhân\nLương 25.000 - 30.000đ/giờ\nLH 0912345678' }
+  assert(screenAudit({ ...rb, cards: { PC: { ...ok, salary: '99.000đ/giờ' } } }, [rv]).some((f) => f.key === 'card_salary'), '범위 시급 앞 금액도 대조함')
+}
 
 // 도우미
 assert(amounts('8tr5').includes(8_500_000) && amounts('8,5 triệu').includes(8_500_000) && amounts('7.500.000đ').includes(7_500_000) && amounts('250k/ngày').includes(250_000), '금액 읽기')

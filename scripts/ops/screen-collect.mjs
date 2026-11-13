@@ -57,3 +57,42 @@ export function collectScreen(page, device) {
     }
   }, { device, order: [...BENEFIT_ORDER] })
 }
+
+/**
+ * 목록·메인 카드 수집(R2 잔여 검증): 상세 화면만 보던 화면 대조가 카드(공고 목록)에 나오는 값은 확인하지 못했다.
+ * 여러 목록 화면을 끝까지 내려 `article.jc[data-job-id]` 카드의 상호·제목·급여 글자를 번호별로 모은다(먼저 모은 값을 유지).
+ * 화면마다 따로 돌려준다(배열 항목 하나 = 화면 하나, 못 읽은 화면은 null) — 한 화면 값이 다른 화면 값을 가리지 않게.
+ * 못 찾은 공고·못 읽은 화면은 호출자가 '카드 미검증'으로 다룬다(통과로 세지 않음).
+ */
+export async function collectCards(page, base, paths = ['/', '/viec-lam/tim-kiem?pageSize=100']) {
+  const routes = []
+  for (const path of paths) {
+    const cards = {}
+    routes.push(cards)
+    try {
+      await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+      await page.locator('article.jc[data-job-id]').first().waitFor({ timeout: 30_000 })
+      // 검색 목록은 페이지가 나뉘어 있어(Sau → 버튼) 마지막 페이지까지 넘기며 모은다(메인은 버튼이 없어 한 번).
+      for (let pg = 0; pg < 50; pg++) {
+        let last = -1
+        for (let i = 0; i < 30; i++) {
+          const n = await page.locator('article.jc[data-job-id]').count()
+          if (n === last) break
+          last = n
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+          await page.waitForTimeout(700)
+        }
+        const got = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('article.jc[data-job-id]')].map((el) => [
+          String(el.getAttribute('data-job-id')).replace(/^sb-/, ''),
+          { title: el.querySelector('.jc__title')?.textContent?.trim() ?? '', company: el.querySelector('.jc__company')?.textContent?.trim() ?? '', salary: el.querySelector('.jc__salary')?.textContent?.trim() ?? '' }])))
+        Object.assign(cards, got)
+        const next = page.locator('button:has-text("Sau →")')
+        if (!(await next.count()) || !(await next.first().isEnabled())) break
+        const firstId = await page.locator('article.jc[data-job-id]').first().getAttribute('data-job-id')
+        await next.first().click()
+        await page.waitForFunction((id) => document.querySelector('article.jc[data-job-id]')?.getAttribute('data-job-id') !== id, firstId, { timeout: 15_000 })
+      }
+    } catch { routes[routes.length - 1] = null /* 이 목록 화면을 못 읽음 — 호출자가 미검증으로 기록 */ }
+  }
+  return routes
+}
