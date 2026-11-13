@@ -12,7 +12,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { screenAudit } from '../../src/lib/screenAudit.ts'
 import { preciseStreetAddressQuery } from '../../src/lib/directionsPlan.ts'
-import { collectScreen, waitForMap, SCREEN_CANDIDATES } from './screen-collect.mjs'
+import { collectScreen, collectCards, waitForMap, SCREEN_CANDIDATES } from './screen-collect.mjs'
 
 const { SUPABASE_DB_URL, ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, GH_TOKEN, REPO, ISSUE } = process.env
 const BASE_URL = (process.env.BASE_URL || 'https://viecganban.vn').replace(/\/$/, '')
@@ -33,6 +33,7 @@ const keepText = !ALL && !CANDIDATES
 
 // 대조용 DB 값(읽기만)
 const dbJobs = new Map()
+let coverage = null
 let db
 if (SUPABASE_DB_URL) {
   const { default: pg } = await import('pg')
@@ -40,12 +41,15 @@ if (SUPABASE_DB_URL) {
   await db.connect()
   try {
     const rows = (await db.query(`
-      select j.id, j.title, j.company, j.occupation_code, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active, j.admin_hidden,
+      select j.id, j.title, j.company, j.origin, j.occupation_code, j.source_text, j.ocr_text, j.employer_phone, j.contact_zalo, j.active, j.admin_hidden,
         public.job_inspect_content_hash(j) as content_hash,
         coalesce((select jsonb_agg(jsonb_build_object('kind', w.point_kind, 'verified', w.location_verified, 'lat', w.lat, 'lng', w.lng,
           'source', w.point_evidence->>'source', 'raw', w.raw_address, 'park', w.industrial_park)) from public.job_work_locations w where w.job_id = j.id), '[]') as locs
       from public.local_jobs j where ${CANDIDATES ? SCREEN_CANDIDATES : ALL ? 'j.active and not j.admin_hidden' : 'j.id = any($1::bigint[])'} order by j.id`, ALL || CANDIDATES ? [] : [ids])).rows
     for (const r of rows) dbJobs.set(Number(r.id), r)
+    // 화면 대조가 닿는 범위(R2 잔여 검증): 전체 등록 공고를 출처·공개 상태별로 센다(읽기 전용 집계). 비공개·숨김은 이 대조 대상이 아니다.
+    if (ALL) coverage = (await db.query(`select origin, count(*) filter (where active and not admin_hidden) as public, count(*) filter (where not active) as inactive,
+        count(*) filter (where admin_hidden) as hidden from public.local_jobs group by origin order by origin`)).rows
   } finally { if (!CANDIDATES) await db.end() }
   if (ALL || CANDIDATES) ids = [...dbJobs.keys()]
 }
@@ -71,6 +75,14 @@ if (dbJobs.size) for (let i = 0; i < ids.length; i += 100) {
 }
 
 const browser = await chromium.launch()
+// 목록·메인 카드(전체 대조 때만): 기기마다 한 번 모은다 — 상세 화면과 같은 공고의 카드 값을 대조하려고
+const cardsByDevice = {}
+if (ALL) for (const v of VIEWPORTS) {
+  const context = await browser.newContext({ viewport: v.viewport, isMobile: v.isMobile, hasTouch: v.hasTouch, locale: 'vi-VN' })
+  cardsByDevice[v.label] = await collectCards(await context.newPage(), BASE_URL)
+  await context.close()
+  console.log(`${v.label} 카드 ${Object.keys(cardsByDevice[v.label]).length}개 수집`)
+}
 let adminState = null
 async function adminLogin() {
   if (adminState) return adminState
@@ -138,7 +150,7 @@ async function readJob(id) {
   }
   if (!job) return
   const findings = openError ? [{ key: 'open', sure: true, device: '-', detail: `화면 열기 실패: ${openError}` }]
-    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null }, views)
+    : screenAudit({ ...job, id, googlePin: googlePinOf(job.locs), apiPins: apiPins[id] ?? null, ...(ALL ? { cards: Object.fromEntries(VIEWPORTS.map((v) => [v.label, cardsByDevice[v.label]?.[String(id)] ?? null])) } : {}) }, views)
   audits.push({ id, title: job.title, active: job.active, findings, views })
   // 기록(대상 공고만): 화면 열기 실패는 기록하지 않는다(일시 오류 — 다음 실행에 다시). 대조 중 내용이 바뀌면 기록하지 않는다.
   if (CANDIDATES && openError) openFailed++
@@ -168,11 +180,12 @@ if (dbJobs.size) {
   const line = (r, sure) => `- sb-${r.id} ${String(r.title ?? '').slice(0, 45)}${r.active ? '' : ' (비공개)'}\n` +
     r.findings.filter((f) => f.sure === sure).map((f) => `  - [${f.device}] ${f.detail}`).join('\n')
   // 미검증 = 화면을 못 열었거나 4영역을 못 읽어 배치를 대조하지 못한 공고 — 통과로 세지 않는다
-  const unverified = audits.filter((r) => r.findings.some((f) => f.key === 'open' || f.key === 'areas' || f.key === 'pin_unread'))
+  const unverified = audits.filter((r) => r.findings.some((f) => f.key === 'open' || f.key === 'areas' || f.key === 'pin_unread' || f.key === 'card_unread'))
+  const originNote = coverage ? ['', '### 대조가 닿는 범위(출처별 등록 공고)', ...coverage.map((c) => `- ${c.origin}: 공개 ${c.public}(이번 대조 ${audits.filter((a) => dbJobs.get(a.id)?.origin === c.origin).length}) · 비공개 ${c.inactive} · 숨김 ${c.hidden} — 비공개·숨김은 화면 대조 대상 아님`)] : []
   const report = [`## 화면 대조 검사 — ${audits.length}건 (${BASE_URL})`, '',
     `확정 오류 ${sureJobs.length}건 · 판정 불명확(관리자 확인) ${unsureJobs.length}건 · 미검증 ${unverified.length}건 · 문제 없음 ${audits.filter((r) => !r.findings.length).length}건`, '',
     ...(sureJobs.length ? ['### 확정 오류', ...sureJobs.map((r) => line(r, true)), ''] : []),
-    ...(unsureJobs.length ? ['### 판정 불명확', ...unsureJobs.map((r) => line(r, false))] : [])].join('\n')
+    ...(unsureJobs.length ? ['### 판정 불명확', ...unsureJobs.map((r) => line(r, false))] : []), ...originNote].join('\n')
   console.log('\n' + report)
   summary.unshift(report, '')
   if (GH_TOKEN && REPO && ISSUE && !CANDIDATES) {

@@ -41,6 +41,8 @@ export type ScreenJob = {
   googlePin?: { lat: number; lng: number } | null
   /** /api/map-locations가 돌려준 핀 "lat,lng" */
   apiPins?: string[] | null
+  /** 목록·메인 카드에서 읽은 값(기기 이름별). null = 목록 화면에서 이 공고 카드를 못 찾음(미검증), 속성 없음 = 카드 수집 안 함 */
+  cards?: Record<string, { title: string; company: string; salary: string } | null>
 }
 export type ScreenFinding = { key: string; sure: boolean; device: string; detail: string }
 
@@ -155,6 +157,20 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
     if (hasSource && shown.length) {
       const miss = shown.filter((n) => !srcAmounts.has(n))
       if (miss.length) add('salary', false, d, `화면 급여 "${String(v.salary).slice(0, 60)}"의 ${miss.map((n) => n.toLocaleString('vi-VN')).join(', ')}이 원문 금액에 없음`)
+    }
+    // ⑦-1 목록·메인 카드(R2 잔여 검증): 카드의 급여·제목·상호가 상세와 원문에 맞는가. 카드가 보여 주는 값은 승인된 표시 변환이 있어 모두 '판정 불명확'으로만 알린다.
+    if (job.cards) {
+      const card = job.cards[d]
+      if (!card) add('card_unread', false, d, '목록·메인 카드에서 이 공고를 찾지 못함 — 카드 대조 미검증')
+      else {
+        const cardAmts = amounts(card.salary), detailAmts = amounts(v.salary ?? '')
+        if (cardAmts.length && hasSource && cardAmts.some((n) => !srcAmounts.has(n))) add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 50)}"이 원문 금액에 없음`)
+        if (cardAmts.length && detailAmts.length && cardAmts.join() !== detailAmts.join()) add('card_salary', false, d, `카드 급여 "${card.salary.slice(0, 40)}"와 상세 급여 "${String(v.salary).slice(0, 40)}"가 다름`)
+        const ct = fold(card.title).replace(/[^a-z0-9]+/g, ' ').trim(), dt = fold(title).replace(/[^a-z0-9]+/g, ' ').trim()
+        if (ct && dt && !dt.includes(ct) && !ct.includes(dt)) add('card_title', false, d, `카드 제목 "${card.title.slice(0, 40)}"이 상세 제목 "${title.slice(0, 40)}"과 다름`)
+        const cc = fold(card.company).replace(/[^a-z0-9]+/g, ' ').trim()
+        if (cc && job.company && !fold(job.company).replace(/[^a-z0-9]+/g, ' ').includes(cc) && !dt.includes(cc)) add('card_company', false, d, `카드 상호 "${card.company.slice(0, 40)}"가 회사명 "${job.company.slice(0, 40)}"에 없음`)
+      }
     }
     // ⑦ 항목이 맞는 영역에 나오는가(운영 공고 전체용 독립 판정 — 원문 줄의 종류를 글자 모양으로만 읽는다, R2 #753)
     for (const f of areaFindings(job, source, v)) add(f.key, f.sure, d, f.detail)

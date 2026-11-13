@@ -57,3 +57,31 @@ export function collectScreen(page, device) {
     }
   }, { device, order: [...BENEFIT_ORDER] })
 }
+
+/**
+ * 목록·메인 카드 수집(R2 잔여 검증): 상세 화면만 보던 화면 대조가 카드(공고 목록)에 나오는 값은 확인하지 못했다.
+ * 여러 목록 화면을 끝까지 내려 `article.jc[data-job-id]` 카드의 상호·제목·급여 글자를 번호별로 모은다(먼저 모은 값을 유지).
+ * 못 찾은 공고는 호출자가 '카드 미검증'으로 다룬다(통과로 세지 않음).
+ */
+export async function collectCards(page, base, paths = ['/', '/viec-lam/tim-kiem']) {
+  const cards = {}
+  for (const path of paths) {
+    try {
+      await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+      await page.locator('article.jc[data-job-id]').first().waitFor({ timeout: 30_000 })
+      let last = -1
+      for (let i = 0; i < 30; i++) {
+        const n = await page.locator('article.jc[data-job-id]').count()
+        if (n === last) break
+        last = n
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+        await page.waitForTimeout(700)
+      }
+      const got = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('article.jc[data-job-id]')].map((el) => [
+        String(el.getAttribute('data-job-id')).replace(/^sb-/, ''),
+        { title: el.querySelector('.jc__title')?.textContent?.trim() ?? '', company: el.querySelector('.jc__company')?.textContent?.trim() ?? '', salary: el.querySelector('.jc__salary')?.textContent?.trim() ?? '' }])))
+      for (const [id, v] of Object.entries(got)) cards[id] ??= v
+    } catch { /* 이 목록 화면을 못 읽음 — 카드가 없으면 호출자가 미검증으로 기록 */ }
+  }
+  return cards
+}

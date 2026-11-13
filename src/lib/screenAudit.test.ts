@@ -88,6 +88,18 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(screenAudit(j, [base]).some((f) => f.key === 'pin' && f.sure), '읽었는데 핀이 없으면 여전히 확정 오류')
   assert(screenAudit(j, [{ ...base, pins: ['21.2,106.0'] }]).length === 0, '핀 일치 → 문제 없음')
 }
+// 목록·메인 카드 대조(R2 잔여 검증): 카드를 못 찾으면 통과가 아니라 미검증, 카드 값이 원문·상세와 다르면 판정 불명확, 같으면 문제 없음
+{
+  const v: ScreenView = { device: 'PC', title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', salary: '8.000.000đ/tháng', mapLinks: [], pins: [], tel: [], zalo: [], benefits: [] }
+  const base: ScreenJob = { id: 8, title: 'ABC tuyển công nhân', company: 'CÔNG TY ABC', source_text: 'CÔNG TY ABC tuyển công nhân\nLương 8.000.000đ/tháng\nLH 0912345678' }
+  const ok = { title: 'tuyển công nhân', company: 'ABC', salary: 'Lương tháng 8.000.000đ/tháng' }
+  assert(screenAudit({ ...base, cards: { PC: ok } }, [v]).filter((f) => f.key.startsWith('card')).length === 0, '카드가 상세·원문과 같음 → 문제 없음')
+  assert(screenAudit({ ...base, cards: { PC: null } }, [v]).some((f) => f.key === 'card_unread' && !f.sure), '카드 못 찾음 → 미검증')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, salary: 'Lương tháng 9.000.000đ/tháng' } } }, [v]).some((f) => f.key === 'card_salary' && !f.sure), '카드 급여가 원문·상세와 다름')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, title: 'Nhân viên bán hàng' } } }, [v]).some((f) => f.key === 'card_title'), '카드 제목이 상세와 다름')
+  assert(screenAudit({ ...base, cards: { PC: { ...ok, company: 'ZZZ' } } }, [v]).some((f) => f.key === 'card_company'), '카드 상호가 회사명과 다름')
+  assert(screenAudit(base, [v]).every((f) => !f.key.startsWith('card')), '카드를 수집하지 않은 호출은 대조 생략')
+}
 
 // 도우미
 assert(amounts('8tr5').includes(8_500_000) && amounts('8,5 triệu').includes(8_500_000) && amounts('7.500.000đ').includes(7_500_000) && amounts('250k/ngày').includes(250_000), '금액 읽기')
