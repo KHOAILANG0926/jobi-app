@@ -79,6 +79,8 @@ jobs:
         run: BASE_URL=http://localhost:4173 SCREENSHOT_DIR=job-process-proof node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/job-process-preview-browser.mjs
       - name: 대표 공고 항목이 승인된 4영역 중 맞는 칸에 나오는지 (PC·모바일, 격리 응답, R2 #753)
         run: BASE_URL=http://localhost:4173 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/real-jobs-area-check.mjs
+      - name: 상세 지도 코드가 늦어도 화면 수집기가 핀을 기다려 읽는지 (격리 응답, sb-5438 모바일 핀 빔 R3)
+        run: BASE_URL=http://localhost:4173 node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/screen-collect-async-check.mjs
       - name: 공고 조건 요약 확인 화면 보존
         if: always()
         uses: actions/upload-artifact@v4

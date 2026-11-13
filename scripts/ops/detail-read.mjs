@@ -12,7 +12,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { screenAudit } from '../../src/lib/screenAudit.ts'
 import { preciseStreetAddressQuery } from '../../src/lib/directionsPlan.ts'
-import { collectScreen, SCREEN_CANDIDATES } from './screen-collect.mjs'
+import { collectScreen, waitForMap, SCREEN_CANDIDATES } from './screen-collect.mjs'
 
 const { SUPABASE_DB_URL, ADMIN_E2E_EMAIL, ADMIN_E2E_PASSWORD, GH_TOKEN, REPO, ISSUE } = process.env
 const BASE_URL = (process.env.BASE_URL || 'https://viecganban.vn').replace(/\/$/, '')
@@ -111,7 +111,8 @@ async function readJob(id) {
       // 지연 로딩 영역까지 보이도록 끝까지 내렸다가 위로
       await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)) } window.scrollTo(0, 0) })
       await page.waitForTimeout(800)
-      views.push(await collectScreen(page, v.label))
+      const mapReady = await waitForMap(page, (apiPins[id]?.length ?? 0) > 0)
+      views.push({ ...(await collectScreen(page, v.label)), pinsUnread: !mapReady })
       if (keepText) {
         text = (await page.locator('main').first().innerText().catch(() => '')) || (await page.locator('body').innerText())
         await page.screenshot({ path: `${OUT}/${id}-${v.name}.png`, fullPage: true })
@@ -167,7 +168,7 @@ if (dbJobs.size) {
   const line = (r, sure) => `- sb-${r.id} ${String(r.title ?? '').slice(0, 45)}${r.active ? '' : ' (비공개)'}\n` +
     r.findings.filter((f) => f.sure === sure).map((f) => `  - [${f.device}] ${f.detail}`).join('\n')
   // 미검증 = 화면을 못 열었거나 4영역을 못 읽어 배치를 대조하지 못한 공고 — 통과로 세지 않는다
-  const unverified = audits.filter((r) => r.findings.some((f) => f.key === 'open' || f.key === 'areas'))
+  const unverified = audits.filter((r) => r.findings.some((f) => f.key === 'open' || f.key === 'areas' || f.key === 'pin_unread'))
   const report = [`## 화면 대조 검사 — ${audits.length}건 (${BASE_URL})`, '',
     `확정 오류 ${sureJobs.length}건 · 판정 불명확(관리자 확인) ${unsureJobs.length}건 · 미검증 ${unverified.length}건 · 문제 없음 ${audits.filter((r) => !r.findings.length).length}건`, '',
     ...(sureJobs.length ? ['### 확정 오류', ...sureJobs.map((r) => line(r, true)), ''] : []),

@@ -79,6 +79,15 @@ assert(screenAudit(job, [before, { ...before, device: 'mobile' }]).filter((f) =>
   assert(!screenAudit({ ...base, source_text: 'Quán ăn ABC tuyển phục vụ gần KCN VSIP\nLương 8 triệu', occupation_code: '5' }, [v]).some((f) => f.key === 'industry'), '가게 글 + 5 → 정상')
   assert(!screenAudit({ ...base, source_text: 'Công ty ABC tuyển công nhân tại KCN VSIP Bắc Ninh', occupation_code: '9' }, [v]).some((f) => f.key === 'industry'), '공장 글 + 공장 코드 → 정상')
 }
+// 지도 요소가 시간 안에 안 떠 핀을 못 읽은 화면(sb-5438 모바일 2026-11-12): 핀 불일치 확정 오류가 아니라 미검증으로 구분하고, 실제로 읽었는데 다르면 여전히 확정 오류
+{
+  const base: ScreenView = { device: 'mobile', title: 'T', mapLinks: [], pins: [], tel: [], zalo: [], benefits: [] }
+  const j: ScreenJob = { id: 7, title: 'T', company: null, googlePin: null, apiPins: ['21.2,106.0'] }
+  const unread = screenAudit(j, [{ ...base, pinsUnread: true }])
+  assert(unread.some((f) => f.key === 'pin_unread' && !f.sure) && !unread.some((f) => f.key === 'pin' && f.sure), '핀 못 읽음 → 미검증(확정 오류 아님)')
+  assert(screenAudit(j, [base]).some((f) => f.key === 'pin' && f.sure), '읽었는데 핀이 없으면 여전히 확정 오류')
+  assert(screenAudit(j, [{ ...base, pins: ['21.2,106.0'] }]).length === 0, '핀 일치 → 문제 없음')
+}
 
 // 도우미
 assert(amounts('8tr5').includes(8_500_000) && amounts('8,5 triệu').includes(8_500_000) && amounts('7.500.000đ').includes(7_500_000) && amounts('250k/ngày').includes(250_000), '금액 읽기')

@@ -15,6 +15,16 @@ export const SCREEN_CANDIDATES = `j.origin in ('crawler','admin') and ${afterCut
   or (j.ocr_check->'screen_audit'->>'content_hash' = ${H} and (j.ocr_check->'screen_audit'->>'ok') = 'false'
     and (j.ocr_check->'screen_audit'->>'checked_at')::timestamptz < now() - interval '3 hours'))`
 
+/**
+ * 지도 핀 기다리기(2026-11-13, sb-5438 모바일 핀 한 번 빔): 상세의 지도(.jd2-vmap)는 JobVietMap 코드 조각을 동적으로 불러온 뒤에야 그려지므로
+ * (src/pages/JobDetail.tsx ClientOnlyMap) 고정 대기만으로는 느린 모바일·CI에서 핀을 읽기 전에 수집할 수 있다. 지도 목록 API가 핀이 있다고 한 공고만
+ * 핀이 달린 지도 요소를 기다린다. 끝내 안 뜨면 false — 호출자는 '핀 불일치'가 아니라 '핀 읽지 못함(미검증)'으로 다룬다.
+ */
+export async function waitForMap(page, expectPins, timeout = 20_000) {
+  if (!expectPins) return true
+  return page.waitForSelector('.jd2-vmap[data-planned-location-points]:not([data-planned-location-points="[]"])', { timeout, state: 'attached' }).then(() => true, () => false)
+}
+
 export function collectScreen(page, device) {
   return page.evaluate(({ device, order }) => {
     const txt = (s) => document.querySelector(s)?.textContent?.trim() ?? null

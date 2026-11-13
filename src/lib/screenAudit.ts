@@ -22,6 +22,8 @@ export type ScreenView = {
   /** 켜진 복리후생 아이콘 key(BENEFIT_ORDER) */
   benefits: string[]
   salary?: string | null
+  /** 지도 목록은 핀이 있다고 했는데 지도 요소가 시간 안에 안 떠 핀을 읽지 못함 — 핀 대조는 오류가 아니라 미검증 */
+  pinsUnread?: boolean
   /** 승인된 4영역(10-30 확정)의 화면 글자: ① Điều kiện làm việc ② Thông tin tuyển dụng ③ Khu vực làm việc ④ Mô tả công việc. 못 읽으면 없음 */
   areas?: Partial<Record<'①' | '②' | '③' | '④', string>>
 }
@@ -138,7 +140,8 @@ export function screenAudit(job: ScreenJob, views: ScreenView[]): ScreenFinding[
     }
     // apiPins: null/undefined = 지도 목록을 못 읽음(대조 생략), 배열(빈 배열 포함) = 읽음 → 양방향 대조
     const api = (job.apiPins ?? []).map(parsePoint).filter((p): p is { lat: number; lng: number } => !!p)
-    if (job.apiPins && (!pins.every((q) => api.some((a) => meters(q, a) <= NEAR)) || !api.every((a) => pins.some((q) => meters(q, a) <= NEAR)))) add('pin', true, d, `상세 핀(${v.pins.join(' / ')})이 지도 목록 핀(${(job.apiPins ?? []).join(' / ')})과 다름`)
+    if (job.apiPins && v.pinsUnread && api.length) add('pin_unread', false, d, `지도 목록 핀 ${api.length}개가 있는데 상세 지도가 시간 안에 안 떠 핀 대조 미검증`)
+    else if (job.apiPins && (!pins.every((q) => api.some((a) => meters(q, a) <= NEAR)) || !api.every((a) => pins.some((q) => meters(q, a) <= NEAR)))) add('pin', true, d, `상세 핀(${v.pins.join(' / ')})이 지도 목록 핀(${(job.apiPins ?? []).join(' / ')})과 다름`)
     // ④ 연락처
     for (const t of v.tel) { const n = phoneDigits(t); if (n.length >= 9 && !phones.has(n)) add('phone', hasSource, d, `화면 전화 ${t}가 원문·DB에 없음`) }
     for (const z of v.zalo) { const n = phoneDigits(z); if (n.length >= 9 && !phones.has(n)) add('zalo', hasSource, d, `화면 Zalo ${z}가 원문·DB에 없음`) }
