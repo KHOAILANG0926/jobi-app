@@ -45,7 +45,7 @@
 
 ## 코드·배포
 - 커밋 전 npx tsc --noEmit, push 전 + npm run build (자동 검사가 막음).
-- 운영 DB는 migration + production_check PR로만. 직접 SQL 금지. DDL·삭제·권한은 STRICT(별도 승인). 시험 DB 준비·확인은 `supabase/tests/<이름>.setup.sql`·`.local.sql` 이름 규칙(검사 스크립트에 예외 덧붙이지 않기).
+- 운영 DB는 migration + production_check PR로만. 직접 SQL 금지(좁은 예외 하나: 승인 뒤 Lee 계정이 수동 실행하는 `ops-run-sql` — 정식 입구로 기존 공고 고치기 1줄+조회만, 읽기 전용 강제, Lee 11-09. DDL·삭제·새 공고 등록·migrations 실패 우회는 불가). DDL·삭제·권한은 STRICT(별도 승인). 시험 DB 준비·확인은 `supabase/tests/<이름>.setup.sql`·`.local.sql` 이름 규칙(검사 스크립트에 예외 덧붙이지 않기).
 - 완료 = PR → 검사 → 병합 → 운영 배포 → deploy-verify 통과 → 실제 화면 확인. 끝나면 CHATGPT_HANDOFF(1페이지)·WORK_LOG(최근 10개) 갱신.
 - 비밀값(키·토큰·쿠키)은 어디에도 출력하지 않는다.
 - 대표 사진·로고(11-07): 브랜드 → 공고 사진(우리 저장소, 페북 사진 자동 복사) → 회사 웹사이트 아이콘(자동) → 공용 사진. Google 호출은 DB 월 한도 안에서만(사람이 비교 검색 반복 금지).
