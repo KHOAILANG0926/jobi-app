@@ -21,8 +21,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - name: All public main/detail pins agree with canonical source and original area
-        env:
-          BASE_URL: https://www.viecganban.vn
+      - name: All public source points are inside their original province (rendered main/detail pins are checked by deploy-verify map-summary-check)
         run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ops/location-administrative-public-check.mjs
