@@ -1,0 +1,9 @@
+name: zz-probe
+on:
+    pull_request:
+jobs:
+    probe:
+        name: checks
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo probe
