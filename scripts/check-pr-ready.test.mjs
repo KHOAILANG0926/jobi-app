@@ -54,8 +54,24 @@ assert.ok(evaluateFiles(['supabase/migrations/20261024.sql'], '', { 'supabase/mi
 const ans = 'src/lib/realJobs.fixtures.ts', prodF = 'src/lib/jobQuyenLoi.ts', edit = { [ans]: '-  salary: "7 triệu",\n+  salary: "8 triệu",\n' }
 assert.ok(evaluateFiles([ans, prodF], '', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit + production code without a source denied')
 assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: 그냥 바꿈', edit).some((e) => e.includes('기대값 변경 근거')), 'answer edit with a vague reason denied')
-assert.equal(evaluateFiles([ans, prodF], '기대값 변경 근거: Lee 2026-11-11 지도 위치 절대 원칙', edit).length, 0, 'answer edit with a Lee decision date allowed')
-assert.equal(evaluateFiles([ans], '기대값 변경 근거: 원문 인용 "7 – 8,5 triệu/tháng" (#729)', edit).length, 0, 'answer edit with a quoted source / issue number allowed')
+// 2026-11-12 Lee 승인 ①: 근거는 실제 기록으로 이어져야 한다(조회 함수를 넣어 시험, 정상 근거는 통과·가짜 근거는 차단)
+const recs = { self: 99, leeDate: (d) => (d === '2026-11-11' ? 'CLAUDE.md' : null), issue: (n) => (n === 729 ? '#729 시험만: realJobs fixtures salary 기대값 triệu 급여 읽기 회귀' : n === 5 ? '무관한 이슈 지도 핀 위치 마커' : null), decision: (n) => (n === '0004' ? '결정 0004 급여 salary 기대값 triệu 판정은 원문 글자' : null) }
+const withRec = (body, patches = edit, paths = [ans, prodF]) => evaluateFiles(paths, body, patches, { resolve: recs })
+assert.equal(withRec('기대값 변경 근거: Lee 2026-11-11 지도 위치 절대 원칙').length, 0, 'answer edit with a recorded Lee decision date allowed')
+assert.ok(withRec('기대값 변경 근거: Lee 2026-01-01 지도 위치').some((e) => e.includes('결정 기록을 결정 문서에서 못 찾음')), '기록 없는 Lee 날짜 차단(GPT 재현)')
+assert.ok(withRec('기대값 변경 근거: #999999').some((e) => e.includes('#999999을 읽지 못함')), '없는 번호 차단(GPT 재현)')
+assert.ok(withRec('기대값 변경 근거: #99').some((e) => e.includes('이 PR 자신')), '자기 자신을 근거로 삼을 수 없음')
+assert.ok(withRec('기대값 변경 근거: #5').some((e) => e.includes('이어지지 않음')), '있는 번호라도 바뀐 줄과 무관하면 차단')
+assert.equal(withRec('기대값 변경 근거: #729').length, 0, '이어지는 실제 이슈는 통과')
+assert.ok(withRec('기대값 변경 근거: "abcdefgh"').some((e) => e.includes('원문 인용')), '변경 안에 없는 인용 차단(GPT 재현)')
+assert.equal(withRec('기대값 변경 근거: 원문 줄 「salary: "8 triệu",」').length, 0, '변경 안에 실제 있는 인용은 통과')
+assert.equal(withRec('기대값 변경 근거: 결정 0004').length, 0, '실제 결정 문서와 이어지면 통과')
+assert.ok(withRec('기대값 변경 근거: 결정 9999').some((e) => e.includes('결정 9999 문서를 못 찾음')), '없는 결정 차단')
+assert.ok(evaluateFiles([ans, prodF], '기대값 변경 근거: Lee 2026-11-11', edit).some((e) => e.includes('못 찾음')), '조회 수단이 없으면 통과시키지 않음(닫힌 실패)')
+// 2026-11-12 Lee 승인 ②: 새 의미 시험은 목록에 안 적어도 보호, 인프라 시험만 제외
+for (const f of ['src/lib/newSemantic.test.ts', 'src/lib/r2Oracle.fixtures.ts', 'src/lib/r2Industry.test.ts', 'src/lib/industrialPark.test.ts']) assert.ok(evaluateFiles([f, 'src/lib/x.ts'], '', { [f]: '-a\n+b\n' }).some((e) => e.includes('기대값 변경 근거')), f + ' 기본 보호')
+assert.equal(evaluateFiles(['src/lib/homeDiscovery.test.ts', 'src/lib/x.ts'], '', { 'src/lib/homeDiscovery.test.ts': '-a\n+b\n' }).length, 0, '인프라 시험은 제외')
+assert.equal(withRec('기대값 변경 근거: 원문 인용 "7 – 8,5 triệu/tháng" (#729)', edit, [ans]).length, 0, 'answer edit with a quoted source / issue number allowed')
 assert.equal(evaluateFiles([ans, prodF], '', { [ans]: '+  salary: "9 triệu",\n' }).filter((e) => e.includes(ans)).length, 0, 'adding answer lines with production code allowed')
 // GPT 검토(#728): 의미 정답 시험(jobQuyenLoi 등)도 생산 코드와 같은 PR에서 기존 줄을 바꾸면 막는다. 인프라 시험은 자유.
 assert.ok(evaluateFiles(['src/lib/jobQuyenLoi.test.ts', 'src/lib/jobQuyenLoi.ts'], '', { 'src/lib/jobQuyenLoi.test.ts': '-x\n+y\n' }).some((e) => e.includes('기대값 변경 근거')), 'semantic test (jobQuyenLoi) expectation edit without a source denied')
