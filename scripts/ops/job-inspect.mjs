@@ -114,6 +114,7 @@ try {
       set ocr_check = (case when $5::boolean then coalesce(ocr_check, '{}'::jsonb) else coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold' end) || jsonb_build_object('inspect', $2::jsonb),
           active = $3::boolean
       where id = $1 and public.job_inspect_content_hash(local_jobs) = $4
+        and (origin in ('crawler','admin') or coalesce(ocr_check->>'inspect_hold', '') = 'true')   -- 읽은 뒤 소유자가 철회(hold 제거)했으면 덮어쓰지 않는다(Codex #797)
       returning active`,
       [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold])
     if (recorded.rowCount !== 1) {
