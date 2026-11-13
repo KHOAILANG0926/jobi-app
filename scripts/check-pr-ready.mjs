@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, appendFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { changedPhotoPayloads } from './ops/photo-process-changed.mjs'
 import { photoProcessPrProblems } from './ops/photo-process-pr.mjs'
@@ -69,6 +69,7 @@ export const RECORD_HEADING = '확인한 기록'
 export const RECORD_SKIP = /^(?:WORK_LOG\.md|CHATGPT_HANDOFF\.md|package-lock\.json|tsconfig\.tsbuildinfo)$/
 const foldWords = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC').replace(/đ/gi, 'd').toLowerCase()
 const STOP = new Set(['fix', 'feat', 'docs', 'test', 'tests', 'chore', 'ci', 'rules', 'ops', 'lee', 'pr', '추가', '고침', '수정', '검사', '정리', '반영', '확인', '변경', '공통', '자동', '실제', '기록'])
+export const FIX_TITLE = /고침|고쳐|수정|오판|오류|예외|보정|막기|fix\b|bug/i
 /** PR 제목(병합 커밋 첫 줄)의 낱말 — 확인한 기록 줄에 이 중 하나는 있어야 그 PR을 열어 본 것으로 본다. */
 export function titleWords(title) {
   return [...new Set(foldWords(String(title ?? '').replace(/\(#\d+\)/g, ' ')).split(/[^a-z0-9\uac00-\ud7a3]+/)
@@ -94,7 +95,7 @@ export function recordProblems(body, required) {
   return errors
 }
 /** 바뀐 파일마다 ① 최근 14일 그 파일을 바꾼 병합 PR(파일당 최근 5개) ② 최근 3일 갱신된 다른 열린 PR 중 같은 파일을 고치는 것. */
-export function recentPrsFor({ files, self, now = Date.now(), api }) {
+export function recentPrsFor({ files, self, now = Date.now(), api, stats }) {
   const need = new Map()
   const since = new Date(now - 14 * 864e5).toISOString()
   const targets = files.filter((f) => !RECORD_SKIP.test(f))
@@ -106,6 +107,8 @@ export function recentPrsFor({ files, self, now = Date.now(), api }) {
       if (seen.size >= 5) break
       if (seen.has(n)) continue
       seen.add(n)
+      // 같은 파일을 '고치는' 병합 PR 수(제목에 고침 낱말) — 반복 수정 표시용(stats.fixCounts)
+      if (n !== self && stats && FIX_TITLE.test(t)) stats.fixCounts[f] = (stats.fixCounts[f] ?? 0) + 1
       if (n !== self && !need.has(n)) need.set(n, { why: `최근 ${f}를 바꾼 병합 PR`, words: titleWords(t) })
     }
   }
@@ -129,6 +132,88 @@ export function recentPrsFor({ files, self, now = Date.now(), api }) {
     if (same.length && !need.has(p.number)) need.set(p.number, { why: `지금 같은 파일(${same.slice(0, 3).join(', ')})을 고치는 열린 PR`, words: titleWords(p.title) })
   }
   return [...need].map(([num, v]) => ({ num, ...v }))
+}
+
+// ───────── R3(Lee 2026-11-13): 변경 범위 대조 · 지운 것/합친 것 대조 · 반복 수정 표시 · 공고 번호 예외 차단 ─────────
+// 모두 GitHub가 준 실제 변경 파일(pulls/N/files)과 PR 본문을 대조한다(작업자가 Claude든 Codex든 같은 필수 검사 `checks`). 본문 문구가 있다는 것만으로 통과시키지 않는다.
+// 한계: 본문의 변경 파일 목록은 작성자가 선언한 범위이지 Lee의 승인 기록이 아니다 — 목록이 맞아도 '승인됨'으로 보지 않으며, 승인이 필요한 운영·보안·DB 파일은
+// 기존 장치(check-repository-policy STRICT·approved-migrations·decision-approval-gate)가 따로 막는다. 승인 기록을 확인할 수 없으면 승인된 것으로 처리하지 않는다.
+const sectionOf = (body, heading) => body.split(new RegExp(`^## ${heading}[^\\n]*\\n`, 'm'))[1]?.split('\n## ')[0] ?? ''
+/** `- <이름>:` 칸의 값(그 줄 + 이어지는 들여쓴·글머리 줄, 다음 칸 이름 줄 전까지). 주석은 뺀다. */
+export function fieldOf(body, name) {
+  const scope = sectionOf(body, '작업 범위와 변경 파일').replace(/<!--[\s\S]*?-->/g, '')
+  const lines = scope.split('\n')
+  const i = lines.findIndex((l) => new RegExp(`^-\\s*${name}\\s*:`).test(l))
+  if (i < 0) return null
+  const out = [lines[i].replace(new RegExp(`^-\\s*${name}\\s*:\\s*`), '')]
+  for (let k = i + 1; k < lines.length; k++) {
+    if (/^-\s*(?:범위|변경 파일|지운 것\/합친 것|사진 처리|예외 근거|방법 변경)[^:\n]*:/.test(lines[k])) break
+    out.push(lines[k])
+  }
+  return out.join('\n').trim()
+}
+/** 본문 `변경 파일:` 칸에서 파일 경로(또는 폴더/ 접두·* 무늬)를 읽는다. */
+export function declaredFiles(body) {
+  const v = fieldOf(body, '변경 파일')
+  if (!v) return []
+  return [...new Set(v.split(/[\s,;、]+/).map((t) => t.replace(/\(.*$/, '').replace(/^[-*`'"(\[]+|[`'")\],.;:]+$/g, '')).filter((t) => (t.includes('/') || /\.[A-Za-z0-9]{1,6}$/.test(t)) && !/^https?:/.test(t)))]
+}
+const covers = (decl, f) => decl === f || (decl.endsWith('/') && f.startsWith(decl)) || (decl.includes('*') && new RegExp('^' + decl.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$').test(f))
+/** changed: [{filename, previous_filename?, status, additions, deletions, patch?}] */
+export function scopeProblems(body, changed) {
+  const decl = declaredFiles(body)
+  if (!decl.length) return ['변경 범위: 본문 `변경 파일:`에서 파일 경로를 읽지 못함 — 실제 변경 파일을 줄이나 쉼표로 적어야 함']
+  const real = changed.filter((c) => !RECORD_SKIP.test(c.filename))
+  const names = (c) => [c.filename, c.previous_filename].filter(Boolean)
+  const out = []
+  const undeclared = real.filter((c) => !names(c).some((n) => decl.some((d) => covers(d, n)))).map((c) => c.filename)
+  if (undeclared.length) out.push(`변경 범위: 본문에 없는 파일을 바꿈(${undeclared.length}개) — ${undeclared.slice(0, 6).join(', ')}${undeclared.length > 6 ? ' …' : ''}. 범위를 넓히려면 본문 범위·변경 파일을 먼저 고쳐 알린다`)
+  const all = changed.flatMap(names)
+  const phantom = decl.filter((d) => !d.endsWith('/') && !d.includes('*') && !all.includes(d) && !RECORD_SKIP.test(d))
+  if (phantom.length) out.push(`변경 범위: 본문에 적었지만 실제로 바뀌지 않은 파일 — ${phantom.slice(0, 6).join(', ')}`)
+  return out
+}
+const NEW_CHECKER = (c) => c.status === 'added' && (/^\.github\/workflows\/.+\.ya?ml$/.test(c.filename) || (/^scripts\/(?:[^/]+\/)*[^/]*(?:check|audit|verify|guard|gate|inspect)[^/]*\.m?[jt]s$/.test(c.filename) && !/\.test\.m?[jt]s$/.test(c.filename)))
+const isTestOrData = (f) => /(?:\.test\.|\.fixtures?\.|\.fixture\.|\/tests?\/|\/fixtures?\/)/.test(f) || /\.(?:md|json|sql|ya?ml|txt|csv)$/.test(f)
+/** 지운 것/합친 것 칸을 실제 변경과 대조한다. */
+export function mergeLineProblems(body, changed) {
+  const v = fieldOf(body, '지운 것\\/합친 것')
+  if (v === null || !v.trim()) return ['지운 것/합친 것: 칸 없음(없으면 "없음 — 이유")']
+  const real = changed.filter((c) => !RECORD_SKIP.test(c.filename))
+  const deleted = real.reduce((n, c) => n + (c.status === 'removed' ? Math.max(c.deletions, 1) : c.deletions || 0), 0)
+  const none = /^없음(?:$|[\s—(,.:-])/.test(v.trim())
+  const out = []
+  const newCheckers = real.filter(NEW_CHECKER).map((c) => c.filename)
+  if (none) {
+    const reason = v.trim().replace(/^없음[\s—\-:(,.]*/, '').replace(/\s+/g, '')
+    if (reason.length < 6) out.push('지운 것/합친 것: "없음"에 이유가 없음(없음 — 이유)')
+    // 새 검사기·워크플로를 더하는데 기존 어떤 것과 비교했는지(파일 경로나 #번호)가 없으면 '없음'을 인정하지 않는다
+    if (newCheckers.length && !(/[\w.-]+\/[\w./-]+/.test(v) || /#\d+/.test(v))) out.push(`지운 것/합친 것: 새 검사기·워크플로(${newCheckers.slice(0, 3).join(', ')})를 더하는데 기존 어떤 검사와 비교했는지(파일 경로나 #번호) 없이 "없음"`)
+  } else if (deleted < 1) out.push('지운 것/합친 것: 지우거나 합쳤다고 적었지만 실제 변경에 삭제된 줄·파일이 없음(추가만 있음)')
+  return out
+}
+/** 공고 번호·id 비교 같은 개별 예외를 코드에 더하는 줄(CLAUDE.md 우선 원칙 8: 공고 번호 예외 금지). 시험·자료·문서는 제외. */
+export const JOB_EXCEPTION = [/\b(?:job_?id|jobId|job\.id|\bid)\s*(?:===?|!==?)\s*['"]?(?:sb-)?\d{3,}\b/, /['"]sb-\d{3,}['"]/, /\b(?:case)\s+['"]?(?:sb-)?\d{4,}['"]?\s*:/]
+export function exceptionProblems(body, changed, resolveRef = () => false) {
+  const hits = []
+  for (const c of changed) {
+    if (isTestOrData(c.filename) || !/\.(?:[mc]?[jt]sx?|py)$/.test(c.filename) || !c.patch) continue
+    for (const line of c.patch.split('\n')) {
+      if (!line.startsWith('+') || line.startsWith('+++')) continue
+      const t = line.slice(1).trim()
+      if (/^(?:\/\/|\*|\/\*|#)/.test(t)) continue
+      if (JOB_EXCEPTION.some((re) => re.test(t))) { hits.push(`${c.filename}: ${t.slice(0, 80)}`); break }
+    }
+  }
+  if (!hits.length) return []
+  const why = fieldOf(body, '예외 근거')
+  const refs = [...String(why ?? '').matchAll(/#(\d+)|결정\s*(\d{4})/g)]
+  if (refs.length && refs.some((m) => resolveRef(m[1] ? { issue: Number(m[1]) } : { decision: m[2] }))) return []
+  return [`공고 번호·id 예외를 코드에 더함(CLAUDE.md 우선 원칙 8) — 근거 없이는 차단: ${hits.slice(0, 3).join(' | ')}. 틀(공통 함수·이름 규칙)로 고치거나 본문에 \`- 예외 근거: #이슈 또는 결정 NNNN\`(실제 있는 기록)을 적는다`]
+}
+/** 같은 파일을 최근 14일 안에 '고침' 제목 PR이 3번 이상 바꿨으면 구조 변경 검토 대상으로 표시한다(차단 아님). */
+export function repeatedFiles(fixCounts, files) {
+  return files.filter((f) => !isTestOrData(f) && (fixCounts[f] ?? 0) >= 3).map((f) => ({ file: f, count: fixCounts[f] }))
 }
 
 if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
@@ -158,8 +243,16 @@ if (process.argv[1]?.endsWith('check-pr-ready.mjs')) {
   // 확인한 기록(#666): 목록은 검사가 GitHub에서 직접 찾는다. 못 읽으면 통과시키지 않는다(우회 방지).
   try {
     const api = (path) => JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/${path}`], { encoding: 'utf8' }))
-    const files = execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/pulls/${pr.number}/files?per_page=100`, '--paginate', '--jq', '.[].filename'], { encoding: 'utf8' }).split('\n').filter(Boolean)
-    const required = recentPrsFor({ files, self: pr.number, api })
+    const changed = execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/pulls/${pr.number}/files?per_page=100`, '--paginate', '--jq', '.[] | {filename, previous_filename, status, additions, deletions, patch} | @json'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+    const files = changed.map((c) => c.filename)
+    const stats = { fixCounts: {} }
+    const required = recentPrsFor({ files, self: pr.number, api, stats })
+    // R3: 변경 범위·지운 것/합친 것·공고 번호 예외 대조, 반복 수정 표시
+    const resolveRef = (r) => { try { if (r.issue) { api(`issues/${r.issue}`); return true } return readdirSync('docs/decisions/ko').some((f) => f.startsWith(r.decision + '-')) } catch { return false } }
+    errors.push(...scopeProblems(body, changed), ...mergeLineProblems(body, changed), ...exceptionProblems(body, changed, resolveRef))
+    const repeated = repeatedFiles(stats.fixCounts, files)
+    for (const r of repeated) console.log(`::warning::구조 변경 검토 필요: ${r.file}을(를) 최근 14일 '고침' PR ${r.count}건이 바꿨다 — 예외를 더하기 전에 방법을 바꾸는 안(무엇을 지우고 바꿀지·잃는 것)을 PR 댓글로 남긴다(CLAUDE.md 우선 원칙 8)`)
+    if (repeated.length && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### 구조 변경 검토 필요\n${repeated.map((r) => `- ${r.file}: 최근 14일 고침 PR ${r.count}건`).join('\n')}\n`)
     if (required.length) console.log('확인한 기록 대상: ' + required.map((r) => `#${r.num}(${r.why})`).join(', '))
     errors.push(...recordProblems(body, required))
   } catch (e) { errors.push(`${RECORD_HEADING}: 최근·진행 중 PR 목록을 못 읽음 — ${String(e.message).split('\n')[0]}`) }
