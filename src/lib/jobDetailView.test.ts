@@ -1,6 +1,6 @@
 import type { Job } from '../types/job.ts'
 import { JOB_SECTIONS } from '../data/jobSchema.ts'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, jobSectionId, deadlineBadge, jobTags, shiftLabel, weekendLabel, contactOf, salaryPeriodLabel, isGenericCompanyName, JOB_TABS, tabOfSection, benefitList, isKcnLevelText } from './jobDetailView.ts'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, jobSectionId, deadlineBadge, isJobOpen, jobTags, shiftLabel, weekendLabel, contactOf, salaryPeriodLabel, isGenericCompanyName, JOB_TABS, tabOfSection, benefitList, isKcnLevelText } from './jobDetailView.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -58,4 +58,8 @@ assert(contactOf({ employerPhone: '0901', zalo: '0902' }).zalo === '0902', 'own 
 assert(isGenericCompanyName('Nhà tuyển dụng Facebook') && isGenericCompanyName('') && isGenericCompanyName('Nhà Tuyển Dụng Ẩn Danh'), 'placeholder company names')
 assert(!isGenericCompanyName('Công ty TNHH Samsung') && !isGenericCompanyName('Nhà hàng Hoa Sen'), 'real company names are not generic')
 
+// 모집 중 기준(공개 조회·목록 공통): 상시·마감 당일은 열림, 하루라도 지나면 닫힘
+assert(isJobOpen(null, '2026-11-14') && isJobOpen('', '2026-11-14') && isJobOpen(undefined, '2026-11-14'), '마감일 없음(상시)은 모집 중')
+assert(isJobOpen('2026-11-14', '2026-11-14') && isJobOpen('2026-11-14T00:00:00Z', '2026-11-14'), '마감 당일은 모집 중')
+assert(!isJobOpen('2026-11-13', '2026-11-14'), '마감 지난 공고는 모집 중이 아님')
 console.log('jobDetailView.test.ts: all assertions passed')

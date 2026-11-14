@@ -1,3 +1,10 @@
+## 2026-11-14 — 공개 여부 쓰기 정리: OCR 재공개 삭제 + 마감 공고 공개 조회 제외 (#728 R4 4단계, Lee 확정 범위)
+- 요청: Lee 2026-11-14 4단계 수정 범위 확정 — ① OCR 중복 재공개 정리(불일치 보류는 유지) ② 재공개는 검사표만, DB 트리거 보호 유지 ③ keepExisting 죽은 코드·주석 정리 ④ 마감 공고를 공개 조회에서도 제외(관리자 숨김·크론은 그대로) ⑤ 검사 범위·화면 구성 불변.
+- 근거 [직접 확인, 폐기용 PGlite]: OCR의 active=true는 검사 기록이 없거나 옛 내용·미통과면 트리거가 되돌림(kept_hidden_by_trigger), 검사표가 통과시킨 뒤에만 성공 → 실제 공개 판정은 검사표. 내림→OCR ok→검사표 통과로 다시 공개되는 경로도 확인.
+- 변경: ocr-check.mjs 재공개 블록·ocr-compare.mjs canRepublish/OCR_REPUBLISH_FROM·그 시험 삭제(OCR은 내리기만, 정적 시험 추가). jobInspect.ts publishDecision의 죽은 keepExisting 삭제(동작 불변: 실패 시 내림). jobDetailView.isJobOpen 한 곳(마감 당일 열림, 베트남 날짜) → fetchJobsData(목록·검색·지도·상세·SSR·sitemap 공통 입구)와 급구·저장·최근 본 화면의 따로 쓰던 비교를 합침.
+- 지운 것/합친 것: OCR 재공개 블록·canRepublish(공개 조건 사본), keepExisting, 화면 3곳의 UTC 날짜 마감 비교를 isJobOpen 하나로.
+- 남은 문제: 운영 마감 크론 등록·실행 상태와 운영 API 응답은 직접 확인 못 함. DB 변경 없음.
+
 ## 2026-11-13 — R2 검증·승인 통제: 자동 병합이 needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 전엔 안 합침 (#728, Lee 승인)
 - 요청: Lee 2026-11-13 "자동 병합 승인 통제 강화" — needs-lee 라벨 PR 자동 병합 금지, 기존 승인 기준 변경 자동 감지, 라벨 누락·Claude 답글로 우회 불가, 기존 봇·검사기 수정.
 - 변경 [직접 확인]: decision-approval-gate가 결정 문서 외에 승인된 PC 화면 틀(test-desktop-baseline 잠금 파일 8개)·needs-lee 라벨도 현재 head Lee 승인(리뷰·LEE-APPROVE·화면 틀/라벨은 LEE-DEMO-APPLY 첫 줄) 없으면 병합 안 함(#792, 0421c1a). 원격 위반 PR #793(라벨)·#794(잠금 파일)이 Claude 답글이 있어도 봇 run 43376173892에서 '승인 대기 — 병합 안 함'.

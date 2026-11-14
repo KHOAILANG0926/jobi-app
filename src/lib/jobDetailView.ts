@@ -18,6 +18,11 @@ export function todayVn(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now)
 }
 
+/** 모집 중인가 — 마감일 없음(상시)이거나 마감일이 오늘(베트남 시간) 이후. 마감 당일은 열려 있다(알림 RPC·검사표 publishDecision·마감 크론과 같은 기준). 공개 조회와 목록 화면이 이 한 곳을 쓴다. */
+export function isJobOpen(deadline: string | null | undefined, today: string = todayVn()): boolean {
+  return !deadline || String(deadline).slice(0, 10) >= today
+}
+
 export type DeadlineBadge = { label: string; tone: 'soon' | 'normal' | 'expired' } | null
 
 /** D-day 배지. 마감일 없음(상시 모집)은 배지 없음. 3일 이내=soon. */

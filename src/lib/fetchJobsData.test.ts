@@ -42,3 +42,21 @@ assert(requests.filter(r=>r.table==='job_work_locations').every(r=>r.ids.length<
 const sourceFailed = await fetchJobsData(paginatedClient(true))
 assert(sourceFailed.jobsError && sourceFailed.jobs.length===0,'source read error fails closed rather than showing missing pins')
 console.log('fetchJobsData: canonical pagination, bounded batches, no overlays, source failure checks passed')
+
+// 마감 지난 공고는 공개 조회에서 뺀다(상시·마감 당일은 포함). 마감 크론은 하루 한 번이라 그 사이를 이 기준이 메운다.
+function deadlineClient(): SupabaseClient {
+  const row = (id: number, application_deadline: string | null) => ({ id, title: `T${id}`, company: 'C', location: 'L', description: '', application_deadline })
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
+  return { from(table: string) {
+    let start = 0
+    const chain = { select() { return chain }, eq() { return chain }, order() { return chain }, in() { return chain }, range(from: number) { start = from; return chain },
+      then(resolve: (v: unknown) => unknown) {
+        if (table === 'job_work_locations') return resolve({ data: [], error: null })
+        return resolve({ data: start === 0 ? [row(1, null), row(2, '2000-01-01'), row(3, today)] : [], error: null })
+      } }
+    return chain
+  } } as unknown as SupabaseClient
+}
+const dl = await fetchJobsData(deadlineClient())
+assert(dl.jobs.map((j) => j.id).sort().join(',') === 'sb-1,sb-3', 'expired deadline is excluded; no-deadline and deadline-today stay public')
+console.log('fetchJobsData: expired deadline exclusion passed')

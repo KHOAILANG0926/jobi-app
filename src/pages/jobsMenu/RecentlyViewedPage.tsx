@@ -6,6 +6,7 @@ import JobsTable, { type JobsTableRow } from '../../components/JobsTable'
 import { useJobs } from '../../context/JobsContext'
 import { clearViewHistory, loadViewHistory, removeFromViewHistory, type ViewHistoryEntry } from '../../lib/viewHistoryStorage'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../../lib/jobsListView'
+import { isJobOpen } from '../../lib/jobDetailView'
 import type { Job } from '../../types/job'
 
 function formatViewedAt(iso: string): string {
@@ -66,12 +67,11 @@ export default function RecentlyViewedPage() {
     }
   }, [])
 
-  const todayStr = new Date().toISOString().slice(0, 10)
 
   const combinedRows = useMemo<HistoryRow[]>(() => {
     return history.map((entry) => {
       const job = jobs.find((j) => j.id === entry.id)
-      const isOpen = !!job && (!job.applicationDeadline || job.applicationDeadline >= todayStr)
+      const isOpen = !!job && isJobOpen(job.applicationDeadline)
       return {
         entry,
         job,
@@ -96,7 +96,7 @@ export default function RecentlyViewedPage() {
             },
       }
     })
-  }, [history, jobs, todayStr])
+  }, [history, jobs])
 
   const filteredRows = useMemo(() => {
     return combinedRows

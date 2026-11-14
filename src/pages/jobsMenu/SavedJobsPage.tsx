@@ -11,6 +11,7 @@ import { formatDeadlineVi } from '../../lib/jobUtils'
 import { fetchKoreaJobs } from '../../lib/koreaJobsApi'
 import { formatKoreaSalary, koreaJobDisplayLocation, koreaJobDisplayTitle, koreaSavedId, parseKoreaSavedId } from '../../lib/koreaJobFormat'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../../lib/jobsListView'
+import { isJobOpen } from '../../lib/jobDetailView'
 import type { Job } from '../../types/job'
 import type { KoreaJob } from '../../types/koreaJob'
 
@@ -137,7 +138,7 @@ export default function SavedJobsPage() {
   const combinedRows = useMemo<SavedRow[]>(() => {
     const rows: SavedRow[] = []
     for (const job of resolved) {
-      const isOpen = !job.applicationDeadline || job.applicationDeadline >= todayStr
+      const isOpen = isJobOpen(job.applicationDeadline)
       rows.push({
         key: job.id,
         status: isOpen ? 'open' : 'closed',

@@ -28,6 +28,7 @@ import {
   type DayCode,
   type TimeBucket,
 } from '../../lib/workScheduleParse'
+import { isJobOpen } from '../../lib/jobDetailView'
 import type { Job, JobCategory } from '../../types/job'
 
 const ProvinceMap = lazy(() => import('../../components/region/ProvinceMap'))
@@ -472,12 +473,11 @@ export default function UrgentJobsPage() {
   // 모집 중인 급구만: 급구(urgent)라도 지원 마감일이 이미 지났으면 급구 목록에서
   // 제외한다(SavedJobsPage의 "모집 중/마감" 판정과 동일 기준 — 마감일이 없으면
   // 상시 모집으로 보고 포함).
-  const todayStr = new Date().toISOString().slice(0, 10)
   // 2026-11-03 Lee "급구가 아니라 지역별로 바꾸는 게 맞아" — 급구 공고만이 아니라
   // 모집 중인 모든 공개 공고를 지역으로 고르는 페이지(알바몬 "지역별 알바정보").
   const openJobs = useMemo(
-    () => jobs.filter((j) => !j.applicationDeadline || j.applicationDeadline >= todayStr),
-    [jobs, todayStr],
+    () => jobs.filter((j) => isJobOpen(j.applicationDeadline)),
+    [jobs],
   )
   // 옛 동 → 지금 동 공식 대응표(약 0.9MB)는 이 페이지에서만 따로 불러온다. 오기 전에는 옛 군/구 기준
   // 후보로 판정하고, 도착하면 다시 판정한다.
