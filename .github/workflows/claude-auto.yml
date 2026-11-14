@@ -114,7 +114,7 @@ jobs:
             echo "stop=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
           # 왕복 횟수 = Claude 답 댓글 수. 답 작성자는 codex-review-gate.mjs REPLY_AUTHORS와 같은 계정만(Codex #566 P2).
-          n=$(gh api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" --jq '.[] | select((.user.login == "claude[bot]" or .user.login == "KHOAILANG0926") and (.body | contains("<!-- claude-codex-reply -->"))) | .id' | wc -l)
+          n=$(gh api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" --jq '.[] | select((.user.login == "claude[bot]" or .user.login == "viecganban-bot") and (.body | contains("<!-- claude-codex-reply -->"))) | .id' | wc -l)
           if [ "$n" -ge 5 ]; then
             gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="Codex 검사와 Claude 수정이 5번 넘게 오갔습니다. 자동 대응을 멈추고 Lee 확인 목록에 올립니다." >/dev/null
             gh api -X POST "repos/$REPO/issues/$PR/labels" -f 'labels[]=needs-lee' >/dev/null || true

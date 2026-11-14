@@ -1,6 +1,6 @@
 // AI 팀 검사관 대기(Lee 2026-11-08 "팀을 만들자"): Claude가 만든 PR은 GPT Codex 검사를 거친 뒤 봇이 병합한다.
 // 판정(현재 head 커밋 기준):
-//  - Codex 검사가 이 커밋에 아직 없음 → 커밋 후 WAIT_MIN분까지 기다림(Codex가 한도 초과로 답하면 바로). 넘으면 Claude 검토관(2026-11-11) → 그것도 없으면 일반 파일만 진행.
+//  - Codex 검사가 이 커밋에 아직 없음 → 커밋 후 WAIT_MIN분까지 기다림(Codex가 한도 초과로 답하면 바로). 넘으면 Claude 검토관(2026-11-11) → 그것도 없으면 다시 부르고, 3번 실패하면 그 PR 보류(S3-2: 검토 없는 병합 없음).
 //    단(Lee 2026-11-09): 이 PR의 예전 커밋 Codex 지적에 Claude 답이 없으면 진행 안 함(답 없이 새 커밋만 올려 대기 시간으로 넘어가는 것 차단),
 //    운영·보안·DB 파일(check-repository-policy.mjs needsSecondReview)이 바뀐 PR은 두 번째 눈(Codex 또는 Claude 검토관) 없이 진행 안 함.
 //    Codex는 승인자가 아니라 의견이다(Lee 2026-11-11): Codex가 없어도 Claude 검토관으로 끝까지 간다. Lee 확인으로 넘기지 않는다.
@@ -39,7 +39,8 @@ export const fallbackRequests = (comments, sha) => comments.filter((c) => String
   && String(c.body ?? '').startsWith(`${FALLBACK_REQUEST} ${sha}`)).map((c) => c.created_at).sort()
 export const FALLBACK_MAX_TRIES = 3
 export const REPLY_MARKER = '<!-- claude-codex-reply -->'
-export const REPLY_AUTHORS = new Set(['claude[bot]', 'KHOAILANG0926'])
+// S3-2(#808): 답 표시는 AI 계정(claude[bot]·작업 계정 viecganban-bot)만 단다. Lee 계정은 빼서 'AI가 Lee 계정으로 답한 것'과 섞이지 않게 한다.
+export const REPLY_AUTHORS = new Set(['claude[bot]', 'viecganban-bot'])
 // 진짜 Codex 검사관 봇 계정만(Codex #566 지적: 이름에 codex가 든 아무 계정이나 인정하면 가짜 요약으로 통과 가능).
 export const CODEX_LOGIN = 'chatgpt-codex-connector[bot]'
 export const isCodex = (u) => String(u?.login ?? '') === CODEX_LOGIN && (u?.type === undefined || u.type === 'Bot')
@@ -88,13 +89,13 @@ export function codexGate({ reviews, reviewComments, comments, sha, headDate, fi
     if (!asked.length) return { ok: false, needFallback: true, reason: `${why} — Claude 검토관 요청` }
     const askedMin = (new Date(now) - new Date(asked.at(-1))) / 60000
     if (askedMin < FALLBACK_WAIT_MIN) return { ok: false, reason: `${why} — Claude 검토관 대기(${Math.floor(askedMin)}/${FALLBACK_WAIT_MIN}분)` }
-    // 검토관이 결과를 못 냄: 일반 파일은 기존 검사만으로 진행. 운영·보안·DB 파일은 두 번째 눈 없이 넣지 않고 검토관을 다시 부른다
-    // (Lee에게 넘기지 않음 — Lee가 판단할 단계가 아님). FALLBACK_MAX_TRIES번 다 실패하면 장치 고장으로 보고 이슈로 알린다.
+    // 검토관이 결과를 못 냄(S3-2, #808 Lee 2026-11-14 결정 7①): 검토 없는 병합은 없다 — 어떤 파일이든 검토관을 다시 부르고,
+    // FALLBACK_MAX_TRIES번 다 실패하면 그 PR만 보류하고 장치 고장으로 알린다(다른 PR·작업은 계속). Lee 확인으로 넘기지 않는다.
+    // (예전에는 일반 파일이면 기존 검사만으로 진행했다 — 2026-11-11 규칙, 결정 7①로 대체)
     const risky = files.filter(needsSecondReview)
-    if (!risky.length) return { ok: true, reason: `${why}, Claude 검토관도 결과 없음 — 일반 파일이라 기존 검사만으로 진행` }
-    const list = `${risky.slice(0, 3).join(', ')}${risky.length > 3 ? ' 외' : ''}`
-    if (asked.length < FALLBACK_MAX_TRIES) return { ok: false, needFallback: true, reason: `${why} — 운영·보안·DB 파일(${list})이라 Claude 검토관 다시 요청(${asked.length + 1}/${FALLBACK_MAX_TRIES})` }
-    return { ok: false, reviewerBroken: true, reason: `${why} — Claude 검토관 ${FALLBACK_MAX_TRIES}번 결과 없음(장치 고장): 운영·보안·DB 파일(${list}) 병합 보류` }
+    const list = risky.length ? ` 운영·보안·DB 파일(${risky.slice(0, 3).join(', ')}${risky.length > 3 ? ' 외' : ''}) 포함` : ''
+    if (asked.length < FALLBACK_MAX_TRIES) return { ok: false, needFallback: true, reason: `${why} — Claude 검토관 다시 요청(${asked.length + 1}/${FALLBACK_MAX_TRIES})${list}` }
+    return { ok: false, reviewerBroken: true, reason: `${why} — Claude 검토관 ${FALLBACK_MAX_TRIES}번 결과 없음(장치 고장): 검토 없는 병합 금지, 이 PR 보류${list}` }
   }
   // 줄 지적은 처음 단 커밋(original_commit_id) 기준 — GitHub은 새 커밋이 와도 줄이 그대로면 commit_id를 최신으로 옮겨서,
   // 이미 고친 예전 지적이 새 커밋 지적처럼 보여 병합이 멈췄다(2026-11-09 #581).
