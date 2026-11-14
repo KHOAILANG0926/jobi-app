@@ -107,6 +107,16 @@ jobs:
             git fetch -q origin "$ref" && git checkout -q -B "check-$pr" "origin/$ref"
             if npm ci --no-audit --no-fund >/dev/null 2>&1 && npx tsc --noEmit && npm test >/dev/null 2>&1 && npm run build >/dev/null 2>&1; then
               echo "수리 PR #$pr 사전 검사 통과 — 필수 검사·독립 검토 뒤 병합 실행기가 병합"
+              # 검토관 지적(#814): 수리 PR에 필수 검사가 안 돌면 병합 실행기가 영원히 건너뛴다 — 조용히 멈추지 않게,
+              # head 커밋에 'checks' 실행이 30분 넘게 없으면 수집 멈춤 이슈에 한 번 알린다(병합은 여전히 검사 통과 뒤에만).
+              head=$(gh pr view "$pr" --repo "$REPO" --json headRefOid,updatedAt --jq '.headRefOid')
+              n=$(gh api "repos/$REPO/commits/$head/check-runs?check_name=checks" --jq '.total_count')
+              age=$(( $(date +%s) - $(date -d "$(gh api "repos/$REPO/commits/$head" --jq .commit.committer.date)" +%s) ))
+              if [ "$n" = 0 ] && [ "$age" -gt 1800 ] && ! gh pr view "$pr" --repo "$REPO" --json comments --jq '.comments[].body' | grep -q "<!-- repair-no-checks ${head:0:7} -->"; then
+                gh pr comment "$pr" --repo "$REPO" --body "<!-- repair-no-checks ${head:0:7} -->
+            이 수리 PR 커밋(${head:0:7})에 필수 검사가 30분 넘게 시작되지 않았습니다 — 병합되지 않습니다. 검사 시작 경로를 확인해야 합니다."
+                num=$(issue_for "$(echo "$title" | awk '{print $2}')"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "수리 PR #$pr 에 필수 검사가 시작되지 않아 병합 대기 중입니다(자동으로 안 풀림, AI 팀 확인 필요)."
+              fi
             else
               gh pr comment "$pr" --repo "$REPO" --body "자동 검사 실패(tsc·시험·빌드 중 하나) — 병합하지 않음. 다음 수리 시도에서 다시 봅니다."
               gh pr close "$pr" --repo "$REPO"
