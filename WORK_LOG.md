@@ -1,3 +1,10 @@
+## 2026-11-14 — 직업분류 게이트(publication-gate)에서 비밀키 검증 분리 (#728 R4, Draft·승인 전 적용 금지)
+- 원인 [직접 확인]: occupation-publication-check.yml이 PR마다 ai-reader.test.mjs(ANTHROPIC_API_KEY 필요)를 돌림 → 포크 PR에는 Secrets가 없어 키 없음으로 실패(로컬 재현 rc=1). 코드 오류가 아니라 키 경로 설계 문제. publication-gate는 필수 검사 이름(required-checks-pass.jq)이라 포크 PR이 병합 못 함.
+- 변경: ① publication-gate는 비밀키 없는 회귀 시험만(Secret 참조 0). ② 키가 필요한 AI 판독 교정은 새 ai-reader-calibration.yml(push master·주 1회·workflow_dispatch만, pull_request 트리거 없음, 의존성 설치 없음). ③ scripts/ci/ai-reader-guard.mjs가 판독 입력(ai-reader·시험·ocr-compare·정답 포스터)을 바꾼 PR은 그 head 커밋의 workflow_dispatch 교정 성공 실행이 있어야 통과(같은 이름 PR 실행·다른 커밋·실패는 불인정). 입력이 안 바뀐 PR은 통과하되 master 교정 결과를 이 PR의 검증으로 세지 않음. ④ 가드 스크립트를 두 번째 검토 대상 파일 목록에 추가.
+- 지운 것/합친 것: publication-gate의 키 필요 단계 삭제(교정 워크플로로 이동, 같은 시험 파일 재사용). 새 검사기 대신 기존 check-run 조회(gh api)·필수 이름 시험 구조를 따름.
+- 보안 영향: PR 코드·의존성에 키 노출 없음(기존에는 같은 저장소 PR이 PR 코드로 키를 받았음 — 이제 사람이 diff를 본 뒤 dispatch할 때만). workflow_dispatch는 쓰기 권한자만 실행. GitHub 환경(Environment) 승인 보호는 설정 변경이라 Lee 결정 사항.
+- 남은 문제: 원본 Actions 결과 미확인(포크에서 읽을 수 없음). 판독 입력을 바꾸는 포크 PR은 원본 브랜치로 옮겨 dispatch가 필요(승인 필요).
+
 ## 2026-11-13 — R2 검증·승인 통제: 자동 병합이 needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 전엔 안 합침 (#728, Lee 승인)
 - 요청: Lee 2026-11-13 "자동 병합 승인 통제 강화" — needs-lee 라벨 PR 자동 병합 금지, 기존 승인 기준 변경 자동 감지, 라벨 누락·Claude 답글로 우회 불가, 기존 봇·검사기 수정.
 - 변경 [직접 확인]: decision-approval-gate가 결정 문서 외에 승인된 PC 화면 틀(test-desktop-baseline 잠금 파일 8개)·needs-lee 라벨도 현재 head Lee 승인(리뷰·LEE-APPROVE·화면 틀/라벨은 LEE-DEMO-APPLY 첫 줄) 없으면 병합 안 함(#792, 0421c1a). 원격 위반 PR #793(라벨)·#794(잠금 파일)이 Claude 답글이 있어도 봇 run 43376173892에서 '승인 대기 — 병합 안 함'.
