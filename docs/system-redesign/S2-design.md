@@ -19,10 +19,10 @@
 | # | 경로 | 현재 증거 | 차단·통합 위치 | 실패 시 안전 상태 | 기존 기능 영향 | 시험 |
 |---|---|---|---|---|---|---|
 | P1 | 사람·AI 계정 수동 병합이 결정 승인·검토 판정을 거치지 않음 | F5: 두 판정이 `bot-pr-automerge.yml:117,132`에만 있음 [직접 확인] | 두 판정을 필수 검사 **`merge-gate`** 잡으로 이동, 브랜치 보호 필수 목록에 추가 | `merge-gate` 실패·미실행 = 병합 버튼 잠김 | 봇 판정과 같은 규칙, 위치만 바뀜 | 결정 문서 PR·needs-lee PR·검토 없는 PR이 `merge-gate` 실패로 막히는지(시험용 Draft PR, 병합 시도 없음) + 기존 `*.test.mjs` 유지 |
-| P2 | `crawl-guard` ⑤가 `[자동수리]` PR을 자체 검사 후 `gh pr merge` | F8, `crawl-guard.yml:103-108` [직접 확인] | ⑤를 "GitHub 자동 병합 켜기"로 교체 — 병합은 `merge-gate` 포함 필수 검사가 결정 | 필수 검사 실패면 PR 대기 + 기존 '수집 멈춤' 이슈 알림 | 수리 병합이 검토 시간(수 분)만큼 늦어짐 | 자동수리 PR 하나를 Draft로 만들어 `merge-gate`가 도는지 |
+| P2 | `crawl-guard` ⑤가 `[자동수리]` PR을 자체 검사 후 `gh pr merge` | F8, `crawl-guard.yml:103-108` [직접 확인]. 주석은 "Claude 수리 PR은 자동 검사가 안 돈다"고 하나, 같은 claude-code-action(claude[bot])이 #809에 올린 커밋 7f219c7·6ff8865·9723209에서는 pr-checks·app-screen·guard가 실제로 돌았다 [직접 확인 check-runs] → 주석이 옛 상태일 가능성 [추정] | ① S3에서 `[자동수리]` PR 하나로 필수 검사가 도는지 먼저 확인 ② 돌면 ⑤를 "GitHub 자동 병합 켜기"로 교체 ③ 안 돌면 crawl-guard가 그 PR에 필수 검사를 `workflow_dispatch`로 부른 뒤 자동 병합(병합은 여전히 보호 설정이 결정) | 필수 검사 실패·미실행이면 PR 대기 + 기존 '수집 멈춤' 이슈 알림(영원히 대기하지 않게 6시간 뒤 이슈에 표시 — 기존 재시도 주기) | 수리 병합이 검토 시간만큼 늦어짐 | 시험: "자동수리 PR이 필수 검사를 받고 `merge-gate` 통과 뒤 병합되는지"(Draft로 검사 실행만 확인, 병합 시험은 S3 승인 뒤) |
 | P3 | 커스텀 병합 봇 자체(꺼짐) | F2 [직접 확인] | P1 완료 후 제거, GitHub 기본 자동 병합 하나로 | 봇이 없으면 아무것도 자동 병합 안 됨(현재와 같음) | 15분 주기·데모 적용 판정은 `merge-gate`로 이동 | 이동 전후 같은 PR 집합에 같은 판정이 나오는지 비교 실행 |
 | P4 | 검토 시간 초과 시 일반 파일 **검토 없이** 진행 | G10, `codex-review-gate.mjs` 12분+20분 [직접 확인] | `merge-gate`에서 '검토 없음 = 실패'로 바꿈. 시간 초과 시 Claude 검토관을 **다시 부르기**만 함(최대 3번, 기존 값) | 3번 실패 → 그 PR만 needs-lee 이슈, 나머지 작업 계속 | Codex가 없어도 Claude 검토관이 있으면 기존처럼 진행 | Codex 한도 초과 PR에서 Claude 검토 결과 없이는 `merge-gate`가 실패하는지 |
-| P5 | `LEE-APPROVE`·`LEE-DEMO-APPLY` 댓글, `검증장치-승인` 라벨을 AI가 만들 수 있음 | G5·G9, F11(Lee 열쇠 자동 사용 3회) [직접 확인] | Lee 열쇠 제거(2절) 뒤에는 Lee 계정 댓글 = Lee 본인. 라벨 승인은 폐지하고 결정 문서와 같은 Lee 리뷰·댓글로 | 승인 확인 실패 = 병합 잠김 | 데모 "적용" 흐름은 그대로(Lee 계정 댓글) | Lee 아닌 계정이 단 `LEE-APPROVE`가 무시되는지(기존 시험 확장) |
+| P5 | `LEE-APPROVE`·`LEE-DEMO-APPLY` 댓글, `검증장치-승인` 라벨을 AI가 만들 수 있음 | G5·G9, F11(Lee 열쇠 자동 사용 3회) [직접 확인] | Lee 열쇠 제거(2절) 뒤에는 Lee 계정 댓글 = Lee 본인. 라벨 승인은 폐지하고 결정 문서와 같은 Lee 리뷰·댓글로 | 승인 확인 실패 = 병합 잠김 | **데모 "적용" 흐름이 바뀐다**: 지금은 작업자가 Lee 계정으로 `LEE-DEMO-APPLY`를 대신 달 수 있었지만(CLAUDE.md AI 팀 절, `bot-pr-automerge.yml:129`는 Lee 로그인 댓글만 인정), 열쇠를 지우면 작업자는 달 수 없다 → 7절 Lee 결정 항목 6으로 올림. CLAUDE.md·RULES_CORE 문구 수정은 S3 작업에 포함 | Lee 아닌 계정이 단 `LEE-APPROVE`가 무시되는지(기존 시험 확장) |
 | P6 | 운영 DB 쓰기 수동 실행 6개가 실행자·브랜치 제한 없음 | F14 [직접 확인 grep] | 각 잡에 `if: github.ref == 'refs/heads/master'` + DB 비밀값을 **GitHub Environment `production`**(master만 허용)으로 이동 | 브랜치에서 실행 = 비밀값 없음 → 실패(쓰기 안 됨) | master에서 실행하던 기존 사용법은 그대로 | 브랜치에서 실행 시 비밀값이 비어 실패하는지(쓰기 없는 점검 모드) |
 | P7 | 옛 작업 브랜치 push가 DB 비밀값으로 실행: `admin-operations`(`codex/admin-operations`)·`p0-foundation`(`codex/p0-foundation-security`) | [직접 확인] yml `push.branches` + `SUPABASE_SERVICE_ROLE_KEY` | 1회용이면 제거, 필요하면 master 전용 + Environment | 위와 같음 | 8월 이후 실행 없음 — 영향 없음 [직접 확인 실행 기록] | 제거 전 참조 grep |
 | P8 | `vercel-deploy`가 `demo/**` 브랜치 push에서 `SUPABASE_DB_URL`·`VERCEL_TOKEN`으로 실행(브랜치의 워크플로 파일이 쓰임) | [직접 확인] | demo 실행 잡에서 DB 비밀값 제거(필요하면 읽기 전용 열쇠), 배포 열쇠는 Preview 전용 범위 | 데모 빌드만 실패, 운영 영향 없음 | 데모 링크 흐름 유지 확인 필요 | demo 브랜치 빌드가 DB 열쇠 없이 되는지 |
@@ -169,6 +169,7 @@ PR(봇 계정, Draft로 시작) → 필수 검사 checks·guard·app-screen(+pub
 3. 보호 필수 목록에 `merge-gate` 추가, 저장소 자동 병합 켜기 — S3.
 4. (선택) Gemini Code Assist GitHub 앱 설치 — 개인 설치 경로 확인 뒤 결정.
 5. Environment `production` 만들기·비밀값 옮기기 — S4.
+6. **데모 "적용" 방식 결정**(P5): 열쇠를 지우면 Lee가 채팅에서 "적용"이라고 해도 AI가 GitHub에 Lee 이름으로 표시할 수 없다. 선택지 ① Lee가 휴대폰 GitHub 앱에서 그 PR의 승인 버튼 1번 ② 봇이 "Lee 채팅 적용" 기록 댓글을 달고 화면 틀 PR도 그것으로 인정(AI가 대신 승인하는 구조라 위조 위험을 받아들이는 것). S3 전에 Lee가 고른다.
 
 ## 8. 미확인 항목과 확인 경로
 
