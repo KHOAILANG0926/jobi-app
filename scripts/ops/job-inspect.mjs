@@ -33,6 +33,8 @@ try {
     (await client.query(`select brand_id,alias,is_primary from public.job_brand_aliases where active`)).rows)
   const selectJobs = (where) => client.query(`
     select public.job_inspect_content_hash(j) as content_hash, (coalesce((j.ocr_check->>'inspect_hold')::boolean, false)
+             -- OCR이 공개 중이던 공고를 내린 표지(ocr-check-write.mjs): OCR이 검사표보다 먼저 정상으로 돌아와도 되살린다(Codex P1, #728 R4)
+             or coalesce((j.ocr_check->>'ocr_hold')::boolean, false)
              -- 검사 실패로 내린 공고도 다시 통과하면 되살린다(관리자가 직접 내린 공고는 해당 없음)
              or exists (select 1 from jsonb_array_elements(coalesce(j.ocr_check->'inspect'->'items', '[]'::jsonb)) i
                         where i->>'key' = 'public' and i->>'detail' = '검사 실패로 비공개 보류')) as hold,
@@ -111,12 +113,13 @@ try {
     // 공개되거나 관리자가 숨기면 제거(소유자가 직접 내린 공고는 hold가 없어 애초에 범위 밖).
     const keepHold = ['employer', 'legacy'].includes(job.origin) && !d.active && !job.admin_hidden
     const recorded = await client.query(`update public.local_jobs
-      set ocr_check = (case when $5::boolean then coalesce(ocr_check, '{}'::jsonb) else coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold' end) || jsonb_build_object('inspect', $2::jsonb),
+      set ocr_check = (case when $5::boolean then coalesce(ocr_check, '{}'::jsonb) else coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold' end
+                       - case when $3::boolean or $6::boolean then 'ocr_hold' else '' end) || jsonb_build_object('inspect', $2::jsonb),   -- OCR 내림 표지는 다시 공개되거나 관리자가 숨기면 지운다
           active = $3::boolean
       where id = $1 and public.job_inspect_content_hash(local_jobs) = $4
         and (origin in ('crawler','admin') or coalesce(ocr_check->>'inspect_hold', '') = 'true')   -- 읽은 뒤 소유자가 철회(hold 제거)했으면 덮어쓰지 않는다(Codex #797)
       returning active`,
-      [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold])
+      [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold, !!job.admin_hidden])
     if (recorded.rowCount !== 1) {
       console.warn(`#${job.id} 검사 중 공고 내용 변경: 다음 실행에서 재검사`)
       continue

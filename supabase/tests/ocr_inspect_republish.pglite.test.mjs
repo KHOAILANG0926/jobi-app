@@ -78,6 +78,35 @@ try {
   assert.equal(s.active, true, '검사표가 통과시키면 다시 공개')
   assert.equal(s.publishable, 'true')
 
+  // Codex P1(4ff6fae): OCR이 공개 공고를 내린 뒤 검사표가 돌기 전에 OCR이 다시 ok가 되면(검사표 호출 없음) 재공개가 끊기던 사례
+  await db.query(ocrCheckUpdateSql(true), [1, 'poster text', JSON.stringify({ status: 'mismatch', reader: 'ai-v1' })])
+  assert.equal((await state()).active, false, 'OCR 불일치로 내림')
+  await db.query(ocrCheckUpdateSql(false), [1, 'poster text', JSON.stringify({ status: 'ok', reader: 'ai-v1' })])   // 검사표 없이 바로 정상 복구
+  assert.equal((await state()).active, false, 'OCR은 직접 올리지 않는다')
+  s = await inspect()
+  assert.equal(s.active, true, '검사표 없이 복구돼도 OCR이 내린 공고는 다음 검사표가 다시 공개')
+  assert.equal((await db.query(`select ocr_check ? 'ocr_hold' as has from public.local_jobs where id = 1`)).rows[0].has, false, '다시 공개되면 OCR 내림 표지는 지워짐')
+
+  // OCR 불일치가 이미 비공개였던 공고(소유자 철회 등)를 건드려도 그 공고를 되살리는 표지를 만들지 않는다
+  await db.query(`update public.local_jobs set active = false where id = 1`)
+  await db.query(ocrCheckUpdateSql(true), [1, 'poster text', JSON.stringify({ status: 'mismatch', reader: 'ai-v1' })])
+  await db.query(ocrCheckUpdateSql(false), [1, 'poster text', JSON.stringify({ status: 'ok', reader: 'ai-v1' })])
+  s = await inspect()
+  assert.equal(s.active, false, '다른 이유로 이미 내려간 공고는 OCR 복구만으로 검사표가 되살리지 않음(기존 공고 보호)')
+  await db.query(`update public.local_jobs set active = true where id = 1`)   // 다음 시험을 위해 공개 상태로(트리거: 검사 기록이 지금 내용과 같아 허용)
+
+  // OCR이 내린 뒤 관리자가 숨기면 OCR 복구·검사 통과여도 되살리지 않고, OCR 내림 표지도 지운다
+  await db.query(ocrCheckUpdateSql(true), [1, 'poster text', JSON.stringify({ status: 'mismatch', reader: 'ai-v1' })])
+  await db.query(`update public.local_jobs set admin_hidden = true where id = 1`)
+  await db.query(ocrCheckUpdateSql(false), [1, 'poster text', JSON.stringify({ status: 'ok', reader: 'ai-v1' })])
+  s = await inspect()
+  assert.equal(s.active, false, 'OCR이 내린 뒤 관리자가 숨긴 공고는 되살리지 않음')
+  assert.equal((await db.query(`select ocr_check ? 'ocr_hold' as has from public.local_jobs where id = 1`)).rows[0].has, false, '관리자 숨김이면 OCR 내림 표지를 지움(숨김을 풀어도 저절로 되살아나지 않음)')
+  await db.query(`update public.local_jobs set admin_hidden = false where id = 1`)
+  s = await inspect()
+  assert.equal(s.active, false, '관리자가 숨김을 풀어도 표지가 없으면 검사표가 혼자 올리지 않음')
+  await db.query(`update public.local_jobs set active = true where id = 1`)
+
   // 관리자가 숨긴 공고는 검사표가 되살리지 않는다
   await db.query(`update public.local_jobs set active = false, admin_hidden = true where id = 1`)
   s = await inspect()
