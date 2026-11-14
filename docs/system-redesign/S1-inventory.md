@@ -29,6 +29,10 @@
 | F8 | `crawl-guard.yml:103-108`은 `[자동수리]` PR을 **자체 tsc·test·build만 돌리고 `gh pr merge`로 병합**한다 — 병합 봇·Codex 대기·결정 승인 검사를 거치지 않는 두 번째 병합 경로. | [직접 확인] 코드. 보호 설정(필수 검사) 때문에 실제로 병합에 성공하는지는 **[확인 못 함]** |
 | F9 | VPS(자체 러너) 워크플로 8개 중 `korea-fb-research`·`vps-diag`가 대기(queued) 또는 취소만 반복한다. | [직접 확인] 최근 실행 목록. 러너 상태 API는 이 세션 프록시에서 막힘(403) → 러너 꺼짐은 **[추정]** |
 | F10 | 등록만 남고 파일이 지워진 워크플로 43개(probe-*, diag-* 등). 실행되지 않으므로 위험은 없고 목록만 지저분하다. | [직접 확인] |
+| F11 | Lee 계정 열쇠 `CODEX_TRIGGER_TOKEN`이 **지금도 Secrets에 있고 자동으로 쓰인다**. 이 PR에서 claude-auto codex-response(run 43602587543)가 대체 검토 지적을 고쳐 커밋(7f219c7)한 뒤 Lee 계정으로 `@codex review`를 달았다(14:02:50Z, 로그 "Codex 재검토 요청: 7f219c7"). #803 권장안(AI가 닿는 Lee 열쇠 제거)은 아직 적용되지 않았다. 이번 작업은 열쇠를 바꾸지 않았다. | [직접 확인] 실행 기록·로그 |
+| F12 | Draft를 해제하자 문서 1개만 바꾼 PR도 필수 `checks`가 실패했다: `check-pr-ready.mjs` "READY FOR APPROVAL만 선택해야 함"(44894b0, 13:40:38Z). | [직접 확인] check-run 주석 |
+| F13 | 과거 오류 자동 추적: ① `check-pr-ready.mjs repeatedFiles` — 같은 파일을 14일 안 '고침' PR 3번 이상이면 **경고만**(차단 아님) ② 수집 `crawl-guard` — 같은 원인 3건 연속 실패 시 그 소스 멈춤→자동수리 PR→재개(수집에만) ③ claude-auto — Codex↔Claude 왕복 5번 넘으면 멈추고 needs-lee. **수집 밖 오류를 원인별로 기록·재발 차단하는 공통 장치는 없다**(CLAUDE.md "같은 원인 2회 실패 멈춤"은 문서 규칙). | [직접 확인] `check-pr-ready.mjs:225-228,264-265`, `crawl-guard.yml:3,67`, `claude-auto.yml:97-115` |
+| F14 | 자동 검증이 돌지 않는 경로: 운영 DB 열쇠를 쓰는 수동 실행 워크플로 중 `ops-insert-job`·`ops-publish-jobs`·`company-code-assign`·`company-reread`·`job-repair-preview`·`location-ladder-compare` 등은 **실행자·브랜치 제한이 없다**(`ops-run-sql`만 Lee+master 제한, `admin-location-confirm`·`auto-location`은 master 제한). 쓰기 권한 계정(봇 포함)은 PR 검토 없이 실행할 수 있고, 브랜치에서 실행하면 그 브랜치의 워크플로 파일이 쓰인다. 실제로 악용 가능한지는 시험하지 않았다(금지). | [직접 확인] `grep github.actor/github.ref` 결과. 브랜치 실행 시 Secrets 접근은 GitHub 동작 **[기존 지식, 이 저장소에서 미시험]** |
 
 ## 2. 개발 관리 장치 분류 (핵심)
 
@@ -37,7 +41,7 @@
 | # | 장치 (파일) | 현재 역할 | 실행 상태 | 분류 | 이유·제거 시 영향 | 대체 필요 |
 |---|---|---|---|---|---|---|
 | G1 | `pr-checks.yml` → 잡 `checks` (필수) | tsc·npm test·build + 정책 검사 30여 단계 한 잡 | 2230회, 최근 ok26/fail4 | **수정** | 치명 검사(타입·시험·빌드·비밀)와 문서 형식 검사가 한 잡에 섞여, 형식 문제로도 필수 검사가 빨개진다. 빼면 모든 안전망이 사라지므로 잡은 유지하고 내용만 나눈다. | 아니요(분리만) |
-| G2 | `scripts/check-pr-ready.mjs` | PR 본문 4개 제목·"요청/완료 조건/변경 파일" 줄·후속 과제 #번호·검증 SHA 형식 검사(Draft 제외) | `checks` 안 | **수정(완화)** | 거짓 완료 보고를 막는 목적은 유효. 이 검사는 두 부분이다: ⓐ **형식**(4개 제목·줄 존재·후속 과제 #번호·SHA 형식) ⓑ **정책 차단**(`scopeProblems` 신고 안 한 파일 변경, `mergeLineProblems` 지운 것/합친 것 보고, `exceptionProblems` 근거 없는 공고 번호 예외, `photoProcessPrProblems` 사진 완료 주장). ⓐ만 경고로 완화 후보, ⓑ는 F4(타입·시험·빌드)로 대체되지 않으므로 **차단 유지**. ⓐ/ⓑ 경계는 S2에서 함수 단위로 나눈다. | 아니요 |
+| G2 | `scripts/check-pr-ready.mjs` | (가) 본문 형식: 4개 제목·요청/완료 조건/변경 파일 줄·후속 과제 #번호·`READY FOR APPROVAL`·검증 SHA (나) 실제 정책 차단: `scopeProblems`(선언 안 한 파일 변경)·`mergeLineProblems`(지운 것/합친 것 보고와 실제 변경 대조)·`exceptionProblems`(근거 없는 공고 번호 예외)·`photoProcessPrProblems`(사진 완료 거짓 주장)·`recordProblems`(최근 같은 파일 PR 확인) (다) 반복 수정 경고(F13). Draft 제외 | `checks` 안, F12 실패 사례 | **수정(나눠서)** | (나)·(다)는 실제 규칙 위반을 막으므로 **유지**. (가) 형식만 완화(경고) 대상 — F12처럼 문서 PR도 형식 하나로 필수 검사가 막힌다. (가)를 내려도 (나)는 F4 타입·시험·빌드로 대체되지 않으니 남겨야 한다(Codex 지적 반영). | 아니요 |
 | G3 | `scripts/check-repository-policy.mjs` | STATUS 보호·비밀파일·파괴적 SQL·원문 URL 노출·회귀 시험 동반·**기대값 변경 근거(낱말 2개 겹침)**·**STRICT 경로 무조건 실패** | `checks` 안 | **수정** | 유지할 부분: STATUS·비밀·파괴적 SQL·원문 URL(실제 위험). 고칠 부분: ① `sourceProblems` 낱말 겹침 판정(뜻을 못 읽는 글자 검사 — 스스로 주석에 "의미는 Codex 몫"이라 적음) ② STRICT 경로(`src/*auth*` 등)는 **승인 경로 없이 실패만** 한다 → 정상 변경도 영원히 못 들어감. 고위험 표시로 바꿔 자동 병합에서만 빼야 함. | 고위험 표시(라벨) |
 | G4 | `scripts/ci/ai-reader-guard.mjs` (잡 `publication-gate`) | 판독자 입력이 바뀐 PR은 원본 저장소에서 같은 head SHA로 교정 실행(workflow_dispatch) 성공 기록이 있어야 통과 | 1286회, 최근 ok18/**fail12** | **수정** | 키를 PR 코드에 주지 않는 보안 목적은 맞음. 포크 PR마다 원본에 임시 브랜치를 만들어 수동 실행해야 해서 #805 같은 병목. 필수 검사 목록에는 없어(F4) 병합을 기술적으로 막지는 않지만 봇 판정에는 걸린다. | 신뢰된 교정 실행을 자동으로 부르는 방식 검토(S2) |
 | G5 | `status-guard.yml` 잡 `guard` (필수) | STATUS.md·status 생성기 보호 | 1448회, ok30 | **유지** | 거짓 보고 방지 핵심(2026-10-11). | — |
@@ -45,7 +49,7 @@
 | G7 | `pr-checks.yml` 잡 `migration-postgres` | 바뀐 migration을 빈 PostgreSQL에 실제 적용 | `pr-checks` 안 | **유지** | DB 변경 안전망. | — |
 | G8 | `bot-pr-automerge.yml` + `scripts/ci/fetch-check-runs.sh`·`required-checks-pass.jq` | 자체 병합 봇(15분마다·이벤트), Codex 대기·결정 승인·데모 적용 판정 후 병합 | **꺼짐**, 4716회 | **중복 통합** | GitHub 기본 자동 병합 + 필수 검사로 대체 가능. 봇 안에만 있는 판정(F5)은 필수 검사로 옮겨야 함 — 그냥 지우면 결정 승인 검사가 사라진다. | 예: G9·G10을 필수 검사로 |
 | G9 | `scripts/decision-approval-gate.mjs` | 결정 문서 PR은 Lee 승인(head SHA) 있어야 병합 | 봇 안에서만 | **수정(위치 이동)** | 기능 유지, 봇이 아니라 필수 검사에서 돌게. `LEE-APPROVE` 댓글 인정은 AI가 Lee 계정에 닿을 수 있는 동안 위조 가능(#803 GPT 지적) → GitHub 리뷰 승인만 인정 검토. | 필수 검사 |
-| G10 | `scripts/codex-review-gate.mjs` + `codex-wait-timer.yml` + `claude-auto.yml` fallback-review | Codex 12분 대기 → Claude 검토관 20분 → 일반 파일 진행 / 위험 파일은 재요청 | 봇 안에서만, timer 86회 ok15 | **수정** | "검토 기다리다 없으면 **검토 없이 진행**"(12분+20분 뒤 일반 파일 병합 허용)은 이미 있다. 그러나 **병합 뒤 후검토(예약·추적)는 없다** — `codexGate()`는 병합만 허용하고, timer는 봇을 다시 부를 뿐이며, fallback-review는 PR이 open이 아니면 종료한다. 후검토가 S2 요구면 별도 **미구현** 항목. 고칠 점: 봇이 꺼져 쓰이지 않음, Lee 로그인 하드코딩(F7). | 필수 검사로 이동 |
+| G10 | `scripts/codex-review-gate.mjs` + `codex-wait-timer.yml` + `claude-auto.yml` fallback-review | Codex 12분 대기 → Claude 검토관 20분 → 일반 파일 **검토 없이 진행** / 위험 파일은 재요청 | 봇 안에서만, timer 86회 ok15. 대체 검토관은 이 PR에서 실제 작동 확인(run 43602509663, 50초) | **수정** | 있는 것: '시간 초과 시 검토 없이 진행'과 대체 검토관. **없는 것: 병합 후 검토(후검토)** — `codexGate()`는 진행만 허용하고 나중 검토를 예약·추적하지 않으며, fallback-review는 PR이 `open`이 아니면 멈춘다(`claude-auto.yml` 대상 확인). 후검토가 필요하면 S2 신규 항목. 고칠 점: 봇 꺼짐, Lee 로그인 하드코딩(F7). | 필수 검사로 이동 + 후검토는 S2 신규 |
 | G11 | `claude-auto.yml` (4개 잡) | ① 수동 작업 ② Codex 지적 자동 대응 ③ 대체 검토관 ④ 이슈 `@claude` 답 | 1763회, 최근 대부분 skipped | **수정** | ②는 Lee 열쇠 `CODEX_TRIGGER_TOKEN`으로 `@codex review`를 단다 — #803 권장안은 이 열쇠 제거. ④는 AI끼리 이슈 대화의 유일한 자동 경로라 유지. | 열쇠 방향은 R3 결정 따름 |
 | G12 | `scripts/check-approval-scope.mjs` | CODEOWNERS에 결정 문서만 있는지, 결정 ko/en 짝 | `checks` 안 | **유지** | 14줄, Lee 불필요 승인 방지(결정 0003). | — |
 | G13 | `scripts/approved-migrations.mjs` + `.github/approved-migrations.json` | 파괴적 migration 개별 승인 목록 | `checks` 안 | **유지** | 고위험 DB 변경 통로. | — |
@@ -66,10 +70,14 @@
 | 분류 | 대상 | 근거 |
 |---|---|---|
 | **제거 후보** (S2에서 참조 확인 후) | `crawl.yml` (꺼짐, 8월 이후 실패) | [직접 확인] 마지막 2026-08-28 failure |
-| **수정** (러너 확인) | 자체 러너 8개: `crawl-facebook-one`·`korea-fb-research`·`korea-fb-survey`·`vps-diag`·`crawl-chotot-probe`·`crawl-guard`·`vps-clean-old-runner`·`vps-disk-report` | F9 |
-| **점검** (1회용으로 보임) | `p0-foundation`·`admin-operations`(8월 이후 미실행), `local-jobs-privileges-apply`·`occupation-master-apply`(각 1회), `street-center-dryrun`·`job-repair-preview`·`crawl-chotot-probe` | [직접 확인] 실행 횟수. 지워도 되는지는 **[확인 못 함]** |
-| 실패 반복 | `jobcard-integrity`(fail12/30), `job-rules-apply`(fail5/14), `administrative-pin-check`(fail13/26), `admin-location-confirm`(fail6/14) | [직접 확인]. 원인 조사는 이번 범위 밖 — 이슈로 분리 |
-| 유지 | 나머지 | — |
+| **수정** (러너 확인) | 자체 러너 8개: `crawl-facebook-one`·`korea-fb-research`·`korea-fb-survey`·`vps-diag`·`crawl-chotot-probe`·`vps-clean-old-runner`·`vps-disk-report` (+`crawl-guard`, 2절 G20에서 셈) | F9 |
+| **점검** (1회용으로 보임) | `p0-foundation`·`admin-operations`(8월 이후 미실행), `local-jobs-privileges-apply`·`occupation-master-apply`(각 1회), `street-center-dryrun` | [직접 확인] 실행 횟수. 지워도 되는지는 **[확인 못 함]** |
+| **실패 반복** (원인 조사 분리) | `jobcard-integrity`(fail12/30), `job-rules-apply`(fail5/14), `administrative-pin-check`(fail13/26), `admin-location-confirm`(fail6/14) | [직접 확인]. 원인 조사는 이번 범위 밖 — 이슈로 분리 |
+| **수정** (검증 없는 운영 쓰기, F14) | `ops-insert-job`·`ops-publish-jobs`·`company-code-assign`·`company-reread`·`job-repair-preview`·`location-ladder-compare` — 실행자·브랜치 제한 없음 | F14 |
+| **유지** (개발 관리와 연결) | `ai-reader-calibration`(G4의 신뢰된 교정 실행), `migrations-apply`(운영 DB 유일한 적용 경로), `ops-run-sql`(Lee+master 전용, F7) | 코드 |
+| **유지** (업무용) | `admin-line-pick-e2e`·`admin-location-evening-report`·`admin-location-review-e2e`·`android-twa-build`·`android-upload-key-init`·`auto-location`·`brand-logo-watch`·`brand-logo`·`business-search-compare`·`demo-capture`·`desktop-header-proof`·`detail-read`·`dup-count`·`facebook-preview-read`·`fetch-occupation-source`·`job-ocr-check`·`korea-fb-survey-read`·`mobile-screens`·`occupation-gazette-monthly-check`·`occupation-r8-apply`·`occupation-weekly-unclassified`·`refresh-facebook-existing`·`supabase-keepalive` | 실행 기록(부록). 공개 판정 흐름(`job-ocr-check`)의 내부 구조는 #728 범위 |
+
+3절 합계: 제거 후보 1 + 러너 7(crawl-guard 제외) + 점검 5 + 실패 반복 4 + 검증 없는 운영 쓰기 6 + 개발 관리 연결 3 + 업무용 23 = 49. 2절 22 + 3절 49 = 71 (6절 대조).
 
 ## 4. 다음 단계(S2)로 넘길 것
 
@@ -78,6 +86,9 @@
 3. G21: 9개 PR 검사의 시험 파일 단위 중복 대조.
 4. G20: 두 번째 병합 경로 정리.
 5. F4 보호 설정 현재값: 관리자 권한이 필요해 Lee 계정 세션 또는 Lee 화면 확인 필요.
+6. F11 Lee 열쇠 자동 사용, F14 검증 없는 운영 쓰기 경로 — 권한·열쇠 변경이라 설계 승인 뒤 단계에서.
+7. F13 수집 밖 반복 오류 공통 기록·재발 차단 장치(현재는 경고만).
+8. G10 병합 후 검토(후검토)는 기존 기능에 없음 — 필요 여부 결정.
 
 ## 5. S1 완료 조건과 검증 방법
 
@@ -87,6 +98,11 @@
 | 각 판정에 파일 근거가 있다 | 표의 파일·줄 번호 |
 | 실행 상태 숫자가 실제와 같다 | 0절 API로 아무 행이나 다시 조회 |
 | Codex가 이 PR을 실제로 검토했다 | 이 PR의 `chatgpt-codex-connector[bot]` 리뷰·댓글. 봇 계정 `@codex review`에 반응이 없으면 F6 확정으로 기록하고 원인을 이 PR에 남긴다 |
+
+## 6. 분류 대조 결과 (스크립트로 확인)
+
+- 방법: `.github/workflows/*.yml` 71개 파일 이름을 2절 표와 3절 각 줄에서 찾아 센다(파일 이름 경계 일치).
+- 결과 [직접 확인]: 2절 22개, 3절 49개, 2·3절 겹침 1개(`crawl-guard` — 2절 G20에서 세고 3절 러너 줄은 참고 표시), 3절 안 중복 0, 누락 0, 부록 71줄 = 파일 71개.
 
 ## 부록 — 71개 워크플로 실행 기록 (최근 30회)
 
