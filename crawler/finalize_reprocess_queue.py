@@ -3,7 +3,7 @@
 판정은 기존 기록을 읽기만 한다(새 게이트를 만들지 않는다): DB 공개 게이트 R7(images가 있으면 ocr_check.status ok + images_hash 일치, job_posting_rules),
 OCR 검사 기록, 검사표 기록(ocr_check.inspect), R8 직업코드, 핀 보호(pin_guard). 결과는 세 가지다.
  - success  : 공개 중이고 기존 게이트 조건을 지킴(이미지 없는 공고는 OCR 결과를 요구하지 않는다)
- - held     : 비공개이고 기존 게이트가 남긴 실제 차단 사유가 있음 — 대기열에는 blocked + 사유로 남기되 실행은 실패시키지 않는다
+ - held     : 비공개이고 기존 게이트가 남긴 실제 차단 사유(또는 검사표 대기 표지)가 있음 — 대기열에는 blocked + 사유로 남기되 실행은 실패시키지 않는다
  - failure  : 사유 불명 비공개, 공개→비공개 변경, 공개인데 OCR 불일치·해시 불일치, 핀 손실, 제목 이상 — 실행을 실패시킨다
 '비공개였다'는 사실만으로 보류로 보지 않는다. 재처리 전 상태(result.before)는 '재처리가 공개를 내렸는가'를 가리는 데만 쓴다.
 """
@@ -52,6 +52,10 @@ def blocking_reason(current, today=None):
     if inspect.get("publishable") is False:
         failing = [i.get("key") for i in inspect.get("items", []) if i.get("ok") is False and i.get("key") != "public"]
         return "inspect_failed:" + ",".join(str(k) for k in failing[:6])
+    # 검사표 대기(#728 R4): OCR은 다시 공개하지 않고 검사표(job-ocr-check가 30분마다)만 공개한다. 이 workflow는 OCR 뒤 검사표를 돌리지 않으므로,
+    # 검사표가 되살릴 공고(inspect_hold: DB가 공개 시작을 막아 건 표지 / ocr_hold: OCR이 공개 중이던 공고를 내린 표지)가 아직 비공개인 것은 실패가 아니라 대기다.
+    if oc.get("inspect_hold") is True or oc.get("ocr_hold") is True:
+        return "awaiting_inspect"
     return None
 
 

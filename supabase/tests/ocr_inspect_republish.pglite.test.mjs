@@ -25,9 +25,11 @@ create table public.map_r1_unlocated(job_id bigint, reason text);
 create table public.local_jobs (id bigint primary key, origin text, title text default '', company text, contact_name text, salary text, salary_min numeric, salary_max numeric, salary_period text,
   location text, description text, source_text text, ocr_text text, images jsonb default '[]', image_url text, company_domain text, logo_lookup jsonb, employer_phone text, contact_zalo text,
   category text, occupation_code text, hours text, work_days text, age_requirement text, gender_requirement text, education text, preference text, num_hires text, language_requirement text,
-  age_min int, age_max int, required_documents text, shuttle_bus boolean, dormitory boolean, meal_provided boolean, employment_type text, work_period text, application_deadline date,
+  age_min int, age_max int, publish_gate_reason text, recruitment_regions jsonb, required_documents text, shuttle_bus boolean, dormitory boolean, meal_provided boolean, employment_type text, work_period text, application_deadline date,
   active boolean default true, admin_hidden boolean not null default false, ocr_check jsonb, urgent boolean, created_at timestamptz default now(), updated_at timestamptz default now());`)
 for (const f of ['20261101110000_job_inspect_content_hash.sql', '20261101170000_inspect_keep_public.sql', '20261113000000_inspect_gate_employer_legacy.sql']) await db.exec(read(`../migrations/${f}`))
+// 실제 DB 공개 게이트(연락처·근무지 없으면 크롤러 공고 공개 거부) — 함수·트리거 부분만(그 뒤는 규정 표 갱신이라 이 시험 표에 없음). 이 트리거는 거부할 때 inspect_hold를 남기지 않는다.
+await db.exec(read('../migrations/20261101190000_db_publish_gate.sql').split('-- 기존 공고에 계산값을')[0])
 
 const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1' })
 await server.start()
@@ -140,6 +142,24 @@ try {
   await db.query(`update public.local_jobs set active = false where id = 2`)   // 소유자 철회
   await runInspect()
   assert.equal((await db.query(`select active from public.local_jobs where id = 2`)).rows[0].active, false, '소유자가 철회한 공고는 검사 통과여도 검사표가 되살리지 않음')
+
+  // Codex P1(4aaa5bc): 검사표가 active=true를 요청해도 다른 DB 공개 규정(여기서는 연락처 없으면 크롤러 공고 공개 거부)이 막으면 실제 결과는 비공개다.
+  // 그때 OCR 내림 표지를 지우면 원인을 고친 뒤 되살릴 근거가 사라진다 — 실제로 공개된 것이 확인될 때만 지운다.
+  const hasMark = async () => (await db.query(`select ocr_check ? 'ocr_hold' as has from public.local_jobs where id = 1`)).rows[0].has
+  await db.query(ocrCheckUpdateSql(true), [1, 'poster text', JSON.stringify({ status: 'mismatch', reader: 'ai-v1' })])
+  const auditOk = async () => { const h = await hashNow(); await db.query(`update public.local_jobs set ocr_check = ocr_check || jsonb_build_object('screen_audit', jsonb_build_object('content_hash', $1::text, 'ok', true, 'findings', '[]'::jsonb, 'checked_at', now())) where id = 1`, [h]) }   // 화면 대조가 지금 내용을 확인했다는 기록
+  await db.query(`update public.local_jobs set employer_phone = null where id = 1`)   // 원인: 연락처가 비었다(원문에는 번호가 있어 검사표는 통과시킴)
+  await auditOk()
+  await db.query(ocrCheckUpdateSql(false), [1, 'poster text', JSON.stringify({ status: 'ok', reader: 'ai-v1' })])
+  s = await inspect()
+  assert.equal(s.publishable, 'true', '검사표 판정은 통과(공개 요청): ' + s.failing)
+  assert.equal(s.active, false, 'DB 공개 게이트가 거부하면 실제 결과는 비공개')
+  assert.equal(await hasMark(), true, '공개가 실제로 거부됐으면 OCR 내림 표지를 지우지 않는다')
+  await db.query(`update public.local_jobs set employer_phone = $1 where id = 1`, [f.employer_phone])   // 원인 수정
+  await auditOk()
+  s = await inspect()
+  assert.equal(s.active, true, '원인을 고친 뒤 재검사로 정상 공개')
+  assert.equal(await hasMark(), false, '실제로 공개된 뒤에야 OCR 내림 표지를 지움')
 
   // 관리자가 숨긴 공고는 검사표가 되살리지 않는다
   await db.query(`update public.local_jobs set active = false, admin_hidden = true where id = 1`)

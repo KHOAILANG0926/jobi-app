@@ -52,6 +52,17 @@ assert v(job(active=False, ocr_check={"inspect": {"publishable": True, "items": 
 assert v(job(active=False), None) == ("failure", "unexplained_unpublished")                                    # 전 상태 기록이 없어도 사유 없으면 실패
 # 5-1) 과거 실행 43070244676(5994): active는 참인데 admin_hidden이 거짓이 아님 + 전 상태 기록 없음 → 사유를 모르니 실패로 남긴다(보수적)
 assert v(job(active=True, admin_hidden=None), None) == ("failure", "unexplained_unpublished")
+# 5-2) 검사표 대기(#728 R4, Codex P1): OCR은 다시 공개하지 않고 검사표만 공개한다. 재처리 workflow는 OCR 뒤 검사표를 돌리지 않으므로(검사표는 job-ocr-check가 30분마다),
+#      OCR이 정상으로 끝났어도 검사표 표지(inspect_hold·ocr_hold)가 남은 비공개 공고는 '검사표 대기'로 보류한다 — 정상 공고를 실패로 세지 않는다.
+ok_ocr = {"status": "ok", "images_hash": f.images_hash(IMGS)}
+stale_pass = {"publishable": True, "items": [{"key": "public", "ok": True}]}   # 옛 검사 기록(통과) — 검사표가 다시 돌기 전
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "inspect_hold": True, "inspect": stale_pass}), PRIVATE_BEFORE) == ("held", "awaiting_inspect")
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "inspect": stale_pass}), PRIVATE_BEFORE) == ("held", "awaiting_inspect")
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "inspect": stale_pass}), PRIVATE_BEFORE) == ("failure", "unexplained_unpublished")   # 표지가 없으면 여전히 사유 불명(실패)
+assert v(job(active=False, images=IMGS, ocr_check={"status": "mismatch", "ocr_hold": True}), PRIVATE_BEFORE) == ("held", "r7_mismatch")          # OCR 불일치는 그대로 구체적 사유
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True}), PUBLIC_BEFORE) == ("failure", "unpublished_by_reprocess")      # 재처리가 공개를 내린 것은 그대로 실패
+assert v(job(active=False, images=IMGS, admin_hidden=True, ocr_check={**ok_ocr, "ocr_hold": True}), PRIVATE_BEFORE) == ("held", "admin_hidden")
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "inspect": {"publishable": False, "items": [{"key": "pin", "ok": False}]}}), PRIVATE_BEFORE) == ("held", "inspect_failed:pin")
 # 6) 공개에서 비공개로 바뀜 — 사유가 있어도 재처리가 내린 것이면 실패
 assert v(job(active=False, occupation_code=None), PUBLIC_BEFORE) == ("failure", "unpublished_by_reprocess")
 assert v(job(active=False), PUBLIC_BEFORE) == ("failure", "unpublished_by_reprocess")
@@ -111,6 +122,12 @@ db2, err2 = run_with(q2, jobs2)
 assert err2 == "1 jobs failed title/R7/publication verification", err2
 got2 = {i: p["error"] for i, p in db2.updates}
 assert got2 == {1: None, 2: "unpublished_by_reprocess", 3: "held:no_occupation_code"}, got2
+
+# 검사표 대기 공고는 대기열에 blocked + held:awaiting_inspect로 남고 실행은 빨간불이 되지 않는다(실제 verdict()·대기열 상태 변경까지)
+await_job = job(active=False, images=IMGS, ocr_check={"status": "ok", "images_hash": f.images_hash(IMGS), "inspect_hold": True, "inspect": {"publishable": True, "items": []}})
+db4, err4 = run_with([{"id": 11, "job_id": 11, "result": {"pins_before": [], **PRIVATE_BEFORE}}], {11: await_job})
+assert err4 is None, err4
+assert db4.updates[0][1]["status"] == "blocked" and db4.updates[0][1]["error"] == "held:awaiting_inspect" and db4.updates[0][1]["result"]["verdict"] == "held", db4.updates
 
 # 이미지 있는 공개 공고의 OCR 불일치는 실행 전체를 실패시킨다
 db3, err3 = run_with([{"id": 9, "job_id": 9, "result": {"pins_before": []}}], {9: job(images=IMGS, ocr_check={"status": "mismatch"})})

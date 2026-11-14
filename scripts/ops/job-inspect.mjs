@@ -8,7 +8,7 @@ import { appendFileSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, INFO_ONLY, SCREEN_WAIT } from '../../src/lib/jobInspect.ts'
 import { afterCutoff } from './auto-cutoff.mjs'
-import { INSPECT_RECORD_SQL } from './job-inspect-write.mjs'
+import { INSPECT_RECORD_SQL, CLEAR_OCR_HOLD_SQL } from './job-inspect-write.mjs'
 import { SCREEN_CANDIDATES } from './screen-collect.mjs'
 import { photoSource } from '../../src/lib/logoLookup.ts'
 import { assembleBrands } from '../../src/lib/brandRows.ts'
@@ -119,6 +119,8 @@ try {
       console.warn(`#${job.id} 검사 중 공고 내용 변경: 다음 실행에서 재검사`)
       continue
     }
+    // 실제로 공개된 것이 확인된 뒤에만 OCR 내림 표지를 지운다(트리거가 거부하면 표지를 남겨 원인 수정 뒤 다시 공개되게).
+    if (recorded.rows[0].active) await client.query(CLEAR_OCR_HOLD_SQL, [job.id])
     // 다른 공개 규정(R4·R7·R8 트리거)이 공개를 막았으면 기록도 실제 상태로 맞춘다.
     if (recorded.rows[0].active !== d.active) {
       const pub = items.find((i) => i.key === 'public')
