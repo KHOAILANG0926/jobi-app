@@ -5,12 +5,15 @@ on:
     branches: [master]
 permissions:
   contents: read
+  actions: read
 jobs:
   publication-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -27,11 +30,24 @@ jobs:
           node supabase/tests/job_duplicate_check.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node supabase/tests/ocr_check_merge.pglite.test.mjs
+          node scripts/ci/ai-reader-guard.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
       - name: OCR republish follows the same occupation rule
         run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
-      - name: Independent AI reader calibration (real posters #4824, #4828)
+      # AI 판독 교정 시험은 ANTHROPIC_API_KEY가 필요해 이 PR 검사에서 실행하지 않는다(포크 PR에는 Secrets가 없고, PR 코드에 키를 주지 않는다).
+      # 그 시험은 신뢰된 코드만 실행하는 ai-reader-calibration.yml이 맡는다. 판독 입력을 바꾼 PR은 아래 확인이 그 head 커밋의 교정 실행 성공을 요구한다.
+      - name: AI reader inputs guard (keyless)
+        if: github.event_name == 'pull_request'
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # 변경 목록: -z·--no-renames — 이름 바꾸기·특수문자 파일명으로 판독 입력 경로를 숨기지 못하게
+          git diff -z --no-renames --name-only "$BASE_SHA" HEAD > changed-files.bin
+          gh api "repos/${REPO}/actions/workflows/ai-reader-calibration.yml/runs?head_sha=${HEAD_SHA}&event=workflow_dispatch&per_page=100" > calibration-runs.json || echo '{"workflow_runs":[]}' > calibration-runs.json
+          # 가드는 기준(base) 커밋의 사본으로 실행한다 — PR이 가드를 고쳐 통과시키지 못하게(기준에 아직 없을 때만 PR 사본)
+          if git cat-file -e "$BASE_SHA:scripts/ci/ai-reader-guard.mjs" 2>/dev/null; then git show "$BASE_SHA:scripts/ci/ai-reader-guard.mjs" > "$RUNNER_TEMP/ai-reader-guard.mjs"; else cp scripts/ci/ai-reader-guard.mjs "$RUNNER_TEMP/ai-reader-guard.mjs"; fi
+          node "$RUNNER_TEMP/ai-reader-guard.mjs" changed-files.bin calibration-runs.json
