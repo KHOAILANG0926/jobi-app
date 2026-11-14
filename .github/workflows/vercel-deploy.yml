@@ -68,6 +68,7 @@ jobs:
             st=$(gh api "repos/${{ github.repository }}/deployments/$d/statuses?per_page=1" --jq '.[0].state // ""'); [ "$st" = success ] && { prod_id=$d; break; }; done
           [ -n "$prod_id" ] || { echo "go=1" >> "$GITHUB_OUTPUT"; exit 0; }
           prod=$(gh api "repos/${{ github.repository }}/deployments/$prod_id" --jq .sha)
+          echo "prod=$prod" >> "$GITHUB_OUTPUT"
           url=$(gh api "repos/${{ github.repository }}/deployments/$prod_id/statuses?per_page=1" --jq '.[0].environment_url // ""')
           echo "url=$url" >> "$GITHUB_OUTPUT"
           if [ "$prod" = "$(git rev-parse HEAD)" ]; then echo "go=0" >> "$GITHUB_OUTPUT"; echo "same=1" >> "$GITHUB_OUTPUT"; exit 0; fi
@@ -96,6 +97,14 @@ jobs:
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then gh workflow run deploy-verify.yml --repo "${{ github.repository }}" --ref master; fi
           # PC 헤더 운영 검사도 같은 때 한 번(#586, Codex #597 지적: 검사·자동화만 바뀐 병합도 검사를 받게).
           if [ "$GITHUB_REF" = refs/heads/master ]; then gh workflow run desktop-header-proof.yml --repo "${{ github.repository }}" --ref master; fi
+      # S3-5(#808, Lee 2026-11-14 승인): DB 변경이 들어간 커밋은 운영 DB 적용(migrations-apply)이 성공한 뒤에만 운영 배포한다.
+      # 예전에는 병합 봇이 이 순서를 지켰지만(bot-pr-automerge) 봇이 꺼진 뒤 사람·계정 병합은 두 작업이 따로 돌아 순서가 보장되지 않았다.
+      # 운영 버전 이후 migration 파일을 바꾼 마지막 커밋을 포함하는 migrations-apply 실행이 성공해야 진행. 실패·시간 초과 = 배포 보류(닫힌 실패).
+      - name: DB 변경 먼저 (migration 성공 확인 뒤에만 운영 배포)
+        if: steps.need.outputs.go == '1' && github.ref == 'refs/heads/master'
+        env:
+          PROD: ${{ steps.need.outputs.prod }}
+        run: REPO="${{ github.repository }}" bash scripts/ci/wait-migration-before-deploy.sh
       - uses: actions/setup-node@v4
         if: steps.need.outputs.go == '1'
         with:
