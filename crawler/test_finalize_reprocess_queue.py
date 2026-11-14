@@ -75,16 +75,19 @@ assert v(job(title="")) == ("failure", "title_unverified")
 
 # 9) 실제 실행 경로: 가짜 DB로 f.run()을 돌려 종료 동작과 대기열 기록을 본다(과거 실패 실행의 공고 상태).
 class SQ:   # 상태·필터를 지키는 가짜 DB — 여러 번 실행하는 대기열 상태 전이 시험(아래 11)도 같은 것을 쓴다
-    def __init__(self, db, name): self.db, self.name, self.filters, self.op, self.payload = db, name, {}, "select", None
+    def __init__(self, db, name): self.db, self.name, self.filters, self.op, self.payload, self.lo, self.hi = db, name, {}, "select", None, 0, None
     def select(self, *_a): return self
     def eq(self, k, val): self.filters[k] = val; return self
     def order(self, *_a): return self
-    def limit(self, *_a): return self
+    def limit(self, n): self.lo, self.hi = 0, n - 1; return self      # 서버처럼 limit·range가 실제로 결과를 자른다(50건 제한 시험, Codex P1)
+    def range(self, lo, hi): self.lo, self.hi = lo, hi; return self
     def single(self): self.op = "single"; return self
     def update(self, payload): self.op, self.payload = "update", payload; return self
     def _rows(self): return [r for r in self.db.queue if all(r.get(k) == val for k, val in self.filters.items())]
     def execute(self):
-        if self.name == "job_reprocess_queue" and self.op == "select": return types.SimpleNamespace(data=[dict(r) for r in self._rows()])
+        if self.name == "job_reprocess_queue" and self.op == "select":
+            rows = self._rows()
+            return types.SimpleNamespace(data=[dict(r) for r in (rows[self.lo:] if self.hi is None else rows[self.lo:self.hi + 1])])
         if self.name == "job_reprocess_queue" and self.op == "update":
             hit = self._rows()
             for r in hit: r.update(self.payload)
@@ -202,3 +205,24 @@ sdb3 = DB(sq3, sjobs); assert run_db(sdb3)[1] is None and (sq3 := sdb3.queue)[0]
 sjobs[23] = job(title="검사 실패", active=False, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": False, "items": [{"key": "pin", "ok": False}]}})
 assert run_db(sdb3)[1] is None and sq3[0]["error"] == "held:inspect_failed:pin", sq3[0]
 print("finalize_reprocess_queue: 대기열 상태 전이(검사표 대기 → 공개 success / 실제 실패 사유 / 다른 보류는 그대로) 시험 통과")
+
+# 12) 검사표 대기가 50건을 넘어도(Codex P1, finalize 98행) 앞 50건이 계속 대기 중이면 뒤쪽 공고가 이미 공개돼도 success로 못 가던 것 — 전체를 페이지 단위로 훑는다.
+big_jobs, big_q = {}, []
+for n in range(100, 151):   # 51건: 앞 50건은 계속 대기, 51번째(150)만 검사표가 공개
+    big_jobs[n] = job(title=f"대기 {n}", active=False, images=IMGS, ocr_check={**ok_img, "inspect_hold": True, "inspect": {"publishable": True, "items": []}})
+    big_q.append({"id": n, "job_id": n, "status": "blocked", "error": "held:awaiting_inspect", "result": {"pins_before": [], **PRIVATE_BEFORE}})
+big_jobs[150] = job(title="대기 150", active=True, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": True, "items": []}})
+bdb = DB(big_q, big_jobs)
+assert run_db(bdb)[1] is None
+by_id = {r["id"]: r for r in bdb.queue}
+assert (by_id[150]["status"], by_id[150]["error"]) == ("success", None), f"51번째 대기 항목이 success로 전이되지 못함: {by_id[150]}"
+assert all((by_id[n]["status"], by_id[n]["error"]) == ("blocked", "held:awaiting_inspect") for n in range(100, 150)), "앞 50건은 아직 대기 — 기록 그대로"
+assert [i for i, _ in bdb.updates] == [150], bdb.updates   # 대기 중인 앞 50건은 쓰지 않는다(갱신 없음)
+# 앞 50건 중 일부가 공개되거나 실제 실패해도 그 항목만 바뀌고 나머지 대기는 유지된다(기존 처리 로직 유지)
+big_jobs[103] = job(title="대기 103", active=True, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": True, "items": []}})
+big_jobs[120] = job(title="대기 120", active=False, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": False, "items": [{"key": "pin", "ok": False}]}})
+assert run_db(bdb)[1] is None
+by_id = {r["id"]: r for r in bdb.queue}
+assert by_id[103]["status"] == "success" and by_id[120]["error"] == "held:inspect_failed:pin", (by_id[103], by_id[120])
+assert sum(1 for r in bdb.queue if r["error"] == "held:awaiting_inspect") == 48
+print("finalize_reprocess_queue: 검사표 대기 50건 초과 페이지 순회 시험 통과")

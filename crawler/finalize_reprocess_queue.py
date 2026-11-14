@@ -89,13 +89,28 @@ def verdict(current, item_result, pin_problems, today=None):
     return "failure", "unexplained_unpublished"
 
 
+PAGE = 50
+
+
+def awaiting_inspect_items(supabase):
+    """검사표 대기 항목 전부(페이지 단위). 대기 중인 행은 다시 써 주지 않으므로 앞 50건만 보면 계속 대기 중인 앞쪽이 뒤쪽 항목을 가린다(Codex P1) —
+    끝까지 모은 뒤에 처리한다(처리하면서 행이 대기에서 빠져 offset이 밀리는 일을 피함)."""
+    rows, start = [], 0
+    while True:
+        page = (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
+                .eq("status", "blocked").eq("error", "held:" + AWAITING_INSPECT).order("started_at").order("id")
+                .range(start, start + PAGE - 1).execute().data or [])
+        rows += page
+        if len(page) < PAGE: return rows
+        start += PAGE
+
+
 def run():
     from crawl_facebook import supabase
     queue = (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
              .eq("status", "running").order("started_at").limit(50).execute().data or [])
     # 검사표 대기로 보류된 항목은 다시 본다: 검사표(job-ocr-check)가 공개했으면 success로, 진짜 실패 사유가 생겼으면 그 사유로 바꾼다. 아직 대기면 그대로 둔다.
-    queue += (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
-              .eq("status", "blocked").eq("error", "held:" + AWAITING_INSPECT).order("started_at").limit(50).execute().data or [])
+    queue += awaiting_inspect_items(supabase)
     failures = 0
     for item in queue:
         current = (supabase.table("local_jobs").select(
