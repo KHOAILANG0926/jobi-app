@@ -3,6 +3,7 @@
 - 근거 [직접 확인, 폐기용 PGlite]: OCR의 active=true는 검사 기록이 없거나 옛 내용·미통과면 트리거가 되돌림(kept_hidden_by_trigger), 검사표가 통과시킨 뒤에만 성공 → 실제 공개 판정은 검사표. 내림→OCR ok→검사표 통과로 다시 공개되는 경로도 확인.
 - 변경: ocr-check.mjs 재공개 블록·ocr-compare.mjs canRepublish/OCR_REPUBLISH_FROM·그 시험 삭제(OCR은 내리기만, 정적 시험 추가). jobInspect.ts publishDecision의 죽은 keepExisting 삭제(동작 불변: 실패 시 내림). jobDetailView.isJobOpen 한 곳(마감 당일 열림, 베트남 날짜) → fetchJobsData(목록·검색·지도·상세·SSR·sitemap 공통 입구)와 급구·저장·최근 본 화면의 따로 쓰던 비교를 합침.
 - 지운 것/합친 것: OCR 재공개 블록·canRepublish(공개 조건 사본), keepExisting, 화면 3곳의 UTC 날짜 마감 비교를 isJobOpen 하나로.
+- 보강(GPT 검토 5번): 실제 job-inspect.mjs를 PGlite 소켓 서버에 붙여 돌리는 시험 supabase/tests/ocr_inspect_republish.pglite.test.mjs 추가(OCR 불일치→비공개→검사표 통과→재공개, 관리자 숨김 불변). 기존 occupation-publication-check.yml에 한 줄 연결하고 낡은 단계 이름(OCR republish …)을 현재 동작에 맞게 고침.
 - 남은 문제: 운영 마감 크론 등록·실행 상태와 운영 API 응답은 직접 확인 못 함. DB 변경 없음.
 
 ## 2026-11-13 — R2 검증·승인 통제: 자동 병합이 needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 전엔 안 합침 (#728, Lee 승인)

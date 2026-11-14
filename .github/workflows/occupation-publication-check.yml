@@ -16,7 +16,7 @@ jobs:
           node-version: 22
       - name: Real-case publication regression (#4824 pass, #4827 hold, #4828 pass; no production access)
         run: |
-          npm i --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8
+          npm i --no-save --no-audit --no-fund --legacy-peer-deps @electric-sql/pglite@0.5.8 @electric-sql/pglite-socket@0.2.19
           node supabase/tests/occupation_publication.pglite.test.mjs
           node supabase/tests/lee_source.pglite.test.mjs
           node supabase/tests/multi_role_presentation_rules.pglite.test.mjs
@@ -27,9 +27,10 @@ jobs:
           node supabase/tests/job_duplicate_check.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node supabase/tests/ocr_check_merge.pglite.test.mjs
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs supabase/tests/ocr_inspect_republish.pglite.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
-      - name: OCR republish follows the same occupation rule
+      - name: OCR comparison tests (republish is the inspection table's job only; OCR never writes active=true)
         run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
       - name: Independent AI reader calibration (real posters #4824, #4828)
         env:
