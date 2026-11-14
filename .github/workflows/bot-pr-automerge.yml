@@ -62,7 +62,6 @@ jobs:
           set -euo pipefail
           # S3-2(#808, Lee 2026-11-14 결정 6①·7①): 댓글 승인(LEE-APPROVE·LEE-DEMO-APPLY)과 데모 적용 시 검토 생략을 폐지했다.
           # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs), 모든 PR은 독립 검토(Codex 또는 Claude 검토관) 뒤에만 병합(codex-review-gate.mjs).
-          lee_approval=false
           : > codex-wait.txt
           gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName] | @tsv' |
           while IFS=$'\t' read -r num sha branch; do
@@ -180,7 +179,7 @@ jobs:
             fi
           done
           # Codex를 기다리는 PR이 있으면 가장 먼저 대기가 끝나는 시각에 다시 부른다(예약 실행이 빠져도 멈추지 않게, #574).
-          if [ "$lee_approval" != true ] && [ -s codex-wait.txt ]; then
+          if [ -s codex-wait.txt ]; then
             minutes=$(sort -n codex-wait.txt | head -1)
             gh workflow run codex-wait-timer.yml --repo "$REPO" --ref master -f minutes="$minutes" \
               && echo "::notice::Codex 대기 PR: ${minutes}분 뒤 다시 확인" || echo "::warning::다시 확인 예약 실패(예약 실행으로 대신)"
