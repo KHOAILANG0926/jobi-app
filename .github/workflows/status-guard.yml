@@ -8,9 +8,13 @@ on:
     branches: [status]
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  # S3-3(#808): Lee 승인 리뷰가 달리거나 취소되면 다시 판정한다.
+  pull_request_review:
+    types: [submitted, dismissed]
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   guard:
@@ -23,15 +27,18 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'push'
         with:
           fetch-depth: 0
 
       - name: PR의 검증 장치 변경 감지
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'push'
         shell: bash
         env:
-          LEE_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, '검증장치-승인') }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           base="${{ github.event.pull_request.base.sha }}"
@@ -45,13 +52,14 @@ jobs:
           if git cat-file -e "$base:scripts/status/generate-status.mjs" 2>/dev/null; then
             hit=$(echo "$changed" | grep -E '^(scripts/status/|\.github/workflows/status-)' || true)
             if [ -n "$hit" ]; then
-              # Lee가 변경 내용을 보고 PR에 '검증장치-승인' 라벨을 직접 붙여야 통과한다.
-              # 한계: GitHub에서는 AI와 Lee가 같은 계정으로 보여 라벨을 누가 붙였는지 구분할 수 없다.
-              # 그래서 모든 변경은 STATUS.md 8번(검증 장치 변경 이력)에 7일간 경고로 남는다.
-              if [ "$LEE_APPROVED" = "true" ]; then
-                echo "검증 장치 변경: $hit — '검증장치-승인' 라벨 있음, 통과(STATUS.md 8번에 기록됨)"
+              # S3-3(#808, Lee 2026-11-14 결정 6①): 예전 '검증장치-승인' 라벨은 쓰기 권한 계정(AI 포함)이 붙일 수 있어 폐지.
+              # 이 커밋(head)에 대한 Lee 계정의 GitHub 승인 리뷰(Approve)만 인정한다. 조회 실패 = 통과 안 함(닫힌 실패).
+              # 모든 변경은 기존대로 STATUS.md 8번(검증 장치 변경 이력)에 7일간 경고로 남는다.
+              approved=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews?per_page=100" --jq ".[] | select(.user.login == \"KHOAILANG0926\" and .state == \"APPROVED\" and .commit_id == \"$HEAD_SHA\") | .id" | head -1) || approved=""
+              if [ -n "$approved" ]; then
+                echo "검증 장치 변경: $hit — 이 커밋(${HEAD_SHA:0:7})에 Lee 승인 리뷰 있음, 통과(STATUS.md 8번에 기록됨)"
               else
-                echo "::error::이 PR은 검증 장치를 바꿉니다: $hit — Lee가 내용을 확인하고 PR에 '검증장치-승인' 라벨을 붙여야 병합할 수 있습니다."
+                echo "::error::이 PR은 검증 장치를 바꿉니다: $hit — Lee가 내용을 확인하고 이 커밋(${HEAD_SHA:0:7})에 GitHub 승인(Approve)을 해야 병합할 수 있습니다."
                 exit 1
               fi
             fi
