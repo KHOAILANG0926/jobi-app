@@ -117,8 +117,8 @@ jobs:
           gh pr list --repo "$REPO" --state merged --search "\"[자동수리]\" in:title merged:>=$since" --json number,title,mergedAt --jq '.[] | "\(.number)\t\(.mergedAt)\t\(.title)"' | while IFS=$'\t' read -r pr merged title; do {
             [ -z "$pr" ] && continue
             src=$(echo "$title" | awk '{print $2}')
-            # 멈춘 소스이고 이 병합이 아직 기록 안 됐을 때만 한 번(이미 기록됐으면 아무것도 안 함).
-            done_now=$(q "with u as (update public.crawl_source_state set fix_merged_at = '$merged'::timestamptz where source = '$src' and paused and (fix_merged_at is null or fix_merged_at < '$merged'::timestamptz) returning source) select source from u")
+            # 멈춘 소스이고, 이번 멈춤(paused_at) 뒤에 병합된 PR이며, 아직 기록 안 됐을 때만 한 번(재멈춤 전 옛 병합은 무시).
+            done_now=$(q "with u as (update public.crawl_source_state set fix_merged_at = '$merged'::timestamptz where source = '$src' and paused and paused_at < '$merged'::timestamptz and (fix_merged_at is null or fix_merged_at < '$merged'::timestamptz) returning source) select source from u")
             [ -n "$done_now" ] || continue
             gh workflow run job-ocr-check.yml --repo "$REPO" --ref master
             num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 PR #$pr 병합됨 → 사이트 반영 중. 약 15분 뒤 멈춘 공고를 다시 처리합니다."
