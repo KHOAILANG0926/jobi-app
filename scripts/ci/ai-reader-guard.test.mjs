@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { decide, readerInputsChanged, importClosure, CALIBRATION_WORKFLOW_PATH } from './ai-reader-guard.mjs'
+import { decide, readerInputsChanged, importClosure, CALIBRATION_WORKFLOW_PATH, GATE_WORKFLOW_PATH, calibrationWorkflowProblems, gateWorkflowProblems } from './ai-reader-guard.mjs'
 
 const GUARD = fileURLToPath(new URL('./ai-reader-guard.mjs', import.meta.url))
 const SHA = 'a'.repeat(40)
@@ -48,6 +48,8 @@ const put = (p, t) => { mkdirSync(join(dir, p.split('/').slice(0, -1).join('/') 
 try {
   git('init', '-q'); git('config', 'user.email', 'a@b'); git('config', 'user.name', 'a')
   for (const [p, t] of Object.entries(files)) put(p, t)
+  const realWf = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
+  put(GATE_WORKFLOW_PATH, realWf(GATE_WORKFLOW_PATH)); put(CALIBRATION_WORKFLOW_PATH, realWf(CALIBRATION_WORKFLOW_PATH))
   put('test-fixtures/ocr/x.png', 'png'); git('add', '-A'); git('commit', '-qm', 'base')
   const base = git('rev-parse', 'HEAD').trim()
   const runCli = (headLabel, runs = []) => {
@@ -71,29 +73,46 @@ try {
   assert.equal(runCli('indirect-evidence', [{ event: 'workflow_dispatch', status: 'completed', conclusion: 'success' }]), 0, '교정 실행 증거가 있으면 통과')
   assert.equal(runCli('indirect-pr-run', [{ event: 'pull_request', status: 'completed', conclusion: 'success' }]), 1, 'PR 이벤트 실행은 증거가 아님')
   git('reset', '-q', '--hard', base)
+  // 교정 단계 비활성화: 입력과 무관해도 head의 교정·검사 워크플로가 무력화되면(시험 실행 제거·if·실패 무시) 기준 사본 가드가 head 파일을 읽어 막는다
+  put(CALIBRATION_WORKFLOW_PATH, realWf(CALIBRATION_WORKFLOW_PATH).replace('run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs', 'run: echo skipped')); git('add', '-A'); git('commit', '-qm', 'neuter')
+  assert.equal(runCli('neutered'), 1, '교정 시험을 빼 무력화한 워크플로는 입력 변경이 없어도 막힘')
+  git('reset', '-q', '--hard', base)
+  // 증거 위조: 판독 입력 변경 + 무력화한 교정 워크플로 + 그 워크플로로 돈 dispatch 성공 → 증거로 인정하지 않는다
+  put('scripts/ocr/ai-reader.mjs', "import { readFileSync } from 'node:fs' // changed"); put(CALIBRATION_WORKFLOW_PATH, realWf(CALIBRATION_WORKFLOW_PATH).replace('run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs', 'run: echo skipped')); git('add', '-A'); git('commit', '-qm', 'forge')
+  assert.equal(runCli('forged', [{ event: 'workflow_dispatch', status: 'completed', conclusion: 'success' }]), 1, '무력화한 워크플로로 돈 성공 실행은 위조 증거')
+  git('reset', '-q', '--hard', base)
+  // 검사 워크플로에서 가드 호출을 빼거나 PR 사본 가드로 바꿔도 막힘(가드 자체가 돌 때)
+  put(GATE_WORKFLOW_PATH, realWf(GATE_WORKFLOW_PATH).replace(/node "\$RUNNER_TEMP\/ai-reader-guard\.mjs"[^\n]*/, 'node scripts/ci/ai-reader-guard.mjs changed-files.bin calibration-runs.json')); git('add', '-A'); git('commit', '-qm', 'pr-copy')
+  assert.equal(runCli('pr-copy-guard'), 1, '가드를 기준 사본이 아닌 PR 사본으로 실행하게 바꾸면 막힘')
+  git('reset', '-q', '--hard', base)
   // 판독 입력과 무관한 변경은 통과
   put('src/lib/unrelated.ts', 'x'); git('add', '-A'); git('commit', '-qm', 'unrelated')
   assert.equal(runCli('unrelated'), 0)
 } finally { rmSync(dir, { recursive: true, force: true }) }
 
-// ⑥ 정적: PR이 돌리는 publication-gate 워크플로에는 어떤 모양의 Secret 참조도 없고(secrets.X·secrets['X']·toJSON(secrets)·ANTHROPIC), 위험 트리거도 없다
-const strip = (t) => t.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n')
-const noSecret = (t) => !/\bsecrets\b|ANTHROPIC|GITHUB_TOKEN\s*:\s*\$\{\{\s*secrets/i.test(t)
-assert.equal(noSecret("env:\n  K: ${{ secrets['ANTHROPIC_API_KEY'] }}"), false, '대괄호 모양 Secret도 잡음(수정 전 정규식 /secrets\\./는 놓침)')
-assert.equal(noSecret('x: ${{ toJSON(secrets) }}'), false)
-assert.equal(/secrets\./.test("env:\n  K: ${{ secrets['ANTHROPIC_API_KEY'] }}"), false, '재현: 옛 정규식은 대괄호 모양을 놓침')
-const gateRaw = readFileSync(new URL('../../.github/workflows/occupation-publication-check.yml', import.meta.url), 'utf8')
-const gate = strip(gateRaw)
-assert.ok(noSecret(gate), 'publication-gate 워크플로에 Secret 참조가 있으면 안 됨')
-assert.ok(!/ai-reader\.test\.mjs/.test(gate), 'publication-gate는 키가 필요한 AI 판독 시험을 실행하지 않음')
-assert.ok(!/^\s*(?:pull_request_target|workflow_run)\s*:/m.test(gate), 'publication-gate는 pull_request_target·workflow_run 트리거 금지')
-assert.ok(/git show "\$BASE_SHA:scripts\/ci\/ai-reader-guard\.mjs"/.test(gate) && /RUNNER_TEMP\/ai-reader-guard\.mjs/.test(gate), '가드는 기준 커밋의 사본으로 실행')
-assert.ok(/git diff -z --no-renames --name-only/.test(gate), '변경 목록은 -z --no-renames')
-// ⑦ 정적: 교정 워크플로는 PR 이벤트로 돌지 않고(Secret은 신뢰된 실행에서만) 의존성 설치를 하지 않는다
-const cal = strip(readFileSync(new URL('../../.github/workflows/ai-reader-calibration.yml', import.meta.url), 'utf8'))
-const on = cal.slice(cal.indexOf('\non:'), cal.indexOf('\npermissions:'))
-assert.ok(!/^\s*(?:pull_request(?:_target)?|workflow_run)\s*:/m.test(on), '교정 워크플로는 pull_request(_target)·workflow_run 트리거 금지: ' + on)
-assert.ok(/workflow_dispatch/.test(on) && /push:/.test(on) && /schedule:/.test(on))
-assert.ok(!/npm (?:i|ci|install)\b/.test(cal), '교정 워크플로는 의존성을 설치하지 않는다(PR이 바꾼 의존성에 키를 주지 않음)')
-assert.ok(/ANTHROPIC_API_KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}/.test(cal) && /ai-reader\.test\.mjs/.test(cal))
-console.log('ai-reader-guard: 판정·import 그래프·실제 git(이름 바꾸기·특수문자·간접 입력)·가드 사본·Secret 정적 시험 통과')
+// ⑥ 워크플로 무결성 검사기: 실제 두 파일은 통과, 무력화 변형은 각각 잡힌다(PR 검사 경로에 키 없음·교정 시험은 PR 이벤트 없이 실제 실행)
+const readWf = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
+const gateText = readWf(GATE_WORKFLOW_PATH), calText = readWf(CALIBRATION_WORKFLOW_PATH)
+assert.deepEqual(gateWorkflowProblems(gateText), [], '실제 publication-gate 워크플로')
+assert.deepEqual(calibrationWorkflowProblems(calText), [], '실제 교정 워크플로')
+const hit = (fn, text, re, msg) => assert.ok(fn(text).some((x) => re.test(x)), `${msg}: ${JSON.stringify(fn(text))}`)
+hit(gateWorkflowProblems, gateText + "\n          K: ${{ secrets['ANTHROPIC_API_KEY'] }}", /Secret/, '대괄호 Secret')
+assert.equal(/secrets\./.test("K: ${{ secrets['ANTHROPIC_API_KEY'] }}"), false, '재현: 옛 정규식은 대괄호 모양을 놓침')
+hit(gateWorkflowProblems, gateText + '\n  x: ${{ toJSON(secrets) }}', /Secret/, 'toJSON(secrets)')
+hit(gateWorkflowProblems, gateText.replace(/^on:\n/m, 'on:\n  pull_request_target:\n  workflow_run:\n'), /pull_request_target/, '위험 트리거')
+hit(gateWorkflowProblems, gateText + '\n          node scripts/ocr/ai-reader.test.mjs', /AI 판독 시험/, '키 필요한 시험 실행')
+hit(gateWorkflowProblems, gateText.replace(/node "\$RUNNER_TEMP\/ai-reader-guard\.mjs"[^\n]*/, 'node scripts/ci/ai-reader-guard.mjs x y'), /기준 커밋의 가드/, '가드 PR 사본 실행')
+hit(gateWorkflowProblems, gateText.replace(/(node "\$RUNNER_TEMP\/ai-reader-guard\.mjs"[^\n]*)/, '$1 || true'), /무시/, '가드 실패 무시')
+hit(gateWorkflowProblems, gateText.replace('git diff -z --no-renames --name-only', 'git diff --name-only'), /-z --no-renames/, '이름 바꾸기 은닉')
+hit(gateWorkflowProblems, gateText.replace("if: github.event_name == 'pull_request'", 'if: false'), /실행 조건/, '가드 단계 건너뛰기')
+hit(gateWorkflowProblems, gateText.replace('      - name: AI reader inputs guard (keyless)', '      - name: renamed'), /가드 단계가 없거나/, '가드 단계 제거')
+const RUN = /run: node --experimental-strip-types scripts\/ocr\/ai-reader\.test\.mjs/
+hit(calibrationWorkflowProblems, calText.replace(/^on:\n/m, 'on:\n  pull_request:\n'), /PR·workflow_run 트리거/, '교정 워크플로 PR 트리거')
+hit(calibrationWorkflowProblems, calText.replace(RUN, 'run: echo skipped'), /그대로 실행하지 않는다/, '시험 제거')
+hit(calibrationWorkflowProblems, calText.replace(RUN, '$& || true'), /그대로 실행하지 않는다|삼키는/, '실패 삼킴')
+hit(calibrationWorkflowProblems, calText.replace('      - name: Independent', '      - if: false\n        run: echo x\n      - name: Independent'), /if·continue-on-error/, 'if 비활성화')
+hit(calibrationWorkflowProblems, calText.replace('timeout-minutes: 10', 'timeout-minutes: 10\n    continue-on-error: true'), /if·continue-on-error/, 'continue-on-error')
+hit(calibrationWorkflowProblems, calText.replace('      - name: Independent', '      - run: npm ci\n      - name: Independent'), /의존성/, '의존성 설치')
+hit(calibrationWorkflowProblems, calText + '\n          OTHER: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}', /외의 Secret/, '다른 Secret')
+hit(calibrationWorkflowProblems, calText.replace(/  schedule:\n    - cron: '[^']+'\n/, ''), /schedule/, '정기 실행 제거')
+console.log('ai-reader-guard: 판정·import 그래프·실제 git(이름 바꾸기·특수문자·간접 입력·무력화·위조·가드 사본)·워크플로 무결성 시험 통과')
