@@ -18,6 +18,21 @@ export function todayVn(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now)
 }
 
+/** 모집 중인가 — 마감일 없음(상시)이거나 마감일이 오늘(베트남 시간) 이후. 마감 당일은 열려 있다(알림 RPC·검사표 publishDecision·마감 크론과 같은 기준). 공개 조회와 목록 화면이 이 한 곳을 쓴다. */
+export function isJobOpen(deadline: string | null | undefined, today: string = todayVn()): boolean {
+  return !deadline || String(deadline).slice(0, 10) >= today
+}
+
+/** 다음 베트남 자정까지 남은 밀리초(베트남은 서머타임 없음, +07:00 고정). 페이지를 열어 둔 채 날짜가 바뀌는 순간에 목록을 다시 거르는 타이머가 쓴다. */
+export function msUntilNextVnMidnight(now: Date = new Date()): number {
+  return Date.parse(`${todayVn(now)}T00:00:00+07:00`) + 86400000 - now.getTime()
+}
+
+/** 모집 중인 공고만 남긴다 — 공개 조회(fetchJobsData)와 열려 있는 화면(JobsContext)이 같은 이 함수를 쓴다. */
+export function filterOpenJobs<T extends { applicationDeadline?: string | null }>(jobs: T[], today: string = todayVn()): T[] {
+  return jobs.filter((job) => isJobOpen(job.applicationDeadline, today))
+}
+
 export type DeadlineBadge = { label: string; tone: 'soon' | 'normal' | 'expired' } | null
 
 /** D-day 배지. 마감일 없음(상시 모집)은 배지 없음. 3일 이내=soon. */

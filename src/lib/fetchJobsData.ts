@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isPublicJobAllowed } from './jobQualityFilter'
+import { filterOpenJobs } from './jobDetailView'
 import { fetchCanonicalLocations, rowToJob, type JobsQueryClient } from './jobRows'
 import type { Job } from '../types/job'
 
@@ -53,7 +54,8 @@ export async function fetchJobsData(client: SupabaseClient): Promise<FetchJobsRe
     return { jobs: [], jobsError: true }
   }
 
-  const fetched = rows.map((r) => rowToJob(r, locationsByJobId.get(r.id as number))).filter(isPublicJobAllowed)
+  // 마감 지난 공고는 공개 조회(목록·검색·지도·상세·SSR·sitemap)에서 뺀다. 마감 크론(deactivate_expired_jobs)은 하루 한 번이라 그 사이를 이 기준이 메운다.
+  const fetched = filterOpenJobs(rows.map((r) => rowToJob(r, locationsByJobId.get(r.id as number))).filter(isPublicJobAllowed))
 
   return {
     jobsError: fetchFailed,
