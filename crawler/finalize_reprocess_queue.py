@@ -32,6 +32,10 @@ def image_count(images):
     return len(images) if isinstance(images, list) else 0
 
 
+# 검사표 대기는 끝난 상태가 아니라 대기다 — run()이 다음 실행에서 다시 판정해 공개되면 success로 바꾼다(대기열 상태 전이의 책임은 이 파일 한 곳).
+AWAITING_INSPECT = "awaiting_inspect"
+
+
 def blocking_reason(current, today=None):
     """비공개 공고가 막힌 실제 사유(기존 게이트·검사 기록에서 읽음). 없으면 None = 사유 불명."""
     today = today or date.today().isoformat()
@@ -55,7 +59,7 @@ def blocking_reason(current, today=None):
     # 검사표 대기(#728 R4): OCR은 다시 공개하지 않고 검사표(job-ocr-check가 30분마다)만 공개한다. 이 workflow는 OCR 뒤 검사표를 돌리지 않으므로,
     # 검사표가 되살릴 공고(inspect_hold: DB가 공개 시작을 막아 건 표지 / ocr_hold: OCR이 공개 중이던 공고를 내린 표지)가 아직 비공개인 것은 실패가 아니라 대기다.
     if oc.get("inspect_hold") is True or oc.get("ocr_hold") is True:
-        return "awaiting_inspect"
+        return AWAITING_INSPECT
     return None
 
 
@@ -87,8 +91,11 @@ def verdict(current, item_result, pin_problems, today=None):
 
 def run():
     from crawl_facebook import supabase
-    queue = (supabase.table("job_reprocess_queue").select("id,job_id,result")
+    queue = (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
              .eq("status", "running").order("started_at").limit(50).execute().data or [])
+    # 검사표 대기로 보류된 항목은 다시 본다: 검사표(job-ocr-check)가 공개했으면 success로, 진짜 실패 사유가 생겼으면 그 사유로 바꾼다. 아직 대기면 그대로 둔다.
+    queue += (supabase.table("job_reprocess_queue").select("id,job_id,result,status")
+              .eq("status", "blocked").eq("error", "held:" + AWAITING_INSPECT).order("started_at").limit(50).execute().data or [])
     failures = 0
     for item in queue:
         current = (supabase.table("local_jobs").select(
@@ -102,6 +109,8 @@ def run():
                 if not any(p.startswith("pin_lost") for p in pin_problems): break
                 time.sleep(15)
         outcome, reason = verdict(current, item.get("result"), pin_problems)
+        if item.get("status") == "blocked" and (outcome, reason) == ("held", AWAITING_INSPECT):
+            continue   # 아직 검사표 대기 — 기록을 바꾸지 않는다
         title = (current.get("title") or "").strip()
         published = current.get("active") is True and current.get("admin_hidden") is False
         result = {**(item.get("result") or {}), "title": title, "title_verified": reason != "title_unverified",
@@ -111,7 +120,7 @@ def run():
         update = {"status": "success" if outcome == "success" else "blocked", "result": result,
                   "finished_at": datetime.now(timezone.utc).isoformat(),
                   "error": None if outcome == "success" else (("held:" if outcome == "held" else "") + reason)}
-        supabase.table("job_reprocess_queue").update(update).eq("id", item["id"]).eq("status", "running").execute()
+        supabase.table("job_reprocess_queue").update(update).eq("id", item["id"]).eq("status", item["status"]).execute()
         print(json.dumps({"job_id": item["job_id"], **update}, ensure_ascii=False))
         if pin_problems: print(f"::error::job {item['job_id']} 다시 처리 뒤 지도 핀 문제: {';'.join(pin_problems)}")
         if outcome == "failure": failures += 1

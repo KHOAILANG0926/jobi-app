@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { ocrCheckUpdateSql } from '../../scripts/ocr/ocr-check-write.mjs'
-import { INSPECT_RECORD_SQL } from '../../scripts/ops/job-inspect-write.mjs'
+import { INSPECT_RECORD_SQL, CLEAR_OCR_HOLD_SQL } from '../../scripts/ops/job-inspect-write.mjs'
 import { ingestSourceText } from '../../src/lib/jobPolicyWrite.ts'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
@@ -160,6 +160,15 @@ try {
   s = await inspect()
   assert.equal(s.active, true, '원인을 고친 뒤 재검사로 정상 공개')
   assert.equal(await hasMark(), false, '실제로 공개된 뒤에야 OCR 내림 표지를 지움')
+
+  // 표지 삭제 문장 자체의 조건: 공개 확인 뒤 삭제 직전에 OCR이 다시 내렸다면(active=false) 표지를 지우지 않는다. (job-inspect.mjs는 기록·삭제·보정을 한 트랜잭션으로 묶어 이 틈 자체를 막고, 이 조건은 두 번째 안전장치)
+  await db.query(ocrCheckUpdateSql(true), [1, 'poster text', JSON.stringify({ status: 'mismatch', reader: 'ai-v1' })])
+  const cleared = await db.query(CLEAR_OCR_HOLD_SQL, [1])
+  assert.equal(cleared.rowCount, 0, '비공개 상태에서는 OCR 내림 표지를 지우지 않음')
+  assert.equal(await hasMark(), true)
+  await db.query(ocrCheckUpdateSql(false), [1, 'poster text', JSON.stringify({ status: 'ok', reader: 'ai-v1' })])
+  assert.equal((await inspect()).active, true, '표지가 남아 있어 다음 검사표가 정상 재공개')
+  assert.equal(await hasMark(), false)
 
   // 관리자가 숨긴 공고는 검사표가 되살리지 않는다
   await db.query(`update public.local_jobs set active = false, admin_hidden = true where id = 1`)

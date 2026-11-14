@@ -113,21 +113,32 @@ try {
     // 고용주·legacy 공고는 검사 대기 표지(inspect_hold)가 범위 조건이라, 아직 공개 못 한 동안(화면 대조 대기 포함) 유지해야 다음 단계(화면 대조·재검사)에 닿는다.
     // 공개되거나 관리자가 숨기면 제거(소유자가 직접 내린 공고는 hold가 없어 애초에 범위 밖).
     const keepHold = ['employer', 'legacy'].includes(job.origin) && !d.active && !job.admin_hidden
-    const recorded = await client.query(INSPECT_RECORD_SQL,
-      [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold, !!job.admin_hidden, job.active, job.ocr_status])
+    // 기록·OCR 내림 표지 삭제·거부 보정을 한 트랜잭션으로 묶는다: 첫 UPDATE가 잡은 행 잠금이 커밋까지 유지되므로 그 사이 OCR·관리자·소유자 쓰기는 기다렸다 새 상태에서 실행된다.
+    let recorded
+    await client.query('begin')
+    try {
+      recorded = await client.query(INSPECT_RECORD_SQL,
+        [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold, !!job.admin_hidden, job.active, job.ocr_status])
+      if (recorded.rowCount === 1) {
+        // 실제로 공개된 것이 확인된 뒤에만 OCR 내림 표지를 지운다(트리거가 거부하면 표지를 남겨 원인 수정 뒤 다시 공개되게).
+        if (recorded.rows[0].active) await client.query(CLEAR_OCR_HOLD_SQL, [job.id])
+        // 다른 공개 규정(R4·R7·R8 트리거)이 공개를 막았으면 기록도 실제 상태로 맞춘다.
+        if (recorded.rows[0].active !== d.active) {
+          const pub = items.find((i) => i.key === 'public')
+          pub.ok = false; pub.detail = '다른 공개 규정이 비공개 유지'
+          r.ok = false
+          await client.query(`update public.local_jobs set ocr_check = jsonb_set(ocr_check, '{inspect}', $2::jsonb) || (case when $3::boolean then '{"inspect_hold": true}'::jsonb else '{}'::jsonb end) where id = $1`,
+            [job.id, JSON.stringify({ ...inspect, ok: false, items }), ['employer', 'legacy'].includes(job.origin) && !job.admin_hidden])
+        }
+      }
+      await client.query('commit')
+    } catch (e) {
+      await client.query('rollback')
+      throw e
+    }
     if (recorded.rowCount !== 1) {
       console.warn(`#${job.id} 검사 중 공고 내용 변경: 다음 실행에서 재검사`)
       continue
-    }
-    // 실제로 공개된 것이 확인된 뒤에만 OCR 내림 표지를 지운다(트리거가 거부하면 표지를 남겨 원인 수정 뒤 다시 공개되게).
-    if (recorded.rows[0].active) await client.query(CLEAR_OCR_HOLD_SQL, [job.id])
-    // 다른 공개 규정(R4·R7·R8 트리거)이 공개를 막았으면 기록도 실제 상태로 맞춘다.
-    if (recorded.rows[0].active !== d.active) {
-      const pub = items.find((i) => i.key === 'public')
-      pub.ok = false; pub.detail = '다른 공개 규정이 비공개 유지'
-      r.ok = false
-      await client.query(`update public.local_jobs set ocr_check = jsonb_set(ocr_check, '{inspect}', $2::jsonb) || (case when $3::boolean then '{"inspect_hold": true}'::jsonb else '{}'::jsonb end) where id = $1`,
-        [job.id, JSON.stringify({ ...inspect, ok: false, items }), ['employer', 'legacy'].includes(job.origin) && !job.admin_hidden])
     }
     // 관리자가 숨긴 공고는 알림하지 않는다(Lee가 이미 뺀 공고). 화면 대조 대기만 남은 공고는 같은 실행에서 대조 뒤 다시 검사하므로 그때 알린다.
     if (!screenWaitOnly && !job.admin_hidden) reports.push(inspectReport({ id: job.id, title: job.title }, r))
