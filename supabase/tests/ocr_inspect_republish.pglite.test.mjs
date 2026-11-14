@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { ocrCheckUpdateSql } from '../../scripts/ocr/ocr-check-write.mjs'
+import { INSPECT_RECORD_SQL } from '../../scripts/ops/job-inspect-write.mjs'
 import { ingestSourceText } from '../../src/lib/jobPolicyWrite.ts'
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
@@ -106,6 +107,39 @@ try {
   s = await inspect()
   assert.equal(s.active, false, '관리자가 숨김을 풀어도 표지가 없으면 검사표가 혼자 올리지 않음')
   await db.query(`update public.local_jobs set active = true where id = 1`)
+
+  // 동시 실행: 검사표가 공고를 읽은 뒤(공개·OCR ok) OCR 불일치 내림이 끼어들면, 검사표의 낡은 판정이 그 내림을 덮어쓰지 못한다
+  const hashNow = async () => (await db.query(`select public.job_inspect_content_hash(j) as h from public.local_jobs j where id = 1`)).rows[0].h
+  const stale = { hash: await hashNow(), record: JSON.stringify({ content_hash: await hashNow(), publishable: true, items: [{ key: 'public', ok: true }] }) }
+  assert.equal((await state()).active, true)
+  await db.query(ocrCheckUpdateSql(true), [1, 'poster text', JSON.stringify({ status: 'mismatch', reader: 'ai-v1' })])   // 검사표가 읽은 뒤 OCR이 내림
+  const lost = await db.query(INSPECT_RECORD_SQL, [1, stale.record, true, stale.hash, false, false, true, 'ok'])          // 검사표의 낡은 읽기(active=true, ocr=ok)로 쓰기
+  assert.equal(lost.rowCount, 0, '낡은 읽기로는 OCR이 내린 공고를 다시 올리지 못함')
+  assert.equal((await state()).active, false)
+  assert.equal((await db.query(`select ocr_check ? 'ocr_hold' as has from public.local_jobs where id = 1`)).rows[0].has, true, '낡은 쓰기가 OCR 내림 표지를 지우지 않음')
+  await db.query(ocrCheckUpdateSql(false), [1, 'poster text', JSON.stringify({ status: 'ok', reader: 'ai-v1' })])
+  assert.equal((await inspect()).active, true, '다음 실행의 새 읽기로는 정상적으로 다시 공개')
+
+  // 기존 공개 공고: 내용이 바뀌어도(트리거) 공개 유지, 검사표가 통과시키면 그대로 공개
+  await db.query(`update public.local_jobs set description = description || E'\nThêm dòng mô tả.' where id = 1`)
+  assert.equal((await state()).active, true, '공개 중인 공고는 내용이 바뀌어도 내려가지 않음(DB 트리거)')
+  assert.equal((await inspect()).active, true, '검사표도 공개 중인 공고를 유지')
+
+  // 소유자 철회(고용주 공고): 검사 대기 표지가 없으면 검사표가 되살리지 않는다
+  const ef = { ...f, title: 'Nhân viên bán hàng B' }
+  await db.query(`insert into public.local_jobs(id, origin, title, company, salary, location, hours, description, source_text, employer_phone, category, occupation_code, images, ocr_text, active)
+    values (2, 'employer', $1, $2, $3, $4, $5, $6, $7, $8, 'ban_hang', '5', '["b.png"]'::jsonb, 'poster text', true)`,
+  [ef.title, ef.company, ef.salary, ef.location, ef.hours, ef.description, ingestSourceText({ ...ef, category: 'ban_hang' }), ef.employer_phone])
+  await db.query(`insert into public.job_work_locations values (2, 'Số 1 Lý Thái Tổ, Bắc Ninh', 'exact', true, 21.1, 106.0)`)
+  assert.equal((await db.query(`select active from public.local_jobs where id = 2`)).rows[0].active, false, '고용주 신규 공고도 검사 전에는 비공개(DB 트리거)')
+  const h2 = (await db.query(`select public.job_inspect_content_hash(j) as h from public.local_jobs j where id = 2`)).rows[0].h
+  await db.query(`update public.local_jobs set ocr_check = ocr_check || jsonb_build_object('status', 'no_text', 'reader', 'ai-v1',
+    'screen_audit', jsonb_build_object('content_hash', $1::text, 'ok', true, 'findings', '[]'::jsonb, 'checked_at', now())) where id = 2`, [h2])
+  await runInspect()
+  assert.equal((await db.query(`select active from public.local_jobs where id = 2`)).rows[0].active, true, '고용주 신규 공고도 검사 통과 후 공개')
+  await db.query(`update public.local_jobs set active = false where id = 2`)   // 소유자 철회
+  await runInspect()
+  assert.equal((await db.query(`select active from public.local_jobs where id = 2`)).rows[0].active, false, '소유자가 철회한 공고는 검사 통과여도 검사표가 되살리지 않음')
 
   // 관리자가 숨긴 공고는 검사표가 되살리지 않는다
   await db.query(`update public.local_jobs set active = false, admin_hidden = true where id = 1`)

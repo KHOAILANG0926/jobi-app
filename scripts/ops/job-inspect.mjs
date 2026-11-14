@@ -8,6 +8,7 @@ import { appendFileSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { inspectJob, inspectReport, publishDecision, INSPECT_KEYS, INFO_ONLY, SCREEN_WAIT } from '../../src/lib/jobInspect.ts'
 import { afterCutoff } from './auto-cutoff.mjs'
+import { INSPECT_RECORD_SQL } from './job-inspect-write.mjs'
 import { SCREEN_CANDIDATES } from './screen-collect.mjs'
 import { photoSource } from '../../src/lib/logoLookup.ts'
 import { assembleBrands } from '../../src/lib/brandRows.ts'
@@ -112,14 +113,8 @@ try {
     // 고용주·legacy 공고는 검사 대기 표지(inspect_hold)가 범위 조건이라, 아직 공개 못 한 동안(화면 대조 대기 포함) 유지해야 다음 단계(화면 대조·재검사)에 닿는다.
     // 공개되거나 관리자가 숨기면 제거(소유자가 직접 내린 공고는 hold가 없어 애초에 범위 밖).
     const keepHold = ['employer', 'legacy'].includes(job.origin) && !d.active && !job.admin_hidden
-    const recorded = await client.query(`update public.local_jobs
-      set ocr_check = (case when $5::boolean then coalesce(ocr_check, '{}'::jsonb) else coalesce(ocr_check, '{}'::jsonb) - 'inspect_hold' end
-                       - case when $3::boolean or $6::boolean then 'ocr_hold' else '' end) || jsonb_build_object('inspect', $2::jsonb),   -- OCR 내림 표지는 다시 공개되거나 관리자가 숨기면 지운다
-          active = $3::boolean
-      where id = $1 and public.job_inspect_content_hash(local_jobs) = $4
-        and (origin in ('crawler','admin') or coalesce(ocr_check->>'inspect_hold', '') = 'true')   -- 읽은 뒤 소유자가 철회(hold 제거)했으면 덮어쓰지 않는다(Codex #797)
-      returning active`,
-      [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold, !!job.admin_hidden])
+    const recorded = await client.query(INSPECT_RECORD_SQL,
+      [job.id, JSON.stringify(inspect), d.active, job.content_hash, keepHold, !!job.admin_hidden, job.active, job.ocr_status])
     if (recorded.rowCount !== 1) {
       console.warn(`#${job.id} 검사 중 공고 내용 변경: 다음 실행에서 재검사`)
       continue

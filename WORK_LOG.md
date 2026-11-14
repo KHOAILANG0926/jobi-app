@@ -6,6 +6,7 @@
 - 보강(GPT 검토 5번): 실제 job-inspect.mjs를 PGlite 소켓 서버에 붙여 돌리는 시험 supabase/tests/ocr_inspect_republish.pglite.test.mjs 추가(OCR 불일치→비공개→검사표 통과→재공개, 관리자 숨김 불변). 기존 occupation-publication-check.yml에 한 줄 연결하고 낡은 단계 이름(OCR republish …)을 현재 동작에 맞게 고침.
 - Codex P1 수정: 마감 걸러내기를 JobsContext 한 곳으로(useTodayVn이 베트남 자정에 구독자를 깨워 열어 둔 화면·오래된 SSR 목록도 다시 거름). 급구(지역별)·저장·최근 본 화면의 따로 쓰던 마감 비교 삭제, fetchJobsData·화면이 filterOpenJobs 하나를 씀. 시험: 자정 경계·열어 둔 채 자정·구독 해제·단일 필터 지점.
 - Codex P1(4ff6fae) 수정: OCR이 공개 공고를 내린 뒤 검사표가 돌기 전에 OCR이 정상으로 돌아오면 hold가 없어 재공개가 끊김 [직접 확인: 실제 job-inspect.mjs + 트리거로 재현]. 원인: 공개 공고를 내리는 문장에서 DB 트리거가 inspect_hold를 지우고, 검사 기록의 '공개' 항목도 통과 상태라 되살릴 근거가 없음. 수정: ocrCheckUpdateSql(hold)가 공개 중이던 공고에만 ocr_check.ocr_hold를 같은 문장에서 남기고, job-inspect.mjs가 이를 hold로 보며 다시 공개되거나 관리자가 숨기면 지움(OCR은 여전히 올리지 않음). tsconfig.tsbuildinfo는 npm run build가 바꾼 생성 파일이라 PR에서 제외(master 그대로).
+- 최종 검증(4단계): 검사표 기록 SQL을 job-inspect-write.mjs 한 곳으로 옮기고 읽을 때의 active·OCR 상태가 지금과 다르면 쓰지 않는 조건 추가 — 검사표가 공고를 읽은 뒤 OCR이 내리면 낡은 판정이 덮어써 재공개하던 동시 실행 틈 [직접 확인: 조건을 빼면 rowCount 1로 재현, 넣으면 0]. 시험에 동시 실행·기존 공개 공고 내용 변경·고용주 신규 공개·소유자 철회 추가.
 - 남은 문제: 운영 마감 크론 등록·실행 상태와 운영 API 응답은 직접 확인 못 함. DB 변경 없음.
 
 ## 2026-11-13 — R2 검증·승인 통제: 자동 병합이 needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 전엔 안 합침 (#728, Lee 승인)
