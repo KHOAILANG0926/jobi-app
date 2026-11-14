@@ -18,7 +18,7 @@
 
 | # | 경로 | 현재 증거 | 차단·통합 위치 | 실패 시 안전 상태 | 기존 기능 영향 | 시험 |
 |---|---|---|---|---|---|---|
-| P1 | 사람·AI 계정 수동 병합이 결정 승인·검토 판정을 거치지 않음 | F5: 두 판정이 `bot-pr-automerge.yml:117,132`에만 있음 [직접 확인] | 두 판정을 필수 검사 **`merge-gate`** 잡으로 이동, 브랜치 보호 필수 목록에 추가 | `merge-gate` 실패·미실행 = 병합 버튼 잠김 | 봇 판정과 같은 규칙, 위치만 바뀜 | 결정 문서 PR·needs-lee PR·검토 없는 PR이 `merge-gate` 실패로 막히는지(시험용 Draft PR, 병합 시도 없음) + 기존 `*.test.mjs` 유지 |
+| P1 | 사람·AI 계정 수동 병합이 결정 승인·검토 판정을 거치지 않음 | F5: 두 판정이 `bot-pr-automerge.yml:117,132`에만 있음 [직접 확인] | 두 판정을 필수 검사 **`merge-gate`** 잡으로 이동(master의 판정 코드로만 실행 — 3절), 브랜치 보호 필수 목록에 추가 | `merge-gate` 실패·미실행 = 병합 버튼 잠김 | 봇 판정과 같은 규칙, 위치만 바뀜 | 결정 문서 PR·needs-lee PR·검토 없는 PR이 `merge-gate` 실패로 막히는지(시험용 Draft PR, 병합 시도 없음) + **판정 코드를 '항상 통과'로 고친 PR이 그 PR에서 통과하지 못하는지**(기준 커밋 사본 실행 확인) + 기존 `*.test.mjs` 유지 |
 | P2 | `crawl-guard` ⑤가 `[자동수리]` PR을 자체 검사 후 `gh pr merge` | F8, `crawl-guard.yml:103-108` [직접 확인]. 주석은 "Claude 수리 PR은 자동 검사가 안 돈다"고 하나, 같은 claude-code-action(claude[bot])이 #809에 올린 커밋 7f219c7·6ff8865·9723209에서는 pr-checks·app-screen·guard가 실제로 돌았다 [직접 확인 check-runs] → 주석이 옛 상태일 가능성 [추정] | ① S3에서 `[자동수리]` PR 하나로 필수 검사가 도는지 먼저 확인 ② 돌면 ⑤를 "GitHub 자동 병합 켜기"로 교체 ③ 안 돌면 crawl-guard가 그 PR에 필수 검사를 `workflow_dispatch`로 부른 뒤 자동 병합(병합은 여전히 보호 설정이 결정) | 필수 검사 실패·미실행이면 PR 대기 + 기존 '수집 멈춤' 이슈 알림(영원히 대기하지 않게 6시간 뒤 이슈에 표시 — 기존 재시도 주기) | 수리 병합이 검토 시간만큼 늦어짐 | 시험: "자동수리 PR이 필수 검사를 받고 `merge-gate` 통과 뒤 병합되는지"(Draft로 검사 실행만 확인, 병합 시험은 S3 승인 뒤) |
 | P3 | 커스텀 병합 봇 자체(꺼짐) | F2 [직접 확인] | P1 완료 후 제거, GitHub 기본 자동 병합 하나로 | 봇이 없으면 아무것도 자동 병합 안 됨(현재와 같음) | 15분 주기·데모 적용 판정은 `merge-gate`로 이동 | 이동 전후 같은 PR 집합에 같은 판정이 나오는지 비교 실행 |
 | P4 | 검토 시간 초과 시 일반 파일 **검토 없이** 진행 | G10, `codex-review-gate.mjs` 12분+20분 [직접 확인] | `merge-gate`에서 '검토 없음 = 실패'로 바꿈. 시간 초과 시 Claude 검토관을 **다시 부르기**만 함(최대 3번, 기존 값) | 3번 실패 → 그 PR만 needs-lee 이슈, 나머지 작업 계속 | Codex가 없어도 Claude 검토관이 있으면 기존처럼 진행 | Codex 한도 초과 PR에서 Claude 검토 결과 없이는 `merge-gate`가 실패하는지 |
@@ -61,6 +61,8 @@ PR(봇 계정, Draft로 시작) → 필수 검사 checks·guard·app-screen(+pub
 - Draft PR은 `merge-gate`가 항상 실패 → 자동 병합 불가.
 - 새 커밋이 오면 검토 결과는 무효(최신 head 기준, 기존 `codexGate` 방식).
 - 병합하는 주체는 GitHub뿐. 봇 병합·`crawl-guard` 병합·사람 수동 병합 모두 같은 필수 검사를 통과해야 한다(보호 설정 enforce_admins 유지 — 값 확인 P12).
+- **판정 코드는 PR이 바꿀 수 없게 master 것으로만 돈다**(검토관 지적 반영): 지금 봇 판정은 master 파일로 돌아 PR이 못 바꾼다(`workflow_run`·`schedule`·`issue_comment`은 기본 브랜치 파일 사용). `merge-gate`도 같아야 한다 → ① 워크플로는 `pull_request_target`(워크플로 파일을 기준 브랜치에서 읽음)으로 두고 **PR 코드는 체크아웃·실행하지 않는다**(PR 정보는 API로만 읽음) ② 판정 스크립트는 기준(base) 커밋 사본으로 실행 — 스크립트를 기준 사본으로 돌리는 방식은 이미 있다: `occupation-publication-check.yml:51-52`(S1 G4). 단 그 워크플로는 `pull_request`라 워크플로 파일 자체는 PR 것이 쓰인다 — `merge-gate`는 ①로 이 빈틈까지 막는다 ③ 그래서 판정 코드를 바꾸는 PR은 **자기 판정에 영향을 못 준다**(병합된 뒤부터 적용).
+- 판정 코드·워크플로·보호 설정 관련 파일(`.github/workflows/`·`scripts/codex-review-gate.mjs`·`scripts/decision-approval-gate.mjs`·`scripts/check-*.mjs`·`scripts/ci/`)을 바꾸는 PR은 **고위험(검사 약화 가능)**: 두 회사 검토(2절 D 또는 C + E) + Lee에게 "검사를 약하게 하는 변경인가" 한국어 결정 요약(#807 '검사 약화는 대표님에게만 물을 사항'). 기존 `needsSecondReview` 목록(`check-repository-policy.mjs`)을 이 판정의 대상 목록으로 재사용.
 - **플랫폼 한계**: GitHub 자동 병합 켜기와 보호 필수 목록 변경은 저장소 관리자(Lee) 조작이다.
 
 ## 4. AI 자율 순환 — 단계별 "누가 실제로 실행시키나"
