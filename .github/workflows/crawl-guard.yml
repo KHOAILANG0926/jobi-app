@@ -6,7 +6,7 @@ name: 수집 멈춤 알림·자동 수리·재개 알림
 #   ② 자동 수리: Claude 수리 작업(claude-auto.yml)을 시작. 멈춤 1번당 최대 2번, 6시간 간격.
 #   ③ 2번 고쳐도 6시간 넘게 그대로면 → 원인별로 Lee가 할 일 한 줄 알림
 #   ④ 자동 재개(멈춤 원인 공고가 모두 다시 성공) → 같은 이슈에 "재개됨" 남기고 닫음
-#   ⑤ [자동수리] PR: 이 작업이 직접 tsc·시험·빌드를 돌려 통과하면 병합 → 운영 배포·상세요강 재처리 작업을 시작(결정 0003)
+#   ⑤ [자동수리] PR: 이 작업이 미리 tsc·시험·빌드를 돌려 실패 PR은 닫고, 병합은 다른 PR과 같은 실행기가 한다(S3-4) → 병합되면 재처리 시작
 #   ⑥ 병합 15분 뒤 멈춤 원인 공고의 위치를 고친 코드로 다시 찾음 → 성공하면 ④로 자동 재개
 #   ⑦ 수집 서버(VPS)가 작업을 20분 넘게 안 받으면 이슈 알림, 다시 받으면 닫음(runner-wait)
 # 비밀값: GitHub Secrets SUPABASE_DB_URL. 매일 저녁 8시 보고에도 멈춘 소스가 같이 나간다(예약 작업).
@@ -99,22 +99,29 @@ jobs:
             q "update public.crawl_source_state set notified_at = now() where source = '$src'"
           } </dev/null; done
 
-          # ⑤ [자동수리] PR 검사 → 통과하면 병합(Claude 수리 작업이 만든 PR은 자동 검사가 안 돌아서 여기서 직접 돌린다)
+          # ⑤ [자동수리] PR: 여기서 직접 병합하지 않는다(S3-4, #808 — 병합 경로를 하나로). 이 작업은 미리 tsc·시험·빌드만 돌려
+          #    실패한 수리 PR을 닫고, 통과한 PR은 다른 PR과 같은 길(필수 검사 + 독립 검토 + 병합 실행기)로 병합되게 둔다.
+          #    병합은 실행기가 하므로, 여기서는 '병합된 수리 PR'을 찾아 재처리 시각(fix_merged_at)을 기록하고 재처리 작업을 시작한다.
           gh pr list --repo "$REPO" --state open --search '"[자동수리]" in:title' --json number,headRefName,title --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"' | while IFS=$'\t' read -r pr ref title; do {
             [ -z "$pr" ] && continue
-            src=$(echo "$title" | awk '{print $2}')
             git fetch -q origin "$ref" && git checkout -q -B "check-$pr" "origin/$ref"
             if npm ci --no-audit --no-fund >/dev/null 2>&1 && npx tsc --noEmit && npm test >/dev/null 2>&1 && npm run build >/dev/null 2>&1; then
-              gh pr merge "$pr" --repo "$REPO" --squash --delete-branch
-              q "update public.crawl_source_state set fix_merged_at = now() where source = '$src' and paused"
-              gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
-              gh workflow run job-ocr-check.yml --repo "$REPO" --ref master
-              num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 검사 통과 → 사이트 반영 중. 약 15분 뒤 멈춘 공고를 다시 처리합니다."
+              echo "수리 PR #$pr 사전 검사 통과 — 필수 검사·독립 검토 뒤 병합 실행기가 병합"
             else
               gh pr comment "$pr" --repo "$REPO" --body "자동 검사 실패(tsc·시험·빌드 중 하나) — 병합하지 않음. 다음 수리 시도에서 다시 봅니다."
               gh pr close "$pr" --repo "$REPO"
             fi
             git checkout -q -
+          } </dev/null; done
+          since=$(date -u -d '-2 days' +%Y-%m-%dT%H:%M:%SZ)
+          gh pr list --repo "$REPO" --state merged --search "\"[자동수리]\" in:title merged:>=$since" --json number,title,mergedAt --jq '.[] | "\(.number)\t\(.mergedAt)\t\(.title)"' | while IFS=$'\t' read -r pr merged title; do {
+            [ -z "$pr" ] && continue
+            src=$(echo "$title" | awk '{print $2}')
+            # 멈춘 소스이고 이 병합이 아직 기록 안 됐을 때만 한 번(이미 기록됐으면 아무것도 안 함).
+            done_now=$(q "with u as (update public.crawl_source_state set fix_merged_at = '$merged'::timestamptz where source = '$src' and paused and (fix_merged_at is null or fix_merged_at < '$merged'::timestamptz) returning source) select source from u")
+            [ -n "$done_now" ] || continue
+            gh workflow run job-ocr-check.yml --repo "$REPO" --ref master
+            num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 PR #$pr 병합됨 → 사이트 반영 중. 약 15분 뒤 멈춘 공고를 다시 처리합니다."
           } </dev/null; done
 
           # ⑥ 병합 15분 뒤 멈춤 원인 공고 위치 다시 찾기(고친 코드로). 성공하면 DB가 자동 재개.
