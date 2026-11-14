@@ -26,7 +26,7 @@
 | P6 | 운영 DB 쓰기 수동 실행 6개가 실행자·브랜치 제한 없음 | F14 [직접 확인 grep] | 각 잡에 `if: github.ref == 'refs/heads/master'` + DB 비밀값을 **GitHub Environment `production`**(master만 허용)으로 이동 | 브랜치에서 실행 = 비밀값 없음 → 실패(쓰기 안 됨) | master에서 실행하던 기존 사용법은 그대로 | 브랜치에서 실행 시 비밀값이 비어 실패하는지(쓰기 없는 점검 모드) |
 | P7 | 옛 작업 브랜치 push가 DB 비밀값으로 실행: `admin-operations`(`codex/admin-operations`)·`p0-foundation`(`codex/p0-foundation-security`) | [직접 확인] yml `push.branches` + `SUPABASE_SERVICE_ROLE_KEY` | 1회용이면 제거, 필요하면 master 전용 + Environment | 위와 같음 | 8월 이후 실행 없음 — 영향 없음 [직접 확인 실행 기록] | 제거 전 참조 grep |
 | P8 | `vercel-deploy`가 `demo/**` 브랜치 push에서 `SUPABASE_DB_URL`·`VERCEL_TOKEN`으로 실행(브랜치의 워크플로 파일이 쓰임) | [직접 확인] | demo 실행 잡에서 DB 비밀값 제거(필요하면 읽기 전용 열쇠), 배포 열쇠는 Preview 전용 범위 | 데모 빌드만 실패, 운영 영향 없음 | 데모 링크 흐름 유지 확인 필요 | demo 브랜치 빌드가 DB 열쇠 없이 되는지 |
-| P9 | 같은 저장소 PR·브랜치가 **새 워크플로 파일**을 추가하면 저장소 비밀값으로 실행될 수 있음 | 저장소 공개, 봇 push 권한(F1). GitHub 동작 [기존 지식, 이 저장소에서 미시험 — 시험 금지] | DB·배포·외부 API 비밀값을 모두 Environment로 옮기고 master만 허용 → 저장소 기본 비밀값에는 GITHUB_TOKEN과 무해한 값만 | 브랜치 워크플로는 비밀값 없이 실패 | 모든 비밀값 사용 워크플로에 `environment:` 줄 추가 필요(S4 목록: 71개 표의 S4 표시) | 비밀값 이동 뒤 master 실행 정상, 브랜치 실행 실패 확인 |
+| P9 | 같은 저장소 PR·브랜치가 **새 워크플로 파일**을 추가하면 저장소 비밀값으로 실행될 수 있음 | 저장소 공개, 봇 push 권한(F1). GitHub 동작 [기존 지식, 이 저장소에서 미시험 — 시험 금지] | DB·배포·외부 API 비밀값을 모두 Environment로 옮기고 master만 허용 → 저장소 기본 비밀값에는 GITHUB_TOKEN과 무해한 값만 | 브랜치 워크플로는 비밀값 없이 실패 | 모든 비밀값 사용 워크플로에 `environment:` 줄 추가 필요(S4 목록: 71개 표의 S4 표시). 단 AI 판독 교정(ANTHROPIC_API_KEY)은 PR head 증거가 필요해 표 7번 방식으로 먼저 정한 뒤 이동 | 비밀값 이동 뒤 master 실행 정상, 브랜치 실행 실패 확인 |
 | P10 | Lee 로그인 하드코딩(인정 계정 목록) | F7 [직접 확인] | Lee 열쇠 제거 뒤에도 '진짜 Lee 판단' 표시로 쓰므로 유지. 단 `REPLY_AUTHORS`(Claude 답 인정)에서는 Lee 계정 제거 → 봇 계정 | — | Claude 답 표시를 봇 계정이 다는 것으로 바뀜 | `codex-review-gate.test.mjs` 사례 갱신 |
 | P11 | 필수가 아닌 PR 검사 8개는 빨개도 아무것도 안 막음 | G21 [직접 확인 `required-checks-pass.jq`] | S7에서 시험 파일 단위로 대조 후 `checks`로 합치거나 필수화 | 합치기 전까지 현재와 같음 | — | 대조 표 |
 | P12 | 브랜치 보호 실제 값·master 직접 push 가능 여부 | **미확인**(F4, 봇은 관리자 아님) | S3 시작 전 Lee 계정 세션 또는 Lee 화면으로 값 조회 → 이 문서 갱신 | 확인 전 S3 보호 설정 변경 금지 | — | 조회 결과를 #808에 기록 |
@@ -87,7 +87,7 @@ PR(봇 계정, Draft로 시작) → 필수 검사 checks·guard·app-screen(+pub
 | 4 | `admin-location-review-e2e.yml` | 업무용 유지 | 그대로. DB 비밀값을 쓰는 수동 실행분은 S4 실행 환경 점검 대상에 포함 | S4 점검 |
 | 5 | `admin-operations.yml` | 점검+차단 | 옛 작업 브랜치 push에서 DB 비밀값으로 실행됨(P7) → master 전용으로 바꾸거나 제거 | S4 |
 | 6 | `administrative-pin-check.yml` | 실패 반복 | 원인 조사를 별도 이슈로(ai-team) | S7 |
-| 7 | `ai-reader-calibration.yml` | 유지 | 그대로(ops-run-sql의 Lee 로그인 고정은 P10 정리 때) | S4 |
+| 7 | `ai-reader-calibration.yml` | 점검+수정 | 지금은 PR 브랜치에서 workflow_dispatch로 돌고 `ai-reader-guard.mjs`가 PR head SHA의 성공 실행만 인정함 → ANTHROPIC_API_KEY를 master 전용 Environment로 옮기면 교정 증거를 못 만듦. S4에서 함께 정함: 브랜치 실행에만 쓰는 별도 한도·교정 전용 열쇠(Environment, 승인 필요) 또는 master 실행이 PR head를 받아 교정하고 head SHA를 결과에 남기도록 가드 수정(PR 코드에 운영 열쇠를 주지 않음). 정해지기 전에는 이 열쇠를 이동하지 않음 | S4 |
 | 8 | `android-twa-build.yml` | 업무용 유지 | 그대로. DB 비밀값을 쓰는 수동 실행분은 S4 실행 환경 점검 대상에 포함 | S4 점검 |
 | 9 | `android-upload-key-init.yml` | 업무용 유지 | 그대로. DB 비밀값을 쓰는 수동 실행분은 S4 실행 환경 점검 대상에 포함 | S4 점검 |
 | 10 | `app-screen-check.yml` | G6 유지 | 그대로(필수) | — |
