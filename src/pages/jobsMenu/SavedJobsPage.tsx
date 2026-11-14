@@ -7,11 +7,9 @@ import JobsTable, { type JobsTableRow } from '../../components/JobsTable'
 import { useAuth } from '../../context/AuthContext'
 import { useJobs } from '../../context/JobsContext'
 import { loadSavedJobIds, toggleSavedJobId } from '../../lib/storage'
-import { formatDeadlineVi } from '../../lib/jobUtils'
 import { fetchKoreaJobs } from '../../lib/koreaJobsApi'
 import { formatKoreaSalary, koreaJobDisplayLocation, koreaJobDisplayTitle, koreaSavedId, parseKoreaSavedId } from '../../lib/koreaJobFormat'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../../lib/jobsListView'
-import { isJobOpen } from '../../lib/jobDetailView'
 import type { Job } from '../../types/job'
 import type { KoreaJob } from '../../types/koreaJob'
 
@@ -138,10 +136,10 @@ export default function SavedJobsPage() {
   const combinedRows = useMemo<SavedRow[]>(() => {
     const rows: SavedRow[] = []
     for (const job of resolved) {
-      const isOpen = isJobOpen(job.applicationDeadline)
+      // 마감 공고는 JobsContext가 이미 뺀다 — 목록에 있는 공고는 모집 중. 빠진 공고는 아래 missingIds가 '게시 종료'로 보여 준다.
       rows.push({
         key: job.id,
-        status: isOpen ? 'open' : 'closed',
+        status: 'open',
         postedAt: job.postedAt,
         savedIndex: savedIds.indexOf(job.id),
         tableRow: {
@@ -154,7 +152,7 @@ export default function SavedJobsPage() {
           salaryPeriod: job.salaryPeriod,
           description: job.description,
           hours: job.hours,
-          dateLabel: isOpen ? formatShortDate(job.postedAt) : `Hạn nộp: ${formatDeadlineVi(job.applicationDeadline)}`,
+          dateLabel: formatShortDate(job.postedAt),
         },
       })
     }

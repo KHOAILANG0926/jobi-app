@@ -6,7 +6,6 @@ import JobsTable, { type JobsTableRow } from '../../components/JobsTable'
 import { useJobs } from '../../context/JobsContext'
 import { clearViewHistory, loadViewHistory, removeFromViewHistory, type ViewHistoryEntry } from '../../lib/viewHistoryStorage'
 import { loadJobsViewMode, matchesDateRange, saveJobsViewMode, type DateRangeFilter, type JobsViewMode } from '../../lib/jobsListView'
-import { isJobOpen } from '../../lib/jobDetailView'
 import type { Job } from '../../types/job'
 
 function formatViewedAt(iso: string): string {
@@ -71,7 +70,7 @@ export default function RecentlyViewedPage() {
   const combinedRows = useMemo<HistoryRow[]>(() => {
     return history.map((entry) => {
       const job = jobs.find((j) => j.id === entry.id)
-      const isOpen = !!job && isJobOpen(job.applicationDeadline)
+      const isOpen = !!job   // 마감 공고는 JobsContext가 이미 뺀다
       return {
         entry,
         job,

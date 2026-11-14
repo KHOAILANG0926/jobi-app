@@ -1,6 +1,6 @@
 import type { Job } from '../types/job.ts'
 import { JOB_SECTIONS } from '../data/jobSchema.ts'
-import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, jobSectionId, deadlineBadge, isJobOpen, jobTags, shiftLabel, weekendLabel, contactOf, salaryPeriodLabel, isGenericCompanyName, JOB_TABS, tabOfSection, benefitList, isKcnLevelText } from './jobDetailView.ts'
+import { JOB_SECTION_LABELS, JOB_SECTION_ORDER, jobSectionId, deadlineBadge, isJobOpen, filterOpenJobs, msUntilNextVnMidnight, todayVn, jobTags, shiftLabel, weekendLabel, contactOf, salaryPeriodLabel, isGenericCompanyName, JOB_TABS, tabOfSection, benefitList, isKcnLevelText } from './jobDetailView.ts'
 
 function assert(value: boolean, label: string) { if (!value) throw new Error(label) }
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -62,4 +62,12 @@ assert(!isGenericCompanyName('Công ty TNHH Samsung') && !isGenericCompanyName('
 assert(isJobOpen(null, '2026-11-14') && isJobOpen('', '2026-11-14') && isJobOpen(undefined, '2026-11-14'), '마감일 없음(상시)은 모집 중')
 assert(isJobOpen('2026-11-14', '2026-11-14') && isJobOpen('2026-11-14T00:00:00Z', '2026-11-14'), '마감 당일은 모집 중')
 assert(!isJobOpen('2026-11-13', '2026-11-14'), '마감 지난 공고는 모집 중이 아님')
+// 베트남 자정 경계(UTC 17:00): 마감일 11-14는 11-14 베트남 23:59:59까지 열려 있고 11-15 00:00:00부터 닫힌다
+const lastSecond = new Date('2026-11-14T16:59:59Z'), midnight = new Date('2026-11-14T17:00:00Z')
+assert(todayVn(lastSecond) === '2026-11-14' && todayVn(midnight) === '2026-11-15', '베트남 날짜는 UTC 17:00에 바뀜')
+assert(isJobOpen('2026-11-14', todayVn(lastSecond)) && !isJobOpen('2026-11-14', todayVn(midnight)), '마감 당일은 공개, 베트남 자정 이후는 마감')
+assert(msUntilNextVnMidnight(lastSecond) === 1000 && msUntilNextVnMidnight(midnight) === 86400000, '다음 베트남 자정까지 남은 시간')
+const sample = [{ id: 'a', applicationDeadline: '2026-11-14' }, { id: 'b', applicationDeadline: '' }, { id: 'c', applicationDeadline: '2026-11-13' }, { id: 'd', applicationDeadline: '2026-11-15' }]
+assert(filterOpenJobs(sample, '2026-11-14').map((j) => j.id).join() === 'a,b,d', '마감 당일 포함·상시 포함·지난 공고 제외')
+assert(filterOpenJobs(sample, '2026-11-15').map((j) => j.id).join() === 'b,d', '다음 날이 되면 마감 당일 공고도 제외')
 console.log('jobDetailView.test.ts: all assertions passed')
