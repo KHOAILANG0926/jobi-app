@@ -9,12 +9,14 @@ const ok = (extra = {}) => ({ event: 'workflow_dispatch', head_sha: SHA, status:
 let r = decide({ changed: ['src/lib/a.ts', 'scripts/ocr/ocr-check.mjs'], runs: [], headSha: SHA })
 assert.equal(r.ok, true); assert.match(r.message, /이 PR의 검증 결과가 아니다/)
 // 입력 변경 + 교정 실행 없음 → 실패(포크 PR 포함)
-for (const f of ['scripts/ocr/ai-reader.mjs', 'scripts/ocr/ai-reader.test.mjs', 'scripts/ocr/ocr-compare.mjs', 'test-fixtures/ocr/x.png', '.github/workflows/ai-reader-calibration.yml'])
+for (const f of ['scripts/ocr/ai-reader.mjs', 'scripts/ocr/ai-reader.test.mjs', 'scripts/ocr/ocr-compare.mjs', 'test-fixtures/ocr/x.png'])
   assert.equal(decide({ changed: [f], runs: [], headSha: SHA }).ok, false, f)
 // 인정하는 실행: 같은 head 커밋의 workflow_dispatch 성공만
 assert.equal(decide({ changed: ['scripts/ocr/ai-reader.mjs'], runs: [ok()], headSha: SHA }).ok, true)
 for (const bad of [{ event: 'pull_request' }, { event: 'push' }, { head_sha: 'b'.repeat(40) }, { conclusion: 'failure' }, { status: 'in_progress', conclusion: null }])
   assert.equal(decide({ changed: ['scripts/ocr/ai-reader.mjs'], runs: [ok(bad)], headSha: SHA }).ok, false, JSON.stringify(bad))   // 같은 이름 PR 실행·다른 커밋·실패·진행 중은 불인정
+// 이 가드를 들이는 PR 자신(교정 워크플로 추가 + 가드·시험 추가)은 판독 입력이 아니므로 순환 없이 통과한다 — 워크플로 변경은 아래 정적 시험과 두 번째 검토가 막는다
+assert.equal(decide({ changed: ['.github/workflows/ai-reader-calibration.yml', '.github/workflows/occupation-publication-check.yml', 'scripts/ci/ai-reader-guard.mjs', 'scripts/ci/ai-reader-guard.test.mjs'], runs: [], headSha: SHA }).ok, true)
 assert.deepEqual(readerInputsChanged(['a', 'scripts/ocr/ai-reader.mjs']), ['scripts/ocr/ai-reader.mjs'])
 
 // 정적: PR이 돌리는 publication-gate 워크플로에는 Secret·API 키 참조가 없다(포크 PR 코드에 키를 주지 않는다)

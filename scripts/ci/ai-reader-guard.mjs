@@ -6,9 +6,11 @@
 import { readFileSync } from 'node:fs'
 
 export const CALIBRATION_WORKFLOW = 'ai-reader-calibration.yml'
-// 판독 결과에 영향을 주는 입력: 판독자·교정 시험·비교기(시험이 부름)·정답 포스터·교정 워크플로 자신
+// 판독 결과에 영향을 주는 입력: 판독자·교정 시험·비교기(시험이 부름)·정답 포스터.
+// 교정 워크플로 파일은 넣지 않는다: 그 파일은 판독 정확도를 바꾸지 않고, 이 가드를 처음 들이는 PR이 자기 자신에게 걸려 영원히 통과 못 하는 순환이 된다(그 워크플로는 기본 브랜치에 생기기 전엔 dispatch할 수 없음).
+// 워크플로 변경은 ① 워크플로 파일 전체가 두 번째 검토 대상(check-repository-policy needsSecondReview) ② ai-reader-guard.test.mjs의 정적 시험(PR 트리거 금지·의존성 설치 금지·시험 실행 유지)이 PR마다 막는다.
 export const READER_INPUTS = [/^scripts\/ocr\/ai-reader\.mjs$/, /^scripts\/ocr\/ai-reader\.test\.mjs$/, /^scripts\/ocr\/ocr-compare\.mjs$/,
-  /^test-fixtures\/ocr\//, /^\.github\/workflows\/ai-reader-calibration\.yml$/]
+  /^test-fixtures\/ocr\//]
 export const readerInputsChanged = (files) => files.filter((f) => READER_INPUTS.some((re) => re.test(f)))
 
 /** runs = GitHub Actions 교정 워크플로의 이 head 커밋 실행 목록(event·conclusion·head_sha). 같은 이름의 PR 실행(event=pull_request)은 인정하지 않는다. */

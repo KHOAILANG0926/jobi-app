@@ -3,6 +3,7 @@
 - 변경: ① publication-gate는 비밀키 없는 회귀 시험만(Secret 참조 0). ② 키가 필요한 AI 판독 교정은 새 ai-reader-calibration.yml(push master·주 1회·workflow_dispatch만, pull_request 트리거 없음, 의존성 설치 없음). ③ scripts/ci/ai-reader-guard.mjs가 판독 입력(ai-reader·시험·ocr-compare·정답 포스터)을 바꾼 PR은 그 head 커밋의 workflow_dispatch 교정 성공 실행이 있어야 통과(같은 이름 PR 실행·다른 커밋·실패는 불인정). 입력이 안 바뀐 PR은 통과하되 master 교정 결과를 이 PR의 검증으로 세지 않음. ④ 가드 스크립트를 두 번째 검토 대상 파일 목록에 추가.
 - 지운 것/합친 것: publication-gate의 키 필요 단계 삭제(교정 워크플로로 이동, 같은 시험 파일 재사용). 새 검사기 대신 기존 check-run 조회(gh api)·필수 이름 시험 구조를 따름.
 - 보안 영향: PR 코드·의존성에 키 노출 없음(기존에는 같은 저장소 PR이 PR 코드로 키를 받았음 — 이제 사람이 diff를 본 뒤 dispatch할 때만). workflow_dispatch는 쓰기 권한자만 실행. GitHub 환경(Environment) 승인 보호는 설정 변경이라 Lee 결정 사항.
+- 후속 수정(#806 게이트 실패): 새 교정 워크플로 파일이 판독 입력 목록에 있어 이 PR 자신이 가드에 걸림(변경 파일 목록으로 재현: rc=1, 기본 브랜치에 없는 워크플로라 dispatch도 불가). 판독 정확도를 바꾸지 않는 워크플로 파일을 입력에서 뺌 — 워크플로 변경은 두 번째 검토 + 가드 시험의 정적 검사(PR 트리거·의존성 설치 금지, 시험 실행 유지)가 막음.
 - 남은 문제: 원본 Actions 결과 미확인(포크에서 읽을 수 없음). 판독 입력을 바꾸는 포크 PR은 원본 브랜치로 옮겨 dispatch가 필요(승인 필요).
 
 ## 2026-11-13 — R2 검증·승인 통제: 자동 병합이 needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 전엔 안 합침 (#728, Lee 승인)
