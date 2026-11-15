@@ -120,9 +120,15 @@ jobs:
             esac
           } </dev/null; done
           since=$(date -u -d '-2 days' +%Y-%m-%dT%H:%M:%SZ)
+          paused_sources=$(q "select source from public.crawl_source_state where paused")
           gh pr list --repo "$REPO" --state merged --search "\"[자동수리]\" in:title merged:>=$since" --json number,title,mergedAt --jq '.[] | "\(.number)\t\(.mergedAt)\t\(.title)"' | while IFS=$'\t' read -r pr merged title; do {
             [ -z "$pr" ] && continue
             src=$(echo "$title" | awk '{print $2}')
+            # S4 검토 지적: PR 제목은 쓰기 권한이 있으면 누구나(병합 뒤에도) 고칠 수 있다 → SQL에 넣기 전에 모양 확인 + DB에 실제로 멈춘 소스인지 대조.
+            #   (예전 master 코드도 제목 값을 SQL에 그대로 넣었다 — 운영 DB 열쇠로 SQL 주입 가능)
+            [[ "$src" =~ ^[a-z0-9_.-]{1,40}$ ]] || { echo "::warning::수리 PR #$pr 제목의 소스 이름 형식 아님 — 건너뜀"; continue; }
+            [[ "$merged" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || { echo "::warning::수리 PR #$pr 병합 시각 형식 아님 — 건너뜀"; continue; }
+            grep -qxF -- "$src" <<<"$paused_sources" || continue
             # 멈춘 소스이고, 이번 멈춤(paused_at) 뒤에 병합된 PR이며, 아직 기록 안 됐을 때만 한 번(재멈춤 전 옛 병합은 무시).
             done_now=$(q "with u as (update public.crawl_source_state set fix_merged_at = '$merged'::timestamptz where source = '$src' and paused and paused_at < '$merged'::timestamptz and (fix_merged_at is null or fix_merged_at < '$merged'::timestamptz) returning source) select source from u")
             [ -n "$done_now" ] || continue
