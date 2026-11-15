@@ -172,21 +172,6 @@ export function nameStatusEntries(raw) {
 }
 export const parseNameStatusZ = (raw) => [...new Set(nameStatusEntries(raw).flatMap((e) => e.paths))]
 
-export function parseGitDiff(raw) {
-  const files = []
-  const patches = {}
-  let current = null
-  for (const line of raw.split('\n')) {
-    if (line.startsWith('diff --git ')) {
-      const match = line.match(/^diff --git a\/(.+) b\/(.+)$/)
-      if (match) { current = match[2]; files.push(current); patches[current] = '' }
-      else current = null
-    } else if (current) {
-      patches[current] += line + '\n'
-    }
-  }
-  return { files: [...new Set(files)], patches }
-}
 
 if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
