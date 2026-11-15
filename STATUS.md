@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-15 13:55 (VN)**
+- 생성 시각: **2026-11-15 13:56 (VN)**
 - 기준 커밋: `e573e9f` (ci(S4-3): 운영 열쇠는 ops-keys 환경(master만) — 브랜치·PR 워크플로 차단 준비 (#824))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43687539598
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43687565451
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -69,7 +69,7 @@
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **23건** (전체 34건, 숨김·비활성 11건)
+- 공개 중: **23건** (전체 33건, 숨김·비활성 10건)
 - 출처별: 출처 없음 19 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
