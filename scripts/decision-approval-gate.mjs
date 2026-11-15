@@ -120,6 +120,57 @@ export const NORMAL_PATH = (path) => [
   /^[A-Za-z0-9_-]+\.md$/, /^\.claude\/RULES_CORE\.md$/, /^tsconfig\.tsbuildinfo$/, /^package(?:-lock)?\.json$/,
 ].some((re) => re.test(path))
 
+// ⑦ 바뀐 줄 내용 위험(S4, Lee 2026-11-15 "파일 경로 + 실제 바뀐 줄 내용으로 판정"): 경로가 일반이어도 코드 파일의 추가·삭제된 줄에
+//    DB 권한(RLS·policy·grant·security definer)·인증/비밀값(service_role·토큰·Authorization)·실행(exec·eval)·새 외부 주소가 있으면 고위험.
+//    코드 파일인데 변경 내용(patch)을 받지 못했으면(큰 변경·잘림) 판단 불가 → 닫힌 실패. 문서·데이터·시험 파일은 내용 검사 대상이 아님(시험 약화는 ⑤가 봄).
+const CODE_EXT = /\.(?:[cm]?[jt]sx?|py|sql|sh|ya?ml)$/
+const CONTENT_SCAN = (path) => CODE_EXT.test(path) && !/(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^docs\/|^test-fixtures\//.test(path)
+export const CONTENT_SIGNALS = [
+  ['DB 권한·보안 설정', /\b(?:create|alter|drop)\s+(?:or\s+replace\s+)?(?:policy|role|user|extension)\b|row\s+level\s+security|\b(?:grant|revoke)\s+\w|security\s+definer|\bauth\.(?:users|uid\(|jwt\(|role\()|\bset\s+role\b|pgsodium|vault\./i],
+  ['인증·비밀값', /service_role|SERVICE_ROLE|\bauth\.admin\b|\.auth\.admin\b|verify_jwt|jsonwebtoken|\bjwt\.(?:sign|verify)\b|\bAuthorization\b\s*[:=]|\bBearer\s+\$|process\.env\.[A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD)\b|os\.environ(?:\.get)?\W+["'][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD)\b|secrets\.[A-Z_]+|-----BEGIN [A-Z ]*PRIVATE KEY|timingSafeEqual|createHmac|signInWith|resetPasswordForEmail/],
+  ['명령 실행·위험 API', /\bchild_process\b|\bexec(?:Sync|File|FileSync)?\s*\(|\bspawn(?:Sync)?\s*\(|\beval\s*\(|new\s+Function\s*\(|dangerouslySetInnerHTML|\.innerHTML\s*=|\bos\.system\b|\bsubprocess\.|\bpickle\.loads?\b|Access-Control-Allow-Origin/],
+]
+// 이미 쓰는 것으로 확인된 외부 주소(표준·문서·이 서비스가 쓰는 지도/DB/배포/소셜) — 이 밖의 새 주소가 추가되면 '새 외부 API'로 본다
+const KNOWN_HOSTS = /(?:^|\.)(?:w3\.org|schema\.org|github\.com|githubusercontent\.com|npmjs\.org|npmjs\.com|supabase\.co|supabase\.com|vercel\.app|vercel\.com|viecganban\.vn|vietmap\.vn|google\.com|googleapis\.com|gstatic\.com|google-analytics\.com|openstreetmap\.org|facebook\.com|fb\.com|zalo\.me|anthropic\.com|openai\.com|cloudflare\.com|example\.(?:com|org)|localhost|127\.0\.0\.1)$/i
+const hostsOf = (text) => [...String(text).matchAll(/https?:\/\/([A-Za-z0-9.-]+)/g)].map((m) => m[1].toLowerCase())
+export function contentRisks(files) {
+  const out = []
+  for (const f of files) {
+    if (typeof f === 'string') continue  // 이름만 있는 목록(예전 호출·시험)은 내용을 볼 수 없다 — 실제 호출(CLI)은 항상 patch가 든 목록
+    const name = f.filename
+    if (!CONTENT_SCAN(name)) continue
+    if (typeof f.patch !== 'string') {
+      // 이름만 바뀐 파일(변경 0줄)은 내용이 같다 — 그 밖에 patch가 없으면 읽지 못한 것
+      if (f.status === 'renamed' && f.changes === 0) continue
+      out.push(`${name}: 변경 내용을 받지 못함(판단 불가)`); continue
+    }
+    const lines = f.patch.split('\n').filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l))
+    const text = lines.map((l) => l.slice(1)).join('\n')
+    for (const [label, re] of CONTENT_SIGNALS) if (re.test(text)) out.push(`${name}: ${label}`)
+    const before = new Set(hostsOf(lines.filter((l) => l[0] === '-').join('\n')))
+    for (const h of new Set(hostsOf(lines.filter((l) => l[0] === '+').join('\n')))) if (!KNOWN_HOSTS.test(h) && !before.has(h)) out.push(`${name}: 새 외부 주소 ${h}`)
+  }
+  return out
+}
+
+// ⑧ 고위험·판단 불가 PR 본문의 4대 보고: 무엇을 바꾸나 / 왜 필요한가 / 승인 시 남는 위험 / 미승인 시 영향 + 검증 링크(실행 기록·커밋·PR 주소).
+//    칸마다 실제 내용이 있어야 한다(빈 칸·'-'·TODO·'…' 제외). 보고가 없으면 Lee 승인이 있어도 이 판정은 통과하지 않고, 봇은 Lee 승인 요청 대신 보고 요청을 남긴다.
+export const REPORT_FIELDS = ['무엇을 바꾸나', '왜 필요한가', '승인 시 남는 위험', '미승인 시 영향']
+export function highRiskReport(body, repo = '') {
+  const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '')
+  const section = text.split(/^## 고위험 4대 보고[^\n]*\n/m)[1]?.split(/^## /m)[0] ?? ''
+  const missing = []
+  for (const k of REPORT_FIELDS) {
+    const m = section.match(new RegExp(`^[-*][ \\t]*${k}[ \\t]*:[ \\t]*(.*)$`, 'm'))
+    const v = (m?.[1] ?? '').trim()
+    if (v.replace(/[\s\-—_.…]/g, '').length < 4 || /^(?:todo|tbd|미정|작성 ?예정)/i.test(v)) missing.push(k)
+  }
+  const origin = `https://github.com/${repo || '[^/\\s]+/[^/\\s]+'}/`
+  const link = new RegExp(`${repo ? origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : origin}(?:actions/runs/\\d+|pull/\\d+|commit/[0-9a-f]{7,40}|issues/\\d+)`)
+  if (!link.test(section)) missing.push('검증 링크(실행 기록·커밋·PR 주소)')
+  return { ok: !missing.length, missing }
+}
+
 // 유효한 Lee 승인 하나의 판정(S4-4, Lee 2026-11-15 승인 조건 ③): Lee 계정의 '마지막 결정 리뷰'(승인·변경 요청·철회 — 의견만 단 리뷰는 제외)가
 // 승인(APPROVED)이고 그 리뷰가 지금 head 커밋에 대한 것이어야 한다. 예전 커밋 승인·승인 뒤 변경 요청은 무효. PR 작성자가 Lee 계정이면 자기 승인이라 무효.
 export function leeApprovedAt(reviews = [], sha, author) {
@@ -130,7 +181,7 @@ export function leeApprovedAt(reviews = [], sha, author) {
   return !!last && last.state === 'APPROVED' && last.commit_id === sha
 }
 
-export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author }) {
+export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author, body = '', repo = '' }) {
   const names = files.map((f) => f.filename ?? f)
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
@@ -138,11 +189,18 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f))
   const labeled = labels.includes(NEEDS_LEE_LABEL)
   const depRisk = dependencyRisks({ files, ...depFiles })
-  const touched = [...decision, ...frame, ...gate, ...depRisk, ...unknown]
+  // 경로만으로 이미 고위험인 파일(결정 문서·화면 틀·검사 장치)은 내용 검사를 겹치지 않는다
+  const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && !GATE_CODE(n) }))
+  const unreadable = content.filter((c) => c.endsWith('(판단 불가)')), realContent = content.filter((c) => !c.endsWith('(판단 불가)'))
+  // 변경 파일 목록이 비어 있으면 분석이 실패한 것이다(PR은 항상 파일을 바꾼다) — 닫힌 실패
+  const empty = names.length === 0
+  const touched = [...decision, ...frame, ...gate, ...depRisk, ...content, ...unknown, ...(empty ? ['(변경 파일 목록 비어 있음)'] : [])]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [], risk: 'normal' }
-  const ok = leeApprovedAt(reviews, sha, author)
-  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(unknown.length ? ['위험도 판단 불가'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
-  return { required: true, approved: ok, touched, reasons, changed: names, risk: decision.length || frame.length || gate.length || depRisk.length || labeled ? 'high' : 'unknown' }
+  const report = highRiskReport(body, repo)
+  // 4대 보고가 없으면 Lee 승인이 있어도 통과하지 않는다(승인할 내용이 설명되지 않은 PR)
+  const ok = leeApprovedAt(reviews, sha, author) && report.ok
+  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(realContent.length ? ['변경 내용 위험(DB 권한·인증·실행·외부 주소)'] : []), ...(unknown.length || empty || unreadable.length ? ['위험도 판단 불가'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
+  return { required: true, approved: ok, touched, reasons, changed: names, report, leeApproved: leeApprovedAt(reviews, sha, author), risk: decision.length || frame.length || gate.length || depRisk.length || realContent.length || labeled ? 'high' : 'unknown' }
 }
 
 export const REQUEST_MARKER = '<!-- decision-approval-request -->'
@@ -161,6 +219,11 @@ export function requestText(sha, touched, reasons = ['결정 문서'], changed =
     changedList(changed)
 }
 
+export const REPORT_REQUEST_MARKER = '<!-- decision-report-request -->'
+export const reportRequestText = (sha, reasons, missing) =>
+  `${REPORT_REQUEST_MARKER}\n이 PR(${sha.slice(0, 7)})은 ${reasons.join('·')} 대상이라 Lee 승인이 필요하지만, 승인 요청 전에 PR 본문의 "## 고위험 4대 보고" 칸이 필요합니다. ` +
+  `없는 항목: ${missing.join(', ')}. 형식: "- 무엇을 바꾸나: …", "- 왜 필요한가: …", "- 승인 시 남는 위험: …", "- 미승인 시 영향: …" 네 줄과 검증 링크(이 저장소의 actions/runs·pull·commit 주소) 한 개 이상. 본문을 고치면 자동으로 다시 봅니다.`
+
 // CLI (trusted master checkout in bot-pr-automerge.yml): files.json reviews.json comments.json sha
 if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   const { readFileSync } = await import('node:fs')
@@ -174,7 +237,11 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   try { framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8')) } catch { /* 잠금 파일을 못 읽으면 닫힌 실패 */ process.exit(3) }
   // 인자 8: PR 작성자 로그인(병합 실행기가 넘김). 비어 있으면 leeApprovedAt이 승인 없음으로 본다(닫힌 실패, S4-4).
   const author = process.argv[8] ?? ''
-  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author })
-  if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
+  // 인자 9: PR 본문 파일(4대 보고 확인), 인자 10: owner/repo(검증 링크 주소 확인). 못 읽으면 빈 본문 → 보고 없음으로 막힘(닫힌 실패).
+  let body = ''
+  try { if (process.argv[9]) body = readFileSync(process.argv[9], 'utf8') } catch { body = '' }
+  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author, body, repo: process.argv[10] ?? '' })
+  // 승인 요청은 4대 보고가 갖춰진 뒤에만 한다 — 보고가 없으면 보고를 먼저 요청(Lee에게 설명 없는 승인 요청을 보내지 않음)
+  if (!r.approved) console.log(r.report && !r.report.ok ? reportRequestText(sha, r.reasons, r.report.missing) : requestText(sha, r.touched, r.reasons, r.changed))
   process.exit(r.approved ? 0 : 3)
 }

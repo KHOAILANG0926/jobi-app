@@ -23,7 +23,9 @@ const dir = mkdtempSync(join(tmpdir(), 'dag-'))
 const w = (name, v) => { const p = join(dir, name); writeFileSync(p, JSON.stringify(v)); return p }
 const files = w('files.json', [{ filename: '.github/workflows/status-report.yml', status: 'modified' }])
 const comments = w('comments.json', []), labels = w('labels.json', []), deps = w('deps.json', {})
-const cli = (reviews, author) => spawnSync('node', [join(ROOT, 'scripts/decision-approval-gate.mjs'), files, w('reviews.json', reviews), comments, head, labels, deps, ...(author === undefined ? [] : [author])], { encoding: 'utf8' }).status
+const bodyFile = join(dir, 'body.txt')
+writeFileSync(bodyFile, ['## 고위험 4대 보고', '- 무엇을 바꾸나: 시험용 변경 내용', '- 왜 필요한가: 시험용 이유 설명', '- 승인 시 남는 위험: 시험용 남는 위험', '- 미승인 시 영향: 시험용 영향 설명', '- 검증: https://github.com/KHOAILANG0926/jobi-app/actions/runs/1', ''].join('\n'))
+const cli = (reviews, author) => spawnSync('node', [join(ROOT, 'scripts/decision-approval-gate.mjs'), files, w('reviews.json', reviews), comments, head, labels, deps, ...(author === undefined ? [] : [author, bodyFile, 'KHOAILANG0926/jobi-app'])], { encoding: 'utf8' }).status
 
 // ① 병합 실행기 CLI — 150건 중 마지막 쪽의 최신 결정 리뷰로 판정
 assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), 'viecganban-bot'), 0, '150건 중 마지막에 지금 커밋 승인 → 병합 가능')
@@ -34,7 +36,7 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), LEE), 3, 'PR 작�
 assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), ''), 3, '작성자를 모르면(빈 값) 승인 없음')
 assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '작성자 인자를 안 넘기면 승인 없음')
 // 승인이 필요 없는 PR은 작성자 인자와 상관없이 그대로 통과
-{ const plain = w('plain.json', [{ filename: 'src/lib/x.ts', status: 'modified' }])
+{ const plain = w('plain.json', [{ filename: 'src/lib/x.ts', status: 'modified', patch: '+x' }])
   const r = spawnSync('node', [join(ROOT, 'scripts/decision-approval-gate.mjs'), plain, w('r0.json', []), comments, head, labels, deps], { encoding: 'utf8' }).status
   assert.equal(r, 0, '승인 대상이 아닌 PR은 영향 없음') }
 
