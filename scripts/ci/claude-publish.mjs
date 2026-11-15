@@ -10,6 +10,7 @@
 // 사용: node claude-publish.mjs <codex|issue|review> --repo o/r --number N --out <초안 폴더> [--head-sha S --head-ref B --workdir <PR 사본>] [--dry-run]
 //       node claude-publish.mjs pr --repo o/r --out <초안 폴더> --head-sha <기준 커밋> --head-ref <새 브랜치> --workdir <기준 사본> [--dry-run]
 //         (새 브랜치·PR 만들기 — 지시 작업. 금지 경로는 거절. 직업분류 주간 보강은 Lee 2026-11-15 결정으로 중단)
+import { BOT_PROOF_LABEL } from '../check-pr-ready.mjs'
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -67,7 +68,7 @@ export function checkText(mode, text, { headSha = '', known = [] } = {}) {
     if (!/^findings: \d{1,3}$/.test(lines[2]?.trim() ?? '')) return '셋째 줄 findings 형식 아님'
   }
   { const men = mentionFinding(t); if (men) return `@언급 금지: ${men}` }
-  if (/<!--\s*(claude-(codex-reply|fallback-review|fallback-request|issue-reply)|codex-review-state)/.test(lines.slice(1).join('\n'))) return '본문에 다른 표시 줄이 있음'
+  { const mk = markerFinding(lines.slice(1).join('\n')); if (mk) return mk }
   const sec = secretFinding(t, known)
   return sec ? `비밀값 의심: ${sec}` : ''
 }
@@ -85,6 +86,15 @@ export function mentionFinding(t) {
   return m ? `@계정 모양 ${m[0]}` : ''
 }
 
+// 표시 위조 검사 하나(11회 지적 2 — 표시 이름 목록 대신): Claude 초안에는 HTML 주석 '<!--'(답·검토·승인 요청 등 모든 표시)과
+// 봇 검증 줄 이름(PR 설명 표의 '봇 수정 뒤 …' — check-pr-ready가 증거로 읽음)을 쓸 수 없다. 답 글의 첫 줄 표시는 checkText가 따로 정한다.
+export function markerFinding(t) {
+  const s = String(t ?? '')
+  if (/<!--/.test(s)) return '표시 위조 방지: HTML 주석(<!--)을 쓸 수 없음'
+  if (s.includes(BOT_PROOF_LABEL)) return '표시 위조 방지: 봇 검증 줄 이름을 쓸 수 없음'
+  return ''
+}
+
 export function checkIssues(raw, known = []) {
   let list
   try { list = JSON.parse(raw) } catch { return { error: 'issues.json 형식 오류', items: [] } }
@@ -97,6 +107,7 @@ export function checkIssues(raw, known = []) {
     if (!title || title.length > LIMITS.issueTitle) return { error: '이슈 제목 길이 오류', items: [] }
     if (it.body.length > LIMITS.issueBody) return { error: '이슈 본문이 너무 김', items: [] }
     if (mentionFinding(title + '\n' + it.body)) return { error: `이슈에 @언급 금지: ${mentionFinding(title + '\n' + it.body)}`, items: [] }
+    if (markerFinding(title + '\n' + it.body)) return { error: `이슈 초안: ${markerFinding(title + '\n' + it.body)}`, items: [] }
     const sec = secretFinding(title + '\n' + it.body, known)
     if (sec) return { error: `이슈에 비밀값 의심: ${sec}`, items: [] }
     items.push({ title, body: it.body, label: it.label })
@@ -132,6 +143,7 @@ export function checkPrText(title, body, known = []) {
   if (!t || t.length > LIMITS.issueTitle || /[\r\n]/.test(t)) return 'PR 제목은 한 줄 120자 이내'
   if (!b || b.length > LIMITS.text) return 'PR 설명 길이 오류'
   if (mentionFinding(t + '\n' + b)) return `PR 제목·설명에 @언급 금지: ${mentionFinding(t + '\n' + b)}`
+  if (markerFinding(t + '\n' + b)) return `PR 제목·설명: ${markerFinding(t + '\n' + b)}`
   const sec = secretFinding(t + '\n' + b, known)
   return sec ? `PR 제목·설명에 비밀값 의심: ${sec}` : ''
 }

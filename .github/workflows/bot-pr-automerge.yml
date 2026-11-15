@@ -112,7 +112,7 @@ jobs:
             fi
             if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json > approval-request.txt; then
               echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
-              if ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- decision-approval-request -->") and contains($sha[0:7]))' comments.json >/dev/null; then
+              if ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- decision-approval-request -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
                 gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
               fi
               continue
@@ -131,8 +131,9 @@ jobs:
                 else echo "::warning::PR #$num 검토관 요청 댓글 실패"; fi
                 echo 21 >> codex-wait.txt
               fi
+              # 표시 댓글은 이 봇(github-actions[bot])이 단 것·첫머리 표시만 인정한다(S4 11회 지적: 다른 댓글·파일 이름 속 표시로 안내를 막지 못하게).
               # 검토관이 여러 번 결과를 못 낸 운영·보안·DB 파일 PR(종료 코드 2): 장치 고장 — Lee에게 넘기지 않고 ai-team 이슈로 한 번 알린다(Lee 2026-11-11).
-              if [ "$gate_rc" = 2 ] && ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- fallback-reviewer-broken -->") and contains($sha[0:7]))' comments.json >/dev/null; then
+              if [ "$gate_rc" = 2 ] && ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- fallback-reviewer-broken -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
                 gh api -X POST "repos/$REPO/issues/$num/comments" -f body="<!-- fallback-reviewer-broken --> ${sha:0:7}: Claude 검토관이 여러 번 결과를 내지 못했습니다(장치 고장). 운영·보안·DB 파일이라 두 번째 검토 없이 병합하지 않고, 검토관 실행 기록을 고칩니다." >/dev/null || echo "::warning::PR #$num 안내 댓글 실패"
                 gh api -X POST "repos/$REPO/issues" -f title="Claude 검토관 결과 없음 — PR #$num (${sha:0:7})" -f body="봇 병합이 PR #$num 에 Claude 검토관(claude-auto.yml fallback-review)을 여러 번 불렀지만 결과 댓글이 없습니다. 실행 기록을 확인해 고칠 것." -f 'labels[]=ai-team' >/dev/null || echo "::warning::이슈 생성 실패"
               fi
