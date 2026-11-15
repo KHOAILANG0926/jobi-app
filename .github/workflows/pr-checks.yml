@@ -168,12 +168,13 @@ jobs:
           REF: ${{ github.head_ref }}
         run: |
           fail=0
-          try() { if "$@" >/dev/null 2>&1; then echo "::error::막혀야 하는데 됨: $*"; fail=1; else echo "거절됨(정상): $*"; fi; }
+          # 권한 때문에 막혔는지(403/404 '쓰기 권한 없음')를 응답 코드로 확인 — 다른 이유(형식 오류 422 등)로 실패한 것을 '막힘'으로 세지 않는다.
+          try() { code=$("$@" -i 2>/dev/null | awk 'NR==1{print $2}'); case "$code" in 403|404) echo "거절됨(정상, $code): $*";; *) echo "::error::권한 거절(403/404)이 아님($code): $*"; fail=1;; esac; }
           try gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="S4 drill — 이 댓글이 보이면 권한 시험 실패"
           try gh api -X POST "repos/$REPO/issues/$PR/labels" -f 'labels[]=needs-lee'
           try gh api -X PATCH "repos/$REPO/pulls/$PR" -f body="x"
-          try gh api -X POST "repos/$REPO/git/refs" -f ref="refs/heads/s4-drill-$GITHUB_RUN_ID" -f sha="$GITHUB_SHA"
-          try gh api -X PUT "repos/$REPO/pulls/$PR/merge"
+          try gh api -X POST "repos/$REPO/git/refs" -f ref="refs/heads/s4-drill-$GITHUB_RUN_ID" -f sha="${{ github.event.pull_request.head.sha }}"
+          try gh api -X PUT "repos/$REPO/pulls/$PR/merge" -f merge_method=squash
           if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then echo "::error::id-token 발급 정보가 있음(앱 토큰을 받을 수 있음)"; fail=1; else echo "id-token 발급 정보 없음(정상)"; fi
           gh api "repos/$REPO/pulls/$PR" --jq .number >/dev/null && echo "읽기는 됨(정상)" || { echo "::error::읽기도 안 됨"; fail=1; }
           exit $fail

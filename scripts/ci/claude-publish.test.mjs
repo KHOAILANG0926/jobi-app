@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, mkdirSync, symlinkSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { main, checkText, secretFinding, forbiddenPath, checkIssues } from './claude-publish.mjs'
+import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, BOT, PUBLISH_NOTE } from './claude-publish.mjs'
 
 const FAKE = 'fake-oauth-S4TEST-0123456789abcdef'
 process.env.KNOWN_SECRETS = `${FAKE}\nghs_FAKEFAKEFAKEFAKEFAKEFAKE00`
@@ -77,6 +77,14 @@ ok(!(await run(draft(edit('.gitattributes', '* filter=evil\n')))).ok, '.gitattri
 { const out = mkdtempSync(join(tmpdir(), 'pr-')); writeFileSync(join(out, 'review.md'), '<!-- claude-fallback-review -->\nsha: ' + 'a'.repeat(40) + '\nfindings: 0\n지적 없음')
   ok((await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'a'.repeat(40), '--out', out, '--dry-run'])).ok, '검토 결과 정상')
   ok(!(await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'b'.repeat(40), '--out', out, '--dry-run'])).ok, '다른 커밋의 검토 결과') }
+// 독립 검토 3차 지적 반영
+ok(!(await run(draft((d) => writeFileSync(join(d, 'src/logo.bin'), Buffer.from([0, 1, 2, 255, 0, 9]))))).ok, '바이너리 파일 거절')
+ok(!(await run(draft((d) => { mkdirSync(join(d, 'supabase/migrations'), { recursive: true }); writeFileSync(join(d, 'supabase/migrations/1_x.sql'), 'grant all on all tables in schema public to anon;\n') }))).ok, 'migration(운영 DB 자동 적용) 거절')
+ok(!(await run(draft((d) => { mkdirSync(join(d, 'scripts/ops/jobs'), { recursive: true }); writeFileSync(join(d, 'scripts/ops/jobs/x.sql'), 'select 1;\n') }))).ok, '운영 SQL 거절')
+ok(!(await run(draft(() => {}, { reply: '<!-- claude-codex-reply -->\n@chatgpt-codex-connector 다시' }))).ok, 'Codex 봇 언급 거절')
+{ const o = outgoingComment('codex', '<!-- claude-codex-reply -->\n고침', 'diff', { result: '실패' }); ok(o.body === PUBLISH_NOTE && !o.commit && !o.body.includes('claude-codex-reply'), '상자 실패면 답 표시 없는 안내만, 커밋 안 함') }
+{ const o = outgoingComment('codex', '<!-- claude-codex-reply -->\n고침', 'diff', { result: '통과' }); ok(o.commit && o.body.startsWith('<!-- claude-codex-reply -->'), '상자 통과면 커밋+답') }
+ok(BOT.email.startsWith('209825114+claude[bot]@'), 'claude[bot] 실제 계정 번호(41898282는 github-actions)')
 // 단위
 ok(forbiddenPath('AGENTS.md') && forbiddenPath('.mcp.json') && forbiddenPath('sub/CLAUDE.md') && !forbiddenPath('src/lib/a.ts'), '금지 경로 판정')
 ok(secretFinding('postgres://u:p@h/db') && !secretFinding('일반 글 1234'), '비밀값 모양')

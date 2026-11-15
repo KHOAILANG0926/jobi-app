@@ -1,0 +1,24 @@
+# 독립 검토 3차 지적 6·10: 게시 잡 셸 글에 브랜치 이름·댓글 본문을 바로 넣음(R7), Claude 잡이 관리자 토큰·DB 키를 가짐(R6), 지시 전용 잡도 예외 없음(R6)
+on: [issue_comment, workflow_dispatch]
+jobs:
+  pub:
+    runs-on: x
+    permissions: { contents: read, id-token: write }
+    steps:
+      - run: node scripts/ci/claude-publish.mjs codex --head-ref "${{ needs.g.outputs.head_ref }}"
+      - run: echo "${{ github.event.comment.body }}"
+  adminpat:
+    runs-on: x
+    permissions: { contents: read }
+    env: { SUPABASE_DB_URL: "${{ secrets.SUPABASE_DB_URL }}" }
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with: { github_token: "${{ secrets.ADMIN_PAT }}", claude_args: '--allowedTools "Bash(gh:*)"' }
+  dispatchonly:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: x
+    permissions: write-all
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with: { claude_args: '--allowedTools "Bash(node:*)"' }

@@ -13,6 +13,7 @@
   R5 PR 코드 위에서 Claude를 돌리면 --setting-sources user·disableAllHooks·hold-pr-claude-settings.sh(기준 사본) 셋 다.
   R6 비신뢰 글(PR·이슈·리뷰)을 읽는 Claude 잡은 쓰기 권한·id-token 없음 + github_token(읽기 전용) 지정. 쓰기는 게시 잡(claude-publish.mjs)만.
      (1·2차 독립 검토에서 'Claude 명령 제한'만으로는 두 번 뚫려 구조로 바꿈 — 그래서 '내보낼 수 있는 명령' 검사는 없앴다.)
+  R7 id-token(앱 토큰)·Claude 잡의 셸 글에 바뀔 수 있는 ${{ }} 값 직접 넣기 금지(env로).
   R4 다른 실행의 artifact를 받는 곳(download-artifact run-id·gh run download·artifacts API)은 그 전에 verify-artifact-run.sh를
      명령으로 실행해 출처를 확인한다(echo 글자·continue-on-error·|| true는 확인으로 치지 않음).
 범위: 정직한 실수를 잡는 검사다. 워크플로 파일 자체를 악의로 바꾸는 PR은 이 검사도 바꿀 수 있으므로 .github/·scripts/ci/ 변경은
@@ -155,6 +156,9 @@ def check_job(path, wf, name, job):
     foreign_dirs = []
     verified_artifact = False
     held = False
+    eff = job.get('permissions', wf.get('permissions'))
+    id_token = isinstance(eff, dict) and eff.get('id-token') == 'write' or eff == 'write-all'
+    claude_job = any(str(x.get('uses', '')).startswith('anthropics/claude-code-action') for x in steps)
     for i, st in enumerate(steps):
         where = f'{path} jobs.{name}.steps[{i}] {st.get("name") or st.get("uses") or ""}'.strip()
         uses = st.get('uses') or ''
@@ -173,11 +177,20 @@ def check_job(path, wf, name, job):
         if uses.startswith('./') and priv and untrusted:
             out.append(f'R1 {where}: PR·브랜치 코드를 펼친 뒤 저장소 안 action({uses}) 실행')
         run = st.get('run') or ''
-        if run and priv and untrusted and str(st.get('shell', 'bash')).split()[0] not in ('bash', 'sh'):
+        # R7: 앱 토큰을 받을 수 있는 잡(id-token)·Claude 잡에서는 바뀔 수 있는 값(${{ github.event.* / needs.*.outputs / steps.*.outputs / inputs.* / head_ref }})을
+        #     셸 글에 바로 넣지 않는다 — 브랜치 이름 같은 값으로 명령을 끼워 넣을 수 있다(독립 검토 3차 지적 6). env로 넘기고 "$이름"으로 쓴다.
+        if run and (id_token or claude_job):
+            for m in re.findall(r'\$\{\{([^}]*)\}\}', run):
+                if re.search(r'github\.event\.(issue|comment|pull_request|review|head_commit|inputs|discussion)|github\.head_ref|needs\.[\w-]+\.outputs|steps\.[\w-]+\.outputs|inputs\.', m):
+                    out.append(f'R7 {where}: 셸 글에 바뀔 수 있는 값을 바로 넣음 — ${{{{{m.strip()}}}}} (env로 넘길 것)')
+        shell = str(st.get('shell', 'bash'))
+        if run and priv and untrusted and shell.split()[0] not in ('bash', 'sh') and not re.search(r'(^|\s)/bin/bash\s', shell):
             out.append(f'R1 {where}: PR·브랜치 코드를 펼친 뒤 bash 아닌 shell({st.get("shell")}) 실행')
         soft = str(st.get('continue-on-error', 'false')).lower() == 'true'
         in_foreign = False
         for raw, words in commands(run):
+            if words[0] in ('/bin/bash', '/usr/bin/bash', '/bin/sh'):
+                words = ['bash'] + words[1:]
             cmd = words[0]
             if cmd == 'git' and len(words) > 1 and words[1] in SWITCHING:
                 untrusted = True
@@ -219,10 +232,14 @@ def check_job(path, wf, name, job):
         # R6(S4 3차): 비신뢰 글·PR 코드를 읽는 Claude 잡에는 쓰기 권한·id-token이 없어야 하고, 액션에 읽기 전용 토큰(github_token)을 직접 줘야 한다
         #   (안 주면 액션이 id-token으로 쓰기 앱 토큰을 받는다). 커밋·push·댓글은 기준 사본만 실행하는 게시 잡이 한다.
         if uses.startswith('anthropics/claude-code-action'):
-            dispatch_only = "github.event_name == 'workflow_dispatch'" in str(job.get('if', '')) and not (untrusted or foreign_dirs)
+            # 예외 없음(지시 작업도 비신뢰 글을 받을 수 있음 — 독립 검토 3차 지적 1·10)
             perms = job.get('permissions', wf.get('permissions'))
-            if not dispatch_only and (writes(perms) or perms is None or 'github_token' not in w):
-                out.append(f'R6 {where}: 비신뢰 입력을 읽는 Claude 잡에 쓰기 권한·id-token이 있거나 github_token(읽기 전용) 미지정 — 쓰기는 게시 잡으로')
+            if writes(perms) or perms is None or str(w.get('github_token', '')).replace(' ', '') != '${{github.token}}':
+                out.append(f'R6 {where}: Claude 잡에 쓰기 권한·id-token이 있거나 github_token이 읽기 전용 토큰(github.token)이 아님 — 쓰기는 게시 잡으로')
+            others = [k for k in re.findall(r'secrets\.([A-Za-z0-9_]+)', text(job.get('env')) + text(st.get('env')) + text({k: v for k, v in w.items() if k not in ('claude_code_oauth_token', 'anthropic_api_key')}))
+                      if k not in ('GITHUB_TOKEN',)]
+            if others:
+                out.append(f'R6 {where}: Claude 잡에 인증 열쇠 말고 다른 비밀값이 있음 — {", ".join(sorted(set(others)))}')
         if uses.startswith('actions/download-artifact') and w.get('run-id') and not verified_artifact:
             out.append(f'R4 {where}: 다른 실행의 artifact를 출처 확인(verify-artifact-run.sh) 없이 받음')
     return out
