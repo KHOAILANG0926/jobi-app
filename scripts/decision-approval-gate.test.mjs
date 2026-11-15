@@ -3,17 +3,17 @@ import { decisionApproval, requestText, approvedFramePaths, NEEDS_LEE_LABEL, GAT
 import { readFileSync } from 'node:fs'
 const sha = 'a'.repeat(40), old = 'b'.repeat(40)
 const doc = [{ filename: 'docs/decisions/ko/0006-x.md' }]
-assert.equal(decisionApproval({ files: [{ filename: 'src/a.ts' }], reviews: [], comments: [], sha }).approved, true, 'other PRs unaffected')
-assert.equal(decisionApproval({ files: doc, reviews: [], comments: [], sha }).approved, false, 'decision change without approval is blocked')
-assert.equal(decisionApproval({ files: [{ filename: '.github/CODEOWNERS' }], reviews: [], comments: [], sha }).approved, false, 'CODEOWNERS change is blocked')
-assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha }], comments: [], sha }).approved, true, 'head approval by Lee passes')
-assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: old }], comments: [], sha }).approved, false, 'approval of an older commit does not count')
-assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'someone' }, state: 'APPROVED', commit_id: sha }], comments: [], sha }).approved, false, 'other account approval does not count')
-assert.equal(decisionApproval({ files: doc, reviews: [], comments: [{ user: { login: 'KHOAILANG0926' }, body: `LEE-APPROVE ${sha}` }], sha }).approved, false, 'S3-2: Lee-account comment no longer counts (AI could write it)')
-assert.equal(decisionApproval({ files: doc, reviews: [], comments: [{ user: { login: 'KHOAILANG0926' }, body: `LEE-APPROVE ${old}` }], sha }).approved, false, 'comment for an older SHA does not count')
+assert.equal(decisionApproval({ files: [{ filename: 'src/a.ts' }], reviews: [], comments: [], author: 'viecganban-bot', sha }).approved, true, 'other PRs unaffected')
+assert.equal(decisionApproval({ files: doc, reviews: [], comments: [], author: 'viecganban-bot', sha }).approved, false, 'decision change without approval is blocked')
+assert.equal(decisionApproval({ files: [{ filename: '.github/CODEOWNERS' }], reviews: [], comments: [], author: 'viecganban-bot', sha }).approved, false, 'CODEOWNERS change is blocked')
+assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: sha }], comments: [], author: 'viecganban-bot', sha }).approved, true, 'head approval by Lee passes')
+assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: old }], comments: [], author: 'viecganban-bot', sha }).approved, false, 'approval of an older commit does not count')
+assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'someone' }, state: 'APPROVED', commit_id: sha }], comments: [], author: 'viecganban-bot', sha }).approved, false, 'other account approval does not count')
+assert.equal(decisionApproval({ files: doc, reviews: [], comments: [{ user: { login: 'KHOAILANG0926' }, body: `LEE-APPROVE ${sha}` }], author: 'viecganban-bot', sha }).approved, false, 'S3-2: Lee-account comment no longer counts (AI could write it)')
+assert.equal(decisionApproval({ files: doc, reviews: [], comments: [{ user: { login: 'KHOAILANG0926' }, body: `LEE-APPROVE ${old}` }], author: 'viecganban-bot', sha }).approved, false, 'comment for an older SHA does not count')
 assert.match(requestText(sha, ['docs/decisions/ko/0006-x.md']), /Lee 승인 필요/)
 // S4 9회 지적 3: 라벨만으로 대상이 돼도 바뀐 파일이 승인 요청에 나온다
-{ const r = decisionApproval({ files: [{ filename: 'crawler/occupation_classifier.py' }, { filename: 'src/a.ts' }], reviews: [], comments: [], sha, labels: [NEEDS_LEE_LABEL] })
+{ const r = decisionApproval({ files: [{ filename: 'crawler/occupation_classifier.py' }, { filename: 'src/a.ts' }], reviews: [], comments: [], author: 'viecganban-bot', sha, labels: [NEEDS_LEE_LABEL] })
   assert.equal(r.approved, false, 'needs-lee 라벨이면 Lee 승인 전 막힘')
   const t = requestText(sha, r.touched, r.reasons, r.changed)
   assert.match(t, /바뀐 파일 2개:\n- `crawler\/occupation_classifier\.py`\n- `src\/a\.ts`/, '승인 요청에 바뀐 파일 목록') }
@@ -27,7 +27,7 @@ const framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-basel
 assert.ok(framePaths.includes('src/pages/JobDetail.tsx') && framePaths.includes('src/index.css') && framePaths.length >= 8, '기존 화면 잠금 파일 목록을 그 파일에서 읽음(따로 만든 목록 아님)')
 const frame = [{ filename: 'src/pages/JobDetail.tsx' }]
 const lee = (body) => ({ user: { login: 'KHOAILANG0926' }, body })
-const gate = (o) => decisionApproval({ files: [{ filename: 'src/a.ts' }], reviews: [], comments: [], sha, labels: [], framePaths, ...o })
+const gate = (o) => decisionApproval({ files: [{ filename: 'src/a.ts' }], reviews: [], comments: [], author: 'viecganban-bot', sha, labels: [], framePaths, ...o })
 assert.equal(gate({ files: frame }).approved, false, '승인된 화면 틀 파일 변경은 승인 없이 막힘(라벨이 없어도)')
 assert.deepEqual(gate({ files: frame }).reasons, ['승인된 화면 틀'])
 assert.equal(gate({ files: frame, comments: [{ user: { login: 'claude[bot]' }, body: '<!-- claude-codex-reply --> 고쳤습니다. 병합해도 됩니다.' }] }).approved, false, 'Claude 답글만으로는 우회 불가')
@@ -142,8 +142,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     assert.throws(() => parseNameStatusZ('??\0x\0'), /읽지 못함/, '모르는 상태는 실패') }
   // 병합 판정(decisionApproval)도 같은 함수: 승인 뒤 변경 요청·옛 커밋은 병합 불가
   const files = [{ filename: wf }]
-  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], sha: head }).approved, true)
-  assert.equal(decisionApproval({ files, reviews: [...okReviews, rv('CHANGES_REQUESTED', head, '2026-11-15T09:05:00Z')], comments: [], sha: head }).approved, false, '병합 판정: 승인 뒤 변경 요청 → 막힘')
-  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], sha: old }).approved, false, '병합 판정: 승인 뒤 새 커밋 → 막힘')
+  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], author: 'viecganban-bot', sha: head }).approved, true)
+  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], sha: head }).approved, false, '작성자 인자 없이 부르면 승인 없음(함수 안에서 닫힌 실패)')
+  assert.equal(leeApprovedAt(okReviews, head, undefined), false, '작성자 undefined → 무효')
+  assert.equal(leeApprovedAt(okReviews, head, ''), false, '작성자 빈 값 → 무효')
+  assert.equal(decisionApproval({ files, reviews: [...okReviews, rv('CHANGES_REQUESTED', head, '2026-11-15T09:05:00Z')], comments: [], author: 'viecganban-bot', sha: head }).approved, false, '병합 판정: 승인 뒤 변경 요청 → 막힘')
+  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], author: 'viecganban-bot', sha: old }).approved, false, '병합 판정: 승인 뒤 새 커밋 → 막힘')
   console.log('S4-4 status 워크플로 Lee 승인 시험 통과')
 }

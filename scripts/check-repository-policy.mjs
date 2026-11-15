@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { isApprovedMigration, MANIFEST_PATH } from './approved-migrations.mjs'
-import { leeApprovedAt, OWNER } from './decision-approval-gate.mjs'
+import { leeApprovedAt } from './decision-approval-gate.mjs'
 
 const PROTECTED = [/^STATUS\.md$/, /^scripts\/status\//, /^\.github\/workflows\/status-.*\.ya?ml$/]
 // S4-4(Lee 2026-11-15 승인): STATUS 보호 파일 중 status-*.yml 워크플로만, 지금 head 커밋에 대한 Lee 계정의 유효한 Approve가 있을 때 통과한다
@@ -212,7 +212,7 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   let statusWorkflowApproved = false
   if (files.some((f) => STATUS_WORKFLOW.test(f))) {
     const reviews = (gh(`pulls/${event.pull_request?.number}/reviews?per_page=100`, true) ?? []).flat()
-    statusWorkflowApproved = leeApprovedAt(reviews, event.pull_request?.head?.sha, event.pull_request?.user?.login || OWNER)  // 작성자를 모르면 승인 없음(병합 판정과 같은 기준)
+    statusWorkflowApproved = leeApprovedAt(reviews, event.pull_request?.head?.sha, event.pull_request?.user?.login)  // 작성자를 모르면 승인 없음은 leeApprovedAt 안에서
   }
   const errors = evaluateFiles(files, event.pull_request?.body || '', patches, { approvedMigrations, resolve, statusWorkflowApproved })
   errors.forEach(error => console.error('::error::' + error))
