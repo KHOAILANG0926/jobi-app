@@ -48,6 +48,8 @@ jobs:
         run: node scripts/decision-approval-gate.test.mjs
       - name: Lee 승인 판정 실제 호출 경로 시험(리뷰 여러 쪽·작성자 인자, S4-4)
         run: node scripts/decision-approval-callpath.test.mjs
+      - name: 운영 키 진단 도구 시험(키 값 출력 없음, S4)
+        run: node scripts/ops/supabase-key-diagnose.test.mjs
       - name: AI 팀 Codex 검사 대기 규칙 시험
         run: node scripts/codex-review-gate.test.mjs
       - name: 봇 자동병합 필수 검사 판정 시험 (이름 같은 검사가 빨간 검사를 가리지 않는지, #728 S1)
