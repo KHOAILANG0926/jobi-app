@@ -18,6 +18,7 @@ expect bad-r1-no-permissions.yml R2 R1
 expect bad-r5-claude-settings.yml R5 R6
 expect bad-r6-claude-write.yml R6 R1
 expect bad-r7-injection.yml R7 R6
+expect bad-r8-no-environment.yml R8
 # 독립 검토가 찾은 우회 모양(bun·tsx·env npm·node_modules/.bin·sh·bash -c·shell: python·uses: ./·gh pr checkout·FETCH_HEAD·git apply·
 # 믿는 경로와 섞인 줄·pull_request 계열 기본 ref·gh run download·echo/continue-on-error/|| true 출처 확인·$( ) 안 명령): 잡마다 걸려야 함
 bout=$(python3 "$here/check-secret-isolation.py" "$fx/bad-bypass.yml")
