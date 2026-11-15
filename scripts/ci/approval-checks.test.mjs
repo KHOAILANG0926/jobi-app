@@ -41,18 +41,19 @@ assert.match(yml, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/, 
 assert.ok(!/head\.sha|head\.ref|pull\/\$\{\{/.test(yml.replace(/^#.*$/gm, '')), 'PR 커밋을 체크아웃하지 않음')
 assert.ok(!/contents: write|checks: write|pull-requests: write/.test(yml), '쓰기 권한 없음(검사 결과는 Claude 앱 토큰으로)')
 console.log('approval-checks 시험 통과(일반·고위험·판단 불가·검토 미완료·보고·Lee 승인)')
-// 검토 지적: PR 브랜치 사본이 도는 pull_request_review 트리거는 두지 않는다(주석 제외한 실제 트리거만 본다). Lee 승인 직후 재검사는 봇 워크플로가 master 기준으로 수동 실행.
+// 검토 지적: PR 브랜치 사본이 도는 pull_request_review 트리거는 두지 않는다(주석 제외한 실제 트리거만 본다). Lee 승인 직후 재검사는 review-signal.yml → workflow_run 한 경로(검토관 지적 62aa013: 봇의 중복 수동 실행 단계는 지움).
 { const live = yml.replace(/^\s*#.*$/gm, '')
   assert.ok(!/pull_request_review/.test(live), 'approval-checks.yml에 pull_request_review 트리거 없음')
   assert.match(live, /pull_request_target:/); assert.match(live, /workflow_dispatch:/); assert.match(live, /schedule:/)
   const bot = readFileSync(new URL('../../.github/workflows/bot-pr-automerge.yml', import.meta.url), 'utf8')
-  assert.match(bot, /if: github\.event_name == 'pull_request_review'[\s\S]*gh workflow run approval-checks\.yml --repo "\$REPO" --ref master -f pr="\$PR"/, 'Lee 승인 제출 시 master 기준으로 병합 조건 검사 수동 실행') }
+  assert.ok(!/gh workflow run approval-checks\.yml/.test(bot.replace(/^\s*#.*$/gm, '')), '봇은 병합 조건 검사를 따로 부르지 않음(즉시 재검사는 review-signal 한 경로)') }
 console.log('approval-checks 워크플로 트리거 시험 통과')
 // 검토관 지적(bcf87e7): 예약 5분·문서에 켜는 순서(봇/수동 검토관 요청)와 승인 철회 창을 적어 고정
 { const live = yml.replace(/^\s*#.*$/gm, ''); assert.match(live, /cron: '\*\/5 \* \* \* \*'/, '예약 5분')
   const doc = readFileSync(new URL('../../docs/ops/2026-11-15_s4_merge_gate_settings.md', import.meta.url), 'utf8')
   assert.match(doc, /순서 주의[\s\S]*봇이 꺼진 동안[\s\S]*영원히 대기/, '필수 지정 전 검토관 요청 경로(봇 켜기 또는 수동 실행) 명시')
-  assert.match(doc, /승인 철회 뒤에도 success가 남는 창/, '철회 창 명시') }
+  assert.match(doc, /승인 철회 뒤에도 success가 남는 창/, '철회 창 명시')
+  assert.ok(!/15분 예약|봇이 켜져 있을 때만 돈다/.test(doc), '문서가 현재 구조(review-signal 즉시 재검사·5분 예약 보조)와 맞음') }
 console.log('approval-checks 문서·예약 시험 통과')
 // S4 승인 취소 즉시 재검사: 신호 워크플로(권한 없음)가 끝나면 master 사본 workflow_run으로 approval-checks가 깨어난다
 { const sig = readFileSync(new URL('../../.github/workflows/review-signal.yml', import.meta.url), 'utf8').replace(/^\s*#.*$/gm, '')

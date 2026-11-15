@@ -25,9 +25,9 @@
 - 코드 되돌리기: #833 병합 커밋을 revert(검사 2개는 만들어지지 않고, 기존 4종 필수 검사는 그대로).
 
 ## 남는 한계(숨기지 않고 적음)
-- **승인 철회 뒤에도 success가 남는 창**: Lee가 Approve를 철회하거나 변경 요청을 해도 `approval-gate`는 다음 재판정(5분 예약, 또는 수동 실행·PR 이벤트·검토 댓글)까지 이전 success로 남는다(최대 약 5분). 리뷰 이벤트는 PR 브랜치 사본이 돌 수 있어 일부러 트리거에서 뺐고(master 사본만 돌게), 봇 워크플로의 즉시 재검사는 봇이 켜져 있을 때만 돈다. 즉시 막으려면 철회 직후 `gh workflow run approval-checks.yml -f pr=<번호>`를 실행한다.
+- **승인 철회 뒤에도 success가 남는 창**: Lee가 Approve를 철회하거나 변경 요청을 하면 `review-signal.yml` 신호가 끝난 뒤 `approval-checks.yml`이 master 사본으로 다시 판정한다(보통 1~2분, 봇 켜짐과 무관). 그 사이와, PR이 `review-signal.yml`을 지우거나 바꿔 신호가 안 오는 경우에는 5분 예약이 다시 판정할 때까지 이전 success가 남는다(최대 약 5분). `approval-checks.yml` 자체에는 리뷰 이벤트 트리거를 두지 않는다(PR 브랜치 사본이 돌 수 있어서).
 - PR 본문(4대 보고)은 Approve 뒤에도 고칠 수 있다: Approve는 커밋 기준이라 본문 변경을 잡지 못한다. 완화: 본문 수정(`edited`) 때마다 판정이 다시 돌고 `approval-gate`가 갱신되지만, 이미 준 Approve는 유지된다.
-- `pull_request_review` 트리거는 PR 브랜치 사본이 돌 수 있어 그 PR이 `approval-checks.yml`을 바꾸면 토큰을 못 받는다 → 15분 예약 실행(master 사본)이 다시 판정한다. 최대 15분 지연.
+- 리뷰 신호(`review-signal.yml`, `pull_request_review`)는 PR 브랜치 사본이 돌 수 있지만 권한이 없는 신호일 뿐이다 → 실제 판정은 `workflow_run`·5분 예약으로 늘 master 사본이 한다. 신호가 막혀도 최대 5분 지연.
 - 위험 내용 판정은 패턴 목록(`CONTENT_SIGNALS`·`KNOWN_HOSTS`)이라 완벽하지 않다 → 목록에 없는 새 위험은 막지 못한다. 그래서 경로 판정(⑥ 일반 목록 밖 = 판단 불가)과 독립 검토가 함께 있다. 최근 병합 60건 재판정: 새로 막힌 건 2건(#797·#708, DB 권한 migration), 오탐 0건.
 
 ## 승인 취소(Dismiss) 즉시 차단 — 2026-11-15 최종 합의 반영

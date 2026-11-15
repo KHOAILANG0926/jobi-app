@@ -55,14 +55,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # S4 8단계: Lee 공식 승인이 제출되면 병합 조건 검사(approval-gate)를 master 사본으로 바로 다시 돌린다(15분 예약을 기다리지 않게). 실패해도 병합 판정은 아래에서 계속.
-      - name: Lee 승인 직후 병합 조건 검사 다시 돌리기
-        if: github.event_name == 'pull_request_review'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-        run: gh workflow run approval-checks.yml --repo "$REPO" --ref master -f pr="$PR" || echo "::warning::병합 조건 검사 다시 돌리기 실패(15분 예약이 대신)"
       - name: GitHub Actions bot 인증으로 안전 병합
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
