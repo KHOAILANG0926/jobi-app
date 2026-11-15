@@ -110,6 +110,15 @@ export function approvedFramePaths(baselineSource) {
   return [...String(baselineSource ?? '').matchAll(/"path":\s*"([^"]+)"/g)].map((m) => m[1])
 }
 export const frameApproved = (path, framePaths) => framePaths.includes(path)
+// ⑥ 위험도 판단 불가(S4, Lee 2026-11-15 "위험도를 명확히 판단할 수 없는 변경은 자동 보류"): 위 ①~⑤에 걸리지 않으면서
+//    아래 '일반으로 확인된 곳'에도 없는 파일은 고위험으로 올려 Lee 승인 대상으로 둔다(새 최상위 폴더·배포/빌드 설정·서버 접속 파일 등).
+//    일반 = 평소 작업(화면·서버 함수·수집기·운영 스크립트·규칙 데이터·시험·문서·DB migration — 파괴적 migration·STRICT 경로는 검사가 따로 막음).
+//    목록은 '일반'을 적고 나머지를 판단 불가로 본다(새 파일 종류가 생겨도 빠뜨리지 않게 — 닫힌 실패).
+export const NORMAL_PATH = (path) => [
+  /^src\//, /^api\//, /^public\//, /^crawler\//, /^scripts\//, /^policy\//, /^test-fixtures\//, /^data\//,
+  /^docs\//, /^supabase\/(?:migrations|tests|pending)\//,
+  /^[A-Za-z0-9_-]+\.md$/, /^\.claude\/RULES_CORE\.md$/, /^tsconfig\.tsbuildinfo$/, /^package(?:-lock)?\.json$/,
+].some((re) => re.test(path))
 
 // 유효한 Lee 승인 하나의 판정(S4-4, Lee 2026-11-15 승인 조건 ③): Lee 계정의 '마지막 결정 리뷰'(승인·변경 요청·철회 — 의견만 단 리뷰는 제외)가
 // 승인(APPROVED)이고 그 리뷰가 지금 head 커밋에 대한 것이어야 한다. 예전 커밋 승인·승인 뒤 변경 요청은 무효. PR 작성자가 Lee 계정이면 자기 승인이라 무효.
@@ -126,13 +135,14 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
   const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f))
+  const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f))
   const labeled = labels.includes(NEEDS_LEE_LABEL)
   const depRisk = dependencyRisks({ files, ...depFiles })
-  const touched = [...decision, ...frame, ...gate, ...depRisk]
-  if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [] }
+  const touched = [...decision, ...frame, ...gate, ...depRisk, ...unknown]
+  if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [], risk: 'normal' }
   const ok = leeApprovedAt(reviews, sha, author)
-  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
-  return { required: true, approved: ok, touched, reasons, changed: names }
+  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(unknown.length ? ['위험도 판단 불가'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
+  return { required: true, approved: ok, touched, reasons, changed: names, risk: decision.length || frame.length || gate.length || depRisk.length || labeled ? 'high' : 'unknown' }
 }
 
 export const REQUEST_MARKER = '<!-- decision-approval-request -->'

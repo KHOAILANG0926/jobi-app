@@ -110,14 +110,6 @@ jobs:
                   '{basePkg:$bp[0],headPkg:$hp[0],baseLock:$bl[0],headLock:$hl[0]}' > deps.json || echo '{}' > deps.json
               fi
             fi
-            # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
-            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" > approval-request.txt; then
-              echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
-              if ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- decision-approval-request -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
-                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
-              fi
-              continue
-            fi
             # AI 팀 검사관(Lee 2026-11-08, 11-11): GPT Codex 검사를 기다린다. 한도 초과·12분 무응답이면 Claude 검토관, 그것도 20분 안 오면 예전 규칙, 지적이 있으면 Claude 답이 있어야 진행.
             gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
@@ -144,6 +136,15 @@ jobs:
               echo "PR #$num Codex 검사 대기: 병합 생략"; continue
             fi
             cat gate.txt
+            # S4(Lee 2026-11-15 ①): Lee 승인 요청은 필수 검사와 독립 검토를 모두 통과한 뒤에만 보낸다 — 검증이 덜 된 PR에 승인을 요청하지 않는다.
+            # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" > approval-request.txt; then
+              echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
+              if ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- decision-approval-request -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
+                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
+              fi
+              continue
+            fi
             # PR 준비 표시와 현재 head SHA 최종 재검증
             for try in 1 2 3 4 5; do
               gh api "repos/$REPO/pulls/$num" --jq '[.head.sha,.draft,.mergeable_state] | @tsv' > state.txt

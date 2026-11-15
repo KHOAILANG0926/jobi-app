@@ -150,3 +150,37 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], author: 'viecganban-bot', sha: old }).approved, false, '병합 판정: 승인 뒤 새 커밋 → 막힘')
   console.log('S4-4 status 워크플로 Lee 승인 시험 통과')
 }
+
+// S4 ⑥ 위험도 판단 불가 → 고위험(Lee 2026-11-15): 정상·고위험·판단 불가 차단 시험
+{
+  const { decisionApproval: da, NORMAL_PATH } = await import('./decision-approval-gate.mjs')
+  const h = 'c'.repeat(40)
+  const lee = [{ user: { login: 'KHOAILANG0926' }, state: 'APPROVED', commit_id: h, submitted_at: '2026-11-15T10:00:00Z' }]
+  const run = (paths, reviews = []) => da({ files: paths.map((filename) => ({ filename, status: 'modified' })), reviews, comments: [], sha: h, author: 'viecganban-bot' })
+  // 정상: Lee 승인 없이 통과(일일이 승인으로 되돌아가지 않음)
+  for (const p of ['src/lib/salaryReader.ts', 'api/_lib/auto-location-runtime.mjs', 'crawler/ingest_gateway.py', 'scripts/ops/app-smoke.mjs', 'policy/job-posting-rules.json',
+    'supabase/migrations/20261115000000_x.sql', 'supabase/tests/x.local.sql', 'docs/ops/note.md', 'public/images/a.png', 'CLAUDE.md', 'WORK_LOG.md', '.claude/RULES_CORE.md', 'test-fixtures/ocr/a.png']) {
+    const r = run([p]); assert.equal(r.approved, true, `정상 통과: ${p}`); assert.equal(r.risk, 'normal', p)
+  }
+  // 고위험: Lee 승인 전 막힘, 승인 뒤 통과
+  for (const p of ['.github/workflows/x.yml', 'scripts/ci/claude-publish.mjs', 'docs/decisions/ko/0009-x.md', 'AGENTS.md', 'scripts/check-repository-policy.mjs']) {
+    const r = run([p]); assert.equal(r.approved, false, `고위험 막힘: ${p}`); assert.equal(r.risk, 'high', p)
+    assert.equal(run([p], lee).approved, true, `고위험 Lee 승인 뒤 통과: ${p}`)
+  }
+  // 판단 불가: 고위험처럼 막힘(자동 보류), 사유 '위험도 판단 불가', Lee 승인 뒤 통과
+  for (const p of ['vercel.json', 'vite.config.ts', 'index.html', 'config/auto-processing-cutoff.json', 'ops/k.sh', 'android/twa-manifest.json', 'newdir/x.js', 'register_job.mjs', '.claude/settings.json', '.env.example']) {
+    assert.equal(NORMAL_PATH(p), false, p)
+    const r = run([p]); assert.equal(r.approved, false, `판단 불가 자동 보류: ${p}`); assert.equal(r.risk, 'unknown', p)
+    assert.ok(r.reasons.includes('위험도 판단 불가'), p)
+    assert.equal(run([p], lee).approved, true, `판단 불가 Lee 승인 뒤 통과: ${p}`)
+  }
+  // 섞이면 높은 쪽: 정상 + 판단 불가 → 막힘
+  assert.equal(run(['src/lib/a.ts', 'vercel.json']).approved, false, '정상과 판단 불가가 섞이면 막힘')
+  // 승인은 Lee 계정의 공식 Approve만: AI 검토 댓글·봇 승인·작성자 자기 승인은 무효
+  const botApprove = [{ user: { login: 'github-actions[bot]' }, state: 'APPROVED', commit_id: h, submitted_at: '2026-11-15T10:00:00Z' }, { user: { login: 'claude[bot]' }, state: 'APPROVED', commit_id: h, submitted_at: '2026-11-15T10:01:00Z' }]
+  assert.equal(run(['vercel.json'], botApprove).approved, false, '봇 승인 리뷰는 Lee 승인이 아님')
+  assert.equal(da({ files: [{ filename: 'vercel.json' }], reviews: [], comments: [{ user: { login: 'claude[bot]' }, body: '<!-- claude-fallback-review -->\nsha: ' + h + '\nfindings: 0' }], sha: h, author: 'viecganban-bot' }).approved, false, 'AI 검토 댓글은 승인이 아님')
+  assert.equal(da({ files: [{ filename: 'vercel.json' }], reviews: lee, comments: [], sha: h, author: 'KHOAILANG0926' }).approved, false, '작성자 자기 승인 무효')
+  assert.equal(run(['vercel.json'], [{ ...lee[0], commit_id: 'd'.repeat(40) }]).approved, false, '옛 커밋 승인 무효')
+  console.log('S4 ⑥ 위험도 판단 불가 시험 통과(정상 13·고위험 5·판단 불가 10·섞임·승인 종류)')
+}

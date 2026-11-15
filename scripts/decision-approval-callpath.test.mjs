@@ -43,7 +43,11 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
   assert.match(yml, /--json [^ ]*\bauthor\b/, 'PR 목록 조회에 작성자 포함')
   assert.match(yml, /read -r num sha branch author; do/, '작성자를 변수로 읽음')
   assert.match(yml, /decision-approval-gate\.mjs files\.json reviews\.json comments\.json "\$sha" labels\.json deps\.json "\$author"/, '작성자를 승인 판정에 넘김')
-  assert.match(yml, /pulls\/\$num\/reviews\?per_page=100" --paginate --slurp/, '리뷰는 전체 쪽 조회') }
+  assert.match(yml, /pulls\/\$num\/reviews\?per_page=100" --paginate --slurp/, '리뷰는 전체 쪽 조회')
+  // S4 ①: 순서 = 필수 검사 → 독립 검토 → Lee 승인 판정·요청 → 병합(검증이 덜 된 PR에 승인을 요청하지 않음)
+  const at = (re) => { const m = yml.search(re); assert.ok(m >= 0, String(re)); return m }
+  const checksAt = at(/required-checks-pass\.jq/), reviewAt = at(/node scripts\/codex-review-gate\.mjs /), approvalAt = at(/node scripts\/decision-approval-gate\.mjs /), mergeAt = at(/pulls\/\$num\/merge"/)
+  assert.ok(checksAt < reviewAt && reviewAt < approvalAt && approvalAt < mergeAt, '필수 검사 → 독립 검토 → Lee 승인 → 병합 순서') }
 
 // ① 정책 검사(check-repository-policy) 실제 실행 — 가짜 gh가 리뷰 150건을 두 쪽(100+50)으로 돌려줌(--paginate --slurp 모양)
 {
