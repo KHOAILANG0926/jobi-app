@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-15 10:09 (VN)**
-- 기준 커밋: `1b99e67` (Merge pull request #806 from viecganban-bot/claude/r4-ai-reader-gate-split)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43670933904
+- 생성 시각: **2026-11-15 13:26 (VN)**
+- 기준 커밋: `13d1204` (ci(S4-2): PR 코드와 열쇠 분리 + 악성 PR 시험 (#822))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43685336718
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -48,7 +48,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `1b99e67` · 상태 **success** · 2026-11-14 17:21 (VN)
+- 마지막 Production 배포: `13d1204` · 상태 **success** · 2026-11-15 13:25 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -56,6 +56,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #822 | 2026-11-15 13:25 (VN) | `13d1204` | ci(S4-2): PR 코드와 열쇠 분리 + 악성 PR 시험 |
 | #806 | 2026-11-14 17:21 (VN) | `1b99e67` | R4: split secret-free publication gate and trusted AI reader calibration |
 | #801 | 2026-11-13 18:38 (VN) | `18901d7` | fix(crawler): Facebook 재처리 마무리 판정 — 이미지 없는 공고 OCR 강제 제거·실제 차단 사유로 보류/실패 구분 (Draft, #728 후속) |
 | #797 | 2026-11-13 16:26 (VN) | `c82321a` | feat(db): 고용주·legacy 공고도 공개 전 검사 통과 기록 요구 (Lee 11-13 A4 승인, R2 #728) |
@@ -65,7 +66,6 @@
 | #795 | 2026-11-13 13:12 (VN) | `6e23e55` | 작업 기록: R2 자동 병합 승인 통제 (#728) |
 | #792 | 2026-11-13 12:56 (VN) | `0421c1a` | 자동 병합 통제 강화: needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 문턱 (R2 #728) |
 | #791 | 2026-11-13 12:25 (VN) | `f9564be` | 영역 검사에 줄 끊김·가로 넘침과 알려진 실패 래칫 합침 (#735 대체, R2 #728) |
-| #787 | 2026-11-13 12:16 (VN) | `e26f2f7` | 화면 대조 독립: 제목·회사 줄 기대값을 검사기 전용 읽기로 (R2 #753) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
