@@ -111,7 +111,17 @@ export function approvedFramePaths(baselineSource) {
 }
 export const frameApproved = (path, framePaths) => framePaths.includes(path)
 
-export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {} }) {
+// 유효한 Lee 승인 하나의 판정(S4-4, Lee 2026-11-15 승인 조건 ③): Lee 계정의 '마지막 결정 리뷰'(승인·변경 요청·철회 — 의견만 단 리뷰는 제외)가
+// 승인(APPROVED)이고 그 리뷰가 지금 head 커밋에 대한 것이어야 한다. 예전 커밋 승인·승인 뒤 변경 요청은 무효. PR 작성자가 Lee 계정이면 자기 승인이라 무효.
+export function leeApprovedAt(reviews = [], sha, author) {
+  if (!sha || !author || author === OWNER) return false  // 작성자를 모르면 자기 승인인지 알 수 없어 승인 없음(닫힌 실패)
+  const decisive = reviews.filter((r) => r.user?.login === OWNER && ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state))
+    .sort((x, y) => String(x.submitted_at ?? '').localeCompare(String(y.submitted_at ?? '')))
+  const last = decisive[decisive.length - 1]
+  return !!last && last.state === 'APPROVED' && last.commit_id === sha
+}
+
+export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author }) {
   const names = files.map((f) => f.filename ?? f)
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
@@ -120,7 +130,7 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const depRisk = dependencyRisks({ files, ...depFiles })
   const touched = [...decision, ...frame, ...gate, ...depRisk]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [] }
-  const ok = reviews.some((r) => r.user?.login === OWNER && r.state === 'APPROVED' && r.commit_id === sha)
+  const ok = leeApprovedAt(reviews, sha, author)
   const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
   return { required: true, approved: ok, touched, reasons, changed: names }
 }
@@ -152,7 +162,9 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   const depFiles = process.argv[7] ? JSON.parse(readFileSync(process.argv[7], 'utf8')) : {}
   let framePaths = []
   try { framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8')) } catch { /* 잠금 파일을 못 읽으면 닫힌 실패 */ process.exit(3) }
-  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles })
+  // 인자 8: PR 작성자 로그인(병합 실행기가 넘김). 비어 있으면 leeApprovedAt이 승인 없음으로 본다(닫힌 실패, S4-4).
+  const author = process.argv[8] ?? ''
+  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author })
   if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
   process.exit(r.approved ? 0 : 3)
 }
