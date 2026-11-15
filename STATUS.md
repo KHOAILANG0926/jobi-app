@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-14 17:22 (VN)**
+- 생성 시각: **2026-11-15 10:09 (VN)**
 - 기준 커밋: `1b99e67` (Merge pull request #806 from viecganban-bot/claude/r4-ai-reader-gate-split)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43584880158
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43670933904
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -91,9 +91,7 @@
 
 ## 6. VietMap 호출 수 (서버 카운터)
 
-| 날짜 | 호출 | 마지막 갱신 |
-|---|---|---|
-| 2026-11-07 | 1 | 2026-11-07 17:48 (VN) |
+- 최근 7일 호출 기록 없음
 - 이번 STATUS 재확인에 쓴 VietMap 호출: 0회 (앱 서버 카운터와 별도)
 
 ## 7. 최근 관리자·자동 작업 기록 (admin_audit_logs)
