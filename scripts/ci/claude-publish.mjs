@@ -203,7 +203,7 @@ function commitAndPush(a, token, message) {
   return sha
 }
 
-async function appToken() {
+export async function appToken() {
   const url = process.env.ACTIONS_ID_TOKEN_REQUEST_URL, req = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN
   if (!url || !req) throw new Error('OIDC 발급 정보 없음(id-token: write 필요)')
   const oidc = await (await fetch(`${url}&audience=claude-code-github-action`, { headers: { Authorization: `Bearer ${req}` } })).json()

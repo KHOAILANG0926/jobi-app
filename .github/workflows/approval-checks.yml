@@ -1,0 +1,60 @@
+name: 병합 조건 검사(ai-review·approval-gate, Claude 앱)
+# S4 8단계(Lee 2026-11-15): 독립 검토 결과와 위험도·Lee 승인 판정을 'Claude 앱' 이름으로 PR 커밋에 검사 결과로 남긴다.
+# PR 코드는 받지도 실행하지도 않는다 — master의 scripts/ci/approval-checks.mjs가 GitHub API 데이터만 읽는다.
+# Claude 앱 토큰은 master 워크플로에만 발급되므로(OIDC 교환) PR 브랜치 쪽은 같은 이름의 통과 결과를 만들 수 없다.
+# master 보호 규칙에서 두 검사를 '출처 앱 = Claude'로 필수 지정하는 것은 대표님 GitHub 설정이다(이 파일은 설정을 바꾸지 않는다).
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, edited, labeled, unlabeled]
+  # pull_request_review 트리거는 이 파일에 두지 않는다(그 이벤트는 PR 브랜치의 이 파일 사본이 돌 수 있다).
+  # 대신 review-signal.yml(권한 없는 신호 워크플로)이 끝나면 workflow_run — 항상 기본 브랜치(master) 사본 — 으로 깨어나 승인·승인 취소를 즉시 반영한다.
+  workflow_run:
+    workflows: ['검토 신호(승인·승인 취소 즉시 재검사 호출)']
+    types: [completed]
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR 번호(비우면 열린 PR 전체)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  id-token: write
+
+# 모든 실행을 한 줄로 세운다(Codex P1): 예약 실행과 PR 이벤트 실행이 같은 커밋의 검사 결과를 동시에 갱신하면 늦게 끝난 옛 판정이 새 판정을 success로 덮을 수 있다.
+# 대기 중 실행이 뒤 실행으로 바뀌어도 안전하다 — 실행마다 열린 PR 전체를 그 시점 자료로 다시 판정한다(--all).
+concurrency:
+  group: approval-checks
+  cancel-in-progress: false
+
+jobs:
+  publish-checks:
+    # 댓글 이벤트는 PR 댓글 중 Claude 검토관·Codex 결과 댓글일 때만(다른 댓글로 불필요하게 돌지 않게)
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request != null &&
+       (github.event.comment.user.login == 'claude[bot]' || github.event.comment.user.login == 'chatgpt-codex-connector[bot]' || github.event.comment.user.login == 'viecganban-bot'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: scripts
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 판정하고 Claude 앱으로 검사 결과 올리기
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
+        run: |
+          node scripts/ci/approval-checks.mjs --repo "$GITHUB_REPOSITORY" --all ${PR:+--pr "$PR"}

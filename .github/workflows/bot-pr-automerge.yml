@@ -112,14 +112,6 @@ jobs:
                   '{basePkg:$bp[0],headPkg:$hp[0],baseLock:$bl[0],headLock:$hl[0]}' > deps.json || echo '{}' > deps.json
               fi
             fi
-            # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
-            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" > approval-request.txt; then
-              echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
-              if ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- decision-approval-request -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
-                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
-              fi
-              continue
-            fi
             # AI 팀 검사관(Lee 2026-11-08, 11-11): GPT Codex 검사를 기다린다. 한도 초과·12분 무응답이면 Claude 검토관, 그것도 20분 안 오면 예전 규칙, 지적이 있으면 Claude 답이 있어야 진행.
             gh api "repos/$REPO/pulls/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > review-comments.json
             head_date=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
@@ -146,6 +138,19 @@ jobs:
               echo "PR #$num Codex 검사 대기: 병합 생략"; continue
             fi
             cat gate.txt
+            # S4(Lee 2026-11-15 ①): Lee 승인 요청은 필수 검사와 독립 검토를 모두 통과한 뒤에만 보낸다 — 검증이 덜 된 PR에 승인을 요청하지 않는다.
+            # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
+            # 9·10번째 = PR 본문 파일·저장소(고위험 PR의 4대 보고 확인 — 보고가 없으면 Lee 승인 요청 대신 보고 요청). 본문을 못 읽으면 병합하지 않는다(닫힌 실패).
+            gh api "repos/$REPO/pulls/$num" --jq '.body // ""' > pr-body.txt || { echo "::warning::PR #$num 본문 조회 실패: 병합 안 함"; continue; }
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
+              echo "::notice::PR #$num Lee 승인 대상(고위험·위험도 판단 불가): 승인 대기 — 병합 안 함"
+              # 요청 표시(승인 요청 또는 보고 요청)는 이 봇이 단 것·첫머리 표시·이 커밋 7자리만 인정한다. 출력이 비면(판정기 오류) 댓글 없이 보류만 한다.
+              first=$(head -1 approval-request.txt)
+              if [ -n "$first" ] && ! jq -e --arg sha "$sha" --arg first "$first" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith($first)) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
+                gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
+              fi
+              continue
+            fi
             # PR 준비 표시와 현재 head SHA 최종 재검증
             for try in 1 2 3 4 5; do
               gh api "repos/$REPO/pulls/$num" --jq '[.head.sha,.draft,.mergeable_state] | @tsv' > state.txt
@@ -162,6 +167,12 @@ jobs:
             # 검사가 다 끝났는데도 늦게 갱신된 값 — #681·#708, #686). 서버 병합 API를 바로 불러 서버 판단과 실제 거절 이유를 남긴다.
             # sha = --match-head-commit과 같음(그 사이 새 커밋이 오면 서버가 거절). 제목은 예전처럼 "PR 제목 (#번호)".
             title=$(gh api "repos/$REPO/pulls/$num" --jq '.title') || { echo "::warning::PR #$num 제목 조회 실패 — 다음 실행에서 다시 봄"; continue; }
+            # S4 병합 직전 실시간 승인 재검증(Lee 최종 합의): 위 판정 뒤 승인이 취소·변경 요청으로 바뀌었을 수 있다 — 병합을 부르기 바로 전에 리뷰·댓글·라벨·본문을 다시 받아
+            # 같은 판정기로 한 번 더 본다. 다시 받지 못하거나 판정이 막으면 병합하지 않는다(닫힌 실패). 병합 API의 sha 고정은 새 커밋만 막으므로 이 단계가 승인 취소를 막는다.
+            { gh api "repos/$REPO/pulls/$num/reviews?per_page=100" --paginate --slurp | jq 'add // []' > reviews.json               && gh api "repos/$REPO/issues/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > comments.json               && gh api "repos/$REPO/issues/$num" --jq '[.labels[].name]' > labels.json               && gh api "repos/$REPO/pulls/$num" --jq '.body // ""' > pr-body.txt; } || { echo "::warning::PR #$num 병합 직전 승인 재조회 실패: 병합 안 함"; continue; }
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
+              echo "::warning::PR #$num 병합 직전 재확인에서 승인 상태가 바뀜(취소·변경 요청·승인 없음): 병합 중단"; continue
+            fi
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then
               echo "::notice::PR #$num github-actions[bot] 병합 성공"
               if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
