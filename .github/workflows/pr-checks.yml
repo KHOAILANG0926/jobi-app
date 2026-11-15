@@ -148,3 +148,32 @@ jobs:
       - name: 변경된 migration을 깨끗한 PostgreSQL에 실제 적용
         if: github.event_name == 'pull_request'
         run: bash scripts/ci/check-postgres-migrations.sh
+
+  # S4(#808) 권한 시험: Claude 잡(codex-response·fallback-review·issue-mention)과 같은 권한 선언으로 실제 GitHub에서
+  # 쓰기(댓글·라벨·push)·앱 토큰 발급(id-token)이 모두 막히는지 본다. 하나라도 되면 실패(=구조가 약속과 다름).
+  token-drill:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: 읽기 전용 토큰으로 쓰기 시도 → 모두 거절돼야 함
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.head_ref }}
+        run: |
+          fail=0
+          try() { if "$@" >/dev/null 2>&1; then echo "::error::막혀야 하는데 됨: $*"; fail=1; else echo "거절됨(정상): $*"; fi; }
+          try gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="S4 drill — 이 댓글이 보이면 권한 시험 실패"
+          try gh api -X POST "repos/$REPO/issues/$PR/labels" -f 'labels[]=needs-lee'
+          try gh api -X PATCH "repos/$REPO/pulls/$PR" -f body="x"
+          try gh api -X POST "repos/$REPO/git/refs" -f ref="refs/heads/s4-drill-$GITHUB_RUN_ID" -f sha="$GITHUB_SHA"
+          try gh api -X PUT "repos/$REPO/pulls/$PR/merge"
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then echo "::error::id-token 발급 정보가 있음(앱 토큰을 받을 수 있음)"; fail=1; else echo "id-token 발급 정보 없음(정상)"; fi
+          gh api "repos/$REPO/pulls/$PR" --jq .number >/dev/null && echo "읽기는 됨(정상)" || { echo "::error::읽기도 안 됨"; fail=1; }
+          exit $fail
