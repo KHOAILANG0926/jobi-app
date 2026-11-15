@@ -4,12 +4,13 @@
 #   - 추적되는 심볼릭 링크: 링크로 /proc/self/environ·.git/config 같은 열쇠 파일을 Claude가 읽고 내보내게 만드는 길.
 #   치운 파일은 skip-worktree로 표시해 Claude의 `git add -A`가 '삭제'로 커밋하지 않게 한다. 원본은 $RUNNER_TEMP/pr-held에 둔다.
 #   Claude 출력 초안 폴더($RUNNER_TEMP/claude-out)를 새로 만든다(PR이 미리 심은 링크 파일로 열쇠를 올리는 길 차단 — 작업 폴더 밖).
+# 루프 안 비교는 if로 쓴다 — `[ ] && printf`는 마지막 파일이 링크가 아니면 거짓으로 끝나 pipefail로 스크립트가 멈춘다(2026-11-15 #828 검토관 실패).
 # 기준(master) 사본으로 실행한다(claude-auto.yml). 사용: hold-pr-claude-settings.sh [작업 폴더, 기본 현재]
 set -euo pipefail
 cd "${1:-.}"
 held="${RUNNER_TEMP:?}/pr-held"; mkdir -p "$held"
 # 이름에 공백·특수 문자가 있어도 정확히 읽게 NUL 구분(검토 2차 지적 8)
-{ git ls-files -z -- .claude/settings.json .claude/settings.local.json .mcp.json; git ls-files -s -z | while IFS= read -r -d '' e; do [ "${e%% *}" = 120000 ] && printf '%s\0' "${e#*	}"; done; } | sort -zu | while IFS= read -r -d '' f; do
+{ git ls-files -z -- .claude/settings.json .claude/settings.local.json .mcp.json; git ls-files -s -z | while IFS= read -r -d '' e; do if [ "${e%% *}" = 120000 ]; then printf '%s\0' "${e#*	}"; fi; done; } | sort -zu | while IFS= read -r -d '' f; do
   [ -n "$f" ] || continue
   git update-index --skip-worktree -- "$f"
   mkdir -p "$held/$(dirname "$f")" && mv -- "$f" "$held/$f"
