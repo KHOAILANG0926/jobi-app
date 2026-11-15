@@ -153,3 +153,48 @@ CODEOWNERS는 **기준 브랜치(master) 파일**이 적용되므로 PR이 자�
 | master push(작업 계정) | 거절 |
 
 이 시험들이 끝나기 전에는 S4 완료라고 보고하지 않는다.
+
+## 9. 2차 지시(Lee 2026-11-15) 처리 — 구현은 Draft PR #822(병합 안 함), #814에 crawl-guard 수정
+
+### 9-1. package.json 판정 범위 (지시 1)
+- package.json 전체가 아니라 `decision-approval-gate.mjs` ⑤ `dependencyRisks`가 고른 변경만 Lee 승인: 새 의존성, 설치 스크립트(직접·lockfile), 패키지 출처 변경(registry 밖·git·file·별칭·태그·overrides·.npmrc·lockfile 주소 이름/버전 불일치), 검증 약화(scripts 중 dev·preview·start 외 변경, 시험 파일 삭제·이름 바꿈, tsconfig·시험 실행기), 루트 밖 manifest, Python requirements의 새 이름·출처 줄·고정 해제.
+- 기존 의존성의 일반 버전 업데이트는 자동(필수 검사만). [직접 확인] 실제 lockfile 전체로 오탐 0건.
+- 남는 위험: 업데이트가 새로 끌어오는 하위 패키지의 설치 스크립트는 lockfile 표시(`hasInstallScript`)를 PR이 지울 수 있어 확실히 못 잡는다 → 그 설치는 열쇠 없는 곳(pr-checks·상자)에서만 돌고, 병합 뒤 master의 열쇠 있는 잡에서 `npm ci`가 돈다(공급망 위험, 후속: 열쇠 잡은 `npm ci --ignore-scripts` 검토).
+
+### 9-2. PR 코드 ↔ 열쇠 분리 (지시 2·3)
+| 경로 | 전 | 후 |
+|---|---|---|
+| crawl-guard | DB 열쇠 잡이 `[자동수리]` PR을 체크아웃해 npm ci·시험·빌드 / PR 제목 값을 SQL에 그대로 | PR 코드 실행 삭제(필수 검사 결과만 읽음), 열쇠는 쓰는 단계에만, 제목 값 형식·DB 대조(#814) |
+| codex-response | 쓰기 토큰·Claude 열쇠·id-token 잡에서 PR의 npm ci·시험·node, PR의 `.claude` hook 실행 | PR 코드는 기준 사본 `sandbox-run.sh` 컨테이너에서만(환경변수·.git·호스트 파일 없음, 설치 외 네트워크 없음), PR 쪽 Claude 설정·링크 치움, Claude 명령은 정확한 모양만 |
+| fallback-review | PR 체크아웃 위에서 PR 쪽 hook 적용 가능, `gh pr comment:*` | 같은 차단 + 결과는 초안 파일로만 |
+| mobile-screens | 쓰기 토큰 잡에서 브랜치 npm ci·빌드 | 상자에서 빌드, master vite로 결과만 띄움 |
+| Facebook 저장·읽기 3개 + location-ladder-compare | 아무 run id의 artifact 수용 | `verify-artifact-run.sh`: 같은 작업 파일·master·허용 방식·성공·master 이력 안 커밋만 |
+- 악성 PR 시험(필수 checks 안): 상자 18건(가짜 열쇠를 환경변수·.git 인증 줄·홈 설정에 심고 설치·시험·빌드에서 못 읽고·못 보내고·호스트를 못 고치는지, 상자 밖 대조 시험 포함), 악성 워크플로 흉내 검사 30건(우회 모양 18종 포함), artifact 출처 13건, Claude 설정 치우기 5건. [직접 확인] GitHub 실행에서 상자 18/18(39aa666).
+- 정적 검사 `check-secret-isolation.py`: 71개 워크플로 0건(옛 master 원본은 10건 — 고친 경로 전부 검출).
+
+### 9-3. Lee 열쇠 2개 (지시 4) [직접 확인]
+| 비밀값 이름 | 실제 사용처 | 폐기 영향 |
+|---|---|---|
+| `CODEX_TRIGGER_TOKEN` (Lee 계정, PR 쓰기) | `claude-auto.yml` codex-response의 ① PR 설명 검증 줄 수정(없으면 기본 토큰으로 대체, 180·189행) ② Claude가 고친 뒤 Lee 이름으로 `@codex review` 댓글(197·202행, 없으면 경고만) | Codex 자동 재검토 요청만 멈춤 — 기본 검토자는 Claude 검토관(이미 규칙). #811이 두 사용처를 지움 |
+| `GH_SECRETS_TOKEN` (Lee 계정, 비밀값 쓰기) | `android-upload-key-init.yml` 1곳(안드로이드 업로드 키 1회 생성) | 실행 기록 0회 [직접 확인] — 지금 영향 없음. 필요하면 그때 넣고 쓰고 지움 |
+- 위험 [직접 확인 코드]: 지금 master의 codex-response는 Lee 열쇠를 env에 둔 단계에서 PR 코드(`npm test`)를 실행한다 → 이미 노출됐을 수 있다고 보고 **삭제뿐 아니라 폐기**가 필요.
+
+### 9-4. Vercel Preview (지시 5)
+- [직접 확인] Vercel GitHub 연동이 master 밖 브랜치도 빌드한다: `status` 브랜치(STATUS.md만, vercel.json 없음) 커밋마다 vercel[bot] Preview 배포 20건(11-11~). vercel.json의 `deploymentEnabled:false`는 그 파일이 있는 브랜치에만 적용 → AI가 vercel.json을 빼거나 바꾼 브랜치를 올리면 Vercel이 그 코드를 Preview 환경변수로 빌드·실행한다.
+- [직접 확인] demo/** 배포 잡은 `vercel pull --environment=preview`로 Preview 환경변수 값을 러너에 받은 뒤 브랜치 코드로 `vercel build`를 돌린다(VERCEL_TOKEN도 env).
+- [확인 불가] Preview에 운영 `SUPABASE_SERVICE_ROLE_KEY`가 있는지: 이 세션에서 Vercel 접근 불가(데모 주소는 Vercel 로그인 보호 → 함수 응답으로도 확인 불가). api/ 서버 함수 12곳 이상이 이 키를 씀 [직접 확인 grep].
+- 차단 계획(키가 Preview에 있든 없든):
+  1. Lee: Vercel 프로젝트 → Settings → Git → 저장소 연결 끊기(Disconnect). 배포는 이미 GitHub Actions의 CLI(`--prebuilt`)로만 하므로 운영 배포에는 영향 없음 [추정 — 끊은 뒤 master 배포 1회로 확인].
+  2. Lee: Settings → Environment Variables에서 Preview에 체크된 비밀 키(SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL, VIETMAP_SERVICE_KEY, GOOGLE_PLACES_API_KEY, ADMIN_* 등) Preview 체크 해제. 데모는 화면용이라 공개 키(VITE_*)만 필요.
+  3. AI(PR): demo 배포를 '브랜치 코드는 열쇠 없이 빌드 → master 정의 잡이 결과만 올림'으로 바꾸기(L2와 함께).
+- 키 교체 계획(Preview에 있었던 것으로 확인되면 — 노출 '가능'이었으므로 교체 권장):
+  1. Supabase 새 secret 키(`sb_secret_…`)를 만든다 — 기존 키는 그대로 동작(동시 사용 가능).
+  2. Vercel Production 환경변수와 GitHub 비밀값 `SUPABASE_SERVICE_ROLE_KEY`를 새 키로 바꾸고 운영 배포·운영 검사 확인.
+  3. 옛 `service_role`(JWT) 키를 Supabase API Keys 화면에서 끈다. 공개 anon 키도 같은 JWT 비밀로 서명돼 있어, 완전 폐기(JWT 비밀 폐기)까지 하려면 화면의 anon 키를 publishable 키로 바꾸는 작업이 먼저 필요(AI PR + Lee 화면 조작).
+  4. `SUPABASE_DB_URL`(DB 비밀번호)도 Preview·브랜치 실행에 열려 있었으므로 DB 비밀번호 교체도 같은 시점에 권장.
+
+### 9-5. 남은 위험 (구분)
+- [직접 확인] 비밀값이 아직 저장소 전체 공용(Environment 미사용) → AI가 브랜치에 새 워크플로를 올리면 받을 수 있음. L2(Lee가 Environment 생성) 전까지 PR 코드 분리만으로는 완전하지 않다.
+- [추정] claude-task 잡(수동 지시 실행)은 기본 브랜치 위에서 Claude가 쓴 코드를 열쇠 있는 컴퓨터에서 실행한다 — 같은 상자 방식으로 옮길 후속.
+- [추정] 상자 이미지 버전 고정(digest) 없음, 설치 단계 네트워크로 러너 내부 주소 접근 가능.
+- [추정] claude-code-action이 `persist-credentials:false`·`--setting-sources user`에서 정상 push·답글 하는지는 병합 뒤 실제 지적 1건으로 확인 필요.
