@@ -22,7 +22,6 @@ concurrency:
 
 jobs:
   report:
-    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(Lee 승인 대상 — status 워크플로 변경)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
