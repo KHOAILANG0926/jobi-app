@@ -93,7 +93,9 @@ export async function main(argv, { getAppToken = appToken, framePaths: fp } = {}
   if (!repo || !readTok || (!a.pr && !a.all)) throw new Error('사용: --repo o/r (--pr N | --all), 환경변수 GITHUB_TOKEN(읽기)')
   const framePaths = fp ?? approvedFramePaths(readFileSync(new URL('../test-desktop-baseline.mjs', import.meta.url), 'utf8'))
   const open = (await pages(readTok, `repos/${repo}/pulls?state=open&base=master`)).filter((p) => p.base?.ref === 'master' && p.head.repo?.full_name === repo)
-  const targets = a.pr ? open.filter((p) => p.number === Number(a.pr)) : open.filter((p) => !p.draft && p.number >= 251)
+  // --all은 열린 PR 전체(Draft 제외)를 다시 판정하고, --pr을 함께 주면 그 PR(Draft 포함)도 넣는다. 워크플로는 항상 둘을 함께 써서(직렬 실행) 건너뛴 실행이 있어도 다음 실행이 전체를 최신 자료로 덮는다.
+  const eligible = open.filter((p) => !p.draft && p.number >= 251)
+  const targets = a.all ? [...new Map([...eligible, ...open.filter((p) => a.pr && p.number === Number(a.pr))].map((p) => [p.number, p])).values()] : open.filter((p) => p.number === Number(a.pr))
   if (a.pr && !targets.length) { console.log(`PR #${a.pr}: 열린 PR 아님(대상 아님)`); return }
   let appTok = null, errors = 0
   for (const sha of new Set(targets.map((p) => p.head.sha))) {
@@ -103,9 +105,16 @@ export async function main(argv, { getAppToken = appToken, framePaths: fp } = {}
     try {
       // 재판정을 시작하기 전에 이 커밋의 기존 판정을 '대기'로 내린다 — 아래 수집이 중간에 끊겨도 옛 성공이 남지 않는다(Codex P1).
       if (!a['dry-run']) for (const name of [CHECK_REVIEW, CHECK_APPROVAL]) await post(name, { state: 'pending', summary: '재판정 중(이전 판정은 무효)' })
-      const list = []
-      for (const p of group) { const { input } = await collect(readTok, repo, p.number, framePaths); list.push({ num: p.number, v: verdicts(input) }) }
-      const review = combine(list.map((x) => ({ num: x.num, v: x.v.review }))), approval = combine(list.map((x) => ({ num: x.num, v: x.v.approval })))
+      // 판정은 두 번 한다: 게시 직전에 자료를 다시 모아 다시 판정하고 더 나쁜 쪽을 올린다(Codex P1: 오래된 실행이 늦게 끝나 최신 판정을 success로 덮지 못하게).
+      // 워크플로의 직렬 실행(concurrency 한 줄)이 1차 방어, 이 재판정이 2차 방어 — 둘 다 기존 승인 검사 안에서만.
+      const evaluate = async () => {
+        const list = []
+        for (const p of group) { const { input } = await collect(readTok, repo, p.number, framePaths); list.push({ num: p.number, v: verdicts(input) }) }
+        return { review: combine(list.map((x) => ({ num: x.num, v: x.v.review }))), approval: combine(list.map((x) => ({ num: x.num, v: x.v.approval }))) }
+      }
+      const first = await evaluate(), second = await evaluate()
+      const worse = (x, y) => (SEVERITY[y.state] > SEVERITY[x.state] ? y : x)
+      const review = worse(first.review, second.review), approval = worse(first.approval, second.approval)
       console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: ${CHECK_REVIEW}=${review.state}(${review.summary}) ${CHECK_APPROVAL}=${approval.state}(${approval.summary})`)
       if (a['dry-run']) continue
       await post(CHECK_REVIEW, review); await post(CHECK_APPROVAL, approval)

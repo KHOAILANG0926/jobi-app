@@ -26,8 +26,10 @@ permissions:
   issues: read
   id-token: write
 
+# 모든 실행을 한 줄로 세운다(Codex P1): 예약 실행과 PR 이벤트 실행이 같은 커밋의 검사 결과를 동시에 갱신하면 늦게 끝난 옛 판정이 새 판정을 success로 덮을 수 있다.
+# 대기 중 실행이 뒤 실행으로 바뀌어도 안전하다 — 실행마다 열린 PR 전체를 그 시점 자료로 다시 판정한다(--all).
 concurrency:
-  group: approval-checks-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr || 'all' }}
+  group: approval-checks
   cancel-in-progress: false
 
 jobs:
@@ -53,5 +55,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
         run: |
-          if [ -n "$PR" ]; then node scripts/ci/approval-checks.mjs --repo "$GITHUB_REPOSITORY" --pr "$PR"
-          else node scripts/ci/approval-checks.mjs --repo "$GITHUB_REPOSITORY" --all; fi
+          node scripts/ci/approval-checks.mjs --repo "$GITHUB_REPOSITORY" --all ${PR:+--pr "$PR"}
