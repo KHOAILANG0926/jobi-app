@@ -31,5 +31,9 @@ after=$(find "$proj" -type f -not -path '*/.git/objects/*' -exec sha256sum {} + 
 [ "$before" = "$after" ] && ok || bad "호스트 작업 폴더 파일이 바뀜"
 bash "$here/sandbox-run.sh" evil "$proj" >/dev/null 2>&1 && bad "정해진 명령 밖(evil) 허용" || ok
 SANDBOX_IMAGE='x; rm -rf /' bash "$here/sandbox-run.sh" test "$proj" >/dev/null 2>&1 && bad "이미지 이름 주입 허용" || ok
+# Python 시험 실행(직업분류 규칙 보강 잡이 씀): 정상 모듈은 돌고, 모듈 이름 주입은 거절
+py="$tmp/py"; mkdir -p "$py/crawler"; printf 'import os,unittest\nclass T(unittest.TestCase):\n  def test_env(self):\n    self.assertNotIn("S4FAKE", "".join(os.environ.values()))\n' > "$py/crawler/test_s4probe.py"
+bash "$here/sandbox-run.sh" py-unittest "$py" test_s4probe >/dev/null 2>&1 && ok || bad "py-unittest 정상 모듈 실패(상자에 python3 없음?)"
+bash "$here/sandbox-run.sh" py-unittest "$py" 'test_x;id' >/dev/null 2>&1 && bad "py-unittest 모듈 이름 주입 허용" || ok
 echo "sandbox-run 악성 PR 시험: 통과 $pass, 실패 $fail"
 [ "$fail" = 0 ]

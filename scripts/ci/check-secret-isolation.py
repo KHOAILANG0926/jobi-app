@@ -10,6 +10,9 @@
      다른 폴더에 펼친 경우(git worktree add)는 그 폴더를 가리키는 명령에 같은 규칙.
   R2 그 체크아웃은 persist-credentials: false (쓰기 토큰을 .git에 남기지 않음).
   R3 그 잡의 claude-code-action은 PR 코드 실행 명령(Bash(npm/npx/node/python/make…))을 허용하지 않는다.
+  R5 PR 코드 위에서 Claude를 돌리면 --setting-sources user·disableAllHooks·hold-pr-claude-settings.sh(기준 사본) 셋 다.
+  R6 비신뢰 글(PR·이슈·리뷰)을 읽는 Claude 잡은 쓰기 권한·id-token 없음 + github_token(읽기 전용) 지정. 쓰기는 게시 잡(claude-publish.mjs)만.
+     (1·2차 독립 검토에서 'Claude 명령 제한'만으로는 두 번 뚫려 구조로 바꿈 — 그래서 '내보낼 수 있는 명령' 검사는 없앴다.)
   R4 다른 실행의 artifact를 받는 곳(download-artifact run-id·gh run download·artifacts API)은 그 전에 verify-artifact-run.sh를
      명령으로 실행해 출처를 확인한다(echo 글자·continue-on-error·|| true는 확인으로 치지 않음).
 범위: 정직한 실수를 잡는 검사다. 워크플로 파일 자체를 악의로 바꾸는 PR은 이 검사도 바꿀 수 있으므로 .github/·scripts/ci/ 변경은
@@ -34,8 +37,6 @@ ALLOWED_CMDS = {
 KEYWORD_PREFIX = {'if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', '(', 'time', 'exec'}
 TRUSTED_PATH = re.compile(r'^(\$RUNNER_TEMP|\$\{RUNNER_TEMP\}|\$\{\{\s*runner\.temp\s*\}\})/trusted/|^\$T/')
 CLAUDE_CODE_TOOLS = re.compile(r'Bash\((npm|npx|node|yarn|pnpm|bun|deno|tsx|python3?|make|pip3?|sh|env)\b')
-# 파일을 읽어 밖으로 내보낼 수 있는 허용(검토 지적 4): 범위 없는 Read/Grep/Glob, 인자를 마음대로 붙일 수 있는 gh·git·jq·cat 명령.
-CLAUDE_LEAK_TOOLS = re.compile(r'(?<![A-Za-z])(Read|Grep|Glob)(?=[,"\s]|$)|Bash\((gh api|gh pr comment|gh issue create|gh pr create|git diff|git fetch|git push|git add|git commit|jq|cat|curl)( [^)]*)?:\*\)')
 PR_EVENTS = {'pull_request', 'pull_request_review', 'pull_request_review_comment'}
 VERIFY = re.compile(r'^(bash\s+)?(\$RUNNER_TEMP/trusted/|\$T/)?scripts/ci/verify-artifact-run\.sh\s')
 ARTIFACT_FETCH = re.compile(r'gh\s+run\s+download|actions/artifacts/\S*/zip|/actions/runs/\S*/artifacts')
@@ -105,7 +106,7 @@ def commands(code):
     """run 글을 단순 명령 단위로 나눈다(따옴표를 지키는 shlex 토큰 — 여러 줄 따옴표 포함, 줄바꿈은 명령 경계,
     heredoc 본문은 건너뜀, "$( … )" 안쪽도 검사). 정확한 셸 해석이 아니라 '각 명령의 첫 낱말'을 보기 위한 근사다."""
     code = strip_heredocs(code.replace('\\\n', ' '))
-    for inner in re.findall(r'\$\(([^()]*)\)', code):
+    for inner in re.findall(r'\$\(([^()]*)\)', code) + re.findall(r'`([^`]*)`', code):
         yield from commands(inner)
     try:
         lex = shlex.shlex(code, posix=True, punctuation_chars='();<>|&\n')
@@ -117,7 +118,7 @@ def commands(code):
         toks = code.split()
     cur = []
     for t in toks + [';']:
-        if t in BOUNDARY or set(t) <= {'\n'}:
+        if t in BOUNDARY or (t and set(t) <= set('();&|\n')):
             words = cur
             while words and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', words[0]) or words[0] in KEYWORD_PREFIX):
                 words = words[1:]
@@ -137,6 +138,11 @@ def command_ok(words, raw):
         return bool(rest) and rest[0] in ALLOWED_CMDS
     if cmd == 'docker':
         return len(words) > 1 and words[1] == 'pull'
+    # 허용 명령이라도 다른 프로그램을 실행시키는 쓰임은 막는다(검토 2차 지적 6)
+    if cmd == 'find' and any(w in ('-exec', '-execdir', '-ok', '-okdir') for w in words):
+        return False
+    if cmd == 'awk' and 'system' in raw:
+        return False
     return cmd in ALLOWED_CMDS
 
 
@@ -155,7 +161,12 @@ def check_job(path, wf, name, job):
         w = st.get('with') or {}
         if uses.startswith('actions/checkout'):
             ref = str(w.get('ref', ''))
-            if not trusted_ref(ref, evs):
+            sub = str(w.get('path', '')).strip().strip('./')
+            if not trusted_ref(ref, evs) and sub and not sub.startswith('.trusted'):
+                foreign_dirs.append(sub)  # 다른 폴더에 펼친 PR 사본 = 데이터(그 폴더 코드를 실행하면 R1)
+                if priv and str(w.get('persist-credentials', 'true')).lower() != 'false':
+                    out.append(f'R2 {where}: 열쇠 있는 잡이 PR·브랜치 코드를 체크아웃하면서 persist-credentials: false가 없음')
+            elif not trusted_ref(ref, evs):
                 untrusted = True
                 if priv and str(w.get('persist-credentials', 'true')).lower() != 'false':
                     out.append(f'R2 {where}: 열쇠 있는 잡이 PR·브랜치 코드를 체크아웃하면서 persist-credentials: false가 없음')
@@ -176,8 +187,8 @@ def check_job(path, wf, name, job):
                 args = [a for a in words[3:] if not a.startswith('-')]
                 if args:
                     foreign_dirs.append(args[0])
-            if cmd == 'bash' and len(words) > 1 and TRUSTED_PATH.search(words[1]) and words[1].endswith('hold-pr-claude-settings.sh'):
-                held = True
+            if cmd == 'bash' and len(words) > 1 and TRUSTED_PATH.search(words[1]) and words[1].endswith('hold-pr-claude-settings.sh') and untrusted:
+                held = True  # PR 체크아웃 뒤에 있어야 의미가 있다(순서 확인)
             if VERIFY.search(raw) and not soft and not re.search(r'verify-artifact-run\.sh[^\n]*\|\|\s*(true|:)', run):
                 verified_artifact = True
             if ARTIFACT_FETCH.search(raw) and not verified_artifact:
@@ -185,23 +196,33 @@ def check_job(path, wf, name, job):
             if not priv:
                 continue
             sandbox = cmd == 'bash' and 'sandbox-run.sh' in raw and (not untrusted or command_ok(words, raw))
+            inside = lambda x: any(d and (x == d or x.startswith(d + '/') or x.endswith('/' + d) or ('/' + d + '/') in x) for d in foreign_dirs)
             if cmd == 'cd':
-                in_foreign = any(d and d in raw for d in foreign_dirs)
-            touches_foreign = in_foreign or any(d and d in raw for d in foreign_dirs)
+                in_foreign = len(words) > 1 and inside(words[1])
+            # 다른 폴더의 PR 사본: 그 폴더에서(cd) 실행하거나, 그 안의 파일을 실행하거나, 패키지 도구를 그 폴더로 돌리면 문제. 기준 스크립트가 그 폴더를 데이터로 읽는 것은 허용.
+            touches_foreign = in_foreign or (len(words) > 1 and inside(words[1]) and cmd in ('bash', 'sh', 'node', 'python', 'python3')) \
+                or inside(cmd) or (cmd in ('npm', 'npx', 'yarn', 'pnpm', 'make') and any(inside(x.split('=', 1)[-1]) for x in words[1:]))
             if (untrusted or touches_foreign) and not sandbox and not command_ok(words, raw):
                 out.append(f'R1 {where}: 열쇠 있는 잡이 PR·브랜치 코드를 펼친 뒤 허용 밖 명령 실행 — {raw.strip()[:120]}')
         if uses.startswith('anthropics/claude-code-action') and priv and untrusted:
             tools = text(w.get('claude_args', '')) + text(w.get('allowed_tools', ''))
-            m = CLAUDE_CODE_TOOLS.search(tools)
+            allowed = ' '.join(re.findall(r'--allowedTools[ =]"([^"]*)"', tools)) + ' ' + str(w.get('allowed_tools', ''))
+            m = CLAUDE_CODE_TOOLS.search(tools) or re.search(r'Bash\((\*|bash:\*|git:\*|gh:\*)\)|(?<![\w(])Bash(?=[,\s]|$)', allowed) \
+                or re.search(r'bypassPermissions|dangerously|--allowed-tools|acceptEdits', tools)
             if m:
-                out.append(f'R3 {where}: PR 코드를 체크아웃한 잡의 Claude가 코드 실행 명령을 허용 — {m.group(0)}')
-            allowed = re.search(r'--allowedTools\s+"([^"]*)"', tools)
-            m = CLAUDE_LEAK_TOOLS.search(allowed.group(1) if allowed else tools)
-            if m and not re.match(r'Bash\(git (add|commit) -', m.group(0)):
-                out.append(f'R3 {where}: PR 코드를 체크아웃한 잡의 Claude가 파일을 읽어 내보낼 수 있는 명령을 허용 — {m.group(0)}')
+                out.append(f'R3 {where}: PR 코드를 체크아웃한 잡의 Claude가 코드 실행·권한 끄기 명령을 허용 — {m.group(0)}')
             # R5: PR 쪽 Claude 설정(hook·허용 목록·MCP)이 열쇠 있는 컴퓨터에서 적용되지 않게
-            if '--setting-sources user' not in tools or 'disableAllHooks' not in tools or not held:
+            sources = re.search(r'--setting-sources[ =](\S+)', tools)
+            hooks_off = re.search(r'"disableAllHooks"\s*:\s*true', tools)
+            if not sources or sources.group(1).strip('"\'') != 'user' or not hooks_off or not held:
                 out.append(f'R5 {where}: PR 코드 위에서 Claude 실행 — --setting-sources user·disableAllHooks·hold-pr-claude-settings.sh(기준 사본) 셋 다 필요')
+        # R6(S4 3차): 비신뢰 글·PR 코드를 읽는 Claude 잡에는 쓰기 권한·id-token이 없어야 하고, 액션에 읽기 전용 토큰(github_token)을 직접 줘야 한다
+        #   (안 주면 액션이 id-token으로 쓰기 앱 토큰을 받는다). 커밋·push·댓글은 기준 사본만 실행하는 게시 잡이 한다.
+        if uses.startswith('anthropics/claude-code-action'):
+            dispatch_only = "github.event_name == 'workflow_dispatch'" in str(job.get('if', '')) and not (untrusted or foreign_dirs)
+            perms = job.get('permissions', wf.get('permissions'))
+            if not dispatch_only and (writes(perms) or perms is None or 'github_token' not in w):
+                out.append(f'R6 {where}: 비신뢰 입력을 읽는 Claude 잡에 쓰기 권한·id-token이 있거나 github_token(읽기 전용) 미지정 — 쓰기는 게시 잡으로')
         if uses.startswith('actions/download-artifact') and w.get('run-id') and not verified_artifact:
             out.append(f'R4 {where}: 다른 실행의 artifact를 출처 확인(verify-artifact-run.sh) 없이 받음')
     return out

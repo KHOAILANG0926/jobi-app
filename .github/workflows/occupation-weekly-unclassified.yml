@@ -11,23 +11,23 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: occupation-weekly-unclassified
   cancel-in-progress: false
 
 jobs:
-  report-and-propose:
+  # S4(#808) 3차: DB 열쇠가 있는 잡과 Claude 잡을 나눈다. 미분류 공고 제목은 수집한 글(비신뢰 입력)이라 Claude 잡에는 DB 열쇠·쓰기 토큰·id-token이 없다.
+  #   report(DB 읽기, Claude 없음) → propose(Claude, 파일만 고침, 읽기 전용 토큰) → publish(기준 사본만 실행, 허용 경로 두 파일만, 검증 뒤 claude[bot]으로 브랜치·PR)
+  report:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      HAS_ANTHROPIC_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
+    outputs:
+      count: ${{ steps.q.outputs.count }}
     steps:
-      - uses: actions/checkout@v4
       - name: 키 등록 확인
         run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
       - name: PostgreSQL 클라이언트 설치
@@ -47,15 +47,56 @@ jobs:
             echo ""
             python3 -c "import json;[print(f\"- #{r['id']} {r['title']}\") for r in json.load(open('unclassified.json'))[:50]]"
           } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unclassified
+          path: unclassified.json
+          retention-days: 3
+
+  propose:
+    needs: report
+    if: needs.report.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
+    outputs:
+      claude: ${{ steps.claude.outcome }}
+      base: ${{ steps.base.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: 기준 사본(검사 도구)·초안 폴더
+        id: base
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          rm -rf "$RUNNER_TEMP/trusted" && mkdir -p "$RUNNER_TEMP/trusted" && git archive HEAD scripts | tar -C "$RUNNER_TEMP/trusted" -x && chmod -R a-w "$RUNNER_TEMP/trusted"
+          rm -rf .claude-out && mkdir .claude-out
+          docker pull -q node:22-bookworm >/dev/null
+      - uses: actions/download-artifact@v4
+        with:
+          name: unclassified
       - name: Claude 키 없음 안내
-        if: steps.q.outputs.count != '0' && env.HAS_ANTHROPIC_KEY != 'true'
-        run: echo "::warning::ANTHROPIC_API_KEY가 없어 규칙 보강 PR 단계를 건너뜀. 보고서(Summary)만 생성."
-      - name: Claude 규칙 보강 PR
-        if: steps.q.outputs.count != '0' && env.HAS_ANTHROPIC_KEY == 'true'
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: echo "::warning::Claude 키가 없어 규칙 보강 단계를 건너뜀. 보고서(Summary)만 생성."
+      - name: Claude 규칙 보강 (파일만 고침)
+        id: claude
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ github.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          claude_args: >-
+            --permission-mode default --setting-sources user
+            --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
+            --tools "Read,Glob,Grep,Bash,Edit"
+            --allowedTools "Read,Glob,Grep,Edit(./crawler/occupation_classifier.py),Edit(./crawler/test_occupation_classifier.py),Edit(./.claude-out/**),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh py-unittest . test_occupation_classifier),Bash(git status),Bash(git diff)"
+            --disallowedTools "Read(./.git/**)"
           prompt: |
             작업: 공식 직업분류 자동 분류 규칙 보강 (규칙 R8). 먼저 CLAUDE.md를 읽고 지킨다.
 
@@ -67,6 +108,55 @@ jobs:
             2. 코드는 data/occupations/34-2020/occupation_codes.json 에 있는 4·5단계 코드만 쓴다. 코드나 직업명을 만들어내지 않는다.
             3. 회사명·공단명(KCN)·업종만으로 판단하지 않는다. 제목에 직무가 없으면 그 공고는 미분류로 둔다(억지로 맞추지 않음).
             4. 더한 규칙마다 crawler/test_occupation_classifier.py 에 실제 제목 그대로의 시험을 추가한다(근거 = 제목 안의 글자 그대로).
-            5. `cd crawler && python3 -m unittest test_occupation_classifier` 가 통과해야 한다. 기존 시험을 지우거나 약하게 바꾸지 않는다.
-            6. 새 브랜치에 커밋하고 PR을 만든다. master에 push하지 않는다. DB에 쓰지 않는다.
-            7. PR 설명: 추가한 규칙(코드·공식 직업명·근거 예시), 여전히 미분류로 둔 제목과 이유. 5줄 이내 요약 + 표.
+            5. `bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh py-unittest . test_occupation_classifier` 가 통과해야 한다(열쇠 없는 상자). 기존 시험을 지우거나 약하게 바꾸지 않는다.
+            6. 이 실행에서 너는 **파일만 고친다**(Edit 도구). 커밋·push·PR은 다음 단계(게시)가 검증 뒤 한다. 위 두 파일 밖을 고치면 게시 단계가 거절한다.
+            7. Edit 도구로 결과를 쓴다: `.claude-out/pr-title.txt`(한 줄 PR 제목), `.claude-out/pr.md`(PR 설명: 추가한 규칙(코드·공식 직업명·근거 예시),
+               여전히 미분류로 둔 제목과 이유. 5줄 이내 요약 + 표 — 저장소 PR 양식 .github/pull_request_template.md 항목을 따른다),
+               `.claude-out/commit-message.txt`(한 줄). '@' 계정 언급·비밀값을 쓰지 않는다.
+      - name: 결과 모으기 (토큰 없음 — 초안·patch·상자 시험 결과)
+        if: always() && steps.claude.outcome == 'success'
+        run: bash "$RUNNER_TEMP/trusted/scripts/ci/claude-collect.sh" pr "$RUNNER_TEMP/claude-result" "$RUNNER_TEMP/trusted" "py-unittest test_occupation_classifier"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.claude.outcome == 'success'
+        with:
+          name: claude-result-pr
+          path: ${{ runner.temp }}/claude-result
+          retention-days: 3
+          if-no-files-found: ignore
+
+  publish:
+    needs: propose
+    if: always() && needs.propose.outputs.claude == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # 기준 브랜치 그대로(이 사이 master가 바뀌었으면 게시 스크립트가 '검사한 커밋이 아님'으로 거절 — 다음 주 다시)
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        id: dl
+        continue-on-error: true
+        with:
+          name: claude-result-pr
+          path: ${{ runner.temp }}/claude-result
+      - name: 기준 사본 따로 두기(실행할 게시 스크립트) + 반영할 사본
+        if: steps.dl.outcome == 'success'
+        run: |
+          rm -rf "$RUNNER_TEMP/trusted" && mkdir -p "$RUNNER_TEMP/trusted" && git archive HEAD scripts | tar -C "$RUNNER_TEMP/trusted" -x
+      - name: 검증 후 브랜치·PR (허용 경로 두 파일만)
+        if: steps.dl.outcome == 'success'
+        env:
+          KNOWN_SECRETS: |
+            ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            ${{ secrets.ANTHROPIC_API_KEY }}
+            ${{ secrets.SUPABASE_DB_URL }}
+            ${{ github.token }}
+        run: |
+          node "$RUNNER_TEMP/trusted/scripts/ci/claude-publish.mjs" pr --repo "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/claude-result" \
+            --head-sha "${{ needs.propose.outputs.base }}" --head-ref "claude/occupation-rules-${{ github.run_id }}" --workdir . \
+            --allow crawler/occupation_classifier.py,crawler/test_occupation_classifier.py

@@ -1,0 +1,27 @@
+# 비신뢰 글을 읽는 Claude 잡: 쓰기 권한(R6), 읽기 전용이지만 github_token 미지정(R6 — 액션이 id-token 없이도 실패하거나 앱 토큰 사용),
+# 게시 잡이 다른 폴더 PR 사본의 스크립트를 실행(R1)
+on: issue_comment
+jobs:
+  write:
+    runs-on: x
+    permissions: { contents: write, id-token: write }
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with: { prompt: x }
+  notoken:
+    runs-on: x
+    permissions: { contents: read }
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with: { prompt: x }
+  publish:
+    runs-on: x
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.g.outputs.head_sha }}", path: pr, persist-credentials: false }
+      - run: node pr/scripts/ci/claude-publish.mjs codex
+      - run: |
+          cd pr
+          npm ci
