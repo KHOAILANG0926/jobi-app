@@ -68,6 +68,8 @@ jobs:
           python3 scripts/ci/check-secret-isolation.py
       - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
         run: bash scripts/ci/verify-artifact-run.test.sh
+      - name: PR 쪽 Claude 설정·링크 치우기 시험 (악성 hook·MCP·열쇠 파일 링크)
+        run: bash scripts/ci/hold-pr-claude-settings.test.sh
       - name: PR 코드 상자 악성 PR 시험 (가짜 열쇠를 환경변수·.git·홈에 심고 설치·시험·빌드 단계에서 못 읽고 못 보내는지)
         run: bash scripts/ci/sandbox-run.test.sh
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)

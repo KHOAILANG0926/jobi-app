@@ -2,33 +2,45 @@
 """S4(#808) 워크플로 검사: 열쇠(비밀값·쓰기 토큰·id-token)를 가진 잡이 PR·브랜치 코드를 실행하지 못하게 막는다.
 
 규칙(잡마다):
-  R1 열쇠 있는 잡이 PR·브랜치 코드를 작업 폴더에 펼치면(actions/checkout ref가 기본 브랜치·자기 커밋이 아님, 또는 run의 git checkout/switch/reset)
-     그 뒤 run 단계에서 저장소 코드를 실행하지 않는다(npm·npx·node·python·pip·make·bash scripts/·./scripts).
-     다른 폴더에 펼친 경우(git worktree add)는 그 폴더를 가리키는 코드 실행 줄을 막는다.
-     허용: 기준 사본($RUNNER_TEMP/trusted)의 스크립트, 상자 실행기(sandbox-run.sh — PR 사본을 열쇠 없는 컨테이너에서만 실행).
+  R1 열쇠 있는 잡이 PR·브랜치 코드를 펼치면(actions/checkout ref가 기본 브랜치가 아님 / pull_request 계열 이벤트의 기본·자기 커밋 /
+     git checkout·switch·reset·apply 등 / gh pr checkout) 그 뒤 run 단계는 '허용 명령'만 쓸 수 있다(허용 목록 방식 — 검토 지적 5).
+     허용: git·gh·curl·jq 등 데이터 다루기 명령, 기준 사본($RUNNER_TEMP/trusted 또는 그 경로를 담은 "$T")의 스크립트,
+     상자 실행기(sandbox-run.sh — PR 사본을 열쇠 없는 컨테이너에서만 실행). 그 밖(npm·npx·node·bun·tsx·python·make·sh·env·
+     node_modules/.bin·./스크립트 …)은 모두 문제. bash 아닌 shell:, uses: ./(PR 쪽 action)도 문제.
+     다른 폴더에 펼친 경우(git worktree add)는 그 폴더를 가리키는 명령에 같은 규칙.
   R2 그 체크아웃은 persist-credentials: false (쓰기 토큰을 .git에 남기지 않음).
   R3 그 잡의 claude-code-action은 PR 코드 실행 명령(Bash(npm/npx/node/python/make…))을 허용하지 않는다.
-  R4 run-id로 다른 실행의 artifact를 받는 잡은 그 전에 verify-artifact-run.sh로 출처를 확인한다.
+  R4 다른 실행의 artifact를 받는 곳(download-artifact run-id·gh run download·artifacts API)은 그 전에 verify-artifact-run.sh를
+     명령으로 실행해 출처를 확인한다(echo 글자·continue-on-error·|| true는 확인으로 치지 않음).
+범위: 정직한 실수를 잡는 검사다. 워크플로 파일 자체를 악의로 바꾸는 PR은 이 검사도 바꿀 수 있으므로 .github/·scripts/ci/ 변경은
+     Lee 승인 대상(decision-approval-gate GATE_CODE, S4 L5)이 막는다.
 사용: check-secret-isolation.py [워크플로 폴더 또는 파일...] (기본 .github/workflows). 문제 있으면 줄마다 출력하고 1로 끝낸다.
 """
 import glob
 import os
 import re
+import shlex
 import sys
 
 import yaml
 
-CODE_RUN = re.compile(r'(^|[\s;&|(`$])((npm|npx|node|yarn|pnpm|python3?|pip3?|make)(\s|$)|(bash|sh)\s+\S*scripts/|\./scripts/)')
-TRUSTED = re.compile(r'(\$RUNNER_TEMP|\$\{\{\s*runner\.temp\s*\}\}|"\$T")/?(trusted)?')
-# 작업 폴더를 다른 커밋으로 바꾸는 명령(-C 다른 폴더는 제외). git fetch만으로는 작업 폴더가 바뀌지 않는다.
-GIT_SWITCH = re.compile(r'git\s+(?!-C\b)(checkout|switch|reset)\b[^\n]*(\$|origin/)')
-# 다른 커밋을 다른 폴더에 펼치는 명령: 그 폴더의 코드는 상자(sandbox-run.sh)로만 실행해야 한다.
-WORKTREE = re.compile(r'git\s+worktree\s+add\s+(?:-\S+\s+)*("[^"]+"|\S+)')
-CLAUDE_CODE_TOOLS = re.compile(r'Bash\((npm|npx|node|yarn|pnpm|python3?|make|pip3?)\b')
-# 기본 브랜치, 또는 이 실행 자신의 커밋(github.ref/sha — 워크플로 파일과 같은 출처라 더 믿을 것도 덜 믿을 것도 없음.
-# 브랜치에서 돈 실행 자체의 비밀값 접근은 이 검사가 아니라 Environment(master 전용, S4 L2)가 막는다).
-DEFAULT_REFS = ('', 'master', 'main', '${{ github.event.repository.default_branch }}', 'refs/heads/master',
-                '${{ github.ref }}', '${{ github.sha }}')
+ALLOWED_CMDS = {
+    'git', 'gh', 'curl', 'jq', 'echo', 'printf', 'cat', 'tail', 'head', 'grep', 'sed', 'awk', 'find', 'sort', 'uniq', 'cut',
+    'tr', 'wc', 'sha256sum', 'test', '[', '[[', ']', ']]', 'mkdir', 'rm', 'mv', 'cp', 'chmod', 'cd', 'set', 'exit', 'true',
+    'false', 'date', 'sleep', 'read', 'ls', 'basename', 'dirname', 'tee', 'export', 'local', 'return', 'continue', 'break',
+    ':', 'shift', 'unset', 'seq', 'diff', 'cmp', 'touch', 'stat', 'readlink', 'realpath', 'base64', 'mktemp', 'wait',
+    'if', 'then', 'else', 'elif', 'fi', 'for', 'in', 'do', 'done', 'while', 'until', 'case', 'esac', '{', '}', '(', ')', '!',
+}
+KEYWORD_PREFIX = {'if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', '(', 'time', 'exec'}
+TRUSTED_PATH = re.compile(r'^(\$RUNNER_TEMP|\$\{RUNNER_TEMP\}|\$\{\{\s*runner\.temp\s*\}\})/trusted/|^\$T/')
+CLAUDE_CODE_TOOLS = re.compile(r'Bash\((npm|npx|node|yarn|pnpm|bun|deno|tsx|python3?|make|pip3?|sh|env)\b')
+# 파일을 읽어 밖으로 내보낼 수 있는 허용(검토 지적 4): 범위 없는 Read/Grep/Glob, 인자를 마음대로 붙일 수 있는 gh·git·jq·cat 명령.
+CLAUDE_LEAK_TOOLS = re.compile(r'(?<![A-Za-z])(Read|Grep|Glob)(?=[,"\s]|$)|Bash\((gh api|gh pr comment|gh issue create|gh pr create|git diff|git fetch|git push|git add|git commit|jq|cat|curl)( [^)]*)?:\*\)')
+PR_EVENTS = {'pull_request', 'pull_request_review', 'pull_request_review_comment'}
+VERIFY = re.compile(r'^(bash\s+)?(\$RUNNER_TEMP/trusted/|\$T/)?scripts/ci/verify-artifact-run\.sh\s')
+ARTIFACT_FETCH = re.compile(r'gh\s+run\s+download|actions/artifacts/\S*/zip|/actions/runs/\S*/artifacts')
+SEPARATORS = re.compile(r'\$\(|`|&&|\|\||[;|&\n]|\bthen\b|\bdo\b|\belse\b')
+SWITCHING = ('checkout', 'switch', 'reset', 'apply', 'am', 'merge', 'pull', 'restore', 'stash', 'cherry-pick', 'rebase')
 
 
 def text(v):
@@ -40,7 +52,7 @@ def has_secret(obj):
 
 
 def writes(perms):
-    if perms in ('write-all',):
+    if perms == 'write-all':
         return True
     if isinstance(perms, dict):
         return any(v == 'write' for v in perms.values())
@@ -53,48 +65,143 @@ def privileged(wf, job):
     return has_secret(wf.get('env')) or has_secret(job) or writes(perms) or perms is None
 
 
-def line_trusted(line):
-    return bool(TRUSTED.search(line)) and 'trusted' in line or '"$T/' in line
+def events(wf):
+    on = wf.get('on', wf.get(True))  # PyYAML은 'on'을 True로 읽는다
+    if isinstance(on, str):
+        return {on}
+    if isinstance(on, list):
+        return set(on)
+    return set((on or {}).keys())
+
+
+def trusted_ref(ref, evs):
+    ref = ref.strip()
+    if ref in ('master', 'main', 'refs/heads/master', '${{ github.event.repository.default_branch }}'):
+        return True
+    # 기본값·자기 커밋: pull_request 계열 이벤트에서는 PR 코드다(검토 지적 5). 그 밖에서는 워크플로 파일과 같은 출처.
+    if ref in ('', '${{ github.ref }}', '${{ github.sha }}'):
+        return not (evs & PR_EVENTS)
+    return False
+
+
+BOUNDARY = {';', '&&', '||', '|', '&', '(', ')', ';;', '|&'}
+
+
+def strip_heredocs(code):
+    out, delim = [], None
+    for line in code.split('\n'):
+        if delim is not None:
+            if line.strip() == delim:
+                delim = None
+            continue
+        m = re.search(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?", line)
+        if m:
+            delim = m.group(1)
+        out.append(line)
+    return '\n'.join(out)
+
+
+def commands(code):
+    """run 글을 단순 명령 단위로 나눈다(따옴표를 지키는 shlex 토큰 — 여러 줄 따옴표 포함, 줄바꿈은 명령 경계,
+    heredoc 본문은 건너뜀, "$( … )" 안쪽도 검사). 정확한 셸 해석이 아니라 '각 명령의 첫 낱말'을 보기 위한 근사다."""
+    code = strip_heredocs(code.replace('\\\n', ' '))
+    for inner in re.findall(r'\$\(([^()]*)\)', code):
+        yield from commands(inner)
+    try:
+        lex = shlex.shlex(code, posix=True, punctuation_chars='();<>|&\n')
+        lex.whitespace = ' \t\r'
+        lex.whitespace_split = True
+        lex.commenters = '#'
+        toks = list(lex)
+    except ValueError:
+        toks = code.split()
+    cur = []
+    for t in toks + [';']:
+        if t in BOUNDARY or set(t) <= {'\n'}:
+            words = cur
+            while words and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', words[0]) or words[0] in KEYWORD_PREFIX):
+                words = words[1:]
+            if words:
+                yield ' '.join(cur), words
+            cur = []
+        else:
+            cur.append(t)
+
+
+def command_ok(words, raw):
+    cmd = words[0]
+    if cmd in ('bash', 'node') and len(words) > 1 and TRUSTED_PATH.search(words[1]):
+        return True
+    if cmd == 'xargs':
+        rest = [w for w in words[1:] if not w.startswith('-') and not re.match(r'^(\{\}|[0-9]+)$', w)]
+        return bool(rest) and rest[0] in ALLOWED_CMDS
+    if cmd == 'docker':
+        return len(words) > 1 and words[1] == 'pull'
+    return cmd in ALLOWED_CMDS
 
 
 def check_job(path, wf, name, job):
     out = []
+    evs = events(wf)
     steps = job.get('steps') or []
     priv = privileged(wf, job)
     untrusted = False
     foreign_dirs = []
     verified_artifact = False
+    held = False
     for i, st in enumerate(steps):
         where = f'{path} jobs.{name}.steps[{i}] {st.get("name") or st.get("uses") or ""}'.strip()
         uses = st.get('uses') or ''
         w = st.get('with') or {}
         if uses.startswith('actions/checkout'):
-            ref = str(w.get('ref', '')).strip()
-            if ref not in DEFAULT_REFS and not ref.startswith('refs/heads/master'):
+            ref = str(w.get('ref', ''))
+            if not trusted_ref(ref, evs):
                 untrusted = True
                 if priv and str(w.get('persist-credentials', 'true')).lower() != 'false':
                     out.append(f'R2 {where}: 열쇠 있는 잡이 PR·브랜치 코드를 체크아웃하면서 persist-credentials: false가 없음')
+        if uses.startswith('./') and priv and untrusted:
+            out.append(f'R1 {where}: PR·브랜치 코드를 펼친 뒤 저장소 안 action({uses}) 실행')
         run = st.get('run') or ''
-        if run:
-            for ln in run.splitlines():
-                code = ln.split('#', 1)[0]
-                if GIT_SWITCH.search(code):
-                    untrusted = True
-                m = WORKTREE.search(code)
-                if m:
-                    foreign_dirs.append(m.group(1).strip('"'))
-                # 상자 실행기는 믿을 수 있는 사본일 때만 허용: 작업 폴더가 PR 코드로 바뀌었으면 기준 사본 경로여야 한다.
-                sandbox_ok = 'sandbox-run.sh' in code and (not untrusted or line_trusted(code))
-                runs_code = CODE_RUN.search(code) and not line_trusted(code) and not sandbox_ok
-                if priv and runs_code and (untrusted or any(d in code for d in foreign_dirs)):
-                    out.append(f'R1 {where}: 열쇠 있는 잡이 PR·브랜치 코드를 실행 — {code.strip()[:120]}')
-            if 'verify-artifact-run.sh' in run:
+        if run and priv and untrusted and str(st.get('shell', 'bash')).split()[0] not in ('bash', 'sh'):
+            out.append(f'R1 {where}: PR·브랜치 코드를 펼친 뒤 bash 아닌 shell({st.get("shell")}) 실행')
+        soft = str(st.get('continue-on-error', 'false')).lower() == 'true'
+        in_foreign = False
+        for raw, words in commands(run):
+            cmd = words[0]
+            if cmd == 'git' and len(words) > 1 and words[1] in SWITCHING:
+                untrusted = True
+            if cmd == 'gh' and words[1:3] == ['pr', 'checkout']:
+                untrusted = True
+            if cmd == 'git' and words[1:3] == ['worktree', 'add']:
+                args = [a for a in words[3:] if not a.startswith('-')]
+                if args:
+                    foreign_dirs.append(args[0])
+            if cmd == 'bash' and len(words) > 1 and TRUSTED_PATH.search(words[1]) and words[1].endswith('hold-pr-claude-settings.sh'):
+                held = True
+            if VERIFY.search(raw) and not soft and not re.search(r'verify-artifact-run\.sh[^\n]*\|\|\s*(true|:)', run):
                 verified_artifact = True
+            if ARTIFACT_FETCH.search(raw) and not verified_artifact:
+                out.append(f'R4 {where}: 다른 실행의 artifact를 출처 확인(verify-artifact-run.sh) 없이 받음 — {raw[:100]}')
+            if not priv:
+                continue
+            sandbox = cmd == 'bash' and 'sandbox-run.sh' in raw and (not untrusted or command_ok(words, raw))
+            if cmd == 'cd':
+                in_foreign = any(d and d in raw for d in foreign_dirs)
+            touches_foreign = in_foreign or any(d and d in raw for d in foreign_dirs)
+            if (untrusted or touches_foreign) and not sandbox and not command_ok(words, raw):
+                out.append(f'R1 {where}: 열쇠 있는 잡이 PR·브랜치 코드를 펼친 뒤 허용 밖 명령 실행 — {raw.strip()[:120]}')
         if uses.startswith('anthropics/claude-code-action') and priv and untrusted:
             tools = text(w.get('claude_args', '')) + text(w.get('allowed_tools', ''))
             m = CLAUDE_CODE_TOOLS.search(tools)
             if m:
                 out.append(f'R3 {where}: PR 코드를 체크아웃한 잡의 Claude가 코드 실행 명령을 허용 — {m.group(0)}')
+            allowed = re.search(r'--allowedTools\s+"([^"]*)"', tools)
+            m = CLAUDE_LEAK_TOOLS.search(allowed.group(1) if allowed else tools)
+            if m and not re.match(r'Bash\(git (add|commit) -', m.group(0)):
+                out.append(f'R3 {where}: PR 코드를 체크아웃한 잡의 Claude가 파일을 읽어 내보낼 수 있는 명령을 허용 — {m.group(0)}')
+            # R5: PR 쪽 Claude 설정(hook·허용 목록·MCP)이 열쇠 있는 컴퓨터에서 적용되지 않게
+            if '--setting-sources user' not in tools or 'disableAllHooks' not in tools or not held:
+                out.append(f'R5 {where}: PR 코드 위에서 Claude 실행 — --setting-sources user·disableAllHooks·hold-pr-claude-settings.sh(기준 사본) 셋 다 필요')
         if uses.startswith('actions/download-artifact') and w.get('run-id') and not verified_artifact:
             out.append(f'R4 {where}: 다른 실행의 artifact를 출처 확인(verify-artifact-run.sh) 없이 받음')
     return out

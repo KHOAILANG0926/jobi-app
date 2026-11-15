@@ -26,8 +26,28 @@ const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies',
 const INSTALL_SCRIPTS = ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'preprepare', 'postprepare', 'prepack', 'postpack']
 const SAFE_SCRIPTS = ['dev', 'preview', 'start']  // 개발 서버만 — 검사·빌드에 쓰이지 않음
 const REGISTRY = 'https://registry.npmjs.org/'
-// registry 버전 범위·태그만 '일반'. git·github 줄임(user/repo)·URL·file:·link:·npm: 별칭은 ':' '/' '#' '@'가 들어가 출처 변경으로 본다.
-const plainRange = (spec) => typeof spec === 'string' && spec.trim() !== '' && !/[:/#@]/.test(spec)
+// registry 버전 범위만 '일반'(^1.2.3 ~1.2 >=1 <2 1.x * 1.2.3-beta.1 …). git·github 줄임(user/repo)·URL·file:·link:·npm: 별칭·
+// 'latest' 같은 태그(가리키는 버전을 바꿀 수 있음)는 출처·버전 방식 변경으로 본다(검토 지적 6).
+const plainRange = (spec) => typeof spec === 'string' && /^\s*[\^~<>=]*\s*(\d+|[xX*])(\.(\d+|[xX*])){0,2}(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?(\s*(\|\||-|\s)\s*[\^~<>=]*\s*(\d+|[xX*])(\.(\d+|[xX*])){0,2}(-[0-9A-Za-z.-]+)?)*\s*$|^\s*[*xX]\s*$/.test(spec)
+// 루트 밖 의존성 목록·설치 설정(하위 폴더 package.json·lockfile·.npmrc, yarn/pnpm lock)은 드물고 판정이 어려워 바뀌면 승인 대상(검토 지적 6).
+const OTHER_MANIFEST = (path) => /(^|\/)(package(-lock)?\.json|\.npmrc|\.yarnrc(\.yml)?|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(path)
+  && path !== 'package.json' && path !== 'package-lock.json'
+// Python 의존성(VPS 수집기 등 비밀값 있는 곳에서 설치됨): 새 이름·버전 고정 해제·패키지 출처 지정 줄만 승인 대상, 같은 이름 버전 변경은 자동.
+const PY_REQ = (path) => /(^|\/)requirements[^/]*\.txt$/.test(path)
+const pyName = (line) => (line.match(/^\s*([A-Za-z0-9][A-Za-z0-9._-]*)/)?.[1] ?? '').toLowerCase().replace(/[-_.]+/g, '-')
+export function pythonReqRisks(f) {
+  if (typeof f.patch !== 'string') return [`${f.filename}: 변경 내용을 받지 못함(판단 불가)`]
+  const lines = f.patch.split('\n')
+  const added = lines.filter((l) => l.startsWith('+') && !l.startsWith('+++')).map((l) => l.slice(1).split('#')[0].trim()).filter(Boolean)
+  const removed = new Set(lines.filter((l) => l.startsWith('-') && !l.startsWith('---')).map((l) => pyName(l.slice(1))).filter(Boolean))
+  const out = []
+  for (const l of added) {
+    if (/^(-|--)|:\/\/|@|git\+|\.whl\b|\.tar\.gz\b|^\.|^\//.test(l)) out.push(`${f.filename}: 패키지 출처·설치 방식 줄: ${l.slice(0, 80)}`)
+    else if (!removed.has(pyName(l))) out.push(`${f.filename}: 새 의존성: ${pyName(l)}`)
+    else if (!/[=<>~!]=?/.test(l)) out.push(`${f.filename}: 버전 고정 해제: ${pyName(l)}`)
+  }
+  return out
+}
 export const VERIFY_CONFIG = (path) => /^tsconfig[^/]*\.json$/.test(path) || /^scripts\/(?:run-tests|ts-extensionless-[^/]+)\.mjs$/.test(path)
   || /^\.npmrc$|^\.yarnrc(\.yml)?$/.test(path)
 const isTestFile = (path) => /(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)tests?\//.test(path)
@@ -42,6 +62,8 @@ export function dependencyRisks({ files, basePkg, headPkg, baseLock, headLock })
     if (isTestFile(f.filename) && (f.status === 'removed' || f.status === 'renamed')) out.push(`시험 파일 ${f.status === 'removed' ? '삭제' : '이름 바꿈'}: ${f.filename}`)
     if (f.status === 'renamed' && f.previous_filename && isTestFile(f.previous_filename) && !isTestFile(f.filename)) out.push(`시험 파일이 시험 밖으로: ${f.previous_filename}`)
     if (VERIFY_CONFIG(f.filename)) out.push(`검증·설치 설정 변경: ${f.filename}`)
+    if (OTHER_MANIFEST(f.filename) || (f.previous_filename && OTHER_MANIFEST(f.previous_filename))) out.push(`루트 밖 의존성·설치 설정 변경: ${f.filename}`)
+    if (PY_REQ(f.filename)) out.push(...pythonReqRisks(f))
   }
   const pkgChanged = names.includes('package.json'), lockChanged = names.includes('package-lock.json')
   if (!pkgChanged && !lockChanged) return out
@@ -70,6 +92,12 @@ export function dependencyRisks({ files, basePkg, headPkg, baseLock, headLock })
     if (p.hasInstallScript && !old?.hasInstallScript) out.push(`설치 스크립트가 있는 의존성: ${path.replace(/^node_modules\//, '')}`)
     if (p.resolved && !p.resolved.startsWith(REGISTRY) && p.resolved !== old?.resolved) out.push(`registry 밖에서 받는 의존성: ${path.replace(/^node_modules\//, '')} (${p.resolved.split('/')[2] ?? p.resolved})`)
     if (p.link && !old?.link) out.push(`로컬 연결 의존성: ${path}`)
+    // 검토 지적 6: registry 주소여도 '다른 패키지 tarball'을 가리키게 바꿀 수 있다 → 주소의 패키지 이름·버전이 설치 경로·version과 같아야 한다.
+    if (p.resolved?.startsWith(REGISTRY) && p.resolved !== old?.resolved) {
+      const name = path.slice(path.lastIndexOf('node_modules/') + 'node_modules/'.length)
+      const want = `${REGISTRY}${name}/-/${name.split('/').pop()}-${p.version}.tgz`
+      if (p.resolved !== want) out.push(`lockfile 받는 파일이 이름·버전과 다름: ${name} (${p.resolved.slice(REGISTRY.length, REGISTRY.length + 80)})`)
+    }
   }
   return [...new Set(out)]
 }

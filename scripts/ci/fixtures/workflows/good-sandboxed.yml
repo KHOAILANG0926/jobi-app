@@ -9,9 +9,12 @@ jobs:
         with: { ref: master, path: .trusted-base, persist-credentials: false }
       - uses: actions/checkout@v4
         with: { ref: "${{ steps.guard.outputs.head_ref }}", persist-credentials: false }
+      - run: bash "$RUNNER_TEMP/trusted/scripts/ci/hold-pr-claude-settings.sh" .
       - uses: anthropics/claude-code-action@v1
         with:
-          claude_args: '--allowedTools "Read,Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh:*),Bash(git push:*)"'
+          claude_args: >-
+            --setting-sources user --settings '{"disableAllHooks":true}'
+            --allowedTools "Read(./**),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh test),Bash(git add -A),Bash(git commit -m:*),Bash(git push)"
       - run: |
           T="$RUNNER_TEMP/trusted"
           git fetch -q origin "$now" && git checkout -q "$now"

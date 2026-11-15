@@ -1,0 +1,22 @@
+# S4 독립 검토가 찾은 우회 모양들(검사기 허용 목록 방식 시험). 잡마다 한 가지 — 모두 걸려야 한다.
+on: pull_request_review
+permissions: { contents: write }
+jobs:
+  bun: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "bun install" } ] }
+  tsx: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "tsx scripts/a.ts" } ] }
+  envnpm: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "env npm ci" } ] }
+  binvite: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "./node_modules/.bin/vite build" } ] }
+  shbuild: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "sh ./build.sh" } ] }
+  bashc: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "bash -c 'np''m ci'" } ] }
+  shellpy: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { shell: python, run: "import os" } ] }
+  localaction: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { uses: ./.github/actions/x } ] }
+  prcheckout: { runs-on: x, steps: [ { uses: actions/checkout@v4 }, { run: "gh pr checkout 5\nnpm test" } ] }
+  fetchhead: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: master } }, { run: "git fetch origin pull/5/head\ngit checkout FETCH_HEAD\nmake" } ] }
+  gitapply: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: master } }, { run: "gh pr diff 5 | git apply\nnode x.js" } ] }
+  trustedmix: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "ls \"$T/\"; npm ci" } ] }
+  defaultref: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { persist-credentials: false } }, { run: "npm test" } ] }
+  rundownload: { runs-on: x, env: { K: "${{ secrets.K }}" }, steps: [ { uses: actions/checkout@v4, with: { ref: master } }, { run: "gh run download 1 -n x" } ] }
+  echoverify: { runs-on: x, env: { K: "${{ secrets.K }}" }, steps: [ { uses: actions/checkout@v4, with: { ref: master } }, { run: "echo scripts/ci/verify-artifact-run.sh 1 a\ngh run download 1 -n x" } ] }
+  softverify: { runs-on: x, env: { K: "${{ secrets.K }}" }, steps: [ { uses: actions/checkout@v4, with: { ref: master } }, { continue-on-error: true, run: "bash scripts/ci/verify-artifact-run.sh 1 .github/workflows/a.yml" }, { run: "gh run download 1 -n x" } ] }
+  trueverify: { runs-on: x, env: { K: "${{ secrets.K }}" }, steps: [ { uses: actions/checkout@v4, with: { ref: master } }, { run: "bash scripts/ci/verify-artifact-run.sh 1 .github/workflows/a.yml || true\ngh run download 1 -n x" } ] }
+  subst: { runs-on: x, steps: [ { uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}", persist-credentials: false } }, { run: "echo \"$(node -e 1)\"" } ] }
