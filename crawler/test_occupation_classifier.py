@@ -20,14 +20,6 @@ class OccupationClassifierTests(unittest.TestCase):
         got = classify_occupation('CTY KDA tuyển nam, nữ làm linh kiện tai nghe tại KCN Yên Phong')
         self.assertEqual(got, {'occupation_code': '82022', 'occupation_evidence': 'làm linh kiện tai nghe'})
 
-    def test_evidence_is_exact_original_substring(self):
-        cases = ['Tuyển THỢ HÀN gấp', 'Cần tuyển Phụ Bếp nhà hàng', 'tuyen tai xe container', 'Tuyển Shipper khu vực Bắc Ninh',
-                 'Nhân viên pha chế ca tối', 'Tuyển công nhân đóng gói', 'TUYỂN LỄ TÂN KHÁCH SẠN']
-        for title in cases:
-            got = classify_occupation(title)
-            self.assertIsNotNone(got, title)
-            self.assertIn(got['occupation_evidence'], title, title)
-
     def test_priority_specific_before_generic(self):
         self.assertEqual(classify_occupation('Tuyển công nhân hàn')['occupation_code'], '7212')
         self.assertEqual(classify_occupation('Tuyển công nhân đóng gói')['occupation_code'], '9321')

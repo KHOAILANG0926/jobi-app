@@ -9,6 +9,7 @@ on:
     paths:
       - supabase/tests/local_jobs_occupation_r8_check.sql
       - crawler/occupation_classifier.py
+      - crawler/occupation_rules.json
       - scripts/occupations/backfill_occupations.py
       - scripts/occupations/backfill_occupations_test.py
       - config/auto-processing-cutoff.json

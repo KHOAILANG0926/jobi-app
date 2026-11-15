@@ -66,10 +66,21 @@ export function checkText(mode, text, { headSha = '', known = [] } = {}) {
     if (lines[1]?.trim() !== `sha: ${headSha}`) return '둘째 줄이 검토한 커밋(sha)과 다름'
     if (!/^findings: \d{1,3}$/.test(lines[2]?.trim() ?? '')) return '셋째 줄 findings 형식 아님'
   }
-  if (/@(codex|claude|copilot|github-actions|chatgpt-codex-connector)\b/i.test(t)) return '@언급 금지(자동 작업 호출 고리)'
+  { const men = mentionFinding(t); if (men) return `@언급 금지: ${men}` }
   if (/<!--\s*(claude-(codex-reply|fallback-review|fallback-request|issue-reply)|codex-review-state)/.test(lines.slice(1).join('\n'))) return '본문에 다른 표시 줄이 있음'
   const sec = secretFinding(t, known)
   return sec ? `비밀값 의심: ${sec}` : ''
+}
+
+// @언급 검사 하나(독립 검토 6회 지적 3 — 봇 5개 이름만 막으면 다른 계정·팀 알림을 남발할 수 있음):
+//   자동 작업 봇 이름은 어디에 있든(코드 칸 안 포함) 금지, 그 밖의 @계정은 코드 칸(`…`·```…```) 밖이면 금지. 메일 주소(앞이 글자)는 언급이 아님.
+const BOT_MENTION = /@(codex|claude|copilot|github-actions|chatgpt-codex-connector)\b/i
+export function mentionFinding(t) {
+  const s = String(t ?? '')
+  if (BOT_MENTION.test(s)) return '자동 작업 봇 @언급'
+  const prose = s.replace(/```[\s\S]*?```/g, ' ').replace(/`[^`\n]*`/g, ' ')
+  const m = prose.match(/(?<![\w.+\-/@`\]])@[A-Za-z0-9][A-Za-z0-9-]*/)
+  return m ? `@계정 언급 ${m[0]}(코드 칸 밖)` : ''
 }
 
 export function checkIssues(raw, known = []) {
@@ -83,7 +94,7 @@ export function checkIssues(raw, known = []) {
     const title = it.title.replace(/\s+/g, ' ').trim()
     if (!title || title.length > LIMITS.issueTitle) return { error: '이슈 제목 길이 오류', items: [] }
     if (it.body.length > LIMITS.issueBody) return { error: '이슈 본문이 너무 김', items: [] }
-    if (/@(codex|claude|copilot|github-actions|chatgpt-codex-connector)\b/i.test(title + it.body)) return { error: '이슈에 @언급 금지', items: [] }
+    if (mentionFinding(title + '\n' + it.body)) return { error: `이슈에 @언급 금지: ${mentionFinding(title + '\n' + it.body)}`, items: [] }
     const sec = secretFinding(title + '\n' + it.body, known)
     if (sec) return { error: `이슈에 비밀값 의심: ${sec}`, items: [] }
     items.push({ title, body: it.body, label: it.label })
@@ -119,7 +130,7 @@ export function checkPrText(title, body, known = []) {
   const t = String(title ?? '').trim(), b = String(body ?? '').trim()
   if (!t || t.length > LIMITS.issueTitle || /[\r\n]/.test(t)) return 'PR 제목은 한 줄 120자 이내'
   if (!b || b.length > LIMITS.text) return 'PR 설명 길이 오류'
-  if (/@(codex|claude|copilot|github-actions|chatgpt-codex-connector)\b/i.test(t + b)) return 'PR 제목·설명에 @언급 금지'
+  if (mentionFinding(t + '\n' + b)) return `PR 제목·설명에 @언급 금지: ${mentionFinding(t + '\n' + b)}`
   const sec = secretFinding(t + '\n' + b, known)
   return sec ? `PR 제목·설명에 비밀값 의심: ${sec}` : ''
 }
@@ -134,7 +145,7 @@ export function outgoingComment(mode, text, patch, meta) {
 export function checkMessage(msg) {
   const m = String(msg ?? '').trim()
   if (!m || m.length > LIMITS.message || /[\r\n]/.test(m)) return '커밋 메시지는 한 줄 200자 이내'
-  if (/@(codex|claude)\b/i.test(m) || secretFinding(m)) return '커밋 메시지에 @언급·비밀값 금지'
+  if (mentionFinding(m) || secretFinding(m)) return '커밋 메시지에 @언급·비밀값 금지'
   return ''
 }
 

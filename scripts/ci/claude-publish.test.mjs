@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, mkdirSync, symlinkSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, BOT, PUBLISH_NOTE } from './claude-publish.mjs'
+import { main, checkText, secretFinding, forbiddenPath, checkIssues, outgoingComment, mentionFinding, checkPrText, BOT, PUBLISH_NOTE } from './claude-publish.mjs'
 
 const FAKE = 'fake-oauth-S4TEST-0123456789abcdef'
 process.env.KNOWN_SECRETS = `${FAKE}\nghs_FAKEFAKEFAKEFAKEFAKEFAKE00`
@@ -71,8 +71,15 @@ ok(!(await run(draft(edit('.gitattributes', '* filter=evil\n')))).ok, '.gitattri
 { const d = draft(edit('src/a.ts', 'export const a = 2\n')); d.args[d.args.indexOf('--head-ref') + 1] = 'master'; ok(!(await run(d)).ok, 'master로 push 시도') }
 // pr 모드 허용 경로
 { const d = draft(edit('src/a.ts', 'export const a = 2\n'), { extra: { 'pr.md': '규칙 보강', 'pr-title.txt': 'feat: 규칙' } })
-  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_classifier.py']
+  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_rules.json,crawler/occupation_rule_cases.json']
   ok(!(await main(args).catch(() => ({ ok: false }))).ok, 'pr 모드: 허용 목록 밖 파일') }
+// 6회 지적 1: 주간 직업분류 보강은 데이터(JSON)만 — 분류기 코드(.py)를 고치면 거절(병합 뒤 크롤러에서 실행될 코드)
+{ const d = draft((dir) => { mkdirSync(join(dir, 'crawler'), { recursive: true }); writeFileSync(join(dir, 'crawler/occupation_classifier.py'), 'import os, urllib.request\n') }, { extra: { 'pr.md': '규칙 보강', 'pr-title.txt': 'feat: 규칙' } })
+  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_rules.json,crawler/occupation_rule_cases.json', '--dry-run']
+  ok(!(await main(args).catch(() => ({ ok: false }))).ok, 'pr 모드: 분류기 코드(.py) 변경 거절') }
+{ const d = draft((dir) => { mkdirSync(join(dir, 'crawler'), { recursive: true }); writeFileSync(join(dir, 'crawler/occupation_rules.json'), '[]\n') }, { extra: { 'pr.md': '규칙 보강', 'pr-title.txt': 'feat: 규칙' } })
+  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_rules.json,crawler/occupation_rule_cases.json']
+  ok((await main(args).catch((e) => ({ ok: false, e }))).ok, 'pr 모드: 규칙 JSON만 고치면 통과(시험 실행)') }
 // 검토 결과 형식
 { const out = mkdtempSync(join(tmpdir(), 'pr-')); writeFileSync(join(out, 'review.md'), '<!-- claude-fallback-review -->\nsha: ' + 'a'.repeat(40) + '\nfindings: 0\n지적 없음')
   ok((await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'a'.repeat(40), '--out', out, '--dry-run'])).ok, '검토 결과 정상')
@@ -93,5 +100,12 @@ ok(forbiddenPath('AGENTS.md') && forbiddenPath('.mcp.json') && forbiddenPath('su
 ok(secretFinding('postgres://u:p@h/db') && !secretFinding('일반 글 1234'), '비밀값 모양')
 ok(checkText('issue', '<!-- claude-issue-reply -->\n답') === '' && checkText('issue', '<!-- claude-issue-reply -->\n@claude 다시') !== '', '이슈 답 형식')
 ok(checkIssues('[{"title":"t","body":"b","label":"needs-lee"}]').items.length === 1, '이슈 정상')
+// 6회 지적 3: 봇 아닌 계정·팀 언급도 막음(코드 칸 안·메일 주소는 언급 아님)
+ok(checkText('codex', '<!-- claude-codex-reply -->\n@KHOAILANG0926 확인 부탁') !== '', '사람 계정 언급 거절')
+ok(checkText('issue', '<!-- claude-issue-reply -->\n(@my-org/team)') !== '', '팀 언급 거절')
+ok(checkIssues('[{"title":"t","body":"cc @someone","label":"ai-team"}]').error !== '', '이슈 초안 언급 거절')
+ok(checkPrText('제목', '설명 @someone') !== '', 'PR 설명 언급 거절')
+ok(!mentionFinding('메일 a.b@example.com 과 `@types/node`, ```\n@x\n```') && !mentionFinding('봇 메일 209825114+claude[bot]@users.noreply.github.com'), '메일·코드 칸은 허용')
+ok(mentionFinding('`@codex review`') !== '', '봇 이름은 코드 칸 안이어도 거절')
 console.log = log
 console.log(`claude-publish: 최악의 Claude 결과물 시험 ${n}건 통과`)

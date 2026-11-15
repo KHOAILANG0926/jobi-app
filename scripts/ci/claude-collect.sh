@@ -28,10 +28,14 @@ if [ -s "$dest/patch.diff" ]; then
   result=통과
   # 의존성 파일을 Claude가 바꿨으면 상자의 설치 결과(바꾸기 전 원본)와 맞지 않고, 바뀐 설치 스크립트를 자동으로 돌리지도 않는다 → 실패(사람 세션 몫)
   if g diff --cached --name-only HEAD | grep -qE '(^|/)(package(-lock)?\.json|\.npmrc)$'; then result=실패; echo "의존성 파일이 바뀌어 상자 검사를 하지 않음(실패로 기록)"; checks=(); fi
+  # 상자 검사는 게시할 트리 그대로(write-tree 결과를 꺼낸 사본)로 한다 — 작업 폴더에는 patch에서 뺀 파일·무시 목록 파일도 있어
+  # 올리는 내용과 다른 묶음으로 '통과'가 될 수 있다(독립 검토 6회 지적 2)
+  exp="${RUNNER_TEMP:-/tmp}/claude-tree"; rm -rf "$exp"; mkdir -p "$exp"
+  if ! g archive "$tree" | tar -C "$exp" -xf -; then result=실패; echo "트리 꺼내기 실패"; checks=(); fi
   for c in ${checks[@]+"${checks[@]}"}; do
     read -r -a cw <<<"$c"
     # 공개 로그에 검사 출력(Claude가 영향 줄 수 있는 글)을 찍지 않는다 — 실패한 검사 이름만(독립 검토 5차 지적 4)
-    if ! bash "$T/scripts/ci/sandbox-run.sh" "${cw[0]}" . "${cw[@]:1}" > "$RUNNER_TEMP/check.log" 2>&1; then result=실패; echo "상자 검사 실패: ${cw[0]}"; break; fi
+    if ! bash "$T/scripts/ci/sandbox-run.sh" "${cw[0]}" "$exp" "${cw[@]:1}" > "$RUNNER_TEMP/check.log" 2>&1; then result=실패; echo "상자 검사 실패: ${cw[0]}"; break; fi
   done
 fi
 jq -n --arg tree "$tree" --arg message "$msg" --arg result "$result" '{tree:$tree, message:$message, result:$result}' > "$dest/meta.json"
