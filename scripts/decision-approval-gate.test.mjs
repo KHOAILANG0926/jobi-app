@@ -129,15 +129,17 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   for (const other of ['STATUS.md', 'scripts/status/generate-status.mjs'])
     assert.equal(evaluateFiles([wf, other], '', {}, { statusWorkflowApproved: true }).filter((e) => e.startsWith(other)).length, 1, `승인이 있어도 ${other}는 예전처럼 실패`)
 
-  // 독립 검토 지적: 이름 바꾸기로 scripts/status·STATUS.md를 status-*.yml로 옮기면 예전 이름도 바뀐 파일로 잡혀 실패
-  { const { parseGitDiff } = await import('./check-repository-policy.mjs')
+  // 독립 검토 지적(2회, 방법 변경): 바뀐 파일은 git의 NUL 구분 목록에서 — 이름 바꾸기 예전 이름·특수 글자·' b/' 경로도 정확히
+  { const { parseNameStatusZ } = await import('./check-repository-policy.mjs')
     for (const from of ['scripts/status/status-lib.mjs', 'STATUS.md']) {
-      const raw = `diff --git a/${from} b/.github/workflows/status-x.yml\nsimilarity index 100%\nrename from ${from}\nrename to .github/workflows/status-x.yml\n`
-      const { files } = parseGitDiff(raw)
-      assert.ok(files.includes(from), `이름 바꾸기 예전 이름 기록: ${from}`)
+      const files = parseNameStatusZ(`R100\0${from}\0.github/workflows/status-x.yml\0`)
+      assert.deepEqual(files, [from, '.github/workflows/status-x.yml'], `이름 바꾸기 예전·새 이름: ${from}`)
       assert.ok(evaluateFiles(files, '', {}, { statusWorkflowApproved: true }).some((e) => e.startsWith(from)), `승인이 있어도 ${from} 옮기기는 실패`) }
-    const quoted = parseGitDiff('diff --git "a/.github/workflows/status-\\303\\251.yml" "b/.github/workflows/status-\\303\\251.yml"\n').files
-    assert.ok(evaluateFiles(quoted, '', {}, { statusWorkflowApproved: true }).some((e) => e.includes('경로를 읽지 못함')), '읽지 못한 경로는 실패') }
+    const odd = parseNameStatusZ('M\0scripts/status/a b/c.mjs\0M\0.github/workflows/status-"q".yml\0D\0STATUS.md\0')
+    assert.deepEqual(odd, ['scripts/status/a b/c.mjs', '.github/workflows/status-"q".yml', 'STATUS.md'], "' b/'·따옴표 경로도 그대로")
+    assert.equal(evaluateFiles(odd, '', {}, { statusWorkflowApproved: true }).length, 2, "scripts/status·STATUS.md는 승인이 있어도 실패")
+    assert.throws(() => parseNameStatusZ('M\0'), /끊김/, '끊긴 목록은 실패')
+    assert.throws(() => parseNameStatusZ('??\0x\0'), /읽지 못함/, '모르는 상태는 실패') }
   // 병합 판정(decisionApproval)도 같은 함수: 승인 뒤 변경 요청·옛 커밋은 병합 불가
   const files = [{ filename: wf }]
   assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], sha: head }).approved, true)
