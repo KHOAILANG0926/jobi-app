@@ -138,6 +138,9 @@ export function checkPatchSummary({ numstat, summary, bytes, patchText, known = 
   return sec ? `patch에 비밀값 의심: ${sec}` : ''
 }
 
+// PR 설명은 저장소 양식(.github/pull_request_template.md, 안내용 HTML 주석 포함)을 따르므로 거절하지 않고 HTML 주석을 지운 뒤 검사·게시한다(숨은 표시가 남지 않음).
+//   닫히지 않은 '<!--'는 지운 뒤에도 남아 markerFinding이 거절한다.
+export const prBody = (body) => String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim()
 export function checkPrText(title, body, known = []) {
   const t = String(title ?? '').trim(), b = String(body ?? '').trim()
   if (!t || t.length > LIMITS.issueTitle || /[\r\n]/.test(t)) return 'PR 제목은 한 줄 120자 이내'
@@ -231,7 +234,7 @@ export async function main(argv) {
   const text = readDraft(a.out, textName)
   const problems = []
   if (text === null) problems.push(`${textName} 없음`)
-  else if (a.mode === 'pr') { const e = checkPrText((readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0], text, known); if (e) problems.push(e) }
+  else if (a.mode === 'pr') { const e = checkPrText((readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0], prBody(text), known); if (e) problems.push(e) }
   else { const e = checkText(a.mode, text, { headSha: a.headSha, known }); if (e) problems.push(`${textName}: ${e}`) }
   let issues = []
   let patch = null, meta = null
@@ -273,7 +276,7 @@ export async function main(argv) {
     let pushed = ''
     if (a.mode === 'pr') {
       pushed = commitAndPush(a, token, meta.message)
-      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text.trim(), draft: false })
+      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: prBody(text), draft: false })
       console.log(`PR 만듦: #${pr.number}`)
       return { ok: true, problems: [], pushed, pr: pr.number }
     }
