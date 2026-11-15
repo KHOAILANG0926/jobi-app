@@ -6,17 +6,18 @@ name: 수집 멈춤 알림·자동 수리·재개 알림
 #   ② 자동 수리: Claude 수리 작업(claude-auto.yml)을 시작. 멈춤 1번당 최대 2번, 6시간 간격.
 #   ③ 2번 고쳐도 6시간 넘게 그대로면 → 원인별로 Lee가 할 일 한 줄 알림
 #   ④ 자동 재개(멈춤 원인 공고가 모두 다시 성공) → 같은 이슈에 "재개됨" 남기고 닫음
-#   ⑤ [자동수리] PR: 이 작업이 직접 tsc·시험·빌드를 돌려 통과하면 병합 → 운영 배포·상세요강 재처리 작업을 시작(결정 0003)
+#   ⑤ [자동수리] PR: 이 작업은 PR 코드를 실행하지 않는다(S4 — 운영 DB 열쇠가 있는 잡). 필수 검사 checks가 실패한 수리 PR은 닫고,
+#      병합은 다른 PR과 같은 실행기가 한다(S3-4) → 병합되면 재처리 시작
 #   ⑥ 병합 15분 뒤 멈춤 원인 공고의 위치를 고친 코드로 다시 찾음 → 성공하면 ④로 자동 재개
 #   ⑦ 수집 서버(VPS)가 작업을 20분 넘게 안 받으면 이슈 알림, 다시 받으면 닫음(runner-wait)
-# 비밀값: GitHub Secrets SUPABASE_DB_URL. 매일 저녁 8시 보고에도 멈춘 소스가 같이 나간다(예약 작업).
+# 비밀값: GitHub Secrets SUPABASE_DB_URL(쓰는 단계에만). 이 잡은 저장소·PR 코드를 실행하지 않는다(S4). 매일 저녁 8시 보고에도 멈춘 소스가 같이 나간다(예약 작업).
 on:
   schedule:
     - cron: '7,37 * * * *'
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
   issues: write
   actions: write
@@ -29,24 +30,22 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # S4: 운영 DB 열쇠가 있는 잡은 저장소 코드·PR 코드를 체크아웃·실행하지 않는다(아래는 psql·gh 명령만).
+    #     열쇠는 쓰는 단계에만 둔다(잡 전체 env에 두지 않음).
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       REPO: ${{ github.repository }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - name: 키 확인
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: test -n "$SUPABASE_DB_URL" || { echo "::error::GitHub Secrets에 SUPABASE_DB_URL이 없습니다."; exit 1; }
       - name: PostgreSQL 클라이언트 설치
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
       - name: 멈춤·수리·재개 처리
         shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
           q() { psql "$SUPABASE_DB_URL" -X -A -t -F $'\t' -v ON_ERROR_STOP=1 -c "$1"; }
@@ -99,22 +98,36 @@ jobs:
             q "update public.crawl_source_state set notified_at = now() where source = '$src'"
           } </dev/null; done
 
-          # ⑤ [자동수리] PR 검사 → 통과하면 병합(Claude 수리 작업이 만든 PR은 자동 검사가 안 돌아서 여기서 직접 돌린다)
-          gh pr list --repo "$REPO" --state open --search '"[자동수리]" in:title' --json number,headRefName,title --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"' | while IFS=$'\t' read -r pr ref title; do {
+          # ⑤ [자동수리] PR: 여기서 직접 병합하지 않고, PR 코드도 실행하지 않는다(S4 — 이 잡은 운영 DB 열쇠를 가짐. 예전에는 PR 브랜치를
+          #    체크아웃해 npm ci·시험·빌드를 돌려 PR 코드가 열쇠를 읽을 수 있었다). 검사는 열쇠 없는 필수 검사 checks(pr-checks.yml)가 한다.
+          #    여기서는 GitHub 기록만 읽는다: head 커밋의 checks가 실패면 닫고, 30분 넘게 없으면 알린다. 병합은 다른 PR과 같은 실행기.
+          gh pr list --repo "$REPO" --state open --search '"[자동수리]" in:title' --json number,headRefOid,title --jq '.[] | "\(.number)\t\(.headRefOid)\t\(.title)"' | while IFS=$'\t' read -r pr head title; do {
+            [ -z "$pr" ] && continue
+            runs=$(gh api "repos/$REPO/commits/$head/check-runs?check_name=checks" --jq '[.check_runs[] | select(.app.slug == "github-actions")] | map(.conclusion // "pending") | join(",")')
+            case ",$runs," in
+              *,failure,*|*,cancelled,*|*,timed_out,*)
+                gh pr comment "$pr" --repo "$REPO" --body "필수 검사 checks 실패(${head:0:7}) — 병합하지 않음. 다음 수리 시도에서 다시 봅니다."
+                gh pr close "$pr" --repo "$REPO" ;;
+              ,,)
+                # 검토관 지적(#814): 수리 PR에 필수 검사가 안 돌면 병합 실행기가 영원히 건너뛴다 — 조용히 멈추지 않게 한 번 알린다.
+                age=$(( $(date +%s) - $(date -d "$(gh api "repos/$REPO/commits/$head" --jq .commit.committer.date)" +%s) ))
+                if [ "$age" -gt 1800 ] && ! gh pr view "$pr" --repo "$REPO" --json comments --jq '.comments[].body' | grep -q "<!-- repair-no-checks ${head:0:7} -->"; then
+                  gh pr comment "$pr" --repo "$REPO" --body "<!-- repair-no-checks ${head:0:7} -->
+            이 수리 PR 커밋(${head:0:7})에 필수 검사가 30분 넘게 시작되지 않았습니다 — 병합되지 않습니다. 검사 시작 경로를 확인해야 합니다."
+                  num=$(issue_for "$(echo "$title" | awk '{print $2}')"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "수리 PR #$pr 에 필수 검사가 시작되지 않아 병합 대기 중입니다(자동으로 안 풀림, AI 팀 확인 필요)."
+                fi ;;
+              *) echo "수리 PR #$pr 검사 상태: $runs — 필수 검사·독립 검토 뒤 병합 실행기가 병합" ;;
+            esac
+          } </dev/null; done
+          since=$(date -u -d '-2 days' +%Y-%m-%dT%H:%M:%SZ)
+          gh pr list --repo "$REPO" --state merged --search "\"[자동수리]\" in:title merged:>=$since" --json number,title,mergedAt --jq '.[] | "\(.number)\t\(.mergedAt)\t\(.title)"' | while IFS=$'\t' read -r pr merged title; do {
             [ -z "$pr" ] && continue
             src=$(echo "$title" | awk '{print $2}')
-            git fetch -q origin "$ref" && git checkout -q -B "check-$pr" "origin/$ref"
-            if npm ci --no-audit --no-fund >/dev/null 2>&1 && npx tsc --noEmit && npm test >/dev/null 2>&1 && npm run build >/dev/null 2>&1; then
-              gh pr merge "$pr" --repo "$REPO" --squash --delete-branch
-              q "update public.crawl_source_state set fix_merged_at = now() where source = '$src' and paused"
-              gh workflow run vercel-deploy.yml --repo "$REPO" --ref master
-              gh workflow run job-ocr-check.yml --repo "$REPO" --ref master
-              num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 검사 통과 → 사이트 반영 중. 약 15분 뒤 멈춘 공고를 다시 처리합니다."
-            else
-              gh pr comment "$pr" --repo "$REPO" --body "자동 검사 실패(tsc·시험·빌드 중 하나) — 병합하지 않음. 다음 수리 시도에서 다시 봅니다."
-              gh pr close "$pr" --repo "$REPO"
-            fi
-            git checkout -q -
+            # 멈춘 소스이고, 이번 멈춤(paused_at) 뒤에 병합된 PR이며, 아직 기록 안 됐을 때만 한 번(재멈춤 전 옛 병합은 무시).
+            done_now=$(q "with u as (update public.crawl_source_state set fix_merged_at = '$merged'::timestamptz where source = '$src' and paused and paused_at < '$merged'::timestamptz and (fix_merged_at is null or fix_merged_at < '$merged'::timestamptz) returning source) select source from u")
+            [ -n "$done_now" ] || continue
+            gh workflow run job-ocr-check.yml --repo "$REPO" --ref master
+            num=$(issue_for "$src"); [ -n "$num" ] && gh issue comment "$num" --repo "$REPO" --body "자동 수리 PR #$pr 병합됨 → 사이트 반영 중. 약 15분 뒤 멈춘 공고를 다시 처리합니다."
           } </dev/null; done
 
           # ⑥ 병합 15분 뒤 멈춤 원인 공고 위치 다시 찾기(고친 코드로). 성공하면 DB가 자동 재개.
