@@ -162,7 +162,9 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   const depFiles = process.argv[7] ? JSON.parse(readFileSync(process.argv[7], 'utf8')) : {}
   let framePaths = []
   try { framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8')) } catch { /* 잠금 파일을 못 읽으면 닫힌 실패 */ process.exit(3) }
-  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles })
+  // 인자 8: PR 작성자 로그인(병합 실행기가 넘김). 비어 있으면 자기 승인 여부를 알 수 없어 승인 없음으로 본다(닫힌 실패, S4-4).
+  const author = process.argv[8] ?? ''
+  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles, author: author || OWNER })
   if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
   process.exit(r.approved ? 0 : 3)
 }

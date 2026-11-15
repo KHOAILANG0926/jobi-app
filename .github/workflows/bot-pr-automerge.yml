@@ -63,8 +63,8 @@ jobs:
           # S3-2(#808, Lee 2026-11-14 결정 6①·7①): 댓글 승인(LEE-APPROVE·LEE-DEMO-APPLY)과 데모 적용 시 검토 생략을 폐지했다.
           # Lee 승인은 GitHub 승인 리뷰만(decision-approval-gate.mjs), 모든 PR은 독립 검토(Codex 또는 Claude 검토관) 뒤에만 병합(codex-review-gate.mjs).
           : > codex-wait.txt
-          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName] | @tsv' |
-          while IFS=$'\t' read -r num sha branch; do
+          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName,headRefOid,baseRefName,isDraft,title,author --jq '.[] | select(.baseRefName=="master" and (.isDraft|not)) | [.number,.headRefOid,.headRefName,(.author.login // "")] | @tsv' |
+          while IFS=$'\t' read -r num sha branch author; do
             [ -n "$num" ] || continue
             # 기존 미완료 PR을 소급 자동병합하지 않음; 새 규정 시행 이후 PR만.
             [ "$num" -ge 251 ] || continue
@@ -110,7 +110,8 @@ jobs:
                   '{basePkg:$bp[0],headPkg:$hp[0],baseLock:$bl[0],headLock:$hl[0]}' > deps.json || echo '{}' > deps.json
               fi
             fi
-            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json > approval-request.txt; then
+            # 8번째 = PR 작성자(자기 승인 무효 — Lee 계정이 쓴 PR의 Lee 승인은 인정 안 함, 작성자를 모르면 승인 없음으로 봄, S4-4)
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" > approval-request.txt; then
               echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
               if ! jq -e --arg sha "$sha" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- decision-approval-request -->")) and ((.body // "") | contains($sha[0:7])))' comments.json >/dev/null; then
                 gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"
