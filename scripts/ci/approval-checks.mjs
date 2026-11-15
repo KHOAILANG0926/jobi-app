@@ -86,7 +86,11 @@ export function combine(list) {
   return list.length === 1 ? w.v : { state: w.v.state, summary: `같은 커밋을 쓰는 PR ${list.map((x) => `#${x.num}`).join('·')} 중 가장 나쁜 판정 — #${w.num}: ${w.v.summary}` }
 }
 
-export async function main(argv, { getAppToken = appToken, framePaths: fp } = {}) {
+// 이 작업이 Claude 앱 토큰으로 하는 일은 검사 결과 올리기뿐이다 — 그 권한만 요청한다(S4 B단계, Lee 2026-11-16).
+// 공통 appToken()의 기본 권한은 바꾸지 않는다. 교환이 거절되거나 검사 생성이 실패하면 예외 → 실행 실패(닫힌 실패)로 끝난다.
+export const CHECKS_PERMISSIONS = Object.freeze({ checks: 'write' })
+
+export async function main(argv, { getAppToken = () => appToken(CHECKS_PERMISSIONS), framePaths: fp } = {}) {
   const a = {}
   for (let i = 0; i < argv.length; i++) { const k = argv[i]; if (k === '--dry-run' || k === '--all') a[k.slice(2)] = true; else a[k.slice(2)] = argv[++i] }
   const repo = a.repo, readTok = process.env.GITHUB_TOKEN
