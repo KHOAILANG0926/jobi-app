@@ -45,3 +45,34 @@ assert.equal(gate({ labels: ['ai-team'] }).required, false, '다른 라벨은 �
 assert.equal(gate({ labels: [NEEDS_LEE_LABEL], files: frame }).reasons.length, 2, '둘 다 해당하면 이유 두 가지')
 assert.match(requestText(sha, ['src/pages/JobDetail.tsx'], ['승인된 화면 틀']), /승인된 화면 틀/)
 console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval at head; other PRs unaffected')
+
+// ⑤ 의존성·검증 약화(S4, Lee 2026-11-15): package.json 전체가 아니라 위험한 변경만 Lee 승인
+{
+  const { dependencyRisks } = await import('./decision-approval-gate.mjs')
+  const base = { scripts: { dev: 'vite', build: 'tsc -b && vite build', test: 'node scripts/run-tests.mjs' }, dependencies: { react: '^18.3.1' }, devDependencies: { vite: '^8.2.2' } }
+  const lock = (extra = {}) => ({ packages: { '': {}, 'node_modules/react': { version: '18.3.1', resolved: 'https://registry.npmjs.org/react/-/react-18.3.1.tgz' }, ...extra } })
+  const pkgFiles = [{ filename: 'package.json', status: 'modified' }, { filename: 'package-lock.json', status: 'modified' }]
+  const risk = (head, headLock = lock(), files = pkgFiles) => dependencyRisks({ files, basePkg: base, headPkg: head, baseLock: lock(), headLock })
+  const bump = { ...base, dependencies: { react: '^18.3.2' } }
+  assert.deepEqual(risk(bump, lock({ 'node_modules/react': { version: '18.3.2', resolved: 'https://registry.npmjs.org/react/-/react-18.3.2.tgz' } })), [], '기존 의존성 일반 업데이트는 자동(승인 대상 아님)')
+  assert.equal(gate({ files: pkgFiles, deps: { basePkg: base, headPkg: bump, baseLock: lock(), headLock: lock() } }).approved, true, '일반 업데이트 PR은 Lee 승인 없이 통과')
+  assert.match(risk({ ...base, dependencies: { ...base.dependencies, leftpad: '^1.0.0' } }).join(), /새 의존성: leftpad/, '새 의존성')
+  assert.match(risk({ ...base, scripts: { ...base.scripts, postinstall: 'node x.js' } }).join(), /설치 스크립트 변경: postinstall/, '설치 스크립트 추가')
+  assert.match(risk(bump, lock({ 'node_modules/evil-dep': { version: '1.0.0', resolved: 'https://registry.npmjs.org/e', hasInstallScript: true } })).join(), /설치 스크립트가 있는 의존성: evil-dep/, '의존성이 설치 스크립트를 가져옴(lockfile)')
+  assert.match(risk({ ...base, dependencies: { react: 'github:evil/react' } }).join(), /패키지 출처 변경: react/, 'git 출처로 바꿈')
+  assert.match(risk({ ...base, dependencies: { react: 'npm:evil-react@18' } }).join(), /패키지 출처 변경/, 'npm 별칭')
+  assert.match(risk(bump, lock({ 'node_modules/react': { version: '18.3.1', resolved: 'https://evil.example/react.tgz' } })).join(), /registry 밖에서 받는 의존성: react \(evil\.example\)/, 'lockfile 받는 주소 변경')
+  assert.match(risk({ ...base, overrides: { react: '18.0.0' } }).join(), /overrides/, 'overrides')
+  assert.match(risk({ ...base, scripts: { ...base.scripts, test: 'exit 0' } }).join(), /검사·빌드 명령 변경: scripts.test/, '시험 끄기')
+  assert.match(risk({ ...base, scripts: { ...base.scripts, build: 'vite build' } }).join(), /scripts.build/, '빌드에서 타입 검사 빼기')
+  assert.deepEqual(risk({ ...base, scripts: { ...base.scripts, dev: 'vite --host' } }), [], '개발 서버 명령은 검증과 무관')
+  assert.match(dependencyRisks({ files: [{ filename: 'src/lib/a.test.ts', status: 'removed' }] }).join(), /시험 파일 삭제/, '시험 파일 삭제')
+  assert.match(dependencyRisks({ files: [{ filename: 'src/lib/a.ts', previous_filename: 'src/lib/a.test.ts', status: 'renamed' }] }).join(), /시험 밖으로/, '시험 파일을 시험 아닌 이름으로')
+  assert.match(dependencyRisks({ files: [{ filename: 'tsconfig.json', status: 'modified' }] }).join(), /tsconfig/, 'tsconfig')
+  assert.match(dependencyRisks({ files: [{ filename: '.npmrc', status: 'added' }] }).join(), /\.npmrc/, '.npmrc(registry 바꾸기)')
+  assert.deepEqual(dependencyRisks({ files: [{ filename: 'src/lib/a.test.ts', status: 'modified' }] }), [], '시험 수정 자체는 자동(약화 여부는 독립 검토)')
+  assert.match(dependencyRisks({ files: pkgFiles }).join(), /판단 불가/, '내용을 못 받으면 닫힌 실패')
+  assert.equal(gate({ files: pkgFiles }).approved, false, '내용 없이 package.json 변경 → 승인 대상')
+  assert.equal(gate({ files: pkgFiles, reviews: leeReview, deps: { basePkg: base, headPkg: { ...base, dependencies: { ...base.dependencies, x: '1' } }, baseLock: lock(), headLock: lock() } }).approved, true, '새 의존성도 Lee 승인 리뷰로 통과')
+  console.log('decision-approval-gate ⑤ 의존성·검증 약화: 일반 업데이트 자동, 위험 변경만 Lee 승인')
+}

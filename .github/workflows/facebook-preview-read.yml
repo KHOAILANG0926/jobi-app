@@ -17,6 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+          persist-credentials: false
+      # S4(#808): 받기 전에 그 실행의 출처 확인(같은 작업 파일·master·성공). 브랜치가 만든 가짜 결과 차단.
+      - name: 결과 실행 출처 확인
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RID: ${{ inputs.dryrun_run_id }}
+        run: bash scripts/ci/verify-artifact-run.sh "$RID" .github/workflows/crawl-facebook-one.yml workflow_dispatch
       - uses: actions/download-artifact@v4
         with:
           name: facebook-dryrun

@@ -98,7 +98,19 @@ jobs:
             gh api "repos/$REPO/issues/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > comments.json
             # R2(Lee 2026-11-13 승인): 결정 문서 외에 승인된 화면 틀 파일·needs-lee 라벨도 같은 문턱 — 라벨 조회에 실패하면 병합하지 않는다(닫힌 실패).
             gh api "repos/$REPO/issues/$num" --jq '[.labels[].name]' > labels.json || { echo "::warning::PR #$num 라벨 조회 실패: 병합 안 함"; continue; }
-            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json > approval-request.txt; then
+            # S4(Lee 2026-11-15): package.json·lockfile이 바뀐 PR은 기준·head 내용을 넘겨 '위험한 의존성 변경'만 Lee 승인 대상으로 판정.
+            #   내용을 못 받으면 빈 값 → 판정기가 '판단 불가'로 승인 대상 처리(닫힌 실패). 일반 버전 업데이트는 승인 없이 진행.
+            echo '{}' > deps.json
+            if jq -e 'any(.[]; .filename=="package.json" or .filename=="package-lock.json")' files.json >/dev/null; then
+              base_sha=$(gh api "repos/$REPO/pulls/$num" --jq .base.sha) || base_sha=""
+              raw() { gh api -H 'Accept: application/vnd.github.raw' "repos/$REPO/contents/$1?ref=$2"; }
+              if [ -n "$base_sha" ] && raw package.json "$base_sha" > base-pkg.json && raw package.json "$sha" > head-pkg.json \
+                && raw package-lock.json "$base_sha" > base-lock.json && raw package-lock.json "$sha" > head-lock.json; then
+                jq -n --slurpfile bp base-pkg.json --slurpfile hp head-pkg.json --slurpfile bl base-lock.json --slurpfile hl head-lock.json \
+                  '{basePkg:$bp[0],headPkg:$hp[0],baseLock:$bl[0],headLock:$hl[0]}' > deps.json || echo '{}' > deps.json
+              fi
+            fi
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json > approval-request.txt; then
               echo "::notice::PR #$num Lee 승인 대상(결정 문서·승인된 화면 틀·needs-lee): 승인 대기 — 병합 안 함"
               if ! jq -e --arg sha "$sha" '.[] | select((.body // "") | contains("<!-- decision-approval-request -->") and contains($sha[0:7]))' comments.json >/dev/null; then
                 gh api -X POST "repos/$REPO/issues/$num/comments" -f body="$(cat approval-request.txt)" >/dev/null || echo "::warning::PR #$num 승인 요청 댓글 실패"

@@ -121,22 +121,33 @@ jobs:
             echo "stop=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: PR 브랜치 체크아웃
+      # S4(#808): 이 잡은 Claude 구독 열쇠·쓰기 토큰·Claude 앱 토큰 발급 권한(id-token)을 가진다 → PR 코드를 이 컴퓨터에서 직접 실행하지 않는다.
+      #   tsc·시험·빌드는 기준(master) 사본의 scripts/ci/sandbox-run.sh로 '열쇠 없는 상자'(컨테이너: 환경변수·.git·호스트 파일 없음, 설치 외 네트워크 없음)에서만.
+      #   예전: PR 체크아웃 후 npm ci(설치 스크립트)·npm test·node를 그대로 실행 → PR 코드가 토큰을 읽을 수 있었다.
+      - name: 기준(master) 검사 도구 꺼내기 (PR이 못 바꾸는 사본)
+        if: steps.guard.outputs.stop != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: .trusted-base
+          sparse-checkout: scripts
+          persist-credentials: false
+      - name: 기준 사본을 작업 폴더 밖으로 옮기고 지문 기록
+        id: trusted
+        if: steps.guard.outputs.stop != 'true'
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/trusted" && mv .trusted-base "$RUNNER_TEMP/trusted" && rm -rf "$RUNNER_TEMP/trusted/.git"
+          chmod -R a-w "$RUNNER_TEMP/trusted"
+          echo "sum=$(cd "$RUNNER_TEMP/trusted" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-64)" >> "$GITHUB_OUTPUT"
+          docker pull -q node:22-bookworm >/dev/null
+      - name: PR 브랜치 체크아웃 (토큰을 .git에 남기지 않음)
         if: steps.guard.outputs.stop != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.guard.outputs.head_ref }}
           fetch-depth: 50
-
-      # Claude가 커밋 전 검사(tsc·build·시험)를 돌릴 수 있게 미리 설치(#600 시험: node_modules가 없어 커밋·push 못 함).
-      - uses: actions/setup-node@v4
-        if: steps.guard.outputs.stop != 'true'
-        with:
-          node-version: 22
-          cache: npm
-      - name: 의존성 설치
-        if: steps.guard.outputs.stop != 'true'
-        run: npm ci
+          persist-credentials: false
 
       - name: Claude가 Codex 지적 처리
         id: claude
@@ -149,7 +160,8 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           # 비대화형 실행은 허용한 명령만 쓸 수 있다(Codex #598 지적): 지적 읽기·답·이슈(gh), 검사(npx tsc·npm·node), 커밋·push(git).
-          claude_args: '--permission-mode default --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh api:*),Bash(gh issue create:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(npx tsc:*),Bash(npm run build),Bash(npm test),Bash(npm ci),Bash(node:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git fetch:*),Bash(git show:*),Bash(jq:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh label list:*)"'
+          # S4: PR 코드 실행 명령(npx tsc·npm·node)은 빼고, 검사는 상자 실행기 한 줄만 허용.
+          claude_args: '--permission-mode default --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh api:*),Bash(gh issue create:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git fetch:*),Bash(git show:*),Bash(jq:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh label list:*)"'
           prompt: |
             너는 이 저장소 AI 팀의 개발 담당 Claude다. 검사 담당(GPT Codex, 또는 Codex 대신 검토한 Claude 검토관)이 PR #${{ steps.guard.outputs.pr }}
             (브랜치 ${{ steps.guard.outputs.head_ref }}, 커밋 ${{ steps.guard.outputs.head_sha }})에 검사를 남겼다.
@@ -164,31 +176,49 @@ jobs:
                - 먼저 같은 코드·방식에서 같은 종류의 실패를 이미 예외로 막은 적이 있는지 `git log -p -- <파일>`로 본다(Lee 2026-11-11 "덧대기").
                  같은 종류의 2번째 이상이면 예외·제외 목록을 더하지 않는다: 고치지 말고 답 댓글에 "같은 종류 반복 — 방법 변경 필요(무엇을 지우고 바꿀지)"를 적고
                  이슈(라벨 needs-lee)로 남긴다.
-               - 맞는 지적: PR 범위 안에서만 고친다. `npx tsc --noEmit`, 관련 시험, `npm run build` 통과 후 같은 브랜치에 커밋·push.
+               - 맞는 지적: PR 범위 안에서만 고친다. 검사는 열쇠 없는 상자에서만 돌린다(PR 코드를 직접 실행하지 않음, S4):
+                 `bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh tsc`, `… sandbox-run.sh test`, `… sandbox-run.sh build` 세 개가 통과한 뒤 같은 브랜치에 커밋·push.
                - 틀리거나 범위 밖 지적: 고치지 않는다. 범위 밖이지만 맞는 지적은 새 이슈(라벨 ai-team)로 남긴다.
                - 화면 모양·DB 구조·삭제·보안·돈이 드는 변경이 필요한 지적: 고치지 않고 이슈(라벨 needs-lee)로 남긴다.
             3. 끝나면 PR에 댓글 하나를 남긴다. 첫 줄은 정확히 `<!-- claude-codex-reply -->`.
                그 아래 한국어 쉬운 말로 지적별 처리(고침/안 고침+근거/이슈 번호)를 5줄 이내로. (새 커밋의 재검토는 다음 단계가 Claude 검토관을 자동으로 부른다 — 댓글에 `@codex review`·`@claude`를 쓰지 않는다.)
             4. master에 직접 push하지 않는다. 비밀값을 출력하지 않는다. 시험을 지우거나 약하게 바꾸지 않는다.
-            5. 실행 방법: 이미 저장소 폴더에 있고 의존성(npm ci)도 설치돼 있다. 명령은 하나씩 실행한다(cd·`;`·`&&`로 잇지 않는다 — 허용 목록에서 거절됨).
+            5. 실행 방법: 이미 저장소 폴더에 있다. 의존성은 상자 실행기가 처음 검사 때 상자 안에 설치한다(npm·node·npx를 직접 쓰지 않는다). 명령은 하나씩 실행한다(cd·`;`·`&&`로 잇지 않는다 — 허용 목록에서 거절됨).
                파일 수정은 Edit 도구로 한다(sed 금지). 답 댓글은 수정을 push한 뒤에 한 번만 단다.
 
       # #648: 봇이 고친 커밋을 올리면 PR 설명 표의 작업자 검증 줄(옛 SHA)은 그대로 두고, 새 HEAD에서 직접 돌린 검증을 한 줄로 적는다.
       # check-pr-ready는 옛 SHA 뒤 커밋이 모두 claude[bot]이고 이 줄이 새 HEAD로 통과일 때만 옛 줄을 받아 준다(작업자 줄을 거짓으로 바꾸지 않음).
-      - name: 봇 수정 뒤 검증 줄 (새 커밋을 올린 경우만)
+      # S4: PR 코드는 상자에서만(열쇠 없는 단계 ①), 설명 고치기는 기준 사본 스크립트로만(토큰 있는 단계 ②). 기준 사본 지문이 바뀌었으면 중단.
+      - name: 봇 수정 뒤 검사 ① 상자 실행 (토큰 없음, 새 커밋을 올린 경우만)
+        id: proof
         if: always() && steps.claude.outcome == 'success'
+        env:
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.guard.outputs.pr }}
+          BEFORE: ${{ steps.guard.outputs.head_sha }}
+          SUM: ${{ steps.trusted.outputs.sum }}
+        run: |
+          set -uo pipefail
+          T="$RUNNER_TEMP/trusted"
+          [ "$(cd "$T" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-64)" = "$SUM" ] || { echo "::error::기준 검사 도구가 바뀜 — 중단"; exit 1; }
+          now=$(curl -fsS "https://api.github.com/repos/$REPO/pulls/$PR" | jq -r .head.sha)
+          echo "now=$now" >> "$GITHUB_OUTPUT"
+          if [ "$now" = "$BEFORE" ]; then echo "새 커밋 없음"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git fetch -q origin "$now" && git checkout -q "$now"
+          if bash "$T/scripts/ci/sandbox-run.sh" tsc . && bash "$T/scripts/ci/sandbox-run.sh" test . >/tmp/test.log 2>&1 && bash "$T/scripts/ci/sandbox-run.sh" build . >/tmp/build.log 2>&1; then result='[직접 확인] 통과'; else result='실패'; tail -20 /tmp/test.log /tmp/build.log || true; fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+      - name: 봇 수정 뒤 검사 ② 검증 줄 기록 (기준 사본 스크립트만 실행)
+        if: always() && steps.proof.outputs.now != '' && steps.proof.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.guard.outputs.pr }}
-          BEFORE: ${{ steps.guard.outputs.head_sha }}
+          now: ${{ steps.proof.outputs.now }}
+          result: ${{ steps.proof.outputs.result }}
         run: |
-          now=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha)
-          if [ "$now" = "$BEFORE" ]; then echo "새 커밋 없음"; exit 0; fi
-          git fetch -q origin "$now" && git checkout -q "$now"
-          if npx tsc --noEmit && npm test >/tmp/test.log 2>&1 && npm run build >/tmp/build.log 2>&1; then result='[직접 확인] 통과'; else result='실패'; tail -20 /tmp/test.log /tmp/build.log || true; fi
+          cd "$RUNNER_TEMP"
           gh api "repos/$REPO/pulls/$PR" --jq '.body // ""' > body.md
-          node scripts/ops/pr-bot-proof.mjs body.md "$now" "$result" > body.new.md
+          node "$RUNNER_TEMP/trusted/scripts/ops/pr-bot-proof.mjs" body.md "$now" "$result" > body.new.md
           # S3-1(#808): Lee 계정 열쇠를 쓰지 않는다(AI가 Lee 신원을 쓰는 경로 제거). 기본 토큰으로 고치면 PR 검사가 다시 시작되지 않으므로
           # 새 커밋의 'PR 검사' 실행을 다시 돌려 고친 설명으로 완료 근거를 다시 판정하게 한다(아래 codex-followup 잡, 못 하면 그 PR만 검사 실패로 남음 — 닫힌 실패).
           gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@body.new.md >/dev/null && echo "검증 줄: $result ${now:0:7}"

@@ -1,0 +1,34 @@
+# 올바른 방식: 기준 사본·상자에서만 PR 코드 실행, 토큰 안 남김, artifact 출처 확인
+on: issue_comment
+permissions: { contents: write, id-token: write }
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: master, path: .trusted-base, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ steps.guard.outputs.head_ref }}", persist-credentials: false }
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_args: '--allowedTools "Read,Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh:*),Bash(git push:*)"'
+      - run: |
+          T="$RUNNER_TEMP/trusted"
+          git fetch -q origin "$now" && git checkout -q "$now"
+          bash "$T/scripts/ci/sandbox-run.sh" test .
+          node "$RUNNER_TEMP/trusted/scripts/ops/pr-bot-proof.mjs" body.md
+  save:
+    runs-on: ubuntu-latest
+    env: { K: "${{ secrets.K }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/ci/verify-artifact-run.sh "$RID" .github/workflows/a.yml
+      - uses: actions/download-artifact@v4
+        with: { name: x, run-id: "${{ inputs.run_id }}" }
+  pr:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - run: npm ci && npm test

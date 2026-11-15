@@ -60,6 +60,16 @@ jobs:
         run: node scripts/ci/merge-provenance.test.mjs
       - name: 필수 검사 이름 충돌 정적 시험 (checks·guard·app-screen·publication-gate가 PR 잡 1개씩인지, #728 S1)
         run: node scripts/ci/required-check-names.test.mjs
+      # S4(#808): 열쇠 있는 잡이 PR 코드를 실행하지 않는지(정적) + 악성 PR 흉내 시험(실제 컨테이너 실행). 실패 = 병합 불가.
+      - name: 열쇠·PR 코드 분리 검사 (모든 워크플로) + 악성 워크플로 흉내 시험
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
+          bash scripts/ci/check-secret-isolation.test.sh
+          python3 scripts/ci/check-secret-isolation.py
+      - name: artifact 출처 확인 시험 (가짜 실행·브랜치·포크·이력 밖 커밋 거절)
+        run: bash scripts/ci/verify-artifact-run.test.sh
+      - name: PR 코드 상자 악성 PR 시험 (가짜 열쇠를 환경변수·.git·홈에 심고 설치·시험·빌드 단계에서 못 읽고 못 보내는지)
+        run: bash scripts/ci/sandbox-run.test.sh
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
       - name: 시험 의존성 배포 제외 회귀 검사

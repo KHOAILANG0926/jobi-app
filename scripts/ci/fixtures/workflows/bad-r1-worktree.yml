@@ -1,0 +1,11 @@
+# 브랜치를 다른 폴더에 펼쳐 그 폴더에서 npm ci(쓰기 토큰 잡) → R1
+on: workflow_dispatch
+permissions: { contents: write }
+jobs:
+  cap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git worktree add -q "${{ runner.temp }}/build" origin/x
+          cd "${{ runner.temp }}/build" && npm ci

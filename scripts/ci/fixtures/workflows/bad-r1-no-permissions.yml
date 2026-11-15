@@ -1,0 +1,9 @@
+# 권한 선언 없음(저장소 기본 토큰 권한 = 쓰기일 수 있음) + PR 코드 실행 → R2·R1
+on: issue_comment
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.issue.number }}" }
+      - run: node scripts/x.mjs

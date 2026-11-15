@@ -116,6 +116,12 @@ jobs:
           name: facebook-dryrun
           path: /tmp/facebook_dryrun.json
           retention-days: 1
+      # S4(#808): 받기 전에 그 실행의 출처 확인(같은 작업 파일·master·성공). 브랜치가 만든 가짜 결과 차단.
+      - name: 결과 실행 출처 확인
+        if: inputs.mode == 'save'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci/verify-artifact-run.sh "$DRYRUN_RUN_ID" .github/workflows/crawl-facebook-one.yml workflow_dispatch
       - name: 미리 보기 결과 가져오기
         if: inputs.mode == 'save'
         uses: actions/download-artifact@v4

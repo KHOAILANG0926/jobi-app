@@ -17,21 +17,79 @@ export const NEEDS_LEE_LABEL = 'needs-lee'
 // ④ 검사·보호 장치 변경(검사 약화 가능): 워크플로·검사/판정 스크립트·검토 기준을 바꾸는 PR도 Lee 승인 대상(#807 '검사 약화는 대표님 결정').
 export const GATE_CODE = (path) => /^\.github\//.test(path) || /^scripts\/(?:ci|status)\//.test(path)
   || /^scripts\/(?:check-[^/]+|[^/]+-gate|approved-migrations)\.mjs$/.test(path) || path === 'AGENTS.md'
+// ⑤ 의존성·검증 약화(S4, Lee 2026-11-15 "package.json 전체를 고위험으로 지정하지 말 것"): package.json을 바꿨다고 다 승인 대상이 아니다.
+//    승인 대상 = 새 의존성 / 설치 스크립트(직접·의존성 lockfile hasInstallScript) / 패키지 출처 변경(registry 밖 주소·git·file·npm 별칭·.npmrc·overrides)
+//               / 검증 약화(test·build·typecheck 등 scripts 변경, 시험 파일 삭제·이름 바꿈, 시험 실행기·tsconfig 변경).
+//    기존 의존성의 일반 업데이트(같은 이름, registry 버전 범위·lockfile 버전만 바뀜)는 자동 검증(필수 검사)으로 진행한다.
+//    package.json·lockfile 내용을 받지 못하면 판단할 수 없으므로 승인 대상으로 본다(닫힌 실패).
+const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']
+const INSTALL_SCRIPTS = ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'preprepare', 'postprepare', 'prepack', 'postpack']
+const SAFE_SCRIPTS = ['dev', 'preview', 'start']  // 개발 서버만 — 검사·빌드에 쓰이지 않음
+const REGISTRY = 'https://registry.npmjs.org/'
+// registry 버전 범위·태그만 '일반'. git·github 줄임(user/repo)·URL·file:·link:·npm: 별칭은 ':' '/' '#' '@'가 들어가 출처 변경으로 본다.
+const plainRange = (spec) => typeof spec === 'string' && spec.trim() !== '' && !/[:/#@]/.test(spec)
+export const VERIFY_CONFIG = (path) => /^tsconfig[^/]*\.json$/.test(path) || /^scripts\/(?:run-tests|ts-extensionless-[^/]+)\.mjs$/.test(path)
+  || /^\.npmrc$|^\.yarnrc(\.yml)?$/.test(path)
+const isTestFile = (path) => /(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)tests?\//.test(path)
+const deps = (pkg) => Object.fromEntries(DEP_SECTIONS.flatMap((s) => Object.entries(pkg?.[s] ?? {})))
+const lockPackages = (lock) => lock?.packages ?? {}
+
+export function dependencyRisks({ files, basePkg, headPkg, baseLock, headLock }) {
+  const out = []
+  const list = files.map((f) => (typeof f === 'string' ? { filename: f, status: 'modified' } : f))
+  const names = list.map((f) => f.filename)
+  for (const f of list) {
+    if (isTestFile(f.filename) && (f.status === 'removed' || f.status === 'renamed')) out.push(`시험 파일 ${f.status === 'removed' ? '삭제' : '이름 바꿈'}: ${f.filename}`)
+    if (f.status === 'renamed' && f.previous_filename && isTestFile(f.previous_filename) && !isTestFile(f.filename)) out.push(`시험 파일이 시험 밖으로: ${f.previous_filename}`)
+    if (VERIFY_CONFIG(f.filename)) out.push(`검증·설치 설정 변경: ${f.filename}`)
+  }
+  const pkgChanged = names.includes('package.json'), lockChanged = names.includes('package-lock.json')
+  if (!pkgChanged && !lockChanged) return out
+  if (!basePkg || !headPkg || (lockChanged && (!baseLock || !headLock))) return [...out, '의존성 파일 내용을 확인하지 못함(판단 불가)']
+  const b = deps(basePkg), h = deps(headPkg)
+  for (const [name, spec] of Object.entries(h)) {
+    if (!(name in b)) out.push(`새 의존성: ${name}@${spec}`)
+    else if (!plainRange(spec) && spec !== b[name]) out.push(`패키지 출처 변경: ${name} → ${spec}`)
+  }
+  for (const s of DEP_SECTIONS) for (const [name, spec] of Object.entries(headPkg[s] ?? {})) {
+    if (name in b && !(name in (basePkg[s] ?? {}))) out.push(`의존성 구분 이동: ${name} → ${s}`)
+  }
+  const bs = basePkg.scripts ?? {}, hs = headPkg.scripts ?? {}
+  for (const k of new Set([...Object.keys(bs), ...Object.keys(hs)])) {
+    if (bs[k] === hs[k]) continue
+    if (INSTALL_SCRIPTS.includes(k)) out.push(`설치 스크립트 변경: ${k}`)
+    else if (!SAFE_SCRIPTS.includes(k)) out.push(`검사·빌드 명령 변경: scripts.${k}`)
+  }
+  for (const k of ['overrides', 'resolutions', 'workspaces', 'bundleDependencies', 'bundledDependencies', 'publishConfig', 'packageManager']) {
+    if (JSON.stringify(basePkg[k] ?? null) !== JSON.stringify(headPkg[k] ?? null)) out.push(`패키지 출처·설치 방식 변경: ${k}`)
+  }
+  const bl = lockPackages(baseLock), hl = lockPackages(headLock)
+  for (const [path, p] of Object.entries(hl)) {
+    if (!path) continue
+    const old = bl[path]
+    if (p.hasInstallScript && !old?.hasInstallScript) out.push(`설치 스크립트가 있는 의존성: ${path.replace(/^node_modules\//, '')}`)
+    if (p.resolved && !p.resolved.startsWith(REGISTRY) && p.resolved !== old?.resolved) out.push(`registry 밖에서 받는 의존성: ${path.replace(/^node_modules\//, '')} (${p.resolved.split('/')[2] ?? p.resolved})`)
+    if (p.link && !old?.link) out.push(`로컬 연결 의존성: ${path}`)
+  }
+  return [...new Set(out)]
+}
+
 export function approvedFramePaths(baselineSource) {
   return [...String(baselineSource ?? '').matchAll(/"path":\s*"([^"]+)"/g)].map((m) => m[1])
 }
 export const frameApproved = (path, framePaths) => framePaths.includes(path)
 
-export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [] }) {
+export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {} }) {
   const names = files.map((f) => f.filename ?? f)
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
   const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f))
   const labeled = labels.includes(NEEDS_LEE_LABEL)
-  const touched = [...decision, ...frame, ...gate]
+  const depRisk = dependencyRisks({ files, ...depFiles })
+  const touched = [...decision, ...frame, ...gate, ...depRisk]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [] }
   const ok = reviews.some((r) => r.user?.login === OWNER && r.state === 'APPROVED' && r.commit_id === sha)
-  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
+  const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
   return { required: true, approved: ok, touched, reasons }
 }
 
@@ -49,9 +107,11 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   const sha = process.argv[5]
   // 선택 인자: 라벨 이름 목록 JSON(자리 6). 잠긴 화면 파일 목록은 master의 기존 잠금 파일에서 읽는다.
   const labels = process.argv[6] ? JSON.parse(readFileSync(process.argv[6], 'utf8')) : []
+  // 선택 인자 7: {basePkg, headPkg, baseLock, headLock} JSON(package.json·lockfile이 바뀐 PR이면 병합 실행기가 기준·head 내용을 넣는다. 없으면 닫힌 실패)
+  const depFiles = process.argv[7] ? JSON.parse(readFileSync(process.argv[7], 'utf8')) : {}
   let framePaths = []
   try { framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8')) } catch { /* 잠금 파일을 못 읽으면 닫힌 실패 */ process.exit(3) }
-  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths })
+  const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles })
   if (!r.approved) console.log(requestText(sha, r.touched, r.reasons))
   process.exit(r.approved ? 0 : 3)
 }

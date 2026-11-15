@@ -52,7 +52,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       # 데모 주소는 Vercel 로그인이 막아 찍을 수 없다(2026-11-11 확인) → 브랜치 코드를 여기서 빌드해 띄운다(app-screen-check와 같은 방식).
-      # 촬영·게시 스크립트는 위에서 받은 master 것을 그대로 쓴다(브랜치 코드는 build 폴더에서만).
+      # 촬영·게시 스크립트는 위에서 받은 master 것을 그대로 쓴다(브랜치 코드는 상자 안 build 사본에서만, S4).
       - name: 브랜치 빌드·띄우기 (build_ref가 있을 때만)
         if: inputs.build_ref
         env:
@@ -61,8 +61,10 @@ jobs:
           [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "브랜치 이름 형식 아님"; exit 1; }
           git fetch -q --depth 1 origin "refs/heads/$REF:refs/remotes/origin/build-ref"
           git worktree add -q "${{ runner.temp }}/build" origin/build-ref
-          cd "${{ runner.temp }}/build" && npm ci && npm run build
-          (npx vite preview --port 4173 --strictPort > "${{ runner.temp }}/preview.log" 2>&1 &)
+          # S4(#808): 이 잡은 쓰기 토큰을 가진다(작업 폴더 .git) → 브랜치 코드(설치 스크립트·빌드)는 열쇠 없는 상자에서만 빌드한다.
+          #   띄우기는 master 작업 폴더의 vite로 상자 빌드 결과(dist)만 내보낸다(브랜치의 vite 설정·코드는 실행하지 않음).
+          bash scripts/ci/sandbox-run.sh build "${{ runner.temp }}/build"
+          (npx vite preview --outDir "$RUNNER_TEMP/sbx-work/dist" --port 4173 --strictPort > "${{ runner.temp }}/preview.log" 2>&1 &)
           for i in $(seq 1 30); do curl -fsS http://localhost:4173/ >/dev/null && exit 0; sleep 1; done
           cat "${{ runner.temp }}/preview.log"; exit 1
       - name: 핸드폰 크기 캡처 (아이폰 390·갤럭시 360)
