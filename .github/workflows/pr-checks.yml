@@ -82,6 +82,8 @@ jobs:
         run: bash scripts/ci/sandbox-run.test.sh
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
+      - name: 승인 범위 검사 시험 (결정 0003 개정 — 허용 목록·일반 경로 제외)
+        run: node scripts/check-approval-scope.test.mjs
       - name: 시험 의존성 배포 제외 회귀 검사
         run: node --test scripts/ci/deployment-package-change.test.mjs
       - name: 위치 불일치 저녁 보고 회귀 검사

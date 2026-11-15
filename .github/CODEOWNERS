@@ -1,4 +1,11 @@
-# Lee 승인이 필요한 곳은 결정 문서뿐이다(결정 0003). 판단할 것이 없는 승인은 만들지 않는다.
-# Only decision records need Lee's approval (decision 0003). Enforced by scripts/check-approval-scope.mjs.
+# Lee 승인이 필요한 곳 = 결정 문서 + 보안·CI·승인 핵심 파일(결정 0003, 2026-11-15 S4 개정). 그 밖 일반 파일은 Lee 승인 없이 기계 검사로만 병합된다.
+# Lee approval is required only for decision records and security/CI/approval core files (Decision 0003, amended 2026-11-15, S4). Everything else merges on automated checks alone.
+# 검사 장치 목록(scripts/decision-approval-gate.mjs의 GATE_CODE)과 같은 범위이며 scripts/check-approval-scope.mjs가 이 목록을 고정한다.
 /docs/decisions/                    @KHOAILANG0926
-/.github/CODEOWNERS                 @KHOAILANG0926
+/.github/                           @KHOAILANG0926
+/scripts/ci/                        @KHOAILANG0926
+/scripts/status/                    @KHOAILANG0926
+/scripts/check-*.mjs                @KHOAILANG0926
+/scripts/*-gate.mjs                 @KHOAILANG0926
+/scripts/approved-migrations.mjs    @KHOAILANG0926
+/AGENTS.md                          @KHOAILANG0926
