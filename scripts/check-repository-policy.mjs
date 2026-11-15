@@ -94,6 +94,7 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   const changed = new Set(paths)
   const hasTest = (re) => paths.some(p => re.test(p))
   for (const path of paths) {
+    if (path.startsWith(UNPARSED)) { errors.push(path + ': 바뀐 파일 경로를 읽지 못함 — 판단할 수 없어 실패'); continue }
     if (STATUS_WORKFLOW.test(path)) {
       if (options.statusWorkflowApproved !== true)
         errors.push(path + ': STATUS 보호 규정 위반 — status 워크플로 변경은 지금 커밋에 대한 Lee의 GitHub 승인(Approve) 뒤에만 통과')
@@ -155,14 +156,21 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   return errors
 }
 
+const UNPARSED = '(경로 읽기 실패) '
 export function parseGitDiff(raw) {
   const files = []
   const patches = {}
   let current = null
   for (const line of raw.split('\n')) {
-    if (line.startsWith('diff --git a/')) {
+    if (line.startsWith('diff --git ')) {
       const match = line.match(/^diff --git a\/(.+) b\/(.+)$/)
       if (match) { current = match[2]; files.push(current); patches[current] = '' }
+      // 경로를 읽지 못하면(따옴표로 감싼 특수 글자 등) 빼지 않고 실패로 남긴다(닫힌 실패, S4-4 독립 검토)
+      else { current = null; files.push(UNPARSED + line.slice(0, 200)) }
+    } else if (current && line.startsWith('rename from ')) {
+      // 이름 바꾸기는 예전 이름도 바뀐 파일로 본다 — scripts/status/·STATUS.md를 status-*.yml로 옮겨 보호를 피하지 못하게(S4-4 독립 검토 지적)
+      files.push(line.slice('rename from '.length))
+      patches[current] += line + '\n'
     } else if (current) {
       patches[current] += line + '\n'
     }
@@ -174,7 +182,7 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
   const base = event.pull_request?.base?.sha
   if (!base) process.exit(0)
-  const diff = execFileSync('git', ['diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--'], { encoding:'utf8', maxBuffer: 10 * 1024 * 1024 })
+  const diff = execFileSync('git', ['-c', 'core.quotePath=false', 'diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--'], { encoding:'utf8', maxBuffer: 10 * 1024 * 1024 })
   const { files, patches } = parseGitDiff(diff)
   // Approvals must already exist on the PR base: a candidate cannot approve itself.
   let manifest = { approvals: [] }
