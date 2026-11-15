@@ -18,4 +18,12 @@ bash "$here/hold-pr-claude-settings.sh" . >/dev/null || bad "실행 실패"
 echo change >> a.txt; git add -A
 st=$(git diff --cached --name-status)
 [ "$st" = "M	a.txt" ] && ok || bad "git add -A가 치운 파일을 삭제로 올림: $st"
+# 실제 저장소처럼 마지막 파일이 링크가 아닌 일반 파일이어도 멈추지 않아야 한다(2026-11-15 #828 검토관 실패: 루프 마지막 비교가 거짓 → pipefail로 종료)
+r2="$tmp/repo2"; mkdir -p "$r2/.claude"; cd "$r2"; git init -q; git config user.email t@t; git config user.name t
+echo '{}' > .claude/settings.json; ln -s /proc/self/environ a-link; echo ok > zz-last.txt; git add -A && git commit -qm init
+bash "$here/hold-pr-claude-settings.sh" . >/dev/null && ok || bad "마지막 파일이 일반 파일일 때 실행 실패"
+[ ! -e a-link ] && [ ! -e .claude/settings.json ] && [ -e zz-last.txt ] && ok || bad "마지막이 일반 파일일 때 치우기 결과 다름"
+r3="$tmp/repo3"; mkdir -p "$r3"; cd "$r3"; git init -q; git config user.email t@t; git config user.name t
+echo ok > a.txt; git add -A && git commit -qm init
+bash "$here/hold-pr-claude-settings.sh" . >/dev/null && ok || bad "치울 것이 없을 때 실행 실패"
 echo "hold-pr-claude-settings: 통과 $pass, 실패 $fail"; [ "$fail" = 0 ]
