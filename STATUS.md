@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-15 13:26 (VN)**
-- 기준 커밋: `13d1204` (ci(S4-2): PR 코드와 열쇠 분리 + 악성 PR 시험 (#822))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43685336718
+- 생성 시각: **2026-11-15 13:55 (VN)**
+- 기준 커밋: `e573e9f` (ci(S4-3): 운영 열쇠는 ops-keys 환경(master만) — 브랜치·PR 워크플로 차단 준비 (#824))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43687539598
 - 검증 스크립트 지문(SHA-256): `fce259150b1d9603`
 
 ## 한눈에 보기
@@ -48,7 +48,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `13d1204` · 상태 **success** · 2026-11-15 13:25 (VN)
+- 마지막 Production 배포: `e573e9f` · 상태 **success** · 2026-11-15 13:54 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -56,6 +56,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #824 | 2026-11-15 13:54 (VN) | `e573e9f` | ci(S4-3): 운영 열쇠는 ops-keys 환경(master만) — 브랜치·PR 워크플로 차단 준비 |
 | #822 | 2026-11-15 13:25 (VN) | `13d1204` | ci(S4-2): PR 코드와 열쇠 분리 + 악성 PR 시험 |
 | #806 | 2026-11-14 17:21 (VN) | `1b99e67` | R4: split secret-free publication gate and trusted AI reader calibration |
 | #801 | 2026-11-13 18:38 (VN) | `18901d7` | fix(crawler): Facebook 재처리 마무리 판정 — 이미지 없는 공고 OCR 강제 제거·실제 차단 사유로 보류/실패 구분 (Draft, #728 후속) |
@@ -65,11 +66,10 @@
 | #796 | 2026-11-13 13:56 (VN) | `ea8f1ee` | 운영 지도 검사 모순 해결: public-pins 화면 핀 중복 삭제·경계 기준 원래 성으로 (R2 #728) |
 | #795 | 2026-11-13 13:12 (VN) | `6e23e55` | 작업 기록: R2 자동 병합 승인 통제 (#728) |
 | #792 | 2026-11-13 12:56 (VN) | `0421c1a` | 자동 병합 통제 강화: needs-lee 라벨·승인된 화면 틀 파일도 Lee 승인 문턱 (R2 #728) |
-| #791 | 2026-11-13 12:25 (VN) | `f9564be` | 영역 검사에 줄 끊김·가로 넘침과 알려진 실패 래칫 합침 (#735 대체, R2 #728) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **23건** (전체 33건, 숨김·비활성 10건)
+- 공개 중: **23건** (전체 34건, 숨김·비활성 11건)
 - 출처별: 출처 없음 19 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -125,16 +125,16 @@
 
 | 규칙 | 차단방식 | 마지막시험 | 결과 |
 |---|---|---|---|
-| `R1_phone_digits_only` | 없음 | 2026-11-13 16:26 (VN) | ❌ 실패 |
-| `R2_decision_columns_code_only` | 없음 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `R1_phone_digits_only` | 없음 | 2026-11-15 13:54 (VN) | ❌ 실패 |
+| `R2_decision_columns_code_only` | 없음 | 2026-11-15 13:54 (VN) | ❌ 실패 |
 | `R2b_publish_gate_reason_code_only` | 보류 | — | — 시험 없음 |
-| `R3_source_evidence_required` | 저장거부 | 2026-11-13 16:26 (VN) | ❌ 실패 |
-| `R5_verbatim_names` | 저장거부 | 2026-11-13 16:26 (VN) | ❌ 실패 |
-| `R6_age_preserved` | 저장거부 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `R3_source_evidence_required` | 저장거부 | 2026-11-15 13:54 (VN) | ❌ 실패 |
+| `R5_verbatim_names` | 저장거부 | 2026-11-15 13:54 (VN) | ❌ 실패 |
+| `R6_age_preserved` | 저장거부 | 2026-11-15 13:54 (VN) | ❌ 실패 |
 | `R4_policy_exclusion_trigger` | 저장거부 | — | — 시험 없음 |
-| `R7_ocr_crosscheck` | 보류 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `R7_ocr_crosscheck` | 보류 | 2026-11-15 13:54 (VN) | ❌ 실패 |
 | `U1_industrial_park_pin_publish` | 없음 | — | — 시험 없음 |
-| `U2_age_min_under_15` | 없음 | 2026-11-13 16:26 (VN) | ❌ 실패 |
+| `U2_age_min_under_15` | 없음 | 2026-11-15 13:54 (VN) | ❌ 실패 |
 | `R8_publication_requires_original_evidence` | 보류 | — | — 시험 없음 |
 | `L1_single_location_source` | 저장거부 | — | — 시험 없음 |
 | `L2_single_location_writer` | 저장거부 | — | — 시험 없음 |
