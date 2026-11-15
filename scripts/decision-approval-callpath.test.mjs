@@ -67,5 +67,6 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
   assert.equal(run({ state: 'CHANGES_REQUESTED', commit_id: head }, 'viecganban-bot').status, 1, '정책 검사: 마지막이 변경 요청 → 실패')
   assert.equal(run({ state: 'APPROVED', commit_id: old }, 'viecganban-bot').status, 1, '정책 검사: 승인 뒤 코드 바뀜(옛 커밋) → 실패')
   assert.equal(run({ state: 'APPROVED', commit_id: head }, LEE).status, 1, '정책 검사: Lee 계정이 쓴 PR → 실패')
+  assert.equal(run({ state: 'APPROVED', commit_id: head }, undefined).status, 1, '정책 검사: 작성자 정보가 없으면 → 실패')
 }
 console.log('decision-approval 실제 호출 경로 시험 통과(리뷰 150건·두 쪽, 작성자 인자)')
