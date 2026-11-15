@@ -89,5 +89,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.match(req('@@\n-requests==2.0\n+requests @ git+https://evil/x').join(), /출처·설치 방식/, 'Python git 출처')
   assert.match(req('@@\n-requests==2.0\n+requests').join(), /버전 고정 해제/, 'Python 버전 고정 해제')
   assert.match(dependencyRisks({ files: [{ filename: 'crawler/requirements.txt', status: 'modified' }] }).join(), /판단 불가/, 'Python 변경 내용 없으면 닫힌 실패')
+  assert.match(risk(bump, lock({ 'node_modules/react': { version: 'git+https://evil/x.git' } })).join(), /registry 주소·정확한 버전 없음: react/, '주소 지우고 버전 칸에 git 주소')
+  assert.match(dependencyRisks({ files: [{ filename: 'crawler/pyproject.toml', status: 'added' }] }).join(), /루트 밖 의존성/, 'pyproject')
   console.log('decision-approval-gate ⑤ 의존성·검증 약화: 일반 업데이트 자동, 위험 변경만 Lee 승인')
 }

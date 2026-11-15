@@ -30,7 +30,7 @@ const REGISTRY = 'https://registry.npmjs.org/'
 // 'latest' 같은 태그(가리키는 버전을 바꿀 수 있음)는 출처·버전 방식 변경으로 본다(검토 지적 6).
 const plainRange = (spec) => typeof spec === 'string' && /^\s*[\^~<>=]*\s*(\d+|[xX*])(\.(\d+|[xX*])){0,2}(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?(\s*(\|\||-|\s)\s*[\^~<>=]*\s*(\d+|[xX*])(\.(\d+|[xX*])){0,2}(-[0-9A-Za-z.-]+)?)*\s*$|^\s*[*xX]\s*$/.test(spec)
 // 루트 밖 의존성 목록·설치 설정(하위 폴더 package.json·lockfile·.npmrc, yarn/pnpm lock)은 드물고 판정이 어려워 바뀌면 승인 대상(검토 지적 6).
-const OTHER_MANIFEST = (path) => /(^|\/)(package(-lock)?\.json|\.npmrc|\.yarnrc(\.yml)?|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(path)
+const OTHER_MANIFEST = (path) => /(^|\/)(package(-lock)?\.json|\.npmrc|\.yarnrc(\.yml)?|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json|pyproject\.toml|poetry\.lock|Pipfile(\.lock)?|bunfig\.toml|bun\.lockb?)$/.test(path)
   && path !== 'package.json' && path !== 'package-lock.json'
 // Python 의존성(VPS 수집기 등 비밀값 있는 곳에서 설치됨): 새 이름·버전 고정 해제·패키지 출처 지정 줄만 승인 대상, 같은 이름 버전 변경은 자동.
 const PY_REQ = (path) => /(^|\/)requirements[^/]*\.txt$/.test(path)
@@ -92,6 +92,10 @@ export function dependencyRisks({ files, basePkg, headPkg, baseLock, headLock })
     if (p.hasInstallScript && !old?.hasInstallScript) out.push(`설치 스크립트가 있는 의존성: ${path.replace(/^node_modules\//, '')}`)
     if (p.resolved && !p.resolved.startsWith(REGISTRY) && p.resolved !== old?.resolved) out.push(`registry 밖에서 받는 의존성: ${path.replace(/^node_modules\//, '')} (${p.resolved.split('/')[2] ?? p.resolved})`)
     if (p.link && !old?.link) out.push(`로컬 연결 의존성: ${path}`)
+    // 검토 2차 지적 7: 바뀌었거나 새로 생긴 항목은 registry 주소·정확한 버전이 있어야 한다(주소를 지우고 버전 칸에 git 주소를 넣는 우회 차단).
+    if (JSON.stringify(p) !== JSON.stringify(old) && !p.link && !p.inBundle && !p.bundled) {
+      if (!p.resolved || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/.test(String(p.version ?? ''))) out.push(`lockfile 항목에 registry 주소·정확한 버전 없음: ${path.replace(/^node_modules\//, '')}`)
+    }
     // 검토 지적 6: registry 주소여도 '다른 패키지 tarball'을 가리키게 바꿀 수 있다 → 주소의 패키지 이름·버전이 설치 경로·version과 같아야 한다.
     if (p.resolved?.startsWith(REGISTRY) && p.resolved !== old?.resolved) {
       const name = path.slice(path.lastIndexOf('node_modules/') + 'node_modules/'.length)

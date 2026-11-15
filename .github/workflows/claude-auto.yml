@@ -220,7 +220,8 @@ jobs:
           echo "now=$now" >> "$GITHUB_OUTPUT"
           if [ "$now" = "$BEFORE" ]; then echo "새 커밋 없음"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           # 검토 지적 7: 받기·바꾸기가 실패하면 예전 트리를 검사해 새 커밋을 '통과'로 적게 된다 → 실패로 처리하고, 바뀐 커밋이 맞는지 확인.
-          if ! { git fetch -q origin "$now" && git -c advice.detachedHead=false checkout -q --force "$now" && [ "$(git rev-parse HEAD)" = "$now" ]; }; then
+          # 검토 2차 지적 5: 액션이 끝나며 폐기한 앱 토큰이 원격 주소에 남아 있을 수 있다 → 토큰 없는 공개 주소로 받는다(공개 저장소).
+          if ! { git fetch -q "https://github.com/$REPO" "$now" && git -c advice.detachedHead=false checkout -q --force "$now" && [ "$(git rev-parse HEAD)" = "$now" ]; }; then
             echo "result=실패" >> "$GITHUB_OUTPUT"; echo "::error::새 커밋(${now:0:7})으로 바꾸지 못함 — 검사 실패로 기록"; exit 0
           fi
           if bash "$T/scripts/ci/sandbox-run.sh" tsc . && bash "$T/scripts/ci/sandbox-run.sh" test . >/tmp/test.log 2>&1 && bash "$T/scripts/ci/sandbox-run.sh" build . >/tmp/build.log 2>&1; then result='[직접 확인] 통과'; else result='실패'; tail -20 /tmp/test.log /tmp/build.log || true; fi

@@ -8,7 +8,8 @@
 set -euo pipefail
 cd "${1:-.}"
 held="${RUNNER_TEMP:?}/pr-held"; mkdir -p "$held"
-{ git ls-files -- .claude/settings.json .claude/settings.local.json .mcp.json; git ls-files -s | awk '$1=="120000"{print $4}'; } | sort -u | while IFS= read -r f; do
+# 이름에 공백·특수 문자가 있어도 정확히 읽게 NUL 구분(검토 2차 지적 8)
+{ git ls-files -z -- .claude/settings.json .claude/settings.local.json .mcp.json; git ls-files -s -z | while IFS= read -r -d '' e; do [ "${e%% *}" = 120000 ] && printf '%s\0' "${e#*	}"; done; } | sort -zu | while IFS= read -r -d '' f; do
   [ -n "$f" ] || continue
   git update-index --skip-worktree -- "$f"
   mkdir -p "$held/$(dirname "$f")" && mv -- "$f" "$held/$f"
