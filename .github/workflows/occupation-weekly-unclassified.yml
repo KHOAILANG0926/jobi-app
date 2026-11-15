@@ -92,6 +92,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ github.token }}
+          classify_inline_comments: 'false'
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           claude_args: >-
@@ -137,10 +138,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      # 기준 브랜치 그대로(이 사이 master가 바뀌었으면 게시 스크립트가 '검사한 커밋이 아님'으로 거절 — 다음 주 다시)
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 50
           persist-credentials: false
       - uses: actions/download-artifact@v4
         id: dl
@@ -148,15 +149,14 @@ jobs:
         with:
           name: claude-result-pr
           path: ${{ runner.temp }}/claude-result
-      - name: 기준 사본 따로 두기(실행할 게시 스크립트) + 반영할 사본
-        if: steps.dl.outcome == 'success'
-        run: |
-          rm -rf "$RUNNER_TEMP/trusted" && mkdir -p "$RUNNER_TEMP/trusted" && git archive HEAD scripts | tar -C "$RUNNER_TEMP/trusted" -x
       - name: 검증 후 브랜치·PR (허용 경로 두 파일만)
         if: steps.dl.outcome == 'success'
         env:
           BASE: ${{ needs.propose.outputs.base }}
         run: |
-          node "$RUNNER_TEMP/trusted/scripts/ci/claude-publish.mjs" pr --repo "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/claude-result" \
-            --head-sha "$BASE" --head-ref "claude/occupation-rules-$GITHUB_RUN_ID" --workdir . \
+          # Claude가 시작한 커밋에 반영(그사이 master가 바뀌어도 거절되지 않게). 반영 대상은 데이터 폴더 pr/, 실행하는 스크립트는 기준 브랜치 것.
+          git fetch -q --depth 50 origin "$BASE" 2>/dev/null || git fetch -q origin
+          git worktree add -q --detach pr "$BASE"
+          node scripts/ci/claude-publish.mjs pr --repo "$GITHUB_REPOSITORY" --out "$RUNNER_TEMP/claude-result" \
+            --head-sha "$BASE" --head-ref "claude/occupation-rules-$GITHUB_RUN_ID" --workdir pr \
             --allow crawler/occupation_classifier.py,crawler/test_occupation_classifier.py

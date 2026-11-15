@@ -28,7 +28,7 @@ export const BOT = { name: 'claude[bot]', email: '209825114+claude[bot]@users.no
 export function forbiddenPath(path) {
   // + 병합되면 운영 DB 열쇠로 바로 실행되는 곳(운영 SQL·migration)은 Claude 자동 수정 대상이 아니다(독립 검토 3차 지적 4)
   return GATE_CODE(path) || /^scripts\/ops\/jobs\//.test(path) || /^supabase\/migrations\//.test(path) || /^\.claude(\/|$)/.test(path) || /(^|\/)CLAUDE\.md$/.test(path) || /(^|\/)\.mcp\.json$/.test(path)
-    || /(^|\/)\.git(attributes|modules|ignore)?$/.test(path) || /(^|\/)\.git\//.test(path) || path.startsWith('.claude-out')
+    || /(^|\/)\.git(attributes|modules|ignore)?$/.test(path) || /^\.husky(\/|$)/.test(path) || /(^|\/)(\.ripgreprc|\.claude\.json|CLAUDE\.local\.md)$/.test(path) || /(^|\/)\.git\//.test(path) || path.startsWith('.claude-out')
     || path.startsWith('/') || path.split('/').includes('..')
 }
 
@@ -221,7 +221,8 @@ export async function main(argv) {
       if (!/^[0-9a-f]{40}$/.test(meta.tree ?? '')) problems.push('meta.tree 없음')
       const e = checkMessage(meta.message); if (e) problems.push(e)
       if (!['통과', '실패'].includes(meta.result)) problems.push('meta.result 형식 오류')
-      if (!/^[\w./-]{1,200}$/.test(a.headRef ?? '') || a.headRef === 'master') problems.push('--head-ref 형식 오류')
+      // 특별한 브랜치(master·status·배포·데모)에는 Claude 커밋을 올리지 않는다(독립 검토 4차 지적 6)
+      if (!/^[\w./-]{1,200}$/.test(a.headRef ?? '') || /^(master|main|status|gh-pages|screens)$|^(demo|release)\//.test(a.headRef)) problems.push('--head-ref 형식 오류·올릴 수 없는 브랜치')
       const pf = join(mkdtempSync(join(tmpdir(), 'cp-')), 'p.diff'); writeFileSync(pf, patch)
       const numstat = git(a.workdir, ['apply', '--numstat', '-z', pf])
       const summary = git(a.workdir, ['apply', '--summary', pf])

@@ -22,3 +22,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: anthropics/claude-code-action@v1
         with: { claude_args: '--allowedTools "Bash(node:*)"' }
+  wildcard:
+    runs-on: x
+    permissions: { contents: read }
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with: { github_token: "${{ github.token }}", classify_inline_comments: 'false', claude_args: '--allowedTools "Read,Bash(git log:*),Bash(gh api *)"' }

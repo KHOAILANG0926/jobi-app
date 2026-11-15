@@ -240,6 +240,14 @@ def check_job(path, wf, name, job):
                       if k not in ('GITHUB_TOKEN',)]
             if others:
                 out.append(f'R6 {where}: Claude 잡에 인증 열쇠 말고 다른 비밀값이 있음 — {", ".join(sorted(set(others)))}')
+            # 독립 검토 4차 지적 1·2: ':*'(뒤에 아무 인자나) 허용은 인자 오류 글로 열쇠를 찍거나 --output으로 파일을 쓰게 한다 → 정확한 명령만.
+            #   액션의 뒤쪽 bash 단계(줄 댓글 게시)는 끈다(Claude가 바꿨을지 모를 환경을 따르는 단계를 남기지 않음).
+            allowed_all = ' '.join(re.findall(r'--allowedTools[ =]"([^"]*)"', text(w.get('claude_args', '')))) + ' ' + str(w.get('allowed_tools', ''))
+            wild = re.findall(r'Bash\([^)]*(?::\*|\s\*)\)', allowed_all)
+            if wild:
+                out.append(f'R6 {where}: Claude Bash 허용에 와일드카드 — {", ".join(wild[:3])} (정확한 명령만)')
+            if str(w.get('classify_inline_comments', '')).strip("'\"") != 'false':
+                out.append(f'R6 {where}: classify_inline_comments: false 아님(액션 뒤쪽 bash 단계가 남음)')
         if uses.startswith('actions/download-artifact') and w.get('run-id') and not verified_artifact:
             out.append(f'R4 {where}: 다른 실행의 artifact를 출처 확인(verify-artifact-run.sh) 없이 받음')
     return out
