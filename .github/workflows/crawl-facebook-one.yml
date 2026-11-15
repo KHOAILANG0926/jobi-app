@@ -36,6 +36,8 @@ concurrency:
 
 jobs:
   one:
+    # S4(#822): Facebook 쿠키·서비스 키를 쓰므로 master 코드로만 돈다(다른 브랜치에서 수동 실행하면 그 브랜치 코드가 열쇠를 가짐 — 최종 독립 검토)
+    if: github.ref == 'refs/heads/master'
     # 2026-11-06 Lee: Facebook은 로그인한 곳과 같은 IP(AZDIGI VPS 103.221.223.71)에서만 접속한다.
     # GitHub 서버(미국, 매번 다른 IP)에서 돌리자 session_expired(run 42152363009). VPS에 이미 연결된 실행기(crawler)에서 실행.
     # 2026-11-11: Facebook에 접속하는 건 미리 보기(dryrun)뿐 — 저장(save)은 미리 본 결과만 등록 입구로 보내므로 GitHub 서버에서 돈다

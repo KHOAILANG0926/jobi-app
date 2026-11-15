@@ -92,7 +92,8 @@ export const stripComments = (t) => String(t ?? '').replace(/<!--[\s\S]*?-->/g, 
 export function cleanDraft(mode, t) {
   if (t === null || t === undefined) return t
   if (mode === 'pr') return stripComments(t)
-  const [first, ...rest] = String(t).replace(/\r\n/g, '\n').split('\n')
+  // 앞쪽 빈 줄을 먼저 지운다(빈 첫 줄 뒤 '<!<!-- -->-- 표시 -->'가 지워진 뒤 첫 줄 표시가 되지 않게 — 최종 검토 정보)
+  const [first, ...rest] = String(t).replace(/\r\n/g, '\n').replace(/^\s+/, '').split('\n')
   return [first, stripComments(rest.join('\n'))].filter((x, i) => i === 0 || x).join('\n')
 }
 
