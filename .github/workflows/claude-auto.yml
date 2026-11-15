@@ -418,7 +418,7 @@ jobs:
           if gh api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" --jq '.[] | select(.user.login == "claude[bot]" and (.body | startswith("<!-- claude-fallback-review -->"))) | .body | split("\n")[1]' | grep -qxF "sha: $sha"; then
             echo "이 커밋 검토 결과 있음"; echo "stop=true" >> "$GITHUB_OUTPUT"
           fi
-      # S4: 검토관 잡도 Claude 구독 열쇠·id-token을 가진다 → PR 쪽 Claude 설정(hook)·링크를 기준 사본 스크립트로 치운 뒤 실행.
+      # S4: 검토관 잡은 Claude 구독 열쇠만 가진다(읽기 전용, id-token 없음 — 게시는 review-publish) → PR 쪽 Claude 설정(hook)·링크를 기준 사본 스크립트로 치운 뒤 실행.
       - name: 기준(master) 도구 꺼내기
         if: steps.guard.outputs.stop != 'true'
         uses: actions/checkout@v4

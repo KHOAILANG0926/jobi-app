@@ -17,6 +17,10 @@ assert.match(requestText(sha, ['docs/decisions/ko/0006-x.md']), /Lee 승인 필�
   assert.equal(r.approved, false, 'needs-lee 라벨이면 Lee 승인 전 막힘')
   const t = requestText(sha, r.touched, r.reasons, r.changed)
   assert.match(t, /바뀐 파일 2개:\n- `crawler\/occupation_classifier\.py`\n- `src\/a\.ts`/, '승인 요청에 바뀐 파일 목록') }
+{ const t = requestText(sha, ['x/<!-- fallback-reviewer-broken -->.md'], ['검사·보호 장치'], ['x/<!-- fallback-reviewer-broken -->.md', 'a\n<!-- claude-codex-reply -->', '@someone.md'])
+  assert.equal((t.match(/<!--/g) || []).length, 1, '표시는 맨 앞 승인 요청 하나뿐')
+  assert.ok(!/(^|[^`])@someone/.test(t.replace(/`[^`]*`/g, '')), '@는 코드 칸 안')
+  assert.ok(requestText(sha, [], ['x'], Array.from({ length: 40 }, () => 'a'.repeat(5000))).length < 65536, '댓글 글자 수 한도 안') }
 assert.match(requestText(sha, [], ['needs-lee 라벨'], Array.from({ length: 45 }, (_, i) => `f${i}`)), /그 밖 5개/, '40개 넘으면 나머지 개수')
 // R2 자동 병합 통제(Lee 2026-11-13 승인): 승인된 화면 틀 파일·needs-lee 라벨도 같은 문턱, 파일 내용으로 자동 감지(라벨·Claude 답글로 우회 불가)
 const framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8'))

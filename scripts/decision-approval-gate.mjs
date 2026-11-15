@@ -127,14 +127,15 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
 
 export const REQUEST_MARKER = '<!-- decision-approval-request -->'
 // S4 9회 지적 3: 승인할 때 무엇이 바뀌었는지 보이게 — 라벨만으로 대상이 된 PR도 이 커밋의 바뀐 파일 전체를 적는다(최대 40개 + 나머지 개수)
+// 댓글에 넣는 파일 이름: 코드 칸 안(@ 알림 없음), 백틱·줄바꿈 지움, '<'·'>'는 바꿔서 <!-- 표시 --> 위조 불가(10회 지적 — 표시는 contains()로 찾는 곳이 있음), 200자까지
+export const safeName = (f) => String(f).replace(/[`\r\n]/g, '').replace(/</g, '‹').replace(/>/g, '›').slice(0, 200)
 export function changedList(changed = []) {
   if (!changed.length) return ''
-  // 파일 이름은 코드 칸으로(이름 속 @가 알림이 되지 않게), 백틱·줄바꿈은 지움
-  const shown = changed.slice(0, 40).map((f) => `- \`${String(f).replace(/[`\r\n]/g, '')}\``).join('\n')
+  const shown = changed.slice(0, 40).map((f) => `- \`${safeName(f)}\``).join('\n')
   return `\n바뀐 파일 ${changed.length}개:\n${shown}${changed.length > 40 ? `\n- …그 밖 ${changed.length - 40}개` : ''}`
 }
 export function requestText(sha, touched, reasons = ['결정 문서'], changed = []) {
-  return `${REQUEST_MARKER}\nLee 승인 필요: 이 PR은 ${reasons.join('·')} 대상입니다${touched.length ? `(${touched.join(', ')})` : ''}. ` +
+  return `${REQUEST_MARKER}\nLee 승인 필요: 이 PR은 ${reasons.join('·')} 대상입니다${touched.length ? `(${touched.slice(0, 20).map((f) => `\`${safeName(f)}\``).join(', ')}${touched.length > 20 ? ' 등' : ''})` : ''}. ` +
     `내용을 확인하고 승인하시면 병합됩니다. 승인 전에는 자동 병합하지 않습니다.\n` +
     `승인 방법: GitHub 앱에서 이 PR을 열고 이 커밋(${sha.slice(0, 7)})에 "Approve" 리뷰. 댓글 승인은 인정하지 않습니다.` +
     changedList(changed)
