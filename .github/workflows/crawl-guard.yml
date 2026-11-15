@@ -28,6 +28,7 @@ concurrency:
 
 jobs:
   guard:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # S4: 운영 DB 열쇠가 있는 잡은 저장소 코드·PR 코드를 체크아웃·실행하지 않는다(아래는 psql·gh 명령만).

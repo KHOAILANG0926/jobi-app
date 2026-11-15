@@ -1,0 +1,21 @@
+# 운영 열쇠를 쓰는데 ops-keys 환경이 없음(R8): 브랜치에서 이 파일을 바꾸면 열쇠를 그대로 받는다
+on: workflow_dispatch
+permissions: { contents: read }
+jobs:
+  noenv:
+    runs-on: x
+    env: { SUPABASE_DB_URL: "${{ secrets.SUPABASE_DB_URL }}" }
+    steps:
+      - run: psql "$SUPABASE_DB_URL" -c "select 1"
+  wrongenv:
+    runs-on: x
+    environment: Production
+    steps:
+      - run: echo "$K"
+        env: { K: "${{ secrets.VERCEL_TOKEN }}" }
+  lookalike:
+    runs-on: x
+    environment: ops-keys-x
+    steps:
+      - run: echo "$K"
+        env: { K: "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" }

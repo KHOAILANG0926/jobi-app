@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   locate:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
     # Explicit opt-in only AFTER pending SQL is reviewed/applied. No execution on feature branches.
     if: github.ref == 'refs/heads/master' && vars.MAP_R1_ENABLED == 'true'
     runs-on: ubuntu-latest
