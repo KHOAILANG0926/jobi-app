@@ -182,7 +182,7 @@ CODEOWNERS는 **기준 브랜치(master) 파일**이 적용되므로 PR이 자�
 ### 9-4. Vercel Preview (지시 5)
 - [직접 확인] Vercel GitHub 연동이 master 밖 브랜치도 빌드한다: `status` 브랜치(STATUS.md만, vercel.json 없음) 커밋마다 vercel[bot] Preview 배포 20건(11-11~). vercel.json의 `deploymentEnabled:false`는 그 파일이 있는 브랜치에만 적용 → AI가 vercel.json을 빼거나 바꾼 브랜치를 올리면 Vercel이 그 코드를 Preview 환경변수로 빌드·실행한다.
 - [직접 확인] demo/** 배포 잡은 `vercel pull --environment=preview`로 Preview 환경변수 값을 러너에 받은 뒤 브랜치 코드로 `vercel build`를 돌린다(VERCEL_TOKEN도 env).
-- [확인 불가] Preview에 운영 `SUPABASE_SERVICE_ROLE_KEY`가 있는지: 이 세션에서 Vercel 접근 불가(데모 주소는 Vercel 로그인 보호 → 함수 응답으로도 확인 불가). api/ 서버 함수 12곳 이상이 이 키를 씀 [직접 확인 grep].
+- [확인 불가] Preview에 운영 `SUPABASE_SERVICE_ROLE_KEY`가 있는지: 이 세션에서 Vercel 접근 불가(데모 주소는 Vercel 로그인 보호 → 함수 응답으로도 확인 불가). api/ 서버 파일 13개가 이 키를 씀 [직접 확인 grep].
 - 차단 계획(키가 Preview에 있든 없든):
   1. Lee: Vercel 프로젝트 → Settings → Git → 저장소 연결 끊기(Disconnect). 배포는 이미 GitHub Actions의 CLI(`--prebuilt`)로만 하므로 운영 배포에는 영향 없음 [추정 — 끊은 뒤 master 배포 1회로 확인].
   2. Lee: Settings → Environment Variables에서 Preview에 체크된 비밀 키(SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL, VIETMAP_SERVICE_KEY, GOOGLE_PLACES_API_KEY, ADMIN_* 등) Preview 체크 해제. 데모는 화면용이라 공개 키(VITE_*)만 필요.
