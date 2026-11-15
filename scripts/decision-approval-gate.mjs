@@ -124,14 +124,20 @@ export const NORMAL_PATH = (path) => [
 //    DB 권한(RLS·policy·grant·security definer)·인증/비밀값(service_role·토큰·Authorization)·실행(exec·eval)·새 외부 주소가 있으면 고위험.
 //    코드 파일인데 변경 내용(patch)을 받지 못했으면(큰 변경·잘림) 판단 불가 → 닫힌 실패. 문서·데이터·시험 파일은 내용 검사 대상이 아님(시험 약화는 ⑤가 봄).
 const CODE_EXT = /\.(?:[cm]?[jt]sx?|py|sql|sh|ya?ml)$/
-const CONTENT_SCAN = (path) => CODE_EXT.test(path) && !/(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^docs\/|^test-fixtures\//.test(path)
+// 검토 지적: supabase/tests/*_production_check.sql은 시험이 아니라 migrations-apply가 운영 DB에서 실행하는 파일 → 내용 검사 대상. 로컬 전용(*.local.sql·*.setup.sql)만 제외.
+const CONTENT_SCAN = (path) => CODE_EXT.test(path) && (/^supabase\/tests\//.test(path) ? !/\.(?:local|setup)\.sql$/.test(path)
+  : !/(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^docs\/|^test-fixtures\//.test(path))
 export const CONTENT_SIGNALS = [
   ['DB 권한·보안 설정', /\b(?:create|alter|drop)\s+(?:or\s+replace\s+)?(?:policy|role|user|extension)\b|row\s+level\s+security|\b(?:grant|revoke)\s+\w|security\s+definer|\bauth\.(?:users|uid\(|jwt\(|role\()|\bset\s+role\b|pgsodium|vault\./i],
   ['인증·비밀값', /service_role|SERVICE_ROLE|\bauth\.admin\b|\.auth\.admin\b|verify_jwt|jsonwebtoken|\bjwt\.(?:sign|verify)\b|\bAuthorization\b\s*[:=]|\bBearer\s+\$|process\.env\.[A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD)\b|os\.environ(?:\.get)?\W+["'][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD)\b|secrets\.[A-Z_]+|-----BEGIN [A-Z ]*PRIVATE KEY|timingSafeEqual|createHmac|signInWith|resetPasswordForEmail/],
   ['명령 실행·위험 API', /\bchild_process\b|\bexec(?:Sync|File|FileSync)?\s*\(|\bspawn(?:Sync)?\s*\(|\beval\s*\(|new\s+Function\s*\(|dangerouslySetInnerHTML|\.innerHTML\s*=|\bos\.system\b|\bsubprocess\.|\bpickle\.loads?\b|Access-Control-Allow-Origin/],
 ]
 // 이미 쓰는 것으로 확인된 외부 주소(표준·문서·이 서비스가 쓰는 지도/DB/배포/소셜) — 이 밖의 새 주소가 추가되면 '새 외부 API'로 본다
-const KNOWN_HOSTS = /(?:^|\.)(?:w3\.org|schema\.org|github\.com|githubusercontent\.com|npmjs\.org|npmjs\.com|supabase\.co|supabase\.com|vercel\.app|vercel\.com|viecganban\.vn|vietmap\.vn|google\.com|googleapis\.com|gstatic\.com|google-analytics\.com|openstreetmap\.org|facebook\.com|fb\.com|zalo\.me|anthropic\.com|openai\.com|cloudflare\.com|example\.(?:com|org)|localhost|127\.0\.0\.1)$/i
+// 정확히 같은 주소만 인정한다(검토 지적: 누구나 만들 수 있는 하위 도메인 — *.vercel.app·*.supabase.co — 까지 허용하면 데이터를 빼내는 새 주소가 통과). 우리가 소유한 viecganban.vn 하위와 예약 도메인(example.*·.invalid·.test)만 하위까지 허용.
+const KNOWN_HOST_SET = new Set(['edhuesdnuxlbcfephutq.supabase.co', 'maps.vietmap.vn', 'www.google.com', 'places.googleapis.com', 'maps.googleapis.com', 'www.facebook.com', 'm.facebook.com', 'www.w3.org', 'schema.org', 'www.sitemaps.org',
+  'github.com', 'api.github.com', 'registry.npmjs.org', 'api.anthropic.com', 'www.openstreetmap.org', 'overpass-api.de', 'zalo.me', 'maps.geoapify.com', 'api.geoapify.com', 'www.geoapify.com', 'rsapi.goong.io',
+  'vieclam24h.vn', 'cdn.vieclam24h.vn', 'www.vietnamworks.com', 'www.topcv.vn', 'www.vieclamtot.com', 'www.timviecnhanh.com', 'localhost', '127.0.0.1'])
+const KNOWN_HOSTS = { test: (h) => KNOWN_HOST_SET.has(h) || /(?:^|\.)viecganban\.vn$|(?:^|\.)example\.(?:com|org|net)$|\.(?:invalid|test|example)$/.test(h) }
 const hostsOf = (text) => [...String(text).matchAll(/https?:\/\/([A-Za-z0-9.-]+)/g)].map((m) => m[1].toLowerCase())
 export function contentRisks(files) {
   const out = []

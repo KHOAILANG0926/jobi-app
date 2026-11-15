@@ -229,6 +229,12 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   { const r = run([{ filename: 'src/big.ts', status: 'modified' }]); assert.equal(r.approved, false, 'patch 없음 → 판단 불가 보류'); assert.equal(r.risk, 'unknown'); assert.ok(r.reasons.includes('위험도 판단 불가')) }
   { const r = run([]); assert.equal(r.approved, false, '변경 파일 목록이 비면 보류'); assert.ok(r.reasons.includes('위험도 판단 불가')) }
   assert.equal(run([{ filename: 'src/big.ts', status: 'modified' }], { reviews: leeOk }).approved, true, '판단 불가도 보고+승인 뒤 통과')
+  // 검토 지적 1: 운영 DB에서 실행되는 supabase/tests/*_production_check.sql은 내용 검사 대상, 로컬 전용만 제외
+  assert.equal(run([mk('supabase/tests/x_production_check.sql', '@@\n+grant all on t to anon;')]).approved, false, 'production_check.sql 권한 변경은 승인 대상')
+  assert.equal(run([mk('supabase/tests/x.local.sql', '@@\n+grant all on t to anon;')]).approved, true, '로컬 전용 시험 SQL은 제외')
+  // 검토 지적 2: 누구나 만들 수 있는 하위 도메인은 '이미 쓰는 주소'가 아님, 정확히 같은 주소·소유 도메인만
+  for (const u of ['https://evil.vercel.app/x', 'https://attacker.supabase.co/rest', 'https://x.github.com/y', 'https://viecganban.vn.evil.io/a']) assert.equal(run([mk('src/e.ts', `@@\n+fetch("${u}")`)]).approved, false, `새 외부 주소: ${u}`)
+  for (const u of ['https://edhuesdnuxlbcfephutq.supabase.co/rest', 'https://api.viecganban.vn/x', 'https://maps.vietmap.vn/a', 'http://localhost:5173']) assert.equal(run([mk('src/e.ts', `@@\n+fetch("${u}")`)]).approved, true, `알려진 주소: ${u}`)
   // 4대 보고 형식
   const body = (o = {}) => ['## 고위험 4대 보고', `- 무엇을 바꾸나: ${o.what ?? '로그인 검사 줄을 추가'}`, `- 왜 필요한가: ${o.why ?? '관리자 기능 보호'}`, `- 승인 시 남는 위험: ${o.risk ?? '검사 우회 시 노출'}`, `- 미승인 시 영향: ${o.impact ?? '관리자 기능 보호 지연'}`, `- 검증: ${o.link ?? `https://github.com/${repo}/actions/runs/123`}`].join('\n')
   assert.equal(highRiskReport(body(), repo).ok, true, '갖춘 보고')
