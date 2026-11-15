@@ -8,11 +8,11 @@ on:
     types: [opened, reopened, synchronize, ready_for_review, edited, labeled, unlabeled]
   # pull_request_review 트리거는 일부러 두지 않는다(검토 지적): 그 이벤트는 PR 브랜치의 이 파일 사본이 돌 수 있다.
   # master 사본만 도는 트리거(pull_request_target·issue_comment·예약·수동)만 둔다. Lee 승인 직후 재검사는 bot-pr-automerge.yml의
-  # 'Lee 승인 직후' 단계가 이 워크플로를 master 기준으로 수동 실행(workflow_dispatch)하고, 봇이 꺼져 있으면 15분 예약·수동 실행이 맡는다.
+  # 'Lee 승인 직후' 단계가 이 워크플로를 master 기준으로 수동 실행(workflow_dispatch)하고, 봇이 꺼져 있으면 5분 예약·수동 실행이 맡는다.
   issue_comment:
     types: [created]
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       pr:

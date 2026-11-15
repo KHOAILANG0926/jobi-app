@@ -48,3 +48,9 @@ console.log('approval-checks 시험 통과(일반·고위험·판단 불가·검
   const bot = readFileSync(new URL('../../.github/workflows/bot-pr-automerge.yml', import.meta.url), 'utf8')
   assert.match(bot, /if: github\.event_name == 'pull_request_review'[\s\S]*gh workflow run approval-checks\.yml --repo "\$REPO" --ref master -f pr="\$PR"/, 'Lee 승인 제출 시 master 기준으로 병합 조건 검사 수동 실행') }
 console.log('approval-checks 워크플로 트리거 시험 통과')
+// 검토관 지적(bcf87e7): 예약 5분·문서에 켜는 순서(봇/수동 검토관 요청)와 승인 철회 창을 적어 고정
+{ const live = yml.replace(/^\s*#.*$/gm, ''); assert.match(live, /cron: '\*\/5 \* \* \* \*'/, '예약 5분')
+  const doc = readFileSync(new URL('../../docs/ops/2026-11-15_s4_merge_gate_settings.md', import.meta.url), 'utf8')
+  assert.match(doc, /순서 주의[\s\S]*봇이 꺼진 동안[\s\S]*영원히 대기/, '필수 지정 전 검토관 요청 경로(봇 켜기 또는 수동 실행) 명시')
+  assert.match(doc, /승인 철회 뒤에도 success가 남는 창/, '철회 창 명시') }
+console.log('approval-checks 문서·예약 시험 통과')

@@ -17,6 +17,7 @@
    - 같은 화면의 "Do not allow bypassing the above settings"(관리자도 따름)는 선택: 켜면 Lee 계정(관리자)도 우회 못 함. 지금은 enforcement=non_admins.
 3. (선택) Ruleset: 위 2번만으로 쓰기 권한 계정(viecganban-bot·PR 브랜치 GITHUB_TOKEN)은 두 검사 없이 병합할 수 없다. 병합 실행을 한 곳으로 더 좁히려면 Settings → Rules → Rulesets → New branch ruleset(대상 `master`, 집행 Active) → **Restrict updates** + 우회 목록에 Claude 앱만. 현재 Ruleset 0개. (2단계 별도 결정 — 병합기 열쇠를 Claude 앱으로 바꾸는 PR이 따로 필요.)
 4. 봇 자동 병합(`bot-pr-automerge.yml`) 켜기는 1~2 검증 뒤 별도 승인.
+   - **순서 주의(검토관 지적)**: `ai-review`는 Codex가 없을 때 Claude 검토관이 이 커밋을 검토해야 success가 되는데, 검토관을 부르는 곳은 봇 병합기(또는 수동 `claude-auto.yml` fallback_pr 실행)뿐이다. 봇이 꺼진 동안 2번(필수 지정)을 하면 Codex가 한도 초과·무응답인 PR은 검토관 요청이 안 나가 `ai-review`가 영원히 대기한다. 그래서 필수 지정 전에 둘 중 하나를 정한다: ① 봇을 먼저 켠다(대표님 결정) ② 필수 지정 뒤에는 PR마다 `gh api -X POST repos/<저장소>/actions/workflows/claude-auto.yml/dispatches -f ref=master -f 'inputs[fallback_pr]=<번호>'`를 수동 실행한다.
 
 ## 되돌리는 법
 - 2번 되돌리기: master 규칙의 필수 검사 목록에서 `ai-review`·`approval-gate` 삭제(규칙 저장).
@@ -24,6 +25,7 @@
 - 코드 되돌리기: #833 병합 커밋을 revert(검사 2개는 만들어지지 않고, 기존 4종 필수 검사는 그대로).
 
 ## 남는 한계(숨기지 않고 적음)
+- **승인 철회 뒤에도 success가 남는 창**: Lee가 Approve를 철회하거나 변경 요청을 해도 `approval-gate`는 다음 재판정(5분 예약, 또는 수동 실행·PR 이벤트·검토 댓글)까지 이전 success로 남는다(최대 약 5분). 리뷰 이벤트는 PR 브랜치 사본이 돌 수 있어 일부러 트리거에서 뺐고(master 사본만 돌게), 봇 워크플로의 즉시 재검사는 봇이 켜져 있을 때만 돈다. 즉시 막으려면 철회 직후 `gh workflow run approval-checks.yml -f pr=<번호>`를 실행한다.
 - PR 본문(4대 보고)은 Approve 뒤에도 고칠 수 있다: Approve는 커밋 기준이라 본문 변경을 잡지 못한다. 완화: 본문 수정(`edited`) 때마다 판정이 다시 돌고 `approval-gate`가 갱신되지만, 이미 준 Approve는 유지된다.
 - `pull_request_review` 트리거는 PR 브랜치 사본이 돌 수 있어 그 PR이 `approval-checks.yml`을 바꾸면 토큰을 못 받는다 → 15분 예약 실행(master 사본)이 다시 판정한다. 최대 15분 지연.
 - 위험 내용 판정은 패턴 목록(`CONTENT_SIGNALS`·`KNOWN_HOSTS`)이라 완벽하지 않다 → 목록에 없는 새 위험은 막지 못한다. 그래서 경로 판정(⑥ 일반 목록 밖 = 판단 불가)과 독립 검토가 함께 있다. 최근 병합 60건 재판정: 새로 막힌 건 2건(#797·#708, DB 권한 migration), 오탐 0건.
