@@ -65,18 +65,22 @@ jobs:
           rm -rf "$RUNNER_TEMP/trusted" && mkdir -p "$RUNNER_TEMP/trusted" && git archive HEAD scripts | tar -C "$RUNNER_TEMP/trusted" -x && chmod -R a-w "$RUNNER_TEMP/trusted"
           rm -rf .claude-out && mkdir .claude-out
           docker pull -q node:22-bookworm >/dev/null
+      - name: 상자에 의존성 미리 설치 (기준 브랜치 package 파일로, Claude 전에)
+        run: bash "$RUNNER_TEMP/trusted/scripts/ci/sandbox-run.sh" install . > "$RUNNER_TEMP/install.log" 2>&1 || { echo "::error::상자 설치 실패"; tail -5 "$RUNNER_TEMP/install.log"; exit 1; }
       - name: Claude Code 실행 (파일만 고침 — 브랜치·커밋·PR은 task-publish)
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ github.token }}
+          # crawl-guard가 기본 토큰으로 이 작업을 부르면 실행자가 github-actions[bot]이다(독립 검토 5차 지적 3 — 없으면 시작 단계에서 멈춤)
+          allowed_bots: 'github-actions'
           # 액션의 뒤쪽 bash 단계(줄 댓글 게시)를 끈다 — 쓰기 토큰도 없고, Claude가 바꿨을지 모를 환경을 따르는 단계를 남기지 않음
           classify_inline_comments: 'false'
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           claude_args: >-
             --permission-mode default --setting-sources user
-            --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
+            --settings '{"disableAllHooks":true,"permissions":{"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}}'
             --tools "Read,Glob,Grep,Bash,Edit"
             --allowedTools "Read,Edit(./**),Glob,Grep,Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh tsc),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh test),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh build),Bash(git status),Bash(git diff),Bash(git log --oneline -30)"
             --disallowedTools "Write,Edit(//home/runner/work/_temp/**),Edit(//tmp/**),Edit(//etc/**),Edit(//home/runner/.*/**),Edit(./.git/**),Read(./.git/**),Edit(./.github/**),Edit(./.claude/**)"
@@ -234,6 +238,8 @@ jobs:
           bash "$RUNNER_TEMP/trusted/scripts/ci/hold-pr-claude-settings.sh" .
           if git ls-files --error-unmatch .claude-out >/dev/null 2>&1; then echo "::error::PR이 .claude-out을 추적함 — 중단"; exit 1; fi
           rm -rf .claude-out && mkdir .claude-out
+      - name: 상자에 의존성 미리 설치 (PR 원본 package 파일로, Claude 전에 — 이후 상자 검사는 설치하지 않음)
+        run: bash "$RUNNER_TEMP/trusted/scripts/ci/sandbox-run.sh" install . > "$RUNNER_TEMP/install.log" 2>&1 || { echo "::error::상자 설치 실패"; tail -5 "$RUNNER_TEMP/install.log"; exit 1; }
       - name: Claude 입력 준비 (믿는 작성자의 지적만·바뀐 파일 기록 — 기준 사본, 읽기 전용 토큰)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -254,7 +260,7 @@ jobs:
           # PR 코드는 상자 실행기로만. 결과(초안 글·고친 파일)는 codex-publish가 검증한다.
           claude_args: >-
             --permission-mode default --setting-sources user
-            --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
+            --settings '{"disableAllHooks":true,"permissions":{"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}}'
             --tools "Read,Glob,Grep,Bash,Edit"
             --allowedTools "Read,Edit(./**),Glob,Grep,Bash(gh pr view ${{ needs.codex-guard.outputs.pr }}),Bash(gh pr diff ${{ needs.codex-guard.outputs.pr }}),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh tsc),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh test),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh build),Bash(git status),Bash(git diff),Bash(git log --oneline -30)"
             --disallowedTools "Write,Edit(//home/runner/work/_temp/**),Edit(//tmp/**),Edit(//etc/**),Edit(//home/runner/.*/**),Edit(./.git/**),Read(./.git/**),Edit(./.github/**),Edit(./.claude/**)"
@@ -451,7 +457,7 @@ jobs:
           # 읽기 + 결과 초안 파일 하나만. 쓰기 토큰이 없어 명령 제한은 보조 장치. PR 쪽 설정은 읽지 않음(hook 끔), 작업 폴더 밖 읽기 차단.
           claude_args: >-
             --permission-mode default --setting-sources user
-            --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
+            --settings '{"disableAllHooks":true,"permissions":{"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}}'
             --tools "Read,Glob,Grep,Bash,Edit"
             --allowedTools "Read,Glob,Grep,Edit(./.claude-out/review.md),Bash(gh pr view ${{ inputs.fallback_pr }}),Bash(gh pr diff ${{ inputs.fallback_pr }}),Bash(gh pr checks ${{ inputs.fallback_pr }}),Bash(git log --oneline -30)"
             --disallowedTools "Read(./.git/**),Edit(//home/runner/work/_temp/**),Edit(//tmp/**),Edit(//etc/**),Edit(//home/runner/.*/**)"
@@ -561,7 +567,7 @@ jobs:
           # 읽기 + 답 초안 파일 하나만. 쓰기 토큰이 없어 명령 제한은 보조 장치. 작업 폴더 밖 읽기 차단, hook 끔(기본 브랜치라도 같은 기준).
           claude_args: >-
             --permission-mode default --setting-sources user
-            --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
+            --settings '{"disableAllHooks":true,"permissions":{"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}}'
             --tools "Read,Glob,Grep,Bash,Edit"
             --allowedTools "Read,Glob,Grep,Edit(./.claude-out/reply.md),Bash(git log --oneline -30),Bash(git status)"
             --disallowedTools "Read(./.git/**),Edit(//home/runner/work/_temp/**),Edit(//tmp/**),Edit(//etc/**),Edit(//home/runner/.*/**)"

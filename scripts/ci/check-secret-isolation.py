@@ -246,6 +246,9 @@ def check_job(path, wf, name, job):
             wild = re.findall(r'Bash\([^)]*(?::\*|\s\*)\)', allowed_all)
             if wild:
                 out.append(f'R6 {where}: Claude Bash 허용에 와일드카드 — {", ".join(wild[:3])} (정확한 명령만)')
+            # 작업 폴더 밖 읽기 차단은 permissions 안에 있어야 실제로 켜진다(독립 검토 5차 지적 1 — 맨 위에 두면 무시돼 Grep으로 /proc/self/environ이 읽힘)
+            if not re.search(r'"permissions"\s*:\s*\{[^}]*"blockFileToolReadsOutsideWorkingDirectories"\s*:\s*true[^}]*"blockReadsOutsideWorkingDirectories"\s*:\s*true', text(w.get('claude_args', ''))):
+                out.append(f'R6 {where}: --settings에 permissions.blockFileToolReadsOutsideWorkingDirectories·blockReadsOutsideWorkingDirectories(true) 없음')
             if str(w.get('classify_inline_comments', '')).strip("'\"") != 'false':
                 out.append(f'R6 {where}: classify_inline_comments: false 아님(액션 뒤쪽 bash 단계가 남음)')
         if uses.startswith('actions/download-artifact') and w.get('run-id') and not verified_artifact:

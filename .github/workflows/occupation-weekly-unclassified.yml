@@ -97,7 +97,7 @@ jobs:
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
           claude_args: >-
             --permission-mode default --setting-sources user
-            --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
+            --settings '{"disableAllHooks":true,"permissions":{"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}}'
             --tools "Read,Glob,Grep,Bash,Edit"
             --allowedTools "Read,Glob,Grep,Edit(./crawler/occupation_classifier.py),Edit(./crawler/test_occupation_classifier.py),Edit(./.claude-out/**),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh py-unittest . test_occupation_classifier),Bash(git status),Bash(git diff)"
             --disallowedTools "Read(./.git/**),Edit(//home/runner/work/_temp/**),Edit(//tmp/**),Edit(//etc/**),Edit(//home/runner/.*/**)"

@@ -33,9 +33,8 @@ tar -C "$src" --exclude=./.git --exclude=./node_modules -cf - . | tar -C "$box" 
 # 사본용 새 git 저장소(열쇠·원격·설정 없음): 시험이 'git ls-files'로 추적 파일을 본다. 호스트 git 설정은 읽지 않는다.
 hostgit() { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$box" -c core.hooksPath=/dev/null "$@"; }
 hostgit init -q && hostgit add -A
-if [ "$cmd" != install ] && [ "$cmd" != py-unittest ] && [ ! -d "$box/node_modules" ] && [ -f "$box/package-lock.json" ]; then
-  "$0" install "$src"
-fi
+# 자동 설치는 하지 않는다(독립 검토 5차 지적 2): 설치(네트워크 켬)는 Claude가 고치기 전에 기준 단계가 'install'로 한 번만.
+# 설치 없이 tsc·시험·빌드를 부르면 의존성이 없어 실패한다(닫힌 실패).
 docker run --rm --network "$net" \
   --cap-drop ALL --security-opt no-new-privileges --pids-limit 2048 --memory 6g \
   --user "$(id -u):$(id -g)" --read-only --tmpfs /tmp:exec,size=2g \

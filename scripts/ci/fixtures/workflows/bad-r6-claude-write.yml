@@ -14,6 +14,17 @@ jobs:
     steps:
       - uses: anthropics/claude-code-action@v1
         with: { prompt: x }
+  # 독립 검토 5차 지적 1: 작업 폴더 밖 읽기 차단을 permissions 밖(맨 위)에 두면 무시된다
+  toplevelblock:
+    runs-on: x
+    permissions: { contents: read }
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ github.token }}
+          classify_inline_comments: 'false'
+          claude_args: >-
+            --setting-sources user --settings '{"disableAllHooks":true,"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}'
   publish:
     runs-on: x
     permissions: { contents: read, id-token: write }
