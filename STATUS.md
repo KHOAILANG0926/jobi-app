@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-15 19:05 (VN)**
-- 기준 커밋: `20f3f68` (S4-3b: status-report도 ops-keys 환경(STATUS 보호 파일 — Lee 결정 대상) (#826))
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43712008482
+- 생성 시각: **2026-11-15 19:56 (VN)**
+- 기준 커밋: `bcf63fb` (ops(S4): 운영 키 진단 — status-report 401 원인 확정(읽기 전용, 키 값 출력 없음) (#831))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43716294704
 - 검증 스크립트 지문(SHA-256): `ddef4c76562027fa`
 
 ## 한눈에 보기
@@ -24,7 +24,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `20f3f68` · 상태 **success** · 2026-11-15 19:05 (VN)
+- 마지막 Production 배포: `bcf63fb` · 상태 **success** · 2026-11-15 19:55 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -32,6 +32,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #831 | 2026-11-15 19:55 (VN) | `bcf63fb` | ops(S4): 운영 키 진단 — status-report 401 원인 확정(읽기 전용, 키 값 출력 없음) |
 | #826 | 2026-11-15 19:04 (VN) | `20f3f68` | ci(S4-3b): status-report도 ops-keys 환경 — STATUS 보호 파일, Lee 결정 대상 |
 | #828 | 2026-11-15 18:33 (VN) | `e454110` | ci(S4-4): STATUS 보호 — status 워크플로만 Lee의 유효한 Approve로 통과 |
 | #829 | 2026-11-15 17:41 (VN) | `21d6298` | fix(S4-5): 검토관 준비 스크립트가 실제 저장소에서 멈추던 문제 |
@@ -41,7 +42,6 @@
 | #801 | 2026-11-13 18:38 (VN) | `18901d7` | fix(crawler): Facebook 재처리 마무리 판정 — 이미지 없는 공고 OCR 강제 제거·실제 차단 사유로 보류/실패 구분 (Draft, #728 후속) |
 | #797 | 2026-11-13 16:26 (VN) | `c82321a` | feat(db): 고용주·legacy 공고도 공개 전 검사 통과 기록 요구 (Lee 11-13 A4 승인, R2 #728) |
 | #798 | 2026-11-13 15:15 (VN) | `402dcdf` | fix(detail): 5157 이름표 붙은 주소 줄 ④에서 제거 (#653 규칙 이행, Lee 11-13 적용, R2 A5 #728) |
-| #740 | 2026-11-13 15:00 (VN) | `92ce55c` | fix(detail): 급여 소수점 쉼표 줄바꿈 한 곳으로 (Lee 11-13 적용, #728 A3) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
