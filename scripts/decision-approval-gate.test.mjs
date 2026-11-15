@@ -243,6 +243,23 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   // 검토관 지적(2차): 운영에서 실행되는 api/·crawler/는 시험 이름·폴더여도 내용 검사
   for (const f of ['api/test/x.mjs', 'api/x.test.mjs', 'api/fixtures/y.mjs', 'crawler/test_a.py', 'crawler/tests/b.py']) assert.equal(run([mk(f, '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, false, `배포 폴더는 시험 이름이어도 검사: ${f}`)
   assert.equal(run([mk('src/a.test.ts', '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, true, '배포 밖 시험 파일은 제외')
+  // 검토관 지적(이름 변경 우회): 고위험 경로의 파일을 일반 경로로 옮겨도 옛 경로(previous_filename)로 고위험 판정
+  const mv = (from, to) => ({ filename: to, previous_filename: from, status: 'renamed', changes: 0 })
+  for (const [from, to, why] of [['.github/workflows/pr-checks.yml', 'docs/ops/pr-checks.txt', '워크플로'], ['scripts/check-repository-policy.mjs', 'scripts/ops/x.mjs', '검사 스크립트'],
+    ['scripts/decision-approval-gate.mjs', 'src/lib/g.ts', '판정 스크립트'], ['.github/CODEOWNERS', 'docs/co.txt', 'CODEOWNERS'], ['docs/decisions/ko/0003-x.md', 'docs/ops/0003-x.md', '결정 문서'],
+    ['scripts/ci/claude-publish.mjs', 'crawler/p.py', 'scripts/ci'], ['AGENTS.md', 'docs/AGENTS.md', 'AGENTS.md']]) {
+    const r = run([mv(from, to)])
+    assert.equal(r.approved, false, `이름 변경 우회 차단(${why}): ${from} → ${to}`); assert.equal(r.risk, 'high', why)
+    assert.equal(run([mv(from, to)], { reviews: leeOk }).approved, true, `보고+승인 뒤 통과: ${why}`)
+  }
+  { const r = rawDecisionApproval({ files: [mv('src/pages/JobDetail.tsx', 'src/pages/JobDetailOld.tsx')], reviews: [], comments: [], sha: h, author: 'viecganban-bot', body: GOOD_BODY, repo, framePaths: ['src/pages/JobDetail.tsx'] })
+    assert.equal(r.approved, false, '승인된 화면 틀 파일 이름 변경 차단'); assert.ok(r.reasons.includes('승인된 화면 틀')) }
+  assert.equal(run([mv('src/lib/a.ts', 'src/lib/b.ts')]).approved, true, '일반 경로끼리 이동은 통과')
+  assert.equal(run([mv('docs/a.md', 'docs/b.md')]).approved, true, '문서끼리 이동은 통과')
+  // 일반 경로 → 고위험 경로로 옮기는 것은 새 경로로 이미 차단
+  assert.equal(run([mv('docs/x.md', '.github/workflows/x.yml')]).approved, false, '일반 → 워크플로 경로')
+  // 이름 변경과 함께 내용도 바뀌면 새 파일 내용도 검사
+  assert.equal(run([{ filename: 'src/b.ts', previous_filename: 'src/a.ts', status: 'renamed', changes: 2, patch: '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY' }]).approved, false, '이름 변경 + 위험 내용')
   // 4대 보고 형식
   const body = (o = {}) => ['## 고위험 4대 보고', `- 무엇을 바꾸나: ${o.what ?? '로그인 검사 줄을 추가'}`, `- 왜 필요한가: ${o.why ?? '관리자 기능 보호'}`, `- 승인 시 남는 위험: ${o.risk ?? '검사 우회 시 노출'}`, `- 미승인 시 영향: ${o.impact ?? '관리자 기능 보호 지연'}`, `- 검증: ${o.link ?? `https://github.com/${repo}/actions/runs/123`}`].join('\n')
   assert.equal(highRiskReport(body(), repo).ok, true, '갖춘 보고')

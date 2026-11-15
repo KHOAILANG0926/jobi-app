@@ -202,7 +202,8 @@ export function leeApprovedAt(reviews = [], sha, author) {
 }
 
 export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author, body = '', repo = '' }) {
-  const names = files.map((f) => f.filename ?? f)
+  // 이름이 바뀐 파일은 새 경로와 옛 경로(previous_filename) 둘 다 판정한다(검토 지적: 워크플로·검사 스크립트·CODEOWNERS·결정 문서·화면 틀 파일을 일반 경로로 옮겨 우회 불가)
+  const names = [...new Set(files.flatMap((f) => [f.filename ?? f, f.previous_filename].filter(Boolean)))]
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
   const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f))
@@ -213,7 +214,7 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && !GATE_CODE(n) }))
   const unreadable = content.filter((c) => c.endsWith('(판단 불가)')), realContent = content.filter((c) => !c.endsWith('(판단 불가)'))
   // 변경 파일 목록이 비어 있으면 분석이 실패한 것이다(PR은 항상 파일을 바꾼다) — 닫힌 실패
-  const empty = names.length === 0
+  const empty = files.length === 0
   const touched = [...decision, ...frame, ...gate, ...depRisk, ...content, ...unknown, ...(empty ? ['(변경 파일 목록 비어 있음)'] : [])]
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [], risk: 'normal' }
   const report = highRiskReport(body, repo)
