@@ -26,6 +26,7 @@ jobs:
           node "$RUNNER_TEMP/trusted/scripts/ops/pr-bot-proof.mjs" body.md
   save:
     runs-on: ubuntu-latest
+    environment: ops-keys
     env: { K: "${{ secrets.K }}" }
     steps:
       - uses: actions/checkout@v4

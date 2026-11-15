@@ -14,6 +14,9 @@
   R6 비신뢰 글(PR·이슈·리뷰)을 읽는 Claude 잡은 쓰기 권한·id-token 없음 + github_token(읽기 전용) 지정. 쓰기는 게시 잡(claude-publish.mjs)만.
      (1·2차 독립 검토에서 'Claude 명령 제한'만으로는 두 번 뚫려 구조로 바꿈 — 그래서 '내보낼 수 있는 명령' 검사는 없앴다.)
   R7 id-token(앱 토큰)·Claude 잡의 셸 글에 바뀔 수 있는 ${{ }} 값 직접 넣기 금지(env로).
+  R8 운영 열쇠(GITHUB_TOKEN·Claude 구독 열쇠·ANTHROPIC_API_KEY 밖의 비밀값)를 쓰는 잡은 environment가 ops-keys여야 한다
+     (GitHub 설정에서 ops-keys 환경을 master만 쓰게 하고 열쇠를 그 환경으로 옮기면, 브랜치·PR의 워크플로가 바뀌어도 열쇠를 못 받음 — S4 3차).
+     데모 배포처럼 브랜치 코드를 빌드하는 잡은 운영 DB 열쇠 없이 demo-deploy 환경만(vercel-deploy.yml).
   R4 다른 실행의 artifact를 받는 곳(download-artifact run-id·gh run download·artifacts API)은 그 전에 verify-artifact-run.sh를
      명령으로 실행해 출처를 확인한다(echo 글자·continue-on-error·|| true는 확인으로 치지 않음).
 범위: 정직한 실수를 잡는 검사다. 워크플로 파일 자체를 악의로 바꾸는 PR은 이 검사도 바꿀 수 있으므로 .github/·scripts/ci/ 변경은
@@ -256,6 +259,21 @@ def check_job(path, wf, name, job):
     return out
 
 
+AI_OR_DEFAULT_KEYS = {'GITHUB_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'}
+
+
+def check_environment(path, wf, name, job):
+    """R8: 운영 열쇠를 쓰는 잡은 ops-keys 환경(master만)에서만"""
+    used = set(re.findall(r'secrets\.([A-Za-z0-9_]+)', str(job) + str(wf.get('env', '')))) - AI_OR_DEFAULT_KEYS
+    if not used:
+        return []
+    env = job.get('environment')
+    env = env.get('name', '') if isinstance(env, dict) else str(env or '')
+    if 'ops-keys' not in env:
+        return [f'R8 {path} jobs.{name}: 운영 열쇠({", ".join(sorted(used))})를 쓰는데 environment가 ops-keys가 아님 — 브랜치 워크플로가 열쇠를 받을 수 있음']
+    return []
+
+
 def check_file(path):
     with open(path, encoding='utf-8') as f:
         wf = yaml.safe_load(f) or {}
@@ -263,6 +281,7 @@ def check_file(path):
     for name, job in (wf.get('jobs') or {}).items():
         if isinstance(job, dict):
             problems += check_job(path, wf, name, job)
+            problems += check_environment(path, wf, name, job)
     return problems
 
 

@@ -36,6 +36,7 @@ concurrency:
 
 jobs:
   one:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
     # S4(#822): Facebook 쿠키·서비스 키를 쓰므로 master 코드로만 돈다(다른 브랜치에서 수동 실행하면 그 브랜치 코드가 열쇠를 가짐 — 최종 독립 검토)
     if: github.ref == 'refs/heads/master'
     # 2026-11-06 Lee: Facebook은 로그인한 곳과 같은 IP(AZDIGI VPS 103.221.223.71)에서만 접속한다.
