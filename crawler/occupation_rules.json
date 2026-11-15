@@ -1,251 +1,460 @@
 [
  {
   "code": "82022",
-  "pattern": "(lam|lap rap|ghep|cam) linh kien( (dien tu|tai nghe|dien thoai|camera))?|linh kien (dien tu|tai nghe|dien thoai|camera)|lap rap (dien tu|bo mach)|bo mach dien tu",
+  "phrases": [
+   "*lam linh kien dien tu*",
+   "*lam linh kien tai nghe*",
+   "*lam linh kien dien thoai*",
+   "*lam linh kien camera*",
+   "*lap rap linh kien dien tu*",
+   "*lap rap linh kien tai nghe*",
+   "*lap rap linh kien dien thoai*",
+   "*lap rap linh kien camera*",
+   "*ghep linh kien dien tu*",
+   "*ghep linh kien tai nghe*",
+   "*ghep linh kien dien thoai*",
+   "*ghep linh kien camera*",
+   "*cam linh kien dien tu*",
+   "*cam linh kien tai nghe*",
+   "*cam linh kien dien thoai*",
+   "*cam linh kien camera*",
+   "*lam linh kien*",
+   "*lap rap linh kien*",
+   "*ghep linh kien*",
+   "*cam linh kien*",
+   "*linh kien dien tu*",
+   "*linh kien tai nghe*",
+   "*linh kien dien thoai*",
+   "*linh kien camera*",
+   "*lap rap dien tu*",
+   "*lap rap bo mach*",
+   "*bo mach dien tu*"
+  ],
   "name": "Thợ lắp ráp thiết bị điện tử/linh kiện điện tử"
  },
  {
   "code": "7212",
-  "pattern": "\\btho han\\b|\\bhan (tig|mig|co2|dien|inox)\\b|\\bcong nhan han\\b",
+  "phrases": [
+   "tho han",
+   "han tig",
+   "han mig",
+   "han co2",
+   "han dien",
+   "han inox",
+   "cong nhan han"
+  ],
   "name": "Thợ hàn và thợ cắt kim loại bằng nhiệt"
  },
  {
   "code": "7223",
-  "pattern": "\\bcnc\\b|\\btien phay\\b|\\bvan hanh may (tien|phay)\\b",
+  "phrases": [
+   "cnc",
+   "tien phay",
+   "van hanh may tien",
+   "van hanh may phay"
+  ],
   "name": "Thợ lắp ráp và vận hành máy công cụ kim loại"
  },
  {
   "code": "8344",
-  "pattern": "\\blai xe nang\\b|\\bxe nang\\b",
+  "phrases": [
+   "lai xe nang",
+   "xe nang"
+  ],
   "name": "Thợ vận hành xe bốc dỡ"
  },
  {
   "code": "8332",
-  "pattern": "\\blai xe (tai|container|dau keo)\\b|\\btai xe (container|dau keo|xe tai)\\b",
+  "phrases": [
+   "lai xe tai",
+   "lai xe container",
+   "lai xe dau keo",
+   "tai xe container",
+   "tai xe dau keo",
+   "tai xe xe tai"
+  ],
   "name": "Lái xe tải hạng vừa và xe tải hạng nặng"
  },
  {
   "code": "8322",
-  "pattern": "\\blai xe\\b|\\btai xe\\b",
+  "phrases": [
+   "lai xe",
+   "tai xe"
+  ],
   "name": "Lái xe con, taxi và xe tải hạng nhẹ"
  },
  {
   "code": "9621",
-  "pattern": "\\bshipper\\b|\\bgiao hang\\b",
+  "phrases": [
+   "shipper",
+   "giao hang"
+  ],
   "name": "Người đưa thư, người giao hàng và người khuân vác hành lý"
  },
  {
   "code": "3434",
-  "pattern": "\\bbep truong\\b",
+  "phrases": [
+   "bep truong"
+  ],
   "name": "Đầu bếp trưởng"
  },
  {
   "code": "9402",
-  "pattern": "\\bphu bep\\b",
+  "phrases": [
+   "phu bep"
+  ],
   "name": "Người phụ bếp"
  },
  {
   "code": "5120",
-  "pattern": "\\bdau bep\\b|\\bbep chinh\\b|\\bbep (au|a|viet|han|nhat)\\b",
+  "phrases": [
+   "dau bep",
+   "bep chinh",
+   "bep au",
+   "bep a",
+   "bep viet",
+   "bep han",
+   "bep nhat"
+  ],
   "name": "Đầu bếp"
  },
  {
   "code": "5132",
-  "pattern": "\\bpha che\\b|\\bbarista\\b|\\bbartender\\b",
+  "phrases": [
+   "pha che",
+   "barista",
+   "bartender"
+  ],
   "name": "Nhân viên pha chế"
  },
  {
   "code": "5230",
-  "pattern": "\\bthu ngan\\b",
+  "phrases": [
+   "thu ngan"
+  ],
   "name": "Nhân viên thu ngân và bán vé"
  },
  {
   "code": "5222",
-  "pattern": "\\bquan ly cua hang\\b|\\bcua hang truong\\b|\\bgiam sat cua hang\\b",
+  "phrases": [
+   "quan ly cua hang",
+   "cua hang truong",
+   "giam sat cua hang"
+  ],
   "name": "Nhân viên giám sát cửa hàng"
  },
  {
   "code": "5244",
-  "pattern": "\\btelesales?\\b|\\bban hang qua dien thoai\\b",
+  "phrases": [
+   "telesales",
+   "telesale",
+   "ban hang qua dien thoai"
+  ],
   "name": "Nhân viên bán hàng qua trung tâm liên lạc"
  },
  {
   "code": "5131",
-  "pattern": "\\bboi ban\\b|\\bchay ban\\b|\\b(nhan vien )?phuc vu\\b",
+  "phrases": [
+   "boi ban",
+   "chay ban",
+   "nhan vien phuc vu",
+   "phuc vu"
+  ],
   "title_only": true,
   "name": "Bồi bàn"
  },
  {
   "code": "5223",
-  "pattern": "\\b(nhan vien |tu van )?ban hang\\b",
+  "phrases": [
+   "nhan vien ban hang",
+   "tu van ban hang",
+   "ban hang"
+  ],
   "title_only": true,
   "name": "Nhân viên trợ giúp bán hàng"
  },
  {
   "code": "5401",
-  "pattern": "\\bbao ve\\b",
+  "phrases": [
+   "bao ve"
+  ],
   "title_only": true,
   "name": "Nhân viên an ninh (trừ công an)"
  },
  {
   "code": "9111",
-  "pattern": "\\bgiup viec (gia dinh|nha)\\b|\\bosin\\b|\\bdon nha\\b",
+  "phrases": [
+   "giup viec gia dinh",
+   "giup viec nha",
+   "osin",
+   "don nha"
+  ],
   "name": "Người quét dọn và giúp việc gia đình"
  },
  {
   "code": "9112",
-  "pattern": "\\btap vu\\b|\\blao cong\\b|\\bve sinh (cong nghiep|van phong|toa nha)\\b|\\bdon (dep|phong) (khach san|van phong)\\b|\\bbuong phong\\b",
+  "phrases": [
+   "tap vu",
+   "lao cong",
+   "ve sinh cong nghiep",
+   "ve sinh van phong",
+   "ve sinh toa nha",
+   "don dep khach san",
+   "don dep van phong",
+   "don phong khach san",
+   "don phong van phong",
+   "buong phong"
+  ],
   "name": "Người quét dọn và giúp việc trong văn phòng, khách sạn và các cơ sở khác"
  },
  {
   "code": "9121",
-  "pattern": "\\bgiat (la|ui)\\b",
+  "phrases": [
+   "giat la",
+   "giat ui"
+  ],
   "name": "Thợ giặt là bằng tay"
  },
  {
   "code": "5311",
-  "pattern": "\\bbao mau\\b|\\btrong tre\\b|\\bcham soc tre\\b",
+  "phrases": [
+   "bao mau",
+   "trong tre",
+   "cham soc tre"
+  ],
   "name": "Nhân viên chăm sóc trẻ em"
  },
  {
   "code": "3221",
-  "pattern": "\\bdieu duong\\b|\\by ta\\b",
+  "phrases": [
+   "dieu duong",
+   "y ta"
+  ],
   "name": "Y tá/điều dưỡng, kỹ thuật viên chăm sóc bệnh nhân"
  },
  {
   "code": "2341",
-  "pattern": "\\bgiao vien tieu hoc\\b",
+  "phrases": [
+   "giao vien tieu hoc"
+  ],
   "name": "Giáo viên tiểu học (cấp I)"
  },
  {
   "code": "5141",
-  "pattern": "\\bcat toc\\b|\\btho toc\\b|\\blam toc\\b|\\buon nhuom\\b",
+  "phrases": [
+   "cat toc",
+   "tho toc",
+   "lam toc",
+   "uon nhuom"
+  ],
   "name": "Thợ làm đầu"
  },
  {
   "code": "5142",
-  "pattern": "\\bspa\\b|\\bnail\\b|\\blam mong\\b|\\bnoi mi\\b",
+  "phrases": [
+   "spa",
+   "nail",
+   "lam mong",
+   "noi mi"
+  ],
   "name": "Nhân viên làm đẹp và nhân viên có liên quan"
  },
  {
   "code": "2411",
-  "pattern": "\\bke toan truong\\b",
+  "phrases": [
+   "ke toan truong"
+  ],
   "name": "Kế toán và các nhà chuyên môn có liên quan"
  },
  {
   "code": "4311",
-  "pattern": "\\bke toan\\b",
+  "phrases": [
+   "ke toan"
+  ],
   "name": "Nhân viên kế toán"
  },
  {
   "code": "4132",
-  "pattern": "\\bnhap lieu\\b",
+  "phrases": [
+   "nhap lieu"
+  ],
   "name": "Nhân viên nhập dữ liệu"
  },
  {
   "code": "4226",
-  "pattern": "\\ble tan\\b",
+  "phrases": [
+   "le tan"
+  ],
   "name": "Lễ tân (tổng hợp)"
  },
  {
   "code": "4222",
-  "pattern": "\\btong dai vien\\b|\\bcall ?center\\b",
+  "phrases": [
+   "tong dai vien",
+   "call center",
+   "callcenter"
+  ],
   "name": "Nhân viên trung tâm thông tin liên lạc"
  },
  {
   "code": "4229",
-  "pattern": "\\bcham soc khach hang\\b|\\bcskh\\b",
+  "phrases": [
+   "cham soc khach hang",
+   "cskh"
+  ],
   "name": "Nhân viên thông tin khách hàng chưa được phân vào đâu"
  },
  {
   "code": "4406",
-  "pattern": "\\bnhan vien nhan su\\b|\\bhanh chinh nhan su\\b|\\bhcns\\b",
+  "phrases": [
+   "nhan vien nhan su",
+   "hanh chinh nhan su",
+   "hcns"
+  ],
   "name": "Nhân viên tổ chức nhân sự"
  },
  {
   "code": "4110",
-  "pattern": "\\bhanh chinh\\b|\\bnhan vien van phong\\b",
+  "phrases": [
+   "hanh chinh",
+   "nhan vien van phong"
+  ],
   "title_only": true,
   "name": "Nhân viên tổng hợp"
  },
  {
   "code": "2512",
-  "pattern": "\\blap trinh\\b|\\bdeveloper\\b|\\bbackend\\b|\\bfrontend\\b",
+  "phrases": [
+   "lap trinh",
+   "developer",
+   "backend",
+   "frontend"
+  ],
   "name": "Nhà phát triển phần mềm"
  },
  {
   "code": "2166",
-  "pattern": "\\bthiet ke do hoa\\b|\\bgraphic design",
+  "phrases": [
+   "thiet ke do hoa",
+   "graphic design*"
+  ],
   "name": "Nhà thiết kế đồ họa và truyền thông đa phương tiện"
  },
  {
   "code": "2431",
-  "pattern": "\\bmarketing\\b",
+  "phrases": [
+   "marketing"
+  ],
   "name": "Nhà chuyên môn về quảng cáo và tiếp thị"
  },
  {
   "code": "4321",
-  "pattern": "\\bthu kho\\b|\\bnhan vien kho\\b|\\bquan ly kho\\b",
+  "phrases": [
+   "thu kho",
+   "nhan vien kho",
+   "quan ly kho"
+  ],
   "name": "Nhân viên ghi chép tồn kho"
  },
  {
   "code": "9333",
-  "pattern": "\\bboc (xep|vac)\\b|\\bkhuan vac\\b",
+  "phrases": [
+   "boc xep",
+   "boc vac",
+   "khuan vac"
+  ],
   "name": "Người mang vác hàng"
  },
  {
   "code": "7411",
-  "pattern": "\\btho dien\\b|\\bdien (dan dung|cong nghiep|nuoc)\\b",
+  "phrases": [
+   "tho dien",
+   "dien dan dung",
+   "dien cong nghiep",
+   "dien nuoc"
+  ],
   "name": "Thợ lắp điện cho tòa nhà và thợ điện có liên quan"
  },
  {
   "code": "7231",
-  "pattern": "\\bsua (xe|o to|xe may)\\b|\\bco khi o to\\b",
+  "phrases": [
+   "sua xe",
+   "sua o to",
+   "sua xe may",
+   "co khi o to"
+  ],
   "name": "Thợ cơ khí và sửa chữa xe có động cơ"
  },
  {
   "code": "9313",
-  "pattern": "\\bphu ho\\b|\\bphu xay dung\\b",
+  "phrases": [
+   "phu ho",
+   "phu xay dung"
+  ],
   "name": "Thợ phụ xây dựng"
  },
  {
   "code": "7112",
-  "pattern": "\\btho (xay|ne)\\b",
+  "phrases": [
+   "tho xay",
+   "tho ne"
+  ],
   "name": "Thợ nề và các thợ có liên quan"
  },
  {
   "code": "7115",
-  "pattern": "\\btho moc\\b|\\bmoc noi that\\b",
+  "phrases": [
+   "tho moc",
+   "moc noi that"
+  ],
   "name": "Thợ mộc và thợ làm đồ gỗ"
  },
  {
   "code": "7131",
-  "pattern": "\\btho son\\b",
+  "phrases": [
+   "tho son"
+  ],
   "name": "Thợ sơn và thợ liên quan khác"
  },
  {
   "code": "8153",
-  "pattern": "\\bcong nhan may\\b|\\bmay cong nghiep\\b",
+  "phrases": [
+   "cong nhan may",
+   "may cong nghiep"
+  ],
   "name": "Thợ vận hành máy may"
  },
  {
   "code": "7531",
-  "pattern": "\\btho may\\b",
+  "phrases": [
+   "tho may"
+  ],
   "name": "Thợ may, thợ làm da thú và thợ làm mũ"
  },
  {
   "code": "7543",
-  "pattern": "\\bkiem hang\\b|\\bkiem tra chat luong\\b|\\bkcs\\b|\\bqc\\b",
+  "phrases": [
+   "kiem hang",
+   "kiem tra chat luong",
+   "kcs",
+   "qc"
+  ],
   "name": "Thợ phân loại và kiểm tra sản phẩm (trừ thực phẩm và đồ uống)"
  },
  {
   "code": "9321",
-  "pattern": "\\bdong goi\\b",
+  "phrases": [
+   "dong goi"
+  ],
   "name": "Lao động đóng gói thủ công"
  },
  {
   "code": "9329",
-  "pattern": "\\bcong nhan\\b|\\blao dong pho thong\\b|\\bldpt\\b",
+  "phrases": [
+   "cong nhan",
+   "lao dong pho thong",
+   "ldpt"
+  ],
   "name": "Lao động công nghiệp khác chưa được phân vào đâu"
  }
 ]

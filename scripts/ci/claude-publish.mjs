@@ -78,8 +78,10 @@ const BOT_MENTION = /@(codex|claude|copilot|github-actions|chatgpt-codex-connect
 export function mentionFinding(t) {
   const s = String(t ?? '')
   if (BOT_MENTION.test(s)) return '자동 작업 봇 @언급'
+  // 7회 지적 3: 코드 칸 판단을 흐리는 글(백슬래시 백틱)·HTML 글자 참조(&#64; 등)는 판단하지 않고 거절. 앞 글자 제외는 낱말 글자(메일 주소)만.
+  if (/\\`|&#0*64;|&#x0*40;|&commat;/i.test(s)) return '코드 칸·@ 글자를 흐리는 표기(\\` 또는 &#64;)'
   const prose = s.replace(/```[\s\S]*?```/g, ' ').replace(/`[^`\n]*`/g, ' ')
-  const m = prose.match(/(?<![\w.+\-/@`\]])@[A-Za-z0-9][A-Za-z0-9-]*/)
+  const m = prose.match(/(?<![A-Za-z0-9])@[A-Za-z0-9][A-Za-z0-9-]*/)
   return m ? `@계정 언급 ${m[0]}(코드 칸 밖)` : ''
 }
 

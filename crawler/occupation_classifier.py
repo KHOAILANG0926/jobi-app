@@ -27,14 +27,45 @@ class Rule:
     title_only: bool = False
 
 
-# 규칙 데이터는 occupation_rules.json(코드·정규식·title_only·공식 명칭)에 둔다 — 주간 자동 보강(occupation-weekly-unclassified)은
+# 규칙 데이터는 occupation_rules.json(코드·낱말 묶음·title_only·공식 명칭)에 둔다 — 주간 자동 보강(occupation-weekly-unclassified)은
 # 이 JSON과 사례 JSON만 고칠 수 있다(코드는 못 바꿈, S4 3차 독립 검토 6회 지적: 비신뢰 공고 제목 → Claude → 병합 뒤 크롤러에서 실행되는 코드).
-# 명칭은 시험에서 공식 목록과 대조한다. 목록 순서가 우선순위다.
+# 데이터에 정규식을 두지 않는다(7회 지적: 정규식 데이터로 크롤러 멈춤(ReDoS)·모든 제목 일치가 가능). 낱말 묶음만 받고 정규식은 여기서 만든다:
+#   낱말 묶음 = 성조 뺀 소문자·숫자 낱말을 빈칸 하나로 이은 것. 앞·뒤에 '*'가 있으면 그쪽 낱말 경계 없음(예 '*lam linh kien*').
+#   경계 없는 묶음은 두 낱말 이상. 한 규칙 안에서도 적힌 순서대로 본다(같은 자리면 앞 묶음이 근거 — 긴 근거를 원하면 긴 묶음을 앞에). 규칙 목록 순서가 우선순위다.
+#   형식이 틀리면 불러올 때 멈춘다(닫힌 실패 — 시험 test_occupation_rules가 병합 전에 잡음).
 _RULES_FILE = Path(__file__).with_name('occupation_rules.json')
-RULES: list[Rule] = [
-    Rule(str(r['code']), str(r['pattern']), bool(r.get('title_only', False)))
-    for r in json.loads(_RULES_FILE.read_text('utf-8'))
-]
+_PHRASE = re.compile(r'\*?[a-z0-9]+(?: [a-z0-9]+){0,7}\*?')
+_LIMITS = {'rules': 300, 'phrases': 60, 'chars': 60}
+
+
+def _rule_regex(phrases: list) -> str:
+    if not isinstance(phrases, list) or not 1 <= len(phrases) <= _LIMITS['phrases']:
+        raise ValueError(f'phrases 개수 오류: {phrases!r}')
+    parts = []
+    for ph in phrases:
+        if not isinstance(ph, str) or len(ph) > _LIMITS['chars'] or not _PHRASE.fullmatch(ph):
+            raise ValueError(f'낱말 묶음 형식 오류: {ph!r}')
+        head, tail, body = ph.startswith('*'), ph.endswith('*'), ph.strip('*')
+        if (head or tail) and ' ' not in body:
+            raise ValueError(f'경계 없는 묶음은 두 낱말 이상: {ph!r}')
+        parts.append(('' if head else r'\b') + re.escape(body) + ('' if tail else r'\b'))
+    return '|'.join(parts)
+
+
+def _load_rules() -> list[Rule]:
+    data = json.loads(_RULES_FILE.read_text('utf-8'))
+    if not isinstance(data, list) or not 1 <= len(data) <= _LIMITS['rules']:
+        raise ValueError('occupation_rules.json: 규칙 목록 형식 오류')
+    rules = []
+    for r in data:
+        if not isinstance(r, dict) or set(r) - {'code', 'phrases', 'title_only', 'name'} or not re.fullmatch(r'\d{4,5}', str(r.get('code', ''))) \
+                or not isinstance(r.get('title_only', False), bool):
+            raise ValueError(f'occupation_rules.json: 규칙 형식 오류 {r!r}')
+        rules.append(Rule(r['code'], _rule_regex(r['phrases']), r.get('title_only', False)))
+    return rules
+
+
+RULES: list[Rule] = _load_rules()
 _COMPILED = [(r, re.compile(r.pattern)) for r in RULES]
 
 
