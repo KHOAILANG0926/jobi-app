@@ -68,6 +68,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/dry"
           for id in ${IDS//,/ }; do
+            # S4(#808): 받기 전에 그 실행이 master의 Facebook 미리 보기 실행인지 확인(브랜치가 만든 가짜 결과 차단)
+            bash scripts/ci/verify-artifact-run.sh "$id" .github/workflows/crawl-facebook-one.yml workflow_dispatch
             gh run download "$id" -R "$GITHUB_REPOSITORY" -n facebook-dryrun -D "$RUNNER_TEMP/dry/$id" || { echo "::error::미리 보기 $id 결과 없음(1일 지나 삭제됐을 수 있음)"; exit 1; }
           done
           ls "$RUNNER_TEMP"/dry/*/facebook_dryrun.json | wc -l | xargs -I{} echo "::notice::미리 보기 파일 {}개"

@@ -1,0 +1,53 @@
+# 올바른 방식: 기준 사본·상자에서만 PR 코드 실행, 토큰 안 남김, artifact 출처 확인
+on: issue_comment
+permissions: { contents: write, id-token: write }
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: read }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: master, path: .trusted-base, persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ steps.guard.outputs.head_ref }}", persist-credentials: false }
+      - run: bash "$RUNNER_TEMP/trusted/scripts/ci/hold-pr-claude-settings.sh" .
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ github.token }}
+          classify_inline_comments: 'false'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --setting-sources user --settings '{"disableAllHooks":true,"permissions":{"blockFileToolReadsOutsideWorkingDirectories":true,"blockReadsOutsideWorkingDirectories":true}}'
+            --allowedTools "Read(./**),Bash(bash ${{ runner.temp }}/trusted/scripts/ci/sandbox-run.sh test),Bash(git status)"
+      - run: |
+          T="$RUNNER_TEMP/trusted"
+          git fetch -q origin "$now" && git checkout -q "$now"
+          bash "$T/scripts/ci/sandbox-run.sh" test .
+          node "$RUNNER_TEMP/trusted/scripts/ops/pr-bot-proof.mjs" body.md
+  save:
+    runs-on: ubuntu-latest
+    env: { K: "${{ secrets.K }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/ci/verify-artifact-run.sh "$RID" .github/workflows/a.yml
+      - uses: actions/download-artifact@v4
+        with: { name: x, run-id: "${{ inputs.run_id }}" }
+  pr:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - run: npm ci && npm test
+  publish:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.repository.default_branch }}", persist-credentials: false }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.g.outputs.head_sha }}", path: pr, persist-credentials: false }
+      - env: { HEAD_REF: "${{ needs.g.outputs.head_ref }}" }
+        run: |
+          node scripts/ci/claude-publish.mjs codex --head-ref "$HEAD_REF" --workdir pr --out "$RUNNER_TEMP/r"
+          git -C pr rev-parse HEAD
