@@ -157,17 +157,20 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
 
 // 바뀐 파일 목록은 diff 글에서 읽지 않고 git의 정확한 목록(--name-status -z, NUL 구분)에서 받는다(S4-4 독립 검토 2회 —
 // 머리줄 글 읽기는 따옴표·' b/'가 든 경로를 잘못 읽어 보호를 피할 수 있었음 → 방법 변경). 이름 바꾸기·복사는 예전·새 이름 모두.
-export function parseNameStatusZ(raw) {
+export function nameStatusEntries(raw) {
   const parts = String(raw).split('\0').filter((x, i, a) => !(x === '' && i === a.length - 1))
-  const files = []
+  const entries = []
   for (let i = 0; i < parts.length;) {
     const st = parts[i++]
     if (!/^[ACDMRTUXB]\d*$/.test(st)) throw new Error(`바뀐 파일 목록을 읽지 못함: ${JSON.stringify(st).slice(0, 80)}`)
     const n = /^[RC]/.test(st) ? 2 : 1
-    for (let k = 0; k < n; k++) { const f = parts[i++]; if (f === undefined || f === '') throw new Error('바뀐 파일 목록이 중간에 끊김'); files.push(f) }
+    const paths = []
+    for (let k = 0; k < n; k++) { const f = parts[i++]; if (f === undefined || f === '') throw new Error('바뀐 파일 목록이 중간에 끊김'); paths.push(f) }
+    entries.push({ status: st, paths })
   }
-  return [...new Set(files)]
+  return entries
 }
+export const parseNameStatusZ = (raw) => [...new Set(nameStatusEntries(raw).flatMap((e) => e.paths))]
 
 export function parseGitDiff(raw) {
   const files = []
@@ -189,9 +192,15 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
   const base = event.pull_request?.base?.sha
   if (!base) process.exit(0)
-  const diff = execFileSync('git', ['diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--'], { encoding:'utf8', maxBuffer: 10 * 1024 * 1024 })
-  const { patches } = parseGitDiff(diff)
-  const files = parseNameStatusZ(execFileSync('git', ['diff', '--no-ext-diff', '--name-status', '-z', '--find-renames', base, 'HEAD', '--'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }))
+  const entries = nameStatusEntries(execFileSync('git', ['diff', '--no-ext-diff', '--name-status', '-z', '--find-renames', base, 'HEAD', '--'], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }))
+  const files = [...new Set(entries.flatMap((e) => e.paths))]
+  // 파일 내용(바뀐 줄)도 diff 글의 머리줄로 나누지 않고 파일마다 정확한 경로(:(literal))로 따로 받는다 — 경로를 잘못 읽어 내용을 못 찾으면
+  // 빈 내용으로 통과하던 문제(삭제 SQL·원문 URL 검사, S4-4 최종 검토). 이름 바꾸기는 두 이름을 함께 넘겨 실제 바뀐 줄만.
+  const patches = {}
+  for (const e of entries) {
+    const patch = execFileSync('git', ['diff', '--no-ext-diff', '--no-color', '--find-renames', base, 'HEAD', '--', ...e.paths.map((p) => `:(literal)${p}`)], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 })
+    for (const p of e.paths) patches[p] = (patches[p] ?? '') + patch
+  }
   // Approvals must already exist on the PR base: a candidate cannot approve itself.
   let manifest = { approvals: [] }
   try { manifest = JSON.parse(execFileSync('git', ['show', `${base}:${MANIFEST_PATH}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })) } catch { /* missing approval fails closed */ }
