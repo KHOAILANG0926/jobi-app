@@ -1,0 +1,26 @@
+name: 운영 키 진단 (읽기 전용 — 키 값 출력 없음)
+# S4(#808) 2026-11-15: status-report가 ops-keys의 SUPABASE_SERVICE_ROLE_KEY로 Supabase에 HTTP 401을 받은 원인 확정용.
+# 키 값은 출력하지 않는다(모양·길이·JWT 공개 칸 ref/role/iss·응답 코드와 오류 메시지만). DB 조회 1건(local_jobs id 1개)만, 쓰기 없음.
+# master에서 Lee 또는 작업자가 수동 실행할 때만(다른 브랜치·PR에서는 ops-keys 환경이 열쇠를 주지 않음).
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 서비스 키 진단(값 출력 없음)
+        env:
+          SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/ops/supabase-key-diagnose.mjs
