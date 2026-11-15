@@ -3,8 +3,13 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { isApprovedMigration, MANIFEST_PATH } from './approved-migrations.mjs'
+import { leeApprovedAt } from './decision-approval-gate.mjs'
 
 const PROTECTED = [/^STATUS\.md$/, /^scripts\/status\//, /^\.github\/workflows\/status-.*\.ya?ml$/]
+// S4-4(Lee 2026-11-15 승인): STATUS 보호 파일 중 status-*.yml 워크플로만, 지금 head 커밋에 대한 Lee 계정의 유효한 Approve가 있을 때 통과한다
+// (라벨만으로는 안 됨 — 라벨은 status-guard가 따로 본다). STATUS.md·scripts/status/는 예전처럼 예외 없이 막는다(보고 위조 대상).
+// Lee가 승인한 뒤 이 검사(checks)를 다시 돌리면 통과한다. 승인 뒤 새 커밋이 오면 그 커밋에 다시 승인해야 한다.
+const STATUS_WORKFLOW = /^\.github\/workflows\/status-.*\.ya?ml$/
 // 결정 0002(Lee 2026-10-18): 검사 통과한 migration은 자동 적용. 단 데이터 삭제·되돌리기 어려운 변경은 Lee 판단 →
 // migration은 아래 DESTRUCTIVE_SQL이 들어 있을 때만 막는다(새 표·함수·트리거 추가는 통과).
 const DESTRUCTIVE_SQL = /^\+(?!\s*--).*\b(?:drop\s+(?:table|column|schema|policy)|truncate\b|delete\s+from\b|alter\s+table\b[^;]*\bdrop\b)/im
@@ -89,7 +94,10 @@ export function evaluateFiles(paths, body = '', patches = {}, options = {}) {
   const changed = new Set(paths)
   const hasTest = (re) => paths.some(p => re.test(p))
   for (const path of paths) {
-    if (PROTECTED.some(re => re.test(path)))
+    if (STATUS_WORKFLOW.test(path)) {
+      if (options.statusWorkflowApproved !== true)
+        errors.push(path + ': STATUS 보호 규정 위반 — status 워크플로 변경은 지금 커밋에 대한 Lee의 GitHub 승인(Approve) 뒤에만 통과')
+    } else if (PROTECTED.some(re => re.test(path)))
       errors.push(path + ': STATUS 보호 규정 위반')
     if (STRICT.some(re => re.test(path)))
       errors.push(path + ': 운영·보안·DB 변경은 별도 승인과 STRICT 검증 필요')
@@ -190,7 +198,13 @@ if (process.argv[1]?.endsWith('/check-repository-policy.mjs')) {
     leeDate: (d) => { const docs = ['CLAUDE.md', '.claude/RULES_CORE.md', 'AGENTS.md']; try { for (const f of readdirSync('docs/decisions/ko')) docs.push(`docs/decisions/ko/${f}`) } catch { /* 없음 */ }
       for (const f of docs) { try { if (new RegExp(`Lee\\s*${d}`).test(readFileSync(f, 'utf8'))) return f } catch { /* 없음 */ } } return null },
   }
-  const errors = evaluateFiles(files, event.pull_request?.body || '', patches, { approvedMigrations, resolve })
+  // status 워크플로가 바뀐 PR만 리뷰를 읽는다(읽기 전용 토큰). 못 읽으면 승인 없음으로 본다(닫힌 실패).
+  let statusWorkflowApproved = false
+  if (files.some((f) => STATUS_WORKFLOW.test(f))) {
+    const reviews = (gh(`pulls/${event.pull_request?.number}/reviews?per_page=100`, true) ?? []).flat()
+    statusWorkflowApproved = leeApprovedAt(reviews, event.pull_request?.head?.sha, event.pull_request?.user?.login)
+  }
+  const errors = evaluateFiles(files, event.pull_request?.body || '', patches, { approvedMigrations, resolve, statusWorkflowApproved })
   errors.forEach(error => console.error('::error::' + error))
   if (errors.length) process.exit(1)
   console.log('Repository policy gate: ' + files.length + ' modified files checked')

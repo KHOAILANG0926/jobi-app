@@ -103,3 +103,36 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.match(dependencyRisks({ files: [{ filename: 'crawler/pyproject.toml', status: 'added' }] }).join(), /루트 밖 의존성/, 'pyproject')
   console.log('decision-approval-gate ⑤ 의존성·검증 약화: 일반 업데이트 자동, 위험 변경만 Lee 승인')
 }
+
+// S4-4(Lee 2026-11-15 승인 조건): status-*.yml 워크플로만 유효한 Lee Approve로 통과, 라벨만·옛 커밋·승인 뒤 변경 요청·자기 승인·다른 보호 파일은 실패
+{
+  const { leeApprovedAt, OWNER: LEE } = await import('./decision-approval-gate.mjs')
+  const { evaluateFiles } = await import('./check-repository-policy.mjs')
+  const head = 'h'.repeat(40), old = 'o'.repeat(40)
+  const rv = (state, commit_id, at, login = LEE) => ({ user: { login }, state, commit_id, submitted_at: at })
+  const okReviews = [rv('APPROVED', head, '2026-11-15T09:00:00Z')]
+  assert.equal(leeApprovedAt(okReviews, head, 'viecganban-bot'), true, '지금 커밋에 Lee 승인 → 유효')
+  assert.equal(leeApprovedAt([], head, 'viecganban-bot'), false, '승인 없음 → 무효')
+  assert.equal(leeApprovedAt([rv('APPROVED', old, '2026-11-15T09:00:00Z')], head, 'viecganban-bot'), false, '옛 커밋 승인(승인 뒤 코드 바뀜) → 무효')
+  assert.equal(leeApprovedAt([...okReviews, rv('CHANGES_REQUESTED', head, '2026-11-15T09:05:00Z')], head, 'viecganban-bot'), false, '승인 뒤 변경 요청 → 무효')
+  assert.equal(leeApprovedAt([{ ...okReviews[0], state: 'DISMISSED' }], head, 'viecganban-bot'), false, '철회된 승인 → 무효')
+  assert.equal(leeApprovedAt([...okReviews, rv('COMMENTED', head, '2026-11-15T09:06:00Z')], head, 'viecganban-bot'), true, '승인 뒤 의견만 단 리뷰는 영향 없음')
+  assert.equal(leeApprovedAt([rv('APPROVED', head, '2026-11-15T09:00:00Z', 'viecganban-bot')], head, 'someone'), false, '다른 계정 승인 → 무효')
+  assert.equal(leeApprovedAt(okReviews, head, LEE), false, 'PR 작성자가 Lee 계정(자기 승인) → 무효')
+  assert.equal(leeApprovedAt(okReviews, '', 'viecganban-bot'), false, 'head를 모르면 무효(닫힌 실패)')
+
+  const wf = '.github/workflows/status-report.yml'
+  assert.equal(evaluateFiles([wf], '').length, 1, 'status 워크플로: 승인 없으면 실패(라벨만으로는 안 됨 — 이 검사는 라벨을 보지 않음)')
+  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: false }).length, 1, '무효 승인이면 실패')
+  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: true }).length, 0, '유효한 Lee 승인이면 통과')
+  assert.equal(evaluateFiles([wf], '', {}, { statusWorkflowApproved: 'yes' }).length, 1, '참 값(true)만 인정')
+  for (const other of ['STATUS.md', 'scripts/status/generate-status.mjs'])
+    assert.equal(evaluateFiles([wf, other], '', {}, { statusWorkflowApproved: true }).filter((e) => e.startsWith(other)).length, 1, `승인이 있어도 ${other}는 예전처럼 실패`)
+
+  // 병합 판정(decisionApproval)도 같은 함수: 승인 뒤 변경 요청·옛 커밋은 병합 불가
+  const files = [{ filename: wf }]
+  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], sha: head }).approved, true)
+  assert.equal(decisionApproval({ files, reviews: [...okReviews, rv('CHANGES_REQUESTED', head, '2026-11-15T09:05:00Z')], comments: [], sha: head }).approved, false, '병합 판정: 승인 뒤 변경 요청 → 막힘')
+  assert.equal(decisionApproval({ files, reviews: okReviews, comments: [], sha: old }).approved, false, '병합 판정: 승인 뒤 새 커밋 → 막힘')
+  console.log('S4-4 status 워크플로 Lee 승인 시험 통과')
+}
