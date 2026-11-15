@@ -13,7 +13,9 @@ jobs:
     steps:
       - run: echo "$K"
         env: { K: "${{ secrets.VERCEL_TOKEN }}" }
-  topenv:
+  lookalike:
     runs-on: x
+    environment: ops-keys-x
     steps:
-      - run: echo ok
+      - run: echo "$K"
+        env: { K: "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" }

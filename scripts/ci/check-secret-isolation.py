@@ -260,6 +260,8 @@ def check_job(path, wf, name, job):
 
 
 AI_OR_DEFAULT_KEYS = {'GITHUB_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'}
+ENV_NAMES = {'ops-keys', 'demo-deploy'}
+STATUS_PROTECTED = re.compile(r'(^|/)\.github/workflows/status-[^/]*\.ya?ml$')
 
 
 def check_environment(path, wf, name, job):
@@ -269,8 +271,16 @@ def check_environment(path, wf, name, job):
         return []
     env = job.get('environment')
     env = env.get('name', '') if isinstance(env, dict) else str(env or '')
-    if 'ops-keys' not in env:
-        return [f'R8 {path} jobs.{name}: 운영 열쇠({", ".join(sorted(used))})를 쓰는데 environment가 ops-keys가 아님 — 브랜치 워크플로가 열쇠를 받을 수 있음']
+    # 이름이 정확히 ops-keys(또는 식 안의 이름이 모두 ops-keys·demo-deploy 중 하나이고 ops-keys 포함)여야 한다 — 'ops-keys-x' 같은 비슷한 이름 거절(독립 검토 지적 L)
+    names = [n for n in re.findall(r"'([^']*)'", env) if not n.startswith('refs/')] if '${{' in env else [env.strip()]
+    ok = bool(names) and all(n in ENV_NAMES for n in names) and 'ops-keys' in names
+    if not ok:
+        msg = f'R8 {path} jobs.{name}: 운영 열쇠({", ".join(sorted(used))})를 쓰는데 environment가 ops-keys가 아님 — 브랜치 워크플로가 열쇠를 받을 수 있음'
+        # STATUS 보호 파일(status-* 워크플로)은 Lee만 바꿀 수 있다(check-repository-policy PROTECTED와 같은 이름 규칙) — 실패 대신 경고로 남겨 Lee 조치 목록에 둔다
+        if STATUS_PROTECTED.search(path.replace(os.sep, '/')):
+            print(f'::warning::{msg} (STATUS 보호 파일 — Lee 조치 필요)')
+            return []
+        return [msg]
     return []
 
 

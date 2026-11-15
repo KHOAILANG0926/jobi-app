@@ -36,8 +36,8 @@ jobs:
           echo "::add-mask::$pass"
           keytool -genkeypair -v -keystore "$dir/upload.keystore" -alias upload -keyalg RSA -keysize 4096 -validity 10000 \
             -storepass "$pass" -keypass "$pass" -dname "CN=Viec gan Ban, O=Viecganban, C=VN" > /dev/null 2>&1
-          base64 -w0 "$dir/upload.keystore" | gh secret set TWA_UPLOAD_KEYSTORE_B64 --repo "$REPO"
-          printf '%s' "$pass" | gh secret set TWA_UPLOAD_KEY_PASSWORD --repo "$REPO"
+          base64 -w0 "$dir/upload.keystore" | gh secret set TWA_UPLOAD_KEYSTORE_B64 --env ops-keys --repo "$REPO"
+          printf '%s' "$pass" | gh secret set TWA_UPLOAD_KEY_PASSWORD --env ops-keys --repo "$REPO"
           fp=$(keytool -list -v -keystore "$dir/upload.keystore" -alias upload -storepass "$pass" | grep 'SHA256:' | head -1 | sed 's/.*SHA256: //')
           rm -rf "$dir"
-          echo "::notice::업로드 키 저장 완료(Secrets). 업로드 키 SHA-256(공개 정보): $fp"
+          echo "::notice::업로드 키 저장 완료(ops-keys 환경 Secrets — S4: 저장소 전체 칸에 다시 쓰지 않음). 업로드 키 SHA-256(공개 정보): $fp"
