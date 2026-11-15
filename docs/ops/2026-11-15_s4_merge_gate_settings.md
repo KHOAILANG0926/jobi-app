@@ -29,3 +29,12 @@
 - PR 본문(4대 보고)은 Approve 뒤에도 고칠 수 있다: Approve는 커밋 기준이라 본문 변경을 잡지 못한다. 완화: 본문 수정(`edited`) 때마다 판정이 다시 돌고 `approval-gate`가 갱신되지만, 이미 준 Approve는 유지된다.
 - `pull_request_review` 트리거는 PR 브랜치 사본이 돌 수 있어 그 PR이 `approval-checks.yml`을 바꾸면 토큰을 못 받는다 → 15분 예약 실행(master 사본)이 다시 판정한다. 최대 15분 지연.
 - 위험 내용 판정은 패턴 목록(`CONTENT_SIGNALS`·`KNOWN_HOSTS`)이라 완벽하지 않다 → 목록에 없는 새 위험은 막지 못한다. 그래서 경로 판정(⑥ 일반 목록 밖 = 판단 불가)과 독립 검토가 함께 있다. 최근 병합 60건 재판정: 새로 막힌 건 2건(#797·#708, DB 권한 migration), 오탐 0건.
+
+## 승인 취소(Dismiss) 즉시 차단 — 2026-11-15 최종 합의 반영
+- **즉시 재검사**: Lee가 승인·승인 취소·변경 요청을 하면 `review-signal.yml`(권한 없는 신호)이 돌고, 끝나면 `approval-checks.yml`이 `workflow_run`(항상 master 사본)으로 깨어나 열린 PR 전체를 다시 판정해 `approval-gate`를 success → 차단(action_required/failure)으로 덮는다. 5분 예약은 보조 백업.
+  - 한계: PR이 `review-signal.yml`을 지우거나 바꾸면 신호가 안 나간다 → 그 경우만 최대 5분(예약). 그런 PR은 `.github/` 변경이라 고위험이다.
+- **병합 직전 재검증**: 봇 병합기는 병합 API를 부르기 바로 전에 리뷰·댓글·라벨·본문을 다시 받아 같은 판정기를 한 번 더 돌린다(승인 취소면 "병합 중단"). 봇이 꺼져 있으면 이 단계는 돌지 않는다.
+- **GitHub 자체 보호 연계(실제 저장소 기준 확인, 설정은 바꾸지 않음)**: 저장소는 공개(public)·개인 계정 소유. 지금 master 보호는 `require_code_owner_reviews=true`, 승인 수 0, `dismiss_stale_reviews=true`, enforce_admins=false, Ruleset 0개. CODEOWNERS는 `/docs/decisions/`와 `/.github/CODEOWNERS`만 Lee 소유(결정 0003, `scripts/check-approval-scope.mjs`가 범위 고정).
+  - 가능: CODEOWNERS에 고위험 경로(`/.github/`·`/scripts/ci/`·`/scripts/*-gate.mjs`·`/scripts/check-*.mjs`·`AGENTS.md`)를 Lee 소유로 추가하면 GitHub 자체가 병합 시점에 Lee 승인을 요구하고, 승인 취소는 즉시 반영된다(Actions 지연 없음). 소유자 없는 일반 경로는 승인이 필요 없어 일반 PR 자동 병합과 충돌하지 않는다. `/*` 기본 소유 + 일반 폴더만 소유자 비움 방식이면 "일반 목록 밖 = 판단 불가"도 GitHub이 강제한다.
+  - 한계: ① 결정 0003("CODEOWNERS는 결정 문서만")과 `check-approval-scope.mjs`를 바꿔야 해서 **대표님 결정 필요**(코드가 임의로 안 바꿈). ② 경로만 본다 — 바뀐 줄 내용 위험(⑦)·4대 보고는 못 막으므로 approval-gate와 함께 쓴다. ③ PR 작성자 본인은 자기 PR을 승인할 수 없으므로 Lee 계정이 쓴 PR이 소유 경로를 바꾸면 관리자 우회(enforce_admins=false)로만 병합된다. ④ Ruleset 쪽 "경로 제한(push rule)"은 이 계정 플랜에서 가능한지 확인하지 못했다(미확인, 대표님 설정 화면에서 확인).
+  - 결론: 일괄 대표 승인 1건 강제(승인 수 1)는 일반 PR 자동 병합을 막으므로 쓰지 않는다. 경로 한정 CODEOWNERS 확장이 유일한 "GitHub 자체" 결합안이며 결정 0003 개정이 선행 조건이다.

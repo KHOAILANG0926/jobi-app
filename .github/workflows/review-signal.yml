@@ -1,0 +1,19 @@
+name: 검토 신호(승인·승인 취소 즉시 재검사 호출)
+# S4(Lee 최종 합의): 대표님이 승인을 취소(dismiss)·변경 요청·승인해도 5분 예약을 기다리지 않고 병합 조건 검사(approval-gate)를 바로 다시 돌린다.
+# 왜 이 파일이 따로 있나: pull_request_review 이벤트는 PR 브랜치의 워크플로 사본이 돌 수 있어, 거기서 Claude 앱 토큰이 필요한 검사를 직접 올리면 안 된다.
+# 이 워크플로는 아무 권한도 없이 '신호'만 낸다. 신호가 끝나면 approval-checks.yml이 workflow_run(항상 기본 브랜치 master 사본)으로 깨어나
+# 열린 PR 전체를 master 코드로 다시 판정하고 Claude 앱으로 검사 결과를 덮어쓴다. 이 파일을 PR이 지우거나 바꿔 신호를 막아도 5분 예약이 보조로 남는다(최대 5분).
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+permissions: {}
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: 신호(아무것도 실행하지 않음)
+        env:
+          STATE: ${{ github.event.review.state }}
+          ACTION: ${{ github.event.action }}
+        run: echo "review signal action=$ACTION state=$STATE"

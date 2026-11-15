@@ -173,6 +173,12 @@ jobs:
             # 검사가 다 끝났는데도 늦게 갱신된 값 — #681·#708, #686). 서버 병합 API를 바로 불러 서버 판단과 실제 거절 이유를 남긴다.
             # sha = --match-head-commit과 같음(그 사이 새 커밋이 오면 서버가 거절). 제목은 예전처럼 "PR 제목 (#번호)".
             title=$(gh api "repos/$REPO/pulls/$num" --jq '.title') || { echo "::warning::PR #$num 제목 조회 실패 — 다음 실행에서 다시 봄"; continue; }
+            # S4 병합 직전 실시간 승인 재검증(Lee 최종 합의): 위 판정 뒤 승인이 취소·변경 요청으로 바뀌었을 수 있다 — 병합을 부르기 바로 전에 리뷰·댓글·라벨·본문을 다시 받아
+            # 같은 판정기로 한 번 더 본다. 다시 받지 못하거나 판정이 막으면 병합하지 않는다(닫힌 실패). 병합 API의 sha 고정은 새 커밋만 막으므로 이 단계가 승인 취소를 막는다.
+            { gh api "repos/$REPO/pulls/$num/reviews?per_page=100" --paginate --slurp | jq 'add // []' > reviews.json               && gh api "repos/$REPO/issues/$num/comments?per_page=100" --paginate --slurp | jq 'add // []' > comments.json               && gh api "repos/$REPO/issues/$num" --jq '[.labels[].name]' > labels.json               && gh api "repos/$REPO/pulls/$num" --jq '.body // ""' > pr-body.txt; } || { echo "::warning::PR #$num 병합 직전 승인 재조회 실패: 병합 안 함"; continue; }
+            if ! node scripts/decision-approval-gate.mjs files.json reviews.json comments.json "$sha" labels.json deps.json "$author" pr-body.txt "$REPO" > approval-request.txt; then
+              echo "::warning::PR #$num 병합 직전 재확인에서 승인 상태가 바뀜(취소·변경 요청·승인 없음): 병합 중단"; continue
+            fi
             if merge_out=$(gh api -X PUT "repos/$REPO/pulls/$num/merge" -f merge_method=squash -f sha="$sha" -f commit_title="$title (#$num)" 2>&1); then
               echo "::notice::PR #$num github-actions[bot] 병합 성공"
               if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then

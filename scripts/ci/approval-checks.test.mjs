@@ -54,3 +54,12 @@ console.log('approval-checks 워크플로 트리거 시험 통과')
   assert.match(doc, /순서 주의[\s\S]*봇이 꺼진 동안[\s\S]*영원히 대기/, '필수 지정 전 검토관 요청 경로(봇 켜기 또는 수동 실행) 명시')
   assert.match(doc, /승인 철회 뒤에도 success가 남는 창/, '철회 창 명시') }
 console.log('approval-checks 문서·예약 시험 통과')
+// S4 승인 취소 즉시 재검사: 신호 워크플로(권한 없음)가 끝나면 master 사본 workflow_run으로 approval-checks가 깨어난다
+{ const sig = readFileSync(new URL('../../.github/workflows/review-signal.yml', import.meta.url), 'utf8').replace(/^\s*#.*$/gm, '')
+  assert.match(sig, /pull_request_review:\s*\n\s*types: \[submitted, edited, dismissed\]/, '승인 제출·수정·취소 모두 신호')
+  assert.match(sig, /permissions: \{\}/, '신호 워크플로는 권한 없음'); assert.ok(!/checkout|secrets\.|id-token|GITHUB_TOKEN/.test(sig), '신호 워크플로는 코드 받기·비밀값·토큰 없음')
+  const name = readFileSync(new URL('../../.github/workflows/review-signal.yml', import.meta.url), 'utf8').match(/^name: (.+)$/m)[1].trim()
+  const live = yml.replace(/^\s*#.*$/gm, '')
+  assert.ok(live.includes(`workflows: ['${name}']`), 'approval-checks가 신호 워크플로 이름으로 workflow_run 대기'); assert.match(live, /workflow_run:[\s\S]*types: \[completed\]/)
+  assert.ok(!/pull_request_review/.test(live), 'approval-checks.yml 자체에는 pull_request_review 없음(master 사본만 도는 트리거)') }
+console.log('approval-checks 승인 취소 신호 시험 통과')

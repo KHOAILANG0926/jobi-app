@@ -31,6 +31,8 @@ const cli = (reviews, author) => spawnSync('node', [join(ROOT, 'scripts/decision
 assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), 'viecganban-bot'), 0, '150건 중 마지막에 지금 커밋 승인 → 병합 가능')
 assert.equal(cli(many({ state: 'CHANGES_REQUESTED', commit_id: head }), 'viecganban-bot'), 3, '마지막이 변경 요청 → 막힘')
 assert.equal(cli(many({ state: 'APPROVED', commit_id: old }), 'viecganban-bot'), 3, '마지막 승인이 옛 커밋 → 막힘')
+assert.equal(cli(many({ state: 'DISMISSED', commit_id: head }), 'viecganban-bot'), 3, 'S4: 승인 취소(DISMISSED)가 마지막 결정이면 막힘')
+assert.equal(cli([...many({ state: 'APPROVED', commit_id: head }), { user: { login: LEE }, state: 'DISMISSED', commit_id: head, submitted_at: t(300) }], 'viecganban-bot'), 3, 'S4: 승인 뒤 승인 취소 → 병합 직전 재확인에서 막힘')
 // ② 자기 승인 — 실제 CLI 인자로
 assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), LEE), 3, 'PR 작성자가 Lee 계정이면 Lee 승인 무효')
 assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), ''), 3, '작성자를 모르면(빈 값) 승인 없음')
@@ -49,7 +51,14 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
   // S4 ①: 순서 = 필수 검사 → 독립 검토 → Lee 승인 판정·요청 → 병합(검증이 덜 된 PR에 승인을 요청하지 않음)
   const at = (re) => { const m = yml.search(re); assert.ok(m >= 0, String(re)); return m }
   const checksAt = at(/required-checks-pass\.jq/), reviewAt = at(/node scripts\/codex-review-gate\.mjs /), approvalAt = at(/node scripts\/decision-approval-gate\.mjs /), mergeAt = at(/pulls\/\$num\/merge"/)
-  assert.ok(checksAt < reviewAt && reviewAt < approvalAt && approvalAt < mergeAt, '필수 검사 → 독립 검토 → Lee 승인 → 병합 순서') }
+  assert.ok(checksAt < reviewAt && reviewAt < approvalAt && approvalAt < mergeAt, '필수 검사 → 독립 검토 → Lee 승인 → 병합 순서')
+  // S4 병합 직전 실시간 승인 재검증: 병합 API 호출 바로 앞에서 리뷰·댓글·라벨·본문을 다시 받아 같은 판정기를 한 번 더 부른다
+  const gateCalls = [...yml.matchAll(/node scripts\/decision-approval-gate\.mjs files\.json reviews\.json comments\.json "\$sha" labels\.json deps\.json "\$author" pr-body\.txt "\$REPO"/g)].map((m) => m.index)
+  assert.equal(gateCalls.length, 2, '승인 판정기 호출 2번(첫 판정 + 병합 직전)')
+  const titleAt = yml.search(/title=\$\(gh api/)
+  assert.ok(titleAt < gateCalls[1] && gateCalls[1] < mergeAt, '두 번째 판정은 병합 API 바로 앞')
+  assert.match(yml.slice(gateCalls[1] - 900, gateCalls[1]), /reviews\?per_page=100" --paginate --slurp \| jq 'add \/\/ \[\]' > reviews\.json/, '병합 직전에 리뷰를 다시 받음')
+  assert.match(yml.slice(gateCalls[1], gateCalls[1] + 400), /병합 중단"; continue/, '막히면 병합 안 함') }
 
 // ① 정책 검사(check-repository-policy) 실제 실행 — 가짜 gh가 리뷰 150건을 두 쪽(100+50)으로 돌려줌(--paginate --slurp 모양)
 {
