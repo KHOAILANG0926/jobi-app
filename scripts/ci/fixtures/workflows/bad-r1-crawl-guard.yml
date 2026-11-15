@@ -1,0 +1,12 @@
+# 악성 PR 흉내(옛 crawl-guard): DB 열쇠 잡이 PR 브랜치를 펼치고 npm ci·시험을 돌림 → R1
+on: schedule
+permissions: { contents: read }
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    env: { SUPABASE_DB_URL: "${{ secrets.SUPABASE_DB_URL }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git fetch -q origin "$ref" && git checkout -q -B check "origin/$ref"
+          npm ci && npm test

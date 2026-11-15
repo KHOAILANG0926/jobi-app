@@ -25,7 +25,8 @@ assert.equal(codexGate({ ...base, comments: [asked, fbr(2), { user: claude, body
 assert.equal(codexGate({ ...base, comments: [asked, fbr(0, stranger)], now: at(WAIT_MIN + 7) }).ok, false, 'fallback result from other account ignored')
 assert.equal(codexGate({ ...base, comments: [asked, fbr(0, claude, 'old')], now: at(WAIT_MIN + 7) }).ok, false, 'fallback result for another commit ignored')
 assert.equal(codexGate({ ...base, comments: [{ ...asked, user: stranger }], now: at(WAIT_MIN + 5) }).needFallback, true, 'request marker from non-bot account ignored')
-assert.equal(codexGate({ ...base, comments: [asked], now: lateNow }).ok, true, 'fallback timed out, ordinary files → proceed on existing checks')
+assert.equal(codexGate({ ...base, comments: [asked], now: lateNow }).ok, false, 'S3-2: fallback timed out → never merge without review (ordinary files too)')
+assert.equal(codexGate({ ...base, comments: [asked], now: lateNow }).needFallback, true, 'S3-2: fallback timed out → ask reviewer again')
 assert.equal(codexGate({ ...base, reviews: [{ user: codex, commit_id: 'old', submitted_at: '2026-11-08T15:00:00Z' }], now: at(5) }).ok, false, 'review on older commit does not count')
 const rv = [{ user: codex, commit_id: sha, submitted_at: '2026-11-08T16:10:00Z' }]
 assert.equal(codexGate({ ...base, reviews: rv, now: at(11) }).ok, true, 'Codex reviewed, no findings → proceed')
@@ -48,7 +49,8 @@ assert.equal(codexGate({ ...base, comments: [summary(sha, true)], now: at(11) })
 assert.equal(codexGate({ ...base, comments: [summary(sha, false)], now: at(11) }).ok, true, 'summary completed without findings → proceed (no review object needed)')
 assert.equal(codexGate({ ...base, comments: [summary(sha, false, 'running')], now: at(5) }).ok, false, 'summary still running → wait')
 assert.equal(codexGate({ ...base, comments: [summary('other', false)], now: at(5) }).ok, false, 'summary for older commit → wait')
-assert.equal(codexGate({ ...base, comments: [summary(sha, true), { user: { login: 'KHOAILANG0926' }, body: `${REPLY_MARKER}\n근거`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude session reply (Lee account) accepted')
+assert.equal(codexGate({ ...base, comments: [summary(sha, true), { user: { login: 'viecganban-bot' }, body: `${REPLY_MARKER}\n근거`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, true, 'Claude session reply (work account viecganban-bot) accepted')
+assert.equal(codexGate({ ...base, comments: [summary(sha, true), { user: { login: 'KHOAILANG0926' }, body: `${REPLY_MARKER}\n근거`, created_at: '2026-11-08T16:20:00Z' }], now: at(21) }).ok, false, 'S3-2: reply marker on Lee account no longer counts as Claude reply')
 // Codex #566 지적: 요약만 있는 지적에 예전 답(요약 갱신 전)을 재사용하지 않는다
 assert.equal(codexGate({ ...base, comments: [{ user: claude, body: `${REPLY_MARKER}\n예전 커밋 답`, created_at: '2026-11-08T16:10:00Z' }, summary(sha, true)], now: at(30) }).ok, false, 'old reply before summary update does not count')
 // Codex #566 지적: 이름에 codex가 든 가짜 계정의 '통과' 요약은 무시(진짜 미해결 요약을 덮지 못함)
@@ -61,7 +63,8 @@ assert.equal(codexGate({ ...base, comments: [summary(sha, false)], reviewComment
 // Lee 2026-11-09: 예전 커밋 지적에 답 없이 새 커밋만 올리고 Codex가 안 오면 30분으로 넘어가지 않는다
 const oldLine = [{ user: codex, commit_id: 'old', original_commit_id: 'old', created_at: '2026-11-08T15:30:00Z' }]
 assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [asked], now: lateNow }).ok, false, 'earlier finding without reply blocks the timeout pass')
-assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [{ user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:40:00Z' }, asked], now: lateNow }).ok, true, 'earlier finding answered → timeout pass allowed')
+assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [{ user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:40:00Z' }, asked], now: lateNow }).ok, false, 'S3-2: earlier finding answered but no review of this commit → still no merge')
+assert.equal(codexGate({ ...base, reviewComments: oldLine, comments: [{ user: claude, body: REPLY_MARKER, created_at: '2026-11-08T15:40:00Z' }, asked, fbr(0)], now: lateNow }).ok, true, 'earlier finding answered + fallback review of this commit → proceed')
 assert.equal(codexGate({ ...base, comments: [summary('old', true)], now: at(WAIT_MIN + 5) }).ok, false, 'older-commit summary with unresolved findings and no reply blocks')
 assert.equal(codexGate({ ...base, reviews: [{ user: codex, commit_id: 'old', state: 'CHANGES_REQUESTED', submitted_at: '2026-11-08T15:30:00Z' }], now: at(WAIT_MIN + 5) }).ok, false, 'older CHANGES_REQUESTED without reply blocks')
 // Lee 2026-11-11: Codex는 의견 — 운영·보안·DB 파일도 Lee 확인으로 넘기지 않고 Claude 검토관을 다시 부른다. 3번 다 결과 없으면 장치 고장.
@@ -74,7 +77,9 @@ const tries = Array.from({ length: FALLBACK_MAX_TRIES }, (_, i) => ({ ...asked, 
 const broken = codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: tries, now: at(WAIT_MIN + FALLBACK_MAX_TRIES * (FALLBACK_WAIT_MIN + 1)) })
 assert.equal(broken.ok, false, 'reviewer failed every try → risky PR held'); assert.equal(broken.reviewerBroken, true, 'reviewer failed every try → reported as broken')
 assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [...tries, fbr(0)], now: at(200) }).ok, true, 'reviewer finally passes after retries → proceed')
-assert.equal(codexGate({ ...base, files: ['src/pages/PostJob.tsx', 'scripts/ops/jobs/fb-x.json'], comments: [asked], now: lateNow }).ok, true, 'ordinary files without Codex or fallback → proceed after wait')
+assert.equal(codexGate({ ...base, files: ['src/pages/PostJob.tsx', 'scripts/ops/jobs/fb-x.json'], comments: [asked], now: lateNow }).ok, false, 'S3-2: ordinary files without Codex or fallback → not merged')
+const ordinaryBroken = codexGate({ ...base, files: ['src/pages/PostJob.tsx'], comments: tries, now: at(WAIT_MIN + FALLBACK_MAX_TRIES * (FALLBACK_WAIT_MIN + 1)) })
+assert.equal(ordinaryBroken.reviewerBroken, true, 'S3-2 결정 7①: ordinary PR held after reviewer fails every try')
 assert.equal(codexGate({ ...base, files: ['supabase/migrations/x.sql'], comments: [summary(sha, false)], now: at(11) }).ok, true, 'risky file with finding-free Codex review → proceed')
 // Codex #677 P1: 검토관 지적은 새 커밋·Codex 통과로 사라지지 않는다
 const oldFb = { ...fbr(2, claude, 'old0000'), created_at: '2026-11-08T15:50:00Z' }

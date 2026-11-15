@@ -24,6 +24,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   reprocess:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:

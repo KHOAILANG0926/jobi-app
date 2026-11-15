@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   apply-and-check:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

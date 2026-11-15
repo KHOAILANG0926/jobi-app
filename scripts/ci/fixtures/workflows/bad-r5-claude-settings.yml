@@ -1,0 +1,12 @@
+# PR 코드 위에서 Claude: PR 쪽 hook 설정을 그대로 읽고(R5), 파일을 읽어 내보낼 수 있는 명령 허용(R3)
+on: issue_comment
+permissions: { contents: write, id-token: write }
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ steps.guard.outputs.head_ref }}", persist-credentials: false }
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_args: '--allowedTools "Read,Bash(gh pr comment:*),Bash(git diff:*)"'

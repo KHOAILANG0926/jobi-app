@@ -42,6 +42,8 @@ env:
 
 jobs:
   deploy:
+    # S4: master 배포는 운영 열쇠 환경(ops-keys, master만). demo/** 는 Vercel 열쇠 하나만 든 demo-deploy 환경(데모 브랜치 코드를 빌드하므로 운영 DB 열쇠는 주지 않음).
+    environment: ${{ github.ref == 'refs/heads/master' && 'ops-keys' || 'demo-deploy' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
