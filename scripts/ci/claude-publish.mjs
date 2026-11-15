@@ -86,6 +86,16 @@ export function mentionFinding(t) {
   return m ? `@계정 모양 ${m[0]}` : ''
 }
 
+// 초안 글의 HTML 주석은 거절하지 않고 지운 뒤 검사·게시한다(12회 지적 — PR 양식·코드 예시의 안내 주석 때문에 PR·답·검토가 멈추지 않게, 숨은 표시도 남지 않음).
+//   PR 설명·이슈 본문은 전체, 답·검토 글은 첫 줄(정해진 표시)을 빼고. 닫히지 않은 '<!--'는 남아 markerFinding이 거절한다.
+export const stripComments = (t) => String(t ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim()
+export function cleanDraft(mode, t) {
+  if (t === null || t === undefined) return t
+  if (mode === 'pr') return stripComments(t)
+  const [first, ...rest] = String(t).replace(/\r\n/g, '\n').split('\n')
+  return [first, stripComments(rest.join('\n'))].filter((x, i) => i === 0 || x).join('\n')
+}
+
 // 표시 위조 검사 하나(11회 지적 2 — 표시 이름 목록 대신): Claude 초안에는 HTML 주석 '<!--'(답·검토·승인 요청 등 모든 표시)과
 // 봇 검증 줄 이름(PR 설명 표의 '봇 수정 뒤 …' — check-pr-ready가 증거로 읽음)을 쓸 수 없다. 답 글의 첫 줄 표시는 checkText가 따로 정한다.
 export function markerFinding(t) {
@@ -106,11 +116,12 @@ export function checkIssues(raw, known = []) {
     const title = it.title.replace(/\s+/g, ' ').trim()
     if (!title || title.length > LIMITS.issueTitle) return { error: '이슈 제목 길이 오류', items: [] }
     if (it.body.length > LIMITS.issueBody) return { error: '이슈 본문이 너무 김', items: [] }
-    if (mentionFinding(title + '\n' + it.body)) return { error: `이슈에 @언급 금지: ${mentionFinding(title + '\n' + it.body)}`, items: [] }
-    if (markerFinding(title + '\n' + it.body)) return { error: `이슈 초안: ${markerFinding(title + '\n' + it.body)}`, items: [] }
-    const sec = secretFinding(title + '\n' + it.body, known)
+    const body = stripComments(it.body)
+    if (mentionFinding(title + '\n' + body)) return { error: `이슈에 @언급 금지: ${mentionFinding(title + '\n' + body)}`, items: [] }
+    if (markerFinding(title + '\n' + body)) return { error: `이슈 초안: ${markerFinding(title + '\n' + body)}`, items: [] }
+    const sec = secretFinding(title + '\n' + body, known)
     if (sec) return { error: `이슈에 비밀값 의심: ${sec}`, items: [] }
-    items.push({ title, body: it.body, label: it.label })
+    items.push({ title, body, label: it.label })
   }
   return { error: '', items }
 }
@@ -138,9 +149,6 @@ export function checkPatchSummary({ numstat, summary, bytes, patchText, known = 
   return sec ? `patch에 비밀값 의심: ${sec}` : ''
 }
 
-// PR 설명은 저장소 양식(.github/pull_request_template.md, 안내용 HTML 주석 포함)을 따르므로 거절하지 않고 HTML 주석을 지운 뒤 검사·게시한다(숨은 표시가 남지 않음).
-//   닫히지 않은 '<!--'는 지운 뒤에도 남아 markerFinding이 거절한다.
-export const prBody = (body) => String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim()
 export function checkPrText(title, body, known = []) {
   const t = String(title ?? '').trim(), b = String(body ?? '').trim()
   if (!t || t.length > LIMITS.issueTitle || /[\r\n]/.test(t)) return 'PR 제목은 한 줄 120자 이내'
@@ -231,10 +239,10 @@ export async function main(argv) {
   if (a.mode !== 'issue' && !/^[0-9a-f]{40}$/.test(a.headSha ?? '')) throw new Error('--head-sha 형식 오류')
   const known = String(process.env.KNOWN_SECRETS ?? '').split('\n').map((s) => s.trim()).filter(Boolean)
   const textName = a.mode === 'review' ? 'review.md' : a.mode === 'pr' ? 'pr.md' : 'reply.md'
-  const text = readDraft(a.out, textName)
+  const text = cleanDraft(a.mode, readDraft(a.out, textName))
   const problems = []
   if (text === null) problems.push(`${textName} 없음`)
-  else if (a.mode === 'pr') { const e = checkPrText((readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0], prBody(text), known); if (e) problems.push(e) }
+  else if (a.mode === 'pr') { const e = checkPrText((readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0], text, known); if (e) problems.push(e) }
   else { const e = checkText(a.mode, text, { headSha: a.headSha, known }); if (e) problems.push(`${textName}: ${e}`) }
   let issues = []
   let patch = null, meta = null
@@ -276,7 +284,7 @@ export async function main(argv) {
     let pushed = ''
     if (a.mode === 'pr') {
       pushed = commitAndPush(a, token, meta.message)
-      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: prBody(text), draft: false })
+      const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text, draft: false })
       console.log(`PR 만듦: #${pr.number}`)
       return { ok: true, problems: [], pushed, pr: pr.number }
     }
