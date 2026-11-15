@@ -23,7 +23,7 @@
 | 협업자 목록·초대 | — | [Lee 확인 필요] 403 |
 | Actions 토큰 기본 권한, "Actions가 PR을 만들고 승인" 허용 여부 | — | [Lee 확인 필요] 403 |
 | 설치된 GitHub 앱(Claude 앱 등)의 권한, 특히 Workflows 쓰기 | — | [Lee 확인 필요] 401 |
-| 저장소 비밀값 실제 목록·Environment | 워크플로가 쓰는 이름 20개 | [직접 확인] grep. 실제 목록은 403 |
+| 저장소 비밀값 실제 목록·Environment | 워크플로가 쓰는 이름 19개(GITHUB_TOKEN 제외) | [직접 확인] grep. 실제 목록은 403 |
 
 GitHub 기능 확인 [문서]:
 - Ruleset은 **공개 저장소에서 GitHub Free로 사용 가능**. (docs: Available rules for rulesets)
@@ -44,10 +44,13 @@ S2의 P1~P13에 더해, 이번 확인으로 아래가 실제 가능한 상태다
 | Q2 | **브랜치에서 `workflow_dispatch` 실행** | 수동 실행 워크플로는 고른 브랜치의 워크플로 파일·코드로 돈다. 작업 계정은 워크플로 파일도 바꿀 수 있다(1절). 예: `ops-run-sql.yml`의 `if: github.ref == master && actor == Lee` 검사도 브랜치 사본에서 지울 수 있다 | 운영 DB 비밀값(`SUPABASE_DB_URL`을 쓰는 워크플로 23개)으로 **임의 SQL** — CLAUDE.md "운영 DB 직접 접근 금지"를 GitHub가 못 막음 |
 | Q3 | 브랜치 push 워크플로 | 새 워크플로 파일을 브랜치에 넣으면 그 브랜치 push로 돈다(S2 P9). 저장소 비밀값이 모두 그 잡에 열려 있음 | 비밀값 전부 노출 가능 |
 | Q4 | **Lee 열쇠로 Lee 승인 위조** | `CODEX_TRIGGER_TOKEN`(Lee 계정, PR 쓰기)·`GH_SECRETS_TOKEN`(Lee 계정, 비밀값 쓰기)이 저장소 비밀값 → Q2·Q3로 읽을 수 있다. PR 쓰기 권한이면 Lee 이름으로 **Approve 리뷰** 가능 | 코드 소유자 리뷰를 켜도 무력화. 비밀값 쓰기 열쇠는 보안 설정 자체를 바꿀 수 있음 |
-| Q5 | 필수 검사 위조 | 필수 검사 이름(checks 등)은 "GitHub Actions" 앱이 보낸 결과면 통과로 본다. 아무 브랜치의 워크플로 잡이 `checks: write`로 PR 커밋에 같은 이름 결과를 붙일 수 있다(현재 쓰기 권한 선언 0개지만, 저장소 기본 토큰 권한이 '쓰기'면 선언 없는 잡도 가능 — `crawl.yml`은 권한 선언 없음 [직접 확인]) | 검사 미실행으로도 초록 |
+| Q5 | 필수 검사 위조 | 필수 검사 이름(checks 등)은 "GitHub Actions" 앱이 보낸 결과면 통과로 본다. 아무 브랜치의 워크플로 잡이 `checks: write`로 PR 커밋에 같은 이름 결과를 붙일 수 있다(현재 쓰기 권한 선언 0개지만, 저장소 기본 토큰 권한이 '쓰기'면 선언 없는 잡도 가능 — `crawl.yml`은 권한 선언 없음 [직접 확인]) | 검사 미실행으로도 초록. `checks: write` 없어도 브랜치 push 워크플로에 `checks`라는 잡 이름만 두면 같은 이름 결과가 붙음 |
+| Q7 | **비밀값 있는 잡이 PR 코드를 실행** | `crawl-guard.yml:34` 잡 전체에 `SUPABASE_DB_URL`, `:104-107` 제목에 `[자동수리]`만 있으면 누가 연 PR이든 체크아웃 후 `npm ci && npm test && npm run build`. `claude-auto.yml:180-185` Lee 열쇠(`EDIT_TOKEN`)를 env에 둔 단계가 PR 코드의 `npm test` 실행, `:123` 체크아웃은 쓰기 토큰을 .git에 남김 [직접 확인, 독립 검토가 찾음] | **지금도** PR 코드가 운영 DB 열쇠·Lee 열쇠를 읽을 수 있음. schedule·issue_comment는 master 기준이라 L2 뒤에도 남음 |
+| Q8 | **migration 자동 적용** | `migrations-apply.yml`은 master push면 운영 DB에 적용. 승인 목록 검사는 drop·truncate·delete 같은 파괴 문장만 [검토 인용 `bot-pr-automerge.yml:91`] | RLS 끄기·anon 권한·security definer 함수·대량 update가 일반 PR로 운영 DB에 들어감 |
+| Q9 | artifact 바꿔치기 | `crawl-facebook-one.yml:121-127` save 모드는 입력받은 아무 `run-id`의 artifact를 받아 운영 DB에 저장 [직접 확인]. `facebook-preview-read`·`korea-fb-survey-read`도 같은 구조 [검토 인용] | 브랜치 워크플로가 만든 가짜 결과가 master 실행으로 등록 |
 | Q6 | claude[bot] 경로 | claude-auto의 Claude에 `Bash(gh api:*)`·`git push` 허용 [직접 확인 claude-auto.yml:147]. Claude 앱 토큰 권한이 넓으면 Q1·Q3를 앱 이름으로 할 수 있음 | 앱 권한 [Lee 확인 필요] |
 
-**결론: Ruleset만 켜서는 목표를 못 이룬다.** Q2~Q5가 남아 있으면 AI가 Lee 승인·필수 검사를 만들어 낼 수 있다. 아래 5층을 함께 해야 한다.
+**결론: Ruleset만 켜서는 목표를 못 이룬다.** Q2~Q5가 남아 있으면 AI가 Lee 승인·필수 검사를 만들어 낼 수 있다. 아래 층을 함께 해야 한다(독립 검토 반영: Q7~Q9 추가, L2-1 신설).
 
 ## 3. 설계 — 5층
 
@@ -75,6 +78,12 @@ S2의 P1~P13에 더해, 이번 확인으로 아래가 실제 가능한 상태다
 - 그러면 작업 계정이 병합 버튼을 직접 눌러도 `merge-gate`가 초록일 때만 됨 = 자동 병합과 같은 결과. **"AI 임의 병합 차단"은 병합 권한을 뺏는 대신 '판정 통과 없이 병합 불가'로 이룬다.** (병합 권한 자체를 특정 앱에만 주는 'Restrict updates + 앱 우회'는 그 앱이 **모든 규칙을 우회**하게 돼 더 약하다 → 쓰지 않음.)
 - 병합 실행: 저장소 자동 병합 켜기 + `merge-gate`가 통과 시 자동 병합 요청. 커스텀 병합 봇·crawl-guard 직접 병합 제거(S3 P2·P3 그대로).
 
+### L2-1. 비밀값 있는 잡은 PR 코드를 실행하지 않는다 (Q7·Q9)
+- `crawl-guard` ⑤: PR 체크아웃·`npm` 실행 부분 삭제. `[자동수리]` PR 검사는 일반 필수 검사(pr-checks)가 맡는다. S3 #814도 같이 고침(#814는 직접 병합만 뺐고 코드 실행은 남아 있음).
+- `claude-auto` codex-response: PR 코드를 실행하는 잡에는 Claude 구독 열쇠만(환경 `claude-run`), DB 열쇠·Lee 열쇠 없음, 체크아웃 `persist-credentials: false`. 검증 줄을 쓰는 단계는 PR 코드를 실행하지 않고 pr-checks 결과를 읽는다.
+- artifact를 받는 운영 작업 3개: 받기 전에 그 실행의 워크플로 파일·`head_branch=master`·이벤트를 API로 확인, 아니면 중단.
+- 공통 규칙: **환경 비밀값을 받는 잡에서 PR·브랜치 코드 체크아웃 금지** — `scripts/ci/`에 워크플로 검사 추가(`environment:` 있는 잡에 다른 ref 체크아웃이 있으면 실패).
+
 ### L4. Ruleset (master)
 ```
 대상: 기본 브랜치(master) / 적용: Active / 우회 허용: 없음(관리자 포함)
@@ -84,19 +93,22 @@ S2의 P1~P13에 더해, 이번 확인으로 아래가 실제 가능한 상태다
 ```
 - 기존 브랜치 보호는 Ruleset 작동 확인 뒤 정리(둘 다 있으면 둘 다 적용됨 [문서]).
 - Lee 본인도 우회 없음. 급할 때는 Lee가 Ruleset을 잠시 끄는 것(관리자 조작, 기록 남음).
+- Lee가 직접 push한 고위험 PR은 Lee 혼자로는 승인 못 함(마지막 push한 사람 외 승인 + 소유자 Lee 1명). Lee는 커밋하지 않는 운영이라 해당 없음 [추정] — 필요하면 그때만 Ruleset 잠시 끄기.
 - 평가 모드(Evaluate)는 Enterprise 전용으로 알려져 있음 [추정] → 바로 Active, 대신 L5 시험으로 확인.
 
 ### L5. CODEOWNERS = 고위험 경로 (대표님 승인 강제)
 CODEOWNERS는 **기준 브랜치(master) 파일**이 적용되므로 PR이 자기 소유자 줄을 지워도 그 PR엔 효과 없음 [문서: About code owners].
 
-| 확정(검사 약화·권한) | Lee 결정 필요 |
+| 확정(검사 약화·권한·운영 DB) | Lee 결정 필요 |
 |---|---|
-| `/.github/` 전체(워크플로·CODEOWNERS) | `/supabase/migrations/` — CLAUDE.md는 "DB 구조 변경=Lee 한마디(STRICT)"인데, 데이터 고치기 migration도 같은 폴더라 **모두 Lee 승인**이 됨 |
-| `/scripts/ci/`, `/scripts/status/` | `package.json`·`package-lock.json` — 의존성 변경은 열쇠 있는 master 잡에서 실행됨(공급망 위험). 다만 잦음 |
-| `/scripts/check-*.mjs`, `/scripts/*-gate.mjs`, `/scripts/approved-migrations.mjs`(S3 #815의 `GATE_CODE`와 같은 목록) | `/scripts/ops/` — 운영 작업 스크립트(L2 `ops-lee` 승인으로 이미 실행 시점에 막힘) |
-| `/AGENTS.md`, `/CLAUDE.md`, `/.claude/RULES_CORE.md` | 화면 틀(승인된 KDA·상세 구성) 관련 파일 |
-| `/docs/decisions/` (기존) | `vercel.json`, `api/` 인증 부분 |
+| `/.github/` 전체(워크플로·CODEOWNERS) | `package.json`·`package-lock.json`의 의존성 변경 — 열쇠 있는 master 잡에서 실행됨(공급망 위험). 다만 잦음 (`scripts` 칸 변경은 왼쪽 아래 판정 코드가 항상 고위험으로 봄) |
+| `/scripts/ci/`, `/scripts/status/` | `/scripts/ops/` 나머지 — 운영 작업 스크립트 |
+| `/scripts/check-*.mjs`, `/scripts/*-gate.mjs`, `/scripts/approved-migrations.mjs`(S3 #815의 `GATE_CODE`와 같은 목록) | 화면 틀(승인된 KDA·상세 구성) 관련 파일 |
+| `/AGENTS.md`, `/CLAUDE.md`, `/.claude/RULES_CORE.md`, `/docs/decisions/`(기존) | `vercel.json`, `api/` 인증 부분 |
+| `/supabase/migrations/` — **문장 분류기가 생기기 전까지 전부**(Q8: 지금 승인 목록은 파괴 문장만 봄). 분류기 뒤에는 데이터 고치기(허용 문장)만 자동, 권한·RLS·함수·역할·구조 변경은 Lee. CLAUDE.md "DB 구조 변경=STRICT"와 같은 방향 | 분류기 허용 문장 범위 |
+| `/scripts/ops/jobs/` — 운영 SQL은 PR 단계에서 내용을 보고 승인(실행 시점 `ops-lee` 승인 화면엔 SQL이 안 보여 판단 불가) | — |
 
+- 경로로 못 가르는 검사 약화: `package.json`의 `scripts` 변경, 시험 파일 삭제·축소, vitest 설정 변경 → `merge-gate`(기준 커밋 사본)가 고위험 = Lee Approve 필요. pr-checks는 PR 쪽 package.json으로 돌아 `"test": "exit 0"`을 못 막기 때문.
 - 화면 모양 변경처럼 **경로로 못 가르는 고위험**은 기존 `decision-approval-gate`(Lee Approve 리뷰만 인정, #815)가 `merge-gate` 안에서 계속 판정. 경로로 가를 수 있는 것은 GitHub 코드 소유자 규칙이 맡고, 나머지는 판정 코드가 맡는다.
 - #815의 `GATE_CODE` 목록과 CODEOWNERS를 **한 목록에서 생성**(덧대기 금지, 우선 원칙 8): `scripts/ci/`에 생성기 + 불일치 검사.
 
@@ -108,12 +120,17 @@ CODEOWNERS는 **기준 브랜치(master) 파일**이 적용되므로 PR이 자�
 1. **Claude 앱·작업 계정 열쇠가 워크플로 파일을 바꿀 수 있음**: GitHub에 비공개 저장소용 경로 차단이 없어 막을 수 없다. 대신 L2(비밀값 없음)·L3(앱 판정)·L5(.github 소유자)로 **바꿔도 해가 없게** 한다.
 2. **판정 통과한 일반 PR**은 AI가 병합할 수 있다 — 이건 의도(일반 PR 자동 병합).
 3. 일반 경로 파일에 숨긴 위험 코드(예: 화면 코드에 숨긴 데이터 유출)는 GitHub 규칙이 아니라 독립 검토(Codex·Claude 검토관)만 잡는다.
-4. Vercel 토큰은 계정 전체 권한일 수 있음 [추정] → `preview` 환경 잡이 master 정의로만 돌게 하는 것이 최선. Vercel에 범위 제한 토큰이 있으면 그걸로 [Lee 확인 필요].
-5. Lee 승인은 휴대폰 GitHub 앱 Approve 1번이 필요(고위험만). Lee가 없으면 그 PR만 대기.
+4. 데모 `--prebuilt` 결과물 안의 서버 함수(`api/`)는 Vercel Preview 환경변수를 받고 실행됨 → Preview 환경변수에 운영 서비스 키가 없어야 함 [Lee 확인 필요]. 있으면 데모는 정적 화면만 올림.
+5. Vercel 토큰은 계정 전체 권한일 수 있음 [추정] → `preview` 환경 잡이 master 정의로만 돌게 하는 것이 최선. Vercel에 범위 제한 토큰이 있으면 그걸로 [Lee 확인 필요].
+6. Lee 승인은 휴대폰 GitHub 앱 Approve 1번이 필요(고위험만). Lee가 없으면 그 PR만 대기.
+
+## 5-1. 독립 검토
+- 2026-11-15 별도 Claude 세션(읽기 전용)이 검토: 높음 3, 중간 4, 낮음 2. 9건 모두 원본 줄로 다시 확인해 반영(crawl-guard·claude-auto·crawl-facebook-one 해당 줄 [직접 확인]). 문서 인용 줄 번호·개수는 검토자가 맞다고 확인.
+- 검토자 결론: 높음 3건을 넣기 전에는 목표 미달 → 이번 판에 L2-1·L5로 넣음.
 
 ## 6. S3 PR에 미치는 영향
 - #811·#812·#814·#815는 모두 `.github/` 또는 판정 코드를 바꿈 → L5 이후에는 **각각 Lee Approve가 필요**(의도된 동작).
-- 권장 순서: ① L1(Lee 열쇠 삭제 — 지금 가능) → ② Lee 화면 확인(7절) → ③ S3 PR들을 Lee Approve로 병합 → ④ L2 → ⑤ L3 → ⑥ L4·L5 켜기 → ⑦ 시험.
+- 권장 순서: ① L1(Lee 열쇠 삭제 — **지금 바로**: Q7로 PR 코드가 이미 Lee 열쇠를 읽을 수 있는 상태) → ② Lee 화면 확인(7절) → ③ S3 PR들을 Lee Approve로 병합 → ④ L2 → ⑤ L3 → ⑥ L4·L5 켜기 → ⑦ 시험.
 - S2의 "S4 = 비밀값 이동"은 이 문서의 L2로 포함. S3의 `merge-gate`(GitHub Actions 결과)는 L3에서 앱 결과로 바꿈 — S3 구현을 버리지 않고 결과를 붙이는 주체만 바뀐다.
 
 ## 7. Lee만 할 수 있는 조작 (AI가 대신 안 함)
@@ -123,6 +140,7 @@ CODEOWNERS는 **기준 브랜치(master) 파일**이 적용되므로 PR이 자�
 4. GitHub 앱 jobi-merge-gate 만들기·설치·개인 키를 환경 `merge-gate`에(AI가 단계 안내문 준비).
 5. Ruleset 만들기(AI가 가져오기용 JSON 준비) + 저장소 자동 병합 켜기.
 6. 3절 L5 오른쪽 열 결정.
+7. Vercel Preview 환경변수에 운영 서비스 키(Supabase service role 등)가 있는지 확인.
 
 ## 8. 완료 확인 시험 (켠 뒤, 실제 실행 증거로)
 | 시험 | 기대 |
