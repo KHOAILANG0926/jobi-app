@@ -198,3 +198,21 @@ CODEOWNERS는 **기준 브랜치(master) 파일**이 적용되므로 PR이 자�
 - [추정] claude-task 잡(수동 지시 실행)은 기본 브랜치 위에서 Claude가 쓴 코드를 열쇠 있는 컴퓨터에서 실행한다 — 같은 상자 방식으로 옮길 후속.
 - [추정] 상자 이미지 버전 고정(digest) 없음, 설치 단계 네트워크로 러너 내부 주소 접근 가능.
 - [추정] claude-code-action이 `persist-credentials:false`·`--setting-sources user`에서 정상 push·답글 하는지는 병합 뒤 실제 지적 1건으로 확인 필요.
+
+## 10. 3차 방법 변경(Lee 2026-11-15 승인 "Claude는 파일만, 토큰은 신뢰된 별도 단계") — 구현 #822
+
+### 10-1. 구조
+| Claude 잡(비신뢰 입력을 읽음) | 권한 | 게시 잡(기준 사본만 실행) |
+|---|---|---|
+| codex-response (PR 코드 + Codex 지적) | contents/issues/PRs **읽기만**, id-token 없음, `github_token`=읽기 전용 토큰 | codex-publish → patch 반영·push·답 댓글·이슈·검증 줄 |
+| fallback-review (PR 코드) | 같음 | review-publish → 검토 결과 댓글 |
+| issue-mention (누구나 쓰는 이슈 글) | 같음 | mention-publish → 답 댓글 |
+| occupation propose (수집한 공고 제목) | contents 읽기만, DB 열쇠는 앞 잡(report)에만 | publish → 새 브랜치·PR(허용 경로 두 파일) |
+- 게시 잡은 PR 코드를 실행하지 않는다(PR 사본은 `git apply` 대상 파일). `claude-publish.mjs`가 데이터 검증을 모두 통과한 뒤에만 claude[bot] 앱 토큰을 OIDC로 받고, 끝나면 폐기한다.
+- 검증: 비밀값(모양·실제 값·base64/hex/뒤집기), @언급, 표시 줄 위조, 금지 경로(GATE_CODE + Claude 설정 + git 동작 파일), 링크·하위 저장소, 허용 경로, Claude 잡이 상자 검사한 트리와 같은 트리, 커밋 메시지 한 줄. 상자 검사 실패면 커밋하지 않고 알림 댓글.
+- 앱 토큰 OIDC 교환은 '워크플로 파일이 master와 같을 때만' 발급된다(claude-code-action과 같은 규칙) → 브랜치·PR에서 바꾼 워크플로로는 토큰을 못 받는다.
+
+### 10-2. Environment(master 전용) 격리 — 적용 전제와 승인 구분
+- 이번 구조는 Environment 없이도 'Claude 잡에 쓰기 토큰·DB 키 없음'을 이룬다(권한 선언 + 잡 분리, GitHub이 강제 — token-drill로 실제 확인).
+- Environment가 막는 것은 다른 길이다: AI 계정이 **브랜치에 새 워크플로 파일**을 올려 저장소 공용 비밀값(DB 열쇠 등)을 받는 길(§2 Q2·Q3). 이 길은 이번 구현으로 닫히지 않는다.
+- Lee 설정 승인 필요(AI가 하지 않음): ① Environment `production`(배포 브랜치 master만) 만들고 비밀값 복사 ② `ops-lee`(승인자 Lee) ③ 저장소 공용 비밀값 삭제. AI 몫: 워크플로 잡에 `environment:` 추가 PR(①② 뒤).
