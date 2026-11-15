@@ -198,7 +198,7 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   const run = (files, o = {}) => rawDecisionApproval({ files, reviews: [], comments: [], sha: h, author: 'viecganban-bot', body: GOOD_BODY, repo, ...o })
   // 정상: 일반 코드 변경·문서·시험은 승인 없이 통과
   for (const f of [mk('src/lib/a.ts', '@@\n+const x = 1\n-const y = 2'), mk('crawler/x.py', '@@\n+print("hi")'), mk('docs/ops/a.md', '@@\n+DROP POLICY 설명 https://evil.example.net'),
-    mk('src/a.test.ts', '@@\n+exec("x")'), mk('crawler/test_a.py', '@@\n+subprocess.run(x)'), mk('src/a.fixtures.ts', '@@\n+url: "https://www.topcv.vn/x"'), mk('policy/a.json', '@@\n+"Authorization": "x"'),
+    mk('src/a.test.ts', '@@\n+exec("x")'), mk('scripts/test_a.py', '@@\n+subprocess.run(x)'), mk('src/a.fixtures.ts', '@@\n+url: "https://www.topcv.vn/x"'), mk('policy/a.json', '@@\n+"Authorization": "x"'),
     mk('src/a.ts', '@@\n+fetch("https://maps.vietmap.vn/api")'), mk('src/b.ts', undefined, { status: 'renamed', changes: 0 }), { filename: 'public/a.png', status: 'added' }]) {
     const r = run([f]); assert.equal(r.approved, true, `정상 통과: ${f.filename}`); assert.equal(r.risk, 'normal')
   }
@@ -240,6 +240,9 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   assert.equal(run([mk('src/e.ts', '@@\n+const u = "//evil.io/x.js"')]).approved, false, '//host 형태')
   assert.equal(run([mk('src/e.ts', '@@\n+// 설명 주석입니다 https://www.google.com/maps 참고')]).approved, true, '허용 주소 주석은 통과')
   assert.equal(run([mk('src/e.ts', '@@\n+const a = x // note\n+const b = "https://www.google.com:443/q"')]).approved, true, '주석 //·포트는 오탐 아님')
+  // 검토관 지적(2차): 운영에서 실행되는 api/·crawler/는 시험 이름·폴더여도 내용 검사
+  for (const f of ['api/test/x.mjs', 'api/x.test.mjs', 'api/fixtures/y.mjs', 'crawler/test_a.py', 'crawler/tests/b.py']) assert.equal(run([mk(f, '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, false, `배포 폴더는 시험 이름이어도 검사: ${f}`)
+  assert.equal(run([mk('src/a.test.ts', '@@\n+const k = process.env.SUPABASE_SERVICE_ROLE_KEY')]).approved, true, '배포 밖 시험 파일은 제외')
   // 4대 보고 형식
   const body = (o = {}) => ['## 고위험 4대 보고', `- 무엇을 바꾸나: ${o.what ?? '로그인 검사 줄을 추가'}`, `- 왜 필요한가: ${o.why ?? '관리자 기능 보호'}`, `- 승인 시 남는 위험: ${o.risk ?? '검사 우회 시 노출'}`, `- 미승인 시 영향: ${o.impact ?? '관리자 기능 보호 지연'}`, `- 검증: ${o.link ?? `https://github.com/${repo}/actions/runs/123`}`].join('\n')
   assert.equal(highRiskReport(body(), repo).ok, true, '갖춘 보고')

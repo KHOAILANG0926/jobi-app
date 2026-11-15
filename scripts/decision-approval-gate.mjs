@@ -125,8 +125,11 @@ export const NORMAL_PATH = (path) => [
 //    코드 파일인데 변경 내용(patch)을 받지 못했으면(큰 변경·잘림) 판단 불가 → 닫힌 실패. 문서·데이터·시험 파일은 내용 검사 대상이 아님(시험 약화는 ⑤가 봄).
 const CODE_EXT = /\.(?:[cm]?[jt]sx?|py|sql|sh|ya?ml)$/
 // 검토 지적: supabase/tests/*_production_check.sql은 시험이 아니라 migrations-apply가 운영 DB에서 실행하는 파일 → 내용 검사 대상. 로컬 전용(*.local.sql·*.setup.sql)만 제외.
-const CONTENT_SCAN = (path) => CODE_EXT.test(path) && (/^supabase\/tests\//.test(path) ? !/\.(?:local|setup)\.sql$/.test(path)
-  : !/(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^docs\/|^test-fixtures\//.test(path))
+// 검토 지적 2회: 운영에서 실행·배포되는 폴더(api/ = Vercel 함수, crawler/ = 수집기, supabase/tests/*_production_check.sql = 운영 DB 실행)는 파일 이름·하위 폴더(tests/·*.test.*)와 상관없이 항상 내용 검사.
+// 시험·fixture 제외는 그 밖 경로에서만 적용한다.
+const DEPLOYED = (path) => /^(?:api|crawler)\//.test(path)
+const CONTENT_SCAN = (path) => CODE_EXT.test(path) && !/^docs\//.test(path) && (DEPLOYED(path) || (/^supabase\/tests\//.test(path) ? !/\.(?:local|setup)\.sql$/.test(path)
+  : !/(^|\/)[^/]+\.test\.[cm]?[jt]sx?$|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.py$|\.fixtures?\.[^/]+$|(^|\/)(?:tests?|fixtures?)\/|^test-fixtures\//.test(path)))
 export const CONTENT_SIGNALS = [
   ['DB 권한·보안 설정', /\b(?:create|alter|drop)\s+(?:or\s+replace\s+)?(?:policy|role|user|extension)\b|row\s+level\s+security|\b(?:grant|revoke)\s+\w|security\s+definer|\bauth\.(?:users|uid\(|jwt\(|role\()|\bset\s+role\b|pgsodium|vault\./i],
   ['인증·비밀값', /service_role|SERVICE_ROLE|\bauth\.admin\b|\.auth\.admin\b|verify_jwt|jsonwebtoken|\bjwt\.(?:sign|verify)\b|\bAuthorization\b\s*[:=]|\bBearer\s+\$|process\.env\.[A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD)\b|os\.environ(?:\.get)?\W+["'][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD)\b|secrets\.[A-Z_]+|-----BEGIN [A-Z ]*PRIVATE KEY|timingSafeEqual|createHmac|signInWith|resetPasswordForEmail/],
