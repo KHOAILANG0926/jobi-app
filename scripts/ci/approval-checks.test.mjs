@@ -41,3 +41,10 @@ assert.match(yml, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/, 
 assert.ok(!/head\.sha|head\.ref|pull\/\$\{\{/.test(yml.replace(/^#.*$/gm, '')), 'PR 커밋을 체크아웃하지 않음')
 assert.ok(!/contents: write|checks: write|pull-requests: write/.test(yml), '쓰기 권한 없음(검사 결과는 Claude 앱 토큰으로)')
 console.log('approval-checks 시험 통과(일반·고위험·판단 불가·검토 미완료·보고·Lee 승인)')
+// 검토 지적: PR 브랜치 사본이 도는 pull_request_review 트리거는 두지 않는다(주석 제외한 실제 트리거만 본다). Lee 승인 직후 재검사는 봇 워크플로가 master 기준으로 수동 실행.
+{ const live = yml.replace(/^\s*#.*$/gm, '')
+  assert.ok(!/pull_request_review/.test(live), 'approval-checks.yml에 pull_request_review 트리거 없음')
+  assert.match(live, /pull_request_target:/); assert.match(live, /workflow_dispatch:/); assert.match(live, /schedule:/)
+  const bot = readFileSync(new URL('../../.github/workflows/bot-pr-automerge.yml', import.meta.url), 'utf8')
+  assert.match(bot, /if: github\.event_name == 'pull_request_review'[\s\S]*gh workflow run approval-checks\.yml --repo "\$REPO" --ref master -f pr="\$PR"/, 'Lee 승인 제출 시 master 기준으로 병합 조건 검사 수동 실행') }
+console.log('approval-checks 워크플로 트리거 시험 통과')

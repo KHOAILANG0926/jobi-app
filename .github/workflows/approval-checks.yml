@@ -6,9 +6,9 @@ name: 병합 조건 검사(ai-review·approval-gate, Claude 앱)
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, edited, labeled, unlabeled]
-  # 리뷰 제출은 PR 쪽 사본이 돌 수 있어 토큰을 못 받을 수 있다 → 아래 예약(15분)과 수동 실행이 항상 master 사본으로 다시 판정한다.
-  pull_request_review:
-    types: [submitted, dismissed]
+  # pull_request_review 트리거는 일부러 두지 않는다(검토 지적): 그 이벤트는 PR 브랜치의 이 파일 사본이 돌 수 있다.
+  # master 사본만 도는 트리거(pull_request_target·issue_comment·예약·수동)만 둔다. Lee 승인 직후 재검사는 bot-pr-automerge.yml의
+  # 'Lee 승인 직후' 단계가 이 워크플로를 master 기준으로 수동 실행(workflow_dispatch)하고, 봇이 꺼져 있으면 15분 예약·수동 실행이 맡는다.
   issue_comment:
     types: [created]
   schedule:

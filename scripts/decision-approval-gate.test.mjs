@@ -235,6 +235,11 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
   // 검토 지적 2: 누구나 만들 수 있는 하위 도메인은 '이미 쓰는 주소'가 아님, 정확히 같은 주소·소유 도메인만
   for (const u of ['https://evil.vercel.app/x', 'https://attacker.supabase.co/rest', 'https://x.github.com/y', 'https://viecganban.vn.evil.io/a']) assert.equal(run([mk('src/e.ts', `@@\n+fetch("${u}")`)]).approved, false, `새 외부 주소: ${u}`)
   for (const u of ['https://edhuesdnuxlbcfephutq.supabase.co/rest', 'https://api.viecganban.vn/x', 'https://maps.vietmap.vn/a', 'http://localhost:5173']) assert.equal(run([mk('src/e.ts', `@@\n+fetch("${u}")`)]).approved, true, `알려진 주소: ${u}`)
+  // 검토 지적(주소 위장): 사용자 정보(@), wss://, //host, 그 밖 scheme 도 같은 검사
+  for (const u of ['https://www.google.com@evil.io/x', 'wss://evil.io/socket', 'postgres://u:p@db.evil.io/x', 'ftp://evil.io/f']) assert.equal(run([mk('src/e.ts', `@@\n+const u = "${u}"`)]).approved, false, `위장·다른 scheme 주소: ${u}`)
+  assert.equal(run([mk('src/e.ts', '@@\n+const u = "//evil.io/x.js"')]).approved, false, '//host 형태')
+  assert.equal(run([mk('src/e.ts', '@@\n+// 설명 주석입니다 https://www.google.com/maps 참고')]).approved, true, '허용 주소 주석은 통과')
+  assert.equal(run([mk('src/e.ts', '@@\n+const a = x // note\n+const b = "https://www.google.com:443/q"')]).approved, true, '주석 //·포트는 오탐 아님')
   // 4대 보고 형식
   const body = (o = {}) => ['## 고위험 4대 보고', `- 무엇을 바꾸나: ${o.what ?? '로그인 검사 줄을 추가'}`, `- 왜 필요한가: ${o.why ?? '관리자 기능 보호'}`, `- 승인 시 남는 위험: ${o.risk ?? '검사 우회 시 노출'}`, `- 미승인 시 영향: ${o.impact ?? '관리자 기능 보호 지연'}`, `- 검증: ${o.link ?? `https://github.com/${repo}/actions/runs/123`}`].join('\n')
   assert.equal(highRiskReport(body(), repo).ok, true, '갖춘 보고')

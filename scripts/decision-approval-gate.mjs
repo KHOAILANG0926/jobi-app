@@ -138,7 +138,17 @@ const KNOWN_HOST_SET = new Set(['edhuesdnuxlbcfephutq.supabase.co', 'maps.vietma
   'github.com', 'api.github.com', 'registry.npmjs.org', 'api.anthropic.com', 'www.openstreetmap.org', 'overpass-api.de', 'zalo.me', 'maps.geoapify.com', 'api.geoapify.com', 'www.geoapify.com', 'rsapi.goong.io',
   'vieclam24h.vn', 'cdn.vieclam24h.vn', 'www.vietnamworks.com', 'www.topcv.vn', 'www.vieclamtot.com', 'www.timviecnhanh.com', 'localhost', '127.0.0.1'])
 const KNOWN_HOSTS = { test: (h) => KNOWN_HOST_SET.has(h) || /(?:^|\.)viecganban\.vn$|(?:^|\.)example\.(?:com|org|net)$|\.(?:invalid|test|example)$/.test(h) }
-const hostsOf = (text) => [...String(text).matchAll(/https?:\/\/([A-Za-z0-9.-]+)/g)].map((m) => m[1].toLowerCase())
+// 주소 뽑기(Codex·검토관 지적: 'https://www.google.com@evil.io'는 실제 접속지가 @ 뒤, 'wss://'·'//host'도 주소): 어떤 scheme://도, 따옴표·괄호·= 뒤의 //host.도메인도 본다.
+// '@'가 든 주소는 접속지를 속이는 형태라 허용 목록과 상관없이 판단 불가로 올린다(hostsOf가 tricky로 돌려줌).
+const hostsOf = (text) => {
+  const hosts = [], tricky = []
+  for (const m of String(text).matchAll(/(?:\b[a-z][a-z0-9+.-]*:\/\/|(?:^|["'`(=\s,])\/\/(?=[A-Za-z0-9.-]+\.[A-Za-z]{2,}))([^\s/?#"'`)<>\\]*)/gi)) {
+    const auth = m[1]; if (!auth) continue
+    if (auth.includes('@')) tricky.push(auth.slice(0, 60))
+    hosts.push(auth.slice(auth.lastIndexOf('@') + 1).replace(/:\d*$/, '').toLowerCase())
+  }
+  return { hosts, tricky }
+}
 export function contentRisks(files) {
   const out = []
   for (const f of files) {
@@ -153,8 +163,9 @@ export function contentRisks(files) {
     const lines = f.patch.split('\n').filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l))
     const text = lines.map((l) => l.slice(1)).join('\n')
     for (const [label, re] of CONTENT_SIGNALS) if (re.test(text)) out.push(`${name}: ${label}`)
-    const before = new Set(hostsOf(lines.filter((l) => l[0] === '-').join('\n')))
-    for (const h of new Set(hostsOf(lines.filter((l) => l[0] === '+').join('\n')))) if (!KNOWN_HOSTS.test(h) && !before.has(h)) out.push(`${name}: 새 외부 주소 ${h}`)
+    const added = hostsOf(lines.filter((l) => l[0] === '+').join('\n')), before = new Set(hostsOf(lines.filter((l) => l[0] === '-').join('\n')).hosts)
+    for (const t of new Set(added.tricky)) out.push(`${name}: 주소에 @ 포함(접속지 위장 가능·판단 불가) ${t}`)
+    for (const h of new Set(added.hosts)) if (h && !KNOWN_HOSTS.test(h) && !before.has(h)) out.push(`${name}: 새 외부 주소 ${h}`)
   }
   return out
 }

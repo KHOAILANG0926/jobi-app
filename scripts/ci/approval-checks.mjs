@@ -79,24 +79,44 @@ export async function publish(appTok, repo, num, sha, name, v) {
   return 'ok'
 }
 
-export async function main(argv) {
+// 같은 커밋을 쓰는 PR이 여럿이면 검사 결과(커밋당 이름당 하나)는 공유된다 → 가장 나쁜 판정을 올린다(Codex P1: 한 PR의 승인이 다른 PR의 미승인을 덮어쓰지 않게).
+const SEVERITY = { success: 0, pending: 1, blocked: 2, failure: 3 }
+export function combine(list) {
+  const w = list.reduce((a, b) => (SEVERITY[b.v.state] > SEVERITY[a.v.state] ? b : a))
+  return list.length === 1 ? w.v : { state: w.v.state, summary: `같은 커밋을 쓰는 PR ${list.map((x) => `#${x.num}`).join('·')} 중 가장 나쁜 판정 — #${w.num}: ${w.v.summary}` }
+}
+
+export async function main(argv, { getAppToken = appToken, framePaths: fp } = {}) {
   const a = {}
   for (let i = 0; i < argv.length; i++) { const k = argv[i]; if (k === '--dry-run' || k === '--all') a[k.slice(2)] = true; else a[k.slice(2)] = argv[++i] }
   const repo = a.repo, readTok = process.env.GITHUB_TOKEN
   if (!repo || !readTok || (!a.pr && !a.all)) throw new Error('사용: --repo o/r (--pr N | --all), 환경변수 GITHUB_TOKEN(읽기)')
-  const framePaths = approvedFramePaths(readFileSync(new URL('../test-desktop-baseline.mjs', import.meta.url), 'utf8'))
-  const nums = a.pr ? [Number(a.pr)] : (await pages(readTok, `repos/${repo}/pulls?state=open&base=master`)).filter((p) => !p.draft && p.number >= 251 && p.head.repo?.full_name === repo).map((p) => p.number)
-  let appTok = null
-  for (const num of nums) {
-    const { pr, input } = await collect(readTok, repo, num, framePaths)
-    if (pr.state !== 'open' || pr.base.ref !== 'master' || pr.head.repo?.full_name !== repo) { console.log(`PR #${num}: 대상 아님`); continue }
-    const v = verdicts(input)
-    console.log(`PR #${num} ${input.sha.slice(0, 7)}: ${CHECK_REVIEW}=${v.review.state}(${v.review.summary}) ${CHECK_APPROVAL}=${v.approval.state}(${v.approval.summary})`)
-    if (a['dry-run']) continue
-    appTok ??= await appToken()
-    await publish(appTok, repo, num, input.sha, CHECK_REVIEW, v.review)
-    await publish(appTok, repo, num, input.sha, CHECK_APPROVAL, v.approval)
+  const framePaths = fp ?? approvedFramePaths(readFileSync(new URL('../test-desktop-baseline.mjs', import.meta.url), 'utf8'))
+  const open = (await pages(readTok, `repos/${repo}/pulls?state=open&base=master`)).filter((p) => p.base?.ref === 'master' && p.head.repo?.full_name === repo)
+  const targets = a.pr ? open.filter((p) => p.number === Number(a.pr)) : open.filter((p) => !p.draft && p.number >= 251)
+  if (a.pr && !targets.length) { console.log(`PR #${a.pr}: 열린 PR 아님(대상 아님)`); return }
+  let appTok = null, errors = 0
+  for (const sha of new Set(targets.map((p) => p.head.sha))) {
+    const group = open.filter((p) => p.head.sha === sha)
+    const nums = group.map((p) => p.number)
+    const post = async (name, v) => { appTok ??= await getAppToken(); return publish(appTok, repo, nums[0], sha, name, v) }
+    try {
+      // 재판정을 시작하기 전에 이 커밋의 기존 판정을 '대기'로 내린다 — 아래 수집이 중간에 끊겨도 옛 성공이 남지 않는다(Codex P1).
+      if (!a['dry-run']) for (const name of [CHECK_REVIEW, CHECK_APPROVAL]) await post(name, { state: 'pending', summary: '재판정 중(이전 판정은 무효)' })
+      const list = []
+      for (const p of group) { const { input } = await collect(readTok, repo, p.number, framePaths); list.push({ num: p.number, v: verdicts(input) }) }
+      const review = combine(list.map((x) => ({ num: x.num, v: x.v.review }))), approval = combine(list.map((x) => ({ num: x.num, v: x.v.approval })))
+      console.log(`PR ${nums.map((n) => `#${n}`).join('·')} ${sha.slice(0, 7)}: ${CHECK_REVIEW}=${review.state}(${review.summary}) ${CHECK_APPROVAL}=${approval.state}(${approval.summary})`)
+      if (a['dry-run']) continue
+      await post(CHECK_REVIEW, review); await post(CHECK_APPROVAL, approval)
+    } catch (e) {
+      // 수집·판정이 실패하면 두 검사를 실패로 올린다(닫힌 실패) — 못 올리면 이 실행이 실패로 끝나 다음 실행이 다시 시도한다.
+      errors++
+      console.error(`::error::PR ${nums.join(',')} ${sha.slice(0, 7)} 재판정 실패: ${e.message}`)
+      if (!a['dry-run']) for (const name of [CHECK_REVIEW, CHECK_APPROVAL]) { try { await post(name, { state: 'failure', summary: `재판정 수집 실패(닫힌 실패): ${String(e.message).slice(0, 150)}` }) } catch (e2) { console.error(`::error::${name} 실패 표시도 못 올림: ${e2.message}`) } }
+    }
   }
+  if (errors) throw new Error(`${errors}개 커밋 재판정 실패`)
 }
 
 if (process.argv[1]?.endsWith('approval-checks.mjs')) main(process.argv.slice(2)).catch((e) => { console.error(`::error::${e.message}`); process.exit(1) })
