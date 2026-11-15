@@ -3,6 +3,7 @@
 // master 보호 설정이 승인 수 0이라 코드 소유자 승인이 실제로 막지 못한 문제(2026-10-28 #295)의 보완이다.
 // 승인 근거: 현재 head SHA에 대한 Lee 계정의 APPROVED 리뷰만(S3-2: 댓글 승인 폐지). 다른 SHA에 대한 승인은 무효(새 커밋이 오면 다시 승인).
 // PR 작성자는 작업 계정(viecganban-bot)이라 Lee가 리뷰할 수 있다. Lee 계정이 만든 예전 PR은 Lee가 자기 승인을 못 하므로 보류된다(닫힌 실패).
+import { OWNER_PATHS, DECISION_DIR, matchesOwnerPath } from './ci/protected-paths.mjs'
 export const OWNER = 'KHOAILANG0926'
 export const PROTECTED = (path) => path.startsWith('docs/decisions/') || path === '.github/CODEOWNERS'
 // R2 자동 병합 통제 강화(Lee 2026-11-13 승인): 승인 대상은 파일 내용으로 자동 감지한다 — 라벨·Claude 답글·작성자 말이 아니라 실제 변경 파일이 기준이라 라벨을 빼거나 답글을 달아도 우회되지 않는다.
@@ -15,8 +16,8 @@ export const NEEDS_LEE_LABEL = 'needs-lee'
 // S3-2(#808, Lee 2026-11-14 결정 6①): 승인은 현재 head 커밋에 대한 Lee 계정의 GitHub 승인 리뷰(Approve)만 인정한다.
 // 예전 `LEE-APPROVE <sha>`·`LEE-DEMO-APPLY <sha>` 댓글은 AI가 Lee 계정 열쇠로 달 수 있어(S1 F11) 폐지 — AI가 Lee 승인을 대신 기록하지 않는다.
 // ④ 검사·보호 장치 변경(검사 약화 가능): 워크플로·검사/판정 스크립트·검토 기준을 바꾸는 PR도 Lee 승인 대상(#807 '검사 약화는 대표님 결정').
-export const GATE_CODE = (path) => /^\.github\//.test(path) || /^scripts\/(?:ci|status)\//.test(path)
-  || /^scripts\/(?:check-[^/]+|[^/]+-gate|approved-migrations)\.mjs$/.test(path) || path === 'AGENTS.md'
+// 검사 장치 파일 = Lee 승인 대상 경로 단일 목록(scripts/ci/protected-paths.mjs)에서 결정 문서 폴더(PROTECTED가 따로 봄)를 뺀 것 — 목록을 여기에 따로 적지 않는다(CODEOWNERS·승인 범위 검사와 항상 같음).
+export const GATE_CODE = (path) => matchesOwnerPath(path, OWNER_PATHS.filter((p) => p !== DECISION_DIR))
 // ⑤ 의존성·검증 약화(S4, Lee 2026-11-15 "package.json 전체를 고위험으로 지정하지 말 것"): package.json을 바꿨다고 다 승인 대상이 아니다.
 //    승인 대상 = 새 의존성 / 설치 스크립트(직접·의존성 lockfile hasInstallScript) / 패키지 출처 변경(registry 밖 주소·git·file·npm 별칭·.npmrc·overrides)
 //               / 검증 약화(test·build·typecheck 등 scripts 변경, 시험 파일 삭제·이름 바꿈, 시험 실행기·tsconfig 변경).

@@ -15,3 +15,10 @@
 - The list of files GitHub requires Lee to approve (CODEOWNERS) may contain only decision records and itself. Any other entry turns the required check `checks` red (`scripts/check-approval-scope.mjs`).
 - Changing that list also needs Lee's approval, so the AI cannot expand approvals alone.
 - Item 4 (conversation) cannot be enforced by machine: none.
+
+## Amendment (2026-11-15, Lee's decision — S4 #808)
+- Decided by: Lee (2026-11-15: "Approve expanding CODEOWNERS, limited to security/CI/approval core files; amend Decision 0003 (ko/en) and check-approval-scope.mjs together; keep auto-merge for ordinary PRs")
+- Why: A PR that weakens the checks or approval gate still leaves an Actions processing-delay window right after Lee dismisses an approval. GitHub's native code-owner approval applies at merge time and a dismissal takes effect immediately.
+- Changed: Items 1–2 ("Lee's approval = decision records only") now also cover **security/CI/approval core files**: `/.github/`, `/scripts/ci/`, `/scripts/status/`, `/scripts/check-*.mjs`, `/scripts/*-gate.mjs`, `/scripts/approved-migrations.mjs`, `/AGENTS.md` — listed in exactly one place (`scripts/ci/protected-paths.mjs`); both the CODEOWNERS check (`scripts/check-approval-scope.mjs`) and the Actions approval gate (`GATE_CODE` in `scripts/decision-approval-gate.mjs`) derive from that list, so their scopes cannot drift apart.
+- Unchanged: ordinary files (UI, API, crawler, ops scripts, docs, DB migrations, …) have no owner and merge on automated checks alone (auto-merge stays). No repository-wide "one Lee approval" setting is used. Item 4 (no approval requests for technical steps in conversation) also stays — these are technical files, owned only as an anti-weakening exception.
+- Enforcement (amended): CODEOWNERS must match that single list exactly, with the single owner `@KHOAILANG0926`; ordinary folders, `*`, or an empty owner turn the required check `checks` red (`scripts/check-approval-scope.mjs`, test `scripts/check-approval-scope.test.mjs`). Changing the list needs Lee's approval because it sits under the owned paths.
