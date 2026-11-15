@@ -1,7 +1,7 @@
 name: 직업군 주간 미분류 보고·규칙 보강 (A안)
 
 # 매주 공개 중인 미분류 공고(occupation_code 없음) 제목을 모아 보고하고, Claude가 자동 분류 규칙
-# (crawler/occupation_rules.json — 코드가 아니라 데이터)에 규칙을 더하는 PR을 만든다. master 직접 push 없음, DB 쓰기 없음.
+# (crawler/occupation_rules.json — 코드가 아니라 데이터)에 규칙을 더하는 PR을 만든다(needs-lee — Lee 승인 뒤 병합, S4 독립 검토 8회). master 직접 push 없음, DB 쓰기 없음.
 # PR이 병합되면 occupation-r8-apply.yml이 다시 돌아 미분류 공고에 새 규칙을 적용한다.
 # 2026-10-15 사용자 결정: A안으로 시작, 미분류가 많아지면(예: 주 50건 이상) B안(규칙에 안 걸린 공고만 AI 분류) 검토.
 # 키: SUPABASE_DB_URL(읽기 조회만), 구독 열쇠 CLAUDE_CODE_OAUTH_TOKEN(2026-11-08, 없으면 ANTHROPIC_API_KEY, 둘 다 없으면 보고만)
@@ -116,7 +116,7 @@ jobs:
             6. 이 실행에서 너는 **파일만 고친다**(Edit 도구). 커밋·push·PR은 다음 단계(게시)가 검증 뒤 한다. 위 두 JSON 밖을 고치면 게시 단계가 거절한다.
             7. Edit 도구로 결과를 쓴다: `.claude-out/pr-title.txt`(한 줄 PR 제목), `.claude-out/pr.md`(PR 설명: 추가한 규칙(코드·공식 직업명·근거 예시),
                여전히 미분류로 둔 제목과 이유. 5줄 이내 요약 + 표 — 저장소 PR 양식 .github/pull_request_template.md 항목을 따른다),
-               `.claude-out/commit-message.txt`(한 줄). '@' 계정 언급·비밀값을 쓰지 않는다.
+               `.claude-out/commit-message.txt`(한 줄). '@' 글자 뒤에 영문·숫자가 오는 표기·비밀값을 쓰지 않는다. 이 PR은 needs-lee로 열려 Lee 승인 뒤에만 병합된다(규칙 뜻은 자동 검사로 다 못 봄).
       - name: 결과 모으기 (토큰 없음 — 초안·patch·상자 시험 결과)
         if: always() && steps.claude.outcome == 'success'
         shell: /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/home/runner /bin/bash --noprofile --norc -e {0}

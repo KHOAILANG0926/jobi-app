@@ -72,17 +72,17 @@ export function checkText(mode, text, { headSha = '', known = [] } = {}) {
   return sec ? `비밀값 의심: ${sec}` : ''
 }
 
-// @언급 검사 하나(독립 검토 6회 지적 3 — 봇 5개 이름만 막으면 다른 계정·팀 알림을 남발할 수 있음):
-//   자동 작업 봇 이름은 어디에 있든(코드 칸 안 포함) 금지, 그 밖의 @계정은 코드 칸(`…`·```…```) 밖이면 금지. 메일 주소(앞이 글자)는 언급이 아님.
+// @언급 검사 하나(독립 검토 6회 지적 3 — 봇 5개 이름만 막으면 다른 계정·팀 알림을 남발할 수 있음): 봇 이름·@계정 모양은 어디에 있든 금지.
 const BOT_MENTION = /@(codex|claude|copilot|github-actions|chatgpt-codex-connector)\b/i
 export function mentionFinding(t) {
   const s = String(t ?? '')
   if (BOT_MENTION.test(s)) return '자동 작업 봇 @언급'
-  // 7회 지적 3: 코드 칸 판단을 흐리는 글(백슬래시 백틱)·HTML 글자 참조(&#64; 등)는 판단하지 않고 거절. 앞 글자 제외는 낱말 글자(메일 주소)만.
-  if (/\\`|&#0*64;|&#x0*40;|&commat;/i.test(s)) return '코드 칸·@ 글자를 흐리는 표기(\\` 또는 &#64;)'
-  const prose = s.replace(/```[\s\S]*?```/g, ' ').replace(/`[^`\n]*`/g, ' ')
-  const m = prose.match(/(?<![A-Za-z0-9])@[A-Za-z0-9][A-Za-z0-9-]*/)
-  return m ? `@계정 언급 ${m[0]}(코드 칸 밖)` : ''
+  // 7회 지적 3: HTML 글자 참조(&#64; 등)로 쓴 @도 거절
+  if (/&#0*64;|&#x0*40;|&commat;/i.test(s)) return '@를 글자 참조로 쓴 표기(&#64; 등)'
+  // 8회 지적 5: 코드 칸을 직접 가려내면 GitHub 화면 규칙(~~~ 안의 ```, 인용·목록 안 코드 상자)과 어긋나 우회된다 → 코드 칸 안이든 밖이든 @계정 모양이면 거절(닫힌 실패).
+  //   메일 주소(@ 앞이 영문·숫자)는 언급이 아님. 코드 속 @types·데코레이터도 거절되므로 초안에는 '@'를 쓰지 않는다(지시문에 있음).
+  const m = s.match(/(?<![A-Za-z0-9])@[A-Za-z0-9][A-Za-z0-9-]*/)
+  return m ? `@계정 모양 ${m[0]}` : ''
 }
 
 export function checkIssues(raw, known = []) {
@@ -265,7 +265,15 @@ export async function main(argv) {
       pushed = commitAndPush(a, token, meta.message)
       const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text.trim(), draft: false })
       console.log(`PR 만듦: #${pr.number}`)
-      return { ok: true, problems: [], pushed }
+      // 비신뢰 입력(공고 제목)에서 나온 규칙 데이터의 '뜻'은 자동 검사로 다 확인할 수 없다(독립 검토 6~8회 같은 종류 반복 → 방법 변경):
+      // pr 모드 PR은 needs-lee(Lee가 그 커밋에 Approve해야 병합, decision-approval-gate ③). 라벨을 못 달면 PR을 닫는다(닫힌 실패).
+      try {
+        await gh(token, 'POST', `repos/${a.repo}/issues/${pr.number}/labels`, { labels: ['needs-lee'] })
+      } catch (e) {
+        await gh(token, 'PATCH', `repos/${a.repo}/pulls/${pr.number}`, { state: 'closed' }).catch(() => {})
+        throw new Error(`needs-lee 라벨을 달지 못해 PR #${pr.number}을 닫음`)
+      }
+      return { ok: true, problems: [], pushed, pr: pr.number }
     }
     if (out.commit) {
       pushed = commitAndPush(a, token, meta.message)

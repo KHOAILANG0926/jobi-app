@@ -105,7 +105,8 @@ ok(checkText('codex', '<!-- claude-codex-reply -->\n@KHOAILANG0926 확인 부탁
 ok(checkText('issue', '<!-- claude-issue-reply -->\n(@my-org/team)') !== '', '팀 언급 거절')
 ok(checkIssues('[{"title":"t","body":"cc @someone","label":"ai-team"}]').error !== '', '이슈 초안 언급 거절')
 ok(checkPrText('제목', '설명 @someone') !== '', 'PR 설명 언급 거절')
-ok(!mentionFinding('메일 a.b@example.com 과 `@types/node`, ```\n@x\n```'), '메일·코드 칸은 허용')
+ok(!mentionFinding('메일 a.b@example.com 과 209825114+claude@users.noreply.github.com'), '메일 주소는 허용')
+for (const t of ['`@types/node`', '```\n@x\n```', '~~~\n```\n~~~\n@name\n```', '> ```\n@name\n```', '- ```\n@name\n```']) ok(mentionFinding(t) !== '', `코드 칸 안 @도 거절: ${t.replace(/\n/g, '⏎')}`)
 for (const t of ['\\`@someone\\`', 'end.@x', 'a/@x', '[x]@x', '_@x_', '&#64;x', '&#x40;x', '&commat;x', 'x-@y', '+@y']) ok(mentionFinding(t) !== '', `언급 우회 거절: ${t}`)
 ok(mentionFinding('`@codex review`') !== '', '봇 이름은 코드 칸 안이어도 거절')
 console.log = log
