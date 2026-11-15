@@ -116,6 +116,19 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
     exch(() => [403, { message: 'permission not allowed' }]); await assert.rejects(appToken(CHECKS_PERMISSIONS), /앱 토큰 교환 실패\(403\) permission not allowed/, '교환 거절이면 멈춤')
   } finally { console.log = quiet; delete process.env.ACTIONS_ID_TOKEN_REQUEST_URL; delete process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }
 }
+// 앱 토큰(checks 권한만)은 check-runs 말고 다른 API를 부르지 않는다 — 권한 밖 호출은 403을 돌려주는 가짜로 확인(검토관 지적 1854918)
+{
+  const w = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] } })
+  const inner = globalThis.fetch, outside = []
+  globalThis.fetch = async (url, init = {}) => {
+    const auth = init.headers?.Authorization ?? ''
+    if (auth === 'Bearer app' && !/\/check-runs/.test(String(url))) { outside.push(String(url)); return { ok: false, status: 403, json: async () => ({}), text: async () => '{"message":"Resource not accessible by integration"}' } }
+    return inner(url, init)
+  }
+  await main(['--repo', repo, '--pr', '1'], opts)
+  assert.deepEqual(outside, [], '앱 토큰으로 check-runs 밖 API 호출 없음')
+  assert.equal(last(w.writes, 'ai-review').state, 'success', '권한 밖 403 가짜에서도 검사 게시 완료')
+}
 // 검사 생성이 거절되면(403) 실행이 실패로 끝난다(닫힌 실패, 성공 표시 없음)
 {
   const w = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] } })

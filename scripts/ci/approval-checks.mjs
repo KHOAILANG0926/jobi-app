@@ -64,9 +64,10 @@ async function collect(token, repo, num, framePaths) {
   return { pr, input: { files, reviews, reviewComments, comments, labels, deps, sha, headDate: commit.commit.committer.date, body: pr.body ?? '', author: pr.user?.login ?? '', repo, framePaths } }
 }
 
-/** 이 앱이 이 커밋에 이미 올린 같은 이름 검사가 있으면 갱신, 없으면 만든다. 커밋이 그 사이 바뀌었으면(옛 커밋 판정) 올리지 않는다. */
-export async function publish(appTok, repo, num, sha, name, v) {
-  const live = await ghFetch(appTok, `repos/${repo}/pulls/${num}`)
+/** 이 앱이 이 커밋에 이미 올린 같은 이름 검사가 있으면 갱신, 없으면 만든다. 커밋이 그 사이 바뀌었으면(옛 커밋 판정) 올리지 않는다.
+ *  앱 토큰은 checks 권한만 받으므로(CHECKS_PERMISSIONS) PR 조회는 읽기 토큰(GITHUB_TOKEN, pull-requests: read)으로 한다 — 앱 토큰은 check-runs 조회·생성·갱신에만 쓴다(검토관 지적 1854918). */
+export async function publish(appTok, repo, num, sha, name, v, readTok = appTok) {
+  const live = await ghFetch(readTok, `repos/${repo}/pulls/${num}`)
   if (live.head.sha !== sha) { console.log(`PR #${num}: 판정하는 사이 새 커밋 — ${name} 올리지 않음`); return 'stale' }
   const base = { name, head_sha: sha, output: { title: `${name}: ${v.state}`, summary: v.summary.slice(0, 1000) } }
   const payload = v.state === 'success' ? { ...base, status: 'completed', conclusion: 'success' }
@@ -105,7 +106,7 @@ export async function main(argv, { getAppToken = () => appToken(CHECKS_PERMISSIO
   for (const sha of new Set(targets.map((p) => p.head.sha))) {
     const group = open.filter((p) => p.head.sha === sha)
     const nums = group.map((p) => p.number)
-    const post = async (name, v) => { appTok ??= await getAppToken(); return publish(appTok, repo, nums[0], sha, name, v) }
+    const post = async (name, v) => { appTok ??= await getAppToken(); return publish(appTok, repo, nums[0], sha, name, v, readTok) }
     try {
       // 재판정을 시작하기 전에 이 커밋의 기존 판정을 '대기'로 내린다 — 아래 수집이 중간에 끊겨도 옛 성공이 남지 않는다(Codex P1).
       if (!a['dry-run']) for (const name of [CHECK_REVIEW, CHECK_APPROVAL]) await post(name, { state: 'pending', summary: '재판정 중(이전 판정은 무효)' })
