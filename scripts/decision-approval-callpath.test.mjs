@@ -63,7 +63,9 @@ assert.equal(cli(many({ state: 'APPROVED', commit_id: head }), undefined), 3, '�
 // ① 정책 검사(check-repository-policy) 실제 실행 — 가짜 gh가 리뷰 150건을 두 쪽(100+50)으로 돌려줌(--paginate --slurp 모양)
 {
   const repo = join(dir, 'repo'); mkdirSync(join(repo, 'scripts'), { recursive: true })
-  for (const f of ['check-repository-policy.mjs', 'decision-approval-gate.mjs', 'approved-migrations.mjs']) cpSync(join(ROOT, 'scripts', f), join(repo, 'scripts', f))
+  // decision-approval-gate.mjs는 보호 경로 단일 목록(ci/protected-paths.mjs)을 불러온다 — 시험용 작은 저장소에도 그 파일까지 넣어야 실제 배치와 같다(2026-11-15 #842 CI 실패 원인).
+  mkdirSync(join(repo, 'scripts', 'ci'), { recursive: true })
+  for (const f of ['check-repository-policy.mjs', 'decision-approval-gate.mjs', 'approved-migrations.mjs', 'ci/protected-paths.mjs']) cpSync(join(ROOT, 'scripts', f), join(repo, 'scripts', f))
   const g = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: repo, encoding: 'utf8' })
   g('init', '-q'); mkdirSync(join(repo, '.github/workflows'), { recursive: true })
   writeFileSync(join(repo, '.github/workflows/status-report.yml'), 'on: push\n'); g('add', '-A'); g('commit', '-qm', 'base')

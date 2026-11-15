@@ -52,8 +52,6 @@ jobs:
         run: node scripts/ci/approval-checks.test.mjs
       - name: 병합 조건 검사 재현 시험(같은 SHA PR 오염·수집 실패 시 옛 성공 무효, S4 8단계)
         run: node scripts/ci/approval-checks.main.test.mjs
-      - name: 운영 키 진단 도구 시험(키 값 출력 없음, S4)
-        run: node scripts/ops/supabase-key-diagnose.test.mjs
       - name: AI 팀 Codex 검사 대기 규칙 시험
         run: node scripts/codex-review-gate.test.mjs
       - name: 봇 자동병합 필수 검사 판정 시험 (이름 같은 검사가 빨간 검사를 가리지 않는지, #728 S1)
@@ -86,6 +84,8 @@ jobs:
         run: bash scripts/ci/sandbox-run.test.sh
       - name: 승인 범위 검사 (결정 0003 — Lee 승인은 결정 문서만)
         run: node scripts/check-approval-scope.mjs
+      - name: 승인 범위 검사 시험 (결정 0003 개정 — 허용 목록·일반 경로 제외)
+        run: node scripts/check-approval-scope.test.mjs
       - name: 시험 의존성 배포 제외 회귀 검사
         run: node --test scripts/ci/deployment-package-change.test.mjs
       - name: 위치 불일치 저녁 보고 회귀 검사

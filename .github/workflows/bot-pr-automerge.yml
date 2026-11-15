@@ -31,8 +31,10 @@ concurrency:
 
 jobs:
   merge:
+    # S4(Lee 2026-11-15 결정 4): 보호 설정(필수 검사 출처 앱·CODEOWNERS) 검증이 끝나기 전에는 이 워크플로가 켜져 있어도 병합하지 않는다.
+    # 저장소 변수 S4_PROTECTION_VERIFIED가 'true'일 때만 돈다 — 값은 대표님이 보호 설정 검증 뒤에만 설정한다(없으면 항상 건너뜀, 닫힌 실패).
     if: >-
-      (github.event_name != 'issue_comment' && github.event_name != 'pull_request_review') ||
+      vars.S4_PROTECTION_VERIFIED == 'true' && ((github.event_name != 'issue_comment' && github.event_name != 'pull_request_review') ||
       (github.event_name == 'pull_request_review' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        (github.event.review.user.login == 'chatgpt-codex-connector[bot]' ||
@@ -42,7 +44,7 @@ jobs:
         ((github.event.comment.user.login == 'viecganban-bot' || github.event.comment.user.login == 'claude[bot]') &&
          contains(github.event.comment.body, '<!-- claude-codex-reply -->')) ||
         (github.event.comment.user.login == 'claude[bot]' &&
-         startsWith(github.event.comment.body, '<!-- claude-fallback-review -->'))))
+         startsWith(github.event.comment.body, '<!-- claude-fallback-review -->')))))
     runs-on: ubuntu-latest
     steps:
       # Never check out the candidate PR: only trusted master supplies executable code.
