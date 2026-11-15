@@ -69,17 +69,10 @@ ok(!(await run(draft(edit('.gitattributes', '* filter=evil\n')))).ok, '.gitattri
 { const d = draft(edit('src/a.ts', 'export const a = 2\n')); rmSync(join(d.out, 'reply.md')); symlinkSync('/proc/self/environ', join(d.out, 'reply.md')); ok(!(await run(d)).ok, '초안이 링크') }
 { const d = draft(edit('src/a.ts', 'export const a = 2\n')); d.args[d.args.indexOf('--head-sha') + 1] = 'f'.repeat(40); ok(!(await run(d)).ok, 'PR 사본이 다른 커밋') }
 { const d = draft(edit('src/a.ts', 'export const a = 2\n')); d.args[d.args.indexOf('--head-ref') + 1] = 'master'; ok(!(await run(d)).ok, 'master로 push 시도') }
-// pr 모드 허용 경로
-{ const d = draft(edit('src/a.ts', 'export const a = 2\n'), { extra: { 'pr.md': '규칙 보강', 'pr-title.txt': 'feat: 규칙' } })
-  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_rules.json,crawler/occupation_rule_cases.json']
-  ok(!(await main(args).catch(() => ({ ok: false }))).ok, 'pr 모드: 허용 목록 밖 파일') }
-// 6회 지적 1: 주간 직업분류 보강은 데이터(JSON)만 — 분류기 코드(.py)를 고치면 거절(병합 뒤 크롤러에서 실행될 코드)
-{ const d = draft((dir) => { mkdirSync(join(dir, 'crawler'), { recursive: true }); writeFileSync(join(dir, 'crawler/occupation_classifier.py'), 'import os, urllib.request\n') }, { extra: { 'pr.md': '규칙 보강', 'pr-title.txt': 'feat: 규칙' } })
-  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_rules.json,crawler/occupation_rule_cases.json', '--dry-run']
-  ok(!(await main(args).catch(() => ({ ok: false }))).ok, 'pr 모드: 분류기 코드(.py) 변경 거절') }
-{ const d = draft((dir) => { mkdirSync(join(dir, 'crawler'), { recursive: true }); writeFileSync(join(dir, 'crawler/occupation_rules.json'), '[]\n') }, { extra: { 'pr.md': '규칙 보강', 'pr-title.txt': 'feat: 규칙' } })
-  const args = ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number')), '--allow', 'crawler/occupation_rules.json,crawler/occupation_rule_cases.json']
-  ok((await main(args).catch((e) => ({ ok: false, e }))).ok, 'pr 모드: 규칙 JSON만 고치면 통과(시험 실행)') }
+// pr 모드(지시 작업 새 PR): 정상 수정은 통과, 금지 경로는 거절
+{ const pr = (change) => { const d = draft(change, { extra: { 'pr.md': '작업 설명', 'pr-title.txt': 'feat: 작업' } }); return ['pr', ...d.args.slice(1).filter((x, i, arr) => !(x === '--number' || arr[i - 1] === '--number'))] }
+  ok((await main(pr(edit('src/a.ts', 'export const a = 2\n'))).catch(() => ({ ok: false }))).ok, 'pr 모드: 정상 수정 통과(시험 실행)')
+  ok(!(await main(pr(edit('.github/workflows/x.yml', 'on: pull_request_target\n'))).catch(() => ({ ok: false }))).ok, 'pr 모드: 워크플로 수정 거절') }
 // 검토 결과 형식
 { const out = mkdtempSync(join(tmpdir(), 'pr-')); writeFileSync(join(out, 'review.md'), '<!-- claude-fallback-review -->\nsha: ' + 'a'.repeat(40) + '\nfindings: 0\n지적 없음')
   ok((await main(['review', '--repo', 'o/r', '--number', '1', '--head-sha', 'a'.repeat(40), '--out', out, '--dry-run'])).ok, '검토 결과 정상')

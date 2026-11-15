@@ -8,8 +8,8 @@
 //   - 토큰: 검증을 모두 통과한 뒤에만 claude[bot] 앱 토큰을 받고(claude-code-action과 같은 OIDC 교환, master 워크플로에서만 발급됨), 끝나면 폐기한다.
 // 이 파일은 기준(master) 사본으로만 실행한다(claude-auto.yml 게시 잡은 PR 코드를 체크아웃·실행하지 않음).
 // 사용: node claude-publish.mjs <codex|issue|review> --repo o/r --number N --out <초안 폴더> [--head-sha S --head-ref B --workdir <PR 사본>] [--dry-run]
-//       node claude-publish.mjs pr --repo o/r --out <초안 폴더> --head-sha <기준 커밋> --head-ref <새 브랜치> --workdir <기준 사본> --allow <경로,경로> [--dry-run]
-//         (새 브랜치·PR 만들기 — 지시 작업·직업분류 규칙 보강. --allow를 주면 그 밖 경로는 거절, 안 주면 금지 경로만 거절)
+//       node claude-publish.mjs pr --repo o/r --out <초안 폴더> --head-sha <기준 커밋> --head-ref <새 브랜치> --workdir <기준 사본> [--dry-run]
+//         (새 브랜치·PR 만들기 — 지시 작업. 금지 경로는 거절. 직업분류 주간 보강은 Lee 2026-11-15 결정으로 중단)
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -105,7 +105,7 @@ export function checkIssues(raw, known = []) {
 }
 
 // patch 요약(git apply --numstat --summary -z 출력이 아니라 사람이 읽는 --summary 줄 + --numstat 줄)을 검사
-export function checkPatchSummary({ numstat, summary, bytes, patchText, known = [], allow = null }) {
+export function checkPatchSummary({ numstat, summary, bytes, patchText, known = [] }) {
   if (bytes > LIMITS.patchBytes) return `patch가 너무 큼(${bytes}바이트)`
   // -z 형식: "추가\t삭제\t경로\0", 이름 바꿈은 "추가\t삭제\t\0옛경로\0새경로\0"
   const parts = numstat.split('\0'), files = []
@@ -117,7 +117,6 @@ export function checkPatchSummary({ numstat, summary, bytes, patchText, known = 
   }
   if (files.length > LIMITS.patchFiles) return `바꾼 파일이 너무 많음(${files.length}개)`
   for (const f of files) if (forbiddenPath(f)) return `고치면 안 되는 경로: ${f}`
-  if (allow) for (const f of files) if (!allow.has(f)) return `허용 목록 밖 경로: ${f}`
   for (const line of summary.split('\n')) {
     if (/mode 1(2|6)0000/.test(line)) return `링크·하위 저장소는 넣을 수 없음: ${line.trim()}`
     if (/\brename\b|\bcopy\b/.test(line) && [...line.matchAll(/\S+/g)].some((m) => forbiddenPath(m[0].replace(/[{}]/g, '')))) return `금지 경로로/에서 이름 바꿈: ${line.trim()}`
@@ -222,7 +221,6 @@ export async function main(argv) {
   if (text === null) problems.push(`${textName} 없음`)
   else if (a.mode === 'pr') { const e = checkPrText((readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0], text, known); if (e) problems.push(e) }
   else { const e = checkText(a.mode, text, { headSha: a.headSha, known }); if (e) problems.push(`${textName}: ${e}`) }
-  const allow = a.allow ? new Set(String(a.allow).split(',').map((x) => x.trim()).filter(Boolean)) : null
   let issues = []
   let patch = null, meta = null
   if (a.mode === 'codex' || a.mode === 'pr') {
@@ -239,7 +237,7 @@ export async function main(argv) {
       const pf = join(mkdtempSync(join(tmpdir(), 'cp-')), 'p.diff'); writeFileSync(pf, patch)
       const numstat = git(a.workdir, ['apply', '--numstat', '-z', pf])
       const summary = git(a.workdir, ['apply', '--summary', pf])
-      const e2 = checkPatchSummary({ numstat, summary, bytes: Buffer.byteLength(patch), patchText: patch, known, allow }); if (e2) problems.push(e2)
+      const e2 = checkPatchSummary({ numstat, summary, bytes: Buffer.byteLength(patch), patchText: patch, known }); if (e2) problems.push(e2)
       if (!problems.length) {
         if (git(a.workdir, ['rev-parse', 'HEAD']).trim() !== a.headSha) problems.push('PR 사본이 검사한 커밋이 아님')
         else {
@@ -265,14 +263,6 @@ export async function main(argv) {
       pushed = commitAndPush(a, token, meta.message)
       const pr = await gh(token, 'POST', `repos/${a.repo}/pulls`, { title: (readDraft(a.out, 'pr-title.txt') ?? '').split('\n')[0].trim(), head: a.headRef, base: 'master', body: text.trim(), draft: false })
       console.log(`PR 만듦: #${pr.number}`)
-      // 비신뢰 입력(공고 제목)에서 나온 규칙 데이터의 '뜻'은 자동 검사로 다 확인할 수 없다(독립 검토 6~8회 같은 종류 반복 → 방법 변경):
-      // pr 모드 PR은 needs-lee(Lee가 그 커밋에 Approve해야 병합, decision-approval-gate ③). 라벨을 못 달면 PR을 닫는다(닫힌 실패).
-      try {
-        await gh(token, 'POST', `repos/${a.repo}/issues/${pr.number}/labels`, { labels: ['needs-lee'] })
-      } catch (e) {
-        await gh(token, 'PATCH', `repos/${a.repo}/pulls/${pr.number}`, { state: 'closed' }).catch(() => {})
-        throw new Error(`needs-lee 라벨을 달지 못해 PR #${pr.number}을 닫음`)
-      }
       return { ok: true, problems: [], pushed, pr: pr.number }
     }
     if (out.commit) {

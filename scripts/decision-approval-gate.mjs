@@ -122,14 +122,22 @@ export function decisionApproval({ files, reviews, comments, sha, labels = [], f
   if (!touched.length && !labeled) return { required: false, approved: true, touched, reasons: [] }
   const ok = reviews.some((r) => r.user?.login === OWNER && r.state === 'APPROVED' && r.commit_id === sha)
   const reasons = [...(decision.length ? ['결정 문서'] : []), ...(frame.length ? ['승인된 화면 틀'] : []), ...(gate.length ? ['검사·보호 장치'] : []), ...(depRisk.length ? ['의존성·검증 약화'] : []), ...(labeled ? ['needs-lee 라벨'] : [])]
-  return { required: true, approved: ok, touched, reasons }
+  return { required: true, approved: ok, touched, reasons, changed: names }
 }
 
 export const REQUEST_MARKER = '<!-- decision-approval-request -->'
-export function requestText(sha, touched, reasons = ['결정 문서']) {
+// S4 9회 지적 3: 승인할 때 무엇이 바뀌었는지 보이게 — 라벨만으로 대상이 된 PR도 이 커밋의 바뀐 파일 전체를 적는다(최대 40개 + 나머지 개수)
+export function changedList(changed = []) {
+  if (!changed.length) return ''
+  // 파일 이름은 코드 칸으로(이름 속 @가 알림이 되지 않게), 백틱·줄바꿈은 지움
+  const shown = changed.slice(0, 40).map((f) => `- \`${String(f).replace(/[`\r\n]/g, '')}\``).join('\n')
+  return `\n바뀐 파일 ${changed.length}개:\n${shown}${changed.length > 40 ? `\n- …그 밖 ${changed.length - 40}개` : ''}`
+}
+export function requestText(sha, touched, reasons = ['결정 문서'], changed = []) {
   return `${REQUEST_MARKER}\nLee 승인 필요: 이 PR은 ${reasons.join('·')} 대상입니다${touched.length ? `(${touched.join(', ')})` : ''}. ` +
     `내용을 확인하고 승인하시면 병합됩니다. 승인 전에는 자동 병합하지 않습니다.\n` +
-    `승인 방법: GitHub 앱에서 이 PR을 열고 이 커밋(${sha.slice(0, 7)})에 "Approve" 리뷰. 댓글 승인은 인정하지 않습니다.`
+    `승인 방법: GitHub 앱에서 이 PR을 열고 이 커밋(${sha.slice(0, 7)})에 "Approve" 리뷰. 댓글 승인은 인정하지 않습니다.` +
+    changedList(changed)
 }
 
 // CLI (trusted master checkout in bot-pr-automerge.yml): files.json reviews.json comments.json sha
@@ -144,6 +152,6 @@ if (process.argv[1]?.endsWith('decision-approval-gate.mjs')) {
   let framePaths = []
   try { framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8')) } catch { /* 잠금 파일을 못 읽으면 닫힌 실패 */ process.exit(3) }
   const r = decisionApproval({ files, reviews, comments, sha, labels, framePaths, deps: depFiles })
-  if (!r.approved) console.log(requestText(sha, r.touched, r.reasons))
+  if (!r.approved) console.log(requestText(sha, r.touched, r.reasons, r.changed))
   process.exit(r.approved ? 0 : 3)
 }

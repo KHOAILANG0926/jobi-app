@@ -12,6 +12,12 @@ assert.equal(decisionApproval({ files: doc, reviews: [{ user: { login: 'someone'
 assert.equal(decisionApproval({ files: doc, reviews: [], comments: [{ user: { login: 'KHOAILANG0926' }, body: `LEE-APPROVE ${sha}` }], sha }).approved, false, 'S3-2: Lee-account comment no longer counts (AI could write it)')
 assert.equal(decisionApproval({ files: doc, reviews: [], comments: [{ user: { login: 'KHOAILANG0926' }, body: `LEE-APPROVE ${old}` }], sha }).approved, false, 'comment for an older SHA does not count')
 assert.match(requestText(sha, ['docs/decisions/ko/0006-x.md']), /Lee 승인 필요/)
+// S4 9회 지적 3: 라벨만으로 대상이 돼도 바뀐 파일이 승인 요청에 나온다
+{ const r = decisionApproval({ files: [{ filename: 'crawler/occupation_classifier.py' }, { filename: 'src/a.ts' }], reviews: [], comments: [], sha, labels: [NEEDS_LEE_LABEL] })
+  assert.equal(r.approved, false, 'needs-lee 라벨이면 Lee 승인 전 막힘')
+  const t = requestText(sha, r.touched, r.reasons, r.changed)
+  assert.match(t, /바뀐 파일 2개:\n- `crawler\/occupation_classifier\.py`\n- `src\/a\.ts`/, '승인 요청에 바뀐 파일 목록') }
+assert.match(requestText(sha, [], ['needs-lee 라벨'], Array.from({ length: 45 }, (_, i) => `f${i}`)), /그 밖 5개/, '40개 넘으면 나머지 개수')
 // R2 자동 병합 통제(Lee 2026-11-13 승인): 승인된 화면 틀 파일·needs-lee 라벨도 같은 문턱, 파일 내용으로 자동 감지(라벨·Claude 답글로 우회 불가)
 const framePaths = approvedFramePaths(readFileSync(new URL('./test-desktop-baseline.mjs', import.meta.url), 'utf8'))
 assert.ok(framePaths.includes('src/pages/JobDetail.tsx') && framePaths.includes('src/index.css') && framePaths.length >= 8, '기존 화면 잠금 파일 목록을 그 파일에서 읽음(따로 만든 목록 아님)')

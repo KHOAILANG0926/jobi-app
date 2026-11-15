@@ -6,7 +6,6 @@
 #       호스트 프로세스가 안 보이고(별도 PID 공간), 사본 외 호스트 파일이 없고, 설치(install) 외에는 네트워크도 없다.
 #       사본은 매번 PR 파일로 다시 만든다(node_modules만 유지) — 컨테이너가 고친 파일이 호스트 작업 폴더로 돌아오지 않는다.
 # 사용: sandbox-run.sh <install|tsc|test|build> [프로젝트 폴더, 기본 현재 폴더]
-#       sandbox-run.sh py-unittest <프로젝트 폴더> <test_모듈>
 #   출력은 그대로 보여 준다(사본에는 열쇠가 없으므로 출력에도 없다).
 # 이 파일은 PR 사본이 아니라 기준(master) 사본으로 실행해야 한다(claude-auto.yml이 기준 커밋에서 따로 꺼내 둔다).
 set -euo pipefail
@@ -16,11 +15,7 @@ case "$cmd" in
   tsc)     run='npx tsc --noEmit';             net=none ;;
   test)    run='npm test';                     net=none ;;
   build)   run='npm run build';                net=none ;;
-  # Python 시험 하나(crawler/ 아래, 모듈 이름만 — 경로·옵션 불가). 의존성 설치 없이 표준 라이브러리 시험만 돈다.
-  py-unittest)
-    mod=${3:-}; [[ "$mod" =~ ^test_[a-z0-9_]{1,60}$ ]] || { echo "py-unittest: 모듈 이름 형식 오류" >&2; exit 2; }
-    run="cd crawler && python3 -m unittest $mod"; net=none ;;
-  *) echo "사용: sandbox-run.sh <install|tsc|test|build|py-unittest> [폴더] [모듈]" >&2; exit 2 ;;
+  *) echo "사용: sandbox-run.sh <install|tsc|test|build> [폴더]" >&2; exit 2 ;;
 esac
 image=${SANDBOX_IMAGE:-node:22-bookworm}  # git 포함(시험 일부가 git ls-files로 추적 파일 목록을 봄)
 [[ "$image" =~ ^[a-z0-9./:@_-]+$ ]] || { echo "이미지 이름 형식 오류" >&2; exit 2; }
