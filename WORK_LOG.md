@@ -1,3 +1,8 @@
+## 2026-11-16 — S4 B단계 2차: 교환 권한에 contents:read 추가 (#808, Draft·대표 Approve 전 병합 금지)
+- 원인 [직접 확인]: #846 병합(ef9100a) 뒤 run 43783470691 — 교환 401 "Custom permissions must include 'contents' (read or write) for workflow validation". 닫힌 실패 정상(성공 표시 0).
+- 변경: CHECKS_PERMISSIONS = { contents: 'read', checks: 'write' } (쓰기는 checks 하나). 공통 appToken() 기본 요청은 그대로.
+- 남은 문제: checks:write 허용 여부는 병합 뒤 실행으로만 확인. 거절 시 검사 전용 앱 대표 결정.
+
 ## 2026-11-16 — S4 B단계: approval-checks만 Checks 쓰기 권한 요청 (#808, Draft·대표 Approve 전 병합 금지)
 - 요청: Lee 11-16 "approval-checks 작업에서만 Checks 쓰기 권한 요청, 공통 appToken 기본 권한·기존 게시 작업 토큰 변경 금지, 거절·실패 시 안전 중단".
 - 원인 [직접 확인]: run 43775353050 — check-runs 생성 403 Resource not accessible by integration. appToken()이 교환 요청 본문 없이 보내 기본 권한(contents·pull_requests·issues 쓰기)만 받음(anthropics/claude-code-action src/github/token.ts DEFAULT_PERMISSIONS·exchangeForAppToken 확인). master 커밋에 Claude 앱 check-suite 있음 → 설치본은 checks 권한 보유로 판단.

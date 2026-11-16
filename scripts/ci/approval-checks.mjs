@@ -89,7 +89,8 @@ export function combine(list) {
 
 // 이 작업이 Claude 앱 토큰으로 하는 일은 검사 결과 올리기뿐이다 — 그 권한만 요청한다(S4 B단계, Lee 2026-11-16).
 // 공통 appToken()의 기본 권한은 바꾸지 않는다. 교환이 거절되거나 검사 생성이 실패하면 예외 → 실행 실패(닫힌 실패)로 끝난다.
-export const CHECKS_PERMISSIONS = Object.freeze({ checks: 'write' })
+// Anthropic 교환 서버 규칙(run 43783470691 실제 응답 401): 직접 정한 권한 목록에는 contents(read 또는 write)가 반드시 있어야 한다 → 가장 낮은 contents:read를 함께 요청.
+export const CHECKS_PERMISSIONS = Object.freeze({ contents: 'read', checks: 'write' })
 
 export async function main(argv, { getAppToken = () => appToken(CHECKS_PERMISSIONS), framePaths: fp } = {}) {
   const a = {}
