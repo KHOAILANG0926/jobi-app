@@ -106,12 +106,12 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   const quiet = console.log; console.log = () => {}
   const exch = (reply) => { const calls = []; globalThis.fetch = async (url, init = {}) => { if (String(url).startsWith('https://oidc.example')) return { json: async () => ({ value: 'oidc' }) }; calls.push(init); const [status, data] = reply(); return { ok: status < 400, status, json: async () => data } }; return calls }
   try {
-    assert.deepEqual(CHECKS_PERMISSIONS, { checks: 'write' }, '요청 권한은 checks:write 하나')
+    assert.deepEqual(CHECKS_PERMISSIONS, { contents: 'read', checks: 'write' }, '요청 권한은 교환 필수 contents:read + checks:write 뿐(쓰기는 checks 하나)')
     let c = exch(() => [200, { token: 't' }]); await appToken()
     assert.equal(c[0].body, undefined, '인자 없으면 예전처럼 본문 없음(게시·댓글·PR 권한 그대로)'); assert.equal(c[0].headers['Content-Type'], undefined)
     c = exch(() => [200, { token: 't' }]); await appToken(CHECKS_PERMISSIONS)
-    assert.equal(c[0].body, '{"permissions":{"checks":"write"}}', 'claude-code-action과 같은 형식'); assert.equal(c[0].headers['Content-Type'], 'application/json')
-    exch(() => [200, { token: 't', permissions: { checks: 'write', metadata: 'read' } }]); assert.equal(await appToken(CHECKS_PERMISSIONS), 't', '요청한 권한을 받으면 통과')
+    assert.equal(c[0].body, '{"permissions":{"contents":"read","checks":"write"}}', 'claude-code-action과 같은 형식'); assert.equal(c[0].headers['Content-Type'], 'application/json')
+    exch(() => [200, { token: 't', permissions: { contents: 'read', checks: 'write', metadata: 'read' } }]); assert.equal(await appToken(CHECKS_PERMISSIONS), 't', '요청한 권한을 받으면 통과')
     exch(() => [200, { token: 't', permissions: { contents: 'write' } }]); await assert.rejects(appToken(CHECKS_PERMISSIONS), /권한 부족: checks:write/, '응답 권한에 checks 없으면 멈춤')
     exch(() => [403, { message: 'permission not allowed' }]); await assert.rejects(appToken(CHECKS_PERMISSIONS), /앱 토큰 교환 실패\(403\) permission not allowed/, '교환 거절이면 멈춤')
   } finally { console.log = quiet; delete process.env.ACTIONS_ID_TOKEN_REQUEST_URL; delete process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }
