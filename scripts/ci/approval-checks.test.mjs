@@ -1,5 +1,7 @@
 // S4 8단계 시험: ai-review·approval-gate 판정(순수 함수) — 일반 통과 / 고위험·판단 불가 차단 / 4대 보고·Lee 승인 / 검토 미완료
 import assert from 'node:assert/strict'
+// S4 실증 3(a) 전용(병합 금지 PR): 일부러 실패하는 시험 — 필수 검사 checks가 실패하면 병합이 거절되는지 확인
+assert.fail('S4 실증 3(a): 일부러 실패하는 시험')
 import { verdicts, CHECK_REVIEW, CHECK_APPROVAL } from './approval-checks.mjs'
 import { readFileSync } from 'node:fs'
 const sha = 'a'.repeat(40), repo = 'KHOAILANG0926/jobi-app'
