@@ -39,7 +39,12 @@ assert.notEqual(verdicts({ files: null, reviews: [], reviewComments: [], comment
 const yml = readFileSync(new URL('../../.github/workflows/approval-checks.yml', import.meta.url), 'utf8')
 assert.match(yml, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/, '기본 브랜치(master)만 받음')
 assert.ok(!/head\.sha|head\.ref|pull\/\$\{\{/.test(yml.replace(/^#.*$/gm, '')), 'PR 커밋을 체크아웃하지 않음')
-assert.ok(!/contents: write|checks: write|pull-requests: write/.test(yml), '쓰기 권한 없음(검사 결과는 Claude 앱 토큰으로)')
+{ const perms = yml.match(/^permissions:\n((?:  .*\n)+)/m)?.[1] ?? ''
+  assert.ok(perms && !/write/.test(perms), '워크플로 기본 토큰은 읽기만(검사 결과는 검사 전용 앱 토큰으로)')
+  assert.ok(!/id-token/.test(perms), 'OIDC 교환 안 씀(Claude 앱 토큰 교환은 checks 발급 불가)')
+  const live = yml.replace(/^\s*#.*$/gm, '')
+  assert.match(live, /^    environment: approval-checks$/m, '앱 열쇠는 master 전용 environment에서만')
+  assert.deepEqual(live.match(/permission-[a-z-]+: \w+/g), ['permission-checks: write'], '검사 전용 앱 토큰은 Checks 쓰기 하나만 요청') }
 console.log('approval-checks 시험 통과(일반·고위험·판단 불가·검토 미완료·보고·Lee 승인)')
 // 검토 지적: PR 브랜치 사본이 도는 pull_request_review 트리거는 두지 않는다(주석 제외한 실제 트리거만 본다). Lee 승인 직후 재검사는 review-signal.yml → workflow_run 한 경로(검토관 지적 62aa013: 봇의 중복 수동 실행 단계는 지움).
 { const live = yml.replace(/^\s*#.*$/gm, '')

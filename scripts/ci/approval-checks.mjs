@@ -8,7 +8,6 @@
 // 사용: node approval-checks.mjs --repo o/r (--pr N | --all) [--dry-run]
 import { decisionApproval, approvedFramePaths } from '../decision-approval-gate.mjs'
 import { codexGate } from '../codex-review-gate.mjs'
-import { appToken } from './claude-publish.mjs'
 import { readFileSync } from 'node:fs'
 
 export const CHECK_REVIEW = 'ai-review'
@@ -65,7 +64,8 @@ async function collect(token, repo, num, framePaths) {
 }
 
 /** 이 앱이 이 커밋에 이미 올린 같은 이름 검사가 있으면 갱신, 없으면 만든다. 커밋이 그 사이 바뀌었으면(옛 커밋 판정) 올리지 않는다.
- *  앱 토큰은 checks 권한만 받으므로(CHECKS_PERMISSIONS) PR 조회는 읽기 토큰(GITHUB_TOKEN, pull-requests: read)으로 한다 — 앱 토큰은 check-runs 조회·생성·갱신에만 쓴다(검토관 지적 1854918). */
+ *  검사 전용 앱 토큰은 checks 권한만 있으므로 PR 조회는 읽기 토큰(GITHUB_TOKEN, pull-requests: read)으로 한다 — 앱 토큰은 check-runs 조회·생성·갱신에만 쓴다(검토관 지적 1854918).
+ *  고칠 대상은 이 검사 전용 앱이 만든 검사만(CHECKS_APP_SLUG) — 다른 앱·GitHub Actions가 만든 같은 이름 검사는 건드리지 않는다. */
 export async function publish(appTok, repo, num, sha, name, v, readTok = appTok) {
   const live = await ghFetch(readTok, `repos/${repo}/pulls/${num}`)
   if (live.head.sha !== sha) { console.log(`PR #${num}: 판정하는 사이 새 커밋 — ${name} 올리지 않음`); return 'stale' }
@@ -74,7 +74,7 @@ export async function publish(appTok, repo, num, sha, name, v, readTok = appTok)
     : v.state === 'pending' ? { ...base, status: 'in_progress' }
       : { ...base, status: 'completed', conclusion: v.state === 'blocked' ? 'action_required' : 'failure' }
   const found = await ghFetch(appTok, `repos/${repo}/commits/${sha}/check-runs?check_name=${name}&per_page=100`)
-  const mine = found.check_runs.filter((c) => c.app?.slug === 'claude').sort((a, b) => b.id - a.id)[0]
+  const mine = found.check_runs.filter((c) => c.app?.slug === checksAppSlug()).sort((a, b) => b.id - a.id)[0]
   const r = await fetch(`https://api.github.com/repos/${repo}/check-runs${mine ? `/${mine.id}` : ''}`, { method: mine ? 'PATCH' : 'POST', headers: { Authorization: `Bearer ${appTok}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
   if (!r.ok) throw new Error(`${name} 검사 올리기 실패 ${r.status} ${(await r.text()).slice(0, 200)}`)
   return 'ok'
@@ -87,12 +87,18 @@ export function combine(list) {
   return list.length === 1 ? w.v : { state: w.v.state, summary: `같은 커밋을 쓰는 PR ${list.map((x) => `#${x.num}`).join('·')} 중 가장 나쁜 판정 — #${w.num}: ${w.v.summary}` }
 }
 
-// 이 작업이 Claude 앱 토큰으로 하는 일은 검사 결과 올리기뿐이다 — 그 권한만 요청한다(S4 B단계, Lee 2026-11-16).
-// 공통 appToken()의 기본 권한은 바꾸지 않는다. 교환이 거절되거나 검사 생성이 실패하면 예외 → 실행 실패(닫힌 실패)로 끝난다.
-// Anthropic 교환 서버 규칙(run 43783470691 실제 응답 401): 직접 정한 권한 목록에는 contents(read 또는 write)가 반드시 있어야 한다 → 가장 낮은 contents:read를 함께 요청.
-export const CHECKS_PERMISSIONS = Object.freeze({ contents: 'read', checks: 'write' })
+// 검사 결과는 검사 전용 GitHub 앱(Checks 쓰기만)으로 올린다(S4 B단계, Lee 2026-11-16).
+// Anthropic 교환은 checks:write를 내주지 않음(run 43797922253 401) → 워크플로가 master 전용 environment 비밀값으로 만든 토큰을 환경변수로 넘긴다.
+// 토큰·앱 이름이 없으면 예외 → 실행 실패(닫힌 실패, 성공 표시 없음).
+function checksAppSlug() { const s = process.env.CHECKS_APP_SLUG; if (!s) throw new Error('검사 전용 앱 이름 없음(CHECKS_APP_SLUG)'); return s }
+export function checksAppToken() {
+  const t = process.env.CHECKS_APP_TOKEN
+  if (!t) throw new Error('검사 전용 앱 토큰 없음(CHECKS_APP_TOKEN — approval-checks environment의 앱 설정 확인)')
+  checksAppSlug()
+  return t
+}
 
-export async function main(argv, { getAppToken = () => appToken(CHECKS_PERMISSIONS), framePaths: fp } = {}) {
+export async function main(argv, { getAppToken = checksAppToken, framePaths: fp } = {}) {
   const a = {}
   for (let i = 0; i < argv.length; i++) { const k = argv[i]; if (k === '--dry-run' || k === '--all') a[k.slice(2)] = true; else a[k.slice(2)] = argv[++i] }
   const repo = a.repo, readTok = process.env.GITHUB_TOKEN

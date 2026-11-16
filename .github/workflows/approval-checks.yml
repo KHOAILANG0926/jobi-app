@@ -1,8 +1,8 @@
-name: 병합 조건 검사(ai-review·approval-gate, Claude 앱)
-# S4 8단계(Lee 2026-11-15): 독립 검토 결과와 위험도·Lee 승인 판정을 'Claude 앱' 이름으로 PR 커밋에 검사 결과로 남긴다.
-# PR 코드는 받지도 실행하지도 않는다 — master의 scripts/ci/approval-checks.mjs가 GitHub API 데이터만 읽는다.
-# Claude 앱 토큰은 master 워크플로에만 발급되므로(OIDC 교환) PR 브랜치 쪽은 같은 이름의 통과 결과를 만들 수 없다.
-# master 보호 규칙에서 두 검사를 '출처 앱 = Claude'로 필수 지정하는 것은 대표님 GitHub 설정이다(이 파일은 설정을 바꾸지 않는다).
+name: 병합 조건 검사(ai-review·approval-gate, 검사 전용 앱)
+# S4 8단계(Lee 2026-11-15): 독립 검토 결과와 위험도·Lee 승인 판정을 '검사 전용 앱' 이름으로 PR 커밋에 검사 결과로 남긴다.
+# (S4 B단계 2026-11-16: Claude 앱 토큰 교환은 checks:write 발급 불가 — run 43797922253 — 이라 검사 전용 앱으로 바꿈.)
+# 앱 열쇠는 environment 'approval-checks'(배포 브랜치 master만)에만 있고, 이 작업은 늘 master 사본만 돈다 → PR 브랜치 쪽은 같은 이름의 통과 결과를 만들 수 없다.
+# master 보호 규칙에서 두 검사를 '출처 앱 = 검사 전용 앱'으로 필수 지정하는 것은 대표님 GitHub 설정이다(이 파일은 설정을 바꾸지 않는다).
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, edited, labeled, unlabeled]
@@ -26,7 +26,6 @@ permissions:
   contents: read
   pull-requests: read
   issues: read
-  id-token: write
 
 # 모든 실행을 한 줄로 세운다(Codex P1): 예약 실행과 PR 이벤트 실행이 같은 커밋의 검사 결과를 동시에 갱신하면 늦게 끝난 옛 판정이 새 판정을 success로 덮을 수 있다.
 # 대기 중 실행이 뒤 실행으로 바뀌어도 안전하다 — 실행마다 열린 PR 전체를 그 시점 자료로 다시 판정한다(--all).
@@ -43,6 +42,8 @@ jobs:
        (github.event.comment.user.login == 'claude[bot]' || github.event.comment.user.login == 'chatgpt-codex-connector[bot]' || github.event.comment.user.login == 'viecganban-bot'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # 검사 전용 앱 열쇠는 이 environment(배포 브랜치 master만)에만 둔다 — PR 브랜치·다른 작업은 꺼낼 수 없다(S4 B단계, Lee 2026-11-16).
+    environment: approval-checks
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,9 +53,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: 판정하고 Claude 앱으로 검사 결과 올리기
+      - name: 검사 전용 앱 토큰(이 저장소, Checks 쓰기만)
+        id: checks-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APPROVAL_CHECKS_APP_ID }}
+          private-key: ${{ secrets.APPROVAL_CHECKS_APP_KEY }}
+          permission-checks: write
+      - name: 판정하고 검사 전용 앱으로 검사 결과 올리기
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECKS_APP_TOKEN: ${{ steps.checks-app.outputs.token }}
+          CHECKS_APP_SLUG: ${{ steps.checks-app.outputs.app-slug }}
           PR: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
         run: |
           node scripts/ci/approval-checks.mjs --repo "$GITHUB_REPOSITORY" --all ${PR:+--pr "$PR"}

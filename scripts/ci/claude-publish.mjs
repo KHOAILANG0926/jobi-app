@@ -203,24 +203,15 @@ function commitAndPush(a, token, message) {
   return sha
 }
 
-// permissions를 주지 않으면 예전과 똑같이 본문 없이 요청한다(기본 권한: contents·pull_requests·issues 쓰기 — 게시·댓글·PR 작업은 그대로).
-// permissions를 주면 claude-code-action(src/github/token.ts exchangeForAppToken)과 같은 형식 {"permissions":{...}}으로 그 권한만 요청한다.
-// S4 B단계(Lee 2026-11-16): approval-checks만 { checks: 'write' }를 넘긴다. 응답이 권한 목록을 주면 요청한 권한과 다를 때 닫힌 실패로 멈춘다.
-export async function appToken(permissions) {
+export async function appToken() {
   const url = process.env.ACTIONS_ID_TOKEN_REQUEST_URL, req = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN
   if (!url || !req) throw new Error('OIDC 발급 정보 없음(id-token: write 필요)')
   const oidc = await (await fetch(`${url}&audience=claude-code-github-action`, { headers: { Authorization: `Bearer ${req}` } })).json()
   if (!oidc.value) throw new Error('OIDC 토큰 받기 실패')
-  const init = { method: 'POST', headers: { Authorization: `Bearer ${oidc.value}` } }
-  if (permissions) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify({ permissions }) }
-  const r = await fetch('https://api.anthropic.com/api/github/github-app-token-exchange', init)
+  const r = await fetch('https://api.anthropic.com/api/github/github-app-token-exchange', { method: 'POST', headers: { Authorization: `Bearer ${oidc.value}` } })
   const j = await r.json().catch(() => ({}))
   const tok = j.token || j.app_token
   if (!r.ok || !tok) throw new Error(`앱 토큰 교환 실패(${r.status}) ${j.message ?? j.error?.message ?? ''}`.trim())
-  if (permissions && j.permissions && typeof j.permissions === 'object') {
-    const missing = Object.entries(permissions).filter(([k, v]) => j.permissions[k] !== v && !(v === 'read' && j.permissions[k] === 'write'))
-    if (missing.length) throw new Error(`앱 토큰 권한 부족: ${missing.map(([k, v]) => `${k}:${v}`).join(', ')} 요청했으나 받지 못함`)
-  }
   console.log(`::add-mask::${tok}`)
   return tok
 }

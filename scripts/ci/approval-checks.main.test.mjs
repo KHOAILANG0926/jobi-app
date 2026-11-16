@@ -3,6 +3,7 @@
 //  ② 재판정 중 API 조회가 실패하면 이미 있던 success가 남지 않는다(pending → failure)
 import assert from 'node:assert/strict'
 import { main } from './approval-checks.mjs'
+process.env.CHECKS_APP_SLUG = 'claude'  // 흉내 낸 GitHub가 돌려주는 기존 검사의 앱 이름과 맞춤
 const repo = 'KHOAILANG0926/jobi-app', sha = 'a'.repeat(40), later = '2026-11-15T10:20:00Z'
 const body = ['## 고위험 4대 보고', '- 무엇을 바꾸나: 검사 설정 변경', '- 왜 필요한가: 병합 보호 강화', '- 승인 시 남는 위험: 설정 오류 가능', '- 미승인 시 영향: 보호 지연', `- 검증: https://github.com/${repo}/actions/runs/1`].join('\n')
 const claudeOk = { user: { login: 'claude[bot]' }, body: `<!-- claude-fallback-review -->\nsha: ${sha}\nfindings: 0\n\nok`, created_at: '2026-11-15T10:05:00Z' }
@@ -99,22 +100,22 @@ const last = (writes, name) => writes.filter((w) => w.name === name).at(-1)
   assert.match(yml, /--all \$\{PR:\+--pr "\$PR"\}/, '매 실행이 전체(--all)를 다시 판정') }
 // 열린 PR이 아니면 아무것도 올리지 않음
 { const w = world({ prs: [], reviews: {}, comments: {} }); await main(['--repo', repo, '--pr', '9'], opts); assert.equal(w.writes.length, 0) }
-// S4 B단계(Lee 2026-11-16): 토큰 교환 권한 요청 — approval-checks만 checks:write, 공통 기본 요청은 그대로
+// S4 B단계(Lee 2026-11-16): 검사 전용 앱 — 토큰·앱 이름이 없으면 실행 실패(닫힌 실패), 고칠 대상은 이 앱이 만든 검사만
 {
-  const { appToken } = await import('./claude-publish.mjs'); const { CHECKS_PERMISSIONS } = await import('./approval-checks.mjs')
-  process.env.ACTIONS_ID_TOKEN_REQUEST_URL = 'https://oidc.example/t?x=1'; process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN = 'req'
-  const quiet = console.log; console.log = () => {}
-  const exch = (reply) => { const calls = []; globalThis.fetch = async (url, init = {}) => { if (String(url).startsWith('https://oidc.example')) return { json: async () => ({ value: 'oidc' }) }; calls.push(init); const [status, data] = reply(); return { ok: status < 400, status, json: async () => data } }; return calls }
+  const { checksAppToken } = await import('./approval-checks.mjs')
+  const saved = { t: process.env.CHECKS_APP_TOKEN, s: process.env.CHECKS_APP_SLUG }
   try {
-    assert.deepEqual(CHECKS_PERMISSIONS, { contents: 'read', checks: 'write' }, '요청 권한은 교환 필수 contents:read + checks:write 뿐(쓰기는 checks 하나)')
-    let c = exch(() => [200, { token: 't' }]); await appToken()
-    assert.equal(c[0].body, undefined, '인자 없으면 예전처럼 본문 없음(게시·댓글·PR 권한 그대로)'); assert.equal(c[0].headers['Content-Type'], undefined)
-    c = exch(() => [200, { token: 't' }]); await appToken(CHECKS_PERMISSIONS)
-    assert.equal(c[0].body, '{"permissions":{"contents":"read","checks":"write"}}', 'claude-code-action과 같은 형식'); assert.equal(c[0].headers['Content-Type'], 'application/json')
-    exch(() => [200, { token: 't', permissions: { contents: 'read', checks: 'write', metadata: 'read' } }]); assert.equal(await appToken(CHECKS_PERMISSIONS), 't', '요청한 권한을 받으면 통과')
-    exch(() => [200, { token: 't', permissions: { contents: 'write' } }]); await assert.rejects(appToken(CHECKS_PERMISSIONS), /권한 부족: checks:write/, '응답 권한에 checks 없으면 멈춤')
-    exch(() => [403, { message: 'permission not allowed' }]); await assert.rejects(appToken(CHECKS_PERMISSIONS), /앱 토큰 교환 실패\(403\) permission not allowed/, '교환 거절이면 멈춤')
-  } finally { console.log = quiet; delete process.env.ACTIONS_ID_TOKEN_REQUEST_URL; delete process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }
+    delete process.env.CHECKS_APP_TOKEN; assert.throws(() => checksAppToken(), /검사 전용 앱 토큰 없음/, '토큰 없으면 멈춤')
+    process.env.CHECKS_APP_TOKEN = 'app'; delete process.env.CHECKS_APP_SLUG; assert.throws(() => checksAppToken(), /검사 전용 앱 이름 없음/, '앱 이름 없으면 멈춤')
+    process.env.CHECKS_APP_SLUG = 'viecganban-checks'; assert.equal(checksAppToken(), 'app')
+  } finally { process.env.CHECKS_APP_TOKEN = saved.t; process.env.CHECKS_APP_SLUG = saved.s }
+  // 다른 앱(예: 예전 Claude 앱)이 만든 같은 이름 검사는 고치지 않고 이 앱 이름으로 새로 만든다
+  const w = world({ prs: [pr(1, { body: 'x' })], reviews: { 1: [] }, comments: { 1: [claudeOk] }, existing: { 'ai-review': { id: 7 } } })
+  const inner = globalThis.fetch, patched = []
+  globalThis.fetch = async (url, init = {}) => { if (init.method === 'PATCH') patched.push(String(url)); return inner(url, init) }
+  process.env.CHECKS_APP_SLUG = 'other-app'
+  try { await main(['--repo', repo, '--pr', '1'], opts) } finally { process.env.CHECKS_APP_SLUG = saved.s }
+  assert.ok(!patched.some((u) => u.endsWith('/check-runs/7')), '다른 앱 검사(id 7)는 고치지 않음')
 }
 // 앱 토큰(checks 권한만)은 check-runs 말고 다른 API를 부르지 않는다 — 권한 밖 호출은 403을 돌려주는 가짜로 확인(검토관 지적 1854918)
 {
