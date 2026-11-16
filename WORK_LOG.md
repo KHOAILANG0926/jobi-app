@@ -1,9 +1,3 @@
-## 2026-11-16 — job-rules-apply 운영 DB 시험(시험 공고 넣고 지우기) 폐지 → 시험용 DB(PGlite)로 (#858, Draft·대표 Approve 전 병합 금지)
-- 원인 [직접 확인]: 10-29 입구 트리거 trg_000_ingest_gateway_only가 local_jobs 직접 insert를 모두 insufficient_privilege로 거부 → 시험 SQL의 직접 insert가 전부 막혀 `exception when others → 실패`(11-12·11-13·11-15, run 43687539636: 실패 7·남은 공고 0). 같은 트리거 본문을 PGlite에 붙여 같은 SQL을 돌리면 같은 7개 실패·남은 0이 재현됨.
-- 변경: job-rules-apply.yml에서 운영 DB 시험·결과 확인 두 단계 삭제(OCR 시험·migration 이력 확인은 유지). job_posting_rules.pglite.test.mjs에 직업분류 migration 5개 추가 → R1~R7·U2 전부 통과, occupation-publication-check.yml(publication-gate, 모든 PR)에서 실행. job-rule-replay.test.mjs 기대값: "운영에 시험 공고 넣지 않음 + 시험용 DB에서 같은 SQL 실행".
-- 검증: 규칙 트리거를 지우면 R1~R7 실패(빈 통과 아님), lee_source·occupation_publication pglite 통과, secret-isolation 0.
-- 남은 문제: 운영 job_posting_rules.last_test_result의 11-15 '실패' 값이 STATUS에 남음(STATUS 파일은 지시 없이 안 고침) — 대표 결정.
-
 ## 2026-11-16 — S4 B단계 3차: 검사 결과를 검사 전용 GitHub 앱으로 (#808, Draft·대표 Approve 전 병합 금지)
 - 원인 [직접 확인]: #848 병합(1d57b24) 뒤 run 43797922253 — 교환 401 "Workflows can't get 'checks' at 'write' from this token exchange". Claude 앱 경로로는 불가 확정.
 - 변경: approval-checks.yml 잡에 environment ops-keys(기존 운영 열쇠 환경, R8) + actions/create-github-app-token@v2(permission-checks: write만), id-token 권한 삭제. approval-checks.mjs는 CHECKS_APP_TOKEN·CHECKS_APP_SLUG로만 올림(없으면 닫힌 실패), 고칠 대상은 이 앱이 만든 검사만.
