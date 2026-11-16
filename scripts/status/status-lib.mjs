@@ -256,7 +256,9 @@ export function renderStatus(d) {
       L.push(`| \`${esc(r.rule_key)}\` | ${esc(r.block_mode)} | ${r.last_tested_at ? fmtVN(r.last_tested_at) : '—'} | ${res} | ${current} |`)
       if (r.last_test_result === '실패') {
         // 과거 실패를 「확인 필요」에서 내리는 조건: 같은 규칙을 시험한 시험용 DB 단계가 그 운영 시험보다 나중에 통과했을 때만.
-        const passedLater = tested.has(r.rule_key) && ci?.conclusion === 'success' && ci.at && r.last_tested_at && ci.at > r.last_tested_at
+        // 시각은 문자열이 아니라 실제 시각으로 비교한다(GitHub ...Z / Supabase +00:00·소수초 형식 차이, 검토관 지적 8a79c7a).
+        const ciAt = Date.parse(ci?.at ?? ''), pastAt = Date.parse(r.last_tested_at ?? '')
+        const passedLater = tested.has(r.rule_key) && ci?.conclusion === 'success' && Number.isFinite(ciAt) && Number.isFinite(pastAt) && ciAt > pastAt
         if (passedLater) laterPassed.push(r.rule_key)
         else bad.push(`규칙 시험 실패: ${r.rule_key}`)
       }

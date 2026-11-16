@@ -67,5 +67,9 @@ console.log('status-lib recheck: all assertions passed')
   assert.ok(none.problems.includes('규칙 시험 실패: R1_phone_digits_only'), '현재 단계 결과를 못 읽으면 과거 실패는 확인 필요에 남음')
   const older = renderStatus({ generatedAt: '2026-11-16T09:10:00Z', rules, ruleTestCi: ci('success', '2026-11-14T00:00:00Z') })
   assert.ok(older.problems.includes('규칙 시험 실패: R1_phone_digits_only'), '운영 실패보다 앞선 시험용 DB 통과로는 내리지 않음')
+  // 형식이 다른 시각(Supabase +00:00·소수초 vs GitHub Z): 실제로 나중이면 내리고, 실제로 앞서면 안 내림
+  const mixed = [{ ...rules[0], last_tested_at: '2026-11-16 08:59:59.900+00:00' }]
+  assert.ok(!renderStatus({ generatedAt: 'x', rules: mixed, ruleTestCi: ci('success', '2026-11-16T09:00:00Z') }).problems.includes('규칙 시험 실패: R1_phone_digits_only'), '실제 시각으로 비교 — 나중 통과')
+  assert.ok(renderStatus({ generatedAt: 'x', rules: [{ ...rules[0], last_tested_at: '2026-11-16 09:00:00.500+00:00' }], ruleTestCi: ci('success', '2026-11-16T09:00:00Z') }).problems.includes('규칙 시험 실패: R1_phone_digits_only'), '실제 시각으로 비교 — 운영 실패가 0.5초 뒤면 안 내림')
   console.log('status-lib rules past/current: all assertions passed')
 }

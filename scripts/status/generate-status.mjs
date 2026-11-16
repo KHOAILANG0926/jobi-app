@@ -143,7 +143,8 @@ const ruleTestCi = await attempt('규칙 시험(시험용 DB)', async () => {
   for (const run of runs) {
     const jobs = (await gh(`/actions/runs/${run.id}/jobs`)).jobs ?? []
     const step = jobs.flatMap((j) => j.steps ?? []).find((st) => String(st.name).startsWith(RULE_TEST_STEP))
-    if (!step) continue
+    // 단계가 없거나 실제로 돌지 않은 실행(skipped·cancelled·결과 없음)은 시험 결과가 아니다 → 다음 실행을 본다(검토관 지적 8a79c7a).
+    if (!step || !['success', 'failure', 'timed_out'].includes(step.conclusion)) continue
     const sqlText = readFileSync(join(root, 'supabase/tests/job_posting_rules_test.sql'), 'utf8')
     const testedKeys = [...new Set([...sqlText.matchAll(/res \|\| jsonb_build_object\('([A-Za-z0-9_]+)'/g)].map((m) => m[1]))]
     return { conclusion: step.conclusion, at: step.completed_at ?? run.updated_at, url: run.html_url, sha: run.head_sha, testedKeys }
