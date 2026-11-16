@@ -1,8 +1,3 @@
-## 2026-11-16 — 옛 직접 적용 워크플로 중 migrations-apply와 겹치는 occupation-master-apply 폐지 (#858, Draft·대표 Approve 전 병합 금지)
-- 조사 [직접 확인]: 11-15 #824 한 번에 옛 워크플로 4개가 운영 DB에 실행. occupation-master-apply = CUTOFF(20261017070517) 이전 migration 2개를 다시 돌리는 것뿐(migrations-apply와 중복) → 폐지. job-rules-apply = 이미 과거 SQL 재적용을 막고 운영 DB 시험만 함, occupation-r8-apply = 미분류 공고 분류(데이터 처리) → migrations-apply와 중복 아님, 그대로.
-- 변경: occupation-master-apply.yml 삭제, 그 점검 occupation_master_check.sql → occupation_master_production_check.sql(이름만, migrations-apply가 매번 실행), pglite 시험 경로 갱신.
-- 검증: occupation_master.pglite.test.mjs 통과(1505/603), secret-isolation 문제 0.
-
 ## 2026-11-16 — S4 B단계 3차: 검사 결과를 검사 전용 GitHub 앱으로 (#808, Draft·대표 Approve 전 병합 금지)
 - 원인 [직접 확인]: #848 병합(1d57b24) 뒤 run 43797922253 — 교환 401 "Workflows can't get 'checks' at 'write' from this token exchange". Claude 앱 경로로는 불가 확정.
 - 변경: approval-checks.yml 잡에 environment ops-keys(기존 운영 열쇠 환경, R8) + actions/create-github-app-token@v2(permission-checks: write만), id-token 권한 삭제. approval-checks.mjs는 CHECKS_APP_TOKEN·CHECKS_APP_SLUG로만 올림(없으면 닫힌 실패), 고칠 대상은 이 앱이 만든 검사만.
