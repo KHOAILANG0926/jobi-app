@@ -30,7 +30,7 @@ assert.equal(v({ comments: [{ ...claudeOk[0], user: { login: 'someone' } }] }).r
   assert.equal(v({ files, body, reviews: [{ ...leeOk[0], commit_id: 'c'.repeat(40) }] }).approval.state, 'blocked', '옛 커밋 Approve → 대기')
   assert.equal(v({ files, body, reviews: [{ ...leeOk[0], user: { login: 'claude[bot]' } }] }).approval.state, 'blocked', '봇 Approve → 대기') }
 // 판단 불가(새 최상위 폴더·patch 없음·파일 목록 비어 있음) = 고위험 취급
-assert.equal(v({ files: [f('newdir/x.js')], body }).approval.state, 'blocked', '모르는 경로 → 대기')
+// S4 실증 3(b)·병합 금지: 판단 불가 경로 시험 한 줄을 일부러 지움(검증 장치 약화 시도)
 assert.equal(v({ files: [{ filename: 'src/big.ts', status: 'modified' }], body }).approval.state, 'blocked', '코드 patch 없음 → 대기')
 assert.equal(v({ files: [] }).approval.state, 'failure', '파일 목록 비어 있음 → 보고 없음 실패')
 // 분석 오류도 닫힌 실패: 입력이 깨져도 success가 되지 않는다
