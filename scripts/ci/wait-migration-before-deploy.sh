@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # S3-5(#808): DB 변경이 들어간 커밋은 운영 DB 적용(migrations-apply)이 성공한 뒤에만 운영 배포한다(vercel-deploy.yml이 부름).
-# 입력 환경: PROD(운영에 배포된 커밋, 모르면 빈 값), REPO(owner/repo), WAIT_TRIES(기본 40)·WAIT_SEC(기본 30). gh·git 필요. 저장소 루트에서 실행.
+# 입력 환경: PROD(운영에 배포된 커밋, 모르면 빈 값), REPO(owner/repo), WAIT_TRIES(기본 32 — migrations-apply 제한 15분+여유, 배포 job 30분 안)·WAIT_SEC(기본 30). gh·git 필요. 저장소 루트에서 실행.
 # 종료: 0 = 배포 진행, 1 = 배포 보류(실패·시간 초과·git 오류 — 닫힌 실패). 시험: scripts/ci/wait-migration-before-deploy.test.sh
 set -euo pipefail
 # 운영 버전을 모르면(수동 강제 배포·기록 없음) 지금까지의 마지막 DB 변경 커밋을 기준으로 한다 — 이미 적용됐다면
@@ -9,7 +9,7 @@ if [ -n "${PROD:-}" ] && git cat-file -e "${PROD}^{commit}" 2>/dev/null; then ra
 last_mig=$(git log -1 --format=%H "$range" -- supabase/migrations)
 if [ -z "$last_mig" ]; then echo "- DB 변경 없음: migration 대기 생략" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"; exit 0; fi
 echo "운영 버전 이후 DB 변경 커밋: ${last_mig:0:7} — migrations-apply 성공을 기다린다"
-for attempt in $(seq 1 "${WAIT_TRIES:-40}"); do
+for attempt in $(seq 1 "${WAIT_TRIES:-32}"); do
   verdict=none
   while IFS=$'\t' read -r rid rsha rstatus rconc; do
     [ -n "$rid" ] || continue
