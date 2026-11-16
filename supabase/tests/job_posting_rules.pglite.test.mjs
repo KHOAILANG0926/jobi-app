@@ -1,6 +1,9 @@
 // job_posting_rules 마이그레이션 + supabase/tests/job_posting_rules_test.sql 를 PGlite에서 사전 점검한다.
 // 실행: npm i --no-save @electric-sql/pglite@0.5.8 && node supabase/tests/job_posting_rules.pglite.test.mjs
 // 한계: 시험용 DB(PGlite)다 — 운영 DB에는 시험 공고를 넣지 않는다(#858, 2026-11-16). CI: occupation-publication-check.yml(publication-gate).
+// 범위(정확히): 올리는 migration은 10-12·10-13 규칙과 10-15~10-18 직업분류까지뿐이다 — 10-18 시점 규칙으로 R1~R7·U2를 확인한다.
+// 그 뒤 바뀐 R1 위치 판정(10-18~10-20 map_r1, 10-26 location_single_source, 10-29 area_pin)·R3 원문 보호(10-28 lee_verified_sources)·10-29 입구 트리거는 이 시험이 검증하지 않는다.
+// 최신 규칙 전체 시험은 후속 과제(이슈): 이후 migration은 다른 테이블·확장 의존이 많아 시험용 DB에 한꺼번에 올리려면 별도 준비가 필요하다.
 // 운영 쪽은 읽기 전용 운영 점검(rule_check_refs_production_check.sql 등: 규칙 표·트리거 존재)이 migrations-apply마다 확인한다.
 import { PGlite } from '@electric-sql/pglite'
 import { unaccent } from '@electric-sql/pglite/contrib/unaccent'
