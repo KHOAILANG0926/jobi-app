@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-16 18:26 (VN)**
-- 기준 커밋: `dd769a0` (Merge pull request #812 from KHOAILANG0926/s3/5-deploy-after-migration)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43857570511
+- 생성 시각: **2026-11-16 18:35 (VN)**
+- 기준 커밋: `0f5bdad` (Merge pull request #860 from KHOAILANG0926/fix/remove-occupation-master-apply)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43858868955
 - 검증 스크립트 지문(SHA-256): `ddef4c76562027fa`
 
 ## 한눈에 보기
@@ -49,7 +49,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `dd769a0` · 상태 **success** · 2026-11-16 18:25 (VN)
+- 마지막 Production 배포: `0f5bdad` · 상태 **success** · 2026-11-16 18:34 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,6 +57,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #860 | 2026-11-16 18:33 (VN) | `0f5bdad` | ci(#858): migrations-apply와 겹치는 옛 직접 적용 워크플로 occupation-master-apply 폐지 |
 | #812 | 2026-11-16 18:25 (VN) | `dd769a0` | S3-5: DB 변경 커밋은 migration 성공 뒤에만 운영 배포 (#808) |
 | #859 | 2026-11-16 17:25 (VN) | `ad7f15d` | fix(db): local_jobs 비공개 칸 권한 되돌리기 — 11-15 옛 직접 적용 워크플로 재실행 복구 (STRICT) |
 | #850 | 2026-11-16 13:19 (VN) | `8430994` | ci(S4 B단계 3차): ai-review·approval-gate를 검사 전용 GitHub 앱으로 (master 전용 environment 열쇠) |
@@ -66,11 +67,10 @@
 | #832 | 2026-11-16 00:03 (VN) | `7fd18c4` | chore(S4): 임시 운영 키 진단 도구 삭제(status-report 정상 확인) |
 | #843 | 2026-11-15 23:34 (VN) | `99c13f0` | S4: #842 보안·승인 보호 변경 — 봇 계정 PR |
 | #831 | 2026-11-15 19:55 (VN) | `bcf63fb` | ops(S4): 운영 키 진단 — status-report 401 원인 확정(읽기 전용, 키 값 출력 없음) |
-| #826 | 2026-11-15 19:04 (VN) | `20f3f68` | ci(S4-3b): status-report도 ops-keys 환경 — STATUS 보호 파일, Lee 결정 대상 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **23건** (전체 35건, 숨김·비활성 12건)
+- 공개 중: **23건** (전체 36건, 숨김·비활성 13건)
 - 출처별: 출처 없음 19 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -99,6 +99,9 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
+| 2026-11-16 18:35 (VN) | location_candidate.add | job 6175 |
+| 2026-11-16 18:26 (VN) | location_candidate.approve | job 6171 |
+| 2026-11-16 18:26 (VN) | location_candidate.add | job 6171 |
 | 2026-11-13 15:17 (VN) | location_candidate.approve | job 6150 |
 | 2026-11-13 15:16 (VN) | location_candidate.add | job 6150 |
 | 2026-11-13 15:01 (VN) | location_candidate.approve | job 6147 |
@@ -106,9 +109,6 @@
 | 2026-11-13 13:57 (VN) | location_candidate.approve | job 6144 |
 | 2026-11-13 13:57 (VN) | location_candidate.add | job 6144 |
 | 2026-11-13 13:12 (VN) | location_candidate.approve | job 6140 |
-| 2026-11-13 13:12 (VN) | location_candidate.add | job 6140 |
-| 2026-11-13 12:57 (VN) | location_candidate.approve | job 6138 |
-| 2026-11-13 12:57 (VN) | location_candidate.add | job 6138 |
 
 ## 8. 검증 장치 변경 이력
 
