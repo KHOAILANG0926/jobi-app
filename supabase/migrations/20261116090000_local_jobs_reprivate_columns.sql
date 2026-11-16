@@ -4,7 +4,7 @@
 --   그 migration은 "고정 5칸 빼고 지금 있는 모든 칸"을 anon·authenticated에 다시 열어, 10-14 뒤에 추가되어 비공개였던 칸까지 공개됐다.
 --   1초 뒤 migrations-apply 운영 점검이 "소개소 근무 공장 칸이 공개 조회됨"으로 실패(run 43687539572).
 -- 되돌리는 칸 = 10-14 뒤 local_jobs에 추가된 칸 중 anon·authenticated에 select를 준 적 없는 칸 전부(11-15 이전 상태 그대로).
---   공개로 준 칸(occupation_code·occupation_evidence·company_domain·recruiter_agency·description_html·employment_type_extra)은 건드리지 않는다.
+--   공개로 준 칸(occupation_code·occupation_evidence·company_domain·description_html·employment_type_extra)은 건드리지 않는다(recruiter_agency는 공개로 줬지만 11-07 20261107230000_drop_recruiter_agency.sql로 지워져 없음).
 -- 한 파일 = 한 트랜잭션. 칸이 없으면 RAISE로 전체 취소(근거 누락 방지).
 do $do$
 declare c text;

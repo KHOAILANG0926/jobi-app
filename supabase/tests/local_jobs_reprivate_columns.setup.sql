@@ -6,7 +6,7 @@ end $r$;
 create table if not exists public.local_jobs (id bigint primary key);
 alter table public.local_jobs
   add column if not exists title text, add column if not exists occupation_code text, add column if not exists company_domain text,
-  add column if not exists recruiter_agency text, add column if not exists description_html text, add column if not exists employment_type_extra text,
+  add column if not exists description_html text, add column if not exists employment_type_extra text,
   add column if not exists updated_at timestamptz, add column if not exists company_id bigint, add column if not exists company_branch_id bigint,
   add column if not exists duplicate_status text, add column if not exists duplicate_of bigint, add column if not exists duplicate_reason text,
   add column if not exists logo_lookup jsonb, add column if not exists agency_workplace_key text;

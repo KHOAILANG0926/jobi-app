@@ -6,7 +6,7 @@ begin
     foreach c in array array['updated_at','company_id','company_branch_id','duplicate_status','duplicate_of','duplicate_reason','logo_lookup','agency_workplace_key'] loop
       if has_column_privilege(r, 'public.local_jobs', c, 'select') then bad := bad || r || '.' || c || ' 읽힘; '; end if;
     end loop;
-    foreach c in array array['id','title','occupation_code','company_domain','recruiter_agency','description_html','employment_type_extra'] loop
+    foreach c in array array['id','title','occupation_code','company_domain','description_html','employment_type_extra'] loop
       if not has_column_privilege(r, 'public.local_jobs', c, 'select') then bad := bad || r || '.' || c || ' 막힘(공개 칸); '; end if;
     end loop;
   end loop;
