@@ -178,7 +178,7 @@ jobs:
               if jq -e '.[] | select(.filename|startswith("supabase/migrations/"))' files.json >/dev/null; then
                 # GITHUB_TOKEN 병합으로는 master push 기반 migration 워크플로가 시작되지 않는다 → 여기서 시작만 한다.
                 # 'migration 성공 뒤에만 운영 배포'는 vercel-deploy.yml의 S3-5 단계(scripts/ci/wait-migration-before-deploy.sh) 한 곳이 지킨다
-                # (실행 기록이 아직 없으면 최대 20분 기다리고, 실패·시간 초과면 배포 보류). 봇 안의 같은 목적 대기 반복문은 지움(S3-5 검토관 지적, 원칙 8).
+                # (실행 기록이 아직 없으면 최대 16분 기다리고, 실패·시간 초과면 배포 보류). 봇 안의 같은 목적 대기 반복문은 지움(S3-5 검토관 지적, 원칙 8).
                 gh workflow run migrations-apply.yml --repo "$REPO" --ref master
               fi
               gh workflow run vercel-deploy.yml --repo "$REPO" --ref master

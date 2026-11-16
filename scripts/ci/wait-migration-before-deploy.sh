@@ -25,4 +25,4 @@ for attempt in $(seq 1 "${WAIT_TRIES:-32}"); do
   esac
   sleep "${WAIT_SEC:-30}"
 done
-echo "::error::20분 안에 이 DB 변경(${last_mig:0:7})을 포함한 migrations-apply 성공 기록이 없음 — 운영 배포 보류"; exit 1
+echo "::error::$(( ${WAIT_TRIES:-32} * ${WAIT_SEC:-30} / 60 ))분 안에 이 DB 변경(${last_mig:0:7})을 포함한 migrations-apply 성공 기록이 없음 — 운영 배포 보류"; exit 1
