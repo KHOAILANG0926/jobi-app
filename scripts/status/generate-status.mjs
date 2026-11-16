@@ -135,6 +135,11 @@ const vietmap = await attempt('VietMap 호출 수', () => sb(`vietmap_usage_dail
 const audit = await attempt('관리자 기록', () => sb('admin_audit_logs?select=action,target_type,target_id,created_at&order=created_at.desc&limit=10'))
 
 const rules = await attempt('공고 규칙 표', () => sb('job_posting_rules?select=rule_key,block_mode,last_tested_at,last_test_result&order=id'))
+// 같은 규칙 시험 SQL의 시험용 DB 실행(occupation-publication-check.yml, master 최근 1건) — 9절 「현재 시험」 칸(#861).
+const ruleTestCi = await attempt('규칙 시험(시험용 DB)', async () => {
+  const x = (await gh('/actions/workflows/occupation-publication-check.yml/runs?branch=master&per_page=1')).workflow_runs?.[0]
+  return x ? { status: x.status, conclusion: x.conclusion, at: x.updated_at, url: x.html_url, sha: x.head_sha } : null
+})
 
 const ocr = await attempt('OCR 상태 건수', async () => {
   const [u, m] = await Promise.all([
@@ -154,7 +159,7 @@ const { markdown, problems } = renderStatus({
   runUrl: env.RUN_URL,
   selfHash,
   checks: { tsc: env.TSC_OUTCOME, build: env.BUILD_OUTCOME, testsOutcome: env.TEST_OUTCOME, tests },
-  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls, rules, ocr,
+  production, siteStatus, mergedPrs, jobs, approvals, vietmap, audit, systemChanges, recheckCalls, rules, ruleTestCi, ocr,
 })
 
 const errBlock = errors.length
