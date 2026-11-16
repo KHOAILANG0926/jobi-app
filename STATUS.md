@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-16 10:13 (VN)**
-- 기준 커밋: `ef9100a` (Merge pull request #846 from KHOAILANG0926/s4/b-checks-permission)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43796763060
+- 생성 시각: **2026-11-16 10:24 (VN)**
+- 기준 커밋: `1d57b24` (Merge pull request #848 from KHOAILANG0926/s4/b-checks-contents-read)
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43797891145
 - 검증 스크립트 지문(SHA-256): `ddef4c76562027fa`
 
 ## 한눈에 보기
@@ -49,7 +49,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `ef9100a` · 상태 **success** · 2026-11-16 07:57 (VN)
+- 마지막 Production 배포: `1d57b24` · 상태 **success** · 2026-11-16 10:23 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,6 +57,7 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #848 | 2026-11-16 10:23 (VN) | `1d57b24` | ci(S4 B단계 2차): approval-checks 교환 권한에 contents:read 추가 (서버 필수 조건) |
 | #846 | 2026-11-16 07:57 (VN) | `ef9100a` | ci(S4 B단계): approval-checks만 Claude 앱 토큰에 checks:write 요청 (공통 기본 권한 유지) |
 | #833 | 2026-11-16 06:23 (VN) | `d05ccbd` | ci(S4): 병합 통제 보완 — 위험도 판단 불가는 자동 보류, 승인 요청은 검증·독립 검토 뒤 |
 | #832 | 2026-11-16 00:03 (VN) | `7fd18c4` | chore(S4): 임시 운영 키 진단 도구 삭제(status-report 정상 확인) |
@@ -66,7 +67,6 @@
 | #828 | 2026-11-15 18:33 (VN) | `e454110` | ci(S4-4): STATUS 보호 — status 워크플로만 Lee의 유효한 Approve로 통과 |
 | #829 | 2026-11-15 17:41 (VN) | `21d6298` | fix(S4-5): 검토관 준비 스크립트가 실제 저장소에서 멈추던 문제 |
 | #824 | 2026-11-15 13:54 (VN) | `e573e9f` | ci(S4-3): 운영 열쇠는 ops-keys 환경(master만) — 브랜치·PR 워크플로 차단 준비 |
-| #822 | 2026-11-15 13:25 (VN) | `13d1204` | ci(S4-2): PR 코드와 열쇠 분리 + 악성 PR 시험 |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
