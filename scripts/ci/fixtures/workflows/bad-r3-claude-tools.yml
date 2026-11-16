@@ -1,0 +1,14 @@
+# PR 코드를 펼친 잡에서 Claude가 node·npm 실행 가능 → R3 (+R1 npm ci)
+on: pull_request_review
+permissions: { contents: write, id-token: write }
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.ref }}", persist-credentials: false }
+      - run: npm ci
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowedTools "Read,Bash(node:*),Bash(npm test)"'

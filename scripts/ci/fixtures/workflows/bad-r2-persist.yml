@@ -1,0 +1,9 @@
+# PR head 체크아웃이 쓰기 토큰을 .git에 남김 → R2
+on: issue_comment
+permissions: { contents: write }
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ steps.guard.outputs.head_ref }}" }

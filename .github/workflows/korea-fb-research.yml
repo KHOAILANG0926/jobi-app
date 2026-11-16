@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   run:
+    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 180
     env:
