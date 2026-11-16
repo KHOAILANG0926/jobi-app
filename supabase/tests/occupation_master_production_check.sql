@@ -1,3 +1,4 @@
+-- 2026-11-16(#858): 이 점검을 돌리던 옛 직접 적용 워크플로(occupation-master-apply.yml)를 지우고, 이름 규칙(_production_check)으로 migrations-apply가 매번 돌린다.
 -- 운영 DB 점검: occupation_master 적용 결과 (읽기 전용). 조건이 틀리면 오류로 중단한다.
 do $$
 declare n int;
