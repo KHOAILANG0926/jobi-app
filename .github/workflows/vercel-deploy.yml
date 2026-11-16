@@ -85,6 +85,16 @@ jobs:
           fi
           echo "- 운영 ${prod:0:7} → master ${GITHUB_SHA:0:7}, 앱 파일 차이 ${changed}개" >> "$GITHUB_STEP_SUMMARY"
           [ "$changed" -gt 0 ] && echo "go=1" >> "$GITHUB_OUTPUT" || echo "go=0" >> "$GITHUB_OUTPUT"
+      # S3-5(#808, Lee 2026-11-14 승인): DB 변경이 들어간 커밋은 운영 DB 적용(migrations-apply)이 성공한 뒤에만 운영 배포한다.
+      # 예전에는 병합 봇이 이 순서를 지켰지만(bot-pr-automerge) 봇이 꺼진 뒤 사람·계정 병합은 두 작업이 따로 돌아 순서가 보장되지 않았다.
+      # 운영 버전 이후 migration 파일을 바꾼 마지막 커밋을 포함하는 migrations-apply 실행이 성공해야 진행. 실패·시간 초과 = 배포 보류(닫힌 실패).
+      - name: DB 변경 먼저 (migration 성공 확인 뒤에만 운영 배포)
+        # Codex P1(#812 741d8cc): 앱 변경이 없어 배포를 생략(go=0)해도 아래 '운영 그대로 기록'이 이 커밋을 운영 기준점으로 남긴다 →
+        # 그 전에 확인해야 실패한 migration이 기준점 뒤로 숨지 않는다. 그래서 배포 여부와 상관없이 기록·배포 앞에서 돈다.
+        if: github.ref == 'refs/heads/master' && steps.need.outputs.same != '1'
+        env:
+          PROD: ${{ steps.need.outputs.prod }}
+        run: REPO="${{ github.repository }}" bash scripts/ci/wait-migration-before-deploy.sh
       - name: 앱 파일 변경 없음 → 배포 생략, 운영 그대로 기록
         # 봇 병합은 GITHUB_TOKEN이라 push가 아니라 workflow_dispatch로 이 파일을 부른다(bot-pr-automerge.yml).
         # 그때도 "운영 그대로" 기록을 남기고 deploy-verify를 시작해야 검사·문서만 바뀐 병합도 운영 검사를 받는다(2026-11-08 #565·#568 사례).
@@ -99,14 +109,6 @@ jobs:
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then gh workflow run deploy-verify.yml --repo "${{ github.repository }}" --ref master; fi
           # PC 헤더 운영 검사도 같은 때 한 번(#586, Codex #597 지적: 검사·자동화만 바뀐 병합도 검사를 받게).
           if [ "$GITHUB_REF" = refs/heads/master ]; then gh workflow run desktop-header-proof.yml --repo "${{ github.repository }}" --ref master; fi
-      # S3-5(#808, Lee 2026-11-14 승인): DB 변경이 들어간 커밋은 운영 DB 적용(migrations-apply)이 성공한 뒤에만 운영 배포한다.
-      # 예전에는 병합 봇이 이 순서를 지켰지만(bot-pr-automerge) 봇이 꺼진 뒤 사람·계정 병합은 두 작업이 따로 돌아 순서가 보장되지 않았다.
-      # 운영 버전 이후 migration 파일을 바꾼 마지막 커밋을 포함하는 migrations-apply 실행이 성공해야 진행. 실패·시간 초과 = 배포 보류(닫힌 실패).
-      - name: DB 변경 먼저 (migration 성공 확인 뒤에만 운영 배포)
-        if: steps.need.outputs.go == '1' && github.ref == 'refs/heads/master'
-        env:
-          PROD: ${{ steps.need.outputs.prod }}
-        run: REPO="${{ github.repository }}" bash scripts/ci/wait-migration-before-deploy.sh
       - uses: actions/setup-node@v4
         if: steps.need.outputs.go == '1'
         with:
