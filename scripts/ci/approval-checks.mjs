@@ -88,12 +88,12 @@ export function combine(list) {
 }
 
 // 검사 결과는 검사 전용 GitHub 앱(Checks 쓰기만)으로 올린다(S4 B단계, Lee 2026-11-16).
-// Anthropic 교환은 checks:write를 내주지 않음(run 43797922253 401) → 워크플로가 master 전용 environment 비밀값으로 만든 토큰을 환경변수로 넘긴다.
+// Anthropic 교환은 checks:write를 내주지 않음(run 43797922253 401) → 워크플로가 운영 열쇠 환경 ops-keys(master만)의 비밀값으로 만든 토큰을 환경변수로 넘긴다.
 // 토큰·앱 이름이 없으면 예외 → 실행 실패(닫힌 실패, 성공 표시 없음).
 function checksAppSlug() { const s = process.env.CHECKS_APP_SLUG; if (!s) throw new Error('검사 전용 앱 이름 없음(CHECKS_APP_SLUG)'); return s }
 export function checksAppToken() {
   const t = process.env.CHECKS_APP_TOKEN
-  if (!t) throw new Error('검사 전용 앱 토큰 없음(CHECKS_APP_TOKEN — approval-checks environment의 앱 설정 확인)')
+  if (!t) throw new Error('검사 전용 앱 토큰 없음(CHECKS_APP_TOKEN — ops-keys 환경의 APPROVAL_CHECKS_APP_ID·APPROVAL_CHECKS_APP_KEY 확인)')
   checksAppSlug()
   return t
 }

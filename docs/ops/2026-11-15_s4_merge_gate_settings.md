@@ -6,8 +6,8 @@
 - 필수 검사 4종(`checks`·`guard`·`app-screen`·`migration-postgres`)은 그대로.
 - 새로 검사 전용 앱(`viecganban-checks`)이 만드는 검사 2개: `ai-review`(독립 검토 완료·지적 답 있음), `approval-gate`(위험도 판정 + 고위험은 4대 보고 + Lee 공식 Approve).
 - 만드는 곳: `.github/workflows/approval-checks.yml` → `scripts/ci/approval-checks.mjs` (master 사본만, PR 코드 안 받음·안 돌림).
-- (2026-11-16 변경) Claude 앱 토큰 교환은 checks:write를 내주지 않음(run 43797922253 401) → 검사 전용 GitHub 앱(Checks 쓰기만, jobi-app만 설치)으로 올린다. 앱 열쇠는 environment `approval-checks`(배포 브랜치 master만)의 비밀값에만 → PR 브랜치 워크플로·AI 작업은 열쇠를 못 꺼내 같은 이름의 통과 결과를 만들 수 없다. (GitHub Actions 앱이 만든 검사는 PR 쪽이 흉내 낼 수 있어 `출처 앱` 지정이 필요한 이유.)
-- 검사 전용 앱 준비(대표님 설정): 앱 생성(Checks Read and write만, Webhook 끔) → jobi-app만 설치 → environment `approval-checks`(Selected branches: master) → 비밀값 `APPROVAL_CHECKS_APP_KEY`·변수 `APPROVAL_CHECKS_APP_ID`.
+- (2026-11-16 변경) Claude 앱 토큰 교환은 checks:write를 내주지 않음(run 43797922253 401) → 검사 전용 GitHub 앱(Checks 쓰기만, jobi-app만 설치)으로 올린다. 앱 열쇠는 기존 운영 열쇠 환경 `ops-keys`(배포 브랜치 master만, secret-isolation R8)의 비밀값에만 → PR 브랜치 워크플로·AI 작업은 열쇠를 못 꺼내 같은 이름의 통과 결과를 만들 수 없다. (GitHub Actions 앱이 만든 검사는 PR 쪽이 흉내 낼 수 있어 `출처 앱` 지정이 필요한 이유.)
+- 검사 전용 앱 준비(대표님 설정): 앱 생성(Checks Read and write만, Webhook 끔) → jobi-app만 설치 → 기존 environment `ops-keys`에 비밀값 `APPROVAL_CHECKS_APP_KEY`·변수 `APPROVAL_CHECKS_APP_ID` 추가(새 환경 만들지 않음).
 
 ## 켜는 순서
 1. 이 PR(#833) Lee 승인·병합. 병합 뒤 열린 PR 하나에서 `병합 조건 검사` 워크플로가 돌아 `ai-review`·`approval-gate`가 PR에 나타나는지 확인(Actions → 같은 이름 실행, 또는 `gh workflow run approval-checks.yml -f pr=<번호>`).

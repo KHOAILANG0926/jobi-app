@@ -1,7 +1,7 @@
 name: 병합 조건 검사(ai-review·approval-gate, 검사 전용 앱)
 # S4 8단계(Lee 2026-11-15): 독립 검토 결과와 위험도·Lee 승인 판정을 '검사 전용 앱' 이름으로 PR 커밋에 검사 결과로 남긴다.
 # (S4 B단계 2026-11-16: Claude 앱 토큰 교환은 checks:write 발급 불가 — run 43797922253 — 이라 검사 전용 앱으로 바꿈.)
-# 앱 열쇠는 environment 'approval-checks'(배포 브랜치 master만)에만 있고, 이 작업은 늘 master 사본만 돈다 → PR 브랜치 쪽은 같은 이름의 통과 결과를 만들 수 없다.
+# 앱 열쇠는 기존 운영 열쇠 환경 'ops-keys'(배포 브랜치 master만)에만 있고, 이 작업은 늘 master 사본만 돈다 → PR 브랜치 쪽은 같은 이름의 통과 결과를 만들 수 없다.
 # master 보호 규칙에서 두 검사를 '출처 앱 = 검사 전용 앱'으로 필수 지정하는 것은 대표님 GitHub 설정이다(이 파일은 설정을 바꾸지 않는다).
 on:
   pull_request_target:
@@ -42,8 +42,8 @@ jobs:
        (github.event.comment.user.login == 'claude[bot]' || github.event.comment.user.login == 'chatgpt-codex-connector[bot]' || github.event.comment.user.login == 'viecganban-bot'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # 검사 전용 앱 열쇠는 이 environment(배포 브랜치 master만)에만 둔다 — PR 브랜치·다른 작업은 꺼낼 수 없다(S4 B단계, Lee 2026-11-16).
-    environment: approval-checks
+    # 검사 전용 앱 열쇠는 기존 운영 열쇠 환경 ops-keys(master만, secret-isolation R8)에만 둔다 — PR 브랜치·다른 작업은 꺼낼 수 없다(S4 B단계, Lee 2026-11-16).
+    environment: ops-keys
     steps:
       - uses: actions/checkout@v4
         with:
