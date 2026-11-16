@@ -1,9 +1,9 @@
-// S4 8단계(Lee 2026-11-15): 병합 조건을 'Claude 앱이 만든 검사 결과 2개'로 GitHub에 남긴다.
+// S4 8단계(Lee 2026-11-15): 병합 조건을 '검사 전용 앱(viecganban-checks)이 만든 검사 결과 2개'로 GitHub에 남긴다.
 //   ai-review      = 독립 검토(Codex 또는 Claude 검토관)가 이 커밋에 대해 끝났고 지적에 답이 있음 (codex-review-gate.mjs와 같은 판정)
 //   approval-gate  = 위험도 판정(decision-approval-gate.mjs ①~⑧) — 일반 PR이면 통과, 고위험·판단 불가는 4대 보고 + Lee 공식 Approve(최신 커밋)가 있어야 통과
-// 왜 Claude 앱인가: GitHub Actions 앱이 만든 검사는 PR 브랜치 워크플로가 같은 이름으로 흉내 낼 수 있다(GITHUB_TOKEN 'checks: write').
-//   Claude 앱 토큰은 claude-code-action과 같은 OIDC 교환이라 저장소 기본 브랜치(master)의 워크플로에만 발급된다(claude-publish.mjs 머리말).
-//   그래서 master 보호 규칙에서 이 두 검사를 '출처 앱 = Claude'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
+// 왜 별도 앱인가: GitHub Actions 앱이 만든 검사는 PR 브랜치 워크플로가 같은 이름으로 흉내 낼 수 있다(GITHUB_TOKEN 'checks: write').
+//   검사 전용 앱 열쇠는 운영 열쇠 환경 ops-keys(master만, secret-isolation R8)에만 있어 master 사본 작업만 토큰을 만든다(2026-11-16: Claude 앱 교환은 checks 발급 불가 — run 43797922253).
+//   그래서 master 보호 규칙에서 이 두 검사를 '출처 앱 = viecganban-checks'로 필수 지정하면 PR 쪽 코드는 통과를 만들 수 없다(대표님 GitHub 설정, 코드는 설정을 바꾸지 않는다).
 // 이 스크립트는 PR 코드를 받지도 실행하지도 않는다: GitHub API 데이터만 읽고 master 코드로 판정한다.
 // 사용: node approval-checks.mjs --repo o/r (--pr N | --all) [--dry-run]
 import { decisionApproval, approvedFramePaths } from '../decision-approval-gate.mjs'
