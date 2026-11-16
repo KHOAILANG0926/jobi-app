@@ -1,3 +1,8 @@
+## 2026-11-16 — master 직접 push 잘못된 경보 고침 (unmerged-work-alert, 회귀 시험 추가)
+- 원인 [직접 확인]: 경보 7건(#849·#845·#844·#830·#827·#802·#722) 모두 실제 병합 PR 있음(#848·#832·#843·#826·#824·#801·#719). 검사가 병합 4~5초 뒤 돌아 commit→PR 연결이 아직 비어 있었음(지금 같은 조회는 정상 연결).
+- 변경: 판정을 scripts/ci/direct-push-check.sh로 옮겨 연결이 생길 때까지 최대 10번(30초 간격) 다시 확인, 조회 오류는 경보 대신 실패. 진짜 직접 push 경보는 그대로.
+- 검증: direct-push-check.test.sh 5경우 통과, 옛 방식(1번 확인)으론 #849 사례 실패 확인. pr-checks에 시험 추가.
+
 ## 2026-11-16 — S4 B단계 2차: 교환 권한에 contents:read 추가 (#808, Draft·대표 Approve 전 병합 금지)
 - 원인 [직접 확인]: #846 병합(ef9100a) 뒤 run 43783470691 — 교환 401 "Custom permissions must include 'contents' (read or write) for workflow validation". 닫힌 실패 정상(성공 표시 0).
 - 변경: CHECKS_PERMISSIONS = { contents: 'read', checks: 'write' } (쓰기는 checks 하나). 공통 appToken() 기본 요청은 그대로.
