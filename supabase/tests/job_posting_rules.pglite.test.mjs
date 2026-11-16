@@ -36,6 +36,9 @@ await db.exec(f('./job_posting_rules_test.sql'))
 const rows = (await db.query('select rule_key,last_test_result from job_posting_rules order by id')).rows
 console.table(rows)
 const left = (await db.query("select count(*)::int n from local_jobs where title like '[RULE-TEST%'")).rows[0].n
-const bad = rows.filter((r) => /^(R[1-3567]|U2)_/.test(r.rule_key) && r.last_test_result !== '통과')
+// 시험한 규칙 = 시험 SQL이 결과를 쓰는 규칙 이름(res || jsonb_build_object('…')) — STATUS 9절(#868)과 같은 방식으로 읽어 하나라도 '통과'가 아니면 실패.
+const tested = [...new Set([...f('./job_posting_rules_test.sql').matchAll(/res \|\| jsonb_build_object\('([A-Za-z0-9_]+)'/g)].map((m) => m[1]))]
+if (tested.length < 7) { console.error('FAIL 시험 규칙 목록을 읽지 못함', tested); process.exit(1) }
+const bad = tested.map((k) => rows.find((r) => r.rule_key === k) ?? { rule_key: k, last_test_result: '규칙 표에 없음' }).filter((r) => r.last_test_result !== '통과')
 if (bad.length || left) { console.error('FAIL', bad, left); process.exit(1) }
 console.log('PASS')
