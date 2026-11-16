@@ -30,10 +30,12 @@ jobs:
           node supabase/tests/job_duplicate_check.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node supabase/tests/ocr_check_merge.pglite.test.mjs
-          node supabase/tests/job_posting_rules.pglite.test.mjs  # 공고 규칙 R1~R7·U2(운영 DB 시험 대신, #858)
           node scripts/ci/ai-reader-guard.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
+      # #858: 운영 DB 시험 대신. 단계 이름을 따로 두어 STATUS가 이 단계 결과만 읽는다(워크플로 전체 결과로 대신하지 않음).
+      - name: 공고 규칙 R1~R7·U2 시험(시험용 DB, job_posting_rules_test.sql)
+        run: node supabase/tests/job_posting_rules.pglite.test.mjs
       - name: OCR republish follows the same occupation rule
         run: node --experimental-strip-types scripts/ocr/ocr-compare.test.mjs
       # AI 판독 교정 시험은 ANTHROPIC_API_KEY가 필요해 이 PR 검사에서 실행하지 않는다(포크 PR에는 Secrets가 없고, PR 코드에 키를 주지 않는다).
