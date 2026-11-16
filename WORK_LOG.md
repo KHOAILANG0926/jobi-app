@@ -1,3 +1,11 @@
+## 2026-11-16 — S4 B단계: approval-checks만 Checks 쓰기 권한 요청 (#808, Draft·대표 Approve 전 병합 금지)
+- 요청: Lee 11-16 "approval-checks 작업에서만 Checks 쓰기 권한 요청, 공통 appToken 기본 권한·기존 게시 작업 토큰 변경 금지, 거절·실패 시 안전 중단".
+- 원인 [직접 확인]: run 43775353050 — check-runs 생성 403 Resource not accessible by integration. appToken()이 교환 요청 본문 없이 보내 기본 권한(contents·pull_requests·issues 쓰기)만 받음(anthropics/claude-code-action src/github/token.ts DEFAULT_PERMISSIONS·exchangeForAppToken 확인). master 커밋에 Claude 앱 check-suite 있음 → 설치본은 checks 권한 보유로 판단.
+- 변경: appToken(permissions) 선택 인자 — 없으면 예전과 같음(본문 없음), 있으면 {"permissions":{...}} JSON 본문(같은 형식). 응답에 권한 목록이 있고 요청 권한이 빠지면 예외. approval-checks 기본 토큰 함수만 { checks: 'write' } 요청.
+- 수정 파일: scripts/ci/claude-publish.mjs, scripts/ci/approval-checks.mjs, scripts/ci/approval-checks.main.test.mjs
+- 검증: approval-checks.main.test·approval-checks.test·claude-publish.test 로컬 통과. Anthropic이 checks:write를 내주는지는 병합 뒤 실제 실행으로만 확인 가능(교환은 master 워크플로만).
+- 남은 문제: 교환이 checks를 거절하면 검사 전용 GitHub 앱(Checks RW + Metadata R, master 전용 environment 비밀값)이 필요 — 대표 결정.
+
 ## 2026-11-14 — 직업분류 게이트(publication-gate)에서 비밀키 검증 분리 (#728 R4, Draft·승인 전 적용 금지)
 - 원인 [직접 확인]: occupation-publication-check.yml이 PR마다 ai-reader.test.mjs(ANTHROPIC_API_KEY 필요)를 돌림 → 포크 PR에는 Secrets가 없어 키 없음으로 실패(로컬 재현 rc=1). 코드 오류가 아니라 키 경로 설계 문제. publication-gate는 필수 검사 이름(required-checks-pass.jq)이라 포크 PR이 병합 못 함.
 - 변경: ① publication-gate는 비밀키 없는 회귀 시험만(Secret 참조 0). ② 키가 필요한 AI 판독 교정은 새 ai-reader-calibration.yml(push master·주 1회·workflow_dispatch만, pull_request 트리거 없음, 의존성 설치 없음). ③ scripts/ci/ai-reader-guard.mjs가 판독 입력(ai-reader·시험·ocr-compare·정답 포스터)을 바꾼 PR은 그 head 커밋의 workflow_dispatch 교정 성공 실행이 있어야 통과(같은 이름 PR 실행·다른 커밋·실패는 불인정). 입력이 안 바뀐 PR은 통과하되 master 교정 결과를 이 PR의 검증으로 세지 않음. ④ 가드 스크립트를 두 번째 검토 대상 파일 목록에 추가.
