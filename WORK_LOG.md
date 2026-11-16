@@ -3,10 +3,6 @@
 - 변경: approval-checks.yml 잡에 environment ops-keys(기존 운영 열쇠 환경, R8) + actions/create-github-app-token@v2(permission-checks: write만), id-token 권한 삭제. approval-checks.mjs는 CHECKS_APP_TOKEN·CHECKS_APP_SLUG로만 올림(없으면 닫힌 실패), 고칠 대상은 이 앱이 만든 검사만.
 - 지운 것: #846·#848의 appToken(permissions) 인자·CHECKS_PERMISSIONS·교환 권한 시험(claude-publish.mjs는 d05ccbd와 똑같이 되돌림).
 - 남은 문제: 대표님 앱·environment 설정 뒤 실제 실행으로 두 검사 생성 확인 → 필수 지정 → 봇 켜기 → 실증 4건.
-## 2026-11-16 — master 직접 push 잘못된 경보 고침 (unmerged-work-alert, 회귀 시험 추가)
-- 원인 [직접 확인]: 경보 7건(#849·#845·#844·#830·#827·#802·#722) 모두 실제 병합 PR 있음(#848·#832·#843·#826·#824·#801·#719). 검사가 병합 4~5초 뒤 돌아 commit→PR 연결이 아직 비어 있었음(지금 같은 조회는 정상 연결).
-- 변경: 판정을 scripts/ci/direct-push-check.sh로 옮겨 연결이 생길 때까지 최대 10번(30초 간격) 다시 확인, 조회 오류는 경보 대신 실패. 진짜 직접 push 경보는 그대로.
-- 검증: direct-push-check.test.sh 5경우 통과, 옛 방식(1번 확인)으론 #849 사례 실패 확인. pr-checks에 시험 추가.
 
 ## 2026-11-16 — S4 B단계 2차: 교환 권한에 contents:read 추가 (#808, Draft·대표 Approve 전 병합 금지)
 - 원인 [직접 확인]: #846 병합(ef9100a) 뒤 run 43783470691 — 교환 401 "Custom permissions must include 'contents' (read or write) for workflow validation". 닫힌 실패 정상(성공 표시 0).

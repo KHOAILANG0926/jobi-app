@@ -2,8 +2,6 @@
 
 ## 1. 현재 상태
 - 11-16 S4 B단계: Claude 앱 교환은 checks:write 발급 불가(run 43797922253) → 검사 전용 GitHub 앱(viecganban-checks, 기존 ops-keys 환경)으로 바꾸는 Draft PR. 대표님 앱 설정·Approve 뒤 두 검사 생성 확인 → 필수 지정 → 봇 켜기 → 실증 4건.
-- 11-16 master 직접 push 잘못된 경보(병합 직후 PR 연결 지연) 고침 PR — 경보 7건은 모두 실제 병합 PR 있음.
-- 11-16 S4 B단계: #833 병합(d05ccbd) 뒤 approval-checks가 Claude 앱 토큰으로 검사 생성 시 403(교환 토큰 기본 권한에 checks 없음). approval-checks만 checks:write를 요청하는 Draft PR(대표 Approve 전 병합 금지). 필수 지정·봇 켜기·실증 4건은 B 통과 뒤.
 - 11-14 직업분류 게이트 비밀키 분리(#728 R4, Draft): publication-gate는 키 없는 시험만, AI 판독 교정은 신뢰된 ai-reader-calibration.yml, 판독 입력 변경 PR은 head 커밋 dispatch 성공 필요(ai-reader-guard). 승인 전 적용 금지.
 - 11-13 R2 검증·승인 통제(#728): 병합 봇이 needs-lee 라벨·승인된 화면 틀 파일·결정 문서 PR을 현재 head Lee 승인 전엔 병합 안 함(#792, 원격 위반 PR #793·#794 차단 확인). R2 완료 아님 — 승인 필요 항목(#740·5157·고용주 관문·#764·#771·계정 분리)은 #728 장부.
 - 11-12 밤 근무(2): #760 뒤 대기열이 sb-5942 HAIDILAO(원문 주소 없음)에서 실패 → 주소 못 읽으면 위치 칸만 그대로 두는 PR.
