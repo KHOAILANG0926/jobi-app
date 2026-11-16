@@ -15,6 +15,7 @@ permissions:
   id-token: write  # VietMap 재확인용 GitHub OIDC 토큰(api/status-recheck가 이 실행인지 확인)
   deployments: read
   pull-requests: read
+  actions: read   # 9절 「현재 시험」: occupation-publication-check 실행·단계 결과 읽기(#868)
 
 concurrency:
   group: status-report
