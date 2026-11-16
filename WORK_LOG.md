@@ -1,6 +1,6 @@
 ## 2026-11-16 — local_jobs 비공개 칸이 11-15부터 공개됨 → 권한 되돌리기 migration (Draft, STRICT·대표 Approve 전 병합 금지)
 - 원인 [직접 확인]: #824 병합(e573e9f, 11-15 06:54)이 local-jobs-privileges-apply.yml을 고쳐 push 조건이 걸림 → 옛 migration 20261014100000을 운영에 직접 재실행(run 43687539714) → "고정 5칸 빼고 모든 칸" 재공개. 1초 뒤 migrations-apply 운영 점검 실패 "소개소 근무 공장 칸이 공개 조회됨"(run 43687539572). 11-13 같은 점검은 통과, 그사이 migration 변경 없음.
-- 변경: 20261116090000_local_jobs_reprivate_columns.sql — 10-14 뒤 추가되고 공개로 준 적 없는 8칸(updated_at·company_id·company_branch_id·duplicate_status·duplicate_of·duplicate_reason·logo_lookup·agency_workplace_key) anon·authenticated select 회수. production_check·setup·local 시험. 지운 것: local-jobs-privileges-apply.yml(migrations-apply와 겹치는 옛 직접 적용 경로).
+- 변경: 20261116090000_local_jobs_reprivate_columns.sql — 10-14 뒤 추가되고 공개로 준 적 없는 8칸(updated_at·company_id·company_branch_id·duplicate_status·duplicate_of·duplicate_reason·logo_lookup·agency_workplace_key) anon·authenticated select 회수. production_check·setup·local 시험. 지운 것: local-jobs-privileges-apply.yml(migrations-apply와 겹치는 옛 직접 적용 경로). 그 워크플로가 돌리던 열 권한 점검은 이름 규칙(local_jobs_column_privileges_production_check.sql)으로 옮겨 migrations-apply가 매번 돌림(검증 유지).
 - 검증: 버릴 Postgres에서 사고 상태 재현 → 점검 실패 → migration → 통과, 재실행 안전, 칸 없음이면 전체 취소.
 - 남은 문제: 운영 적용은 대표 승인·병합 뒤 migrations-apply로만. 비슷한 옛 직접 적용 워크플로(occupation-master-apply·occupation-r8-apply·job-rules-apply)는 11-15에도 돌았으나 이번 범위 밖 — 이슈로 기록.
 
