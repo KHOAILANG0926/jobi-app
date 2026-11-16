@@ -51,20 +51,9 @@ jobs:
           set -euo pipefail
           psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -c "do \$\$ begin if not exists(select 1 from supabase_migrations.schema_migrations where version='20261013100000') then raise exception 'Baseline rules must be applied through migrations-apply'; end if; end \$\$;"
 
-      - name: 실제 DB 시험 R1~R7 (R7은 쓰기 보호만; 대조는 job-ocr-check.yml) (시험 공고는 시험 후 삭제)
-        run: |
-          set -euo pipefail
-          psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/job_posting_rules_test.sql
-
-      - name: 시험 결과 확인
-        run: |
-          set -euo pipefail
-          psql "$SUPABASE_DB_URL" -X -c "select rule_key, last_test_result, last_tested_at from public.job_posting_rules order by id"
-          bad=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.job_posting_rules where rule_key ~ '^(R[1-3567]|U2)_' and last_test_result is distinct from '통과'")
-          left=$(psql "$SUPABASE_DB_URL" -X -At -c "select count(*) from public.local_jobs where title like '[RULE-TEST%'")
-          echo "통과 못한 규칙: $bad / 남은 시험 공고: $left"
-          test "$bad" = "0" && test "$left" = "0"
-
+      # 2026-11-16(#858): 운영 DB에 시험 공고를 넣고 지우던 R1~R7·U2 시험과 그 결과 기록 단계를 뺐다.
+      # 10-29 입구 트리거(trg_000_ingest_gateway_only, 직접 insert 거부) 뒤로 시험 insert가 모두 막혀 11-12부터 전 규칙이 '실패'로 보였다(run 43687539636).
+      # 같은 시험 SQL은 시험용 DB에서 돈다: supabase/tests/job_posting_rules.pglite.test.mjs(occupation-publication-check.yml).
       - name: STATUS 다시 생성 요청
         if: always()
         env:

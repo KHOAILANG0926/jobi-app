@@ -1,6 +1,7 @@
 // job_posting_rules 마이그레이션 + supabase/tests/job_posting_rules_test.sql 를 PGlite에서 사전 점검한다.
 // 실행: npm i --no-save @electric-sql/pglite@0.5.8 && node supabase/tests/job_posting_rules.pglite.test.mjs
-// 한계: 로컬 흉내 DB다. 진짜 시험은 병합 후 Actions가 운영 DB에서 같은 SQL로 돌린다.
+// 한계: 시험용 DB(PGlite)다 — 운영 DB에는 시험 공고를 넣지 않는다(#858, 2026-11-16). CI: occupation-publication-check.yml(publication-gate).
+// 운영 쪽은 읽기 전용 운영 점검(rule_check_refs_production_check.sql 등: 규칙 표·트리거 존재)이 migrations-apply마다 확인한다.
 import { PGlite } from '@electric-sql/pglite'
 import { unaccent } from '@electric-sql/pglite/contrib/unaccent'
 import { readFileSync } from 'node:fs'
@@ -22,6 +23,10 @@ grant all on public.local_jobs to service_role; grant usage on schema public to 
 await db.exec(f('../migrations/20261012153000_job_posting_policy_db_enforcement.sql'))
 await db.exec(f('../migrations/20261013100000_job_posting_rules.sql'))
 await db.exec(f('../migrations/20261013100000_job_posting_rules.sql')) // 멱등성
+// 2026-11-16(#858): 시험 SQL이 10-15 뒤 직업분류 공개 조건(원문 근거 있는 공식 코드)을 전제로 쓰므로(R7 공개 대조·U2), 운영과 같은 순서로 직업분류 migration을 올린다
+// (supabase/tests/occupation_publication.pglite.test.mjs와 같은 5개). 운영 DB 시험(job-rules-apply)은 10-29 입구 트리거(직접 insert 거부) 뒤 모든 시험 insert가 막혀 전부 '실패'로 보였으므로 이 시험이 그 역할을 맡는다.
+for (const m of ['20261015100000_occupation_master.sql', '20261015100100_occupation_master_seed.sql', '20261015120000_local_jobs_occupation_r8.sql',
+  '20261017070517_occupation_publication_gate.sql', '20261018090000_occupation_code_any_level.sql']) await db.exec(f(`../migrations/${m}`))
 await db.exec(f('./job_posting_rules_test.sql'))
 const rows = (await db.query('select rule_key,last_test_result from job_posting_rules order by id')).rows
 console.table(rows)

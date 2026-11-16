@@ -30,6 +30,7 @@ jobs:
           node supabase/tests/job_duplicate_check.pglite.test.mjs
           node supabase/tests/job_signal_dispatch.pglite.test.mjs
           node supabase/tests/ocr_check_merge.pglite.test.mjs
+          node supabase/tests/job_posting_rules.pglite.test.mjs  # 공고 규칙 R1~R7·U2(운영 DB 시험 대신, #858)
           node scripts/ci/ai-reader-guard.test.mjs
           node scripts/generate-occupation-category.mjs --check
           node supabase/tests/occupation_category.pglite.test.mjs
