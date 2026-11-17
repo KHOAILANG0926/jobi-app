@@ -29,7 +29,7 @@ from job_quality import ascii_key, has_excluded_money_terms
 from job_posting_policy import evaluate_job_posting_policy, crawler_policy_errors
 from classifier import classify, classify_subcategory, map_to_new_taxonomy
 from occupation_classifier import occupation_fields
-from source_fields import REJECTIONS, rule_code, source_fields
+from source_fields import JOB_ERRORS, REJECTIONS, rule_code, source_fields
 import ingest_gateway
 from ingest_gateway import ingest_job
 from supabase import create_client
@@ -536,6 +536,25 @@ def merge_seen_keys(old_keys: list[str], new_keys: list[str], limit: int = SEEN_
         if key not in merged:
             merged.append(key)
     return merged[:limit]
+
+
+def drop_from_seen(group_stats: list[dict], keys: set[str]) -> None:
+    """저장하지 못한 글은 '본 글'로 기록하지 않는다 → 다음 실행에서 다시 처리."""
+    for g in group_stats:
+        g["final_keys"] = [k for k in g.get("final_keys", []) if k not in keys]
+
+
+def drop_failed_from_seen(group_stats: list[dict]) -> None:
+    drop_from_seen(group_stats, JOB_ERRORS.failed_keys())
+
+
+def save_and_mark_seen(to_save: list[dict], seen_state: dict, group_stats: list[dict]) -> list[dict]:
+    """저장 → 오류 공고를 '본 글'에서 뺌 → '본 글' 기록. 저장 중 예외(연속 3건 오류·중간 종료)가 나면
+    '본 글'을 아예 기록하지 않아 이번 실행의 글 전부가 다음 실행에서 다시 처리된다(이미 저장된 글은 DB 중복으로 걸러짐)."""
+    saved = save_to_supabase(to_save)
+    drop_failed_from_seen(group_stats)  # 오류로 저장 못 한 글은 다음 실행에서 다시(#872 ②)
+    save_seen_state(seen_state, group_stats)  # DB 저장이 끝난 뒤에만 "처리함"으로 기록
+    return saved
 
 
 def save_seen_state(state: dict, group_stats: list[dict], path: Path = SEEN_STATE_PATH) -> None:
@@ -1242,15 +1261,20 @@ def save_to_supabase(jobs: list[dict]) -> list[dict]:
         except Exception as one:  # noqa: BLE001
             code = rule_code(one)
             if not code:
-                raise
+                # 규칙 거부가 아닌 오류는 이 공고만 실패로 남기고 계속(연속 3건이면 멈춤, #872 ②)
+                JOB_ERRORS.add(payload.get("title", ""), one, key=job.get("fb_post_key"))
+                continue
+            JOB_ERRORS.ok()
             # 거부 이유(예: location_precheck_failed: approximate_only / precheck_unavailable)를 기록에 남긴다(Lee 2026-11-07).
             detail = str(one).split(code, 1)[-1].strip(" :")[:80]
             print(f"    🚧 규칙 거부({code}): {payload.get('title', '')[:60]!r} — 이유: {detail or '없음'}")
             REJECTIONS.add(code, f"{payload.get('title', '')[:50]} | 이유: {detail or '없음'}")
             continue
+        JOB_ERRORS.ok()
         saved.append({"id": job_id, "title": payload.get("title")})
     print(f"  ✅ 저장: {len(saved)}/{len(new_jobs)}개")
     REJECTIONS.report()
+    JOB_ERRORS.report()
 
     if not new_jobs:
         print("  ℹ️  새 공고 없음 — 기존 데이터 유지")
@@ -1291,7 +1315,7 @@ def save_selected_from_dryrun(path: str, post_keys: list[str], max_save: int) ->
     for row in saved:
         print(f"  💾 저장 ID {row['id']}: {row['title']}")
     print(f"  결과: 선택 {len(picked)} / 저장 {len(saved)}")
-    return 0
+    return 1 if JOB_ERRORS.failed else 0
 
 
 def summarize_group(g: dict) -> dict:
@@ -1431,14 +1455,10 @@ async def main(argv=None) -> int:
         if args.max_save is not None and len(all_jobs) > args.max_save:
             to_save = all_jobs[:args.max_save]
             # 상한 때문에 저장 못 한 글은 '본 글'로 기록하지 않아 다음 실행에서 다시 다룬다
-            unsaved = {j["fb_post_key"] for j in all_jobs[args.max_save:]}
-            for g in group_stats:
-                g["final_keys"] = [k for k in g["final_keys"] if k not in unsaved]
+            drop_from_seen(group_stats, {j["fb_post_key"] for j in all_jobs[args.max_save:]})
         with open("facebook_jobs.json", "w", encoding="utf-8") as f:
             json.dump(to_save, f, ensure_ascii=False, indent=2)
-        saved = save_to_supabase(to_save)
-        # DB 저장이 끝난 뒤에만 "처리함"으로 기록 — 저장 실패(예외) 시 다음 실행에서 다시 처리
-        save_seen_state(seen_state, group_stats)
+        saved = save_and_mark_seen(to_save, seen_state, group_stats)
 
     write_json_atomic(LAST_RUN_PATH, {
         "finished_at": datetime.now().isoformat(timespec="seconds"), "dry_run": args.dry_run,
@@ -1447,7 +1467,9 @@ async def main(argv=None) -> int:
     })
 
     print("\n✨ 완료!" if not stop_state else f"\n🛑 중단: {stop_state}")
-    return 2 if stop_state else 0
+    if stop_state:
+        return 2
+    return 1 if JOB_ERRORS.failed else 0  # 오류 공고가 있으면 실행 기록을 실패로 남긴다
 
 
 if __name__ == "__main__":

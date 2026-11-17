@@ -106,3 +106,44 @@ class RuleRejections:
 
 
 REJECTIONS = RuleRejections()
+
+
+class JobErrors:
+    """공고 하나의 예상 못 한 오류(규칙 거부가 아닌 예외: DB 5xx·연결 끊김 등)는 그 공고만 실패로 남기고
+    다음 공고를 계속한다(#872 ② "공고 하나의 오류로 전체 수집이 멈추지 않는다").
+    실패한 공고는 저장되지 않았으므로 다음 실행에서 다시 만난다(Facebook은 '본 글'에서 뺌). 실행 결과는 실패로 끝난다.
+    연속 LIMIT건이면 한 공고 문제가 아니라 DB·서버 문제로 보고 예전처럼 예외로 멈춘다(헛호출 방지).
+    LIMIT 3 = 수집 멈춤 기준(같은 원인 3건 연속, Lee 2026-10-25)과 같은 숫자."""
+
+    LIMIT = 3
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self.failed: list[tuple[str | None, str, str]] = []  # (게시물 키, 제목, 오류)
+        self._streak = 0
+
+    def ok(self) -> None:
+        """DB가 정상으로 답함(저장 또는 규칙 거부) — 연속 오류를 끊는다."""
+        self._streak = 0
+
+    def add(self, label: str, exc: BaseException, key: str | None = None) -> None:
+        reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+        self.failed.append((key, label[:140], reason))
+        self._streak += 1
+        print(f"    ❌ 오류 — 이 공고만 실패, 다음 실행에서 다시: {label[:60]!r} — {reason}")
+        if self._streak >= self.LIMIT:
+            raise RuntimeError(f"연속 {self._streak}건 오류 — 공고 문제가 아니라 DB·서버 문제로 보고 멈춤") from exc
+
+    def failed_keys(self) -> set[str]:
+        return {k for k, _, _ in self.failed if k}
+
+    def report(self) -> None:
+        if self.failed:
+            print(f"  ❌ 오류로 저장 못 한 공고 {len(self.failed)}건(다음 실행에서 다시):")
+            for _, label, reason in self.failed[:20]:
+                print(f"     - {label} — {reason}")
+
+
+JOB_ERRORS = JobErrors()

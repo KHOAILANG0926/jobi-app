@@ -12,6 +12,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import runpy
 import shlex
 import shutil
@@ -174,6 +175,27 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("default: false", source)
         self.assertIn("if: ${{ false }}", source)
         self.assertNotIn("if: github.event_name == 'schedule'", source)
+
+    def test_actions_environment_can_install_requirements(self):
+        # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
+        # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.
+        source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
+        reqs = (ROOT / "crawler/requirements.txt").read_text(encoding="utf-8")
+        runs_on = [l.split(":", 1)[1].strip() for l in source.splitlines() if l.strip().startswith("runs-on:")]
+        self.assertEqual(runs_on, ["ubuntu-22.04"])
+        versions = re.findall(r"python-version:\s*'(\d+)\.(\d+)'", source)
+        self.assertEqual(len(versions), 1)
+        self.assertGreaterEqual(tuple(map(int, versions[0])), (3, 12))
+        self.assertIn("playwright==1.44.0", reqs)  # 판을 올리면 24.04 지원 여부를 다시 확인하고 이 시험도 고친다
+        self.assertIn("vietnam-provinces==2026.9.0", reqs)
+        # 설치 확인 잡(crawler-cli-tests.yml crawl-install)이 crawl.yml과 같은 환경·명령을 실제로 돌린다
+        ci = (ROOT / ".github/workflows/crawler-cli-tests.yml").read_text(encoding="utf-8")
+        job = ci.split("crawl-install:", 1)[1]
+        self.assertIn("runs-on: ubuntu-22.04", job)
+        self.assertIn("python-version: '3.12'", job)
+        for cmd in ("python -m pip install -r crawler/requirements.txt", "python -m playwright install --with-deps chromium"):
+            self.assertIn(cmd, source)
+            self.assertIn(cmd, job)
 
     def run_daily_with_fake_timeout(self, exit_code):
         if not shutil.which("bash"):
