@@ -207,7 +207,8 @@ export function inspectJob(j: InspectInput): InspectResult {
 /**
  * 검사 결과로 공개 여부를 정한다(2026-11-01 Lee: 규정 위반 공고가 화면에 나가지 않게).
  * - publishable: 'public'(공개 상태 자체)을 뺀 모든 항목 통과.
- * - 통과 못 하면 비공개. 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
+ * - 통과 못 하면 비공개(공개 중이던 공고도 내린다). 통과하면 이미 공개 중인 공고는 유지하고, 검사 대기로 막혔던 공고(hold)만 되살린다.
+ *   공고를 올리는 쓰기는 이 판정(검사표) 한 곳이다 — OCR 단계는 내리기만 한다(#728 R4).
  *   관리자가 숨긴 공고·마감 지난 공고는 되살리지 않는다. 다른 공개 규정(R4·R7·R8)은 DB 트리거가 따로 강제한다.
  */
 /** 검사표엔 실패로 남기되 공개는 막지 않는 항목(R11: 10h-10h 같은 근무시간은 관리자 확인 대상, 공개 차단과 구분). */
@@ -224,13 +225,8 @@ export function publishDecision(
 ): { publishable: boolean; active: boolean } {
   // Lee 2026-11-06 "비워두고 공개해야지": 원문에 없는 필수 항목(reviewOnly로 표시된 누락)은 경고만 — 공개를 막지 않는다.
   const publishable = r.items.every((i) => i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
-  if (!publishable) {
-    // Preserve an existing public posting during rollout, but do not issue a
-    // reusable publication proof: hiding it later must require a strict pass.
-    const keepExisting = j.active === true && !j.admin_hidden && r.items.every((i) =>
-      i.key === 'public' || REVIEW_ONLY.includes(i.key) || INFO_ONLY.includes(i.key) || (i.key === 'required_fields' && i.reviewOnly === true) || i.ok)
-    return { publishable, active: keepExisting }
-  }
+  // 검사 통과 못 하면 공개 중이어도 내린다(2026-11-01 Lee). 내려간 공고는 hold(검사 실패로 비공개 보류)로 남아 다시 통과하면 되살아난다.
+  if (!publishable) return { publishable, active: false }
   if (j.active) return { publishable, active: true }
   const deadline = j.application_deadline instanceof Date ? j.application_deadline.toISOString() : j.application_deadline
   const open = !deadline || String(deadline).slice(0, 10) >= today

@@ -1,5 +1,5 @@
 // R7 실행기: images가 있는데 아직 OCR 대조를 안 했거나 images가 바뀐 공고를 찾아
-// Supabase Storage에서 이미지를 받아 독립 AI 판독자(ai-reader.mjs, 결정 0004)로 읽고, ocr_text·ocr_check를 쓰고, 어긋나면 그 공고만 active=false(보류).
+// Supabase Storage에서 이미지를 받아 독립 AI 판독자(ai-reader.mjs, 결정 0004)로 읽고, ocr_text·ocr_check를 쓰고, 어긋나면 그 공고만 active=false(보류). 다시 공개하는 일은 검사표가 한다.
 // GitHub Actions(.github/workflows/job-ocr-check.yml)에서만 실행. PC에 이미지·키를 저장하지 않는다(임시 폴더만 사용).
 // 필요 환경변수: SUPABASE_DB_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY(비공개 bucket 다운로드용)
 import pg from 'pg'
@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareWithOcr, canRepublish } from './ocr-compare.mjs'
+import { compareWithOcr } from './ocr-compare.mjs'
 import { ocrCheckUpdateSql } from './ocr-check-write.mjs'
 import { fillSalary } from './salary-fill.mjs'
 import { readImageAI, READER_ID } from './ai-reader.mjs'
@@ -81,19 +81,8 @@ try {
         ocrCheckUpdateSql(hold),
         [job.id, text, JSON.stringify(check)])
       if (hold) { held++; console.log(`보류 #${job.id}: ${res.mismatches.map((m) => m.field).join(', ')}`); console.log(`::warning title=R7 보류 #${job.id}::불일치 항목 ${res.mismatches.map((m) => m.field).join(', ')}`) } else ok++
-      // OCR 'ok' → OCR 단계에서 공개로 되돌린다(기존 공개 조건 통과분만). 정책 판정(R4)은 DB 트리거가 강제:
-      // 제외 대상이면 저장이 거부되고, 검토 대상이면 active=false로 남는다 → 어느 쪽이든 비공개 유지.
-      if (res.status === 'ok' && !job.active && canRepublish(job)) {
-        let note
-        try {
-          const r = await client.query('update public.local_jobs set active = true where id = $1 returning active', [job.id])
-          note = r.rows[0].active ? 'published' : 'kept_hidden_by_trigger'
-        } catch (e) {
-          note = /job_posting_policy_excluded/.test(e.message) ? 'kept_hidden_policy_excluded' : /job_rule_/.test(e.message) ? 'kept_hidden_rule_violation' : 'kept_hidden_error'
-        }
-        await client.query(`update public.local_jobs set ocr_check = ocr_check || jsonb_build_object('publish', $2::text) where id = $1`, [job.id, note])
-        console.log(`재공개 판정 #${job.id}: ${note}`)
-      }
+      // 재공개는 여기서 하지 않는다 — 공개 여부를 올리는 쓰기는 검사표(job-inspect.mjs publishDecision) 한 곳이다(#728 R4 4단계).
+      // OCR은 불일치 보류(내림)와 증거(ocr_text·ocr_check) 기록만 한다. 내리는 쓰기는 안전한 방향이라 여기 남긴다.
     } catch (e) {
       failed++
       console.error(`#${job.id} 실패: ${e.message}`)   // 다음 실행에서 다시 시도한다(ocr_check를 쓰지 않음)

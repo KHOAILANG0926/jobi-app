@@ -16,6 +16,8 @@ import { ensureJobFields } from '../lib/jobUtils'
 import { rowToJob } from '../lib/jobRows'
 import { supabase } from '../lib/supabase'
 import { fetchJobsData } from '../lib/fetchJobsData'
+import { filterOpenJobs } from '../lib/jobDetailView'
+import { useTodayVn } from '../lib/todayVnStore'
 import type { Job } from '../types/job'
 
 interface JobsContextValue {
@@ -189,9 +191,14 @@ export function JobsProvider({ children, initialJobs, initialJobsError }: JobsPr
       .filter((j) => j.active !== false && j.adminHidden !== true))
   }, [])
 
+  // 마감 공고는 공개 화면(목록·검색·지도·상세·저장·최근 본·지역별)에서 뺀다. 오늘 날짜(베트남)를 구독하므로 화면을 열어 둔 채 자정이 지나도,
+  // 오래된 SSR 초기 목록으로 열었어도 다시 걸러진다. 내려가는 쓰기(deleteJob 등)는 원본 jobs 상태를 그대로 쓴다.
+  const today = useTodayVn()
+  const openJobs = useMemo(() => filterOpenJobs(jobs, today), [jobs, today])
+
   const value = useMemo(
-    () => ({ jobs, mapAcceptanceJobs: acceptanceJobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob }),
-    [jobs, acceptanceJobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob],
+    () => ({ jobs: openJobs, mapAcceptanceJobs: acceptanceJobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob }),
+    [openJobs, acceptanceJobs, loading, jobsError, refreshJobs, addPostedJob, deleteJob, updateJob],
   )
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>

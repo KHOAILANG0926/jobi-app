@@ -66,12 +66,11 @@ export default function RecentlyViewedPage() {
     }
   }, [])
 
-  const todayStr = new Date().toISOString().slice(0, 10)
 
   const combinedRows = useMemo<HistoryRow[]>(() => {
     return history.map((entry) => {
       const job = jobs.find((j) => j.id === entry.id)
-      const isOpen = !!job && (!job.applicationDeadline || job.applicationDeadline >= todayStr)
+      const isOpen = !!job   // 마감 공고는 JobsContext가 이미 뺀다
       return {
         entry,
         job,
@@ -96,7 +95,7 @@ export default function RecentlyViewedPage() {
             },
       }
     })
-  }, [history, jobs, todayStr])
+  }, [history, jobs])
 
   const filteredRows = useMemo(() => {
     return combinedRows

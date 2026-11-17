@@ -52,6 +52,17 @@ assert v(job(active=False, ocr_check={"inspect": {"publishable": True, "items": 
 assert v(job(active=False), None) == ("failure", "unexplained_unpublished")                                    # 전 상태 기록이 없어도 사유 없으면 실패
 # 5-1) 과거 실행 43070244676(5994): active는 참인데 admin_hidden이 거짓이 아님 + 전 상태 기록 없음 → 사유를 모르니 실패로 남긴다(보수적)
 assert v(job(active=True, admin_hidden=None), None) == ("failure", "unexplained_unpublished")
+# 5-2) 검사표 대기(#728 R4, Codex P1): OCR은 다시 공개하지 않고 검사표만 공개한다. 재처리 workflow는 OCR 뒤 검사표를 돌리지 않으므로(검사표는 job-ocr-check가 30분마다),
+#      OCR이 정상으로 끝났어도 검사표 표지(inspect_hold·ocr_hold)가 남은 비공개 공고는 '검사표 대기'로 보류한다 — 정상 공고를 실패로 세지 않는다.
+ok_ocr = {"status": "ok", "images_hash": f.images_hash(IMGS)}
+stale_pass = {"publishable": True, "items": [{"key": "public", "ok": True}]}   # 옛 검사 기록(통과) — 검사표가 다시 돌기 전
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "inspect_hold": True, "inspect": stale_pass}), PRIVATE_BEFORE) == ("held", "awaiting_inspect")
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "inspect": stale_pass}), PRIVATE_BEFORE) == ("held", "awaiting_inspect")
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "inspect": stale_pass}), PRIVATE_BEFORE) == ("failure", "unexplained_unpublished")   # 표지가 없으면 여전히 사유 불명(실패)
+assert v(job(active=False, images=IMGS, ocr_check={"status": "mismatch", "ocr_hold": True}), PRIVATE_BEFORE) == ("held", "r7_mismatch")          # OCR 불일치는 그대로 구체적 사유
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True}), PUBLIC_BEFORE) == ("failure", "unpublished_by_reprocess")      # 재처리가 공개를 내린 것은 그대로 실패
+assert v(job(active=False, images=IMGS, admin_hidden=True, ocr_check={**ok_ocr, "ocr_hold": True}), PRIVATE_BEFORE) == ("held", "admin_hidden")
+assert v(job(active=False, images=IMGS, ocr_check={**ok_ocr, "ocr_hold": True, "inspect": {"publishable": False, "items": [{"key": "pin", "ok": False}]}}), PRIVATE_BEFORE) == ("held", "inspect_failed:pin")
 # 6) 공개에서 비공개로 바뀜 — 사유가 있어도 재처리가 내린 것이면 실패
 assert v(job(active=False, occupation_code=None), PUBLIC_BEFORE) == ("failure", "unpublished_by_reprocess")
 assert v(job(active=False), PUBLIC_BEFORE) == ("failure", "unpublished_by_reprocess")
@@ -63,24 +74,33 @@ assert v(job(title="Vị trí tuyển dụng:")) == ("failure", "title_unverifie
 assert v(job(title="")) == ("failure", "title_unverified")
 
 # 9) 실제 실행 경로: 가짜 DB로 f.run()을 돌려 종료 동작과 대기열 기록을 본다(과거 실패 실행의 공고 상태).
-class Q:
-    def __init__(self, db, name): self.db, self.name, self.filters, self.op, self.payload = db, name, {}, "select", None
+class SQ:   # 상태·필터를 지키는 가짜 DB — 여러 번 실행하는 대기열 상태 전이 시험(아래 11)도 같은 것을 쓴다
+    def __init__(self, db, name): self.db, self.name, self.filters, self.op, self.payload, self.lo, self.hi = db, name, {}, "select", None, 0, None
     def select(self, *_a): return self
     def eq(self, k, val): self.filters[k] = val; return self
     def order(self, *_a): return self
-    def limit(self, *_a): return self
+    def limit(self, n): self.lo, self.hi = 0, n - 1; return self      # 서버처럼 limit·range가 실제로 결과를 자른다(50건 제한 시험, Codex P1)
+    def range(self, lo, hi): self.lo, self.hi = lo, hi; return self
     def single(self): self.op = "single"; return self
     def update(self, payload): self.op, self.payload = "update", payload; return self
+    def _rows(self): return [r for r in self.db.queue if all(r.get(k) == val for k, val in self.filters.items())]
     def execute(self):
-        if self.name == "job_reprocess_queue" and self.op == "select": return types.SimpleNamespace(data=self.db.queue)
-        if self.name == "job_reprocess_queue" and self.op == "update": self.db.updates.append((self.filters.get("id"), self.payload)); return types.SimpleNamespace(data=[])
+        if self.name == "job_reprocess_queue" and self.op == "select":
+            rows = self._rows()
+            return types.SimpleNamespace(data=[dict(r) for r in (rows[self.lo:] if self.hi is None else rows[self.lo:self.hi + 1])])
+        if self.name == "job_reprocess_queue" and self.op == "update":
+            hit = self._rows()
+            for r in hit: r.update(self.payload)
+            if hit: self.db.updates.append((self.filters.get("id"), self.payload))
+            return types.SimpleNamespace(data=[dict(r) for r in hit])
         if self.name == "local_jobs": return types.SimpleNamespace(data=self.db.jobs[self.filters["id"]])
         return types.SimpleNamespace(data=[])   # job_work_locations: 핀 스냅샷은 비어 있음
 class DB:
-    def __init__(self, queue, jobs): self.queue, self.jobs, self.updates = queue, jobs, []
-    def table(self, name): return Q(self, name)
+    def __init__(self, queue, jobs): self.queue, self.jobs, self.updates = [{"status": "running", "error": None, **r} for r in queue], jobs, []
+    def table(self, name): return SQ(self, name)
 def run_with(queue, jobs):
-    db = DB(queue, jobs)
+    return run_db(DB(queue, jobs))
+def run_db(db):
     sys.modules["crawl_facebook"] = types.SimpleNamespace(supabase=db)
     try:
         f.run()
@@ -111,6 +131,12 @@ db2, err2 = run_with(q2, jobs2)
 assert err2 == "1 jobs failed title/R7/publication verification", err2
 got2 = {i: p["error"] for i, p in db2.updates}
 assert got2 == {1: None, 2: "unpublished_by_reprocess", 3: "held:no_occupation_code"}, got2
+
+# 검사표 대기 공고는 대기열에 blocked + held:awaiting_inspect로 남고 실행은 빨간불이 되지 않는다(실제 verdict()·대기열 상태 변경까지)
+await_job = job(active=False, images=IMGS, ocr_check={"status": "ok", "images_hash": f.images_hash(IMGS), "inspect_hold": True, "inspect": {"publishable": True, "items": []}})
+db4, err4 = run_with([{"id": 11, "job_id": 11, "result": {"pins_before": [], **PRIVATE_BEFORE}}], {11: await_job})
+assert err4 is None, err4
+assert db4.updates[0][1]["status"] == "blocked" and db4.updates[0][1]["error"] == "held:awaiting_inspect" and db4.updates[0][1]["result"]["verdict"] == "held", db4.updates
 
 # 이미지 있는 공개 공고의 OCR 불일치는 실행 전체를 실패시킨다
 db3, err3 = run_with([{"id": 9, "job_id": 9, "result": {"pins_before": []}}], {9: job(images=IMGS, ocr_check={"status": "mismatch"})})
@@ -150,3 +176,53 @@ res = [x for x in order if isinstance(x, tuple)][0][1]
 assert res["before"] == {"active": True, "admin_hidden": False, "images": 2}, res
 assert "pins_before" in res
 print("reprocess_queue: 재처리 전 상태 기록 시험 통과")
+
+# 11) 대기열 상태 전이(#728 R4, Codex P1): 검사표 대기(blocked + held:awaiting_inspect)는 끝이 아니라 대기다.
+#     OCR 불일치 → 비공개 → OCR 정상 복구 → 검사표 대기 → (다음 실행) 검사표 통과로 공개 → 대기열이 최종 success가 되어야 한다.
+#     상태·필터를 지키는 가짜 DB로 f.run()을 여러 번 돌린다(재처리 workflow가 30분마다 하는 일).
+ok_img = {"status": "ok", "images_hash": f.images_hash(IMGS)}
+sjobs = {21: job(title="OCR 복구 뒤 검사표 대기", active=False, images=IMGS, ocr_check={**ok_img, "ocr_hold": True, "inspect": {"publishable": True, "items": []}})}
+sq = [{"id": 21, "job_id": 21, "status": "running", "error": None, "result": {"pins_before": [], **PRIVATE_BEFORE}}]
+sdb = DB(sq, sjobs)
+assert run_db(sdb)[1] is None
+sq = sdb.queue
+assert (sq[0]["status"], sq[0]["error"]) == ("blocked", "held:awaiting_inspect"), sq[0]                      # 검사표 대기로 기록
+assert run_db(sdb)[1] is None and (sq[0]["status"], sq[0]["error"]) == ("blocked", "held:awaiting_inspect")   # 아직 대기 — 그대로(실패·성공 아님)
+sjobs[21] = job(title="OCR 복구 뒤 검사표 대기", active=True, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": True, "items": []}})   # 검사표가 공개
+assert run_db(sdb)[1] is None
+assert (sq[0]["status"], sq[0]["error"]) == ("success", None), f"검사표가 공개한 뒤에도 대기열이 blocked로 남음: {sq[0]}"
+assert sq[0]["result"]["published"] is True and sq[0]["result"]["verdict"] == "success", sq[0]["result"]
+# 다른 이유로 막힌 보류(예: 관리자 숨김)는 끝난 상태 — 다시 판정하지 않는다
+sjobs[22] = job(title="관리자 숨김", active=False, admin_hidden=True)
+sq2 = [{"id": 22, "job_id": 22, "status": "running", "error": None, "result": {"pins_before": [], **PRIVATE_BEFORE}}]
+sdb2 = DB(sq2, sjobs); assert run_db(sdb2)[1] is None and (sq2 := sdb2.queue)[0]["error"] == "held:admin_hidden"
+sjobs[22] = job(title="관리자 숨김", active=True)
+assert run_db(sdb2)[1] is None and sq2[0]["error"] == "held:admin_hidden", "검사표 대기가 아닌 보류는 다시 건드리지 않는다"
+# 대기 중 공고가 검사표에서 진짜 실패하면 구체적 사유로 바뀐다
+sjobs[23] = job(title="검사 실패", active=False, images=IMGS, ocr_check={**ok_img, "ocr_hold": True})
+sq3 = [{"id": 23, "job_id": 23, "status": "running", "error": None, "result": {"pins_before": [], **PRIVATE_BEFORE}}]
+sdb3 = DB(sq3, sjobs); assert run_db(sdb3)[1] is None and (sq3 := sdb3.queue)[0]["error"] == "held:awaiting_inspect"
+sjobs[23] = job(title="검사 실패", active=False, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": False, "items": [{"key": "pin", "ok": False}]}})
+assert run_db(sdb3)[1] is None and sq3[0]["error"] == "held:inspect_failed:pin", sq3[0]
+print("finalize_reprocess_queue: 대기열 상태 전이(검사표 대기 → 공개 success / 실제 실패 사유 / 다른 보류는 그대로) 시험 통과")
+
+# 12) 검사표 대기가 50건을 넘어도(Codex P1, finalize 98행) 앞 50건이 계속 대기 중이면 뒤쪽 공고가 이미 공개돼도 success로 못 가던 것 — 전체를 페이지 단위로 훑는다.
+big_jobs, big_q = {}, []
+for n in range(100, 151):   # 51건: 앞 50건은 계속 대기, 51번째(150)만 검사표가 공개
+    big_jobs[n] = job(title=f"대기 {n}", active=False, images=IMGS, ocr_check={**ok_img, "inspect_hold": True, "inspect": {"publishable": True, "items": []}})
+    big_q.append({"id": n, "job_id": n, "status": "blocked", "error": "held:awaiting_inspect", "result": {"pins_before": [], **PRIVATE_BEFORE}})
+big_jobs[150] = job(title="대기 150", active=True, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": True, "items": []}})
+bdb = DB(big_q, big_jobs)
+assert run_db(bdb)[1] is None
+by_id = {r["id"]: r for r in bdb.queue}
+assert (by_id[150]["status"], by_id[150]["error"]) == ("success", None), f"51번째 대기 항목이 success로 전이되지 못함: {by_id[150]}"
+assert all((by_id[n]["status"], by_id[n]["error"]) == ("blocked", "held:awaiting_inspect") for n in range(100, 150)), "앞 50건은 아직 대기 — 기록 그대로"
+assert [i for i, _ in bdb.updates] == [150], bdb.updates   # 대기 중인 앞 50건은 쓰지 않는다(갱신 없음)
+# 앞 50건 중 일부가 공개되거나 실제 실패해도 그 항목만 바뀌고 나머지 대기는 유지된다(기존 처리 로직 유지)
+big_jobs[103] = job(title="대기 103", active=True, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": True, "items": []}})
+big_jobs[120] = job(title="대기 120", active=False, images=IMGS, ocr_check={**ok_img, "inspect": {"publishable": False, "items": [{"key": "pin", "ok": False}]}})
+assert run_db(bdb)[1] is None
+by_id = {r["id"]: r for r in bdb.queue}
+assert by_id[103]["status"] == "success" and by_id[120]["error"] == "held:inspect_failed:pin", (by_id[103], by_id[120])
+assert sum(1 for r in bdb.queue if r["error"] == "held:awaiting_inspect") == 48
+print("finalize_reprocess_queue: 검사표 대기 50건 초과 페이지 순회 시험 통과")

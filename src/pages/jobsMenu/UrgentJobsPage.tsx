@@ -469,16 +469,8 @@ export default function UrgentJobsPage() {
     setDraft('')
   }
 
-  // 모집 중인 급구만: 급구(urgent)라도 지원 마감일이 이미 지났으면 급구 목록에서
-  // 제외한다(SavedJobsPage의 "모집 중/마감" 판정과 동일 기준 — 마감일이 없으면
-  // 상시 모집으로 보고 포함).
-  const todayStr = new Date().toISOString().slice(0, 10)
-  // 2026-11-03 Lee "급구가 아니라 지역별로 바꾸는 게 맞아" — 급구 공고만이 아니라
-  // 모집 중인 모든 공개 공고를 지역으로 고르는 페이지(알바몬 "지역별 알바정보").
-  const openJobs = useMemo(
-    () => jobs.filter((j) => !j.applicationDeadline || j.applicationDeadline >= todayStr),
-    [jobs, todayStr],
-  )
+  // 2026-11-03 Lee "급구가 아니라 지역별로 바꾸는 게 맞아" — 모집 중인 모든 공개 공고를 지역으로 고르는 페이지(알바몬 "지역별 알바정보").
+  // 마감 공고는 JobsContext가 이미 뺀다(오늘 날짜 구독 — 열어 둔 채 자정이 지나도 다시 걸러짐). 여기서 따로 거르지 않는다.
   // 옛 동 → 지금 동 공식 대응표(약 0.9MB)는 이 페이지에서만 따로 불러온다. 오기 전에는 옛 군/구 기준
   // 후보로 판정하고, 도착하면 다시 판정한다.
   const [oldWardsReady, setOldWardsReady] = useState(false)
@@ -488,7 +480,7 @@ export default function UrgentJobsPage() {
     return () => { alive = false }
   }, [])
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const jobAreas = useMemo(() => new Map(openJobs.map((j) => [j.id, resolveJobArea(j)])), [openJobs, oldWardsReady])
+  const jobAreas = useMemo(() => new Map(jobs.map((j) => [j.id, resolveJobArea(j)])), [jobs, oldWardsReady])
   const provinceCounts = useMemo(() => {
     const m = new Map<string, number>()
     for (const a of jobAreas.values()) for (const p of a.provinces) m.set(p, (m.get(p) ?? 0) + 1)
@@ -498,7 +490,7 @@ export default function UrgentJobsPage() {
   const wardPoints = useMemo(() => {
     if (!selectedProvince) return []
     const acc = new Map<string, { lat: number; lng: number; n: number }>()
-    for (const j of openJobs) {
+    for (const j of jobs) {
       const a = jobAreas.get(j.id)
       if (!a || a.wards.length !== 1 || !a.provinces.includes(selectedProvince)) continue
       const loc = (j.workLocations ?? []).find((l) => Number.isFinite(l.lat) && Number.isFinite(l.lng))
@@ -508,7 +500,7 @@ export default function UrgentJobsPage() {
       acc.set(a.wards[0], { lat: c.lat + lat!, lng: c.lng + lng!, n: c.n + 1 })
     }
     return [...acc].map(([ward, c]) => ({ ward, lat: c.lat / c.n, lng: c.lng / c.n, count: c.n }))
-  }, [openJobs, jobAreas, selectedProvince])
+  }, [jobs, jobAreas, selectedProvince])
   const rankedProvinces = useMemo(
     () => VN_PROVINCES.map((p) => [p, provinceCounts.get(p) ?? 0] as const).sort((a, b) => b[1] - a[1]),
     [provinceCounts],
@@ -519,9 +511,9 @@ export default function UrgentJobsPage() {
   // 사용자 지시로 고정 목록 시도 후 되돌림).
   const workPeriodOptions = useMemo(() => {
     const set = new Set<string>()
-    for (const j of openJobs) if (j.workPeriod) set.add(j.workPeriod)
+    for (const j of jobs) if (j.workPeriod) set.add(j.workPeriod)
     return [...set].sort()
-  }, [openJobs])
+  }, [jobs])
 
   // 성/시(1단계)뿐 아니라 동/사(2단계)도 공고 존재 여부와 무관하게 항상
   // 전체를 보여준다(2026-09-17 사용자 지시 — "2차 지역은 왜 다 안보여?").
@@ -608,7 +600,7 @@ export default function UrgentJobsPage() {
   )
 
   const filtered = useMemo(() => {
-    let list = openJobs
+    let list = jobs
     // 2026-11-03 Lee "급구 페이지는 자동으로 연결하는 게 맞다" — DB에 따로 채워야
     // 하던 resolved_* 칸 대신 공고 주소로 바로 판정(lib/jobAreaWards.ts, 메인·검색과 같은 기준).
     if (selectedProvince) {
@@ -664,7 +656,7 @@ export default function UrgentJobsPage() {
       })
     }
     return list
-  }, [openJobs, jobAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
+  }, [jobs, jobAreas, selectedProvince, selectedWards, categoryIds, selectedSubcategoryKeys, workPeriods, jobDurations, genderFilter, ageFilter, pledgeOnly, selectedDays, selectedDayCounts, excludeUnspecifiedDays, excludeUnspecifiedHours, selectedTimeBuckets, includeKeywords, excludeKeywords])
 
   const sorted = useMemo(() => {
     const list = [...filtered]
@@ -726,12 +718,12 @@ export default function UrgentJobsPage() {
           <p className="jm-region-rank__total">
             {selectedProvince
               ? <><b>{shortProvinceName(selectedProvince)}</b> · {provinceCounts.get(selectedProvince) ?? 0} việc làm</>
-              : <>Toàn quốc · <b>{openJobs.length}</b> việc làm</>}
+              : <>Toàn quốc · <b>{jobs.length}</b> việc làm</>}
           </p>
           <ul className="jm-region-rank__list">
             <li>
               <button type="button" className={`jm-region-rank__row${selectedProvince === null ? ' is-selected' : ''}`} onClick={() => selectProvince(null)}>
-                <span>Toàn quốc</span><b>{openJobs.length}</b>
+                <span>Toàn quốc</span><b>{jobs.length}</b>
               </button>
             </li>
             {rankedProvinces.map(([p, n]) => (
