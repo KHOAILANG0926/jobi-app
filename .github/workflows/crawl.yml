@@ -1,15 +1,8 @@
 name: 채용공고 자동 크롤링
 
 on:
-  schedule:
-    - cron: '0 15 * * *'  # 매일 저녁 10시 (UTC+7 → 15:00 UTC)
   workflow_dispatch:
     inputs:
-      confirm_full_crawl:
-        description: '전체 수집·DB 저장을 실행합니다. 명시적으로 확인한 경우만 선택하세요.'
-        type: boolean
-        required: true
-        default: false
       dry_run:
         description: '시험 수집(#872): 실제 사이트에서 수집·파싱만, DB 열쇠 없이 실행(저장 없음)'
         type: boolean
@@ -30,10 +23,11 @@ concurrency:
 
 jobs:
   crawl:
-    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
-    # 예약 실행은 계속 안 돈다(정기 수집 금지). 열리는 것: master에서 확인 체크한 수동 실행만 — 시험 수집(dry_run, 저장 없음) 또는
-    # 승인된 소량 실제 저장(dry_run 끔 + confirm_full_crawl, 신규만·표본 1~10). Lee 2026-11-17 #872 "실제 소량 크롤링 테스트".
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.dry_run || inputs.confirm_full_crawl)
+    # 열쇠를 쓰지 않으므로 운영 열쇠 환경(ops-keys)도 쓰지 않는다
+    # Lee 2026-11-17 #872: 예약(schedule) 계기를 없앴다 — 정기 수집은 이 파일로 돌 수 없다(재개는 별도 승인 PR).
+    # 열리는 것: master에서 시험 수집(dry_run)을 체크한 수동 실행만 — DB 열쇠 없이 실제 사이트 수집·파싱, 저장 없음, 1~10건.
+    # 운영 DB 저장 단계는 없다(저장 시험은 Lee 승인 뒤 따로).
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run
     # 재개 승인 전 실행 환경만 맞춤(#872): 마지막 실제 실행 5건(2026-08-24~28)이 모두 의존성 설치에서 실패 —
     # ubuntu-latest(24.04)에는 libasound2가 없는데 playwright 1.44 설치 목록에 24.04 항목이 없어 옛 이름을 설치함.
     # 같은 crawler/requirements.txt를 쓰는 refresh-facebook-existing.yml과 같은 ubuntu-22.04·Python 3.12로 맞춘다.
@@ -63,11 +57,3 @@ jobs:
         env:
           SAMPLE_LIMIT: ${{ inputs.sample_limit }}
         run: python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT"
-
-      - name: 소량 실제 저장(승인된 경우만, 신규만)
-        if: ${{ !inputs.dry_run && inputs.confirm_full_crawl }}
-        env:
-          SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SAMPLE_LIMIT: ${{ inputs.sample_limit }}
-        run: python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT" --new-only

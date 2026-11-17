@@ -160,31 +160,24 @@ class ScheduledCallerTests(unittest.TestCase):
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         commands = [line.strip()[5:] for line in source.splitlines()
                     if line.strip().startswith("run: python crawler/crawl_topcv.py")]
-        self.assertEqual(len(commands), 2)  # 시험 수집(저장 없음) + 승인된 소량 실제 저장
-        for c in commands:
-            command = shlex.split(c.replace('"$SAMPLE_LIMIT"', "3"))
-            self.assertEqual(command[:2], ["python", "crawler/crawl_topcv.py"])
-            self.assertEqual(mode_for(command[2:]), "full_crawl")
-            self.assertEqual(enter_cli(command[2:])[0][0], "main")
-            self.assertIn("--sample-limit", command)
-        self.assertIn("--new-only", commands[1])
+        self.assertEqual(len(commands), 1)  # 시험 수집(저장 없음)만 — 운영 DB 저장 단계 없음(#881)
+        command = shlex.split(commands[0].replace('"$SAMPLE_LIMIT"', "3"))
+        self.assertEqual(command[:2], ["python", "crawler/crawl_topcv.py"])
+        self.assertEqual(mode_for(command[2:]), "full_crawl")
+        self.assertEqual(enter_cli(command[2:])[0][0], "main")
+        self.assertIn("--sample-limit", command)
 
     def test_actions_manual_confirmation_is_opt_in(self):
-        # Configuration contract only; GitHub's scheduler itself is not executed.
+        # Lee 2026-11-17 #872·#881: 예약 계기 없음(정기 수집 불가), 열쇠 없음(저장 불가), 수동 시험만
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", source)
-        self.assertIn("confirm_full_crawl:", source)
-        self.assertIn("type: boolean", source)
-        self.assertIn("default: false", source)
-        # Lee 2026-11-17 #872: 정기(예약) 실행은 계속 안 돈다 — 잡 조건이 수동 실행·master만 연다
+        self.assertNotIn("schedule:", source)
+        self.assertNotIn("cron:", source)
+        self.assertNotIn("secrets.", source)
+        self.assertNotIn("environment: ops-keys", source)
         job_if = [l.strip() for l in source.splitlines() if l.startswith("    if:")]
-        self.assertEqual(job_if, ["if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.dry_run || inputs.confirm_full_crawl)"])
-        self.assertNotIn("if: github.event_name == 'schedule'", source)
+        self.assertEqual(job_if, ["if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run"])
         self.assertIn("'^([1-9]|10)$'", source)
-        # 시험 수집 단계에는 DB 열쇠가 없다(저장 불가)
-        dry = source.split("시험 수집(저장 없음", 1)[1].split("- name:", 1)[0]
-        self.assertNotIn("secrets.", dry)
-        self.assertIn("if: inputs.dry_run", dry)
 
     def test_facebook_account_users_share_one_state_dir(self):
         # #881 검토관: 같은 Facebook 계정을 쓰는 VPS 작업이 모두 같은 계정 잠금·본 글 기록 폴더를 봐야 한다
@@ -244,7 +237,7 @@ class ScheduledCallerTests(unittest.TestCase):
             self.assertNotIn("crawl_facebook.py", capture.read_text() if capture.exists() else "")
 
     def test_facebook_keys_only_in_steps_that_need_them(self):
-        # Lee 2026-11-17 #881(S4 열쇠 분리 유지): 미리 보기 = Facebook 쿠키만, 저장 = DB·판독 열쇠만, 시험 실행 = 둘 다. 잡 전체에는 비밀값 없음.
+        # Lee 2026-11-17 #881(S4 열쇠 분리 유지): 미리 보기 = Facebook 쿠키만, 저장 = DB·판독 열쇠만. 잡 전체에는 비밀값 없음.
         src = (ROOT / ".github/workflows/crawl-facebook-one.yml").read_text(encoding="utf-8")
         job = src.split("\njobs:\n", 1)[1]
         job_env = job.split("    steps:", 1)[0]
@@ -254,15 +247,14 @@ class ScheduledCallerTests(unittest.TestCase):
             found = [b for b in steps if title in b.split("\n", 1)[0]]
             self.assertEqual(len(found), 1, title)
             return found[0]
-        dry, save, run = step("미리 보기(저장 없음)"), step("고른 1건만 입구"), step("시험 정상 실행")
+        dry, save = step("미리 보기(저장 없음)"), step("고른 1건만 입구")
         self.assertIn("secrets.FB_C_USER", dry)
         for k in ("SUPABASE_SERVICE_ROLE_KEY", "ANTHROPIC_API_KEY"):
             self.assertNotIn(f"secrets.{k}", dry, k)
             self.assertIn(f"secrets.{k}", save, k)
-            self.assertIn(f"secrets.{k}", run, k)
         self.assertNotIn("secrets.FB_", save)
-        self.assertIn("secrets.FB_C_USER", run)
-        others = [b for b in steps if b not in (dry, save, run)]
+        self.assertNotIn("mode == 'run'", src)  # 시험 정상 실행(운영 DB 저장) 모드는 저장 시험 승인 뒤 따로(#881)
+        others = [b for b in steps if b not in (dry, save)]
         for b in others:
             self.assertNotRegex(b, r"secrets\.(?!GITHUB_TOKEN)", b.split("\n", 1)[0])
 
