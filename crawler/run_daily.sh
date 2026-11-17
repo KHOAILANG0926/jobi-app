@@ -41,11 +41,12 @@ run_crawler() {
 export CRAWLER_STATE_DIR="${CRAWLER_STATE_DIR:-$HOME/jobi-crawler-state/facebook}"
 mkdir -p "$CRAWLER_STATE_DIR"
 STATE_DIR="$CRAWLER_STATE_DIR"
-if [[ -f "$STATE_DIR/FACEBOOK_ACCOUNT_LOCK" ]]; then
+# 예전 폴더(state/)에 남은 잠금·멈춤도 그대로 따른다(옮기다 잠금을 잃지 않게)
+if [[ -f "$STATE_DIR/FACEBOOK_ACCOUNT_LOCK" || -f "state/FACEBOOK_ACCOUNT_LOCK" ]]; then
   # 계정 이상(checkpoint/session_expired) 감지 시 crawl_facebook.py가 자동 생성 — 사람 확인 전 재실행 금지
   echo "[$(date -Is)] ERROR: Facebook crawler locked ($STATE_DIR/FACEBOOK_ACCOUNT_LOCK) — 계정 확인 필요"
   STATUS=1
-elif [[ -f "$STATE_DIR/FACEBOOK_PAUSED" ]]; then
+elif [[ -f "$STATE_DIR/FACEBOOK_PAUSED" || -f "state/FACEBOOK_PAUSED" ]]; then
   echo "[$(date -Is)] Skipping Facebook crawler: paused ($STATE_DIR/FACEBOOK_PAUSED)"
 elif grep -q '^FB_C_USER=.' .env && grep -q '^FB_XS=.' .env; then
   # 2026-09-28: 그룹당 최대 ~250초(스크롤/시간 상한) x 8 + 그룹 간 60~120초 대기 ≈ 47분이라 45m→60m

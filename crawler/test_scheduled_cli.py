@@ -223,6 +223,26 @@ class ScheduledCallerTests(unittest.TestCase):
             self.assertNotIn("crawl_facebook.py", capture.read_text() if capture.exists() else "")
             self.assertNotEqual(result.returncode, 0)  # 잠금은 실패로 기록
 
+    def test_daily_wrapper_honours_legacy_lock(self):
+        if not shutil.which("bash"):
+            self.skipTest("bash unavailable")
+        with tempfile.TemporaryDirectory(prefix="crawler-legacy-") as folder:
+            work = Path(folder)
+            (work / "run_daily.sh").write_text((ROOT / "crawler/run_daily.sh").read_text(encoding="utf-8"), encoding="utf-8")
+            (work / ".env").write_text("FB_C_USER=x\nFB_XS=y\n", encoding="utf-8")
+            (work / "state").mkdir()
+            (work / "state" / "FACEBOOK_PAUSED").write_text("", encoding="utf-8")
+            bin_dir = work / "bin"; bin_dir.mkdir()
+            (bin_dir / "timeout").write_text('#!/bin/sh\necho "RAN $*" >> "$CLI_CAPTURE"\nexit 0\n', encoding="utf-8")
+            (bin_dir / "timeout").chmod(0o755)
+            capture = work / "ran.txt"
+            env = {k: v for k, v in os.environ.items() if k in {"PATH", "LANG", "TMPDIR"}}
+            env.update({"HOME": str(work / "home"), "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""), "CLI_CAPTURE": str(capture)})
+            result = subprocess.run(["bash", str(work / "run_daily.sh"), "--confirm-scheduled-run"], cwd=work, env=env,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertIn("Skipping Facebook crawler: paused", result.stdout)
+            self.assertNotIn("crawl_facebook.py", capture.read_text() if capture.exists() else "")
+
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
         # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.

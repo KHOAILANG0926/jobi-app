@@ -143,6 +143,16 @@ def main() -> int:
     if shared.is_dir():
         for f in ("FACEBOOK_ACCOUNT_LOCK", "FACEBOOK_PAUSED"):
             print(f"   {f}: {'있음' if (shared / f).exists() else '없음'}")
+        last = shared / "facebook_last_run.json"
+        if last.exists():
+            try:
+                j = json.loads(last.read_text(encoding="utf-8"))
+                print(f"   마지막 Facebook 실행: {str(j.get('finished_at'))[:19]} / 시험 실행 {bool(j.get('dry_run'))} / 중단 {'있음' if j.get('stop_state') else '없음'}"
+                      f" / 후보 {int(j.get('candidates') or 0)} / 저장 {len(j.get('saved_ids') or [])}")
+            except Exception as e:  # noqa: BLE001
+                errors.append(f"공용 마지막 실행 기록 읽기 실패({type(e).__name__})")
+        else:
+            print("   마지막 Facebook 실행 기록: 없음")
         seen = shared / "facebook_seen.json"
         if seen.exists():
             try:

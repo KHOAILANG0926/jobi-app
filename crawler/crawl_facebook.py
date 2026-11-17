@@ -79,11 +79,21 @@ def write_account_lock(state: str, group_url: str, path: Path = ACCOUNT_LOCK_PAT
         encoding="utf-8")
 
 
+# 예전 상태 폴더(crawler/state/). 공용 폴더로 옮긴 뒤에도 거기 남은 잠금은 그대로 잠금으로 본다(#881 검토관 — 옮기다 잠금을 잃지 않게).
+LEGACY_STATE_DIR = Path(__file__).parent / "state"
+
+
 def account_lock_reason(path: Path = ACCOUNT_LOCK_PATH) -> str | None:
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
-        return None
+    """잠금 내용(없으면 None). 기본 경로를 볼 때는 예전 폴더의 잠금도 함께 본다 — 어느 쪽이든 있으면 잠김."""
+    candidates = [path]
+    if path == ACCOUNT_LOCK_PATH and LEGACY_STATE_DIR / path.name != path:
+        candidates.append(LEGACY_STATE_DIR / path.name)
+    for c in candidates:
+        try:
+            return c.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            continue
+    return None
 
 TARGETS = [
     {"url": "https://www.facebook.com/groups/timvieclamthembacninh", "location": "Bắc Ninh"},
@@ -519,7 +529,10 @@ def parse_time_label(label: str, now: datetime | None = None) -> dict | None:
 def load_seen_state(path: Path = SEEN_STATE_PATH) -> dict:
     """상태 파일 → 없거나 깨졌으면 .bak → 그것도 없으면 빈 상태. 빈 상태여도 DB 중복
     방지(본문 지문·제목+회사)가 재저장을 막는다(처리 시간만 늘어남)."""
-    for candidate in (path, path.with_suffix(path.suffix + ".bak")):
+    tries = [path, path.with_suffix(path.suffix + ".bak")]
+    if path == SEEN_STATE_PATH and LEGACY_STATE_DIR / path.name != path:
+        tries.append(LEGACY_STATE_DIR / path.name)  # 공용 폴더로 처음 옮길 때 예전 본 글 기록을 이어받는다(#881)
+    for candidate in tries:
         try:
             data = json.loads(candidate.read_text(encoding="utf-8"))
             if candidate != path:

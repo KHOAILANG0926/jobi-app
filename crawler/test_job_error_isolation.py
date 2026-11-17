@@ -375,6 +375,19 @@ class StateDirOverride(unittest.TestCase):
             self.assertIsNotNone(m.account_lock_reason())   # 다음 실행(같은 폴더)에서 잠금이 보인다
         importlib.reload(fb)
 
+    def test_legacy_lock_still_locks_after_move(self):
+        import importlib, os, tempfile
+        d, legacy = tempfile.mkdtemp(), Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"CRAWLER_STATE_DIR": d}):
+            m = importlib.reload(fb)
+            with mock.patch.object(m, "LEGACY_STATE_DIR", legacy):
+                self.assertIsNone(m.account_lock_reason())
+                (legacy / "FACEBOOK_ACCOUNT_LOCK").write_text("checkpoint", encoding="utf-8")
+                self.assertEqual(m.account_lock_reason(), "checkpoint")  # 예전 폴더 잠금도 잠금
+                (legacy / "facebook_seen.json").write_text('{"g": {"keys": ["id:1"]}}', encoding="utf-8")
+                self.assertEqual(m.load_seen_state()["g"]["keys"], ["id:1"])  # 예전 본 글 기록 이어받기
+        importlib.reload(fb)
+
     def test_default_unchanged(self):
         import importlib, os
         env = {k: v for k, v in os.environ.items() if k != "CRAWLER_STATE_DIR"}
