@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'crawler/**'
+      - 'scripts/ocr/read-company-ai*.mjs'
+      - 'scripts/ocr/ai-ask.mjs'
       - '.github/workflows/crawl.yml'
       - '.github/workflows/crawler-cli-tests.yml'
       - 'scripts/ops/vps-crawl-schedule-diag.py'
@@ -22,6 +24,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # 회사 이름 AI 확인 실행기(#872 R): 가짜 AI 답으로 3회 동의·오류 처리, 열쇠 없으면 종료 코드 1(네트워크·열쇠 없음)
+      - run: node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/read-company-ai.test.mjs
       # Standard library only. Never import crawler runtime or provide secrets.
       - run: python -I crawler/test_scheduled_cli.py
       - run: python -I crawler/test_ingest_gateway.py
