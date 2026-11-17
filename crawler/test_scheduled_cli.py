@@ -158,15 +158,13 @@ class CliEntrypointTests(unittest.TestCase):
 class ScheduledCallerTests(unittest.TestCase):
     def test_actions_command_enters_full_mode(self):
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
-        commands = [line.strip() for line in source.splitlines()
-                    if line.strip().startswith("python crawler/crawl_topcv.py")]
+        commands = [line.strip()[5:] for line in source.splitlines()
+                    if line.strip().startswith("run: python crawler/crawl_topcv.py")]
         self.assertEqual(len(commands), 1)
-        command = shlex.split(commands[0].replace('"$SAMPLE_LIMIT"', "3"))
+        command = shlex.split(commands[0])
         self.assertEqual(command[:2], ["python", "crawler/crawl_topcv.py"])
         self.assertEqual(mode_for(command[2:]), "full_crawl")
         self.assertEqual(enter_cli(command[2:])[0][0], "main")
-        self.assertIn("--sample-limit", command)  # 1단계(Lee 2026-11-17 트랙 B): 소량 수집만
-        self.assertIn("--new-only", command)  # 기존 공고는 건드리지 않고 신규만(#877 검토관)
 
     def test_actions_manual_confirmation_is_opt_in(self):
         # Configuration contract only; GitHub's scheduler itself is not executed.
@@ -175,10 +173,8 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("confirm_full_crawl:", source)
         self.assertIn("type: boolean", source)
         self.assertIn("default: false", source)
-        ifs = [l.strip() for l in source.splitlines() if l.strip().startswith("if:")]
-        # 1단계: 확인 체크한 master 수동 실행만 — 예약(schedule) 실행은 2단계 PR 전까지 안 돈다
-        self.assertEqual(ifs, ["if: github.event_name == 'workflow_dispatch' && inputs.confirm_full_crawl && github.ref == 'refs/heads/master'"])
-        self.assertIn("'^([1-9]|10)$'", source)  # 표본 1~10만
+        self.assertIn("if: ${{ false }}", source)
+        self.assertNotIn("if: github.event_name == 'schedule'", source)
 
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
