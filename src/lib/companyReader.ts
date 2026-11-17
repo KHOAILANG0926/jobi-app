@@ -43,6 +43,8 @@ function ok(c: string): string {
   if (/^(?:công ty|cty)\s+mình(?=\s|$)/iu.test(v)) return ''
   return v
 }
+/** 지금 규칙의 '회사 이름이 될 수 있나' 조건(ok)을 그대로 밖에서 쓰게 한다 — AI 읽기 평가의 가드(scripts/ocr/company-ai-eval.mjs, #884). */
+export const acceptName = ok
 
 // 항목 이름표 줄(근무 지역·위치·직무·지원 양식 "Gửi thông tin: Họ tên – SĐT – Cửa hàng làm việc" 등)의 값은 회사 이름 후보로 보지 않는다(#4878 "Khu vực làm việc: siêu thị / trung tâm thương mại …")
 const LABEL_LINE = /^(?:khu vực(?: làm việc)?|cửa hàng làm việc|gửi thông tin|cú pháp|địa điểm(?: làm việc)?|địa chỉ|vị trí(?: tuyển dụng)?|công việc|mô tả|yêu cầu|quyền lợi|thời gian|liên hệ)(?:\s*\([^)]*\))?\s*[:：]/iu

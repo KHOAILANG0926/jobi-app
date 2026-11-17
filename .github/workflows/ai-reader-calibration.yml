@@ -20,6 +20,7 @@ on:
   workflow_dispatch: {}
 permissions:
   contents: read
+  actions: read  # (평가 브랜치 전용, 병합 안 함) Facebook 미리 보기 실행 로그 원문 읽기
 concurrency:
   group: ai-reader-calibration-${{ github.sha }}
   cancel-in-progress: false
@@ -38,3 +39,23 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node --experimental-strip-types scripts/ocr/ai-reader.test.mjs
+      # 평가 브랜치 전용(#884, 병합 안 함): 회사 이름 AI 읽기 평가 — 정답 사례 + Facebook 미리 보기 실제 글(run 44026994453 로그, 전화는 로그에서 가려짐). DB 접근 없음.
+      - name: 회사 이름 AI 읽기 평가(평가만, 운영 반영 없음)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jid=$(gh api repos/${{ github.repository }}/actions/runs/44026994453/jobs --jq '.jobs[0].id')
+          gh api repos/${{ github.repository }}/actions/jobs/$jid/logs > /tmp/fb.log
+          python3 -I - <<'PY'
+          import re, json
+          posts, cur = [], None
+          for l in open('/tmp/fb.log', encoding='utf-8').read().splitlines():
+              t = l[29:] if re.match(r'^\d{4}-\d\d-\d\dT', l) else l
+              if t.startswith('##[group]원문'): cur = {'key': t.split()[-1], 'text': []}; continue
+              if t.startswith('##[endgroup]') and cur: posts.append({'key': cur['key'], 'text': '\n'.join(cur['text'])}); cur = None; continue
+              if cur is not None: cur['text'].append(t)
+          json.dump(posts, open('/tmp/fbposts.json', 'w'), ensure_ascii=False)
+          print(len(posts), '건')
+          PY
+          node --experimental-strip-types --import ./scripts/ts-extensionless-register.mjs scripts/ocr/company-ai-eval.mjs /tmp/fbposts.json
