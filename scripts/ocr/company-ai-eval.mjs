@@ -44,11 +44,12 @@ const norm = (s) => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim()
 export function guardCompany(ans, text) {
   const c = String(ans?.company ?? '').trim()
   if (!c || c === 'null') return { name: '', reject: '' }
-  const src = norm(text)
-  if (!src.includes(norm(c))) return { name: '', reject: 'not_in_source' }
-  if (ans.line && !src.includes(norm(ans.line))) return { name: '', reject: 'line_not_in_source' }
-  const at = src.indexOf(norm(c))
-  const exact = String(text).normalize('NFC').replace(/\s+/g, ' ').slice(at, at + norm(c).length) // 원문 표기 그대로 씀
+  const flat = String(text ?? '').normalize('NFC').replace(/\s+/g, ' ').trim()
+  const esc = (v) => String(v).normalize('NFC').replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s')
+  const hit = flat.match(new RegExp(esc(c), 'iu')) // 대소문자만 무시, 원문 글자 그대로 찾고 그 부분을 원문 표기로 씀(#887 검토)
+  if (!hit) return { name: '', reject: 'not_in_source' }
+  if (ans.line && !new RegExp(esc(ans.line), 'iu').test(flat)) return { name: '', reject: 'line_not_in_source' }
+  const exact = hit[0]
   const v = acceptName(exact)
   return v ? { name: v, reject: '' } : { name: '', reject: 'rule' }
 }
