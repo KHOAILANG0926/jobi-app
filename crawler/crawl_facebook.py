@@ -58,7 +58,9 @@ SEEN_KEYS_PER_GROUP = 500
 GROUP_PAUSE_SEC = (60, 120)
 MAX_CONSECUTIVE_ANOMALY_GROUPS = 2
 
-STATE_DIR = Path(__file__).parent / "state"
+# 수집 상태(계정 잠금·본 글 기록·마지막 실행) 폴더. GitHub 실행기에서는 매 실행 checkout이 git에 없는 파일(crawler/state/)을
+# 지워 잠금·본 글 기록이 사라지므로(#872 사전점검), 워크플로가 작업 폴더 밖 고정 폴더를 CRAWLER_STATE_DIR로 넘긴다. 없으면 예전 그대로.
+STATE_DIR = Path(os.environ["CRAWLER_STATE_DIR"]) if os.environ.get("CRAWLER_STATE_DIR") else Path(__file__).parent / "state"
 SEEN_STATE_PATH = STATE_DIR / "facebook_seen.json"
 EVIDENCE_DIR = STATE_DIR / "evidence"
 LAST_RUN_PATH = STATE_DIR / "facebook_last_run.json"  # 마지막 실행 요약(운영 점검·알림용)

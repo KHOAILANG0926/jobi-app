@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장'
+        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장 / run = 시험 정상 실행(그룹 1개, 저장 최대 2건, Lee 승인 뒤만 #872)'
         type: choice
-        options: [dryrun, save]
+        options: [dryrun, save, run]
         default: dryrun
       group:
         description: '그룹 1개(주소 일부), 예: timvieclamthembacninh'
@@ -23,6 +23,10 @@ on:
         description: 'save일 때만: 미리 보기 실행 번호(run id)'
         required: false
         default: ''
+      max_save:
+        description: 'run일 때만: 저장 상한(1~2)'
+        required: false
+        default: '1'
 
 permissions:
   contents: read
@@ -58,6 +62,7 @@ jobs:
       GROUP: ${{ inputs.group }}
       POST_KEY: ${{ inputs.post_key }}
       DRYRUN_RUN_ID: ${{ inputs.dryrun_run_id }}
+      MAX_SAVE: ${{ inputs.max_save }}
     steps:
       - uses: actions/checkout@v4
       - name: 입력·키 확인
@@ -68,7 +73,8 @@ jobs:
             echo "$DRYRUN_RUN_ID" | grep -Eq '^[0-9]+$' || { echo "::error::dryrun_run_id 필요"; exit 1; }
           fi
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
-          if [ "$MODE" = dryrun ] && { [ -z "$FB_C_USER" ] || [ -z "$FB_XS" ]; }; then
+          if [ "$MODE" = run ]; then echo "$MAX_SAVE" | grep -Eq '^[12]$' || { echo "::error::max_save는 1~2"; exit 1; }; fi
+          if [ "$MODE" != save ] && { [ -z "$FB_C_USER" ] || [ -z "$FB_XS" ]; }; then
             echo "::error title=Facebook 쿠키 없음::GitHub Secrets에 FB_C_USER·FB_XS가 없습니다. Lee가 Facebook 로그인 쿠키를 Secrets에 등록해야 수집할 수 있습니다."
             exit 1
           fi
@@ -78,8 +84,16 @@ jobs:
       - name: 의존성 설치
         run: |
           set -o pipefail
-          { python -m pip install -r crawler/requirements.txt && { [ "$MODE" != dryrun ] || python -m playwright install chromium; }; } 2>&1 | tee /tmp/deps.log || {
+          { python -m pip install -r crawler/requirements.txt && { [ "$MODE" = save ] || python -m playwright install chromium; }; } 2>&1 | tee /tmp/deps.log || {
             echo "::error title=의존성 설치 실패::$(tail -c 1500 /tmp/deps.log | tr '\n' ' ')"; exit 1; }
+      # #872 사전점검: checkout이 git에 없는 파일(crawler/state/)을 매번 지워 계정 잠금·본 글 기록이 사라졌다 →
+      # VPS 작업 폴더 밖 고정 폴더를 수집 상태 폴더로 쓴다(crawl_facebook.py CRAWLER_STATE_DIR). 값은 출력하지 않고 있음/없음·개수만.
+      - name: 수집 상태 폴더(실행 사이 유지)
+        if: inputs.mode != 'save'
+        run: |
+          d="$HOME/jobi-crawler-state/facebook"; mkdir -p "$d"; echo "CRAWLER_STATE_DIR=$d" >> "$GITHUB_ENV"
+          echo "계정 잠금 파일: $([ -f "$d/FACEBOOK_ACCOUNT_LOCK" ] && echo 있음 || echo 없음)"
+          echo "본 글 기록: $(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(sum(len(v.get("keys",[])) for v in d.values()),"건")' "$d/facebook_seen.json" 2>/dev/null || echo 없음)"
       - name: 미리 보기(저장 없음) — 그룹 1개
         if: inputs.mode == 'dryrun'
         working-directory: crawler
@@ -87,7 +101,7 @@ jobs:
           set -o pipefail
           python -u crawl_facebook.py --dry-run --group "$GROUP" 2>&1 | tee /tmp/fb.log || {
             echo "::error title=Facebook 미리 보기 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
-          out=$(ls -t state/facebook_dryrun_*.json | head -1)
+          out=$(ls -t "$CRAWLER_STATE_DIR"/facebook_dryrun_*.json | head -1)
           cp "$out" /tmp/facebook_dryrun.json
           python - <<'PY'
           import json, os
@@ -141,15 +155,26 @@ jobs:
           python -u crawl_facebook.py --save-from /tmp/fbdry/facebook_dryrun.json --post-keys "$POST_KEY" --max-save 1 2>&1 | tee /tmp/fb.log || {
             echo "::error title=저장 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
           grep -E '저장 ID|결과:|⛔|🚧|저장 전 점검' /tmp/fb.log | while read -r line; do echo "::notice title=저장 결과::$line"; done
+      - name: 시험 정상 실행(그룹 1개, 저장 상한) — Lee 승인 뒤만(#872)
+        if: inputs.mode == 'run'
+        working-directory: crawler
+        run: |
+          set -o pipefail
+          python -u crawl_facebook.py --group "$GROUP" --max-save "$MAX_SAVE" 2>&1 | tee /tmp/fb.log; rc=${PIPESTATUS[0]}
+          grep -E '저장:|저장 후보|규칙 거부|오류 —|보류|중단|수집 상태 저장|계정 잠금' /tmp/fb.log | while read -r line; do echo "::notice title=실행 결과::${line:0:200}"; done
+          echo "실행 뒤 계정 잠금 파일: $([ -f "$CRAWLER_STATE_DIR/FACEBOOK_ACCOUNT_LOCK" ] && echo 있음 || echo 없음)"
+          echo "실행 뒤 본 글 기록: $(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(sum(len(v.get("keys",[])) for v in d.values()),"건")' "$CRAWLER_STATE_DIR/facebook_seen.json" 2>/dev/null || echo 없음)"
+          exit $rc
       - name: 서버 정리(실행마다) — VPS 디스크가 차지 않게
         # 저장(save)은 GitHub 서버에서 돌아 VPS 정리가 필요 없다(2026-11-11)
-        if: always() && inputs.mode == 'dryrun'
+        if: always() && inputs.mode != 'save'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # 2026-11-06: VPS(11GB)가 실행 찌꺼기로 100% 참. 다시 받을 수 있는 캐시·임시 파일·하루 지난 실행기 기록만 지운다.
           python -m pip cache purge >/dev/null 2>&1 || true
           rm -rf /tmp/deps.log /tmp/fb.log /tmp/facebook_dryrun.json /tmp/fbdry
+          ls -t "$CRAWLER_STATE_DIR"/facebook_dryrun_*.json 2>/dev/null | tail -n +6 | xargs -r rm -f  # 미리 보기 결과는 최근 5개만
           find "$HOME/actions-runner/_diag" -name '*.log' -mtime +1 -delete 2>/dev/null || true
           # 2026-11-10 Lee(11-07 "바로 지울 수 있는 공간 정리" 마무리): 수집기 playwright(requirements 고정 버전)가 쓰는 브라우저만 남기고
           # 다른 chromium 버전 폴더는 지운다(다시 받을 수 있음). 쓰는 버전을 못 읽으면 아무것도 지우지 않는다.

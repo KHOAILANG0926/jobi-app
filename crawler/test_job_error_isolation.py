@@ -361,6 +361,29 @@ class TopcvRetryNextRun(unittest.TestCase):
         self.assertTrue(self.rows[u2].get("_has_locations"))  # 다음 수집에서 근무지 채움
 
 
+class StateDirOverride(unittest.TestCase):
+    """GitHub 실행기에서 계정 잠금·본 글 기록이 실행 사이 유지되도록 상태 폴더를 바꿀 수 있는지(#872)."""
+
+    def test_env_moves_lock_and_seen_files(self):
+        import importlib, os, tempfile
+        d = tempfile.mkdtemp()
+        with mock.patch.dict(os.environ, {"CRAWLER_STATE_DIR": d}):
+            m = importlib.reload(fb)
+            self.assertEqual(str(m.ACCOUNT_LOCK_PATH.parent), d)
+            self.assertEqual(str(m.SEEN_STATE_PATH.parent), d)
+            m.write_account_lock("checkpoint", "https://www.facebook.com/groups/x")
+            self.assertIsNotNone(m.account_lock_reason())   # 다음 실행(같은 폴더)에서 잠금이 보인다
+        importlib.reload(fb)
+
+    def test_default_unchanged(self):
+        import importlib, os
+        env = {k: v for k, v in os.environ.items() if k != "CRAWLER_STATE_DIR"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            m = importlib.reload(fb)
+            self.assertEqual(m.STATE_DIR, Path(m.__file__).parent / "state")
+        importlib.reload(fb)
+
+
 class SharedCounter(unittest.TestCase):
     def setUp(self):
         source_fields.JOB_ERRORS.reset()

@@ -160,11 +160,14 @@ class ScheduledCallerTests(unittest.TestCase):
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         commands = [line.strip()[5:] for line in source.splitlines()
                     if line.strip().startswith("run: python crawler/crawl_topcv.py")]
-        self.assertEqual(len(commands), 1)
-        command = shlex.split(commands[0])
-        self.assertEqual(command[:2], ["python", "crawler/crawl_topcv.py"])
-        self.assertEqual(mode_for(command[2:]), "full_crawl")
-        self.assertEqual(enter_cli(command[2:])[0][0], "main")
+        self.assertEqual(len(commands), 2)  # 시험 수집(저장 없음) + 승인된 소량 실제 저장
+        for c in commands:
+            command = shlex.split(c.replace('"$SAMPLE_LIMIT"', "3"))
+            self.assertEqual(command[:2], ["python", "crawler/crawl_topcv.py"])
+            self.assertEqual(mode_for(command[2:]), "full_crawl")
+            self.assertEqual(enter_cli(command[2:])[0][0], "main")
+            self.assertIn("--sample-limit", command)
+        self.assertIn("--new-only", commands[1])
 
     def test_actions_manual_confirmation_is_opt_in(self):
         # Configuration contract only; GitHub's scheduler itself is not executed.
@@ -173,8 +176,15 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("confirm_full_crawl:", source)
         self.assertIn("type: boolean", source)
         self.assertIn("default: false", source)
-        self.assertIn("if: ${{ false }}", source)
+        # Lee 2026-11-17 #872: 정기(예약) 실행은 계속 안 돈다 — 잡 조건이 수동 실행·master만 연다
+        job_if = [l.strip() for l in source.splitlines() if l.startswith("    if:")]
+        self.assertEqual(job_if, ["if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.dry_run || inputs.confirm_full_crawl)"])
         self.assertNotIn("if: github.event_name == 'schedule'", source)
+        self.assertIn("'^([1-9]|10)$'", source)
+        # 시험 수집 단계에는 DB 열쇠가 없다(저장 불가)
+        dry = source.split("시험 수집(저장 없음", 1)[1].split("- name:", 1)[0]
+        self.assertNotIn("secrets.", dry)
+        self.assertIn("if: inputs.dry_run", dry)
 
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
