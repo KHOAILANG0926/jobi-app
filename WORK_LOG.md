@@ -1,3 +1,10 @@
+## 2026-11-18 — vieclam24h 공개 연락처 버튼 눌러 전화번호 읽기 (Lee 지시, 저장·공개·정기 수집 없음)
+- 원인 [직접 확인]: build_job_record의 employer_phone_value = "" 는 2026-08-09 TopCV 첫 크롤러(432a5c8)부터 이어진 빈칸 자리 — 전화 읽기를 만든 적 없고, 막기로 한 결정 기록도 없음.
+- Muaban 10-23~24 서버 추출 구현: GitHub에 없음(#202 본문에 ops/muaban-private-pilot.py 이름만, master 이력·브랜치 0건) → 재사용 불가, [기존 기록]만.
+- 변경: crawl_facebook.extract_phone → job_quality.extract_phones/extract_phone(한 곳, 동작 같음). crawl_topcv.reveal_employer_phone: 상세 화면 공개 버튼("xem/hiện số…")을 한 번 눌러 새로 나타난 번호만 employer_phone로(사이트 대표번호 등 원래 있던 번호 제외), 로그인 창·로그인 화면이면 멈춤(login_required), 로그에는 결과 종류만(번호 안 남김). VietnamWorks 경로·워크플로는 그대로.
+- 검증 [직접 확인 로컬]: 가짜 화면 4종(번호 보임·로그인 창·버튼 없음·눌러도 없음) 기대대로, 크롤러 시험 통과(address_pipeline 1건은 master에도 있는 #894).
+- 남은 문제: 실제 vieclam24h 화면 확인은 병합 뒤 crawl.yml 시험 수집(VPS, 저장 없음, 1건).
+
 ## 2026-11-17 — 회사 이름 동의 확정: 규칙 + AI 3회 (#872 R, #887 평가 결과, 병합·운영 적용은 Lee 승인 뒤)
 - 요청: 기존 companyReader·ai-classify로 동의 기반 확정. 정확히 같음 → 확정 / 포함 관계 → 짧은 이름이 원문에 따로 쓰이고 ok() 통과 때만 / AI 3회 오류 없이 같은 답 / 아니면 기존 보류·재시도.
 - 변경: companyReader.agreeCompany(판정 한 곳), scripts/ocr/read-company-ai.mjs(#887 v3 지시문 3회), scripts/ocr/ai-ask.mjs(ai-classify의 AI 부르기를 옮겨 둘이 같이 씀), ingest_gateway.confirm_company(원문에서 읽은 회사 이름만 — Facebook). 못 부름=company_ai_unavailable(held, 그 공고만), 확정 못 함=company_unconfirmed(unfound, 7일 뒤 다시·최대 2번). 짧은 이름으로 확정되면 그 이름으로 위치 다시 확인, 보류함은 원문 회사 표시를 남김(중복 PR #892 대조에서 받은 지적 2건).

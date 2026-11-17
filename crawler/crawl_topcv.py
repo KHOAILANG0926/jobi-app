@@ -34,6 +34,7 @@ from job_quality import (
     classify_work_location_candidate,
     compute_job_updates,
     detect_explicit_urgent_hiring,
+    extract_phones,
     extract_salary_from_text,
     gate_auto_publish,
     guess_province_from_text,
@@ -632,6 +633,38 @@ _EXPIRED_PAGE_PATTERNS = [
 ]
 
 
+# vieclam24h 공개 연락처(Lee 2026-11-18): 상세 화면의 "xem số/hiện số" 같은 공개 버튼을 한 번 눌러 보이는 번호만 읽는다.
+# 로그인 창·로그인 안내가 뜨면 거기서 멈춘다(로그인·우회 없음). 번호는 기록에 남기지 않는다(결과 종류만).
+_PHONE_REVEAL_TEXT = re.compile(r"(?:xem|hiện|hiển thị|bấm để xem)\s*(?:số|sđt|số điện thoại|điện thoại|liên hệ)", re.IGNORECASE)
+_LOGIN_HINT = re.compile(r"đăng nhập|login", re.IGNORECASE)
+
+
+async def reveal_employer_phone(page) -> dict:
+    """{"detailPhone": 번호 또는 "", "phoneProbe": 결과 종류, "phoneButtonText": 버튼 글자(40자)}.
+    결과 종류: revealed(눌러서 새로 보인 번호) / no_button(번호가 화면에 있어도 어느 칸인지 몰라 쓰지 않음: no_button_phone_in_page) /
+    login_required / click_no_number / error. 번호는 버튼을 누른 뒤 '새로 나타난' 번호만 쓴다 — 사이트 대표번호 등 원래 있던 번호는 제외."""
+    try:
+        before = await page.locator("body").inner_text(timeout=5000)
+        button = page.get_by_text(_PHONE_REVEAL_TEXT).first
+        if not await button.count() or not await button.is_visible():
+            return {"detailPhone": "", "phoneProbe": "no_button_phone_in_page" if extract_phones(before) else "no_button", "phoneButtonText": ""}
+        label = normalize_whitespace(await button.inner_text(timeout=3000))[:40]
+        login_before = bool(_LOGIN_HINT.search(before))
+        await button.click(timeout=5000)
+        await page.wait_for_timeout(1500)
+        after = await page.locator("body").inner_text(timeout=5000)
+        seen = set(extract_phones(before))
+        new_phone = next((p for p in extract_phones(after) if p not in seen), "")
+        if new_phone:
+            return {"detailPhone": new_phone, "phoneProbe": "revealed", "phoneButtonText": label}
+        dialog_login = await page.locator("[role=dialog]:visible, .modal:visible").filter(has_text=_LOGIN_HINT).count()
+        to_login_page = bool(re.search(r"dang-nhap|login", page.url, re.IGNORECASE))
+        login_now = bool(dialog_login) or to_login_page or (bool(_LOGIN_HINT.search(after)) and not login_before)
+        return {"detailPhone": "", "phoneProbe": "login_required" if login_now else "click_no_number", "phoneButtonText": label}
+    except Exception as exc:  # noqa: BLE001 — 연락처는 보조 정보: 실패해도 상세 수집은 그대로
+        return {"detailPhone": "", "phoneProbe": f"error:{type(exc).__name__}", "phoneButtonText": ""}
+
+
 async def fetch_job_detail(page, url: str) -> dict:
     """Single detail-page fetch, used for every URL this crawler ever visits
     (fresh discovery, re-visit of a known job, or a manually triggered
@@ -1017,6 +1050,8 @@ async def fetch_job_detail(page, url: str) -> dict:
             fallback = normalize_whitespace(body_text)[:1800]
             if fallback:
                 result["sections"] = {"Mô tả công việc": fallback}
+        result.update(await reveal_employer_phone(page))
+        print(f"    📞 연락처 버튼: {result['phoneProbe']}" + (f" ('{result['phoneButtonText']}')" if result.get("phoneButtonText") else ""))
         result["httpStatus"] = http_status
         result["fetchOk"] = True
         result["fetchError"] = None
@@ -1206,7 +1241,8 @@ def build_job_record(url: str, detail: dict, listing_hint: dict | None = None) -
     resolved_locations, had_transient_geocode_failure = resolve_work_locations(
         work_locations, employer_coordinate=employer_coordinate,
     )
-    employer_phone_value = ""
+    # 2026-08-09 첫 크롤러부터 빈칸 자리였다(전화 읽기를 만든 적 없음). 이제 상세 화면 공개 버튼으로 읽은 번호(Lee 2026-11-18).
+    employer_phone_value = detail.get("detailPhone") or ""
     has_app_path = has_application_path(
         employer_phone_value, "", url,
         source_page_valid=(detail.get("httpStatus") in (200, None) and not detail.get("expiredBanner")),
