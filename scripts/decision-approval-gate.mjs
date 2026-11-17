@@ -224,19 +224,35 @@ const TEST_ADD_LINES = [
   String.raw`python3?\s+-m\s+pip\s+install\s+-r\s+crawler\/requirements\.txt`, String.raw`python3?\s+-m\s+playwright\s+install(?:\s+--with-deps)?\s+chromium`,
   String.raw`(?:-\s+)?run:\s+python3?\s+-c\s+"import\s+[\w, ]+;\s*print\('[\w ]*'\)"`,
 ].map((r) => new RegExp(`^${r}${TAIL}`))
-const jobIdLine = (t) => { const m = t.match(/^([a-z0-9][a-z0-9_-]*):(?:\s+#.*)?$/); return !!m && !RESERVED_KEYS.test(m[1]) }
+// 새 시험 잡 이름 줄(값 없는 `이름:`)은 정확한 자리일 때만(검토관 지적 #878: 실행 계기 `pull_request_target:` 같은 줄이 통과하던 것):
+//   ① hunk 머리의 위치가 `jobs:` 아래 ② 들여쓰기 정확히 2칸 ③ 실행 계기·예약 키 이름이 아님 ④ 바로 다음 추가 줄이 4칸 `runs-on: ubuntu-…`
+const EVENT_NAMES = /^(?:branch_protection_rule|check_run|check_suite|create|delete|deployment|deployment_status|discussion|discussion_comment|fork|gollum|issue_comment|issues|label|merge_group|milestone|page_build|public|pull_request|pull_request_comment|pull_request_review|pull_request_review_comment|pull_request_target|push|registry_package|release|repository_dispatch|schedule|status|watch|workflow_call|workflow_dispatch|workflow_run)$/
+const jobIdAt = (lines, k, hunkCtx) => {
+  const raw = lines[k].slice(1)
+  const m = raw.match(/^ {2}([a-z0-9][a-z0-9_-]*):(?:\s+#.*)?$/)
+  if (!m || RESERVED_KEYS.test(m[1]) || EVENT_NAMES.test(m[1]) || hunkCtx[k] !== 'jobs:') return false
+  const next = lines.slice(k + 1).find((l) => l[0] === '+' && l.slice(1).trim() !== '' && !l.slice(1).trim().startsWith('#'))
+  return !!next && /^\+ {4}runs-on:\s*ubuntu-(?:latest|\d{2}\.04)(?:\s+#.*)?$/.test(next)
+}
 export function workflowSafeChange(f) {
   const name = f?.filename ?? ''
   if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(name) || f.status !== 'modified' || typeof f.patch !== 'string' || f.previous_filename) return false
   const testWf = SAFE_TEST_WORKFLOWS.includes(name)
-  const lines = f.patch.split('\n').filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l))
+  // 바뀐 줄마다 그 hunk 머리의 위치 글(@@ … @@ 뒤, YAML이면 바로 위 최상위 키)을 기억한다
+  const lines = [], hunkCtx = []
+  let ctx = ''
+  for (const l of f.patch.split('\n')) {
+    const h = l.match(/^@@[^@]*@@\s?(.*)$/)
+    if (h) { ctx = h[1].trim(); continue }
+    if (/^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l)) { lines.push(l); hunkCtx.push(ctx) }
+  }
   if (!lines.length) return false
-  return lines.every((l) => {
+  return lines.every((l, k) => {
     const t = l.slice(1).trim()
     if (t === '' || t.startsWith('#')) return true
     if (t.includes('${{')) return false
     if (ENV_LINES.some((re) => re.test(t))) return true
-    return testWf && l[0] === '+' && (TEST_ADD_LINES.some((re) => re.test(t)) || jobIdLine(t))
+    return testWf && l[0] === '+' && (TEST_ADD_LINES.some((re) => re.test(t)) || jobIdAt(lines, k, hunkCtx))
   })
 }
 

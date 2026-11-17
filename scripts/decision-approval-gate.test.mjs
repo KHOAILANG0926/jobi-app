@@ -310,6 +310,13 @@ console.log('decision-approval-gate: decision/CODEOWNERS PRs need Lee approval a
     ['예약 키 이름 줄(env:)', '.github/workflows/crawler-cli-tests.yml', '+    env:'],
     ['검사 워크플로에 시험 추가(목록 밖)', '.github/workflows/pr-checks.yml', '+      - run: node scripts/ci/x.test.mjs'],
     ['병합 봇 시간 제한 외 줄', '.github/workflows/bot-pr-automerge.yml', '+        run: gh pr merge 1'],
+    ['실행 계기 pull_request_target 추가', '.github/workflows/crawler-cli-tests.yml', '@@ -1,4 +1,5 @@ on:\n+  pull_request_target:'],
+    ['실행 계기 workflow_run 추가', '.github/workflows/crawler-cli-tests.yml', '@@ -1,4 +1,5 @@ on:\n+  workflow_run:'],
+    ['실행 계기 schedule 추가', '.github/workflows/crawler-cli-tests.yml', '@@ -1,4 +1,5 @@ on:\n+  schedule:'],
+    ['jobs 아래라도 계기 이름', '.github/workflows/crawler-cli-tests.yml', '@@ -20,3 +20,5 @@ jobs:\n+  push:\n+    runs-on: ubuntu-22.04'],
+    ['on 아래 잡 이름 모양 줄', '.github/workflows/crawler-cli-tests.yml', '@@ -1,4 +1,6 @@ on:\n+  extra:\n+    runs-on: ubuntu-22.04'],
+    ['잡 이름 뒤 runs-on 없음', '.github/workflows/crawler-cli-tests.yml', '@@ -20,3 +20,5 @@ jobs:\n+  extra:\n+    steps:'],
+    ['머리 위치 없는 hunk의 잡 이름', '.github/workflows/crawler-cli-tests.yml', '@@ -20,3 +20,5 @@\n+  extra:\n+    runs-on: ubuntu-22.04'],
   ]
   for (const [why, f, patch] of risky) {
     assert.equal(workflowSafeChange(wf(f, patch)), false, `안전 아님: ${why}`)
