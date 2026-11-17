@@ -6,6 +6,9 @@ on:
       - 'crawler/**'
       - '.github/workflows/crawl.yml'
       - '.github/workflows/crawler-cli-tests.yml'
+      - 'scripts/ops/vps-crawl-schedule-diag.py'
+      - 'scripts/ops/test_vps_crawl_schedule_diag.py'
+      - '.github/workflows/vps-diag.yml'
 
 permissions:
   contents: read
@@ -26,6 +29,8 @@ jobs:
       - run: python -I crawler/test_finalize_reprocess_queue.py
       # 공고 하나의 오류가 전체 수집을 멈추지 않는지(#872 ②). 브라우저·DB·네트워크 모듈은 시험 안에서 가짜로 바꿔 넣는다(열쇠 없음).
       - run: python -I crawler/test_job_error_isolation.py
+      # VPS 수집 예약 진단(vps-diag ④)이 예약 명령 원문·비밀값을 출력하지 않고, 진단 실패와 정상 상태를 구분하는지(#877)
+      - run: python -I scripts/ops/test_vps_crawl_schedule_diag.py
 
   # 재개 전 설치 확인(#872·#876): crawl.yml과 같은 실행 환경(ubuntu-22.04·Python 3.12)·같은 설치 명령으로 실제 설치가 되는지 본다.
   # 2026-08-24~28 crawl.yml 실제 실행 5건이 모두 설치 단계에서 실패(ubuntu-latest + playwright 1.44 → libasound2 없음).
