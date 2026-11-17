@@ -538,15 +538,39 @@ class VerifyWriteNeverPublic(unittest.TestCase):
         self.assertEqual(db.hidden, [{"admin_hidden": True}])
 
     def test_hide_failure_stops_run(self):
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(topcv.VerifyWriteIsolationError):
             self._save(_VerifyDb(hide_fails=True), _v24_job())
 
     def test_db_readback_publishable_stops_run(self):
         for row in ({"active": True, "admin_hidden": True, "publish_gate_reason": "no_application_path"},
                     {"active": False, "admin_hidden": False, "publish_gate_reason": "no_application_path"},
                     {"active": False, "admin_hidden": True, "publish_gate_reason": "ok"}):
-            with self.subTest(row=row), self.assertRaises(RuntimeError):
+            with self.subTest(row=row), self.assertRaises(topcv.VerifyWriteIsolationError):
                 self._save(_VerifyDb(row=row), _v24_job())
+
+    def test_batch_stops_after_isolation_failure(self):
+        # 배치 흐름(#886 검토): 첫 공고 숨김 실패 → 다음 공고 저장 안 함, 실행은 실패(0 아닌 종료)
+        import asyncio, os, tempfile
+        saved = []
+
+        def upsert(job, a, b, verify_write):
+            saved.append(job["source_url"])
+            raise topcv.VerifyWriteIsolationError("숨김 실패")
+
+        async def from_detail(url, detail, hint=None):
+            return {"source_url": url, "title": url, "company": "CTY A"}
+
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(topcv, "job_from_detail", from_detail), \
+                mock.patch.object(topcv, "load_existing_lookup_maps", lambda: ({}, {})), mock.patch.object(topcv, "upsert_job_record", upsert):
+            os.chdir(d)
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    asyncio.run(topcv.process_urls_verify_write(["u1", "u2"], details=[{"url": "u1", "detail": {}}, {"url": "u2", "detail": {}}]))
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(saved, ["u1"])
+        self.assertIn("격리 확인 실패", str(cm.exception.code))
 
 
 class VerifyWriteFromDetails(unittest.TestCase):

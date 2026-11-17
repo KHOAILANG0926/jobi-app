@@ -92,6 +92,10 @@ class VerifyWritePublishableError(RuntimeError):
     DB 트리거 trg_zz0_publish_gate가 모든 INSERT·UPDATE에서 비공개로 덮으므로 어떤 실패에도 공개되지 않는다."""
 
 
+class VerifyWriteIsolationError(RuntimeError):
+    """검증 저장 뒤 숨김 UPDATE 실패 또는 DB 다시 읽기에서 숨김·비공개·공개 차단이 아님 — 그 배치를 바로 멈추고 실행을 실패로 끝낸다(#886 검토)."""
+
+
 def db_gate_has_contact(job: dict) -> bool:
     """DB 공개 차단 규칙(public.job_publish_gate_reason, migration 20261101190000)의 연락처 줄과 같은 기준:
     전화 또는 Zalo 숫자가 8자리 이상이면 연락처 있음. 검증 저장 대상 고르기에만 쓴다(공개 판정은 DB가 한다)."""
@@ -2222,11 +2226,14 @@ def upsert_job_record(job: dict, by_source_url: dict, by_key: dict, *, verify_wr
             return {"action": "rule_rejected", "id": None, "rule": code}
         if verify_write:
             # 검증 저장 격리: 입구는 admin_hidden을 받지 않으므로 저장 직후 서버 키로 숨김(입구에서 이미 active=False).
-            supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
-            # DB가 계산한 값으로 다시 확인(숨김 실패·공개 가능이면 바로 멈춘다 — 위 연락처 확인과 같은 기준을 DB가 직접 판정).
-            row = (supabase.table("local_jobs").select("active,admin_hidden,publish_gate_reason").eq("id", job_id).execute().data or [{}])[0]
+            try:
+                supabase.table("local_jobs").update({"admin_hidden": True}).eq("id", job_id).execute()
+                # DB가 계산한 값으로 다시 확인(숨김 실패·공개 가능이면 바로 멈춘다 — 위 연락처 확인과 같은 기준을 DB가 직접 판정).
+                row = (supabase.table("local_jobs").select("active,admin_hidden,publish_gate_reason").eq("id", job_id).execute().data or [{}])[0]
+            except Exception as exc:  # noqa: BLE001 — 숨김·다시 읽기 실패는 모두 격리 실패로 멈춘다
+                raise VerifyWriteIsolationError(f"검증 저장 id={job_id} 숨김·확인 실패: {type(exc).__name__}: {exc}") from exc
             if row.get("active") or not row.get("admin_hidden") or row.get("publish_gate_reason") == "ok":
-                raise RuntimeError(f"검증 저장 id={job_id} 격리 확인 실패: {row}")
+                raise VerifyWriteIsolationError(f"검증 저장 id={job_id} 격리 확인 실패: {row}")
         action = "inserted"
     else:
         field_updates = compute_job_updates(existing, job)
@@ -2607,6 +2614,13 @@ async def process_urls_verify_write(urls: list[str], details: list[dict] | None 
             except VerifyWritePublishableError as exc:
                 entry["status"] = "skipped_has_contact"
                 entry["detail"] = str(exc)
+            except VerifyWriteIsolationError as exc:
+                # 숨김·격리 확인 실패: 다음 공고를 저장하지 않고 멈춘다. 그때까지 만든 번호는 manifest·로그에 남기고 실행은 실패로.
+                entry["status"] = "isolation_failed"
+                entry["detail"] = str(exc)
+                manifest["entries"].append(entry)
+                manifest["stopped"] = str(exc)
+                break
             except Exception as exc:  # noqa: BLE001 — 배치 하나의 실패로 전체를 중단하지 않기 위해 의도적으로 광범위 포착
                 entry["status"] = "failed"
                 entry["detail"] = f"{type(exc).__name__}: {exc}"
@@ -2619,6 +2633,9 @@ async def process_urls_verify_write(urls: list[str], details: list[dict] | None 
         json.dump(manifest, f, ensure_ascii=False, indent=2, default=str)
     manifest["manifest_path"] = manifest_path
     print(f"    📄 manifest 저장: {manifest_path} (created_ids={manifest['created_ids']})")
+    if manifest.get("stopped"):
+        print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+        raise SystemExit(f"검증 저장 중단(격리 확인 실패): {manifest['stopped']}")
     return manifest
 
 
