@@ -173,7 +173,7 @@ jobs:
               body="**$src 수집 경고: $problem** — 실행 기록: $url (run $rid)
           알림만 합니다. 수집은 멈추지 않습니다. 실패 공고는 다음 실행에서 다시 처리합니다."
               if [ -z "$num" ]; then gh issue create --repo "$REPO" --title "$title" --label ai-team --body "$body" || gh issue create --repo "$REPO" --title "$title" --body "$body"
-              elif ! gh api "repos/$REPO/issues/$num/comments?per_page=100" --jq '.[].body' | grep -qF "run $rid" && ! gh api "repos/$REPO/issues/$num" --jq .body | grep -qF "run $rid"; then
+              elif ! gh api "repos/$REPO/issues/$num/comments?per_page=100" --jq '.[].body' | grep -qF "(run $rid)" && ! gh api "repos/$REPO/issues/$num" --jq .body | grep -qF "(run $rid)"; then
                 gh issue comment "$num" --repo "$REPO" --body "$body"; fi
             elif [ -n "$num" ]; then
               gh issue comment "$num" --repo "$REPO" --body "정상으로 돌아옴: 실행 성공·신규 저장 있음 ($url). 자동으로 닫습니다."
