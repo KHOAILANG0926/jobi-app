@@ -77,6 +77,21 @@ class Diag(unittest.TestCase):
         self.assertIn("Facebook 쿠키 설정: 있음 / DB 열쇠 설정: 있음", out)
         self.assertIn("후보 7 / 저장 2", out)
 
+    def test_shared_state_dir_reported(self):
+        home = Path(tempfile.mkdtemp())
+        d = home / "jobi-crawler-state" / "facebook"
+        d.mkdir(parents=True)
+        (d / "FACEBOOK_ACCOUNT_LOCK").write_text("checkpoint p4ssw0rd")
+        (d / "facebook_last_run.json").write_text('{"finished_at":"2026-11-17T10:00:00","dry_run":true,"stop_state":null,"candidates":30,"saved_ids":[]}')
+        (d / "facebook_seen.json").write_text('{"g":{"keys":["a","b"]}}')
+        code, out = run_main("", rc=1, stderr="no crontab", home=home)
+        self.assertEqual(code, 0)
+        self.assertNotIn("p4ssw0rd", out)
+        self.assertIn("공용 수집 상태 폴더(~/jobi-crawler-state/facebook): 있음", out)
+        self.assertIn("FACEBOOK_ACCOUNT_LOCK: 있음", out)
+        self.assertIn("후보 30 / 저장 0", out)
+        self.assertIn("본 글 기록: 2건", out)
+
     def test_unreadable_state_is_failure(self):
         home = Path(tempfile.mkdtemp())
         d = home / "jobi-app" / "crawler"

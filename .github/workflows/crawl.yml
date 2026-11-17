@@ -1,28 +1,43 @@
 name: 채용공고 자동 크롤링
+# 대상 = vieclam24h.vn — crawler/crawl_topcv.py는 이름과 달리 vieclam24h 수집기다(파일 첫 줄 설명, --site 기본값 vieclam24h).
 
 on:
-  schedule:
-    - cron: '0 15 * * *'  # 매일 저녁 10시 (UTC+7 → 15:00 UTC)
   workflow_dispatch:
     inputs:
-      confirm_full_crawl:
-        description: '전체 수집·DB 저장을 실행합니다. 명시적으로 확인한 경우만 선택하세요.'
+      dry_run:
+        description: '시험 수집(#872): 실제 사이트에서 수집·파싱만, DB 열쇠 없이 실행(저장 없음)'
         type: boolean
         required: true
-        default: false
+        default: true
+      sample_limit:
+        description: '이번 실행에서 처리할 공고 수(1~10)'
+        type: string
+        required: true
+        default: '3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crawl-vieclam24h
+  cancel-in-progress: false
 
 jobs:
   crawl:
-    environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
-    # 사용자 지시: 필터 검증·별도 재개 승인 전에는 예약/수동 모두 실행 금지.
-    # 인자는 정합화하되 실제 수집 재개는 별도 승인 PR에서 결정한다.
-    if: ${{ false }}
+    # 열쇠를 쓰지 않으므로 운영 열쇠 환경(ops-keys)도 쓰지 않는다
+    # Lee 2026-11-17 #872: 예약(schedule) 계기를 없앴다 — 정기 수집은 이 파일로 돌 수 없다(재개는 별도 승인 PR).
+    # 열리는 것: master에서 시험 수집(dry_run)을 체크한 수동 실행만 — DB 열쇠 없이 실제 사이트 수집·파싱, 저장 없음, 1~10건.
+    # 운영 DB 저장 단계는 없다(저장 시험은 Lee 승인 뒤 따로).
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.dry_run
     # 재개 승인 전 실행 환경만 맞춤(#872): 마지막 실제 실행 5건(2026-08-24~28)이 모두 의존성 설치에서 실패 —
     # ubuntu-latest(24.04)에는 libasound2가 없는데 playwright 1.44 설치 목록에 24.04 항목이 없어 옛 이름을 설치함.
     # 같은 crawler/requirements.txt를 쓰는 refresh-facebook-existing.yml과 같은 ubuntu-22.04·Python 3.12로 맞춘다.
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
@@ -33,8 +48,13 @@ jobs:
           python -m pip install -r crawler/requirements.txt
           python -m playwright install --with-deps chromium
 
-      - name: 크롤링 실행
+      - name: 표본 수 확인
         env:
-          SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python crawler/crawl_topcv.py --confirm-full-crawl
+          SAMPLE_LIMIT: ${{ inputs.sample_limit }}
+        run: echo "$SAMPLE_LIMIT" | grep -Eq '^([1-9]|10)$' || { echo "::error::sample_limit는 1~10"; exit 1; }
+
+      - name: 시험 수집(저장 없음 — DB 열쇠를 주지 않음)
+        if: inputs.dry_run
+        env:
+          SAMPLE_LIMIT: ${{ inputs.sample_limit }}
+        run: python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT"

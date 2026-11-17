@@ -361,6 +361,78 @@ class TopcvRetryNextRun(unittest.TestCase):
         self.assertTrue(self.rows[u2].get("_has_locations"))  # 다음 수집에서 근무지 채움
 
 
+class StateDirOverride(unittest.TestCase):
+    """GitHub 실행기에서 계정 잠금·본 글 기록이 실행 사이 유지되도록 상태 폴더를 바꿀 수 있는지(#872)."""
+
+    def test_env_moves_lock_and_seen_files(self):
+        import importlib, os, tempfile
+        d = tempfile.mkdtemp()
+        with mock.patch.dict(os.environ, {"CRAWLER_STATE_DIR": d}):
+            m = importlib.reload(fb)
+            self.assertEqual(str(m.ACCOUNT_LOCK_PATH.parent), d)
+            self.assertEqual(str(m.SEEN_STATE_PATH.parent), d)
+            m.write_account_lock("checkpoint", "https://www.facebook.com/groups/x")
+            self.assertIsNotNone(m.account_lock_reason())   # 다음 실행(같은 폴더)에서 잠금이 보인다
+        importlib.reload(fb)
+
+    def test_legacy_lock_still_locks_after_move(self):
+        import importlib, os, tempfile
+        d, legacy = tempfile.mkdtemp(), Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"CRAWLER_STATE_DIR": d}):
+            m = importlib.reload(fb)
+            with mock.patch.object(m, "LEGACY_STATE_DIR", legacy):
+                self.assertIsNone(m.account_lock_reason())
+                (legacy / "FACEBOOK_ACCOUNT_LOCK").write_text("checkpoint", encoding="utf-8")
+                self.assertEqual(m.account_lock_reason(), "checkpoint")  # 예전 폴더 잠금도 잠금
+                (legacy / "facebook_seen.json").write_text('{"g": {"keys": ["id:1"]}}', encoding="utf-8")
+                self.assertEqual(m.load_seen_state()["g"]["keys"], ["id:1"])  # 예전 본 글 기록 이어받기
+        importlib.reload(fb)
+
+    def test_default_is_shared_home_folder(self):
+        import importlib, os
+        env = {k: v for k, v in os.environ.items() if k != "CRAWLER_STATE_DIR"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            m = importlib.reload(fb)
+            self.assertEqual(m.STATE_DIR, Path.home() / "jobi-crawler-state" / "facebook")  # 계정 공용 폴더(#881)
+            self.assertEqual(m.LEGACY_STATE_DIR, Path(m.__file__).parent / "state")
+        importlib.reload(fb)
+
+
+class DryRunWithoutKey(unittest.TestCase):
+    """DB 열쇠 없는 미리 보기에서만 회사 이름 읽기를 건너뛰고, 그 밖에는 예전처럼 서버에 묻는다(#881)."""
+
+    def tearDown(self):
+        fb.COMPANY_READ_SKIPPED = False
+
+    def test_skip_only_when_flag(self):
+        calls = []
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: calls.append(t) or {"company": "CTY A"}):
+            fb.COMPANY_READ_SKIPPED = True
+            self.assertEqual(fb.read_company("x"), "")
+            self.assertEqual(calls, [])
+            fb.COMPANY_READ_SKIPPED = False
+            self.assertEqual(fb.read_company("x"), "CTY A")
+            self.assertEqual(calls, ["x"])
+
+    def test_unavailable_still_stops_when_not_skipped(self):
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"reason": "precheck_not_configured"}):
+            with self.assertRaises(RuntimeError):
+                fb.read_company("x")
+
+    def test_main_sets_flag_only_for_keyless_dry_run(self):
+        import asyncio
+        async def stop(*a, **k):
+            raise SystemExit(0)
+        for argv, key, want in ((["--dry-run"], "", True), (["--dry-run"], "k", False), ([], "", False)):
+            with mock.patch.object(fb, "SUPABASE_KEY", key), mock.patch.object(fb, "account_lock_reason", lambda: "stop-here"):
+                fb.COMPANY_READ_SKIPPED = False
+                try:
+                    asyncio.run(fb.main(argv))
+                except SystemExit:
+                    pass
+                self.assertEqual(fb.COMPANY_READ_SKIPPED, want, argv)
+
+
 class SharedCounter(unittest.TestCase):
     def setUp(self):
         source_fields.JOB_ERRORS.reset()

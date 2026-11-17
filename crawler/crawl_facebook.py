@@ -58,7 +58,10 @@ SEEN_KEYS_PER_GROUP = 500
 GROUP_PAUSE_SEC = (60, 120)
 MAX_CONSECUTIVE_ANOMALY_GROUPS = 2
 
-STATE_DIR = Path(__file__).parent / "state"
+# 수집 상태(계정 잠금·본 글 기록·마지막 실행) 폴더 = 홈의 공용 폴더(~/jobi-crawler-state/facebook). GitHub 실행기는 매 실행 checkout이
+# git에 없는 파일(crawler/state/)을 지워 잠금·본 글 기록이 사라졌다(#872 사전점검). 같은 Facebook 계정을 쓰는 모든 실행
+# (미리 보기·한국 조사·run_daily)이 워크플로 설정 없이 같은 폴더를 보게 기본값으로 둔다. CRAWLER_STATE_DIR로 바꿀 수 있다(시험용).
+STATE_DIR = Path(os.environ["CRAWLER_STATE_DIR"]) if os.environ.get("CRAWLER_STATE_DIR") else Path.home() / "jobi-crawler-state" / "facebook"
 SEEN_STATE_PATH = STATE_DIR / "facebook_seen.json"
 EVIDENCE_DIR = STATE_DIR / "evidence"
 LAST_RUN_PATH = STATE_DIR / "facebook_last_run.json"  # 마지막 실행 요약(운영 점검·알림용)
@@ -77,11 +80,21 @@ def write_account_lock(state: str, group_url: str, path: Path = ACCOUNT_LOCK_PAT
         encoding="utf-8")
 
 
+# 예전 상태 폴더(crawler/state/). 공용 폴더로 옮긴 뒤에도 거기 남은 잠금은 그대로 잠금으로 본다(#881 검토관 — 옮기다 잠금을 잃지 않게).
+LEGACY_STATE_DIR = Path(__file__).parent / "state"
+
+
 def account_lock_reason(path: Path = ACCOUNT_LOCK_PATH) -> str | None:
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
-        return None
+    """잠금 내용(없으면 None). 기본 경로를 볼 때는 예전 폴더의 잠금도 함께 본다 — 어느 쪽이든 있으면 잠김."""
+    candidates = [path]
+    if path == ACCOUNT_LOCK_PATH and LEGACY_STATE_DIR / path.name != path:
+        candidates.append(LEGACY_STATE_DIR / path.name)
+    for c in candidates:
+        try:
+            return c.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            continue
+    return None
 
 TARGETS = [
     {"url": "https://www.facebook.com/groups/timvieclamthembacninh", "location": "Bắc Ninh"},
@@ -232,7 +245,14 @@ def extract_title(text: str, company: str = "") -> str:
 # 회사 이름은 수집기가 직접 읽지 않는다 — Lee 2026-11-07 "회사 이름 규정"(주소·급여와 같은 방식). 원문 회사 이름은
 # src/lib/companyReader.ts 한 곳에서 읽는다(위치 확인 서버의 읽기 기능, 지도 조회 없음). 옛 extract_company 규칙과 시험 사례는 그쪽으로 옮겼다.
 # 서버를 못 물으면 틀린 값으로 진행하지 않고 멈춘다(company_read_unavailable).
+# DB 열쇠 없는 미리 보기(Lee 2026-11-17 #881 "DB 열쇠 없이 가능한 Facebook 접속·수집·파싱만 시험"): 회사 이름 읽기 서버는 DB 열쇠로만
+# 접속되므로 그 경우에만 읽기를 건너뛰고 빈칸(미검증)으로 둔다. 저장·정상 실행은 열쇠가 있어 예전 그대로 읽고, 못 읽으면 멈춘다.
+COMPANY_READ_SKIPPED = False
+
+
 def read_company(text: str) -> str:
+    if COMPANY_READ_SKIPPED:
+        return ""
     got = ingest_gateway.READ_LOCATION(text, "") or {}
     if "company" not in got:
         raise RuntimeError(f"company_read_unavailable: {got.get('reason') or 'no_response'}")
@@ -517,7 +537,10 @@ def parse_time_label(label: str, now: datetime | None = None) -> dict | None:
 def load_seen_state(path: Path = SEEN_STATE_PATH) -> dict:
     """상태 파일 → 없거나 깨졌으면 .bak → 그것도 없으면 빈 상태. 빈 상태여도 DB 중복
     방지(본문 지문·제목+회사)가 재저장을 막는다(처리 시간만 늘어남)."""
-    for candidate in (path, path.with_suffix(path.suffix + ".bak")):
+    tries = [path, path.with_suffix(path.suffix + ".bak")]
+    if path == SEEN_STATE_PATH and LEGACY_STATE_DIR / path.name != path:
+        tries.append(LEGACY_STATE_DIR / path.name)  # 공용 폴더로 처음 옮길 때 예전 본 글 기록을 이어받는다(#881)
+    for candidate in tries:
         try:
             data = json.loads(candidate.read_text(encoding="utf-8"))
             if candidate != path:
@@ -1347,6 +1370,10 @@ def parse_args(argv=None):
 
 async def main(argv=None) -> int:
     args = parse_args(argv)
+    global COMPANY_READ_SKIPPED
+    COMPANY_READ_SKIPPED = bool(args.dry_run and not SUPABASE_KEY)
+    if COMPANY_READ_SKIPPED:
+        print("  ℹ️ DB 열쇠 없는 미리 보기 — 회사 이름 읽기(위치 확인 서버)는 건너뜀: 미검증")
     if args.save_from:
         keys = [k.strip() for k in args.post_keys.split(",") if k.strip()]
         if not keys:
