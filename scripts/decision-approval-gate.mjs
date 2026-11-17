@@ -202,17 +202,72 @@ export function leeApprovedAt(reviews = [], sha, author) {
   return !!last && last.state === 'APPROVED' && last.commit_id === sha
 }
 
+// ⑨ 워크플로 실행 환경·시험 추가(Lee 2026-11-17 "도장 찍기식 대표 승인 문제"): .github/ 아래 파일은 경로만으로 검사·보호 장치(④)였다.
+//    그래서 실행 서버 판·Python 판 같은 실행 환경 수정, 시험 단계 추가도 매번 Lee 승인을 기다렸다(#876 crawl.yml runs-on·python-version).
+//    기존 워크플로 파일(status modified, 변경 내용 있음)의 바뀐 줄이 '모두' 아래 안전 줄이면 ④로 올리지 않는다(②③⑤⑦ 등 다른 판정은 그대로).
+//    한 줄이라도 다르면(실행 조건 if·예약 cron·권한·비밀값·환경·새 action·실행 명령·continue-on-error 등) 예전처럼 Lee 승인 — 판단할 수 없으면 승인(닫힌 실패).
+//    · 모든 워크플로: 실행 서버(GitHub 호스트 ubuntu)·Python/Node 판·시간 제한·주석 줄만(추가·삭제 모두)
+//    · 시험 전용 워크플로(SAFE_TEST_WORKFLOWS — 열쇠·환경·쓰기 권한·특수 실행 계기 없음, 시험이 확인): 시험 단계 '추가'도 안전(시험 명령·알려진 action·설치 줄).
+//      시험 단계를 '지우는' 줄은 검증 약화라 안전이 아니다. 검사·병합·승인을 하는 워크플로(pr-checks·bot-pr-automerge 등)는 이 목록에 없다.
+export const SAFE_TEST_WORKFLOWS = ['crawler-cli-tests.yml', 'job-policy-tests.yml', 'r7-source-aware-unit.yml', 'reprocess-queue-ci.yml', 'vn-admin-sync.yml', 'multi-role-presentation.yml']
+  .map((f) => `.github/workflows/${f}`)
+const TAIL = String.raw`(?:\s+#.*)?$`
+const ENV_LINES = [String.raw`runs-on:\s*ubuntu-(?:latest|\d{2}\.04)`, String.raw`python-version:\s*'?\d+\.\d+'?`, String.raw`node-version:\s*'?\d+'?`, String.raw`timeout-minutes:\s*\d{1,3}`]
+  .map((r) => new RegExp(`^${r}${TAIL}`))
+const RESERVED_KEYS = /^(?:permissions|env|secrets|environment|on|jobs|if|needs|outputs|services|container|concurrency|defaults|strategy|uses|with|run|shell|continue-on-error|working-directory|name|runs-on|timeout-minutes|steps|inputs|workflow_call)$/
+const TEST_ADD_LINES = [
+  String.raw`-\s+name:\s+[^$\x60]+`,
+  String.raw`(?:-\s+)?run:\s+python3?(?:\s+-I)?\s+crawler\/test_\w+\.py`,
+  String.raw`(?:-\s+)?run:\s+node(?:\s+--test|\s+--experimental-strip-types)?\s+scripts\/[\w\/.-]+\.test\.mjs`,
+  String.raw`(?:-\s+)?uses:\s+actions\/(?:checkout@v4|setup-python@v5|setup-node@v4)`,
+  String.raw`with:`, String.raw`persist-credentials:\s*false`, String.raw`working-directory:\s*crawler`, String.raw`steps:`, String.raw`run:\s*\|`,
+  String.raw`python3?\s+-m\s+pip\s+install\s+-r\s+crawler\/requirements\.txt`, String.raw`python3?\s+-m\s+playwright\s+install(?:\s+--with-deps)?\s+chromium`,
+  String.raw`(?:-\s+)?run:\s+python3?\s+-c\s+"import\s+[\w, ]+;\s*print\('[\w ]*'\)"`,
+].map((r) => new RegExp(`^${r}${TAIL}`))
+// 새 시험 잡 이름 줄(값 없는 `이름:`)은 정확한 자리일 때만(검토관 지적 #878: 실행 계기 `pull_request_target:` 같은 줄이 통과하던 것):
+//   ① hunk 머리의 위치가 `jobs:` 아래 ② 들여쓰기 정확히 2칸 ③ 실행 계기·예약 키 이름이 아님 ④ 바로 다음 추가 줄이 4칸 `runs-on: ubuntu-…`
+const EVENT_NAMES = /^(?:branch_protection_rule|check_run|check_suite|create|delete|deployment|deployment_status|discussion|discussion_comment|fork|gollum|issue_comment|issues|label|merge_group|milestone|page_build|public|pull_request|pull_request_comment|pull_request_review|pull_request_review_comment|pull_request_target|push|registry_package|release|repository_dispatch|schedule|status|watch|workflow_call|workflow_dispatch|workflow_run)$/
+const jobIdAt = (lines, k, hunkCtx) => {
+  const raw = lines[k].slice(1)
+  const m = raw.match(/^ {2}([a-z0-9][a-z0-9_-]*):(?:\s+#.*)?$/)
+  if (!m || RESERVED_KEYS.test(m[1]) || EVENT_NAMES.test(m[1]) || hunkCtx[k] !== 'jobs:') return false
+  const next = lines.slice(k + 1).find((l) => l[0] === '+' && l.slice(1).trim() !== '' && !l.slice(1).trim().startsWith('#'))
+  return !!next && /^\+ {4}runs-on:\s*ubuntu-(?:latest|\d{2}\.04)(?:\s+#.*)?$/.test(next)
+}
+export function workflowSafeChange(f) {
+  const name = f?.filename ?? ''
+  if (!/^\.github\/workflows\/[^/]+\.ya?ml$/.test(name) || f.status !== 'modified' || typeof f.patch !== 'string' || f.previous_filename) return false
+  const testWf = SAFE_TEST_WORKFLOWS.includes(name)
+  // 바뀐 줄마다 그 hunk 머리의 위치 글(@@ … @@ 뒤, YAML이면 바로 위 최상위 키)을 기억한다
+  const lines = [], hunkCtx = []
+  let ctx = ''
+  for (const l of f.patch.split('\n')) {
+    const h = l.match(/^@@[^@]*@@\s?(.*)$/)
+    if (h) { ctx = h[1].trim(); continue }
+    if (/^[+-]/.test(l) && !/^(?:\+\+\+|---)/.test(l)) { lines.push(l); hunkCtx.push(ctx) }
+  }
+  if (!lines.length) return false
+  return lines.every((l, k) => {
+    const t = l.slice(1).trim()
+    if (t === '' || t.startsWith('#')) return true
+    if (t.includes('${{')) return false
+    if (ENV_LINES.some((re) => re.test(t))) return true
+    return testWf && l[0] === '+' && (TEST_ADD_LINES.some((re) => re.test(t)) || jobIdAt(lines, k, hunkCtx))
+  })
+}
+
 export function decisionApproval({ files, reviews, comments, sha, labels = [], framePaths = [], deps: depFiles = {}, author, body = '', repo = '' }) {
   // 이름이 바뀐 파일은 새 경로와 옛 경로(previous_filename) 둘 다 판정한다(검토 지적: 워크플로·검사 스크립트·CODEOWNERS·결정 문서·화면 틀 파일을 일반 경로로 옮겨 우회 불가)
   const names = [...new Set(files.flatMap((f) => [f.filename ?? f, f.previous_filename].filter(Boolean)))]
   const decision = names.filter(PROTECTED)
   const frame = names.filter((f) => !PROTECTED(f) && frameApproved(f, framePaths))
-  const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f))
+  const safeWf = new Set(files.filter((f) => typeof f === 'object' && workflowSafeChange(f)).map((f) => f.filename))
+  const gate = names.filter((f) => !PROTECTED(f) && GATE_CODE(f) && !safeWf.has(f))
   const unknown = names.filter((f) => !PROTECTED(f) && !frameApproved(f, framePaths) && !GATE_CODE(f) && !NORMAL_PATH(f))
   const labeled = labels.includes(NEEDS_LEE_LABEL)
   const depRisk = dependencyRisks({ files, ...depFiles })
   // 경로만으로 이미 고위험인 파일(결정 문서·화면 틀·검사 장치)은 내용 검사를 겹치지 않는다
-  const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && !GATE_CODE(n) }))
+  const content = contentRisks(files.filter((f) => { const n = f.filename ?? f; return !PROTECTED(n) && !frameApproved(n, framePaths) && (!GATE_CODE(n) || safeWf.has(n)) }))
   const unreadable = content.filter((c) => c.endsWith('(판단 불가)')), realContent = content.filter((c) => !c.endsWith('(판단 불가)'))
   // 변경 파일 목록이 비어 있으면 분석이 실패한 것이다(PR은 항상 파일을 바꾼다) — 닫힌 실패
   const empty = files.length === 0
