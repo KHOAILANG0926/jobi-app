@@ -166,6 +166,8 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertEqual(mode_for(command[2:]), "full_crawl")
         self.assertEqual(enter_cli(command[2:])[0][0], "main")
         self.assertIn("--sample-limit", command)
+        self.assertNotIn("--site", command)  # 기본 --site = vieclam24h(crawl_topcv.py는 vieclam24h 수집기)
+        self.assertEqual(pure_namespace()["build_arg_parser"]().parse_args(command[2:]).site, "vieclam24h")
 
     def test_actions_manual_confirmation_is_opt_in(self):
         # Lee 2026-11-17 #872·#881: 예약 계기 없음(정기 수집 불가), 열쇠 없음(저장 불가), 수동 시험만
@@ -180,17 +182,18 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("'^([1-9]|10)$'", source)
 
     def test_facebook_account_users_share_one_state_dir(self):
-        # #881 검토관: 같은 Facebook 계정을 쓰는 VPS 작업이 모두 같은 계정 잠금·본 글 기록 폴더를 봐야 한다
-        want = 'd="$HOME/jobi-crawler-state/facebook"'
-        users = [wf for wf in sorted((ROOT / ".github/workflows").glob("*.yml"))
-                 if re.search(r"python -u (?:crawl_facebook|korea_fb_survey)\.py", wf.read_text(encoding="utf-8"))]
-        self.assertGreaterEqual(len(users), 3)
-        for wf in users:
-            src = wf.read_text(encoding="utf-8")
-            self.assertIn(want, src, wf.name)
-            self.assertIn('CRAWLER_STATE_DIR=$d', src, wf.name)
+        # #881: 같은 Facebook 계정을 쓰는 실행이 모두 같은 계정 잠금·본 글 기록 폴더를 본다 — 수집기 기본값과 run_daily가 같은 곳,
+        # 워크플로가 다른 폴더를 넘기지 않는다(한국 조사 워크플로는 안 고침: korea-fb-survey는 파일이 바뀌면 병합 때 자동으로 돌기 때문)
+        fb = (ROOT / "crawler/crawl_facebook.py").read_text(encoding="utf-8")
+        self.assertIn('else Path.home() / "jobi-crawler-state" / "facebook"', fb)
         daily = (ROOT / "crawler/run_daily.sh").read_text(encoding="utf-8")
         self.assertIn('export CRAWLER_STATE_DIR="${CRAWLER_STATE_DIR:-$HOME/jobi-crawler-state/facebook}"', daily)
+        for wf in sorted((ROOT / ".github/workflows").glob("*.yml")):
+            for m in re.finditer(r"CRAWLER_STATE_DIR=([^\s\"]+)", wf.read_text(encoding="utf-8")):
+                self.assertEqual(m.group(1), "$d", wf.name)
+            src = wf.read_text(encoding="utf-8")
+            if "CRAWLER_STATE_DIR=$d" in src:
+                self.assertIn('d="$HOME/jobi-crawler-state/facebook"', src, wf.name)
 
     def test_daily_wrapper_sees_shared_account_lock(self):
         # run_daily.sh를 실제로 돌려, 다른 작업이 공용 폴더에 만든 계정 잠금을 보고 Facebook을 건너뛰는지(#881 검토관)

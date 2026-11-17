@@ -1,4 +1,5 @@
 name: 채용공고 자동 크롤링
+# 대상 = vieclam24h.vn — crawler/crawl_topcv.py는 이름과 달리 vieclam24h 수집기다(파일 첫 줄 설명, --site 기본값 vieclam24h).
 
 on:
   workflow_dispatch:

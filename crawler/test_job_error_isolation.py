@@ -388,12 +388,13 @@ class StateDirOverride(unittest.TestCase):
                 self.assertEqual(m.load_seen_state()["g"]["keys"], ["id:1"])  # 예전 본 글 기록 이어받기
         importlib.reload(fb)
 
-    def test_default_unchanged(self):
+    def test_default_is_shared_home_folder(self):
         import importlib, os
         env = {k: v for k, v in os.environ.items() if k != "CRAWLER_STATE_DIR"}
         with mock.patch.dict(os.environ, env, clear=True):
             m = importlib.reload(fb)
-            self.assertEqual(m.STATE_DIR, Path(m.__file__).parent / "state")
+            self.assertEqual(m.STATE_DIR, Path.home() / "jobi-crawler-state" / "facebook")  # 계정 공용 폴더(#881)
+            self.assertEqual(m.LEGACY_STATE_DIR, Path(m.__file__).parent / "state")
         importlib.reload(fb)
 
 
