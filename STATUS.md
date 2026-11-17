@@ -3,9 +3,9 @@
 > **이 파일은 GitHub Actions가 DB·GitHub를 직접 조회해 만든다. 사람·AI가 손으로 고치지 않는다.**
 > AI(GPT·Cursor·Claude)의 작업 보고가 이 파일과 다르면, 이 파일이 맞다.
 
-- 생성 시각: **2026-11-16 19:18 (VN)**
-- 기준 커밋: `b2e9cc0` (Merge pull request #855 from KHOAILANG0926/fix/direct-push-alert-retry)
-- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/43865214723
+- 생성 시각: **2026-11-17 12:16 (VN)**
+- 기준 커밋: `ba7bd1c` (ops(crawl): 크롤링 사전점검 — VPS Facebook 예약·잠금 읽기 + 수집 실패/신규 0건 경고 (#872, 수집 켜지 않음) (#877))
+- 실행 기록: https://github.com/KHOAILANG0926/jobi-app/actions/runs/44022766228
 - 검증 스크립트 지문(SHA-256): `ddef4c76562027fa`
 
 ## 한눈에 보기
@@ -49,7 +49,7 @@
 
 ## 2. 배포 (GitHub에 기록된 Vercel 배포)
 
-- 마지막 Production 배포: `b2e9cc0` · 상태 **success** · 2026-11-16 19:17 (VN)
+- 마지막 Production 배포: `ba7bd1c` · 상태 **success** · 2026-11-17 09:59 (VN)
 - master 최신 커밋과 ✅ 같음
 - 사이트 응답 https://viecganban.vn/ : **200**
 
@@ -57,20 +57,20 @@
 
 | PR | 병합 시각 | 커밋 | 제목 |
 |---|---|---|---|
+| #877 | 2026-11-17 09:59 (VN) | `ba7bd1c` | ops(crawl): 크롤링 사전점검 — VPS Facebook 예약·잠금 읽기 + 수집 실패/신규 0건 경고 (#872, 수집 켜지 않음) |
+| #878 | 2026-11-17 09:38 (VN) | `2d8ccc4` | fix(approval-gate): 워크플로 실행 환경·시험 추가는 바뀐 줄로 판정 — 도장 찍기식 승인 줄이기 (결정 0003 개정) |
+| #876 | 2026-11-17 09:03 (VN) | `28650aa` | fix(crawler): 공고 1건 오류가 전체 수집을 멈추지 않게 + crawl.yml 설치 실패 원인 (#872, Draft) |
+| #852 | 2026-11-16 21:38 (VN) | `ddbfc24` | [S4 실증 1] 일반 PR 자동 병합 확인용 문서 |
 | #855 | 2026-11-16 19:17 (VN) | `b2e9cc0` | fix(ci): master 직접 push 잘못된 경보 — 병합 직후 PR 연결 지연 재확인 (회귀 시험) |
 | #861 | 2026-11-16 18:42 (VN) | `9655053` | test(#858): 공고 규칙 R1~R7·U2 시험을 운영 DB에서 시험용 DB(PGlite)로 — 운영에 시험 공고 넣기 폐지 |
 | #860 | 2026-11-16 18:33 (VN) | `0f5bdad` | ci(#858): migrations-apply와 겹치는 옛 직접 적용 워크플로 occupation-master-apply 폐지 |
 | #812 | 2026-11-16 18:25 (VN) | `dd769a0` | S3-5: DB 변경 커밋은 migration 성공 뒤에만 운영 배포 (#808) |
 | #859 | 2026-11-16 17:25 (VN) | `ad7f15d` | fix(db): local_jobs 비공개 칸 권한 되돌리기 — 11-15 옛 직접 적용 워크플로 재실행 복구 (STRICT) |
 | #850 | 2026-11-16 13:19 (VN) | `8430994` | ci(S4 B단계 3차): ai-review·approval-gate를 검사 전용 GitHub 앱으로 (master 전용 environment 열쇠) |
-| #848 | 2026-11-16 10:23 (VN) | `1d57b24` | ci(S4 B단계 2차): approval-checks 교환 권한에 contents:read 추가 (서버 필수 조건) |
-| #846 | 2026-11-16 07:57 (VN) | `ef9100a` | ci(S4 B단계): approval-checks만 Claude 앱 토큰에 checks:write 요청 (공통 기본 권한 유지) |
-| #833 | 2026-11-16 06:23 (VN) | `d05ccbd` | ci(S4): 병합 통제 보완 — 위험도 판단 불가는 자동 보류, 승인 요청은 검증·독립 검토 뒤 |
-| #832 | 2026-11-16 00:03 (VN) | `7fd18c4` | chore(S4): 임시 운영 키 진단 도구 삭제(status-report 정상 확인) |
 
 ## 4. 공개 중인 공고 (DB 직접 조회)
 
-- 공개 중: **23건** (전체 36건, 숨김·비활성 13건)
+- 공개 중: **23건** (전체 33건, 숨김·비활성 10건)
 - 출처별: 출처 없음 19 · muaban 2 · manual 1 · Lee 확인(원문 Facebook, 작성자 Ngọc Mai) · Lee 제공 포스터에서 옮김 1
 
 ## 5. 지도에 핀으로 나가는 승인 좌표
@@ -99,16 +99,16 @@
 
 | 시각 | 작업 | 대상 |
 |---|---|---|
-| 2026-11-16 18:43 (VN) | location_candidate.approve | job 6178 |
-| 2026-11-16 18:43 (VN) | location_candidate.add | job 6178 |
-| 2026-11-16 18:35 (VN) | location_candidate.approve | job 6175 |
-| 2026-11-16 18:35 (VN) | location_candidate.add | job 6175 |
-| 2026-11-16 18:26 (VN) | location_candidate.approve | job 6171 |
-| 2026-11-16 18:26 (VN) | location_candidate.add | job 6171 |
-| 2026-11-13 15:17 (VN) | location_candidate.approve | job 6150 |
-| 2026-11-13 15:16 (VN) | location_candidate.add | job 6150 |
-| 2026-11-13 15:01 (VN) | location_candidate.approve | job 6147 |
-| 2026-11-13 15:01 (VN) | location_candidate.add | job 6147 |
+| 2026-11-17 10:00 (VN) | location_candidate.approve | job 6193 |
+| 2026-11-17 10:00 (VN) | location_candidate.add | job 6193 |
+| 2026-11-17 09:39 (VN) | location_candidate.approve | job 6189 |
+| 2026-11-17 09:39 (VN) | location_candidate.add | job 6189 |
+| 2026-11-17 09:04 (VN) | location_candidate.approve | job 6186 |
+| 2026-11-17 09:04 (VN) | location_candidate.add | job 6186 |
+| 2026-11-16 21:40 (VN) | location_candidate.approve | job 6183 |
+| 2026-11-16 21:40 (VN) | location_candidate.add | job 6183 |
+| 2026-11-16 19:18 (VN) | location_candidate.approve | job 6181 |
+| 2026-11-16 19:18 (VN) | location_candidate.add | job 6181 |
 
 ## 8. 검증 장치 변경 이력
 
