@@ -384,6 +384,16 @@ class StateDirOverride(unittest.TestCase):
         importlib.reload(fb)
 
 
+class NoHoldRetryFlag(unittest.TestCase):
+    def test_flag_parses_and_run_mode_uses_it(self):
+        self.assertTrue(fb.parse_args(["--no-hold-retry", "--max-save", "1"]).no_hold_retry)
+        self.assertFalse(fb.parse_args([]).no_hold_retry)
+        wf = (HERE.parent / ".github/workflows/crawl-facebook-one.yml").read_text(encoding="utf-8")
+        run_step = wf.split("시험 정상 실행(그룹 1개, 저장 상한)", 1)[1].split("- name:", 1)[0]
+        self.assertIn("--no-hold-retry", run_step)  # 시험 실행 저장 건수 = --max-save뿐(#881 검토관)
+        self.assertIn("--max-save", run_step)
+
+
 class SharedCounter(unittest.TestCase):
     def setUp(self):
         source_fields.JOB_ERRORS.reset()

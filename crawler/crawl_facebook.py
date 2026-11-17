@@ -1342,6 +1342,8 @@ def parse_args(argv=None):
     parser.add_argument("--save-from", default="",
                         help="DRY-RUN 결과 JSON에서 --post-keys 게시물만 저장(브라우저·페이스북 접속 없음)")
     parser.add_argument("--post-keys", default="", help="쉼표 구분 게시물 키(예: id:123,id:456)")
+    parser.add_argument("--no-hold-retry", action="store_true",
+                        help="이번 실행에서 보류 공고 재확인을 하지 않음(시험 실행의 저장 건수를 --max-save로만 제한, #872)")
     parser.add_argument("--max-save", type=int, default=None,
                         help="저장 상한(--save-from 기본 2, 정기 실행 기본 무제한)")
     return parser.parse_args(argv)
@@ -1349,6 +1351,8 @@ def parse_args(argv=None):
 
 async def main(argv=None) -> int:
     args = parse_args(argv)
+    if args.no_hold_retry:
+        ingest_gateway._HOLDS_RETRIED = True  # save_selected_from_dryrun과 같은 방식 — 보류 공고는 정기 처리 몫으로 남긴다
     if args.save_from:
         keys = [k.strip() for k in args.post_keys.split(",") if k.strip()]
         if not keys:

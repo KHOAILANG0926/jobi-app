@@ -31,8 +31,6 @@ concurrency:
 jobs:
   crawl:
     environment: ops-keys  # S4: 운영 열쇠는 master에서만 받는 환경(브랜치·PR 코드에는 안 줌)
-    # 사용자 지시: 필터 검증·별도 재개 승인 전에는 예약/수동 모두 실행 금지.
-    # 인자는 정합화하되 실제 수집 재개는 별도 승인 PR에서 결정한다.
     # 예약 실행은 계속 안 돈다(정기 수집 금지). 열리는 것: master에서 확인 체크한 수동 실행만 — 시험 수집(dry_run, 저장 없음) 또는
     # 승인된 소량 실제 저장(dry_run 끔 + confirm_full_crawl, 신규만·표본 1~10). Lee 2026-11-17 #872 "실제 소량 크롤링 테스트".
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.dry_run || inputs.confirm_full_crawl)

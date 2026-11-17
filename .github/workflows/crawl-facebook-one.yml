@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장 / run = 시험 정상 실행(그룹 1개, 저장 최대 2건, Lee 승인 뒤만 #872)'
+        description: 'dryrun = 저장 없이 미리 보기 / save = 미리 본 글 1건 저장 / run = 시험 정상 실행(그룹 1개, 저장 최대 2건·보류 공고 재확인 안 함, Lee 승인 뒤만 #872)'
         type: choice
         options: [dryrun, save, run]
         default: dryrun
@@ -160,7 +160,7 @@ jobs:
         working-directory: crawler
         run: |
           set -o pipefail
-          python -u crawl_facebook.py --group "$GROUP" --max-save "$MAX_SAVE" 2>&1 | tee /tmp/fb.log; rc=${PIPESTATUS[0]}
+          python -u crawl_facebook.py --group "$GROUP" --max-save "$MAX_SAVE" --no-hold-retry 2>&1 | tee /tmp/fb.log; rc=${PIPESTATUS[0]}
           grep -E '저장:|저장 후보|규칙 거부|오류 —|보류|중단|수집 상태 저장|계정 잠금' /tmp/fb.log | while read -r line; do echo "::notice title=실행 결과::${line:0:200}"; done
           echo "실행 뒤 계정 잠금 파일: $([ -f "$CRAWLER_STATE_DIR/FACEBOOK_ACCOUNT_LOCK" ] && echo 있음 || echo 없음)"
           echo "실행 뒤 본 글 기록: $(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(sum(len(v.get("keys",[])) for v in d.values()),"건")' "$CRAWLER_STATE_DIR/facebook_seen.json" 2>/dev/null || echo 없음)"
