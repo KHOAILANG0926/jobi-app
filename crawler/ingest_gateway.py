@@ -66,14 +66,17 @@ class LocationDeferred(LocationNotFound):
 
 
 # 지금 확인 못 함 = 보류 후 다음 수집 때 바로 재시도(status held).
-DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured", "provider_failed", "poster_read_failed"}
+DEFERRED_REASONS = {"google_quota", "precheck_unavailable", "precheck_not_configured", "provider_failed", "poster_read_failed",
+                    "company_ai_unavailable"}
 # 그 공고만의 문제(포스터 그림을 못 읽음) — 보류 대기열을 다시 확인할 때 다른 공고까지 멈추지 않는다(Codex #619).
 # 나머지 보류 사유(한도 초과·확인 서버 문제)는 모든 공고에 같으므로 그 자리에서 멈춘다(한도를 헛되이 쓰지 않게).
-JOB_ONLY_DEFERRED_REASONS = {"poster_read_failed"}
+# 회사 이름 AI 확인 실패(열쇠 없는 실행·답 형식 깨짐)도 그 공고만 보류한다 — 열쇠 없는 수집 실행(TopCV 등)이 대기열을 다시 볼 때 다른 보류 공고까지 멈추지 않게.
+JOB_ONLY_DEFERRED_REASONS = {"poster_read_failed", "company_ai_unavailable"}
 # 위치를 못 찾음(Lee 2026-11-09 "위치가 불확실하더라도 유효한 공고라면 비공개 보류 상태로 보존하고, 나중에 다시 확인") — 공고 목록에
 # 넣지 않고 보류함에 비공개로 보관(status unfound), 7일 뒤 다시 확인(최대 2번). 찾으면 같은 입구로 등록 → 기존 공개 판정 그대로.
 # 위치와 상관없는 수집 금지 사유(수수료 소개소·회사 이름 없음)는 보관하지 않는다.
-UNFOUND_REASONS = {"approximate_only", "not_found", "outside_original_province", "no_location_text"}
+# company_unconfirmed(Lee 2026-11-17 #872 R): 원문에서 읽은 회사 이름을 규칙·AI 3회가 같이 확정하지 못함 — 같은 보류함 경로(7일 뒤 다시, 최대 2번).
+UNFOUND_REASONS = {"approximate_only", "not_found", "outside_original_province", "no_location_text", "company_unconfirmed"}
 UNFOUND_RECHECK_DAYS = 7
 UNFOUND_MAX_CHECKS = 2
 HOLD_KIND = "location-hold"  # 비공개 저장소(research_artifacts, RLS 공개 차단)
@@ -149,6 +152,68 @@ def http_read_poster(url: str) -> str | None:
 READ_POSTER = http_read_poster
 
 
+def http_confirm_company(rule: str, text: str) -> dict | None:
+    """회사 이름 AI 확인(scripts/ocr/read-company-ai.mjs — 규칙 이름 + AI 3회 동의, 판정은 companyReader.agreeCompany 한 곳).
+    {"name","agreed","reason"} 또는 확인 못 함(열쇠 없음·AI 오류·실행 실패)이면 None. 원문은 표준 입력으로만 넘긴다(명령줄·로그에 안 남게)."""
+    import subprocess
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    try:
+        res = subprocess.run(["node", "--experimental-strip-types", "--import", "./scripts/ts-extensionless-register.mjs",
+                              "scripts/ocr/read-company-ai.mjs"], cwd=root, input=json.dumps({"rule": rule, "text": text}),
+                             capture_output=True, text=True, timeout=180)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if res.returncode != 0:
+        return None
+    try:
+        got = json.loads(res.stdout)
+    except ValueError:
+        return None
+    return got if isinstance(got, dict) else None
+
+
+CONFIRM_COMPANY = http_confirm_company
+
+
+def _company_read_from_text(job: dict) -> bool:
+    """회사 이름을 사이트 회사 칸이 아니라 원문에서 읽은 공고(지금은 Facebook). 보류함은 이 표시를 남긴다(hold_job).
+    이 변경 전에 보류된 줄은 표시가 없으므로 Facebook 표시로 본다."""
+    return job.get("_company_from_text") is True or str(job.get("description") or "").startswith("[source:facebook] ")
+
+
+def confirm_company(job: dict, verdict: dict) -> dict:
+    """원문에서 읽은 회사 이름은 규칙(서버 companyReader)과 AI 3회가 같이 확정해야 등록한다(Lee 2026-11-17 #872 R, #887 평가).
+    AI를 못 부르면 '지금 확인 못 함'(company_ai_unavailable, 보류 후 다음 수집 때), 확정 못 하면 company_unconfirmed(보류함, 7일 뒤 다시).
+    규칙이 이름을 못 읽은 공고는 여기서 바꾸지 않는다(기존 '회사 이름 없음' 규칙 그대로 — AI 혼자 이름을 정하지 않는다)."""
+    rule = str(verdict.get("company") or "").strip()
+    if not rule or not _company_read_from_text(job):
+        return verdict
+    text = "\n".join(x for x in (str(job.get("source_text") or ""), str(job.get("_poster_text") or "")) if x.strip())
+    got = CONFIRM_COMPANY(rule, text)
+    if not got:
+        raise LocationDeferred(f"location_precheck_held: company_ai_unavailable (회사: {rule[:60]})")
+    if got.get("agreed") is not True or not str(got.get("name") or "").strip():
+        raise LocationNotFound(f"location_precheck_failed: company_unconfirmed (회사: {rule[:60]}, {str(got.get('reason') or '-')[:40]})")
+    name = str(got["name"]).strip()
+    if name == rule:
+        return verdict
+    # 짧은 이름으로 확정되면 위치도 그 이름으로 다시 확인한다 — Google 검색어 = 상세 Google 버튼과 같은 "회사 이름, 원문 주소"(Lee 2026-11-06).
+    job["company"] = name
+    job["_company_from_text"] = False  # 확정 이름을 회사 칸으로 보낸다(서버가 원문에서 다시 읽지 않게)
+    again = PRECHECK(job) or {}
+    _raise_unless_findable(again)
+    return {**again, "company": name}
+
+
+def _raise_unless_findable(verdict: dict) -> None:
+    if verdict.get("findable") is not True:
+        reason = str(verdict.get("reason") or "not_found")
+        who = str(verdict.get("company") or "").strip()
+        if reason in DEFERRED_REASONS:
+            raise LocationDeferred(f"location_precheck_held: {reason}" + (f" (회사: {who[:60]})" if who else ""))
+        raise LocationNotFound(f"location_precheck_failed: {reason}" + (f" (회사: {who[:60]})" if who else ""))
+
+
 def require_location(job: dict) -> dict:
     """수집 첫 단계 = 위치 확인(Lee 2026-11-06 최우선). 못 찾으면 등록하지 않는다(LocationNotFound).
     찾으면 서버가 확인에 쓴 위치 글자(원문에서 읽은 주소 + 지역)를 공고 위치로 쓴다(주소 칸이 있는 소스는 그대로).
@@ -163,12 +228,8 @@ def require_location(job: dict) -> dict:
                 raise LocationDeferred("location_precheck_held: poster_read_failed")
             job["_poster_text"] = text
             verdict = PRECHECK(job) or {}
-    if verdict.get("findable") is not True:
-        reason = str(verdict.get("reason") or "not_found")
-        who = str(verdict.get("company") or "").strip()
-        if reason in DEFERRED_REASONS:
-            raise LocationDeferred(f"location_precheck_held: {reason}" + (f" (회사: {who[:60]})" if who else ""))
-        raise LocationNotFound(f"location_precheck_failed: {reason}" + (f" (회사: {who[:60]})" if who else ""))
+    _raise_unless_findable(verdict)
+    verdict = confirm_company(job, verdict)  # 위치를 찾은 뒤, 공고를 고치기 전에(보류되면 공고는 그대로 보류함으로)
     checked = str(verdict.get("location") or "").strip()
     if checked and not _work_addresses(job):
         job["location"] = checked
@@ -269,7 +330,8 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
     이미 보류함에 있는 공고는 상태·횟수를 덮어쓰지 않는다(재수집이 재확인 일정을 되돌리지 않게). 저장 실패는 수집을 멈추지 않는다."""
     if job.get("admin_hidden") is True:
         return  # 검증 저장(verify_write)은 보류하지 않는다 — 재시도가 숨김 처리를 건너뛰게 되므로
-    payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_")}
+    # '_company_from_text'는 남긴다: 빠지면 다시 확인할 때 원문에서 읽은 이름이 사이트 회사 칸처럼 서버에 가서 서버의 회사 이름 읽기를 건너뛴다(#872, #892 대조).
+    payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_") or k == "_company_from_text"}
     meta = {"status": status, "reason": reason, "held_at": _now(), "attempts": 0,
             "next_at": _now() if status == "held" else _after(UNFOUND_RECHECK_DAYS)}
     try:

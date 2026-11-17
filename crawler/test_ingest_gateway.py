@@ -9,6 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ingest_gateway as g  # noqa: E402
 from source_fields import rule_code  # noqa: E402
 
+# 회사 이름 AI 확인(#872 R)은 아래 run_company_agreement에서 따로 본다. 다른 시험은 '규칙 이름 그대로 동의'로 둔다(네트워크·열쇠 없음).
+AGREE_AS_IS = lambda rule, text: {"name": rule, "agreed": True, "reason": "exact"}  # noqa: E731
+g.CONFIRM_COMPANY = AGREE_AS_IS
+
 
 class Client:
     def __init__(self):
@@ -440,9 +444,94 @@ def run_unfound_recheck_fresh():
     print("test_ingest_gateway: unfound recheck asks Google again passed")
 
 
+def run_company_agreement():
+    """Lee 2026-11-17 #872 R: 원문에서 읽은 회사 이름은 규칙 + AI 3회 동의가 있어야 등록. 못 하면 기존 보류함 경로."""
+    g._HOLDS_RETRIED = True  # 이 시험은 새 공고만 본다
+    g.PRECHECK = lambda j: {"findable": True, "location": "Kinh Bắc, Bắc Ninh", "company": "JOY THÁI BẮC NINH"}
+    fb = {"title": "Phục vụ", "company": "Nhà tuyển dụng Facebook", "_company_from_text": True, "location": "",
+          "source_url": "https://example.invalid/joy", "description": "[source:facebook] JOY THÁI",
+          "source_text": "JOY THÁI BẮC NINH TUYỂN DỤNG\nJOY THÁI – THAI CUISINE", "_poster_text": "POSTER"}
+    asked = []
+    # ① 동의(포함 관계) → 짧은 이름으로 등록. AI에는 원문+포스터 글자를 넘긴다.
+    #    짧은 이름이면 위치도 그 이름(회사 칸)으로 다시 확인한다 — Google 검색어 = 상세 Google 버튼과 같은 이름(#892 대조)
+    sent_company = []
+    g.PRECHECK = lambda j: (sent_company.append(g.precheck_input(j)["company"]),
+                            {"findable": True, "location": "Kinh Bắc, Bắc Ninh", "company": j["company"] if not j.get("_company_from_text") else "JOY THÁI BẮC NINH"})[1]
+    g.CONFIRM_COMPANY = lambda rule, text: (asked.append((rule, text)), {"name": "JOY THÁI", "agreed": True, "reason": "contained"})[1]
+    c = HoldClient()
+    assert g.ingest_job(c, dict(fb)) > 0
+    assert c.calls[0][1]["p"]["company"] == "JOY THÁI" and "_company_from_text" not in c.calls[0][1]["p"], c.calls
+    assert asked == [("JOY THÁI BẮC NINH", "JOY THÁI BẮC NINH TUYỂN DỤNG\nJOY THÁI – THAI CUISINE\nPOSTER")], asked
+    assert sent_company == ["", "JOY THÁI"], sent_company
+    # 짧은 이름으로 다시 찾았는데 못 찾으면 등록하지 않는다(위치 못 찾음과 같은 경로)
+    g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh", "company": "JOY THÁI BẮC NINH"} if j.get("_company_from_text") else {"findable": False, "reason": "not_found"}
+    c = HoldClient()
+    try:
+        g.ingest_job(c, dict(fb))
+        raise AssertionError("짧은 이름 위치를 못 찾으면 등록하지 않는다")
+    except g.LocationNotFound as exc:
+        assert "not_found" in str(exc), exc
+    assert c.calls == [] and next(iter(c.rows.values()))["meta"]["reason"] == "not_found"
+    g.PRECHECK = lambda j: {"findable": True, "location": "Kinh Bắc, Bắc Ninh", "company": "JOY THÁI BẮC NINH"}
+    # ② 확정 못 함 → 등록 안 함, 보류함(unfound, 7일 뒤 다시) — 위치 못 찾음과 같은 경로
+    g.CONFIRM_COMPANY = lambda rule, text: {"name": "", "agreed": False, "reason": "disagree"}
+    c = HoldClient()
+    try:
+        g.ingest_job(c, dict(fb))
+        raise AssertionError("동의 없으면 등록하지 않는다")
+    except g.LocationNotFound as exc:
+        assert rule_code(exc) == "location_precheck_failed" and "company_unconfirmed" in str(exc) and "disagree" in str(exc), exc
+    row = next(iter(c.rows.values()))
+    assert c.calls == [] and row["meta"]["status"] == "unfound" and row["meta"]["reason"] == "company_unconfirmed", row
+    # ③ AI를 못 부름(열쇠 없음·오류) → 지금 확인 못 함(held, 다음 수집 때 바로)
+    g.CONFIRM_COMPANY = lambda rule, text: None
+    c = HoldClient()
+    try:
+        g.ingest_job(c, dict(fb))
+        raise AssertionError("AI 확인 못 하면 등록하지 않는다")
+    except g.LocationDeferred as exc:
+        assert "company_ai_unavailable" in str(exc), exc
+    row = next(iter(c.rows.values()))
+    assert c.calls == [] and row["meta"]["status"] == "held" and row["meta"]["reason"] == "company_ai_unavailable", row
+    # 보류함은 원문 회사 표시를 남긴다 → 다시 확인 때도 서버가 원문에서 회사 이름을 다시 읽는다(회사 칸으로 보내지 않음)
+    assert row["payload"]["_company_from_text"] is True and g.precheck_input(row["payload"])["company"] == "", row["payload"]
+    assert "_poster_text" not in row["payload"]
+    # ④ 보류함 다시 확인: '_' 칸이 빠진 Facebook 공고도 다시 AI 확인을 거친다. AI 확인 실패는 그 공고만 보류(다음 공고 계속)
+    seen = []
+    g.CONFIRM_COMPANY = lambda rule, text: (seen.append(rule), None if rule == "JOY THÁI BẮC NINH" else {"name": rule, "agreed": True, "reason": "exact"})[1]
+    g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh", "company": j["company"] if j["company"] != "Nhà tuyển dụng Facebook" else "JOY THÁI BẮC NINH"}
+    c = HoldClient()
+    for i, comp in enumerate(["Nhà tuyển dụng Facebook", "CTY ABC"]):
+        payload = {**{k: v for k, v in fb.items() if not k.startswith("_")}, "company": comp, "source_url": f"https://example.invalid/r{i}"}
+        c.rows[g._hold_name(payload)] = {"name": g._hold_name(payload), "payload": payload,
+                                          "meta": {"status": "held", "reason": "company_ai_unavailable", "held_at": g._now(), "attempts": 0,
+                                                   "next_at": f"2000-01-0{i + 1}T00:00:00+00:00"}}
+    out = g.retry_held(c)
+    assert seen == ["JOY THÁI BẮC NINH", "CTY ABC"] and out["held"] == 1 and out["registered"] == 1, (seen, out)
+    # ⑤ 사이트 회사 칸 공고(TopCV 등)·규칙이 이름을 못 읽은 공고는 AI를 부르지 않는다(기존 규칙 그대로)
+    called = []
+    g.CONFIRM_COMPANY = lambda rule, text: called.append(rule)
+    g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh", "company": "CTY TOPCV"}
+    assert g.ingest_job(HoldClient(), {"title": "x", "company": "CTY TOPCV", "location": "Bắc Ninh", "source_url": "https://example.invalid/t"}) > 0
+    g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh"}
+    assert g.ingest_job(HoldClient(), {**fb, "source_url": "https://example.invalid/n"}) > 0
+    assert called == [], called
+    # ⑥ 실제 실행기(scripts/ocr/read-company-ai.mjs): 열쇠가 없으면 None(→ 보류)
+    import os
+    key = os.environ.pop("ANTHROPIC_API_KEY", None)
+    try:
+        assert g.http_confirm_company("JOY THÁI", "JOY THÁI tuyển") is None
+    finally:
+        if key is not None:
+            os.environ["ANTHROPIC_API_KEY"] = key
+    g.CONFIRM_COMPANY = AGREE_AS_IS
+    print("test_ingest_gateway: company name agreement (rule + AI x3) passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
     run_poster_hold()
     run_hold_without_new_jobs()
     run_unfound_recheck_fresh()
+    run_company_agreement()

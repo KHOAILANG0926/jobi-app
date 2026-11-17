@@ -164,3 +164,51 @@ export function readWorkplace(text: string): string {
   }
   return ''
 }
+
+// ── 회사 이름 동의 확정(Lee 2026-11-17 #872 R 트랙, #887 평가 결과) ──────────────────────────────
+// #887 3차 평가: AI 혼자는 쓸 수 없다(공단 이름 오인식 "Công ty KCN ĐÌNH TRÁM" 3/3, 같은 글에 답이 매번 다름).
+// 그래서 AI는 이름을 '정하지' 않고 규칙(readCompany) 결과를 '확인'만 한다. 원문에서 회사 이름을 읽는 곳은 여전히 이 파일 한 곳.
+// 확정 = 규칙 이름과 AI 3회 답(모두 오류 없이 같은 답)이 ① 정확히 같거나 ② 한쪽이 다른 쪽을 품고, 짧은 이름이 원문에서 따로 쓰였고
+//        규칙의 이름 조건(ok)을 통과할 때(그때는 짧은 이름으로 확정). 그 밖은 확정하지 않는다 → 수집기는 기존 보류·재시도 경로로.
+// 낱말 목록·사례별 예외는 두지 않는다(이름 조건은 기존 ok 그대로).
+export type CompanyAgreeReason = 'exact' | 'contained' | 'ai_incomplete' | 'ai_split' | 'no_rule' | 'ai_none' | 'ai_not_in_source' | 'short_not_standalone' | 'disagree'
+export interface CompanyAgreement { name: string; agreed: boolean; reason: CompanyAgreeReason }
+
+// 비교는 대소문자·공백·구분 기호(- – — : | • *)만 무시한다("CTY - FUSHAN" = "CTY FUSHAN": 규칙의 ② 단계가 지우는 그 기호). 글자는 그대로.
+const SEP = /[\s\-–—:|•*]+/g
+const flat = (s: string) => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim()
+const key = (s: string) => flat(s).toLowerCase().replace(SEP, ' ').trim()
+const same = (a: string, b: string) => key(a) === key(b)
+const escapeRx = (s: string) => key(s).split(' ').map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-–—:|•*]+')
+// 낱말 경계: 앞뒤가 글자·숫자가 아니어야 한다("AN" ⊂ "BAN" 같은 낱말 속 일치는 이름이 아님).
+const wordRx = (s: string) => new RegExp(`(?<![\\p{L}\\p{N}\\p{M}])${escapeRx(s)}(?![\\p{L}\\p{N}\\p{M}])`, 'giu')
+
+/** 원문에서 이름이 쓰인 자리(시작, 끝) 목록. 대소문자·공백·구분 기호만 무시, 글자는 그대로. */
+function spans(text: string, name: string): Array<[number, number]> {
+  const out: Array<[number, number]> = []
+  for (const m of text.matchAll(wordRx(name))) out.push([m.index ?? 0, (m.index ?? 0) + m[0].length])
+  return out
+}
+
+/** 규칙 이름(rule)과 AI 3회 답(answers: 이름 또는 null — 오류 난 실행은 넣지 말고 호출하지 않는다)으로 회사 이름을 확정한다. */
+export function agreeCompany(rule: string, answers: Array<string | null>, text: string): CompanyAgreement {
+  const hold = (reason: CompanyAgreeReason): CompanyAgreement => ({ name: '', agreed: false, reason })
+  if (!Array.isArray(answers) || answers.length !== 3) return hold('ai_incomplete')
+  const ai = answers.map((a) => (typeof a === 'string' && key(a) && key(a) !== 'null' ? flat(a) : ''))
+  if (!ai.every((a) => same(a, ai[0]))) return hold('ai_split') // 3번 답이 하나라도 다르면 근거 부족
+  const ruleName = ok(rule)
+  if (!ruleName) return hold('no_rule')
+  if (!ai[0]) return hold('ai_none')
+  const src = flat(postBody(String(text ?? '').normalize('NFC')))
+  const aiSpans = spans(src, ai[0])
+  if (!aiSpans.length) return hold('ai_not_in_source') // 원문에 글자 그대로 없는 답(지어낸 이름)은 쓰지 않는다
+  if (same(ruleName, ai[0])) return { name: ruleName, agreed: true, reason: 'exact' }
+  const [short, long] = key(ruleName).length <= key(ai[0]).length ? [flat(ruleName), ai[0]] : [ai[0], flat(ruleName)]
+  if (!wordRx(short).test(key(long))) return hold('disagree')
+  // 짧은 이름이 긴 이름 안에서만 나오면(예: 'EAGLEON'은 'Công ty EAGLEON' 안에만) 따로 쓰인 회사 이름으로 확인되지 않는다.
+  const longSpans = spans(src, long)
+  const standalone = spans(src, short).find(([s, e]) => !longSpans.some(([ls, le]) => ls <= s && e <= le))
+  if (!standalone) return hold('short_not_standalone')
+  const name = ok(src.slice(standalone[0], standalone[1]))
+  return name ? { name, agreed: true, reason: 'contained' } : hold('short_not_standalone')
+}
