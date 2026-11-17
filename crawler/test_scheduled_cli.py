@@ -282,7 +282,13 @@ class ScheduledCallerTests(unittest.TestCase):
         source = (ROOT / ".github/workflows/crawl.yml").read_text(encoding="utf-8")
         reqs = (ROOT / "crawler/requirements.txt").read_text(encoding="utf-8")
         runs_on = [l.split(":", 1)[1].strip() for l in source.splitlines() if l.strip().startswith("runs-on:")]
-        self.assertEqual(runs_on, ["ubuntu-22.04"])
+        # Lee 2026-11-17 #872: GitHub 서버는 vieclam24h가 403으로 막음 → 기존 VPS 실행기에서 소량 시험(Facebook과 폴더 분리)
+        self.assertEqual(runs_on, ["[self-hosted, Linux, X64]"])
+        self.assertIn("path: vieclam24h-run", source)
+        self.assertIn("working-directory: vieclam24h-run", source)
+        self.assertNotIn("/tmp/", source)
+        self.assertNotIn("CRAWLER_STATE_DIR", source)
+        self.assertIn("SUPABASE_SERVICE_ROLE_KEY: ''", source)
         versions = re.findall(r"python-version:\s*'(\d+)\.(\d+)'", source)
         self.assertEqual(len(versions), 1)
         self.assertGreaterEqual(tuple(map(int, versions[0])), (3, 12))
@@ -293,8 +299,9 @@ class ScheduledCallerTests(unittest.TestCase):
         job = ci.split("crawl-install:", 1)[1]
         self.assertIn("runs-on: ubuntu-22.04", job)
         self.assertIn("python-version: '3.12'", job)
+        self.assertIn("python -m pip install -r crawler/requirements.txt", source)
+        self.assertIn("python -m playwright install chromium", source)  # VPS 실행기 계정은 관리자 권한 없음(Facebook 미리 보기와 같은 명령)
         for cmd in ("python -m pip install -r crawler/requirements.txt", "python -m playwright install --with-deps chromium"):
-            self.assertIn(cmd, source)
             self.assertIn(cmd, job)
 
     def run_daily_with_fake_timeout(self, exit_code):
