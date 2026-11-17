@@ -548,6 +548,15 @@ def drop_failed_from_seen(group_stats: list[dict]) -> None:
     drop_from_seen(group_stats, JOB_ERRORS.failed_keys())
 
 
+def save_and_mark_seen(to_save: list[dict], seen_state: dict, group_stats: list[dict]) -> list[dict]:
+    """저장 → 오류 공고를 '본 글'에서 뺌 → '본 글' 기록. 저장 중 예외(연속 3건 오류·중간 종료)가 나면
+    '본 글'을 아예 기록하지 않아 이번 실행의 글 전부가 다음 실행에서 다시 처리된다(이미 저장된 글은 DB 중복으로 걸러짐)."""
+    saved = save_to_supabase(to_save)
+    drop_failed_from_seen(group_stats)  # 오류로 저장 못 한 글은 다음 실행에서 다시(#872 ②)
+    save_seen_state(seen_state, group_stats)  # DB 저장이 끝난 뒤에만 "처리함"으로 기록
+    return saved
+
+
 def save_seen_state(state: dict, group_stats: list[dict], path: Path = SEEN_STATE_PATH) -> None:
     for stats in group_stats:
         if stats.get("state") != "ok":
@@ -1449,11 +1458,7 @@ async def main(argv=None) -> int:
             drop_from_seen(group_stats, {j["fb_post_key"] for j in all_jobs[args.max_save:]})
         with open("facebook_jobs.json", "w", encoding="utf-8") as f:
             json.dump(to_save, f, ensure_ascii=False, indent=2)
-        saved = save_to_supabase(to_save)
-        # 오류로 저장 못 한 글도 '본 글'에서 빼 다음 실행에서 다시 처리(#872 ②)
-        drop_failed_from_seen(group_stats)
-        # DB 저장이 끝난 뒤에만 "처리함"으로 기록 — 저장 실패(예외) 시 다음 실행에서 다시 처리
-        save_seen_state(seen_state, group_stats)
+        saved = save_and_mark_seen(to_save, seen_state, group_stats)
 
     write_json_atomic(LAST_RUN_PATH, {
         "finished_at": datetime.now().isoformat(timespec="seconds"), "dry_run": args.dry_run,

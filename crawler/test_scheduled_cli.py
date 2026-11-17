@@ -188,6 +188,14 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertGreaterEqual(tuple(map(int, versions[0])), (3, 12))
         self.assertIn("playwright==1.44.0", reqs)  # 판을 올리면 24.04 지원 여부를 다시 확인하고 이 시험도 고친다
         self.assertIn("vietnam-provinces==2026.9.0", reqs)
+        # 설치 확인 잡(crawler-cli-tests.yml crawl-install)이 crawl.yml과 같은 환경·명령을 실제로 돌린다
+        ci = (ROOT / ".github/workflows/crawler-cli-tests.yml").read_text(encoding="utf-8")
+        job = ci.split("crawl-install:", 1)[1]
+        self.assertIn("runs-on: ubuntu-22.04", job)
+        self.assertIn("python-version: '3.12'", job)
+        for cmd in ("python -m pip install -r crawler/requirements.txt", "python -m playwright install --with-deps chromium"):
+            self.assertIn(cmd, source)
+            self.assertIn(cmd, job)
 
     def run_daily_with_fake_timeout(self, exit_code):
         if not shutil.which("bash"):
