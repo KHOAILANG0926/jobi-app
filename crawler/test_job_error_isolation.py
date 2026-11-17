@@ -433,6 +433,21 @@ class DryRunWithoutKey(unittest.TestCase):
                 self.assertEqual(fb.COMPANY_READ_SKIPPED, want, argv)
 
 
+class Vieclam24hListingFailure(unittest.TestCase):
+    """#872 실제 시험(run 44026690666): 목록 페이지 24곳이 전부 0건인데 '수집 완료 0개'로 성공 처리됐다."""
+
+    def test_block_titles(self):
+        for t in ("Just a moment...", "Attention Required! | Cloudflare", "Verify you are human", "Access denied"):
+            self.assertTrue(topcv.is_blocked_title(t), t)
+        self.assertFalse(topcv.is_blocked_title("Việc làm Nhà máy - Vieclam24h"))
+        self.assertFalse(topcv.is_blocked_title(""))
+
+    def test_all_pages_empty_is_failure(self):
+        self.assertIsNotNone(topcv.listing_failure(24, 24))
+        self.assertIsNone(topcv.listing_failure(24, 23))   # 하나라도 공고가 있으면 정상
+        self.assertIsNone(topcv.listing_failure(0, 0))     # 페이지를 안 열었으면(신규 목표 도달 등) 판단 안 함
+
+
 class SharedCounter(unittest.TestCase):
     def setUp(self):
         source_fields.JOB_ERRORS.reset()

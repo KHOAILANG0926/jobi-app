@@ -531,14 +531,30 @@ def guess_category(title: str, company: str = "", description: str = "") -> str:
     return classify(title, company, description)
 
 
+# 차단·확인 화면 제목(Cloudflare 등). 예전에는 "Attention"만 봐서 "Just a moment..." 확인 화면이면 0건을 조용히 넘겼다(#872 시험 run 44026690666).
+_BLOCK_TITLES = ("attention required", "just a moment", "verify you are human", "access denied", "checking your browser")
+
+
+def is_blocked_title(title: str) -> bool:
+    t = (title or "").lower()
+    return any(b in t for b in _BLOCK_TITLES)
+
+
+def listing_failure(pages: int, empty: int) -> str | None:
+    """목록 페이지를 하나 이상 열었는데 전부 0건이면 차단이나 화면 구조 변경 — 조용히 '수집 0개 완료'로 끝내지 않는다."""
+    if pages and empty == pages:
+        return f"목록 페이지 {pages}곳 모두 0건 — 차단 화면 또는 사이트 구조 변경 의심(위 제목 확인)"
+    return None
+
+
 async def crawl_category(page, url: str) -> list[dict]:
     print(f"  📄 로딩: {url}")
     await page.goto(url, wait_until="domcontentloaded", timeout=30000)
     await page.wait_for_timeout(3000)
 
     title_text = await page.title()
-    if "Attention" in title_text:
-        print("  ⛔ Cloudflare 차단")
+    if is_blocked_title(title_text):
+        print(f"  ⛔ 차단 화면(제목: {title_text[:60]!r})")
         return []
 
     # 스크롤로 더 로드
@@ -584,7 +600,7 @@ async def crawl_category(page, url: str) -> list[dict]:
         return items
     }""")
 
-    print(f"    수집: {len(raw_jobs)}개")
+    print(f"    수집: {len(raw_jobs)}개" + ("" if raw_jobs else f" (화면 제목: {title_text[:60]!r})"))
     return raw_jobs
 
 
@@ -1404,6 +1420,7 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
     async with browser_page() as page:
         all_raw = []
         seen_hrefs = set()
+        pages_opened = pages_empty = 0
 
         for cat_url in CATEGORY_URLS:
             if new_only:
@@ -1413,10 +1430,16 @@ async def crawl_vieclam24h(target_count: int | None = None, offset: int = 0, new
             elif len(all_raw) >= fetch_ceiling:
                 break
             raw = await crawl_category(page, cat_url)
+            pages_opened += 1
+            pages_empty += 0 if raw else 1
             for j in raw:
                 if j["href"] not in seen_hrefs:
                     seen_hrefs.add(j["href"])
                     all_raw.append(j)
+
+        problem = listing_failure(pages_opened, pages_empty)
+        if problem:
+            raise SystemExit(problem)
 
         # 중복 제거
         seen_titles = set()
