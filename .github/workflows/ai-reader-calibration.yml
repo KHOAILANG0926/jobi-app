@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           jid=$(gh api repos/${{ github.repository }}/actions/runs/44026994453/jobs --jq '.jobs[0].id')
-          gh api repos/${{ github.repository }}/actions/jobs/$jid/logs > /tmp/fb.log
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$jid/logs" -o /tmp/fb.log
           python3 -I - <<'PY'
           import re, json
           posts, cur = [], None
