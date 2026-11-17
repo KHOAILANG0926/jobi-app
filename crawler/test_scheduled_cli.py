@@ -186,6 +186,20 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertNotIn("secrets.", dry)
         self.assertIn("if: inputs.dry_run", dry)
 
+    def test_facebook_account_users_share_one_state_dir(self):
+        # #881 검토관: 같은 Facebook 계정을 쓰는 VPS 작업이 모두 같은 계정 잠금·본 글 기록 폴더를 봐야 한다
+        want = 'd="$HOME/jobi-crawler-state/facebook"'
+        users = [wf for wf in sorted((ROOT / ".github/workflows").glob("*.yml"))
+                 if re.search(r"python -u (?:crawl_facebook|korea_fb_survey)\.py", wf.read_text(encoding="utf-8"))]
+        self.assertGreaterEqual(len(users), 3)
+        for wf in users:
+            src = wf.read_text(encoding="utf-8")
+            self.assertIn(want, src, wf.name)
+            self.assertIn('CRAWLER_STATE_DIR=$d', src, wf.name)
+        daily = (ROOT / "crawler/run_daily.sh").read_text(encoding="utf-8")
+        self.assertIn('STATE_DIR="${CRAWLER_STATE_DIR:-state}"', daily)
+        self.assertIn('"$STATE_DIR/FACEBOOK_ACCOUNT_LOCK"', daily)
+
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
         # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.
