@@ -58,7 +58,13 @@ jobs:
       # crawler/requirements.txt를 못 찾고 실패했다(git 2.34의 sparse-checkout disable이 파일을 되살리지 못함).
       # 그래서 ① 작업 폴더를 비워 남은 부분 받기 설정을 없애고(다시 받으면 되는 사본뿐 — 수집 상태 폴더는 작업 폴더 밖) ② 전체를 받는다.
       - name: 작업 폴더 초기화(부분 받기 설정 제거)
-        run: find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+        # 지우는 범위는 이 저장소의 실행기 작업 폴더(~/actions-runner/_work/<저장소>/<저장소>)뿐 — 다른 경로면 지우지 않고 멈춘다.
+        # 실행기 도구·임시 폴더(_work/_tool·_temp), 브라우저(~/.cache), 수집 상태(~/jobi-crawler-state)는 이 밖이라 그대로.
+        run: |
+          case "$GITHUB_WORKSPACE" in
+            "$HOME"/actions-runner/_work/jobi-app/jobi-app) find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} + ;;
+            *) echo "::error::예상 밖 작업 폴더 — 지우지 않음"; exit 1 ;;
+          esac
       - uses: actions/checkout@v4
         with:
           persist-credentials: false

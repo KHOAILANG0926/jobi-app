@@ -268,6 +268,10 @@ class ScheduledCallerTests(unittest.TestCase):
                 runs_on = [l for l in block.splitlines() if l.strip().startswith("runs-on:")]
                 if any("self-hosted" in l for l in runs_on):
                     self.assertNotIn("sparse-checkout:", block, f"{wf.name}: 자체 실행기 잡에 부분 받기")
+        diag = (ROOT / ".github/workflows/vps-diag.yml").read_text(encoding="utf-8")
+        # 작업 폴더 초기화는 이 저장소 실행기 작업 폴더일 때만 지운다(다른 경로면 멈춤)
+        self.assertIn('"$HOME"/actions-runner/_work/jobi-app/jobi-app) find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1', diag)
+        self.assertIn('예상 밖 작업 폴더 — 지우지 않음', diag)
 
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
