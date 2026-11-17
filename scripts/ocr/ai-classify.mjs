@@ -8,22 +8,17 @@ import pg from 'pg'
 import { createHash } from 'node:crypto'
 import { buildPrompt, guardAiResult, lineKey, BENEFIT_CODES, ruleConfirmedFlags } from '../../src/lib/aiClassifyGuard.ts'
 import { autoScope } from '../ops/auto-cutoff.mjs'
+import { askAI, AI_MODEL } from './ai-ask.mjs'
 
 const { SUPABASE_DB_URL, ANTHROPIC_API_KEY } = process.env
 // 2026-11-08 Lee "진행": Sonnet→Haiku(PR #546 비교 시험 10/10 같음, 1건 약 $0.009→$0.0015). 모델이 hash에 들어가므로 바꾸면 한 번 다시 판정한다.
-const MODEL = process.env.CLASSIFY_AI_MODEL || 'claude-haiku-5-5'
+// 모델·호출은 ai-ask.mjs 한 곳(회사 이름 동의 확인과 같이 씀, 2026-11-17).
+const MODEL = AI_MODEL
 if (!SUPABASE_DB_URL) { console.error('SUPABASE_DB_URL 필요'); process.exit(1) }
 if (!ANTHROPIC_API_KEY) { console.log('::warning::ANTHROPIC_API_KEY 없음 — AI 판정 건너뜀'); process.exit(0) }
 
 async function ask(prompt) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 3000, messages: [{ role: 'user', content: prompt }] }),
-  })
-  if (!r.ok) throw new Error(`AI HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  const j = await r.json()
-  const text = (j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('')
+  const { text } = await askAI(prompt)
   const m = text.match(/\{[\s\S]*\}/)
   return m ? JSON.parse(m[0]) : {}
 }

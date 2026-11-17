@@ -1,3 +1,9 @@
+## 2026-11-17 — 회사 이름 확정: 지금 규칙 ∧ AI 3번 동의 (#872·#887, Lee 승인 전 병합 금지)
+- 요청: Lee 11-17 "#887 평가 결과로 기존 companyReader와 ai-classify의 동의 기반 회사명 확정 구현, 일치=확정·포함=짧은 이름이 원문에 독립·기존 검사 통과일 때만, AI 3회 동일, 아니면 기존 보류·재시도, 새 시스템·DB·모델 금지, 승인 없이 병합 금지".
+- 변경: companyReader.ts에 agreeCompany·agreeCompanyWithAI·companyAiPrompt(#887 3차 v3 문구 그대로)·이름 검사는 기존 ok() 재사용. ai-classify의 AI 호출을 scripts/ocr/ai-ask.mjs로 꺼내 같이 씀(동작 같음). scripts/ocr/company-agree.mjs(얇은 실행기). ingest_gateway.require_location: 위치를 찾은 뒤 원문·포스터에서 읽은 이름만 확인 → 짧은 이름이면 그 이름으로 위치 확인 1번 더, 못 정하면 held(company_unconfirmed 그 공고만 / company_ai_unavailable). 보류 줄에 _company_from_text를 남김(기존 결함: 다시 확인 때 수집기 추측 이름이 회사 칸으로 가던 것). crawl-facebook-one.yml 저장 단계에 Node 22.
+- 검증 [직접 확인 로컬]: companyReader.test(동의 12·가짜 AI 7 사례 추가), npm test 122/122, tsc, build, test_ingest_gateway(동의 6경우 추가)·facebook_quality 29·cli_safety 21·job_quality 21·error_isolation·occupation_classifier. 61건 정답표를 run 44066895628 실제 AI 답으로 agreeCompany에 넣음: 이름 있는 40건 중 확정 37·보류 3·다른 회사 확정 0(짧은 이름 4건 — 지역 꼬리 뗌 등), 이름 없음 21건은 AI 안 부름.
+- 남은 문제: 실제 AI 연결 실행은 저장 시험(별도 승인) 때. 규칙이 못 읽고 AI만 읽은 이름(Jollibee BN 등)은 지금처럼 수집 안 함. 동의 안 된 공고는 14일 동안 실행마다 다시 물음(최대 5건/실행).
+
 ## 2026-11-16 — S4 B단계 3차: 검사 결과를 검사 전용 GitHub 앱으로 (#808, Draft·대표 Approve 전 병합 금지)
 - 원인 [직접 확인]: #848 병합(1d57b24) 뒤 run 43797922253 — 교환 401 "Workflows can't get 'checks' at 'write' from this token exchange". Claude 앱 경로로는 불가 확정.
 - 변경: approval-checks.yml 잡에 environment ops-keys(기존 운영 열쇠 환경, R8) + actions/create-github-app-token@v2(permission-checks: write만), id-token 권한 삭제. approval-checks.mjs는 CHECKS_APP_TOKEN·CHECKS_APP_SLUG로만 올림(없으면 닫힌 실패), 고칠 대상은 이 앱이 만든 검사만.

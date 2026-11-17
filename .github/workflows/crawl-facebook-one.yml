@@ -137,12 +137,18 @@ jobs:
           path: /tmp/fbdry
           run-id: ${{ inputs.dryrun_run_id }}
           github-token: ${{ github.token }}
+      # 회사 이름 동의 확인(Lee 2026-11-17 #872): 입구가 scripts/ocr/company-agree.mjs(TypeScript 판정 함수)를 Node로 부른다.
+      # 다른 잡과 같은 Node 22(--experimental-strip-types). npm 설치 없음(저장소 파일·Node 기본 모듈만).
+      - uses: actions/setup-node@v4
+        if: inputs.mode == 'save'
+        with:
+          node-version: 22
       - name: 고른 1건만 입구(ingest_job)로 저장
         if: inputs.mode == 'save'
         working-directory: crawler
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # 등록 입구 포스터 글자 읽기(회사 이름이 글에 없을 때만, Lee 2026-11-07)
+          # 등록 입구 포스터 글자 읽기(회사 이름이 글에 없을 때만, Lee 2026-11-07)·회사 이름 동의 확인(원문에서 읽은 이름, Lee 2026-11-17)
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }

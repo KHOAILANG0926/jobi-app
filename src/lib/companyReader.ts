@@ -145,6 +145,89 @@ export function readCompany(text: string): CompanyRead {
   return { name, agency, fee }
 }
 
+// ───── 회사 이름 확정: 지금 규칙(readCompany) ∧ AI 동의(Lee 2026-11-17 #872·#887 3차 평가 뒤 결정) ─────
+// 원문에서 읽은 이름(사이트 회사 칸이 아닐 때)은 AI(ai-classify와 같은 Haiku·같은 호출, scripts/ocr/company-agree.mjs)에 3번 묻고
+// 규칙 답과 맞을 때만 확정한다. 맞지 않거나 근거가 부족하면 이름 없이 이유만 돌려준다 → 등록 입구가 기존 보류함(held)에 넣고 다음 수집 때 다시.
+// 낱말 예외를 더하지 않는다: 이름 조건은 위 ok()(지금 규칙의 이름 검사)를 그대로 쓴다.
+export const COMPANY_AI_RUNS = 3
+
+/** AI 지시문(#887 3차 v3 그대로 — 평가한 문구를 바꾸지 않는다). 답은 이름 또는 null만. */
+export function companyAiPrompt(text: string): string {
+  return `From the Vietnamese job post below, copy the name of the employer exactly as it is written in the text.
+The employer is the company, shop, brand or recruitment agency that is hiring (if an agency posts, the agency).
+Rules:
+- Copy characters exactly from the text. Do not translate, correct, expand, or join words from different places. Do not use outside knowledge.
+- If a business-type word is written as part of the name, keep it as written (e.g. "Nhà hàng Hoa Sen", "Công ty ABC Vina").
+- Do not answer: a workplace location only (a mall, industrial park, street address) when the post does not say that place is the employer; a client or partner the employer works for; a slogan, greeting, headline or job title; salary words.
+- Answer null only if no specific employer name is written anywhere in the text.
+Answer only JSON: {"company": "<exact text>" or null}
+
+Post:
+"""
+${text}
+"""`
+}
+
+const nameKey = (s: string) => fold(s).replace(/[^a-z0-9]+/g, ' ').trim()
+const escapeText = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+')
+/** 원문에 글자 그대로(대소문자·띄어쓰기만 무시) 있는가. alone=true면 앞뒤가 글자·숫자가 아닌 독립된 낱말 묶음으로 있어야 한다. */
+function inSource(name: string, text: string, alone = false): boolean {
+  const body = escapeText(name)
+  if (!body) return false
+  return new RegExp(alone ? `(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])` : body, 'iu').test(String(text ?? '').normalize('NFC'))
+}
+
+export interface CompanyAgreement { name: string; reason: string }
+
+/** 규칙 이름 + AI 답 3개(null = 그 회차 오류·잘림·형식 오류, '' = AI가 이름 없음)로 확정 이름을 정한다. 못 정하면 name=''.
+ *  ① 같음(성조·대소문자·기호 무시) → 규칙 이름 ② 한쪽이 다른 쪽을 낱말 단위로 포함 → 짧은 이름이 원문에 독립된 낱말로 있고 지금 이름 검사(ok)를 통과할 때만 짧은 이름
+ *  그 밖(오류·3번 답이 다름·AI 이름 없음·원문에 없는 답·다른 이름) → 보류. */
+export function agreeCompany(rule: string, answers: Array<string | null>, text: string): CompanyAgreement {
+  const held = (reason: string) => ({ name: '', reason })
+  if (!rule) return held('no_rule_name')
+  if (answers.length !== COMPANY_AI_RUNS || answers.some((a) => a === null || a === undefined)) return held('ai_error')
+  const keys = new Set(answers.map((a) => nameKey(String(a))))
+  if (keys.size !== 1) return held('ai_unstable')
+  const ai = String(answers[0]).trim()
+  if (!ai || !nameKey(ai)) return held('ai_no_name')
+  if (!inSource(ai, text)) return held('ai_not_in_source')
+  const r = nameKey(rule), a = nameKey(ai)
+  if (r === a) return { name: rule, reason: 'same' }
+  const [short, long] = r.length < a.length ? [rule, ai] : [ai, rule]
+  if (!` ${nameKey(long)} `.includes(` ${nameKey(short)} `)) return held('different_name')
+  const name = ok(short)
+  if (!name) return held('short_not_name')
+  if (!inSource(name, text, true)) return held('short_not_alone')
+  return { name, reason: 'contained' }
+}
+
+export type CompanyAsk = (prompt: string, opts: { maxTokens: number }) => Promise<{ text: string; stopReason: string }>
+
+/** AI 답 한 번 → 이름('' = 이름 없음) 또는 null(잘림·형식 오류 — '없음'으로 세지 않는다, #887 3차). HTTP 오류는 던진다. */
+export async function askCompanyOnce(text: string, ask: CompanyAsk): Promise<string | null> {
+  const { text: out, stopReason } = await ask(companyAiPrompt(text), { maxTokens: 1024 })
+  if (stopReason === 'max_tokens') return null
+  const m = String(out ?? '').match(/\{[\s\S]*\}/)
+  if (!m) return null
+  let j: { company?: unknown }
+  try { j = JSON.parse(m[0]) } catch { return null }
+  const c = j?.company
+  if (c === null || c === undefined || String(c).trim().toLowerCase() === 'null') return ''
+  return typeof c === 'string' ? c.trim() : null
+}
+
+/** 같은 본문(댓글 뺀 postBody — 규칙과 같음)으로 AI에 3번 묻고 agreeCompany로 판정. 3번 모두 HTTP 오류면 unavailable(지금 AI를 못 씀). */
+export async function agreeCompanyWithAI(rule: string, text: string, ask: CompanyAsk): Promise<CompanyAgreement & { unavailable?: boolean }> {
+  const body = postBody(String(text ?? '').normalize('NFC')).slice(0, 20000)
+  const answers: Array<string | null> = []
+  let httpErrors = 0
+  for (let i = 0; i < COMPANY_AI_RUNS; i++) {
+    try { answers.push(await askCompanyOnce(body, ask)) } catch { httpErrors++; answers.push(null) }
+  }
+  if (httpErrors === COMPANY_AI_RUNS) return { name: '', reason: 'ai_unavailable', unavailable: true }
+  return agreeCompany(String(rule ?? '').trim(), answers, body)
+}
+
 // 소개소 공고의 실제 근무 공장·공단(Lee 2026-11-07 "3번가자"): 중복 판정에만 쓰는 비교 열쇠(접은 글자). 화면에는 쓰지 않는다.
 // 순서: ① "làm (việc) tại / cho / tuyển … cho" + 공장·회사 낱말 + 이름 ② 공단 이름(KCN/CCN/Khu công nghiệp). 못 찾으면 ''(→ 중복 판정은 애매로).
 const PLANT_WORD = '(?:nhà máy|công ty|cty|xưởng)'

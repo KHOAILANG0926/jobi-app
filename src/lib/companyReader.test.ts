@@ -1,6 +1,6 @@
 // 회사 이름 읽기 한 곳(Lee 2026-11-07). 실제 공고 사례를 모두 여기 모은다 — 새 사례는 여기 추가하고 companyReader.ts를 고친다.
 // (옛 페이스북 수집기 extract_company 시험 사례를 옮기고, 2026-11-07 잘못 읽은 실제 글을 더했다.)
-import { readCompany, hasNameWord, readWorkplace } from './companyReader.ts'
+import { readCompany, hasNameWord, readWorkplace, agreeCompany, agreeCompanyWithAI } from './companyReader.ts'
 const fails: string[] = []
 function eq(a: unknown, b: unknown, name: string) { if (JSON.stringify(a) !== JSON.stringify(b)) fails.push(`${name}: ${JSON.stringify(a)} ≠ ${JSON.stringify(b)}`) }
 const n = (t: string) => readCompany(t).name
@@ -95,5 +95,50 @@ eq(n('GOERTEK – KCN Quế Võ\nTuyển công nhân'), 'GOERTEK', '#633 one-wor
 eq(n('Gần Tết Cửa Hàng Nhà Mình Cần Tuyển Thêm Nhân Viên Đi Làm Luôn Lâu Dài Và Thời Vụ\\n 5 Nam Nữ Đóng Hàng Theo Đơn : 10-13tr'), '', '#633 "Gần Tết" + "Nhà Mình" has no name')
 eq(n('BẮC BLING ĐANG HOT – JOB CIRCLE K ĐANG CHỜ BẠN!\nBắc Ninh mình đã đủ Bling chưa? Nếu vẫn đang thiếu một chiếc job để tăng thu nhập thì ghé Circle K ngay thôi!\n CỬA HÀNG LÀM VIỆC:\nTầng 5 Tòa Phúc Lợi\nSố 02 đường Hồ Ngọc Lân\nSố 341 Nguyễn Cao\nSố 125 Trần Hưng Đạo, khu phố 4\n ỨNG TUYỂN NGAY: ***067 – Ms Thảo\nGửi thông tin: Họ tên – SĐT – Cửa hàng àm việc.'), '', '#633 Circle K form line "Gửi thông tin: … Cửa hàng àm việc" and heading "CỬA HÀNG LÀM VIỆC:" are labels, not a name')
 eq(n('WINMART+ TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG TẠI [TP. BẮC NINH]\nLàm việc tại cửa hàng WinMart+ khu vực Bắc Ninh'), 'cửa hàng WinMart+', '#633 "khu vực …" after a shop name is a place')
+// 2026-11-17 #872·#887: 규칙 ∧ AI 동의 확정(agreeCompany). AI 답 3개는 3차 평가 run 44066895628의 실제 답(최소 가드 뒤)을 옮겼다.
+{
+  const a = (rule: string, answers: Array<string | null>, text: string) => agreeCompany(rule, answers, text)
+  const hl = '🎉 HIGHLANDS COFFEE TÌM ĐỒNG ĐỘI 🎉\n📍 Khu vực làm việc: Highlands Coffee Mường Thanh Bắc Ninh\n👉 Nộp trực tiếp CV tại cửa hàng: Highlands Coffee Mường Thanh Bắc Ninh- Số 395 Ngô Gia Tự'
+  eq(a('HIGHLANDS COFFEE', Array(3).fill('Highlands Coffee Mường Thanh Bắc Ninh'), hl), { name: 'HIGHLANDS COFFEE', reason: 'contained' }, 'agree: AI adds branch → short rule name')
+  const jb = 'ĐỢT TUYỂN DỤNG NHÂN VIÊN TẠI JOLLIBEE TRẦN HƯNG ĐẠO TỚI ĐÂY\nDo nhu cầu kinh doanh, Cửa hàng Jollibee 393 Trần Hưng Đạo tuyển dụng nhân viên part time:'
+  eq(a('Cửa hàng Jollibee', Array(3).fill('Cửa hàng Jollibee 393 Trần Hưng Đạo'), jb), { name: 'Cửa hàng Jollibee', reason: 'contained' }, 'agree: AI adds address → short rule name')
+  const wm = 'WINMART+ TUYỂN DỤNG NHÂN VIÊN BÁN HÀNG TẠI [TP. BẮC NINH]\nLàm việc tại cửa hàng WinMart+ khu vực Bắc Ninh'
+  eq(a('cửa hàng WinMart+', Array(3).fill('WINMART+'), wm), { name: 'WINMART+', reason: 'contained' }, 'agree: shorter AI name standing alone in text')
+  const nt = 'NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH\nThu nhập: 13 – 15 triệu/tháng'
+  eq(a('NETCO POST', Array(3).fill('NETCO POST'), nt), { name: 'NETCO POST', reason: 'same' }, 'agree: same name')
+  eq(a('NETCO POST', ['NETCO', 'NETCO POST', 'NETCO POST'], nt), { name: '', reason: 'ai_unstable' }, 'agree: 3 runs differ → hold (run 44066895628 v3r1)')
+  eq(a('NETCO POST', ['NETCO POST', null, 'NETCO POST'], nt), { name: '', reason: 'ai_error' }, 'agree: one run error/cut-off → hold')
+  eq(a('NETCO POST', ['NETCO POST', 'NETCO POST'], nt), { name: '', reason: 'ai_error' }, 'agree: fewer than 3 answers → hold')
+  // 지금 규칙의 일반 문구 오독(facebook 247398·919788·holdout 000214 모양): AI가 3번 모두 이름 없음 → 확정하지 않음
+  eq(a('ALO ALO! CƠ HỘI VIỆC LÀM HẤP DẪN', ['', '', ''], 'ALO ALO! CƠ HỘI VIỆC LÀM HẤP DẪN\nTuyển 5 nữ'), { name: '', reason: 'ai_no_name' }, 'agree: rule promo line, AI none → hold')
+  // 공단 이름을 고용주로 답함(facebook 591423 모양): 규칙 이름과 다른 이름 → 확정하지 않음
+  const hn = 'CTY BÁNH KẸO HỮU NGHỊ – TUYỂN LIÊN TỤC NAM/NỮ\nĐịa điểm: KCN Yên Phong Mở Rộng – Bắc Ninh'
+  eq(a('CTY BÁNH KẸO HỮU NGHỊ', Array(3).fill('KCN Yên Phong Mở Rộng'), hn), { name: '', reason: 'different_name' }, 'agree: AI answers industrial park → hold')
+  eq(a('CTY BÁNH KẸO HỮU NGHỊ', Array(3).fill('CÔNG TY HỮU NGHỊ VIỆT NAM'), hn), { name: '', reason: 'ai_not_in_source' }, 'agree: AI name not in text → hold')
+  // 짧은 쪽이 가게 종류 낱말뿐이면 지금 이름 검사(ok)에서 떨어진다 → 확정하지 않음
+  eq(a('Nhà hàng Seoseo Galbi', Array(3).fill('Nhà hàng'), 'Địa chỉ: Nhà hàng Seoseo Galbi\n213 Ngọc Hân Công Chúa'), { name: '', reason: 'short_not_name' }, 'agree: short side is a kind word only → hold')
+  eq(a('', Array(3).fill('Leo Net billiard'), 'Leo Net billiard tuyển nhân viên'), { name: '', reason: 'no_rule_name' }, 'agree: no rule name → existing no_company path')
+}
+// AI 호출 3번(가짜 AI): 잘린 답·형식 오류는 오류(보류), null은 이름 없음, 3번 모두 HTTP 오류는 '지금 못 씀', 댓글은 AI에 보내지 않음
+{
+  const nt = 'NETCO POST TUYỂN DỤNG TÀI XẾ – BẮC NINH\nThu nhập: 13 – 15 triệu/tháng\nBình luận\nCông ty KHÁC tuyển'
+  const fake = (outs: Array<{ text: string; stopReason?: string } | 'http'>) => {
+    const sent: string[] = []
+    let i = 0
+    const ask = async (prompt: string) => { sent.push(prompt); const o = outs[i++]; if (o === 'http') throw new Error('AI HTTP 529'); return { text: o.text, stopReason: o.stopReason ?? 'end_turn' } }
+    return { ask, sent }
+  }
+  const ok3 = fake(Array(3).fill({ text: '{"company": "NETCO POST"}' }))
+  eq(await agreeCompanyWithAI('NETCO POST', nt, ok3.ask), { name: 'NETCO POST', reason: 'same' }, 'agreeAI: 3 same answers')
+  eq(ok3.sent.length === 3 && ok3.sent.every((p) => !p.includes('Công ty KHÁC')), true, 'agreeAI: asks 3 times, comments not sent')
+  eq(await agreeCompanyWithAI('NETCO POST', nt, fake([{ text: '{"company": "NETCO POST"}' }, { text: '{"company": "NET', stopReason: 'max_tokens' }, { text: '{"company": "NETCO POST"}' }]).ask),
+    { name: '', reason: 'ai_error' }, 'agreeAI: cut-off answer is an error, not "none"')
+  eq(await agreeCompanyWithAI('NETCO POST', nt, fake([{ text: 'NETCO POST' }, { text: '{"company": "NETCO POST"}' }, { text: '{"company": "NETCO POST"}' }]).ask),
+    { name: '', reason: 'ai_error' }, 'agreeAI: no JSON is an error')
+  eq(await agreeCompanyWithAI('NETCO POST', nt, fake(Array(3).fill({ text: '{"company": null}' })).ask), { name: '', reason: 'ai_no_name' }, 'agreeAI: null = no name')
+  eq(await agreeCompanyWithAI('NETCO POST', nt, fake(['http', 'http', 'http']).ask), { name: '', reason: 'ai_unavailable', unavailable: true }, 'agreeAI: all HTTP errors = unavailable')
+  eq(await agreeCompanyWithAI('NETCO POST', nt, fake(['http', { text: '{"company": "NETCO POST"}' }, { text: '{"company": "NETCO POST"}' }]).ask),
+    { name: '', reason: 'ai_error' }, 'agreeAI: one HTTP error = hold')
+}
 if (fails.length) throw new Error('\n' + fails.join('\n'))
 console.log('companyReader: 옛 사례 · 2026-11-07 잘못 읽은 글 · 가게 이름 · 소개소/수수료 통과')

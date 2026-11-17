@@ -440,9 +440,76 @@ def run_unfound_recheck_fresh():
     print("test_ingest_gateway: unfound recheck asks Google again passed")
 
 
+def run_company_agree():
+    """Lee 2026-11-17 #872·#887: 원문에서 읽은 회사 이름은 AI 3번 답과 맞을 때만 확정. 맞지 않으면 기존 보류함(held, 그 공고만)으로."""
+    src = "LƯƠNG TUẦN KHVATECH\nTuyển 20 nam nữ\nĐịa chỉ: KCN Quế Võ, Bắc Ninh"
+    fb = lambda: {"title": "Công nhân", "company": "LƯƠNG TUẦN KHVATECH", "_company_from_text": True, "location": "Bắc Ninh",
+                  "source_text": src, "source_url": "https://example.invalid/khva"}
+    asked, seen = [], []
+    saved = g.CONFIRM_COMPANY
+    try:
+        # ① 같음 → 그대로 등록, 위치 확인 1번
+        g.PRECHECK = lambda j: (seen.append(g.precheck_input(j)), {"findable": True, "location": "KCN Quế Võ, Bắc Ninh", "company": "KHVATECH", "company_from": "text"})[1]
+        g.CONFIRM_COMPANY = lambda rule, text: (asked.append((rule, text)), {"name": "KHVATECH", "reason": "same"})[1]
+        c = Client()
+        assert g.ingest_job(c, fb()) == 77 and c.calls[0][1]["p"]["company"] == "KHVATECH" and len(seen) == 1, (c.calls, seen)
+        assert asked == [("KHVATECH", src)], "규칙이 읽은 글(원문)을 그대로 넘긴다"
+        # ② 포함(짧은 이름 확정) → 그 이름을 회사 칸으로 위치 확인 1번 더
+        seen.clear()
+        g.PRECHECK = lambda j: (seen.append(g.precheck_input(j)), {"findable": True, "location": "KCN Quế Võ, Bắc Ninh",
+                                "company": j.get("company") if not j.get("_company_from_text") else "LƯƠNG TUẦN KHVATECH",
+                                "company_from": "site" if not j.get("_company_from_text") else "text"})[1]
+        g.CONFIRM_COMPANY = lambda rule, text: {"name": "KHVATECH", "reason": "contained"}
+        c = Client()
+        assert g.ingest_job(c, fb()) == 77 and c.calls[0][1]["p"]["company"] == "KHVATECH", c.calls
+        assert len(seen) == 2 and seen[0]["company"] == "" and seen[1]["company"] == "KHVATECH", seen
+        # ③ 맞지 않음 → 등록하지 않고 보류함(held, 그 공고만). 보류 줄에 '원문에서 읽은 이름' 표시가 남는다.
+        g.PRECHECK = lambda j: {"findable": True, "location": "KCN Quế Võ, Bắc Ninh", "company": "LƯƠNG TUẦN KHVATECH", "company_from": "text"}
+        g.CONFIRM_COMPANY = lambda rule, text: {"name": "", "reason": "ai_unstable"}
+        h = HoldClient()
+        try:
+            g.ingest_job(h, fb())
+            raise AssertionError("맞지 않으면 등록하지 않는다")
+        except g.LocationDeferred as exc:
+            assert g._reason_of(exc) == "company_unconfirmed", exc
+        row = next(iter(h.rows.values()))
+        assert row["meta"]["status"] == "held" and row["meta"]["reason"] == "company_unconfirmed" and not h.calls, (row, h.calls)
+        assert row["payload"]["_company_from_text"] is True, "다시 확인할 때 수집기 추측 이름을 회사 칸으로 보내지 않게"
+        assert g.precheck_input(row["payload"])["company"] == ""
+        # ④ AI를 지금 못 씀 → 보류(모든 공고 공통이라 대기열 재확인은 멈춤)
+        g.CONFIRM_COMPANY = lambda rule, text: None
+        try:
+            g.require_location(fb())
+            raise AssertionError("AI 못 쓰면 보류")
+        except g.LocationDeferred as exc:
+            assert g._reason_of(exc) == "company_ai_unavailable" and "company_ai_unavailable" not in g.JOB_ONLY_DEFERRED_REASONS, exc
+        # ⑤ 사이트 회사 칸·위치 못 찾음은 AI를 부르지 않는다
+        asked.clear()
+        g.CONFIRM_COMPANY = lambda rule, text: (asked.append(rule), {"name": "", "reason": "x"})[1]
+        g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh", "company": "NEW TEAM", "company_from": "site"}
+        g.require_location({"title": "a", "company": "NEW TEAM", "location": "Bắc Ninh"})
+        g.PRECHECK = lambda j: {"findable": False, "reason": "not_found", "company": "LƯƠNG TUẦN KHVATECH", "company_from": "text"}
+        try:
+            g.require_location(fb())
+        except g.LocationNotFound as exc:
+            assert not isinstance(exc, g.LocationDeferred)
+        assert asked == [], asked
+        # ⑥ 포스터에서 읽은 이름은 포스터 글자를 넘긴다
+        g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh", "company": "CTY X", "company_from": "poster"}
+        g.CONFIRM_COMPANY = lambda rule, text: (asked.append(text), {"name": "CTY X", "reason": "same"})[1]
+        job = fb()
+        job["_poster_text"] = "CTY X tuyển"
+        g.require_location(job)
+        assert asked == ["CTY X tuyển"], asked
+    finally:
+        g.CONFIRM_COMPANY = saved
+    print("test_ingest_gateway: company name confirmed only when rule and AI agree passed")
+
+
 if __name__ == "__main__":
     run()
     run_hold()
     run_poster_hold()
     run_hold_without_new_jobs()
     run_unfound_recheck_fresh()
+    run_company_agree()
