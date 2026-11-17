@@ -176,24 +176,42 @@ CONFIRM_COMPANY = http_confirm_company
 
 
 def _company_read_from_text(job: dict) -> bool:
-    """회사 이름을 사이트 회사 칸이 아니라 원문에서 읽은 공고(지금은 Facebook). 보류함 저장은 '_' 칸을 빼므로 다시 확인 때는 Facebook 표시로 본다."""
+    """회사 이름을 사이트 회사 칸이 아니라 원문에서 읽은 공고(지금은 Facebook). 보류함은 이 표시를 남긴다(hold_job).
+    이 변경 전에 보류된 줄은 표시가 없으므로 Facebook 표시로 본다."""
     return job.get("_company_from_text") is True or str(job.get("description") or "").startswith("[source:facebook] ")
 
 
-def confirm_company(job: dict, verdict: dict) -> None:
+def confirm_company(job: dict, verdict: dict) -> dict:
     """원문에서 읽은 회사 이름은 규칙(서버 companyReader)과 AI 3회가 같이 확정해야 등록한다(Lee 2026-11-17 #872 R, #887 평가).
     AI를 못 부르면 '지금 확인 못 함'(company_ai_unavailable, 보류 후 다음 수집 때), 확정 못 하면 company_unconfirmed(보류함, 7일 뒤 다시).
     규칙이 이름을 못 읽은 공고는 여기서 바꾸지 않는다(기존 '회사 이름 없음' 규칙 그대로 — AI 혼자 이름을 정하지 않는다)."""
     rule = str(verdict.get("company") or "").strip()
     if not rule or not _company_read_from_text(job):
-        return
+        return verdict
     text = "\n".join(x for x in (str(job.get("source_text") or ""), str(job.get("_poster_text") or "")) if x.strip())
     got = CONFIRM_COMPANY(rule, text)
     if not got:
         raise LocationDeferred(f"location_precheck_held: company_ai_unavailable (회사: {rule[:60]})")
     if got.get("agreed") is not True or not str(got.get("name") or "").strip():
         raise LocationNotFound(f"location_precheck_failed: company_unconfirmed (회사: {rule[:60]}, {str(got.get('reason') or '-')[:40]})")
-    verdict["company"] = str(got["name"]).strip()
+    name = str(got["name"]).strip()
+    if name == rule:
+        return verdict
+    # 짧은 이름으로 확정되면 위치도 그 이름으로 다시 확인한다 — Google 검색어 = 상세 Google 버튼과 같은 "회사 이름, 원문 주소"(Lee 2026-11-06).
+    job["company"] = name
+    job["_company_from_text"] = False  # 확정 이름을 회사 칸으로 보낸다(서버가 원문에서 다시 읽지 않게)
+    again = PRECHECK(job) or {}
+    _raise_unless_findable(again)
+    return {**again, "company": name}
+
+
+def _raise_unless_findable(verdict: dict) -> None:
+    if verdict.get("findable") is not True:
+        reason = str(verdict.get("reason") or "not_found")
+        who = str(verdict.get("company") or "").strip()
+        if reason in DEFERRED_REASONS:
+            raise LocationDeferred(f"location_precheck_held: {reason}" + (f" (회사: {who[:60]})" if who else ""))
+        raise LocationNotFound(f"location_precheck_failed: {reason}" + (f" (회사: {who[:60]})" if who else ""))
 
 
 def require_location(job: dict) -> dict:
@@ -210,13 +228,8 @@ def require_location(job: dict) -> dict:
                 raise LocationDeferred("location_precheck_held: poster_read_failed")
             job["_poster_text"] = text
             verdict = PRECHECK(job) or {}
-    if verdict.get("findable") is not True:
-        reason = str(verdict.get("reason") or "not_found")
-        who = str(verdict.get("company") or "").strip()
-        if reason in DEFERRED_REASONS:
-            raise LocationDeferred(f"location_precheck_held: {reason}" + (f" (회사: {who[:60]})" if who else ""))
-        raise LocationNotFound(f"location_precheck_failed: {reason}" + (f" (회사: {who[:60]})" if who else ""))
-    confirm_company(job, verdict)  # 위치를 찾은 뒤, 공고를 고치기 전에(보류되면 공고는 그대로 보류함으로)
+    _raise_unless_findable(verdict)
+    verdict = confirm_company(job, verdict)  # 위치를 찾은 뒤, 공고를 고치기 전에(보류되면 공고는 그대로 보류함으로)
     checked = str(verdict.get("location") or "").strip()
     if checked and not _work_addresses(job):
         job["location"] = checked
@@ -317,7 +330,8 @@ def hold_job(client, job: dict, reason: str, status: str = "held") -> None:
     이미 보류함에 있는 공고는 상태·횟수를 덮어쓰지 않는다(재수집이 재확인 일정을 되돌리지 않게). 저장 실패는 수집을 멈추지 않는다."""
     if job.get("admin_hidden") is True:
         return  # 검증 저장(verify_write)은 보류하지 않는다 — 재시도가 숨김 처리를 건너뛰게 되므로
-    payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_")}
+    # '_company_from_text'는 남긴다: 빠지면 다시 확인할 때 원문에서 읽은 이름이 사이트 회사 칸처럼 서버에 가서 서버의 회사 이름 읽기를 건너뛴다(#872, #892 대조).
+    payload = {k: _json_safe(v) for k, v in job.items() if not k.startswith("_") or k == "_company_from_text"}
     meta = {"status": status, "reason": reason, "held_at": _now(), "attempts": 0,
             "next_at": _now() if status == "held" else _after(UNFOUND_RECHECK_DAYS)}
     try:

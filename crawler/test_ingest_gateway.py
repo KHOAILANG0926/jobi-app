@@ -452,12 +452,27 @@ def run_company_agreement():
           "source_url": "https://example.invalid/joy", "description": "[source:facebook] JOY THÁI",
           "source_text": "JOY THÁI BẮC NINH TUYỂN DỤNG\nJOY THÁI – THAI CUISINE", "_poster_text": "POSTER"}
     asked = []
-    # ① 동의(포함 관계) → 짧은 이름으로 등록. AI에는 원문+포스터 글자를 넘긴다
+    # ① 동의(포함 관계) → 짧은 이름으로 등록. AI에는 원문+포스터 글자를 넘긴다.
+    #    짧은 이름이면 위치도 그 이름(회사 칸)으로 다시 확인한다 — Google 검색어 = 상세 Google 버튼과 같은 이름(#892 대조)
+    sent_company = []
+    g.PRECHECK = lambda j: (sent_company.append(g.precheck_input(j)["company"]),
+                            {"findable": True, "location": "Kinh Bắc, Bắc Ninh", "company": j["company"] if not j.get("_company_from_text") else "JOY THÁI BẮC NINH"})[1]
     g.CONFIRM_COMPANY = lambda rule, text: (asked.append((rule, text)), {"name": "JOY THÁI", "agreed": True, "reason": "contained"})[1]
     c = HoldClient()
     assert g.ingest_job(c, dict(fb)) > 0
-    assert c.calls[0][1]["p"]["company"] == "JOY THÁI", c.calls
+    assert c.calls[0][1]["p"]["company"] == "JOY THÁI" and "_company_from_text" not in c.calls[0][1]["p"], c.calls
     assert asked == [("JOY THÁI BẮC NINH", "JOY THÁI BẮC NINH TUYỂN DỤNG\nJOY THÁI – THAI CUISINE\nPOSTER")], asked
+    assert sent_company == ["", "JOY THÁI"], sent_company
+    # 짧은 이름으로 다시 찾았는데 못 찾으면 등록하지 않는다(위치 못 찾음과 같은 경로)
+    g.PRECHECK = lambda j: {"findable": True, "location": "Bắc Ninh", "company": "JOY THÁI BẮC NINH"} if j.get("_company_from_text") else {"findable": False, "reason": "not_found"}
+    c = HoldClient()
+    try:
+        g.ingest_job(c, dict(fb))
+        raise AssertionError("짧은 이름 위치를 못 찾으면 등록하지 않는다")
+    except g.LocationNotFound as exc:
+        assert "not_found" in str(exc), exc
+    assert c.calls == [] and next(iter(c.rows.values()))["meta"]["reason"] == "not_found"
+    g.PRECHECK = lambda j: {"findable": True, "location": "Kinh Bắc, Bắc Ninh", "company": "JOY THÁI BẮC NINH"}
     # ② 확정 못 함 → 등록 안 함, 보류함(unfound, 7일 뒤 다시) — 위치 못 찾음과 같은 경로
     g.CONFIRM_COMPANY = lambda rule, text: {"name": "", "agreed": False, "reason": "disagree"}
     c = HoldClient()
@@ -478,6 +493,9 @@ def run_company_agreement():
         assert "company_ai_unavailable" in str(exc), exc
     row = next(iter(c.rows.values()))
     assert c.calls == [] and row["meta"]["status"] == "held" and row["meta"]["reason"] == "company_ai_unavailable", row
+    # 보류함은 원문 회사 표시를 남긴다 → 다시 확인 때도 서버가 원문에서 회사 이름을 다시 읽는다(회사 칸으로 보내지 않음)
+    assert row["payload"]["_company_from_text"] is True and g.precheck_input(row["payload"])["company"] == "", row["payload"]
+    assert "_poster_text" not in row["payload"]
     # ④ 보류함 다시 확인: '_' 칸이 빠진 Facebook 공고도 다시 AI 확인을 거친다. AI 확인 실패는 그 공고만 보류(다음 공고 계속)
     seen = []
     g.CONFIRM_COMPANY = lambda rule, text: (seen.append(rule), None if rule == "JOY THÁI BẮC NINH" else {"name": rule, "agreed": True, "reason": "exact"})[1]

@@ -1,6 +1,6 @@
 ## 2026-11-17 — 회사 이름 동의 확정: 규칙 + AI 3회 (#872 R, #887 평가 결과, 병합·운영 적용은 Lee 승인 뒤)
 - 요청: 기존 companyReader·ai-classify로 동의 기반 확정. 정확히 같음 → 확정 / 포함 관계 → 짧은 이름이 원문에 따로 쓰이고 ok() 통과 때만 / AI 3회 오류 없이 같은 답 / 아니면 기존 보류·재시도.
-- 변경: companyReader.agreeCompany(판정 한 곳), scripts/ocr/read-company-ai.mjs(#887 v3 지시문 3회), scripts/ocr/ai-ask.mjs(ai-classify의 AI 부르기를 옮겨 둘이 같이 씀), ingest_gateway.confirm_company(원문에서 읽은 회사 이름만 — Facebook). 못 부름=company_ai_unavailable(held, 그 공고만), 확정 못 함=company_unconfirmed(unfound, 7일 뒤 다시·최대 2번).
+- 변경: companyReader.agreeCompany(판정 한 곳), scripts/ocr/read-company-ai.mjs(#887 v3 지시문 3회), scripts/ocr/ai-ask.mjs(ai-classify의 AI 부르기를 옮겨 둘이 같이 씀), ingest_gateway.confirm_company(원문에서 읽은 회사 이름만 — Facebook). 못 부름=company_ai_unavailable(held, 그 공고만), 확정 못 함=company_unconfirmed(unfound, 7일 뒤 다시·최대 2번). 짧은 이름으로 확정되면 그 이름으로 위치 다시 확인, 보류함은 원문 회사 표시를 남김(중복 PR #892 대조에서 받은 지적 2건).
 - 검증: companyReader.test(정답표 61건 + 동의 13건)·npm test 122/122·tsc·build·read-company-ai.test·test_ingest_gateway 로컬 통과. 3차 평가 AI 답으로 다시 판정: 정답표 중 틀린 이름 확정 0, 보류 6(NETCO·MEDIAMART·JOY THÁI·ILABY·SEN TÀI THU·Jollibee).
 - 남은 문제: 실제 AI 호출은 병합 뒤 Facebook 저장 실행에서만(PR 코드에는 열쇠 없음).
 
