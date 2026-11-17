@@ -176,6 +176,17 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertIn("if: ${{ false }}", source)
         self.assertNotIn("if: github.event_name == 'schedule'", source)
 
+    def test_self_hosted_jobs_never_use_sparse_checkout(self):
+        # #877 회귀(run 44008399438): VPS 실행기는 작업 폴더를 모든 워크플로가 같이 쓴다 — 한 곳의 부분 받기 설정이 남아
+        # 다른 수집 작업이 crawler/requirements.txt를 못 찾았다. 자체 실행기 워크플로에서는 부분 받기를 쓰지 않는다.
+        for wf in sorted((ROOT / ".github/workflows").glob("*.yml")):
+            src = wf.read_text(encoding="utf-8")
+            jobs = src.split("\njobs:\n", 1)[-1]
+            for block in re.split(r"\n(?=  [A-Za-z0-9_-]+:\s*$)", jobs, flags=re.M):
+                runs_on = [l for l in block.splitlines() if l.strip().startswith("runs-on:")]
+                if any("self-hosted" in l for l in runs_on):
+                    self.assertNotIn("sparse-checkout:", block, f"{wf.name}: 자체 실행기 잡에 부분 받기")
+
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
         # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.
