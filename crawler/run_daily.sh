@@ -35,16 +35,18 @@ run_crawler() {
 }
 
 # 2026-09-28: 페이스북 정기 실행만 멈추는 스위치(다른 크롤러는 그대로 실행).
-# 서버에서 `touch state/FACEBOOK_PAUSED`로 멈추고, 파일을 지우면 다시 실행된다.
-# state/는 gitignore — 스위치는 서버 로컬 상태로만 존재한다.
-# 계정 잠금·멈춤 스위치는 GitHub 실행 경로와 같은 공용 상태 폴더를 본다(CRAWLER_STATE_DIR, 없으면 예전 state/) — #881
-STATE_DIR="${CRAWLER_STATE_DIR:-state}"
+# 서버에서 `touch ~/jobi-crawler-state/facebook/FACEBOOK_PAUSED`로 멈추고, 파일을 지우면 다시 실행된다(서버 로컬 상태).
+# 계정 잠금·멈춤 스위치는 GitHub 실행 경로와 같은 공용 상태 폴더를 본다(CRAWLER_STATE_DIR, 없으면 ~/jobi-crawler-state/facebook) — #881
+# 값이 없으면 공용 폴더로 정하고 export 해서 crawl_facebook.py도 같은 폴더를 쓰게 한다(#881 검토관).
+export CRAWLER_STATE_DIR="${CRAWLER_STATE_DIR:-$HOME/jobi-crawler-state/facebook}"
+mkdir -p "$CRAWLER_STATE_DIR"
+STATE_DIR="$CRAWLER_STATE_DIR"
 if [[ -f "$STATE_DIR/FACEBOOK_ACCOUNT_LOCK" ]]; then
   # 계정 이상(checkpoint/session_expired) 감지 시 crawl_facebook.py가 자동 생성 — 사람 확인 전 재실행 금지
-  echo "[$(date -Is)] ERROR: Facebook crawler locked (state/FACEBOOK_ACCOUNT_LOCK) — 계정 확인 필요"
+  echo "[$(date -Is)] ERROR: Facebook crawler locked ($STATE_DIR/FACEBOOK_ACCOUNT_LOCK) — 계정 확인 필요"
   STATUS=1
 elif [[ -f "$STATE_DIR/FACEBOOK_PAUSED" ]]; then
-  echo "[$(date -Is)] Skipping Facebook crawler: paused (state/FACEBOOK_PAUSED)"
+  echo "[$(date -Is)] Skipping Facebook crawler: paused ($STATE_DIR/FACEBOOK_PAUSED)"
 elif grep -q '^FB_C_USER=.' .env && grep -q '^FB_XS=.' .env; then
   # 2026-09-28: 그룹당 최대 ~250초(스크롤/시간 상한) x 8 + 그룹 간 60~120초 대기 ≈ 47분이라 45m→60m
   run_crawler "Facebook" "${FACEBOOK_CRAWLER_TIMEOUT:-60m}" python3 -u crawl_facebook.py
