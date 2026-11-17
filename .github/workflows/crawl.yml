@@ -58,4 +58,5 @@ jobs:
           SAMPLE_LIMIT: ${{ inputs.sample_limit }}
         run: |
           echo "$SAMPLE_LIMIT" | grep -Eq '^([1-9]|10)$' || { echo "::error::sample_limit는 1~10"; exit 1; }
-          python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT"
+          # --new-only: 이미 DB에 있는 공고는 건너뛰고 신규만 N건(기존 공고를 건드리지 않음, 검토관 지적 #877)
+          python crawler/crawl_topcv.py --confirm-full-crawl --sample-limit "$SAMPLE_LIMIT" --new-only

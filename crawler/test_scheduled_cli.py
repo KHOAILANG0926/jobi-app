@@ -166,6 +166,7 @@ class ScheduledCallerTests(unittest.TestCase):
         self.assertEqual(mode_for(command[2:]), "full_crawl")
         self.assertEqual(enter_cli(command[2:])[0][0], "main")
         self.assertIn("--sample-limit", command)  # 1단계(Lee 2026-11-17 트랙 B): 소량 수집만
+        self.assertIn("--new-only", command)  # 기존 공고는 건드리지 않고 신규만(#877 검토관)
 
     def test_actions_manual_confirmation_is_opt_in(self):
         # Configuration contract only; GitHub's scheduler itself is not executed.
