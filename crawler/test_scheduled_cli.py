@@ -243,6 +243,29 @@ class ScheduledCallerTests(unittest.TestCase):
             self.assertIn("Skipping Facebook crawler: paused", result.stdout)
             self.assertNotIn("crawl_facebook.py", capture.read_text() if capture.exists() else "")
 
+    def test_facebook_keys_only_in_steps_that_need_them(self):
+        # Lee 2026-11-17 #881(S4 열쇠 분리 유지): 미리 보기 = Facebook 쿠키만, 저장 = DB·판독 열쇠만, 시험 실행 = 둘 다. 잡 전체에는 비밀값 없음.
+        src = (ROOT / ".github/workflows/crawl-facebook-one.yml").read_text(encoding="utf-8")
+        job = src.split("\njobs:\n", 1)[1]
+        job_env = job.split("    steps:", 1)[0]
+        self.assertNotIn("secrets.", job_env)
+        steps = re.split(r"\n(?=      - (?:name|uses):)", job.split("    steps:", 1)[1])
+        def step(title):
+            found = [b for b in steps if title in b.split("\n", 1)[0]]
+            self.assertEqual(len(found), 1, title)
+            return found[0]
+        dry, save, run = step("미리 보기(저장 없음)"), step("고른 1건만 입구"), step("시험 정상 실행")
+        self.assertIn("secrets.FB_C_USER", dry)
+        for k in ("SUPABASE_SERVICE_ROLE_KEY", "ANTHROPIC_API_KEY"):
+            self.assertNotIn(f"secrets.{k}", dry, k)
+            self.assertIn(f"secrets.{k}", save, k)
+            self.assertIn(f"secrets.{k}", run, k)
+        self.assertNotIn("secrets.FB_", save)
+        self.assertIn("secrets.FB_C_USER", run)
+        others = [b for b in steps if b not in (dry, save, run)]
+        for b in others:
+            self.assertNotRegex(b, r"secrets\.(?!GITHUB_TOKEN)", b.split("\n", 1)[0])
+
     def test_actions_environment_can_install_requirements(self):
         # 2026-08-24~28 실제 실행 5건 모두 설치 실패(ubuntu-latest=24.04 + playwright 1.44 → libasound2 없음).
         # vietnam-provinces(requirements.txt)는 Python 3.12 이상. 재개 전에 같은 실패가 나지 않게 고정한다.

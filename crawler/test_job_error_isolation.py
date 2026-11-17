@@ -407,6 +407,41 @@ class NoHoldRetryFlag(unittest.TestCase):
         self.assertIn("--max-save", run_step)
 
 
+class DryRunWithoutKey(unittest.TestCase):
+    """DB 열쇠 없는 미리 보기에서만 회사 이름 읽기를 건너뛰고, 그 밖에는 예전처럼 서버에 묻는다(#881)."""
+
+    def tearDown(self):
+        fb.COMPANY_READ_SKIPPED = False
+
+    def test_skip_only_when_flag(self):
+        calls = []
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: calls.append(t) or {"company": "CTY A"}):
+            fb.COMPANY_READ_SKIPPED = True
+            self.assertEqual(fb.read_company("x"), "")
+            self.assertEqual(calls, [])
+            fb.COMPANY_READ_SKIPPED = False
+            self.assertEqual(fb.read_company("x"), "CTY A")
+            self.assertEqual(calls, ["x"])
+
+    def test_unavailable_still_stops_when_not_skipped(self):
+        with mock.patch.object(fb.ingest_gateway, "READ_LOCATION", lambda t, r: {"reason": "precheck_not_configured"}):
+            with self.assertRaises(RuntimeError):
+                fb.read_company("x")
+
+    def test_main_sets_flag_only_for_keyless_dry_run(self):
+        import asyncio
+        async def stop(*a, **k):
+            raise SystemExit(0)
+        for argv, key, want in ((["--dry-run"], "", True), (["--dry-run"], "k", False), ([], "", False)):
+            with mock.patch.object(fb, "SUPABASE_KEY", key), mock.patch.object(fb, "account_lock_reason", lambda: "stop-here"):
+                fb.COMPANY_READ_SKIPPED = False
+                try:
+                    asyncio.run(fb.main(argv))
+                except SystemExit:
+                    pass
+                self.assertEqual(fb.COMPANY_READ_SKIPPED, want, argv)
+
+
 class SharedCounter(unittest.TestCase):
     def setUp(self):
         source_fields.JOB_ERRORS.reset()

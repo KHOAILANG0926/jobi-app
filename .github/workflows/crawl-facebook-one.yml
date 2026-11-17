@@ -49,15 +49,10 @@ jobs:
     # (수집용 컴퓨터를 다른 조사가 몇 시간 쓰는 동안 저장이 묶이던 것, Lee "다른 데서 쓰고 있으면 넌 못하는 거야?").
     runs-on: ${{ inputs.mode == 'save' && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64"]') }}
     timeout-minutes: 30
+    # 열쇠는 잡 전체가 아니라 쓰는 단계에만 준다(Lee 2026-11-17 #881, S4 열쇠 분리):
+    #   미리 보기 = Facebook 쿠키만(DB 열쇠 없음 → DB 중복 세기 생략, 저장 불가) / 저장 = DB·판독 열쇠만(Facebook 접속 없음) / 시험 실행 = 둘 다.
     env:
       SUPABASE_URL: https://edhuesdnuxlbcfephutq.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      FB_C_USER: ${{ secrets.FB_C_USER }}
-      FB_XS: ${{ secrets.FB_XS }}
-      FB_DATR: ${{ secrets.FB_DATR }}
-      FB_FR: ${{ secrets.FB_FR }}
-      # 등록 입구 포스터 글자 읽기(회사 이름이 글에 없을 때만, Lee 2026-11-07)
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       MODE: ${{ inputs.mode }}
       GROUP: ${{ inputs.group }}
       POST_KEY: ${{ inputs.post_key }}
@@ -72,12 +67,7 @@ jobs:
             echo "$POST_KEY" | grep -Eq '^[a-z]+:[A-Za-z0-9_-]+$' || { echo "::error::post_key 형식 오류(예: id:123)"; exit 1; }
             echo "$DRYRUN_RUN_ID" | grep -Eq '^[0-9]+$' || { echo "::error::dryrun_run_id 필요"; exit 1; }
           fi
-          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
           if [ "$MODE" = run ]; then echo "$MAX_SAVE" | grep -Eq '^[12]$' || { echo "::error::max_save는 1~2"; exit 1; }; fi
-          if [ "$MODE" != save ] && { [ -z "$FB_C_USER" ] || [ -z "$FB_XS" ]; }; then
-            echo "::error title=Facebook 쿠키 없음::GitHub Secrets에 FB_C_USER·FB_XS가 없습니다. Lee가 Facebook 로그인 쿠키를 Secrets에 등록해야 수집할 수 있습니다."
-            exit 1
-          fi
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'  # vietnam-provinces(crawler/requirements.txt 판)은 Python 3.12 이상
@@ -97,7 +87,13 @@ jobs:
       - name: 미리 보기(저장 없음) — 그룹 1개
         if: inputs.mode == 'dryrun'
         working-directory: crawler
+        env:
+          FB_C_USER: ${{ secrets.FB_C_USER }}
+          FB_XS: ${{ secrets.FB_XS }}
+          FB_DATR: ${{ secrets.FB_DATR }}
+          FB_FR: ${{ secrets.FB_FR }}
         run: |
+          { [ -n "$FB_C_USER" ] && [ -n "$FB_XS" ]; } || { echo "::error title=Facebook 쿠키 없음::GitHub Secrets에 FB_C_USER·FB_XS가 없습니다. Lee가 Facebook 로그인 쿠키를 Secrets에 등록해야 수집할 수 있습니다."; exit 1; }
           set -o pipefail
           python -u crawl_facebook.py --dry-run --group "$GROUP" 2>&1 | tee /tmp/fb.log || {
             echo "::error title=Facebook 미리 보기 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
@@ -150,7 +146,12 @@ jobs:
       - name: 고른 1건만 입구(ingest_job)로 저장
         if: inputs.mode == 'save'
         working-directory: crawler
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 등록 입구 포스터 글자 읽기(회사 이름이 글에 없을 때만, Lee 2026-11-07)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
           set -o pipefail
           python -u crawl_facebook.py --save-from /tmp/fbdry/facebook_dryrun.json --post-keys "$POST_KEY" --max-save 1 2>&1 | tee /tmp/fb.log || {
             echo "::error title=저장 실패::$(tail -c 1500 /tmp/fb.log | tr '\n' ' ')"; exit 1; }
@@ -158,7 +159,17 @@ jobs:
       - name: 시험 정상 실행(그룹 1개, 저장 상한) — Lee 승인 뒤만(#872)
         if: inputs.mode == 'run'
         working-directory: crawler
+        env:
+          FB_C_USER: ${{ secrets.FB_C_USER }}
+          FB_XS: ${{ secrets.FB_XS }}
+          FB_DATR: ${{ secrets.FB_DATR }}
+          FB_FR: ${{ secrets.FB_FR }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 등록 입구 포스터 글자 읽기(회사 이름이 글에 없을 때만, Lee 2026-11-07)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
+          { [ -n "$FB_C_USER" ] && [ -n "$FB_XS" ]; } || { echo "::error title=Facebook 쿠키 없음::GitHub Secrets에 FB_C_USER·FB_XS가 없습니다. Lee가 Facebook 로그인 쿠키를 Secrets에 등록해야 수집할 수 있습니다."; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::GitHub Secrets에 SUPABASE_SERVICE_ROLE_KEY 없음"; exit 1; }
           set -o pipefail
           python -u crawl_facebook.py --group "$GROUP" --max-save "$MAX_SAVE" --no-hold-retry 2>&1 | tee /tmp/fb.log; rc=${PIPESTATUS[0]}
           grep -E '저장:|저장 후보|규칙 거부|오류 —|보류|중단|수집 상태 저장|계정 잠금' /tmp/fb.log | while read -r line; do echo "::notice title=실행 결과::${line:0:200}"; done

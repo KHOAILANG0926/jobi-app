@@ -244,7 +244,14 @@ def extract_title(text: str, company: str = "") -> str:
 # 회사 이름은 수집기가 직접 읽지 않는다 — Lee 2026-11-07 "회사 이름 규정"(주소·급여와 같은 방식). 원문 회사 이름은
 # src/lib/companyReader.ts 한 곳에서 읽는다(위치 확인 서버의 읽기 기능, 지도 조회 없음). 옛 extract_company 규칙과 시험 사례는 그쪽으로 옮겼다.
 # 서버를 못 물으면 틀린 값으로 진행하지 않고 멈춘다(company_read_unavailable).
+# DB 열쇠 없는 미리 보기(Lee 2026-11-17 #881 "DB 열쇠 없이 가능한 Facebook 접속·수집·파싱만 시험"): 회사 이름 읽기 서버는 DB 열쇠로만
+# 접속되므로 그 경우에만 읽기를 건너뛰고 빈칸(미검증)으로 둔다. 저장·정상 실행은 열쇠가 있어 예전 그대로 읽고, 못 읽으면 멈춘다.
+COMPANY_READ_SKIPPED = False
+
+
 def read_company(text: str) -> str:
+    if COMPANY_READ_SKIPPED:
+        return ""
     got = ingest_gateway.READ_LOCATION(text, "") or {}
     if "company" not in got:
         raise RuntimeError(f"company_read_unavailable: {got.get('reason') or 'no_response'}")
@@ -1364,6 +1371,10 @@ def parse_args(argv=None):
 
 async def main(argv=None) -> int:
     args = parse_args(argv)
+    global COMPANY_READ_SKIPPED
+    COMPANY_READ_SKIPPED = bool(args.dry_run and not SUPABASE_KEY)
+    if COMPANY_READ_SKIPPED:
+        print("  ℹ️ DB 열쇠 없는 미리 보기 — 회사 이름 읽기(위치 확인 서버)는 건너뜀: 미검증")
     if args.no_hold_retry:
         ingest_gateway._HOLDS_RETRIED = True  # save_selected_from_dryrun과 같은 방식 — 보류 공고는 정기 처리 몫으로 남긴다
     if args.save_from:
