@@ -92,6 +92,8 @@ jobs:
         run: node --test scripts/ci/deployment-package-change.test.mjs
       - name: 운영 배포 전 DB 적용 대기 판정 시험 (S3-5 #808 — DB 변경은 migration 성공 뒤에만 배포)
         run: bash scripts/ci/wait-migration-before-deploy.test.sh
+      - name: 수집 실행 실패·신규 0건 경고 시험 (crawl-guard ⑧, Lee 2026-11-17 트랙 B)
+        run: bash scripts/ci/crawl-guard-watch.test.sh
       - name: 위치 불일치 저녁 보고 회귀 검사
         run: node --test scripts/ci/location-integrity-report.test.mjs
       - name: 운영 위치 시험의 고정 공고 의존 차단

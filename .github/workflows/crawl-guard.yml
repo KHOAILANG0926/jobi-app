@@ -155,7 +155,8 @@ jobs:
           while read -r src wf; do {
             [ -z "$src" ] && continue
             title="수집 경고: $src"
-            last=$(gh api "repos/$REPO/actions/workflows/$wf/runs?status=completed&per_page=1" --jq '.workflow_runs[0] // empty | "\(.id)\t\(.conclusion)\t\(.run_started_at)"')
+            # 건너뛴 실행(조건에 막힌 예약 실행 등, conclusion=skipped)은 수집 실행이 아니므로 빼고 마지막 실제 실행을 본다(#877 검토관)
+            last=$(gh api "repos/$REPO/actions/workflows/$wf/runs?status=completed&per_page=30" --jq '[.workflow_runs[] | select(.conclusion != "skipped")][0] // empty | "\(.id)\t\(.conclusion)\t\(.run_started_at)"')
             num=$(gh issue list --repo "$REPO" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
             IFS=$'\t' read -r rid concl started <<<"$last"
             if [ -z "$rid" ] || [[ "$started" < "$since26" ]]; then echo "- $src: 26시간 안 실행 없음" >> "$GITHUB_STEP_SUMMARY"; continue; fi
