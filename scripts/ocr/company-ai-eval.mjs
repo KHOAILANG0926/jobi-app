@@ -48,13 +48,16 @@ async function ask(text, version) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 300, messages: [{ role: 'user', content: PROMPTS[version](text) }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: Number(process.env.EVAL_MAX_TOKENS || 1024), messages: [{ role: 'user', content: PROMPTS[version](text) }] }),
   })
   if (!r.ok) throw new Error(`AI HTTP ${r.status}`)
   const j = await r.json()
   const out = (j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('')
+  // 답이 잘리거나(JSON 끝 없음) 형식이 틀리면 조용히 '없음'이 되지 않게 오류로 센다(2차 원인 분석).
+  if (j.stop_reason === 'max_tokens') throw new Error('cut_off')
   const m = out.match(/\{[\s\S]*\}/)
-  return m ? JSON.parse(m[0]) : {}
+  if (!m) throw new Error('no_json')
+  try { return JSON.parse(m[0]) } catch { throw new Error('bad_json') }
 }
 
 const norm = (s) => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()
