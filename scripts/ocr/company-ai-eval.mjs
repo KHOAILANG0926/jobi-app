@@ -13,7 +13,7 @@ const MODEL = process.env.CLASSIFY_AI_MODEL || 'claude-haiku-5-5' // ai-classify
 const KEY = process.env.ANTHROPIC_API_KEY
 if (!KEY) { console.error('ANTHROPIC_API_KEY 없음'); process.exit(1) }
 
-const PROMPT = (text) => `From the Vietnamese job post below, copy the name of the employer (company, shop or brand) exactly as it is written in the text.
+const PROMPT_V1 = (text) => `From the Vietnamese job post below, copy the name of the employer (company, shop or brand) exactly as it is written in the text.
 Rules:
 - Copy characters exactly from the text. Do not translate, correct, shorten, expand, or join words from different places.
 - Do not use outside knowledge. If the name is not written in the text, answer null.
@@ -26,11 +26,29 @@ Post:
 ${text}
 """`
 
-async function ask(text) {
+// 2차(#887 Lee 2026-11-17): 1차가 원문에 분명한 이름("HIGHLANDS COFFEE", "Nhà hàng Seoseo Galbi")까지 null로 답함.
+// 원인 = '일반 낱말(cửa hàng·công ty)은 이름 아님' 줄이 그 낱말이 든 이름 전체를 버리게 했고, 'null' 조건이 넓어 애매하면 null로 기움.
+// 고친 것(지시문만): 업종 낱말이 이름의 일부면 그대로 포함, null은 '특정 이름이 아예 없을 때만', 고용주와 근무지·고객사·홍보 문구 구별.
+const PROMPT_V2 = (text) => `From the Vietnamese job post below, copy the name of the employer exactly as it is written in the text.
+The employer is the company, shop, brand or recruitment agency that is hiring (if an agency posts, the agency).
+Rules:
+- Copy characters exactly from the text. Do not translate, correct, expand, or join words from different places. Do not use outside knowledge.
+- If a business-type word is written as part of the name, keep it as written (e.g. "Nhà hàng Seoseo Galbi", "Công ty EAGLEON", "HIGHLANDS COFFEE").
+- Do not answer: a workplace location only (a mall, supermarket chain building, industrial park, street address) when the post does not say that place is the employer; a client or partner the employer works for; a slogan, greeting, headline or job title; salary words.
+- Answer null only if no specific employer name is written anywhere in the text.
+Answer only JSON: {"company": "<exact text>" or null, "line": "<the full line of the text that contains it>" or null}
+
+Post:
+"""
+${text}
+"""`
+const PROMPTS = { v1: PROMPT_V1, v2: PROMPT_V2 }
+
+async function ask(text, version) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 300, messages: [{ role: 'user', content: PROMPT(text) }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 300, messages: [{ role: 'user', content: PROMPTS[version](text) }] }),
   })
   if (!r.ok) throw new Error(`AI HTTP ${r.status}`)
   const j = await r.json()
@@ -78,38 +96,38 @@ export const readWorkplace = (_: string) => 'W'
 const same = (a, b) => norm(a) === norm(b)
 const near = (a, b) => !!a && !!b && (fold(a).includes(fold(b)) || fold(b).includes(fold(a)))
 
-const rows = []
+const VERSIONS = (process.env.PROMPT_VERSIONS || 'v1,v2').split(',')
 const cases = await labeledCases()
 console.log(`정답 사례 ${cases.length}건`)
-for (const c of cases) {
-  const rule = readCompany(c.text).name
-  let ai = { name: '', reject: 'error' }, raw = null
-  try { raw = await ask(c.text); ai = guardCompany(raw, c.text) } catch (e) { ai.reject = 'error:' + e.message }
-  rows.push({ set: 'labeled', expected: c.expected, rule, ai: ai.name, reject: ai.reject, raw: raw?.company ?? null })
+// 묶음: labeled(정답 있음) / facebook(1차 평가 20건) / holdout(평가에 안 쓴 다른 날 실제 글, 정답 없음)
+const sets = [['labeled', cases.map((c) => ({ text: c.text, expected: c.expected }))]]
+for (const arg of process.argv.slice(2)) {
+  const [name, path] = arg.split('=')
+  sets.push([name, JSON.parse(readFileSync(path, 'utf8')).map((p) => ({ key: p.key, text: p.text, expected: null }))])
 }
-const fbPath = process.argv[2]
-const posts = fbPath ? JSON.parse(readFileSync(fbPath, 'utf8')) : []
-for (const p of posts) {
-  const rule = readCompany(p.text).name
-  let ai = { name: '', reject: 'error' }, raw = null
-  try { raw = await ask(p.text); ai = guardCompany(raw, p.text) } catch (e) { ai.reject = 'error:' + e.message }
-  rows.push({ set: 'facebook', key: p.key, expected: null, rule, ai: ai.name, reject: ai.reject, raw: raw?.company ?? null })
+const rows = []
+for (const [set, items] of sets) for (const it of items) {
+  const row = { set, key: it.key, expected: it.expected, rule: readCompany(it.text).name }
+  for (const v of VERSIONS) {
+    let ai = { name: '', reject: 'error' }, raw = null
+    try { raw = await ask(it.text, v); ai = guardCompany(raw, it.text) } catch (e) { ai.reject = 'error:' + e.message }
+    row[v] = ai.name; row[v + '_raw'] = raw?.company ?? null; row[v + '_reject'] = ai.reject
+  }
+  rows.push(row)
 }
 
 const L = rows.filter((r) => r.set === 'labeled')
 const score = (k) => ({ exact: L.filter((r) => same(r[k], r.expected)).length, near: L.filter((r) => same(r[k], r.expected) || near(r[k], r.expected)).length,
-  wrongName: L.filter((r) => r[k] && !same(r[k], r.expected) && !near(r[k], r.expected)).length, missed: L.filter((r) => !r[k] && r.expected).length })
-const s = { rule: score('rule'), ai: score('ai'), invented: rows.filter((r) => r.reject === 'not_in_source').length,
-  rejectedByRule: rows.filter((r) => r.reject === 'rule').length, errors: rows.filter((r) => r.reject.startsWith('error')).length }
-const cell = (v) => String(v ?? '').replace(/\|/g, '/').replace(/\n/g, ' ').slice(0, 60)
-const out = [`## 회사 이름 AI 평가 (${MODEL}) — 정답 사례 ${L.length}건 + Facebook 실제 글 ${posts.length}건`, '',
-  `| | 정확히 맞음 | 맞음(앞뒤 말 차이 포함) | 다른 이름 | 놓침 |`, '|---|---|---|---|---|',
-  `| 지금 규칙 | ${s.rule.exact} | ${s.rule.near} | ${s.rule.wrongName} | ${s.rule.missed} |`,
-  `| AI+가드 | ${s.ai.exact} | ${s.ai.near} | ${s.ai.wrongName} | ${s.ai.missed} |`, '',
-  `AI가 원문에 없는 이름을 답함(가드가 버림): ${s.invented}건 · 지금 규칙 조건에 걸려 버림: ${s.rejectedByRule}건 · 호출 오류: ${s.errors}건`, '',
-  '| 묶음 | 정답 | 지금 규칙 | AI+가드 | AI 원답(버린 이유) |', '|---|---|---|---|---|',
-  ...rows.filter((r) => r.set === 'facebook' || !same(r.rule, r.expected) || !same(r.ai, r.expected))
-    .map((r) => `| ${r.set === 'facebook' ? 'FB ' + r.key : '정답'} | ${cell(r.expected ?? '—')} | ${cell(r.rule)} | ${cell(r.ai)} | ${cell(r.raw)}${r.reject ? ' (' + r.reject + ')' : ''} |`)]
+  wrongName: L.filter((r) => r[k] && !same(r[k], r.expected) && !near(r[k], r.expected)).length, missed: L.filter((r) => !r[k] && r.expected).length,
+  falseName: L.filter((r) => r[k] && !r.expected).length })
+const cell = (v) => String(v ?? '').replace(/\|/g, '/').replace(/\n/g, ' ').slice(0, 50)
+const out = [`## 회사 이름 AI 평가 (${MODEL}) — ${sets.map(([n, i]) => `${n} ${i.length}건`).join(' · ')}`, '',
+  '정답 사례: | 방식 | 정확히 맞음 | 맞음(앞뒤 말 차이 포함) | 다른 이름 | 놓침 | 이름 없는 글에 이름 |', '|---|---|---|---|---|---|',
+  ...['rule', ...VERSIONS].map((k) => { const x = score(k); return `| ${k} | ${x.exact} | ${x.near} | ${x.wrongName} | ${x.missed} | ${x.falseName} |` }), '',
+  ...VERSIONS.map((v) => `${v}: 원문에 없는 이름(가드가 버림) ${rows.filter((r) => r[v + '_reject'] === 'not_in_source' || r[v + '_reject'] === 'line_not_in_source').length}건 · 규칙 조건에 걸려 버림 ${rows.filter((r) => r[v + '_reject'] === 'rule').length}건 · 호출 오류 ${rows.filter((r) => String(r[v + '_reject']).startsWith('error')).length}건`), '',
+  `| 묶음 | 정답 | 지금 규칙 | ${VERSIONS.join(' | ')} |`, `|---|---|---|${VERSIONS.map(() => '---').join('|')}|`,
+  ...rows.filter((r) => r.set !== 'labeled' || VERSIONS.some((v) => !same(r[v], r.expected)))
+    .map((r) => `| ${r.set === 'labeled' ? '정답' : r.set + ' ' + String(r.key).slice(-6)} | ${cell(r.expected ?? '—')} | ${cell(r.rule)} | ${VERSIONS.map((v) => cell(r[v]) + (r[v + '_reject'] ? ` (${r[v + '_reject']}: ${cell(r[v + '_raw'])})` : '')).join(' | ')} |`)]
 console.log(out.join('\n'))
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join('\n') + '\n')
-writeFileSync('company-ai-eval.json', JSON.stringify({ summary: s, rows }, null, 1))
+writeFileSync('company-ai-eval.json', JSON.stringify({ rows }, null, 1))
